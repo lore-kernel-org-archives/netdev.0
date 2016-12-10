@@ -1,47 +1,92 @@
-From: Brandon Philips <brandon.philips@coreos.com>
-Subject: fib_frontend: Add network specific broadcasts, when it takes a sense
-Date: Fri, 9 Dec 2016 15:41:52 -0800
-Message-ID: <CAD2oYtOS3YKFhhAfXSdJUjKyAx9JpfGz-JLNvGC_mYP7zRp+Rg@mail.gmail.com>
+From: Jonathan Toppins <jtoppins@redhat.com>
+Subject: Re: [PATCH V2 03/22] bnxt_re: register with the NIC driver
+Date: Fri, 9 Dec 2016 19:03:21 -0500
+Message-ID: <b2779a19-f7b8-9817-5103-eaee585f5630@redhat.com>
+References: <1481266096-23331-1-git-send-email-selvin.xavier@broadcom.com>
+ <1481266096-23331-4-git-send-email-selvin.xavier@broadcom.com>
+Reply-To: jtoppins@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org, Tom Denham <tom@tigera.io>,
-        Aaron Levy <aaron.levy@coreos.com>,
-        Brad Ison <bison@coreos.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Eddie Wai <eddie.wai@broadcom.com>,
+        Devesh Sharma <devesh.sharma@broadcom.com>,
+        Somnath Kotur <somnath.kotur@broadcom.com>,
+        Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
+To: Selvin Xavier <selvin.xavier@broadcom.com>, dledford@redhat.com,
+        linux-rdma@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f48.google.com ([209.85.218.48]:35467 "EHLO
-        mail-oi0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750728AbcLIXlx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 9 Dec 2016 18:41:53 -0500
-Received: by mail-oi0-f48.google.com with SMTP id b126so34869132oia.2
-        for <netdev@vger.kernel.org>; Fri, 09 Dec 2016 15:41:53 -0800 (PST)
+Received: from mx1.redhat.com ([209.132.183.28]:33754 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751798AbcLJADX (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 9 Dec 2016 19:03:23 -0500
+In-Reply-To: <1481266096-23331-4-git-send-email-selvin.xavier@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello-
+On 12/09/2016 01:47 AM, Selvin Xavier wrote:
+> This patch handles the registration with bnxt_en driver. The driver registers
+> with netdev notifier chain. Upon receiving NETDEV_REGISTER event, the driver
+> in turn registers with bnxt_en driver.
+> 	1. bnxt_en's ulp_probe function returns a structure that contains information
+> 	   about the device and additional entry points.
+> 	2. bnxt_en driver returns 'struct bnxt_eth_dev' that contains set of operation
+> 	   vectors that RocE driver invokes later.
+> 	3. bnxt_request_msix() allows the RoCE driver to specify the number of MSI-X
+> 	   vectors that are needed.
+> 	4. bnxt_send_fw_msg () can be used to send messages to the FW
+> 	5. bnxt_register_async_events() can be used to register for async event
+> 	   callbacks.
+> 
+> v2: Remove some sparse warning. Also, remove some unused code from unreg path.
+> 
+> Signed-off-by: Eddie Wai <eddie.wai@broadcom.com>
+> Signed-off-by: Devesh Sharma <devesh.sharma@broadcom.com>
+> Signed-off-by: Somnath Kotur <somnath.kotur@broadcom.com>
+> Signed-off-by: Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
+> Signed-off-by: Selvin Xavier <selvin.xavier@broadcom.com>
+> ---
+>  drivers/infiniband/hw/bnxtre/bnxt_re.h      |  48 +++
+>  drivers/infiniband/hw/bnxtre/bnxt_re_main.c | 436 ++++++++++++++++++++++++++++
+>  2 files changed, 484 insertions(+)
+> 
 
-A number of us are working on an OSS overlay network system called
-flannel. It is used in a variety of Linux container systems and one of
-the backends is VXLAN.
+[...]
 
-The issue we have: when creating the VXLAN interface and assigning it
-an address we see a broadcast route being added by the Kernel. For
-example if we have 10.4.0.0/16 a broadcast route to 10.4.0.0 is
-created. This route is unwanted because we assign 10.4.0.0 to one of
-our VXLAN interfaces.
+>  #endif
+> diff --git a/drivers/infiniband/hw/bnxtre/bnxt_re_main.c b/drivers/infiniband/hw/bnxtre/bnxt_re_main.c
+> index ebe1c69..029824a 100644
+> --- a/drivers/infiniband/hw/bnxtre/bnxt_re_main.c
+> +++ b/drivers/infiniband/hw/bnxtre/bnxt_re_main.c
+> +
+> +static int bnxt_re_ib_reg(struct bnxt_re_dev *rdev)
+> +{
+> +	int i, j, rc;
+> +
+> +	/* Registered a new RoCE device instance to netdev */
+> +	rc = bnxt_re_register_netdev(rdev);
+> +	if (rc) {
+> +		pr_err("Failed to register with netedev: %#x\n", rc);
+> +		return -EINVAL;
+> +	}
+> +	set_bit(BNXT_RE_FLAG_NETDEV_REGISTERED, &rdev->flags);
+> +
+> +	rc = bnxt_re_request_msix(rdev);
+> +	if (rc) {
+> +		pr_err("Failed to get MSI-X vectors: %#x\n", rc);
+> +		rc = -EINVAL;
+> +		goto fail;
+> +	}
+> +	set_bit(BNXT_RE_FLAG_GOT_MSIX, &rdev->flags);
 
-However, the Kernel interface bring-up comment reads: Add network
-specific broadcasts, when it takes a sense. The code is here:
-https://github.com/torvalds/linux/blob/master/net/ipv4/fib_frontend.c#L859-L872
+Though this exit path looks correct (need to verify) once all patches
+are applied, this looks incorrect if only considering this specific
+patch. I think you need the following:
 
-Can someone explain why creation of the broadcast route is
-non-optional? Would a patch to make it optional be acceptable? Is it
-safe for us to simply delete the route? We have a patch that simply
-deletes the broadcast route after interface creation but don't know
-why the Kernel code "makes sense".
++ return 0;
 
-You can read more information about the issue here:
-https://github.com/coreos/flannel/pull/569
-
-Thank You,
-
-Brandon
+> +
+> +fail:
+> +	bnxt_re_ib_unreg(rdev, true);
+> +	return rc;
+> +}
+> +
