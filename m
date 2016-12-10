@@ -1,108 +1,87 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [iproute2 net-next 1/8] lib bpf: Add support for BPF_PROG_ATTACH and BPF_PROG_DETACH
-Date: Sat, 10 Dec 2016 09:47:42 -0800
-Message-ID: <1481392069-3138-2-git-send-email-dsa@cumulusnetworks.com>
+Subject: [iproute2 net-next 6/8] change name_is_vrf to return index
+Date: Sat, 10 Dec 2016 09:47:47 -0800
+Message-ID: <1481392069-3138-7-git-send-email-dsa@cumulusnetworks.com>
 References: <1481392069-3138-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org, stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f45.google.com ([74.125.83.45]:33132 "EHLO
-        mail-pg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751742AbcLJRr5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 10 Dec 2016 12:47:57 -0500
-Received: by mail-pg0-f45.google.com with SMTP id 3so19380428pgd.0
-        for <netdev@vger.kernel.org>; Sat, 10 Dec 2016 09:47:57 -0800 (PST)
+Received: from mail-pf0-f171.google.com ([209.85.192.171]:34631 "EHLO
+        mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752727AbcLJRsA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 10 Dec 2016 12:48:00 -0500
+Received: by mail-pf0-f171.google.com with SMTP id c4so7365585pfb.1
+        for <netdev@vger.kernel.org>; Sat, 10 Dec 2016 09:48:00 -0800 (PST)
 In-Reply-To: <1481392069-3138-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For consistency with other bpf commands, the functions are named
-bpf_prog_attach and bpf_prog_detach. The existing bpf_prog_attach is
-renamed to bpf_prog_load_and_report since it calls bpf_prog_load and
-bpf_prog_report.
+index of 0 means name is not a valid vrf.
 
 Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- include/bpf_util.h |  3 +++
- lib/bpf.c          | 31 ++++++++++++++++++++++++++-----
- 2 files changed, 29 insertions(+), 5 deletions(-)
+ ip/ip_common.h  |  2 +-
+ ip/iplink_vrf.c | 15 +++++++++------
+ 2 files changed, 10 insertions(+), 7 deletions(-)
 
-diff --git a/include/bpf_util.h b/include/bpf_util.h
-index 05baeecda57f..49b96bbc208f 100644
---- a/include/bpf_util.h
-+++ b/include/bpf_util.h
-@@ -75,6 +75,9 @@ int bpf_trace_pipe(void);
+diff --git a/ip/ip_common.h b/ip/ip_common.h
+index 0147f45a7a31..3162f1ca5b2c 100644
+--- a/ip/ip_common.h
++++ b/ip/ip_common.h
+@@ -91,7 +91,7 @@ struct link_util *get_link_kind(const char *kind);
+ void br_dump_bridge_id(const struct ifla_bridge_id *id, char *buf, size_t len);
  
- void bpf_print_ops(FILE *f, struct rtattr *bpf_ops, __u16 len);
+ __u32 ipvrf_get_table(const char *name);
+-bool name_is_vrf(const char *name);
++int name_is_vrf(const char *name);
  
-+int bpf_prog_attach(int prog_fd, int target_fd, enum bpf_attach_type type);
-+int bpf_prog_detach(int target_fd, enum bpf_attach_type type);
-+
- #ifdef HAVE_ELF
- int bpf_send_map_fds(const char *path, const char *obj);
- int bpf_recv_map_fds(const char *path, int *fds, struct bpf_map_aux *aux,
-diff --git a/lib/bpf.c b/lib/bpf.c
-index 2a8cd51d4dae..103fc1ef0593 100644
---- a/lib/bpf.c
-+++ b/lib/bpf.c
-@@ -850,6 +850,27 @@ int bpf_graft_map(const char *map_path, uint32_t *key, int argc, char **argv)
- 	return ret;
+ #ifndef	INFINITY_LIFE_TIME
+ #define     INFINITY_LIFE_TIME      0xFFFFFFFFU
+diff --git a/ip/iplink_vrf.c b/ip/iplink_vrf.c
+index a238b2906805..c101ed770f87 100644
+--- a/ip/iplink_vrf.c
++++ b/ip/iplink_vrf.c
+@@ -159,7 +159,7 @@ __u32 ipvrf_get_table(const char *name)
+ 	return tb_id;
  }
  
-+int bpf_prog_attach(int prog_fd, int target_fd, enum bpf_attach_type type)
-+{
-+	union bpf_attr attr = {
-+		.target_fd = target_fd,
-+		.attach_bpf_fd = prog_fd,
-+		.attach_type = type,
-+	};
-+
-+	return bpf(BPF_PROG_ATTACH, &attr, sizeof(attr));
-+}
-+
-+int bpf_prog_detach(int target_fd, enum bpf_attach_type type)
-+{
-+	union bpf_attr attr = {
-+		.target_fd = target_fd,
-+		.attach_type = type,
-+	};
-+
-+	return bpf(BPF_PROG_DETACH, &attr, sizeof(attr));
-+}
-+
- #ifdef HAVE_ELF
- struct bpf_elf_prog {
- 	enum bpf_prog_type	type;
-@@ -1262,9 +1283,9 @@ static void bpf_prog_report(int fd, const char *section,
- 	bpf_dump_error(ctx, "Verifier analysis:\n\n");
- }
- 
--static int bpf_prog_attach(const char *section,
--			   const struct bpf_elf_prog *prog,
--			   struct bpf_elf_ctx *ctx)
-+static int bpf_prog_load_and_report(const char *section,
-+				    const struct bpf_elf_prog *prog,
-+				    struct bpf_elf_ctx *ctx)
+-bool name_is_vrf(const char *name)
++int name_is_vrf(const char *name)
  {
- 	int tries = 0, fd;
- retry:
-@@ -1656,7 +1677,7 @@ static int bpf_fetch_prog(struct bpf_elf_ctx *ctx, const char *section,
- 		prog.size    = data.sec_data->d_size;
- 		prog.license = ctx->license;
+ 	struct {
+ 		struct nlmsghdr		n;
+@@ -187,24 +187,27 @@ bool name_is_vrf(const char *name)
+ 	addattr_l(&req.n, sizeof(req), IFLA_IFNAME, name, strlen(name) + 1);
  
--		fd = bpf_prog_attach(section, &prog, ctx);
-+		fd = bpf_prog_load_and_report(section, &prog, ctx);
- 		if (fd < 0)
- 			return fd;
+ 	if (rtnl_talk(&rth, &req.n, &answer.n, sizeof(answer)) < 0)
+-		return false;
++		return 0;
  
-@@ -1755,7 +1776,7 @@ static int bpf_fetch_prog_relo(struct bpf_elf_ctx *ctx, const char *section,
- 		prog.size    = data_insn.sec_data->d_size;
- 		prog.license = ctx->license;
+ 	ifi = NLMSG_DATA(&answer.n);
+ 	len = answer.n.nlmsg_len - NLMSG_LENGTH(sizeof(*ifi));
+ 	if (len < 0) {
+ 		fprintf(stderr, "BUG: Invalid response to link query.\n");
+-		return false;
++		return 0;
+ 	}
  
--		fd = bpf_prog_attach(section, &prog, ctx);
-+		fd = bpf_prog_load_and_report(section, &prog, ctx);
- 		if (fd < 0) {
- 			*lderr = true;
- 			return fd;
+ 	parse_rtattr(tb, IFLA_MAX, IFLA_RTA(ifi), len);
+ 
+ 	if (!tb[IFLA_LINKINFO])
+-		return false;
++		return 0;
+ 
+ 	parse_rtattr_nested(li, IFLA_INFO_MAX, tb[IFLA_LINKINFO]);
+ 
+ 	if (!li[IFLA_INFO_KIND])
+-		return false;
++		return 0;
++
++	if (strcmp(RTA_DATA(li[IFLA_INFO_KIND]), "vrf"))
++		return 0;
+ 
+-	return strcmp(RTA_DATA(li[IFLA_INFO_KIND]), "vrf") == 0;
++	return ifi->ifi_index;
+ }
 -- 
 2.1.4
