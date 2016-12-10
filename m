@@ -1,34 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: mvneta: select GENERIC_ALLOCATOR
-Date: Sat, 10 Dec 2016 17:28:17 -0500 (EST)
-Message-ID: <20161210.172817.1464401745620815425.davem@davemloft.net>
-References: <20161210103844.1465583-1-arnd@arndb.de>
+Subject: Re: [PATCH 1/5] net: ethernet: ti: cpsw: improve re-split policy
+Date: Sat, 10 Dec 2016 17:30:25 -0500 (EST)
+Message-ID: <20161210.173025.1084307097879882075.davem@davemloft.net>
+References: <1481372630-14914-1-git-send-email-ivan.khoronzhuk@linaro.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: gregory.clement@free-electrons.com, mw@semihalf.com,
-        f.fainelli@gmail.com, netdev@vger.kernel.org,
+Cc: mugunthanvnm@ti.com, grygorii.strashko@ti.com,
+        linux-omap@vger.kernel.org, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org
-To: arnd@arndb.de
+To: ivan.khoronzhuk@linaro.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161210103844.1465583-1-arnd@arndb.de>
+In-Reply-To: <1481372630-14914-1-git-send-email-ivan.khoronzhuk@linaro.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Sat, 10 Dec 2016 11:38:32 +0100
+From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+Date: Sat, 10 Dec 2016 14:23:45 +0200
 
-> We previously relied on GENERIC_ALLOCATOR to be selected by CONFIG_ARM,
-> but now we can compile-test the driver on other architectures that
-> don't select it:
+> This patches add several simplifications and improvements to set
+> maximum rate for channels taking in account switch and dual emac mode.
 > 
-> drivers/net/built-in.o: In function `mvneta_bm_remove':
-> mvneta_bm.c:(.text+0x4ee35): undefined reference to `gen_pool_free'
+> Don't re-split res in the following cases:
+> - speed of phys is not changed
+> - speed of phys is changed and no rate limited channels
+> - speed of phys is changed and all channels are rate limited
+> - phy is unlinked while dev is open
+> - phy is linked back but speed is not changed
 > 
-> This adds an explicit select for the part of the driver that has
-> the dependency.
+> The maximum speed is sum of "linked" phys, thus res are split taken
+> into account two interfaces, both for dual emac mode and for
+> switch mode.
 > 
-> Fixes: a0627f776a45 ("net: marvell: Allow drivers to be built with COMPILE_TEST")
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Tested on am572x
+> 
+> Based on net-next/master
 
 Applied.
