@@ -1,140 +1,100 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [iproute2 net-next 7/8] libnetlink: Add variant of rtnl_talk that does not display RTNETLINK answers error
-Date: Sat, 10 Dec 2016 09:47:48 -0800
-Message-ID: <1481392069-3138-8-git-send-email-dsa@cumulusnetworks.com>
+Subject: [iproute2 net-next 2/8] bpf: export bpf_prog_load
+Date: Sat, 10 Dec 2016 09:47:43 -0800
+Message-ID: <1481392069-3138-3-git-send-email-dsa@cumulusnetworks.com>
 References: <1481392069-3138-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org, stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f47.google.com ([74.125.83.47]:35712 "EHLO
-        mail-pg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751742AbcLJRsC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 10 Dec 2016 12:48:02 -0500
-Received: by mail-pg0-f47.google.com with SMTP id p66so19325806pga.2
-        for <netdev@vger.kernel.org>; Sat, 10 Dec 2016 09:48:02 -0800 (PST)
+Received: from mail-pg0-f46.google.com ([74.125.83.46]:33133 "EHLO
+        mail-pg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752727AbcLJRr6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 10 Dec 2016 12:47:58 -0500
+Received: by mail-pg0-f46.google.com with SMTP id 3so19380486pgd.0
+        for <netdev@vger.kernel.org>; Sat, 10 Dec 2016 09:47:57 -0800 (PST)
 In-Reply-To: <1481392069-3138-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-iplink_vrf has 2 functions used to validate a user given device name is
-a VRF device and to return the table id. If the user string is not a
-device name ip commands with a vrf keyword show a confusing error
-message: "RTNETLINK answers: No such device".
-
-Add a variant of rtnl_talk that does not display the "RTNETLINK answers"
-message and update iplink_vrf to use it.
+Code move only; no functional change intended.
 
 Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- include/libnetlink.h |  3 +++
- ip/iplink_vrf.c      | 14 +++++++++++---
- lib/libnetlink.c     | 20 +++++++++++++++++---
- 3 files changed, 31 insertions(+), 6 deletions(-)
+ include/bpf_util.h |  3 +++
+ lib/bpf.c          | 40 ++++++++++++++++++++--------------------
+ 2 files changed, 23 insertions(+), 20 deletions(-)
 
-diff --git a/include/libnetlink.h b/include/libnetlink.h
-index 751ebf186dd4..bd0267dfcc02 100644
---- a/include/libnetlink.h
-+++ b/include/libnetlink.h
-@@ -81,6 +81,9 @@ int rtnl_dump_filter_nc(struct rtnl_handle *rth,
- int rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n,
- 	      struct nlmsghdr *answer, size_t len)
- 	__attribute__((warn_unused_result));
-+int rtnl_talk_suppress_rtnl_errmsg(struct rtnl_handle *rtnl, struct nlmsghdr *n,
-+				   struct nlmsghdr *answer, size_t len)
-+	__attribute__((warn_unused_result));
- int rtnl_send(struct rtnl_handle *rth, const void *buf, int)
- 	__attribute__((warn_unused_result));
- int rtnl_send_check(struct rtnl_handle *rth, const void *buf, int)
-diff --git a/ip/iplink_vrf.c b/ip/iplink_vrf.c
-index c101ed770f87..917630e85337 100644
---- a/ip/iplink_vrf.c
-+++ b/ip/iplink_vrf.c
-@@ -13,6 +13,7 @@
- #include <string.h>
- #include <sys/socket.h>
- #include <linux/if_link.h>
-+#include <errno.h>
+diff --git a/include/bpf_util.h b/include/bpf_util.h
+index 49b96bbc208f..dcbdca6978d6 100644
+--- a/include/bpf_util.h
++++ b/include/bpf_util.h
+@@ -75,6 +75,9 @@ int bpf_trace_pipe(void);
  
- #include "rt_names.h"
- #include "utils.h"
-@@ -126,8 +127,14 @@ __u32 ipvrf_get_table(const char *name)
+ void bpf_print_ops(FILE *f, struct rtattr *bpf_ops, __u16 len);
  
- 	addattr_l(&req.n, sizeof(req), IFLA_IFNAME, name, strlen(name) + 1);
++int bpf_prog_load(enum bpf_prog_type type, const struct bpf_insn *insns,
++		  size_t size_insns, const char *license, char *log,
++		  size_t size_log);
+ int bpf_prog_attach(int prog_fd, int target_fd, enum bpf_attach_type type);
+ int bpf_prog_detach(int target_fd, enum bpf_attach_type type);
  
--	if (rtnl_talk(&rth, &req.n, &answer.n, sizeof(answer)) < 0)
--		return 0;
-+	if (rtnl_talk_suppress_rtnl_errmsg(&rth, &req.n,
-+					   &answer.n, sizeof(answer)) < 0) {
-+		/* special case "default" vrf to be the main table */
-+		if (errno == ENODEV && !strcmp(name, "default"))
-+			rtnl_rttable_a2n(&tb_id, "main");
+diff --git a/lib/bpf.c b/lib/bpf.c
+index 103fc1ef0593..b04c3a678b9c 100644
+--- a/lib/bpf.c
++++ b/lib/bpf.c
+@@ -871,6 +871,26 @@ int bpf_prog_detach(int target_fd, enum bpf_attach_type type)
+ 	return bpf(BPF_PROG_DETACH, &attr, sizeof(attr));
+ }
+ 
++int bpf_prog_load(enum bpf_prog_type type, const struct bpf_insn *insns,
++		  size_t size_insns, const char *license, char *log,
++		  size_t size_log)
++{
++	union bpf_attr attr = {};
 +
-+		return tb_id;
++	attr.prog_type = type;
++	attr.insns = bpf_ptr_to_u64(insns);
++	attr.insn_cnt = size_insns / sizeof(struct bpf_insn);
++	attr.license = bpf_ptr_to_u64(license);
++
++	if (size_log > 0) {
++		attr.log_buf = bpf_ptr_to_u64(log);
++		attr.log_size = size_log;
++		attr.log_level = 1;
 +	}
- 
- 	ifi = NLMSG_DATA(&answer.n);
- 	len = answer.n.nlmsg_len - NLMSG_LENGTH(sizeof(*ifi));
-@@ -186,7 +193,8 @@ int name_is_vrf(const char *name)
- 
- 	addattr_l(&req.n, sizeof(req), IFLA_IFNAME, name, strlen(name) + 1);
- 
--	if (rtnl_talk(&rth, &req.n, &answer.n, sizeof(answer)) < 0)
-+	if (rtnl_talk_suppress_rtnl_errmsg(&rth, &req.n,
-+					   &answer.n, sizeof(answer)) < 0)
- 		return 0;
- 
- 	ifi = NLMSG_DATA(&answer.n);
-diff --git a/lib/libnetlink.c b/lib/libnetlink.c
-index a5db168e50eb..9d7e89aebbd0 100644
---- a/lib/libnetlink.c
-+++ b/lib/libnetlink.c
-@@ -12,6 +12,7 @@
- 
- #include <stdio.h>
- #include <stdlib.h>
-+#include <stdbool.h>
- #include <unistd.h>
- #include <syslog.h>
- #include <fcntl.h>
-@@ -397,8 +398,9 @@ int rtnl_dump_filter_nc(struct rtnl_handle *rth,
- 	return rtnl_dump_filter_l(rth, a);
- }
- 
--int rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n,
--	      struct nlmsghdr *answer, size_t maxlen)
-+static int __rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n,
-+		       struct nlmsghdr *answer, size_t maxlen,
-+		       bool show_rtnl_err)
- {
- 	int status;
- 	unsigned int seq;
-@@ -485,7 +487,7 @@ int rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n,
- 					return 0;
- 				}
- 
--				if (rtnl->proto != NETLINK_SOCK_DIAG)
-+				if (rtnl->proto != NETLINK_SOCK_DIAG && show_rtnl_err)
- 					fprintf(stderr,
- 						"RTNETLINK answers: %s\n",
- 						strerror(-err->error));
-@@ -517,6 +519,18 @@ int rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n,
- 	}
- }
- 
-+int rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n,
-+	      struct nlmsghdr *answer, size_t maxlen)
-+{
-+	return __rtnl_talk(rtnl, n, answer, maxlen, true);
++
++	return bpf(BPF_PROG_LOAD, &attr, sizeof(attr));
 +}
 +
-+int rtnl_talk_suppress_rtnl_errmsg(struct rtnl_handle *rtnl, struct nlmsghdr *n,
-+				   struct nlmsghdr *answer, size_t maxlen)
-+{
-+	return __rtnl_talk(rtnl, n, answer, maxlen, false);
-+}
-+
- int rtnl_listen_all_nsid(struct rtnl_handle *rth)
+ #ifdef HAVE_ELF
+ struct bpf_elf_prog {
+ 	enum bpf_prog_type	type;
+@@ -988,26 +1008,6 @@ static int bpf_map_create(enum bpf_map_type type, uint32_t size_key,
+ 	return bpf(BPF_MAP_CREATE, &attr, sizeof(attr));
+ }
+ 
+-static int bpf_prog_load(enum bpf_prog_type type, const struct bpf_insn *insns,
+-			 size_t size_insns, const char *license, char *log,
+-			 size_t size_log)
+-{
+-	union bpf_attr attr = {};
+-
+-	attr.prog_type = type;
+-	attr.insns = bpf_ptr_to_u64(insns);
+-	attr.insn_cnt = size_insns / sizeof(struct bpf_insn);
+-	attr.license = bpf_ptr_to_u64(license);
+-
+-	if (size_log > 0) {
+-		attr.log_buf = bpf_ptr_to_u64(log);
+-		attr.log_size = size_log;
+-		attr.log_level = 1;
+-	}
+-
+-	return bpf(BPF_PROG_LOAD, &attr, sizeof(attr));
+-}
+-
+ static int bpf_obj_pin(int fd, const char *pathname)
  {
- 	unsigned int on = 1;
+ 	union bpf_attr attr = {};
 -- 
 2.1.4
