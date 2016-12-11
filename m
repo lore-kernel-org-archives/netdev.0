@@ -1,38 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: ethernet: ti: netcp: add support of cpts
-Date: Sat, 10 Dec 2016 23:32:00 -0500 (EST)
-Message-ID: <20161210.233200.1977977551861823820.davem@davemloft.net>
-References: <20161208222156.23625-1-grygorii.strashko@ti.com>
+Subject: Re: [PATCH] i40e: don't truncate match_method assignment
+Date: Sat, 10 Dec 2016 23:32:18 -0500 (EST)
+Message-ID: <20161210.233218.618766359427126949.davem@davemloft.net>
+References: <20161209213921.26451-1-jacob.e.keller@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, richardcochran@gmail.com,
-        m-karicheri2@ti.com, w-kwok2@ti.com, nsekhar@ti.com,
-        mugunthanvnm@ti.com, linux-kernel@vger.kernel.org,
-        linux-omap@vger.kernel.org
-To: grygorii.strashko@ti.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161208222156.23625-1-grygorii.strashko@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: intel-wired-lan@lists.osuosl.org, jeffrey.t.kirsher@intel.com,
+        netdev@vger.kernel.org, sfr@canb.auug.org.au,
+        bimmy.pujari@intel.com
+To: jacob.e.keller@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:33002 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753107AbcLKEcU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 10 Dec 2016 23:32:20 -0500
+In-Reply-To: <20161209213921.26451-1-jacob.e.keller@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Date: Thu, 8 Dec 2016 16:21:56 -0600
+From: Jacob Keller <jacob.e.keller@intel.com>
+Date: Fri,  9 Dec 2016 13:39:21 -0800
 
-> From: WingMan Kwok <w-kwok2@ti.com>
+> The .match_method field is a u8, so we shouldn't be casting to a u16,
+> and because it is only one byte, we do not need to byte swap anything.
+> Just assign the value directly. This avoids issues on Big Endian
+> architectures which would have byte swapped and then incorrectly
+> truncated the value.
 > 
-> This patch adds support of the cpts device found in the
-> gbe and 10gbe ethernet switches on the keystone 2 SoCs
-> (66AK2E/L/Hx, 66AK2Gx).
-> 
-> Cc: Richard Cochran <richardcochran@gmail.com>
-> Signed-off-by: WingMan Kwok <w-kwok2@ti.com>
-> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
-> ---
-> changes in v2:
->  - dropped bindings changes
-> 
-> link on v1:
->  https://lkml.org/lkml/2016/11/28/781
+> Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 
 Applied.
