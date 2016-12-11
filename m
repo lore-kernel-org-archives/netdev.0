@@ -1,53 +1,125 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH net] net: dsa: mv88e6xxx: Fix opps when adding vlan bridge
-Date: Sun, 11 Dec 2016 21:07:19 +0100
-Message-ID: <1481486839-19502-1-git-send-email-andrew@lunn.ch>
-Cc: netdev <netdev@vger.kernel.org>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Andrew Lunn <andrew@lunn.ch>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:51934 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753620AbcLKUHg (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 11 Dec 2016 15:07:36 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: [PATCH 1/2] net: ethernet: sxgbe: remove private tx queue lock
+Date: Sun, 11 Dec 2016 21:11:04 +0100
+Message-ID: <20161211201104.GB20574@amd>
+References: <1481141138-19466-1-git-send-email-LinoSanfilippo@gmx.de>
+ <1481141138-19466-2-git-send-email-LinoSanfilippo@gmx.de>
+ <20161207231534.GB5889@electric-eye.fr.zoreil.com>
+ <051e3043-8b58-0591-36e3-99e2267f67f4@gmx.de>
+ <20161208231943.GA13102@electric-eye.fr.zoreil.com>
+ <20161209112142.GA22710@amd>
+ <c76124b9-6376-42b9-2821-b5a8185f5034@gmx.de>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="U+BazGySraz5kW0T"
+Cc: Francois Romieu <romieu@fr.zoreil.com>, bh74.an@samsung.com,
+        ks.giri@samsung.com, vipul.pandya@samsung.com,
+        peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        davem@davemloft.net, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org
+To: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <c76124b9-6376-42b9-2821-b5a8185f5034@gmx.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-A port is not necessarily assigned to a netdev. And a port does not
-need to be a member of a bridge. So when iterating over all ports,
-check before using the netdev and bridge_dev for a port. Otherwise we
-dereference a NULL pointer.
 
-Fixes: da9c359e19f0 ("net: dsa: mv88e6xxx: check hardware VLAN in use")
-Signed-off-by: Andrew Lunn <andrew@lunn.ch>
----
- drivers/net/dsa/mv88e6xxx/chip.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+--U+BazGySraz5kW0T
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index 883fd9809dd2..4e5ab856b87a 100644
---- a/drivers/net/dsa/mv88e6xxx/chip.c
-+++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -1796,6 +1796,9 @@ static int mv88e6xxx_port_check_hw_vlan(struct dsa_switch *ds, int port,
- 			if (dsa_is_dsa_port(ds, i) || dsa_is_cpu_port(ds, i))
- 				continue;
- 
-+			if (!ds->ports[port].netdev)
-+				continue;
+Hi!
+
+> On 09.12.2016 12:21, Pavel Machek wrote:
+> > On Fri 2016-12-09 00:19:43, Francois Romieu wrote:
+> >> Lino Sanfilippo <LinoSanfilippo@gmx.de> :
+> >> [...]
+> >> > OTOH Pavel said that he actually could produce a deadlock. Now I won=
+der if
+> >> > this is caused by that locking scheme (in a way I have not figured o=
+ut yet)
+> >> > or if it is a different issue.
+> >>=20
+> >> stmmac_tx_err races with stmmac_xmit.
+> >=20
+> > Umm, yes, that looks real.
+> >=20
+> > And that means that removing tx_lock will not be completely trivial
+> > :-(. Lino, any ideas there?
+> >=20
+>=20
+> Ok, the race is there but it looks like a problem that is not related to=
+=20
+> the use or removal of the private lock.
+
+Well, removal of the private lock will make it trickier to fix :-(.
+
+> By a glimpse into other drivers (e.g sky2 or e1000), a possible way to ha=
+ndle a=20
+> tx error is to start a separate task and restart the tx path in that task=
+ instead
+> the irq handler (or timer in case of the watchdog).
+>=20
+> In that task we could do:
+> 1. deactivate napi
+> 2. deactivate irqs
+> 3. wait for running napi/irqs do complete (_sync)
+> 4. call stmmac_tx_err()
+> 5. reenable napi
+> 6. reenable irqs
+>=20
+> We have to ensure that no xmit() is executing while stmmac_tx_err() does =
+the cleanup,
+> so stmmac_tx_err() should IMO rather call netif_tx_disable() instead of n=
+etif_stop_queue()
+> (the former grabs the xmit lock before it sets __QUEUE_STATE_DRV_XOFF to =
+disable
+> the queue).
+
+Do you understand what stmmac_tx_err(priv); is supposed to do? In
+particular, if it is called while the driver is working ok -- should
+the driver survive that?
+
+Because it does not currently, and I don't know how to test that
+code. Unplugging the cable does not provoke that.
+
+I tried
+
+        } else if (unlikely(status =3D=3D tx_hard_error))
+                stmmac_tx_err(priv);
 +
- 			if (vlan.data[i] ==
- 			    GLOBAL_VTU_DATA_MEMBER_TAG_NON_MEMBER)
- 				continue;
-@@ -1804,6 +1807,9 @@ static int mv88e6xxx_port_check_hw_vlan(struct dsa_switch *ds, int port,
- 			    chip->ports[port].bridge_dev)
- 				break; /* same bridge, check next VLAN */
- 
-+			if (!chip->ports[i].bridge_dev)
-+				continue;
-+
- 			netdev_warn(ds->ports[port].netdev,
- 				    "hardware VLAN %d already used by %s\n",
- 				    vlan.vid,
--- 
-2.10.2
++       {
++               static int i;
++               i++;
++               if (i=3D=3D1000) {
++                       i =3D 0;
++                       printk("Simulated error\n");
++                       stmmac_tx_err(priv);
++               }
++       }
+ }
+
+but the driver does not survive that :-(.
+
+Best regards,
+									Pavel
+--=20
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
+g.html
+
+--U+BazGySraz5kW0T
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iEYEARECAAYFAlhNstgACgkQMOfwapXb+vJYOQCfaBoeISBQCM2FYQkh9/ivtoRb
+rAMAmwV4W7y/RvQyzPx/k/gxywqA8QnK
+=43+8
+-----END PGP SIGNATURE-----
+
+--U+BazGySraz5kW0T--
