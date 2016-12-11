@@ -1,78 +1,86 @@
-From: Asbjoern Sloth Toennesen <asbjorn@asbjorn.st>
-Subject: [PATCH net-next 1/3] net: l2tp: export debug flags to UAPI
-Date: Sun, 11 Dec 2016 00:18:57 +0000
-Message-ID: <20161211001859.10333-1-asbjorn@asbjorn.st>
-Cc: James Chapman <jchapman@katalix.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: "David S . Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH 09/10] vsock/virtio: fix src/dst cid format
+Date: Sun, 11 Dec 2016 04:54:46 +0200
+Message-ID: <20161211045205-mutt-send-email-mst@kernel.org>
+References: <1481038106-24899-1-git-send-email-mst@redhat.com>
+ <1481038106-24899-10-git-send-email-mst@redhat.com>
+ <a0dcb733-ab1c-ac66-2300-fcb90fbacea2@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org, stable@vger.kernel.org,
+        Stefan Hajnoczi <stefanha@redhat.com>,
+        "David S. Miller" <davem@davemloft.net>, kvm@vger.kernel.org,
+        virtualization@lists.linux-foundation.org, netdev@vger.kernel.org
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <stable-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <a0dcb733-ab1c-ac66-2300-fcb90fbacea2@redhat.com>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Move the L2TP_MSG_* definitions to UAPI, as it is part of
-the netlink API.
+On Wed, Dec 07, 2016 at 12:31:56PM +0800, Jason Wang wrote:
+> 
+> 
+> On 2016年12月06日 23:41, Michael S. Tsirkin wrote:
+> > These fields are 64 bit, using le32_to_cpu and friends
+> > on these will not do the right thing.
+> > Fix this up.
+> > 
+> > Cc: stable@vger.kernel.org
+> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> > ---
+> >   net/vmw_vsock/virtio_transport_common.c | 14 +++++++-------
+> >   1 file changed, 7 insertions(+), 7 deletions(-)
+> > 
+> > diff --git a/net/vmw_vsock/virtio_transport_common.c b/net/vmw_vsock/virtio_transport_common.c
+> > index 6120384..22e99c4 100644
+> > --- a/net/vmw_vsock/virtio_transport_common.c
+> > +++ b/net/vmw_vsock/virtio_transport_common.c
+> > @@ -606,9 +606,9 @@ static int virtio_transport_reset_no_sock(struct virtio_vsock_pkt *pkt)
+> >   		return 0;
+> >   	pkt = virtio_transport_alloc_pkt(&info, 0,
+> > -					 le32_to_cpu(pkt->hdr.dst_cid),
+> > +					 le64_to_cpu(pkt->hdr.dst_cid),
+> >   					 le32_to_cpu(pkt->hdr.dst_port),
+> > -					 le32_to_cpu(pkt->hdr.src_cid),
+> > +					 le64_to_cpu(pkt->hdr.src_cid),
+> >   					 le32_to_cpu(pkt->hdr.src_port));
+> 
+> Looking at sockaddr_vm, svm_cid is "unsigned int", do we really want 64 bit
+> here?
 
-Signed-off-by: Asbjoern Sloth Toennesen <asbjorn@asbjorn.st>
----
- include/uapi/linux/l2tp.h | 17 ++++++++++++++++-
- net/l2tp/l2tp_core.h      | 10 ----------
- 2 files changed, 16 insertions(+), 11 deletions(-)
+Can't change the protocol at this point.
 
-diff --git a/include/uapi/linux/l2tp.h b/include/uapi/linux/l2tp.h
-index 5daa48e..85ddb74 100644
---- a/include/uapi/linux/l2tp.h
-+++ b/include/uapi/linux/l2tp.h
-@@ -108,7 +108,7 @@ enum {
- 	L2TP_ATTR_VLAN_ID,		/* u16 */
- 	L2TP_ATTR_COOKIE,		/* 0, 4 or 8 bytes */
- 	L2TP_ATTR_PEER_COOKIE,		/* 0, 4 or 8 bytes */
--	L2TP_ATTR_DEBUG,		/* u32 */
-+	L2TP_ATTR_DEBUG,		/* u32, enum l2tp_debug_flags */
- 	L2TP_ATTR_RECV_SEQ,		/* u8 */
- 	L2TP_ATTR_SEND_SEQ,		/* u8 */
- 	L2TP_ATTR_LNS_MODE,		/* u8 */
-@@ -175,6 +175,21 @@ enum l2tp_seqmode {
- 	L2TP_SEQ_ALL = 2,
- };
- 
-+/**
-+ * enum l2tp_debug_flags - debug message categories for L2TP tunnels/sessions
-+ *
-+ * @L2TP_MSG_DEBUG: verbose debug (if compiled in)
-+ * @L2TP_MSG_CONTROL: userspace - kernel interface
-+ * @L2TP_MSG_SEQ: sequence numbers
-+ * @L2TP_MSG_DATA: data packets
-+ */
-+enum l2tp_debug_flags {
-+	L2TP_MSG_DEBUG		= (1 << 0),
-+	L2TP_MSG_CONTROL	= (1 << 1),
-+	L2TP_MSG_SEQ		= (1 << 2),
-+	L2TP_MSG_DATA		= (1 << 3),
-+};
-+
- /*
-  * NETLINK_GENERIC related info
-  */
-diff --git a/net/l2tp/l2tp_core.h b/net/l2tp/l2tp_core.h
-index 2599af6..8f560f7 100644
---- a/net/l2tp/l2tp_core.h
-+++ b/net/l2tp/l2tp_core.h
-@@ -23,16 +23,6 @@
- #define L2TP_HASH_BITS_2	8
- #define L2TP_HASH_SIZE_2	(1 << L2TP_HASH_BITS_2)
- 
--/* Debug message categories for the DEBUG socket option */
--enum {
--	L2TP_MSG_DEBUG		= (1 << 0),	/* verbose debug (if
--						 * compiled in) */
--	L2TP_MSG_CONTROL	= (1 << 1),	/* userspace - kernel
--						 * interface */
--	L2TP_MSG_SEQ		= (1 << 2),	/* sequence numbers */
--	L2TP_MSG_DATA		= (1 << 3),	/* data packets */
--};
--
- struct sk_buff;
- 
- struct l2tp_stats {
--- 
-2.10.2
+
+> >   	if (!pkt)
+> >   		return -ENOMEM;
+> > @@ -823,7 +823,7 @@ virtio_transport_send_response(struct vsock_sock *vsk,
+> >   	struct virtio_vsock_pkt_info info = {
+> >   		.op = VIRTIO_VSOCK_OP_RESPONSE,
+> >   		.type = VIRTIO_VSOCK_TYPE_STREAM,
+> > -		.remote_cid = le32_to_cpu(pkt->hdr.src_cid),
+> > +		.remote_cid = le64_to_cpu(pkt->hdr.src_cid),
+> >   		.remote_port = le32_to_cpu(pkt->hdr.src_port),
+> >   		.reply = true,
+> >   	};
+> > @@ -863,9 +863,9 @@ virtio_transport_recv_listen(struct sock *sk, struct virtio_vsock_pkt *pkt)
+> >   	child->sk_state = SS_CONNECTED;
+> >   	vchild = vsock_sk(child);
+> > -	vsock_addr_init(&vchild->local_addr, le32_to_cpu(pkt->hdr.dst_cid),
+> > +	vsock_addr_init(&vchild->local_addr, le64_to_cpu(pkt->hdr.dst_cid),
+> >   			le32_to_cpu(pkt->hdr.dst_port));
+> > -	vsock_addr_init(&vchild->remote_addr, le32_to_cpu(pkt->hdr.src_cid),
+> > +	vsock_addr_init(&vchild->remote_addr, le64_to_cpu(pkt->hdr.src_cid),
+> >   			le32_to_cpu(pkt->hdr.src_port));
+> >   	vsock_insert_connected(vchild);
+> > @@ -904,9 +904,9 @@ void virtio_transport_recv_pkt(struct virtio_vsock_pkt *pkt)
+> >   	struct sock *sk;
+> >   	bool space_available;
+> > -	vsock_addr_init(&src, le32_to_cpu(pkt->hdr.src_cid),
+> > +	vsock_addr_init(&src, le64_to_cpu(pkt->hdr.src_cid),
+> >   			le32_to_cpu(pkt->hdr.src_port));
+> > -	vsock_addr_init(&dst, le32_to_cpu(pkt->hdr.dst_cid),
+> > +	vsock_addr_init(&dst, le64_to_cpu(pkt->hdr.dst_cid),
+> >   			le32_to_cpu(pkt->hdr.dst_port));
+> >   	trace_virtio_transport_recv_pkt(src.svm_cid, src.svm_port,
