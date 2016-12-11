@@ -1,77 +1,102 @@
 From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
 Subject: Re: [PATCH net-next 0/2] Add ethtool set regs support
-Date: Sun, 11 Dec 2016 14:18:00 +0200
-Message-ID: <CALzJLG8nGU-29VoKDtdaoFuG7zfTvTTu14T91+PMxcJH-GG2bw@mail.gmail.com>
-References: <1481063590-7727-1-git-send-email-saeedm@mellanox.com> <20161207024143.GA655@lunn.ch>
+Date: Sun, 11 Dec 2016 14:41:27 +0200
+Message-ID: <CALzJLG8R4T6p41gQkTPL8i1CBVyv56tHnHWqyzMpngDR5yncrg@mail.gmail.com>
+References: <1481063590-7727-1-git-send-email-saeedm@mellanox.com>
+ <20161207024143.GA655@lunn.ch> <20161206.215732.1535653926791462641.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Saeed Mahameed <saeedm@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>,
+Cc: andrew@lunn.ch, Saeed Mahameed <saeedm@mellanox.com>,
         Linux Netdev List <netdev@vger.kernel.org>,
-        "John W . Linville" <linville@tuxdriver.com>
-To: Andrew Lunn <andrew@lunn.ch>
+        "John W. Linville" <linville@tuxdriver.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:34660 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752399AbcLKMSW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 11 Dec 2016 07:18:22 -0500
-Received: by mail-wm0-f65.google.com with SMTP id g23so4922372wme.1
-        for <netdev@vger.kernel.org>; Sun, 11 Dec 2016 04:18:22 -0800 (PST)
-In-Reply-To: <20161207024143.GA655@lunn.ch>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:36078 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752089AbcLKMls (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 11 Dec 2016 07:41:48 -0500
+Received: by mail-wm0-f67.google.com with SMTP id m203so4968302wma.3
+        for <netdev@vger.kernel.org>; Sun, 11 Dec 2016 04:41:48 -0800 (PST)
+In-Reply-To: <20161206.215732.1535653926791462641.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 7, 2016 at 4:41 AM, Andrew Lunn <andrew@lunn.ch> wrote:
-> On Wed, Dec 07, 2016 at 12:33:08AM +0200, Saeed Mahameed wrote:
->> Hi Dave,
+On Wed, Dec 7, 2016 at 4:57 AM, David Miller <davem@davemloft.net> wrote:
+> From: Andrew Lunn <andrew@lunn.ch>
+> Date: Wed, 7 Dec 2016 03:41:43 +0100
+>
+>> On Wed, Dec 07, 2016 at 12:33:08AM +0200, Saeed Mahameed wrote:
+>>> Hi Dave,
+>>>
+>>> This series adds the support for setting device registers from user
+>>> space ethtool.
 >>
->> This series adds the support for setting device registers from user
->> space ethtool.
+>> Is this not the start of allowing binary only drivers in user space?
+>>
+>> Do we want this?
 >
-> Is this not the start of allowing binary only drivers in user space?
->
-
-It is not, we want to do same as set_eeprom already do,
-Just set some HW registers, for analysis/debug/tweak/configure HW
-dependent register for the NIC netdev sake.
-
-
-> Do we want this?
+> I don't think we do.
 >
 
-Apparently yes, Our performance team will be happy to have such
-feature upstream, so they can just jump in and start their performance
-analysis/debugging
-with ethtool directly without the need of extra proprietary FW tools
-(which sometimes demand reboot and driver restart for each
-configuration).
+Dave, i think we do have a case here, can you please check my response
+to Stephen and Andrew,
+I mention some examples and I think I made the purpose of this patches
+more clear.
 
-This is one usage and i believe other NIC vendors will be happy to have this.
+>>
+>>> mlx5 driver have registers allowed access list and will check the user
+>>> Request validity before forwarding it to HW registers. Mlx5 will allow only mlx5 specific
+>>> configurations to be set (e.g. Device Diag Counters for HW performance debugging and analysis)
+>>> which has no standard API to access it.
+>>
+>> Would it not be better to define an flexible API to do this? We have
+>> lots of HW performance counters for CPUs. Why is it not possible to do
+>> this for a network device?
+>
+> So if this isn't for raw PIO register access, then we should define
+> an appropriate interface for it.
+>
+
+It is not, I hope i made it more clear in my responses to Stephen and Andrew.
 
 >
->> mlx5 driver have registers allowed access list and will check the user
->> Request validity before forwarding it to HW registers. Mlx5 will allow only mlx5 specific
->> configurations to be set (e.g. Device Diag Counters for HW performance debugging and analysis)
->> which has no standard API to access it.
+> The ethtool regs stuff is untyped, and arbitrary.
 >
-> Would it not be better to define an flexible API to do this? We have
-> lots of HW performance counters for CPUs. Why is it not possible to do
-> this for a network device?
+> Please create something properly structured, and typed, which would
+> allow accessing the information you want the user to be able to
+> access.
 >
+> That way the kernel can tell what the user is reading or writing,
+> and thus properly control access.
 
-What is flexible in this context ? Register Types/layout and purposes
-differs from vendor to vendor and changes cross HW updates and new HW
-generations.
-We simply don't want to inform/update the stack and ethtool API about
-each register layout, this is just not scalable, and those registers
-are not precisely meant for performance/debug counters, sometimes they
-have some other purposes. For example configuring an internal HW unit
-to work in different ways, so we can have some taste of  "on the fly"
-control for testing purposes.
+Thanks for your input,
 
-where can i find some details about "HW performance counters for CPUs" ?
-In light of my response, if you have any suggestion for more flexible
-(strongly typed) API, I will be glad to hear about it.
+As i explained to Stephen and Andrew, Those registers differs from
+vendor to vendor and cross HW updates. Making those registers
+strongly typed is wrong in my opinion, it is not scalable and as
+flexible as you think it would be.  There are many HW vendors and each
+has lots of registers.
 
-Thanks for your response.
-Saeed.
+Having a set_eeprom like API will do the job. you can think about this
+as ethtool_flash_device kinda tool but more lightweight.
+
+We simply would like to configure/tweak/monitor/debug HW internal
+units activities for NIC netdev sake, like the usage we currently
+have/suggest,
+to have flexibility to enable/disable/query some HW internal
+performance registers (should be off on production), both set and
+query
+will use ethtool_set/get_regs, obviously.
+
+We also took into account future usages for other registers/formats
+and to have flexibility across different NICs.
+
+I will be glad if you can give this some thought and provide me with
+more concrete direction/suggestion on how to make this less untyped.
+
+The only thing i can think of right now is providing a list of write
+allowed registers (address + type + layout length) to ethtool, but i
+am not sure how
+to handle the "type" information in the kernel, it will create more
+restrictions than needed, and what types of register will we need to
+add support for at first ?
