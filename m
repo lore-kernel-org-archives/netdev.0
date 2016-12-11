@@ -1,28 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Remove private tx queue locks
-Date: Sat, 10 Dec 2016 23:27:23 -0500 (EST)
-Message-ID: <20161210.232723.1867472079856079383.davem@davemloft.net>
-References: <1481241343-18062-1-git-send-email-LinoSanfilippo@gmx.de>
+Subject: Re: [PATCH net-next 1/3] net: l2tp: export debug flags to UAPI
+Date: Sat, 10 Dec 2016 23:29:22 -0500 (EST)
+Message-ID: <20161210.232922.1424974690965532832.davem@davemloft.net>
+References: <20161211001859.10333-1-asbjorn@asbjorn.st>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bh74.an@samsung.com, ks.giri@samsung.com, vipul.pandya@samsung.com,
-        peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        romieu@fr.zoreil.com, pavel@ucw.cz, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org
-To: LinoSanfilippo@gmx.de
+Cc: jchapman@katalix.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: asbjorn@asbjorn.st
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1481241343-18062-1-git-send-email-LinoSanfilippo@gmx.de>
+In-Reply-To: <20161211001859.10333-1-asbjorn@asbjorn.st>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-Date: Fri,  9 Dec 2016 00:55:41 +0100
+From: Asbjoern Sloth Toennesen <asbjorn@asbjorn.st>
+Date: Sun, 11 Dec 2016 00:18:57 +0000
 
-> this patch series removes unnecessary private locks in the sxgbe and the
-> stmmac driver.
+> Move the L2TP_MSG_* definitions to UAPI, as it is part of
+> the netlink API.
 > 
-> v2:
-> - adjust commit message
+> Signed-off-by: Asbjoern Sloth Toennesen <asbjorn@asbjorn.st>
 
-Series applied to net-next, thanks.
+Applied.
