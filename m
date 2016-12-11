@@ -1,58 +1,44 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: Re: Misalignment, MIPS, and ip_hdr(skb)->version
-Date: Sun, 11 Dec 2016 15:50:31 +0100
-Message-ID: <CAHmME9q5ifwwishXjXYE3J=sVeR4jYY9fLUgs_FHCP594EZr6g@mail.gmail.com>
-References: <CAHmME9o_eCNXpVztOZKW55kpRtE+1KSEQTQOjUBVn68Y2+or2g@mail.gmail.com>
- <095cac5b-b757-6f4a-e699-8eedf9ed7221@stressinduktion.org>
- <87vauvhwdu.fsf@alice.fifthhorseman.net> <CE942916-BF45-44CC-A5F5-3838CF9C93BC@danrl.com>
- <20161211071501.GA32621@kroah.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] netfilter: nft_counter: rework atomic dump
+ and reset
+Date: Sun, 11 Dec 2016 10:02:32 -0500 (EST)
+Message-ID: <20161211.100232.574425287368543127.davem@davemloft.net>
+References: <1481453040-2675-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: =?UTF-8?Q?Dan_L=C3=BCdtke?= <mail@danrl.com>,
-        Willy Tarreau <w@1wt.eu>,
-        =?UTF-8?B?TcOlbnMgUnVsbGfDpXJk?= <mans@mansr.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        WireGuard mailing list <wireguard@lists.zx2c4.com>,
-        Greg KH <gregkh@linuxfoundation.org>,
-        Felix Fietkau <nbd@nbd.name>, Jiri Benc <jbenc@redhat.com>,
-        David Miller <davem@davemloft.net>
-To: linux-mips@linux-mips.org, Netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161211071501.GA32621@kroah.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netfilter-devel@vger.kernel.org, eric.dumazet@gmail.com,
+        netdev@vger.kernel.org, arnd@arndb.de
+To: pablo@netfilter.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:42100 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752898AbcLKPCh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 11 Dec 2016 10:02:37 -0500
+In-Reply-To: <1481453040-2675-1-git-send-email-pablo@netfilter.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hey guys,
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Sun, 11 Dec 2016 11:43:59 +0100
 
-Thanks for the extremely detailed answers. The main take-away from
-this is that passing unaligned packets to the networking stack kills
-kittens. So now it's a question of mitigation. I have three options:
+> Dump and reset doesn't work unless cmpxchg64() is used both from packet
+> and control plane paths. This approach is going to be slow though.
+> Instead, use a percpu seqcount to fetch counters consistently, then
+> subtract bytes and packets in case a reset was requested.
+> 
+> The cpu that running over the reset code is guaranteed to own this stats
+> exclusively, we have to turn counters into signed 64bit though so stats
+> update on reset don't get wrong on underflow.
+> 
+> This patch is based on original sketch from Eric Dumazet.
+> 
+> Fixes: 43da04a593d8 ("netfilter: nf_tables: atomic dump and reset for stateful objects")
+> Suggested-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+> ---
+> v2: adjust stats on reset on the current cpu, turn 64bit counters into signed.
+> 
+> @David: Please, take this into net-next to help speed up thing, thanks!
 
-1. Copy the plaintext to three bytes before the start of the cipher
-text, overwriting parts of the header that aren't actually required.
-Pros: no changes required, MTU stays small.
-Cons: scatterwalk's fast paths aren't hit, which means two page table
-mappings are taken instead of one. I have no idea if this actually
-matters or will slow down anything relavent.
-
-2. Add 3 bytes to the plaintext header, set to zero, marked for future use.
-Pros: satisfies IETF mantras and makes unaligned in-place decryption
-straightforward.
-Cons: lowers MTU, additional unauthenticated cleartext bits in the
-header are of limited utility in protocol.
-
-3. Add 3 bytes of padding, set to zero, to the encrypted section just
-before the IP header, marked for future use.
-Pros: satisfies IETF mantras, can use those extra bits in the future
-for interesting protocol extensions for authenticated peers.
-Cons: lowers MTU, marginally more difficult to implement but still
-probably just one or two lines of code.
-
-Of these, I'm leaning toward (3).
-
-Anyway, thanks a lot for the input. "Doing nothing" is no longer under
-serious consideration, thanks to your messages.
-
-Thanks,
-Jason
+Applied.
