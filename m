@@ -1,27 +1,24 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] netfilter: nft_counter: rework atomic dump
- and reset
-Date: Sun, 11 Dec 2016 10:02:32 -0500 (EST)
-Message-ID: <20161211.100232.574425287368543127.davem@davemloft.net>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH net-next] netfilter: nft_counter: rework atomic dump and reset
+Date: Sun, 11 Dec 2016 16:13:49 +0100
+Message-ID: <2354668.BqtCyL9KZm@wuerfel>
 References: <1481453040-2675-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
 Cc: netfilter-devel@vger.kernel.org, eric.dumazet@gmail.com,
-        netdev@vger.kernel.org, arnd@arndb.de
-To: pablo@netfilter.org
+        netdev@vger.kernel.org, davem@davemloft.net
+To: Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42100 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752898AbcLKPCh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 11 Dec 2016 10:02:37 -0500
+Received: from mout.kundenserver.de ([212.227.126.187]:52744 "EHLO
+        mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753199AbcLKPOB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 11 Dec 2016 10:14:01 -0500
 In-Reply-To: <1481453040-2675-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Sun, 11 Dec 2016 11:43:59 +0100
-
+On Sunday, December 11, 2016 11:43:59 AM CET Pablo Neira Ayuso wrote:
 > Dump and reset doesn't work unless cmpxchg64() is used both from packet
 > and control plane paths. This approach is going to be slow though.
 > Instead, use a percpu seqcount to fetch counters consistently, then
@@ -36,9 +33,9 @@ Date: Sun, 11 Dec 2016 11:43:59 +0100
 > Fixes: 43da04a593d8 ("netfilter: nf_tables: atomic dump and reset for stateful objects")
 > Suggested-by: Eric Dumazet <eric.dumazet@gmail.com>
 > Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
-> ---
-> v2: adjust stats on reset on the current cpu, turn 64bit counters into signed.
 > 
-> @David: Please, take this into net-next to help speed up thing, thanks!
 
-Applied.
+Looks great, I had a similar idea that I was going to suggest the
+other day, but yours is better anyway.
+
+	Arnd
