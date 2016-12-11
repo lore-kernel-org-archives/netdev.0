@@ -1,102 +1,58 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [PATCH net-next 0/2] Add ethtool set regs support
-Date: Sun, 11 Dec 2016 14:41:27 +0200
-Message-ID: <CALzJLG8R4T6p41gQkTPL8i1CBVyv56tHnHWqyzMpngDR5yncrg@mail.gmail.com>
-References: <1481063590-7727-1-git-send-email-saeedm@mellanox.com>
- <20161207024143.GA655@lunn.ch> <20161206.215732.1535653926791462641.davem@davemloft.net>
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: Re: Misalignment, MIPS, and ip_hdr(skb)->version
+Date: Sun, 11 Dec 2016 15:50:31 +0100
+Message-ID: <CAHmME9q5ifwwishXjXYE3J=sVeR4jYY9fLUgs_FHCP594EZr6g@mail.gmail.com>
+References: <CAHmME9o_eCNXpVztOZKW55kpRtE+1KSEQTQOjUBVn68Y2+or2g@mail.gmail.com>
+ <095cac5b-b757-6f4a-e699-8eedf9ed7221@stressinduktion.org>
+ <87vauvhwdu.fsf@alice.fifthhorseman.net> <CE942916-BF45-44CC-A5F5-3838CF9C93BC@danrl.com>
+ <20161211071501.GA32621@kroah.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: andrew@lunn.ch, Saeed Mahameed <saeedm@mellanox.com>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        "John W. Linville" <linville@tuxdriver.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:36078 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752089AbcLKMls (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 11 Dec 2016 07:41:48 -0500
-Received: by mail-wm0-f67.google.com with SMTP id m203so4968302wma.3
-        for <netdev@vger.kernel.org>; Sun, 11 Dec 2016 04:41:48 -0800 (PST)
-In-Reply-To: <20161206.215732.1535653926791462641.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: =?UTF-8?Q?Dan_L=C3=BCdtke?= <mail@danrl.com>,
+        Willy Tarreau <w@1wt.eu>,
+        =?UTF-8?B?TcOlbnMgUnVsbGfDpXJk?= <mans@mansr.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        WireGuard mailing list <wireguard@lists.zx2c4.com>,
+        Greg KH <gregkh@linuxfoundation.org>,
+        Felix Fietkau <nbd@nbd.name>, Jiri Benc <jbenc@redhat.com>,
+        David Miller <davem@davemloft.net>
+To: linux-mips@linux-mips.org, Netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161211071501.GA32621@kroah.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 7, 2016 at 4:57 AM, David Miller <davem@davemloft.net> wrote:
-> From: Andrew Lunn <andrew@lunn.ch>
-> Date: Wed, 7 Dec 2016 03:41:43 +0100
->
->> On Wed, Dec 07, 2016 at 12:33:08AM +0200, Saeed Mahameed wrote:
->>> Hi Dave,
->>>
->>> This series adds the support for setting device registers from user
->>> space ethtool.
->>
->> Is this not the start of allowing binary only drivers in user space?
->>
->> Do we want this?
->
-> I don't think we do.
->
+Hey guys,
 
-Dave, i think we do have a case here, can you please check my response
-to Stephen and Andrew,
-I mention some examples and I think I made the purpose of this patches
-more clear.
+Thanks for the extremely detailed answers. The main take-away from
+this is that passing unaligned packets to the networking stack kills
+kittens. So now it's a question of mitigation. I have three options:
 
->>
->>> mlx5 driver have registers allowed access list and will check the user
->>> Request validity before forwarding it to HW registers. Mlx5 will allow only mlx5 specific
->>> configurations to be set (e.g. Device Diag Counters for HW performance debugging and analysis)
->>> which has no standard API to access it.
->>
->> Would it not be better to define an flexible API to do this? We have
->> lots of HW performance counters for CPUs. Why is it not possible to do
->> this for a network device?
->
-> So if this isn't for raw PIO register access, then we should define
-> an appropriate interface for it.
->
+1. Copy the plaintext to three bytes before the start of the cipher
+text, overwriting parts of the header that aren't actually required.
+Pros: no changes required, MTU stays small.
+Cons: scatterwalk's fast paths aren't hit, which means two page table
+mappings are taken instead of one. I have no idea if this actually
+matters or will slow down anything relavent.
 
-It is not, I hope i made it more clear in my responses to Stephen and Andrew.
+2. Add 3 bytes to the plaintext header, set to zero, marked for future use.
+Pros: satisfies IETF mantras and makes unaligned in-place decryption
+straightforward.
+Cons: lowers MTU, additional unauthenticated cleartext bits in the
+header are of limited utility in protocol.
 
->
-> The ethtool regs stuff is untyped, and arbitrary.
->
-> Please create something properly structured, and typed, which would
-> allow accessing the information you want the user to be able to
-> access.
->
-> That way the kernel can tell what the user is reading or writing,
-> and thus properly control access.
+3. Add 3 bytes of padding, set to zero, to the encrypted section just
+before the IP header, marked for future use.
+Pros: satisfies IETF mantras, can use those extra bits in the future
+for interesting protocol extensions for authenticated peers.
+Cons: lowers MTU, marginally more difficult to implement but still
+probably just one or two lines of code.
 
-Thanks for your input,
+Of these, I'm leaning toward (3).
 
-As i explained to Stephen and Andrew, Those registers differs from
-vendor to vendor and cross HW updates. Making those registers
-strongly typed is wrong in my opinion, it is not scalable and as
-flexible as you think it would be.  There are many HW vendors and each
-has lots of registers.
+Anyway, thanks a lot for the input. "Doing nothing" is no longer under
+serious consideration, thanks to your messages.
 
-Having a set_eeprom like API will do the job. you can think about this
-as ethtool_flash_device kinda tool but more lightweight.
-
-We simply would like to configure/tweak/monitor/debug HW internal
-units activities for NIC netdev sake, like the usage we currently
-have/suggest,
-to have flexibility to enable/disable/query some HW internal
-performance registers (should be off on production), both set and
-query
-will use ethtool_set/get_regs, obviously.
-
-We also took into account future usages for other registers/formats
-and to have flexibility across different NICs.
-
-I will be glad if you can give this some thought and provide me with
-more concrete direction/suggestion on how to make this less untyped.
-
-The only thing i can think of right now is providing a list of write
-allowed registers (address + type + layout length) to ethtool, but i
-am not sure how
-to handle the "type" information in the kernel, it will create more
-restrictions than needed, and what types of register will we need to
-add support for at first ?
+Thanks,
+Jason
