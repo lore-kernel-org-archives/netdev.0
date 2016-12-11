@@ -1,41 +1,50 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH net-next] netfilter: nft_counter: rework atomic dump and reset
-Date: Sun, 11 Dec 2016 16:13:49 +0100
-Message-ID: <2354668.BqtCyL9KZm@wuerfel>
-References: <1481453040-2675-1-git-send-email-pablo@netfilter.org>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 0/2] Add ethtool set regs support
+Date: Sun, 11 Dec 2016 16:22:29 +0100
+Message-ID: <20161211152229.GC29761@lunn.ch>
+References: <1481063590-7727-1-git-send-email-saeedm@mellanox.com>
+ <20161207024143.GA655@lunn.ch>
+ <CALzJLG8nGU-29VoKDtdaoFuG7zfTvTTu14T91+PMxcJH-GG2bw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: netfilter-devel@vger.kernel.org, eric.dumazet@gmail.com,
-        netdev@vger.kernel.org, davem@davemloft.net
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Saeed Mahameed <saeedm@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        "John W . Linville" <linville@tuxdriver.com>
+To: Saeed Mahameed <saeedm@dev.mellanox.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.126.187]:52744 "EHLO
-        mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753199AbcLKPOB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 11 Dec 2016 10:14:01 -0500
-In-Reply-To: <1481453040-2675-1-git-send-email-pablo@netfilter.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:51735 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753232AbcLKPWf (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 11 Dec 2016 10:22:35 -0500
+Content-Disposition: inline
+In-Reply-To: <CALzJLG8nGU-29VoKDtdaoFuG7zfTvTTu14T91+PMxcJH-GG2bw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sunday, December 11, 2016 11:43:59 AM CET Pablo Neira Ayuso wrote:
-> Dump and reset doesn't work unless cmpxchg64() is used both from packet
-> and control plane paths. This approach is going to be slow though.
-> Instead, use a percpu seqcount to fetch counters consistently, then
-> subtract bytes and packets in case a reset was requested.
+On Sun, Dec 11, 2016 at 02:18:00PM +0200, Saeed Mahameed wrote:
+> On Wed, Dec 7, 2016 at 4:41 AM, Andrew Lunn <andrew@lunn.ch> wrote:
+> > On Wed, Dec 07, 2016 at 12:33:08AM +0200, Saeed Mahameed wrote:
+> >> Hi Dave,
+> >>
+> >> This series adds the support for setting device registers from user
+> >> space ethtool.
+> >
+> > Is this not the start of allowing binary only drivers in user space?
+> >
 > 
-> The cpu that running over the reset code is guaranteed to own this stats
-> exclusively, we have to turn counters into signed 64bit though so stats
-> update on reset don't get wrong on underflow.
-> 
-> This patch is based on original sketch from Eric Dumazet.
-> 
-> Fixes: 43da04a593d8 ("netfilter: nf_tables: atomic dump and reset for stateful objects")
-> Suggested-by: Eric Dumazet <eric.dumazet@gmail.com>
-> Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
-> 
+> It is not, we want to do same as set_eeprom already do,
+> Just set some HW registers, for analysis/debug/tweak/configure HW
+> dependent register for the NIC netdev sake.
 
-Looks great, I had a similar idea that I was going to suggest the
-other day, but yours is better anyway.
+Mellanox has a good reputation of open drivers. However, this API
+sounds like it would be the first step towards user space
+drivers. This is an API which can peek and poke registers, so it
+probably could be mis-used to put part of a driver in user
+space. Hence we should avoid this sort of API to start with.
 
-	Arnd
+> where can i find some details about "HW performance counters for CPUs" ?
+
+https://perf.wiki.kernel.org/index.php/Tutorial
+
+	Andrew
