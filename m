@@ -1,86 +1,38 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 09/10] vsock/virtio: fix src/dst cid format
-Date: Sun, 11 Dec 2016 04:54:46 +0200
-Message-ID: <20161211045205-mutt-send-email-mst@kernel.org>
-References: <1481038106-24899-1-git-send-email-mst@redhat.com>
- <1481038106-24899-10-git-send-email-mst@redhat.com>
- <a0dcb733-ab1c-ac66-2300-fcb90fbacea2@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 0/3] net: bridge: fast ageing on topology
+	change
+Date: Sat, 10 Dec 2016 21:55:12 -0500 (EST)
+Message-ID: <20161210.215512.1243458025069409442.davem@davemloft.net>
+References: <20161210184429.31600-1-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org, stable@vger.kernel.org,
-        Stefan Hajnoczi <stefanha@redhat.com>,
-        "David S. Miller" <davem@davemloft.net>, kvm@vger.kernel.org,
-        virtualization@lists.linux-foundation.org, netdev@vger.kernel.org
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <stable-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <a0dcb733-ab1c-ac66-2300-fcb90fbacea2@redhat.com>
-Sender: stable-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: idosch@mellanox.com, andrew@lunn.ch, f.fainelli@gmail.com,
+	nikolay@cumulusnetworks.com, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
+	jiri@mellanox.com, kernel@savoirfairelinux.com
+To: vivien.didelot@savoirfairelinux.com
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20161210184429.31600-1-vivien.didelot@savoirfairelinux.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 07, 2016 at 12:31:56PM +0800, Jason Wang wrote:
-> 
-> 
-> On 2016年12月06日 23:41, Michael S. Tsirkin wrote:
-> > These fields are 64 bit, using le32_to_cpu and friends
-> > on these will not do the right thing.
-> > Fix this up.
-> > 
-> > Cc: stable@vger.kernel.org
-> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> > ---
-> >   net/vmw_vsock/virtio_transport_common.c | 14 +++++++-------
-> >   1 file changed, 7 insertions(+), 7 deletions(-)
-> > 
-> > diff --git a/net/vmw_vsock/virtio_transport_common.c b/net/vmw_vsock/virtio_transport_common.c
-> > index 6120384..22e99c4 100644
-> > --- a/net/vmw_vsock/virtio_transport_common.c
-> > +++ b/net/vmw_vsock/virtio_transport_common.c
-> > @@ -606,9 +606,9 @@ static int virtio_transport_reset_no_sock(struct virtio_vsock_pkt *pkt)
-> >   		return 0;
-> >   	pkt = virtio_transport_alloc_pkt(&info, 0,
-> > -					 le32_to_cpu(pkt->hdr.dst_cid),
-> > +					 le64_to_cpu(pkt->hdr.dst_cid),
-> >   					 le32_to_cpu(pkt->hdr.dst_port),
-> > -					 le32_to_cpu(pkt->hdr.src_cid),
-> > +					 le64_to_cpu(pkt->hdr.src_cid),
-> >   					 le32_to_cpu(pkt->hdr.src_port));
-> 
-> Looking at sockaddr_vm, svm_cid is "unsigned int", do we really want 64 bit
-> here?
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Date: Sat, 10 Dec 2016 13:44:26 -0500
 
-Can't change the protocol at this point.
+> 802.1D [1] specifies that the bridges in a network must use a short
+> value to age out dynamic entries in the Filtering Database for a period,
+> once a topology change has been communicated by the root bridge.
+> 
+> This patchset fixes this for the in-kernel STP implementation.
+ ...
 
-
-> >   	if (!pkt)
-> >   		return -ENOMEM;
-> > @@ -823,7 +823,7 @@ virtio_transport_send_response(struct vsock_sock *vsk,
-> >   	struct virtio_vsock_pkt_info info = {
-> >   		.op = VIRTIO_VSOCK_OP_RESPONSE,
-> >   		.type = VIRTIO_VSOCK_TYPE_STREAM,
-> > -		.remote_cid = le32_to_cpu(pkt->hdr.src_cid),
-> > +		.remote_cid = le64_to_cpu(pkt->hdr.src_cid),
-> >   		.remote_port = le32_to_cpu(pkt->hdr.src_port),
-> >   		.reply = true,
-> >   	};
-> > @@ -863,9 +863,9 @@ virtio_transport_recv_listen(struct sock *sk, struct virtio_vsock_pkt *pkt)
-> >   	child->sk_state = SS_CONNECTED;
-> >   	vchild = vsock_sk(child);
-> > -	vsock_addr_init(&vchild->local_addr, le32_to_cpu(pkt->hdr.dst_cid),
-> > +	vsock_addr_init(&vchild->local_addr, le64_to_cpu(pkt->hdr.dst_cid),
-> >   			le32_to_cpu(pkt->hdr.dst_port));
-> > -	vsock_addr_init(&vchild->remote_addr, le32_to_cpu(pkt->hdr.src_cid),
-> > +	vsock_addr_init(&vchild->remote_addr, le64_to_cpu(pkt->hdr.src_cid),
-> >   			le32_to_cpu(pkt->hdr.src_port));
-> >   	vsock_insert_connected(vchild);
-> > @@ -904,9 +904,9 @@ void virtio_transport_recv_pkt(struct virtio_vsock_pkt *pkt)
-> >   	struct sock *sk;
-> >   	bool space_available;
-> > -	vsock_addr_init(&src, le32_to_cpu(pkt->hdr.src_cid),
-> > +	vsock_addr_init(&src, le64_to_cpu(pkt->hdr.src_cid),
-> >   			le32_to_cpu(pkt->hdr.src_port));
-> > -	vsock_addr_init(&dst, le32_to_cpu(pkt->hdr.dst_cid),
-> > +	vsock_addr_init(&dst, le64_to_cpu(pkt->hdr.dst_cid),
-> >   			le32_to_cpu(pkt->hdr.dst_port));
-> >   	trace_virtio_transport_recv_pkt(src.svm_cid, src.svm_port,
+Series applied.
