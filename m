@@ -1,106 +1,110 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: net/3com/3c515: Fix timer handling, prevent leaks and crashes
-Date: Sun, 11 Dec 2016 18:31:22 +0100 (CET)
-Message-ID: <alpine.DEB.2.20.1612111826310.18281@nanos>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: [PATCH] stmmac: disable tx coalescing
+Date: Sun, 11 Dec 2016 20:07:50 +0100
+Message-ID: <20161211190750.GA14287@amd>
+References: <20161123105125.GA26394@amd>
+ <20161124085506.GA25007@amd>
+ <20161124.110416.198867271899443489.davem@davemloft.net>
+ <20161205122711.GA30774@amd>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: netdev@vger.kernel.org, Matthew Whitehead <tedheadster@gmail.com>,
-        Andy Lutomirski <luto@kernel.org>,
-        David Miller <davem@davemloft.net>
-To: LKML <linux-kernel@vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="NzB8fVQJ5HfG6fxh"
+Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, alexandre.torgue@st.com,
+        LinoSanfilippo@gmx.de
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20161205122711.GA30774@amd>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The timer handling in this driver is broken in several ways:
 
-- corkscrew_open() initializes and arms a timer before requesting the
-  device interrupt. If the request fails the timer stays armed.
+--NzB8fVQJ5HfG6fxh
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-  A second call to corkscrew_open will unconditionally reinitialize the
-  quued timer and arm it again. Also a immediate device removal will leave
-  the timer queued because close() is not called (open() failed) and
-  therefore nothing issues del_timer().
+Hi!
 
-  The reinitialization corrupts the link chain in the timer wheel hash
-  bucket and causes a NULL pointer dereference when the timer wheel tries
-  to operate on that hash bucket. Immediate device removal lets the link
-  chain poke into freed and possibly reused memory.
+David, ping? Can I get you to apply this one?
 
-  Solution: Arm the timer after the successful irq request.
+As you noticed, tx coalescing is completely broken in that driver, and
+not easy to repair. This is simplest way to disable it. It can still
+be re-enabled from userspace, so code can be fixed in future.
 
-- corkscrew_close() uses del_timer()
+Best regards,
+								Pavel
 
-  On close the timer is disarmed with del_timer() which lets the following
-  code race against a concurrent timer expiry function.
+>=20
+> Tx coalescing in stmmac is broken in more than one way, so disable it
+> for now.
+>    =20
+> First, low-res timers have resolution down to one per second. It is
+> not acceptable to delay transmits for 40msec, and certainly not
+> acceptable to delay them for 1000msec.
+>    =20
+> Second, the logic is wrong:
+>    =20
+>     if (likely(priv->tx_coal_frames > priv->tx_count_frames))
+>      	mod_timer(&priv->txtimer,
+>      	          STMMAC_COAL_TIMER(priv->tx_coal_timer));
+>     ...
+>    =20
+> doing tx_clean() after set number of packets, or set time after the
+> first packet is transmitted would make sense. But that's not what the
+> code does. As long as packets are being transmitted, you move the
+> timer into the future.. so that finally you run out of the place, then
+> wait for timer (!) and only then you do the cleaning.
+>=20
+> Third, tx_cleanup is not safe to call from interrupt (tx_lock is not
+> irqsave), but that's exactly what coalescing code does.
+>=20
+> Signed-off-by: Pavel Machek <pavel@denx.de>
+>=20
+> ---
+>=20
+> This is stable candidate, afaict. It is broken in 4.4, too.
+>=20
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/e=
+thernet/stmicro/stmmac/common.h
+> index 3ced2e1..32ce148 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/common.h
+> +++ b/drivers/net/ethernet/stmicro/stmmac/common.h
+> @@ -244,11 +244,11 @@ struct stmmac_extra_stats {
+>  /* Max/Min RI Watchdog Timer count value */
+>  #define MAX_DMA_RIWT		0xff
+>  #define MIN_DMA_RIWT		0x20
+> -/* Tx coalesce parameters */
+> +/* Tx coalesce parameters. Set STMMAC_TX_FRAMES to 0 to disable coalesci=
+ng. */
+>  #define STMMAC_COAL_TX_TIMER	40000
+>  #define STMMAC_MAX_COAL_TX_TICK	100000
+>  #define STMMAC_TX_MAX_FRAMES	256
+> -#define STMMAC_TX_FRAMES	64
+> +#define STMMAC_TX_FRAMES	0
+> =20
+>  /* Rx IPC status */
+>  enum rx_frame_status {
+>=20
 
-  Solution: Use del_timer_sync() instead
 
-- corkscrew_close() calls del_timer() unconditionally
 
-  del_timer() is invoked even if the timer was never initialized. This
-  works by chance because the struct containing the timer is zeroed at
-  allocation time.
+--=20
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
+g.html
 
-  Solution: Move the setup of the timer into corkscrew_setup().
+--NzB8fVQJ5HfG6fxh
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
 
-Reported-by: Matthew Whitehead <tedheadster@gmail.com>
-Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
-Cc: Andy Lutomirski <luto@kernel.org>
-Cc: netdev@vger.kernel.org
----
- drivers/net/ethernet/3com/3c515.c |   15 ++++++++-------
- 1 file changed, 8 insertions(+), 7 deletions(-)
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
 
---- a/drivers/net/ethernet/3com/3c515.c
-+++ b/drivers/net/ethernet/3com/3c515.c
-@@ -628,6 +628,8 @@ static int corkscrew_setup(struct net_de
- 
- 	spin_lock_init(&vp->lock);
- 
-+	setup_timer(&vp->timer, corkscrew_timer, (unsigned long) dev);
-+
- 	/* Read the station address from the EEPROM. */
- 	EL3WINDOW(0);
- 	for (i = 0; i < 0x18; i++) {
-@@ -708,6 +710,7 @@ static int corkscrew_open(struct net_dev
- {
- 	int ioaddr = dev->base_addr;
- 	struct corkscrew_private *vp = netdev_priv(dev);
-+	bool armtimer = false;
- 	__u32 config;
- 	int i;
- 
-@@ -732,12 +735,7 @@ static int corkscrew_open(struct net_dev
- 		if (corkscrew_debug > 1)
- 			pr_debug("%s: Initial media type %s.\n",
- 			       dev->name, media_tbl[dev->if_port].name);
--
--		init_timer(&vp->timer);
--		vp->timer.expires = jiffies + media_tbl[dev->if_port].wait;
--		vp->timer.data = (unsigned long) dev;
--		vp->timer.function = corkscrew_timer;	/* timer handler */
--		add_timer(&vp->timer);
-+		armtimer = true;
- 	} else
- 		dev->if_port = vp->default_media;
- 
-@@ -777,6 +775,9 @@ static int corkscrew_open(struct net_dev
- 		return -EAGAIN;
- 	}
- 
-+	if (armtimer)
-+		mod_timer(&vp->timer, jiffies + media_tbl[dev->if_port].wait);
-+
- 	if (corkscrew_debug > 1) {
- 		EL3WINDOW(4);
- 		pr_debug("%s: corkscrew_open() irq %d media status %4.4x.\n",
-@@ -1427,7 +1428,7 @@ static int corkscrew_close(struct net_de
- 			dev->name, rx_nocopy, rx_copy, queued_packet);
- 	}
- 
--	del_timer(&vp->timer);
-+	del_timer_sync(&vp->timer);
- 
- 	/* Turn off statistics ASAP.  We update lp->stats below. */
- 	outw(StatsDisable, ioaddr + EL3_CMD);
+iEYEARECAAYFAlhNpAYACgkQMOfwapXb+vLkwwCdFLawxwFhAIbDgXs0/hV0c0LR
+vUYAoLu1ZghttMTRs1aOlRci3QbTFLRe
+=iOFH
+-----END PGP SIGNATURE-----
+
+--NzB8fVQJ5HfG6fxh--
