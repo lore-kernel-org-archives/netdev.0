@@ -1,71 +1,77 @@
 From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
 Subject: Re: [PATCH net-next 0/2] Add ethtool set regs support
-Date: Sun, 11 Dec 2016 13:56:42 +0200
-Message-ID: <CALzJLG9WXBBQVdGpopgrAg_yF=eL3W5tU0E5u1xK5q8+0qahww@mail.gmail.com>
-References: <1481063590-7727-1-git-send-email-saeedm@mellanox.com> <20161206144509.5365a623@xeon-e3>
+Date: Sun, 11 Dec 2016 14:18:00 +0200
+Message-ID: <CALzJLG8nGU-29VoKDtdaoFuG7zfTvTTu14T91+PMxcJH-GG2bw@mail.gmail.com>
+References: <1481063590-7727-1-git-send-email-saeedm@mellanox.com> <20161207024143.GA655@lunn.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: Saeed Mahameed <saeedm@mellanox.com>,
         "David S. Miller" <davem@davemloft.net>,
         Linux Netdev List <netdev@vger.kernel.org>,
         "John W . Linville" <linville@tuxdriver.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:33785 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752089AbcLKL5E (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 11 Dec 2016 06:57:04 -0500
-Received: by mail-wm0-f67.google.com with SMTP id u144so4834747wmu.0
-        for <netdev@vger.kernel.org>; Sun, 11 Dec 2016 03:57:04 -0800 (PST)
-In-Reply-To: <20161206144509.5365a623@xeon-e3>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:34660 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752399AbcLKMSW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 11 Dec 2016 07:18:22 -0500
+Received: by mail-wm0-f65.google.com with SMTP id g23so4922372wme.1
+        for <netdev@vger.kernel.org>; Sun, 11 Dec 2016 04:18:22 -0800 (PST)
+In-Reply-To: <20161207024143.GA655@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 7, 2016 at 12:45 AM, Stephen Hemminger
-<stephen@networkplumber.org> wrote:
-> On Wed,  7 Dec 2016 00:33:08 +0200
-> Saeed Mahameed <saeedm@mellanox.com> wrote:
+On Wed, Dec 7, 2016 at 4:41 AM, Andrew Lunn <andrew@lunn.ch> wrote:
+> On Wed, Dec 07, 2016 at 12:33:08AM +0200, Saeed Mahameed wrote:
+>> Hi Dave,
+>>
+>> This series adds the support for setting device registers from user
+>> space ethtool.
 >
->> This simple ethool change will give HW vendors the flexibility to set
->> pure HW configurations (not directly related to netdev resources states
->> and rings), without the need of vendor proprietary tools and hacks.
->
->
-> The danger is you need to restrict the kernel to only allow setting
-> safe registers (and this is HW dependent).  There are cases like secure
-> boot where it is expected that even root is not allowed to modify
-> all memory.
->
-> Also supporting closed format of device registers is not in the interest
-> of promoting open source.
+> Is this not the start of allowing binary only drivers in user space?
 >
 
-This is not totally close format, it is only a generic API to support
-setting some of the HW registers.
-the format is open in
-1. http://www.mellanox.com/related-docs/user_manuals/Ethernet_Adapters_Programming_Manual.pdf
-2. http://lxr.free-electrons.com/source/include/linux/mlx5/mlx5_ifc.h
+It is not, we want to do same as set_eeprom already do,
+Just set some HW registers, for analysis/debug/tweak/configure HW
+dependent register for the NIC netdev sake.
 
-We just want to let the user to configure HW dependent registers
-without the need to add new defines/callback each time to the kernel
-ABI/API.
 
-> I am not saying I fundamentally disagree with supporting this, but it
-> is a bigger step than you make it out to be.
+> Do we want this?
+>
 
-I have to disagree, it is not as big as it seems, there are already at
-least two places in ethtool API that do the same,
+Apparently yes, Our performance team will be happy to have such
+feature upstream, so they can just jump in and start their performance
+analysis/debugging
+with ethtool directly without the need of extra proprietary FW tools
+(which sometimes demand reboot and driver restart for each
+configuration).
 
-http://lxr.free-electrons.com/source/include/linux/ethtool.h
-192  * @set_eeprom: Write data to the device EEPROM.
-193  *      Should validate the magic field.  Don't need to check len for zero
-194  *      or wraparound.  Update len to the amount written.  Returns an error
-195  *      or zero.
-http://lxr.free-electrons.com/source/net/core/ethtool.c#L1582
+This is one usage and i believe other NIC vendors will be happy to have this.
 
-234  * @flash_device: Write a firmware image to device's flash memory.
-235  *      Returns a negative error code or zero.
+>
+>> mlx5 driver have registers allowed access list and will check the user
+>> Request validity before forwarding it to HW registers. Mlx5 will allow only mlx5 specific
+>> configurations to be set (e.g. Device Diag Counters for HW performance debugging and analysis)
+>> which has no standard API to access it.
+>
+> Would it not be better to define an flexible API to do this? We have
+> lots of HW performance counters for CPUs. Why is it not possible to do
+> this for a network device?
+>
 
-Both accept a binary array from user and forward to HW/FW.
-Simply we want to to the same for HW registers, you already have a way
-to get them (even parse them in user ethtool), but you can't set them.
+What is flexible in this context ? Register Types/layout and purposes
+differs from vendor to vendor and changes cross HW updates and new HW
+generations.
+We simply don't want to inform/update the stack and ethtool API about
+each register layout, this is just not scalable, and those registers
+are not precisely meant for performance/debug counters, sometimes they
+have some other purposes. For example configuring an internal HW unit
+to work in different ways, so we can have some taste of  "on the fly"
+control for testing purposes.
+
+where can i find some details about "HW performance counters for CPUs" ?
+In light of my response, if you have any suggestion for more flexible
+(strongly typed) API, I will be glad to hear about it.
+
+Thanks for your response.
+Saeed.
