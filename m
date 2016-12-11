@@ -1,60 +1,71 @@
-From: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
-Subject: Re: Misalignment, MIPS, and ip_hdr(skb)->version
-Date: Sun, 11 Dec 2016 10:47:43 +0000
-Message-ID: <yw1xtwaawxm8.fsf@unicorn.mansr.com>
-References: <CAHmME9oLgjDA2F0gkFzHU2Es8-XCxQHRABS18OKF0EnZgt1=LQ@mail.gmail.com>
-        <20161207.145240.1636297838792223189.davem@davemloft.net>
-        <CAHmME9qxz6wcOZuurqahXeY6QSF=zz0gH7gY4RZujLAJPNSWBA@mail.gmail.com>
-        <20161207.193716.50344961208535056.davem@davemloft.net>
-        <CAHmME9qGoPGEFyqe0jBaZD5R51wHTEgAYb9edj+nu9nNPWSYCA@mail.gmail.com>
-        <20161211080718.GA7253@1wt.eu>
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [PATCH net-next 0/2] Add ethtool set regs support
+Date: Sun, 11 Dec 2016 13:56:42 +0200
+Message-ID: <CALzJLG9WXBBQVdGpopgrAg_yF=eL3W5tU0E5u1xK5q8+0qahww@mail.gmail.com>
+References: <1481063590-7727-1-git-send-email-saeedm@mellanox.com> <20161206144509.5365a623@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
-Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>, linux-mips@linux-mips.org,
-        Netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        WireGuard mailing list <wireguard@lists.zx2c4.com>
-To: Willy Tarreau <w@1wt.eu>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161211080718.GA7253@1wt.eu> (Willy Tarreau's message of "Sun,
-        11 Dec 2016 09:07:18 +0100")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Saeed Mahameed <saeedm@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        "John W . Linville" <linville@tuxdriver.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:33785 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752089AbcLKL5E (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 11 Dec 2016 06:57:04 -0500
+Received: by mail-wm0-f67.google.com with SMTP id u144so4834747wmu.0
+        for <netdev@vger.kernel.org>; Sun, 11 Dec 2016 03:57:04 -0800 (PST)
+In-Reply-To: <20161206144509.5365a623@xeon-e3>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Willy Tarreau <w@1wt.eu> writes:
-
-> Hi Jason,
+On Wed, Dec 7, 2016 at 12:45 AM, Stephen Hemminger
+<stephen@networkplumber.org> wrote:
+> On Wed,  7 Dec 2016 00:33:08 +0200
+> Saeed Mahameed <saeedm@mellanox.com> wrote:
 >
-> On Thu, Dec 08, 2016 at 11:20:04PM +0100, Jason A. Donenfeld wrote:
->> Hi David,
->> 
->> On Thu, Dec 8, 2016 at 1:37 AM, David Miller <davem@davemloft.net> wrote:
->> > You really have to land the IP header on a proper 4 byte boundary.
->> >
->> > I would suggest pushing 3 dummy garbage bytes of padding at the front
->> > or the end of your header.
->> 
->> Are you sure 3 bytes to get 4 byte alignment is really the best?
+>> This simple ethool change will give HW vendors the flexibility to set
+>> pure HW configurations (not directly related to netdev resources states
+>> and rings), without the need of vendor proprietary tools and hacks.
 >
-> It's always the best. However there's another option which should be
-> considered : maybe it's difficult but not impossible to move some bits
-> from the current protocol to remove one byte. That's not always easy,
-> and sometimes you cannot do it just for one bit. However after you run
-> through this exercise, if you notice there's really no way to shave
-> this extra byte, you'll realize there's no room left for future
-> extensions and you'll more easily accept to add 3 empty bytes for
-> this, typically protocol version, tags, qos or flagss that you'll be
-> happy to rely on for future versions of your protocol.
+>
+> The danger is you need to restrict the kernel to only allow setting
+> safe registers (and this is HW dependent).  There are cases like secure
+> boot where it is expected that even root is not allowed to modify
+> all memory.
+>
+> Also supporting closed format of device registers is not in the interest
+> of promoting open source.
+>
 
-Always include some way of extending the protocol in the future.  A
-single bit is often enough.  Require a value of zero initially, then if
-you ever want to change anything, setting it to one can indicate
-whatever you want, including a complete redesign of the header.
-Alternatively, a one-bit field can indicate the presence of an extended
-header yet to be defined.  Then old software can still make sense of the
-basic header.
+This is not totally close format, it is only a generic API to support
+setting some of the HW registers.
+the format is open in
+1. http://www.mellanox.com/related-docs/user_manuals/Ethernet_Adapters_Programming_Manual.pdf
+2. http://lxr.free-electrons.com/source/include/linux/mlx5/mlx5_ifc.h
 
--- 
-Måns Rullgård
+We just want to let the user to configure HW dependent registers
+without the need to add new defines/callback each time to the kernel
+ABI/API.
+
+> I am not saying I fundamentally disagree with supporting this, but it
+> is a bigger step than you make it out to be.
+
+I have to disagree, it is not as big as it seems, there are already at
+least two places in ethtool API that do the same,
+
+http://lxr.free-electrons.com/source/include/linux/ethtool.h
+192  * @set_eeprom: Write data to the device EEPROM.
+193  *      Should validate the magic field.  Don't need to check len for zero
+194  *      or wraparound.  Update len to the amount written.  Returns an error
+195  *      or zero.
+http://lxr.free-electrons.com/source/net/core/ethtool.c#L1582
+
+234  * @flash_device: Write a firmware image to device's flash memory.
+235  *      Returns a negative error code or zero.
+
+Both accept a binary array from user and forward to HW/FW.
+Simply we want to to the same for HW registers, you already have a way
+to get them (even parse them in user ethtool), but you can't set them.
