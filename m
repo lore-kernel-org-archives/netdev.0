@@ -1,71 +1,108 @@
-From: <jeroen.de_wachter.ext@nokia.com>
-Subject: [PATCH 1/2] encx24j600: bugfix - always move ERXTAIL to next packet in encx24j600_rx_packets
-Date: Mon, 12 Dec 2016 14:29:08 +0100
-Message-ID: <1481549349-8199-1-git-send-email-jeroen.de_wachter.ext@nokia.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-        <netdev@vger.kernel.org>,
-        Jeroen De Wachter <jeroen.de_wachter.ext@nokia.com>
-To: David Miller <davem@davemloft.net>,
-        Jon Ringle <jringle@gridpoint.com>
+From: Volodymyr Bendiuga <volodymyr.bendiuga@gmail.com>
+Subject: [PATCH net-next 2/3] net:dsa:mv88e6xxx: add helper functions to operate on hashtable
+Date: Mon, 12 Dec 2016 14:40:31 +0100
+Message-ID: <1481550031-3227-1-git-send-email-volodymyr.bendiuga@gmail.com>
+Cc: Volodymyr Bendiuga <volodymyr.bendiuga@gmail.com>
+To: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
+        f.fainelli@gmail.com, netdev@vger.kernel.org,
+        volodymyr.bendiuga@westermo.se
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fr-hpida-esg-02.alcatel-lucent.com ([135.245.210.21]:40030 "EHLO
-        smtp-fr.alcatel-lucent.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750712AbcLLNkL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Dec 2016 08:40:11 -0500
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:33586 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752406AbcLLNko (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 12 Dec 2016 08:40:44 -0500
+Received: by mail-wm0-f66.google.com with SMTP id u144so11349938wmu.0
+        for <netdev@vger.kernel.org>; Mon, 12 Dec 2016 05:40:43 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeroen De Wachter <jeroen.de_wachter.ext@nokia.com>
+This implementation is similar to rocker driver: drivers/net/ethernet/rocker_ofdpa.c
 
-Before, encx24j600_rx_packets did not update encx24j600_priv's next_packet
-member when an error occurred during packet handling (either because the
-packet's RSV header indicates an error or because the encx24j600_receive_packet
-method can't allocate an sk_buff).
+mv88e6xxx_pvec_tbl_find - iterates through entries in the hashtable
+and looks for a match.
 
-If the next_packet member is not updated, the ERXTAIL register will be set to
-the same value it had before, which means the bad packet remains in the
-component's memory and its RSV header will be read again when a new packet
-arrives. If the RSV header indicates a bad packet or if sk_buff allocation
-continues to fail, new packets will be stored in the component's memory until
-that memory is full, after which packets will be dropped.
+mv88e6xxx_pvec_tbl_get - returns en entry if it is found in the
+hashtable
 
-The SETPKTDEC command is always executed though, so the encx24j600 hardware has
-an incorrect count of the packets in its memory.
+mv88e6xxx_pvec_tbl_update - updates the hashtable: inserts new entry,
+deletes/modifies existing one.
 
-To prevent this, the next_packet member should always be updated, allowing the
-packet to be skipped (either because it's bad, as indicated in its RSV header,
-or because allocating an sk_buff failed). In the allocation failure case, this
-does mean dropping a valid packet, but dropping the oldest packet to keep as
-much memory as possible available for new packets seems preferable to keeping
-old (but valid) packets around while dropping new ones.
-
-Signed-off-by: Jeroen De Wachter <jeroen.de_wachter.ext@nokia.com>
+Signed-off-by: Volodymyr Bendiuga <volodymyr.bendiuga@gmail.com>
 ---
- drivers/net/ethernet/microchip/encx24j600.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/dsa/mv88e6xxx/chip.c | 61 ++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 61 insertions(+)
 
-diff --git a/drivers/net/ethernet/microchip/encx24j600.c b/drivers/net/ethernet/microchip/encx24j600.c
-index b14f030..5251aa3 100644
---- a/drivers/net/ethernet/microchip/encx24j600.c
-+++ b/drivers/net/ethernet/microchip/encx24j600.c
-@@ -346,7 +346,6 @@ static int encx24j600_receive_packet(struct encx24j600_priv *priv,
- 	/* Maintain stats */
- 	dev->stats.rx_packets++;
- 	dev->stats.rx_bytes += rsv->len;
--	priv->next_packet = rsv->next_packet;
+diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+index 173ea97..6597f3f 100644
+--- a/drivers/net/dsa/mv88e6xxx/chip.c
++++ b/drivers/net/dsa/mv88e6xxx/chip.c
+@@ -2008,6 +2008,67 @@ static int _mv88e6xxx_atu_load(struct mv88e6xxx_chip *chip,
+ 	return _mv88e6xxx_atu_cmd(chip, entry->fid, GLOBAL_ATU_OP_LOAD_DB);
+ }
  
- 	netif_rx(skb);
- 
-@@ -383,6 +382,8 @@ static void encx24j600_rx_packets(struct encx24j600_priv *priv, u8 packet_count)
- 			encx24j600_receive_packet(priv, &rsv);
- 		}
- 
-+		priv->next_packet = rsv.next_packet;
++static struct pvec_tbl_entry *
++mv88e6xxx_pvec_tbl_find(struct mv88e6xxx_chip *chip, struct pvec_tbl_entry *match)
++{
++        struct pvec_tbl_entry *found;
 +
- 		newrxtail = priv->next_packet - 2;
- 		if (newrxtail == ENC_RX_BUF_START)
- 			newrxtail = SRAM_SIZE - 2;
++        hash_for_each_possible(chip->pvec_tbl, found, entry, match->key_crc32)
++                if (memcmp(&found->key, &match->key, sizeof(found->key)) == 0)
++                        return found;
++        return NULL;
++}
++
++static int mv88e6xxx_pvec_tbl_update(struct mv88e6xxx_chip *chip, u16 fid,
++			      const unsigned char *addr, u16 pvec)
++{
++        struct pvec_tbl_entry *obj;
++        struct pvec_tbl_entry *found;
++        bool remove = pvec ? false : true;
++
++        obj = kzalloc(sizeof(*obj), GFP_KERNEL);
++        if (!obj)
++                return -ENOMEM;
++
++	obj->pvec = pvec;
++        ether_addr_copy(obj->key.addr, addr);
++        obj->key.fid = fid;
++        obj->key_crc32 = crc32(~0, &obj->key, sizeof(obj->key));
++
++        found = mv88e6xxx_pvec_tbl_find(chip, obj);
++
++        if (remove && found) {
++                kfree(obj);
++                hash_del(&found->entry);
++        } else if (!remove && !found) {
++                hash_add(chip->pvec_tbl, &obj->entry, obj->key_crc32);
++        } else if (!remove && found) {
++                kfree(obj);
++                found->pvec = pvec; /* update */
++        } else {
++                kfree(obj);
++        }
++
++        return 0;
++}
++
++static u16 mv88e6xxx_pvec_tbl_get(struct mv88e6xxx_chip *chip,
++			   u16 fid, const unsigned char *addr)
++{
++        struct pvec_tbl_entry obj;
++        struct pvec_tbl_entry *found;
++
++        ether_addr_copy(obj.key.addr, addr);
++        obj.key.fid = fid;
++        obj.key_crc32 = crc32(~0, &obj.key, sizeof(obj.key));
++
++        found = mv88e6xxx_pvec_tbl_find(chip, &obj);
++        if (found)
++                return found->pvec;
++
++        return 0;
++}
++
+ static int _mv88e6xxx_atu_getnext(struct mv88e6xxx_chip *chip, u16 fid,
+ 				  struct mv88e6xxx_atu_entry *entry);
+ 
 -- 
-1.8.3.1
+2.7.4
