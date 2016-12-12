@@ -1,70 +1,40 @@
-From: Jonathan Toppins <jtoppins-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH V2 10/22] bnxt_re: Support for CQ verbs
-Date: Mon, 12 Dec 2016 16:03:27 -0500
-Message-ID: <d9b40373-e638-7d1b-0ce2-d303b49c9644@redhat.com>
-References: <1481266096-23331-1-git-send-email-selvin.xavier@broadcom.com>
- <1481266096-23331-11-git-send-email-selvin.xavier@broadcom.com>
-Reply-To: jtoppins-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [RFC PATCH net-next v3 1/2] macb: Add 1588 support in Cadence
+ GEM.
+Date: Mon, 12 Dec 2016 22:09:17 +0100
+Message-ID: <20161212210917.GA1298@localhost.localdomain>
+References: <1481134912-2243-1-git-send-email-andrei.pistirica@microchip.com>
+ <20161207193908.GA13062@netboy>
+ <20161207210416.GA27622@netboy>
+ <07C910AB6AC6C345A093D5A08F5AF568CB74AF28@CHN-SV-EXMX03.mchp-main.com>
+ <BN3PR07MB2516992DEE883FAD6DC3ED08C9870@BN3PR07MB2516.namprd07.prod.outlook.com>
+ <07C910AB6AC6C345A093D5A08F5AF568CB74D84D@CHN-SV-EXMX03.mchp-main.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Eddie Wai <eddie.wai-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Devesh Sharma <devesh.sharma-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Somnath Kotur <somnath.kotur-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Sriharsha Basavapatna <sriharsha.basavapatna-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-To: Selvin Xavier <selvin.xavier-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>, dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1481266096-23331-11-git-send-email-selvin.xavier-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: harini.katakam@xilinx.com, rafalo@cadence.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org, davem@davemloft.net,
+        nicolas.ferre@atmel.com, harinikatakamlinux@gmail.com,
+        punnaia@xilinx.com, michals@xilinx.com, anirudh@xilinx.com,
+        boris.brezillon@free-electrons.com,
+        alexandre.belloni@free-electrons.com, tbultel@pixelsurmer.com
+To: Andrei.Pistirica@microchip.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wj0-f196.google.com ([209.85.210.196]:35585 "EHLO
+        mail-wj0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932615AbcLLVJ2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 12 Dec 2016 16:09:28 -0500
+Content-Disposition: inline
+In-Reply-To: <07C910AB6AC6C345A093D5A08F5AF568CB74D84D@CHN-SV-EXMX03.mchp-main.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/09/2016 01:48 AM, Selvin Xavier wrote:
-> This patch implements support for create_cq, destroy_cq and req_notify_cq
-> verbs.
-> 
-> Signed-off-by: Eddie Wai <eddie.wai-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-> Signed-off-by: Devesh Sharma <devesh.sharma-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-> Signed-off-by: Somnath Kotur <somnath.kotur-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-> Signed-off-by: Sriharsha Basavapatna <sriharsha.basavapatna-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-> Signed-off-by: Selvin Xavier <selvin.xavier-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-> ---
->  drivers/infiniband/hw/bnxtre/bnxt_qplib_fp.c    | 183 ++++++++++++++++++++++++
->  drivers/infiniband/hw/bnxtre/bnxt_qplib_fp.h    |  47 ++++++
->  drivers/infiniband/hw/bnxtre/bnxt_re_ib_verbs.c | 154 ++++++++++++++++++++
->  drivers/infiniband/hw/bnxtre/bnxt_re_ib_verbs.h |  19 +++
->  drivers/infiniband/hw/bnxtre/bnxt_re_main.c     |   4 +
->  include/uapi/rdma/bnxt_re_uverbs_abi.h          |  11 ++
->  6 files changed, 418 insertions(+)
+On Mon, Dec 12, 2016 at 10:22:43AM +0000, Andrei.Pistirica@microchip.com wrote:
+> Richard, are you agree with this?
 
-Something I just realized is this patch series does not modify the
-MAINTAINERS file. Whom from Broadcom will be maintaining this driver?
-Probably want to include this info in the v3 series
+Yes, but please trim your replies next time.  Scrolling through pages
+of quoted headers and stale content in order to read one line is very
+annoying.
 
-[...]
-
-> diff --git a/drivers/infiniband/hw/bnxtre/bnxt_re_ib_verbs.c b/drivers/infiniband/hw/bnxtre/bnxt_re_ib_verbs.c
-> index 3417829..f316598 100644
-> --- a/drivers/infiniband/hw/bnxtre/bnxt_re_ib_verbs.c
-> +++ b/drivers/infiniband/hw/bnxtre/bnxt_re_ib_verbs.c
-> @@ -60,6 +60,16 @@
->  #include "bnxt_re_ib_verbs.h"
->  #include <rdma/bnxt_re_uverbs_abi.h>
->  
-> +static int bnxt_re_copy_to_udata(struct bnxt_re_dev *rdev, void *data, int len,
-> +				 struct ib_udata *udata)
-> +{
-> +	int rc;
-> +
-> +	rc = ib_copy_to_udata(udata, data, len);
-> +
-> +	return rc ? -EFAULT : 0;
-> +}
-
-This function seems to provide no value by wrapping ib_copy_to_udata,
-any reason to keep it? From the two call sites for this function it
-appears it can be replaced with a direct call to ib_copy_to_udata.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks,
+Richard
