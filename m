@@ -1,64 +1,115 @@
-From: Christoph Lameter <cl@linux.com>
-Subject: Re: Designing a safe RX-zero-copy Memory Model for Networking
-Date: Mon, 12 Dec 2016 12:06:59 -0600 (CST)
-Message-ID: <alpine.DEB.2.20.1612121200280.13607@east.gentwo.org>
-References: <20161205153132.283fcb0e@redhat.com> <20161212083812.GA19987@rapoport-lnx> <20161212104042.0a011212@redhat.com> <20161212141433.GB19987@rapoport-lnx> <584EB8DF.8000308@gmail.com> <20161212181344.3ddfa9c3@redhat.com>
-Content-Type: text/plain; charset=US-ASCII
-Cc: John Fastabend <john.fastabend@gmail.com>,
-        Mike Rapoport <rppt@linux.vnet.ibm.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        linux-mm <linux-mm@kvack.org>,
-        Willem de Bruijn <willemdebruijn.kernel@gmail.com>,
-        =?ISO-8859-15?Q?Bj=F6rn_T=F6pel?= <bjorn.topel@intel.com>,
-        "Karlsson, Magnus" <magnus.karlsson@intel.com>,
-        Alexander Duyck <alexander.duyck@gmail.com>,
-        Mel Gorman <mgorman@techsingularity.net>,
-        Tom Herbert <tom@herbertland.com>,
-        Brenden Blanco <bblanco@plumgrid.com>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Jesse Brandeburg <jesse.brandeburg@intel.com>,
-        Kalman Meth <METH@il.ibm.com>,
-        Vladislav Yasevich <vyasevich@gmail.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from resqmta-ch2-11v.sys.comcast.net ([69.252.207.43]:37255 "EHLO
-        resqmta-ch2-11v.sys.comcast.net" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752730AbcLLSHI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Dec 2016 13:07:08 -0500
-In-Reply-To: <20161212181344.3ddfa9c3@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Leon Romanovsky <leon@kernel.org>
+Subject: Re: [PATCH 1/1] Fixed to BUG_ON to WARN_ON def
+Date: Mon, 12 Dec 2016 20:18:38 +0200
+Message-ID: <20161212181838.GB8204@mtr-leonro.local>
+References: <811031481540339@web1j.yandex.ru>
+ <20161212123937.GA6503@mtr-leonro.local>
+ <2090831481547868@web27h.yandex.ru>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha256;
+        protocol="application/pgp-signature"; boundary="WhfpMioaduB5tiZL"
+Cc: "yishaih@mellanox.com" <yishaih@mellanox.com>,
+        netdev <netdev@vger.kernel.org>,
+        linux-kernel <linux-kernel@vger.kernel.org>
+To: Ozgur Karatas <okaratas@member.fsf.org>,
+        Tariq Toukan <tariqt@mellanox.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <2090831481547868@web27h.yandex.ru>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 12 Dec 2016, Jesper Dangaard Brouer wrote:
 
-> Hmmm. If you can rely on hardware setup to give you steering and
-> dedicated access to the RX rings.  In those cases, I guess, the "push"
-> model could be a more direct API approach.
+--WhfpMioaduB5tiZL
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-If the hardware does not support steering then one should be able to
-provide those services in software.
+On Mon, Dec 12, 2016 at 03:04:28PM +0200, Ozgur Karatas wrote:
+> Dear Romanovsky;
 
-> I was shooting for a model that worked without hardware support.  And
-> then transparently benefit from HW support by configuring a HW filter
-> into a specific RX queue and attaching/using to that queue.
+Please avoid top-posting in your replies.
+Thanks
 
-The discussion here is a bit amusing since these issues have been resolved
-a long time ago with the design of the RDMA subsystem. Zero copy is
-already in wide use. Memory registration is used to pin down memory areas.
-Work requests can be filed with the RDMA subsystem that then send and
-receive packets from the registered memory regions. This is not strictly
-remote memory access but this is a basic mode of operations supported  by
-the RDMA subsystem. The mlx5 driver quoted here supports all of that.
+>
+> I'm trying to learn english and I apologize for my mistake words and phra=
+ses. So, I think the code when call to "sg_set_buf" and next time set memor=
+y and buffer. For example, isn't to call "WARN_ON" function, get a error to=
+ implicit declaration, right?
+>
+> Because, you will use to "BUG_ON" get a error implicit declaration of fun=
+ctions.
 
-What is bad about RDMA is that it is a separate kernel subsystem. What I
-would like to see is a deeper integration with the network stack so that
-memory regions can be registred with a network socket and work requests
-then can be submitted and processed that directly read and write in these
-regions. The network stack should provide the services that the hardware
-of the NIC does not suppport as usual.
+I'm not sure that I followed you. mem->offset is set by sg_set_buf from
+buf variable returned by dma_alloc_coherent(). HW needs to get very
+precise size of this buf, in multiple of pages and aligned to pages
+boundaries.
 
-The RX/TX ring in user space should be an additional mode of operation of
-the socket layer. Once that is in place the "Remote memory acces" can be
-trivially implemented on top of that and the ugly RDMA sidecar subsystem
-can go away.
+>
+>         sg_set_buf(mem, buf, PAGE_SIZE << order);
+>         WARN_ON(mem->offset);
+
+See the patch inline which removes this BUG_ON in proper and safe way.
+
+=46rom 7babe807affa2b27d51d3610afb75b693929ea1a Mon Sep 17 00:00:00 2001
+=46rom: Leon Romanovsky <leonro@mellanox.com>
+Date: Mon, 12 Dec 2016 20:02:45 +0200
+Subject: [PATCH] net/mlx4: Remove BUG_ON from ICM allocation routine
+
+This patch removes BUG_ON() macro from mlx4_alloc_icm_coherent()
+by checking DMA address aligment in advance and performing proper
+folding in case of error.
+
+Fixes: 5b0bf5e25efe ("mlx4_core: Support ICM tables in coherent memory")
+Reported-by: Ozgur Karatas <okaratas@member.fsf.org>
+Signed-off-by: Leon Romanovsky <leonro@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/icm.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/icm.c b/drivers/net/etherne=
+t/mellanox/mlx4/icm.c
+index 2a9dd46..e1f9e7c 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/icm.c
++++ b/drivers/net/ethernet/mellanox/mlx4/icm.c
+@@ -118,8 +118,13 @@ static int mlx4_alloc_icm_coherent(struct device *dev,=
+ struct scatterlist *mem,
+ 	if (!buf)
+ 		return -ENOMEM;
+
++	if (offset_in_page(buf)) {
++		dma_free_coherent(dev, PAGE_SIZE << order,
++				  buf, sg_dma_address(mem));
++		return -ENOMEM;
++	}
++
+ 	sg_set_buf(mem, buf, PAGE_SIZE << order);
+-	BUG_ON(mem->offset);
+ 	sg_dma_len(mem) =3D PAGE_SIZE << order;
+ 	return 0;
+ }
+--
+2.10.2
+
+
+--WhfpMioaduB5tiZL
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAlhO6f4ACgkQ5GN7iDZy
+WKcxpxAAyKvCvlder4m5O/Aatktymu9LfkaalJXpWA6ZJYCmRDRzexedWmbgInPq
+xEvlxDHrRNWq908Ia8aLbd0htGp2oAsELxvMhpHYz1T31KWAqwK1YK9Kbc5kHJ5s
+yZblel7Sc+psmdno+wPBl6xcobVhFMvotOi42eiJV3dM37zaCSj4KGpGXCp8b1g2
++cCwxxW6AWLN9yIgX/ECwQDirLL8n/nhkOQML0IpS3KGyAnQeWWI58CPnrymOQMs
+BETtLjZh6bZ2kSeKQkkJXIU1kM77Pm1SIKSl8I4O5KcxQ2KPPj0obvfUJI/1QrJb
+Z8jFdXJHQiCTzUYzbCWG8A2CcShk6Zx44yq8LzRXxHaue0nEDghYL7ojvZc5TpyD
+pVZoAHhNveN6cwOt6xOdC5uXkf49+QMcEvUe9hndlqM2kVJyHopCofFK4Pk8aT/y
+mfldCRJL1DFg2yprVLePTPaDYr2uveJ5bs6uCu16TIHss76fDEi4mNBhkDEBRdsN
+zfoHQXQrovsqaYooqAOqDPTu2lMkildpcBVps1JYNRVcnzX3QZffNlg1+Etwduic
+qyX/CCDUv+VImKFAp/FAzCQcrf9ee2LAvHXGC4vSGC1IR1OQ8FYBSAwW6vviA0Aa
+dEzXCsTyiQWjL0ajgm+AhR+qzV2CIUsVIvbgblcEoSIOaskDTKE=
+=24N9
+-----END PGP SIGNATURE-----
+
+--WhfpMioaduB5tiZL--
