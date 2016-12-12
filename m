@@ -1,194 +1,244 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [ANNOUNCE] iproute2 4.9
-Date: Mon, 12 Dec 2016 15:24:27 -0800
-Message-ID: <20161212152427.737b3861@xeon-e3>
+From: Theodore Ts'o <tytso@mit.edu>
+Subject: "virtio-net: enable multiqueue by default" in linux-next breaks
+ networking on GCE
+Date: Mon, 12 Dec 2016 18:33:43 -0500
+Message-ID: <20161212233343.q5xlv55rc5npqaqp@thunk.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: quoted-printable
-Cc: linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, mst@redhat.com, nhorman@tuxdriver.com,
+        davem@davemloft.net
+To: jasowang@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from imap.thunk.org ([74.207.234.97]:46134 "EHLO imap.thunk.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752298AbcLLXdv (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 12 Dec 2016 18:33:51 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Release of iproute2 for Linux 4.9, just in time for your holiday
-giving.
+Hi,
 
-Update to iproute2 utility to support new features in Linux 4.9.
-Mostly this is refinements to add new flags to tipc, l2tp, ss
-and macsec support. There are also a couple of performance
-enhancments for handling lots of interfaces and namespaces.
+I was doing a last minute regression test of the ext4 tree before
+sending a pull request to Linus, which I do using gce-xfstests[1], and
+I found that using networking was broken on GCE on linux-next.  I was
+using next-20161209, and after bisecting things, I narrowed down the
+commit which causing things to break to commit 449000102901:
+"virtio-net: enable multiqueue by default".  Reverting this commit on
+top of next-20161209 fixed the problem.
 
-Source:
-  https://www.kernel.org/pub/linux/utils/net/iproute2/iproute2-4.9.0.tar.gz
+[1] http://thunk.org/gce-xfstests
 
-Repository:
-  git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git
+You can reproduce the problem for building the kernel for Google
+Compute Engine --- I use a config such as this [2], and then try to
+boot a kernel on a VM.  The way I do this involves booting a test
+appliance and then kexec'ing into the kernel to be tested[3], using a
+2cpu configuration.  (GCE machine type: n1-standard-2)
 
-Report problems (or enhancements) to the netdev@vger.kernel.org mailing lis=
-t.
+[2] https://git.kernel.org/cgit/fs/ext2/xfstests-bld.git/tree/kernel-config=
+s/ext4-x86_64-config-4.9
+[3] https://github.com/tytso/xfstests-bld/blob/master/Documentation/gce-xfs=
+tests.md
 
----
-Alexei Starovoitov (1):
-      iptnl: add support for collect_md flag in IPv4 and IPv6 tunnels
+You can then take a look at serial console using a command such as
+"gcloud compute instances get-serial-port-output <instance-name>", and
+you will get something like this (see attached).  The important bit is
+that the dhclient command is completely failing to be able to get a
+response from the network, from which I deduce that apparently that
+either networking send or receive or both seem to be badly affected by
+the commit in question.
 
-Anton Aksola (1):
-      iproute2: build nsid-name cache only for commands that need it
+Please let me know if there's anything I can do to help you debug this
+further.
 
-Asbj=C3=B8rn Sloth T=C3=B8nnesen (9):
-      man: ip-l2tp.8: fix l2spec_type documentation
-      man: ip-l2tp.8: remove non-existent tunnel parameter name
-      l2tp: fix integers with too few significant bits
-      l2tp: fix L2TP_ATTR_{RECV,SEND}_SEQ handling
-      l2tp: fix L2TP_ATTR_UDP_CSUM handling
-      l2tp: read IPv6 UDP checksum attributes from kernel
-      l2tp: support sequence numbering
-      l2tp: show tunnel: expose UDP checksum state
-      man: ip-l2tp.8: document UDP checksum options
+Cheers,
 
-Craig Dillabaugh (1):
-      action gact: list pipe as a valid action
+						- Ted
 
-Daniel Borkmann (1):
-      tc, ipt: don't enforce iproute2 dependency on iptables-devel
-
-Daniel Hopf (1):
-      macsec: Nr. of packets and octets for macsec tx stats were swapped
-
-Eric Dumazet (1):
-      tc: fq: display unthrottle latency
-
-Hadar Hen Zion (2):
-      tc: flower: Introduce vlan support
-      tc: m_vlan: Add priority option to push vlan action
-
-Hangbin Liu (4):
-      misc/ss: tcp cwnd should be unsigned
-      ip rule: merge ip rule flush and list, save together
-      ip rule: add selector support
-      devlink: Convert conditional in dl_argv_handle_port() to switch()
-
-Isaac Boukris (1):
-      iproute2: ss: escape all null bytes in abstract unix domain socket
-
-Jakub Kicinski (1):
-      tc: cls_bpf: handle skip_sw and skip_hw flags
-
-Jamal Hadi Salim (4):
-      actions ife: Introduce encoding and decoding of tcindex metadata
-      actions: add skbmod action
-      man pages: Add tc-ife to Makefile
-      tc filters: add support to get individual filters by handle
-
-Lorenzo Colitti (1):
-      ss: Support displaying and filtering on socket marks.
-
-Lucas Bates (2):
-      man pages: update ife action to include tcindex
-      man pages: add man page for skbmod action
-
-Mahesh Bandewar (1):
-      ip: (ipvlan) introduce L3s mode
-
-Mike Frysinger (1):
-      ifstat/nstat: fix help output alignment
-
-Moshe Shemesh (1):
-      ip link: Add support to configure SR-IOV VF to vlan protocol 802.1ad =
-(VST QinQ)
-
-Neal Cardwell (1):
-      ss: output TCP BBR diag information
-
-Nikolay Aleksandrov (4):
-      bridge: vlan: add support to display per-vlan statistics
-      ipmroute: add support for age dumping
-      bridge: vlan: remove wrong stats help
-      bridge: add support for the multicast flood flag
-
-Parthasarathy Bhuvaragan (7):
-      tipc: remove dead code
-      tipc: add link monitor set threshold
-      tipc: add link monitor get threshold
-      tipc: add link monitor summary
-      tipc: refractor bearer to facilitate link monitor
-      tipc: add link monitor list
-      tipc: update man page for link monitor
-
-Paul Blakey (1):
-      tc: flower: Fix usage message
-
-Phil Sutter (6):
-      iproute: fix documentation for ip rule scan order
-      include: Add linux/sctp.h
-      ss: Add support for SCTP protocol
-      ipaddress: Simplify vf_info parsing
-      ipaddress: Print IFLA_VF_QUERY_RSS_EN setting
-      man: ip-route.8: Add notes about dropped IPv4 route cache
-
-Richard Alpe (3):
-      tipc: add peer remove functionality
-      tipc: introduce bearer add for remoteip
-      tipc: add the ability to get UDP bearer options
-
-Roi Dayan (2):
-      devlink: Add usage help for eswitch subcommand
-      devlink: Add option to set and show eswitch inline mode
-
-Roman Mashak (7):
-      ife action: allow specifying index in hex
-      ife: print prio, mark and hash as unsigned
-      ife: improve help text
-      tc: updated man page to reflect GET command to retrieve a single filt=
-er.
-      tc: improved usage help for fw classifier.
-      tc: print raw qdisc handle.
-      tc: distinguish Add/Replace filter operations
-
-Shmulik Ladkani (1):
-      tc: m_vlan: Add vlan modify action
-
-Simon Horman (1):
-      ss: initialise variables outside of for loop
-
-Stephen Hemminger (24):
-      update headers to 4.8-rc2 net-next
-      update TIPC headers
-      tipc: cleanup style issues
-      update kernel headers from net-next
-      update bpf.h
-      update headers from pre 4.9 (net-next)
-      iplink: cleanup style errors
-      ip: iprule style cleanup
-      tc: skbmod style cleanup
-      tc_filter: style cleanup
-      ip: macvlan style cleanup
-      Revert "iproute2: macvlan: add "source" mode"
-      cleanup debris from revert
-      ss: break really long lines
-      ip: style cleanup
-      tc: cleanup style of qdisc code
-      update headers based on 4.9-rc7
-      libnetlink: style cleanups
-      l2tp: style cleanup
-      Revert "devlink: Add option to set and show eswitch inline mode"
-      Revert "devlink: Add usage help for eswitch subcommand"
-      update kernel headers
-      update to 4.9 release headers
-      v4.9.0
-
-Zhang Shengju (3):
-      iproute2: fix the link group name getting error
-      libnetlink: reduce size of message sent to kernel
-      link: add team and team_slave link type
-
-david decotigny (2):
-      iproute2: avoid exit in case of error.
-      iproute2: a non-expected rtnl message is an error
-
-michael-dev@fami-braun.de (2):
-      iproute2: macvlan: add "source" mode
-      iproute2: macvlan: add "source" mode
-
-stefan@datenfreihafen.org (1):
-      ip: update link types to show 6lowpan and ieee802.15.4 monitor
+Dec 11 23:53:20 xfstests-201612120451 kernel: [    0.000000] Linux version =
+4.9.0-rc8-ext4-06387-g03e5cbd (tytso@tytso-ssd) (gcc version 4.9.2 (Debian =
+4.9.2-10) ) #9 SMP Mon Dec 12 04:50:16 UTC 2016
+Dec 11 23:53:20 xfstests-201612120451 kernel: [    0.000000] Command line: =
+root=3D/dev/sda1 ro console=3DttyS0,38400n8 elevator=3Dnoop console=3DttyS0=
+  fstestcfg=3D4k fstestset=3D-g,quick fstestexc=3D fstestopt=3Daex fstestty=
+p=3Dext4 fstestapi=3D1.3
+Dec 11 23:53:20 xfstests-201612120451 kernel: [    0.000000] x86/fpu: Suppo=
+rting XSAVE feature 0x001: 'x87 floating point registers'
+Dec 11 23:53:20 xfstests-201612120451 kernel: [    0.000000] x86/fpu: Suppo=
+rting XSAVE feature 0x002: 'SSE registers'
+Dec 11 23:53:20 xfstests-201612120451 kernel: [    0.000000] x86/fpu: Suppo=
+rting XSAVE feature 0x004: 'AVX registers'
+Dec 11 23:53:20 xfstests-201612120451 kernel: [    0.000000] x86/fpu: xstat=
+e_offset[2]:  576, xstate_sizes[2]:  256
+Dec 11 23:53:20 xfstests-201612120451 kernel: [    0.000000] x86/fpu: Enabl=
+ed xstate features 0x7, context size is 832 bytes, using 'standard' format.
+Dec 11 23:53:20 xfstests-201612120451 systemd[1]: Started Load Kernel Modul=
+es.
+Dec 11 23:53:20 xfstests-201612120451 systemd[1]: Starting Apply Kernel Var=
+iables...
+Dec 11 23:53:20 xfstests-201612120451 systemd[1]: Mounting Configuration Fi=
+le System...
+Dec 11 23:53:20 xfstests-201612120451 systemd[1]: Mounting FUSE Control Fil=
+e System...
+Dec 11 23:53:20 xfstests-201612120451 systemd[1]: Mounted FUSE Control File=
+ System.
+Dec 11 23:53:20 xfstests-201612120451 systemd[1]: Mounted Configuration Fil=
+e System.
+Dec 11 23:53:20 xfstests-201612120451 systemd[1]: Started Apply Kernel Vari=
+ables.
+Dec 11 23:53:20 xfstests-201612120451 systemd[1]: Started Create Static Dev=
+ice Nodes in /dev.
+Dec 11 23:53:20 xfstests-201612120451 systemd[1]: Starting udev Kernel Devi=
+ce Manager...
+Dec 11 23:53:20 xfstests-201612120451 systemd[1]: Started udev Kernel Devic=
+e Manager.
+Dec 11 23:53:20 xfstests-201612120451 systemd[1]: Started udev Coldplug all=
+ Devices.
+Dec 11 23:53:20 xfstests-201612120451 systemd[1]: Starting udev Wait for Co=
+mplete Device Initialization...
+Dec 11 23:53:20 xfstests-201612120451 systemd-fsck[1659]: xfstests-root: cl=
+ean, 56268/655360 files, 357439/2620928 blocks
+Dec 11 23:53:20 xfstests-201612120451 systemd[1]: Started File System Check=
+ on Root Device.
+Dec 11 23:53:20 xfstests-201612120451 systemd[1]: Starting Remount Root and=
+ Kernel File Systems...
+Dec 11 23:53:20 xfstests-201612120451 systemd[1]: Started Remount Root and =
+Kernel File Systems.
+Dec 11 23:53:20 xfstests-201612120451 systemd[1]: Started Various fixups to=
+ make systemd work better on Debian.
+Dec 11 23:53:20 xfstests-201612120451 systemd[1]: Starting Load/Save Random=
+ Seed...
+Dec 11 23:53:20 xfstests-201612120451 systemd[1]: Starting Local File Syste=
+ms (Pre).
+Dec 11 23:53:20 xfstests-201612120451 systemd[1]: Reached target Local File=
+ Systems (Pre).
+Dec 11 23:53:20 xfstests-201612120451 systemd[1]: Started Load/Save Random =
+Seed.
+Dec 11 23:53:20 xfstests-201612120451 systemd[1]: Started udev Wait for Com=
+plete Device Initialization.
+Dec 11 23:53:20 xfstests-201612120451 systemd[1]: Starting Activation of LV=
+M2 logical volumes...
+Dec 11 23:53:20 xfstests-201612120451 systemd[1]: Starting Copy rules gener=
+ated while the root was ro...
+Dec 11 23:53:20 xfstests-201612120451 systemd[1]: Found device /dev/ttyS0.
+Dec 11 23:53:20 xfstests-201612120451 systemd[1]: Found device /dev/ttyS1.
+Dec 11 23:53:20 xfstests-201612120451 systemd[1]: Started Copy rules genera=
+ted while the root was ro.
+Dec 11 23:53:20 xfstests-201612120451 systemd[1]: Found device /dev/ttyS2.
+Dec 11 23:53:20 xfstests-201612120451 systemd[1]: Found device /dev/ttyS3.
+Dec 11 23:53:20 xfstests-201612120451 systemd-udevd[2568]: could not open m=
+oddep file '/lib/modules/4.9.0-rc8-ext4-06387-g03e5cbd/modules.dep.bin'
+Dec 11 23:53:20 xfstests-201612120451 lvm[2579]: No volume groups found
+Dec 11 23:53:20 xfstests-201612120451 systemd[1]: Started Activation of LVM=
+2 logical volumes.
+Dec 11 23:53:20 xfstests-201612120451 systemd[1]: Starting Encrypted Volume=
+s.
+Dec 11 23:53:20 xfstests-201612120451 systemd[1]: Reached target Encrypted =
+Volumes.
+Dec 11 23:53:20 xfstests-201612120451 systemd[1]: Starting Activation of LV=
+M2 logical volumes...
+Dec 11 23:53:20 xfstests-201612120451 lvm[2625]: No volume groups found
+Dec 11 23:53:20 xfstests-201612120451 systemd[1]: Started Activation of LVM=
+2 logical volumes.
+Dec 11 23:53:20 xfstests-201612120451 systemd[1]: Starting Monitoring of LV=
+M2 mirrors, snapshots etc. using dmeventd or progress polling...
+Dec 11 23:53:20 xfstests-201612120451 lvm[2627]: No volume groups found
+Dec 11 23:53:20 xfstests-201612120451 systemd[1]: Started Monitoring of LVM=
+2 mirrors, snapshots etc. using dmeventd or progress polling.
+Dec 11 23:53:20 xfstests-201612120451 systemd[1]: Starting Local File Syste=
+ms.
+Dec 11 23:53:20 xfstests-201612120451 systemd[1]: Reached target Local File=
+ Systems.
+Dec 11 23:53:20 xfstests-201612120451 systemd[1]: Starting Remote File Syst=
+ems.
+Dec 11 23:53:20 xfstests-201612120451 systemd[1]: Reached target Remote Fil=
+e Systems.
+Dec 11 23:53:20 xfstests-201612120451 systemd[1]: Starting Trigger Flushing=
+ of Journal to Persistent Storage...
+Dec 11 23:53:20 xfstests-201612120451 systemd[1]: Starting Create Volatile =
+Files and Directories...
+Dec 11 23:53:20 xfstests-201612120451 systemd[1]: Starting LSB: Generate ss=
+h host keys if they do not exist...
+Dec 11 23:53:20 xfstests-201612120451 systemd[1]: Starting LSB: Raise netwo=
+rk interfaces....
+Dec 11 23:53:20 xfstests-201612120451 systemd[1]: Started Trigger Flushing =
+of Journal to Persistent Storage.
+Dec 11 23:53:20 xfstests-201612120451 systemd[1]: Started Create Volatile F=
+iles and Directories.
+Dec 11 23:53:20 xfstests-201612120451 systemd[1]: Started LSB: Generate ssh=
+ host keys if they do not exist.
+Dec 11 23:53:20 xfstests-201612120451 systemd[1]: Starting Update UTMP abou=
+t System Boot/Shutdown...
+Dec 11 23:53:20 xfstests-201612120451 systemd[1]: Started Update UTMP about=
+ System Boot/Shutdown.
+Dec 11 23:53:20 xfstests-201612120451 dhclient: Internet Systems Consortium=
+ DHCP Client 4.3.1
+Dec 11 23:53:20 xfstests-201612120451 dhclient: Copyright 2004-2014 Interne=
+t Systems Consortium.
+Dec 11 23:53:20 xfstests-201612120451 dhclient: All rights reserved.
+Dec 11 23:53:20 xfstests-201612120451 dhclient: For info, please visit http=
+s://www.isc.org/software/dhcp/
+Dec 11 23:53:20 xfstests-201612120451 dhclient:=20
+Dec 11 23:53:20 xfstests-201612120451 networking[2633]: Configuring network=
+ interfaces...Internet Systems Consortium DHCP Client 4.3.1
+Dec 11 23:53:20 xfstests-201612120451 networking[2633]: Copyright 2004-2014=
+ Internet Systems Consortium.
+Dec 11 23:53:20 xfstests-201612120451 networking[2633]: All rights reserved.
+Dec 11 23:53:20 xfstests-201612120451 networking[2633]: For info, please vi=
+sit https://www.isc.org/software/dhcp/
+Dec 11 23:53:20 xfstests-201612120451 dhclient: Listening on LPF/eth0/42:01=
+:0a:f0:00:03
+Dec 11 23:53:20 xfstests-201612120451 dhclient: Sending on   LPF/eth0/42:01=
+:0a:f0:00:03
+Dec 11 23:53:20 xfstests-201612120451 dhclient: Sending on   Socket/fallback
+Dec 11 23:53:20 xfstests-201612120451 dhclient: DHCPREQUEST on eth0 to 255.=
+255.255.255 port 67
+Dec 11 23:53:20 xfstests-201612120451 networking[2633]: Listening on LPF/et=
+h0/42:01:0a:f0:00:03
+Dec 11 23:53:20 xfstests-201612120451 networking[2633]: Sending on   LPF/et=
+h0/42:01:0a:f0:00:03
+Dec 11 23:53:20 xfstests-201612120451 networking[2633]: Sending on   Socket=
+/fallback
+Dec 11 23:53:20 xfstests-201612120451 networking[2633]: DHCPREQUEST on eth0=
+ to 255.255.255.255 port 67
+Dec 11 23:53:20 xfstests-201612120451 dhclient: DHCPREQUEST on eth0 to 255.=
+255.255.255 port 67
+Dec 11 23:53:20 xfstests-201612120451 networking[2633]: DHCPREQUEST on eth0=
+ to 255.255.255.255 port 67
+Dec 11 23:53:20 xfstests-201612120451 dhclient: DHCPDISCOVER on eth0 to 255=
+=2E255.255.255 port 67 interval 8
+Dec 11 23:53:20 xfstests-201612120451 networking[2633]: DHCPDISCOVER on eth=
+0 to 255.255.255.255 port 67 interval 8
+Dec 11 23:53:20 xfstests-201612120451 dhclient: DHCPDISCOVER on eth0 to 255=
+=2E255.255.255 port 67 interval 8
+Dec 11 23:53:20 xfstests-201612120451 networking[2633]: DHCP[=1B[32m  OK  =
+=1B[0m] DISCOVER on eth0 to 255.255.255.255 port 67 interval 8
+Dec 11 23:53:20 xfstests-201612120451 dhclient: DHCPDISCOVER on eth0 to 255=
+=2E255.255.255 port 67 interval 13
+Dec 11 23:53:20 xfstests-201612120451 networking[2633]: DHCPDISCOVER on eth=
+0 to 255.255.255.255 port 67 interval 13
+Dec 11 23:53:20 xfstests-201612120451 dhclient: DHCPDISCOVER on eth0 to 255=
+=2E255.255.255 port 67 interval 17
+Dec 11 23:53:20 xfstests-201612120451 networking[2633]: DHCPDISCOVER on eth=
+0 to 255.255.255.255 port 67 interval 17
+Dec 11 23:53:20 xfstests-201612120451 dhclient: DHCPDISCOVER on eth0 to 255=
+=2E255.255.255 port 67 interval 15
+Dec 11 23:53:20 xfstests-201612120451 networking[2633]: DHCPDISCOVER on eth=
+0 to 255.255.255.255 port 67 interval 15
+Dec 11 23:53:20 xfstests-201612120451 dhclient: No DHCPOFFERS received.
+Dec 11 23:53:20 xfstests-201612120451 dhclient: Trying recorded lease 10.24=
+0.0.3
+Dec 11 23:53:20 xfstests-201612120451 networking[2633]: No DHCPOFFERS recei=
+ved.
+Dec 11 23:53:20 xfstests-201612120451 networking[2633]: Trying recorded lea=
+se 10.240.0.3
+Dec 11 23:53:20 xfstests-201612120451 networking[2633]: connect: Network is=
+ unreachable
+Dec 11 23:53:20 xfstests-201612120451 logger: /etc/dhcp/dhclient-exit-hooks=
+ returned non-zero exit status 2
+Dec 11 23:53:20 xfstests-201612120451 dhclient: bound: renewal in 38598 sec=
+onds.
+Dec 11 23:53:20 xfstests-201612120451 networking[2633]: bound: renewal in 3=
+8598 seconds.
+Dec 11 23:53:20 xfstests-201612120451 networking[2633]: done.
