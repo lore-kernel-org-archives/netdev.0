@@ -1,52 +1,43 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [iproute2 net-next 3/8] bpf: Add BPF_ macros
-Date: Mon, 12 Dec 2016 12:48:52 +0100
-Message-ID: <584E8EA4.4030200@iogearbox.net>
-References: <1481503995-24825-1-git-send-email-dsa@cumulusnetworks.com> <1481503995-24825-4-git-send-email-dsa@cumulusnetworks.com> <88e7eece-be2a-3b11-3dc1-3afa7a9bb14a@stressinduktion.org>
+From: Peng Tao <bergwolf@gmail.com>
+Subject: Re: [PATCH v3 2/4] vhost-vsock: add pkt cancel capability
+Date: Mon, 12 Dec 2016 19:56:25 +0800
+Message-ID: <CA+a=Yy7HXvg1=Jgn-a3y7QZbAW5Ss3EN5Ds6m_9=qn=EE9qtjw@mail.gmail.com>
+References: <1481217156-7160-1-git-send-email-bergwolf@gmail.com>
+	<1481217156-7160-2-git-send-email-bergwolf@gmail.com>
+	<1481217156-7160-3-git-send-email-bergwolf@gmail.com>
+	<426F96AC-2E7C-4BEC-A3D3-7D8A97FDD51D@vmware.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        David Ahern <dsa@cumulusnetworks.com>, netdev@vger.kernel.org,
-        stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:41342 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750899AbcLLLs4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Dec 2016 06:48:56 -0500
-In-Reply-To: <88e7eece-be2a-3b11-3dc1-3afa7a9bb14a@stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"virtualization@lists.linux-foundation.org"
+	<virtualization@lists.linux-foundation.org>,
+	David Miller <davem@davemloft.net>, Stefan Hajnoczi <stefanha@redhat.com>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>
+To: "Jorgen S. Hansen" <jhansen@vmware.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <426F96AC-2E7C-4BEC-A3D3-7D8A97FDD51D@vmware.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 12/12/2016 12:28 PM, Hannes Frederic Sowa wrote:
-> On 12.12.2016 01:53, David Ahern wrote:
->> Based on version in kernel repo, samples/bpf/libbpf.h
->>
->> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
->> ---
->>   include/bpf_util.h | 179 +++++++++++++++++++++++++++++++++++++++++++++++++++++
->>   1 file changed, 179 insertions(+)
->>
->> diff --git a/include/bpf_util.h b/include/bpf_util.h
->> index 726e34777755..5361dab1933d 100644
->
-> Maybe this was already discussed: why are those not part of uapi? They
-> get used in the bpf manpage.
-
-The reason why these macros haven't been exposed to uapi header was because
-they are not strict part of kernel abi. So really only the very minimum that
-had to go there (such as insn opcodes) were placed into the header. That way,
-kernel is still free to, for example, change or rename the macros once new
-insns would get added, and user space can just define what it really needs.
-That way, both don't get into each others way long term. Often it's also not
-really needed if you have an elf loader, f.e. iproute2 could live without
-them (up to this point).
-
-Just took a look at the man page example, we don't even define BPF_CALL_FUNC()
-in the kernel, so it's also not exactly the same. Probably makes sense to
-fix/complete that example and in general add a description there wrt opcodes.
-Last time I spoke with Michael, he planned to make a bigger revision to the
-man page to improve documentation.
-
-Thanks,
-Daniel
+T24gTW9uLCBEZWMgMTIsIDIwMTYgYXQgNjozNyBQTSwgSm9yZ2VuIFMuIEhhbnNlbiA8amhhbnNl
+bkB2bXdhcmUuY29tPiB3cm90ZToKPgo+PiBPbiBEZWMgOCwgMjAxNiwgYXQgNjoxMiBQTSwgUGVu
+ZyBUYW8gPGJlcmd3b2xmQGdtYWlsLmNvbT4gd3JvdGU6Cj4+Cj4+IC0tLSBhL2luY2x1ZGUvbmV0
+L2FmX3Zzb2NrLmgKPj4gKysrIGIvaW5jbHVkZS9uZXQvYWZfdnNvY2suaAo+PiBAQCAtMTAwLDYg
+KzEwMCw5IEBAIHN0cnVjdCB2c29ja190cmFuc3BvcnQgewo+PiAgICAgICB2b2lkICgqZGVzdHJ1
+Y3QpKHN0cnVjdCB2c29ja19zb2NrICopOwo+PiAgICAgICB2b2lkICgqcmVsZWFzZSkoc3RydWN0
+IHZzb2NrX3NvY2sgKik7Cj4+Cj4+ICsgICAgIC8qIENhbmNlbCBwYWNrZXRzIGJlbG9uZ2luZyB0
+aGUgc2FtZSB2c29jayAqLwo+Cj4gSG93IGFib3V0IOKAnC8qIENhbmNlbCBhbGwgcGVuZGluZyBw
+YWNrZXRzIHNlbnQgb24gdnNvY2suICov4oCcID8KPgpTdXJlLiBJJ2xsIHVwZGF0ZSBpdC4KClRo
+YW5rcywKVGFvCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+ClZpcnR1YWxpemF0aW9uIG1haWxpbmcgbGlzdApWaXJ0dWFsaXphdGlvbkBsaXN0cy5saW51eC1m
+b3VuZGF0aW9uLm9yZwpodHRwczovL2xpc3RzLmxpbnV4Zm91bmRhdGlvbi5vcmcvbWFpbG1hbi9s
+aXN0aW5mby92aXJ0dWFsaXphdGlvbg==
