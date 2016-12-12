@@ -1,86 +1,93 @@
-From: Leon Romanovsky <leon@kernel.org>
-Subject: Re: [PATCH 1/1] Fixed to BUG_ON to WARN_ON def
-Date: Mon, 12 Dec 2016 14:39:37 +0200
-Message-ID: <20161212123937.GA6503@mtr-leonro.local>
-References: <811031481540339@web1j.yandex.ru>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net] net: dsa: mv88e6xxx: Fix opps when adding vlan bridge
+Date: Mon, 12 Dec 2016 14:04:16 +0100
+Message-ID: <20161212130416.GC27057@lunn.ch>
+References: <1481486839-19502-1-git-send-email-andrew@lunn.ch>
+ <87a8c2w55e.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="envbJBWh7q8WU6mo"
-Cc: yishaih@mellanox.com, netdev <netdev@vger.kernel.org>,
-        linux-kernel <linux-kernel@vger.kernel.org>
-To: Ozgur Karatas <okaratas@member.fsf.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <811031481540339@web1j.yandex.ru>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-
---envbJBWh7q8WU6mo
 Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:52382 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750712AbcLLNEV (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 12 Dec 2016 08:04:21 -0500
 Content-Disposition: inline
+In-Reply-To: <87a8c2w55e.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 12, 2016 at 12:58:59PM +0200, Ozgur Karatas wrote:
-> Hello all,
-> I think should be use to "WARN_ON" and checkpatch script give to error, I fixed and I think  should don't use "BUG_ON".
-> Regards,
+On Sun, Dec 11, 2016 at 04:02:37PM -0500, Vivien Didelot wrote:
+> Hi Andrew,
+> 
+> Andrew Lunn <andrew@lunn.ch> writes:
+> 
+> > @@ -1804,6 +1807,9 @@ static int mv88e6xxx_port_check_hw_vlan(struct dsa_switch *ds, int port,
+> >  			    chip->ports[port].bridge_dev)
+> >  				break; /* same bridge, check next VLAN */
+> >  
+> > +			if (!chip->ports[i].bridge_dev)
+> > +				continue;
+> > +
+> 
+> The above truncated test:
+> 
+> 			if (chip->ports[i].bridge_dev ==
+> 			    chip->ports[port].bridge_dev)
+> 				break; /* same bridge, check next VLAN */
+> 
+> should handle the case where bridge_dev is NULL, but if you want to
+> explicitly test it, I'd move it before this statement.
+> 
+> >  			netdev_warn(ds->ports[port].netdev,
+> >  				    "hardware VLAN %d already used by %s\n",
+> >  				    vlan.vid,
+
+Hi Vivien
+
+I don't think you comment is correct. Here is the loop, with my two
+additions.
+
+                for (i = 0; i < mv88e6xxx_num_ports(chip); ++i) {
+                        if (dsa_is_dsa_port(ds, i) || dsa_is_cpu_port(ds, i))
+                                continue;
+
+                        if (!ds->ports[port].netdev)
+                                continue;
+
+                        if (vlan.data[i] ==
+                            GLOBAL_VTU_DATA_MEMBER_TAG_NON_MEMBER)
+                                continue;
+
+                        if (chip->ports[i].bridge_dev ==
+                            chip->ports[port].bridge_dev)
+                                break; /* same bridge, check next VLAN */
+
+                        if (!chip->ports[i].bridge_dev)
+                                continue;
+
+                        netdev_warn(ds->ports[port].netdev,
+                                    "hardware VLAN %d already used by %s\n",
+                                    vlan.vid,
+                                    netdev_name(chip->ports[i].bridge_dev));
+                        err = -EOPNOTSUPP;
+                        goto unlock;
+                }
+
+The opps was occurring in netdev_name(). I did not check which
+one. The obvious one, or the netdev_warn(netdev,... one.
+
+> The above truncated test:
+> 
+> 			if (chip->ports[i].bridge_dev ==
+> 			    chip->ports[port].bridge_dev)
+> 				break; /* same bridge, check next VLAN */
 >
-> Signed-off-by: Ozgur Karatas <okaratas@member.fsf.org>
+> should handle the case where bridge_dev is NULL, but if you want to
+> explicitly test it, I'd move it before this statement.
 
-NAK, Leon Romanovsky <leonro@mellanox.com>
+This will not stop chip->ports[i].bridge_dev == NULL from reaching the
+netdev_warn().
 
-If we put aside commit message issue, which was pointed to you by Stefan, your
-proposed change is incorrect. By chnaging BUG_ONs to be WARN_ONs, you
-will left the driver in improper state.
-
-Thanks
-
-> ---
-> drivers/net/ethernet/mellanox/mlx4/icm.c |  4 ++--
->
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/icm.c b/drivers/net/ethernet/mellanox/mlx4/icm.c
-> index 2a9dd46..3fde535 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/icm.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/icm.c
-> @@ -119,7 +119,7 @@ static int mlx4_alloc_icm_coherent(struct device *dev, struct scatterlist *mem,
->  		return -ENOMEM;
->
->  	sg_set_buf(mem, buf, PAGE_SIZE << order);
-> -	BUG_ON(mem->offset);
-> +	WARN_ON(mem->offset);
->  	sg_dma_len(mem) = PAGE_SIZE << order;
->  	return 0;
->  }
-> @@ -133,7 +133,7 @@ struct mlx4_icm *mlx4_alloc_icm(struct mlx4_dev *dev, int npages,
->  	int ret;
->
->  	/* We use sg_set_buf for coherent allocs, which assumes low memory */
-> -	BUG_ON(coherent && (gfp_mask & __GFP_HIGHMEM));
-> +	WARN_ON(coherent && (gfp_mask & __GFP_HIGHMEM));
->
->  	icm = kmalloc_node(sizeof(*icm),
->  			   gfp_mask & ~(__GFP_HIGHMEM | __GFP_NOWARN),
-> --
-> 2.1.4
-
---envbJBWh7q8WU6mo
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAlhOmn4ACgkQ5GN7iDZy
-WKcCqg//f79xAdUNvX6xucb9X0m/rNvRc7edKzGAK+WYTNUOMKrd6Bg43NhHoLMe
-gLk+mnyzFJd4LauTPmkluneKaQ4hoyTOSjMUmWeWsnkcvLmnGCNB4KLMhrOWrySg
-ysixOqfZPr73giWIvYs5sU/jWKii6V+47BGkIyPvXz1R609zA/XrJ1Ip+LTs9LfZ
-QfzSKiHM0yNKmU0DIwcjiwbvWXCHMzIxDL8Vs+3RXhqnOMm0sYkbcGQphLtpvUCz
-fOuVJPWnD4YkeCgWeXxd7moGVvM1z6boneaSqMrTig9xTT/wlkX9/lWkZzQRHoxV
-sei2fqFzz3PSA/A8XG5nfvuIoYKTz0YyD9B/VkeaS/OGGD1Z9Q00CvnqgbzQY2yZ
-pR1viV5VfaYH3FA7L9ArHCNYj4g8W4mgt1TxIDp1dt9KwKor7tbkSMAgSeLE5olx
-PO2P3A6NG+rP9zTF2Pt3sYu5iHSACg0m3dJMEPPr+rAfC6mw9On/4hWR4cNR82eL
-vm0XbkR9Zfc0YBLUf2Rd489tJBbYv9+szLDvbFRfSl/ccsCI2jjn4pQio5tWDWUd
-Dye3u5jM72/9EmO0HInrKV0zXjXhDsD3GboBu2t1nZZqqk3yTVZazEKoqQYgkW53
-WoqT8iB7CsGk7G/rbXHiniZyuH00qjjEtP1i+KrDn8RH8VTt314=
-=4XEQ
------END PGP SIGNATURE-----
-
---envbJBWh7q8WU6mo--
+	Andrew
