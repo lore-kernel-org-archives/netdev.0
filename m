@@ -1,115 +1,114 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: Designing a safe RX-zero-copy Memory Model for Networking
-Date: Mon, 12 Dec 2016 10:40:42 +0100
-Message-ID: <20161212104042.0a011212@redhat.com>
-References: <20161205153132.283fcb0e@redhat.com>
-	<20161212083812.GA19987@rapoport-lnx>
+From: Richard Guy Briggs <rgb@redhat.com>
+Subject: Re: netlink: GPF in sock_sndtimeo
+Date: Mon, 12 Dec 2016 05:02:15 -0500
+Message-ID: <20161212100215.GA1305@madcap2.tricolour.ca>
+References: <20161129164859.GD26673@madcap2.tricolour.ca>
+ <CAM_iQpX_KBEpL1dCBNMgZQ-VQJM9nmsVdRPVK-Aen9k0gV3f0w@mail.gmail.com>
+ <20161130045207.GE26673@madcap2.tricolour.ca>
+ <20161209060248.GT22655@madcap2.tricolour.ca>
+ <CAM_iQpWRe0tDk=wvXONG7hamH3EtE0nJuAOF1kVKJgdpMvz2DA@mail.gmail.com>
+ <20161209110155.GW22655@madcap2.tricolour.ca>
+ <CAM_iQpV2GuKhR_1tD5jjACeD+pajJLws08CLmeYAo+rsjxvB0A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        linux-mm
- <linux-mm@kvack.org>,
-        John Fastabend <john.fastabend@gmail.com>,
-        Willem de
- Bruijn <willemdebruijn.kernel@gmail.com>,
-        =?UTF-8?B?QmrDtnJuIFTDtnBlbA==?=
- <bjorn.topel@intel.com>,
-        "Karlsson, Magnus" <magnus.karlsson@intel.com>,
-        Alexander Duyck <alexander.duyck@gmail.com>,
-        Mel Gorman
- <mgorman@techsingularity.net>,
-        Tom Herbert <tom@herbertland.com>,
-        Brenden
- Blanco <bblanco@plumgrid.com>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Saeed
- Mahameed <saeedm@mellanox.com>,
-        Jesse Brandeburg
- <jesse.brandeburg@intel.com>,
-        Kalman Meth <METH@il.ibm.com>, brouer@redhat.com
-To: Mike Rapoport <rppt@linux.vnet.ibm.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20161212083812.GA19987@rapoport-lnx>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-audit@redhat.com, Paul Moore <pmoore@redhat.com>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        David Miller <davem@davemloft.net>,
+        Johannes Berg <johannes.berg@intel.com>,
+        Florian Westphal <fw@strlen.de>,
+        Eric Dumazet <edumazet@google.com>,
+        Herbert Xu <herbert@gondor.apana.org.au>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAM_iQpV2GuKhR_1tD5jjACeD+pajJLws08CLmeYAo+rsjxvB0A@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-On Mon, 12 Dec 2016 10:38:13 +0200 Mike Rapoport <rppt@linux.vnet.ibm.com> wrote:
-
-> Hello Jesper,
+On 2016-12-09 20:13, Cong Wang wrote:
+> On Fri, Dec 9, 2016 at 3:01 AM, Richard Guy Briggs <rgb@redhat.com> wrote:
+> > On 2016-12-08 22:57, Cong Wang wrote:
+> >> On Thu, Dec 8, 2016 at 10:02 PM, Richard Guy Briggs <rgb@redhat.com> wrote:
+> >> > I also tried to extend Cong Wang's idea to attempt to proactively respond to a
+> >> > NETLINK_URELEASE on the audit_sock and reset it, but ran into a locking error
+> >> > stack dump using mutex_lock(&audit_cmd_mutex) in the notifier callback.
+> >> > Eliminating the lock since the sock is dead anways eliminates the error.
+> >> >
+> >> > Is it safe?  I'll resubmit if this looks remotely sane.  Meanwhile I'll try to
+> >> > get the test case to compile.
+> >>
+> >> It doesn't look safe, because 'audit_sock', 'audit_nlk_portid' and 'audit_pid'
+> >> are updated as a whole and race between audit_receive_msg() and
+> >> NETLINK_URELEASE.
+> >
+> > This is what I expected and why I originally added the mutex lock in the
+> > callback...  The dumps I got were bare with no wrapper identifying the
+> > process context or specific error, so I'm at a bit of a loss how to
+> > solve this (without thinking more about it) other than instinctively
+> > removing the mutex.
 > 
-> On Mon, Dec 05, 2016 at 03:31:32PM +0100, Jesper Dangaard Brouer wrote:
-> > Hi all,
-> > 
-> > This is my design for how to safely handle RX zero-copy in the network
-> > stack, by using page_pool[1] and modifying NIC drivers.  Safely means
-> > not leaking kernel info in pages mapped to userspace and resilience
-> > so a malicious userspace app cannot crash the kernel.
-> > 
-> > Design target
-> > =============
-> > 
-> > Allow the NIC to function as a normal Linux NIC and be shared in a
-> > safe manor, between the kernel network stack and an accelerated
-> > userspace application using RX zero-copy delivery.
-> > 
-> > Target is to provide the basis for building RX zero-copy solutions in
-> > a memory safe manor.  An efficient communication channel for userspace
-> > delivery is out of scope for this document, but OOM considerations are
-> > discussed below (`Userspace delivery and OOM`_).  
-> 
-> Sorry, if this reply is a bit off-topic.
+> Netlink notifier can safely be converted to blocking one, I will send
+> a patch.
 
-It is very much on topic IMHO :-)
+I had a quick look at how that might happen.  The netlink notifier chain
+is atomic.  Would the registered callback funciton need to spawn a
+one-time thread to avoid blocking?
 
-> I'm working on implementation of RX zero-copy for virtio and I've dedicated
-> some thought about making guest memory available for physical NIC DMAs.
-> I believe this is quite related to your page_pool proposal, at least from
-> the NIC driver perspective, so I'd like to share some thoughts here.
+> But I seriously doubt you really need NETLINK_URELEASE here,
+> it adds nothing but overhead, b/c the netlink notifier is called on
+> every netlink socket in the system, but for net exit path, that is
+> relatively a slow path.
 
-Seems quite related. I'm very interested in cooperating with you! I'm
-not very familiar with virtio, and how packets/pages gets channeled
-into virtio.
+I was a bit concerned about its overhead, but was hoping to update
+audit_sock more quickly in the case of a sock shutting down for any
+reason.
 
-> The idea is to dedicate one (or more) of the NIC's queues to a VM, e.g.
-> using macvtap, and then propagate guest RX memory allocations to the NIC
-> using something like new .ndo_set_rx_buffers method.
+> Also, kauditd_send_skb() needs audit_cmd_mutex too.
 
-I believe the page_pool API/design aligns with this idea/use-case.
+Agreed.
 
-> What is your view about interface between the page_pool and the NIC
-> drivers?
+> I will send a formal patch.
 
-In my Prove-of-Concept implementation, the NIC driver (mlx5) register
-a page_pool per RX queue.  This is done for two reasons (1) performance
-and (2) for supporting use-cases where only one single RX-ring queue is
-(re)configured to support RX-zero-copy.  There are some associated
-extra cost of enabling this mode, thus it makes sense to only enable it
-when needed.
+I had a look at your patch.  It looks attractively simple.  The audit
+next tree has patches queued that add an audit_reset function that will
+require more work.  I still see some potential gaps.
 
-I've not decided how this gets enabled, maybe some new driver NDO.  It
-could also happen when a XDP program gets loaded, which request this
-feature.
+- If the process messes up (or the sock lookup messes up) it is reset
+  in the kauditd thread under the audit_cmd_mutex.
 
-The macvtap solution is nice and we should support it, but it requires
-VM to have their MAC-addr registered on the physical switch.  This
-design is about adding flexibility. Registering an XDP eBPF filter
-provides the maximum flexibility for matching the destination VM.
+- If the process exits normally or is replaced due to an audit_replace
+  error, it is reset from audit_receive_skb under the audit_cmd_mutex.
 
+- If the process dies before the kauditd thread notices, either reap it
+  via notifier callback or it needs a check on net exit to reset.  This
+  last one appears necessary to decrement the sock refcount so the sock
+  can be released in netlink_kernel_release().
 
-> Have you considered using "push" model for setting the NIC's RX memory?
+If we want to be proactive and use the netlink notifier, we assume the
+overhead of adding to the netlink notifier chain and eliminate all the
+other reset calls under the kauditd thread.  If we are ok being
+reactionary, then we'll at least need the net exit check on audit_sock.
 
-I don't understand what you mean by a "push" model?
+Have I understood this correctly?
 
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+I'll follow with a patch based on audit#next
+
+There will be an upstream merge conflict between audit#next and net#next
+due to the removal of:
+	RCU_INIT_POINTER(aunet->nlsk, NULL);                                                        
+	synchronize_net();
+from the end of audit_net_exit().  This patch should probably go through
+the audit maintainer due to the other anticipated merge conflicts.
+
+> Thanks.
+
+- RGB
 
 --
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Richard Guy Briggs <rgb@redhat.com>
+Kernel Security Engineering, Base Operating Systems, Red Hat
+Remote, Ottawa, Canada
+Voice: +1.647.777.2635, Internal: (81) 32635
