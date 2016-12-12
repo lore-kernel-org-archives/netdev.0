@@ -1,49 +1,47 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: Misalignment, MIPS, and ip_hdr(skb)->version
-Date: Mon, 12 Dec 2016 16:19:17 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB023BF78@AcuExch.aculab.com>
-References: <CAHmME9o_eCNXpVztOZKW55kpRtE+1KSEQTQOjUBVn68Y2+or2g@mail.gmail.com>
-        <CAA93jw7hcmkcyD=t4VRrQFfHk+n+EkSVgY6KFDq0_-DGpMADYw@mail.gmail.com>
-        <20161207.135127.789629809982860453.davem@davemloft.net>
-        <CAHmME9oLgjDA2F0gkFzHU2Es8-XCxQHRABS18OKF0EnZgt1=LQ@mail.gmail.com>
-        <040bcdb2-2725-c8de-11d9-a4f77b75d9d8@nbd.name>
- <yw1x37hvykzk.fsf@unicorn.mansr.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next 1/3] net:dsa:mv88e6xxx: use hashtable to store multicast entries
+Date: Mon, 12 Dec 2016 11:22:59 -0500
+Message-ID: <87d1gx9kws.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <1481549958-1265-1-git-send-email-volodymyr.bendiuga@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>,
-        David Miller <davem@davemloft.net>,
-        Netdev <netdev@vger.kernel.org>,
-        "WireGuard mailing list" <wireguard@lists.zx2c4.com>,
-        LKML <linux-kernel@vger.kernel.org>,
-        "linux-mips@linux-mips.org" <linux-mips@linux-mips.org>
-To: =?Windows-1252?B?J03lbnMgUnVsbGflcmQn?= <mans@mansr.com>,
-        Felix Fietkau <nbd@nbd.name>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <yw1x37hvykzk.fsf@unicorn.mansr.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Volodymyr Bendiuga <volodymyr.bendiuga@gmail.com>
+To: Volodymyr Bendiuga <volodymyr.bendiuga@gmail.com>, andrew@lunn.ch,
+        f.fainelli@gmail.com, netdev@vger.kernel.org,
+        volodymyr.bendiuga@westermo.se
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:37238 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750712AbcLLQXF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 12 Dec 2016 11:23:05 -0500
+In-Reply-To: <1481549958-1265-1-git-send-email-volodymyr.bendiuga@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Måns Rullgård
-> Sent: 10 December 2016 13:25
-...
-> I solved this problem in an Ethernet driver by copying the initial part
-> of the packet to an aligned skb and appending the remainder using
-> skb_add_rx_frag().  The kernel network stack only cares about the
-> headers, so the alignment of the packet payload doesn't matter.
+Hi Volodymyr,
 
-That rather depends on where the packet payload ends up.
-It is likely that it will be copied to userspace (or maybe
-into some aligned kernel buffer).
-In which case you get an expensive misaligned copy.
+Volodymyr Bendiuga <volodymyr.bendiuga@gmail.com> writes:
 
-Encapsulation protocols not using headers that are multiples
-of 4 bytes is as stupid as ethernet hardware that can't place
-the mac address on a 4n+2 boundary.
-The latter is particularly stupid when it happens on embedded
-silicon with a processor that can only do aligned memory accesses.
-What do the hardware engineers think the ethernet interface will
-be used for!
+> +struct pvec_tbl_entry {
+> +        struct hlist_node entry;
+> +        u32 key_crc32; /* key */
+> +        u16 pvec;
+> +        struct pvec_tbl_key {
+> +                u8 addr[ETH_ALEN];
+> +                u16 fid;
+> +        } key;
+> +};
+> +
+>  struct mv88e6xxx_atu_entry {
+>  	u16	fid;
+>  	u8	state;
 
-	David
+Also, if we were to cache some values in mv88e6xxx, I'd use the existing
+structures which match the hardware definition. Easier to understand.
+
+mv88e6xxx_atu_entry already represents an ATU entry with its port
+vector, FID, MAC address and more. Do you think it can be used here?
+
+Thanks,
+
+        Vivien
