@@ -1,57 +1,83 @@
-From: maowenan <maowenan@huawei.com>
-Subject: RE: [PATCH] net: add one ethtool option to set relax ordering mode
-Date: Mon, 12 Dec 2016 08:30:22 +0000
-Message-ID: <F95AC9340317A84688A5F0DF0246F3F20151B0CA@szxeml504-mbs.china.huawei.com>
-References: <1481179898-10668-1-git-send-email-maowenan@huawei.com>
- <20161208141153.GI26852@lunn.ch>
+From: Mike Rapoport <rppt@linux.vnet.ibm.com>
+Subject: Re: Designing a safe RX-zero-copy Memory Model for Networking
+Date: Mon, 12 Dec 2016 10:38:13 +0200
+Message-ID: <20161212083812.GA19987@rapoport-lnx>
+References: <20161205153132.283fcb0e@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
+Content-Type: text/plain; charset=us-ascii
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
-        "weiyongjun (A)" <weiyongjun1@huawei.com>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([58.251.152.64]:51358 "EHLO
-        szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750909AbcLLIci (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Dec 2016 03:32:38 -0500
-In-Reply-To: <20161208141153.GI26852@lunn.ch>
-Content-Language: zh-CN
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+        linux-mm <linux-mm@kvack.org>,
+        John Fastabend <john.fastabend@gmail.com>,
+        Willem de Bruijn <willemdebruijn.kernel@gmail.com>,
+        =?iso-8859-1?Q?Bj=F6rn_T=F6pel?= <bjorn.topel@intel.com>,
+        "Karlsson, Magnus" <magnus.karlsson@intel.com>,
+        Alexander Duyck <alexander.duyck@gmail.com>,
+        Mel Gorman <mgorman@techsingularity.net>,
+        Tom Herbert <tom@herbertland.com>,
+        Brenden Blanco <bblanco@plumgrid.com>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Jesse Brandeburg <jesse.brandeburg@intel.com>,
+        Kalman Meth <METH@il.ibm.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20161205153132.283fcb0e@redhat.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
+Hello Jesper,
 
-
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
-> On Behalf Of Andrew Lunn
-> Sent: Thursday, December 08, 2016 10:12 PM
-> To: maowenan
-> Cc: netdev@vger.kernel.org; jeffrey.t.kirsher@intel.com
-> Subject: Re: [PATCH] net: add one ethtool option to set relax ordering mode
+On Mon, Dec 05, 2016 at 03:31:32PM +0100, Jesper Dangaard Brouer wrote:
+> Hi all,
 > 
-> On Thu, Dec 08, 2016 at 02:51:37PM +0800, Mao Wenan wrote:
-> > This patch provides one way to set/unset IXGBE NIC TX and RX relax
-> > ordering mode, which can be set by ethtool.
-> > Relax ordering is one mode of 82599 NIC, to enable this mode can
-> > enhance the performance for some cpu architecure.
-> > example:
-> > ethtool -s enp1s0f0 relaxorder off
-> > ethtool -s enp1s0f0 relaxorder on
+> This is my design for how to safely handle RX zero-copy in the network
+> stack, by using page_pool[1] and modifying NIC drivers.  Safely means
+> not leaking kernel info in pages mapped to userspace and resilience
+> so a malicious userspace app cannot crash the kernel.
 > 
-> Since this is a simple on/off, could it not be done with a feature?
-> ethtool --feature?
+> Design target
+> =============
 > 
-> 	Andrew
+> Allow the NIC to function as a normal Linux NIC and be shared in a
+> safe manor, between the kernel network stack and an accelerated
+> userspace application using RX zero-copy delivery.
+> 
+> Target is to provide the basis for building RX zero-copy solutions in
+> a memory safe manor.  An efficient communication channel for userspace
+> delivery is out of scope for this document, but OOM considerations are
+> discussed below (`Userspace delivery and OOM`_).
 
-Hello Andrew, 
-	Thank you for your comments.
-	I get your idea about using ethtool -K|--feature is good for this feature, right? 
-My original concert is about this is a relax ordering mode exist in 82599, it is the hardware 
-related feature. And ethtool -s option is related hardware of phy and other (e.g: speed, duplex...),
-it is very easy to implement in do_sset().
-But ethtool -K is mainly used for protocol offload,
-        ethtool -K|--features|--offload DEVNAME Set protocol offload and other features
-                FEATURE on|off ... 
-@Jeff Kirsher, what's your comments?
+Sorry, if this reply is a bit off-topic.
+
+I'm working on implementation of RX zero-copy for virtio and I've dedicated
+some thought about making guest memory available for physical NIC DMAs.
+I believe this is quite related to your page_pool proposal, at least from
+the NIC driver perspective, so I'd like to share some thoughts here.
+The idea is to dedicate one (or more) of the NIC's queues to a VM, e.g.
+using macvtap, and then propagate guest RX memory allocations to the NIC
+using something like new .ndo_set_rx_buffers method.
+
+What is your view about interface between the page_pool and the NIC
+drivers?
+Have you considered using "push" model for setting the NIC's RX memory?
+
+> 
+> --
+>   Jesper Dangaard Brouer
+>   MSc.CS, Principal Kernel Engineer at Red Hat
+>   LinkedIn: http://www.linkedin.com/in/brouer
+> 
+> Above document is taken at GitHub commit 47fa7c844f48fab8b
+>  https://github.com/netoptimizer/prototype-kernel/commit/47fa7c844f48fab8b
+> 
+
+--
+Sincerely yours,
+Mike.
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
