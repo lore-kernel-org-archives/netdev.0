@@ -1,76 +1,217 @@
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: Re: Synopsys Ethernet QoS
-Date: Mon, 12 Dec 2016 10:19:06 +0000
-Message-ID: <f5357ea2-a295-ab08-046e-f8b8f6ca4344@synopsys.com>
-References: <2df7a6dd-1128-d1d6-bf61-891f76cf7200@synopsys.com>
- <20161209.103327.1742213347114742435.davem@davemloft.net>
- <93b73b79-36aa-56b8-f975-b890b7a48bd1@synopsys.com>
- <20161209.104152.1969880574279771010.davem@davemloft.net>
- <CAHp75VcKURaTQX9=SY8+46GGATuwO1oXAi8eMS+uwk58sjKx5Q@mail.gmail.com>
- <3aee5a67-5e19-34e6-1719-ff13c7b914ea@gmail.com>
- <CAHp75VfT9B3O5jU0eHoKtgYc48K2ZjCQ-g9ZQ9nX1Hew6tz-zw@mail.gmail.com>
- <556353b7-c847-7549-626d-3c324063647e@gmail.com>
+From: <Andrei.Pistirica@microchip.com>
+Subject: RE: [RFC PATCH net-next v3 1/2] macb: Add 1588 support in Cadence
+ GEM.
+Date: Mon, 12 Dec 2016 10:22:43 +0000
+Message-ID: <07C910AB6AC6C345A093D5A08F5AF568CB74D84D@CHN-SV-EXMX03.mchp-main.com>
+References: <1481134912-2243-1-git-send-email-andrei.pistirica@microchip.com>
+ <20161207193908.GA13062@netboy> <20161207210416.GA27622@netboy>
+ <07C910AB6AC6C345A093D5A08F5AF568CB74AF28@CHN-SV-EXMX03.mchp-main.com>
+ <BN3PR07MB2516992DEE883FAD6DC3ED08C9870@BN3PR07MB2516.namprd07.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: David Miller <davem@davemloft.net>,
-        Joao Pinto <Joao.Pinto@synopsys.com>,
-        Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
-        <lars.persson@axis.com>, <rabin.vincent@axis.com>,
-        netdev <netdev@vger.kernel.org>, <CARLOS.PALMINHA@synopsys.com>,
-        <Jie.Deng1@synopsys.com>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-        Andy Shevchenko <andy.shevchenko@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay4.synopsys.com ([198.182.47.9]:49378 "EHLO
-        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752940AbcLLKTM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Dec 2016 05:19:12 -0500
-In-Reply-To: <556353b7-c847-7549-626d-3c324063647e@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        <linux-arm-kernel@lists.infradead.org>, <davem@davemloft.net>,
+        <nicolas.ferre@atmel.com>, <harinikatakamlinux@gmail.com>,
+        <punnaia@xilinx.com>, <michals@xilinx.com>, <anirudh@xilinx.com>,
+        <boris.brezillon@free-electrons.com>,
+        <alexandre.belloni@free-electrons.com>, <tbultel@pixelsurmer.com>
+To: <richardcochran@gmail.com>, <harini.katakam@xilinx.com>,
+        <rafalo@cadence.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <BN3PR07MB2516992DEE883FAD6DC3ED08C9870@BN3PR07MB2516.namprd07.prod.outlook.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
 
-Às 1:44 AM de 12/10/2016, Florian Fainelli escreveu:
-> Le 12/09/16 à 16:16, Andy Shevchenko a écrit :
->> On Sat, Dec 10, 2016 at 12:52 AM, Florian Fainelli <f.fainelli@gmail.com> wrote:
->>
->>> It's kind of sad that customers of that IP (stmmac, amd-xgbe, sxgbe)
->>
->>> did
->>> actually pioneer the upstreaming effort, but it is good to see people
->>> from Synopsys willing to fix that in the future.
->>
->> Wait, you would like to tell that we have more than 2 drivers for the
->> same (okay, same vendor) IP?!
->> It's better to unify them earlier, than have n+ copies.
-> 
-> Unfortunately that is the case, see this email:
-> 
-> https://www.mail-archive.com/netdev@vger.kernel.org/msg142796.html
-> 
-> dwc_eth_qos and stmmac have some overlap. There seems to be work
-> underway to unify these two to begin with.
-> 
->>
->> P.S. Though, I don't see how sxgbe got in the list. First glance on
->> the code doesn't show similarities.
-> 
-> Well samsung/sxgbe looks potentially similar to amd/xgbe, but that's
-> just my cursory look at the code, it may very well be something entirely
-> different. The descriptor formats just look suspiciously similar.
-> 
 
-Thank you for your inputs! Renaming seems to be a hotspot. I agree that maybe
-instead of renaming (breaking retro-compatibility as David and Florian
-mentioned), the best is to move stmmac to synopsys/ after merging *qos* and
-removing it. As Florian mentioned, git is capable of detecting folder restructured.
+> -----Original Message-----
+> From: Rafal Ozieblo [mailto:rafalo@cadence.com]
+> Sent: Friday, December 09, 2016 11:20 AM
+> To: Andrei Pistirica - M16132; richardcochran@gmail.com
+> Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org; linux-arm-
+> kernel@lists.infradead.org; davem@davemloft.net;
+> nicolas.ferre@atmel.com; harinikatakamlinux@gmail.com;
+> harini.katakam@xilinx.com; punnaia@xilinx.com; michals@xilinx.com;
+> anirudh@xilinx.com; boris.brezillon@free-electrons.com;
+> alexandre.belloni@free-electrons.com; tbultel@pixelsurmer.com
+> Subject: RE: [RFC PATCH net-next v3 1/2] macb: Add 1588 support in Cadence
+> GEM.
+> 
+> -----Original Message-----
+> > From: Andrei.Pistirica@microchip.com
+> > [mailto:Andrei.Pistirica@microchip.com]
+> > Sent: 8 grudnia 2016 15:42
+> > To: richardcochran@gmail.com
+> > Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org;
+> > linux-arm-kernel@lists.infradead.org; davem@davemloft.net;
+> > nicolas.ferre@atmel.com; harinikatakamlinux@gmail.com;
+> > harini.katakam@xilinx.com; punnaia@xilinx.com; michals@xilinx.com;
+> > anirudh@xilinx.com; boris.brezillon@free-electrons.com;
+> > alexandre.belloni@free-electrons.com; tbultel@pixelsurmer.com; Rafal
+> > Ozieblo
+> > Subject: RE: [RFC PATCH net-next v3 1/2] macb: Add 1588 support in
+> Cadence GEM.
+> >
+> >
+> >
+> > > -----Original Message-----
+> > > From: Richard Cochran [mailto:richardcochran@gmail.com]
+> > > Sent: Wednesday, December 07, 2016 11:04 PM
+> > > To: Andrei Pistirica - M16132
+> > > Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org; linux-arm-
+> > > kernel@lists.infradead.org; davem@davemloft.net;
+> > > nicolas.ferre@atmel.com; harinikatakamlinux@gmail.com;
+> > > harini.katakam@xilinx.com; punnaia@xilinx.com; michals@xilinx.com;
+> > > anirudh@xilinx.com; boris.brezillon@free-electrons.com;
+> > > alexandre.belloni@free-electrons.com; tbultel@pixelsurmer.com;
+> > > rafalo@cadence.com
+> > > Subject: Re: [RFC PATCH net-next v3 1/2] macb: Add 1588 support in
+> > > Cadence GEM.
+> > >
+> > > On Wed, Dec 07, 2016 at 08:39:09PM +0100, Richard Cochran wrote:
+> > > > > +static s32 gem_ptp_max_adj(unsigned int f_nom) {
+> > > > > +       u64 adj;
+> > > > > +
+> > > > > +       /* The 48 bits of seconds for the GEM overflows every:
+> > > > > +        * 2^48/(365.25 * 24 * 60 *60) =~ 8 925 512 years (~= 9 mil years),
+> > > > > +        * thus the maximum adjust frequency must not overflow
+> > > > > + CNS
+> > > register:
+> > > > > +        *
+> > > > > +        * addend  = 10^9/nominal_freq
+> > > > > +        * adj_max = +/- addend*ppb_max/10^9
+> > > > > +        * max_ppb = (2^8-1)*nominal_freq-10^9
+> > > > > +        */
+> > > > > +       adj = f_nom;
+> > > > > +       adj *= 0xffff;
+> > > > > +       adj -= 1000000000ULL;
+> > > >
+> > > > What is this computation, and how does it relate to the comment?
+> >
+> > I considered the following simple equation: increment value at nominal
+> frequency (which is 10^9/nominal frequency nsecs) + the maximum drift
+> value (nsecs) <= maximum increment value at nominal frequency (which is
+> 8bit:0xffff).
+> > If maximum drift is written as function of nominal frequency and
+> maximum ppb, then the equation above yields that the maximum ppb is:
+> (2^8 - 1) *nominal_frequency - 10^9. The equation is also simplified by the
+> fact that the drift is written as ppm + 16bit_fractions and the increment
+> value is written as nsec + 16bit_fractions.
+> >
+> > Rafal said that this value is hardcoded: 0x64E6, while Harini said:
+> 250000000.
+> 
+> To clarify a little bit. In my reference code this value (0x64E6) was taken
+> from our legacy code. It was used for testing only. I know it should be
+> change to something more accurate. This is the reason why I asked how did
+> you count it (250000000). According to our calculations this value depends
+> on actual set period (incr_ns and incr_sub_ns) and min and max value we
+> can set. The calculation were a little bit intricate, so we decided to leave it
+> as it was.
+> 
+> >
+> > I need to dig into this...
+> >
+> > >
+> > > I am not sure what you meant, but it sounds like you are on the wrong
+> track.
+> > > Let me explain...
+> >
+> > Thanks.
+> >
+> > >
+> > > The max_adj has nothing at all to do with the width of the time register.
+> > > Rather, it should reflect the maximum possible change in the tuning
+> word.
+> > >
+> > > For example, with a nominal 8 ns period, the tuning word is 0x80000.
+> > > Looking at running the clock more slowly, the slowest possible word
+> > > is 0x00001, meaning a difference of 0x7FFFF.  This implies an
+> > > adjustment of
+> > > 0x7FFFF/0x80000 or 999998092 ppb.  Running more quickly, we can
+> > > already have 0x100000, twice as fast, or just under 2 billion ppb.
+> > >
+> > > You should consider the extreme cases to determine the most limited
+> > > (smallest) max_adj value:
+> > >
+> > > Case 1 - high frequency
+> > > ~~~~~~~~~~~~~~~~~~~~~~~
+> > >
+> > > With a nominal 1 ns period, we have the nominal tuning word 0x10000.
+> > > The smallest is 0x1 for a difference of 0xFFFF.  This corresponds to
+> > > an adjustment of 0xFFFF/0x10000 = .9999847412109375 or 999984741 ppb.
+> > >
+> > > Case 2 - low frequency
+> > > ~~~~~~~~~~~~~~~~~~~~~~
+> > >
+> > > With a nominal 255 ns period, the nominal word is 0xFF0000, the
+> > > largest 0xFFFFFF, and the difference is 0xFFFF.  This corresponds to
+> > > and adjustment of 0xFFFF/0xFF0000 = .0039215087890625 or 3921508 ppb.
+> > >
+> > > Since 3921508 ppb is a huge adjustment, you can simply use that as a
+> > > safe maximum, ignoring the actual input clock.
+> > >
+> > > Thanks,
+> > > Richard
+> > >
+> > >
+> >
+> > Regards,
+> > Andrei
+> >
+> 
+> Best regards,
+> Rafal Ozieblo   |   Firmware System Engineer,
+> phone nbr.: +48 32 5085469
+> www.cadence.com
 
-@Rabin Vincent: Hi Rabin. Since Axis is more familiar with the synopsys/*qos*
-driver would it be possible for you to make an initial analysis of what has to
-be merged into Stmmac? This way the development would speed-up.
+Hi Guys,
 
-Thanks to all.
+Based on Richard's input, this is what I want to do for our platforms:
 
-Joao
+struct macb_ptp_info {
+        void (*ptp_init)(struct net_device *ndev);
+        void (*ptp_remove)(struct net_device *ndev);
++       s32 (*get_ptp_max_adj)(void);
+        unsigned int (*get_tsu_rate)(struct macb *bp);
+        int (*get_ts_info)(struct net_device *dev,
+                           struct ethtool_ts_info *info);
+       int (*get_hwtst)(struct net_device *netdev,
+                         struct ifreq *ifr);
+       int (*set_hwtst)(struct net_device *netdev,
+                         struct ifreq *ifr, int cmd); 
+};
+
++static s32 gem_get_ptp_max_adj(void)
++{
++       return 3921508;
++}
+
+ static struct macb_ptp_info gem_ptp_info = {
+       .ptp_init        = gem_ptp_init,
+       .ptp_remove      = gem_ptp_remove,
++       .get_ptp_max_adj = gem_get_ptp_max_adj,
+       .get_tsu_rate    = gem_get_tsu_rate,
+       .get_ts_info     = gem_get_ts_info,
+       .get_hwtst       = gem_get_hwtst,
+       .set_hwtst       = gem_set_hwtst,
+ };
+
+[...]
+void gem_ptp_init(struct net_device *ndev)
+ {
+[...]
+        /* nominal frequency and maximum adjustment in ppb */
+        bp->tsu_rate = bp->ptp_info->get_tsu_rate(bp);
++       bp->ptp_caps.max_adj = bp->ptp_info->get_ptp_max_adj();
+[...]
+}
+
+Richard, are you agree with this?
+
+Harini, you can fill the callback with the value for your platform. Tell me if you are ok with function's signature.
+
+Regards,
+Andrei
