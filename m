@@ -1,69 +1,115 @@
-From: Peng Tao <bergwolf@gmail.com>
-Subject: Re: [PATCH v3 0/4] vsock: cancel connect packets when failing to
-	connect
-Date: Mon, 12 Dec 2016 17:17:24 +0800
-Message-ID: <CA+a=Yy4nsykS8sQVAsUny47t4kpfW_+wtz9Ld39y7AUCV0PcvQ@mail.gmail.com>
-References: <1481217156-7160-1-git-send-email-bergwolf@gmail.com>
-	<20161209101842.GD18260@stefanha-x1.localdomain>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: Designing a safe RX-zero-copy Memory Model for Networking
+Date: Mon, 12 Dec 2016 10:40:42 +0100
+Message-ID: <20161212104042.0a011212@redhat.com>
+References: <20161205153132.283fcb0e@redhat.com>
+	<20161212083812.GA19987@rapoport-lnx>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	virtualization@lists.linux-foundation.org,
-	David Miller <davem@davemloft.net>,
-	Stefan Hajnoczi <stefanha@redhat.com>, kvm@vger.kernel.org
-To: Stefan Hajnoczi <stefanha@gmail.com>, Jorgen Hansen <jhansen@vmware.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20161209101842.GD18260@stefanha-x1.localdomain>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+        linux-mm
+ <linux-mm@kvack.org>,
+        John Fastabend <john.fastabend@gmail.com>,
+        Willem de
+ Bruijn <willemdebruijn.kernel@gmail.com>,
+        =?UTF-8?B?QmrDtnJuIFTDtnBlbA==?=
+ <bjorn.topel@intel.com>,
+        "Karlsson, Magnus" <magnus.karlsson@intel.com>,
+        Alexander Duyck <alexander.duyck@gmail.com>,
+        Mel Gorman
+ <mgorman@techsingularity.net>,
+        Tom Herbert <tom@herbertland.com>,
+        Brenden
+ Blanco <bblanco@plumgrid.com>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Saeed
+ Mahameed <saeedm@mellanox.com>,
+        Jesse Brandeburg
+ <jesse.brandeburg@intel.com>,
+        Kalman Meth <METH@il.ibm.com>, brouer@redhat.com
+To: Mike Rapoport <rppt@linux.vnet.ibm.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20161212083812.GA19987@rapoport-lnx>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Dec 9, 2016 at 6:18 PM, Stefan Hajnoczi <stefanha@gmail.com> wrote:
-> On Fri, Dec 09, 2016 at 01:12:32AM +0800, Peng Tao wrote:
->> Currently, if a connect call fails on a signal or timeout (e.g., guest is still
->> in the process of starting up), we'll just return to caller and leave the connect
->> packet queued and they are sent even though the connection is considered a failure,
->> which can confuse applications with unwanted false connect attempt.
->>
->> The patchset enables vsock (both host and guest) to cancel queued packets when
->> a connect attempt is considered to fail.
->>
->> v3 changelog:
->>   - define cancel_pkt callback in struct vsock_transport rather than struct virtio_transport
->>   - rename virtio_vsock_pkt->vsk to virtio_vsock_pkt->cancel_token
->> v2 changelog:
->>   - fix queued_replies counting and resume tx/rx when necessary
->>
->>
->> Peng Tao (4):
->>   vsock: track pkt owner vsock
->>   vhost-vsock: add pkt cancel capability
->>   vsock: add pkt cancel capability
->>   vsock: cancel packets when failing to connect
->>
->>  drivers/vhost/vsock.c                   | 41 ++++++++++++++++++++++++++++++++
->>  include/linux/virtio_vsock.h            |  2 ++
->>  include/net/af_vsock.h                  |  3 +++
->>  net/vmw_vsock/af_vsock.c                | 14 +++++++++++
->>  net/vmw_vsock/virtio_transport.c        | 42 +++++++++++++++++++++++++++++++++
->>  net/vmw_vsock/virtio_transport_common.c |  7 ++++++
->>  6 files changed, 109 insertions(+)
->
-> I'm happy although I pointed out two unnecessary (void*) casts.
->
-> Please wait for Jorgen to go happy on the af_vsock.c changes before
-> applying.
-Thanks for reviewing!
 
-Jorgen, would you please see if the changes to af_vsock.c is OK to you?
+On Mon, 12 Dec 2016 10:38:13 +0200 Mike Rapoport <rppt@linux.vnet.ibm.com> wrote:
 
-Cheers,
-Tao
+> Hello Jesper,
+> 
+> On Mon, Dec 05, 2016 at 03:31:32PM +0100, Jesper Dangaard Brouer wrote:
+> > Hi all,
+> > 
+> > This is my design for how to safely handle RX zero-copy in the network
+> > stack, by using page_pool[1] and modifying NIC drivers.  Safely means
+> > not leaking kernel info in pages mapped to userspace and resilience
+> > so a malicious userspace app cannot crash the kernel.
+> > 
+> > Design target
+> > =============
+> > 
+> > Allow the NIC to function as a normal Linux NIC and be shared in a
+> > safe manor, between the kernel network stack and an accelerated
+> > userspace application using RX zero-copy delivery.
+> > 
+> > Target is to provide the basis for building RX zero-copy solutions in
+> > a memory safe manor.  An efficient communication channel for userspace
+> > delivery is out of scope for this document, but OOM considerations are
+> > discussed below (`Userspace delivery and OOM`_).  
+> 
+> Sorry, if this reply is a bit off-topic.
+
+It is very much on topic IMHO :-)
+
+> I'm working on implementation of RX zero-copy for virtio and I've dedicated
+> some thought about making guest memory available for physical NIC DMAs.
+> I believe this is quite related to your page_pool proposal, at least from
+> the NIC driver perspective, so I'd like to share some thoughts here.
+
+Seems quite related. I'm very interested in cooperating with you! I'm
+not very familiar with virtio, and how packets/pages gets channeled
+into virtio.
+
+> The idea is to dedicate one (or more) of the NIC's queues to a VM, e.g.
+> using macvtap, and then propagate guest RX memory allocations to the NIC
+> using something like new .ndo_set_rx_buffers method.
+
+I believe the page_pool API/design aligns with this idea/use-case.
+
+> What is your view about interface between the page_pool and the NIC
+> drivers?
+
+In my Prove-of-Concept implementation, the NIC driver (mlx5) register
+a page_pool per RX queue.  This is done for two reasons (1) performance
+and (2) for supporting use-cases where only one single RX-ring queue is
+(re)configured to support RX-zero-copy.  There are some associated
+extra cost of enabling this mode, thus it makes sense to only enable it
+when needed.
+
+I've not decided how this gets enabled, maybe some new driver NDO.  It
+could also happen when a XDP program gets loaded, which request this
+feature.
+
+The macvtap solution is nice and we should support it, but it requires
+VM to have their MAC-addr registered on the physical switch.  This
+design is about adding flexibility. Registering an XDP eBPF filter
+provides the maximum flexibility for matching the destination VM.
+
+
+> Have you considered using "push" model for setting the NIC's RX memory?
+
+I don't understand what you mean by a "push" model?
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
