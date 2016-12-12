@@ -1,82 +1,69 @@
-From: Jonathan Toppins <jtoppins-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH V2 00/22] Broadcom RoCE Driver (bnxt_re)
-Date: Mon, 12 Dec 2016 11:54:30 -0500
-Message-ID: <9cf03e2b-a16d-19ec-a8ce-14f24272bf6a@redhat.com>
-References: <1481266096-23331-1-git-send-email-selvin.xavier@broadcom.com>
-Reply-To: jtoppins-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next 0/2] Add ethtool set regs support
+Date: Mon, 12 Dec 2016 09:00:15 -0800
+Message-ID: <3f2b4059-d4a3-1ea6-6122-51b810b1995b@gmail.com>
+References: <1481063590-7727-1-git-send-email-saeedm@mellanox.com>
+ <20161207024143.GA655@lunn.ch>
+ <CALzJLG8nGU-29VoKDtdaoFuG7zfTvTTu14T91+PMxcJH-GG2bw@mail.gmail.com>
+ <20161211152229.GC29761@lunn.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Selvin Xavier <selvin.xavier-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>, dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1481266096-23331-1-git-send-email-selvin.xavier-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Saeed Mahameed <saeedm@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        "John W . Linville" <linville@tuxdriver.com>
+To: Andrew Lunn <andrew@lunn.ch>,
+        Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:36188 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753247AbcLLRAR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 12 Dec 2016 12:00:17 -0500
+Received: by mail-pf0-f196.google.com with SMTP id c4so4642313pfb.3
+        for <netdev@vger.kernel.org>; Mon, 12 Dec 2016 09:00:17 -0800 (PST)
+In-Reply-To: <20161211152229.GC29761@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/09/2016 01:47 AM, Selvin Xavier wrote:
-> This series introduces the RoCE driver for the Broadcom
-> NetXtreme-E 10/25/40/50 gigabit RoCE HCAs. 
-> This driver is dependent on the bnxt_en NIC driver and is 
-> based on the bnxt_re branch in Doug's repository. bnxt_en changes
-> required for this patch series is already available in this branch.
+On 12/11/2016 07:22 AM, Andrew Lunn wrote:
+> On Sun, Dec 11, 2016 at 02:18:00PM +0200, Saeed Mahameed wrote:
+>> On Wed, Dec 7, 2016 at 4:41 AM, Andrew Lunn <andrew@lunn.ch> wrote:
+>>> On Wed, Dec 07, 2016 at 12:33:08AM +0200, Saeed Mahameed wrote:
+>>>> Hi Dave,
+>>>>
+>>>> This series adds the support for setting device registers from user
+>>>> space ethtool.
+>>>
+>>> Is this not the start of allowing binary only drivers in user space?
+>>>
+>>
+>> It is not, we want to do same as set_eeprom already do,
+>> Just set some HW registers, for analysis/debug/tweak/configure HW
+>> dependent register for the NIC netdev sake.
 > 
-> I am preparing a git repository with these changes as per Jason's
-> comment and will share the details later today.
-> 
-> v1-> v2:
->   * The license text in each file updated to reflect Dual license.
->   * Makefile and Kconfig changes are pushed to the last patch
->   * Moved bnxt_re_uverbs_abi.h to include/uapi/rdma folder
->   * Remove duplicate structure definitions from bnxt_re_hsi.h as
->     it is available in the corresponding bnxt_en header file (bnxt_hsi.h)
->   * Removed some unused code reported during code review.
->   * Fixed few sparse warnings
-> 
+> Mellanox has a good reputation of open drivers. However, this API
+> sounds like it would be the first step towards user space
+> drivers. This is an API which can peek and poke registers, so it
+> probably could be mis-used to put part of a driver in user
+> space. Hence we should avoid this sort of API to start with.
 
-I get the following sparse errors (filtered for only bnxt_re ones),
-please let me know if they are false positives:
+I don't necessarily share your concerns here on the proprietary vs. open
+source driver, because this interface is limited to the register space,
+not the data path, there is only a handful of things you can do here,
+but getting a NIC to work, is not probably one of them.
 
-$ make C=2  drivers/net/ethernet/broadcom/bnxt/bnxt_en.ko
-drivers/infiniband/hw/bnxtre/bnxt_re.ko
-  CHK     include/config/kernel.release
-  CHK     include/generated/uapi/linux/version.h
-  CHK     include/generated/utsrelease.h
-  CHECK   arch/x86/purgatory/purgatory.c
-[...]
-  CHECK   arch/x86/purgatory/sha256.c
-  CHECK   arch/x86/purgatory/string.c
-[...]
-  CHK     include/generated/bounds.h
-  CHK     include/generated/timeconst.h
-  CHK     include/generated/asm-offsets.h
-  CALL    scripts/checksyscalls.sh
-  CHECK   scripts/mod/empty.c
-  CHECK   drivers/net/ethernet/broadcom/bnxt/bnxt.c
-  CHECK   drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c
-  CHECK   drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
-  CHECK   drivers/net/ethernet/broadcom/bnxt/bnxt_dcb.c
-  CHECK   drivers/net/ethernet/broadcom/bnxt/bnxt_ulp.c
-  MODPOST 2 modules
-  CHECK   drivers/infiniband/hw/bnxtre/bnxt_re_main.c
-  CHECK   drivers/infiniband/hw/bnxtre/bnxt_re_ib_verbs.c
-[...]
-  CHECK   drivers/infiniband/hw/bnxtre/bnxt_re_debugfs.c
-  CHECK   drivers/infiniband/hw/bnxtre/bnxt_qplib_res.c
-drivers/infiniband/hw/bnxtre/bnxt_qplib_res.c:729:6: warning: symbol
-'bnxt_qplib_cleanup_pkey_tbl' was not declared. Should it be static?
-  CHECK   drivers/infiniband/hw/bnxtre/bnxt_qplib_rcfw.c
-  CHECK   drivers/infiniband/hw/bnxtre/bnxt_qplib_sp.c
-  CHECK   drivers/infiniband/hw/bnxtre/bnxt_qplib_fp.c
-drivers/infiniband/hw/bnxtre/bnxt_qplib_fp.c:1015:22: warning: context
-imbalance in 'bnxt_qplib_lock_cqs' - wrong count at exit
-drivers/infiniband/hw/bnxtre/bnxt_qplib_fp.c:1030:28: warning: context
-imbalance in 'bnxt_qplib_unlock_cqs' - unexpected unlock
-  MODPOST 2 modules
+My concern is more with the support/debugging aspect, if someone starts
+tweaking a gazillion of registers through that interface, and I have no
+way to tell, how am I going to support that? Of course, the first step
+is: have you tried to turn it on and off again, and see if this is
+reproducible, but what if I was asked/told to tweak this or that value
+first, etc... it can be hard to collect the exact state in which a NIC
+is at the time of the problem.
 
--Jon
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+NB: on the proprietary driver side, you can already mmap() the PCI
+device's space and write an entire user-space based driver (DPDK) and
+bypass the kernel for most things, ethtool -D is not much worse here
+since it just offers a subset (and a small one) of that.
+-- 
+Florian
