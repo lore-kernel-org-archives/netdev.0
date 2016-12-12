@@ -1,107 +1,89 @@
-From: Paul Moore <paul@paul-moore.com>
-Subject: Re: [PATCH v2] audit: use proper refcount locking on audit_sock
-Date: Mon, 12 Dec 2016 15:18:41 -0500
-Message-ID: <CAHC9VhSjU+-KDSUcjHZAPEwCDbyLYGvkmXYcUqSfSsa1+=DsRw@mail.gmail.com>
-References: <20161212100215.GA1305@madcap2.tricolour.ca> <5714bd7468cfec225407a6c367e658478d590495.1481534171.git.rgb@redhat.com>
+From: Ozgur Karatas <okaratas@member.fsf.org>
+Subject: Re: [PATCH 1/1] Fixed to BUG_ON to WARN_ON def
+Date: Mon, 12 Dec 2016 22:24:11 +0200
+Message-ID: <1085691481574251@web1o.yandex.ru>
+References: <811031481540339@web1j.yandex.ru>
+         <20161212123937.GA6503@mtr-leonro.local>
+         <2090831481547868@web27h.yandex.ru> <20161212181838.GB8204@mtr-leonro.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-audit@redhat.com, edumazet@google.com,
-        xiyou.wangcong@gmail.com, dvyukov@google.com
-To: Richard Guy Briggs <rgb@redhat.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: "yishaih@mellanox.com" <yishaih@mellanox.com>,
+        netdev <netdev@vger.kernel.org>,
+        linux-kernel <linux-kernel@vger.kernel.org>
+To: Leon Romanovsky <leon@kernel.org>,
+        Tariq Toukan <tariqt@mellanox.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5714bd7468cfec225407a6c367e658478d590495.1481534171.git.rgb@redhat.com>
+In-Reply-To: <20161212181838.GB8204@mtr-leonro.local>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 12, 2016 at 5:03 AM, Richard Guy Briggs <rgb@redhat.com> wrote:
-> Resetting audit_sock appears to be racy.
+
+
+12.12.2016, 20:18, "Leon Romanovsky" <leon@kernel.org>:
+> On Mon, Dec 12, 2016 at 03:04:28PM +0200, Ozgur Karatas wrote:
+>>  Dear Romanovsky;
 >
-> audit_sock was being copied and dereferenced without using a refcount on
-> the source sock.
+> Please avoid top-posting in your replies.
+> Thanks
+
+Dear Leon; 
+thanks for the information., I will pay attention.
+
+>>  I'm trying to learn english and I apologize for my mistake words and phrases. So, I think the code when call to "sg_set_buf" and next time set memory and buffer. For example, isn't to call "WARN_ON" function, get a error to implicit declaration, right?
+>>
+>>  Because, you will use to "BUG_ON" get a error implicit declaration of functions.
 >
-> Bump the refcount on the underlying sock when we store a refrence in
-> audit_sock and release it when we reset audit_sock.  audit_sock
-> modification needs the audit_cmd_mutex.
+> I'm not sure that I followed you. mem->offset is set by sg_set_buf from
+> buf variable returned by dma_alloc_coherent(). HW needs to get very
+> precise size of this buf, in multiple of pages and aligned to pages
+> boundaries.
+
+I have studied the following your coding and I guess that's the right patchs.
+You are the very expert in this matter, thank you for the correct for me.
+
+I learn to your style as an example.
+
+Regards,
+
+Ozgur Karatas
+
+> See the patch inline which removes this BUG_ON in proper and safe way.
 >
-> See: https://lkml.org/lkml/2016/11/26/232
+> From 7babe807affa2b27d51d3610afb75b693929ea1a Mon Sep 17 00:00:00 2001
+> From: Leon Romanovsky <leonro@mellanox.com>
+> Date: Mon, 12 Dec 2016 20:02:45 +0200
+> Subject: [PATCH] net/mlx4: Remove BUG_ON from ICM allocation routine
 >
-> Thanks to Eric Dumazet <edumazet@google.com> and Cong Wang
-> <xiyou.wangcong@gmail.com> on ideas how to fix it.
+> This patch removes BUG_ON() macro from mlx4_alloc_icm_coherent()
+> by checking DMA address aligment in advance and performing proper
+> folding in case of error.
 >
-> Signed-off-by: Richard Guy Briggs <rgb@redhat.com>
+> Fixes: 5b0bf5e25efe ("mlx4_core: Support ICM tables in coherent memory")
+> Reported-by: Ozgur Karatas <okaratas@member.fsf.org>
+> Signed-off-by: Leon Romanovsky <leonro@mellanox.com>
 > ---
-> There has been a lot of change in the audit code that is about to go
-> upstream to address audit queue issues.  This patch is based on the
-> source tree: git://git.infradead.org/users/pcmoore/audit#next
-> ---
->  kernel/audit.c |   34 ++++++++++++++++++++++++++++------
->  1 files changed, 28 insertions(+), 6 deletions(-)
-
-My previous question about testing still stands, but I took a closer
-look and have some additional comments, see below ...
-
-> diff --git a/kernel/audit.c b/kernel/audit.c
-> index f20eee0..439f7f3 100644
-> --- a/kernel/audit.c
-> +++ b/kernel/audit.c
-> @@ -452,7 +452,9 @@ static void auditd_reset(void)
->         struct sk_buff *skb;
+>  drivers/net/ethernet/mellanox/mlx4/icm.c | 7 ++++++-
+>  1 file changed, 6 insertions(+), 1 deletion(-)
 >
->         /* break the connection */
-> +       sock_put(audit_sock);
->         audit_pid = 0;
-> +       audit_nlk_portid = 0;
->         audit_sock = NULL;
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/icm.c b/drivers/net/ethernet/mellanox/mlx4/icm.c
+> index 2a9dd46..e1f9e7c 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/icm.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/icm.c
+> @@ -118,8 +118,13 @@ static int mlx4_alloc_icm_coherent(struct device *dev, struct scatterlist *mem,
+>          if (!buf)
+>                  return -ENOMEM;
 >
->         /* flush all of the retry queue to the hold queue */
-> @@ -478,6 +480,12 @@ static int kauditd_send_unicast_skb(struct sk_buff *skb)
->         if (rc >= 0) {
->                 consume_skb(skb);
->                 rc = 0;
-> +       } else {
-> +               if (rc & (-ENOMEM|-EPERM|-ECONNREFUSED)) {
-
-I dislike the way you wrote this because instead of simply looking at
-this to see if it correct I need to sort out all the bits and find out
-if there are other error codes that could run afoul of this check ...
-make it simple, e.g. (rc == -ENOMEM || rc == -EPERM || ...).
-Actually, since EPERM is 1, -EPERM (-1 in two's compliment is
-0xffffffff) is going to cause this to be true for pretty much any
-value of rc, yes?
-
-> +                       mutex_lock(&audit_cmd_mutex);
-> +                       auditd_reset();
-> +                       mutex_unlock(&audit_cmd_mutex);
-> +               }
-
-The code in audit#next handles netlink_unicast() errors in
-kauditd_thread() and you are adding error handling code here in
-kauditd_send_unicast_skb() ... that's messy.  I don't care too much
-where the auditd_reset() call is made, but let's only do it in one
-function; FWIW, I originally put the error handling code in
-kauditd_thread() because there was other error handling code that
-needed to done in that scope so it resulted in cleaner code.
-
-Related, I see you are now considering ENOMEM to be a fatal condition,
-that differs from the AUDITD_BAD macro in kauditd_thread(); this
-difference needs to be reconciled.
-
-Finally, you should update the comment header block for auditd_reset()
-that it needs to be called with the audit_cmd_mutex held.
-
-> @@ -1004,17 +1018,22 @@ static int audit_receive_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
->                                 return -EACCES;
->                         }
->                         if (audit_pid && new_pid &&
-> -                           audit_replace(requesting_pid) != -ECONNREFUSED) {
-> +                           (audit_replace(requesting_pid) & (-ECONNREFUSED|-EPERM|-ENOMEM))) {
-
-Do we simply want to treat any error here as fatal, and not just
-ECONN/EPERM/ENOMEM?  If not, let's come up with a single macro to
-handle the fatal netlink_unicast() return codes so we have some chance
-to keep things consistent in the future.
-
--- 
-paul moore
-www.paul-moore.com
+> + if (offset_in_page(buf)) {
+> + dma_free_coherent(dev, PAGE_SIZE << order,
+> + buf, sg_dma_address(mem));
+> + return -ENOMEM;
+> + }
+> +
+>          sg_set_buf(mem, buf, PAGE_SIZE << order);
+> - BUG_ON(mem->offset);
+>          sg_dma_len(mem) = PAGE_SIZE << order;
+>          return 0;
+>  }
+> --
+> 2.10.2
