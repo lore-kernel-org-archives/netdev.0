@@ -1,49 +1,165 @@
-From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Subject: Re: [PATCH V2 00/22] Broadcom RoCE Driver (bnxt_re)
-Date: Mon, 12 Dec 2016 10:07:01 -0700
-Message-ID: <20161212170701.GA28387@obsidianresearch.com>
-References: <1481266096-23331-1-git-send-email-selvin.xavier@broadcom.com>
- <CA+sbYW1ZEa5fndGkvN8OXr-orcUx4jaL73Di8zBJQX_uCdK=Ww@mail.gmail.com>
+From: Paul Moore <paul@paul-moore.com>
+Subject: Re: [PATCH v2] audit: use proper refcount locking on audit_sock
+Date: Mon, 12 Dec 2016 12:10:23 -0500
+Message-ID: <CAHC9VhTt5Pbw+LzVwRV1E==drwrH0ihUJvJkWwDgOA35OUFV2g@mail.gmail.com>
+References: <20161212100215.GA1305@madcap2.tricolour.ca>
+	<5714bd7468cfec225407a6c367e658478d590495.1481534171.git.rgb@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Selvin Xavier <selvin.xavier-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <CA+sbYW1ZEa5fndGkvN8OXr-orcUx4jaL73Di8zBJQX_uCdK=Ww-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, edumazet@google.com,
+        linux-audit@redhat.com, xiyou.wangcong@gmail.com, dvyukov@google.com
+To: Richard Guy Briggs <rgb@redhat.com>
+Return-path: <linux-audit-bounces@redhat.com>
+In-Reply-To: <5714bd7468cfec225407a6c367e658478d590495.1481534171.git.rgb@redhat.com>
+List-Unsubscribe: <https://www.redhat.com/mailman/options/linux-audit>,
+	<mailto:linux-audit-request@redhat.com?subject=unsubscribe>
+List-Archive: <https://www.redhat.com/archives/linux-audit>
+List-Post: <mailto:linux-audit@redhat.com>
+List-Help: <mailto:linux-audit-request@redhat.com?subject=help>
+List-Subscribe: <https://www.redhat.com/mailman/listinfo/linux-audit>,
+	<mailto:linux-audit-request@redhat.com?subject=subscribe>
+Sender: linux-audit-bounces@redhat.com
+Errors-To: linux-audit-bounces@redhat.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, Dec 10, 2016 at 11:06:58AM +0530, Selvin Xavier wrote:
-> On Fri, Dec 9, 2016 at 12:17 PM, Selvin Xavier
-> <selvin.xavier-dY08KVG/lbpWk0Htik3J/w@public.gmane.org> wrote:
-> > I am preparing a git repository with these changes as per Jason's
-> > comment and will share the details later today.
-> 
-> Please use bnxt_re branch in this git repository.
-> 
-> https://github.com/Broadcom/linux-rdma-nxt.git
+On Mon, Dec 12, 2016 at 5:03 AM, Richard Guy Briggs <rgb@redhat.com> wrote:
+> Resetting audit_sock appears to be racy.
+>
+> audit_sock was being copied and dereferenced without using a refcount on
+> the source sock.
+>
+> Bump the refcount on the underlying sock when we store a refrence in
+> audit_sock and release it when we reset audit_sock.  audit_sock
+> modification needs the audit_cmd_mutex.
+>
+> See: https://lkml.org/lkml/2016/11/26/232
+>
+> Thanks to Eric Dumazet <edumazet@google.com> and Cong Wang
+> <xiyou.wangcong@gmail.com> on ideas how to fix it.
+>
+> Signed-off-by: Richard Guy Briggs <rgb@redhat.com>
+> ---
+> There has been a lot of change in the audit code that is about to go
+> upstream to address audit queue issues.  This patch is based on the
+> source tree: git://git.infradead.org/users/pcmoore/audit#next
+> ---
+>  kernel/audit.c |   34 ++++++++++++++++++++++++++++------
+>  1 files changed, 28 insertions(+), 6 deletions(-)
 
-Why are you using __packed in bnxt_re_uverbs_abi.h ? that doesn't seem
-necessary. It is a good idea to make sure all those structures are a
-multiple of 64 bits (add explicit reserved fields), and make sure you
-test 32 bit verbs as well.
+This is coming in pretty late for the v4.10 merge window, much later
+than I would usually take things, but this is arguably important, and
+(at first glance) relatively low risk - what testing have you done on
+this?
 
-Why are you using debugfs just to export counters? Isn't the core code
-counter framework good enough?
+> diff --git a/kernel/audit.c b/kernel/audit.c
+> index f20eee0..439f7f3 100644
+> --- a/kernel/audit.c
+> +++ b/kernel/audit.c
+> @@ -452,7 +452,9 @@ static void auditd_reset(void)
+>         struct sk_buff *skb;
+>
+>         /* break the connection */
+> +       sock_put(audit_sock);
+>         audit_pid = 0;
+> +       audit_nlk_portid = 0;
+>         audit_sock = NULL;
+>
+>         /* flush all of the retry queue to the hold queue */
+> @@ -478,6 +480,12 @@ static int kauditd_send_unicast_skb(struct sk_buff *skb)
+>         if (rc >= 0) {
+>                 consume_skb(skb);
+>                 rc = 0;
+> +       } else {
+> +               if (rc & (-ENOMEM|-EPERM|-ECONNREFUSED)) {
+> +                       mutex_lock(&audit_cmd_mutex);
+> +                       auditd_reset();
+> +                       mutex_unlock(&audit_cmd_mutex);
+> +               }
+>         }
+>
+>         return rc;
+> @@ -579,7 +587,9 @@ static int kauditd_thread(void *dummy)
+>
+>                                 auditd = 0;
+>                                 if (AUDITD_BAD(rc, reschedule)) {
+> +                                       mutex_lock(&audit_cmd_mutex);
+>                                         auditd_reset();
+> +                                       mutex_unlock(&audit_cmd_mutex);
+>                                         reschedule = 0;
+>                                 }
+>                         } else
+> @@ -594,7 +604,9 @@ static int kauditd_thread(void *dummy)
+>                                 auditd = 0;
+>                                 if (AUDITD_BAD(rc, reschedule)) {
+>                                         kauditd_hold_skb(skb);
+> +                                       mutex_lock(&audit_cmd_mutex);
+>                                         auditd_reset();
+> +                                       mutex_unlock(&audit_cmd_mutex);
+>                                         reschedule = 0;
+>                                 } else
+>                                         /* temporary problem (we hope), queue
+> @@ -623,7 +635,9 @@ quick_loop:
+>                                 if (rc) {
+>                                         auditd = 0;
+>                                         if (AUDITD_BAD(rc, reschedule)) {
+> +                                               mutex_lock(&audit_cmd_mutex);
+>                                                 auditd_reset();
+> +                                               mutex_unlock(&audit_cmd_mutex);
+>                                                 reschedule = 0;
+>                                         }
+>
+> @@ -1004,17 +1018,22 @@ static int audit_receive_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+>                                 return -EACCES;
+>                         }
+>                         if (audit_pid && new_pid &&
+> -                           audit_replace(requesting_pid) != -ECONNREFUSED) {
+> +                           (audit_replace(requesting_pid) & (-ECONNREFUSED|-EPERM|-ENOMEM))) {
+>                                 audit_log_config_change("audit_pid", new_pid, audit_pid, 0);
+>                                 return -EEXIST;
+>                         }
+>                         if (audit_enabled != AUDIT_OFF)
+>                                 audit_log_config_change("audit_pid", new_pid, audit_pid, 1);
+> -                       audit_pid = new_pid;
+> -                       audit_nlk_portid = NETLINK_CB(skb).portid;
+> -                       audit_sock = skb->sk;
+> -                       if (!new_pid)
+> +                       if (new_pid) {
+> +                               if (audit_sock)
+> +                                       sock_put(audit_sock);
+> +                               audit_pid = new_pid;
+> +                               audit_nlk_portid = NETLINK_CB(skb).portid;
+> +                               sock_hold(skb->sk);
+> +                               audit_sock = skb->sk;
+> +                       } else {
+>                                 auditd_reset();
+> +                       }
+>                         wake_up_interruptible(&kauditd_wait);
+>                 }
+>                 if (s.mask & AUDIT_STATUS_RATE_LIMIT) {
+> @@ -1283,8 +1302,11 @@ static void __net_exit audit_net_exit(struct net *net)
+>  {
+>         struct audit_net *aunet = net_generic(net, audit_net_id);
+>         struct sock *sock = aunet->nlsk;
+> -       if (sock == audit_sock)
+> +       if (sock == audit_sock) {
+> +               mutex_lock(&audit_cmd_mutex);
+>                 auditd_reset();
+> +               mutex_unlock(&audit_cmd_mutex);
+> +       }
+>
+>         RCU_INIT_POINTER(aunet->nlsk, NULL);
+>         synchronize_net();
+> --
+> 1.7.1
+>
+> --
+> Linux-audit mailing list
+> Linux-audit@redhat.com
+> https://www.redhat.com/mailman/listinfo/linux-audit
 
-Please try and avoid writing functions as defines (eg rdev_to_dev,
-to_bnxt_re, SQE_PG, RCFW_CMDQ_COOKIE, PTR_PG etc)
 
-There is something wrong with the tabs and spaces (see
-https://github.com/Broadcom/linux-rdma-nxt/blob/03e23b087f7e86ea28656273994e065827210ce5/drivers/infiniband/hw/bnxtre/bnxt_re_hsi.h)
 
-FWIW, I really dislike the column alignment style, it is so hard to
-maintain..
-
-Jason
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+paul moore
+www.paul-moore.com
