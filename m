@@ -1,165 +1,40 @@
-From: Paul Moore <paul@paul-moore.com>
-Subject: Re: [PATCH v2] audit: use proper refcount locking on audit_sock
-Date: Mon, 12 Dec 2016 12:10:23 -0500
-Message-ID: <CAHC9VhTt5Pbw+LzVwRV1E==drwrH0ihUJvJkWwDgOA35OUFV2g@mail.gmail.com>
-References: <20161212100215.GA1305@madcap2.tricolour.ca>
-	<5714bd7468cfec225407a6c367e658478d590495.1481534171.git.rgb@redhat.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next 1/3] net:dsa:mv88e6xxx: use hashtable to store multicast entries
+Date: Mon, 12 Dec 2016 12:11:07 -0500
+Message-ID: <87twa9oyxg.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <1481549958-1265-1-git-send-email-volodymyr.bendiuga@gmail.com> <87r35db35m.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me> <CAMr9Lbp5eCg1oyWGN+uiDEcF0VZuKUi87FH6JYTGj6pL82R+Mw@mail.gmail.com> <48ff1136-dd8f-7704-a512-c23b27989bf8@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, edumazet@google.com,
-        linux-audit@redhat.com, xiyou.wangcong@gmail.com, dvyukov@google.com
-To: Richard Guy Briggs <rgb@redhat.com>
-Return-path: <linux-audit-bounces@redhat.com>
-In-Reply-To: <5714bd7468cfec225407a6c367e658478d590495.1481534171.git.rgb@redhat.com>
-List-Unsubscribe: <https://www.redhat.com/mailman/options/linux-audit>,
-	<mailto:linux-audit-request@redhat.com?subject=unsubscribe>
-List-Archive: <https://www.redhat.com/archives/linux-audit>
-List-Post: <mailto:linux-audit@redhat.com>
-List-Help: <mailto:linux-audit-request@redhat.com?subject=help>
-List-Subscribe: <https://www.redhat.com/mailman/listinfo/linux-audit>,
-	<mailto:linux-audit-request@redhat.com?subject=subscribe>
-Sender: linux-audit-bounces@redhat.com
-Errors-To: linux-audit-bounces@redhat.com
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Volodymyr Bendiuga <volodymyr.bendiuga@gmail.com>, andrew@lunn.ch,
+        netdev@vger.kernel.org,
+        Volodymyr Bendiuga <volodymyr.bendiuga@westermo.se>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+        Volodymyr Bendiuga <valdr.linuxnext@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:42444 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932915AbcLLRLO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 12 Dec 2016 12:11:14 -0500
+In-Reply-To: <48ff1136-dd8f-7704-a512-c23b27989bf8@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 12, 2016 at 5:03 AM, Richard Guy Briggs <rgb@redhat.com> wrote:
-> Resetting audit_sock appears to be racy.
->
-> audit_sock was being copied and dereferenced without using a refcount on
-> the source sock.
->
-> Bump the refcount on the underlying sock when we store a refrence in
-> audit_sock and release it when we reset audit_sock.  audit_sock
-> modification needs the audit_cmd_mutex.
->
-> See: https://lkml.org/lkml/2016/11/26/232
->
-> Thanks to Eric Dumazet <edumazet@google.com> and Cong Wang
-> <xiyou.wangcong@gmail.com> on ideas how to fix it.
->
-> Signed-off-by: Richard Guy Briggs <rgb@redhat.com>
-> ---
-> There has been a lot of change in the audit code that is about to go
-> upstream to address audit queue issues.  This patch is based on the
-> source tree: git://git.infradead.org/users/pcmoore/audit#next
-> ---
->  kernel/audit.c |   34 ++++++++++++++++++++++++++++------
->  1 files changed, 28 insertions(+), 6 deletions(-)
+Hi all,
 
-This is coming in pretty late for the v4.10 merge window, much later
-than I would usually take things, but this is arguably important, and
-(at first glance) relatively low risk - what testing have you done on
-this?
+Florian Fainelli <f.fainelli@gmail.com> writes:
 
-> diff --git a/kernel/audit.c b/kernel/audit.c
-> index f20eee0..439f7f3 100644
-> --- a/kernel/audit.c
-> +++ b/kernel/audit.c
-> @@ -452,7 +452,9 @@ static void auditd_reset(void)
->         struct sk_buff *skb;
->
->         /* break the connection */
-> +       sock_put(audit_sock);
->         audit_pid = 0;
-> +       audit_nlk_portid = 0;
->         audit_sock = NULL;
->
->         /* flush all of the retry queue to the hold queue */
-> @@ -478,6 +480,12 @@ static int kauditd_send_unicast_skb(struct sk_buff *skb)
->         if (rc >= 0) {
->                 consume_skb(skb);
->                 rc = 0;
-> +       } else {
-> +               if (rc & (-ENOMEM|-EPERM|-ECONNREFUSED)) {
-> +                       mutex_lock(&audit_cmd_mutex);
-> +                       auditd_reset();
-> +                       mutex_unlock(&audit_cmd_mutex);
-> +               }
->         }
->
->         return rc;
-> @@ -579,7 +587,9 @@ static int kauditd_thread(void *dummy)
->
->                                 auditd = 0;
->                                 if (AUDITD_BAD(rc, reschedule)) {
-> +                                       mutex_lock(&audit_cmd_mutex);
->                                         auditd_reset();
-> +                                       mutex_unlock(&audit_cmd_mutex);
->                                         reschedule = 0;
->                                 }
->                         } else
-> @@ -594,7 +604,9 @@ static int kauditd_thread(void *dummy)
->                                 auditd = 0;
->                                 if (AUDITD_BAD(rc, reschedule)) {
->                                         kauditd_hold_skb(skb);
-> +                                       mutex_lock(&audit_cmd_mutex);
->                                         auditd_reset();
-> +                                       mutex_unlock(&audit_cmd_mutex);
->                                         reschedule = 0;
->                                 } else
->                                         /* temporary problem (we hope), queue
-> @@ -623,7 +635,9 @@ quick_loop:
->                                 if (rc) {
->                                         auditd = 0;
->                                         if (AUDITD_BAD(rc, reschedule)) {
-> +                                               mutex_lock(&audit_cmd_mutex);
->                                                 auditd_reset();
-> +                                               mutex_unlock(&audit_cmd_mutex);
->                                                 reschedule = 0;
->                                         }
->
-> @@ -1004,17 +1018,22 @@ static int audit_receive_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
->                                 return -EACCES;
->                         }
->                         if (audit_pid && new_pid &&
-> -                           audit_replace(requesting_pid) != -ECONNREFUSED) {
-> +                           (audit_replace(requesting_pid) & (-ECONNREFUSED|-EPERM|-ENOMEM))) {
->                                 audit_log_config_change("audit_pid", new_pid, audit_pid, 0);
->                                 return -EEXIST;
->                         }
->                         if (audit_enabled != AUDIT_OFF)
->                                 audit_log_config_change("audit_pid", new_pid, audit_pid, 1);
-> -                       audit_pid = new_pid;
-> -                       audit_nlk_portid = NETLINK_CB(skb).portid;
-> -                       audit_sock = skb->sk;
-> -                       if (!new_pid)
-> +                       if (new_pid) {
-> +                               if (audit_sock)
-> +                                       sock_put(audit_sock);
-> +                               audit_pid = new_pid;
-> +                               audit_nlk_portid = NETLINK_CB(skb).portid;
-> +                               sock_hold(skb->sk);
-> +                               audit_sock = skb->sk;
-> +                       } else {
->                                 auditd_reset();
-> +                       }
->                         wake_up_interruptible(&kauditd_wait);
->                 }
->                 if (s.mask & AUDIT_STATUS_RATE_LIMIT) {
-> @@ -1283,8 +1302,11 @@ static void __net_exit audit_net_exit(struct net *net)
->  {
->         struct audit_net *aunet = net_generic(net, audit_net_id);
->         struct sock *sock = aunet->nlsk;
-> -       if (sock == audit_sock)
-> +       if (sock == audit_sock) {
-> +               mutex_lock(&audit_cmd_mutex);
->                 auditd_reset();
-> +               mutex_unlock(&audit_cmd_mutex);
-> +       }
->
->         RCU_INIT_POINTER(aunet->nlsk, NULL);
->         synchronize_net();
-> --
-> 1.7.1
->
-> --
-> Linux-audit mailing list
-> Linux-audit@redhat.com
-> https://www.redhat.com/mailman/listinfo/linux-audit
+> Seeing such a change makes me wonder if we should not try to push some
+> of this hashtable abstraction (provided that we agree we want it) at a
+> higher layer, like net/dsa/slave.c?
 
+That is the major reason why I am reluctant to cache stuffs in drivers.
 
+In most cases, we want the DSA drivers to be "stupid", as much stateless
+as possible, simply implementing the supported DSA switch operations.
 
--- 
-paul moore
-www.paul-moore.com
+The DSA core then handles the generic logic of how switch fabrics should
+behave, and thus all DSA drivers are consistent and benefit from this.
+
+Thanks,
+
+        Vivien
