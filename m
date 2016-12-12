@@ -1,197 +1,121 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: Designing a safe RX-zero-copy Memory Model for Networking
-Date: Mon, 12 Dec 2016 18:13:44 +0100
-Message-ID: <20161212181344.3ddfa9c3@redhat.com>
-References: <20161205153132.283fcb0e@redhat.com>
-	<20161212083812.GA19987@rapoport-lnx>
-	<20161212104042.0a011212@redhat.com>
-	<20161212141433.GB19987@rapoport-lnx>
-	<584EB8DF.8000308@gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] sh_eth: add wake-on-lan support via magic packet
+Date: Mon, 12 Dec 2016 20:35:27 +0300
+Message-ID: <cadc1263-fc92-175c-6492-b466623c669f@cogentembedded.com>
+References: <20161207162843.4731-1-niklas.soderlund+renesas@ragnatech.se>
+ <59a1f246-9062-20e1-3f85-a1c5f6fcfc29@cogentembedded.com>
+ <20161208145635.GH21834@bigcity.dyn.berto.se>
+ <b0bc6386-45ba-2205-6cd4-dce9a1529124@cogentembedded.com>
+ <20161212154955.GA17342@bigcity.dyn.berto.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Mike Rapoport <rppt@linux.vnet.ibm.com>,
-        "netdev@vger.kernel.org"
- <netdev@vger.kernel.org>,
-        linux-mm <linux-mm@kvack.org>,
-        Willem de Bruijn
- <willemdebruijn.kernel@gmail.com>,
-        =?UTF-8?B?QmrDtnJuIFTDtnBlbA==?=
- <bjorn.topel@intel.com>,
-        "Karlsson, Magnus" <magnus.karlsson@intel.com>,
-        Alexander Duyck <alexander.duyck@gmail.com>,
-        Mel Gorman
- <mgorman@techsingularity.net>,
-        Tom Herbert <tom@herbertland.com>,
-        Brenden
- Blanco <bblanco@plumgrid.com>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Saeed
- Mahameed <saeedm@mellanox.com>,
-        Jesse Brandeburg
- <jesse.brandeburg@intel.com>,
-        Kalman Meth <METH@il.ibm.com>,
-        Vladislav
- Yasevich <vyasevich@gmail.com>, brouer@redhat.com
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <584EB8DF.8000308@gmail.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: Simon Horman <horms+renesas@verge.net.au>, netdev@vger.kernel.org,
+        linux-renesas-soc@vger.kernel.org
+To: =?UTF-8?Q?Niklas_S=c3=b6derlund?= <niklas.soderlund@ragnatech.se>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f43.google.com ([74.125.82.43]:38806 "EHLO
+        mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753660AbcLLRfb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 12 Dec 2016 12:35:31 -0500
+Received: by mail-wm0-f43.google.com with SMTP id f82so79527064wmf.1
+        for <netdev@vger.kernel.org>; Mon, 12 Dec 2016 09:35:30 -0800 (PST)
+In-Reply-To: <20161212154955.GA17342@bigcity.dyn.berto.se>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 12 Dec 2016 06:49:03 -0800
-John Fastabend <john.fastabend@gmail.com> wrote:
+On 12/12/2016 06:49 PM, Niklas Söderlund wrote:
 
-> On 16-12-12 06:14 AM, Mike Rapoport wrote:
-> > On Mon, Dec 12, 2016 at 10:40:42AM +0100, Jesper Dangaard Brouer wrote:  
-> >>
-> >> On Mon, 12 Dec 2016 10:38:13 +0200 Mike Rapoport <rppt@linux.vnet.ibm.com> wrote:
-> >>  
-> >>> Hello Jesper,
-> >>>
-> >>> On Mon, Dec 05, 2016 at 03:31:32PM +0100, Jesper Dangaard Brouer wrote:  
-> >>>> Hi all,
-> >>>>
-> >>>> This is my design for how to safely handle RX zero-copy in the network
-> >>>> stack, by using page_pool[1] and modifying NIC drivers.  Safely means
-> >>>> not leaking kernel info in pages mapped to userspace and resilience
-> >>>> so a malicious userspace app cannot crash the kernel.
-> >>>>
-> >>>> Design target
-> >>>> =============
-> >>>>
-> >>>> Allow the NIC to function as a normal Linux NIC and be shared in a
-> >>>> safe manor, between the kernel network stack and an accelerated
-> >>>> userspace application using RX zero-copy delivery.
-> >>>>
-> >>>> Target is to provide the basis for building RX zero-copy solutions in
-> >>>> a memory safe manor.  An efficient communication channel for userspace
-> >>>> delivery is out of scope for this document, but OOM considerations are
-> >>>> discussed below (`Userspace delivery and OOM`_).    
-> >>>
-> >>> Sorry, if this reply is a bit off-topic.  
-> >>
-> >> It is very much on topic IMHO :-)
-> >>  
-> >>> I'm working on implementation of RX zero-copy for virtio and I've dedicated
-> >>> some thought about making guest memory available for physical NIC DMAs.
-> >>> I believe this is quite related to your page_pool proposal, at least from
-> >>> the NIC driver perspective, so I'd like to share some thoughts here.  
-> >>
-> >> Seems quite related. I'm very interested in cooperating with you! I'm
-> >> not very familiar with virtio, and how packets/pages gets channeled
-> >> into virtio.  
-> > 
-> > They are copied :-)
-> > Presuming we are dealing only with vhost backend, the received skb
-> > eventually gets converted to IOVs, which in turn are copied to the guest
-> > memory. The IOVs point to the guest memory that is allocated by virtio-net
-> > running in the guest.
-> >   
-> 
-> Great I'm also doing something similar.
-> 
-> My plan was to embed the zero copy as an AF_PACKET mode and then push
-> a AF_PACKET backend into vhost. I'll post a patch later this week.
-> 
-> >>> The idea is to dedicate one (or more) of the NIC's queues to a VM, e.g.
-> >>> using macvtap, and then propagate guest RX memory allocations to the NIC
-> >>> using something like new .ndo_set_rx_buffers method.  
-> >>
-> >> I believe the page_pool API/design aligns with this idea/use-case.
-> >>  
-> >>> What is your view about interface between the page_pool and the NIC
-> >>> drivers?  
-> >>
-> >> In my Prove-of-Concept implementation, the NIC driver (mlx5) register
-> >> a page_pool per RX queue.  This is done for two reasons (1) performance
-> >> and (2) for supporting use-cases where only one single RX-ring queue is
-> >> (re)configured to support RX-zero-copy.  There are some associated
-> >> extra cost of enabling this mode, thus it makes sense to only enable it
-> >> when needed.
-> >>
-> >> I've not decided how this gets enabled, maybe some new driver NDO.  It
-> >> could also happen when a XDP program gets loaded, which request this
-> >> feature.
-> >>
-> >> The macvtap solution is nice and we should support it, but it requires
-> >> VM to have their MAC-addr registered on the physical switch.  This
-> >> design is about adding flexibility. Registering an XDP eBPF filter
-> >> provides the maximum flexibility for matching the destination VM.  
-> > 
-> > I'm not very familiar with XDP eBPF, and it's difficult for me to estimate
-> > what needs to be done in BPF program to do proper conversion of skb to the
-> > virtio descriptors.  
-> 
-> I don't think XDP has much to do with this code and they should be done
-> separately. XDP runs eBPF code on received packets after the DMA engine
-> has already placed the packet in memory so its too late in the process.
+> Thanks for your feedback.
 
-It does not have to be connected to XDP.  My idea should support RX
-zero-copy into normal sockets, without XDP.
+    Not at all, it's my duty now. :-)
+    I should probably have warned you not to post the new version to netdev -- 
+DaveM has closed his net-next.git tree (ahead of the usual time, which would 
+have been 4.9 release), so you posting would only upset him...
 
-My idea was to pre-VMA map the RX ring, when zero-copy is requested,
-thus it is not too late in the process.  When frame travel the normal
-network stack, then require the SKB-read-only-page mode (skb-frags).
-If the SKB reach a socket that support zero-copy, then we can do RX
-zero-copy on normal sockets.
+[...]
+>>>>   You only enable the WOL support fo the R-Car gen2 chips but never say that
+>>>> explicitly, neither in the subject nor here.
+>>>>
+>>>>> Signed-off-by: Niklas Söderlund <niklas.soderlund+renesas@ragnatech.se>
+>>>>> ---
+>>>>>  drivers/net/ethernet/renesas/sh_eth.c | 120 +++++++++++++++++++++++++++++++---
+>>>>>  drivers/net/ethernet/renesas/sh_eth.h |   4 ++
+>>>>>  2 files changed, 116 insertions(+), 8 deletions(-)
+>>>>
+>>>>> diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+>>>>> index 05b0dc5..3974046 100644
+>>>>> --- a/drivers/net/ethernet/renesas/sh_eth.c
+>>>>> +++ b/drivers/net/ethernet/renesas/sh_eth.c
+[...]
+>>>> +		/* Handle MagicPacket interrupt */
+>>>> +		if (sh_eth_read(ndev, ECSR) & ECSR_MPD)
+>>
+>>    What if it wasn't enabled ATM?
+>
+> Sorry I don't understand this comment.
 
- 
-> The other piece here is enabling XDP in vhost but that is again separate
-> IMO.
-> 
-> Notice that ixgbe supports pushing packets into a macvlan via 'tc'
-> traffic steering commands so even though macvlan gets an L2 address it
-> doesn't mean it can't use other criteria to steer traffic to it.
+    I'm trying to handle only the enabled interrupts but this hasn't been 
+consistently done yet (only for EESR, not ECSR), so nevermind. :-)
 
-This sounds interesting. As this allow much more flexibility macvlan
-matching, which I like, but still depending on HW support. 
+[...]
+>>>>> @@ -3150,15 +3193,71 @@ static int sh_eth_drv_remove(struct platform_device *pdev)
+[...]
 
- 
-> > We were not considered using XDP yet, so we've decided to limit the initial
-> > implementation to macvtap because we can ensure correspondence between a
-> > NIC queue and virtual NIC, which is not the case with more generic tap
-> > device. It could be that use of XDP will allow for a generic solution for
-> > virtio case as well.  
-> 
-> Interesting this was one of the original ideas behind the macvlan
-> offload mode. iirc Vlad also was interested in this.
-> 
-> I'm guessing this was used because of the ability to push macvlan onto
-> its own queue?
-> 
-> >    
-> >>  
-> >>> Have you considered using "push" model for setting the NIC's RX memory?  
-> >>
-> >> I don't understand what you mean by a "push" model?  
-> > 
-> > Currently, memory allocation in NIC drivers boils down to alloc_page with
-> > some wrapping code. I see two possible ways to make NIC use of some
-> > preallocated pages: either NIC driver will call an API (probably different
-> > from alloc_page) to obtain that memory, or there will be NDO API that
-> > allows to set the NIC's RX buffers. I named the later case "push".  
-> 
-> I prefer the ndo op. This matches up well with AF_PACKET model where we
-> have "slots" and offload is just a transparent "push" of these "slots"
-> to the driver. Below we have a snippet of our proposed API,
+>>> This is how it's done in
+>>> other parts of the driver when disabling interrupts.
+>>
+>>    Not in all parts of the driver that disable EESIPR interrupts... I must
+>> confess that I never liked that 'mdp->irq_enabled' flag and still suspect we
+>> can get things done without it... I need to look at this code again, sigh...
 
-Hmmm. If you can rely on hardware setup to give you steering and
-dedicated access to the RX rings.  In those cases, I guess, the "push"
-model could be a more direct API approach.
+    Well, we can't most probably but I have a patch almost ready that turns 
+the boolean flag into u32 field holding the EESIPR value to be written next. 
+Would that help you?
 
-I was shooting for a model that worked without hardware support.  And
-then transparently benefit from HW support by configuring a HW filter
-into a specific RX queue and attaching/using to that queue.
+>>> This is also why I only check for MagicPacket interrupts if irq_enabled
+>>> is false.
+>>
+>>   I would have preferred that this was done with the other EMAC interrupts,
+>> in sh_eth_error().
+>
+> I removed the check for Magic Packet in sh_eth_interrupt() and running
+> without setting mdp->irq_enabled = false. sh_eth_error() will then clear
+> any ECI interrupt so no need to add Magic Packet detection to it since
+> all that is needed on Magic Packet is to clear the interrupt which
+> already is done. This works and I can do multiple suspend/resume cycles,
+> will be in v2 thanks for the suggestion.
 
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
+    OK, let's see what you have when I have some more time. We have a lot of 
+time for ironing things out till net-next is opened again -- which will happen 
+after -rc1)...
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+[...]
+>>>>> +
+>>>>> +	/* Enable MagicPacket */
+>>>>> +	sh_eth_modify(ndev, ECMR, 0, ECMR_PMDE);
+>>>>> +
+>>>>> +	/* Increased clock usage so device won't be suspended */
+>>>>> +	clk_enable(mdp->clk);
+>>>>
+>>>>    Hum, intermixiggn runtime PM with clock API doesn't look good...
+>>>
+>>> I agree it looks weird but I need a way to increment the usage count for
+>>> the clock otherwise the PM code will disable the module clock and WoL
+>>> will not work.
+>>
+>>    How will it do it if you don't call sh_eth_close() in this case?
+>>
+>>> Note that this call will not enable the clock just
+>>> increase the usage count so it won't be disabled when the PM code
+>>> decrease it after the sh_eth suspend function is run.
+>>
+>>    You mean that the PM code calls RPM or clk API on its own? That's strange...
+>
+> Yes it calls clk API.
+
+    Hum, will have to look into it as well...
+
+[...]
+
+MBR, Sergei
