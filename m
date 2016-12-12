@@ -1,169 +1,29 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: Designing a safe RX-zero-copy Memory Model for Networking
-Date: Mon, 12 Dec 2016 16:10:26 +0100
-Message-ID: <20161212161026.0dfd2e13@redhat.com>
-References: <20161205153132.283fcb0e@redhat.com>
-        <20161212083812.GA19987@rapoport-lnx>
-        <20161212104042.0a011212@redhat.com>
-        <20161212141433.GB19987@rapoport-lnx>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [patch net-next] irda: w83977af_ir: cleanup an indent issue
+Date: Mon, 12 Dec 2016 07:22:08 -0800
+Message-ID: <1481556128.1764.17.camel@perches.com>
+References: <20161212112134.GA10035@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        linux-mm <linux-mm@kvack.org>,
-        John Fastabend <john.fastabend@gmail.com>,
-        Willem de Bruijn <willemdebruijn.kernel@gmail.com>,
-        =?UTF-8?B?QmrDtnJuIFTDtnBlbA==?= <bjorn.topel@intel.com>,
-        "Karlsson, Magnus" <magnus.karlsson@intel.com>,
-        Alexander Duyck <alexander.duyck@gmail.com>,
-        Mel Gorman <mgorman@techsingularity.net>,
-        Tom Herbert <tom@herbertland.com>,
-        Brenden Blanco <bblanco@plumgrid.com>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Jesse Brandeburg <jesse.brandeburg@intel.com>,
-        Kalman Meth <METH@il.ibm.com>, brouer@redhat.com
-To: Mike Rapoport <rppt@linux.vnet.ibm.com>
+Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Dan Carpenter <dan.carpenter@oracle.com>,
+        Samuel Ortiz <samuel@sortiz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:34112 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752488AbcLLPKf (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 12 Dec 2016 10:10:35 -0500
-In-Reply-To: <20161212141433.GB19987@rapoport-lnx>
+Received: from smtprelay0213.hostedemail.com ([216.40.44.213]:50495 "EHLO
+        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1752366AbcLLPWN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 12 Dec 2016 10:22:13 -0500
+In-Reply-To: <20161212112134.GA10035@elgon.mountain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 12 Dec 2016 16:14:33 +0200
-Mike Rapoport <rppt@linux.vnet.ibm.com> wrote:
+On Mon, 2016-12-12 at 14:21 +0300, Dan Carpenter wrote:
+> In commit 99d8d2159d7c ("irda: w83977af_ir: Neaten logging"), we
+> accidentally added an extra tab to these lines.
 
-> On Mon, Dec 12, 2016 at 10:40:42AM +0100, Jesper Dangaard Brouer wrote:
-> > 
-> > On Mon, 12 Dec 2016 10:38:13 +0200 Mike Rapoport <rppt@linux.vnet.ibm.com> wrote:
-> >   
-> > > Hello Jesper,
-> > > 
-> > > On Mon, Dec 05, 2016 at 03:31:32PM +0100, Jesper Dangaard Brouer wrote:  
-> > > > Hi all,
-> > > > 
-> > > > This is my design for how to safely handle RX zero-copy in the network
-> > > > stack, by using page_pool[1] and modifying NIC drivers.  Safely means
-> > > > not leaking kernel info in pages mapped to userspace and resilience
-> > > > so a malicious userspace app cannot crash the kernel.
-> > > > 
-> > > > Design target
-> > > > =============
-> > > > 
-> > > > Allow the NIC to function as a normal Linux NIC and be shared in a
-> > > > safe manor, between the kernel network stack and an accelerated
-> > > > userspace application using RX zero-copy delivery.
-> > > > 
-> > > > Target is to provide the basis for building RX zero-copy solutions in
-> > > > a memory safe manor.  An efficient communication channel for userspace
-> > > > delivery is out of scope for this document, but OOM considerations are
-> > > > discussed below (`Userspace delivery and OOM`_).    
-> > > 
-> > > Sorry, if this reply is a bit off-topic.  
-> > 
-> > It is very much on topic IMHO :-)
-> >   
-> > > I'm working on implementation of RX zero-copy for virtio and I've dedicated
-> > > some thought about making guest memory available for physical NIC DMAs.
-> > > I believe this is quite related to your page_pool proposal, at least from
-> > > the NIC driver perspective, so I'd like to share some thoughts here.  
-> > 
-> > Seems quite related. I'm very interested in cooperating with you! I'm
-> > not very familiar with virtio, and how packets/pages gets channeled
-> > into virtio.  
-> 
-> They are copied :-)
-> Presuming we are dealing only with vhost backend, the received skb
-> eventually gets converted to IOVs, which in turn are copied to the guest
-> memory. The IOVs point to the guest memory that is allocated by virtio-net
-> running in the guest.
+Thanks Dan.
 
-Thanks for explaining that. It seems like a lot of overhead. I have to
-wrap my head around this... so, the hardware NIC is receiving the
-packet/page, in the RX ring, and after converting it to IOVs, it is
-conceptually transmitted into the guest, and then the guest-side have a
-RX-function to handle this packet. Correctly understood?
-
- 
-> > > The idea is to dedicate one (or more) of the NIC's queues to a VM, e.g.
-> > > using macvtap, and then propagate guest RX memory allocations to the NIC
-> > > using something like new .ndo_set_rx_buffers method.  
-> > 
-> > I believe the page_pool API/design aligns with this idea/use-case.
-> >   
-> > > What is your view about interface between the page_pool and the NIC
-> > > drivers?  
-> > 
-> > In my Prove-of-Concept implementation, the NIC driver (mlx5) register
-> > a page_pool per RX queue.  This is done for two reasons (1) performance
-> > and (2) for supporting use-cases where only one single RX-ring queue is
-> > (re)configured to support RX-zero-copy.  There are some associated
-> > extra cost of enabling this mode, thus it makes sense to only enable it
-> > when needed.
-> > 
-> > I've not decided how this gets enabled, maybe some new driver NDO.  It
-> > could also happen when a XDP program gets loaded, which request this
-> > feature.
-> > 
-> > The macvtap solution is nice and we should support it, but it requires
-> > VM to have their MAC-addr registered on the physical switch.  This
-> > design is about adding flexibility. Registering an XDP eBPF filter
-> > provides the maximum flexibility for matching the destination VM.  
-> 
-> I'm not very familiar with XDP eBPF, and it's difficult for me to estimate
-> what needs to be done in BPF program to do proper conversion of skb to the
-> virtio descriptors.
-
-XDP is a step _before_ the SKB is allocated.  The XDP eBPF program can
-modify the packet-page data, but I don't think it is needed for your
-use-case.  View XDP (primarily) as an early (demux) filter.
-
-XDP is missing a feature your need, which is TX packet into another
-net_device (I actually imagine a port mapping table, that point to a
-net_device).  This require a new "TX-raw" NDO that takes a page (+
-offset and length). 
-
-I imagine, the virtio driver (virtio_net or a new driver?) getting
-extended with this new "TX-raw" NDO, that takes "raw" packet-pages.
- Whether zero-copy is possible is determined by checking if page
-originates from a page_pool that have enabled zero-copy (and likely
-matching against a "protection domain" id number).
-
-
-> We were not considered using XDP yet, so we've decided to limit the initial
-> implementation to macvtap because we can ensure correspondence between a
-> NIC queue and virtual NIC, which is not the case with more generic tap
-> device. It could be that use of XDP will allow for a generic solution for
-> virtio case as well.
-
-You don't need an XDP filter, if you can make the HW do the early demux
-binding into a queue.  The check for if memory is zero-copy enabled
-would be the same.
-
-> >   
-> > > Have you considered using "push" model for setting the NIC's RX memory?  
-> > 
-> > I don't understand what you mean by a "push" model?  
-> 
-> Currently, memory allocation in NIC drivers boils down to alloc_page with
-> some wrapping code. I see two possible ways to make NIC use of some
-> preallocated pages: either NIC driver will call an API (probably different
-> from alloc_page) to obtain that memory, or there will be NDO API that
-> allows to set the NIC's RX buffers. I named the later case "push".
-
-As you might have guessed, I'm not into the "push" model, because this
-means I cannot share the queue with the normal network stack.  Which I
-believe is possible as outlined (in email and [2]) and can be done with
-out HW filter features (like macvlan).
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
-
-[1] https://prototype-kernel.readthedocs.io/en/latest/networking/XDP/index.html
-[2] https://prototype-kernel.readthedocs.io/en/latest/vm/page_pool/design/memory_model_nic.html
+Oops,  It's kinda funny I did the whole
+series to fix that misindentation originally
+and added it back when rebasing.
