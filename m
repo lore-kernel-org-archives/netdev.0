@@ -1,70 +1,63 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the tip tree with the net-next tree
-Date: Mon, 12 Dec 2016 13:30:00 +1100
-Message-ID: <20161212133000.6cf7a90e@canb.auug.org.au>
+From: Souptick Joarder <jrdr.linux@gmail.com>
+Subject: Re: [PATCH] net: wan: Use dma_pool_zalloc
+Date: Mon, 12 Dec 2016 10:12:38 +0530
+Message-ID: <CAFqt6zZoEfE8Us+vx_VuFyqK-zth9ac=aZXo2MKD-4RUBqm5GQ@mail.gmail.com>
+References: <20161203091447.GA5231@jordon-HP-15-Notebook-PC> <m3wpf9l0fc.fsf@t19.piap.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Nicolas Pitre <nicolas.pitre@linaro.org>,
-        WingMan Kwok <w-kwok2@ti.com>
-To: Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@elte.hu>,
-        "H. Peter Anvin" <hpa@zytor.com>,
-        Peter Zijlstra <peterz@infradead.org>,
-        David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Rameshwar Sahu <sahu.rameshwar73@gmail.com>
+To: =?UTF-8?Q?Krzysztof_Ha=C5=82asa?= <khalasa@piap.pl>,
+        netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f195.google.com ([209.85.223.195]:34003 "EHLO
+        mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753833AbcLLEmk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 11 Dec 2016 23:42:40 -0500
+Received: by mail-io0-f195.google.com with SMTP id y124so19358130iof.1
+        for <netdev@vger.kernel.org>; Sun, 11 Dec 2016 20:42:39 -0800 (PST)
+In-Reply-To: <m3wpf9l0fc.fsf@t19.piap.pl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+On Fri, Dec 9, 2016 at 6:33 PM, Krzysztof Ha=C5=82asa <khalasa@piap.pl> wro=
+te:
+> Souptick Joarder <jrdr.linux@gmail.com> writes:
+>
+>> We should use dma_pool_zalloc instead of dma_pool_alloc/memset
+>>
+>> Signed-off-by: Souptick joarder <jrdr.linux@gmail.com>
+>> ---
+>>  drivers/net/wan/ixp4xx_hss.c | 5 ++---
+>>  1 file changed, 2 insertions(+), 3 deletions(-)
+>>
+>> diff --git a/drivers/net/wan/ixp4xx_hss.c b/drivers/net/wan/ixp4xx_hss.c
+>> index e7bbdb7..aaabf31 100644
+>> --- a/drivers/net/wan/ixp4xx_hss.c
+>> +++ b/drivers/net/wan/ixp4xx_hss.c
+>> @@ -976,10 +976,9 @@ static int init_hdlc_queues(struct port *port)
+>>                       return -ENOMEM;
+>>       }
+>>
+>> -     if (!(port->desc_tab =3D dma_pool_alloc(dma_pool, GFP_KERNEL,
+>> -                                           &port->desc_tab_phys)))
+>> +     if (!(port->desc_tab =3D dma_pool_zalloc(dma_pool, GFP_KERNEL,
+>> +                                            &port->desc_tab_phys)))
+>>               return -ENOMEM;
+>> -     memset(port->desc_tab, 0, POOL_ALLOC_SIZE);
+>>       memset(port->rx_buff_tab, 0, sizeof(port->rx_buff_tab)); /* tables=
+ */
+>>       memset(port->tx_buff_tab, 0, sizeof(port->tx_buff_tab));
+>
+> This look fine, feel free to send it to the netdev mailing list for
+> inclusion.
 
-Today's linux-next merge of the tip tree got a conflict in:
+Including netdev mailing list based as requested.
 
-  drivers/net/ethernet/ti/Kconfig
-
-between commit:
-
-  6246168b4a38 ("net: ethernet: ti: netcp: add support of cpts")
-
-from the net-next tree and commit:
-
-  d1cbfd771ce8 ("ptp_clock: Allow for it to be optional")
-
-from the tip tree.
-
-I fixed it up (see below) and can carry the fix as necessary. This
-is now fixed as far as linux-next is concerned, but any non trivial
-conflicts should be mentioned to your upstream maintainer when your tree
-is submitted for merging.  You may also want to consider cooperating
-with the maintainer of the conflicting tree to minimise any particularly
-complex conflicts.
-
--- 
-Cheers,
-Stephen Rothwell
-
-diff --cc drivers/net/ethernet/ti/Kconfig
-index dc217fd7a734,61b835a7e6ae..000000000000
---- a/drivers/net/ethernet/ti/Kconfig
-+++ b/drivers/net/ethernet/ti/Kconfig
-@@@ -74,14 -74,13 +74,14 @@@ config TI_CPS
-  	  will be called cpsw.
-  
-  config TI_CPTS
- -	bool "TI Common Platform Time Sync (CPTS) Support"
- -	depends on TI_CPSW
- +	tristate "TI Common Platform Time Sync (CPTS) Support"
- +	depends on TI_CPSW || TI_KEYSTONE_NETCP
-- 	select PTP_1588_CLOCK
-+ 	imply PTP_1588_CLOCK
-  	---help---
-  	  This driver supports the Common Platform Time Sync unit of
- -	  the CPSW Ethernet Switch. The unit can time stamp PTP UDP/IPv4
- -	  and Layer 2 packets, and the driver offers a PTP Hardware Clock.
- +	  the CPSW Ethernet Switch and Keystone 2 1g/10g Switch Subsystem.
- +	  The unit can time stamp PTP UDP/IPv4 and Layer 2 packets, and the
- +	  driver offers a PTP Hardware Clock.
-  
-  config TI_KEYSTONE_NETCP
-  	tristate "TI Keystone NETCP Core Support"
+>
+> Acked-by: Krzysztof Halasa <khalasa@piap.pl>
+> --
+> Krzysztof Halasa
+>
+> Industrial Research Institute for Automation and Measurements PIAP
+> Al. Jerozolimskie 202, 02-486 Warsaw, Poland
