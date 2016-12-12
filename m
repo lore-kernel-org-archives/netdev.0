@@ -1,43 +1,50 @@
-From: Peng Tao <bergwolf@gmail.com>
-Subject: Re: [PATCH v3 2/4] vhost-vsock: add pkt cancel capability
-Date: Mon, 12 Dec 2016 19:56:25 +0800
-Message-ID: <CA+a=Yy7HXvg1=Jgn-a3y7QZbAW5Ss3EN5Ds6m_9=qn=EE9qtjw@mail.gmail.com>
-References: <1481217156-7160-1-git-send-email-bergwolf@gmail.com>
-	<1481217156-7160-2-git-send-email-bergwolf@gmail.com>
-	<1481217156-7160-3-git-send-email-bergwolf@gmail.com>
-	<426F96AC-2E7C-4BEC-A3D3-7D8A97FDD51D@vmware.com>
+From: Dongpo Li <lidongpo@hisilicon.com>
+Subject: [PATCH 2/2] net: ethernet: hip04: Call SET_NETDEV_DEV()
+Date: Mon, 12 Dec 2016 20:03:43 +0800
+Message-ID: <1481544223-207906-3-git-send-email-lidongpo@hisilicon.com>
+References: <1481544223-207906-1-git-send-email-lidongpo@hisilicon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"virtualization@lists.linux-foundation.org"
-	<virtualization@lists.linux-foundation.org>,
-	David Miller <davem@davemloft.net>, Stefan Hajnoczi <stefanha@redhat.com>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>
-To: "Jorgen S. Hansen" <jhansen@vmware.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <426F96AC-2E7C-4BEC-A3D3-7D8A97FDD51D@vmware.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain
+Cc: <f.fainelli@gmail.com>, <xuejiancheng@hisilicon.com>,
+        <benjamin.chenhao@hisilicon.com>, <caizhiyong@hisilicon.com>,
+        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        Dongpo Li <lidongpo@hisilicon.com>
+To: <yisen.zhuang@huawei.com>, <salil.mehta@huawei.com>,
+        <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1481544223-207906-1-git-send-email-lidongpo@hisilicon.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gTW9uLCBEZWMgMTIsIDIwMTYgYXQgNjozNyBQTSwgSm9yZ2VuIFMuIEhhbnNlbiA8amhhbnNl
-bkB2bXdhcmUuY29tPiB3cm90ZToKPgo+PiBPbiBEZWMgOCwgMjAxNiwgYXQgNjoxMiBQTSwgUGVu
-ZyBUYW8gPGJlcmd3b2xmQGdtYWlsLmNvbT4gd3JvdGU6Cj4+Cj4+IC0tLSBhL2luY2x1ZGUvbmV0
-L2FmX3Zzb2NrLmgKPj4gKysrIGIvaW5jbHVkZS9uZXQvYWZfdnNvY2suaAo+PiBAQCAtMTAwLDYg
-KzEwMCw5IEBAIHN0cnVjdCB2c29ja190cmFuc3BvcnQgewo+PiAgICAgICB2b2lkICgqZGVzdHJ1
-Y3QpKHN0cnVjdCB2c29ja19zb2NrICopOwo+PiAgICAgICB2b2lkICgqcmVsZWFzZSkoc3RydWN0
-IHZzb2NrX3NvY2sgKik7Cj4+Cj4+ICsgICAgIC8qIENhbmNlbCBwYWNrZXRzIGJlbG9uZ2luZyB0
-aGUgc2FtZSB2c29jayAqLwo+Cj4gSG93IGFib3V0IOKAnC8qIENhbmNlbCBhbGwgcGVuZGluZyBw
-YWNrZXRzIHNlbnQgb24gdnNvY2suICov4oCcID8KPgpTdXJlLiBJJ2xsIHVwZGF0ZSBpdC4KClRo
-YW5rcywKVGFvCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-ClZpcnR1YWxpemF0aW9uIG1haWxpbmcgbGlzdApWaXJ0dWFsaXphdGlvbkBsaXN0cy5saW51eC1m
-b3VuZGF0aW9uLm9yZwpodHRwczovL2xpc3RzLmxpbnV4Zm91bmRhdGlvbi5vcmcvbWFpbG1hbi9s
-aXN0aW5mby92aXJ0dWFsaXphdGlvbg==
+The hip04 driver calls into PHYLIB which now checks for
+net_device->dev.parent, so make sure we do set it before calling into
+any MDIO/PHYLIB related function.
+
+Fixes: ec988ad78ed6 ("phy: Don't increment MDIO bus refcount unless it's a different owner")
+Signed-off-by: Dongpo Li <lidongpo@hisilicon.com>
+---
+ drivers/net/ethernet/hisilicon/hip04_eth.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/hisilicon/hip04_eth.c b/drivers/net/ethernet/hisilicon/hip04_eth.c
+index 854befd..97b1847 100644
+--- a/drivers/net/ethernet/hisilicon/hip04_eth.c
++++ b/drivers/net/ethernet/hisilicon/hip04_eth.c
+@@ -828,6 +828,7 @@ static int hip04_mac_probe(struct platform_device *pdev)
+ 	priv = netdev_priv(ndev);
+ 	priv->ndev = ndev;
+ 	platform_set_drvdata(pdev, ndev);
++	SET_NETDEV_DEV(ndev, &pdev->dev);
+ 
+ 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+ 	priv->base = devm_ioremap_resource(d, res);
+@@ -903,7 +904,6 @@ static int hip04_mac_probe(struct platform_device *pdev)
+ 	ndev->priv_flags |= IFF_UNICAST_FLT;
+ 	ndev->irq = irq;
+ 	netif_napi_add(ndev, &priv->napi, hip04_rx_poll, NAPI_POLL_WEIGHT);
+-	SET_NETDEV_DEV(ndev, &pdev->dev);
+ 
+ 	hip04_reset_ppe(priv);
+ 	if (priv->phy_mode == PHY_INTERFACE_MODE_MII)
+-- 
+2.8.2
