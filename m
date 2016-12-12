@@ -1,47 +1,32 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: stmmac driver...
-Date: Mon, 12 Dec 2016 15:17:02 +0100
-Message-ID: <35edb551-518e-f59f-7a9e-db108d8f42a7@st.com>
-References: <20161207.130654.1484281922991494182.davem@davemloft.net>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 1/3] net:dsa:mv88e6xxx: use hashtable to store
+ multicast entries
+Date: Mon, 12 Dec 2016 15:18:03 +0100
+Message-ID: <20161212141803.GF27057@lunn.ch>
+References: <1481549958-1265-1-git-send-email-volodymyr.bendiuga@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>, <alexandre.torgue@st.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
+        netdev@vger.kernel.org, volodymyr.bendiuga@westermo.se
+To: Volodymyr Bendiuga <volodymyr.bendiuga@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx08-00178001.pphosted.com ([91.207.212.93]:59287 "EHLO
-        mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1752944AbcLLORJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Dec 2016 09:17:09 -0500
-In-Reply-To: <20161207.130654.1484281922991494182.davem@davemloft.net>
+Received: from vps0.lunn.ch ([178.209.37.122]:52476 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752633AbcLLOSF (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 12 Dec 2016 09:18:05 -0500
+Content-Disposition: inline
+In-Reply-To: <1481549958-1265-1-git-send-email-volodymyr.bendiuga@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David
+Hi Volodymyr
 
-On 12/7/2016 7:06 PM, David Miller wrote:
->
-> Giuseppe and Alexandre,
->
-> There are a lot of patches and discussions happening around the stammc
-> driver lately and both of you are listed as the maintainers.
->
-> I really need prompt and conclusive reviews of these patch submissions
-> from you, and participation in all discussions about the driver.
+Any multi patch patchset should include a cover note. See git
+format-patch --cover. This should explain the big picture what does
+the patchset do, why etc.
 
-yes we are trying to do the best.
+Also, David sent out an email saying net-next was closed. While it is
+closed, please send patches are RFC.
 
-> Otherwise I have only three things I can do: 1) let the patches rot in
-> patchwork for days 2) trust that the patches are sane and fit your
-> desires and goals and just apply them or 3) reject them since they
-> aren't being reviewed properly.
-
-at this stage, I think the best is: (3).
-
->
-> Thanks in advance.
->
-you are welcome
-
-
-Peppe
+Thanks
+	Andrew
