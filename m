@@ -1,97 +1,165 @@
-From: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH V2 00/22] Broadcom RoCE Driver (bnxt_re)
-Date: Mon, 12 Dec 2016 18:52:47 -0500
-Message-ID: <23e26353-4317-2836-9f94-d1fc3274a770@redhat.com>
-References: <1481266096-23331-1-git-send-email-selvin.xavier@broadcom.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH v2] audit: use proper refcount locking on audit_sock
+Date: Mon, 12 Dec 2016 15:58:23 -0800
+Message-ID: <CAM_iQpXAZOOn7G-EbEy1T11w6uoqwx5M8jVt=iHfOj4TJYsqpA@mail.gmail.com>
+References: <20161212100215.GA1305@madcap2.tricolour.ca> <5714bd7468cfec225407a6c367e658478d590495.1481534171.git.rgb@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- protocol="application/pgp-signature";
- boundary="c34KNfshmHK5jRdwv0P7Q4ac4v8omjXIK"
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Selvin Xavier <selvin.xavier-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1481266096-23331-1-git-send-email-selvin.xavier-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>, linux-audit@redhat.com,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Eric Paris <eparis@redhat.com>, Paul Moore <pmoore@redhat.com>,
+        sgrubb@redhat.com
+To: Richard Guy Briggs <rgb@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5714bd7468cfec225407a6c367e658478d590495.1481534171.git.rgb@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---c34KNfshmHK5jRdwv0P7Q4ac4v8omjXIK
-Content-Type: multipart/mixed; boundary="O379wKSNU7mbrTrVeHLFtjBp7qXLmWIM2";
- protected-headers="v1"
-From: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-To: Selvin Xavier <selvin.xavier-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Message-ID: <23e26353-4317-2836-9f94-d1fc3274a770-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH V2 00/22] Broadcom RoCE Driver (bnxt_re)
-References: <1481266096-23331-1-git-send-email-selvin.xavier-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-In-Reply-To: <1481266096-23331-1-git-send-email-selvin.xavier-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-
---O379wKSNU7mbrTrVeHLFtjBp7qXLmWIM2
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: quoted-printable
-
-On 12/9/2016 1:47 AM, Selvin Xavier wrote:
-> This series introduces the RoCE driver for the Broadcom
-> NetXtreme-E 10/25/40/50 gigabit RoCE HCAs.=20
-> This driver is dependent on the bnxt_en NIC driver and is=20
-> based on the bnxt_re branch in Doug's repository. bnxt_en changes
-> required for this patch series is already available in this branch.
->=20
-> I am preparing a git repository with these changes as per Jason's
-> comment and will share the details later today.
->=20
-> v1-> v2:
->   * The license text in each file updated to reflect Dual license.
->   * Makefile and Kconfig changes are pushed to the last patch
->   * Moved bnxt_re_uverbs_abi.h to include/uapi/rdma folder
->   * Remove duplicate structure definitions from bnxt_re_hsi.h as
->     it is available in the corresponding bnxt_en header file (bnxt_hsi.=
-h)
->   * Removed some unused code reported during code review.
->   * Fixed few sparse warnings
->=20
-> Doug,
-> Please review and consider applying this to linux-rdma repository.
-
-There are outstanding review comments to be addressed still yet, and the
-v2 patchset doesn't compile for me in 0day testing.  I'm going to bounce
-this one to 4.11.
+On Mon, Dec 12, 2016 at 2:03 AM, Richard Guy Briggs <rgb@redhat.com> wrote:
+> Resetting audit_sock appears to be racy.
+>
+> audit_sock was being copied and dereferenced without using a refcount on
+> the source sock.
+>
+> Bump the refcount on the underlying sock when we store a refrence in
+> audit_sock and release it when we reset audit_sock.  audit_sock
+> modification needs the audit_cmd_mutex.
+>
+> See: https://lkml.org/lkml/2016/11/26/232
+>
+> Thanks to Eric Dumazet <edumazet@google.com> and Cong Wang
+> <xiyou.wangcong@gmail.com> on ideas how to fix it.
+>
+> Signed-off-by: Richard Guy Briggs <rgb@redhat.com>
+> ---
+> There has been a lot of change in the audit code that is about to go
+> upstream to address audit queue issues.  This patch is based on the
+> source tree: git://git.infradead.org/users/pcmoore/audit#next
+> ---
+>  kernel/audit.c |   34 ++++++++++++++++++++++++++++------
+>  1 files changed, 28 insertions(+), 6 deletions(-)
+>
+> diff --git a/kernel/audit.c b/kernel/audit.c
+> index f20eee0..439f7f3 100644
+> --- a/kernel/audit.c
+> +++ b/kernel/audit.c
+> @@ -452,7 +452,9 @@ static void auditd_reset(void)
+>         struct sk_buff *skb;
+>
+>         /* break the connection */
+> +       sock_put(audit_sock);
 
 
---=20
-Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-    GPG Key ID: 0E572FDD
+Why audit_sock can't be NULL here?
 
 
---O379wKSNU7mbrTrVeHLFtjBp7qXLmWIM2--
+>         audit_pid = 0;
+> +       audit_nlk_portid = 0;
+>         audit_sock = NULL;
+>
+>         /* flush all of the retry queue to the hold queue */
+> @@ -478,6 +480,12 @@ static int kauditd_send_unicast_skb(struct sk_buff *skb)
+>         if (rc >= 0) {
+>                 consume_skb(skb);
+>                 rc = 0;
+> +       } else {
+> +               if (rc & (-ENOMEM|-EPERM|-ECONNREFUSED)) {
 
---c34KNfshmHK5jRdwv0P7Q4ac4v8omjXIK
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
+Are these errno's bits??
 
-iQIcBAEBCAAGBQJYTzhPAAoJELgmozMOVy/dvO8P/iv526m1kI+XOUI39jTtelm1
-kxlMXgOh6UFTgPmv84Ml0N395XHQwklsyuW3WBSiyDyjOVpS2CeNWaLEH8k394ij
-BJesEDkJXRX/soTYTGQHRIU1X1Po3xgliHK0upyB0DrdyAGlAs8pZI0ShxkuJ+Qr
-mDtZxCiTfvuloghagipvxGA+QXq9HG4OaHa3YLlsNw5eKnEHF6oBdlyIUkI4aYla
-gVvl/R2B4XnqDZtt1EEQImcPwWxe2sbUzTQ7cfdUKE8JRHtuqvC0LgSeTDXjvI/v
-JOtB4gI2+y3WuRciocTtTjKpH54J9oWc9+QZ5XgNltKcTqVK57mIBqRwCRYwh6fm
-r7CX+cRXcKcf9I6Gu8yDPAIZLRwNQtTaOf16P75rGv/iL0a0Kfe8UcHLFdrEb2fX
-T5Xfz4wRaP2VcJKuD/x4rUbGobt7y9lIyQmvowmpprpB/rrlAoa7llXgAFkr6OHh
-ZX56CyzuA4nNEihhmoBdlDBolzU5WORdAlEPqgDLuamRgWcDlmpj+ZBsz//wp+lW
-fBMuU/44xN4HlGTyy9HfHlCIlRuwLEWPpbNeAqqYkyO311UeQya5xK3ZE6FFGlLI
-lEDMKwnrKgB+wHKQn5S73pAjXkxtSUFXFr59OiNjkSGi0a/GjyXjvDe4+tm+VdB4
-ahm1nNsjEzKAlOo9ZShm
-=5tE0
------END PGP SIGNATURE-----
 
---c34KNfshmHK5jRdwv0P7Q4ac4v8omjXIK--
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> +                       mutex_lock(&audit_cmd_mutex);
+> +                       auditd_reset();
+> +                       mutex_unlock(&audit_cmd_mutex);
+> +               }
+>         }
+>
+>         return rc;
+> @@ -579,7 +587,9 @@ static int kauditd_thread(void *dummy)
+>
+>                                 auditd = 0;
+>                                 if (AUDITD_BAD(rc, reschedule)) {
+> +                                       mutex_lock(&audit_cmd_mutex);
+>                                         auditd_reset();
+> +                                       mutex_unlock(&audit_cmd_mutex);
+>                                         reschedule = 0;
+>                                 }
+>                         } else
+> @@ -594,7 +604,9 @@ static int kauditd_thread(void *dummy)
+>                                 auditd = 0;
+>                                 if (AUDITD_BAD(rc, reschedule)) {
+>                                         kauditd_hold_skb(skb);
+> +                                       mutex_lock(&audit_cmd_mutex);
+>                                         auditd_reset();
+> +                                       mutex_unlock(&audit_cmd_mutex);
+>                                         reschedule = 0;
+>                                 } else
+>                                         /* temporary problem (we hope), queue
+> @@ -623,7 +635,9 @@ quick_loop:
+>                                 if (rc) {
+>                                         auditd = 0;
+>                                         if (AUDITD_BAD(rc, reschedule)) {
+> +                                               mutex_lock(&audit_cmd_mutex);
+>                                                 auditd_reset();
+> +                                               mutex_unlock(&audit_cmd_mutex);
+>                                                 reschedule = 0;
+>                                         }
+>
+> @@ -1004,17 +1018,22 @@ static int audit_receive_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+>                                 return -EACCES;
+>                         }
+>                         if (audit_pid && new_pid &&
+> -                           audit_replace(requesting_pid) != -ECONNREFUSED) {
+> +                           (audit_replace(requesting_pid) & (-ECONNREFUSED|-EPERM|-ENOMEM))) {
+>                                 audit_log_config_change("audit_pid", new_pid, audit_pid, 0);
+>                                 return -EEXIST;
+>                         }
+>                         if (audit_enabled != AUDIT_OFF)
+>                                 audit_log_config_change("audit_pid", new_pid, audit_pid, 1);
+> -                       audit_pid = new_pid;
+> -                       audit_nlk_portid = NETLINK_CB(skb).portid;
+> -                       audit_sock = skb->sk;
+> -                       if (!new_pid)
+> +                       if (new_pid) {
+> +                               if (audit_sock)
+> +                                       sock_put(audit_sock);
+> +                               audit_pid = new_pid;
+> +                               audit_nlk_portid = NETLINK_CB(skb).portid;
+> +                               sock_hold(skb->sk);
+
+Why refcnt is still needed here? I need it because I removed the code
+in net exit code path.
+
+
+> +                               audit_sock = skb->sk;
+> +                       } else {
+>                                 auditd_reset();
+> +                       }
+>                         wake_up_interruptible(&kauditd_wait);
+>                 }
+>                 if (s.mask & AUDIT_STATUS_RATE_LIMIT) {
+> @@ -1283,8 +1302,11 @@ static void __net_exit audit_net_exit(struct net *net)
+>  {
+>         struct audit_net *aunet = net_generic(net, audit_net_id);
+>         struct sock *sock = aunet->nlsk;
+> -       if (sock == audit_sock)
+> +       if (sock == audit_sock) {
+> +               mutex_lock(&audit_cmd_mutex);
+
+
+You need to put the if check inside the mutex too. Again, this could be
+removed if you use refcnt.
+
+
+>                 auditd_reset();
+> +               mutex_unlock(&audit_cmd_mutex);
+> +       }
+>
+>         RCU_INIT_POINTER(aunet->nlsk, NULL);
+>         synchronize_net();
+> --
+> 1.7.1
+>
