@@ -1,46 +1,36 @@
-From: Ozgur Karatas <okaratas@member.fsf.org>
-Subject: [PATCH 1/1] Fixed to BUG_ON to WARN_ON def
-Date: Mon, 12 Dec 2016 12:58:59 +0200
-Message-ID: <811031481540339@web1j.yandex.ru>
+From: Stefan Schmidt <stefan@osg.samsung.com>
+Subject: Re: [PATCH 1/1] Fixed to BUG_ON to WARN_ON def
+Date: Mon, 12 Dec 2016 12:19:48 +0100
+Message-ID: <080dc5cc-3d72-a5db-2f53-5c6ce74837b4@osg.samsung.com>
+References: <811031481540339@web1j.yandex.ru>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev <netdev@vger.kernel.org>,
         linux-kernel <linux-kernel@vger.kernel.org>
-To: yishaih@mellanox.com
+To: Ozgur Karatas <okaratas@member.fsf.org>, yishaih@mellanox.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <811031481540339@web1j.yandex.ru>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello all, 
-I think should be use to "WARN_ON" and checkpatch script give to error, I fixed and I think  should don't use "BUG_ON".
-Regards,
+Hello.
 
-Signed-off-by: Ozgur Karatas <okaratas@member.fsf.org>
----
-drivers/net/ethernet/mellanox/mlx4/icm.c |  4 ++--
+On 12/12/16 11:58, Ozgur Karatas wrote:
+> Hello all,
+> I think should be use to "WARN_ON" and checkpatch script give to error, I fixed and I think  should don't use "BUG_ON".
+> Regards,
+>
+> Signed-off-by: Ozgur Karatas <okaratas@member.fsf.org>
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/icm.c b/drivers/net/ethernet/mellanox/mlx4/icm.c
-index 2a9dd46..3fde535 100644
---- a/drivers/net/ethernet/mellanox/mlx4/icm.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/icm.c
-@@ -119,7 +119,7 @@ static int mlx4_alloc_icm_coherent(struct device *dev, struct scatterlist *mem,
- 		return -ENOMEM;
- 
- 	sg_set_buf(mem, buf, PAGE_SIZE << order);
--	BUG_ON(mem->offset);
-+	WARN_ON(mem->offset);
- 	sg_dma_len(mem) = PAGE_SIZE << order;
- 	return 0;
- }
-@@ -133,7 +133,7 @@ struct mlx4_icm *mlx4_alloc_icm(struct mlx4_dev *dev, int npages,
- 	int ret;
- 
- 	/* We use sg_set_buf for coherent allocs, which assumes low memory */
--	BUG_ON(coherent && (gfp_mask & __GFP_HIGHMEM));
-+	WARN_ON(coherent && (gfp_mask & __GFP_HIGHMEM));
- 
- 	icm = kmalloc_node(sizeof(*icm),
- 			   gfp_mask & ~(__GFP_HIGHMEM | __GFP_NOWARN),
--- 
-2.1.4
+I pointed you already before to the Documentation how to prepare a 
+commit subject and commit message. You just replied with that you are 
+new to contributing patches. That is all fine and many people are new 
+each release. Please take the time to read the provided and pointed out 
+docs.
+
+If you keep ignoring such suggestions and docs I would think people will 
+keep ignoring your patches.
+
+regards
+Stefan Schmidt
