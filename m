@@ -1,97 +1,136 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: Synopsys Ethernet QoS
-Date: Mon, 12 Dec 2016 15:11:01 +0100
-Message-ID: <c393b67c-b8f4-78d2-20ba-22c5978ff385@st.com>
-References: <2df7a6dd-1128-d1d6-bf61-891f76cf7200@synopsys.com>
- <20161209.103327.1742213347114742435.davem@davemloft.net>
- <93b73b79-36aa-56b8-f975-b890b7a48bd1@synopsys.com>
- <20161209.104152.1969880574279771010.davem@davemloft.net>
- <CAHp75VcKURaTQX9=SY8+46GGATuwO1oXAi8eMS+uwk58sjKx5Q@mail.gmail.com>
- <3aee5a67-5e19-34e6-1719-ff13c7b914ea@gmail.com>
- <CAHp75VfT9B3O5jU0eHoKtgYc48K2ZjCQ-g9ZQ9nX1Hew6tz-zw@mail.gmail.com>
- <556353b7-c847-7549-626d-3c324063647e@gmail.com>
- <f5357ea2-a295-ab08-046e-f8b8f6ca4344@synopsys.com>
+From: Mike Rapoport <rppt@linux.vnet.ibm.com>
+Subject: Re: Designing a safe RX-zero-copy Memory Model for Networking
+Date: Mon, 12 Dec 2016 16:14:33 +0200
+Message-ID: <20161212141433.GB19987@rapoport-lnx>
+References: <20161205153132.283fcb0e@redhat.com>
+ <20161212083812.GA19987@rapoport-lnx>
+ <20161212104042.0a011212@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: David Miller <davem@davemloft.net>, <lars.persson@axis.com>,
-        <rabin.vincent@axis.com>, netdev <netdev@vger.kernel.org>,
-        <CARLOS.PALMINHA@synopsys.com>, <Jie.Deng1@synopsys.com>
-To: Joao Pinto <Joao.Pinto@synopsys.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andy Shevchenko <andy.shevchenko@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        linux-mm <linux-mm@kvack.org>,
+        John Fastabend <john.fastabend@gmail.com>,
+        Willem de Bruijn <willemdebruijn.kernel@gmail.com>,
+        =?iso-8859-1?Q?Bj=F6rn_T=F6pel?= <bjorn.topel@intel.com>,
+        "Karlsson, Magnus" <magnus.karlsson@intel.com>,
+        Alexander Duyck <alexander.duyck@gmail.com>,
+        Mel Gorman <mgorman@techsingularity.net>,
+        Tom Herbert <tom@herbertland.com>,
+        Brenden Blanco <bblanco@plumgrid.com>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Jesse Brandeburg <jesse.brandeburg@intel.com>,
+        Kalman Meth <METH@il.ibm.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx07-00178001.pphosted.com ([62.209.51.94]:30988 "EHLO
-        mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751640AbcLLOLM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Dec 2016 09:11:12 -0500
-In-Reply-To: <f5357ea2-a295-ab08-046e-f8b8f6ca4344@synopsys.com>
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:52952 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1752626AbcLLOOq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 12 Dec 2016 09:14:46 -0500
+Received: from pps.filterd (m0098420.ppops.net [127.0.0.1])
+        by mx0b-001b2d01.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id uBCEEXZY092675
+        for <netdev@vger.kernel.org>; Mon, 12 Dec 2016 09:14:45 -0500
+Received: from e06smtp08.uk.ibm.com (e06smtp08.uk.ibm.com [195.75.94.104])
+        by mx0b-001b2d01.pphosted.com with ESMTP id 279uyn6rtr-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Mon, 12 Dec 2016 09:14:45 -0500
+Received: from localhost
+        by e06smtp08.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <rppt@linux.vnet.ibm.com>;
+        Mon, 12 Dec 2016 14:14:42 -0000
+Content-Disposition: inline
+In-Reply-To: <20161212104042.0a011212@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello All.
+On Mon, Dec 12, 2016 at 10:40:42AM +0100, Jesper Dangaard Brouer wrote:
+> 
+> On Mon, 12 Dec 2016 10:38:13 +0200 Mike Rapoport <rppt@linux.vnet.ibm.com> wrote:
+> 
+> > Hello Jesper,
+> > 
+> > On Mon, Dec 05, 2016 at 03:31:32PM +0100, Jesper Dangaard Brouer wrote:
+> > > Hi all,
+> > > 
+> > > This is my design for how to safely handle RX zero-copy in the network
+> > > stack, by using page_pool[1] and modifying NIC drivers.  Safely means
+> > > not leaking kernel info in pages mapped to userspace and resilience
+> > > so a malicious userspace app cannot crash the kernel.
+> > > 
+> > > Design target
+> > > =============
+> > > 
+> > > Allow the NIC to function as a normal Linux NIC and be shared in a
+> > > safe manor, between the kernel network stack and an accelerated
+> > > userspace application using RX zero-copy delivery.
+> > > 
+> > > Target is to provide the basis for building RX zero-copy solutions in
+> > > a memory safe manor.  An efficient communication channel for userspace
+> > > delivery is out of scope for this document, but OOM considerations are
+> > > discussed below (`Userspace delivery and OOM`_).  
+> > 
+> > Sorry, if this reply is a bit off-topic.
+> 
+> It is very much on topic IMHO :-)
+> 
+> > I'm working on implementation of RX zero-copy for virtio and I've dedicated
+> > some thought about making guest memory available for physical NIC DMAs.
+> > I believe this is quite related to your page_pool proposal, at least from
+> > the NIC driver perspective, so I'd like to share some thoughts here.
+> 
+> Seems quite related. I'm very interested in cooperating with you! I'm
+> not very familiar with virtio, and how packets/pages gets channeled
+> into virtio.
 
-On 12/12/2016 11:19 AM, Joao Pinto wrote:
-> Hi,
->
-> Às 1:44 AM de 12/10/2016, Florian Fainelli escreveu:
->> Le 12/09/16 à 16:16, Andy Shevchenko a écrit :
->>> On Sat, Dec 10, 2016 at 12:52 AM, Florian Fainelli <f.fainelli@gmail.com> wrote:
->>>
->>>> It's kind of sad that customers of that IP (stmmac, amd-xgbe, sxgbe)
->>>
->>>> did
->>>> actually pioneer the upstreaming effort, but it is good to see people
->>>> from Synopsys willing to fix that in the future.
->>>
->>> Wait, you would like to tell that we have more than 2 drivers for the
->>> same (okay, same vendor) IP?!
->>> It's better to unify them earlier, than have n+ copies.
->>
->> Unfortunately that is the case, see this email:
->>
->> https://www.mail-archive.com/netdev@vger.kernel.org/msg142796.html
->>
->> dwc_eth_qos and stmmac have some overlap. There seems to be work
->> underway to unify these two to begin with.
->>
->>>
->>> P.S. Though, I don't see how sxgbe got in the list. First glance on
->>> the code doesn't show similarities.
->>
->> Well samsung/sxgbe looks potentially similar to amd/xgbe, but that's
->> just my cursory look at the code, it may very well be something entirely
->> different. The descriptor formats just look suspiciously similar.
->>
->
-> Thank you for your inputs! Renaming seems to be a hotspot. I agree that maybe
-> instead of renaming (breaking retro-compatibility as David and Florian
-> mentioned), the best is to move stmmac to synopsys/ after merging *qos* and
-> removing it. As Florian mentioned, git is capable of detecting folder restructured.
->
-> @Rabin Vincent: Hi Rabin. Since Axis is more familiar with the synopsys/*qos*
-> driver would it be possible for you to make an initial analysis of what has to
-> be merged into Stmmac? This way the development would speed-up.
+They are copied :-)
+Presuming we are dealing only with vhost backend, the received skb
+eventually gets converted to IOVs, which in turn are copied to the guest
+memory. The IOVs point to the guest memory that is allocated by virtio-net
+running in the guest.
 
-my priority on this topic was to help Joao to easily port his
-platform on stmmac and IIUC we already achieved some results.
-For several reasons, we had discussed to support GMAC IP with stmmac
-and, as first stage, to evaluate and port the relevant changes
-from  dwc_eth_qos.c. If renaming of moving the stmmac should be
-discussed later and for sure all together could find the best solution
-in the right moment where some critical patches and supports are in
-place.
+> > The idea is to dedicate one (or more) of the NIC's queues to a VM, e.g.
+> > using macvtap, and then propagate guest RX memory allocations to the NIC
+> > using something like new .ndo_set_rx_buffers method.
+> 
+> I believe the page_pool API/design aligns with this idea/use-case.
+> 
+> > What is your view about interface between the page_pool and the NIC
+> > drivers?
+> 
+> In my Prove-of-Concept implementation, the NIC driver (mlx5) register
+> a page_pool per RX queue.  This is done for two reasons (1) performance
+> and (2) for supporting use-cases where only one single RX-ring queue is
+> (re)configured to support RX-zero-copy.  There are some associated
+> extra cost of enabling this mode, thus it makes sense to only enable it
+> when needed.
+> 
+> I've not decided how this gets enabled, maybe some new driver NDO.  It
+> could also happen when a XDP program gets loaded, which request this
+> feature.
+> 
+> The macvtap solution is nice and we should support it, but it requires
+> VM to have their MAC-addr registered on the physical switch.  This
+> design is about adding flexibility. Registering an XDP eBPF filter
+> provides the maximum flexibility for matching the destination VM.
 
-As highlighted by Jie, the XLGMAC is another IP (that I do not know
-at all so I cannot say if there is some way to support it
-by using stmmac).
+I'm not very familiar with XDP eBPF, and it's difficult for me to estimate
+what needs to be done in BPF program to do proper conversion of skb to the
+virtio descriptors.
 
-Thanks a lot.
+We were not considered using XDP yet, so we've decided to limit the initial
+implementation to macvtap because we can ensure correspondence between a
+NIC queue and virtual NIC, which is not the case with more generic tap
+device. It could be that use of XDP will allow for a generic solution for
+virtio case as well.
+ 
+> 
+> > Have you considered using "push" model for setting the NIC's RX memory?
+> 
+> I don't understand what you mean by a "push" model?
 
-peppe
-
->
-> Thanks to all.
->
-> Joao
->
+Currently, memory allocation in NIC drivers boils down to alloc_page with
+some wrapping code. I see two possible ways to make NIC use of some
+preallocated pages: either NIC driver will call an API (probably different
+from alloc_page) to obtain that memory, or there will be NDO API that
+allows to set the NIC's RX buffers. I named the later case "push".
+ 
