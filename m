@@ -1,86 +1,209 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [iproute2 v3 net-next 0/8] Add support for vrf helper
-Date: Sun, 11 Dec 2016 16:53:07 -0800
-Message-ID: <1481503995-24825-1-git-send-email-dsa@cumulusnetworks.com>
+Subject: [iproute2 net-next 5/8] Add filesystem APIs to lib
+Date: Sun, 11 Dec 2016 16:53:12 -0800
+Message-ID: <1481503995-24825-6-git-send-email-dsa@cumulusnetworks.com>
+References: <1481503995-24825-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org, stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f47.google.com ([74.125.83.47]:35630 "EHLO
-        mail-pg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751817AbcLLAxX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 11 Dec 2016 19:53:23 -0500
-Received: by mail-pg0-f47.google.com with SMTP id p66so29021948pga.2
-        for <netdev@vger.kernel.org>; Sun, 11 Dec 2016 16:53:22 -0800 (PST)
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:34942 "EHLO
+        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754033AbcLLAx0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 11 Dec 2016 19:53:26 -0500
+Received: by mail-pf0-f182.google.com with SMTP id i88so9775321pfk.2
+        for <netdev@vger.kernel.org>; Sun, 11 Dec 2016 16:53:25 -0800 (PST)
+In-Reply-To: <1481503995-24825-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series adds support to iproute2 to run a command against a specific
-VRF. The user semantics are similar to 'ip netns'.
+Add make_path to recursively call mkdir as needed to create a given
+path with the given mode.
 
-The 'ip vrf' subcommand supports 3 usages:
+Add find_cgroup2_mount to lookup path where cgroup2 is mounted. If it
+is not already mounted, cgroup2 is mounted under /var/run/cgroup2 for
+use by iproute2.
 
-1. Run a command against a given vrf:
-       ip vrf exec NAME CMD
-
-   Uses the recently committed cgroup/sock BPF option. vrf directory
-   is added to cgroup2 mount. Individual vrfs are created under it. BPF
-   filter is attached to vrf/NAME cgroup2 to set sk_bound_dev_if to the
-   device index of the VRF. From there the current process (ip's pid) is
-   addded to the cgroups.proc file and the given command is exected. In
-   doing so all AF_INET/AF_INET6 (ipv4/ipv6) sockets are automatically
-   bound to the VRF domain.
-
-   The association is inherited parent to child allowing the command to
-   be a shell from which other commands are run relative to the VRF.
-
-2. Show the VRF a process is bound to:
-       ip vrf id [PID]
-   This command essentially looks at /proc/pid/cgroup for a "::/vrf/"
-   entry. If pid arg is not given current process id is used.
-
-3. Show process ids bound to a VRF
-       ip vrf pids NAME
-   This command dumps the file MNT/vrf/NAME/cgroup.procs since that file
-   shows the process ids in the particular vrf cgroup.
-
-v3
-- bpf_prog_{at,de}tach changes as requested by Daniel
-- BPF macros added to bpf_util.h versus adding a new file as requested by Daniel
-
-v2
-- updated suject of patch 3 to avoid spam filters on vger
-
-David Ahern (8):
-  lib bpf: Add support for BPF_PROG_ATTACH and BPF_PROG_DETACH
-  bpf: export bpf_prog_load
-  bpf: Add BPF_ macros
-  move cmd_exec to lib utils
-  Add filesystem APIs to lib
-  change name_is_vrf to return index
-  libnetlink: Add variant of rtnl_talk that does not display RTNETLINK
-    answers error
-  Introduce ip vrf command
-
- include/bpf_util.h   | 186 +++++++++++++++++++++++++++++++++
- include/libnetlink.h |   3 +
- include/utils.h      |   4 +
- ip/Makefile          |   3 +-
- ip/ip.c              |   4 +-
- ip/ip_common.h       |   4 +-
- ip/iplink_vrf.c      |  29 ++++--
- ip/ipnetns.c         |  34 ------
- ip/ipvrf.c           | 289 +++++++++++++++++++++++++++++++++++++++++++++++++++
- lib/Makefile         |   2 +-
- lib/bpf.c            |  61 +++++++----
- lib/exec.c           |  41 ++++++++
- lib/fs.c             | 143 +++++++++++++++++++++++++
- lib/libnetlink.c     |  20 +++-
- man/man8/ip-vrf.8    |  88 ++++++++++++++++
- 15 files changed, 841 insertions(+), 70 deletions(-)
- create mode 100644 ip/ipvrf.c
- create mode 100644 lib/exec.c
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+ include/utils.h |   2 +
+ lib/Makefile    |   2 +-
+ lib/fs.c        | 143 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 146 insertions(+), 1 deletion(-)
  create mode 100644 lib/fs.c
- create mode 100644 man/man8/ip-vrf.8
 
+diff --git a/include/utils.h b/include/utils.h
+index ac4517a3bde1..dc1d6b9607dd 100644
+--- a/include/utils.h
++++ b/include/utils.h
+@@ -257,5 +257,7 @@ int get_guid(__u64 *guid, const char *arg);
+ int get_real_family(int rtm_type, int rtm_family);
+ 
+ int cmd_exec(const char *cmd, char **argv, bool do_fork);
++int make_path(const char *path, mode_t mode);
++char *find_cgroup2_mount(void);
+ 
+ #endif /* __UTILS_H__ */
+diff --git a/lib/Makefile b/lib/Makefile
+index 749073261c49..0c57662b4f8f 100644
+--- a/lib/Makefile
++++ b/lib/Makefile
+@@ -8,7 +8,7 @@ CFLAGS += -fPIC
+ 
+ UTILOBJ = utils.o rt_names.o ll_types.o ll_proto.o ll_addr.o \
+ 	inet_proto.o namespace.o json_writer.o \
+-	names.o color.o bpf.o exec.o
++	names.o color.o bpf.o exec.o fs.o
+ 
+ NLOBJ=libgenl.o ll_map.o libnetlink.o
+ 
+diff --git a/lib/fs.c b/lib/fs.c
+new file mode 100644
+index 000000000000..39cc96dccca9
+--- /dev/null
++++ b/lib/fs.c
+@@ -0,0 +1,143 @@
++/*
++ * fs.c         filesystem APIs
++ *
++ *		This program is free software; you can redistribute it and/or
++ *		modify it under the terms of the GNU General Public License
++ *		as published by the Free Software Foundation; either version
++ *		2 of the License, or (at your option) any later version.
++ *
++ * Authors:	David Ahern <dsa@cumulusnetworks.com>
++ *
++ */
++
++#include <sys/types.h>
++#include <sys/stat.h>
++#include <sys/socket.h>
++#include <sys/mount.h>
++#include <fcntl.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <unistd.h>
++#include <string.h>
++#include <errno.h>
++#include <limits.h>
++
++#include "utils.h"
++
++#define CGROUP2_FS_NAME "cgroup2"
++
++/* if not already mounted cgroup2 is mounted here for iproute2's use */
++#define MNT_CGRP2_PATH  "/var/run/cgroup2"
++
++/* return mount path of first occurrence of given fstype */
++static char *find_fs_mount(const char *fs_to_find)
++{
++	char path[4096];
++	char fstype[128];    /* max length of any filesystem name */
++	char *mnt = NULL;
++	FILE *fp;
++
++	fp = fopen("/proc/mounts", "r");
++	if (!fp) {
++		fprintf(stderr,
++			"Failed to open mounts file: %s\n", strerror(errno));
++		return NULL;
++	}
++
++	while (fscanf(fp, "%*s %4096s %127s %*s %*d %*d\n",
++		      path, fstype) == 2) {
++		if (strcmp(fstype, fs_to_find) == 0) {
++			mnt = strdup(path);
++			break;
++		}
++	}
++
++	fclose(fp);
++
++	return mnt;
++}
++
++/* caller needs to free string returned */
++char *find_cgroup2_mount(void)
++{
++	char *mnt = find_fs_mount(CGROUP2_FS_NAME);
++
++	if (mnt)
++		return mnt;
++
++	mnt = strdup(MNT_CGRP2_PATH);
++	if (!mnt) {
++		fprintf(stderr, "Failed to allocate memory for cgroup2 path\n");
++		return NULL;
++
++	}
++
++	if (make_path(mnt, 0755)) {
++		fprintf(stderr, "Failed to setup vrf cgroup2 directory\n");
++		free(mnt);
++		return NULL;
++	}
++
++	if (mount("none", mnt, CGROUP2_FS_NAME, 0, NULL)) {
++		/* EBUSY means already mounted */
++		if (errno != EBUSY) {
++			fprintf(stderr,
++				"Failed to mount cgroup2. Are CGROUPS enabled in your kernel?\n");
++			free(mnt);
++			return NULL;
++		}
++	}
++	return mnt;
++}
++
++int make_path(const char *path, mode_t mode)
++{
++	char *dir, *delim;
++	struct stat sbuf;
++	int rc = -1;
++
++	delim = dir = strdup(path);
++	if (dir == NULL) {
++		fprintf(stderr, "strdup failed copying path");
++		return -1;
++	}
++
++	/* skip '/' -- it had better exist */
++	if (*delim == '/')
++		delim++;
++
++	while (1) {
++		delim = strchr(delim, '/');
++		if (delim)
++			*delim = '\0';
++
++		if (stat(dir, &sbuf) != 0) {
++			if (errno != ENOENT) {
++				fprintf(stderr,
++					"stat failed for %s: %s\n",
++					dir, strerror(errno));
++				goto out;
++			}
++
++			if (mkdir(dir, mode) != 0) {
++				fprintf(stderr,
++					"mkdir failed for %s: %s",
++					dir, strerror(errno));
++				goto out;
++			}
++		}
++
++		if (delim == NULL)
++			break;
++
++		*delim = '/';
++		delim++;
++		if (*delim == '\0')
++			break;
++	}
++	rc = 0;
++out:
++	free(dir);
++
++	return rc;
++}
 -- 
 2.1.4
