@@ -1,13 +1,15 @@
 From: "Jorgen S. Hansen" <jhansen@vmware.com>
-Subject: Re: [PATCH v3 2/4] vhost-vsock: add pkt cancel capability
-Date: Mon, 12 Dec 2016 10:37:26 +0000
-Message-ID: <426F96AC-2E7C-4BEC-A3D3-7D8A97FDD51D@vmware.com>
+Subject: Re: [PATCH v3 4/4] vsock: cancel packets when failing to connect
+Date: Mon, 12 Dec 2016 10:41:47 +0000
+Message-ID: <CAF6A2B7-8359-4735-9C02-502579F54A74@vmware.com>
 References: <1481217156-7160-1-git-send-email-bergwolf@gmail.com>
 	<1481217156-7160-2-git-send-email-bergwolf@gmail.com>
 	<1481217156-7160-3-git-send-email-bergwolf@gmail.com>
+	<1481217156-7160-4-git-send-email-bergwolf@gmail.com>
+	<1481217156-7160-5-git-send-email-bergwolf@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"virtualization@lists.linux-foundation.org"
 	<virtualization@lists.linux-foundation.org>,
@@ -15,9 +17,9 @@ Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"kvm@vger.kernel.org" <kvm@vger.kernel.org>
 To: Peng Tao <bergwolf@gmail.com>
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1481217156-7160-3-git-send-email-bergwolf@gmail.com>
+In-Reply-To: <1481217156-7160-5-git-send-email-bergwolf@gmail.com>
 Content-Language: en-US
-Content-ID: <92C3B3E26B5D6441A3FEC70C28A2B06C@namprd05.prod.outlook.com>
+Content-ID: <C61CEE720E901848A8CBCC4B72830D81@namprd05.prod.outlook.com>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
@@ -29,16 +31,73 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-DQo+IE9uIERlYyA4LCAyMDE2LCBhdCA2OjEyIFBNLCBQZW5nIFRhbyA8YmVyZ3dvbGZAZ21haWwu
-Y29tPiB3cm90ZToNCj4gDQo+IC0tLSBhL2luY2x1ZGUvbmV0L2FmX3Zzb2NrLmgNCj4gKysrIGIv
-aW5jbHVkZS9uZXQvYWZfdnNvY2suaA0KPiBAQCAtMTAwLDYgKzEwMCw5IEBAIHN0cnVjdCB2c29j
-a190cmFuc3BvcnQgew0KPiAJdm9pZCAoKmRlc3RydWN0KShzdHJ1Y3QgdnNvY2tfc29jayAqKTsN
-Cj4gCXZvaWQgKCpyZWxlYXNlKShzdHJ1Y3QgdnNvY2tfc29jayAqKTsNCj4gDQo+ICsJLyogQ2Fu
-Y2VsIHBhY2tldHMgYmVsb25naW5nIHRoZSBzYW1lIHZzb2NrICovDQoNCkhvdyBhYm91dCDigJwv
-KiBDYW5jZWwgYWxsIHBlbmRpbmcgcGFja2V0cyBzZW50IG9uIHZzb2NrLiAqL+KAnCA/IA0KDQo+
-ICsJaW50ICgqY2FuY2VsX3BrdCkoc3RydWN0IHZzb2NrX3NvY2sgKnZzayk7DQo+ICsNCj4gCS8q
-IENvbm5lY3Rpb25zLiAqLw0KPiAJaW50ICgqY29ubmVjdCkoc3RydWN0IHZzb2NrX3NvY2sgKik7
-DQo+IA0KPiAtLSANCj4gMi43LjQNCj4gDQoNClRoYW5rcywNCkrDuHJnZW4KX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KVmlydHVhbGl6YXRpb24gbWFpbGlu
-ZyBsaXN0ClZpcnR1YWxpemF0aW9uQGxpc3RzLmxpbnV4LWZvdW5kYXRpb24ub3JnCmh0dHBzOi8v
-bGlzdHMubGludXhmb3VuZGF0aW9uLm9yZy9tYWlsbWFuL2xpc3RpbmZvL3ZpcnR1YWxpemF0aW9u
+
+> On Dec 8, 2016, at 6:12 PM, Peng Tao <bergwolf@gmail.com> wrote:
+> 
+> Otherwise we'll leave the packets queued until releasing vsock device.
+> E.g., if guest is slow to start up, resulting ETIMEDOUT on connect, guest
+> will get the connect requests from failed host sockets.
+> 
+> Reviewed-by: Stefan Hajnoczi <stefanha@redhat.com>
+> Signed-off-by: Peng Tao <bergwolf@gmail.com>
+> ---
+> net/vmw_vsock/af_vsock.c | 14 ++++++++++++++
+> 1 file changed, 14 insertions(+)
+> 
+> diff --git a/net/vmw_vsock/af_vsock.c b/net/vmw_vsock/af_vsock.c
+> index 8a398b3..c73b03a 100644
+> --- a/net/vmw_vsock/af_vsock.c
+> +++ b/net/vmw_vsock/af_vsock.c
+> @@ -1101,10 +1101,19 @@ static const struct proto_ops vsock_dgram_ops = {
+> 	.sendpage = sock_no_sendpage,
+> };
+> 
+> +static int vsock_transport_cancel_pkt(struct vsock_sock *vsk)
+> +{
+> +	if (!transport->cancel_pkt)
+> +		return -EOPNOTSUPP;
+> +
+> +	return transport->cancel_pkt(vsk);
+> +}
+> +
+> static void vsock_connect_timeout(struct work_struct *work)
+> {
+> 	struct sock *sk;
+> 	struct vsock_sock *vsk;
+> +	int cancel = 0;
+> 
+> 	vsk = container_of(work, struct vsock_sock, dwork.work);
+> 	sk = sk_vsock(vsk);
+> @@ -1115,8 +1124,11 @@ static void vsock_connect_timeout(struct work_struct *work)
+> 		sk->sk_state = SS_UNCONNECTED;
+> 		sk->sk_err = ETIMEDOUT;
+> 		sk->sk_error_report(sk);
+> +		cancel = 1;
+> 	}
+> 	release_sock(sk);
+> +	if (cancel)
+> +		vsock_transport_cancel_pkt(vsk);
+> 
+> 	sock_put(sk);
+> }
+> @@ -1223,11 +1235,13 @@ static int vsock_stream_connect(struct socket *sock, struct sockaddr *addr,
+> 			err = sock_intr_errno(timeout);
+> 			sk->sk_state = SS_UNCONNECTED;
+> 			sock->state = SS_UNCONNECTED;
+> +			vsock_transport_cancel_pkt(vsk);
+> 			goto out_wait;
+> 		} else if (timeout == 0) {
+> 			err = -ETIMEDOUT;
+> 			sk->sk_state = SS_UNCONNECTED;
+> 			sock->state = SS_UNCONNECTED;
+> +			vsock_transport_cancel_pkt(vsk);
+> 			goto out_wait;
+> 		}
+> 
+> -- 
+> 2.7.4
+> 
+
+This looks fine to me:
+
+Reviewed-by: Jorgen Hansen <jhansen@vmware.com>
