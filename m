@@ -1,130 +1,98 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: stmmac DT property snps,axi_all
-Date: Mon, 12 Dec 2016 15:18:47 +0100
-Message-ID: <0546490f-8f8c-a22e-db7b-eac521c7ff27@st.com>
-References: <51f8249e-bdb9-e3a7-5d82-7ac869316f0e@axis.com>
- <120aca00-02a8-3d88-7aad-a21d239aafb2@st.com>
- <dc145c32-cb67-4bcb-e8b7-059387d5a0ac@axis.com>
- <e0362693-4ae9-b3d6-3955-c72df7a1b0c0@axis.com>
+From: Rob Herring <robh@kernel.org>
+Subject: Re: [PATCH v2 1/4] net: hix5hd2_gmac: add generic compatible string
+Date: Mon, 12 Dec 2016 08:21:16 -0600
+Message-ID: <CAL_Jsq+d5xHsxMKxbWSYy3cDXnC+HQj3=wun1zxf5PZ_BYrD-Q@mail.gmail.com>
+References: <1480944481-118803-1-git-send-email-lidongpo@hisilicon.com>
+ <1480944481-118803-2-git-send-email-lidongpo@hisilicon.com>
+ <20161209223521.5dnj7l44e663sntl@rob-hp-laptop> <584E871D.7060200@hisilicon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Niklas Cassel <niklas.cassel@axis.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx07-00178001.pphosted.com ([62.209.51.94]:11135 "EHLO
-        mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752248AbcLLOSx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Dec 2016 09:18:53 -0500
-In-Reply-To: <e0362693-4ae9-b3d6-3955-c72df7a1b0c0@axis.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Mark Rutland <mark.rutland@arm.com>,
+        Michael Turquette <mturquette@baylibre.com>,
+        Stephen Boyd <sboyd@codeaurora.org>,
+        Russell King <linux@armlinux.org.uk>,
+        Zhangfei Gao <zhangfei.gao@linaro.org>,
+        Yisen Zhuang <yisen.zhuang@huawei.com>, salil.mehta@huawei.com,
+        David Miller <davem@davemloft.net>,
+        Arnd Bergmann <arnd@arndb.de>, Andrew Lunn <andrew@lunn.ch>,
+        Jiancheng Xue <xuejiancheng@hisilicon.com>,
+        benjamin.chenhao@hisilicon.com, caizhiyong@hisilicon.com,
+        netdev <netdev@vger.kernel.org>,
+        "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Dongpo Li <lidongpo@hisilicon.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <584E871D.7060200@hisilicon.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Please Niklas
-
-when you send the patch, add my
-
-Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-
-
-On 12/9/2016 10:53 AM, Niklas Cassel wrote:
-> On 12/09/2016 10:20 AM, Niklas Cassel wrote:
->> On 12/08/2016 02:36 PM, Alexandre Torgue wrote:
->>> Hi Niklas,
+On Mon, Dec 12, 2016 at 5:16 AM, Dongpo Li <lidongpo@hisilicon.com> wrote:
+> Hi Rob,
+>
+> On 2016/12/10 6:35, Rob Herring wrote:
+>> On Mon, Dec 05, 2016 at 09:27:58PM +0800, Dongpo Li wrote:
+>>> The "hix5hd2" is SoC name, add the generic ethernet driver name.
+>>> The "hisi-gemac-v1" is the basic version and "hisi-gemac-v2" adds
+>>> the SG/TXCSUM/TSO/UFO features.
 >>>
->>> On 12/05/2016 05:18 PM, Niklas Cassel wrote:
->>>> Hello Giuseppe
->>>>
->>>>
->>>> I'm trying to figure out what snps,axi_all is supposed to represent.
->>>>
->>>> It appears that the value is saved, but never used in the code.
->>>>
->>>> Looking at the register specification, I'm guessing that it represents
->>>> Address-Aligned Beats, but there is already the property snps,aal
->>>> for that.
->>> IMO, it is not useful. Indeed AXI_AAL is a read only bit (in AXI bus mode register) and reflects the aal bit in DMA bus register.
->>> As you know we use "snps,aal" to set aal bit in DMA bus register.
->>> So "snps,axi_all" entry seems useless. Let's see with Peppe.
->> Ok, I see. GMAC and GMAC4 is different here.
+>>> Signed-off-by: Dongpo Li <lidongpo@hisilicon.com>
+>>> ---
+>>>  .../devicetree/bindings/net/hisilicon-hix5hd2-gmac.txt    |  9 +++++++--
+>>>  drivers/net/ethernet/hisilicon/hix5hd2_gmac.c             | 15 +++++++++++----
+>>>  2 files changed, 18 insertions(+), 6 deletions(-)
+>>>
+>>> diff --git a/Documentation/devicetree/bindings/net/hisilicon-hix5hd2-gmac.txt b/Documentation/devicetree/bindings/net/hisilicon-hix5hd2-gmac.txt
+>>> index 75d398b..75920f0 100644
+>>> --- a/Documentation/devicetree/bindings/net/hisilicon-hix5hd2-gmac.txt
+>>> +++ b/Documentation/devicetree/bindings/net/hisilicon-hix5hd2-gmac.txt
+>>> @@ -1,7 +1,12 @@
+>>>  Hisilicon hix5hd2 gmac controller
+>>>
+>>>  Required properties:
+>>> -- compatible: should be "hisilicon,hix5hd2-gmac".
+>>> +- compatible: should contain one of the following SoC strings:
+>>> +    * "hisilicon,hix5hd2-gemac"
+>>> +    * "hisilicon,hi3798cv200-gemac"
+>>> +    and one of the following version string:
+>>> +    * "hisilicon,hisi-gemac-v1"
+>>> +    * "hisilicon,hisi-gemac-v2"
 >>
->> For GMAC4 AAL only exists in DMA_SYS_BUS_MODE.
->> It's not reflected anywhere else.
+>> What combinations are valid? I assume both chips don't have both v1 and
+>> v2. 2 SoCs and 2 versions so far, I don't think there is much point to
+>> have the v1 and v2 compatible strings.
 >>
->> The code is correct in the driver.
+> The v1 and v2 are generic MAC compatible strings, many HiSilicon SoCs may
+> use the same MAC version. For example,
+> hix5hd2, hi3716cv200 SoCs use the v1 MAC version,
+> hi3798cv200, hi3516a SoCs use the v2 MAC version,
+> and there may be more SoCs added in future.
+> So I think the generic compatible strings are okay here.
+> Should I add the hi3716cv200, hi3516a SoCs compatible here?
+
+Yes.
+
+> Do you have any good advice?
+>
+>>>  - reg: specifies base physical address(s) and size of the device registers.
+>>>    The first region is the MAC register base and size.
+>>>    The second region is external interface control register.
+>>> @@ -20,7 +25,7 @@ Required properties:
+>>>
+>>>  Example:
+>>>      gmac0: ethernet@f9840000 {
+>>> -            compatible = "hisilicon,hix5hd2-gmac";
+>>> +            compatible = "hisilicon,hix5hd2-gemac", "hisilicon,hisi-gemac-v1";
 >>
->> If snps,axi_all is just created for a read-only register,
->> and it is currently never used in the code,
->> while we have snps,aal, which is correct and works,
->> I guess it should be ok to remove snps,axi_all.
+>> You can't just change compatible strings.
 >>
->> I can cook up a patch.
->>
->
-> Here we go :)
->
-> I will send it as a real patch once net-next reopens.
->
->
->>From defc01cb7c22611b89d9cf1fcae72544092bd62c Mon Sep 17 00:00:00 2001
-> From: Niklas Cassel <niklas.cassel@axis.com>
-> Date: Fri, 9 Dec 2016 10:27:00 +0100
-> Subject: [PATCH net-next] net: stmmac: remove unused duplicate property
->  snps,axi_all
->
-> For core revision 3.x Address-Aligned Beats is available in two registers.
-> The DT property snps,aal was created for AAL in the DMA bus register,
-> which is a read/write bit.
-> The DT property snps,axi_all was created for AXI_AAL in the AXI bus mode
-> register, which is a read only bit that reflects the value of AAL in the
-> DMA bus register.
->
-> Since the value of snps,axi_all is never used in the driver,
-> and since the property was created for a bit that is read only,
-> it should be safe to remove the property.
->
-> Signed-off-by: Niklas Cassel <niklas.cassel@axis.com>
-> ---
->  Documentation/devicetree/bindings/net/stmmac.txt      | 1 -
->  drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 1 -
->  include/linux/stmmac.h                                | 1 -
->  3 files changed, 3 deletions(-)
->
-> diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
-> index 128da752fec9..c3d2fd480a1b 100644
-> --- a/Documentation/devicetree/bindings/net/stmmac.txt
-> +++ b/Documentation/devicetree/bindings/net/stmmac.txt
-> @@ -65,7 +65,6 @@ Optional properties:
->      - snps,wr_osr_lmt: max write outstanding req. limit
->      - snps,rd_osr_lmt: max read outstanding req. limit
->      - snps,kbbe: do not cross 1KiB boundary.
-> -    - snps,axi_all: align address
->      - snps,blen: this is a vector of supported burst length.
->      - snps,fb: fixed-burst
->      - snps,mb: mixed-burst
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> index 082cd48db6a7..60ba8993c650 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> @@ -121,7 +121,6 @@ static struct stmmac_axi *stmmac_axi_setup(struct platform_device *pdev)
->      axi->axi_lpi_en = of_property_read_bool(np, "snps,lpi_en");
->      axi->axi_xit_frm = of_property_read_bool(np, "snps,xit_frm");
->      axi->axi_kbbe = of_property_read_bool(np, "snps,axi_kbbe");
-> -    axi->axi_axi_all = of_property_read_bool(np, "snps,axi_all");
->      axi->axi_fb = of_property_read_bool(np, "snps,axi_fb");
->      axi->axi_mb = of_property_read_bool(np, "snps,axi_mb");
->      axi->axi_rb =  of_property_read_bool(np, "snps,axi_rb");
-> diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
-> index 266dab9ad782..889e0e9a3f1c 100644
-> --- a/include/linux/stmmac.h
-> +++ b/include/linux/stmmac.h
-> @@ -103,7 +103,6 @@ struct stmmac_axi {
->      u32 axi_wr_osr_lmt;
->      u32 axi_rd_osr_lmt;
->      bool axi_kbbe;
-> -    bool axi_axi_all;
->      u32 axi_blen[AXI_BLEN];
->      bool axi_fb;
->      bool axi_mb;
->
+> Okay, maybe I should name all the compatible string with the suffix "-gmac" instead of
+> "-gemac". This can keep the compatible strings with the same suffix. Is this okay?
+> Can I just add the generic compatible string without changing the SoCs compatible string?
+> Like following:
+>         gmac0: ethernet@f9840000 {
+>  -              compatible = "hisilicon,hix5hd2-gmac";
+>  +              compatible = "hisilicon,hix5hd2-gmac", "hisilicon,hisi-gmac-v1";
+
+Yes, this is fine.
+
+Rob
