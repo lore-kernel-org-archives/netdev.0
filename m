@@ -1,25 +1,59 @@
-From: Brianna Falzone <ifeanyiaustine27@gmail.com>
-Subject: (unknown)
-Date: Mon, 12 Dec 2016 12:19:02 +0000
-Message-ID: <CABG+so0p4adroOnk_iXAvz2iK6VZJfG7aF3Z7UR262eej9CFyw@mail.gmail.com>
-Reply-To: briannafalzone@outlook.com
+From: Peng Tao <bergwolf@gmail.com>
+Subject: [PATCH v4 0/4] vsock: cancel connect packets when failing to connect
+Date: Mon, 12 Dec 2016 20:21:05 +0800
+Message-ID: <1481545269-18104-1-git-send-email-bergwolf@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f194.google.com ([209.85.161.194]:35692 "EHLO
-        mail-yw0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750696AbcLLMTD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Dec 2016 07:19:03 -0500
-Received: by mail-yw0-f194.google.com with SMTP id b66so629491ywh.2
-        for <netdev@vger.kernel.org>; Mon, 12 Dec 2016 04:19:03 -0800 (PST)
-Subject: 
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: virtualization@lists.linux-foundation.org,
+	Stefan Hajnoczi <stefanha@redhat.com>, David Miller <davem@davemloft.net>,
+	Jorgen Hansen <jhansen@vmware.com>, kvm@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-My name is Brianna Falzone , I am a United State Army officer, i saw
-your mail on google search please reply to me  So that we know better.
-I hope to read
-Thanks and hope to hear from you soon.
-Regards
-Brianna
+Currently, if a connect call fails on a signal or timeout (e.g., guest is still
+in the process of starting up), we'll just return to caller and leave the connect
+packet queued and they are sent even though the connection is considered a failure,
+which can confuse applications with unwanted false connect attempt.
+
+The patchset enables vsock (both host and guest) to cancel queued packets when
+a connect attempt is considered to fail.
+
+v4 changelog:
+  - drop two unnecessary void * cast
+  - update new callback commnet
+v3 changelog:
+  - define cancel_pkt callback in struct vsock_transport rather than struct virtio_transport
+  - rename virtio_vsock_pkt->vsk to virtio_vsock_pkt->cancel_token
+v2 changelog:
+  - fix queued_replies counting and resume tx/rx when necessary
+
+Cheers,
+Tao
+
+Peng Tao (4):
+  vsock: track pkt owner vsock
+  vhost-vsock: add pkt cancel capability
+  vsock: add pkt cancel capability
+  vsock: cancel packets when failing to connect
+
+ drivers/vhost/vsock.c                   | 41 ++++++++++++++++++++++++++++++++
+ include/linux/virtio_vsock.h            |  2 ++
+ include/net/af_vsock.h                  |  3 +++
+ net/vmw_vsock/af_vsock.c                | 14 +++++++++++
+ net/vmw_vsock/virtio_transport.c        | 42 +++++++++++++++++++++++++++++++++
+ net/vmw_vsock/virtio_transport_common.c |  7 ++++++
+ 6 files changed, 109 insertions(+)
+
+-- 
+2.7.4
