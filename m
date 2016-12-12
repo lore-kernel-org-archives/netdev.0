@@ -1,70 +1,107 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next 1/3] net:dsa:mv88e6xxx: use hashtable to store multicast entries
-Date: Mon, 12 Dec 2016 15:03:12 -0500
-Message-ID: <87vauo9apr.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-References: <1481549958-1265-1-git-send-email-volodymyr.bendiuga@gmail.com> <87r35db35m.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me> <CAMr9Lbp5eCg1oyWGN+uiDEcF0VZuKUi87FH6JYTGj6pL82R+Mw@mail.gmail.com> <48ff1136-dd8f-7704-a512-c23b27989bf8@gmail.com> <20161212190915.GA8885@lunn.ch>
+From: Paul Moore <paul@paul-moore.com>
+Subject: Re: [PATCH v2] audit: use proper refcount locking on audit_sock
+Date: Mon, 12 Dec 2016 15:18:41 -0500
+Message-ID: <CAHC9VhSjU+-KDSUcjHZAPEwCDbyLYGvkmXYcUqSfSsa1+=DsRw@mail.gmail.com>
+References: <20161212100215.GA1305@madcap2.tricolour.ca> <5714bd7468cfec225407a6c367e658478d590495.1481534171.git.rgb@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Volodymyr Bendiuga <valdr.linuxnext@gmail.com>,
-        Volodymyr Bendiuga <volodymyr.bendiuga@gmail.com>,
-        netdev@vger.kernel.org,
-        Volodymyr Bendiuga <volodymyr.bendiuga@westermo.se>
-To: Andrew Lunn <andrew@lunn.ch>,
-        Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:57160 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752165AbcLLUD1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Dec 2016 15:03:27 -0500
-In-Reply-To: <20161212190915.GA8885@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-audit@redhat.com, edumazet@google.com,
+        xiyou.wangcong@gmail.com, dvyukov@google.com
+To: Richard Guy Briggs <rgb@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5714bd7468cfec225407a6c367e658478d590495.1481534171.git.rgb@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Andrew,
-
-Andrew Lunn <andrew@lunn.ch> writes:
-
-> Humm, it looks like we are doing the atu_get wrong. We are looking for
-> a specific MAC address. Yet we seem to be walking the whole table to
-> find it, rather than getting the hardware to do the search. 
-
-We are not doing it wrong, the hardware does the search. A classic dump
-of an ATU database consists of starting from the broadcast address
-ff:ff:ff:ff:ff:ff and issuing GetNext operation until we reach back the
-broadcast address. Only addresses in used are returned by GetNext, thus
-dumping an empty database is completed in a single operation.
-
-I implemented atu_get intentionally this way because it provides simpler
-code, rather than doing arithmetic on MAC addresses (Unless I am unaware
-of simple increment/decrement code.)
-
-> The current code is:
+On Mon, Dec 12, 2016 at 5:03 AM, Richard Guy Briggs <rgb@redhat.com> wrote:
+> Resetting audit_sock appears to be racy.
 >
-> static int mv88e6xxx_atu_get(struct mv88e6xxx_chip *chip, int fid,
->                              const u8 *addr, struct mv88e6xxx_atu_entry *entry)
-> {
->         struct mv88e6xxx_atu_entry next;
->         int err;
+> audit_sock was being copied and dereferenced without using a refcount on
+> the source sock.
 >
->         eth_broadcast_addr(next.mac);
+> Bump the refcount on the underlying sock when we store a refrence in
+> audit_sock and release it when we reset audit_sock.  audit_sock
+> modification needs the audit_cmd_mutex.
 >
->         err = _mv88e6xxx_atu_mac_write(chip, next.mac);
+> See: https://lkml.org/lkml/2016/11/26/232
 >
-> We should be setting next.mac to one less than the address we are
-> looking for.
+> Thanks to Eric Dumazet <edumazet@google.com> and Cong Wang
+> <xiyou.wangcong@gmail.com> on ideas how to fix it.
 >
-> Volodymyr, please could you try that, and see how much of a speed up
-> you get.
->
-> There is another optimization which can be made. We only say there is
-> no such entry once we have reached the end of the table. But it will
-> return the entries in ascending order. So if the entry it returned is
-> bigger than what we are looking for, we can immediately abort the
-> search and say it does not exist.
+> Signed-off-by: Richard Guy Briggs <rgb@redhat.com>
+> ---
+> There has been a lot of change in the audit code that is about to go
+> upstream to address audit queue issues.  This patch is based on the
+> source tree: git://git.infradead.org/users/pcmoore/audit#next
+> ---
+>  kernel/audit.c |   34 ++++++++++++++++++++++++++++------
+>  1 files changed, 28 insertions(+), 6 deletions(-)
 
-However your two suggestions to optimize the lookup are correct. It'd be
-interesting to see if that makes a significant difference or not.
+My previous question about testing still stands, but I took a closer
+look and have some additional comments, see below ...
 
-Thanks,
+> diff --git a/kernel/audit.c b/kernel/audit.c
+> index f20eee0..439f7f3 100644
+> --- a/kernel/audit.c
+> +++ b/kernel/audit.c
+> @@ -452,7 +452,9 @@ static void auditd_reset(void)
+>         struct sk_buff *skb;
+>
+>         /* break the connection */
+> +       sock_put(audit_sock);
+>         audit_pid = 0;
+> +       audit_nlk_portid = 0;
+>         audit_sock = NULL;
+>
+>         /* flush all of the retry queue to the hold queue */
+> @@ -478,6 +480,12 @@ static int kauditd_send_unicast_skb(struct sk_buff *skb)
+>         if (rc >= 0) {
+>                 consume_skb(skb);
+>                 rc = 0;
+> +       } else {
+> +               if (rc & (-ENOMEM|-EPERM|-ECONNREFUSED)) {
 
-        Vivien
+I dislike the way you wrote this because instead of simply looking at
+this to see if it correct I need to sort out all the bits and find out
+if there are other error codes that could run afoul of this check ...
+make it simple, e.g. (rc == -ENOMEM || rc == -EPERM || ...).
+Actually, since EPERM is 1, -EPERM (-1 in two's compliment is
+0xffffffff) is going to cause this to be true for pretty much any
+value of rc, yes?
+
+> +                       mutex_lock(&audit_cmd_mutex);
+> +                       auditd_reset();
+> +                       mutex_unlock(&audit_cmd_mutex);
+> +               }
+
+The code in audit#next handles netlink_unicast() errors in
+kauditd_thread() and you are adding error handling code here in
+kauditd_send_unicast_skb() ... that's messy.  I don't care too much
+where the auditd_reset() call is made, but let's only do it in one
+function; FWIW, I originally put the error handling code in
+kauditd_thread() because there was other error handling code that
+needed to done in that scope so it resulted in cleaner code.
+
+Related, I see you are now considering ENOMEM to be a fatal condition,
+that differs from the AUDITD_BAD macro in kauditd_thread(); this
+difference needs to be reconciled.
+
+Finally, you should update the comment header block for auditd_reset()
+that it needs to be called with the audit_cmd_mutex held.
+
+> @@ -1004,17 +1018,22 @@ static int audit_receive_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+>                                 return -EACCES;
+>                         }
+>                         if (audit_pid && new_pid &&
+> -                           audit_replace(requesting_pid) != -ECONNREFUSED) {
+> +                           (audit_replace(requesting_pid) & (-ECONNREFUSED|-EPERM|-ENOMEM))) {
+
+Do we simply want to treat any error here as fatal, and not just
+ECONN/EPERM/ENOMEM?  If not, let's come up with a single macro to
+handle the fatal netlink_unicast() return codes so we have some chance
+to keep things consistent in the future.
+
+-- 
+paul moore
+www.paul-moore.com
