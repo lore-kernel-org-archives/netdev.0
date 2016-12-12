@@ -1,39 +1,49 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch net-next] irda: w83977af_ir: cleanup an indent issue
-Date: Mon, 12 Dec 2016 14:21:34 +0300
-Message-ID: <20161212112134.GA10035@elgon.mountain>
+From: Ozgur Karatas <okaratas@member.fsf.org>
+Subject: Re: [PATCH 1/1] Fixed to BUG_ON to WARN_ON
+Date: Mon, 12 Dec 2016 13:32:05 +0200
+Message-ID: <920981481542325@web29j.yandex.ru>
+References: <811031481540339@web1j.yandex.ru> <080dc5cc-3d72-a5db-2f53-5c6ce74837b4@osg.samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Samuel Ortiz <samuel@sortiz.org>, Joe Perches <joe@perches.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:20881 "EHLO
-        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751252AbcLLLaW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Dec 2016 06:30:22 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev <netdev@vger.kernel.org>,
+        linux-kernel <linux-kernel@vger.kernel.org>
+To: Stefan Schmidt <stefan@osg.samsung.com>,
+        "yishaih@mellanox.com" <yishaih@mellanox.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <080dc5cc-3d72-a5db-2f53-5c6ce74837b4@osg.samsung.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In commit 99d8d2159d7c ("irda: w83977af_ir: Neaten logging"), we
-accidentally added an extra tab to these lines.
+Dear Stefan;
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+I'm reading to Documentation/SubmittingPatches and I still apologized for misrepresentations my patches. 
+I will add a next time good commit message and commit subjects.
 
-diff --git a/drivers/net/irda/w83977af_ir.c b/drivers/net/irda/w83977af_ir.c
-index f293d33fb28f..8d5b903d1d9d 100644
---- a/drivers/net/irda/w83977af_ir.c
-+++ b/drivers/net/irda/w83977af_ir.c
-@@ -517,9 +517,9 @@ static netdev_tx_t w83977af_hard_xmit(struct sk_buff *skb,
- 
- 		mtt = irda_get_mtt(skb);
- 		pr_debug("%s: %ld, mtt=%d\n", __func__, jiffies, mtt);
--			if (mtt > 1000)
--				mdelay(mtt / 1000);
--			else if (mtt)
-+		if (mtt > 1000)
-+			mdelay(mtt / 1000);
-+		else if (mtt)
- 			udelay(mtt);
- 
- 		/* Enable DMA interrupt */
+Sorry,
+
+Regards
+
+Ozgur Karatas
+
+12.12.2016, 13:20, "Stefan Schmidt" <stefan@osg.samsung.com>:
+> Hello.
+>
+> On 12/12/16 11:58, Ozgur Karatas wrote:
+>>  Hello all,
+>>  I think should be use to "WARN_ON" and checkpatch script give to error, I fixed and I think should don't use "BUG_ON".
+>>  Regards,
+>>
+>>  Signed-off-by: Ozgur Karatas <okaratas@member.fsf.org>
+>
+> I pointed you already before to the Documentation how to prepare a
+> commit subject and commit message. You just replied with that you are
+> new to contributing patches. That is all fine and many people are new
+> each release. Please take the time to read the provided and pointed out
+> docs.
+>
+> If you keep ignoring such suggestions and docs I would think people will
+> keep ignoring your patches.
+>
+> regards
+> Stefan Schmidt
