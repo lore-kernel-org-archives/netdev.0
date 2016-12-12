@@ -1,40 +1,197 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next 1/3] net:dsa:mv88e6xxx: use hashtable to store multicast entries
-Date: Mon, 12 Dec 2016 12:11:07 -0500
-Message-ID: <87twa9oyxg.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-References: <1481549958-1265-1-git-send-email-volodymyr.bendiuga@gmail.com> <87r35db35m.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me> <CAMr9Lbp5eCg1oyWGN+uiDEcF0VZuKUi87FH6JYTGj6pL82R+Mw@mail.gmail.com> <48ff1136-dd8f-7704-a512-c23b27989bf8@gmail.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: Designing a safe RX-zero-copy Memory Model for Networking
+Date: Mon, 12 Dec 2016 18:13:44 +0100
+Message-ID: <20161212181344.3ddfa9c3@redhat.com>
+References: <20161205153132.283fcb0e@redhat.com>
+	<20161212083812.GA19987@rapoport-lnx>
+	<20161212104042.0a011212@redhat.com>
+	<20161212141433.GB19987@rapoport-lnx>
+	<584EB8DF.8000308@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Volodymyr Bendiuga <volodymyr.bendiuga@gmail.com>, andrew@lunn.ch,
-        netdev@vger.kernel.org,
-        Volodymyr Bendiuga <volodymyr.bendiuga@westermo.se>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-        Volodymyr Bendiuga <valdr.linuxnext@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:42444 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932915AbcLLRLO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Dec 2016 12:11:14 -0500
-In-Reply-To: <48ff1136-dd8f-7704-a512-c23b27989bf8@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Mike Rapoport <rppt@linux.vnet.ibm.com>,
+        "netdev@vger.kernel.org"
+ <netdev@vger.kernel.org>,
+        linux-mm <linux-mm@kvack.org>,
+        Willem de Bruijn
+ <willemdebruijn.kernel@gmail.com>,
+        =?UTF-8?B?QmrDtnJuIFTDtnBlbA==?=
+ <bjorn.topel@intel.com>,
+        "Karlsson, Magnus" <magnus.karlsson@intel.com>,
+        Alexander Duyck <alexander.duyck@gmail.com>,
+        Mel Gorman
+ <mgorman@techsingularity.net>,
+        Tom Herbert <tom@herbertland.com>,
+        Brenden
+ Blanco <bblanco@plumgrid.com>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Saeed
+ Mahameed <saeedm@mellanox.com>,
+        Jesse Brandeburg
+ <jesse.brandeburg@intel.com>,
+        Kalman Meth <METH@il.ibm.com>,
+        Vladislav
+ Yasevich <vyasevich@gmail.com>, brouer@redhat.com
+To: John Fastabend <john.fastabend@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <584EB8DF.8000308@gmail.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Hi all,
+On Mon, 12 Dec 2016 06:49:03 -0800
+John Fastabend <john.fastabend@gmail.com> wrote:
 
-Florian Fainelli <f.fainelli@gmail.com> writes:
+> On 16-12-12 06:14 AM, Mike Rapoport wrote:
+> > On Mon, Dec 12, 2016 at 10:40:42AM +0100, Jesper Dangaard Brouer wrote:  
+> >>
+> >> On Mon, 12 Dec 2016 10:38:13 +0200 Mike Rapoport <rppt@linux.vnet.ibm.com> wrote:
+> >>  
+> >>> Hello Jesper,
+> >>>
+> >>> On Mon, Dec 05, 2016 at 03:31:32PM +0100, Jesper Dangaard Brouer wrote:  
+> >>>> Hi all,
+> >>>>
+> >>>> This is my design for how to safely handle RX zero-copy in the network
+> >>>> stack, by using page_pool[1] and modifying NIC drivers.  Safely means
+> >>>> not leaking kernel info in pages mapped to userspace and resilience
+> >>>> so a malicious userspace app cannot crash the kernel.
+> >>>>
+> >>>> Design target
+> >>>> =============
+> >>>>
+> >>>> Allow the NIC to function as a normal Linux NIC and be shared in a
+> >>>> safe manor, between the kernel network stack and an accelerated
+> >>>> userspace application using RX zero-copy delivery.
+> >>>>
+> >>>> Target is to provide the basis for building RX zero-copy solutions in
+> >>>> a memory safe manor.  An efficient communication channel for userspace
+> >>>> delivery is out of scope for this document, but OOM considerations are
+> >>>> discussed below (`Userspace delivery and OOM`_).    
+> >>>
+> >>> Sorry, if this reply is a bit off-topic.  
+> >>
+> >> It is very much on topic IMHO :-)
+> >>  
+> >>> I'm working on implementation of RX zero-copy for virtio and I've dedicated
+> >>> some thought about making guest memory available for physical NIC DMAs.
+> >>> I believe this is quite related to your page_pool proposal, at least from
+> >>> the NIC driver perspective, so I'd like to share some thoughts here.  
+> >>
+> >> Seems quite related. I'm very interested in cooperating with you! I'm
+> >> not very familiar with virtio, and how packets/pages gets channeled
+> >> into virtio.  
+> > 
+> > They are copied :-)
+> > Presuming we are dealing only with vhost backend, the received skb
+> > eventually gets converted to IOVs, which in turn are copied to the guest
+> > memory. The IOVs point to the guest memory that is allocated by virtio-net
+> > running in the guest.
+> >   
+> 
+> Great I'm also doing something similar.
+> 
+> My plan was to embed the zero copy as an AF_PACKET mode and then push
+> a AF_PACKET backend into vhost. I'll post a patch later this week.
+> 
+> >>> The idea is to dedicate one (or more) of the NIC's queues to a VM, e.g.
+> >>> using macvtap, and then propagate guest RX memory allocations to the NIC
+> >>> using something like new .ndo_set_rx_buffers method.  
+> >>
+> >> I believe the page_pool API/design aligns with this idea/use-case.
+> >>  
+> >>> What is your view about interface between the page_pool and the NIC
+> >>> drivers?  
+> >>
+> >> In my Prove-of-Concept implementation, the NIC driver (mlx5) register
+> >> a page_pool per RX queue.  This is done for two reasons (1) performance
+> >> and (2) for supporting use-cases where only one single RX-ring queue is
+> >> (re)configured to support RX-zero-copy.  There are some associated
+> >> extra cost of enabling this mode, thus it makes sense to only enable it
+> >> when needed.
+> >>
+> >> I've not decided how this gets enabled, maybe some new driver NDO.  It
+> >> could also happen when a XDP program gets loaded, which request this
+> >> feature.
+> >>
+> >> The macvtap solution is nice and we should support it, but it requires
+> >> VM to have their MAC-addr registered on the physical switch.  This
+> >> design is about adding flexibility. Registering an XDP eBPF filter
+> >> provides the maximum flexibility for matching the destination VM.  
+> > 
+> > I'm not very familiar with XDP eBPF, and it's difficult for me to estimate
+> > what needs to be done in BPF program to do proper conversion of skb to the
+> > virtio descriptors.  
+> 
+> I don't think XDP has much to do with this code and they should be done
+> separately. XDP runs eBPF code on received packets after the DMA engine
+> has already placed the packet in memory so its too late in the process.
 
-> Seeing such a change makes me wonder if we should not try to push some
-> of this hashtable abstraction (provided that we agree we want it) at a
-> higher layer, like net/dsa/slave.c?
+It does not have to be connected to XDP.  My idea should support RX
+zero-copy into normal sockets, without XDP.
 
-That is the major reason why I am reluctant to cache stuffs in drivers.
+My idea was to pre-VMA map the RX ring, when zero-copy is requested,
+thus it is not too late in the process.  When frame travel the normal
+network stack, then require the SKB-read-only-page mode (skb-frags).
+If the SKB reach a socket that support zero-copy, then we can do RX
+zero-copy on normal sockets.
 
-In most cases, we want the DSA drivers to be "stupid", as much stateless
-as possible, simply implementing the supported DSA switch operations.
+ 
+> The other piece here is enabling XDP in vhost but that is again separate
+> IMO.
+> 
+> Notice that ixgbe supports pushing packets into a macvlan via 'tc'
+> traffic steering commands so even though macvlan gets an L2 address it
+> doesn't mean it can't use other criteria to steer traffic to it.
 
-The DSA core then handles the generic logic of how switch fabrics should
-behave, and thus all DSA drivers are consistent and benefit from this.
+This sounds interesting. As this allow much more flexibility macvlan
+matching, which I like, but still depending on HW support. 
 
-Thanks,
+ 
+> > We were not considered using XDP yet, so we've decided to limit the initial
+> > implementation to macvtap because we can ensure correspondence between a
+> > NIC queue and virtual NIC, which is not the case with more generic tap
+> > device. It could be that use of XDP will allow for a generic solution for
+> > virtio case as well.  
+> 
+> Interesting this was one of the original ideas behind the macvlan
+> offload mode. iirc Vlad also was interested in this.
+> 
+> I'm guessing this was used because of the ability to push macvlan onto
+> its own queue?
+> 
+> >    
+> >>  
+> >>> Have you considered using "push" model for setting the NIC's RX memory?  
+> >>
+> >> I don't understand what you mean by a "push" model?  
+> > 
+> > Currently, memory allocation in NIC drivers boils down to alloc_page with
+> > some wrapping code. I see two possible ways to make NIC use of some
+> > preallocated pages: either NIC driver will call an API (probably different
+> > from alloc_page) to obtain that memory, or there will be NDO API that
+> > allows to set the NIC's RX buffers. I named the later case "push".  
+> 
+> I prefer the ndo op. This matches up well with AF_PACKET model where we
+> have "slots" and offload is just a transparent "push" of these "slots"
+> to the driver. Below we have a snippet of our proposed API,
 
-        Vivien
+Hmmm. If you can rely on hardware setup to give you steering and
+dedicated access to the RX rings.  In those cases, I guess, the "push"
+model could be a more direct API approach.
+
+I was shooting for a model that worked without hardware support.  And
+then transparently benefit from HW support by configuring a HW filter
+into a specific RX queue and attaching/using to that queue.
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
