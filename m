@@ -1,138 +1,61 @@
-From: Richard Guy Briggs <rgb@redhat.com>
-Subject: [PATCH v2] audit: use proper refcount locking on audit_sock
-Date: Mon, 12 Dec 2016 05:03:05 -0500
-Message-ID: <5714bd7468cfec225407a6c367e658478d590495.1481534171.git.rgb@redhat.com>
-References: <20161212100215.GA1305@madcap2.tricolour.ca>
-Cc: Richard Guy Briggs <rgb@redhat.com>, <dvyukov@google.com>,
-        <xiyou.wangcong@gmail.com>, <edumazet@google.com>,
-        <eparis@redhat.com>, <pmoore@redhat.com>, <sgrubb@redhat.com>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-audit@redhat.com
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: Re: netlink: GPF in sock_sndtimeo
+Date: Mon, 12 Dec 2016 11:07:41 +0100
+Message-ID: <CACT4Y+Yn0ZUv0=g4t5BYQC5tUqqmNFreUyB3nw=vx1GXEn1NSQ@mail.gmail.com>
+References: <20161129164859.GD26673@madcap2.tricolour.ca> <CAM_iQpX_KBEpL1dCBNMgZQ-VQJM9nmsVdRPVK-Aen9k0gV3f0w@mail.gmail.com>
+ <20161130045207.GE26673@madcap2.tricolour.ca> <20161209060248.GT22655@madcap2.tricolour.ca>
+ <CAM_iQpWRe0tDk=wvXONG7hamH3EtE0nJuAOF1kVKJgdpMvz2DA@mail.gmail.com>
+ <20161209110155.GW22655@madcap2.tricolour.ca> <CAM_iQpV2GuKhR_1tD5jjACeD+pajJLws08CLmeYAo+rsjxvB0A@mail.gmail.com>
+ <CAM_iQpVcHGywXn90EpiSz-LsUDgKVqs-7BY-L7UBCu2VxkC31Q@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Richard Guy Briggs <rgb@redhat.com>, linux-audit@redhat.com,
+        Paul Moore <pmoore@redhat.com>,
+        David Miller <davem@davemloft.net>,
+        Johannes Berg <johannes.berg@intel.com>,
+        Florian Westphal <fw@strlen.de>,
+        Eric Dumazet <edumazet@google.com>,
+        Herbert Xu <herbert@gondor.apana.org.au>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>
+To: syzkaller <syzkaller@googlegroups.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161212100215.GA1305@madcap2.tricolour.ca>
+In-Reply-To: <CAM_iQpVcHGywXn90EpiSz-LsUDgKVqs-7BY-L7UBCu2VxkC31Q@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Resetting audit_sock appears to be racy.
+On Sat, Dec 10, 2016 at 8:40 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+>>> On 2016-12-08 22:57, Cong Wang wrote:
+>>>> On Thu, Dec 8, 2016 at 10:02 PM, Richard Guy Briggs <rgb@redhat.com> wrote:
+>>>> > I also tried to extend Cong Wang's idea to attempt to proactively respond to a
+>>>> > NETLINK_URELEASE on the audit_sock and reset it, but ran into a locking error
+>>>> > stack dump using mutex_lock(&audit_cmd_mutex) in the notifier callback.
+>>>> > Eliminating the lock since the sock is dead anways eliminates the error.
+>>>> >
+>>>> > Is it safe?  I'll resubmit if this looks remotely sane.  Meanwhile I'll try to
+>>>> > get the test case to compile.
+>>>>
+>>>> It doesn't look safe, because 'audit_sock', 'audit_nlk_portid' and 'audit_pid'
+>>>> are updated as a whole and race between audit_receive_msg() and
+>>>> NETLINK_URELEASE.
+>>>
+>>> This is what I expected and why I originally added the mutex lock in the
+>>> callback...  The dumps I got were bare with no wrapper identifying the
+>>> process context or specific error, so I'm at a bit of a loss how to
+>>> solve this (without thinking more about it) other than instinctively
+>>> removing the mutex.
+>>
+>> Netlink notifier can safely be converted to blocking one, I will send
+>> a patch.
+>>
+>> But I seriously doubt you really need NETLINK_URELEASE here,
+>> it adds nothing but overhead, b/c the netlink notifier is called on
+>> every netlink socket in the system, but for net exit path, that is
+>> relatively a slow path.
+>>
+>> Also, kauditd_send_skb() needs audit_cmd_mutex too.
+>
+> Please let me know what you think about the attached patch?
 
-audit_sock was being copied and dereferenced without using a refcount on
-the source sock.
-
-Bump the refcount on the underlying sock when we store a refrence in
-audit_sock and release it when we reset audit_sock.  audit_sock
-modification needs the audit_cmd_mutex.
-
-See: https://lkml.org/lkml/2016/11/26/232
-
-Thanks to Eric Dumazet <edumazet@google.com> and Cong Wang
-<xiyou.wangcong@gmail.com> on ideas how to fix it.
-
-Signed-off-by: Richard Guy Briggs <rgb@redhat.com>
----
-There has been a lot of change in the audit code that is about to go
-upstream to address audit queue issues.  This patch is based on the
-source tree: git://git.infradead.org/users/pcmoore/audit#next
----
- kernel/audit.c |   34 ++++++++++++++++++++++++++++------
- 1 files changed, 28 insertions(+), 6 deletions(-)
-
-diff --git a/kernel/audit.c b/kernel/audit.c
-index f20eee0..439f7f3 100644
---- a/kernel/audit.c
-+++ b/kernel/audit.c
-@@ -452,7 +452,9 @@ static void auditd_reset(void)
- 	struct sk_buff *skb;
- 
- 	/* break the connection */
-+	sock_put(audit_sock);
- 	audit_pid = 0;
-+	audit_nlk_portid = 0;
- 	audit_sock = NULL;
- 
- 	/* flush all of the retry queue to the hold queue */
-@@ -478,6 +480,12 @@ static int kauditd_send_unicast_skb(struct sk_buff *skb)
- 	if (rc >= 0) {
- 		consume_skb(skb);
- 		rc = 0;
-+	} else {
-+		if (rc & (-ENOMEM|-EPERM|-ECONNREFUSED)) {
-+			mutex_lock(&audit_cmd_mutex);
-+			auditd_reset();
-+			mutex_unlock(&audit_cmd_mutex);
-+		}
- 	}
- 
- 	return rc;
-@@ -579,7 +587,9 @@ static int kauditd_thread(void *dummy)
- 
- 				auditd = 0;
- 				if (AUDITD_BAD(rc, reschedule)) {
-+					mutex_lock(&audit_cmd_mutex);
- 					auditd_reset();
-+					mutex_unlock(&audit_cmd_mutex);
- 					reschedule = 0;
- 				}
- 			} else
-@@ -594,7 +604,9 @@ static int kauditd_thread(void *dummy)
- 				auditd = 0;
- 				if (AUDITD_BAD(rc, reschedule)) {
- 					kauditd_hold_skb(skb);
-+					mutex_lock(&audit_cmd_mutex);
- 					auditd_reset();
-+					mutex_unlock(&audit_cmd_mutex);
- 					reschedule = 0;
- 				} else
- 					/* temporary problem (we hope), queue
-@@ -623,7 +635,9 @@ quick_loop:
- 				if (rc) {
- 					auditd = 0;
- 					if (AUDITD_BAD(rc, reschedule)) {
-+						mutex_lock(&audit_cmd_mutex);
- 						auditd_reset();
-+						mutex_unlock(&audit_cmd_mutex);
- 						reschedule = 0;
- 					}
- 
-@@ -1004,17 +1018,22 @@ static int audit_receive_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
- 				return -EACCES;
- 			}
- 			if (audit_pid && new_pid &&
--			    audit_replace(requesting_pid) != -ECONNREFUSED) {
-+			    (audit_replace(requesting_pid) & (-ECONNREFUSED|-EPERM|-ENOMEM))) {
- 				audit_log_config_change("audit_pid", new_pid, audit_pid, 0);
- 				return -EEXIST;
- 			}
- 			if (audit_enabled != AUDIT_OFF)
- 				audit_log_config_change("audit_pid", new_pid, audit_pid, 1);
--			audit_pid = new_pid;
--			audit_nlk_portid = NETLINK_CB(skb).portid;
--			audit_sock = skb->sk;
--			if (!new_pid)
-+			if (new_pid) {
-+				if (audit_sock)
-+					sock_put(audit_sock);
-+				audit_pid = new_pid;
-+				audit_nlk_portid = NETLINK_CB(skb).portid;
-+				sock_hold(skb->sk);
-+				audit_sock = skb->sk;
-+			} else {
- 				auditd_reset();
-+			}
- 			wake_up_interruptible(&kauditd_wait);
- 		}
- 		if (s.mask & AUDIT_STATUS_RATE_LIMIT) {
-@@ -1283,8 +1302,11 @@ static void __net_exit audit_net_exit(struct net *net)
- {
- 	struct audit_net *aunet = net_generic(net, audit_net_id);
- 	struct sock *sock = aunet->nlsk;
--	if (sock == audit_sock)
-+	if (sock == audit_sock) {
-+		mutex_lock(&audit_cmd_mutex);
- 		auditd_reset();
-+		mutex_unlock(&audit_cmd_mutex);
-+	}
- 
- 	RCU_INIT_POINTER(aunet->nlsk, NULL);
- 	synchronize_net();
--- 
-1.7.1
+Applied the patch locally and have not seen the bug since then (~24
+hours of testing).
