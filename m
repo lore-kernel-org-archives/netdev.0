@@ -1,120 +1,171 @@
-From: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH V2 for-next 00/11] Code improvements & fixes for HNS RoCE
- driver
-Date: Mon, 12 Dec 2016 23:34:19 -0500
-Message-ID: <584499b3-5355-f8b7-1b6a-cc08c50e8c04@redhat.com>
-References: <20161115181053.399568-1-salil.mehta@huawei.com>
+From: Richard Guy Briggs <rgb@redhat.com>
+Subject: Re: [PATCH v2] audit: use proper refcount locking on audit_sock
+Date: Mon, 12 Dec 2016 23:49:42 -0500
+Message-ID: <20161213044942.GD1305@madcap2.tricolour.ca>
+References: <20161212100215.GA1305@madcap2.tricolour.ca>
+ <5714bd7468cfec225407a6c367e658478d590495.1481534171.git.rgb@redhat.com>
+ <CAHC9VhTt5Pbw+LzVwRV1E==drwrH0ihUJvJkWwDgOA35OUFV2g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- protocol="application/pgp-signature";
- boundary="R7UXdSL4eQSsawBSAX5tfaT5LFSLvLltB"
-Cc: xavier.huwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, xushaobo2-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
-        mehta.salil.lnk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, lijun_nudt-9Onoh4P/yGk@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
-To: Salil Mehta <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20161115181053.399568-1-salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-audit@redhat.com, edumazet@google.com,
+        xiyou.wangcong@gmail.com, dvyukov@google.com
+To: Paul Moore <paul@paul-moore.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAHC9VhTt5Pbw+LzVwRV1E==drwrH0ihUJvJkWwDgOA35OUFV2g@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---R7UXdSL4eQSsawBSAX5tfaT5LFSLvLltB
-Content-Type: multipart/mixed; boundary="sLfPX655iAJ7iUVGhNhG4ieWM7NOxakbf";
- protected-headers="v1"
-From: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-To: Salil Mehta <salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Cc: xavier.huwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, xushaobo2-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
- mehta.salil.lnk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, lijun_nudt-9Onoh4P/yGk@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
-Message-ID: <584499b3-5355-f8b7-1b6a-cc08c50e8c04-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH V2 for-next 00/11] Code improvements & fixes for HNS RoCE
- driver
-References: <20161115181053.399568-1-salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-In-Reply-To: <20161115181053.399568-1-salil.mehta-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+On 2016-12-12 12:10, Paul Moore wrote:
+> On Mon, Dec 12, 2016 at 5:03 AM, Richard Guy Briggs <rgb@redhat.com> wrote:
+> > Resetting audit_sock appears to be racy.
+> >
+> > audit_sock was being copied and dereferenced without using a refcount on
+> > the source sock.
+> >
+> > Bump the refcount on the underlying sock when we store a refrence in
+> > audit_sock and release it when we reset audit_sock.  audit_sock
+> > modification needs the audit_cmd_mutex.
+> >
+> > See: https://lkml.org/lkml/2016/11/26/232
+> >
+> > Thanks to Eric Dumazet <edumazet@google.com> and Cong Wang
+> > <xiyou.wangcong@gmail.com> on ideas how to fix it.
+> >
+> > Signed-off-by: Richard Guy Briggs <rgb@redhat.com>
+> > ---
+> > There has been a lot of change in the audit code that is about to go
+> > upstream to address audit queue issues.  This patch is based on the
+> > source tree: git://git.infradead.org/users/pcmoore/audit#next
+> > ---
+> >  kernel/audit.c |   34 ++++++++++++++++++++++++++++------
+> >  1 files changed, 28 insertions(+), 6 deletions(-)
+> 
+> This is coming in pretty late for the v4.10 merge window, much later
+> than I would usually take things, but this is arguably important, and
+> (at first glance) relatively low risk - what testing have you done on
+> this?
 
---sLfPX655iAJ7iUVGhNhG4ieWM7NOxakbf
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: quoted-printable
+At this point, compile and boot, and I'm able to compile and run the
+supplied test code without any issues.
 
-On 11/15/2016 1:10 PM, Salil Mehta wrote:
-> This patchset introduces some code improvements and fixes
-> for the identified problems in the HNS RoCE driver.
->=20
-> Lijun Ou (4):
->   IB/hns: Add the interface for querying QP1
->   IB/hns: add self loopback for CM
->   IB/hns: Modify the condition of notifying hardware loopback
->   IB/hns: Fix the bug for qp state in hns_roce_v1_m_qp()
->=20
-> Salil Mehta (1):
->   IB/hns: Fix for Checkpatch.pl comment style errors
->=20
-> Shaobo Xu (1):
->   IB/hns: Implement the add_gid/del_gid and optimize the GIDs
->     management
->=20
-> Wei Hu (Xavier) (5):
->   IB/hns: Add code for refreshing CQ CI using TPTR
->   IB/hns: Optimize the logic of allocating memory using APIs
->   IB/hns: Modify the macro for the timeout when cmd process
->   IB/hns: Modify query info named port_num when querying RC QP
->   IB/hns: Change qpn allocation to round-robin mode.
->=20
->  drivers/infiniband/hw/hns/hns_roce_alloc.c  |   11 +-
->  drivers/infiniband/hw/hns/hns_roce_cmd.c    |    8 +-
->  drivers/infiniband/hw/hns/hns_roce_cmd.h    |    7 +-
->  drivers/infiniband/hw/hns/hns_roce_common.h |    2 -
->  drivers/infiniband/hw/hns/hns_roce_cq.c     |   17 +-
->  drivers/infiniband/hw/hns/hns_roce_device.h |   45 ++--
->  drivers/infiniband/hw/hns/hns_roce_eq.c     |    6 +-
->  drivers/infiniband/hw/hns/hns_roce_hem.c    |    6 +-
->  drivers/infiniband/hw/hns/hns_roce_hw_v1.c  |  267 +++++++++++++++++--=
-----
->  drivers/infiniband/hw/hns/hns_roce_hw_v1.h  |   17 +-
->  drivers/infiniband/hw/hns/hns_roce_main.c   |  311 +++++++------------=
---------
->  drivers/infiniband/hw/hns/hns_roce_mr.c     |   21 +-
->  drivers/infiniband/hw/hns/hns_roce_pd.c     |    5 +-
->  drivers/infiniband/hw/hns/hns_roce_qp.c     |    2 +-
->  14 files changed, 363 insertions(+), 362 deletions(-)
->=20
+> > diff --git a/kernel/audit.c b/kernel/audit.c
+> > index f20eee0..439f7f3 100644
+> > --- a/kernel/audit.c
+> > +++ b/kernel/audit.c
+> > @@ -452,7 +452,9 @@ static void auditd_reset(void)
+> >         struct sk_buff *skb;
+> >
+> >         /* break the connection */
+> > +       sock_put(audit_sock);
+> >         audit_pid = 0;
+> > +       audit_nlk_portid = 0;
+> >         audit_sock = NULL;
+> >
+> >         /* flush all of the retry queue to the hold queue */
+> > @@ -478,6 +480,12 @@ static int kauditd_send_unicast_skb(struct sk_buff *skb)
+> >         if (rc >= 0) {
+> >                 consume_skb(skb);
+> >                 rc = 0;
+> > +       } else {
+> > +               if (rc & (-ENOMEM|-EPERM|-ECONNREFUSED)) {
+> > +                       mutex_lock(&audit_cmd_mutex);
+> > +                       auditd_reset();
+> > +                       mutex_unlock(&audit_cmd_mutex);
+> > +               }
+> >         }
+> >
+> >         return rc;
+> > @@ -579,7 +587,9 @@ static int kauditd_thread(void *dummy)
+> >
+> >                                 auditd = 0;
+> >                                 if (AUDITD_BAD(rc, reschedule)) {
+> > +                                       mutex_lock(&audit_cmd_mutex);
+> >                                         auditd_reset();
+> > +                                       mutex_unlock(&audit_cmd_mutex);
+> >                                         reschedule = 0;
+> >                                 }
+> >                         } else
+> > @@ -594,7 +604,9 @@ static int kauditd_thread(void *dummy)
+> >                                 auditd = 0;
+> >                                 if (AUDITD_BAD(rc, reschedule)) {
+> >                                         kauditd_hold_skb(skb);
+> > +                                       mutex_lock(&audit_cmd_mutex);
+> >                                         auditd_reset();
+> > +                                       mutex_unlock(&audit_cmd_mutex);
+> >                                         reschedule = 0;
+> >                                 } else
+> >                                         /* temporary problem (we hope), queue
+> > @@ -623,7 +635,9 @@ quick_loop:
+> >                                 if (rc) {
+> >                                         auditd = 0;
+> >                                         if (AUDITD_BAD(rc, reschedule)) {
+> > +                                               mutex_lock(&audit_cmd_mutex);
+> >                                                 auditd_reset();
+> > +                                               mutex_unlock(&audit_cmd_mutex);
+> >                                                 reschedule = 0;
+> >                                         }
+> >
+> > @@ -1004,17 +1018,22 @@ static int audit_receive_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+> >                                 return -EACCES;
+> >                         }
+> >                         if (audit_pid && new_pid &&
+> > -                           audit_replace(requesting_pid) != -ECONNREFUSED) {
+> > +                           (audit_replace(requesting_pid) & (-ECONNREFUSED|-EPERM|-ENOMEM))) {
+> >                                 audit_log_config_change("audit_pid", new_pid, audit_pid, 0);
+> >                                 return -EEXIST;
+> >                         }
+> >                         if (audit_enabled != AUDIT_OFF)
+> >                                 audit_log_config_change("audit_pid", new_pid, audit_pid, 1);
+> > -                       audit_pid = new_pid;
+> > -                       audit_nlk_portid = NETLINK_CB(skb).portid;
+> > -                       audit_sock = skb->sk;
+> > -                       if (!new_pid)
+> > +                       if (new_pid) {
+> > +                               if (audit_sock)
+> > +                                       sock_put(audit_sock);
+> > +                               audit_pid = new_pid;
+> > +                               audit_nlk_portid = NETLINK_CB(skb).portid;
+> > +                               sock_hold(skb->sk);
+> > +                               audit_sock = skb->sk;
+> > +                       } else {
+> >                                 auditd_reset();
+> > +                       }
+> >                         wake_up_interruptible(&kauditd_wait);
+> >                 }
+> >                 if (s.mask & AUDIT_STATUS_RATE_LIMIT) {
+> > @@ -1283,8 +1302,11 @@ static void __net_exit audit_net_exit(struct net *net)
+> >  {
+> >         struct audit_net *aunet = net_generic(net, audit_net_id);
+> >         struct sock *sock = aunet->nlsk;
+> > -       if (sock == audit_sock)
+> > +       if (sock == audit_sock) {
+> > +               mutex_lock(&audit_cmd_mutex);
+> >                 auditd_reset();
+> > +               mutex_unlock(&audit_cmd_mutex);
+> > +       }
+> >
+> >         RCU_INIT_POINTER(aunet->nlsk, NULL);
+> >         synchronize_net();
+> > --
+> > 1.7.1
+> >
+> > --
+> > Linux-audit mailing list
+> > Linux-audit@redhat.com
+> > https://www.redhat.com/mailman/listinfo/linux-audit
+> 
+> 
+> 
+> -- 
+> paul moore
+> www.paul-moore.com
 
-Series applied, thanks.
+- RGB
 
---=20
-Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-    GPG Key ID: 0E572FDD
-
-
---sLfPX655iAJ7iUVGhNhG4ieWM7NOxakbf--
-
---R7UXdSL4eQSsawBSAX5tfaT5LFSLvLltB
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
-
-iQIcBAEBCAAGBQJYT3pLAAoJELgmozMOVy/dP3oP/jdxtTnh0oU1gw6/zGMM/bFS
-QpeyqJQN67qhgiCWpfFElVhk2TiIkispyJKo5Q+8Y21omft9gPIBFxEuLQRFi4q2
-vD8mbeNap10F2bswbWD/ljxA3CBwSqHLZKX/qfmSet0kRi8Inup9VtwXmw6djGGk
-33e7yl1q4LdrMBcpDCxhiu4Ver77kn2hXmWT46wNXfs86Ug74a3NtuNj6z2d3vOJ
-0gU1YIa9xaL2KVr15f+RKLFWsOK8e1xgrq5b1tS+wFO11Zei+ebhApx9eDtQ4V7H
-rX4L8a83aolMSmvaiRvFHfOf18G0XecPV9KtXNzji8hlzkvUQ8dKi6gSMgXNvOPx
-az5EeKEvxhHWAKpxZJPB+CA85hn70zSnUlROXtmPZKHfyl+MFNYKw9gChxdaDxQ8
-BIXwZOQCXKo/oaCZesJSN6hXbyORGkeSy8bk1FnT4pJaVOFnPWrvmGEcWFHuW6RF
-XfYjyZBcUtTaAgnkjPfbluy2cRR9xwtbXt68Bj88Vg/qkeTzKbucE69vfC4J/BhM
-LkjJI8rluofK6eP8fgTnHpQ7fXWjMglgS77d1pgoHXpK7AKRmT1WTIKFvJkfZAtF
-aiqki1UtZYHIRt5aGt/rc1axbm25Fv4gFI4/d4v4Uhpi//JBWbfVrJO+I8Xs6rh/
-z+EWye3aNHqzjIut7FYs
-=g4wr
------END PGP SIGNATURE-----
-
---R7UXdSL4eQSsawBSAX5tfaT5LFSLvLltB--
 --
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Richard Guy Briggs <rgb@redhat.com>
+Kernel Security Engineering, Base Operating Systems, Red Hat
+Remote, Ottawa, Canada
+Voice: +1.647.777.2635, Internal: (81) 32635
