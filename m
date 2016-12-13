@@ -1,88 +1,67 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: Re: [PATCH net-next 20/27] net/bpf_jit: MIPS: split VLAN_PRESENT bit
- handling from VLAN_TCI
-Date: Tue, 13 Dec 2016 02:22:11 +0100
-Message-ID: <20161213012211.GF5107@linux-mips.org>
-References: <cover.1481586602.git.mirq-linux@rere.qmqm.pl>
- <06129d2e359239a2df5c7a29c2d5e6dee32aa638.1481586602.git.mirq-linux@rere.qmqm.pl>
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Subject: Re: [PATCH net-next 2/5] liquidio VF vxlan
+Date: Mon, 12 Dec 2016 17:11:55 -0800
+Message-ID: <20161213011155.GA7791@felix.cavium.com>
+References: <1481230848-2393-1-git-send-email-rvatsavayi@caviumnetworks.com>
+ <1481230848-2393-3-git-send-email-rvatsavayi@caviumnetworks.com>
+ <CAJ3xEMgrV4kjMY_SVJtk9VR85K7oSsSZGNQCi4UShogCKOq=hQ@mail.gmail.com>
+ <DM3PR07MB21386696FCE7727BD9B3B48C81840@DM3PR07MB2138.namprd07.prod.outlook.com>
+ <CAJ3xEMiMF3rMc1Ai0cuowNX=AkcJWQkVTqGx2QsHLriYVRr_tA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org,
-        "open list:MIPS" <linux-mips@linux-mips.org>
-To: =?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>
+Content-Type: text/plain; charset="us-ascii"
+Cc: "Vatsavayi, Raghu" <Raghu.Vatsavayi@cavium.com>,
+        David Miller <davem@davemloft.net>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        "Chickles, Derek" <Derek.Chickles@cavium.com>,
+        "Burla, Satananda" <Satananda.Burla@cavium.com>
+To: Or Gerlitz <gerlitz.or@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eddie.linux-mips.org ([148.251.95.138]:40718 "EHLO
-        cvs.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753024AbcLMBWP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Dec 2016 20:22:15 -0500
-Received: from localhost.localdomain ([127.0.0.1]:53520 "EHLO linux-mips.org"
-        rhost-flags-OK-OK-OK-FAIL) by eddie.linux-mips.org with ESMTP
-        id S23993074AbcLMBWNs9gsg (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 13 Dec 2016 02:22:13 +0100
+Received: from mail-by2nam01on0072.outbound.protection.outlook.com ([104.47.34.72]:11898
+        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1752578AbcLMB2g (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 12 Dec 2016 20:28:36 -0500
 Content-Disposition: inline
-In-Reply-To: <06129d2e359239a2df5c7a29c2d5e6dee32aa638.1481586602.git.mirq-linux@rere.qmqm.pl>
+In-Reply-To: <CAJ3xEMiMF3rMc1Ai0cuowNX=AkcJWQkVTqGx2QsHLriYVRr_tA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I assume you want to merge this together with the rest of you series, so
-
-Acked-by: Ralf Baechle <ralf@linux-mips.org>
-
-Cheers,
-
-  Ralf
-
-On Tue, Dec 13, 2016 at 01:12:39AM +0100, Michał Mirosław wrote:
-> Date:   Tue, 13 Dec 2016 01:12:39 +0100 (CET)
-> From: Michał Mirosław <mirq-linux@rere.qmqm.pl>
-> To: netdev@vger.kernel.org
-> Cc: Ralf Baechle <ralf@linux-mips.org>, "open list:MIPS"
->  <linux-mips@linux-mips.org>
-> Subject: [PATCH net-next 20/27] net/bpf_jit: MIPS: split VLAN_PRESENT bit
->  handling from VLAN_TCI
-> Content-Type: text/plain; charset=UTF-8
+Or Gerlitz <gerlitz.or@gmail.com> wrote on Sat [2016-Dec-10 05:46:13 -0800]:
+> On Fri, Dec 9, 2016 at 12:42 AM, Vatsavayi, Raghu
+> <Raghu.Vatsavayi@cavium.com> wrote:
+> >> From: Or Gerlitz [mailto:gerlitz.or@gmail.com]
+> >> On Thu, Dec 8, 2016 at 11:00 PM, Raghu Vatsavayi
+> >> <rvatsavayi@caviumnetworks.com> wrote:
 > 
-> Signed-off-by: Michał Mirosław <mirq-linux@rere.qmqm.pl>
-> ---
->  arch/mips/net/bpf_jit.c | 20 ++++++++++++--------
->  1 file changed, 12 insertions(+), 8 deletions(-)
+> >>> Adds VF vxlan offload support.
 > 
-> diff --git a/arch/mips/net/bpf_jit.c b/arch/mips/net/bpf_jit.c
-> index 49a2e22..4b12b5d 100644
-> --- a/arch/mips/net/bpf_jit.c
-> +++ b/arch/mips/net/bpf_jit.c
-> @@ -1138,19 +1138,23 @@ static int build_body(struct jit_ctx *ctx)
->  			emit_load(r_A, r_skb, off, ctx);
->  			break;
->  		case BPF_ANC | SKF_AD_VLAN_TAG:
-> -		case BPF_ANC | SKF_AD_VLAN_TAG_PRESENT:
->  			ctx->flags |= SEEN_SKB | SEEN_A;
->  			BUILD_BUG_ON(FIELD_SIZEOF(struct sk_buff,
->  						  vlan_tci) != 2);
->  			off = offsetof(struct sk_buff, vlan_tci);
->  			emit_half_load(r_s0, r_skb, off, ctx);
-> -			if (code == (BPF_ANC | SKF_AD_VLAN_TAG)) {
-> -				emit_andi(r_A, r_s0, (u16)~VLAN_TAG_PRESENT, ctx);
-> -			} else {
-> -				emit_andi(r_A, r_s0, VLAN_TAG_PRESENT, ctx);
-> -				/* return 1 if present */
-> -				emit_sltu(r_A, r_zero, r_A, ctx);
-> -			}
-> +#ifdef VLAN_TAG_PRESENT
-> +			emit_andi(r_A, r_s0, (u16)~VLAN_TAG_PRESENT, ctx);
-> +#endif
-> +			break;
-> +		case BPF_ANC | SKF_AD_VLAN_TAG_PRESENT:
-> +			ctx->flags |= SEEN_SKB | SEEN_A;
-> +			emit_load_byte(r_A, r_skb, PKT_VLAN_PRESENT_OFFSET(), ctx);
-> +			if (PKT_VLAN_PRESENT_BIT)
-> +				emit_srl(r_A, r_A, PKT_VLAN_PRESENT_BIT, ctx);
-> +			emit_andi(r_A, r_s0, 1, ctx);
-> +			/* return 1 if present */
-> +			emit_sltu(r_A, r_zero, r_A, ctx);
->  			break;
->  		case BPF_ANC | SKF_AD_PKTTYPE:
->  			ctx->flags |= SEEN_SKB;
-> -- 
-> 2.10.2
+> >> What's the use case for that? a VM running a VTEP, isn't that part needs to
+> >> run @ the host?
+> 
+> > Our HW can support offloads for VF which is required if we load it on Hypervisor.
+> 
+> 
+> +       nctrl.ncmd.u64 = 0;
+> +       nctrl.ncmd.s.cmd = command;
+> +       nctrl.ncmd.s.more = vxlan_cmd_bit;
+> +       nctrl.ncmd.s.param1 = vxlan_port;
+> +       nctrl.iq_no = lio->linfo.txpciq[0].s.q_no;
+> +       nctrl.wait_time = 100;
+> +       nctrl.netpndev = (u64)netdev;
+> +       nctrl.cb_fn = liquidio_link_ctrl_cmd_completion;
+> +
+> +       ret = octnet_send_nic_ctrl_pkt(lio->oct_dev, &nctrl);
+> 
+> 1. What happens if > 1 one VF runs this code, each with different
+> port? who wins? is the result well defined?
+
+There is neither race nor contention, but all VFs "win" (meaning they get
+what they ask for) because the VxLAN UDP port can be set on a per VF basis.
+So the result of the above case is:  for VFs running in the host (not in
+VMs), each VF interface is a VTEP with a distinct UDP port for VxLAN.
+
+> 2. does octnet_send_nic_ctrl_pkt() goes to sleep? this is disallowed here
+
+No, it does not go to sleep.
+
+Felix
