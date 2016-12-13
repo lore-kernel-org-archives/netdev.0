@@ -1,66 +1,94 @@
-From: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH net-next 17/27] OVS: remove assumptions about
- VLAN_TAG_PRESENT bit
-Date: Tue, 13 Dec 2016 11:40:10 +0100
-Message-ID: <20161213114010.0fa2ddb6@griffin>
-References: <cover.1481586602.git.mirq-linux@rere.qmqm.pl>
-	<e44219bc56d3e44aa0711c83c626adabf4c4ecd8.1481586602.git.mirq-linux@rere.qmqm.pl>
+From: Richard Guy Briggs <rgb@redhat.com>
+Subject: Re: netlink: GPF in sock_sndtimeo
+Date: Tue, 13 Dec 2016 05:52:33 -0500
+Message-ID: <20161213105233.GG1305@madcap2.tricolour.ca>
+References: <20161129164859.GD26673@madcap2.tricolour.ca>
+ <CAM_iQpX_KBEpL1dCBNMgZQ-VQJM9nmsVdRPVK-Aen9k0gV3f0w@mail.gmail.com>
+ <20161130045207.GE26673@madcap2.tricolour.ca>
+ <20161209060248.GT22655@madcap2.tricolour.ca>
+ <CAM_iQpWRe0tDk=wvXONG7hamH3EtE0nJuAOF1kVKJgdpMvz2DA@mail.gmail.com>
+ <20161209110155.GW22655@madcap2.tricolour.ca>
+ <CAM_iQpV2GuKhR_1tD5jjACeD+pajJLws08CLmeYAo+rsjxvB0A@mail.gmail.com>
+ <20161212100215.GA1305@madcap2.tricolour.ca>
+ <CAM_iQpUejChnsMWx3Z59GTuxZMeBjgrs2rhd7gsQAKoxE8YuDg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "open list:OPENVSWITCH" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: =?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux-CoA6ZxLDdyEEUmgCuDUIdw@public.gmane.org>
-Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <e44219bc56d3e44aa0711c83c626adabf4c4ecd8.1481586602.git.mirq-linux-CoA6ZxLDdyEEUmgCuDUIdw@public.gmane.org>
-List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
-List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-audit@redhat.com, Paul Moore <pmoore@redhat.com>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        David Miller <davem@davemloft.net>,
+        Johannes Berg <johannes.berg@intel.com>,
+        Florian Westphal <fw@strlen.de>,
+        Eric Dumazet <edumazet@google.com>,
+        Herbert Xu <herbert@gondor.apana.org.au>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAM_iQpUejChnsMWx3Z59GTuxZMeBjgrs2rhd7gsQAKoxE8YuDg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gVHVlLCAxMyBEZWMgMjAxNiAwMToxMjozOCArMDEwMCAoQ0VUKSwgTWljaGHFgiBNaXJvc8WC
-YXcgd3JvdGU6Cj4gQEAgLTg1MCwyMCArODQ4LDExIEBAIHN0YXRpYyBpbnQgdmFsaWRhdGVfdmxh
-bl9mcm9tX25sYXR0cnMoY29uc3Qgc3RydWN0IHN3X2Zsb3dfbWF0Y2ggKm1hdGNoLAo+ICAJCXJl
-dHVybiAtRUlOVkFMOwo+ICAJfQo+ICAKPiAtCWlmIChhW09WU19LRVlfQVRUUl9WTEFOXSkKPiAt
-CQl0Y2kgPSBubGFfZ2V0X2JlMTYoYVtPVlNfS0VZX0FUVFJfVkxBTl0pOwo+IC0KPiAtCWlmICgh
-KHRjaSAmIGh0b25zKFZMQU5fVEFHX1BSRVNFTlQpKSkgewo+IC0JCWlmICh0Y2kpIHsKPiAtCQkJ
-T1ZTX05MRVJSKGxvZywgIiVzIFRDSSBkb2VzIG5vdCBoYXZlIFZMQU5fVEFHX1BSRVNFTlQgYml0
-IHNldC4iLAo+IC0JCQkJICAoaW5uZXIpID8gIkMtVkxBTiIgOiAiVkxBTiIpOwo+IC0JCQlyZXR1
-cm4gLUVJTlZBTDsKPiAtCQl9IGVsc2UgaWYgKG5sYV9sZW4oYVtPVlNfS0VZX0FUVFJfRU5DQVBd
-KSkgewo+IC0JCQkvKiBDb3JuZXIgY2FzZSBmb3IgdHJ1bmNhdGVkIFZMQU4gaGVhZGVyLiAqLwo+
-IC0JCQlPVlNfTkxFUlIobG9nLCAiVHJ1bmNhdGVkICVzIGhlYWRlciBoYXMgbm9uLXplcm8gZW5j
-YXAgYXR0cmlidXRlLiIsCj4gLQkJCQkgIChpbm5lcikgPyAiQy1WTEFOIiA6ICJWTEFOIik7Cj4g
-LQkJCXJldHVybiAtRUlOVkFMOwo+IC0JCX0KPiArCWlmICghYVtPVlNfS0VZX0FUVFJfVkxBTl0g
-JiYgbmxhX2xlbihhW09WU19LRVlfQVRUUl9FTkNBUF0pKSB7Cj4gKwkJLyogQ29ybmVyIGNhc2Ug
-Zm9yIHRydW5jYXRlZCBWTEFOIGhlYWRlci4gKi8KPiArCQlPVlNfTkxFUlIobG9nLCAiVHJ1bmNh
-dGVkICVzIGhlYWRlciBoYXMgbm9uLXplcm8gZW5jYXAgYXR0cmlidXRlLiIsCj4gKwkJCShpbm5l
-cikgPyAiQy1WTEFOIiA6ICJWTEFOIik7Cj4gKwkJcmV0dXJuIC1FSU5WQUw7CgpUaGlzIGxvb2tz
-IHdyb25nLiBUaGUgemVybyB2YWx1ZSBvZiBubGFfZ2V0X2JlMTYoYVtPVlNfS0VZX0FUVFJfVkxB
-Tl0pCnRvZ2V0aGVyIHdpdGggZW1wdHkgYVtPVlNfS0VZX0FUVFJfRU5DQVBdIG1lYW5zIHRydW5j
-YXRlZCBWTEFOIGhlYWRlcgphbmQgdGhpcyBuZWVkcyB0byBiZSBwcmVzZXJ2ZWQuCgpJbiBvdGhl
-ciB3b3JkcywgeW91IG5lZWQgdG8gY2hlY2sgYWxzbyAhbmxhX2dldF9iZTE2KGFbT1ZTX0tFWV9B
-VFRSX1ZMQU5dKQpoZXJlLgoKCk92ZXJhbGwsIHRoaXMgd2hvbGUgcGF0Y2ggbG9va3MgdmVyeSBz
-dXNwaWNpb3VzIGZyb20gdGhlIHZlcnkKYmVnaW5uaW5nLiBUaGUgeG9ycyB1c2VkIGFyZSBzdHJv
-bmcgaW5kaWNhdGlvbiB0aGF0IHNvbWV0aGluZyBpcyBub3QKcmlnaHQuCgpBbmQgaW5kZWVkLCB5
-b3UncmUgYnJlYWtpbmcgdUFQSSBjb21wYXRpYmlsaXR5LiBQcmV2aW91c2x5LCB0aGUKVkxBR19U
-QUdfUFJFU0VOVCBiaXQgc2V0IGluIE9WU19LRVlfQVRUUl9WTEFOIGNhdXNlZCB0aGUgZmxvdyB0
-byBtYXRjaApvbiBwYWNrZXRzIHdpdGggVkxBTiB0YWcgcHJlc2VudC4gQWZ0ZXIgdGhpcyBwYXRj
-aCwgaXQgY2F1c2VzIHRoZSBmbG93CnRvIG1hdGNoIG9ubHkgb24gdGhvc2UgcGFja2V0cyB0aGF0
-IGhhdmUgYSBjZXJ0YWluIHZhbHVlIG9mClZMQU5fQ0ZJX01BU0sgaW4gdGhlaXIgVkxBTiB0YWcg
-KEkgaGF2ZW4ndCBib3RoZXIgZGVjaXBoZXJpbmcgd2hhdAp2YWx1ZSBpcyBjaGVja2VkIGFmdGVy
-IGFsbCB0aGVzZSB4b3JzLCBpdCdzIGFzIHdlbGwgcG9zc2libGUgdGhhdCBpdAp3aWxsIGFsc28g
-bWF0Y2ggb24gcGFja2V0cyBfd2l0aG91dF8gYW55IFZMQU4gaGVhZGVyKS4KCllvdSBoYXZlIHRv
-IHByZXNlcnZlIHRoZSBvbGQgbWVhbmluZyBvZiBWTEFOX1RBR19QUkVTRU5UIGluCk9WU19LRVlf
-QVRUUl9WTEFOLiBXaGVuIGRvaW5nIGZsb3cgbG9va3VwcywgVkxBTl9UQUdfUFJFU0VOVCBtdXN0
-IG1hdGNoCm9uIGFuZCBvbmx5IG9uIHBhY2tldHMgdGhhdCBoYXZlIFZMQU4gdGFnIHByZXNlbnQs
-IGlycmVzcGVjdGl2ZSBvZiB0aGVpcgpWTEFOX0NGSV9NQVNLLgoKSWYgeW91IHdhbnQgdG8gaW50
-cm9kdWNlIHN1cHBvcnQgZm9yIGxvb2t1cHMgb24gVkxBTl9DRklfTUFTSywgeW91J2xsCmhhdmUg
-dG8gZG8gdGhhdCBieSBpbnRyb2R1Y2luZyBhIG5ldyBuZXRsaW5rIGF0dHJpYnV0ZS4KCiBKaXJp
-Cl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWls
-aW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwczovL21haWwub3BlbnZzd2l0Y2gub3Jn
-L21haWxtYW4vbGlzdGluZm8vb3ZzLWRldgo=
+On 2016-12-12 16:10, Cong Wang wrote:
+> On Mon, Dec 12, 2016 at 2:02 AM, Richard Guy Briggs <rgb@redhat.com> wrote:
+> > On 2016-12-09 20:13, Cong Wang wrote:
+> >> Netlink notifier can safely be converted to blocking one, I will send
+> >> a patch.
+> >
+> > I had a quick look at how that might happen.  The netlink notifier chain
+> > is atomic.  Would the registered callback funciton need to spawn a
+> > one-time thread to avoid blocking?
+> 
+> It is already non-atomic now:
+> https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=efa172f42836477bf1ac3c9a3053140df764699c
+
+Ok, that is recent...  It is still less attractive as you point out due
+to the overhead, but still worth considering if we can't find another
+way.
+
+> > I had a look at your patch.  It looks attractively simple.  The audit
+> > next tree has patches queued that add an audit_reset function that will
+> > require more work.  I still see some potential gaps.
+> >
+> > - If the process messes up (or the sock lookup messes up) it is reset
+> >   in the kauditd thread under the audit_cmd_mutex.
+> >
+> > - If the process exits normally or is replaced due to an audit_replace
+> >   error, it is reset from audit_receive_skb under the audit_cmd_mutex.
+> >
+> > - If the process dies before the kauditd thread notices, either reap it
+> >   via notifier callback or it needs a check on net exit to reset.  This
+> >   last one appears necessary to decrement the sock refcount so the sock
+> >   can be released in netlink_kernel_release().
+> >
+> > If we want to be proactive and use the netlink notifier, we assume the
+> > overhead of adding to the netlink notifier chain and eliminate all the
+> > other reset calls under the kauditd thread.  If we are ok being
+> > reactionary, then we'll at least need the net exit check on audit_sock.
+> 
+> I don't see why we need to check it in net exit if we use refcnt,
+> because we have two different users of audit_sock: kauditd and
+> netns, if both take care of refcnt properly, we don't need to worry
+> about who is the last, no matter what failures occur in what order.
+
+It is actually the audit_pid and audit_nlk_portid that I care about
+more.  The audit daemon could vanish or close the socket while the
+kernel sock to which it was attached is still quite valid.  Accessing
+the set of three atomically is the urge.  I wonder if it makes more
+sense to test for the presence of auditd using audit_sock rather than
+audit_pid, but still keep audit_pid for our reporting and replacement
+strategy.  Another idea would be to put the three in one struct.
+
+Can someone explain how they think the original test was able to trigger
+this GPF?  Network namespace shutdown while something pretended to set
+up a new auditd?  That's impressive for a fuzzer if that's the case...
+Is there an strace?  I guess it is all in test().
+
+- RGB
+
+--
+Richard Guy Briggs <rgb@redhat.com>
+Kernel Security Engineering, Base Operating Systems, Red Hat
+Remote, Ottawa, Canada
+Voice: +1.647.777.2635, Internal: (81) 32635
