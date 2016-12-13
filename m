@@ -1,54 +1,46 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net] virtio-net: correctly enable multiqueue
-Date: Tue, 13 Dec 2016 14:23:05 +0800
-Message-ID: <1481610185-12183-1-git-send-email-jasowang@redhat.com>
+From: Selvin Xavier <selvin.xavier@broadcom.com>
+Subject: Re: [PATCH V2 18/22] bnxt_re: Support for DCB
+Date: Tue, 13 Dec 2016 11:55:55 +0530
+Message-ID: <CA+sbYW1irBd0cTqJJSGJWRbBi-iFzvX3JpoTfF_daU47EqNtAg@mail.gmail.com>
+References: <1481266096-23331-1-git-send-email-selvin.xavier@broadcom.com>
+ <1481266096-23331-19-git-send-email-selvin.xavier@broadcom.com> <CAJ3xEMjcKRZpBMEBwQMZO5OqbVzH2=Q3FOAyYUVAz+ouw1jTNQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: tytso@mit.edu, Neil Horman <nhorman@tuxdriver.com>,
-	"Michael S . Tsirkin" <mst@redhat.com>
-To: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Doug Ledford <dledford@redhat.com>,
+        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        Eddie Wai <eddie.wai@broadcom.com>,
+        Devesh Sharma <devesh.sharma@broadcom.com>,
+        Somnath Kotur <somnath.kotur@broadcom.com>,
+        Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
+To: Or Gerlitz <gerlitz.or@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f180.google.com ([209.85.220.180]:32861 "EHLO
+        mail-qk0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750818AbcLMGZ4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 13 Dec 2016 01:25:56 -0500
+Received: by mail-qk0-f180.google.com with SMTP id x190so107130396qkb.0
+        for <netdev@vger.kernel.org>; Mon, 12 Dec 2016 22:25:56 -0800 (PST)
+In-Reply-To: <CAJ3xEMjcKRZpBMEBwQMZO5OqbVzH2=Q3FOAyYUVAz+ouw1jTNQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit 4490001029012539937ff02778fe6180613fa949 ("virtio-net: enable
-multiqueue by default") blindly set the affinity instead of queues
-during probe which can cause a mismatch of #queues between guest and
-host. This patch fixes it by setting queues.
+On Sat, Dec 10, 2016 at 7:20 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+> On Fri, Dec 9, 2016 at 8:48 AM, Selvin Xavier
+> <selvin.xavier@broadcom.com> wrote:
+>> This patch queries the configured RoCE APP Priority on the host
+>> using the dcbnl API and programs the RoCE FW with the corresponding
+>> Traffic Class(es) for the priority.
+>
+>> +#define BNXT_RE_ROCE_V1_ETH_TYPE       0x8915
+>> +#define BNXT_RE_ROCE_V2_PORT_NO                4791
+>
+> I believe these two are defined already, try # git grep on each under include
 
-Reported-by: Theodore Ts'o <tytso@mit.edu>
-Tested-by: Theodore Ts'o <tytso@mit.edu>
-Cc: Neil Horman <nhorman@tuxdriver.com>
-Cc: Michael S. Tsirkin <mst@redhat.com>
-Fixes: 49000102901 ("virtio-net: enable multiqueue by default")
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
- drivers/net/virtio_net.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+Thanks Or for your comments.
+V2 port number is defined in ib_verbs.h.  i will include this in the
+next patch set.
+v1 eth_type is not defined. All vendor drivers have their own definition.
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index b425fa1..fe9f772 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -1930,7 +1930,9 @@ static int virtnet_probe(struct virtio_device *vdev)
- 		goto free_unregister_netdev;
- 	}
- 
--	virtnet_set_affinity(vi);
-+	rtnl_lock();
-+	virtnet_set_queues(vi, vi->curr_queue_pairs);
-+	rtnl_unlock();
- 
- 	/* Assume link up if device can't report link status,
- 	   otherwise get link status from config. */
--- 
-2.7.4
+Thanks,
+Selvin
