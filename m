@@ -1,175 +1,115 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: Synopsys Ethernet QoS
-Date: Tue, 13 Dec 2016 08:22:54 +0100
-Message-ID: <73bf8cb4-5685-2db6-529c-1de99b1fd358@st.com>
-References: <2df7a6dd-1128-d1d6-bf61-891f76cf7200@synopsys.com>
- <20161209.103327.1742213347114742435.davem@davemloft.net>
- <93b73b79-36aa-56b8-f975-b890b7a48bd1@synopsys.com>
- <20161209.104152.1969880574279771010.davem@davemloft.net>
- <CAHp75VcKURaTQX9=SY8+46GGATuwO1oXAi8eMS+uwk58sjKx5Q@mail.gmail.com>
- <3aee5a67-5e19-34e6-1719-ff13c7b914ea@gmail.com>
- <CAHp75VfT9B3O5jU0eHoKtgYc48K2ZjCQ-g9ZQ9nX1Hew6tz-zw@mail.gmail.com>
- <556353b7-c847-7549-626d-3c324063647e@gmail.com>
- <f5357ea2-a295-ab08-046e-f8b8f6ca4344@synopsys.com>
- <1d445ec1-deb8-6e36-39c4-6813c446095f@axis.com>
+From: Richard Guy Briggs <rgb@redhat.com>
+Subject: Re: netlink: GPF in sock_sndtimeo
+Date: Tue, 13 Dec 2016 02:51:17 -0500
+Message-ID: <20161213075117.GH22660@madcap2.tricolour.ca>
+References: <20161129164859.GD26673@madcap2.tricolour.ca>
+ <CAM_iQpX_KBEpL1dCBNMgZQ-VQJM9nmsVdRPVK-Aen9k0gV3f0w@mail.gmail.com>
+ <20161130045207.GE26673@madcap2.tricolour.ca>
+ <20161209060248.GT22655@madcap2.tricolour.ca>
+ <CAM_iQpWRe0tDk=wvXONG7hamH3EtE0nJuAOF1kVKJgdpMvz2DA@mail.gmail.com>
+ <20161209110155.GW22655@madcap2.tricolour.ca>
+ <CAM_iQpV2GuKhR_1tD5jjACeD+pajJLws08CLmeYAo+rsjxvB0A@mail.gmail.com>
+ <CAM_iQpVcHGywXn90EpiSz-LsUDgKVqs-7BY-L7UBCu2VxkC31Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: David Miller <davem@davemloft.net>, <larper@axis.com>,
-        <rabinv@axis.com>, netdev <netdev@vger.kernel.org>,
-        <CARLOS.PALMINHA@synopsys.com>, <Jie.Deng1@synopsys.com>,
-        Stephen Warren <swarren@nvidia.com>, <pavel@ucw.cz>
-To: Niklas Cassel <niklas.cassel@axis.com>,
-        Joao Pinto <Joao.Pinto@synopsys.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andy Shevchenko <andy.shevchenko@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+        Johannes Berg <johannes.berg@intel.com>,
+        netdev <netdev@vger.kernel.org>, Florian Westphal <fw@strlen.de>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>, linux-audit@redhat.com,
+        syzkaller <syzkaller@googlegroups.com>,
+        David Miller <davem@davemloft.net>,
+        Dmitry Vyukov <dvyukov@google.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx07-00178001.pphosted.com ([62.209.51.94]:10230 "EHLO
-        mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751985AbcLMHXL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 13 Dec 2016 02:23:11 -0500
-In-Reply-To: <1d445ec1-deb8-6e36-39c4-6813c446095f@axis.com>
+Received: from mx1.redhat.com ([209.132.183.28]:56482 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751041AbcLMHvV (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 13 Dec 2016 02:51:21 -0500
+Content-Disposition: inline
+In-Reply-To: <CAM_iQpVcHGywXn90EpiSz-LsUDgKVqs-7BY-L7UBCu2VxkC31Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/12/2016 5:25 PM, Niklas Cassel wrote:
->
->
-> On 12/12/2016 11:19 AM, Joao Pinto wrote:
->> Hi,
->>
->> Às 1:44 AM de 12/10/2016, Florian Fainelli escreveu:
->>> Le 12/09/16 à 16:16, Andy Shevchenko a écrit :
->>>> On Sat, Dec 10, 2016 at 12:52 AM, Florian Fainelli <f.fainelli@gmail.com> wrote:
->>>>
->>>>> It's kind of sad that customers of that IP (stmmac, amd-xgbe, sxgbe)
->>>>> did
->>>>> actually pioneer the upstreaming effort, but it is good to see people
->>>>> from Synopsys willing to fix that in the future.
->>>> Wait, you would like to tell that we have more than 2 drivers for the
->>>> same (okay, same vendor) IP?!
->>>> It's better to unify them earlier, than have n+ copies.
->>> Unfortunately that is the case, see this email:
->>>
->>> https://www.mail-archive.com/netdev@vger.kernel.org/msg142796.html
->>>
->>> dwc_eth_qos and stmmac have some overlap. There seems to be work
->>> underway to unify these two to begin with.
->>>
->>>> P.S. Though, I don't see how sxgbe got in the list. First glance on
->>>> the code doesn't show similarities.
->>> Well samsung/sxgbe looks potentially similar to amd/xgbe, but that's
->>> just my cursory look at the code, it may very well be something entirely
->>> different. The descriptor formats just look suspiciously similar.
->>>
->> Thank you for your inputs! Renaming seems to be a hotspot. I agree that maybe
->> instead of renaming (breaking retro-compatibility as David and Florian
->> mentioned), the best is to move stmmac to synopsys/ after merging *qos* and
->> removing it. As Florian mentioned, git is capable of detecting folder restructured.
->>
->> @Rabin Vincent: Hi Rabin. Since Axis is more familiar with the synopsys/*qos*
->> driver would it be possible for you to make an initial analysis of what has to
->> be merged into Stmmac? This way the development would speed-up.
->
-> I can answer that question.
->
-> I've sent out 12 patches to the stmmac driver
-> (all patches are included in the current net-next tree),
+On 2016-12-09 23:40, Cong Wang wrote:
+> On Fri, Dec 9, 2016 at 8:13 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> > On Fri, Dec 9, 2016 at 3:01 AM, Richard Guy Briggs <rgb@redhat.com> wrote:
+> >> On 2016-12-08 22:57, Cong Wang wrote:
+> >>> On Thu, Dec 8, 2016 at 10:02 PM, Richard Guy Briggs <rgb@redhat.com> wrote:
+> >>> > I also tried to extend Cong Wang's idea to attempt to proactively respond to a
+> >>> > NETLINK_URELEASE on the audit_sock and reset it, but ran into a locking error
+> >>> > stack dump using mutex_lock(&audit_cmd_mutex) in the notifier callback.
+> >>> > Eliminating the lock since the sock is dead anways eliminates the error.
+> >>> >
+> >>> > Is it safe?  I'll resubmit if this looks remotely sane.  Meanwhile I'll try to
+> >>> > get the test case to compile.
+> >>>
+> >>> It doesn't look safe, because 'audit_sock', 'audit_nlk_portid' and 'audit_pid'
+> >>> are updated as a whole and race between audit_receive_msg() and
+> >>> NETLINK_URELEASE.
+> >>
+> >> This is what I expected and why I originally added the mutex lock in the
+> >> callback...  The dumps I got were bare with no wrapper identifying the
+> >> process context or specific error, so I'm at a bit of a loss how to
+> >> solve this (without thinking more about it) other than instinctively
+> >> removing the mutex.
+> >
+> > Netlink notifier can safely be converted to blocking one, I will send
+> > a patch.
+> >
+> > But I seriously doubt you really need NETLINK_URELEASE here,
+> > it adds nothing but overhead, b/c the netlink notifier is called on
+> > every netlink socket in the system, but for net exit path, that is
+> > relatively a slow path.
+> >
+> > Also, kauditd_send_skb() needs audit_cmd_mutex too.
+> 
+> Please let me know what you think about the attached patch?
+> 
+> Thanks!
 
-ok I have seen these patches applied, I had just a minor concern about
-the  failure when DMA configuration is missing.
-In these years, I have noticed that, for this kind of HW, default DMA
-configuration is usually good to have a driver working. AHB, AXI
-parameters can be provided to have a best tuning or to fix know issues
-on some platforms. So IMO, we should relax the check with a warning.
-Please, consider that, the stmmac also supports very old MAC10/100
-versions where the DMA configuration was often never passed.
+> commit a12b43ee814625933ff155c20dc863c59cfcf240
+> Author: Cong Wang <xiyou.wangcong@gmail.com>
+> Date:   Fri Dec 9 17:56:42 2016 -0800
+> 
+>     audit: close a race condition on audit_sock
+>     
+>     Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> 
+> diff --git a/kernel/audit.c b/kernel/audit.c
+> index f1ca116..ab947d8 100644
+> --- a/kernel/audit.c
+> +++ b/kernel/audit.c
+> @@ -423,6 +423,8 @@ static void kauditd_send_skb(struct sk_buff *skb)
+>  				snprintf(s, sizeof(s), "audit_pid=%d reset", audit_pid);
+>  				audit_log_lost(s);
+>  				audit_pid = 0;
+> +				audit_nlk_portid = 0;
+> +				sock_put(audit_sock);
+>  				audit_sock = NULL;
+>  			} else {
+>  				pr_warn("re-scheduling(#%d) write to audit_pid=%d\n",
+> @@ -899,6 +901,9 @@ static int audit_receive_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+>  				audit_log_config_change("audit_pid", new_pid, audit_pid, 1);
+>  			audit_pid = new_pid;
+>  			audit_nlk_portid = NETLINK_CB(skb).portid;
+> +			sock_hold(skb->sk);
+> +			if (audit_sock)
+> +				sock_put(audit_sock);
+>  			audit_sock = skb->sk;
+>  		}
+>  		if (s.mask & AUDIT_STATUS_RATE_LIMIT) {
+> @@ -1167,10 +1172,6 @@ static void __net_exit audit_net_exit(struct net *net)
+>  {
+>  	struct audit_net *aunet = net_generic(net, audit_net_id);
+>  	struct sock *sock = aunet->nlsk;
+> -	if (sock == audit_sock) {
+> -		audit_pid = 0;
+> -		audit_sock = NULL;
+> -	}
 
-> with these patches the stmmac driver works properly on Axis hardware
-> (we use Synopsys GMAC 4.10a synthesized with multiple TX queues).
+So how does this not leak memory leaving the sock refcount incremented
+by the registered audit daemon when that daemon shuts down normally?
 
-perfect and thanks a lot for this effort.
 
-> stmmac's DT binding has also been extended with properties that
-> existed in DWC EQoS's DT binding, such as no-pbl-x8, txpbl, rxpbl.
->
-> Since we have no problem updating the DTB together with the kernel,
-> we will simply move to using the start using the stmmac driver,
-> with stmmac's DT binding.
->
-> However, I've noticed that NVIDIA has extended the DWC EQoS DT binding,
-> I don't how easy it would be for them to switch to stmmac's DT binding.
-> (Adding Stephen Warren to CC.)
-
-ok
-
->
-> The reset sequence that Lars Persson was worried about is not an issue
-> with the stmmac driver.
->
-
-thx for this check.
-
->
-> There are some performance problems with the stmmac driver though:
->
-> When running iperf3 with 3 streams:
-> iperf3 -c 192.168.0.90 -P 3 -t 30
-> iperf3 -c 192.168.0.90 -P 3 -t 30 -R
->
-> I get really bad fairness between the streams.
-
-Can you confirm you are using the 4.xxa version?
-
-This doesn't match with Alex's experiments on ARM platforms.
-
-> This appears to be an issue with how TX IRQ coalescing is implemented in stmmac.
-> Disabling TX IRQ coalescing in the stmmac driver makes the problem go away.
-
-this doesn't match with what we had seen but I am happy and open to
-review and accept new strategy.
-
-> We have a local patch that implements TX IRQ coalescing in the dwceqos driver,
-> and we don't see the same problem.
-
-please, if you have new patch add me on CC and we will review all
-together.
-
-> Also netperf TCP_RR and UDP_RR gives really bad results compared to the
-> dwceqos driver (without IRQ coalescing).
-> 2000 transactions/sec vs 9000 transactions/sec.
-> Turning TX IRQ coalescing off and RX interrupt watchdog off in stmmac
-> gives the same performance. I guess it's a trade off, low CPU usage
-> vs low latency, so I don't know how important TCP_RR/UDP_RR really is.
->
-> The best thing would be to get a good working TX IRQ coalesce
-> implementation with HR timers in stmmac.
-
-as said, welcome patches.
-
-Basically, the default tuning of coalescence parameters comes from
-ST platform experiences. I mean, we tuned to driver to have good
-performance and saving CPU on SH4 (UP) and ARM (SMP) systems.
-In these years, these default was accepted but, if today we need
-to change something welcome effort. On my side, I can try to
-perform some bench to see if I have regressions on not.
-
-> Perhaps it should also be investigated if the RX interrupt watchdog
-> timeout should have a lower default value.
-
-Do not expect to get many improvements to play with the HW watchdog
-due to the poor granularity of the Receive Interrupt Watchdog Timer
-Count.
-
-Regards
-Peppe
-
->
->
->
->>
->> Thanks to all.
->>
->> Joao
->
->
+- RGB
