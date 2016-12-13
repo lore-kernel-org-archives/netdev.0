@@ -1,92 +1,96 @@
-From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
-Subject: Re: [PATCH net-next 13/27] bridge: use __vlan_hwaccel
-	helpers
-Date: Tue, 13 Dec 2016 16:11:10 +0100
-Message-ID: <20161213151110.yapgecrospdd23oj@rere.qmqm.pl>
+From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux-CoA6ZxLDdyEEUmgCuDUIdw@public.gmane.org>
+Subject: Re: [PATCH net-next 17/27] OVS: remove assumptions about
+ VLAN_TAG_PRESENT bit
+Date: Tue, 13 Dec 2016 16:14:07 +0100
+Message-ID: <20161213151406.pfu23jqmj3ftluqm@rere.qmqm.pl>
 References: <cover.1481586602.git.mirq-linux@rere.qmqm.pl>
-	<e6e09a2f745a652382ac7859770ec16c75d8e149.1481586602.git.mirq-linux@rere.qmqm.pl>
-	<f5078470-0fc0-cfcd-36df-3ebb380b547a@cogentembedded.com>
+	<e44219bc56d3e44aa0711c83c626adabf4c4ecd8.1481586602.git.mirq-linux@rere.qmqm.pl>
+	<20161213114010.0fa2ddb6@griffin>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org,
-	"moderated list:ETHERNET BRIDGE" <bridge@lists.linux-foundation.org>,
-	"open list:NETFILTER \({IP, IP6, ARP, EB ,
-	NF}TABLES\)" <netfilter-devel@vger.kernel.org>,
-	"Jozsef Kadlecsik \(supporter:NETFILTER \({IP, IP6, ARP, EB,
-	NF}TABLES\)\)" <kadlec@blackhole.kfki.hu>,
-	"Patrick McHardy \(supporter:NETFILTER \({IP, IP6, ARP , EB,
-	NF}TABLES\)\)" <kaber@trash.net>,
-	"Pablo Neira Ayuso \(supporter:NETFILTER \({IP , IP6, ARP, EB,
-	NF}TABLES\)\)" <pablo@netfilter.org>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
+Content-Type: text/plain; charset="iso-8859-2"
+Content-Transfer-Encoding: quoted-printable
+Cc: "open list:OPENVSWITCH" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <f5078470-0fc0-cfcd-36df-3ebb380b547a@cogentembedded.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+In-Reply-To: <20161213114010.0fa2ddb6@griffin>
+List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
+List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Dec 13, 2016 at 03:59:46PM +0300, Sergei Shtylyov wrote:
-> Hello!
-> 
-> On 12/13/2016 3:12 AM, Micha³ Miros³aw wrote:
-> 
-> > This removes assumption than vlan_tci != 0 when tag is present.
-> > 
-> > Signed-off-by: Micha³ Miros³aw <mirq-linux@rere.qmqm.pl>
-> > ---
-> >  net/bridge/br_netfilter_hooks.c | 14 ++++++++------
-> >  net/bridge/br_private.h         |  2 +-
-> >  net/bridge/br_vlan.c            |  6 +++---
-> >  3 files changed, 12 insertions(+), 10 deletions(-)
-> > 
-> > diff --git a/net/bridge/br_netfilter_hooks.c b/net/bridge/br_netfilter_hooks.c
-> > index b12501a..2cc0747 100644
-> > --- a/net/bridge/br_netfilter_hooks.c
-> > +++ b/net/bridge/br_netfilter_hooks.c
-> [...]
-> > @@ -749,8 +747,12 @@ static int br_nf_dev_queue_xmit(struct net *net, struct sock *sk, struct sk_buff
-> > 
-> >  		data = this_cpu_ptr(&brnf_frag_data_storage);
-> > 
-> > -		data->vlan_tci = skb->vlan_tci;
-> > -		data->vlan_proto = skb->vlan_proto;
-> > +		if (skb_vlan_tag_present(skb)) {
-> > +			data->vlan_tci = skb->vlan_tci;
-> > +			data->vlan_proto = skb->vlan_proto;
-> > +		} else
-> > +			data->vlan_proto = 0;
-> 
->    CodingStyle: should use {} in all branches of *if* if at least one branch
-> has {}.
-> 
-> [...]
-> > diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
-> > index b6de4f4..ef94664 100644
-> > --- a/net/bridge/br_vlan.c
-> > +++ b/net/bridge/br_vlan.c
-> 
-> > @@ -444,8 +444,8 @@ static bool __allowed_ingress(const struct net_bridge *br,
-> >  			__vlan_hwaccel_put_tag(skb, br->vlan_proto, pvid);
-> >  		else
-> >  			/* Priority-tagged Frame.
-> > -			 * At this point, We know that skb->vlan_tci had
-> > -			 * VLAN_TAG_PRESENT bit and its VID field was 0x000.
-> > +			 * At this point, We know that skb->vlan_tci VID
-> 
->    s/We/we/.
-> 
-> > +			 * field was 0x000.
-> 
->    Simply 0, maybe?
+On Tue, Dec 13, 2016 at 11:40:10AM +0100, Jiri Benc wrote:
+> On Tue, 13 Dec 2016 01:12:38 +0100 (CET), Micha=B3 Miros=B3aw wrote:
+> > @@ -850,20 +848,11 @@ static int validate_vlan_from_nlattrs(const struc=
+t sw_flow_match *match,
+> >  		return -EINVAL;
+> >  	}
+> >  =
 
-Thanks, fixed.
--- Micha³ Miros³aw
+> > -	if (a[OVS_KEY_ATTR_VLAN])
+> > -		tci =3D nla_get_be16(a[OVS_KEY_ATTR_VLAN]);
+> > -
+> > -	if (!(tci & htons(VLAN_TAG_PRESENT))) {
+> > -		if (tci) {
+> > -			OVS_NLERR(log, "%s TCI does not have VLAN_TAG_PRESENT bit set.",
+> > -				  (inner) ? "C-VLAN" : "VLAN");
+> > -			return -EINVAL;
+> > -		} else if (nla_len(a[OVS_KEY_ATTR_ENCAP])) {
+> > -			/* Corner case for truncated VLAN header. */
+> > -			OVS_NLERR(log, "Truncated %s header has non-zero encap attribute.",
+> > -				  (inner) ? "C-VLAN" : "VLAN");
+> > -			return -EINVAL;
+> > -		}
+> > +	if (!a[OVS_KEY_ATTR_VLAN] && nla_len(a[OVS_KEY_ATTR_ENCAP])) {
+> > +		/* Corner case for truncated VLAN header. */
+> > +		OVS_NLERR(log, "Truncated %s header has non-zero encap attribute.",
+> > +			(inner) ? "C-VLAN" : "VLAN");
+> > +		return -EINVAL;
+> =
+
+> This looks wrong. The zero value of nla_get_be16(a[OVS_KEY_ATTR_VLAN])
+> together with empty a[OVS_KEY_ATTR_ENCAP] means truncated VLAN header
+> and this needs to be preserved.
+> =
+
+> In other words, you need to check also !nla_get_be16(a[OVS_KEY_ATTR_VLAN])
+> here.
+> =
+
+> =
+
+> Overall, this whole patch looks very suspicious from the very
+> beginning. The xors used are strong indication that something is not
+> right.
+> =
+
+> And indeed, you're breaking uAPI compatibility. Previously, the
+> VLAG_TAG_PRESENT bit set in OVS_KEY_ATTR_VLAN caused the flow to match
+> on packets with VLAN tag present. After this patch, it causes the flow
+> to match only on those packets that have a certain value of
+> VLAN_CFI_MASK in their VLAN tag (I haven't bother deciphering what
+> value is checked after all these xors, it's as well possible that it
+> will also match on packets _without_ any VLAN header).
+> =
+
+> You have to preserve the old meaning of VLAN_TAG_PRESENT in
+> OVS_KEY_ATTR_VLAN. When doing flow lookups, VLAN_TAG_PRESENT must match
+> on and only on packets that have VLAN tag present, irrespective of their
+> VLAN_CFI_MASK.
+> =
+
+> If you want to introduce support for lookups on VLAN_CFI_MASK, you'll
+> have to do that by introducing a new netlink attribute.
+
+Hmm. In that case I'll just mask the CFI bit on entry to OVS.
+Otherwise it's for me like to stab in a dark at a large beast
+I know nothing about.
+
+Best Regards,
+Micha=B3=A0Miros=B3aw
