@@ -1,367 +1,167 @@
-From: Or Gerlitz <gerlitz.or-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH V2 00/22] Broadcom RoCE Driver (bnxt_re)
-Date: Tue, 13 Dec 2016 09:59:14 +0200
-Message-ID: <CAJ3xEMh98kC1KXGf7uHKD-H91f_NiZXaz-3yTtwQ2s-D7rYqMQ@mail.gmail.com>
-References: <1481266096-23331-1-git-send-email-selvin.xavier@broadcom.com> <23e26353-4317-2836-9f94-d1fc3274a770@redhat.com>
+From: Niklas Cassel <niklas.cassel@axis.com>
+Subject: Re: stmmac DT property snps,axi_all
+Date: Tue, 13 Dec 2016 09:26:19 +0100
+Message-ID: <548b2225-a395-ca52-15cf-ee4f3dd5cd93@axis.com>
+References: <51f8249e-bdb9-e3a7-5d82-7ac869316f0e@axis.com>
+ <120aca00-02a8-3d88-7aad-a21d239aafb2@st.com>
+ <dc145c32-cb67-4bcb-e8b7-059387d5a0ac@axis.com>
+ <e0362693-4ae9-b3d6-3955-c72df7a1b0c0@axis.com>
+ <0546490f-8f8c-a22e-db7b-eac521c7ff27@st.com>
+ <52fdb263-0b36-9984-e46f-78f3f83f1188@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        Selvin Xavier <selvin.xavier-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <23e26353-4317-2836-9f94-d1fc3274a770-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
+        Alexandre Torgue <alexandre.torgue@st.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bes.se.axis.com ([195.60.68.10]:55557 "EHLO bes.se.axis.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751779AbcLMI0X (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 13 Dec 2016 03:26:23 -0500
+In-Reply-To: <52fdb263-0b36-9984-e46f-78f3f83f1188@st.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 13, 2016 at 1:52 AM, Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
-> On 12/9/2016 1:47 AM, Selvin Xavier wrote:
->> This series introduces the RoCE driver for the Broadcom
->> NetXtreme-E 10/25/40/50 gigabit RoCE HCAs.
->> This driver is dependent on the bnxt_en NIC driver and is
->> based on the bnxt_re branch in Doug's repository. bnxt_en changes
->> required for this patch series is already available in this branch.
->>
->> I am preparing a git repository with these changes as per Jason's
->> comment and will share the details later today.
->>
->> v1-> v2:
->>   * The license text in each file updated to reflect Dual license.
->>   * Makefile and Kconfig changes are pushed to the last patch
->>   * Moved bnxt_re_uverbs_abi.h to include/uapi/rdma folder
->>   * Remove duplicate structure definitions from bnxt_re_hsi.h as
->>     it is available in the corresponding bnxt_en header file (bnxt_hsi.h)
->>   * Removed some unused code reported during code review.
->>   * Fixed few sparse warnings
->>
->> Doug,
->> Please review and consider applying this to linux-rdma repository.
+On 12/13/2016 07:47 AM, Giuseppe CAVALLARO wrote:
+> Hello Niklas, Alex,
 >
-> There are outstanding review comments to be addressed still yet, and the
-> v2 patchset doesn't compile for me in 0day testing.  I'm going to bounce
-> this one to 4.11.
+> my fault and a step behind... Current code is OK
+> when manage the AAL that, although it is passed from
+> the axi structure, it is always used to program,
+> for all the chip versions, the writable bit inside the
+> DMA_BUS_MODE register.
+> So I guess no extra patch is needed.
+
+Hello Giuseppe
+
+I'm not sure what you mean.
+
+Yes, when setting "snps,aal",
+the code is correct for all versions of the IP.
+
+However, "snps,axi_all" seems to just be dead code.
+Try git grep in the whole tree.
+So I still think that my patch is valid.
 
 
-I made some quick on-the-surface static checkers etc rub on the new
-driver (Doug, I used
-the bits in your github bnxt_re branch), there are bunch (tons...) of
-smatch [1] and sparse [2]
-complaints along with few checkpatch [3] things too.  So... addressing
-them before this goes upstream?
-
-BTW net-next's drivers/net/ethernet/broadcom/bnxt (where you put the
-pre patches for the
-RDMA driver) is pretty much clean of that
-
-Or.
-
-[1] smatch
-
-CHECK   drivers/infiniband/hw/bnxt_re/bnxt_re_main.c
-  CHECK   drivers/infiniband/hw/bnxt_re/bnxt_re_ib_verbs.c
-  CHECK   drivers/infiniband/hw/bnxt_re/bnxt_re_debugfs.c
-  CHECK   drivers/infiniband/hw/bnxt_re/bnxt_qplib_res.c
-  CHECK   drivers/infiniband/hw/bnxt_re/bnxt_qplib_rcfw.c
-  CHECK   drivers/infiniband/hw/bnxt_re/bnxt_qplib_sp.c
-  CHECK   drivers/infiniband/hw/bnxt_re/bnxt_qplib_fp.c
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_sp.c:185
-bnxt_qplib_del_sgid() warn: impossible condition '(*sgid_tbl->hw_id +
-index == -1) => (0-65535 == (-1))'
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_rcfw.c:107
-bnxt_qplib_rcfw_send_message() warn: test_bit() takes a bit number
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_rcfw.c:116
-bnxt_qplib_rcfw_send_message() warn: test_bit() takes a bit number
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_rcfw.c:148
-bnxt_qplib_rcfw_send_message() error: double lock 'irqsave:flags'
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_rcfw.c:204
-bnxt_qplib_rcfw_send_message() error: double unlock 'irqsave:flags'
-drivers/infiniband/hw/bnxt_re/bnxt_re_main.c:121
-bnxt_re_unregister_netdev() warn: variable dereferenced before check
-'rdev' (see line 118)
-drivers/infiniband/hw/bnxt_re/bnxt_re_main.c:140
-bnxt_re_register_netdev() warn: variable dereferenced before check
-'rdev' (see line 137)
-drivers/infiniband/hw/bnxt_re/bnxt_re_main.c:155 bnxt_re_free_msix()
-warn: variable dereferenced before check 'rdev' (see line 152)
-drivers/infiniband/hw/bnxt_re/bnxt_re_main.c:173
-bnxt_re_request_msix() warn: variable dereferenced before check 'rdev'
-(see line 171)
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_res.c:172
-bnxt_qplib_alloc_init_hwq() warn: unsigned '*elements' is never less
-than zero.
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_rcfw.c:387
-bnxt_qplib_deinit_rcfw() warn: test_bit() takes a bit number
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_res.c:488
-bnxt_qplib_alloc_sgid_tbl() warn: double check that we're allocating
-correct size: 2 vs 4
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_res.c:688
-bnxt_qplib_alloc_dpi_tbl() warn: consider using resource_size() here
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_rcfw.c:496
-bnxt_qplib_init_rcfw() warn: test_bit() takes a bit number
-./include/linux/mm.h:1385 stack_guard_page_end() warn: bitwise AND
-condition is false here
-./include/linux/mm.h:1379 vma_growsup() warn: bitwise AND condition is
-false here
-drivers/infiniband/hw/bnxt_re/bnxt_re_main.c:522 show_rev() info:
-ignoring unreachable code.
-drivers/infiniband/hw/bnxt_re/bnxt_re_main.c:835 bnxt_re_dev_stop()
-warn: was && intended here instead of ||?
-drivers/infiniband/hw/bnxt_re/bnxt_re_main.c:1048 bnxt_re_ib_reg()
-warn: curly braces intended?
-drivers/infiniband/hw/bnxt_re/bnxt_re_main.c:1050 bnxt_re_ib_reg()
-warn: inconsistent indenting
-drivers/infiniband/hw/bnxt_re/bnxt_re_main.c:1190 bnxt_re_task() warn:
-curly braces intended?
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_fp.c:1639 __flush_sq() warn:
-variable dereferenced before check 'budget' (see line 1621)
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_fp.c:1852
-bnxt_qplib_cq_process_res_ud() warn: shift has higher precedence than
-mask
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_fp.c:1861
-bnxt_qplib_cq_process_res_ud() warn: inconsistent indenting
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_fp.c:2015
-bnxt_qplib_cq_process_terminal() warn: variable dereferenced before
-check 'budget' (see line 1997)
-drivers/infiniband/hw/bnxt_re/bnxt_re_ib_verbs.c:1607
-bnxt_re_build_qp1_send_v2 warn: unused return: size =
-ib_ud_header_pack()
-drivers/infiniband/hw/bnxt_re/bnxt_re_ib_verbs.c:1681
-bnxt_re_build_qp1_shadow_qp_recv() warn: unsigned 'sge.size' is never
-less than zero.
-drivers/infiniband/hw/bnxt_re/bnxt_re_ib_verbs.c:2066
-bnxt_re_post_recv_shadow_qp warn: unused return: payload_sz =
-bnxt_re_build_sgl()
-drivers/infiniband/hw/bnxt_re/bnxt_re_ib_verbs.c:2242
-bnxt_re_create_cq() warn: variable dereferenced before check
-'cq->umem' (see line 2192)
-drivers/infiniband/hw/bnxt_re/bnxt_re_ib_verbs.c:2456
-bnxt_re_is_loopback_packet() warn: curly braces intended?
-drivers/infiniband/hw/bnxt_re/bnxt_re_ib_verbs.c:2512
-bnxt_re_process_raw_qp_pkt_rx() warn: impossible condition '(pkt_type
-< 0) => (0-255 < 0)'
-drivers/infiniband/hw/bnxt_re/bnxt_re_ib_verbs.c:2578
-bnxt_re_process_raw_qp_pkt_rx warn: unused return: rc =
-bnxt_re_post_send_shadow_qp()
-drivers/infiniband/hw/bnxt_re/bnxt_re_ib_verbs.c:2838 bnxt_re_dereg_mr
-warn: unused return: rc = bnxt_qplib_free_fast_reg_page_list()
-
-[2] sparse
-
- CHECK   drivers/infiniband/hw/bnxt_re/bnxt_re_main.c
-  CHECK   drivers/infiniband/hw/bnxt_re/bnxt_re_ib_verbs.c
-  CHECK   drivers/infiniband/hw/bnxt_re/bnxt_re_debugfs.c
-  CHECK   drivers/infiniband/hw/bnxt_re/bnxt_qplib_res.c
-  CHECK   drivers/infiniband/hw/bnxt_re/bnxt_qplib_rcfw.c
-  CHECK   drivers/infiniband/hw/bnxt_re/bnxt_qplib_sp.c
-  CHECK   drivers/infiniband/hw/bnxt_re/bnxt_qplib_fp.c
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_sp.c:111:33: warning: cast to
-restricted __le32
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_sp.c:114:30: warning:
-restricted __le32 degrades to integer
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_sp.c:114:30: warning: cast to
-restricted __le32
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_sp.c:277:28: warning:
-incorrect type in assignment (different base types)
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_sp.c:277:28: expected
-restricted __le32 <noident>
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_sp.c:277:28: got restricted
-__be32 [usertype] <noident>
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_sp.c:278:28: warning:
-incorrect type in assignment (different base types)
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_sp.c:278:28: expected
-restricted __le32 <noident>
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_sp.c:278:28: got restricted
-__be32 [usertype] <noident>
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_sp.c:279:28: warning:
-incorrect type in assignment (different base types)
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_sp.c:279:28: expected
-restricted __le32 <noident>
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_sp.c:279:28: got restricted
-__be32 [usertype] <noident>
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_sp.c:280:28: warning:
-incorrect type in assignment (different base types)
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_sp.c:280:28: expected
-restricted __le32 <noident>
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_sp.c:280:28: got restricted
-__be32 [usertype] <noident>
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_sp.c:282:34: warning:
-incorrect type in assignment (different base types)
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_sp.c:282:34: expected
-restricted __le16 [addressable] [assigned] [usertype] vlan
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_sp.c:282:34: got restricted
-__le32 [usertype] <noident>
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_sp.c:289:32: warning:
-incorrect type in assignment (different base types)
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_sp.c:289:32: expected
-restricted __le16 <noident>
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_sp.c:289:32: got restricted
-__be16 [usertype] <noident>
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_sp.c:290:32: warning:
-incorrect type in assignment (different base types)
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_sp.c:290:32: expected
-restricted __le16 <noident>
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_sp.c:290:32: got restricted
-__be16 [usertype] <noident>
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_sp.c:291:32: warning:
-incorrect type in assignment (different base types)
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_sp.c:291:32: expected
-restricted __le16 <noident>
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_sp.c:291:32: got restricted
-__be16 [usertype] <noident>
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_sp.c:810:18: warning:
-incorrect type in assignment (different base types)
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_sp.c:810:18: expected
-restricted __le16 [addressable] [assigned] [usertype] cos0
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_sp.c:810:18: got unsigned
-short [unsigned] [short] [usertype] <noident>
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_sp.c:811:18: warning:
-incorrect type in assignment (different base types)
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_sp.c:811:18: expected
-restricted __le16 [addressable] [assigned] [usertype] cos1
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_sp.c:811:18: got unsigned
-short [unsigned] [short] [usertype] <noident>
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_fp.c:133:22: warning:
-restricted __le32 degrades to integer
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_fp.c:136:24: warning:
-restricted __le16 degrades to integer
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_fp.c:136:24: warning: cast to
-restricted __le16
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_fp.c:777:25: warning:
-incorrect type in assignment (different base types)
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_fp.c:777:25: expected
-restricted __le32 [addressable] [assigned] [usertype] modify_mask
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_fp.c:777:25: got restricted
-__le64 [usertype] <noident>
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_fp.c:822:30: warning:
-incorrect type in assignment (different base types)
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_fp.c:822:30: expected
-unsigned char [unsigned] [addressable] [assigned] [usertype] path_mtu
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_fp.c:822:30: got restricted
-__le16 [usertype] <noident>
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_fp.c:953:26: warning:
-restricted __le16 degrades to integer
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_fp.c:953:26: warning: cast to
-restricted __le16
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_fp.c:956:26: warning:
-restricted __le16 degrades to integer
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_fp.c:970:26: warning: cast to
-restricted __le32
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_fp.c:970:26: warning: cast
-from restricted __le16
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_fp.c:1211:34: warning:
-invalid assignment: +=
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_fp.c:1211:34: left side has type int
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_fp.c:1211:34: right side has
-type restricted __le32
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_fp.c:1333:24: warning:
-incorrect type in assignment (different base types)
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_fp.c:1333:24: expected
-unsigned int [unsigned] [usertype] temp32
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_fp.c:1333:24: got restricted
-__le32 [usertype] <noident>
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_fp.c:1343:46: warning:
-incorrect type in assignment (different base types)
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_fp.c:1343:46: expected
-unsigned long long [unsigned] [long] [long long] [usertype] <noident>
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_fp.c:1343:46: got restricted
-__le64 [usertype] <noident>
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_fp.c:1363:24: warning:
-incorrect type in assignment (different base types)
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_fp.c:1363:24: expected
-unsigned int [unsigned] [addressable] [usertype] temp32
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_fp.c:1363:24: got restricted
-__le32 [usertype] <noident>
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_fp.c:1533:27: warning:
-incorrect type in assignment (different base types)
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_fp.c:1533:27: expected
-restricted __le32 [addressable] [assigned] [usertype] cq_fco_cnq_id
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_fp.c:1533:27: got restricted
-__le16 [usertype] <noident>
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_fp.c:1796:21: warning:
-restricted __le32 degrades to integer
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_fp.c:1796:21: warning: cast
-to restricted __le64
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_fp.c:1849:21: warning:
-restricted __le32 degrades to integer
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_fp.c:1849:21: warning: cast
-to restricted __le64
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_fp.c:1852:39: warning:
-restricted __le32 degrades to integer
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_fp.c:1904:21: warning:
-restricted __le32 degrades to integer
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_fp.c:1904:21: warning: cast
-to restricted __le64
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_fp.c:1917:34: warning: cast
-to restricted __le16
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_fp.c:1917:34: warning: cast
-from restricted __le32
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_fp.c:1015:22: warning:
-context imbalance in 'bnxt_qplib_lock_cqs' - wrong count at exit
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_fp.c:1030:28: warning:
-context imbalance in 'bnxt_qplib_unlock_cqs' - unexpected unlock
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_res.c:410:72: warning:
-incorrect type in assignment (different base types)
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_res.c:410:72: expected
-unsigned long long [unsigned] [long] [long long] [usertype] <noident>
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_res.c:410:72: got restricted
-__le64 [usertype] <noident>
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_res.c:418:56: warning:
-incorrect type in assignment (different base types)
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_res.c:418:56: expected
-unsigned long long [unsigned] [long] [long long] [usertype] <noident>
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_res.c:418:56: got restricted
-__le64 [usertype] <noident>
-drivers/infiniband/hw/bnxt_re/bnxt_qplib_res.c:729:6: warning: symbol
-'bnxt_qplib_cleanup_pkey_tbl' was not declared. Should it be static?
-drivers/infiniband/hw/bnxt_re/bnxt_re_ib_verbs.c:1725:47: warning:
-incorrect type in assignment (different base types)
-drivers/infiniband/hw/bnxt_re/bnxt_re_ib_verbs.c:1725:47: expected
-unsigned int [unsigned] [usertype] imm_data_or_inv_key
-drivers/infiniband/hw/bnxt_re/bnxt_re_ib_verbs.c:1725:47: got
-restricted __be32 [usertype] imm_data
-drivers/infiniband/hw/bnxt_re/bnxt_re_ib_verbs.c:1755:47: warning:
-incorrect type in assignment (different base types)
-drivers/infiniband/hw/bnxt_re/bnxt_re_ib_verbs.c:1755:47: expected
-unsigned int [unsigned] [usertype] imm_data_or_inv_key
-drivers/infiniband/hw/bnxt_re/bnxt_re_ib_verbs.c:1755:47: got
-restricted __be32 [usertype] imm_data
-drivers/infiniband/hw/bnxt_re/bnxt_re_ib_verbs.c:2627:25: warning:
-incorrect type in assignment (different base types)
-drivers/infiniband/hw/bnxt_re/bnxt_re_ib_verbs.c:2627:25: expected
-restricted __be32 [usertype] imm_data
-drivers/infiniband/hw/bnxt_re/bnxt_re_ib_verbs.c:2627:25: got unsigned
-int [unsigned] [usertype] immdata_or_invrkey
-drivers/infiniband/hw/bnxt_re/bnxt_re_ib_verbs.c:2696:41: warning:
-incorrect type in assignment (different base types)
-drivers/infiniband/hw/bnxt_re/bnxt_re_ib_verbs.c:2696:41: expected
-restricted __be32 [usertype] imm_data
-drivers/infiniband/hw/bnxt_re/bnxt_re_ib_verbs.c:2696:41: got unsigned
-int [unsigned] [usertype] immdata_or_invrkey
-
-[3] checkpatch
-
-CHECK: Macro argument reuse 'req' - possible side-effects?
-CHECK: Macro argument reuse 'prod' - possible side-effects?
-CHECK: Macro argument reuse 'dma_addr' - possible side-effects?
-CHECK: Macro argument reuse 'rdev' - possible side-effects?
-CHECK: Please don't use multiple blank lines
-CHECK: Alignment should match open parenthesis
-CHECK: Alignment should match open parenthesis
-CHECK: Alignment should match open parenthesis
-CHECK: Alignment should match open parenthesis
-CHECK: Alignment should match open parenthesis
-CHECK: Alignment should match open parenthesis
-CHECK: Alignment should match open parenthesis
-CHECK: Alignment should match open parenthesis
-CHECK: Please don't use multiple blank lines
-CHECK: DEFINE_MUTEX definition without comment
-CHECK: Please use a blank line after function/struct/union/enum declarations
-CHECK: Please use a blank line after function/struct/union/enum declarations
-CHECK: Please use a blank line after function/struct/union/enum declarations
-CHECK: Please use a blank line after function/struct/union/enum declarations
-CHECK: Alignment should match open parenthesis
-CHECK: Please use a blank line after function/struct/union/enum declarations
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+> Regards
+> Peppe
+>
+> On 12/12/2016 3:18 PM, Giuseppe CAVALLARO wrote:
+>> Please Niklas
+>>
+>> when you send the patch, add my
+>>
+>> Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+>>
+>>
+>> On 12/9/2016 10:53 AM, Niklas Cassel wrote:
+>>> On 12/09/2016 10:20 AM, Niklas Cassel wrote:
+>>>> On 12/08/2016 02:36 PM, Alexandre Torgue wrote:
+>>>>> Hi Niklas,
+>>>>>
+>>>>> On 12/05/2016 05:18 PM, Niklas Cassel wrote:
+>>>>>> Hello Giuseppe
+>>>>>>
+>>>>>>
+>>>>>> I'm trying to figure out what snps,axi_all is supposed to represent.
+>>>>>>
+>>>>>> It appears that the value is saved, but never used in the code.
+>>>>>>
+>>>>>> Looking at the register specification, I'm guessing that it represents
+>>>>>> Address-Aligned Beats, but there is already the property snps,aal
+>>>>>> for that.
+>>>>> IMO, it is not useful. Indeed AXI_AAL is a read only bit (in AXI bus
+>>>>> mode register) and reflects the aal bit in DMA bus register.
+>>>>> As you know we use "snps,aal" to set aal bit in DMA bus register.
+>>>>> So "snps,axi_all" entry seems useless. Let's see with Peppe.
+>>>> Ok, I see. GMAC and GMAC4 is different here.
+>>>>
+>>>> For GMAC4 AAL only exists in DMA_SYS_BUS_MODE.
+>>>> It's not reflected anywhere else.
+>>>>
+>>>> The code is correct in the driver.
+>>>>
+>>>> If snps,axi_all is just created for a read-only register,
+>>>> and it is currently never used in the code,
+>>>> while we have snps,aal, which is correct and works,
+>>>> I guess it should be ok to remove snps,axi_all.
+>>>>
+>>>> I can cook up a patch.
+>>>>
+>>>
+>>> Here we go :)
+>>>
+>>> I will send it as a real patch once net-next reopens.
+>>>
+>>>
+>>>> From defc01cb7c22611b89d9cf1fcae72544092bd62c Mon Sep 17 00:00:00 2001
+>>> From: Niklas Cassel <niklas.cassel@axis.com>
+>>> Date: Fri, 9 Dec 2016 10:27:00 +0100
+>>> Subject: [PATCH net-next] net: stmmac: remove unused duplicate property
+>>>  snps,axi_all
+>>>
+>>> For core revision 3.x Address-Aligned Beats is available in two
+>>> registers.
+>>> The DT property snps,aal was created for AAL in the DMA bus register,
+>>> which is a read/write bit.
+>>> The DT property snps,axi_all was created for AXI_AAL in the AXI bus mode
+>>> register, which is a read only bit that reflects the value of AAL in the
+>>> DMA bus register.
+>>>
+>>> Since the value of snps,axi_all is never used in the driver,
+>>> and since the property was created for a bit that is read only,
+>>> it should be safe to remove the property.
+>>>
+>>> Signed-off-by: Niklas Cassel <niklas.cassel@axis.com>
+>>> ---
+>>>  Documentation/devicetree/bindings/net/stmmac.txt      | 1 -
+>>>  drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 1 -
+>>>  include/linux/stmmac.h                                | 1 -
+>>>  3 files changed, 3 deletions(-)
+>>>
+>>> diff --git a/Documentation/devicetree/bindings/net/stmmac.txt
+>>> b/Documentation/devicetree/bindings/net/stmmac.txt
+>>> index 128da752fec9..c3d2fd480a1b 100644
+>>> --- a/Documentation/devicetree/bindings/net/stmmac.txt
+>>> +++ b/Documentation/devicetree/bindings/net/stmmac.txt
+>>> @@ -65,7 +65,6 @@ Optional properties:
+>>>      - snps,wr_osr_lmt: max write outstanding req. limit
+>>>      - snps,rd_osr_lmt: max read outstanding req. limit
+>>>      - snps,kbbe: do not cross 1KiB boundary.
+>>> -    - snps,axi_all: align address
+>>>      - snps,blen: this is a vector of supported burst length.
+>>>      - snps,fb: fixed-burst
+>>>      - snps,mb: mixed-burst
+>>> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+>>> b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+>>> index 082cd48db6a7..60ba8993c650 100644
+>>> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+>>> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+>>> @@ -121,7 +121,6 @@ static struct stmmac_axi *stmmac_axi_setup(struct
+>>> platform_device *pdev)
+>>>      axi->axi_lpi_en = of_property_read_bool(np, "snps,lpi_en");
+>>>      axi->axi_xit_frm = of_property_read_bool(np, "snps,xit_frm");
+>>>      axi->axi_kbbe = of_property_read_bool(np, "snps,axi_kbbe");
+>>> -    axi->axi_axi_all = of_property_read_bool(np, "snps,axi_all");
+>>>      axi->axi_fb = of_property_read_bool(np, "snps,axi_fb");
+>>>      axi->axi_mb = of_property_read_bool(np, "snps,axi_mb");
+>>>      axi->axi_rb =  of_property_read_bool(np, "snps,axi_rb");
+>>> diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
+>>> index 266dab9ad782..889e0e9a3f1c 100644
+>>> --- a/include/linux/stmmac.h
+>>> +++ b/include/linux/stmmac.h
+>>> @@ -103,7 +103,6 @@ struct stmmac_axi {
+>>>      u32 axi_wr_osr_lmt;
+>>>      u32 axi_rd_osr_lmt;
+>>>      bool axi_kbbe;
+>>> -    bool axi_axi_all;
+>>>      u32 axi_blen[AXI_BLEN];
+>>>      bool axi_fb;
+>>>      bool axi_mb;
+>>>
+>>
+>>
+>
