@@ -1,62 +1,149 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net] virtio-net: correctly enable multiqueue
-Date: Tue, 13 Dec 2016 15:56:46 +0200
-Message-ID: <20161213155142-mutt-send-email-mst@kernel.org>
-References: <1481610185-12183-1-git-send-email-jasowang@redhat.com>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: Re: [PATCH 3/3] netns: fix net_generic() "id - 1" bloat
+Date: Tue, 13 Dec 2016 17:23:09 +0300
+Message-ID: <CACVxJT8fT0Lbe_ojNjU9DYYO=PO+QzA=jpQb7V6_US8W9D-KTQ@mail.gmail.com>
+References: <20161202012132.GD31170@avx2> <063D6719AE5E284EB5DD2968C1650D6DB0234CCB@AcuExch.aculab.com>
+ <CACVxJT8axg6i0Lvem=fvKqrjTuOzwg63BDbAuR6bzTPrtLuP+g@mail.gmail.com> <063D6719AE5E284EB5DD2968C1650D6DB0236F41@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-        tytso@mit.edu, Neil Horman <nhorman@tuxdriver.com>
-To: Jason Wang <jasowang@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "xemul@openvz.org" <xemul@openvz.org>
+To: David Laight <David.Laight@aculab.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33792 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933114AbcLMN4r (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 13 Dec 2016 08:56:47 -0500
-Content-Disposition: inline
-In-Reply-To: <1481610185-12183-1-git-send-email-jasowang@redhat.com>
+Received: from mail-wj0-f194.google.com ([209.85.210.194]:33709 "EHLO
+        mail-wj0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933507AbcLMOXL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 13 Dec 2016 09:23:11 -0500
+Received: by mail-wj0-f194.google.com with SMTP id kp2so16760799wjc.0
+        for <netdev@vger.kernel.org>; Tue, 13 Dec 2016 06:23:10 -0800 (PST)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB0236F41@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 13, 2016 at 02:23:05PM +0800, Jason Wang wrote:
-> Commit 4490001029012539937ff02778fe6180613fa949 ("virtio-net: enable
-> multiqueue by default") blindly set the affinity instead of queues
-> during probe which can cause a mismatch of #queues between guest and
-> host. This patch fixes it by setting queues.
-> 
-> Reported-by: Theodore Ts'o <tytso@mit.edu>
-> Tested-by: Theodore Ts'o <tytso@mit.edu>
-> Cc: Neil Horman <nhorman@tuxdriver.com>
-> Cc: Michael S. Tsirkin <mst@redhat.com>
-> Fixes: 49000102901 ("virtio-net: enable multiqueue by default")
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+On Wed, Dec 7, 2016 at 1:49 PM, David Laight <David.Laight@aculab.com> wrote:
+> From: Alexey Dobriyan
+>> Sent: 05 December 2016 14:48
+>> On Mon, Dec 5, 2016 at 3:49 PM, David Laight <David.Laight@aculab.com> wrote:
+>> > From: Alexey Dobriyan
+>> >> Sent: 02 December 2016 01:22
+>> >> net_generic() function is both a) inline and b) used ~600 times.
+>> >>
+>> >> It has the following code inside
+>> >>
+>> >>               ...
+>> >>       ptr = ng->ptr[id - 1];
+>> >>               ...
+>> >>
+>> >> "id" is never compile time constant so compiler is forced to subtract 1.
+>> >> And those decrements or LEA [r32 - 1] instructions add up.
+>> >>
+>> >> We also start id'ing from 1 to catch bugs where pernet sybsystem id
+>> >> is not initialized and 0. This is quite pointless idea (nothing will
+>> >> work or immediate interference with first registered subsystem) in
+>> >> general but it hints what needs to be done for code size reduction.
+>> >>
+>> >> Namely, overlaying allocation of pointer array and fixed part of
+>> >> structure in the beginning and using usual base-0 addressing.
+>> >>
+>> >> Ids are just cookies, their exact values do not matter, so lets start
+>> >> with 3 on x86_64.
+>> > ...
+>> >>  struct net_generic {
+>> >> -     struct {
+>> >> -             unsigned int len;
+>> >> -             struct rcu_head rcu;
+>> >> -     } s;
+>> >> -
+>> >> -     void *ptr[0];
+>> >> +     union {
+>> >> +             struct {
+>> >> +                     unsigned int len;
+>> >> +                     struct rcu_head rcu;
+>> >> +             } s;
+>> >> +
+>> >> +             void *ptr[0];
+>> >> +     };
+>> >>  };
+>> >
+>> > That union is an accident waiting to happen.
+>>
+>> I kind of disagree. Module authors should not be given matches,
+>> but it is hard to screw up if net_generic() is all you're given.
+>>
+>> > What might work is to offset the Ids by
+>> > (offsetof(struct net_generic, ptr)/sizeof (void *)) instead of by 1.
+>> > The subtract from the offset will then counter the structure offset
+>> > - which is what you are trying to achieve.
+>>
+>> If you suggest this layout
+>>
+>> struct net_generic {
+>>         struct {
+>>         } s;
+>>         void *ptr[0];
+>> };
+>>
+>> then is it not optimal because offset of "ptr" needs to be somewhere in code
+>> either in some LEA or imm8 of the final MOV which is 1 byte more bloaty.
+>>
+>> Here is test program
+>>
+>> struct ng1 {
+>>         union {
+>>                 struct {
+>>                         unsigned int len;
+>>                 } s;
+>>                 void *ptr[0];
+>>         };
+>> };
+>> struct ng2 {
+>>         struct {
+>>                 unsigned int len;
+>>         } s;
+>>         void *ptr[0];
+>> };
+>> struct net {
+>>         int x;
+>>         struct ng1 *gen1;
+>>         struct ng2 *gen2;
+>> };
+>> void *ng1(const struct net *net, unsigned int id)
+>> {
+>>         return net->gen1->ptr[id];
+>> }
+>> void *ng2(const struct net *net, unsigned int id)
+>> {
+>>         return net->gen2->ptr[id];
+>> }
+>>
+>>
+>> 0000000000000000 <ng1>:
+>>    0:   48 8b 47 08             mov    rax,QWORD PTR [rdi+0x8]
+>>    4:   89 f6                   mov    esi,esi
+>>    6:   48 8b 04 f0             mov    rax,QWORD PTR [rax+rsi*8]
+>>    a:   c3                      ret
+>>
+>>
+>> 0000000000000010 <ng2>:
+>>   10:   48 8b 47 10             mov    rax,QWORD PTR [rdi+0x10]
+>>   14:   89 f6                   mov    esi,esi
+>>   16:   48 8b 44 f0 [[[08]]]          mov    rax,QWORD PTR [rax+rsi*8+0x8]
+>>   1b:   c3                      ret
+>
+> On x86 that will make ~0 difference since the offset (in that sequence)
+> doesn't require an extra instruction.
 
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+Well, the point of the patch is to save .text, so might as well save
+as much as possible. Any form other than "ptr[id]" is going
+to be either bigger or bigger and slower and "ptr" should be the first field.
 
-> ---
->  drivers/net/virtio_net.c | 4 +++-
->  1 file changed, 3 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index b425fa1..fe9f772 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -1930,7 +1930,9 @@ static int virtnet_probe(struct virtio_device *vdev)
->  		goto free_unregister_netdev;
->  	}
->  
-> -	virtnet_set_affinity(vi);
-> +	rtnl_lock();
-> +	virtnet_set_queues(vi, vi->curr_queue_pairs);
-> +	rtnl_unlock();
->  
->  	/* Assume link up if device can't report link status,
->  	   otherwise get link status from config. */
-
-I note that virtnet_set_channels also plays with affinity
-directly. Can this be changed to rely on cpu notifiers
-somehow?
-
-
-> -- 
-> 2.7.4
+> However if you offset the 'id' values so that only
+> values 2 up are valid the code becomes:
+>         return net->gen2->ptr[id - 2];
+> which will be exactly the same code as:
+>         return net->gen1->ptr[id];
+> but it is much more obvious that 'id' values must be >= 2.
+>
+> The '2' should be generated from the structure offset, but with my method
+> is doesn't actually matter if it is wrong.
