@@ -1,53 +1,128 @@
-From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
-Subject: Re: [PATCH net v3] ibmveth: set correct gso_size and gso_type
-Date: Tue, 13 Dec 2016 09:49:16 -0600
-Message-ID: <2a81f718-bc6c-e3a8-9b65-764740e7052b@linux.vnet.ibm.com>
-References: <1481333480-10827-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
- <1481395188-9137-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
- <20161210.155647.1988856288960520451.davem@davemloft.net>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: Designing a safe RX-zero-copy Memory Model for Networking
+Date: Tue, 13 Dec 2016 17:10:28 +0100
+Message-ID: <20161213171028.24dbf519@redhat.com>
+References: <20161205153132.283fcb0e@redhat.com>
+	<20161212083812.GA19987@rapoport-lnx>
+	<20161212104042.0a011212@redhat.com>
+	<20161212141433.GB19987@rapoport-lnx>
+	<584EB8DF.8000308@gmail.com>
+	<20161212181344.3ddfa9c3@redhat.com>
+	<alpine.DEB.2.20.1612121200280.13607@east.gentwo.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, brking@linux.vnet.ibm.com,
-        marcelo.leitner@gmail.com, pradeeps@linux.vnet.ibm.com,
-        jmaxwell37@gmail.com, zdai@us.ibm.com, eric.dumazet@gmail.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:59922 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S933192AbcLMPtX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 13 Dec 2016 10:49:23 -0500
-Received: from pps.filterd (m0098414.ppops.net [127.0.0.1])
-        by mx0b-001b2d01.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id uBDFmcCa093702
-        for <netdev@vger.kernel.org>; Tue, 13 Dec 2016 10:49:23 -0500
-Received: from e33.co.us.ibm.com (e33.co.us.ibm.com [32.97.110.151])
-        by mx0b-001b2d01.pphosted.com with ESMTP id 27afv7cs3h-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Tue, 13 Dec 2016 10:49:22 -0500
-Received: from localhost
-        by e33.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <tlfalcon@linux.vnet.ibm.com>;
-        Tue, 13 Dec 2016 08:49:21 -0700
-In-Reply-To: <20161210.155647.1988856288960520451.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: John Fastabend <john.fastabend@gmail.com>,
+        Mike Rapoport
+ <rppt@linux.vnet.ibm.com>,
+        "netdev@vger.kernel.org"
+ <netdev@vger.kernel.org>,
+        linux-mm <linux-mm@kvack.org>,
+        Willem de Bruijn
+ <willemdebruijn.kernel@gmail.com>,
+        =?UTF-8?B?QmrDtnJuIFTDtnBlbA==?=
+ <bjorn.topel@intel.com>,
+        "Karlsson, Magnus" <magnus.karlsson@intel.com>,
+        Alexander Duyck <alexander.duyck@gmail.com>,
+        Mel Gorman
+ <mgorman@techsingularity.net>,
+        Tom Herbert <tom@herbertland.com>,
+        Brenden
+ Blanco <bblanco@plumgrid.com>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Saeed
+ Mahameed <saeedm@mellanox.com>,
+        Jesse Brandeburg
+ <jesse.brandeburg@intel.com>,
+        Kalman Meth <METH@il.ibm.com>,
+        Vladislav
+ Yasevich <vyasevich@gmail.com>, brouer@redhat.com
+To: Christoph Lameter <cl@linux.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <alpine.DEB.2.20.1612121200280.13607@east.gentwo.org>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On 12/10/2016 02:56 PM, David Miller wrote:
-> From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
-> Date: Sat, 10 Dec 2016 12:39:48 -0600
->
->> v3: include a check for non-zero mss when calculating gso_segs
->>
->> v2: calculate gso_segs after Eric Dumazet's comments on the earlier patch
->>     and make sure everyone is included on CC
-> I already applied v1 which made it all the way even to Linus's
-> tree.  So you'll have to send me relative fixups if there are
-> things to fix or change since v1.
->
-> You must always generate patches against the current 'net' tree.
->
-Sorry about that.  Thank you for applying it on short notice.  I agree that using the TCP checksum field is not ideal, but it was a compromise with the VIOS team.  Hopefully, there will be a better way in the future.
 
-Thanks again,
+On Mon, 12 Dec 2016 12:06:59 -0600 (CST) Christoph Lameter <cl@linux.com> w=
+rote:
+> On Mon, 12 Dec 2016, Jesper Dangaard Brouer wrote:
+>=20
+> > Hmmm. If you can rely on hardware setup to give you steering and
+> > dedicated access to the RX rings.  In those cases, I guess, the "push"
+> > model could be a more direct API approach. =20
+>=20
+> If the hardware does not support steering then one should be able to
+> provide those services in software.
 
-Tom 
+This is the early demux problem.  With the push-mode of registering
+memory, you need hardware steering support, for zero-copy support, as
+the software step happens after DMA engine have written into the memory.
+
+My model pre-VMA map all the pages in the RX ring (if zero-copy gets
+enabled, by a single user).  The software step can filter and zero-copy
+send packet-pages to the application/socket that requested this. The
+disadvantage is all zero-copy application need to share this VMA
+mapping.  This is solved by configuring HW filters into a RX-queue, and
+then only attach your zero-copy application to that queue.
+
+
+> > I was shooting for a model that worked without hardware support.
+> > And then transparently benefit from HW support by configuring a HW
+> > filter into a specific RX queue and attaching/using to that queue. =20
+>=20
+> The discussion here is a bit amusing since these issues have been
+> resolved a long time ago with the design of the RDMA subsystem. Zero
+> copy is already in wide use. Memory registration is used to pin down
+> memory areas. Work requests can be filed with the RDMA subsystem that
+> then send and receive packets from the registered memory regions.
+> This is not strictly remote memory access but this is a basic mode of
+> operations supported  by the RDMA subsystem. The mlx5 driver quoted
+> here supports all of that.
+
+I hear what you are saying.  I will look into a push-model, as it might
+be a better solution.
+ I will read up on RDMA + verbs and learn more about their API model.  I
+even plan to write a small sample program to get a feeling for the API,
+and maybe we can use that as a baseline for the performance target we
+can obtain on the same HW. (Thanks to Bj=C3=B6rn for already giving me some
+pointer here)
+
+
+> What is bad about RDMA is that it is a separate kernel subsystem.
+> What I would like to see is a deeper integration with the network
+> stack so that memory regions can be registred with a network socket
+> and work requests then can be submitted and processed that directly
+> read and write in these regions. The network stack should provide the
+> services that the hardware of the NIC does not suppport as usual.
+
+Interesting.  So you even imagine sockets registering memory regions
+with the NIC.  If we had a proper NIC HW filter API across the drivers,
+to register the steering rule (like ibv_create_flow), this would be
+doable, but we don't (DPDK actually have an interesting proposal[1])
+
+=20
+> The RX/TX ring in user space should be an additional mode of
+> operation of the socket layer. Once that is in place the "Remote
+> memory acces" can be trivially implemented on top of that and the
+> ugly RDMA sidecar subsystem can go away.
+=20
+I cannot follow that 100%, but I guess you are saying we also need a
+more efficient mode of handing over pages/packet to userspace (than
+going through the normal socket API calls).
+
+
+Appreciate your input, it challenged my thinking.
+--=20
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
+
+[1] https://rawgit.com/6WIND/rte_flow/master/rte_flow.html
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
