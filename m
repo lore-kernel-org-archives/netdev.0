@@ -1,33 +1,41 @@
-From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
-Subject: Re: [PATCH net-next 00/27] Remove VLAN CFI bit abuse
-Date: Tue, 13 Dec 2016 06:18:43 +0100
-Message-ID: <20161213051843.z7lgg34vjdg542w7@rere.qmqm.pl>
-References: <cfa1f2efae2217b50cbefccbf9ba7f0d24a23c63.1480755768.git.mirq-linux@rere.qmqm.pl>
- <cover.1481586602.git.mirq-linux@rere.qmqm.pl>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: 8bit
-To: netdev@vger.kernel.org
+From: Roi Dayan <roid@mellanox.com>
+Subject: [PATCH iproute2 2/2] tc: tunnel_key: Add tc-tunnel_key man page to Makefile
+Date: Tue, 13 Dec 2016 07:33:52 +0200
+Message-ID: <1481607232-1342-3-git-send-email-roid@mellanox.com>
+References: <1481607232-1342-1-git-send-email-roid@mellanox.com>
+Cc: netdev@vger.kernel.org, Amir Vadai <amir@vadai.me>,
+        Hadar Hen Zion <hadarh@mellanox.com>,
+        Roi Dayan <roid@mellanox.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([84.10.57.10]:54134 "EHLO rere.qmqm.pl"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750703AbcLMFSq (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 13 Dec 2016 00:18:46 -0500
-Content-Disposition: inline
-In-Reply-To: <cover.1481586602.git.mirq-linux@rere.qmqm.pl>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:45938 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S932220AbcLMFeU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 13 Dec 2016 00:34:20 -0500
+In-Reply-To: <1481607232-1342-1-git-send-email-roid@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 13, 2016 at 01:12:32AM +0100, Micha³ Miros³aw wrote:
-> Dear NetDevs
-> 
-> This series removes an abuse of VLAN CFI bit in Linux networking stack.
-> Currently Linux always clears the bit on outgoing traffic and presents
-> it cleared to userspace (even via AF_PACKET/tcpdump when hw-accelerated).
-[...]
+To be installed with the other man pages.
 
-I just noticed net-next got closed few days ago. I'll resend after it
-opens again.  Nevertheless, review is appreciated.
+Fixes: d57639a475a9 ("tc/act_tunnel: Introduce ip tunnel action")
+Signed-off-by: Roi Dayan <roid@mellanox.com>
+Reviewed-by: Amir Vadai <amir@vadai.me>
+---
+ man/man8/Makefile | 1 +
+ 1 file changed, 1 insertion(+)
 
-Best Regards,
-Micha³ Miros³aw
+diff --git a/man/man8/Makefile b/man/man8/Makefile
+index de6f249..d4cb01a 100644
+--- a/man/man8/Makefile
++++ b/man/man8/Makefile
+@@ -17,6 +17,7 @@ MAN8PAGES = $(TARGETS) ip.8 arpd.8 lnstat.8 routel.8 rtacct.8 rtmon.8 rtpr.8 ss.
+ 	tc-tcindex.8 tc-u32.8 tc-matchall.8 \
+ 	tc-connmark.8 tc-csum.8 tc-mirred.8 tc-nat.8 tc-pedit.8 tc-police.8 \
+ 	tc-simple.8 tc-skbedit.8 tc-vlan.8 tc-xt.8  tc-ife.8 tc-skbmod.8 \
++	tc-tunnel_key.8 \
+ 	devlink.8 devlink-dev.8 devlink-monitor.8 devlink-port.8 devlink-sb.8
+ 
+ all: $(TARGETS)
+-- 
+2.7.4
