@@ -1,8 +1,8 @@
 From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCHv2 3/5] sh_eth: enable wake-on-lan for r8a7740/armadillo
-Date: Tue, 13 Dec 2016 13:51:37 +0100
-Message-ID: <CAMuHMdXQRA3fPboBL5TPJfCjS8mum0vAUZK+ncrAtZwnM6-HBQ@mail.gmail.com>
-References: <20161212160931.6478-1-niklas.soderlund+renesas@ragnatech.se> <20161212160931.6478-4-niklas.soderlund+renesas@ragnatech.se>
+Subject: Re: [PATCHv2 2/5] sh_eth: enable wake-on-lan for Gen2 devices
+Date: Tue, 13 Dec 2016 13:52:18 +0100
+Message-ID: <CAMuHMdV9xqsEWYXXuiuTRxdLijNTxGUoDWTyS2GZ46_EBcF5ag@mail.gmail.com>
+References: <20161212160931.6478-1-niklas.soderlund+renesas@ragnatech.se> <20161212160931.6478-3-niklas.soderlund+renesas@ragnatech.se>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: quoted-printable
@@ -13,13 +13,13 @@ Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
 To: =?UTF-8?Q?Niklas_S=C3=B6derlund?=
         <niklas.soderlund+renesas@ragnatech.se>
 Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <20161212160931.6478-4-niklas.soderlund+renesas@ragnatech.se>
+In-Reply-To: <20161212160931.6478-3-niklas.soderlund+renesas@ragnatech.se>
 Sender: linux-renesas-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 On Mon, Dec 12, 2016 at 5:09 PM, Niklas S=C3=B6derlund
 <niklas.soderlund+renesas@ragnatech.se> wrote:
-> Geert Uytterhoeven reported WoL worked on his Armadillo board.
+> Tested on Gen2 r8a7791/Koelsch.
 >
 > Signed-off-by: Niklas S=C3=B6derlund <niklas.soderlund+renesas@ragnatech.=
 se>
