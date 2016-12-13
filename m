@@ -1,34 +1,56 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 V2 1/2] tc: flower: Fix typo and style in
- flower man page
-Date: Tue, 13 Dec 2016 10:17:35 -0800
-Message-ID: <20161213101735.09e1963d@xeon-e3>
-References: <1481632742-18020-1-git-send-email-roid@mellanox.com>
-        <1481632742-18020-2-git-send-email-roid@mellanox.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: Designing a safe RX-zero-copy Memory Model for Networking
+Date: Tue, 13 Dec 2016 19:39:17 +0100
+Message-ID: <8aea213f-2739-9bd3-3a6a-668b759336ae@stressinduktion.org>
+References: <20161205153132.283fcb0e@redhat.com>
+ <20161212083812.GA19987@rapoport-lnx> <20161212104042.0a011212@redhat.com>
+ <20161212141433.GB19987@rapoport-lnx> <584EB8DF.8000308@gmail.com>
+ <20161212181344.3ddfa9c3@redhat.com>
+ <alpine.DEB.2.20.1612121200280.13607@east.gentwo.org>
+ <20161213171028.24dbf519@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Amir Vadai <amir@vadai.me>,
-        Hadar Hen Zion <hadarh@mellanox.com>
-To: Roi Dayan <roid@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f45.google.com ([74.125.83.45]:34309 "EHLO
-        mail-pg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933304AbcLMSRi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 13 Dec 2016 13:17:38 -0500
-Received: by mail-pg0-f45.google.com with SMTP id x23so50209854pgx.1
-        for <netdev@vger.kernel.org>; Tue, 13 Dec 2016 10:17:38 -0800 (PST)
-In-Reply-To: <1481632742-18020-2-git-send-email-roid@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: John Fastabend <john.fastabend@gmail.com>,
+ Mike Rapoport <rppt@linux.vnet.ibm.com>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ linux-mm <linux-mm@kvack.org>,
+ Willem de Bruijn <willemdebruijn.kernel@gmail.com>,
+ =?UTF-8?B?QmrDtnJuIFTDtnBlbA==?= <bjorn.topel@intel.com>,
+ "Karlsson, Magnus" <magnus.karlsson@intel.com>,
+ Alexander Duyck <alexander.duyck@gmail.com>,
+ Mel Gorman <mgorman@techsingularity.net>, Tom Herbert <tom@herbertland.com>,
+ Brenden Blanco <bblanco@plumgrid.com>, Tariq Toukan <tariqt@mellanox.com>,
+ Saeed Mahameed <saeedm@mellanox.com>,
+ Jesse Brandeburg <jesse.brandeburg@intel.com>, Kalman Meth
+ <METH@il.ibm.com>, Vladislav Yasevich <vyasevich@gmail.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>,
+ Christoph Lameter <cl@linux.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20161213171028.24dbf519@redhat.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 13 Dec 2016 14:39:01 +0200
-Roi Dayan <roid@mellanox.com> wrote:
-
-> Replace vlan_eth_type with vlan_ethtype.
+On 13.12.2016 17:10, Jesper Dangaard Brouer wrote:
+>> What is bad about RDMA is that it is a separate kernel subsystem.
+>> What I would like to see is a deeper integration with the network
+>> stack so that memory regions can be registred with a network socket
+>> and work requests then can be submitted and processed that directly
+>> read and write in these regions. The network stack should provide the
+>> services that the hardware of the NIC does not suppport as usual.
 > 
-> Fixes: 745d91726006 ("tc: flower: Introduce vlan support")
-> Signed-off-by: Roi Dayan <roid@mellanox.com>
-> Reviewed-by: Hadar Hen Zion <hadarh@mellanox.com>
+> Interesting.  So you even imagine sockets registering memory regions
+> with the NIC.  If we had a proper NIC HW filter API across the drivers,
+> to register the steering rule (like ibv_create_flow), this would be
+> doable, but we don't (DPDK actually have an interesting proposal[1])
 
-Both applied, thanks.
+On a side note, this is what windows does with RIO ("registered I/O").
+Maybe you want to look at the API to get some ideas: allocating and
+pinning down memory in user space and registering that with sockets to
+get zero-copy IO.
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
