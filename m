@@ -1,65 +1,63 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: netlink: GPF in sock_sndtimeo
-Date: Mon, 12 Dec 2016 16:10:42 -0800
-Message-ID: <CAM_iQpUejChnsMWx3Z59GTuxZMeBjgrs2rhd7gsQAKoxE8YuDg@mail.gmail.com>
-References: <20161129164859.GD26673@madcap2.tricolour.ca> <CAM_iQpX_KBEpL1dCBNMgZQ-VQJM9nmsVdRPVK-Aen9k0gV3f0w@mail.gmail.com>
- <20161130045207.GE26673@madcap2.tricolour.ca> <20161209060248.GT22655@madcap2.tricolour.ca>
- <CAM_iQpWRe0tDk=wvXONG7hamH3EtE0nJuAOF1kVKJgdpMvz2DA@mail.gmail.com>
- <20161209110155.GW22655@madcap2.tricolour.ca> <CAM_iQpV2GuKhR_1tD5jjACeD+pajJLws08CLmeYAo+rsjxvB0A@mail.gmail.com>
- <20161212100215.GA1305@madcap2.tricolour.ca>
+From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Subject: [PATCH net-next 04/27] qlcnic: remove assumption that vlan_tci != 0
+Date: Tue, 13 Dec 2016 01:12:33 +0100 (CET)
+Message-ID: <5d3454e83ea712ce809f2f6f7c8b4465c7df83b4.1481586602.git.mirq-linux@rere.qmqm.pl>
+References: <cover.1481586602.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: linux-audit@redhat.com, Paul Moore <pmoore@redhat.com>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        David Miller <davem@davemloft.net>,
-        Johannes Berg <johannes.berg@intel.com>,
-        Florian Westphal <fw@strlen.de>,
-        Eric Dumazet <edumazet@google.com>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Richard Guy Briggs <rgb@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161212100215.GA1305@madcap2.tricolour.ca>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 8bit
+Cc: Harish Patil <harish.patil@cavium.com> (supporter:QLOGIC QLCNIC
+        (1/10)Gb ETHERNET DRIVER),
+        Manish Chopra <manish.chopra@cavium.com> (supporter:QLOGIC QLCNIC
+        (1/10)Gb ETHERNET DRIVER),
+        Dept-GELinuxNICDev@cavium.com (supporter:QLOGIC QLCNIC (1/10)Gb
+        ETHERNET DRIVER)
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rere.qmqm.pl ([84.10.57.10]:50198 "EHLO rere.qmqm.pl"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752844AbcLMAMg (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 12 Dec 2016 19:12:36 -0500
+In-Reply-To: <cover.1481586602.git.mirq-linux@rere.qmqm.pl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 12, 2016 at 2:02 AM, Richard Guy Briggs <rgb@redhat.com> wrote:
-> On 2016-12-09 20:13, Cong Wang wrote:
->> Netlink notifier can safely be converted to blocking one, I will send
->> a patch.
->
-> I had a quick look at how that might happen.  The netlink notifier chain
-> is atomic.  Would the registered callback funciton need to spawn a
-> one-time thread to avoid blocking?
+Signed-off-by: Michał Mirosław <mirq-linux@rere.qmqm.pl>
+---
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
 
-It is already non-atomic now:
-https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=efa172f42836477bf1ac3c9a3053140df764699c
-
-
-> I had a look at your patch.  It looks attractively simple.  The audit
-> next tree has patches queued that add an audit_reset function that will
-> require more work.  I still see some potential gaps.
->
-> - If the process messes up (or the sock lookup messes up) it is reset
->   in the kauditd thread under the audit_cmd_mutex.
->
-> - If the process exits normally or is replaced due to an audit_replace
->   error, it is reset from audit_receive_skb under the audit_cmd_mutex.
->
-> - If the process dies before the kauditd thread notices, either reap it
->   via notifier callback or it needs a check on net exit to reset.  This
->   last one appears necessary to decrement the sock refcount so the sock
->   can be released in netlink_kernel_release().
->
-> If we want to be proactive and use the netlink notifier, we assume the
-> overhead of adding to the netlink notifier chain and eliminate all the
-> other reset calls under the kauditd thread.  If we are ok being
-> reactionary, then we'll at least need the net exit check on audit_sock.
->
-
-I don't see why we need to check it in net exit if we use refcnt,
-because we have two different users of audit_sock: kauditd and
-netns, if both take care of refcnt properly, we don't need to worry
-about who is the last, no matter what failures occur in what order.
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
+index fedd736..c3cc707 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
+@@ -459,7 +459,7 @@ static int qlcnic_tx_pkt(struct qlcnic_adapter *adapter,
+ 			 struct cmd_desc_type0 *first_desc, struct sk_buff *skb,
+ 			 struct qlcnic_host_tx_ring *tx_ring)
+ {
+-	u8 l4proto, opcode = 0, hdr_len = 0;
++	u8 l4proto, opcode = 0, hdr_len = 0, tag_vlan = 0;
+ 	u16 flags = 0, vlan_tci = 0;
+ 	int copied, offset, copy_len, size;
+ 	struct cmd_desc_type0 *hwdesc;
+@@ -472,14 +472,16 @@ static int qlcnic_tx_pkt(struct qlcnic_adapter *adapter,
+ 		flags = QLCNIC_FLAGS_VLAN_TAGGED;
+ 		vlan_tci = ntohs(vh->h_vlan_TCI);
+ 		protocol = ntohs(vh->h_vlan_encapsulated_proto);
++		tag_vlan = 1;
+ 	} else if (skb_vlan_tag_present(skb)) {
+ 		flags = QLCNIC_FLAGS_VLAN_OOB;
+ 		vlan_tci = skb_vlan_tag_get(skb);
++		tag_vlan = 1;
+ 	}
+ 	if (unlikely(adapter->tx_pvid)) {
+-		if (vlan_tci && !(adapter->flags & QLCNIC_TAGGING_ENABLED))
++		if (tag_vlan && !(adapter->flags & QLCNIC_TAGGING_ENABLED))
+ 			return -EIO;
+-		if (vlan_tci && (adapter->flags & QLCNIC_TAGGING_ENABLED))
++		if (tag_vlan && (adapter->flags & QLCNIC_TAGGING_ENABLED))
+ 			goto set_flags;
+ 
+ 		flags = QLCNIC_FLAGS_VLAN_OOB;
+-- 
+2.10.2
