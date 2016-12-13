@@ -1,151 +1,175 @@
 From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: stmmac DT property snps,axi_all
-Date: Tue, 13 Dec 2016 07:47:48 +0100
-Message-ID: <52fdb263-0b36-9984-e46f-78f3f83f1188@st.com>
-References: <51f8249e-bdb9-e3a7-5d82-7ac869316f0e@axis.com>
- <120aca00-02a8-3d88-7aad-a21d239aafb2@st.com>
- <dc145c32-cb67-4bcb-e8b7-059387d5a0ac@axis.com>
- <e0362693-4ae9-b3d6-3955-c72df7a1b0c0@axis.com>
- <0546490f-8f8c-a22e-db7b-eac521c7ff27@st.com>
+Subject: Re: Synopsys Ethernet QoS
+Date: Tue, 13 Dec 2016 08:22:54 +0100
+Message-ID: <73bf8cb4-5685-2db6-529c-1de99b1fd358@st.com>
+References: <2df7a6dd-1128-d1d6-bf61-891f76cf7200@synopsys.com>
+ <20161209.103327.1742213347114742435.davem@davemloft.net>
+ <93b73b79-36aa-56b8-f975-b890b7a48bd1@synopsys.com>
+ <20161209.104152.1969880574279771010.davem@davemloft.net>
+ <CAHp75VcKURaTQX9=SY8+46GGATuwO1oXAi8eMS+uwk58sjKx5Q@mail.gmail.com>
+ <3aee5a67-5e19-34e6-1719-ff13c7b914ea@gmail.com>
+ <CAHp75VfT9B3O5jU0eHoKtgYc48K2ZjCQ-g9ZQ9nX1Hew6tz-zw@mail.gmail.com>
+ <556353b7-c847-7549-626d-3c324063647e@gmail.com>
+ <f5357ea2-a295-ab08-046e-f8b8f6ca4344@synopsys.com>
+ <1d445ec1-deb8-6e36-39c4-6813c446095f@axis.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: David Miller <davem@davemloft.net>, <larper@axis.com>,
+        <rabinv@axis.com>, netdev <netdev@vger.kernel.org>,
+        <CARLOS.PALMINHA@synopsys.com>, <Jie.Deng1@synopsys.com>,
+        Stephen Warren <swarren@nvidia.com>, <pavel@ucw.cz>
 To: Niklas Cassel <niklas.cassel@axis.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>
+        Joao Pinto <Joao.Pinto@synopsys.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andy Shevchenko <andy.shevchenko@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx08-00178001.pphosted.com ([91.207.212.93]:42487 "EHLO
-        mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1753136AbcLMGrx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 13 Dec 2016 01:47:53 -0500
-In-Reply-To: <0546490f-8f8c-a22e-db7b-eac521c7ff27@st.com>
+Received: from mx07-00178001.pphosted.com ([62.209.51.94]:10230 "EHLO
+        mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751985AbcLMHXL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 13 Dec 2016 02:23:11 -0500
+In-Reply-To: <1d445ec1-deb8-6e36-39c4-6813c446095f@axis.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Niklas, Alex,
+On 12/12/2016 5:25 PM, Niklas Cassel wrote:
+>
+>
+> On 12/12/2016 11:19 AM, Joao Pinto wrote:
+>> Hi,
+>>
+>> Às 1:44 AM de 12/10/2016, Florian Fainelli escreveu:
+>>> Le 12/09/16 à 16:16, Andy Shevchenko a écrit :
+>>>> On Sat, Dec 10, 2016 at 12:52 AM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+>>>>
+>>>>> It's kind of sad that customers of that IP (stmmac, amd-xgbe, sxgbe)
+>>>>> did
+>>>>> actually pioneer the upstreaming effort, but it is good to see people
+>>>>> from Synopsys willing to fix that in the future.
+>>>> Wait, you would like to tell that we have more than 2 drivers for the
+>>>> same (okay, same vendor) IP?!
+>>>> It's better to unify them earlier, than have n+ copies.
+>>> Unfortunately that is the case, see this email:
+>>>
+>>> https://www.mail-archive.com/netdev@vger.kernel.org/msg142796.html
+>>>
+>>> dwc_eth_qos and stmmac have some overlap. There seems to be work
+>>> underway to unify these two to begin with.
+>>>
+>>>> P.S. Though, I don't see how sxgbe got in the list. First glance on
+>>>> the code doesn't show similarities.
+>>> Well samsung/sxgbe looks potentially similar to amd/xgbe, but that's
+>>> just my cursory look at the code, it may very well be something entirely
+>>> different. The descriptor formats just look suspiciously similar.
+>>>
+>> Thank you for your inputs! Renaming seems to be a hotspot. I agree that maybe
+>> instead of renaming (breaking retro-compatibility as David and Florian
+>> mentioned), the best is to move stmmac to synopsys/ after merging *qos* and
+>> removing it. As Florian mentioned, git is capable of detecting folder restructured.
+>>
+>> @Rabin Vincent: Hi Rabin. Since Axis is more familiar with the synopsys/*qos*
+>> driver would it be possible for you to make an initial analysis of what has to
+>> be merged into Stmmac? This way the development would speed-up.
+>
+> I can answer that question.
+>
+> I've sent out 12 patches to the stmmac driver
+> (all patches are included in the current net-next tree),
 
-my fault and a step behind... Current code is OK
-when manage the AAL that, although it is passed from
-the axi structure, it is always used to program,
-for all the chip versions, the writable bit inside the
-DMA_BUS_MODE register.
-So I guess no extra patch is needed.
+ok I have seen these patches applied, I had just a minor concern about
+the  failure when DMA configuration is missing.
+In these years, I have noticed that, for this kind of HW, default DMA
+configuration is usually good to have a driver working. AHB, AXI
+parameters can be provided to have a best tuning or to fix know issues
+on some platforms. So IMO, we should relax the check with a warning.
+Please, consider that, the stmmac also supports very old MAC10/100
+versions where the DMA configuration was often never passed.
+
+> with these patches the stmmac driver works properly on Axis hardware
+> (we use Synopsys GMAC 4.10a synthesized with multiple TX queues).
+
+perfect and thanks a lot for this effort.
+
+> stmmac's DT binding has also been extended with properties that
+> existed in DWC EQoS's DT binding, such as no-pbl-x8, txpbl, rxpbl.
+>
+> Since we have no problem updating the DTB together with the kernel,
+> we will simply move to using the start using the stmmac driver,
+> with stmmac's DT binding.
+>
+> However, I've noticed that NVIDIA has extended the DWC EQoS DT binding,
+> I don't how easy it would be for them to switch to stmmac's DT binding.
+> (Adding Stephen Warren to CC.)
+
+ok
+
+>
+> The reset sequence that Lars Persson was worried about is not an issue
+> with the stmmac driver.
+>
+
+thx for this check.
+
+>
+> There are some performance problems with the stmmac driver though:
+>
+> When running iperf3 with 3 streams:
+> iperf3 -c 192.168.0.90 -P 3 -t 30
+> iperf3 -c 192.168.0.90 -P 3 -t 30 -R
+>
+> I get really bad fairness between the streams.
+
+Can you confirm you are using the 4.xxa version?
+
+This doesn't match with Alex's experiments on ARM platforms.
+
+> This appears to be an issue with how TX IRQ coalescing is implemented in stmmac.
+> Disabling TX IRQ coalescing in the stmmac driver makes the problem go away.
+
+this doesn't match with what we had seen but I am happy and open to
+review and accept new strategy.
+
+> We have a local patch that implements TX IRQ coalescing in the dwceqos driver,
+> and we don't see the same problem.
+
+please, if you have new patch add me on CC and we will review all
+together.
+
+> Also netperf TCP_RR and UDP_RR gives really bad results compared to the
+> dwceqos driver (without IRQ coalescing).
+> 2000 transactions/sec vs 9000 transactions/sec.
+> Turning TX IRQ coalescing off and RX interrupt watchdog off in stmmac
+> gives the same performance. I guess it's a trade off, low CPU usage
+> vs low latency, so I don't know how important TCP_RR/UDP_RR really is.
+>
+> The best thing would be to get a good working TX IRQ coalesce
+> implementation with HR timers in stmmac.
+
+as said, welcome patches.
+
+Basically, the default tuning of coalescence parameters comes from
+ST platform experiences. I mean, we tuned to driver to have good
+performance and saving CPU on SH4 (UP) and ARM (SMP) systems.
+In these years, these default was accepted but, if today we need
+to change something welcome effort. On my side, I can try to
+perform some bench to see if I have regressions on not.
+
+> Perhaps it should also be investigated if the RX interrupt watchdog
+> timeout should have a lower default value.
+
+Do not expect to get many improvements to play with the HW watchdog
+due to the poor granularity of the Receive Interrupt Watchdog Timer
+Count.
 
 Regards
 Peppe
 
-On 12/12/2016 3:18 PM, Giuseppe CAVALLARO wrote:
-> Please Niklas
->
-> when you send the patch, add my
->
-> Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 >
 >
-> On 12/9/2016 10:53 AM, Niklas Cassel wrote:
->> On 12/09/2016 10:20 AM, Niklas Cassel wrote:
->>> On 12/08/2016 02:36 PM, Alexandre Torgue wrote:
->>>> Hi Niklas,
->>>>
->>>> On 12/05/2016 05:18 PM, Niklas Cassel wrote:
->>>>> Hello Giuseppe
->>>>>
->>>>>
->>>>> I'm trying to figure out what snps,axi_all is supposed to represent.
->>>>>
->>>>> It appears that the value is saved, but never used in the code.
->>>>>
->>>>> Looking at the register specification, I'm guessing that it represents
->>>>> Address-Aligned Beats, but there is already the property snps,aal
->>>>> for that.
->>>> IMO, it is not useful. Indeed AXI_AAL is a read only bit (in AXI bus
->>>> mode register) and reflects the aal bit in DMA bus register.
->>>> As you know we use "snps,aal" to set aal bit in DMA bus register.
->>>> So "snps,axi_all" entry seems useless. Let's see with Peppe.
->>> Ok, I see. GMAC and GMAC4 is different here.
->>>
->>> For GMAC4 AAL only exists in DMA_SYS_BUS_MODE.
->>> It's not reflected anywhere else.
->>>
->>> The code is correct in the driver.
->>>
->>> If snps,axi_all is just created for a read-only register,
->>> and it is currently never used in the code,
->>> while we have snps,aal, which is correct and works,
->>> I guess it should be ok to remove snps,axi_all.
->>>
->>> I can cook up a patch.
->>>
+>
 >>
->> Here we go :)
+>> Thanks to all.
 >>
->> I will send it as a real patch once net-next reopens.
->>
->>
->>> From defc01cb7c22611b89d9cf1fcae72544092bd62c Mon Sep 17 00:00:00 2001
->> From: Niklas Cassel <niklas.cassel@axis.com>
->> Date: Fri, 9 Dec 2016 10:27:00 +0100
->> Subject: [PATCH net-next] net: stmmac: remove unused duplicate property
->>  snps,axi_all
->>
->> For core revision 3.x Address-Aligned Beats is available in two
->> registers.
->> The DT property snps,aal was created for AAL in the DMA bus register,
->> which is a read/write bit.
->> The DT property snps,axi_all was created for AXI_AAL in the AXI bus mode
->> register, which is a read only bit that reflects the value of AAL in the
->> DMA bus register.
->>
->> Since the value of snps,axi_all is never used in the driver,
->> and since the property was created for a bit that is read only,
->> it should be safe to remove the property.
->>
->> Signed-off-by: Niklas Cassel <niklas.cassel@axis.com>
->> ---
->>  Documentation/devicetree/bindings/net/stmmac.txt      | 1 -
->>  drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 1 -
->>  include/linux/stmmac.h                                | 1 -
->>  3 files changed, 3 deletions(-)
->>
->> diff --git a/Documentation/devicetree/bindings/net/stmmac.txt
->> b/Documentation/devicetree/bindings/net/stmmac.txt
->> index 128da752fec9..c3d2fd480a1b 100644
->> --- a/Documentation/devicetree/bindings/net/stmmac.txt
->> +++ b/Documentation/devicetree/bindings/net/stmmac.txt
->> @@ -65,7 +65,6 @@ Optional properties:
->>      - snps,wr_osr_lmt: max write outstanding req. limit
->>      - snps,rd_osr_lmt: max read outstanding req. limit
->>      - snps,kbbe: do not cross 1KiB boundary.
->> -    - snps,axi_all: align address
->>      - snps,blen: this is a vector of supported burst length.
->>      - snps,fb: fixed-burst
->>      - snps,mb: mixed-burst
->> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
->> b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
->> index 082cd48db6a7..60ba8993c650 100644
->> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
->> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
->> @@ -121,7 +121,6 @@ static struct stmmac_axi *stmmac_axi_setup(struct
->> platform_device *pdev)
->>      axi->axi_lpi_en = of_property_read_bool(np, "snps,lpi_en");
->>      axi->axi_xit_frm = of_property_read_bool(np, "snps,xit_frm");
->>      axi->axi_kbbe = of_property_read_bool(np, "snps,axi_kbbe");
->> -    axi->axi_axi_all = of_property_read_bool(np, "snps,axi_all");
->>      axi->axi_fb = of_property_read_bool(np, "snps,axi_fb");
->>      axi->axi_mb = of_property_read_bool(np, "snps,axi_mb");
->>      axi->axi_rb =  of_property_read_bool(np, "snps,axi_rb");
->> diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
->> index 266dab9ad782..889e0e9a3f1c 100644
->> --- a/include/linux/stmmac.h
->> +++ b/include/linux/stmmac.h
->> @@ -103,7 +103,6 @@ struct stmmac_axi {
->>      u32 axi_wr_osr_lmt;
->>      u32 axi_rd_osr_lmt;
->>      bool axi_kbbe;
->> -    bool axi_axi_all;
->>      u32 axi_blen[AXI_BLEN];
->>      bool axi_fb;
->>      bool axi_mb;
->>
+>> Joao
 >
 >
