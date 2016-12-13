@@ -1,31 +1,51 @@
-From: Selvin Xavier <selvin.xavier@broadcom.com>
-Subject: Re: [PATCH V2 00/22] Broadcom RoCE Driver (bnxt_re)
-Date: Tue, 13 Dec 2016 09:24:58 +0530
-Message-ID: <CA+sbYW2MiLHb8BkGNoKFXSUdVA6LFySH+z20owmLjp1Qs55Rzw@mail.gmail.com>
-References: <1481266096-23331-1-git-send-email-selvin.xavier@broadcom.com> <23e26353-4317-2836-9f94-d1fc3274a770@redhat.com>
+From: Theodore Ts'o <tytso@mit.edu>
+Subject: Re: "virtio-net: enable multiqueue by default" in linux-next breaks
+ networking on GCE
+Date: Mon, 12 Dec 2016 23:19:48 -0500
+Message-ID: <20161213041948.lhmdml6vtirc3kz5@thunk.org>
+References: <20161212233343.q5xlv55rc5npqaqp@thunk.org>
+ <20161213042057-mutt-send-email-mst@kernel.org>
+ <20161213031243.avq5g5m5r5ylcnnk@thunk.org>
+ <60cd312f-86f9-47e9-0c72-f4c2109e2f87@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org
-To: Doug Ledford <dledford@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
+        nhorman@tuxdriver.com, davem@davemloft.net
+To: Jason Wang <jasowang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f176.google.com ([209.85.220.176]:36762 "EHLO
-        mail-qk0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752937AbcLMDzA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 12 Dec 2016 22:55:00 -0500
-Received: by mail-qk0-f176.google.com with SMTP id n21so104721048qka.3
-        for <netdev@vger.kernel.org>; Mon, 12 Dec 2016 19:55:00 -0800 (PST)
-In-Reply-To: <23e26353-4317-2836-9f94-d1fc3274a770@redhat.com>
+Received: from imap.thunk.org ([74.207.234.97]:46848 "EHLO imap.thunk.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752867AbcLMETy (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 12 Dec 2016 23:19:54 -0500
+Content-Disposition: inline
+In-Reply-To: <60cd312f-86f9-47e9-0c72-f4c2109e2f87@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 13, 2016 at 5:22 AM, Doug Ledford <dledford@redhat.com> wrote:
->
-> There are outstanding review comments to be addressed still yet, and the
-> v2 patchset doesn't compile for me in 0day testing.  I'm going to bounce
-> this one to 4.11.
+On Tue, Dec 13, 2016 at 11:43:00AM +0800, Jason Wang wrote:
+> Thanks for reporting this issue. Looks like I blindly set the affinity
+> instead of queues during probe. Could you please try the following patch to
+> see if it works?
 
-I will address all review comments and fix the 0day compilation error
-and post a v3 soon.
+This fixed things, thanks!!
 
-Thanks,
-Selvin Xavier
+						- Ted
+						
+
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index b425fa1..fe9f772 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -1930,7 +1930,9 @@ static int virtnet_probe(struct virtio_device *vdev)
+>                 goto free_unregister_netdev;
+>         }
+> 
+> -       virtnet_set_affinity(vi);
+> +       rtnl_lock();
+> +       virtnet_set_queues(vi, vi->curr_queue_pairs);
+> +       rtnl_unlock();
+> 
+>         /* Assume link up if device can't report link status,
+>            otherwise get link status from config. */
+> 
+> 
