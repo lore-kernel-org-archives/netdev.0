@@ -1,142 +1,131 @@
 From: Richard Guy Briggs <rgb@redhat.com>
-Subject: Re: [PATCH v2] audit: use proper refcount locking on audit_sock
-Date: Tue, 13 Dec 2016 10:01:44 -0500
-Message-ID: <20161213150144.GK22660@madcap2.tricolour.ca>
+Subject: [RFC PATCH v3] audit: use proper refcount locking on audit_sock
+Date: Tue, 13 Dec 2016 10:03:01 -0500
+Message-ID: <61c37ca790bc11bc023aea8f9b70ab3098aa30f5.1481626466.git.rgb@redhat.com>
 References: <20161212100215.GA1305@madcap2.tricolour.ca>
- <5714bd7468cfec225407a6c367e658478d590495.1481534171.git.rgb@redhat.com>
- <CAHC9VhSjU+-KDSUcjHZAPEwCDbyLYGvkmXYcUqSfSsa1+=DsRw@mail.gmail.com>
- <20161213051028.GE1305@madcap2.tricolour.ca>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-audit@redhat.com, edumazet@google.com,
-        xiyou.wangcong@gmail.com, dvyukov@google.com
-To: Paul Moore <paul@paul-moore.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20161213051028.GE1305@madcap2.tricolour.ca>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Richard Guy Briggs <rgb@redhat.com>, <dvyukov@google.com>,
+        <xiyou.wangcong@gmail.com>, <edumazet@google.com>,
+        <eparis@redhat.com>, <pmoore@redhat.com>, <sgrubb@redhat.com>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-audit@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:43302 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932993AbcLMPDg (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 13 Dec 2016 10:03:36 -0500
+In-Reply-To: <20161212100215.GA1305@madcap2.tricolour.ca>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2016-12-13 00:10, Richard Guy Briggs wrote:
-> On 2016-12-12 15:18, Paul Moore wrote:
-> > On Mon, Dec 12, 2016 at 5:03 AM, Richard Guy Briggs <rgb@redhat.com> wrote:
-> > > Resetting audit_sock appears to be racy.
-> > >
-> > > audit_sock was being copied and dereferenced without using a refcount on
-> > > the source sock.
-> > >
-> > > Bump the refcount on the underlying sock when we store a refrence in
-> > > audit_sock and release it when we reset audit_sock.  audit_sock
-> > > modification needs the audit_cmd_mutex.
-> > >
-> > > See: https://lkml.org/lkml/2016/11/26/232
-> > >
-> > > Thanks to Eric Dumazet <edumazet@google.com> and Cong Wang
-> > > <xiyou.wangcong@gmail.com> on ideas how to fix it.
-> > >
-> > > Signed-off-by: Richard Guy Briggs <rgb@redhat.com>
-> > > ---
-> > > There has been a lot of change in the audit code that is about to go
-> > > upstream to address audit queue issues.  This patch is based on the
-> > > source tree: git://git.infradead.org/users/pcmoore/audit#next
-> > > ---
-> > >  kernel/audit.c |   34 ++++++++++++++++++++++++++++------
-> > >  1 files changed, 28 insertions(+), 6 deletions(-)
-> > > diff --git a/kernel/audit.c b/kernel/audit.c
-> > > index f20eee0..439f7f3 100644
-> > > --- a/kernel/audit.c
-> > > +++ b/kernel/audit.c
-> > > @@ -452,7 +452,9 @@ static void auditd_reset(void)
-> > >         struct sk_buff *skb;
-> > >
-> > >         /* break the connection */
-> > > +       sock_put(audit_sock);
-> > >         audit_pid = 0;
-> > > +       audit_nlk_portid = 0;
-> > >         audit_sock = NULL;
-> > >
-> > >         /* flush all of the retry queue to the hold queue */
-> > > @@ -478,6 +480,12 @@ static int kauditd_send_unicast_skb(struct sk_buff *skb)
-> > >         if (rc >= 0) {
-> > >                 consume_skb(skb);
-> > >                 rc = 0;
-> > > +       } else {
-> > > +               if (rc & (-ENOMEM|-EPERM|-ECONNREFUSED)) {
-> > 
-> > I dislike the way you wrote this because instead of simply looking at
-> > this to see if it correct I need to sort out all the bits and find out
-> > if there are other error codes that could run afoul of this check ...
-> > make it simple, e.g. (rc == -ENOMEM || rc == -EPERM || ...).
-> > Actually, since EPERM is 1, -EPERM (-1 in two's compliment is
-> > 0xffffffff) is going to cause this to be true for pretty much any
-> > value of rc, yes?
-> 
-> Yes, you are correct.  We need there a logical or on the results of each
-> comparison to the return code rather than bit-wise or-ing the result
-> codes together first to save a step.
-> 
-> > > +                       mutex_lock(&audit_cmd_mutex);
-> > > +                       auditd_reset();
-> > > +                       mutex_unlock(&audit_cmd_mutex);
-> > > +               }
-> > 
-> > The code in audit#next handles netlink_unicast() errors in
-> > kauditd_thread() and you are adding error handling code here in
-> > kauditd_send_unicast_skb() ... that's messy.  I don't care too much
-> > where the auditd_reset() call is made, but let's only do it in one
-> > function; FWIW, I originally put the error handling code in
-> > kauditd_thread() because there was other error handling code that
-> > needed to done in that scope so it resulted in cleaner code.
-> 
-> Hmmm, I seem to remember it not returning the return code and I thought
-> I had changed it to do so, but I see now that it was already there.
-> Agreed, I needlessly duplicated that error handling.
-> 
-> > Related, I see you are now considering ENOMEM to be a fatal condition,
-> > that differs from the AUDITD_BAD macro in kauditd_thread(); this
-> > difference needs to be reconciled.
-> 
-> Also correct about -EPERM now that I check back to the intent of commit
-> 32a1dbaece7e ("audit: try harder to send to auditd upon netlink
-> failure")
-> 
-> > Finally, you should update the comment header block for auditd_reset()
-> > that it needs to be called with the audit_cmd_mutex held.
-> 
-> Yup.
-> 
-> > > @@ -1004,17 +1018,22 @@ static int audit_receive_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
-> > >                                 return -EACCES;
-> > >                         }
-> > >                         if (audit_pid && new_pid &&
-> > > -                           audit_replace(requesting_pid) != -ECONNREFUSED) {
-> > > +                           (audit_replace(requesting_pid) & (-ECONNREFUSED|-EPERM|-ENOMEM))) {
-> > 
-> > Do we simply want to treat any error here as fatal, and not just
-> > ECONN/EPERM/ENOMEM?  If not, let's come up with a single macro to
-> > handle the fatal netlink_unicast() return codes so we have some chance
-> > to keep things consistent in the future.
-> 
-> I'll work through this before I post another patch...
+Resetting audit_sock appears to be racy.
 
-Ok, I've gone back to look at the reasoning in commit 133e1e5acd4a
-("audit: stop an old auditd being starved out by a new auditd") which
-suggests only ECONNREFUSED can cause an audit_pid replace, so I've
-returned it to its original state.
+audit_sock was being copied and dereferenced without using a refcount on
+the source sock.
 
-I'll post another tested patch, but I'm still not that happy that it
-does not proactively reset audit_pid, audit_nlk_portid and audit_sock
-when auditd's socket has a problem.  I'll leave the test run overnight.
+Bump the refcount on the underlying sock when we store a refrence in
+audit_sock and release it when we reset audit_sock.  audit_sock
+modification needs the audit_cmd_mutex.
 
-> > paul moore
-> 
-> - RGB
+See: https://lkml.org/lkml/2016/11/26/232
 
-- RGB
+Thanks to Eric Dumazet <edumazet@google.com> and Cong Wang
+<xiyou.wangcong@gmail.com> on ideas how to fix it.
 
---
-Richard Guy Briggs <rgb@redhat.com>
-Kernel Security Engineering, Base Operating Systems, Red Hat
-Remote, Ottawa, Canada
-Voice: +1.647.777.2635, Internal: (81) 32635
+Signed-off-by: Richard Guy Briggs <rgb@redhat.com>
+---
+There has been a lot of change in the audit code that is about to go
+upstream to address audit queue issues.  This patch is based on the
+source tree: git://git.infradead.org/users/pcmoore/audit#next
+---
+ kernel/audit.c |   28 +++++++++++++++++++++++-----
+ 1 files changed, 23 insertions(+), 5 deletions(-)
+
+diff --git a/kernel/audit.c b/kernel/audit.c
+index f20eee0..3bb4126 100644
+--- a/kernel/audit.c
++++ b/kernel/audit.c
+@@ -446,14 +446,19 @@ static void kauditd_retry_skb(struct sk_buff *skb)
+  * Description:
+  * Break the auditd/kauditd connection and move all the records in the retry
+  * queue into the hold queue in case auditd reconnects.
++ * The audit_cmd_mutex must be held when calling this function.
+  */
+ static void auditd_reset(void)
+ {
+ 	struct sk_buff *skb;
+ 
+ 	/* break the connection */
++	if (audit_sock) {
++		sock_put(audit_sock);
++		audit_sock = NULL;
++	}
+ 	audit_pid = 0;
+-	audit_sock = NULL;
++	audit_nlk_portid = 0;
+ 
+ 	/* flush all of the retry queue to the hold queue */
+ 	while ((skb = skb_dequeue(&audit_retry_queue)))
+@@ -579,7 +584,9 @@ static int kauditd_thread(void *dummy)
+ 
+ 				auditd = 0;
+ 				if (AUDITD_BAD(rc, reschedule)) {
++					mutex_lock(&audit_cmd_mutex);
+ 					auditd_reset();
++					mutex_unlock(&audit_cmd_mutex);
+ 					reschedule = 0;
+ 				}
+ 			} else
+@@ -594,7 +601,9 @@ static int kauditd_thread(void *dummy)
+ 				auditd = 0;
+ 				if (AUDITD_BAD(rc, reschedule)) {
+ 					kauditd_hold_skb(skb);
++					mutex_lock(&audit_cmd_mutex);
+ 					auditd_reset();
++					mutex_unlock(&audit_cmd_mutex);
+ 					reschedule = 0;
+ 				} else
+ 					/* temporary problem (we hope), queue
+@@ -623,7 +632,9 @@ quick_loop:
+ 				if (rc) {
+ 					auditd = 0;
+ 					if (AUDITD_BAD(rc, reschedule)) {
++						mutex_lock(&audit_cmd_mutex);
+ 						auditd_reset();
++						mutex_unlock(&audit_cmd_mutex);
+ 						reschedule = 0;
+ 					}
+ 
+@@ -1010,11 +1021,16 @@ static int audit_receive_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 			}
+ 			if (audit_enabled != AUDIT_OFF)
+ 				audit_log_config_change("audit_pid", new_pid, audit_pid, 1);
+-			audit_pid = new_pid;
+-			audit_nlk_portid = NETLINK_CB(skb).portid;
+-			audit_sock = skb->sk;
+-			if (!new_pid)
++			if (new_pid) {
++				if (audit_sock)
++					sock_put(audit_sock);
++				audit_pid = new_pid;
++				audit_nlk_portid = NETLINK_CB(skb).portid;
++				sock_hold(skb->sk);
++				audit_sock = skb->sk;
++			} else {
+ 				auditd_reset();
++			}
+ 			wake_up_interruptible(&kauditd_wait);
+ 		}
+ 		if (s.mask & AUDIT_STATUS_RATE_LIMIT) {
+@@ -1283,8 +1299,10 @@ static void __net_exit audit_net_exit(struct net *net)
+ {
+ 	struct audit_net *aunet = net_generic(net, audit_net_id);
+ 	struct sock *sock = aunet->nlsk;
++	mutex_lock(&audit_cmd_mutex);
+ 	if (sock == audit_sock)
+ 		auditd_reset();
++	mutex_unlock(&audit_cmd_mutex);
+ 
+ 	RCU_INIT_POINTER(aunet->nlsk, NULL);
+ 	synchronize_net();
+-- 
+1.7.1
