@@ -1,46 +1,41 @@
-From: Selvin Xavier <selvin.xavier@broadcom.com>
-Subject: Re: [PATCH V2 18/22] bnxt_re: Support for DCB
-Date: Tue, 13 Dec 2016 11:55:55 +0530
-Message-ID: <CA+sbYW1irBd0cTqJJSGJWRbBi-iFzvX3JpoTfF_daU47EqNtAg@mail.gmail.com>
+From: Michael Chan <michael.chan@broadcom.com>
+Subject: Re: [PATCH V2 00/22] Broadcom RoCE Driver (bnxt_re)
+Date: Mon, 12 Dec 2016 22:41:59 -0800
+Message-ID: <CACKFLinhXAeVNZNP10XfKmr3h3tLdebF06yO7wraYeLLsKBqqQ@mail.gmail.com>
 References: <1481266096-23331-1-git-send-email-selvin.xavier@broadcom.com>
- <1481266096-23331-19-git-send-email-selvin.xavier@broadcom.com> <CAJ3xEMjcKRZpBMEBwQMZO5OqbVzH2=Q3FOAyYUVAz+ouw1jTNQ@mail.gmail.com>
+ <9cf03e2b-a16d-19ec-a8ce-14f24272bf6a@redhat.com> <CA+sbYW2fF01N5ZQfaH6Uj7Q63SHwdo1gEwR=eoB6vB1ktQaiag@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Doug Ledford <dledford@redhat.com>,
-        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        Eddie Wai <eddie.wai@broadcom.com>,
-        Devesh Sharma <devesh.sharma@broadcom.com>,
-        Somnath Kotur <somnath.kotur@broadcom.com>,
-        Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
-To: Or Gerlitz <gerlitz.or@gmail.com>
+Cc: jtoppins@redhat.com, Doug Ledford <dledford@redhat.com>,
+        linux-rdma@vger.kernel.org, Netdev <netdev@vger.kernel.org>
+To: Selvin Xavier <selvin.xavier@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f180.google.com ([209.85.220.180]:32861 "EHLO
-        mail-qk0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750818AbcLMGZ4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 13 Dec 2016 01:25:56 -0500
-Received: by mail-qk0-f180.google.com with SMTP id x190so107130396qkb.0
-        for <netdev@vger.kernel.org>; Mon, 12 Dec 2016 22:25:56 -0800 (PST)
-In-Reply-To: <CAJ3xEMjcKRZpBMEBwQMZO5OqbVzH2=Q3FOAyYUVAz+ouw1jTNQ@mail.gmail.com>
+Received: from mail-oi0-f48.google.com ([209.85.218.48]:33110 "EHLO
+        mail-oi0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752359AbcLMGmA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 13 Dec 2016 01:42:00 -0500
+Received: by mail-oi0-f48.google.com with SMTP id w63so113614471oiw.0
+        for <netdev@vger.kernel.org>; Mon, 12 Dec 2016 22:42:00 -0800 (PST)
+In-Reply-To: <CA+sbYW2fF01N5ZQfaH6Uj7Q63SHwdo1gEwR=eoB6vB1ktQaiag@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Dec 10, 2016 at 7:20 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
-> On Fri, Dec 9, 2016 at 8:48 AM, Selvin Xavier
-> <selvin.xavier@broadcom.com> wrote:
->> This patch queries the configured RoCE APP Priority on the host
->> using the dcbnl API and programs the RoCE FW with the corresponding
->> Traffic Class(es) for the priority.
->
->> +#define BNXT_RE_ROCE_V1_ETH_TYPE       0x8915
->> +#define BNXT_RE_ROCE_V2_PORT_NO                4791
->
-> I believe these two are defined already, try # git grep on each under include
+On Mon, Dec 12, 2016 at 8:52 PM, Selvin Xavier
+<selvin.xavier@broadcom.com> wrote:
 
-Thanks Or for your comments.
-V2 port number is defined in ib_verbs.h.  i will include this in the
-next patch set.
-v1 eth_type is not defined. All vendor drivers have their own definition.
-
-Thanks,
-Selvin
+>>   CHECK   drivers/infiniband/hw/bnxtre/bnxt_qplib_rcfw.c
+>>   CHECK   drivers/infiniband/hw/bnxtre/bnxt_qplib_sp.c
+>>   CHECK   drivers/infiniband/hw/bnxtre/bnxt_qplib_fp.c
+>> drivers/infiniband/hw/bnxtre/bnxt_qplib_fp.c:1015:22: warning: context
+>> imbalance in 'bnxt_qplib_lock_cqs' - wrong count at exit
+>> drivers/infiniband/hw/bnxtre/bnxt_qplib_fp.c:1030:28: warning: context
+>> imbalance in 'bnxt_qplib_unlock_cqs' - unexpected unlock
+> The above two are false positives, since locking and unlocking are
+> handled in two separate functions. This is a wrapper to lock/unlock
+> both SQ and RQ CQ locks. Functionally it is ok  since
+> bnxt_qplib_unlock_cqs is called just after the critical section and
+> both locks are freed in order. I think we can ignore this warning.
+>
+>
+You can use __releases() and __acquires() macros to denote these cases
+for sparse.
