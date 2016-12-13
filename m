@@ -1,94 +1,56 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [iproute2 v3 net-next 0/8] Add support for vrf helper
-Date: Tue, 13 Dec 2016 10:44:37 -0800
-Message-ID: <20161213104437.11f5857b@xeon-e3>
-References: <1481503995-24825-1-git-send-email-dsa@cumulusnetworks.com>
+From: Theodore Ts'o <tytso@mit.edu>
+Subject: Re: "virtio-net: enable multiqueue by default" in linux-next breaks
+ networking on GCE
+Date: Tue, 13 Dec 2016 14:44:31 -0500
+Message-ID: <20161213194431.42vtozn6bs24vwda@thunk.org>
+References: <20161212233343.q5xlv55rc5npqaqp@thunk.org>
+ <bb997932-20d2-42f4-0f42-bd28ae151076@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Ahern <dsa@cumulusnetworks.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: jasowang@redhat.com, netdev@vger.kernel.org, mst@redhat.com,
+        nhorman@tuxdriver.com, davem@davemloft.net
+To: Wei Xu <wexu@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f52.google.com ([74.125.83.52]:34343 "EHLO
-        mail-pg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932250AbcLMSop (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 13 Dec 2016 13:44:45 -0500
-Received: by mail-pg0-f52.google.com with SMTP id x23so50421753pgx.1
-        for <netdev@vger.kernel.org>; Tue, 13 Dec 2016 10:44:45 -0800 (PST)
-In-Reply-To: <1481503995-24825-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from imap.thunk.org ([74.207.234.97]:49846 "EHLO imap.thunk.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933054AbcLMToh (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 13 Dec 2016 14:44:37 -0500
+Content-Disposition: inline
+In-Reply-To: <bb997932-20d2-42f4-0f42-bd28ae151076@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 11 Dec 2016 16:53:07 -0800
-David Ahern <dsa@cumulusnetworks.com> wrote:
+Jason's patch fixed the issue, so I think we have the proper fix, but
+to answer your questions:
 
-> This series adds support to iproute2 to run a command against a specific
-> VRF. The user semantics are similar to 'ip netns'.
+On Wed, Dec 14, 2016 at 01:46:44AM +0800, Wei Xu wrote:
 > 
-> The 'ip vrf' subcommand supports 3 usages:
-> 
-> 1. Run a command against a given vrf:
->        ip vrf exec NAME CMD
-> 
->    Uses the recently committed cgroup/sock BPF option. vrf directory
->    is added to cgroup2 mount. Individual vrfs are created under it. BPF
->    filter is attached to vrf/NAME cgroup2 to set sk_bound_dev_if to the
->    device index of the VRF. From there the current process (ip's pid) is
->    addded to the cgroups.proc file and the given command is exected. In
->    doing so all AF_INET/AF_INET6 (ipv4/ipv6) sockets are automatically
->    bound to the VRF domain.
-> 
->    The association is inherited parent to child allowing the command to
->    be a shell from which other commands are run relative to the VRF.
-> 
-> 2. Show the VRF a process is bound to:
->        ip vrf id [PID]
->    This command essentially looks at /proc/pid/cgroup for a "::/vrf/"
->    entry. If pid arg is not given current process id is used.
-> 
-> 3. Show process ids bound to a VRF
->        ip vrf pids NAME
->    This command dumps the file MNT/vrf/NAME/cgroup.procs since that file
->    shows the process ids in the particular vrf cgroup.
-> 
-> v3
-> - bpf_prog_{at,de}tach changes as requested by Daniel
-> - BPF macros added to bpf_util.h versus adding a new file as requested by Daniel
-> 
-> v2
-> - updated suject of patch 3 to avoid spam filters on vger
-> 
-> David Ahern (8):
->   lib bpf: Add support for BPF_PROG_ATTACH and BPF_PROG_DETACH
->   bpf: export bpf_prog_load
->   bpf: Add BPF_ macros
->   move cmd_exec to lib utils
->   Add filesystem APIs to lib
->   change name_is_vrf to return index
->   libnetlink: Add variant of rtnl_talk that does not display RTNETLINK
->     answers error
->   Introduce ip vrf command
-> 
->  include/bpf_util.h   | 186 +++++++++++++++++++++++++++++++++
->  include/libnetlink.h |   3 +
->  include/utils.h      |   4 +
->  ip/Makefile          |   3 +-
->  ip/ip.c              |   4 +-
->  ip/ip_common.h       |   4 +-
->  ip/iplink_vrf.c      |  29 ++++--
->  ip/ipnetns.c         |  34 ------
->  ip/ipvrf.c           | 289 +++++++++++++++++++++++++++++++++++++++++++++++++++
->  lib/Makefile         |   2 +-
->  lib/bpf.c            |  61 +++++++----
->  lib/exec.c           |  41 ++++++++
->  lib/fs.c             | 143 +++++++++++++++++++++++++
->  lib/libnetlink.c     |  20 +++-
->  man/man8/ip-vrf.8    |  88 ++++++++++++++++
->  15 files changed, 841 insertions(+), 70 deletions(-)
->  create mode 100644 ip/ipvrf.c
->  create mode 100644 lib/exec.c
->  create mode 100644 lib/fs.c
->  create mode 100644 man/man8/ip-vrf.8
-> 
+> Q1:
+> Which distribution are you using for the GCE instance?
 
-Thanks, applied. Then I went and cleanup the long lines and whitespace issues
+The test appliance is based on Debian Jessie.
+
+> Q2:
+> Are you running xfs test as an embedded VM case, which means XFS test
+> appliance is also a VM inside the GCE instance? Or the kernel is built
+> for the instance itself?
+
+No, GCE currently doesn't support running nested VM's (e.g., running
+VM's inside GCE).  So the kernel is built for the instance itself.
+The way the test appliance works is that it initially boots using the
+Debian Jessie default kernel and then we kexec into the kernel under
+test.
+
+> Q3:
+> Can this bug be reproduced for kvm-xfstests case? I'm trying to set up
+> a local test bed if it makes sense.
+
+You definitely can't do it out of the box -- you need to build the
+image using "gen-image --networking", and then run "kvm-xfstests -N
+shell" as root.  But the bug doesn't reproduce on kvm-xfstests, using
+a 4.9 host kernel and linux-next guest kernel.
+
+
+Cheers,
+
+					- Ted
