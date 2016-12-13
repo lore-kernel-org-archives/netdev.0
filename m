@@ -1,167 +1,124 @@
-From: Niklas Cassel <niklas.cassel@axis.com>
-Subject: Re: stmmac DT property snps,axi_all
-Date: Tue, 13 Dec 2016 09:26:19 +0100
-Message-ID: <548b2225-a395-ca52-15cf-ee4f3dd5cd93@axis.com>
-References: <51f8249e-bdb9-e3a7-5d82-7ac869316f0e@axis.com>
- <120aca00-02a8-3d88-7aad-a21d239aafb2@st.com>
- <dc145c32-cb67-4bcb-e8b7-059387d5a0ac@axis.com>
- <e0362693-4ae9-b3d6-3955-c72df7a1b0c0@axis.com>
- <0546490f-8f8c-a22e-db7b-eac521c7ff27@st.com>
- <52fdb263-0b36-9984-e46f-78f3f83f1188@st.com>
+From: Richard Guy Briggs <rgb@redhat.com>
+Subject: Re: netlink: GPF in sock_sndtimeo
+Date: Tue, 13 Dec 2016 03:28:20 -0500
+Message-ID: <20161213082820.GF1305@madcap2.tricolour.ca>
+References: <20161129164859.GD26673@madcap2.tricolour.ca>
+ <CAM_iQpX_KBEpL1dCBNMgZQ-VQJM9nmsVdRPVK-Aen9k0gV3f0w@mail.gmail.com>
+ <20161130045207.GE26673@madcap2.tricolour.ca>
+ <20161209060248.GT22655@madcap2.tricolour.ca>
+ <CAM_iQpWRe0tDk=wvXONG7hamH3EtE0nJuAOF1kVKJgdpMvz2DA@mail.gmail.com>
+ <20161209110155.GW22655@madcap2.tricolour.ca>
+ <CAM_iQpV2GuKhR_1tD5jjACeD+pajJLws08CLmeYAo+rsjxvB0A@mail.gmail.com>
+ <CAM_iQpVcHGywXn90EpiSz-LsUDgKVqs-7BY-L7UBCu2VxkC31Q@mail.gmail.com>
+ <20161213075117.GH22660@madcap2.tricolour.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bes.se.axis.com ([195.60.68.10]:55557 "EHLO bes.se.axis.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751779AbcLMI0X (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 13 Dec 2016 03:26:23 -0500
-In-Reply-To: <52fdb263-0b36-9984-e46f-78f3f83f1188@st.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+        Johannes Berg <johannes.berg@intel.com>,
+        netdev <netdev@vger.kernel.org>, Florian Westphal <fw@strlen.de>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>, linux-audit@redhat.com,
+        syzkaller <syzkaller@googlegroups.com>,
+        David Miller <davem@davemloft.net>,
+        Dmitry Vyukov <dvyukov@google.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20161213075117.GH22660@madcap2.tricolour.ca>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/13/2016 07:47 AM, Giuseppe CAVALLARO wrote:
-> Hello Niklas, Alex,
->
-> my fault and a step behind... Current code is OK
-> when manage the AAL that, although it is passed from
-> the axi structure, it is always used to program,
-> for all the chip versions, the writable bit inside the
-> DMA_BUS_MODE register.
-> So I guess no extra patch is needed.
+On 2016-12-13 02:51, Richard Guy Briggs wrote:
+> On 2016-12-09 23:40, Cong Wang wrote:
+> > On Fri, Dec 9, 2016 at 8:13 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> > > On Fri, Dec 9, 2016 at 3:01 AM, Richard Guy Briggs <rgb@redhat.com> wrote:
+> > >> On 2016-12-08 22:57, Cong Wang wrote:
+> > >>> On Thu, Dec 8, 2016 at 10:02 PM, Richard Guy Briggs <rgb@redhat.com> wrote:
+> > >>> > I also tried to extend Cong Wang's idea to attempt to proactively respond to a
+> > >>> > NETLINK_URELEASE on the audit_sock and reset it, but ran into a locking error
+> > >>> > stack dump using mutex_lock(&audit_cmd_mutex) in the notifier callback.
+> > >>> > Eliminating the lock since the sock is dead anways eliminates the error.
+> > >>> >
+> > >>> > Is it safe?  I'll resubmit if this looks remotely sane.  Meanwhile I'll try to
+> > >>> > get the test case to compile.
+> > >>>
+> > >>> It doesn't look safe, because 'audit_sock', 'audit_nlk_portid' and 'audit_pid'
+> > >>> are updated as a whole and race between audit_receive_msg() and
+> > >>> NETLINK_URELEASE.
+> > >>
+> > >> This is what I expected and why I originally added the mutex lock in the
+> > >> callback...  The dumps I got were bare with no wrapper identifying the
+> > >> process context or specific error, so I'm at a bit of a loss how to
+> > >> solve this (without thinking more about it) other than instinctively
+> > >> removing the mutex.
+> > >
+> > > Netlink notifier can safely be converted to blocking one, I will send
+> > > a patch.
+> > >
+> > > But I seriously doubt you really need NETLINK_URELEASE here,
+> > > it adds nothing but overhead, b/c the netlink notifier is called on
+> > > every netlink socket in the system, but for net exit path, that is
+> > > relatively a slow path.
+> > >
+> > > Also, kauditd_send_skb() needs audit_cmd_mutex too.
+> > 
+> > Please let me know what you think about the attached patch?
+> > 
+> > Thanks!
+> 
+> > commit a12b43ee814625933ff155c20dc863c59cfcf240
+> > Author: Cong Wang <xiyou.wangcong@gmail.com>
+> > Date:   Fri Dec 9 17:56:42 2016 -0800
+> > 
+> >     audit: close a race condition on audit_sock
+> >     
+> >     Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> > 
+> > diff --git a/kernel/audit.c b/kernel/audit.c
+> > index f1ca116..ab947d8 100644
+> > --- a/kernel/audit.c
+> > +++ b/kernel/audit.c
+> > @@ -423,6 +423,8 @@ static void kauditd_send_skb(struct sk_buff *skb)
+> >  				snprintf(s, sizeof(s), "audit_pid=%d reset", audit_pid);
+> >  				audit_log_lost(s);
+> >  				audit_pid = 0;
+> > +				audit_nlk_portid = 0;
+> > +				sock_put(audit_sock);
+> >  				audit_sock = NULL;
+> >  			} else {
+> >  				pr_warn("re-scheduling(#%d) write to audit_pid=%d\n",
+> > @@ -899,6 +901,9 @@ static int audit_receive_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+> >  				audit_log_config_change("audit_pid", new_pid, audit_pid, 1);
+> >  			audit_pid = new_pid;
+> >  			audit_nlk_portid = NETLINK_CB(skb).portid;
+> > +			sock_hold(skb->sk);
+> > +			if (audit_sock)
+> > +				sock_put(audit_sock);
+> >  			audit_sock = skb->sk;
+> >  		}
+> >  		if (s.mask & AUDIT_STATUS_RATE_LIMIT) {
+> > @@ -1167,10 +1172,6 @@ static void __net_exit audit_net_exit(struct net *net)
+> >  {
+> >  	struct audit_net *aunet = net_generic(net, audit_net_id);
+> >  	struct sock *sock = aunet->nlsk;
+> > -	if (sock == audit_sock) {
+> > -		audit_pid = 0;
+> > -		audit_sock = NULL;
+> > -	}
+> 
+> So how does this not leak memory leaving the sock refcount incremented
+> by the registered audit daemon when that daemon shuts down normally?
 
-Hello Giuseppe
+Sorry, that should have been: How does it not leak if auditd exits
+abnormally without sending a shutdown message, but no message is sent on
+the queue to trigger an error before the net namespace exits?
 
-I'm not sure what you mean.
+> - RGB
 
-Yes, when setting "snps,aal",
-the code is correct for all versions of the IP.
+- RGB
 
-However, "snps,axi_all" seems to just be dead code.
-Try git grep in the whole tree.
-So I still think that my patch is valid.
-
-
->
-> Regards
-> Peppe
->
-> On 12/12/2016 3:18 PM, Giuseppe CAVALLARO wrote:
->> Please Niklas
->>
->> when you send the patch, add my
->>
->> Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
->>
->>
->> On 12/9/2016 10:53 AM, Niklas Cassel wrote:
->>> On 12/09/2016 10:20 AM, Niklas Cassel wrote:
->>>> On 12/08/2016 02:36 PM, Alexandre Torgue wrote:
->>>>> Hi Niklas,
->>>>>
->>>>> On 12/05/2016 05:18 PM, Niklas Cassel wrote:
->>>>>> Hello Giuseppe
->>>>>>
->>>>>>
->>>>>> I'm trying to figure out what snps,axi_all is supposed to represent.
->>>>>>
->>>>>> It appears that the value is saved, but never used in the code.
->>>>>>
->>>>>> Looking at the register specification, I'm guessing that it represents
->>>>>> Address-Aligned Beats, but there is already the property snps,aal
->>>>>> for that.
->>>>> IMO, it is not useful. Indeed AXI_AAL is a read only bit (in AXI bus
->>>>> mode register) and reflects the aal bit in DMA bus register.
->>>>> As you know we use "snps,aal" to set aal bit in DMA bus register.
->>>>> So "snps,axi_all" entry seems useless. Let's see with Peppe.
->>>> Ok, I see. GMAC and GMAC4 is different here.
->>>>
->>>> For GMAC4 AAL only exists in DMA_SYS_BUS_MODE.
->>>> It's not reflected anywhere else.
->>>>
->>>> The code is correct in the driver.
->>>>
->>>> If snps,axi_all is just created for a read-only register,
->>>> and it is currently never used in the code,
->>>> while we have snps,aal, which is correct and works,
->>>> I guess it should be ok to remove snps,axi_all.
->>>>
->>>> I can cook up a patch.
->>>>
->>>
->>> Here we go :)
->>>
->>> I will send it as a real patch once net-next reopens.
->>>
->>>
->>>> From defc01cb7c22611b89d9cf1fcae72544092bd62c Mon Sep 17 00:00:00 2001
->>> From: Niklas Cassel <niklas.cassel@axis.com>
->>> Date: Fri, 9 Dec 2016 10:27:00 +0100
->>> Subject: [PATCH net-next] net: stmmac: remove unused duplicate property
->>>  snps,axi_all
->>>
->>> For core revision 3.x Address-Aligned Beats is available in two
->>> registers.
->>> The DT property snps,aal was created for AAL in the DMA bus register,
->>> which is a read/write bit.
->>> The DT property snps,axi_all was created for AXI_AAL in the AXI bus mode
->>> register, which is a read only bit that reflects the value of AAL in the
->>> DMA bus register.
->>>
->>> Since the value of snps,axi_all is never used in the driver,
->>> and since the property was created for a bit that is read only,
->>> it should be safe to remove the property.
->>>
->>> Signed-off-by: Niklas Cassel <niklas.cassel@axis.com>
->>> ---
->>>  Documentation/devicetree/bindings/net/stmmac.txt      | 1 -
->>>  drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 1 -
->>>  include/linux/stmmac.h                                | 1 -
->>>  3 files changed, 3 deletions(-)
->>>
->>> diff --git a/Documentation/devicetree/bindings/net/stmmac.txt
->>> b/Documentation/devicetree/bindings/net/stmmac.txt
->>> index 128da752fec9..c3d2fd480a1b 100644
->>> --- a/Documentation/devicetree/bindings/net/stmmac.txt
->>> +++ b/Documentation/devicetree/bindings/net/stmmac.txt
->>> @@ -65,7 +65,6 @@ Optional properties:
->>>      - snps,wr_osr_lmt: max write outstanding req. limit
->>>      - snps,rd_osr_lmt: max read outstanding req. limit
->>>      - snps,kbbe: do not cross 1KiB boundary.
->>> -    - snps,axi_all: align address
->>>      - snps,blen: this is a vector of supported burst length.
->>>      - snps,fb: fixed-burst
->>>      - snps,mb: mixed-burst
->>> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
->>> b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
->>> index 082cd48db6a7..60ba8993c650 100644
->>> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
->>> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
->>> @@ -121,7 +121,6 @@ static struct stmmac_axi *stmmac_axi_setup(struct
->>> platform_device *pdev)
->>>      axi->axi_lpi_en = of_property_read_bool(np, "snps,lpi_en");
->>>      axi->axi_xit_frm = of_property_read_bool(np, "snps,xit_frm");
->>>      axi->axi_kbbe = of_property_read_bool(np, "snps,axi_kbbe");
->>> -    axi->axi_axi_all = of_property_read_bool(np, "snps,axi_all");
->>>      axi->axi_fb = of_property_read_bool(np, "snps,axi_fb");
->>>      axi->axi_mb = of_property_read_bool(np, "snps,axi_mb");
->>>      axi->axi_rb =  of_property_read_bool(np, "snps,axi_rb");
->>> diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
->>> index 266dab9ad782..889e0e9a3f1c 100644
->>> --- a/include/linux/stmmac.h
->>> +++ b/include/linux/stmmac.h
->>> @@ -103,7 +103,6 @@ struct stmmac_axi {
->>>      u32 axi_wr_osr_lmt;
->>>      u32 axi_rd_osr_lmt;
->>>      bool axi_kbbe;
->>> -    bool axi_axi_all;
->>>      u32 axi_blen[AXI_BLEN];
->>>      bool axi_fb;
->>>      bool axi_mb;
->>>
->>
->>
->
+--
+Richard Guy Briggs <rgb@redhat.com>
+Kernel Security Engineering, Base Operating Systems, Red Hat
+Remote, Ottawa, Canada
+Voice: +1.647.777.2635, Internal: (81) 32635
