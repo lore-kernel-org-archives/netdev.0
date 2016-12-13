@@ -1,92 +1,66 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: bloat-o-meter +32832 (was: Re: bpf: add prog_digest and expose
- it via fdinfo/netlink)
-Date: Tue, 13 Dec 2016 11:06:49 +0100
-Message-ID: <584FC839.8040105@iogearbox.net>
-References: <CAMuHMdUoadaRw9dAOkpzn9MKV=3AQhmtfMu_zzoT6_VmFaePQg@mail.gmail.com>
+From: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH net-next 17/27] OVS: remove assumptions about
+ VLAN_TAG_PRESENT bit
+Date: Tue, 13 Dec 2016 11:40:10 +0100
+Message-ID: <20161213114010.0fa2ddb6@griffin>
+References: <cover.1481586602.git.mirq-linux@rere.qmqm.pl>
+	<e44219bc56d3e44aa0711c83c626adabf4c4ecd8.1481586602.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <ast@kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Geert Uytterhoeven <geert@linux-m68k.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAMuHMdUoadaRw9dAOkpzn9MKV=3AQhmtfMu_zzoT6_VmFaePQg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "open list:OPENVSWITCH" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: =?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux-CoA6ZxLDdyEEUmgCuDUIdw@public.gmane.org>
+Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <e44219bc56d3e44aa0711c83c626adabf4c4ecd8.1481586602.git.mirq-linux-CoA6ZxLDdyEEUmgCuDUIdw@public.gmane.org>
+List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
+List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 12/13/2016 10:29 AM, Geert Uytterhoeven wrote:
-> Hi Daniel,
->
-> On Mon, Dec 12, 2016 at 6:08 PM, Linux Kernel Mailing List
-> <linux-kernel@vger.kernel.org> wrote:
->> Web:        https://git.kernel.org/torvalds/c/7bd509e311f408f7a5132fcdde2069af65fa05ae
->> Commit:     7bd509e311f408f7a5132fcdde2069af65fa05ae
->> Parent:     8d829bdb97dc3a0c9c8090b9b168ca46ea99c8d8
->> Refname:    refs/heads/master
->> Author:     Daniel Borkmann <daniel@iogearbox.net>
->> AuthorDate: Sun Dec 4 23:19:41 2016 +0100
->> Committer:  David S. Miller <davem@davemloft.net>
->> CommitDate: Mon Dec 5 15:33:11 2016 -0500
->>
->>      bpf: add prog_digest and expose it via fdinfo/netlink
->>
->>      When loading a BPF program via bpf(2), calculate the digest over
->>      the program's instruction stream and store it in struct bpf_prog's
->>      digest member. This is done at a point in time before any instructions
->>      are rewritten by the verifier. Any unstable map file descriptor
->>      number part of the imm field will be zeroed for the hash.
->>
->>      fdinfo example output for progs:
->>
->>        # cat /proc/1590/fdinfo/5
->>        pos:          0
->>        flags:        02000002
->>        mnt_id:       11
->>        prog_type:    1
->>        prog_jited:   1
->>        prog_digest:  b27e8b06da22707513aa97363dfb11c7c3675d28
->>        memlock:      4096
->>
->>      When programs are pinned and retrieved by an ELF loader, the loader
->>      can check the program's digest through fdinfo and compare it against
->>      one that was generated over the ELF file's program section to see
->>      if the program needs to be reloaded. Furthermore, this can also be
->>      exposed through other means such as netlink in case of a tc cls/act
->>      dump (or xdp in future), but also through tracepoints or other
->>      facilities to identify the program. Other than that, the digest can
->>      also serve as a base name for the work in progress kallsyms support
->>      of programs. The digest doesn't depend/select the crypto layer, since
->>      we need to keep dependencies to a minimum. iproute2 will get support
->>      for this facility.
->>
->>      Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
->>      Acked-by: Alexei Starovoitov <ast@kernel.org>
->>      Signed-off-by: David S. Miller <davem@davemloft.net>
->
->> --- a/kernel/bpf/core.c
->> +++ b/kernel/bpf/core.c
->> @@ -136,6 +136,71 @@ void __bpf_prog_free(struct bpf_prog *fp)
->>          vfree(fp);
->>   }
->>
->> +#define SHA_BPF_RAW_SIZE                                               \
->> +       round_up(MAX_BPF_SIZE + sizeof(__be64) + 1, SHA_MESSAGE_BYTES)
->> +
->> +/* Called under verifier mutex. */
->> +void bpf_prog_calc_digest(struct bpf_prog *fp)
->> +{
->> +       const u32 bits_offset = SHA_MESSAGE_BYTES - sizeof(__be64);
->> +       static u32 ws[SHA_WORKSPACE_WORDS];
->> +       static u8 raw[SHA_BPF_RAW_SIZE];
->
-> function                                     old     new   delta
-> raw                                            -   32832  +32832
->
-> Congratulations!
-> We've found the first nominee for the v4.10-rc1 bloat-o-meter contest! :-(
->
-> Can this please be allocated dynamically? Thanks!
-
-Sure, should be okay since mostly slow-path. Will send a patch.
+T24gVHVlLCAxMyBEZWMgMjAxNiAwMToxMjozOCArMDEwMCAoQ0VUKSwgTWljaGHFgiBNaXJvc8WC
+YXcgd3JvdGU6Cj4gQEAgLTg1MCwyMCArODQ4LDExIEBAIHN0YXRpYyBpbnQgdmFsaWRhdGVfdmxh
+bl9mcm9tX25sYXR0cnMoY29uc3Qgc3RydWN0IHN3X2Zsb3dfbWF0Y2ggKm1hdGNoLAo+ICAJCXJl
+dHVybiAtRUlOVkFMOwo+ICAJfQo+ICAKPiAtCWlmIChhW09WU19LRVlfQVRUUl9WTEFOXSkKPiAt
+CQl0Y2kgPSBubGFfZ2V0X2JlMTYoYVtPVlNfS0VZX0FUVFJfVkxBTl0pOwo+IC0KPiAtCWlmICgh
+KHRjaSAmIGh0b25zKFZMQU5fVEFHX1BSRVNFTlQpKSkgewo+IC0JCWlmICh0Y2kpIHsKPiAtCQkJ
+T1ZTX05MRVJSKGxvZywgIiVzIFRDSSBkb2VzIG5vdCBoYXZlIFZMQU5fVEFHX1BSRVNFTlQgYml0
+IHNldC4iLAo+IC0JCQkJICAoaW5uZXIpID8gIkMtVkxBTiIgOiAiVkxBTiIpOwo+IC0JCQlyZXR1
+cm4gLUVJTlZBTDsKPiAtCQl9IGVsc2UgaWYgKG5sYV9sZW4oYVtPVlNfS0VZX0FUVFJfRU5DQVBd
+KSkgewo+IC0JCQkvKiBDb3JuZXIgY2FzZSBmb3IgdHJ1bmNhdGVkIFZMQU4gaGVhZGVyLiAqLwo+
+IC0JCQlPVlNfTkxFUlIobG9nLCAiVHJ1bmNhdGVkICVzIGhlYWRlciBoYXMgbm9uLXplcm8gZW5j
+YXAgYXR0cmlidXRlLiIsCj4gLQkJCQkgIChpbm5lcikgPyAiQy1WTEFOIiA6ICJWTEFOIik7Cj4g
+LQkJCXJldHVybiAtRUlOVkFMOwo+IC0JCX0KPiArCWlmICghYVtPVlNfS0VZX0FUVFJfVkxBTl0g
+JiYgbmxhX2xlbihhW09WU19LRVlfQVRUUl9FTkNBUF0pKSB7Cj4gKwkJLyogQ29ybmVyIGNhc2Ug
+Zm9yIHRydW5jYXRlZCBWTEFOIGhlYWRlci4gKi8KPiArCQlPVlNfTkxFUlIobG9nLCAiVHJ1bmNh
+dGVkICVzIGhlYWRlciBoYXMgbm9uLXplcm8gZW5jYXAgYXR0cmlidXRlLiIsCj4gKwkJCShpbm5l
+cikgPyAiQy1WTEFOIiA6ICJWTEFOIik7Cj4gKwkJcmV0dXJuIC1FSU5WQUw7CgpUaGlzIGxvb2tz
+IHdyb25nLiBUaGUgemVybyB2YWx1ZSBvZiBubGFfZ2V0X2JlMTYoYVtPVlNfS0VZX0FUVFJfVkxB
+Tl0pCnRvZ2V0aGVyIHdpdGggZW1wdHkgYVtPVlNfS0VZX0FUVFJfRU5DQVBdIG1lYW5zIHRydW5j
+YXRlZCBWTEFOIGhlYWRlcgphbmQgdGhpcyBuZWVkcyB0byBiZSBwcmVzZXJ2ZWQuCgpJbiBvdGhl
+ciB3b3JkcywgeW91IG5lZWQgdG8gY2hlY2sgYWxzbyAhbmxhX2dldF9iZTE2KGFbT1ZTX0tFWV9B
+VFRSX1ZMQU5dKQpoZXJlLgoKCk92ZXJhbGwsIHRoaXMgd2hvbGUgcGF0Y2ggbG9va3MgdmVyeSBz
+dXNwaWNpb3VzIGZyb20gdGhlIHZlcnkKYmVnaW5uaW5nLiBUaGUgeG9ycyB1c2VkIGFyZSBzdHJv
+bmcgaW5kaWNhdGlvbiB0aGF0IHNvbWV0aGluZyBpcyBub3QKcmlnaHQuCgpBbmQgaW5kZWVkLCB5
+b3UncmUgYnJlYWtpbmcgdUFQSSBjb21wYXRpYmlsaXR5LiBQcmV2aW91c2x5LCB0aGUKVkxBR19U
+QUdfUFJFU0VOVCBiaXQgc2V0IGluIE9WU19LRVlfQVRUUl9WTEFOIGNhdXNlZCB0aGUgZmxvdyB0
+byBtYXRjaApvbiBwYWNrZXRzIHdpdGggVkxBTiB0YWcgcHJlc2VudC4gQWZ0ZXIgdGhpcyBwYXRj
+aCwgaXQgY2F1c2VzIHRoZSBmbG93CnRvIG1hdGNoIG9ubHkgb24gdGhvc2UgcGFja2V0cyB0aGF0
+IGhhdmUgYSBjZXJ0YWluIHZhbHVlIG9mClZMQU5fQ0ZJX01BU0sgaW4gdGhlaXIgVkxBTiB0YWcg
+KEkgaGF2ZW4ndCBib3RoZXIgZGVjaXBoZXJpbmcgd2hhdAp2YWx1ZSBpcyBjaGVja2VkIGFmdGVy
+IGFsbCB0aGVzZSB4b3JzLCBpdCdzIGFzIHdlbGwgcG9zc2libGUgdGhhdCBpdAp3aWxsIGFsc28g
+bWF0Y2ggb24gcGFja2V0cyBfd2l0aG91dF8gYW55IFZMQU4gaGVhZGVyKS4KCllvdSBoYXZlIHRv
+IHByZXNlcnZlIHRoZSBvbGQgbWVhbmluZyBvZiBWTEFOX1RBR19QUkVTRU5UIGluCk9WU19LRVlf
+QVRUUl9WTEFOLiBXaGVuIGRvaW5nIGZsb3cgbG9va3VwcywgVkxBTl9UQUdfUFJFU0VOVCBtdXN0
+IG1hdGNoCm9uIGFuZCBvbmx5IG9uIHBhY2tldHMgdGhhdCBoYXZlIFZMQU4gdGFnIHByZXNlbnQs
+IGlycmVzcGVjdGl2ZSBvZiB0aGVpcgpWTEFOX0NGSV9NQVNLLgoKSWYgeW91IHdhbnQgdG8gaW50
+cm9kdWNlIHN1cHBvcnQgZm9yIGxvb2t1cHMgb24gVkxBTl9DRklfTUFTSywgeW91J2xsCmhhdmUg
+dG8gZG8gdGhhdCBieSBpbnRyb2R1Y2luZyBhIG5ldyBuZXRsaW5rIGF0dHJpYnV0ZS4KCiBKaXJp
+Cl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWls
+aW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwczovL21haWwub3BlbnZzd2l0Y2gub3Jn
+L21haWxtYW4vbGlzdGluZm8vb3ZzLWRldgo=
