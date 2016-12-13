@@ -1,148 +1,117 @@
-From: Mike Rapoport <rppt@linux.vnet.ibm.com>
-Subject: Re: Designing a safe RX-zero-copy Memory Model for Networking
-Date: Tue, 13 Dec 2016 11:42:22 +0200
-Message-ID: <20161213094222.GF19987@rapoport-lnx>
-References: <20161205153132.283fcb0e@redhat.com>
- <20161212083812.GA19987@rapoport-lnx>
- <20161212104042.0a011212@redhat.com>
- <20161212141433.GB19987@rapoport-lnx>
- <584EB8DF.8000308@gmail.com>
+From: Stefan Hajnoczi <stefanha@gmail.com>
+Subject: Re: [PATCH v4 0/4] vsock: cancel connect packets when failing to
+	connect
+Date: Tue, 13 Dec 2016 09:50:10 +0000
+Message-ID: <20161213095010.GA3103@stefanha-x1.localdomain>
+References: <1481545269-18104-1-git-send-email-bergwolf@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        linux-mm <linux-mm@kvack.org>,
-        Willem de Bruijn <willemdebruijn.kernel@gmail.com>,
-        =?iso-8859-1?Q?Bj=F6rn_T=F6pel?= <bjorn.topel@intel.com>,
-        "Karlsson, Magnus" <magnus.karlsson@intel.com>,
-        Alexander Duyck <alexander.duyck@gmail.com>,
-        Mel Gorman <mgorman@techsingularity.net>,
-        Tom Herbert <tom@herbertland.com>,
-        Brenden Blanco <bblanco@plumgrid.com>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Jesse Brandeburg <jesse.brandeburg@intel.com>,
-        Kalman Meth <METH@il.ibm.com>,
-        Vladislav Yasevich <vyasevich@gmail.com>
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <584EB8DF.8000308@gmail.com>
-Sender: owner-linux-mm@kvack.org
+Content-Type: multipart/mixed; boundary="===============3983649470925062634=="
+Cc: kvm@vger.kernel.org, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	Stefan Hajnoczi <stefanha@redhat.com>, David Miller <davem@davemloft.net>,
+	Jorgen Hansen <jhansen@vmware.com>
+To: Peng Tao <bergwolf@gmail.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1481545269-18104-1-git-send-email-bergwolf@gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 12, 2016 at 06:49:03AM -0800, John Fastabend wrote:
-> On 16-12-12 06:14 AM, Mike Rapoport wrote:
-> >>
-> > We were not considered using XDP yet, so we've decided to limit the initial
-> > implementation to macvtap because we can ensure correspondence between a
-> > NIC queue and virtual NIC, which is not the case with more generic tap
-> > device. It could be that use of XDP will allow for a generic solution for
-> > virtio case as well.
-> 
-> Interesting this was one of the original ideas behind the macvlan
-> offload mode. iirc Vlad also was interested in this.
-> 
-> I'm guessing this was used because of the ability to push macvlan onto
-> its own queue?
 
-Yes, with a queue dedicated to a virtual NIC we only need to ensure that
-guest memory is used for RX buffers. 
- 
-> >>
-> >>> Have you considered using "push" model for setting the NIC's RX memory?
-> >>
-> >> I don't understand what you mean by a "push" model?
-> > 
-> > Currently, memory allocation in NIC drivers boils down to alloc_page with
-> > some wrapping code. I see two possible ways to make NIC use of some
-> > preallocated pages: either NIC driver will call an API (probably different
-> > from alloc_page) to obtain that memory, or there will be NDO API that
-> > allows to set the NIC's RX buffers. I named the later case "push".
-> 
-> I prefer the ndo op. This matches up well with AF_PACKET model where we
-> have "slots" and offload is just a transparent "push" of these "slots"
-> to the driver. Below we have a snippet of our proposed API,
-> 
-> (https://patchwork.ozlabs.org/patch/396714/ note the descriptor mapping
-> bits will be dropped)
-> 
-> + * int (*ndo_direct_qpair_page_map) (struct vm_area_struct *vma,
-> + *				     struct net_device *dev)
-> + *	Called to map queue pair range from split_queue_pairs into
-> + *	mmap region.
-> +
-> 
-> > +
-> > +static int
-> > +ixgbe_ndo_qpair_page_map(struct vm_area_struct *vma, struct net_device *dev)
-> > +{
-> > +	struct ixgbe_adapter *adapter = netdev_priv(dev);
-> > +	phys_addr_t phy_addr = pci_resource_start(adapter->pdev, 0);
-> > +	unsigned long pfn_rx = (phy_addr + RX_DESC_ADDR_OFFSET) >> PAGE_SHIFT;
-> > +	unsigned long pfn_tx = (phy_addr + TX_DESC_ADDR_OFFSET) >> PAGE_SHIFT;
-> > +	unsigned long dummy_page_phy;
-> > +	pgprot_t pre_vm_page_prot;
-> > +	unsigned long start;
-> > +	unsigned int i;
-> > +	int err;
-> > +
-> > +	if (!dummy_page_buf) {
-> > +		dummy_page_buf = kzalloc(PAGE_SIZE_4K, GFP_KERNEL);
-> > +		if (!dummy_page_buf)
-> > +			return -ENOMEM;
-> > +
-> > +		for (i = 0; i < PAGE_SIZE_4K / sizeof(unsigned int); i++)
-> > +			dummy_page_buf[i] = 0xdeadbeef;
-> > +	}
-> > +
-> > +	dummy_page_phy = virt_to_phys(dummy_page_buf);
-> > +	pre_vm_page_prot = vma->vm_page_prot;
-> > +	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
-> > +
-> > +	/* assume the vm_start is 4K aligned address */
-> > +	for (start = vma->vm_start;
-> > +	     start < vma->vm_end;
-> > +	     start += PAGE_SIZE_4K) {
-> > +		if (start == vma->vm_start + RX_DESC_ADDR_OFFSET) {
-> > +			err = remap_pfn_range(vma, start, pfn_rx, PAGE_SIZE_4K,
-> > +					      vma->vm_page_prot);
-> > +			if (err)
-> > +				return -EAGAIN;
-> > +		} else if (start == vma->vm_start + TX_DESC_ADDR_OFFSET) {
-> > +			err = remap_pfn_range(vma, start, pfn_tx, PAGE_SIZE_4K,
-> > +					      vma->vm_page_prot);
-> > +			if (err)
-> > +				return -EAGAIN;
-> > +		} else {
-> > +			unsigned long addr = dummy_page_phy > PAGE_SHIFT;
-> > +
-> > +			err = remap_pfn_range(vma, start, addr, PAGE_SIZE_4K,
-> > +					      pre_vm_page_prot);
-> > +			if (err)
-> > +				return -EAGAIN;
-> > +		}
-> > +	}
-> > +	return 0;
-> > +}
-> > +
-> 
-> Any thoughts on something like the above? We could push it when net-next
-> opens. One piece that fits naturally into vhost/macvtap is the kicks and
-> queue splicing are already there so no need to implement this making the
-> above patch much simpler.
+--===============3983649470925062634==
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="Dxnq1zWXvFF0Q93v"
+Content-Disposition: inline
 
-Sorry, but I don't quite follow you here. The vhost does not use vma
-mappings, it just sees a bunch of pages pointed by the vring descriptors...
- 
-> .John
- 
---
-Sincerely yours,
-Mike.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+--Dxnq1zWXvFF0Q93v
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+On Mon, Dec 12, 2016 at 08:21:05PM +0800, Peng Tao wrote:
+> Currently, if a connect call fails on a signal or timeout (e.g., guest is=
+ still
+> in the process of starting up), we'll just return to caller and leave the=
+ connect
+> packet queued and they are sent even though the connection is considered =
+a failure,
+> which can confuse applications with unwanted false connect attempt.
+>=20
+> The patchset enables vsock (both host and guest) to cancel queued packets=
+ when
+> a connect attempt is considered to fail.
+>=20
+> v4 changelog:
+>   - drop two unnecessary void * cast
+>   - update new callback commnet
+> v3 changelog:
+>   - define cancel_pkt callback in struct vsock_transport rather than stru=
+ct virtio_transport
+>   - rename virtio_vsock_pkt->vsk to virtio_vsock_pkt->cancel_token
+> v2 changelog:
+>   - fix queued_replies counting and resume tx/rx when necessary
+>=20
+> Cheers,
+> Tao
+>=20
+> Peng Tao (4):
+>   vsock: track pkt owner vsock
+>   vhost-vsock: add pkt cancel capability
+>   vsock: add pkt cancel capability
+>   vsock: cancel packets when failing to connect
+>=20
+>  drivers/vhost/vsock.c                   | 41 +++++++++++++++++++++++++++=
++++++
+>  include/linux/virtio_vsock.h            |  2 ++
+>  include/net/af_vsock.h                  |  3 +++
+>  net/vmw_vsock/af_vsock.c                | 14 +++++++++++
+>  net/vmw_vsock/virtio_transport.c        | 42 +++++++++++++++++++++++++++=
+++++++
+>  net/vmw_vsock/virtio_transport_common.c |  7 ++++++
+>  6 files changed, 109 insertions(+)
+>=20
+> --=20
+> 2.7.4
+>=20
+> _______________________________________________
+> Virtualization mailing list
+> Virtualization@lists.linux-foundation.org
+> https://lists.linuxfoundation.org/mailman/listinfo/virtualization
+
+Reviewed-by: Stefan Hajnoczi <stefanha@redhat.com>
+
+--Dxnq1zWXvFF0Q93v
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEcBAEBAgAGBQJYT8RSAAoJEJykq7OBq3PIGBkIALwKOTYa7ExTUKH0qBR/Bg4j
+RHuw8kol8NjwAhPe/q53pNAg9TUTYSsQzEKcDS8kvtMP7aMvf1Xfq6qRVVxTPbtj
+oiQTakVbMKXxciuQ4IWPrxbIP0taSonUWJsT1+2W4WOgVjxn2U5d7N0R3sWaawj5
+g/t7YVp/80YWtn+FK0kXFfS7B33ySWHtLns5CA9rw+L0aFWVJZ+3izus7OxF0WRJ
+TaCPoxmPIdbeOEwHxxTIYuu6dAzU+pULPO8HU3u9CxH3qg0Kb0Sm6OWllIXy753b
+8sy3ce+z0G4uk6eYtIEvXd0WKN/BIbko7g5ymJ25wByG5dubQGAOvcuzWbuRo2Q=
+=Q2Uv
+-----END PGP SIGNATURE-----
+
+--Dxnq1zWXvFF0Q93v--
+
+--===============3983649470925062634==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+Virtualization mailing list
+Virtualization@lists.linux-foundation.org
+https://lists.linuxfoundation.org/mailman/listinfo/virtualization
+--===============3983649470925062634==--
