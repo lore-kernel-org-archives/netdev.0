@@ -1,82 +1,182 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: mlx5: net_device.addr_list_lock usage before initialization
-Date: Tue, 13 Dec 2016 16:48:44 +0200
-Message-ID: <CALzJLG9_Yvhw50Q4u62oqyoXEkqykUmdqxqZ8_W09AKaCoiO1Q@mail.gmail.com>
-References: <alpine.LFD.2.20.1612131405080.4914@schleppi>
+From: Richard Guy Briggs <rgb@redhat.com>
+Subject: Re: [PATCH v2] audit: use proper refcount locking on audit_sock
+Date: Tue, 13 Dec 2016 09:55:55 -0500
+Message-ID: <20161213145555.GJ22660@madcap2.tricolour.ca>
+References: <20161212100215.GA1305@madcap2.tricolour.ca>
+ <5714bd7468cfec225407a6c367e658478d590495.1481534171.git.rgb@redhat.com>
+ <CAM_iQpXAZOOn7G-EbEy1T11w6uoqwx5M8jVt=iHfOj4TJYsqpA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Saeed Mahameed <saeedm@mellanox.com>,
-        Matan Barak <matanb@mellanox.com>,
-        Leon Romanovsky <leonro@mellanox.com>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        linux-kernel <linux-kernel@vger.kernel.org>
-To: Sebastian Ott <sebott@linux.vnet.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f43.google.com ([209.85.215.43]:35677 "EHLO
-        mail-lf0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933116AbcLMOtH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 13 Dec 2016 09:49:07 -0500
-Received: by mail-lf0-f43.google.com with SMTP id b14so28761566lfg.2
-        for <netdev@vger.kernel.org>; Tue, 13 Dec 2016 06:49:06 -0800 (PST)
-In-Reply-To: <alpine.LFD.2.20.1612131405080.4914@schleppi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>, linux-audit@redhat.com,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Eric Paris <eparis@redhat.com>, Paul Moore <pmoore@redhat.com>,
+        sgrubb@redhat.com
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAM_iQpXAZOOn7G-EbEy1T11w6uoqwx5M8jVt=iHfOj4TJYsqpA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Dec 13, 2016 at 3:22 PM, Sebastian Ott
-<sebott@linux.vnet.ibm.com> wrote:
-> Hi,
->
-> I ran into the following lockdep complaint:
->
-> [    7.059561] INFO: trying to register non-static key.
-> [    7.059566] the code is fine but needs lockdep annotation.
-> [    7.059570] turning off the locking correctness validator.
-> [    7.059579] CPU: 6 PID: 6 Comm: kworker/u32:0 Not tainted 4.9.0-02683-g784243e-dirty #77
-> [    7.059582] Hardware name: IBM              2964 N96              704              (LPAR)
-> [    7.061260] Workqueue: mlx5e mlx5e_set_rx_mode_work [mlx5_core]
-> [    7.061268] Stack:
-> [    7.061270]        00000000f95739c0 00000000f9573a50 0000000000000003 0000000000000000
-> [    7.061278]        00000000f9573af0 00000000f9573a68 00000000f9573a68 0000000000000020
-> [    7.061286]        0000000000000000 0000000000000020 000000000000000a 000000000000000a
-> [    7.061294]        000000000000000c 00000000f9573ab8 0000000000000000 0000000000000000
-> [    7.061301]        00000000008a1038 0000000000112a50 00000000f9573a50 00000000f9573aa8
-> [    7.061314] Call Trace:
-> [    7.061321] ([<000000000011292a>] show_trace+0x8a/0xe0)
-> [    7.061327]  [<0000000000112a00>] show_stack+0x80/0xd8
-> [    7.061334]  [<00000000005cdce6>] dump_stack+0x96/0xd8
-> [    7.061338]  [<00000000001ae352>] register_lock_class+0x1d2/0x530
-> [    7.061341]  [<00000000001b33f6>] __lock_acquire+0xfe/0x7d8
-> [    7.061345]  [<00000000001b4394>] lock_acquire+0x30c/0x358
-> [    7.061352]  [<000000000089454c>] _raw_spin_lock_bh+0x64/0xa0
-> [    7.062171]  [<000003ff81465858>] mlx5e_set_rx_mode_work+0x248/0x490 [mlx5_core]
-> [    7.062178]  [<0000000000163864>] process_one_work+0x41c/0x830
-> [    7.062181]  [<0000000000163f2c>] worker_thread+0x2b4/0x478
-> [    7.062186]  [<000000000016c46c>] kthread+0x15c/0x170
-> [    7.062190]  [<0000000000895a52>] kernel_thread_starter+0x6/0xc
-> [    7.062193]  [<0000000000895a4c>] kernel_thread_starter+0x0/0xc
-> [    7.062196] INFO: lockdep is turned off.
->
-> The problematic lock is net_device.addr_list_lock whose usage is
-> asynchronously triggered by:
->
-> mlx5e_add -> mlx5e_attach -> mlx5e_attach_netdev -> mlx5e_nic_enable
-> [workq] mlx5e_set_rx_mode_work -> mlx5e_handle_netdev_addr -> mlx5e_sync_netdev_addr
->
-> Initialization of this lock is triggered by:
-> mlx5e_add -> register_netdev
->
-> ...after the call to mlx5e_attach which is obviously racy.
->
+On 2016-12-12 15:58, Cong Wang wrote:
+> On Mon, Dec 12, 2016 at 2:03 AM, Richard Guy Briggs <rgb@redhat.com> wrote:
+> > Resetting audit_sock appears to be racy.
+> >
+> > audit_sock was being copied and dereferenced without using a refcount on
+> > the source sock.
+> >
+> > Bump the refcount on the underlying sock when we store a refrence in
+> > audit_sock and release it when we reset audit_sock.  audit_sock
+> > modification needs the audit_cmd_mutex.
+> >
+> > See: https://lkml.org/lkml/2016/11/26/232
+> >
+> > Thanks to Eric Dumazet <edumazet@google.com> and Cong Wang
+> > <xiyou.wangcong@gmail.com> on ideas how to fix it.
+> >
+> > Signed-off-by: Richard Guy Briggs <rgb@redhat.com>
+> > ---
+> > There has been a lot of change in the audit code that is about to go
+> > upstream to address audit queue issues.  This patch is based on the
+> > source tree: git://git.infradead.org/users/pcmoore/audit#next
+> > ---
+> >  kernel/audit.c |   34 ++++++++++++++++++++++++++++------
+> >  1 files changed, 28 insertions(+), 6 deletions(-)
+> >
+> > diff --git a/kernel/audit.c b/kernel/audit.c
+> > index f20eee0..439f7f3 100644
+> > --- a/kernel/audit.c
+> > +++ b/kernel/audit.c
+> > @@ -452,7 +452,9 @@ static void auditd_reset(void)
+> >         struct sk_buff *skb;
+> >
+> >         /* break the connection */
+> > +       sock_put(audit_sock);
+> 
+> Why audit_sock can't be NULL here?
 
-Thanks Sebastian for the report,
+Fixed.
 
-indeed there is an issue, I wonder why the net_device.addr_list_lock
-is initialized so late (at register_netdevice) IMHO it should be
-initialized at
-alloc_netdev_mqs->dev_addr_init
-where all the other net_device fields are initialized!
+> >         audit_pid = 0;
+> > +       audit_nlk_portid = 0;
+> >         audit_sock = NULL;
+> >
+> >         /* flush all of the retry queue to the hold queue */
+> > @@ -478,6 +480,12 @@ static int kauditd_send_unicast_skb(struct sk_buff *skb)
+> >         if (rc >= 0) {
+> >                 consume_skb(skb);
+> >                 rc = 0;
+> > +       } else {
+> > +               if (rc & (-ENOMEM|-EPERM|-ECONNREFUSED)) {
+> 
+> Are these errno's bits??
 
-We will handle this.
+No, I've fixed this silly error.
 
-Thanks,
-Saeed.
+> > +                       mutex_lock(&audit_cmd_mutex);
+> > +                       auditd_reset();
+> > +                       mutex_unlock(&audit_cmd_mutex);
+> > +               }
+> >         }
+> >
+> >         return rc;
+> > @@ -579,7 +587,9 @@ static int kauditd_thread(void *dummy)
+> >
+> >                                 auditd = 0;
+> >                                 if (AUDITD_BAD(rc, reschedule)) {
+> > +                                       mutex_lock(&audit_cmd_mutex);
+> >                                         auditd_reset();
+> > +                                       mutex_unlock(&audit_cmd_mutex);
+> >                                         reschedule = 0;
+> >                                 }
+> >                         } else
+> > @@ -594,7 +604,9 @@ static int kauditd_thread(void *dummy)
+> >                                 auditd = 0;
+> >                                 if (AUDITD_BAD(rc, reschedule)) {
+> >                                         kauditd_hold_skb(skb);
+> > +                                       mutex_lock(&audit_cmd_mutex);
+> >                                         auditd_reset();
+> > +                                       mutex_unlock(&audit_cmd_mutex);
+> >                                         reschedule = 0;
+> >                                 } else
+> >                                         /* temporary problem (we hope), queue
+> > @@ -623,7 +635,9 @@ quick_loop:
+> >                                 if (rc) {
+> >                                         auditd = 0;
+> >                                         if (AUDITD_BAD(rc, reschedule)) {
+> > +                                               mutex_lock(&audit_cmd_mutex);
+> >                                                 auditd_reset();
+> > +                                               mutex_unlock(&audit_cmd_mutex);
+> >                                                 reschedule = 0;
+> >                                         }
+> >
+> > @@ -1004,17 +1018,22 @@ static int audit_receive_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+> >                                 return -EACCES;
+> >                         }
+> >                         if (audit_pid && new_pid &&
+> > -                           audit_replace(requesting_pid) != -ECONNREFUSED) {
+> > +                           (audit_replace(requesting_pid) & (-ECONNREFUSED|-EPERM|-ENOMEM))) {
+> >                                 audit_log_config_change("audit_pid", new_pid, audit_pid, 0);
+> >                                 return -EEXIST;
+> >                         }
+> >                         if (audit_enabled != AUDIT_OFF)
+> >                                 audit_log_config_change("audit_pid", new_pid, audit_pid, 1);
+> > -                       audit_pid = new_pid;
+> > -                       audit_nlk_portid = NETLINK_CB(skb).portid;
+> > -                       audit_sock = skb->sk;
+> > -                       if (!new_pid)
+> > +                       if (new_pid) {
+> > +                               if (audit_sock)
+> > +                                       sock_put(audit_sock);
+> > +                               audit_pid = new_pid;
+> > +                               audit_nlk_portid = NETLINK_CB(skb).portid;
+> > +                               sock_hold(skb->sk);
+> 
+> Why refcnt is still needed here? I need it because I removed the code
+> in net exit code path.
+
+Because there is a chance that auditd exits abnormally and no message is
+send from the kauditd thread to discover it has gone.
+
+> > +                               audit_sock = skb->sk;
+> > +                       } else {
+> >                                 auditd_reset();
+> > +                       }
+> >                         wake_up_interruptible(&kauditd_wait);
+> >                 }
+> >                 if (s.mask & AUDIT_STATUS_RATE_LIMIT) {
+> > @@ -1283,8 +1302,11 @@ static void __net_exit audit_net_exit(struct net *net)
+> >  {
+> >         struct audit_net *aunet = net_generic(net, audit_net_id);
+> >         struct sock *sock = aunet->nlsk;
+> > -       if (sock == audit_sock)
+> > +       if (sock == audit_sock) {
+> > +               mutex_lock(&audit_cmd_mutex);
+> 
+> You need to put the if check inside the mutex too. Again, this could be
+> removed if you use refcnt.
+
+Ok, right, fixed.
+
+That last patch was a bit of a mess!  Thanks for your patience in
+checking it...
+
+> >                 auditd_reset();
+> > +               mutex_unlock(&audit_cmd_mutex);
+> > +       }
+> >
+> >         RCU_INIT_POINTER(aunet->nlsk, NULL);
+> >         synchronize_net();
+> > --
+> > 1.7.1
+> >
+
+- RGB
+
+--
+Richard Guy Briggs <rgb@redhat.com>
+Kernel Security Engineering, Base Operating Systems, Red Hat
+Remote, Ottawa, Canada
+Voice: +1.647.777.2635, Internal: (81) 32635
