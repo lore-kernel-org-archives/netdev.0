@@ -1,131 +1,92 @@
-From: Richard Guy Briggs <rgb@redhat.com>
-Subject: [RFC PATCH v3] audit: use proper refcount locking on audit_sock
-Date: Tue, 13 Dec 2016 10:03:01 -0500
-Message-ID: <61c37ca790bc11bc023aea8f9b70ab3098aa30f5.1481626466.git.rgb@redhat.com>
-References: <20161212100215.GA1305@madcap2.tricolour.ca>
-Cc: Richard Guy Briggs <rgb@redhat.com>, <dvyukov@google.com>,
-        <xiyou.wangcong@gmail.com>, <edumazet@google.com>,
-        <eparis@redhat.com>, <pmoore@redhat.com>, <sgrubb@redhat.com>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-audit@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43302 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932993AbcLMPDg (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 13 Dec 2016 10:03:36 -0500
-In-Reply-To: <20161212100215.GA1305@madcap2.tricolour.ca>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
+Subject: Re: [PATCH net-next 13/27] bridge: use __vlan_hwaccel
+	helpers
+Date: Tue, 13 Dec 2016 16:11:10 +0100
+Message-ID: <20161213151110.yapgecrospdd23oj@rere.qmqm.pl>
+References: <cover.1481586602.git.mirq-linux@rere.qmqm.pl>
+	<e6e09a2f745a652382ac7859770ec16c75d8e149.1481586602.git.mirq-linux@rere.qmqm.pl>
+	<f5078470-0fc0-cfcd-36df-3ebb380b547a@cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org,
+	"moderated list:ETHERNET BRIDGE" <bridge@lists.linux-foundation.org>,
+	"open list:NETFILTER \({IP, IP6, ARP, EB ,
+	NF}TABLES\)" <netfilter-devel@vger.kernel.org>,
+	"Jozsef Kadlecsik \(supporter:NETFILTER \({IP, IP6, ARP, EB,
+	NF}TABLES\)\)" <kadlec@blackhole.kfki.hu>,
+	"Patrick McHardy \(supporter:NETFILTER \({IP, IP6, ARP , EB,
+	NF}TABLES\)\)" <kaber@trash.net>,
+	"Pablo Neira Ayuso \(supporter:NETFILTER \({IP , IP6, ARP, EB,
+	NF}TABLES\)\)" <pablo@netfilter.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <f5078470-0fc0-cfcd-36df-3ebb380b547a@cogentembedded.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Resetting audit_sock appears to be racy.
+On Tue, Dec 13, 2016 at 03:59:46PM +0300, Sergei Shtylyov wrote:
+> Hello!
+> 
+> On 12/13/2016 3:12 AM, Micha³ Miros³aw wrote:
+> 
+> > This removes assumption than vlan_tci != 0 when tag is present.
+> > 
+> > Signed-off-by: Micha³ Miros³aw <mirq-linux@rere.qmqm.pl>
+> > ---
+> >  net/bridge/br_netfilter_hooks.c | 14 ++++++++------
+> >  net/bridge/br_private.h         |  2 +-
+> >  net/bridge/br_vlan.c            |  6 +++---
+> >  3 files changed, 12 insertions(+), 10 deletions(-)
+> > 
+> > diff --git a/net/bridge/br_netfilter_hooks.c b/net/bridge/br_netfilter_hooks.c
+> > index b12501a..2cc0747 100644
+> > --- a/net/bridge/br_netfilter_hooks.c
+> > +++ b/net/bridge/br_netfilter_hooks.c
+> [...]
+> > @@ -749,8 +747,12 @@ static int br_nf_dev_queue_xmit(struct net *net, struct sock *sk, struct sk_buff
+> > 
+> >  		data = this_cpu_ptr(&brnf_frag_data_storage);
+> > 
+> > -		data->vlan_tci = skb->vlan_tci;
+> > -		data->vlan_proto = skb->vlan_proto;
+> > +		if (skb_vlan_tag_present(skb)) {
+> > +			data->vlan_tci = skb->vlan_tci;
+> > +			data->vlan_proto = skb->vlan_proto;
+> > +		} else
+> > +			data->vlan_proto = 0;
+> 
+>    CodingStyle: should use {} in all branches of *if* if at least one branch
+> has {}.
+> 
+> [...]
+> > diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
+> > index b6de4f4..ef94664 100644
+> > --- a/net/bridge/br_vlan.c
+> > +++ b/net/bridge/br_vlan.c
+> 
+> > @@ -444,8 +444,8 @@ static bool __allowed_ingress(const struct net_bridge *br,
+> >  			__vlan_hwaccel_put_tag(skb, br->vlan_proto, pvid);
+> >  		else
+> >  			/* Priority-tagged Frame.
+> > -			 * At this point, We know that skb->vlan_tci had
+> > -			 * VLAN_TAG_PRESENT bit and its VID field was 0x000.
+> > +			 * At this point, We know that skb->vlan_tci VID
+> 
+>    s/We/we/.
+> 
+> > +			 * field was 0x000.
+> 
+>    Simply 0, maybe?
 
-audit_sock was being copied and dereferenced without using a refcount on
-the source sock.
-
-Bump the refcount on the underlying sock when we store a refrence in
-audit_sock and release it when we reset audit_sock.  audit_sock
-modification needs the audit_cmd_mutex.
-
-See: https://lkml.org/lkml/2016/11/26/232
-
-Thanks to Eric Dumazet <edumazet@google.com> and Cong Wang
-<xiyou.wangcong@gmail.com> on ideas how to fix it.
-
-Signed-off-by: Richard Guy Briggs <rgb@redhat.com>
----
-There has been a lot of change in the audit code that is about to go
-upstream to address audit queue issues.  This patch is based on the
-source tree: git://git.infradead.org/users/pcmoore/audit#next
----
- kernel/audit.c |   28 +++++++++++++++++++++++-----
- 1 files changed, 23 insertions(+), 5 deletions(-)
-
-diff --git a/kernel/audit.c b/kernel/audit.c
-index f20eee0..3bb4126 100644
---- a/kernel/audit.c
-+++ b/kernel/audit.c
-@@ -446,14 +446,19 @@ static void kauditd_retry_skb(struct sk_buff *skb)
-  * Description:
-  * Break the auditd/kauditd connection and move all the records in the retry
-  * queue into the hold queue in case auditd reconnects.
-+ * The audit_cmd_mutex must be held when calling this function.
-  */
- static void auditd_reset(void)
- {
- 	struct sk_buff *skb;
- 
- 	/* break the connection */
-+	if (audit_sock) {
-+		sock_put(audit_sock);
-+		audit_sock = NULL;
-+	}
- 	audit_pid = 0;
--	audit_sock = NULL;
-+	audit_nlk_portid = 0;
- 
- 	/* flush all of the retry queue to the hold queue */
- 	while ((skb = skb_dequeue(&audit_retry_queue)))
-@@ -579,7 +584,9 @@ static int kauditd_thread(void *dummy)
- 
- 				auditd = 0;
- 				if (AUDITD_BAD(rc, reschedule)) {
-+					mutex_lock(&audit_cmd_mutex);
- 					auditd_reset();
-+					mutex_unlock(&audit_cmd_mutex);
- 					reschedule = 0;
- 				}
- 			} else
-@@ -594,7 +601,9 @@ static int kauditd_thread(void *dummy)
- 				auditd = 0;
- 				if (AUDITD_BAD(rc, reschedule)) {
- 					kauditd_hold_skb(skb);
-+					mutex_lock(&audit_cmd_mutex);
- 					auditd_reset();
-+					mutex_unlock(&audit_cmd_mutex);
- 					reschedule = 0;
- 				} else
- 					/* temporary problem (we hope), queue
-@@ -623,7 +632,9 @@ quick_loop:
- 				if (rc) {
- 					auditd = 0;
- 					if (AUDITD_BAD(rc, reschedule)) {
-+						mutex_lock(&audit_cmd_mutex);
- 						auditd_reset();
-+						mutex_unlock(&audit_cmd_mutex);
- 						reschedule = 0;
- 					}
- 
-@@ -1010,11 +1021,16 @@ static int audit_receive_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
- 			}
- 			if (audit_enabled != AUDIT_OFF)
- 				audit_log_config_change("audit_pid", new_pid, audit_pid, 1);
--			audit_pid = new_pid;
--			audit_nlk_portid = NETLINK_CB(skb).portid;
--			audit_sock = skb->sk;
--			if (!new_pid)
-+			if (new_pid) {
-+				if (audit_sock)
-+					sock_put(audit_sock);
-+				audit_pid = new_pid;
-+				audit_nlk_portid = NETLINK_CB(skb).portid;
-+				sock_hold(skb->sk);
-+				audit_sock = skb->sk;
-+			} else {
- 				auditd_reset();
-+			}
- 			wake_up_interruptible(&kauditd_wait);
- 		}
- 		if (s.mask & AUDIT_STATUS_RATE_LIMIT) {
-@@ -1283,8 +1299,10 @@ static void __net_exit audit_net_exit(struct net *net)
- {
- 	struct audit_net *aunet = net_generic(net, audit_net_id);
- 	struct sock *sock = aunet->nlsk;
-+	mutex_lock(&audit_cmd_mutex);
- 	if (sock == audit_sock)
- 		auditd_reset();
-+	mutex_unlock(&audit_cmd_mutex);
- 
- 	RCU_INIT_POINTER(aunet->nlsk, NULL);
- 	synchronize_net();
--- 
-1.7.1
+Thanks, fixed.
+-- Micha³ Miros³aw
