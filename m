@@ -1,103 +1,134 @@
-From: Christoph Lameter <cl@linux.com>
-Subject: Re: Designing a safe RX-zero-copy Memory Model for Networking
-Date: Tue, 13 Dec 2016 10:36:55 -0600 (CST)
-Message-ID: <alpine.DEB.2.20.1612131030310.32350@east.gentwo.org>
-References: <20161205153132.283fcb0e@redhat.com> <20161212083812.GA19987@rapoport-lnx> <20161212104042.0a011212@redhat.com> <20161212141433.GB19987@rapoport-lnx> <584EB8DF.8000308@gmail.com> <20161212181344.3ddfa9c3@redhat.com> <alpine.DEB.2.20.1612121200280.13607@east.gentwo.org>
- <20161213171028.24dbf519@redhat.com>
-Content-Type: multipart/mixed; BOUNDARY="8323329-637687599-1481647015=:32350"
-Cc: John Fastabend <john.fastabend@gmail.com>,
-    Mike Rapoport <rppt@linux.vnet.ibm.com>,
-    "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-    linux-mm <linux-mm@kvack.org>,
-    Willem de Bruijn <willemdebruijn.kernel@gmail.com>,
-    =?ISO-8859-15?Q?Bj=F6rn_T=F6pel?= <bjorn.topel@intel.com>,
-    "Karlsson, Magnus" <magnus.karlsson@intel.com>,
-    Alexander Duyck <alexander.duyck@gmail.com>,
-    Mel Gorman <mgorman@techsingularity.net>,
-    Tom Herbert <tom@herbertland.com>, Brenden Blanco <bblanco@plumgrid.com>,
-    Tariq Toukan <tariqt@mellanox.com>, Saeed Mahameed <saeedm@mellanox.com>,
-    Jesse Brandeburg <jesse.brandeburg@intel.com>,
-    Kalman Meth <METH@il.ibm.com>, Vladislav Yasevich <vyasevich@gmail.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20161213171028.24dbf519@redhat.com>
-Sender: owner-linux-mm@kvack.org
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: [PATCH] net: mvpp2: fix dma unmapping of TX buffers for fragments
+Date: Tue, 13 Dec 2016 17:53:15 +0100
+Message-ID: <1481647995-7213-1-git-send-email-thomas.petazzoni@free-electrons.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+ Andrew Lunn <andrew@lunn.ch>, Yehuda Yitschak <yehuday@marvell.com>,
+ Jason Cooper <jason@lakedaemon.net>, Raphael G <raphael.glon@corp.ovh.com>,
+ netdev@vger.kernel.org, Hanna Hawa <hannah@marvell.com>,
+ stable@vger.kernel.org, Nadav Haklai <nadavh@marvell.com>,
+ Gregory Clement <gregory.clement@free-electrons.com>,
+ Stefan Chulski <stefanc@marvell.com>, Marcin Wojtas <mw@semihalf.com>,
+ linux-arm-kernel@lists.infradead.org,
+ Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: "David S . Miller" <davem@davemloft.net>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+Since commit 71ce391dfb784 ("net: mvpp2: enable proper per-CPU TX
+buffers unmapping"), we are not correctly DMA unmapping TX buffers for
+fragments.
 
---8323329-637687599-1481647015=:32350
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
+Indeed, the mvpp2_txq_inc_put() function only stores in the
+txq_cpu->tx_buffs[] array the physical address of the buffer to be
+DMA-unmapped when skb != NULL. In addition, when DMA-unmapping, we use
+skb_headlen(skb) to get the size to be unmapped. Both of this works fine
+for TX descriptors that are associated directly to a SKB, but not the
+ones that are used for fragments, with a NULL pointer as skb:
 
-On Tue, 13 Dec 2016, Jesper Dangaard Brouer wrote:
+ - We have a NULL physical address when calling DMA unmap
+ - skb_headlen(skb) crashes because skb is NULL
 
-> This is the early demux problem.  With the push-mode of registering
-> memory, you need hardware steering support, for zero-copy support, as
-> the software step happens after DMA engine have written into the memory.
+This causes random crashes when fragments are used.
 
-Right. But we could fall back to software. Transfer to a kernel buffer and
-then move stuff over. Not much of an improvment but it will make things
-work.
+To solve this problem, this commit:
 
-> > The discussion here is a bit amusing since these issues have been
-> > resolved a long time ago with the design of the RDMA subsystem. Zero
-> > copy is already in wide use. Memory registration is used to pin down
-> > memory areas. Work requests can be filed with the RDMA subsystem that
-> > then send and receive packets from the registered memory regions.
-> > This is not strictly remote memory access but this is a basic mode of
-> > operations supported  by the RDMA subsystem. The mlx5 driver quoted
-> > here supports all of that.
->
-> I hear what you are saying.  I will look into a push-model, as it might
-> be a better solution.
->  I will read up on RDMA + verbs and learn more about their API model.  I
-> even plan to write a small sample program to get a feeling for the API,
-> and maybe we can use that as a baseline for the performance target we
-> can obtain on the same HW. (Thanks to Björn for already giving me some
-> pointer here)
+ - Stores the physical address of the buffer to be unmapped
+   unconditionally, regardless of whether it is tied to a SKB or not.
 
-Great.
+ - Adds a txq_cpu->tx_data_size[] array to store the size of the DMA
+   buffer to be unmapped upon TX completion.
 
-> > What is bad about RDMA is that it is a separate kernel subsystem.
-> > What I would like to see is a deeper integration with the network
-> > stack so that memory regions can be registred with a network socket
-> > and work requests then can be submitted and processed that directly
-> > read and write in these regions. The network stack should provide the
-> > services that the hardware of the NIC does not suppport as usual.
->
-> Interesting.  So you even imagine sockets registering memory regions
-> with the NIC.  If we had a proper NIC HW filter API across the drivers,
-> to register the steering rule (like ibv_create_flow), this would be
-> doable, but we don't (DPDK actually have an interesting proposal[1])
+Fixes: 71ce391dfb784 ("net: mvpp2: enable proper per-CPU TX buffers unmapping")
+Reported-by: Raphael G <raphael.glon@corp.ovh.com>
+Cc: Raphael G <raphael.glon@corp.ovh.com>
+Cc: stable@vger.kernel.org
+Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+---
+ drivers/net/ethernet/marvell/mvpp2.c | 20 ++++++++++++++++----
+ 1 file changed, 16 insertions(+), 4 deletions(-)
 
-Well doing this would mean adding some features and that also would at
-best allow general support for zero copy direct to user space with a
-fallback to software if the hardware is missing some feature.
-
-> > The RX/TX ring in user space should be an additional mode of
-> > operation of the socket layer. Once that is in place the "Remote
-> > memory acces" can be trivially implemented on top of that and the
-> > ugly RDMA sidecar subsystem can go away.
->
-> I cannot follow that 100%, but I guess you are saying we also need a
-> more efficient mode of handing over pages/packet to userspace (than
-> going through the normal socket API calls).
-
-A work request contains the user space address of the data to be sent
-and/or received. The address must be in a registered memory region. This
-is different from copying the packet into kernel data structures.
-
-I think this can easily be generalized. We need support for registering
-memory regions, submissions of work request and the processing of
-completion requets. QP (queue-pair) processing is probably the basis for
-the whole scheme that is used in multiple context these days.
-
---8323329-637687599-1481647015=:32350--
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
+index 1026c45..d168b13 100644
+--- a/drivers/net/ethernet/marvell/mvpp2.c
++++ b/drivers/net/ethernet/marvell/mvpp2.c
+@@ -791,6 +791,8 @@ struct mvpp2_txq_pcpu {
+ 	/* Array of transmitted buffers' physical addresses */
+ 	dma_addr_t *tx_buffs;
+ 
++	size_t *tx_data_size;
++
+ 	/* Index of last TX DMA descriptor that was inserted */
+ 	int txq_put_index;
+ 
+@@ -980,9 +982,10 @@ static void mvpp2_txq_inc_put(struct mvpp2_txq_pcpu *txq_pcpu,
+ 			      struct mvpp2_tx_desc *tx_desc)
+ {
+ 	txq_pcpu->tx_skb[txq_pcpu->txq_put_index] = skb;
+-	if (skb)
+-		txq_pcpu->tx_buffs[txq_pcpu->txq_put_index] =
+-							 tx_desc->buf_phys_addr;
++	txq_pcpu->tx_data_size[txq_pcpu->txq_put_index] =
++		tx_desc->data_size;
++	txq_pcpu->tx_buffs[txq_pcpu->txq_put_index] =
++		tx_desc->buf_phys_addr;
+ 	txq_pcpu->txq_put_index++;
+ 	if (txq_pcpu->txq_put_index == txq_pcpu->size)
+ 		txq_pcpu->txq_put_index = 0;
+@@ -4404,11 +4407,13 @@ static void mvpp2_txq_bufs_free(struct mvpp2_port *port,
+ 		dma_addr_t buf_phys_addr =
+ 				    txq_pcpu->tx_buffs[txq_pcpu->txq_get_index];
+ 		struct sk_buff *skb = txq_pcpu->tx_skb[txq_pcpu->txq_get_index];
++		size_t data_size =
++			txq_pcpu->tx_data_size[txq_pcpu->txq_get_index];
+ 
+ 		mvpp2_txq_inc_get(txq_pcpu);
+ 
+ 		dma_unmap_single(port->dev->dev.parent, buf_phys_addr,
+-				 skb_headlen(skb), DMA_TO_DEVICE);
++				 data_size, DMA_TO_DEVICE);
+ 		if (!skb)
+ 			continue;
+ 		dev_kfree_skb_any(skb);
+@@ -4662,6 +4667,11 @@ static int mvpp2_txq_init(struct mvpp2_port *port,
+ 		if (!txq_pcpu->tx_buffs)
+ 			goto error;
+ 
++		txq_pcpu->tx_data_size = kmalloc(txq_pcpu->size *
++						 sizeof(size_t), GFP_KERNEL);
++		if (!txq_pcpu->tx_data_size)
++			goto error;
++
+ 		txq_pcpu->count = 0;
+ 		txq_pcpu->reserved_num = 0;
+ 		txq_pcpu->txq_put_index = 0;
+@@ -4675,6 +4685,7 @@ static int mvpp2_txq_init(struct mvpp2_port *port,
+ 		txq_pcpu = per_cpu_ptr(txq->pcpu, cpu);
+ 		kfree(txq_pcpu->tx_skb);
+ 		kfree(txq_pcpu->tx_buffs);
++		kfree(txq_pcpu->tx_data_size);
+ 	}
+ 
+ 	dma_free_coherent(port->dev->dev.parent,
+@@ -4695,6 +4706,7 @@ static void mvpp2_txq_deinit(struct mvpp2_port *port,
+ 		txq_pcpu = per_cpu_ptr(txq->pcpu, cpu);
+ 		kfree(txq_pcpu->tx_skb);
+ 		kfree(txq_pcpu->tx_buffs);
++		kfree(txq_pcpu->tx_data_size);
+ 	}
+ 
+ 	if (txq->descs)
+-- 
+2.7.4
