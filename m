@@ -1,28 +1,54 @@
-From: Selvin Xavier <selvin.xavier-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH V2 13/22] bnxt_re: Support QP verbs
-Date: Tue, 13 Dec 2016 11:38:37 +0530
-Message-ID: <CA+sbYW1SEN58woYGOJjj9Hgwf9bM_jb5Ud=yv2nPPrkv1jxEmQ@mail.gmail.com>
-References: <1481266096-23331-1-git-send-email-selvin.xavier@broadcom.com>
- <1481266096-23331-14-git-send-email-selvin.xavier@broadcom.com> <20161212182737.GC8204@mtr-leonro.local>
+From: Jason Wang <jasowang@redhat.com>
+Subject: [PATCH net] virtio-net: correctly enable multiqueue
+Date: Tue, 13 Dec 2016 14:23:05 +0800
+Message-ID: <1481610185-12183-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Eddie Wai <eddie.wai-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Devesh Sharma <devesh.sharma-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Somnath Kotur <somnath.kotur-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Sriharsha Basavapatna <sriharsha.basavapatna-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-To: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20161212182737.GC8204-U/DQcQFIOTAAJjI8aNfphQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: tytso@mit.edu, Neil Horman <nhorman@tuxdriver.com>,
+	"Michael S . Tsirkin" <mst@redhat.com>
+To: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 12, 2016 at 11:57 PM, Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org> wrote:
-> It can help to review if you break this function into smaller pieces and
-> get rid of switch->switch->if construction.
+Commit 4490001029012539937ff02778fe6180613fa949 ("virtio-net: enable
+multiqueue by default") blindly set the affinity instead of queues
+during probe which can cause a mismatch of #queues between guest and
+host. This patch fixes it by setting queues.
 
-Thanks Leon. I will address this and your previous comments in v3 patch set.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Reported-by: Theodore Ts'o <tytso@mit.edu>
+Tested-by: Theodore Ts'o <tytso@mit.edu>
+Cc: Neil Horman <nhorman@tuxdriver.com>
+Cc: Michael S. Tsirkin <mst@redhat.com>
+Fixes: 49000102901 ("virtio-net: enable multiqueue by default")
+Signed-off-by: Jason Wang <jasowang@redhat.com>
+---
+ drivers/net/virtio_net.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index b425fa1..fe9f772 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -1930,7 +1930,9 @@ static int virtnet_probe(struct virtio_device *vdev)
+ 		goto free_unregister_netdev;
+ 	}
+ 
+-	virtnet_set_affinity(vi);
++	rtnl_lock();
++	virtnet_set_queues(vi, vi->curr_queue_pairs);
++	rtnl_unlock();
+ 
+ 	/* Assume link up if device can't report link status,
+ 	   otherwise get link status from config. */
+-- 
+2.7.4
