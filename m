@@ -1,53 +1,88 @@
-From: Shahar Klein <shahark@mellanox.com>
-Subject: Soft lockup in tc_classify
-Date: Mon, 12 Dec 2016 11:43:08 +0200
-Message-ID: <7394f89e-e8a5-5fb2-ee04-63bf1c4ef6e7@mellanox.com>
-References: <c1c394d3-3aea-52a8-89e3-be57d4d46b8e@mellanox.com>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: Re: [PATCH net-next 20/27] net/bpf_jit: MIPS: split VLAN_PRESENT bit
+ handling from VLAN_TCI
+Date: Tue, 13 Dec 2016 02:22:11 +0100
+Message-ID: <20161213012211.GF5107@linux-mips.org>
+References: <cover.1481586602.git.mirq-linux@rere.qmqm.pl>
+ <06129d2e359239a2df5c7a29c2d5e6dee32aa638.1481586602.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Roi Dayan <roid@mellanox.com>, David Miller <davem@davemloft.net>,
-        "Cong Wang" <xiyou.wangcong@gmail.com>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        "Jiri Pirko" <jiri@mellanox.com>,
-        John Fastabend <john.fastabend@gmail.com>,
-        "Or Gerlitz" <ogerlitz@mellanox.com>,
-        Hadar Hen Zion <hadarh@mellanox.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org,
+        "open list:MIPS" <linux-mips@linux-mips.org>
+To: =?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-eopbgr20053.outbound.protection.outlook.com ([40.107.2.53]:64032
-        "EHLO EUR02-VE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752903AbcLMBOp (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 12 Dec 2016 20:14:45 -0500
-In-Reply-To: <c1c394d3-3aea-52a8-89e3-be57d4d46b8e@mellanox.com>
+Received: from eddie.linux-mips.org ([148.251.95.138]:40718 "EHLO
+        cvs.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753024AbcLMBWP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 12 Dec 2016 20:22:15 -0500
+Received: from localhost.localdomain ([127.0.0.1]:53520 "EHLO linux-mips.org"
+        rhost-flags-OK-OK-OK-FAIL) by eddie.linux-mips.org with ESMTP
+        id S23993074AbcLMBWNs9gsg (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 13 Dec 2016 02:22:13 +0100
+Content-Disposition: inline
+In-Reply-To: <06129d2e359239a2df5c7a29c2d5e6dee32aa638.1481586602.git.mirq-linux@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi All,
+I assume you want to merge this together with the rest of you series, so
 
-sorry for the spam, the first time was sent with html part and was rejected.
+Acked-by: Ralf Baechle <ralf@linux-mips.org>
 
-We observed an issue where a classifier instance next member is pointing 
-back to itself, causing a CPU soft lockup.
-We found it by running traffic on many udp connections and then adding a 
-new flower rule using tc.
+Cheers,
 
-We added a quick workaround to verify it:
+  Ralf
 
-In tc_classify:
-
-         for (; tp; tp = rcu_dereference_bh(tp->next)) {
-                 int err;
-+               if (tp == tp->next)
-+                     RCU_INIT_POINTER(tp->next, NULL);
-
-
-We also had a print here showing tp->next is pointing to tp. With this 
-workaround we are not hitting the issue anymore.
-We are not sure we fully understand the mechanism here - with the rtnl 
-and rcu locks.
-We'll appreciate your help solving this issue.
-
-Thanks,
-Shahar
+On Tue, Dec 13, 2016 at 01:12:39AM +0100, Michał Mirosław wrote:
+> Date:   Tue, 13 Dec 2016 01:12:39 +0100 (CET)
+> From: Michał Mirosław <mirq-linux@rere.qmqm.pl>
+> To: netdev@vger.kernel.org
+> Cc: Ralf Baechle <ralf@linux-mips.org>, "open list:MIPS"
+>  <linux-mips@linux-mips.org>
+> Subject: [PATCH net-next 20/27] net/bpf_jit: MIPS: split VLAN_PRESENT bit
+>  handling from VLAN_TCI
+> Content-Type: text/plain; charset=UTF-8
+> 
+> Signed-off-by: Michał Mirosław <mirq-linux@rere.qmqm.pl>
+> ---
+>  arch/mips/net/bpf_jit.c | 20 ++++++++++++--------
+>  1 file changed, 12 insertions(+), 8 deletions(-)
+> 
+> diff --git a/arch/mips/net/bpf_jit.c b/arch/mips/net/bpf_jit.c
+> index 49a2e22..4b12b5d 100644
+> --- a/arch/mips/net/bpf_jit.c
+> +++ b/arch/mips/net/bpf_jit.c
+> @@ -1138,19 +1138,23 @@ static int build_body(struct jit_ctx *ctx)
+>  			emit_load(r_A, r_skb, off, ctx);
+>  			break;
+>  		case BPF_ANC | SKF_AD_VLAN_TAG:
+> -		case BPF_ANC | SKF_AD_VLAN_TAG_PRESENT:
+>  			ctx->flags |= SEEN_SKB | SEEN_A;
+>  			BUILD_BUG_ON(FIELD_SIZEOF(struct sk_buff,
+>  						  vlan_tci) != 2);
+>  			off = offsetof(struct sk_buff, vlan_tci);
+>  			emit_half_load(r_s0, r_skb, off, ctx);
+> -			if (code == (BPF_ANC | SKF_AD_VLAN_TAG)) {
+> -				emit_andi(r_A, r_s0, (u16)~VLAN_TAG_PRESENT, ctx);
+> -			} else {
+> -				emit_andi(r_A, r_s0, VLAN_TAG_PRESENT, ctx);
+> -				/* return 1 if present */
+> -				emit_sltu(r_A, r_zero, r_A, ctx);
+> -			}
+> +#ifdef VLAN_TAG_PRESENT
+> +			emit_andi(r_A, r_s0, (u16)~VLAN_TAG_PRESENT, ctx);
+> +#endif
+> +			break;
+> +		case BPF_ANC | SKF_AD_VLAN_TAG_PRESENT:
+> +			ctx->flags |= SEEN_SKB | SEEN_A;
+> +			emit_load_byte(r_A, r_skb, PKT_VLAN_PRESENT_OFFSET(), ctx);
+> +			if (PKT_VLAN_PRESENT_BIT)
+> +				emit_srl(r_A, r_A, PKT_VLAN_PRESENT_BIT, ctx);
+> +			emit_andi(r_A, r_s0, 1, ctx);
+> +			/* return 1 if present */
+> +			emit_sltu(r_A, r_zero, r_A, ctx);
+>  			break;
+>  		case BPF_ANC | SKF_AD_PKTTYPE:
+>  			ctx->flags |= SEEN_SKB;
+> -- 
+> 2.10.2
