@@ -1,54 +1,85 @@
-From: "Brown, Aaron F" <aaron.f.brown@intel.com>
-Subject: RE: [Intel-wired-lan] [PATCH net v2] igb: re-assign hw address
- pointer        on reset after PCI error
-Date: Tue, 13 Dec 2016 20:51:26 +0000
-Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B81FE9879@ORSMSX101.amr.corp.intel.com>
-References: <1478803603-30306-1-git-send-email-gpiccoli@linux.vnet.ibm.com>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: sctp: suspicious rcu_dereference_check() usage in
+ sctp_epaddr_lookup_transport
+Date: Tue, 13 Dec 2016 19:37:30 -0200
+Message-ID: <20161213213730.GA4731@localhost.localdomain>
+References: <CACT4Y+bEi6aXTTrk4P37hFnMdyte0voxUVdz8t0XQP95PgH9+w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Guilherme G. Piccoli" <gpiccoli@linux.vnet.ibm.com>,
-        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:44167 "EHLO mga09.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S941010AbcLMUvv (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 13 Dec 2016 15:51:51 -0500
-In-Reply-To: <1478803603-30306-1-git-send-email-gpiccoli@linux.vnet.ibm.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Vladislav Yasevich <vyasevich@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        David Miller <davem@davemloft.net>, linux-sctp@vger.kernel.org,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>,
+        syzkaller <syzkaller@googlegroups.com>,
+        Xin Long <lucien.xin@gmail.com>
+To: Dmitry Vyukov <dvyukov@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CACT4Y+bEi6aXTTrk4P37hFnMdyte0voxUVdz8t0XQP95PgH9+w@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> From: Intel-wired-lan [mailto:intel-wired-lan-bounces@lists.osuosl.org] On
-> Behalf Of Guilherme G. Piccoli
-> Sent: Thursday, November 10, 2016 10:47 AM
-> To: intel-wired-lan@lists.osuosl.org
-> Cc: netdev@vger.kernel.org; gpiccoli@linux.vnet.ibm.com
-> Subject: [Intel-wired-lan] [PATCH net v2] igb: re-assign hw address pointer on
-> reset after PCI error
+On Tue, Dec 13, 2016 at 07:07:01PM +0100, Dmitry Vyukov wrote:
+> Hello,
 > 
-> Whenever the igb driver detects the result of a read operation returns
-> a value composed only by F's (like 0xFFFFFFFF), it will detach the
-> net_device, clear the hw_addr pointer and warn to the user that adapter's
-> link is lost - those steps happen on igb_rd32().
+> I am getting the following reports while running syzkaller fuzzer:
 > 
-> In case a PCI error happens on Power architecture, there's a recovery
-> mechanism called EEH, that will reset the PCI slot and call driver's
-> handlers to reset the adapter and network functionality as well.
+> [ INFO: suspicious RCU usage. ]
+> 4.9.0+ #85 Not tainted
+> -------------------------------
+> ./include/linux/rhashtable.h:572 suspicious rcu_dereference_check() usage!
 > 
-> We observed that once hw_addr is NULL after the error is detected on
-> igb_rd32(), it's never assigned back, so in the process of resetting
-> the network functionality we got a NULL pointer dereference in both
-> igb_configure_tx_ring() and igb_configure_rx_ring(). In order to avoid
-> such bug, this patch re-assigns the hw_addr value in the slot_reset
-> handler.
+> other info that might help us debug this:
 > 
-> Reported-by: Anthony H. Thai <ahthai@us.ibm.com>
-> Reported-by: Harsha Thyagaraja <hathyaga@in.ibm.com>
-> Signed-off-by: Guilherme G. Piccoli <gpiccoli@linux.vnet.ibm.com>
-> ---
->  drivers/net/ethernet/intel/igb/igb_main.c | 5 +++++
->  1 file changed, 5 insertions(+)
+> rcu_scheduler_active = 1, debug_locks = 0
+> 1 lock held by syz-executor1/18023:
+>  #0:  (sk_lock-AF_INET){+.+.+.}, at: [<     inline     >] lock_sock
+> include/net/sock.h:1454
+>  #0:  (sk_lock-AF_INET){+.+.+.}, at: [<ffffffff87bb3ccf>]
+> sctp_getsockopt+0x45f/0x6800 net/sctp/socket.c:6432
+> 
+> stack backtrace:
+> CPU: 2 PID: 18023 Comm: syz-executor1 Not tainted 4.9.0+ #85
+> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+> Call Trace:
+> [<     inline     >] __dump_stack lib/dump_stack.c:15
+> [<        none        >] dump_stack+0x2ee/0x3ef lib/dump_stack.c:51
+> [<        none        >] lockdep_rcu_suspicious+0x139/0x180
+> kernel/locking/lockdep.c:4448
+> [<     inline     >] __rhashtable_lookup ./include/linux/rhashtable.h:572
+> [<     inline     >] rhltable_lookup ./include/linux/rhashtable.h:660
+> [<        none        >] sctp_epaddr_lookup_transport+0x641/0x930
+> net/sctp/input.c:946
 
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+I think this was introduced in the rhlist converstion. We had removed
+some rcu_read_lock() calls on sctp stack because rhashtable was already
+calling it, but then we didn't add them back when moving to rhlist.
+
+This code:
++/* return a transport without holding it, as it's only used under sock lock */
+ struct sctp_transport *sctp_epaddr_lookup_transport(
+                                const struct sctp_endpoint *ep,
+                                const union sctp_addr *paddr)
+ {
+        struct net *net = sock_net(ep->base.sk);
++       struct rhlist_head *tmp, *list;
++       struct sctp_transport *t;
+        struct sctp_hash_cmp_arg arg = {
+-               .ep    = ep,
+                .paddr = paddr,
+                .net   = net,
++               .lport = htons(ep->base.bind_addr.port),
+        };
+ 
+-       return rhashtable_lookup_fast(&sctp_transport_hashtable, &arg,
+-                                     sctp_hash_params);
++       list = rhltable_lookup(&sctp_transport_hashtable, &arg,
++                              sctp_hash_params);
+
+Had an implicit rcu_read_lock() on rhashtable_lookup_fast, but it
+doesn't on rhltable_lookup and rhltable_lookup uses _rcu calls which
+assumes we have rcu read protection.
+
+  Marcelo
