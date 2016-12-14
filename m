@@ -1,74 +1,56 @@
-From: marcelo.leitner@gmail.com
-Subject: Re: [PATCH net] ibmveth: calculate gso_segs for large packets
-Date: Wed, 14 Dec 2016 18:39:04 -0200
-Message-ID: <20161214203904.GA13422@localhost.localdomain>
-References: <1481674509-14256-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [PATCH net] vxlan: fix unused variable warning
+Date: Wed, 14 Dec 2016 12:43:55 -0800
+Message-ID: <20161214124355.7da92ff3@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, brking@linux.vnet.ibm.com,
-        pradeeps@linux.vnet.ibm.com, jmaxwell37@gmail.com, zdai@us.ibm.com,
-        eric.dumazet@gmail.com
-To: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60446 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1756681AbcLNUjI (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 14 Dec 2016 15:39:08 -0500
-Content-Disposition: inline
-In-Reply-To: <1481674509-14256-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+Received: from [74.125.83.50] ([74.125.83.50]:36348 "EHLO
+        mail-pg0-f50.google.com" rhost-flags-FAIL-FAIL-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1752366AbcLNUpz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 14 Dec 2016 15:45:55 -0500
+Received: by mail-pg0-f50.google.com with SMTP id f188so11575695pgc.3
+        for <netdev@vger.kernel.org>; Wed, 14 Dec 2016 12:45:36 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 13, 2016 at 06:15:09PM -0600, Thomas Falcon wrote:
-> Include calculations to compute the number of segments
-> that comprise an aggregated large packet.
-> 
-> Signed-off-by: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+Fixes commit 4528520d315ac1 ("vxlan: add ipv6 proxy support")
+which added code that caused this warning:
 
-Reviewed-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+drivers/net/vxlan.c: In function =E2=80=98neigh_reduce=E2=80=99:
+drivers/net/vxlan.c:1556:25: warning: variable =E2=80=98saddr=E2=80=99 set =
+but not used
 
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+---
+ drivers/net/vxlan.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-> ---
->  drivers/net/ethernet/ibm/ibmveth.c | 12 ++++++++++--
->  1 file changed, 10 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/ibm/ibmveth.c b/drivers/net/ethernet/ibm/ibmveth.c
-> index fbece63..a831f94 100644
-> --- a/drivers/net/ethernet/ibm/ibmveth.c
-> +++ b/drivers/net/ethernet/ibm/ibmveth.c
-> @@ -1181,7 +1181,9 @@ static netdev_tx_t ibmveth_start_xmit(struct sk_buff *skb,
->  
->  static void ibmveth_rx_mss_helper(struct sk_buff *skb, u16 mss, int lrg_pkt)
->  {
-> +	struct tcphdr *tcph;
->  	int offset = 0;
-> +	int hdr_len;
->  
->  	/* only TCP packets will be aggregated */
->  	if (skb->protocol == htons(ETH_P_IP)) {
-> @@ -1208,14 +1210,20 @@ static void ibmveth_rx_mss_helper(struct sk_buff *skb, u16 mss, int lrg_pkt)
->  	/* if mss is not set through Large Packet bit/mss in rx buffer,
->  	 * expect that the mss will be written to the tcp header checksum.
->  	 */
-> +	tcph = (struct tcphdr *)(skb->data + offset);
->  	if (lrg_pkt) {
->  		skb_shinfo(skb)->gso_size = mss;
->  	} else if (offset) {
-> -		struct tcphdr *tcph = (struct tcphdr *)(skb->data + offset);
-> -
->  		skb_shinfo(skb)->gso_size = ntohs(tcph->check);
->  		tcph->check = 0;
->  	}
-> +
-> +	if (skb_shinfo(skb)->gso_size) {
-> +		hdr_len = offset + tcph->doff * 4;
-> +		skb_shinfo(skb)->gso_segs =
-> +				DIV_ROUND_UP(skb->len - hdr_len,
-> +					     skb_shinfo(skb)->gso_size);
-> +	}
->  }
->  
->  static int ibmveth_poll(struct napi_struct *napi, int budget)
-> -- 
-> 1.8.3.1
-> 
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index bb70dd5..4147fd6 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -1553,7 +1553,7 @@ static int neigh_reduce(struct net_device *dev, struc=
+t sk_buff *skb)
+ 	struct vxlan_dev *vxlan =3D netdev_priv(dev);
+ 	struct nd_msg *msg;
+ 	const struct ipv6hdr *iphdr;
+-	const struct in6_addr *saddr, *daddr;
++	const struct in6_addr *daddr;
+ 	struct neighbour *n;
+ 	struct inet6_dev *in6_dev;
+=20
+@@ -1562,7 +1562,6 @@ static int neigh_reduce(struct net_device *dev, struc=
+t sk_buff *skb)
+ 		goto out;
+=20
+ 	iphdr =3D ipv6_hdr(skb);
+-	saddr =3D &iphdr->saddr;
+ 	daddr =3D &iphdr->daddr;
+=20
+ 	msg =3D (struct nd_msg *)skb_transport_header(skb);
+--=20
+2.10.2
