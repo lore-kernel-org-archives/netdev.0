@@ -1,161 +1,161 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: Designing a safe RX-zero-copy Memory Model for Networking
-Date: Wed, 14 Dec 2016 08:32:10 -0800
-Message-ID: <5851740A.2080806@gmail.com>
-References: <alpine.DEB.2.20.1612121200280.13607@east.gentwo.org>
- <20161213171028.24dbf519@redhat.com> <5850335F.6090000@gmail.com>
- <20161213.145333.514056260418695987.davem@davemloft.net>
- <58505535.1080908@gmail.com> <20161214103914.3a9ebbbf@redhat.com>
+From: Theodore Ts'o <tytso@mit.edu>
+Subject: Re: [PATCH 4/3] random: use siphash24 instead of md5 for
+ get_random_int/long
+Date: Wed, 14 Dec 2016 11:37:31 -0500
+Message-ID: <20161214163731.luj2dzmnihcuhn5p@thunk.org>
+References: <20161214001656.19388-1-Jason@zx2c4.com>
+ <20161214031037.25498-1-Jason@zx2c4.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, cl@linux.com,
- rppt@linux.vnet.ibm.com, netdev@vger.kernel.org, linux-mm@kvack.org,
- willemdebruijn.kernel@gmail.com, bjorn.topel@intel.com,
- magnus.karlsson@intel.com, alexander.duyck@gmail.com,
- mgorman@techsingularity.net, tom@herbertland.com, bblanco@plumgrid.com,
- tariqt@mellanox.com, saeedm@mellanox.com, jesse.brandeburg@intel.com,
- METH@il.ibm.com, vyasevich@gmail.com
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20161214103914.3a9ebbbf@redhat.com>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Netdev <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Linus Torvalds <torvalds@linux-foundation.org>,
+        "kernel-hardening@lists.openwall.com"
+        <kernel-hardening@lists.openwall.com>,
+        LKML <linux-kernel@vger.kernel.org>,
+        George Spelvin <linux@horizon.com>,
+        Scott Bauer <sbauer@eng.utah.edu>,
+        Andi Kleen <ak@linux.intel.com>,
+        Andy Lutomirski <luto@amacapital.net>,
+        Greg KH <gregkh@linuxfoundation.org>,
+        Eric Biggers <ebiggers3@gmail.com>,
+        linux-crypto@vger.kernel.org,
+        Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>
+To: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20161214031037.25498-1-Jason@zx2c4.com>
+Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 16-12-14 01:39 AM, Jesper Dangaard Brouer wrote:
-> On Tue, 13 Dec 2016 12:08:21 -0800
-> John Fastabend <john.fastabend@gmail.com> wrote:
+On Wed, Dec 14, 2016 at 04:10:37AM +0100, Jason A. Donenfeld wrote:
+> This duplicates the current algorithm for get_random_int/long, but uses
+> siphash24 instead. This comes with several benefits. It's certainly
+> faster and more cryptographically secure than MD5. This patch also
+> hashes the pid, entropy, and timestamp as fixed width fields, in order
+> to increase diffusion.
 > 
->> On 16-12-13 11:53 AM, David Miller wrote:
->>> From: John Fastabend <john.fastabend@gmail.com>
->>> Date: Tue, 13 Dec 2016 09:43:59 -0800
->>>   
->>>> What does "zero-copy send packet-pages to the application/socket that
->>>> requested this" mean? At the moment on x86 page-flipping appears to be
->>>> more expensive than memcpy (I can post some data shortly) and shared
->>>> memory was proposed and rejected for security reasons when we were
->>>> working on bifurcated driver.  
->>>
->>> The whole idea is that we map all the active RX ring pages into
->>> userspace from the start.
->>>
->>> And just how Jesper's page pool work will avoid DMA map/unmap,
->>> it will also avoid changing the userspace mapping of the pages
->>> as well.
->>>
->>> Thus avoiding the TLB/VM overhead altogether.
->>>   
+> The previous md5 algorithm used a per-cpu md5 state, which caused
+> successive calls to the function to chain upon each other. While it's
+> not entirely clear that this kind of chaining is absolutely necessary
+> when using a secure PRF like siphash24, it can't hurt, and the timing of
+> the call chain does add a degree of natural entropy. So, in keeping with
+> this design, instead of the massive per-cpu 64-byte md5 state, there is
+> instead a per-cpu previously returned value for chaining.
 > 
-> Exactly.  It is worth mentioning that pages entering the page pool need
-> to be cleared (measured cost 143 cycles), in order to not leak any
-> kernel info.  The primary focus of this design is to make sure not to
-> leak kernel info to userspace, but with an "exclusive" mode also
-> support isolation between applications.
-> 
-> 
->> I get this but it requires applications to be isolated. The pages from
->> a queue can not be shared between multiple applications in different
->> trust domains. And the application has to be cooperative meaning it
->> can't "look" at data that has not been marked by the stack as OK. In
->> these schemes we tend to end up with something like virtio/vhost or
->> af_packet.
-> 
-> I expect 3 modes, when enabling RX-zero-copy on a page_pool. The first
-> two would require CAP_NET_ADMIN privileges.  All modes have a trust
-> domain id, that need to match e.g. when page reach the socket.
+> Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
+> Cc: Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>
 
-Even mode 3 should required cap_net_admin we don't want userspace to
-grab queues off the nic without it IMO.
+The original reason for get_random_int was because the original
+urandom algorithms were too slow.  When we moved to chacha20, which is
+must faster, I didn't think to revisit get_random_int() and
+get_random_long().
 
-> 
-> Mode-1 "Shared": Application choose lowest isolation level, allowing
->  multiple application to mmap VMA area.
+One somewhat undesirable aspect of the current algorithm is that we
+never change random_int_secret.  So I've been toying with the
+following, which is 4 times faster than md5.  (I haven't tried
+benchmarking against siphash yet.)
 
-My only point here is applications can read each others data and all
-applications need to cooperate for example one app could try to write
-continuously to read only pages causing faults and what not. This is
-all non standard and doesn't play well with cgroups and "normal"
-applications. It requires a new orchestration model.
+[    3.606139] random benchmark!!
+[    3.606276] get_random_int # cycles: 326578
+[    3.606317] get_random_int_new # cycles: 95438
+[    3.607423] get_random_bytes # cycles: 2653388
 
-I'm a bit skeptical of the use case but I know of a handful of reasons
-to use this model. Maybe take a look at the ivshmem implementation in
-DPDK.
+     	       			  	  - Ted
 
-Also this still requires a hardware filter to push "application" traffic
-onto reserved queues/pages as far as I can tell.
+P.S.  It's interesting to note that siphash24 and chacha20 are both
+add-rotate-xor based algorithms.
 
-> 
-> Mode-2 "Single-user": Application request it want to be the only user
->  of the RX queue.  This blocks other application to mmap VMA area.
-> 
-
-Assuming data is read-only sharing with the stack is possibly OK :/. I
-guess you would need to pools of memory for data and skb so you don't
-leak skb into user space.
-
-The devils in the details here. There are lots of hooks in the kernel
-that can for example push the packet with a 'redirect' tc action for
-example. And letting an app "read" data or impact performance of an
-unrelated application is wrong IMO. Stacked devices also provide another
-set of details that are a bit difficult to track down see all the
-hardware offload efforts.
-
-I assume all these concerns are shared between mode-1 and mode-2
-
-> Mode-3 "Exclusive": Application request to own RX queue.  Packets are
->  no longer allowed for normal netstack delivery.
-> 
-
-I have patches for this mode already but haven't pushed them due to
-an alternative solution using VFIO.
-
-> Notice mode-2 still requires CAP_NET_ADMIN, because packets/pages are
-> still allowed to travel netstack and thus can contain packet data from
-> other normal applications.  This is part of the design, to share the
-> NIC between netstack and an accelerated userspace application using RX
-> zero-copy delivery.
-> 
-
-I don't think this is acceptable to be honest. Letting an application
-potentially read/impact other arbitrary applications on the system
-seems like a non-starter even with CAP_NET_ADMIN. At least this was
-the conclusion from bifurcated driver work some time ago.
-
-> 
->> Any ACLs/filtering/switching/headers need to be done in hardware or
->> the application trust boundaries are broken.
-> 
-> The software solution outlined allow the application to make the choice
-> of what trust boundary it wants.
-> 
-> The "exclusive" mode-3 make most sense together with HW filters.
-> Already today, we support creating a new RX queue based on ethtool
-> ntuple HW filter and then you simply attach your application that queue
-> in mode-3, and have full isolation.
-> 
-
-Still pretty fuzzy on why mode-1 and mode-2 do not need hw filters?
-Without hardware filters we have no way of knowing who/what data is
-put in the page.
-
->  
->> If the above can not be met then a copy is needed. What I am trying
->> to tease out is the above comment along with other statements like
->> this "can be done with out HW filter features".
-> 
-> Does this address your concerns?
-> 
-
-I think we need to enforce strong isolation. An application should not
-be able to read data or impact other applications. I gather this is
-the case per comment about normal applications in mode-2. A slightly
-weaker statement would be to say applications can only impace/read data
-of other applications in their domain. This might be OK as well.
-
-.John
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+diff --git a/drivers/char/random.c b/drivers/char/random.c
+index d6876d506220..be172ea75799 100644
+--- a/drivers/char/random.c
++++ b/drivers/char/random.c
+@@ -1681,6 +1681,38 @@ static int rand_initialize(void)
+ }
+ early_initcall(rand_initialize);
+ 
++static unsigned int get_random_int_new(void);
++
++static int rand_benchmark(void)
++{
++	cycles_t start,finish;
++	int i, out;
++
++	pr_crit("random benchmark!!\n");
++	start = get_cycles();
++	for (i = 0; i < 1000; i++) {
++		get_random_int();
++	}
++	finish = get_cycles();
++	pr_err("get_random_int # cycles: %llu\n", finish - start);
++
++	start = get_cycles();
++	for (i = 0; i < 1000; i++) {
++		get_random_int_new();
++	}
++	finish = get_cycles();
++	pr_err("get_random_int_new # cycles: %llu\n", finish - start);
++
++	start = get_cycles();
++	for (i = 0; i < 1000; i++) {
++		get_random_bytes(&out, sizeof(out));
++	}
++	finish = get_cycles();
++	pr_err("get_random_bytes # cycles: %llu\n", finish - start);
++	return 0;
++}
++device_initcall(rand_benchmark);
++
+ #ifdef CONFIG_BLOCK
+ void rand_initialize_disk(struct gendisk *disk)
+ {
+@@ -2064,8 +2096,10 @@ unsigned int get_random_int(void)
+ 	__u32 *hash;
+ 	unsigned int ret;
+ 
++#if 0	// force slow path
+ 	if (arch_get_random_int(&ret))
+ 		return ret;
++#endif
+ 
+ 	hash = get_cpu_var(get_random_int_hash);
+ 
+@@ -2100,6 +2134,38 @@ unsigned long get_random_long(void)
+ }
+ EXPORT_SYMBOL(get_random_long);
+ 
++struct random_buf {
++	__u8 buf[CHACHA20_BLOCK_SIZE];
++	int ptr;
++};
++
++static DEFINE_PER_CPU(struct random_buf, batched_entropy);
++
++static void get_batched_entropy(void *buf, int n)
++{
++	struct random_buf *p;
++
++	p = &get_cpu_var(batched_entropy);
++
++	if ((p->ptr == 0) ||
++	    (p->ptr + n >= CHACHA20_BLOCK_SIZE)) {
++		extract_crng(p->buf);
++		p->ptr = 0;
++	}
++	BUG_ON(n > CHACHA20_BLOCK_SIZE);
++	memcpy(buf, p->buf, n);
++	p->ptr += n;
++	put_cpu_var(batched_entropy);
++}
++
++static unsigned int get_random_int_new(void)
++{
++	int	ret;
++
++	get_batched_entropy(&ret, sizeof(ret));
++	return ret;
++}
++
+ /**
+  * randomize_page - Generate a random, page aligned address
+  * @start:	The smallest acceptable address the caller will take.
