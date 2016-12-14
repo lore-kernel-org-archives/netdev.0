@@ -1,62 +1,37 @@
-From: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net-next] net: remove abuse of VLAN DEI/CFI bit
-Date: Tue, 13 Dec 2016 18:21:16 -0800
-Message-ID: <CAADnVQLwc6RMf_Va1WRwqzXJti-55+wd+XHwcYsRsDB=12binA@mail.gmail.com>
-References: <cfa1f2efae2217b50cbefccbf9ba7f0d24a23c63.1480755768.git.mirq-linux@rere.qmqm.pl>
-	<20161213172118.2f55c503@xeon-e3>
-	<20161214020305.qck2bpxmfh6ltrw7@rere.qmqm.pl>
+From: Mr Friedrich Mayrhofer <esanchezsarmiento@buenosaires.gob.ar>
+Subject: (unknown)
+Date: Tue, 13 Dec 2016 23:45:08 -0300
+Message-ID: <20161213234508.214019v4foeiar78__2197.85896265439$1481684301$gmane$org@webmail.buenosaires.gob.ar>
+Reply-To: friedrichmayehofer@yeah.net
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"moderated list:ETHERNET BRIDGE" <bridge-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	"open list:OPENVSWITCH" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-To: =?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux-CoA6ZxLDdyEEUmgCuDUIdw@public.gmane.org>
-Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20161214020305.qck2bpxmfh6ltrw7-CoA6ZxLDdyEEUmgCuDUIdw@public.gmane.org>
-List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
-List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+ charset=windows-1256;
+ DelSp="Yes";
+ format="flowed"
+Content-Transfer-Encoding: 7bit
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtpgcba5.buenosaires.gob.ar ([200.16.89.92]:39487 "EHLO
+        smtpgcba5.buenosaires.gob.ar" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1754020AbcLNC5z (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 13 Dec 2016 21:57:55 -0500
+Received: from webmail02 ([172.18.2.162]:34913 "EHLO webmail.gcba.gob.ar"
+        smtp-auth: "esanchezsarmiento@buenosaires.gob.ar"
+        rhost-flags-OK-OK-OK-FAIL) by mr2.buenosaires.gob.ar with ESMTPSA
+        id S7110725AbcLNCpR (ORCPT <rfc822;netdev@vger.kernel.org>
+        + 4 others); Tue, 13 Dec 2016 23:45:17 -0300
+Subject: 
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gVHVlLCBEZWMgMTMsIDIwMTYgYXQgNjowMyBQTSwgTWljaGHFgiBNaXJvc8WCYXcKPG1pcnEt
-bGludXhAcmVyZS5xbXFtLnBsPiB3cm90ZToKPiBPbiBUdWUsIERlYyAxMywgMjAxNiBhdCAwNToy
-MToxOFBNIC0wODAwLCBTdGVwaGVuIEhlbW1pbmdlciB3cm90ZToKPj4gT24gU2F0LCAgMyBEZWMg
-MjAxNiAxMDoyMjoyOCArMDEwMCAoQ0VUKQo+PiBNaWNoYcWCIE1pcm9zxYJhdyA8bWlycS1saW51
-eEByZXJlLnFtcW0ucGw+IHdyb3RlOgo+PiA+IFRoaXMgQWxsLWluLW9uZSBwYXRjaCByZW1vdmVz
-IGFidXNlIG9mIFZMQU4gQ0ZJIGJpdCwgc28gaXQgY2FuIGJlIHBhc3NlZAo+PiA+IGludGFjdCB0
-aHJvdWdoIGxpbnV4IG5ldHdvcmtpbmcgc3RhY2suCj4+ID4KPj4gPiBTaWduZWQtb2ZmLWJ5OiBN
-aWNoYcWCIE1pcm9zxYJhdyA8bWljaGFsLm1pcm9zbGF3QGF0ZW5kZXNvZnR3YXJlLnBsPgo+PiA+
-IC0tLQo+PiA+Cj4+ID4gRGVhciBOZXREZXZzCj4+ID4KPj4gPiBJIGd1ZXNzIHRoaXMgbmVlZHMg
-dG8gYmUgc3BsaXQgdG8gdGhlIHByZXAuLmNvbnZlcnRbXS4uZmluaXNoIHNlcXVlbmNlLAo+PiA+
-IGJ1dCBpZiB5b3UgbGlrZSBpdCBhcyBpcywgdGhlbiBpdCdzIHJlYWR5Lgo+PiA+Cj4+ID4gVGhl
-IGJpZ2dlc3QgcXVlc3Rpb24gaXMgaWYgdGhlIG1vZGlmaWVkIGludGVyZmFjZSBhbmQgdmxhbl9w
-cmVzZW50Cj4+ID4gaXMgdGhlIHdheSB0byBnby4gVGhpcyBjYW4gYmUgY2hhbmdlZCB0byB1c2Ug
-dmxhbl9wcm90byAhPSAwIGluc3RlYWQKPj4gPiBvZiBhbiBleHRyYSBmbGFnIGJpdC4KPj4gPgo+
-PiA+IEFzIEkgY2FuJ3QgdGVzdCBtb3N0IG9mIHRoZSBkcml2ZXIgY2hhbmdlcywgcGxlYXNlIGxv
-b2sgYXQgdGhlbSBjYXJlZnVsbHkuCj4+ID4gT1ZTIGFuZCBicmlkZ2UgZXllcyBhcmUgZXNwZWNp
-YWxseSB3ZWxjb21lLgo+PiA+Cj4+ID4gQmVzdCBSZWdhcmRzLAo+PiA+IE1pY2hhxYIgTWlyb3PF
-gmF3Cj4+IElzIHRoZSBtb3RpdmF0aW9uIHRvIHN1cHBvcnQgODAyLjFhZCBEcm9wIEVsaWdhYmls
-aXR5IEluZGljYXRvciAoREVJKT8KPj4KPj4gSWYgc28gdGhlbiB5b3UgbmVlZCB0byBiZSBtb3Jl
-IHZlcmJvc2UgaW4gdGhlIGNvbW1pdCBsb2csIGFuZCBsb3RzIG1vcmUKPj4gd29yayBpcyBuZWVk
-ZWQuIFlvdSBuZWVkIHRvIHJlbmFtZSBmaWVsZHMgYW5kIHZhbGlkYXRlIGV2ZXJ5IHBsYWNlIGEK
-Pj4gZHJpdmVyIGlzIHVzaW5nIERFSSBiaXQgdG8gbWFrZSBzdXJlIGl0IHJlYWxseSBkb2VzIHRo
-ZSByaWdodCB0aGluZwo+PiBvbiB0aGF0IGhhcmR3YXJlLiBJdCBpcyBub3QganVzdCBhIG1lY2hh
-bmljYWwgY2hhbmdlLgo+Cj4gTXkgbWFpbiBtb3RpdmF0aW9uIGlzIHRvIGJlIGFibGUgdG8gc2Vl
-IHRoZSBiaXQgaW50YWN0IGluIHRjcGR1bXAgYW5kIGJlCj4gYWJsZSB0byBwYXNzIGl0IHVudG91
-Y2hlZCB0aHJvdWdoIGF0IGxlYXN0IGEgdmV0aCBwYWlyLiBJdCB3b3VsZCBiZSBncmVhdAo+IGlm
-IGFsbCBkZXZpY2VzIGRpZG4ndCBkbyBzb21ldGhpbmcgc3R1cGlkIHdpdGggdGhlIGJpdCwgYnV0
-IGl0J3Mgbm90Cj4gc29tZXRoaW5nIEkgYW0gYWJsZSB0byBtYWtlIGhhcHBlbi4KCmltbyAiYmUg
-YWJsZSB0byBwYXNzIHVudG91Y2hlZCB0aHJvdWdoIHZldGgiIGlzIG5vdCBnb29kIGVub3VnaApq
-dXN0aWZpY2F0aW9uIGZvciBzdWNoIGludmFzaXZlIHBhdGNoZXMuCkknbSBzdGlsbCBub3Qgc3Vy
-ZSB0aGF0IGFsbCBvZiB0aGVzZSBjaGFuZ2VzIGRvbid0IGFmZmVjdCB1c2VyIHNwYWNlLgpfX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBs
-aXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cHM6Ly9tYWlsLm9wZW52c3dpdGNoLm9yZy9tYWls
-bWFuL2xpc3RpbmZvL292cy1kZXYK
+
+Good Day,
+
+This is the second time i am sending you this mail.
+
+I, Friedrich Mayrhofer Donate $ 1,000,000.00 to You, Email Me
+personally for more details.
+
+Regards.
+Friedrich Mayrhofer
