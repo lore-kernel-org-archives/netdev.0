@@ -1,92 +1,50 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [net-next PATCH v5 1/6] net: virtio dynamically disable/enable
- LRO
-Date: Wed, 14 Dec 2016 09:01:27 -0800
-Message-ID: <58517AE7.5090104@gmail.com>
-References: <20161207200139.28121.4811.stgit@john-Precision-Tower-5810>
- <20161207201111.28121.4879.stgit@john-Precision-Tower-5810>
- <20161208231857-mutt-send-email-mst@kernel.org> <5849F52A.7050105@gmail.com>
- <20161214152924-mutt-send-email-mst@kernel.org>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Query] Delayed vxlan socket creation?
+Date: Wed, 14 Dec 2016 09:24:08 -0800
+Message-ID: <CAM_iQpXujwj_GcN5KOT4vMbPj-H+B+=MdPjpRWZZrc+piooBYg@mail.gmail.com>
+References: <5A90DA2E42F8AE43BC4A093BF06788481A9457F1@SHSMSX103.ccr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: daniel@iogearbox.net, shm@cumulusnetworks.com, davem@davemloft.net,
-        tgraf@suug.ch, alexei.starovoitov@gmail.com,
-        john.r.fastabend@intel.com, netdev@vger.kernel.org,
-        brouer@redhat.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "mrjana@gmail.com" <mrjana@gmail.com>
+To: "Du, Fan" <fan.du@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:36036 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932786AbcLNRSy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 14 Dec 2016 12:18:54 -0500
-Received: by mail-pf0-f194.google.com with SMTP id c4so1418270pfb.3
-        for <netdev@vger.kernel.org>; Wed, 14 Dec 2016 09:18:29 -0800 (PST)
-In-Reply-To: <20161214152924-mutt-send-email-mst@kernel.org>
+Received: from mail-it0-f67.google.com ([209.85.214.67]:33418 "EHLO
+        mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933641AbcLNRYi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 14 Dec 2016 12:24:38 -0500
+Received: by mail-it0-f67.google.com with SMTP id c20so707010itb.0
+        for <netdev@vger.kernel.org>; Wed, 14 Dec 2016 09:24:29 -0800 (PST)
+In-Reply-To: <5A90DA2E42F8AE43BC4A093BF06788481A9457F1@SHSMSX103.ccr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-12-14 05:31 AM, Michael S. Tsirkin wrote:
-> On Thu, Dec 08, 2016 at 04:04:58PM -0800, John Fastabend wrote:
->> On 16-12-08 01:36 PM, Michael S. Tsirkin wrote:
->>> On Wed, Dec 07, 2016 at 12:11:11PM -0800, John Fastabend wrote:
->>>> This adds support for dynamically setting the LRO feature flag. The
->>>> message to control guest features in the backend uses the
->>>> CTRL_GUEST_OFFLOADS msg type.
->>>>
->>>> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
->>>> ---
+On Tue, Dec 13, 2016 at 11:49 PM, Du, Fan <fan.du@intel.com> wrote:
+> Hi
+>
+> I'm interested to one Docker issue[1] which looks like related to kernel vxlan socket creation
+> as described in the thread. From my limited knowledge here, socket creation is synchronous ,
+> and after the *socket* syscall, the sock handle will be valid and ready to linkup.
 
-[...]
+You need to read the code. vxlan tunnel is a UDP tunnel, it needs a kernel
+socket (and a port) to setup UDP communication, unlike GRE tunnel etc.
 
->>>>  
->>>>  static void virtnet_config_changed_work(struct work_struct *work)
->>>> @@ -1815,6 +1846,12 @@ static int virtnet_probe(struct virtio_device *vdev)
->>>>  	if (virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_CSUM))
->>>>  		dev->features |= NETIF_F_RXCSUM;
->>>>  
->>>> +	if (virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_TSO4) &&
->>>> +	    virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_TSO6)) {
->>>> +		dev->features |= NETIF_F_LRO;
->>>> +		dev->hw_features |= NETIF_F_LRO;
->>>
->>> So the issue is I think that the virtio "LRO" isn't really
->>> LRO, it's typically just GRO forwarded to guests.
->>> So these are easily re-split along MTU boundaries,
->>> which makes it ok to forward these across bridges.
->>>
->>> It's not nice that we don't document this in the spec,
->>> but it's the reality and people rely on this.
->>>
->>> For now, how about doing a custom thing and just disable/enable
->>> it as XDP is attached/detached?
->>
->> The annoying part about doing this is ethtool will say that it is fixed
->> yet it will be changed by seemingly unrelated operation. I'm not sure I
->> like the idea to start automatically configuring the link via xdp_set.
-> 
-> I really don't like the idea of dropping performance
-> by a factor of 3 for people bridging two virtio net
-> interfaces.
-> 
-> So how about a simple approach for now, just disable
-> XDP if GUEST_TSO is enabled?
-> 
-> We can discuss better approaches in next version.
-> 
 
-So the proposal is to add a check in XDP setup so that
+>
+> Somehow I'm not sure the detailed scenario here, and which/how possible commit fix?
+> Thanks!
+>
+> Quoted analysis:
+> --------------------------------------------------------------------------
+> (Found in kernel 3.13)
+> The issue happens because in older kernels when a vxlan interface is created,
+> the socket creation is queued up in a worker thread which actually creates
+> the socket. But this needs to happen before we bring up the link on the vxlan interface.
+> If for some chance, the worker thread hasn't completed the creation of the socket
+> before we did link up then when we do link up the kernel checks if the socket was
+> created and if not it will return ENOTCONN. This was a bug in the kernel which got fixed
+> in later kernels. That is why retrying with a timer fixes the issue.
 
-  if (virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_TSO{4|6})
-	return -ENOPSUPP;
 
-Or whatever is the most appropriate return code? Then we can
-disable TSO via qemu-system with guest_tso4=off,guest_tso6=off for
-XDP use cases.
-
-Sounds like a reasonable start to me. I'll make the change should this
-go through DaveMs net-next tree or do you want it on virtio tree? Either
-is fine with me.
-
-Thanks,
-John
+This was introduced by commit 1c51a9159ddefa5119724a4c7da3fd3ef44b68d5
+and later fixed by commit 56ef9c909b40483d2c8cb63fcbf83865f162d5ec.
