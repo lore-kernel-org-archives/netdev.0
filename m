@@ -1,146 +1,50 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
+From: Christoph Lameter <cl@linux.com>
 Subject: Re: Designing a safe RX-zero-copy Memory Model for Networking
-Date: Wed, 14 Dec 2016 08:45:08 -0800
-Message-ID: <CAKgT0UfnBurxz9f+ceD81hAp3U0tGHEi_5MEtxk6PiehG=X8ag@mail.gmail.com>
-References: <alpine.DEB.2.20.1612121200280.13607@east.gentwo.org>
- <20161213171028.24dbf519@redhat.com> <5850335F.6090000@gmail.com>
- <20161213.145333.514056260418695987.davem@davemloft.net> <58505535.1080908@gmail.com>
- <20161214103914.3a9ebbbf@redhat.com> <5851740A.2080806@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>, David Miller <davem@davemloft.net>,
-	Christoph Lameter <cl@linux.com>, rppt@linux.vnet.ibm.com, Netdev <netdev@vger.kernel.org>,
-	linux-mm <linux-mm@kvack.org>, willemdebruijn.kernel@gmail.com,
-	=?UTF-8?B?QmrDtnJuIFTDtnBlbA==?= <bjorn.topel@intel.com>,
-	magnus.karlsson@intel.com, Mel Gorman <mgorman@techsingularity.net>,
-	Tom Herbert <tom@herbertland.com>, Brenden Blanco <bblanco@plumgrid.com>,
-	Tariq Toukan <tariqt@mellanox.com>, Saeed Mahameed <saeedm@mellanox.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>, METH@il.ibm.com,
-	Vlad Yasevich <vyasevich@gmail.com>
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <5851740A.2080806@gmail.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Date: Wed, 14 Dec 2016 11:00:12 -0600 (CST)
+Message-ID: <alpine.DEB.2.20.1612141059020.20959@east.gentwo.org>
+References: <20161205153132.283fcb0e@redhat.com> <20161212083812.GA19987@rapoport-lnx> <20161212104042.0a011212@redhat.com> <20161212141433.GB19987@rapoport-lnx> <584EB8DF.8000308@gmail.com> <20161212181344.3ddfa9c3@redhat.com> <alpine.DEB.2.20.1612121200280.13607@east.gentwo.org>
+ <20161213171028.24dbf519@redhat.com> <8aea213f-2739-9bd3-3a6a-668b759336ae@stressinduktion.org>
+Content-Type: text/plain; charset=US-ASCII
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+        John Fastabend <john.fastabend@gmail.com>,
+        Mike Rapoport <rppt@linux.vnet.ibm.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        linux-mm <linux-mm@kvack.org>,
+        Willem de Bruijn <willemdebruijn.kernel@gmail.com>,
+        =?ISO-8859-15?Q?Bj=F6rn_T=F6pel?= <bjorn.topel@intel.com>,
+        "Karlsson, Magnus" <magnus.karlsson@intel.com>,
+        Alexander Duyck <alexander.duyck@gmail.com>,
+        Mel Gorman <mgorman@techsingularity.net>,
+        Tom Herbert <tom@herbertland.com>,
+        Brenden Blanco <bblanco@plumgrid.com>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Jesse Brandeburg <jesse.brandeburg@intel.com>,
+        Kalman Meth <METH@il.ibm.com>,
+        Vladislav Yasevich <vyasevich@gmail.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from resqmta-ch2-07v.sys.comcast.net ([69.252.207.39]:57729 "EHLO
+        resqmta-ch2-07v.sys.comcast.net" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S932352AbcLNRAQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 14 Dec 2016 12:00:16 -0500
+In-Reply-To: <8aea213f-2739-9bd3-3a6a-668b759336ae@stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 14, 2016 at 8:32 AM, John Fastabend
-<john.fastabend@gmail.com> wrote:
-> On 16-12-14 01:39 AM, Jesper Dangaard Brouer wrote:
->> On Tue, 13 Dec 2016 12:08:21 -0800
->> John Fastabend <john.fastabend@gmail.com> wrote:
->>
->>> On 16-12-13 11:53 AM, David Miller wrote:
->>>> From: John Fastabend <john.fastabend@gmail.com>
->>>> Date: Tue, 13 Dec 2016 09:43:59 -0800
->>>>
->>>>> What does "zero-copy send packet-pages to the application/socket that
->>>>> requested this" mean? At the moment on x86 page-flipping appears to be
->>>>> more expensive than memcpy (I can post some data shortly) and shared
->>>>> memory was proposed and rejected for security reasons when we were
->>>>> working on bifurcated driver.
->>>>
->>>> The whole idea is that we map all the active RX ring pages into
->>>> userspace from the start.
->>>>
->>>> And just how Jesper's page pool work will avoid DMA map/unmap,
->>>> it will also avoid changing the userspace mapping of the pages
->>>> as well.
->>>>
->>>> Thus avoiding the TLB/VM overhead altogether.
->>>>
->>
->> Exactly.  It is worth mentioning that pages entering the page pool need
->> to be cleared (measured cost 143 cycles), in order to not leak any
->> kernel info.  The primary focus of this design is to make sure not to
->> leak kernel info to userspace, but with an "exclusive" mode also
->> support isolation between applications.
->>
->>
->>> I get this but it requires applications to be isolated. The pages from
->>> a queue can not be shared between multiple applications in different
->>> trust domains. And the application has to be cooperative meaning it
->>> can't "look" at data that has not been marked by the stack as OK. In
->>> these schemes we tend to end up with something like virtio/vhost or
->>> af_packet.
->>
->> I expect 3 modes, when enabling RX-zero-copy on a page_pool. The first
->> two would require CAP_NET_ADMIN privileges.  All modes have a trust
->> domain id, that need to match e.g. when page reach the socket.
->
-> Even mode 3 should required cap_net_admin we don't want userspace to
-> grab queues off the nic without it IMO.
->
->>
->> Mode-1 "Shared": Application choose lowest isolation level, allowing
->>  multiple application to mmap VMA area.
->
-> My only point here is applications can read each others data and all
-> applications need to cooperate for example one app could try to write
-> continuously to read only pages causing faults and what not. This is
-> all non standard and doesn't play well with cgroups and "normal"
-> applications. It requires a new orchestration model.
->
-> I'm a bit skeptical of the use case but I know of a handful of reasons
-> to use this model. Maybe take a look at the ivshmem implementation in
-> DPDK.
->
-> Also this still requires a hardware filter to push "application" traffic
-> onto reserved queues/pages as far as I can tell.
->
->>
->> Mode-2 "Single-user": Application request it want to be the only user
->>  of the RX queue.  This blocks other application to mmap VMA area.
->>
->
-> Assuming data is read-only sharing with the stack is possibly OK :/. I
-> guess you would need to pools of memory for data and skb so you don't
-> leak skb into user space.
->
-> The devils in the details here. There are lots of hooks in the kernel
-> that can for example push the packet with a 'redirect' tc action for
-> example. And letting an app "read" data or impact performance of an
-> unrelated application is wrong IMO. Stacked devices also provide another
-> set of details that are a bit difficult to track down see all the
-> hardware offload efforts.
->
-> I assume all these concerns are shared between mode-1 and mode-2
->
->> Mode-3 "Exclusive": Application request to own RX queue.  Packets are
->>  no longer allowed for normal netstack delivery.
->>
->
-> I have patches for this mode already but haven't pushed them due to
-> an alternative solution using VFIO.
->
->> Notice mode-2 still requires CAP_NET_ADMIN, because packets/pages are
->> still allowed to travel netstack and thus can contain packet data from
->> other normal applications.  This is part of the design, to share the
->> NIC between netstack and an accelerated userspace application using RX
->> zero-copy delivery.
->>
->
-> I don't think this is acceptable to be honest. Letting an application
-> potentially read/impact other arbitrary applications on the system
-> seems like a non-starter even with CAP_NET_ADMIN. At least this was
-> the conclusion from bifurcated driver work some time ago.
+On Tue, 13 Dec 2016, Hannes Frederic Sowa wrote:
 
-I agree.  This is a no-go from the performance perspective as well.
-At a minimum you would have to be zeroing out the page between uses to
-avoid leaking data, and that assumes that the program we are sending
-the pages to is slightly well behaved.  If we think zeroing out an
-sk_buff is expensive wait until we are trying to do an entire 4K page.
+> > Interesting.  So you even imagine sockets registering memory regions
+> > with the NIC.  If we had a proper NIC HW filter API across the drivers,
+> > to register the steering rule (like ibv_create_flow), this would be
+> > doable, but we don't (DPDK actually have an interesting proposal[1])
+>
+> On a side note, this is what windows does with RIO ("registered I/O").
+> Maybe you want to look at the API to get some ideas: allocating and
+> pinning down memory in user space and registering that with sockets to
+> get zero-copy IO.
 
-I think we are stuck with having to use a HW filter to split off
-application traffic to a specific ring, and then having to share the
-memory between the application and the kernel on that ring only.  Any
-other approach just opens us up to all sorts of security concerns
-since it would be possible for the application to try to read and
-possibly write any data it wants into the buffers.
-
-- Alex
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Yup that is also what I think. Regarding the memory registration and flow
+steering for user space RX/TX ring please look at the qpair model
+implemented by the RDMA subsystem in the kernel. The memory semantics are
+clearly established there and have been in use for more than a decade.
