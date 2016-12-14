@@ -1,43 +1,82 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: Re: [PATCH v2 3/4] secure_seq: use siphash24 instead of md5_transform
-Date: Wed, 14 Dec 2016 14:44:12 +0100
-Message-ID: <CAHmME9o4NVi-MPeURio1Ga58rnW6JAGQdTg6scd+K3EZEf3RNA@mail.gmail.com>
-References: <20161214035927.30004-1-Jason@zx2c4.com> <20161214035927.30004-3-Jason@zx2c4.com>
- <CAHmME9pEM=cDC5S=j1BU2oCF8-WdnbRfiVojcet4rXcRLcpJRw@mail.gmail.com> <1e502c6b-cda3-c46d-2535-fcfb58f443a9@stressinduktion.org>
-Reply-To: kernel-hardening@lists.openwall.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Laight <David.Laight@aculab.com>, Netdev <netdev@vger.kernel.org>,
-	kernel-hardening@lists.openwall.com, Andi Kleen <ak@linux.intel.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Linux Crypto Mailing List <linux-crypto@vger.kernel.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <kernel-hardening-return-5516-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <1e502c6b-cda3-c46d-2535-fcfb58f443a9@stressinduktion.org>
+From: Gao feng <omarapazanadi@gmail.com>
+Subject: [PATCH] vsock: lookup and setup guest_cid inside vhost_vsock_lock
+Date: Wed, 14 Dec 2016 19:24:36 +0800
+Message-ID: <1481714676-18555-1-git-send-email-omarapazanadi@gmail.com>
+Cc: stefanha@redhat.com, mst@redhat.com,
+        Gao feng <omarapazanadi@gmail.com>
+To: kvm@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <kvm-owner@vger.kernel.org>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Hannes,
+Multi vsocks may setup the same cid at the same time.
 
-Thanks for the feedback.
+Signed-off-by: Gao feng <omarapazanadi@gmail.com>
+---
+ drivers/vhost/vsock.c | 25 +++++++++++++++++--------
+ 1 file changed, 17 insertions(+), 8 deletions(-)
 
-> __packed not only removes all padding of the struct but also changes the
-> alignment assumptions for the whole struct itself. The rule, the struct
-> is aligned by its maximum alignment of a member is no longer true. That
-> said, the code accessing this struct will change (not on archs that can
-> deal efficiently with unaligned access, but on others).
+diff --git a/drivers/vhost/vsock.c b/drivers/vhost/vsock.c
+index e3b30ea..a08332b 100644
+--- a/drivers/vhost/vsock.c
++++ b/drivers/vhost/vsock.c
+@@ -50,11 +50,10 @@ static u32 vhost_transport_get_local_cid(void)
+ 	return VHOST_VSOCK_DEFAULT_HOST_CID;
+ }
+ 
+-static struct vhost_vsock *vhost_vsock_get(u32 guest_cid)
++static struct vhost_vsock *__vhost_vsock_get(u32 guest_cid)
+ {
+ 	struct vhost_vsock *vsock;
+ 
+-	spin_lock_bh(&vhost_vsock_lock);
+ 	list_for_each_entry(vsock, &vhost_vsock_list, list) {
+ 		u32 other_cid = vsock->guest_cid;
+ 
+@@ -63,15 +62,24 @@ static struct vhost_vsock *vhost_vsock_get(u32 guest_cid)
+ 			continue;
+ 
+ 		if (other_cid == guest_cid) {
+-			spin_unlock_bh(&vhost_vsock_lock);
+ 			return vsock;
+ 		}
+ 	}
+-	spin_unlock_bh(&vhost_vsock_lock);
+ 
+ 	return NULL;
+ }
+ 
++static struct vhost_vsock *vhost_vsock_get(u32 guest_cid)
++{
++	struct vhost_vsock *vsock;
++
++	spin_lock_bh(&vhost_vsock_lock);
++	vsock = __vhost_vsock_get(guest_cid);
++	spin_unlock_bh(&vhost_vsock_lock);
++
++	return vsock;
++}
++
+ static void
+ vhost_transport_do_send_pkt(struct vhost_vsock *vsock,
+ 			    struct vhost_virtqueue *vq)
+@@ -562,11 +570,12 @@ static int vhost_vsock_set_cid(struct vhost_vsock *vsock, u64 guest_cid)
+ 		return -EINVAL;
+ 
+ 	/* Refuse if CID is already in use */
+-	other = vhost_vsock_get(guest_cid);
+-	if (other && other != vsock)
+-		return -EADDRINUSE;
+-
+ 	spin_lock_bh(&vhost_vsock_lock);
++	other = __vhost_vsock_get(guest_cid);
++	if (other && other != vsock) {
++		spin_unlock_bh(&vhost_vsock_lock);
++		return -EADDRINUSE;
++	}
+ 	vsock->guest_cid = guest_cid;
+ 	spin_unlock_bh(&vhost_vsock_lock);
+ 
+-- 
+2.5.5
 
-That's interesting. There currently aren't any alignment requirements
-in siphash because we use the unaligned helper functions, but as David
-pointed out in another thread, maybe that too should change. In that
-case, we'd have an aligned-only version of the function that requires
-8-byte aligned input. Perhaps the best way to go about that would be
-to just mark the struct as __packed __aligned(8). Or, I guess, since
-64-bit accesses gets split into two on 32-bit, that'd be best descried
-as __packed __aligned(sizeof(long)). Would that be an acceptable
-solution?
-
-Jason
