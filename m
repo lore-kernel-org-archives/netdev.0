@@ -1,78 +1,94 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 1/3] siphash: add cryptographically secure hashtable
- function
-Date: Wed, 14 Dec 2016 09:56:29 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB023F4ED@AcuExch.aculab.com>
-References: <20161214001656.19388-1-Jason@zx2c4.com>
+From: John Crispin <john@phrozen.org>
+Subject: dsa: handling more than 1 cpu port
+Date: Wed, 14 Dec 2016 11:01:54 +0100
+Message-ID: <1671ae82-c213-7611-584f-02a3b1d5dff9@phrozen.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>,
-        "Daniel J . Bernstein" <djb@cr.yp.to>
-To: "'Jason A. Donenfeld'" <Jason@zx2c4.com>,
-        Netdev <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Linus Torvalds <torvalds@linux-foundation.org>,
-        "kernel-hardening@lists.openwall.com"
-        <kernel-hardening@lists.openwall.com>,
-        LKML <linux-kernel@vger.kernel.org>,
-        George Spelvin <linux@horizon.com>,
-        Scott Bauer <sbauer@eng.utah.edu>,
-        "Andi Kleen" <ak@linux.intel.com>,
-        Andy Lutomirski <luto@amacapital.net>,
-        Greg KH <gregkh@linuxfoundation.org>,
-        Eric Biggers <ebiggers3@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161214001656.19388-1-Jason@zx2c4.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>,
+        Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nbd.name ([46.4.11.11]:43916 "EHLO nbd.name"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754583AbcLNKB6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 14 Dec 2016 05:01:58 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jason A. Donenfeld
-> Sent: 14 December 2016 00:17
-> SipHash is a 64-bit keyed hash function that is actually a
-> cryptographically secure PRF, like HMAC. Except SipHash is super fast,
-> and is meant to be used as a hashtable keyed lookup function.
-> 
-> SipHash isn't just some new trendy hash function. It's been around for a
-> while, and there really isn't anything that comes remotely close to
-> being useful in the way SipHash is. With that said, why do we need this?
-> 
-> There are a variety of attacks known as "hashtable poisoning" in which an
-> attacker forms some data such that the hash of that data will be the
-> same, and then preceeds to fill up all entries of a hashbucket. This is
-> a realistic and well-known denial-of-service vector.
-> 
-> Linux developers already seem to be aware that this is an issue, and
-> various places that use hash tables in, say, a network context, use a
-> non-cryptographically secure function (usually jhash) and then try to
-> twiddle with the key on a time basis (or in many cases just do nothing
-> and hope that nobody notices). While this is an admirable attempt at
-> solving the problem, it doesn't actually fix it. SipHash fixes it.
-> 
-> (It fixes it in such a sound way that you could even build a stream
-> cipher out of SipHash that would resist the modern cryptanalysis.)
-> 
-> There are a modicum of places in the kernel that are vulnerable to
-> hashtable poisoning attacks, either via userspace vectors or network
-> vectors, and there's not a reliable mechanism inside the kernel at the
-> moment to fix it. The first step toward fixing these issues is actually
-> getting a secure primitive into the kernel for developers to use. Then
-> we can, bit by bit, port things over to it as deemed appropriate.
-> 
-> Dozens of languages are already using this internally for their hash
-> tables. Some of the BSDs already use this in their kernels. SipHash is
-> a widely known high-speed solution to a widely known problem, and it's
-> time we catch-up.
-...
-> +u64 siphash24(const u8 *data, size_t len, const u8 key[SIPHASH24_KEY_LEN])
-...
-> +	u64 k0 = get_unaligned_le64(key);
-> +	u64 k1 = get_unaligned_le64(key + sizeof(u64));
-...
-> +		m = get_unaligned_le64(data);
+Hi Andrew,
 
-All these unaligned accesses are going to get expensive on architectures
-like sparc64.
+switches supported by qca8k have 2 gmacs that we can wire an external
+mii interface to. Usually this is used to wire 2 of the SoCs MACs to the
+switch. Thw switch itself is aware of one of the MACs being the cpu port
+and expects this to be port/mac0. Using the other will break the
+hardware offloading features. The original series from Matthieu added a
+feature to configure the switch in a pass-through mode [1]. This
+resulted in us having to define the pass-through inside the dts which
+means that we loose userland configurability. Assume the setup as
+follows ...
 
-	David
+port0 - cpu port wired to SoCs MAC0
+port1-4 - the lan ports
+port5 - the wan port
+port6 - wired to the SoCs MAC1
+
+What i have done now is bring up one bridge for port1-4 and a second one
+for port5-6. Once setup I can pass traffic on the SoCs MAC1 and it will
+flow via port6 and egress on port5. So far so good, however due to the
+way the port based vlans are setup and how the bridge_join/leave() logic
+works, port5/6 will also fwd traffic to the cpu port. the driver has now
+to tell that we are trunking traffic on eth1 via port6. also the MII
+mode is not known to the driver. Adding some hackish register writes
+will make this work nicely. My proposed way of fixing this cleanly in an
+upstream friendly way would be as follows
+
+1) add an extra dsa,ethernet property to the 2nd MII port
+
+dsa@0 {
+        compatible = "qca,ar8xxx";
+
+        dsa,ethernet = <&gmac1>;
+
+	[...]
+
+        switch@0 {
+		[...]
+
+                port@5 {
+                        reg = <5>;
+                        label = "wan";
+                        phy-handle = <&phy_port5>;
+                };
+
+                port@6 {
+                        reg = <6>;
+                        label = "gmac2";
+
+                        dsa,ethernet = <&gmac2>;
+                        fixed-link {
+                                speed = <1000>;
+                                full-duplex;
+                        };
+                };
+        };
+};
+
+2) fix up the port_bridge_join/leave() logic such that if a port is
+present in the bridge that has a reference to a ethernet interface it
+will remove all ports in the bridge from the port based vlan of the
+actual cpu port.
+
+3) in case of this switch we also need to fiddle with the bcast/mcast
+flooding registers
+
+would this be ok and would it be better to probe the extra dsa_ethernet
+inside the subsystem or the driver ? i was considering to do add a
+dsa_is_trunk_port() or similar to achieve this.
+
+	John
+
+
+
+
+[1] https://patchwork.ozlabs.org/patch/477525/
