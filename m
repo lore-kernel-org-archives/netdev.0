@@ -1,58 +1,43 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCHv2 2/5] sh_eth: enable wake-on-lan for Gen2 devices
-Date: Wed, 14 Dec 2016 16:37:48 +0300
-Message-ID: <eeff27f9-25eb-a981-33a9-15aa98ce9db1@cogentembedded.com>
-References: <20161212160931.6478-1-niklas.soderlund+renesas@ragnatech.se>
- <20161212160931.6478-3-niklas.soderlund+renesas@ragnatech.se>
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: Re: [PATCH v2 3/4] secure_seq: use siphash24 instead of md5_transform
+Date: Wed, 14 Dec 2016 14:44:12 +0100
+Message-ID: <CAHmME9o4NVi-MPeURio1Ga58rnW6JAGQdTg6scd+K3EZEf3RNA@mail.gmail.com>
+References: <20161214035927.30004-1-Jason@zx2c4.com> <20161214035927.30004-3-Jason@zx2c4.com>
+ <CAHmME9pEM=cDC5S=j1BU2oCF8-WdnbRfiVojcet4rXcRLcpJRw@mail.gmail.com> <1e502c6b-cda3-c46d-2535-fcfb58f443a9@stressinduktion.org>
+Reply-To: kernel-hardening@lists.openwall.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: Geert Uytterhoeven <geert@linux-m68k.org>
-To: =?UTF-8?Q?Niklas_S=c3=b6derlund?=
-        <niklas.soderlund+renesas@ragnatech.se>,
-        Simon Horman <horms+renesas@verge.net.au>,
-        netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f169.google.com ([209.85.216.169]:33924 "EHLO
-        mail-qt0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755897AbcLNNhw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 14 Dec 2016 08:37:52 -0500
-Received: by mail-qt0-f169.google.com with SMTP id n6so22450631qtd.1
-        for <netdev@vger.kernel.org>; Wed, 14 Dec 2016 05:37:51 -0800 (PST)
-In-Reply-To: <20161212160931.6478-3-niklas.soderlund+renesas@ragnatech.se>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Laight <David.Laight@aculab.com>, Netdev <netdev@vger.kernel.org>,
+	kernel-hardening@lists.openwall.com, Andi Kleen <ak@linux.intel.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Linux Crypto Mailing List <linux-crypto@vger.kernel.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <kernel-hardening-return-5516-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+In-Reply-To: <1e502c6b-cda3-c46d-2535-fcfb58f443a9@stressinduktion.org>
+List-Id: netdev.vger.kernel.org
 
-Hello!
+Hi Hannes,
 
-    You forgot "R-Car" before "Gen2" in the subject.
+Thanks for the feedback.
 
-On 12/12/2016 07:09 PM, Niklas Söderlund wrote:
+> __packed not only removes all padding of the struct but also changes the
+> alignment assumptions for the whole struct itself. The rule, the struct
+> is aligned by its maximum alignment of a member is no longer true. That
+> said, the code accessing this struct will change (not on archs that can
+> deal efficiently with unaligned access, but on others).
 
-> Tested on Gen2 r8a7791/Koelsch.
->
-> Signed-off-by: Niklas Söderlund <niklas.soderlund+renesas@ragnatech.se>
-> ---
->  drivers/net/ethernet/renesas/sh_eth.c | 6 ++++--
->  1 file changed, 4 insertions(+), 2 deletions(-)
->
-> diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-> index 87640b9..348ed22 100644
-> --- a/drivers/net/ethernet/renesas/sh_eth.c
-> +++ b/drivers/net/ethernet/renesas/sh_eth.c
-> @@ -624,8 +624,9 @@ static struct sh_eth_cpu_data r8a779x_data = {
->
->  	.register_type	= SH_ETH_REG_FAST_RCAR,
->
-> -	.ecsr_value	= ECSR_PSRTO | ECSR_LCHNG | ECSR_ICD,
-> -	.ecsipr_value	= ECSIPR_PSRTOIP | ECSIPR_LCHNGIP | ECSIPR_ICDIP,
-> +	.ecsr_value	= ECSR_PSRTO | ECSR_LCHNG | ECSR_ICD | ECSR_MPD,
-> +	.ecsipr_value	= ECSIPR_PSRTOIP | ECSIPR_LCHNGIP | ECSIPR_ICDIP |
-> +			  ECSIPR_MPDIP,
+That's interesting. There currently aren't any alignment requirements
+in siphash because we use the unaligned helper functions, but as David
+pointed out in another thread, maybe that too should change. In that
+case, we'd have an aligned-only version of the function that requires
+8-byte aligned input. Perhaps the best way to go about that would be
+to just mark the struct as __packed __aligned(8). Or, I guess, since
+64-bit accesses gets split into two on 32-bit, that'd be best descried
+as __packed __aligned(sizeof(long)). Would that be an acceptable
+solution?
 
-   These expressions seem to have been sorted by the bit # before your patch, 
-now they aren't... care to fix? :-)
-
-[...]
-
-MBR, Sergei
+Jason
