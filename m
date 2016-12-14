@@ -1,50 +1,56 @@
-From: Richard Guy Briggs <rgb@redhat.com>
-Subject: Re: [RFC PATCH v3] audit: use proper refcount locking on audit_sock
-Date: Tue, 13 Dec 2016 23:00:05 -0500
-Message-ID: <20161214040005.GL22660@madcap2.tricolour.ca>
-References: <20161212100215.GA1305@madcap2.tricolour.ca>
- <61c37ca790bc11bc023aea8f9b70ab3098aa30f5.1481626466.git.rgb@redhat.com>
- <CAM_iQpVFkNdEirvBDi8wV=iExt9BnCm3KU7+Q8oqhrJJtcnu9Q@mail.gmail.com>
+From: Jie Deng <Jie.Deng1@synopsys.com>
+Subject: Re: stmmac driver...
+Date: Wed, 14 Dec 2016 12:05:50 +0800
+Message-ID: <8d624fd3-8440-5b8a-ee8d-558a671eec60@synopsys.com>
+References: <20161207.130654.1484281922991494182.davem@davemloft.net>
+ <35edb551-518e-f59f-7a9e-db108d8f42a7@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>, linux-audit@redhat.com,
-        Dmitry Vyukov <dvyukov@google.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAM_iQpVFkNdEirvBDi8wV=iExt9BnCm3KU7+Q8oqhrJJtcnu9Q@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
+        David Miller <davem@davemloft.net>, <alexandre.torgue@st.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from us01smtprelay-2.synopsys.com ([198.182.47.9]:35516 "EHLO
+        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932109AbcLNEIN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 13 Dec 2016 23:08:13 -0500
+In-Reply-To: <35edb551-518e-f59f-7a9e-db108d8f42a7@st.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2016-12-13 16:19, Cong Wang wrote:
-> On Tue, Dec 13, 2016 at 7:03 AM, Richard Guy Briggs <rgb@redhat.com> wrote:
-> > @@ -1283,8 +1299,10 @@ static void __net_exit audit_net_exit(struct net *net)
-> >  {
-> >         struct audit_net *aunet = net_generic(net, audit_net_id);
-> >         struct sock *sock = aunet->nlsk;
-> > +       mutex_lock(&audit_cmd_mutex);
-> >         if (sock == audit_sock)
-> >                 auditd_reset();
-> > +       mutex_unlock(&audit_cmd_mutex);
-> 
-> This still doesn't look correct to me, b/c here we release the audit_sock
-> refcnt twice:
-> 
-> 1) inside audit_reset()
+Hi Peppe,
 
-The audit_reset() refcount decrement corresponds to a setting of
-audit_sock only if audit_sock is still non-NULL.
-
-> 2) netlink_kernel_release()
-
-This refcount decrement corresponds to netlink_kernel_create().
-
-- RGB
-
---
-Richard Guy Briggs <rgb@redhat.com>
-Kernel Security Engineering, Base Operating Systems, Red Hat
-Remote, Ottawa, Canada
-Voice: +1.647.777.2635, Internal: (81) 32635
+On 2016/12/12 22:17, Giuseppe CAVALLARO wrote:
+> Hi David
+>
+> On 12/7/2016 7:06 PM, David Miller wrote:
+>>
+>> Giuseppe and Alexandre,
+>>
+>> There are a lot of patches and discussions happening around the stammc
+>> driver lately and both of you are listed as the maintainers.
+>>
+>> I really need prompt and conclusive reviews of these patch submissions
+>> from you, and participation in all discussions about the driver.
+>
+> yes we are trying to do the best.
+>
+>> Otherwise I have only three things I can do: 1) let the patches rot in
+>> patchwork for days 2) trust that the patches are sane and fit your
+>> desires and goals and just apply them or 3) reject them since they
+>> aren't being reviewed properly.
+>
+> at this stage, I think the best is: (3).
+I think the patches David mentioned also included XLGMAC. He sent this email
+before I explained QoS and XLGMAC were different IPs. Do you mind we do XLGMAC
+development under drivers/net/ethernet/synopsys/ ? I think we don't have
+conflict since we will keep QoS development in stmmac.
+>
+>>
+>> Thanks in advance.
+>>
+> you are welcome
+>
+>
+> Peppe
