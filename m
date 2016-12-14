@@ -1,33 +1,45 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: Re: [PATCH v3 1/3] siphash: add cryptographically secure hashtable function
-Date: Wed, 14 Dec 2016 22:21:50 +0100
-Message-ID: <CAHmME9rgGnAYTDaPSo=7mZj=jinka0+QTYA8TBb9WXY9S1QmRg@mail.gmail.com>
-References: <20161214184605.24006-1-Jason@zx2c4.com> <201612150515.xggXiOp3%fengguang.wu@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: kbuild-all@01.org, Netdev <netdev@vger.kernel.org>,
-        kernel-hardening@lists.openwall.com,
-        LKML <linux-kernel@vger.kernel.org>,
-        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-        Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>,
-        "Daniel J . Bernstein" <djb@cr.yp.to>,
-        Linus Torvalds <torvalds@linux-foundation.org>,
-        Eric Biggers <ebiggers3@gmail.com>,
-        David Laight <David.Laight@aculab.com>
-To: kbuild test robot <lkp@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201612150515.xggXiOp3%fengguang.wu@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Christoph Lameter <cl@linux.com>
+Subject: Re: Designing a safe RX-zero-copy Memory Model for Networking
+Date: Wed, 14 Dec 2016 15:22:30 -0600 (CST)
+Message-ID: <alpine.DEB.2.20.1612141520350.24815@east.gentwo.org>
+References: <20161205153132.283fcb0e@redhat.com> <20161212083812.GA19987@rapoport-lnx> <20161212104042.0a011212@redhat.com> <20161212141433.GB19987@rapoport-lnx> <584EB8DF.8000308@gmail.com> <20161212181344.3ddfa9c3@redhat.com> <alpine.DEB.2.20.1612121200280.13607@east.gentwo.org>
+ <20161213171028.24dbf519@redhat.com> <8aea213f-2739-9bd3-3a6a-668b759336ae@stressinduktion.org> <alpine.DEB.2.20.1612141059020.20959@east.gentwo.org> <063D6719AE5E284EB5DD2968C1650D6DB023FA6E@AcuExch.aculab.com> <alpine.DEB.2.20.1612141342080.23516@east.gentwo.org>
+ <c122d91d-9506-ac35-29e5-3d80791259ef@stressinduktion.org>
+Content-Type: text/plain; charset=US-ASCII
+Cc: David Laight <David.Laight@ACULAB.COM>,
+    Jesper Dangaard Brouer <brouer@redhat.com>,
+    John Fastabend <john.fastabend@gmail.com>,
+    Mike Rapoport <rppt@linux.vnet.ibm.com>,
+    "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+    linux-mm <linux-mm@kvack.org>,
+    Willem de Bruijn <willemdebruijn.kernel@gmail.com>,
+    =?ISO-8859-15?Q?Bj=F6rn_T=F6pel?= <bjorn.topel@intel.com>,
+    "Karlsson, Magnus" <magnus.karlsson@intel.com>,
+    Alexander Duyck <alexander.duyck@gmail.com>,
+    Mel Gorman <mgorman@techsingularity.net>,
+    Tom Herbert <tom@herbertland.com>, Brenden Blanco <bblanco@plumgrid.com>,
+    Tariq Toukan <tariqt@mellanox.com>, Saeed Mahameed <saeedm@mellanox.com>,
+    Jesse Brandeburg <jesse.brandeburg@intel.com>,
+    Kalman Meth <METH@il.ibm.com>, Vladislav Yasevich <vyasevich@gmail.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <c122d91d-9506-ac35-29e5-3d80791259ef@stressinduktion.org>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-Interesting. Evidently gcc 4.8 doesn't like my use of:
+On Wed, 14 Dec 2016, Hannes Frederic Sowa wrote:
 
-enum siphash_lengths {
-       SIPHASH24_KEY_LEN = 16,
-       SIPHASH24_ALIGNMENT = 8
-};
+> Wouldn't changing of the pages cause expensive TLB flushes?
 
-I'll convert this to the more boring:
+Yes so you would only want that feature if its realized at the page
+table level for debugging issues.
 
-#define SIPHASH24_KEY_LEN 16
-#define SIPHASH24_ALIGNMENT 8
+Once you have memory registered with the hardware device then also the
+device could itself could perform snooping to realize that data was
+changed and thus abort the operation.
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
