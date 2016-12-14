@@ -1,71 +1,76 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH v2 3/4] secure_seq: use siphash24 instead of md5_transform
-Date: Wed, 14 Dec 2016 21:27:07 +0100
-Message-ID: <ba55e62d-d4e6-97ed-614e-98c33a74347b@stressinduktion.org>
-References: <20161214035927.30004-1-Jason@zx2c4.com>
- <20161214035927.30004-3-Jason@zx2c4.com>
- <CAHmME9pEM=cDC5S=j1BU2oCF8-WdnbRfiVojcet4rXcRLcpJRw@mail.gmail.com>
- <20161214.125612.1361254098267633173.davem@davemloft.net>
- <CAHmME9pz4XudfeqhKBwFNDmp7AYuNwbnevMqB3e6ScPDnUnq9g@mail.gmail.com>
- <0e708ba2-6a4e-013e-597a-62ab32cc240b@stressinduktion.org>
- <CAHmME9rp2oSCo0eu92jKm00S0eJHz65bJKXRpeS7=_EV6zZNYw@mail.gmail.com>
+Subject: Re: Designing a safe RX-zero-copy Memory Model for Networking
+Date: Wed, 14 Dec 2016 21:37:23 +0100
+Message-ID: <c122d91d-9506-ac35-29e5-3d80791259ef@stressinduktion.org>
+References: <20161205153132.283fcb0e@redhat.com>
+ <20161212083812.GA19987@rapoport-lnx> <20161212104042.0a011212@redhat.com>
+ <20161212141433.GB19987@rapoport-lnx> <584EB8DF.8000308@gmail.com>
+ <20161212181344.3ddfa9c3@redhat.com>
+ <alpine.DEB.2.20.1612121200280.13607@east.gentwo.org>
+ <20161213171028.24dbf519@redhat.com>
+ <8aea213f-2739-9bd3-3a6a-668b759336ae@stressinduktion.org>
+ <alpine.DEB.2.20.1612141059020.20959@east.gentwo.org>
+ <063D6719AE5E284EB5DD2968C1650D6DB023FA6E@AcuExch.aculab.com>
+ <alpine.DEB.2.20.1612141342080.23516@east.gentwo.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        David Laight <David.Laight@aculab.com>,
-        Netdev <netdev@vger.kernel.org>,
-        kernel-hardening@lists.openwall.com,
-        Andi Kleen <ak@linux.intel.com>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>
-To: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAHmME9rp2oSCo0eu92jKm00S0eJHz65bJKXRpeS7=_EV6zZNYw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+        John Fastabend <john.fastabend@gmail.com>,
+        Mike Rapoport <rppt@linux.vnet.ibm.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        linux-mm <linux-mm@kvack.org>,
+        Willem de Bruijn <willemdebruijn.kernel@gmail.com>,
+        =?UTF-8?B?QmrDtnJuIFTDtnBlbA==?= <bjorn.topel@intel.com>,
+        "Karlsson, Magnus" <magnus.karlsson@intel.com>,
+        Alexander Duyck <alexander.duyck@gmail.com>,
+        Mel Gorman <mgorman@techsingularity.net>,
+        Tom Herbert <tom@herbertland.com>,
+        Brenden Blanco <bblanco@plumgrid.com>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Jesse Brandeburg <jesse.brandeburg@intel.com>,
+        Kalman Meth <METH@il.ibm.com>,
+        Vladislav Yasevich <vyasevich@gmail.com>
+To: Christoph Lameter <cl@linux.com>,
+        David Laight <David.Laight@ACULAB.COM>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out3-smtp.messagingengine.com ([66.111.4.27]:56023 "EHLO
+        out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1753959AbcLNUhd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 14 Dec 2016 15:37:33 -0500
+In-Reply-To: <alpine.DEB.2.20.1612141342080.23516@east.gentwo.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hey Jason,
-
-On 14.12.2016 20:38, Jason A. Donenfeld wrote:
-> On Wed, Dec 14, 2016 at 8:22 PM, Hannes Frederic Sowa
-> <hannes@stressinduktion.org> wrote:
->> I don't think this helps. Did you test it? I don't see reason why
->> padding could be left out between `d' and `end' because of the flexible
->> array member?
+On 14.12.2016 20:43, Christoph Lameter wrote:
+> On Wed, 14 Dec 2016, David Laight wrote:
 > 
-> Because the type u8 doesn't require any alignment requirements, it can
-> nestle right up there cozy with the u16:
+>> If the kernel is doing ANY validation on the frames it must copy the
+>> data to memory the application cannot modify before doing the validation.
+>> Otherwise the application could change the data afterwards.
 > 
-> zx2c4@thinkpad ~ $ cat a.c
-> #include <stdint.h>
-> #include <stdio.h>
-> #include <stddef.h>
-> int main()
-> {
->        struct {
->                uint64_t a;
->                uint32_t b;
->                uint32_t c;
->                uint16_t d;
->                char x[];
->        } a;
->        printf("%zu\n", sizeof(a));
->        printf("%zu\n", offsetof(typeof(a), x));
->        return 0;
-> }
-> zx2c4@thinkpad ~ $ gcc a.c
-> zx2c4@thinkpad ~ $ ./a.out
-> 24
-> 18
+> The application is not allowed to change the data after a work request has
+> been submitted to send the frame. Changes are possible after the
+> completion request has been received.
+> 
+> The kernel can enforce that by making the frame(s) readonly and thus
+> getting a page fault if the app would do such a thing.
 
-Sorry, I misread the patch. You are using offsetof. In this case remove
-the char x[] and just use offsetofend because it is misleading
-otherwise. Should work like that though.
+As far as I remember right now, if you gift with vmsplice the memory
+over a pipe to a tcp socket, you can in fact change the user data while
+the data is in transmit. So you should not touch the memory region until
+you received a SOF_TIMESTAMPING_TX_ACK error message in your sockets
+error queue or stuff might break horribly. I don't think we have a
+proper event for UDP that fires after we know the data left the hardware.
 
-What I don't really understand is that the addition of this complexity
-actually reduces the performance, as you have to take the "if (left)"
-branch during hashing and causes you to make a load_unaligned_zeropad.
+In my opinion this is still fine within the kernel protection limits.
+E.g. due to scatter gather I/O you don't get access to the TCP header
+nor UDP header and thus can't e.g. spoof or modify the header or
+administration policies, albeit TOCTTOU races with netfilter which
+matches inside the TCP/UDP packets are very well possible on transmit.
+
+Wouldn't changing of the pages cause expensive TLB flushes?
 
 Bye,
 Hannes
