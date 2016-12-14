@@ -1,48 +1,38 @@
 From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: Re: [PATCH v3 1/3] siphash: add cryptographically secure hashtable function
-Date: Wed, 14 Dec 2016 21:55:51 +0100
-Message-ID: <CAHmME9pR3tD2zknKsYaFaTJm_3aBBOA6c174hypm6S-q9wp5nw@mail.gmail.com>
-References: <20161214035927.30004-1-Jason@zx2c4.com> <20161214184605.24006-1-Jason@zx2c4.com>
- <CALx6S35UgTyqkYUjS5gYFH4HnjW974WQ_JiDXxgb9rZ7gnY52Q@mail.gmail.com> <CAHmME9oMaQOhzJbNKh8GN759iJngeRdXt3naOnFhY9mD6t5Kxg@mail.gmail.com>
-Reply-To: kernel-hardening@lists.openwall.com
+Subject: Re: [PATCH v2 3/4] secure_seq: use siphash24 instead of md5_transform
+Date: Wed, 14 Dec 2016 22:01:29 +0100
+Message-ID: <CAHmME9qtRC5daEPgDEtNgP9tEajd=xRG=qkHE5XoOMA_zAeysw@mail.gmail.com>
+References: <20161214035927.30004-1-Jason@zx2c4.com> <20161214035927.30004-3-Jason@zx2c4.com>
+ <CAHmME9pEM=cDC5S=j1BU2oCF8-WdnbRfiVojcet4rXcRLcpJRw@mail.gmail.com> <CALx6S37mGaLJoacxyu3_ZQANSNz9UU38-b-V6g1nma=Gye3pjw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>, kernel-hardening@lists.openwall.com,
-	LKML <linux-kernel@vger.kernel.org>,
-	Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-	Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>, "Daniel J . Bernstein" <djb@cr.yp.to>,
-	Linus Torvalds <torvalds@linux-foundation.org>, Eric Biggers <ebiggers3@gmail.com>,
-	David Laight <David.Laight@aculab.com>
+Cc: David Laight <David.Laight@aculab.com>,
+        Netdev <netdev@vger.kernel.org>,
+        kernel-hardening@lists.openwall.com,
+        Andi Kleen <ak@linux.intel.com>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>
 To: Tom Herbert <tom@herbertland.com>
-Return-path: <kernel-hardening-return-5546-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <CAHmME9oMaQOhzJbNKh8GN759iJngeRdXt3naOnFhY9mD6t5Kxg@mail.gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CALx6S37mGaLJoacxyu3_ZQANSNz9UU38-b-V6g1nma=Gye3pjw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hey Tom,
+On Wed, Dec 14, 2016 at 9:12 PM, Tom Herbert <tom@herbertland.com> wrote:
+> If you pad the data structure to 64 bits then we can call the version
+> of siphash that only deals in 64 bit words. Writing a zero in the
+> padding will be cheaper than dealing with odd lengths in siphash24.
+On Wed, Dec 14, 2016 at 9:27 PM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> What I don't really understand is that the addition of this complexity
+> actually reduces the performance, as you have to take the "if (left)"
+> branch during hashing and causes you to make a load_unaligned_zeropad.
 
-Just following up on what I mentioned in my last email...
+Oh, duh, you guys are right. Fixed in my repo [1]. I'll submit the
+next version in a day or so to let some other comments come in.
 
-On Wed, Dec 14, 2016 at 8:35 PM, Jason A. Donenfeld <Jason@zx2c4.com> wrote:
-> I think your suggestion for (2) will contribute to further
-> optimizations for (1). In v2, I had another patch in there adding
-> siphash_1word, siphash_2words, etc, like jhash, but I implemented it
-> by taking u32 variables and then just concatenating these into a
-> buffer and passing them to the main siphash function. I removed it
-> from v3 because I thought that these kind of missed the whole point.
-> In particular:
->
-> a) siphash24_1word, siphash24_2words, siphash24_3words, etc should
-> take u64, not u32, since that's what siphash operates on natively
-
-I implemented these here:
-https://git.zx2c4.com/linux-dev/commit/?h=siphash&id=4652b6f3643bdba217e2194d89661348bbac48a0
-
-This will be part of the next version of the series I submit. It's not
-immediately clear that using it is strictly faster than the struct
-trick though. However, I'm not yet sure why this would be.
+Thanks again for your reviews.
 
 Jason
+
+[1] https://git.zx2c4.com/linux-dev/log/?h=siphash
