@@ -1,68 +1,76 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: stmmac driver...
-Date: Wed, 14 Dec 2016 08:33:13 +0100
-Message-ID: <d8d00654-a07e-2992-a911-3b88f1d3d3ac@st.com>
-References: <20161207.130654.1484281922991494182.davem@davemloft.net>
- <35edb551-518e-f59f-7a9e-db108d8f42a7@st.com>
- <8d624fd3-8440-5b8a-ee8d-558a671eec60@synopsys.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Jie Deng <Jie.Deng1@synopsys.com>,
-        David Miller <davem@davemloft.net>, <alexandre.torgue@st.com>
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH] net: davicom: dm9000: use new api ethtool_{get|set}_link_ksettings
+Date: Wed, 14 Dec 2016 10:01:58 +0100
+Message-ID: <1481706118-13076-1-git-send-email-tremyfr@gmail.com>
+Cc: netdev@vger.kernel.org, Philippe Reynes <tremyfr@gmail.com>
+To: davem@davemloft.net, robert.jarzmik@free.fr, mugunthanvnm@ti.com,
+        marcel@ziswiler.com, jarod@redhat.com, s.nawrocki@samsung.com,
+        fw@strlen.de, harvey.hunt@imgtec.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx07-00178001.pphosted.com ([62.209.51.94]:45984 "EHLO
-        mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1753184AbcLNIvB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 14 Dec 2016 03:51:01 -0500
-In-Reply-To: <8d624fd3-8440-5b8a-ee8d-558a671eec60@synopsys.com>
+Received: from mail-wj0-f193.google.com ([209.85.210.193]:33652 "EHLO
+        mail-wj0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754826AbcLNJCH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 14 Dec 2016 04:02:07 -0500
+Received: by mail-wj0-f193.google.com with SMTP id kp2so3144078wjc.0
+        for <netdev@vger.kernel.org>; Wed, 14 Dec 2016 01:02:07 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Jie
+The ethtool api {get|set}_settings is deprecated.
+We move this driver to new api {get|set}_link_ksettings.
 
-On 12/14/2016 5:05 AM, Jie Deng wrote:
-> Hi Peppe,
->
-> On 2016/12/12 22:17, Giuseppe CAVALLARO wrote:
->> Hi David
->>
->> On 12/7/2016 7:06 PM, David Miller wrote:
->>>
->>> Giuseppe and Alexandre,
->>>
->>> There are a lot of patches and discussions happening around the stammc
->>> driver lately and both of you are listed as the maintainers.
->>>
->>> I really need prompt and conclusive reviews of these patch submissions
->>> from you, and participation in all discussions about the driver.
->>
->> yes we are trying to do the best.
->>
->>> Otherwise I have only three things I can do: 1) let the patches rot in
->>> patchwork for days 2) trust that the patches are sane and fit your
->>> desires and goals and just apply them or 3) reject them since they
->>> aren't being reviewed properly.
->>
->> at this stage, I think the best is: (3).
-> I think the patches David mentioned also included XLGMAC. He sent this email
-> before I explained QoS and XLGMAC were different IPs. Do you mind we do XLGMAC
-> development under drivers/net/ethernet/synopsys/ ? I think we don't have
-> conflict since we will keep QoS development in stmmac.
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+---
+ drivers/net/ethernet/davicom/dm9000.c |   14 ++++++++------
+ 1 files changed, 8 insertions(+), 6 deletions(-)
 
-Great. Many thanks for the clarification :-)
-
-Regards
-Peppe
-
->>
->>>
->>> Thanks in advance.
->>>
->> you are welcome
->>
->>
->> Peppe
->
->
+diff --git a/drivers/net/ethernet/davicom/dm9000.c b/drivers/net/ethernet/davicom/dm9000.c
+index f1a81c5..008dc81 100644
+--- a/drivers/net/ethernet/davicom/dm9000.c
++++ b/drivers/net/ethernet/davicom/dm9000.c
+@@ -570,19 +570,21 @@ static void dm9000_set_msglevel(struct net_device *dev, u32 value)
+ 	dm->msg_enable = value;
+ }
+ 
+-static int dm9000_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
++static int dm9000_get_link_ksettings(struct net_device *dev,
++				     struct ethtool_link_ksettings *cmd)
+ {
+ 	struct board_info *dm = to_dm9000_board(dev);
+ 
+-	mii_ethtool_gset(&dm->mii, cmd);
++	mii_ethtool_get_link_ksettings(&dm->mii, cmd);
+ 	return 0;
+ }
+ 
+-static int dm9000_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
++static int dm9000_set_link_ksettings(struct net_device *dev,
++				     const struct ethtool_link_ksettings *cmd)
+ {
+ 	struct board_info *dm = to_dm9000_board(dev);
+ 
+-	return mii_ethtool_sset(&dm->mii, cmd);
++	return mii_ethtool_set_link_ksettings(&dm->mii, cmd);
+ }
+ 
+ static int dm9000_nway_reset(struct net_device *dev)
+@@ -741,8 +743,6 @@ static int dm9000_set_wol(struct net_device *dev, struct ethtool_wolinfo *w)
+ 
+ static const struct ethtool_ops dm9000_ethtool_ops = {
+ 	.get_drvinfo		= dm9000_get_drvinfo,
+-	.get_settings		= dm9000_get_settings,
+-	.set_settings		= dm9000_set_settings,
+ 	.get_msglevel		= dm9000_get_msglevel,
+ 	.set_msglevel		= dm9000_set_msglevel,
+ 	.nway_reset		= dm9000_nway_reset,
+@@ -752,6 +752,8 @@ static int dm9000_set_wol(struct net_device *dev, struct ethtool_wolinfo *w)
+ 	.get_eeprom_len		= dm9000_get_eeprom_len,
+ 	.get_eeprom		= dm9000_get_eeprom,
+ 	.set_eeprom		= dm9000_set_eeprom,
++	.get_link_ksettings	= dm9000_get_link_ksettings,
++	.set_link_ksettings	= dm9000_set_link_ksettings,
+ };
+ 
+ static void dm9000_show_carrier(struct board_info *db,
+-- 
+1.7.4.4
