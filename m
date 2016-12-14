@@ -1,50 +1,67 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Query] Delayed vxlan socket creation?
-Date: Wed, 14 Dec 2016 09:24:08 -0800
-Message-ID: <CAM_iQpXujwj_GcN5KOT4vMbPj-H+B+=MdPjpRWZZrc+piooBYg@mail.gmail.com>
-References: <5A90DA2E42F8AE43BC4A093BF06788481A9457F1@SHSMSX103.ccr.corp.intel.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: Designing a safe RX-zero-copy Memory Model for Networking
+Date: Wed, 14 Dec 2016 17:37:37 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB023FA6E@AcuExch.aculab.com>
+References: <20161205153132.283fcb0e@redhat.com>
+ <20161212083812.GA19987@rapoport-lnx> <20161212104042.0a011212@redhat.com>
+ <20161212141433.GB19987@rapoport-lnx> <584EB8DF.8000308@gmail.com>
+ <20161212181344.3ddfa9c3@redhat.com>
+ <alpine.DEB.2.20.1612121200280.13607@east.gentwo.org>
+ <20161213171028.24dbf519@redhat.com>
+ <8aea213f-2739-9bd3-3a6a-668b759336ae@stressinduktion.org>
+ <alpine.DEB.2.20.1612141059020.20959@east.gentwo.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "mrjana@gmail.com" <mrjana@gmail.com>
-To: "Du, Fan" <fan.du@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f67.google.com ([209.85.214.67]:33418 "EHLO
-        mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933641AbcLNRYi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 14 Dec 2016 12:24:38 -0500
-Received: by mail-it0-f67.google.com with SMTP id c20so707010itb.0
-        for <netdev@vger.kernel.org>; Wed, 14 Dec 2016 09:24:29 -0800 (PST)
-In-Reply-To: <5A90DA2E42F8AE43BC4A093BF06788481A9457F1@SHSMSX103.ccr.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: quoted-printable
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>, John Fastabend
+	<john.fastabend@gmail.com>, Mike Rapoport <rppt@linux.vnet.ibm.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>, linux-mm
+	<linux-mm@kvack.org>, Willem de Bruijn <willemdebruijn.kernel@gmail.com>,
+	=?Windows-1252?Q?Bj=F6rn_T=F6pel?= <bjorn.topel@intel.com>, "Karlsson,
+ Magnus" <magnus.karlsson@intel.com>, Alexander Duyck
+	<alexander.duyck@gmail.com>, Mel Gorman <mgorman@techsingularity.net>, "Tom
+ Herbert" <tom@herbertland.com>, Brenden Blanco <bblanco@plumgrid.com>,
+	"Tariq Toukan" <tariqt@mellanox.com>, Saeed Mahameed <saeedm@mellanox.com>,
+	"Jesse Brandeburg" <jesse.brandeburg@intel.com>, Kalman Meth
+	<METH@il.ibm.com>, Vladislav Yasevich <vyasevich@gmail.com>
+To: 'Christoph Lameter' <cl@linux.com>, Hannes Frederic Sowa
+	<hannes@stressinduktion.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <alpine.DEB.2.20.1612141059020.20959@east.gentwo.org>
+Content-Language: en-US
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Dec 13, 2016 at 11:49 PM, Du, Fan <fan.du@intel.com> wrote:
-> Hi
->
-> I'm interested to one Docker issue[1] which looks like related to kernel vxlan socket creation
-> as described in the thread. From my limited knowledge here, socket creation is synchronous ,
-> and after the *socket* syscall, the sock handle will be valid and ready to linkup.
+From: Christoph Lameter
+> Sent: 14 December 2016 17:00
+> On Tue, 13 Dec 2016, Hannes Frederic Sowa wrote:
+>=20
+> > > Interesting.  So you even imagine sockets registering memory regions
+> > > with the NIC.  If we had a proper NIC HW filter API across the driver=
+s,
+> > > to register the steering rule (like ibv_create_flow), this would be
+> > > doable, but we don't (DPDK actually have an interesting proposal[1])
+> >
+> > On a side note, this is what windows does with RIO ("registered I/O").
+> > Maybe you want to look at the API to get some ideas: allocating and
+> > pinning down memory in user space and registering that with sockets to
+> > get zero-copy IO.
+>=20
+> Yup that is also what I think. Regarding the memory registration and flow
+> steering for user space RX/TX ring please look at the qpair model
+> implemented by the RDMA subsystem in the kernel. The memory semantics are
+> clearly established there and have been in use for more than a decade.
 
-You need to read the code. vxlan tunnel is a UDP tunnel, it needs a kernel
-socket (and a port) to setup UDP communication, unlike GRE tunnel etc.
+Isn't there a bigger problem for transmit?
+If the kernel is doing ANY validation on the frames it must copy the
+data to memory the application cannot modify before doing the validation.
+Otherwise the application could change the data afterwards.
+
+	David
 
 
->
-> Somehow I'm not sure the detailed scenario here, and which/how possible commit fix?
-> Thanks!
->
-> Quoted analysis:
-> --------------------------------------------------------------------------
-> (Found in kernel 3.13)
-> The issue happens because in older kernels when a vxlan interface is created,
-> the socket creation is queued up in a worker thread which actually creates
-> the socket. But this needs to happen before we bring up the link on the vxlan interface.
-> If for some chance, the worker thread hasn't completed the creation of the socket
-> before we did link up then when we do link up the kernel checks if the socket was
-> created and if not it will return ENOTCONN. This was a bug in the kernel which got fixed
-> in later kernels. That is why retrying with a timer fixes the issue.
-
-
-This was introduced by commit 1c51a9159ddefa5119724a4c7da3fd3ef44b68d5
-and later fixed by commit 56ef9c909b40483d2c8cb63fcbf83865f162d5ec.
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
