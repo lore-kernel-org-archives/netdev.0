@@ -1,44 +1,47 @@
-From: <Woojung.Huh@microchip.com>
-Subject: RE: [PATCH v2 net-next 1/2] phy: add phy fixup unregister functions
-Date: Wed, 14 Dec 2016 15:34:04 +0000
-Message-ID: <9235D6609DB808459E95D78E17F2E43D40981BCB@CHN-SV-EXMX02.mchp-main.com>
-References: <9235D6609DB808459E95D78E17F2E43D4097999C@CHN-SV-EXMX02.mchp-main.com>
- <58510539.1030803@hisilicon.com>
+From: Eric Desrochers <eric.desrochers@canonical.com>
+Subject: netfilter -stable backport request
+Date: Wed, 14 Dec 2016 10:35:27 -0500
+Message-ID: <4772c78b-8a6e-4be3-2065-02292c87f6ae@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <andrew@lunn.ch>, <netdev@vger.kernel.org>,
-        <UNGLinuxDriver@microchip.com>
-To: <lidongpo@hisilicon.com>, <davem@davemloft.net>,
-        <f.fainelli@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: stable@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpout.microchip.com ([198.175.253.82]:37206 "EHLO
-        email.microchip.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1756453AbcLNPeG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 14 Dec 2016 10:34:06 -0500
-In-Reply-To: <58510539.1030803@hisilicon.com>
-Content-Language: en-US
+Received: from mail-io0-f175.google.com ([209.85.223.175]:35300 "EHLO
+        mail-io0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755846AbcLNPf3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 14 Dec 2016 10:35:29 -0500
+Received: by mail-io0-f175.google.com with SMTP id h30so43089060iod.2
+        for <netdev@vger.kernel.org>; Wed, 14 Dec 2016 07:35:29 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> I just want to commit the unregister patch and found this patch. Good job!
-> But I consider this patch may miss something.
-> If one SoC has 2 MAC ports and each port uses the different network driver,
-> the 2 drivers may register fixup for the same PHY chip with different
-> "run" function because the PHY chip works in different mode.
-> In such a case, this patch doesn't consider "run" function and may cause
-> problem.
-> When removing the driver which register fixup at last, it will remove another
-> driver's fixup.
-> Should this condition be considered and fixed?
-Good point.
-Current phy fixup is independent LIST from phydev structure,
-and, fixup runs in two places of phy_device_register() and phy_init_hw().
-It's not clear that it needs two separate fixup, but it may be good idea to
-pass phy fixup when calling phy_attach() or phy_attach_direct() and
-put it under phydev structure.
-So, fixup can be called at phy_init_hw() per phy device and remove
-When phy detached.
-Welcome any comments.
+Hi,
 
-- Woojung
+I would like to request a -stable backport for the following patchset that as we speak can be found in pablo's nf-next:
+
+# git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git
+
+[PATCH 1/3]
+commit 2394ae21e8b652aff0db1c02e946243c1e2f5edb
+netfilter: x_tables: pass xt_counters struct instead of packet counter
+   
+[PATCH 2/3]
+commit 18b61e8161cc308cbfd06d2e2c6c0758dfd925ef
+netfilter: x_tables: pass xt_counters struct to counter allocator
+
+[PATCH 3/3]
+commit 722d6785e3b29a3b9f95c4d77542a1416094786a
+netfilter: x_tables: pack percpu counter allocations
+
+Please add this to stable branches : v4.4.x, v4.8.x
+
+The above patchset is fixing a netfilter regression which introduced a performance slowdown in binary arp/ip/ip6tables starting at commit :
+
+#v4.2-rc1
+commit 71ae0dff02d756e4d2ca710b79f2ff5390029a5f
+netfilter: xtables: use percpu rule counters
+
+Regards,
+
+Eric
