@@ -1,41 +1,54 @@
 From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: Re: [PATCH v2 1/4] siphash: add cryptographically secure hashtable function
-Date: Wed, 14 Dec 2016 13:46:05 +0100
-Message-ID: <CAHmME9q9ffdtWRbzyMO1ktTdtEFdfumTfojTTNLXFhoa+R+MWQ@mail.gmail.com>
-References: <20161214035927.30004-1-Jason@zx2c4.com>
+Subject: Re: [PATCH v2 3/4] secure_seq: use siphash24 instead of md5_transform
+Date: Wed, 14 Dec 2016 13:53:10 +0100
+Message-ID: <CAHmME9pEM=cDC5S=j1BU2oCF8-WdnbRfiVojcet4rXcRLcpJRw@mail.gmail.com>
+References: <20161214035927.30004-1-Jason@zx2c4.com> <20161214035927.30004-3-Jason@zx2c4.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: Netdev <netdev@vger.kernel.org>,
         kernel-hardening@lists.openwall.com,
-        Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>,
+        Andi Kleen <ak@linux.intel.com>,
         LKML <linux-kernel@vger.kernel.org>,
-        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-        "Daniel J . Bernstein" <djb@cr.yp.to>,
-        Linus Torvalds <torvalds@linux-foundation.org>,
-        Eric Biggers <ebiggers3@gmail.com>
+        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>
 To: David Laight <David.Laight@aculab.com>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <20161214035927.30004-1-Jason@zx2c4.com>
-Sender: linux-crypto-owner@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161214035927.30004-3-Jason@zx2c4.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Hi David,
 
-On Wed, Dec 14, 2016 at 10:56 AM, David Laight <David.Laight@aculab.com> wrote:
+On Wed, Dec 14, 2016 at 10:51 AM, David Laight <David.Laight@aculab.com> wrote:
+> From: Jason A. Donenfeld
+>> Sent: 14 December 2016 00:17
+>> This gives a clear speed and security improvement. Rather than manually
+>> filling MD5 buffers, we simply create a layout by a simple anonymous
+>> struct, for which gcc generates rather efficient code.
 > ...
->> +u64 siphash24(const u8 *data, size_t len, const u8 key[SIPHASH24_KEY_LEN])
-> ...
->> +     u64 k0 = get_unaligned_le64(key);
->> +     u64 k1 = get_unaligned_le64(key + sizeof(u64));
-> ...
->> +             m = get_unaligned_le64(data);
+>> +     const struct {
+>> +             struct in6_addr saddr;
+>> +             struct in6_addr daddr;
+>> +             __be16 sport;
+>> +             __be16 dport;
+>> +     } __packed combined = {
+>> +             .saddr = *(struct in6_addr *)saddr,
+>> +             .daddr = *(struct in6_addr *)daddr,
+>> +             .sport = sport,
+>> +             .dport = dport
+>> +     };
 >
-> All these unaligned accesses are going to get expensive on architectures
-> like sparc64.
+> You need to look at the effect of marking this (and the other)
+> structures 'packed' on architectures like sparc64.
 
-Yes, the unaligned accesses aren't pretty. Since in pretty much all
-use cases thus far, the data can easily be made aligned, perhaps it
-makes sense to create siphash24() and siphash24_unaligned(). Any
-thoughts on doing something like that?
+In all current uses of __packed in the code, I think the impact is
+precisely zero, because all structures have members in descending
+order of size, with each member being a perfect multiple of the one
+below it. The __packed is therefore just there for safety, in case
+somebody comes in and screws everything up by sticking a u8 in
+between. In that case, it wouldn't be desirable to hash the structure
+padding bits. In the worst case, I don't believe the impact would be
+worse than a byte-by-byte memcpy, which is what the old code did. But
+anyway, these structures are already naturally packed anyway, so the
+present impact is nil.
 
 Jason
