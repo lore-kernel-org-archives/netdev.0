@@ -1,66 +1,71 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: net/arp: ARP cache aging failed.
-Date: Wed, 14 Dec 2016 22:15:06 +0200 (EET)
-Message-ID: <alpine.LFD.2.11.1612142151340.1681@ja.home.ssi.bg>
-References: <957c2a80-7302-1ce9-726e-1e7512a941f4@huawei.com> <alpine.LFD.2.11.1611230928140.1659@ja.home.ssi.bg> <1479902729.8455.479.camel@edumazet-glaptop3.roam.corp.google.com> <250d3a88-45ad-891f-389a-997f39d7bdad@stressinduktion.org>
- <1479944967.8455.516.camel@edumazet-glaptop3.roam.corp.google.com> <alpine.LFD.2.11.1611240931560.1685@ja.home.ssi.bg> <c82b7b44-c0ad-9ee7-1114-3eae3b5cf75a@huawei.com> <1fdf938e-600c-ce58-ece1-06b816ddba1c@stressinduktion.org> <alpine.LFD.2.11.1611250957100.1966@ja.home.ssi.bg>
- <40b84d35-4185-bfbc-7f85-9d6abf984d31@stressinduktion.org> <alpine.LFD.2.11.1611252140120.1888@ja.home.ssi.bg> <74d41c47-7091-3c52-096d-5b9af2e0e9cf@huawei.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH v2 3/4] secure_seq: use siphash24 instead of md5_transform
+Date: Wed, 14 Dec 2016 21:27:07 +0100
+Message-ID: <ba55e62d-d4e6-97ed-614e-98c33a74347b@stressinduktion.org>
+References: <20161214035927.30004-1-Jason@zx2c4.com>
+ <20161214035927.30004-3-Jason@zx2c4.com>
+ <CAHmME9pEM=cDC5S=j1BU2oCF8-WdnbRfiVojcet4rXcRLcpJRw@mail.gmail.com>
+ <20161214.125612.1361254098267633173.davem@davemloft.net>
+ <CAHmME9pz4XudfeqhKBwFNDmp7AYuNwbnevMqB3e6ScPDnUnq9g@mail.gmail.com>
+ <0e708ba2-6a4e-013e-597a-62ab32cc240b@stressinduktion.org>
+ <CAHmME9rp2oSCo0eu92jKm00S0eJHz65bJKXRpeS7=_EV6zZNYw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: YueHaibing <yuehaibing@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:56830 "EHLO ja.ssi.bg"
-        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751845AbcLNUPb (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 14 Dec 2016 15:15:31 -0500
-In-Reply-To: <74d41c47-7091-3c52-096d-5b9af2e0e9cf@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+        David Laight <David.Laight@aculab.com>,
+        Netdev <netdev@vger.kernel.org>,
+        kernel-hardening@lists.openwall.com,
+        Andi Kleen <ak@linux.intel.com>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>
+To: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAHmME9rp2oSCo0eu92jKm00S0eJHz65bJKXRpeS7=_EV6zZNYw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Hey Jason,
 
-	Hello,
-
-On Wed, 14 Dec 2016, YueHaibing wrote:
-
-> On 2016/11/26 4:40, Julian Anastasov wrote:
-> > 
-> > 	So, the idea is to move TCP and other similar
-> > users to the new dst_confirm_sk() method. If other
-> > dst_confirm() users are left, they should be checked
-> > if dsts with rt_gateway = 0 can be wrongly used.
+On 14.12.2016 20:38, Jason A. Donenfeld wrote:
+> On Wed, Dec 14, 2016 at 8:22 PM, Hannes Frederic Sowa
+> <hannes@stressinduktion.org> wrote:
+>> I don't think this helps. Did you test it? I don't see reason why
+>> padding could be left out between `d' and `end' because of the flexible
+>> array member?
 > 
-> Sorry for so late.
-
-	In fact, I'm late too because I almost finished
-my changes, the only remaining part is the cxgb files...
-
-> Based on your ideas, I make a patch and test it for a while.
-
-	The problem is that it is valid only for TCP.
-Also, this flag should be reset sometimes, eg. when sk dst
-changes...
-
-> It works for me.
+> Because the type u8 doesn't require any alignment requirements, it can
+> nestle right up there cozy with the u16:
 > 
-> @@ -847,7 +847,7 @@ static int ping_v4_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
->  	return err;
-> 
->  do_confirm:
-> -	dst_confirm(&rt->dst);
-> +	dst_confirm_sk(sk);
+> zx2c4@thinkpad ~ $ cat a.c
+> #include <stdint.h>
+> #include <stdio.h>
+> #include <stddef.h>
+> int main()
+> {
+>        struct {
+>                uint64_t a;
+>                uint32_t b;
+>                uint32_t c;
+>                uint16_t d;
+>                char x[];
+>        } a;
+>        printf("%zu\n", sizeof(a));
+>        printf("%zu\n", offsetof(typeof(a), x));
+>        return 0;
+> }
+> zx2c4@thinkpad ~ $ gcc a.c
+> zx2c4@thinkpad ~ $ ./a.out
+> 24
+> 18
 
-	MSG_CONFIRM from sendmsg needs special treatment. The
-problem is that UDP sending does not lock the socket, so I also
-added a skb flag to handle this situation in ip*_append_data.
-We do not want threaded application firing at different
-destinations to confirm the wrong neighbour. MSG_PROBE is
-another issue, the XFRM dst chaining, etc...
+Sorry, I misread the patch. You are using offsetof. In this case remove
+the char x[] and just use offsetofend because it is misleading
+otherwise. Should work like that though.
 
-	I hope, I'll be ready this weekend with few patches
-that change all dst_confirm users... There I'll explain
-everything in detail.
+What I don't really understand is that the addition of this complexity
+actually reduces the performance, as you have to take the "if (left)"
+branch during hashing and causes you to make a load_unaligned_zeropad.
 
-Regards
+Bye,
+Hannes
