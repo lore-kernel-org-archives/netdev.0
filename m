@@ -1,150 +1,51 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: [PATCH v3 3/3] random: use siphash24 instead of md5 for get_random_int/long
-Date: Wed, 14 Dec 2016 19:46:05 +0100
-Message-ID: <20161214184605.24006-3-Jason@zx2c4.com>
-References: <20161214035927.30004-1-Jason@zx2c4.com>
- <20161214184605.24006-1-Jason@zx2c4.com>
-Reply-To: kernel-hardening@lists.openwall.com
-Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>,
-	Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>,
-	Ted Tso <tytso@mit.edu>
-To: Netdev <netdev@vger.kernel.org>,
-	kernel-hardening@lists.openwall.com,
-	LKML <linux-kernel@vger.kernel.org>,
-	linux-crypto@vger.kernel.org
-Return-path: <kernel-hardening-return-5526-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <20161214184605.24006-1-Jason@zx2c4.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [v2] net:ethernet:cavium:octeon:octeon_mgmt: Handle return NULL
+ error from devm_ioremap
+Date: Wed, 14 Dec 2016 10:54:00 -0800
+Message-ID: <262b3fdb-754b-a1f1-bd6a-3b15d72063b4@gmail.com>
+References: <1481732732-6892-1-git-send-email-arvind.yadav.cs@gmail.com>
+ <3c3d5968-bc41-e1b7-6fda-78e92e7a9d56@caviumnetworks.com>
+ <0be48286-2656-84b4-4cd8-93bea5fbc6f0@gmail.com>
+ <f113cad3-e368-679a-c56b-3c8c57e1a07b@caviumnetworks.com>
+ <a4c42b7c-89bb-efa7-e6e6-86e620ee1897@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: arvind Yadav <arvind.yadav.cs@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <a4c42b7c-89bb-efa7-e6e6-86e620ee1897@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This duplicates the current algorithm for get_random_int/long, but uses
-siphash24 instead. This comes with several benefits. It's certainly
-faster and more cryptographically secure than MD5. This patch also
-hashes the pid, entropy, and timestamp as fixed width fields, in order
-to increase diffusion.
+On 12/14/2016 10:39 AM, arvind Yadav wrote:
+> Hi David,
+> 
+> I have gave my comment.
+> 
+> Thanks
+> Arvind
+> 
+> On Wednesday 14 December 2016 11:44 PM, David Daney wrote:
+>> On 12/14/2016 10:06 AM, arvind Yadav wrote:
+>>> Yes, I have seen this error. We have a device with very less memory.
+>>> Basically it's OMAP2 board. We have to port Android L on this.
+>>> It's has 3.10 kernel version. In this device, we were getting Page
+>>> allocation failure.
+>>
+>> This makes absolutely no sense to me.  OCTEON is a mips64 SoC with a
+>> ton of memory where ioremap can never fail, and it doesn't run
+>> Android, and you are talking about OMAP2.
+>           -I just gave as example where i have seen ioremap issue.
+> Please don't relate. I know, Now it will not fail.  ioremap will through
+> NULL on failure. We should catch this error. Even other driver of MIPS
+> soc is having same check. It's just check which will not impact any
+> functionality or performance of this driver. It will avoid NULL pointer
+> error. We know, if  function is returning any error. we should catch.
 
-The previous md5 algorithm used a per-cpu md5 state, which caused
-successive calls to the function to chain upon each other. While it's
-not entirely clear that this kind of chaining is absolutely necessary
-when using a secure PRF like siphash24, it can't hurt, and the timing of
-the call chain does add a degree of natural entropy. So, in keeping with
-this design, instead of the massive per-cpu 64-byte md5 state, there is
-instead a per-cpu previously returned value for chaining.
+Your patch subject should also be changed to insert spaces between
+semicolon, so this would be:
 
-Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
-Cc: Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>
-Cc: Ted Tso <tytso@mit.edu>
----
-Changes from v2->v3:
-
-  - Structs are no longer packed, to mitigate slow byte-by-byte assignment.
-
- drivers/char/random.c | 52 ++++++++++++++++++++++++++++++++-------------------
- 1 file changed, 33 insertions(+), 19 deletions(-)
-
-diff --git a/drivers/char/random.c b/drivers/char/random.c
-index d6876d506220..b1c2e3b26430 100644
---- a/drivers/char/random.c
-+++ b/drivers/char/random.c
-@@ -262,6 +262,7 @@
- #include <linux/syscalls.h>
- #include <linux/completion.h>
- #include <linux/uuid.h>
-+#include <linux/siphash.h>
- #include <crypto/chacha20.h>
- 
- #include <asm/processor.h>
-@@ -2042,7 +2043,7 @@ struct ctl_table random_table[] = {
- };
- #endif 	/* CONFIG_SYSCTL */
- 
--static u32 random_int_secret[MD5_MESSAGE_BYTES / 4] ____cacheline_aligned;
-+static u8 random_int_secret[SIPHASH24_KEY_LEN] __aligned(SIPHASH24_ALIGNMENT);
- 
- int random_int_secret_init(void)
- {
-@@ -2050,8 +2051,7 @@ int random_int_secret_init(void)
- 	return 0;
- }
- 
--static DEFINE_PER_CPU(__u32 [MD5_DIGEST_WORDS], get_random_int_hash)
--		__aligned(sizeof(unsigned long));
-+static DEFINE_PER_CPU(u64, get_random_int_chaining);
- 
- /*
-  * Get a random word for internal kernel use only. Similar to urandom but
-@@ -2061,19 +2061,26 @@ static DEFINE_PER_CPU(__u32 [MD5_DIGEST_WORDS], get_random_int_hash)
-  */
- unsigned int get_random_int(void)
- {
--	__u32 *hash;
- 	unsigned int ret;
-+	struct {
-+		u64 chaining;
-+		unsigned long ts;
-+		unsigned long entropy;
-+		pid_t pid;
-+		char end[];
-+	} __aligned(SIPHASH24_ALIGNMENT) combined;
-+	u64 *chaining;
- 
- 	if (arch_get_random_int(&ret))
- 		return ret;
- 
--	hash = get_cpu_var(get_random_int_hash);
--
--	hash[0] += current->pid + jiffies + random_get_entropy();
--	md5_transform(hash, random_int_secret);
--	ret = hash[0];
--	put_cpu_var(get_random_int_hash);
--
-+	chaining = get_cpu_ptr(&get_random_int_chaining);
-+	combined.chaining = *chaining;
-+	combined.ts = jiffies;
-+	combined.entropy = random_get_entropy();
-+	combined.pid = current->pid;
-+	ret = *chaining = siphash24((u8 *)&combined, offsetof(typeof(combined), end), random_int_secret);
-+	put_cpu_ptr(chaining);
- 	return ret;
- }
- EXPORT_SYMBOL(get_random_int);
-@@ -2083,19 +2090,26 @@ EXPORT_SYMBOL(get_random_int);
-  */
- unsigned long get_random_long(void)
- {
--	__u32 *hash;
- 	unsigned long ret;
-+	struct {
-+		u64 chaining;
-+		unsigned long ts;
-+		unsigned long entropy;
-+		pid_t pid;
-+		char end[];
-+	} __aligned(SIPHASH24_ALIGNMENT) combined;
-+	u64 *chaining;
- 
- 	if (arch_get_random_long(&ret))
- 		return ret;
- 
--	hash = get_cpu_var(get_random_int_hash);
--
--	hash[0] += current->pid + jiffies + random_get_entropy();
--	md5_transform(hash, random_int_secret);
--	ret = *(unsigned long *)hash;
--	put_cpu_var(get_random_int_hash);
--
-+	chaining = get_cpu_ptr(&get_random_int_chaining);
-+	combined.chaining = *chaining;
-+	combined.ts = jiffies;
-+	combined.entropy = random_get_entropy();
-+	combined.pid = current->pid;
-+	ret = *chaining = siphash24((u8 *)&combined, offsetof(typeof(combined), end), random_int_secret);
-+	put_cpu_ptr(chaining);
- 	return ret;
- }
- EXPORT_SYMBOL(get_random_long);
+net: ethernet: cavium: octeon: octeon_mgmt:
 -- 
-2.11.0
+Florian
