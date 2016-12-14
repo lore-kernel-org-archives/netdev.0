@@ -1,66 +1,75 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: Re: [PATCH v2 3/4] secure_seq: use siphash24 instead of md5_transform
-Date: Wed, 14 Dec 2016 19:06:57 +0100
-Message-ID: <CAHmME9pz4XudfeqhKBwFNDmp7AYuNwbnevMqB3e6ScPDnUnq9g@mail.gmail.com>
-References: <20161214035927.30004-1-Jason@zx2c4.com> <20161214035927.30004-3-Jason@zx2c4.com>
- <CAHmME9pEM=cDC5S=j1BU2oCF8-WdnbRfiVojcet4rXcRLcpJRw@mail.gmail.com> <20161214.125612.1361254098267633173.davem@davemloft.net>
+From: arvind Yadav <arvind.yadav.cs@gmail.com>
+Subject: Re: [v2] net:ethernet:cavium:octeon:octeon_mgmt: Handle return NULL
+ error from devm_ioremap
+Date: Wed, 14 Dec 2016 23:36:21 +0530
+Message-ID: <0be48286-2656-84b4-4cd8-93bea5fbc6f0@gmail.com>
+References: <1481732732-6892-1-git-send-email-arvind.yadav.cs@gmail.com>
+ <3c3d5968-bc41-e1b7-6fda-78e92e7a9d56@caviumnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Laight <David.Laight@aculab.com>,
-        Netdev <netdev@vger.kernel.org>,
-        kernel-hardening@lists.openwall.com,
-        Andi Kleen <ak@linux.intel.com>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from frisell.zx2c4.com ([192.95.5.64]:51642 "EHLO frisell.zx2c4.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754023AbcLNSHD (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 14 Dec 2016 13:07:03 -0500
-In-Reply-To: <20161214.125612.1361254098267633173.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Daney <ddaney@caviumnetworks.com>, peter.chen@nxp.com,
+        fw@strlen.de, david.daney@cavium.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <3c3d5968-bc41-e1b7-6fda-78e92e7a9d56@caviumnetworks.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi David,
+Yes, I have seen this error. We have a device with very less memory.
+Basically it's OMAP2 board. We have to port Android L on this.
+It's has 3.10 kernel version. In this device, we were getting Page 
+allocation failure.
+Vmalloc size was not enough to run all application. So we have decide to
+increase vmalloc reserve space. once we increases Vmalloc space.
+We start getting ioremap falilure. Kernel is getting NULL-pointer 
+dereference error.
 
-On Wed, Dec 14, 2016 at 6:56 PM, David Miller <davem@davemloft.net> wrote:
-> Just marking the structure __packed, whether necessary or not, makes
-> the compiler assume that the members are not aligned and causes
-> byte-by-byte accesses to be performed for words.
-> Never, _ever_, use __packed unless absolutely necessary, it pessimizes
-> the code on cpus that require proper alignment of types.
+Here, It's just check to avoid any kernel crash because of ioremap failure.
+We can keep this check to avoid this kind of scenario.
 
-Oh, jimminy cricket, I did not realize that it made assignments
-byte-by-byte *always*. So what options am I left with? What
-immediately comes to mind are:
-
-1)
-
-struct {
-    u64 a;
-    u32 b;
-    u32 c;
-    u16 d;
-    u8 end[];
-} a = {
-    .a = a,
-    .b = b,
-    .c = c,
-    .d = d
-};
-siphash24(&a, offsetof(typeof(a), end), key);
-
-2)
-
-u8 bytes[sizeof(u64) + sizeof(u32) * 2 + sizeof(u16)];
-*(u64 *)&bytes[0] = a;
-*(u32 *)&bytes[sizeof(u64)] = b;
-*(u32 *)&bytes[sizeof(u64) + sizeof(u32)] = c;
-*(u16 *)&bytes[sizeof(u64) + sizeof(u32) * 2] = d;
-siphash24(bytes, sizeof(bytes), key);
+Thanks
+-Arvind
 
 
-Personally I find (1) a bit neater than (2). What's your opinion?
-
-Jason
+On Wednesday 14 December 2016 11:02 PM, David Daney wrote:
+> On 12/14/2016 08:25 AM, Arvind Yadav wrote:
+>> Here, If devm_ioremap will fail. It will return NULL.
+>> Kernel can run into a NULL-pointer dereference.
+>> This error check will avoid NULL pointer dereference.
+>>
+> i
+> Have you ever seen this failure in the wild?
+>
+> How was the patch tested?
+>
+> Thanks,
+> David Daney
+>
+>
+>> Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
+>> ---
+>>  drivers/net/ethernet/cavium/octeon/octeon_mgmt.c | 6 ++++++
+>>  1 file changed, 6 insertions(+)
+>>
+>> diff --git a/drivers/net/ethernet/cavium/octeon/octeon_mgmt.c 
+>> b/drivers/net/ethernet/cavium/octeon/octeon_mgmt.c
+>> index 4ab404f..33c2fec 100644
+>> --- a/drivers/net/ethernet/cavium/octeon/octeon_mgmt.c
+>> +++ b/drivers/net/ethernet/cavium/octeon/octeon_mgmt.c
+>> @@ -1479,6 +1479,12 @@ static int octeon_mgmt_probe(struct 
+>> platform_device *pdev)
+>>      p->agl = (u64)devm_ioremap(&pdev->dev, p->agl_phys, p->agl_size);
+>>      p->agl_prt_ctl = (u64)devm_ioremap(&pdev->dev, p->agl_prt_ctl_phys,
+>>                         p->agl_prt_ctl_size);
+>> +    if (!p->mix || !p->agl || !p->agl_prt_ctl) {
+>> +        dev_err(&pdev->dev, "failed to map I/O memory\n");
+>> +        result = -ENOMEM;
+>> +        goto err;
+>> +    }
+>> +
+>>      spin_lock_init(&p->lock);
+>>
+>>      skb_queue_head_init(&p->tx_list);
+>>
+>
