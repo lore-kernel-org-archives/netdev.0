@@ -1,56 +1,48 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net] vxlan: fix unused variable warning
-Date: Wed, 14 Dec 2016 12:43:55 -0800
-Message-ID: <20161214124355.7da92ff3@xeon-e3>
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: Re: [PATCH v3 1/3] siphash: add cryptographically secure hashtable function
+Date: Wed, 14 Dec 2016 21:55:51 +0100
+Message-ID: <CAHmME9pR3tD2zknKsYaFaTJm_3aBBOA6c174hypm6S-q9wp5nw@mail.gmail.com>
+References: <20161214035927.30004-1-Jason@zx2c4.com> <20161214184605.24006-1-Jason@zx2c4.com>
+ <CALx6S35UgTyqkYUjS5gYFH4HnjW974WQ_JiDXxgb9rZ7gnY52Q@mail.gmail.com> <CAHmME9oMaQOhzJbNKh8GN759iJngeRdXt3naOnFhY9mD6t5Kxg@mail.gmail.com>
+Reply-To: kernel-hardening@lists.openwall.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [74.125.83.50] ([74.125.83.50]:36348 "EHLO
-        mail-pg0-f50.google.com" rhost-flags-FAIL-FAIL-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1752366AbcLNUpz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 14 Dec 2016 15:45:55 -0500
-Received: by mail-pg0-f50.google.com with SMTP id f188so11575695pgc.3
-        for <netdev@vger.kernel.org>; Wed, 14 Dec 2016 12:45:36 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Netdev <netdev@vger.kernel.org>, kernel-hardening@lists.openwall.com,
+	LKML <linux-kernel@vger.kernel.org>,
+	Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+	Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>, "Daniel J . Bernstein" <djb@cr.yp.to>,
+	Linus Torvalds <torvalds@linux-foundation.org>, Eric Biggers <ebiggers3@gmail.com>,
+	David Laight <David.Laight@aculab.com>
+To: Tom Herbert <tom@herbertland.com>
+Return-path: <kernel-hardening-return-5546-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+In-Reply-To: <CAHmME9oMaQOhzJbNKh8GN759iJngeRdXt3naOnFhY9mD6t5Kxg@mail.gmail.com>
+List-Id: netdev.vger.kernel.org
 
-Fixes commit 4528520d315ac1 ("vxlan: add ipv6 proxy support")
-which added code that caused this warning:
+Hey Tom,
 
-drivers/net/vxlan.c: In function =E2=80=98neigh_reduce=E2=80=99:
-drivers/net/vxlan.c:1556:25: warning: variable =E2=80=98saddr=E2=80=99 set =
-but not used
+Just following up on what I mentioned in my last email...
 
-Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
----
- drivers/net/vxlan.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+On Wed, Dec 14, 2016 at 8:35 PM, Jason A. Donenfeld <Jason@zx2c4.com> wrote:
+> I think your suggestion for (2) will contribute to further
+> optimizations for (1). In v2, I had another patch in there adding
+> siphash_1word, siphash_2words, etc, like jhash, but I implemented it
+> by taking u32 variables and then just concatenating these into a
+> buffer and passing them to the main siphash function. I removed it
+> from v3 because I thought that these kind of missed the whole point.
+> In particular:
+>
+> a) siphash24_1word, siphash24_2words, siphash24_3words, etc should
+> take u64, not u32, since that's what siphash operates on natively
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index bb70dd5..4147fd6 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1553,7 +1553,7 @@ static int neigh_reduce(struct net_device *dev, struc=
-t sk_buff *skb)
- 	struct vxlan_dev *vxlan =3D netdev_priv(dev);
- 	struct nd_msg *msg;
- 	const struct ipv6hdr *iphdr;
--	const struct in6_addr *saddr, *daddr;
-+	const struct in6_addr *daddr;
- 	struct neighbour *n;
- 	struct inet6_dev *in6_dev;
-=20
-@@ -1562,7 +1562,6 @@ static int neigh_reduce(struct net_device *dev, struc=
-t sk_buff *skb)
- 		goto out;
-=20
- 	iphdr =3D ipv6_hdr(skb);
--	saddr =3D &iphdr->saddr;
- 	daddr =3D &iphdr->daddr;
-=20
- 	msg =3D (struct nd_msg *)skb_transport_header(skb);
---=20
-2.10.2
+I implemented these here:
+https://git.zx2c4.com/linux-dev/commit/?h=siphash&id=4652b6f3643bdba217e2194d89661348bbac48a0
+
+This will be part of the next version of the series I submit. It's not
+immediately clear that using it is strictly faster than the struct
+trick though. However, I'm not yet sure why this would be.
+
+Jason
