@@ -1,54 +1,36 @@
-From: David Daney <ddaney@caviumnetworks.com>
-Subject: Re: [v2] net:ethernet:cavium:octeon:octeon_mgmt: Handle return NULL
- error from devm_ioremap
-Date: Wed, 14 Dec 2016 09:32:46 -0800
-Message-ID: <3c3d5968-bc41-e1b7-6fda-78e92e7a9d56@caviumnetworks.com>
-References: <1481732732-6892-1-git-send-email-arvind.yadav.cs@gmail.com>
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: Re: [PATCH v2 3/4] secure_seq: use siphash24 instead of md5_transform
+Date: Wed, 14 Dec 2016 18:49:26 +0100
+Message-ID: <CAHmME9oAnqC9dvgF8ZcJzNX70PsPHu0Nn++eexQvktUR_w8pHA@mail.gmail.com>
+References: <20161214035927.30004-1-Jason@zx2c4.com> <20161214035927.30004-3-Jason@zx2c4.com>
+ <CAHmME9pEM=cDC5S=j1BU2oCF8-WdnbRfiVojcet4rXcRLcpJRw@mail.gmail.com>
+ <1e502c6b-cda3-c46d-2535-fcfb58f443a9@stressinduktion.org>
+ <CAHmME9o4NVi-MPeURio1Ga58rnW6JAGQdTg6scd+K3EZEf3RNA@mail.gmail.com> <063D6719AE5E284EB5DD2968C1650D6DB023F7BD@AcuExch.aculab.com>
+Reply-To: kernel-hardening@lists.openwall.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Arvind Yadav <arvind.yadav.cs@gmail.com>, <peter.chen@nxp.com>,
-        <fw@strlen.de>, <david.daney@cavium.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1481732732-6892-1-git-send-email-arvind.yadav.cs@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>, Netdev <netdev@vger.kernel.org>,
+	"kernel-hardening@lists.openwall.com" <kernel-hardening@lists.openwall.com>, Andi Kleen <ak@linux.intel.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Linux Crypto Mailing List <linux-crypto@vger.kernel.org>
+To: David Laight <David.Laight@aculab.com>
+Return-path: <kernel-hardening-return-5520-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB023F7BD@AcuExch.aculab.com>
 List-Id: netdev.vger.kernel.org
 
-On 12/14/2016 08:25 AM, Arvind Yadav wrote:
-> Here, If devm_ioremap will fail. It will return NULL.
-> Kernel can run into a NULL-pointer dereference.
-> This error check will avoid NULL pointer dereference.
->
+On Wed, Dec 14, 2016 at 3:47 PM, David Laight <David.Laight@aculab.com> wrote:
+> Just remove the __packed and ensure that the structure is 'nice'.
+> This includes ensuring there is no 'tail padding'.
+> In some cases you'll need to put the port number into a 32bit field.
 
-Have you ever seen this failure in the wild?
+I'd rather not. There's no point in wasting extra cycles on hashing
+useless data, just for some particular syntactic improvement. __packed
+__aligned(8) will do what we want perfectly, I think.
 
-How was the patch tested?
+> I'd also require that the key be aligned.
 
-Thanks,
-David Daney
-
-
-> Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
-> ---
->  drivers/net/ethernet/cavium/octeon/octeon_mgmt.c | 6 ++++++
->  1 file changed, 6 insertions(+)
->
-> diff --git a/drivers/net/ethernet/cavium/octeon/octeon_mgmt.c b/drivers/net/ethernet/cavium/octeon/octeon_mgmt.c
-> index 4ab404f..33c2fec 100644
-> --- a/drivers/net/ethernet/cavium/octeon/octeon_mgmt.c
-> +++ b/drivers/net/ethernet/cavium/octeon/octeon_mgmt.c
-> @@ -1479,6 +1479,12 @@ static int octeon_mgmt_probe(struct platform_device *pdev)
->  	p->agl = (u64)devm_ioremap(&pdev->dev, p->agl_phys, p->agl_size);
->  	p->agl_prt_ctl = (u64)devm_ioremap(&pdev->dev, p->agl_prt_ctl_phys,
->  					   p->agl_prt_ctl_size);
-> +	if (!p->mix || !p->agl || !p->agl_prt_ctl) {
-> +		dev_err(&pdev->dev, "failed to map I/O memory\n");
-> +		result = -ENOMEM;
-> +		goto err;
-> +	}
-> +
->  	spin_lock_init(&p->lock);
->
->  	skb_queue_head_init(&p->tx_list);
->
+Yep, I'll certainly do this for the siphash24_aligned version in the v3.
