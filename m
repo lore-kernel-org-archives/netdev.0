@@ -1,130 +1,95 @@
 From: Joe Stringer <joe@ovn.org>
-Subject: [PATCH perf/core REBASE 3/5] tools lib bpf: Add bpf_prog_{attach,detach}
-Date: Wed, 14 Dec 2016 14:43:40 -0800
-Message-ID: <20161214224342.12858-4-joe@ovn.org>
-References: <20161214224342.12858-1-joe@ovn.org>
+Subject: [PATCH perf/core REBASE 0/5] Reuse libbpf from samples/bpf
+Date: Wed, 14 Dec 2016 14:43:37 -0800
+Message-ID: <20161214224342.12858-1-joe@ovn.org>
 Cc: netdev@vger.kernel.org, wangnan0@huawei.com, ast@fb.com,
-        daniel@iogearbox.net, acme@kernel.org
-To: linux-kernel@vger.kernel.org
+        daniel@iogearbox.net
+To: linux-kernel@vger.kernel.org, acme@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from slow1-d.mail.gandi.net ([217.70.178.86]:60551 "EHLO
-        slow1-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756931AbcLNWrA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 14 Dec 2016 17:47:00 -0500
-In-Reply-To: <20161214224342.12858-1-joe@ovn.org>
+Received: from relay3-d.mail.gandi.net ([217.70.183.195]:55247 "EHLO
+        relay3-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754429AbcLNWq7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 14 Dec 2016 17:46:59 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit d8c5b17f2bc0 ("samples: bpf: add userspace example for attaching
-eBPF programs to cgroups") added these functions to samples/libbpf, but
-during this merge all of the samples libbpf functionality is shifting to
-tools/lib/bpf. Shift these functions there.
+Arnaldo, here's the refresh of this series that you requested after the merge
+with net-next. It is based on commit 1f125a4aa4d8 ("tools lib bpf: Add flags
+to bpf_create_map()") from perf/core today.
 
-Signed-off-by: Joe Stringer <joe@ovn.org>
+Patch #3 is new, but trivial. It has the biggest changes compared to the
+version that you previously applied to perf/core.
+
 ---
-Arnaldo, this is a new patch you didn't previously review which I've
-prepared due to the conflict with net-next. I figured it's better to try
-to get samples/bpf properly switched over this window rather than defer the
-problem and end up having to deal with another merge problem next time
-around. I hope that is fine for you. If not, this patch onwards will need
-to be dropped
 
-It's a simple copy/paste/delete with a minor change for sys_bpf() vs
-syscall().
+Update tools/lib/bpf to provide the remaining bpf wrapper pieces needed by the
+samples/bpf/ code, then get rid of all of the duplicate BPF libraries in
+samples/bpf/libbpf.[ch].
+
 ---
- samples/bpf/libbpf.c | 21 ---------------------
- samples/bpf/libbpf.h |  3 ---
- tools/lib/bpf/bpf.c  | 21 +++++++++++++++++++++
- tools/lib/bpf/bpf.h  |  3 +++
- 4 files changed, 24 insertions(+), 24 deletions(-)
+REBASE: Rebased v3 that was applied to perf/core.
+        Resolved merge conflict with net-next.
+        New patch shifts bpf_prog_{attach,detach}() to libbpf.
+        Drop unnecessary build targets
+        Drop extra unneeded log buffers
 
-diff --git a/samples/bpf/libbpf.c b/samples/bpf/libbpf.c
-index 3391225ad7e9..d9af876b4a2c 100644
---- a/samples/bpf/libbpf.c
-+++ b/samples/bpf/libbpf.c
-@@ -11,27 +11,6 @@
- #include <arpa/inet.h>
- #include "libbpf.h"
- 
--int bpf_prog_attach(int prog_fd, int target_fd, enum bpf_attach_type type)
--{
--	union bpf_attr attr = {
--		.target_fd = target_fd,
--		.attach_bpf_fd = prog_fd,
--		.attach_type = type,
--	};
--
--	return syscall(__NR_bpf, BPF_PROG_ATTACH, &attr, sizeof(attr));
--}
--
--int bpf_prog_detach(int target_fd, enum bpf_attach_type type)
--{
--	union bpf_attr attr = {
--		.target_fd = target_fd,
--		.attach_type = type,
--	};
--
--	return syscall(__NR_bpf, BPF_PROG_DETACH, &attr, sizeof(attr));
--}
--
- int open_raw_sock(const char *name)
- {
- 	struct sockaddr_ll sll;
-diff --git a/samples/bpf/libbpf.h b/samples/bpf/libbpf.h
-index cf7d2386d1f9..cc815624aacf 100644
---- a/samples/bpf/libbpf.h
-+++ b/samples/bpf/libbpf.h
-@@ -6,9 +6,6 @@
- 
- struct bpf_insn;
- 
--int bpf_prog_attach(int prog_fd, int attachable_fd, enum bpf_attach_type type);
--int bpf_prog_detach(int attachable_fd, enum bpf_attach_type type);
--
- /* ALU ops on registers, bpf_add|sub|...: dst_reg += src_reg */
- 
- #define BPF_ALU64_REG(OP, DST, SRC)				\
-diff --git a/tools/lib/bpf/bpf.c b/tools/lib/bpf/bpf.c
-index d0afb26c2e0f..e19335df0d3a 100644
---- a/tools/lib/bpf/bpf.c
-+++ b/tools/lib/bpf/bpf.c
-@@ -167,3 +167,24 @@ int bpf_obj_get(const char *pathname)
- 
- 	return sys_bpf(BPF_OBJ_GET, &attr, sizeof(attr));
- }
-+
-+int bpf_prog_attach(int prog_fd, int target_fd, enum bpf_attach_type type)
-+{
-+	union bpf_attr attr = {
-+		.target_fd = target_fd,
-+		.attach_bpf_fd = prog_fd,
-+		.attach_type = type,
-+	};
-+
-+	return sys_bpf(BPF_PROG_ATTACH, &attr, sizeof(attr));
-+}
-+
-+int bpf_prog_detach(int target_fd, enum bpf_attach_type type)
-+{
-+	union bpf_attr attr = {
-+		.target_fd = target_fd,
-+		.attach_type = type,
-+	};
-+
-+	return sys_bpf(BPF_PROG_DETACH, &attr, sizeof(attr));
-+}
-diff --git a/tools/lib/bpf/bpf.h b/tools/lib/bpf/bpf.h
-index 7fcdce16fd62..a2f9853dd882 100644
---- a/tools/lib/bpf/bpf.h
-+++ b/tools/lib/bpf/bpf.h
-@@ -41,5 +41,8 @@ int bpf_map_delete_elem(int fd, void *key);
- int bpf_map_get_next_key(int fd, void *key, void *next_key);
- int bpf_obj_pin(int fd, const char *pathname);
- int bpf_obj_get(const char *pathname);
-+int bpf_prog_attach(int prog_fd, int attachable_fd, enum bpf_attach_type type);
-+int bpf_prog_detach(int attachable_fd, enum bpf_attach_type type);
-+
- 
- #endif
+v3: Add ack for first patch.
+    Split out second patch from v2 into separate changes for remaining diff.
+    Add patches to switch samples/bpf over to using tools/lib/.
+
+(Was "libbpf: Synchronize implementations")
+v2: Don't shift non-bpf code into libbpf.
+    Drop the patch to synchronize ELF definitions with tc.
+
+v1: https://www.mail-archive.com/netdev@vger.kernel.org/msg135088.html
+    First post.
+
+
+Joe Stringer (5):
+  samples/bpf: Make samples more libbpf-centric
+  samples/bpf: Switch over to libbpf
+  tools lib bpf: Add bpf_prog_{attach,detach}
+  samples/bpf: Remove perf_event_open() declaration
+  samples/bpf: Move open_raw_sock to separate header
+
+ samples/bpf/Makefile                              |  69 +++++----
+ samples/bpf/README.rst                            |   4 +-
+ samples/bpf/bpf_load.c                            |  20 ++-
+ samples/bpf/bpf_load.h                            |   3 +
+ samples/bpf/fds_example.c                         |  10 +-
+ samples/bpf/lathist_user.c                        |   2 +-
+ samples/bpf/libbpf.c                              | 176 ----------------------
+ samples/bpf/libbpf.h                              |  28 +---
+ samples/bpf/lwt_len_hist_user.c                   |   6 +-
+ samples/bpf/offwaketime_user.c                    |   8 +-
+ samples/bpf/sampleip_user.c                       |   7 +-
+ samples/bpf/sock_example.c                        |  13 +-
+ samples/bpf/sock_example.h                        |  35 +++++
+ samples/bpf/sockex1_user.c                        |   7 +-
+ samples/bpf/sockex2_user.c                        |   5 +-
+ samples/bpf/sockex3_user.c                        |   5 +-
+ samples/bpf/spintest_user.c                       |   8 +-
+ samples/bpf/tc_l2_redirect_user.c                 |   4 +-
+ samples/bpf/test_cgrp2_array_pin.c                |   4 +-
+ samples/bpf/test_cgrp2_attach.c                   |  11 +-
+ samples/bpf/test_cgrp2_attach2.c                  |   7 +-
+ samples/bpf/test_cgrp2_sock.c                     |   6 +-
+ samples/bpf/test_current_task_under_cgroup_user.c |   8 +-
+ samples/bpf/test_lru_dist.c                       |  32 ++--
+ samples/bpf/test_probe_write_user_user.c          |   2 +-
+ samples/bpf/trace_event_user.c                    |  23 +--
+ samples/bpf/trace_output_user.c                   |   5 +-
+ samples/bpf/tracex2_user.c                        |  10 +-
+ samples/bpf/tracex3_user.c                        |   4 +-
+ samples/bpf/tracex4_user.c                        |   4 +-
+ samples/bpf/tracex6_user.c                        |   5 +-
+ samples/bpf/xdp1_user.c                           |   2 +-
+ samples/bpf/xdp_tx_iptunnel_user.c                |   6 +-
+ tools/lib/bpf/bpf.c                               |  21 +++
+ tools/lib/bpf/bpf.h                               |   3 +
+ 35 files changed, 231 insertions(+), 332 deletions(-)
+ delete mode 100644 samples/bpf/libbpf.c
+ create mode 100644 samples/bpf/sock_example.h
+
 -- 
 2.10.2
