@@ -1,73 +1,52 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: dsa: handling more than 1 cpu port
-Date: Wed, 14 Dec 2016 12:00:58 +0100
-Message-ID: <20161214110058.GE27370@lunn.ch>
-References: <1671ae82-c213-7611-584f-02a3b1d5dff9@phrozen.org>
- <20161214103153.GC27370@lunn.ch>
- <0f82a785-b31c-0428-eb07-a9464a0c5ddd@phrozen.org>
+From: Rolf Eike Beer <eb@emlix.com>
+Subject: [PATCH 2/3] selftests: do not require bash to run bpf tests
+Date: Wed, 14 Dec 2016 11:58:20 +0100
+Message-ID: <3057464.DrP1iNtcaF@devpool21>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: John Crispin <john@phrozen.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:54686 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755280AbcLNLkT (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 14 Dec 2016 06:40:19 -0500
-Content-Disposition: inline
-In-Reply-To: <0f82a785-b31c-0428-eb07-a9464a0c5ddd@phrozen.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8BIT
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        Alexei Starovoitov <ast@kernel.org>,
+        linux-kernel@vger.kernel.org, Shuah Khan <shuahkh@osg.samsung.com>,
+        Shuah Khan <shuah@kernel.org>
+To: linux-kselftest@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 14, 2016 at 11:35:30AM +0100, John Crispin wrote:
-> 
-> 
-> On 14/12/2016 11:31, Andrew Lunn wrote:
-> > On Wed, Dec 14, 2016 at 11:01:54AM +0100, John Crispin wrote:
-> >> Hi Andrew,
-> >>
-> >> switches supported by qca8k have 2 gmacs that we can wire an external
-> >> mii interface to. Usually this is used to wire 2 of the SoCs MACs to the
-> >> switch. Thw switch itself is aware of one of the MACs being the cpu port
-> >> and expects this to be port/mac0. Using the other will break the
-> >> hardware offloading features.
-> > 
-> > Just to be sure here. There is no way to use the second port connected
-> > to the CPU as a CPU port?
-> 
-> both macs are considered cpu ports and both allow for the tag to be
-> injected. for HW NAT/routing/... offloading to work, the lan ports neet
-> to trunk via port0 and not port6 however.
+>From b9d6c1b7427d708ef2d4d57aac17b700b3694d71 Mon Sep 17 00:00:00 2001
+From: Rolf Eike Beer <eike-kernel@sf-tec.de>
+Date: Wed, 14 Dec 2016 09:58:12 +0100
+Subject: [PATCH 2/3] selftests: do not require bash to run bpf tests
 
-Maybe you can do a restricted version of the generic solution. LAN
-ports are mapped to cpu port0. WAN port to cpu port 6?
+Nothing in this minimal script seems to require bash. We often run these tests
+on embedded devices where the only shell available is the busybox ash.
 
-> > The Marvell chips do allow this. So i developed a proof of concept
-> > which had a mapping between cpu ports and slave ports. slave port X
-> > should you cpu port y for its traffic. This never got past proof of
-> > concept. 
-> > 
-> > If this can be made to work for qca8k, i would prefer having this
-> > general concept, than specific hacks for pass through.
-> 
-> oh cool, can you send those patches my way please ? how do you configure
-> this from userland ? does the cpu port get its on swdev which i just add
-> to my lan bridge and then add the 2nd cpu port to the wan bridge ?
+Signed-off-by: Rolf Eike Beer <eb@emlix.com>
+---
+ tools/testing/selftests/bpf/test_kmod.sh | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-https://github.com/lunn/linux/tree/v4.1-rc4-net-next-multiple-cpu
+diff --git a/tools/testing/selftests/bpf/test_kmod.sh b/tools/testing/selftests/bpf/test_kmod.sh
+index 92e627a..6d58cca 100755
+--- a/tools/testing/selftests/bpf/test_kmod.sh
++++ b/tools/testing/selftests/bpf/test_kmod.sh
+@@ -1,4 +1,4 @@
+-#!/bin/bash
++#!/bin/sh
+ 
+ SRC_TREE=../../../../
+ 
+-- 
+2.8.3
 
-You don't configure anything from userland. Which was actually a
-criticism. It is in device tree. But my solution is generic. Having
-one WAN port and four bridges LAN ports is a pure marketing
-requirement. The hardware will happily do two WAN ports and 3 LAN
-ports, for example. And the switch is happy to take traffic for the
-WAN port and a LAN port over the same CPU port, and keep the traffic
-separate. So we can have some form of load balancing. We are not
-limited to 1->1, 1->4, we can do 1->2, 1->3 to increase the overall
-performance. And to the user it is all transparent.
 
-This PoC is for the old DSA binding. The new binding makes it easier
-to express this. Which is one of the reasons for the new binding.
+-- 
+Rolf Eike Beer, emlix GmbH, http://www.emlix.com
+Fon +49 551 30664-0, Fax +49 551 30664-11
+Bertha-von-Suttner-Str. 9, 37085 Göttingen, Germany
+Sitz der Gesellschaft: Göttingen, Amtsgericht Göttingen HR B 3160
+Geschäftsführung: Heike Jordan, Dr. Uwe Kracke – Ust-IdNr.: DE 205 198 055
 
-	Andrew
+emlix – smart embedded open source
