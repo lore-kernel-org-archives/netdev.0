@@ -1,36 +1,82 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: Re: [PATCH v2 3/4] secure_seq: use siphash24 instead of md5_transform
-Date: Wed, 14 Dec 2016 18:49:26 +0100
-Message-ID: <CAHmME9oAnqC9dvgF8ZcJzNX70PsPHu0Nn++eexQvktUR_w8pHA@mail.gmail.com>
-References: <20161214035927.30004-1-Jason@zx2c4.com> <20161214035927.30004-3-Jason@zx2c4.com>
- <CAHmME9pEM=cDC5S=j1BU2oCF8-WdnbRfiVojcet4rXcRLcpJRw@mail.gmail.com>
- <1e502c6b-cda3-c46d-2535-fcfb58f443a9@stressinduktion.org>
- <CAHmME9o4NVi-MPeURio1Ga58rnW6JAGQdTg6scd+K3EZEf3RNA@mail.gmail.com> <063D6719AE5E284EB5DD2968C1650D6DB023F7BD@AcuExch.aculab.com>
-Reply-To: kernel-hardening@lists.openwall.com
+From: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH] infiniband: nes: nes_nic: use new api
+ ethtool_{get|set}_link_ksettings
+Date: Wed, 14 Dec 2016 12:52:57 -0500
+Message-ID: <24d35dfc-ca92-89fb-1814-db1127e64f12@redhat.com>
+References: <1477409387-25056-1-git-send-email-tremyfr@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>, Netdev <netdev@vger.kernel.org>,
-	"kernel-hardening@lists.openwall.com" <kernel-hardening@lists.openwall.com>, Andi Kleen <ak@linux.intel.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Linux Crypto Mailing List <linux-crypto@vger.kernel.org>
-To: David Laight <David.Laight@aculab.com>
-Return-path: <kernel-hardening-return-5520-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB023F7BD@AcuExch.aculab.com>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ protocol="application/pgp-signature";
+ boundary="K3Xe2W6ws9fCUl5TirCTFoUWljKQ6EINN"
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Philippe Reynes <tremyfr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+        sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1477409387-25056-1-git-send-email-tremyfr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 14, 2016 at 3:47 PM, David Laight <David.Laight@aculab.com> wrote:
-> Just remove the __packed and ensure that the structure is 'nice'.
-> This includes ensuring there is no 'tail padding'.
-> In some cases you'll need to put the port number into a 32bit field.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--K3Xe2W6ws9fCUl5TirCTFoUWljKQ6EINN
+Content-Type: multipart/mixed; boundary="vrdVQbgiL93pgjrw0MWPMq6uN6ffMXbfQ";
+ protected-headers="v1"
+From: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+To: Philippe Reynes <tremyfr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+ sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Message-ID: <24d35dfc-ca92-89fb-1814-db1127e64f12-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH] infiniband: nes: nes_nic: use new api
+ ethtool_{get|set}_link_ksettings
+References: <1477409387-25056-1-git-send-email-tremyfr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+In-Reply-To: <1477409387-25056-1-git-send-email-tremyfr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 
-I'd rather not. There's no point in wasting extra cycles on hashing
-useless data, just for some particular syntactic improvement. __packed
-__aligned(8) will do what we want perfectly, I think.
+--vrdVQbgiL93pgjrw0MWPMq6uN6ffMXbfQ
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: quoted-printable
 
-> I'd also require that the key be aligned.
+On 10/25/2016 11:29 AM, Philippe Reynes wrote:
+> The ethtool api {get|set}_settings is deprecated.
+> We move this driver to new api {get|set}_link_ksettings.
+>=20
+> Signed-off-by: Philippe Reynes <tremyfr-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 
-Yep, I'll certainly do this for the siphash24_aligned version in the v3.
+Thanks, applied.
+
+--=20
+Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+    GPG Key ID: 0E572FDD
+
+
+--vrdVQbgiL93pgjrw0MWPMq6uN6ffMXbfQ--
+
+--K3Xe2W6ws9fCUl5TirCTFoUWljKQ6EINN
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
+
+iQIcBAEBCAAGBQJYUYb6AAoJELgmozMOVy/d2zwQAKMXEJ/vskmhi+LMXYJuKyAR
+aIfznOsEeuxz9SbA11DSOWUYkW6axO7ac+28T08Tp3juk3cCeeRDIeWVEjpS8ySf
+voyO7C5Ofg0cxzMamVkyW1X9sr6/avZ7zju2E+1fSx7Ep5LqPtLZfT0/yqz3lCkm
+DZjzhqXCXNzYPXLMvVznNl/2Ii07WZkBWnaHlYoI3eWbQDHYiaSosHaUCPIespHK
+XbbXE2hCCjz5sMtw+2EGKTyxBcYIKaJVRYnSZ+zY+kXNkGTSdfcTJMAuN58ZDeDq
+/nNeeUMcO6r4md3kBYx1E9oZGtQQueyiCbAUiA0GnEE+daBPCjTzm4Gy4w7fp2FP
+4xgNFsW5iCaa52HUIj+rxsfOflTkPUWQQl3qw0YNwVm7PUdyaxGqbNIpeoxbq7H/
+X00BXKlA1cdWA9Au39uxe7erB989pUFf/9Eh4HgBaPACZTbOxQWZeo0h0s2+7Wde
+SNNCGVYKCL1ddji5zbgb5f5s/ZvbHpNme8EEO/dFmH75/i+Io3Pu0CYlR1AOQmIO
+f2oo02rJr/QqyIPS8Mj5BuInTSurD8crvM4rfoy8U2nDhu29Q5VD7aNOLACY/WBH
+NZcRJKJ9grwGT/iZWz/w9A/w7/OuSD0hqf2FguqwjIJcXI8G443vRI+JmouMtrbc
+qyortO+NSVgL8UySrpTL
+=TFUE
+-----END PGP SIGNATURE-----
+
+--K3Xe2W6ws9fCUl5TirCTFoUWljKQ6EINN--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
