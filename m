@@ -1,91 +1,316 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: Re: sctp: suspicious rcu_dereference_check() usage in sctp_epaddr_lookup_transport
-Date: Wed, 14 Dec 2016 18:04:52 +0800
-Message-ID: <CADvbK_fo9j2au9Lq197bQJWxCEh7vCgStx_KoAWyQm-pubrwVg@mail.gmail.com>
-References: <CACT4Y+bEi6aXTTrk4P37hFnMdyte0voxUVdz8t0XQP95PgH9+w@mail.gmail.com>
- <20161213213730.GA4731@localhost.localdomain>
+From: Andrei Pistirica <andrei.pistirica@microchip.com>
+Subject: [RFC PATCH net-next v4 2/2] macb: Enable 1588 support in SAMA5Dx platforms.
+Date: Wed, 14 Dec 2016 14:56:15 +0200
+Message-ID: <1481720175-12703-2-git-send-email-andrei.pistirica@microchip.com>
+References: <1481720175-12703-1-git-send-email-andrei.pistirica@microchip.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Dmitry Vyukov <dvyukov@google.com>,
-        Vladislav Yasevich <vyasevich@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        David Miller <davem@davemloft.net>, linux-sctp@vger.kernel.org,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f195.google.com ([209.85.216.195]:34582 "EHLO
-        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755335AbcLNKFa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 14 Dec 2016 05:05:30 -0500
-In-Reply-To: <20161213213730.GA4731@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <punnaia@xilinx.com>, <michals@xilinx.com>, <anirudh@xilinx.com>,
+        <boris.brezillon@free-electrons.com>,
+        <alexandre.belloni@free-electrons.com>, <tbultel@pixelsurmer.com>,
+        <richardcochran@gmail.com>, <rafalo@cadence.com>,
+        Andrei Pistirica <andrei.pistirica@microchip.com>
+To: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        <linux-arm-kernel@lists.infradead.org>, <davem@davemloft.net>,
+        <nicolas.ferre@atmel.com>, <harinikatakamlinux@gmail.com>,
+        <harini.katakam@xilinx.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1481720175-12703-1-git-send-email-andrei.pistirica@microchip.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 14, 2016 at 5:37 AM, Marcelo Ricardo Leitner
-<marcelo.leitner@gmail.com> wrote:
-> On Tue, Dec 13, 2016 at 07:07:01PM +0100, Dmitry Vyukov wrote:
->> Hello,
->>
->> I am getting the following reports while running syzkaller fuzzer:
->>
->> [ INFO: suspicious RCU usage. ]
->> 4.9.0+ #85 Not tainted
->> -------------------------------
->> ./include/linux/rhashtable.h:572 suspicious rcu_dereference_check() usage!
->>
->> other info that might help us debug this:
->>
->> rcu_scheduler_active = 1, debug_locks = 0
->> 1 lock held by syz-executor1/18023:
->>  #0:  (sk_lock-AF_INET){+.+.+.}, at: [<     inline     >] lock_sock
->> include/net/sock.h:1454
->>  #0:  (sk_lock-AF_INET){+.+.+.}, at: [<ffffffff87bb3ccf>]
->> sctp_getsockopt+0x45f/0x6800 net/sctp/socket.c:6432
->>
->> stack backtrace:
->> CPU: 2 PID: 18023 Comm: syz-executor1 Not tainted 4.9.0+ #85
->> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
->> Call Trace:
->> [<     inline     >] __dump_stack lib/dump_stack.c:15
->> [<        none        >] dump_stack+0x2ee/0x3ef lib/dump_stack.c:51
->> [<        none        >] lockdep_rcu_suspicious+0x139/0x180
->> kernel/locking/lockdep.c:4448
->> [<     inline     >] __rhashtable_lookup ./include/linux/rhashtable.h:572
->> [<     inline     >] rhltable_lookup ./include/linux/rhashtable.h:660
->> [<        none        >] sctp_epaddr_lookup_transport+0x641/0x930
->> net/sctp/input.c:946
->
-> I think this was introduced in the rhlist converstion. We had removed
-> some rcu_read_lock() calls on sctp stack because rhashtable was already
-> calling it, but then we didn't add them back when moving to rhlist.
->
-> This code:
-> +/* return a transport without holding it, as it's only used under sock lock */
->  struct sctp_transport *sctp_epaddr_lookup_transport(
->                                 const struct sctp_endpoint *ep,
->                                 const union sctp_addr *paddr)
->  {
->         struct net *net = sock_net(ep->base.sk);
-> +       struct rhlist_head *tmp, *list;
-> +       struct sctp_transport *t;
->         struct sctp_hash_cmp_arg arg = {
-> -               .ep    = ep,
->                 .paddr = paddr,
->                 .net   = net,
-> +               .lport = htons(ep->base.bind_addr.port),
->         };
->
-> -       return rhashtable_lookup_fast(&sctp_transport_hashtable, &arg,
-> -                                     sctp_hash_params);
-> +       list = rhltable_lookup(&sctp_transport_hashtable, &arg,
-> +                              sctp_hash_params);
->
-> Had an implicit rcu_read_lock() on rhashtable_lookup_fast, but it
-> doesn't on rhltable_lookup and rhltable_lookup uses _rcu calls which
-> assumes we have rcu read protection.
+This patch does the following:
+- Enable HW time stamp for the following platforms: SAMA5D2, SAMA5D3 and
+  SAMA5D4.
+- HW time stamp capabilities are advertised via ethtool and macb ioctl is
+  updated accordingly.
+- HW time stamp on the PTP Ethernet packets are received using the
+  SO_TIMESTAMPING API. Where timers are obtained from the PTP event/peer
+  registers.
 
-You're right, we need to call rcu_read_lock before using rhltable_lookup.
-will post a fix for it, thanks.
+Note: Patch on net-next, on December 7th.
+
+Signed-off-by: Andrei Pistirica <andrei.pistirica@microchip.com>
+---
+Patch history:
+
+Version 1:
+Integration with SAMA5D2 only. This feature wasn't tested on any
+other platform that might use cadence/gem.
+
+Patch is not completely ported to the very latest version of net-next,
+and it will be after review.
+
+Version 2 modifications:
+- add PTP caps for SAMA5D2/3/4 platforms
+- and cosmetic changes
+
+Version 3 modifications:
+- add support for sama5D2/3/4 platforms using GEM-PTP interface.
+
+Version 4 modifications:
+- time stamp only PTP_V2 events
+- maximum adjustment value is set based on Richard's input
+
+Note: Patch on net-next, on December 14th. 
+
+ drivers/net/ethernet/cadence/macb.c | 168 ++++++++++++++++++++++++++++++++++--
+ 1 file changed, 163 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+index 538544a..8d5c976 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -714,6 +714,8 @@ static void macb_tx_interrupt(struct macb_queue *queue)
+ 
+ 			/* First, update TX stats if needed */
+ 			if (skb) {
++				gem_ptp_do_txstamp(bp, skb);
++
+ 				netdev_vdbg(bp->dev, "skb %u (data %p) TX complete\n",
+ 					    macb_tx_ring_wrap(bp, tail),
+ 					    skb->data);
+@@ -878,6 +880,8 @@ static int gem_rx(struct macb *bp, int budget)
+ 		    GEM_BFEXT(RX_CSUM, ctrl) & GEM_RX_CSUM_CHECKED_MASK)
+ 			skb->ip_summed = CHECKSUM_UNNECESSARY;
+ 
++		gem_ptp_do_rxstamp(bp, skb);
++
+ 		bp->stats.rx_packets++;
+ 		bp->stats.rx_bytes += skb->len;
+ 
+@@ -2080,6 +2084,9 @@ static int macb_open(struct net_device *dev)
+ 
+ 	netif_tx_start_all_queues(dev);
+ 
++	if (bp->ptp_info)
++		bp->ptp_info->ptp_init(dev);
++
+ 	return 0;
+ }
+ 
+@@ -2101,6 +2108,9 @@ static int macb_close(struct net_device *dev)
+ 
+ 	macb_free_consistent(bp);
+ 
++	if (bp->ptp_info)
++		bp->ptp_info->ptp_remove(dev);
++
+ 	return 0;
+ }
+ 
+@@ -2374,6 +2384,133 @@ static int macb_set_ringparam(struct net_device *netdev,
+ 	return 0;
+ }
+ 
++#ifdef CONFIG_MACB_USE_HWSTAMP
++static unsigned int gem_get_tsu_rate(struct macb *bp)
++{
++	/* Note: TSU rate is hardwired to PCLK. */
++	return clk_get_rate(bp->pclk);
++}
++
++static s32 gem_get_ptp_max_adj(void)
++{
++	return 3921508;
++}
++
++static int gem_get_ts_info(struct net_device *dev,
++			   struct ethtool_ts_info *info)
++{
++	struct macb *bp = netdev_priv(dev);
++
++	ethtool_op_get_ts_info(dev, info);
++	info->so_timestamping =
++		SOF_TIMESTAMPING_TX_SOFTWARE |
++		SOF_TIMESTAMPING_RX_SOFTWARE |
++		SOF_TIMESTAMPING_SOFTWARE |
++		SOF_TIMESTAMPING_TX_HARDWARE |
++		SOF_TIMESTAMPING_RX_HARDWARE |
++		SOF_TIMESTAMPING_RAW_HARDWARE;
++	info->phc_index = -1;
++
++	if (bp->ptp_clock)
++		info->phc_index = ptp_clock_index(bp->ptp_clock);
++
++	return 0;
++}
++
++static int gem_set_hwtst(struct net_device *netdev,
++			 struct ifreq *ifr, int cmd)
++{
++	struct hwtstamp_config config;
++	struct macb *priv = netdev_priv(netdev);
++	u32 regval;
++
++	netdev_vdbg(netdev, "macb_hwtstamp_ioctl\n");
++
++	if (copy_from_user(&config, ifr->ifr_data, sizeof(config)))
++		return -EFAULT;
++
++	/* reserved for future extensions */
++	if (config.flags)
++		return -EINVAL;
++
++	switch (config.tx_type) {
++	case HWTSTAMP_TX_OFF:
++		priv->hwts_tx_en = false;
++		break;
++	case HWTSTAMP_TX_ON:
++		priv->hwts_tx_en = true;
++		break;
++	default:
++		return -ERANGE;
++	}
++
++	switch (config.rx_filter) {
++	case HWTSTAMP_FILTER_NONE:
++		if (priv->hwts_rx_en)
++			priv->hwts_rx_en = false;
++		break;
++	case HWTSTAMP_FILTER_PTP_V2_L4_EVENT:
++	case HWTSTAMP_FILTER_PTP_V2_L2_EVENT:
++	case HWTSTAMP_FILTER_PTP_V2_L2_SYNC:
++	case HWTSTAMP_FILTER_PTP_V2_L4_SYNC:
++	case HWTSTAMP_FILTER_PTP_V2_L2_DELAY_REQ:
++	case HWTSTAMP_FILTER_PTP_V2_L4_DELAY_REQ:
++	case HWTSTAMP_FILTER_PTP_V2_EVENT:
++	case HWTSTAMP_FILTER_PTP_V2_SYNC:
++	case HWTSTAMP_FILTER_PTP_V2_DELAY_REQ:
++		config.rx_filter = HWTSTAMP_FILTER_PTP_V2_EVENT;
++		regval = macb_readl(priv, NCR);
++		macb_writel(priv, NCR, (regval | MACB_BIT(SRTSM)));
++
++		if (!priv->hwts_rx_en)
++			priv->hwts_rx_en = true;
++		break;
++	default:
++		config.rx_filter = HWTSTAMP_FILTER_NONE;
++		return -ERANGE;
++	}
++
++	return copy_to_user(ifr->ifr_data, &config, sizeof(config)) ?
++		-EFAULT : 0;
++}
++
++static int gem_get_hwtst(struct net_device *netdev,
++			 struct ifreq *ifr)
++{
++	struct hwtstamp_config config;
++	struct macb *priv = netdev_priv(netdev);
++
++	config.flags = 0;
++	config.tx_type = priv->hwts_tx_en ? HWTSTAMP_TX_ON : HWTSTAMP_TX_OFF;
++	config.rx_filter = (priv->hwts_rx_en ?
++			    HWTSTAMP_FILTER_ALL : HWTSTAMP_FILTER_NONE);
++
++	return copy_to_user(ifr->ifr_data, &config, sizeof(config)) ?
++		-EFAULT : 0;
++}
++
++static struct macb_ptp_info gem_ptp_info = {
++	.ptp_init	 = gem_ptp_init,
++	.ptp_remove	 = gem_ptp_remove,
++	.get_ptp_max_adj = gem_get_ptp_max_adj,
++	.get_tsu_rate	 = gem_get_tsu_rate,
++	.get_ts_info	 = gem_get_ts_info,
++	.get_hwtst	 = gem_get_hwtst,
++	.set_hwtst	 = gem_set_hwtst,
++};
++#endif
++
++static int macb_get_ts_info(struct net_device *netdev,
++			    struct ethtool_ts_info *info)
++{
++	struct macb *bp = netdev_priv(netdev);
++
++	if (bp->ptp_info)
++		return bp->ptp_info->get_ts_info(netdev, info);
++
++	return ethtool_op_get_ts_info(netdev, info);
++}
++
+ static const struct ethtool_ops macb_ethtool_ops = {
+ 	.get_regs_len		= macb_get_regs_len,
+ 	.get_regs		= macb_get_regs,
+@@ -2391,7 +2528,7 @@ static const struct ethtool_ops gem_ethtool_ops = {
+ 	.get_regs_len		= macb_get_regs_len,
+ 	.get_regs		= macb_get_regs,
+ 	.get_link		= ethtool_op_get_link,
+-	.get_ts_info		= ethtool_op_get_ts_info,
++	.get_ts_info		= macb_get_ts_info,
+ 	.get_ethtool_stats	= gem_get_ethtool_stats,
+ 	.get_strings		= gem_get_ethtool_strings,
+ 	.get_sset_count		= gem_get_sset_count,
+@@ -2404,6 +2541,7 @@ static const struct ethtool_ops gem_ethtool_ops = {
+ static int macb_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ {
+ 	struct phy_device *phydev = dev->phydev;
++	struct macb *bp = netdev_priv(dev);
+ 
+ 	if (!netif_running(dev))
+ 		return -EINVAL;
+@@ -2411,7 +2549,20 @@ static int macb_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ 	if (!phydev)
+ 		return -ENODEV;
+ 
+-	return phy_mii_ioctl(phydev, rq, cmd);
++	switch (cmd) {
++	case SIOCSHWTSTAMP:
++		if (bp->ptp_info)
++			return bp->ptp_info->set_hwtst(dev, rq, cmd);
++
++		return -EOPNOTSUPP;
++	case SIOCGHWTSTAMP:
++		if (bp->ptp_info)
++			return bp->ptp_info->get_hwtst(dev, rq);
++
++		return -EOPNOTSUPP;
++	default:
++		return phy_mii_ioctl(phydev, rq, cmd);
++	}
+ }
+ 
+ static int macb_set_features(struct net_device *netdev,
+@@ -2485,6 +2636,12 @@ static void macb_configure_caps(struct macb *bp,
+ 		dcfg = gem_readl(bp, DCFG2);
+ 		if ((dcfg & (GEM_BIT(RX_PKT_BUFF) | GEM_BIT(TX_PKT_BUFF))) == 0)
+ 			bp->caps |= MACB_CAPS_FIFO_MODE;
++
++		/* iff HWSTAMP is configure and gem has the capability */
++#ifdef CONFIG_MACB_USE_HWSTAMP
++		if (gem_has_ptp(bp))
++			bp->ptp_info = &gem_ptp_info;
++#endif
+ 	}
+ 
+ 	dev_dbg(&bp->pdev->dev, "Cadence caps 0x%08x\n", bp->caps);
+@@ -3041,7 +3198,7 @@ static const struct macb_config pc302gem_config = {
+ };
+ 
+ static const struct macb_config sama5d2_config = {
+-	.caps = MACB_CAPS_USRIO_DEFAULT_IS_MII_GMII,
++	.caps = MACB_CAPS_USRIO_DEFAULT_IS_MII_GMII | MACB_CAPS_GEM_HAS_PTP,
+ 	.dma_burst_length = 16,
+ 	.clk_init = macb_clk_init,
+ 	.init = macb_init,
+@@ -3049,14 +3206,15 @@ static const struct macb_config sama5d2_config = {
+ 
+ static const struct macb_config sama5d3_config = {
+ 	.caps = MACB_CAPS_SG_DISABLED | MACB_CAPS_GIGABIT_MODE_AVAILABLE
+-	      | MACB_CAPS_USRIO_DEFAULT_IS_MII_GMII,
++	      | MACB_CAPS_USRIO_DEFAULT_IS_MII_GMII
++	      | MACB_CAPS_GEM_HAS_PTP,
+ 	.dma_burst_length = 16,
+ 	.clk_init = macb_clk_init,
+ 	.init = macb_init,
+ };
+ 
+ static const struct macb_config sama5d4_config = {
+-	.caps = MACB_CAPS_USRIO_DEFAULT_IS_MII_GMII,
++	.caps = MACB_CAPS_USRIO_DEFAULT_IS_MII_GMII | MACB_CAPS_GEM_HAS_PTP,
+ 	.dma_burst_length = 4,
+ 	.clk_init = macb_clk_init,
+ 	.init = macb_init,
+-- 
+2.7.4
