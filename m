@@ -1,47 +1,75 @@
-From: Christoph Lameter <cl@linux.com>
-Subject: RE: Designing a safe RX-zero-copy Memory Model for Networking
-Date: Wed, 14 Dec 2016 13:43:43 -0600 (CST)
-Message-ID: <alpine.DEB.2.20.1612141342080.23516@east.gentwo.org>
-References: <20161205153132.283fcb0e@redhat.com> <20161212083812.GA19987@rapoport-lnx> <20161212104042.0a011212@redhat.com> <20161212141433.GB19987@rapoport-lnx> <584EB8DF.8000308@gmail.com> <20161212181344.3ddfa9c3@redhat.com> <alpine.DEB.2.20.1612121200280.13607@east.gentwo.org>
- <20161213171028.24dbf519@redhat.com> <8aea213f-2739-9bd3-3a6a-668b759336ae@stressinduktion.org> <alpine.DEB.2.20.1612141059020.20959@east.gentwo.org> <063D6719AE5E284EB5DD2968C1650D6DB023FA6E@AcuExch.aculab.com>
-Content-Type: text/plain; charset=US-ASCII
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Jesper Dangaard Brouer <brouer@redhat.com>,
-        John Fastabend <john.fastabend@gmail.com>,
-        Mike Rapoport <rppt@linux.vnet.ibm.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        linux-mm <linux-mm@kvack.org>,
-        Willem de Bruijn <willemdebruijn.kernel@gmail.com>,
-        =?ISO-8859-15?Q?Bj=F6rn_T=F6pel?= <bjorn.topel@intel.com>,
-        "Karlsson, Magnus" <magnus.karlsson@intel.com>,
-        Alexander Duyck <alexander.duyck@gmail.com>,
-        Mel Gorman <mgorman@techsingularity.net>,
-        Tom Herbert <tom@herbertland.com>,
-        Brenden Blanco <bblanco@plumgrid.com>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Jesse Brandeburg <jesse.brandeburg@intel.com>,
-        Kalman Meth <METH@il.ibm.com>,
-        Vladislav Yasevich <vyasevi
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from resqmta-ch2-04v.sys.comcast.net ([69.252.207.36]:60613 "EHLO
-        resqmta-ch2-04v.sys.comcast.net" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751674AbcLNTnr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 14 Dec 2016 14:43:47 -0500
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB023FA6E@AcuExch.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: Re: [PATCH v2 1/4] siphash: add cryptographically secure hashtable function
+Date: Wed, 14 Dec 2016 20:47:10 +0100
+Message-ID: <CAHmME9qYgAgQe3UyqWAOrHdOUaR2aO_hxoCMrof-sGVRr6T-Jw@mail.gmail.com>
+References: <20161214035927.30004-1-Jason@zx2c4.com> <516c5633-14c2-ee18-90e4-84d73870ba2c@stressinduktion.org>
+ <CAHmME9qA6qKdp+qoih2Je4fxU+4E6=Gp7CVfhYU7VbOr6HJ=0Q@mail.gmail.com> <9fea41e0-fd55-7328-e2f4-73eb2e7f7a98@stressinduktion.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>,
+        kernel-hardening@lists.openwall.com,
+        LKML <linux-kernel@vger.kernel.org>,
+        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+        Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>,
+        "Daniel J . Bernstein" <djb@cr.yp.to>,
+        Linus Torvalds <torvalds@linux-foundation.org>,
+        Eric Biggers <ebiggers3@gmail.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <9fea41e0-fd55-7328-e2f4-73eb2e7f7a98@stressinduktion.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 14 Dec 2016, David Laight wrote:
+Hi Hannes,
 
-> If the kernel is doing ANY validation on the frames it must copy the
-> data to memory the application cannot modify before doing the validation.
-> Otherwise the application could change the data afterwards.
+On Wed, Dec 14, 2016 at 4:09 PM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> Yes, numbers would be very usable here. I am mostly concerned about
+> small plastic router cases. E.g. assume you double packet processing
+> time with a change of the hashing function at what point is the actual
+> packet processing more of an attack vector than the hashtable?
 
-The application is not allowed to change the data after a work request has
-been submitted to send the frame. Changes are possible after the
-completion request has been received.
+I agree. Looks like Tom did some very quick benchmarks. I'll do some
+more precise benchmarks myself when we graduate from looking at md5
+replacement (the easy case) to looking at jhash replacement (the
+harder case).
 
-The kernel can enforce that by making the frame(s) readonly and thus
-getting a page fault if the app would do such a thing.
+>> With that said, siphash is here to replace uses of jhash where
+>> hashtable poisoning vulnerabilities make it necessary. Where there's
+>> no significant security improvement, if there's no speed improvement
+>> either, then of course nothing's going to change.
+>
+> It still changes currently well working source. ;-)
+
+I mean if siphash doesn't make things better in someway, we'll just
+continue using jhash, so no source change or anything. In other words:
+evolutionary conservative approach rather than hasty "replace 'em
+all!" tomfoolery.
+
+> MD5 is considered broken because its collision resistance is broken?
+> SipHash doesn't even claim to have collision resistance (which we don't
+> need here)?
+
+Not just that, but it's not immediately clear to me that using MD5 as
+a PRF the way it is now with md5_transform is even a straightforwardly
+good idea.
+
+> But I agree, certainly it could be a nice speed-up!
+
+The benchmarks for the secure sequence number generation and the rng
+are indeed really promising.
+
+> I think you mean non-linearity.
+
+Yea of course, editing typo, sorry.
+
+> In general I am in favor to switch to siphash, but it would be nice to
+> see some benchmarks with the specific kernel implementation also on some
+> smaller 32 bit CPUs and especially without using any SIMD instructions
+> (which might have been used in paper comparison).
+
+Sure, agreed. Each proposed jhash replacement will need to be
+benchmarked on little MIPS machines and x86 monsters alike, with
+patches indicating PPS before and after.
+
+Jason
