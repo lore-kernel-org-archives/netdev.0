@@ -1,258 +1,73 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: [PATCH 3/3] secure_seq: use fast&secure siphash instead of slow&insecure md5
-Date: Wed, 14 Dec 2016 01:16:56 +0100
-Message-ID: <20161214001656.19388-3-Jason@zx2c4.com>
-References: <20161214001656.19388-1-Jason@zx2c4.com>
-Reply-To: kernel-hardening@lists.openwall.com
-Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>
-To: Netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	"kernel-hardening@lists.openwall.com" <kernel-hardening@lists.openwall.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	George Spelvin <linux@horizon.com>,
-	Scott Bauer <sbauer@eng.utah.edu>,
-	Andi Kleen <ak@linux.intel.com>,
-	Andy Lutomirski <luto@amacapital.net>,
-	Greg KH <gregkh@linuxfoundation.org>,
-	Eric Biggers <ebiggers3@gmail.com>
-Return-path: <kernel-hardening-return-5502-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <20161214001656.19388-1-Jason@zx2c4.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: netlink: GPF in sock_sndtimeo
+Date: Tue, 13 Dec 2016 16:17:14 -0800
+Message-ID: <CAM_iQpVPEJ2t29ENpT4qcBznwE83w_PEBOxStwyzDH27Si2Ppw@mail.gmail.com>
+References: <20161129164859.GD26673@madcap2.tricolour.ca>
+	<CAM_iQpX_KBEpL1dCBNMgZQ-VQJM9nmsVdRPVK-Aen9k0gV3f0w@mail.gmail.com>
+	<20161130045207.GE26673@madcap2.tricolour.ca>
+	<20161209060248.GT22655@madcap2.tricolour.ca>
+	<CAM_iQpWRe0tDk=wvXONG7hamH3EtE0nJuAOF1kVKJgdpMvz2DA@mail.gmail.com>
+	<20161209110155.GW22655@madcap2.tricolour.ca>
+	<CAM_iQpV2GuKhR_1tD5jjACeD+pajJLws08CLmeYAo+rsjxvB0A@mail.gmail.com>
+	<20161212100215.GA1305@madcap2.tricolour.ca>
+	<CAM_iQpUejChnsMWx3Z59GTuxZMeBjgrs2rhd7gsQAKoxE8YuDg@mail.gmail.com>
+	<20161213105233.GG1305@madcap2.tricolour.ca>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+        Johannes Berg <johannes.berg@intel.com>,
+        netdev <netdev@vger.kernel.org>, Florian Westphal <fw@strlen.de>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>, linux-audit@redhat.com,
+        syzkaller <syzkaller@googlegroups.com>,
+        David Miller <davem@davemloft.net>, Dmitry Vyukov <dvyukov@google.com>
+To: Richard Guy Briggs <rgb@redhat.com>
+Return-path: <linux-audit-bounces@redhat.com>
+In-Reply-To: <20161213105233.GG1305@madcap2.tricolour.ca>
+List-Unsubscribe: <https://www.redhat.com/mailman/options/linux-audit>,
+	<mailto:linux-audit-request@redhat.com?subject=unsubscribe>
+List-Archive: <https://www.redhat.com/archives/linux-audit>
+List-Post: <mailto:linux-audit@redhat.com>
+List-Help: <mailto:linux-audit-request@redhat.com?subject=help>
+List-Subscribe: <https://www.redhat.com/mailman/listinfo/linux-audit>,
+	<mailto:linux-audit-request@redhat.com?subject=subscribe>
+Sender: linux-audit-bounces@redhat.com
+Errors-To: linux-audit-bounces@redhat.com
 List-Id: netdev.vger.kernel.org
 
-This gives a clear speed and security improvement. Rather than manually
-filling MD5 buffers, we simply create a layout by a simple anonymous
-struct, for which gcc generates rather efficient code.
+On Tue, Dec 13, 2016 at 2:52 AM, Richard Guy Briggs <rgb@redhat.com> wrote:
+> It is actually the audit_pid and audit_nlk_portid that I care about
+> more.  The audit daemon could vanish or close the socket while the
+> kernel sock to which it was attached is still quite valid.  Accessing
+> the set of three atomically is the urge.  I wonder if it makes more
+> sense to test for the presence of auditd using audit_sock rather than
+> audit_pid, but still keep audit_pid for our reporting and replacement
+> strategy.  Another idea would be to put the three in one struct.
 
-Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
----
- net/core/secure_seq.c | 153 ++++++++++++++++++++++++--------------------------
- 1 file changed, 73 insertions(+), 80 deletions(-)
+Note, the process has audit_pid should hold a refcnt to the netns too,
+so the netns can't be gone until that process is gone.
 
-diff --git a/net/core/secure_seq.c b/net/core/secure_seq.c
-index fd3ce461fbe6..dcee974f2fb1 100644
---- a/net/core/secure_seq.c
-+++ b/net/core/secure_seq.c
-@@ -1,3 +1,5 @@
-+/* Copyright (C) 2016 Jason A. Donenfeld <Jason@zx2c4.com>. All Rights Reserved. */
-+
- #include <linux/kernel.h>
- #include <linux/init.h>
- #include <linux/cryptohash.h>
-@@ -8,13 +10,12 @@
- #include <linux/ktime.h>
- #include <linux/string.h>
- #include <linux/net.h>
--
-+#include <linux/siphash.h>
-+#include <linux/in6.h>
- #include <net/secure_seq.h>
- 
- #if IS_ENABLED(CONFIG_IPV6) || IS_ENABLED(CONFIG_INET)
--#define NET_SECRET_SIZE (MD5_MESSAGE_BYTES / 4)
--
--static u32 net_secret[NET_SECRET_SIZE] ____cacheline_aligned;
-+static u8 net_secret[SIPHASH24_KEY_LEN];
- 
- static __always_inline void net_secret_init(void)
- {
-@@ -43,43 +44,36 @@ static u32 seq_scale(u32 seq)
- __u32 secure_tcpv6_sequence_number(const __be32 *saddr, const __be32 *daddr,
- 				   __be16 sport, __be16 dport)
- {
--	u32 secret[MD5_MESSAGE_BYTES / 4];
--	u32 hash[MD5_DIGEST_WORDS];
--	u32 i;
--
-+	const struct {
-+		struct in6_addr saddr;
-+		struct in6_addr daddr;
-+		__be16 sport;
-+		__be16 dport;
-+	} __packed combined = {
-+		.saddr = *(struct in6_addr *)saddr,
-+		.daddr = *(struct in6_addr *)daddr,
-+		.sport = sport,
-+		.dport = dport
-+	};
- 	net_secret_init();
--	memcpy(hash, saddr, 16);
--	for (i = 0; i < 4; i++)
--		secret[i] = net_secret[i] + (__force u32)daddr[i];
--	secret[4] = net_secret[4] +
--		(((__force u16)sport << 16) + (__force u16)dport);
--	for (i = 5; i < MD5_MESSAGE_BYTES / 4; i++)
--		secret[i] = net_secret[i];
--
--	md5_transform(hash, secret);
--
--	return seq_scale(hash[0]);
-+	return seq_scale(siphash24((const u8 *)&combined, sizeof(combined), net_secret));
- }
- EXPORT_SYMBOL(secure_tcpv6_sequence_number);
- 
- u32 secure_ipv6_port_ephemeral(const __be32 *saddr, const __be32 *daddr,
- 			       __be16 dport)
- {
--	u32 secret[MD5_MESSAGE_BYTES / 4];
--	u32 hash[MD5_DIGEST_WORDS];
--	u32 i;
--
-+	const struct {
-+		struct in6_addr saddr;
-+		struct in6_addr daddr;
-+		__be16 dport;
-+	} __packed combined = {
-+		.saddr = *(struct in6_addr *)saddr,
-+		.daddr = *(struct in6_addr *)daddr,
-+		.dport = dport
-+	};
- 	net_secret_init();
--	memcpy(hash, saddr, 16);
--	for (i = 0; i < 4; i++)
--		secret[i] = net_secret[i] + (__force u32) daddr[i];
--	secret[4] = net_secret[4] + (__force u32)dport;
--	for (i = 5; i < MD5_MESSAGE_BYTES / 4; i++)
--		secret[i] = net_secret[i];
--
--	md5_transform(hash, secret);
--
--	return hash[0];
-+	return siphash24((const u8 *)&combined, sizeof(combined), net_secret);
- }
- EXPORT_SYMBOL(secure_ipv6_port_ephemeral);
- #endif
-@@ -89,32 +83,34 @@ EXPORT_SYMBOL(secure_ipv6_port_ephemeral);
- __u32 secure_tcp_sequence_number(__be32 saddr, __be32 daddr,
- 				 __be16 sport, __be16 dport)
- {
--	u32 hash[MD5_DIGEST_WORDS];
--
-+	const struct {
-+		__be32 saddr;
-+		__be32 daddr;
-+		__be16 sport;
-+		__be16 dport;
-+	} __packed combined = {
-+		.saddr = saddr,
-+		.daddr = daddr,
-+		.sport = sport,
-+		.dport = dport
-+	};
- 	net_secret_init();
--	hash[0] = (__force u32)saddr;
--	hash[1] = (__force u32)daddr;
--	hash[2] = ((__force u16)sport << 16) + (__force u16)dport;
--	hash[3] = net_secret[15];
--
--	md5_transform(hash, net_secret);
--
--	return seq_scale(hash[0]);
-+	return seq_scale(siphash24((const u8 *)&combined, sizeof(combined), net_secret));
- }
- 
- u32 secure_ipv4_port_ephemeral(__be32 saddr, __be32 daddr, __be16 dport)
- {
--	u32 hash[MD5_DIGEST_WORDS];
--
-+	const struct {
-+		__be32 saddr;
-+		__be32 daddr;
-+		__be16 dport;
-+	} __packed combined = {
-+		.saddr = saddr,
-+		.daddr = daddr,
-+		.dport = dport
-+	};
- 	net_secret_init();
--	hash[0] = (__force u32)saddr;
--	hash[1] = (__force u32)daddr;
--	hash[2] = (__force u32)dport ^ net_secret[14];
--	hash[3] = net_secret[15];
--
--	md5_transform(hash, net_secret);
--
--	return hash[0];
-+	return seq_scale(siphash24((const u8 *)&combined, sizeof(combined), net_secret));
- }
- EXPORT_SYMBOL_GPL(secure_ipv4_port_ephemeral);
- #endif
-@@ -123,21 +119,22 @@ EXPORT_SYMBOL_GPL(secure_ipv4_port_ephemeral);
- u64 secure_dccp_sequence_number(__be32 saddr, __be32 daddr,
- 				__be16 sport, __be16 dport)
- {
--	u32 hash[MD5_DIGEST_WORDS];
-+	const struct {
-+		__be32 saddr;
-+		__be32 daddr;
-+		__be16 sport;
-+		__be16 dport;
-+	} __packed combined = {
-+		.saddr = saddr,
-+		.daddr = daddr,
-+		.sport = sport,
-+		.dport = dport
-+	};
- 	u64 seq;
--
- 	net_secret_init();
--	hash[0] = (__force u32)saddr;
--	hash[1] = (__force u32)daddr;
--	hash[2] = ((__force u16)sport << 16) + (__force u16)dport;
--	hash[3] = net_secret[15];
--
--	md5_transform(hash, net_secret);
--
--	seq = hash[0] | (((u64)hash[1]) << 32);
-+	seq = siphash24((const u8 *)&combined, sizeof(combined), net_secret);
- 	seq += ktime_get_real_ns();
- 	seq &= (1ull << 48) - 1;
--
- 	return seq;
- }
- EXPORT_SYMBOL(secure_dccp_sequence_number);
-@@ -146,26 +143,22 @@ EXPORT_SYMBOL(secure_dccp_sequence_number);
- u64 secure_dccpv6_sequence_number(__be32 *saddr, __be32 *daddr,
- 				  __be16 sport, __be16 dport)
- {
--	u32 secret[MD5_MESSAGE_BYTES / 4];
--	u32 hash[MD5_DIGEST_WORDS];
-+	const struct {
-+		struct in6_addr saddr;
-+		struct in6_addr daddr;
-+		__be16 sport;
-+		__be16 dport;
-+	} __packed combined = {
-+		.saddr = *(struct in6_addr *)saddr,
-+		.daddr = *(struct in6_addr *)daddr,
-+		.sport = sport,
-+		.dport = dport
-+	};
- 	u64 seq;
--	u32 i;
--
- 	net_secret_init();
--	memcpy(hash, saddr, 16);
--	for (i = 0; i < 4; i++)
--		secret[i] = net_secret[i] + (__force u32)daddr[i];
--	secret[4] = net_secret[4] +
--		(((__force u16)sport << 16) + (__force u16)dport);
--	for (i = 5; i < MD5_MESSAGE_BYTES / 4; i++)
--		secret[i] = net_secret[i];
--
--	md5_transform(hash, secret);
--
--	seq = hash[0] | (((u64)hash[1]) << 32);
-+	seq = siphash24((const u8 *)&combined, sizeof(combined), net_secret);
- 	seq += ktime_get_real_ns();
- 	seq &= (1ull << 48) - 1;
--
- 	return seq;
- }
- EXPORT_SYMBOL(secure_dccpv6_sequence_number);
--- 
-2.11.0
+>
+> Can someone explain how they think the original test was able to trigger
+> this GPF?  Network namespace shutdown while something pretended to set
+> up a new auditd?  That's impressive for a fuzzer if that's the case...
+> Is there an strace?  I guess it is all in test().
+>
+
+I am surprised you still don't get the race condition even when you
+are now working on v2...
+
+The race happens in this scenarios :
+
+1) Create a new netns
+
+2) In the new netns, communicate with kauditd to set audit_sock
+
+3) Generate some audit messages, so kauditd will keep sending them
+via audit_sock
+
+4) exit the netns
+
+5) the previous audit_sock is now going away, but kaudit_sock could still
+access it in this small window.
