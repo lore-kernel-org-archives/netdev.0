@@ -1,61 +1,60 @@
-From: Dave Jones <davej@codemonkey.org.uk>
-Subject: ipv6: handle -EFAULT from skb_copy_bits
-Date: Wed, 14 Dec 2016 10:47:29 -0500
-Message-ID: <20161214154729.g4yg4mxcgkvpe5w7@codemonkey.org.uk>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: ravb/sh_eth/b44: BUG: sleeping function called from invalid context
+Date: Wed, 14 Dec 2016 17:12:45 +0100
+Message-ID: <CAMuHMdXfPtOKkfNakAgXRQxLTt2fh7Cr26inkp7KAxP6vD-oTg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from arcturus.aphlor.org ([188.246.204.175]:36068 "EHLO
-        arcturus.aphlor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932404AbcLNPsL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 14 Dec 2016 10:48:11 -0500
-Received: from c-65-96-119-39.hsd1.ma.comcast.net ([65.96.119.39] helo=wopr.kernelslacker.org)
-        by arcturus.aphlor.org with esmtpsa (TLS1.2:ECDHE_RSA_AES_256_GCM_SHA384:256)
-        (Exim 4.87)
-        (envelope-from <davej@codemonkey.org.uk>)
-        id 1cHBmF-0008UF-1S
-        for netdev@vger.kernel.org; Wed, 14 Dec 2016 15:47:31 +0000
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux-Renesas <linux-renesas-soc@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        Michael Chan <michael.chan@broadcom.com>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+Sender: linux-renesas-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-It seems to be possible to craft a packet for sendmsg that triggers
-the -EFAULT path in skb_copy_bits resulting in a BUG_ON that looks like:
+Hi,
 
-RIP: 0010:[<ffffffff817c6390>] [<ffffffff817c6390>] rawv6_sendmsg+0xc30/0xc40
-RSP: 0018:ffff881f6c4a7c18  EFLAGS: 00010282
-RAX: 00000000fffffff2 RBX: ffff881f6c681680 RCX: 0000000000000002
-RDX: ffff881f6c4a7cf8 RSI: 0000000000000030 RDI: ffff881fed0f6a00
-RBP: ffff881f6c4a7da8 R08: 0000000000000000 R09: 0000000000000009
-R10: ffff881fed0f6a00 R11: 0000000000000009 R12: 0000000000000030
-R13: ffff881fed0f6a00 R14: ffff881fee39ba00 R15: ffff881fefa93a80
+When CONFIG_DEBUG_ATOMIC_SLEEP=y, running "ethtool -s eth0 speed 100"
+on Salvator-X gives:
 
-Call Trace:
- [<ffffffff8118ba23>] ? unmap_page_range+0x693/0x830
- [<ffffffff81772697>] inet_sendmsg+0x67/0xa0
- [<ffffffff816d93f8>] sock_sendmsg+0x38/0x50
- [<ffffffff816d982f>] SYSC_sendto+0xef/0x170
- [<ffffffff816da27e>] SyS_sendto+0xe/0x10
- [<ffffffff81002910>] do_syscall_64+0x50/0xa0
- [<ffffffff817f7cbc>] entry_SYSCALL64_slow_path+0x25/0x25
+BUG: sleeping function called from invalid context at kernel/locking/mutex.c:97
+in_atomic(): 1, irqs_disabled(): 128, pid: 1683, name: ethtool
+CPU: 0 PID: 1683 Comm: ethtool Tainted: G        W
+4.9.0-salvator-x-00426-g326519df42c65007-dirty #976
+Hardware name: Renesas Salvator-X board based on r8a7796 (DT)
+Call trace:
+[<ffffff8008089400>] dump_backtrace+0x0/0x208
+[<ffffff800808961c>] show_stack+0x14/0x1c
+[<ffffff8008233424>] dump_stack+0x94/0xb4
+[<ffffff80080c377c>] ___might_sleep+0x108/0x11c
+[<ffffff80080c3814>] __might_sleep+0x84/0x94
+[<ffffff800855db0c>] mutex_lock+0x24/0x40
+[<ffffff800837610c>] phy_start_aneg+0x20/0x130
+[<ffffff80083763b8>] phy_ethtool_ksettings_set+0xd0/0xe8
+[<ffffff8008386724>] ravb_set_link_ksettings+0x4c/0xa4
+[<ffffff80084a7b94>] ethtool_set_settings+0xec/0xfc
+[<ffffff80084aa918>] dev_ethtool+0x188/0x17c4
+[<ffffff80084bce3c>] dev_ioctl+0x53c/0x6b8
+[<ffffff8008488acc>] sock_do_ioctl.constprop.45+0x3c/0x4c
+[<ffffff80084897b4>] sock_ioctl+0x33c/0x370
+[<ffffff8008171878>] vfs_ioctl+0x20/0x38
+[<ffffff8008172198>] do_vfs_ioctl+0x844/0x954
+[<ffffff80081722ec>] SyS_ioctl+0x44/0x68
+[<ffffff80080830f0>] el0_svc_naked+0x24/0x28
 
-Handle this in rawv6_push_pending_frames and jump to the failure path.
+ravb_set_link_ksettings() calls phy_ethtool_ksettings_set() with a spinlock
+held and interrupts disabled, while phy_start_aneg() tries to obtain a mutex.
 
-Signed-off-by: Dave Jones <davej@codemonkey.org.uk>
+The same issue is present in sh_eth_set_link_ksettings() (verified) and
+b44_set_link_ksettings() (code inspection).
 
-diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
-index 291ebc260e70..35aa82faa052 100644
---- a/net/ipv6/raw.c
-+++ b/net/ipv6/raw.c
-@@ -591,7 +591,9 @@ static int rawv6_push_pending_frames(struct sock *sk, struct flowi6 *fl6,
- 	}
- 
- 	offset += skb_transport_offset(skb);
--	BUG_ON(skb_copy_bits(skb, offset, &csum, 2));
-+	err = skb_copy_bits(skb, offset, &csum, 2);
-+	if (err < 0)
-+		goto out;
- 
- 	/* in case cksum was not initialized */
- 	if (unlikely(csum))
+Gr{oetje,eeting}s,
+
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
