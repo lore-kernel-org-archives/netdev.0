@@ -1,98 +1,92 @@
-From: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH] IB/mlx4: avoid a -Wmaybe-uninitialize warning
-Date: Wed, 14 Dec 2016 12:13:43 -0500
-Message-ID: <8fd869a2-9e7b-bba7-5cf0-af1d078016b6@redhat.com>
-References: <20161025161632.411899-1-arnd@arndb.de>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [net-next PATCH v5 1/6] net: virtio dynamically disable/enable
+ LRO
+Date: Wed, 14 Dec 2016 09:01:27 -0800
+Message-ID: <58517AE7.5090104@gmail.com>
+References: <20161207200139.28121.4811.stgit@john-Precision-Tower-5810>
+ <20161207201111.28121.4879.stgit@john-Precision-Tower-5810>
+ <20161208231857-mutt-send-email-mst@kernel.org> <5849F52A.7050105@gmail.com>
+ <20161214152924-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- protocol="application/pgp-signature";
- boundary="SSHcWMGwuWvVLst1UNIIORW2Xfrc2udHX"
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Jack Morgenstein <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
-        Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Eran Ben Elisha <eranbe-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Moshe Shemesh <moshe-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Christophe Jaillet <christophe.jaillet-39ZsbGIQGT5GWvitb5QawA@public.gmane.org>,
-        Moni Shoua <monis-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, Yishai Hadas <yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20161025161632.411899-1-arnd-r2nGTMty4D4@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: daniel@iogearbox.net, shm@cumulusnetworks.com, davem@davemloft.net,
+        tgraf@suug.ch, alexei.starovoitov@gmail.com,
+        john.r.fastabend@intel.com, netdev@vger.kernel.org,
+        brouer@redhat.com
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:36036 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932786AbcLNRSy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 14 Dec 2016 12:18:54 -0500
+Received: by mail-pf0-f194.google.com with SMTP id c4so1418270pfb.3
+        for <netdev@vger.kernel.org>; Wed, 14 Dec 2016 09:18:29 -0800 (PST)
+In-Reply-To: <20161214152924-mutt-send-email-mst@kernel.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---SSHcWMGwuWvVLst1UNIIORW2Xfrc2udHX
-Content-Type: multipart/mixed; boundary="NOme76SgKCRES5Eh7VA70OS1RG2iAVt9k";
- protected-headers="v1"
-From: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, Yishai Hadas <yishaih-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
- Jack Morgenstein <jackm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
- Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, Eran Ben Elisha <eranbe-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
- Moshe Shemesh <moshe-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
- Christophe Jaillet <christophe.jaillet-39ZsbGIQGT5GWvitb5QawA@public.gmane.org>,
- Moni Shoua <monis-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Message-ID: <8fd869a2-9e7b-bba7-5cf0-af1d078016b6-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH] IB/mlx4: avoid a -Wmaybe-uninitialize warning
-References: <20161025161632.411899-1-arnd-r2nGTMty4D4@public.gmane.org>
-In-Reply-To: <20161025161632.411899-1-arnd-r2nGTMty4D4@public.gmane.org>
+On 16-12-14 05:31 AM, Michael S. Tsirkin wrote:
+> On Thu, Dec 08, 2016 at 04:04:58PM -0800, John Fastabend wrote:
+>> On 16-12-08 01:36 PM, Michael S. Tsirkin wrote:
+>>> On Wed, Dec 07, 2016 at 12:11:11PM -0800, John Fastabend wrote:
+>>>> This adds support for dynamically setting the LRO feature flag. The
+>>>> message to control guest features in the backend uses the
+>>>> CTRL_GUEST_OFFLOADS msg type.
+>>>>
+>>>> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+>>>> ---
 
---NOme76SgKCRES5Eh7VA70OS1RG2iAVt9k
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+[...]
 
-On 10/25/2016 12:16 PM, Arnd Bergmann wrote:
-> There is an old warning about mlx4_SW2HW_EQ_wrapper on x86:
->=20
-> ethernet/mellanox/mlx4/resource_tracker.c: In function =E2=80=98mlx4_SW=
-2HW_EQ_wrapper=E2=80=99:
-> ethernet/mellanox/mlx4/resource_tracker.c:3071:10: error: =E2=80=98eq=E2=
-=80=99 may be used uninitialized in this function [-Werror=3Dmaybe-uninit=
-ialized]
->=20
-> The problem here is that gcc won't track the state of the variable
-> across a spin_unlock. Moving the assignment out of the lock is
-> safe here and avoids the warning.
->=20
-> Signed-off-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+>>>>  
+>>>>  static void virtnet_config_changed_work(struct work_struct *work)
+>>>> @@ -1815,6 +1846,12 @@ static int virtnet_probe(struct virtio_device *vdev)
+>>>>  	if (virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_CSUM))
+>>>>  		dev->features |= NETIF_F_RXCSUM;
+>>>>  
+>>>> +	if (virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_TSO4) &&
+>>>> +	    virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_TSO6)) {
+>>>> +		dev->features |= NETIF_F_LRO;
+>>>> +		dev->hw_features |= NETIF_F_LRO;
+>>>
+>>> So the issue is I think that the virtio "LRO" isn't really
+>>> LRO, it's typically just GRO forwarded to guests.
+>>> So these are easily re-split along MTU boundaries,
+>>> which makes it ok to forward these across bridges.
+>>>
+>>> It's not nice that we don't document this in the spec,
+>>> but it's the reality and people rely on this.
+>>>
+>>> For now, how about doing a custom thing and just disable/enable
+>>> it as XDP is attached/detached?
+>>
+>> The annoying part about doing this is ethtool will say that it is fixed
+>> yet it will be changed by seemingly unrelated operation. I'm not sure I
+>> like the idea to start automatically configuring the link via xdp_set.
+> 
+> I really don't like the idea of dropping performance
+> by a factor of 3 for people bridging two virtio net
+> interfaces.
+> 
+> So how about a simple approach for now, just disable
+> XDP if GUEST_TSO is enabled?
+> 
+> We can discuss better approaches in next version.
+> 
 
-Thanks, applied.
+So the proposal is to add a check in XDP setup so that
 
---=20
-Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-    GPG Key ID: 0E572FDD
+  if (virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_TSO{4|6})
+	return -ENOPSUPP;
 
+Or whatever is the most appropriate return code? Then we can
+disable TSO via qemu-system with guest_tso4=off,guest_tso6=off for
+XDP use cases.
 
---NOme76SgKCRES5Eh7VA70OS1RG2iAVt9k--
+Sounds like a reasonable start to me. I'll make the change should this
+go through DaveMs net-next tree or do you want it on virtio tree? Either
+is fine with me.
 
---SSHcWMGwuWvVLst1UNIIORW2Xfrc2udHX
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
-
-iQIcBAEBCAAGBQJYUX3HAAoJELgmozMOVy/devoQAMKv9d90uOxo+DtGGsMvAlGo
-uJ7WNVEBd15szUlZTP8tu0JQn1/mPmvheWZhoRhtQUWMwUcBK1BZr4O3ZWNthqM8
-8LqT6wXWsqkKwdh2QUJBHxVsxyL7WWCQSmzZMvaydAV8s5irOzjIyYpuv2gOtBgr
-PS8AZ7+GS9jmKPsoZq+rvWKlDaTngmNZuGgSX32LL1AyEgbfRjH7xlUtPttnBsIe
-n0FIphWNykmGCbYuXGJQ4qg/1QKAUsIMUz8AhtT56HAF+wdjnqilDPmgEe2yY0aY
-NwpBtMMV34CDdBejbuDvBj+RmV2pbuehRJphWpvO8qCySPnw2oJQ7kQbk55sRtKE
-cPd9xD1OIGJX3o7fzRtFebSr1W8QYIypafL58Y767XGvpF0PzUWSoBSZ2zw1m9Ys
-qVmsdzZFlhWRDc2BldcjjEReCuhqJm3oXgRMPYfbQz3/JqJ1OExqiqPFbdyIs03i
-QL9rbeEizTH+Pq2+CKmsmkAd0CW6PRlOaDg+HMVM7Eqq73p+OTdGK6Z5Vgj55Gvh
-BkXW4o9/KKRYjkASHrYUBqgIxKmP1rBlPzRU7daXktuJSkQmUtP+3gVCF4APQRU8
-hF7v1TT3VFiK6e2FAEPtLzsG6I0tS4BvR1VYTmGM3tss/safk1f5WO4tBHjs4WcH
-aETraS0tQdJ/Wq41TaOf
-=WGaN
------END PGP SIGNATURE-----
-
---SSHcWMGwuWvVLst1UNIIORW2Xfrc2udHX--
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks,
+John
