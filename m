@@ -1,82 +1,65 @@
-From: Richard Guy Briggs <rgb@redhat.com>
-Subject: Re: netlink: GPF in sock_sndtimeo
-Date: Tue, 13 Dec 2016 23:17:01 -0500
-Message-ID: <20161214041701.GN22660@madcap2.tricolour.ca>
-References: <CAM_iQpX_KBEpL1dCBNMgZQ-VQJM9nmsVdRPVK-Aen9k0gV3f0w@mail.gmail.com>
- <20161130045207.GE26673@madcap2.tricolour.ca>
- <20161209060248.GT22655@madcap2.tricolour.ca>
- <CAM_iQpWRe0tDk=wvXONG7hamH3EtE0nJuAOF1kVKJgdpMvz2DA@mail.gmail.com>
- <20161209110155.GW22655@madcap2.tricolour.ca>
- <CAM_iQpV2GuKhR_1tD5jjACeD+pajJLws08CLmeYAo+rsjxvB0A@mail.gmail.com>
- <20161212100215.GA1305@madcap2.tricolour.ca>
- <CAM_iQpUejChnsMWx3Z59GTuxZMeBjgrs2rhd7gsQAKoxE8YuDg@mail.gmail.com>
- <20161213105233.GG1305@madcap2.tricolour.ca>
- <CAM_iQpVPEJ2t29ENpT4qcBznwE83w_PEBOxStwyzDH27Si2Ppw@mail.gmail.com>
+From: Wei Xu <wexu@redhat.com>
+Subject: Re: "virtio-net: enable multiqueue by default" in linux-next breaks
+ networking on GCE
+Date: Wed, 14 Dec 2016 12:24:43 +0800
+Message-ID: <95568017-e7b1-df95-ec49-f38ae8eb1b14@redhat.com>
+References: <20161212233343.q5xlv55rc5npqaqp@thunk.org>
+ <bb997932-20d2-42f4-0f42-bd28ae151076@redhat.com>
+ <20161213194431.42vtozn6bs24vwda@thunk.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-        Johannes Berg <johannes.berg@intel.com>,
-        netdev <netdev@vger.kernel.org>, Florian Westphal <fw@strlen.de>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>, linux-audit@redhat.com,
-        syzkaller <syzkaller@googlegroups.com>,
-        David Miller <davem@davemloft.net>,
-        Dmitry Vyukov <dvyukov@google.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAM_iQpVPEJ2t29ENpT4qcBznwE83w_PEBOxStwyzDH27Si2Ppw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: jasowang@redhat.com, netdev@vger.kernel.org, mst@redhat.com,
+        nhorman@tuxdriver.com, davem@davemloft.net
+To: "Theodore Ts'o" <tytso@mit.edu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:56820 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751913AbcLNEYt (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 13 Dec 2016 23:24:49 -0500
+In-Reply-To: <20161213194431.42vtozn6bs24vwda@thunk.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2016-12-13 16:17, Cong Wang wrote:
-> On Tue, Dec 13, 2016 at 2:52 AM, Richard Guy Briggs <rgb@redhat.com> wrote:
-> > It is actually the audit_pid and audit_nlk_portid that I care about
-> > more.  The audit daemon could vanish or close the socket while the
-> > kernel sock to which it was attached is still quite valid.  Accessing
-> > the set of three atomically is the urge.  I wonder if it makes more
-> > sense to test for the presence of auditd using audit_sock rather than
-> > audit_pid, but still keep audit_pid for our reporting and replacement
-> > strategy.  Another idea would be to put the three in one struct.
-> 
-> Note, the process has audit_pid should hold a refcnt to the netns too,
-> so the netns can't be gone until that process is gone.
+On 2016年12月14日 03:44, Theodore Ts'o wrote:
+> Jason's patch fixed the issue, so I think we have the proper fix, but
+> to answer your questions:
+>
+> On Wed, Dec 14, 2016 at 01:46:44AM +0800, Wei Xu wrote:
+>>
+>> Q1:
+>> Which distribution are you using for the GCE instance?
+>
+> The test appliance is based on Debian Jessie.
+>
+>> Q2:
+>> Are you running xfs test as an embedded VM case, which means XFS test
+>> appliance is also a VM inside the GCE instance? Or the kernel is built
+>> for the instance itself?
+>
+> No, GCE currently doesn't support running nested VM's (e.g., running
+> VM's inside GCE).  So the kernel is built for the instance itself.
+> The way the test appliance works is that it initially boots using the
+> Debian Jessie default kernel and then we kexec into the kernel under
+> test.
+>
+>> Q3:
+>> Can this bug be reproduced for kvm-xfstests case? I'm trying to set up
+>> a local test bed if it makes sense.
+>
+> You definitely can't do it out of the box -- you need to build the
+> image using "gen-image --networking", and then run "kvm-xfstests -N
+> shell" as root.  But the bug doesn't reproduce on kvm-xfstests, using
+> a 4.9 host kernel and linux-next guest kernel.
+>
 
-I noted that.  I did wonder if there might be a problem if all the
-processes were moved to another netns with the struct sock stuck in the
-now process-void netns.
+OK, thanks a lot.
 
-This is alluded-to in 6f285b19d09f ("audit: Send replies in the proper
-network namespace.").
+BTW, although this is a guest issue, is there anyway to view the GCE
+host kernel or qemu(if it is) version?
 
-> > Can someone explain how they think the original test was able to trigger
-> > this GPF?  Network namespace shutdown while something pretended to set
-> > up a new auditd?  That's impressive for a fuzzer if that's the case...
-> > Is there an strace?  I guess it is all in test().
-> 
-> I am surprised you still don't get the race condition even when you
-> are now working on v2...
-> 
-> The race happens in this scenarios :
-> 
-> 1) Create a new netns
-> 
-> 2) In the new netns, communicate with kauditd to set audit_sock
-> 
-> 3) Generate some audit messages, so kauditd will keep sending them
-> via audit_sock
-> 
-> 4) exit the netns
-> 
-> 5) the previous audit_sock is now going away, but kaudit_sock could still
-> access it in this small window.
-
-Ah ok that fits...
-
-- RGB
-
---
-Richard Guy Briggs <rgb@redhat.com>
-Kernel Security Engineering, Base Operating Systems, Red Hat
-Remote, Ottawa, Canada
-Voice: +1.647.777.2635, Internal: (81) 32635
+>
+> Cheers,
+>
+> 					- Ted
+>
