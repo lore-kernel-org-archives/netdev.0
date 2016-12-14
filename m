@@ -1,57 +1,29 @@
-From: David Daney <ddaney@caviumnetworks.com>
-Subject: Re: [v3] net: ethernet: cavium: octeon: octeon_mgmt: Handle return
- NULL error from devm_ioremap
-Date: Wed, 14 Dec 2016 11:28:03 -0800
-Message-ID: <41599714-309c-8590-b2b0-e468cffb57b5@caviumnetworks.com>
-References: <1481742210-5609-1-git-send-email-arvind.yadav.cs@gmail.com>
+From: "Martin K. Petersen" <martin.petersen@oracle.com>
+Subject: Re: [PATCH v3 3/3] qedi: Add QLogic FastLinQ offload iSCSI driver framework.
+Date: Wed, 14 Dec 2016 15:02:55 -0500
+Message-ID: <yq1h966cm8g.fsf@sermon.lab.mkp.net>
+References: <1480580468-31567-1-git-send-email-manish.rangankar@cavium.com>
+        <1480580468-31567-4-git-send-email-manish.rangankar@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Arvind Yadav <arvind.yadav.cs@gmail.com>, <peter.chen@nxp.com>,
-        <fw@strlen.de>, <david.daney@cavium.com>, <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1481742210-5609-1-git-send-email-arvind.yadav.cs@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain
+Cc: <martin.petersen@oracle.com>, <lduncan@suse.com>,
+        <cleech@redhat.com>, <linux-scsi@vger.kernel.org>,
+        <netdev@vger.kernel.org>, <QLogic-Storage-Upstream@cavium.com>,
+        <Yuval.Mintz@cavium.com>
+To: Manish Rangankar <manish.rangankar@cavium.com>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <1480580468-31567-4-git-send-email-manish.rangankar@cavium.com>
+        (Manish Rangankar's message of "Thu, 1 Dec 2016 00:21:08 -0800")
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 12/14/2016 11:03 AM, Arvind Yadav wrote:
-> Here, If devm_ioremap will fail. It will return NULL.
-> Kernel can run into a NULL-pointer dereference.
-> This error check will avoid NULL pointer dereference.
+>>>>> "Manish" == Manish Rangankar <manish.rangankar@cavium.com> writes:
 
-I have asked you twice already this question, but could not determine 
-from your response what the answer is:
+Manish> The QLogic FastLinQ Driver for iSCSI (qedi) is the iSCSI
+Manish> specific module for 41000 Series Converged Network Adapters by
+Manish> QLogic.
 
-Q: Have you tested the patch on OCTEON based hardware that contains the 
-"octeon_mgmt" Ethernet ports?  Please answer either "yes" or "no".
+Applied to 4.10/scsi-fixes.
 
-
-Thanks,
-David Daney
-
-
->
-> Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
-> ---
->  drivers/net/ethernet/cavium/octeon/octeon_mgmt.c | 6 ++++++
->  1 file changed, 6 insertions(+)
->
-> diff --git a/drivers/net/ethernet/cavium/octeon/octeon_mgmt.c b/drivers/net/ethernet/cavium/octeon/octeon_mgmt.c
-> index 4ab404f..33c2fec 100644
-> --- a/drivers/net/ethernet/cavium/octeon/octeon_mgmt.c
-> +++ b/drivers/net/ethernet/cavium/octeon/octeon_mgmt.c
-> @@ -1479,6 +1479,12 @@ static int octeon_mgmt_probe(struct platform_device *pdev)
->  	p->agl = (u64)devm_ioremap(&pdev->dev, p->agl_phys, p->agl_size);
->  	p->agl_prt_ctl = (u64)devm_ioremap(&pdev->dev, p->agl_prt_ctl_phys,
->  					   p->agl_prt_ctl_size);
-> +	if (!p->mix || !p->agl || !p->agl_prt_ctl) {
-> +		dev_err(&pdev->dev, "failed to map I/O memory\n");
-> +		result = -ENOMEM;
-> +		goto err;
-> +	}
-> +
->  	spin_lock_init(&p->lock);
->
->  	skb_queue_head_init(&p->tx_list);
->
+-- 
+Martin K. Petersen	Oracle Linux Engineering
