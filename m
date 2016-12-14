@@ -1,47 +1,54 @@
-From: Eric Desrochers <eric.desrochers@canonical.com>
-Subject: netfilter -stable backport request
-Date: Wed, 14 Dec 2016 10:35:27 -0500
-Message-ID: <4772c78b-8a6e-4be3-2065-02292c87f6ae@canonical.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: stable@vger.kernel.org, netdev@vger.kernel.org
+From: Daniel Mack <daniel@zonque.org>
+Subject: [PATCH RFC 0/2] bpf: add longest prefix match map
+Date: Wed, 14 Dec 2016 16:43:34 +0100
+Message-ID: <20161214154336.17639-1-daniel@zonque.org>
+Cc: dh.herrmann@gmail.com, daniel@iogearbox.net,
+        netdev@vger.kernel.org, davem@davemloft.net,
+        Daniel Mack <daniel@zonque.org>
+To: ast@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f175.google.com ([209.85.223.175]:35300 "EHLO
-        mail-io0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755846AbcLNPf3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 14 Dec 2016 10:35:29 -0500
-Received: by mail-io0-f175.google.com with SMTP id h30so43089060iod.2
-        for <netdev@vger.kernel.org>; Wed, 14 Dec 2016 07:35:29 -0800 (PST)
+Received: from svenfoo.org ([82.94.215.22]:48521 "EHLO mail.zonque.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932786AbcLNPoE (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 14 Dec 2016 10:44:04 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
-I would like to request a -stable backport for the following patchset that as we speak can be found in pablo's nf-next:
-
-# git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git
-
-[PATCH 1/3]
-commit 2394ae21e8b652aff0db1c02e946243c1e2f5edb
-netfilter: x_tables: pass xt_counters struct instead of packet counter
+This patch set adds longest prefix match algorithm that can be used to
+match IP addresses to a stored set of ranges. It is exposed as a bpf
+map type.
    
-[PATCH 2/3]
-commit 18b61e8161cc308cbfd06d2e2c6c0758dfd925ef
-netfilter: x_tables: pass xt_counters struct to counter allocator
+Internally, data is stored in an unbalanced tree of nodes that has a
+maximum height of n, where n is the prefixlen the trie was created
+with.
+ 
+Not that this has nothing to do with fib or fib6 and is in no way meant
+to replace or share code with it. It's rather a much simpler
+implementation that is specifically written with bpf maps in mind.
+ 
+Patch 1/2 adds the implementation, and 2/2 an extensive test suite.
+ 
+Feedback is much appreciated.
+ 
+ 
+Thanks,
+Daniel
 
-[PATCH 3/3]
-commit 722d6785e3b29a3b9f95c4d77542a1416094786a
-netfilter: x_tables: pack percpu counter allocations
+Daniel Mack (1):
+  bpf: add a longest prefix match trie map implementation
 
-Please add this to stable branches : v4.4.x, v4.8.x
+David Herrmann (1):
+  bpf: Add tests for the lpm trie map
 
-The above patchset is fixing a netfilter regression which introduced a performance slowdown in binary arp/ip/ip6tables starting at commit :
+ include/uapi/linux/bpf.h                   |   7 +
+ kernel/bpf/Makefile                        |   2 +-
+ kernel/bpf/lpm_trie.c                      | 491 +++++++++++++++++++++++++++++
+ tools/testing/selftests/bpf/.gitignore     |   1 +
+ tools/testing/selftests/bpf/Makefile       |   4 +-
+ tools/testing/selftests/bpf/test_lpm_map.c | 348 ++++++++++++++++++++
+ 6 files changed, 850 insertions(+), 3 deletions(-)
+ create mode 100644 kernel/bpf/lpm_trie.c
+ create mode 100644 tools/testing/selftests/bpf/test_lpm_map.c
 
-#v4.2-rc1
-commit 71ae0dff02d756e4d2ca710b79f2ff5390029a5f
-netfilter: xtables: use percpu rule counters
-
-Regards,
-
-Eric
+-- 
+2.9.3
