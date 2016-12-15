@@ -1,76 +1,40 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: Re: [PATCH v2 1/4] siphash: add cryptographically secure hashtable function
-Date: Thu, 15 Dec 2016 22:25:57 +0100
-Message-ID: <CAHmME9p9cf1W3vhbu=YTRY1Xt=fmE1sVqY1XPt5iQwxfCfQUOA@mail.gmail.com>
+From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+Subject: Re: [PATCH 1/2] net: ethernet: sxgbe: remove private tx queue lock
+Date: Thu, 15 Dec 2016 22:32:59 +0100
+Message-ID: <f3fc8035-fb6e-fb06-d9b8-bfc96dc4e1d2@gmx.de>
+References: <1481141138-19466-1-git-send-email-LinoSanfilippo@gmx.de>
+ <1481141138-19466-2-git-send-email-LinoSanfilippo@gmx.de>
+ <20161207231534.GB5889@electric-eye.fr.zoreil.com>
+ <051e3043-8b58-0591-36e3-99e2267f67f4@gmx.de>
+ <20161208231943.GA13102@electric-eye.fr.zoreil.com>
+ <20161209112142.GA22710@amd> <c76124b9-6376-42b9-2821-b5a8185f5034@gmx.de>
+ <20161211201104.GB20574@amd> <cfad6b84-de23-2e03-6d34-2b3451975179@gmx.de>
+ <20161215210324.GA13878@amd>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Laight <David.Laight@aculab.com>,
-        Netdev <netdev@vger.kernel.org>,
-        "kernel-hardening@lists.openwall.com"
-        <kernel-hardening@lists.openwall.com>,
-        Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-        "Daniel J . Bernstein" <djb@cr.yp.to>,
-        Linus Torvalds <torvalds@linux-foundation.org>,
-        Eric Biggers <ebiggers3@gmail.com>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-Sender: linux-crypto-owner@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Francois Romieu <romieu@fr.zoreil.com>, bh74.an@samsung.com,
+        ks.giri@samsung.com, vipul.pandya@samsung.com,
+        peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        davem@davemloft.net, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org
+To: Pavel Machek <pavel@ucw.cz>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161215210324.GA13878@amd>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 15, 2016 at 10:17 PM, Hannes Frederic Sowa
-<hannes@stressinduktion.org> wrote:
-> And I was exactly questioning this.
->
-> static unsigned int inet6_hash_frag(__be32 id, const struct in6_addr *saddr,
->                                     const struct in6_addr *daddr)
-> {
->         net_get_random_once(&ip6_frags.rnd, sizeof(ip6_frags.rnd));
->         return jhash_3words(ipv6_addr_hash(saddr), ipv6_addr_hash(daddr),
->                             (__force u32)id, ip6_frags.rnd);
-> }
+On 15.12.2016 22:03, Pavel Machek wrote:
 
-For this example, the replacement is the function entitled siphash_4u32:
+> 
+> I actually did experiment with adding locking there, too, and no, no
+> luck. It seems stmmac_tx_err() is more broken than just locking.
+> 
 
- static unsigned int inet6_hash_frag(__be32 id, const struct in6_addr *saddr,
-                                     const struct in6_addr *daddr)
- {
-         net_get_random_once(&ip6_frags.rnd, sizeof(ip6_frags.rnd));
-         return siphash_4u32(ipv6_addr_hash(saddr), ipv6_addr_hash(daddr),
-                 (__force u32)id, 0, ip6_frags.rnd);
- }
+Ah ok. Then maybe priv->hw->dma->stop_tx() does not do the job correctly (stop the
+tx path properly) and the HW is still active on the tx path while the tx buffers are
+freed. OTOH stmmac_release() also stops the phy before the tx (and rx) paths are stopped.
+Did you try to stop the phy fist in stmmac_tx_err_work(), too?
 
-And then you make ip6_frags.rnd be of type siphash_key_t. Then
-everything is taken care of and works beautifully. Please see v5 of
-this patchset.
-
-> I would be interested if the compiler can actually constant-fold the
-> address of the stack allocation with an simple if () or some
-> __builtin_constant_p fiddeling, so we don't have this constant review
-> overhead to which function we pass which data. This would also make
-> this whole discussion moot.
-
-I'll play with it to see if the compiler is capable of doing that.
-Does anybody know off hand if it is or if there are other examples of
-the compiler doing that?
-
-In any case, for all current replacement of jhash_1word, jhash_2words,
-jhash_3words, there's the siphash_2u32 or siphash_4u32 functions. This
-covers the majority of cases.
-
-For replacements of md5_transform, either the data is small and can
-fit in siphash_Nu{32,64}, or it can be put into a struct explicitly
-aligned on the stack.
-
-For the remaining use of jhash_nwords, either siphash() can be used or
-siphash_unaligned() can be used if the source is of unknown alignment.
-Both functions have their alignment requirements (or lack thereof)
-documented in a docbook comment.
-
-I'll look into the constant folding to see if it actually works. If it
-does, I'll use it. If not, I believe the current solution works.
-
-How's that sound?
-
-Jason
+Regards,
+Lino
