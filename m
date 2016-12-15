@@ -1,52 +1,154 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [PATCH v3 1/3] siphash: add cryptographically secure hashtable function
-Date: Wed, 14 Dec 2016 16:10:57 -0800
-Message-ID: <CA+55aFw4QLuwkxq4VzLMPTJTec-hOu1Fi8e076TNnW0Yq9yp8A@mail.gmail.com>
-References: <20161214035927.30004-1-Jason@zx2c4.com> <20161214184605.24006-1-Jason@zx2c4.com>
- <CALx6S35UgTyqkYUjS5gYFH4HnjW974WQ_JiDXxgb9rZ7gnY52Q@mail.gmail.com>
- <CAHmME9oMaQOhzJbNKh8GN759iJngeRdXt3naOnFhY9mD6t5Kxg@mail.gmail.com>
- <CAHmME9pR3tD2zknKsYaFaTJm_3aBBOA6c174hypm6S-q9wp5nw@mail.gmail.com>
- <CALx6S35VBjw42G6rHPrNfVaBfLMz3YZVjs3D3hBG=4gp5+g5tA@mail.gmail.com>
- <CAHmME9rpvf4tyDjZcJAJxMAW1LcqNm7DiquiYX0uQhRzDLbwqw@mail.gmail.com>
- <CA+55aFyBGQpEKiAcs0w58ZEie+L8OrWvf_2hvGx4E=L56p5hMg@mail.gmail.com> <CAHmME9pu6No0wqPzPpaBwQR_b+5CXvh0kke7J8ouN=rx4pxMGg@mail.gmail.com>
-Reply-To: kernel-hardening@lists.openwall.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Tom Herbert <tom@herbertland.com>, Netdev <netdev@vger.kernel.org>,
-	"kernel-hardening@lists.openwall.com" <kernel-hardening@lists.openwall.com>, LKML <linux-kernel@vger.kernel.org>,
-	Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-	Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>, "Daniel J . Bernstein" <djb@cr.yp.to>,
-	Eric Biggers <ebiggers3@gmail.com>, David Laight <David.Laight@aculab.com>
-To: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Return-path: <kernel-hardening-return-5564-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-Sender: linus971@gmail.com
-In-Reply-To: <CAHmME9pu6No0wqPzPpaBwQR_b+5CXvh0kke7J8ouN=rx4pxMGg@mail.gmail.com>
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net] bpf: fix regression on verifier pruning wrt map lookups
+Date: Thu, 15 Dec 2016 01:30:06 +0100
+Message-ID: <fb7031038adc3b04973c8484ba4e9d7aa250cb32.1481761253.git.daniel@iogearbox.net>
+Cc: ast@fb.com, jbacik@fb.com, tgraf@suug.ch, netdev@vger.kernel.org,
+        Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:59852 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752478AbcLOAal (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 14 Dec 2016 19:30:41 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 14, 2016 at 3:34 PM, Jason A. Donenfeld <Jason@zx2c4.com> wrote:
->
-> Or does your reasonable dislike of "word" still allow for the use of
-> dword and qword, so that the current function names of:
+Commit 57a09bf0a416 ("bpf: Detect identical PTR_TO_MAP_VALUE_OR_NULL
+registers") introduced a regression where existing programs stopped
+loading due to reaching the verifier's maximum complexity limit,
+whereas prior to this commit they were loading just fine; the affected
+program has roughly 2k instructions.
 
-dword really is confusing to people.
+What was found is that state pruning couldn't be performed effectively
+anymore due to mismatches of the verifier's register state, in particular
+in the id tracking. It doesn't mean that 57a09bf0a416 is incorrect per
+se, but rather that verifier needs to perform a lot more work for the
+same program with regards to involved map lookups.
 
-If you have a MIPS background, it means 64 bits. While to people with
-Windows programming backgrounds it means 32 bits.
+Since commit 57a09bf0a416 is only about tracking registers with type
+PTR_TO_MAP_VALUE_OR_NULL, the id is only needed to follow registers
+until they are promoted through pattern matching with a NULL check to
+either PTR_TO_MAP_VALUE or UNKNOWN_VALUE type. After that point, the
+id becomes irrelevant for the transitioned types.
 
-Please try to avoid using it.
+For UNKNOWN_VALUE, id is already reset to 0 via mark_reg_unknown_value(),
+but not so for PTR_TO_MAP_VALUE where id is becoming stale. It's even
+transferred further into other types that don't make use of it. Among
+others, one example is where UNKNOWN_VALUE is set on function call
+return with RET_INTEGER return type.
 
-As mentioned, I think almost everybody agrees on the "q" part being 64
-bits, but that may just be me not having seen it in any other context.
+states_equal() will then fall through the memcmp() on register state;
+note that the second memcmp() uses offsetofend(), so the id is part of
+that since d2a4dd37f6b4 ("bpf: fix state equivalence"). But the bisect
+pointed already to 57a09bf0a416, where we really reach beyond complexity
+limit. What I found was that states_equal() often failed in this
+case due to id mismatches in spilled regs with registers in type
+PTR_TO_MAP_VALUE. Unlike non-spilled regs, spilled regs just perform
+a memcmp() on their reg state and don't have any other optimizations
+in place, therefore also id was relevant in this case for making a
+pruning decision.
 
-And before anybody points it out - yes, we already have lots of uses
-of "dword" in various places. But they tend to be mostly
-hardware-specific - either architectures or drivers.
+We can safely reset id to 0 as well when converting to PTR_TO_MAP_VALUE.
+For the affected program, it resulted in a ~17 fold reduction of
+complexity and let the program load fine again. Selftest suite also
+runs fine. The only other place where env->id_gen is used currently is
+through direct packet access, but for these cases id is long living, thus
+a different scenario.
 
-So I'd _prefer_ to try to keep "word" and "dword" away from generic
-helper routines. But it's not like anything is really black and white.
+Also, the current logic in mark_map_regs() is not fully correct when
+marking NULL branch with UNKNOWN_VALUE. We need to cache the destination
+reg's id in any case. Otherwise, once we marked that reg as UNKNOWN_VALUE,
+it's id is reset and any subsequent registers that hold the original id
+and are of type PTR_TO_MAP_VALUE_OR_NULL won't be marked UNKNOWN_VALUE
+anymore, since mark_map_reg() reuses the uncached regs[regno].id that
+was just overridden. Note, we don't need to cache it outside of
+mark_map_regs(), since it's called once on this_branch and the other
+time on other_branch, which are both two independent verifier states.
+A test case for this is added here, too.
 
-           Linus
+Fixes: 57a09bf0a416 ("bpf: Detect identical PTR_TO_MAP_VALUE_OR_NULL registers")
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Acked-by: Thomas Graf <tgraf@suug.ch>
+Acked-by: Alexei Starovoitov <ast@kernel.org>
+---
+ kernel/bpf/verifier.c                       | 11 ++++++++---
+ tools/testing/selftests/bpf/test_verifier.c | 28 ++++++++++++++++++++++++++++
+ 2 files changed, 36 insertions(+), 3 deletions(-)
+
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index d28f9a3..81e267b 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -1970,6 +1970,11 @@ static void mark_map_reg(struct bpf_reg_state *regs, u32 regno, u32 id,
+ 
+ 	if (reg->type == PTR_TO_MAP_VALUE_OR_NULL && reg->id == id) {
+ 		reg->type = type;
++		/* We don't need id from this point onwards anymore, thus we
++		 * should better reset it, so that state pruning has chances
++		 * to take effect.
++		 */
++		reg->id = 0;
+ 		if (type == UNKNOWN_VALUE)
+ 			mark_reg_unknown_value(regs, regno);
+ 	}
+@@ -1982,16 +1987,16 @@ static void mark_map_regs(struct bpf_verifier_state *state, u32 regno,
+ 			  enum bpf_reg_type type)
+ {
+ 	struct bpf_reg_state *regs = state->regs;
++	u32 id = regs[regno].id;
+ 	int i;
+ 
+ 	for (i = 0; i < MAX_BPF_REG; i++)
+-		mark_map_reg(regs, i, regs[regno].id, type);
++		mark_map_reg(regs, i, id, type);
+ 
+ 	for (i = 0; i < MAX_BPF_STACK; i += BPF_REG_SIZE) {
+ 		if (state->stack_slot_type[i] != STACK_SPILL)
+ 			continue;
+-		mark_map_reg(state->spilled_regs, i / BPF_REG_SIZE,
+-			     regs[regno].id, type);
++		mark_map_reg(state->spilled_regs, i / BPF_REG_SIZE, id, type);
+ 	}
+ }
+ 
+diff --git a/tools/testing/selftests/bpf/test_verifier.c b/tools/testing/selftests/bpf/test_verifier.c
+index 0103bf2..072dc63 100644
+--- a/tools/testing/selftests/bpf/test_verifier.c
++++ b/tools/testing/selftests/bpf/test_verifier.c
+@@ -2661,6 +2661,34 @@ struct test_val {
+ 		.prog_type = BPF_PROG_TYPE_SCHED_CLS
+ 	},
+ 	{
++		"multiple registers share map_lookup_elem bad reg type",
++		.insns = {
++			BPF_MOV64_IMM(BPF_REG_1, 10),
++			BPF_STX_MEM(BPF_DW, BPF_REG_10, BPF_REG_1, -8),
++			BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
++			BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -8),
++			BPF_LD_MAP_FD(BPF_REG_1, 0),
++			BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0,
++				     BPF_FUNC_map_lookup_elem),
++			BPF_MOV64_REG(BPF_REG_2, BPF_REG_0),
++			BPF_MOV64_REG(BPF_REG_3, BPF_REG_0),
++			BPF_MOV64_REG(BPF_REG_4, BPF_REG_0),
++			BPF_MOV64_REG(BPF_REG_5, BPF_REG_0),
++			BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 1),
++			BPF_MOV64_IMM(BPF_REG_1, 1),
++			BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 1),
++			BPF_MOV64_IMM(BPF_REG_1, 2),
++			BPF_JMP_IMM(BPF_JEQ, BPF_REG_3, 0, 1),
++			BPF_ST_MEM(BPF_DW, BPF_REG_3, 0, 0),
++			BPF_MOV64_IMM(BPF_REG_1, 3),
++			BPF_EXIT_INSN(),
++		},
++		.fixup_map1 = { 4 },
++		.result = REJECT,
++		.errstr = "R3 invalid mem access 'inv'",
++		.prog_type = BPF_PROG_TYPE_SCHED_CLS
++	},
++	{
+ 		"invalid map access from else condition",
+ 		.insns = {
+ 			BPF_ST_MEM(BPF_DW, BPF_REG_10, -8, 0),
+-- 
+1.9.3
