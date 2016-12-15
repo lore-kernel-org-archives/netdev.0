@@ -1,452 +1,2107 @@
 From: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura@intel.com>
-Subject: [RFC v2 10/10] IB/hfi1: VNIC SDMA support
-Date: Wed, 14 Dec 2016 23:59:42 -0800
-Message-ID: <1481788782-89964-11-git-send-email-niranjana.vishwanathapura@intel.com>
+Subject: [RFC v2 09/10] IB/hfi1: Virtual Network Interface Controller (VNIC) support
+Date: Wed, 14 Dec 2016 23:59:41 -0800
+Message-ID: <1481788782-89964-10-git-send-email-niranjana.vishwanathapura@intel.com>
 References: <1481788782-89964-1-git-send-email-niranjana.vishwanathapura@intel.com>
 Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
         dennis.dalessandro@intel.com, ira.weiny@intel.com,
-        Niranjana Vishwanathapura <niranjana.vishwanathapura@intel.com>
+        Niranjana Vishwanathapura <niranjana.vishwanathapura@intel.com>,
+        Andrzej Kacprowski <andrzej.kacprowski@intel.com>
 To: dledford@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga07.intel.com ([134.134.136.100]:44491 "EHLO mga07.intel.com"
+Received: from mga07.intel.com ([134.134.136.100]:49235 "EHLO mga07.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933120AbcLOIAc (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 15 Dec 2016 03:00:32 -0500
+        id S932324AbcLOIAb (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 15 Dec 2016 03:00:31 -0500
 In-Reply-To: <1481788782-89964-1-git-send-email-niranjana.vishwanathapura@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-HFI1 VNIC SDMA support enables transmission of VNIC packets over SDMA.
-Map VNIC queues to SDMA engines and support halting and wakeup of the
-VNIC queues.
+HFI1 HW specific support for VNIC functionality. Add support to add
+and remove VNIC ports. Also implement the operations to allocate
+resources, transmit and receive of Omni-Path encapsulated Ethernet
+packets.
+
+Dynamically allocate a set of contexts for VNIC when the first vnic
+port is instantiated. Allocate VNIC contexts from user contexts pool
+and return them back to the same pool while freeing up. Set aside
+enough MSI-X interrupts for VNIC contexts and assign them when the
+contexts are allocated. On the receive side, use an RSM rule to
+spread TCP/UDP streams among VNIC contexts.
 
 Reviewed-by: Dennis Dalessandro <dennis.dalessandro@intel.com>
 Reviewed-by: Ira Weiny <ira.weiny@intel.com>
 Signed-off-by: Niranjana Vishwanathapura <niranjana.vishwanathapura@intel.com>
+Signed-off-by: Andrzej Kacprowski <andrzej.kacprowski@intel.com>
 ---
- drivers/infiniband/hw/hfi1/hfi.h       |   1 +
- drivers/infiniband/hw/hfi1/vnic.h      |  30 +++-
- drivers/infiniband/hw/hfi1/vnic_main.c |  21 ++-
- drivers/infiniband/hw/hfi1/vnic_sdma.c | 260 +++++++++++++++++++++++++++++++++
- 4 files changed, 309 insertions(+), 3 deletions(-)
+ drivers/infiniband/hw/hfi1/Makefile       |   2 +-
+ drivers/infiniband/hw/hfi1/aspm.h         |  13 +-
+ drivers/infiniband/hw/hfi1/chip.c         | 270 +++++++++++--
+ drivers/infiniband/hw/hfi1/chip.h         |   2 +
+ drivers/infiniband/hw/hfi1/debugfs.c      |   6 +-
+ drivers/infiniband/hw/hfi1/driver.c       |  74 +++-
+ drivers/infiniband/hw/hfi1/file_ops.c     |  25 +-
+ drivers/infiniband/hw/hfi1/hfi.h          |  49 ++-
+ drivers/infiniband/hw/hfi1/init.c         |  37 +-
+ drivers/infiniband/hw/hfi1/mad.c          |   8 +-
+ drivers/infiniband/hw/hfi1/pio.c          |  17 +
+ drivers/infiniband/hw/hfi1/pio.h          |   6 +
+ drivers/infiniband/hw/hfi1/sysfs.c        |   2 +-
+ drivers/infiniband/hw/hfi1/user_exp_rcv.c |   6 +-
+ drivers/infiniband/hw/hfi1/user_pages.c   |   3 +-
+ drivers/infiniband/hw/hfi1/verbs.c        |   7 +
+ drivers/infiniband/hw/hfi1/vnic.h         | 145 +++++++
+ drivers/infiniband/hw/hfi1/vnic_main.c    | 614 ++++++++++++++++++++++++++++++
+ drivers/infiniband/hw/hfi1/vnic_sdma.c    |  60 +++
+ include/rdma/opa_port_info.h              |   2 +-
+ 20 files changed, 1252 insertions(+), 96 deletions(-)
+ create mode 100644 drivers/infiniband/hw/hfi1/vnic.h
+ create mode 100644 drivers/infiniband/hw/hfi1/vnic_main.c
+ create mode 100644 drivers/infiniband/hw/hfi1/vnic_sdma.c
 
+diff --git a/drivers/infiniband/hw/hfi1/Makefile b/drivers/infiniband/hw/hfi1/Makefile
+index 0cf97a0..88085f6 100644
+--- a/drivers/infiniband/hw/hfi1/Makefile
++++ b/drivers/infiniband/hw/hfi1/Makefile
+@@ -12,7 +12,7 @@ hfi1-y := affinity.o chip.o device.o driver.o efivar.o \
+ 	init.o intr.o mad.o mmu_rb.o pcie.o pio.o pio_copy.o platform.o \
+ 	qp.o qsfp.o rc.o ruc.o sdma.o sysfs.o trace.o \
+ 	uc.o ud.o user_exp_rcv.o user_pages.o user_sdma.o verbs.o \
+-	verbs_txreq.o
++	verbs_txreq.o vnic_main.o vnic_sdma.o
+ hfi1-$(CONFIG_DEBUG_FS) += debugfs.o
+ 
+ CFLAGS_trace.o = -I$(src)
+diff --git a/drivers/infiniband/hw/hfi1/aspm.h b/drivers/infiniband/hw/hfi1/aspm.h
+index 0d58fe3..3a01b69 100644
+--- a/drivers/infiniband/hw/hfi1/aspm.h
++++ b/drivers/infiniband/hw/hfi1/aspm.h
+@@ -229,14 +229,17 @@ static inline void aspm_ctx_timer_function(unsigned long data)
+ 	spin_unlock_irqrestore(&rcd->aspm_lock, flags);
+ }
+ 
+-/* Disable interrupt processing for verbs contexts when PSM contexts are open */
++/*
++ * Disable interrupt processing for verbs contexts when PSM or VNIC contexts
++ * are open.
++ */
+ static inline void aspm_disable_all(struct hfi1_devdata *dd)
+ {
+ 	struct hfi1_ctxtdata *rcd;
+ 	unsigned long flags;
+ 	unsigned i;
+ 
+-	for (i = 0; i < dd->first_user_ctxt; i++) {
++	for (i = 0; i < dd->first_dyn_alloc_ctxt; i++) {
+ 		rcd = dd->rcd[i];
+ 		del_timer_sync(&rcd->aspm_timer);
+ 		spin_lock_irqsave(&rcd->aspm_lock, flags);
+@@ -260,7 +263,7 @@ static inline void aspm_enable_all(struct hfi1_devdata *dd)
+ 	if (aspm_mode != ASPM_MODE_DYNAMIC)
+ 		return;
+ 
+-	for (i = 0; i < dd->first_user_ctxt; i++) {
++	for (i = 0; i < dd->first_dyn_alloc_ctxt; i++) {
+ 		rcd = dd->rcd[i];
+ 		spin_lock_irqsave(&rcd->aspm_lock, flags);
+ 		rcd->aspm_intr_enable = true;
+@@ -276,7 +279,7 @@ static inline void aspm_ctx_init(struct hfi1_ctxtdata *rcd)
+ 		    (unsigned long)rcd);
+ 	rcd->aspm_intr_supported = rcd->dd->aspm_supported &&
+ 		aspm_mode == ASPM_MODE_DYNAMIC &&
+-		rcd->ctxt < rcd->dd->first_user_ctxt;
++		rcd->ctxt < rcd->dd->first_dyn_alloc_ctxt;
+ }
+ 
+ static inline void aspm_init(struct hfi1_devdata *dd)
+@@ -286,7 +289,7 @@ static inline void aspm_init(struct hfi1_devdata *dd)
+ 	spin_lock_init(&dd->aspm_lock);
+ 	dd->aspm_supported = aspm_hw_l1_supported(dd);
+ 
+-	for (i = 0; i < dd->first_user_ctxt; i++)
++	for (i = 0; i < dd->first_dyn_alloc_ctxt; i++)
+ 		aspm_ctx_init(dd->rcd[i]);
+ 
+ 	/* Start with ASPM disabled */
+diff --git a/drivers/infiniband/hw/hfi1/chip.c b/drivers/infiniband/hw/hfi1/chip.c
+index 9263984..472ce55 100644
+--- a/drivers/infiniband/hw/hfi1/chip.c
++++ b/drivers/infiniband/hw/hfi1/chip.c
+@@ -125,9 +125,16 @@ struct flag_table {
+ #define DEFAULT_KRCVQS		  2
+ #define MIN_KERNEL_KCTXTS         2
+ #define FIRST_KERNEL_KCTXT        1
+-/* sizes for both the QP and RSM map tables */
+-#define NUM_MAP_ENTRIES		256
+-#define NUM_MAP_REGS             32
++
++/*
++ * RSM instance allocation
++ *   0 - Verbs
++ *   1 - User Fecn Handling
++ *   2 - Vnic
++ */
++#define RSM_INS_VERBS             0
++#define RSM_INS_FECN              1
++#define RSM_INS_VNIC              2
+ 
+ /* Bit offset into the GUID which carries HFI id information */
+ #define GUID_HFI_INDEX_SHIFT     39
+@@ -138,8 +145,7 @@ struct flag_table {
+ #define is_emulator_p(dd) ((((dd)->irev) & 0xf) == 3)
+ #define is_emulator_s(dd) ((((dd)->irev) & 0xf) == 4)
+ 
+-/* RSM fields */
+-
++/* RSM fields for Verbs */
+ /* packet type */
+ #define IB_PACKET_TYPE         2ull
+ #define QW_SHIFT               6ull
+@@ -169,6 +175,28 @@ struct flag_table {
+ /* QPN[m+n:1] QW 1, OFFSET 1 */
+ #define QPN_SELECT_OFFSET      ((1ull << QW_SHIFT) | (1ull))
+ 
++/* RSM fields for Vnic */
++/* L2_TYPE: QW 0, OFFSET 61 - for match */
++#define L2_TYPE_QW             0ull
++#define L2_TYPE_BIT_OFFSET     61ull
++#define L2_TYPE_OFFSET(off)    ((L2_TYPE_QW << QW_SHIFT) | (off))
++#define L2_TYPE_MATCH_OFFSET   L2_TYPE_OFFSET(L2_TYPE_BIT_OFFSET)
++#define L2_TYPE_MASK           3ull
++#define L2_16B_VALUE           2ull
++
++/* L4_TYPE QW 1, OFFSET 0 - for match */
++#define L4_TYPE_QW              1ull
++#define L4_TYPE_BIT_OFFSET      0ull
++#define L4_TYPE_OFFSET(off)     ((L4_TYPE_QW << QW_SHIFT) | (off))
++#define L4_TYPE_MATCH_OFFSET    L4_TYPE_OFFSET(L4_TYPE_BIT_OFFSET)
++#define L4_16B_TYPE_MASK        0xFFull
++#define L4_16B_ETH_VALUE        0x78ull
++
++/* 16B VESWID - for select */
++#define L4_16B_HDR_VESWID_OFFSET  ((2 << QW_SHIFT) | (16ull))
++/* 16B ENTROPY - for select */
++#define L2_16B_ENTROPY_OFFSET     ((1 << QW_SHIFT) | (32ull))
++
+ /* defines to build power on SC2VL table */
+ #define SC2VL_VAL( \
+ 	num, \
+@@ -1045,6 +1073,7 @@ static int wait_logical_linkstate(struct hfi1_pportdata *ppd, u32 state,
+ static int qos_rmt_entries(struct hfi1_devdata *dd, unsigned int *mp,
+ 			   unsigned int *np);
+ static void clear_full_mgmt_pkey(struct hfi1_pportdata *ppd);
++static void clear_rsm_rule(struct hfi1_devdata *dd, u8 rule_index);
+ 
+ /*
+  * Error interrupt table entry.  This is used as input to the interrupt
+@@ -6712,7 +6741,13 @@ static void rxe_kernel_unfreeze(struct hfi1_devdata *dd)
+ 	int i;
+ 
+ 	/* enable all kernel contexts */
+-	for (i = 0; i < dd->n_krcv_queues; i++) {
++	for (i = 0; i < dd->num_rcv_contexts; i++) {
++		struct hfi1_ctxtdata *rcd = dd->rcd[i];
++
++		/* Ensure all non-user contexts(including vnic) are enabled */
++		if (!rcd || !rcd->sc || (rcd->sc->type == SC_USER))
++			continue;
++
+ 		rcvmask = HFI1_RCVCTRL_CTXT_ENB;
+ 		/* HFI1_RCVCTRL_TAILUPD_[ENB|DIS] needs to be set explicitly */
+ 		rcvmask |= HFI1_CAP_KGET_MASK(dd->rcd[i]->flags, DMA_RTAIL) ?
+@@ -8004,7 +8039,9 @@ static void is_rcv_avail_int(struct hfi1_devdata *dd, unsigned int source)
+ 	if (likely(source < dd->num_rcv_contexts)) {
+ 		rcd = dd->rcd[source];
+ 		if (rcd) {
+-			if (source < dd->first_user_ctxt)
++			/* Check for non-user contexts, including vnic */
++			if ((source < dd->first_dyn_alloc_ctxt) ||
++			    (rcd->sc && (rcd->sc->type == SC_KERNEL)))
+ 				rcd->do_interrupt(rcd, 0);
+ 			else
+ 				handle_user_interrupt(rcd);
+@@ -8032,7 +8069,8 @@ static void is_rcv_urgent_int(struct hfi1_devdata *dd, unsigned int source)
+ 		rcd = dd->rcd[source];
+ 		if (rcd) {
+ 			/* only pay attention to user urgent interrupts */
+-			if (source >= dd->first_user_ctxt)
++			if ((source >= dd->first_dyn_alloc_ctxt) &&
++			    (!rcd->sc || (rcd->sc->type == SC_USER)))
+ 				handle_user_interrupt(rcd);
+ 			return;	/* OK */
+ 		}
+@@ -12736,7 +12774,7 @@ static int request_msix_irqs(struct hfi1_devdata *dd)
+ 	first_sdma = last_general;
+ 	last_sdma = first_sdma + dd->num_sdma;
+ 	first_rx = last_sdma;
+-	last_rx = first_rx + dd->n_krcv_queues;
++	last_rx = first_rx + dd->n_krcv_queues + HFI1_NUM_VNIC_CTXT;
+ 
+ 	/*
+ 	 * Sanity check - the code expects all SDMA chip source
+@@ -12750,7 +12788,7 @@ static int request_msix_irqs(struct hfi1_devdata *dd)
+ 		const char *err_info;
+ 		irq_handler_t handler;
+ 		irq_handler_t thread = NULL;
+-		void *arg;
++		void *arg = NULL;
+ 		int idx;
+ 		struct hfi1_ctxtdata *rcd = NULL;
+ 		struct sdma_engine *sde = NULL;
+@@ -12777,24 +12815,24 @@ static int request_msix_irqs(struct hfi1_devdata *dd)
+ 		} else if (first_rx <= i && i < last_rx) {
+ 			idx = i - first_rx;
+ 			rcd = dd->rcd[idx];
+-			/* no interrupt if no rcd */
+-			if (!rcd)
+-				continue;
+-			/*
+-			 * Set the interrupt register and mask for this
+-			 * context's interrupt.
+-			 */
+-			rcd->ireg = (IS_RCVAVAIL_START + idx) / 64;
+-			rcd->imask = ((u64)1) <<
+-					((IS_RCVAVAIL_START + idx) % 64);
+-			handler = receive_context_interrupt;
+-			thread = receive_context_thread;
+-			arg = rcd;
+-			snprintf(me->name, sizeof(me->name),
+-				 DRIVER_NAME "_%d kctxt%d", dd->unit, idx);
+-			err_info = "receive context";
+-			remap_intr(dd, IS_RCVAVAIL_START + idx, i);
+-			me->type = IRQ_RCVCTXT;
++			if (rcd) {
++				/*
++				 * Set the interrupt register and mask for this
++				 * context's interrupt.
++				 */
++				rcd->ireg = (IS_RCVAVAIL_START + idx) / 64;
++				rcd->imask = ((u64)1) <<
++					  ((IS_RCVAVAIL_START + idx) % 64);
++				handler = receive_context_interrupt;
++				thread = receive_context_thread;
++				arg = rcd;
++				snprintf(me->name, sizeof(me->name),
++					 DRIVER_NAME "_%d kctxt%d",
++					 dd->unit, idx);
++				err_info = "receive context";
++				remap_intr(dd, IS_RCVAVAIL_START + idx, i);
++				me->type = IRQ_RCVCTXT;
++			}
+ 		} else {
+ 			/* not in our expected range - complain, then
+ 			 * ignore it
+@@ -12832,6 +12870,67 @@ static int request_msix_irqs(struct hfi1_devdata *dd)
+ 	return ret;
+ }
+ 
++void hfi1_reset_vnic_msix_info(struct hfi1_ctxtdata *rcd)
++{
++	int idx = rcd->ctxt;
++	struct hfi1_devdata *dd = rcd->dd;
++	int i = 1 + dd->num_sdma + idx;
++	struct hfi1_msix_entry *me = &dd->msix_entries[i];
++
++	if (!me->arg) /* => no irq, no affinity */
++		return;
++
++	hfi1_put_irq_affinity(dd, me);
++	free_irq(me->msix.vector, me->arg);
++
++	me->arg = NULL;
++}
++
++void hfi1_set_vnic_msix_info(struct hfi1_ctxtdata *rcd)
++{
++	int idx = rcd->ctxt;
++	void *arg = rcd;
++	int ret;
++	struct hfi1_devdata *dd = rcd->dd;
++	int i = 1 + dd->num_sdma + idx;
++	struct hfi1_msix_entry *me = &dd->msix_entries[i];
++
++	/*
++	 * Set the interrupt register and mask for this
++	 * context's interrupt.
++	 */
++	rcd->ireg = (IS_RCVAVAIL_START + idx) / 64;
++	rcd->imask = ((u64)1) <<
++		  ((IS_RCVAVAIL_START + idx) % 64);
++
++	snprintf(me->name, sizeof(me->name),
++		 DRIVER_NAME "_%d kctxt%d", dd->unit, idx);
++	me->name[sizeof(me->name) - 1] = 0;
++	me->type = IRQ_RCVCTXT;
++
++	remap_intr(dd, IS_RCVAVAIL_START + idx, i);
++
++	ret = request_threaded_irq(me->msix.vector, receive_context_interrupt,
++				   receive_context_thread, 0, me->name, arg);
++	if (ret) {
++		dd_dev_err(dd, "vnic irq request (vector %d, idx %d) fail %d\n",
++			   me->msix.vector, idx, ret);
++		return;
++	}
++	/*
++	 * assign arg after request_irq call, so it will be
++	 * cleaned up
++	 */
++	me->arg = arg;
++
++	ret = hfi1_get_irq_affinity(dd, me);
++	if (ret) {
++		dd_dev_err(dd,
++			   "unable to pin IRQ %d\n", ret);
++		free_irq(me->msix.vector, me->arg);
++	}
++}
++
+ /*
+  * Set the general handler to accept all interrupts, remap all
+  * chip interrupts back to MSI-X 0.
+@@ -12863,7 +12962,7 @@ static int set_up_interrupts(struct hfi1_devdata *dd)
+ 	 *	N interrupts - one per used SDMA engine
+ 	 *	M interrupt - one per kernel receive context
+ 	 */
+-	total = 1 + dd->num_sdma + dd->n_krcv_queues;
++	total = 1 + dd->num_sdma + dd->n_krcv_queues + HFI1_NUM_VNIC_CTXT;
+ 
+ 	entries = kcalloc(total, sizeof(*entries), GFP_KERNEL);
+ 	if (!entries) {
+@@ -12928,7 +13027,8 @@ static int set_up_interrupts(struct hfi1_devdata *dd)
+  *
+  *	num_rcv_contexts - number of contexts being used
+  *	n_krcv_queues - number of kernel contexts
+- *	first_user_ctxt - first non-kernel context in array of contexts
++ *	first_dyn_alloc_ctxt - first dynamically allocated context
++ *                             in array of contexts
+  *	freectxts  - number of free user contexts
+  *	num_send_contexts - number of PIO send contexts being used
+  */
+@@ -13005,10 +13105,14 @@ static int set_up_context_variables(struct hfi1_devdata *dd)
+ 		total_contexts = num_kernel_contexts + num_user_contexts;
+ 	}
+ 
+-	/* the first N are kernel contexts, the rest are user contexts */
++	/* Accommodate VNIC contexts */
++	if ((total_contexts + HFI1_NUM_VNIC_CTXT) <= dd->chip_rcv_contexts)
++		total_contexts += HFI1_NUM_VNIC_CTXT;
++
++	/* the first N are kernel contexts, the rest are user/vnic contexts */
+ 	dd->num_rcv_contexts = total_contexts;
+ 	dd->n_krcv_queues = num_kernel_contexts;
+-	dd->first_user_ctxt = num_kernel_contexts;
++	dd->first_dyn_alloc_ctxt = num_kernel_contexts;
+ 	dd->num_user_contexts = num_user_contexts;
+ 	dd->freectxts = num_user_contexts;
+ 	dd_dev_info(dd,
+@@ -13464,11 +13568,8 @@ static void reset_rxe_csrs(struct hfi1_devdata *dd)
+ 		write_csr(dd, RCV_COUNTER_ARRAY32 + (8 * i), 0);
+ 	for (i = 0; i < RXE_NUM_64_BIT_COUNTERS; i++)
+ 		write_csr(dd, RCV_COUNTER_ARRAY64 + (8 * i), 0);
+-	for (i = 0; i < RXE_NUM_RSM_INSTANCES; i++) {
+-		write_csr(dd, RCV_RSM_CFG + (8 * i), 0);
+-		write_csr(dd, RCV_RSM_SELECT + (8 * i), 0);
+-		write_csr(dd, RCV_RSM_MATCH + (8 * i), 0);
+-	}
++	for (i = 0; i < RXE_NUM_RSM_INSTANCES; i++)
++		clear_rsm_rule(dd, i);
+ 	for (i = 0; i < 32; i++)
+ 		write_csr(dd, RCV_RSM_MAP_TABLE + (8 * i), 0);
+ 
+@@ -13827,6 +13928,16 @@ static void add_rsm_rule(struct hfi1_devdata *dd, u8 rule_index,
+ 		  (u64)rrd->value2 << RCV_RSM_MATCH_VALUE2_SHIFT);
+ }
+ 
++/*
++ * Clear a receive side mapping rule.
++ */
++static void clear_rsm_rule(struct hfi1_devdata *dd, u8 rule_index)
++{
++	write_csr(dd, RCV_RSM_CFG + (8 * rule_index), 0);
++	write_csr(dd, RCV_RSM_SELECT + (8 * rule_index), 0);
++	write_csr(dd, RCV_RSM_MATCH + (8 * rule_index), 0);
++}
++
+ /* return the number of RSM map table entries that will be used for QOS */
+ static int qos_rmt_entries(struct hfi1_devdata *dd, unsigned int *mp,
+ 			   unsigned int *np)
+@@ -13942,7 +14053,7 @@ static void init_qos(struct hfi1_devdata *dd, struct rsm_map_table *rmt)
+ 	rrd.value2 = LRH_SC_VALUE;
+ 
+ 	/* add rule 0 */
+-	add_rsm_rule(dd, 0, &rrd);
++	add_rsm_rule(dd, RSM_INS_VERBS, &rrd);
+ 
+ 	/* mark RSM map entries as used */
+ 	rmt->used += rmt_entries;
+@@ -13972,7 +14083,7 @@ static void init_user_fecn_handling(struct hfi1_devdata *dd,
+ 	/*
+ 	 * RSM will extract the destination context as an index into the
+ 	 * map table.  The destination contexts are a sequential block
+-	 * in the range first_user_ctxt...num_rcv_contexts-1 (inclusive).
++	 * in the range first_dyn_alloc_ctxt...num_rcv_contexts-1 (inclusive).
+ 	 * Map entries are accessed as offset + extracted value.  Adjust
+ 	 * the added offset so this sequence can be placed anywhere in
+ 	 * the table - as long as the entries themselves do not wrap.
+@@ -13980,9 +14091,9 @@ static void init_user_fecn_handling(struct hfi1_devdata *dd,
+ 	 * start with that to allow for a "negative" offset.
+ 	 */
+ 	offset = (u8)(NUM_MAP_ENTRIES + (int)rmt->used -
+-						(int)dd->first_user_ctxt);
++						(int)dd->first_dyn_alloc_ctxt);
+ 
+-	for (i = dd->first_user_ctxt, idx = rmt->used;
++	for (i = dd->first_dyn_alloc_ctxt, idx = rmt->used;
+ 				i < dd->num_rcv_contexts; i++, idx++) {
+ 		/* replace with identity mapping */
+ 		regoff = (idx % 8) * 8;
+@@ -14016,11 +14127,84 @@ static void init_user_fecn_handling(struct hfi1_devdata *dd,
+ 	rrd.value2 = 1;
+ 
+ 	/* add rule 1 */
+-	add_rsm_rule(dd, 1, &rrd);
++	add_rsm_rule(dd, RSM_INS_FECN, &rrd);
+ 
+ 	rmt->used += dd->num_user_contexts;
+ }
+ 
++/* Initialize RSM for VNIC */
++void hfi1_init_vnic_rsm(struct hfi1_devdata *dd)
++{
++	u8 i, j;
++	u8 ctx_id = 0;
++	u64 reg;
++	u32 regoff;
++	struct rsm_rule_data rrd;
++
++	if (hfi1_vnic_is_rsm_full(dd, NUM_VNIC_MAP_ENTRIES)) {
++		dd_dev_err(dd, "Vnic RSM disabled, rmt entries used = %d\n",
++			   dd->vnic.rmt_start);
++		return;
++	}
++
++	dev_dbg(&(dd)->pcidev->dev, "Vnic rsm start = %d, end %d\n",
++		dd->vnic.rmt_start,
++		dd->vnic.rmt_start + NUM_VNIC_MAP_ENTRIES);
++
++	/* Update RSM mapping table, 32 regs, 256 entries - 1 ctx per byte */
++	regoff = RCV_RSM_MAP_TABLE + (dd->vnic.rmt_start / 8) * 8;
++	reg = read_csr(dd, regoff);
++	for (i = 0; i < NUM_VNIC_MAP_ENTRIES; i++) {
++		/* Update map register with vnic context */
++		j = (dd->vnic.rmt_start + i) % 8;
++		reg &= ~(0xffllu << (j * 8));
++		reg |= (u64)dd->vnic.ctxt[ctx_id++]->ctxt << (j * 8);
++		/* Wrap up vnic ctx index */
++		ctx_id %= dd->vnic.num_ctxt;
++		/* Write back map register */
++		if (j == 7 || ((i + 1) == NUM_VNIC_MAP_ENTRIES)) {
++			dev_dbg(&(dd)->pcidev->dev,
++				"Vnic rsm map reg[%d] =0x%llx\n",
++				regoff - RCV_RSM_MAP_TABLE, reg);
++
++			write_csr(dd, regoff, reg);
++			regoff += 8;
++			if (i < (NUM_VNIC_MAP_ENTRIES - 1))
++				reg = read_csr(dd, regoff);
++		}
++	}
++
++	/* Add rule for vnic */
++	rrd.offset = dd->vnic.rmt_start;
++	rrd.pkt_type = 4;
++	/* Match 16B packets */
++	rrd.field1_off = L2_TYPE_MATCH_OFFSET;
++	rrd.mask1 = L2_TYPE_MASK;
++	rrd.value1 = L2_16B_VALUE;
++	/* Match ETH L4 packets */
++	rrd.field2_off = L4_TYPE_MATCH_OFFSET;
++	rrd.mask2 = L4_16B_TYPE_MASK;
++	rrd.value2 = L4_16B_ETH_VALUE;
++	/* Calc context from veswid and entropy */
++	rrd.index1_off = L4_16B_HDR_VESWID_OFFSET;
++	rrd.index1_width = ilog2(NUM_VNIC_MAP_ENTRIES);
++	rrd.index2_off = L2_16B_ENTROPY_OFFSET;
++	rrd.index2_width = ilog2(NUM_VNIC_MAP_ENTRIES);
++	add_rsm_rule(dd, RSM_INS_VNIC, &rrd);
++
++	/* Enable RSM if not already enabled */
++	add_rcvctrl(dd, RCV_CTRL_RCV_RSM_ENABLE_SMASK);
++}
++
++void hfi1_deinit_vnic_rsm(struct hfi1_devdata *dd)
++{
++	clear_rsm_rule(dd, RSM_INS_VNIC);
++
++	/* Disable RSM if used only by vnic */
++	if (dd->vnic.rmt_start == 0)
++		clear_rcvctrl(dd, RCV_CTRL_RCV_RSM_ENABLE_SMASK);
++}
++
+ static void init_rxe(struct hfi1_devdata *dd)
+ {
+ 	struct rsm_map_table *rmt;
+@@ -14033,6 +14217,8 @@ static void init_rxe(struct hfi1_devdata *dd)
+ 	init_qos(dd, rmt);
+ 	init_user_fecn_handling(dd, rmt);
+ 	complete_rsm_map_table(dd, rmt);
++	/* record number of used rsm map entries for vnic */
++	dd->vnic.rmt_start = rmt->used;
+ 	kfree(rmt);
+ 
+ 	/*
+diff --git a/drivers/infiniband/hw/hfi1/chip.h b/drivers/infiniband/hw/hfi1/chip.h
+index 9234525..1e177f5 100644
+--- a/drivers/infiniband/hw/hfi1/chip.h
++++ b/drivers/infiniband/hw/hfi1/chip.h
+@@ -1355,6 +1355,8 @@ void hfi1_put_tid(struct hfi1_devdata *dd, u32 index,
+ int hfi1_set_ctxt_pkey(struct hfi1_devdata *dd, unsigned ctxt, u16 pkey);
+ int hfi1_clear_ctxt_pkey(struct hfi1_devdata *dd, unsigned ctxt);
+ void hfi1_read_link_quality(struct hfi1_devdata *dd, u8 *link_quality);
++void hfi1_init_vnic_rsm(struct hfi1_devdata *dd);
++void hfi1_deinit_vnic_rsm(struct hfi1_devdata *dd);
+ 
+ /*
+  * Interrupt source table.
+diff --git a/drivers/infiniband/hw/hfi1/debugfs.c b/drivers/infiniband/hw/hfi1/debugfs.c
+index 8725f4c..dc8bb86 100644
+--- a/drivers/infiniband/hw/hfi1/debugfs.c
++++ b/drivers/infiniband/hw/hfi1/debugfs.c
+@@ -169,7 +169,7 @@ static int _opcode_stats_seq_show(struct seq_file *s, void *v)
+ 	struct hfi1_ibdev *ibd = (struct hfi1_ibdev *)s->private;
+ 	struct hfi1_devdata *dd = dd_from_dev(ibd);
+ 
+-	for (j = 0; j < dd->first_user_ctxt; j++) {
++	for (j = 0; j < dd->first_dyn_alloc_ctxt; j++) {
+ 		if (!dd->rcd[j])
+ 			continue;
+ 		n_packets += dd->rcd[j]->opstats->stats[i].n_packets;
+@@ -195,7 +195,7 @@ static void *_ctx_stats_seq_start(struct seq_file *s, loff_t *pos)
+ 
+ 	if (!*pos)
+ 		return SEQ_START_TOKEN;
+-	if (*pos >= dd->first_user_ctxt)
++	if (*pos >= dd->first_dyn_alloc_ctxt)
+ 		return NULL;
+ 	return pos;
+ }
+@@ -209,7 +209,7 @@ static void *_ctx_stats_seq_next(struct seq_file *s, void *v, loff_t *pos)
+ 		return pos;
+ 
+ 	++*pos;
+-	if (*pos >= dd->first_user_ctxt)
++	if (*pos >= dd->first_dyn_alloc_ctxt)
+ 		return NULL;
+ 	return pos;
+ }
+diff --git a/drivers/infiniband/hw/hfi1/driver.c b/drivers/infiniband/hw/hfi1/driver.c
+index e219c3b..fbe40b3 100644
+--- a/drivers/infiniband/hw/hfi1/driver.c
++++ b/drivers/infiniband/hw/hfi1/driver.c
+@@ -59,6 +59,7 @@
+ #include "trace.h"
+ #include "qp.h"
+ #include "sdma.h"
++#include "vnic.h"
+ 
+ #undef pr_fmt
+ #define pr_fmt(fmt) DRIVER_NAME ": " fmt
+@@ -860,20 +861,42 @@ int handle_receive_interrupt_dma_rtail(struct hfi1_ctxtdata *rcd, int thread)
+ 	return last;
+ }
+ 
+-static inline void set_all_nodma_rtail(struct hfi1_devdata *dd)
++static inline void set_nodma_rtail(struct hfi1_devdata *dd, u8 ctxt)
+ {
+ 	int i;
+ 
+-	for (i = HFI1_CTRL_CTXT + 1; i < dd->first_user_ctxt; i++)
++	/*
++	 * For dynamically allocated kernel contexts (like vnic) switch
++	 * interrupt handler only for that context. Otherwise, switch
++	 * interrupt handler for all statically allocated kernel contexts.
++	 */
++	if (ctxt >= dd->first_dyn_alloc_ctxt) {
++		dd->rcd[ctxt]->do_interrupt =
++			&handle_receive_interrupt_nodma_rtail;
++		return;
++	}
++
++	for (i = HFI1_CTRL_CTXT + 1; i < dd->first_dyn_alloc_ctxt; i++)
+ 		dd->rcd[i]->do_interrupt =
+ 			&handle_receive_interrupt_nodma_rtail;
+ }
+ 
+-static inline void set_all_dma_rtail(struct hfi1_devdata *dd)
++static inline void set_dma_rtail(struct hfi1_devdata *dd, u8 ctxt)
+ {
+ 	int i;
+ 
+-	for (i = HFI1_CTRL_CTXT + 1; i < dd->first_user_ctxt; i++)
++	/*
++	 * For dynamically allocated kernel contexts (like vnic) switch
++	 * interrupt handler only for that context. Otherwise, switch
++	 * interrupt handler for all statically allocated kernel contexts.
++	 */
++	if (ctxt >= dd->first_dyn_alloc_ctxt) {
++		dd->rcd[ctxt]->do_interrupt =
++			&handle_receive_interrupt_dma_rtail;
++		return;
++	}
++
++	for (i = HFI1_CTRL_CTXT + 1; i < dd->first_dyn_alloc_ctxt; i++)
+ 		dd->rcd[i]->do_interrupt =
+ 			&handle_receive_interrupt_dma_rtail;
+ }
+@@ -883,8 +906,13 @@ void set_all_slowpath(struct hfi1_devdata *dd)
+ 	int i;
+ 
+ 	/* HFI1_CTRL_CTXT must always use the slow path interrupt handler */
+-	for (i = HFI1_CTRL_CTXT + 1; i < dd->first_user_ctxt; i++)
+-		dd->rcd[i]->do_interrupt = &handle_receive_interrupt;
++	for (i = HFI1_CTRL_CTXT + 1; i < dd->num_rcv_contexts; i++) {
++		struct hfi1_ctxtdata *rcd = dd->rcd[i];
++
++		if ((i < dd->first_dyn_alloc_ctxt) ||
++		    (rcd && rcd->sc && (rcd->sc->type == SC_KERNEL)))
++			rcd->do_interrupt = &handle_receive_interrupt;
++	}
+ }
+ 
+ static inline int set_armed_to_active(struct hfi1_ctxtdata *rcd,
+@@ -994,7 +1022,7 @@ int handle_receive_interrupt(struct hfi1_ctxtdata *rcd, int thread)
+ 				last = RCV_PKT_DONE;
+ 			if (needset) {
+ 				dd_dev_info(dd, "Switching to NO_DMA_RTAIL\n");
+-				set_all_nodma_rtail(dd);
++				set_nodma_rtail(dd, rcd->ctxt);
+ 				needset = 0;
+ 			}
+ 		} else {
+@@ -1016,7 +1044,7 @@ int handle_receive_interrupt(struct hfi1_ctxtdata *rcd, int thread)
+ 			if (needset) {
+ 				dd_dev_info(dd,
+ 					    "Switching to DMA_RTAIL\n");
+-				set_all_dma_rtail(dd);
++				set_dma_rtail(dd, rcd->ctxt);
+ 				needset = 0;
+ 			}
+ 		}
+@@ -1064,10 +1092,10 @@ void receive_interrupt_work(struct work_struct *work)
+ 	set_link_state(ppd, HLS_UP_ACTIVE);
+ 
+ 	/*
+-	 * Interrupt all kernel contexts that could have had an
+-	 * interrupt during auto activation.
++	 * Interrupt all statically allocated kernel contexts that could
++	 * have had an interrupt during auto activation.
+ 	 */
+-	for (i = HFI1_CTRL_CTXT; i < dd->first_user_ctxt; i++)
++	for (i = HFI1_CTRL_CTXT; i < dd->first_dyn_alloc_ctxt; i++)
+ 		force_recv_intr(dd->rcd[i]);
+ }
+ 
+@@ -1281,7 +1309,8 @@ int hfi1_reset_device(int unit)
+ 
+ 	spin_lock_irqsave(&dd->uctxt_lock, flags);
+ 	if (dd->rcd)
+-		for (i = dd->first_user_ctxt; i < dd->num_rcv_contexts; i++) {
++		for (i = dd->first_dyn_alloc_ctxt;
++		     i < dd->num_rcv_contexts; i++) {
+ 			if (!dd->rcd[i] || !dd->rcd[i]->cnt)
+ 				continue;
+ 			spin_unlock_irqrestore(&dd->uctxt_lock, flags);
+@@ -1359,13 +1388,30 @@ int process_receive_ib(struct hfi1_packet *packet)
+ 	return RHF_RCV_CONTINUE;
+ }
+ 
++static inline bool hfi1_is_vnic_packet(struct hfi1_packet *packet)
++{
++	/* Packet received in VNIC context via RSM */
++	if (packet->rcd->is_vnic)
++		return true;
++
++	if ((HFI1_GET_L2_TYPE(packet->ebuf) == HFI1_L2_TYPE_HDR_16B) &&
++	    (HFI1_GET_L4_TYPE(packet->ebuf) == HFI1_VNIC_L4_ETHR))
++		return true;
++
++	return false;
++}
++
+ int process_receive_bypass(struct hfi1_packet *packet)
+ {
+-	if (unlikely(rhf_err_flags(packet->rhf)))
++	if (unlikely(rhf_err_flags(packet->rhf))) {
+ 		handle_eflags(packet);
++	} else if (hfi1_is_vnic_packet(packet)) {
++		hfi1_vnic_bypass_rcv(packet);
++		return RHF_RCV_CONTINUE;
++	}
+ 
+ 	dd_dev_err(packet->rcd->dd,
+-		   "Bypass packets are not supported in normal operation. Dropping\n");
++		   "Unsupported bypass packet. Dropping\n");
+ 	incr_cntr64(&packet->rcd->dd->sw_rcv_bypass_packet_errors);
+ 	return RHF_RCV_CONTINUE;
+ }
+diff --git a/drivers/infiniband/hw/hfi1/file_ops.c b/drivers/infiniband/hw/hfi1/file_ops.c
+index 677efa0..863fbbb 100644
+--- a/drivers/infiniband/hw/hfi1/file_ops.c
++++ b/drivers/infiniband/hw/hfi1/file_ops.c
+@@ -576,8 +576,8 @@ static int hfi1_file_mmap(struct file *fp, struct vm_area_struct *vma)
+ 		 * knows where it's own bitmap is within the page.
+ 		 */
+ 		memaddr = (unsigned long)(dd->events +
+-					  ((uctxt->ctxt - dd->first_user_ctxt) *
+-					   HFI1_MAX_SHARED_CTXTS)) & PAGE_MASK;
++				  ((uctxt->ctxt - dd->first_dyn_alloc_ctxt) *
++				   HFI1_MAX_SHARED_CTXTS)) & PAGE_MASK;
+ 		memlen = PAGE_SIZE;
+ 		/*
+ 		 * v3.7 removes VM_RESERVED but the effect is kept by
+@@ -746,7 +746,7 @@ static int hfi1_file_close(struct inode *inode, struct file *fp)
+ 	 * Clear any left over, unhandled events so the next process that
+ 	 * gets this context doesn't get confused.
+ 	 */
+-	ev = dd->events + ((uctxt->ctxt - dd->first_user_ctxt) *
++	ev = dd->events + ((uctxt->ctxt - dd->first_dyn_alloc_ctxt) *
+ 			   HFI1_MAX_SHARED_CTXTS) + fdata->subctxt;
+ 	*ev = 0;
+ 
+@@ -895,12 +895,18 @@ static int find_shared_ctxt(struct file *fp,
+ 
+ 		if (!(dd && (dd->flags & HFI1_PRESENT) && dd->kregbase))
+ 			continue;
+-		for (i = dd->first_user_ctxt; i < dd->num_rcv_contexts; i++) {
++		for (i = dd->first_dyn_alloc_ctxt;
++		     i < dd->num_rcv_contexts; i++) {
+ 			struct hfi1_ctxtdata *uctxt = dd->rcd[i];
+ 
+ 			/* Skip ctxts which are not yet open */
+ 			if (!uctxt || !uctxt->cnt)
+ 				continue;
++
++			/* Skip dynamically allocted kernel contexts */
++			if (uctxt->sc && (uctxt->sc->type == SC_KERNEL))
++				continue;
++
+ 			/* Skip ctxt if it doesn't match the requested one */
+ 			if (memcmp(uctxt->uuid, uinfo->uuid,
+ 				   sizeof(uctxt->uuid)) ||
+@@ -946,7 +952,8 @@ static int allocate_ctxt(struct file *fp, struct hfi1_devdata *dd,
+ 		return -EIO;
+ 	}
+ 
+-	for (ctxt = dd->first_user_ctxt; ctxt < dd->num_rcv_contexts; ctxt++)
++	for (ctxt = dd->first_dyn_alloc_ctxt;
++	     ctxt < dd->num_rcv_contexts; ctxt++)
+ 		if (!dd->rcd[ctxt])
+ 			break;
+ 
+@@ -1292,7 +1299,7 @@ static int get_base_info(struct file *fp, void __user *ubase, __u32 len)
+ 	 */
+ 	binfo.user_regbase = HFI1_MMAP_TOKEN(UREGS, uctxt->ctxt,
+ 					    fd->subctxt, 0);
+-	offset = offset_in_page((((uctxt->ctxt - dd->first_user_ctxt) *
++	offset = offset_in_page((((uctxt->ctxt - dd->first_dyn_alloc_ctxt) *
+ 		    HFI1_MAX_SHARED_CTXTS) + fd->subctxt) *
+ 		  sizeof(*dd->events));
+ 	binfo.events_bufbase = HFI1_MMAP_TOKEN(EVENTS, uctxt->ctxt,
+@@ -1386,12 +1393,12 @@ int hfi1_set_uevent_bits(struct hfi1_pportdata *ppd, const int evtbit)
+ 	}
+ 
+ 	spin_lock_irqsave(&dd->uctxt_lock, flags);
+-	for (ctxt = dd->first_user_ctxt; ctxt < dd->num_rcv_contexts;
++	for (ctxt = dd->first_dyn_alloc_ctxt; ctxt < dd->num_rcv_contexts;
+ 	     ctxt++) {
+ 		uctxt = dd->rcd[ctxt];
+ 		if (uctxt) {
+ 			unsigned long *evs = dd->events +
+-				(uctxt->ctxt - dd->first_user_ctxt) *
++				(uctxt->ctxt - dd->first_dyn_alloc_ctxt) *
+ 				HFI1_MAX_SHARED_CTXTS;
+ 			int i;
+ 			/*
+@@ -1463,7 +1470,7 @@ static int user_event_ack(struct hfi1_ctxtdata *uctxt, int subctxt,
+ 	if (!dd->events)
+ 		return 0;
+ 
+-	evs = dd->events + ((uctxt->ctxt - dd->first_user_ctxt) *
++	evs = dd->events + ((uctxt->ctxt - dd->first_dyn_alloc_ctxt) *
+ 			    HFI1_MAX_SHARED_CTXTS) + subctxt;
+ 
+ 	for (i = 0; i <= _HFI1_MAX_EVENT_BIT; i++) {
 diff --git a/drivers/infiniband/hw/hfi1/hfi.h b/drivers/infiniband/hw/hfi1/hfi.h
-index 78d1726..8d5949f 100644
+index 1fc5b68..78d1726 100644
 --- a/drivers/infiniband/hw/hfi1/hfi.h
 +++ b/drivers/infiniband/hw/hfi1/hfi.h
-@@ -855,6 +855,7 @@ struct hfi1_asic_data {
- /* Virtual NIC information */
- struct hfi1_vnic_data {
- 	struct hfi1_ctxtdata *ctxt[HFI1_NUM_VNIC_CTXT];
-+	struct kmem_cache *txreq_cache;
- 	u8 num_vports;
- 	struct idr vesw_idr;
- 	u8 rmt_start;
-diff --git a/drivers/infiniband/hw/hfi1/vnic.h b/drivers/infiniband/hw/hfi1/vnic.h
-index 047845e..2d4eb8f 100644
---- a/drivers/infiniband/hw/hfi1/vnic.h
-+++ b/drivers/infiniband/hw/hfi1/vnic.h
-@@ -49,6 +49,7 @@
+@@ -54,6 +54,7 @@
+ #include <linux/list.h>
+ #include <linux/scatterlist.h>
+ #include <linux/slab.h>
++#include <linux/idr.h>
+ #include <linux/io.h>
+ #include <linux/fs.h>
+ #include <linux/completion.h>
+@@ -66,6 +67,7 @@
+ #include <linux/i2c-algo-bit.h>
+ #include <rdma/ib_hdrs.h>
+ #include <linux/rhashtable.h>
++#include <linux/netdevice.h>
+ #include <rdma/rdma_vt.h>
  
- #include <rdma/opa_hfi.h>
- #include "hfi.h"
-+#include "sdma.h"
+ #include "chip_registers.h"
+@@ -337,6 +339,12 @@ struct hfi1_ctxtdata {
+ 	 * packets with the wrong interrupt handler.
+ 	 */
+ 	int (*do_interrupt)(struct hfi1_ctxtdata *rcd, int threaded);
++
++	/* Indicates that this is vnic context */
++	bool is_vnic;
++
++	/* vnic queue index this context is mapped to */
++	u8 vnic_q_idx;
+ };
  
- #define HFI1_VNIC_ICRC_LEN   4
- #define HFI1_VNIC_TAIL_LEN   1
-@@ -90,6 +91,26 @@
- #define HFI1_VNIC_SC_SHIFT      4
+ /*
+@@ -831,6 +839,30 @@ struct hfi1_asic_data {
+ 	struct hfi1_i2c_bus *i2c_bus1;
+ };
  
- /**
-+ * struct hfi1_vnic_sdma - VNIC per Tx ring SDMA information
-+ * @dd - device data pointer
-+ * @sde - sdma engine
-+ * @vinfo - vnic info pointer
-+ * @wait - iowait structure
-+ * @stx - sdma tx request
-+ * @state - vnic Tx ring SDMA state
-+ * @q_idx - vnic Tx queue index
++/* sizes for both the QP and RSM map tables */
++#define NUM_MAP_ENTRIES	 256
++#define NUM_MAP_REGS      32
++
++/*
++ * Number of VNIC contexts used. Ensure it is less than or equal to
++ * max queues supported by VNIC (HFI_VNIC_MAX_QUEUE).
 + */
-+struct hfi1_vnic_sdma {
-+	struct hfi1_devdata *dd;
-+	struct sdma_engine  *sde;
-+	struct hfi1_vnic_vport_info *vinfo;
-+	struct iowait wait;
-+	struct sdma_txreq stx;
-+	unsigned int state;
-+	u8 q_idx;
++#define HFI1_NUM_VNIC_CTXT   8
++
++/* Number of VNIC RSM entries */
++#define NUM_VNIC_MAP_ENTRIES     8
++
++/* Virtual NIC information */
++struct hfi1_vnic_data {
++	struct hfi1_ctxtdata *ctxt[HFI1_NUM_VNIC_CTXT];
++	u8 num_vports;
++	struct idr vesw_idr;
++	u8 rmt_start;
++	u8 num_ctxt;
++};
++
++struct hfi1_vnic_vport_info;
++
+ /* device data struct now contains only "general per-device" info.
+  * fields related to a physical IB port are in a hfi1_pportdata struct.
+  */
+@@ -1140,6 +1172,9 @@ struct hfi1_devdata {
+ 	send_routine process_dma_send;
+ 	void (*pio_inline_send)(struct hfi1_devdata *dd, struct pio_buf *pbuf,
+ 				u64 pbc, const void *from, size_t count);
++	int (*process_vnic_dma_send)(struct hfi1_devdata *dd, u8 q_idx,
++				     struct hfi1_vnic_vport_info *vinfo,
++				     struct sk_buff *skb, u64 pbc, u8 plen);
+ 	/* hfi1_pportdata, points to array of (physical) port-specific
+ 	 * data structs, indexed by pidx (0..n-1)
+ 	 */
+@@ -1151,8 +1186,8 @@ struct hfi1_devdata {
+ 	u16 flags;
+ 	/* Number of physical ports available */
+ 	u8 num_pports;
+-	/* Lowest context number which can be used by user processes */
+-	u8 first_user_ctxt;
++	/* Lowest context number which can be used by user processes or VNIC */
++	u8 first_dyn_alloc_ctxt;
+ 	/* adding a new field here would make it part of this cacheline */
+ 
+ 	/* seqlock for sc2vl */
+@@ -1191,8 +1226,16 @@ struct hfi1_devdata {
+ 	struct rhashtable sdma_rht;
+ 
+ 	struct kobject kobj;
++
++	/* vnic data */
++	struct hfi1_vnic_data vnic;
+ };
+ 
++static inline bool hfi1_vnic_is_rsm_full(struct hfi1_devdata *dd, int spare)
++{
++	return (dd->vnic.rmt_start + spare) > NUM_MAP_ENTRIES;
++}
++
+ /* 8051 firmware version helper */
+ #define dc8051_ver(a, b) ((a) << 8 | (b))
+ #define dc8051_ver_maj(a) ((a & 0xff00) >> 8)
+@@ -1258,6 +1301,8 @@ void hfi1_init_pportdata(struct pci_dev *, struct hfi1_pportdata *,
+ int handle_receive_interrupt_nodma_rtail(struct hfi1_ctxtdata *, int);
+ int handle_receive_interrupt_dma_rtail(struct hfi1_ctxtdata *, int);
+ void set_all_slowpath(struct hfi1_devdata *dd);
++void hfi1_set_vnic_msix_info(struct hfi1_ctxtdata *rcd);
++void hfi1_reset_vnic_msix_info(struct hfi1_ctxtdata *rcd);
+ 
+ extern const struct pci_device_id hfi1_pci_tbl[];
+ 
+diff --git a/drivers/infiniband/hw/hfi1/init.c b/drivers/infiniband/hw/hfi1/init.c
+index 13f6862..0b510d5 100644
+--- a/drivers/infiniband/hw/hfi1/init.c
++++ b/drivers/infiniband/hw/hfi1/init.c
+@@ -65,6 +65,7 @@
+ #include "verbs.h"
+ #include "aspm.h"
+ #include "affinity.h"
++#include "vnic.h"
+ 
+ #undef pr_fmt
+ #define pr_fmt(fmt) DRIVER_NAME ": " fmt
+@@ -139,7 +140,7 @@ int hfi1_create_ctxts(struct hfi1_devdata *dd)
+ 		goto nomem;
+ 
+ 	/* create one or more kernel contexts */
+-	for (i = 0; i < dd->first_user_ctxt; ++i) {
++	for (i = 0; i < dd->first_dyn_alloc_ctxt; ++i) {
+ 		struct hfi1_pportdata *ppd;
+ 		struct hfi1_ctxtdata *rcd;
+ 
+@@ -213,9 +214,9 @@ struct hfi1_ctxtdata *hfi1_create_ctxtdata(struct hfi1_pportdata *ppd, u32 ctxt,
+ 	u32 base;
+ 
+ 	if (dd->rcv_entries.nctxt_extra >
+-	    dd->num_rcv_contexts - dd->first_user_ctxt)
++	    dd->num_rcv_contexts - dd->first_dyn_alloc_ctxt)
+ 		kctxt_ngroups = (dd->rcv_entries.nctxt_extra -
+-				 (dd->num_rcv_contexts - dd->first_user_ctxt));
++			 (dd->num_rcv_contexts - dd->first_dyn_alloc_ctxt));
+ 	rcd = kzalloc(sizeof(*rcd), GFP_KERNEL);
+ 	if (rcd) {
+ 		u32 rcvtids, max_entries;
+@@ -237,10 +238,10 @@ struct hfi1_ctxtdata *hfi1_create_ctxtdata(struct hfi1_pportdata *ppd, u32 ctxt,
+ 		 * Calculate the context's RcvArray entry starting point.
+ 		 * We do this here because we have to take into account all
+ 		 * the RcvArray entries that previous context would have
+-		 * taken and we have to account for any extra groups
+-		 * assigned to the kernel or user contexts.
++		 * taken and we have to account for any extra groups assigned
++		 * to the static (kernel) or dynamic (vnic/user) contexts.
+ 		 */
+-		if (ctxt < dd->first_user_ctxt) {
++		if (ctxt < dd->first_dyn_alloc_ctxt) {
+ 			if (ctxt < kctxt_ngroups) {
+ 				base = ctxt * (dd->rcv_entries.ngroups + 1);
+ 				rcd->rcv_array_groups++;
+@@ -248,7 +249,7 @@ struct hfi1_ctxtdata *hfi1_create_ctxtdata(struct hfi1_pportdata *ppd, u32 ctxt,
+ 				base = kctxt_ngroups +
+ 					(ctxt * dd->rcv_entries.ngroups);
+ 		} else {
+-			u16 ct = ctxt - dd->first_user_ctxt;
++			u16 ct = ctxt - dd->first_dyn_alloc_ctxt;
+ 
+ 			base = ((dd->n_krcv_queues * dd->rcv_entries.ngroups) +
+ 				kctxt_ngroups);
+@@ -327,7 +328,8 @@ struct hfi1_ctxtdata *hfi1_create_ctxtdata(struct hfi1_pportdata *ppd, u32 ctxt,
+ 		}
+ 		rcd->egrbufs.rcvtid_size = HFI1_MAX_EAGER_BUFFER_SIZE;
+ 
+-		if (ctxt < dd->first_user_ctxt) { /* N/A for PSM contexts */
++		/* Applicable only for statically created kernel contexts */
++		if (ctxt < dd->first_dyn_alloc_ctxt) {
+ 			rcd->opstats = kzalloc(sizeof(*rcd->opstats),
+ 				GFP_KERNEL);
+ 			if (!rcd->opstats)
+@@ -591,7 +593,7 @@ static void enable_chip(struct hfi1_devdata *dd)
+ 	 * Enable kernel ctxts' receive and receive interrupt.
+ 	 * Other ctxts done as user opens and initializes them.
+ 	 */
+-	for (i = 0; i < dd->first_user_ctxt; ++i) {
++	for (i = 0; i < dd->first_dyn_alloc_ctxt; ++i) {
+ 		rcvmask = HFI1_RCVCTRL_CTXT_ENB | HFI1_RCVCTRL_INTRAVAIL_ENB;
+ 		rcvmask |= HFI1_CAP_KGET_MASK(dd->rcd[i]->flags, DMA_RTAIL) ?
+ 			HFI1_RCVCTRL_TAILUPD_ENB : HFI1_RCVCTRL_TAILUPD_DIS;
+@@ -685,6 +687,7 @@ int hfi1_init(struct hfi1_devdata *dd, int reinit)
+ 	dd->process_pio_send = hfi1_verbs_send_pio;
+ 	dd->process_dma_send = hfi1_verbs_send_dma;
+ 	dd->pio_inline_send = pio_copy;
++	dd->process_vnic_dma_send = hfi1_vnic_send_dma;
+ 
+ 	if (is_ax(dd)) {
+ 		atomic_set(&dd->drop_packet, DROP_PACKET_ON);
+@@ -720,7 +723,7 @@ int hfi1_init(struct hfi1_devdata *dd, int reinit)
+ 	}
+ 
+ 	/* dd->rcd can be NULL if early initialization failed */
+-	for (i = 0; dd->rcd && i < dd->first_user_ctxt; ++i) {
++	for (i = 0; dd->rcd && i < dd->first_dyn_alloc_ctxt; ++i) {
+ 		/*
+ 		 * Set up the (kernel) rcvhdr queue and egr TIDs.  If doing
+ 		 * re-init, the simplest way to handle this is to free
+@@ -1489,6 +1492,9 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	/* do the generic initialization */
+ 	initfail = hfi1_init(dd, 0);
+ 
++	/* setup vnic */
++	hfi1_vnic_setup(dd);
++
+ 	ret = hfi1_register_ib_device(dd);
+ 
+ 	/*
+@@ -1522,6 +1528,7 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 			hfi1_device_remove(dd);
+ 		if (!ret)
+ 			hfi1_unregister_ib_device(dd);
++		hfi1_vnic_cleanup(dd);
+ 		postinit_cleanup(dd);
+ 		if (initfail)
+ 			ret = initfail;
+@@ -1547,6 +1554,9 @@ static void remove_one(struct pci_dev *pdev)
+ 	/* unregister from IB core */
+ 	hfi1_unregister_ib_device(dd);
+ 
++	/* cleanup vnic */
++	hfi1_vnic_cleanup(dd);
++
+ 	/*
+ 	 * Disable the IB link, disable interrupts on the device,
+ 	 * clear dma engines, etc.
+@@ -1588,8 +1598,11 @@ int hfi1_create_rcvhdrq(struct hfi1_devdata *dd, struct hfi1_ctxtdata *rcd)
+ 		amt = PAGE_ALIGN(rcd->rcvhdrq_cnt * rcd->rcvhdrqentsize *
+ 				 sizeof(u32));
+ 
+-		gfp_flags = (rcd->ctxt >= dd->first_user_ctxt) ?
+-			GFP_USER : GFP_KERNEL;
++		if ((rcd->ctxt < dd->first_dyn_alloc_ctxt) ||
++		    (rcd->sc && (rcd->sc->type == SC_KERNEL)))
++			gfp_flags = GFP_KERNEL;
++		else
++			gfp_flags = GFP_USER;
+ 		rcd->rcvhdrq = dma_zalloc_coherent(
+ 			&dd->pcidev->dev, amt, &rcd->rcvhdrq_dma,
+ 			gfp_flags | __GFP_COMP);
+diff --git a/drivers/infiniband/hw/hfi1/mad.c b/drivers/infiniband/hw/hfi1/mad.c
+index ed8ae22..cca61e4 100644
+--- a/drivers/infiniband/hw/hfi1/mad.c
++++ b/drivers/infiniband/hw/hfi1/mad.c
+@@ -53,6 +53,7 @@
+ #include "mad.h"
+ #include "trace.h"
+ #include "qp.h"
++#include "vnic.h"
+ 
+ /* the reset value from the FM is supposed to be 0xffff, handle both */
+ #define OPA_LINK_WIDTH_RESET_OLD 0x0fff
+@@ -650,9 +651,11 @@ static int __subn_get_opa_portinfo(struct opa_smp *smp, u32 am, u8 *data,
+ 					OPA_PI_MASK_PORT_ACTIVE_OPTOMIZE : 0);
+ 
+ 	pi->port_packet_format.supported =
+-		cpu_to_be16(OPA_PORT_PACKET_FORMAT_9B);
++		cpu_to_be16(OPA_PORT_PACKET_FORMAT_9B |
++			    OPA_PORT_PACKET_FORMAT_16B);
+ 	pi->port_packet_format.enabled =
+-		cpu_to_be16(OPA_PORT_PACKET_FORMAT_9B);
++		cpu_to_be16(OPA_PORT_PACKET_FORMAT_9B |
++			    OPA_PORT_PACKET_FORMAT_16B);
+ 
+ 	/* flit_control.interleave is (OPA V1, version .76):
+ 	 * bits		use
+@@ -678,6 +681,7 @@ static int __subn_get_opa_portinfo(struct opa_smp *smp, u32 am, u8 *data,
+ 	pi->resptimevalue = 3;
+ 
+ 	pi->local_port_num = port;
++	pi->num_vesw_port_supported = HFI_MAX_NUM_VNICS;
+ 
+ 	/* buffer info for FM */
+ 	pi->overall_buffer_space = cpu_to_be16(dd->link_credits);
+diff --git a/drivers/infiniband/hw/hfi1/pio.c b/drivers/infiniband/hw/hfi1/pio.c
+index 64c9eeb..3c5466e 100644
+--- a/drivers/infiniband/hw/hfi1/pio.c
++++ b/drivers/infiniband/hw/hfi1/pio.c
+@@ -710,6 +710,7 @@ struct send_context *sc_alloc(struct hfi1_devdata *dd, int type,
+ {
+ 	struct send_context_info *sci;
+ 	struct send_context *sc = NULL;
++	int req_type = type;
+ 	dma_addr_t dma;
+ 	unsigned long flags;
+ 	u64 reg;
+@@ -736,6 +737,13 @@ struct send_context *sc_alloc(struct hfi1_devdata *dd, int type,
+ 		return NULL;
+ 	}
+ 
++	/*
++	 * VNIC contexts are dynamically allocated.
++	 * Hence, pick a user context for VNIC.
++	 */
++	if (type == SC_VNIC)
++		type = SC_USER;
++
+ 	spin_lock_irqsave(&dd->sc_lock, flags);
+ 	ret = sc_hw_alloc(dd, type, &sw_index, &hw_context);
+ 	if (ret) {
+@@ -745,6 +753,15 @@ struct send_context *sc_alloc(struct hfi1_devdata *dd, int type,
+ 		return NULL;
+ 	}
+ 
++	/*
++	 * VNIC contexts are used by kernel driver.
++	 * Hence, mark them as kernel contexts.
++	 */
++	if (req_type == SC_VNIC) {
++		dd->send_contexts[sw_index].type = SC_KERNEL;
++		type = SC_KERNEL;
++	}
++
+ 	sci = &dd->send_contexts[sw_index];
+ 	sci->sc = sc;
+ 
+diff --git a/drivers/infiniband/hw/hfi1/pio.h b/drivers/infiniband/hw/hfi1/pio.h
+index 867e5ff..22e19d5 100644
+--- a/drivers/infiniband/hw/hfi1/pio.h
++++ b/drivers/infiniband/hw/hfi1/pio.h
+@@ -54,6 +54,12 @@
+ #define SC_USER   3	/* must be the last one: it may take all left */
+ #define SC_MAX    4	/* count of send context types */
+ 
++/*
++ * SC_VNIC types are allocated (dynamically) from the user context pool,
++ * (SC_USER) and used by kernel driver as kernel contexts (SC_KERNEL).
++ */
++#define SC_VNIC   SC_MAX
++
+ /* invalid send context index */
+ #define INVALID_SCI 0xff
+ 
+diff --git a/drivers/infiniband/hw/hfi1/sysfs.c b/drivers/infiniband/hw/hfi1/sysfs.c
+index 06bff50..cefc916 100644
+--- a/drivers/infiniband/hw/hfi1/sysfs.c
++++ b/drivers/infiniband/hw/hfi1/sysfs.c
+@@ -543,7 +543,7 @@ static ssize_t show_nctxts(struct device *device,
+ 	 * give a more accurate picture of total contexts available.
+ 	 */
+ 	return scnprintf(buf, PAGE_SIZE, "%u\n",
+-			 min(dd->num_rcv_contexts - dd->first_user_ctxt,
++			 min(dd->num_rcv_contexts - dd->first_dyn_alloc_ctxt,
+ 			     (u32)dd->sc_sizes[SC_USER].count));
+ }
+ 
+diff --git a/drivers/infiniband/hw/hfi1/user_exp_rcv.c b/drivers/infiniband/hw/hfi1/user_exp_rcv.c
+index 64d2652..fdcd686 100644
+--- a/drivers/infiniband/hw/hfi1/user_exp_rcv.c
++++ b/drivers/infiniband/hw/hfi1/user_exp_rcv.c
+@@ -612,7 +612,7 @@ int hfi1_user_exp_rcv_invalid(struct file *fp, struct hfi1_tid_info *tinfo)
+ 	struct hfi1_filedata *fd = fp->private_data;
+ 	struct hfi1_ctxtdata *uctxt = fd->uctxt;
+ 	unsigned long *ev = uctxt->dd->events +
+-		(((uctxt->ctxt - uctxt->dd->first_user_ctxt) *
++		(((uctxt->ctxt - uctxt->dd->first_dyn_alloc_ctxt) *
+ 		  HFI1_MAX_SHARED_CTXTS) + fd->subctxt);
+ 	u32 *array;
+ 	int ret = 0;
+@@ -1016,8 +1016,8 @@ static int tid_rb_invalidate(void *arg, struct mmu_rb_node *mnode)
+ 			 * process in question.
+ 			 */
+ 			ev = uctxt->dd->events +
+-				(((uctxt->ctxt - uctxt->dd->first_user_ctxt) *
+-				  HFI1_MAX_SHARED_CTXTS) + fdata->subctxt);
++			  (((uctxt->ctxt - uctxt->dd->first_dyn_alloc_ctxt) *
++			    HFI1_MAX_SHARED_CTXTS) + fdata->subctxt);
+ 			set_bit(_HFI1_EVENT_TID_MMU_NOTIFY_BIT, ev);
+ 		}
+ 		fdata->invalid_tid_idx++;
+diff --git a/drivers/infiniband/hw/hfi1/user_pages.c b/drivers/infiniband/hw/hfi1/user_pages.c
+index 20f4ddc..7238a34 100644
+--- a/drivers/infiniband/hw/hfi1/user_pages.c
++++ b/drivers/infiniband/hw/hfi1/user_pages.c
+@@ -73,7 +73,8 @@ bool hfi1_can_pin_pages(struct hfi1_devdata *dd, struct mm_struct *mm,
+ {
+ 	unsigned long ulimit = rlimit(RLIMIT_MEMLOCK), pinned, cache_limit,
+ 		size = (cache_size * (1UL << 20)); /* convert to bytes */
+-	unsigned usr_ctxts = dd->num_rcv_contexts - dd->first_user_ctxt;
++	unsigned int usr_ctxts =
++			dd->num_rcv_contexts - dd->first_dyn_alloc_ctxt;
+ 	bool can_lock = capable(CAP_IPC_LOCK);
+ 
+ 	/*
+diff --git a/drivers/infiniband/hw/hfi1/verbs.c b/drivers/infiniband/hw/hfi1/verbs.c
+index 9355c4c..32485bc 100644
+--- a/drivers/infiniband/hw/hfi1/verbs.c
++++ b/drivers/infiniband/hw/hfi1/verbs.c
+@@ -60,6 +60,7 @@
+ #include "trace.h"
+ #include "qp.h"
+ #include "verbs_txreq.h"
++#include "vnic.h"
+ 
+ static unsigned int hfi1_lkey_table_size = 16;
+ module_param_named(lkey_table_size, hfi1_lkey_table_size, uint,
+@@ -131,6 +132,11 @@
+ MODULE_PARM_DESC(sge_copy_mode,
+ 		 "Verbs copy mode: 0 use memcpy, 1 use cacheless copy, 2 adapt based on WSS");
+ 
++static struct hfi_vnic_ctrl_ops hfi1_vnic_ctrl_ops = {
++	.add_vport = hfi1_vnic_add_vport,
++	.rem_vport = hfi1_vnic_rem_vport
++};
++
+ static void verbs_sdma_complete(
+ 	struct sdma_txreq *cookie,
+ 	int status);
+@@ -1870,6 +1876,7 @@ int hfi1_register_ib_device(struct hfi1_devdata *dd)
+ 			      i,
+ 			      ppd->pkeys);
+ 
++	dd->verbs_dev.hfidev.vnic_ctrl_ops = hfi1_vnic_ctrl_ops;
+ 	ret = rvt_register_device(rdi);
+ 	if (ret)
+ 		goto err_verbs_txreq;
+diff --git a/drivers/infiniband/hw/hfi1/vnic.h b/drivers/infiniband/hw/hfi1/vnic.h
+new file mode 100644
+index 0000000..047845e
+--- /dev/null
++++ b/drivers/infiniband/hw/hfi1/vnic.h
+@@ -0,0 +1,145 @@
++#ifndef _HFI1_VNIC_H
++#define _HFI1_VNIC_H
++/*
++ * Copyright(c) 2016 Intel Corporation.
++ *
++ * This file is provided under a dual BSD/GPLv2 license.  When using or
++ * redistributing this file, you may do so under either license.
++ *
++ * GPL LICENSE SUMMARY
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * General Public License for more details.
++ *
++ * BSD LICENSE
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ *
++ *  - Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ *  - Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in
++ *    the documentation and/or other materials provided with the
++ *    distribution.
++ *  - Neither the name of Intel Corporation nor the names of its
++ *    contributors may be used to endorse or promote products derived
++ *    from this software without specific prior written permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
++ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
++ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
++ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
++ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
++ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
++ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
++ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ *
++ */
++
++#include <rdma/opa_hfi.h>
++#include "hfi.h"
++
++#define HFI1_VNIC_ICRC_LEN   4
++#define HFI1_VNIC_TAIL_LEN   1
++#define HFI1_VNIC_ICRC_TAIL_LEN  (HFI1_VNIC_ICRC_LEN + HFI1_VNIC_TAIL_LEN)
++
++#define HFI1_VNIC_MAX_TXQ     16
++#define HFI1_VNIC_MAX_PAD     12
++
++/* L2 header definitions */
++#define HFI1_L2_TYPE_OFFSET     0x7
++#define HFI1_L2_TYPE_SHFT       0x5
++#define HFI1_L2_TYPE_MASK       0x3
++#define HFI1_L2_TYPE_HDR_16B    0x2
++
++#define HFI1_GET_L2_TYPE(hdr)                                            \
++	((*((u8 *)(hdr) + HFI1_L2_TYPE_OFFSET) >> HFI1_L2_TYPE_SHFT) &   \
++	 HFI1_L2_TYPE_MASK)
++
++/* L4 type definitions */
++#define HFI1_L4_TYPE_OFFSET 8
++
++#define HFI1_GET_L4_TYPE(data)   \
++	(*((u8 *)(data) + HFI1_L4_TYPE_OFFSET))
++
++#define HFI1_VNIC_L4_ETHR  0x78
++
++/* L4 header definitions */
++#define HFI1_VNIC_L4_HDR_OFFSET  18
++
++#define HFI1_VNIC_GET_L4_HDR(data)   \
++	(*((u16 *)((u8 *)(data) + HFI1_VNIC_L4_HDR_OFFSET)))
++
++#define HFI1_VNIC_GET_VESWID(data)   \
++	(HFI1_VNIC_GET_L4_HDR(data) & 0xFF)
++
++/* Service class */
++#define HFI1_VNIC_SC_OFFSET_LOW 6
++#define HFI1_VNIC_SC_OFFSET_HI  7
++#define HFI1_VNIC_SC_SHIFT      4
++
++/**
++ * struct hfi1_vnic_notifier - VNIC notifer structure
++ * @cb - vnic callback function
++ */
++struct hfi1_vnic_notifier {
++	hfi_vnic_evt_cb_fn  cb;
 +};
 +
 +/**
-  * struct hfi1_vnic_notifier - VNIC notifer structure
-  * @cb - vnic callback function
-  */
-@@ -104,6 +125,7 @@ struct hfi1_vnic_notifier {
-  * @event_flags: event notification flags
-  * @vport: vnic port pointer
-  * @skbq: Array of queues for received socket buffers
-+ * @sdma: VNIC SDMA structure per TXQ
-  */
- struct hfi1_vnic_vport_info {
- 	struct hfi1_devdata *dd;
-@@ -112,7 +134,8 @@ struct hfi1_vnic_vport_info {
- 	DECLARE_BITMAP(event_flags, HFI_VNIC_NUM_EVTS);
- 	struct hfi_vnic_port *vport;
- 
--	struct sk_buff_head skbq[HFI1_NUM_VNIC_CTXT];
-+	struct sk_buff_head    skbq[HFI1_NUM_VNIC_CTXT];
-+	struct hfi1_vnic_sdma  sdma[HFI1_VNIC_MAX_TXQ];
- };
- 
- static inline struct hfi1_devdata *vnic_dev2dd(struct hfi_vnic_port *vport)
-@@ -131,8 +154,13 @@ static inline void hfi1_vnic_update_pad(unsigned char *pad, u8 plen)
- /* vnic hfi1 internal functions */
- void hfi1_vnic_setup(struct hfi1_devdata *dd);
- void hfi1_vnic_cleanup(struct hfi1_devdata *dd);
-+int hfi1_vnic_txreq_init(struct hfi1_devdata *dd);
-+void hfi1_vnic_txreq_deinit(struct hfi1_devdata *dd);
- 
- void hfi1_vnic_bypass_rcv(struct hfi1_packet *packet);
-+void hfi1_vnic_sdma_init(struct hfi1_vnic_vport_info *vinfo);
-+bool hfi1_vnic_sdma_write_avail(struct hfi1_vnic_vport_info *vinfo,
-+				u8 q_idx);
- 
- /* vnic port operations */
- struct hfi_vnic_port *hfi1_vnic_add_vport(struct ib_device *device,
++ * struct hfi1_vnic_vport_info - HFI1 VNIC virtual port information
++ * @dd: device data pointer
++ * @notifier: vnic notifier
++ * @event_flags: event notification flags
++ * @vport: vnic port pointer
++ * @skbq: Array of queues for received socket buffers
++ */
++struct hfi1_vnic_vport_info {
++	struct hfi1_devdata *dd;
++
++	struct hfi1_vnic_notifier __rcu *notifier;
++	DECLARE_BITMAP(event_flags, HFI_VNIC_NUM_EVTS);
++	struct hfi_vnic_port *vport;
++
++	struct sk_buff_head skbq[HFI1_NUM_VNIC_CTXT];
++};
++
++static inline struct hfi1_devdata *vnic_dev2dd(struct hfi_vnic_port *vport)
++{
++	struct hfi1_vnic_vport_info *vinfo = vport->hfi_priv;
++
++	return vinfo->dd;
++}
++
++/* setup the last plen bypes of pad */
++static inline void hfi1_vnic_update_pad(unsigned char *pad, u8 plen)
++{
++	pad[HFI1_VNIC_MAX_PAD - 1] = plen - HFI1_VNIC_ICRC_TAIL_LEN;
++}
++
++/* vnic hfi1 internal functions */
++void hfi1_vnic_setup(struct hfi1_devdata *dd);
++void hfi1_vnic_cleanup(struct hfi1_devdata *dd);
++
++void hfi1_vnic_bypass_rcv(struct hfi1_packet *packet);
++
++/* vnic port operations */
++struct hfi_vnic_port *hfi1_vnic_add_vport(struct ib_device *device,
++					  u8 port_num, u8 vport_num);
++void hfi1_vnic_rem_vport(struct hfi_vnic_port *vport);
++int hfi1_vnic_send_dma(struct hfi1_devdata *dd, u8 q_idx,
++		       struct hfi1_vnic_vport_info *vinfo,
++		       struct sk_buff *skb, u64 pbc, u8 plen);
++
++#endif /* _HFI1_VNIC_H */
 diff --git a/drivers/infiniband/hw/hfi1/vnic_main.c b/drivers/infiniband/hw/hfi1/vnic_main.c
-index 1e237f3..19843a4 100644
---- a/drivers/infiniband/hw/hfi1/vnic_main.c
+new file mode 100644
+index 0000000..1e237f3
+--- /dev/null
 +++ b/drivers/infiniband/hw/hfi1/vnic_main.c
-@@ -289,15 +289,21 @@ static int hfi1_vnic_put_skb(struct hfi_vnic_port *vport,
- 
- static u8 hfi1_vnic_select_queue(struct hfi_vnic_port *vport, u8 vl, u8 entropy)
- {
--	return 0;
-+	struct hfi1_vnic_vport_info *vinfo = vport->hfi_priv;
-+	struct sdma_engine *sde;
-+
-+	sde = sdma_select_engine_vl(vinfo->dd, entropy, vl);
-+	return sde->this_idx;
- }
- 
- static bool hfi1_vnic_get_write_avail(struct hfi_vnic_port *vport, u8 q_idx)
- {
-+	struct hfi1_vnic_vport_info *vinfo = vport->hfi_priv;
-+
- 	if (q_idx >= vport->hfi_info.num_tx_q)
- 		return false;
- 
--	return true;
-+	return hfi1_vnic_sdma_write_avail(vinfo, q_idx);
- }
- 
- void hfi1_vnic_bypass_rcv(struct hfi1_packet *packet)
-@@ -499,6 +505,12 @@ static int hfi1_vnic_init(struct hfi_vnic_port *vport)
- 	int i, rc = 0;
- 
- 	mutex_lock(&hfi1_mutex);
-+	if (!dd->vnic.num_vports) {
-+		rc = hfi1_vnic_txreq_init(dd);
-+		if (rc)
-+			goto txreq_fail;
-+	}
-+
- 	for (i = dd->vnic.num_ctxt; i < vport->hfi_info.num_rx_q; i++) {
- 		rc = hfi1_vnic_allot_ctxt(dd, &dd->vnic.ctxt[i]);
- 		if (rc)
-@@ -526,7 +538,11 @@ static int hfi1_vnic_init(struct hfi_vnic_port *vport)
- 
- 	dd->vnic.num_vports++;
- 	vinfo->vport = vport;
-+	hfi1_vnic_sdma_init(vinfo);
- alloc_fail:
-+	if (!dd->vnic.num_vports)
-+		hfi1_vnic_txreq_deinit(dd);
-+txreq_fail:
- 	mutex_unlock(&hfi1_mutex);
- 	return rc;
- }
-@@ -544,6 +560,7 @@ static void hfi1_vnic_deinit(struct hfi_vnic_port *vport)
- 		}
- 		hfi1_deinit_vnic_rsm(dd);
- 		dd->vnic.num_ctxt = 0;
-+		hfi1_vnic_txreq_deinit(dd);
- 	}
- 	mutex_unlock(&hfi1_mutex);
- }
-diff --git a/drivers/infiniband/hw/hfi1/vnic_sdma.c b/drivers/infiniband/hw/hfi1/vnic_sdma.c
-index 66abad0..cb1f9ce 100644
---- a/drivers/infiniband/hw/hfi1/vnic_sdma.c
-+++ b/drivers/infiniband/hw/hfi1/vnic_sdma.c
-@@ -52,9 +52,269 @@
- #include "sdma.h"
- #include "vnic.h"
- 
-+#define HFI1_VNIC_SDMA_Q_ACTIVE   BIT(0)
-+#define HFI1_VNIC_SDMA_Q_DEFERRED BIT(1)
-+
-+#define HFI1_VNIC_TXREQ_NAME_LEN   32
-+#define HFI1_VNIC_SDMA_DESC_WTRMRK 64
-+#define HFI1_VNIC_SDMA_RETRY_COUNT 1
+@@ -0,0 +1,614 @@
++/*
++ * Copyright(c) 2016 Intel Corporation.
++ *
++ * This file is provided under a dual BSD/GPLv2 license.  When using or
++ * redistributing this file, you may do so under either license.
++ *
++ * GPL LICENSE SUMMARY
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * General Public License for more details.
++ *
++ * BSD LICENSE
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ *
++ *  - Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ *  - Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in
++ *    the documentation and/or other materials provided with the
++ *    distribution.
++ *  - Neither the name of Intel Corporation nor the names of its
++ *    contributors may be used to endorse or promote products derived
++ *    from this software without specific prior written permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
++ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
++ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
++ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
++ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
++ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
++ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
++ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ *
++ */
 +
 +/*
-+ * struct vnic_txreq - VNIC transmit descriptor
-+ * @txreq: sdma transmit request
-+ * @sdma: vnic sdma pointer
-+ * @skb: skb to send
-+ * @pad: pad buffer
-+ * @plen: pad length
-+ * @pbc_val: pbc value
-+ * @retry_count: tx retry count
++ * This file contains HFI1 support for VNIC functionality
 + */
-+struct vnic_txreq {
-+	struct sdma_txreq       txreq;
-+	struct hfi1_vnic_sdma   *sdma;
 +
-+	struct sk_buff         *skb;
-+	unsigned char           pad[HFI1_VNIC_MAX_PAD];
-+	u16                     plen;
-+	__le64                  pbc_val;
++#include <linux/io.h>
 +
-+	u32                     retry_count;
-+};
++#include "vnic.h"
 +
-+static void vnic_sdma_complete(struct sdma_txreq *txreq,
-+			       int status)
++#define HFI1_VNIC_RCV_Q_SIZE   1024
++
++static DEFINE_SPINLOCK(vport_cntr_lock);
++
++static inline u8 hfi1_vnic_get_sc5(u8 *hdr)
 +{
-+	struct vnic_txreq *tx = container_of(txreq, struct vnic_txreq, txreq);
-+	struct hfi1_vnic_sdma *vnic_sdma = tx->sdma;
-+
-+	sdma_txclean(vnic_sdma->dd, txreq);
-+	dev_kfree_skb_any(tx->skb);
-+	kmem_cache_free(vnic_sdma->dd->vnic.txreq_cache, tx);
++	return  (((*(hdr + HFI1_VNIC_SC_OFFSET_LOW)) >> HFI1_VNIC_SC_SHIFT) |
++		 (((*(hdr + HFI1_VNIC_SC_OFFSET_HI)) & 0x1) <<
++		  HFI1_VNIC_SC_SHIFT));
 +}
 +
-+static noinline int build_vnic_ulp_payload(struct sdma_engine *sde,
-+					   struct vnic_txreq *tx)
++static int setup_vnic_ctxt(struct hfi1_devdata *dd, struct hfi1_ctxtdata *uctxt)
 +{
-+	int i, ret = 0;
++	unsigned int rcvctrl_ops = 0;
++	int ret;
 +
-+	ret = sdma_txadd_kvaddr(
-+		sde->dd,
-+		&tx->txreq,
-+		tx->skb->data,
-+		skb_headlen(tx->skb));
++	ret = hfi1_init_ctxt(uctxt->sc);
 +	if (ret)
-+		goto bail_txadd;
++		goto done;
 +
-+	for (i = 0; i < skb_shinfo(tx->skb)->nr_frags; i++) {
-+		struct skb_frag_struct *frag = &skb_shinfo(tx->skb)->frags[i];
++	uctxt->do_interrupt = &handle_receive_interrupt;
 +
-+		/* combine physically continuous fragments later? */
-+		ret = sdma_txadd_page(sde->dd,
-+				      &tx->txreq,
-+				      skb_frag_page(frag),
-+				      frag->page_offset,
-+				      skb_frag_size(frag));
-+		if (ret)
-+			goto bail_txadd;
-+	}
++	/* Now allocate the RcvHdr queue and eager buffers. */
++	ret = hfi1_create_rcvhdrq(dd, uctxt);
++	if (ret)
++		goto done;
 +
-+	if (tx->plen)
-+		ret = sdma_txadd_kvaddr(sde->dd, &tx->txreq,
-+					tx->pad + HFI1_VNIC_MAX_PAD - tx->plen,
-+					tx->plen);
++	ret = hfi1_setup_eagerbufs(uctxt);
++	if (ret)
++		goto done;
 +
-+bail_txadd:
++	set_bit(HFI1_CTXT_SETUP_DONE, &uctxt->event_flags);
++
++	if (uctxt->rcvhdrtail_kvaddr)
++		clear_rcvhdrtail(uctxt);
++
++	rcvctrl_ops = HFI1_RCVCTRL_CTXT_ENB;
++	rcvctrl_ops |= HFI1_RCVCTRL_INTRAVAIL_ENB;
++
++	if (!HFI1_CAP_KGET_MASK(uctxt->flags, MULTI_PKT_EGR))
++		rcvctrl_ops |= HFI1_RCVCTRL_ONE_PKT_EGR_ENB;
++	if (HFI1_CAP_KGET_MASK(uctxt->flags, NODROP_EGR_FULL))
++		rcvctrl_ops |= HFI1_RCVCTRL_NO_EGR_DROP_ENB;
++	if (HFI1_CAP_KGET_MASK(uctxt->flags, NODROP_RHQ_FULL))
++		rcvctrl_ops |= HFI1_RCVCTRL_NO_RHQ_DROP_ENB;
++	if (HFI1_CAP_KGET_MASK(uctxt->flags, DMA_RTAIL))
++		rcvctrl_ops |= HFI1_RCVCTRL_TAILUPD_ENB;
++
++	hfi1_rcvctrl(uctxt->dd, rcvctrl_ops, uctxt->ctxt);
++
++	uctxt->is_vnic = true;
++done:
 +	return ret;
 +}
 +
-+static int build_vnic_tx_desc(struct sdma_engine *sde,
-+			      struct vnic_txreq *tx,
-+			      u64 pbc)
++static int allocate_vnic_ctxt(struct hfi1_devdata *dd,
++			      struct hfi1_ctxtdata **vnic_ctxt)
 +{
++	struct hfi1_ctxtdata *uctxt;
++	unsigned int ctxt;
++	int ret;
++
++	if (dd->flags & HFI1_FROZEN)
++		return -EIO;
++
++	for (ctxt = dd->first_dyn_alloc_ctxt;
++	     ctxt < dd->num_rcv_contexts; ctxt++)
++		if (!dd->rcd[ctxt])
++			break;
++
++	if (ctxt == dd->num_rcv_contexts)
++		return -EBUSY;
++
++	uctxt = hfi1_create_ctxtdata(dd->pport, ctxt, dd->node);
++	if (!uctxt) {
++		dd_dev_err(dd, "Unable to create ctxtdata, failing open\n");
++		return -ENOMEM;
++	}
++
++	uctxt->flags = HFI1_CAP_KGET(MULTI_PKT_EGR) |
++			HFI1_CAP_KGET(NODROP_RHQ_FULL) |
++			HFI1_CAP_KGET(NODROP_EGR_FULL) |
++			HFI1_CAP_KGET(DMA_RTAIL);
++	uctxt->seq_cnt = 1;
++
++	/* Allocate and enable a PIO send context */
++	uctxt->sc = sc_alloc(dd, SC_VNIC, uctxt->rcvhdrqentsize,
++			     uctxt->numa_id);
++
++	ret = uctxt->sc ? 0 : -ENOMEM;
++	if (ret)
++		goto bail;
++
++	dd_dev_dbg(dd, "allocated vnic send context %u(%u)\n",
++		   uctxt->sc->sw_index, uctxt->sc->hw_context);
++	ret = sc_enable(uctxt->sc);
++	if (ret)
++		goto bail;
++
++	if (dd->num_msix_entries)
++		hfi1_set_vnic_msix_info(uctxt);
++
++	hfi1_stats.sps_ctxts++;
++	dd_dev_dbg(dd, "created vnic context %d\n", uctxt->ctxt);
++	*vnic_ctxt = uctxt;
++
++	return ret;
++bail:
++	/*
++	 * hfi1_free_ctxtdata() also releases send_context
++	 * structure if uctxt->sc is not null
++	 */
++	dd->rcd[uctxt->ctxt] = NULL;
++	hfi1_free_ctxtdata(dd, uctxt);
++	dd_dev_dbg(dd, "vnic allocation failed. rc %d\n", ret);
++	return ret;
++}
++
++static void deallocate_vnic_ctxt(struct hfi1_devdata *dd,
++				 struct hfi1_ctxtdata *uctxt)
++{
++	unsigned long flags;
++
++	dd_dev_dbg(dd, "closing vnic context %d\n", uctxt->ctxt);
++	flush_wc();
++
++	if (dd->num_msix_entries)
++		hfi1_reset_vnic_msix_info(uctxt);
++
++	spin_lock_irqsave(&dd->uctxt_lock, flags);
++	/*
++	 * Disable receive context and interrupt available, reset all
++	 * RcvCtxtCtrl bits to default values.
++	 */
++	hfi1_rcvctrl(dd, HFI1_RCVCTRL_CTXT_DIS |
++		     HFI1_RCVCTRL_TIDFLOW_DIS |
++		     HFI1_RCVCTRL_INTRAVAIL_DIS |
++		     HFI1_RCVCTRL_ONE_PKT_EGR_DIS |
++		     HFI1_RCVCTRL_NO_RHQ_DROP_DIS |
++		     HFI1_RCVCTRL_NO_EGR_DROP_DIS, uctxt->ctxt);
++	/*
++	 * VNIC contexts are allocated from user context pool.
++	 * Release them back to user context pool.
++	 *
++	 * Reset context integrity checks to default.
++	 * (writes to CSRs probably belong in chip.c)
++	 */
++	write_kctxt_csr(dd, uctxt->sc->hw_context, SEND_CTXT_CHECK_ENABLE,
++			hfi1_pkt_default_send_ctxt_mask(dd, SC_USER));
++	sc_disable(uctxt->sc);
++
++	dd->send_contexts[uctxt->sc->sw_index].type = SC_USER;
++	spin_unlock_irqrestore(&dd->uctxt_lock, flags);
++
++	dd->rcd[uctxt->ctxt] = NULL;
++	uctxt->event_flags = 0;
++
++	hfi1_clear_tids(uctxt);
++	hfi1_clear_ctxt_pkey(dd, uctxt->ctxt);
++
++	hfi1_stats.sps_ctxts--;
++	hfi1_free_ctxtdata(dd, uctxt);
++}
++
++void hfi1_vnic_setup(struct hfi1_devdata *dd)
++{
++	idr_init(&dd->vnic.vesw_idr);
++}
++
++void hfi1_vnic_cleanup(struct hfi1_devdata *dd)
++{
++	idr_destroy(&dd->vnic.vesw_idr);
++}
++
++static u64 create_bypass_pbc(u32 vl, u32 dw_len)
++{
++	u64 pbc;
++
++	pbc = ((u64)PBC_IHCRC_NONE << PBC_INSERT_HCRC_SHIFT)
++		| PBC_INSERT_BYPASS_ICRC | PBC_CREDIT_RETURN
++		| PBC_PACKET_BYPASS
++		| ((vl & PBC_VL_MASK) << PBC_VL_SHIFT)
++		| (dw_len & PBC_LENGTH_DWS_MASK) << PBC_LENGTH_DWS_SHIFT;
++
++	return pbc;
++}
++
++static int hfi1_vnic_put_skb(struct hfi_vnic_port *vport,
++			     u8 q_idx, struct sk_buff *skb)
++{
++	struct hfi1_vnic_vport_info *vinfo = vport->hfi_priv;
++	struct hfi1_devdata *dd = vinfo->dd;
++	u32 vl, pkt_len, total_len;
++	u8 sc5, pad_len;
 +	int ret = 0;
-+	u16 hdrbytes = 2 << 2;  /* PBC */
++	u64 pbc;
 +
-+	ret = sdma_txinit_ahg(
-+		&tx->txreq,
-+		0,
-+		hdrbytes + tx->skb->len + tx->plen,
-+		0,
-+		0,
-+		NULL,
-+		0,
-+		vnic_sdma_complete);
-+	if (ret)
-+		goto bail_txadd;
-+
-+	/* add pbc */
-+	tx->pbc_val = cpu_to_le64(pbc);
-+	ret = sdma_txadd_kvaddr(
-+		sde->dd,
-+		&tx->txreq,
-+		&tx->pbc_val,
-+		hdrbytes);
-+	if (ret)
-+		goto bail_txadd;
-+
-+	/* add the ulp payload */
-+	ret = build_vnic_ulp_payload(sde, tx);
-+bail_txadd:
-+	return ret;
-+}
-+
- int hfi1_vnic_send_dma(struct hfi1_devdata *dd, u8 q_idx,
- 		       struct hfi1_vnic_vport_info *vinfo,
- 		       struct sk_buff *skb, u64 pbc, u8 plen)
- {
-+	struct hfi1_vnic_sdma *vnic_sdma = &vinfo->sdma[q_idx];
-+	struct sdma_engine *sde = vnic_sdma->sde;
-+	struct vnic_txreq *tx;
-+	int ret = -ECOMM;
-+
-+	if (READ_ONCE(vnic_sdma->state) != HFI1_VNIC_SDMA_Q_ACTIVE)
-+		goto tx_err;
-+
-+	if (!sde || !sdma_running(sde))
-+		goto tx_err;
-+
-+	tx = kmem_cache_alloc(dd->vnic.txreq_cache, GFP_ATOMIC);
-+	if (!tx) {
-+		ret = -ENOMEM;
-+		goto tx_err;
++	if (q_idx >= vport->hfi_info.num_tx_q) {
++		dev_kfree_skb_any(skb);
++		return -EINVAL;
 +	}
 +
-+	tx->sdma = vnic_sdma;
-+	tx->skb = skb;
-+	hfi1_vnic_update_pad(tx->pad, plen);
-+	tx->plen = plen;
-+	ret = build_vnic_tx_desc(sde, tx, pbc);
-+	if (unlikely(ret))
-+		goto free_desc;
-+	tx->retry_count = 0;
++	/* add tail padding (for 8 bytes size alignment) and icrc */
++	pad_len = -(skb->len + HFI1_VNIC_ICRC_TAIL_LEN) & 0x7;
++	pad_len += HFI1_VNIC_ICRC_TAIL_LEN;
 +
-+	ret = sdma_send_txreq(sde, &vnic_sdma->wait, &tx->txreq);
-+	/* When -ECOMM, sdma callback will be called with ABORT status */
-+	if (ret && unlikely(ret != -ECOMM))
-+		goto free_desc;
++	/*
++	 * pkt_len is how much data we have to write, includes header and data.
++	 * total_len is length of the packet in Dwords plus the PBC should not
++	 * include the CRC.
++	 */
++	pkt_len = (skb->len + pad_len) >> 2;
++	total_len = pkt_len + 2; /* PBC + packet */
 +
-+	return ret;
++	sc5 = hfi1_vnic_get_sc5(skb->data);
++	vl = sc_to_vlt(dd, sc5);
++	pbc = create_bypass_pbc(vl, total_len);
 +
-+free_desc:
-+	sdma_txclean(dd, &tx->txreq);
-+	kmem_cache_free(dd->vnic.txreq_cache, tx);
-+tx_err:
-+	if (ret != -EBUSY)
-+		dev_kfree_skb_any(skb);
++	dd_dev_dbg(dd, "%d: pbc 0x%016llX len %d pad_len %d\n",
++		   vport->vport_num, pbc, skb->len, pad_len);
++
++	ret = dd->process_vnic_dma_send(dd, q_idx, vinfo, skb,
++					pbc, pad_len);
++
++	if (ret) {
++		if (ret == -ENOMEM)
++			vport->hfi_stats[q_idx].tx_fifo_errors++;
++		else if (ret != -EBUSY)
++			vport->hfi_stats[q_idx].tx_logic_errors++;
++	}
++
 +	return ret;
 +}
 +
-+/*
-+ * hfi1_vnic_sdma_sleep - vnic sdma sleep function
-+ *
-+ * This function gets called from sdma_send_txreq() when there are not enough
-+ * sdma descriptors available to send the packet. It adds Tx queue's wait
-+ * structure to sdma engine's dmawait list to be woken up when descriptors
-+ * become available.
-+ */
-+static int hfi1_vnic_sdma_sleep(struct sdma_engine *sde,
-+				struct iowait *wait,
-+				struct sdma_txreq *txreq,
-+				unsigned int seq)
++static u8 hfi1_vnic_select_queue(struct hfi_vnic_port *vport, u8 vl, u8 entropy)
 +{
-+	struct hfi1_vnic_sdma *vnic_sdma =
-+		container_of(wait, struct hfi1_vnic_sdma, wait);
-+	struct hfi1_ibdev *dev = &vnic_sdma->dd->verbs_dev;
-+	struct vnic_txreq *tx = container_of(txreq, struct vnic_txreq, txreq);
-+
-+	if (sdma_progress(sde, seq, txreq))
-+		if (tx->retry_count++ < HFI1_VNIC_SDMA_RETRY_COUNT)
-+			return -EAGAIN;
-+
-+	vnic_sdma->state = HFI1_VNIC_SDMA_Q_DEFERRED;
-+	write_seqlock(&dev->iowait_lock);
-+	if (list_empty(&vnic_sdma->wait.list))
-+		list_add_tail(&vnic_sdma->wait.list, &sde->dmawait);
-+	write_sequnlock(&dev->iowait_lock);
-+	return -EBUSY;
++	return 0;
 +}
 +
-+/*
-+ * hfi1_vnic_sdma_wakeup - vnic sdma wakeup function
-+ *
-+ * This function gets called when SDMA descriptors becomes available and Tx
-+ * queue's wait structure was previously added to sdma engine's dmawait list.
-+ * It notifies the upper driver about Tx queue wakeup.
-+ */
-+static void hfi1_vnic_sdma_wakeup(struct iowait *wait, int reason)
++static bool hfi1_vnic_get_write_avail(struct hfi_vnic_port *vport, u8 q_idx)
 +{
-+	struct hfi1_vnic_sdma *vnic_sdma =
-+		container_of(wait, struct hfi1_vnic_sdma, wait);
-+	struct hfi1_vnic_vport_info *vinfo = vnic_sdma->vinfo;
-+	u8 evt = HFI_VNIC_EVT_TX0 + vnic_sdma->q_idx;
++	if (q_idx >= vport->hfi_info.num_tx_q)
++		return false;
++
++	return true;
++}
++
++void hfi1_vnic_bypass_rcv(struct hfi1_packet *packet)
++{
++	struct hfi1_devdata *dd = packet->rcd->dd;
++	struct hfi1_vnic_vport_info *vinfo;
++	struct hfi_vnic_port *vport = NULL;
 +	struct hfi1_vnic_notifier *notifier;
++	struct sk_buff *skb;
++	int l4_type, vesw_id = -1;
++	u8 q_idx;
 +
-+	vnic_sdma->state = HFI1_VNIC_SDMA_Q_ACTIVE;
-+	notifier = rcu_dereference(vinfo->notifier);
-+	if (notifier && notifier->cb && test_bit(evt, vinfo->event_flags))
-+		notifier->cb(vinfo->vport, evt);
-+};
++	rcu_read_lock();
++	l4_type = HFI1_GET_L4_TYPE(packet->ebuf);
++	if (l4_type == HFI1_VNIC_L4_ETHR) {
++		vesw_id = HFI1_VNIC_GET_VESWID(packet->ebuf);
++		vport = idr_find(&dd->vnic.vesw_idr, vesw_id);
 +
-+inline bool hfi1_vnic_sdma_write_avail(struct hfi1_vnic_vport_info *vinfo,
-+				       u8 q_idx)
-+{
-+	struct hfi1_vnic_sdma *vnic_sdma = &vinfo->sdma[q_idx];
++		/*
++		 * In case of invalid vesw id, update the rx_bad_veswid
++		 * error count of first available vport.
++		 */
++		if (unlikely(!vport)) {
++			struct hfi_vnic_port *vport_tmp;
++			int id_tmp = 0;
 +
-+	return (READ_ONCE(vnic_sdma->state) == HFI1_VNIC_SDMA_Q_ACTIVE);
-+}
-+
-+void hfi1_vnic_sdma_init(struct hfi1_vnic_vport_info *vinfo)
-+{
-+	int i;
-+
-+	for (i = 0; i < vinfo->vport->hfi_info.num_tx_q; i++) {
-+		struct hfi1_vnic_sdma *vnic_sdma = &vinfo->sdma[i];
-+
-+		iowait_init(&vnic_sdma->wait, 0, NULL, hfi1_vnic_sdma_sleep,
-+			    hfi1_vnic_sdma_wakeup, NULL);
-+		vnic_sdma->sde = &vinfo->dd->per_sdma[i];
-+		vnic_sdma->dd = vinfo->dd;
-+		vnic_sdma->vinfo = vinfo;
-+		vnic_sdma->q_idx = i;
-+		vnic_sdma->state = HFI1_VNIC_SDMA_Q_ACTIVE;
-+
-+		/* Add a free descriptor watermark for wakeups */
-+		if (vnic_sdma->sde->descq_cnt >= HFI1_VNIC_SDMA_DESC_WTRMRK) {
-+			INIT_LIST_HEAD(&vnic_sdma->stx.list);
-+			vnic_sdma->stx.num_desc = HFI1_VNIC_SDMA_DESC_WTRMRK;
-+			list_add_tail(&vnic_sdma->stx.list,
-+				      &vnic_sdma->wait.tx_head);
++			vport_tmp =  idr_get_next(&dd->vnic.vesw_idr, &id_tmp);
++			if (vport_tmp) {
++				spin_lock(&vport_cntr_lock);
++				vport_tmp->hfi_stats[0].rx_bad_veswid++;
++				spin_unlock(&vport_cntr_lock);
++			}
 +		}
 +	}
++
++	if (unlikely(!vport)) {
++		dd_dev_warn(dd, "vnic rcv err: l4 %d vesw id %d ctx %d\n",
++			    l4_type, vesw_id, packet->rcd->ctxt);
++		goto rcv_done;
++	}
++
++	vinfo = vport->hfi_priv;
++	q_idx = packet->rcd->vnic_q_idx;
++	notifier = rcu_dereference(vinfo->notifier);
++	if (!notifier || !notifier->cb) {
++		vport->hfi_stats[q_idx].rx_logic_errors++;
++		goto rcv_done;
++	}
++
++	if (skb_queue_len(&vinfo->skbq[q_idx]) > HFI1_VNIC_RCV_Q_SIZE) {
++		vport->hfi_stats[q_idx].rx_fifo_errors++;
++		goto rcv_done;
++	}
++
++	skb = netdev_alloc_skb(vport->netdev, packet->tlen);
++	if (!skb) {
++		vport->hfi_stats[q_idx].rx_missed_errors++;
++		goto rcv_done;
++	}
++	memcpy(skb->data, packet->ebuf, packet->tlen);
++	skb_put(skb, packet->tlen);
++
++	skb_queue_tail(&vinfo->skbq[q_idx], skb);
++	if (test_bit((HFI_VNIC_EVT_RX0 + q_idx), vinfo->event_flags))
++		notifier->cb(vport, HFI_VNIC_EVT_RX0 + q_idx);
++
++rcv_done:
++	rcu_read_unlock();
 +}
 +
-+static void hfi1_vnic_txreq_kmem_cache_ctor(void *obj)
++static u16 hfi1_vnic_get_read_avail(struct hfi_vnic_port *vport, u8 q_idx)
 +{
-+	struct vnic_txreq *tx = (struct vnic_txreq *)obj;
++	struct hfi1_vnic_vport_info *vinfo = vport->hfi_priv;
 +
-+	memset(tx, 0, sizeof(*tx));
++	if (q_idx >= vport->hfi_info.num_rx_q)
++		return 0;
++
++	return skb_queue_len(&vinfo->skbq[q_idx]);
 +}
 +
-+int hfi1_vnic_txreq_init(struct hfi1_devdata *dd)
++static struct sk_buff *hfi1_vnic_get_skb(struct hfi_vnic_port *vport, u8 q_idx)
 +{
-+	char buf[HFI1_VNIC_TXREQ_NAME_LEN];
++	struct hfi1_vnic_vport_info *vinfo = vport->hfi_priv;
++	unsigned char *pad_info;
++	struct sk_buff *skb;
 +
-+	snprintf(buf, sizeof(buf), "hfi1_%u_vnic_txreq_cache", dd->unit);
-+	dd->vnic.txreq_cache = kmem_cache_create(buf,
-+					  sizeof(struct vnic_txreq),
-+					  0, SLAB_HWCACHE_ALIGN,
-+					  hfi1_vnic_txreq_kmem_cache_ctor);
-+	if (!dd->vnic.txreq_cache)
++	if (q_idx >= vport->hfi_info.num_rx_q)
++		return NULL;
++
++	skb = skb_dequeue(&vinfo->skbq[q_idx]);
++	if (!skb)
++		return NULL;
++
++	/* remove tail padding and icrc */
++	pad_info = skb->data + skb->len - 1;
++	skb_trim(skb, (skb->len - HFI1_VNIC_ICRC_TAIL_LEN -
++		       ((*pad_info) & 0x7)));
++
++	return skb;
++}
++
++static void hfi1_vnic_config_notify(struct hfi_vnic_port *vport,
++				    u8 evt, bool enable)
++{
++	struct hfi1_vnic_vport_info *vinfo = vport->hfi_priv;
++
++	if (enable)
++		set_bit(evt, vinfo->event_flags);
++	else
++		clear_bit(evt, vinfo->event_flags);
++}
++
++static int hfi1_vnic_open(struct hfi_vnic_port *vport, hfi_vnic_evt_cb_fn cb)
++{
++	struct hfi1_vnic_vport_info *vinfo = vport->hfi_priv;
++	struct hfi1_devdata *dd = vinfo->dd;
++	struct hfi1_vnic_notifier *notifier;
++	int i, rc;
++
++	if (!cb)
++		return -EINVAL;
++
++	notifier = kmalloc(sizeof(*notifier), GFP_KERNEL);
++	if (!notifier)
 +		return -ENOMEM;
- 	return 0;
- }
 +
-+void hfi1_vnic_txreq_deinit(struct hfi1_devdata *dd)
-+{
-+	kmem_cache_destroy(dd->vnic.txreq_cache);
-+	dd->vnic.txreq_cache = NULL;
++	notifier->cb = cb;
++
++	/* ensure virtual eth switch id is valid */
++	if (!vport->vesw_id) {
++		rc = -EINVAL;
++		goto open_fail;
++	}
++
++	rc = idr_alloc(&dd->vnic.vesw_idr, vport, vport->vesw_id,
++		       vport->vesw_id + 1, GFP_NOWAIT);
++	if (rc < 0)
++		goto open_fail;
++
++	for (i = 0; i < HFI1_NUM_VNIC_CTXT; i++)
++		skb_queue_head_init(&vinfo->skbq[i]);
++
++	/* Enable all events */
++	for (i = 0; i < HFI_VNIC_NUM_EVTS; i++)
++		set_bit(i, vinfo->event_flags);
++
++	rcu_assign_pointer(vinfo->notifier, notifier);
++	synchronize_rcu();
++	return 0;
++
++open_fail:
++	kfree(notifier);
++	return rc;
 +}
++
++static void hfi1_vnic_close(struct hfi_vnic_port *vport)
++{
++	struct hfi1_vnic_vport_info *vinfo = vport->hfi_priv;
++	struct hfi1_devdata *dd = vinfo->dd;
++	struct hfi1_vnic_notifier *notifier;
++	u8 i;
++
++	idr_remove(&dd->vnic.vesw_idr, vport->vesw_id);
++	notifier = rcu_access_pointer(vinfo->notifier);
++	rcu_assign_pointer(vinfo->notifier, NULL);
++	synchronize_rcu();
++	kfree(notifier);
++
++	/* remove unread skbs */
++	for (i = 0; i < HFI1_NUM_VNIC_CTXT; i++)
++		skb_queue_purge(&vinfo->skbq[i]);
++}
++
++static int hfi1_vnic_allot_ctxt(struct hfi1_devdata *dd,
++				struct hfi1_ctxtdata **vnic_ctxt)
++{
++	int rc;
++
++	rc = allocate_vnic_ctxt(dd, vnic_ctxt);
++	if (rc) {
++		dd_dev_err(dd, "vnic ctxt alloc failed %d\n", rc);
++		return rc;
++	}
++
++	rc = setup_vnic_ctxt(dd, *vnic_ctxt);
++	if (rc) {
++		dd_dev_err(dd, "vnic ctxt setup failed %d\n", rc);
++		deallocate_vnic_ctxt(dd, *vnic_ctxt);
++		*vnic_ctxt = NULL;
++	}
++
++	return rc;
++}
++
++static int hfi1_vnic_init(struct hfi_vnic_port *vport)
++{
++	struct hfi1_vnic_vport_info *vinfo = vport->hfi_priv;
++	struct hfi1_devdata *dd = vinfo->dd;
++	int i, rc = 0;
++
++	mutex_lock(&hfi1_mutex);
++	for (i = dd->vnic.num_ctxt; i < vport->hfi_info.num_rx_q; i++) {
++		rc = hfi1_vnic_allot_ctxt(dd, &dd->vnic.ctxt[i]);
++		if (rc)
++			break;
++		dd->vnic.ctxt[i]->vnic_q_idx = i;
++	}
++
++	if (i < vport->hfi_info.num_rx_q) {
++		/*
++		 * If required amount of contexts is not
++		 * allocated successfully then remaining contexts
++		 * are released.
++		 */
++		while (i-- > dd->vnic.num_ctxt) {
++			deallocate_vnic_ctxt(dd, dd->vnic.ctxt[i]);
++			dd->vnic.ctxt[i] = NULL;
++		}
++		goto alloc_fail;
++	}
++
++	if (dd->vnic.num_ctxt != i) {
++		dd->vnic.num_ctxt = i;
++		hfi1_init_vnic_rsm(dd);
++	}
++
++	dd->vnic.num_vports++;
++	vinfo->vport = vport;
++alloc_fail:
++	mutex_unlock(&hfi1_mutex);
++	return rc;
++}
++
++static void hfi1_vnic_deinit(struct hfi_vnic_port *vport)
++{
++	struct hfi1_devdata *dd = vnic_dev2dd(vport);
++	int i;
++
++	mutex_lock(&hfi1_mutex);
++	if (--dd->vnic.num_vports == 0) {
++		for (i = 0; i < dd->vnic.num_ctxt; i++) {
++			deallocate_vnic_ctxt(dd, dd->vnic.ctxt[i]);
++			dd->vnic.ctxt[i] = NULL;
++		}
++		hfi1_deinit_vnic_rsm(dd);
++		dd->vnic.num_ctxt = 0;
++	}
++	mutex_unlock(&hfi1_mutex);
++}
++
++/* vnic operations */
++static struct hfi_vnic_ops hfi1_vnic_ops = {
++	.open = hfi1_vnic_open,
++	.close = hfi1_vnic_close,
++	.put_skb = hfi1_vnic_put_skb,
++	.get_skb = hfi1_vnic_get_skb,
++	.get_read_avail = hfi1_vnic_get_read_avail,
++	.get_write_avail = hfi1_vnic_get_write_avail,
++	.select_queue = hfi1_vnic_select_queue,
++	.config_notify = hfi1_vnic_config_notify
++};
++
++/* hfi1_vnic_add_vport - Allocate and initialize a vnic port */
++struct hfi_vnic_port *hfi1_vnic_add_vport(struct ib_device *device,
++					  u8 port_num, u8 vport_num)
++{
++	struct hfi1_devdata *dd = dd_from_ibdev(device);
++	struct hfi1_vnic_vport_info *vinfo;
++	struct hfi_vnic_port *vport;
++	int rc;
++
++	if (!port_num || (port_num > dd->num_pports) ||
++	    (vport_num == HFI_MAX_NUM_VNICS))
++		return ERR_PTR(-EINVAL);
++
++	vport = kzalloc(sizeof(*vport), GFP_KERNEL);
++	if (!vport)
++		return ERR_PTR(-ENOMEM);
++
++	vinfo = kzalloc(sizeof(*vinfo), GFP_KERNEL);
++	if (!vinfo) {
++		rc = -ENOMEM;
++		goto vinfo_fail;
++	}
++
++	vinfo->dd = dd;
++	vport->hfi_info.num_tx_q = dd->chip_sdma_engines;
++	vport->hfi_info.num_rx_q = HFI1_NUM_VNIC_CTXT;
++	vport->hfi_info.cap = HFI_VNIC_CAP_SG;
++	vport->ops = &hfi1_vnic_ops;
++	vport->hfi_priv = vinfo;
++	vport->port_num = port_num;
++	vport->vport_num = vport_num;
++
++	rc = hfi1_vnic_init(vport);
++	if (rc)
++		goto init_fail;
++
++	dd_dev_info(dd, "added vnic port %d:%d\n", port_num, vport_num);
++	return vport;
++init_fail:
++	kfree(vinfo);
++vinfo_fail:
++	kfree(vport);
++	return ERR_PTR(rc);
++}
++
++/* hfi1_vnic_rem_vport - Uninitialize and free vnic port */
++void hfi1_vnic_rem_vport(struct hfi_vnic_port *vport)
++{
++	hfi1_vnic_deinit(vport);
++	kfree(vport->hfi_priv);
++	kfree(vport);
++}
+diff --git a/drivers/infiniband/hw/hfi1/vnic_sdma.c b/drivers/infiniband/hw/hfi1/vnic_sdma.c
+new file mode 100644
+index 0000000..66abad0
+--- /dev/null
++++ b/drivers/infiniband/hw/hfi1/vnic_sdma.c
+@@ -0,0 +1,60 @@
++/*
++ * Copyright(c) 2016 Intel Corporation.
++ *
++ * This file is provided under a dual BSD/GPLv2 license.  When using or
++ * redistributing this file, you may do so under either license.
++ *
++ * GPL LICENSE SUMMARY
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * General Public License for more details.
++ *
++ * BSD LICENSE
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ *
++ *  - Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ *  - Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in
++ *    the documentation and/or other materials provided with the
++ *    distribution.
++ *  - Neither the name of Intel Corporation nor the names of its
++ *    contributors may be used to endorse or promote products derived
++ *    from this software without specific prior written permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
++ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
++ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
++ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
++ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
++ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
++ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
++ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ *
++ */
++
++/*
++ * This file contains HFI1 support for VNIC SDMA functionality
++ */
++
++#include "sdma.h"
++#include "vnic.h"
++
++int hfi1_vnic_send_dma(struct hfi1_devdata *dd, u8 q_idx,
++		       struct hfi1_vnic_vport_info *vinfo,
++		       struct sk_buff *skb, u64 pbc, u8 plen)
++{
++	return 0;
++}
+diff --git a/include/rdma/opa_port_info.h b/include/rdma/opa_port_info.h
+index 9303e0e..84caa5b 100644
+--- a/include/rdma/opa_port_info.h
++++ b/include/rdma/opa_port_info.h
+@@ -410,7 +410,7 @@ struct opa_port_info {
+ 
+ 	u8     resptimevalue;		        /* 3 res, 5 bits */
+ 	u8     local_port_num;
+-	u8     reserved12;
++	u8     num_vesw_port_supported;
+ 	u8     reserved13;                       /* was guid_cap */
+ } __attribute__ ((packed));
+ 
 -- 
 1.8.3.1
