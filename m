@@ -1,139 +1,185 @@
-From: Niklas Cassel <niklas.cassel@axis.com>
-Subject: Re: Synopsys Ethernet QoS
-Date: Thu, 15 Dec 2016 13:05:35 +0100
-Message-ID: <d9fc4a14-2628-b07d-7024-16c7890f5bcc@axis.com>
-References: <93b73b79-36aa-56b8-f975-b890b7a48bd1@synopsys.com>
- <20161209.104152.1969880574279771010.davem@davemloft.net>
- <CAHp75VcKURaTQX9=SY8+46GGATuwO1oXAi8eMS+uwk58sjKx5Q@mail.gmail.com>
- <3aee5a67-5e19-34e6-1719-ff13c7b914ea@gmail.com>
- <CAHp75VfT9B3O5jU0eHoKtgYc48K2ZjCQ-g9ZQ9nX1Hew6tz-zw@mail.gmail.com>
- <556353b7-c847-7549-626d-3c324063647e@gmail.com>
- <f5357ea2-a295-ab08-046e-f8b8f6ca4344@synopsys.com>
- <1d445ec1-deb8-6e36-39c4-6813c446095f@axis.com>
- <73bf8cb4-5685-2db6-529c-1de99b1fd358@st.com>
- <99424968-ad8f-fec6-ebcf-ab7b19ee5486@axis.com> <20161214125735.GA19542@amd>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
-        Joao Pinto <Joao.Pinto@synopsys.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andy Shevchenko <andy.shevchenko@gmail.com>,
-        David Miller <davem@davemloft.net>, <larper@axis.com>,
-        <rabinv@axis.com>, netdev <netdev@vger.kernel.org>,
-        <CARLOS.PALMINHA@synopsys.com>, <Jie.Deng1@synopsys.com>,
-        Stephen Warren <swarren@nvidia.com>
-To: Pavel Machek <pavel@ucw.cz>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bastet.se.axis.com ([195.60.68.11]:43691 "EHLO
-        bastet.se.axis.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751266AbcLOMPK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Dec 2016 07:15:10 -0500
-In-Reply-To: <20161214125735.GA19542@amd>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Mark Brown <broonie@kernel.org>
+Subject: Applied "misc: atmel-ssc: register as sound DAI if #sound-dai-cells is present" to the asoc tree
+Date: Thu, 15 Dec 2016 12:20:56 +0000
+Message-ID: <E1cHV1s-0000cB-9B@debutante>
+References: <1480593549-6464-2-git-send-email-peda@axentia.se>
+Cc: Rob Herring <robh@kernel.org>,
+        Nicolas Ferre <nicolas.ferre@atmel.com>,
+        Mark Brown <broonie@kernel.org>, linux-kernel@vger.kernel.org,
+        Mark Rutland <mark.rutland@arm.com>,
+        devicetree@vger.kernel.org, alsa-devel@alsa-project.org,
+        Arnd Bergmann <arnd@arndb.de>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Takashi Iwai <tiwai@suse.com>,
+        Nicolas Ferre <nicolas.ferre@atmel.com>,
+        Liam Girdwood <lgirdwood@gmail.com>,
+        Rob Herring <robh+dt@kernel.org>,
+        Mark Brown <broonie@kernel.org>, netdev@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org
+To: Peter Rosin <peda@axentia.se>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1480593549-6464-2-git-send-email-peda@axentia.se>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/14/2016 01:57 PM, Pavel Machek wrote:
-> Hi!
->
->> So if there is a long time before handling interrupts,
->> I guess that it makes sense that one stream could
->> get an advantage in the net scheduler.
->>
->> If I find the time, and if no one beats me to it, I will try to replace
->> the normal timers with HR timers + a smaller default timeout.
->>
-> Can you try something like this? Highres timers will be needed, too,
-> but this fixes the logic problem.
+The patch
 
-Hello Pavel
+   misc: atmel-ssc: register as sound DAI if #sound-dai-cells is present
 
-I tried your patch, but unfortunately I get a tx queue timeout.
-After that, I cannot ping.
+has been applied to the asoc tree at
 
-[   22.075782] ------------[ cut here ]------------
-[   22.080430] WARNING: CPU: 0 PID: 0 at net/sched/sch_generic.c:316 dev_watchdog+0x240/0x258
-[   22.088704] NETDEV WATCHDOG: eth0 (stmmaceth): transmit queue 0 timed out
-[   22.095491] Modules linked in:
-[   22.098552] CPU: 0 PID: 0 Comm: swapper/0 Not tainted 4.9.0-axis3-devel #126
-[   22.105592] Hardware name: Axis ARTPEC-6 Platform
-[   22.110301] [<80110568>] (unwind_backtrace) from [<8010c2bc>] (show_stack+0x18/0x1c)
-[   22.118043] [<8010c2bc>] (show_stack) from [<80433544>] (dump_stack+0x80/0xa0)
-[   22.125264] [<80433544>] (dump_stack) from [<8011f9f0>] (__warn+0xe0/0x10c)
-[   22.132221] [<8011f9f0>] (__warn) from [<8011fadc>] (warn_slowpath_fmt+0x40/0x50)
-[   22.139700] [<8011fadc>] (warn_slowpath_fmt) from [<805e626c>] (dev_watchdog+0x240/0x258)
-[   22.147875] [<805e626c>] (dev_watchdog) from [<801826c8>] (call_timer_fn+0x44/0x208)
-[   22.155613] [<801826c8>] (call_timer_fn) from [<80182934>] (expire_timers+0xa8/0x15c)
-[   22.163437] [<80182934>] (expire_timers) from [<80182a74>] (run_timer_softirq+0x8c/0x164)
-[   22.171610] [<80182a74>] (run_timer_softirq) from [<80124a7c>] (__do_softirq+0xac/0x3f0)
-[   22.179696] [<80124a7c>] (__do_softirq) from [<80125124>] (irq_exit+0xf0/0x158)
-[   22.187003] [<80125124>] (irq_exit) from [<8016ffd4>] (__handle_domain_irq+0x60/0xb8)
-[   22.194828] [<8016ffd4>] (__handle_domain_irq) from [<801014c4>] (gic_handle_irq+0x4c/0x9c)
-[   22.203175] [<801014c4>] (gic_handle_irq) from [<806cc48c>] (__irq_svc+0x6c/0xa8)
-[   22.210648] Exception stack(0x80b01f60 to 0x80b01fa8)
-[   22.215694] 1f60: 00000000 bf5c03f0 80b01fb8 8011a060 00000000 00000001 80b03c9c 80b03c2c
-[   22.223865] 1f80: 80b1c045 80b1c045 00000001 00000000 80a673f0 80b01fb0 801090c0 801090c4
-[   22.232032] 1fa0: 60000013 ffffffff
-[   22.235520] [<806cc48c>] (__irq_svc) from [<801090c4>] (arch_cpu_idle+0x38/0x44)
-[   22.242914] [<801090c4>] (arch_cpu_idle) from [<80160f00>] (cpu_startup_entry+0xd8/0x148)
-[   22.251089] [<80160f00>] (cpu_startup_entry) from [<80a00c44>] (start_kernel+0x360/0x3c8)
-[   22.259269] ---[ end trace e04d3944bdde616a ]---
+   git://git.kernel.org/pub/scm/linux/kernel/git/broonie/sound.git 
 
+All being well this means that it will be integrated into the linux-next
+tree (usually sometime in the next 24 hours) and sent to Linus during
+the next merge window (or sooner if it is a bug fix), however if
+problems are discovered then the patch may be dropped or reverted.  
 
+You may get further e-mails resulting from automated or manual testing
+and review of the tree, please engage with people reporting problems and
+send followup patches addressing any issues that are reported if needed.
 
-I patched both stmmac_tso_xmit and stmmac_xmit, as instructed.
-Here is the diff:
+If any updates are required or you are submitting further changes they
+should be sent as incremental updates against current git, existing
+patches will not be replaced.
 
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -2090,8 +2090,9 @@ static netdev_tx_t stmmac_tso_xmit(struct sk_buff *skb, struct net_device *dev)
-        /* Manage tx mitigation */
-        priv->tx_count_frames += nfrags + 1;
-        if (likely(priv->tx_coal_frames > priv->tx_count_frames)) {
--               mod_timer(&priv->txtimer,
--                         STMMAC_COAL_TIMER(priv->tx_coal_timer));
-+               if (priv->tx_count_frames == nfrags + 1)
-+                       mod_timer(&priv->txtimer,
-+                                 STMMAC_COAL_TIMER(priv->tx_coal_timer));
-        } else {
-                priv->tx_count_frames = 0;
-                priv->hw->desc->set_tx_ic(desc);
-@@ -2292,8 +2293,9 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
-         */
-        priv->tx_count_frames += nfrags + 1;
-        if (likely(priv->tx_coal_frames > priv->tx_count_frames)) {
--               mod_timer(&priv->txtimer,
--                         STMMAC_COAL_TIMER(priv->tx_coal_timer));
-+               if (priv->tx_count_frames == nfrags + 1)
-+                       mod_timer(&priv->txtimer,
-+                                 STMMAC_COAL_TIMER(priv->tx_coal_timer));
-        } else {
-                priv->tx_count_frames = 0;
-                priv->hw->desc->set_tx_ic(desc);
+Please add any relevant lists and maintainers to the CCs when replying
+to this mail.
 
+Thanks,
+Mark
 
+>From e8314d7d53c8b050aac2828a5de5f28a997b468b Mon Sep 17 00:00:00 2001
+From: Peter Rosin <peda@axentia.se>
+Date: Tue, 6 Dec 2016 20:22:36 +0100
+Subject: [PATCH] misc: atmel-ssc: register as sound DAI if #sound-dai-cells is
+ present
 
-Without your patch, I get no tx queue timeout, and ping works fine.
+The SSC is currently not usable with the ASoC simple-audio-card, as
+every SSC audio user has to build a platform driver that may do as
+little as calling atmel_ssc_set_audio/atmel_ssc_put_audio (which
+allocates the SSC and registers a DAI with the ASoC subsystem).
 
+So, have that happen automatically, if the #sound-dai-cells property
+is present in devicetree, which it has to be anyway for simple audio
+card to work.
 
->
-> You'll need to apply it twice as code is copy&pasted.
->
-> Best regards,
-> 									Pavel
->
-> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
->
->  	 */
->  	priv->tx_count_frames += nfrags + 1;
->  	if (likely(priv->tx_coal_frames > priv->tx_count_frames)) {
-> -		mod_timer(&priv->txtimer,
-> -			  STMMAC_COAL_TIMER(priv->tx_coal_timer));
-> +		if (priv->tx_count_frames == nfrags + 1)
-> +			mod_timer(&priv->txtimer,
-> +				  STMMAC_COAL_TIMER(priv->tx_coal_timer));
->  	} else {
->  		priv->tx_count_frames = 0;
->  		priv->hw->desc->set_tx_ic(desc);
->
->
+Signed-off-by: Peter Rosin <peda@axentia.se>
+Acked-by: Rob Herring <robh@kernel.org>
+Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+Signed-off-by: Mark Brown <broonie@kernel.org>
+---
+ .../devicetree/bindings/misc/atmel-ssc.txt         |  2 +
+ drivers/misc/atmel-ssc.c                           | 50 ++++++++++++++++++++++
+ include/linux/atmel-ssc.h                          |  1 +
+ 3 files changed, 53 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/misc/atmel-ssc.txt b/Documentation/devicetree/bindings/misc/atmel-ssc.txt
+index efc98ea1f23d..f8629bb73945 100644
+--- a/Documentation/devicetree/bindings/misc/atmel-ssc.txt
++++ b/Documentation/devicetree/bindings/misc/atmel-ssc.txt
+@@ -24,6 +24,8 @@ Optional properties:
+        this parameter to choose where the clock from.
+      - By default the clock is from TK pin, if the clock from RK pin, this
+        property is needed.
++  - #sound-dai-cells: Should contain <0>.
++     - This property makes the SSC into an automatically registered DAI.
+ 
+ Examples:
+ - PDC transfer:
+diff --git a/drivers/misc/atmel-ssc.c b/drivers/misc/atmel-ssc.c
+index 0516ecda54d3..b2a0340f277e 100644
+--- a/drivers/misc/atmel-ssc.c
++++ b/drivers/misc/atmel-ssc.c
+@@ -20,6 +20,8 @@
+ 
+ #include <linux/of.h>
+ 
++#include "../../sound/soc/atmel/atmel_ssc_dai.h"
++
+ /* Serialize access to ssc_list and user count */
+ static DEFINE_SPINLOCK(user_lock);
+ static LIST_HEAD(ssc_list);
+@@ -145,6 +147,49 @@ static inline const struct atmel_ssc_platform_data * __init
+ 		platform_get_device_id(pdev)->driver_data;
+ }
+ 
++#ifdef CONFIG_SND_ATMEL_SOC_SSC
++static int ssc_sound_dai_probe(struct ssc_device *ssc)
++{
++	struct device_node *np = ssc->pdev->dev.of_node;
++	int ret;
++	int id;
++
++	ssc->sound_dai = false;
++
++	if (!of_property_read_bool(np, "#sound-dai-cells"))
++		return 0;
++
++	id = of_alias_get_id(np, "ssc");
++	if (id < 0)
++		return id;
++
++	ret = atmel_ssc_set_audio(id);
++	ssc->sound_dai = !ret;
++
++	return ret;
++}
++
++static void ssc_sound_dai_remove(struct ssc_device *ssc)
++{
++	if (!ssc->sound_dai)
++		return;
++
++	atmel_ssc_put_audio(of_alias_get_id(ssc->pdev->dev.of_node, "ssc"));
++}
++#else
++static inline int ssc_sound_dai_probe(struct ssc_device *ssc)
++{
++	if (of_property_read_bool(ssc->pdev->dev.of_node, "#sound-dai-cells"))
++		return -ENOTSUPP;
++
++	return 0;
++}
++
++static inline void ssc_sound_dai_remove(struct ssc_device *ssc)
++{
++}
++#endif
++
+ static int ssc_probe(struct platform_device *pdev)
+ {
+ 	struct resource *regs;
+@@ -204,6 +249,9 @@ static int ssc_probe(struct platform_device *pdev)
+ 	dev_info(&pdev->dev, "Atmel SSC device at 0x%p (irq %d)\n",
+ 			ssc->regs, ssc->irq);
+ 
++	if (ssc_sound_dai_probe(ssc))
++		dev_err(&pdev->dev, "failed to auto-setup ssc for audio\n");
++
+ 	return 0;
+ }
+ 
+@@ -211,6 +259,8 @@ static int ssc_remove(struct platform_device *pdev)
+ {
+ 	struct ssc_device *ssc = platform_get_drvdata(pdev);
+ 
++	ssc_sound_dai_remove(ssc);
++
+ 	spin_lock(&user_lock);
+ 	list_del(&ssc->list);
+ 	spin_unlock(&user_lock);
+diff --git a/include/linux/atmel-ssc.h b/include/linux/atmel-ssc.h
+index 7c0f6549898b..fdb545101ede 100644
+--- a/include/linux/atmel-ssc.h
++++ b/include/linux/atmel-ssc.h
+@@ -20,6 +20,7 @@ struct ssc_device {
+ 	int			user;
+ 	int			irq;
+ 	bool			clk_from_rk_pin;
++	bool			sound_dai;
+ };
+ 
+ struct ssc_device * __must_check ssc_request(unsigned int ssc_num);
+-- 
+2.11.0
