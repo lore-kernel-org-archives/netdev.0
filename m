@@ -1,117 +1,132 @@
-From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: Re: [PATCH 8/8] Makefile: drop -D__CHECK_ENDIAN__ from cflags
-Date: Thu, 15 Dec 2016 08:57:57 +0100
-Message-ID: <4b0172bd-2779-35b2-96af-407087db844e@pengutronix.de>
-References: <1481778865-27667-1-git-send-email-mst@redhat.com>
- <1481778865-27667-9-git-send-email-mst@redhat.com>
-Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============4190790300631420360=="
-Cc: devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org, brcm80211-dev-list.pdl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
- Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>, Stefan Schmidt <stefan-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>,
- linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
- netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Matthias Brugger <matthias.bgg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
- nios2-dev-g9ZBwUv/Ih/yUk5EbOjzuce+I+R0W71w@public.gmane.org, wil6210-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org,
- linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
- linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1481778865-27667-9-git-send-email-mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
- <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
-List-Post: <mailto:linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mediatek>,
- <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura@intel.com>
+Subject: [RFC v2 01/10] IB/hfi-vnic: Virtual Network Interface Controller (VNIC) documentation
+Date: Wed, 14 Dec 2016 23:59:33 -0800
+Message-ID: <1481788782-89964-2-git-send-email-niranjana.vishwanathapura@intel.com>
+References: <1481788782-89964-1-git-send-email-niranjana.vishwanathapura@intel.com>
+Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
+        dennis.dalessandro@intel.com, ira.weiny@intel.com,
+        Niranjana Vishwanathapura <niranjana.vishwanathapura@intel.com>
+To: dledford@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga04.intel.com ([192.55.52.120]:35381 "EHLO mga04.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754934AbcLOIAE (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 15 Dec 2016 03:00:04 -0500
+In-Reply-To: <1481788782-89964-1-git-send-email-niranjana.vishwanathapura@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---===============4190790300631420360==
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="20OdsOHopTjIkLdocWTx6rgi2767kTTSI"
+Add HFI VNIC design document explaining the VNIC architecture and the
+driver design.
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---20OdsOHopTjIkLdocWTx6rgi2767kTTSI
-Content-Type: multipart/mixed; boundary="sdkl0Xxt0KtFM41xEtdan2EW1NXVMs5c1";
- protected-headers="v1"
-From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-To: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
- Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>, Stefan Schmidt
- <stefan-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>, Matthias Brugger <matthias.bgg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
- linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, nios2-dev-g9ZBwUv/Ih/yUk5EbOjzuce+I+R0W71w@public.gmane.org,
- linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, wil6210-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org,
- brcm80211-dev-list.pdl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org,
- linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
- linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-Message-ID: <4b0172bd-2779-35b2-96af-407087db844e-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: Re: [PATCH 8/8] Makefile: drop -D__CHECK_ENDIAN__ from cflags
-References: <1481778865-27667-1-git-send-email-mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
- <1481778865-27667-9-git-send-email-mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-In-Reply-To: <1481778865-27667-9-git-send-email-mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Reviewed-by: Dennis Dalessandro <dennis.dalessandro@intel.com>
+Reviewed-by: Ira Weiny <ira.weiny@intel.com>
+Signed-off-by: Niranjana Vishwanathapura <niranjana.vishwanathapura@intel.com>
+---
+ Documentation/infiniband/hfi_vnic.txt | 95 +++++++++++++++++++++++++++++++++++
+ 1 file changed, 95 insertions(+)
+ create mode 100644 Documentation/infiniband/hfi_vnic.txt
 
---sdkl0Xxt0KtFM41xEtdan2EW1NXVMs5c1
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-
-On 12/15/2016 06:15 AM, Michael S. Tsirkin wrote:
-> That's the default now, no need for makefiles to set it.
->=20
-> Signed-off-by: Michael S. Tsirkin <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-> ---
-[...]
->  drivers/net/can/Makefile                                  | 1 -
-
-For drivers/net/can/Makefile:
-
-Acked-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-
-regards,
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---sdkl0Xxt0KtFM41xEtdan2EW1NXVMs5c1--
-
---20OdsOHopTjIkLdocWTx6rgi2767kTTSI
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEzBAEBCgAdFiEES2FAuYbJvAGobdVQPTuqJaypJWoFAlhSTQUACgkQPTuqJayp
-JWrYQwgAgF2pgtnOHFbQf8oOT0jYDqhXKpceBGDqy6nW6Dfs66GUNSM4nq3EHz99
-s4Slq4IQjzACZjHbO0s/lALFRfK/BKYCmuRhBQ/iE2wjBTBw3Ej4keoXl9OiKvN+
-VteIS+Y5REHxYDLfNRl15oCrn5s8oiImp93dl3rVHjIbMYq4mnWqapXK3Utj6GZf
-l6FOT/t1I1i62GTeCwjwlTUC0MId3PYCQRax1JnjZsEWx/hHbaJUN26JGISns2uL
-r1as5wh3Y1ey0l0+NdVpkAX1v9/BlqS56H1CdgCw2ucNo0GA3F5/Y9CGHjUcT47X
-2l3UqTcMhQdEoPBTKauMUmq7YcACQw==
-=NRSu
------END PGP SIGNATURE-----
-
---20OdsOHopTjIkLdocWTx6rgi2767kTTSI--
-
-
---===============4190790300631420360==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-Linux-mediatek mailing list
-Linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-http://lists.infradead.org/mailman/listinfo/linux-mediatek
-
---===============4190790300631420360==--
+diff --git a/Documentation/infiniband/hfi_vnic.txt b/Documentation/infiniband/hfi_vnic.txt
+new file mode 100644
+index 0000000..1f39d8b
+--- /dev/null
++++ b/Documentation/infiniband/hfi_vnic.txt
+@@ -0,0 +1,95 @@
++Intel Omni-Path Host Fabric Interface (HFI) Virtual Network Interface
++Controller (VNIC) feature supports Ethernet functionality over Omni-Path
++fabric by encapsulating the Ethernet packets between HFI nodes.
++
++The patterns of exchanges of Omni-Path encapsulated Ethernet packets
++involves one or more virtual Ethernet switches overlaid on the Omni-Path
++fabric topology. A subset of HFI nodes on the Omni-Path fabric are
++permitted to exchange encapsulated Ethernet packets across a particular
++virtual Ethernet switch. The virtual Ethernet switches are logical
++abstractions achieved by configuring the HFI nodes on the fabric for
++header generation and processing. In the simplest configuration all HFI
++nodes across the fabric exchange encapsulated Ethernet packets over a
++single virtual Ethernet switch. A virtual Ethernet switch, is effectively
++an independent Ethernet network. The configuration is performed by an
++Ethernet Manager (EM) which is part of the trusted Fabric Manager (FM)
++application. HFI nodes can have multiple VNICs each connected to a
++different virtual Ethernet switch. The below diagram presents a case
++of two virtual Ethernet switches with two HFI nodes.
++
++                             +-------------------+
++                             |      Subnet/      |
++                             |     Ethernet      |
++                             |      Manager      |
++                             +-------------------+
++                                /          /
++                              /           /
++                            /            /
++                          /             /
+++-----------------------------+  +------------------------------+
++|  Virtual Ethernet Switch    |  |  Virtual Ethernet Switch     |
++|  +---------+    +---------+ |  | +---------+    +---------+   |
++|  | VPORT   |    |  VPORT  | |  | |  VPORT  |    |  VPORT  |   |
+++--+---------+----+---------+-+  +-+---------+----+---------+---+
++         |                 \        /                 |
++         |                   \    /                   |
++         |                     \/                     |
++         |                    /  \                    |
++         |                  /      \                  |
++     +-----------+------------+  +-----------+------------+
++     |   VNIC    |    VNIC    |  |    VNIC   |    VNIC    |
++     +-----------+------------+  +-----------+------------+
++     |          HFI           |  |          HFI           |
++     +------------------------+  +------------------------+
++
++Intel HFI VNIC software design is presented in the below diagram.
++HFI VNIC functionality has a HW dependent component and a HW
++independent component.
++
++The HW dependent VNIC functionality is part of the HFI1 driver. It
++implements the callback functions to do various tasks which includes
++adding and removing of VNIC ports, HW resource allocation for VNIC
++functionality and actual transmission and reception of encapsulated
++Ethernet packets over the fabric. Each VNIC port is addressed by the
++HFI port number, and the VNIC port number on that HFI port.
++
++The HFI VNIC module implements the HW independent VNIC functionality.
++It consists of two parts. The VNIC Ethernet Management Agent (VEMA)
++registers itself with IB core as an IB client and interfaces with the
++IB MAD stack. It exchanges the management information with the Ethernet
++Manager (EM) and the VNIC netdev. The VNIC netdev part interfaces with
++the Linux network stack, thus providing standard Ethernet network
++interfaces. It invokes HFI device's VNIC callback functions for HW access.
++The VNIC netdev encapsulates the Ethernet packets with an Omni-Path
++header before passing them to the HFI1 driver for transmission.
++Similarly, it de-encapsulates the received Omni-Path packets before
++passing them to the network stack. For each VNIC interface, the
++information required for encapsulation is configured by EM via VEMA MAD
++interface.
++
++
++        +-------------------+ +----------------------+
++        |                   | |       Linux          |
++        |     IB MAD        | |      Network         |
++        |                   | |       Stack          |
++        +-------------------+ +----------------------+
++                 |                       |
++                 |                       |
++        +--------------------------------------------+
++        |                                            |
++        |             HFI VNIC Module                |
++        |    (HFI VNIC Netdev and EMA drivers)       |
++        |                                            |
++        +--------------------------------------------+
++                             |
++                             |
++                    +------------------+
++                    |      IB core     |
++                    +------------------+
++                             |
++                             |
++        +--------------------------------------------+
++        |                                            |
++        |      HFI1 Driver with VNIC support         |
++        |                                            |
++        +--------------------------------------------+
+-- 
+1.8.3.1
