@@ -1,57 +1,81 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [PATCH net 2/2] net/sched: cls_flower: Use masked key when
- calling HW offloads
-Date: Thu, 15 Dec 2016 16:43:45 +0100
-Message-ID: <20161215154344.GA24984@penelope.horms.nl>
-References: <20161215145931.GA1807@nanopsycho.orion>
+From: Arnaldo Carvalho de Melo <acme@kernel.org>
+Subject: Re: [PATCH perf/core REBASE 2/5] samples/bpf: Switch over to libbpf
+Date: Thu, 15 Dec 2016 12:50:22 -0300
+Message-ID: <20161215155022.GE6866@kernel.org>
+References: <20161214224342.12858-1-joe@ovn.org>
+ <20161214224342.12858-3-joe@ovn.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Paul Blakey <paulb@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Jiri Pirko <jiri@mellanox.com>, Roi Dayan <roid@mellanox.com>,
-        Shahar Klein <shahark@mellanox.com>,
-        Hadar Hen Zion <hadarh@mellanox.com>
-To: Or Gerlitz <ogerlitz@mellanox.com>, Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f52.google.com ([74.125.82.52]:36889 "EHLO
-        mail-wm0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1758480AbcLOPoQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Dec 2016 10:44:16 -0500
-Received: by mail-wm0-f52.google.com with SMTP id t79so51851440wmt.0
-        for <netdev@vger.kernel.org>; Thu, 15 Dec 2016 07:43:53 -0800 (PST)
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        wangnan0@huawei.com, ast@fb.com, daniel@iogearbox.net,
+        Arnaldo Carvalho de Melo <acme@redhat.com>
+To: Joe Stringer <joe@ovn.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20161215145931.GA1807@nanopsycho.orion>
- <ec30629a-063d-3ff2-d2d7-2e710f7d6779@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20161214224342.12858-3-joe@ovn.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 15, 2016 at 04:12:05PM +0200, Or Gerlitz wrote:
-> On 12/15/2016 3:50 PM, Simon Horman wrote:
-> >>Zero bits on the mask signify a "don't care" on the corresponding bits
-> >>in key. Some HWs require those bits on the key to be zero. Since these
-> >>bits are masked anyway, it's okay to provide the masked key to all
-> >>drivers.
-> >>
-> >>Fixes: 5b33f48842fa ('net/flower: Introduce hardware offload support')
-> >>
-> >While I don't have a specific use case in mind that this change would break
-> >it seems to me that it would be better to handle hardware requirements
-> >at the driver level.
+Em Wed, Dec 14, 2016 at 02:43:39PM -0800, Joe Stringer escreveu:
+> Now that libbpf under tools/lib/bpf/* is synced with the version from
+> samples/bpf, we can get rid most of the libbpf library here.
 > 
-> Simon, again, since these bits are masked anyway, it would be correct to
-> provide the masked key to the hw device.
-> 
-> E.g no matter if the flow key/mask provided to the HW device is is
-> 1.1.1.10/24  or 1.1.1.0/24, the user expects to the same matching, so
-> nothing can't happen if we provide the latter to the driver.
+> Signed-off-by: Joe Stringer <joe@ovn.org>
+> Cc: Alexei Starovoitov <ast@fb.com>
+> Cc: Daniel Borkmann <daniel@iogearbox.net>
+> Cc: Wang Nan <wangnan0@huawei.com>
+> Link: http://lkml.kernel.org/r/20161209024620.31660-6-joe@ovn.org
+> [ Use -I$(srctree)/tools/lib/ to support out of source code tree builds, as noticed by Wang Nan ]
+> Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
 
-> >While I don't have a specific use case in mind that this change would break
-> >it seems to me that it would be better to handle hardware requirements
-> >at the driver level.
-> 
-> Even though, makes no sense to pass unmasked key down. Is is only
-> confusing. This patch fixes it.
+So, right before this patch building samples/bpf works, then, after, it fails,
+investigating:
 
-It seems somewhat arbitrary to me to allow such filters in software
-but not pass then down to the driver layer. But I don't feel strongly
-about this and I am happy for the patch to progress as-is.
+[root@1e797fdfbf4f linux]# make -j4 O=/tmp/build/linux/ headers_install
+make[1]: Entering directory '/tmp/build/linux'
+  CHK     include/generated/uapi/linux/version.h
+make[1]: Leaving directory '/tmp/build/linux'
+[root@1e797fdfbf4f linux]# make -j4 O=/tmp/build/linux/ samples/bpf/
+make[1]: Entering directory '/tmp/build/linux'
+  CHK     include/config/kernel.release
+  GEN     ./Makefile
+  CHK     include/generated/uapi/linux/version.h
+  Using /git/linux as source for kernel
+  CHK     include/generated/utsrelease.h
+  CHK     include/generated/timeconst.h
+  CHK     include/generated/bounds.h
+  CHK     include/generated/asm-offsets.h
+  CALL    /git/linux/scripts/checksyscalls.sh
+  HOSTCC  samples/bpf/test_lru_dist.o
+  HOSTCC  samples/bpf/libbpf.o
+  HOSTCC  samples/bpf/sock_example.o
+  HOSTCC  samples/bpf/bpf_load.o
+In file included from /git/linux/samples/bpf/libbpf.c:12:0:
+/git/linux/samples/bpf/libbpf.h:5:21: fatal error: bpf/bpf.h: No such file or directory
+ #include <bpf/bpf.h>
+                     ^
+compilation terminated.
+In file included from /git/linux/samples/bpf/test_lru_dist.c:24:0:
+/git/linux/samples/bpf/libbpf.h:5:21: fatal error: bpf/bpf.h: No such file or directory
+ #include <bpf/bpf.h>
+                     ^
+compilation terminated.
+make[2]: *** [scripts/Makefile.host:124: samples/bpf/test_lru_dist.o] Error 1
+make[2]: *** Waiting for unfinished jobs....
+make[2]: *** [scripts/Makefile.host:124: samples/bpf/libbpf.o] Error 1
+In file included from /git/linux/samples/bpf/bpf_load.c:24:0:
+/git/linux/samples/bpf/libbpf.h:5:21: fatal error: bpf/bpf.h: No such file or directory
+ #include <bpf/bpf.h>
+                     ^
+compilation terminated.
+make[2]: *** [scripts/Makefile.host:124: samples/bpf/bpf_load.o] Error 1
+In file included from /git/linux/samples/bpf/sock_example.c:29:0:
+/git/linux/samples/bpf/libbpf.h:5:21: fatal error: bpf/bpf.h: No such file or directory
+ #include <bpf/bpf.h>
+                     ^
+compilation terminated.
+make[2]: *** [scripts/Makefile.host:124: samples/bpf/sock_example.o] Error 1
+make[1]: *** [/git/linux/Makefile:1659: samples/bpf/] Error 2
+make[1]: Leaving directory '/tmp/build/linux'
+make: *** [Makefile:150: sub-make] Error 2
+[root@1e797fdfbf4f linux]# 
