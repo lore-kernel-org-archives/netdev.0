@@ -1,112 +1,106 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: Soft lockup in inet_put_port on 4.6
-Date: Thu, 15 Dec 2016 14:39:26 -0800
-Message-ID: <CALx6S34dmOWiEtOFQMc1FGhqvLqxM5JkD6q5MvaZz0cGZmNM=A@mail.gmail.com>
-References: <CALx6S36OVUqAxq9vNnfHp2eJOuG+gSSg896zzaZoc3Og4tyxFw@mail.gmail.com>
- <1481231024.1911284.813071977.72AF4DEE@webmail.messagingengine.com>
- <1481233016.11849.1@smtp.office365.com> <1481243432.4930.145.camel@edumazet-glaptop3.roam.corp.google.com>
- <6C6EE0ED-7E78-4866-8AAF-D75FD4719EF3@fb.com> <1481335192.3663.0@smtp.office365.com>
- <1481341624.4930.204.camel@edumazet-glaptop3.roam.corp.google.com>
- <1481343298.4930.208.camel@edumazet-glaptop3.roam.corp.google.com>
- <1481565929.24490.0@smtp.office365.com> <3c022731-e703-34ac-55f1-60f5b94b6d62@stressinduktion.org>
- <1481581466.24490.2@smtp.office365.com> <CALx6S34S82kFVqYW1M0ZuHx_Mxut4QaLFVerLX4aEsksrFirXg@mail.gmail.com>
- <CAEfhGiyFW1YHmmUYpFv+q4J4r=wSv3ZBZowG69BqkT3p-G4gNw@mail.gmail.com>
- <CALx6S369T_hvoTgyHbmeSiR2p3d68h+0tMKqMmcGYLrKiN3JMA@mail.gmail.com> <1481828016.24490.5@smtp.office365.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Craig Gallek <kraigatgoog@gmail.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Josef Bacik <jbacik@fb.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f170.google.com ([209.85.220.170]:35719 "EHLO
-        mail-qk0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753521AbcLOWj2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Dec 2016 17:39:28 -0500
-Received: by mail-qk0-f170.google.com with SMTP id n204so73252354qke.2
-        for <netdev@vger.kernel.org>; Thu, 15 Dec 2016 14:39:28 -0800 (PST)
-In-Reply-To: <1481828016.24490.5@smtp.office365.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "George Spelvin" <linux@sciencehorizons.net>
+Subject: Re: [PATCH v5 1/4] siphash: add cryptographically secure PRF
+Date: 15 Dec 2016 17:42:24 -0500
+Message-ID: <20161215224224.21447.qmail@ns.sciencehorizons.net>
+References: <20161215203003.31989-2-Jason@zx2c4.com>
+Reply-To: kernel-hardening@lists.openwall.com
+Cc: djb@cr.yp.to, jeanphilippe.aumasson@gmail.com
+To: ak@linux.intel.com, davem@davemloft.net, David.Laight@aculab.com,
+  ebiggers3@gmail.com, hannes@stressinduktion.org, Jason@zx2c4.com,
+  kernel-hardening@lists.openwall.com, linux-crypto@vger.kernel.org,
+  linux-kernel@vger.kernel.org, linux@sciencehorizons.net,
+  luto@amacapital.net, netdev@vger.kernel.org, tom@herbertland.com,
+  torvalds@linux-foundation.org, tytso@mit.edu, vegard.nossum@gmail.com
+Return-path: <kernel-hardening-return-5609-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+In-Reply-To: <20161215203003.31989-2-Jason@zx2c4.com>
+List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 15, 2016 at 10:53 AM, Josef Bacik <jbacik@fb.com> wrote:
-> On Tue, Dec 13, 2016 at 6:32 PM, Tom Herbert <tom@herbertland.com> wrote:
->>
->> On Tue, Dec 13, 2016 at 3:03 PM, Craig Gallek <kraigatgoog@gmail.com>
->> wrote:
->>>
->>>  On Tue, Dec 13, 2016 at 3:51 PM, Tom Herbert <tom@herbertland.com>
->>> wrote:
->>>>
->>>>  I think there may be some suspicious code in inet_csk_get_port. At
->>>>  tb_found there is:
->>>>
->>>>                  if (((tb->fastreuse > 0 && reuse) ||
->>>>                       (tb->fastreuseport > 0 &&
->>>>                        !rcu_access_pointer(sk->sk_reuseport_cb) &&
->>>>                        sk->sk_reuseport && uid_eq(tb->fastuid, uid))) &&
->>>>                      smallest_size == -1)
->>>>                          goto success;
->>>>                  if (inet_csk(sk)->icsk_af_ops->bind_conflict(sk, tb,
->>>> true)) {
->>>>                          if ((reuse ||
->>>>                               (tb->fastreuseport > 0 &&
->>>>                                sk->sk_reuseport &&
->>>>                                !rcu_access_pointer(sk->sk_reuseport_cb)
->>>> &&
->>>>                                uid_eq(tb->fastuid, uid))) &&
->>>>                              smallest_size != -1 && --attempts >= 0) {
->>>>                                  spin_unlock_bh(&head->lock);
->>>>                                  goto again;
->>>>                          }
->>>>                          goto fail_unlock;
->>>>                  }
->>>>
->>>>  AFAICT there is redundancy in these two conditionals.  The same clause
->>>>  is being checked in both: (tb->fastreuseport > 0 &&
->>>>  !rcu_access_pointer(sk->sk_reuseport_cb) && sk->sk_reuseport &&
->>>>  uid_eq(tb->fastuid, uid))) && smallest_size == -1. If this is true the
->>>>  first conditional should be hit, goto done,  and the second will never
->>>>  evaluate that part to true-- unless the sk is changed (do we need
->>>>  READ_ONCE for sk->sk_reuseport_cb?).
->>>
->>>  That's an interesting point... It looks like this function also
->>>  changed in 4.6 from using a single local_bh_disable() at the beginning
->>>  with several spin_lock(&head->lock) to exclusively
->>>  spin_lock_bh(&head->lock) at each locking point.  Perhaps the full bh
->>>  disable variant was preventing the timers in your stack trace from
->>>  running interleaved with this function before?
->>
->>
->> Could be, although dropping the lock shouldn't be able to affect the
->> search state. TBH, I'm a little lost in reading function, the
->> SO_REUSEPORT handling is pretty complicated. For instance,
->> rcu_access_pointer(sk->sk_reuseport_cb) is checked three times in that
->> function and also in every call to inet_csk_bind_conflict. I wonder if
->> we can simply this under the assumption that SO_REUSEPORT is only
->> allowed if the port number (snum) is explicitly specified.
->
->
-> Ok first I have data for you Hannes, here's the time distributions before
-> during and after the lockup (with all the debugging in place the box
-> eventually recovers).  I've attached it as a text file since it is long.
->
-> Second is I was thinking about why we would spend so much time doing the
-> ->owners list, and obviously it's because of the massive amount of timewait
-> sockets on the owners list.  I wrote the following dumb patch and tested it
-> and the problem has disappeared completely.  Now I don't know if this is
-> right at all, but I thought it was weird we weren't copying the soreuseport
-> option from the original socket onto the twsk.  Is there are reason we
-> aren't doing this currently?  Does this help explain what is happening?
-> Thanks,
->
-I think that would explain it. We would be walking long lists of TW
-sockets in inet_bind_bucket_for_each(tb, &head->chain). This should
-break, although now I'm wondering if there's other ways we can get
-into this situation. reuseport ensures that we can have long lists of
-sockets in a single bucket, TW sockets can make that list really long.
+> While SipHash is extremely fast for a cryptographically secure function,
+> it is likely a tiny bit slower than the insecure jhash, and so replacements
+> will be evaluated on a case-by-case basis based on whether or not the
+> difference in speed is negligible and whether or not the current jhash usage
+> poses a real security risk.
 
-Tom
+To quantify that, jhash is 27 instructions per 12 bytes of input, with a
+dependency path length of 13 instructions.  (24/12 in __jash_mix, plus
+3/1 for adding the input to the state.) The final add + __jhash_final
+is 24 instructions with a path length of 15, which is close enough for
+this handwaving.  Call it 18n instructions and 8n cycles for 8n bytes.
 
-> Josef
+SipHash (on a 64-bit machine) is 14 instructions with a dependency path
+length of 4 *per round*.  Two rounds per 8 bytes, plus plus two adds
+and one cycle per input word, plus four rounds to finish makes 30n+46
+instructions and 9n+16 cycles for 8n bytes.
+
+So *if* you have a 64-bit 4-way superscalar machine, it's not that much
+slower once it gets going, but the four-round finalization is quite
+noticeable for short inputs.
+
+For typical kernel input lengths "within a factor of 2" is
+probably more accurate than "a tiny bit".
+
+You lose a factor of 2 if you machine is 2-way or non-superscalar,
+and a second factor of 2 if it's a 32-bit machine.
+
+I mention this because there are a lot of home routers and other netwoek
+appliances running Linux on 32-bit ARM and MIPS processors.  For those,
+it's a factor of *eight*, which is a lot more than "a tiny bit".
+
+The real killer is if you don't have enough registers; SipHash performs
+horribly on i386 because it uses more state than i386 has registers.
+
+(If i386 performance is desired, you might ask Jean-Philippe for some
+rotate constants for a 32-bit variant with 64 bits of key.  Note that
+SipHash's security proof requires that key length + input length is
+strictly less than the state size, so for a 4x32-bit variant, while
+you could stretch the key length a little, you'd have a hard limit at
+95 bits.)
+
+
+A second point, the final XOR in SipHash is either a (very minor) design
+mistake, or an opportunity for optimization, depending on how you look
+at it.  Look at the end of the function:
+
+>+	SIPROUND;
+>+	SIPROUND;
+>+	return (v0 ^ v1) ^ (v2 ^ v3);
+
+Expanding that out, you get:
++	v0 += v1; v1 = rol64(v1, 13); v1 ^= v0; v0 = rol64(v0, 32);
++	v2 += v3; v3 = rol64(v3, 16); v3 ^= v2;
++	v0 += v3; v3 = rol64(v3, 21); v3 ^= v0;
++	v2 += v1; v1 = rol64(v1, 17); v1 ^= v2; v2 = rol64(v2, 32);
++	return v0 ^ v1 ^ v2 ^ v3;
+
+Since the final XOR includes both v0 and v3, it's undoing the "v3 ^= v0"
+two lines earlier, so the value of v0 doesn't matter after its XOR into
+v1 on line one.
+
+The final SIPROUND and return can then be optimized to
+
++	v0 += v1; v1 = rol64(v1, 13); v1 ^= v0;
++	v2 += v3; v3 = rol64(v3, 16); v3 ^= v2;
++	v3 = rol64(v3, 21);
++	v2 += v1; v1 = rol64(v1, 17); v1 ^= v2; v2 = rol64(v2, 32);
++	return v1 ^ v2 ^ v3;
+
+A 32-bit implementation could further tweak the 4 instructions of
+	v1 ^= v2; v2 = rol64(v2, 32); v1 ^= v2;
+
+gcc 6.2.1 -O3 compiles it to basically:
+	v1.low ^= v2.low;
+	v1.high ^= v2.high;
+	v1.low ^= v2.high;
+	v1.high ^= v2.low;
+but it could be written as:
+	v2.low ^= v2.high;
+	v1.low ^= v2.low;
+	v1.high ^= v2.low;
+
+Alternatively, if it's for private use only (key not shared with other
+systems), a slightly stronger variant would "return v1 ^ v3;".
+(The final swap of v2 is dead code, but a compiler can spot that easily.)
