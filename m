@@ -1,62 +1,39 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH v2 1/4] siphash: add cryptographically secure hashtable
- function
-Date: Thu, 15 Dec 2016 16:53:12 +0100
-Message-ID: <924ef794-eae0-2a6b-508b-069718339edc@stressinduktion.org>
-References: <20161214035927.30004-1-Jason@zx2c4.com>
- <CAHmME9q9ffdtWRbzyMO1ktTdtEFdfumTfojTTNLXFhoa+R+MWQ@mail.gmail.com>
- <8ea3fdff-23c4-b81d-2588-44549bd2d8c1@stressinduktion.org>
- <063D6719AE5E284EB5DD2968C1650D6DB02401ED@AcuExch.aculab.com>
- <707472e1-b385-836d-c4c6-791c1dcc0776@stressinduktion.org>
- <063D6719AE5E284EB5DD2968C1650D6DB02402C0@AcuExch.aculab.com>
- <0f3c3694-c00b-aae2-5b08-25bc64bf6372@stressinduktion.org>
- <063D6719AE5E284EB5DD2968C1650D6DB0240437@AcuExch.aculab.com>
- <f6813084-6f46-0b22-e9c3-97b2e266f8f6@stressinduktion.org>
- <063D6719AE5E284EB5DD2968C1650D6DB0240529@AcuExch.aculab.com>
+From: Craig Gallek <kraigatgoog@gmail.com>
+Subject: Re: [PATCH net-next 2/2] inet: Fix get port to handle zero port
+ number with soreuseport set
+Date: Thu, 15 Dec 2016 10:58:29 -0500
+Message-ID: <CAEfhGixrj8Ftwo8=F617o-ArwgCD+JmVUeJpNbU7xpydp=pjBA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>,
-        "kernel-hardening@lists.openwall.com"
-        <kernel-hardening@lists.openwall.com>,
-        Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-        "Daniel J . Bernstein" <djb@cr.yp.to>,
-        Linus Torvalds <torvalds@linux-foundation.org>,
-        Eric Biggers <ebiggers3@gmail.com>
-To: David Laight <David.Laight@ACULAB.COM>,
-        "Jason A. Donenfeld" <Jason@zx2c4.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB0240529@AcuExch.aculab.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>, kernel-team@fb.com,
+        Josef Bacik <jbacik@fb.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>
+To: Tom Herbert <tom@herbertland.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wj0-f196.google.com ([209.85.210.196]:33505 "EHLO
+        mail-wj0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752964AbcLOP6d (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Dec 2016 10:58:33 -0500
+Received: by mail-wj0-f196.google.com with SMTP id kp2so10484590wjc.0
+        for <netdev@vger.kernel.org>; Thu, 15 Dec 2016 07:58:32 -0800 (PST)
+Received: from mail-wm0-f47.google.com (mail-wm0-f47.google.com. [74.125.82.47])
+        by smtp.gmail.com with ESMTPSA id p144sm3006927wme.23.2016.12.15.07.58.30
+        for <netdev@vger.kernel.org>
+        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Thu, 15 Dec 2016 07:58:31 -0800 (PST)
+Received: by mail-wm0-f47.google.com with SMTP id a197so170461028wmd.0
+        for <netdev@vger.kernel.org>; Thu, 15 Dec 2016 07:58:30 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 15.12.2016 16:41, David Laight wrote:
-> Try (retyped):
-> 
-> echo 'struct { long a; long long b; } s; int bar { return sizeof s; }' >foo.c
-> gcc [-m32] -O2 -S foo.c; cat foo.s
-> 
-> And look at what is generated.
-
-I used __alignof__(unsigned long long) with -m32.
-
->> Right now ipv6 addresses have an alignment of 4. So we couldn't even
->> naturally pass them to siphash but would need to copy them around, which
->> I feel like a source of bugs.
-> 
-> That is more of a problem on systems that don't support misaligned accesses.
-> Reading the 64bit values with two explicit 32bit reads would work.
-> I think you can get gcc to do that by adding an aligned(4) attribute to the
-> structure member.
-
-Yes, and that is actually my fear, because we support those
-architectures. I can't comment on that as I don't understand enough of this.
-
-If someone finds a way to cause misaligned reads on a small box this
-seems (maybe depending on sysctls they get fixed up or panic) to be a
-much bigger issue than having a hash DoS.
-
-Thanks,
-Hannes
+On Wed, Dec 14, 2016 at 7:54 PM, Tom Herbert <tom@herbertland.com> wrote:
+> A user may call listen with binding an explicit port with the intent
+> that the kernel will assign an available port to the socket. In this
+> case inet_csk_get_port does a port scan. For such sockets, the user may
+> also set soreuseport with the intent a creating more sockets for the
+> port that is selected. The problem is that the initial socket being
+> opened could inadvertently choose an existing and unreleated port
+> number that was already created with soreuseport.
+Good catch!  I think this problem may also exist in the UDP path?
+(udp_lib_get_port -> udp_lib_lport_inuse[2])
