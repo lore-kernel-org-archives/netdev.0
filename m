@@ -1,142 +1,75 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: [PATCH v5 4/4] random: use SipHash in place of MD5
-Date: Thu, 15 Dec 2016 21:30:03 +0100
-Message-ID: <20161215203003.31989-5-Jason@zx2c4.com>
-References: <20161215203003.31989-1-Jason@zx2c4.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH v2 1/4] siphash: add cryptographically secure hashtable
+ function
+Date: Thu, 15 Dec 2016 21:31:20 +0100
+Message-ID: <18d1e9d1-1e52-b9a6-de26-2f33859ec052@stressinduktion.org>
+References: <20161214035927.30004-1-Jason@zx2c4.com>
+ <CAHmME9q9ffdtWRbzyMO1ktTdtEFdfumTfojTTNLXFhoa+R+MWQ@mail.gmail.com>
+ <8ea3fdff-23c4-b81d-2588-44549bd2d8c1@stressinduktion.org>
+ <063D6719AE5E284EB5DD2968C1650D6DB02401ED@AcuExch.aculab.com>
+ <707472e1-b385-836d-c4c6-791c1dcc0776@stressinduktion.org>
+ <063D6719AE5E284EB5DD2968C1650D6DB02402C0@AcuExch.aculab.com>
+ <0f3c3694-c00b-aae2-5b08-25bc64bf6372@stressinduktion.org>
+ <063D6719AE5E284EB5DD2968C1650D6DB0240437@AcuExch.aculab.com>
+ <f6813084-6f46-0b22-e9c3-97b2e266f8f6@stressinduktion.org>
+ <063D6719AE5E284EB5DD2968C1650D6DB0240529@AcuExch.aculab.com>
+ <924ef794-eae0-2a6b-508b-069718339edc@stressinduktion.org>
+ <CAHmME9pTLFu3-4n6m_OMj5jVWGE-+yC-4CnkynD--H4Nt8_cpA@mail.gmail.com>
 Reply-To: kernel-hardening@lists.openwall.com
-Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>,
-	Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>
-To: Netdev <netdev@vger.kernel.org>,
-	kernel-hardening@lists.openwall.com,
-	LKML <linux-kernel@vger.kernel.org>,
-	linux-crypto@vger.kernel.org,
-	David Laight <David.Laight@aculab.com>,
-	Ted Tso <tytso@mit.edu>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Eric Biggers <ebiggers3@gmail.com>,
-	Tom Herbert <tom@herbertland.com>,
-	George Spelvin <linux@sciencehorizons.net>,
-	Vegard Nossum <vegard.nossum@gmail.com>,
-	ak@linux.intel.com,
-	davem@davemloft.net,
-	luto@amacapital.net
-Return-path: <kernel-hardening-return-5595-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@vger.kernel.org>,
+ "kernel-hardening@lists.openwall.com" <kernel-hardening@lists.openwall.com>,
+ Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>,
+ LKML <linux-kernel@vger.kernel.org>,
+ Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+ "Daniel J . Bernstein" <djb@cr.yp.to>,
+ Linus Torvalds <torvalds@linux-foundation.org>,
+ Eric Biggers <ebiggers3@gmail.com>
+To: "Jason A. Donenfeld" <Jason@zx2c4.com>,
+ David Laight <David.Laight@aculab.com>
+Return-path: <kernel-hardening-return-5596-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
 List-Post: <mailto:kernel-hardening@lists.openwall.com>
 List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
 List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
 List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <20161215203003.31989-1-Jason@zx2c4.com>
+In-Reply-To: <CAHmME9pTLFu3-4n6m_OMj5jVWGE-+yC-4CnkynD--H4Nt8_cpA@mail.gmail.com>
 List-Id: netdev.vger.kernel.org
 
-This duplicates the current algorithm for get_random_int/long, but uses
-siphash instead. This comes with several benefits. It's certainly
-faster and more cryptographically secure than MD5. This patch also
-separates hashed fields into three values instead of one, in order to
-increase diffusion.
+Hello,
 
-The previous MD5 algorithm used a per-cpu MD5 state, which caused
-successive calls to the function to chain upon each other. While it's
-not entirely clear that this kind of chaining is absolutely necessary
-when using a secure PRF like siphash, it can't hurt, and the timing of
-the call chain does add a degree of natural entropy. So, in keeping with
-this design, instead of the massive per-cpu 64-byte MD5 state, there is
-instead a per-cpu previously returned value for chaining.
+On 15.12.2016 19:50, Jason A. Donenfeld wrote:
+> Hi David & Hannes,
+> 
+> This conversation is veering off course.
 
-The speed benefits are substantial:
+Why?
 
-                | siphash | md5    | speedup |
-		------------------------------
-get_random_long | 137130  | 415983 | 3.03x   |
-get_random_int  | 86384   | 343323 | 3.97x   |
+> I think this doesn't really
+> matter at all. Gcc converts u64 into essentially a pair of u32 on
+> 32-bit platforms, so the alignment requirements for 32-bit is at a
+> maximum 32 bits. On 64-bit platforms the alignment requirements are
+> related at a maximum to the biggest register size, so 64-bit
+> alignment. For this reason, no matter the behavior of __aligned(8),
+> we're okay. Likewise, even without __aligned(8), if gcc aligns structs
+> by their biggest member, then we get 4 byte alignment on 32-bit and 8
+> byte alignment on 64-bit, which is fine. There's no 32-bit platform
+> that will trap on a 64-bit unaligned access because there's no such
+> thing as a 64-bit access there. In short, we're fine.
 
-Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
-Cc: Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>
-Cc: Ted Tso <tytso@mit.edu>
----
- drivers/char/random.c | 32 +++++++++++++-------------------
- 1 file changed, 13 insertions(+), 19 deletions(-)
+ARM64 and x86-64 have memory operations that are not vector operations
+that operate on 128 bit memory.
 
-diff --git a/drivers/char/random.c b/drivers/char/random.c
-index d6876d506220..a51f0ff43f00 100644
---- a/drivers/char/random.c
-+++ b/drivers/char/random.c
-@@ -262,6 +262,7 @@
- #include <linux/syscalls.h>
- #include <linux/completion.h>
- #include <linux/uuid.h>
-+#include <linux/siphash.h>
- #include <crypto/chacha20.h>
- 
- #include <asm/processor.h>
-@@ -2042,7 +2043,7 @@ struct ctl_table random_table[] = {
- };
- #endif 	/* CONFIG_SYSCTL */
- 
--static u32 random_int_secret[MD5_MESSAGE_BYTES / 4] ____cacheline_aligned;
-+static siphash_key_t random_int_secret;
- 
- int random_int_secret_init(void)
- {
-@@ -2050,8 +2051,7 @@ int random_int_secret_init(void)
- 	return 0;
- }
- 
--static DEFINE_PER_CPU(__u32 [MD5_DIGEST_WORDS], get_random_int_hash)
--		__aligned(sizeof(unsigned long));
-+static DEFINE_PER_CPU(u64, get_random_int_chaining);
- 
- /*
-  * Get a random word for internal kernel use only. Similar to urandom but
-@@ -2061,19 +2061,16 @@ static DEFINE_PER_CPU(__u32 [MD5_DIGEST_WORDS], get_random_int_hash)
-  */
- unsigned int get_random_int(void)
- {
--	__u32 *hash;
- 	unsigned int ret;
-+	u64 *chaining;
- 
- 	if (arch_get_random_int(&ret))
- 		return ret;
- 
--	hash = get_cpu_var(get_random_int_hash);
--
--	hash[0] += current->pid + jiffies + random_get_entropy();
--	md5_transform(hash, random_int_secret);
--	ret = hash[0];
--	put_cpu_var(get_random_int_hash);
--
-+	chaining = &get_cpu_var(get_random_int_chaining);
-+	ret = *chaining = siphash_3u64(*chaining, jiffies, random_get_entropy() +
-+				       current->pid, random_int_secret);
-+	put_cpu_var(get_random_int_chaining);
- 	return ret;
- }
- EXPORT_SYMBOL(get_random_int);
-@@ -2083,19 +2080,16 @@ EXPORT_SYMBOL(get_random_int);
-  */
- unsigned long get_random_long(void)
- {
--	__u32 *hash;
- 	unsigned long ret;
-+	u64 *chaining;
- 
- 	if (arch_get_random_long(&ret))
- 		return ret;
- 
--	hash = get_cpu_var(get_random_int_hash);
--
--	hash[0] += current->pid + jiffies + random_get_entropy();
--	md5_transform(hash, random_int_secret);
--	ret = *(unsigned long *)hash;
--	put_cpu_var(get_random_int_hash);
--
-+	chaining = &get_cpu_var(get_random_int_chaining);
-+	ret = *chaining = siphash_3u64(*chaining, jiffies, random_get_entropy() +
-+				       current->pid, random_int_secret);
-+	put_cpu_var(get_random_int_chaining);
- 	return ret;
- }
- EXPORT_SYMBOL(get_random_long);
--- 
-2.11.0
+How do you know that the compiler for some architecture will not chose a
+more optimized instruction to load a 64 bit memory value into two 32 bit
+registers if you tell the compiler it is 8 byte aligned but it actually
+isn't? I don't know the answer but telling the compiler some data is 8
+byte aligned while it isn't really pretty much seems like a call for
+trouble.
+
+Why can't a compiler not vectorize this code if it can prove that it
+doesn't conflict with other register users?
+
+Bye,
+Hannes
