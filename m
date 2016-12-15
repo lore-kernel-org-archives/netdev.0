@@ -1,62 +1,37 @@
-From: Arnaldo Carvalho de Melo <acme@kernel.org>
+From: Joe Stringer <joe@ovn.org>
 Subject: Re: [PATCH perf/core REBASE 2/5] samples/bpf: Switch over to libbpf
-Date: Thu, 15 Dec 2016 15:29:18 -0300
-Message-ID: <20161215182918.GG6866@kernel.org>
-References: <20161214224342.12858-1-joe@ovn.org>
- <20161214224342.12858-3-joe@ovn.org>
+Date: Thu, 15 Dec 2016 10:29:19 -0800
+Message-ID: <CAPWQB7HMzpPOgA1rdrKHmbxU29gkaUS1UQF69pHLrfsNhjDvMQ@mail.gmail.com>
+References: <20161214224342.12858-1-joe@ovn.org> <20161214224342.12858-3-joe@ovn.org>
  <20161215155022.GE6866@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        wangnan0@huawei.com, ast@fb.com, daniel@iogearbox.net,
+Content-Type: text/plain; charset=UTF-8
+Cc: LKML <linux-kernel@vger.kernel.org>,
+        netdev <netdev@vger.kernel.org>, Wang Nan <wangnan0@huawei.com>,
+        ast@fb.com, Daniel Borkmann <daniel@iogearbox.net>,
         Arnaldo Carvalho de Melo <acme@redhat.com>
-To: Joe Stringer <joe@ovn.org>
+To: Arnaldo Carvalho de Melo <acme@kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
 In-Reply-To: <20161215155022.GE6866@kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Em Thu, Dec 15, 2016 at 12:50:22PM -0300, Arnaldo Carvalho de Melo escreveu:
+On 15 December 2016 at 07:50, Arnaldo Carvalho de Melo <acme@kernel.org> wrote:
 > Em Wed, Dec 14, 2016 at 02:43:39PM -0800, Joe Stringer escreveu:
-> > Now that libbpf under tools/lib/bpf/* is synced with the version from
-> > samples/bpf, we can get rid most of the libbpf library here.
-> > 
-> > Signed-off-by: Joe Stringer <joe@ovn.org>
-> > Cc: Alexei Starovoitov <ast@fb.com>
-> > Cc: Daniel Borkmann <daniel@iogearbox.net>
-> > Cc: Wang Nan <wangnan0@huawei.com>
-> > Link: http://lkml.kernel.org/r/20161209024620.31660-6-joe@ovn.org
-> > [ Use -I$(srctree)/tools/lib/ to support out of source code tree builds, as noticed by Wang Nan ]
-
-So, the above comment no longer applied to this adjusted patch from you,
-as you removed one hunk too much, that, after applied, gets samples/bpf/
-to build successfully:
-
-diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
-index add514e2984a..81b0ef2f7994 100644
---- a/samples/bpf/Makefile
-+++ b/samples/bpf/Makefile
-@@ -107,6 +107,7 @@ always += lwt_len_hist_kern.o
- always += xdp_tx_iptunnel_kern.o
- 
- HOSTCFLAGS += -I$(objtree)/usr/include
-+HOSTCFLAGS += -I$(srctree)/tools/lib/
- HOSTCFLAGS += -I$(srctree)/tools/testing/selftests/bpf/
- 
- HOSTCFLAGS_bpf_load.o += -I$(objtree)/usr/include -Wno-unused-variable
-
----------------------
-
-I added it, continuing...
-
-- Arnaldo
-
-> > Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
-> 
+>> Now that libbpf under tools/lib/bpf/* is synced with the version from
+>> samples/bpf, we can get rid most of the libbpf library here.
+>>
+>> Signed-off-by: Joe Stringer <joe@ovn.org>
+>> Cc: Alexei Starovoitov <ast@fb.com>
+>> Cc: Daniel Borkmann <daniel@iogearbox.net>
+>> Cc: Wang Nan <wangnan0@huawei.com>
+>> Link: http://lkml.kernel.org/r/20161209024620.31660-6-joe@ovn.org
+>> [ Use -I$(srctree)/tools/lib/ to support out of source code tree builds, as noticed by Wang Nan ]
+>> Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+>
 > So, right before this patch building samples/bpf works, then, after, it fails,
 > investigating:
-> 
+>
 > [root@1e797fdfbf4f linux]# make -j4 O=/tmp/build/linux/ headers_install
 > make[1]: Entering directory '/tmp/build/linux'
 >   CHK     include/generated/uapi/linux/version.h
@@ -104,4 +79,23 @@ I added it, continuing...
 > make[1]: *** [/git/linux/Makefile:1659: samples/bpf/] Error 2
 > make[1]: Leaving directory '/tmp/build/linux'
 > make: *** [Makefile:150: sub-make] Error 2
-> [root@1e797fdfbf4f linux]# 
+> [root@1e797fdfbf4f linux]#
+
+Sorry about that.
+
+It looks like this fragment which ended up in "samples/bpf: Remove
+perf_event_open() declaration" patch should be here instead:
+
+diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
+index add514e2984a..9718f664fedf 100644
+--- a/samples/bpf/Makefile
++++ b/samples/bpf/Makefile
+@@ -108,6 +108,8 @@ always += xdp_tx_iptunnel_kern.o
+
+HOSTCFLAGS += -I$(objtree)/usr/include
+HOSTCFLAGS += -I$(srctree)/tools/testing/selftests/bpf/
++HOSTCFLAGS += -I$(srctree)/tools/lib/ -I$(srctree)/tools/include
++HOSTCFLAGS += -I$(srctree)/tools/perf
+
+HOSTCFLAGS_bpf_load.o += -I$(objtree)/usr/include -Wno-unused-variable
+HOSTLOADLIBES_fds_example += -lelf
