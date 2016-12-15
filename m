@@ -1,55 +1,35 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next 1/3] net:dsa:mv88e6xxx: use hashtable to store multicast entries
-Date: Thu, 15 Dec 2016 12:21:18 -0500
-Message-ID: <87eg19hzw1.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-References: <1481549958-1265-1-git-send-email-volodymyr.bendiuga@gmail.com> <87r35db35m.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me> <CAMr9Lbp5eCg1oyWGN+uiDEcF0VZuKUi87FH6JYTGj6pL82R+Mw@mail.gmail.com> <48ff1136-dd8f-7704-a512-c23b27989bf8@gmail.com> <20161212190915.GA8885@lunn.ch> <CAMr9LbqyvrRYe_m34Ufzxkf2Vef3LbMQiuoiwVX0mK=hW6euyA@mail.gmail.com> <20161213150948.GD20323@lunn.ch> <CABHmqqB-6-L124hrAjNxd4kO3zYp9R=RM1X6PXyuQW6Hapiv4g@mail.gmail.com> <20161214104614.GD27370@lunn.ch> <CABHmqqDpiN2kwkTgrM8Qu8EEx3Sjk2yVBy8QQAJppGfJ6-MV5Q@mail.gmail.com>
+From: "Hefty, Sean" <sean.hefty@intel.com>
+Subject: RE: [RFC v2 03/10] IB/hfi-vnic: Virtual Network Interface
+ Controller (VNIC) netdev
+Date: Thu, 15 Dec 2016 17:21:05 +0000
+Message-ID: <1828884A29C6694DAF28B7E6B8A82373AB0C9556@ORSMSX109.amr.corp.intel.com>
+References: <1481788782-89964-1-git-send-email-niranjana.vishwanathapura@intel.com>
+ <1481788782-89964-4-git-send-email-niranjana.vishwanathapura@intel.com>
+ <20161215170109.GC3264@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Volodymyr Bendiuga <valdr.linuxnext@gmail.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        netdev@vger.kernel.org,
-        Volodymyr Bendiuga <volodymyr.bendiuga@westermo.se>,
-        John Crispin <john@phrozen.org>
-To: Volodymyr Bendiuga <volodymyr.bendiuga@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "dledford@redhat.com" <dledford@redhat.com>,
+        "linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "Dalessandro, Dennis" <dennis.dalessandro@intel.com>,
+        "Weiny, Ira" <ira.weiny@intel.com>,
+        "Warrier, Sadanand" <sadanand.warrier@intel.com>,
+        "Dutt, Sudeep" <sudeep.dutt@intel.com>,
+        "Jajodia, Tanya K" <tanya.k.jajodia@intel.com>,
+        "Kacprowski, Andrzej" <Andrzej.Kacprowski@intel.com>
+To: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>,
+        "Vishwanathapura, Niranjana" <niranjana.vishwanathapura@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:42890 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750724AbcLORV3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Dec 2016 12:21:29 -0500
-In-Reply-To: <CABHmqqDpiN2kwkTgrM8Qu8EEx3Sjk2yVBy8QQAJppGfJ6-MV5Q@mail.gmail.com>
+Received: from mga11.intel.com ([192.55.52.93]:57786 "EHLO mga11.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1755134AbcLORVj (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 15 Dec 2016 12:21:39 -0500
+In-Reply-To: <20161215170109.GC3264@obsidianresearch.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Volodymyr,
+> This goes on the network too? Also looks like it has endian problems.
 
-Volodymyr Bendiuga <volodymyr.bendiuga@gmail.com> writes:
-
-> Hi Andrew,
->
-> I have tested the approach you wrote in previous mails, the one
-> with setting next.mac to address we are looking for -1. It seems
-> to be as slow as the original implementation, unfortunately.
-
-Hum, that is what I was expecting... The ATU GetNext operation
-(alongside an ether_addr_equal() call) should be quite fast.
-
-> We use 6097 and 6352 chips, and both of them can not do any port
-> filtering in hardware for fdb dump operation. Seems like they would
-> benefit from cache. But I am not sure about other switches.
->
-> Does anyone know about such feature in other switches?
-
-Marvell switches cannot filter ATU entries for a specific port, they
-contain a port vector.
-
-I guess Florian might answer for Broadcom switches, and John might
-answer for Qualcomm switches.
-
-In all cases *if caching is really needed*, I think it won't hurt to do
-it in DSA core even if a switch support FDB dump operations on a
-per-port basis, as Andrew mentioned.
-
-Thanks,
-
-        Vivien
+I don't think OPA supports BE systems, and I think it uses LE on the wire for at least some portions of its protocol.
