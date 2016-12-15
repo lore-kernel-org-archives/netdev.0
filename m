@@ -1,68 +1,57 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v2 1/4] siphash: add cryptographically secure hashtable
- function
-Date: Thu, 15 Dec 2016 15:41:46 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB0240529@AcuExch.aculab.com>
-References: <20161214035927.30004-1-Jason@zx2c4.com>
- <CAHmME9q9ffdtWRbzyMO1ktTdtEFdfumTfojTTNLXFhoa+R+MWQ@mail.gmail.com>
- <8ea3fdff-23c4-b81d-2588-44549bd2d8c1@stressinduktion.org>
- <063D6719AE5E284EB5DD2968C1650D6DB02401ED@AcuExch.aculab.com>
- <707472e1-b385-836d-c4c6-791c1dcc0776@stressinduktion.org>
- <063D6719AE5E284EB5DD2968C1650D6DB02402C0@AcuExch.aculab.com>
- <0f3c3694-c00b-aae2-5b08-25bc64bf6372@stressinduktion.org>
- <063D6719AE5E284EB5DD2968C1650D6DB0240437@AcuExch.aculab.com>
- <f6813084-6f46-0b22-e9c3-97b2e266f8f6@stressinduktion.org>
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: [PATCH net 2/2] net/sched: cls_flower: Use masked key when
+ calling HW offloads
+Date: Thu, 15 Dec 2016 16:43:45 +0100
+Message-ID: <20161215154344.GA24984@penelope.horms.nl>
+References: <20161215145931.GA1807@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Netdev <netdev@vger.kernel.org>,
-        "kernel-hardening@lists.openwall.com"
-        <kernel-hardening@lists.openwall.com>,
-        Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>,
-        LKML <linux-kernel@vger.kernel.org>,
-        "Linux Crypto Mailing List" <linux-crypto@vger.kernel.org>,
-        "Daniel J . Bernstein" <djb@cr.yp.to>,
-        Linus Torvalds <torvalds@linux-foundation.org>,
-        Eric Biggers <ebiggers3@gmail.com>
-To: 'Hannes Frederic Sowa' <hannes@stressinduktion.org>,
-        "Jason A. Donenfeld" <Jason@zx2c4.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <f6813084-6f46-0b22-e9c3-97b2e266f8f6@stressinduktion.org>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Paul Blakey <paulb@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        Jiri Pirko <jiri@mellanox.com>, Roi Dayan <roid@mellanox.com>,
+        Shahar Klein <shahark@mellanox.com>,
+        Hadar Hen Zion <hadarh@mellanox.com>
+To: Or Gerlitz <ogerlitz@mellanox.com>, Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f52.google.com ([74.125.82.52]:36889 "EHLO
+        mail-wm0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758480AbcLOPoQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Dec 2016 10:44:16 -0500
+Received: by mail-wm0-f52.google.com with SMTP id t79so51851440wmt.0
+        for <netdev@vger.kernel.org>; Thu, 15 Dec 2016 07:43:53 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20161215145931.GA1807@nanopsycho.orion>
+ <ec30629a-063d-3ff2-d2d7-2e710f7d6779@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogSGFubmVzIEZyZWRlcmljIFNvd2ENCj4gU2VudDogMTUgRGVjZW1iZXIgMjAxNiAxNDo1
-Nw0KPiBPbiAxNS4xMi4yMDE2IDE0OjU2LCBEYXZpZCBMYWlnaHQgd3JvdGU6DQo+ID4gRnJvbTog
-SGFubmVzIEZyZWRlcmljIFNvd2ENCj4gPj4gU2VudDogMTUgRGVjZW1iZXIgMjAxNiAxMjo1MA0K
-PiA+PiBPbiAxNS4xMi4yMDE2IDEzOjI4LCBEYXZpZCBMYWlnaHQgd3JvdGU6DQo+ID4+PiBGcm9t
-OiBIYW5uZXMgRnJlZGVyaWMgU293YQ0KPiA+Pj4+IFNlbnQ6IDE1IERlY2VtYmVyIDIwMTYgMTI6
-MjMNCj4gPj4+IC4uLg0KPiA+Pj4+IEhtbT8gRXZlbiB0aGUgSW50ZWwgQUJJIGV4cGVjdHMgYWxp
-Z25tZW50IG9mIHVuc2lnbmVkIGxvbmcgbG9uZyB0byBiZSA4DQo+ID4+Pj4gYnl0ZXMgb24gMzIg
-Yml0LiBEbyB5b3UgcXVlc3Rpb24gdGhhdD8NCj4gPj4+DQo+ID4+PiBZZXMuDQo+ID4+Pg0KPiA+
-Pj4gVGhlIGxpbnV4IEFCSSBmb3IgeDg2ICgzMiBiaXQpIG9ubHkgcmVxdWlyZXMgMzJiaXQgYWxp
-Z25tZW50IGZvciB1NjQgKGV0YykuDQo+ID4+DQo+ID4+IEhtbSwgdTY0IG9uIDMyIGJpdCBpcyB1
-bnNpZ25lZCBsb25nIGxvbmcgYW5kIG5vdCB1bnNpZ25lZCBsb25nLiBUaHVzIEkNCj4gPj4gYW0g
-YWN0dWFsbHkgbm90IHN1cmUgaWYgdGhlIEFCSSB3b3VsZCBzYXkgYW55dGhpbmcgYWJvdXQgdGhh
-dCAoc29ycnkNCj4gPj4gYWxzbyBmb3IgbXkgd3Jvbmcgc3RhdGVtZW50IGFib3ZlKS4NCj4gPj4N
-Cj4gPj4gQWxpZ25tZW50IHJlcXVpcmVtZW50IG9mIHVuc2lnbmVkIGxvbmcgbG9uZyBvbiBnY2Mg
-d2l0aCAtbTMyIGFjdHVhbGx5DQo+ID4+IHNlZW0gdG8gYmUgOC4NCj4gPg0KPiA+IEl0IGRlcGVu
-ZHMgb24gdGhlIGFyY2hpdGVjdHVyZS4NCj4gPiBGb3IgeDg2IGl0IGlzIGRlZmluaXRlbHkgNC4N
-Cj4gDQo+IE1heSBJIGFzayBmb3IgYSByZWZlcmVuY2U/DQoNCkFzayBhbnlvbmUgd2hvIGhhcyBo
-YWQgdG8gZG8gY29tcGF0aWJpbGl0eSBsYXllcnMgdG8gc3VwcG9ydCAzMmJpdA0KYmluYXJpZXMg
-b24gNjRiaXQgc3lzdGVtcy4NCg0KPiBJIGNvdWxkbid0IHNlZSB1bnNpZ25lZCBsb25nIGxvbmcg
-YmVpbmcNCj4gbWVudGlvbmVkIGluIHRoZSBpYTMyIGFiaSBzcGVjIHRoYXQgSSBmb3VuZC4gSSBh
-Z3JlZSB0aGF0IHRob3NlIGFjY2Vzc2VzDQo+IG1pZ2h0IGJlIHN5bnRoZXRpY2FsbHkgYXNzZW1i
-bGVkIGJ5IGdjYyBhbmQgZm9yIG1lIHRoZSBhbGlnbm1lbnQgb2YgNA0KPiB3b3VsZCBoYXZlIHNl
-ZW1lZCBuYXR1cmFsLiBCdXQgbXkgZ2NjIGF0IGxlYXN0IGluIDMyIGJpdCBtb2RlIGRpc2FncmVl
-cw0KPiB3aXRoIHRoYXQuDQoNClRyeSAocmV0eXBlZCk6DQoNCmVjaG8gJ3N0cnVjdCB7IGxvbmcg
-YTsgbG9uZyBsb25nIGI7IH0gczsgaW50IGJhciB7IHJldHVybiBzaXplb2YgczsgfScgPmZvby5j
-DQpnY2MgWy1tMzJdIC1PMiAtUyBmb28uYzsgY2F0IGZvby5zDQoNCkFuZCBsb29rIGF0IHdoYXQg
-aXMgZ2VuZXJhdGVkLg0KDQo+IFJpZ2h0IG5vdyBpcHY2IGFkZHJlc3NlcyBoYXZlIGFuIGFsaWdu
-bWVudCBvZiA0LiBTbyB3ZSBjb3VsZG4ndCBldmVuDQo+IG5hdHVyYWxseSBwYXNzIHRoZW0gdG8g
-c2lwaGFzaCBidXQgd291bGQgbmVlZCB0byBjb3B5IHRoZW0gYXJvdW5kLCB3aGljaA0KPiBJIGZl
-ZWwgbGlrZSBhIHNvdXJjZSBvZiBidWdzLg0KDQpUaGF0IGlzIG1vcmUgb2YgYSBwcm9ibGVtIG9u
-IHN5c3RlbXMgdGhhdCBkb24ndCBzdXBwb3J0IG1pc2FsaWduZWQgYWNjZXNzZXMuDQpSZWFkaW5n
-IHRoZSA2NGJpdCB2YWx1ZXMgd2l0aCB0d28gZXhwbGljaXQgMzJiaXQgcmVhZHMgd291bGQgd29y
-ay4NCkkgdGhpbmsgeW91IGNhbiBnZXQgZ2NjIHRvIGRvIHRoYXQgYnkgYWRkaW5nIGFuIGFsaWdu
-ZWQoNCkgYXR0cmlidXRlIHRvIHRoZQ0Kc3RydWN0dXJlIG1lbWJlci4NCg0KCURhdmlkDQoNCg==
+On Thu, Dec 15, 2016 at 04:12:05PM +0200, Or Gerlitz wrote:
+> On 12/15/2016 3:50 PM, Simon Horman wrote:
+> >>Zero bits on the mask signify a "don't care" on the corresponding bits
+> >>in key. Some HWs require those bits on the key to be zero. Since these
+> >>bits are masked anyway, it's okay to provide the masked key to all
+> >>drivers.
+> >>
+> >>Fixes: 5b33f48842fa ('net/flower: Introduce hardware offload support')
+> >>
+> >While I don't have a specific use case in mind that this change would break
+> >it seems to me that it would be better to handle hardware requirements
+> >at the driver level.
+> 
+> Simon, again, since these bits are masked anyway, it would be correct to
+> provide the masked key to the hw device.
+> 
+> E.g no matter if the flow key/mask provided to the HW device is is
+> 1.1.1.10/24  or 1.1.1.0/24, the user expects to the same matching, so
+> nothing can't happen if we provide the latter to the driver.
+
+> >While I don't have a specific use case in mind that this change would break
+> >it seems to me that it would be better to handle hardware requirements
+> >at the driver level.
+> 
+> Even though, makes no sense to pass unmasked key down. Is is only
+> confusing. This patch fixes it.
+
+It seems somewhat arbitrary to me to allow such filters in software
+but not pass then down to the driver layer. But I don't feel strongly
+about this and I am happy for the patch to progress as-is.
