@@ -1,105 +1,49 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net] netfilter: check duplicate config when initializing in ipt_CLUSTERIP
-Date: Thu, 15 Dec 2016 12:31:40 +0800
-Message-ID: <9b3e1f76b5670d33727e63b6e166ae416b0d65af.1481776300.git.lucien.xin@gmail.com>
-Cc: davem@davemloft.net,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-To: network dev <netdev@vger.kernel.org>,
-        netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH] vhost/vsock: Remove unused but set variable
+Date: Thu, 15 Dec 2016 06:54:58 +0200
+Message-ID: <20161215065447-mutt-send-email-mst@kernel.org>
+References: <20161111132631.25708-1-tklauser@distanz.ch>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
+	Stefan Hajnoczi <stefanha@redhat.com>,
+	virtualization@lists.linux-foundation.org
+To: Tobias Klauser <tklauser@distanz.ch>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <20161111132631.25708-1-tklauser@distanz.ch>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Now when adding an ipt_CLUSTERIP rule, it only checks duplicate config in
-clusterip_config_find_get(). But after that, there may be still another
-thread to insert a config with the same ip, then it leaves proc_create_data
-to do duplicate check.
-
-It's more reasonable to check duplicate config by ipt_CLUSTERIP itself,
-instead of checking it by proc fs duplicate file check. Before, when proc
-fs allowed duplicate name files in a directory, It could even crash kernel
-because of use-after-free.
-
-This patch is to check duplicate config under the protection of clusterip
-net lock when initializing a new config.
-
-Note that it also moves proc file node creation after adding new config, as
-proc_create_data may sleep, it couldn't be called under the clusterip_net
-lock. clusterip_config_find_get returns NULL if c->pde is null to make sure
-it can't be used until the proc file node creation is done.
-
-Suggested-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
----
- net/ipv4/netfilter/ipt_CLUSTERIP.c | 26 +++++++++++++++++++-------
- 1 file changed, 19 insertions(+), 7 deletions(-)
-
-diff --git a/net/ipv4/netfilter/ipt_CLUSTERIP.c b/net/ipv4/netfilter/ipt_CLUSTERIP.c
-index 21db00d..0e71cac 100644
---- a/net/ipv4/netfilter/ipt_CLUSTERIP.c
-+++ b/net/ipv4/netfilter/ipt_CLUSTERIP.c
-@@ -144,7 +144,7 @@ clusterip_config_find_get(struct net *net, __be32 clusterip, int entry)
- 	rcu_read_lock_bh();
- 	c = __clusterip_config_find(net, clusterip);
- 	if (c) {
--		if (unlikely(!atomic_inc_not_zero(&c->refcount)))
-+		if (!c->pde || unlikely(!atomic_inc_not_zero(&c->refcount)))
- 			c = NULL;
- 		else if (entry)
- 			atomic_inc(&c->entries);
-@@ -166,10 +166,11 @@ clusterip_config_init_nodelist(struct clusterip_config *c,
- 
- static struct clusterip_config *
- clusterip_config_init(const struct ipt_clusterip_tgt_info *i, __be32 ip,
--			struct net_device *dev)
-+		      struct net_device *dev)
- {
-+	struct net *net = dev_net(dev);
- 	struct clusterip_config *c;
--	struct clusterip_net *cn = net_generic(dev_net(dev), clusterip_net_id);
-+	struct clusterip_net *cn = net_generic(net, clusterip_net_id);
- 
- 	c = kzalloc(sizeof(*c), GFP_ATOMIC);
- 	if (!c)
-@@ -185,6 +186,17 @@ clusterip_config_init(const struct ipt_clusterip_tgt_info *i, __be32 ip,
- 	atomic_set(&c->refcount, 1);
- 	atomic_set(&c->entries, 1);
- 
-+	spin_lock_bh(&cn->lock);
-+	if (__clusterip_config_find(net, ip)) {
-+		spin_unlock_bh(&cn->lock);
-+		kfree(c);
-+
-+		return NULL;
-+	}
-+
-+	list_add_rcu(&c->list, &cn->configs);
-+	spin_unlock_bh(&cn->lock);
-+
- #ifdef CONFIG_PROC_FS
- 	{
- 		char buffer[16];
-@@ -195,16 +207,16 @@ clusterip_config_init(const struct ipt_clusterip_tgt_info *i, __be32 ip,
- 					  cn->procdir,
- 					  &clusterip_proc_fops, c);
- 		if (!c->pde) {
-+			spin_lock_bh(&cn->lock);
-+			list_del_rcu(&c->list);
-+			spin_unlock_bh(&cn->lock);
- 			kfree(c);
-+
- 			return NULL;
- 		}
- 	}
- #endif
- 
--	spin_lock_bh(&cn->lock);
--	list_add_rcu(&c->list, &cn->configs);
--	spin_unlock_bh(&cn->lock);
--
- 	return c;
- }
- 
--- 
-2.1.0
-
+T24gRnJpLCBOb3YgMTEsIDIwMTYgYXQgMDI6MjY6MzFQTSArMDEwMCwgVG9iaWFzIEtsYXVzZXIg
+d3JvdGU6Cj4gUmVtb3ZlIHRoZSB1bnVzZWQgYnV0IHNldCB2YXJpYWJsZSB2cSBpbiB2aG9zdF90
+cmFuc3BvcnRfc2VuZF9wa3QoKSB0bwo+IGZpeCB0aGUgZm9sbG93aW5nIEdDQyB3YXJuaW5nIHdo
+ZW4gYnVpbGRpbmcgd2l0aCAnVz0xJzoKPiAKPiAgIGRyaXZlcnMvdmhvc3QvdnNvY2suYzoxOTg6
+MjY6IHdhcm5pbmc6IHZhcmlhYmxlIOKAmHZx4oCZIHNldCBidXQgbm90IHVzZWQKPiAKPiBTaWdu
+ZWQtb2ZmLWJ5OiBUb2JpYXMgS2xhdXNlciA8dGtsYXVzZXJAZGlzdGFuei5jaD4KCmRvZXNuJ3Qg
+YXBwbHkgYW55bW9yZS4KCj4gLS0tCj4gIGRyaXZlcnMvdmhvc3QvdnNvY2suYyB8IDMgLS0tCj4g
+IDEgZmlsZSBjaGFuZ2VkLCAzIGRlbGV0aW9ucygtKQo+IAo+IGRpZmYgLS1naXQgYS9kcml2ZXJz
+L3Zob3N0L3Zzb2NrLmMgYi9kcml2ZXJzL3Zob3N0L3Zzb2NrLmMKPiBpbmRleCBlM2IzMGVhOWVj
+ZTUuLjljM2M2OGI5YTQ5ZSAxMDA2NDQKPiAtLS0gYS9kcml2ZXJzL3Zob3N0L3Zzb2NrLmMKPiAr
+KysgYi9kcml2ZXJzL3Zob3N0L3Zzb2NrLmMKPiBAQCAtMTk1LDcgKzE5NSw2IEBAIHN0YXRpYyBp
+bnQKPiAgdmhvc3RfdHJhbnNwb3J0X3NlbmRfcGt0KHN0cnVjdCB2aXJ0aW9fdnNvY2tfcGt0ICpw
+a3QpCj4gIHsKPiAgCXN0cnVjdCB2aG9zdF92c29jayAqdnNvY2s7Cj4gLQlzdHJ1Y3Qgdmhvc3Rf
+dmlydHF1ZXVlICp2cTsKPiAgCWludCBsZW4gPSBwa3QtPmxlbjsKPiAgCj4gIAkvKiBGaW5kIHRo
+ZSB2aG9zdF92c29jayBhY2NvcmRpbmcgdG8gZ3Vlc3QgY29udGV4dCBpZCAgKi8KPiBAQCAtMjA1
+LDggKzIwNCw2IEBAIHZob3N0X3RyYW5zcG9ydF9zZW5kX3BrdChzdHJ1Y3QgdmlydGlvX3Zzb2Nr
+X3BrdCAqcGt0KQo+ICAJCXJldHVybiAtRU5PREVWOwo+ICAJfQo+ICAKPiAtCXZxID0gJnZzb2Nr
+LT52cXNbVlNPQ0tfVlFfUlhdOwo+IC0KPiAgCWlmIChwa3QtPnJlcGx5KQo+ICAJCWF0b21pY19p
+bmMoJnZzb2NrLT5xdWV1ZWRfcmVwbGllcyk7Cj4gIAo+IC0tIAo+IDIuMTEuMC5yYzAuNy5nYmU1
+YTc1MAo+IApfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpW
+aXJ0dWFsaXphdGlvbiBtYWlsaW5nIGxpc3QKVmlydHVhbGl6YXRpb25AbGlzdHMubGludXgtZm91
+bmRhdGlvbi5vcmcKaHR0cHM6Ly9saXN0cy5saW51eGZvdW5kYXRpb24ub3JnL21haWxtYW4vbGlz
+dGluZm8vdmlydHVhbGl6YXRpb24=
