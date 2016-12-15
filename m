@@ -1,131 +1,145 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: [PATCH v2 2/2] net: ethernet: stmmac: remove private tx queue
- lock
-Date: Thu, 15 Dec 2016 23:03:53 +0100
-Message-ID: <20161215220353.GA15619@amd>
-References: <1481241343-18062-1-git-send-email-LinoSanfilippo@gmx.de>
- <1481241343-18062-3-git-send-email-LinoSanfilippo@gmx.de>
- <20161215094517.GA406@amd>
- <626fc3ef-ba18-ed99-aea1-2f737425b199@gmx.de>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="qMm9M+Fa2AknHoGS"
-Cc: bh74.an@samsung.com, ks.giri@samsung.com, vipul.pandya@samsung.com,
-        peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        romieu@fr.zoreil.com, davem@davemloft.net,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+From: Geoff Lansberry <geoff@kuvee.com>
+Subject: [PATCH 1/3] NFC: trf7970a: add device tree option for 27MHz clock
+Date: Thu, 15 Dec 2016 17:30:42 -0500
+Message-ID: <1481841044-4314-1-git-send-email-glansberry@gmail.com>
+Cc: lauro.venancio@openbossa.org, aloisio.almeida@openbossa.org,
+        sameo@linux.intel.com, robh+dt@kernel.org, mark.rutland@arm.com,
+        netdev@vger.kernel.org, devicetree@vger.kernel.org,
+        linux-kernel@vger.kernel.org, mgreer@animalcreek.com,
+        justin@kuvee.com, Geoff Lansberry <geoff@kuvee.com>
+To: linux-wireless@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <626fc3ef-ba18-ed99-aea1-2f737425b199@gmx.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Geoff Lansberry <geoff@kuvee.com>
 
---qMm9M+Fa2AknHoGS
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+---
+ .../devicetree/bindings/net/nfc/trf7970a.txt       |  3 ++
+ drivers/nfc/trf7970a.c                             | 42 ++++++++++++++++------
+ 2 files changed, 34 insertions(+), 11 deletions(-)
 
-Hi!
-
-> >> The driver uses a private lock for synchronization of the xmit functio=
-n and
-> >> the xmit completion handler, but since the NETIF_F_LLTX flag is not se=
-t,
-> >> the xmit function is also called with the xmit_lock held.
-> >>=20
-> >> On the other hand the completion handler uses the reverse locking orde=
-r by
-> >> first taking the private lock and (in case that the tx queue had been
-> >> stopped) then the xmit_lock.
-> >>=20
-> >> Improve the locking by removing the private lock and using only the
-> >> xmit_lock for synchronization instead.
-> >=20
-> > Do you have stmmac hardware to test on?
-> >=20
->=20
-> Unfortunately not (I mentioned that the patch I send was only compile tes=
-ted in=20
-> the first version but I think I forgot to do so in the last
-> version).
-
-:-(.
-
-
-> > I believe something is very wrong with the locking there. In
-> > particular... scheduling the stmmac_tx_timer() function to run often
-> > should not do anything bad if locking is correct... but it breaks the
-> > driver rather quickly. [Example patch below, needs applying to two
-> > places in net-next.]
-> >=20
->=20
-> Do you get this result only after the private lock is removed? Or has thi=
-s problem
-> been there before? And how exactly does the failure look like?
-
-I believe I was getting very similar fun even with the private lock. I
-re-applied the private lock, and the result is the same.
-
-Also.. locking does seems to work. I added checks to see if the
-stmmac_tx_clean() and stmmac_xmit() run at the same time, and they
-don't seem to. So my best guess at the moment is missing cache flush
-or mb() somewhere.
-
-Failure looks like this:
-
-root@wagabuibui:~# mount /dev/mmcblk0p4 /mnt
-o 1000000 > /proc/sys/net/core/wmeroot@wagabuibui:~# chroot /mnt
-/bin/bash
-root@wagabuibui:/# mount /proc000 100 30
-root@wagabuibui:/# #echo 1000000 > /proc/sys/net/core/wmem_default
-root@wagabuibui:/# cd /data/tmp/udpt
-root@wagabuibui:/data/tmp/udpt# ifconfig eth0 10.0.0.170 up
-[   18.358072] socfpga-dwmac ff702000.ethernet eth0: IEEE 1588-2008
-Advanced Timestamp supported
-[   18.366836] socfpga-dwmac ff702000.ethernet eth0: registered PTP
-clock
-root@wagabuibui:/data/tmp/udpt# ./udp-test raw 10.0.0.6 1234 1000 100
-30
-Sending 100 packets (1000b each) at an interval of 30ms, expected data
-rate:3333333b/s (3373333b/s incl udp overhead)
-[   20.453538] socfpga-dwmac ff702000.ethernet eth0: Link is Up -
-100Mbps/Full - flow control rx/tx
-[   20.581826] Link is Up - 100/Full
-Sending UDP packet took >10ms: 5205162us
-This would lead to a lost frame!
-Sending UDP packet took >10ms: 40010us
-This would lead to a lost frame!
-Sending UDP packet took >10ms: 6366084us
-This would lead to a lost frame!
-Sending UDP packet took >10ms: 36971us
-This would lead to a lost frame!
-[   42.084940] ------------[ cut here ]------------
-[   42.089577] WARNING: CPU: 0 PID: 0 at net/sched/sch_generic.c:316
-dev_watchdog+0x254/0x26c
-[   42.097821] NETDEV WATCHDOG: eth0 (socfpga-dwmac): transmit queue 0
-timed out
-[   42.104935] Modules linked in:
-
-Best regards,
-									Pavel
-
---=20
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
-g.html
-
---qMm9M+Fa2AknHoGS
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iEYEARECAAYFAlhTE0kACgkQMOfwapXb+vJTBQCgggAK3q9PP3GX0msdfzYL5xH0
-DzoAnRY9QMNpcnxG1JI9Yye/DVDDV3hr
-=kdnU
------END PGP SIGNATURE-----
-
---qMm9M+Fa2AknHoGS--
+diff --git a/Documentation/devicetree/bindings/net/nfc/trf7970a.txt b/Documentation/devicetree/bindings/net/nfc/trf7970a.txt
+index 32b35a0..9dda879 100644
+--- a/Documentation/devicetree/bindings/net/nfc/trf7970a.txt
++++ b/Documentation/devicetree/bindings/net/nfc/trf7970a.txt
+@@ -21,6 +21,8 @@ Optional SoC Specific Properties:
+ - t5t-rmb-extra-byte-quirk: Specify that the trf7970a has the erratum
+   where an extra byte is returned by Read Multiple Block commands issued
+   to Type 5 tags.
++- crystal_27mhz: Set to specify that the input frequency to the trf7970a is 27.12MHz
++
+ 
+ Example (for ARM-based BeagleBone with TRF7970A on SPI1):
+ 
+@@ -43,6 +45,7 @@ Example (for ARM-based BeagleBone with TRF7970A on SPI1):
+ 		irq-status-read-quirk;
+ 		en2-rf-quirk;
+ 		t5t-rmb-extra-byte-quirk;
++		crystal_27mhz;
+ 		status = "okay";
+ 	};
+ };
+diff --git a/drivers/nfc/trf7970a.c b/drivers/nfc/trf7970a.c
+index 26c9dbb..2d2a077 100644
+--- a/drivers/nfc/trf7970a.c
++++ b/drivers/nfc/trf7970a.c
+@@ -1056,12 +1056,11 @@ static int trf7970a_init(struct trf7970a *trf)
+ 
+ 	trf->chip_status_ctrl &= ~TRF7970A_CHIP_STATUS_RF_ON;
+ 
+-	ret = trf7970a_write(trf, TRF7970A_MODULATOR_SYS_CLK_CTRL, 0);
++	ret = trf7970a_write(trf, TRF7970A_MODULATOR_SYS_CLK_CTRL,
++			trf->modulator_sys_clk_ctrl);
+ 	if (ret)
+ 		goto err_out;
+ 
+-	trf->modulator_sys_clk_ctrl = 0;
+-
+ 	ret = trf7970a_write(trf, TRF7970A_ADJUTABLE_FIFO_IRQ_LEVELS,
+ 			TRF7970A_ADJUTABLE_FIFO_IRQ_LEVELS_WLH_96 |
+ 			TRF7970A_ADJUTABLE_FIFO_IRQ_LEVELS_WLL_32);
+@@ -1181,27 +1180,37 @@ static int trf7970a_in_config_rf_tech(struct trf7970a *trf, int tech)
+ 	switch (tech) {
+ 	case NFC_DIGITAL_RF_TECH_106A:
+ 		trf->iso_ctrl_tech = TRF7970A_ISO_CTRL_14443A_106;
+-		trf->modulator_sys_clk_ctrl = TRF7970A_MODULATOR_DEPTH_OOK;
++		trf->modulator_sys_clk_ctrl =
++			(trf->modulator_sys_clk_ctrl & 0xF8) |
++			TRF7970A_MODULATOR_DEPTH_OOK;
+ 		trf->guard_time = TRF7970A_GUARD_TIME_NFCA;
+ 		break;
+ 	case NFC_DIGITAL_RF_TECH_106B:
+ 		trf->iso_ctrl_tech = TRF7970A_ISO_CTRL_14443B_106;
+-		trf->modulator_sys_clk_ctrl = TRF7970A_MODULATOR_DEPTH_ASK10;
++		trf->modulator_sys_clk_ctrl =
++			(trf->modulator_sys_clk_ctrl & 0xF8) |
++			TRF7970A_MODULATOR_DEPTH_ASK10;
+ 		trf->guard_time = TRF7970A_GUARD_TIME_NFCB;
+ 		break;
+ 	case NFC_DIGITAL_RF_TECH_212F:
+ 		trf->iso_ctrl_tech = TRF7970A_ISO_CTRL_FELICA_212;
+-		trf->modulator_sys_clk_ctrl = TRF7970A_MODULATOR_DEPTH_ASK10;
++		trf->modulator_sys_clk_ctrl =
++			(trf->modulator_sys_clk_ctrl & 0xF8) |
++			TRF7970A_MODULATOR_DEPTH_ASK10;
+ 		trf->guard_time = TRF7970A_GUARD_TIME_NFCF;
+ 		break;
+ 	case NFC_DIGITAL_RF_TECH_424F:
+ 		trf->iso_ctrl_tech = TRF7970A_ISO_CTRL_FELICA_424;
+-		trf->modulator_sys_clk_ctrl = TRF7970A_MODULATOR_DEPTH_ASK10;
++		trf->modulator_sys_clk_ctrl =
++			(trf->modulator_sys_clk_ctrl & 0xF8) |
++			TRF7970A_MODULATOR_DEPTH_ASK10;
+ 		trf->guard_time = TRF7970A_GUARD_TIME_NFCF;
+ 		break;
+ 	case NFC_DIGITAL_RF_TECH_ISO15693:
+ 		trf->iso_ctrl_tech = TRF7970A_ISO_CTRL_15693_SGL_1OF4_2648;
+-		trf->modulator_sys_clk_ctrl = TRF7970A_MODULATOR_DEPTH_OOK;
++		trf->modulator_sys_clk_ctrl =
++			(trf->modulator_sys_clk_ctrl & 0xF8) |
++			TRF7970A_MODULATOR_DEPTH_OOK;
+ 		trf->guard_time = TRF7970A_GUARD_TIME_15693;
+ 		break;
+ 	default:
+@@ -1571,17 +1580,23 @@ static int trf7970a_tg_config_rf_tech(struct trf7970a *trf, int tech)
+ 		trf->iso_ctrl_tech = TRF7970A_ISO_CTRL_NFC_NFC_CE_MODE |
+ 			TRF7970A_ISO_CTRL_NFC_CE |
+ 			TRF7970A_ISO_CTRL_NFC_CE_14443A;
+-		trf->modulator_sys_clk_ctrl = TRF7970A_MODULATOR_DEPTH_OOK;
++		trf->modulator_sys_clk_ctrl =
++			(trf->modulator_sys_clk_ctrl & 0xF8) |
++			TRF7970A_MODULATOR_DEPTH_OOK;
+ 		break;
+ 	case NFC_DIGITAL_RF_TECH_212F:
+ 		trf->iso_ctrl_tech = TRF7970A_ISO_CTRL_NFC_NFC_CE_MODE |
+ 			TRF7970A_ISO_CTRL_NFC_NFCF_212;
+-		trf->modulator_sys_clk_ctrl = TRF7970A_MODULATOR_DEPTH_ASK10;
++		trf->modulator_sys_clk_ctrl =
++			(trf->modulator_sys_clk_ctrl & 0xF8) |
++			TRF7970A_MODULATOR_DEPTH_ASK10;
+ 		break;
+ 	case NFC_DIGITAL_RF_TECH_424F:
+ 		trf->iso_ctrl_tech = TRF7970A_ISO_CTRL_NFC_NFC_CE_MODE |
+ 			TRF7970A_ISO_CTRL_NFC_NFCF_424;
+-		trf->modulator_sys_clk_ctrl = TRF7970A_MODULATOR_DEPTH_ASK10;
++		trf->modulator_sys_clk_ctrl =
++			(trf->modulator_sys_clk_ctrl & 0xF8) |
++			TRF7970A_MODULATOR_DEPTH_ASK10;
+ 		break;
+ 	default:
+ 		dev_dbg(trf->dev, "Unsupported rf technology: %d\n", tech);
+@@ -2043,6 +2058,11 @@ static int trf7970a_probe(struct spi_device *spi)
+ 		return ret;
+ 	}
+ 
++	if (of_property_read_bool(np, "crystal_27mhz")) {
++		trf->modulator_sys_clk_ctrl = TRF7970A_MODULATOR_27MHZ;
++		dev_dbg(trf->dev, "trf7970a configure crystal_27mhz\n");
++	}
++
+ 	if (of_property_read_bool(np, "en2-rf-quirk"))
+ 		trf->quirks |= TRF7970A_QUIRK_EN2_MUST_STAY_LOW;
+ 
+-- 
+Signed-off-by: Geoff Lansberry <geoff@kuvee.com>
