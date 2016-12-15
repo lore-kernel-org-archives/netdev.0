@@ -1,44 +1,37 @@
-From: Weilong Chen <chenweilong@huawei.com>
-Subject: [PATCH net-next] ixgbevf: fix 'Etherleak' in ixgbevf
-Date: Thu, 15 Dec 2016 19:40:34 +0800
-Message-ID: <1481802034-77729-1-git-send-email-chenweilong@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <intel-wired-lan@lists.osuosl.org>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>
-To: <jeffrey.t.kirsher@intel.com>
+From: Corentin Labbe <clabbe.montjoie@gmail.com>
+Subject: [PATCH 4/5] irda: irnet: Remove unused IRNET_MAJOR define
+Date: Thu, 15 Dec 2016 11:42:49 +0100
+Message-ID: <20161215104250.16813-4-clabbe.montjoie@gmail.com>
+References: <20161215104250.16813-1-clabbe.montjoie@gmail.com>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        Corentin Labbe <clabbe.montjoie@gmail.com>
+To: arnd@arndb.de, gregkh@linuxfoundation.org, samuel@sortiz.org,
+        davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161215104250.16813-1-clabbe.montjoie@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Nessus report the vf appears to leak memory in network packets.
-Fix this by padding all small packets manually.
+The IRNET_MAJOR define is not used, so this patch remove it.
 
-And the CVE-2003-0001.
-https://ofirarkin.files.wordpress.com/2008/11/atstake_etherleak_report.pdf
-
-Signed-off-by: Weilong Chen <chenweilong@huawei.com>
+Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
 ---
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 7 +++++++
- 1 file changed, 7 insertions(+)
+ net/irda/irnet/irnet_ppp.h | 3 ---
+ 1 file changed, 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index 6d4bef5..137a154 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -3654,6 +3654,13 @@ static int ixgbevf_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
- 		return NETDEV_TX_OK;
- 	}
+diff --git a/net/irda/irnet/irnet_ppp.h b/net/irda/irnet/irnet_ppp.h
+index 18fcead..ec092c9 100644
+--- a/net/irda/irnet/irnet_ppp.h
++++ b/net/irda/irnet/irnet_ppp.h
+@@ -19,9 +19,6 @@
  
-+	/* On PCI/PCI-X HW, if packet size is less than ETH_ZLEN,
-+	 * packets may get corrupted during padding by HW.
-+	 * To WA this issue, pad all small packets manually.
-+	 */
-+	if (eth_skb_pad(skb))
-+		return NETDEV_TX_OK;
-+
- 	tx_ring = adapter->tx_ring[skb->queue_mapping];
+ /************************ CONSTANTS & MACROS ************************/
  
- 	/* need: 1 descriptor per page * PAGE_SIZE/IXGBE_MAX_DATA_PER_TXD,
+-/* /dev/irnet file constants */
+-#define IRNET_MAJOR	10	/* Misc range */
+-
+ /* IrNET control channel stuff */
+ #define IRNET_MAX_COMMAND	256	/* Max length of a command line */
+ 
 -- 
-1.7.12
+2.10.2
