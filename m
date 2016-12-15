@@ -1,128 +1,83 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH iproute2 2/4] ip vrf: Refactor ipvrf_identify
-Date: Thu, 15 Dec 2016 12:07:00 -0800
-Message-ID: <1481832422-10267-3-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH iproute2 4/4] ip netns: Reset vrf to default VRF on namespace switch
+Date: Thu, 15 Dec 2016 12:07:02 -0800
+Message-ID: <1481832422-10267-5-git-send-email-dsa@cumulusnetworks.com>
 References: <1481832422-10267-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org, stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f53.google.com ([74.125.83.53]:35751 "EHLO
-        mail-pg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754517AbcLOUHK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Dec 2016 15:07:10 -0500
-Received: by mail-pg0-f53.google.com with SMTP id p66so23346591pga.2
-        for <netdev@vger.kernel.org>; Thu, 15 Dec 2016 12:07:10 -0800 (PST)
+Received: from mail-pf0-f180.google.com ([209.85.192.180]:35727 "EHLO
+        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754546AbcLOUHM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Dec 2016 15:07:12 -0500
+Received: by mail-pf0-f180.google.com with SMTP id i88so10205321pfk.2
+        for <netdev@vger.kernel.org>; Thu, 15 Dec 2016 12:07:11 -0800 (PST)
 In-Reply-To: <1481832422-10267-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Split ipvrf_identify into arg processing and a function that does the
-actual cgroup file parsing. The latter function is used in a follow
-on patch.
-
-In the process, convert the reading of the cgroups file to use fopen
-and fgets just in case the file ever grows beyond 4k. Move printing
-of any error message and the vrf name to the caller of the new
-vrf_identify.
+A vrf is local to a namespace. Drop any VRF association before trying
+to exec a command in the new namespace.
 
 Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- ip/ipvrf.c | 69 +++++++++++++++++++++++++++++++++++---------------------------
- 1 file changed, 39 insertions(+), 30 deletions(-)
+ ip/ip_common.h |  1 +
+ ip/ipnetns.c   |  5 +++++
+ ip/ipvrf.c     | 14 ++++++++++++++
+ 3 files changed, 20 insertions(+)
 
+diff --git a/ip/ip_common.h b/ip/ip_common.h
+index 28763e81e4a4..ab6a83431fd6 100644
+--- a/ip/ip_common.h
++++ b/ip/ip_common.h
+@@ -58,6 +58,7 @@ int do_tcp_metrics(int argc, char **argv);
+ int do_ipnetconf(int argc, char **argv);
+ int do_iptoken(int argc, char **argv);
+ int do_ipvrf(int argc, char **argv);
++void vrf_reset(void);
+ 
+ int iplink_get(unsigned int flags, char *name, __u32 filt_mask);
+ 
+diff --git a/ip/ipnetns.c b/ip/ipnetns.c
+index db9a541769f1..8201b94a1620 100644
+--- a/ip/ipnetns.c
++++ b/ip/ipnetns.c
+@@ -387,6 +387,11 @@ static int netns_exec(int argc, char **argv)
+ 	if (netns_switch(argv[0]))
+ 		return -1;
+ 
++	/* we just changed namespaces. clear any vrf association
++	 * with prior namespace before exec'ing command
++	 */
++	vrf_reset();
++
+ 	/* ip must return the status of the child,
+ 	 * but do_cmd() will add a minus to this,
+ 	 * so let's add another one here to cancel it.
 diff --git a/ip/ipvrf.c b/ip/ipvrf.c
-index 44ad7e07024a..a2669f339691 100644
+index de2ec5c120cb..dc8364a43a57 100644
 --- a/ip/ipvrf.c
 +++ b/ip/ipvrf.c
-@@ -40,14 +40,43 @@ static void usage(void)
- 	exit(-1);
+@@ -277,6 +277,20 @@ static int ipvrf_exec(int argc, char **argv)
+ 	return -cmd_exec(argv[1], argv + 1, !!batch_mode);
  }
  
--static int ipvrf_identify(int argc, char **argv)
-+static int vrf_identify(pid_t pid, char *name, size_t len)
- {
- 	char path[PATH_MAX];
- 	char buf[4096];
- 	char *vrf, *end;
--	int fd, rc = -1;
-+	FILE *fp;
-+
-+	snprintf(path, sizeof(path), "/proc/%d/cgroup", pid);
-+	fp = fopen(path, "r");
-+	if (!fp)
-+		return -1;
-+
-+	memset(name, 0, len);
-+
-+	while (fgets(buf, sizeof(buf), fp)) {
-+		vrf = strstr(buf, "::/vrf/");
-+		if (vrf) {
-+			vrf += 7;  /* skip past "::/vrf/" */
-+			end = strchr(vrf, '\n');
-+			if (end)
-+				*end = '\0';
-+
-+			strncpy(name, vrf, len - 1);
-+			break;
-+		}
-+	}
-+
-+	fclose(fp);
-+
-+	return 0;
-+}
-+
-+static int ipvrf_identify(int argc, char **argv)
++/* reset VRF association of current process to default VRF;
++ * used by netns_exec
++ */
++void vrf_reset(void)
 +{
 +	char vrf[32];
-+	int rc;
- 	unsigned int pid;
--	ssize_t n;
- 
- 	if (argc < 1)
- 		pid = getpid();
-@@ -56,35 +85,15 @@ static int ipvrf_identify(int argc, char **argv)
- 	else if (get_unsigned(&pid, argv[0], 10))
- 		invarg("Invalid pid\n", argv[0]);
- 
--	snprintf(path, sizeof(path), "/proc/%d/cgroup", pid);
--	fd = open(path, O_RDONLY);
--	if (fd < 0) {
--		fprintf(stderr,
--			"Failed to open cgroups file: %s\n", strerror(errno));
--		return -1;
--	}
--
--	n = read(fd, buf, sizeof(buf) - 1);
--	if (n < 0) {
--		fprintf(stderr,
--			"Failed to read cgroups file: %s\n", strerror(errno));
--		goto out;
--	}
--	buf[n] = '\0';
--	vrf = strstr(buf, "::/vrf/");
--	if (vrf) {
--		vrf += 7;  /* skip past "::/vrf/" */
--		end = strchr(vrf, '\n');
--		if (end)
--			*end = '\0';
--
--		printf("%s\n", vrf);
-+	rc = vrf_identify(pid, vrf, sizeof(vrf));
-+	if (!rc) {
-+		if (vrf[0] != '\0')
-+			printf("%s\n", vrf);
-+	} else {
-+		fprintf(stderr, "Failed to lookup vrf association: %s\n",
-+			strerror(errno));
- 	}
- 
--	rc = 0;
--out:
--	close(fd);
--
- 	return rc;
- }
- 
++
++	if (vrf_identify(getpid(), vrf, sizeof(vrf)) ||
++	    (vrf[0] == '\0'))
++		return;
++
++	vrf_switch("default");
++}
++
+ int do_ipvrf(int argc, char **argv)
+ {
+ 	if (argc == 0) {
 -- 
 2.1.4
