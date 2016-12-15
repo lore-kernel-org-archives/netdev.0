@@ -1,200 +1,112 @@
-From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-Subject: Re: [PATCH 1/2] net: ethernet: sxgbe: remove private tx queue lock
-Date: Thu, 15 Dec 2016 23:33:22 +0100
-Message-ID: <6f43eac8-754b-cfa2-371d-050701deb4cd@gmx.de>
-References: <1481141138-19466-1-git-send-email-LinoSanfilippo@gmx.de>
- <1481141138-19466-2-git-send-email-LinoSanfilippo@gmx.de>
- <20161207231534.GB5889@electric-eye.fr.zoreil.com>
- <051e3043-8b58-0591-36e3-99e2267f67f4@gmx.de>
- <20161208231943.GA13102@electric-eye.fr.zoreil.com>
- <20161209112142.GA22710@amd> <c76124b9-6376-42b9-2821-b5a8185f5034@gmx.de>
- <20161211201104.GB20574@amd> <cfad6b84-de23-2e03-6d34-2b3451975179@gmx.de>
- <20161215210324.GA13878@amd> <f3fc8035-fb6e-fb06-d9b8-bfc96dc4e1d2@gmx.de>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: Soft lockup in inet_put_port on 4.6
+Date: Thu, 15 Dec 2016 14:39:26 -0800
+Message-ID: <CALx6S34dmOWiEtOFQMc1FGhqvLqxM5JkD6q5MvaZz0cGZmNM=A@mail.gmail.com>
+References: <CALx6S36OVUqAxq9vNnfHp2eJOuG+gSSg896zzaZoc3Og4tyxFw@mail.gmail.com>
+ <1481231024.1911284.813071977.72AF4DEE@webmail.messagingengine.com>
+ <1481233016.11849.1@smtp.office365.com> <1481243432.4930.145.camel@edumazet-glaptop3.roam.corp.google.com>
+ <6C6EE0ED-7E78-4866-8AAF-D75FD4719EF3@fb.com> <1481335192.3663.0@smtp.office365.com>
+ <1481341624.4930.204.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1481343298.4930.208.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1481565929.24490.0@smtp.office365.com> <3c022731-e703-34ac-55f1-60f5b94b6d62@stressinduktion.org>
+ <1481581466.24490.2@smtp.office365.com> <CALx6S34S82kFVqYW1M0ZuHx_Mxut4QaLFVerLX4aEsksrFirXg@mail.gmail.com>
+ <CAEfhGiyFW1YHmmUYpFv+q4J4r=wSv3ZBZowG69BqkT3p-G4gNw@mail.gmail.com>
+ <CALx6S369T_hvoTgyHbmeSiR2p3d68h+0tMKqMmcGYLrKiN3JMA@mail.gmail.com> <1481828016.24490.5@smtp.office365.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------64BF7E40EBE405D314B2779C"
-Cc: Francois Romieu <romieu@fr.zoreil.com>, bh74.an@samsung.com,
-        ks.giri@samsung.com, vipul.pandya@samsung.com,
-        peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        davem@davemloft.net, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org
-To: Pavel Machek <pavel@ucw.cz>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <f3fc8035-fb6e-fb06-d9b8-bfc96dc4e1d2@gmx.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Craig Gallek <kraigatgoog@gmail.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Josef Bacik <jbacik@fb.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f170.google.com ([209.85.220.170]:35719 "EHLO
+        mail-qk0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753521AbcLOWj2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Dec 2016 17:39:28 -0500
+Received: by mail-qk0-f170.google.com with SMTP id n204so73252354qke.2
+        for <netdev@vger.kernel.org>; Thu, 15 Dec 2016 14:39:28 -0800 (PST)
+In-Reply-To: <1481828016.24490.5@smtp.office365.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------64BF7E40EBE405D314B2779C
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
+On Thu, Dec 15, 2016 at 10:53 AM, Josef Bacik <jbacik@fb.com> wrote:
+> On Tue, Dec 13, 2016 at 6:32 PM, Tom Herbert <tom@herbertland.com> wrote:
+>>
+>> On Tue, Dec 13, 2016 at 3:03 PM, Craig Gallek <kraigatgoog@gmail.com>
+>> wrote:
+>>>
+>>>  On Tue, Dec 13, 2016 at 3:51 PM, Tom Herbert <tom@herbertland.com>
+>>> wrote:
+>>>>
+>>>>  I think there may be some suspicious code in inet_csk_get_port. At
+>>>>  tb_found there is:
+>>>>
+>>>>                  if (((tb->fastreuse > 0 && reuse) ||
+>>>>                       (tb->fastreuseport > 0 &&
+>>>>                        !rcu_access_pointer(sk->sk_reuseport_cb) &&
+>>>>                        sk->sk_reuseport && uid_eq(tb->fastuid, uid))) &&
+>>>>                      smallest_size == -1)
+>>>>                          goto success;
+>>>>                  if (inet_csk(sk)->icsk_af_ops->bind_conflict(sk, tb,
+>>>> true)) {
+>>>>                          if ((reuse ||
+>>>>                               (tb->fastreuseport > 0 &&
+>>>>                                sk->sk_reuseport &&
+>>>>                                !rcu_access_pointer(sk->sk_reuseport_cb)
+>>>> &&
+>>>>                                uid_eq(tb->fastuid, uid))) &&
+>>>>                              smallest_size != -1 && --attempts >= 0) {
+>>>>                                  spin_unlock_bh(&head->lock);
+>>>>                                  goto again;
+>>>>                          }
+>>>>                          goto fail_unlock;
+>>>>                  }
+>>>>
+>>>>  AFAICT there is redundancy in these two conditionals.  The same clause
+>>>>  is being checked in both: (tb->fastreuseport > 0 &&
+>>>>  !rcu_access_pointer(sk->sk_reuseport_cb) && sk->sk_reuseport &&
+>>>>  uid_eq(tb->fastuid, uid))) && smallest_size == -1. If this is true the
+>>>>  first conditional should be hit, goto done,  and the second will never
+>>>>  evaluate that part to true-- unless the sk is changed (do we need
+>>>>  READ_ONCE for sk->sk_reuseport_cb?).
+>>>
+>>>  That's an interesting point... It looks like this function also
+>>>  changed in 4.6 from using a single local_bh_disable() at the beginning
+>>>  with several spin_lock(&head->lock) to exclusively
+>>>  spin_lock_bh(&head->lock) at each locking point.  Perhaps the full bh
+>>>  disable variant was preventing the timers in your stack trace from
+>>>  running interleaved with this function before?
+>>
+>>
+>> Could be, although dropping the lock shouldn't be able to affect the
+>> search state. TBH, I'm a little lost in reading function, the
+>> SO_REUSEPORT handling is pretty complicated. For instance,
+>> rcu_access_pointer(sk->sk_reuseport_cb) is checked three times in that
+>> function and also in every call to inet_csk_bind_conflict. I wonder if
+>> we can simply this under the assumption that SO_REUSEPORT is only
+>> allowed if the port number (snum) is explicitly specified.
+>
+>
+> Ok first I have data for you Hannes, here's the time distributions before
+> during and after the lockup (with all the debugging in place the box
+> eventually recovers).  I've attached it as a text file since it is long.
+>
+> Second is I was thinking about why we would spend so much time doing the
+> ->owners list, and obviously it's because of the massive amount of timewait
+> sockets on the owners list.  I wrote the following dumb patch and tested it
+> and the problem has disappeared completely.  Now I don't know if this is
+> right at all, but I thought it was weird we weren't copying the soreuseport
+> option from the original socket onto the twsk.  Is there are reason we
+> aren't doing this currently?  Does this help explain what is happening?
+> Thanks,
+>
+I think that would explain it. We would be walking long lists of TW
+sockets in inet_bind_bucket_for_each(tb, &head->chain). This should
+break, although now I'm wondering if there's other ways we can get
+into this situation. reuseport ensures that we can have long lists of
+sockets in a single bucket, TW sockets can make that list really long.
 
-On 15.12.2016 22:32, Lino Sanfilippo wrote:
+Tom
 
-> Ah ok. Then maybe priv->hw->dma->stop_tx() does not do the job correctly (stop the
-> tx path properly) and the HW is still active on the tx path while the tx buffers are
-> freed. OTOH stmmac_release() also stops the phy before the tx (and rx) paths are stopped.
-> Did you try to stop the phy fist in stmmac_tx_err_work(), too?
-> 
-> Regards,
-> Lino
-> 
-
-And this is the "sledgehammer" approach: Do a complete shutdown and restart
-of the hardware in case of tx error (against net-next and only compile tested).
-
-
---------------64BF7E40EBE405D314B2779C
-Content-Type: text/x-patch;
- name="0001-Sledgehammer.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename="0001-Sledgehammer.patch"
-
->From 0eda87ce6cbc2fb6d25653f30121f30f89332199 Mon Sep 17 00:00:00 2001
-From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-Date: Thu, 15 Dec 2016 23:18:15 +0100
-Subject: [PATCH] Sledgehammer
-
----
- drivers/net/ethernet/stmicro/stmmac/stmmac.h      |  1 +
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 70 ++++++++++-------------
- 2 files changed, 31 insertions(+), 40 deletions(-)
-
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-index eab04ae..9c240d7 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-@@ -131,6 +131,7 @@ struct stmmac_priv {
- 	u32 rx_tail_addr;
- 	u32 tx_tail_addr;
- 	u32 mss;
-+	struct work_struct tx_err_work;
- 
- #ifdef CONFIG_DEBUG_FS
- 	struct dentry *dbgfs_dir;
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 3e40578..7546574 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -1403,37 +1403,6 @@ static inline void stmmac_disable_dma_irq(struct stmmac_priv *priv)
- }
- 
- /**
-- * stmmac_tx_err - to manage the tx error
-- * @priv: driver private structure
-- * Description: it cleans the descriptors and restarts the transmission
-- * in case of transmission errors.
-- */
--static void stmmac_tx_err(struct stmmac_priv *priv)
--{
--	int i;
--	netif_stop_queue(priv->dev);
--
--	priv->hw->dma->stop_tx(priv->ioaddr);
--	dma_free_tx_skbufs(priv);
--	for (i = 0; i < DMA_TX_SIZE; i++)
--		if (priv->extend_desc)
--			priv->hw->desc->init_tx_desc(&priv->dma_etx[i].basic,
--						     priv->mode,
--						     (i == DMA_TX_SIZE - 1));
--		else
--			priv->hw->desc->init_tx_desc(&priv->dma_tx[i],
--						     priv->mode,
--						     (i == DMA_TX_SIZE - 1));
--	priv->dirty_tx = 0;
--	priv->cur_tx = 0;
--	netdev_reset_queue(priv->dev);
--	priv->hw->dma->start_tx(priv->ioaddr);
--
--	priv->dev->stats.tx_errors++;
--	netif_wake_queue(priv->dev);
--}
--
--/**
-  * stmmac_dma_interrupt - DMA ISR
-  * @priv: driver private structure
-  * Description: this is the DMA ISR. It is called by the main ISR.
-@@ -1466,7 +1435,7 @@ static void stmmac_dma_interrupt(struct stmmac_priv *priv)
- 			priv->xstats.threshold = tc;
- 		}
- 	} else if (unlikely(status == tx_hard_error))
--		stmmac_tx_err(priv);
-+		schedule_work(&priv->tx_err_work);
- }
- 
- /**
-@@ -1870,13 +1839,7 @@ static int stmmac_open(struct net_device *dev)
- 	return ret;
- }
- 
--/**
-- *  stmmac_release - close entry point of the driver
-- *  @dev : device pointer.
-- *  Description:
-- *  This is the stop entry point of the driver.
-- */
--static int stmmac_release(struct net_device *dev)
-+static int stmmac_do_release(struct net_device *dev)
- {
- 	struct stmmac_priv *priv = netdev_priv(dev);
- 
-@@ -1919,10 +1882,36 @@ static int stmmac_release(struct net_device *dev)
- #endif
- 
- 	stmmac_release_ptp(priv);
-+}
-+
-+/**
-+ *  stmmac_release - close entry point of the driver
-+ *  @dev : device pointer.
-+ *  Description:
-+ *  This is the stop entry point of the driver.
-+ */
-+static int stmmac_release(struct net_device *dev)
-+{
-+	struct stmmac_priv *priv = netdev_priv(dev);
-+
-+	cancel_work_sync(&priv->tx_err_work);
-+
-+	stmmac_do_release(dev);
- 
- 	return 0;
- }
- 
-+static void stmmac_tx_err_work(struct work_struct *work)
-+{
-+	struct stmmac_priv *priv = container_of(work, struct stmmac_priv,
-+						tx_err_work);
-+	/* restart netdev */
-+	rtnl_lock();
-+	stmmac_release(priv->dev);
-+	stmmac_open(priv->dev);
-+	rtnl_unlock();
-+}
-+
- /**
-  *  stmmac_tso_allocator - close entry point of the driver
-  *  @priv: driver private structure
-@@ -2688,7 +2677,7 @@ static void stmmac_tx_timeout(struct net_device *dev)
- 	struct stmmac_priv *priv = netdev_priv(dev);
- 
- 	/* Clear Tx resources and restart transmitting again */
--	stmmac_tx_err(priv);
-+	schedule_work(&priv->tx_err_work);
- }
- 
- /**
-@@ -3338,6 +3327,7 @@ int stmmac_dvr_probe(struct device *device,
- 	netif_napi_add(ndev, &priv->napi, stmmac_poll, 64);
- 
- 	spin_lock_init(&priv->lock);
-+	INIT_WORK(&priv->tx_err_work, stmmac_tx_err_work);
- 
- 	ret = register_netdev(ndev);
- 	if (ret) {
--- 
-1.9.1
-
-
---------------64BF7E40EBE405D314B2779C--
+> Josef
