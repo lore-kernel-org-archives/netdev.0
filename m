@@ -1,320 +1,68 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: [net-next PATCH v6 2/5] virtio_net: Add XDP support
-Date: Thu, 15 Dec 2016 12:13:24 -0800
-Message-ID: <20161215201324.23639.54149.stgit@john-Precision-Tower-5810>
-References: <20161215200712.23639.53043.stgit@john-Precision-Tower-5810>
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: Re: [PATCH v2 1/4] siphash: add cryptographically secure hashtable function
+Date: Thu, 15 Dec 2016 21:43:04 +0100
+Message-ID: <CAHmME9rDCb=2rojJba13Uew9V9qAbxv1qcJGHwEAKoahxyE9QA@mail.gmail.com>
+References: <20161214035927.30004-1-Jason@zx2c4.com> <CAHmME9q9ffdtWRbzyMO1ktTdtEFdfumTfojTTNLXFhoa+R+MWQ@mail.gmail.com>
+ <8ea3fdff-23c4-b81d-2588-44549bd2d8c1@stressinduktion.org>
+ <063D6719AE5E284EB5DD2968C1650D6DB02401ED@AcuExch.aculab.com>
+ <707472e1-b385-836d-c4c6-791c1dcc0776@stressinduktion.org>
+ <063D6719AE5E284EB5DD2968C1650D6DB02402C0@AcuExch.aculab.com>
+ <0f3c3694-c00b-aae2-5b08-25bc64bf6372@stressinduktion.org>
+ <063D6719AE5E284EB5DD2968C1650D6DB0240437@AcuExch.aculab.com>
+ <f6813084-6f46-0b22-e9c3-97b2e266f8f6@stressinduktion.org>
+ <063D6719AE5E284EB5DD2968C1650D6DB0240529@AcuExch.aculab.com>
+ <924ef794-eae0-2a6b-508b-069718339edc@stressinduktion.org>
+ <CAHmME9pTLFu3-4n6m_OMj5jVWGE-+yC-4CnkynD--H4Nt8_cpA@mail.gmail.com> <18d1e9d1-1e52-b9a6-de26-2f33859ec052@stressinduktion.org>
+Reply-To: kernel-hardening@lists.openwall.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: daniel@iogearbox.net, netdev@vger.kernel.org,
-        alexei.starovoitov@gmail.com, john.r.fastabend@intel.com,
-        brouer@redhat.com, tgraf@suug.ch, davem@davemloft.net
-To: mst@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:34255 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753525AbcLOUdf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Dec 2016 15:33:35 -0500
-Received: by mail-pg0-f66.google.com with SMTP id e9so7212393pgc.1
-        for <netdev@vger.kernel.org>; Thu, 15 Dec 2016 12:33:35 -0800 (PST)
-In-Reply-To: <20161215200712.23639.53043.stgit@john-Precision-Tower-5810>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Laight <David.Laight@aculab.com>, Netdev <netdev@vger.kernel.org>,
+	"kernel-hardening@lists.openwall.com" <kernel-hardening@lists.openwall.com>,
+	Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>, LKML <linux-kernel@vger.kernel.org>,
+	Linux Crypto Mailing List <linux-crypto@vger.kernel.org>, "Daniel J . Bernstein" <djb@cr.yp.to>,
+	Linus Torvalds <torvalds@linux-foundation.org>, Eric Biggers <ebiggers3@gmail.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <kernel-hardening-return-5597-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+In-Reply-To: <18d1e9d1-1e52-b9a6-de26-2f33859ec052@stressinduktion.org>
+List-Id: netdev.vger.kernel.org
 
-From: John Fastabend <john.fastabend@gmail.com>
+On Thu, Dec 15, 2016 at 9:31 PM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> ARM64 and x86-64 have memory operations that are not vector operations
+> that operate on 128 bit memory.
 
-This adds XDP support to virtio_net. Some requirements must be
-met for XDP to be enabled depending on the mode. First it will
-only be supported with LRO disabled so that data is not pushed
-across multiple buffers. Second the MTU must be less than a page
-size to avoid having to handle XDP across multiple pages.
+Fair enough. imull I guess.
 
-If mergeable receive is enabled this patch only supports the case
-where header and data are in the same buf which we can check when
-a packet is received by looking at num_buf. If the num_buf is
-greater than 1 and a XDP program is loaded the packet is dropped
-and a warning is thrown. When any_header_sg is set this does not
-happen and both header and data is put in a single buffer as expected
-so we check this when XDP programs are loaded.  Subsequent patches
-will process the packet in a degraded mode to ensure connectivity
-and correctness is not lost even if backend pushes packets into
-multiple buffers.
+> How do you know that the compiler for some architecture will not chose a
+> more optimized instruction to load a 64 bit memory value into two 32 bit
+> registers if you tell the compiler it is 8 byte aligned but it actually
+> isn't? I don't know the answer but telling the compiler some data is 8
+> byte aligned while it isn't really pretty much seems like a call for
+> trouble.
 
-If big packets mode is enabled and MTU/LRO conditions above are
-met then XDP is allowed.
+If a compiler is in the business of using special 64-bit instructions
+on 64-bit aligned data, then it is also the job of the compiler to
+align structs to 64-bits when passed __aligned(8), which is what we've
+done in this code. If the compiler were to hypothetically choose to
+ignore that and internally convert it to a __aligned(4), then it would
+only be able to do so with the knowledge that it will never use 64-bit
+aligned data instructions. But so far as I can tell, gcc always
+respects __aligned(8), which is why I use it in this patchset.
 
-This patch was tested with qemu with vhost=on and vhost=off where
-mergeable and big_packet modes were forced via hard coding feature
-negotiation. Multiple buffers per packet was forced via a small
-test patch to vhost.c in the vhost=on qemu mode.
+I think there might have been confusion here, because perhaps someone
+was hoping that since in6_addr is 128-bits, that the __aligned
+attribute would not be required and that the struct would just
+automatically be aligned to at least 8 bytes. But in fact, as I
+mentioned, in6_addr is actually composed of u32[4] and not u64[2], so
+it will only be aligned to 4 bytes, making the __aligned(8) necessary.
 
-Suggested-by: Shrijeet Mukherjee <shrijeet@gmail.com>
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
----
- drivers/net/virtio_net.c |  176 +++++++++++++++++++++++++++++++++++++++++++++-
- 1 file changed, 171 insertions(+), 5 deletions(-)
+I think for the purposes of this patchset, this is a solved problem.
+There's the unaligned version of the function if you don't know about
+the data, and there's the aligned version if you're using
+__aligned(SIPHASH_ALIGNMENT) on your data. Plain and simple.
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index b425fa1..93075da 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -22,6 +22,7 @@
- #include <linux/module.h>
- #include <linux/virtio.h>
- #include <linux/virtio_net.h>
-+#include <linux/bpf.h>
- #include <linux/scatterlist.h>
- #include <linux/if_vlan.h>
- #include <linux/slab.h>
-@@ -81,6 +82,8 @@ struct receive_queue {
- 
- 	struct napi_struct napi;
- 
-+	struct bpf_prog __rcu *xdp_prog;
-+
- 	/* Chain pages by the private ptr. */
- 	struct page *pages;
- 
-@@ -324,6 +327,38 @@ static struct sk_buff *page_to_skb(struct virtnet_info *vi,
- 	return skb;
- }
- 
-+static u32 do_xdp_prog(struct virtnet_info *vi,
-+		       struct bpf_prog *xdp_prog,
-+		       struct page *page, int offset, int len)
-+{
-+	int hdr_padded_len;
-+	struct xdp_buff xdp;
-+	u32 act;
-+	u8 *buf;
-+
-+	buf = page_address(page) + offset;
-+
-+	if (vi->mergeable_rx_bufs)
-+		hdr_padded_len = sizeof(struct virtio_net_hdr_mrg_rxbuf);
-+	else
-+		hdr_padded_len = sizeof(struct padded_vnet_hdr);
-+
-+	xdp.data = buf + hdr_padded_len;
-+	xdp.data_end = xdp.data + (len - vi->hdr_len);
-+
-+	act = bpf_prog_run_xdp(xdp_prog, &xdp);
-+	switch (act) {
-+	case XDP_PASS:
-+		return XDP_PASS;
-+	default:
-+		bpf_warn_invalid_xdp_action(act);
-+	case XDP_TX:
-+	case XDP_ABORTED:
-+	case XDP_DROP:
-+		return XDP_DROP;
-+	}
-+}
-+
- static struct sk_buff *receive_small(struct virtnet_info *vi, void *buf, unsigned int len)
- {
- 	struct sk_buff * skb = buf;
-@@ -340,14 +375,32 @@ static struct sk_buff *receive_big(struct net_device *dev,
- 				   void *buf,
- 				   unsigned int len)
- {
-+	struct bpf_prog *xdp_prog;
- 	struct page *page = buf;
--	struct sk_buff *skb = page_to_skb(vi, rq, page, 0, len, PAGE_SIZE);
-+	struct sk_buff *skb;
- 
-+	rcu_read_lock();
-+	xdp_prog = rcu_dereference(rq->xdp_prog);
-+	if (xdp_prog) {
-+		struct virtio_net_hdr_mrg_rxbuf *hdr = buf;
-+		u32 act;
-+
-+		if (unlikely(hdr->hdr.gso_type || hdr->hdr.flags))
-+			goto err_xdp;
-+		act = do_xdp_prog(vi, xdp_prog, page, 0, len);
-+		if (act == XDP_DROP)
-+			goto err_xdp;
-+	}
-+	rcu_read_unlock();
-+
-+	skb = page_to_skb(vi, rq, page, 0, len, PAGE_SIZE);
- 	if (unlikely(!skb))
- 		goto err;
- 
- 	return skb;
- 
-+err_xdp:
-+	rcu_read_unlock();
- err:
- 	dev->stats.rx_dropped++;
- 	give_pages(rq, page);
-@@ -365,11 +418,42 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
- 	u16 num_buf = virtio16_to_cpu(vi->vdev, hdr->num_buffers);
- 	struct page *page = virt_to_head_page(buf);
- 	int offset = buf - page_address(page);
--	unsigned int truesize = max(len, mergeable_ctx_to_buf_truesize(ctx));
-+	struct sk_buff *head_skb, *curr_skb;
-+	struct bpf_prog *xdp_prog;
-+	unsigned int truesize;
-+
-+	rcu_read_lock();
-+	xdp_prog = rcu_dereference(rq->xdp_prog);
-+	if (xdp_prog) {
-+		u32 act;
-+
-+		/* No known backend devices should send packets with
-+		 * more than a single buffer when XDP conditions are
-+		 * met. However it is not strictly illegal so the case
-+		 * is handled as an exception and a warning is thrown.
-+		 */
-+		if (unlikely(num_buf > 1)) {
-+			bpf_warn_invalid_xdp_buffer();
-+			goto err_xdp;
-+		}
-+
-+		/* Transient failure which in theory could occur if
-+		 * in-flight packets from before XDP was enabled reach
-+		 * the receive path after XDP is loaded. In practice I
-+		 * was not able to create this condition.
-+		 */
-+		if (unlikely(hdr->hdr.gso_type || hdr->hdr.flags))
-+			goto err_xdp;
-+
-+		act = do_xdp_prog(vi, xdp_prog, page, offset, len);
-+		if (act == XDP_DROP)
-+			goto err_xdp;
-+	}
-+	rcu_read_unlock();
- 
--	struct sk_buff *head_skb = page_to_skb(vi, rq, page, offset, len,
--					       truesize);
--	struct sk_buff *curr_skb = head_skb;
-+	truesize = max(len, mergeable_ctx_to_buf_truesize(ctx));
-+	head_skb = page_to_skb(vi, rq, page, offset, len, truesize);
-+	curr_skb = head_skb;
- 
- 	if (unlikely(!curr_skb))
- 		goto err_skb;
-@@ -423,6 +507,8 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
- 	ewma_pkt_len_add(&rq->mrg_avg_pkt_len, head_skb->len);
- 	return head_skb;
- 
-+err_xdp:
-+	rcu_read_unlock();
- err_skb:
- 	put_page(page);
- 	while (--num_buf) {
-@@ -1337,6 +1423,13 @@ static int virtnet_set_channels(struct net_device *dev,
- 	if (queue_pairs > vi->max_queue_pairs || queue_pairs == 0)
- 		return -EINVAL;
- 
-+	/* For now we don't support modifying channels while XDP is loaded
-+	 * also when XDP is loaded all RX queues have XDP programs so we only
-+	 * need to check a single RX queue.
-+	 */
-+	if (vi->rq[0].xdp_prog)
-+		return -EINVAL;
-+
- 	get_online_cpus();
- 	err = virtnet_set_queues(vi, queue_pairs);
- 	if (!err) {
-@@ -1428,6 +1521,70 @@ static void virtnet_init_settings(struct net_device *dev)
- 	.set_settings = virtnet_set_settings,
- };
- 
-+static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
-+{
-+	unsigned long int max_sz = PAGE_SIZE - sizeof(struct padded_vnet_hdr);
-+	struct virtnet_info *vi = netdev_priv(dev);
-+	struct bpf_prog *old_prog;
-+	int i;
-+
-+	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_TSO4) ||
-+	    virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_TSO6)) {
-+		netdev_warn(dev, "can't set XDP while host is implementing LRO, disable LRO first\n");
-+		return -EOPNOTSUPP;
-+	}
-+
-+	if (vi->mergeable_rx_bufs && !vi->any_header_sg) {
-+		netdev_warn(dev, "XDP expects header/data in single page, any_header_sg required\n");
-+		return -EINVAL;
-+	}
-+
-+	if (dev->mtu > max_sz) {
-+		netdev_warn(dev, "XDP requires MTU less than %lu\n", max_sz);
-+		return -EINVAL;
-+	}
-+
-+	if (prog) {
-+		prog = bpf_prog_add(prog, vi->max_queue_pairs - 1);
-+		if (IS_ERR(prog))
-+			return PTR_ERR(prog);
-+	}
-+
-+	for (i = 0; i < vi->max_queue_pairs; i++) {
-+		old_prog = rtnl_dereference(vi->rq[i].xdp_prog);
-+		rcu_assign_pointer(vi->rq[i].xdp_prog, prog);
-+		if (old_prog)
-+			bpf_prog_put(old_prog);
-+	}
-+
-+	return 0;
-+}
-+
-+static bool virtnet_xdp_query(struct net_device *dev)
-+{
-+	struct virtnet_info *vi = netdev_priv(dev);
-+	int i;
-+
-+	for (i = 0; i < vi->max_queue_pairs; i++) {
-+		if (vi->rq[i].xdp_prog)
-+			return true;
-+	}
-+	return false;
-+}
-+
-+static int virtnet_xdp(struct net_device *dev, struct netdev_xdp *xdp)
-+{
-+	switch (xdp->command) {
-+	case XDP_SETUP_PROG:
-+		return virtnet_xdp_set(dev, xdp->prog);
-+	case XDP_QUERY_PROG:
-+		xdp->prog_attached = virtnet_xdp_query(dev);
-+		return 0;
-+	default:
-+		return -EINVAL;
-+	}
-+}
-+
- static const struct net_device_ops virtnet_netdev = {
- 	.ndo_open            = virtnet_open,
- 	.ndo_stop   	     = virtnet_close,
-@@ -1444,6 +1601,7 @@ static void virtnet_init_settings(struct net_device *dev)
- #ifdef CONFIG_NET_RX_BUSY_POLL
- 	.ndo_busy_poll		= virtnet_busy_poll,
- #endif
-+	.ndo_xdp		= virtnet_xdp,
- };
- 
- static void virtnet_config_changed_work(struct work_struct *work)
-@@ -1505,12 +1663,20 @@ static void virtnet_free_queues(struct virtnet_info *vi)
- 
- static void free_receive_bufs(struct virtnet_info *vi)
- {
-+	struct bpf_prog *old_prog;
- 	int i;
- 
-+	rtnl_lock();
- 	for (i = 0; i < vi->max_queue_pairs; i++) {
- 		while (vi->rq[i].pages)
- 			__free_pages(get_a_page(&vi->rq[i], GFP_KERNEL), 0);
-+
-+		old_prog = rtnl_dereference(vi->rq[i].xdp_prog);
-+		RCU_INIT_POINTER(vi->rq[i].xdp_prog, NULL);
-+		if (old_prog)
-+			bpf_prog_put(old_prog);
- 	}
-+	rtnl_unlock();
- }
- 
- static void free_receive_page_frags(struct virtnet_info *vi)
+Jason
