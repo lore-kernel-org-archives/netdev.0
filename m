@@ -1,36 +1,23 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v3 3/3] random: use siphash24 instead of md5 for
- get_random_int/long
-Date: Thu, 15 Dec 2016 10:14:33 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB02401A1@AcuExch.aculab.com>
-References: <20161214035927.30004-1-Jason@zx2c4.com>
- <20161214184605.24006-1-Jason@zx2c4.com>
- <20161214184605.24006-3-Jason@zx2c4.com>
+From: Bentley <lucio.filho@casacivil.ce.gov.br>
+Subject: Hello Beautiful
+Date: Thu, 15 Dec 2016 06:39:50 -0300 (BRT)
+Message-ID: <84013135.169417.1481794790998.JavaMail.zimbra__15535.8739583336$1481797282$gmane$org@casacivil.ce.gov.br>
+Reply-To: Bentley <2724479582@qq.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>,
-        Ted Tso <tytso@mit.edu>
-To: "'Jason A. Donenfeld'" <Jason@zx2c4.com>,
-        Netdev <netdev@vger.kernel.org>,
-        "kernel-hardening@lists.openwall.com"
-        <kernel-hardening@lists.openwall.com>,
-        LKML <linux-kernel@vger.kernel.org>,
-        "linux-crypto@vger.kernel.org" <linux-crypto@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161214184605.24006-3-Jason@zx2c4.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay1.casacivil.ce.gov.br ([189.90.171.5]:42974 "EHLO
+        relay1.casacivil.ce.gov.br" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752673AbcLOKU5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Dec 2016 05:20:57 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Behalf Of Jason A. Donenfeld
-> Sent: 14 December 2016 18:46
-...
-> +	ret = *chaining = siphash24((u8 *)&combined, offsetof(typeof(combined), end),
+How you doing today? I hope you are doing well. My name is Bentley, from the US. I'm in Syria right now fighting ISIS. I want to get to know you better, if I may be so bold. I consider myself an easy-going man, and I am currently looking for a relationship in which I feel loved. Please tell me more about yourself, if you don't mind.
 
-If you make the first argument 'const void *' you won't need the cast
-on every call.
+Hope to hear from you soon.
 
-I'd also suggest making the key u64[2].
-
-	David
+Regards,
+Bentley.
