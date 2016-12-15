@@ -1,59 +1,54 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH net-next 1/2] inet: Don't go into port scan when looking for specific bind port
-Date: Wed, 14 Dec 2016 16:54:15 -0800
-Message-ID: <20161215005416.1561632-2-tom@herbertland.com>
-References: <20161215005416.1561632-1-tom@herbertland.com>
+From: Aaro Koskinen <aaro.koskinen@iki.fi>
+Subject: Re: [BISECTED] v4.9: OCTEON ethernet crash
+Date: Thu, 15 Dec 2016 02:57:51 +0200
+Message-ID: <20161215005751.457nm46shyjdt63q@raspberrypi-2.musicnaut.iki.fi>
+References: <20161215003253.un6hk2ytl3auiztn@raspberrypi-2.musicnaut.iki.fi>
+ <f70acf45-191d-215a-0019-420627a35d98@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <kernel-team@fb.com>, <jbacik@fb.com>, <eric.dumazet@gmail.com>,
-        <raigatgoog@gmail.com>
-To: <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+        David Daney <ddaney@caviumnetworks.com>, netdev@vger.kernel.org
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:34996 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S932559AbcLOAym (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 14 Dec 2016 19:54:42 -0500
-Received: from pps.filterd (m0044012.ppops.net [127.0.0.1])
-        by mx0a-00082601.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id uBF0saSR027825
-        for <netdev@vger.kernel.org>; Wed, 14 Dec 2016 16:54:36 -0800
-Received: from mail.thefacebook.com ([199.201.64.23])
-        by mx0a-00082601.pphosted.com with ESMTP id 27bdmqhxkv-2
-        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Wed, 14 Dec 2016 16:54:36 -0800
-Received: from facebook.com (2401:db00:11:d008:face:0:1d:0)     by
- mx-out.facebook.com (10.212.232.63) with ESMTP id
- 0b65e8f4c26111e6902d0002c992ebde-a1dfca50 for <netdev@vger.kernel.org>;        Wed,
- 14 Dec 2016 16:54:34 -0800
-In-Reply-To: <20161215005416.1561632-1-tom@herbertland.com>
+Received: from emh03.mail.saunalahti.fi ([62.142.5.109]:37053 "EHLO
+        emh03.mail.saunalahti.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752959AbcLOA5y (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 14 Dec 2016 19:57:54 -0500
+Content-Disposition: inline
+In-Reply-To: <f70acf45-191d-215a-0019-420627a35d98@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-inet_csk_get_port is called with port number (snum argument) that may be
-zero or nonzero. If it is zero, then the intent is to find an available
-ephemeral port number to bind to. If snum is non-zero then the caller
-is asking to allocate a specific port number. In the latter case we
-never want to perform the scan in ephemeral port range. It is
-conceivable that this can happen if the "goto again" in "tb_found:"
-is done. This patch adds a check that snum is zero before doing
-the "goto again".
+Hi,
 
-Signed-off-by: Tom Herbert <tom@herbertland.com>
----
- net/ipv4/inet_connection_sock.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+On Wed, Dec 14, 2016 at 04:41:13PM -0800, Florian Fainelli wrote:
+> On 12/14/2016 04:32 PM, Aaro Koskinen wrote:
+> > Git bisect points to:
+> > 
+> > commit ec988ad78ed6d184a7f4ca6b8e962b0e8f1de461
+> > Author: Florian Fainelli <f.fainelli@gmail.com>
+> > Date:   Tue Dec 6 20:54:43 2016 -0800
+> > 
+> >     phy: Don't increment MDIO bus refcount unless it's a different owner
+> > 
+> > Reverting this patch from v4.9 fixes the issue...
+> 
+> This should help:
+> 
+> diff --git a/drivers/staging/octeon/ethernet.c
+> b/drivers/staging/octeon/ethernet.c
+> index 8130dfe89745..12ebc4d800c3 100644
+> --- a/drivers/staging/octeon/ethernet.c
+> +++ b/drivers/staging/octeon/ethernet.c
+> @@ -770,6 +770,7 @@ static int cvm_oct_probe(struct platform_device *pdev)
+>                         /* Initialize the device private structure. */
+>                         struct octeon_ethernet *priv = netdev_priv(dev);
+> 
+> +                       SET_NETDEV_DEV(dev, &pdev->dev);
+>                         dev->netdev_ops = &cvm_oct_pow_netdev_ops;
+>                         priv->imode = CVMX_HELPER_INTERFACE_MODE_DISABLED;
+>                         priv->port = CVMX_PIP_NUM_INPUT_PORTS;
 
-diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
-index d5d3ead..f59838a6 100644
---- a/net/ipv4/inet_connection_sock.c
-+++ b/net/ipv4/inet_connection_sock.c
-@@ -212,7 +212,7 @@ int inet_csk_get_port(struct sock *sk, unsigned short snum)
- 			      sk->sk_reuseport &&
- 			      !rcu_access_pointer(sk->sk_reuseport_cb) &&
- 			      uid_eq(tb->fastuid, uid))) &&
--			    smallest_size != -1 && --attempts >= 0) {
-+			    !snum && smallest_size != -1 && --attempts >= 0) {
- 				spin_unlock_bh(&head->lock);
- 				goto again;
- 			}
--- 
-2.9.3
+No, it's still crashing.
+
+A.
