@@ -1,56 +1,71 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] net: wan: Use dma_pool_zalloc
-Date: Thu, 15 Dec 2016 08:48:07 -0800
-Message-ID: <1481820487.29291.66.camel@perches.com>
-References: <20161203091447.GA5231@jordon-HP-15-Notebook-PC>
-         <m3wpf9l0fc.fsf@t19.piap.pl>
-         <CAFqt6zZoEfE8Us+vx_VuFyqK-zth9ac=aZXo2MKD-4RUBqm5GQ@mail.gmail.com>
-         <CAFqt6zaHJ_YP-inLm8_XRDrX8FtcU86NqYG=+DRn9-Y3zR4cyg@mail.gmail.com>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH net] sctp: sctp_transport_lookup_process should
+ rcu_read_unlock when transport is null
+Date: Thu, 15 Dec 2016 14:48:27 -0200
+Message-ID: <20161215164827.GC4731@localhost.localdomain>
+References: <3d4f0205d5b5c64d372dffb37602f48e4a173612.1481814352.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: Rameshwar Sahu <sahu.rameshwar73@gmail.com>
-To: Souptick Joarder <jrdr.linux@gmail.com>,
-        Krzysztof =?UTF-8?Q?Ha=C5=82asa?= <khalasa@piap.pl>,
-        netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+        davem@davemloft.net, Neil Horman <nhorman@tuxdriver.com>
+To: Xin Long <lucien.xin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0030.hostedemail.com ([216.40.44.30]:41545 "EHLO
-        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1758047AbcLOQsM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Dec 2016 11:48:12 -0500
-In-Reply-To: <CAFqt6zaHJ_YP-inLm8_XRDrX8FtcU86NqYG=+DRn9-Y3zR4cyg@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:50516 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1757837AbcLOQsa (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 15 Dec 2016 11:48:30 -0500
+Content-Disposition: inline
+In-Reply-To: <3d4f0205d5b5c64d372dffb37602f48e4a173612.1481814352.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-12-15 at 10:41 +0530, Souptick Joarder wrote:
-> On Mon, Dec 12, 2016 at 10:12 AM, Souptick Joarder <jrdr.linux@gmail.com> wrote:
-> > On Fri, Dec 9, 2016 at 6:33 PM, Krzysztof Hałasa <khalasa@piap.pl> wrote:
-> > > Souptick Joarder <jrdr.linux@gmail.com> writes:
-> > > 
-> > > > We should use dma_pool_zalloc instead of dma_pool_alloc/memset
-[]
-> > > > diff --git a/drivers/net/wan/ixp4xx_hss.c b/drivers/net/wan/ixp4xx_hss.c
-[]
-> > > > @@ -976,10 +976,9 @@ static int init_hdlc_queues(struct port *port)
-> > > >                       return -ENOMEM;
-> > > >       }
-> > > > 
-> > > > -     if (!(port->desc_tab = dma_pool_alloc(dma_pool, GFP_KERNEL,
-> > > > -                                           &port->desc_tab_phys)))
-> > > > +     if (!(port->desc_tab = dma_pool_zalloc(dma_pool, GFP_KERNEL,
-> > > > +                                            &port->desc_tab_phys)))
-> > > >               return -ENOMEM;
-> > > > -     memset(port->desc_tab, 0, POOL_ALLOC_SIZE);
-> > > >       memset(port->rx_buff_tab, 0, sizeof(port->rx_buff_tab)); /* tables */
-> > > >       memset(port->tx_buff_tab, 0, sizeof(port->tx_buff_tab));
-> > > 
-> > > This look fine, feel free to send it to the netdev mailing list for
-> > > inclusion.
-> > 
-> > Including netdev mailing list based as requested.
-> > > Acked-by: Krzysztof Halasa <khalasa@piap.pl>
-[]
-> Any comment on this patch ?
+On Thu, Dec 15, 2016 at 11:05:52PM +0800, Xin Long wrote:
+> Prior to this patch, sctp_transport_lookup_process didn't rcu_read_unlock
+> when it failed to find a transport by sctp_addrs_lookup_transport.
+> 
+> This patch is to fix it by moving up rcu_read_unlock right before checking
+> transport and also to remove the out path.
+> 
+> Fixes: 1cceda784980 ("sctp: fix the issue sctp_diag uses lock_sock in rcu_read_lock")
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
 
-Shouldn't the one in drivers/net/ethernet/xscale/ixp4xx_eth.c
-also be changed?
+Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+
+> ---
+>  net/sctp/socket.c | 7 +++----
+>  1 file changed, 3 insertions(+), 4 deletions(-)
+> 
+> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+> index d5f4b4a..318c678 100644
+> --- a/net/sctp/socket.c
+> +++ b/net/sctp/socket.c
+> @@ -4472,18 +4472,17 @@ int sctp_transport_lookup_process(int (*cb)(struct sctp_transport *, void *),
+>  				  const union sctp_addr *paddr, void *p)
+>  {
+>  	struct sctp_transport *transport;
+> -	int err = -ENOENT;
+> +	int err;
+>  
+>  	rcu_read_lock();
+>  	transport = sctp_addrs_lookup_transport(net, laddr, paddr);
+> +	rcu_read_unlock();
+>  	if (!transport)
+> -		goto out;
+> +		return -ENOENT;
+>  
+> -	rcu_read_unlock();
+>  	err = cb(transport, p);
+>  	sctp_transport_put(transport);
+>  
+> -out:
+>  	return err;
+>  }
+>  EXPORT_SYMBOL_GPL(sctp_transport_lookup_process);
+> -- 
+> 2.1.0
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
