@@ -1,47 +1,102 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v2 1/4] siphash: add cryptographically secure hashtable
- function
-Date: Thu, 15 Dec 2016 13:56:30 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB0240437@AcuExch.aculab.com>
-References: <20161214035927.30004-1-Jason@zx2c4.com>
- <CAHmME9q9ffdtWRbzyMO1ktTdtEFdfumTfojTTNLXFhoa+R+MWQ@mail.gmail.com>
- <8ea3fdff-23c4-b81d-2588-44549bd2d8c1@stressinduktion.org>
- <063D6719AE5E284EB5DD2968C1650D6DB02401ED@AcuExch.aculab.com>
- <707472e1-b385-836d-c4c6-791c1dcc0776@stressinduktion.org>
- <063D6719AE5E284EB5DD2968C1650D6DB02402C0@AcuExch.aculab.com>
- <0f3c3694-c00b-aae2-5b08-25bc64bf6372@stressinduktion.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Netdev <netdev@vger.kernel.org>,
-        "kernel-hardening@lists.openwall.com"
-        <kernel-hardening@lists.openwall.com>,
-        Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>,
-        LKML <linux-kernel@vger.kernel.org>,
-        "Linux Crypto Mailing List" <linux-crypto@vger.kernel.org>,
-        "Daniel J . Bernstein" <djb@cr.yp.to>,
-        Linus Torvalds <torvalds@linux-foundation.org>,
-        Eric Biggers <ebiggers3@gmail.com>
-To: 'Hannes Frederic Sowa' <hannes@stressinduktion.org>,
-        "Jason A. Donenfeld" <Jason@zx2c4.com>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <0f3c3694-c00b-aae2-5b08-25bc64bf6372@stressinduktion.org>
-Content-Language: en-US
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: [PATCH net] ixgbe: update the rss key on h/w, when ethtool ask for it.
+Date: Thu, 15 Dec 2016 15:20:34 +0100
+Message-ID: <1aee550aa286aa44265236441b42f8aab77ae864.1481796580.git.pabeni@redhat.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        intel-wired-lan@lists.osuosl.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:40014 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1755300AbcLOOWD (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 15 Dec 2016 09:22:03 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogSGFubmVzIEZyZWRlcmljIFNvd2ENCj4gU2VudDogMTUgRGVjZW1iZXIgMjAxNiAxMjo1
-MA0KPiBPbiAxNS4xMi4yMDE2IDEzOjI4LCBEYXZpZCBMYWlnaHQgd3JvdGU6DQo+ID4gRnJvbTog
-SGFubmVzIEZyZWRlcmljIFNvd2ENCj4gPj4gU2VudDogMTUgRGVjZW1iZXIgMjAxNiAxMjoyMw0K
-PiA+IC4uLg0KPiA+PiBIbW0/IEV2ZW4gdGhlIEludGVsIEFCSSBleHBlY3RzIGFsaWdubWVudCBv
-ZiB1bnNpZ25lZCBsb25nIGxvbmcgdG8gYmUgOA0KPiA+PiBieXRlcyBvbiAzMiBiaXQuIERvIHlv
-dSBxdWVzdGlvbiB0aGF0Pw0KPiA+DQo+ID4gWWVzLg0KPiA+DQo+ID4gVGhlIGxpbnV4IEFCSSBm
-b3IgeDg2ICgzMiBiaXQpIG9ubHkgcmVxdWlyZXMgMzJiaXQgYWxpZ25tZW50IGZvciB1NjQgKGV0
-YykuDQo+IA0KPiBIbW0sIHU2NCBvbiAzMiBiaXQgaXMgdW5zaWduZWQgbG9uZyBsb25nIGFuZCBu
-b3QgdW5zaWduZWQgbG9uZy4gVGh1cyBJDQo+IGFtIGFjdHVhbGx5IG5vdCBzdXJlIGlmIHRoZSBB
-Qkkgd291bGQgc2F5IGFueXRoaW5nIGFib3V0IHRoYXQgKHNvcnJ5DQo+IGFsc28gZm9yIG15IHdy
-b25nIHN0YXRlbWVudCBhYm92ZSkuDQo+IA0KPiBBbGlnbm1lbnQgcmVxdWlyZW1lbnQgb2YgdW5z
-aWduZWQgbG9uZyBsb25nIG9uIGdjYyB3aXRoIC1tMzIgYWN0dWFsbHkNCj4gc2VlbSB0byBiZSA4
-Lg0KDQpJdCBkZXBlbmRzIG9uIHRoZSBhcmNoaXRlY3R1cmUuDQpGb3IgeDg2IGl0IGlzIGRlZmlu
-aXRlbHkgNC4NCkl0IG1pZ2h0IGJlIDggZm9yIHNwYXJjLCBwcGMgYW5kL29yIGFscGhhLg0KDQoJ
-RGF2aWQNCg0K
+Currently ixgbe_set_rxfh() updates the rss_key copy in the driver
+memory, but does not push the new value into the h/w. This commit
+add a new helper for the latter operation and call it in
+ixgbe_set_rxfh(), so that the h/w rss key value can be really
+updated via ethtool.
+
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h         |  1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |  4 +++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    | 19 ++++++++++++++++---
+ 3 files changed, 20 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+index ef81c3d..8fb9fbf 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+@@ -1026,6 +1026,7 @@ netdev_tx_t ixgbe_xmit_frame_ring(struct sk_buff *skb,
+ 				  struct ixgbe_adapter *adapter,
+ 				  struct ixgbe_ring *tx_ring);
+ u32 ixgbe_rss_indir_tbl_entries(struct ixgbe_adapter *adapter);
++void ixgbe_store_key(struct ixgbe_adapter *adapter);
+ void ixgbe_store_reta(struct ixgbe_adapter *adapter);
+ s32 ixgbe_negotiate_fc(struct ixgbe_hw *hw, u32 adv_reg, u32 lp_reg,
+ 		       u32 adv_sym, u32 adv_asm, u32 lp_sym, u32 lp_asm);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+index fd192bf..e40f9ce 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+@@ -3003,8 +3003,10 @@ static int ixgbe_set_rxfh(struct net_device *netdev, const u32 *indir,
+ 	}
+ 
+ 	/* Fill out the rss hash key */
+-	if (key)
++	if (key) {
+ 		memcpy(adapter->rss_key, key, ixgbe_get_rxfh_key_size(netdev));
++		ixgbe_store_key(adapter);
++	}
+ 
+ 	ixgbe_store_reta(adapter);
+ 
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 1e2f39e..0c23ab8 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -3411,6 +3411,21 @@ u32 ixgbe_rss_indir_tbl_entries(struct ixgbe_adapter *adapter)
+ }
+ 
+ /**
++ * ixgbe_store_key - Write the RSS key to HW
++ * @adapter: device handle
++ *
++ * Write the RSS key stored in adapter.rss_key to HW.
++ */
++void ixgbe_store_key(struct ixgbe_adapter *adapter)
++{
++	struct ixgbe_hw *hw = &adapter->hw;
++	int i;
++
++	for (i = 0; i < 10; i++)
++		IXGBE_WRITE_REG(hw, IXGBE_RSSRK(i), adapter->rss_key[i]);
++}
++
++/**
+  * ixgbe_store_reta - Write the RETA table to HW
+  * @adapter: device handle
+  *
+@@ -3475,7 +3490,6 @@ static void ixgbe_store_vfreta(struct ixgbe_adapter *adapter)
+ 
+ static void ixgbe_setup_reta(struct ixgbe_adapter *adapter)
+ {
+-	struct ixgbe_hw *hw = &adapter->hw;
+ 	u32 i, j;
+ 	u32 reta_entries = ixgbe_rss_indir_tbl_entries(adapter);
+ 	u16 rss_i = adapter->ring_feature[RING_F_RSS].indices;
+@@ -3488,8 +3502,7 @@ static void ixgbe_setup_reta(struct ixgbe_adapter *adapter)
+ 		rss_i = 4;
+ 
+ 	/* Fill out hash function seeds */
+-	for (i = 0; i < 10; i++)
+-		IXGBE_WRITE_REG(hw, IXGBE_RSSRK(i), adapter->rss_key[i]);
++	ixgbe_store_key(adapter);
+ 
+ 	/* Fill out redirection table */
+ 	memset(adapter->rss_indir_tbl, 0, sizeof(adapter->rss_indir_tbl));
+-- 
+1.8.3.1
