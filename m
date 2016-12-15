@@ -1,40 +1,50 @@
-From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-Subject: Re: [PATCH 1/2] net: ethernet: sxgbe: remove private tx queue lock
-Date: Thu, 15 Dec 2016 22:32:59 +0100
-Message-ID: <f3fc8035-fb6e-fb06-d9b8-bfc96dc4e1d2@gmx.de>
-References: <1481141138-19466-1-git-send-email-LinoSanfilippo@gmx.de>
- <1481141138-19466-2-git-send-email-LinoSanfilippo@gmx.de>
- <20161207231534.GB5889@electric-eye.fr.zoreil.com>
- <051e3043-8b58-0591-36e3-99e2267f67f4@gmx.de>
- <20161208231943.GA13102@electric-eye.fr.zoreil.com>
- <20161209112142.GA22710@amd> <c76124b9-6376-42b9-2821-b5a8185f5034@gmx.de>
- <20161211201104.GB20574@amd> <cfad6b84-de23-2e03-6d34-2b3451975179@gmx.de>
- <20161215210324.GA13878@amd>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Francois Romieu <romieu@fr.zoreil.com>, bh74.an@samsung.com,
-        ks.giri@samsung.com, vipul.pandya@samsung.com,
-        peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        davem@davemloft.net, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org
-To: Pavel Machek <pavel@ucw.cz>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161215210324.GA13878@amd>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 0/2] GTP tunneling fixes for net
+Date: Thu, 15 Dec 2016 22:35:51 +0100
+Message-ID: <1481837753-10317-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org, laforge@gnumonks.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:57298 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752293AbcLOVgJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 15 Dec 2016 16:36:09 -0500
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id CA06A7642
+        for <netdev@vger.kernel.org>; Thu, 15 Dec 2016 22:36:07 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id B8AB0DA85F
+        for <netdev@vger.kernel.org>; Thu, 15 Dec 2016 22:36:07 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 53A64DA860
+        for <netdev@vger.kernel.org>; Thu, 15 Dec 2016 22:36:05 +0100 (CET)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 15.12.2016 22:03, Pavel Machek wrote:
+Hi David,
 
-> 
-> I actually did experiment with adding locking there, too, and no, no
-> luck. It seems stmmac_tx_err() is more broken than just locking.
-> 
+The following patchset contains two GTP tunneling fixes for your net
+tree, they are:
 
-Ah ok. Then maybe priv->hw->dma->stop_tx() does not do the job correctly (stop the
-tx path properly) and the HW is still active on the tx path while the tx buffers are
-freed. OTOH stmmac_release() also stops the phy before the tx (and rx) paths are stopped.
-Did you try to stop the phy fist in stmmac_tx_err_work(), too?
+1) Offset to IPv4 header in gtp_check_src_ms_ipv4() is incorrect, thus
+   this function always succeeds and therefore this defeats this sanity
+   check. This allows packets that have no PDP to go though, patch from
+   Lionel Gauthier.
 
-Regards,
-Lino
+2) According to Note 0 of Figure 2 in Section 6 of 3GPP TS 29.060 v13.5.0
+   Release 13, always set GTPv1 reserved bit to zero. This may cause
+   interoperability problems, patch from Harald Welte.
+
+Please, apply, thanks a lot!
+
+Harald Welte (1):
+  gtp: Fix initialization of Flags octet in GTPv1 header
+
+Lionel Gauthier (1):
+  gtp: gtp_check_src_ms_ipv4() always return success
+
+ drivers/net/gtp.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+-- 
+2.1.4
