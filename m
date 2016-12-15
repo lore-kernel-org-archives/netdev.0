@@ -1,51 +1,45 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH v2 1/4] siphash: add cryptographically secure hashtable
- function
-Date: Thu, 15 Dec 2016 13:50:02 +0100
-Message-ID: <0f3c3694-c00b-aae2-5b08-25bc64bf6372@stressinduktion.org>
-References: <20161214035927.30004-1-Jason@zx2c4.com>
- <CAHmME9q9ffdtWRbzyMO1ktTdtEFdfumTfojTTNLXFhoa+R+MWQ@mail.gmail.com>
- <8ea3fdff-23c4-b81d-2588-44549bd2d8c1@stressinduktion.org>
- <063D6719AE5E284EB5DD2968C1650D6DB02401ED@AcuExch.aculab.com>
- <707472e1-b385-836d-c4c6-791c1dcc0776@stressinduktion.org>
- <063D6719AE5E284EB5DD2968C1650D6DB02402C0@AcuExch.aculab.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>,
-        "kernel-hardening@lists.openwall.com"
-        <kernel-hardening@lists.openwall.com>,
-        Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-        "Daniel J . Bernstein" <djb@cr.yp.to>,
-        Linus Torvalds <torvalds@linux-foundation.org>,
-        Eric Biggers <ebiggers3@gmail.com>
-To: David Laight <David.Laight@ACULAB.COM>,
-        "Jason A. Donenfeld" <Jason@zx2c4.com>
+From: Nogah Frankel <nogahf@mellanox.com>
+Subject: [PATCH iproute2 v2 0/3] update ifstat for new stats
+Date: Thu, 15 Dec 2016 15:00:42 +0200
+Message-ID: <1481806845-63384-1-git-send-email-nogahf@mellanox.com>
+Cc: stephen@networkplumber.org, roopa@cumulusnetworks.com,
+        jiri@mellanox.com, eladr@mellanox.com, yotamg@mellanox.com,
+        idosch@mellanox.com, ogerlitz@mellanox.com,
+        Nogah Frankel <nogahf@mellanox.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3-smtp.messagingengine.com ([66.111.4.27]:59480 "EHLO
-        out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1755419AbcLOMuG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Dec 2016 07:50:06 -0500
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB02402C0@AcuExch.aculab.com>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:37104 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1756056AbcLOM63 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Dec 2016 07:58:29 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 15.12.2016 13:28, David Laight wrote:
-> From: Hannes Frederic Sowa
->> Sent: 15 December 2016 12:23
-> ...
->> Hmm? Even the Intel ABI expects alignment of unsigned long long to be 8
->> bytes on 32 bit. Do you question that?
-> 
-> Yes.
-> 
-> The linux ABI for x86 (32 bit) only requires 32bit alignment for u64 (etc).
+Previously stats were gotten by RTM_GETLINK which returns 32 bits based
+statistics. It supports only one type of stats.
+Lately, a new method to get stats was added - RTM_GETSTATS. It supports
+ability to choose stats type. The basic stats were changed from 32 bits
+based to 64 bits based.
 
-Hmm, u64 on 32 bit is unsigned long long and not unsigned long. Thus I
-am actually not sure if the ABI would say anything about that (sorry
-also for my wrong statement above).
+This patchset adds ifstat the ability to get extended stats by this
+method. Its adds two types of extended stats:
+64bits - the same as the "normal" stats but get the stats from the cpu
+in 64 bits based struct.
+SW - for packets that hit cpu.
 
-Alignment requirement of unsigned long long on gcc with -m32 actually
-seem to be 8.
+---
+v1->v2:
+ - change from using RTM_GETSTATS always to using it only for extended
+   stats.
+ - Add 64bits extended stats type.
+
+Nogah Frankel (3):
+  ifstat: Add extended statistics to ifstat
+  ifstat: Add 64 bits based stats to extended statistics
+  ifstat: Add "sw only" extended statistics to ifstat
+
+ misc/ifstat.c | 165 ++++++++++++++++++++++++++++++++++++++++++++++++++++------
+ 1 file changed, 150 insertions(+), 15 deletions(-)
+
+-- 
+2.4.3
