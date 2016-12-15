@@ -1,816 +1,452 @@
-From: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: [RFC v2 07/10] IB/hfi-vnic: VNIC Ethernet Management Agent (VEMA) interface
-Date: Wed, 14 Dec 2016 23:59:39 -0800
-Message-ID: <1481788782-89964-8-git-send-email-niranjana.vishwanathapura@intel.com>
+From: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura@intel.com>
+Subject: [RFC v2 10/10] IB/hfi1: VNIC SDMA support
+Date: Wed, 14 Dec 2016 23:59:42 -0800
+Message-ID: <1481788782-89964-11-git-send-email-niranjana.vishwanathapura@intel.com>
 References: <1481788782-89964-1-git-send-email-niranjana.vishwanathapura@intel.com>
-Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-        Niranjana Vishwanathapura <niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Sadanand Warrier <sadanand.warrier-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Tanya K Jajodia <tanya.k.jajodia-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-To: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1481788782-89964-1-git-send-email-niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
+        dennis.dalessandro@intel.com, ira.weiny@intel.com,
+        Niranjana Vishwanathapura <niranjana.vishwanathapura@intel.com>
+To: dledford@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga07.intel.com ([134.134.136.100]:44491 "EHLO mga07.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933120AbcLOIAc (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 15 Dec 2016 03:00:32 -0500
+In-Reply-To: <1481788782-89964-1-git-send-email-niranjana.vishwanathapura@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-HFI VNIC EMA interface functions are the management interfaces to the HFI
-VNIC netdev. Add support to add and remove VNIC ports. Implement the
-required GET/SET management interface functions and processing of new
-management information. Add support to send trap notifications upon various
-events like interface status change, unicast/multicast mac list update and
-mac address change.
+HFI1 VNIC SDMA support enables transmission of VNIC packets over SDMA.
+Map VNIC queues to SDMA engines and support halting and wakeup of the
+VNIC queues.
 
-Reviewed-by: Dennis Dalessandro <dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Reviewed-by: Ira Weiny <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Signed-off-by: Niranjana Vishwanathapura <niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Signed-off-by: Sadanand Warrier <sadanand.warrier-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Signed-off-by: Tanya K Jajodia <tanya.k.jajodia-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Reviewed-by: Dennis Dalessandro <dennis.dalessandro@intel.com>
+Reviewed-by: Ira Weiny <ira.weiny@intel.com>
+Signed-off-by: Niranjana Vishwanathapura <niranjana.vishwanathapura@intel.com>
 ---
- drivers/infiniband/sw/intel/hfi_vnic/Makefile      |   3 +-
- .../infiniband/sw/intel/hfi_vnic/hfi_vnic_encap.h  |   4 +
- .../sw/intel/hfi_vnic/hfi_vnic_internal.h          |  44 +++
- .../infiniband/sw/intel/hfi_vnic/hfi_vnic_netdev.c | 153 +++++++-
- .../sw/intel/hfi_vnic/hfi_vnic_vema_iface.c        | 432 +++++++++++++++++++++
- 5 files changed, 633 insertions(+), 3 deletions(-)
- create mode 100644 drivers/infiniband/sw/intel/hfi_vnic/hfi_vnic_vema_iface.c
+ drivers/infiniband/hw/hfi1/hfi.h       |   1 +
+ drivers/infiniband/hw/hfi1/vnic.h      |  30 +++-
+ drivers/infiniband/hw/hfi1/vnic_main.c |  21 ++-
+ drivers/infiniband/hw/hfi1/vnic_sdma.c | 260 +++++++++++++++++++++++++++++++++
+ 4 files changed, 309 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/infiniband/sw/intel/hfi_vnic/Makefile b/drivers/infiniband/sw/intel/hfi_vnic/Makefile
-index 8e3dca7..a0562af 100644
---- a/drivers/infiniband/sw/intel/hfi_vnic/Makefile
-+++ b/drivers/infiniband/sw/intel/hfi_vnic/Makefile
-@@ -3,4 +3,5 @@
- #
- obj-$(CONFIG_HFI_VNIC) += hfi_vnic.o
+diff --git a/drivers/infiniband/hw/hfi1/hfi.h b/drivers/infiniband/hw/hfi1/hfi.h
+index 78d1726..8d5949f 100644
+--- a/drivers/infiniband/hw/hfi1/hfi.h
++++ b/drivers/infiniband/hw/hfi1/hfi.h
+@@ -855,6 +855,7 @@ struct hfi1_asic_data {
+ /* Virtual NIC information */
+ struct hfi1_vnic_data {
+ 	struct hfi1_ctxtdata *ctxt[HFI1_NUM_VNIC_CTXT];
++	struct kmem_cache *txreq_cache;
+ 	u8 num_vports;
+ 	struct idr vesw_idr;
+ 	u8 rmt_start;
+diff --git a/drivers/infiniband/hw/hfi1/vnic.h b/drivers/infiniband/hw/hfi1/vnic.h
+index 047845e..2d4eb8f 100644
+--- a/drivers/infiniband/hw/hfi1/vnic.h
++++ b/drivers/infiniband/hw/hfi1/vnic.h
+@@ -49,6 +49,7 @@
  
--hfi_vnic-y := hfi_vnic_netdev.o hfi_vnic_encap.o hfi_vnic_ethtool.o
-+hfi_vnic-y := hfi_vnic_netdev.o hfi_vnic_encap.o hfi_vnic_ethtool.o \
-+              hfi_vnic_vema_iface.o
-diff --git a/drivers/infiniband/sw/intel/hfi_vnic/hfi_vnic_encap.h b/drivers/infiniband/sw/intel/hfi_vnic/hfi_vnic_encap.h
-index a6770ef..54e9081 100644
---- a/drivers/infiniband/sw/intel/hfi_vnic/hfi_vnic_encap.h
-+++ b/drivers/infiniband/sw/intel/hfi_vnic/hfi_vnic_encap.h
-@@ -99,6 +99,10 @@
- #define HFI_VNIC_STATE_DROP_ALL        0x1
- #define HFI_VNIC_STATE_FORWARDING      0x3
+ #include <rdma/opa_hfi.h>
+ #include "hfi.h"
++#include "sdma.h"
  
-+/* VNIC Ethernet link status */
-+#define HFI_VNIC_ETH_LINK_UP     1
-+#define HFI_VNIC_ETH_LINK_DOWN   2
-+
- /**
-  * struct hfi_vesw_info - HFI vnic switch information
-  * @fabric_id: 10-bit fabric id
-diff --git a/drivers/infiniband/sw/intel/hfi_vnic/hfi_vnic_internal.h b/drivers/infiniband/sw/intel/hfi_vnic/hfi_vnic_internal.h
-index 6d5c5f8..7723a4e 100644
---- a/drivers/infiniband/sw/intel/hfi_vnic/hfi_vnic_internal.h
-+++ b/drivers/infiniband/sw/intel/hfi_vnic/hfi_vnic_internal.h
-@@ -243,6 +243,16 @@ struct __hfi_veswport_trap {
- } __packed;
+ #define HFI1_VNIC_ICRC_LEN   4
+ #define HFI1_VNIC_TAIL_LEN   1
+@@ -90,6 +91,26 @@
+ #define HFI1_VNIC_SC_SHIFT      4
  
  /**
-+ * struct hfi_vnic_ctrl_port - HFI virtual NIC control port
-+ * @ibdev: pointer to ib device
-+ * @ops: hfi vnic control operations
++ * struct hfi1_vnic_sdma - VNIC per Tx ring SDMA information
++ * @dd - device data pointer
++ * @sde - sdma engine
++ * @vinfo - vnic info pointer
++ * @wait - iowait structure
++ * @stx - sdma tx request
++ * @state - vnic Tx ring SDMA state
++ * @q_idx - vnic Tx queue index
 + */
-+struct hfi_vnic_ctrl_port {
-+	struct ib_device           *ibdev;
-+	struct hfi_vnic_ctrl_ops   *ops;
++struct hfi1_vnic_sdma {
++	struct hfi1_devdata *dd;
++	struct sdma_engine  *sde;
++	struct hfi1_vnic_vport_info *vinfo;
++	struct iowait wait;
++	struct sdma_txreq stx;
++	unsigned int state;
++	u8 q_idx;
 +};
 +
 +/**
-  * struct hfi_vnic_rx_queue - HFI VNIC receive queue
-  * @idx: queue index
-  * @adapter: netdev adapter
-@@ -257,11 +267,15 @@ struct hfi_vnic_rx_queue {
- /**
-  * struct hfi_vnic_adapter - HFI VNIC netdev private data structure
-  * @netdev: pointer to associated netdev
-+ * @cport: pointer to hfi vnic control port
-  * @vport: pointer to hfi vnic port
-  * @flags: flags indicating various states
-  * @lock: adapter lock
-  * @rxq: receive queue array
-  * @info: virtual ethernet switch port information
-+ * @vema_mac_addr: mac address configured by vema
-+ * @umac_hash: unicast maclist hash
-+ * @mmac_hash: multicast maclist hash
-  * @mactbl: hash table of MAC entries
-  * @mactbl_lock: mac table lock
-  * @stats_lock: statistics lock
-@@ -278,6 +292,7 @@ struct hfi_vnic_rx_queue {
+  * struct hfi1_vnic_notifier - VNIC notifer structure
+  * @cb - vnic callback function
   */
- struct hfi_vnic_adapter {
- 	struct net_device             *netdev;
-+	struct hfi_vnic_ctrl_port     *cport;
- 	struct hfi_vnic_port          *vport;
- 	unsigned long                  flags;
+@@ -104,6 +125,7 @@ struct hfi1_vnic_notifier {
+  * @event_flags: event notification flags
+  * @vport: vnic port pointer
+  * @skbq: Array of queues for received socket buffers
++ * @sdma: VNIC SDMA structure per TXQ
+  */
+ struct hfi1_vnic_vport_info {
+ 	struct hfi1_devdata *dd;
+@@ -112,7 +134,8 @@ struct hfi1_vnic_vport_info {
+ 	DECLARE_BITMAP(event_flags, HFI_VNIC_NUM_EVTS);
+ 	struct hfi_vnic_port *vport;
  
-@@ -287,6 +302,9 @@ struct hfi_vnic_adapter {
- 	struct hfi_vnic_rx_queue  rxq[HFI_VNIC_MAX_QUEUE];
- 
- 	struct __hfi_veswport_info  info;
-+	u8                          vema_mac_addr[ETH_ALEN];
-+	u32                         umac_hash;
-+	u32                         mmac_hash;
- 	struct hlist_head  __rcu   *mactbl;
- 
- 	/* Lock used to protect updates to mac table */
-@@ -338,6 +356,11 @@ struct hfi_vnic_mac_tbl_node {
- #define v_warn(format, arg...) \
- 	netdev_warn(adapter->netdev, format, ## arg)
- 
-+#define c_err(format, arg...) \
-+	dev_err(&cport->ibdev->dev, format, ## arg)
-+#define c_info(format, arg...) \
-+	dev_info(&cport->ibdev->dev, format, ## arg)
-+
- /* The maximum allowed entries in the mac table */
- #define HFI_VNIC_MAC_TBL_MAX_ENTRIES  2048
- /* Limit of smac entries in mac table */
-@@ -377,12 +400,33 @@ struct hfi_vnic_adapter *hfi_vnic_add_netdev(struct hfi_vnic_port *vport,
- int hfi_vnic_encap_skb(struct hfi_vnic_adapter *adapter, struct sk_buff *skb);
- int hfi_vnic_decap_skb(struct hfi_vnic_rx_queue *rxq, struct sk_buff *skb);
- u8 hfi_vnic_calc_entropy(struct hfi_vnic_adapter *adapter, struct sk_buff *skb);
-+void hfi_vnic_process_vema_config(struct hfi_vnic_adapter *adapter);
- void hfi_vnic_release_mac_tbl(struct hfi_vnic_adapter *adapter);
- void hfi_vnic_query_mac_tbl(struct hfi_vnic_adapter *adapter,
- 			    struct hfi_veswport_mactable *tbl);
- int hfi_vnic_update_mac_tbl(struct hfi_vnic_adapter *adapter,
- 			    struct hfi_veswport_mactable *tbl);
-+void hfi_vnic_query_ucast_macs(struct hfi_vnic_adapter *adapter,
-+			       struct hfi_veswport_iface_macs *macs);
-+void hfi_vnic_query_mcast_macs(struct hfi_vnic_adapter *adapter,
-+			       struct hfi_veswport_iface_macs *macs);
- void hfi_vnic_update_stats(struct net_device *netdev);
-+void hfi_vnic_get_summary_counters(struct hfi_vnic_adapter *adapter,
-+				   struct hfi_veswport_summary_counters *cntrs);
-+void hfi_vnic_get_error_counters(struct hfi_vnic_adapter *adapter,
-+				 struct hfi_veswport_error_counters *cntrs);
-+void hfi_vnic_get_vesw_info(struct hfi_vnic_adapter *adapter,
-+			    struct hfi_vesw_info *info);
-+void hfi_vnic_set_vesw_info(struct hfi_vnic_adapter *adapter,
-+			    struct hfi_vesw_info *info);
-+void hfi_vnic_get_per_veswport_info(struct hfi_vnic_adapter *adapter,
-+				    struct hfi_per_veswport_info *info);
-+void hfi_vnic_set_per_veswport_info(struct hfi_vnic_adapter *adapter,
-+				    struct hfi_per_veswport_info *info);
-+void hfi_vnic_vema_report_event(struct hfi_vnic_adapter *adapter, u8 event);
-+struct hfi_vnic_adapter *hfi_vnic_add_vport(struct hfi_vnic_ctrl_port *cport,
-+					    u8 port_num, u8 vport_num);
-+void hfi_vnic_rem_vport(struct hfi_vnic_adapter *adapter);
- void hfi_vnic_set_ethtool_ops(struct net_device *netdev);
- 
- #endif /* _HFI_VNIC_INTERNAL_H */
-diff --git a/drivers/infiniband/sw/intel/hfi_vnic/hfi_vnic_netdev.c b/drivers/infiniband/sw/intel/hfi_vnic/hfi_vnic_netdev.c
-index 04edafa..7e58c1c 100644
---- a/drivers/infiniband/sw/intel/hfi_vnic/hfi_vnic_netdev.c
-+++ b/drivers/infiniband/sw/intel/hfi_vnic/hfi_vnic_netdev.c
-@@ -51,6 +51,7 @@
- 
- #include <linux/module.h>
- #include <linux/if_vlan.h>
-+#include <linux/crc32.h>
- 
- #include "hfi_vnic_internal.h"
- 
-@@ -528,7 +529,90 @@ static void hfi_vnic_down(struct hfi_vnic_adapter *adapter)
- 	clear_bit(HFI_VNIC_UP, &adapter->flags);
- }
- 
--/* hfi_vnic_set_mac_addr - change mac address */
-+/* hfi_vnic_process_vema_config - process vema configuration updates */
-+void hfi_vnic_process_vema_config(struct hfi_vnic_adapter *adapter)
-+{
-+	struct __hfi_veswport_info *info = &adapter->info;
-+	struct hfi_vnic_port *vport = adapter->vport;
-+	u8 port_num[HFI_VESW_MAX_NUM_DEF_PORT] = { 0 };
-+	u16 port_mask, mtu_limit = ETH_ZLEN - ETH_HLEN;
-+	u8 i, port_count = 0;
-+
-+	/* If the base_mac_addr is changed, update the interface mac address */
-+	if (memcmp(info->vport.base_mac_addr, adapter->vema_mac_addr,
-+		   ARRAY_SIZE(info->vport.base_mac_addr))) {
-+		struct sockaddr saddr;
-+
-+		memcpy(saddr.sa_data, info->vport.base_mac_addr,
-+		       ARRAY_SIZE(info->vport.base_mac_addr));
-+		mutex_lock(&adapter->lock);
-+		eth_mac_addr(adapter->netdev, &saddr);
-+		memcpy(adapter->vema_mac_addr,
-+		       info->vport.base_mac_addr, ETH_ALEN);
-+		mutex_unlock(&adapter->lock);
-+	}
-+
-+	/*
-+	 * If vesw_id is being changed, and if the vnic interface
-+	 * is up, reset the hfi interface to ensure new vesw_id
-+	 * is picked by hfi driver
-+	 */
-+	if (vport->vesw_id != info->vesw.vesw_id) {
-+		mutex_lock(&adapter->lock);
-+		if (test_bit(HFI_VNIC_UP, &adapter->flags))
-+			hfi_vnic_down(adapter);
-+
-+		vport->vesw_id = info->vesw.vesw_id;
-+		if (test_bit(HFI_VNIC_OPEN, &adapter->flags))
-+			hfi_vnic_up(adapter);
-+
-+		mutex_unlock(&adapter->lock);
-+	}
-+
-+	/* Handle MTU limit change */
-+	mtu_limit = max(info->vesw.eth_mtu_non_vlan, mtu_limit);
-+	rtnl_lock();
-+	if (adapter->netdev->mtu > mtu_limit)
-+		dev_set_mtu(adapter->netdev, mtu_limit);
-+	rtnl_unlock();
-+
-+	/* Update flow to default port redirection table */
-+	port_mask = info->vesw.def_port_mask;
-+	for (i = 0; i < HFI_VESW_MAX_NUM_DEF_PORT; i++) {
-+		if (port_mask & 1)
-+			port_num[port_count++] = i;
-+		port_mask >>= 1;
-+	}
-+
-+	/*
-+	 * Build the flow table. Flow table is required when destination LID
-+	 * is not available. Up to HFI_VNIC_FLOW_TBL_SIZE flows supported.
-+	 * Each flow need a default port number to get its dlid from the
-+	 * u_ucast_dlid array.
-+	 */
-+	for (i = 0; i < HFI_VNIC_FLOW_TBL_SIZE; i++)
-+		adapter->flow_tbl[i] = port_count ? port_num[i % port_count] :
-+						    HFI_VNIC_INVALID_PORT;
-+
-+	/* Operational state can only be DROP_ALL or FORWARDING */
-+	if (info->vport.config_state == HFI_VNIC_STATE_FORWARDING)
-+		info->vport.oper_state = HFI_VNIC_STATE_FORWARDING;
-+	else
-+		info->vport.oper_state = HFI_VNIC_STATE_DROP_ALL;
-+}
-+
-+/*
-+ * Set the power on default values in adapter's vema interface structure.
-+ */
-+static inline void hfi_vnic_set_pod_values(struct hfi_vnic_adapter *adapter)
-+{
-+	adapter->info.vport.max_mac_tbl_ent = HFI_VNIC_MAC_TBL_MAX_ENTRIES;
-+	adapter->info.vport.max_smac_ent = HFI_VNIC_MAX_SMAC_LIMIT;
-+	adapter->info.vport.config_state = HFI_VNIC_STATE_DROP_ALL;
-+	adapter->info.vport.eth_link_status = HFI_VNIC_ETH_LINK_DOWN;
-+}
-+
-+/* hfi_vnic_set_mac_addr - change mac address and send trap */
- static int hfi_vnic_set_mac_addr(struct net_device *netdev, void *addr)
- {
- 	struct hfi_vnic_adapter *adapter = netdev_priv(netdev);
-@@ -541,8 +625,62 @@ static int hfi_vnic_set_mac_addr(struct net_device *netdev, void *addr)
- 	mutex_lock(&adapter->lock);
- 	rc = eth_mac_addr(netdev, addr);
- 	mutex_unlock(&adapter->lock);
-+	if (rc)
-+		return rc;
- 
--	return rc;
-+	adapter->info.vport.uc_macs_gen_count++;
-+	hfi_vnic_vema_report_event(adapter,
-+				   HFI_VESWPORT_TRAP_IFACE_UCAST_MAC_CHANGE);
-+	return 0;
-+}
-+
-+/*
-+ * hfi_vnic_mac_send_event - post event on possible mac list exchange
-+ *  Send trap when digest from uc/mc mac list differs from previous run.
-+ *  Digest is evaluated similar to how cksum does.
-+ */
-+static void hfi_vnic_mac_send_event(struct net_device *netdev, u8 event)
-+{
-+	struct hfi_vnic_adapter *adapter = netdev_priv(netdev);
-+	struct netdev_hw_addr *ha;
-+	struct netdev_hw_addr_list *hw_list;
-+	u32 *ref_crc;
-+	u32 l, crc = 0;
-+
-+	switch (event) {
-+	case HFI_VESWPORT_TRAP_IFACE_UCAST_MAC_CHANGE:
-+		hw_list = &netdev->uc;
-+		adapter->info.vport.uc_macs_gen_count++;
-+		ref_crc = &adapter->umac_hash;
-+		break;
-+	case HFI_VESWPORT_TRAP_IFACE_MCAST_MAC_CHANGE:
-+		hw_list = &netdev->mc;
-+		adapter->info.vport.mc_macs_gen_count++;
-+		ref_crc = &adapter->mmac_hash;
-+		break;
-+	default:
-+		return;
-+	}
-+	netdev_hw_addr_list_for_each(ha, hw_list) {
-+		crc = crc32_le(crc, ha->addr, ETH_ALEN);
-+	}
-+	l = netdev_hw_addr_list_count(hw_list) * ETH_ALEN;
-+	crc = ~crc32_le(crc, (void *)&l, sizeof(l));
-+
-+	if (crc != *ref_crc) {
-+		*ref_crc = crc;
-+		hfi_vnic_vema_report_event(adapter, event);
-+	}
-+}
-+
-+/* hfi_vnic_set_rx_mode - handle uc/mc mac list change */
-+static void hfi_vnic_set_rx_mode(struct net_device *netdev)
-+{
-+	hfi_vnic_mac_send_event(netdev,
-+				HFI_VESWPORT_TRAP_IFACE_UCAST_MAC_CHANGE);
-+
-+	hfi_vnic_mac_send_event(netdev,
-+				HFI_VESWPORT_TRAP_IFACE_MCAST_MAC_CHANGE);
- }
- 
- /* hfi_netdev_open - activate network interface */
-@@ -556,6 +694,10 @@ static int hfi_netdev_open(struct net_device *netdev)
- 	if (rc)
- 		goto open_done;
- 
-+	/* Update eth link status and send trap */
-+	adapter->info.vport.eth_link_status = HFI_VNIC_ETH_LINK_UP;
-+	hfi_vnic_vema_report_event(adapter,
-+				   HFI_VESWPORT_TRAP_ETH_LINK_STATUS_CHANGE);
- 	set_bit(HFI_VNIC_OPEN, &adapter->flags);
- 	v_info("opened\n");
- open_done:
-@@ -572,6 +714,10 @@ static int hfi_netdev_close(struct net_device *netdev)
- 	if (test_bit(HFI_VNIC_UP, &adapter->flags))
- 		hfi_vnic_down(adapter);
- 
-+	/* Update eth link status and send trap */
-+	adapter->info.vport.eth_link_status = HFI_VNIC_ETH_LINK_DOWN;
-+	hfi_vnic_vema_report_event(adapter,
-+				   HFI_VESWPORT_TRAP_ETH_LINK_STATUS_CHANGE);
- 	clear_bit(HFI_VNIC_OPEN, &adapter->flags);
- 	mutex_unlock(&adapter->lock);
- 	v_info("closed\n");
-@@ -585,6 +731,7 @@ static int hfi_netdev_close(struct net_device *netdev)
- 	.ndo_start_xmit = hfi_netdev_start_xmit,
- 	.ndo_change_mtu = hfi_netdev_change_mtu,
- 	.ndo_get_stats64 = hfi_vnic_get_stats64,
-+	.ndo_set_rx_mode = hfi_vnic_set_rx_mode,
- 	.ndo_select_queue = hfi_vnic_select_queue,
- 	.ndo_set_mac_address = hfi_vnic_set_mac_addr,
+-	struct sk_buff_head skbq[HFI1_NUM_VNIC_CTXT];
++	struct sk_buff_head    skbq[HFI1_NUM_VNIC_CTXT];
++	struct hfi1_vnic_sdma  sdma[HFI1_VNIC_MAX_TXQ];
  };
-@@ -629,6 +776,8 @@ struct hfi_vnic_adapter *hfi_vnic_add_netdev(struct hfi_vnic_port *vport,
- 		netif_napi_add(netdev, &adapter->rxq[i].napi, vnic_napi, 64);
- 	}
  
-+	hfi_vnic_set_pod_values(adapter);
+ static inline struct hfi1_devdata *vnic_dev2dd(struct hfi_vnic_port *vport)
+@@ -131,8 +154,13 @@ static inline void hfi1_vnic_update_pad(unsigned char *pad, u8 plen)
+ /* vnic hfi1 internal functions */
+ void hfi1_vnic_setup(struct hfi1_devdata *dd);
+ void hfi1_vnic_cleanup(struct hfi1_devdata *dd);
++int hfi1_vnic_txreq_init(struct hfi1_devdata *dd);
++void hfi1_vnic_txreq_deinit(struct hfi1_devdata *dd);
+ 
+ void hfi1_vnic_bypass_rcv(struct hfi1_packet *packet);
++void hfi1_vnic_sdma_init(struct hfi1_vnic_vport_info *vinfo);
++bool hfi1_vnic_sdma_write_avail(struct hfi1_vnic_vport_info *vinfo,
++				u8 q_idx);
+ 
+ /* vnic port operations */
+ struct hfi_vnic_port *hfi1_vnic_add_vport(struct ib_device *device,
+diff --git a/drivers/infiniband/hw/hfi1/vnic_main.c b/drivers/infiniband/hw/hfi1/vnic_main.c
+index 1e237f3..19843a4 100644
+--- a/drivers/infiniband/hw/hfi1/vnic_main.c
++++ b/drivers/infiniband/hw/hfi1/vnic_main.c
+@@ -289,15 +289,21 @@ static int hfi1_vnic_put_skb(struct hfi_vnic_port *vport,
+ 
+ static u8 hfi1_vnic_select_queue(struct hfi_vnic_port *vport, u8 vl, u8 entropy)
+ {
+-	return 0;
++	struct hfi1_vnic_vport_info *vinfo = vport->hfi_priv;
++	struct sdma_engine *sde;
 +
- 	rc = register_netdev(netdev);
- 	if (rc)
- 		goto netdev_err;
-diff --git a/drivers/infiniband/sw/intel/hfi_vnic/hfi_vnic_vema_iface.c b/drivers/infiniband/sw/intel/hfi_vnic/hfi_vnic_vema_iface.c
-new file mode 100644
-index 0000000..f912171f
---- /dev/null
-+++ b/drivers/infiniband/sw/intel/hfi_vnic/hfi_vnic_vema_iface.c
-@@ -0,0 +1,432 @@
-+/*
-+ * Copyright(c) 2016 Intel Corporation.
-+ *
-+ * This file is provided under a dual BSD/GPLv2 license.  When using or
-+ * redistributing this file, you may do so under either license.
-+ *
-+ * GPL LICENSE SUMMARY
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of version 2 of the GNU General Public License as
-+ * published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-+ * General Public License for more details.
-+ *
-+ * BSD LICENSE
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions
-+ * are met:
-+ *
-+ *  - Redistributions of source code must retain the above copyright
-+ *    notice, this list of conditions and the following disclaimer.
-+ *  - Redistributions in binary form must reproduce the above copyright
-+ *    notice, this list of conditions and the following disclaimer in
-+ *    the documentation and/or other materials provided with the
-+ *    distribution.
-+ *  - Neither the name of Intel Corporation nor the names of its
-+ *    contributors may be used to endorse or promote products derived
-+ *    from this software without specific prior written permission.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-+ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-+ *
-+ */
++	sde = sdma_select_engine_vl(vinfo->dd, entropy, vl);
++	return sde->this_idx;
+ }
+ 
+ static bool hfi1_vnic_get_write_avail(struct hfi_vnic_port *vport, u8 q_idx)
+ {
++	struct hfi1_vnic_vport_info *vinfo = vport->hfi_priv;
 +
-+/*
-+ * This file contains HFI VNIC EMA Interface functions.
-+ */
-+
-+#include "hfi_vnic_internal.h"
-+
-+/**
-+ * hfi_vnic_vema_report_event - sent trap to report the specified event
-+ * @adapter: vnic port adapter
-+ * @event: event to be reported
-+ *
-+ * This function calls vema api to sent a trap for the given event.
-+ */
-+void hfi_vnic_vema_report_event(struct hfi_vnic_adapter *adapter, u8 event)
-+{
-+	struct __hfi_veswport_info *info = &adapter->info;
-+	struct hfi_vnic_port *vport = adapter->vport;
-+	struct __hfi_veswport_trap trap_data;
-+
-+	trap_data.fabric_id = info->vesw.fabric_id;
-+	trap_data.veswid = info->vesw.vesw_id;
-+	trap_data.veswportnum = info->vport.port_num;
-+	trap_data.hfiportnum = vport->port_num;
-+	trap_data.veswportindex = vport->vport_num;
-+	trap_data.opcode = event;
-+
-+	/* Need to send trap here */
-+}
-+
-+/**
-+ * hfi_vnic_get_error_counters - get summary counters
-+ * @adapter: vnic port adapter
-+ * @cntrs: pointer to destination summary counters structure
-+ *
-+ * This function populates the summary counters that is maintained by the
-+ * given adapter to destination address provided.
-+ */
-+void hfi_vnic_get_summary_counters(struct hfi_vnic_adapter *adapter,
-+				   struct hfi_veswport_summary_counters *cntrs)
-+{
-+	__be64 *dst;
-+	u64 *src;
-+
-+	mutex_lock(&adapter->stats_lock);
-+	/* update stats */
-+	hfi_vnic_update_stats(adapter->netdev);
-+
-+	cntrs->vp_instance = cpu_to_be16(adapter->vport->vport_num);
-+	cntrs->vesw_id = cpu_to_be16(adapter->vport->vesw_id);
-+	cntrs->veswport_num = cpu_to_be32(adapter->info.vport.port_num);
-+
-+	/*
-+	 * This loop depends on layout of
-+	 * struct hfi_veswport_summary_counters and
-+	 * struct __hfi_vnic_summary_counter
-+	 */
-+	for (dst = &cntrs->tx_errors, src = &adapter->sum_cntrs.tx_errors;
-+	     dst < &cntrs->reserved[0]; dst++, src++) {
-+		*dst = cpu_to_be64(*src);
+ 	if (q_idx >= vport->hfi_info.num_tx_q)
+ 		return false;
+ 
+-	return true;
++	return hfi1_vnic_sdma_write_avail(vinfo, q_idx);
+ }
+ 
+ void hfi1_vnic_bypass_rcv(struct hfi1_packet *packet)
+@@ -499,6 +505,12 @@ static int hfi1_vnic_init(struct hfi_vnic_port *vport)
+ 	int i, rc = 0;
+ 
+ 	mutex_lock(&hfi1_mutex);
++	if (!dd->vnic.num_vports) {
++		rc = hfi1_vnic_txreq_init(dd);
++		if (rc)
++			goto txreq_fail;
 +	}
 +
-+	mutex_unlock(&adapter->stats_lock);
+ 	for (i = dd->vnic.num_ctxt; i < vport->hfi_info.num_rx_q; i++) {
+ 		rc = hfi1_vnic_allot_ctxt(dd, &dd->vnic.ctxt[i]);
+ 		if (rc)
+@@ -526,7 +538,11 @@ static int hfi1_vnic_init(struct hfi_vnic_port *vport)
+ 
+ 	dd->vnic.num_vports++;
+ 	vinfo->vport = vport;
++	hfi1_vnic_sdma_init(vinfo);
+ alloc_fail:
++	if (!dd->vnic.num_vports)
++		hfi1_vnic_txreq_deinit(dd);
++txreq_fail:
+ 	mutex_unlock(&hfi1_mutex);
+ 	return rc;
+ }
+@@ -544,6 +560,7 @@ static void hfi1_vnic_deinit(struct hfi_vnic_port *vport)
+ 		}
+ 		hfi1_deinit_vnic_rsm(dd);
+ 		dd->vnic.num_ctxt = 0;
++		hfi1_vnic_txreq_deinit(dd);
+ 	}
+ 	mutex_unlock(&hfi1_mutex);
+ }
+diff --git a/drivers/infiniband/hw/hfi1/vnic_sdma.c b/drivers/infiniband/hw/hfi1/vnic_sdma.c
+index 66abad0..cb1f9ce 100644
+--- a/drivers/infiniband/hw/hfi1/vnic_sdma.c
++++ b/drivers/infiniband/hw/hfi1/vnic_sdma.c
+@@ -52,9 +52,269 @@
+ #include "sdma.h"
+ #include "vnic.h"
+ 
++#define HFI1_VNIC_SDMA_Q_ACTIVE   BIT(0)
++#define HFI1_VNIC_SDMA_Q_DEFERRED BIT(1)
++
++#define HFI1_VNIC_TXREQ_NAME_LEN   32
++#define HFI1_VNIC_SDMA_DESC_WTRMRK 64
++#define HFI1_VNIC_SDMA_RETRY_COUNT 1
++
++/*
++ * struct vnic_txreq - VNIC transmit descriptor
++ * @txreq: sdma transmit request
++ * @sdma: vnic sdma pointer
++ * @skb: skb to send
++ * @pad: pad buffer
++ * @plen: pad length
++ * @pbc_val: pbc value
++ * @retry_count: tx retry count
++ */
++struct vnic_txreq {
++	struct sdma_txreq       txreq;
++	struct hfi1_vnic_sdma   *sdma;
++
++	struct sk_buff         *skb;
++	unsigned char           pad[HFI1_VNIC_MAX_PAD];
++	u16                     plen;
++	__le64                  pbc_val;
++
++	u32                     retry_count;
++};
++
++static void vnic_sdma_complete(struct sdma_txreq *txreq,
++			       int status)
++{
++	struct vnic_txreq *tx = container_of(txreq, struct vnic_txreq, txreq);
++	struct hfi1_vnic_sdma *vnic_sdma = tx->sdma;
++
++	sdma_txclean(vnic_sdma->dd, txreq);
++	dev_kfree_skb_any(tx->skb);
++	kmem_cache_free(vnic_sdma->dd->vnic.txreq_cache, tx);
 +}
 +
-+/**
-+ * hfi_vnic_get_error_counters - get error counters
-+ * @adapter: vnic port adapter
-+ * @cntrs: pointer to destination error counters structure
-+ *
-+ * This function populates the error counters that is maintained by the
-+ * given adapter to destination address provided.
-+ */
-+void hfi_vnic_get_error_counters(struct hfi_vnic_adapter *adapter,
-+				 struct hfi_veswport_error_counters *cntrs)
++static noinline int build_vnic_ulp_payload(struct sdma_engine *sde,
++					   struct vnic_txreq *tx)
 +{
-+	mutex_lock(&adapter->stats_lock);
-+	/* update stats */
-+	hfi_vnic_update_stats(adapter->netdev);
++	int i, ret = 0;
 +
-+	cntrs->vp_instance = cpu_to_be16(adapter->vport->vport_num);
-+	cntrs->vesw_id = cpu_to_be16(adapter->vport->vesw_id);
-+	cntrs->veswport_num = cpu_to_be32(adapter->info.vport.port_num);
++	ret = sdma_txadd_kvaddr(
++		sde->dd,
++		&tx->txreq,
++		tx->skb->data,
++		skb_headlen(tx->skb));
++	if (ret)
++		goto bail_txadd;
 +
-+	cntrs->tx_errors = cpu_to_be64(adapter->err_cntrs.tx_errors);
-+	cntrs->rx_errors = cpu_to_be64(adapter->err_cntrs.rx_errors);
-+	cntrs->tx_smac_filt = cpu_to_be64(adapter->err_cntrs.tx_smac_filt);
-+	cntrs->tx_dlid_zero = cpu_to_be64(adapter->err_cntrs.tx_dlid_zero);
-+	cntrs->tx_logic = cpu_to_be64(adapter->err_cntrs.tx_logic);
-+	cntrs->tx_drop_state = cpu_to_be64(adapter->err_cntrs.tx_drop_state);
++	for (i = 0; i < skb_shinfo(tx->skb)->nr_frags; i++) {
++		struct skb_frag_struct *frag = &skb_shinfo(tx->skb)->frags[i];
 +
-+	cntrs->rx_bad_veswid = cpu_to_be64(adapter->err_cntrs.rx_bad_veswid);
-+	cntrs->rx_runt = cpu_to_be64(adapter->err_cntrs.rx_runt);
-+	cntrs->rx_oversize = cpu_to_be64(adapter->err_cntrs.rx_oversize);
-+	cntrs->rx_eth_down = cpu_to_be64(adapter->err_cntrs.rx_eth_down);
-+	cntrs->rx_drop_state = cpu_to_be64(adapter->err_cntrs.rx_drop_state);
-+	cntrs->rx_logic = cpu_to_be64(adapter->err_cntrs.rx_logic);
-+	mutex_unlock(&adapter->stats_lock);
++		/* combine physically continuous fragments later? */
++		ret = sdma_txadd_page(sde->dd,
++				      &tx->txreq,
++				      skb_frag_page(frag),
++				      frag->page_offset,
++				      skb_frag_size(frag));
++		if (ret)
++			goto bail_txadd;
++	}
++
++	if (tx->plen)
++		ret = sdma_txadd_kvaddr(sde->dd, &tx->txreq,
++					tx->pad + HFI1_VNIC_MAX_PAD - tx->plen,
++					tx->plen);
++
++bail_txadd:
++	return ret;
 +}
 +
-+/**
-+ * hfi_vnic_get_vesw_info -- Get the vesw information
-+ * @adapter: vnic port adapter
-+ * @info: pointer to destination vesw info structure
-+ *
-+ * This function copies the vesw info that is maintained by the
-+ * given adapter to destination address provided.
-+ */
-+void hfi_vnic_get_vesw_info(struct hfi_vnic_adapter *adapter,
-+			    struct hfi_vesw_info *info)
++static int build_vnic_tx_desc(struct sdma_engine *sde,
++			      struct vnic_txreq *tx,
++			      u64 pbc)
 +{
-+	struct __hfi_vesw_info *src = &adapter->info.vesw;
++	int ret = 0;
++	u16 hdrbytes = 2 << 2;  /* PBC */
++
++	ret = sdma_txinit_ahg(
++		&tx->txreq,
++		0,
++		hdrbytes + tx->skb->len + tx->plen,
++		0,
++		0,
++		NULL,
++		0,
++		vnic_sdma_complete);
++	if (ret)
++		goto bail_txadd;
++
++	/* add pbc */
++	tx->pbc_val = cpu_to_le64(pbc);
++	ret = sdma_txadd_kvaddr(
++		sde->dd,
++		&tx->txreq,
++		&tx->pbc_val,
++		hdrbytes);
++	if (ret)
++		goto bail_txadd;
++
++	/* add the ulp payload */
++	ret = build_vnic_ulp_payload(sde, tx);
++bail_txadd:
++	return ret;
++}
++
+ int hfi1_vnic_send_dma(struct hfi1_devdata *dd, u8 q_idx,
+ 		       struct hfi1_vnic_vport_info *vinfo,
+ 		       struct sk_buff *skb, u64 pbc, u8 plen)
+ {
++	struct hfi1_vnic_sdma *vnic_sdma = &vinfo->sdma[q_idx];
++	struct sdma_engine *sde = vnic_sdma->sde;
++	struct vnic_txreq *tx;
++	int ret = -ECOMM;
++
++	if (READ_ONCE(vnic_sdma->state) != HFI1_VNIC_SDMA_Q_ACTIVE)
++		goto tx_err;
++
++	if (!sde || !sdma_running(sde))
++		goto tx_err;
++
++	tx = kmem_cache_alloc(dd->vnic.txreq_cache, GFP_ATOMIC);
++	if (!tx) {
++		ret = -ENOMEM;
++		goto tx_err;
++	}
++
++	tx->sdma = vnic_sdma;
++	tx->skb = skb;
++	hfi1_vnic_update_pad(tx->pad, plen);
++	tx->plen = plen;
++	ret = build_vnic_tx_desc(sde, tx, pbc);
++	if (unlikely(ret))
++		goto free_desc;
++	tx->retry_count = 0;
++
++	ret = sdma_send_txreq(sde, &vnic_sdma->wait, &tx->txreq);
++	/* When -ECOMM, sdma callback will be called with ABORT status */
++	if (ret && unlikely(ret != -ECOMM))
++		goto free_desc;
++
++	return ret;
++
++free_desc:
++	sdma_txclean(dd, &tx->txreq);
++	kmem_cache_free(dd->vnic.txreq_cache, tx);
++tx_err:
++	if (ret != -EBUSY)
++		dev_kfree_skb_any(skb);
++	return ret;
++}
++
++/*
++ * hfi1_vnic_sdma_sleep - vnic sdma sleep function
++ *
++ * This function gets called from sdma_send_txreq() when there are not enough
++ * sdma descriptors available to send the packet. It adds Tx queue's wait
++ * structure to sdma engine's dmawait list to be woken up when descriptors
++ * become available.
++ */
++static int hfi1_vnic_sdma_sleep(struct sdma_engine *sde,
++				struct iowait *wait,
++				struct sdma_txreq *txreq,
++				unsigned int seq)
++{
++	struct hfi1_vnic_sdma *vnic_sdma =
++		container_of(wait, struct hfi1_vnic_sdma, wait);
++	struct hfi1_ibdev *dev = &vnic_sdma->dd->verbs_dev;
++	struct vnic_txreq *tx = container_of(txreq, struct vnic_txreq, txreq);
++
++	if (sdma_progress(sde, seq, txreq))
++		if (tx->retry_count++ < HFI1_VNIC_SDMA_RETRY_COUNT)
++			return -EAGAIN;
++
++	vnic_sdma->state = HFI1_VNIC_SDMA_Q_DEFERRED;
++	write_seqlock(&dev->iowait_lock);
++	if (list_empty(&vnic_sdma->wait.list))
++		list_add_tail(&vnic_sdma->wait.list, &sde->dmawait);
++	write_sequnlock(&dev->iowait_lock);
++	return -EBUSY;
++}
++
++/*
++ * hfi1_vnic_sdma_wakeup - vnic sdma wakeup function
++ *
++ * This function gets called when SDMA descriptors becomes available and Tx
++ * queue's wait structure was previously added to sdma engine's dmawait list.
++ * It notifies the upper driver about Tx queue wakeup.
++ */
++static void hfi1_vnic_sdma_wakeup(struct iowait *wait, int reason)
++{
++	struct hfi1_vnic_sdma *vnic_sdma =
++		container_of(wait, struct hfi1_vnic_sdma, wait);
++	struct hfi1_vnic_vport_info *vinfo = vnic_sdma->vinfo;
++	u8 evt = HFI_VNIC_EVT_TX0 + vnic_sdma->q_idx;
++	struct hfi1_vnic_notifier *notifier;
++
++	vnic_sdma->state = HFI1_VNIC_SDMA_Q_ACTIVE;
++	notifier = rcu_dereference(vinfo->notifier);
++	if (notifier && notifier->cb && test_bit(evt, vinfo->event_flags))
++		notifier->cb(vinfo->vport, evt);
++};
++
++inline bool hfi1_vnic_sdma_write_avail(struct hfi1_vnic_vport_info *vinfo,
++				       u8 q_idx)
++{
++	struct hfi1_vnic_sdma *vnic_sdma = &vinfo->sdma[q_idx];
++
++	return (READ_ONCE(vnic_sdma->state) == HFI1_VNIC_SDMA_Q_ACTIVE);
++}
++
++void hfi1_vnic_sdma_init(struct hfi1_vnic_vport_info *vinfo)
++{
 +	int i;
 +
-+	info->fabric_id = cpu_to_be16(src->fabric_id);
-+	info->vesw_id = cpu_to_be16(src->vesw_id);
-+	memcpy(info->rsvd0, src->rsvd0, ARRAY_SIZE(src->rsvd0));
-+	info->def_port_mask = cpu_to_be16(src->def_port_mask);
-+	memcpy(info->rsvd1, src->rsvd1, ARRAY_SIZE(src->rsvd1));
-+	info->pkey = cpu_to_be16(src->pkey);
++	for (i = 0; i < vinfo->vport->hfi_info.num_tx_q; i++) {
++		struct hfi1_vnic_sdma *vnic_sdma = &vinfo->sdma[i];
 +
-+	memcpy(info->rsvd2, src->rsvd2, ARRAY_SIZE(src->rsvd2));
-+	info->u_mcast_dlid = cpu_to_be32(src->u_mcast_dlid);
-+	for (i = 0; i < HFI_VESW_MAX_NUM_DEF_PORT; i++)
-+		info->u_ucast_dlid[i] = cpu_to_be32(src->u_ucast_dlid[i]);
++		iowait_init(&vnic_sdma->wait, 0, NULL, hfi1_vnic_sdma_sleep,
++			    hfi1_vnic_sdma_wakeup, NULL);
++		vnic_sdma->sde = &vinfo->dd->per_sdma[i];
++		vnic_sdma->dd = vinfo->dd;
++		vnic_sdma->vinfo = vinfo;
++		vnic_sdma->q_idx = i;
++		vnic_sdma->state = HFI1_VNIC_SDMA_Q_ACTIVE;
 +
-+	memcpy(info->rsvd3, src->rsvd3, ARRAY_SIZE(src->rsvd3));
-+	for (i = 0; i < HFI_VNIC_MAX_NUM_PCP; i++)
-+		info->eth_mtu[i] = cpu_to_be16(src->eth_mtu[i]);
-+
-+	info->eth_mtu_non_vlan = cpu_to_be16(src->eth_mtu_non_vlan);
-+	memcpy(info->rsvd4, src->rsvd4, ARRAY_SIZE(src->rsvd4));
-+}
-+
-+/**
-+ * hfi_vnic_set_vesw_info -- Set the vesw information
-+ * @adapter: vnic port adapter
-+ * @info: pointer to vesw info structure
-+ *
-+ * This function updates the vesw info that is maintained by the
-+ * given adapter with vesw info provided. Reserved fields are stored
-+ * and returned back to EM as is.
-+ */
-+void hfi_vnic_set_vesw_info(struct hfi_vnic_adapter *adapter,
-+			    struct hfi_vesw_info *info)
-+{
-+	struct __hfi_vesw_info *dst = &adapter->info.vesw;
-+	int i;
-+
-+	dst->fabric_id = be16_to_cpu(info->fabric_id);
-+	dst->vesw_id = be16_to_cpu(info->vesw_id);
-+	memcpy(dst->rsvd0, info->rsvd0, ARRAY_SIZE(info->rsvd0));
-+	dst->def_port_mask = be16_to_cpu(info->def_port_mask);
-+	memcpy(dst->rsvd1, info->rsvd1, ARRAY_SIZE(info->rsvd1));
-+	dst->pkey = be16_to_cpu(info->pkey);
-+
-+	memcpy(dst->rsvd2, info->rsvd2, ARRAY_SIZE(info->rsvd2));
-+	dst->u_mcast_dlid = be32_to_cpu(info->u_mcast_dlid);
-+	for (i = 0; i < HFI_VESW_MAX_NUM_DEF_PORT; i++)
-+		dst->u_ucast_dlid[i] = be32_to_cpu(info->u_ucast_dlid[i]);
-+
-+	memcpy(dst->rsvd3, info->rsvd3, ARRAY_SIZE(info->rsvd3));
-+	for (i = 0; i < HFI_VNIC_MAX_NUM_PCP; i++)
-+		dst->eth_mtu[i] = be16_to_cpu(info->eth_mtu[i]);
-+
-+	dst->eth_mtu_non_vlan = be16_to_cpu(info->eth_mtu_non_vlan);
-+	memcpy(dst->rsvd4, info->rsvd4, ARRAY_SIZE(info->rsvd4));
-+}
-+
-+/**
-+ * hfi_vnic_get_per_veswport_info -- Get the vesw per port information
-+ * @adapter: vnic port adapter
-+ * @info: pointer to destination vport info structure
-+ *
-+ * This function copies the vesw per port info that is maintained by the
-+ * given adapter to destination address provided.
-+ * Note that the read only fields are not copied.
-+ */
-+void hfi_vnic_get_per_veswport_info(struct hfi_vnic_adapter *adapter,
-+				    struct hfi_per_veswport_info *info)
-+{
-+	struct __hfi_per_veswport_info *src = &adapter->info.vport;
-+
-+	info->port_num = cpu_to_be32(src->port_num);
-+	info->eth_link_status = src->eth_link_status;
-+	memcpy(info->rsvd0, src->rsvd0, ARRAY_SIZE(src->rsvd0));
-+
-+	memcpy(info->base_mac_addr, src->base_mac_addr,
-+	       ARRAY_SIZE(info->base_mac_addr));
-+	info->config_state = src->config_state;
-+	info->oper_state = src->oper_state;
-+	info->max_mac_tbl_ent = cpu_to_be16(src->max_mac_tbl_ent);
-+	info->max_smac_ent = cpu_to_be16(src->max_smac_ent);
-+	info->mac_tbl_digest = cpu_to_be32(src->mac_tbl_digest);
-+	memcpy(info->rsvd1, src->rsvd1, ARRAY_SIZE(src->rsvd1));
-+
-+	info->encap_slid = cpu_to_be32(src->encap_slid);
-+	memcpy(info->pcp_to_sc_uc, src->pcp_to_sc_uc,
-+	       ARRAY_SIZE(info->pcp_to_sc_uc));
-+	memcpy(info->pcp_to_vl_uc, src->pcp_to_vl_uc,
-+	       ARRAY_SIZE(info->pcp_to_vl_uc));
-+	memcpy(info->pcp_to_sc_mc, src->pcp_to_sc_mc,
-+	       ARRAY_SIZE(info->pcp_to_sc_mc));
-+	memcpy(info->pcp_to_vl_mc, src->pcp_to_vl_mc,
-+	       ARRAY_SIZE(info->pcp_to_vl_mc));
-+	info->non_vlan_sc_uc = src->non_vlan_sc_uc;
-+	info->non_vlan_vl_uc = src->non_vlan_vl_uc;
-+	info->non_vlan_sc_mc = src->non_vlan_sc_mc;
-+	info->non_vlan_vl_mc = src->non_vlan_vl_mc;
-+	memcpy(info->rsvd2, src->rsvd2, ARRAY_SIZE(src->rsvd2));
-+
-+	info->uc_macs_gen_count = cpu_to_be16(src->uc_macs_gen_count);
-+	info->mc_macs_gen_count = cpu_to_be16(src->mc_macs_gen_count);
-+	memcpy(info->rsvd3, src->rsvd3, ARRAY_SIZE(src->rsvd3));
-+}
-+
-+/**
-+ * hfi_vnic_set_per_veswport_info -- Set vesw per port information
-+ * @adapter: vnic port adapter
-+ * @info: pointer to vport info structure
-+ *
-+ * This function updates the vesw per port info that is maintained by the
-+ * given adapter with vesw per port info provided. Reserved fields are
-+ * stored and returned back to EM as is.
-+ */
-+void hfi_vnic_set_per_veswport_info(struct hfi_vnic_adapter *adapter,
-+				    struct hfi_per_veswport_info *info)
-+{
-+	struct __hfi_per_veswport_info *dst = &adapter->info.vport;
-+
-+	dst->port_num = be32_to_cpu(info->port_num);
-+	memcpy(dst->rsvd0, info->rsvd0, ARRAY_SIZE(info->rsvd0));
-+
-+	memcpy(dst->base_mac_addr, info->base_mac_addr,
-+	       ARRAY_SIZE(dst->base_mac_addr));
-+	dst->config_state = info->config_state;
-+	memcpy(dst->rsvd1, info->rsvd1, ARRAY_SIZE(info->rsvd1));
-+
-+	dst->encap_slid = be32_to_cpu(info->encap_slid);
-+	memcpy(dst->pcp_to_sc_uc, info->pcp_to_sc_uc,
-+	       ARRAY_SIZE(dst->pcp_to_sc_uc));
-+	memcpy(dst->pcp_to_vl_uc, info->pcp_to_vl_uc,
-+	       ARRAY_SIZE(dst->pcp_to_vl_uc));
-+	memcpy(dst->pcp_to_sc_mc, info->pcp_to_sc_mc,
-+	       ARRAY_SIZE(dst->pcp_to_sc_mc));
-+	memcpy(dst->pcp_to_vl_mc, info->pcp_to_vl_mc,
-+	       ARRAY_SIZE(dst->pcp_to_vl_mc));
-+	dst->non_vlan_sc_uc = info->non_vlan_sc_uc;
-+	dst->non_vlan_vl_uc = info->non_vlan_vl_uc;
-+	dst->non_vlan_sc_mc = info->non_vlan_sc_mc;
-+	dst->non_vlan_vl_mc = info->non_vlan_vl_mc;
-+	memcpy(dst->rsvd2, info->rsvd2, ARRAY_SIZE(info->rsvd2));
-+	memcpy(dst->rsvd3, info->rsvd3, ARRAY_SIZE(info->rsvd3));
-+}
-+
-+/**
-+ * hfi_vnic_query_mcast_macs - query multicast mac list
-+ * @adapter: vnic port adapter
-+ * @macs: pointer mac list
-+ *
-+ * This function populates the provided mac list with the configured
-+ * multicast addresses in the adapter.
-+ */
-+void hfi_vnic_query_mcast_macs(struct hfi_vnic_adapter *adapter,
-+			       struct hfi_veswport_iface_macs *macs)
-+{
-+	u16 start_idx, num_macs, idx = 0, count = 0;
-+	struct netdev_hw_addr *ha;
-+
-+	start_idx = be16_to_cpu(macs->start_idx);
-+	num_macs = be16_to_cpu(macs->num_macs_in_msg);
-+	netdev_for_each_mc_addr(ha, adapter->netdev) {
-+		struct hfi_vnic_iface_mac_entry *entry = &macs->entry[count];
-+
-+		if (start_idx > idx++)
-+			continue;
-+		else if (num_macs == count)
-+			break;
-+		memcpy(entry, ha->addr, sizeof(*entry));
-+		count++;
++		/* Add a free descriptor watermark for wakeups */
++		if (vnic_sdma->sde->descq_cnt >= HFI1_VNIC_SDMA_DESC_WTRMRK) {
++			INIT_LIST_HEAD(&vnic_sdma->stx.list);
++			vnic_sdma->stx.num_desc = HFI1_VNIC_SDMA_DESC_WTRMRK;
++			list_add_tail(&vnic_sdma->stx.list,
++				      &vnic_sdma->wait.tx_head);
++		}
 +	}
-+
-+	macs->tot_macs_in_lst = cpu_to_be16(netdev_mc_count(adapter->netdev));
-+	macs->num_macs_in_msg = cpu_to_be16(count);
-+	macs->gen_count = cpu_to_be16(adapter->info.vport.mc_macs_gen_count);
 +}
 +
-+/**
-+ * hfi_vnic_query_ucast_macs - query unicast mac list
-+ * @adapter: vnic port adapter
-+ * @macs: pointer mac list
-+ *
-+ * This function populates the provided mac list with the configured
-+ * unicast addresses in the adapter.
-+ */
-+void hfi_vnic_query_ucast_macs(struct hfi_vnic_adapter *adapter,
-+			       struct hfi_veswport_iface_macs *macs)
++static void hfi1_vnic_txreq_kmem_cache_ctor(void *obj)
 +{
-+	u16 start_idx, tot_macs, num_macs, idx = 0, count = 0;
-+	struct netdev_hw_addr *ha;
++	struct vnic_txreq *tx = (struct vnic_txreq *)obj;
 +
-+	start_idx = be16_to_cpu(macs->start_idx);
-+	num_macs = be16_to_cpu(macs->num_macs_in_msg);
-+	/* loop through dev_addrs list first */
-+	for_each_dev_addr(adapter->netdev, ha) {
-+		struct hfi_vnic_iface_mac_entry *entry = &macs->entry[count];
-+
-+		/* Do not include EM specified MAC address */
-+		if (!memcmp(adapter->info.vport.base_mac_addr, ha->addr,
-+			    ARRAY_SIZE(adapter->info.vport.base_mac_addr)))
-+			continue;
-+
-+		if (start_idx > idx++)
-+			continue;
-+		else if (num_macs == count)
-+			break;
-+		memcpy(entry, ha->addr, sizeof(*entry));
-+		count++;
-+	}
-+
-+	/* loop through uc list */
-+	netdev_for_each_uc_addr(ha, adapter->netdev) {
-+		struct hfi_vnic_iface_mac_entry *entry = &macs->entry[count];
-+
-+		if (start_idx > idx++)
-+			continue;
-+		else if (num_macs == count)
-+			break;
-+		memcpy(entry, ha->addr, sizeof(*entry));
-+		count++;
-+	}
-+
-+	tot_macs = netdev_hw_addr_list_count(&adapter->netdev->dev_addrs) +
-+		   netdev_uc_count(adapter->netdev);
-+	macs->tot_macs_in_lst = cpu_to_be16(tot_macs);
-+	macs->num_macs_in_msg = cpu_to_be16(count);
-+	macs->gen_count = cpu_to_be16(adapter->info.vport.uc_macs_gen_count);
++	memset(tx, 0, sizeof(*tx));
 +}
 +
-+/**
-+ * hfi_vnic_add_vport - Add a new vnic port
-+ * @cport: vnic control port
-+ * @port_num: OPA port number
-+ * @vport_num: vnic port number
-+ *
-+ * Return pointer to adapter of newly created vnic port.
-+ */
-+struct hfi_vnic_adapter *hfi_vnic_add_vport(struct hfi_vnic_ctrl_port *cport,
-+					    u8 port_num, u8 vport_num)
++int hfi1_vnic_txreq_init(struct hfi1_devdata *dd)
 +{
-+	struct hfi_vnic_adapter *adapter;
-+	struct hfi_vnic_port *vport;
++	char buf[HFI1_VNIC_TXREQ_NAME_LEN];
 +
-+	vport = cport->ops->add_vport(cport->ibdev, port_num, vport_num);
-+	if (IS_ERR(vport))
-+		return ERR_CAST(vport);
++	snprintf(buf, sizeof(buf), "hfi1_%u_vnic_txreq_cache", dd->unit);
++	dd->vnic.txreq_cache = kmem_cache_create(buf,
++					  sizeof(struct vnic_txreq),
++					  0, SLAB_HWCACHE_ALIGN,
++					  hfi1_vnic_txreq_kmem_cache_ctor);
++	if (!dd->vnic.txreq_cache)
++		return -ENOMEM;
+ 	return 0;
+ }
 +
-+	if (vport->hfi_info.num_rx_q > HFI_VNIC_MAX_QUEUE ||
-+	    vport->hfi_info.num_tx_q > HFI_VNIC_MAX_QUEUE) {
-+		c_err("Number of VNIC (rx %d, tx %d) queues > Max Queue Size (%d)",
-+		      vport->hfi_info.num_rx_q, vport->hfi_info.num_tx_q,
-+		      HFI_VNIC_MAX_QUEUE);
-+		return ERR_PTR(-EINVAL);
-+	}
-+
-+	adapter = hfi_vnic_add_netdev(vport, cport->ibdev->dma_device);
-+	if (IS_ERR(adapter))
-+		cport->ops->rem_vport(vport);
-+	else
-+		adapter->cport = cport;
-+
-+	return adapter;
-+}
-+
-+/**
-+ * hfi_vnic_rem_vport - Remove a new vnic port
-+ * @adapter: vnic adapter
-+ */
-+void hfi_vnic_rem_vport(struct hfi_vnic_adapter *adapter)
++void hfi1_vnic_txreq_deinit(struct hfi1_devdata *dd)
 +{
-+	struct hfi_vnic_ctrl_port *cport = adapter->cport;
-+	struct hfi_vnic_port *vport = adapter->vport;
-+
-+	hfi_vnic_rem_netdev(vport);
-+	cport->ops->rem_vport(vport);
++	kmem_cache_destroy(dd->vnic.txreq_cache);
++	dd->vnic.txreq_cache = NULL;
 +}
 -- 
 1.8.3.1
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
