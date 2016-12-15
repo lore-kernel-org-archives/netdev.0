@@ -1,207 +1,128 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PULL] virtio, vhost: new device, fixes, speedups
-Date: Fri, 16 Dec 2016 01:05:07 +0200
-Message-ID: <20161216010507-mutt-send-email-mst@kernel.org>
+Subject: Re: [net-next PATCH v6 0/5] XDP for virtio_net
+Date: Fri, 16 Dec 2016 01:17:44 +0200
+Message-ID: <20161216011620-mutt-send-email-mst@kernel.org>
+References: <20161215200712.23639.53043.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: mark.rutland@arm.com, kvm@vger.kernel.org, mst@redhat.com,
-	virtualization@lists.linux-foundation.org, hch@lst.de,
-	stefan@osg.samsung.com, krzk@kernel.org, felipe@nutanix.com,
-	tklauser@distanz.ch, liuyuan@google.com,
-	arend.vanspriel@broadcom.com, marcel@holtmann.org,
-	mkl@pengutronix.de, kvalo@codeaurora.org,
-	omarapazanadi@gmail.com, gregkh@linuxfoundation.org,
-	linux-kernel@vger.kernel.org, stable@vger.kernel.org,
-	netdev@vger.kernel.org, torvalds@linux-foundation.org
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: daniel@iogearbox.net, netdev@vger.kernel.org,
+        alexei.starovoitov@gmail.com, john.r.fastabend@intel.com,
+        brouer@redhat.com, tgraf@suug.ch, davem@davemloft.net
+To: John Fastabend <john.fastabend@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:37288 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754412AbcLOXRq (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 15 Dec 2016 18:17:46 -0500
 Content-Disposition: inline
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20161215200712.23639.53043.stgit@john-Precision-Tower-5810>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The following changes since commit a57cb1c1d7974c62a5c80f7869e35b492ace12cd:
+On Thu, Dec 15, 2016 at 12:12:04PM -0800, John Fastabend wrote:
+> This implements virtio_net for the mergeable buffers and big_packet
+> modes. I tested this with vhost_net running on qemu and did not see
+> any issues. For testing num_buf > 1 I added a hack to vhost driver
+> to only but 100 bytes per buffer.
+> 
+> There are some restrictions for XDP to be enabled and work well
+> (see patch 3) for more details.
+> 
+>   1. GUEST_TSO{4|6} must be off
+>   2. MTU must be less than PAGE_SIZE
+>   3. queues must be available to dedicate to XDP
+>   4. num_bufs received in mergeable buffers must be 1
+>   5. big_packet mode must have all data on single page
+> 
+> To test this I used pktgen in the hypervisor and ran the XDP sample
+> programs xdp1 and xdp2 from ./samples/bpf in the host. The default
+> mode that is used with these patches with Linux guest and QEMU/Linux
+> hypervisor is the mergeable buffers mode. I tested this mode for 2+
+> days running xdp2 without issues. Additionally I did a series of
+> driver unload/load tests to check the allocate/release paths.
+> 
+> To test the big_packets path I applied the following simple patch against
+> the virtio driver forcing big_packets mode,
+> 
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -2242,7 +2242,7 @@ static int virtnet_probe(struct virtio_device *vdev)
+>                 vi->big_packets = true;
+>  
+>         if (virtio_has_feature(vdev, VIRTIO_NET_F_MRG_RXBUF))
+> -               vi->mergeable_rx_bufs = true;
+> +               vi->mergeable_rx_bufs = false;
+>  
+>         if (virtio_has_feature(vdev, VIRTIO_NET_F_MRG_RXBUF) ||
+>             virtio_has_feature(vdev, VIRTIO_F_VERSION_1))
+> 
+> I then repeated the tests with xdp1 and xdp2. After letting them run
+> for a few hours I called it good enough.
+> 
+> Testing the unexpected case where virtio receives a packet across
+> multiple buffers required patching the hypervisor vhost driver to
+> convince it to send these unexpected packets. Then I used ping with
+> the -s option to trigger the case with multiple buffers. This mode
+> is not expected to be used but as MST pointed out per spec it is
+> not strictly speaking illegal to generate multi-buffer packets so we
+> need someway to handle these. The following patch can be used to
+> generate multiple buffers,
+> 
+> 
+> --- a/drivers/vhost/vhost.c
+> +++ b/drivers/vhost/vhost.c
+> @@ -1777,7 +1777,8 @@ static int translate_desc(struct vhost_virtqueue
+> *vq, u64
+> 
+>                 _iov = iov + ret;
+>                 size = node->size - addr + node->start;
+> -               _iov->iov_len = min((u64)len - s, size);
+> +               printk("%s: build 100 length headers!\n", __func__);
+> +               _iov->iov_len = min((u64)len - s, (u64)100);//size);
+>                 _iov->iov_base = (void __user *)(unsigned long)
+>                         (node->userspace_addr + addr - node->start);
+>                 s += size;
+> 
+> The qemu command I most frequently used for testing (although I did test
+> various other combinations of devices) is the following,
+> 
+>  ./x86_64-softmmu/qemu-system-x86_64              \
+>     -hda /var/lib/libvirt/images/Fedora-test0.img \
+>     -m 4096  -enable-kvm -smp 2                   \
+>     -netdev tap,id=hn0,queues=4,vhost=on          \
+>     -device virtio-net-pci,netdev=hn0,mq=on,vectors=9,guest_tso4=off,guest_tso6=off \
+>     -serial stdio
+> 
+> The options 'guest_tso4=off,guest_tso6=off' are required because we
+> do not support LRO with XDP at the moment.
+> 
+> Please review any comments/feedback welcome as always.
+> 
+> Thanks,
+> John
+> 
+> ---
 
-  Merge branch 'akpm' (patches from Andrew) (2016-12-14 17:25:18 -0800)
+OK, I think we can queue this for -next.
 
-are available in the git repository at:
+It's fairly limited in the kind of hardware supported, we can and
+probably should extend it further with time.
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git tags/for_linus
+Acked-by: Michael S. Tsirkin <mst@redhat.com>
 
-for you to fetch changes up to 6bdf1e0efb04a1716373646cb6f35b73addca492:
 
-  Makefile: drop -D__CHECK_ENDIAN__ from cflags (2016-12-16 00:13:43 +0200)
-
-----------------------------------------------------------------
-virtio, vhost: new device, fixes, speedups
-
-This includes the new virtio crypto device, and fixes all over the
-place.  In particular enabling endian-ness checks for sparse builds
-found some bugs which this fixes.  And it appears that everyone is in
-agreement that disabling endian-ness sparse checks shouldn't be
-necessary any longer.
-
-So this enables them for everyone, and drops __CHECK_ENDIAN__
-and __bitwise__ APIs.
-
-IRQ handling in virtio has been refactored somewhat, the
-larger switch to IRQ_SHARED will have to wait as
-it proved too aggressive.
-
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-
-----------------------------------------------------------------
-Christoph Hellwig (4):
-      virtio_pci: use pci_alloc_irq_vectors
-      virtio_pci: remove the call to vp_free_vectors in vp_request_msix_vectors
-      virtio_pci: merge vp_free_vectors into vp_del_vqs
-      virtio_pci: split vp_try_to_find_vqs into INTx and MSI-X variants
-
-Felipe Franciosi (1):
-      virtio_ring: fix description of virtqueue_get_buf
-
-Gao feng (1):
-      vsock: lookup and setup guest_cid inside vhost_vsock_lock
-
-Gonglei (3):
-      virtio_pci_modern: fix complaint by sparse
-      virtio_ring: fix complaint by sparse
-      crypto: add virtio-crypto driver
-
-Jason Wang (2):
-      vhost: cache used event for better performance
-      vhost: remove unused feature bit
-
-Mark Rutland (3):
-      tools/virtio: fix READ_ONCE()
-      vringh: kill off ACCESS_ONCE()
-      tools/virtio: use {READ,WRITE}_ONCE() in uaccess.h
-
-Michael S. Tsirkin (18):
-      virtio_console: drop unused config fields
-      drm/virtio: fix endianness in primary_plane_update
-      drm/virtio: fix lock context imbalance
-      drm/virtio: annotate virtio_gpu_queue_ctrl_buffer_locked
-      vhost: make interval tree static inline
-      vhost: add missing __user annotations
-      vsock/virtio: add a missing __le annotation
-      vsock/virtio: mark an internal function static
-      vsock/virtio: fix src/dst cid format
-      virtio: clean up handling of request_irq failure
-      linux/types.h: enable endian checks for all sparse builds
-      tools: enable endian checks for all sparse builds
-      Documentation/sparse: drop __bitwise__
-      checkpatch: replace __bitwise__ with __bitwise
-      linux: drop __bitwise__ everywhere
-      Documentation/sparse: drop __CHECK_ENDIAN__
-      fs/logfs: drop __CHECK_ENDIAN__
-      Makefile: drop -D__CHECK_ENDIAN__ from cflags
-
-Tobias Klauser (1):
-      vhost/scsi: Remove unused but set variable
-
-Yuan Liu (1):
-      virtio_mmio: Set dev.release() to avoid warning
-
- Documentation/translations/zh_CN/sparse.txt        |   7 +-
- arch/arm/plat-samsung/include/plat/gpio-cfg.h      |   2 +-
- drivers/crypto/virtio/virtio_crypto_common.h       | 128 +++++
- drivers/md/dm-cache-block-types.h                  |   6 +-
- drivers/net/ethernet/sun/sunhme.h                  |   2 +-
- drivers/net/wireless/intel/iwlwifi/iwl-fw-file.h   |   4 +-
- drivers/vhost/vhost.h                              |   3 +
- drivers/virtio/virtio_pci_common.h                 |   1 -
- fs/logfs/logfs.h                                   |   4 +-
- include/linux/mmzone.h                             |   2 +-
- include/linux/serial_core.h                        |   4 +-
- include/linux/types.h                              |   4 +-
- include/scsi/iscsi_proto.h                         |   2 +-
- include/target/target_core_base.h                  |   2 +-
- include/uapi/linux/types.h                         |   4 -
- include/uapi/linux/vhost.h                         |   2 -
- include/uapi/linux/virtio_crypto.h                 | 450 +++++++++++++++++
- include/uapi/linux/virtio_ids.h                    |   1 +
- include/uapi/linux/virtio_types.h                  |   6 +-
- net/ieee802154/6lowpan/6lowpan_i.h                 |   2 +-
- net/mac80211/ieee80211_i.h                         |   4 +-
- tools/include/linux/types.h                        |   4 -
- tools/virtio/linux/compiler.h                      |   2 +-
- tools/virtio/linux/uaccess.h                       |   9 +-
- drivers/char/virtio_console.c                      |  14 +-
- drivers/crypto/virtio/virtio_crypto_algs.c         | 540 +++++++++++++++++++++
- drivers/crypto/virtio/virtio_crypto_core.c         | 476 ++++++++++++++++++
- drivers/crypto/virtio/virtio_crypto_mgr.c          | 264 ++++++++++
- drivers/gpu/drm/virtio/virtgpu_plane.c             |   4 +-
- drivers/gpu/drm/virtio/virtgpu_vq.c                |   6 +-
- drivers/vhost/scsi.c                               |   2 -
- drivers/vhost/vhost.c                              |  40 +-
- drivers/vhost/vringh.c                             |   5 +-
- drivers/vhost/vsock.c                              |  25 +-
- drivers/virtio/virtio_mmio.c                       |   2 +
- drivers/virtio/virtio_pci_common.c                 | 201 ++++----
- drivers/virtio/virtio_pci_modern.c                 |   8 +-
- drivers/virtio/virtio_ring.c                       |   6 +-
- net/vmw_vsock/virtio_transport.c                   |   2 +-
- net/vmw_vsock/virtio_transport_common.c            |  17 +-
- Documentation/dev-tools/sparse.rst                 |  14 +-
- MAINTAINERS                                        |   9 +
- drivers/bluetooth/Makefile                         |   2 -
- drivers/crypto/Kconfig                             |   2 +
- drivers/crypto/Makefile                            |   1 +
- drivers/crypto/virtio/Kconfig                      |  10 +
- drivers/crypto/virtio/Makefile                     |   5 +
- drivers/net/can/Makefile                           |   1 -
- drivers/net/ethernet/altera/Makefile               |   1 -
- drivers/net/ethernet/atheros/alx/Makefile          |   1 -
- drivers/net/ethernet/freescale/Makefile            |   2 -
- drivers/net/wireless/ath/Makefile                  |   2 -
- drivers/net/wireless/ath/wil6210/Makefile          |   2 -
- .../wireless/broadcom/brcm80211/brcmfmac/Makefile  |   2 -
- .../wireless/broadcom/brcm80211/brcmsmac/Makefile  |   1 -
- drivers/net/wireless/intel/iwlegacy/Makefile       |   2 -
- drivers/net/wireless/intel/iwlwifi/Makefile        |   2 +-
- drivers/net/wireless/intel/iwlwifi/dvm/Makefile    |   2 +-
- drivers/net/wireless/intel/iwlwifi/mvm/Makefile    |   2 +-
- drivers/net/wireless/intersil/orinoco/Makefile     |   3 -
- drivers/net/wireless/mediatek/mt7601u/Makefile     |   2 -
- drivers/net/wireless/realtek/rtlwifi/Makefile      |   2 -
- .../wireless/realtek/rtlwifi/btcoexist/Makefile    |   2 -
- .../wireless/realtek/rtlwifi/rtl8188ee/Makefile    |   2 -
- .../net/wireless/realtek/rtlwifi/rtl8192c/Makefile |   2 -
- .../wireless/realtek/rtlwifi/rtl8192ce/Makefile    |   2 -
- .../wireless/realtek/rtlwifi/rtl8192cu/Makefile    |   2 -
- .../wireless/realtek/rtlwifi/rtl8192de/Makefile    |   2 -
- .../wireless/realtek/rtlwifi/rtl8192ee/Makefile    |   2 -
- .../wireless/realtek/rtlwifi/rtl8192se/Makefile    |   2 -
- .../wireless/realtek/rtlwifi/rtl8723ae/Makefile    |   2 -
- .../wireless/realtek/rtlwifi/rtl8723be/Makefile    |   2 -
- .../wireless/realtek/rtlwifi/rtl8723com/Makefile   |   2 -
- .../wireless/realtek/rtlwifi/rtl8821ae/Makefile    |   2 -
- drivers/net/wireless/ti/wl1251/Makefile            |   2 -
- drivers/net/wireless/ti/wlcore/Makefile            |   2 -
- drivers/staging/rtl8188eu/Makefile                 |   2 +-
- drivers/staging/rtl8192e/Makefile                  |   2 -
- drivers/staging/rtl8192e/rtl8192e/Makefile         |   2 -
- include/uapi/linux/Kbuild                          |   1 +
- net/bluetooth/Makefile                             |   2 -
- net/ieee802154/Makefile                            |   2 -
- net/mac80211/Makefile                              |   2 +-
- net/mac802154/Makefile                             |   2 -
- net/wireless/Makefile                              |   2 -
- scripts/checkpatch.pl                              |   4 +-
- 86 files changed, 2106 insertions(+), 280 deletions(-)
- create mode 100644 drivers/crypto/virtio/virtio_crypto_common.h
- create mode 100644 include/uapi/linux/virtio_crypto.h
- create mode 100644 drivers/crypto/virtio/virtio_crypto_algs.c
- create mode 100644 drivers/crypto/virtio/virtio_crypto_core.c
- create mode 100644 drivers/crypto/virtio/virtio_crypto_mgr.c
- create mode 100644 drivers/crypto/virtio/Kconfig
- create mode 100644 drivers/crypto/virtio/Makefile
+> John Fastabend (5):
+>       net: xdp: add invalid buffer warning
+>       virtio_net: Add XDP support
+>       virtio_net: add dedicated XDP transmit queues
+>       virtio_net: add XDP_TX support
+>       virtio_net: xdp, add slowpath case for non contiguous buffers
+> 
+> 
+>  drivers/net/virtio_net.c |  365 +++++++++++++++++++++++++++++++++++++++++++++-
+>  include/linux/filter.h   |    1 
+>  net/core/filter.c        |    6 +
+>  3 files changed, 365 insertions(+), 7 deletions(-)
+> 
+> --
+> Signature
