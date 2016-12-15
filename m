@@ -1,44 +1,68 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v3 1/3] siphash: add cryptographically secure hashtable
- function
-Date: Thu, 15 Dec 2016 10:22:41 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB02401BC@AcuExch.aculab.com>
-References: <20161214035927.30004-1-Jason@zx2c4.com>
- <20161214184605.24006-1-Jason@zx2c4.com>
- <CALx6S35UgTyqkYUjS5gYFH4HnjW974WQ_JiDXxgb9rZ7gnY52Q@mail.gmail.com>
- <CAHmME9oMaQOhzJbNKh8GN759iJngeRdXt3naOnFhY9mD6t5Kxg@mail.gmail.com>
- <CAHmME9pR3tD2zknKsYaFaTJm_3aBBOA6c174hypm6S-q9wp5nw@mail.gmail.com>
- <CALx6S35VBjw42G6rHPrNfVaBfLMz3YZVjs3D3hBG=4gp5+g5tA@mail.gmail.com>
- <CAHmME9rpvf4tyDjZcJAJxMAW1LcqNm7DiquiYX0uQhRzDLbwqw@mail.gmail.com>
- <CA+55aFyBGQpEKiAcs0w58ZEie+L8OrWvf_2hvGx4E=L56p5hMg@mail.gmail.com>
- <CAHmME9pu6No0wqPzPpaBwQR_b+5CXvh0kke7J8ouN=rx4pxMGg@mail.gmail.com>
- <CA+55aFw4QLuwkxq4VzLMPTJTec-hOu1Fi8e076TNnW0Yq9yp8A@mail.gmail.com>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: [PATCH v2 2/2] net: ethernet: stmmac: remove private tx queue
+ lock
+Date: Thu, 15 Dec 2016 11:45:13 +0100
+Message-ID: <20161215104513.GB406@amd>
+References: <1481241343-18062-1-git-send-email-LinoSanfilippo@gmx.de>
+ <1481241343-18062-3-git-send-email-LinoSanfilippo@gmx.de>
+ <20161215094517.GA406@amd>
+ <c3d2816c-3c50-fd4b-16ea-912b321d51d0@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Tom Herbert <tom@herbertland.com>, Netdev <netdev@vger.kernel.org>,
-        "kernel-hardening@lists.openwall.com"
-        <kernel-hardening@lists.openwall.com>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-        Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>,
-        "Daniel J . Bernstein" <djb@cr.yp.to>,
-        Eric Biggers <ebiggers3@gmail.com>
-To: 'Linus Torvalds' <torvalds@linux-foundation.org>,
-        "Jason A. Donenfeld" <Jason@zx2c4.com>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <CA+55aFw4QLuwkxq4VzLMPTJTec-hOu1Fi8e076TNnW0Yq9yp8A@mail.gmail.com>
-Content-Language: en-US
-Sender: linux-crypto-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="eJnRUKwClWJh1Khz"
+Cc: Lino Sanfilippo <LinoSanfilippo@gmx.de>, bh74.an@samsung.com,
+        ks.giri@samsung.com, vipul.pandya@samsung.com,
+        alexandre.torgue@st.com, romieu@fr.zoreil.com, davem@davemloft.net,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <c3d2816c-3c50-fd4b-16ea-912b321d51d0@st.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-RnJvbTogTGludXMgVG9ydmFsZHMNCj4gU2VudDogMTUgRGVjZW1iZXIgMjAxNiAwMDoxMQ0KPiBP
-biBXZWQsIERlYyAxNCwgMjAxNiBhdCAzOjM0IFBNLCBKYXNvbiBBLiBEb25lbmZlbGQgPEphc29u
-QHp4MmM0LmNvbT4gd3JvdGU6DQo+ID4NCj4gPiBPciBkb2VzIHlvdXIgcmVhc29uYWJsZSBkaXNs
-aWtlIG9mICJ3b3JkIiBzdGlsbCBhbGxvdyBmb3IgdGhlIHVzZSBvZg0KPiA+IGR3b3JkIGFuZCBx
-d29yZCwgc28gdGhhdCB0aGUgY3VycmVudCBmdW5jdGlvbiBuYW1lcyBvZjoNCj4gDQo+IGR3b3Jk
-IHJlYWxseSBpcyBjb25mdXNpbmcgdG8gcGVvcGxlLg0KPg0KPiBJZiB5b3UgaGF2ZSBhIE1JUFMg
-YmFja2dyb3VuZCwgaXQgbWVhbnMgNjQgYml0cy4gV2hpbGUgdG8gcGVvcGxlIHdpdGgNCj4gV2lu
-ZG93cyBwcm9ncmFtbWluZyBiYWNrZ3JvdW5kcyBpdCBtZWFucyAzMiBiaXRzLg0KDQpHdWVzcyB3
-aGF0IGEgRFdPUkRfUFRSIGlzIG9uIDY0Yml0IHdpbmRvd3MgLi4uDQooaXQgaXMgYW4gaW50ZWdl
-ciB0eXBlKS4NCg0KCURhdmlkDQoNCg==
+
+--eJnRUKwClWJh1Khz
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+On Thu 2016-12-15 11:08:36, Giuseppe CAVALLARO wrote:
+> On 12/15/2016 10:45 AM, Pavel Machek wrote:
+> >Giuseppe, is there documentation available for the chip? Driver says
+> >
+> >  Documentation available at:
+> >          http://www.stlinux.com
+> >
+> >but that page does not work for me...
+>=20
+> Hi Pavel, yes the page has been removed but all the relevant and
+> updated driver doc is inside the kernel sources.
+
+Ok, perhaps the link should be removed, then? (Along with the bugzilla
+link if that is not going to be re-enabled?)
+
+Is there documentation for the hardware somewhere?
+
+(As something is very wrong with stmmac_tx_clean(), either locking or
+interface to the DMA engine.)
+
+									Pavel
+--=20
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
+g.html
+
+--eJnRUKwClWJh1Khz
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iEYEARECAAYFAlhSdDkACgkQMOfwapXb+vIeOgCgvdg6UO3Rt9WMjPRKq2zkGb0i
+l+IAoJ100PLmV2OPxrVmwAlAIx+Mxt93
+=z5um
+-----END PGP SIGNATURE-----
+
+--eJnRUKwClWJh1Khz--
