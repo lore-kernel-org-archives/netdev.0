@@ -1,75 +1,73 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH v2 1/4] siphash: add cryptographically secure hashtable
- function
-Date: Thu, 15 Dec 2016 15:56:49 +0100
-Message-ID: <f6813084-6f46-0b22-e9c3-97b2e266f8f6@stressinduktion.org>
-References: <20161214035927.30004-1-Jason@zx2c4.com>
- <CAHmME9q9ffdtWRbzyMO1ktTdtEFdfumTfojTTNLXFhoa+R+MWQ@mail.gmail.com>
- <8ea3fdff-23c4-b81d-2588-44549bd2d8c1@stressinduktion.org>
- <063D6719AE5E284EB5DD2968C1650D6DB02401ED@AcuExch.aculab.com>
- <707472e1-b385-836d-c4c6-791c1dcc0776@stressinduktion.org>
- <063D6719AE5E284EB5DD2968C1650D6DB02402C0@AcuExch.aculab.com>
- <0f3c3694-c00b-aae2-5b08-25bc64bf6372@stressinduktion.org>
- <063D6719AE5E284EB5DD2968C1650D6DB0240437@AcuExch.aculab.com>
-Reply-To: kernel-hardening@lists.openwall.com
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net 2/2] net/sched: cls_flower: Use masked key when
+ calling HW offloads
+Date: Thu, 15 Dec 2016 15:59:31 +0100
+Message-ID: <20161215145931.GA1807@nanopsycho.orion>
+References: <1481734858-37474-1-git-send-email-paulb@mellanox.com>
+ <1481734858-37474-3-git-send-email-paulb@mellanox.com>
+ <20161215135043.GA7104@penelope.horms.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>,
- "kernel-hardening@lists.openwall.com" <kernel-hardening@lists.openwall.com>,
- Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>,
- LKML <linux-kernel@vger.kernel.org>,
- Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
- "Daniel J . Bernstein" <djb@cr.yp.to>,
- Linus Torvalds <torvalds@linux-foundation.org>,
- Eric Biggers <ebiggers3@gmail.com>
-To: David Laight <David.Laight@ACULAB.COM>,
- "Jason A. Donenfeld" <Jason@zx2c4.com>
-Return-path: <kernel-hardening-return-5581-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB0240437@AcuExch.aculab.com>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Paul Blakey <paulb@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        Jiri Pirko <jiri@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Roi Dayan <roid@mellanox.com>,
+        Shahar Klein <shahark@mellanox.com>,
+        Hadar Hen Zion <hadarh@mellanox.com>
+To: Simon Horman <simon.horman@netronome.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wj0-f195.google.com ([209.85.210.195]:33513 "EHLO
+        mail-wj0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752094AbcLOO7f (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Dec 2016 09:59:35 -0500
+Received: by mail-wj0-f195.google.com with SMTP id kp2so10204359wjc.0
+        for <netdev@vger.kernel.org>; Thu, 15 Dec 2016 06:59:34 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20161215135043.GA7104@penelope.horms.nl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 15.12.2016 14:56, David Laight wrote:
-> From: Hannes Frederic Sowa
->> Sent: 15 December 2016 12:50
->> On 15.12.2016 13:28, David Laight wrote:
->>> From: Hannes Frederic Sowa
->>>> Sent: 15 December 2016 12:23
->>> ...
->>>> Hmm? Even the Intel ABI expects alignment of unsigned long long to be 8
->>>> bytes on 32 bit. Do you question that?
->>>
->>> Yes.
->>>
->>> The linux ABI for x86 (32 bit) only requires 32bit alignment for u64 (etc).
->>
->> Hmm, u64 on 32 bit is unsigned long long and not unsigned long. Thus I
->> am actually not sure if the ABI would say anything about that (sorry
->> also for my wrong statement above).
->>
->> Alignment requirement of unsigned long long on gcc with -m32 actually
->> seem to be 8.
-> 
-> It depends on the architecture.
-> For x86 it is definitely 4.
+Thu, Dec 15, 2016 at 02:50:44PM CET, simon.horman@netronome.com wrote:
+>Hi Paul,
+>
+>On Wed, Dec 14, 2016 at 07:00:58PM +0200, Paul Blakey wrote:
+>> Zero bits on the mask signify a "don't care" on the corresponding bits
+>> in key. Some HWs require those bits on the key to be zero. Since these
+>> bits are masked anyway, it's okay to provide the masked key to all
+>> drivers.
+>> 
+>> Fixes: 5b33f48842fa ('net/flower: Introduce hardware offload support')
+>> Signed-off-by: Paul Blakey <paulb@mellanox.com>
+>> Reviewed-by: Roi Dayan <roid@mellanox.com>
+>> Acked-by: Jiri Pirko <jiri@mellanox.com>
+>
+>While I don't have a specific use case in mind that this change would break
+>it seems to me that it would be better to handle hardware requirements
+>at the driver level.
 
-May I ask for a reference? I couldn't see unsigned long long being
-mentioned in the ia32 abi spec that I found. I agree that those accesses
-might be synthetically assembled by gcc and for me the alignment of 4
-would have seemed natural. But my gcc at least in 32 bit mode disagrees
-with that.
+Even though, makes no sense to pass unmasked key down. Is is only
+confusing. This patch fixes it.
 
-> It might be 8 for sparc, ppc and/or alpha.
 
-This is something to find out...
-
-Right now ipv6 addresses have an alignment of 4. So we couldn't even
-naturally pass them to siphash but would need to copy them around, which
-I feel like a source of bugs.
-
-Bye,
-Hannes
+>
+>> ---
+>>  net/sched/cls_flower.c | 2 +-
+>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>> 
+>> diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
+>> index 9758f5a..35ac28d 100644
+>> --- a/net/sched/cls_flower.c
+>> +++ b/net/sched/cls_flower.c
+>> @@ -252,7 +252,7 @@ static int fl_hw_replace_filter(struct tcf_proto *tp,
+>>  	offload.cookie = (unsigned long)f;
+>>  	offload.dissector = dissector;
+>>  	offload.mask = mask;
+>> -	offload.key = &f->key;
+>> +	offload.key = &f->mkey;
+>>  	offload.exts = &f->exts;
+>>  
+>>  	tc->type = TC_SETUP_CLSFLOWER;
+>> -- 
+>> 1.8.3.1
+>> 
