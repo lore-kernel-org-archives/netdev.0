@@ -1,8 +1,8 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: [PATCH v2 1/4] siphash: add cryptographically secure hashtable
- function
-Date: Thu, 15 Dec 2016 22:09:33 +0100
-Message-ID: <20161215210933.GY3207@twins.programming.kicks-ass.net>
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: Re: [kernel-hardening] Re: [PATCH v2 1/4] siphash: add
+ cryptographically secure hashtable function
+Date: Thu, 15 Dec 2016 22:11:24 +0100
+Message-ID: <CAHmME9p+xEBTKz+Wfy5Ypav4HU7H+rnA-0hLgd1sMmthDzOmvw@mail.gmail.com>
 References: <8ea3fdff-23c4-b81d-2588-44549bd2d8c1@stressinduktion.org>
  <063D6719AE5E284EB5DD2968C1650D6DB02401ED@AcuExch.aculab.com>
  <707472e1-b385-836d-c4c6-791c1dcc0776@stressinduktion.org>
@@ -12,41 +12,38 @@ References: <8ea3fdff-23c4-b81d-2588-44549bd2d8c1@stressinduktion.org>
  <f6813084-6f46-0b22-e9c3-97b2e266f8f6@stressinduktion.org>
  <063D6719AE5E284EB5DD2968C1650D6DB0240529@AcuExch.aculab.com>
  <924ef794-eae0-2a6b-508b-069718339edc@stressinduktion.org>
- <CAHmME9pTLFu3-4n6m_OMj5jVWGE-+yC-4CnkynD--H4Nt8_cpA@mail.gmail.com>
-Reply-To: kernel-hardening@lists.openwall.com
+ <CAHmME9pTLFu3-4n6m_OMj5jVWGE-+yC-4CnkynD--H4Nt8_cpA@mail.gmail.com> <20161215210933.GY3207@twins.programming.kicks-ass.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	David Laight <David.Laight@aculab.com>,
-	Netdev <netdev@vger.kernel.org>,
-	"kernel-hardening@lists.openwall.com" <kernel-hardening@lists.openwall.com>,
-	Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-	"Daniel J . Bernstein" <djb@cr.yp.to>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Eric Biggers <ebiggers3@gmail.com>
-To: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Return-path: <kernel-hardening-return-5601-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-Content-Disposition: inline
-In-Reply-To: <CAHmME9pTLFu3-4n6m_OMj5jVWGE-+yC-4CnkynD--H4Nt8_cpA@mail.gmail.com>
+        David Laight <David.Laight@aculab.com>,
+        Netdev <netdev@vger.kernel.org>,
+        Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+        "Daniel J . Bernstein" <djb@cr.yp.to>,
+        Linus Torvalds <torvalds@linux-foundation.org>,
+        Eric Biggers <ebiggers3@gmail.com>
+To: kernel-hardening@lists.openwall.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161215210933.GY3207@twins.programming.kicks-ass.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 15, 2016 at 07:50:36PM +0100, Jason A. Donenfeld wrote:
-> There's no 32-bit platform
-> that will trap on a 64-bit unaligned access because there's no such
-> thing as a 64-bit access there. In short, we're fine.
+On Thu, Dec 15, 2016 at 10:09 PM, Peter Zijlstra <peterz@infradead.org> wrote:
+> On Thu, Dec 15, 2016 at 07:50:36PM +0100, Jason A. Donenfeld wrote:
+>> There's no 32-bit platform
+>> that will trap on a 64-bit unaligned access because there's no such
+>> thing as a 64-bit access there. In short, we're fine.
+>
+> ARMv7 LPAE is a 32bit architecture that has 64bit load/stores IIRC.
+>
+> x86 has cmpxchg8b that can do 64bit things and very much wants the u64
+> aligned.
+>
+> Also, IIRC we have a few platforms where u64 doesn't carry 8 byte
+> alignment, m68k or something like that, but yes, you likely don't care.
 
-ARMv7 LPAE is a 32bit architecture that has 64bit load/stores IIRC.
-
-x86 has cmpxchg8b that can do 64bit things and very much wants the u64
-aligned.
-
-Also, IIRC we have a few platforms where u64 doesn't carry 8 byte
-alignment, m68k or something like that, but yes, you likely don't care.
-
-Just to make life interesting...
+Indeed, I stand corrected. But in any case, the use of __aligned(8) in
+the patchset ensures that things are fixed and that we don't have this
+issue.
