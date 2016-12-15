@@ -1,55 +1,78 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v2 1/4] siphash: add cryptographically secure hashtable
- function
-Date: Thu, 15 Dec 2016 11:04:37 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB02401ED@AcuExch.aculab.com>
-References: <20161214035927.30004-1-Jason@zx2c4.com>
- <CAHmME9q9ffdtWRbzyMO1ktTdtEFdfumTfojTTNLXFhoa+R+MWQ@mail.gmail.com>
- <8ea3fdff-23c4-b81d-2588-44549bd2d8c1@stressinduktion.org>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: Synopsys Ethernet QoS
+Date: Thu, 15 Dec 2016 12:09:17 +0100
+Message-ID: <20161215110917.GA13571@amd>
+References: <CAHp75VcKURaTQX9=SY8+46GGATuwO1oXAi8eMS+uwk58sjKx5Q@mail.gmail.com>
+ <3aee5a67-5e19-34e6-1719-ff13c7b914ea@gmail.com>
+ <CAHp75VfT9B3O5jU0eHoKtgYc48K2ZjCQ-g9ZQ9nX1Hew6tz-zw@mail.gmail.com>
+ <556353b7-c847-7549-626d-3c324063647e@gmail.com>
+ <f5357ea2-a295-ab08-046e-f8b8f6ca4344@synopsys.com>
+ <1d445ec1-deb8-6e36-39c4-6813c446095f@axis.com>
+ <73bf8cb4-5685-2db6-529c-1de99b1fd358@st.com>
+ <99424968-ad8f-fec6-ebcf-ab7b19ee5486@axis.com>
+ <20161214125735.GA19542@amd>
+ <79642215-95ce-7f04-3db7-121c585e2f2a@synopsys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Netdev <netdev@vger.kernel.org>,
-        "kernel-hardening@lists.openwall.com"
-        <kernel-hardening@lists.openwall.com>,
-        Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>,
-        LKML <linux-kernel@vger.kernel.org>,
-        "Linux Crypto Mailing List" <linux-crypto@vger.kernel.org>,
-        "Daniel J . Bernstein" <djb@cr.yp.to>,
-        Linus Torvalds <torvalds@linux-foundation.org>,
-        Eric Biggers <ebiggers3@gmail.com>
-To: 'Hannes Frederic Sowa' <hannes@stressinduktion.org>,
-        "Jason A. Donenfeld" <Jason@zx2c4.com>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <8ea3fdff-23c4-b81d-2588-44549bd2d8c1@stressinduktion.org>
-Content-Language: en-US
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="liOOAslEiF7prFVr"
+Cc: Niklas Cassel <niklas.cassel@axis.com>,
+        Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andy Shevchenko <andy.shevchenko@gmail.com>,
+        David Miller <davem@davemloft.net>, larper@axis.com,
+        rabinv@axis.com, netdev <netdev@vger.kernel.org>,
+        CARLOS.PALMINHA@synopsys.com, Jie.Deng1@synopsys.com,
+        Stephen Warren <swarren@nvidia.com>
+To: Joao Pinto <Joao.Pinto@synopsys.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from atrey.karlin.mff.cuni.cz ([195.113.26.193]:44996 "EHLO
+        atrey.karlin.mff.cuni.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754717AbcLOLJ0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Dec 2016 06:09:26 -0500
+Content-Disposition: inline
+In-Reply-To: <79642215-95ce-7f04-3db7-121c585e2f2a@synopsys.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogSGFubmVzIEZyZWRlcmljIFNvd2ENCj4gU2VudDogMTQgRGVjZW1iZXIgMjAxNiAyMjow
-Mw0KPiBPbiAxNC4xMi4yMDE2IDEzOjQ2LCBKYXNvbiBBLiBEb25lbmZlbGQgd3JvdGU6DQo+ID4g
-SGkgRGF2aWQsDQo+ID4NCj4gPiBPbiBXZWQsIERlYyAxNCwgMjAxNiBhdCAxMDo1NiBBTSwgRGF2
-aWQgTGFpZ2h0IDxEYXZpZC5MYWlnaHRAYWN1bGFiLmNvbT4gd3JvdGU6DQo+ID4+IC4uLg0KPiA+
-Pj4gK3U2NCBzaXBoYXNoMjQoY29uc3QgdTggKmRhdGEsIHNpemVfdCBsZW4sIGNvbnN0IHU4IGtl
-eVtTSVBIQVNIMjRfS0VZX0xFTl0pDQo+ID4+IC4uLg0KPiA+Pj4gKyAgICAgdTY0IGswID0gZ2V0
-X3VuYWxpZ25lZF9sZTY0KGtleSk7DQo+ID4+PiArICAgICB1NjQgazEgPSBnZXRfdW5hbGlnbmVk
-X2xlNjQoa2V5ICsgc2l6ZW9mKHU2NCkpOw0KPiA+PiAuLi4NCj4gPj4+ICsgICAgICAgICAgICAg
-bSA9IGdldF91bmFsaWduZWRfbGU2NChkYXRhKTsNCj4gPj4NCj4gPj4gQWxsIHRoZXNlIHVuYWxp
-Z25lZCBhY2Nlc3NlcyBhcmUgZ29pbmcgdG8gZ2V0IGV4cGVuc2l2ZSBvbiBhcmNoaXRlY3R1cmVz
-DQo+ID4+IGxpa2Ugc3BhcmM2NC4NCj4gPg0KPiA+IFllcywgdGhlIHVuYWxpZ25lZCBhY2Nlc3Nl
-cyBhcmVuJ3QgcHJldHR5LiBTaW5jZSBpbiBwcmV0dHkgbXVjaCBhbGwNCj4gPiB1c2UgY2FzZXMg
-dGh1cyBmYXIsIHRoZSBkYXRhIGNhbiBlYXNpbHkgYmUgbWFkZSBhbGlnbmVkLCBwZXJoYXBzIGl0
-DQo+ID4gbWFrZXMgc2Vuc2UgdG8gY3JlYXRlIHNpcGhhc2gyNCgpIGFuZCBzaXBoYXNoMjRfdW5h
-bGlnbmVkKCkuIEFueQ0KPiA+IHRob3VnaHRzIG9uIGRvaW5nIHNvbWV0aGluZyBsaWtlIHRoYXQ/
-DQo+IA0KPiBJIGZlYXIgdGhhdCB0aGUgYWxpZ25tZW50IHJlcXVpcmVtZW50IHdpbGwgYmUgYSBz
-b3VyY2Ugb2YgYnVncyBvbiAzMiBiaXQNCj4gbWFjaGluZXMsIHdoZXJlIHlvdSBjYW5ub3QgZXZl
-biBzaW1wbHkgdGFrZSBhIHdlbGwgYWxpZ25lZCBzdHJ1Y3Qgb24gYQ0KPiBzdGFjayBhbmQgcHV0
-IGl0IGludG8gdGhlIG5vcm1hbCBzaXBoYXNoKGFsaWduZWQpIGZ1bmN0aW9uIHdpdGhvdXQNCj4g
-YWRkaW5nIGFsaWdubWVudCBhbm5vdGF0aW9ucyBldmVyeXdoZXJlLiBFdmVuIGJsb2NrcyByZXR1
-cm5lZCBmcm9tDQo+IGttYWxsb2Mgb24gMzIgYml0IGFyZSBub3QgYWxpZ25lZCB0byA2NCBiaXQu
-DQoNCkFyZSB5b3UgZG9pbmcgYW55dGhpbmcgdGhhdCB3aWxsIHJlcXVpcmUgNjRiaXQgYWxpZ25t
-ZW50IG9uIDMyYml0IHN5c3RlbXM/DQpJdCBpcyB1bmxpa2VseSB0aGF0IHRoZSBrZXJuZWwgY2Fu
-IHVzZSBhbnkgc2ltZCByZWdpc3RlcnMgdGhhdCBoYXZlIHdpZGVyDQphbGlnbm1lbnQgcmVxdWly
-ZW1lbnRzLg0KDQpZb3UgYWxzbyByZWFsbHkgZG9uJ3Qgd2FudCB0byByZXF1ZXN0IG9uLXN0YWNr
-IGl0ZW1zIGhhdmUgbGFyZ2UgYWxpZ25tZW50cy4NCldoaWxlIGdjYyBjYW4gZ2VuZXJhdGUgY29k
-ZSB0byBkbyBpdCwgaXQgaXNuJ3QgcHJldHR5Lg0KDQoJRGF2aWQNCg0KDQo=
+
+--liOOAslEiF7prFVr
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+Hi!
+
+> I know that this is completely of topic, but I am facing a dificulty with
+> stmmac. I have interrupts, mac well configured rx packets being received
+> successfully, but TX is not working, resulting in Tx errors =3D Total TX =
+packets.
+> I have made a lot of debug and my conclusions is that by some reason when=
+ using
+> stmmac after starting tx dma, the hw state machine enters a deadend state
+> resulting in those errors. Anyone faced this trouble?
+
+Actually, I see you have address @synopsys.com, would you have
+documentation for the chip?
+
+I'm trying to understand stmmac_tx_clean() and docs would help...
+
+Thanks,
+								Pavel
+--=20
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
+g.html
+
+--liOOAslEiF7prFVr
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iEYEARECAAYFAlhSed0ACgkQMOfwapXb+vJv+wCfX35vXbAMHqGLExg32tIbPh3U
+MRkAnRo6wB4t9+hWzmIWjVkCMtFyvwyu
+=H3gL
+-----END PGP SIGNATURE-----
+
+--liOOAslEiF7prFVr--
