@@ -1,101 +1,58 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [net-next PATCH v5 1/6] net: virtio dynamically disable/enable
- LRO
-Date: Thu, 15 Dec 2016 18:35:14 +0200
-Message-ID: <20161215183341-mutt-send-email-mst@kernel.org>
-References: <20161207200139.28121.4811.stgit@john-Precision-Tower-5810>
- <20161207201111.28121.4879.stgit@john-Precision-Tower-5810>
- <20161208231857-mutt-send-email-mst@kernel.org>
- <5849F52A.7050105@gmail.com>
- <20161214152924-mutt-send-email-mst@kernel.org>
- <58517AE7.5090104@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: daniel@iogearbox.net, shm@cumulusnetworks.com, davem@davemloft.net,
-        tgraf@suug.ch, alexei.starovoitov@gmail.com,
-        john.r.fastabend@intel.com, netdev@vger.kernel.org,
-        brouer@redhat.com
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57174 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754792AbcLOQf1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 15 Dec 2016 11:35:27 -0500
-Content-Disposition: inline
-In-Reply-To: <58517AE7.5090104@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Christoph Lameter <cl@linux.com>
+Subject: Re: Designing a safe RX-zero-copy Memory Model for Networking
+Date: Thu, 15 Dec 2016 10:38:53 -0600 (CST)
+Message-ID: <alpine.DEB.2.20.1612151034140.9073@east.gentwo.org>
+References: <alpine.DEB.2.20.1612121200280.13607@east.gentwo.org> <20161213171028.24dbf519@redhat.com> <5850335F.6090000@gmail.com> <20161213.145333.514056260418695987.davem@davemloft.net> <58505535.1080908@gmail.com> <20161214103914.3a9ebbbf@redhat.com>
+ <5851740A.2080806@gmail.com> <CAKgT0UfnBurxz9f+ceD81hAp3U0tGHEi_5MEtxk6PiehG=X8ag@mail.gmail.com> <20161214222927.587a8ac4@redhat.com> <CAKgT0UfckuW-qPOr3WAgwKJFGu0Ot0g2Ha3uRpyU3rpdZeFVpA@mail.gmail.com> <20161215092841.2f7065b5@redhat.com>
+Content-Type: text/plain; charset=US-ASCII
+Cc: Alexander Duyck <alexander.duyck@gmail.com>,
+    John Fastabend <john.fastabend@gmail.com>,
+    David Miller <davem@davemloft.net>, rppt@linux.vnet.ibm.com,
+    Netdev <netdev@vger.kernel.org>, linux-mm <linux-mm@kvack.org>,
+    willemdebruijn.kernel@gmail.com,
+    =?ISO-8859-15?Q?Bj=F6rn_T=F6pel?= <bjorn.topel@intel.com>,
+    magnus.karlsson@intel.com, Mel Gorman <mgorman@techsingularity.net>,
+    Tom Herbert <tom@herbertland.com>, Brenden Blanco <bblanco@plumgrid.com>,
+    Tariq Toukan <tariqt@mellanox.com>, Saeed Mahameed <saeedm@mellanox.com>,
+    "Brandeburg, Jesse" <jesse.brandeburg@intel.com>, METH@il.ibm.com,
+    Vlad Yasevich <vyasevich@gmail.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20161215092841.2f7065b5@redhat.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 14, 2016 at 09:01:27AM -0800, John Fastabend wrote:
-> On 16-12-14 05:31 AM, Michael S. Tsirkin wrote:
-> > On Thu, Dec 08, 2016 at 04:04:58PM -0800, John Fastabend wrote:
-> >> On 16-12-08 01:36 PM, Michael S. Tsirkin wrote:
-> >>> On Wed, Dec 07, 2016 at 12:11:11PM -0800, John Fastabend wrote:
-> >>>> This adds support for dynamically setting the LRO feature flag. The
-> >>>> message to control guest features in the backend uses the
-> >>>> CTRL_GUEST_OFFLOADS msg type.
-> >>>>
-> >>>> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-> >>>> ---
-> 
-> [...]
-> 
-> >>>>  
-> >>>>  static void virtnet_config_changed_work(struct work_struct *work)
-> >>>> @@ -1815,6 +1846,12 @@ static int virtnet_probe(struct virtio_device *vdev)
-> >>>>  	if (virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_CSUM))
-> >>>>  		dev->features |= NETIF_F_RXCSUM;
-> >>>>  
-> >>>> +	if (virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_TSO4) &&
-> >>>> +	    virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_TSO6)) {
-> >>>> +		dev->features |= NETIF_F_LRO;
-> >>>> +		dev->hw_features |= NETIF_F_LRO;
-> >>>
-> >>> So the issue is I think that the virtio "LRO" isn't really
-> >>> LRO, it's typically just GRO forwarded to guests.
-> >>> So these are easily re-split along MTU boundaries,
-> >>> which makes it ok to forward these across bridges.
-> >>>
-> >>> It's not nice that we don't document this in the spec,
-> >>> but it's the reality and people rely on this.
-> >>>
-> >>> For now, how about doing a custom thing and just disable/enable
-> >>> it as XDP is attached/detached?
-> >>
-> >> The annoying part about doing this is ethtool will say that it is fixed
-> >> yet it will be changed by seemingly unrelated operation. I'm not sure I
-> >> like the idea to start automatically configuring the link via xdp_set.
-> > 
-> > I really don't like the idea of dropping performance
-> > by a factor of 3 for people bridging two virtio net
-> > interfaces.
-> > 
-> > So how about a simple approach for now, just disable
-> > XDP if GUEST_TSO is enabled?
-> > 
-> > We can discuss better approaches in next version.
-> > 
-> 
-> So the proposal is to add a check in XDP setup so that
-> 
->   if (virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_TSO{4|6})
-> 	return -ENOPSUPP;
-> 
-> Or whatever is the most appropriate return code? Then we can
-> disable TSO via qemu-system with guest_tso4=off,guest_tso6=off for
-> XDP use cases.
+On Thu, 15 Dec 2016, Jesper Dangaard Brouer wrote:
 
-Right. It's a start.
+> > It sounds like Christoph's RDMA approach might be the way to go.
+>
+> I'm getting more and more fond of Christoph's RDMA approach.  I do
+> think we will end-up with something close to that approach.  I just
+> wanted to get review on my idea first.
+>
+> IMHO the major blocker for the RDMA approach is not HW filters
+> themselves, but a common API that applications can call to register
+> what goes into the HW queues in the driver.  I suspect it will be a
+> long project agreeing between vendors.  And agreeing on semantics.
 
-> Sounds like a reasonable start to me. I'll make the change should this
-> go through DaveMs net-next tree or do you want it on virtio tree? Either
-> is fine with me.
-> 
-> Thanks,
-> John
+Some of the methods from the RDMA subsystem (like queue pairs, the various
+queues etc) could be extracted and used here. Multiple vendors already
+support these features and some devices operate both in an RDMA and a
+network stack mode. Having that all supported by the networks stack would
+reduce overhead for those vendors.
 
-I think I'll merge it because I'm tweaking RX processing too,
-and this will likely conflict.
+Multiple new vendors are coming up in the RDMA subsystem because the
+regular network stack does not have the right performance for high speed
+networking. I would rather see them have a way to get that functionality
+from the regular network stack. Please add some extensions so that the
+RDMA style I/O can be made to work. Even the hardware of the new NICs is
+already prepared to work with the data structures of the RDMA subsystem.
+That provides an area of standardization where we could hook into but do
+that properly and in a nice way in the context of main stream network
+support.
 
--- 
-MST
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
