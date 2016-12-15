@@ -1,56 +1,95 @@
-From: Arnaldo Carvalho de Melo <acme@kernel.org>
-Subject: Re: [PATCHv3 perf/core 0/7] Reuse libbpf from samples/bpf
-Date: Thu, 15 Dec 2016 11:33:29 -0300
-Message-ID: <20161215143329.GB6866@kernel.org>
-References: <20161209024620.31660-1-joe@ovn.org>
- <20161209150907.GM8257@kernel.org>
- <584ACE2E.2090108@iogearbox.net>
- <20161214132501.GP5482@kernel.org>
- <20161214145512.GQ5482@kernel.org>
- <CAPWQB7E-i+m0Ukz6O39AV-pHMB=GsoUTTa1862QUjGWM3RQJyQ@mail.gmail.com>
+From: "ira.weiny" <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [RFC v2 00/10] HFI Virtual Network Interface Controller (VNIC)
+Date: Thu, 15 Dec 2016 09:52:13 -0500
+Message-ID: <20161215145212.GA29116@phlsvsds.ph.intel.com>
+References: <1481788782-89964-1-git-send-email-niranjana.vishwanathapura@intel.com> <20161215091226.GC811@mtr-leonro.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-        LKML <linux-kernel@vger.kernel.org>,
-        netdev <netdev@vger.kernel.org>, Wang Nan <wangnan0@huawei.com>,
-        ast@fb.com
-To: Joe Stringer <joe@ovn.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
+To: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        Jeff Kirsher <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <CAPWQB7E-i+m0Ukz6O39AV-pHMB=GsoUTTa1862QUjGWM3RQJyQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20161215091226.GC811-U/DQcQFIOTAAJjI8aNfphQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Em Wed, Dec 14, 2016 at 02:46:23PM -0800, Joe Stringer escreveu:
-> On 14 December 2016 at 06:55, Arnaldo Carvalho de Melo <acme@kernel.org> wrote:
-> > So, Joe, can you try refreshing this work, starting from what I have in
-> > perf/core? It has the changes coming from net-next that Daniel warned us about
-> > and some more.
- 
-> I've just respun this series based on the version you previously
-> applied to perf/core. Since bpf_prog_{attach,detach}() were added to
-> samples/libbpf, a new patch will shift these over to tools/lib/bpf.
-> Other than that, I folded "samples/bpf: Drop unnecessary build
-> targets." back into "samples/bpf: Switch over to libbpf", and I
-> noticed that there were a couple of unnecessary log buffers with the
-> latest changes. For any new sample programs, those were fixed up to
-> use libbpf as well.
- 
-> Don't forget to do a "make headers_install" before attempting to build
-> the samples, access to the latest headers is required (as per the
-> readme in samples/bpf).
+On Thu, Dec 15, 2016 at 11:12:26AM +0200, Leon Romanovsky wrote:
+> On Wed, Dec 14, 2016 at 11:59:32PM -0800, Vishwanathapura, Niranjana wrote:
+> > Thanks Jason for the valuable feedback.
+> > Here is the revised HFI VNIC patch series.
+> >
+> > ChangeLog:
+> > =========
+> > v1 => v2:
+> > a) Removed hfi_vnic bus, instead make hfi_vnic driver an 'ib client',
+> >    as per feedback from Jason Gunthorpe.
+> > b) Interface changes, data structure changes and variable name changes
+> >    associated with (a).
+> > c) Add hfi_ibdev abstraction to provide VNIC control operations to
+> >    hfi_vnic client.
+> > d) Minor fixes
+> > e) Moved hfi_vnic driver from .../sw/intel/vnic/hfi_vnic to
+> >    .../sw/intel/hfi_vnic.
+> 
+> To put it into proportion, Jason asked you to do different thing.
+> http://marc.info/?l=linux-rdma&m=147977108302151&w=2
+> http://marc.info/?l=linux-rdma&m=148000415401842&w=2
+> 
+> And Christoph,
+> http://marc.info/?l=linux-rdma&m=147985587425861&w=2
 
-Ah, README, I should read that ;-)
+Understood.  However, we never heard back from Niranjanas analysis of the code
+which stated that > 60% of the code was dealing with the OPA MADs used to
+configure this device.
 
-I got used to how tools/perf/ work, i.e. it is self sufficient wrt
-in-flux stuff in the kernel, i.e.  headers that are related to features
-it supports and that are under constant improvements, such as eBPF, kvm,
-syscall tables, etc.
+https://www.spinics.net/lists/linux-rdma/msg43579.html
 
-Anyway, will do the headers_install step inside a container, to avoid
-polluting my workstation.
+Furthermore, neither Dave nor Doug has had time to weigh in on what we should
+do.
 
-Thanks for doing the respin and for the clarifications about building
-samples/bpf/.
+So before we make that change we wanted to get consensus on using the
+hfi1_ibdev abstraction rather than the bus.  This was the _real_ technical
+change.
 
-- Arnaldo
+Beyond that it is really just which maintainer wants this driver.  To that end
+I've also cc'ed Jeff Kirsher who maintains drivers/net/ethernet/intel.  Perhaps
+Dave would like the driver to go through that tree?
+
+
+I think there are pros and cons to both subtrees and in the end we will do
+whatever is decided.
+
+For maintainer review:
+
+	1) The driver encapsulates ethernet packets with OPA headers
+
+	2) VNIC uses OPA management packets (MADs) for its configuration
+
+	3) A significant portion (> 60% +) of the code is specific to OPA
+
+		https://www.spinics.net/lists/linux-rdma/msg43579.html
+
+	4) The driver is from Intel and we expect Intel to be the primary
+	   contributor to the code.
+
+	5) The driver, like hfi1, is dual licensed (GPL/BSD)
+
+	6) Based on Christophs feedback we will be adding device capability
+	   bits to the IB core to indicate HFI VNIC support.
+
+		https://www.spinics.net/lists/linux-rdma/msg44113.html
+
+
+Doug, Dave, Jeff any thoughts?
+
+Ira
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
