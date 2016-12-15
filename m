@@ -1,109 +1,38 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: [PATCH v2 2/2] net: ethernet: stmmac: remove private tx queue
- lock
-Date: Thu, 15 Dec 2016 10:45:17 +0100
-Message-ID: <20161215094517.GA406@amd>
-References: <1481241343-18062-1-git-send-email-LinoSanfilippo@gmx.de>
- <1481241343-18062-3-git-send-email-LinoSanfilippo@gmx.de>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="opJtzjQTFsWo+cga"
-Cc: bh74.an@samsung.com, ks.giri@samsung.com, vipul.pandya@samsung.com,
-        peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        romieu@fr.zoreil.com, davem@davemloft.net,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1481241343-18062-3-git-send-email-LinoSanfilippo@gmx.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Mack <daniel@zonque.org>
+Subject: [PATCH] bpf: cgroup: annotate pointers in struct cgroup_bpf with __rcu
+Date: Thu, 15 Dec 2016 10:53:21 +0100
+Message-ID: <20161215095321.10571-1-daniel@zonque.org>
+Cc: daniel@iogearbox.net, netdev@vger.kernel.org, davem@davemloft.net,
+        Daniel Mack <daniel@zonque.org>
+To: ast@fb.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from svenfoo.org ([82.94.215.22]:55718 "EHLO mail.zonque.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752534AbcLOKE2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 15 Dec 2016 05:04:28 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+The member 'effective' in 'struct cgroup_bpf' is protected by RCU.
+Annotate it accordingly to squelch a sparse warning.
 
---opJtzjQTFsWo+cga
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Signed-off-by: Daniel Mack <daniel@zonque.org>
+---
+ include/linux/bpf-cgroup.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Hi!
-
-> The driver uses a private lock for synchronization of the xmit function a=
-nd
-> the xmit completion handler, but since the NETIF_F_LLTX flag is not set,
-> the xmit function is also called with the xmit_lock held.
->=20
-> On the other hand the completion handler uses the reverse locking order by
-> first taking the private lock and (in case that the tx queue had been
-> stopped) then the xmit_lock.
->=20
-> Improve the locking by removing the private lock and using only the
-> xmit_lock for synchronization instead.
-
-Do you have stmmac hardware to test on?
-
-I believe something is very wrong with the locking there. In
-particular... scheduling the stmmac_tx_timer() function to run often
-should not do anything bad if locking is correct... but it breaks the
-driver rather quickly. [Example patch below, needs applying to two
-places in net-next.]
-
-(Other possibility is that hardware races with the driver.)
-
-Giuseppe, is there documentation available for the chip? Driver says
-
-  Documentation available at:
-          http://www.stlinux.com
-
-but that page does not work for me...
-
-404 Not Found
-
-Code: NoSuchBucket
-Message: The specified bucket does not exist
-BucketName: www.stlinux.com
-RequestId: 1C8A20CB99AE7F75
-HostId:
-ljPnqbEpyD8exct5MUgcDXSW8n+I67Yw0aejNhLuBQ0pqN0UCfiRBa3ztlOMngiXoSN+COX+VSw=
-=3D
-
-Best regards,
-									Pavel
-
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/ne=
-t/ethernet/stmicro/stmmac/stmmac_main.c
-index ffbcd03..8040370 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -1973,8 +1973,9 @@ static void stmmac_xmit_common(struct sk_buff *skb, s=
-truct net_device *dev, int
+diff --git a/include/linux/bpf-cgroup.h b/include/linux/bpf-cgroup.h
+index 7b6e5d1..92bc89a 100644
+--- a/include/linux/bpf-cgroup.h
++++ b/include/linux/bpf-cgroup.h
+@@ -20,7 +20,7 @@ struct cgroup_bpf {
+ 	 * when this cgroup is accessed.
  	 */
- 	priv->tx_count_frames +=3D nfrags + 1;
- 	if (likely(priv->tx_coal_frames > priv->tx_count_frames)) {
--		mod_timer(&priv->txtimer,
--			  STMMAC_COAL_TIMER(priv->tx_coal_timer));
-+		if (priv->tx_count_frames =3D=3D nfrags + 1)
-+			mod_timer(&priv->txtimer,
-+				  STMMAC_COAL_TIMER(priv->tx_coal_timer));
- 	} else {
- 		priv->tx_count_frames =3D 0;
- 		priv->hw->desc->set_tx_ic(desc);
-
-
---=20
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
-g.html
-
---opJtzjQTFsWo+cga
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iEYEARECAAYFAlhSZi0ACgkQMOfwapXb+vLwFgCcCxNT0xBRdIEgrlrKLoWCt68q
-3z4An0I5HFQfvnx85/wPyQ83YFIOI+SA
-=WOGL
------END PGP SIGNATURE-----
-
---opJtzjQTFsWo+cga--
+ 	struct bpf_prog *prog[MAX_BPF_ATTACH_TYPE];
+-	struct bpf_prog *effective[MAX_BPF_ATTACH_TYPE];
++	struct bpf_prog __rcu *effective[MAX_BPF_ATTACH_TYPE];
+ };
+ 
+ void cgroup_bpf_put(struct cgroup *cgrp);
+-- 
+2.9.3
