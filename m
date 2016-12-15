@@ -1,7 +1,8 @@
 From: Madalin Bucur <madalin.bucur@nxp.com>
-Subject: [PATCH net 0/4] fsl/fman: fixes for ARM
-Date: Thu, 15 Dec 2016 15:11:33 +0200
-Message-ID: <1481807497-4724-1-git-send-email-madalin.bucur@nxp.com>
+Subject: [PATCH net 1/4] fsl/fman: fix 1G support for QSGMII interfaces
+Date: Thu, 15 Dec 2016 15:11:34 +0200
+Message-ID: <1481807497-4724-2-git-send-email-madalin.bucur@nxp.com>
+References: <1481807497-4724-1-git-send-email-madalin.bucur@nxp.com>
 Reply-To: madalin.bucur@nxp.com
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,6 +10,7 @@ Cc: linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org,
  davem@davemloft.net
 To: <netdev@vger.kernel.org>
 Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <1481807497-4724-1-git-send-email-madalin.bucur@nxp.com>
 List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
  <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
 List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
@@ -21,23 +23,25 @@ Sender: "Linuxppc-dev"
  <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 List-Id: netdev.vger.kernel.org
 
-The patch set fixes advertised speeds for QSGMII interfaces, disables
-A007273 erratum workaround on non-PowerPC platforms where it does not
-apply, enables compilation on ARM64 and addresses a probing issue on
-ARM64.
+QSGMII ports were not advertising 1G speed.
 
-Igal Liberman (1):
-  fsl/fman: arm: call of_platform_populate() for arm64 platfrom
+Signed-off-by: Madalin Bucur <madalin.bucur@nxp.com>
+Reviewed-by: Camelia Groza <camelia.groza@nxp.com>
+---
+ drivers/net/ethernet/freescale/fman/mac.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-Madalin Bucur (3):
-  fsl/fman: fix 1G support for QSGMII interfaces
-  fsl/fman: A007273 only applies to PPC SoCs
-  fsl/fman: enable compilation on ARM64
-
- drivers/net/ethernet/freescale/fman/Kconfig |  2 +-
- drivers/net/ethernet/freescale/fman/fman.c  | 18 ++++++++++++++++++
- drivers/net/ethernet/freescale/fman/mac.c   |  1 +
- 3 files changed, 20 insertions(+), 1 deletion(-)
-
+diff --git a/drivers/net/ethernet/freescale/fman/mac.c b/drivers/net/ethernet/freescale/fman/mac.c
+index 69ca42c..0b31f85 100644
+--- a/drivers/net/ethernet/freescale/fman/mac.c
++++ b/drivers/net/ethernet/freescale/fman/mac.c
+@@ -594,6 +594,7 @@ static const u16 phy2speed[] = {
+ 	[PHY_INTERFACE_MODE_RGMII_RXID]	= SPEED_1000,
+ 	[PHY_INTERFACE_MODE_RGMII_TXID]	= SPEED_1000,
+ 	[PHY_INTERFACE_MODE_RTBI]		= SPEED_1000,
++	[PHY_INTERFACE_MODE_QSGMII]		= SPEED_1000,
+ 	[PHY_INTERFACE_MODE_XGMII]		= SPEED_10000
+ };
+ 
 -- 
 2.1.0
