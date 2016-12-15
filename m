@@ -1,55 +1,71 @@
-From: Arend Van Spriel <arend.vanspriel@broadcom.com>
-Subject: Re: [PATCH 8/8] Makefile: drop -D__CHECK_ENDIAN__ from cflags
-Date: Thu, 15 Dec 2016 21:15:23 +0100
-Message-ID: <5186291e-90ed-3070-72ad-d6f78fd1a410@broadcom.com>
-References: <1481778865-27667-1-git-send-email-mst@redhat.com>
- <1481778865-27667-9-git-send-email-mst@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Marcel Holtmann <marcel@holtmann.org>,
-        Gustavo Padovan <gustavo@padovan.org>,
-        Johan Hedberg <johan.hedberg@gmail.com>,
-        Wolfgang Grandegger <wg@grandegger.com>,
-        Marc Kleine-Budde <mkl@pengutronix.de>,
-        Vince Bridgers <vbridger@opensource.altera.com>,
-        Jay Cliburn <jcliburn@gmail.com>,
-        Chris Snook <chris.snook@gmail.com>,
-        "Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        Maya Erez <qca_merez@qca.qualcomm.com>,
-        Franky Lin <franky.lin@broadcom.com>,
-        Hante Meuleman <hante.meuleman@broadcom.com>,
-        Stanislaw Gruszka <sgruszka@redhat.com>,
-        Johannes Berg <johannes.berg@intel.com>,
-        Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
-        Luca Coelho <luciano.coelho@intel.com>,
-        Intel Linux Wireless <linuxwifi@intel.com>,
-        Jakub Kicin
-To: "Michael S. Tsirkin" <mst@redhat.com>, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1481778865-27667-9-git-send-email-mst@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: [PATCH v5 0/4] The SipHash Patchset
+Date: Thu, 15 Dec 2016 21:29:59 +0100
+Message-ID: <20161215203003.31989-1-Jason@zx2c4.com>
+Reply-To: kernel-hardening@lists.openwall.com
+Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>
+To: Netdev <netdev@vger.kernel.org>,
+	kernel-hardening@lists.openwall.com,
+	LKML <linux-kernel@vger.kernel.org>,
+	linux-crypto@vger.kernel.org,
+	David Laight <David.Laight@aculab.com>,
+	Ted Tso <tytso@mit.edu>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Eric Biggers <ebiggers3@gmail.com>,
+	Tom Herbert <tom@herbertland.com>,
+	George Spelvin <linux@sciencehorizons.net>,
+	Vegard Nossum <vegard.nossum@gmail.com>,
+	ak@linux.intel.com,
+	davem@davemloft.net,
+	luto@amacapital.net
+Return-path: <kernel-hardening-return-5591-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
 List-Id: netdev.vger.kernel.org
 
-On 15-12-2016 6:15, Michael S. Tsirkin wrote:
-> That's the default now, no need for makefiles to set it.
-> 
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> ---
->  drivers/bluetooth/Makefile                                | 2 --
->  drivers/net/can/Makefile                                  | 1 -
->  drivers/net/ethernet/altera/Makefile                      | 1 -
->  drivers/net/ethernet/atheros/alx/Makefile                 | 1 -
->  drivers/net/ethernet/freescale/Makefile                   | 2 --
->  drivers/net/wireless/ath/Makefile                         | 2 --
->  drivers/net/wireless/ath/wil6210/Makefile                 | 2 --
->  drivers/net/wireless/broadcom/brcm80211/brcmfmac/Makefile | 2 --
->  drivers/net/wireless/broadcom/brcm80211/brcmsmac/Makefile | 1 -
+Hey folks,
 
-For brcm80211 drivers:
+I think we're approaching the end of the review for this patchset and we're
+getting somewhat close to being ready for it being queued up. At this point,
+I've incorporated all of the extremely helpful and instructive suggestions
+from the list.
 
-Acked-by: Arend van Spriel <arend.vanspriel@broadcom.com>
+For this v5, we now accept u64[2] as the key, so that alignment is taken
+care of naturally. For other alignment issues, we have both the fast aligned
+version and the unaligned version, depending on what's necessary. We've
+worked out the issues for struct padding. The functions now take a void
+pointer to avoid ugly casting, which also helps us shed the inline helper
+functions which were not very pretty. The replacements of MD5 have been
+benchmarked and show a big increase in speed. We've even come up with a
+better naming scheme for dword/qword. All and all it's shaping up nicely.
 
-Regards,
-Arend
+So, if this series looks good to you, please send along your Reviewed-by,
+so we can begin to get this completed. If there are still lingering issues,
+let me know and I'll incorporated them into a v6 if necessary.
+
+Thanks,
+Jason
+
+Jason A. Donenfeld (4):
+  siphash: add cryptographically secure PRF
+  siphash: add Nu{32,64} helpers
+  secure_seq: use SipHash in place of MD5
+  random: use SipHash in place of MD5
+
+ drivers/char/random.c   |  32 +++----
+ include/linux/siphash.h |  65 ++++++++++++++
+ lib/Kconfig.debug       |   6 +-
+ lib/Makefile            |   5 +-
+ lib/siphash.c           | 223 ++++++++++++++++++++++++++++++++++++++++++++++++
+ lib/test_siphash.c      | 101 ++++++++++++++++++++++
+ net/core/secure_seq.c   | 133 +++++++++++------------------
+ 7 files changed, 460 insertions(+), 105 deletions(-)
+ create mode 100644 include/linux/siphash.h
+ create mode 100644 lib/siphash.c
+ create mode 100644 lib/test_siphash.c
+
+-- 
+2.11.0
