@@ -1,69 +1,91 @@
-From: Souptick Joarder <jrdr.linux@gmail.com>
-Subject: Re: [PATCH] net: wan: Use dma_pool_zalloc
-Date: Thu, 15 Dec 2016 10:41:30 +0530
-Message-ID: <CAFqt6zaHJ_YP-inLm8_XRDrX8FtcU86NqYG=+DRn9-Y3zR4cyg@mail.gmail.com>
-References: <20161203091447.GA5231@jordon-HP-15-Notebook-PC>
- <m3wpf9l0fc.fsf@t19.piap.pl> <CAFqt6zZoEfE8Us+vx_VuFyqK-zth9ac=aZXo2MKD-4RUBqm5GQ@mail.gmail.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [PATCH 8/8] Makefile: drop -D__CHECK_ENDIAN__ from cflags
+Date: Thu, 15 Dec 2016 08:43:44 +0200
+Message-ID: <87inqllmjj.fsf@purkki.adurom.net>
+References: <1481778865-27667-1-git-send-email-mst@redhat.com>
+ <1481778865-27667-9-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Rameshwar Sahu <sahu.rameshwar73@gmail.com>
-To: =?UTF-8?Q?Krzysztof_Ha=C5=82asa?= <khalasa@piap.pl>,
-        netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f195.google.com ([209.85.223.195]:32812 "EHLO
-        mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753745AbcLOF2H (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Dec 2016 00:28:07 -0500
-Received: by mail-io0-f195.google.com with SMTP id p13so7335331ioi.0
-        for <netdev@vger.kernel.org>; Wed, 14 Dec 2016 21:28:07 -0800 (PST)
-In-Reply-To: <CAFqt6zZoEfE8Us+vx_VuFyqK-zth9ac=aZXo2MKD-4RUBqm5GQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
+ Stanislaw Gruszka <sgruszka@redhat.com>, Gustavo Padovan <gustavo@padovan.org>,
+ Arend van Spriel <arend.vanspriel@broadcom.com>,
+ Luca Coelho <luciano.coelho@intel.com>,
+ "David S. Mi  ller" <"d avem"@davemloft.net>, devel@driverdev.osuosl.org,
+ Jakub Kicinski <kubakici@wp.pl>, Stefan Schmidt <stefan@osg.samsung.com>,
+ linux-mediatek@lists.infradead.org, wil6210@qca.qualcomm.com,
+ Chris Snook <chris.snook@gmail.com>, Wolfgang Grandegger <wg@grandegger.com>,
+ Jay Cliburn <jcliburn@gmail.com>, linux-wpan@vger.kernel.org,
+ Johan Hedberg <johan.hedberg@gmail.com>,
+ Johannes Berg <johannes.berg@intel.com>,
+ Intel Linux Wireless <linuxwifi@intel.com>,
+ Alexander Aring <aar@pengutronix.de>, Marcel Holtmann <marcel@holtmann.org>,
+ Hante Meuleman <hante.meuleman@broadcom.com>, linux-can@vger.kernel.org,
+ Marc Kleine-Budde <mkl@pengutronix.de>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1481778865-27667-9-git-send-email-mst@redhat.com> (Michael S.
+ Tsirkin's message of "Thu, 15 Dec 2016 07:15:30 +0200")
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 12, 2016 at 10:12 AM, Souptick Joarder <jrdr.linux@gmail.com> w=
-rote:
-> On Fri, Dec 9, 2016 at 6:33 PM, Krzysztof Ha=C5=82asa <khalasa@piap.pl> w=
-rote:
->> Souptick Joarder <jrdr.linux@gmail.com> writes:
->>
->>> We should use dma_pool_zalloc instead of dma_pool_alloc/memset
->>>
->>> Signed-off-by: Souptick joarder <jrdr.linux@gmail.com>
->>> ---
->>>  drivers/net/wan/ixp4xx_hss.c | 5 ++---
->>>  1 file changed, 2 insertions(+), 3 deletions(-)
->>>
->>> diff --git a/drivers/net/wan/ixp4xx_hss.c b/drivers/net/wan/ixp4xx_hss.=
-c
->>> index e7bbdb7..aaabf31 100644
->>> --- a/drivers/net/wan/ixp4xx_hss.c
->>> +++ b/drivers/net/wan/ixp4xx_hss.c
->>> @@ -976,10 +976,9 @@ static int init_hdlc_queues(struct port *port)
->>>                       return -ENOMEM;
->>>       }
->>>
->>> -     if (!(port->desc_tab =3D dma_pool_alloc(dma_pool, GFP_KERNEL,
->>> -                                           &port->desc_tab_phys)))
->>> +     if (!(port->desc_tab =3D dma_pool_zalloc(dma_pool, GFP_KERNEL,
->>> +                                            &port->desc_tab_phys)))
->>>               return -ENOMEM;
->>> -     memset(port->desc_tab, 0, POOL_ALLOC_SIZE);
->>>       memset(port->rx_buff_tab, 0, sizeof(port->rx_buff_tab)); /* table=
-s */
->>>       memset(port->tx_buff_tab, 0, sizeof(port->tx_buff_tab));
->>
->> This look fine, feel free to send it to the netdev mailing list for
->> inclusion.
->
-> Including netdev mailing list based as requested.
->
->>
->> Acked-by: Krzysztof Halasa <khalasa@piap.pl>
->> --
->> Krzysztof Halasa
->>
->> Industrial Research Institute for Automation and Measurements PIAP
->> Al. Jerozolimskie 202, 02-486 Warsaw, Poland
+"Michael S. Tsirkin" <mst@redhat.com> writes:
 
-Any comment on this patch ?
+> That's the default now, no need for makefiles to set it.
+>
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> ---
+>  drivers/bluetooth/Makefile                                | 2 --
+>  drivers/net/can/Makefile                                  | 1 -
+>  drivers/net/ethernet/altera/Makefile                      | 1 -
+>  drivers/net/ethernet/atheros/alx/Makefile                 | 1 -
+>  drivers/net/ethernet/freescale/Makefile                   | 2 --
+>  drivers/net/wireless/ath/Makefile                         | 2 --
+>  drivers/net/wireless/ath/wil6210/Makefile                 | 2 --
+>  drivers/net/wireless/broadcom/brcm80211/brcmfmac/Makefile | 2 --
+>  drivers/net/wireless/broadcom/brcm80211/brcmsmac/Makefile | 1 -
+>  drivers/net/wireless/intel/iwlegacy/Makefile              | 2 --
+>  drivers/net/wireless/intel/iwlwifi/Makefile               | 2 +-
+>  drivers/net/wireless/intel/iwlwifi/dvm/Makefile           | 2 +-
+>  drivers/net/wireless/intel/iwlwifi/mvm/Makefile           | 2 +-
+>  drivers/net/wireless/intersil/orinoco/Makefile            | 3 ---
+>  drivers/net/wireless/mediatek/mt7601u/Makefile            | 2 --
+>  drivers/net/wireless/realtek/rtlwifi/Makefile             | 2 --
+>  drivers/net/wireless/realtek/rtlwifi/btcoexist/Makefile   | 2 --
+>  drivers/net/wireless/realtek/rtlwifi/rtl8188ee/Makefile   | 2 --
+>  drivers/net/wireless/realtek/rtlwifi/rtl8192c/Makefile    | 2 --
+>  drivers/net/wireless/realtek/rtlwifi/rtl8192ce/Makefile   | 2 --
+>  drivers/net/wireless/realtek/rtlwifi/rtl8192cu/Makefile   | 2 --
+>  drivers/net/wireless/realtek/rtlwifi/rtl8192de/Makefile   | 2 --
+>  drivers/net/wireless/realtek/rtlwifi/rtl8192ee/Makefile   | 2 --
+>  drivers/net/wireless/realtek/rtlwifi/rtl8192se/Makefile   | 2 --
+>  drivers/net/wireless/realtek/rtlwifi/rtl8723ae/Makefile   | 2 --
+>  drivers/net/wireless/realtek/rtlwifi/rtl8723be/Makefile   | 2 --
+>  drivers/net/wireless/realtek/rtlwifi/rtl8723com/Makefile  | 2 --
+>  drivers/net/wireless/realtek/rtlwifi/rtl8821ae/Makefile   | 2 --
+>  drivers/net/wireless/ti/wl1251/Makefile                   | 2 --
+>  drivers/net/wireless/ti/wlcore/Makefile                   | 2 --
+>  drivers/staging/rtl8188eu/Makefile                        | 2 +-
+>  drivers/staging/rtl8192e/Makefile                         | 2 --
+>  drivers/staging/rtl8192e/rtl8192e/Makefile                | 2 --
+>  net/bluetooth/Makefile                                    | 2 --
+>  net/ieee802154/Makefile                                   | 2 --
+>  net/mac80211/Makefile                                     | 2 +-
+>  net/mac802154/Makefile                                    | 2 --
+>  net/wireless/Makefile                                     | 2 --
+>  38 files changed, 5 insertions(+), 68 deletions(-)
+
+For drivers/net/wireless:
+
+Acked-by: Kalle Valo <kvalo@codeaurora.org>
+
+-- 
+Kalle Valo
