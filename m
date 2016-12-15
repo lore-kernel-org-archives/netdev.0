@@ -1,398 +1,107 @@
-From: Manuel Bessler <manuel.bessler@sensus.com>
-Subject: [PATCH v2 net] rebased to master
-Date: Thu, 15 Dec 2016 13:21:39 -0500
-Message-ID: <1481826099-12840-1-git-send-email-manuel.bessler@sensus.com>
-References: <1481823997-11604-1-git-send-email-manuel.bessler@sensus.com>
+From: Arnaldo Carvalho de Melo <acme@kernel.org>
+Subject: Re: [PATCH perf/core REBASE 2/5] samples/bpf: Switch over to libbpf
+Date: Thu, 15 Dec 2016 15:29:18 -0300
+Message-ID: <20161215182918.GG6866@kernel.org>
+References: <20161214224342.12858-1-joe@ovn.org>
+ <20161214224342.12858-3-joe@ovn.org>
+ <20161215155022.GE6866@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Manuel Bessler <manuel.bessler@sensus.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from MX01.sensus.com ([8.224.178.181]:42493 "EHLO mx01.sensus.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755925AbcLOSXD (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 15 Dec 2016 13:23:03 -0500
-Received: from DURCAS02.sensus.net ([10.25.31.24]) by mx01.sensus.com with ESMTP id AKWE8pakcYJNzEGC for <netdev@vger.kernel.org>; Thu, 15 Dec 2016 13:23:01 -0500 (EST)
-In-Reply-To: <1481823997-11604-1-git-send-email-manuel.bessler@sensus.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        wangnan0@huawei.com, ast@fb.com, daniel@iogearbox.net,
+        Arnaldo Carvalho de Melo <acme@redhat.com>
+To: Joe Stringer <joe@ovn.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20161215155022.GE6866@kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-'ifconfig eth0 down' makes r6040_close() trigger:
- INFO: HARDIRQ-safe -> HARDIRQ-unsafe lock order detected
+Em Thu, Dec 15, 2016 at 12:50:22PM -0300, Arnaldo Carvalho de Melo escreveu:
+> Em Wed, Dec 14, 2016 at 02:43:39PM -0800, Joe Stringer escreveu:
+> > Now that libbpf under tools/lib/bpf/* is synced with the version from
+> > samples/bpf, we can get rid most of the libbpf library here.
+> > 
+> > Signed-off-by: Joe Stringer <joe@ovn.org>
+> > Cc: Alexei Starovoitov <ast@fb.com>
+> > Cc: Daniel Borkmann <daniel@iogearbox.net>
+> > Cc: Wang Nan <wangnan0@huawei.com>
+> > Link: http://lkml.kernel.org/r/20161209024620.31660-6-joe@ovn.org
+> > [ Use -I$(srctree)/tools/lib/ to support out of source code tree builds, as noticed by Wang Nan ]
 
-Fixed by moving calls to phy_stop(), napi_disable(), netif_stop_queue()
-to outside of the module's private spin_lock_irq block.
+So, the above comment no longer applied to this adjusted patch from you,
+as you removed one hunk too much, that, after applied, gets samples/bpf/
+to build successfully:
 
-Found on a Versalogic Tomcat SBC with a Vortex86 SoC
-
-s1660e_5150:~# sudo ifconfig eth0 down
-[   61.306415] ======================================================
-[   61.306415] [ INFO: SOFTIRQ-safe -> SOFTIRQ-unsafe lock order detected ]
-[   61.306415] 4.9.0-gb898d2d-manuel #1 Not tainted
-[   61.306415] ------------------------------------------------------
-[   61.306415] ifconfig/449 [HC0[0]:SC0[0]:HE0:SE1] is trying to acquire:
-[   61.306415]  (&dev->lock){+.+...}, at: [<c1336276>] phy_stop+0x16/0x80
-
-[   61.306415] and this task is already holding:
-[   61.306415]  (&(&lp->lock)->rlock){+.-...}, at: [<d0934c84>] r6040_close+0x24/0x230 [r6040]
-which would create a new lock dependency:
-[   61.306415]  (&(&lp->lock)->rlock){+.-...} -> (&dev->lock){+.+...}
-
-[   61.306415] but this new dependency connects a SOFTIRQ-irq-safe lock:
-[   61.306415]  (&(&lp->lock)->rlock){+.-...}
-[   61.306415] ... which became SOFTIRQ-irq-safe at:
-[   61.306415]   [   61.306415] [<c1075bc5>] __lock_acquire+0x555/0x1770
-[   61.306415]   [   61.306415] [<c107717c>] lock_acquire+0x7c/0x150
-[   61.306415]   [   61.306415] [<c14bb334>] _raw_spin_lock_irqsave+0x24/0x40
-[   61.306415]   [   61.306415] [<d0934ac0>] r6040_start_xmit+0x30/0x1d0 [r6040]
-[   61.306415]   [   61.306415] [<c13a7d4d>] dev_hard_start_xmit+0x9d/0x2d0
-[   61.306415]   [   61.306415] [<c13c8a38>] sch_direct_xmit+0xa8/0x140
-[   61.306415]   [   61.306415] [<c13a8436>] __dev_queue_xmit+0x416/0x780
-[   61.306415]   [   61.306415] [<c13a87aa>] dev_queue_xmit+0xa/0x10
-[   61.306415]   [   61.306415] [<c13b4837>] neigh_resolve_output+0x147/0x220
-[   61.306415]   [   61.306415] [<c144541b>] ip6_finish_output2+0x2fb/0x910
-[   61.306415]   [   61.306415] [<c14494e6>] ip6_finish_output+0xa6/0x1a0
-[   61.306415]   [   61.306415] [<c1449635>] ip6_output+0x55/0x320
-[   61.306415]   [   61.306415] [<c146f4d2>] mld_sendpack+0x352/0x560
-[   61.306415]   [   61.306415] [<c146fe55>] mld_ifc_timer_expire+0x155/0x280
-[   61.306415]   [   61.306415] [<c108b081>] call_timer_fn+0x81/0x270
-[   61.306415]   [   61.306415] [<c108b331>] expire_timers+0xc1/0x180
-[   61.306415]   [   61.306415] [<c108b4f7>] run_timer_softirq+0x77/0x150
-[   61.306415]   [   61.306415] [<c1043d04>] __do_softirq+0xb4/0x3d0
-[   61.306415]   [   61.306415] [<c101a15c>] do_softirq_own_stack+0x1c/0x30
-[   61.306415]   [   61.306415] [<c104416e>] irq_exit+0x8e/0xa0
-[   61.306415]   [   61.306415] [<c1019d31>] do_IRQ+0x51/0x100
-[   61.306415]   [   61.306415] [<c14bc176>] common_interrupt+0x36/0x40
-[   61.306415]   [   61.306415] [<c1134928>] set_root+0x68/0xf0
-[   61.306415]   [   61.306415] [<c1136120>] path_init+0x400/0x640
-[   61.306415]   [   61.306415] [<c11386bf>] path_lookupat+0xf/0xe0
-[   61.306415]   [   61.306415] [<c1139ebc>] filename_lookup+0x6c/0x100
-[   61.306415]   [   61.306415] [<c1139fd5>] user_path_at_empty+0x25/0x30
-[   61.306415]   [   61.306415] [<c11298c6>] SyS_faccessat+0x86/0x1e0
-[   61.306415]   [   61.306415] [<c1129a30>] SyS_access+0x10/0x20
-[   61.306415]   [   61.306415] [<c100179f>] do_int80_syscall_32+0x3f/0x110
-[   61.306415]   [   61.306415] [<c14bba3f>] restore_all+0x0/0x61
-[   61.306415]
-[   61.306415] to a SOFTIRQ-irq-unsafe lock:
-[   61.306415]  (&dev->lock){+.+...}
-[   61.306415] ... which became SOFTIRQ-irq-unsafe at:
-[   61.306415] ...[   61.306415]
-[   61.306415] [<c1075c0c>] __lock_acquire+0x59c/0x1770
-[   61.306415]   [   61.306415] [<c107717c>] lock_acquire+0x7c/0x150
-[   61.306415]   [   61.306415] [<c14b7add>] mutex_lock_nested+0x2d/0x4a0
-[   61.306415]   [   61.306415] [<c133747d>] phy_probe+0x4d/0xc0
-[   61.306415]   [   61.306415] [<c1338afe>] phy_attach_direct+0xbe/0x190
-[   61.306415]   [   61.306415] [<c1338ca7>] phy_connect_direct+0x17/0x60
-[   61.306415]   [   61.306415] [<c1338d23>] phy_connect+0x33/0x70
-[   61.306415]   [   61.306415] [<d09357a0>] r6040_init_one+0x3a0/0x500 [r6040]
-[   61.306415]   [   61.306415] [<c12a78c7>] pci_device_probe+0x77/0xd0
-[   61.306415]   [   61.306415] [<c12f5e15>] driver_probe_device+0x145/0x280
-[   61.306415]   [   61.306415] [<c12f5fd9>] __driver_attach+0x89/0x90
-[   61.306415]   [   61.306415] [<c12f43ef>] bus_for_each_dev+0x4f/0x80
-[   61.306415]   [   61.306415] [<c12f5954>] driver_attach+0x14/0x20
-[   61.306415]   [   61.306415] [<c12f55b7>] bus_add_driver+0x197/0x210
-[   61.306415]   [   61.306415] [<c12f6a21>] driver_register+0x51/0xd0
-[   61.306415]   [   61.306415] [<c12a6955>] __pci_register_driver+0x45/0x50
-[   61.306415]   [   61.306415] [<d0938017>] 0xd0938017
-[   61.306415]   [   61.306415] [<c100043f>] do_one_initcall+0x2f/0x140
-[   61.306415]   [   61.306415] [<c10e48c0>] do_init_module+0x4a/0x19b
-[   61.306415]   [   61.306415] [<c10a680e>] load_module+0x1b2e/0x2070
-[   61.306415]   [   61.306415] [<c10a6eb9>] SyS_finit_module+0x69/0x80
-[   61.306415]   [   61.306415] [<c100179f>] do_int80_syscall_32+0x3f/0x110
-[   61.306415]   [   61.306415] [<c14bba3f>] restore_all+0x0/0x61
-[   61.306415]
-[   61.306415] other info that might help us debug this:
-[   61.306415]
-[   61.306415]  Possible interrupt unsafe locking scenario:
-[   61.306415]
-[   61.306415]        CPU0                    CPU1
-[   61.306415]        ----                    ----
-[   61.306415]   lock(&dev->lock);
-[   61.306415]                                local_irq_disable();
-[   61.306415]                                lock(&(&lp->lock)->rlock);
-[   61.306415]                                lock(&dev->lock);
-[   61.306415]   <Interrupt>
-[   61.306415]     lock(&(&lp->lock)->rlock);
-[   61.306415]
-[   61.306415]  *** DEADLOCK ***
-[   61.306415]
-[   61.306415] 2 locks held by ifconfig/449:
-[   61.306415]  #0:  (rtnl_mutex){+.+.+.}, at: [<c13b68ef>] rtnl_lock+0xf/0x20
-[   61.306415]  #1:  (&(&lp->lock)->rlock){+.-...}, at: [<d0934c84>] r6040_close+0x24/0x230 [r6040]
-[   61.306415]
-[   61.306415] the dependencies between SOFTIRQ-irq-safe lock and the holding lock:
-[   61.306415] -> (&(&lp->lock)->rlock){+.-...} ops: 3049 {
-[   61.306415]    HARDIRQ-ON-W at:
-[   61.306415]                     [   61.306415] [<c1075be7>] __lock_acquire+0x577/0x1770
-[   61.306415]                     [   61.306415] [<c107717c>] lock_acquire+0x7c/0x150
-[   61.306415]                     [   61.306415] [<c14bb21b>] _raw_spin_lock+0x1b/0x30
-[   61.306415]                     [   61.306415] [<d09343cc>] r6040_poll+0x2c/0x330 [r6040]
-[   61.306415]                     [   61.306415] [<c13a5577>] net_rx_action+0x197/0x340
-[   61.306415]                     [   61.306415] [<c1043d04>] __do_softirq+0xb4/0x3d0
-[   61.306415]                     [   61.306415] [<c1044037>] run_ksoftirqd+0x17/0x40
-[   61.306415]                     [   61.306415] [<c105fe91>] smpboot_thread_fn+0x141/0x180
-[   61.306415]                     [   61.306415] [<c105c84e>] kthread+0xde/0x110
-[   61.306415]                     [   61.306415] [<c14bb949>] ret_from_fork+0x19/0x30
-[   61.306415]    IN-SOFTIRQ-W at:
-[   61.306415]                     [   61.306415] [<c1075bc5>] __lock_acquire+0x555/0x1770
-[   61.306415]                     [   61.306415] [<c107717c>] lock_acquire+0x7c/0x150
-[   61.306415]                     [   61.306415] [<c14bb334>] _raw_spin_lock_irqsave+0x24/0x40
-[   61.306415]                     [   61.306415] [<d0934ac0>] r6040_start_xmit+0x30/0x1d0 [r6040]
-[   61.306415]                     [   61.306415] [<c13a7d4d>] dev_hard_start_xmit+0x9d/0x2d0
-[   61.306415]                     [   61.306415] [<c13c8a38>] sch_direct_xmit+0xa8/0x140
-[   61.306415]                     [   61.306415] [<c13a8436>] __dev_queue_xmit+0x416/0x780
-[   61.306415]                     [   61.306415] [<c13a87aa>] dev_queue_xmit+0xa/0x10
-[   61.306415]                     [   61.306415] [<c13b4837>] neigh_resolve_output+0x147/0x220
-[   61.306415]                     [   61.306415] [<c144541b>] ip6_finish_output2+0x2fb/0x910
-[   61.306415]                     [   61.306415] [<c14494e6>] ip6_finish_output+0xa6/0x1a0
-[   61.306415]                     [   61.306415] [<c1449635>] ip6_output+0x55/0x320
-[   61.306415]                     [   61.306415] [<c146f4d2>] mld_sendpack+0x352/0x560
-[   61.306415]                     [   61.306415] [<c146fe55>] mld_ifc_timer_expire+0x155/0x280
-[   61.306415]                     [   61.306415] [<c108b081>] call_timer_fn+0x81/0x270
-[   61.306415]                     [   61.306415] [<c108b331>] expire_timers+0xc1/0x180
-[   61.306415]                     [   61.306415] [<c108b4f7>] run_timer_softirq+0x77/0x150
-[   61.306415]                     [   61.306415] [<c1043d04>] __do_softirq+0xb4/0x3d0
-[   61.306415]                     [   61.306415] [<c101a15c>] do_softirq_own_stack+0x1c/0x30
-[   61.306415]                     [   61.306415] [<c104416e>] irq_exit+0x8e/0xa0
-[   61.306415]                     [   61.306415] [<c1019d31>] do_IRQ+0x51/0x100
-[   61.306415]                     [   61.306415] [<c14bc176>] common_interrupt+0x36/0x40
-[   61.306415]                     [   61.306415] [<c1134928>] set_root+0x68/0xf0
-[   61.306415]                     [   61.306415] [<c1136120>] path_init+0x400/0x640
-[   61.306415]                     [   61.306415] [<c11386bf>] path_lookupat+0xf/0xe0
-[   61.306415]                     [   61.306415] [<c1139ebc>] filename_lookup+0x6c/0x100
-[   61.306415]                     [   61.306415] [<c1139fd5>] user_path_at_empty+0x25/0x30
-[   61.306415]                     [   61.306415] [<c11298c6>] SyS_faccessat+0x86/0x1e0
-[   61.306415]                     [   61.306415] [<c1129a30>] SyS_access+0x10/0x20
-[   61.306415]                     [   61.306415] [<c100179f>] do_int80_syscall_32+0x3f/0x110
-[   61.306415]                     [   61.306415] [<c14bba3f>] restore_all+0x0/0x61
-[   61.306415]    INITIAL USE at:
-[   61.306415]                    [   61.306415] [<c107586e>] __lock_acquire+0x1fe/0x1770
-[   61.306415]                    [   61.306415] [<c107717c>] lock_acquire+0x7c/0x150
-[   61.306415]                    [   61.306415] [<c14bb334>] _raw_spin_lock_irqsave+0x24/0x40
-[   61.306415]                    [   61.306415] [<d093474e>] r6040_get_stats+0x1e/0x60 [r6040]
-[   61.306415]                    [   61.306415] [<c139fb16>] dev_get_stats+0x96/0xc0
-[   61.306415]                    [   61.306415] [<c14b416e>] rtnl_fill_stats+0x36/0xfd
-[   61.306415]                    [   61.306415] [<c13b7b3c>] rtnl_fill_ifinfo+0x47c/0xce0
-[   61.306415]                    [   61.306415] [<c13bc08e>] rtmsg_ifinfo_build_skb+0x4e/0xd0
-[   61.306415]                    [   61.306415] [<c13bc120>] rtmsg_ifinfo.part.20+0x10/0x40
-[   61.306415]                    [   61.306415] [<c13bc16b>] rtmsg_ifinfo+0x1b/0x20
-[   61.306415]                    [   61.306415] [<c13a9d19>] register_netdevice+0x409/0x550
-[   61.306415]                    [   61.306415] [<c13a9e72>] register_netdev+0x12/0x20
-[   61.306415]                    [   61.306415] [<d09357e8>] r6040_init_one+0x3e8/0x500 [r6040]
-[   61.306415]                    [   61.306415] [<c12a78c7>] pci_device_probe+0x77/0xd0
-[   61.306415]                    [   61.306415] [<c12f5e15>] driver_probe_device+0x145/0x280
-[   61.306415]                    [   61.306415] [<c12f5fd9>] __driver_attach+0x89/0x90
-[   61.306415]                    [   61.306415] [<c12f43ef>] bus_for_each_dev+0x4f/0x80
-[   61.306415]                    [   61.306415] [<c12f5954>] driver_attach+0x14/0x20
-[   61.306415]                    [   61.306415] [<c12f55b7>] bus_add_driver+0x197/0x210
-[   61.306415]                    [   61.306415] [<c12f6a21>] driver_register+0x51/0xd0
-[   61.306415]                    [   61.306415] [<c12a6955>] __pci_register_driver+0x45/0x50
-[   61.306415]                    [   61.306415] [<d0938017>] 0xd0938017
-[   61.306415]                    [   61.306415] [<c100043f>] do_one_initcall+0x2f/0x140
-[   61.306415]                    [   61.306415] [<c10e48c0>] do_init_module+0x4a/0x19b
-[   61.306415]                    [   61.306415] [<c10a680e>] load_module+0x1b2e/0x2070
-[   61.306415]                    [   61.306415] [<c10a6eb9>] SyS_finit_module+0x69/0x80
-[   61.306415]                    [   61.306415] [<c100179f>] do_int80_syscall_32+0x3f/0x110
-[   61.306415]                    [   61.306415] [<c14bba3f>] restore_all+0x0/0x61
-[   61.306415]  }
-[   61.306415]  ... key      at: [<d0936280>] __key.45893+0x0/0xfffff739 [r6040]
-[   61.306415]  ... acquired at:
-[   61.306415]    [   61.306415] [<c1074a32>] check_irq_usage+0x42/0xb0
-[   61.306415]    [   61.306415] [<c107677c>] __lock_acquire+0x110c/0x1770
-[   61.306415]    [   61.306415] [<c107717c>] lock_acquire+0x7c/0x150
-[   61.306415]    [   61.306415] [<c14b7add>] mutex_lock_nested+0x2d/0x4a0
-[   61.306415]    [   61.306415] [<c1336276>] phy_stop+0x16/0x80
-[   61.306415]    [   61.306415] [<d0934ce9>] r6040_close+0x89/0x230 [r6040]
-[   61.306415]    [   61.306415] [<c13a0a91>] __dev_close_many+0x61/0xa0
-[   61.306415]    [   61.306415] [<c13a0bbf>] __dev_close+0x1f/0x30
-[   61.306415]    [   61.306415] [<c13a9127>] __dev_change_flags+0x87/0x150
-[   61.306415]    [   61.306415] [<c13a9213>] dev_change_flags+0x23/0x60
-[   61.306415]    [   61.306415] [<c1416238>] devinet_ioctl+0x5f8/0x6f0
-[   61.306415]    [   61.306415] [<c1417f75>] inet_ioctl+0x65/0x90
-[   61.306415]    [   61.306415] [<c1389b54>] sock_ioctl+0x124/0x2b0
-[   61.306415]    [   61.306415] [<c113cf7c>] do_vfs_ioctl+0x7c/0x790
-[   61.306415]    [   61.306415] [<c113d6b8>] SyS_ioctl+0x28/0x50
-[   61.306415]    [   61.306415] [<c100179f>] do_int80_syscall_32+0x3f/0x110
-[   61.306415]    [   61.306415] [<c14bba3f>] restore_all+0x0/0x61
-[   61.306415]
-[   61.306415]
-the dependencies between the lock to be acquired[   61.306415]  and SOFTIRQ-irq-unsafe lock:
-[   61.306415] -> (&dev->lock){+.+...} ops: 56 {
-[   61.306415]    HARDIRQ-ON-W at:
-[   61.306415]                     [   61.306415] [<c1075be7>] __lock_acquire+0x577/0x1770
-[   61.306415]                     [   61.306415] [<c107717c>] lock_acquire+0x7c/0x150
-[   61.306415]                     [   61.306415] [<c14b7add>] mutex_lock_nested+0x2d/0x4a0
-[   61.306415]                     [   61.306415] [<c133747d>] phy_probe+0x4d/0xc0
-[   61.306415]                     [   61.306415] [<c1338afe>] phy_attach_direct+0xbe/0x190
-[   61.306415]                     [   61.306415] [<c1338ca7>] phy_connect_direct+0x17/0x60
-[   61.306415]                     [   61.306415] [<c1338d23>] phy_connect+0x33/0x70
-[   61.306415]                     [   61.306415] [<d09357a0>] r6040_init_one+0x3a0/0x500 [r6040]
-[   61.306415]                     [   61.306415] [<c12a78c7>] pci_device_probe+0x77/0xd0
-[   61.306415]                     [   61.306415] [<c12f5e15>] driver_probe_device+0x145/0x280
-[   61.306415]                     [   61.306415] [<c12f5fd9>] __driver_attach+0x89/0x90
-[   61.306415]                     [   61.306415] [<c12f43ef>] bus_for_each_dev+0x4f/0x80
-[   61.306415]                     [   61.306415] [<c12f5954>] driver_attach+0x14/0x20
-[   61.306415]                     [   61.306415] [<c12f55b7>] bus_add_driver+0x197/0x210
-[   61.306415]                     [   61.306415] [<c12f6a21>] driver_register+0x51/0xd0
-[   61.306415]                     [   61.306415] [<c12a6955>] __pci_register_driver+0x45/0x50
-[   61.306415]                     [   61.306415] [<d0938017>] 0xd0938017
-[   61.306415]                     [   61.306415] [<c100043f>] do_one_initcall+0x2f/0x140
-[   61.306415]                     [   61.306415] [<c10e48c0>] do_init_module+0x4a/0x19b
-[   61.306415]                     [   61.306415] [<c10a680e>] load_module+0x1b2e/0x2070
-[   61.306415]                     [   61.306415] [<c10a6eb9>] SyS_finit_module+0x69/0x80
-[   61.306415]                     [   61.306415] [<c100179f>] do_int80_syscall_32+0x3f/0x110
-[   61.306415]                     [   61.306415] [<c14bba3f>] restore_all+0x0/0x61
-[   61.306415]    SOFTIRQ-ON-W at:
-[   61.306415]                     [   61.306415] [<c1075c0c>] __lock_acquire+0x59c/0x1770
-[   61.306415]                     [   61.306415] [<c107717c>] lock_acquire+0x7c/0x150
-[   61.306415]                     [   61.306415] [<c14b7add>] mutex_lock_nested+0x2d/0x4a0
-[   61.306415]                     [   61.306415] [<c133747d>] phy_probe+0x4d/0xc0
-[   61.306415]                     [   61.306415] [<c1338afe>] phy_attach_direct+0xbe/0x190
-[   61.306415]                     [   61.306415] [<c1338ca7>] phy_connect_direct+0x17/0x60
-[   61.306415]                     [   61.306415] [<c1338d23>] phy_connect+0x33/0x70
-[   61.306415]                     [   61.306415] [<d09357a0>] r6040_init_one+0x3a0/0x500 [r6040]
-[   61.306415]                     [   61.306415] [<c12a78c7>] pci_device_probe+0x77/0xd0
-[   61.306415]                     [   61.306415] [<c12f5e15>] driver_probe_device+0x145/0x280
-[   61.306415]                     [   61.306415] [<c12f5fd9>] __driver_attach+0x89/0x90
-[   61.306415]                     [   61.306415] [<c12f43ef>] bus_for_each_dev+0x4f/0x80
-[   61.306415]                     [   61.306415] [<c12f5954>] driver_attach+0x14/0x20
-[   61.306415]                     [   61.306415] [<c12f55b7>] bus_add_driver+0x197/0x210
-[   61.306415]                     [   61.306415] [<c12f6a21>] driver_register+0x51/0xd0
-[   61.306415]                     [   61.306415] [<c12a6955>] __pci_register_driver+0x45/0x50
-[   61.306415]                     [   61.306415] [<d0938017>] 0xd0938017
-[   61.306415]                     [   61.306415] [<c100043f>] do_one_initcall+0x2f/0x140
-[   61.306415]                     [   61.306415] [<c10e48c0>] do_init_module+0x4a/0x19b
-[   61.306415]                     [   61.306415] [<c10a680e>] load_module+0x1b2e/0x2070
-[   61.306415]                     [   61.306415] [<c10a6eb9>] SyS_finit_module+0x69/0x80
-[   61.306415]                     [   61.306415] [<c100179f>] do_int80_syscall_32+0x3f/0x110
-[   61.306415]                     [   61.306415] [<c14bba3f>] restore_all+0x0/0x61
-[   61.306415]    INITIAL USE at:
-[   61.306415]                    [   61.306415] [<c107586e>] __lock_acquire+0x1fe/0x1770
-[   61.306415]                    [   61.306415] [<c107717c>] lock_acquire+0x7c/0x150
-[   61.306415]                    [   61.306415] [<c14b7add>] mutex_lock_nested+0x2d/0x4a0
-[   61.306415]                    [   61.306415] [<c133747d>] phy_probe+0x4d/0xc0
-[   61.306415]                    [   61.306415] [<c1338afe>] phy_attach_direct+0xbe/0x190
-[   61.306415]                    [   61.306415] [<c1338ca7>] phy_connect_direct+0x17/0x60
-[   61.306415]                    [   61.306415] [<c1338d23>] phy_connect+0x33/0x70
-[   61.306415]                    [   61.306415] [<d09357a0>] r6040_init_one+0x3a0/0x500 [r6040]
-[   61.306415]                    [   61.306415] [<c12a78c7>] pci_device_probe+0x77/0xd0
-[   61.306415]                    [   61.306415] [<c12f5e15>] driver_probe_device+0x145/0x280
-[   61.306415]                    [   61.306415] [<c12f5fd9>] __driver_attach+0x89/0x90
-[   61.306415]                    [   61.306415] [<c12f43ef>] bus_for_each_dev+0x4f/0x80
-[   61.306415]                    [   61.306415] [<c12f5954>] driver_attach+0x14/0x20
-[   61.306415]                    [   61.306415] [<c12f55b7>] bus_add_driver+0x197/0x210
-[   61.306415]                    [   61.306415] [<c12f6a21>] driver_register+0x51/0xd0
-[   61.306415]                    [   61.306415] [<c12a6955>] __pci_register_driver+0x45/0x50
-[   61.306415]                    [   61.306415] [<d0938017>] 0xd0938017
-[   61.306415]                    [   61.306415] [<c100043f>] do_one_initcall+0x2f/0x140
-[   61.306415]                    [   61.306415] [<c10e48c0>] do_init_module+0x4a/0x19b
-[   61.306415]                    [   61.306415] [<c10a680e>] load_module+0x1b2e/0x2070
-[   61.306415]                    [   61.306415] [<c10a6eb9>] SyS_finit_module+0x69/0x80
-[   61.306415]                    [   61.306415] [<c100179f>] do_int80_syscall_32+0x3f/0x110
-[   61.306415]                    [   61.306415] [<c14bba3f>] restore_all+0x0/0x61
-[   61.306415]  }
-[   61.306415]  ... key      at: [<c1f28f39>] __key.43998+0x0/0x8
-[   61.306415]  ... acquired at:
-[   61.306415]    [   61.306415] [<c1074a32>] check_irq_usage+0x42/0xb0
-[   61.306415]    [   61.306415] [<c107677c>] __lock_acquire+0x110c/0x1770
-[   61.306415]    [   61.306415] [<c107717c>] lock_acquire+0x7c/0x150
-[   61.306415]    [   61.306415] [<c14b7add>] mutex_lock_nested+0x2d/0x4a0
-[   61.306415]    [   61.306415] [<c1336276>] phy_stop+0x16/0x80
-[   61.306415]    [   61.306415] [<d0934ce9>] r6040_close+0x89/0x230 [r6040]
-[   61.306415]    [   61.306415] [<c13a0a91>] __dev_close_many+0x61/0xa0
-[   61.306415]    [   61.306415] [<c13a0bbf>] __dev_close+0x1f/0x30
-[   61.306415]    [   61.306415] [<c13a9127>] __dev_change_flags+0x87/0x150
-[   61.306415]    [   61.306415] [<c13a9213>] dev_change_flags+0x23/0x60
-[   61.306415]    [   61.306415] [<c1416238>] devinet_ioctl+0x5f8/0x6f0
-[   61.306415]    [   61.306415] [<c1417f75>] inet_ioctl+0x65/0x90
-[   61.306415]    [   61.306415] [<c1389b54>] sock_ioctl+0x124/0x2b0
-[   61.306415]    [   61.306415] [<c113cf7c>] do_vfs_ioctl+0x7c/0x790
-[   61.306415]    [   61.306415] [<c113d6b8>] SyS_ioctl+0x28/0x50
-[   61.306415]    [   61.306415] [<c100179f>] do_int80_syscall_32+0x3f/0x110
-[   61.306415]    [   61.306415] [<c14bba3f>] restore_all+0x0/0x61
-[   61.306415]
-[   61.306415]
-[   61.306415] stack backtrace:
-[   61.306415] CPU: 0 PID: 449 Comm: ifconfig Not tainted 4.9.0-gb898d2d-manuel #1
-[   61.306415] Call Trace:
-[   61.306415]  dump_stack+0x16/0x19
-[   61.306415]  check_usage+0x3f6/0x550
-[   61.306415]  ? check_usage+0x4d/0x550
-[   61.306415]  check_irq_usage+0x42/0xb0
-[   61.306415]  __lock_acquire+0x110c/0x1770
-[   61.306415]  lock_acquire+0x7c/0x150
-[   61.306415]  ? phy_stop+0x16/0x80
-[   61.306415]  mutex_lock_nested+0x2d/0x4a0
-[   61.306415]  ? phy_stop+0x16/0x80
-[   61.306415]  ? r6040_close+0x24/0x230 [r6040]
-[   61.306415]  ? __delay+0x9/0x10
-[   61.306415]  phy_stop+0x16/0x80
-[   61.306415]  r6040_close+0x89/0x230 [r6040]
-[   61.306415]  __dev_close_many+0x61/0xa0
-[   61.306415]  __dev_close+0x1f/0x30
-[   61.306415]  __dev_change_flags+0x87/0x150
-[   61.306415]  dev_change_flags+0x23/0x60
-[   61.306415]  devinet_ioctl+0x5f8/0x6f0
-[   61.306415]  inet_ioctl+0x65/0x90
-[   61.306415]  sock_ioctl+0x124/0x2b0
-[   61.306415]  ? dlci_ioctl_set+0x30/0x30
-[   61.306415]  do_vfs_ioctl+0x7c/0x790
-[   61.306415]  ? trace_hardirqs_on+0xb/0x10
-[   61.306415]  ? call_rcu_sched+0xd/0x10
-[   61.306415]  ? __put_cred+0x32/0x50
-[   61.306415]  ? SyS_faccessat+0x178/0x1e0
-[   61.306415]  SyS_ioctl+0x28/0x50
-[   61.306415]  do_int80_syscall_32+0x3f/0x110
-[   61.306415]  entry_INT80_32+0x2f/0x2f
-[   61.306415] EIP: 0xb764d364
-[   61.306415] EFLAGS: 00000286 CPU: 0
-[   61.306415] EAX: ffffffda EBX: 00000004 ECX: 00008914 EDX: bfa99d7c
-[   61.306415] ESI: bfa99e4c EDI: fffffffe EBP: 00000004 ESP: bfa99d58
-[   61.306415]  DS: 007b ES: 007b FS: 0000 GS: 0033 SS: 007b
-[   63.836607] r6040 0000:00:08.0 eth0: Link is Down
-
-Signed-off-by: Manuel Bessler <manuel.bessler@sensus.com>
----
- drivers/net/ethernet/rdc/r6040.c | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/ethernet/rdc/r6040.c b/drivers/net/ethernet/rdc/r6040.c
-index 4ff4e04..aa11b70 100644
---- a/drivers/net/ethernet/rdc/r6040.c
-+++ b/drivers/net/ethernet/rdc/r6040.c
-@@ -472,8 +472,6 @@ static void r6040_down(struct net_device *dev)
- 	iowrite16(adrp[0], ioaddr + MID_0L);
- 	iowrite16(adrp[1], ioaddr + MID_0M);
- 	iowrite16(adrp[2], ioaddr + MID_0H);
--
--	phy_stop(dev->phydev);
- }
+diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
+index add514e2984a..81b0ef2f7994 100644
+--- a/samples/bpf/Makefile
++++ b/samples/bpf/Makefile
+@@ -107,6 +107,7 @@ always += lwt_len_hist_kern.o
+ always += xdp_tx_iptunnel_kern.o
  
- static int r6040_close(struct net_device *dev)
-@@ -481,12 +479,12 @@ static int r6040_close(struct net_device *dev)
- 	struct r6040_private *lp = netdev_priv(dev);
- 	struct pci_dev *pdev = lp->pdev;
+ HOSTCFLAGS += -I$(objtree)/usr/include
++HOSTCFLAGS += -I$(srctree)/tools/lib/
+ HOSTCFLAGS += -I$(srctree)/tools/testing/selftests/bpf/
  
--	spin_lock_irq(&lp->lock);
-+	phy_stop(dev->phydev);
- 	napi_disable(&lp->napi);
- 	netif_stop_queue(dev);
--	r6040_down(dev);
- 
--	free_irq(dev->irq, dev);
-+	spin_lock_irq(&lp->lock);
-+	r6040_down(dev);
- 
- 	/* Free RX buffer */
- 	r6040_free_rxbufs(dev);
-@@ -496,6 +494,8 @@ static int r6040_close(struct net_device *dev)
- 
- 	spin_unlock_irq(&lp->lock);
- 
-+	free_irq(dev->irq, dev);
-+
- 	/* Free Descriptor memory */
- 	if (lp->rx_ring) {
- 		pci_free_consistent(pdev,
--- 
-2.7.4
+ HOSTCFLAGS_bpf_load.o += -I$(objtree)/usr/include -Wno-unused-variable
+
+---------------------
+
+I added it, continuing...
+
+- Arnaldo
+
+> > Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+> 
+> So, right before this patch building samples/bpf works, then, after, it fails,
+> investigating:
+> 
+> [root@1e797fdfbf4f linux]# make -j4 O=/tmp/build/linux/ headers_install
+> make[1]: Entering directory '/tmp/build/linux'
+>   CHK     include/generated/uapi/linux/version.h
+> make[1]: Leaving directory '/tmp/build/linux'
+> [root@1e797fdfbf4f linux]# make -j4 O=/tmp/build/linux/ samples/bpf/
+> make[1]: Entering directory '/tmp/build/linux'
+>   CHK     include/config/kernel.release
+>   GEN     ./Makefile
+>   CHK     include/generated/uapi/linux/version.h
+>   Using /git/linux as source for kernel
+>   CHK     include/generated/utsrelease.h
+>   CHK     include/generated/timeconst.h
+>   CHK     include/generated/bounds.h
+>   CHK     include/generated/asm-offsets.h
+>   CALL    /git/linux/scripts/checksyscalls.sh
+>   HOSTCC  samples/bpf/test_lru_dist.o
+>   HOSTCC  samples/bpf/libbpf.o
+>   HOSTCC  samples/bpf/sock_example.o
+>   HOSTCC  samples/bpf/bpf_load.o
+> In file included from /git/linux/samples/bpf/libbpf.c:12:0:
+> /git/linux/samples/bpf/libbpf.h:5:21: fatal error: bpf/bpf.h: No such file or directory
+>  #include <bpf/bpf.h>
+>                      ^
+> compilation terminated.
+> In file included from /git/linux/samples/bpf/test_lru_dist.c:24:0:
+> /git/linux/samples/bpf/libbpf.h:5:21: fatal error: bpf/bpf.h: No such file or directory
+>  #include <bpf/bpf.h>
+>                      ^
+> compilation terminated.
+> make[2]: *** [scripts/Makefile.host:124: samples/bpf/test_lru_dist.o] Error 1
+> make[2]: *** Waiting for unfinished jobs....
+> make[2]: *** [scripts/Makefile.host:124: samples/bpf/libbpf.o] Error 1
+> In file included from /git/linux/samples/bpf/bpf_load.c:24:0:
+> /git/linux/samples/bpf/libbpf.h:5:21: fatal error: bpf/bpf.h: No such file or directory
+>  #include <bpf/bpf.h>
+>                      ^
+> compilation terminated.
+> make[2]: *** [scripts/Makefile.host:124: samples/bpf/bpf_load.o] Error 1
+> In file included from /git/linux/samples/bpf/sock_example.c:29:0:
+> /git/linux/samples/bpf/libbpf.h:5:21: fatal error: bpf/bpf.h: No such file or directory
+>  #include <bpf/bpf.h>
+>                      ^
+> compilation terminated.
+> make[2]: *** [scripts/Makefile.host:124: samples/bpf/sock_example.o] Error 1
+> make[1]: *** [/git/linux/Makefile:1659: samples/bpf/] Error 2
+> make[1]: Leaving directory '/tmp/build/linux'
+> make: *** [Makefile:150: sub-make] Error 2
+> [root@1e797fdfbf4f linux]# 
