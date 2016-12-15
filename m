@@ -1,102 +1,56 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: [PATCH net] ixgbe: update the rss key on h/w, when ethtool ask for it.
-Date: Thu, 15 Dec 2016 15:20:34 +0100
-Message-ID: <1aee550aa286aa44265236441b42f8aab77ae864.1481796580.git.pabeni@redhat.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        intel-wired-lan@lists.osuosl.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40014 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755300AbcLOOWD (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 15 Dec 2016 09:22:03 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arnaldo Carvalho de Melo <acme@kernel.org>
+Subject: Re: [PATCHv3 perf/core 0/7] Reuse libbpf from samples/bpf
+Date: Thu, 15 Dec 2016 11:33:29 -0300
+Message-ID: <20161215143329.GB6866@kernel.org>
+References: <20161209024620.31660-1-joe@ovn.org>
+ <20161209150907.GM8257@kernel.org>
+ <584ACE2E.2090108@iogearbox.net>
+ <20161214132501.GP5482@kernel.org>
+ <20161214145512.GQ5482@kernel.org>
+ <CAPWQB7E-i+m0Ukz6O39AV-pHMB=GsoUTTa1862QUjGWM3RQJyQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+        LKML <linux-kernel@vger.kernel.org>,
+        netdev <netdev@vger.kernel.org>, Wang Nan <wangnan0@huawei.com>,
+        ast@fb.com
+To: Joe Stringer <joe@ovn.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAPWQB7E-i+m0Ukz6O39AV-pHMB=GsoUTTa1862QUjGWM3RQJyQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Currently ixgbe_set_rxfh() updates the rss_key copy in the driver
-memory, but does not push the new value into the h/w. This commit
-add a new helper for the latter operation and call it in
-ixgbe_set_rxfh(), so that the h/w rss key value can be really
-updated via ethtool.
+Em Wed, Dec 14, 2016 at 02:46:23PM -0800, Joe Stringer escreveu:
+> On 14 December 2016 at 06:55, Arnaldo Carvalho de Melo <acme@kernel.org> wrote:
+> > So, Joe, can you try refreshing this work, starting from what I have in
+> > perf/core? It has the changes coming from net-next that Daniel warned us about
+> > and some more.
+ 
+> I've just respun this series based on the version you previously
+> applied to perf/core. Since bpf_prog_{attach,detach}() were added to
+> samples/libbpf, a new patch will shift these over to tools/lib/bpf.
+> Other than that, I folded "samples/bpf: Drop unnecessary build
+> targets." back into "samples/bpf: Switch over to libbpf", and I
+> noticed that there were a couple of unnecessary log buffers with the
+> latest changes. For any new sample programs, those were fixed up to
+> use libbpf as well.
+ 
+> Don't forget to do a "make headers_install" before attempting to build
+> the samples, access to the latest headers is required (as per the
+> readme in samples/bpf).
 
-Signed-off-by: Paolo Abeni <pabeni@redhat.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe.h         |  1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |  4 +++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    | 19 ++++++++++++++++---
- 3 files changed, 20 insertions(+), 4 deletions(-)
+Ah, README, I should read that ;-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index ef81c3d..8fb9fbf 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -1026,6 +1026,7 @@ netdev_tx_t ixgbe_xmit_frame_ring(struct sk_buff *skb,
- 				  struct ixgbe_adapter *adapter,
- 				  struct ixgbe_ring *tx_ring);
- u32 ixgbe_rss_indir_tbl_entries(struct ixgbe_adapter *adapter);
-+void ixgbe_store_key(struct ixgbe_adapter *adapter);
- void ixgbe_store_reta(struct ixgbe_adapter *adapter);
- s32 ixgbe_negotiate_fc(struct ixgbe_hw *hw, u32 adv_reg, u32 lp_reg,
- 		       u32 adv_sym, u32 adv_asm, u32 lp_sym, u32 lp_asm);
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-index fd192bf..e40f9ce 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-@@ -3003,8 +3003,10 @@ static int ixgbe_set_rxfh(struct net_device *netdev, const u32 *indir,
- 	}
- 
- 	/* Fill out the rss hash key */
--	if (key)
-+	if (key) {
- 		memcpy(adapter->rss_key, key, ixgbe_get_rxfh_key_size(netdev));
-+		ixgbe_store_key(adapter);
-+	}
- 
- 	ixgbe_store_reta(adapter);
- 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 1e2f39e..0c23ab8 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -3411,6 +3411,21 @@ u32 ixgbe_rss_indir_tbl_entries(struct ixgbe_adapter *adapter)
- }
- 
- /**
-+ * ixgbe_store_key - Write the RSS key to HW
-+ * @adapter: device handle
-+ *
-+ * Write the RSS key stored in adapter.rss_key to HW.
-+ */
-+void ixgbe_store_key(struct ixgbe_adapter *adapter)
-+{
-+	struct ixgbe_hw *hw = &adapter->hw;
-+	int i;
-+
-+	for (i = 0; i < 10; i++)
-+		IXGBE_WRITE_REG(hw, IXGBE_RSSRK(i), adapter->rss_key[i]);
-+}
-+
-+/**
-  * ixgbe_store_reta - Write the RETA table to HW
-  * @adapter: device handle
-  *
-@@ -3475,7 +3490,6 @@ static void ixgbe_store_vfreta(struct ixgbe_adapter *adapter)
- 
- static void ixgbe_setup_reta(struct ixgbe_adapter *adapter)
- {
--	struct ixgbe_hw *hw = &adapter->hw;
- 	u32 i, j;
- 	u32 reta_entries = ixgbe_rss_indir_tbl_entries(adapter);
- 	u16 rss_i = adapter->ring_feature[RING_F_RSS].indices;
-@@ -3488,8 +3502,7 @@ static void ixgbe_setup_reta(struct ixgbe_adapter *adapter)
- 		rss_i = 4;
- 
- 	/* Fill out hash function seeds */
--	for (i = 0; i < 10; i++)
--		IXGBE_WRITE_REG(hw, IXGBE_RSSRK(i), adapter->rss_key[i]);
-+	ixgbe_store_key(adapter);
- 
- 	/* Fill out redirection table */
- 	memset(adapter->rss_indir_tbl, 0, sizeof(adapter->rss_indir_tbl));
--- 
-1.8.3.1
+I got used to how tools/perf/ work, i.e. it is self sufficient wrt
+in-flux stuff in the kernel, i.e.  headers that are related to features
+it supports and that are under constant improvements, such as eBPF, kvm,
+syscall tables, etc.
+
+Anyway, will do the headers_install step inside a container, to avoid
+polluting my workstation.
+
+Thanks for doing the respin and for the clarifications about building
+samples/bpf/.
+
+- Arnaldo
