@@ -1,78 +1,44 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: Synopsys Ethernet QoS
-Date: Thu, 15 Dec 2016 12:09:17 +0100
-Message-ID: <20161215110917.GA13571@amd>
-References: <CAHp75VcKURaTQX9=SY8+46GGATuwO1oXAi8eMS+uwk58sjKx5Q@mail.gmail.com>
- <3aee5a67-5e19-34e6-1719-ff13c7b914ea@gmail.com>
- <CAHp75VfT9B3O5jU0eHoKtgYc48K2ZjCQ-g9ZQ9nX1Hew6tz-zw@mail.gmail.com>
- <556353b7-c847-7549-626d-3c324063647e@gmail.com>
- <f5357ea2-a295-ab08-046e-f8b8f6ca4344@synopsys.com>
- <1d445ec1-deb8-6e36-39c4-6813c446095f@axis.com>
- <73bf8cb4-5685-2db6-529c-1de99b1fd358@st.com>
- <99424968-ad8f-fec6-ebcf-ab7b19ee5486@axis.com>
- <20161214125735.GA19542@amd>
- <79642215-95ce-7f04-3db7-121c585e2f2a@synopsys.com>
+From: Weilong Chen <chenweilong@huawei.com>
+Subject: [PATCH net-next] ixgbevf: fix 'Etherleak' in ixgbevf
+Date: Thu, 15 Dec 2016 19:40:34 +0800
+Message-ID: <1481802034-77729-1-git-send-email-chenweilong@huawei.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="liOOAslEiF7prFVr"
-Cc: Niklas Cassel <niklas.cassel@axis.com>,
-        Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andy Shevchenko <andy.shevchenko@gmail.com>,
-        David Miller <davem@davemloft.net>, larper@axis.com,
-        rabinv@axis.com, netdev <netdev@vger.kernel.org>,
-        CARLOS.PALMINHA@synopsys.com, Jie.Deng1@synopsys.com,
-        Stephen Warren <swarren@nvidia.com>
-To: Joao Pinto <Joao.Pinto@synopsys.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from atrey.karlin.mff.cuni.cz ([195.113.26.193]:44996 "EHLO
-        atrey.karlin.mff.cuni.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754717AbcLOLJ0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Dec 2016 06:09:26 -0500
-Content-Disposition: inline
-In-Reply-To: <79642215-95ce-7f04-3db7-121c585e2f2a@synopsys.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <intel-wired-lan@lists.osuosl.org>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>
+To: <jeffrey.t.kirsher@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Nessus report the vf appears to leak memory in network packets.
+Fix this by padding all small packets manually.
 
---liOOAslEiF7prFVr
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+And the CVE-2003-0001.
+https://ofirarkin.files.wordpress.com/2008/11/atstake_etherleak_report.pdf
 
-Hi!
+Signed-off-by: Weilong Chen <chenweilong@huawei.com>
+---
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
 
-> I know that this is completely of topic, but I am facing a dificulty with
-> stmmac. I have interrupts, mac well configured rx packets being received
-> successfully, but TX is not working, resulting in Tx errors =3D Total TX =
-packets.
-> I have made a lot of debug and my conclusions is that by some reason when=
- using
-> stmmac after starting tx dma, the hw state machine enters a deadend state
-> resulting in those errors. Anyone faced this trouble?
-
-Actually, I see you have address @synopsys.com, would you have
-documentation for the chip?
-
-I'm trying to understand stmmac_tx_clean() and docs would help...
-
-Thanks,
-								Pavel
---=20
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
-g.html
-
---liOOAslEiF7prFVr
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iEYEARECAAYFAlhSed0ACgkQMOfwapXb+vJv+wCfX35vXbAMHqGLExg32tIbPh3U
-MRkAnRo6wB4t9+hWzmIWjVkCMtFyvwyu
-=H3gL
------END PGP SIGNATURE-----
-
---liOOAslEiF7prFVr--
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+index 6d4bef5..137a154 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+@@ -3654,6 +3654,13 @@ static int ixgbevf_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
+ 		return NETDEV_TX_OK;
+ 	}
+ 
++	/* On PCI/PCI-X HW, if packet size is less than ETH_ZLEN,
++	 * packets may get corrupted during padding by HW.
++	 * To WA this issue, pad all small packets manually.
++	 */
++	if (eth_skb_pad(skb))
++		return NETDEV_TX_OK;
++
+ 	tx_ring = adapter->tx_ring[skb->queue_mapping];
+ 
+ 	/* need: 1 descriptor per page * PAGE_SIZE/IXGBE_MAX_DATA_PER_TXD,
+-- 
+1.7.12
