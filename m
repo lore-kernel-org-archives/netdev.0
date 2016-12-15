@@ -1,41 +1,47 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [PATCH iproute2 2/2] tc/m_tunnel_key: Add dest UDP port to
- tunnel key action
-Date: Thu, 15 Dec 2016 14:53:13 +0100
-Message-ID: <20161215135312.GB7104@penelope.horms.nl>
-References: <1481616467-769-1-git-send-email-hadarh@mellanox.com>
- <1481616467-769-3-git-send-email-hadarh@mellanox.com>
- <20161215130335.GA30716@penelope.horms.nl>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH v2 1/4] siphash: add cryptographically secure hashtable
+ function
+Date: Thu, 15 Dec 2016 13:56:30 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB0240437@AcuExch.aculab.com>
+References: <20161214035927.30004-1-Jason@zx2c4.com>
+ <CAHmME9q9ffdtWRbzyMO1ktTdtEFdfumTfojTTNLXFhoa+R+MWQ@mail.gmail.com>
+ <8ea3fdff-23c4-b81d-2588-44549bd2d8c1@stressinduktion.org>
+ <063D6719AE5E284EB5DD2968C1650D6DB02401ED@AcuExch.aculab.com>
+ <707472e1-b385-836d-c4c6-791c1dcc0776@stressinduktion.org>
+ <063D6719AE5E284EB5DD2968C1650D6DB02402C0@AcuExch.aculab.com>
+ <0f3c3694-c00b-aae2-5b08-25bc64bf6372@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-        netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
-        Roi Dayan <roid@mellanox.com>, Amir Vadai <amirva@mellanox.com>
-To: Hadar Hen Zion <hadarh@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wj0-f175.google.com ([209.85.210.175]:35657 "EHLO
-        mail-wj0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755007AbcLONxz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Dec 2016 08:53:55 -0500
-Received: by mail-wj0-f175.google.com with SMTP id v7so66072830wjy.2
-        for <netdev@vger.kernel.org>; Thu, 15 Dec 2016 05:53:15 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20161215130335.GA30716@penelope.horms.nl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Netdev <netdev@vger.kernel.org>,
+        "kernel-hardening@lists.openwall.com"
+        <kernel-hardening@lists.openwall.com>,
+        Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>,
+        LKML <linux-kernel@vger.kernel.org>,
+        "Linux Crypto Mailing List" <linux-crypto@vger.kernel.org>,
+        "Daniel J . Bernstein" <djb@cr.yp.to>,
+        Linus Torvalds <torvalds@linux-foundation.org>,
+        Eric Biggers <ebiggers3@gmail.com>
+To: 'Hannes Frederic Sowa' <hannes@stressinduktion.org>,
+        "Jason A. Donenfeld" <Jason@zx2c4.com>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <0f3c3694-c00b-aae2-5b08-25bc64bf6372@stressinduktion.org>
+Content-Language: en-US
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 15, 2016 at 02:03:36PM +0100, Simon Horman wrote:
-> On Tue, Dec 13, 2016 at 10:07:47AM +0200, Hadar Hen Zion wrote:
-> > Enhance tunnel key action parameters by adding destination UDP port.
-> > 
-> > Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
-> > Reviewed-by: Roi Dayan <roid@mellanox.com>
-> 
-> Hi,
-> 
-> this looks good to me but could you also update tc/m_tunnel_key.c:usage(); ?
-
-It seems that I was a bit hasty here as I now see that Stephen has
-indicated that he has applied this series. I also notice that
-patch 1/2 of this series also misses updating usage(). Let me know
-if sending some follow-up patches is the best way forwards.
+RnJvbTogSGFubmVzIEZyZWRlcmljIFNvd2ENCj4gU2VudDogMTUgRGVjZW1iZXIgMjAxNiAxMjo1
+MA0KPiBPbiAxNS4xMi4yMDE2IDEzOjI4LCBEYXZpZCBMYWlnaHQgd3JvdGU6DQo+ID4gRnJvbTog
+SGFubmVzIEZyZWRlcmljIFNvd2ENCj4gPj4gU2VudDogMTUgRGVjZW1iZXIgMjAxNiAxMjoyMw0K
+PiA+IC4uLg0KPiA+PiBIbW0/IEV2ZW4gdGhlIEludGVsIEFCSSBleHBlY3RzIGFsaWdubWVudCBv
+ZiB1bnNpZ25lZCBsb25nIGxvbmcgdG8gYmUgOA0KPiA+PiBieXRlcyBvbiAzMiBiaXQuIERvIHlv
+dSBxdWVzdGlvbiB0aGF0Pw0KPiA+DQo+ID4gWWVzLg0KPiA+DQo+ID4gVGhlIGxpbnV4IEFCSSBm
+b3IgeDg2ICgzMiBiaXQpIG9ubHkgcmVxdWlyZXMgMzJiaXQgYWxpZ25tZW50IGZvciB1NjQgKGV0
+YykuDQo+IA0KPiBIbW0sIHU2NCBvbiAzMiBiaXQgaXMgdW5zaWduZWQgbG9uZyBsb25nIGFuZCBu
+b3QgdW5zaWduZWQgbG9uZy4gVGh1cyBJDQo+IGFtIGFjdHVhbGx5IG5vdCBzdXJlIGlmIHRoZSBB
+Qkkgd291bGQgc2F5IGFueXRoaW5nIGFib3V0IHRoYXQgKHNvcnJ5DQo+IGFsc28gZm9yIG15IHdy
+b25nIHN0YXRlbWVudCBhYm92ZSkuDQo+IA0KPiBBbGlnbm1lbnQgcmVxdWlyZW1lbnQgb2YgdW5z
+aWduZWQgbG9uZyBsb25nIG9uIGdjYyB3aXRoIC1tMzIgYWN0dWFsbHkNCj4gc2VlbSB0byBiZSA4
+Lg0KDQpJdCBkZXBlbmRzIG9uIHRoZSBhcmNoaXRlY3R1cmUuDQpGb3IgeDg2IGl0IGlzIGRlZmlu
+aXRlbHkgNC4NCkl0IG1pZ2h0IGJlIDggZm9yIHNwYXJjLCBwcGMgYW5kL29yIGFscGhhLg0KDQoJ
+RGF2aWQNCg0K
