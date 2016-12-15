@@ -1,38 +1,39 @@
-From: Daniel Mack <daniel@zonque.org>
-Subject: [PATCH] bpf: cgroup: annotate pointers in struct cgroup_bpf with __rcu
-Date: Thu, 15 Dec 2016 10:53:21 +0100
-Message-ID: <20161215095321.10571-1-daniel@zonque.org>
-Cc: daniel@iogearbox.net, netdev@vger.kernel.org, davem@davemloft.net,
-        Daniel Mack <daniel@zonque.org>
-To: ast@fb.com
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH v2 2/2] net: ethernet: stmmac: remove private tx queue
+ lock
+Date: Thu, 15 Dec 2016 11:08:36 +0100
+Message-ID: <c3d2816c-3c50-fd4b-16ea-912b321d51d0@st.com>
+References: <1481241343-18062-1-git-send-email-LinoSanfilippo@gmx.de>
+ <1481241343-18062-3-git-send-email-LinoSanfilippo@gmx.de>
+ <20161215094517.GA406@amd>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <bh74.an@samsung.com>, <ks.giri@samsung.com>,
+        <vipul.pandya@samsung.com>, <alexandre.torgue@st.com>,
+        <romieu@fr.zoreil.com>, <davem@davemloft.net>,
+        <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
+To: Pavel Machek <pavel@ucw.cz>,
+        Lino Sanfilippo <LinoSanfilippo@gmx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from svenfoo.org ([82.94.215.22]:55718 "EHLO mail.zonque.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752534AbcLOKE2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 15 Dec 2016 05:04:28 -0500
+Received: from mx08-00178001.pphosted.com ([91.207.212.93]:25457 "EHLO
+        mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1757902AbcLOKJC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Dec 2016 05:09:02 -0500
+In-Reply-To: <20161215094517.GA406@amd>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The member 'effective' in 'struct cgroup_bpf' is protected by RCU.
-Annotate it accordingly to squelch a sparse warning.
+On 12/15/2016 10:45 AM, Pavel Machek wrote:
+> Giuseppe, is there documentation available for the chip? Driver says
+>
+>   Documentation available at:
+>           http://www.stlinux.com
+>
+> but that page does not work for me...
 
-Signed-off-by: Daniel Mack <daniel@zonque.org>
----
- include/linux/bpf-cgroup.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Hi Pavel, yes the page has been removed but all the relevant and
+updated driver doc is inside the kernel sources.
 
-diff --git a/include/linux/bpf-cgroup.h b/include/linux/bpf-cgroup.h
-index 7b6e5d1..92bc89a 100644
---- a/include/linux/bpf-cgroup.h
-+++ b/include/linux/bpf-cgroup.h
-@@ -20,7 +20,7 @@ struct cgroup_bpf {
- 	 * when this cgroup is accessed.
- 	 */
- 	struct bpf_prog *prog[MAX_BPF_ATTACH_TYPE];
--	struct bpf_prog *effective[MAX_BPF_ATTACH_TYPE];
-+	struct bpf_prog __rcu *effective[MAX_BPF_ATTACH_TYPE];
- };
- 
- void cgroup_bpf_put(struct cgroup *cgrp);
--- 
-2.9.3
+Regards
+Peppe
