@@ -1,585 +1,123 @@
 From: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: [RFC v2 02/10] IB/hfi-vnic: Virtual Network Interface Controller (VNIC) interface
-Date: Wed, 14 Dec 2016 23:59:34 -0800
-Message-ID: <1481788782-89964-3-git-send-email-niranjana.vishwanathapura@intel.com>
+Subject: [RFC v2 03/10] IB/hfi-vnic: Virtual Network Interface Controller (VNIC) netdev
+Date: Wed, 14 Dec 2016 23:59:35 -0800
+Message-ID: <1481788782-89964-4-git-send-email-niranjana.vishwanathapura@intel.com>
 References: <1481788782-89964-1-git-send-email-niranjana.vishwanathapura@intel.com>
 Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
         dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-        Niranjana Vishwanathapura <niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+        Niranjana Vishwanathapura <niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        Sadanand Warrier <sadanand.warrier-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        Sudeep Dutt <sudeep.dutt-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        Tanya K Jajodia <tanya.k.jajodia-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        Andrzej Kacprowski <andrzej.kacprowski-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 To: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
 Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 In-Reply-To: <1481788782-89964-1-git-send-email-niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Create hfi_ibdev abstraction which hfi1_ibdev will extend.
-Define HFI VNIC interface between hardware independent VNIC
-functionality and the hardware dependent VNIC functionality.
-Add VNIC control operations to add and remove VNIC devices,
-to the hfi_ibdev structure.
+HFI VNIC netdev function supports Ethernet functionality over Omni-Path
+fabric by encapsulating Ethernet packets inside Omni-Path packet header.
+It interfaces with the network stack to provide standard Ethernet network
+interfaces. It invokes HFI device's VNIC callback functions for HW access.
 
 Reviewed-by: Dennis Dalessandro <dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 Reviewed-by: Ira Weiny <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 Signed-off-by: Niranjana Vishwanathapura <niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Signed-off-by: Sadanand Warrier <sadanand.warrier-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Signed-off-by: Sudeep Dutt <sudeep.dutt-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Signed-off-by: Tanya K Jajodia <tanya.k.jajodia-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Signed-off-by: Andrzej Kacprowski <andrzej.kacprowski-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 ---
- drivers/infiniband/hw/hfi1/chip.c   |   2 +-
- drivers/infiniband/hw/hfi1/driver.c |  10 +-
- drivers/infiniband/hw/hfi1/hfi.h    |   2 +-
- drivers/infiniband/hw/hfi1/init.c   |   4 +-
- drivers/infiniband/hw/hfi1/intr.c   |   2 +-
- drivers/infiniband/hw/hfi1/mad.c    |   2 +-
- drivers/infiniband/hw/hfi1/qp.c     |  24 +++--
- drivers/infiniband/hw/hfi1/ruc.c    |   2 +-
- drivers/infiniband/hw/hfi1/sysfs.c  |  22 ++--
- drivers/infiniband/hw/hfi1/verbs.c  | 113 ++++++++++----------
- drivers/infiniband/hw/hfi1/verbs.h  |   9 +-
- include/rdma/opa_hfi.h              | 199 ++++++++++++++++++++++++++++++++++++
- 12 files changed, 298 insertions(+), 93 deletions(-)
- create mode 100644 include/rdma/opa_hfi.h
+ MAINTAINERS                                        |   7 +
+ drivers/infiniband/Kconfig                         |   1 +
+ drivers/infiniband/sw/Makefile                     |   1 +
+ drivers/infiniband/sw/intel/hfi_vnic/Kconfig       |   8 +
+ drivers/infiniband/sw/intel/hfi_vnic/Makefile      |   6 +
+ .../infiniband/sw/intel/hfi_vnic/hfi_vnic_encap.c  | 238 ++++++++++++
+ .../infiniband/sw/intel/hfi_vnic/hfi_vnic_encap.h  |  62 ++++
+ .../sw/intel/hfi_vnic/hfi_vnic_ethtool.c           |  65 ++++
+ .../sw/intel/hfi_vnic/hfi_vnic_internal.h          | 220 +++++++++++
+ .../infiniband/sw/intel/hfi_vnic/hfi_vnic_netdev.c | 409 +++++++++++++++++++++
+ 10 files changed, 1017 insertions(+)
+ create mode 100644 drivers/infiniband/sw/intel/hfi_vnic/Kconfig
+ create mode 100644 drivers/infiniband/sw/intel/hfi_vnic/Makefile
+ create mode 100644 drivers/infiniband/sw/intel/hfi_vnic/hfi_vnic_encap.c
+ create mode 100644 drivers/infiniband/sw/intel/hfi_vnic/hfi_vnic_encap.h
+ create mode 100644 drivers/infiniband/sw/intel/hfi_vnic/hfi_vnic_ethtool.c
+ create mode 100644 drivers/infiniband/sw/intel/hfi_vnic/hfi_vnic_internal.h
+ create mode 100644 drivers/infiniband/sw/intel/hfi_vnic/hfi_vnic_netdev.c
 
-diff --git a/drivers/infiniband/hw/hfi1/chip.c b/drivers/infiniband/hw/hfi1/chip.c
-index 37d8af5..9263984 100644
---- a/drivers/infiniband/hw/hfi1/chip.c
-+++ b/drivers/infiniband/hw/hfi1/chip.c
-@@ -10452,7 +10452,7 @@ int set_link_state(struct hfi1_pportdata *ppd, u32 state)
- 			sdma_all_running(dd);
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 2c7a7b6..62db3ea 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -5628,6 +5628,13 @@ F:	drivers/block/cciss*
+ F:	include/linux/cciss_ioctl.h
+ F:	include/uapi/linux/cciss_ioctl.h
  
- 			/* Signal the IB layer that the port has went active */
--			event.device = &dd->verbs_dev.rdi.ibdev;
-+			event.device = &dd->verbs_dev.hfidev.rdi.ibdev;
- 			event.element.port_num = ppd->port;
- 			event.event = IB_EVENT_PORT_ACTIVE;
- 		}
-diff --git a/drivers/infiniband/hw/hfi1/driver.c b/drivers/infiniband/hw/hfi1/driver.c
-index d426116..e219c3b 100644
---- a/drivers/infiniband/hw/hfi1/driver.c
-+++ b/drivers/infiniband/hw/hfi1/driver.c
-@@ -163,7 +163,8 @@ const char *get_unit_name(int unit)
- 
- const char *get_card_name(struct rvt_dev_info *rdi)
- {
--	struct hfi1_ibdev *ibdev = container_of(rdi, struct hfi1_ibdev, rdi);
-+	struct hfi1_ibdev *ibdev = container_of(rdi, struct hfi1_ibdev,
-+						hfidev.rdi);
- 	struct hfi1_devdata *dd = container_of(ibdev,
- 					       struct hfi1_devdata, verbs_dev);
- 	return get_unit_name(dd->unit);
-@@ -171,7 +172,8 @@ const char *get_card_name(struct rvt_dev_info *rdi)
- 
- struct pci_dev *get_pci_dev(struct rvt_dev_info *rdi)
- {
--	struct hfi1_ibdev *ibdev = container_of(rdi, struct hfi1_ibdev, rdi);
-+	struct hfi1_ibdev *ibdev = container_of(rdi, struct hfi1_ibdev,
-+						hfidev.rdi);
- 	struct hfi1_devdata *dd = container_of(ibdev,
- 					       struct hfi1_devdata, verbs_dev);
- 	return dd->pcidev;
-@@ -281,7 +283,7 @@ static void rcv_hdrerr(struct hfi1_ctxtdata *rcd, struct hfi1_pportdata *ppd,
- 	int lnh = be16_to_cpu(rhdr->lrh[0]) & 3;
- 	struct hfi1_ibport *ibp = &ppd->ibport_data;
- 	struct hfi1_devdata *dd = ppd->dd;
--	struct rvt_dev_info *rdi = &dd->verbs_dev.rdi;
-+	struct rvt_dev_info *rdi = &dd->verbs_dev.hfidev.rdi;
- 
- 	if (packet->rhf & (RHF_VCRC_ERR | RHF_ICRC_ERR))
- 		return;
-@@ -600,7 +602,7 @@ static void __prescan_rxq(struct hfi1_packet *packet)
- 		struct rvt_qp *qp;
- 		struct ib_header *hdr;
- 		struct ib_other_headers *ohdr;
--		struct rvt_dev_info *rdi = &dd->verbs_dev.rdi;
-+		struct rvt_dev_info *rdi = &dd->verbs_dev.hfidev.rdi;
- 		u64 rhf = rhf_to_cpu(rhf_addr);
- 		u32 etype = rhf_rcv_type(rhf), qpn, bth1;
- 		int is_ecn = 0;
-diff --git a/drivers/infiniband/hw/hfi1/hfi.h b/drivers/infiniband/hw/hfi1/hfi.h
-index 4163596..1fc5b68 100644
---- a/drivers/infiniband/hw/hfi1/hfi.h
-+++ b/drivers/infiniband/hw/hfi1/hfi.h
-@@ -1601,7 +1601,7 @@ static inline struct hfi1_pportdata *ppd_from_ibp(struct hfi1_ibport *ibp)
- 
- static inline struct hfi1_ibdev *dev_from_rdi(struct rvt_dev_info *rdi)
- {
--	return container_of(rdi, struct hfi1_ibdev, rdi);
-+	return container_of(rdi, struct hfi1_ibdev, hfidev.rdi);
- }
- 
- static inline struct hfi1_ibport *to_iport(struct ib_device *ibdev, u8 port)
-diff --git a/drivers/infiniband/hw/hfi1/init.c b/drivers/infiniband/hw/hfi1/init.c
-index 60db615..13f6862 100644
---- a/drivers/infiniband/hw/hfi1/init.c
-+++ b/drivers/infiniband/hw/hfi1/init.c
-@@ -1020,7 +1020,7 @@ static void __hfi1_free_devdata(struct kobject *kobj)
- 	free_percpu(dd->int_counter);
- 	free_percpu(dd->rcv_limit);
- 	free_percpu(dd->send_schedule);
--	rvt_dealloc_device(&dd->verbs_dev.rdi);
-+	rvt_dealloc_device(&dd->verbs_dev.hfidev.rdi);
- }
- 
- static struct kobj_type hfi1_devdata_type = {
-@@ -1133,7 +1133,7 @@ struct hfi1_devdata *hfi1_alloc_devdata(struct pci_dev *pdev, size_t extra)
- bail:
- 	if (!list_empty(&dd->list))
- 		list_del_init(&dd->list);
--	rvt_dealloc_device(&dd->verbs_dev.rdi);
-+	rvt_dealloc_device(&dd->verbs_dev.hfidev.rdi);
- 	return ERR_PTR(ret);
- }
- 
-diff --git a/drivers/infiniband/hw/hfi1/intr.c b/drivers/infiniband/hw/hfi1/intr.c
-index 65348d1..b4f94b1 100644
---- a/drivers/infiniband/hw/hfi1/intr.c
-+++ b/drivers/infiniband/hw/hfi1/intr.c
-@@ -95,7 +95,7 @@ static void signal_ib_event(struct hfi1_pportdata *ppd, enum ib_event_type ev)
- 	 */
- 	if (!(dd->flags & HFI1_INITTED))
- 		return;
--	event.device = &dd->verbs_dev.rdi.ibdev;
-+	event.device = &dd->verbs_dev.hfidev.rdi.ibdev;
- 	event.element.port_num = ppd->port;
- 	event.event = ev;
- 	ib_dispatch_event(&event);
-diff --git a/drivers/infiniband/hw/hfi1/mad.c b/drivers/infiniband/hw/hfi1/mad.c
-index 6e595af..ed8ae22 100644
---- a/drivers/infiniband/hw/hfi1/mad.c
-+++ b/drivers/infiniband/hw/hfi1/mad.c
-@@ -83,7 +83,7 @@ void hfi1_event_pkey_change(struct hfi1_devdata *dd, u8 port)
- 	struct ib_event event;
- 
- 	event.event = IB_EVENT_PKEY_CHANGE;
--	event.device = &dd->verbs_dev.rdi.ibdev;
-+	event.device = &dd->verbs_dev.hfidev.rdi.ibdev;
- 	event.element.port_num = port;
- 	ib_dispatch_event(&event);
- }
-diff --git a/drivers/infiniband/hw/hfi1/qp.c b/drivers/infiniband/hw/hfi1/qp.c
-index d752d67..cf0f6ed 100644
---- a/drivers/infiniband/hw/hfi1/qp.c
-+++ b/drivers/infiniband/hw/hfi1/qp.c
-@@ -659,7 +659,7 @@ struct qp_iter *qp_iter_init(struct hfi1_ibdev *dev)
- 		return NULL;
- 
- 	iter->dev = dev;
--	iter->specials = dev->rdi.ibdev.phys_port_cnt * 2;
-+	iter->specials = dev->hfidev.rdi.ibdev.phys_port_cnt * 2;
- 
- 	return iter;
- }
-@@ -682,11 +682,13 @@ int qp_iter_next(struct qp_iter *iter)
- 	 *
- 	 * n = 0..iter->specials is the special qp indices
- 	 *
--	 * n = iter->specials..dev->rdi.qp_dev->qp_table_size+iter->specials are
-+	 * n = iter->specials..
-+	 *     dev->hfidev.rdi.qp_dev->qp_table_size+iter->specials are
- 	 * the potential hash bucket entries
- 	 *
- 	 */
--	for (; n <  dev->rdi.qp_dev->qp_table_size + iter->specials; n++) {
-+	for (; n <  dev->hfidev.rdi.qp_dev->qp_table_size + iter->specials;
-+	     n++) {
- 		if (pqp) {
- 			qp = rcu_dereference(pqp->next);
- 		} else {
-@@ -695,7 +697,7 @@ int qp_iter_next(struct qp_iter *iter)
- 				struct hfi1_ibport *ibp;
- 				int pidx;
- 
--				pidx = n % dev->rdi.ibdev.phys_port_cnt;
-+				pidx = n % dev->hfidev.rdi.ibdev.phys_port_cnt;
- 				ppd = &dd_from_dev(dev)->pport[pidx];
- 				ibp = &ppd->ibport_data;
- 
-@@ -705,7 +707,7 @@ int qp_iter_next(struct qp_iter *iter)
- 					qp = rcu_dereference(ibp->rvp.qp[1]);
- 			} else {
- 				qp = rcu_dereference(
--					dev->rdi.qp_dev->qp_table[
-+					dev->hfidev.rdi.qp_dev->qp_table[
- 						(n - iter->specials)]);
- 			}
- 		}
-@@ -836,7 +838,7 @@ unsigned free_all_qps(struct rvt_dev_info *rdi)
- {
- 	struct hfi1_ibdev *verbs_dev = container_of(rdi,
- 						    struct hfi1_ibdev,
--						    rdi);
-+						    hfidev.rdi);
- 	struct hfi1_devdata *dd = container_of(verbs_dev,
- 					       struct hfi1_devdata,
- 					       verbs_dev);
-@@ -922,7 +924,7 @@ u32 mtu_from_qp(struct rvt_dev_info *rdi, struct rvt_qp *qp, u32 pmtu)
- 	u32 mtu;
- 	struct hfi1_ibdev *verbs_dev = container_of(rdi,
- 						    struct hfi1_ibdev,
--						    rdi);
-+						    hfidev.rdi);
- 	struct hfi1_devdata *dd = container_of(verbs_dev,
- 					       struct hfi1_devdata,
- 					       verbs_dev);
-@@ -945,7 +947,7 @@ int get_pmtu_from_attr(struct rvt_dev_info *rdi, struct rvt_qp *qp,
- 	int mtu, pidx = qp->port_num - 1;
- 	struct hfi1_ibdev *verbs_dev = container_of(rdi,
- 						    struct hfi1_ibdev,
--						    rdi);
-+						    hfidev.rdi);
- 	struct hfi1_devdata *dd = container_of(verbs_dev,
- 					       struct hfi1_devdata,
- 					       verbs_dev);
-@@ -1004,9 +1006,9 @@ void hfi1_error_port_qps(struct hfi1_ibport *ibp, u8 sl)
- 	rcu_read_lock();
- 
- 	/* Deal only with RC/UC qps that use the given SL. */
--	for (n = 0; n < dev->rdi.qp_dev->qp_table_size; n++) {
--		for (qp = rcu_dereference(dev->rdi.qp_dev->qp_table[n]); qp;
--			qp = rcu_dereference(qp->next)) {
-+	for (n = 0; n < dev->hfidev.rdi.qp_dev->qp_table_size; n++) {
-+		for (qp = rcu_dereference(dev->hfidev.rdi.qp_dev->qp_table[n]);
-+		     qp; qp = rcu_dereference(qp->next)) {
- 			if (qp->port_num == ppd->port &&
- 			    (qp->ibqp.qp_type == IB_QPT_UC ||
- 			     qp->ibqp.qp_type == IB_QPT_RC) &&
-diff --git a/drivers/infiniband/hw/hfi1/ruc.c b/drivers/infiniband/hw/hfi1/ruc.c
-index 717ed4b15..175d352 100644
---- a/drivers/infiniband/hw/hfi1/ruc.c
-+++ b/drivers/infiniband/hw/hfi1/ruc.c
-@@ -103,7 +103,7 @@ static int init_sge(struct rvt_qp *qp, struct rvt_rwqe *wqe)
- 	struct rvt_pd *pd;
- 	struct rvt_sge_state *ss;
- 
--	rkt = &to_idev(qp->ibqp.device)->rdi.lkey_table;
-+	rkt = &to_idev(qp->ibqp.device)->hfidev.rdi.lkey_table;
- 	pd = ibpd_to_rvtpd(qp->ibqp.srq ? qp->ibqp.srq->pd : qp->ibqp.pd);
- 	ss = &qp->r_sge;
- 	ss->sg_list = qp->r_sg_list;
-diff --git a/drivers/infiniband/hw/hfi1/sysfs.c b/drivers/infiniband/hw/hfi1/sysfs.c
-index edba224..06bff50 100644
---- a/drivers/infiniband/hw/hfi1/sysfs.c
-+++ b/drivers/infiniband/hw/hfi1/sysfs.c
-@@ -498,7 +498,7 @@ static ssize_t show_rev(struct device *device, struct device_attribute *attr,
- 			char *buf)
- {
- 	struct hfi1_ibdev *dev =
--		container_of(device, struct hfi1_ibdev, rdi.ibdev.dev);
-+		container_of(device, struct hfi1_ibdev, hfidev.rdi.ibdev.dev);
- 
- 	return sprintf(buf, "%x\n", dd_from_dev(dev)->minrev);
- }
-@@ -507,7 +507,7 @@ static ssize_t show_hfi(struct device *device, struct device_attribute *attr,
- 			char *buf)
- {
- 	struct hfi1_ibdev *dev =
--		container_of(device, struct hfi1_ibdev, rdi.ibdev.dev);
-+		container_of(device, struct hfi1_ibdev, hfidev.rdi.ibdev.dev);
- 	struct hfi1_devdata *dd = dd_from_dev(dev);
- 	int ret;
- 
-@@ -522,7 +522,7 @@ static ssize_t show_boardversion(struct device *device,
- 				 struct device_attribute *attr, char *buf)
- {
- 	struct hfi1_ibdev *dev =
--		container_of(device, struct hfi1_ibdev, rdi.ibdev.dev);
-+		container_of(device, struct hfi1_ibdev, hfidev.rdi.ibdev.dev);
- 	struct hfi1_devdata *dd = dd_from_dev(dev);
- 
- 	/* The string printed here is already newline-terminated. */
-@@ -533,7 +533,7 @@ static ssize_t show_nctxts(struct device *device,
- 			   struct device_attribute *attr, char *buf)
- {
- 	struct hfi1_ibdev *dev =
--		container_of(device, struct hfi1_ibdev, rdi.ibdev.dev);
-+		container_of(device, struct hfi1_ibdev, hfidev.rdi.ibdev.dev);
- 	struct hfi1_devdata *dd = dd_from_dev(dev);
- 
- 	/*
-@@ -551,7 +551,7 @@ static ssize_t show_nfreectxts(struct device *device,
- 			       struct device_attribute *attr, char *buf)
- {
- 	struct hfi1_ibdev *dev =
--		container_of(device, struct hfi1_ibdev, rdi.ibdev.dev);
-+		container_of(device, struct hfi1_ibdev, hfidev.rdi.ibdev.dev);
- 	struct hfi1_devdata *dd = dd_from_dev(dev);
- 
- 	/* Return the number of free user ports (contexts) available. */
-@@ -562,7 +562,7 @@ static ssize_t show_serial(struct device *device,
- 			   struct device_attribute *attr, char *buf)
- {
- 	struct hfi1_ibdev *dev =
--		container_of(device, struct hfi1_ibdev, rdi.ibdev.dev);
-+		container_of(device, struct hfi1_ibdev, hfidev.rdi.ibdev.dev);
- 	struct hfi1_devdata *dd = dd_from_dev(dev);
- 
- 	return scnprintf(buf, PAGE_SIZE, "%s", dd->serial);
-@@ -573,7 +573,7 @@ static ssize_t store_chip_reset(struct device *device,
- 				size_t count)
- {
- 	struct hfi1_ibdev *dev =
--		container_of(device, struct hfi1_ibdev, rdi.ibdev.dev);
-+		container_of(device, struct hfi1_ibdev, hfidev.rdi.ibdev.dev);
- 	struct hfi1_devdata *dd = dd_from_dev(dev);
- 	int ret;
- 
-@@ -602,7 +602,7 @@ static ssize_t show_tempsense(struct device *device,
- 			      struct device_attribute *attr, char *buf)
- {
- 	struct hfi1_ibdev *dev =
--		container_of(device, struct hfi1_ibdev, rdi.ibdev.dev);
-+		container_of(device, struct hfi1_ibdev, hfidev.rdi.ibdev.dev);
- 	struct hfi1_devdata *dd = dd_from_dev(dev);
- 	struct hfi1_temp temp;
- 	int ret;
-@@ -627,7 +627,7 @@ static ssize_t show_sdma_affinity(struct device *device,
- 				  struct device_attribute *attr, char *buf)
- {
- 	struct hfi1_ibdev *dev =
--		container_of(device, struct hfi1_ibdev, rdi.ibdev.dev);
-+		container_of(device, struct hfi1_ibdev, hfidev.rdi.ibdev.dev);
- 	struct hfi1_devdata *dd = dd_from_dev(dev);
- 
- 	return hfi1_get_sdma_affinity(dd, buf);
-@@ -638,7 +638,7 @@ static ssize_t store_sdma_affinity(struct device *device,
- 				   const char *buf, size_t count)
- {
- 	struct hfi1_ibdev *dev =
--		container_of(device, struct hfi1_ibdev, rdi.ibdev.dev);
-+		container_of(device, struct hfi1_ibdev, hfidev.rdi.ibdev.dev);
- 	struct hfi1_devdata *dd = dd_from_dev(dev);
- 
- 	return hfi1_set_sdma_affinity(dd, buf, count);
-@@ -852,7 +852,7 @@ static SDE_ATTR(cpu_list, S_IWUSR | S_IRUGO,
-  */
- int hfi1_verbs_register_sysfs(struct hfi1_devdata *dd)
- {
--	struct ib_device *dev = &dd->verbs_dev.rdi.ibdev;
-+	struct ib_device *dev = &dd->verbs_dev.hfidev.rdi.ibdev;
- 	struct device *class_dev = &dev->dev;
- 	int i, j, ret;
- 
-diff --git a/drivers/infiniband/hw/hfi1/verbs.c b/drivers/infiniband/hw/hfi1/verbs.c
-index 95ed4d6..9355c4c 100644
---- a/drivers/infiniband/hw/hfi1/verbs.c
-+++ b/drivers/infiniband/hw/hfi1/verbs.c
-@@ -577,7 +577,7 @@ void hfi1_ib_rcv(struct hfi1_packet *packet)
- 	u32 tlen = packet->tlen;
- 	struct hfi1_pportdata *ppd = rcd->ppd;
- 	struct hfi1_ibport *ibp = &ppd->ibport_data;
--	struct rvt_dev_info *rdi = &ppd->dd->verbs_dev.rdi;
-+	struct rvt_dev_info *rdi = &ppd->dd->verbs_dev.hfidev.rdi;
- 	opcode_handler packet_handler;
- 	unsigned long flags;
- 	u32 qp_num;
-@@ -1301,7 +1301,7 @@ int hfi1_verbs_send(struct rvt_qp *qp, struct hfi1_pkt_state *ps)
-  */
- static void hfi1_fill_device_attr(struct hfi1_devdata *dd)
- {
--	struct rvt_dev_info *rdi = &dd->verbs_dev.rdi;
-+	struct rvt_dev_info *rdi = &dd->verbs_dev.hfidev.rdi;
- 	u16 ver = dd->dc8051_ver;
- 
- 	memset(&rdi->dparms.props, 0, sizeof(rdi->dparms.props));
-@@ -1747,9 +1747,10 @@ static int get_hw_stats(struct ib_device *ibdev, struct rdma_hw_stats *stats,
- int hfi1_register_ib_device(struct hfi1_devdata *dd)
- {
- 	struct hfi1_ibdev *dev = &dd->verbs_dev;
--	struct ib_device *ibdev = &dev->rdi.ibdev;
-+	struct ib_device *ibdev = &dev->hfidev.rdi.ibdev;
- 	struct hfi1_pportdata *ppd = dd->pport;
- 	struct hfi1_ibport *ibp = &ppd->ibport_data;
-+	struct rvt_dev_info *rdi = &dd->verbs_dev.hfidev.rdi;
- 	unsigned i;
- 	int ret;
- 	size_t lcpysz = IB_DEVICE_NAME_MAX;
-@@ -1799,77 +1800,77 @@ int hfi1_register_ib_device(struct hfi1_devdata *dd)
- 	/*
- 	 * Fill in rvt info object.
- 	 */
--	dd->verbs_dev.rdi.driver_f.port_callback = hfi1_create_port_files;
--	dd->verbs_dev.rdi.driver_f.get_card_name = get_card_name;
--	dd->verbs_dev.rdi.driver_f.get_pci_dev = get_pci_dev;
--	dd->verbs_dev.rdi.driver_f.check_ah = hfi1_check_ah;
--	dd->verbs_dev.rdi.driver_f.notify_new_ah = hfi1_notify_new_ah;
--	dd->verbs_dev.rdi.driver_f.get_guid_be = hfi1_get_guid_be;
--	dd->verbs_dev.rdi.driver_f.query_port_state = query_port;
--	dd->verbs_dev.rdi.driver_f.shut_down_port = shut_down_port;
--	dd->verbs_dev.rdi.driver_f.cap_mask_chg = hfi1_cap_mask_chg;
-+	rdi->driver_f.port_callback = hfi1_create_port_files;
-+	rdi->driver_f.get_card_name = get_card_name;
-+	rdi->driver_f.get_pci_dev = get_pci_dev;
-+	rdi->driver_f.check_ah = hfi1_check_ah;
-+	rdi->driver_f.notify_new_ah = hfi1_notify_new_ah;
-+	rdi->driver_f.get_guid_be = hfi1_get_guid_be;
-+	rdi->driver_f.query_port_state = query_port;
-+	rdi->driver_f.shut_down_port = shut_down_port;
-+	rdi->driver_f.cap_mask_chg = hfi1_cap_mask_chg;
- 	/*
- 	 * Fill in rvt info device attributes.
- 	 */
- 	hfi1_fill_device_attr(dd);
- 
- 	/* queue pair */
--	dd->verbs_dev.rdi.dparms.qp_table_size = hfi1_qp_table_size;
--	dd->verbs_dev.rdi.dparms.qpn_start = 0;
--	dd->verbs_dev.rdi.dparms.qpn_inc = 1;
--	dd->verbs_dev.rdi.dparms.qos_shift = dd->qos_shift;
--	dd->verbs_dev.rdi.dparms.qpn_res_start = kdeth_qp << 16;
--	dd->verbs_dev.rdi.dparms.qpn_res_end =
--	dd->verbs_dev.rdi.dparms.qpn_res_start + 65535;
--	dd->verbs_dev.rdi.dparms.max_rdma_atomic = HFI1_MAX_RDMA_ATOMIC;
--	dd->verbs_dev.rdi.dparms.psn_mask = PSN_MASK;
--	dd->verbs_dev.rdi.dparms.psn_shift = PSN_SHIFT;
--	dd->verbs_dev.rdi.dparms.psn_modify_mask = PSN_MODIFY_MASK;
--	dd->verbs_dev.rdi.dparms.core_cap_flags = RDMA_CORE_PORT_INTEL_OPA;
--	dd->verbs_dev.rdi.dparms.max_mad_size = OPA_MGMT_MAD_SIZE;
--
--	dd->verbs_dev.rdi.driver_f.qp_priv_alloc = qp_priv_alloc;
--	dd->verbs_dev.rdi.driver_f.qp_priv_free = qp_priv_free;
--	dd->verbs_dev.rdi.driver_f.free_all_qps = free_all_qps;
--	dd->verbs_dev.rdi.driver_f.notify_qp_reset = notify_qp_reset;
--	dd->verbs_dev.rdi.driver_f.do_send = hfi1_do_send;
--	dd->verbs_dev.rdi.driver_f.schedule_send = hfi1_schedule_send;
--	dd->verbs_dev.rdi.driver_f.schedule_send_no_lock = _hfi1_schedule_send;
--	dd->verbs_dev.rdi.driver_f.get_pmtu_from_attr = get_pmtu_from_attr;
--	dd->verbs_dev.rdi.driver_f.notify_error_qp = notify_error_qp;
--	dd->verbs_dev.rdi.driver_f.flush_qp_waiters = flush_qp_waiters;
--	dd->verbs_dev.rdi.driver_f.stop_send_queue = stop_send_queue;
--	dd->verbs_dev.rdi.driver_f.quiesce_qp = quiesce_qp;
--	dd->verbs_dev.rdi.driver_f.notify_error_qp = notify_error_qp;
--	dd->verbs_dev.rdi.driver_f.mtu_from_qp = mtu_from_qp;
--	dd->verbs_dev.rdi.driver_f.mtu_to_path_mtu = mtu_to_path_mtu;
--	dd->verbs_dev.rdi.driver_f.check_modify_qp = hfi1_check_modify_qp;
--	dd->verbs_dev.rdi.driver_f.modify_qp = hfi1_modify_qp;
--	dd->verbs_dev.rdi.driver_f.check_send_wqe = hfi1_check_send_wqe;
-+	rdi->dparms.qp_table_size = hfi1_qp_table_size;
-+	rdi->dparms.qpn_start = 0;
-+	rdi->dparms.qpn_inc = 1;
-+	rdi->dparms.qos_shift = dd->qos_shift;
-+	rdi->dparms.qpn_res_start = kdeth_qp << 16;
-+	rdi->dparms.qpn_res_end =
-+	rdi->dparms.qpn_res_start + 65535;
-+	rdi->dparms.max_rdma_atomic = HFI1_MAX_RDMA_ATOMIC;
-+	rdi->dparms.psn_mask = PSN_MASK;
-+	rdi->dparms.psn_shift = PSN_SHIFT;
-+	rdi->dparms.psn_modify_mask = PSN_MODIFY_MASK;
-+	rdi->dparms.core_cap_flags = RDMA_CORE_PORT_INTEL_OPA;
-+	rdi->dparms.max_mad_size = OPA_MGMT_MAD_SIZE;
++HFI-VNIC DRIVER
++M:	Dennis Dalessandro <dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
++M:	Niranjana Vishwanathapura <niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
++L:	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
++S:	Supported
++F:	drivers/infiniband/sw/intel/hfi_vnic
 +
-+	rdi->driver_f.qp_priv_alloc = qp_priv_alloc;
-+	rdi->driver_f.qp_priv_free = qp_priv_free;
-+	rdi->driver_f.free_all_qps = free_all_qps;
-+	rdi->driver_f.notify_qp_reset = notify_qp_reset;
-+	rdi->driver_f.do_send = hfi1_do_send;
-+	rdi->driver_f.schedule_send = hfi1_schedule_send;
-+	rdi->driver_f.schedule_send_no_lock = _hfi1_schedule_send;
-+	rdi->driver_f.get_pmtu_from_attr = get_pmtu_from_attr;
-+	rdi->driver_f.notify_error_qp = notify_error_qp;
-+	rdi->driver_f.flush_qp_waiters = flush_qp_waiters;
-+	rdi->driver_f.stop_send_queue = stop_send_queue;
-+	rdi->driver_f.quiesce_qp = quiesce_qp;
-+	rdi->driver_f.notify_error_qp = notify_error_qp;
-+	rdi->driver_f.mtu_from_qp = mtu_from_qp;
-+	rdi->driver_f.mtu_to_path_mtu = mtu_to_path_mtu;
-+	rdi->driver_f.check_modify_qp = hfi1_check_modify_qp;
-+	rdi->driver_f.modify_qp = hfi1_modify_qp;
-+	rdi->driver_f.check_send_wqe = hfi1_check_send_wqe;
+ HFI1 DRIVER
+ M:	Mike Marciniszyn <mike.marciniszyn-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+ M:	Dennis Dalessandro <dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+diff --git a/drivers/infiniband/Kconfig b/drivers/infiniband/Kconfig
+index 6709173..900daf3 100644
+--- a/drivers/infiniband/Kconfig
++++ b/drivers/infiniband/Kconfig
+@@ -85,6 +85,7 @@ source "drivers/infiniband/ulp/srpt/Kconfig"
+ source "drivers/infiniband/ulp/iser/Kconfig"
+ source "drivers/infiniband/ulp/isert/Kconfig"
  
- 	/* completeion queue */
--	snprintf(dd->verbs_dev.rdi.dparms.cq_name,
--		 sizeof(dd->verbs_dev.rdi.dparms.cq_name),
-+	snprintf(rdi->dparms.cq_name,
-+		 sizeof(rdi->dparms.cq_name),
- 		 "hfi1_cq%d", dd->unit);
--	dd->verbs_dev.rdi.dparms.node = dd->node;
-+	rdi->dparms.node = dd->node;
++source "drivers/infiniband/sw/intel/hfi_vnic/Kconfig"
+ source "drivers/infiniband/sw/rdmavt/Kconfig"
+ source "drivers/infiniband/sw/rxe/Kconfig"
  
- 	/* misc settings */
--	dd->verbs_dev.rdi.flags = 0; /* Let rdmavt handle it all */
--	dd->verbs_dev.rdi.dparms.lkey_table_size = hfi1_lkey_table_size;
--	dd->verbs_dev.rdi.dparms.nports = dd->num_pports;
--	dd->verbs_dev.rdi.dparms.npkeys = hfi1_get_npkeys(dd);
-+	rdi->flags = 0; /* Let rdmavt handle it all */
-+	rdi->dparms.lkey_table_size = hfi1_lkey_table_size;
-+	rdi->dparms.nports = dd->num_pports;
-+	rdi->dparms.npkeys = hfi1_get_npkeys(dd);
- 
- 	/* post send table */
--	dd->verbs_dev.rdi.post_parms = hfi1_post_parms;
-+	rdi->post_parms = hfi1_post_parms;
- 
- 	ppd = dd->pport;
- 	for (i = 0; i < dd->num_pports; i++, ppd++)
--		rvt_init_port(&dd->verbs_dev.rdi,
-+		rvt_init_port(rdi,
- 			      &ppd->ibport_data.rvp,
- 			      i,
- 			      ppd->pkeys);
- 
--	ret = rvt_register_device(&dd->verbs_dev.rdi);
-+	ret = rvt_register_device(rdi);
- 	if (ret)
- 		goto err_verbs_txreq;
- 
-@@ -1880,7 +1881,7 @@ int hfi1_register_ib_device(struct hfi1_devdata *dd)
- 	return ret;
- 
- err_class:
--	rvt_unregister_device(&dd->verbs_dev.rdi);
-+	rvt_unregister_device(rdi);
- err_verbs_txreq:
- 	verbs_txreq_exit(dev);
- 	dd_dev_err(dd, "cannot register verbs: %d!\n", -ret);
-@@ -1893,7 +1894,7 @@ void hfi1_unregister_ib_device(struct hfi1_devdata *dd)
- 
- 	hfi1_verbs_unregister_sysfs(dd);
- 
--	rvt_unregister_device(&dd->verbs_dev.rdi);
-+	rvt_unregister_device(&dd->verbs_dev.hfidev.rdi);
- 
- 	if (!list_empty(&dev->txwait))
- 		dd_dev_err(dd, "txwait list not empty!\n");
-diff --git a/drivers/infiniband/hw/hfi1/verbs.h b/drivers/infiniband/hw/hfi1/verbs.h
-index e6b8930..72412ed 100644
---- a/drivers/infiniband/hw/hfi1/verbs.h
-+++ b/drivers/infiniband/hw/hfi1/verbs.h
-@@ -64,6 +64,7 @@
- #include <rdma/rdma_vt.h>
- #include <rdma/rdmavt_qp.h>
- #include <rdma/rdmavt_cq.h>
-+#include <rdma/opa_hfi.h>
- 
- struct hfi1_ctxtdata;
- struct hfi1_pportdata;
-@@ -174,7 +175,7 @@ struct hfi1_ibport {
- };
- 
- struct hfi1_ibdev {
--	struct rvt_dev_info rdi; /* Must be first */
-+	struct hfi_ibdev hfidev; /* Must be first */
- 
- 	/* QP numbers are shared by all IB ports */
- 	/* protect txwait list */
-@@ -201,10 +202,10 @@ struct hfi1_ibdev {
- 
- static inline struct hfi1_ibdev *to_idev(struct ib_device *ibdev)
- {
--	struct rvt_dev_info *rdi;
-+	struct hfi_ibdev *hfidev;
- 
--	rdi = container_of(ibdev, struct rvt_dev_info, ibdev);
--	return container_of(rdi, struct hfi1_ibdev, rdi);
-+	hfidev = to_hfi_ibdev(ibdev);
-+	return container_of(hfidev, struct hfi1_ibdev, hfidev);
- }
- 
- static inline struct rvt_qp *iowait_to_qp(struct  iowait *s_iowait)
-diff --git a/include/rdma/opa_hfi.h b/include/rdma/opa_hfi.h
+diff --git a/drivers/infiniband/sw/Makefile b/drivers/infiniband/sw/Makefile
+index 8b095b2..2792559 100644
+--- a/drivers/infiniband/sw/Makefile
++++ b/drivers/infiniband/sw/Makefile
+@@ -1,2 +1,3 @@
+ obj-$(CONFIG_INFINIBAND_RDMAVT)		+= rdmavt/
+ obj-$(CONFIG_RDMA_RXE)			+= rxe/
++obj-$(CONFIG_HFI_VNIC)			+= intel/hfi_vnic/
+diff --git a/drivers/infiniband/sw/intel/hfi_vnic/Kconfig b/drivers/infiniband/sw/intel/hfi_vnic/Kconfig
 new file mode 100644
-index 0000000..ef61d65
+index 0000000..84d13e7
 --- /dev/null
-+++ b/include/rdma/opa_hfi.h
-@@ -0,0 +1,199 @@
-+#ifndef _OPA_HFI_H
-+#define _OPA_HFI_H
++++ b/drivers/infiniband/sw/intel/hfi_vnic/Kconfig
+@@ -0,0 +1,8 @@
++config HFI_VNIC
++	tristate "Intel HFI VNIC support"
++	depends on X86_64 && INFINIBAND
++	---help---
++	This is HFI Virtual Network Interface Controller (VNIC) driver
++	for Ethernet over HFI feature. It implements the HW independent
++	VNIC functionality. It interfaces with Linux stack for data path
++	and IB MAD for the control path.
+diff --git a/drivers/infiniband/sw/intel/hfi_vnic/Makefile b/drivers/infiniband/sw/intel/hfi_vnic/Makefile
+new file mode 100644
+index 0000000..8e3dca7
+--- /dev/null
++++ b/drivers/infiniband/sw/intel/hfi_vnic/Makefile
+@@ -0,0 +1,6 @@
++# Makefile - Intel HFI Virtual Network Controller driver
++# Copyright(c) 2016, Intel Corporation.
++#
++obj-$(CONFIG_HFI_VNIC) += hfi_vnic.o
++
++hfi_vnic-y := hfi_vnic_netdev.o hfi_vnic_encap.o hfi_vnic_ethtool.o
+diff --git a/drivers/infiniband/sw/intel/hfi_vnic/hfi_vnic_encap.c b/drivers/infiniband/sw/intel/hfi_vnic/hfi_vnic_encap.c
+new file mode 100644
+index 0000000..093df67
+--- /dev/null
++++ b/drivers/infiniband/sw/intel/hfi_vnic/hfi_vnic_encap.c
+@@ -0,0 +1,238 @@
 +/*
 + * Copyright(c) 2016 Intel Corporation.
 + *
@@ -628,155 +166,976 @@ index 0000000..ef61d65
 + */
 +
 +/*
-+ * This file contains Intel Omni-Path (OPA) Host Fabric Interface (HFI)
-+ * specific declarations.
++ * This file contains HFI VNIC encapsulation/decapsulation function.
 + */
 +
-+#include <linux/etherdevice.h>
-+#include <linux/module.h>
-+#include <rdma/ib_verbs.h>
-+#include <rdma/rdma_vt.h>
++#include <linux/if_ether.h>
++#include <linux/if_vlan.h>
 +
-+/* Maximum possible number of VNICs */
-+#define HFI_MAX_NUM_VNICS     255
-+
-+#define HFI_VNIC_MAX_QUEUE    16
-+
-+#define HFI_VNIC_CAP_SG   BIT(0)
-+
-+enum {
-+	/* Packet received on queue 0 */
-+	HFI_VNIC_EVT_RX0,
-+	/* Tx wakeup notification on queue 0 */
-+	HFI_VNIC_EVT_TX0
-+		= HFI_VNIC_EVT_RX0 + HFI_VNIC_MAX_QUEUE,
-+	HFI_VNIC_NUM_EVTS
-+		= HFI_VNIC_EVT_TX0 + HFI_VNIC_MAX_QUEUE,
-+};
-+
-+struct hfi_vnic_port;
-+
-+typedef void (*hfi_vnic_evt_cb_fn)(struct hfi_vnic_port *vport, u8 evt);
++#include "hfi_vnic_internal.h"
 +
 +/**
-+ * struct hfi_vnic_ops - HFI HW specific VNIC functions
-+ * @open: Open the vnic port
-+ * @close: Close the vnic port
-+ * @put_skb: transmit an skb
-+ * @get_skb: receive an skb
-+ * @get_read_avail: return number of available to read
-+ * @get_write_avail: return whether write space is available or not
-+ * @select_queue: select tx queue
-+ * @config_notify: enable/disable notification
++ * union hfi_vnic_bypass_hdr - VNIC bypass header
++ * @slid: source lid
++ * @length: length of packet
++ * @becn: backward explicit congestion notification
++ * @dlid: destination lid
++ * @sc: service class
++ * @fecn: forward explicit congestion notification
++ * @l2: L2 type (2=16B)
++ * @lt: link transfer field
++ * @l4: L4 type
++ * @slid_high: upper 4 bits of source lid
++ * @dlid_high: upper 4 bits of destination lid
++ * @pkey: partition key
++ * @entropy: entropy
++ * @age: packet age
++ * @l4_hdr: L4 header
 + */
-+struct hfi_vnic_ops {
-+	int (*open)(struct hfi_vnic_port *vport,
-+		    hfi_vnic_evt_cb_fn cb);
-+	void (*close)(struct hfi_vnic_port *vport);
-+	int (*put_skb)(struct hfi_vnic_port *vport,
-+		       u8 q_idx, struct sk_buff *skb);
-+	struct sk_buff *(*get_skb)(struct hfi_vnic_port *vport, u8 q_idx);
-+	u16 (*get_read_avail)(struct hfi_vnic_port *vport, u8 q_idx);
-+	bool (*get_write_avail)(struct hfi_vnic_port *vport, u8 q_idx);
-+	u8 (*select_queue)(struct hfi_vnic_port *vport, u8 vl, u8 entropy);
-+	void (*config_notify)(struct hfi_vnic_port *vport,
-+			      u8 evt, bool enable);
++union hfi_vnic_bypass_hdr {
++	struct {
++	struct {
++		uint64_t slid   : 20;
++		uint64_t length : 11;
++		uint64_t becn   : 1;
++		uint64_t dlid   : 20;
++		uint64_t sc     : 5;
++		uint64_t rsvd   : 3;
++		uint64_t fecn   : 1;
++		uint64_t l2     : 2;
++		uint64_t lt     : 1;
++	};
++	struct {
++		uint64_t l4        : 8;
++		uint64_t slid_high : 4;
++		uint64_t dlid_high : 4;
++		uint64_t pkey      : 16;
++		uint64_t entropy   : 16;
++		uint64_t age       : 8;
++		uint64_t rsvd1     : 8;
++	};
++	struct {
++		uint32_t rsvd2  : 16;
++		uint32_t l4_hdr : 16;
++	};
++	} __packed;
++	u32 dw[5];
 +};
 +
-+/**
-+ * struct hfi_vnic_stats - HFI HW specific statistics
-+ * @rx_fifo_errors: receive packets dropped due to fifo full
-+ * @tx_fifo_errors: transmit packets dropped due to fifo full
-+ * @rx_missed_errors: receive packets missed due to no memory
-+ * @tx_carrier_errors: packet transmits when STL link is down
-+ * @rx_bad_veswid: receive packets with invalid vesw id
-+ * @rx_logic_errors: receive packets dropped due to other errors
-+ * @tx_logic_errors: transmit packets dropped due to other errors
++#define HFI_VNIC_SC_MASK 0x1f
++
++/* hfi_vnic_get_dlid - find and return the DLID */
++static uint32_t hfi_vnic_get_dlid(struct hfi_vnic_adapter *adapter,
++				  struct sk_buff *skb, u8 def_port)
++{
++	struct __hfi_veswport_info *info = &adapter->info;
++	struct ethhdr *mac_hdr = (struct ethhdr *)skb_mac_header(skb);
++	u32 dlid;
++
++	if (is_multicast_ether_addr(mac_hdr->h_dest)) {
++		dlid = info->vesw.u_mcast_dlid;
++	} else {
++		if (is_local_ether_addr(mac_hdr->h_dest)) {
++			dlid = ((uint32_t)mac_hdr->h_dest[5] << 16) |
++				((uint32_t)mac_hdr->h_dest[4] << 8)  |
++				mac_hdr->h_dest[3];
++			if (unlikely(!dlid))
++				v_warn("Null dlid in MAC address\n");
++		} else if (def_port != HFI_VNIC_INVALID_PORT) {
++			dlid = info->vesw.u_ucast_dlid[def_port];
++		}
++	}
++
++	return dlid;
++}
++
++/* hfi_vnic_get_sc - return the service class */
++static u8 hfi_vnic_get_sc(struct __hfi_veswport_info *info,
++			  struct sk_buff *skb)
++{
++	struct ethhdr *mac_hdr = (struct ethhdr *)skb_mac_header(skb);
++	u16 vlan_tci;
++	u8 sc;
++
++	if (!__vlan_get_tag(skb, &vlan_tci)) {
++		u8 pcp = HFI_VNIC_VLAN_PCP(vlan_tci);
++
++		if (is_multicast_ether_addr(mac_hdr->h_dest))
++			sc = info->vport.pcp_to_sc_mc[pcp];
++		else
++			sc = info->vport.pcp_to_sc_uc[pcp];
++	} else {
++		if (is_multicast_ether_addr(mac_hdr->h_dest))
++			sc = info->vport.non_vlan_sc_mc;
++		else
++			sc = info->vport.non_vlan_sc_uc;
++	}
++
++	return sc & HFI_VNIC_SC_MASK;
++}
++
++/* hfi_vnic_calc_entropy - calculate the packet entropy */
++u8 hfi_vnic_calc_entropy(struct hfi_vnic_adapter *adapter, struct sk_buff *skb)
++{
++	u16 hash16;
++
++	/*
++	 * Get flow based 16-bit hash and then XOR the upper and lower bytes
++	 * to get the entropy.
++	 * __skb_tx_hash limits qcount to 16 bits. Hence, get 15-bit hash.
++	 */
++	hash16 = __skb_tx_hash(adapter->netdev, skb, BIT(15));
++	return (u8)((hash16 >> 8) ^ (hash16 & 0xff));
++}
++
++/* hfi_vnic_get_def_port - get default port based on entropy */
++static inline u8 hfi_vnic_get_def_port(struct hfi_vnic_adapter *adapter,
++				       u8 entropy)
++{
++	u8 flow_id;
++
++	/* Add the upper and lower 4-bits of entropy to get the flow id */
++	flow_id = ((entropy & 0xf) + (entropy >> 4));
++	return adapter->flow_tbl[flow_id & (HFI_VNIC_FLOW_TBL_SIZE - 1)];
++}
++
++/* Calculate packet length including OPA header, crc and padding */
++static inline int hfi_vnic_wire_length(struct sk_buff *skb)
++{
++	u32 pad_len, hlen = HFI_VNIC_HDR_LEN;
++
++	/* padding for 8 bytes size alignment */
++	pad_len = -(skb->len + hlen + HFI_VNIC_ICRC_TAIL_LEN) & 0x7;
++	pad_len += HFI_VNIC_ICRC_TAIL_LEN;
++
++	return (skb->len + hlen + pad_len) >> 3;
++}
++
++/* hfi_vnic_encap_skb - encapsulate skb (ethernet) packet with OPA header */
++int hfi_vnic_encap_skb(struct hfi_vnic_adapter *adapter, struct sk_buff *skb)
++{
++	struct __hfi_veswport_info *info = &adapter->info;
++	union hfi_vnic_bypass_hdr *hdr;
++	u32 dlid;
++	u8 def_port;
++
++	hdr = (union hfi_vnic_bypass_hdr *)(skb->data - HFI_VNIC_HDR_LEN);
++	memset(hdr, 0, HFI_VNIC_HDR_LEN);
++
++	hdr->entropy = hfi_vnic_calc_entropy(adapter, skb);
++	def_port = hfi_vnic_get_def_port(adapter, hdr->entropy);
++
++	hdr->slid = info->vport.encap_slid;
++	hdr->slid_high = info->vport.encap_slid >> 20;
++
++	dlid = hfi_vnic_get_dlid(adapter, skb, def_port);
++	if (unlikely(!dlid))
++		return -EFAULT;
++
++	hdr->dlid = dlid;
++	hdr->dlid_high = dlid >> 20;
++
++	hdr->length = hfi_vnic_wire_length(skb);
++	hdr->sc = hfi_vnic_get_sc(info, skb);
++
++	hdr->l2 = HFI_VNIC_L2_TYPE;
++	hdr->lt = 1;
++
++	hdr->pkey = info->vesw.pkey;
++
++	hdr->l4 = HFI_VNIC_L4_ETHR;
++	hdr->l4_hdr = info->vesw.vesw_id;
++
++	skb_push(skb, HFI_VNIC_HDR_LEN);
++	return 0;
++}
++
++/* hfi_vnic_decap_skb - strip OPA header from the skb (ethernet) packet */
++int hfi_vnic_decap_skb(struct hfi_vnic_rx_queue *rxq, struct sk_buff *skb)
++{
++	skb_pull(skb, HFI_VNIC_HDR_LEN);
++	return 0;
++}
+diff --git a/drivers/infiniband/sw/intel/hfi_vnic/hfi_vnic_encap.h b/drivers/infiniband/sw/intel/hfi_vnic/hfi_vnic_encap.h
+new file mode 100644
+index 0000000..6786cce
+--- /dev/null
++++ b/drivers/infiniband/sw/intel/hfi_vnic/hfi_vnic_encap.h
+@@ -0,0 +1,62 @@
++#ifndef _HFI_VNIC_ENCAP_H
++#define _HFI_VNIC_ENCAP_H
++/*
++ * Copyright(c) 2016 Intel Corporation.
 + *
-+ * This structure holds any statistics information that is
-+ * collected by HW specific driver layer.
++ * This file is provided under a dual BSD/GPLv2 license.  When using or
++ * redistributing this file, you may do so under either license.
++ *
++ * GPL LICENSE SUMMARY
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * General Public License for more details.
++ *
++ * BSD LICENSE
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ *
++ *  - Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ *  - Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in
++ *    the documentation and/or other materials provided with the
++ *    distribution.
++ *  - Neither the name of Intel Corporation nor the names of its
++ *    contributors may be used to endorse or promote products derived
++ *    from this software without specific prior written permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
++ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
++ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
++ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
++ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
++ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
++ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
++ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ *
 + */
-+struct hfi_vnic_stats {
-+	u64  rx_fifo_errors;
-+	u64  tx_fifo_errors;
-+	u64  rx_missed_errors;
-+	u64  tx_carrier_errors;
-+	u64  rx_bad_veswid;
-+	u64  rx_logic_errors;
-+	u64  tx_logic_errors;
++
++/*
++ * This file contains all HFI VNIC declaration required for encapsulation
++ * and decapsulation of Ethernet packets
++ */
++
++#define HFI_VESW_MAX_NUM_DEF_PORT   16
++#define HFI_VNIC_MAX_NUM_PCP        8
++
++/* VNIC configured and operational state values */
++#define HFI_VNIC_STATE_DROP_ALL        0x1
++#define HFI_VNIC_STATE_FORWARDING      0x3
++
++#endif /* _HFI_VNIC_ENCAP_H */
+diff --git a/drivers/infiniband/sw/intel/hfi_vnic/hfi_vnic_ethtool.c b/drivers/infiniband/sw/intel/hfi_vnic/hfi_vnic_ethtool.c
+new file mode 100644
+index 0000000..0b4da5e
+--- /dev/null
++++ b/drivers/infiniband/sw/intel/hfi_vnic/hfi_vnic_ethtool.c
+@@ -0,0 +1,65 @@
++/*
++ * Copyright(c) 2016 Intel Corporation.
++ *
++ * This file is provided under a dual BSD/GPLv2 license.  When using or
++ * redistributing this file, you may do so under either license.
++ *
++ * GPL LICENSE SUMMARY
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * General Public License for more details.
++ *
++ * BSD LICENSE
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ *
++ *  - Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ *  - Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in
++ *    the documentation and/or other materials provided with the
++ *    distribution.
++ *  - Neither the name of Intel Corporation nor the names of its
++ *    contributors may be used to endorse or promote products derived
++ *    from this software without specific prior written permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
++ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
++ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
++ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
++ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
++ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
++ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
++ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ *
++ */
++
++/*
++ * This file contains HFI VNIC ethtool functions
++ */
++
++#include <linux/ethtool.h>
++
++#include "hfi_vnic_internal.h"
++
++/* ethtool ops */
++static const struct ethtool_ops hfi_vnic_ethtool_ops = {
++	.get_link = ethtool_op_get_link,
++};
++
++/* hfi_vnic_set_ethtool_ops - set ethtool ops */
++void hfi_vnic_set_ethtool_ops(struct net_device *netdev)
++{
++	netdev->ethtool_ops = &hfi_vnic_ethtool_ops;
++}
+diff --git a/drivers/infiniband/sw/intel/hfi_vnic/hfi_vnic_internal.h b/drivers/infiniband/sw/intel/hfi_vnic/hfi_vnic_internal.h
+new file mode 100644
+index 0000000..30731b4
+--- /dev/null
++++ b/drivers/infiniband/sw/intel/hfi_vnic/hfi_vnic_internal.h
+@@ -0,0 +1,220 @@
++#ifndef _HFI_VNIC_INTERNAL_H
++#define _HFI_VNIC_INTERNAL_H
++/*
++ * Copyright(c) 2016 Intel Corporation.
++ *
++ * This file is provided under a dual BSD/GPLv2 license.  When using or
++ * redistributing this file, you may do so under either license.
++ *
++ * GPL LICENSE SUMMARY
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * General Public License for more details.
++ *
++ * BSD LICENSE
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ *
++ *  - Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ *  - Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in
++ *    the documentation and/or other materials provided with the
++ *    distribution.
++ *  - Neither the name of Intel Corporation nor the names of its
++ *    contributors may be used to endorse or promote products derived
++ *    from this software without specific prior written permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
++ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
++ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
++ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
++ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
++ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
++ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
++ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ *
++ */
++
++/*
++ * This file contains HFI VNIC driver internal declarations
++ */
++
++#include <linux/bitops.h>
++#include <linux/etherdevice.h>
++#include <linux/hashtable.h>
++#include <linux/sizes.h>
++#include <rdma/opa_hfi.h>
++
++#include "hfi_vnic_encap.h"
++
++/* VNIC uses 16B header format */
++#define HFI_VNIC_L2_TYPE    0x2
++
++/* 16 header bytes + 2 reserved bytes */
++#define HFI_VNIC_L2_HDR_LEN   (16 + 2)
++
++#define HFI_VNIC_L4_HDR_LEN   2
++
++#define HFI_VNIC_HDR_LEN      (HFI_VNIC_L2_HDR_LEN + \
++			       HFI_VNIC_L4_HDR_LEN)
++
++#define HFI_VNIC_L4_ETHR  0x78
++
++#define HFI_VNIC_ICRC_LEN   4
++#define HFI_VNIC_TAIL_LEN   1
++#define HFI_VNIC_ICRC_TAIL_LEN  (HFI_VNIC_ICRC_LEN + HFI_VNIC_TAIL_LEN)
++
++#define HFI_VNIC_VLAN_PCP(vlan_tci)  \
++			(((vlan_tci) & VLAN_PRIO_MASK) >> VLAN_PRIO_SHIFT)
++
++#define HFI_VNIC_SKB_HEADROOM ALIGN(HFI_VNIC_HDR_LEN, 8)
++
++/* Flow to default port redirection table size */
++#define HFI_VNIC_FLOW_TBL_SIZE    32
++
++/* Invalid port number */
++#define HFI_VNIC_INVALID_PORT     0xff
++
++enum hfi_vnic_flags_t {
++	HFI_VNIC_UP,
++	HFI_VNIC_OPEN,
++};
++
++struct hfi_vnic_adapter;
++
++/**
++ * struct __hfi_vesw_info - HFI vnic virtual switch info
++ */
++struct __hfi_vesw_info {
++	u16  fabric_id;
++	u16  vesw_id;
++
++	u8   rsvd0[6];
++	u16  def_port_mask;
++
++	u8   rsvd1[2];
++	u16  pkey;
++
++	u8   rsvd2[4];
++	u32  u_mcast_dlid;
++	u32  u_ucast_dlid[HFI_VESW_MAX_NUM_DEF_PORT];
++
++	u8   rsvd3[44];
++	u16  eth_mtu[HFI_VNIC_MAX_NUM_PCP];
++	u16  eth_mtu_non_vlan;
++	u8   rsvd4[2];
++} __packed;
++
++/**
++ * struct __hfi_per_veswport_info - HFI vnic per port info
++ */
++struct __hfi_per_veswport_info {
++	u32  port_num;
++
++	u8   eth_link_status;
++	u8   rsvd0[3];
++
++	u8   base_mac_addr[ETH_ALEN];
++	u8   config_state;
++	u8   oper_state;
++
++	u16  max_mac_tbl_ent;
++	u16  max_smac_ent;
++	u32  mac_tbl_digest;
++	u8   rsvd1[4];
++
++	u32  encap_slid;
++
++	u8   pcp_to_sc_uc[HFI_VNIC_MAX_NUM_PCP];
++	u8   pcp_to_vl_uc[HFI_VNIC_MAX_NUM_PCP];
++	u8   pcp_to_sc_mc[HFI_VNIC_MAX_NUM_PCP];
++	u8   pcp_to_vl_mc[HFI_VNIC_MAX_NUM_PCP];
++
++	u8   non_vlan_sc_uc;
++	u8   non_vlan_vl_uc;
++	u8   non_vlan_sc_mc;
++	u8   non_vlan_vl_mc;
++
++	u8   rsvd2[48];
++
++	u16  uc_macs_gen_count;
++	u16  mc_macs_gen_count;
++
++	u8   rsvd3[8];
++} __packed;
++
++/**
++ * struct __hfi_veswport_info - HFI vnic port info
++ */
++struct __hfi_veswport_info {
++	struct __hfi_vesw_info            vesw;
++	struct __hfi_per_veswport_info    vport;
 +};
 +
 +/**
-+ * struct hfi_vnic_info - HFI HW specific VNIC information
-+ * @cap: capabilities
-+ * @num_rx_q: number of receive queues
-+ * @num_tx_q: number of transmit queues
++ * struct hfi_vnic_rx_queue - HFI VNIC receive queue
++ * @idx: queue index
++ * @adapter: netdev adapter
++ * @napi: netdev napi structure
 + */
-+struct hfi_vnic_info {
-+	u32  cap;
-+	u8   num_rx_q;
-+	u8   num_tx_q;
++struct hfi_vnic_rx_queue {
++	u8                        idx;
++	struct hfi_vnic_adapter  *adapter;
++	struct napi_struct        napi;
 +};
 +
 +/**
-+ * struct hfi_vnic_port - HFI virtual NIC port
-+ * @vesw_id: virtual ethernet switch id
++ * struct hfi_vnic_adapter - HFI VNIC netdev private data structure
 + * @netdev: pointer to associated netdev
-+ * @port_num: hfi port instance
-+ * @vport_num: vnic port instance on the hfi port
-+ * @ops: hfi vnic operations
-+ * @hfi_priv: hfi private data pointer
-+ * @hfi_info: hfi information
-+ * @hfi_stats: per queue hfi statistics
++ * @vport: pointer to hfi vnic port
++ * @flags: flags indicating various states
++ * @lock: adapter lock
++ * @rxq: receive queue array
++ * @info: virtual ethernet switch port information
++ * @flow_tbl: flow to default port redirection table
 + */
-+struct hfi_vnic_port {
-+	u16                          vesw_id;
-+	struct net_device           *netdev;
-+	u8                           port_num;
-+	u8                           vport_num;
++struct hfi_vnic_adapter {
++	struct net_device             *netdev;
++	struct hfi_vnic_port          *vport;
++	unsigned long                  flags;
 +
-+	struct hfi_vnic_ops         *ops;
-+	void                        *hfi_priv;
-+	struct hfi_vnic_info         hfi_info;
-+	struct hfi_vnic_stats        hfi_stats[HFI_VNIC_MAX_QUEUE];
++	/* Lock used around state updates */
++	struct mutex              lock;
++
++	struct hfi_vnic_rx_queue  rxq[HFI_VNIC_MAX_QUEUE];
++
++	struct __hfi_veswport_info info;
++
++	u8 flow_tbl[HFI_VNIC_FLOW_TBL_SIZE];
 +};
 +
-+/**
-+ * struct hfi_vnic_ctrl_ops - HFI HW specific VNIC control functions
-+ * @add_vport: add a vnic port
-+ * @rem_vport: remove a vnic port
++#define v_dbg(format, arg...) \
++	netdev_dbg(adapter->netdev, format, ## arg)
++#define v_err(format, arg...) \
++	netdev_err(adapter->netdev, format, ## arg)
++#define v_info(format, arg...) \
++	netdev_info(adapter->netdev, format, ## arg)
++#define v_warn(format, arg...) \
++	netdev_warn(adapter->netdev, format, ## arg)
++
++struct hfi_vnic_adapter *hfi_vnic_add_netdev(struct hfi_vnic_port *vport,
++					     struct device *parent);
++void hfi_vnic_rem_netdev(struct hfi_vnic_port *vport);
++int hfi_vnic_encap_skb(struct hfi_vnic_adapter *adapter, struct sk_buff *skb);
++int hfi_vnic_decap_skb(struct hfi_vnic_rx_queue *rxq, struct sk_buff *skb);
++u8 hfi_vnic_calc_entropy(struct hfi_vnic_adapter *adapter, struct sk_buff *skb);
++void hfi_vnic_set_ethtool_ops(struct net_device *netdev);
++
++#endif /* _HFI_VNIC_INTERNAL_H */
+diff --git a/drivers/infiniband/sw/intel/hfi_vnic/hfi_vnic_netdev.c b/drivers/infiniband/sw/intel/hfi_vnic/hfi_vnic_netdev.c
+new file mode 100644
+index 0000000..6360d37
+--- /dev/null
++++ b/drivers/infiniband/sw/intel/hfi_vnic/hfi_vnic_netdev.c
+@@ -0,0 +1,409 @@
++/*
++ * Copyright(c) 2016 Intel Corporation.
++ *
++ * This file is provided under a dual BSD/GPLv2 license.  When using or
++ * redistributing this file, you may do so under either license.
++ *
++ * GPL LICENSE SUMMARY
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * General Public License for more details.
++ *
++ * BSD LICENSE
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ *
++ *  - Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ *  - Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in
++ *    the documentation and/or other materials provided with the
++ *    distribution.
++ *  - Neither the name of Intel Corporation nor the names of its
++ *    contributors may be used to endorse or promote products derived
++ *    from this software without specific prior written permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
++ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
++ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
++ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
++ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
++ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
++ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
++ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ *
 + */
-+struct hfi_vnic_ctrl_ops {
-+	struct hfi_vnic_port *(*add_vport)(struct ib_device *device,
-+					   u8 port_num, u8 vport_num);
-+	void (*rem_vport)(struct hfi_vnic_port *vport);
-+};
 +
-+/**
-+ * struct hfi_ibdev - HFI extension of rdmavt device
-+ * @rdi: rdmavt device interface
-+ * @vnic_ctrl_ops: VNIC control operations
++/*
++ * This file contains HFI Virtual Network Interface Controller (VNIC) driver
 + */
-+struct hfi_ibdev {
-+	struct rvt_dev_info rdi; /* Must be first */
 +
-+	struct hfi_vnic_ctrl_ops vnic_ctrl_ops;
-+};
++#include <linux/module.h>
++#include <linux/if_vlan.h>
 +
-+static inline struct hfi_ibdev *to_hfi_ibdev(struct ib_device *ibdev)
++#include "hfi_vnic_internal.h"
++
++#define HFI_TX_TIMEOUT_MS 1000
++
++#define HFI_VNIC_MIN_ETH_MTU (ETH_ZLEN - ETH_HLEN)
++
++/* hfi_vnic_maybe_stop_tx - stop tx queue if required */
++static void hfi_vnic_maybe_stop_tx(struct hfi_vnic_adapter *adapter, u8 q_idx)
 +{
-+	struct rvt_dev_info *rdi;
++	struct hfi_vnic_port *vport = adapter->vport;
 +
-+	rdi = container_of(ibdev, struct rvt_dev_info, ibdev);
-+	return container_of(rdi, struct hfi_ibdev, rdi);
++	netif_stop_subqueue(vport->netdev, q_idx);
++	if (!vport->ops->get_write_avail(vport, q_idx))
++		return;
++
++	netif_start_subqueue(vport->netdev, q_idx);
 +}
 +
-+static inline bool is_hfi_ibdev(struct ib_device *ibdev)
++/* hfi_netdev_start_xmit - transmit function */
++static netdev_tx_t hfi_netdev_start_xmit(struct sk_buff *skb,
++					 struct net_device *netdev)
 +{
-+	return !memcmp(ibdev->name, "hfi", 3);
++	struct hfi_vnic_adapter *adapter = netdev_priv(netdev);
++	struct hfi_vnic_port *vport = adapter->vport;
++	u8 q_idx = skb->queue_mapping;
++	bool skip_skb_free = false;
++	int rc = -1;
++
++	v_dbg("xmit: queue %d skb len %d\n", q_idx, skb->len);
++	if (unlikely(adapter->info.vport.oper_state !=
++		     HFI_VNIC_STATE_FORWARDING))
++		goto tx_finish;
++
++	/* pad to ensure mininum ethernet packet length */
++	if (unlikely(skb->len < ETH_ZLEN)) {
++		if (skb_padto(skb, ETH_ZLEN)) {
++			skip_skb_free = true;
++			goto tx_finish;
++		}
++		skb_put(skb, ETH_ZLEN - skb->len);
++	}
++
++	rc = hfi_vnic_encap_skb(adapter, skb);
++	if (unlikely(rc))
++		goto tx_finish;
++
++	/* Get reference to skb as hfi driver might release it */
++	skb_get(skb);
++	rc = vport->ops->put_skb(vport, q_idx, skb);
++	/* remove the header */
++	skb_pull(skb, HFI_VNIC_HDR_LEN);
++
++tx_finish:
++	if (unlikely(rc == -EBUSY)) {
++		hfi_vnic_maybe_stop_tx(adapter, q_idx);
++		dev_kfree_skb_any(skb);
++		return NETDEV_TX_BUSY;
++	}
++
++	if (!skip_skb_free)
++		dev_kfree_skb_any(skb);
++	return NETDEV_TX_OK;
 +}
 +
-+#endif /* _OPA_HFI_H */
++/* vnic_handle_rx - handle skb receive */
++static void vnic_handle_rx(struct hfi_vnic_rx_queue *rxq,
++			   int *work_done, int work_to_do)
++{
++	struct hfi_vnic_adapter *adapter = rxq->adapter;
++	struct hfi_vnic_port *vport = adapter->vport;
++	struct sk_buff *skb;
++
++	while (1) {
++		if (*work_done >= work_to_do)
++			break;
++
++		skb = vport->ops->get_skb(vport, rxq->idx);
++		if (!skb)
++			break;
++
++		if (hfi_vnic_decap_skb(rxq, skb)) {
++			dev_kfree_skb_any(skb);
++			continue;
++		}
++
++		skb_checksum_none_assert(skb);
++		skb->protocol = eth_type_trans(skb, vport->netdev);
++
++		napi_gro_receive(&rxq->napi, skb);
++		(*work_done)++;
++	}
++}
++
++/* vnic_napi - napi receive polling callback function */
++static int vnic_napi(struct napi_struct *napi, int budget)
++{
++	struct hfi_vnic_rx_queue *rxq = container_of(napi,
++					     struct hfi_vnic_rx_queue, napi);
++	struct hfi_vnic_adapter *adapter = rxq->adapter;
++	struct hfi_vnic_port *vport = adapter->vport;
++	u8 evt = rxq->idx + HFI_VNIC_EVT_RX0;
++	int work_done = 0;
++
++	v_dbg("napi %d budget %d\n", rxq->idx, budget);
++	vnic_handle_rx(rxq, &work_done, budget);
++
++	v_dbg("napi %d work_done %d\n", rxq->idx, work_done);
++	if (work_done < budget) {
++		napi_complete(napi);
++		vport->ops->config_notify(vport, evt, true);
++	}
++
++	return work_done;
++}
++
++/* vnic_event_cb - handle events from vnic hfi driver */
++static void vnic_event_cb(struct hfi_vnic_port *vport, u8 evt)
++{
++	struct hfi_vnic_adapter *adapter = netdev_priv(vport->netdev);
++	struct hfi_vnic_rx_queue *rxq;
++	u8 q_idx;
++
++	v_dbg("received event %d\n", evt);
++	if (evt < vport->hfi_info.num_rx_q) {
++		q_idx = evt;
++		if (unlikely(adapter->info.vport.oper_state !=
++			     HFI_VNIC_STATE_FORWARDING))
++			return;
++
++		rxq = &adapter->rxq[q_idx];
++		if (napi_schedule_prep(&rxq->napi)) {
++			v_dbg("napi %d scheduling\n", q_idx);
++			vport->ops->config_notify(vport, evt, false);
++			__napi_schedule(&rxq->napi);
++		}
++		return;
++	}
++	if ((evt >= HFI_VNIC_EVT_TX0) &&
++	    (evt < (HFI_VNIC_EVT_TX0 + vport->hfi_info.num_tx_q))) {
++		q_idx = evt - HFI_VNIC_EVT_TX0;
++
++		if (__netif_subqueue_stopped(vport->netdev, q_idx))
++			netif_wake_subqueue(vport->netdev, q_idx);
++
++		return;
++	}
++	v_err("Invalid event\n");
++}
++
++static u16 hfi_vnic_select_queue(struct net_device *netdev, struct sk_buff *skb,
++				 void *accel_priv,
++				 select_queue_fallback_t fallback)
++{
++	struct ethhdr *mac_hdr = (struct ethhdr *)skb_mac_header(skb);
++	struct hfi_vnic_adapter *adapter = netdev_priv(netdev);
++	struct __hfi_veswport_info *info = &adapter->info;
++	struct hfi_vnic_port *vport = adapter->vport;
++	u8 vl, entropy;
++
++	if (skb_vlan_tag_present(skb)) {
++		u8 pcp = skb_vlan_tag_get(skb) >> VLAN_PRIO_SHIFT;
++
++		if (is_multicast_ether_addr(mac_hdr->h_dest))
++			vl = info->vport.pcp_to_vl_mc[pcp];
++		else
++			vl = info->vport.pcp_to_vl_uc[pcp];
++	} else {
++		if (is_multicast_ether_addr(mac_hdr->h_dest))
++			vl = info->vport.non_vlan_vl_mc;
++		else
++			vl = info->vport.non_vlan_vl_uc;
++	}
++
++	entropy =  hfi_vnic_calc_entropy(adapter, skb);
++	return vport->ops->select_queue(vport, vl, entropy);
++}
++
++/* hfi_netdev_change_mtu - change the MTU */
++static int hfi_netdev_change_mtu(struct net_device *netdev, int new_mtu)
++{
++	struct hfi_vnic_adapter *adapter = netdev_priv(netdev);
++	struct __hfi_veswport_info *info = &adapter->info;
++	u16 min_mtu = HFI_VNIC_MIN_ETH_MTU;
++	u16 max_mtu = max(min_mtu, info->vesw.eth_mtu_non_vlan);
++
++	/* Supported MTUs */
++	if ((new_mtu < min_mtu) || (new_mtu > max_mtu)) {
++		v_err("Unsupported MTU setting\n");
++		return -EINVAL;
++	}
++
++	v_info("changing MTU from %d to %d\n", netdev->mtu, new_mtu);
++	netdev->mtu = new_mtu;
++	return 0;
++}
++
++/* hfi_vnic_up - enable vnic data flow */
++static int hfi_vnic_up(struct hfi_vnic_adapter *adapter)
++{
++	struct hfi_vnic_port *vport = adapter->vport;
++	int i, rc;
++
++	rc = vport->ops->open(vport, vnic_event_cb);
++	if (rc) {
++		v_dbg("hfi_open failed %d\n", rc);
++		return rc;
++	}
++
++	netif_carrier_on(adapter->netdev);
++	netif_tx_start_all_queues(adapter->netdev);
++	for (i = 0; i < vport->hfi_info.num_rx_q; i++)
++		napi_enable(&adapter->rxq[i].napi);
++
++	set_bit(HFI_VNIC_UP, &adapter->flags);
++	return 0;
++}
++
++/* hfi_vnic_down - disable vnic data flow */
++static void hfi_vnic_down(struct hfi_vnic_adapter *adapter)
++{
++	struct hfi_vnic_port *vport = adapter->vport;
++	int i;
++
++	netif_carrier_off(adapter->netdev);
++	netif_tx_disable(adapter->netdev);
++	for (i = 0; i < vport->hfi_info.num_rx_q; i++)
++		napi_disable(&adapter->rxq[i].napi);
++
++	vport->ops->close(vport);
++	clear_bit(HFI_VNIC_UP, &adapter->flags);
++}
++
++/* hfi_vnic_set_mac_addr - change mac address */
++static int hfi_vnic_set_mac_addr(struct net_device *netdev, void *addr)
++{
++	struct hfi_vnic_adapter *adapter = netdev_priv(netdev);
++	struct sockaddr *sa = addr;
++	int rc;
++
++	if (!memcmp(netdev->dev_addr, sa->sa_data, ETH_ALEN))
++		return 0;
++
++	mutex_lock(&adapter->lock);
++	rc = eth_mac_addr(netdev, addr);
++	mutex_unlock(&adapter->lock);
++
++	return rc;
++}
++
++/* hfi_netdev_open - activate network interface */
++static int hfi_netdev_open(struct net_device *netdev)
++{
++	struct hfi_vnic_adapter *adapter = netdev_priv(netdev);
++	int rc;
++
++	mutex_lock(&adapter->lock);
++	rc = hfi_vnic_up(adapter);
++	if (rc)
++		goto open_done;
++
++	set_bit(HFI_VNIC_OPEN, &adapter->flags);
++	v_info("opened\n");
++open_done:
++	mutex_unlock(&adapter->lock);
++	return rc;
++}
++
++/* hfi_netdev_close - disable network interface */
++static int hfi_netdev_close(struct net_device *netdev)
++{
++	struct hfi_vnic_adapter *adapter = netdev_priv(netdev);
++
++	mutex_lock(&adapter->lock);
++	if (test_bit(HFI_VNIC_UP, &adapter->flags))
++		hfi_vnic_down(adapter);
++
++	clear_bit(HFI_VNIC_OPEN, &adapter->flags);
++	mutex_unlock(&adapter->lock);
++	v_info("closed\n");
++	return 0;
++}
++
++/* netdev ops */
++static const struct net_device_ops hfi_netdev_ops = {
++	.ndo_open = hfi_netdev_open,
++	.ndo_stop = hfi_netdev_close,
++	.ndo_start_xmit = hfi_netdev_start_xmit,
++	.ndo_change_mtu = hfi_netdev_change_mtu,
++	.ndo_select_queue = hfi_vnic_select_queue,
++	.ndo_set_mac_address = hfi_vnic_set_mac_addr,
++};
++
++/* hfi_vnic_add_netdev - create vnic netdev interface */
++struct hfi_vnic_adapter *hfi_vnic_add_netdev(struct hfi_vnic_port *vport,
++					     struct device *parent)
++{
++	struct net_device *netdev;
++	struct hfi_vnic_adapter *adapter;
++	int i, rc;
++
++	netdev = alloc_etherdev_mqs(sizeof(struct hfi_vnic_adapter),
++				    vport->hfi_info.num_tx_q,
++				    vport->hfi_info.num_rx_q);
++	if (!netdev)
++		return ERR_PTR(-ENOMEM);
++	adapter = netdev_priv(netdev);
++	adapter->netdev = netdev;
++	adapter->vport = vport;
++	vport->netdev = netdev;
++	netdev->features = NETIF_F_HIGHDMA;
++	if (vport->hfi_info.cap & HFI_VNIC_CAP_SG)
++		netdev->features |= NETIF_F_SG;
++	netdev->priv_flags |= IFF_LIVE_ADDR_CHANGE;
++	netdev->hw_features = netdev->features;
++	netdev->vlan_features = netdev->features;
++	netdev->watchdog_timeo = msecs_to_jiffies(HFI_TX_TIMEOUT_MS);
++	netdev->netdev_ops = &hfi_netdev_ops;
++	netdev->hard_header_len += HFI_VNIC_SKB_HEADROOM;
++	mutex_init(&adapter->lock);
++	strcpy(netdev->name, "veth%d");
++
++	SET_NETDEV_DEV(netdev, parent);
++
++	hfi_vnic_set_ethtool_ops(netdev);
++	for (i = 0; i < vport->hfi_info.num_rx_q; i++) {
++		adapter->rxq[i].idx = i;
++		adapter->rxq[i].adapter = adapter;
++		netif_napi_add(netdev, &adapter->rxq[i].napi, vnic_napi, 64);
++	}
++
++	rc = register_netdev(netdev);
++	if (rc)
++		goto netdev_err;
++
++	netif_carrier_off(netdev);
++	v_info("initialized\n");
++
++	return adapter;
++netdev_err:
++	mutex_destroy(&adapter->lock);
++	free_netdev(netdev);
++
++	return ERR_PTR(rc);
++}
++
++/* hfi_vnic_rem_netdev - remove vnic netdev interface */
++void hfi_vnic_rem_netdev(struct hfi_vnic_port *vport)
++{
++	struct hfi_vnic_adapter *adapter = netdev_priv(vport->netdev);
++
++	v_info("removing\n");
++	unregister_netdev(vport->netdev);
++	mutex_destroy(&adapter->lock);
++	free_netdev(vport->netdev);
++}
 -- 
 1.8.3.1
 
