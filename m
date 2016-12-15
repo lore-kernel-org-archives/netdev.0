@@ -1,214 +1,76 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: [net-next PATCH v6 4/5] virtio_net: add XDP_TX support
-Date: Thu, 15 Dec 2016 12:14:13 -0800
-Message-ID: <20161215201413.23639.65391.stgit@john-Precision-Tower-5810>
-References: <20161215200712.23639.53043.stgit@john-Precision-Tower-5810>
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: Re: [PATCH v2 1/4] siphash: add cryptographically secure hashtable function
+Date: Thu, 15 Dec 2016 22:25:57 +0100
+Message-ID: <CAHmME9p9cf1W3vhbu=YTRY1Xt=fmE1sVqY1XPt5iQwxfCfQUOA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: daniel@iogearbox.net, netdev@vger.kernel.org,
-        alexei.starovoitov@gmail.com, john.r.fastabend@intel.com,
-        brouer@redhat.com, tgraf@suug.ch, davem@davemloft.net
-To: mst@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:35369 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750724AbcLOVXI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Dec 2016 16:23:08 -0500
-Received: by mail-pg0-f68.google.com with SMTP id p66so7310020pga.2
-        for <netdev@vger.kernel.org>; Thu, 15 Dec 2016 13:23:07 -0800 (PST)
-In-Reply-To: <20161215200712.23639.53043.stgit@john-Precision-Tower-5810>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Laight <David.Laight@aculab.com>,
+        Netdev <netdev@vger.kernel.org>,
+        "kernel-hardening@lists.openwall.com"
+        <kernel-hardening@lists.openwall.com>,
+        Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+        "Daniel J . Bernstein" <djb@cr.yp.to>,
+        Linus Torvalds <torvalds@linux-foundation.org>,
+        Eric Biggers <ebiggers3@gmail.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This adds support for the XDP_TX action to virtio_net. When an XDP
-program is run and returns the XDP_TX action the virtio_net XDP
-implementation will transmit the packet on a TX queue that aligns
-with the current CPU that the XDP packet was processed on.
+On Thu, Dec 15, 2016 at 10:17 PM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> And I was exactly questioning this.
+>
+> static unsigned int inet6_hash_frag(__be32 id, const struct in6_addr *saddr,
+>                                     const struct in6_addr *daddr)
+> {
+>         net_get_random_once(&ip6_frags.rnd, sizeof(ip6_frags.rnd));
+>         return jhash_3words(ipv6_addr_hash(saddr), ipv6_addr_hash(daddr),
+>                             (__force u32)id, ip6_frags.rnd);
+> }
 
-Before sending the packet the header is zeroed.  Also XDP is expected
-to handle checksum correctly so no checksum offload  support is
-provided.
+For this example, the replacement is the function entitled siphash_4u32:
 
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
----
- drivers/net/virtio_net.c |  100 +++++++++++++++++++++++++++++++++++++++++++---
- 1 file changed, 93 insertions(+), 7 deletions(-)
-
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 992ec5f..1f8300b 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -330,12 +330,58 @@ static struct sk_buff *page_to_skb(struct virtnet_info *vi,
- 	return skb;
- }
- 
-+static void virtnet_xdp_xmit(struct virtnet_info *vi,
-+			     struct receive_queue *rq,
-+			     struct send_queue *sq,
-+			     struct xdp_buff *xdp)
-+{
-+	struct page *page = virt_to_head_page(xdp->data);
-+	struct virtio_net_hdr_mrg_rxbuf *hdr;
-+	unsigned int num_sg, len;
-+	void *xdp_sent;
-+	int err;
-+
-+	/* Free up any pending old buffers before queueing new ones. */
-+	while ((xdp_sent = virtqueue_get_buf(sq->vq, &len)) != NULL) {
-+		struct page *sent_page = virt_to_head_page(xdp_sent);
-+
-+		if (vi->mergeable_rx_bufs)
-+			put_page(sent_page);
-+		else
-+			give_pages(rq, sent_page);
-+	}
-+
-+	/* Zero header and leave csum up to XDP layers */
-+	hdr = xdp->data;
-+	memset(hdr, 0, vi->hdr_len);
-+
-+	num_sg = 1;
-+	sg_init_one(sq->sg, xdp->data, xdp->data_end - xdp->data);
-+	err = virtqueue_add_outbuf(sq->vq, sq->sg, num_sg,
-+				   xdp->data, GFP_ATOMIC);
-+	if (unlikely(err)) {
-+		if (vi->mergeable_rx_bufs)
-+			put_page(page);
-+		else
-+			give_pages(rq, page);
-+		return; // On error abort to avoid unnecessary kick
-+	} else if (!vi->mergeable_rx_bufs) {
-+		/* If not mergeable bufs must be big packets so cleanup pages */
-+		give_pages(rq, (struct page *)page->private);
-+		page->private = 0;
-+	}
-+
-+	virtqueue_kick(sq->vq);
-+}
-+
- static u32 do_xdp_prog(struct virtnet_info *vi,
-+		       struct receive_queue *rq,
- 		       struct bpf_prog *xdp_prog,
- 		       struct page *page, int offset, int len)
+ static unsigned int inet6_hash_frag(__be32 id, const struct in6_addr *saddr,
+                                     const struct in6_addr *daddr)
  {
- 	int hdr_padded_len;
- 	struct xdp_buff xdp;
-+	unsigned int qp;
- 	u32 act;
- 	u8 *buf;
- 
-@@ -353,9 +399,15 @@ static u32 do_xdp_prog(struct virtnet_info *vi,
- 	switch (act) {
- 	case XDP_PASS:
- 		return XDP_PASS;
-+	case XDP_TX:
-+		qp = vi->curr_queue_pairs -
-+			vi->xdp_queue_pairs +
-+			smp_processor_id();
-+		xdp.data = buf + (vi->mergeable_rx_bufs ? 0 : 4);
-+		virtnet_xdp_xmit(vi, rq, &vi->sq[qp], &xdp);
-+		return XDP_TX;
- 	default:
- 		bpf_warn_invalid_xdp_action(act);
--	case XDP_TX:
- 	case XDP_ABORTED:
- 	case XDP_DROP:
- 		return XDP_DROP;
-@@ -390,9 +442,17 @@ static struct sk_buff *receive_big(struct net_device *dev,
- 
- 		if (unlikely(hdr->hdr.gso_type || hdr->hdr.flags))
- 			goto err_xdp;
--		act = do_xdp_prog(vi, xdp_prog, page, 0, len);
--		if (act == XDP_DROP)
-+		act = do_xdp_prog(vi, rq, xdp_prog, page, 0, len);
-+		switch (act) {
-+		case XDP_PASS:
-+			break;
-+		case XDP_TX:
-+			rcu_read_unlock();
-+			goto xdp_xmit;
-+		case XDP_DROP:
-+		default:
- 			goto err_xdp;
-+		}
- 	}
- 	rcu_read_unlock();
- 
-@@ -407,6 +467,7 @@ static struct sk_buff *receive_big(struct net_device *dev,
- err:
- 	dev->stats.rx_dropped++;
- 	give_pages(rq, page);
-+xdp_xmit:
- 	return NULL;
+         net_get_random_once(&ip6_frags.rnd, sizeof(ip6_frags.rnd));
+         return siphash_4u32(ipv6_addr_hash(saddr), ipv6_addr_hash(daddr),
+                 (__force u32)id, 0, ip6_frags.rnd);
  }
- 
-@@ -425,6 +486,8 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
- 	struct bpf_prog *xdp_prog;
- 	unsigned int truesize;
- 
-+	head_skb = NULL;
-+
- 	rcu_read_lock();
- 	xdp_prog = rcu_dereference(rq->xdp_prog);
- 	if (xdp_prog) {
-@@ -448,9 +511,17 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
- 		if (unlikely(hdr->hdr.gso_type || hdr->hdr.flags))
- 			goto err_xdp;
- 
--		act = do_xdp_prog(vi, xdp_prog, page, offset, len);
--		if (act == XDP_DROP)
-+		act = do_xdp_prog(vi, rq, xdp_prog, page, offset, len);
-+		switch (act) {
-+		case XDP_PASS:
-+			break;
-+		case XDP_TX:
-+			rcu_read_unlock();
-+			goto xdp_xmit;
-+		case XDP_DROP:
-+		default:
- 			goto err_xdp;
-+		}
- 	}
- 	rcu_read_unlock();
- 
-@@ -528,6 +599,7 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
- err_buf:
- 	dev->stats.rx_dropped++;
- 	dev_kfree_skb(head_skb);
-+xdp_xmit:
- 	return NULL;
- }
- 
-@@ -1713,6 +1785,16 @@ static void free_receive_page_frags(struct virtnet_info *vi)
- 			put_page(vi->rq[i].alloc_frag.page);
- }
- 
-+static bool is_xdp_queue(struct virtnet_info *vi, int q)
-+{
-+	if (q < (vi->curr_queue_pairs - vi->xdp_queue_pairs))
-+		return false;
-+	else if (q < vi->curr_queue_pairs)
-+		return true;
-+	else
-+		return false;
-+}
-+
- static void free_unused_bufs(struct virtnet_info *vi)
- {
- 	void *buf;
-@@ -1720,8 +1802,12 @@ static void free_unused_bufs(struct virtnet_info *vi)
- 
- 	for (i = 0; i < vi->max_queue_pairs; i++) {
- 		struct virtqueue *vq = vi->sq[i].vq;
--		while ((buf = virtqueue_detach_unused_buf(vq)) != NULL)
--			dev_kfree_skb(buf);
-+		while ((buf = virtqueue_detach_unused_buf(vq)) != NULL) {
-+			if (!is_xdp_queue(vi, i))
-+				dev_kfree_skb(buf);
-+			else
-+				put_page(virt_to_head_page(buf));
-+		}
- 	}
- 
- 	for (i = 0; i < vi->max_queue_pairs; i++) {
+
+And then you make ip6_frags.rnd be of type siphash_key_t. Then
+everything is taken care of and works beautifully. Please see v5 of
+this patchset.
+
+> I would be interested if the compiler can actually constant-fold the
+> address of the stack allocation with an simple if () or some
+> __builtin_constant_p fiddeling, so we don't have this constant review
+> overhead to which function we pass which data. This would also make
+> this whole discussion moot.
+
+I'll play with it to see if the compiler is capable of doing that.
+Does anybody know off hand if it is or if there are other examples of
+the compiler doing that?
+
+In any case, for all current replacement of jhash_1word, jhash_2words,
+jhash_3words, there's the siphash_2u32 or siphash_4u32 functions. This
+covers the majority of cases.
+
+For replacements of md5_transform, either the data is small and can
+fit in siphash_Nu{32,64}, or it can be put into a struct explicitly
+aligned on the stack.
+
+For the remaining use of jhash_nwords, either siphash() can be used or
+siphash_unaligned() can be used if the source is of unknown alignment.
+Both functions have their alignment requirements (or lack thereof)
+documented in a docbook comment.
+
+I'll look into the constant folding to see if it actually works. If it
+does, I'll use it. If not, I believe the current solution works.
+
+How's that sound?
+
+Jason
