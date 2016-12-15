@@ -1,32 +1,62 @@
-From: Arnaldo Carvalho de Melo <acme@kernel.org>
-Subject: Re: [PATCH perf/core REBASE 2/5] samples/bpf: Switch over to libbpf
-Date: Thu, 15 Dec 2016 15:36:46 -0300
-Message-ID: <20161215183646.GI6866@kernel.org>
-References: <20161214224342.12858-1-joe@ovn.org>
- <20161214224342.12858-3-joe@ovn.org>
- <20161215155022.GE6866@kernel.org>
- <20161215182918.GG6866@kernel.org>
- <20161215183440.GH6866@kernel.org>
+From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Subject: Re: [RFC v2 00/10] HFI Virtual Network Interface Controller (VNIC)
+Date: Thu, 15 Dec 2016 11:48:37 -0700
+Message-ID: <20161215184837.GA16552@obsidianresearch.com>
+References: <1481788782-89964-1-git-send-email-niranjana.vishwanathapura@intel.com>
+ <20161215091226.GC811@mtr-leonro.local>
+ <20161215145212.GA29116@phlsvsds.ph.intel.com>
+ <380b05bf-a18e-1f20-7e8e-10b61f77dec7@redhat.com>
+ <20161215170713.GD3264@obsidianresearch.com>
+ <4e22bf29-2260-0768-ab17-9a8df6306f37@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        wangnan0@huawei.com, ast@fb.com, daniel@iogearbox.net,
-        Arnaldo Carvalho de Melo <acme@redhat.com>
-To: Joe Stringer <joe@ovn.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: "ira.weiny" <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Jeff Kirsher <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        "Vishwanathapura, Niranjana" <niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
+To: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20161215183440.GH6866@kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <4e22bf29-2260-0768-ab17-9a8df6306f37-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Em Thu, Dec 15, 2016 at 03:34:40PM -0300, Arnaldo Carvalho de Melo escreveu:
+On Thu, Dec 15, 2016 at 01:19:18PM -0500, Doug Ledford wrote:
+> On 12/15/2016 12:07 PM, Jason Gunthorpe wrote:
+> > On Thu, Dec 15, 2016 at 11:28:06AM -0500, Doug Ledford wrote:
+> > 
+> >> 1) Since your intent is to make this work with multiple versions of the
+> >> hfi drivers, I disagree with Jason that just because there is only one
+> >> driver today that we should keep it simple.  Design it right from the
+> >> beginning of multi driver is your intent is, IMO, a better way to go.
+> >> You'll work out the bugs in the initial implementation and when it comes
+> >> time to add the second driver, things will go much more smoothly.
+> > 
+> > If that is your position then this should be a straight up IB ULP that
+> > works with any IB hardware.
 > 
-> So, I'm stopping here so that I can push what I have to Ingo, then I'll get
-> back to this, hopefully by then you beat me and I have just to retest 8-)
+> Yes, see my comments in point #3 of my previous email...
 
-Ah, I left what I have in the tmp.perf/samples-libbpf branch in my tree
-at git://git.kernel.org/pub/scm/linux/kernel/git/acme/linux.git.
+Well, I'm not opposed to the vnic idea - Mellanox had (has?) a similar
+IB driver. There are lots of good reasons to strictly maintain the
+ethernet presentation.
 
-I'll remove just the HEAD one and push the rest to Ingo.
+There is much more going on here than just changing the LLADDR,
+essentially everything MAD focused is different compared to ipoib, and
+it looks like the required datastructures are different too. This is
+more of a map a mac to a OPA_LRH approach with SA mediated discovery,
+by my eye.
 
-- Arnaldo
+The main share is the 'skb send' part, we've talked about hoisting
+that out of ipoib in the past anyhow. A generic verb along those lines
+would probably allow the sdma optimization for hfi for both this new
+ulp and ipoib without creating such an ugly HFI1 specific interface.
+
+Jason
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
