@@ -1,53 +1,32 @@
-From: Madalin Bucur <madalin.bucur@nxp.com>
-Subject: [PATCH net 3/3] MAINTAINERS: net: add entry for Freescale QorIQ DPAA
- Ethernet driver
-Date: Thu, 15 Dec 2016 15:13:06 +0200
-Message-ID: <1481807586-4798-4-git-send-email-madalin.bucur@nxp.com>
-References: <1481807586-4798-1-git-send-email-madalin.bucur@nxp.com>
-Reply-To: madalin.bucur@nxp.com
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: [PATCH iproute2 1/2] tc: flower: Fix typo in the flower man page
+Date: Thu, 15 Dec 2016 13:56:17 +0100
+Message-ID: <20161215125616.GA29144@penelope.horms.nl>
+References: <1481607232-1342-1-git-send-email-roid@mellanox.com>
+ <1481607232-1342-2-git-send-email-roid@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org,
- davem@davemloft.net
-To: <netdev@vger.kernel.org>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <1481807586-4798-1-git-send-email-madalin.bucur@nxp.com>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+        netdev@vger.kernel.org, Amir Vadai <amir@vadai.me>,
+        Hadar Hen Zion <hadarh@mellanox.com>
+To: Roi Dayan <roid@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f53.google.com ([74.125.82.53]:37566 "EHLO
+        mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753049AbcLON0f (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Dec 2016 08:26:35 -0500
+Received: by mail-wm0-f53.google.com with SMTP id t79so45503496wmt.0
+        for <netdev@vger.kernel.org>; Thu, 15 Dec 2016 05:26:35 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1481607232-1342-2-git-send-email-roid@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add record for Freescale QORIQ DPAA Ethernet driver adding myself as
-maintainer.
+On Tue, Dec 13, 2016 at 07:33:51AM +0200, Roi Dayan wrote:
+> Replace vlan_eth_type with vlan_ethtype.
+> 
+> Fixes: 745d91726006 ("tc: flower: Introduce vlan support")
+> Signed-off-by: Roi Dayan <roid@mellanox.com>
+> Reviewed-by: Hadar Hen Zion <hadarh@mellanox.com>
 
-Signed-off-by: Madalin Bucur <madalin.bucur@nxp.com>
----
- MAINTAINERS | 6 ++++++
- 1 file changed, 6 insertions(+)
-
-diff --git a/MAINTAINERS b/MAINTAINERS
-index e2463ba..0ff9757 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -5058,6 +5058,12 @@ S:	Maintained
- F:	drivers/net/ethernet/freescale/fman
- F:	Documentation/devicetree/bindings/powerpc/fsl/fman.txt
- 
-+FREESCALE QORIQ DPAA ETHERNET DRIVER
-+M:	Madalin Bucur <madalin.bucur@nxp.com>
-+L:	netdev@vger.kernel.org
-+S:	Maintained
-+F:	drivers/net/ethernet/freescale/dpaa
-+
- FREESCALE QUICC ENGINE LIBRARY
- L:	linuxppc-dev@lists.ozlabs.org
- S:	Orphan
--- 
-2.1.0
+Reviewed-by: Simon Horman <simon.horman@netronome.com>
