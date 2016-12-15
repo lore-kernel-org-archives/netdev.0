@@ -1,145 +1,95 @@
-From: Geoff Lansberry <geoff@kuvee.com>
-Subject: [PATCH 1/3] NFC: trf7970a: add device tree option for 27MHz clock
-Date: Thu, 15 Dec 2016 17:30:42 -0500
-Message-ID: <1481841044-4314-1-git-send-email-glansberry@gmail.com>
-Cc: lauro.venancio@openbossa.org, aloisio.almeida@openbossa.org,
-        sameo@linux.intel.com, robh+dt@kernel.org, mark.rutland@arm.com,
-        netdev@vger.kernel.org, devicetree@vger.kernel.org,
-        linux-kernel@vger.kernel.org, mgreer@animalcreek.com,
-        justin@kuvee.com, Geoff Lansberry <geoff@kuvee.com>
-To: linux-wireless@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Geoff Lansberry <geoff-R+k406RtEhcAvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH 2/3] NFC: trf7970a: Add device tree option of 1.8 Volt IO voltage
+Date: Thu, 15 Dec 2016 17:30:43 -0500
+Message-ID: <1481841044-4314-2-git-send-email-glansberry@gmail.com>
+References: <1481841044-4314-1-git-send-email-glansberry@gmail.com>
+Cc: lauro.venancio-430g2QfJUUCGglJvpFV4uA@public.gmane.org, aloisio.almeida-430g2QfJUUCGglJvpFV4uA@public.gmane.org,
+        sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, mgreer-luAo+O/VEmrlveNOaEYElw@public.gmane.org,
+        justin-R+k406RtEhcAvxtiuMwx3w@public.gmane.org, Geoff Lansberry <geoff-R+k406RtEhcAvxtiuMwx3w@public.gmane.org>
+To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1481841044-4314-1-git-send-email-glansberry-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Geoff Lansberry <geoff@kuvee.com>
+From: Geoff Lansberry <geoff-R+k406RtEhcAvxtiuMwx3w@public.gmane.org>
 
 ---
- .../devicetree/bindings/net/nfc/trf7970a.txt       |  3 ++
- drivers/nfc/trf7970a.c                             | 42 ++++++++++++++++------
- 2 files changed, 34 insertions(+), 11 deletions(-)
+ Documentation/devicetree/bindings/net/nfc/trf7970a.txt |  2 ++
+ drivers/nfc/trf7970a.c                                 | 13 ++++++++++++-
+ 2 files changed, 14 insertions(+), 1 deletion(-)
 
 diff --git a/Documentation/devicetree/bindings/net/nfc/trf7970a.txt b/Documentation/devicetree/bindings/net/nfc/trf7970a.txt
-index 32b35a0..9dda879 100644
+index 9dda879..208f045 100644
 --- a/Documentation/devicetree/bindings/net/nfc/trf7970a.txt
 +++ b/Documentation/devicetree/bindings/net/nfc/trf7970a.txt
-@@ -21,6 +21,8 @@ Optional SoC Specific Properties:
+@@ -21,6 +21,7 @@ Optional SoC Specific Properties:
  - t5t-rmb-extra-byte-quirk: Specify that the trf7970a has the erratum
    where an extra byte is returned by Read Multiple Block commands issued
    to Type 5 tags.
-+- crystal_27mhz: Set to specify that the input frequency to the trf7970a is 27.12MHz
-+
++- vdd_io_1v8: Set to specify that the trf7970a io voltage should be set to 1.8V
+ - crystal_27mhz: Set to specify that the input frequency to the trf7970a is 27.12MHz
  
- Example (for ARM-based BeagleBone with TRF7970A on SPI1):
  
-@@ -43,6 +45,7 @@ Example (for ARM-based BeagleBone with TRF7970A on SPI1):
+@@ -45,6 +46,7 @@ Example (for ARM-based BeagleBone with TRF7970A on SPI1):
  		irq-status-read-quirk;
  		en2-rf-quirk;
  		t5t-rmb-extra-byte-quirk;
-+		crystal_27mhz;
++		vdd_io_1v8;
+ 		crystal_27mhz;
  		status = "okay";
  	};
- };
 diff --git a/drivers/nfc/trf7970a.c b/drivers/nfc/trf7970a.c
-index 26c9dbb..2d2a077 100644
+index 2d2a077..b4c37ab 100644
 --- a/drivers/nfc/trf7970a.c
 +++ b/drivers/nfc/trf7970a.c
-@@ -1056,12 +1056,11 @@ static int trf7970a_init(struct trf7970a *trf)
- 
- 	trf->chip_status_ctrl &= ~TRF7970A_CHIP_STATUS_RF_ON;
- 
--	ret = trf7970a_write(trf, TRF7970A_MODULATOR_SYS_CLK_CTRL, 0);
-+	ret = trf7970a_write(trf, TRF7970A_MODULATOR_SYS_CLK_CTRL,
-+			trf->modulator_sys_clk_ctrl);
+@@ -441,6 +441,7 @@ struct trf7970a {
+ 	u8				iso_ctrl_tech;
+ 	u8				modulator_sys_clk_ctrl;
+ 	u8				special_fcn_reg1;
++	u8				io_ctrl;
+ 	unsigned int			guard_time;
+ 	int				technology;
+ 	int				framing;
+@@ -1048,6 +1049,11 @@ static int trf7970a_init(struct trf7970a *trf)
  	if (ret)
  		goto err_out;
  
--	trf->modulator_sys_clk_ctrl = 0;
--
- 	ret = trf7970a_write(trf, TRF7970A_ADJUTABLE_FIFO_IRQ_LEVELS,
- 			TRF7970A_ADJUTABLE_FIFO_IRQ_LEVELS_WLH_96 |
- 			TRF7970A_ADJUTABLE_FIFO_IRQ_LEVELS_WLL_32);
-@@ -1181,27 +1180,37 @@ static int trf7970a_in_config_rf_tech(struct trf7970a *trf, int tech)
- 	switch (tech) {
- 	case NFC_DIGITAL_RF_TECH_106A:
- 		trf->iso_ctrl_tech = TRF7970A_ISO_CTRL_14443A_106;
--		trf->modulator_sys_clk_ctrl = TRF7970A_MODULATOR_DEPTH_OOK;
-+		trf->modulator_sys_clk_ctrl =
-+			(trf->modulator_sys_clk_ctrl & 0xF8) |
-+			TRF7970A_MODULATOR_DEPTH_OOK;
- 		trf->guard_time = TRF7970A_GUARD_TIME_NFCA;
- 		break;
- 	case NFC_DIGITAL_RF_TECH_106B:
- 		trf->iso_ctrl_tech = TRF7970A_ISO_CTRL_14443B_106;
--		trf->modulator_sys_clk_ctrl = TRF7970A_MODULATOR_DEPTH_ASK10;
-+		trf->modulator_sys_clk_ctrl =
-+			(trf->modulator_sys_clk_ctrl & 0xF8) |
-+			TRF7970A_MODULATOR_DEPTH_ASK10;
- 		trf->guard_time = TRF7970A_GUARD_TIME_NFCB;
- 		break;
- 	case NFC_DIGITAL_RF_TECH_212F:
- 		trf->iso_ctrl_tech = TRF7970A_ISO_CTRL_FELICA_212;
--		trf->modulator_sys_clk_ctrl = TRF7970A_MODULATOR_DEPTH_ASK10;
-+		trf->modulator_sys_clk_ctrl =
-+			(trf->modulator_sys_clk_ctrl & 0xF8) |
-+			TRF7970A_MODULATOR_DEPTH_ASK10;
- 		trf->guard_time = TRF7970A_GUARD_TIME_NFCF;
- 		break;
- 	case NFC_DIGITAL_RF_TECH_424F:
- 		trf->iso_ctrl_tech = TRF7970A_ISO_CTRL_FELICA_424;
--		trf->modulator_sys_clk_ctrl = TRF7970A_MODULATOR_DEPTH_ASK10;
-+		trf->modulator_sys_clk_ctrl =
-+			(trf->modulator_sys_clk_ctrl & 0xF8) |
-+			TRF7970A_MODULATOR_DEPTH_ASK10;
- 		trf->guard_time = TRF7970A_GUARD_TIME_NFCF;
- 		break;
- 	case NFC_DIGITAL_RF_TECH_ISO15693:
- 		trf->iso_ctrl_tech = TRF7970A_ISO_CTRL_15693_SGL_1OF4_2648;
--		trf->modulator_sys_clk_ctrl = TRF7970A_MODULATOR_DEPTH_OOK;
-+		trf->modulator_sys_clk_ctrl =
-+			(trf->modulator_sys_clk_ctrl & 0xF8) |
-+			TRF7970A_MODULATOR_DEPTH_OOK;
- 		trf->guard_time = TRF7970A_GUARD_TIME_15693;
- 		break;
- 	default:
-@@ -1571,17 +1580,23 @@ static int trf7970a_tg_config_rf_tech(struct trf7970a *trf, int tech)
- 		trf->iso_ctrl_tech = TRF7970A_ISO_CTRL_NFC_NFC_CE_MODE |
- 			TRF7970A_ISO_CTRL_NFC_CE |
- 			TRF7970A_ISO_CTRL_NFC_CE_14443A;
--		trf->modulator_sys_clk_ctrl = TRF7970A_MODULATOR_DEPTH_OOK;
-+		trf->modulator_sys_clk_ctrl =
-+			(trf->modulator_sys_clk_ctrl & 0xF8) |
-+			TRF7970A_MODULATOR_DEPTH_OOK;
- 		break;
- 	case NFC_DIGITAL_RF_TECH_212F:
- 		trf->iso_ctrl_tech = TRF7970A_ISO_CTRL_NFC_NFC_CE_MODE |
- 			TRF7970A_ISO_CTRL_NFC_NFCF_212;
--		trf->modulator_sys_clk_ctrl = TRF7970A_MODULATOR_DEPTH_ASK10;
-+		trf->modulator_sys_clk_ctrl =
-+			(trf->modulator_sys_clk_ctrl & 0xF8) |
-+			TRF7970A_MODULATOR_DEPTH_ASK10;
- 		break;
- 	case NFC_DIGITAL_RF_TECH_424F:
- 		trf->iso_ctrl_tech = TRF7970A_ISO_CTRL_NFC_NFC_CE_MODE |
- 			TRF7970A_ISO_CTRL_NFC_NFCF_424;
--		trf->modulator_sys_clk_ctrl = TRF7970A_MODULATOR_DEPTH_ASK10;
-+		trf->modulator_sys_clk_ctrl =
-+			(trf->modulator_sys_clk_ctrl & 0xF8) |
-+			TRF7970A_MODULATOR_DEPTH_ASK10;
- 		break;
- 	default:
- 		dev_dbg(trf->dev, "Unsupported rf technology: %d\n", tech);
-@@ -2043,6 +2058,11 @@ static int trf7970a_probe(struct spi_device *spi)
++	ret = trf7970a_write(trf, TRF7970A_REG_IO_CTRL,
++			trf->io_ctrl|TRF7970A_REG_IO_CTRL_VRS(0x1));
++	if (ret)
++		goto err_out;
++
+ 	ret = trf7970a_write(trf, TRF7970A_NFC_TARGET_LEVEL, 0);
+ 	if (ret)
+ 		goto err_out;
+@@ -1764,7 +1770,7 @@ static int _trf7970a_tg_listen(struct nfc_digital_dev *ddev, u16 timeout,
+ 		goto out_err;
+ 
+ 	ret = trf7970a_write(trf, TRF7970A_REG_IO_CTRL,
+-			TRF7970A_REG_IO_CTRL_VRS(0x1));
++			trf->io_ctrl|TRF7970A_REG_IO_CTRL_VRS(0x1));
+ 	if (ret)
+ 		goto out_err;
+ 
+@@ -2058,6 +2064,11 @@ static int trf7970a_probe(struct spi_device *spi)
  		return ret;
  	}
  
-+	if (of_property_read_bool(np, "crystal_27mhz")) {
-+		trf->modulator_sys_clk_ctrl = TRF7970A_MODULATOR_27MHZ;
-+		dev_dbg(trf->dev, "trf7970a configure crystal_27mhz\n");
++	if (of_property_read_bool(np, "vdd_io_1v8")) {
++		trf->io_ctrl = TRF7970A_REG_IO_CTRL_IO_LOW;
++		dev_dbg(trf->dev, "trf7970a config vdd_io_1v8\n");
 +	}
 +
- 	if (of_property_read_bool(np, "en2-rf-quirk"))
- 		trf->quirks |= TRF7970A_QUIRK_EN2_MUST_STAY_LOW;
- 
+ 	if (of_property_read_bool(np, "crystal_27mhz")) {
+ 		trf->modulator_sys_clk_ctrl = TRF7970A_MODULATOR_27MHZ;
+ 		dev_dbg(trf->dev, "trf7970a configure crystal_27mhz\n");
 -- 
-Signed-off-by: Geoff Lansberry <geoff@kuvee.com>
+Signed-off-by: Geoff Lansberry <geoff-R+k406RtEhcAvxtiuMwx3w@public.gmane.org>
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
