@@ -1,81 +1,74 @@
-From: Krzysztof Kozlowski <krzk@kernel.org>
-Subject: Re: [PATCH 5/8] linux: drop __bitwise__ everywhere
-Date: Thu, 15 Dec 2016 19:28:39 +0200
-Message-ID: <20161215172839.GA6520@kozik-lap>
-References: <1481778865-27667-1-git-send-email-mst@redhat.com>
- <1481778865-27667-6-git-send-email-mst@redhat.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2 v2 1/3] ifstat: Add extended statistics to
+ ifstat
+Date: Thu, 15 Dec 2016 09:33:27 -0800
+Message-ID: <20161215093327.2daf60c6@xeon-e3>
+References: <1481806845-63384-1-git-send-email-nogahf@mellanox.com>
+        <1481806845-63384-2-git-send-email-nogahf@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: linux-kernel@vger.kernel.org, Kukjin Kim <kgene@kernel.org>,
-	Krzysztof Kozlowski <krzk@kernel.org>,
-	Javier Martinez Canillas <javier@osg.samsung.com>,
-	Russell King <linux@armlinux.org.uk>,
-	Alasdair Kergon <agk@redhat.com>, Mike Snitzer <snitzer@redhat.com>,
-	dm-devel@redhat.com, Shaohua Li <shli@kernel.org>,
-	Johannes Berg <johannes.berg@intel.com>,
-	Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
-	Luca Coelho <luciano.coelho@intel.com>,
-	Intel Linux Wireless <linuxwifi@intel.com>,
-	Kalle Valo <kvalo@codeaurora.org>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Jiri Slaby <jslaby@suse.com>, Lee Duncan <lduncan@suse.com>,
-	Chris Leech <cleech@redhat.com>,
-	"James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
-	"Martin K. Petersen" <martin.petersen@oracle.com>,
-	"Nicholas A. Bellinger" <nab@linux-iscsi.org>,
-	Jason Wang <jasowang@redhat.com>,
-	Alexander Aring <aar@pengutronix.de
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <1481778865-27667-6-git-send-email-mst@redhat.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+        jiri@mellanox.com, eladr@mellanox.com, yotamg@mellanox.com,
+        idosch@mellanox.com, ogerlitz@mellanox.com
+To: Nogah Frankel <nogahf@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f47.google.com ([74.125.83.47]:33343 "EHLO
+        mail-pg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751845AbcLORdf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Dec 2016 12:33:35 -0500
+Received: by mail-pg0-f47.google.com with SMTP id 3so22136259pgd.0
+        for <netdev@vger.kernel.org>; Thu, 15 Dec 2016 09:33:35 -0800 (PST)
+In-Reply-To: <1481806845-63384-2-git-send-email-nogahf@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 15, 2016 at 07:15:20AM +0200, Michael S. Tsirkin wrote:
-> __bitwise__ used to mean "yes, please enable sparse checks
-> unconditionally", but now that we dropped __CHECK_ENDIAN__
-> __bitwise is exactly the same.
-> There aren't many users, replace it by __bitwise everywhere.
+On Thu, 15 Dec 2016 15:00:43 +0200
+Nogah Frankel <nogahf@mellanox.com> wrote:
+
+> Extended stats are part of the RTM_GETSTATS method. This patch adds them
+> to ifstat.
+> While extended stats can come in many forms, we support only the
+> rtnl_link_stats64 struct for them (which is the 64 bits version of struct
+> rtnl_link_stats).
+> We support stats in the main nesting level, or one lower.
+> The extension can be called by its name or any shorten of it. If there is
+> more than one matched, the first one will be picked.
 > 
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> To get the extended stats the flag -x <stats type> is used.
+> 
+> Signed-off-by: Nogah Frankel <nogahf@mellanox.com>
+> Reviewed-by: Jiri Pirko <jiri@mellanox.com>
 > ---
->  arch/arm/plat-samsung/include/plat/gpio-cfg.h    | 2 +-
->  drivers/md/dm-cache-block-types.h                | 6 +++---
->  drivers/net/ethernet/sun/sunhme.h                | 2 +-
->  drivers/net/wireless/intel/iwlwifi/iwl-fw-file.h | 4 ++--
->  include/linux/mmzone.h                           | 2 +-
->  include/linux/serial_core.h                      | 4 ++--
->  include/linux/types.h                            | 4 ++--
->  include/scsi/iscsi_proto.h                       | 2 +-
->  include/target/target_core_base.h                | 2 +-
->  include/uapi/linux/virtio_types.h                | 6 +++---
->  net/ieee802154/6lowpan/6lowpan_i.h               | 2 +-
->  net/mac80211/ieee80211_i.h                       | 4 ++--
->  12 files changed, 20 insertions(+), 20 deletions(-)
+>  misc/ifstat.c | 161 ++++++++++++++++++++++++++++++++++++++++++++++++++++------
+>  1 file changed, 146 insertions(+), 15 deletions(-)
 > 
-> diff --git a/arch/arm/plat-samsung/include/plat/gpio-cfg.h b/arch/arm/plat-samsung/include/plat/gpio-cfg.h
-> index 21391fa..e55d1f5 100644
-> --- a/arch/arm/plat-samsung/include/plat/gpio-cfg.h
-> +++ b/arch/arm/plat-samsung/include/plat/gpio-cfg.h
-> @@ -26,7 +26,7 @@
+> diff --git a/misc/ifstat.c b/misc/ifstat.c
+> index 92d67b0..d17ae21 100644
+> --- a/misc/ifstat.c
+> +++ b/misc/ifstat.c
+> @@ -35,6 +35,7 @@
 >  
->  #include <linux/types.h>
+>  #include <SNAPSHOT.h>
 >  
-> -typedef unsigned int __bitwise__ samsung_gpio_pull_t;
-> +typedef unsigned int __bitwise samsung_gpio_pull_t;
->  
->  /* forward declaration if gpio-core.h hasn't been included */
->  struct samsung_gpio_chip;
+> +#include "utils.h"
+>  int dump_zeros;
+>  int reset_history;
+>  int ignore_history;
 
-For plat-samsung:
-Acked-by: Krzysztof Kozlowski <krzk@kernel.org>
+Minor nit, please cleanup include order here (original code was wrong).
 
-Best regards,
-Krzysztof
+Standard practice is:
+ #include system headers (like stdio.h etc)
+ #include "xxx.h" local headers.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Should be:
+#include <getopt.h>
+
+#include <linux/if.h>
+#include <linux/if_link.h>
+
+#include "json_writer.h"
+#include "libnetlink.h"
+#include "utils.h"
+#include "SNAPSHOT.h"
