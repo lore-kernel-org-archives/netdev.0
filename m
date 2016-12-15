@@ -1,102 +1,214 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH v2 1/4] siphash: add cryptographically secure hashtable
- function
-Date: Thu, 15 Dec 2016 22:17:44 +0100
-Message-ID: <7861e8ca-69fe-30d1-3d79-27ee33a510d0@stressinduktion.org>
-References: <20161214035927.30004-1-Jason@zx2c4.com>
- <CAHmME9q9ffdtWRbzyMO1ktTdtEFdfumTfojTTNLXFhoa+R+MWQ@mail.gmail.com>
- <8ea3fdff-23c4-b81d-2588-44549bd2d8c1@stressinduktion.org>
- <063D6719AE5E284EB5DD2968C1650D6DB02401ED@AcuExch.aculab.com>
- <707472e1-b385-836d-c4c6-791c1dcc0776@stressinduktion.org>
- <063D6719AE5E284EB5DD2968C1650D6DB02402C0@AcuExch.aculab.com>
- <0f3c3694-c00b-aae2-5b08-25bc64bf6372@stressinduktion.org>
- <063D6719AE5E284EB5DD2968C1650D6DB0240437@AcuExch.aculab.com>
- <f6813084-6f46-0b22-e9c3-97b2e266f8f6@stressinduktion.org>
- <063D6719AE5E284EB5DD2968C1650D6DB0240529@AcuExch.aculab.com>
- <924ef794-eae0-2a6b-508b-069718339edc@stressinduktion.org>
- <CAHmME9pTLFu3-4n6m_OMj5jVWGE-+yC-4CnkynD--H4Nt8_cpA@mail.gmail.com>
- <18d1e9d1-1e52-b9a6-de26-2f33859ec052@stressinduktion.org>
- <CAHmME9rDCb=2rojJba13Uew9V9qAbxv1qcJGHwEAKoahxyE9QA@mail.gmail.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: [net-next PATCH v6 4/5] virtio_net: add XDP_TX support
+Date: Thu, 15 Dec 2016 12:14:13 -0800
+Message-ID: <20161215201413.23639.65391.stgit@john-Precision-Tower-5810>
+References: <20161215200712.23639.53043.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Laight <David.Laight@aculab.com>,
-        Netdev <netdev@vger.kernel.org>,
-        "kernel-hardening@lists.openwall.com"
-        <kernel-hardening@lists.openwall.com>,
-        Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-        "Daniel J . Bernstein" <djb@cr.yp.to>,
-        Linus Torvalds <torvalds@linux-foundation.org>,
-        Eric Biggers <ebiggers3@gmail.com>
-To: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <CAHmME9rDCb=2rojJba13Uew9V9qAbxv1qcJGHwEAKoahxyE9QA@mail.gmail.com>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: daniel@iogearbox.net, netdev@vger.kernel.org,
+        alexei.starovoitov@gmail.com, john.r.fastabend@intel.com,
+        brouer@redhat.com, tgraf@suug.ch, davem@davemloft.net
+To: mst@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:35369 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750724AbcLOVXI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Dec 2016 16:23:08 -0500
+Received: by mail-pg0-f68.google.com with SMTP id p66so7310020pga.2
+        for <netdev@vger.kernel.org>; Thu, 15 Dec 2016 13:23:07 -0800 (PST)
+In-Reply-To: <20161215200712.23639.53043.stgit@john-Precision-Tower-5810>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 15.12.2016 21:43, Jason A. Donenfeld wrote:
-> On Thu, Dec 15, 2016 at 9:31 PM, Hannes Frederic Sowa
-> <hannes@stressinduktion.org> wrote:
->> ARM64 and x86-64 have memory operations that are not vector operations
->> that operate on 128 bit memory.
-> 
-> Fair enough. imull I guess.
-> 
->> How do you know that the compiler for some architecture will not chose a
->> more optimized instruction to load a 64 bit memory value into two 32 bit
->> registers if you tell the compiler it is 8 byte aligned but it actually
->> isn't? I don't know the answer but telling the compiler some data is 8
->> byte aligned while it isn't really pretty much seems like a call for
->> trouble.
-> 
-> If a compiler is in the business of using special 64-bit instructions
-> on 64-bit aligned data, then it is also the job of the compiler to
-> align structs to 64-bits when passed __aligned(8), which is what we've
-> done in this code. If the compiler were to hypothetically choose to
-> ignore that and internally convert it to a __aligned(4), then it would
-> only be able to do so with the knowledge that it will never use 64-bit
-> aligned data instructions. But so far as I can tell, gcc always
-> respects __aligned(8), which is why I use it in this patchset.
-> 
-> I think there might have been confusion here, because perhaps someone
-> was hoping that since in6_addr is 128-bits, that the __aligned
-> attribute would not be required and that the struct would just
-> automatically be aligned to at least 8 bytes. But in fact, as I
-> mentioned, in6_addr is actually composed of u32[4] and not u64[2], so
-> it will only be aligned to 4 bytes, making the __aligned(8) necessary.
-> 
-> I think for the purposes of this patchset, this is a solved problem.
-> There's the unaligned version of the function if you don't know about
-> the data, and there's the aligned version if you're using
-> __aligned(SIPHASH_ALIGNMENT) on your data. Plain and simple.
+This adds support for the XDP_TX action to virtio_net. When an XDP
+program is run and returns the XDP_TX action the virtio_net XDP
+implementation will transmit the packet on a TX queue that aligns
+with the current CPU that the XDP packet was processed on.
 
-And I was exactly questioning this.
+Before sending the packet the header is zeroed.  Also XDP is expected
+to handle checksum correctly so no checksum offload  support is
+provided.
 
-static unsigned int inet6_hash_frag(__be32 id, const struct in6_addr *saddr,
-				    const struct in6_addr *daddr)
-{
-	net_get_random_once(&ip6_frags.rnd, sizeof(ip6_frags.rnd));
-	return jhash_3words(ipv6_addr_hash(saddr), ipv6_addr_hash(daddr),
-			    (__force u32)id, ip6_frags.rnd);
-}
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+---
+ drivers/net/virtio_net.c |  100 +++++++++++++++++++++++++++++++++++++++++++---
+ 1 file changed, 93 insertions(+), 7 deletions(-)
 
-This function had a hash DoS (and kind of still has), but it has been
-mitigated by explicit checks, I hope.
-
-So you start looking for all the pointers where ipv6 addresses could
-come from and find some globally defined struct where I would need to
-put the aligned(SIPHASH_ALIGNMENT) into to make this work on 32 bit
-code? Otherwise just the unaligned version is safe on 32 bit code.
-
-Who knows this? It isn't even obvious by looking at the header!
-
-I would be interested if the compiler can actually constant-fold the
-address of the stack allocation with an simple if () or some
-__builtin_constant_p fiddeling, so we don't have this constant review
-overhead to which function we pass which data. This would also make
-this whole discussion mood.
-
-Bye,
-Hannes
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 992ec5f..1f8300b 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -330,12 +330,58 @@ static struct sk_buff *page_to_skb(struct virtnet_info *vi,
+ 	return skb;
+ }
+ 
++static void virtnet_xdp_xmit(struct virtnet_info *vi,
++			     struct receive_queue *rq,
++			     struct send_queue *sq,
++			     struct xdp_buff *xdp)
++{
++	struct page *page = virt_to_head_page(xdp->data);
++	struct virtio_net_hdr_mrg_rxbuf *hdr;
++	unsigned int num_sg, len;
++	void *xdp_sent;
++	int err;
++
++	/* Free up any pending old buffers before queueing new ones. */
++	while ((xdp_sent = virtqueue_get_buf(sq->vq, &len)) != NULL) {
++		struct page *sent_page = virt_to_head_page(xdp_sent);
++
++		if (vi->mergeable_rx_bufs)
++			put_page(sent_page);
++		else
++			give_pages(rq, sent_page);
++	}
++
++	/* Zero header and leave csum up to XDP layers */
++	hdr = xdp->data;
++	memset(hdr, 0, vi->hdr_len);
++
++	num_sg = 1;
++	sg_init_one(sq->sg, xdp->data, xdp->data_end - xdp->data);
++	err = virtqueue_add_outbuf(sq->vq, sq->sg, num_sg,
++				   xdp->data, GFP_ATOMIC);
++	if (unlikely(err)) {
++		if (vi->mergeable_rx_bufs)
++			put_page(page);
++		else
++			give_pages(rq, page);
++		return; // On error abort to avoid unnecessary kick
++	} else if (!vi->mergeable_rx_bufs) {
++		/* If not mergeable bufs must be big packets so cleanup pages */
++		give_pages(rq, (struct page *)page->private);
++		page->private = 0;
++	}
++
++	virtqueue_kick(sq->vq);
++}
++
+ static u32 do_xdp_prog(struct virtnet_info *vi,
++		       struct receive_queue *rq,
+ 		       struct bpf_prog *xdp_prog,
+ 		       struct page *page, int offset, int len)
+ {
+ 	int hdr_padded_len;
+ 	struct xdp_buff xdp;
++	unsigned int qp;
+ 	u32 act;
+ 	u8 *buf;
+ 
+@@ -353,9 +399,15 @@ static u32 do_xdp_prog(struct virtnet_info *vi,
+ 	switch (act) {
+ 	case XDP_PASS:
+ 		return XDP_PASS;
++	case XDP_TX:
++		qp = vi->curr_queue_pairs -
++			vi->xdp_queue_pairs +
++			smp_processor_id();
++		xdp.data = buf + (vi->mergeable_rx_bufs ? 0 : 4);
++		virtnet_xdp_xmit(vi, rq, &vi->sq[qp], &xdp);
++		return XDP_TX;
+ 	default:
+ 		bpf_warn_invalid_xdp_action(act);
+-	case XDP_TX:
+ 	case XDP_ABORTED:
+ 	case XDP_DROP:
+ 		return XDP_DROP;
+@@ -390,9 +442,17 @@ static struct sk_buff *receive_big(struct net_device *dev,
+ 
+ 		if (unlikely(hdr->hdr.gso_type || hdr->hdr.flags))
+ 			goto err_xdp;
+-		act = do_xdp_prog(vi, xdp_prog, page, 0, len);
+-		if (act == XDP_DROP)
++		act = do_xdp_prog(vi, rq, xdp_prog, page, 0, len);
++		switch (act) {
++		case XDP_PASS:
++			break;
++		case XDP_TX:
++			rcu_read_unlock();
++			goto xdp_xmit;
++		case XDP_DROP:
++		default:
+ 			goto err_xdp;
++		}
+ 	}
+ 	rcu_read_unlock();
+ 
+@@ -407,6 +467,7 @@ static struct sk_buff *receive_big(struct net_device *dev,
+ err:
+ 	dev->stats.rx_dropped++;
+ 	give_pages(rq, page);
++xdp_xmit:
+ 	return NULL;
+ }
+ 
+@@ -425,6 +486,8 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
+ 	struct bpf_prog *xdp_prog;
+ 	unsigned int truesize;
+ 
++	head_skb = NULL;
++
+ 	rcu_read_lock();
+ 	xdp_prog = rcu_dereference(rq->xdp_prog);
+ 	if (xdp_prog) {
+@@ -448,9 +511,17 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
+ 		if (unlikely(hdr->hdr.gso_type || hdr->hdr.flags))
+ 			goto err_xdp;
+ 
+-		act = do_xdp_prog(vi, xdp_prog, page, offset, len);
+-		if (act == XDP_DROP)
++		act = do_xdp_prog(vi, rq, xdp_prog, page, offset, len);
++		switch (act) {
++		case XDP_PASS:
++			break;
++		case XDP_TX:
++			rcu_read_unlock();
++			goto xdp_xmit;
++		case XDP_DROP:
++		default:
+ 			goto err_xdp;
++		}
+ 	}
+ 	rcu_read_unlock();
+ 
+@@ -528,6 +599,7 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
+ err_buf:
+ 	dev->stats.rx_dropped++;
+ 	dev_kfree_skb(head_skb);
++xdp_xmit:
+ 	return NULL;
+ }
+ 
+@@ -1713,6 +1785,16 @@ static void free_receive_page_frags(struct virtnet_info *vi)
+ 			put_page(vi->rq[i].alloc_frag.page);
+ }
+ 
++static bool is_xdp_queue(struct virtnet_info *vi, int q)
++{
++	if (q < (vi->curr_queue_pairs - vi->xdp_queue_pairs))
++		return false;
++	else if (q < vi->curr_queue_pairs)
++		return true;
++	else
++		return false;
++}
++
+ static void free_unused_bufs(struct virtnet_info *vi)
+ {
+ 	void *buf;
+@@ -1720,8 +1802,12 @@ static void free_unused_bufs(struct virtnet_info *vi)
+ 
+ 	for (i = 0; i < vi->max_queue_pairs; i++) {
+ 		struct virtqueue *vq = vi->sq[i].vq;
+-		while ((buf = virtqueue_detach_unused_buf(vq)) != NULL)
+-			dev_kfree_skb(buf);
++		while ((buf = virtqueue_detach_unused_buf(vq)) != NULL) {
++			if (!is_xdp_queue(vi, i))
++				dev_kfree_skb(buf);
++			else
++				put_page(virt_to_head_page(buf));
++		}
+ 	}
+ 
+ 	for (i = 0; i < vi->max_queue_pairs; i++) {
