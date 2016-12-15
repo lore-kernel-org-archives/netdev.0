@@ -1,65 +1,60 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH 5/8] linux: drop __bitwise__ everywhere
-Date: Thu, 15 Dec 2016 03:51:46 -0800
-Message-ID: <20161215115146.GB22750@kroah.com>
-References: <1481778865-27667-1-git-send-email-mst@redhat.com>
- <1481778865-27667-6-git-send-email-mst@redhat.com>
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH 3/5] irnet: ppp: move IRNET_MINOR to
+ include/linux/miscdevice.h
+Date: Thu, 15 Dec 2016 03:54:06 -0800
+Message-ID: <20161215115406.GA22905@kroah.com>
+References: <20161215104250.16813-1-clabbe.montjoie@gmail.com>
+ <20161215104250.16813-3-clabbe.montjoie@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, Kukjin Kim <kgene@kernel.org>,
-	Krzysztof Kozlowski <krzk@kernel.org>,
-	Javier Martinez Canillas <javier@osg.samsung.com>,
-	Russell King <linux@armlinux.org.uk>,
-	Alasdair Kergon <agk@redhat.com>, Mike Snitzer <snitzer@redhat.com>,
-	dm-devel@redhat.com, Shaohua Li <shli@kernel.org>,
-	Johannes Berg <johannes.berg@intel.com>,
-	Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
-	Luca Coelho <luciano.coelho@intel.com>,
-	Intel Linux Wireless <linuxwifi@intel.com>,
-	Kalle Valo <kvalo@codeaurora.org>, Jiri Slaby <jslaby@suse.com>,
-	Lee Duncan <lduncan@suse.com>, Chris Leech <cleech@redhat.com>,
-	"James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
-	"Martin K. Petersen" <martin.petersen@oracle.com>,
-	"Nicholas A. Bellinger" <nab@linux-iscsi.org>,
-	Jason Wang <jasowang@redhat.com>,
-	Alexander Aring <aar@pengutronix.de>,
-	Stefan Schmidt <stefan@osg.samsung.com>,
-	"Davi
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <owner-linux-mm@kvack.org>
+Cc: arnd@arndb.de, samuel@sortiz.org, davem@davemloft.net,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Corentin Labbe <clabbe.montjoie@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.linuxfoundation.org ([140.211.169.12]:51638 "EHLO
+        mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757899AbcLOLx4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Dec 2016 06:53:56 -0500
 Content-Disposition: inline
-In-Reply-To: <1481778865-27667-6-git-send-email-mst@redhat.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20161215104250.16813-3-clabbe.montjoie@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 15, 2016 at 07:15:20AM +0200, Michael S. Tsirkin wrote:
-> __bitwise__ used to mean "yes, please enable sparse checks
-> unconditionally", but now that we dropped __CHECK_ENDIAN__
-> __bitwise is exactly the same.
-> There aren't many users, replace it by __bitwise everywhere.
+On Thu, Dec 15, 2016 at 11:42:48AM +0100, Corentin Labbe wrote:
+> This patch move the define for IRNET_MINOR to include/linux/miscdevice.h
+> It is better that all minor number definitions are in the same place.
 > 
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> Signed-off-by: Corentin Labbe <clabbe.montjoie@gmail.com>
 > ---
->  arch/arm/plat-samsung/include/plat/gpio-cfg.h    | 2 +-
->  drivers/md/dm-cache-block-types.h                | 6 +++---
->  drivers/net/ethernet/sun/sunhme.h                | 2 +-
->  drivers/net/wireless/intel/iwlwifi/iwl-fw-file.h | 4 ++--
->  include/linux/mmzone.h                           | 2 +-
->  include/linux/serial_core.h                      | 4 ++--
->  include/linux/types.h                            | 4 ++--
->  include/scsi/iscsi_proto.h                       | 2 +-
->  include/target/target_core_base.h                | 2 +-
->  include/uapi/linux/virtio_types.h                | 6 +++---
->  net/ieee802154/6lowpan/6lowpan_i.h               | 2 +-
->  net/mac80211/ieee80211_i.h                       | 4 ++--
->  12 files changed, 20 insertions(+), 20 deletions(-)
-
-for include/linux/serial_core.h:
+>  include/linux/miscdevice.h | 1 +
+>  net/irda/irnet/irnet_ppp.h | 1 -
+>  2 files changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/include/linux/miscdevice.h b/include/linux/miscdevice.h
+> index 18b2e3b..5ea0a65 100644
+> --- a/include/linux/miscdevice.h
+> +++ b/include/linux/miscdevice.h
+> @@ -37,6 +37,7 @@
+>  #define HWRNG_MINOR		183
+>  #define MICROCODE_MINOR		184
+>  #define KEYPAD_MINOR		185
+> +#define IRNET_MINOR		187
+>  #define D7S_MINOR		193
+>  #define VFIO_MINOR		196
+>  #define TUN_MINOR		200
+> diff --git a/net/irda/irnet/irnet_ppp.h b/net/irda/irnet/irnet_ppp.h
+> index 693ebc0..18fcead 100644
+> --- a/net/irda/irnet/irnet_ppp.h
+> +++ b/net/irda/irnet/irnet_ppp.h
+> @@ -21,7 +21,6 @@
+>  
+>  /* /dev/irnet file constants */
+>  #define IRNET_MAJOR	10	/* Misc range */
+> -#define IRNET_MINOR	187	/* Official allocation */
+>  
+>  /* IrNET control channel stuff */
+>  #define IRNET_MAX_COMMAND	256	/* Max length of a command line */
+> -- 
+> 2.10.2
 
 Acked-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
