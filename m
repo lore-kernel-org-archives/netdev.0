@@ -1,74 +1,76 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 v2 1/3] ifstat: Add extended statistics to
- ifstat
-Date: Thu, 15 Dec 2016 09:33:27 -0800
-Message-ID: <20161215093327.2daf60c6@xeon-e3>
-References: <1481806845-63384-1-git-send-email-nogahf@mellanox.com>
-        <1481806845-63384-2-git-send-email-nogahf@mellanox.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next 1/3] net:dsa:mv88e6xxx: use hashtable to store
+ multicast entries
+Date: Thu, 15 Dec 2016 09:32:45 -0800
+Message-ID: <be3b69b7-b6a3-a939-cf77-c62e5a1fe719@gmail.com>
+References: <1481549958-1265-1-git-send-email-volodymyr.bendiuga@gmail.com>
+ <87r35db35m.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+ <CAMr9Lbp5eCg1oyWGN+uiDEcF0VZuKUi87FH6JYTGj6pL82R+Mw@mail.gmail.com>
+ <48ff1136-dd8f-7704-a512-c23b27989bf8@gmail.com>
+ <20161212190915.GA8885@lunn.ch>
+ <CAMr9LbqyvrRYe_m34Ufzxkf2Vef3LbMQiuoiwVX0mK=hW6euyA@mail.gmail.com>
+ <20161213150948.GD20323@lunn.ch>
+ <CABHmqqB-6-L124hrAjNxd4kO3zYp9R=RM1X6PXyuQW6Hapiv4g@mail.gmail.com>
+ <20161214104614.GD27370@lunn.ch>
+ <CABHmqqDpiN2kwkTgrM8Qu8EEx3Sjk2yVBy8QQAJppGfJ6-MV5Q@mail.gmail.com>
+ <87eg19hzw1.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
-        jiri@mellanox.com, eladr@mellanox.com, yotamg@mellanox.com,
-        idosch@mellanox.com, ogerlitz@mellanox.com
-To: Nogah Frankel <nogahf@mellanox.com>
+Cc: Volodymyr Bendiuga <valdr.linuxnext@gmail.com>,
+        netdev@vger.kernel.org,
+        Volodymyr Bendiuga <volodymyr.bendiuga@westermo.se>,
+        John Crispin <john@phrozen.org>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Volodymyr Bendiuga <volodymyr.bendiuga@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f47.google.com ([74.125.83.47]:33343 "EHLO
-        mail-pg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751845AbcLORdf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Dec 2016 12:33:35 -0500
-Received: by mail-pg0-f47.google.com with SMTP id 3so22136259pgd.0
-        for <netdev@vger.kernel.org>; Thu, 15 Dec 2016 09:33:35 -0800 (PST)
-In-Reply-To: <1481806845-63384-2-git-send-email-nogahf@mellanox.com>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:33073 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753972AbcLORdR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Dec 2016 12:33:17 -0500
+Received: by mail-pf0-f193.google.com with SMTP id 144so3175955pfv.0
+        for <netdev@vger.kernel.org>; Thu, 15 Dec 2016 09:32:48 -0800 (PST)
+In-Reply-To: <87eg19hzw1.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 15 Dec 2016 15:00:43 +0200
-Nogah Frankel <nogahf@mellanox.com> wrote:
-
-> Extended stats are part of the RTM_GETSTATS method. This patch adds them
-> to ifstat.
-> While extended stats can come in many forms, we support only the
-> rtnl_link_stats64 struct for them (which is the 64 bits version of struct
-> rtnl_link_stats).
-> We support stats in the main nesting level, or one lower.
-> The extension can be called by its name or any shorten of it. If there is
-> more than one matched, the first one will be picked.
+On 12/15/2016 09:21 AM, Vivien Didelot wrote:
+> Hi Volodymyr,
 > 
-> To get the extended stats the flag -x <stats type> is used.
+> Volodymyr Bendiuga <volodymyr.bendiuga@gmail.com> writes:
 > 
-> Signed-off-by: Nogah Frankel <nogahf@mellanox.com>
-> Reviewed-by: Jiri Pirko <jiri@mellanox.com>
-> ---
->  misc/ifstat.c | 161 ++++++++++++++++++++++++++++++++++++++++++++++++++++------
->  1 file changed, 146 insertions(+), 15 deletions(-)
+>> Hi Andrew,
+>>
+>> I have tested the approach you wrote in previous mails, the one
+>> with setting next.mac to address we are looking for -1. It seems
+>> to be as slow as the original implementation, unfortunately.
 > 
-> diff --git a/misc/ifstat.c b/misc/ifstat.c
-> index 92d67b0..d17ae21 100644
-> --- a/misc/ifstat.c
-> +++ b/misc/ifstat.c
-> @@ -35,6 +35,7 @@
->  
->  #include <SNAPSHOT.h>
->  
-> +#include "utils.h"
->  int dump_zeros;
->  int reset_history;
->  int ignore_history;
+> Hum, that is what I was expecting... The ATU GetNext operation
+> (alongside an ether_addr_equal() call) should be quite fast.
+> 
+>> We use 6097 and 6352 chips, and both of them can not do any port
+>> filtering in hardware for fdb dump operation. Seems like they would
+>> benefit from cache. But I am not sure about other switches.
+>>
+>> Does anyone know about such feature in other switches?
+> 
+> Marvell switches cannot filter ATU entries for a specific port, they
+> contain a port vector.
+> 
+> I guess Florian might answer for Broadcom switches, and John might
+> answer for Qualcomm switches.
 
-Minor nit, please cleanup include order here (original code was wrong).
+For Broadcom switches, we use the ARL search and then apply software
+filtering to discard entries that are not for the target port bridge fdb
+show was called with.
 
-Standard practice is:
- #include system headers (like stdio.h etc)
- #include "xxx.h" local headers.
+> 
+> In all cases *if caching is really needed*, I think it won't hurt to do
+> it in DSA core even if a switch support FDB dump operations on a
+> per-port basis, as Andrew mentioned.
 
-Should be:
-#include <getopt.h>
-
-#include <linux/if.h>
-#include <linux/if_link.h>
-
-#include "json_writer.h"
-#include "libnetlink.h"
-#include "utils.h"
-#include "SNAPSHOT.h"
+Agreed, and there does not appear to be any need to new dsa_switch_ops
+operations to be introduced?
+-- 
+Florian
