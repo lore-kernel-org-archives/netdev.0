@@ -1,37 +1,29 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [RFC PATCH net-next] virtio_net: Support UDP Tunnel offloads.
-Date: Thu, 15 Dec 2016 09:07:54 +0200
-Message-ID: <CAJ3xEMh79catGjC4p7EsCqix_fmUgbcDtaz-1OUnR2xFpNq99g@mail.gmail.com>
-References: <1479423717-2339-1-git-send-email-jarno@ovn.org>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: sanity checking iov_iter patches
+Date: Thu, 15 Dec 2016 06:23:05 +0000
+Message-ID: <20161215062305.GR1555@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-        james.zhangming@huawei.com,
-        "Michael S. Tsirkin <mst@redhat.com> (mst@redhat.com)"
-        <mst@redhat.com>, Vladislav Yasevich <vyasevic@redhat.com>,
-        ailan@redhat.com
-To: Jarno Rajahalme <jarno@ovn.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f65.google.com ([209.85.213.65]:34436 "EHLO
-        mail-vk0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754684AbcLOHJS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Dec 2016 02:09:18 -0500
-Received: by mail-vk0-f65.google.com with SMTP id p9so7056395vkd.1
-        for <netdev@vger.kernel.org>; Wed, 14 Dec 2016 23:07:55 -0800 (PST)
-In-Reply-To: <1479423717-2339-1-git-send-email-jarno@ovn.org>
+Received: from zeniv.linux.org.uk ([195.92.253.2]:51632 "EHLO
+        ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757413AbcLOHJj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Dec 2016 02:09:39 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Nov 18, 2016 at 1:01 AM, Jarno Rajahalme <jarno@ovn.org> wrote:
-> This patch is a proof-of-concept I did a few months ago for UDP tunnel
-> offload support in virtio_net interface [..]
+	Some of the vfs.git#work.iov_iter stuff touches net/*; basically,
+there are several missing primitives (copy_from_iter_full(), etc.) for
+"try to copy, tell whether it has copied the full amount requested and
+advance the iterator only in case of success".  Most of the callers were
+actually doing just that (see e.g. skb_add_data() and friends) and while
+nothing in the current kernel cares whether we advance ->msg_iter on
+failure, it's much more consistent semantics.
 
-What's the use case you were considering for a guest running a UDP based VTEP?
-
-> Real implementation needs to extend the virtio_net header rather than
-> piggy-backing on existing fields.  Inner MAC length (or inner network
-> offset) also needs to be passed as a new field.  Control plane (QEMU)
-> also needs to be updated.
->
-> All testing was done using Geneve, but this should work for all UDP
-> tunnels the same.
+	If anybody has objections to that stuff (in linux-next, or in
+git://git.kernel.org/pub/scm/linux/kernel/git/viro/vfs.git#work.iov_iter),
+or thinks that some of that should go via net-next.git, yell and I'll
+drop the bits in question.  If not, to Linus it all goes...
