@@ -1,65 +1,41 @@
 From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [PATCH net 2/2] net/sched: cls_flower: Use masked key when
- calling HW offloads
-Date: Thu, 15 Dec 2016 14:50:44 +0100
-Message-ID: <20161215135043.GA7104@penelope.horms.nl>
-References: <1481734858-37474-1-git-send-email-paulb@mellanox.com>
- <1481734858-37474-3-git-send-email-paulb@mellanox.com>
+Subject: Re: [PATCH iproute2 2/2] tc/m_tunnel_key: Add dest UDP port to
+ tunnel key action
+Date: Thu, 15 Dec 2016 14:53:13 +0100
+Message-ID: <20161215135312.GB7104@penelope.horms.nl>
+References: <1481616467-769-1-git-send-email-hadarh@mellanox.com>
+ <1481616467-769-3-git-send-email-hadarh@mellanox.com>
+ <20161215130335.GA30716@penelope.horms.nl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Jiri Pirko <jiri@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Roi Dayan <roid@mellanox.com>,
-        Shahar Klein <shahark@mellanox.com>,
-        Hadar Hen Zion <hadarh@mellanox.com>
-To: Paul Blakey <paulb@mellanox.com>
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+        netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
+        Roi Dayan <roid@mellanox.com>, Amir Vadai <amirva@mellanox.com>
+To: Hadar Hen Zion <hadarh@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f51.google.com ([74.125.82.51]:38312 "EHLO
-        mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752273AbcLONur (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Dec 2016 08:50:47 -0500
-Received: by mail-wm0-f51.google.com with SMTP id f82so46766568wmf.1
-        for <netdev@vger.kernel.org>; Thu, 15 Dec 2016 05:50:46 -0800 (PST)
+Received: from mail-wj0-f175.google.com ([209.85.210.175]:35657 "EHLO
+        mail-wj0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755007AbcLONxz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Dec 2016 08:53:55 -0500
+Received: by mail-wj0-f175.google.com with SMTP id v7so66072830wjy.2
+        for <netdev@vger.kernel.org>; Thu, 15 Dec 2016 05:53:15 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <1481734858-37474-3-git-send-email-paulb@mellanox.com>
+In-Reply-To: <20161215130335.GA30716@penelope.horms.nl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Paul,
-
-On Wed, Dec 14, 2016 at 07:00:58PM +0200, Paul Blakey wrote:
-> Zero bits on the mask signify a "don't care" on the corresponding bits
-> in key. Some HWs require those bits on the key to be zero. Since these
-> bits are masked anyway, it's okay to provide the masked key to all
-> drivers.
+On Thu, Dec 15, 2016 at 02:03:36PM +0100, Simon Horman wrote:
+> On Tue, Dec 13, 2016 at 10:07:47AM +0200, Hadar Hen Zion wrote:
+> > Enhance tunnel key action parameters by adding destination UDP port.
+> > 
+> > Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
+> > Reviewed-by: Roi Dayan <roid@mellanox.com>
 > 
-> Fixes: 5b33f48842fa ('net/flower: Introduce hardware offload support')
-> Signed-off-by: Paul Blakey <paulb@mellanox.com>
-> Reviewed-by: Roi Dayan <roid@mellanox.com>
-> Acked-by: Jiri Pirko <jiri@mellanox.com>
-
-While I don't have a specific use case in mind that this change would break
-it seems to me that it would be better to handle hardware requirements
-at the driver level.
-
-> ---
->  net/sched/cls_flower.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+> Hi,
 > 
-> diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
-> index 9758f5a..35ac28d 100644
-> --- a/net/sched/cls_flower.c
-> +++ b/net/sched/cls_flower.c
-> @@ -252,7 +252,7 @@ static int fl_hw_replace_filter(struct tcf_proto *tp,
->  	offload.cookie = (unsigned long)f;
->  	offload.dissector = dissector;
->  	offload.mask = mask;
-> -	offload.key = &f->key;
-> +	offload.key = &f->mkey;
->  	offload.exts = &f->exts;
->  
->  	tc->type = TC_SETUP_CLSFLOWER;
-> -- 
-> 1.8.3.1
-> 
+> this looks good to me but could you also update tc/m_tunnel_key.c:usage(); ?
+
+It seems that I was a bit hasty here as I now see that Stephen has
+indicated that he has applied this series. I also notice that
+patch 1/2 of this series also misses updating usage(). Let me know
+if sending some follow-up patches is the best way forwards.
