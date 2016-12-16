@@ -1,70 +1,75 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v5 3/4] secure_seq: use SipHash in place of MD5
-Date: Fri, 16 Dec 2016 09:59:32 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB0240E66@AcuExch.aculab.com>
-References: <20161215203003.31989-1-Jason@zx2c4.com>
- <20161215203003.31989-4-Jason@zx2c4.com>
-Reply-To: kernel-hardening@lists.openwall.com
+From: John Crispin <john@phrozen.org>
+Subject: Re: [PATCH net-next 1/3] net:dsa:mv88e6xxx: use hashtable to store
+ multicast entries
+Date: Fri, 16 Dec 2016 10:31:06 +0100
+Message-ID: <ca8f4dd8-e039-a78a-88ae-818b5a9df303@phrozen.org>
+References: <1481549958-1265-1-git-send-email-volodymyr.bendiuga@gmail.com>
+ <87r35db35m.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+ <CAMr9Lbp5eCg1oyWGN+uiDEcF0VZuKUi87FH6JYTGj6pL82R+Mw@mail.gmail.com>
+ <48ff1136-dd8f-7704-a512-c23b27989bf8@gmail.com>
+ <20161212190915.GA8885@lunn.ch>
+ <CAMr9LbqyvrRYe_m34Ufzxkf2Vef3LbMQiuoiwVX0mK=hW6euyA@mail.gmail.com>
+ <20161213150948.GD20323@lunn.ch>
+ <CABHmqqB-6-L124hrAjNxd4kO3zYp9R=RM1X6PXyuQW6Hapiv4g@mail.gmail.com>
+ <20161214104614.GD27370@lunn.ch>
+ <CABHmqqDpiN2kwkTgrM8Qu8EEx3Sjk2yVBy8QQAJppGfJ6-MV5Q@mail.gmail.com>
+ <87eg19hzw1.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+ <be3b69b7-b6a3-a939-cf77-c62e5a1fe719@gmail.com>
+ <87bmwdcc96.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+ <CABHmqqCOYMPA-Py7Uu4gsQ=s8CrQd-tT4-Db+j8eJH9=2s4L2g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: quoted-printable
-To: "'Jason A. Donenfeld'" <Jason@zx2c4.com>, Netdev <netdev@vger.kernel.org>,
-	"kernel-hardening@lists.openwall.com" <kernel-hardening@lists.openwall.com>,
-	LKML <linux-kernel@vger.kernel.org>, "linux-crypto@vger.kernel.org"
-	<linux-crypto@vger.kernel.org>, Ted Tso <tytso@mit.edu>, Hannes Frederic Sowa
-	<hannes@stressinduktion.org>, Linus Torvalds <torvalds@linux-foundation.org>,
-	Eric Biggers <ebiggers3@gmail.com>, Tom Herbert <tom@herbertland.com>,
-	"George Spelvin" <linux@sciencehorizons.net>, Vegard Nossum
-	<vegard.nossum@gmail.com>, "ak@linux.intel.com" <ak@linux.intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>, "luto@amacapital.net"
-	<luto@amacapital.net>
-Return-path: <kernel-hardening-return-5629-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <20161215203003.31989-4-Jason@zx2c4.com>
-Content-Language: en-US
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Volodymyr Bendiuga <valdr.linuxnext@gmail.com>,
+        netdev@vger.kernel.org,
+        Volodymyr Bendiuga <volodymyr.bendiuga@westermo.se>
+To: Volodymyr Bendiuga <volodymyr.bendiuga@gmail.com>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nbd.name ([46.4.11.11]:38024 "EHLO nbd.name"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753495AbcLPKCu (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 16 Dec 2016 05:02:50 -0500
+In-Reply-To: <CABHmqqCOYMPA-Py7Uu4gsQ=s8CrQd-tT4-Db+j8eJH9=2s4L2g@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jason A. Donenfeld
-> Sent: 15 December 2016 20:30
-> This gives a clear speed and security improvement. Siphash is both
-> faster and is more solid crypto than the aging MD5.
->=20
-> Rather than manually filling MD5 buffers, for IPv6, we simply create
-> a layout by a simple anonymous struct, for which gcc generates
-> rather efficient code. For IPv4, we pass the values directly to the
-> short input convenience functions.
-...
-> diff --git a/net/core/secure_seq.c b/net/core/secure_seq.c
-> index 88a8e429fc3e..c80583bf3213 100644
-...
-> +	const struct {
-> +		struct in6_addr saddr;
-> +		struct in6_addr daddr;
-> +		__be16 sport;
-> +		__be16 dport;
-> +		u32 padding;
-> +	} __aligned(SIPHASH_ALIGNMENT) combined =3D {
-> +		.saddr =3D *(struct in6_addr *)saddr,
-> +		.daddr =3D *(struct in6_addr *)daddr,
-> +		.sport =3D sport,
-> +		.dport =3D dport
-> +	};
 
-I think you should explicitly initialise the 'padding'.
-It can do no harm and makes it obvious that it is necessary.
 
-You are still putting over-aligned data on stack.
-You only need to align it to the alignment of u64 (not the size of u64).
-If an on-stack item has a stronger alignment requirement than the stack
-the gcc has to generate two stack frames for the function.
+On 16/12/2016 10:24, Volodymyr Bendiuga wrote:
+> Hi all,
+> 
+> Does this mean we all agree on implementing caching
+> mechanism in net/dsa layer? If yes, then I can start
+> working on it immediately.
+> 
+> Regards,
+> Volodymyr
 
-If you assign to each field (instead of using initialisers) then you
-can get the alignment by making the first member an anonymous union
-of in6_addr and u64.
+i think that the brcm approach is better as at least on QCA you can also
+read auto learned values from the table which would get broken by a
+caching mechanism. filtering inside the dump function or the code
+calling the dump function seams a lot simpler and lightweight to me.
 
-Oh - and wait a bit longer between revisions.
+	John
 
-	David
+> 
+> On Thu, Dec 15, 2016 at 6:50 PM, Vivien Didelot
+> <vivien.didelot@savoirfairelinux.com
+> <mailto:vivien.didelot@savoirfairelinux.com>> wrote:
+> 
+>     Florian Fainelli <f.fainelli@gmail.com
+>     <mailto:f.fainelli@gmail.com>> writes:
+> 
+>     >> In all cases *if caching is really needed*, I think it won't hurt to do
+>     >> it in DSA core even if a switch support FDB dump operations on a
+>     >> per-port basis, as Andrew mentioned.
+>     >
+>     > Agreed, and there does not appear to be any need to new dsa_switch_ops
+>     > operations to be introduced?
+> 
+>     Nope.
+> 
+> 
