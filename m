@@ -1,122 +1,29 @@
-From: Joe Stringer <joe@ovn.org>
-Subject: [PATCHv5 perf/core 3/5] tools lib bpf: Add bpf_prog_{attach,detach}
-Date: Fri, 16 Dec 2016 10:32:57 -0800
-Message-ID: <20161216183259.14840-4-joe@ovn.org>
-References: <20161216183259.14840-1-joe@ovn.org>
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        wangnan0@huawei.com, ast@fb.com, daniel@iogearbox.net
-To: acme@redhat.com
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 1/1] tools: net: bpf_dbg.c fixed keyboard typo
+Date: Fri, 16 Dec 2016 10:35:21 -0800
+Message-ID: <1481913321.29291.89.camel@perches.com>
+References: <5194151481912505@web1g.yandex.ru>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel <linux-kernel@vger.kernel.org>,
+        netdev <netdev@vger.kernel.org>
+To: Ozgur Karatas <okaratas@member.fsf.org>,
+        David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay4-d.mail.gandi.net ([217.70.183.196]:37173 "EHLO
-        relay4-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1758568AbcLPSdR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2016 13:33:17 -0500
-In-Reply-To: <20161216183259.14840-1-joe@ovn.org>
+Received: from smtprelay0180.hostedemail.com ([216.40.44.180]:47872 "EHLO
+        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1756171AbcLPSf0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2016 13:35:26 -0500
+In-Reply-To: <5194151481912505@web1g.yandex.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit d8c5b17f2bc0 ("samples: bpf: add userspace example for attaching
-eBPF programs to cgroups") added these functions to samples/libbpf, but
-during this merge all of the samples libbpf functionality is shifting to
-tools/lib/bpf. Shift these functions there.
+On Fri, 2016-12-16 at 20:21 +0200, Ozgur Karatas wrote:
+> This patch fixed to keyboard typo, brackets not closed. 
+> I think, it should be close to parenthes.
 
-Signed-off-by: Joe Stringer <joe@ovn.org>
----
-v5: No change.
----
- samples/bpf/libbpf.c | 21 ---------------------
- samples/bpf/libbpf.h |  3 ---
- tools/lib/bpf/bpf.c  | 21 +++++++++++++++++++++
- tools/lib/bpf/bpf.h  |  3 +++
- 4 files changed, 24 insertions(+), 24 deletions(-)
+No.
 
-diff --git a/samples/bpf/libbpf.c b/samples/bpf/libbpf.c
-index 3391225ad7e9..d9af876b4a2c 100644
---- a/samples/bpf/libbpf.c
-+++ b/samples/bpf/libbpf.c
-@@ -11,27 +11,6 @@
- #include <arpa/inet.h>
- #include "libbpf.h"
- 
--int bpf_prog_attach(int prog_fd, int target_fd, enum bpf_attach_type type)
--{
--	union bpf_attr attr = {
--		.target_fd = target_fd,
--		.attach_bpf_fd = prog_fd,
--		.attach_type = type,
--	};
--
--	return syscall(__NR_bpf, BPF_PROG_ATTACH, &attr, sizeof(attr));
--}
--
--int bpf_prog_detach(int target_fd, enum bpf_attach_type type)
--{
--	union bpf_attr attr = {
--		.target_fd = target_fd,
--		.attach_type = type,
--	};
--
--	return syscall(__NR_bpf, BPF_PROG_DETACH, &attr, sizeof(attr));
--}
--
- int open_raw_sock(const char *name)
- {
- 	struct sockaddr_ll sll;
-diff --git a/samples/bpf/libbpf.h b/samples/bpf/libbpf.h
-index cf7d2386d1f9..cc815624aacf 100644
---- a/samples/bpf/libbpf.h
-+++ b/samples/bpf/libbpf.h
-@@ -6,9 +6,6 @@
- 
- struct bpf_insn;
- 
--int bpf_prog_attach(int prog_fd, int attachable_fd, enum bpf_attach_type type);
--int bpf_prog_detach(int attachable_fd, enum bpf_attach_type type);
--
- /* ALU ops on registers, bpf_add|sub|...: dst_reg += src_reg */
- 
- #define BPF_ALU64_REG(OP, DST, SRC)				\
-diff --git a/tools/lib/bpf/bpf.c b/tools/lib/bpf/bpf.c
-index d0afb26c2e0f..e19335df0d3a 100644
---- a/tools/lib/bpf/bpf.c
-+++ b/tools/lib/bpf/bpf.c
-@@ -167,3 +167,24 @@ int bpf_obj_get(const char *pathname)
- 
- 	return sys_bpf(BPF_OBJ_GET, &attr, sizeof(attr));
- }
-+
-+int bpf_prog_attach(int prog_fd, int target_fd, enum bpf_attach_type type)
-+{
-+	union bpf_attr attr = {
-+		.target_fd = target_fd,
-+		.attach_bpf_fd = prog_fd,
-+		.attach_type = type,
-+	};
-+
-+	return sys_bpf(BPF_PROG_ATTACH, &attr, sizeof(attr));
-+}
-+
-+int bpf_prog_detach(int target_fd, enum bpf_attach_type type)
-+{
-+	union bpf_attr attr = {
-+		.target_fd = target_fd,
-+		.attach_type = type,
-+	};
-+
-+	return sys_bpf(BPF_PROG_DETACH, &attr, sizeof(attr));
-+}
-diff --git a/tools/lib/bpf/bpf.h b/tools/lib/bpf/bpf.h
-index 7fcdce16fd62..a2f9853dd882 100644
---- a/tools/lib/bpf/bpf.h
-+++ b/tools/lib/bpf/bpf.h
-@@ -41,5 +41,8 @@ int bpf_map_delete_elem(int fd, void *key);
- int bpf_map_get_next_key(int fd, void *key, void *next_key);
- int bpf_obj_pin(int fd, const char *pathname);
- int bpf_obj_get(const char *pathname);
-+int bpf_prog_attach(int prog_fd, int attachable_fd, enum bpf_attach_type type);
-+int bpf_prog_detach(int attachable_fd, enum bpf_attach_type type);
-+
- 
- #endif
--- 
-2.10.2
+Please compile and test your patches on your own system
+before you send them.
