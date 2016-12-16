@@ -1,59 +1,50 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: pull-request: mac80211 2016-12-16
-Date: Fri, 16 Dec 2016 13:39:56 +0100
-Message-ID: <20161216123957.16744-1-johannes@sipsolutions.net>
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: Re: [PATCH v5 1/4] siphash: add cryptographically secure PRF
+Date: Fri, 16 Dec 2016 13:39:46 +0100
+Message-ID: <CAHmME9pjoAsoct1sVDpFFuqaqutv9X7DGJ5OBQXRAS57KFimUA@mail.gmail.com>
+References: <CAGiyFdfmiCMyHvAg=5sGh8KjBBrF0Wb4Qf=JLzJqUAx4yFSS3Q@mail.gmail.com>
+ <20161216034618.28276.qmail@ns.sciencehorizons.net> <CAGiyFdd6_LVzUUfFcaqMyub1c2WPvWUzAQDCH+Aza-_t6mvmXg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: George Spelvin <linux@sciencehorizons.net>,
+        Andi Kleen <ak@linux.intel.com>,
+        David Miller <davem@davemloft.net>,
+        David Laight <David.Laight@aculab.com>,
+        Eric Biggers <ebiggers3@gmail.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        kernel-hardening@lists.openwall.com,
+        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Andy Lutomirski <luto@amacapital.net>,
+        Netdev <netdev@vger.kernel.org>,
+        Tom Herbert <tom@herbertland.com>,
+        Linus Torvalds <torvalds@linux-foundation.org>,
+        "Theodore Ts'o" <tytso@mit.edu>, vegard.nossum@gmail.com,
+        "Daniel J . Bernstein" <djb@cr.yp.to>
+To: Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:57308 "EHLO sipsolutions.net"
+Received: from frisell.zx2c4.com ([192.95.5.64]:33266 "EHLO frisell.zx2c4.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1757615AbcLPMkB (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 16 Dec 2016 07:40:01 -0500
+        id S1756867AbcLPMov (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 16 Dec 2016 07:44:51 -0500
+In-Reply-To: <CAGiyFdd6_LVzUUfFcaqMyub1c2WPvWUzAQDCH+Aza-_t6mvmXg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+Hey JP,
 
-Since you seem to be updating net, I thought I'd send you a few fixes.
-These aren't really all that important though, so if you want to let
-them wait for a bit I can live with that.
+On Fri, Dec 16, 2016 at 9:08 AM, Jean-Philippe Aumasson
+<jeanphilippe.aumasson@gmail.com> wrote:
+> Here's a tentative HalfSipHash:
+> https://github.com/veorq/SipHash/blob/halfsiphash/halfsiphash.c
+>
+> Haven't computed the cycle count nor measured its speed.
 
-Please pull and let me know if there's any problem.
+This is incredible. Really. Wow!
 
-Thanks,
-johannes
+I'll integrate this into my patchset and will write up some
+documentation about when one should be used over the other.
 
+Thanks again. Quite exciting.
 
-
-The following changes since commit 8fa3b6f9392bf6d90cb7b908e07bd90166639f0a:
-
-  Merge tag 'cris-for-4.10' of git://git.kernel.org/pub/scm/linux/kernel/git/jesper/cris (2016-12-12 09:06:38 -0800)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211.git tags/mac80211-for-davem-2016-12-16
-
-for you to fetch changes up to a17d93ff3a950fefaea40e4a4bf3669b9137c533:
-
-  mac80211: fix legacy and invalid rx-rate report (2016-12-15 10:54:48 +0100)
-
-----------------------------------------------------------------
-Three fixes:
- * avoid a WARN_ON() when trying to use WEP with AP_VLANs
- * ensure enough headroom on mesh forwarding packets
- * don't report unknown/invalid rates to userspace
-
-----------------------------------------------------------------
-Ben Greear (1):
-      mac80211: fix legacy and invalid rx-rate report
-
-Cedric Izoard (1):
-      mac80211: Ensure enough headroom when forwarding mesh pkt
-
-Johannes Berg (1):
-      mac80211: don't call drv_set_default_unicast_key() for VLANs
-
- net/mac80211/key.c      |  3 ++-
- net/mac80211/rx.c       |  2 +-
- net/mac80211/sta_info.c | 14 ++++++++------
- 3 files changed, 11 insertions(+), 8 deletions(-)
+Jason
