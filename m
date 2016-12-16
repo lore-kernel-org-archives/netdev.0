@@ -1,115 +1,52 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: Soft lockup in inet_put_port on 4.6
-Date: Fri, 16 Dec 2016 01:07:41 +0100
-Message-ID: <aca378b5-aae4-49cf-0542-d1167a5768b8@stressinduktion.org>
-References: <CALx6S36OVUqAxq9vNnfHp2eJOuG+gSSg896zzaZoc3Og4tyxFw@mail.gmail.com>
- <1481231024.1911284.813071977.72AF4DEE@webmail.messagingengine.com>
- <1481233016.11849.1@smtp.office365.com>
- <1481243432.4930.145.camel@edumazet-glaptop3.roam.corp.google.com>
- <6C6EE0ED-7E78-4866-8AAF-D75FD4719EF3@fb.com>
- <1481335192.3663.0@smtp.office365.com>
- <1481341624.4930.204.camel@edumazet-glaptop3.roam.corp.google.com>
- <1481343298.4930.208.camel@edumazet-glaptop3.roam.corp.google.com>
- <1481565929.24490.0@smtp.office365.com>
- <3c022731-e703-34ac-55f1-60f5b94b6d62@stressinduktion.org>
- <1481581466.24490.2@smtp.office365.com>
- <CALx6S34S82kFVqYW1M0ZuHx_Mxut4QaLFVerLX4aEsksrFirXg@mail.gmail.com>
- <CAEfhGiyFW1YHmmUYpFv+q4J4r=wSv3ZBZowG69BqkT3p-G4gNw@mail.gmail.com>
- <CALx6S369T_hvoTgyHbmeSiR2p3d68h+0tMKqMmcGYLrKiN3JMA@mail.gmail.com>
- <1481828016.24490.5@smtp.office365.com>
+From: Mark Greer <mgreer-luAo+O/VEmrlveNOaEYElw@public.gmane.org>
+Subject: Re: [PATCH 1/3] NFC: trf7970a: add device tree option for 27MHz clock
+Date: Thu, 15 Dec 2016 18:06:13 -0700
+Message-ID: <20161216010613.GA25227@animalcreek.com>
+References: <1481841044-4314-1-git-send-email-glansberry@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Craig Gallek <kraigatgoog@gmail.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Josef Bacik <jbacik@fb.com>, Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3-smtp.messagingengine.com ([66.111.4.27]:45647 "EHLO
-        out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1757283AbcLPAHx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Dec 2016 19:07:53 -0500
-In-Reply-To: <1481828016.24490.5@smtp.office365.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, lauro.venancio-430g2QfJUUCGglJvpFV4uA@public.gmane.org,
+        aloisio.almeida-430g2QfJUUCGglJvpFV4uA@public.gmane.org, sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org,
+        robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        justin-R+k406RtEhcAvxtiuMwx3w@public.gmane.org
+To: Geoff Lansberry <geoff-R+k406RtEhcAvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1481841044-4314-1-git-send-email-glansberry-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Josef,
+Hi Geoff.
 
-On 15.12.2016 19:53, Josef Bacik wrote:
-> On Tue, Dec 13, 2016 at 6:32 PM, Tom Herbert <tom@herbertland.com> wrote:
->> On Tue, Dec 13, 2016 at 3:03 PM, Craig Gallek <kraigatgoog@gmail.com>
->> wrote:
->>>  On Tue, Dec 13, 2016 at 3:51 PM, Tom Herbert <tom@herbertland.com>
->>> wrote:
->>>>  I think there may be some suspicious code in inet_csk_get_port. At
->>>>  tb_found there is:
->>>>
->>>>                  if (((tb->fastreuse > 0 && reuse) ||
->>>>                       (tb->fastreuseport > 0 &&
->>>>                        !rcu_access_pointer(sk->sk_reuseport_cb) &&
->>>>                        sk->sk_reuseport && uid_eq(tb->fastuid,
->>>> uid))) &&
->>>>                      smallest_size == -1)
->>>>                          goto success;
->>>>                  if (inet_csk(sk)->icsk_af_ops->bind_conflict(sk,
->>>> tb, true)) {
->>>>                          if ((reuse ||
->>>>                               (tb->fastreuseport > 0 &&
->>>>                                sk->sk_reuseport &&
->>>>                               
->>>> !rcu_access_pointer(sk->sk_reuseport_cb) &&
->>>>                                uid_eq(tb->fastuid, uid))) &&
->>>>                              smallest_size != -1 && --attempts >= 0) {
->>>>                                  spin_unlock_bh(&head->lock);
->>>>                                  goto again;
->>>>                          }
->>>>                          goto fail_unlock;
->>>>                  }
->>>>
->>>>  AFAICT there is redundancy in these two conditionals.  The same clause
->>>>  is being checked in both: (tb->fastreuseport > 0 &&
->>>>  !rcu_access_pointer(sk->sk_reuseport_cb) && sk->sk_reuseport &&
->>>>  uid_eq(tb->fastuid, uid))) && smallest_size == -1. If this is true the
->>>>  first conditional should be hit, goto done,  and the second will never
->>>>  evaluate that part to true-- unless the sk is changed (do we need
->>>>  READ_ONCE for sk->sk_reuseport_cb?).
->>>  That's an interesting point... It looks like this function also
->>>  changed in 4.6 from using a single local_bh_disable() at the beginning
->>>  with several spin_lock(&head->lock) to exclusively
->>>  spin_lock_bh(&head->lock) at each locking point.  Perhaps the full bh
->>>  disable variant was preventing the timers in your stack trace from
->>>  running interleaved with this function before?
->>
->> Could be, although dropping the lock shouldn't be able to affect the
->> search state. TBH, I'm a little lost in reading function, the
->> SO_REUSEPORT handling is pretty complicated. For instance,
->> rcu_access_pointer(sk->sk_reuseport_cb) is checked three times in that
->> function and also in every call to inet_csk_bind_conflict. I wonder if
->> we can simply this under the assumption that SO_REUSEPORT is only
->> allowed if the port number (snum) is explicitly specified.
-> 
-> Ok first I have data for you Hannes, here's the time distributions
-> before during and after the lockup (with all the debugging in place the
-> box eventually recovers).  I've attached it as a text file since it is
-> long.
+On Thu, Dec 15, 2016 at 05:30:42PM -0500, Geoff Lansberry wrote:
+> From: Geoff Lansberry <geoff-R+k406RtEhcAvxtiuMwx3w@public.gmane.org>
 
-Thanks a lot!
+Please add an informative commit description to all of your commits.
+No matter how trivial this patch may seem to you now, it may not be
+to others (or to you in a few years).
 
-> Second is I was thinking about why we would spend so much time doing the
-> ->owners list, and obviously it's because of the massive amount of
-> timewait sockets on the owners list.  I wrote the following dumb patch
-> and tested it and the problem has disappeared completely.  Now I don't
-> know if this is right at all, but I thought it was weird we weren't
-> copying the soreuseport option from the original socket onto the twsk. 
-> Is there are reason we aren't doing this currently?  Does this help
-> explain what is happening?  Thanks,
+> diff --git a/drivers/nfc/trf7970a.c b/drivers/nfc/trf7970a.c
+> index 26c9dbb..2d2a077 100644
+> --- a/drivers/nfc/trf7970a.c
+> +++ b/drivers/nfc/trf7970a.c
 
-The patch is interesting and a good clue, but I am immediately a bit
-concerned that we don't copy/tag the socket with the uid also to keep
-the security properties for SO_REUSEPORT. I have to think a bit more
-about this.
+> @@ -1181,27 +1180,37 @@ static int trf7970a_in_config_rf_tech(struct trf7970a *trf, int tech)
+>  	switch (tech) {
+>  	case NFC_DIGITAL_RF_TECH_106A:
+>  		trf->iso_ctrl_tech = TRF7970A_ISO_CTRL_14443A_106;
+> -		trf->modulator_sys_clk_ctrl = TRF7970A_MODULATOR_DEPTH_OOK;
+> +		trf->modulator_sys_clk_ctrl =
+> +			(trf->modulator_sys_clk_ctrl & 0xF8) |
 
-We have seen hangs during connect. I am afraid this patch wouldn't help
-there while also guaranteeing uniqueness.
+nit: s/0xF8/0xf8/ please (for consistency with the rest of the file.).
 
-Thanks a lot!
+Otherwise, it looks good.
+
+Thanks,
+
+Mark
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
