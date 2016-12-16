@@ -1,125 +1,55 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: [PATCH iproute2/net-next 1/2] tc: flower: document that *_ip parameters take a PREFIX as an argument.
-Date: Fri, 16 Dec 2016 14:54:36 +0100
-Message-ID: <1481896477-13497-2-git-send-email-simon.horman@netronome.com>
-References: <1481896477-13497-1-git-send-email-simon.horman@netronome.com>
-Cc: netdev@vger.kernel.org, Simon Horman <simon.horman@netronome.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
+From: Arnaldo Carvalho de Melo <acme@redhat.com>
+Subject: Re: [PATCH perf/core REBASE 2/5] samples/bpf: Switch over to libbpf
+Date: Fri, 16 Dec 2016 12:21:37 -0200
+Message-ID: <20161216142137.GF2742@redhat.com>
+References: <20161214224342.12858-1-joe@ovn.org>
+ <20161214224342.12858-3-joe@ovn.org>
+ <20161215155022.GE6866@kernel.org>
+ <20161215182918.GG6866@kernel.org>
+ <20161215183440.GH6866@kernel.org>
+ <CAPWQB7GhHZOf4c5mu=__mNNyFFeq+jOZMawweMBg=sNiPpt-zg@mail.gmail.com>
+ <CAPWQB7EAN7Fg8+vO3Tn7WYWcZW_JpKQFNCJzY_K100ckab6JRg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Arnaldo Carvalho de Melo <acme@kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        netdev <netdev@vger.kernel.org>, Wang Nan <wangnan0@huawei.com>,
+        ast@fb.com, Daniel Borkmann <daniel@iogearbox.net>
+To: Joe Stringer <joe@ovn.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f53.google.com ([74.125.82.53]:38344 "EHLO
-        mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934934AbcLPODW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2016 09:03:22 -0500
-Received: by mail-wm0-f53.google.com with SMTP id f82so36226156wmf.1
-        for <netdev@vger.kernel.org>; Fri, 16 Dec 2016 06:03:21 -0800 (PST)
-In-Reply-To: <1481896477-13497-1-git-send-email-simon.horman@netronome.com>
+Received: from mx1.redhat.com ([209.132.183.28]:54922 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1760750AbcLPOVq (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 16 Dec 2016 09:21:46 -0500
+Content-Disposition: inline
+In-Reply-To: <CAPWQB7EAN7Fg8+vO3Tn7WYWcZW_JpKQFNCJzY_K100ckab6JRg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* The argument to src_ip, dst_ip, enc_src_ip and enc_dst_ip take an
-  optional prefix length which is used to provide a mask to limit the scope
-  of matching.
-* This is documented as a PREFIX in keeping with ip-route(8).
+Em Thu, Dec 15, 2016 at 05:48:31PM -0800, Joe Stringer escreveu:
+> On 15 December 2016 at 14:00, Joe Stringer <joe@ovn.org> wrote:
+> > On 15 December 2016 at 10:34, Arnaldo Carvalho de Melo <acme@kernel.org> wrote:
+> >> So, I'm stopping here so that I can push what I have to Ingo, then I'll get
+> >> back to this, hopefully by then you beat me and I have just to retest 8-)
 
-Example of uses of IPv4 and IPv6 prefixes
+> > OK, thanks for the report. Looks like there was another difference
+> > between the two libbpfs - one used total program size for its
+> > load_program API; the actual kernel API uses instruction count. This
+> > incremental should do the trick:
 
-tc qdisc add dev eth0 ingress
-tc filter add dev eth0 protocol ip parent ffff: flower \
-    indev eth0 dst_ip 192.168.1.1 action drop
-tc filter add dev eth0 protocol ip parent ffff: flower \
-    indev eth0 src_ip 10.0.0.0/8 action drop
-tc filter add dev eth0 protocol ipv6 parent ffff: flower \
-    indev eth0 src_ip 2001:DB8:1::/48 action drop
-tc filter add dev eth0 protocol ipv6 parent ffff: flower \
-    indev eth0 dst_ip 2001:DB8::1 action drop
+> > https://github.com/joestringer/linux/commit/6ff7726f20077bed66fb725f5189c13690154b6a
+ 
+> The full branch with this change (fast-forward from your tmp branch)
+> is available here:
+> https://github.com/joestringer/linux/tree/submit/libbpf_samples_v5
+ 
+> I tried running every selftest and BPF sample I could get my hands on;
+> there's one or two that I couldn't run, but seemed more to do with my
+> versions of TC/iproute and kernel config rather than libbpf changes.
+> Let me know if you see any further trouble.
 
-Signed-off-by: Simon Horman <simon.horman@netronome.com>
----
- man/man8/tc-flower.8 | 28 ++++++++++++++--------------
- tc/f_flower.c        |  8 ++++----
- 2 files changed, 18 insertions(+), 18 deletions(-)
+Thanks for doing that! I'll try and reproduce your tests as soon as I'm
+back to the office, it looks like it all will go together in my next
+pull to Ingo.
 
-diff --git a/man/man8/tc-flower.8 b/man/man8/tc-flower.8
-index 88df83360b89..a383b6584dc6 100644
---- a/man/man8/tc-flower.8
-+++ b/man/man8/tc-flower.8
-@@ -31,8 +31,8 @@ flower \- flow based traffic control filter
- .IR ETH_TYPE " } | "
- .BR ip_proto " { " tcp " | " udp " | " sctp " | " icmp " | " icmpv6 " | "
- .IR IP_PROTO " } | { "
--.BR dst_ip " | " src_ip " } { "
--.IR ipv4_address " | " ipv6_address " } | { "
-+.BR dst_ip " | " src_ip " } "
-+.IR PREFIX " | { "
- .BR dst_port " | " src_port " } "
- .IR port_number " } | "
- .B enc_key_id
-@@ -103,14 +103,14 @@ may be
- .BR tcp ", " udp ", " sctp ", " icmp ", " icmpv6
- or an unsigned 8bit value in hexadecimal format.
- .TP
--.BI dst_ip " ADDRESS"
-+.BI dst_ip " PREFIX"
- .TQ
--.BI src_ip " ADDRESS"
-+.BI src_ip " PREFIX"
- Match on source or destination IP address.
--.I ADDRESS
--must be a valid IPv4 or IPv6 address, depending on
--.BR protocol
--option of tc filter.
-+.I PREFIX
-+must be a valid IPv4 or IPv6 address, depending on the \fBprotocol\fR
-+option to tc filter, optionally followed by a slash and the prefix length.
-+If the prefix is missing, \fBtc\fR assumes a full-length host match.
- .TP
- .BI dst_port " NUMBER"
- .TQ
-@@ -128,16 +128,16 @@ which have to be specified in beforehand.
- .TP
- .BI enc_key_id " NUMBER"
- .TQ
--.BI enc_dst_ip " ADDRESS"
-+.BI enc_dst_ip " PREFIX"
- .TQ
--.BI enc_src_ip " ADDRESS"
--.TQ
--.BI enc_dst_port " NUMBER"
-+.BI enc_src_ip " PREFIX"
- Match on IP tunnel metadata. Key id
- .I NUMBER
- is a 32 bit tunnel key id (e.g. VNI for VXLAN tunnel).
--.I ADDRESS
--must be a valid IPv4 or IPv6 address. Dst port
-+.I PREFIX
-+must be a valid IPv4 or IPv6 address optionally followed by a slash and the
-+prefix length. If the prefix is missing, \fBtc\fR assumes a full-length
-+host match.  Dst port
- .I NUMBER
- is a 16 bit UDP dst port.
- .SH NOTES
-diff --git a/tc/f_flower.c b/tc/f_flower.c
-index 653dfefc060a..cdf74344f78f 100644
---- a/tc/f_flower.c
-+++ b/tc/f_flower.c
-@@ -48,14 +48,14 @@ static void explain(void)
- 		"                       dst_mac MAC-ADDR |\n"
- 		"                       src_mac MAC-ADDR |\n"
- 		"                       ip_proto [tcp | udp | sctp | icmp | icmpv6 | IP-PROTO ] |\n"
--		"                       dst_ip [ IPV4-ADDR | IPV6-ADDR ] |\n"
--		"                       src_ip [ IPV4-ADDR | IPV6-ADDR ] |\n"
-+		"                       dst_ip PREFIX |\n"
-+		"                       src_ip PREFIX |\n"
- 		"                       dst_port PORT-NUMBER |\n"
- 		"                       src_port PORT-NUMBER |\n"
- 		"                       type ICMP-TYPE |\n"
- 		"                       code ICMP-CODE }\n"
--		"                       enc_dst_ip [ IPV4-ADDR | IPV6-ADDR ] |\n"
--		"                       enc_src_ip [ IPV4-ADDR | IPV6-ADDR ] |\n"
-+		"                       enc_dst_ip PREFIX |\n"
-+		"                       enc_src_ip PREFIX |\n"
- 		"                       enc_key_id [ KEY-ID ] }\n"
- 		"       FILTERID := X:Y:Z\n"
- 		"       ACTION-SPEC := ... look at individual actions\n"
--- 
-2.7.0.rc3.207.g0ac5344
+- Arnaldo
