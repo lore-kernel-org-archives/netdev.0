@@ -1,53 +1,140 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH net 1/3] cpsw/netcp: cpts depends on posix_timers
-Date: Fri, 16 Dec 2016 10:19:57 +0100
-Message-ID: <20161216092017.2560717-1-arnd@arndb.de>
+Subject: [PATCH net 2/3] cpsw/netcp: davinci_cpdma: sanitize inter-module API
+Date: Fri, 16 Dec 2016 10:19:58 +0100
+Message-ID: <20161216092017.2560717-2-arnd@arndb.de>
+References: <20161216092017.2560717-1-arnd@arndb.de>
 Cc: Arnd Bergmann <arnd@arndb.de>,
         Grygorii Strashko <grygorii.strashko@ti.com>,
-        Thomas Gleixner <tglx@linutronix.de>,
-        John Stultz <john.stultz@linaro.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>,
         =?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?=
-        <u.kleine-koenig@pengutronix.de>, WingMan Kwok <w-kwok2@ti.com>,
-        Nicolas Pitre <nicolas.pitre@linaro.org>,
+        <u.kleine-koenig@pengutronix.de>, linux-omap@vger.kernel.org,
         netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([217.72.192.73]:63334 "EHLO
-        mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754763AbcLPJUn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2016 04:20:43 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Mugunthan V N <mugunthanvnm@ti.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161216092017.2560717-1-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-With posix timers having become optional, we get a build error with
-the cpts time sync option of the CPSW driver:
+The davinci_cpdma module is a helper library that is used by the
+actual device drivers and does nothing by itself, so all its API
+functions need to be exported.
 
-drivers/net/ethernet/ti/cpts.c: In function 'cpts_find_ts':
-drivers/net/ethernet/ti/cpts.c:291:23: error: implicit declaration of function 'ptp_classify_raw';did you mean 'ptp_classifier_init'? [-Werror=implicit-function-declaration]
+Four new functions were added recently without an export, so now
+we get a build error:
 
-It really makes no sense to build this driver if we can't use PTP,
-so it's better to go back to 'select PTP_1588_CLOCK' but instead
-add a dependency on POSIX_TIMERS.
+ERROR: "cpdma_chan_set_weight" [drivers/net/ethernet/ti/ti_cpsw.ko] undefined!
+ERROR: "cpdma_chan_get_rate" [drivers/net/ethernet/ti/ti_cpsw.ko] undefined!
+ERROR: "cpdma_chan_get_min_rate" [drivers/net/ethernet/ti/ti_cpsw.ko] undefined!
+ERROR: "cpdma_chan_set_rate" [drivers/net/ethernet/ti/ti_cpsw.ko] undefined!
 
-Fixes: baa73d9e478f ("posix-timers: Make them configurable")
+This exports those symbols. After taking a closer look, I found two
+more global functions in this file that are not exported and not used
+anywhere, so they can obviously be removed. There is also one function
+that is only used internally in this module, and should be 'static'.
+
+Fixes: 8f32b90981dc ("net: ethernet: ti: davinci_cpdma: add set rate for a channel")
+Fixes: 0fc6432cc78d ("net: ethernet: ti: davinci_cpdma: add weight function for channels")
 Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
- drivers/net/ethernet/ti/Kconfig | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/ti/davinci_cpdma.c | 59 ++++++++++-----------------------
+ drivers/net/ethernet/ti/davinci_cpdma.h |  4 ---
+ 2 files changed, 17 insertions(+), 46 deletions(-)
 
-diff --git a/drivers/net/ethernet/ti/Kconfig b/drivers/net/ethernet/ti/Kconfig
-index 296c8efd0038..366e29ff8605 100644
---- a/drivers/net/ethernet/ti/Kconfig
-+++ b/drivers/net/ethernet/ti/Kconfig
-@@ -76,7 +76,8 @@ config TI_CPSW
- config TI_CPTS
- 	tristate "TI Common Platform Time Sync (CPTS) Support"
- 	depends on TI_CPSW || TI_KEYSTONE_NETCP
--	imply PTP_1588_CLOCK
-+	depends on POSIX_TIMERS
-+	select PTP_1588_CLOCK
- 	---help---
- 	  This driver supports the Common Platform Time Sync unit of
- 	  the CPSW Ethernet Switch and Keystone 2 1g/10g Switch Subsystem.
+diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c b/drivers/net/ethernet/ti/davinci_cpdma.c
+index 36518fc5c7cc..b9d40f0cdf6c 100644
+--- a/drivers/net/ethernet/ti/davinci_cpdma.c
++++ b/drivers/net/ethernet/ti/davinci_cpdma.c
+@@ -628,6 +628,23 @@ int cpdma_ctlr_destroy(struct cpdma_ctlr *ctlr)
+ }
+ EXPORT_SYMBOL_GPL(cpdma_ctlr_destroy);
+ 
++static int cpdma_chan_int_ctrl(struct cpdma_chan *chan, bool enable)
++{
++	unsigned long flags;
++
++	spin_lock_irqsave(&chan->lock, flags);
++	if (chan->state != CPDMA_STATE_ACTIVE) {
++		spin_unlock_irqrestore(&chan->lock, flags);
++		return -EINVAL;
++	}
++
++	dma_reg_write(chan->ctlr, enable ? chan->int_set : chan->int_clear,
++		      chan->mask);
++	spin_unlock_irqrestore(&chan->lock, flags);
++
++	return 0;
++}
++
+ int cpdma_ctlr_int_ctrl(struct cpdma_ctlr *ctlr, bool enable)
+ {
+ 	unsigned long flags;
+@@ -1274,46 +1291,4 @@ int cpdma_chan_stop(struct cpdma_chan *chan)
+ }
+ EXPORT_SYMBOL_GPL(cpdma_chan_stop);
+ 
+-int cpdma_chan_int_ctrl(struct cpdma_chan *chan, bool enable)
+-{
+-	unsigned long flags;
+-
+-	spin_lock_irqsave(&chan->lock, flags);
+-	if (chan->state != CPDMA_STATE_ACTIVE) {
+-		spin_unlock_irqrestore(&chan->lock, flags);
+-		return -EINVAL;
+-	}
+-
+-	dma_reg_write(chan->ctlr, enable ? chan->int_set : chan->int_clear,
+-		      chan->mask);
+-	spin_unlock_irqrestore(&chan->lock, flags);
+-
+-	return 0;
+-}
+-
+-int cpdma_control_get(struct cpdma_ctlr *ctlr, int control)
+-{
+-	unsigned long flags;
+-	int ret;
+-
+-	spin_lock_irqsave(&ctlr->lock, flags);
+-	ret = _cpdma_control_get(ctlr, control);
+-	spin_unlock_irqrestore(&ctlr->lock, flags);
+-
+-	return ret;
+-}
+-
+-int cpdma_control_set(struct cpdma_ctlr *ctlr, int control, int value)
+-{
+-	unsigned long flags;
+-	int ret;
+-
+-	spin_lock_irqsave(&ctlr->lock, flags);
+-	ret = _cpdma_control_set(ctlr, control, value);
+-	spin_unlock_irqrestore(&ctlr->lock, flags);
+-
+-	return ret;
+-}
+-EXPORT_SYMBOL_GPL(cpdma_control_set);
+-
+ MODULE_LICENSE("GPL");
+diff --git a/drivers/net/ethernet/ti/davinci_cpdma.h b/drivers/net/ethernet/ti/davinci_cpdma.h
+index 4a167db2abab..36d0a09a3d44 100644
+--- a/drivers/net/ethernet/ti/davinci_cpdma.h
++++ b/drivers/net/ethernet/ti/davinci_cpdma.h
+@@ -87,7 +87,6 @@ int cpdma_chan_process(struct cpdma_chan *chan, int quota);
+ 
+ int cpdma_ctlr_int_ctrl(struct cpdma_ctlr *ctlr, bool enable);
+ void cpdma_ctlr_eoi(struct cpdma_ctlr *ctlr, u32 value);
+-int cpdma_chan_int_ctrl(struct cpdma_chan *chan, bool enable);
+ u32 cpdma_ctrl_rxchs_state(struct cpdma_ctlr *ctlr);
+ u32 cpdma_ctrl_txchs_state(struct cpdma_ctlr *ctlr);
+ bool cpdma_check_free_tx_desc(struct cpdma_chan *chan);
+@@ -111,7 +110,4 @@ enum cpdma_control {
+ 	CPDMA_RX_BUFFER_OFFSET,		/* read-write */
+ };
+ 
+-int cpdma_control_get(struct cpdma_ctlr *ctlr, int control);
+-int cpdma_control_set(struct cpdma_ctlr *ctlr, int control, int value);
+-
+ #endif
 -- 
 2.9.0
