@@ -1,113 +1,166 @@
-From: "George Spelvin" <linux@sciencehorizons.net>
-Subject: Re: [PATCH v5 1/4] siphash: add cryptographically secure PRF
-Date: 16 Dec 2016 12:36:24 -0500
-Message-ID: <20161216173624.21544.qmail@ns.sciencehorizons.net>
-References: <CAHmME9rxCYfwyF6EADWqpAEt+yqCPgCLUVH0FPdAy7r-oPnrRg@mail.gmail.com>
-Reply-To: kernel-hardening@lists.openwall.com
-Cc: ak@linux.intel.com, davem@davemloft.net, David.Laight@aculab.com,
-  djb@cr.yp.to, ebiggers3@gmail.com, hannes@stressinduktion.org,
-  kernel-hardening@lists.openwall.com, linux-crypto@vger.kernel.org,
-  linux-kernel@vger.kernel.org, linux@sciencehorizons.net,
-  luto@amacapital.net, netdev@vger.kernel.org, tom@herbertland.com,
-  torvalds@linux-foundation.org, tytso@mit.edu, vegard.nossum@gmail.com
-To: Jason@zx2c4.com, jeanphilippe.aumasson@gmail.com
-Return-path: <kernel-hardening-return-5643-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <CAHmME9rxCYfwyF6EADWqpAEt+yqCPgCLUVH0FPdAy7r-oPnrRg@mail.gmail.com>
+From: henrik@austad.us
+Subject: [TSN RFC v2 0/9] TSN driver for the kernel
+Date: Fri, 16 Dec 2016 18:59:04 +0100
+Message-ID: <1481911153-549-1-git-send-email-henrik@austad.us>
+Cc: Richard Cochran <richardcochran@gmail.com>, henrik@austad.us,
+        Henrik Austad <haustad@cisco.com>, linux-media@vger.kernel.org,
+        alsa-devel@vger.kernel.org, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> It appears that hsiphash can produce either 32-bit output or 64-bit
-> output, with the output length parameter as part of the hash algorithm
-> in there. When I code this for my kernel patchset, I very likely will
-> only implement one output length size. Right now I'm leaning toward
-> 32-bit.
-
-A 128-bit output option was added to SipHash after the initial publication;
-this is just the equivalent in 32-bit.
-
-> - Is this a reasonable choice?
-
-Yes.
-
-> - Are there reasons why hsiphash with 64-bit output would be
->   reasonable? Or will we be fine sticking with 32-bit output only?
-
-Personally, I'd put in a comment saying that "there's a 64-bit output
-variant that's not implemented" and punt until someone find a need.
-
-> With both hsiphash and siphash, the division of usage will probably become:
-> - Use 64-bit output 128-bit key siphash for keyed RNG-like things,
->   such as syncookies and sequence numbers
-> - Use 64-bit output 128-bit key siphash for hashtables that must
->   absolutely be secure to an extremely high bandwidth attacker, such as
->   userspace directly DoSing a kernel hashtable
-> - Use 32-bit output 64-bit key hsiphash for quick hashtable functions
->   that still must be secure but do not require as large of a security
->   margin.
-
-On a 64-bit machine, 64-bit SipHash is *always* faster than 32-bit, and
-should be used always.  Don't even compile the 32-bit code, to prevent
-anyone accidentally using it, and make hsiphash an alias for siphash.
-
-On a 32-bit machine, it's a much trickier case.  I'd be tempted to
-use the 32-bit code always, but it needs examination.
-
-Fortunately, the cost of brute-forcing hash functions can be fairly
-exactly quantified, thanks to bitcoin miners.  It currently takes 2^70
-hashes to create one bitcoin block, worth 25 bitcoins ($19,500).  Thus,
-2^63 hashes cost $152.
-
-Now, there are two factors that must be considered:
-- That's a very very "wholesale" rate.  That's assuming you're doing
-  large numbers of these and can put in the up-front effort designing
-  silicon ASICs to do the attack.
-- That's for a more difficult hash (double sha-256) than SipHash.
-  That's a constant fator, but a pretty significant one.  If the wholesale
-  assumption holds, that might bring the cost down another 6 or 7 bits,
-  to $1-2 per break.
-
-If you're not the NSA and limited to general-purpose silicon, let's
-assume a state of the art GPU (Radeon HD 7970; AMD GPUs seem do to better
-than nVidia).  The bitcoin mining rate for those is about 700M/second,
-29.4 bits.  So 63 bits is 152502 GPU-days, divided by some factor
-to account for SipHash's high speed compared to two rounds of SHA-2.
-Call it 1000 GPU-days.
-
-It's very doable, but also very non-trivial.  The question is, wouldn't
-it be cheaper and easier just to do a brute-force flooding DDoS?
-
-(This is why I wish the key size could be tweaked up to 80 bits.
-That would take all these numbers out of the reasonable range.)
+From: Henrik Austad <haustad@cisco.com>
 
 
-Let me consider your second example above, "secure against local users".
-I should dig through your patchset and find the details, but what exactly
-are the consequences of such an attack?  Hasn't a local user already
-got much better ways to DoS the system?
+The driver is directed via ConfigFS as we need userspace to handle
+stream-reservation (MSRP), discovery and enumeration (IEEE 1722.1) and
+whatever other management is needed. This also includes running an
+appropriate PTP daemon (TSN favors gPTP).
 
-The thing to remember is that we're worried only about the combination
-of a *new* Linux kernel (new build or under active maintenance) and a
-32-bit host.  You'd be hard-pressed to find a *single* machine fitting
-that description which is hosting multiple users or VMs and is not 64-bit.
+Once we have all the required attributes, we can create link using
+mkdir, and use write() to set the attributes. Once ready, specify the
+'shim' (basically a thin wrapper between TSN and another subsystem) and
+we start pushing out frames.
 
-These days, 32-bit CPUs are for embedded applications: network appliances,
-TVs, etc.  That means basically single-user.  Even phones are 64 bit.
-Is this really a threat that needs to be defended against?
+The network part: it ties directly into the Rx-handler for receive and
+writes skb's using dev_queue_xmit(). This could probably be improved.
 
+2 new fields in netdev_ops have been introduced, and the Intel
+igb-driver has been updated (as this an AVB-capable NIC which is
+available as a PCI-e card).
 
-For your first case, network applications, the additional security
-is definitely attractive.  Syncookies are only a DoS, but sequence
-numbers are a real security issue; they can let you inject data into a
-TCP connection.
+What remains (tl;dr: a lot) a.k.a "Known problems" or "working on it!"
+- tie to (g)PTP properly, currently using ktime_get() for presentation
+  time
+- get time from shim into TSN
+- let shim create/manage buffer
+- redo parts of the link-stuff using RCUs, the current setup is a bit
+  clumsy.
+- The igb-driver does not work properly when compiled with IGB_TSN, some
+  details in setting the register values needs to be figured out. I am
+  working on this, but as it stands, the best bet is to load tsn using
+  in_debug=1 to bypass the capability-check. I have had e1000 and sky2
+  running for several days without crashing, igb crashes and burns
+  violently.
+- The ALSA driver does not handle multiple devices very well and is a
+  work in progress.
 
-Hash tables are much harder to attack.  The information you get back from
-timing probes is statistical, and thus testing a key is more expensive.
-With sequence numbers, large amounts (32 bits) the hash output is
-directly observable.
+* v2: changes since v1
 
-I wish we could get away with 64-bit security, but given that the
-modern internet involves attacks from NSA/Spetssvyaz/3PLA, I agree
-it's just not enough.
+Changes since v1
+- updated to latest upstream kernel (v4.8)
+- set dedicated enabled-attribute and let shim be stored in own (support
+  future plan for enabling per-shim attributes)
+- fixed endianess issue in bitfields used in tsn-structs
+- Updated some of the trace-events to use trace_class
+- Fix various silly typos
+- Handle disabling of link from hrtimer a bit more gracefully (that
+  actually works-ish).
+- use old skb and size of skb when that is set (Reporte by Nikita)
+- Move PCP-codes to NIC and not in the link itself
+- Allow TSN-capable card to be loaded even when in debug-mode (and do
+  not enforce TSN behaviour)
+- Start hooking into ALSA's get_time_info hooks (very much incomplete)
+- use threads for sending frames, wake from hrtimer-callback.
+  This also queues up awaiting timers if we fail to complete the
+  transmit before another timer arrives, it will immediately execute
+  another iteration, so no events should be lost. That being said,
+  should this happen, it is a clear bug as we really should complete
+  well before the next interval.
+- Cleanup link-locking and differentiate between Talker and Listener (as
+  Listener grab link-lock from IRQ context)
+- Change list-lock to spinlock as we may need to take a link-lock whilst
+  holding the master list-lock.
+- Do a more careful dance holding the spinlocks to regions only doing
+  actual update.
+
+Network driver (I210 only)
+- bring up all Tx-/Rx-queues when igb is in TSN-mode regardless of how
+  many CPUs the system has for I210
+- Correctly calculate the idle_slope in I210's configure hook
+- Update igb-driver with queue-select and return correct queue when
+  sending TSN-frames
+- add IGB_FLAG_QAV_PRIO flag to igb_adapter (to handle proper config of
+  tx-ring when adapter is brought up.
+- add TXDCTL logic (part of preparatory work for TSN) to igb-driver
+- Improve SR(A|B) accountingo
+
+ALSA Shim
+- Allow userspace to grab much smaller chunks of data (down to a single
+  Class A frame for S16_LE 2ch 48kHz).
+- Create the card with index/id pattern to avoid collision with other
+  cards.
+* v1
+
+Before reading on - this is not even beta, but I'd really appreciate if
+people would comment on the overall architecture and perhaps provide
+some pointers to where I should improve/fix/update
+- thanks!
+
+This is a very early RFC for a TSN-driver in the kernel. It has been
+floating around in my repo for a while and I would appreciate some
+feedback on the overall design to avoid doing some major blunders.
+
+There are at least one AVB-driver (the AV-part of TSN) in the kernel
+already. This driver aims to solve a wider scope as TSN can do much more
+than just audio. A very basic ALSA-driver is added to the end that
+allows you to play music between 2 machines using aplay in one end and
+arecord | aplay on the other (some fiddling required) We have plans for
+doing the same for v4l2 eventually (but there are other fishes to fry
+first). The same goes for a TSN_SOCK type approach as well.
+
+Henrik Austad (9):
+  igb: add missing fields to TXDCTL-register
+  TSN: add documentation
+  TSN: Add the standard formerly known as AVB to the kernel
+  Adding TSN-driver to Intel I210 controller
+  Add TSN header for the driver
+  Add TSN machinery to drive the traffic from a shim over the network
+  Add TSN event-tracing
+  AVB ALSA - Add ALSA shim for TSN
+  MAINTAINERS: add TSN/AVB-entries
+
+ Documentation/TSN/tsn.txt                    |  345 ++++++++
+ MAINTAINERS                                  |   14 +
+ drivers/media/Kconfig                        |   15 +
+ drivers/media/Makefile                       |    2 +-
+ drivers/media/avb/Makefile                   |    5 +
+ drivers/media/avb/avb_alsa.c                 |  793 +++++++++++++++++
+ drivers/media/avb/tsn_iec61883.h             |  152 ++++
+ drivers/net/ethernet/intel/Kconfig           |   18 +
+ drivers/net/ethernet/intel/igb/Makefile      |    2 +-
+ drivers/net/ethernet/intel/igb/e1000_82575.h |    4 +
+ drivers/net/ethernet/intel/igb/igb.h         |   26 +
+ drivers/net/ethernet/intel/igb/igb_main.c    |   39 +-
+ drivers/net/ethernet/intel/igb/igb_tsn.c     |  468 ++++++++++
+ include/linux/netdevice.h                    |   44 +
+ include/linux/tsn.h                          |  952 +++++++++++++++++++++
+ include/trace/events/tsn.h                   |  333 ++++++++
+ net/Kconfig                                  |    1 +
+ net/Makefile                                 |    1 +
+ net/tsn/Kconfig                              |   32 +
+ net/tsn/Makefile                             |    6 +
+ net/tsn/tsn_configfs.c                       |  673 +++++++++++++++
+ net/tsn/tsn_core.c                           | 1189 ++++++++++++++++++++++++++
+ net/tsn/tsn_header.c                         |  162 ++++
+ net/tsn/tsn_internal.h                       |  397 +++++++++
+ net/tsn/tsn_net.c                            |  392 +++++++++
+ 25 files changed, 6061 insertions(+), 4 deletions(-)
+ create mode 100644 Documentation/TSN/tsn.txt
+ create mode 100644 drivers/media/avb/Makefile
+ create mode 100644 drivers/media/avb/avb_alsa.c
+ create mode 100644 drivers/media/avb/tsn_iec61883.h
+ create mode 100644 drivers/net/ethernet/intel/igb/igb_tsn.c
+ create mode 100644 include/linux/tsn.h
+ create mode 100644 include/trace/events/tsn.h
+ create mode 100644 net/tsn/Kconfig
+ create mode 100644 net/tsn/Makefile
+ create mode 100644 net/tsn/tsn_configfs.c
+ create mode 100644 net/tsn/tsn_core.c
+ create mode 100644 net/tsn/tsn_header.c
+ create mode 100644 net/tsn/tsn_internal.h
+ create mode 100644 net/tsn/tsn_net.c
+
+--
+2.7.4
