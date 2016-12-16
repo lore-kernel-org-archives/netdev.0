@@ -1,43 +1,56 @@
-From: Ozgur Karatas <okaratas@member.fsf.org>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Subject: Re: [PATCH 1/1] tools: net: bpf_dbg.c fixed keyboard typo
-Date: Fri, 16 Dec 2016 20:58:43 +0200
-Message-ID: <5466381481914723@web9h.yandex.ru>
-References: <5194151481912505@web1g.yandex.ru> <1481913321.29291.89.camel@perches.com>
+Date: Fri, 16 Dec 2016 22:08:17 +0300
+Message-ID: <96578fd4-dd02-f39a-a252-c37aa714d3d0@cogentembedded.com>
+References: <5194151481912505@web1g.yandex.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: linux-kernel <linux-kernel@vger.kernel.org>,
         netdev <netdev@vger.kernel.org>
-To: Joe Perches <joe@perches.com>, David Miller <davem@davemloft.net>
+To: Ozgur Karatas <okaratas@member.fsf.org>,
+        David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from forward3h.cmail.yandex.net ([87.250.230.18]:54424 "EHLO
-        forward3h.cmail.yandex.net" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751014AbcLPS6r (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2016 13:58:47 -0500
-In-Reply-To: <1481913321.29291.89.camel@perches.com>
+Received: from mail-lf0-f53.google.com ([209.85.215.53]:35155 "EHLO
+        mail-lf0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758286AbcLPTIW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2016 14:08:22 -0500
+Received: by mail-lf0-f53.google.com with SMTP id b14so14535460lfg.2
+        for <netdev@vger.kernel.org>; Fri, 16 Dec 2016 11:08:21 -0800 (PST)
+In-Reply-To: <5194151481912505@web1g.yandex.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-16.12.2016, 20:35, "Joe Perches" <joe@perches.com>:
-> On Fri, 2016-12-16 at 20:21 +0200, Ozgur Karatas wrote:
->>  This patch fixed to keyboard typo, brackets not closed.
->>  I think, it should be close to parenthes.
+Hello.
+
+On 12/16/2016 09:21 PM, Ozgur Karatas wrote:
+
+> This patch fixed to keyboard typo, brackets not closed.
+> I think, it should be close to parenthes.
 >
-> No.
+> Signed-off-by: Ozgur Karatas <okaratas@member.fsf.org>
+> ---
+>  tools/net/bpf_dbg.c       | 2 +-
+>  1 files changed, 1 insertion(+), 1 deletions(-)
 >
-> Please compile and test your patches on your own system
-> before you send them.
+> diff --git a/tools/net/bpf_dbg.c b/tools/net/bpf_dbg.c
+> index 4f254bc..f715f46 100644
+> --- a/tools/net/bpf_dbg.c
+> +++ b/tools/net/bpf_dbg.c
+> @@ -1213,7 +1213,7 @@ static int cmd_disassemble(char *line_string)
+>
+>  	if (!bpf_prog_loaded())
+>  		return CMD_ERR;
+> -	if (strlen(line_string) > 0 &&
+> +	if (strlen(line_string) > 0 &&)
 
-Also, checkpatch script give a error, it should not forget.
+    Have tried to you compile that? :-/
 
-$ ./scripts/checkpatch.pl --file --terse tools/net/bpf_dbg.c
-tools/net/bpf_dbg.c:1216: ERROR: do not use assignment in if condition
+>  	    (line = strtoul(line_string, NULL, 10)) < bpf_prog_len)
 
-After fix:
+    I think the code was correct before your patch...
 
-$ ./scripts/checkpatch.pl --file --terse tools/net/bpf_dbg.c 
-total: 0 errors, 6 warnings, 1395 lines checked
+>  		single_line = true;
+>  	if (single_line)
 
-Regards,
-
-~Ozgur
+MBR, Sergei
