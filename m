@@ -1,30 +1,51 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] net: ethernet: hisilicon: set dev->dev.parent
- before PHY connect
-Date: Fri, 16 Dec 2016 13:30:16 -0500 (EST)
-Message-ID: <20161216.133016.1389137786566303117.davem@davemloft.net>
-References: <1481544223-207906-1-git-send-email-lidongpo@hisilicon.com>
+Subject: Re: [PATCH 1/2] encx24j600: bugfix - always move ERXTAIL to next
+ packet in encx24j600_rx_packets
+Date: Fri, 16 Dec 2016 13:32:08 -0500 (EST)
+Message-ID: <20161216.133208.2134512725082545132.davem@davemloft.net>
+References: <1481549349-8199-1-git-send-email-jeroen.de_wachter.ext@nokia.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yisen.zhuang@huawei.com, salil.mehta@huawei.com,
-        f.fainelli@gmail.com, xuejiancheng@hisilicon.com,
-        benjamin.chenhao@hisilicon.com, caizhiyong@hisilicon.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: lidongpo@hisilicon.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1481544223-207906-1-git-send-email-lidongpo@hisilicon.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: jringle@gridpoint.com, akpm@linux-foundation.org,
+        netdev@vger.kernel.org
+To: jeroen.de_wachter.ext@nokia.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:53488 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932462AbcLPScJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2016 13:32:09 -0500
+In-Reply-To: <1481549349-8199-1-git-send-email-jeroen.de_wachter.ext@nokia.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Dongpo Li <lidongpo@hisilicon.com>
-Date: Mon, 12 Dec 2016 20:03:41 +0800
+From: <jeroen.de_wachter.ext@nokia.com>
+Date: Mon, 12 Dec 2016 14:29:08 +0100
 
-> This patch series builds atop:
-> ec988ad78ed6d184a7f4ca6b8e962b0e8f1de461 ("phy: Don't increment MDIO bus
-> refcount unless it's a different owner")
+> From: Jeroen De Wachter <jeroen.de_wachter.ext@nokia.com>
 > 
-> I have checked all the hisilicon ethernet driver and found only two drivers
-> need to be fixed to make sure set dev->dev.parent before PHY connect.
+> Before, encx24j600_rx_packets did not update encx24j600_priv's next_packet
+> member when an error occurred during packet handling (either because the
+> packet's RSV header indicates an error or because the encx24j600_receive_packet
+> method can't allocate an sk_buff).
+> 
+> If the next_packet member is not updated, the ERXTAIL register will be set to
+> the same value it had before, which means the bad packet remains in the
+> component's memory and its RSV header will be read again when a new packet
+> arrives. If the RSV header indicates a bad packet or if sk_buff allocation
+> continues to fail, new packets will be stored in the component's memory until
+> that memory is full, after which packets will be dropped.
+> 
+> The SETPKTDEC command is always executed though, so the encx24j600 hardware has
+> an incorrect count of the packets in its memory.
+> 
+> To prevent this, the next_packet member should always be updated, allowing the
+> packet to be skipped (either because it's bad, as indicated in its RSV header,
+> or because allocating an sk_buff failed). In the allocation failure case, this
+> does mean dropping a valid packet, but dropping the oldest packet to keep as
+> much memory as possible available for new packets seems preferable to keeping
+> old (but valid) packets around while dropping new ones.
+> 
+> Signed-off-by: Jeroen De Wachter <jeroen.de_wachter.ext@nokia.com>
 
-Series applied, thanks.
+Applied.
