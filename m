@@ -1,60 +1,69 @@
-From: Nicholas Mc Guire <hofrat@osadl.org>
-Subject: [PATCH RFC] liquidio: make timeout HZ independent
-Date: Fri, 16 Dec 2016 07:57:20 +0100
-Message-ID: <1481871440-24859-1-git-send-email-hofrat@osadl.org>
-Cc: Satanand Burla <satananda.burla@caviumnetworks.com>,
-        Felix Manlunas <felix.manlunas@caviumnetworks.com>,
-        Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Nicholas Mc Guire <hofrat@osadl.org>
-To: Derek Chickles <derek.chickles@caviumnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.osadl.org ([62.245.132.105]:59102 "EHLO www.osadl.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751539AbcLPGzo (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 16 Dec 2016 01:55:44 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
+Subject: Re: wl1251 & mac address & calibration data
+Date: Fri, 16 Dec 2016 08:25:44 +0100
+Message-ID: <07be7fc8-6c7f-6e03-379d-fa781b248259@monom.org>
+References: <201611111820.52072@pali> <201611241749.33681@pali>
+ <20161124181138.4i6ehkpohjxfgpbn@earth> <201611241935.32796@pali>
+ <87d1gtli57.fsf@purkki.adurom.net> <1481816017.2090.2.camel@Pali-Nokia-N900>
+ <76365770-f5ba-9565-3fca-710518f64d81@broadcom.com>
+ <CAB=NE6VHF+U7DzapENvLMKtN4Dgi9J0qMoeUJ8o4vSwc2-rRFQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: =?UTF-8?Q?Pali_Roh=c3=a1r?= <pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+        Sebastian Reichel <sre-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>,
+        Michal Kazior <michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>,
+        Ivaylo Dimitrov <ivo.g.dimitrov.75-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Aaro Koskinen <aaro.koskinen-X3B1VOXEql0@public.gmane.org>,
+        Tony Lindgren <tony-4v6yS6AI5VpBDgjK7y7TUQ@public.gmane.org>,
+        linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        David Woodhouse <dwmw2-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+        Takashi Iwai <tiwai-l3A5Bk7waGM@public.gmane.org>,
+        Josh Boyer <jwboyer-rxtnV0ftBwyoClj4AeEUq9i2O/JbrIOy@public.gmane.org>,
+        Dmitry Torokhov <dmitry.torokhov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: "Luis R. Rodriguez" <mcgrof-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Arend Van Spriel <arend.vanspriel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+        Tom Gundersen <teg-B22kvLQNl6c@public.gmane.org>,
+        Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+        Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
+        Mimi Zohar <zohar-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
+        Bjorn Andersson <bjorn.andersson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+        =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAB=NE6VHF+U7DzapENvLMKtN4Dgi9J0qMoeUJ8o4vSwc2-rRFQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-schedule_timeout_* takes a timeout in jiffies but the code currently is
-passing in a constant which makes this timeout HZ dependent, so pass it
-through msecs_to_jiffies() to fix this up.
+On 12/16/2016 03:03 AM, Luis R. Rodriguez wrote:
+> For the new API a solution for "fallback mechanisms" should be clean
+> though and I am looking to stay as far as possible from the existing
+> mess. A solution to help both the old API and new API is possible for
+> the "fallback mechanism" though -- but for that I can only refer you
+> at this point to some of Daniel Wagner and Tom Gunderson's firmwared
+> deamon prospect. It should help pave the way for a clean solution and
+> help address other stupid issues.
 
-Fixes: commit b0d66369edcd ("liquidio VF error handling")
-Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
----
+The firmwared project is hosted here
 
-Problem found by coccinelle spatch
+https://github.com/teg/firmwared
 
-The current wait time can vary by a factor 10 depending on the HZ
-setting chose, which does not seem reasonable here.
+As Luis pointed out, firmwared relies on FW_LOADER_USER_HELPER_FALLBACK, 
+which is not enabled by default. I don't see any reason why firmwared 
+should not also support loading calibration data. If we find a sound way 
+to do this.
 
-The below patch sets the timeout to 100ms - it is though not clear
-if this is the intent or if it should be longer/shorter as it is not
-clear what HZ setting was assumed during design and used for testing.
+As you can see from the commit history it is a pretty young project and 
+more ore less reanimation of the old udev firmware loader feature.  We 
+are getting int into shape, adding integration tests etc.
 
-This needs an ack by someone who knows the device and can confirm that
-100ms is reasonable to wait for completion of in-flight requests.
+The main motivation for this project is the get movement back in stuck 
+discussion on the firmware loader API. Luis was very busy writing up all 
+the details on the current situation and purely from the amount of 
+documentation need to describe the API you can tell something is awry.
 
-Patch was compile tested with: x86_64_defconfig + CONFIG_LIQUIDIO_VF=m
-
-Patch is against 4.9.0 (localversion-next is -next-20161216)
-
- drivers/net/ethernet/cavium/liquidio/lio_vf_main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-index 70d96c1..eca469e 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-@@ -189,7 +189,7 @@ static void pcierror_quiesce_device(struct octeon_device *oct)
- 	 */
- 
- 	/* To allow for in-flight requests */
--	schedule_timeout_uninterruptible(100);
-+	schedule_timeout_uninterruptible(msecs_to_jiffies(100));
- 
- 	if (wait_for_pending_requests(oct))
- 		dev_err(&oct->pci_dev->dev, "There were pending requests\n");
--- 
-2.1.4
+Thanks,
+Daniel
