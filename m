@@ -1,50 +1,59 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 1/3] net:dsa:mv88e6xxx: use hashtable to store
- multicast entries
-Date: Fri, 16 Dec 2016 12:01:15 +0100
-Message-ID: <20161216110115.GC20359@lunn.ch>
-References: <20161213150948.GD20323@lunn.ch>
- <CABHmqqB-6-L124hrAjNxd4kO3zYp9R=RM1X6PXyuQW6Hapiv4g@mail.gmail.com>
- <20161214104614.GD27370@lunn.ch>
- <CABHmqqDpiN2kwkTgrM8Qu8EEx3Sjk2yVBy8QQAJppGfJ6-MV5Q@mail.gmail.com>
- <87eg19hzw1.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
- <be3b69b7-b6a3-a939-cf77-c62e5a1fe719@gmail.com>
- <87bmwdcc96.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
- <CABHmqqCOYMPA-Py7Uu4gsQ=s8CrQd-tT4-Db+j8eJH9=2s4L2g@mail.gmail.com>
- <20161216100802.GA20359@lunn.ch>
- <CABHmqqAQddcQZqVBi7gTjR40cHx6+aQebmsY3BwJgeEbLsX5Yw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Volodymyr Bendiuga <valdr.linuxnext@gmail.com>,
-        netdev@vger.kernel.org,
-        Volodymyr Bendiuga <volodymyr.bendiuga@westermo.se>,
-        John Crispin <john@phrozen.org>
-To: Volodymyr Bendiuga <volodymyr.bendiuga@gmail.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: pull-request: mac80211 2016-12-16
+Date: Fri, 16 Dec 2016 13:39:56 +0100
+Message-ID: <20161216123957.16744-1-johannes@sipsolutions.net>
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:56733 "EHLO vps0.lunn.ch"
+Received: from s3.sipsolutions.net ([5.9.151.49]:57308 "EHLO sipsolutions.net"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1759512AbcLPLkQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 16 Dec 2016 06:40:16 -0500
-Content-Disposition: inline
-In-Reply-To: <CABHmqqAQddcQZqVBi7gTjR40cHx6+aQebmsY3BwJgeEbLsX5Yw@mail.gmail.com>
+        id S1757615AbcLPMkB (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 16 Dec 2016 07:40:01 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 16, 2016 at 11:26:01AM +0100, Volodymyr Bendiuga wrote:
-> Hi Andrew,
-> 
-> I don't have any script right now, the code I have is a part of
-> the OS, but I could write simple C program which represents
-> what we are doing with mc entries and send it to you for profiling.
+Hi Dave,
 
-It would be nice to have a benchmark test we can use to test out
-ideas.
+Since you seem to be updating net, I thought I'd send you a few fixes.
+These aren't really all that important though, so if you want to let
+them wait for a bit I can live with that.
 
-Please try to make the code flexible. The slave interface names on my
-boards are probably not the same as on your. Also, the number of ports
-may differ.
+Please pull and let me know if there's any problem.
 
-    Thanks
-	Andrew
+Thanks,
+johannes
+
+
+
+The following changes since commit 8fa3b6f9392bf6d90cb7b908e07bd90166639f0a:
+
+  Merge tag 'cris-for-4.10' of git://git.kernel.org/pub/scm/linux/kernel/git/jesper/cris (2016-12-12 09:06:38 -0800)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211.git tags/mac80211-for-davem-2016-12-16
+
+for you to fetch changes up to a17d93ff3a950fefaea40e4a4bf3669b9137c533:
+
+  mac80211: fix legacy and invalid rx-rate report (2016-12-15 10:54:48 +0100)
+
+----------------------------------------------------------------
+Three fixes:
+ * avoid a WARN_ON() when trying to use WEP with AP_VLANs
+ * ensure enough headroom on mesh forwarding packets
+ * don't report unknown/invalid rates to userspace
+
+----------------------------------------------------------------
+Ben Greear (1):
+      mac80211: fix legacy and invalid rx-rate report
+
+Cedric Izoard (1):
+      mac80211: Ensure enough headroom when forwarding mesh pkt
+
+Johannes Berg (1):
+      mac80211: don't call drv_set_default_unicast_key() for VLANs
+
+ net/mac80211/key.c      |  3 ++-
+ net/mac80211/rx.c       |  2 +-
+ net/mac80211/sta_info.c | 14 ++++++++------
+ 3 files changed, 11 insertions(+), 8 deletions(-)
