@@ -1,85 +1,37 @@
-From: Souptick Joarder <jrdr.linux@gmail.com>
-Subject: Re: [PATCH] net: wan: Use dma_pool_zalloc
-Date: Fri, 16 Dec 2016 19:25:18 +0530
-Message-ID: <CAFqt6zYasTqZP1GOXJ7u7=L9U8bgM3SnKb-L7yyVVeDTbv+q0g@mail.gmail.com>
-References: <20161203091447.GA5231@jordon-HP-15-Notebook-PC>
- <m3wpf9l0fc.fsf@t19.piap.pl> <CAFqt6zZoEfE8Us+vx_VuFyqK-zth9ac=aZXo2MKD-4RUBqm5GQ@mail.gmail.com>
- <CAFqt6zaHJ_YP-inLm8_XRDrX8FtcU86NqYG=+DRn9-Y3zR4cyg@mail.gmail.com>
- <1481820487.29291.66.camel@perches.com> <CAFqt6zaPWuc+gZTMqk-gh8weZvAjvVwm0kyDT5ub=iah=y9skA@mail.gmail.com>
- <1481868649.29291.85.camel@perches.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: =?UTF-8?Q?Krzysztof_Ha=C5=82asa?= <khalasa@piap.pl>,
-        netdev@vger.kernel.org, Rameshwar Sahu <sahu.rameshwar73@gmail.com>
-To: Joe Perches <joe@perches.com>
+From: Simon Horman <simon.horman@netronome.com>
+Subject: [PATCH iproute2/net-next 0/2] tc: flower: enhance mask support
+Date: Fri, 16 Dec 2016 14:54:35 +0100
+Message-ID: <1481896477-13497-1-git-send-email-simon.horman@netronome.com>
+Cc: netdev@vger.kernel.org, Simon Horman <simon.horman@netronome.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f194.google.com ([209.85.223.194]:33231 "EHLO
-        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755619AbcLPNzs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2016 08:55:48 -0500
-Received: by mail-io0-f194.google.com with SMTP id p13so11985861ioi.0
-        for <netdev@vger.kernel.org>; Fri, 16 Dec 2016 05:55:19 -0800 (PST)
-In-Reply-To: <1481868649.29291.85.camel@perches.com>
+Received: from mail-wm0-f43.google.com ([74.125.82.43]:35636 "EHLO
+        mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1759406AbcLPOBN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2016 09:01:13 -0500
+Received: by mail-wm0-f43.google.com with SMTP id a197so34312678wmd.0
+        for <netdev@vger.kernel.org>; Fri, 16 Dec 2016 06:01:08 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 16, 2016 at 11:40 AM, Joe Perches <joe@perches.com> wrote:
-> On Fri, 2016-12-16 at 11:33 +0530, Souptick Joarder wrote:
->> On Thu, Dec 15, 2016 at 10:18 PM, Joe Perches <joe@perches.com> wrote:
->> > On Thu, 2016-12-15 at 10:41 +0530, Souptick Joarder wrote:
->> > > On Mon, Dec 12, 2016 at 10:12 AM, Souptick Joarder <jrdr.linux@gmail=
-.com> wrote:
->> > > > On Fri, Dec 9, 2016 at 6:33 PM, Krzysztof Ha=C5=82asa <khalasa@pia=
-p.pl> wrote:
->> > > > > Souptick Joarder <jrdr.linux@gmail.com> writes:
->> > > > >
->> > > > > > We should use dma_pool_zalloc instead of dma_pool_alloc/memset
->> >
->> > []
->> > > > > > diff --git a/drivers/net/wan/ixp4xx_hss.c b/drivers/net/wan/ix=
-p4xx_hss.c
->> >
->> > []
->> > > > > > @@ -976,10 +976,9 @@ static int init_hdlc_queues(struct port *=
-port)
->> > > > > >                       return -ENOMEM;
->> > > > > >       }
->> > > > > >
->> > > > > > -     if (!(port->desc_tab =3D dma_pool_alloc(dma_pool, GFP_KE=
-RNEL,
->> > > > > > -                                           &port->desc_tab_ph=
-ys)))
->> > > > > > +     if (!(port->desc_tab =3D dma_pool_zalloc(dma_pool, GFP_K=
-ERNEL,
->> > > > > > +                                            &port->desc_tab_p=
-hys)))
->> > > > > >               return -ENOMEM;
->> > > > > > -     memset(port->desc_tab, 0, POOL_ALLOC_SIZE);
->> > > > > >       memset(port->rx_buff_tab, 0, sizeof(port->rx_buff_tab));=
- /* tables */
->> > > > > >       memset(port->tx_buff_tab, 0, sizeof(port->tx_buff_tab));
->> > > > >
->> > > > > This look fine, feel free to send it to the netdev mailing list =
-for
->> > > > > inclusion.
->> > > >
->> > > > Including netdev mailing list based as requested.
->> > > > > Acked-by: Krzysztof Halasa <khalasa@piap.pl>
->> >
->> > []
->> > > Any comment on this patch ?
->> >
->> > Shouldn't the one in drivers/net/ethernet/xscale/ixp4xx_eth.c
->> > also be changed?
->>
->> Yes, you are right.   Do you want me to include it in same patch?
->
-> Your choice.  I would use a single patch.
+Hi,
 
-There are few other places where the same change is applicable.
-I am planning to put all those changes in a single patch. It includes
-changes in drivers/net/ethernet/xscale/ixp4xx_eth.c
+this short series enhances mask support for tc flower by:
+* Documenting existing mask support for *_ip parameters
+* Allowing *_mac options to accept a mask.
+  This makes use of existing kernel features.
 
-You can review this patch separately.
->
+Based on net-next +
+"[PATCH iproute2 0/2] Add dest UDP port to IP tunnel parameters"
+
+Simon Horman (2):
+  tc: flower: document that *_ip parameters take a PREFIX as an
+    argument.
+  tc: flower: Allow *_mac options to accept a mask
+
+ man/man8/tc-flower.8 | 41 +++++++++++++++++++++++------------------
+ tc/f_flower.c        | 51 ++++++++++++++++++++++++++++++++++++++++-----------
+ 2 files changed, 63 insertions(+), 29 deletions(-)
+
+-- 
+2.7.0.rc3.207.g0ac5344
