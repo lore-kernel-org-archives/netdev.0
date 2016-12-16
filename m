@@ -1,63 +1,50 @@
 From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: Re: [PATCH v5 1/4] siphash: add cryptographically secure PRF
-Date: Fri, 16 Dec 2016 16:51:35 +0100
-Message-ID: <CAHmME9rxCYfwyF6EADWqpAEt+yqCPgCLUVH0FPdAy7r-oPnrRg@mail.gmail.com>
-References: <CAGiyFdfmiCMyHvAg=5sGh8KjBBrF0Wb4Qf=JLzJqUAx4yFSS3Q@mail.gmail.com>
- <20161216034618.28276.qmail@ns.sciencehorizons.net> <CAGiyFdd6_LVzUUfFcaqMyub1c2WPvWUzAQDCH+Aza-_t6mvmXg@mail.gmail.com>
- <CAHmME9pjoAsoct1sVDpFFuqaqutv9X7DGJ5OBQXRAS57KFimUA@mail.gmail.com> <CAGiyFddB_HT3H2yhYQ5rprYZ487rJ4iCaH9uPJQD57hiPbn9ng@mail.gmail.com>
+Subject: Re: [PATCH v5 3/4] secure_seq: use SipHash in place of MD5
+Date: Fri, 16 Dec 2016 16:57:38 +0100
+Message-ID: <CAHmME9quRDe2FZgV4oAnJ_Cj_GDJo5pUAmQkdpeJe+7_TNMuiA@mail.gmail.com>
+References: <20161215203003.31989-1-Jason@zx2c4.com> <20161215203003.31989-4-Jason@zx2c4.com>
+ <063D6719AE5E284EB5DD2968C1650D6DB0240E66@AcuExch.aculab.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: George Spelvin <linux@sciencehorizons.net>,
-        Andi Kleen <ak@linux.intel.com>,
-        David Miller <davem@davemloft.net>,
-        David Laight <David.Laight@aculab.com>,
-        Eric Biggers <ebiggers3@gmail.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        kernel-hardening@lists.openwall.com,
-        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+Cc: Netdev <netdev@vger.kernel.org>,
+        "kernel-hardening@lists.openwall.com"
+        <kernel-hardening@lists.openwall.com>,
         LKML <linux-kernel@vger.kernel.org>,
-        Andy Lutomirski <luto@amacapital.net>,
-        Netdev <netdev@vger.kernel.org>,
-        Tom Herbert <tom@herbertland.com>,
+        "linux-crypto@vger.kernel.org" <linux-crypto@vger.kernel.org>,
+        Ted Tso <tytso@mit.edu>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
         Linus Torvalds <torvalds@linux-foundation.org>,
-        "Theodore Ts'o" <tytso@mit.edu>, vegard.nossum@gmail.com,
-        "Daniel J . Bernstein" <djb@cr.yp.to>
-To: Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <CAGiyFddB_HT3H2yhYQ5rprYZ487rJ4iCaH9uPJQD57hiPbn9ng@mail.gmail.com>
-Sender: linux-crypto-owner@vger.kernel.org
+        Eric Biggers <ebiggers3@gmail.com>,
+        Tom Herbert <tom@herbertland.com>,
+        George Spelvin <linux@sciencehorizons.net>,
+        Vegard Nossum <vegard.nossum@gmail.com>,
+        "ak@linux.intel.com" <ak@linux.intel.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "luto@amacapital.net" <luto@amacapital.net>
+To: David Laight <David.Laight@aculab.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB0240E66@AcuExch.aculab.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi JP & George,
+Hi David,
 
-My function names:
-- SipHash -> siphash
-- HalfSipHash -> hsiphash
+On Fri, Dec 16, 2016 at 10:59 AM, David Laight <David.Laight@aculab.com> wrote:
+> You are still putting over-aligned data on stack.
+> You only need to align it to the alignment of u64 (not the size of u64).
+> If an on-stack item has a stronger alignment requirement than the stack
+> the gcc has to generate two stack frames for the function.
 
-It appears that hsiphash can produce either 32-bit output or 64-bit
-output, with the output length parameter as part of the hash algorithm
-in there. When I code this for my kernel patchset, I very likely will
-only implement one output length size. Right now I'm leaning toward
-32-bit. Questions:
+Yesterday, folks were saying that sometimes 32-bit platforms need
+8-byte alignment for certain 64-bit operations, so I shouldn't fall
+back to 4-byte alignment there. But actually, looking at this more
+closely, I can just make SIPHASH_ALIGNMENT == __alignof__(u64), which
+will take care of all possible concerns, since gcc knows best which
+platforms need what alignment. Thanks for making this clear to me with
+"the alignment of u64 (not the size of u64)".
 
-- Is this a reasonable choice?
-- When hsiphash is desired due to its faster speed, are there any
-circumstances in which producing a 64-bit output would actually be
-useful? Namely, are there any hashtables that could benefit from a
-64-bit functions?
-- Are there reasons why hsiphash with 64-bit output would be
-reasonable? Or will we be fine sticking with 32-bit output only?
+> Oh - and wait a bit longer between revisions.
 
-With both hsiphash and siphash, the division of usage will probably become:
-- Use 64-bit output 128-bit key siphash for keyed RNG-like things,
-such as syncookies and sequence numbers
-- Use 64-bit output 128-bit key siphash for hashtables that must
-absolutely be secure to an extremely high bandwidth attacker, such as
-userspace directly DoSing a kernel hashtable
-- Use 32-bit output 64-bit key hsiphash for quick hashtable functions
-that still must be secure but do not require as large of a security
-margin
-
-Sound good?
+Okay. We can be turtles.
 
 Jason
