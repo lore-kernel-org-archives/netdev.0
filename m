@@ -1,71 +1,60 @@
-From: Souptick Joarder <jrdr.linux@gmail.com>
-Subject: Re: [PATCH] net: wan: Use dma_pool_zalloc
-Date: Fri, 16 Dec 2016 11:33:17 +0530
-Message-ID: <CAFqt6zaPWuc+gZTMqk-gh8weZvAjvVwm0kyDT5ub=iah=y9skA@mail.gmail.com>
-References: <20161203091447.GA5231@jordon-HP-15-Notebook-PC>
- <m3wpf9l0fc.fsf@t19.piap.pl> <CAFqt6zZoEfE8Us+vx_VuFyqK-zth9ac=aZXo2MKD-4RUBqm5GQ@mail.gmail.com>
- <CAFqt6zaHJ_YP-inLm8_XRDrX8FtcU86NqYG=+DRn9-Y3zR4cyg@mail.gmail.com> <1481820487.29291.66.camel@perches.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: =?UTF-8?Q?Krzysztof_Ha=C5=82asa?= <khalasa@piap.pl>,
-        netdev@vger.kernel.org, Rameshwar Sahu <sahu.rameshwar73@gmail.com>
-To: Joe Perches <joe@perches.com>
+From: Nicholas Mc Guire <hofrat@osadl.org>
+Subject: [PATCH RFC] liquidio: make timeout HZ independent
+Date: Fri, 16 Dec 2016 07:57:20 +0100
+Message-ID: <1481871440-24859-1-git-send-email-hofrat@osadl.org>
+Cc: Satanand Burla <satananda.burla@caviumnetworks.com>,
+        Felix Manlunas <felix.manlunas@caviumnetworks.com>,
+        Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Nicholas Mc Guire <hofrat@osadl.org>
+To: Derek Chickles <derek.chickles@caviumnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f196.google.com ([209.85.223.196]:36012 "EHLO
-        mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751321AbcLPG3d (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2016 01:29:33 -0500
-Received: by mail-io0-f196.google.com with SMTP id b194so10880307ioa.3
-        for <netdev@vger.kernel.org>; Thu, 15 Dec 2016 22:29:33 -0800 (PST)
-In-Reply-To: <1481820487.29291.66.camel@perches.com>
+Received: from www.osadl.org ([62.245.132.105]:59102 "EHLO www.osadl.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751539AbcLPGzo (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 16 Dec 2016 01:55:44 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 15, 2016 at 10:18 PM, Joe Perches <joe@perches.com> wrote:
-> On Thu, 2016-12-15 at 10:41 +0530, Souptick Joarder wrote:
->> On Mon, Dec 12, 2016 at 10:12 AM, Souptick Joarder <jrdr.linux@gmail.com=
-> wrote:
->> > On Fri, Dec 9, 2016 at 6:33 PM, Krzysztof Ha=C5=82asa <khalasa@piap.pl=
-> wrote:
->> > > Souptick Joarder <jrdr.linux@gmail.com> writes:
->> > >
->> > > > We should use dma_pool_zalloc instead of dma_pool_alloc/memset
-> []
->> > > > diff --git a/drivers/net/wan/ixp4xx_hss.c b/drivers/net/wan/ixp4xx=
-_hss.c
-> []
->> > > > @@ -976,10 +976,9 @@ static int init_hdlc_queues(struct port *port=
-)
->> > > >                       return -ENOMEM;
->> > > >       }
->> > > >
->> > > > -     if (!(port->desc_tab =3D dma_pool_alloc(dma_pool, GFP_KERNEL=
-,
->> > > > -                                           &port->desc_tab_phys))=
-)
->> > > > +     if (!(port->desc_tab =3D dma_pool_zalloc(dma_pool, GFP_KERNE=
-L,
->> > > > +                                            &port->desc_tab_phys)=
-))
->> > > >               return -ENOMEM;
->> > > > -     memset(port->desc_tab, 0, POOL_ALLOC_SIZE);
->> > > >       memset(port->rx_buff_tab, 0, sizeof(port->rx_buff_tab)); /* =
-tables */
->> > > >       memset(port->tx_buff_tab, 0, sizeof(port->tx_buff_tab));
->> > >
->> > > This look fine, feel free to send it to the netdev mailing list for
->> > > inclusion.
->> >
->> > Including netdev mailing list based as requested.
->> > > Acked-by: Krzysztof Halasa <khalasa@piap.pl>
-> []
->> Any comment on this patch ?
->
-> Shouldn't the one in drivers/net/ethernet/xscale/ixp4xx_eth.c
-> also be changed?
+schedule_timeout_* takes a timeout in jiffies but the code currently is
+passing in a constant which makes this timeout HZ dependent, so pass it
+through msecs_to_jiffies() to fix this up.
 
-Yes, you are right.   Do you want me to include it in same patch?
+Fixes: commit b0d66369edcd ("liquidio VF error handling")
+Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
+---
 
-Regards
-Souptick
+Problem found by coccinelle spatch
+
+The current wait time can vary by a factor 10 depending on the HZ
+setting chose, which does not seem reasonable here.
+
+The below patch sets the timeout to 100ms - it is though not clear
+if this is the intent or if it should be longer/shorter as it is not
+clear what HZ setting was assumed during design and used for testing.
+
+This needs an ack by someone who knows the device and can confirm that
+100ms is reasonable to wait for completion of in-flight requests.
+
+Patch was compile tested with: x86_64_defconfig + CONFIG_LIQUIDIO_VF=m
+
+Patch is against 4.9.0 (localversion-next is -next-20161216)
+
+ drivers/net/ethernet/cavium/liquidio/lio_vf_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
+index 70d96c1..eca469e 100644
+--- a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
++++ b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
+@@ -189,7 +189,7 @@ static void pcierror_quiesce_device(struct octeon_device *oct)
+ 	 */
+ 
+ 	/* To allow for in-flight requests */
+-	schedule_timeout_uninterruptible(100);
++	schedule_timeout_uninterruptible(msecs_to_jiffies(100));
+ 
+ 	if (wait_for_pending_requests(oct))
+ 		dev_err(&oct->pci_dev->dev, "There were pending requests\n");
+-- 
+2.1.4
