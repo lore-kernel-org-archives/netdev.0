@@ -1,65 +1,42 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PULL] virtio, vhost: new device, fixes, speedups
-Date: Fri, 16 Dec 2016 19:09:20 +0200
-Message-ID: <20161216184123-mutt-send-email-mst@kernel.org>
-References: <20161216010507-mutt-send-email-mst@kernel.org>
-	<CA+55aFxwG=jj6=2fKjNkHCOnbKr-mNvNucbA=CSdPvb4kzW3FA@mail.gmail.com>
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: Re: [PATCH v5 1/4] siphash: add cryptographically secure PRF
+Date: Fri, 16 Dec 2016 18:09:26 +0100
+Message-ID: <CAHmME9ruYEJbLOij9ooYxLNgkOfr6F9c87dJjD3D_aFVsEFJZQ@mail.gmail.com>
+References: <CAGiyFdfmiCMyHvAg=5sGh8KjBBrF0Wb4Qf=JLzJqUAx4yFSS3Q@mail.gmail.com>
+ <20161215232840.22459.qmail@ns.sciencehorizons.net> <063D6719AE5E284EB5DD2968C1650D6DB0241238@AcuExch.aculab.com>
+Reply-To: kernel-hardening@lists.openwall.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: arend.vanspriel@broadcom.com, KVM list <kvm@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	virtualization <virtualization@lists.linux-foundation.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <CA+55aFxwG=jj6=2fKjNkHCOnbKr-mNvNucbA=CSdPvb4kzW3FA@mail.gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=UTF-8
+Cc: George Spelvin <linux@sciencehorizons.net>, "ak@linux.intel.com" <ak@linux.intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>, "ebiggers3@gmail.com" <ebiggers3@gmail.com>,
+	"hannes@stressinduktion.org" <hannes@stressinduktion.org>,
+	"jeanphilippe.aumasson@gmail.com" <jeanphilippe.aumasson@gmail.com>,
+	"kernel-hardening@lists.openwall.com" <kernel-hardening@lists.openwall.com>,
+	"linux-crypto@vger.kernel.org" <linux-crypto@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, "luto@amacapital.net" <luto@amacapital.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>, "tom@herbertland.com" <tom@herbertland.com>,
+	"torvalds@linux-foundation.org" <torvalds@linux-foundation.org>, "tytso@mit.edu" <tytso@mit.edu>,
+	"vegard.nossum@gmail.com" <vegard.nossum@gmail.com>, "djb@cr.yp.to" <djb@cr.yp.to>
+To: David Laight <David.Laight@aculab.com>
+Return-path: <kernel-hardening-return-5641-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB0241238@AcuExch.aculab.com>
 List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 15, 2016 at 06:20:40PM -0800, Linus Torvalds wrote:
-> On Thu, Dec 15, 2016 at 3:05 PM, Michael S. Tsirkin <mst@redhat.com> wrote:
-> >
-> >   git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git tags/for_linus
-> 
-> Pulled, but I wonder...
-> 
-> >  Documentation/translations/zh_CN/sparse.txt        |   7 +-
-> >  arch/arm/plat-samsung/include/plat/gpio-cfg.h      |   2 +-
-> >  drivers/crypto/virtio/virtio_crypto_common.h       | 128 +++++
-> [...]
-> 
-> what are you generating these diffstats with? Because they are pretty bogus..
-> 
-> The end result is correct:
-> 
-> >  86 files changed, 2106 insertions(+), 280 deletions(-)
-> 
-> but the file order in the diffstat is completely random, which makes
-> it very hard to compare with what I get. It also makes it hard to see
-> what you changed, because it's not alphabetical like it should be
-> (strictly speaking the git pathname ordering isnt' really
-> alphabetical, since the '/' sorts as the NUL character, but close
-> enough).
-> 
-> I can't see the logic to the re-ordering of the lines, so I'm
-> intrigued how you even generated it.
-> 
->             Linus
+Hi David,
 
+On Fri, Dec 16, 2016 at 6:06 PM, David Laight <David.Laight@aculab.com> wrote:
+> A 32bit hash would also remove all the issues about the alignment
+> of IP addresses (etc) on 64bit systems.
 
-Oh, that's because I set orderfile globally rather than
-just for the qemu project which wants it.
-Fixed, sorry about that.
+The current replacements of md5_transform with siphash in the v6 patch
+series will continue to use the original siphash, since the 128-bit
+key is rather important for these kinds of secrets. Additionally,
+64-bit siphash is already faster than the md5_transform that it
+replaces. So the alignment concerns (now, non-issues; problems have
+been solved, I believe) still remain.
 
--- 
-MST
+Jason
