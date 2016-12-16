@@ -1,40 +1,50 @@
-From: =?utf-8?B?0YHQuNGB0YLQtdC80Ysg0LDQtNC80LjQvdC40YHRgtGA0LDRgtC+0YA=?=
-        <roberto.bovo@sanita.padova.it>
-Subject: (unknown)
-Date: Fri, 16 Dec 2016 11:25:44 +0100 (CET)
-Message-ID: <556522076.6015713.1481883944901.JavaMail.zimbra@sanita.padova.it>
-Reply-To: Sistemass_Adminss@mail2world.com
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 1/3] net:dsa:mv88e6xxx: use hashtable to store
+ multicast entries
+Date: Fri, 16 Dec 2016 12:01:15 +0100
+Message-ID: <20161216110115.GC20359@lunn.ch>
+References: <20161213150948.GD20323@lunn.ch>
+ <CABHmqqB-6-L124hrAjNxd4kO3zYp9R=RM1X6PXyuQW6Hapiv4g@mail.gmail.com>
+ <20161214104614.GD27370@lunn.ch>
+ <CABHmqqDpiN2kwkTgrM8Qu8EEx3Sjk2yVBy8QQAJppGfJ6-MV5Q@mail.gmail.com>
+ <87eg19hzw1.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+ <be3b69b7-b6a3-a939-cf77-c62e5a1fe719@gmail.com>
+ <87bmwdcc96.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+ <CABHmqqCOYMPA-Py7Uu4gsQ=s8CrQd-tT4-Db+j8eJH9=2s4L2g@mail.gmail.com>
+ <20161216100802.GA20359@lunn.ch>
+ <CABHmqqAQddcQZqVBi7gTjR40cHx6+aQebmsY3BwJgeEbLsX5Yw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: base64
-To: undisclosed-recipients:;
+Content-Type: text/plain; charset=us-ascii
+Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Volodymyr Bendiuga <valdr.linuxnext@gmail.com>,
+        netdev@vger.kernel.org,
+        Volodymyr Bendiuga <volodymyr.bendiuga@westermo.se>,
+        John Crispin <john@phrozen.org>
+To: Volodymyr Bendiuga <volodymyr.bendiuga@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.sanita.padova.it ([217.148.121.43]:51863 "EHLO
-        smtp.sanita.padova.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1760460AbcLPKqz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2016 05:46:55 -0500
-Subject: 
+Received: from vps0.lunn.ch ([178.209.37.122]:56733 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1759512AbcLPLkQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 16 Dec 2016 06:40:16 -0500
+Content-Disposition: inline
+In-Reply-To: <CABHmqqAQddcQZqVBi7gTjR40cHx6+aQebmsY3BwJgeEbLsX5Yw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-0LLQvdC40LzQsNC90LjRjzsKCtCw0YjQuCDRgdC+0L7QsdGJ0LXQvdC40Y8g0L/RgNC10LLRi9GB
-0LjQuyDQu9C40LzQuNGCINC/0LDQvNGP0YLQuCwg0LrQvtGC0L7RgNGL0Lkg0YHQvtGB0YLQsNCy
-0LvRj9C10YIgNSDQk9CxLCDQvtC/0YDQtdC00LXQu9C10L3QvdGL0YUg0LDQtNC80LjQvdC40YHR
-gtGA0LDRgtC+0YDQvtC8LCDQutC+0YLQvtGA0YvQuSDQsiDQvdCw0YHRgtC+0Y/RidC10LUg0LLR
-gNC10LzRjyDRgNCw0LHQvtGC0LDQtdGCINC90LAgMTAuOUdCLCDQktGLINC90LUg0YHQvNC+0LbQ
-tdGC0LUg0L7RgtC/0YDQsNCy0LjRgtGMINC40LvQuCDQv9C+0LvRg9GH0LjRgtGMINC90L7QstGD
-0Y4g0L/QvtGH0YLRgywg0L/QvtC60LAg0LLRiyDQv9C+0LLRgtC+0YDQvdC+INC90LUg0L/RgNC+
-0LLQtdGA0LjRgtGMINCy0LDRiCDQv9C+0YfRgtC+0LLRi9C5INGP0YnQuNC6INC/0L7Rh9GC0Ysu
-INCn0YLQvtCx0Ysg0LLQvtGB0YHRgtCw0L3QvtCy0LjRgtGMINGA0LDQsdC+0YLQvtGB0L/QvtGB
-0L7QsdC90L7RgdGC0Ywg0JLQsNGI0LXQs9C+INC/0L7Rh9GC0L7QstC+0LPQviDRj9GJ0LjQutCw
-LCDQvtGC0L/RgNCw0LLRjNGC0LUg0YHQu9C10LTRg9GO0YnRg9GOINC40L3RhNC+0YDQvNCw0YbQ
-uNGOINC90LjQttC1OgoK0LjQvNGPOgrQmNC80Y8g0L/QvtC70YzQt9C+0LLQsNGC0LXQu9GPOgrQ
-v9Cw0YDQvtC70Yw6CtCf0L7QtNGC0LLQtdGA0LbQtNC10L3QuNC1INC/0LDRgNC+0LvRjzoK0JDQ
-tNGA0LXRgSDRjdC70LXQutGC0YDQvtC90L3QvtC5INC/0L7Rh9GC0Ys6CtGC0LXQu9C10YTQvtC9
-OgoK0JXRgdC70Lgg0LLRiyDQvdC1INCyINGB0L7RgdGC0L7Rj9C90LjQuCDQv9C10YDQtdC/0YDQ
-vtCy0LXRgNC40YLRjCDRgdC+0L7QsdGJ0LXQvdC40Y8sINCy0LDRiCDQv9C+0YfRgtC+0LLRi9C5
-INGP0YnQuNC6INCx0YPQtNC10YIg0L7RgtC60LvRjtGH0LXQvSEKCtCf0YDQuNC90L7RgdC40Lwg
-0LjQt9Cy0LjQvdC10L3QuNGPINC30LAg0L3QtdGD0LTQvtCx0YHRgtCy0LAuCtCf0YDQvtCy0LXR
-gNC+0YfQvdGL0Lkg0LrQvtC0OiBFTjogUnUuLi43NzY3NzQ5OTAuLjIwMTYK0J/QvtGH0YLRiyDR
-gtC10YXQvdC40YfQtdGB0LrQvtC5INC/0L7QtNC00LXRgNC20LrQuCDCqTIwMTYKCtGB0L/QsNGB
-0LjQsdC+CtGB0LjRgdGC0LXQvNGLINCw0LTQvNC40L3QuNGB0YLRgNCw0YLQvtGACg==
+On Fri, Dec 16, 2016 at 11:26:01AM +0100, Volodymyr Bendiuga wrote:
+> Hi Andrew,
+> 
+> I don't have any script right now, the code I have is a part of
+> the OS, but I could write simple C program which represents
+> what we are doing with mc entries and send it to you for profiling.
+
+It would be nice to have a benchmark test we can use to test out
+ideas.
+
+Please try to make the code flexible. The slave interface names on my
+boards are probably not the same as on your. Also, the number of ports
+may differ.
+
+    Thanks
+	Andrew
