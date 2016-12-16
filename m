@@ -1,46 +1,85 @@
-From: Peter Meerwald-Stadler <pmeerw@pmeerw.net>
-Subject: [PATCH 3/3] net: fec: Fix typo in error msg and comment
-Date: Fri, 16 Dec 2016 14:23:36 +0100
-Message-ID: <1481894616-4517-1-git-send-email-pmeerw@pmeerw.net>
-Cc: Peter Meerwald-Stadler <pmeerw@pmeerw.net>,
-        Fugang Duan <fugang.duan@nxp.com>, trivial@kernel.org
-To: netdev@vger.kernel.org
+From: Souptick Joarder <jrdr.linux@gmail.com>
+Subject: Re: [PATCH] net: wan: Use dma_pool_zalloc
+Date: Fri, 16 Dec 2016 19:25:18 +0530
+Message-ID: <CAFqt6zYasTqZP1GOXJ7u7=L9U8bgM3SnKb-L7yyVVeDTbv+q0g@mail.gmail.com>
+References: <20161203091447.GA5231@jordon-HP-15-Notebook-PC>
+ <m3wpf9l0fc.fsf@t19.piap.pl> <CAFqt6zZoEfE8Us+vx_VuFyqK-zth9ac=aZXo2MKD-4RUBqm5GQ@mail.gmail.com>
+ <CAFqt6zaHJ_YP-inLm8_XRDrX8FtcU86NqYG=+DRn9-Y3zR4cyg@mail.gmail.com>
+ <1481820487.29291.66.camel@perches.com> <CAFqt6zaPWuc+gZTMqk-gh8weZvAjvVwm0kyDT5ub=iah=y9skA@mail.gmail.com>
+ <1481868649.29291.85.camel@perches.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: =?UTF-8?Q?Krzysztof_Ha=C5=82asa?= <khalasa@piap.pl>,
+        netdev@vger.kernel.org, Rameshwar Sahu <sahu.rameshwar73@gmail.com>
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.pmeerw.net ([84.19.176.92]:47038 "EHLO pmeerw.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755028AbcLPNXj (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 16 Dec 2016 08:23:39 -0500
+Received: from mail-io0-f194.google.com ([209.85.223.194]:33231 "EHLO
+        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755619AbcLPNzs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2016 08:55:48 -0500
+Received: by mail-io0-f194.google.com with SMTP id p13so11985861ioi.0
+        for <netdev@vger.kernel.org>; Fri, 16 Dec 2016 05:55:19 -0800 (PST)
+In-Reply-To: <1481868649.29291.85.camel@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Peter Meerwald-Stadler <pmeerw@pmeerw.net>
-Cc: Fugang Duan <fugang.duan@nxp.com>
-Cc: trivial@kernel.org
----
- drivers/net/ethernet/freescale/fec_main.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+On Fri, Dec 16, 2016 at 11:40 AM, Joe Perches <joe@perches.com> wrote:
+> On Fri, 2016-12-16 at 11:33 +0530, Souptick Joarder wrote:
+>> On Thu, Dec 15, 2016 at 10:18 PM, Joe Perches <joe@perches.com> wrote:
+>> > On Thu, 2016-12-15 at 10:41 +0530, Souptick Joarder wrote:
+>> > > On Mon, Dec 12, 2016 at 10:12 AM, Souptick Joarder <jrdr.linux@gmail=
+.com> wrote:
+>> > > > On Fri, Dec 9, 2016 at 6:33 PM, Krzysztof Ha=C5=82asa <khalasa@pia=
+p.pl> wrote:
+>> > > > > Souptick Joarder <jrdr.linux@gmail.com> writes:
+>> > > > >
+>> > > > > > We should use dma_pool_zalloc instead of dma_pool_alloc/memset
+>> >
+>> > []
+>> > > > > > diff --git a/drivers/net/wan/ixp4xx_hss.c b/drivers/net/wan/ix=
+p4xx_hss.c
+>> >
+>> > []
+>> > > > > > @@ -976,10 +976,9 @@ static int init_hdlc_queues(struct port *=
+port)
+>> > > > > >                       return -ENOMEM;
+>> > > > > >       }
+>> > > > > >
+>> > > > > > -     if (!(port->desc_tab =3D dma_pool_alloc(dma_pool, GFP_KE=
+RNEL,
+>> > > > > > -                                           &port->desc_tab_ph=
+ys)))
+>> > > > > > +     if (!(port->desc_tab =3D dma_pool_zalloc(dma_pool, GFP_K=
+ERNEL,
+>> > > > > > +                                            &port->desc_tab_p=
+hys)))
+>> > > > > >               return -ENOMEM;
+>> > > > > > -     memset(port->desc_tab, 0, POOL_ALLOC_SIZE);
+>> > > > > >       memset(port->rx_buff_tab, 0, sizeof(port->rx_buff_tab));=
+ /* tables */
+>> > > > > >       memset(port->tx_buff_tab, 0, sizeof(port->tx_buff_tab));
+>> > > > >
+>> > > > > This look fine, feel free to send it to the netdev mailing list =
+for
+>> > > > > inclusion.
+>> > > >
+>> > > > Including netdev mailing list based as requested.
+>> > > > > Acked-by: Krzysztof Halasa <khalasa@piap.pl>
+>> >
+>> > []
+>> > > Any comment on this patch ?
+>> >
+>> > Shouldn't the one in drivers/net/ethernet/xscale/ixp4xx_eth.c
+>> > also be changed?
+>>
+>> Yes, you are right.   Do you want me to include it in same patch?
+>
+> Your choice.  I would use a single patch.
 
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 38160c2..250b790 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -2001,7 +2001,7 @@ static int fec_enet_mii_init(struct platform_device *pdev)
- 		mii_speed--;
- 	if (mii_speed > 63) {
- 		dev_err(&pdev->dev,
--			"fec clock (%lu) to fast to get right mii speed\n",
-+			"fec clock (%lu) too fast to get right mii speed\n",
- 			clk_get_rate(fep->clk_ipg));
- 		err = -EINVAL;
- 		goto err_out;
-@@ -2950,7 +2950,7 @@ static void set_multicast_list(struct net_device *ndev)
- 		}
- 
- 		/* only upper 6 bits (FEC_HASH_BITS) are used
--		 * which point to specific bit in he hash registers
-+		 * which point to specific bit in the hash registers
- 		 */
- 		hash = (crc >> (32 - FEC_HASH_BITS)) & 0x3f;
- 
--- 
-1.7.10.4
+There are few other places where the same change is applicable.
+I am planning to put all those changes in a single patch. It includes
+changes in drivers/net/ethernet/xscale/ixp4xx_eth.c
+
+You can review this patch separately.
+>
