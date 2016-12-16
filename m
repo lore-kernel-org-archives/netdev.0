@@ -1,49 +1,32 @@
-From: Julien Fortin <julien@cumulusnetworks.com>
-Subject: [PATCH] ip: vfinfo: remove code duplication for IFLA_VF_RSS_QUERY_EN
-Date: Fri, 16 Dec 2016 17:36:05 +0100
-Message-ID: <20161216163605.19728-1-julien@cumulusnetworks.com>
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: [PATCH] ip: vfinfo: remove code duplication for
+ IFLA_VF_RSS_QUERY_EN
+Date: Fri, 16 Dec 2016 17:43:11 +0100
+Message-ID: <20161216164311.GN13857@orbyte.nwl.cc>
+References: <20161216163605.19728-1-julien@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 8bit
-Cc: phil@nwl.cc, Julien Fortin <julien@cumulusnetworks.com>
-To: stephen@networkplumber.org, netdev@vger.kernel.org
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org
+To: Julien Fortin <julien@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f50.google.com ([74.125.82.50]:35860 "EHLO
-        mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934030AbcLPQgZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2016 11:36:25 -0500
-Received: by mail-wm0-f50.google.com with SMTP id g23so39258379wme.1
-        for <netdev@vger.kernel.org>; Fri, 16 Dec 2016 08:36:24 -0800 (PST)
+Received: from orbyte.nwl.cc ([151.80.46.58]:59223 "EHLO mail.nwl.cc"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S934179AbcLPQnN (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 16 Dec 2016 11:43:13 -0500
+Content-Disposition: inline
+In-Reply-To: <20161216163605.19728-1-julien@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Julien Fortin <julien@cumulusnetworks.com>
+On Fri, Dec 16, 2016 at 05:36:05PM +0100, Julien Fortin wrote:
+> From: Julien Fortin <julien@cumulusnetworks.com>
+> 
+> Fixes: 4fb4a10e120b1 ("ipaddress: Print IFLA_VF_QUERY_RSS_EN setting”)
+> 
+> Signed-off-by: Julien Fortin <julien@cumulusnetworks.com>
 
-Fixes: 4fb4a10e120b1 ("ipaddress: Print IFLA_VF_QUERY_RSS_EN setting”)
+Oh! Looks like Git messed up during a rebase and the obviously wrong
+result was overlooked.
 
-Signed-off-by: Julien Fortin <julien@cumulusnetworks.com>
----
- ip/ipaddress.c | 8 --------
- 1 file changed, 8 deletions(-)
-
-diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-index de64877..400ebb4 100644
---- a/ip/ipaddress.c
-+++ b/ip/ipaddress.c
-@@ -414,14 +414,6 @@ static void print_vfinfo(FILE *fp, struct rtattr *vfinfo)
- 			fprintf(fp, ", query_rss %s",
- 			        rss_query->setting ? "on" : "off");
- 	}
--	if (vf[IFLA_VF_RSS_QUERY_EN]) {
--		struct ifla_vf_rss_query_en *rss_query =
--			RTA_DATA(vf[IFLA_VF_RSS_QUERY_EN]);
--
--		if (rss_query->setting != -1)
--			fprintf(fp, ", query_rss %s",
--			        rss_query->setting ? "on" : "off");
--	}
- 	if (vf[IFLA_VF_STATS] && show_stats)
- 		print_vf_stats64(fp, vf[IFLA_VF_STATS]);
- }
--- 
-2.11.0
+Acked-by: Phil Sutter <phil@nwl.cc>
