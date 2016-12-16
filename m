@@ -1,82 +1,65 @@
 From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: Re: Re: [PATCH v5 1/4] siphash: add
+Subject: Re: [kernel-hardening] Re: [PATCH v5 1/4] siphash: add
  cryptographically secure PRF
-Date: Fri, 16 Dec 2016 22:01:10 +0100
-Message-ID: <CAHmME9pz=syTiLXUsbXFyGdbGK6pxbnU+TVLDkbYiTa-9+sckQ@mail.gmail.com>
-Reply-To: kernel-hardening@lists.openwall.com
+Date: Fri, 16 Dec 2016 22:09:14 +0100
+Message-ID: <CAHmME9rzHfKxJkU+3+Xg-Wh48nYkhq7bH55RQVCmTXSTgJ2_VA@mail.gmail.com>
+References: <CAGiyFdfmiCMyHvAg=5sGh8KjBBrF0Wb4Qf=JLzJqUAx4yFSS3Q@mail.gmail.com>
+ <20161216034618.28276.qmail@ns.sciencehorizons.net> <CAGiyFdd6_LVzUUfFcaqMyub1c2WPvWUzAQDCH+Aza-_t6mvmXg@mail.gmail.com>
+ <CAHmME9pjoAsoct1sVDpFFuqaqutv9X7DGJ5OBQXRAS57KFimUA@mail.gmail.com>
+ <CALx6S351VFRZmEQphRQy6YtmZYPnOtTN7=XiNrJmhWJGv4HUBg@mail.gmail.com> <1481921067.1054.6.camel@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-To: kernel-hardening@lists.openwall.com, "Theodore Ts'o" <tytso@mit.edu>,
-	George Spelvin <linux@sciencehorizons.net>, Jason <Jason@zx2c4.com>,
-	Andi Kleen <ak@linux.intel.com>, David Miller <davem@davemloft.net>,
-	David Laight <David.Laight@aculab.com>, "Daniel J . Bernstein" <djb@cr.yp.to>,
-	Eric Biggers <ebiggers3@gmail.com>, Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>,
-	Linux Crypto Mailing List <linux-crypto@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>,
-	Andy Lutomirski <luto@amacapital.net>, Netdev <netdev@vger.kernel.org>,
-	Tom Herbert <tom@herbertland.com>, Linus Torvalds <torvalds@linux-foundation.org>,
-	Vegard Nossum <vegard.nossum@gmail.com>
-Return-path: <kernel-hardening-return-5660-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+Cc: kernel-hardening@lists.openwall.com,
+        Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>,
+        George Spelvin <linux@sciencehorizons.net>,
+        Andi Kleen <ak@linux.intel.com>,
+        David Miller <davem@davemloft.net>,
+        David Laight <David.Laight@aculab.com>,
+        Eric Biggers <ebiggers3@gmail.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Andy Lutomirski <luto@amacapital.net>,
+        Netdev <netdev@vger.kernel.org>,
+        Linus Torvalds <torvalds@linux-foundation.org>,
+        "Theodore Ts'o" <tytso@mit.edu>,
+        Vegard Nossum <vegard.nossum@gmail.com>,
+        "Daniel J . Bernstein" <djb@cr.yp.to>
+To: Daniel Micay <danielmicay@gmail.com>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <1481921067.1054.6.camel@gmail.com>
+Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Ted,
+Hi Daniel,
 
-On Fri, Dec 16, 2016 at 9:43 PM, Theodore Ts'o <tytso@mit.edu> wrote:
-> What should we do with get_random_int() and get_random_long()?  In
-> some cases it's being used in performance sensitive areas, and where
-> anti-DoS protection might be enough.  In others, maybe not so much.
+On Fri, Dec 16, 2016 at 9:44 PM, Daniel Micay <danielmicay@gmail.com> wrote:
+> On Fri, 2016-12-16 at 11:47 -0800, Tom Herbert wrote:
+>>
+>> That's about 3x of jhash speed (7 nsecs). So that might closer
+>> to a more palatable replacement for jhash. Do we lose any security
+>> advantages with halfsiphash?
 >
-> If we rekeyed the secret used by get_random_int() and
-> get_random_long() frequently (say, every minute or every 5 minutes),
-> would that be sufficient for current and future users of these
-> interfaces?
+> Have you tested a lower round SipHash? Probably best to stick with the
+> usual construction for non-DoS mitigation, but why not try SipHash 1-3,
+> 1-2, etc. for DoS mitigation?
+>
+> Rust and Swift both went with SipHash 1-3 for hash tables.
 
-get_random_int() and get_random_long() should quite clearly use
-SipHash with its secure 128-bit key and not HalfSipHash with its
-64-bit key. HalfSipHash is absolutely insufficient for this use case.
-Remember, we're already an order of magnitude or more faster than
-md5...
+Maybe not a bad idea.
 
-With regard to periodic rekeying... since the secret is 128-bits, I
-believe this is likely sufficient for _not_ rekeying. There's also the
-chaining variable, to tie together invocations of the function. If
-you'd prefer, instead of the chaining variable, we could use some
-siphash output to mutate the original key, but I don't think this
-approach is actually better and might introduce vulnerabilities. In my
-opinion chaining+128bitkey is sufficient. On the other hand, rekeying
-every X minutes is 3 or 4 lines of code. If you want (just say so),
-I'll add this to my next revision.
+SipHash2-4 for MD5 replacement, as we've done so far. This is when we
+actually want things to be secure (and fast).
 
-You asked about the security requirements of these functions. The
-comment says they're not cryptographically secure. And right now with
-MD5 they're not. So the expectations are pretty low. Moving to siphash
-adds some cryptographic security, certainly. Moving to siphash plus
-rekeying adds a bit more. Of course, on recent x86, RDRAND is used
-instead, so the cryptographic strength then depends on the thickness
-of your tinfoil hat. So probably we shouldn't change what we advertise
-these functions provide, even though we're certainly improving them
-performance-wise and security-wise.
+And then HalfSipHash1-3 for certain jhash replacements. This is for
+when we're talking only about DoS or sort of just joking about
+security, and want things to be very competitive with jhash. (Of
+course for 64-bit we'd use SipHash1-3 instead of HalfSipHash for the
+speedup.)
 
-> P.S.  I'll note that my performance figures when testing changes to
-> get_random_int() were done on a 32-bit x86; Jason, I'm guessing your
-> figures were using a 64-bit x86 system?.  I haven't tried 32-bit ARM
-> or smaller CPU's (e.g., mips, et. al.) that might be more likely to be
-> used on IoT devices, but I'm worried about those too, of course.
+I need to think on this a bit more, but preliminarily, I guess this
+would be maybe okay...
 
-Yes, on x86-64. But on i386 chacha20 incurs nearly the same kind of
-slowdown as siphash, so I expect the comparison to be more or less
-equal. There's another thing I really didn't like about your chacha20
-approach which is that it uses the /dev/urandom pool, which means
-various things need to kick in in the background to refill this.
-Additionally, having to refill the buffered chacha output every 32 or
-so longs isn't nice. These things together make for inconsistent and
-hard to understand general operating system performance, because
-get_random_long is called at every process startup for ASLR. So, in
-the end, I believe there's another reason for going with the siphash
-approach: deterministic performance.
+George, JP - what do you think?
 
 Jason
