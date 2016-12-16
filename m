@@ -1,37 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [TSN RFC v2 0/9] TSN driver for the kernel
-Date: Fri, 16 Dec 2016 13:20:57 -0500 (EST)
-Message-ID: <20161216.132057.1771215556712298530.davem@davemloft.net>
-References: <1481911153-549-1-git-send-email-henrik@austad.us>
-        <1481911964.3572.1.camel@gmail.com>
+From: Ozgur Karatas <okaratas@member.fsf.org>
+Subject: [PATCH 1/1] tools: net: bpf_dbg.c fixed keyboard typo
+Date: Fri, 16 Dec 2016 20:21:45 +0200
+Message-ID: <5194151481912505@web1g.yandex.ru>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: henrik@austad.us, linux-kernel@vger.kernel.org,
-        richardcochran@gmail.com, haustad@cisco.com,
-        linux-media@vger.kernel.org, alsa-devel@vger.kernel.org,
-        netdev@vger.kernel.org
-To: gvrose8192@gmail.com
-Return-path: <linux-media-owner@vger.kernel.org>
-In-Reply-To: <1481911964.3572.1.camel@gmail.com>
-Sender: linux-media-owner@vger.kernel.org
+Cc: linux-kernel <linux-kernel@vger.kernel.org>,
+        netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Greg <gvrose8192@gmail.com>
-Date: Fri, 16 Dec 2016 10:12:44 -0800
 
-> On Fri, 2016-12-16 at 18:59 +0100, henrik@austad.us wrote:
->> From: Henrik Austad <haustad@cisco.com>
->> 
->> 
->> The driver is directed via ConfigFS as we need userspace to handle
->> stream-reservation (MSRP), discovery and enumeration (IEEE 1722.1) and
->> whatever other management is needed. This also includes running an
->> appropriate PTP daemon (TSN favors gPTP).
-> 
-> I suggest using a generic netlink interface to communicate with the
-> driver to set up and/or configure your drivers.
-> 
-> I think configfs is frowned upon for network drivers.  YMMV.
+This patch fixed to keyboard typo, brackets not closed. 
+I think, it should be close to parenthes.
 
-Agreed.
+Signed-off-by: Ozgur Karatas <okaratas@member.fsf.org>
+---
+ tools/net/bpf_dbg.c       | 2 +-
+ 1 files changed, 1 insertion(+), 1 deletions(-)
+
+diff --git a/tools/net/bpf_dbg.c b/tools/net/bpf_dbg.c
+index 4f254bc..f715f46 100644
+--- a/tools/net/bpf_dbg.c
++++ b/tools/net/bpf_dbg.c
+@@ -1213,7 +1213,7 @@ static int cmd_disassemble(char *line_string)
+ 
+ 	if (!bpf_prog_loaded())
+ 		return CMD_ERR;
+-	if (strlen(line_string) > 0 &&
++	if (strlen(line_string) > 0 &&)
+ 	    (line = strtoul(line_string, NULL, 10)) < bpf_prog_len)
+ 		single_line = true;
+ 	if (single_line)
+-- 
+2.1.4
