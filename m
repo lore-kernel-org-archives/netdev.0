@@ -1,50 +1,69 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: Re: [PATCH v5 1/4] siphash: add cryptographically secure PRF
-Date: Fri, 16 Dec 2016 13:39:46 +0100
-Message-ID: <CAHmME9pjoAsoct1sVDpFFuqaqutv9X7DGJ5OBQXRAS57KFimUA@mail.gmail.com>
-References: <CAGiyFdfmiCMyHvAg=5sGh8KjBBrF0Wb4Qf=JLzJqUAx4yFSS3Q@mail.gmail.com>
- <20161216034618.28276.qmail@ns.sciencehorizons.net> <CAGiyFdd6_LVzUUfFcaqMyub1c2WPvWUzAQDCH+Aza-_t6mvmXg@mail.gmail.com>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH] qed: fix memory leak of a qed_spq_entry on error failure paths
+Date: Fri, 16 Dec 2016 12:50:39 +0000
+Message-ID: <20161216125039.20969-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: George Spelvin <linux@sciencehorizons.net>,
-        Andi Kleen <ak@linux.intel.com>,
-        David Miller <davem@davemloft.net>,
-        David Laight <David.Laight@aculab.com>,
-        Eric Biggers <ebiggers3@gmail.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        kernel-hardening@lists.openwall.com,
-        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Andy Lutomirski <luto@amacapital.net>,
-        Netdev <netdev@vger.kernel.org>,
-        Tom Herbert <tom@herbertland.com>,
-        Linus Torvalds <torvalds@linux-foundation.org>,
-        "Theodore Ts'o" <tytso@mit.edu>, vegard.nossum@gmail.com,
-        "Daniel J . Bernstein" <djb@cr.yp.to>
-To: Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from frisell.zx2c4.com ([192.95.5.64]:33266 "EHLO frisell.zx2c4.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1756867AbcLPMov (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 16 Dec 2016 07:44:51 -0500
-In-Reply-To: <CAGiyFdd6_LVzUUfFcaqMyub1c2WPvWUzAQDCH+Aza-_t6mvmXg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org
+To: Yuval Mintz <Yuval.Mintz@cavium.com>,
+        Ariel Elior <Ariel.Elior@cavium.com>,
+        everest-linux-l2@cavium.com, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hey JP,
+From: Colin Ian King <colin.king@canonical.com>
 
-On Fri, Dec 16, 2016 at 9:08 AM, Jean-Philippe Aumasson
-<jeanphilippe.aumasson@gmail.com> wrote:
-> Here's a tentative HalfSipHash:
-> https://github.com/veorq/SipHash/blob/halfsiphash/halfsiphash.c
->
-> Haven't computed the cycle count nor measured its speed.
+A qed_spq_entry entry is allocated by qed_sp_init_request but is not
+kfree'd if an error occurs, causing a memory leak. Fix this by
+kfree'ing it and also setting *pp_ent to NULL to be safe.
 
-This is incredible. Really. Wow!
+Found with static analysis by CoverityScan, CIDs 1389468-1389470
 
-I'll integrate this into my patchset and will write up some
-documentation about when one should be used over the other.
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ drivers/net/ethernet/qlogic/qed/qed_sp_commands.c | 14 +++++++++++---
+ 1 file changed, 11 insertions(+), 3 deletions(-)
 
-Thanks again. Quite exciting.
-
-Jason
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_sp_commands.c b/drivers/net/ethernet/qlogic/qed/qed_sp_commands.c
+index a39ef2e..273a6bb 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_sp_commands.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_sp_commands.c
+@@ -55,8 +55,10 @@ int qed_sp_init_request(struct qed_hwfn *p_hwfn,
+ 		break;
+ 
+ 	case QED_SPQ_MODE_BLOCK:
+-		if (!p_data->p_comp_data)
+-			return -EINVAL;
++		if (!p_data->p_comp_data) {
++			rc = -EINVAL;
++			goto err;
++		}
+ 
+ 		p_ent->comp_cb.cookie = p_data->p_comp_data->cookie;
+ 		break;
+@@ -71,7 +73,8 @@ int qed_sp_init_request(struct qed_hwfn *p_hwfn,
+ 	default:
+ 		DP_NOTICE(p_hwfn, "Unknown SPQE completion mode %d\n",
+ 			  p_ent->comp_mode);
+-		return -EINVAL;
++		rc = -EINVAL;
++		goto err;
+ 	}
+ 
+ 	DP_VERBOSE(p_hwfn, QED_MSG_SPQ,
+@@ -85,6 +88,11 @@ int qed_sp_init_request(struct qed_hwfn *p_hwfn,
+ 	memset(&p_ent->ramrod, 0, sizeof(p_ent->ramrod));
+ 
+ 	return 0;
++err:
++	kfree(*pp_ent);
++	*pp_ent = NULL;
++
++	return rc;
+ }
+ 
+ static enum tunnel_clss qed_tunn_get_clss_type(u8 type)
+-- 
+2.10.2
