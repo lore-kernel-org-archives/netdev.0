@@ -1,227 +1,122 @@
 From: Joe Stringer <joe@ovn.org>
-Subject: [PATCHv5 perf/core 4/5] samples/bpf: Remove perf_event_open() declaration
-Date: Fri, 16 Dec 2016 10:32:58 -0800
-Message-ID: <20161216183259.14840-5-joe@ovn.org>
+Subject: [PATCHv5 perf/core 3/5] tools lib bpf: Add bpf_prog_{attach,detach}
+Date: Fri, 16 Dec 2016 10:32:57 -0800
+Message-ID: <20161216183259.14840-4-joe@ovn.org>
 References: <20161216183259.14840-1-joe@ovn.org>
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
         wangnan0@huawei.com, ast@fb.com, daniel@iogearbox.net
 To: acme@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay4-d.mail.gandi.net ([217.70.183.196]:37173 "EHLO
+        relay4-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758568AbcLPSdR (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2016 13:33:17 -0500
 In-Reply-To: <20161216183259.14840-1-joe@ovn.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This declaration was made in samples/bpf/libbpf.c for convenience, but
-there's already one in tools/perf/perf-sys.h. Reuse that one.
-
-Committer notes:
-
-Testing it:
-
-  $ make -j4 O=../build/v4.9.0-rc8+ samples/bpf/
-  make[1]: Entering directory '/home/build/v4.9.0-rc8+'
-    CHK     include/config/kernel.release
-    GEN     ./Makefile
-    CHK     include/generated/uapi/linux/version.h
-    Using /home/acme/git/linux as source for kernel
-    CHK     include/generated/utsrelease.h
-    CHK     include/generated/timeconst.h
-    CHK     include/generated/bounds.h
-    CHK     include/generated/asm-offsets.h
-    CALL    /home/acme/git/linux/scripts/checksyscalls.sh
-    HOSTCC  samples/bpf/test_verifier.o
-    HOSTCC  samples/bpf/libbpf.o
-    HOSTCC  samples/bpf/../../tools/lib/bpf/bpf.o
-    HOSTCC  samples/bpf/test_maps.o
-    HOSTCC  samples/bpf/sock_example.o
-    HOSTCC  samples/bpf/bpf_load.o
-<SNIP>
-    HOSTLD  samples/bpf/trace_event
-    HOSTLD  samples/bpf/sampleip
-    HOSTLD  samples/bpf/tc_l2_redirect
-  make[1]: Leaving directory '/home/build/v4.9.0-rc8+'
-  $
+Commit d8c5b17f2bc0 ("samples: bpf: add userspace example for attaching
+eBPF programs to cgroups") added these functions to samples/libbpf, but
+during this merge all of the samples libbpf functionality is shifting to
+tools/lib/bpf. Shift these functions there.
 
 Signed-off-by: Joe Stringer <joe@ovn.org>
-Tested-by: Arnaldo Carvalho de Melo <acme@redhat.com>
-Cc: Alexei Starovoitov <ast@fb.com>
-Cc: Daniel Borkmann <daniel@iogearbox.net>
-Cc: Wang Nan <wangnan0@huawei.com>
-Link: http://lkml.kernel.org/r/20161209024620.31660-7-joe@ovn.org
-[ Use -I$(srctree)/tools/lib/ to support out of source code tree builds ]
-Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
 ---
 v5: No change.
 ---
- samples/bpf/Makefile            | 2 ++
- samples/bpf/bpf_load.c          | 3 ++-
- samples/bpf/libbpf.c            | 7 -------
- samples/bpf/libbpf.h            | 3 ---
- samples/bpf/sampleip_user.c     | 3 ++-
- samples/bpf/trace_event_user.c  | 9 +++++----
- samples/bpf/trace_output_user.c | 3 ++-
- samples/bpf/tracex6_user.c      | 3 ++-
- 8 files changed, 15 insertions(+), 18 deletions(-)
+ samples/bpf/libbpf.c | 21 ---------------------
+ samples/bpf/libbpf.h |  3 ---
+ tools/lib/bpf/bpf.c  | 21 +++++++++++++++++++++
+ tools/lib/bpf/bpf.h  |  3 +++
+ 4 files changed, 24 insertions(+), 24 deletions(-)
 
-diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
-index 81b0ef2f7994..5a73f5a7ace1 100644
---- a/samples/bpf/Makefile
-+++ b/samples/bpf/Makefile
-@@ -109,6 +109,8 @@ always += xdp_tx_iptunnel_kern.o
- HOSTCFLAGS += -I$(objtree)/usr/include
- HOSTCFLAGS += -I$(srctree)/tools/lib/
- HOSTCFLAGS += -I$(srctree)/tools/testing/selftests/bpf/
-+HOSTCFLAGS += -I$(srctree)/tools/lib/ -I$(srctree)/tools/include
-+HOSTCFLAGS += -I$(srctree)/tools/perf
- 
- HOSTCFLAGS_bpf_load.o += -I$(objtree)/usr/include -Wno-unused-variable
- HOSTLOADLIBES_fds_example += -lelf
-diff --git a/samples/bpf/bpf_load.c b/samples/bpf/bpf_load.c
-index 1bfb43394013..396e204888b3 100644
---- a/samples/bpf/bpf_load.c
-+++ b/samples/bpf/bpf_load.c
-@@ -23,6 +23,7 @@
- #include <ctype.h>
- #include "libbpf.h"
- #include "bpf_load.h"
-+#include "perf-sys.h"
- 
- #define DEBUGFS "/sys/kernel/debug/tracing/"
- 
-@@ -179,7 +180,7 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size)
- 	id = atoi(buf);
- 	attr.config = id;
- 
--	efd = perf_event_open(&attr, -1/*pid*/, 0/*cpu*/, -1/*group_fd*/, 0);
-+	efd = sys_perf_event_open(&attr, -1/*pid*/, 0/*cpu*/, -1/*group_fd*/, 0);
- 	if (efd < 0) {
- 		printf("event %d fd %d err %s\n", id, efd, strerror(errno));
- 		return -1;
 diff --git a/samples/bpf/libbpf.c b/samples/bpf/libbpf.c
-index d9af876b4a2c..bee473a494f1 100644
+index 3391225ad7e9..d9af876b4a2c 100644
 --- a/samples/bpf/libbpf.c
 +++ b/samples/bpf/libbpf.c
-@@ -34,10 +34,3 @@ int open_raw_sock(const char *name)
+@@ -11,27 +11,6 @@
+ #include <arpa/inet.h>
+ #include "libbpf.h"
  
- 	return sock;
- }
--
--int perf_event_open(struct perf_event_attr *attr, int pid, int cpu,
--		    int group_fd, unsigned long flags)
+-int bpf_prog_attach(int prog_fd, int target_fd, enum bpf_attach_type type)
 -{
--	return syscall(__NR_perf_event_open, attr, pid, cpu,
--		       group_fd, flags);
+-	union bpf_attr attr = {
+-		.target_fd = target_fd,
+-		.attach_bpf_fd = prog_fd,
+-		.attach_type = type,
+-	};
+-
+-	return syscall(__NR_bpf, BPF_PROG_ATTACH, &attr, sizeof(attr));
 -}
+-
+-int bpf_prog_detach(int target_fd, enum bpf_attach_type type)
+-{
+-	union bpf_attr attr = {
+-		.target_fd = target_fd,
+-		.attach_type = type,
+-	};
+-
+-	return syscall(__NR_bpf, BPF_PROG_DETACH, &attr, sizeof(attr));
+-}
+-
+ int open_raw_sock(const char *name)
+ {
+ 	struct sockaddr_ll sll;
 diff --git a/samples/bpf/libbpf.h b/samples/bpf/libbpf.h
-index cc815624aacf..09aedc320009 100644
+index cf7d2386d1f9..cc815624aacf 100644
 --- a/samples/bpf/libbpf.h
 +++ b/samples/bpf/libbpf.h
-@@ -188,7 +188,4 @@ struct bpf_insn;
- /* create RAW socket and bind to interface 'name' */
- int open_raw_sock(const char *name);
+@@ -6,9 +6,6 @@
  
--struct perf_event_attr;
--int perf_event_open(struct perf_event_attr *attr, int pid, int cpu,
--		    int group_fd, unsigned long flags);
+ struct bpf_insn;
+ 
+-int bpf_prog_attach(int prog_fd, int attachable_fd, enum bpf_attach_type type);
+-int bpf_prog_detach(int attachable_fd, enum bpf_attach_type type);
+-
+ /* ALU ops on registers, bpf_add|sub|...: dst_reg += src_reg */
+ 
+ #define BPF_ALU64_REG(OP, DST, SRC)				\
+diff --git a/tools/lib/bpf/bpf.c b/tools/lib/bpf/bpf.c
+index d0afb26c2e0f..e19335df0d3a 100644
+--- a/tools/lib/bpf/bpf.c
++++ b/tools/lib/bpf/bpf.c
+@@ -167,3 +167,24 @@ int bpf_obj_get(const char *pathname)
+ 
+ 	return sys_bpf(BPF_OBJ_GET, &attr, sizeof(attr));
+ }
++
++int bpf_prog_attach(int prog_fd, int target_fd, enum bpf_attach_type type)
++{
++	union bpf_attr attr = {
++		.target_fd = target_fd,
++		.attach_bpf_fd = prog_fd,
++		.attach_type = type,
++	};
++
++	return sys_bpf(BPF_PROG_ATTACH, &attr, sizeof(attr));
++}
++
++int bpf_prog_detach(int target_fd, enum bpf_attach_type type)
++{
++	union bpf_attr attr = {
++		.target_fd = target_fd,
++		.attach_type = type,
++	};
++
++	return sys_bpf(BPF_PROG_DETACH, &attr, sizeof(attr));
++}
+diff --git a/tools/lib/bpf/bpf.h b/tools/lib/bpf/bpf.h
+index 7fcdce16fd62..a2f9853dd882 100644
+--- a/tools/lib/bpf/bpf.h
++++ b/tools/lib/bpf/bpf.h
+@@ -41,5 +41,8 @@ int bpf_map_delete_elem(int fd, void *key);
+ int bpf_map_get_next_key(int fd, void *key, void *next_key);
+ int bpf_obj_pin(int fd, const char *pathname);
+ int bpf_obj_get(const char *pathname);
++int bpf_prog_attach(int prog_fd, int attachable_fd, enum bpf_attach_type type);
++int bpf_prog_detach(int attachable_fd, enum bpf_attach_type type);
++
+ 
  #endif
-diff --git a/samples/bpf/sampleip_user.c b/samples/bpf/sampleip_user.c
-index 5ac5adf75931..be59d7dcbdde 100644
---- a/samples/bpf/sampleip_user.c
-+++ b/samples/bpf/sampleip_user.c
-@@ -21,6 +21,7 @@
- #include <sys/ioctl.h>
- #include "libbpf.h"
- #include "bpf_load.h"
-+#include "perf-sys.h"
- 
- #define DEFAULT_FREQ	99
- #define DEFAULT_SECS	5
-@@ -49,7 +50,7 @@ static int sampling_start(int *pmu_fd, int freq)
- 	};
- 
- 	for (i = 0; i < nr_cpus; i++) {
--		pmu_fd[i] = perf_event_open(&pe_sample_attr, -1 /* pid */, i,
-+		pmu_fd[i] = sys_perf_event_open(&pe_sample_attr, -1 /* pid */, i,
- 					    -1 /* group_fd */, 0 /* flags */);
- 		if (pmu_fd[i] < 0) {
- 			fprintf(stderr, "ERROR: Initializing perf sampling\n");
-diff --git a/samples/bpf/trace_event_user.c b/samples/bpf/trace_event_user.c
-index 704fe9fa77b2..0c5561d193a4 100644
---- a/samples/bpf/trace_event_user.c
-+++ b/samples/bpf/trace_event_user.c
-@@ -20,6 +20,7 @@
- #include <sys/resource.h>
- #include "libbpf.h"
- #include "bpf_load.h"
-+#include "perf-sys.h"
- 
- #define SAMPLE_FREQ 50
- 
-@@ -125,9 +126,9 @@ static void test_perf_event_all_cpu(struct perf_event_attr *attr)
- 
- 	/* open perf_event on all cpus */
- 	for (i = 0; i < nr_cpus; i++) {
--		pmu_fd[i] = perf_event_open(attr, -1, i, -1, 0);
-+		pmu_fd[i] = sys_perf_event_open(attr, -1, i, -1, 0);
- 		if (pmu_fd[i] < 0) {
--			printf("perf_event_open failed\n");
-+			printf("sys_perf_event_open failed\n");
- 			goto all_cpu_err;
- 		}
- 		assert(ioctl(pmu_fd[i], PERF_EVENT_IOC_SET_BPF, prog_fd[0]) == 0);
-@@ -146,9 +147,9 @@ static void test_perf_event_task(struct perf_event_attr *attr)
- 	int pmu_fd;
- 
- 	/* open task bound event */
--	pmu_fd = perf_event_open(attr, 0, -1, -1, 0);
-+	pmu_fd = sys_perf_event_open(attr, 0, -1, -1, 0);
- 	if (pmu_fd < 0) {
--		printf("perf_event_open failed\n");
-+		printf("sys_perf_event_open failed\n");
- 		return;
- 	}
- 	assert(ioctl(pmu_fd, PERF_EVENT_IOC_SET_BPF, prog_fd[0]) == 0);
-diff --git a/samples/bpf/trace_output_user.c b/samples/bpf/trace_output_user.c
-index 3bedd945def1..7449fac2819e 100644
---- a/samples/bpf/trace_output_user.c
-+++ b/samples/bpf/trace_output_user.c
-@@ -21,6 +21,7 @@
- #include <signal.h>
- #include "libbpf.h"
- #include "bpf_load.h"
-+#include "perf-sys.h"
- 
- static int pmu_fd;
- 
-@@ -159,7 +160,7 @@ static void test_bpf_perf_event(void)
- 	};
- 	int key = 0;
- 
--	pmu_fd = perf_event_open(&attr, -1/*pid*/, 0/*cpu*/, -1/*group_fd*/, 0);
-+	pmu_fd = sys_perf_event_open(&attr, -1/*pid*/, 0/*cpu*/, -1/*group_fd*/, 0);
- 
- 	assert(pmu_fd >= 0);
- 	assert(bpf_map_update_elem(map_fd[0], &key, &pmu_fd, BPF_ANY) == 0);
-diff --git a/samples/bpf/tracex6_user.c b/samples/bpf/tracex6_user.c
-index 179297cb4d35..ca7874ed77f4 100644
---- a/samples/bpf/tracex6_user.c
-+++ b/samples/bpf/tracex6_user.c
-@@ -10,6 +10,7 @@
- #include <linux/bpf.h>
- #include "libbpf.h"
- #include "bpf_load.h"
-+#include "perf-sys.h"
- 
- #define SAMPLE_PERIOD  0x7fffffffffffffffULL
- 
-@@ -30,7 +31,7 @@ static void test_bpf_perf_event(void)
- 	};
- 
- 	for (i = 0; i < nr_cpus; i++) {
--		pmu_fd[i] = perf_event_open(&attr_insn_pmu, -1/*pid*/, i/*cpu*/, -1/*group_fd*/, 0);
-+		pmu_fd[i] = sys_perf_event_open(&attr_insn_pmu, -1/*pid*/, i/*cpu*/, -1/*group_fd*/, 0);
- 		if (pmu_fd[i] < 0) {
- 			printf("event syscall failed\n");
- 			goto exit;
 -- 
 2.10.2
