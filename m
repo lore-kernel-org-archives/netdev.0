@@ -1,122 +1,84 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH] isdn: Constify some function parameters
-Date: Fri, 16 Dec 2016 13:40:47 -0800
-Message-ID: <20161216214047.GA90306@beast>
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: Re: [PATCH v6 3/5] random: use SipHash in place of MD5
+Date: Fri, 16 Dec 2016 22:45:16 +0100
+Message-ID: <CAHmME9rbKi3O1SS89LRMEUeMdKyrdutXAfjb9QmW3KNoCuE-wg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, Emese Revfy <re.emese@gmail.com>,
-        netdev@vger.kernel.org
-To: Karsten Keil <isdn@linux-pingi.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f46.google.com ([74.125.83.46]:34166 "EHLO
-        mail-pg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933692AbcLPVkt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2016 16:40:49 -0500
-Received: by mail-pg0-f46.google.com with SMTP id a1so13266794pgf.1
-        for <netdev@vger.kernel.org>; Fri, 16 Dec 2016 13:40:49 -0800 (PST)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>,
+        "kernel-hardening@lists.openwall.com"
+        <kernel-hardening@lists.openwall.com>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+        David Laight <David.Laight@aculab.com>,
+        Ted Tso <tytso@mit.edu>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Linus Torvalds <torvalds@linux-foundation.org>,
+        Eric Biggers <ebiggers3@gmail.com>,
+        Tom Herbert <tom@herbertland.com>,
+        George Spelvin <linux@sciencehorizons.net>,
+        Vegard Nossum <vegard.nossum@gmail.com>,
+        Andi Kleen <ak@linux.intel.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>
+To: Andy Lutomirski <luto@amacapital.net>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Emese Revfy <re.emese@gmail.com>
+Hi Andy,
 
-The coming initify gcc plugin expects const pointer types, and caught
-some __printf arguments that weren't const yet. This fixes those.
+On Fri, Dec 16, 2016 at 10:31 PM, Andy Lutomirski <luto@amacapital.net> wrote:
+> I think it would be nice to try to strenghen the PRNG construction.
+> FWIW, I'm not an expert in PRNGs, and there's fairly extensive
+> literature, but I can at least try.
 
-Signed-off-by: Emese Revfy <re.emese@gmail.com>
-[kees: expanded commit message]
-Signed-off-by: Kees Cook <keescook@chromium.org>
----
- drivers/isdn/hisax/config.c | 16 ++++++++--------
- drivers/isdn/hisax/hisax.h  |  4 ++--
- 2 files changed, 10 insertions(+), 10 deletions(-)
+In an effort to keep this patchset as initially as uncontroversial as
+possible, I kept the same same construction as before and just swapped
+out slow MD5 for fast Siphash. Additionally, the function
+documentation says that it isn't cryptographically secure. But in the
+end I certainly agree with you; we should most definitely improve
+things, and seeing the eyeballs now on this series, I think we now
+might have a mandate to do so.
 
-diff --git a/drivers/isdn/hisax/config.c b/drivers/isdn/hisax/config.c
-index bf04d2a3cf4a..2d12c6ceeb89 100644
---- a/drivers/isdn/hisax/config.c
-+++ b/drivers/isdn/hisax/config.c
-@@ -659,7 +659,7 @@ int jiftime(char *s, long mark)
- 
- static u_char tmpbuf[HISAX_STATUS_BUFSIZE];
- 
--void VHiSax_putstatus(struct IsdnCardState *cs, char *head, char *fmt,
-+void VHiSax_putstatus(struct IsdnCardState *cs, char *head, const char *fmt,
- 		      va_list args)
- {
- 	/* if head == NULL the fmt contains the full info */
-@@ -669,23 +669,24 @@ void VHiSax_putstatus(struct IsdnCardState *cs, char *head, char *fmt,
- 	u_char		*p;
- 	isdn_ctrl	ic;
- 	int		len;
-+	const u_char	*data;
- 
- 	if (!cs) {
- 		printk(KERN_WARNING "HiSax: No CardStatus for message");
- 		return;
- 	}
- 	spin_lock_irqsave(&cs->statlock, flags);
--	p = tmpbuf;
- 	if (head) {
-+		p = tmpbuf;
- 		p += jiftime(p, jiffies);
- 		p += sprintf(p, " %s", head);
- 		p += vsprintf(p, fmt, args);
- 		*p++ = '\n';
- 		*p = 0;
- 		len = p - tmpbuf;
--		p = tmpbuf;
-+		data = tmpbuf;
- 	} else {
--		p = fmt;
-+		data = fmt;
- 		len = strlen(fmt);
- 	}
- 	if (len > HISAX_STATUS_BUFSIZE) {
-@@ -699,13 +700,12 @@ void VHiSax_putstatus(struct IsdnCardState *cs, char *head, char *fmt,
- 	if (i >= len)
- 		i = len;
- 	len -= i;
--	memcpy(cs->status_write, p, i);
-+	memcpy(cs->status_write, data, i);
- 	cs->status_write += i;
- 	if (cs->status_write > cs->status_end)
- 		cs->status_write = cs->status_buf;
--	p += i;
- 	if (len) {
--		memcpy(cs->status_write, p, len);
-+		memcpy(cs->status_write, data + i, len);
- 		cs->status_write += len;
- 	}
- #ifdef KERNELSTACK_DEBUG
-@@ -729,7 +729,7 @@ void VHiSax_putstatus(struct IsdnCardState *cs, char *head, char *fmt,
- 	}
- }
- 
--void HiSax_putstatus(struct IsdnCardState *cs, char *head, char *fmt, ...)
-+void HiSax_putstatus(struct IsdnCardState *cs, char *head, const char *fmt, ...)
- {
- 	va_list args;
- 
-diff --git a/drivers/isdn/hisax/hisax.h b/drivers/isdn/hisax/hisax.h
-index 6ead6314e6d2..338d0408b377 100644
---- a/drivers/isdn/hisax/hisax.h
-+++ b/drivers/isdn/hisax/hisax.h
-@@ -1288,9 +1288,9 @@ int jiftime(char *s, long mark);
- int HiSax_command(isdn_ctrl *ic);
- int HiSax_writebuf_skb(int id, int chan, int ack, struct sk_buff *skb);
- __printf(3, 4)
--void HiSax_putstatus(struct IsdnCardState *cs, char *head, char *fmt, ...);
-+void HiSax_putstatus(struct IsdnCardState *cs, char *head, const char *fmt, ...);
- __printf(3, 0)
--void VHiSax_putstatus(struct IsdnCardState *cs, char *head, char *fmt, va_list args);
-+void VHiSax_putstatus(struct IsdnCardState *cs, char *head, const char *fmt, va_list args);
- void HiSax_reportcard(int cardnr, int sel);
- int QuickHex(char *txt, u_char *p, int cnt);
- void LogFrame(struct IsdnCardState *cs, u_char *p, int size);
--- 
-2.7.4
+> 1. A one-time leak of memory contents doesn't ruin security until
+> reboot.  This is especially value across suspend and/or hibernation.
 
+Ted and I were discussing this in another thread, and it sounds like
+he wants the same thing. I'll add re-generation of the secret every
+once in a while. Perhaps time-based makes more sense than
+counter-based for rekeying frequency?
 
--- 
-Kees Cook
-Nexus Security
+> 2. An attack with a low work factor (2^64?) shouldn't break the scheme
+> until reboot.
+
+It won't. The key is 128-bits.
+
+> This is effectively doing:
+>
+> output = H(prev_output, weak "entropy", per-boot secret);
+>
+> One unfortunately downside is that, if used in a context where an
+> attacker can see a single output, the attacker learns the chaining
+> value.  If the attacker can guess the entropy, then, with 2^64 work,
+> they learn the secret, and they can predict future outputs.
+
+No, the secret is 128-bits, which isn't feasibly guessable. The secret
+also isn't part of the hash, but rather is the generator of the hash
+function. A keyed hash (a PRF) is a bit of a different construction
+than just hashing a secret value into a hash function.
+
+> Second, change the mode so that an attacker doesn't learn so much
+> internal state.  For example:
+>
+> output = H(old_chain, entropy, secret);
+> new_chain = old_chain + entropy + output;
+
+Happy to make this change, with making the chaining value additive
+rather than a replacement.
+
+However, I'm not sure adding entropy to the new_chain makes a
+different. That entropy is basically just the cycle count plus the
+jiffies count. If an attacker can already guess them, then adding them
+again to the chaining value doesn't really add much.
+
+Jason
