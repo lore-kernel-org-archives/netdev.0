@@ -1,66 +1,155 @@
-From: Nogah Frankel <nogahf@mellanox.com>
-Subject: RE: [PATCH iproute2 v2 1/3] ifstat: Add extended statistics to ifstat
-Date: Fri, 16 Dec 2016 12:11:24 +0000
-Message-ID: <DB5PR05MB1895991888E270CE790F1C16AC9C0@DB5PR05MB1895.eurprd05.prod.outlook.com>
-References: <1481806845-63384-1-git-send-email-nogahf@mellanox.com>
-        <1481806845-63384-2-git-send-email-nogahf@mellanox.com>
- <20161215093327.2daf60c6@xeon-e3>
+From: Josef Bacik <jbacik@fb.com>
+Subject: Re: Soft lockup in inet_put_port on 4.6
+Date: Fri, 16 Dec 2016 09:54:48 -0500
+Message-ID: <1481900088.24490.6@smtp.office365.com>
+References: <CALx6S36OVUqAxq9vNnfHp2eJOuG+gSSg896zzaZoc3Og4tyxFw@mail.gmail.com>
+        <1481231024.1911284.813071977.72AF4DEE@webmail.messagingengine.com>
+        <1481233016.11849.1@smtp.office365.com>
+        <1481243432.4930.145.camel@edumazet-glaptop3.roam.corp.google.com>
+        <6C6EE0ED-7E78-4866-8AAF-D75FD4719EF3@fb.com>
+        <1481335192.3663.0@smtp.office365.com>
+        <1481341624.4930.204.camel@edumazet-glaptop3.roam.corp.google.com>
+        <1481343298.4930.208.camel@edumazet-glaptop3.roam.corp.google.com>
+        <1481565929.24490.0@smtp.office365.com>
+        <3c022731-e703-34ac-55f1-60f5b94b6d62@stressinduktion.org>
+        <1481581466.24490.2@smtp.office365.com>
+        <CALx6S34S82kFVqYW1M0ZuHx_Mxut4QaLFVerLX4aEsksrFirXg@mail.gmail.com>
+        <CAEfhGiyFW1YHmmUYpFv+q4J4r=wSv3ZBZowG69BqkT3p-G4gNw@mail.gmail.com>
+        <CALx6S369T_hvoTgyHbmeSiR2p3d68h+0tMKqMmcGYLrKiN3JMA@mail.gmail.com>
+        <1481828016.24490.5@smtp.office365.com>
+        <aca378b5-aae4-49cf-0542-d1167a5768b8@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
-        Jiri Pirko <jiri@mellanox.com>, Elad Raz <eladr@mellanox.com>,
-        Yotam Gigi <yotamg@mellanox.com>,
-        Ido Schimmel <idosch@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Cc: Tom Herbert <tom@herbertland.com>,
+        Craig Gallek <kraigatgoog@gmail.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0057.outbound.protection.outlook.com ([104.47.2.57]:24456
-        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1757726AbcLPOpe (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 16 Dec 2016 09:45:34 -0500
-In-Reply-To: <20161215093327.2daf60c6@xeon-e3>
-Content-Language: en-US
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:41813 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1754029AbcLPOzD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2016 09:55:03 -0500
+In-Reply-To: <aca378b5-aae4-49cf-0542-d1167a5768b8@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IFN0ZXBoZW4gSGVtbWluZ2Vy
-IFttYWlsdG86c3RlcGhlbkBuZXR3b3JrcGx1bWJlci5vcmddDQo+IFNlbnQ6IFRodXJzZGF5LCBE
-ZWNlbWJlciAxNSwgMjAxNiA3OjMzIFBNDQo+IFRvOiBOb2dhaCBGcmFua2VsIDxub2dhaGZAbWVs
-bGFub3guY29tPg0KPiBDYzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgcm9vcGFAY3VtdWx1c25l
-dHdvcmtzLmNvbTsgSmlyaSBQaXJrbw0KPiA8amlyaUBtZWxsYW5veC5jb20+OyBFbGFkIFJheiA8
-ZWxhZHJAbWVsbGFub3guY29tPjsgWW90YW0gR2lnaQ0KPiA8eW90YW1nQG1lbGxhbm94LmNvbT47
-IElkbyBTY2hpbW1lbCA8aWRvc2NoQG1lbGxhbm94LmNvbT47IE9yIEdlcmxpdHoNCj4gPG9nZXJs
-aXR6QG1lbGxhbm94LmNvbT4NCj4gU3ViamVjdDogUmU6IFtQQVRDSCBpcHJvdXRlMiB2MiAxLzNd
-IGlmc3RhdDogQWRkIGV4dGVuZGVkIHN0YXRpc3RpY3MgdG8gaWZzdGF0DQo+IA0KPiBPbiBUaHUs
-IDE1IERlYyAyMDE2IDE1OjAwOjQzICswMjAwDQo+IE5vZ2FoIEZyYW5rZWwgPG5vZ2FoZkBtZWxs
-YW5veC5jb20+IHdyb3RlOg0KPiANCj4gPiBFeHRlbmRlZCBzdGF0cyBhcmUgcGFydCBvZiB0aGUg
-UlRNX0dFVFNUQVRTIG1ldGhvZC4gVGhpcyBwYXRjaCBhZGRzIHRoZW0NCj4gPiB0byBpZnN0YXQu
-DQo+ID4gV2hpbGUgZXh0ZW5kZWQgc3RhdHMgY2FuIGNvbWUgaW4gbWFueSBmb3Jtcywgd2Ugc3Vw
-cG9ydCBvbmx5IHRoZQ0KPiA+IHJ0bmxfbGlua19zdGF0czY0IHN0cnVjdCBmb3IgdGhlbSAod2hp
-Y2ggaXMgdGhlIDY0IGJpdHMgdmVyc2lvbiBvZiBzdHJ1Y3QNCj4gPiBydG5sX2xpbmtfc3RhdHMp
-Lg0KPiA+IFdlIHN1cHBvcnQgc3RhdHMgaW4gdGhlIG1haW4gbmVzdGluZyBsZXZlbCwgb3Igb25l
-IGxvd2VyLg0KPiA+IFRoZSBleHRlbnNpb24gY2FuIGJlIGNhbGxlZCBieSBpdHMgbmFtZSBvciBh
-bnkgc2hvcnRlbiBvZiBpdC4gSWYgdGhlcmUgaXMNCj4gPiBtb3JlIHRoYW4gb25lIG1hdGNoZWQs
-IHRoZSBmaXJzdCBvbmUgd2lsbCBiZSBwaWNrZWQuDQo+ID4NCj4gPiBUbyBnZXQgdGhlIGV4dGVu
-ZGVkIHN0YXRzIHRoZSBmbGFnIC14IDxzdGF0cyB0eXBlPiBpcyB1c2VkLg0KPiA+DQo+ID4gU2ln
-bmVkLW9mZi1ieTogTm9nYWggRnJhbmtlbCA8bm9nYWhmQG1lbGxhbm94LmNvbT4NCj4gPiBSZXZp
-ZXdlZC1ieTogSmlyaSBQaXJrbyA8amlyaUBtZWxsYW5veC5jb20+DQo+ID4gLS0tDQo+ID4gIG1p
-c2MvaWZzdGF0LmMgfCAxNjENCj4gKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysr
-KysrKysrKysrKysrKysrKy0tLS0tLQ0KPiA+ICAxIGZpbGUgY2hhbmdlZCwgMTQ2IGluc2VydGlv
-bnMoKyksIDE1IGRlbGV0aW9ucygtKQ0KPiA+DQo+ID4gZGlmZiAtLWdpdCBhL21pc2MvaWZzdGF0
-LmMgYi9taXNjL2lmc3RhdC5jDQo+ID4gaW5kZXggOTJkNjdiMC4uZDE3YWUyMSAxMDA2NDQNCj4g
-PiAtLS0gYS9taXNjL2lmc3RhdC5jDQo+ID4gKysrIGIvbWlzYy9pZnN0YXQuYw0KPiA+IEBAIC0z
-NSw2ICszNSw3IEBADQo+ID4NCj4gPiAgI2luY2x1ZGUgPFNOQVBTSE9ULmg+DQo+ID4NCj4gPiAr
-I2luY2x1ZGUgInV0aWxzLmgiDQo+ID4gIGludCBkdW1wX3plcm9zOw0KPiA+ICBpbnQgcmVzZXRf
-aGlzdG9yeTsNCj4gPiAgaW50IGlnbm9yZV9oaXN0b3J5Ow0KPiANCj4gTWlub3Igbml0LCBwbGVh
-c2UgY2xlYW51cCBpbmNsdWRlIG9yZGVyIGhlcmUgKG9yaWdpbmFsIGNvZGUgd2FzIHdyb25nKS4N
-Cj4gDQo+IFN0YW5kYXJkIHByYWN0aWNlIGlzOg0KPiAgI2luY2x1ZGUgc3lzdGVtIGhlYWRlcnMg
-KGxpa2Ugc3RkaW8uaCBldGMpDQo+ICAjaW5jbHVkZSAieHh4LmgiIGxvY2FsIGhlYWRlcnMuDQo+
-IA0KPiBTaG91bGQgYmU6DQo+ICNpbmNsdWRlIDxnZXRvcHQuaD4NCj4gDQo+ICNpbmNsdWRlIDxs
-aW51eC9pZi5oPg0KPiAjaW5jbHVkZSA8bGludXgvaWZfbGluay5oPg0KPiANCj4gI2luY2x1ZGUg
-Impzb25fd3JpdGVyLmgiDQo+ICNpbmNsdWRlICJsaWJuZXRsaW5rLmgiDQo+ICNpbmNsdWRlICJ1
-dGlscy5oIg0KPiAjaW5jbHVkZSAiU05BUFNIT1QuaCINCg0KVGhhbmtzLCBJJ2xsIGZpeCBpdC4N
-Cg==
+On Thu, Dec 15, 2016 at 7:07 PM, Hannes Frederic Sowa 
+<hannes@stressinduktion.org> wrote:
+> Hi Josef,
+> 
+> On 15.12.2016 19:53, Josef Bacik wrote:
+>>  On Tue, Dec 13, 2016 at 6:32 PM, Tom Herbert <tom@herbertland.com> 
+>> wrote:
+>>>  On Tue, Dec 13, 2016 at 3:03 PM, Craig Gallek 
+>>> <kraigatgoog@gmail.com>
+>>>  wrote:
+>>>>   On Tue, Dec 13, 2016 at 3:51 PM, Tom Herbert 
+>>>> <tom@herbertland.com>
+>>>>  wrote:
+>>>>>   I think there may be some suspicious code in inet_csk_get_port. 
+>>>>> At
+>>>>>   tb_found there is:
+>>>>> 
+>>>>>                   if (((tb->fastreuse > 0 && reuse) ||
+>>>>>                        (tb->fastreuseport > 0 &&
+>>>>>                         !rcu_access_pointer(sk->sk_reuseport_cb) 
+>>>>> &&
+>>>>>                         sk->sk_reuseport && uid_eq(tb->fastuid,
+>>>>>  uid))) &&
+>>>>>                       smallest_size == -1)
+>>>>>                           goto success;
+>>>>>                   if (inet_csk(sk)->icsk_af_ops->bind_conflict(sk,
+>>>>>  tb, true)) {
+>>>>>                           if ((reuse ||
+>>>>>                                (tb->fastreuseport > 0 &&
+>>>>>                                 sk->sk_reuseport &&
+>>>>> 
+>>>>>  !rcu_access_pointer(sk->sk_reuseport_cb) &&
+>>>>>                                 uid_eq(tb->fastuid, uid))) &&
+>>>>>                               smallest_size != -1 && --attempts 
+>>>>> >= 0) {
+>>>>>                                   spin_unlock_bh(&head->lock);
+>>>>>                                   goto again;
+>>>>>                           }
+>>>>>                           goto fail_unlock;
+>>>>>                   }
+>>>>> 
+>>>>>   AFAICT there is redundancy in these two conditionals.  The same 
+>>>>> clause
+>>>>>   is being checked in both: (tb->fastreuseport > 0 &&
+>>>>>   !rcu_access_pointer(sk->sk_reuseport_cb) && sk->sk_reuseport &&
+>>>>>   uid_eq(tb->fastuid, uid))) && smallest_size == -1. If this is 
+>>>>> true the
+>>>>>   first conditional should be hit, goto done,  and the second 
+>>>>> will never
+>>>>>   evaluate that part to true-- unless the sk is changed (do we 
+>>>>> need
+>>>>>   READ_ONCE for sk->sk_reuseport_cb?).
+>>>>   That's an interesting point... It looks like this function also
+>>>>   changed in 4.6 from using a single local_bh_disable() at the 
+>>>> beginning
+>>>>   with several spin_lock(&head->lock) to exclusively
+>>>>   spin_lock_bh(&head->lock) at each locking point.  Perhaps the 
+>>>> full bh
+>>>>   disable variant was preventing the timers in your stack trace 
+>>>> from
+>>>>   running interleaved with this function before?
+>>> 
+>>>  Could be, although dropping the lock shouldn't be able to affect 
+>>> the
+>>>  search state. TBH, I'm a little lost in reading function, the
+>>>  SO_REUSEPORT handling is pretty complicated. For instance,
+>>>  rcu_access_pointer(sk->sk_reuseport_cb) is checked three times in 
+>>> that
+>>>  function and also in every call to inet_csk_bind_conflict. I 
+>>> wonder if
+>>>  we can simply this under the assumption that SO_REUSEPORT is only
+>>>  allowed if the port number (snum) is explicitly specified.
+>> 
+>>  Ok first I have data for you Hannes, here's the time distributions
+>>  before during and after the lockup (with all the debugging in place 
+>> the
+>>  box eventually recovers).  I've attached it as a text file since it 
+>> is
+>>  long.
+> 
+> Thanks a lot!
+> 
+>>  Second is I was thinking about why we would spend so much time 
+>> doing the
+>>  ->owners list, and obviously it's because of the massive amount of
+>>  timewait sockets on the owners list.  I wrote the following dumb 
+>> patch
+>>  and tested it and the problem has disappeared completely.  Now I 
+>> don't
+>>  know if this is right at all, but I thought it was weird we weren't
+>>  copying the soreuseport option from the original socket onto the 
+>> twsk.
+>>  Is there are reason we aren't doing this currently?  Does this help
+>>  explain what is happening?  Thanks,
+> 
+> The patch is interesting and a good clue, but I am immediately a bit
+> concerned that we don't copy/tag the socket with the uid also to keep
+> the security properties for SO_REUSEPORT. I have to think a bit more
+> about this.
+> 
+> We have seen hangs during connect. I am afraid this patch wouldn't 
+> help
+> there while also guaranteeing uniqueness.
+
+
+Yeah so I looked at the code some more and actually my patch is really 
+bad.  If sk2->sk_reuseport is set we'll look at sk2->sk_reuseport_cb, 
+which is outside of the timewait sock, so that's definitely bad.
+
+But we should at least be setting it to 0 so that we don't do this 
+normally.  Unfortunately simply setting it to 0 doesn't fix the 
+problem.  So for some reason having ->sk_reuseport set to 1 on a 
+timewait socket makes this problem non-existent, which is strange.
+
+So back to the drawing board I guess.  I wonder if doing what craig 
+suggested and batching the timewait timer expires so it hurts less 
+would accomplish the same results.  Thanks,
+
+Josef
