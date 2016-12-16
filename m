@@ -1,59 +1,47 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [TSN RFC v2 5/9] Add TSN header for the driver
-Date: Fri, 16 Dec 2016 23:09:38 +0100
-Message-ID: <20161216220938.GB25258@netboy>
-References: <1481911153-549-1-git-send-email-henrik@austad.us>
- <1481911153-549-6-git-send-email-henrik@austad.us>
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: Re: [PATCH v6 3/5] random: use SipHash in place of MD5
+Date: Fri, 16 Dec 2016 23:12:51 +0100
+Message-ID: <CAHmME9qpyCDDAfCx-G=B1h=Os5LS11YrEAXuqHteRrvKgUp-jA@mail.gmail.com>
+References: <CAHmME9rbKi3O1SS89LRMEUeMdKyrdutXAfjb9QmW3KNoCuE-wg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, Henrik Austad <haustad@cisco.com>,
-        linux-media@vger.kernel.org, alsa-devel@vger.kernel.org,
-        netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: henrik@austad.us
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1481911153-549-6-git-send-email-henrik@austad.us>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>,
+        "kernel-hardening@lists.openwall.com"
+        <kernel-hardening@lists.openwall.com>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+        David Laight <David.Laight@aculab.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Linus Torvalds <torvalds@linux-foundation.org>,
+        Eric Biggers <ebiggers3@gmail.com>,
+        Tom Herbert <tom@herbertland.com>,
+        George Spelvin <linux@sciencehorizons.net>,
+        Vegard Nossum <vegard.nossum@gmail.com>,
+        Andi Kleen <ak@linux.intel.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>
+To: Andy Lutomirski <luto@amacapital.net>, Ted Tso <tytso@mit.edu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from frisell.zx2c4.com ([192.95.5.64]:52910 "EHLO frisell.zx2c4.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1758293AbcLPWMz (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 16 Dec 2016 17:12:55 -0500
+In-Reply-To: <CAHmME9rbKi3O1SS89LRMEUeMdKyrdutXAfjb9QmW3KNoCuE-wg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 16, 2016 at 06:59:09PM +0100, henrik@austad.us wrote:
-> +/*
-> + * List of current subtype fields in the common header of AVTPDU
-> + *
-> + * Note: AVTPDU is a remnant of the standards from when it was AVB.
-> + *
-> + * The list has been updated with the recent values from IEEE 1722, draft 16.
-> + */
-> +enum avtp_subtype {
-> +	TSN_61883_IIDC = 0,	/* IEC 61883/IIDC Format */
-> +	TSN_MMA_STREAM,		/* MMA Streams */
-> +	TSN_AAF,		/* AVTP Audio Format */
-> +	TSN_CVF,		/* Compressed Video Format */
-> +	TSN_CRF,		/* Clock Reference Format */
-> +	TSN_TSCF,		/* Time-Synchronous Control Format */
-> +	TSN_SVF,		/* SDI Video Format */
-> +	TSN_RVF,		/* Raw Video Format */
-> +	/* 0x08 - 0x6D reserved */
-> +	TSN_AEF_CONTINOUS = 0x6e, /* AES Encrypted Format Continous */
-> +	TSN_VSF_STREAM,		/* Vendor Specific Format Stream */
-> +	/* 0x70 - 0x7e reserved */
-> +	TSN_EF_STREAM = 0x7f,	/* Experimental Format Stream */
-> +	/* 0x80 - 0x81 reserved */
-> +	TSN_NTSCF = 0x82,	/* Non Time-Synchronous Control Format */
-> +	/* 0x83 - 0xed reserved */
-> +	TSN_ESCF = 0xec,	/* ECC Signed Control Format */
-> +	TSN_EECF,		/* ECC Encrypted Control Format */
-> +	TSN_AEF_DISCRETE,	/* AES Encrypted Format Discrete */
-> +	/* 0xef - 0xf9 reserved */
-> +	TSN_ADP = 0xfa,		/* AVDECC Discovery Protocol */
-> +	TSN_AECP,		/* AVDECC Enumeration and Control Protocol */
-> +	TSN_ACMP,		/* AVDECC Connection Management Protocol */
-> +	/* 0xfd reserved */
-> +	TSN_MAAP = 0xfe,	/* MAAP Protocol */
-> +	TSN_EF_CONTROL,		/* Experimental Format Control */
-> +};
+Hi Andy, Ted,
 
-The kernel shouldn't be in the business of assembling media packets.
+I've made the requested changes. Keys now rotate and are per-CPU
+based. The chaining value is now additive instead of replacing.
+
+DavidL suggested I lower the velocity of `git-send-email` triggers, so
+if you'd like to take a look at this before I post v7, you can follow
+along at my git tree here:
+
+    https://git.zx2c4.com/linux-dev/log/?h=siphash
+
+Choose the commit entitled "random: use SipHash in place of MD5"
 
 Thanks,
-Richard
+Jason
