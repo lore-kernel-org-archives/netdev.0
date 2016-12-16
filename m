@@ -1,40 +1,49 @@
-From: Andy Lutomirski <luto@kernel.org>
-Subject: [PATCH] cgroup: Fix CGROUP_BPF config
-Date: Fri, 16 Dec 2016 08:33:45 -0800
-Message-ID: <8d48c3940f8d0275da6398ea5bcef14e20233db5.1481905995.git.luto@kernel.org>
-Cc: Network Development <netdev@vger.kernel.org>,
-        Andy Lutomirski <luto@kernel.org>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Daniel Mack <daniel@zonque.org>
+From: Julien Fortin <julien@cumulusnetworks.com>
+Subject: [PATCH] ip: vfinfo: remove code duplication for IFLA_VF_RSS_QUERY_EN
+Date: Fri, 16 Dec 2016 17:36:05 +0100
+Message-ID: <20161216163605.19728-1-julien@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: phil@nwl.cc, Julien Fortin <julien@cumulusnetworks.com>
+To: stephen@networkplumber.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:51594 "EHLO mail.kernel.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755562AbcLPQds (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 16 Dec 2016 11:33:48 -0500
+Received: from mail-wm0-f50.google.com ([74.125.82.50]:35860 "EHLO
+        mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934030AbcLPQgZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2016 11:36:25 -0500
+Received: by mail-wm0-f50.google.com with SMTP id g23so39258379wme.1
+        for <netdev@vger.kernel.org>; Fri, 16 Dec 2016 08:36:24 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-CGROUP_BPF depended on SOCK_CGROUP_DATA which can't be manually
-enabled, making it rather challenging to turn CGROUP_BPF on.
+From: Julien Fortin <julien@cumulusnetworks.com>
 
-Signed-off-by: Andy Lutomirski <luto@kernel.org>
+Fixes: 4fb4a10e120b1 ("ipaddress: Print IFLA_VF_QUERY_RSS_EN setting”)
+
+Signed-off-by: Julien Fortin <julien@cumulusnetworks.com>
 ---
- init/Kconfig | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ ip/ipaddress.c | 8 --------
+ 1 file changed, 8 deletions(-)
 
-diff --git a/init/Kconfig b/init/Kconfig
-index aafafeb0c117..223b734abccd 100644
---- a/init/Kconfig
-+++ b/init/Kconfig
-@@ -1156,7 +1156,8 @@ config CGROUP_PERF
- 
- config CGROUP_BPF
- 	bool "Support for eBPF programs attached to cgroups"
--	depends on BPF_SYSCALL && SOCK_CGROUP_DATA
-+	depends on BPF_SYSCALL
-+	select SOCK_CGROUP_DATA
- 	help
- 	  Allow attaching eBPF programs to a cgroup using the bpf(2)
- 	  syscall command BPF_PROG_ATTACH.
+diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+index de64877..400ebb4 100644
+--- a/ip/ipaddress.c
++++ b/ip/ipaddress.c
+@@ -414,14 +414,6 @@ static void print_vfinfo(FILE *fp, struct rtattr *vfinfo)
+ 			fprintf(fp, ", query_rss %s",
+ 			        rss_query->setting ? "on" : "off");
+ 	}
+-	if (vf[IFLA_VF_RSS_QUERY_EN]) {
+-		struct ifla_vf_rss_query_en *rss_query =
+-			RTA_DATA(vf[IFLA_VF_RSS_QUERY_EN]);
+-
+-		if (rss_query->setting != -1)
+-			fprintf(fp, ", query_rss %s",
+-			        rss_query->setting ? "on" : "off");
+-	}
+ 	if (vf[IFLA_VF_STATS] && show_stats)
+ 		print_vf_stats64(fp, vf[IFLA_VF_STATS]);
+ }
 -- 
-2.9.3
+2.11.0
