@@ -1,68 +1,83 @@
-From: Ozgur Karatas <okaratas@member.fsf.org>
-Subject: Re: [PATCH 1/1] tools: net: bpf_dbg.c fixed keyboard typo
-Date: Fri, 16 Dec 2016 21:13:06 +0200
-Message-ID: <142441481915586@web39j.yandex.ru>
-References: <5194151481912505@web1g.yandex.ru> <96578fd4-dd02-f39a-a252-c37aa714d3d0@cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel <linux-kernel@vger.kernel.org>,
-        netdev <netdev@vger.kernel.org>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from forward5p.cmail.yandex.net ([77.88.31.20]:33035 "EHLO
-        forward5p.cmail.yandex.net" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752630AbcLPTPE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2016 14:15:04 -0500
-In-Reply-To: <96578fd4-dd02-f39a-a252-c37aa714d3d0@cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Rajat Jain <rajatja-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH v2 1/3] Bluetooth: btusb: Use an error label for error paths
+Date: Fri, 16 Dec 2016 11:30:02 -0800
+Message-ID: <1481916604-114279-1-git-send-email-rajatja@google.com>
+Cc: Rajat Jain <rajatja-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, rajatxjain-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
+        Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
+        Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Amitkumar Karwar <akarwar-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
+        Wei-Ning Huang <wnhuang-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+        Xinming Hu <huxm-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Brian Norris <briannorris-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+Use a label to remove the repetetive cleanup, for error cases.
 
+Signed-off-by: Rajat Jain <rajatja-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+---
+v2: same as v1
 
-16.12.2016, 21:08, "Sergei Shtylyov" <sergei.shtylyov@cogentembedded.com>:
-> Hello.
+ drivers/bluetooth/btusb.c | 19 +++++++++----------
+ 1 file changed, 9 insertions(+), 10 deletions(-)
 
-Hi
+diff --git a/drivers/bluetooth/btusb.c b/drivers/bluetooth/btusb.c
+index 2f633df..ce22cef 100644
+--- a/drivers/bluetooth/btusb.c
++++ b/drivers/bluetooth/btusb.c
+@@ -2991,18 +2991,15 @@ static int btusb_probe(struct usb_interface *intf,
+ 		err = usb_set_interface(data->udev, 0, 0);
+ 		if (err < 0) {
+ 			BT_ERR("failed to set interface 0, alt 0 %d", err);
+-			hci_free_dev(hdev);
+-			return err;
++			goto out_free_dev;
+ 		}
+ 	}
+ 
+ 	if (data->isoc) {
+ 		err = usb_driver_claim_interface(&btusb_driver,
+ 						 data->isoc, data);
+-		if (err < 0) {
+-			hci_free_dev(hdev);
+-			return err;
+-		}
++		if (err < 0)
++			goto out_free_dev;
+ 	}
+ 
+ #ifdef CONFIG_BT_HCIBTUSB_BCM
+@@ -3016,14 +3013,16 @@ static int btusb_probe(struct usb_interface *intf,
+ #endif
+ 
+ 	err = hci_register_dev(hdev);
+-	if (err < 0) {
+-		hci_free_dev(hdev);
+-		return err;
+-	}
++	if (err < 0)
++		goto out_free_dev;
+ 
+ 	usb_set_intfdata(intf, data);
+ 
+ 	return 0;
++
++out_free_dev:
++	hci_free_dev(hdev);
++	return err;
+ }
+ 
+ static void btusb_disconnect(struct usb_interface *intf)
+-- 
+2.8.0.rc3.226.g39d4020
 
-> On 12/16/2016 09:21 PM, Ozgur Karatas wrote:
->
->>  This patch fixed to keyboard typo, brackets not closed.
->>  I think, it should be close to parenthes.
->>
->>  Signed-off-by: Ozgur Karatas <okaratas@member.fsf.org>
->>  ---
->>   tools/net/bpf_dbg.c | 2 +-
->>   1 files changed, 1 insertion(+), 1 deletions(-)
->>
->>  diff --git a/tools/net/bpf_dbg.c b/tools/net/bpf_dbg.c
->>  index 4f254bc..f715f46 100644
->>  --- a/tools/net/bpf_dbg.c
->>  +++ b/tools/net/bpf_dbg.c
->>  @@ -1213,7 +1213,7 @@ static int cmd_disassemble(char *line_string)
->>
->>           if (!bpf_prog_loaded())
->>                   return CMD_ERR;
->>  - if (strlen(line_string) > 0 &&
->>  + if (strlen(line_string) > 0 &&)
->
->     Have tried to you compile that? :-/
-
-Yes, i compiled but I apologize if there was NAK.
-Also, checkpatch give a error.
-
-I could be wrong, will review again.
-
-Best Regards!
-
->>               (line = strtoul(line_string, NULL, 10)) < bpf_prog_len)
->
->     I think the code was correct before your patch...
->
->>                   single_line = true;
->>           if (single_line)
->
-> MBR, Sergei
-
-~Ozgur
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
