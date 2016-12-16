@@ -1,106 +1,40 @@
-From: Pali =?utf-8?q?Roh=C3=A1r?= <pali.rohar@gmail.com>
-Subject: Re: wl1251 & mac address & calibration data
-Date: Fri, 16 Dec 2016 11:40:27 +0100
-Message-ID: <201612161140.27241@pali>
-References: <201611111820.52072@pali> <CAB=NE6VHF+U7DzapENvLMKtN4Dgi9J0qMoeUJ8o4vSwc2-rRFQ@mail.gmail.com> <07be7fc8-6c7f-6e03-379d-fa781b248259@monom.org>
+From: =?utf-8?B?0YHQuNGB0YLQtdC80Ysg0LDQtNC80LjQvdC40YHRgtGA0LDRgtC+0YA=?=
+        <roberto.bovo@sanita.padova.it>
+Subject: (unknown)
+Date: Fri, 16 Dec 2016 11:25:44 +0100 (CET)
+Message-ID: <556522076.6015713.1481883944901.JavaMail.zimbra@sanita.padova.it>
+Reply-To: Sistemass_Adminss@mail2world.com
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart1686547.gFzIhqOYHO";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: "Luis R. Rodriguez" <mcgrof@kernel.org>,
-        Arend Van Spriel <arend.vanspriel@broadcom.com>,
-        Tom Gundersen <teg@jklm.no>,
-        Johannes Berg <johannes@sipsolutions.net>,
-        Ming Lei <ming.lei@canonical.com>,
-        Mimi Zohar <zohar@linux.vnet.ibm.com>,
-        Bjorn Andersson <bjorn.andersson@linaro.org>,
-        =?utf-8?q?Rafa=C5=82_Mi=C5=82ecki?= <zajec5@gmail.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        Sebastian Reichel <sre@kernel.org>,
-        Pavel Machek <pavel@ucw.cz>,
-        Michal Kazior <michal.kazior@tieto.com>,
-        Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
-        Aaro Koskinen <aaro.koskinen@iki.fi>,
-        Tony Lindgren <tony@atomide.com>,
-        "linux-wireless" <linux-wireless@vger.kernel.org>,
-        Network Development <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-To: Daniel Wagner <wagi@monom.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <07be7fc8-6c7f-6e03-379d-fa781b248259@monom.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: base64
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.sanita.padova.it ([217.148.121.43]:51863 "EHLO
+        smtp.sanita.padova.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1760460AbcLPKqz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2016 05:46:55 -0500
+Subject: 
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---nextPart1686547.gFzIhqOYHO
-Content-Type: Text/Plain;
-  charset="utf-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Friday 16 December 2016 08:25:44 Daniel Wagner wrote:
-> On 12/16/2016 03:03 AM, Luis R. Rodriguez wrote:
-> > For the new API a solution for "fallback mechanisms" should be
-> > clean though and I am looking to stay as far as possible from the
-> > existing mess. A solution to help both the old API and new API is
-> > possible for the "fallback mechanism" though -- but for that I can
-> > only refer you at this point to some of Daniel Wagner and Tom
-> > Gunderson's firmwared deamon prospect. It should help pave the way
-> > for a clean solution and help address other stupid issues.
->=20
-> The firmwared project is hosted here
->=20
-> https://github.com/teg/firmwared
->=20
-> As Luis pointed out, firmwared relies on
-> FW_LOADER_USER_HELPER_FALLBACK, which is not enabled by default.
-
-I know. But it does not mean that I cannot enable this option at kernel=20
-compile time.
-
-Bigger problem is that currently request_firmware() first try to load=20
-firmware directly from VFS and after that (if fails) fallback to user=20
-helper.
-
-So I would need to extend kernel firmware code with new function (or=20
-flag) to not use VFS and try only user mode helper.
-
-> I
-> don't see any reason why firmwared should not also support loading
-> calibration data. If we find a sound way to do this.
-
-It can, but why should I use another daemon for firmware loading as=20
-non-systemd version of udev (and eudev fork) support firmware loading?=20
-I think I stay with udev/eudev.
-
-> As you can see from the commit history it is a pretty young project
-> and more ore less reanimation of the old udev firmware loader
-> feature.  We are getting int into shape, adding integration tests
-> etc.
->=20
-> The main motivation for this project is the get movement back in
-> stuck discussion on the firmware loader API. Luis was very busy
-> writing up all the details on the current situation and purely from
-> the amount of documentation need to describe the API you can tell
-> something is awry.
->=20
-> Thanks,
-> Daniel
-
-=2D-=20
-Pali Roh=C3=A1r
-pali.rohar@gmail.com
-
---nextPart1686547.gFzIhqOYHO
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iEYEABECAAYFAlhTxJsACgkQi/DJPQPkQ1K83wCghtlPpIAMTLQGTVn1imQwMFPW
-3REAn3wCgF+Bxt3PryYCQZnDKCBkE39F
-=B8/V
------END PGP SIGNATURE-----
-
---nextPart1686547.gFzIhqOYHO--
+0LLQvdC40LzQsNC90LjRjzsKCtCw0YjQuCDRgdC+0L7QsdGJ0LXQvdC40Y8g0L/RgNC10LLRi9GB
+0LjQuyDQu9C40LzQuNGCINC/0LDQvNGP0YLQuCwg0LrQvtGC0L7RgNGL0Lkg0YHQvtGB0YLQsNCy
+0LvRj9C10YIgNSDQk9CxLCDQvtC/0YDQtdC00LXQu9C10L3QvdGL0YUg0LDQtNC80LjQvdC40YHR
+gtGA0LDRgtC+0YDQvtC8LCDQutC+0YLQvtGA0YvQuSDQsiDQvdCw0YHRgtC+0Y/RidC10LUg0LLR
+gNC10LzRjyDRgNCw0LHQvtGC0LDQtdGCINC90LAgMTAuOUdCLCDQktGLINC90LUg0YHQvNC+0LbQ
+tdGC0LUg0L7RgtC/0YDQsNCy0LjRgtGMINC40LvQuCDQv9C+0LvRg9GH0LjRgtGMINC90L7QstGD
+0Y4g0L/QvtGH0YLRgywg0L/QvtC60LAg0LLRiyDQv9C+0LLRgtC+0YDQvdC+INC90LUg0L/RgNC+
+0LLQtdGA0LjRgtGMINCy0LDRiCDQv9C+0YfRgtC+0LLRi9C5INGP0YnQuNC6INC/0L7Rh9GC0Ysu
+INCn0YLQvtCx0Ysg0LLQvtGB0YHRgtCw0L3QvtCy0LjRgtGMINGA0LDQsdC+0YLQvtGB0L/QvtGB
+0L7QsdC90L7RgdGC0Ywg0JLQsNGI0LXQs9C+INC/0L7Rh9GC0L7QstC+0LPQviDRj9GJ0LjQutCw
+LCDQvtGC0L/RgNCw0LLRjNGC0LUg0YHQu9C10LTRg9GO0YnRg9GOINC40L3RhNC+0YDQvNCw0YbQ
+uNGOINC90LjQttC1OgoK0LjQvNGPOgrQmNC80Y8g0L/QvtC70YzQt9C+0LLQsNGC0LXQu9GPOgrQ
+v9Cw0YDQvtC70Yw6CtCf0L7QtNGC0LLQtdGA0LbQtNC10L3QuNC1INC/0LDRgNC+0LvRjzoK0JDQ
+tNGA0LXRgSDRjdC70LXQutGC0YDQvtC90L3QvtC5INC/0L7Rh9GC0Ys6CtGC0LXQu9C10YTQvtC9
+OgoK0JXRgdC70Lgg0LLRiyDQvdC1INCyINGB0L7RgdGC0L7Rj9C90LjQuCDQv9C10YDQtdC/0YDQ
+vtCy0LXRgNC40YLRjCDRgdC+0L7QsdGJ0LXQvdC40Y8sINCy0LDRiCDQv9C+0YfRgtC+0LLRi9C5
+INGP0YnQuNC6INCx0YPQtNC10YIg0L7RgtC60LvRjtGH0LXQvSEKCtCf0YDQuNC90L7RgdC40Lwg
+0LjQt9Cy0LjQvdC10L3QuNGPINC30LAg0L3QtdGD0LTQvtCx0YHRgtCy0LAuCtCf0YDQvtCy0LXR
+gNC+0YfQvdGL0Lkg0LrQvtC0OiBFTjogUnUuLi43NzY3NzQ5OTAuLjIwMTYK0J/QvtGH0YLRiyDR
+gtC10YXQvdC40YfQtdGB0LrQvtC5INC/0L7QtNC00LXRgNC20LrQuCDCqTIwMTYKCtGB0L/QsNGB
+0LjQsdC+CtGB0LjRgdGC0LXQvNGLINCw0LTQvNC40L3QuNGB0YLRgNCw0YLQvtGACg==
