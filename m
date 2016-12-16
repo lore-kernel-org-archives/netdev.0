@@ -1,72 +1,68 @@
-From: Henrik Austad <henrik@austad.us>
-Subject: Re: [TSN RFC v2 0/9] TSN driver for the kernel
-Date: Fri, 16 Dec 2016 20:07:59 +0100
-Message-ID: <20161216190759.GA1163@sisyphus.home.austad.us>
-References: <1481911153-549-1-git-send-email-henrik@austad.us>
- <1481911964.3572.1.camel@gmail.com>
- <20161216.132057.1771215556712298530.davem@davemloft.net>
+From: Ozgur Karatas <okaratas@member.fsf.org>
+Subject: Re: [PATCH 1/1] tools: net: bpf_dbg.c fixed keyboard typo
+Date: Fri, 16 Dec 2016 21:13:06 +0200
+Message-ID: <142441481915586@web39j.yandex.ru>
+References: <5194151481912505@web1g.yandex.ru> <96578fd4-dd02-f39a-a252-c37aa714d3d0@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="PEIAKu/WMn1b1Hv9"
-Cc: gvrose8192@gmail.com, linux-kernel@vger.kernel.org,
-        richardcochran@gmail.com, haustad@cisco.com,
-        linux-media@vger.kernel.org, alsa-devel@vger.kernel.org,
-        netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-media-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20161216.132057.1771215556712298530.davem@davemloft.net>
-Sender: linux-media-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel <linux-kernel@vger.kernel.org>,
+        netdev <netdev@vger.kernel.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from forward5p.cmail.yandex.net ([77.88.31.20]:33035 "EHLO
+        forward5p.cmail.yandex.net" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752630AbcLPTPE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2016 14:15:04 -0500
+In-Reply-To: <96578fd4-dd02-f39a-a252-c37aa714d3d0@cogentembedded.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
---PEIAKu/WMn1b1Hv9
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
 
-On Fri, Dec 16, 2016 at 01:20:57PM -0500, David Miller wrote:
-> From: Greg <gvrose8192@gmail.com>
-> Date: Fri, 16 Dec 2016 10:12:44 -0800
->=20
-> > On Fri, 2016-12-16 at 18:59 +0100, henrik@austad.us wrote:
-> >> From: Henrik Austad <haustad@cisco.com>
-> >>=20
-> >>=20
-> >> The driver is directed via ConfigFS as we need userspace to handle
-> >> stream-reservation (MSRP), discovery and enumeration (IEEE 1722.1) and
-> >> whatever other management is needed. This also includes running an
-> >> appropriate PTP daemon (TSN favors gPTP).
-> >=20
-> > I suggest using a generic netlink interface to communicate with the
-> > driver to set up and/or configure your drivers.
-> >=20
-> > I think configfs is frowned upon for network drivers.  YMMV.
->=20
-> Agreed.
+16.12.2016, 21:08, "Sergei Shtylyov" <sergei.shtylyov@cogentembedded.com>:
+> Hello.
 
-Ok - thanks!
+Hi
 
-I will have look at netlink and see if I can wrap my head around it and if=
-=20
-I can apply it to how to bring the media-devices up once the TSN-link has=
-=20
-been configured.
+> On 12/16/2016 09:21 PM, Ozgur Karatas wrote:
+>
+>>  This patch fixed to keyboard typo, brackets not closed.
+>>  I think, it should be close to parenthes.
+>>
+>>  Signed-off-by: Ozgur Karatas <okaratas@member.fsf.org>
+>>  ---
+>>   tools/net/bpf_dbg.c | 2 +-
+>>   1 files changed, 1 insertion(+), 1 deletions(-)
+>>
+>>  diff --git a/tools/net/bpf_dbg.c b/tools/net/bpf_dbg.c
+>>  index 4f254bc..f715f46 100644
+>>  --- a/tools/net/bpf_dbg.c
+>>  +++ b/tools/net/bpf_dbg.c
+>>  @@ -1213,7 +1213,7 @@ static int cmd_disassemble(char *line_string)
+>>
+>>           if (!bpf_prog_loaded())
+>>                   return CMD_ERR;
+>>  - if (strlen(line_string) > 0 &&
+>>  + if (strlen(line_string) > 0 &&)
+>
+>     Have tried to you compile that? :-/
 
-Thanks! :)
+Yes, i compiled but I apologize if there was NAK.
+Also, checkpatch give a error.
 
---=20
-Henrik Austad
+I could be wrong, will review again.
 
---PEIAKu/WMn1b1Hv9
-Content-Type: application/pgp-signature; name="signature.asc"
+Best Regards!
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
+>>               (line = strtoul(line_string, NULL, 10)) < bpf_prog_len)
+>
+>     I think the code was correct before your patch...
+>
+>>                   single_line = true;
+>>           if (single_line)
+>
+> MBR, Sergei
 
-iEYEARECAAYFAlhUO48ACgkQ6k5VT6v45lkcewCfUyRuYP2gv4bt84NbJ+wkMlv4
-iRoAn2wZQpq0Fs5q4WxR2aybsxDtGJOc
-=dYRD
------END PGP SIGNATURE-----
-
---PEIAKu/WMn1b1Hv9--
+~Ozgur
