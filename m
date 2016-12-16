@@ -1,57 +1,73 @@
-From: Theodore Ts'o <tytso@mit.edu>
-Subject: Re: [PATCH v5 1/4] siphash: add cryptographically secure PRF
-Date: Fri, 16 Dec 2016 15:43:58 -0500
-Message-ID: <20161216204358.nlwifgcqnu6pitxs@thunk.org>
-References: <CAHmME9pe39s5FWxfKNiRKkHnEO-9v2yLcEQc8rnMC89P6roTmA@mail.gmail.com>
- <20161216201739.24567.qmail@ns.sciencehorizons.net>
+From: Daniel Micay <danielmicay@gmail.com>
+Subject: Re: Re: [PATCH v5 1/4] siphash: add
+ cryptographically secure PRF
+Date: Fri, 16 Dec 2016 15:44:27 -0500
+Message-ID: <1481921067.1054.6.camel@gmail.com>
+References: <CAGiyFdfmiCMyHvAg=5sGh8KjBBrF0Wb4Qf=JLzJqUAx4yFSS3Q@mail.gmail.com>
+	 <20161216034618.28276.qmail@ns.sciencehorizons.net>
+	 <CAGiyFdd6_LVzUUfFcaqMyub1c2WPvWUzAQDCH+Aza-_t6mvmXg@mail.gmail.com>
+	 <CAHmME9pjoAsoct1sVDpFFuqaqutv9X7DGJ5OBQXRAS57KFimUA@mail.gmail.com>
+	 <CALx6S351VFRZmEQphRQy6YtmZYPnOtTN7=XiNrJmhWJGv4HUBg@mail.gmail.com>
 Reply-To: kernel-hardening@lists.openwall.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jason@zx2c4.com, ak@linux.intel.com, davem@davemloft.net,
-	David.Laight@aculab.com, djb@cr.yp.to, ebiggers3@gmail.com,
-	hannes@stressinduktion.org, jeanphilippe.aumasson@gmail.com,
-	kernel-hardening@lists.openwall.com, linux-crypto@vger.kernel.org,
-	linux-kernel@vger.kernel.org, luto@amacapital.net,
-	netdev@vger.kernel.org, tom@herbertland.com,
-	torvalds@linux-foundation.org, vegard.nossum@gmail.com
-To: George Spelvin <linux@sciencehorizons.net>
-Return-path: <kernel-hardening-return-5655-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+Content-Type: multipart/signed; micalg="pgp-sha256";
+	protocol="application/pgp-signature"; boundary="=-HimIJJAsxKuzIQvBsNJ2"
+Cc: Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>, George Spelvin
+ <linux@sciencehorizons.net>, Andi Kleen <ak@linux.intel.com>, David Miller
+ <davem@davemloft.net>, David Laight <David.Laight@aculab.com>, Eric Biggers
+ <ebiggers3@gmail.com>, Hannes Frederic Sowa <hannes@stressinduktion.org>,
+ Linux Crypto Mailing List <linux-crypto@vger.kernel.org>, LKML
+ <linux-kernel@vger.kernel.org>, Andy Lutomirski <luto@amacapital.net>,
+ Netdev <netdev@vger.kernel.org>, Linus Torvalds
+ <torvalds@linux-foundation.org>, Theodore Ts'o <tytso@mit.edu>,
+ vegard.nossum@gmail.com, "Daniel J . Bernstein" <djb@cr.yp.to>
+To: kernel-hardening@lists.openwall.com, "Jason A. Donenfeld"
+ <Jason@zx2c4.com>
+Return-path: <kernel-hardening-return-5656-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
 List-Post: <mailto:kernel-hardening@lists.openwall.com>
 List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
 List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
 List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-Content-Disposition: inline
-In-Reply-To: <20161216201739.24567.qmail@ns.sciencehorizons.net>
+In-Reply-To: <CALx6S351VFRZmEQphRQy6YtmZYPnOtTN7=XiNrJmhWJGv4HUBg@mail.gmail.com>
 List-Id: netdev.vger.kernel.org
 
-On Fri, Dec 16, 2016 at 03:17:39PM -0500, George Spelvin wrote:
-> > That's a nice analysis. Might one conclude from that that hsiphash is
-> > not useful for our purposes? Or does it still remain useful for
-> > network facing code?
-> 
-> I think for attacks where the threat is a DoS, it's usable.  The point
-> is you only have to raise the cost to equal that of a packet flood.
-> (Just like in electronic warfare, the best you can possibly do is force
-> the enemy to use broadband jamming.)
-> 
-> Hash collision attacks just aren't that powerful.  The original PoC
-> was against an application that implemented a hard limit on hash chain
-> length as a DoS defense, which the attack then exploited to turn it into
-> a hard DoS.
 
-What should we do with get_random_int() and get_random_long()?  In
-some cases it's being used in performance sensitive areas, and where
-anti-DoS protection might be enough.  In others, maybe not so much.
+--=-HimIJJAsxKuzIQvBsNJ2
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-If we rekeyed the secret used by get_random_int() and
-get_random_long() frequently (say, every minute or every 5 minutes),
-would that be sufficient for current and future users of these
-interfaces?
+On Fri, 2016-12-16 at 11:47 -0800, Tom Herbert wrote:
+>=20
+> That's about 3x of jhash speed (7 nsecs). So that might closer
+> to a more palatable replacement for jhash. Do we lose any security
+> advantages with halfsiphash?
 
-						- Ted
+Have you tested a lower round SipHash? Probably best to stick with the
+usual construction for non-DoS mitigation, but why not try SipHash 1-3,
+1-2, etc. for DoS mitigation?
 
-P.S.  I'll note that my performance figures when testing changes to
-get_random_int() were done on a 32-bit x86; Jason, I'm guessing your
-figures were using a 64-bit x86 system?.  I haven't tried 32-bit ARM
-or smaller CPU's (e.g., mips, et. al.) that might be more likely to be
-used on IoT devices, but I'm worried about those too, of course.
+Rust and Swift both went with SipHash 1-3 for hash tables.
+--=-HimIJJAsxKuzIQvBsNJ2
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+
+iQJKBAABCAA0FiEEZe7+AiEI4rcIy/z3+ecS5Zr18ioFAlhUUisWHGRhbmllbG1p
+Y2F5QGdtYWlsLmNvbQAKCRD55xLlmvXyKk2/D/9gAHNr8TZPGEYv7L/vhsOnsssj
+HRnq0a6FoJT8FdfNxLwffeh2vPLuOVyMNxhOfZtlXLAVwtk8bZrBpJEkM0FSfeEQ
+glKghXGxpnPAtwA2lKX0D9Q8adzUXFUBgxeH1IQuCGcacigsbZf11lnvZU6G++Wj
+GRcKdGFnwia6gF0rRfCtpgj7mGf/E/tzPBe/SY44s45tRsVC5bne4VH4vjQeBby7
+K6YT3VvfIsMIZzaqAzJyS3op1Lz6wlyPIYL6ABqRPFSDgwAewspMhysL954409Za
+stB5EDxG0lU378jBPN2cA54Ys0VM+bFL+gWaM4AZiZngfzQYDPTtzGZXvD8seu9P
+0QZ4NxyosoWB5St9dUQzUyYbCmLOBT8gTkKs9EtBOmHcLDHOU6WcgbeVDwqm2T3u
+So8o4hRu3cggaWbdVyL9QjXazw2VD8BW0CEH4D+qFBFTmAbIvuo0h48LEQ6inv5G
+oTmbusFXUbxHDK8UpRCyWg2WMzKPU8cwNrLcVkQhtijQnuI6nYl8GN3u4EeB0pGM
+8BGoOHXm6NA7VydDpu95fhoy6GsQeWmeDknM0Khbwubc75iFz8KU1hxMfkESlvb6
+Wwz5flHC6TQXG/S6812MHtVh2+undC8SO19y0mfenLZCieLjqC0kj94h67y4xqEw
++16uBeb7ylA/k7Lgjg==
+=l09G
+-----END PGP SIGNATURE-----
+
+--=-HimIJJAsxKuzIQvBsNJ2--
