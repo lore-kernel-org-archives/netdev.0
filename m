@@ -1,86 +1,61 @@
-From: Madalin-Cristian Bucur <madalin.bucur@nxp.com>
-Subject: RE: [upstream-release] [PATCH net 2/4] fsl/fman: arm: call
- of_platform_populate() for arm64 platfrom
-Date: Fri, 16 Dec 2016 17:01:41 +0000
-Message-ID: <AM4PR04MB16048BC5546038190CFDBF2BEC9C0@AM4PR04MB1604.eurprd04.prod.outlook.com>
-References: <1481807497-4724-1-git-send-email-madalin.bucur@nxp.com>
- <1481807497-4724-3-git-send-email-madalin.bucur@nxp.com>
- <DB5PR0401MB1928F163614C64900D1458ED919D0@DB5PR0401MB1928.eurprd04.prod.outlook.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH v5 1/4] siphash: add cryptographically secure PRF
+Date: Fri, 16 Dec 2016 17:06:57 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB0241238@AcuExch.aculab.com>
+References: <CAGiyFdfmiCMyHvAg=5sGh8KjBBrF0Wb4Qf=JLzJqUAx4yFSS3Q@mail.gmail.com>
+ <20161215232840.22459.qmail@ns.sciencehorizons.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "davem@davemloft.net" <davem@davemloft.net>
-To: Scott Wood <scott.wood@nxp.com>, "netdev@vger.kernel.org"
- <netdev@vger.kernel.org>, "mpe@ellerman.id.au" <mpe@ellerman.id.au>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <DB5PR0401MB1928F163614C64900D1458ED919D0@DB5PR0401MB1928.eurprd04.prod.outlook.com>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "djb@cr.yp.to" <djb@cr.yp.to>
+To: 'George Spelvin' <linux@sciencehorizons.net>,
+        "ak@linux.intel.com" <ak@linux.intel.com>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "ebiggers3@gmail.com" <ebiggers3@gmail.com>,
+        "hannes@stressinduktion.org" <hannes@stressinduktion.org>,
+        "Jason@zx2c4.com" <Jason@zx2c4.com>,
+        "jeanphilippe.aumasson@gmail.com" <jeanphilippe.aumasson@gmail.com>,
+        "kernel-hardening@lists.openwall.com"
+        <kernel-hardening@lists.openwall.com>,
+        "linux-crypto@vger.kernel.org" <linux-crypto@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "luto@amacapital.net" <luto@amacapital.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "tom@herbertland.com" <tom@herbertland.com>,
+        "torvalds@linux-foundation.org" <torvalds@linux-foundation.org>,
+        "tytso@mit.edu" <tytso
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <20161215232840.22459.qmail@ns.sciencehorizons.net>
 Content-Language: en-US
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> From: Scott Wood
-> Sent: Thursday, December 15, 2016 8:42 PM
->=20
-> On 12/15/2016 07:11 AM, Madalin Bucur wrote:
-> > From: Igal Liberman <igal.liberman@freescale.com>
-> >
-> > Signed-off-by: Igal Liberman <igal.liberman@freescale.com>
-> > ---
-> >  drivers/net/ethernet/freescale/fman/fman.c | 10 ++++++++++
-> >  1 file changed, 10 insertions(+)
-> >
-> > diff --git a/drivers/net/ethernet/freescale/fman/fman.c
-> b/drivers/net/ethernet/freescale/fman/fman.c
-> > index dafd9e1..f36b4eb 100644
-> > --- a/drivers/net/ethernet/freescale/fman/fman.c
-> > +++ b/drivers/net/ethernet/freescale/fman/fman.c
-> > @@ -2868,6 +2868,16 @@ static struct fman *read_dts_node(struct
-> platform_device *of_dev)
-> >
-> >  	fman->dev =3D &of_dev->dev;
-> >
-> > +#ifdef CONFIG_ARM64
-> > +	/* call of_platform_populate in order to probe sub-nodes on arm64 */
-> > +	err =3D of_platform_populate(fm_node, NULL, NULL, &of_dev->dev);
-> > +	if (err) {
-> > +		dev_err(&of_dev->dev, "%s: of_platform_populate() failed\n",
-> > +			__func__);
-> > +		goto fman_free;
-> > +	}
-> > +#endif
->=20
-> Should we remove fsl,fman from the PPC of_device_ids[], so this doesn't
-> need an ifdef?
->=20
-> Why is it #ifdef CONFIG_ARM64 rather than #ifndef CONFIG_PPC?
->=20
-> -Scott
+From: George Spelvin
+> Sent: 15 December 2016 23:29
+> > If a halved version of SipHash can bring significant performance boost
+> > (with 32b words instead of 64b words) with an acceptable security level
+> > (64-bit enough?) then we may design such a version.
+> 
+> I was thinking if the key could be pushed to 80 bits, that would be nice,
+> but honestly 64 bits is fine.  This is DoS protection, and while it's
+> possible to brute-force a 64 bit secret, there are more effective (DDoS)
+> attacks possible for the same cost.
 
-Igal was working on adding ARM64 support when this patch was created, thus =
-the
-choice of #ifdef CONFIG_ARM64. Unifying this for PPC and ARM64 by always ca=
-lling
-of_platform_populate() sounds like the best approach. I would need to synch=
-ronize
-the introduction of this code with the removal of the fsl,fman entry from t=
-he
-of_device_ids[] array.
+A 32bit hash would also remove all the issues about the alignment
+of IP addresses (etc) on 64bit systems.
 
-Dave, Michael, Scott, is it ok to add to v2 of this patch set the patch tha=
-t removes
-the compatible "fsl,fman" from arch/powerpc/platforms/85xx/corenet_generic.=
-c?
+> (I'd suggest a name of "HalfSipHash" to convey the reduced security
+> effectively.)
+> 
+> > Regarding output size, are 64 bits sufficient?
+> 
+> As a replacement for jhash, 32 bits are sufficient.  It's for
+> indexing an in-memory hash table on a 32-bit machine.
 
-Thanks,
-Madalin
+It is also worth remembering that if the intent is to generate
+a hash table index (not a unique fingerprint) you will always
+get collisions on the final value.
+Randomness could still give overlong hash chains - which might
+still need rehashing with a different key.
+
+	David
