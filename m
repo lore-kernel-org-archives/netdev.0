@@ -1,151 +1,70 @@
-From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-Subject: Re: [PATCH net 2/3] cpsw/netcp: davinci_cpdma: sanitize inter-module
- API
-Date: Fri, 16 Dec 2016 11:59:00 +0200
-Message-ID: <20161216095859.GA16712@khorivan>
-References: <20161216092017.2560717-1-arnd@arndb.de>
- <20161216092017.2560717-2-arnd@arndb.de>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH v5 3/4] secure_seq: use SipHash in place of MD5
+Date: Fri, 16 Dec 2016 09:59:32 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB0240E66@AcuExch.aculab.com>
+References: <20161215203003.31989-1-Jason@zx2c4.com>
+ <20161215203003.31989-4-Jason@zx2c4.com>
+Reply-To: kernel-hardening@lists.openwall.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Mugunthan V N <mugunthanvnm@ti.com>,
-        Grygorii Strashko <grygorii.strashko@ti.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
-        <u.kleine-koenig@pengutronix.de>, linux-omap@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20161216092017.2560717-2-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: quoted-printable
+To: "'Jason A. Donenfeld'" <Jason@zx2c4.com>, Netdev <netdev@vger.kernel.org>,
+	"kernel-hardening@lists.openwall.com" <kernel-hardening@lists.openwall.com>,
+	LKML <linux-kernel@vger.kernel.org>, "linux-crypto@vger.kernel.org"
+	<linux-crypto@vger.kernel.org>, Ted Tso <tytso@mit.edu>, Hannes Frederic Sowa
+	<hannes@stressinduktion.org>, Linus Torvalds <torvalds@linux-foundation.org>,
+	Eric Biggers <ebiggers3@gmail.com>, Tom Herbert <tom@herbertland.com>,
+	"George Spelvin" <linux@sciencehorizons.net>, Vegard Nossum
+	<vegard.nossum@gmail.com>, "ak@linux.intel.com" <ak@linux.intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>, "luto@amacapital.net"
+	<luto@amacapital.net>
+Return-path: <kernel-hardening-return-5629-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+In-Reply-To: <20161215203003.31989-4-Jason@zx2c4.com>
+Content-Language: en-US
 List-Id: netdev.vger.kernel.org
 
-On Fri, Dec 16, 2016 at 10:19:58AM +0100, Arnd Bergmann wrote:
-> The davinci_cpdma module is a helper library that is used by the
-> actual device drivers and does nothing by itself, so all its API
-> functions need to be exported.
-> 
-> Four new functions were added recently without an export, so now
-> we get a build error:
-> 
-> ERROR: "cpdma_chan_set_weight" [drivers/net/ethernet/ti/ti_cpsw.ko] undefined!
-> ERROR: "cpdma_chan_get_rate" [drivers/net/ethernet/ti/ti_cpsw.ko] undefined!
-> ERROR: "cpdma_chan_get_min_rate" [drivers/net/ethernet/ti/ti_cpsw.ko] undefined!
-> ERROR: "cpdma_chan_set_rate" [drivers/net/ethernet/ti/ti_cpsw.ko] undefined!
-/\
-||
-A patch correcting this has been applied.
-(397c5ad153f0ea62023accb67b3d2b07e5039948)
+From: Jason A. Donenfeld
+> Sent: 15 December 2016 20:30
+> This gives a clear speed and security improvement. Siphash is both
+> faster and is more solid crypto than the aging MD5.
+>=20
+> Rather than manually filling MD5 buffers, for IPv6, we simply create
+> a layout by a simple anonymous struct, for which gcc generates
+> rather efficient code. For IPv4, we pass the values directly to the
+> short input convenience functions.
+...
+> diff --git a/net/core/secure_seq.c b/net/core/secure_seq.c
+> index 88a8e429fc3e..c80583bf3213 100644
+...
+> +	const struct {
+> +		struct in6_addr saddr;
+> +		struct in6_addr daddr;
+> +		__be16 sport;
+> +		__be16 dport;
+> +		u32 padding;
+> +	} __aligned(SIPHASH_ALIGNMENT) combined =3D {
+> +		.saddr =3D *(struct in6_addr *)saddr,
+> +		.daddr =3D *(struct in6_addr *)daddr,
+> +		.sport =3D sport,
+> +		.dport =3D dport
+> +	};
 
-> 
-> This exports those symbols. After taking a closer look, I found two
-> more global functions in this file that are not exported and not used
-> anywhere, so they can obviously be removed. There is also one function
-> that is only used internally in this module, and should be 'static'.
-> 
-> Fixes: 8f32b90981dc ("net: ethernet: ti: davinci_cpdma: add set rate for a channel")
-> Fixes: 0fc6432cc78d ("net: ethernet: ti: davinci_cpdma: add weight function for channels")
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> ---
->  drivers/net/ethernet/ti/davinci_cpdma.c | 59 ++++++++++-----------------------
->  drivers/net/ethernet/ti/davinci_cpdma.h |  4 ---
->  2 files changed, 17 insertions(+), 46 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c b/drivers/net/ethernet/ti/davinci_cpdma.c
-> index 36518fc5c7cc..b9d40f0cdf6c 100644
-> --- a/drivers/net/ethernet/ti/davinci_cpdma.c
-> +++ b/drivers/net/ethernet/ti/davinci_cpdma.c
-> @@ -628,6 +628,23 @@ int cpdma_ctlr_destroy(struct cpdma_ctlr *ctlr)
->  }
->  EXPORT_SYMBOL_GPL(cpdma_ctlr_destroy);
->  
-> +static int cpdma_chan_int_ctrl(struct cpdma_chan *chan, bool enable)
-> +{
-> +	unsigned long flags;
-> +
-> +	spin_lock_irqsave(&chan->lock, flags);
-> +	if (chan->state != CPDMA_STATE_ACTIVE) {
-> +		spin_unlock_irqrestore(&chan->lock, flags);
-> +		return -EINVAL;
-> +	}
-> +
-> +	dma_reg_write(chan->ctlr, enable ? chan->int_set : chan->int_clear,
-> +		      chan->mask);
-> +	spin_unlock_irqrestore(&chan->lock, flags);
-> +
-> +	return 0;
-> +}
-> +
->  int cpdma_ctlr_int_ctrl(struct cpdma_ctlr *ctlr, bool enable)
->  {
->  	unsigned long flags;
-> @@ -1274,46 +1291,4 @@ int cpdma_chan_stop(struct cpdma_chan *chan)
->  }
->  EXPORT_SYMBOL_GPL(cpdma_chan_stop);
->  
-> -int cpdma_chan_int_ctrl(struct cpdma_chan *chan, bool enable)
-> -{
-> -	unsigned long flags;
-> -
-> -	spin_lock_irqsave(&chan->lock, flags);
-> -	if (chan->state != CPDMA_STATE_ACTIVE) {
-> -		spin_unlock_irqrestore(&chan->lock, flags);
-> -		return -EINVAL;
-> -	}
-> -
-> -	dma_reg_write(chan->ctlr, enable ? chan->int_set : chan->int_clear,
-> -		      chan->mask);
-> -	spin_unlock_irqrestore(&chan->lock, flags);
-> -
-> -	return 0;
-> -}
-> -
-> -int cpdma_control_get(struct cpdma_ctlr *ctlr, int control)
-> -{
-> -	unsigned long flags;
-> -	int ret;
-> -
-> -	spin_lock_irqsave(&ctlr->lock, flags);
-> -	ret = _cpdma_control_get(ctlr, control);
-> -	spin_unlock_irqrestore(&ctlr->lock, flags);
-> -
-> -	return ret;
-> -}
-> -
-> -int cpdma_control_set(struct cpdma_ctlr *ctlr, int control, int value)
-> -{
-> -	unsigned long flags;
-> -	int ret;
-> -
-> -	spin_lock_irqsave(&ctlr->lock, flags);
-> -	ret = _cpdma_control_set(ctlr, control, value);
-> -	spin_unlock_irqrestore(&ctlr->lock, flags);
-> -
-> -	return ret;
-> -}
-> -EXPORT_SYMBOL_GPL(cpdma_control_set);
-> -
->  MODULE_LICENSE("GPL");
-> diff --git a/drivers/net/ethernet/ti/davinci_cpdma.h b/drivers/net/ethernet/ti/davinci_cpdma.h
-> index 4a167db2abab..36d0a09a3d44 100644
-> --- a/drivers/net/ethernet/ti/davinci_cpdma.h
-> +++ b/drivers/net/ethernet/ti/davinci_cpdma.h
-> @@ -87,7 +87,6 @@ int cpdma_chan_process(struct cpdma_chan *chan, int quota);
->  
->  int cpdma_ctlr_int_ctrl(struct cpdma_ctlr *ctlr, bool enable);
->  void cpdma_ctlr_eoi(struct cpdma_ctlr *ctlr, u32 value);
-> -int cpdma_chan_int_ctrl(struct cpdma_chan *chan, bool enable);
->  u32 cpdma_ctrl_rxchs_state(struct cpdma_ctlr *ctlr);
->  u32 cpdma_ctrl_txchs_state(struct cpdma_ctlr *ctlr);
->  bool cpdma_check_free_tx_desc(struct cpdma_chan *chan);
-> @@ -111,7 +110,4 @@ enum cpdma_control {
->  	CPDMA_RX_BUFFER_OFFSET,		/* read-write */
->  };
->  
-> -int cpdma_control_get(struct cpdma_ctlr *ctlr, int control);
-> -int cpdma_control_set(struct cpdma_ctlr *ctlr, int control, int value);
-> -
->  #endif
-> -- 
-> 2.9.0
-> 
+I think you should explicitly initialise the 'padding'.
+It can do no harm and makes it obvious that it is necessary.
+
+You are still putting over-aligned data on stack.
+You only need to align it to the alignment of u64 (not the size of u64).
+If an on-stack item has a stronger alignment requirement than the stack
+the gcc has to generate two stack frames for the function.
+
+If you assign to each field (instead of using initialisers) then you
+can get the alignment by making the first member an anonymous union
+of in6_addr and u64.
+
+Oh - and wait a bit longer between revisions.
+
+	David
