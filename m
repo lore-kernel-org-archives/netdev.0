@@ -1,97 +1,184 @@
-From: Joe Stringer <joe@ovn.org>
-Subject: Re: [PATCH perf/core REBASE 2/5] samples/bpf: Switch over to libbpf
-Date: Thu, 15 Dec 2016 17:48:31 -0800
-Message-ID: <CAPWQB7EAN7Fg8+vO3Tn7WYWcZW_JpKQFNCJzY_K100ckab6JRg@mail.gmail.com>
-References: <20161214224342.12858-1-joe@ovn.org> <20161214224342.12858-3-joe@ovn.org>
- <20161215155022.GE6866@kernel.org> <20161215182918.GG6866@kernel.org>
- <20161215183440.GH6866@kernel.org> <CAPWQB7GhHZOf4c5mu=__mNNyFFeq+jOZMawweMBg=sNiPpt-zg@mail.gmail.com>
+From: "Luis R. Rodriguez" <mcgrof@kernel.org>
+Subject: Re: wl1251 & mac address & calibration data
+Date: Thu, 15 Dec 2016 20:03:19 -0600
+Message-ID: <CAB=NE6VHF+U7DzapENvLMKtN4Dgi9J0qMoeUJ8o4vSwc2-rRFQ@mail.gmail.com>
+References: <201611111820.52072@pali> <201611241749.33681@pali>
+ <20161124181138.4i6ehkpohjxfgpbn@earth> <201611241935.32796@pali>
+ <87d1gtli57.fsf@purkki.adurom.net> <1481816017.2090.2.camel@Pali-Nokia-N900> <76365770-f5ba-9565-3fca-710518f64d81@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8BIT
-Cc: LKML <linux-kernel@vger.kernel.org>,
-        netdev <netdev@vger.kernel.org>, Wang Nan <wangnan0@huawei.com>,
-        ast@fb.com, Daniel Borkmann <daniel@iogearbox.net>,
-        Arnaldo Carvalho de Melo <acme@redhat.com>
-To: Arnaldo Carvalho de Melo <acme@kernel.org>
+Cc: =?UTF-8?Q?Pali_Roh=C3=A1r?= <pali.rohar@gmail.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        Sebastian Reichel <sre@kernel.org>,
+        Pavel Machek <pavel@ucw.cz>,
+        Michal Kazior <michal.kazior@tieto.com>,
+        Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
+        Aaro Koskinen <aaro.koskinen@iki.fi>,
+        Tony Lindgren <tony@atomide.com>,
+        linux-wireless <linux-wireless@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        David Woodhouse <dwmw2@infradead.org>,
+        Takashi Iwai <tiwai@suse.de>,
+        Josh Boyer <jwboyer@fedoraproject.org>,
+        Dmitry Torokhov <dmitry.torokhov@gmail.com>
+To: Arend Van Spriel <arend.vanspriel@broadcom.com>,
+        Tom Gundersen <teg@jklm.no>, Daniel Wagner <wagi@monom.org>,
+        Johannes Berg <johannes@sipsolutions.net>,
+        Ming Lei <ming.lei@canonical.com>,
+        Mimi Zohar <zohar@linux.vnet.ibm.com>,
+        Bjorn Andersson <bjorn.andersson@linaro.org>,
+        =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay4-d.mail.gandi.net ([217.70.183.196]:40461 "EHLO
-        relay4-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755838AbcLPBs6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 15 Dec 2016 20:48:58 -0500
-In-Reply-To: <CAPWQB7GhHZOf4c5mu=__mNNyFFeq+jOZMawweMBg=sNiPpt-zg@mail.gmail.com>
+Received: from mail.kernel.org ([198.145.29.136]:46628 "EHLO mail.kernel.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1758861AbcLPCDu (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 15 Dec 2016 21:03:50 -0500
+In-Reply-To: <76365770-f5ba-9565-3fca-710518f64d81@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 15 December 2016 at 14:00, Joe Stringer <joe@ovn.org> wrote:
-> On 15 December 2016 at 10:34, Arnaldo Carvalho de Melo <acme@kernel.org> wrote:
->> Em Thu, Dec 15, 2016 at 03:29:18PM -0300, Arnaldo Carvalho de Melo escreveu:
->>> Em Thu, Dec 15, 2016 at 12:50:22PM -0300, Arnaldo Carvalho de Melo escreveu:
->>> > Em Wed, Dec 14, 2016 at 02:43:39PM -0800, Joe Stringer escreveu:
->>> > > Now that libbpf under tools/lib/bpf/* is synced with the version from
->>> > > samples/bpf, we can get rid most of the libbpf library here.
->>> > >
->>> > > Signed-off-by: Joe Stringer <joe@ovn.org>
->>> > > Cc: Alexei Starovoitov <ast@fb.com>
->>> > > Cc: Daniel Borkmann <daniel@iogearbox.net>
->>> > > Cc: Wang Nan <wangnan0@huawei.com>
->>> > > Link: http://lkml.kernel.org/r/20161209024620.31660-6-joe@ovn.org
->>> > > [ Use -I$(srctree)/tools/lib/ to support out of source code tree builds, as noticed by Wang Nan ]
+On Thu, Dec 15, 2016 at 2:12 PM, Arend Van Spriel
+<arend.vanspriel@broadcom.com> wrote:
+> On 15-12-2016 16:33, Pali Rohár wrote:
+>> On Thu Dec 15 09:18:44 2016 Kalle Valo <kvalo@codeaurora.org> wrote:
+>>> (Adding Luis because he has been working on request_firmware() lately)
 >>>
->>> So, the above comment no longer applied to this adjusted patch from you,
->>> as you removed one hunk too much, that, after applied, gets samples/bpf/
->>> to build successfully:
+>>> Pali Rohár <pali.rohar@gmail.com> writes:
 >>>
->>> diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
->>> index add514e2984a..81b0ef2f7994 100644
->>> --- a/samples/bpf/Makefile
->>> +++ b/samples/bpf/Makefile
->>> @@ -107,6 +107,7 @@ always += lwt_len_hist_kern.o
->>>  always += xdp_tx_iptunnel_kern.o
+>>>>>> So no, there is no argument against... request_firmware() in
+>>>>>> fallback mode with userspace helper is by design blocking and
+>>>>>> waiting for userspace. But waiting for some change in DTS in
+>>>>>> kernel is just nonsense.
+>>>>>
+>>>>> I would just mark the wlan device with status = "disabled" and
+>>>>> enable it in the overlay together with adding the NVS & MAC info.
+>>>>
+>>>> So if you think that this solution make sense, we can wait what net
+>>>> wireless maintainers say about it...
+>>>>
+>>>> For me it looks like that solution can be:
+>>>>
+>>>> extending request_firmware() to use only userspace helper
 >>>
->>>  HOSTCFLAGS += -I$(objtree)/usr/include
->>> +HOSTCFLAGS += -I$(srctree)/tools/lib/
->>>  HOSTCFLAGS += -I$(srctree)/tools/testing/selftests/bpf/
+>>> I haven't followed the discussion very closely but this is my preference
+>>> what drivers should do:
 >>>
->>>  HOSTCFLAGS_bpf_load.o += -I$(objtree)/usr/include -Wno-unused-variable
+>>> 1) First the driver should do try to get the calibration data and mac
+>>>        address from the device tree.
 >>>
->>> ---------------------
->>>
->>> I added it, continuing...
 >>
->> But then, when I tried to run offwaketime with it, it fails:
->>
->> [root@jouet bpf]# ./offwaketime  ls
->> bpf_load_program() err=22
->> BPF_LDX uses reserved fields
->> bpf_load_program() err=22
->> BPF_LDX uses reserved fields
->> [root@jouet bpf]#
->>
->> If I remove this patch and try again, it works:
->>
->> [root@jouet bpf]# ./offwaketime | head -4
->> swapper/1;start_secondary;cpu_startup_entry;schedule_preempt_disabled;schedule;__schedule;-;---;; 46
->> chrome;return_from_SYSCALL_64;do_syscall_64;exit_to_usermode_loop;schedule;__schedule;-;try_to_wake_up;do_futex;sys_futex;do_syscall_64;return_from_SYSCALL_64;;Chrome_ChildIOT 1
->> firefox;entry_SYSCALL_64_fastpath;sys_poll;do_sys_poll;poll_schedule_timeout;schedule_hrtimeout_range;schedule_hrtimeout_range_clock;schedule;__schedule;-;try_to_wake_up;pollwake;__wake_up_common;__wake_up_sync_key;pipe_write;__vfs_write;vfs_write;sys_write;entry_SYSCALL_64_fastpath;;Timer 3
->> dockerd-current;entry_SYSCALL_64_fastpath;sys_select;core_sys_select;do_select;poll_schedule_timeout;schedule_hrtimeout_range;schedule_hrtimeout_range_clock;schedule;__schedule;-;try_to_wake_up;futex_wake;do_futex;sys_futex;entry_SYSCALL_64_fastpath;;dockerd-current 2
->> [root@jouet bpf]#
->>
->>
->> So, I'm stopping here so that I can push what I have to Ingo, then I'll get
->> back to this, hopefully by then you beat me and I have just to retest 8-)
+>> Ok, but there is no (dynamic, device specific) data in DTS for N900. So 1) is noop.
 >
-> OK, thanks for the report. Looks like there was another difference
-> between the two libbpfs - one used total program size for its
-> load_program API; the actual kernel API uses instruction count. This
-> incremental should do the trick:
+> Uhm. What do you mean? You can propose a patch to the DT bindings [1] to
+> get it in there and create your N900 DTB or am I missing something here.
+> Are there hardware restrictions that do not allow you to boot with your
+> own DTB.
 >
-> https://github.com/joestringer/linux/commit/6ff7726f20077bed66fb725f5189c13690154b6a
+>>> 2) If they are not in DT the driver should retrieve the calibration data
+>>>        with request_firmware(). BUT with an option for user space to
+>>>        implement that with a helper script so that the data can be created
+>>>        dynamically, which I believe openwrt does with ath10k calibration
+>>>        data right now.
+>>
+>> Currently there is flag for request_firmware() that it should fallback to user helper if direct VFS access not find needed firmware.
+>>
+>> But this flag is not suitable as /lib/firmware already provides default (not device specific) calibration data.
+>>
+>> So I would suggest to add another flag/function which will primary use user helper.
+> I recall Luis saying that user-mode helper (fallback) should be
+> discouraged, because there is no assurance that there is a user-mode
+> helper so you might just be pissing in the wind.
 
-The full branch with this change (fast-forward from your tmp branch)
-is available here:
-https://github.com/joestringer/linux/tree/submit/libbpf_samples_v5
+There's tons of issues with the current status quo of the so called
+"firmware usermode helper". To start off with its a complete misnomer,
+the kernel's usermode helper infrastructure is implemented in
+lib/kmod.c and it provides an API to help call out to userspace some
+helper for you. That's the real kernel usermode helper. In so far as
+the firmware_class.c driver is concerned -- it only makes use of the
+kernel user mode helper as an option if you have
+CONFIG_UEVENT_HELPER_PATH set to help address kobject uevents. Most
+distributions do not use this, and back in the day systemd udev, and
+prior to that hotplug used to process firmware kobject uevents.
+systemd udev is long gone. Gone. This kobject uevents really are a
+"fallback mechanism" for firmware only -- if cached firmware, built-in
+firmware, or direct filesystem lookup fails. These each are their own
+beast. Finally kobject uevents are only one of the fallback
+mechanisms, "custom fallback mechanisms" are the other option and its
+what you and others seem to describe to want for these sorts of custom
+things.
 
-I tried running every selftest and BPF sample I could get my hands on;
-there's one or two that I couldn't run, but seemed more to do with my
-versions of TC/iproute and kernel config rather than libbpf changes.
-Let me know if you see any further trouble.
+There are issues with the existing request_firmware() API in that
+everyone and their mother keeps extending it with stupid small API
+extensions to do yet-another-tweak, and then having to go and change
+tons of drivers. Or a new API call added for just one custom knob.
+Naturally this is all plain dumb, so yet-another-API call or new
+argument is not going to help us. We don't have "flags" persi in this
+API, that was one issue with the design of the API, but there are much
+more. The entire change in mechanism of "firmware fallback mechanism"
+depending on which kernel config options you have is another. Its a
+big web of gum put together. All this needs to end.
+
+I've recently proposed a new patch to first help with understanding
+each of the individual items I've listed above with as much new
+information as is possible. I myself need to re-read it to just keep
+tabs on what the hell is going on at times. After this I have a new
+API proposal which I've been working on for a long time now which adds
+an extensible API with only 2 calls: sync, async, and lets us modify
+attributes through a parameters struct. This is what we should use in
+the future for further extensions.
+
+For the new API a solution for "fallback mechanisms" should be clean
+though and I am looking to stay as far as possible from the existing
+mess. A solution to help both the old API and new API is possible for
+the "fallback mechanism" though -- but for that I can only refer you
+at this point to some of Daniel Wagner and Tom Gunderson's firmwared
+deamon prospect. It should help pave the way for a clean solution and
+help address other stupid issues.
+
+I'll note -- the "custom fallback mechanism", part of the old API is
+just a terrible idea for many reasons. I've documented issues in my
+documentation revamp, I suggest to read that, refer to this thread:
+
+https://lkml.kernel.org/r/20161213030828.17820-4-mcgrof@kernel.org
+
+> The idea was to have a
+> dedicated API call that explicitly does the request towards user-space.
+
+In so far as this driver example that was mentioned in this thread my
+recommendation is to use the default existing MAC address /
+calibration data on /lib/firmware/ and then use another request to
+help override for the custom thing. The only issue of course is that
+the timeout for the custom thing is 60 seconds, but if your platforms
+are controlled -- just reduce this to 1 second or so given that udev
+is long gone and it would seem you'd only use a custom fw request to
+depend on. You could also wrap this thing into a kconfig option for
+now, and have the filename specified, if empty then no custom request
+is sent. If set then you have it request it.
+
+Please note the other patches in my series for the custom fallback
+though. We have only 2 users upstream -- and from recent discussions
+it would seem it might be possible to address what you need with
+firmwared in a clean way without this custom old fallback crap thing.
+Johannes at least has a similar requirement and is convinced a
+"custom" thing can be done without even adding an extra custom kobject
+uevent attribute as from what I recall he hinted, drivers have no
+business to be involved in this. If you do end up using the custom
+fallback mechanism be sure to add super crystal clear documentation
+for it (see my other patches for the declarer for this documentation).
+Since we have only 2 drivers using this custom thing its hard to get
+folks to commit to writing the docs, write it now and be sure you
+think of the future as well.
+
+Oh also the "custom firmware fallback" was also broken on recent
+kernels for many kernel revisions, it just did not work until recently
+a fix which went in, so your users wills need this fix cherry picked.
+Hey I tell you, the custom fw thing was a terrible incarnation. Only 2
+drivers use it. There are good reasons to not like it (be sure to read
+the suspend issue I documented).
+
+> By the way, are we talking here about wl1251 device or driver as you
+> also mentioned wl12xx? I did not read the entire thread.
+
+  Luis
