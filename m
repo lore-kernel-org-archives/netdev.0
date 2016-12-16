@@ -1,125 +1,161 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: Re: [PATCH v5 1/4] siphash: add cryptographically secure PRF
-Date: Fri, 16 Dec 2016 19:00:26 +0100
-Message-ID: <CAHmME9pe39s5FWxfKNiRKkHnEO-9v2yLcEQc8rnMC89P6roTmA@mail.gmail.com>
-References: <CAHmME9rxCYfwyF6EADWqpAEt+yqCPgCLUVH0FPdAy7r-oPnrRg@mail.gmail.com>
- <20161216173624.21544.qmail@ns.sciencehorizons.net>
-Reply-To: kernel-hardening@lists.openwall.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>, Andi Kleen <ak@linux.intel.com>,
-	David Miller <davem@davemloft.net>, David Laight <David.Laight@aculab.com>,
-	"Daniel J . Bernstein" <djb@cr.yp.to>, Eric Biggers <ebiggers3@gmail.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>, kernel-hardening@lists.openwall.com,
-	Linux Crypto Mailing List <linux-crypto@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>,
-	Andy Lutomirski <luto@amacapital.net>, Netdev <netdev@vger.kernel.org>,
-	Tom Herbert <tom@herbertland.com>, Linus Torvalds <torvalds@linux-foundation.org>,
-	"Theodore Ts'o" <tytso@mit.edu>, Vegard Nossum <vegard.nossum@gmail.com>
-To: George Spelvin <linux@sciencehorizons.net>
-Return-path: <kernel-hardening-return-5644-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <20161216173624.21544.qmail@ns.sciencehorizons.net>
+From: henrik@austad.us
+Subject: [TSN RFC v2 3/9] TSN: Add the standard formerly known as AVB to the kernel
+Date: Fri, 16 Dec 2016 18:59:07 +0100
+Message-ID: <1481911153-549-4-git-send-email-henrik@austad.us>
+References: <1481911153-549-1-git-send-email-henrik@austad.us>
+Cc: Richard Cochran <richardcochran@gmail.com>, henrik@austad.us,
+        linux-media@vger.kernel.org, alsa-devel@vger.kernel.org,
+        netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        Henrik Austad <haustad@cisco.com>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-media-owner@vger.kernel.org>
+In-Reply-To: <1481911153-549-1-git-send-email-henrik@austad.us>
+Sender: linux-media-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi George,
+From: Henrik Austad <henrik@austad.us>
 
-On Fri, Dec 16, 2016 at 6:36 PM, George Spelvin
-<linux@sciencehorizons.net> wrote:
-> A 128-bit output option was added to SipHash after the initial publication;
-> this is just the equivalent in 32-bit.
-> Personally, I'd put in a comment saying that "there's a 64-bit output
-> variant that's not implemented" and punt until someone find a need.
+TSN provides a mechanism to create reliable, jitter-free, low latency
+guaranteed bandwidth links over a local network. It does this by
+reserving a path through the network. Support for TSN must be found in
+both the NIC as well as in the network itself.
 
-That's a good way to think about it. Okay, I'll do precisely that.
+This adds required hooks into netdev_ops so that the core TSN driver can
+use this when configuring a new NIC or setting up a new link. It also
+provides hook for removing a link and reducing the idle_slope parameter on
+the NIC.
 
-> On a 64-bit machine, 64-bit SipHash is *always* faster than 32-bit, and
-> should be used always.  Don't even compile the 32-bit code, to prevent
-> anyone accidentally using it, and make hsiphash an alias for siphash.
+(We need to set the PCP values when we first configure the link. This
+ value should not change as long as we have valid streams running, and in
+ most cases, the PCP for the domain will not change.)
 
-Fascinating! Okay. So I'll alias hsiphash to siphash on 64-bit then. I
-like this arrangement.
+Cc: "David S. Miller" <davem@davemloft.net>
+Signed-off-by: Henrik Austad <haustad@cisco.com>
+---
+ include/linux/netdevice.h | 44 ++++++++++++++++++++++++++++++++++++++++++++
+ net/Kconfig               |  1 +
+ net/tsn/Kconfig           | 32 ++++++++++++++++++++++++++++++++
+ 3 files changed, 77 insertions(+)
+ create mode 100644 net/tsn/Kconfig
 
-
-> Fortunately, the cost of brute-forcing hash functions can be fairly
-> exactly quantified, thanks to bitcoin miners.  It currently takes 2^70
-> hashes to create one bitcoin block, worth 25 bitcoins ($19,500).  Thus,
-> 2^63 hashes cost $152.
->
-> Now, there are two factors that must be considered:
-> - That's a very very "wholesale" rate.  That's assuming you're doing
->   large numbers of these and can put in the up-front effort designing
->   silicon ASICs to do the attack.
-> - That's for a more difficult hash (double sha-256) than SipHash.
->   That's a constant fator, but a pretty significant one.  If the wholesale
->   assumption holds, that might bring the cost down another 6 or 7 bits,
->   to $1-2 per break.
->
-> If you're not the NSA and limited to general-purpose silicon, let's
-> assume a state of the art GPU (Radeon HD 7970; AMD GPUs seem do to better
-> than nVidia).  The bitcoin mining rate for those is about 700M/second,
-> 29.4 bits.  So 63 bits is 152502 GPU-days, divided by some factor
-> to account for SipHash's high speed compared to two rounds of SHA-2.
-> Call it 1000 GPU-days.
->
-> It's very doable, but also very non-trivial.  The question is, wouldn't
-> it be cheaper and easier just to do a brute-force flooding DDoS?
->
-> (This is why I wish the key size could be tweaked up to 80 bits.
-> That would take all these numbers out of the reasonable range.)
-
-That's a nice analysis. Might one conclude from that that hsiphash is
-not useful for our purposes? Or does it still remain useful for
-network facing code?
-
-> Let me consider your second example above, "secure against local users".
-> I should dig through your patchset and find the details, but what exactly
-> are the consequences of such an attack?  Hasn't a local user already
-> got much better ways to DoS the system?
-
-For example, an unpriv'd user putting lots of entries in one hash
-bucket for a shared resource that's used by root, like filesystems or
-other lookup tables. If he can cause root to use more of root's cpu
-schedule budget than otherwise in a directed way, then that's a bad
-DoS.
-
-> The thing to remember is that we're worried only about the combination
-> of a *new* Linux kernel (new build or under active maintenance) and a
-> 32-bit host.  You'd be hard-pressed to find a *single* machine fitting
-> that description which is hosting multiple users or VMs and is not 64-bit.
->
-> These days, 32-bit CPUs are for embedded applications: network appliances,
-> TVs, etc.  That means basically single-user.  Even phones are 64 bit.
-> Is this really a threat that needs to be defended against?
-
-I interpret this to indicate all the more reason to alias hsiphash to
-siphash on 64-bit, and then the problem space collapses in a clear
-way.
-
-> For your first case, network applications, the additional security
-> is definitely attractive.  Syncookies are only a DoS, but sequence
-> numbers are a real security issue; they can let you inject data into a
-> TCP connection.
-> With sequence numbers, large amounts (32 bits) the hash output is
-> directly observable.
-
-Right. Hence the need for always using full siphash and not hsiphash
-for sequence numbers, per my earlier email to David.
-
->
-> I wish we could get away with 64-bit security, but given that the
-> modern internet involves attacks from NSA/Spetssvyaz/3PLA, I agree
-> it's just not enough.
-
-I take this comment to be relavent for the sequence number case.
-
-For hashtables and hashtable flooding, is it still your opinion that
-we will benefit from hsiphash? Or is this final conclusion a rejection
-of hsiphash for that too? We're talking about two different use cases,
-and your email kind of interleaved both into your analysis, so I'm not
-certain so to precisely what your conclusion is for each use case. Can
-you clear up the ambiguity?
-
-Jason
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index e16a2a9..0d758aa 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -112,6 +112,15 @@ enum netdev_tx {
+ };
+ typedef enum netdev_tx netdev_tx_t;
+ 
++#if IS_ENABLED(CONFIG_TSN)
++enum sr_class {
++	SR_CLASS_A = 1,
++	SR_CLASS_B = 2,
++	SR_CLASS_LAST,
++	SR_CLASS_ERR,
++};
++#endif
++
+ /*
+  * Current order: NETDEV_TX_MASK > NET_XMIT_MASK >= 0 is significant;
+  * hard_start_xmit() return < NET_XMIT_MASK means skb was consumed.
+@@ -944,6 +953,31 @@ struct netdev_xdp {
+  *
+  * void (*ndo_poll_controller)(struct net_device *dev);
+  *
++ *	TSN functions (if CONFIG_TSN)
++ *
++ * int (*ndo_tsn_capable)(struct net_device *dev);
++ *	If a particular device is capable of sustaining TSN traffic
++ *	provided current configuration
++ *
++ * int (*ndo_tsn_link_configure)(struct net_device *dev,
++ *				 enum sr_class class,
++ *				 u16 framesize,
++ *				 u16 vid,
++ *				 u8 add_link,
++ *				 u8 pcp_hi,
++ *				 u8 pcp_lo)
++);
++ *     Configure a NIC to handle TSN-streams
++ *     - Update the bandwidth for the particular stream-class.
++ *     - The framesize is the size of the _entire_ frame (not just the payload)
++ *       since the full size is required to allocate bandwidth through
++ *       the credit based shaper in the NIC
++ *     - the vlan_id is the configured vlan for TSN in this session.
++ *     - add_link: if the link should be added or subtracted from the current
++ *       budget.
++ *    - u8 pcp_hi: 802.1Q priority value for high-class traffic (class A)
++ *    - u8 pcp_lo: 802.1Q priority value for low-class traffic (class B)
++ *
+  *	SR-IOV management functions.
+  * int (*ndo_set_vf_mac)(struct net_device *dev, int vf, u8* mac);
+  * int (*ndo_set_vf_vlan)(struct net_device *dev, int vf, u16 vlan,
+@@ -1185,6 +1219,16 @@ struct net_device_ops {
+ #ifdef CONFIG_NET_RX_BUSY_POLL
+ 	int			(*ndo_busy_poll)(struct napi_struct *dev);
+ #endif
++
++#if IS_ENABLED(CONFIG_TSN)
++	int			(*ndo_tsn_capable)(struct net_device *dev);
++	int			(*ndo_tsn_link_configure)(struct net_device *dev,
++							  enum sr_class class,
++							  u16 framesize,
++							  u16 vid, u8 add_link,
++							  u8 pcp_hi, u8 pcp_lo);
++#endif	/* CONFIG_TSN */
++
+ 	int			(*ndo_set_vf_mac)(struct net_device *dev,
+ 						  int queue, u8 *mac);
+ 	int			(*ndo_set_vf_vlan)(struct net_device *dev,
+diff --git a/net/Kconfig b/net/Kconfig
+index 7b6cd34..19b8f9a 100644
+--- a/net/Kconfig
++++ b/net/Kconfig
+@@ -215,6 +215,7 @@ source "net/802/Kconfig"
+ source "net/bridge/Kconfig"
+ source "net/dsa/Kconfig"
+ source "net/8021q/Kconfig"
++source "net/tsn/Kconfig"
+ source "net/decnet/Kconfig"
+ source "net/llc/Kconfig"
+ source "net/ipx/Kconfig"
+diff --git a/net/tsn/Kconfig b/net/tsn/Kconfig
+new file mode 100644
+index 0000000..1fc3c1d
+--- /dev/null
++++ b/net/tsn/Kconfig
+@@ -0,0 +1,32 @@
++#
++# Configuration for 802.1 Time Sensitive Networking (TSN)
++#
++
++config TSN
++	tristate "802.1 TSN Support"
++	depends on VLAN_8021Q && PTP_1588_CLOCK && CONFIGFS_FS
++	---help---
++	  Select this if you want to enable TSN on capable interfaces.
++
++	  TSN allows you to set up deterministic links on your LAN (only
++	  L2 is currently supported). Once loaded, the driver will probe
++	  all available interfaces if they are capable of supporting TSN
++	  links.
++
++	  Once loaded, a directory in configfs called tsn/ will expose
++	  the capable NICs and allow userspace to create
++	  links. Userspace must provide us with a StreamID as well as
++	  reserving bandwidth through the network and once this is done,
++	  a new link can be created by issuing a mkdir() in configfs and
++	  updating the attributes for the new link.
++
++	  TSN itself does not produce nor consume data, it is dependent
++	  upon 'shims' doing this, which can be virtually anything. ALSA
++	  is a good candidate.
++
++	  For more information, refer to the TSN-documentation in the
++	  kernel documentation repository.
++
++	  The resulting module will be called 'tsn'
++
++	  If unsure, say N.
+-- 
+2.7.4
