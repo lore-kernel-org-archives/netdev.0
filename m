@@ -1,63 +1,54 @@
-From: "George Spelvin" <linux@sciencehorizons.net>
-Subject: Re: [kernel-hardening] Re: [PATCH v5 1/4] siphash: add cryptographically secure PRF
-Date: 16 Dec 2016 17:41:33 -0500
-Message-ID: <20161216224133.27460.qmail@ns.sciencehorizons.net>
-References: <CAHmME9qPx3WUHF3__3wNOXr-AUti4WPO1qDiFus3Zr133FyV1g@mail.gmail.com>
-Cc: ak@linux.intel.com, davem@davemloft.net, David.Laight@aculab.com,
-        djb@cr.yp.to, ebiggers3@gmail.com, hannes@stressinduktion.org,
-        jeanphilippe.aumasson@gmail.com, linux-crypto@vger.kernel.org,
-        linux-kernel@vger.kernel.org, linux@sciencehorizons.net,
-        luto@amacapital.net, netdev@vger.kernel.org, tom@herbertland.com,
-        torvalds@linux-foundation.org, tytso@mit.edu,
-        vegard.nossum@gmail.com
-To: Jason@zx2c4.com, kernel-hardening@lists.openwall.com
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <CAHmME9qPx3WUHF3__3wNOXr-AUti4WPO1qDiFus3Zr133FyV1g@mail.gmail.com>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH 1/2] bpf: do not use KMALLOC_SHIFT_MAX
+Date: Fri, 16 Dec 2016 15:23:42 -0800
+Message-ID: <20161216232340.GA99159@ast-mbp.thefacebook.com>
+References: <20161215164722.21586-1-mhocko@kernel.org>
+ <20161215164722.21586-2-mhocko@kernel.org>
+ <20161216180209.GA77597@ast-mbp.thefacebook.com>
+ <20161216220235.GD7645@dhcp22.suse.cz>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-mm@kvack.org, Cristopher Lameter <cl@linux.com>,
+        Andrew Morton <akpm@linux-foundation.org>,
+        Alexei Starovoitov <ast@kernel.org>, netdev@vger.kernel.org,
+        Daniel Borkmann <daniel@iogearbox.net>
+To: Michal Hocko <mhocko@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:33428 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758550AbcLPXXq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2016 18:23:46 -0500
+Received: by mail-pg0-f67.google.com with SMTP id 3so11070205pgd.0
+        for <netdev@vger.kernel.org>; Fri, 16 Dec 2016 15:23:46 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20161216220235.GD7645@dhcp22.suse.cz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-An idea I had which mght be useful:
+On Fri, Dec 16, 2016 at 11:02:35PM +0100, Michal Hocko wrote:
+> On Fri 16-12-16 10:02:10, Alexei Starovoitov wrote:
+> > On Thu, Dec 15, 2016 at 05:47:21PM +0100, Michal Hocko wrote:
+> > > From: Michal Hocko <mhocko@suse.com>
+> > > 
+> > > 01b3f52157ff ("bpf: fix allocation warnings in bpf maps and integer
+> > > overflow") has added checks for the maximum allocateable size. It
+> > > (ab)used KMALLOC_SHIFT_MAX for that purpose. While this is not incorrect
+> > > it is not very clean because we already have KMALLOC_MAX_SIZE for this
+> > > very reason so let's change both checks to use KMALLOC_MAX_SIZE instead.
+> > > 
+> > > Cc: Alexei Starovoitov <ast@kernel.org>
+> > > Signed-off-by: Michal Hocko <mhocko@suse.com>
+> > 
+> > Nack until the patches 1 and 2 are reversed.
+> 
+> I do not insist on ordering. The thing is that it shouldn't matter all
+> that much. Or are you worried about bisectability?
 
-You could perhaps save two rounds in siphash_*u64.
-
-The final word with the length (called "b" in your implementation)
-only needs to be there if the input is variable-sized.
-
-If every use of a given key is of a fixed-size input, you don't need
-a length suffix.  When the input is an even number of words, that can
-save you two rounds.
-
-This requires an audit of callers (e.g. you have to use different
-keys for IPv4 and IPv6 ISNs), but can save time.
-
-(This is crypto 101; search "MD-strengthening" or see the remark on
-p. 101 on Damgaard's 1989 paper "A design principle for hash functions" at
-http://saluc.engr.uconn.edu/refs/algorithms/hashalg/damgard89adesign.pdf
-but I'm sure that Ted, Jean-Philippe, and/or DJB will confirm if you'd
-like.)
-
-Jason A. Donenfeld wrote:
-> Oh, okay, that is exactly what I thought was going on. I just thought
-> you were implying that jiffies could be moved inside the hash, which
-> then confused my understanding of how things should be. In any case,
-> thanks for the explanation.
-
-No, the rekeying procedure is cleverer.
-
-The thing is, all that matters is that the ISN increments fast enough,
-but not wrap too soon.
-
-It *is* permitted to change the random base, as long as it only
-increases, and slower than the timestamp does.
-
-So what you do is every few minutes, you increment the high 4 bits of the
-random base and change the key used to generate the low 28 bits.
-
-The base used for any particular host might change from 0x10000000
-to 0x2fffffff, or from 0x1fffffff to 0x20000000, but either way, it's
-increasing, and not too fast.
-
-This has the downside that an attacker can see 4 bits of the base,
-so only needs to send send 2^28 = 256 MB to flood the connection,
-but the upside that the key used to generate the low bits changes
-faster than it can be broken.
+This patch 1 strongly depends on patch 2 !
+Therefore order matters.
+The patch 1 by itself is broken.
+The commit log is saying
+'(ab)used KMALLOC_SHIFT_MAX for that purpose .. use KMALLOC_MAX_SIZE instead'
+that is also incorrect. We cannot do that until KMALLOC_MAX_SIZE is fixed.
+So please change the order and fix the commit log to say that KMALLOC_MAX_SIZE
+is actually valid limit now.
