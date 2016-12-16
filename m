@@ -1,13 +1,12 @@
 From: henrik@austad.us
-Subject: [TSN RFC v2 8/9] AVB ALSA - Add ALSA shim for TSN
-Date: Fri, 16 Dec 2016 18:59:12 +0100
-Message-ID: <1481911153-549-9-git-send-email-henrik@austad.us>
+Subject: [TSN RFC v2 5/9] Add TSN header for the driver
+Date: Fri, 16 Dec 2016 18:59:09 +0100
+Message-ID: <1481911153-549-6-git-send-email-henrik@austad.us>
 References: <1481911153-549-1-git-send-email-henrik@austad.us>
 Cc: Richard Cochran <richardcochran@gmail.com>, henrik@austad.us,
         Henrik Austad <haustad@cisco.com>, linux-media@vger.kernel.org,
         alsa-devel@vger.kernel.org, netdev@vger.kernel.org,
-        Mauro Carvalho Chehab <mchehab@osg.samsung.com>,
-        Takashi Iwai <tiwai@suse.de>, Mark Brown <broonie@kernel.org>
+        "David S. Miller" <davem@davemloft.net>
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-media-owner@vger.kernel.org>
 In-Reply-To: <1481911153-549-1-git-send-email-henrik@austad.us>
@@ -16,1049 +15,973 @@ List-Id: netdev.vger.kernel.org
 
 From: Henrik Austad <haustad@cisco.com>
 
-This exposes a *very* rudimentary and simplistic ALSA driver that hooks
-into TSN to create a device for userspace.
+This defines the general TSN headers for network packets, the
+shim-interface and the central 'tsn_list' structure.
 
-It currently only supports 44.1/48kHz sampling, 2ch, S16_LE
-
-Userspace is supposed to reserve bandwidth, find StreamID etc.
-
-To use as a Talker:
-
-mkdir /config/tsn/test/eth0/talker
-cd /config/tsn/test/eth0/talker
-echo 65535 > buffer_size
-echo 08:00:27:08:9f:c3 > remote_mac
-echo 42 > stream_id
-echo alsa > shim
-echo on > enabled
-
-     aplay -Ddefault:CARD=avb music.wav
-
-  or
-
-     arecord -r48000 -c2 -f S16_LE | aplay -Ddefault:CARD=avb
-
-alternatively, if the device is set as Listener;
-
-     arecord -r48000 -c2 -f S16_LE -Ddefault:CARD=avb > file.wav
-
-Cc: Mauro Carvalho Chehab <mchehab@osg.samsung.com>
-Cc: Takashi Iwai <tiwai@suse.de>
-Cc: Mark Brown <broonie@kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>
 Signed-off-by: Henrik Austad <haustad@cisco.com>
 ---
- drivers/media/Kconfig            |  15 +
- drivers/media/Makefile           |   2 +-
- drivers/media/avb/Makefile       |   5 +
- drivers/media/avb/avb_alsa.c     | 793 +++++++++++++++++++++++++++++++++++++++
- drivers/media/avb/tsn_iec61883.h | 152 ++++++++
- 5 files changed, 966 insertions(+), 1 deletion(-)
- create mode 100644 drivers/media/avb/Makefile
- create mode 100644 drivers/media/avb/avb_alsa.c
- create mode 100644 drivers/media/avb/tsn_iec61883.h
+ include/linux/tsn.h | 952 ++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 952 insertions(+)
+ create mode 100644 include/linux/tsn.h
 
-diff --git a/drivers/media/Kconfig b/drivers/media/Kconfig
-index 7b85402..8250aff 100644
---- a/drivers/media/Kconfig
-+++ b/drivers/media/Kconfig
-@@ -221,3 +221,18 @@ source "drivers/media/tuners/Kconfig"
- source "drivers/media/dvb-frontends/Kconfig"
- 
- endif # MEDIA_SUPPORT
-+
-+config MEDIA_AVB_ALSA
-+       tristate "ALSA part of AVB over TSN"
-+       depends on TSN
-+       help
-+
-+         Enable the ALSA device that hoooks into TSN and allows the
-+         computer to send ethernet frames over the network carrying
-+         audio-data to selected hosts.
-+
-+	 This must be configured by userspace as MSRP and IEEE 1722.1
-+	 (discovery and enumeration) is not implemented within the
-+	 kernel.
-+
-+	 If unsure, say N
-\ No newline at end of file
-diff --git a/drivers/media/Makefile b/drivers/media/Makefile
-index 0deaa93..9dfee62 100644
---- a/drivers/media/Makefile
-+++ b/drivers/media/Makefile
-@@ -34,4 +34,4 @@ obj-y += rc/
- 
- obj-y += common/ platform/ pci/ usb/ mmc/ firewire/ spi/
- obj-$(CONFIG_VIDEO_DEV) += radio/
--
-+obj-$(CONFIG_MEDIA_AVB_ALSA) += avb/
-diff --git a/drivers/media/avb/Makefile b/drivers/media/avb/Makefile
+diff --git a/include/linux/tsn.h b/include/linux/tsn.h
 new file mode 100644
-index 0000000..5d6302c
+index 0000000..9123b25
 --- /dev/null
-+++ b/drivers/media/avb/Makefile
-@@ -0,0 +1,5 @@
-+#
-+# Makefile for the ALSA shim in AVB/TSN
-+#
-+
-+obj-$(CONFIG_MEDIA_AVB_ALSA) += avb_alsa.o
-diff --git a/drivers/media/avb/avb_alsa.c b/drivers/media/avb/avb_alsa.c
-new file mode 100644
-index 0000000..bd202f5
---- /dev/null
-+++ b/drivers/media/avb/avb_alsa.c
-@@ -0,0 +1,793 @@
-+/* Copyright 2016 Cisco Systems, Inc. and/or its affiliates. All rights
-+ * reserved.
++++ b/include/linux/tsn.h
+@@ -0,0 +1,952 @@
++/*   TSN - Time Sensitive Networking
 + *
-+ * This program is free software; you may redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; version 2 of the License.
++ *   Copyright (C) 2016- Henrik Austad <haustad@cisco.com>
 + *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
++ *   This program is free software; you can redistribute it and/or modify
++ *   it under the terms of the GNU General Public License as published by
++ *   the Free Software Foundation; either version 2 of the License, or
++ *   (at your option) any later version.
++ *
++ *   This program is distributed in the hope that it will be useful,
++ *   but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *   GNU General Public License for more details.
 + */
-+#include <linux/platform_device.h>
-+#include <sound/pcm_params.h>
-+#include <linux/module.h>
-+#include <linux/slab.h>
-+#include <sound/core.h>
-+#include <sound/pcm.h>
-+#include <sound/initval.h>
-+#include <linux/tsn.h>
-+#include "tsn_iec61883.h"
++#ifndef _TSN_H
++#define _TSN_H
++#include <linux/list.h>
++#include <linux/kthread.h>
++#include <linux/configfs.h>
++#include <linux/hrtimer.h>
++#include <linux/skbuff.h>
++#include <linux/netdevice.h>
++#include <linux/spinlock.h>
 +
-+static int index[SNDRV_CARDS] = SNDRV_DEFAULT_IDX;
-+static char *id[SNDRV_CARDS] = SNDRV_DEFAULT_STR;
-+module_param_array(index, int, NULL, 0444);
-+MODULE_PARM_DESC(index, "Index value for AVB soundcard.");
-+module_param_array(id, charp, NULL, 0444);
-+MODULE_PARM_DESC(id, "ID string for AVB soundcard.");
-+
-+struct avb_chip {
-+	struct snd_card *card;
-+	struct tsn_link *link;
-+	struct snd_pcm *pcm;
-+	struct snd_pcm_substream *substream;
-+
-+	/* Need a reference to this when we unregister the platform
-+	 * driver.
-+	 */
-+	struct platform_device *device;
-+
-+	/* on first copy, we set a few values, use this to make sure we
-+	 * only do this once.
-+	 */
-+	u8 first_copy;
-+
-+	u8 sample_size;
-+	u8 channels;
-+
-+	/* current idx in 10ms set of frames
-+	 * class A: 80
-+	 * class B: 40
-+	 *
-+	 * This is mostly relevant for 44.1kHz samplefreq
-+	 */
-+	u8 num_10ms_series;
-+
-+	u32 sample_freq;
++/*
++ * List of current subtype fields in the common header of AVTPDU
++ *
++ * Note: AVTPDU is a remnant of the standards from when it was AVB.
++ *
++ * The list has been updated with the recent values from IEEE 1722, draft 16.
++ */
++enum avtp_subtype {
++	TSN_61883_IIDC = 0,	/* IEC 61883/IIDC Format */
++	TSN_MMA_STREAM,		/* MMA Streams */
++	TSN_AAF,		/* AVTP Audio Format */
++	TSN_CVF,		/* Compressed Video Format */
++	TSN_CRF,		/* Clock Reference Format */
++	TSN_TSCF,		/* Time-Synchronous Control Format */
++	TSN_SVF,		/* SDI Video Format */
++	TSN_RVF,		/* Raw Video Format */
++	/* 0x08 - 0x6D reserved */
++	TSN_AEF_CONTINOUS = 0x6e, /* AES Encrypted Format Continous */
++	TSN_VSF_STREAM,		/* Vendor Specific Format Stream */
++	/* 0x70 - 0x7e reserved */
++	TSN_EF_STREAM = 0x7f,	/* Experimental Format Stream */
++	/* 0x80 - 0x81 reserved */
++	TSN_NTSCF = 0x82,	/* Non Time-Synchronous Control Format */
++	/* 0x83 - 0xed reserved */
++	TSN_ESCF = 0xec,	/* ECC Signed Control Format */
++	TSN_EECF,		/* ECC Encrypted Control Format */
++	TSN_AEF_DISCRETE,	/* AES Encrypted Format Discrete */
++	/* 0xef - 0xf9 reserved */
++	TSN_ADP = 0xfa,		/* AVDECC Discovery Protocol */
++	TSN_AECP,		/* AVDECC Enumeration and Control Protocol */
++	TSN_ACMP,		/* AVDECC Connection Management Protocol */
++	/* 0xfd reserved */
++	TSN_MAAP = 0xfe,	/* MAAP Protocol */
++	TSN_EF_CONTROL,		/* Experimental Format Control */
 +};
 +
-+/* currently, only playback is implemented in TSN layer
-+ *
-+
-+ * FIXMEs: (should be set according to the active TSN link)
-+ * - format
-+ * - rates
-+ * - channels
-+ *
-+ * report absolute hardware link audio time, not reset on startup
-+ * (SNDRV_PCM_INFO_HAS_LINK_ABSOLUTE_ATIME). We are using gPTP time for
-+ * arrival/transmit of frames, this will be handled by
-+ * tsn_(read|write)_buffer_net()
++/* Link-states to help error-recovery detected from irq context.
 + */
-+static struct snd_pcm_hardware snd_avb_hw = {
-+	.info = SNDRV_PCM_INFO_INTERLEAVED |
-+		SNDRV_PCM_INFO_HAS_LINK_ABSOLUTE_ATIME,
-+	.formats = SNDRV_PCM_FMTBIT_S16_LE,
-+	.rates = SNDRV_PCM_RATE_44100 | SNDRV_PCM_RATE_48000,
-+	.rate_min = 44100,
-+	.rate_max = 48000,
-+	.channels_min = 2,
-+	.channels_max = 2,
-+	/* we currently expect either class A or B, where A has the
-+	 * smallest frames. For 44.1, you can get 11 sample-sets in one
-+	 * frame, and for 2ch S16_LE, this gives us 44 bytes.
-+	 */
-+	.period_bytes_min = 44,
-+	.period_bytes_max = 32768,
-+	.buffer_bytes_max = 32768,
-+	.periods_min = 1,
-+	.periods_max = 1024,
-+	.fifo_size   = 0,
++enum link_states {
++	LINK_OFF = 0,
++	LINK_RUNNING,
++	LINK_ERROR,
 +};
 +
-+static size_t snd_avb_copy_size(struct tsn_link *link);
 +
-+
-+static int _set_chip_values(struct avb_chip *avb_chip,
-+			struct snd_pcm_runtime *runtime)
-+{
-+	if (!avb_chip->first_copy)
-+		return 0;
-+
-+
-+	/*
-+	 * first copy, we now know that runtime has all the correct
-+	 * values set, we can grab channels and rate. Sample_size
-+	 * (runtime->format) is currently hard-coded to S16_LE.
-+	 */
-+	avb_chip->channels = runtime->channels;
-+	avb_chip->sample_freq = runtime->rate;
-+	avb_chip->sample_size = 16;
-+
-+	if (snd_avb_copy_size(avb_chip->link) > avb_chip->link->max_payload_size) {
-+		pr_err("%s: Resulting payload-size is larger (%zd) than available (%u)\n",
-+			__func__, snd_avb_copy_size(avb_chip->link),
-+			avb_chip->link->max_payload_size);
-+		return -EINVAL;
-+	}
-+	avb_chip->first_copy = 0;
-+	return 0;
-+}
-+
-+static int _snd_avb_open(struct avb_chip *avb_chip,
-+			struct snd_pcm_runtime *runtime)
-+{
-+	/*
-+	 * We do not know what some of these values are until we see the
-+	 * first copy. We set to sane defaults where we don't have exact
-+	 * content.
-+	 */
-+	avb_chip->channels = 0;
-+	avb_chip->sample_size = 0;
-+	avb_chip->sample_freq = 0;
-+	avb_chip->num_10ms_series = 0;
-+	avb_chip->first_copy = 1;
-+
-+	runtime->hw = snd_avb_hw;
-+	runtime->buffer_size = avb_chip->link->buffer_size;
-+	return 0;
-+}
-+
-+/*
-+ * bytes_to_frames()
-+ * frames_to_bytes()
-+ *
-+ * frames_to_bytes(runtime, runtrime->period_size);
-+ *
-+ * Interrupt callbacks:
-+ * The field traonsfer_ack_begin and transfer_ack_end are called at the
-+ * beginning and at the end of snd_pcm_period_elapsed(), respectively.
++/*		NOTE NOTE NOTE !!
++ * The headers below use bitfields extensively and verifications
++ * are needed when using little-endian vs big-endian systems.
 + */
-+static int snd_avb_playback_open(struct snd_pcm_substream *substream)
-+{
-+	struct snd_pcm_runtime *runtime = substream->runtime;
-+	struct avb_chip *avb_chip = snd_pcm_substream_chip(substream);
-+	int ret = 0;
 +
-+	/*
-+	 * we've opened the PCM before probe returned properly and
-+	 * stored link in the struct.
-+	 */
-+	if (!avb_chip || !avb_chip->link) {
-+		pr_err("%s: Chip-data or link not available, cannot continue\n",
-+			__func__);
-+		return -EINVAL;
-+	}
-+	if (!avb_chip->link->estype_talker) {
-+		pr_info("Link (%llu) not registered as Talker, cannot do playback\n",
-+			avb_chip->link->stream_id);
-+		return -EINVAL;
-+	}
-+
-+	ret = _snd_avb_open(avb_chip, runtime);
-+	if (ret < 0) {
-+		pr_err("%s: Could not open playback-device (requested %d ch, %zd buffer)",
-+			__func__, avb_chip->channels,
-+			avb_chip->link->buffer_size);
-+		return ret;
-+	}
-+	pr_info("%s: %d channel PCM stream opened successfully, buffersize: %zd\n",
-+		__func__, avb_chip->channels, avb_chip->link->buffer_size);
-+	return 0;
-+}
-+
-+static int snd_avb_playback_close(struct snd_pcm_substream *substream)
-+{
-+	struct avb_chip *avb_chip = snd_pcm_substream_chip(substream);
-+
-+	tsn_lb_disable(avb_chip->link);
-+
-+	pr_info("%s: something happened\n", __func__);
-+	return 0;
-+}
-+
-+/*
-+ * snd_avb snd_avb.0: BUG: ,
-+ *		      pos = 12288,
-+ *		      buffer size = 8192,
-+ *		      period size = 2048
++/* Common part of avtph header
 + *
-+ * Playback is when we *send* data to a remote speaker
++ * AVB Transport Protocol Common Header
++ *
++ * Defined in 1722-2011 Sec. 5.2
 + */
-+static int snd_avb_playback_copy(struct snd_pcm_substream *substream,
-+				int channel,
-+				snd_pcm_uframes_t pos,
-+				void *src,
-+				snd_pcm_uframes_t count)
-+{
-+	struct snd_pcm_runtime *runtime = substream->runtime;
-+	struct avb_chip *avb_chip = snd_pcm_substream_chip(substream);
-+	size_t bytes;
-+	int ret;
++struct avtp_ch {
++#if defined(__LITTLE_ENDIAN_BITFIELD)
++	/* use avtp_subtype enum.
++	 */
++	u8 subtype:7;
 +
-+	/*
-+	 * From alsadoc:
++	/* Controlframe: 1
++	 * Dataframe   : 0
++	 */
++	u8 cd:1;
++
++	/* Type specific data, part 1 */
++	u8 tsd_1:4;
++
++	/* In current version of AVB, only 0 is valid, all other values
++	 * are reserved for future versions.
++	 */
++	u8 version:3;
++
++	/* Valid StreamID in frame
 +	 *
-+	 * You need to check the channel argument, and if it's -1, copy
-+	 * the whole channels. Otherwise, you have to copy only the
-+	 * specified channel. Please check isa/gus/gus_pcm.c as an
-+	 * example.
++	 * ControlData not related to a specific stream should clear
++	 * this (and have stream_id = 0), _all_ other values should set
++	 * this to 1.
 +	 */
-+	if (channel != -1) {
-+		pr_err("%s: partial copy not supportet\n", __func__);
-+		return -EINVAL;
-+	}
++	u8 sv:1;
++#elif defined(__BIG_ENDIAN_BITFIELD)
++	u8 cd:1;
++	u8 subtype:7;
++	u8 sv:1;
++	u8 version:3;
++	u8 tsd_1:4;
++#else
++#error "Unknown Endianness, cannot determine bitfield ordering"
++#endif
++	/* Type specific data (adjacent to tsd_1, but split due to bitfield) */
++	u16 tsd_2;
++	u64 stream_id;
 +
-+	ret = _set_chip_values(avb_chip, runtime);
-+	if (ret != 0)
-+		return ret;
++	/*
++	 * payload by subtype
++	 */
++	u8 pbs[0];
++} __packed;
 +
-+	bytes = frames_to_bytes(runtime, count);
-+	ret = tsn_buffer_write(avb_chip->link, src, bytes);
-+	if (ret != bytes) {
-+		pr_err("%s: Incorrect copy (%zd, %d) corruption possible\n",
-+		       __func__, bytes, ret);
-+		return -EIO;
-+	}
-+	return 0;
-+}
-+
-+static int snd_avb_capture_open(struct snd_pcm_substream *substream)
-+{
-+	struct snd_pcm_runtime *runtime = substream->runtime;
-+	struct avb_chip *avb_chip = snd_pcm_substream_chip(substream);
-+	int ret = 0;
-+
-+	if (!avb_chip || !avb_chip->link) {
-+		pr_err("%s: Chip-data or link not available, cannot continue\n",
-+		       __func__);
-+		return -EINVAL;
-+	}
-+	if (avb_chip->link->estype_talker) {
-+		pr_info("Link (%llu) registered as Talker, cannot capture\n",
-+			avb_chip->link->stream_id);
-+		return -EINVAL;
-+	}
-+	ret = _snd_avb_open(avb_chip, runtime);
-+	if (ret < 0) {
-+		pr_err("%s: Could not open capture-device (requested %d ch, %zd buffer)",
-+			__func__, avb_chip->channels,
-+			avb_chip->link->buffer_size);
-+		return ret;
-+	}
-+	tsn_lb_enable(avb_chip->link);
-+	pr_info("%s: %d channel PCM stream opened successfully, buffersize: %zd\n",
-+		__func__, avb_chip->channels, avb_chip->link->buffer_size);
-+	return 0;
-+}
-+
-+static int snd_avb_capture_close(struct snd_pcm_substream *substream)
-+{
-+	struct avb_chip *avb_chip = snd_pcm_substream_chip(substream);
-+
-+	if (!avb_chip || !avb_chip->link)
-+		return -EINVAL;
-+	pr_err("%s: closing stream\n", __func__);
-+
-+	tsn_lb_disable(avb_chip->link);
-+
-+	return 0;
-+}
-+
-+static int snd_avb_capture_copy(struct snd_pcm_substream *substream,
-+				int channel,
-+				snd_pcm_uframes_t pos,
-+				void *src,
-+				snd_pcm_uframes_t count)
-+{
-+	struct snd_pcm_runtime *runtime = substream->runtime;
-+	struct avb_chip *avb_chip = snd_pcm_substream_chip(substream);
-+	size_t bytes;
-+	int ret;
-+
-+	bytes = frames_to_bytes(runtime, count);
-+	ret = tsn_buffer_read(avb_chip->link, src, bytes);
-+	if (ret != bytes) {
-+		pr_err("%s: incorrect copy (%zd, %d), corrupt capture possible\n",
-+			__func__, bytes, ret);
-+		tsn_lb_disable(avb_chip->link);
-+		return -EIO;
-+	}
-+	return 0;
-+}
-+
-+static int snd_avb_silence(struct snd_pcm_substream *substream,
-+				int channel, snd_pcm_uframes_t pos,
-+				snd_pcm_uframes_t count)
-+{
-+	/* FIXME, should do more than nothing */
-+	return 0;
-+}
-+
-+/*
-+ * Called when the client defines buffer_size, period_size, format etc
-+ * for the pcm substream.
-+ *
-+ * This is where link->buffer is allocated and link->buffer_size is
-+ * defined.
-+ *
-+ * We are called in the beginning of snd_pcm_hw_params in
-+ * sound/core/pcm_native.c, we cannot override runtime-values as they
-+ * are updated from hw_params.
++/* AVTPDU Common Control header format
++ * IEEE 1722#5.3
 + */
-+static int snd_avb_pcm_hw_params(struct snd_pcm_substream *substream,
-+				struct snd_pcm_hw_params *hw_params)
-+{
-+	struct avb_chip *avb_chip = snd_pcm_substream_chip(substream);
-+	unsigned int bsize = params_buffer_bytes(hw_params);
-+	int ret = 0;
++struct avtpc_header {
++#if defined(__LITTLE_ENDIAN_BITFIELD)
++	u8 subtype:7;
++	u8 cd:1;
++	u8 control_data:4;
++	u8 version:3;
++	u8 sv:1;
++	u16 control_data_length:11;
++	u16 status:5;
++#elif defined(__BIG_ENDIAN_BITFIELD)
++	u8 cd:1;
++	u8 subtype:7;
++	u8 sv:1;
++	u8 version:3;
++	u8 control_data:4;
++	u16 status:5;
++	u16 control_data_length:11;
++#else
++#error "Unknown Endianness, cannot determine bitfield ordering"
++#endif
++	u64 stream_id;
++} __packed;
 +
-+	/* We need this reference for the refill callback so that we can
-+	 * call snd_pcm_period_elapsed();
++/* AVTP common stream data AVTPDU header format
++ * IEEE 1722#5.4
++ */
++struct avtpdu_header {
++#if defined(__LITTLE_ENDIAN_BITFIELD)
++	u8 subtype:7;
++	u8 cd:1;
++
++	/* avtp_timestamp valid */
++	u8 tv: 1;
++
++	/* gateway_info valid */
++	u8 gv:1;
++
++	/* reserved */
++	u8 r:1;
++
++	/*
++	 * Media clock Restart toggle
 +	 */
-+	avb_chip->substream = substream;
-+	ret = tsn_set_buffer_size(avb_chip->link, bsize);
-+	if (ret < 0) {
-+		pr_err("%s: could not set buffer_size (alsa requested too large? (%d)\n",
-+			__func__, ret);
-+		goto out;
-+	}
++	u8 mr:1;
 +
-+	avb_chip->num_10ms_series = 0;
-+	pr_info("%s: successfully set hw-params\n", __func__);
-+out:
++	u8 version:3;
++
++	/* StreamID valid */
++	u8 sv:1;
++	u8 seqnr;
++
++	/* Timestamp uncertain */
++	u8 tu:1;
++	u8 r2:7;
++#elif defined(__BIG_ENDIAN_BITFIELD)
++	u8 cd:1;
++	u8 subtype:7;
++
++	u8 sv:1;
++	u8 version:3;
++	u8 mr:1;
++	u8 r:1;
++	u8 gv:1;
++	u8 tv: 1;
++
++	u8 seqnr;
++	u8 r2:7;
++	u8 tu:1;
++#else
++#error "Unknown Endianness, cannot determine bitfield ordering"
++#endif
++
++	u64 stream_id;
++
++	u32 avtp_timestamp;
++	u32 gateway_info;
++
++	/* Stream Data Length */
++	u16 sd_len;
++
++	/* Protocol specific header, derived from avtp_subtype */
++	u16 psh;
++
++	/* Stream Payload Data 0 to n octets
++	 * n so that total size < MTU
++	 */
++	u8 data[0];
++} __packed;
++
++
++/**
++ * struct tsn_list - The top level container of TSN
++ *
++ * This is what tsn_configfs refers to as 'tier-0'
++ *
++ * @head List of TSN cards
++ * @lock lock protecting global entries
++ * @tsn_subsys Ref to ConfigFS subsystem
++ *
++ * @running: hrtimer is running driving data out
++ * @tsn_timer: hrtimer container
++ * @num_avail Number of available TSN NICs exposed through ConfigFS
++ */
++struct tsn_list {
++	struct list_head head;
++	spinlock_t lock;
++	struct configfs_subsystem tsn_subsys;
++
++	/*
++	 * TSN-timer is running. Not to be confused with the per-link
++	 * disabled flag which indicates if a remote client, like aplay,
++	 * is pushing data to it.
++	 */
++	atomic_t running;
++	struct hrtimer tsn_timer;
++	unsigned int period_ns;
++
++	struct task_struct *tsn_thread;
++	int should_run;
++
++	size_t num_avail;
++};
++
++static inline void tsn_list_lock(struct tsn_list *list)
++{
++	spin_lock(&list->lock);
++}
++static inline void tsn_list_unlock(struct tsn_list *list)
++{
++	spin_unlock(&list->lock);
++}
++
++/**
++ * struct tsn_nic
++ *
++ * Individual TSN-capable NICs, or 'tier-1' struct
++ *
++ * @list linked list of all TSN NICs
++ * @group configfs group
++ * @dev corresponding net_device
++ * @dma_size : size of the DMA buffer
++ * @dma_handle: housekeeping DMA-stuff
++ * @dma_mem : pointer to memory region we're using for DMAing to the NIC
++ * @name Name of NIC (same as name in dev), TO BE REMOVED
++ * @txq Size of Tx-queue. TO BE REMOVED
++ * @rx_registered flag indicating if a handler is registered for the nic
++ * @capable: if the NIC is capable for proper TSN traffic or if it must
++ *	     be emulated in software.
++ *
++ */
++struct tsn_nic {
++	struct list_head list;
++	struct config_group group;
++	struct net_device *dev;
++	struct tsn_list *tsn_list;
++
++	size_t dma_size;
++	dma_addr_t dma_handle;
++	void *dma_mem;
++
++	char *name;
++	int txq;
++	u8 rx_registered:1;
++	u8 capable:1;
++
++	/*
++	 * Any AVTP data stream must set the 802.1Q vlan id and priority
++	 * Code point. This should be obtained from MSRP, default values
++	 * are:
++	 *
++	 * pcp: Class A: 3
++	 *	Class B: 2
++	 *
++	 * See IEEE 802.1Q-2011, Sec 35.2.2.9.3 and table 6-6 in 6.6.2
++	 * for details.
++	 */
++	u8 pcp_a:3;
++	u8 pcp_b:3;
++};
++
++struct tsn_shim_ops;
++/**
++ * tsn_link - Structure describing a single TSN link
++ *
++ */
++struct tsn_link {
++	/* Locks for protecting the link
++	 *
++	 * Due to how we do Rx and Tx, we need different types of locks
++	 * in these settings. A link _cannot_ be both, so even though
++	 * this way of doing it is ugly, it should be safe.
++	 *
++	 * Reader: must disable interrupt as we take the lock in rx-handler (Network bh)
++	 * Talker: must not disable interrupt
++	 */
++	spinlock_t tlock;
++	raw_spinlock_t llock;
++	unsigned long lflags;
++
++	struct config_group group;
++	struct tsn_nic *nic;
++	struct hlist_node node;
++
++	/* The link itself is active, and the tsn_core will treat it as
++	 * an active participant and feed data from it to the
++	 * network. This places some restrictions on what attributes
++	 * (most actually) that can be changed.
++	 *
++	 */
++	atomic_t link_state;
++
++	/* keep track of how many frames we have sent (for debugging) */
++	u64 frames_sent;
++
++	/* timestamp for last frame going in/out over the network, delta
++	 * and avg delta
++	 */
++	u64 ts_net_ns;
++	u64 ts_delta_ns;
++
++	/* simple, exponential smoothing of the time between received
++	 * samples. This is useful for shims that need to calculate an
++	 * offset into the buffer of received data.
++	 * exp_avg = alpha * ts_delta_ns + (1-alpha)exp_avg_{-1}
++	 * avg_delta_ns = ts_delta_ns * alpha_scale + avg_delta_ns * (1 - alpha_scale)
++	 */
++	u64 ts_exp_avg;
++
++	/* alpha_scale is currently in the range 0 - (2^14 - 1) because
++	 * 16384 different values is "probably enough" for a smoothed
++	 * avg.
++	 */
++	u16 ts_exp_alpha;
++
++	/* Pointer to media-specific data.
++	 * e.g. struct avb_chip
++	 */
++	void *media_chip;
++
++	u64 stream_id;
++
++	/*
++	 * The max required size for a _single_ TSN frame.
++	 *
++	 * To be used instead of channels and sample_freq.
++	 */
++	u16 max_payload_size;
++	u16 shim_header_size;
++
++	/*
++	 * Size of buffer (in bytes) to use when handling data to/from
++	 * NIC.
++	 *
++	 * Smaller size will result in client being called more often
++	 * but also provides lower latencies.
++	 */
++	size_t buffer_size;
++	size_t used_buffer_size;
++
++	/* used to keep skb when we overproduce so that we can do a
++	 * somewhat sane backoff.
++	 */
++	struct sk_buff *old_skb;
++
++	/*
++	 * Used when frames are constructed and shipped to the network
++	 * layer. If this is true, 0-frames will be sent insted of data
++	 * from the buffer.
++	 */
++	atomic_t buffer_active;
++
++	/*
++	 * ringbuffer for incoming or outging traffic
++	 * +-----------------------------------+
++	 * |                  ##########       |
++	 * +-----------------------------------+
++	 * ^                  ^         ^      ^
++	 * buffer           tail      head    end
++	 *
++	 * Buffer: start of memory area
++	 * tail: first byte of data in buffer
++	 * head: first unused slot in which to store new data
++	 *
++	 * head,tail is used to represent the position of 'live data' in
++	 * the buffer.
++	 */
++	void *buffer;
++	void *head;
++	void *tail;
++	void *end;
++
++	/* Number of bytes to run refill/drain callbacks */
++	size_t low_water_mark;
++	size_t high_water_mark;
++
++
++	/*
++	 * callback ops.
++	 */
++	struct tsn_shim_ops *ops;
++
++	/*
++	 * EndStation Type
++	 *
++	 * Either Talker or Listener
++	 *
++	 * 1: We are *Talker*, i.e. producing data to send
++	 * 0: We are *Listener*, i.e. we receive data from another ES.
++	 *
++	 * This is for a single link, so even though an end-station can
++	 * be both Talker *and* Listener, a link can only be one.
++	 */
++	u8 estype_talker;
++
++	/*
++	 * Link will use buffer managed by the shim. For this to work,
++	 * the shim must:
++	 *
++	 * - call tsn_use_external_buffer(link, size);
++	 * - provide tsn_shim_buffer_swap(link) in tsn_shim_ops
++	 */
++	u8 external_buffer;
++
++	u8 last_seqnr;
++
++	/*
++	 * Class can be of different classes, currently A or B
++	 *
++	 * ClassA: every 125us
++	 * ClassB: every 250us
++	 *
++	 * This will also affect how large each frame will be and will
++	 * also grab the PCP from the NIC-struct
++	 */
++	enum sr_class class;
++
++	u16 vlan_id;
++
++	u8 remote_mac[6];
++};
++
++static inline void tsn_lock(struct tsn_link *link)
++{
++	if (link->estype_talker)
++		spin_lock(&link->tlock);
++	else
++		raw_spin_lock_irqsave(&link->llock, link->lflags);
++}
++
++static inline void tsn_unlock(struct tsn_link *link)
++{
++	if (link->estype_talker)
++		spin_unlock(&link->tlock);
++	else
++		raw_spin_unlock_irqrestore(&link->llock, link->lflags);
++}
++
++void tsn_lock_init(struct tsn_link *link);
++
++/**
++ * tsn_link_on - make link active
++ *
++ * This cause most of the attributes to be treated read-only since we
++ * will have to re-negotiate with the network if most of these
++ * parameters change.
++ *
++ * Note: this means that the link will be handled by the rx-handler or
++ * the timer callback, but until the link_buffer is set active (via
++ * tsn_lb_on()), actual data is not moved.
++ *
++ * @link: link being set to active
++ */
++static inline void tsn_link_on(struct tsn_link *link)
++{
++	if (link)
++		atomic_set(&link->link_state, LINK_RUNNING);
++}
++
++/**
++ * tsn_link_off - make link inactive
++ *
++ * The link will now be ignored by timer callback or the
++ * rx-handler. Attributes can be mostly freely changed (we assume that
++ * userspace sets values that are negotiated properly).
++ *
++ * @link: link to deactivate
++ */
++static inline void tsn_link_off(struct tsn_link *link)
++{
++	if (link)
++		atomic_set(&link->link_state, LINK_OFF);
++}
++
++static inline int tsn_link_is_off(struct tsn_link *link)
++{
++	if (link)
++		return atomic_read(&link->link_state) == LINK_OFF;
++	return 0;
++}
++/**
++ * tsn_link_err - mark link as having an error.
++ *
++ * Link will be ignored by timer callback after being marked as in error
++ * and will be torn down upon next non-irq handling of link. After being
++ * torn down, it will be marked as 'off'.
++ *
++ *@link: link in error
++ */
++static inline void tsn_link_err(struct tsn_link *link)
++{
++	if (link)
++		atomic_set(&link->link_state, LINK_ERROR);
++}
++static inline int tsn_link_is_err(struct tsn_link *link)
++{
++	if (link)
++		return atomic_read(&link->link_state) == LINK_ERROR;
++	return 0;
++}
++/**
++ * tsn_link_is_on - query link to see if it is active
++ *
++ * Mostly used by tsn_configfs to respect the "read-only" once link is
++ * configured and made active.
++ *
++ * @link active link
++ * @returns 1 if active/on, 0 otherwise
++ */
++static inline int tsn_link_is_on(struct tsn_link *link)
++{
++	if (link)
++		return atomic_read(&link->link_state) == LINK_RUNNING;
++	return 0;
++}
++
++/**
++ * tsn_set_buffer_size - adjust buffersize to match a shim
++ *
++ * This will not allocate (or deallcoate) memory, just adjust how much
++ * of the buffer allocated in tsn_prepare_link is being used. tsn_
++ * expects tsn_clear_buffer_size() to be invoked when stream is closed.
++ */
++int tsn_set_buffer_size(struct tsn_link *link, size_t bsize);
++int tsn_clear_buffer_size(struct tsn_link *link);
++
++/**
++ * tsn_buffer_write write data into the buffer from shim
++ *
++ * This is called from the shim-driver when more data is available and
++ * data needs to be pushed out to the network.
++ *
++ * NOTE: This is used when TSN handles the databuffer. This will not be
++ *	 needed for "shim-hosted" buffers.
++ *
++ * _If_ this function is called when the link is inactive, it will
++ * _enable_ the link (i.e. link will mark the buffer as 'active'). Do
++ * not copy data into the buffer unless you are ready to start sending
++ * frames!
++ *
++ * @link active link
++ * @src	the buffer to copy data from
++ * @bytes bytes to copy
++ * @return bytes copied from link->buffer or negative error
++ */
++int tsn_buffer_write(struct tsn_link *link, void *src, size_t bytes);
++
++
++/**
++ * tsn_buffer_read - read data from link->buffer and give to shim
++ *
++ * When we act as a listener, this is what the shim (should|will) call
++ * to grab data. It typically grabs much more data than the _net
++ * equivalent. It also do not trigger a refill-event the same way
++ * buffer_read_net does.
++ *
++ * @param link current link that holds the buffer
++ * @param buffer the buffer to copy into, must be at least of size bytes
++ * @param bytes number of bytes.
++ *
++ * Note that this routine does NOT CARE about channels, samplesize etc,
++ * it is a _pure_ copy that handles ringbuffer wraps etc.
++ *
++ * This function have side-effects as it will update internal tsn_link
++ * values.
++ *
++ * @return Bytes copied into link->buffer, negative value upon error.
++ */
++int tsn_buffer_read(struct tsn_link *link, void *buffer, size_t bytes);
++
++/**
++ * tsn_lb_enable - TSN Link Buffer Enable
++ *
++ * Mark the link as "buffer-enabled" which will let the core start
++ * shifting data in/out of the buffer instead of ignoring incoming
++ * frames or sending "nullframes".
++ *
++ * This is for the network-end of the tsn-buffer, i.e.
++ * - when enabled frames *from* the network will be inserted into the buffer,
++ * - or frames going *out* will include data from the buffer instead of sending
++ *   null-frames.
++ *
++ * When disabled, data will be zero'd, e.g Tx will send NULL-frames and
++ * Rx will silently drop the frames.
++ *
++ * @link: active link
++ */
++static inline void tsn_lb_enable(struct tsn_link *link)
++{
++	if (link)
++		atomic_set(&link->buffer_active, 1);
++}
++
++/**
++ * tsn_lb_disable - stop using the buffer for the net-side of TSN
++ *
++ * When we close a stream, we do not necessarily tear down the link, and
++ * we need to handle the data in some way.
++ */
++static inline void tsn_lb_disable(struct tsn_link *link)
++{
++	if (link)
++		atomic_set(&link->buffer_active, 0);
++}
++
++/**
++ * tsn_lb() - query if we have disabled pushing of data to/from link-buffer
++ *
++ * @param struct tsn_link *link - active link
++ * @returns 1 if link is enabled
++ */
++static inline int tsn_lb(struct tsn_link *link)
++{
++	if (link)
++		return atomic_read(&link->buffer_active);
++
++	/* if link is NULL; buffer not active */
++	return 0;
++}
++
++/**
++ * tsn_update_net_time - update timestamp for latest activity on the net-side
++ *
++ * This function expects link to be locked, i.e. no-one else is updating
++ * the fields. Typically called from tsn_rx_handler (which grabs tsn_link()).
++ *
++ * @param link active link
++ * @param tim_ns timestamp
++ * @param increment the number if times buffer has been updated
++ *
++ * @returns 0 on success, negative on error.
++ */
++int tsn_update_net_time(struct tsn_link *link, u64 time_ns, int increment);
++
++/**
++ * Shim ops - what tsn_core use when calling back into the shim. All ops
++ * must be reentrant.
++ */
++#define SHIM_NAME_SIZE 32
++struct tsn_shim_ops {
++
++	/* internal linked list used by tsn_core to keep track of all
++	 * shims.
++	 */
++	struct list_head head;
++
++	/**
++	 * name - a unique name identifying this shim
++	 *
++	 * This is what userspace use to indicate to core what SHIM a
++	 * particular link will use. If the name is already present,
++	 * core will reject this name.
++	 */
++	char shim_name[SHIM_NAME_SIZE];
++
++	/**
++	 * probe - callback when a new link of this type is instantiated.
++	 *
++	 * When a new link is brought online, this is called once the
++	 * essential parts of tsn_core has finiesh. Once probe_cb has
++	 * finisehd, the shim _must_ be ready to accept data to/from
++	 * tsn_core. On the other hand, due to the final steps of setup,
++	 * it cannot expect to be called into action immediately after
++	 * probe has finished.
++	 *
++	 * In other words, shim must be ready, but core doesn't have to
++	 *
++	 * @param : a particular link to pass along to the probe-function.
++	 */
++	int (*probe)(struct tsn_link *link);
++
++	/**
++	 * buffer_swap - set a new buffer for the link. [OPTIONAL]
++	 *
++	 * Used when external buffering is enabled.
++	 *
++	 * When called, a new buffer must be returned WITHOUT blocking
++	 * as this will be called from interrupt context.
++	 *
++	 * The buffer returned from the shim must be at least the size
++	 * of used_buffer_size.
++	 *
++	 * @param current link
++	 * @param old_buffer the buffer that are no longer needed
++	 * @param used number of bytes in buffer that has been filled with data.
++	 * @return new buffer to use
++	 */
++	void * (*buffer_swap)(struct tsn_link *link, void *old_buffer,
++			      size_t used);
++
++	/**
++	 * buffer_refill - signal shim that more data is required
++	 * @link Active link
++	 *
++	 * This function should not do anything that can preempt the
++	 * task (kmalloc, sleeping lock) or invoke actions that can take
++	 * a long time to complete.
++	 *
++	 * This will be called from tsn_buffer_read_net() when available
++	 * data in the buffer drops below low_water_mark. It will be
++	 * called with the link-lock *held*
++	 */
++	size_t (*buffer_refill)(struct tsn_link *link);
++
++	/**
++	 * buffer_drain - shim need to copy data from buffer
++	 *
++	 * This will be called from tsn_buffer_write_net() when data in
++	 * the buffer exceeds high_water_mark.
++	 *
++	 * The expected behavior is for the shim to then fill data into
++	 * the buffer via tsn_buffer_write()
++	 */
++	size_t (*buffer_drain)(struct tsn_link *link);
++
++	/**
++	 * media_close - shut down media controller properly
++	 *
++	 * when the link is closed/removed for some reason
++	 * external to the media controller (ALSA soundcard, v4l2 driver
++	 * etc), we call this to clean up.
++	 *
++	 * Normal operation is stopped before media_close is called, but
++	 * all references should be valid. TSN core expects media_close
++	 * to handle any local cleanup, once returned, any references in
++	 * stale tsn_links cannot be trusted.
++	 *
++	 * @link: current link where data is stored
++	 * @returns: 0 upon success, negative on error.
++	 */
++	int (*media_close)(struct tsn_link *link);
++
++	/**
++	 * hdr_size - ask shim how large the header is
++	 *
++	 * Needed when reserving space in skb for transmitting data.
++	 *
++	 * @link: current link where data is stored
++	 * @return: size of header for this shim
++	 */
++	size_t (*hdr_size)(struct tsn_link *link);
++
++	/**
++	 * copy_size - ask client how much from the buffer to include in
++	 *	       the next frame.
++	 *
++	 *	       This is for *outgoing* frames, incoming frames
++	 *	       have 'sd_len' set in the header.
++	 *
++	 *	       Note: copy_size should not return a size larger
++	 *		     than link->max_payload_size
++	 */
++	size_t (*copy_size)(struct tsn_link *link);
++
++	/**
++	 * validate_header - let the shim validate subtype-header
++	 *
++	 * Both psh and data may (or may not) contain headers that need
++	 * validating. This is the responsibility of the shim to
++	 * validate, and ops->valdiate_header() will be called before
++	 * any data is copied from the incoming frame and into the
++	 * buffer.
++	 *
++	 * Important: tsn_core expects validate_header to _not_ alter
++	 * the contents of the frame, and ideally, validate_header could
++	 * be called multiple times and give the same result.
++	 *
++	 * @param: active link owning the new data
++	 * @param: start of data-unit header
++	 *
++	 * This function will be called from interrupt-context and MUST
++	 * NOT take any locks.
++	 */
++	int (*validate_header)(struct tsn_link *link,
++			       struct avtpdu_header *header);
++
++	/**
++	 * assemble_header - add shim-specific headers
++	 *
++	 * This adds the headers required by the current shim after the
++	 * generic 1722-header.
++	 *
++	 * @param: active link
++	 * @param: start of data-unit header
++	 * @param: size of data to send in this frame
++	 * @return void
++	 */
++	void (*assemble_header)(struct tsn_link *link,
++				struct avtpdu_header *header, size_t bytes);
++
++	/**
++	 * get_payload_data - get a pointer to where the data is stored
++	 *
++	 * core will use the pointer (or drop it if NULL is returned)
++	 * and copy header->sd_len bytes of *consecutive* data from the
++	 * target memory and into the buffer memory.
++	 *
++	 * This is called with relevant locks held, from interrupt context.
++	 *
++	 * @param link active link
++	 * @param header header of frame, which contains data
++	 * @returns pointer to memory to copy from
++	 */
++	void * (*get_payload_data)(struct tsn_link *link,
++				   struct avtpdu_header *header);
++};
++/**
++ * tsn_shim_register_ops - register shim-callbacks for a given shim
++ *
++ * @param shim_ops - callbacks. The ops-struct should be kept intact for
++ *		     as long as the driver is running.
++ *
++ *
++ */
++int tsn_shim_register_ops(struct tsn_shim_ops *shim_ops);
++
++/**
++ * tsn_shim_deregister_ops - remove callback for module
++ *
++ * Completely remove shim_ops. This will close any links currently using
++ * this shim. Note: the links will be closed, but _not_ removed.
++ *
++ * @param shim_ops ops associated with this shim
++ */
++void tsn_shim_deregister_ops(struct tsn_shim_ops *shim_ops);
++
++/**
++ * tsn_shim_get_active : return the name of the currently loaded shim
++ *
++ * @param current link
++ * @return name of shim (matches an entry from exported triggers)
++ */
++char *tsn_shim_get_active(struct tsn_link *link);
++
++/**
++ * tsn_shim_find_by_name find shim_ops by name
++ *
++ * @param name of shim
++ * @return shim or NULL if not found/error.
++ */
++struct tsn_shim_ops *tsn_shim_find_by_name(const char *name);
++
++/**
++ * tsn_shim_export_probe_triggers - export a list of registered shims
++ *
++ * @param page to write content into
++ * @returns length of data written to page
++ */
++ssize_t tsn_shim_export_probe_triggers(char *page);
++
++/**
++ * tsn_get_framesize - get the size of the next TSN frame to send
++ *
++ * This will call into the shim to get the next chunk of data to
++ * read. Some sanitychecking is performed, i.e.
++ *
++ * 0 <= size <= max_payload_size
++ *
++ * @param struct tsn_link *link active link
++ * @returns size of frame in bytes or negative on error.
++ */
++static inline size_t tsn_shim_get_framesize(struct tsn_link *link)
++{
++	size_t ret;
++
++	ret = link->ops->copy_size(link);
++	if (ret <= link->max_payload_size)
++		return ret;
++	return link->max_payload_size;
++}
++
++/**
++ * tsn_get_hdr_size - get the size of the shim-specific header size
++ *
++ * The shim will add it's own header to the frame.
++ */
++static inline size_t tsn_shim_get_hdr_size(struct tsn_link *link)
++{
++	size_t ret;
++
++	if (!link || !link->ops->hdr_size)
++		return -EINVAL;
++	ret = link->ops->hdr_size(link);
++	if (ret > link->max_payload_size)
++		return -EINVAL;
 +	return ret;
 +}
 +
-+static int snd_avb_pcm_hw_free(struct snd_pcm_substream *substream)
++static inline u8 sr_class_to_pcp(struct tsn_nic *nic, enum sr_class class)
 +{
-+	struct avb_chip *avb_chip = snd_pcm_substream_chip(substream);
-+
-+	if (!avb_chip || !avb_chip->link)
-+		return -EINVAL;
-+	tsn_clear_buffer_size(avb_chip->link);
-+	pr_info("%s: something happened\n", __func__);
-+	avb_chip->substream = NULL;
-+	return 0;
-+}
-+
-+static int snd_avb_pcm_prepare(struct snd_pcm_substream *substream)
-+{
-+	/* verify that samplerate, freq and size is what we have set in
-+	 * the link.
-+	 */
-+
-+	return 0;
-+}
-+
-+/*
-+ * When the PCM stream is started, stopped, paused etc.
-+ *
-+ * Atomic function (some lock is being held by PCM layer)
-+ */
-+static int snd_avb_pcm_trigger(struct snd_pcm_substream *substream,
-+			       int cmd)
-+{
-+	struct avb_chip *avb_chip = snd_pcm_substream_chip(substream);
-+
-+	switch (cmd) {
-+	case SNDRV_PCM_TRIGGER_START:
-+	case SNDRV_PCM_TRIGGER_RESUME:
-+		/* pr_err("%s: starting for some reason\n", __func__); */
-+		tsn_lb_enable(avb_chip->link);
-+		break;
-+	case SNDRV_PCM_TRIGGER_STOP:
-+	case SNDRV_PCM_TRIGGER_SUSPEND:
-+		/* memset buffer to 0 */
-+		/* pr_err("%s: stopping for some reason\n", __func__); */
-+		tsn_lb_disable(avb_chip->link);
-+		break;
++	if (!nic)
++		return 0;
++	switch (class) {
++	case SR_CLASS_A:
++		return nic->pcp_a;
++	case SR_CLASS_B:
++		return nic->pcp_b;
++		/* room for future class C & D */
 +	default:
-+		pr_info("%s: cmd: %d (return -EINVAL)\n", __func__, cmd);
-+		return -EINVAL;
++		pr_err("Unknown class in mapping %d\n", class);
 +	}
 +	return 0;
 +}
 +
-+static int snd_avb_get_time_info(struct snd_pcm_substream *substream,
-+				struct timespec *system_ts, struct timespec *audio_ts,
-+				struct snd_pcm_audio_tstamp_config *audio_tstamp_config,
-+				struct snd_pcm_audio_tstamp_report *audio_tstamp_report)
-+{
-+	struct avb_chip *avb_chip = snd_pcm_substream_chip(substream);
-+	struct tsn_link *link = avb_chip->link;
-+	u64 nsec;
-+
-+	snd_pcm_gettime(substream->runtime, system_ts);
-+
-+	/* We only support link-time from sample, absolute (no reset) */
-+	if ((substream->runtime->hw.info & SNDRV_PCM_INFO_HAS_LINK_ABSOLUTE_ATIME) &&
-+		(audio_tstamp_config->type_requested == SNDRV_PCM_AUDIO_TSTAMP_TYPE_LINK_ABSOLUTE)) {
-+		tsn_lock(link);
-+		nsec = link->ts_net_ns;
-+		tsn_unlock(link);
-+
-+		*audio_ts = ns_to_timespec(nsec);
-+		audio_tstamp_report->actual_type = SNDRV_PCM_AUDIO_TSTAMP_TYPE_LINK_ABSOLUTE;
-+
-+		/* this should be accurate, but leave it as inaccurate
-+		 * until we know the level for gPTP-clock in the system
-+		 * accuracy_report = 1 (timestamp is accurate to within accuracy)
-+		 * accuracy: in ns
-+		 */
-+		audio_tstamp_report->accuracy_report = 0;
-+		audio_tstamp_report->accuracy = 42;
-+	} else {
-+		audio_tstamp_report->actual_type = SNDRV_PCM_AUDIO_TSTAMP_TYPE_DEFAULT;
-+	}
-+
-+	return 0;
-+}
-+
-+/*
-+ * current hw-position in the buffer, in frames from 0 to buffer_size -1
-+ *
-+ * Need to know where the hw-pointer is and how this corresponds to the
-+ * underlying TSN-buffer setup
-+ *
-+ * Atomic function (some lock is being held by PCM layer)
-+ *
-+ */
-+static snd_pcm_uframes_t snd_avb_pcm_pointer(struct snd_pcm_substream *substream)
-+{
-+	struct avb_chip *avb_chip = snd_pcm_substream_chip(substream);
-+	struct tsn_link *link = avb_chip->link;
-+	snd_pcm_uframes_t pointer;
-+
-+	if (link->estype_talker)
-+		pointer = bytes_to_frames(substream->runtime,
-+					  link->tail - link->buffer);
-+	else
-+		pointer = bytes_to_frames(substream->runtime,
-+					  link->head - link->buffer);
-+	return pointer;
-+}
-+
-+static struct snd_pcm_ops snd_avb_playback_ops = {
-+	.open      = snd_avb_playback_open,
-+	.close     = snd_avb_playback_close,
-+	.copy	   = snd_avb_playback_copy,
-+	.silence   = snd_avb_silence,
-+	.ioctl     = snd_pcm_lib_ioctl,
-+	.hw_params = snd_avb_pcm_hw_params,
-+	.hw_free   = snd_avb_pcm_hw_free,
-+	.prepare   = snd_avb_pcm_prepare,
-+	.trigger   = snd_avb_pcm_trigger,
-+	.pointer   = snd_avb_pcm_pointer,
-+	.get_time_info = snd_avb_get_time_info,
-+};
-+
-+static struct snd_pcm_ops snd_avb_capture_ops = {
-+	.open      = snd_avb_capture_open,
-+	.close     = snd_avb_capture_close,
-+	.copy	   = snd_avb_capture_copy,
-+	.silence   = snd_avb_silence,
-+	.ioctl     = snd_pcm_lib_ioctl,
-+	.hw_params = snd_avb_pcm_hw_params,
-+	.hw_free   = snd_avb_pcm_hw_free,
-+	.prepare   = snd_avb_pcm_prepare,
-+	.trigger   = snd_avb_pcm_trigger,
-+	.pointer   = snd_avb_pcm_pointer,
-+	.get_time_info = snd_avb_get_time_info,
-+};
-+
-+/*
-+ * Callback for tsn_core for moving data into the buffer.
-+ *
-+ * This should be a wrapper (replace it with) the refill-functionality ALSA use.
-+ */
-+static size_t snd_avb_refill(struct tsn_link *link)
-+{
-+	struct avb_chip *avb_chip = link->media_chip;
-+
-+	if (avb_chip && avb_chip->substream) {
-+		snd_pcm_period_elapsed(avb_chip->substream);
-+		return 0;
-+	}
-+	return -EINVAL;
-+}
-+
-+static size_t snd_avb_drain(struct tsn_link *link)
-+{
-+	struct avb_chip *avb_chip = link->media_chip;
-+
-+	if (avb_chip && avb_chip->substream) {
-+		snd_pcm_period_elapsed(avb_chip->substream);
-+		return 0;
-+	}
-+	return -EINVAL;
-+}
-+
-+static size_t snd_avb_hdr_size(struct tsn_link *link)
-+{
-+	/* return the size of the iec61883-6 audio header */
-+	return _iec61883_hdr_len();
-+}
-+
-+static size_t snd_avb_copy_size(struct tsn_link *link)
-+{
-+	struct avb_chip *chip = link->media_chip;
-+	/* use values in avb_chip, not link */
-+	size_t framesize = (chip->sample_size >> 3) * chip->channels;
-+	size_t numframes = 0;
-+
-+	if (!chip->sample_freq)
-+		return link->max_payload_size;
-+
-+	/* size of each frame (samples per frame, sample-size && class)
-+	 * sample_size: 16 -> 2
-+	 * spframe :    12 (class b)
-+	 * channels:     2
-+	 *
-+	 * framesize:  2*12*2 -> 48
-+	 */
-+
-+	switch (chip->sample_freq) {
-+	case 44100:
-+		/*
-+		 * Class B: 40 frames, first 12 bytes, next 39 should be 11
-+		 */
-+		if (link->class == SR_CLASS_B) {
-+			numframes = (chip->num_10ms_series ? 11 : 12);
-+			chip->num_10ms_series++;
-+			if (chip->num_10ms_series > 39)
-+				chip->num_10ms_series = 0;
-+		} else {
-+			/* Class A slightly more involved
-+			 * Need 41 6 bytes and 39 5 bytes
-+			 *
-+			 * If 0th is set to 6, remaining odd idx should
-+			 * be 6, even (except 0th) to be 6
-+			 */
-+			numframes = 5;
-+			if (!chip->num_10ms_series ||
-+			    (chip->num_10ms_series % 0x2))
-+				numframes++;
-+			chip->num_10ms_series++;
-+			if (chip->num_10ms_series > 79)
-+				chip->num_10ms_series = 0;
-+		}
-+		break;
-+	case 48000:
-+		numframes = (link->class == SR_CLASS_A ? 6 : 12);
-+		break;
-+	default:
-+		pr_err("Unsupported sample_freq (%d), disabling link\n",
-+		       chip->sample_freq);
-+		tsn_lb_disable(link);
-+		return -EINVAL;
-+	}
-+	return numframes * framesize;
-+}
-+
-+static void snd_avb_assemble_iidc(struct tsn_link *link,
-+				  struct avtpdu_header *header, size_t bytes)
-+{
-+	_iec61883_hdr_assemble(header, bytes);
-+}
-+
-+static int snd_avb_validate_iidc(struct tsn_link *link,
-+				 struct avtpdu_header *header)
-+{
-+	return _iec61883_hdr_verify(header);
-+}
-+
-+static void *snd_avb_get_payload_data(struct tsn_link *link,
-+				      struct avtpdu_header *header)
-+{
-+	return _iec61883_payload(header);
-+}
-+
-+static int snd_avb_new_pcm(struct avb_chip *avb_chip, int device)
-+{
-+	struct snd_pcm *pcm;
-+	int err;
-+
-+	err = snd_pcm_new(avb_chip->card, "AVB PCM", device, 1, 1, &pcm);
-+	if (err < 0)
-+		return err;
-+	pcm->private_data = avb_chip;
-+	strcpy(pcm->name, "AVB PCM");
-+	avb_chip->pcm = pcm;
-+
-+	/* only playback at the moment, once we implement capture, we
-+	 * need to grab the Talker/Listener from TSN link
-+	 */
-+	snd_pcm_set_ops(pcm, SNDRV_PCM_STREAM_PLAYBACK, &snd_avb_playback_ops);
-+	snd_pcm_set_ops(pcm, SNDRV_PCM_STREAM_CAPTURE,  &snd_avb_capture_ops);
-+
-+	return 0;
-+
-+}
-+
-+static int snd_avb_probe(struct platform_device *devptr)
-+{
-+	int err;
-+	struct snd_card *card;
-+	struct avb_chip *avb_chip;
-+	int dev = devptr->id;
-+
-+	pr_info("%s: starting\n", __func__);
-+
-+	err = snd_card_new(&devptr->dev, index[dev], id[dev], THIS_MODULE,
-+			   sizeof(struct avb_chip), &card);
-+	if (err < 0) {
-+		pr_err("%s: trouble creating new card -> %d\n",
-+			__func__, err);
-+		return err;
-+	}
-+	avb_chip = card->private_data;
-+	avb_chip->card = card;
-+
-+
-+	/* create PCM device*/
-+	err = snd_avb_new_pcm(avb_chip, 0);
-+	if (err < 0) {
-+		pr_err("%s: could not create new PCM device\n", __func__);
-+		goto err_out;
-+	}
-+
-+	/* register card */
-+	pr_info("%s: ready to register card\n", __func__);
-+	strcpy(card->driver, "Avb");
-+	strcpy(card->shortname, "Avb");
-+	sprintf(card->longname, "Avb %i", devptr->id + 1);
-+	err = snd_card_register(card);
-+	if (err < 0) {
-+		pr_err("%s: Could not register card -> %d\n",
-+			__func__, err);
-+		snd_card_free(card);
-+		return err;
-+	}
-+
-+	if (err == 0) {
-+		platform_set_drvdata(devptr, card);
-+		pr_info("%s: Successfully initialized %s\n",
-+			__func__, card->shortname);
-+		return 0;
-+	}
-+err_out:
-+	snd_card_free(card);
-+	return err;
-+}
-+
-+/*
-+ * We are here as a result from being removed via
-+ * tsn_link->shim_ops->media_close, which is snd_avb_close()
-+ */
-+static int snd_avb_remove(struct platform_device *devptr)
-+{
-+	struct snd_card *card     = platform_get_drvdata(devptr);
-+	struct avb_chip *avb_chip = card->private_data;
-+
-+	/* Make sure link holds no ref to this now dead card */
-+	if (avb_chip && avb_chip->link) {
-+		avb_chip->link->media_chip = NULL;
-+		avb_chip->link = NULL;
-+	}
-+
-+	/* call into link->ops->media_close() ? */
-+	snd_card_free(card);
-+	return 0;
-+}
-+
-+static struct platform_driver snd_avb_driver = {
-+	.probe  = snd_avb_probe,
-+	.remove = snd_avb_remove,
-+	.driver = {
-+		.name = "snd_avb",
-+		.pm   = NULL,	/* don't care about Power Management */
-+	},
-+};
-+
-+static int snd_avb_close(struct tsn_link *link)
-+{
-+	struct avb_chip *avb_chip = link->media_chip;
-+
-+	if (!link->media_chip)
-+		return 0;
-+
-+	pr_info("%s: Removing device\n", __func__);
-+
-+	platform_device_unregister(avb_chip->device);
-+	/* platform unregister will call into snd_avb_remove */
-+	platform_driver_unregister(&snd_avb_driver);
-+
-+	/* update link to remove pointer to now invalid memory */
-+	link->media_chip = NULL;
-+	return 0;
-+}
-+
-+static int snd_avb_new(struct tsn_link *link)
-+{
-+	struct avb_chip *avb_chip;
-+	struct snd_card *card;
-+	struct platform_device *device;
-+	int err;
-+
-+	err = platform_driver_register(&snd_avb_driver);
-+	if (err < 0) {
-+		pr_info("%s: trouble registering driver %d, unreg. partial driver and abort.\n",
-+			__func__, err);
-+		return err;
-+	}
-+
-+	/*
-+	 * We only register a single card for now, look to
-+	 * /sys/devices/platform/snd_avb.0 for content.
-+	 *
-+	 * Probe will be triggered if name is same as .name in platform_driver
-+	 */
-+	device = platform_device_register_simple("snd_avb", 0, NULL, 0);
-+	if (IS_ERR(device)) {
-+		pr_info("%s: ERROR registering simple platform-device\n",
-+			__func__);
-+		platform_driver_unregister(&snd_avb_driver);
-+		return -ENODEV;
-+	}
-+
-+	/* store data in driver so we can access it in .probe */
-+	card = platform_get_drvdata(device);
-+	if (card == NULL) {
-+		pr_info("%s: Did not get anything from platform_get_drvdata()\n",
-+			__func__);
-+		platform_device_unregister(device);
-+		return -ENODEV;
-+	}
-+	avb_chip = card->private_data;
-+	avb_chip->device = device;
-+	avb_chip->link = link;
-+
-+	link->media_chip = avb_chip;
-+
-+	return 0;
-+}
-+
-+static struct tsn_shim_ops shim_ops = {
-+	.shim_name	 = "alsa",
-+	.probe		 = snd_avb_new,
-+	.buffer_refill   = snd_avb_refill,
-+	.buffer_drain    = snd_avb_drain,
-+	.media_close     = snd_avb_close,
-+	.hdr_size        = snd_avb_hdr_size,
-+	.copy_size       = snd_avb_copy_size,
-+	.assemble_header = snd_avb_assemble_iidc,
-+	.validate_header = snd_avb_validate_iidc,
-+	.get_payload_data = snd_avb_get_payload_data,
-+};
-+
-+static int __init avb_alsa_init(void)
-+{
-+	if (tsn_shim_register_ops(&shim_ops)) {
-+		pr_err("Could not register ALSA-shim with TSN\n");
-+		return -EINVAL;
-+	}
-+	pr_info("AVB ALSA added OK\n");
-+	return 0;
-+}
-+
-+static void __exit avb_alsa_exit(void)
-+{
-+	tsn_shim_deregister_ops(&shim_ops);
-+}
-+
-+module_init(avb_alsa_init);
-+module_exit(avb_alsa_exit);
-+MODULE_AUTHOR("Henrik Austad");
-+MODULE_LICENSE("GPL");
-+MODULE_DESCRIPTION("TSN ALSA shim driver");
-diff --git a/drivers/media/avb/tsn_iec61883.h b/drivers/media/avb/tsn_iec61883.h
-new file mode 100644
-index 0000000..167bfd8
---- /dev/null
-+++ b/drivers/media/avb/tsn_iec61883.h
-@@ -0,0 +1,152 @@
-+#ifndef TSN_IEC61883_H
-+#define TSN_IEC61883_H
-+#include <linux/tsn.h>
-+
-+/*
-+ * psh:
-+ *  tag:2
-+ *  channel:6
-+ *  tcode:4
-+ *  sy:4
-+ * See IEEE 1722.1 :: 6.2 for details
-+ */
-+struct iec61883_tag {
-+#if defined(__LITTLE_ENDIAN_BITFIELD)
-+	u8 tag:2;
-+	u8 channel:6;
-+	u8 tcode:4;
-+	u8 sy:4;
-+#elif defined(__BIG_ENDIAN_BITFIELD)
-+	u8 channel:6;
-+	u8 tag:2;
-+	u8 sy:4;
-+	u8 sy:4;
-+#else
-+#error "Unknown Endianness, cannot determine bitfield ordering"
-+#endif
-+} __packed;
-+
-+struct iec61883_audio_header {
-+#if defined(__LITTLE_ENDIAN_BITFIELD)
-+	u8 sid:6;
-+	u8 cip_1:2;
-+
-+	u8 dbs:8;
-+
-+	u8 rsv:2;		/* reserved */
-+	u8 sph:1;
-+	u8 qpc:3;
-+	u8 fn:2;
-+
-+	u8 dbc;
-+
-+	u8 fmt:6;
-+	u8 cip_2:2;
-+#elif defined(__BIG_ENDIAN_BITFIELD)
-+	u8 cip_1:2;
-+	u8 sid:6;
-+
-+	u8 dbs:8;
-+
-+	u8 fn:2;
-+	u8 qpc:3;
-+	u8 sph:1;
-+	u8 rsv:2;		/* reserved */
-+
-+	u8 dbc;
-+
-+	u8 cip_2:2;
-+	u8 fmt:6;
-+#else
-+#error "Unknown Endianness, cannot determine bitfield ordering"
-+#endif
-+	u8 fdf;
-+	u16 syt;
-+	u8 payload[0];
-+} __packed;
-+
-+static inline size_t _iec61883_hdr_len(void)
-+{
-+	return sizeof(struct iec61883_audio_header);
-+}
-+
-+static inline int _iec61883_hdr_verify(struct avtpdu_header *hdr)
-+{
-+	struct iec61883_audio_header *dh;
-+	struct iec61883_tag *psh;
-+
-+	if (hdr->subtype != TSN_61883_IIDC)
-+		return -EINVAL;
-+	dh  = (struct iec61883_audio_header *)&hdr->data;
-+	psh = (struct iec61883_tag *)&hdr->psh;
-+
-+	/* Verify 61883 header */
-+	if (psh->tag != 1 || psh->channel != 31 ||
-+		psh->tcode != 0xA || psh->sy != 0)
-+		return -EINVAL;
-+
-+	/* check flags that should be static from frame to frame */
-+	if (dh->cip_1 != 0 || dh->sid != 0x3f || dh->qpc != 0 || dh->fn != 0 ||
-+		dh->sph != 0 || dh->cip_2 != 2)
-+		return -EINVAL;
-+
-+	if (dh->dbs != ntohs(hdr->sd_len)*2 || dh->dbc != hdr->seqnr)
-+		return -EINVAL;
-+
-+	return 0;
-+}
-+
-+static inline void _iec61883_hdr_assemble(struct avtpdu_header *hdr,
-+					  size_t bytes)
-+{
-+	struct iec61883_tag *psh;
-+	struct iec61883_audio_header *dh;
-+
-+	if (bytes > 0x7f)
-+		pr_warn("%s: hdr->dbs will overflow, malformed frame will be the result\n",
-+			__func__);
-+
-+
-+	hdr->subtype = TSN_61883_IIDC;
-+
-+	/* IIDC 61883 header */
-+	psh = (struct iec61883_tag *)&hdr->psh;
-+	psh->tag = 1;
-+	psh->channel = 31;      /* 0x1f */
-+	psh->tcode = 0xA;
-+	psh->sy = 0;
-+
-+	dh = (struct iec61883_audio_header *)&hdr->data;
-+	dh->cip_1 = 0;
-+	dh->sid = 63;           /* 0x3f */
-+	dh->dbs = (u8)(bytes*2); /* number of quadlets of data in AVTPDU */
-+	dh->qpc = 0;
-+	dh->fn = 0;
-+	dh->sph = 0;
-+	dh->dbc = hdr->seqnr;
-+	dh->cip_2 = 2;
-+
-+	/*
-+	 * FMT (Format ID): same as specified in iec 61883-1:2003
-+	 *
-+	 * For IEC 61883-6, it shall be 0x10 (16) to define Audio and
-+	 * Music data
-+	 */
-+	dh->fmt = 0x10;
-+
-+	/* FIXME: find value
-+	 * Could be sampling-freq, but 8 bits give 0 - 65kHz sampling.
-+	 */
-+	dh->fdf = 0;
-+
-+	dh->syt = 0xFFFF;
-+}
-+
-+static inline void *_iec61883_payload(struct avtpdu_header *hdr)
-+{
-+	struct iec61883_audio_header *dh = (struct iec61883_audio_header *)&hdr->data;
-+	/* TODO: add some basic checks before returning payload ? */
-+	return &dh->payload;
-+}
-+
-+#endif	/* TSN_IEC61883_H */
++#endif	/* _TSN_H */
 -- 
 2.7.4
