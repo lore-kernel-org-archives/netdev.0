@@ -1,70 +1,136 @@
-From: "Chickles, Derek" <Derek.Chickles@cavium.com>
-Subject: RE: [PATCH] liquidio CN23XX: make timeout HZ independent
-Date: Fri, 16 Dec 2016 20:08:04 +0000
-Message-ID: <MWHPR07MB294310204EE20FC19B8E8612F39C0@MWHPR07MB2943.namprd07.prod.outlook.com>
-References: <1481875839-30860-1-git-send-email-hofrat@osadl.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "Burla, Satananda" <Satananda.Burla@cavium.com>,
-        "Manlunas, Felix" <Felix.Manlunas@cavium.com>,
-        "Vatsavayi, Raghu" <Raghu.Vatsavayi@cavium.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Nicholas Mc Guire <hofrat@osadl.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-dm3nam03on0054.outbound.protection.outlook.com ([104.47.41.54]:55495
-        "EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1757317AbcLPUII (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 16 Dec 2016 15:08:08 -0500
-In-Reply-To: <1481875839-30860-1-git-send-email-hofrat@osadl.org>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "George Spelvin" <linux@sciencehorizons.net>
+Subject: Re: [PATCH v5 1/4] siphash: add cryptographically secure PRF
+Date: 16 Dec 2016 15:17:39 -0500
+Message-ID: <20161216201739.24567.qmail@ns.sciencehorizons.net>
+References: <CAHmME9pe39s5FWxfKNiRKkHnEO-9v2yLcEQc8rnMC89P6roTmA@mail.gmail.com>
+Cc: ak@linux.intel.com, davem@davemloft.net, David.Laight@aculab.com,
+        djb@cr.yp.to, ebiggers3@gmail.com, hannes@stressinduktion.org,
+        jeanphilippe.aumasson@gmail.com,
+        kernel-hardening@lists.openwall.com, linux-crypto@vger.kernel.org,
+        linux-kernel@vger.kernel.org, luto@amacapital.net,
+        netdev@vger.kernel.org, tom@herbertland.com,
+        torvalds@linux-foundation.org, tytso@mit.edu,
+        vegard.nossum@gmail.com
+To: Jason@zx2c4.com, linux@sciencehorizons.net
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <CAHmME9pe39s5FWxfKNiRKkHnEO-9v2yLcEQc8rnMC89P6roTmA@mail.gmail.com>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: Nicholas Mc Guire [mailto:hofrat@osadl.org]
-> Sent: Friday, December 16, 2016 12:11 AM
-> To: Chickles, Derek
-> Cc: Burla, Satananda; Manlunas, Felix; Vatsavayi, Raghu;
-> netdev@vger.kernel.org; linux-kernel@vger.kernel.org; Nicholas Mc Guire
-> Subject: [PATCH] liquidio CN23XX: make timeout HZ independent
->=20
-> schedule_timeout_* takes a timeout in jiffies but the code currently is
-> passing in a constant which makes this timeout HZ dependent, so pass it
-> through msecs_to_jiffies() to fix this up.
->=20
-> Signed-off-by: Nicholas Mc Guire <hofrat@osadl.org>
-> ---
->=20
-> Problem found by coccinelle spatch
->=20
-> The current delay can vary by a factor 10 depending on the HZ
-> setting chose, which does not seem reasonable here.
->=20
-> The below patch sets the timeout to 10ms - it is though not clear
-> if this is the intent or if it should be longer/shorter as it is not
-> clear what HZ setting was assumed during design and used for testing.
->=20
-> This needs an ack by someone who knows the device and can confirm that
-> 10ms is reasonable to wait for completion of queuing.
+>> On a 64-bit machine, 64-bit SipHash is *always* faster than 32-bit, and
+>> should be used always.  Don't even compile the 32-bit code, to prevent
+>> anyone accidentally using it, and make hsiphash an alias for siphash.
 
-We were actually looking at this in parallel already to speed up driver
-loading. It would be better if we changed LIO_MBOX_WRITE_WAIT_TIME
-to 1 and applied the msecs_to_jiffies() to the line specified in your patch
-and the loop just above that.
+> Fascinating! Okay. So I'll alias hsiphash to siphash on 64-bit then. I
+> like this arrangement.
 
-        while (readq(mbox->mbox_write_reg) !=3D OCTEON_PFVFSIG) {
-                schedule_timeout_uninterruptible(LIO_MBOX_WRITE_WAIT_TIME);
-                if (count++ =3D=3D LIO_MBOX_WRITE_WAIT_CNT) {
-                        ret =3D OCTEON_MBOX_STATUS_FAILED;
-                        break;
-                }
-        }      =20
+This is a basic assumption I make in the security analysis below:
+on most machines, it's 128-bit-key SipHash everywhere and we can
+consider security solved.
 
-If you can provide a new patch with both the changes we'll sign off on it.
-Otherwise, it's on our list and we'll submit it soon ourselves.
+Our analysis *only* has to consider 32-bit machines.  My big concern
+is home routers, with IoT appliances coming second.  The routers have
+severe hardware cost constraints (so limited CPU power), but see a lot
+of traffic and need to process (NAT) it.
 
-Thanks,
-Derek
+> That's a nice analysis. Might one conclude from that that hsiphash is
+> not useful for our purposes? Or does it still remain useful for
+> network facing code?
+
+I think for attacks where the threat is a DoS, it's usable.  The point
+is you only have to raise the cost to equal that of a packet flood.
+(Just like in electronic warfare, the best you can possibly do is force
+the enemy to use broadband jamming.)
+
+Hash collision attacks just aren't that powerful.  The original PoC
+was against an application that implemented a hard limit on hash chain
+length as a DoS defense, which the attack then exploited to turn it into
+a hard DoS.
+
+>> Let me consider your second example above, "secure against local users".
+>> I should dig through your patchset and find the details, but what exactly
+>> are the consequences of such an attack?  Hasn't a local user already
+>> got much better ways to DoS the system?
+
+> For example, an unpriv'd user putting lots of entries in one hash
+> bucket for a shared resource that's used by root, like filesystems or
+> other lookup tables. If he can cause root to use more of root's cpu
+> schedule budget than otherwise in a directed way, then that's a bad
+> DoS.
+
+This issue was recently discussed when we redesigned the dcache hash.
+Even a successful attack doesn't slow things down all *that* much.
+
+Before you overkill every hash table in the kernel, think about whether
+it's a bigger problem than the dcache.  (Hint: it's probably not.)
+There's no point armor-plating the side door when the front door was
+just upgraded from screen to wood.
+
+>> These days, 32-bit CPUs are for embedded applications: network appliances,
+>> TVs, etc.  That means basically single-user.  Even phones are 64 bit.
+>> Is this really a threat that needs to be defended against?
+
+> I interpret this to indicate all the more reason to alias hsiphash to
+> siphash on 64-bit, and then the problem space collapses in a clear
+> way.
+
+Yes, exactly.  
+
+> Right. Hence the need for always using full siphash and not hsiphash
+> for sequence numbers, per my earlier email to David.
+>
+>> I wish we could get away with 64-bit security, but given that the
+>> modern internet involves attacks from NSA/Spetssvyaz/3PLA, I agree
+>> it's just not enough.
+>
+> I take this comment to be relavent for the sequence number case.
+
+Yes.
+
+> For hashtables and hashtable flooding, is it still your opinion that
+> we will benefit from hsiphash? Or is this final conclusion a rejection
+> of hsiphash for that too? We're talking about two different use cases,
+> and your email kind of interleaved both into your analysis, so I'm not
+> certain so to precisely what your conclusion is for each use case. Can
+> you clear up the ambiguity?
+
+My (speaking enerally; I should walk through every hash table you've
+converted) opinion is that:
+
+- Hash tables, even network-facing ones, can all use hsiphash as long
+  as an attacker can only see collisions, i.e. ((H(x) ^ H(y)) & bits) ==
+  0, and the consequences of a successful attack is only more collisions
+  (timing).  While the attack is only 2x the cost (two hashes rather than
+  one to test a key), the knowledge of the collision is statistical,
+  especially for network attackers, which raises the cost of guessing
+  beyond an even more brute-force attack.
+- When the hash value directly visible (e.g. included in a network
+  packet), full SipHash should be the default.
+- Syncookies *could* use hsiphash, especially as there are
+  two keys in there.  Not sure if we need the performance.
+- For TCP ISNs, I'd prefer to use full SipHash.  I know this is
+  a very hot path, and if that's a performance bottleneck,
+  we can work harder on it.
+
+In particular, TCP ISNs *used* to rotate the key periodically,
+limiting the time available to an attacker to perform an
+attack before the secret goes stale and is useless.  commit
+6e5714eaf77d79ae1c8b47e3e040ff5411b717ec upgraded to md5 and dropped
+the key rotation.
+
+If 2x hsiphash is faster than siphash, we could use a double-hashing
+system like syncookies.  One 32-bit hash with a permanent key, summed
+with a k-bit counter and a (32-k)-bit hash, where the key is rotated
+(and the counter incremented) periodically.
+
+The requirement is that the increment rate of the counter hash doesn't
+shorten the sequence number wraparound too much.  The old code used an
+8-bit counter and 24-bit hash, with the counter bumped every 5 minutes.
+
+Current code uses a 64 ns tick for the ISN, so it counts 2^24 per second.
+(32 bits wraps every 4.6 minutes.)  A 4-bit counter and 28-bit hash
+(or even 3+29) would work as long as the key is regenerated no more
+than once per minute.  (Just using the 4.6-minute ISN wrap time is the
+obvious simple implementation.)
+
+(Of course, I defer to DaveM's judgement on all network-related issues.)
