@@ -1,89 +1,97 @@
-From: "ira.weiny" <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [RFC v2 00/10] HFI Virtual Network Interface Controller (VNIC)
-Date: Thu, 15 Dec 2016 20:24:05 -0500
-Message-ID: <20161216012404.GD3785@phlsvsds.ph.intel.com>
-References: <1481788782-89964-1-git-send-email-niranjana.vishwanathapura@intel.com> <20161215091226.GC811@mtr-leonro.local> <20161215145212.GA29116@phlsvsds.ph.intel.com> <380b05bf-a18e-1f20-7e8e-10b61f77dec7@redhat.com> <20161215170713.GD3264@obsidianresearch.com> <4e22bf29-2260-0768-ab17-9a8df6306f37@redhat.com> <20161215184837.GA16552@obsidianresearch.com>
+From: Joe Stringer <joe@ovn.org>
+Subject: Re: [PATCH perf/core REBASE 2/5] samples/bpf: Switch over to libbpf
+Date: Thu, 15 Dec 2016 17:48:31 -0800
+Message-ID: <CAPWQB7EAN7Fg8+vO3Tn7WYWcZW_JpKQFNCJzY_K100ckab6JRg@mail.gmail.com>
+References: <20161214224342.12858-1-joe@ovn.org> <20161214224342.12858-3-joe@ovn.org>
+ <20161215155022.GE6866@kernel.org> <20161215182918.GG6866@kernel.org>
+ <20161215183440.GH6866@kernel.org> <CAPWQB7GhHZOf4c5mu=__mNNyFFeq+jOZMawweMBg=sNiPpt-zg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Jeff Kirsher <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        "Vishwanathapura, Niranjana" <niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20161215184837.GA16552-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8BIT
+Cc: LKML <linux-kernel@vger.kernel.org>,
+        netdev <netdev@vger.kernel.org>, Wang Nan <wangnan0@huawei.com>,
+        ast@fb.com, Daniel Borkmann <daniel@iogearbox.net>,
+        Arnaldo Carvalho de Melo <acme@redhat.com>
+To: Arnaldo Carvalho de Melo <acme@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay4-d.mail.gandi.net ([217.70.183.196]:40461 "EHLO
+        relay4-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755838AbcLPBs6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 15 Dec 2016 20:48:58 -0500
+In-Reply-To: <CAPWQB7GhHZOf4c5mu=__mNNyFFeq+jOZMawweMBg=sNiPpt-zg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 15, 2016 at 11:48:37AM -0700, Jason Gunthorpe wrote:
-> On Thu, Dec 15, 2016 at 01:19:18PM -0500, Doug Ledford wrote:
-> > On 12/15/2016 12:07 PM, Jason Gunthorpe wrote:
-> > > On Thu, Dec 15, 2016 at 11:28:06AM -0500, Doug Ledford wrote:
-> > > 
-> > >> 1) Since your intent is to make this work with multiple versions of the
-> > >> hfi drivers, I disagree with Jason that just because there is only one
-> > >> driver today that we should keep it simple.  Design it right from the
-> > >> beginning of multi driver is your intent is, IMO, a better way to go.
-> > >> You'll work out the bugs in the initial implementation and when it comes
-> > >> time to add the second driver, things will go much more smoothly.
-> > > 
-> > > If that is your position then this should be a straight up IB ULP that
-> > > works with any IB hardware.
-> > 
-> > Yes, see my comments in point #3 of my previous email...
-> 
-> Well, I'm not opposed to the vnic idea - Mellanox had (has?) a similar
-> IB driver. There are lots of good reasons to strictly maintain the
-> ethernet presentation.
+On 15 December 2016 at 14:00, Joe Stringer <joe@ovn.org> wrote:
+> On 15 December 2016 at 10:34, Arnaldo Carvalho de Melo <acme@kernel.org> wrote:
+>> Em Thu, Dec 15, 2016 at 03:29:18PM -0300, Arnaldo Carvalho de Melo escreveu:
+>>> Em Thu, Dec 15, 2016 at 12:50:22PM -0300, Arnaldo Carvalho de Melo escreveu:
+>>> > Em Wed, Dec 14, 2016 at 02:43:39PM -0800, Joe Stringer escreveu:
+>>> > > Now that libbpf under tools/lib/bpf/* is synced with the version from
+>>> > > samples/bpf, we can get rid most of the libbpf library here.
+>>> > >
+>>> > > Signed-off-by: Joe Stringer <joe@ovn.org>
+>>> > > Cc: Alexei Starovoitov <ast@fb.com>
+>>> > > Cc: Daniel Borkmann <daniel@iogearbox.net>
+>>> > > Cc: Wang Nan <wangnan0@huawei.com>
+>>> > > Link: http://lkml.kernel.org/r/20161209024620.31660-6-joe@ovn.org
+>>> > > [ Use -I$(srctree)/tools/lib/ to support out of source code tree builds, as noticed by Wang Nan ]
+>>>
+>>> So, the above comment no longer applied to this adjusted patch from you,
+>>> as you removed one hunk too much, that, after applied, gets samples/bpf/
+>>> to build successfully:
+>>>
+>>> diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
+>>> index add514e2984a..81b0ef2f7994 100644
+>>> --- a/samples/bpf/Makefile
+>>> +++ b/samples/bpf/Makefile
+>>> @@ -107,6 +107,7 @@ always += lwt_len_hist_kern.o
+>>>  always += xdp_tx_iptunnel_kern.o
+>>>
+>>>  HOSTCFLAGS += -I$(objtree)/usr/include
+>>> +HOSTCFLAGS += -I$(srctree)/tools/lib/
+>>>  HOSTCFLAGS += -I$(srctree)/tools/testing/selftests/bpf/
+>>>
+>>>  HOSTCFLAGS_bpf_load.o += -I$(objtree)/usr/include -Wno-unused-variable
+>>>
+>>> ---------------------
+>>>
+>>> I added it, continuing...
+>>
+>> But then, when I tried to run offwaketime with it, it fails:
+>>
+>> [root@jouet bpf]# ./offwaketime  ls
+>> bpf_load_program() err=22
+>> BPF_LDX uses reserved fields
+>> bpf_load_program() err=22
+>> BPF_LDX uses reserved fields
+>> [root@jouet bpf]#
+>>
+>> If I remove this patch and try again, it works:
+>>
+>> [root@jouet bpf]# ./offwaketime | head -4
+>> swapper/1;start_secondary;cpu_startup_entry;schedule_preempt_disabled;schedule;__schedule;-;---;; 46
+>> chrome;return_from_SYSCALL_64;do_syscall_64;exit_to_usermode_loop;schedule;__schedule;-;try_to_wake_up;do_futex;sys_futex;do_syscall_64;return_from_SYSCALL_64;;Chrome_ChildIOT 1
+>> firefox;entry_SYSCALL_64_fastpath;sys_poll;do_sys_poll;poll_schedule_timeout;schedule_hrtimeout_range;schedule_hrtimeout_range_clock;schedule;__schedule;-;try_to_wake_up;pollwake;__wake_up_common;__wake_up_sync_key;pipe_write;__vfs_write;vfs_write;sys_write;entry_SYSCALL_64_fastpath;;Timer 3
+>> dockerd-current;entry_SYSCALL_64_fastpath;sys_select;core_sys_select;do_select;poll_schedule_timeout;schedule_hrtimeout_range;schedule_hrtimeout_range_clock;schedule;__schedule;-;try_to_wake_up;futex_wake;do_futex;sys_futex;entry_SYSCALL_64_fastpath;;dockerd-current 2
+>> [root@jouet bpf]#
+>>
+>>
+>> So, I'm stopping here so that I can push what I have to Ingo, then I'll get
+>> back to this, hopefully by then you beat me and I have just to retest 8-)
+>
+> OK, thanks for the report. Looks like there was another difference
+> between the two libbpfs - one used total program size for its
+> load_program API; the actual kernel API uses instruction count. This
+> incremental should do the trick:
+>
+> https://github.com/joestringer/linux/commit/6ff7726f20077bed66fb725f5189c13690154b6a
 
-Agreed.  I'm pretty worried about the idea of putting VNIC into IPoIB.  It
-seems like a force fit at best.
+The full branch with this change (fast-forward from your tmp branch)
+is available here:
+https://github.com/joestringer/linux/tree/submit/libbpf_samples_v5
 
-> 
-> There is much more going on here than just changing the LLADDR,
-> essentially everything MAD focused is different compared to ipoib, and
-> it looks like the required datastructures are different too. This is
-> more of a map a mac to a OPA_LRH approach with SA mediated discovery,
-> by my eye.
-> 
-> The main share is the 'skb send' part, we've talked about hoisting
-> that out of ipoib in the past anyhow. A generic verb along those lines
-> would probably allow the sdma optimization for hfi for both this new
-> ulp and ipoib without creating such an ugly HFI1 specific interface.
-
-I'm not sure what you mean about "skb send" being used by ipoib.  Right now
-IPoIB already supplies a "generic skb send" for _Verbs_ in ipoib_send.
-
-I don't know what other devices would do to implement ipoib_send?  To me, it
-seems like the abstraction for IPoIB is at the proper layer now.
-
-For OPA, the hfi driver supports both IPoIB and VNIC.  So expecting IPoIB and
-VNIC to use a generic "skb send" in ib_device is going to make hfi1 do a lot of
-work to determine which ULP is calling it or make the interface kind of ugly.
-Either way I don't see how this is better than a separate set of functions.
-
-IMO the cleanest way to "clean up the ugly HFI1 interface" is to just  put the
-VNIC operations into ib_device similar to the iWarp specific structure
-"iw_cm_verbs" which is there today.
-
-If a device supports the VNIC operations then it can set the pointer and if not
-it will be NULL.  VNIC will look for that pointer for the support it needs.  If
-in the future other devices need modifications to that interface we can modify
-it then.
-
-Ira
-
-> 
-> Jason
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I tried running every selftest and BPF sample I could get my hands on;
+there's one or two that I couldn't run, but seemed more to do with my
+versions of TC/iproute and kernel config rather than libbpf changes.
+Let me know if you see any further trouble.
