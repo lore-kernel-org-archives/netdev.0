@@ -1,53 +1,37 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH] bpf: cgroup: annotate pointers in struct cgroup_bpf with
- __rcu
-Date: Fri, 16 Dec 2016 10:20:37 -0800
-Message-ID: <20161216182036.GB80546@ast-mbp.thefacebook.com>
-References: <20161215095321.10571-1-daniel@zonque.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [TSN RFC v2 0/9] TSN driver for the kernel
+Date: Fri, 16 Dec 2016 13:20:57 -0500 (EST)
+Message-ID: <20161216.132057.1771215556712298530.davem@davemloft.net>
+References: <1481911153-549-1-git-send-email-henrik@austad.us>
+        <1481911964.3572.1.camel@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ast@fb.com, daniel@iogearbox.net, netdev@vger.kernel.org,
-        davem@davemloft.net
-To: Daniel Mack <daniel@zonque.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:35598 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757923AbcLPSUl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2016 13:20:41 -0500
-Received: by mail-pg0-f65.google.com with SMTP id p66so10429474pga.2
-        for <netdev@vger.kernel.org>; Fri, 16 Dec 2016 10:20:41 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20161215095321.10571-1-daniel@zonque.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: henrik@austad.us, linux-kernel@vger.kernel.org,
+        richardcochran@gmail.com, haustad@cisco.com,
+        linux-media@vger.kernel.org, alsa-devel@vger.kernel.org,
+        netdev@vger.kernel.org
+To: gvrose8192@gmail.com
+Return-path: <linux-media-owner@vger.kernel.org>
+In-Reply-To: <1481911964.3572.1.camel@gmail.com>
+Sender: linux-media-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 15, 2016 at 10:53:21AM +0100, Daniel Mack wrote:
-> The member 'effective' in 'struct cgroup_bpf' is protected by RCU.
-> Annotate it accordingly to squelch a sparse warning.
+From: Greg <gvrose8192@gmail.com>
+Date: Fri, 16 Dec 2016 10:12:44 -0800
+
+> On Fri, 2016-12-16 at 18:59 +0100, henrik@austad.us wrote:
+>> From: Henrik Austad <haustad@cisco.com>
+>> 
+>> 
+>> The driver is directed via ConfigFS as we need userspace to handle
+>> stream-reservation (MSRP), discovery and enumeration (IEEE 1722.1) and
+>> whatever other management is needed. This also includes running an
+>> appropriate PTP daemon (TSN favors gPTP).
 > 
-> Signed-off-by: Daniel Mack <daniel@zonque.org>
-
-Acked-by: Alexei Starovoitov <ast@kernel.org>
-
-was only wondering whether this is really needed for net or can wait till net-next.
-
-> ---
->  include/linux/bpf-cgroup.h | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+> I suggest using a generic netlink interface to communicate with the
+> driver to set up and/or configure your drivers.
 > 
-> diff --git a/include/linux/bpf-cgroup.h b/include/linux/bpf-cgroup.h
-> index 7b6e5d1..92bc89a 100644
-> --- a/include/linux/bpf-cgroup.h
-> +++ b/include/linux/bpf-cgroup.h
-> @@ -20,7 +20,7 @@ struct cgroup_bpf {
->  	 * when this cgroup is accessed.
->  	 */
->  	struct bpf_prog *prog[MAX_BPF_ATTACH_TYPE];
-> -	struct bpf_prog *effective[MAX_BPF_ATTACH_TYPE];
-> +	struct bpf_prog __rcu *effective[MAX_BPF_ATTACH_TYPE];
->  };
->  
->  void cgroup_bpf_put(struct cgroup *cgrp);
-> -- 
-> 2.9.3
-> 
+> I think configfs is frowned upon for network drivers.  YMMV.
+
+Agreed.
