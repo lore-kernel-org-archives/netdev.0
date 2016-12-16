@@ -1,8 +1,10 @@
 From: Mark Greer <mgreer-luAo+O/VEmrlveNOaEYElw@public.gmane.org>
-Subject: Re: [PATCH 1/3] NFC: trf7970a: add device tree option for 27MHz clock
-Date: Thu, 15 Dec 2016 18:06:13 -0700
-Message-ID: <20161216010613.GA25227@animalcreek.com>
+Subject: Re: [PATCH 2/3] NFC: trf7970a: Add device tree option of 1.8 Volt IO
+ voltage
+Date: Thu, 15 Dec 2016 18:13:41 -0700
+Message-ID: <20161216011341.GB25227@animalcreek.com>
 References: <1481841044-4314-1-git-send-email-glansberry@gmail.com>
+ <1481841044-4314-2-git-send-email-glansberry@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, lauro.venancio-430g2QfJUUCGglJvpFV4uA@public.gmane.org,
@@ -13,39 +15,33 @@ Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, lauro.venancio-430g2
 To: Geoff Lansberry <geoff-R+k406RtEhcAvxtiuMwx3w@public.gmane.org>
 Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <1481841044-4314-1-git-send-email-glansberry-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+In-Reply-To: <1481841044-4314-2-git-send-email-glansberry-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi Geoff.
-
-On Thu, Dec 15, 2016 at 05:30:42PM -0500, Geoff Lansberry wrote:
+On Thu, Dec 15, 2016 at 05:30:43PM -0500, Geoff Lansberry wrote:
 > From: Geoff Lansberry <geoff-R+k406RtEhcAvxtiuMwx3w@public.gmane.org>
 
-Please add an informative commit description to all of your commits.
-No matter how trivial this patch may seem to you now, it may not be
-to others (or to you in a few years).
+Missing commit description.
 
 > diff --git a/drivers/nfc/trf7970a.c b/drivers/nfc/trf7970a.c
-> index 26c9dbb..2d2a077 100644
+> index 2d2a077..b4c37ab 100644
 > --- a/drivers/nfc/trf7970a.c
 > +++ b/drivers/nfc/trf7970a.c
 
-> @@ -1181,27 +1180,37 @@ static int trf7970a_in_config_rf_tech(struct trf7970a *trf, int tech)
->  	switch (tech) {
->  	case NFC_DIGITAL_RF_TECH_106A:
->  		trf->iso_ctrl_tech = TRF7970A_ISO_CTRL_14443A_106;
-> -		trf->modulator_sys_clk_ctrl = TRF7970A_MODULATOR_DEPTH_OOK;
-> +		trf->modulator_sys_clk_ctrl =
-> +			(trf->modulator_sys_clk_ctrl & 0xF8) |
+> @@ -1048,6 +1049,11 @@ static int trf7970a_init(struct trf7970a *trf)
+>  	if (ret)
+>  		goto err_out;
+>  
+> +	ret = trf7970a_write(trf, TRF7970A_REG_IO_CTRL,
+> +			trf->io_ctrl|TRF7970A_REG_IO_CTRL_VRS(0x1));
 
-nit: s/0xF8/0xf8/ please (for consistency with the rest of the file.).
+s/l|T/l | T/
 
-Otherwise, it looks good.
-
-Thanks,
+Otherwise, looks good.
 
 Mark
+--
 --
 To unsubscribe from this list: send the line "unsubscribe devicetree" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
