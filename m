@@ -1,51 +1,51 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+From: "George Spelvin" <linux@sciencehorizons.net>
 Subject: Re: [PATCH v5 1/4] siphash: add cryptographically secure PRF
-Date: Fri, 16 Dec 2016 21:39:54 +0100
-Message-ID: <CAHmME9oWDHs2DCRFc8WmvScrj0-cz9EKUHFeiRNTanXLe-v2Sw@mail.gmail.com>
-References: <CAGiyFdfmiCMyHvAg=5sGh8KjBBrF0Wb4Qf=JLzJqUAx4yFSS3Q@mail.gmail.com>
- <20161216034618.28276.qmail@ns.sciencehorizons.net> <CAGiyFdd6_LVzUUfFcaqMyub1c2WPvWUzAQDCH+Aza-_t6mvmXg@mail.gmail.com>
- <CAHmME9pjoAsoct1sVDpFFuqaqutv9X7DGJ5OBQXRAS57KFimUA@mail.gmail.com> <CAGiyFddB_HT3H2yhYQ5rprYZ487rJ4iCaH9uPJQD57hiPbn9ng@mail.gmail.com>
-Reply-To: kernel-hardening@lists.openwall.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: George Spelvin <linux@sciencehorizons.net>, Andi Kleen <ak@linux.intel.com>,
-	David Miller <davem@davemloft.net>, David Laight <David.Laight@aculab.com>,
-	Eric Biggers <ebiggers3@gmail.com>, Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	kernel-hardening@lists.openwall.com,
-	Linux Crypto Mailing List <linux-crypto@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>,
-	Andy Lutomirski <luto@amacapital.net>, Netdev <netdev@vger.kernel.org>,
-	Tom Herbert <tom@herbertland.com>, Linus Torvalds <torvalds@linux-foundation.org>,
-	"Theodore Ts'o" <tytso@mit.edu>, Vegard Nossum <vegard.nossum@gmail.com>,
-	"Daniel J . Bernstein" <djb@cr.yp.to>
-To: Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>
-Return-path: <kernel-hardening-return-5652-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <CAGiyFddB_HT3H2yhYQ5rprYZ487rJ4iCaH9uPJQD57hiPbn9ng@mail.gmail.com>
+Date: 16 Dec 2016 15:41:28 -0500
+Message-ID: <20161216204128.25034.qmail@ns.sciencehorizons.net>
+References: <CALx6S351VFRZmEQphRQy6YtmZYPnOtTN7=XiNrJmhWJGv4HUBg@mail.gmail.com>
+Cc: ak@linux.intel.com, davem@davemloft.net, David.Laight@aculab.com,
+        djb@cr.yp.to, ebiggers3@gmail.com, hannes@stressinduktion.org,
+        jeanphilippe.aumasson@gmail.com,
+        kernel-hardening@lists.openwall.com, linux-crypto@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linux@sciencehorizons.net,
+        luto@amacapital.net, netdev@vger.kernel.org,
+        torvalds@linux-foundation.org, tytso@mit.edu,
+        vegard.nossum@gmail.com
+To: Jason@zx2c4.com, tom@herbertland.com
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <CALx6S351VFRZmEQphRQy6YtmZYPnOtTN7=XiNrJmhWJGv4HUBg@mail.gmail.com>
+Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi JP,
+Tom Herbert wrote:
+> Tested this. Distribution and avalanche effect are still good. Speed
+> wise I see about a 33% improvement over siphash (20 nsecs/op versus 32
+> nsecs). That's about 3x of jhash speed (7 nsecs). So that might closer
+> to a more palatable replacement for jhash. Do we lose any security
+> advantages with halfsiphash?
 
-On Fri, Dec 16, 2016 at 2:22 PM, Jean-Philippe Aumasson
-<jeanphilippe.aumasson@gmail.com> wrote:
-> It needs some basic security review, which I'll try do next week (check for
-> security margin, optimality of rotation counts, etc.). But after a lot of
-> experience with this kind of construction (BLAKE, SipHash, NORX), I'm
-> confident it will be safe as it is.
+What are you testing on?  And what input size?  And does "33% improvement"
+mean 4/3 the rate and 3/4 the time?  Or 2/3 the time and 3/2 the rate?
 
-I've implemented it in my siphash kernel branch:
+These are very odd results.  On a 64-bit machine, SipHash should be the
+same speed per round, and faster because it hashes more data per round.
+(Unless you're hitting some unexpected cache/decode effect due to REX
+prefixes.)
 
-https://git.zx2c4.com/linux-dev/log/?h=siphash
+On a 32-bit machine (other than ARM, where your results might make sense,
+or maybe if you're hashing large amounts of data), the difference should
+be larger.
 
-It's the commit that has "HalfSipHash" in the log message. As the
-structure is nearly identical to SipHash, there wasn't a lot to
-change, and so the same implementation strategy exists for each.
+And yes, there is a *significant* security loss.  SipHash is 128 bits
+("don't worry about it").  hsiphash is 64 bits, which is known breakable
+("worry about it"), so we have to do a careful analysis of the cost of
+a successful attack.
 
-When you've finished your security review and feel good about it, some
-test vectors using the same formula (key={0x03020100, 07060504},
-input={0x0, 0x1, 0x2, 0x3...}, output=test_vectors) would be nice for
-verification.
+As mentioned in the e-mails that just flew by, hsiphash is intended
+*only* for 32-bit machines which bog down on full SipHash.  On all 64-bit
+machines, it will be implemented as an alias for SipHash and the security
+concerns will Just Go Away.
 
-Jason
+The place where hsiphash is expected to make a big difference is 32-bit
+x86.  If you only see 33% difference with "gcc -m32", I'm going to be
+very confused.
