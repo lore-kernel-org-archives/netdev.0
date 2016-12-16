@@ -1,73 +1,82 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH v5 1/4] siphash: add cryptographically secure PRF
-Date: Fri, 16 Dec 2016 12:57:44 -0800
-Message-ID: <CALx6S370xBZr2UzzuVb2t5L+S6JQwVKTZZfOA4vBALjJ3ojREQ@mail.gmail.com>
-References: <CALx6S351VFRZmEQphRQy6YtmZYPnOtTN7=XiNrJmhWJGv4HUBg@mail.gmail.com>
- <20161216204128.25034.qmail@ns.sciencehorizons.net>
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: Re: Re: [PATCH v5 1/4] siphash: add
+ cryptographically secure PRF
+Date: Fri, 16 Dec 2016 22:01:10 +0100
+Message-ID: <CAHmME9pz=syTiLXUsbXFyGdbGK6pxbnU+TVLDkbYiTa-9+sckQ@mail.gmail.com>
+Reply-To: kernel-hardening@lists.openwall.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>,
-        Andi Kleen <ak@linux.intel.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        David Laight <David.Laight@aculab.com>,
-        "Daniel J . Bernstein" <djb@cr.yp.to>,
-        Eric Biggers <ebiggers3@gmail.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>,
-        kernel-hardening@lists.openwall.com,
-        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Andy Lutomirski <luto@amacapital.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Linus Torvalds <torvalds@linux-foundation.org>,
-        "Theodore Ts'o" <tytso@mit.edu>, vegard.nossum@gmail.com
-To: George Spelvin <linux@sciencehorizons.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f195.google.com ([209.85.220.195]:35234 "EHLO
-        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753897AbcLPU5p (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2016 15:57:45 -0500
-Received: by mail-qk0-f195.google.com with SMTP id n204so13131069qke.2
-        for <netdev@vger.kernel.org>; Fri, 16 Dec 2016 12:57:45 -0800 (PST)
-In-Reply-To: <20161216204128.25034.qmail@ns.sciencehorizons.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: kernel-hardening@lists.openwall.com, "Theodore Ts'o" <tytso@mit.edu>,
+	George Spelvin <linux@sciencehorizons.net>, Jason <Jason@zx2c4.com>,
+	Andi Kleen <ak@linux.intel.com>, David Miller <davem@davemloft.net>,
+	David Laight <David.Laight@aculab.com>, "Daniel J . Bernstein" <djb@cr.yp.to>,
+	Eric Biggers <ebiggers3@gmail.com>, Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>,
+	Linux Crypto Mailing List <linux-crypto@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>,
+	Andy Lutomirski <luto@amacapital.net>, Netdev <netdev@vger.kernel.org>,
+	Tom Herbert <tom@herbertland.com>, Linus Torvalds <torvalds@linux-foundation.org>,
+	Vegard Nossum <vegard.nossum@gmail.com>
+Return-path: <kernel-hardening-return-5660-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+List-Id: netdev.vger.kernel.org
 
-On Fri, Dec 16, 2016 at 12:41 PM, George Spelvin
-<linux@sciencehorizons.net> wrote:
-> Tom Herbert wrote:
->> Tested this. Distribution and avalanche effect are still good. Speed
->> wise I see about a 33% improvement over siphash (20 nsecs/op versus 32
->> nsecs). That's about 3x of jhash speed (7 nsecs). So that might closer
->> to a more palatable replacement for jhash. Do we lose any security
->> advantages with halfsiphash?
->
-> What are you testing on?  And what input size?  And does "33% improvement"
-> mean 4/3 the rate and 3/4 the time?  Or 2/3 the time and 3/2 the rate?
->
-Sorry, that is over an IPv4 tuple. Intel(R) Xeon(R) CPU E5-2660 0 @
-2.20GHz. Recoded the function I was using to look like more like 64
-bit version and yes it is indeed slower.
+Hi Ted,
 
-> These are very odd results.  On a 64-bit machine, SipHash should be the
-> same speed per round, and faster because it hashes more data per round.
-> (Unless you're hitting some unexpected cache/decode effect due to REX
-> prefixes.)
+On Fri, Dec 16, 2016 at 9:43 PM, Theodore Ts'o <tytso@mit.edu> wrote:
+> What should we do with get_random_int() and get_random_long()?  In
+> some cases it's being used in performance sensitive areas, and where
+> anti-DoS protection might be enough.  In others, maybe not so much.
 >
-> On a 32-bit machine (other than ARM, where your results might make sense,
-> or maybe if you're hashing large amounts of data), the difference should
-> be larger.
->
-> And yes, there is a *significant* security loss.  SipHash is 128 bits
-> ("don't worry about it").  hsiphash is 64 bits, which is known breakable
-> ("worry about it"), so we have to do a careful analysis of the cost of
-> a successful attack.
->
-> As mentioned in the e-mails that just flew by, hsiphash is intended
-> *only* for 32-bit machines which bog down on full SipHash.  On all 64-bit
-> machines, it will be implemented as an alias for SipHash and the security
-> concerns will Just Go Away.
->
-> The place where hsiphash is expected to make a big difference is 32-bit
-> x86.  If you only see 33% difference with "gcc -m32", I'm going to be
-> very confused.
+> If we rekeyed the secret used by get_random_int() and
+> get_random_long() frequently (say, every minute or every 5 minutes),
+> would that be sufficient for current and future users of these
+> interfaces?
+
+get_random_int() and get_random_long() should quite clearly use
+SipHash with its secure 128-bit key and not HalfSipHash with its
+64-bit key. HalfSipHash is absolutely insufficient for this use case.
+Remember, we're already an order of magnitude or more faster than
+md5...
+
+With regard to periodic rekeying... since the secret is 128-bits, I
+believe this is likely sufficient for _not_ rekeying. There's also the
+chaining variable, to tie together invocations of the function. If
+you'd prefer, instead of the chaining variable, we could use some
+siphash output to mutate the original key, but I don't think this
+approach is actually better and might introduce vulnerabilities. In my
+opinion chaining+128bitkey is sufficient. On the other hand, rekeying
+every X minutes is 3 or 4 lines of code. If you want (just say so),
+I'll add this to my next revision.
+
+You asked about the security requirements of these functions. The
+comment says they're not cryptographically secure. And right now with
+MD5 they're not. So the expectations are pretty low. Moving to siphash
+adds some cryptographic security, certainly. Moving to siphash plus
+rekeying adds a bit more. Of course, on recent x86, RDRAND is used
+instead, so the cryptographic strength then depends on the thickness
+of your tinfoil hat. So probably we shouldn't change what we advertise
+these functions provide, even though we're certainly improving them
+performance-wise and security-wise.
+
+> P.S.  I'll note that my performance figures when testing changes to
+> get_random_int() were done on a 32-bit x86; Jason, I'm guessing your
+> figures were using a 64-bit x86 system?.  I haven't tried 32-bit ARM
+> or smaller CPU's (e.g., mips, et. al.) that might be more likely to be
+> used on IoT devices, but I'm worried about those too, of course.
+
+Yes, on x86-64. But on i386 chacha20 incurs nearly the same kind of
+slowdown as siphash, so I expect the comparison to be more or less
+equal. There's another thing I really didn't like about your chacha20
+approach which is that it uses the /dev/urandom pool, which means
+various things need to kick in in the background to refill this.
+Additionally, having to refill the buffered chacha output every 32 or
+so longs isn't nice. These things together make for inconsistent and
+hard to understand general operating system performance, because
+get_random_long is called at every process startup for ASLR. So, in
+the end, I believe there's another reason for going with the siphash
+approach: deterministic performance.
+
+Jason
