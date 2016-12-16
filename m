@@ -1,11 +1,14 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+From: Tom Herbert <tom@herbertland.com>
 Subject: Re: [PATCH v5 1/4] siphash: add cryptographically secure PRF
-Date: Fri, 16 Dec 2016 21:49:49 +0100
-Message-ID: <CAHmME9q0LaxQ3uinzWyD1mDCpyeLw_2TEAN33T6dDrTKCuHs7g@mail.gmail.com>
+Date: Fri, 16 Dec 2016 12:57:44 -0800
+Message-ID: <CALx6S370xBZr2UzzuVb2t5L+S6JQwVKTZZfOA4vBALjJ3ojREQ@mail.gmail.com>
+References: <CALx6S351VFRZmEQphRQy6YtmZYPnOtTN7=XiNrJmhWJGv4HUBg@mail.gmail.com>
+ <20161216204128.25034.qmail@ns.sciencehorizons.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Andi Kleen <ak@linux.intel.com>,
-        David Miller <davem@davemloft.net>,
+Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>,
+        Andi Kleen <ak@linux.intel.com>,
+        "David S. Miller" <davem@davemloft.net>,
         David Laight <David.Laight@aculab.com>,
         "Daniel J . Bernstein" <djb@cr.yp.to>,
         Eric Biggers <ebiggers3@gmail.com>,
@@ -15,68 +18,56 @@ Cc: Andi Kleen <ak@linux.intel.com>,
         Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
         LKML <linux-kernel@vger.kernel.org>,
         Andy Lutomirski <luto@amacapital.net>,
-        Netdev <netdev@vger.kernel.org>,
-        Tom Herbert <tom@herbertland.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
         Linus Torvalds <torvalds@linux-foundation.org>,
-        "Theodore Ts'o" <tytso@mit.edu>,
-        Vegard Nossum <vegard.nossum@gmail.com>
+        "Theodore Ts'o" <tytso@mit.edu>, vegard.nossum@gmail.com
 To: George Spelvin <linux@sciencehorizons.net>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f195.google.com ([209.85.220.195]:35234 "EHLO
+        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753897AbcLPU5p (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2016 15:57:45 -0500
+Received: by mail-qk0-f195.google.com with SMTP id n204so13131069qke.2
+        for <netdev@vger.kernel.org>; Fri, 16 Dec 2016 12:57:45 -0800 (PST)
+In-Reply-To: <20161216204128.25034.qmail@ns.sciencehorizons.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 16, 2016 at 9:17 PM, George Spelvin
+On Fri, Dec 16, 2016 at 12:41 PM, George Spelvin
 <linux@sciencehorizons.net> wrote:
-> My (speaking enerally; I should walk through every hash table you've
-> converted) opinion is that:
+> Tom Herbert wrote:
+>> Tested this. Distribution and avalanche effect are still good. Speed
+>> wise I see about a 33% improvement over siphash (20 nsecs/op versus 32
+>> nsecs). That's about 3x of jhash speed (7 nsecs). So that might closer
+>> to a more palatable replacement for jhash. Do we lose any security
+>> advantages with halfsiphash?
 >
-> - Hash tables, even network-facing ones, can all use hsiphash as long
->   as an attacker can only see collisions, i.e. ((H(x) ^ H(y)) & bits) ==
->   0, and the consequences of a successful attack is only more collisions
->   (timing).  While the attack is only 2x the cost (two hashes rather than
->   one to test a key), the knowledge of the collision is statistical,
->   especially for network attackers, which raises the cost of guessing
->   beyond an even more brute-force attack.
-> - When the hash value directly visible (e.g. included in a network
->   packet), full SipHash should be the default.
-> - Syncookies *could* use hsiphash, especially as there are
->   two keys in there.  Not sure if we need the performance.
-> - For TCP ISNs, I'd prefer to use full SipHash.  I know this is
->   a very hot path, and if that's a performance bottleneck,
->   we can work harder on it.
+> What are you testing on?  And what input size?  And does "33% improvement"
+> mean 4/3 the rate and 3/4 the time?  Or 2/3 the time and 3/2 the rate?
 >
-> In particular, TCP ISNs *used* to rotate the key periodically,
-> limiting the time available to an attacker to perform an
-> attack before the secret goes stale and is useless.  commit
-> 6e5714eaf77d79ae1c8b47e3e040ff5411b717ec upgraded to md5 and dropped
-> the key rotation.
+Sorry, that is over an IPv4 tuple. Intel(R) Xeon(R) CPU E5-2660 0 @
+2.20GHz. Recoded the function I was using to look like more like 64
+bit version and yes it is indeed slower.
 
-While I generally agree with this analysis for the most part, I do
-think we should use SipHash and not HalfSipHash for syncookies.
-Although the security risk is lower than with sequence numbers, it
-previously used full MD5 for this, which means performance is not
-generally a bottleneck and we'll get massive speedups no matter what,
-whether using SipHash or HalfSipHash. In addition, using SipHash means
-that the 128-bit key gives a larger margin and can be safe longterm.
-So, I think we should err on the side of caution and stick with
-SipHash in all cases in which we're upgrading from MD5.
-
-In other words, only current jhash users should be potentially
-eligible for hsiphash.
-
-
-> Current code uses a 64 ns tick for the ISN, so it counts 2^24 per second.
-> (32 bits wraps every 4.6 minutes.)  A 4-bit counter and 28-bit hash
-> (or even 3+29) would work as long as the key is regenerated no more
-> than once per minute.  (Just using the 4.6-minute ISN wrap time is the
-> obvious simple implementation.)
+> These are very odd results.  On a 64-bit machine, SipHash should be the
+> same speed per round, and faster because it hashes more data per round.
+> (Unless you're hitting some unexpected cache/decode effect due to REX
+> prefixes.)
 >
-> (Of course, I defer to DaveM's judgement on all network-related issues.)
-
-I saw that jiffies addition in there and was wondering what it was all
-about. It's currently added _after_ the siphash input, not before, to
-keep with how the old algorithm worked. I'm not sure if this is
-correct or if there's something wrong with that, as I haven't studied
-how it works. If that jiffies should be part of the siphash input and
-not added to the result, please tell me. Otherwise I'll keep things
-how they are to avoid breaking something that seems to be working.
+> On a 32-bit machine (other than ARM, where your results might make sense,
+> or maybe if you're hashing large amounts of data), the difference should
+> be larger.
+>
+> And yes, there is a *significant* security loss.  SipHash is 128 bits
+> ("don't worry about it").  hsiphash is 64 bits, which is known breakable
+> ("worry about it"), so we have to do a careful analysis of the cost of
+> a successful attack.
+>
+> As mentioned in the e-mails that just flew by, hsiphash is intended
+> *only* for 32-bit machines which bog down on full SipHash.  On all 64-bit
+> machines, it will be implemented as an alias for SipHash and the security
+> concerns will Just Go Away.
+>
+> The place where hsiphash is expected to make a big difference is 32-bit
+> x86.  If you only see 33% difference with "gcc -m32", I'm going to be
+> very confused.
