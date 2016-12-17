@@ -1,58 +1,45 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+From: "George Spelvin" <linux@sciencehorizons.net>
 Subject: Re: [PATCH v5 1/4] siphash: add cryptographically secure PRF
-Date: Sat, 17 Dec 2016 02:39:50 +0100
-Message-ID: <CAHmME9r4YNqNSZ-KXAHtJN_vm+eL1tSoC-6muHaFUN6fWhkO2g@mail.gmail.com>
-References: <CAHmME9oEhmqW3320Ch+Rczu_=CxQyUQXCGLnYjDm-CYbWugnSw@mail.gmail.com>
- <20161216234408.30174.qmail@ns.sciencehorizons.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Andi Kleen <ak@linux.intel.com>,
-        David Miller <davem@davemloft.net>,
-        David Laight <David.Laight@aculab.com>,
-        "Daniel J . Bernstein" <djb@cr.yp.to>,
-        Eric Biggers <ebiggers3@gmail.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>,
-        kernel-hardening@lists.openwall.com,
-        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Andy Lutomirski <luto@amacapital.net>,
-        Netdev <netdev@vger.kernel.org>,
-        Tom Herbert <tom@herbertland.com>,
-        Linus Torvalds <torvalds@linux-foundation.org>,
-        "Theodore Ts'o" <tytso@mit.edu>,
-        Vegard Nossum <vegard.nossum@gmail.com>
-To: George Spelvin <linux@sciencehorizons.net>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <20161216234408.30174.qmail@ns.sciencehorizons.net>
-Sender: linux-crypto-owner@vger.kernel.org
+Date: 16 Dec 2016 21:15:03 -0500
+Message-ID: <20161217021503.32767.qmail@ns.sciencehorizons.net>
+References: <CAHmME9r4YNqNSZ-KXAHtJN_vm+eL1tSoC-6muHaFUN6fWhkO2g@mail.gmail.com>
+Reply-To: kernel-hardening@lists.openwall.com
+Cc: ak@linux.intel.com, davem@davemloft.net, David.Laight@aculab.com,
+  djb@cr.yp.to, ebiggers3@gmail.com, hannes@stressinduktion.org,
+  jeanphilippe.aumasson@gmail.com, kernel-hardening@lists.openwall.com,
+  linux-crypto@vger.kernel.org, linux-kernel@vger.kernel.org,
+  luto@amacapital.net, netdev@vger.kernel.org, tom@herbertland.com,
+  torvalds@linux-foundation.org, tytso@mit.edu, vegard.nossum@gmail.com
+To: Jason@zx2c4.com, linux@sciencehorizons.net
+Return-path: <kernel-hardening-return-5688-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+In-Reply-To: <CAHmME9r4YNqNSZ-KXAHtJN_vm+eL1tSoC-6muHaFUN6fWhkO2g@mail.gmail.com>
 List-Id: netdev.vger.kernel.org
 
-On Sat, Dec 17, 2016 at 12:44 AM, George Spelvin
-<linux@sciencehorizons.net> wrote:
-> Ths advice I'd give now is:
-> - Implement
-> unsigned long hsiphash(const void *data, size_t len, const unsigned long key[2])
->   .. as SipHash on 64-bit (maybe SipHash-1-3, still being discussed) and
->   HalfSipHash on 32-bit.
+> I already did this. Check my branch.
 
-I already did this. Check my branch.
+Do you think it should return "u32" (as you currently have it) or
+"unsigned long"?  I thought the latter, since it doesn't cost any
+more and makes more 
 
-> - Document when it may or may not be used carefully.
+> I wonder if this could also lead to a similar aliasing
+> with arch_get_random_int, since I'm pretty sure all rdrand-like
+> instructions return native word size anyway.
 
-Good idea. I'll write up some extensive documentation about all of
-this, detailing use cases and our various conclusions.
+Well, Intel's can return 16, 32 or 64 bits, and it makes a
+small difference with reseed scheduling.
 
-> - #define get_random_int (unsigned)get_random_long
+>> - Ted, Andy Lutorminski and I will try to figure out a construction of
+>>   get_random_long() that we all like.
 
-That's a good idea, since ultimately the other just casts in the
-return value. I wonder if this could also lead to a similar aliasing
-with arch_get_random_int, since I'm pretty sure all rdrand-like
-instructions return native word size anyway.
+> And me, I hope... No need to make this exclusive.
 
-> - Ted, Andy Lutorminski and I will try to figure out a construction of
->   get_random_long() that we all like.
+Gaah, engage brain before fingers.  That was so obvious I didn't say
+it, and the result came out sounding extremely rude.
 
-And me, I hope... No need to make this exclusive.
-
-Jason
+A better (but longer) way to write it would be "I'm sorry that I, Ted,
+and Andy are all arguing with you and each other about how to do this
+and we can't finalize this part yet".
