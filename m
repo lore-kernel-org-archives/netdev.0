@@ -1,10 +1,10 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCHv2 1/5] sh_eth: add generic wake-on-lan support via magic
- packet
-Date: Sun, 18 Dec 2016 00:50:59 +0300
-Message-ID: <079800f0-2e80-7a0b-01e2-51e09f05345c@cogentembedded.com>
+Subject: Re: [PATCHv2 2/5] sh_eth: enable wake-on-lan for Gen2 devices
+Date: Sun, 18 Dec 2016 00:52:58 +0300
+Message-ID: <f433b87e-c228-fa2c-b563-3cd5a7ab9546@cogentembedded.com>
 References: <20161212160931.6478-1-niklas.soderlund+renesas@ragnatech.se>
- <20161212160931.6478-2-niklas.soderlund+renesas@ragnatech.se>
+ <20161212160931.6478-3-niklas.soderlund+renesas@ragnatech.se>
+ <eeff27f9-25eb-a981-33a9-15aa98ce9db1@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 8bit
@@ -14,59 +14,37 @@ To: =?UTF-8?Q?Niklas_S=c3=b6derlund?=
         Simon Horman <horms+renesas@verge.net.au>,
         netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org
 Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <20161212160931.6478-2-niklas.soderlund+renesas@ragnatech.se>
+In-Reply-To: <eeff27f9-25eb-a981-33a9-15aa98ce9db1@cogentembedded.com>
 Sender: linux-renesas-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello!
+On 12/14/2016 04:37 PM, Sergei Shtylyov wrote:
 
-On 12/12/2016 07:09 PM, Niklas Söderlund wrote:
+>> Tested on Gen2 r8a7791/Koelsch.
+>>
+>> Signed-off-by: Niklas Söderlund <niklas.soderlund+renesas@ragnatech.se>
+>> ---
+>>  drivers/net/ethernet/renesas/sh_eth.c | 6 ++++--
+>>  1 file changed, 4 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/renesas/sh_eth.c
+>> b/drivers/net/ethernet/renesas/sh_eth.c
+>> index 87640b9..348ed22 100644
+>> --- a/drivers/net/ethernet/renesas/sh_eth.c
+>> +++ b/drivers/net/ethernet/renesas/sh_eth.c
+>> @@ -624,8 +624,9 @@ static struct sh_eth_cpu_data r8a779x_data = {
+>>
+>>      .register_type    = SH_ETH_REG_FAST_RCAR,
+>>
+>> -    .ecsr_value    = ECSR_PSRTO | ECSR_LCHNG | ECSR_ICD,
+>> -    .ecsipr_value    = ECSIPR_PSRTOIP | ECSIPR_LCHNGIP | ECSIPR_ICDIP,
+>> +    .ecsr_value    = ECSR_PSRTO | ECSR_LCHNG | ECSR_ICD | ECSR_MPD,
+>> +    .ecsipr_value    = ECSIPR_PSRTOIP | ECSIPR_LCHNGIP | ECSIPR_ICDIP |
+>> +              ECSIPR_MPDIP,
+>
+>   These expressions seem to have been sorted by the bit # before your patch,
+> now they aren't... care to fix? :-)
 
-    Not the complete review yet, just some superficial comments.
-
-> Add generic functionality to support Wake-on-Lan using MagicPacket which
-
-    LAN.
-
-> are supported by at least a few versions of sh_eth. Only add
-> functionality for WoL, no specific sh_eth version are marked to support
-> WoL yet.
-
-[...]
-
-> diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-> index 05b0dc5..87640b9 100644
-> --- a/drivers/net/ethernet/renesas/sh_eth.c
-> +++ b/drivers/net/ethernet/renesas/sh_eth.c
-[...]
-> @@ -3150,15 +3187,67 @@ static int sh_eth_drv_remove(struct platform_device *pdev)
-[...]
-> +static int sh_eth_wol_restore(struct net_device *ndev)
-> +{
-> +	struct sh_eth_private *mdp = netdev_priv(ndev);
-> +	int ret;
-> +
-> +	napi_enable(&mdp->napi);
-> +
-> +	/* Disable MagicPacket */
-> +	sh_eth_modify(ndev, ECMR, ECMR_PMDE, 0);
-> +
-> +	/* The device need to be reset to restore MagicPacket logic
-
-    Needs.
-
-[...]
-> index d050f37..4ceed00 100644
-> --- a/drivers/net/ethernet/renesas/sh_eth.h
-> +++ b/drivers/net/ethernet/renesas/sh_eth.h
-> @@ -493,6 +493,7 @@ struct sh_eth_cpu_data {
->  	unsigned shift_rd0:1;	/* shift Rx descriptor word 0 right by 16 */
->  	unsigned rmiimode:1;	/* EtherC has RMIIMODE register */
->  	unsigned rtrate:1;	/* EtherC has RTRATE register */
-> +	unsigned magic:1;	/* EtherC has ECMR.PMDE and ECSR.MPD */
-
-    After looking at the SH7734/63 manuals it became obvious that PMDE was a 
-result of typo, the bit is called MPDE actually, the current name doesn't make 
-sense anyway. Care to fix?
+    After looking at the SH7743/64 code, nevermind this request. Sorry. :-)
 
 MBR, Sergei
