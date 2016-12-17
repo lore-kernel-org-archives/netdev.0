@@ -1,206 +1,126 @@
-From: kbuild test robot <lkp@intel.com>
-Subject: Re: [PATCH net 2/2] bpf: fix overflow in prog accounting
-Date: Sat, 17 Dec 2016 11:15:39 +0800
-Message-ID: <201612171111.2gFbTPU5%fengguang.wu@intel.com>
-References: <e225c943767e175b2431a8f23699b7dad5e2758b.1481935106.git.daniel@iogearbox.net>
+From: Michal Hocko <mhocko@kernel.org>
+Subject: Re: [PATCH 1/2] bpf: do not use KMALLOC_SHIFT_MAX
+Date: Sat, 17 Dec 2016 09:27:11 +0100
+Message-ID: <20161217082711.GA25784@dhcp22.suse.cz>
+References: <20161215164722.21586-1-mhocko@kernel.org>
+ <20161215164722.21586-2-mhocko@kernel.org>
+ <20161216180209.GA77597@ast-mbp.thefacebook.com>
+ <20161216220235.GD7645@dhcp22.suse.cz>
+ <20161216232340.GA99159@ast-mbp.thefacebook.com>
+ <20161216233917.GB23392@dhcp22.suse.cz>
+ <20161217002820.GB5359@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="gBBFr7Ir9EOA20Yy"
-Cc: kbuild-all@01.org, davem@davemloft.net, ast@fb.com,
-        netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
-To: Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:21352 "EHLO mga11.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753810AbcLQDQZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 16 Dec 2016 22:16:25 -0500
-Content-Disposition: inline
-In-Reply-To: <e225c943767e175b2431a8f23699b7dad5e2758b.1481935106.git.daniel@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-
---gBBFr7Ir9EOA20Yy
 Content-Type: text/plain; charset=us-ascii
+Cc: linux-mm@kvack.org, Cristopher Lameter <cl@linux.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Alexei Starovoitov <ast@kernel.org>, netdev@vger.kernel.org,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
 Content-Disposition: inline
+In-Reply-To: <20161217002820.GB5359@ast-mbp.thefacebook.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Hi Daniel,
+On Fri 16-12-16 16:28:21, Alexei Starovoitov wrote:
+> On Sat, Dec 17, 2016 at 12:39:17AM +0100, Michal Hocko wrote:
+> > On Fri 16-12-16 15:23:42, Alexei Starovoitov wrote:
+> > > On Fri, Dec 16, 2016 at 11:02:35PM +0100, Michal Hocko wrote:
+> > > > On Fri 16-12-16 10:02:10, Alexei Starovoitov wrote:
+> > > > > On Thu, Dec 15, 2016 at 05:47:21PM +0100, Michal Hocko wrote:
+> > > > > > From: Michal Hocko <mhocko@suse.com>
+> > > > > > 
+> > > > > > 01b3f52157ff ("bpf: fix allocation warnings in bpf maps and integer
+> > > > > > overflow") has added checks for the maximum allocateable size. It
+> > > > > > (ab)used KMALLOC_SHIFT_MAX for that purpose. While this is not incorrect
+> > > > > > it is not very clean because we already have KMALLOC_MAX_SIZE for this
+> > > > > > very reason so let's change both checks to use KMALLOC_MAX_SIZE instead.
+> > > > > > 
+> > > > > > Cc: Alexei Starovoitov <ast@kernel.org>
+> > > > > > Signed-off-by: Michal Hocko <mhocko@suse.com>
+> > > > > 
+> > > > > Nack until the patches 1 and 2 are reversed.
+> > > > 
+> > > > I do not insist on ordering. The thing is that it shouldn't matter all
+> > > > that much. Or are you worried about bisectability?
+> > > 
+> > > This patch 1 strongly depends on patch 2 !
+> > > Therefore order matters.
+> > > The patch 1 by itself is broken.
+> > > The commit log is saying
+> > > '(ab)used KMALLOC_SHIFT_MAX for that purpose .. use KMALLOC_MAX_SIZE instead'
+> > > that is also incorrect. We cannot do that until KMALLOC_MAX_SIZE is fixed.
+> > > So please change the order
+> > 
+> > Yes, I agree that using KMALLOC_MAX_SIZE could lead to a warning with
+> > the current ordering. Why that matters all that much is less clear to
+> > me. The allocation would simply fail and you would return ENOMEM rather
+> > than E2BIG. Does this really matter?
+> > 
+> > Anyway, as I've said, I do not really insist on the current ordering and
+> > the will ask Andrew to reorder them. I am just really wondering about
+> > such a strong pushback about something that barely matters. Or maybe I
+> > am just missing your point and checking KMALLOC_MAX_SIZE without an
+> > update would lead to a wrong behavior, user space breakage, crash or
+> > anything similar.
+> 
+> if admin set ulimit for locked memory high enough for the particular user,
+> that non-root user will be able to trigger warn_on_once in __alloc_pages_slowpath
+> which is not acceptable.
 
-[auto build test ERROR on net/master]
+But why is the warning such a big deal?
 
-url:    https://github.com/0day-ci/linux/commits/Daniel-Borkmann/bpf-dynamically-allocate-digest-scratch-buffer/20161217-090046
-config: openrisc-or1ksim_defconfig (attached as .config)
-compiler: or32-linux-gcc (GCC) 4.5.1-or32-1.0rc1
-reproduce:
-        wget https://git.kernel.org/cgit/linux/kernel/git/wfg/lkp-tests.git/plain/sbin/make.cross -O ~/bin/make.cross
-        chmod +x ~/bin/make.cross
-        # save the attached .config to linux build tree
-        make.cross ARCH=openrisc 
+Also note that such a setup would be inherently dangerous. Even the
+default ulimit for the locked memory allows to allocat 64k which means
+that an untrusted user will be able to request PAGE_ALLOC_COSTLY_ORDER
+and potentially deplete those larger blocks to the extend it hits the
+OOM killer with the current gfp flags.
 
-All errors (new ones prefixed by >>):
+I think what you really want is a GFP_NORETRY for size > PAGE_SIZE and
+fallback to the vmalloc for failure. But that is a separate topic.
 
-   kernel/bpf/core.c: In function '__bpf_prog_charge':
->> kernel/bpf/core.c:80:50: error: 'struct user_struct' has no member named 'locked_vm'
-   kernel/bpf/core.c:82:32: error: 'struct user_struct' has no member named 'locked_vm'
-   kernel/bpf/core.c: In function '__bpf_prog_uncharge':
-   kernel/bpf/core.c:93:31: error: 'struct user_struct' has no member named 'locked_vm'
+> Also see the comment in hashtab.c
+>   if (htab->map.value_size >= (1 << (KMALLOC_SHIFT_MAX - 1)) -
+>       MAX_BPF_STACK - sizeof(struct htab_elem))
+>           /* if value_size is bigger, the user space won't be able to
+>            * access the elements via bpf syscall. This check also makes
+>            * sure that the elem_size doesn't overflow and it's
+>            * kmalloc-able later in htab_map_update_elem()
+>            */
+>           goto free_htab;
 
-vim +80 kernel/bpf/core.c
+I have seen this comment before, but honestly, I do not understand it
+(well apart from the overflow part).
+htab_map_update_elem has to be able to handle the allocation failure in
+any case. Note that any allocation larger than 64kB is likely to fail
+anyway.
 
-    74	static int __bpf_prog_charge(struct user_struct *user, u32 pages)
-    75	{
-    76		unsigned long memlock_limit = rlimit(RLIMIT_MEMLOCK) >> PAGE_SHIFT;
-    77		unsigned long user_bufs;
-    78	
-    79		if (user) {
-  > 80			user_bufs = atomic_long_add_return(pages, &user->locked_vm);
-    81			if (user_bufs > memlock_limit) {
-    82				atomic_long_sub(pages, &user->locked_vm);
-    83				return -EPERM;
+> 
+> > > and fix the commit log to say that KMALLOC_MAX_SIZE
+> > > is actually valid limit now.
+> > 
+> > KMALLOC_MAX_SIZE has always been the right limit. It's value has been
+> > incorrect but that is to be fixed now. Using KMALLOC_SHIFT_MAX is simply
+> > abusing an internal constant. So I am not sure what should be fixed in
+> > the changelog.
+> 
+> that's exactly my problem with this patch and the commit log.
+> You think it's abusing KMALLOC_SHIFT_MAX whereas it's doing so
+> for reasons stated above.
+> That piece of code cannot use KMALLOC_MAX_SIZE until it's fixed.
+> So commit log should say something like:
+> "now since KMALLOC_MAX_SIZE is fixed and size < KMALLOC_MAX_SIZE condition
+> guarantees warn free allocation in kmalloc(value_size, GFP_USER | __GFP_NOWARN);
+> we can safely use KMALLOC_MAX_SIZE instead of KMALLOC_SHIFT_MAX"
 
----
-0-DAY kernel test infrastructure                Open Source Technology Center
-https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
+OK, fair enough, I will update the changelog
 
---gBBFr7Ir9EOA20Yy
-Content-Type: application/gzip
-Content-Disposition: attachment; filename=".config.gz"
-Content-Transfer-Encoding: base64
+-- 
+Michal Hocko
+SUSE Labs
 
-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
-awAA
-
---gBBFr7Ir9EOA20Yy--
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
