@@ -1,99 +1,43 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH 1/2] bpf: do not use KMALLOC_SHIFT_MAX
-Date: Fri, 16 Dec 2016 16:28:21 -0800
-Message-ID: <20161217002820.GB5359@ast-mbp.thefacebook.com>
-References: <20161215164722.21586-1-mhocko@kernel.org>
- <20161215164722.21586-2-mhocko@kernel.org>
- <20161216180209.GA77597@ast-mbp.thefacebook.com>
- <20161216220235.GD7645@dhcp22.suse.cz>
- <20161216232340.GA99159@ast-mbp.thefacebook.com>
- <20161216233917.GB23392@dhcp22.suse.cz>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-mm@kvack.org, Cristopher Lameter <cl@linux.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Alexei Starovoitov <ast@kernel.org>, netdev@vger.kernel.org,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: Michal Hocko <mhocko@kernel.org>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20161216233917.GB23392@dhcp22.suse.cz>
-Sender: owner-linux-mm@kvack.org
+From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
+Subject: [PATCH] net: mv643xx_eth: fix build failure
+Date: Sat, 17 Dec 2016 00:45:05 +0000
+Message-ID: <1481935505-24475-1-git-send-email-sudipm.mukherjee@gmail.com>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        Sudip Mukherjee <sudipm.mukherjee@gmail.com>
+To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Dec 17, 2016 at 12:39:17AM +0100, Michal Hocko wrote:
-> On Fri 16-12-16 15:23:42, Alexei Starovoitov wrote:
-> > On Fri, Dec 16, 2016 at 11:02:35PM +0100, Michal Hocko wrote:
-> > > On Fri 16-12-16 10:02:10, Alexei Starovoitov wrote:
-> > > > On Thu, Dec 15, 2016 at 05:47:21PM +0100, Michal Hocko wrote:
-> > > > > From: Michal Hocko <mhocko@suse.com>
-> > > > > 
-> > > > > 01b3f52157ff ("bpf: fix allocation warnings in bpf maps and integer
-> > > > > overflow") has added checks for the maximum allocateable size. It
-> > > > > (ab)used KMALLOC_SHIFT_MAX for that purpose. While this is not incorrect
-> > > > > it is not very clean because we already have KMALLOC_MAX_SIZE for this
-> > > > > very reason so let's change both checks to use KMALLOC_MAX_SIZE instead.
-> > > > > 
-> > > > > Cc: Alexei Starovoitov <ast@kernel.org>
-> > > > > Signed-off-by: Michal Hocko <mhocko@suse.com>
-> > > > 
-> > > > Nack until the patches 1 and 2 are reversed.
-> > > 
-> > > I do not insist on ordering. The thing is that it shouldn't matter all
-> > > that much. Or are you worried about bisectability?
-> > 
-> > This patch 1 strongly depends on patch 2 !
-> > Therefore order matters.
-> > The patch 1 by itself is broken.
-> > The commit log is saying
-> > '(ab)used KMALLOC_SHIFT_MAX for that purpose .. use KMALLOC_MAX_SIZE instead'
-> > that is also incorrect. We cannot do that until KMALLOC_MAX_SIZE is fixed.
-> > So please change the order
-> 
-> Yes, I agree that using KMALLOC_MAX_SIZE could lead to a warning with
-> the current ordering. Why that matters all that much is less clear to
-> me. The allocation would simply fail and you would return ENOMEM rather
-> than E2BIG. Does this really matter?
-> 
-> Anyway, as I've said, I do not really insist on the current ordering and
-> the will ask Andrew to reorder them. I am just really wondering about
-> such a strong pushback about something that barely matters. Or maybe I
-> am just missing your point and checking KMALLOC_MAX_SIZE without an
-> update would lead to a wrong behavior, user space breakage, crash or
-> anything similar.
+The build of sparc allmodconfig fails with the error:
+"of_irq_to_resource" [drivers/net/ethernet/marvell/mv643xx_eth.ko]
+	undefined!
 
-if admin set ulimit for locked memory high enough for the particular user,
-that non-root user will be able to trigger warn_on_once in __alloc_pages_slowpath
-which is not acceptable.
-Also see the comment in hashtab.c
-  if (htab->map.value_size >= (1 << (KMALLOC_SHIFT_MAX - 1)) -
-      MAX_BPF_STACK - sizeof(struct htab_elem))
-          /* if value_size is bigger, the user space won't be able to
-           * access the elements via bpf syscall. This check also makes
-           * sure that the elem_size doesn't overflow and it's
-           * kmalloc-able later in htab_map_update_elem()
-           */
-          goto free_htab;
+of_irq_to_resource() is defined when CONFIG_OF_IRQ is defined. And also
+CONFIG_OF_IRQ can only be defined if CONFIG_IRQ is defined. So we can
+safely use #if defined(CONFIG_OF_IRQ) in the code.
 
-> > and fix the commit log to say that KMALLOC_MAX_SIZE
-> > is actually valid limit now.
-> 
-> KMALLOC_MAX_SIZE has always been the right limit. It's value has been
-> incorrect but that is to be fixed now. Using KMALLOC_SHIFT_MAX is simply
-> abusing an internal constant. So I am not sure what should be fixed in
-> the changelog.
+Signed-off-by: Sudip Mukherjee <sudip.mukherjee@codethink.co.uk>
+---
 
-that's exactly my problem with this patch and the commit log.
-You think it's abusing KMALLOC_SHIFT_MAX whereas it's doing so
-for reasons stated above.
-That piece of code cannot use KMALLOC_MAX_SIZE until it's fixed.
-So commit log should say something like:
-"now since KMALLOC_MAX_SIZE is fixed and size < KMALLOC_MAX_SIZE condition
-guarantees warn free allocation in kmalloc(value_size, GFP_USER | __GFP_NOWARN);
-we can safely use KMALLOC_MAX_SIZE instead of KMALLOC_SHIFT_MAX"
+build log of next-20161216 is at:
+https://travis-ci.org/sudipm-mukherjee/parport/jobs/184652820
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+ drivers/net/ethernet/marvell/mv643xx_eth.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
+index 5f62c3d..1fa7c03 100644
+--- a/drivers/net/ethernet/marvell/mv643xx_eth.c
++++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
+@@ -2713,7 +2713,7 @@ static void infer_hw_params(struct mv643xx_eth_shared_private *msp)
+ MODULE_DEVICE_TABLE(of, mv643xx_eth_shared_ids);
+ #endif
+ 
+-#if defined(CONFIG_OF) && !defined(CONFIG_MV64X60)
++#if defined(CONFIG_OF_IRQ) && !defined(CONFIG_MV64X60)
+ #define mv643xx_eth_property(_np, _name, _v)				\
+ 	do {								\
+ 		u32 tmp;						\
+-- 
+1.9.1
