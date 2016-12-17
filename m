@@ -1,126 +1,97 @@
-From: Michal Hocko <mhocko@kernel.org>
-Subject: Re: [PATCH 1/2] bpf: do not use KMALLOC_SHIFT_MAX
-Date: Sat, 17 Dec 2016 09:27:11 +0100
-Message-ID: <20161217082711.GA25784@dhcp22.suse.cz>
-References: <20161215164722.21586-1-mhocko@kernel.org>
- <20161215164722.21586-2-mhocko@kernel.org>
- <20161216180209.GA77597@ast-mbp.thefacebook.com>
- <20161216220235.GD7645@dhcp22.suse.cz>
- <20161216232340.GA99159@ast-mbp.thefacebook.com>
- <20161216233917.GB23392@dhcp22.suse.cz>
- <20161217002820.GB5359@ast-mbp.thefacebook.com>
+From: Henrik Austad <henrik@austad.us>
+Subject: Re: [TSN RFC v2 5/9] Add TSN header for the driver
+Date: Sat, 17 Dec 2016 09:53:57 +0100
+Message-ID: <20161217085357.GA6392@sisyphus.home.austad.us>
+References: <1481911153-549-1-git-send-email-henrik@austad.us>
+ <1481911153-549-6-git-send-email-henrik@austad.us>
+ <20161216220938.GB25258@netboy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-mm@kvack.org, Cristopher Lameter <cl@linux.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Alexei Starovoitov <ast@kernel.org>, netdev@vger.kernel.org,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="fdj2RfSjLxBAspz7"
+Cc: linux-kernel@vger.kernel.org, Henrik Austad <haustad@cisco.com>,
+        linux-media@vger.kernel.org, alsa-devel@vger.kernel.org,
+        netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Richard Cochran <richardcochran@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20161217002820.GB5359@ast-mbp.thefacebook.com>
-Sender: owner-linux-mm@kvack.org
+In-Reply-To: <20161216220938.GB25258@netboy>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri 16-12-16 16:28:21, Alexei Starovoitov wrote:
-> On Sat, Dec 17, 2016 at 12:39:17AM +0100, Michal Hocko wrote:
-> > On Fri 16-12-16 15:23:42, Alexei Starovoitov wrote:
-> > > On Fri, Dec 16, 2016 at 11:02:35PM +0100, Michal Hocko wrote:
-> > > > On Fri 16-12-16 10:02:10, Alexei Starovoitov wrote:
-> > > > > On Thu, Dec 15, 2016 at 05:47:21PM +0100, Michal Hocko wrote:
-> > > > > > From: Michal Hocko <mhocko@suse.com>
-> > > > > > 
-> > > > > > 01b3f52157ff ("bpf: fix allocation warnings in bpf maps and integer
-> > > > > > overflow") has added checks for the maximum allocateable size. It
-> > > > > > (ab)used KMALLOC_SHIFT_MAX for that purpose. While this is not incorrect
-> > > > > > it is not very clean because we already have KMALLOC_MAX_SIZE for this
-> > > > > > very reason so let's change both checks to use KMALLOC_MAX_SIZE instead.
-> > > > > > 
-> > > > > > Cc: Alexei Starovoitov <ast@kernel.org>
-> > > > > > Signed-off-by: Michal Hocko <mhocko@suse.com>
-> > > > > 
-> > > > > Nack until the patches 1 and 2 are reversed.
-> > > > 
-> > > > I do not insist on ordering. The thing is that it shouldn't matter all
-> > > > that much. Or are you worried about bisectability?
-> > > 
-> > > This patch 1 strongly depends on patch 2 !
-> > > Therefore order matters.
-> > > The patch 1 by itself is broken.
-> > > The commit log is saying
-> > > '(ab)used KMALLOC_SHIFT_MAX for that purpose .. use KMALLOC_MAX_SIZE instead'
-> > > that is also incorrect. We cannot do that until KMALLOC_MAX_SIZE is fixed.
-> > > So please change the order
-> > 
-> > Yes, I agree that using KMALLOC_MAX_SIZE could lead to a warning with
-> > the current ordering. Why that matters all that much is less clear to
-> > me. The allocation would simply fail and you would return ENOMEM rather
-> > than E2BIG. Does this really matter?
-> > 
-> > Anyway, as I've said, I do not really insist on the current ordering and
-> > the will ask Andrew to reorder them. I am just really wondering about
-> > such a strong pushback about something that barely matters. Or maybe I
-> > am just missing your point and checking KMALLOC_MAX_SIZE without an
-> > update would lead to a wrong behavior, user space breakage, crash or
-> > anything similar.
-> 
-> if admin set ulimit for locked memory high enough for the particular user,
-> that non-root user will be able to trigger warn_on_once in __alloc_pages_slowpath
-> which is not acceptable.
 
-But why is the warning such a big deal?
+--fdj2RfSjLxBAspz7
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Also note that such a setup would be inherently dangerous. Even the
-default ulimit for the locked memory allows to allocat 64k which means
-that an untrusted user will be able to request PAGE_ALLOC_COSTLY_ORDER
-and potentially deplete those larger blocks to the extend it hits the
-OOM killer with the current gfp flags.
+On Fri, Dec 16, 2016 at 11:09:38PM +0100, Richard Cochran wrote:
+> On Fri, Dec 16, 2016 at 06:59:09PM +0100, henrik@austad.us wrote:
+> > +/*
+> > + * List of current subtype fields in the common header of AVTPDU
+> > + *
+> > + * Note: AVTPDU is a remnant of the standards from when it was AVB.
+> > + *
+> > + * The list has been updated with the recent values from IEEE 1722, dr=
+aft 16.
+> > + */
+> > +enum avtp_subtype {
+> > +	TSN_61883_IIDC =3D 0,	/* IEC 61883/IIDC Format */
+> > +	TSN_MMA_STREAM,		/* MMA Streams */
+> > +	TSN_AAF,		/* AVTP Audio Format */
+> > +	TSN_CVF,		/* Compressed Video Format */
+> > +	TSN_CRF,		/* Clock Reference Format */
+> > +	TSN_TSCF,		/* Time-Synchronous Control Format */
+> > +	TSN_SVF,		/* SDI Video Format */
+> > +	TSN_RVF,		/* Raw Video Format */
+> > +	/* 0x08 - 0x6D reserved */
+> > +	TSN_AEF_CONTINOUS =3D 0x6e, /* AES Encrypted Format Continous */
+> > +	TSN_VSF_STREAM,		/* Vendor Specific Format Stream */
+> > +	/* 0x70 - 0x7e reserved */
+> > +	TSN_EF_STREAM =3D 0x7f,	/* Experimental Format Stream */
+> > +	/* 0x80 - 0x81 reserved */
+> > +	TSN_NTSCF =3D 0x82,	/* Non Time-Synchronous Control Format */
+> > +	/* 0x83 - 0xed reserved */
+> > +	TSN_ESCF =3D 0xec,	/* ECC Signed Control Format */
+> > +	TSN_EECF,		/* ECC Encrypted Control Format */
+> > +	TSN_AEF_DISCRETE,	/* AES Encrypted Format Discrete */
+> > +	/* 0xef - 0xf9 reserved */
+> > +	TSN_ADP =3D 0xfa,		/* AVDECC Discovery Protocol */
+> > +	TSN_AECP,		/* AVDECC Enumeration and Control Protocol */
+> > +	TSN_ACMP,		/* AVDECC Connection Management Protocol */
+> > +	/* 0xfd reserved */
+> > +	TSN_MAAP =3D 0xfe,	/* MAAP Protocol */
+> > +	TSN_EF_CONTROL,		/* Experimental Format Control */
+> > +};
+>=20
+> The kernel shouldn't be in the business of assembling media packets.
 
-I think what you really want is a GFP_NORETRY for size > PAGE_SIZE and
-fallback to the vmalloc for failure. But that is a separate topic.
+No, but assembling the packets and shipping frames to a destination is not=
+=20
+neccessarily the same thing.
 
-> Also see the comment in hashtab.c
->   if (htab->map.value_size >= (1 << (KMALLOC_SHIFT_MAX - 1)) -
->       MAX_BPF_STACK - sizeof(struct htab_elem))
->           /* if value_size is bigger, the user space won't be able to
->            * access the elements via bpf syscall. This check also makes
->            * sure that the elem_size doesn't overflow and it's
->            * kmalloc-able later in htab_map_update_elem()
->            */
->           goto free_htab;
+A nice workflow would be to signal to the shim that "I'm sending a=20
+compressed video format" and then the shim/tsn_core will ship out the=20
+frames over the network - and then you need to set TSN_CVF as subtype in=20
+each header.
 
-I have seen this comment before, but honestly, I do not understand it
-(well apart from the overflow part).
-htab_map_update_elem has to be able to handle the allocation failure in
-any case. Note that any allocation larger than 64kB is likely to fail
-anyway.
+That does not that mean you should do H.264 encode/decode *in* the kernel
 
-> 
-> > > and fix the commit log to say that KMALLOC_MAX_SIZE
-> > > is actually valid limit now.
-> > 
-> > KMALLOC_MAX_SIZE has always been the right limit. It's value has been
-> > incorrect but that is to be fixed now. Using KMALLOC_SHIFT_MAX is simply
-> > abusing an internal constant. So I am not sure what should be fixed in
-> > the changelog.
-> 
-> that's exactly my problem with this patch and the commit log.
-> You think it's abusing KMALLOC_SHIFT_MAX whereas it's doing so
-> for reasons stated above.
-> That piece of code cannot use KMALLOC_MAX_SIZE until it's fixed.
-> So commit log should say something like:
-> "now since KMALLOC_MAX_SIZE is fixed and size < KMALLOC_MAX_SIZE condition
-> guarantees warn free allocation in kmalloc(value_size, GFP_USER | __GFP_NOWARN);
-> we can safely use KMALLOC_MAX_SIZE instead of KMALLOC_SHIFT_MAX"
+Perhaps this is better placed in include/uapi/tsn.h so that userspace and=
+=20
+kernel share the same header?
 
-OK, fair enough, I will update the changelog
+--=20
+Henrik Austad
 
--- 
-Michal Hocko
-SUSE Labs
+--fdj2RfSjLxBAspz7
+Content-Type: application/pgp-signature; name="signature.asc"
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iEYEARECAAYFAlhU/SUACgkQ6k5VT6v45lmHDACeMkLnsLQL0nZAL0QFl/X5CLat
+xAkAoLS8Tw2LMtBenyJEHT3eIpBLCRDX
+=3+w7
+-----END PGP SIGNATURE-----
+
+--fdj2RfSjLxBAspz7--
