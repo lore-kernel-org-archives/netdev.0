@@ -1,46 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] sctp: sctp_epaddr_lookup_transport should be
- protected by rcu_read_lock
-Date: Sat, 17 Dec 2016 11:25:12 -0500 (EST)
-Message-ID: <20161217.112512.1659218665787719927.davem@davemloft.net>
-References: <eb70a1f54c102c728a5572f1aa2842940fc3f5a5.1481814055.git.lucien.xin@gmail.com>
+Subject: Re: [PATCH net] sctp: sctp_transport_lookup_process should
+ rcu_read_unlock when transport is null
+Date: Sat, 17 Dec 2016 11:25:21 -0500 (EST)
+Message-ID: <20161217.112521.863936916212574024.davem@davemloft.net>
+References: <3d4f0205d5b5c64d372dffb37602f48e4a173612.1481814352.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-        marcelo.leitner@gmail.com, nhorman@tuxdriver.com,
-        dvyukov@google.com
+        marcelo.leitner@gmail.com, nhorman@tuxdriver.com
 To: lucien.xin@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41296 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:41310 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756949AbcLQQZP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 17 Dec 2016 11:25:15 -0500
-In-Reply-To: <eb70a1f54c102c728a5572f1aa2842940fc3f5a5.1481814055.git.lucien.xin@gmail.com>
+        with ESMTP id S932162AbcLQQZX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 17 Dec 2016 11:25:23 -0500
+In-Reply-To: <3d4f0205d5b5c64d372dffb37602f48e4a173612.1481814352.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Xin Long <lucien.xin@gmail.com>
-Date: Thu, 15 Dec 2016 23:00:55 +0800
+Date: Thu, 15 Dec 2016 23:05:52 +0800
 
-> Since commit 7fda702f9315 ("sctp: use new rhlist interface on sctp transport
-> rhashtable"), sctp has changed to use rhlist_lookup to look up transport, but
-> rhlist_lookup doesn't call rcu_read_lock inside, unlike rhashtable_lookup_fast.
+> Prior to this patch, sctp_transport_lookup_process didn't rcu_read_unlock
+> when it failed to find a transport by sctp_addrs_lookup_transport.
 > 
-> It is called in sctp_epaddr_lookup_transport and sctp_addrs_lookup_transport.
-> sctp_addrs_lookup_transport is always in the protection of rcu_read_lock(),
-> as __sctp_lookup_association is called in rx path or sctp_lookup_association
-> which are in the protection of rcu_read_lock() already.
+> This patch is to fix it by moving up rcu_read_unlock right before checking
+> transport and also to remove the out path.
 > 
-> But sctp_epaddr_lookup_transport is called by sctp_endpoint_lookup_assoc, it
-> doesn't call rcu_read_lock, which may cause "suspicious rcu_dereference_check
-> usage' in __rhashtable_lookup.
-> 
-> This patch is to fix it by adding rcu_read_lock in sctp_endpoint_lookup_assoc
-> before calling sctp_epaddr_lookup_transport.
-> 
-> Fixes: 7fda702f9315 ("sctp: use new rhlist interface on sctp transport rhashtable")
-> Reported-by: Dmitry Vyukov <dvyukov@google.com>
+> Fixes: 1cceda784980 ("sctp: fix the issue sctp_diag uses lock_sock in rcu_read_lock")
 > Signed-off-by: Xin Long <lucien.xin@gmail.com>
 
-Applied.
+Applied and queued up for -stable, thanks.
