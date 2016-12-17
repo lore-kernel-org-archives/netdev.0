@@ -1,89 +1,83 @@
-From: "George Spelvin" <linux@sciencehorizons.net>
-Subject: Re: [PATCH v5 1/4] siphash: add cryptographically secure PRF
-Date: 16 Dec 2016 18:44:08 -0500
-Message-ID: <20161216234408.30174.qmail@ns.sciencehorizons.net>
-References: <CAHmME9oEhmqW3320Ch+Rczu_=CxQyUQXCGLnYjDm-CYbWugnSw@mail.gmail.com>
-Cc: ak@linux.intel.com, davem@davemloft.net, David.Laight@aculab.com,
-        djb@cr.yp.to, ebiggers3@gmail.com, hannes@stressinduktion.org,
-        jeanphilippe.aumasson@gmail.com,
-        kernel-hardening@lists.openwall.com, linux-crypto@vger.kernel.org,
-        linux-kernel@vger.kernel.org, luto@amacapital.net,
-        netdev@vger.kernel.org, tom@herbertland.com,
-        torvalds@linux-foundation.org, tytso@mit.edu,
-        vegard.nossum@gmail.com
-To: Jason@zx2c4.com, linux@sciencehorizons.net
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <CAHmME9oEhmqW3320Ch+Rczu_=CxQyUQXCGLnYjDm-CYbWugnSw@mail.gmail.com>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] net: wan: Use dma_pool_zalloc
+Date: Fri, 16 Dec 2016 16:17:18 -0800
+Message-ID: <1481933838.20419.8.camel@perches.com>
+References: <20161203091447.GA5231@jordon-HP-15-Notebook-PC>
+         <m3wpf9l0fc.fsf@t19.piap.pl>
+         <CAFqt6zZoEfE8Us+vx_VuFyqK-zth9ac=aZXo2MKD-4RUBqm5GQ@mail.gmail.com>
+         <CAFqt6zaHJ_YP-inLm8_XRDrX8FtcU86NqYG=+DRn9-Y3zR4cyg@mail.gmail.com>
+         <1481820487.29291.66.camel@perches.com>
+         <CAFqt6zaPWuc+gZTMqk-gh8weZvAjvVwm0kyDT5ub=iah=y9skA@mail.gmail.com>
+         <1481868649.29291.85.camel@perches.com>
+         <CAFqt6zYasTqZP1GOXJ7u7=L9U8bgM3SnKb-L7yyVVeDTbv+q0g@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: Krzysztof =?UTF-8?Q?Ha=C5=82asa?= <khalasa@piap.pl>,
+        netdev@vger.kernel.org, Rameshwar Sahu <sahu.rameshwar73@gmail.com>
+To: Souptick Joarder <jrdr.linux@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay0167.hostedemail.com ([216.40.44.167]:44910 "EHLO
+        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1755376AbcLQARX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2016 19:17:23 -0500
+In-Reply-To: <CAFqt6zYasTqZP1GOXJ7u7=L9U8bgM3SnKb-L7yyVVeDTbv+q0g@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> 64-bit security for an RNG is not reasonable even with rekeying. No no
-> no. Considering we already have a massive speed-up here with the
-> secure version, there's zero reason to start weakening the security
-> because we're trigger happy with our benchmarks. No no no.
+On Fri, 2016-12-16 at 19:25 +0530, Souptick Joarder wrote:
+> On Fri, Dec 16, 2016 at 11:40 AM, Joe Perches <joe@perches.com> wrote:
+> > On Fri, 2016-12-16 at 11:33 +0530, Souptick Joarder wrote:
+> > > On Thu, Dec 15, 2016 at 10:18 PM, Joe Perches <joe@perches.com> wrote:
+> > > > On Thu, 2016-12-15 at 10:41 +0530, Souptick Joarder wrote:
+> > > > > On Mon, Dec 12, 2016 at 10:12 AM, Souptick Joarder <jrdr.linux@gmail.com> wrote:
+> > > > > > On Fri, Dec 9, 2016 at 6:33 PM, Krzysztof Hałasa <khalasa@piap.pl> wrote:
+> > > > > > > Souptick Joarder <jrdr.linux@gmail.com> writes:
+> > > > > > > 
+> > > > > > > > We should use dma_pool_zalloc instead of dma_pool_alloc/memset
+> > > > 
+> > > > []
+> > > > > > > > diff --git a/drivers/net/wan/ixp4xx_hss.c b/drivers/net/wan/ixp4xx_hss.c
+> > > > 
+> > > > []
+> > > > > > > > @@ -976,10 +976,9 @@ static int init_hdlc_queues(struct port *port)
+> > > > > > > >                       return -ENOMEM;
+> > > > > > > >       }
+> > > > > > > > 
+> > > > > > > > -     if (!(port->desc_tab = dma_pool_alloc(dma_pool, GFP_KERNEL,
+> > > > > > > > -                                           &port->desc_tab_phys)))
+> > > > > > > > +     if (!(port->desc_tab = dma_pool_zalloc(dma_pool, GFP_KERNEL,
+> > > > > > > > +                                            &port->desc_tab_phys)))
+> > > > > > > >               return -ENOMEM;
+> > > > > > > > -     memset(port->desc_tab, 0, POOL_ALLOC_SIZE);
+> > > > > > > >       memset(port->rx_buff_tab, 0, sizeof(port->rx_buff_tab)); /* tables */
+> > > > > > > >       memset(port->tx_buff_tab, 0, sizeof(port->tx_buff_tab));
+> > > > > > > 
+> > > > > > > This look fine, feel free to send it to the netdev mailing list for
+> > > > > > > inclusion.
+> > > > > > 
+> > > > > > Including netdev mailing list based as requested.
+> > > > > > > Acked-by: Krzysztof Halasa <khalasa@piap.pl>
+> > > > 
+> > > > []
+> > > > > Any comment on this patch ?
+> > > > 
+> > > > Shouldn't the one in drivers/net/ethernet/xscale/ixp4xx_eth.c
+> > > > also be changed?
+> > > 
+> > > Yes, you are right.   Do you want me to include it in same patch?
+> > 
+> > Your choice.  I would use a single patch.
+> 
+> There are few other places where the same change is applicable.
+> I am planning to put all those changes in a single patch. It includes
+> changes in drivers/net/ethernet/xscale/ixp4xx_eth.c
+> 
+> You can review this patch separately.
 
-Just to clarify, I was discussing the idea with Ted (who's in charge of
-the whole thing, not me), not trying to make any sort of final decision
-on the subject.  I need to look at the various users (46 non-trivial ones
-for get_random_int, 15 for get_random_long) and see what their security
-requirements actually are.
+If you are spanning multiple drivers maintained by different
+groups, it's probably better to create a patch series, one for
+each driver, to allow the various maintainers to apply the
+patches to their individually maintained drivers.
 
-I'm also trying to see if HalfSipHash can be used in a way that gives
-slightly more than 64 bits of effective security.
-
-The problem is that the old MD5-based transform had unclear, but
-obviously ample, security.  There were 64 bytes of global secret and
-16 chaining bytes per CPU.  Adapting SipHash (even the full version)
-takes more thinking.
-
-An actual HalfSipHash-based equivalent to the existing code would be:
-
-#define RANDOM_INT_WORDS (64 / sizeof(long))	/* 16 or 8 */
-
-static u32 random_int_secret[RANDOM_INT_WORDS]
-	____cacheline_aligned __read_mostly;
-static DEFINE_PER_CPU(unsigned long[4], get_random_int_hash)
-		__aligned(sizeof(unsigned long));
-
-unsigned long get_random_long(void)
-{
-	unsigned long *hash = get_cpu_var(get_random_int_hash);
-	unsigned long v0 = hash[0], v1 = hash[1], v2 = hash[2], v3 = hash[3];
-	int i;
-
-	/* This could be improved, but it's equivalent */
-	v0 += current->pid + jiffies + random_get_entropy();
-
-	for (i = 0; i < RANDOM_INT_WORDS; i++) {
-		v3 ^= random_int_secret[i];
-		HSIPROUND;
-		HSIPROUND;
-		v0 ^= random_int_secret[i];
-	}
-	/* To be equivalent, we *don't* finalize the transform */
-
-	hash[0] = v0; hash[1] = v1; hash[2] = v2; hash[3] = v3;
-	put_cpu_var(get_random_int_hash);
-
-	return v0 ^ v1 ^ v2 ^ v3;
-}
-
-I don't think there's a 2^64 attack on that.
-
-But 64 bytes of global secret is ridiculous if the hash function
-doesn't require that minimum block size.  It'll take some thinking.
-
-
-Ths advice I'd give now is:
-- Implement
-unsigned long hsiphash(const void *data, size_t len, const unsigned long key[2])
-  .. as SipHash on 64-bit (maybe SipHash-1-3, still being discussed) and
-  HalfSipHash on 32-bit.
-- Document when it may or may not be used carefully.
-- #define get_random_int (unsigned)get_random_long
-- Ted, Andy Lutorminski and I will try to figure out a construction of
-  get_random_long() that we all like.
-
-
-('scuse me for a few hours, I have some unrelated things I really *should*
-be working on...)
+Joe
