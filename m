@@ -1,36 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [v2] net: qcom/emac: don't try to claim clocks on ACPI
- systems
-Date: Sat, 17 Dec 2016 10:23:00 -0500 (EST)
-Message-ID: <20161217.102300.264410138603502889.davem@davemloft.net>
-References: <1481672942-20024-1-git-send-email-timur@codeaurora.org>
+Subject: Re: [PATCH net] ibmveth: calculate gso_segs for large packets
+Date: Sat, 17 Dec 2016 10:23:43 -0500 (EST)
+Message-ID: <20161217.102343.2038916849924187012.davem@davemloft.net>
+References: <1481674509-14256-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, netdev@vger.kernel.org, cov@codeaurora.org,
-        alokc@codeaurora.org
-To: timur@codeaurora.org
+Cc: netdev@vger.kernel.org, brking@linux.vnet.ibm.com,
+        marcelo.leitner@gmail.com, pradeeps@linux.vnet.ibm.com,
+        jmaxwell37@gmail.com, zdai@us.ibm.com, eric.dumazet@gmail.com
+To: tlfalcon@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:40388 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:40400 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757088AbcLQPXC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 17 Dec 2016 10:23:02 -0500
-In-Reply-To: <1481672942-20024-1-git-send-email-timur@codeaurora.org>
+        with ESMTP id S1754060AbcLQPXo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 17 Dec 2016 10:23:44 -0500
+In-Reply-To: <1481674509-14256-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Timur Tabi <timur@codeaurora.org>
-Date: Tue, 13 Dec 2016 17:49:02 -0600
+From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+Date: Tue, 13 Dec 2016 18:15:09 -0600
 
-> On ACPI systems, clocks are not available to drivers directly.  They are
-> handled exclusively by ACPI and/or firmware, so there is no clock driver.
-> Calls to clk_get() always fail, so we should not even attempt to claim
-> any clocks on ACPI systems.
+> Include calculations to compute the number of segments
+> that comprise an aggregated large packet.
 > 
-> Signed-off-by: Timur Tabi <timur@codeaurora.org>
-> ---
-> 
-> Notes:
->     v2: move check into functions
+> Signed-off-by: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
 
-Applied, thanks.
+Applied.
