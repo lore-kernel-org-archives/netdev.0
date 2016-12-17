@@ -1,20 +1,27 @@
 From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH] isdn/gigaset: use designated initializers
-Date: Fri, 16 Dec 2016 16:58:06 -0800
-Message-ID: <20161217005806.GA140074@beast>
+Subject: [PATCH] ATM: use designated initializers
+Date: Fri, 16 Dec 2016 16:58:43 -0800
+Message-ID: <20161217005843.GA140202@beast>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Paul Bolle <pebolle@tiscali.nl>,
-        Karsten Keil <isdn@linux-pingi.de>,
-        "David S. Miller" <davem@davemloft.net>,
-        Dan Carpenter <dan.carpenter@oracle.com>,
-        Tilman Schmidt <tilman@imap.cc>,
-        gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Felipe Balbi <felipe.balbi@linux.intel.com>,
+        Mugunthan V N <mugunthanvnm@ti.com>,
+        Kees Cook <keescook@chromium.org>,
+        Florian Westphal <fw@strlen.de>,
+        Javier Martinez Canillas <javier@osg.samsung.com>,
+        Jarod Wilson <jarod@redhat.com>, netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f174.google.com ([209.85.192.174]:36183 "EHLO
+        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758401AbcLQA6q (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2016 19:58:46 -0500
+Received: by mail-pf0-f174.google.com with SMTP id 189so16363285pfz.3
+        for <netdev@vger.kernel.org>; Fri, 16 Dec 2016 16:58:45 -0800 (PST)
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Prepare to mark sensitive kernel structures for randomization by making
 sure they're using designated initializers. These were identified during
@@ -23,140 +30,166 @@ extracted from grsecurity.
 
 Signed-off-by: Kees Cook <keescook@chromium.org>
 ---
- drivers/isdn/gigaset/bas-gigaset.c | 32 ++++++++++++++++----------------
- drivers/isdn/gigaset/ser-gigaset.c | 32 ++++++++++++++++----------------
- drivers/isdn/gigaset/usb-gigaset.c | 32 ++++++++++++++++----------------
- 3 files changed, 48 insertions(+), 48 deletions(-)
+ net/atm/lec.c                                |  6 ++--
+ net/atm/mpoa_caches.c                        | 43 ++++++++++++++--------------
+ net/vmw_vsock/vmci_transport_notify.c        | 30 +++++++++----------
+ net/vmw_vsock/vmci_transport_notify_qstate.c | 30 +++++++++----------
+ 4 files changed, 54 insertions(+), 55 deletions(-)
 
-diff --git a/drivers/isdn/gigaset/bas-gigaset.c b/drivers/isdn/gigaset/bas-gigaset.c
-index aecec6d32463..11e13c56126f 100644
---- a/drivers/isdn/gigaset/bas-gigaset.c
-+++ b/drivers/isdn/gigaset/bas-gigaset.c
-@@ -2565,22 +2565,22 @@ static int gigaset_post_reset(struct usb_interface *intf)
- 
- 
- static const struct gigaset_ops gigops = {
--	gigaset_write_cmd,
--	gigaset_write_room,
--	gigaset_chars_in_buffer,
--	gigaset_brkchars,
--	gigaset_init_bchannel,
--	gigaset_close_bchannel,
--	gigaset_initbcshw,
--	gigaset_freebcshw,
--	gigaset_reinitbcshw,
--	gigaset_initcshw,
--	gigaset_freecshw,
--	gigaset_set_modem_ctrl,
--	gigaset_baud_rate,
--	gigaset_set_line_ctrl,
--	gigaset_isoc_send_skb,
--	gigaset_isoc_input,
-+	.write_cmd = gigaset_write_cmd,
-+	.write_room = gigaset_write_room,
-+	.chars_in_buffer = gigaset_chars_in_buffer,
-+	.brkchars = gigaset_brkchars,
-+	.init_bchannel = gigaset_init_bchannel,
-+	.close_bchannel = gigaset_close_bchannel,
-+	.initbcshw = gigaset_initbcshw,
-+	.freebcshw = gigaset_freebcshw,
-+	.reinitbcshw = gigaset_reinitbcshw,
-+	.initcshw = gigaset_initcshw,
-+	.freecshw = gigaset_freecshw,
-+	.set_modem_ctrl = gigaset_set_modem_ctrl,
-+	.baud_rate = gigaset_baud_rate,
-+	.set_line_ctrl = gigaset_set_line_ctrl,
-+	.send_skb = gigaset_isoc_send_skb,
-+	.handle_input = gigaset_isoc_input,
- };
- 
- /* bas_gigaset_init
-diff --git a/drivers/isdn/gigaset/ser-gigaset.c b/drivers/isdn/gigaset/ser-gigaset.c
-index b90776ef56ec..ab0b63a4d045 100644
---- a/drivers/isdn/gigaset/ser-gigaset.c
-+++ b/drivers/isdn/gigaset/ser-gigaset.c
-@@ -445,22 +445,22 @@ static int gigaset_set_line_ctrl(struct cardstate *cs, unsigned cflag)
+diff --git a/net/atm/lec.c b/net/atm/lec.c
+index 779b3fa6052d..019557d0a11d 100644
+--- a/net/atm/lec.c
++++ b/net/atm/lec.c
+@@ -111,9 +111,9 @@ static inline void lec_arp_put(struct lec_arp_table *entry)
  }
  
- static const struct gigaset_ops ops = {
--	gigaset_write_cmd,
--	gigaset_write_room,
--	gigaset_chars_in_buffer,
--	gigaset_brkchars,
--	gigaset_init_bchannel,
--	gigaset_close_bchannel,
--	gigaset_initbcshw,
--	gigaset_freebcshw,
--	gigaset_reinitbcshw,
--	gigaset_initcshw,
--	gigaset_freecshw,
--	gigaset_set_modem_ctrl,
--	gigaset_baud_rate,
--	gigaset_set_line_ctrl,
--	gigaset_m10x_send_skb,	/* asyncdata.c */
--	gigaset_m10x_input,	/* asyncdata.c */
-+	.write_cmd = gigaset_write_cmd,
-+	.write_room = gigaset_write_room,
-+	.chars_in_buffer = gigaset_chars_in_buffer,
-+	.brkchars = gigaset_brkchars,
-+	.init_bchannel = gigaset_init_bchannel,
-+	.close_bchannel = gigaset_close_bchannel,
-+	.initbcshw = gigaset_initbcshw,
-+	.freebcshw = gigaset_freebcshw,
-+	.reinitbcshw = gigaset_reinitbcshw,
-+	.initcshw = gigaset_initcshw,
-+	.freecshw = gigaset_freecshw,
-+	.set_modem_ctrl = gigaset_set_modem_ctrl,
-+	.baud_rate = gigaset_baud_rate,
-+	.set_line_ctrl = gigaset_set_line_ctrl,
-+	.send_skb = gigaset_m10x_send_skb,	/* asyncdata.c */
-+	.handle_input = gigaset_m10x_input,	/* asyncdata.c */
+ static struct lane2_ops lane2_ops = {
+-	lane2_resolve,		/* resolve,             spec 3.1.3 */
+-	lane2_associate_req,	/* associate_req,       spec 3.1.4 */
+-	NULL			/* associate indicator, spec 3.1.5 */
++	.resolve = lane2_resolve,		/* spec 3.1.3 */
++	.associate_req = lane2_associate_req,	/* spec 3.1.4 */
++	.associate_indicator = NULL             /* spec 3.1.5 */
  };
  
+ static unsigned char bus_mac[ETH_ALEN] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
+diff --git a/net/atm/mpoa_caches.c b/net/atm/mpoa_caches.c
+index 9e60e74c807d..a89fdebeffda 100644
+--- a/net/atm/mpoa_caches.c
++++ b/net/atm/mpoa_caches.c
+@@ -535,33 +535,32 @@ static void eg_destroy_cache(struct mpoa_client *mpc)
  
-diff --git a/drivers/isdn/gigaset/usb-gigaset.c b/drivers/isdn/gigaset/usb-gigaset.c
-index 5f306e2eece5..eade36dafa34 100644
---- a/drivers/isdn/gigaset/usb-gigaset.c
-+++ b/drivers/isdn/gigaset/usb-gigaset.c
-@@ -862,22 +862,22 @@ static int gigaset_pre_reset(struct usb_interface *intf)
- }
  
- static const struct gigaset_ops ops = {
--	gigaset_write_cmd,
--	gigaset_write_room,
--	gigaset_chars_in_buffer,
--	gigaset_brkchars,
--	gigaset_init_bchannel,
--	gigaset_close_bchannel,
--	gigaset_initbcshw,
--	gigaset_freebcshw,
--	gigaset_reinitbcshw,
--	gigaset_initcshw,
--	gigaset_freecshw,
--	gigaset_set_modem_ctrl,
--	gigaset_baud_rate,
--	gigaset_set_line_ctrl,
--	gigaset_m10x_send_skb,
--	gigaset_m10x_input,
-+	.write_cmd = gigaset_write_cmd,
-+	.write_room = gigaset_write_room,
-+	.chars_in_buffer = gigaset_chars_in_buffer,
-+	.brkchars = gigaset_brkchars,
-+	.init_bchannel = gigaset_init_bchannel,
-+	.close_bchannel = gigaset_close_bchannel,
-+	.initbcshw = gigaset_initbcshw,
-+	.freebcshw = gigaset_freebcshw,
-+	.reinitbcshw = gigaset_reinitbcshw,
-+	.initcshw = gigaset_initcshw,
-+	.freecshw = gigaset_freecshw,
-+	.set_modem_ctrl = gigaset_set_modem_ctrl,
-+	.baud_rate = gigaset_baud_rate,
-+	.set_line_ctrl = gigaset_set_line_ctrl,
-+	.send_skb = gigaset_m10x_send_skb,
-+	.handle_input = gigaset_m10x_input,
+ static const struct in_cache_ops ingress_ops = {
+-	in_cache_add_entry,               /* add_entry       */
+-	in_cache_get,                     /* get             */
+-	in_cache_get_with_mask,           /* get_with_mask   */
+-	in_cache_get_by_vcc,              /* get_by_vcc      */
+-	in_cache_put,                     /* put             */
+-	in_cache_remove_entry,            /* remove_entry    */
+-	cache_hit,                        /* cache_hit       */
+-	clear_count_and_expired,          /* clear_count     */
+-	check_resolving_entries,          /* check_resolving */
+-	refresh_entries,                  /* refresh         */
+-	in_destroy_cache                  /* destroy_cache   */
++	.add_entry = in_cache_add_entry,
++	.get = in_cache_get,
++	.get_with_mask = in_cache_get_with_mask,
++	.get_by_vcc = in_cache_get_by_vcc,
++	.put = in_cache_put,
++	.remove_entry = in_cache_remove_entry,
++	.cache_hit = cache_hit,
++	.clear_count = clear_count_and_expired,
++	.check_resolving = check_resolving_entries,
++	.refresh = refresh_entries,
++	.destroy_cache = in_destroy_cache
  };
  
- /*
+ static const struct eg_cache_ops egress_ops = {
+-	eg_cache_add_entry,               /* add_entry        */
+-	eg_cache_get_by_cache_id,         /* get_by_cache_id  */
+-	eg_cache_get_by_tag,              /* get_by_tag       */
+-	eg_cache_get_by_vcc,              /* get_by_vcc       */
+-	eg_cache_get_by_src_ip,           /* get_by_src_ip    */
+-	eg_cache_put,                     /* put              */
+-	eg_cache_remove_entry,            /* remove_entry     */
+-	update_eg_cache_entry,            /* update           */
+-	clear_expired,                    /* clear_expired    */
+-	eg_destroy_cache                  /* destroy_cache    */
++	.add_entry = eg_cache_add_entry,
++	.get_by_cache_id = eg_cache_get_by_cache_id,
++	.get_by_tag = eg_cache_get_by_tag,
++	.get_by_vcc = eg_cache_get_by_vcc,
++	.get_by_src_ip = eg_cache_get_by_src_ip,
++	.put = eg_cache_put,
++	.remove_entry = eg_cache_remove_entry,
++	.update = update_eg_cache_entry,
++	.clear_expired = clear_expired,
++	.destroy_cache = eg_destroy_cache
+ };
+ 
+-
+ void atm_mpoa_init_cache(struct mpoa_client *mpc)
+ {
+ 	mpc->in_ops = &ingress_ops;
+diff --git a/net/vmw_vsock/vmci_transport_notify.c b/net/vmw_vsock/vmci_transport_notify.c
+index fd8cf0214d51..1406db4d97d1 100644
+--- a/net/vmw_vsock/vmci_transport_notify.c
++++ b/net/vmw_vsock/vmci_transport_notify.c
+@@ -662,19 +662,19 @@ static void vmci_transport_notify_pkt_process_negotiate(struct sock *sk)
+ 
+ /* Socket control packet based operations. */
+ const struct vmci_transport_notify_ops vmci_transport_notify_pkt_ops = {
+-	vmci_transport_notify_pkt_socket_init,
+-	vmci_transport_notify_pkt_socket_destruct,
+-	vmci_transport_notify_pkt_poll_in,
+-	vmci_transport_notify_pkt_poll_out,
+-	vmci_transport_notify_pkt_handle_pkt,
+-	vmci_transport_notify_pkt_recv_init,
+-	vmci_transport_notify_pkt_recv_pre_block,
+-	vmci_transport_notify_pkt_recv_pre_dequeue,
+-	vmci_transport_notify_pkt_recv_post_dequeue,
+-	vmci_transport_notify_pkt_send_init,
+-	vmci_transport_notify_pkt_send_pre_block,
+-	vmci_transport_notify_pkt_send_pre_enqueue,
+-	vmci_transport_notify_pkt_send_post_enqueue,
+-	vmci_transport_notify_pkt_process_request,
+-	vmci_transport_notify_pkt_process_negotiate,
++	.socket_init = vmci_transport_notify_pkt_socket_init,
++	.socket_destruct = vmci_transport_notify_pkt_socket_destruct,
++	.poll_in = vmci_transport_notify_pkt_poll_in,
++	.poll_out = vmci_transport_notify_pkt_poll_out,
++	.handle_notify_pkt = vmci_transport_notify_pkt_handle_pkt,
++	.recv_init = vmci_transport_notify_pkt_recv_init,
++	.recv_pre_block = vmci_transport_notify_pkt_recv_pre_block,
++	.recv_pre_dequeue = vmci_transport_notify_pkt_recv_pre_dequeue,
++	.recv_post_dequeue = vmci_transport_notify_pkt_recv_post_dequeue,
++	.send_init = vmci_transport_notify_pkt_send_init,
++	.send_pre_block = vmci_transport_notify_pkt_send_pre_block,
++	.send_pre_enqueue = vmci_transport_notify_pkt_send_pre_enqueue,
++	.send_post_enqueue = vmci_transport_notify_pkt_send_post_enqueue,
++	.process_request = vmci_transport_notify_pkt_process_request,
++	.process_negotiate = vmci_transport_notify_pkt_process_negotiate,
+ };
+diff --git a/net/vmw_vsock/vmci_transport_notify_qstate.c b/net/vmw_vsock/vmci_transport_notify_qstate.c
+index 21e591dafb03..f3a0afc46208 100644
+--- a/net/vmw_vsock/vmci_transport_notify_qstate.c
++++ b/net/vmw_vsock/vmci_transport_notify_qstate.c
+@@ -420,19 +420,19 @@ vmci_transport_notify_pkt_send_pre_enqueue(
+ 
+ /* Socket always on control packet based operations. */
+ const struct vmci_transport_notify_ops vmci_transport_notify_pkt_q_state_ops = {
+-	vmci_transport_notify_pkt_socket_init,
+-	vmci_transport_notify_pkt_socket_destruct,
+-	vmci_transport_notify_pkt_poll_in,
+-	vmci_transport_notify_pkt_poll_out,
+-	vmci_transport_notify_pkt_handle_pkt,
+-	vmci_transport_notify_pkt_recv_init,
+-	vmci_transport_notify_pkt_recv_pre_block,
+-	vmci_transport_notify_pkt_recv_pre_dequeue,
+-	vmci_transport_notify_pkt_recv_post_dequeue,
+-	vmci_transport_notify_pkt_send_init,
+-	vmci_transport_notify_pkt_send_pre_block,
+-	vmci_transport_notify_pkt_send_pre_enqueue,
+-	vmci_transport_notify_pkt_send_post_enqueue,
+-	vmci_transport_notify_pkt_process_request,
+-	vmci_transport_notify_pkt_process_negotiate,
++	.socket_init = vmci_transport_notify_pkt_socket_init,
++	.socket_destruct = vmci_transport_notify_pkt_socket_destruct,
++	.poll_in = vmci_transport_notify_pkt_poll_in,
++	.poll_out = vmci_transport_notify_pkt_poll_out,
++	.handle_notify_pkt = vmci_transport_notify_pkt_handle_pkt,
++	.recv_init = vmci_transport_notify_pkt_recv_init,
++	.recv_pre_block = vmci_transport_notify_pkt_recv_pre_block,
++	.recv_pre_dequeue = vmci_transport_notify_pkt_recv_pre_dequeue,
++	.recv_post_dequeue = vmci_transport_notify_pkt_recv_post_dequeue,
++	.send_init = vmci_transport_notify_pkt_send_init,
++	.send_pre_block = vmci_transport_notify_pkt_send_pre_block,
++	.send_pre_enqueue = vmci_transport_notify_pkt_send_pre_enqueue,
++	.send_post_enqueue = vmci_transport_notify_pkt_send_post_enqueue,
++	.process_request = vmci_transport_notify_pkt_process_request,
++	.process_negotiate = vmci_transport_notify_pkt_process_negotiate,
+ };
 -- 
 2.7.4
 
