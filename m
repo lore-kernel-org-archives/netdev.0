@@ -1,51 +1,58 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH] net/x25: use designated initializers
-Date: Fri, 16 Dec 2016 17:03:39 -0800
-Message-ID: <20161217010339.GA140529@beast>
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: Re: [PATCH v5 1/4] siphash: add cryptographically secure PRF
+Date: Sat, 17 Dec 2016 02:39:50 +0100
+Message-ID: <CAHmME9r4YNqNSZ-KXAHtJN_vm+eL1tSoC-6muHaFUN6fWhkO2g@mail.gmail.com>
+References: <CAHmME9oEhmqW3320Ch+Rczu_=CxQyUQXCGLnYjDm-CYbWugnSw@mail.gmail.com>
+ <20161216234408.30174.qmail@ns.sciencehorizons.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Hendry <andrew.hendry@gmail.com>,
-        "David S. Miller" <davem@davemloft.net>, linux-x25@vger.kernel.org,
-        netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f172.google.com ([209.85.192.172]:33164 "EHLO
-        mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1422678AbcLQBDl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 16 Dec 2016 20:03:41 -0500
-Received: by mail-pf0-f172.google.com with SMTP id d2so16395819pfd.0
-        for <netdev@vger.kernel.org>; Fri, 16 Dec 2016 17:03:41 -0800 (PST)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Andi Kleen <ak@linux.intel.com>,
+        David Miller <davem@davemloft.net>,
+        David Laight <David.Laight@aculab.com>,
+        "Daniel J . Bernstein" <djb@cr.yp.to>,
+        Eric Biggers <ebiggers3@gmail.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>,
+        kernel-hardening@lists.openwall.com,
+        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Andy Lutomirski <luto@amacapital.net>,
+        Netdev <netdev@vger.kernel.org>,
+        Tom Herbert <tom@herbertland.com>,
+        Linus Torvalds <torvalds@linux-foundation.org>,
+        "Theodore Ts'o" <tytso@mit.edu>,
+        Vegard Nossum <vegard.nossum@gmail.com>
+To: George Spelvin <linux@sciencehorizons.net>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <20161216234408.30174.qmail@ns.sciencehorizons.net>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Prepare to mark sensitive kernel structures for randomization by making
-sure they're using designated initializers. These were identified during
-allyesconfig builds of x86, arm, and arm64, with most initializer fixes
-extracted from grsecurity.
+On Sat, Dec 17, 2016 at 12:44 AM, George Spelvin
+<linux@sciencehorizons.net> wrote:
+> Ths advice I'd give now is:
+> - Implement
+> unsigned long hsiphash(const void *data, size_t len, const unsigned long key[2])
+>   .. as SipHash on 64-bit (maybe SipHash-1-3, still being discussed) and
+>   HalfSipHash on 32-bit.
 
-Signed-off-by: Kees Cook <keescook@chromium.org>
----
- net/x25/sysctl_net_x25.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+I already did this. Check my branch.
 
-diff --git a/net/x25/sysctl_net_x25.c b/net/x25/sysctl_net_x25.c
-index 43239527a205..a06dfe143c67 100644
---- a/net/x25/sysctl_net_x25.c
-+++ b/net/x25/sysctl_net_x25.c
-@@ -70,7 +70,7 @@ static struct ctl_table x25_table[] = {
- 		.mode = 	0644,
- 		.proc_handler = proc_dointvec,
- 	},
--	{ 0, },
-+	{ },
- };
- 
- void __init x25_register_sysctl(void)
--- 
-2.7.4
+> - Document when it may or may not be used carefully.
 
+Good idea. I'll write up some extensive documentation about all of
+this, detailing use cases and our various conclusions.
 
--- 
-Kees Cook
-Nexus Security
+> - #define get_random_int (unsigned)get_random_long
+
+That's a good idea, since ultimately the other just casts in the
+return value. I wonder if this could also lead to a similar aliasing
+with arch_get_random_int, since I'm pretty sure all rdrand-like
+instructions return native word size anyway.
+
+> - Ted, Andy Lutorminski and I will try to figure out a construction of
+>   get_random_long() that we all like.
+
+And me, I hope... No need to make this exclusive.
+
+Jason
