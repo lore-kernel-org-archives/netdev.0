@@ -1,280 +1,162 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: Soft lockup in inet_put_port on 4.6
-Date: Sat, 17 Dec 2016 12:08:52 +0100
-Message-ID: <e32b5375-38fb-1fd8-d97a-bf740e368205@stressinduktion.org>
-References: <CALx6S36OVUqAxq9vNnfHp2eJOuG+gSSg896zzaZoc3Og4tyxFw@mail.gmail.com>
- <6C6EE0ED-7E78-4866-8AAF-D75FD4719EF3@fb.com>
- <1481335192.3663.0@smtp.office365.com>
- <1481341624.4930.204.camel@edumazet-glaptop3.roam.corp.google.com>
- <1481343298.4930.208.camel@edumazet-glaptop3.roam.corp.google.com>
- <1481565929.24490.0@smtp.office365.com>
- <3c022731-e703-34ac-55f1-60f5b94b6d62@stressinduktion.org>
- <1481581466.24490.2@smtp.office365.com>
- <CALx6S34S82kFVqYW1M0ZuHx_Mxut4QaLFVerLX4aEsksrFirXg@mail.gmail.com>
- <CAEfhGiyFW1YHmmUYpFv+q4J4r=wSv3ZBZowG69BqkT3p-G4gNw@mail.gmail.com>
- <CALx6S369T_hvoTgyHbmeSiR2p3d68h+0tMKqMmcGYLrKiN3JMA@mail.gmail.com>
- <1481828016.24490.5@smtp.office365.com>
- <aca378b5-aae4-49cf-0542-d1167a5768b8@stressinduktion.org>
- <1481900088.24490.6@smtp.office365.com>
- <1481901684.24490.7@smtp.office365.com>
- <1481926135.24490.8@smtp.office365.com>
- <CALx6S34qacbD-zxvEJyDVsp1_U_tkL_t0hEXrtfffBALsDMxEw@mail.gmail.com>
- <1481928610.17731.0@smtp.office365.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Craig Gallek <kraigatgoog@gmail.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Josef Bacik <jbacik@fb.com>, Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:54540 "EHLO
-        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752729AbcLQLI4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 17 Dec 2016 06:08:56 -0500
-In-Reply-To: <1481928610.17731.0@smtp.office365.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "George Spelvin" <linux@sciencehorizons.net>
+Subject: Re: [PATCH v5 1/4] siphash: add cryptographically secure PRF
+Date: 17 Dec 2016 07:42:43 -0500
+Message-ID: <20161217124243.16746.qmail@ns.sciencehorizons.net>
+References: <CAHmME9rxCYfwyF6EADWqpAEt+yqCPgCLUVH0FPdAy7r-oPnrRg@mail.gmail.com>
+Cc: ak@linux.intel.com, davem@davemloft.net, David.Laight@aculab.com,
+        djb@cr.yp.to, ebiggers3@gmail.com, hannes@stressinduktion.org,
+        jeanphilippe.aumasson@gmail.com,
+        kernel-hardening@lists.openwall.com, linux-crypto@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linux@sciencehorizons.net,
+        luto@amacapital.net, netdev@vger.kernel.org, tom@herbertland.com,
+        torvalds@linux-foundation.org, tytso@mit.edu,
+        vegard.nossum@gmail.com
+To: Jason@zx2c4.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAHmME9rxCYfwyF6EADWqpAEt+yqCPgCLUVH0FPdAy7r-oPnrRg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 16.12.2016 23:50, Josef Bacik wrote:
-> On Fri, Dec 16, 2016 at 5:18 PM, Tom Herbert <tom@herbertland.com> wrote:
->> On Fri, Dec 16, 2016 at 2:08 PM, Josef Bacik <jbacik@fb.com> wrote:
->>>  On Fri, Dec 16, 2016 at 10:21 AM, Josef Bacik <jbacik@fb.com> wrote:
->>>>
->>>>  On Fri, Dec 16, 2016 at 9:54 AM, Josef Bacik <jbacik@fb.com> wrote:
->>>>>
->>>>>  On Thu, Dec 15, 2016 at 7:07 PM, Hannes Frederic Sowa
->>>>>  <hannes@stressinduktion.org> wrote:
->>>>>>
->>>>>>  Hi Josef,
->>>>>>
->>>>>>  On 15.12.2016 19:53, Josef Bacik wrote:
->>>>>>>
->>>>>>>   On Tue, Dec 13, 2016 at 6:32 PM, Tom Herbert <tom@herbertland.com>
->>>>>>>  wrote:
->>>>>>>>
->>>>>>>>   On Tue, Dec 13, 2016 at 3:03 PM, Craig Gallek
->>>>>>>> <kraigatgoog@gmail.com>
->>>>>>>>   wrote:
->>>>>>>>>
->>>>>>>>>    On Tue, Dec 13, 2016 at 3:51 PM, Tom Herbert
->>>>>>>>> <tom@herbertland.com>
->>>>>>>>>   wrote:
->>>>>>>>>>
->>>>>>>>>>    I think there may be some suspicious code in
->>>>>>>>>> inet_csk_get_port. At
->>>>>>>>>>    tb_found there is:
->>>>>>>>>>
->>>>>>>>>>                    if (((tb->fastreuse > 0 && reuse) ||
->>>>>>>>>>                         (tb->fastreuseport > 0 &&
->>>>>>>>>>                         
->>>>>>>>>> !rcu_access_pointer(sk->sk_reuseport_cb) &&
->>>>>>>>>>                          sk->sk_reuseport && uid_eq(tb->fastuid,
->>>>>>>>>>   uid))) &&
->>>>>>>>>>                        smallest_size == -1)
->>>>>>>>>>                            goto success;
->>>>>>>>>>                    if
->>>>>>>>>> (inet_csk(sk)->icsk_af_ops->bind_conflict(sk,
->>>>>>>>>>   tb, true)) {
->>>>>>>>>>                            if ((reuse ||
->>>>>>>>>>                                 (tb->fastreuseport > 0 &&
->>>>>>>>>>                                  sk->sk_reuseport &&
->>>>>>>>>>
->>>>>>>>>>   !rcu_access_pointer(sk->sk_reuseport_cb) &&
->>>>>>>>>>                                  uid_eq(tb->fastuid, uid))) &&
->>>>>>>>>>                                smallest_size != -1 &&
->>>>>>>>>> --attempts >=
->>>>>>>>>>  0) {
->>>>>>>>>>                                    spin_unlock_bh(&head->lock);
->>>>>>>>>>                                    goto again;
->>>>>>>>>>                            }
->>>>>>>>>>                            goto fail_unlock;
->>>>>>>>>>                    }
->>>>>>>>>>
->>>>>>>>>>    AFAICT there is redundancy in these two conditionals.  The
->>>>>>>>>> same
->>>>>>>>>>  clause
->>>>>>>>>>    is being checked in both: (tb->fastreuseport > 0 &&
->>>>>>>>>>    !rcu_access_pointer(sk->sk_reuseport_cb) &&
->>>>>>>>>> sk->sk_reuseport &&
->>>>>>>>>>    uid_eq(tb->fastuid, uid))) && smallest_size == -1. If this
->>>>>>>>>> is true
->>>>>>>>>>  the
->>>>>>>>>>    first conditional should be hit, goto done,  and the second
->>>>>>>>>> will
->>>>>>>>>>  never
->>>>>>>>>>    evaluate that part to true-- unless the sk is changed (do
->>>>>>>>>> we need
->>>>>>>>>>    READ_ONCE for sk->sk_reuseport_cb?).
->>>>>>>>>
->>>>>>>>>    That's an interesting point... It looks like this function also
->>>>>>>>>    changed in 4.6 from using a single local_bh_disable() at the
->>>>>>>>>  beginning
->>>>>>>>>    with several spin_lock(&head->lock) to exclusively
->>>>>>>>>    spin_lock_bh(&head->lock) at each locking point.  Perhaps
->>>>>>>>> the full
->>>>>>>>>  bh
->>>>>>>>>    disable variant was preventing the timers in your stack
->>>>>>>>> trace from
->>>>>>>>>    running interleaved with this function before?
->>>>>>>>
->>>>>>>>
->>>>>>>>   Could be, although dropping the lock shouldn't be able to
->>>>>>>> affect the
->>>>>>>>   search state. TBH, I'm a little lost in reading function, the
->>>>>>>>   SO_REUSEPORT handling is pretty complicated. For instance,
->>>>>>>>   rcu_access_pointer(sk->sk_reuseport_cb) is checked three times in
->>>>>>>>  that
->>>>>>>>   function and also in every call to inet_csk_bind_conflict. I
->>>>>>>> wonder
->>>>>>>>  if
->>>>>>>>   we can simply this under the assumption that SO_REUSEPORT is only
->>>>>>>>   allowed if the port number (snum) is explicitly specified.
->>>>>>>
->>>>>>>
->>>>>>>   Ok first I have data for you Hannes, here's the time distributions
->>>>>>>   before during and after the lockup (with all the debugging in
->>>>>>> place
->>>>>>>  the
->>>>>>>   box eventually recovers).  I've attached it as a text file
->>>>>>> since it is
->>>>>>>   long.
->>>>>>
->>>>>>
->>>>>>  Thanks a lot!
->>>>>>
->>>>>>>   Second is I was thinking about why we would spend so much time
->>>>>>> doing
->>>>>>>  the
->>>>>>>   ->owners list, and obviously it's because of the massive amount of
->>>>>>>   timewait sockets on the owners list.  I wrote the following
->>>>>>> dumb patch
->>>>>>>   and tested it and the problem has disappeared completely.  Now
->>>>>>> I don't
->>>>>>>   know if this is right at all, but I thought it was weird we
->>>>>>> weren't
->>>>>>>   copying the soreuseport option from the original socket onto
->>>>>>> the twsk.
->>>>>>>   Is there are reason we aren't doing this currently?  Does this
->>>>>>> help
->>>>>>>   explain what is happening?  Thanks,
->>>>>>
->>>>>>
->>>>>>  The patch is interesting and a good clue, but I am immediately a bit
->>>>>>  concerned that we don't copy/tag the socket with the uid also to
->>>>>> keep
->>>>>>  the security properties for SO_REUSEPORT. I have to think a bit more
->>>>>>  about this.
->>>>>>
->>>>>>  We have seen hangs during connect. I am afraid this patch
->>>>>> wouldn't help
->>>>>>  there while also guaranteeing uniqueness.
->>>>>
->>>>>
->>>>>
->>>>>  Yeah so I looked at the code some more and actually my patch is
->>>>> really
->>>>>  bad.  If sk2->sk_reuseport is set we'll look at
->>>>> sk2->sk_reuseport_cb, which
->>>>>  is outside of the timewait sock, so that's definitely bad.
->>>>>
->>>>>  But we should at least be setting it to 0 so that we don't do this
->>>>>  normally.  Unfortunately simply setting it to 0 doesn't fix the
->>>>> problem.  So
->>>>>  for some reason having ->sk_reuseport set to 1 on a timewait
->>>>> socket makes
->>>>>  this problem non-existent, which is strange.
->>>>>
->>>>>  So back to the drawing board I guess.  I wonder if doing what craig
->>>>>  suggested and batching the timewait timer expires so it hurts less
->>>>> would
->>>>>  accomplish the same results.  Thanks,
->>>>
->>>>
->>>>  Wait no I lied, we access the sk->sk_reuseport_cb, not sk2's.  This
->>>> is the
->>>>  code
->>>>
->>>>                         if ((!reuse || !sk2->sk_reuse ||
->>>>                             sk2->sk_state == TCP_LISTEN) &&
->>>>                             (!reuseport || !sk2->sk_reuseport ||
->>>>                              rcu_access_pointer(sk->sk_reuseport_cb) ||
->>>>                              (sk2->sk_state != TCP_TIME_WAIT &&
->>>>                              !uid_eq(uid, sock_i_uid(sk2))))) {
->>>>
->>>>                                 if (!sk2->sk_rcv_saddr ||
->>>> !sk->sk_rcv_saddr
->>>>  ||
->>>>                                     sk2->sk_rcv_saddr ==
->>>> sk->sk_rcv_saddr)
->>>>                                         break;
->>>>                         }
->>>>
->>>>  so in my patches case we now have reuseport == 1, sk2->sk_reuseport
->>>> == 1.
->>>>  But now we are using reuseport, so sk->sk_reuseport_cb should be
->>>> non-NULL
->>>>  right?  So really setting the timewait sock's sk_reuseport should
->>>> have no
->>>>  bearing on how this loop plays out right?  Thanks,
->>>
->>>
->>>
->>>  So more messing around and I noticed that we basically don't do the
->>>  tb->fastreuseport logic at all if we've ended up with a non
->>> SO_REUSEPORT
->>>  socket on that tb.  So before I fully understood what I was doing I
->>> fixed it
->>>  so that after we go through ->bind_conflict() once with a SO_REUSEPORT
->>>  socket, we reset tb->fastreuseport to 1 and set the uid to match the
->>> uid of
->>>  the socket.  This made the problem go away.  Tom pointed out that if
->>> we bind
->>>  to the same port on a different address and we have a non SO_REUSEPORT
->>>  socket with the same address on this tb then we'd be screwed with my
->>> code.
->>>
->>>  Which brings me to his proposed solution.  We need another hash
->>> table that
->>>  is indexed based on the binding address.  Then each node corresponds
->>> to one
->>>  address/port binding, with non-SO_REUSEPORT entries having only one
->>> entry,
->>>  and normal SO_REUSEPORT entries having many.  This cleans up the
->>> need to
->>>  search all the possible sockets on any given tb, we just go and look
->>> at the
->>>  one we care about.  Does this make sense?  Thanks,
->>>
->> Hi Josef,
->>
->> Thinking about it some more the hash table won't work because of the
->> rules of binding different addresses to the same port. What I think we
->> can do is to change inet_bind_bucket to be structure that contains all
->> the information used to detect conflicts (reuse*, if, address, uid,
->> etc.) and a list of sockets that share that exact same information--
->> for instance all socket in timewait state create through some listener
->> socket should wind up on single bucket. When we do the bind_conflict
->> function we only should have to walk this buckets, not the full list
->> of sockets.
->>
->> Thoughts on this?
-> 
-> This sounds good, maybe tb->owners be a list of say
-> 
-> struct inet_unique_shit {
->     struct sock_common sk;
->     struct hlist socks;
-> };
-> 
-> Then we make inet_unique_shit like twsks', just copy the relevant
-> information, then hang the real sockets off of the socks hlist. 
-> Something like that?  Thanks,
+BTW, here's some SipHash code I wrote for Linux a while ago.
 
-As a counter idea: can we push up a flag to the inet_bind_bucket that we
-check in the fast- way style that indicates that we have wildcarded
-non-reuse(port) in there, so we can skip the bind_bucket much more
-quickly? This wouldn't require a new data structure.
+My target application was ext4 directory hashing, resulting in different
+implementation choices, although I still think that a rolled-up
+implementation like this is reasonable.  Reducing I-cache impact speeds
+up the calling code.
 
-Thanks,
-Hannes
+One thing I'd like to suggest you steal is the way it handles the
+fetch of the final partial word.  It's a lot smaller and faster than
+an 8-way case statement.
+
+
+#include <linux/bitops.h>	/* For rol64 */
+#include <linux/cryptohash.h>
+#include <asm/byteorder.h>
+#include <asm/unaligned.h>
+
+/* The basic ARX mixing function, taken from Skein */
+#define SIP_MIX(a, b, s) ((a) += (b), (b) = rol64(b, s), (b) ^= (a))
+
+/*
+ * The complete SipRound.  Note that, when unrolled twice like below,
+ * the 32-bit rotates drop out on 32-bit machines.
+ */
+#define SIP_ROUND(a, b, c, d) \
+	(SIP_MIX(a, b, 13), SIP_MIX(c, d, 16), (a) = rol64(a, 32), \
+	 SIP_MIX(c, b, 17), SIP_MIX(a, d, 21), (c) = rol64(c, 32))
+
+/*
+ * This is rolled up more than most implementations, resulting in about
+ * 55% the code size.  Speed is a few precent slower.  A crude benchmark
+ * (for (i=1; i <= max; i++) for (j = 0; j < 4096-i; j++) hash(buf+j, i);)
+ * produces the following timings (in usec):
+ *
+ *		i386	i386	i386	x86_64	x86_64	x86_64	x86_64
+ * Length	small	unroll  halfmd4 small	unroll	halfmd4 teahash
+ * 1..4		   1069	   1029	   1608	    195	    160	    399	    690
+ * 1..8		   2483	   2381	   3851	    410	    360	    988	   1659
+ * 1..12           4303	   4152	   6207	    690	    618	   1642	   2690
+ * 1..16           6122	   5931	   8668	    968	    876	   2363	   3786
+ * 1..20           8348	   8137	  11245	   1323	   1185	   3162	   5567
+ * 1..24          10580	  10327	  13935	   1657	   1504	   4066	   7635
+ * 1..28          13211	  12956	  16803	   2069	   1871	   5028	   9759
+ * 1..32          15843	  15572	  19725	   2470	   2260	   6084	  11932
+ * 1..36          18864	  18609	  24259	   2934	   2678	   7566	  14794
+ * 1..1024      5890194	6130242	10264816 881933	 881244	3617392	7589036
+ *
+ * The performance penalty is quite minor, decreasing for long strings,
+ * and it's significantly faster than half_md4, so I'm going for the
+ * I-cache win.
+ */
+uint64_t
+siphash24(char const *in, size_t len, uint32_t const seed[4])
+{
+	uint64_t a = 0x736f6d6570736575;	/* somepseu */
+	uint64_t b = 0x646f72616e646f6d;	/* dorandom */
+	uint64_t c = 0x6c7967656e657261;	/* lygenera */
+	uint64_t d = 0x7465646279746573;	/* tedbytes */
+	uint64_t m = 0;
+	uint8_t padbyte = len;
+
+	/*
+	 * Mix in the 128-bit hash seed.  This is in a format convenient
+	 * to the ext3/ext4 code.  Please feel free to adapt the
+	 * */
+	if (seed) {
+		m = seed[2] | (uint64_t)seed[3] << 32;
+		b ^= m;
+		d ^= m;
+		m = seed[0] | (uint64_t)seed[1] << 32;
+		/* a ^= m; is done in loop below */
+		c ^= m;
+	}
+
+	/*
+	 * By using the same SipRound code for all iterations, we
+	 * save space, at the expense of some branch prediction.  But
+	 * branch prediction is hard because of variable length anyway.
+	 */
+	len = len/8 + 3;	/* Now number of rounds to perform */
+	do {
+		a ^= m;
+
+		switch (--len) {
+			unsigned bytes;
+
+		default:	/* Full words */
+			d ^= m = get_unaligned_le64(in);
+			in += 8;
+			break;
+		case 2:		/* Final partial word */
+			/*
+			 * We'd like to do one 64-bit fetch rather than
+			 * mess around with bytes, but reading past the end
+			 * might hit a protection boundary.  Fortunately,
+			 * we know that protection boundaries are aligned,
+			 * so we can consider only three cases:
+			 * - The remainder occupies zero words
+			 * - The remainder fits into one word
+			 * - The remainder straddles two words
+			 */
+			bytes = padbyte & 7;
+
+			if (bytes == 0) {
+				m = 0;
+			} else {
+				unsigned offset = (unsigned)(uintptr_t)in & 7;
+
+				if (offset + bytes <= 8) {
+					m = le64_to_cpup((uint64_t const *)
+								(in - offset));
+					m >>= 8*offset;
+				} else {
+					m = get_unaligned_le64(in);
+				}
+				m &= ((uint64_t)1 << 8*bytes) - 1;
+			}
+			/* Could use | or +, but ^ allows associativity */
+			d ^= m ^= (uint64_t)padbyte << 56;
+			break;
+		case 1:		/* Beginning of finalization */
+			m = 0;
+			c ^= 0xff;
+			/*FALLTHROUGH*/
+		case 0:		/* Second half of finalization */
+			break;
+		}
+
+		SIP_ROUND(a, b, c, d);
+		SIP_ROUND(a, b, c, d);
+	} while (len);
+
+	return a ^ b ^ c ^ d;
+}
+
+#undef SIP_ROUND
+#undef SIP_MIX
+
+/*
+ * No objection to EXPORT_SYMBOL, but we should probably figure out
+ * how the seed[] array should work first.  Homework for the first
+ * person to want to call it from a module!
+ */
