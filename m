@@ -1,46 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bpf, test_verifier: fix a test case error result
- on unprivileged
-Date: Sat, 17 Dec 2016 10:52:03 -0500 (EST)
-Message-ID: <20161217.105203.2035176019970376891.davem@davemloft.net>
-References: <639d61f73c907b704001ed2b115208998990eb38.1481762158.git.daniel@iogearbox.net>
+Subject: Re: [PATCH net-next 0/2] inet: Fixes for inet_csk_get_port and
+ soreusport
+Date: Sat, 17 Dec 2016 11:13:33 -0500 (EST)
+Message-ID: <20161217.111333.1879745595587471743.davem@davemloft.net>
+References: <20161215005416.1561632-1-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ast@fb.com, netdev@vger.kernel.org
-To: daniel@iogearbox.net
+Cc: netdev@vger.kernel.org, kernel-team@fb.com, jbacik@fb.com,
+        eric.dumazet@gmail.com, raigatgoog@gmail.com
+To: tom@herbertland.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:40826 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:41034 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932105AbcLQPwE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 17 Dec 2016 10:52:04 -0500
-In-Reply-To: <639d61f73c907b704001ed2b115208998990eb38.1481762158.git.daniel@iogearbox.net>
+        with ESMTP id S1752821AbcLQQNg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 17 Dec 2016 11:13:36 -0500
+In-Reply-To: <20161215005416.1561632-1-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Thu, 15 Dec 2016 01:39:10 +0100
+From: Tom Herbert <tom@herbertland.com>
+Date: Wed, 14 Dec 2016 16:54:14 -0800
 
-> Running ./test_verifier as unprivileged lets 1 out of 98 tests fail:
+> This patch set fixes a couple of issues I noticed while debugging our
+> softlockup issue in inet_csk_get_port.
 > 
->   [...]
->   #71 unpriv: check that printk is disallowed FAIL
->   Unexpected error message!
->   0: (7a) *(u64 *)(r10 -8) = 0
->   1: (bf) r1 = r10
->   2: (07) r1 += -8
->   3: (b7) r2 = 8
->   4: (bf) r3 = r1
->   5: (85) call bpf_trace_printk#6
->   unknown func bpf_trace_printk#6
->   [...]
+> - Don't allow jump into port scan in inet_csk_get_port if function
+>   was called with non-zero port number (looking up explicit port
+>   number).
+> - When inet_csk_get_port is called with zero port number (ie. perform
+>   scan) an reuseport is set on the socket, don't match sockets that
+>   also have reuseport set. The intent from the user should be
+>   to get a new port number and then explictly bind other
+>   sockets to that number using soreuseport.
 > 
-> The test case is correct, just that the error outcome changed with
-> ebb676daa1a3 ("bpf: Print function name in addition to function id").
-> Same as with e00c7b216f34 ("bpf: fix multiple issues in selftest suite
-> and samples") issue 2), so just fix up the function name.
+> Tested:
 > 
-> Fixes: ebb676daa1a3 ("bpf: Print function name in addition to function id")
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> Ran first patch on production workload with no ill effect.
+> 
+> For second patch, ran a little listener application and first
+> demonstrated that unbound sockets with soreuseport can indeed
+> be bound to unrelated soreuseport sockets.
 
-Applied.
+Series applied, thanks Tom.
