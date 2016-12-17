@@ -1,178 +1,121 @@
-From: Andy Lutomirski <luto-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Potential issues (security and otherwise) with the current cgroup-bpf API
-Date: Sat, 17 Dec 2016 10:18:44 -0800
-Message-ID: <CALCETrV81oFwq2AgeRsN54HA1jR=b5cOZfAgve8H8zhx83DTyA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=001a1143a744bc13ce0543deb8e4
-Cc: Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Daniel Mack <daniel-cYrQPVfZoowdnm+yROfE0A@public.gmane.org>,
-        Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        =?UTF-8?B?TWlja2HDq2wgU2FsYcO8bg==?= <mic-WFhQfpSGs3bR7s880joybQ@public.gmane.org>,
-        Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, Jann Horn <jann-XZ1E9jl8jIdeoWH0uzbU5w@public.gmane.org>,
-        Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, David Ahern <dsahern-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>,
-        Michael Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+Subject: [PATCH net-next v4 0/2] stmmac: dwmac-meson8b: configurable RGMII TX delay
+Date: Sat, 17 Dec 2016 19:21:17 +0100
+Message-ID: <20161217182119.4037-1-martin.blumenstingl@googlemail.com>
+References: <20161202233238.17561-1-martin.blumenstingl@googlemail.com>
+Cc: peppe.cavallaro-qxv4g6HH51o@public.gmane.org, alexandre.torgue-qxv4g6HH51o@public.gmane.org,
+        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        Martin Blumenstingl <martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-amlogic-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, carlo-KA+7E9HrN00dnm+yROfE0A@public.gmane.org,
+        khilman-rdvid1DuHRBWk0Htik3J/w@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20161202233238.17561-1-martin.blumenstingl-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
---001a1143a744bc13ce0543deb8e4
-Content-Type: text/plain; charset=UTF-8
+Currently the dwmac-meson8b stmmac glue driver uses a hardcoded 1/4
+cycle (= 2ns) TX clock delay. This seems to work fine for many boards
+(for example Odroid-C2 or Amlogic's reference boards) but there are
+some others where TX traffic is simply broken.
+There are probably multiple reasons why it's working on some boards
+while it's broken on others:
+- some of Amlogic's reference boards are using a Micrel PHY
+- hardware circuit design
+- maybe more...
 
-Hi all-
+iperf3 results on my Mecool BB2 board (Meson GXM, RTL8211F PHY) with
+TX clock delay disabled on the MAC (as it's enabled in the PHY driver).
+TX throughput was virtually zero before:
+$ iperf3 -c 192.168.1.100 -R
+Connecting to host 192.168.1.100, port 5201
+Reverse mode, remote host 192.168.1.100 is sending
+[  4] local 192.168.1.206 port 52828 connected to 192.168.1.100 port 5201
+[ ID] Interval           Transfer     Bandwidth
+[  4]   0.00-1.00   sec   108 MBytes   901 Mbits/sec
+[  4]   1.00-2.00   sec  94.2 MBytes   791 Mbits/sec
+[  4]   2.00-3.00   sec  96.5 MBytes   810 Mbits/sec
+[  4]   3.00-4.00   sec  96.2 MBytes   808 Mbits/sec
+[  4]   4.00-5.00   sec  96.6 MBytes   810 Mbits/sec
+[  4]   5.00-6.00   sec  96.5 MBytes   810 Mbits/sec
+[  4]   6.00-7.00   sec  96.6 MBytes   810 Mbits/sec
+[  4]   7.00-8.00   sec  96.5 MBytes   809 Mbits/sec
+[  4]   8.00-9.00   sec   105 MBytes   884 Mbits/sec
+[  4]   9.00-10.00  sec   111 MBytes   934 Mbits/sec
+- - - - - - - - - - - - - - - - - - - - - - - - -
+[ ID] Interval           Transfer     Bandwidth       Retr
+[  4]   0.00-10.00  sec  1000 MBytes   839 Mbits/sec    0             sender
+[  4]   0.00-10.00  sec   998 MBytes   837 Mbits/sec                  receiver
 
-I apologize for being rather late with this.  I didn't realize that
-cgroup-bpf was going to be submitted for Linux 4.10, and I didn't see
-it on the linux-api list, so I missed the discussion.
+iperf Done.
+$ iperf3 -c 192.168.1.100
+Connecting to host 192.168.1.100, port 5201
+[  4] local 192.168.1.206 port 52832 connected to 192.168.1.100 port 5201
+[ ID] Interval           Transfer     Bandwidth       Retr  Cwnd
+[  4]   0.00-1.01   sec  99.5 MBytes   829 Mbits/sec  117    139 KBytes
+[  4]   1.01-2.00   sec   105 MBytes   884 Mbits/sec  129   70.7 KBytes
+[  4]   2.00-3.01   sec   107 MBytes   889 Mbits/sec  106    187 KBytes
+[  4]   3.01-4.01   sec   105 MBytes   878 Mbits/sec   92    143 KBytes
+[  4]   4.01-5.00   sec   105 MBytes   882 Mbits/sec  140    129 KBytes
+[  4]   5.00-6.01   sec   106 MBytes   883 Mbits/sec  115    195 KBytes
+[  4]   6.01-7.00   sec   102 MBytes   863 Mbits/sec  133   70.7 KBytes
+[  4]   7.00-8.01   sec   106 MBytes   884 Mbits/sec  143   97.6 KBytes
+[  4]   8.01-9.01   sec   104 MBytes   875 Mbits/sec  124    107 KBytes
+[  4]   9.01-10.01  sec   105 MBytes   876 Mbits/sec   90    139 KBytes
+- - - - - - - - - - - - - - - - - - - - - - - - -
+[ ID] Interval           Transfer     Bandwidth       Retr
+[  4]   0.00-10.01  sec  1.02 GBytes   874 Mbits/sec  1189             sender
+[  4]   0.00-10.01  sec  1.02 GBytes   873 Mbits/sec                  receiver
 
-I think that the inet ingress, egress etc filters are a neat feature,
-but I think the API has some issues that will bite us down the road
-if it becomes stable in its current form.
+iperf Done.
 
-Most of the problems I see are summarized in this transcript:
+I get similar TX throughput on my Meson GXBB "MXQ Pro+" board when I
+disable the PHY's TX-delay and configure a 4ms TX-delay on the MAC.
+So changes to at least the RTL8211F PHY driver are needed to get it
+working properly in all situations.
 
-# mkdir cg2
-# mount -t cgroup2 none cg2
-# mkdir cg2/nosockets
-# strace cgrp_socket_rule cg2/nosockets/ 0
-...
-open("cg2/nosockets/", O_RDONLY|O_DIRECTORY) = 3
+Changes since v3:
+- rebased to apply against current net-next branch (fixes a conflict
+  with d2ed0a7755fe14c7 "net: ethernet: stmmac: fix of-node and
+  fixed-link-phydev leaks")
+- 
 
-^^^^ You can modify a cgroup after opening it O_RDONLY?
+Changes since v2:
+- moved all .dts patches (3-7) to a separate series
+- removed the default 2ns TX delay when phy-mode RGMII is specified
+- (rebased against current net-next)
 
-bpf(BPF_PROG_LOAD, {prog_type=0x9 /* BPF_PROG_TYPE_??? */, insn_cnt=2,
-insns=0x7fffe3568c10, license="GPL", log_level=1, log_size=262144,
-log_buf=0x6020c0, kern_version=0}, 48) = 4
+Changes since v1:
+- renamed the devicetree property "amlogic,tx-delay" to
+  "amlogic,tx-delay-ns", which makes the .dts easier to read as we can
+  simply specify human-readable values instead of having "preprocessor
+  defines and calculation in human brain". Thanks to Andrew Lunn for
+  the suggestion!
+- improved documentation to indicate when the MAC TX-delay should be
+  configured and how to use the PHY's TX-delay
+- changed the default TX-delay in the dwmac-meson8b driver from 2ns
+  to 0ms when any of the rgmii-*id modes are used (the 2ns default
+  value still applies for phy-mode "rgmii")
+- added patches to properly reset the PHY on Meson GXBB devices and to
+  use a similar configuration than the one we use on Meson GXL devices
+  (by passing a phy-handle to stmmac and defining the PHY in the mdio0
+  bus - patch 3-6)
+- add the "amlogic,tx-delay-ns" property to all boards which are using
+  the RGMII PHY (patch 7)
 
-^^^^ This is fine.  The bpf() syscall manipulates bpf objects.
+Martin Blumenstingl (2):
+  net: dt-bindings: add RGMII TX delay configuration to meson8b-dwmac
+  net: stmmac: dwmac-meson8b: make the RGMII TX delay configurable
 
-bpf(0x8 /* BPF_??? */, 0x7fffe3568bf0, 48) = 0
+ .../devicetree/bindings/net/meson-dwmac.txt         | 14 ++++++++++++++
+ drivers/net/ethernet/stmicro/stmmac/dwmac-meson8b.c | 21 +++++++++++++++------
+ 2 files changed, 29 insertions(+), 6 deletions(-)
 
-^^^^ This is not so good:
-^^^^
-^^^^ a) The bpf() syscall is supposed to manipulate bpf objects.  This
-^^^^    is manipulating a cgroup.  There's no reason that a socket creation
-^^^^    filter couldn't be written in a different language (new iptables
-^^^^    table?  Simple list of address families?), but if that happened,
-^^^^    then using bpf() to install it would be entirely nonsensical.
-^^^^
-^^^^ b) This is starting to be an excessively ugly multiplexer.  Among
-^^^^    other things, it's very unfriendly to seccomp.
+-- 
+2.11.0
 
-# echo $$ >cg2/nosockets/cgroup.procs
-# ping 127.0.0.1
-ping: socket: Operation not permitted
-# ls cg2/nosockets/
-cgroup.controllers  cgroup.events  cgroup.procs  cgroup.subtree_control
-# cat cg2/nosockets/cgroup.controllers
-
-^^^^ Something in cgroupfs should give an indication that this cgroup
-^^^^ filters socket creation, but there's nothing there.  You should also
-^^^^ be able to turn the filter off from cgroupfs.
-
-# mkdir cg2/nosockets/sockets
-# /home/luto/apps/linux/samples/bpf/cgrp_socket_rule cg2/nosockets/sockets/ 1
-
-^^^^ This succeeded, which means that, if this feature is enabled in 4.10,
-^^^^ then we're stuck with its semantics.  If it returned -EINVAL instead,
-^^^^ there would be a chance to refine it.
-
-# echo $$ >cg2/nosockets/sockets/cgroup.procs
-# ping 127.0.0.1
-PING 127.0.0.1 (127.0.0.1) 56(84) bytes of data.
-64 bytes from 127.0.0.1: icmp_seq=1 ttl=64 time=0.029 ms
-^C
---- 127.0.0.1 ping statistics ---
-1 packets transmitted, 1 received, 0% packet loss, time 0ms
-rtt min/avg/max/mdev = 0.029/0.029/0.029/0.000 ms
-
-^^^^ Bash was inside a cgroup that disallowed socket creation, but socket
-^^^^ creation wasn't disallowed.  This means that the obvious use of socket
-^^^^ creation filters in nestable constainers fails insecurely.
-
-
-There's also a subtle but nasty potential security problem here.
-In 4.9 and before, cgroups has only one real effect in the kernel:
-resource control. A process in a malicious cgroup could be DoSed,
-but that was about the extent of the damage that a malicious cgroup
-could do.
-
-In 4.10 with With CONFIG_CGROUP_BPF=y, a cgroup can have bpf
-programs attached that can do things if various events occur. (Right
-now, this means socket operations, but there are plans in the works
-to do this for LSM hooks too.) These bpf programs can say yes or no,
-but they can also read out various data (including socket payloads!)
-and save them away where an attacker can find them. This sounds a
-lot like seccomp with a narrower scope but a much stronger ability to
-exfiltrate private information.
-
-Unfortunately, while seccomp is very, very careful to prevent
-injection of a privileged victim into a malicious sandbox, the
-CGROUP_BPF mechanism appears to have no real security model. There
-is nothing to prevent a program that's in a malicious cgroup from
-running a setuid binary, and there is nothing to prevent a program
-that has the ability to move itself or another program into a
-malicious cgroup from doing so and then, if needed for exploitation,
-exec a setuid binary.
-
-This isn't much of a problem yet because you currently need
-CAP_NET_ADMIN to create a malicious sandbox in the first place.  I'm
-sure that, in the near future, someone will want to make this stuff
-work in containers with delegated cgroup hierarchies, and then there
-may be a real problem here.
-
-
-I've included a few security people on this thread.  The current API
-looks abusable, and it would be nice to find all the holes before
-4.10 comes out.
-
-
-(The cgrp_socket_rule source is attached.  You can build it by sticking it
- in samples/bpf and doing:
-
- $ make headers_install
- $ cd samples/bpf
- $ gcc -o cgrp_socket_rule cgrp_socket_rule.c libbpf.c -I../../usr/include
-)
-
---Andy
-
---001a1143a744bc13ce0543deb8e4
-Content-Type: text/x-csrc; charset=US-ASCII; name="cgrp_socket_rule.c"
-Content-Disposition: attachment; filename="cgrp_socket_rule.c"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_iwtjntse0
-
-LyogZUJQRiBleGFtcGxlIHByb2dyYW06CiAqCiAqIC0gTG9hZHMgZUJQRiBwcm9ncmFtCiAqCiAq
-ICAgVGhlIGVCUEYgcHJvZ3JhbSBzZXRzIHRoZSBza19ib3VuZF9kZXZfaWYgaW5kZXggaW4gbmV3
-IEFGX0lORVR7Nn0KICogICBzb2NrZXRzIG9wZW5lZCBieSBwcm9jZXNzZXMgaW4gdGhlIGNncm91
-cC4KICoKICogLSBBdHRhY2hlcyB0aGUgbmV3IHByb2dyYW0gdG8gYSBjZ3JvdXAgdXNpbmcgQlBG
-X1BST0dfQVRUQUNICiAqLwoKI2RlZmluZSBfR05VX1NPVVJDRQoKI2luY2x1ZGUgPHN0ZGlvLmg+
-CiNpbmNsdWRlIDxzdGRsaWIuaD4KI2luY2x1ZGUgPHN0ZGRlZi5oPgojaW5jbHVkZSA8c3RyaW5n
-Lmg+CiNpbmNsdWRlIDx1bmlzdGQuaD4KI2luY2x1ZGUgPGFzc2VydC5oPgojaW5jbHVkZSA8ZXJy
-bm8uaD4KI2luY2x1ZGUgPGZjbnRsLmg+CiNpbmNsdWRlIDxuZXQvaWYuaD4KI2luY2x1ZGUgPGxp
-bnV4L2JwZi5oPgoKI2luY2x1ZGUgImxpYmJwZi5oIgoKc3RhdGljIGludCBwcm9nX2xvYWQoaW50
-IHZhbHVlKQp7CglzdHJ1Y3QgYnBmX2luc24gcHJvZ1tdID0gewoJCUJQRl9NT1Y2NF9JTU0oQlBG
-X1JFR18wLCB2YWx1ZSksIC8qIHIwID0gdmVyZGljdCAqLwoJCUJQRl9FWElUX0lOU04oKSwKCX07
-CgoJcmV0dXJuIGJwZl9wcm9nX2xvYWQoQlBGX1BST0dfVFlQRV9DR1JPVVBfU09DSywgcHJvZywg
-c2l6ZW9mKHByb2cpLAoJCQkgICAgICJHUEwiLCAwKTsKfQoKc3RhdGljIGludCB1c2FnZShjb25z
-dCBjaGFyICphcmd2MCkKewoJcHJpbnRmKCJVc2FnZTogJXMgY2ctcGF0aCB2YWx1ZVxuIiwgYXJn
-djApOwoJcmV0dXJuIEVYSVRfRkFJTFVSRTsKfQoKaW50IG1haW4oaW50IGFyZ2MsIGNoYXIgKiph
-cmd2KQp7CglpbnQgY2dfZmQsIHByb2dfZmQsIHZhbHVlLCByZXQ7CgoJaWYgKGFyZ2MgPCAyKQoJ
-CXJldHVybiB1c2FnZShhcmd2WzBdKTsKCgljZ19mZCA9IG9wZW4oYXJndlsxXSwgT19ESVJFQ1RP
-UlkgfCBPX1JET05MWSk7CglpZiAoY2dfZmQgPCAwKSB7CgkJcHJpbnRmKCJGYWlsZWQgdG8gb3Bl
-biBjZ3JvdXAgcGF0aDogJyVzJ1xuIiwgc3RyZXJyb3IoZXJybm8pKTsKCQlyZXR1cm4gRVhJVF9G
-QUlMVVJFOwoJfQoKCXZhbHVlID0gYXRvaShhcmd2WzJdKTsKCglwcm9nX2ZkID0gcHJvZ19sb2Fk
-KHZhbHVlKTsKCS8qIHByaW50ZigiT3V0cHV0IGZyb20ga2VybmVsIHZlcmlmaWVyOlxuJXNcbi0t
-LS0tLS1cbiIsIGJwZl9sb2dfYnVmKTsgKi8KCglpZiAocHJvZ19mZCA8IDApIHsKCQlwcmludGYo
-IkZhaWxlZCB0byBsb2FkIHByb2c6ICclcydcbiIsIHN0cmVycm9yKGVycm5vKSk7CgkJcmV0dXJu
-IEVYSVRfRkFJTFVSRTsKCX0KCglyZXQgPSBicGZfcHJvZ19hdHRhY2gocHJvZ19mZCwgY2dfZmQs
-IEJQRl9DR1JPVVBfSU5FVF9TT0NLX0NSRUFURSk7CglpZiAocmV0IDwgMCkgewoJCXByaW50Zigi
-RmFpbGVkIHRvIGF0dGFjaCBwcm9nIHRvIGNncm91cDogJyVzJ1xuIiwKCQkgICAgICAgc3RyZXJy
-b3IoZXJybm8pKTsKCQlyZXR1cm4gRVhJVF9GQUlMVVJFOwoJfQoKCXJldHVybiBFWElUX1NVQ0NF
-U1M7Cn0K
---001a1143a744bc13ce0543deb8e4--
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
