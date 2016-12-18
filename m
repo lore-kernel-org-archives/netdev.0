@@ -1,32 +1,151 @@
 From: Julian Anastasov <ja@ssi.bg>
-Subject: [PATCH RFC net-next 3/7] sctp: add dst_pending_confirm flag
-Date: Sun, 18 Dec 2016 22:56:32 +0200
-Message-ID: <1482094596-26046-4-git-send-email-ja@ssi.bg>
-References: <1482094596-26046-1-git-send-email-ja@ssi.bg>
+Subject: [PATCH RFC net-next 0/7] net: dst_confirm replacement
+Date: Sun, 18 Dec 2016 22:56:29 +0200
+Message-ID: <1482094596-26046-1-git-send-email-ja@ssi.bg>
 Cc: linux-sctp@vger.kernel.org, YueHaibing <yuehaibing@huawei.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:46912 "EHLO ja.ssi.bg"
+Received: from ja.ssi.bg ([178.16.129.10]:46910 "EHLO ja.ssi.bg"
         rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753647AbcLRU5o (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1753715AbcLRU5o (ORCPT <rfc822;netdev@vger.kernel.org>);
         Sun, 18 Dec 2016 15:57:44 -0500
-In-Reply-To: <1482094596-26046-1-git-send-email-ja@ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add new transport flag to allow sockets to confirm neighbour.
-When same struct dst_entry can be used for many different
-neighbours we can not use it for pending confirmations.
-The flag is propagated from transport to every packet.
-It is reset when cached dst is reset.
+	This patchset addresses the problem of neighbour
+confirmation where received replies from one nexthop
+can cause confirmation of different nexthop when using
+the same dst. Thanks to YueHaibing <yuehaibing@huawei.com>
+for tracking the dst->pending_confirm problem.
 
-Reported-by: YueHaibing <yuehaibing@huawei.com>
-Fixes: 5110effee8fd ("net: Do delayed neigh confirmation.")
-Fixes: f2bb4bedf35d ("ipv4: Cache output routes in fib_info nexthops.")
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
----
+	Sockets can obtain cached output route. Such
+routes can be to known nexthop (rt_gateway=IP) or to be
+used simultaneously for different nexthop IPs by different
+subnet prefixes (nh->nh_scope = RT_SCOPE_HOST, rt_gateway=0).
+
+	At first look, there are more problems:
+
+- dst_confirm() sets flag on dst and not on dst->path,
+as result, indication is lost when XFRM is used
+
+- DNAT can change the nexthop, so the really used nexthop is
+not confirmed
+
+	So, the following solution is to avoid using
+dst->pending_confirm.
+
+	The current dst_confirm() usage is as follows:
+
+Protocols confirming dst on received packets:
+- TCP (1 dst per socket)
+- SCTP (1 dst per transport)
+- CXGB*
+
+Protocols supporting sendmsg with MSG_CONFIRM [ | MSG_PROBE ] to
+confirm neighbour:
+- UDP IPv4/IPv6
+- ICMPv4 PING
+- RAW IPv4/IPv6
+- L2TP/IPv6
+
+MSG_CONFIRM for other purposes (fix not needed):
+- CAN
+
+Sending without locking the socket:
+- UDP (when no cork)
+- RAW (when hdrincl=1)
+
+Redirects from old to new GW:
+- rt6_do_redirect
+
+
+	The patchset includes the following changes:
+
+1. sock: add sk_dst_pending_confirm flag
+
+- used only by TCP with patch 4 to remember the received
+indication in sk->sk_dst_pending_confirm
+
+2. net: add dst_pending_confirm flag to skbuff
+
+- skb->dst_pending_confirm will be used by all protocols
+in following patches
+
+3. sctp: add dst_pending_confirm flag
+
+- SCTP uses per-transport dsts and can not use
+sk->sk_dst_pending_confirm like TCP
+
+4. tcp: replace dst_confirm with sk_dst_confirm
+
+5. net: add confirm_neigh method to dst_ops
+
+- IPv4 and IPv6 provision for slow neigh lookups for MSG_PROBE users.
+I decided to use neigh lookup only for this case because on
+MSG_PROBE the skb may pass MTU checks but it does not reach
+the neigh confirmation code. This patch will be used from patch 6.
+
+- xfrm_confirm_neigh: support is incomplete here, only routes with
+known nexthops (gateway) are supported because the tunnel address
+is slow to obtain. Or there is solution to this problem?
+
+6. net: use dst_confirm_neigh for UDP, RAW, ICMP, L2TP
+
+- dst_confirm conversion for UDP, RAW, ICMP and L2TP/IPv6
+
+- these protocols use MSG_CONFIRM propagated by ip*_append_data
+to skb->dst_pending_confirm. sk->sk_dst_pending_confirm is not
+used because some sending paths do not lock the socket. For
+MSG_PROBE we use the slow lookup (dst_confirm_neigh).
+
+- there are also 2 cases that need the slow lookup:
+__ip6_rt_update_pmtu and rt6_do_redirect. I hope
+&ipv6_hdr(skb)->saddr is the correct nexthop address to use here.
+
+7. net: pending_confirm is not used anymore
+
+- I failed to understand the CXGB* code, I see dst_confirm()
+calls but I'm not sure dst_neigh_output() was called. For now
+I just removed the dst->pending_confirm flag and left all
+dst_confirm() calls there. Any better idea?
+
+- Now may be old function neigh_output() should be restored
+instead of dst_neigh_output?
+
+
+Julian Anastasov (7):
+  sock: add sk_dst_pending_confirm flag
+  net: add dst_pending_confirm flag to skbuff
+  sctp: add dst_pending_confirm flag
+  tcp: replace dst_confirm with sk_dst_confirm
+  net: add confirm_neigh method to dst_ops
+  net: use dst_confirm_neigh for UDP, RAW, ICMP, L2TP
+  net: pending_confirm is not used anymore
+
+ drivers/net/vrf.c          |  5 ++++-
+ include/linux/skbuff.h     |  4 +++-
+ include/net/arp.h          | 16 ++++++++++++++++
+ include/net/dst.h          | 21 +++++++++------------
+ include/net/dst_ops.h      |  2 ++
+ include/net/ndisc.h        | 17 +++++++++++++++++
  include/net/sctp/sctp.h    |  6 ++----
  include/net/sctp/structs.h |  4 ++++
+ include/net/sock.h         | 28 +++++++++++++++++++++++++++-
+ net/core/dst.c             |  1 -
+ net/core/sock.c            |  2 ++
+ net/ipv4/ip_output.c       | 11 ++++++++++-
+ net/ipv4/ping.c            |  3 ++-
+ net/ipv4/raw.c             |  6 +++++-
+ net/ipv4/route.c           | 19 +++++++++++++++++++
+ net/ipv4/tcp_input.c       | 12 +++---------
+ net/ipv4/tcp_metrics.c     |  7 ++-----
+ net/ipv4/tcp_output.c      |  2 ++
+ net/ipv4/udp.c             |  3 ++-
+ net/ipv6/ip6_output.c      |  7 +++++++
+ net/ipv6/raw.c             |  6 +++++-
+ net/ipv6/route.c           | 43 ++++++++++++++++++++++++++++++-------------
+ net/ipv6/udp.c             |  3 ++-
+ net/l2tp/l2tp_ip6.c        |  3 ++-
  net/sctp/associola.c       |  3 +--
  net/sctp/output.c          | 10 +++++++++-
  net/sctp/outqueue.c        |  2 +-
@@ -34,193 +153,8 @@ Signed-off-by: Julian Anastasov <ja@ssi.bg>
  net/sctp/sm_sideeffect.c   |  2 +-
  net/sctp/socket.c          |  4 ++--
  net/sctp/transport.c       | 18 +++++++++++++++++-
- 9 files changed, 39 insertions(+), 16 deletions(-)
+ net/xfrm/xfrm_policy.c     | 16 ++++++++++++++++
+ 32 files changed, 226 insertions(+), 66 deletions(-)
 
-diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
-index f0dcaeb..85d9083 100644
---- a/include/net/sctp/sctp.h
-+++ b/include/net/sctp/sctp.h
-@@ -586,10 +586,8 @@ static inline void sctp_v4_map_v6(union sctp_addr *addr)
-  */
- static inline struct dst_entry *sctp_transport_dst_check(struct sctp_transport *t)
- {
--	if (t->dst && !dst_check(t->dst, t->dst_cookie)) {
--		dst_release(t->dst);
--		t->dst = NULL;
--	}
-+	if (t->dst && !dst_check(t->dst, t->dst_cookie))
-+		sctp_transport_dst_release(t);
- 
- 	return t->dst;
- }
-diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-index 92daabd..e842e84 100644
---- a/include/net/sctp/structs.h
-+++ b/include/net/sctp/structs.h
-@@ -838,6 +838,8 @@ struct sctp_transport {
- 
- 	__u32 burst_limited;	/* Holds old cwnd when max.burst is applied */
- 
-+	__u32 dst_pending_confirm;	/* need to confirm neighbour */
-+
- 	/* Destination */
- 	struct dst_entry *dst;
- 	/* Source address. */
-@@ -980,6 +982,8 @@ void sctp_transport_route(struct sctp_transport *, union sctp_addr *,
- void sctp_transport_reset(struct sctp_transport *);
- void sctp_transport_update_pmtu(struct sock *, struct sctp_transport *, u32);
- void sctp_transport_immediate_rtx(struct sctp_transport *);
-+void sctp_transport_dst_release(struct sctp_transport *t);
-+void sctp_transport_dst_confirm(struct sctp_transport *t);
- 
- 
- /* This is the structure we use to queue packets as they come into
-diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-index 68428e1..7bd26e0 100644
---- a/net/sctp/associola.c
-+++ b/net/sctp/associola.c
-@@ -820,8 +820,7 @@ void sctp_assoc_control_transport(struct sctp_association *asoc,
- 		if (transport->state != SCTP_UNCONFIRMED)
- 			transport->state = SCTP_INACTIVE;
- 		else {
--			dst_release(transport->dst);
--			transport->dst = NULL;
-+			sctp_transport_dst_release(transport);
- 			ulp_notify = false;
- 		}
- 
-diff --git a/net/sctp/output.c b/net/sctp/output.c
-index f5320a8..4684a00 100644
---- a/net/sctp/output.c
-+++ b/net/sctp/output.c
-@@ -550,6 +550,7 @@ int sctp_packet_transmit(struct sctp_packet *packet, gfp_t gfp)
- 	struct sctp_association *asoc = tp->asoc;
- 	struct sctp_chunk *chunk, *tmp;
- 	int pkt_count, gso = 0;
-+	int confirm;
- 	struct dst_entry *dst;
- 	struct sk_buff *head;
- 	struct sctphdr *sh;
-@@ -628,7 +629,14 @@ int sctp_packet_transmit(struct sctp_packet *packet, gfp_t gfp)
- 			asoc->peer.last_sent_to = tp;
- 	}
- 	head->ignore_df = packet->ipfragok;
--	tp->af_specific->sctp_xmit(head, tp);
-+	confirm = tp->dst_pending_confirm;
-+	if (confirm)
-+		head->dst_pending_confirm = 1;
-+	/* neighbour should be confirmed on successful transmission or
-+	 * positive error
-+	 */
-+	if (tp->af_specific->sctp_xmit(head, tp) >= 0 && confirm)
-+		tp->dst_pending_confirm = 0;
- 
- out:
- 	list_for_each_entry_safe(chunk, tmp, &packet->chunk_list, list) {
-diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
-index e540826..8234799 100644
---- a/net/sctp/outqueue.c
-+++ b/net/sctp/outqueue.c
-@@ -1641,7 +1641,7 @@ static void sctp_check_transmitted(struct sctp_outq *q,
- 
- 		if (forward_progress) {
- 			if (transport->dst)
--				dst_confirm(transport->dst);
-+				sctp_transport_dst_confirm(transport);
- 		}
- 	}
- 
-diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
-index 9e9690b..6fb15bf 100644
---- a/net/sctp/sm_make_chunk.c
-+++ b/net/sctp/sm_make_chunk.c
-@@ -3317,8 +3317,7 @@ static void sctp_asconf_param_success(struct sctp_association *asoc,
- 		local_bh_enable();
- 		list_for_each_entry(transport, &asoc->peer.transport_addr_list,
- 				transports) {
--			dst_release(transport->dst);
--			transport->dst = NULL;
-+			sctp_transport_dst_release(transport);
- 		}
- 		break;
- 	case SCTP_PARAM_DEL_IP:
-@@ -3332,8 +3331,7 @@ static void sctp_asconf_param_success(struct sctp_association *asoc,
- 		local_bh_enable();
- 		list_for_each_entry(transport, &asoc->peer.transport_addr_list,
- 				transports) {
--			dst_release(transport->dst);
--			transport->dst = NULL;
-+			sctp_transport_dst_release(transport);
- 		}
- 		break;
- 	default:
-diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
-index c345bf1..9255b29 100644
---- a/net/sctp/sm_sideeffect.c
-+++ b/net/sctp/sm_sideeffect.c
-@@ -723,7 +723,7 @@ static void sctp_cmd_transport_on(sctp_cmd_seq_t *cmds,
- 	 * forward progress.
- 	 */
- 	if (t->dst)
--		dst_confirm(t->dst);
-+		sctp_transport_dst_confirm(t);
- 
- 	/* The receiver of the HEARTBEAT ACK should also perform an
- 	 * RTT measurement for that destination transport address
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index 318c678..9ee676a 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -588,7 +588,7 @@ static int sctp_send_asconf_add_ip(struct sock		*sk,
- 			list_for_each_entry(trans,
- 			    &asoc->peer.transport_addr_list, transports) {
- 				/* Clear the source and route cache */
--				dst_release(trans->dst);
-+				sctp_transport_dst_release(trans);
- 				trans->cwnd = min(4*asoc->pathmtu, max_t(__u32,
- 				    2*asoc->pathmtu, 4380));
- 				trans->ssthresh = asoc->peer.i.a_rwnd;
-@@ -839,7 +839,7 @@ static int sctp_send_asconf_del_ip(struct sock		*sk,
- 		 */
- 		list_for_each_entry(transport, &asoc->peer.transport_addr_list,
- 					transports) {
--			dst_release(transport->dst);
-+			sctp_transport_dst_release(transport);
- 			sctp_transport_route(transport, NULL,
- 					     sctp_sk(asoc->base.sk));
- 		}
-diff --git a/net/sctp/transport.c b/net/sctp/transport.c
-index ce54dce..db66514 100644
---- a/net/sctp/transport.c
-+++ b/net/sctp/transport.c
-@@ -227,7 +227,7 @@ void sctp_transport_pmtu(struct sctp_transport *transport, struct sock *sk)
- {
- 	/* If we don't have a fresh route, look one up */
- 	if (!transport->dst || transport->dst->obsolete) {
--		dst_release(transport->dst);
-+		sctp_transport_dst_release(transport);
- 		transport->af_specific->get_dst(transport, &transport->saddr,
- 						&transport->fl, sk);
- 	}
-@@ -659,3 +659,19 @@ void sctp_transport_immediate_rtx(struct sctp_transport *t)
- 			sctp_transport_hold(t);
- 	}
- }
-+
-+/* Drop dst */
-+void sctp_transport_dst_release(struct sctp_transport *t)
-+{
-+	dst_release(t->dst);
-+	t->dst = NULL;
-+	t->dst_pending_confirm = 0;
-+}
-+
-+/* Schedule neighbour confirm */
-+void sctp_transport_dst_confirm(struct sctp_transport *t)
-+{
-+	if (!t->dst_pending_confirm)
-+		t->dst_pending_confirm = 1;
-+}
-+
 -- 
 1.9.3
