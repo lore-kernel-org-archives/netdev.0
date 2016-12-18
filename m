@@ -1,29 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next] irda: w83977af_ir: cleanup an indent issue
-Date: Sat, 17 Dec 2016 21:33:22 -0500 (EST)
-Message-ID: <20161217.213322.1489711882972618879.davem@davemloft.net>
-References: <20161212112134.GA10035@elgon.mountain>
+Subject: Re: [PATCH v3 net] r6040: move spinlock in r6040_close as
+ SOFTIRQ-unsafe lock order detected
+Date: Sat, 17 Dec 2016 21:36:30 -0500 (EST)
+Message-ID: <20161217.213630.371461596447265670.davem@davemloft.net>
+References: <1481826099-12840-1-git-send-email-manuel.bessler@sensus.com>
+        <1481860500-25117-1-git-send-email-manuel.bessler@sensus.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: samuel@sortiz.org, joe@perches.com, netdev@vger.kernel.org,
-        kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
+Cc: netdev@vger.kernel.org, f.fainelli@gmail.com
+To: manuel.bessler@sensus.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:47556 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:47588 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1759441AbcLRCdY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 17 Dec 2016 21:33:24 -0500
-In-Reply-To: <20161212112134.GA10035@elgon.mountain>
+        with ESMTP id S1752867AbcLRCgc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 17 Dec 2016 21:36:32 -0500
+In-Reply-To: <1481860500-25117-1-git-send-email-manuel.bessler@sensus.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Mon, 12 Dec 2016 14:21:34 +0300
+From: Manuel Bessler <manuel.bessler@sensus.com>
+Date: Thu, 15 Dec 2016 22:55:00 -0500
 
-> In commit 99d8d2159d7c ("irda: w83977af_ir: Neaten logging"), we
-> accidentally added an extra tab to these lines.
+> 'ifconfig eth0 down' makes r6040_close() trigger:
+>  INFO: HARDIRQ-safe -> HARDIRQ-unsafe lock order detected
 > 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Fixed by moving calls to phy_stop(), napi_disable(), netif_stop_queue()
+> to outside of the module's private spin_lock_irq block.
+> 
+> Found on a Versalogic Tomcat SBC with a Vortex86 SoC
+ ...
+> Signed-off-by: Manuel Bessler <manuel.bessler@sensus.com>
 
-Applied.
+Applied, thanks.
