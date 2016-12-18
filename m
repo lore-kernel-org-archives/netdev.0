@@ -1,114 +1,67 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net v2 3/3] bpf: fix mark_reg_unknown_value for spilled regs on map value marking
-Date: Sun, 18 Dec 2016 01:52:59 +0100
-Message-ID: <c08a5d65748cecbc687e6a6de0e57ffbd704989a.1482019225.git.daniel@iogearbox.net>
-References: <cover.1482019225.git.daniel@iogearbox.net>
-Cc: ast@fb.com, kafai@fb.com, netdev@vger.kernel.org,
-        Daniel Borkmann <daniel@iogearbox.net>
-To: davem@davemloft.net
+From: Mahesh Bandewar <mahesh@bandewar.net>
+Subject: [PATCH net] ipvlan: fix crash
+Date: Sat, 17 Dec 2016 18:16:19 -0800
+Message-ID: <1482027379-30785-1-git-send-email-mahesh@bandewar.net>
+Cc: Mahesh Bandewar <maheshb@google.com>
+To: netdev <netdev@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>,
+        David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:60746 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754264AbcLRAxQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 17 Dec 2016 19:53:16 -0500
-In-Reply-To: <cover.1482019225.git.daniel@iogearbox.net>
-In-Reply-To: <cover.1482019225.git.daniel@iogearbox.net>
-References: <cover.1482019225.git.daniel@iogearbox.net>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:35890 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752059AbcLRCQ0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 17 Dec 2016 21:16:26 -0500
+Received: by mail-pg0-f66.google.com with SMTP id a1so7150502pgf.3
+        for <netdev@vger.kernel.org>; Sat, 17 Dec 2016 18:16:26 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Martin reported a verifier issue that hit the BUG_ON() for his
-test case in the mark_reg_unknown_value() function:
+From: Mahesh Bandewar <maheshb@google.com>
 
-  [  202.861380] kernel BUG at kernel/bpf/verifier.c:467!
-  [...]
-  [  203.291109] Call Trace:
-  [  203.296501]  [<ffffffff811364d5>] mark_map_reg+0x45/0x50
-  [  203.308225]  [<ffffffff81136558>] mark_map_regs+0x78/0x90
-  [  203.320140]  [<ffffffff8113938d>] do_check+0x226d/0x2c90
-  [  203.331865]  [<ffffffff8113a6ab>] bpf_check+0x48b/0x780
-  [  203.343403]  [<ffffffff81134c8e>] bpf_prog_load+0x27e/0x440
-  [  203.355705]  [<ffffffff8118a38f>] ? handle_mm_fault+0x11af/0x1230
-  [  203.369158]  [<ffffffff812d8188>] ? security_capable+0x48/0x60
-  [  203.382035]  [<ffffffff811351a4>] SyS_bpf+0x124/0x960
-  [  203.393185]  [<ffffffff810515f6>] ? __do_page_fault+0x276/0x490
-  [  203.406258]  [<ffffffff816db320>] entry_SYSCALL_64_fastpath+0x13/0x94
+------------[ cut here ]------------
+kernel BUG at include/linux/skbuff.h:1737!
+Call Trace:
+ [<ffffffff921fbbc2>] dev_forward_skb+0x92/0xd0
+ [<ffffffffc031ac65>] ipvlan_process_multicast+0x395/0x4c0 [ipvlan]
+ [<ffffffffc031a9a7>] ? ipvlan_process_multicast+0xd7/0x4c0 [ipvlan]
+ [<ffffffff91cdfea7>] ? process_one_work+0x147/0x660
+ [<ffffffff91cdff09>] process_one_work+0x1a9/0x660
+ [<ffffffff91cdfea7>] ? process_one_work+0x147/0x660
+ [<ffffffff91ce086d>] worker_thread+0x11d/0x360
+ [<ffffffff91ce0750>] ? rescuer_thread+0x350/0x350
+ [<ffffffff91ce960b>] kthread+0xdb/0xe0
+ [<ffffffff91c05c70>] ? _raw_spin_unlock_irq+0x30/0x50
+ [<ffffffff91ce9530>] ? flush_kthread_worker+0xc0/0xc0
+ [<ffffffff92348b7a>] ret_from_fork+0x9a/0xd0
+ [<ffffffff91ce9530>] ? flush_kthread_worker+0xc0/0xc0
 
-This issue got uncovered after the fix in a08dd0da5307 ("bpf: fix
-regression on verifier pruning wrt map lookups"). The reason why it
-wasn't noticed before was, because as mentioned in a08dd0da5307,
-mark_map_regs() was doing the id matching incorrectly based on the
-uncached regs[regno].id. So, in the first loop, we walked all regs
-and as soon as we found regno == i, then this reg's id was cleared
-when calling mark_reg_unknown_value() thus that every subsequent
-register was probed against id of 0 (which, in combination with the
-PTR_TO_MAP_VALUE_OR_NULL type is an invalid condition that no other
-register state can hold), and therefore wasn't type transitioned such
-as in the spilled register case for the second loop.
-
-Now since that got fixed, it turned out that 57a09bf0a416 ("bpf:
-Detect identical PTR_TO_MAP_VALUE_OR_NULL registers") used
-mark_reg_unknown_value() incorrectly for the spilled regs, and thus
-hitting the BUG_ON() in some cases due to regno >= MAX_BPF_REG.
-
-Although spilled regs have the same type as the non-spilled regs
-for the verifier state, that is, struct bpf_reg_state, they are
-semantically different from the non-spilled regs. In other words,
-there can be up to 64 (MAX_BPF_STACK / BPF_REG_SIZE) spilled regs
-in the stack, for example, register R<x> could have been spilled by
-the program to stack location X, Y, Z, and in mark_map_regs() we
-need to scan these stack slots of type STACK_SPILL for potential
-registers that we have to transition from PTR_TO_MAP_VALUE_OR_NULL.
-Therefore, depending on the location, the spilled_regs regno can
-be a lot higher than just MAX_BPF_REG's value since we operate on
-stack instead. The reset in mark_reg_unknown_value() itself is
-just fine, only that the BUG_ON() was inappropriate for this. Fix
-it by making a __mark_reg_unknown_value() version that can be
-called from mark_map_reg() generically; we know for the non-spilled
-case that the regno is always < MAX_BPF_REG anyway.
-
-Fixes: 57a09bf0a416 ("bpf: Detect identical PTR_TO_MAP_VALUE_OR_NULL registers")
-Reported-by: Martin KaFai Lau <kafai@fb.com>
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-Acked-by: Alexei Starovoitov <ast@kernel.org>
+Signed-off-by: Mahesh Bandewar <maheshb@google.com>
 ---
- kernel/bpf/verifier.c | 11 ++++++++---
- 1 file changed, 8 insertions(+), 3 deletions(-)
+ drivers/net/ipvlan/ipvlan_core.c | 5 +++++
+ 1 file changed, 5 insertions(+)
 
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index 64b7b1a..83ed2f8 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -462,14 +462,19 @@ static void init_reg_state(struct bpf_reg_state *regs)
- 	regs[BPF_REG_1].type = PTR_TO_CTX;
- }
+diff --git a/drivers/net/ipvlan/ipvlan_core.c b/drivers/net/ipvlan/ipvlan_core.c
+index b4e990743e1d..4294fc1f5564 100644
+--- a/drivers/net/ipvlan/ipvlan_core.c
++++ b/drivers/net/ipvlan/ipvlan_core.c
+@@ -660,6 +660,9 @@ rx_handler_result_t ipvlan_handle_frame(struct sk_buff **pskb)
+ 	if (!port)
+ 		return RX_HANDLER_PASS;
  
--static void mark_reg_unknown_value(struct bpf_reg_state *regs, u32 regno)
-+static void __mark_reg_unknown_value(struct bpf_reg_state *regs, u32 regno)
- {
--	BUG_ON(regno >= MAX_BPF_REG);
- 	regs[regno].type = UNKNOWN_VALUE;
- 	regs[regno].id = 0;
- 	regs[regno].imm = 0;
- }
- 
-+static void mark_reg_unknown_value(struct bpf_reg_state *regs, u32 regno)
-+{
-+	BUG_ON(regno >= MAX_BPF_REG);
-+	__mark_reg_unknown_value(regs, regno);
-+}
++	if (unlikely(!pskb_may_pull(skb, sizeof(struct ethhdr))))
++		goto out;
 +
- static void reset_reg_range_values(struct bpf_reg_state *regs, u32 regno)
- {
- 	regs[regno].min_value = BPF_REGISTER_MIN_RANGE;
-@@ -1976,7 +1981,7 @@ static void mark_map_reg(struct bpf_reg_state *regs, u32 regno, u32 id,
- 		 */
- 		reg->id = 0;
- 		if (type == UNKNOWN_VALUE)
--			mark_reg_unknown_value(regs, regno);
-+			__mark_reg_unknown_value(regs, regno);
- 	}
+ 	switch (port->mode) {
+ 	case IPVLAN_MODE_L2:
+ 		return ipvlan_handle_mode_l2(pskb, port);
+@@ -672,6 +675,8 @@ rx_handler_result_t ipvlan_handle_frame(struct sk_buff **pskb)
+ 	/* Should not reach here */
+ 	WARN_ONCE(true, "ipvlan_handle_frame() called for mode = [%hx]\n",
+ 			  port->mode);
++
++out:
+ 	kfree_skb(skb);
+ 	return RX_HANDLER_CONSUMED;
  }
- 
 -- 
-1.9.3
+2.8.0.rc3.226.g39d4020
