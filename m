@@ -1,120 +1,178 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: [PATCH RFC net-next 1/7] sock: add sk_dst_pending_confirm flag
-Date: Sun, 18 Dec 2016 22:56:30 +0200
-Message-ID: <1482094596-26046-2-git-send-email-ja@ssi.bg>
-References: <1482094596-26046-1-git-send-email-ja@ssi.bg>
-Cc: linux-sctp@vger.kernel.org, YueHaibing <yuehaibing@huawei.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:46914 "EHLO ja.ssi.bg"
-        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753749AbcLRU5o (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 18 Dec 2016 15:57:44 -0500
-In-Reply-To: <1482094596-26046-1-git-send-email-ja@ssi.bg>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andy Shevchenko <andy.shevchenko@gmail.com>
+Subject: Re: [PATCH v3] net: macb: Added PCI wrapper for Platform Driver.
+Date: Mon, 19 Dec 2016 00:43:16 +0200
+Message-ID: <CAHp75VeOcAsTDsYDuQ_2nG1RUWn-txuHBJqyJnY-ywvPfeiK6g@mail.gmail.com>
+References: <1481648560-25927-1-git-send-email-bfolta@cadence.com> <SN1PR0701MB19516D29452ABA2695B2F061CC9A0@SN1PR0701MB1951.namprd07.prod.outlook.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Nicolas Ferre <nicolas.ferre@atmel.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Niklas Cassel <niklas.cassel@axis.com>,
+        Alexandre Torgue <alexandre.torgue@st.com>,
+        Satanand Burla <satananda.burla@caviumnetworks.com>,
+        Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>,
+        Simon Horman <simon.horman@netronome.com>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Rafal Ozieblo <rafalo@cadence.com>
+To: Bartosz Folta <bfolta@cadence.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <SN1PR0701MB19516D29452ABA2695B2F061CC9A0@SN1PR0701MB1951.namprd07.prod.outlook.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Add new sock flag to allow sockets to confirm neighbour.
-When same struct dst_entry can be used for many different
-neighbours we can not use it for pending confirmations.
-As not all call paths lock the socket use full word for
-the flag.
+On Wed, Dec 14, 2016 at 8:39 AM, Bartosz Folta <bfolta@cadence.com> wrote:
+> There are hardware PCI implementations of Cadence GEM network
+> controller. This patch will allow to use such hardware with reuse of
+> existing Platform Driver.
 
-Add sk_dst_confirm as replacement for dst_confirm when
-called for received packets.
+Since it's already applied, perhaps you would consider addressing my
+below comments as follow up clean up.
 
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
----
- include/net/sock.h | 14 +++++++++++++-
- net/core/sock.c    |  2 ++
- 2 files changed, 15 insertions(+), 1 deletion(-)
+> +++ b/drivers/net/ethernet/cadence/macb_pci.c
+> @@ -0,0 +1,153 @@
+> +/**
 
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 282d065..e83bb01 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -239,6 +239,7 @@ struct sock_common {
-   *	@sk_wq: sock wait queue and async head
-   *	@sk_rx_dst: receive input route used by early demux
-   *	@sk_dst_cache: destination cache
-+  *	@sk_dst_pending_confirm: need to confirm neighbour
-   *	@sk_policy: flow policy
-   *	@sk_receive_queue: incoming packets
-   *	@sk_wmem_alloc: transmit queue bytes committed
-@@ -381,7 +382,7 @@ struct sock {
- #endif
- 	struct dst_entry	*sk_rx_dst;
- 	struct dst_entry __rcu	*sk_dst_cache;
--	atomic_t		sk_omem_alloc;
-+	int			sk_dst_pending_confirm;
- 	int			sk_sndbuf;
- 
- 	/* ===== cache line for TX ===== */
-@@ -405,6 +406,8 @@ struct sock {
- 	unsigned int		sk_gso_max_size;
- 	gfp_t			sk_allocation;
- 	__u32			sk_txhash;
-+	atomic_t		sk_omem_alloc;
-+	/* Note: 32bit hole on 64bit arches */
- 
- 	/*
- 	 * Because of non atomicity rules, all
-@@ -1761,6 +1764,7 @@ static inline void dst_negative_advice(struct sock *sk)
- 		if (ndst != dst) {
- 			rcu_assign_pointer(sk->sk_dst_cache, ndst);
- 			sk_tx_queue_clear(sk);
-+			sk->sk_dst_pending_confirm = 0;
- 		}
- 	}
- }
-@@ -1771,6 +1775,7 @@ static inline void dst_negative_advice(struct sock *sk)
- 	struct dst_entry *old_dst;
- 
- 	sk_tx_queue_clear(sk);
-+	sk->sk_dst_pending_confirm = 0;
- 	/*
- 	 * This can be called while sk is owned by the caller only,
- 	 * with no state that can be checked in a rcu_dereference_check() cond
-@@ -1786,6 +1791,7 @@ static inline void dst_negative_advice(struct sock *sk)
- 	struct dst_entry *old_dst;
- 
- 	sk_tx_queue_clear(sk);
-+	sk->sk_dst_pending_confirm = 0;
- 	old_dst = xchg((__force struct dst_entry **)&sk->sk_dst_cache, dst);
- 	dst_release(old_dst);
- }
-@@ -1806,6 +1812,12 @@ static inline void dst_negative_advice(struct sock *sk)
- 
- struct dst_entry *sk_dst_check(struct sock *sk, u32 cookie);
- 
-+static inline void sk_dst_confirm(struct sock *sk)
-+{
-+	if (!sk->sk_dst_pending_confirm)
-+		sk->sk_dst_pending_confirm = 1;
-+}
-+
- bool sk_mc_loop(struct sock *sk);
- 
- static inline bool sk_can_gso(const struct sock *sk)
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 9fa46b9..8af5296 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -502,6 +502,7 @@ struct dst_entry *__sk_dst_check(struct sock *sk, u32 cookie)
- 
- 	if (dst && dst->obsolete && dst->ops->check(dst, cookie) == NULL) {
- 		sk_tx_queue_clear(sk);
-+		sk->sk_dst_pending_confirm = 0;
- 		RCU_INIT_POINTER(sk->sk_dst_cache, NULL);
- 		dst_release(dst);
- 		return NULL;
-@@ -1522,6 +1523,7 @@ struct sock *sk_clone_lock(const struct sock *sk, const gfp_t priority)
- 				af_family_clock_key_strings[newsk->sk_family]);
- 
- 		newsk->sk_dst_cache	= NULL;
-+		newsk->sk_dst_pending_confirm = 0;
- 		newsk->sk_wmem_queued	= 0;
- 		newsk->sk_forward_alloc = 0;
- 		atomic_set(&newsk->sk_drops, 0);
+> + * macb_pci.c - Cadence GEM PCI wrapper.
+
+If at some point file is renamed it will be a bit more work to change
+this line. Perhaps drop file name?
+
+> +static int macb_probe(struct pci_dev *pdev, const struct pci_device_id *id)
+> +{
+> +       int err;
+> +       struct platform_device *plat_dev;
+> +       struct platform_device_info plat_info;
+> +       struct macb_platform_data plat_data;
+> +       struct resource res[2];
+> +
+
+> +       /* sanity check */
+> +       if (!id)
+> +               return -EINVAL;
+
+Is it even possible in modern kernels?
+
+> +
+> +       /* enable pci device */
+> +       err = pci_enable_device(pdev);
+
+pcim_enable_device();
+
+> +       if (err < 0) {
+> +               dev_err(&pdev->dev, "Enabling PCI device has failed: 0x%04X",
+
+%x for error code?! Confusing.
+
+> +                       err);
+
+> +               return -EACCES;
+
+return err;
+
+> +       }
+> +
+> +       pci_set_master(pdev);
+> +
+> +       /* set up resources */
+> +       memset(res, 0x00, sizeof(struct resource) * ARRAY_SIZE(res));
+
+> +       res[0].start = pdev->resource[0].start;
+> +       res[0].end = pdev->resource[0].end;
+
+pci_resource_start()
+pci_resource_end()
+
+> +       res[0].name = PCI_DRIVER_NAME;
+> +       res[0].flags = IORESOURCE_MEM;
+
+> +       res[1].start = pdev->irq;
+
+Btw, does it support MSI? If so and are planning to use it,
+pci_irq_...() API would help here.
+
+> +       res[1].name = PCI_DRIVER_NAME;
+> +       res[1].flags = IORESOURCE_IRQ;
+> +
+> +       dev_info(&pdev->dev, "EMAC physical base addr = 0x%p\n",
+
+> +                (void *)(uintptr_t)pci_resource_start(pdev, 0));
+
+Oh, %pa
+
+> +
+> +       /* set up macb platform data */
+> +       memset(&plat_data, 0, sizeof(plat_data));
+> +
+> +       /* initialize clocks */
+> +       plat_data.pclk = clk_register_fixed_rate(&pdev->dev, "pclk", NULL, 0,
+> +                                                GEM_PCLK_RATE);
+> +       if (IS_ERR(plat_data.pclk)) {
+> +               err = PTR_ERR(plat_data.pclk);
+> +               goto err_pclk_register;
+> +       }
+> +
+> +       plat_data.hclk = clk_register_fixed_rate(&pdev->dev, "hclk", NULL, 0,
+> +                                                GEM_HCLK_RATE);
+> +       if (IS_ERR(plat_data.hclk)) {
+> +               err = PTR_ERR(plat_data.hclk);
+> +               goto err_hclk_register;
+> +       }
+> +
+> +       /* set up platform device info */
+> +       memset(&plat_info, 0, sizeof(plat_info));
+> +       plat_info.parent = &pdev->dev;
+> +       plat_info.fwnode = pdev->dev.fwnode;
+> +       plat_info.name = PLAT_DRIVER_NAME;
+> +       plat_info.id = pdev->devfn;
+> +       plat_info.res = res;
+> +       plat_info.num_res = ARRAY_SIZE(res);
+> +       plat_info.data = &plat_data;
+> +       plat_info.size_data = sizeof(plat_data);
+> +       plat_info.dma_mask = DMA_BIT_MASK(32);
+> +
+> +       /* register platform device */
+> +       plat_dev = platform_device_register_full(&plat_info);
+> +       if (IS_ERR(plat_dev)) {
+> +               err = PTR_ERR(plat_dev);
+> +               goto err_plat_dev_register;
+> +       }
+> +
+> +       pci_set_drvdata(pdev, plat_dev);
+> +
+> +       return 0;
+> +
+> +err_plat_dev_register:
+> +       clk_unregister(plat_data.hclk);
+> +
+> +err_hclk_register:
+> +       clk_unregister(plat_data.pclk);
+> +
+
+> +err_pclk_register:
+> +       pci_disable_device(pdev);
+
+Redundant when use pcim_enable_device().
+
+> +       return err;
+> +}
+> +
+> +static void macb_remove(struct pci_dev *pdev)
+> +{
+> +       struct platform_device *plat_dev = pci_get_drvdata(pdev);
+> +       struct macb_platform_data *plat_data = dev_get_platdata(&plat_dev->dev);
+> +
+> +       platform_device_unregister(plat_dev);
+
+> +       pci_disable_device(pdev);
+
+Ditto.
+
+> +       clk_unregister(plat_data->pclk);
+> +       clk_unregister(plat_data->hclk);
+> +}
+
+
 -- 
-1.9.3
+With Best Regards,
+Andy Shevchenko
