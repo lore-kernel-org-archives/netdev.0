@@ -1,84 +1,75 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: [PATCH 1/2] net: ethernet: sxgbe: remove private tx queue lock
-Date: Sun, 18 Dec 2016 21:16:35 +0100
-Message-ID: <20161218201635.GB7886@amd>
-References: <20161209112142.GA22710@amd>
- <c76124b9-6376-42b9-2821-b5a8185f5034@gmx.de>
- <20161211201104.GB20574@amd>
- <cfad6b84-de23-2e03-6d34-2b3451975179@gmx.de>
- <20161215210324.GA13878@amd>
- <f3fc8035-fb6e-fb06-d9b8-bfc96dc4e1d2@gmx.de>
- <6f43eac8-754b-cfa2-371d-050701deb4cd@gmx.de>
- <20161217173150.GA20231@amd>
- <20161218001507.GA5343@electric-eye.fr.zoreil.com>
- <a2cbcfcd-f377-565c-a21c-3daa3abce519@gmx.de>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCHv2 1/5] sh_eth: add generic wake-on-lan support via magic
+ packet
+Date: Sun, 18 Dec 2016 23:26:11 +0300
+Message-ID: <87e3f9e6-0f5a-986c-772d-006cb25b9fd9@cogentembedded.com>
+References: <20161212160931.6478-1-niklas.soderlund+renesas@ragnatech.se>
+ <20161212160931.6478-2-niklas.soderlund+renesas@ragnatech.se>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="oC1+HKm2/end4ao3"
-Cc: Francois Romieu <romieu@fr.zoreil.com>, bh74.an@samsung.com,
-        ks.giri@samsung.com, vipul.pandya@samsung.com,
-        peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        davem@davemloft.net, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org
-To: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <a2cbcfcd-f377-565c-a21c-3daa3abce519@gmx.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: Geert Uytterhoeven <geert@linux-m68k.org>
+To: =?UTF-8?Q?Niklas_S=c3=b6derlund?=
+        <niklas.soderlund+renesas@ragnatech.se>,
+        Simon Horman <horms+renesas@verge.net.au>,
+        netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f44.google.com ([209.85.215.44]:36331 "EHLO
+        mail-lf0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751014AbcLRU0Q (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 18 Dec 2016 15:26:16 -0500
+Received: by mail-lf0-f44.google.com with SMTP id t196so41615529lff.3
+        for <netdev@vger.kernel.org>; Sun, 18 Dec 2016 12:26:15 -0800 (PST)
+In-Reply-To: <20161212160931.6478-2-niklas.soderlund+renesas@ragnatech.se>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hello.
 
---oC1+HKm2/end4ao3
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+On 12/12/2016 07:09 PM, Niklas Söderlund wrote:
 
-Hi!
+> Add generic functionality to support Wake-on-Lan using MagicPacket which
+> are supported by at least a few versions of sh_eth. Only add
+> functionality for WoL, no specific sh_eth version are marked to support
 
-> > For the same reason it's broken if it races with the transmit path: it
-> > can release driver resources while the transmit path uses these.
-> >=20
-> > Btw the points below may not matter/hurt much for a proof a concept
-> > but they would need to be addressed as well:
-> > 1) unchecked (and avoidable) extra error paths due to stmmac_release()
-> > 2) racy cancel_work_sync. Low probability as it is, an irq + error could
-> >    take place right after cancel_work_sync
->=20
-> It was indeed only meant as a proof of concept. Nevertheless the race is =
-not=20
-> good, since one can run into it when faking the tx error for testings pur=
-poses.
-> So below is a slightly improved version of the restart handling.
-> Its not meant as a final version either. But maybe we can use it as a sta=
-rting
-> point.
+    Versions.
 
-Certainly works better than version we currently have in tree. I'm
-running it in a loop, and it survived 10 minutes of testing so
-far. (Previous version killed the hardware at first iteration.)
+> WoL yet.
+>
+> WoL is enabled in the suspend callback by setting MagicPacket detection
+> and disabling all interrupts expect MagicPacket. In the resume path the
+> driver needs to reset the hardware to rearm the WoL logic, this prevents
+> the driver from simply restoring the registers and to take advantage of
+> that sh_eth was not suspended to reduce resume time. To reset the
+> hardware the driver close and reopens the device just like it would do
 
-> Again the patch is only compile tested.
+    Closes.
 
-Tested-by: Pavel Machek <pavel@denx.de>
+> in a normal suspend/resume scenario without WoL enabled, but it both
+> close and open the device in the resume callback since the device needs
 
-Thanks!
-								Pavel
+    Closes and opens.
 
---=20
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
-g.html
+> to be open for WoL to work.
 
---oC1+HKm2/end4ao3
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
+> One quirk needed for WoL is that the module clock needs to be prevented
+> from being switched off by Runtime PM. To keep the clock alive the
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
+    I tried to find the code in question and failed, getting muddled in the 
+RPM maze. Could you point at this code for my education? :-)
 
-iEYEARECAAYFAlhW7qMACgkQMOfwapXb+vI64ACguc6TxTlGT7DEvjdXuRhDc+NA
-Yj4An1sqO1Q57b4zow4cH+lOLzTB1J4B
-=hhjR
------END PGP SIGNATURE-----
+> suspend callback need to call clk_enable() directly to increase the
 
---oC1+HKm2/end4ao3--
+    My main concern is why we need to manipulate the clock directly --
+can't you call RPM to achieve the same effect?
+
+> usage count of the clock. Then when Runtime PM decreases the clock usage
+> count it won't reach 0 and be switched off.
+
+    You mean it does this even though we don't call pr_runtime_put_sync()
+as done in sh_eth_close()?
+
+> Signed-off-by: Niklas Söderlund <niklas.soderlund+renesas@ragnatech.se>
+[...]
+
+MBR, Sergei
