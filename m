@@ -1,53 +1,45 @@
-From: Gabriel C <nix.or.die@gmail.com>
-Subject: Re: regression: ath_tx_edma_tasklet() Illegal idle entry in RCU
- read-side critical section
-Date: Mon, 19 Dec 2016 00:11:32 +0100
-Message-ID: <20b64afc-8270-27d5-6d45-592ce6dd24c7@gmail.com>
-References: <23a2a3ab-974a-ed26-6afa-aafab9bb972e@gmail.com>
- <20161218155938.GP3924@linux.vnet.ibm.com>
- <58b67d5b-0275-f80f-479f-78cf748b4319@mni.thm.de>
- <87pokpc8ng.fsf@qca.qualcomm.com> <20161218201410.GS3924@linux.vnet.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Tobias Klausmann <tobias.johannes.klausmann@mni.thm.de>,
-        lkml <linux-kernel@vger.kernel.org>,
-        ath9k-devel <ath9k-devel@qca.qualcomm.com>,
-        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-        "ath9k-devel@lists.ath9k.org" <ath9k-devel@lists.ath9k.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "nbd@nbd.name" <nbd@nbd.name>
-To: paulmck@linux.vnet.ibm.com, "Valo, Kalle" <kvalo@qca.qualcomm.com>
+From: Andrey Smirnov <andrew.smirnov@gmail.com>
+Subject: [PATCH] at86rf230: Allow slow GPIO pins for "rstn"
+Date: Sun, 18 Dec 2016 15:25:33 -0800
+Message-ID: <1482103533-13187-1-git-send-email-andrew.smirnov@gmail.com>
+Cc: Andrey Smirnov <andrew.smirnov@gmail.com>,
+        Alexander Aring <aar@pengutronix.de>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Chris Healy <cphealy@gmail.com>
+To: linux-wpan@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161218201410.GS3924@linux.vnet.ibm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Driver code never touches "rstn" signal in atomic context, so there's
+no need to implicitly put such restriction on it by using gpio_set_value
+to manipulate it. Replace gpio_set_value to gpio_set_value_cansleep to
+fix that.
 
+As a an example of where such restriction might be inconvenient,
+consider a hardware design where "rstn" is connected to a pin of I2C/SPI
+GPIO expander chip.
 
-On 18.12.2016 21:14, Paul E. McKenney wrote:
-> On Sun, Dec 18, 2016 at 07:57:42PM +0000, Valo, Kalle wrote:
->> Tobias Klausmann <tobias.johannes.klausmann@mni.thm.de> writes:
->>
->>> A patch for this is already floating on the ML for a while now latest:
->>> (ath9k: do not return early to fix rcu unlocking)
->>
->> It's here:
->>
->> https://patchwork.kernel.org/patch/9472709/
->
-> Feel free to add:
->
-> Acked-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
->
+Cc: Chris Healy <cphealy@gmail.com>
+Signed-off-by: Andrey Smirnov <andrew.smirnov@gmail.com>
+---
+ drivers/net/ieee802154/at86rf230.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-This patch fixes the bug for me.
-
-You can add my Tested-by if you wish.
-
-Tested-by: Gabriel Craciunescu <nix.or.die@gmail.com>
-
-
-Regards,
-
-Gabriel
+diff --git a/drivers/net/ieee802154/at86rf230.c b/drivers/net/ieee802154/at86rf230.c
+index 9f10da6..7700690 100644
+--- a/drivers/net/ieee802154/at86rf230.c
++++ b/drivers/net/ieee802154/at86rf230.c
+@@ -1710,9 +1710,9 @@ static int at86rf230_probe(struct spi_device *spi)
+ 	/* Reset */
+ 	if (gpio_is_valid(rstn)) {
+ 		udelay(1);
+-		gpio_set_value(rstn, 0);
++		gpio_set_value_cansleep(rstn, 0);
+ 		udelay(1);
+-		gpio_set_value(rstn, 1);
++		gpio_set_value_cansleep(rstn, 1);
+ 		usleep_range(120, 240);
+ 	}
+ 
+-- 
+2.5.5
