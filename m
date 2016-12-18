@@ -1,59 +1,158 @@
-From: Tobias Klausmann <tobias.johannes.klausmann@mni.thm.de>
-Subject: Re: regression: ath_tx_edma_tasklet() Illegal idle entry in RCU
- read-side critical section
-Date: Sun, 18 Dec 2016 21:04:07 +0100
-Message-ID: <aa88f071-edb7-7690-e0e5-b3e2c93e6539@mni.thm.de>
-References: <23a2a3ab-974a-ed26-6afa-aafab9bb972e@gmail.com>
- <20161218155938.GP3924@linux.vnet.ibm.com>
- <58b67d5b-0275-f80f-479f-78cf748b4319@mni.thm.de>
- <87pokpc8ng.fsf@qca.qualcomm.com>
+From: Arend Van Spriel <arend.vanspriel@broadcom.com>
+Subject: Re: wl1251 & mac address & calibration data
+Date: Sun, 18 Dec 2016 21:08:43 +0100
+Message-ID: <fd180271-1cd4-9891-e3d5-ae9cd0fb088b@broadcom.com>
+References: <201611111820.52072@pali> <201612181204.52928@pali>
+ <83b2e9a4-f990-68a8-241e-375e46448d47@broadcom.com> <201612181309.01298@pali>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "paulmck@linux.vnet.ibm.com" <paulmck@linux.vnet.ibm.com>,
-        Gabriel C <nix.or.die@gmail.com>,
-        lkml <linux-kernel@vger.kernel.org>,
-        ath9k-devel <ath9k-devel@qca.qualcomm.com>,
-        "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-        "ath9k-devel@lists.ath9k.org" <ath9k-devel@lists.ath9k.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "nbd@nbd.name" <nbd@nbd.name>
-To: "Valo, Kalle" <kvalo@qca.qualcomm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout1.fh-giessen.de ([212.201.18.42]:48666 "EHLO
-        mout1.fh-giessen.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752112AbcLRUEL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 18 Dec 2016 15:04:11 -0500
-Received: from mx1.fh-giessen.de ([212.201.18.40])
-        by mout1.fh-giessen.de with esmtps (TLS1.2:ECDHE_RSA_AES_128_GCM_SHA256:128)
-        (Exim 4.84_2)
-        (envelope-from <tobias.johannes.klausmann@mni.thm.de>)
-        id 1cIhgm-000FTw-Uj
-        for netdev@vger.kernel.org; Sun, 18 Dec 2016 21:04:08 +0100
-Received: from mailgate-2.its.fh-giessen.de ([212.201.18.14])
-        by mx1.fh-giessen.de with esmtps (TLS1.2:ECDHE_RSA_AES_128_GCM_SHA256:128)
-        (Exim 4.84_2)
-        (envelope-from <tobias.johannes.klausmann@mni.thm.de>)
-        id 1cIhgm-0002Bt-S0
-        for netdev@vger.kernel.org; Sun, 18 Dec 2016 21:04:08 +0100
-In-Reply-To: <87pokpc8ng.fsf@qca.qualcomm.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Daniel Wagner <wagi@monom.org>,
+        "Luis R. Rodriguez" <mcgrof@kernel.org>,
+        Tom Gundersen <teg@jklm.no>,
+        Johannes Berg <johannes@sipsolutions.net>,
+        Ming Lei <ming.lei@canonical.com>,
+        Mimi Zohar <zohar@linux.vnet.ibm.com>,
+        Bjorn Andersson <bjorn.andersson@linaro.org>,
+        =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        Sebastian Reichel <sre@kernel.org>,
+        Pavel Machek <pavel@ucw.cz>,
+        Michal Kazior <michal.kazior@tieto.com>,
+        Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
+        Aaro Koskinen <aaro.koskinen@iki.fi>,
+        Tony Lindgren <tony@atomide.com>,
+        linux-wireless <linux-wireless@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        David Woodhouse
+To: =?UTF-8?Q?Pali_Roh=c3=a1r?= <pali.rohar@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201612181309.01298@pali>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On 18-12-2016 13:09, Pali Rohár wrote:
+> On Sunday 18 December 2016 12:54:00 Arend Van Spriel wrote:
+>> On 18-12-2016 12:04, Pali Rohár wrote:
+>>> On Sunday 18 December 2016 11:49:53 Arend Van Spriel wrote:
+>>>> On 16-12-2016 11:40, Pali Rohár wrote:
+>>>>> On Friday 16 December 2016 08:25:44 Daniel Wagner wrote:
+>>>>>> On 12/16/2016 03:03 AM, Luis R. Rodriguez wrote:
+>>>>>>> For the new API a solution for "fallback mechanisms" should be
+>>>>>>> clean though and I am looking to stay as far as possible from
+>>>>>>> the existing mess. A solution to help both the old API and new
+>>>>>>> API is possible for the "fallback mechanism" though -- but for
+>>>>>>> that I can only refer you at this point to some of Daniel
+>>>>>>> Wagner and Tom Gunderson's firmwared deamon prospect. It
+>>>>>>> should help pave the way for a clean solution and help address
+>>>>>>> other stupid issues.
+>>>>>>
+>>>>>> The firmwared project is hosted here
+>>>>>>
+>>>>>> https://github.com/teg/firmwared
+>>>>>>
+>>>>>> As Luis pointed out, firmwared relies on
+>>>>>> FW_LOADER_USER_HELPER_FALLBACK, which is not enabled by default.
+>>>>>
+>>>>> I know. But it does not mean that I cannot enable this option at
+>>>>> kernel compile time.
+>>>>>
+>>>>> Bigger problem is that currently request_firmware() first try to
+>>>>> load firmware directly from VFS and after that (if fails)
+>>>>> fallback to user helper.
+>>>>>
+>>>>> So I would need to extend kernel firmware code with new function
+>>>>> (or flag) to not use VFS and try only user mode helper.
+>>>>
+>>>> Why do you need the user-mode helper anyway. This is all static
+>>>> data, right?
+>>>
+>>> Those are static data, but device specific!
+>>
+>> So what?
+>>
+>>>> So why not cook up a firmware file in user-space once and put
+>>>> it in /lib/firmware for the driver to request directly.
+>>>
+>>> 1. Violates FHS
+>>
+>> How?
+>>
+>>> 2. Does not work for readonly /, readonly /lib, readonly
+>>> /lib/firmware
+>>
+>> Que?
+>>
+>>> 3. Backup & restore of rootfs between same devices does not work
+>>> (as rootfs now contains device specific data).
+>>
+>> True.
+>>
+>>> 4. Sharing one rootfs (either via nfs or other technology) does not
+>>> work for more devices (even in state when rootfs is used only by
+>>> one device at one time).
+>>
+>> Indeed.
+>>
+>>> And it is common that N900 developers have rootfs in laptop and via
+>>> usb (cdc_ether) exports it over nfs to N900 device and boot
+>>> system. It basically break booting from one nfs-exported rootfs,
+>>> as that export become model specific...
+>>
+>> These are all you choices and more a logistic issue. If your take is
+>> that udev is the way to solve those, fine by me.
+>>
+>>>> Seems a bit
+>>>> overkill to have a {e,}udev or whatever daemon running if the
+>>>> result is always the same. Just my 2 cents.
+>>>
+>>> No it is not. It will break couple of other things in Linux and
+>>> device
+>>
+>> Now I am curious. What "couple of other things" will be broken.
+>>
+>>> and model specific calibration data should not be in /lib/firmware!
+>>> That directory is used for firmware files, not calibration.
+>>
+>> What is "firmware"? Really. These are binary blobs required to make
+>> the device work. And guess what, your device needs calibration data.
+>> Why make the distinction.
+>>
+>> Regards,
+>> Arend
+> 
+> File wl1251-nvs.bin is provided by linux-firmware package and contains 
+> default data which should be overriden by model specific calibrated 
+> data.
 
-On 18.12.2016 20:57, Valo, Kalle wrote:
-> Tobias Klausmann <tobias.johannes.klausmann@mni.thm.de> writes:
->
->> A patch for this is already floating on the ML for a while now latest:
->> (ath9k: do not return early to fix rcu unlocking)
-> It's here:
->
-> https://patchwork.kernel.org/patch/9472709/
+Ah. Someone thought it was a good idea to provide the "one ring to rule
+them all". Nice.
 
-Good to know!
->
->> Hopefully Kalle will include it in one of his upcoming pull requests.
-> Yes, I'll try to get it to 4.10-rc2.
+> But overwriting that one file is not possible as it next update of 
+> linux-firmware package will overwrite it back. It break any normal usage 
+> of package management.
+> 
+> Also it is ridiculously broken by design if some "boot" files needs to 
+> be overwritten to initialize hardware properly. To not break booting you 
+> need to overwrite that file before first boot. But without booting 
+> device you cannot read calibration data. So some hack with autoreboot 
+> after boot is needed. And how to detect that we have real overwritten 
+> calibration data and not default one from linux-firmware? Any heuristic 
+> or checks will be broken here. And no, nothing like you need to reboot 
+> your device now (and similar concept) from windows world is not 
+> accepted.
 
-Thanks for the update!
+Well. After reading and creating calibration data you could just rebind
+the driver to the device to have it probed again. But yeah, the default
+one from linux-firmware should never have been there in the first place.
+
+> "firmware" is one for chip. Any N900 device with wl1251 chip needs 
+> exactly same firmware "wl1251-fw.bin". But every N900 needs different 
+> calibration data which is not firmware.
+
+Ok. This is exactly why Luis is giving the new API different name just
+calling it "data".
+
+Regards,
+Arend
