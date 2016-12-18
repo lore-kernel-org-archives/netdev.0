@@ -1,43 +1,61 @@
-From: Christian Kujau <lists@nerdbynature.de>
-Subject: Re: [PATCH v3 1/3] siphash: add cryptographically secure hashtable
- function
-Date: Sat, 17 Dec 2016 16:06:15 -0800 (PST)
-Message-ID: <alpine.DEB.2.20.99.1612171601430.31470@trent.utfs.org>
-References: <20161214035927.30004-1-Jason@zx2c4.com> <20161214184605.24006-1-Jason@zx2c4.com> <CALx6S35UgTyqkYUjS5gYFH4HnjW974WQ_JiDXxgb9rZ7gnY52Q@mail.gmail.com> <CAHmME9oMaQOhzJbNKh8GN759iJngeRdXt3naOnFhY9mD6t5Kxg@mail.gmail.com>
- <CAHmME9pR3tD2zknKsYaFaTJm_3aBBOA6c174hypm6S-q9wp5nw@mail.gmail.com> <CALx6S35VBjw42G6rHPrNfVaBfLMz3YZVjs3D3hBG=4gp5+g5tA@mail.gmail.com> <CAHmME9rpvf4tyDjZcJAJxMAW1LcqNm7DiquiYX0uQhRzDLbwqw@mail.gmail.com> <CALx6S349hOFhnMgM_TgKXC1O7bmOvR87Nm=5B7_sNLEWiZU8Zg@mail.gmail.com>
- <CAHmME9qNcsXtdWO_rmngSXXeBsTbA9B_33oLJ_pWOWcO7P2JZg@mail.gmail.com>
-Reply-To: kernel-hardening@lists.openwall.com
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH 1/2] net: ethernet: sxgbe: remove private tx queue lock
+Date: Sun, 18 Dec 2016 01:15:07 +0100
+Message-ID: <20161218001507.GA5343@electric-eye.fr.zoreil.com>
+References: <051e3043-8b58-0591-36e3-99e2267f67f4@gmx.de>
+ <20161208231943.GA13102@electric-eye.fr.zoreil.com>
+ <20161209112142.GA22710@amd>
+ <c76124b9-6376-42b9-2821-b5a8185f5034@gmx.de>
+ <20161211201104.GB20574@amd>
+ <cfad6b84-de23-2e03-6d34-2b3451975179@gmx.de>
+ <20161215210324.GA13878@amd>
+ <f3fc8035-fb6e-fb06-d9b8-bfc96dc4e1d2@gmx.de>
+ <6f43eac8-754b-cfa2-371d-050701deb4cd@gmx.de>
+ <20161217173150.GA20231@amd>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: Tom Herbert <tom@herbertland.com>, Netdev <netdev@vger.kernel.org>,
-    kernel-hardening@lists.openwall.com, LKML <linux-kernel@vger.kernel.org>,
-    Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-    Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>,
-    "Daniel J . Bernstein" <djb@cr.yp.to>,
-    Linus Torvalds <torvalds@linux-foundation.org>,
-    Eric Biggers <ebiggers3@gmail.com>, David Laight <David.Laight@aculab.com>
-To: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Return-path: <kernel-hardening-return-5694-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <CAHmME9qNcsXtdWO_rmngSXXeBsTbA9B_33oLJ_pWOWcO7P2JZg@mail.gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Lino Sanfilippo <LinoSanfilippo@gmx.de>, bh74.an@samsung.com,
+        ks.giri@samsung.com, vipul.pandya@samsung.com,
+        peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        davem@davemloft.net, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org
+To: Pavel Machek <pavel@ucw.cz>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20161217173150.GA20231@amd>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 15 Dec 2016, Jason A. Donenfeld wrote:
-> > I'd still drop the "24" unless you really think we're going to have
-> > multiple variants coming into the kernel.
-> 
-> Okay. I don't have a problem with this, unless anybody has some reason
-> to the contrary.
+Pavel Machek <pavel@ucw.cz> :
+[...]
+> Won't this up/down the interface, in a way userspace can observe?
 
-What if the 2/4-round version falls and we need more rounds to withstand 
-future cryptoanalysis? We'd then have siphash_ and siphash48_ functions, 
-no? My amateurish bike-shedding argument would be "let's keep the 24 then" :-)
+It won't up/down the interface as it doesn't exactly mimic what the
+network code does (there's more than rtnl_lock).
 
-C.
+For the same reason it's broken if it races with the transmit path: it
+can release driver resources while the transmit path uses these.
+
+Btw the points below may not matter/hurt much for a proof a concept
+but they would need to be addressed as well:
+1) unchecked (and avoidable) extra error paths due to stmmac_release()
+2) racy cancel_work_sync. Low probability as it is, an irq + error could
+   take place right after cancel_work_sync
+
+Lino, have you considered via-rhine.c since its "move work from irq to
+workqueue context" changes that started in
+7ab87ff4c770eed71e3777936299292739fcd0fe [*] ?
+
+It's a shameless plug - originated in r8169.c - but it should be rather
+close to what the sxgbe and friends require. Thought / opinion ?
+
+[*] Including fixes/changes in:
+- 3a5a883a8a663b930908cae4abe5ec913b9b2fd2
+- e1efa87241272104d6a12c8b9fcdc4f62634d447
+- 810f19bcb862f8889b27e0c9d9eceac9593925dd
+- e45af497950a89459a0c4b13ffd91e1729fffef4
+- a926592f5e4e900f3fa903298c4619a131e60963
+- 559bcac35facfed49ab4f408e162971612dcfdf3
+
 -- 
-BOFH excuse #354:
-
-Chewing gum on /dev/sd3c
+Ueimor
