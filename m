@@ -1,33 +1,68 @@
-From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
-Subject: RE: [PATCH] qed: fix memory leak of a qed_spq_entry on error failure
- paths
-Date: Sun, 18 Dec 2016 06:33:50 +0000
-Message-ID: <BL2PR07MB2306151726E6A6E95702776B8D9E0@BL2PR07MB2306.namprd07.prod.outlook.com>
-References: <20161216125039.20969-1-colin.king@canonical.com>
+From: Tariq Toukan <ttoukan.linux@gmail.com>
+Subject: Re: mlx4: Bug in XDP_TX + 16 rx-queues
+Date: Sun, 18 Dec 2016 12:31:30 +0200
+Message-ID: <fd3b36fa-8365-3873-b3e5-fff47939c330@gmail.com>
+References: <20161217101803.GB8732@kafai-mba.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "Elior, Ariel" <Ariel.Elior@cavium.com>,
-        "Tayar, Tomer" <Tomer.Tayar@cavium.com>
-To: Colin King <colin.king@canonical.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161216125039.20969-1-colin.king@canonical.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Alexei Starovoitov <ast@fb.com>
+To: Martin KaFai Lau <kafai@fb.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Tariq Toukan <tariqt@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wj0-f170.google.com ([209.85.210.170]:33491 "EHLO
+        mail-wj0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753594AbcLRKbd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 18 Dec 2016 05:31:33 -0500
+Received: by mail-wj0-f170.google.com with SMTP id xy5so126188162wjc.0
+        for <netdev@vger.kernel.org>; Sun, 18 Dec 2016 02:31:33 -0800 (PST)
+In-Reply-To: <20161217101803.GB8732@kafai-mba.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiBGcm9tOiBDb2xpbiBJYW4gS2luZyA8Y29saW4ua2luZ0BjYW5vbmljYWwuY29tPg0KPiANCj4g
-QSBxZWRfc3BxX2VudHJ5IGVudHJ5IGlzIGFsbG9jYXRlZCBieSBxZWRfc3BfaW5pdF9yZXF1ZXN0
-IGJ1dCBpcyBub3Qga2ZyZWUnZA0KPiBpZiBhbiBlcnJvciBvY2N1cnMsIGNhdXNpbmcgYSBtZW1v
-cnkgbGVhay4gRml4IHRoaXMgYnkga2ZyZWUnaW5nIGl0IGFuZCBhbHNvDQo+IHNldHRpbmcgKnBw
-X2VudCB0byBOVUxMIHRvIGJlIHNhZmUuDQo+IA0KPiBGb3VuZCB3aXRoIHN0YXRpYyBhbmFseXNp
-cyBieSBDb3Zlcml0eVNjYW4sIENJRHMgMTM4OTQ2OC0xMzg5NDcwDQo+IA0KPiBTaWduZWQtb2Zm
-LWJ5OiBDb2xpbiBJYW4gS2luZyA8Y29saW4ua2luZ0BjYW5vbmljYWwuY29tPg0KLi4uDQo+ICtl
-cnI6DQo+ICsJa2ZyZWUoKnBwX2VudCk7DQo+ICsJKnBwX2VudCA9IE5VTEw7DQo+ICsNCj4gKwly
-ZXR1cm4gcmM7DQo+ICB9DQoNCkhpIENvbGluIC0gdGhhbmtzIGZvciB0aGlzLg0KSXQgd291bGQg
-aGF2ZSBiZWVuIHByZWZlcmFibGUgdG8gcmV0dXJuIHRoZSBwcmV2aW91c2x5IGFsbG9jYXRlZCBz
-cHEgZW50cnkuDQpJLmUuLCBkbzoNCg0KK2VycjoNCisJcWVkX3NwcV9yZXR1cm5fZW50cnkocF9o
-d2ZuLCAqcHBfZW50KTsNCisJKnBwX2VudCA9IE5VTEw7DQorCXJldHVybiByYzsNCg0KVGhhbmtz
-LA0KWXV2YWwNCg==
+Hi Martin,
+
+
+On 17/12/2016 12:18 PM, Martin KaFai Lau wrote:
+> Hi All,
+>
+> I have been debugging with XDP_TX and 16 rx-queues.
+>
+> 1) When 16 rx-queues is used and an XDP prog is doing XDP_TX,
+> it seems that the packet cannot be XDP_TX out if the pkt
+> is received from some particular CPUs (/rx-queues).
+Does the rx_xdp_tx_full counter increase?
+Does the problem repro if you turn off PFC?
+     ethtool -A <intf> rx off tx off
+>
+> 2) If 8 rx-queues is used, it does not have problem.
+>
+> 3) The 16 rx-queues problem also went away after reverting these
+> two patches:
+> 15fca2c8eb41 net/mlx4_en: Add ethtool statistics for XDP cases
+> 67f8b1dcb9ee net/mlx4_en: Refactor the XDP forwarding rings scheme
+>
+> 4) I can reproduce the problem by running samples/bof/xdp_ip_tunnel at
+> the receiver side.  The sender side sends out TCP packets with
+> source port ranging from 1 to 1024.  At the sender side also, do
+> a tcpdump to capture the ip-tunnel packet reflected by xdp_ip_tunnel.
+> With 8 rx-queues,  I can get all 1024 packets back.  With 16 rx-queues,
+> I can only get 512 packets back.  It is a 40 CPUs machine.
+> I also checked the rx*_xdp_tx counters (from ethtool -S eth0) to ensure
+> the xdp prog has XDP_TX-ed it out.
+So all packets were transmitted (according to rx*_xdp_tx), and only half 
+the of them received on the other side?
+>
+> Not saying that 67f8b1dcb9ee is 100% the cause because there are other
+> changes since then.  It is merely a brain dump on what I have already
+> tried.
+>
+> Tariq/Saeed, any thoughts?  I can easily test some patches in
+> my setup.
+>
+> Thanks,
+> --Martin
+Thanks,
+Tariq
