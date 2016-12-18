@@ -1,51 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ipvlan: fix crash
-Date: Sat, 17 Dec 2016 23:54:52 -0500 (EST)
-Message-ID: <20161217.235452.1604434909844387069.davem@davemloft.net>
-References: <1482027379-30785-1-git-send-email-mahesh@bandewar.net>
+From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+Subject: RE: [PATCH] qed: fix memory leak of a qed_spq_entry on error failure
+ paths
+Date: Sun, 18 Dec 2016 06:33:50 +0000
+Message-ID: <BL2PR07MB2306151726E6A6E95702776B8D9E0@BL2PR07MB2306.namprd07.prod.outlook.com>
+References: <20161216125039.20969-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com, maheshb@google.com
-To: mahesh@bandewar.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:48956 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932260AbcLREy4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 17 Dec 2016 23:54:56 -0500
-In-Reply-To: <1482027379-30785-1-git-send-email-mahesh@bandewar.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "Elior, Ariel" <Ariel.Elior@cavium.com>,
+        "Tayar, Tomer" <Tomer.Tayar@cavium.com>
+To: Colin King <colin.king@canonical.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161216125039.20969-1-colin.king@canonical.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Mahesh Bandewar <mahesh@bandewar.net>
-Date: Sat, 17 Dec 2016 18:16:19 -0800
-
-> diff --git a/drivers/net/ipvlan/ipvlan_core.c b/drivers/net/ipvlan/ipvlan_core.c
-> index b4e990743e1d..4294fc1f5564 100644
-> --- a/drivers/net/ipvlan/ipvlan_core.c
-> +++ b/drivers/net/ipvlan/ipvlan_core.c
-> @@ -660,6 +660,9 @@ rx_handler_result_t ipvlan_handle_frame(struct sk_buff **pskb)
->  	if (!port)
->  		return RX_HANDLER_PASS;
->  
-> +	if (unlikely(!pskb_may_pull(skb, sizeof(struct ethhdr))))
-> +		goto out;
-> +
->  	switch (port->mode) {
-
-ipvlan only allows non-loopback ethernet devices to register
-this RX handler.
-
-Such situations being tested here should therefore be completely
-impossible.
-
-Every such device must send the SKB through eth_type_trans(), which
-unconditionally accesses the ethernet header, therefore it must
-be pulled into the linear SKB area already, long before this RX
-handler is invoked.
-
-If this really can legitimately happen, you must explain how so.
-
-Just showing the crash that later happens in some (completely
-unrelated BTW) ipvlan multicast workqueue handling function, is
-really an insufficient commit log message for a bug like this.
+PiBGcm9tOiBDb2xpbiBJYW4gS2luZyA8Y29saW4ua2luZ0BjYW5vbmljYWwuY29tPg0KPiANCj4g
+QSBxZWRfc3BxX2VudHJ5IGVudHJ5IGlzIGFsbG9jYXRlZCBieSBxZWRfc3BfaW5pdF9yZXF1ZXN0
+IGJ1dCBpcyBub3Qga2ZyZWUnZA0KPiBpZiBhbiBlcnJvciBvY2N1cnMsIGNhdXNpbmcgYSBtZW1v
+cnkgbGVhay4gRml4IHRoaXMgYnkga2ZyZWUnaW5nIGl0IGFuZCBhbHNvDQo+IHNldHRpbmcgKnBw
+X2VudCB0byBOVUxMIHRvIGJlIHNhZmUuDQo+IA0KPiBGb3VuZCB3aXRoIHN0YXRpYyBhbmFseXNp
+cyBieSBDb3Zlcml0eVNjYW4sIENJRHMgMTM4OTQ2OC0xMzg5NDcwDQo+IA0KPiBTaWduZWQtb2Zm
+LWJ5OiBDb2xpbiBJYW4gS2luZyA8Y29saW4ua2luZ0BjYW5vbmljYWwuY29tPg0KLi4uDQo+ICtl
+cnI6DQo+ICsJa2ZyZWUoKnBwX2VudCk7DQo+ICsJKnBwX2VudCA9IE5VTEw7DQo+ICsNCj4gKwly
+ZXR1cm4gcmM7DQo+ICB9DQoNCkhpIENvbGluIC0gdGhhbmtzIGZvciB0aGlzLg0KSXQgd291bGQg
+aGF2ZSBiZWVuIHByZWZlcmFibGUgdG8gcmV0dXJuIHRoZSBwcmV2aW91c2x5IGFsbG9jYXRlZCBz
+cHEgZW50cnkuDQpJLmUuLCBkbzoNCg0KK2VycjoNCisJcWVkX3NwcV9yZXR1cm5fZW50cnkocF9o
+d2ZuLCAqcHBfZW50KTsNCisJKnBwX2VudCA9IE5VTEw7DQorCXJldHVybiByYzsNCg0KVGhhbmtz
+LA0KWXV2YWwNCg==
