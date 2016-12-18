@@ -1,35 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 net] r6040: move spinlock in r6040_close as
- SOFTIRQ-unsafe lock order detected
-Date: Sat, 17 Dec 2016 21:36:30 -0500 (EST)
-Message-ID: <20161217.213630.371461596447265670.davem@davemloft.net>
-References: <1481826099-12840-1-git-send-email-manuel.bessler@sensus.com>
-        <1481860500-25117-1-git-send-email-manuel.bessler@sensus.com>
+Subject: Re: [PATCH] net: ipv6: check route protocol when deleting routes
+Date: Sat, 17 Dec 2016 21:37:21 -0500 (EST)
+Message-ID: <20161217.213721.2250751134919146675.davem@davemloft.net>
+References: <20161216083059.251368-1-grawity@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, f.fainelli@gmail.com
-To: manuel.bessler@sensus.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:47588 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752867AbcLRCgc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 17 Dec 2016 21:36:32 -0500
-In-Reply-To: <1481860500-25117-1-git-send-email-manuel.bessler@sensus.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-4
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: grawity@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161216083059.251368-1-grawity@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Manuel Bessler <manuel.bessler@sensus.com>
-Date: Thu, 15 Dec 2016 22:55:00 -0500
+From: Mantas Mikulìnas <grawity@gmail.com>
+Date: Fri, 16 Dec 2016 10:30:59 +0200
 
-> 'ifconfig eth0 down' makes r6040_close() trigger:
->  INFO: HARDIRQ-safe -> HARDIRQ-unsafe lock order detected
+> The protocol field is checked when deleting IPv4 routes, but ignored for
+> IPv6, which causes problems with routing daemons accidentally deleting
+> externally set routes (observed by multiple bird6 users).
 > 
-> Fixed by moving calls to phy_stop(), napi_disable(), netif_stop_queue()
-> to outside of the module's private spin_lock_irq block.
+> This can be verified using `ip -6 route del <prefix> proto something`.
 > 
-> Found on a Versalogic Tomcat SBC with a Vortex86 SoC
- ...
-> Signed-off-by: Manuel Bessler <manuel.bessler@sensus.com>
+> Signed-off-by: Mantas Mikulìnas <grawity@gmail.com>
 
 Applied, thanks.
