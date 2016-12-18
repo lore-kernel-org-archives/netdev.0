@@ -1,75 +1,82 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: [PATCH 1/2] net: ethernet: sxgbe: remove private tx queue lock
-Date: Sun, 18 Dec 2016 19:30:10 +0100
-Message-ID: <20161218183010.GA7886@amd>
-References: <20161209112142.GA22710@amd>
- <c76124b9-6376-42b9-2821-b5a8185f5034@gmx.de>
- <20161211201104.GB20574@amd>
- <cfad6b84-de23-2e03-6d34-2b3451975179@gmx.de>
- <20161215210324.GA13878@amd>
- <f3fc8035-fb6e-fb06-d9b8-bfc96dc4e1d2@gmx.de>
- <6f43eac8-754b-cfa2-371d-050701deb4cd@gmx.de>
- <20161217173150.GA20231@amd>
- <20161218001507.GA5343@electric-eye.fr.zoreil.com>
- <a2cbcfcd-f377-565c-a21c-3daa3abce519@gmx.de>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="TB36FDmn/VVEgNH/"
-Cc: Francois Romieu <romieu@fr.zoreil.com>, bh74.an@samsung.com,
-        ks.giri@samsung.com, vipul.pandya@samsung.com,
-        peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        davem@davemloft.net, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org
-To: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <a2cbcfcd-f377-565c-a21c-3daa3abce519@gmx.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Mahesh Bandewar <mahesh@bandewar.net>
+Subject: [PATCH net v2] ipvlan: fix crash when master is set in loopback mode
+Date: Sun, 18 Dec 2016 11:00:25 -0800
+Message-ID: <1482087625-30366-1-git-send-email-mahesh@bandewar.net>
+Cc: Mahesh Bandewar <maheshb@google.com>
+To: netdev <netdev@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>,
+        David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:34933 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752170AbcLRTAb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 18 Dec 2016 14:00:31 -0500
+Received: by mail-pg0-f66.google.com with SMTP id p66so15975945pga.2
+        for <netdev@vger.kernel.org>; Sun, 18 Dec 2016 11:00:30 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Mahesh Bandewar <maheshb@google.com>
 
---TB36FDmn/VVEgNH/
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+In an IPvlan setup when master is set in loopback mode e.g.
 
-Hi!
+  ethtool -K eth0 set loopback on
 
-> > - e1efa87241272104d6a12c8b9fcdc4f62634d447
->=20
-> Yep, a sync of the dma descriptors before the hardware gets ownership of =
-the tx tail
-> idx is missing in the stmmac, too.
+  where eth0 is master device for IPvlan setup.
 
-I can reproduce failure with 4.4 fairly easily. I tried with dma_
-variant of barriers, and it failed, too
+The failure actually happens while processing mulitcast packets
+but that's a result of unconditionally queueing packets without
+ensuring ether-header is part of the linear part of skb.
 
-[ 1018.410012] stmmac: early irq
-[ 1023.939702] fpga_cmd_read:wait_event timed out!
-[ 1033.128692] ------------[ cut here ]------------
-[ 1033.133329] WARNING: CPU: 0 PID: 0 at net/sched/sch_generic.c:303
-dev_watchdog+0x264/0x284()
-[ 1033.141748] NETDEV WATCHDOG: eth0 (socfpga-dwmac): transmit queue 0
-timed out
-[ 1033.148861] Modules linked in:
+This patch forces this check at the reception and drops packets
+which fail this check before queuing them.
 
-									Pavel
+------------[ cut here ]------------
+kernel BUG at include/linux/skbuff.h:1737!
+Call Trace:
+ [<ffffffff921fbbc2>] dev_forward_skb+0x92/0xd0
+ [<ffffffffc031ac65>] ipvlan_process_multicast+0x395/0x4c0 [ipvlan]
+ [<ffffffffc031a9a7>] ? ipvlan_process_multicast+0xd7/0x4c0 [ipvlan]
+ [<ffffffff91cdfea7>] ? process_one_work+0x147/0x660
+ [<ffffffff91cdff09>] process_one_work+0x1a9/0x660
+ [<ffffffff91cdfea7>] ? process_one_work+0x147/0x660
+ [<ffffffff91ce086d>] worker_thread+0x11d/0x360
+ [<ffffffff91ce0750>] ? rescuer_thread+0x350/0x350
+ [<ffffffff91ce960b>] kthread+0xdb/0xe0
+ [<ffffffff91c05c70>] ? _raw_spin_unlock_irq+0x30/0x50
+ [<ffffffff91ce9530>] ? flush_kthread_worker+0xc0/0xc0
+ [<ffffffff92348b7a>] ret_from_fork+0x9a/0xd0
+ [<ffffffff91ce9530>] ? flush_kthread_worker+0xc0/0xc0
 
---=20
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
-g.html
+Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+---
+v1->v2: commit log update
 
---TB36FDmn/VVEgNH/
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
+ drivers/net/ipvlan/ipvlan_core.c | 5 +++++
+ 1 file changed, 5 insertions(+)
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iEYEARECAAYFAlhW1bIACgkQMOfwapXb+vK6UACgu7qVL1N0vrlaIv2r4piJPpz7
-K/wAniSpXOPzcwf5BWtzg83Sxx6O/f7V
-=YpvL
------END PGP SIGNATURE-----
-
---TB36FDmn/VVEgNH/--
+diff --git a/drivers/net/ipvlan/ipvlan_core.c b/drivers/net/ipvlan/ipvlan_core.c
+index b4e990743e1d..4294fc1f5564 100644
+--- a/drivers/net/ipvlan/ipvlan_core.c
++++ b/drivers/net/ipvlan/ipvlan_core.c
+@@ -660,6 +660,9 @@ rx_handler_result_t ipvlan_handle_frame(struct sk_buff **pskb)
+ 	if (!port)
+ 		return RX_HANDLER_PASS;
+ 
++	if (unlikely(!pskb_may_pull(skb, sizeof(struct ethhdr))))
++		goto out;
++
+ 	switch (port->mode) {
+ 	case IPVLAN_MODE_L2:
+ 		return ipvlan_handle_mode_l2(pskb, port);
+@@ -672,6 +675,8 @@ rx_handler_result_t ipvlan_handle_frame(struct sk_buff **pskb)
+ 	/* Should not reach here */
+ 	WARN_ONCE(true, "ipvlan_handle_frame() called for mode = [%hx]\n",
+ 			  port->mode);
++
++out:
+ 	kfree_skb(skb);
+ 	return RX_HANDLER_CONSUMED;
+ }
+-- 
+2.8.0.rc3.226.g39d4020
