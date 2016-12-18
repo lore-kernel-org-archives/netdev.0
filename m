@@ -1,82 +1,50 @@
-From: Mahesh Bandewar <mahesh@bandewar.net>
-Subject: [PATCH net v2] ipvlan: fix crash when master is set in loopback mode
-Date: Sun, 18 Dec 2016 11:00:25 -0800
-Message-ID: <1482087625-30366-1-git-send-email-mahesh@bandewar.net>
-Cc: Mahesh Bandewar <maheshb@google.com>
-To: netdev <netdev@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:34933 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752170AbcLRTAb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 18 Dec 2016 14:00:31 -0500
-Received: by mail-pg0-f66.google.com with SMTP id p66so15975945pga.2
-        for <netdev@vger.kernel.org>; Sun, 18 Dec 2016 11:00:30 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Valo, Kalle" <kvalo@qca.qualcomm.com>
+Subject: Re: regression: ath_tx_edma_tasklet() Illegal idle
+ entry in RCU read-side critical section
+Date: Sun, 18 Dec 2016 19:57:42 +0000
+Message-ID: <87pokpc8ng.fsf@qca.qualcomm.com>
+References: <23a2a3ab-974a-ed26-6afa-aafab9bb972e@gmail.com>
+	<20161218155938.GP3924@linux.vnet.ibm.com>
+	<58b67d5b-0275-f80f-479f-78cf748b4319@mni.thm.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Gabriel C <nix.or.die@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	ath9k-devel <ath9k-devel@qca.qualcomm.com>,
+	lkml <linux-kernel@vger.kernel.org>,
+	"ath9k-devel@lists.ath9k.org" <ath9k-devel@lists.ath9k.org>,
+	"paulmck@linux.vnet.ibm.com" <paulmck@linux.vnet.ibm.com>,
+	"nbd@nbd.name" <nbd@nbd.name>
+To: Tobias Klausmann <tobias.johannes.klausmann@mni.thm.de>
+Return-path: <ath9k-devel-bounces@lists.ath9k.org>
+In-Reply-To: <58b67d5b-0275-f80f-479f-78cf748b4319@mni.thm.de> (Tobias
+	Klausmann's message of "Sun, 18 Dec 2016 17:17:54 +0100")
+Content-Language: en-US
+List-Unsubscribe: <https://lists.ath9k.org/mailman/listinfo/ath9k-devel>,
+	<mailto:ath9k-devel-request@lists.ath9k.org?subject=unsubscribe>
+List-Archive: <http://lists.ath9k.org/pipermail/ath9k-devel>
+List-Post: <mailto:ath9k-devel@lists.ath9k.org>
+List-Help: <mailto:ath9k-devel-request@lists.ath9k.org?subject=help>
+List-Subscribe: <https://lists.ath9k.org/mailman/listinfo/ath9k-devel>,
+	<mailto:ath9k-devel-request@lists.ath9k.org?subject=subscribe>
+Sender: ath9k-devel-bounces@lists.ath9k.org
+Errors-To: ath9k-devel-bounces@lists.ath9k.org
+List-Id: netdev.vger.kernel.org
 
-From: Mahesh Bandewar <maheshb@google.com>
+Tobias Klausmann <tobias.johannes.klausmann@mni.thm.de> writes:
 
-In an IPvlan setup when master is set in loopback mode e.g.
+> A patch for this is already floating on the ML for a while now latest:
+> (ath9k: do not return early to fix rcu unlocking)
 
-  ethtool -K eth0 set loopback on
+It's here:
 
-  where eth0 is master device for IPvlan setup.
+https://patchwork.kernel.org/patch/9472709/
 
-The failure actually happens while processing mulitcast packets
-but that's a result of unconditionally queueing packets without
-ensuring ether-header is part of the linear part of skb.
+> Hopefully Kalle will include it in one of his upcoming pull requests.
 
-This patch forces this check at the reception and drops packets
-which fail this check before queuing them.
+Yes, I'll try to get it to 4.10-rc2.
 
-------------[ cut here ]------------
-kernel BUG at include/linux/skbuff.h:1737!
-Call Trace:
- [<ffffffff921fbbc2>] dev_forward_skb+0x92/0xd0
- [<ffffffffc031ac65>] ipvlan_process_multicast+0x395/0x4c0 [ipvlan]
- [<ffffffffc031a9a7>] ? ipvlan_process_multicast+0xd7/0x4c0 [ipvlan]
- [<ffffffff91cdfea7>] ? process_one_work+0x147/0x660
- [<ffffffff91cdff09>] process_one_work+0x1a9/0x660
- [<ffffffff91cdfea7>] ? process_one_work+0x147/0x660
- [<ffffffff91ce086d>] worker_thread+0x11d/0x360
- [<ffffffff91ce0750>] ? rescuer_thread+0x350/0x350
- [<ffffffff91ce960b>] kthread+0xdb/0xe0
- [<ffffffff91c05c70>] ? _raw_spin_unlock_irq+0x30/0x50
- [<ffffffff91ce9530>] ? flush_kthread_worker+0xc0/0xc0
- [<ffffffff92348b7a>] ret_from_fork+0x9a/0xd0
- [<ffffffff91ce9530>] ? flush_kthread_worker+0xc0/0xc0
-
-Signed-off-by: Mahesh Bandewar <maheshb@google.com>
----
-v1->v2: commit log update
-
- drivers/net/ipvlan/ipvlan_core.c | 5 +++++
- 1 file changed, 5 insertions(+)
-
-diff --git a/drivers/net/ipvlan/ipvlan_core.c b/drivers/net/ipvlan/ipvlan_core.c
-index b4e990743e1d..4294fc1f5564 100644
---- a/drivers/net/ipvlan/ipvlan_core.c
-+++ b/drivers/net/ipvlan/ipvlan_core.c
-@@ -660,6 +660,9 @@ rx_handler_result_t ipvlan_handle_frame(struct sk_buff **pskb)
- 	if (!port)
- 		return RX_HANDLER_PASS;
- 
-+	if (unlikely(!pskb_may_pull(skb, sizeof(struct ethhdr))))
-+		goto out;
-+
- 	switch (port->mode) {
- 	case IPVLAN_MODE_L2:
- 		return ipvlan_handle_mode_l2(pskb, port);
-@@ -672,6 +675,8 @@ rx_handler_result_t ipvlan_handle_frame(struct sk_buff **pskb)
- 	/* Should not reach here */
- 	WARN_ONCE(true, "ipvlan_handle_frame() called for mode = [%hx]\n",
- 			  port->mode);
-+
-+out:
- 	kfree_skb(skb);
- 	return RX_HANDLER_CONSUMED;
- }
 -- 
-2.8.0.rc3.226.g39d4020
+Kalle Valo
