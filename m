@@ -1,15 +1,15 @@
 From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net v2 2/3] bpf: fix overflow in prog accounting
-Date: Sun, 18 Dec 2016 01:52:58 +0100
-Message-ID: <d7c46fc4e8647bc903a4c21e7193c580ab3e3a40.1482019225.git.daniel@iogearbox.net>
+Subject: [PATCH net v2 3/3] bpf: fix mark_reg_unknown_value for spilled regs on map value marking
+Date: Sun, 18 Dec 2016 01:52:59 +0100
+Message-ID: <c08a5d65748cecbc687e6a6de0e57ffbd704989a.1482019225.git.daniel@iogearbox.net>
 References: <cover.1482019225.git.daniel@iogearbox.net>
 Cc: ast@fb.com, kafai@fb.com, netdev@vger.kernel.org,
         Daniel Borkmann <daniel@iogearbox.net>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:60744 "EHLO
+Received: from www62.your-server.de ([213.133.104.62]:60746 "EHLO
         www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753896AbcLRAxQ (ORCPT
+        with ESMTP id S1754264AbcLRAxQ (ORCPT
         <rfc822;netdev@vger.kernel.org>); Sat, 17 Dec 2016 19:53:16 -0500
 In-Reply-To: <cover.1482019225.git.daniel@iogearbox.net>
 In-Reply-To: <cover.1482019225.git.daniel@iogearbox.net>
@@ -17,168 +17,97 @@ References: <cover.1482019225.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit aaac3ba95e4c ("bpf: charge user for creation of BPF maps and
-programs") made a wrong assumption of charging against prog->pages.
-Unlike map->pages, prog->pages are still subject to change when we
-need to expand the program through bpf_prog_realloc().
+Martin reported a verifier issue that hit the BUG_ON() for his
+test case in the mark_reg_unknown_value() function:
 
-This can for example happen during verification stage when we need to
-expand and rewrite parts of the program. Should the required space
-cross a page boundary, then prog->pages is not the same anymore as
-its original value that we used to bpf_prog_charge_memlock() on. Thus,
-we'll hit a wrap-around during bpf_prog_uncharge_memlock() when prog
-is freed eventually. I noticed this that despite having unlimited
-memlock, programs suddenly refused to load with EPERM error due to
-insufficient memlock.
+  [  202.861380] kernel BUG at kernel/bpf/verifier.c:467!
+  [...]
+  [  203.291109] Call Trace:
+  [  203.296501]  [<ffffffff811364d5>] mark_map_reg+0x45/0x50
+  [  203.308225]  [<ffffffff81136558>] mark_map_regs+0x78/0x90
+  [  203.320140]  [<ffffffff8113938d>] do_check+0x226d/0x2c90
+  [  203.331865]  [<ffffffff8113a6ab>] bpf_check+0x48b/0x780
+  [  203.343403]  [<ffffffff81134c8e>] bpf_prog_load+0x27e/0x440
+  [  203.355705]  [<ffffffff8118a38f>] ? handle_mm_fault+0x11af/0x1230
+  [  203.369158]  [<ffffffff812d8188>] ? security_capable+0x48/0x60
+  [  203.382035]  [<ffffffff811351a4>] SyS_bpf+0x124/0x960
+  [  203.393185]  [<ffffffff810515f6>] ? __do_page_fault+0x276/0x490
+  [  203.406258]  [<ffffffff816db320>] entry_SYSCALL_64_fastpath+0x13/0x94
 
-There are two ways to fix this issue. One would be to add a cached
-variable to struct bpf_prog that takes a snapshot of prog->pages at the
-time of charging. The other approach is to also account for resizes. I
-chose to go with the latter for a couple of reasons: i) We want accounting
-rather to be more accurate instead of further fooling limits, ii) adding
-yet another page counter on struct bpf_prog would also be a waste just
-for this purpose. We also do want to charge as early as possible to
-avoid going into the verifier just to find out later on that we crossed
-limits. The only place that needs to be fixed is bpf_prog_realloc(),
-since only here we expand the program, so we try to account for the
-needed delta and should we fail, call-sites check for outcome anyway.
-On cBPF to eBPF migrations, we don't grab a reference to the user as
-they are charged differently. With that in place, my test case worked
-fine.
+This issue got uncovered after the fix in a08dd0da5307 ("bpf: fix
+regression on verifier pruning wrt map lookups"). The reason why it
+wasn't noticed before was, because as mentioned in a08dd0da5307,
+mark_map_regs() was doing the id matching incorrectly based on the
+uncached regs[regno].id. So, in the first loop, we walked all regs
+and as soon as we found regno == i, then this reg's id was cleared
+when calling mark_reg_unknown_value() thus that every subsequent
+register was probed against id of 0 (which, in combination with the
+PTR_TO_MAP_VALUE_OR_NULL type is an invalid condition that no other
+register state can hold), and therefore wasn't type transitioned such
+as in the spilled register case for the second loop.
 
-Fixes: aaac3ba95e4c ("bpf: charge user for creation of BPF maps and programs")
+Now since that got fixed, it turned out that 57a09bf0a416 ("bpf:
+Detect identical PTR_TO_MAP_VALUE_OR_NULL registers") used
+mark_reg_unknown_value() incorrectly for the spilled regs, and thus
+hitting the BUG_ON() in some cases due to regno >= MAX_BPF_REG.
+
+Although spilled regs have the same type as the non-spilled regs
+for the verifier state, that is, struct bpf_reg_state, they are
+semantically different from the non-spilled regs. In other words,
+there can be up to 64 (MAX_BPF_STACK / BPF_REG_SIZE) spilled regs
+in the stack, for example, register R<x> could have been spilled by
+the program to stack location X, Y, Z, and in mark_map_regs() we
+need to scan these stack slots of type STACK_SPILL for potential
+registers that we have to transition from PTR_TO_MAP_VALUE_OR_NULL.
+Therefore, depending on the location, the spilled_regs regno can
+be a lot higher than just MAX_BPF_REG's value since we operate on
+stack instead. The reset in mark_reg_unknown_value() itself is
+just fine, only that the BUG_ON() was inappropriate for this. Fix
+it by making a __mark_reg_unknown_value() version that can be
+called from mark_map_reg() generically; we know for the non-spilled
+case that the regno is always < MAX_BPF_REG anyway.
+
+Fixes: 57a09bf0a416 ("bpf: Detect identical PTR_TO_MAP_VALUE_OR_NULL registers")
+Reported-by: Martin KaFai Lau <kafai@fb.com>
 Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 Acked-by: Alexei Starovoitov <ast@kernel.org>
 ---
- include/linux/bpf.h  | 11 +++++++++++
- kernel/bpf/core.c    | 16 +++++++++++++---
- kernel/bpf/syscall.c | 36 ++++++++++++++++++++++++++++--------
- 3 files changed, 52 insertions(+), 11 deletions(-)
+ kernel/bpf/verifier.c | 11 ++++++++---
+ 1 file changed, 8 insertions(+), 3 deletions(-)
 
-diff --git a/include/linux/bpf.h b/include/linux/bpf.h
-index 201eb48..f74ae68 100644
---- a/include/linux/bpf.h
-+++ b/include/linux/bpf.h
-@@ -238,6 +238,8 @@ u64 bpf_event_output(struct bpf_map *map, u64 flags, void *meta, u64 meta_size,
- void bpf_prog_sub(struct bpf_prog *prog, int i);
- struct bpf_prog * __must_check bpf_prog_inc(struct bpf_prog *prog);
- void bpf_prog_put(struct bpf_prog *prog);
-+int __bpf_prog_charge(struct user_struct *user, u32 pages);
-+void __bpf_prog_uncharge(struct user_struct *user, u32 pages);
- 
- struct bpf_map *bpf_map_get_with_uref(u32 ufd);
- struct bpf_map *__bpf_map_get(struct fd f);
-@@ -318,6 +320,15 @@ static inline struct bpf_prog * __must_check bpf_prog_inc(struct bpf_prog *prog)
- {
- 	return ERR_PTR(-EOPNOTSUPP);
- }
-+
-+static inline int __bpf_prog_charge(struct user_struct *user, u32 pages)
-+{
-+	return 0;
-+}
-+
-+static inline void __bpf_prog_uncharge(struct user_struct *user, u32 pages)
-+{
-+}
- #endif /* CONFIG_BPF_SYSCALL */
- 
- /* verifier prototypes for helper functions called from eBPF programs */
-diff --git a/kernel/bpf/core.c b/kernel/bpf/core.c
-index 75c08b8..1eb4f13 100644
---- a/kernel/bpf/core.c
-+++ b/kernel/bpf/core.c
-@@ -105,19 +105,29 @@ struct bpf_prog *bpf_prog_realloc(struct bpf_prog *fp_old, unsigned int size,
- 	gfp_t gfp_flags = GFP_KERNEL | __GFP_HIGHMEM | __GFP_ZERO |
- 			  gfp_extra_flags;
- 	struct bpf_prog *fp;
-+	u32 pages, delta;
-+	int ret;
- 
- 	BUG_ON(fp_old == NULL);
- 
- 	size = round_up(size, PAGE_SIZE);
--	if (size <= fp_old->pages * PAGE_SIZE)
-+	pages = size / PAGE_SIZE;
-+	if (pages <= fp_old->pages)
- 		return fp_old;
- 
-+	delta = pages - fp_old->pages;
-+	ret = __bpf_prog_charge(fp_old->aux->user, delta);
-+	if (ret)
-+		return NULL;
-+
- 	fp = __vmalloc(size, gfp_flags, PAGE_KERNEL);
--	if (fp != NULL) {
-+	if (fp == NULL) {
-+		__bpf_prog_uncharge(fp_old->aux->user, delta);
-+	} else {
- 		kmemcheck_annotate_bitfield(fp, meta);
- 
- 		memcpy(fp, fp_old, fp_old->pages * PAGE_SIZE);
--		fp->pages = size / PAGE_SIZE;
-+		fp->pages = pages;
- 		fp->aux->prog = fp;
- 
- 		/* We keep fp->aux from fp_old around in the new
-diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-index 35d674c..e89acea 100644
---- a/kernel/bpf/syscall.c
-+++ b/kernel/bpf/syscall.c
-@@ -615,19 +615,39 @@ static void free_used_maps(struct bpf_prog_aux *aux)
- 	kfree(aux->used_maps);
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index 64b7b1a..83ed2f8 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -462,14 +462,19 @@ static void init_reg_state(struct bpf_reg_state *regs)
+ 	regs[BPF_REG_1].type = PTR_TO_CTX;
  }
  
-+int __bpf_prog_charge(struct user_struct *user, u32 pages)
-+{
-+	unsigned long memlock_limit = rlimit(RLIMIT_MEMLOCK) >> PAGE_SHIFT;
-+	unsigned long user_bufs;
-+
-+	if (user) {
-+		user_bufs = atomic_long_add_return(pages, &user->locked_vm);
-+		if (user_bufs > memlock_limit) {
-+			atomic_long_sub(pages, &user->locked_vm);
-+			return -EPERM;
-+		}
-+	}
-+
-+	return 0;
-+}
-+
-+void __bpf_prog_uncharge(struct user_struct *user, u32 pages)
-+{
-+	if (user)
-+		atomic_long_sub(pages, &user->locked_vm);
-+}
-+
- static int bpf_prog_charge_memlock(struct bpf_prog *prog)
+-static void mark_reg_unknown_value(struct bpf_reg_state *regs, u32 regno)
++static void __mark_reg_unknown_value(struct bpf_reg_state *regs, u32 regno)
  {
- 	struct user_struct *user = get_current_user();
--	unsigned long memlock_limit;
--
--	memlock_limit = rlimit(RLIMIT_MEMLOCK) >> PAGE_SHIFT;
-+	int ret;
+-	BUG_ON(regno >= MAX_BPF_REG);
+ 	regs[regno].type = UNKNOWN_VALUE;
+ 	regs[regno].id = 0;
+ 	regs[regno].imm = 0;
+ }
  
--	atomic_long_add(prog->pages, &user->locked_vm);
--	if (atomic_long_read(&user->locked_vm) > memlock_limit) {
--		atomic_long_sub(prog->pages, &user->locked_vm);
-+	ret = __bpf_prog_charge(user, prog->pages);
-+	if (ret) {
- 		free_uid(user);
--		return -EPERM;
-+		return ret;
++static void mark_reg_unknown_value(struct bpf_reg_state *regs, u32 regno)
++{
++	BUG_ON(regno >= MAX_BPF_REG);
++	__mark_reg_unknown_value(regs, regno);
++}
++
+ static void reset_reg_range_values(struct bpf_reg_state *regs, u32 regno)
+ {
+ 	regs[regno].min_value = BPF_REGISTER_MIN_RANGE;
+@@ -1976,7 +1981,7 @@ static void mark_map_reg(struct bpf_reg_state *regs, u32 regno, u32 id,
+ 		 */
+ 		reg->id = 0;
+ 		if (type == UNKNOWN_VALUE)
+-			mark_reg_unknown_value(regs, regno);
++			__mark_reg_unknown_value(regs, regno);
  	}
-+
- 	prog->aux->user = user;
- 	return 0;
- }
-@@ -636,7 +656,7 @@ static void bpf_prog_uncharge_memlock(struct bpf_prog *prog)
- {
- 	struct user_struct *user = prog->aux->user;
- 
--	atomic_long_sub(prog->pages, &user->locked_vm);
-+	__bpf_prog_uncharge(user, prog->pages);
- 	free_uid(user);
  }
  
 -- 
