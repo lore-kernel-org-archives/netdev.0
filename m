@@ -1,67 +1,38 @@
-From: Mahesh Bandewar <mahesh@bandewar.net>
-Subject: [PATCH net] ipvlan: fix crash
-Date: Sat, 17 Dec 2016 18:16:19 -0800
-Message-ID: <1482027379-30785-1-git-send-email-mahesh@bandewar.net>
-Cc: Mahesh Bandewar <maheshb@google.com>
-To: netdev <netdev@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        David Miller <davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net v2 0/3] Couple of BPF fixes
+Date: Sat, 17 Dec 2016 21:28:03 -0500 (EST)
+Message-ID: <20161217.212803.1644338348453397032.davem@davemloft.net>
+References: <cover.1482019225.git.daniel@iogearbox.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ast@fb.com, kafai@fb.com, netdev@vger.kernel.org
+To: daniel@iogearbox.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:35890 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752059AbcLRCQ0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 17 Dec 2016 21:16:26 -0500
-Received: by mail-pg0-f66.google.com with SMTP id a1so7150502pgf.3
-        for <netdev@vger.kernel.org>; Sat, 17 Dec 2016 18:16:26 -0800 (PST)
+Received: from shards.monkeyblade.net ([184.105.139.130]:47448 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752059AbcLRC2L (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 17 Dec 2016 21:28:11 -0500
+In-Reply-To: <cover.1482019225.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mahesh Bandewar <maheshb@google.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Sun, 18 Dec 2016 01:52:56 +0100
 
-------------[ cut here ]------------
-kernel BUG at include/linux/skbuff.h:1737!
-Call Trace:
- [<ffffffff921fbbc2>] dev_forward_skb+0x92/0xd0
- [<ffffffffc031ac65>] ipvlan_process_multicast+0x395/0x4c0 [ipvlan]
- [<ffffffffc031a9a7>] ? ipvlan_process_multicast+0xd7/0x4c0 [ipvlan]
- [<ffffffff91cdfea7>] ? process_one_work+0x147/0x660
- [<ffffffff91cdff09>] process_one_work+0x1a9/0x660
- [<ffffffff91cdfea7>] ? process_one_work+0x147/0x660
- [<ffffffff91ce086d>] worker_thread+0x11d/0x360
- [<ffffffff91ce0750>] ? rescuer_thread+0x350/0x350
- [<ffffffff91ce960b>] kthread+0xdb/0xe0
- [<ffffffff91c05c70>] ? _raw_spin_unlock_irq+0x30/0x50
- [<ffffffff91ce9530>] ? flush_kthread_worker+0xc0/0xc0
- [<ffffffff92348b7a>] ret_from_fork+0x9a/0xd0
- [<ffffffff91ce9530>] ? flush_kthread_worker+0xc0/0xc0
+> This set contains three BPF fixes for net, one that addresses the
+> complaint from Geert wrt static allocations, and the other is a fix
+> wrt mem accounting that I found recently during testing and there's
+> still one more fix on the map value marking.
+> 
+> Thanks!
+> 
+> v1 -> v2:
+>   - Patch 1 as is.
+>   - Fixed kbuild bot issue by letting charging helpers stay in the
+>     syscall.c, since there locked_vm is valid and only export the
+>     ones needed by bpf_prog_realloc(). Add empty stubs in case the
+>     bpf syscall is not enabled.
+>   - Added patch 3 that addresses one more issue in map val marking.
 
-Signed-off-by: Mahesh Bandewar <maheshb@google.com>
----
- drivers/net/ipvlan/ipvlan_core.c | 5 +++++
- 1 file changed, 5 insertions(+)
-
-diff --git a/drivers/net/ipvlan/ipvlan_core.c b/drivers/net/ipvlan/ipvlan_core.c
-index b4e990743e1d..4294fc1f5564 100644
---- a/drivers/net/ipvlan/ipvlan_core.c
-+++ b/drivers/net/ipvlan/ipvlan_core.c
-@@ -660,6 +660,9 @@ rx_handler_result_t ipvlan_handle_frame(struct sk_buff **pskb)
- 	if (!port)
- 		return RX_HANDLER_PASS;
- 
-+	if (unlikely(!pskb_may_pull(skb, sizeof(struct ethhdr))))
-+		goto out;
-+
- 	switch (port->mode) {
- 	case IPVLAN_MODE_L2:
- 		return ipvlan_handle_mode_l2(pskb, port);
-@@ -672,6 +675,8 @@ rx_handler_result_t ipvlan_handle_frame(struct sk_buff **pskb)
- 	/* Should not reach here */
- 	WARN_ONCE(true, "ipvlan_handle_frame() called for mode = [%hx]\n",
- 			  port->mode);
-+
-+out:
- 	kfree_skb(skb);
- 	return RX_HANDLER_CONSUMED;
- }
--- 
-2.8.0.rc3.226.g39d4020
+Series applied, thanks Daniel.
