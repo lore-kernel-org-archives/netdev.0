@@ -1,75 +1,131 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCHv2 1/5] sh_eth: add generic wake-on-lan support via magic
- packet
-Date: Sun, 18 Dec 2016 23:26:11 +0300
-Message-ID: <87e3f9e6-0f5a-986c-772d-006cb25b9fd9@cogentembedded.com>
-References: <20161212160931.6478-1-niklas.soderlund+renesas@ragnatech.se>
- <20161212160931.6478-2-niklas.soderlund+renesas@ragnatech.se>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: [PATCH] stmmac: fix memory barriers
+Date: Sun, 18 Dec 2016 21:38:12 +0100
+Message-ID: <20161218203812.GA1012@amd>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: Geert Uytterhoeven <geert@linux-m68k.org>
-To: =?UTF-8?Q?Niklas_S=c3=b6derlund?=
-        <niklas.soderlund+renesas@ragnatech.se>,
-        Simon Horman <horms+renesas@verge.net.au>,
-        netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f44.google.com ([209.85.215.44]:36331 "EHLO
-        mail-lf0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751014AbcLRU0Q (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 18 Dec 2016 15:26:16 -0500
-Received: by mail-lf0-f44.google.com with SMTP id t196so41615529lff.3
-        for <netdev@vger.kernel.org>; Sun, 18 Dec 2016 12:26:15 -0800 (PST)
-In-Reply-To: <20161212160931.6478-2-niklas.soderlund+renesas@ragnatech.se>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="5mCyUwZo2JvN/JJP"
+To: LinoSanfilippo@gmx.de, peppe.cavallaro@st.com,
+        alexandre.torgue@st.com, davem@davemloft.net,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        niklas.cassel@axis.com, Joao.Pinto@synopsys.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
 
-On 12/12/2016 07:09 PM, Niklas Söderlund wrote:
+--5mCyUwZo2JvN/JJP
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> Add generic functionality to support Wake-on-Lan using MagicPacket which
-> are supported by at least a few versions of sh_eth. Only add
-> functionality for WoL, no specific sh_eth version are marked to support
 
-    Versions.
+Fix up memory barriers in stmmac driver. They are meant to protect
+against DMA engine, so smp_ variants are certainly wrong, and dma_
+variants are preferable.
+   =20
+Signed-off-by: Pavel Machek <pavel@denx.de>
 
-> WoL yet.
->
-> WoL is enabled in the suspend callback by setting MagicPacket detection
-> and disabling all interrupts expect MagicPacket. In the resume path the
-> driver needs to reset the hardware to rearm the WoL logic, this prevents
-> the driver from simply restoring the registers and to take advantage of
-> that sh_eth was not suspended to reduce resume time. To reset the
-> hardware the driver close and reopens the device just like it would do
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c b/drivers/n=
+et/ethernet/stmicro/stmmac/dwmac4_descs.c
+index a340fc8..8816515 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c
+@@ -334,7 +334,7 @@ static void dwmac4_rd_prepare_tx_desc(struct dma_desc *=
+p, int is_fs, int len,
+ 		 * descriptors for the same frame has to be set before, to
+ 		 * avoid race condition.
+ 		 */
+-		wmb();
++		dma_wmb();
+=20
+ 	p->des3 =3D cpu_to_le32(tdes3);
+ }
+@@ -377,7 +377,7 @@ static void dwmac4_rd_prepare_tso_tx_desc(struct dma_de=
+sc *p, int is_fs,
+ 		 * descriptors for the same frame has to be set before, to
+ 		 * avoid race condition.
+ 		 */
+-		wmb();
++		dma_wmb();
+=20
+ 	p->des3 =3D cpu_to_le32(tdes3);
+ }
+diff --git a/drivers/net/ethernet/stmicro/stmmac/enh_desc.c b/drivers/net/e=
+thernet/stmicro/stmmac/enh_desc.c
+index ce97e52..f0d8632 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
++++ b/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
+@@ -350,7 +350,7 @@ static void enh_desc_prepare_tx_desc(struct dma_desc *p=
+, int is_fs, int len,
+ 		 * descriptors for the same frame has to be set before, to
+ 		 * avoid race condition.
+ 		 */
+-		wmb();
++		dma_wmb();
+=20
+ 	p->des0 =3D cpu_to_le32(tdes0);
+ }
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/ne=
+t/ethernet/stmicro/stmmac/stmmac_main.c
+index 3e40578..bb40382 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -2125,7 +2125,7 @@ static netdev_tx_t stmmac_tso_xmit(struct sk_buff *sk=
+b, struct net_device *dev)
+ 	 * descriptor and then barrier is needed to make sure that
+ 	 * all is coherent before granting the DMA engine.
+ 	 */
+-	smp_wmb();
++	dma_wmb();
+=20
+ 	if (netif_msg_pktdata(priv)) {
+ 		pr_info("%s: curr=3D%d dirty=3D%d f=3D%d, e=3D%d, f_p=3D%p, nfrags %d\n",
+@@ -2338,7 +2338,7 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, s=
+truct net_device *dev)
+ 		 * descriptor and then barrier is needed to make sure that
+ 		 * all is coherent before granting the DMA engine.
+ 		 */
+-		smp_wmb();
++		dma_wmb();
+ 	}
+=20
+ 	netdev_sent_queue(dev, skb->len);
+@@ -2443,14 +2443,14 @@ static inline void stmmac_rx_refill(struct stmmac_p=
+riv *priv)
+ 			netif_dbg(priv, rx_status, priv->dev,
+ 				  "refill entry #%d\n", entry);
+ 		}
+-		wmb();
++		dma_wmb();
+=20
+ 		if (unlikely(priv->synopsys_id >=3D DWMAC_CORE_4_00))
+ 			priv->hw->desc->init_rx_desc(p, priv->use_riwt, 0, 0);
+ 		else
+ 			priv->hw->desc->set_rx_owner(p);
+=20
+-		wmb();
++		dma_wmb();
+=20
+ 		entry =3D STMMAC_GET_ENTRY(entry, DMA_RX_SIZE);
+ 	}
 
-    Closes.
+--=20
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
+g.html
 
-> in a normal suspend/resume scenario without WoL enabled, but it both
-> close and open the device in the resume callback since the device needs
+--5mCyUwZo2JvN/JJP
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
 
-    Closes and opens.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
 
-> to be open for WoL to work.
+iEYEARECAAYFAlhW87QACgkQMOfwapXb+vLIZgCbBt3xZ30pWvof3ChSgxWal46w
+96wAn2T2nbuwqMovjX/lIlqnm+D1y5ci
+=IvAO
+-----END PGP SIGNATURE-----
 
-> One quirk needed for WoL is that the module clock needs to be prevented
-> from being switched off by Runtime PM. To keep the clock alive the
-
-    I tried to find the code in question and failed, getting muddled in the 
-RPM maze. Could you point at this code for my education? :-)
-
-> suspend callback need to call clk_enable() directly to increase the
-
-    My main concern is why we need to manipulate the clock directly --
-can't you call RPM to achieve the same effect?
-
-> usage count of the clock. Then when Runtime PM decreases the clock usage
-> count it won't reach 0 and be switched off.
-
-    You mean it does this even though we don't call pr_runtime_put_sync()
-as done in sh_eth_close()?
-
-> Signed-off-by: Niklas Söderlund <niklas.soderlund+renesas@ragnatech.se>
-[...]
-
-MBR, Sergei
+--5mCyUwZo2JvN/JJP--
