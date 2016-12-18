@@ -1,49 +1,60 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] qed: fix memory leak of a qed_spq_entry on error
- failure paths
-Date: Sun, 18 Dec 2016 10:37:17 -0500 (EST)
-Message-ID: <20161218.103717.315074604605472721.davem@davemloft.net>
-References: <20161216125039.20969-1-colin.king@canonical.com>
-        <BL2PR07MB2306151726E6A6E95702776B8D9E0@BL2PR07MB2306.namprd07.prod.outlook.com>
+Subject: Re: [PATCH net-next v4 2/2] net: stmmac: dwmac-meson8b: make the
+ RGMII TX delay configurable
+Date: Sun, 18 Dec 2016 10:49:50 -0500 (EST)
+Message-ID: <20161218.104950.1013829528388480468.davem@davemloft.net>
+References: <20161202233238.17561-1-martin.blumenstingl@googlemail.com>
+        <20161217182119.4037-1-martin.blumenstingl@googlemail.com>
+        <20161217182119.4037-3-martin.blumenstingl@googlemail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: colin.king@canonical.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Ariel.Elior@cavium.com,
-        Tomer.Tayar@cavium.com
-To: Yuval.Mintz@cavium.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <BL2PR07MB2306151726E6A6E95702776B8D9E0@BL2PR07MB2306.namprd07.prod.outlook.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
+        linux-amlogic@lists.infradead.org, robh+dt@kernel.org,
+        mark.rutland@arm.com, carlo@caione.org, khilman@baylibre.com,
+        peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        linux-arm-kernel@lists.infradead.org
+To: martin.blumenstingl@googlemail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:55580 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753901AbcLRPtx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 18 Dec 2016 10:49:53 -0500
+In-Reply-To: <20161217182119.4037-3-martin.blumenstingl@googlemail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
-Date: Sun, 18 Dec 2016 06:33:50 +0000
+From: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
+Date: Sat, 17 Dec 2016 19:21:19 +0100
 
->> From: Colin Ian King <colin.king@canonical.com>
->> 
->> A qed_spq_entry entry is allocated by qed_sp_init_request but is not kfree'd
->> if an error occurs, causing a memory leak. Fix this by kfree'ing it and also
->> setting *pp_ent to NULL to be safe.
->> 
->> Found with static analysis by CoverityScan, CIDs 1389468-1389470
->> 
->> Signed-off-by: Colin Ian King <colin.king@canonical.com>
-> ...
->> +err:
->> +	kfree(*pp_ent);
->> +	*pp_ent = NULL;
->> +
->> +	return rc;
->>  }
+> Prior to this patch we were using a hardcoded RGMII TX clock delay of
+> 2ns (= 1/4 cycle of the 125MHz RGMII TX clock). This value works for
+> many boards, but unfortunately not for all (due to the way the actual
+> circuit is designed, sometimes because the TX delay is enabled in the
+> PHY, etc.). Making the TX delay on the MAC side configurable allows us
+> to support all possible hardware combinations.
 > 
-> Hi Colin - thanks for this.
-> It would have been preferable to return the previously allocated spq entry.
-> I.e., do:
+> This allows fixing a compatibility issue on some boards, where the
+> RTL8211F PHY is configured to generate the TX delay. We can now turn
+> off the TX delay in the MAC, because otherwise we would be applying the
+> delay twice (which results in non-working TX traffic).
 > 
-> +err:
-> +	qed_spq_return_entry(p_hwfn, *pp_ent);
-> +	*pp_ent = NULL;
-> +	return rc;
+> Signed-off-by: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
+> Tested-by: Neil Armstrong <narmstrong@baylibre.com>
 
-Looking at this last night, I came to the same conclusion.
+Is this really the safest thing to do?
+
+If you say the existing hard-coded setting of 1/4 cycle works on most
+boards, and what you're trying to do is override it with an OF
+property value for boards where the existing setting does not work,
+then you _must_ use a default value that corresponds to what the
+existing code does not when you don't see this new OF property.
+
+So please retain the current behavior of the 1/4 cycle TX delay
+setting when you don't see the amlogic,tx-delay-ns property.
+
+I really think you risk breaking existing boards by not doing so,
+unless you can have this patch tested on every such board that exists
+and I don't think you really can feasibly and rigorously do that.
+
+Thanks.
