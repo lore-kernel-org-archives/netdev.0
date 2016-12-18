@@ -1,256 +1,137 @@
-From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-Subject: Re: [PATCH 1/2] net: ethernet: sxgbe: remove private tx queue lock
-Date: Sun, 18 Dec 2016 17:15:10 +0100
-Message-ID: <a2cbcfcd-f377-565c-a21c-3daa3abce519@gmx.de>
-References: <051e3043-8b58-0591-36e3-99e2267f67f4@gmx.de>
- <20161208231943.GA13102@electric-eye.fr.zoreil.com>
- <20161209112142.GA22710@amd> <c76124b9-6376-42b9-2821-b5a8185f5034@gmx.de>
- <20161211201104.GB20574@amd> <cfad6b84-de23-2e03-6d34-2b3451975179@gmx.de>
- <20161215210324.GA13878@amd> <f3fc8035-fb6e-fb06-d9b8-bfc96dc4e1d2@gmx.de>
- <6f43eac8-754b-cfa2-371d-050701deb4cd@gmx.de> <20161217173150.GA20231@amd>
- <20161218001507.GA5343@electric-eye.fr.zoreil.com>
+From: Tobias Klausmann <tobias.johannes.klausmann@mni.thm.de>
+Subject: Re: regression: ath_tx_edma_tasklet() Illegal idle entry in RCU
+ read-side critical section
+Date: Sun, 18 Dec 2016 17:17:54 +0100
+Message-ID: <58b67d5b-0275-f80f-479f-78cf748b4319@mni.thm.de>
+References: <23a2a3ab-974a-ed26-6afa-aafab9bb972e@gmail.com>
+ <20161218155938.GP3924@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: bh74.an@samsung.com, ks.giri@samsung.com, vipul.pandya@samsung.com,
-        peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        davem@davemloft.net, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>, Pavel Machek <pavel@ucw.cz>
+Cc: lkml <linux-kernel@vger.kernel.org>, ath9k-devel@qca.qualcomm.com,
+        linux-wireless@vger.kernel.org, ath9k-devel@lists.ath9k.org,
+        netdev@vger.kernel.org, nbd@nbd.name, kvalo@qca.qualcomm.com
+To: paulmck@linux.vnet.ibm.com, Gabriel C <nix.or.die@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161218001507.GA5343@electric-eye.fr.zoreil.com>
+In-Reply-To: <20161218155938.GP3924@linux.vnet.ibm.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Hi,
 
-On 18.12.2016 01:15, Francois Romieu wrote:
-> Pavel Machek <pavel@ucw.cz> :
-> [...]
->> Won't this up/down the interface, in a way userspace can observe?
-> 
-> It won't up/down the interface as it doesn't exactly mimic what the
-> network code does (there's more than rtnl_lock).
-> 
+A patch for this is already floating on the ML for a while now latest: 
+(ath9k: do not return early to fix rcu unlocking)
 
-Right. Userspace wont see link down/up, but it will see carrier off/on.
-But this is AFAIK acceptable for a rare situation like a tx error.
+Hopefully Kalle will include it in one of his upcoming pull requests.
 
-> For the same reason it's broken if it races with the transmit path: it
-> can release driver resources while the transmit path uses these.
-> 
-> Btw the points below may not matter/hurt much for a proof a concept
-> but they would need to be addressed as well:
-> 1) unchecked (and avoidable) extra error paths due to stmmac_release()
-> 2) racy cancel_work_sync. Low probability as it is, an irq + error could
->    take place right after cancel_work_sync
+Greetings,
 
-It was indeed only meant as a proof of concept. Nevertheless the race is not 
-good, since one can run into it when faking the tx error for testings purposes.
-So below is a slightly improved version of the restart handling.
-Its not meant as a final version either. But maybe we can use it as a starting
-point.
+Tobias
 
-> Lino, have you considered via-rhine.c since its "move work from irq to
-> workqueue context" changes that started in
-> 7ab87ff4c770eed71e3777936299292739fcd0fe [*] ?
-> It's a shameless plug - originated in r8169.c - but it should be rather
-> close to what the sxgbe and friends require. Thought / opinion ?
-> 
 
-Not really. There are a few drivers that I use to look into if I want to know
-how certain things are done correctly (e.g the sky2 or the intel drivers) because
-I think they are well implemented.
-But you seem to have put some thoughts into various race condition problems
-in the via-rhine driver and I can image that sxgbe and stmmac still have some
-of these issues, too.
-
-> [*] Including fixes/changes in:
-> - 3a5a883a8a663b930908cae4abe5ec913b9b2fd2
-
-Ok, the issues you fixed here are concerning the tx_curr and tx_dirty
-pointers. For now this is not needed in stmmac and sxgbe since the
-tx completion handlers in both drivers are not lock-free like in 
-the via-rhine.c but are synchronized with xmit by means of the xmit_lock.
-
-> - e1efa87241272104d6a12c8b9fcdc4f62634d447
-
-Yep, a sync of the dma descriptors before the hardware gets ownership of the tx tail
-idx is missing in the stmmac, too. 
-
-> - 810f19bcb862f8889b27e0c9d9eceac9593925dd
-> - e45af497950a89459a0c4b13ffd91e1729fffef4
-> - a926592f5e4e900f3fa903298c4619a131e60963
-
-I think we should use netif_tx_disable() instead of netif_stop_queue(), too, in 
-case of restart to avoid a possible schedule of the xmit function while we restart. 
-So this is also part of the new patch.
-
-Again the patch is only compile tested.
-
-Regards,
-Lino
-
----
- drivers/net/ethernet/stmicro/stmmac/stmmac.h      |  1 +
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 95 +++++++++++++++--------
- 2 files changed, 63 insertions(+), 33 deletions(-)
-
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-index eab04ae..9c240d7 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-@@ -131,6 +131,7 @@ struct stmmac_priv {
- 	u32 rx_tail_addr;
- 	u32 tx_tail_addr;
- 	u32 mss;
-+	struct work_struct tx_err_work;
- 
- #ifdef CONFIG_DEBUG_FS
- 	struct dentry *dbgfs_dir;
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 3e40578..5762750 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -1403,37 +1403,6 @@ static inline void stmmac_disable_dma_irq(struct stmmac_priv *priv)
- }
- 
- /**
-- * stmmac_tx_err - to manage the tx error
-- * @priv: driver private structure
-- * Description: it cleans the descriptors and restarts the transmission
-- * in case of transmission errors.
-- */
--static void stmmac_tx_err(struct stmmac_priv *priv)
--{
--	int i;
--	netif_stop_queue(priv->dev);
--
--	priv->hw->dma->stop_tx(priv->ioaddr);
--	dma_free_tx_skbufs(priv);
--	for (i = 0; i < DMA_TX_SIZE; i++)
--		if (priv->extend_desc)
--			priv->hw->desc->init_tx_desc(&priv->dma_etx[i].basic,
--						     priv->mode,
--						     (i == DMA_TX_SIZE - 1));
--		else
--			priv->hw->desc->init_tx_desc(&priv->dma_tx[i],
--						     priv->mode,
--						     (i == DMA_TX_SIZE - 1));
--	priv->dirty_tx = 0;
--	priv->cur_tx = 0;
--	netdev_reset_queue(priv->dev);
--	priv->hw->dma->start_tx(priv->ioaddr);
--
--	priv->dev->stats.tx_errors++;
--	netif_wake_queue(priv->dev);
--}
--
--/**
-  * stmmac_dma_interrupt - DMA ISR
-  * @priv: driver private structure
-  * Description: this is the DMA ISR. It is called by the main ISR.
-@@ -1466,7 +1435,7 @@ static void stmmac_dma_interrupt(struct stmmac_priv *priv)
- 			priv->xstats.threshold = tc;
- 		}
- 	} else if (unlikely(status == tx_hard_error))
--		stmmac_tx_err(priv);
-+		schedule_work(&priv->tx_err_work);
- }
- 
- /**
-@@ -1902,6 +1871,7 @@ static int stmmac_release(struct net_device *dev)
- 	if (priv->lpi_irq > 0)
- 		free_irq(priv->lpi_irq, dev);
- 
-+	cancel_work_sync(&priv->tx_err_work);
- 	/* Stop TX/RX DMA and clear the descriptors */
- 	priv->hw->dma->stop_tx(priv->ioaddr);
- 	priv->hw->dma->stop_rx(priv->ioaddr);
-@@ -1920,9 +1890,67 @@ static int stmmac_release(struct net_device *dev)
- 
- 	stmmac_release_ptp(priv);
- 
-+
- 	return 0;
- }
- 
-+static void stmmac_shutdown(struct net_device *dev)
-+{
-+	struct stmmac_priv *priv = netdev_priv(dev);
-+
-+	/* make sure xmit is not scheduled any more */
-+	netif_tx_disable(dev);
-+
-+	if (priv->eee_enabled)
-+		del_timer_sync(&priv->eee_ctrl_timer);
-+
-+	/* Stop and disconnect the PHY */
-+	if (dev->phydev) {
-+		phy_stop(dev->phydev);
-+		phy_disconnect(dev->phydev);
-+	}
-+
-+	napi_disable(&priv->napi);
-+
-+	del_timer_sync(&priv->txtimer);
-+
-+	/* Free the IRQ lines */
-+	free_irq(dev->irq, dev);
-+	if (priv->wol_irq != dev->irq)
-+		free_irq(priv->wol_irq, dev);
-+	if (priv->lpi_irq > 0)
-+		free_irq(priv->lpi_irq, dev);
-+
-+	/* Stop TX/RX DMA and clear the descriptors */
-+	priv->hw->dma->stop_tx(priv->ioaddr);
-+	priv->hw->dma->stop_rx(priv->ioaddr);
-+
-+	/* Release and free the Rx/Tx resources */
-+	free_dma_desc_resources(priv);
-+
-+	/* Disable the MAC Rx/Tx */
-+	stmmac_set_mac(priv->ioaddr, false);
-+
-+	netif_carrier_off(dev);
-+
-+#ifdef CONFIG_DEBUG_FS
-+	stmmac_exit_fs(dev);
-+#endif
-+
-+	stmmac_release_ptp(priv);
-+}
-+
-+static void stmmac_tx_err_work(struct work_struct *work)
-+{
-+	struct stmmac_priv *priv = container_of(work, struct stmmac_priv,
-+						tx_err_work);
-+	/* restart netdev */
-+	rtnl_lock();
-+	stmmac_shutdown(priv->dev);
-+	stmmac_open(priv->dev);
-+	rtnl_unlock();
-+}
-+
- /**
-  *  stmmac_tso_allocator - close entry point of the driver
-  *  @priv: driver private structure
-@@ -2688,7 +2716,7 @@ static void stmmac_tx_timeout(struct net_device *dev)
- 	struct stmmac_priv *priv = netdev_priv(dev);
- 
- 	/* Clear Tx resources and restart transmitting again */
--	stmmac_tx_err(priv);
-+	schedule_work(&priv->tx_err_work);
- }
- 
- /**
-@@ -3338,6 +3366,7 @@ int stmmac_dvr_probe(struct device *device,
- 	netif_napi_add(ndev, &priv->napi, stmmac_poll, 64);
- 
- 	spin_lock_init(&priv->lock);
-+	INIT_WORK(&priv->tx_err_work, stmmac_tx_err_work);
- 
- 	ret = register_netdev(ndev);
- 	if (ret) {
--- 
-1.9.1
+On 18.12.2016 16:59, Paul E. McKenney wrote:
+> On Sun, Dec 18, 2016 at 02:52:48PM +0100, Gabriel C wrote:
+>> Hello,
+>>
+>> while testing kernel 4.9 I run into a weird issue with the ath9k driver.
+>>
+>> I can boot the box in console mode and it stay up sometime but is not usable.
+> Looks to me like someone forgot an rcu_read_unlock() somewhere.  Given that
+> the unmatched rcu_read_lock() appears in ath_tx_edma_tasklet(), perhaps
+> that is also where the missing rcu_read_unlock() is.  And sure enough,
+> in the middle of this function we have the following:
+>
+> 		fifo_list = &txq->txq_fifo[txq->txq_tailidx];
+> 		if (list_empty(fifo_list)) {
+> 			ath_txq_unlock(sc, txq);
+> 			return;
+> 		}
+>
+> This will of course return while still in an RCU read-side critical
+> section.  The caller cannot tell the difference between a return here
+> and falling off the end of the function, so this is likely the bug.
+> Or one of the bugs, anyway.  Copying the author and committer for
+> their thoughts.
+>
+> Please try the patch at the end of this email.
+>
+> 							Thanx, Paul
+>
+>> from dmesg :
+>>
+>> ===============================
+>> [ INFO: suspicious RCU usage. ]
+>> 4.9-fw1 #1 Tainted: G          I
+>> -------------------------------
+>> kernel/rcu/tree.c:705 Illegal idle entry in RCU read-side critical section.!
+>>
+>> other info that might help us debug this:
+>>
+>>
+>> RCU used illegally from idle CPU!
+>> rcu_scheduler_active = 1, debug_locks = 1
+>> RCU used illegally from extended quiescent state!
+>> 1 lock held by swapper/0/0:
+>>   #0:  (rcu_read_lock){......}, at: [<ffffffffa0ee0240>] ath_tx_edma_tasklet+0x0/0x460 [ath9k]
+>>
+>> stack backtrace:
+>> CPU: 0 PID: 0 Comm: swapper/0 Tainted: G          I     4.9-fw1 #1
+>> Hardware name: FUJITSU                          PRIMERGY TX200 S5             /D2709, BIOS 6.00 Rev. 1.14.2709              02/04/2013
+>>   ffff88043ee03f38 ffffffff812cf0f3 ffffffff81a11540 0000000000000001
+>>   ffff88043ee03f68 ffffffff810b7865 ffffffff81a55d58 ffff88043efcedc0
+>>   ffff88083cb1ca00 00000000000000d1 ffff88043ee03f88 ffffffff810dbfe8
+>> Call Trace:
+>>   <IRQ>
+>>   [<ffffffff812cf0f3>] dump_stack+0x86/0xc3
+>>   [<ffffffff810b7865>] lockdep_rcu_suspicious+0xc5/0x100
+>>   [<ffffffff810dbfe8>] rcu_eqs_enter_common.constprop.62+0x128/0x130
+>>   [<ffffffff810ddc78>] rcu_irq_exit+0x38/0x70
+>>   [<ffffffff81067ec4>] irq_exit+0x74/0xd0
+>>   [<ffffffff8101e561>] do_IRQ+0x71/0x130
+>>   [<ffffffff8158700c>] common_interrupt+0x8c/0x8c
+>>   <EOI>
+>>   [<ffffffff81472836>] ? cpuidle_enter_state+0x156/0x220
+>>   [<ffffffff81472922>] cpuidle_enter+0x12/0x20
+>>   [<ffffffff810ad23e>] call_cpuidle+0x1e/0x40
+>>   [<ffffffff810ad46d>] cpu_startup_entry+0x11d/0x210
+>>   [<ffffffff8157892c>] rest_init+0x12c/0x140
+>>   [<ffffffff81d02ec3>] start_kernel+0x40f/0x41c
+>>   [<ffffffff81d02120>] ? early_idt_handler_array+0x120/0x120
+>>   [<ffffffff81d02299>] x86_64_start_reservations+0x2a/0x2c
+>>   [<ffffffff81d02386>] x86_64_start_kernel+0xeb/0xf8
+> ------------------------------------------------------------------------
+>
+> commit 5a16fed76936184a7ac22e466cf39bd8bb5ee65e
+> Author: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+> Date:   Sun Dec 18 07:49:00 2016 -0800
+>
+>      drivers/ath: Add missing rcu_read_unlock() to ath_tx_edma_tasklet()
+>      
+>      Commit d94a461d7a7d ("ath9k: use ieee80211_tx_status_noskb where possible")
+>      added rcu_read_lock() and rcu_read_unlock() around the body of
+>      ath_tx_edma_tasklet(), but failed to add the needed rcu_read_unlock()
+>      before a "return" in the middle of this function.  This commit therefore
+>      adds the missing rcu_read_unlock().
+>      
+>      Reported-by: Gabriel C <nix.or.die@gmail.com>
+>      Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+>      Cc: Felix Fietkau <nbd@nbd.name>
+>      Cc: Kalle Valo <kvalo@qca.qualcomm.com>
+>      Cc: QCA ath9k Development <ath9k-devel@qca.qualcomm.com>
+>      Cc: <linux-wireless@vger.kernel.org?
+>      Cc: <ath9k-devel@lists.ath9k.org>
+>
+> diff --git a/drivers/net/wireless/ath/ath9k/xmit.c b/drivers/net/wireless/ath/ath9k/xmit.c
+> index 52bfbb988611..857d5ae09a1d 100644
+> --- a/drivers/net/wireless/ath/ath9k/xmit.c
+> +++ b/drivers/net/wireless/ath/ath9k/xmit.c
+> @@ -2787,6 +2787,7 @@ void ath_tx_edma_tasklet(struct ath_softc *sc)
+>   		fifo_list = &txq->txq_fifo[txq->txq_tailidx];
+>   		if (list_empty(fifo_list)) {
+>   			ath_txq_unlock(sc, txq);
+> +			rcu_read_unlock();
+>   			return;
+>   		}
+>   
+>
