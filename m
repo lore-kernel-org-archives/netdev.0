@@ -1,131 +1,140 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: [PATCH] stmmac: fix memory barriers
-Date: Sun, 18 Dec 2016 21:38:12 +0100
-Message-ID: <20161218203812.GA1012@amd>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature"; boundary="5mCyUwZo2JvN/JJP"
-To: LinoSanfilippo@gmx.de, peppe.cavallaro@st.com,
-        alexandre.torgue@st.com, davem@davemloft.net,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        niklas.cassel@axis.com, Joao.Pinto@synopsys.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Julian Anastasov <ja@ssi.bg>
+Subject: [PATCH RFC net-next 2/7] net: add dst_pending_confirm flag to skbuff
+Date: Sun, 18 Dec 2016 22:56:31 +0200
+Message-ID: <1482094596-26046-3-git-send-email-ja@ssi.bg>
+References: <1482094596-26046-1-git-send-email-ja@ssi.bg>
+Cc: linux-sctp@vger.kernel.org, YueHaibing <yuehaibing@huawei.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ja.ssi.bg ([178.16.129.10]:46911 "EHLO ja.ssi.bg"
+        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1753655AbcLRU5o (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 18 Dec 2016 15:57:44 -0500
+In-Reply-To: <1482094596-26046-1-git-send-email-ja@ssi.bg>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Add new skbuff flag to allow protocols to confirm neighbour.
+When same struct dst_entry can be used for many different
+neighbours we can not use it for pending confirmations.
 
---5mCyUwZo2JvN/JJP
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Add sock_confirm_neigh() helper to confirm the neighbour and
+use it for IPv4, IPv6 and VRF before dst_neigh_output.
 
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+---
+ drivers/net/vrf.c      |  5 ++++-
+ include/linux/skbuff.h |  4 +++-
+ include/net/sock.h     | 14 ++++++++++++++
+ net/ipv4/ip_output.c   |  5 ++++-
+ net/ipv6/ip6_output.c  |  1 +
+ 5 files changed, 26 insertions(+), 3 deletions(-)
 
-Fix up memory barriers in stmmac driver. They are meant to protect
-against DMA engine, so smp_ variants are certainly wrong, and dma_
-variants are preferable.
-   =20
-Signed-off-by: Pavel Machek <pavel@denx.de>
-
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c b/drivers/n=
-et/ethernet/stmicro/stmmac/dwmac4_descs.c
-index a340fc8..8816515 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c
-@@ -334,7 +334,7 @@ static void dwmac4_rd_prepare_tx_desc(struct dma_desc *=
-p, int is_fs, int len,
- 		 * descriptors for the same frame has to be set before, to
- 		 * avoid race condition.
- 		 */
--		wmb();
-+		dma_wmb();
-=20
- 	p->des3 =3D cpu_to_le32(tdes3);
+diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
+index 7532646..b118d2b 100644
+--- a/drivers/net/vrf.c
++++ b/drivers/net/vrf.c
+@@ -377,6 +377,7 @@ static int vrf_finish_output6(struct net *net, struct sock *sk,
+ 	if (unlikely(!neigh))
+ 		neigh = __neigh_create(&nd_tbl, nexthop, dst->dev, false);
+ 	if (!IS_ERR(neigh)) {
++		sock_confirm_neigh(skb, neigh);
+ 		ret = dst_neigh_output(dst, neigh, skb);
+ 		rcu_read_unlock_bh();
+ 		return ret;
+@@ -573,8 +574,10 @@ static int vrf_finish_output(struct net *net, struct sock *sk, struct sk_buff *s
+ 	neigh = __ipv4_neigh_lookup_noref(dev, nexthop);
+ 	if (unlikely(!neigh))
+ 		neigh = __neigh_create(&arp_tbl, &nexthop, dev, false);
+-	if (!IS_ERR(neigh))
++	if (!IS_ERR(neigh)) {
++		sock_confirm_neigh(skb, neigh);
+ 		ret = dst_neigh_output(dst, neigh, skb);
++	}
+ 
+ 	rcu_read_unlock_bh();
+ err:
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index ac7fa34..94d7c36 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -610,6 +610,7 @@ static inline bool skb_mstamp_after(const struct skb_mstamp *t1,
+  *	@wifi_acked_valid: wifi_acked was set
+  *	@wifi_acked: whether frame was acked on wifi or not
+  *	@no_fcs:  Request NIC to treat last 4 bytes as Ethernet FCS
++ *	@dst_pending_confirm: need to confirm neighbour
+   *	@napi_id: id of the NAPI struct this skb came from
+  *	@secmark: security marking
+  *	@mark: Generic packet mark
+@@ -740,6 +741,7 @@ struct sk_buff {
+ 	__u8			csum_level:2;
+ 	__u8			csum_bad:1;
+ 
++	__u8			dst_pending_confirm:1;
+ #ifdef CONFIG_IPV6_NDISC_NODETYPE
+ 	__u8			ndisc_nodetype:2;
+ #endif
+@@ -749,7 +751,7 @@ struct sk_buff {
+ #ifdef CONFIG_NET_SWITCHDEV
+ 	__u8			offload_fwd_mark:1;
+ #endif
+-	/* 2, 4 or 5 bit hole */
++	/* 1, 3 or 4 bit hole */
+ 
+ #ifdef CONFIG_NET_SCHED
+ 	__u16			tc_index;	/* traffic control index */
+diff --git a/include/net/sock.h b/include/net/sock.h
+index e83bb01..bd63d4d 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -1818,6 +1818,20 @@ static inline void sk_dst_confirm(struct sock *sk)
+ 		sk->sk_dst_pending_confirm = 1;
  }
-@@ -377,7 +377,7 @@ static void dwmac4_rd_prepare_tso_tx_desc(struct dma_de=
-sc *p, int is_fs,
- 		 * descriptors for the same frame has to be set before, to
- 		 * avoid race condition.
- 		 */
--		wmb();
-+		dma_wmb();
-=20
- 	p->des3 =3D cpu_to_le32(tdes3);
- }
-diff --git a/drivers/net/ethernet/stmicro/stmmac/enh_desc.c b/drivers/net/e=
-thernet/stmicro/stmmac/enh_desc.c
-index ce97e52..f0d8632 100644
---- a/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
-@@ -350,7 +350,7 @@ static void enh_desc_prepare_tx_desc(struct dma_desc *p=
-, int is_fs, int len,
- 		 * descriptors for the same frame has to be set before, to
- 		 * avoid race condition.
- 		 */
--		wmb();
-+		dma_wmb();
-=20
- 	p->des0 =3D cpu_to_le32(tdes0);
- }
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/ne=
-t/ethernet/stmicro/stmmac/stmmac_main.c
-index 3e40578..bb40382 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -2125,7 +2125,7 @@ static netdev_tx_t stmmac_tso_xmit(struct sk_buff *sk=
-b, struct net_device *dev)
- 	 * descriptor and then barrier is needed to make sure that
- 	 * all is coherent before granting the DMA engine.
- 	 */
--	smp_wmb();
-+	dma_wmb();
-=20
- 	if (netif_msg_pktdata(priv)) {
- 		pr_info("%s: curr=3D%d dirty=3D%d f=3D%d, e=3D%d, f_p=3D%p, nfrags %d\n",
-@@ -2338,7 +2338,7 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, s=
-truct net_device *dev)
- 		 * descriptor and then barrier is needed to make sure that
- 		 * all is coherent before granting the DMA engine.
- 		 */
--		smp_wmb();
-+		dma_wmb();
- 	}
-=20
- 	netdev_sent_queue(dev, skb->len);
-@@ -2443,14 +2443,14 @@ static inline void stmmac_rx_refill(struct stmmac_p=
-riv *priv)
- 			netif_dbg(priv, rx_status, priv->dev,
- 				  "refill entry #%d\n", entry);
- 		}
--		wmb();
-+		dma_wmb();
-=20
- 		if (unlikely(priv->synopsys_id >=3D DWMAC_CORE_4_00))
- 			priv->hw->desc->init_rx_desc(p, priv->use_riwt, 0, 0);
- 		else
- 			priv->hw->desc->set_rx_owner(p);
-=20
--		wmb();
-+		dma_wmb();
-=20
- 		entry =3D STMMAC_GET_ENTRY(entry, DMA_RX_SIZE);
- 	}
-
---=20
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
-g.html
-
---5mCyUwZo2JvN/JJP
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iEYEARECAAYFAlhW87QACgkQMOfwapXb+vLIZgCbBt3xZ30pWvof3ChSgxWal46w
-96wAn2T2nbuwqMovjX/lIlqnm+D1y5ci
-=IvAO
------END PGP SIGNATURE-----
-
---5mCyUwZo2JvN/JJP--
+ 
++static inline void sock_confirm_neigh(struct sk_buff *skb, struct neighbour *n)
++{
++	if (unlikely(skb->dst_pending_confirm)) {
++		struct sock *sk = skb->sk;
++		unsigned long now = jiffies;
++
++		/* avoid dirtying neighbour */
++		if (n->confirmed != now)
++			n->confirmed = now;
++		if (sk && sk->sk_dst_pending_confirm)
++			sk->sk_dst_pending_confirm = 0;
++	}
++}
++
+ bool sk_mc_loop(struct sock *sk);
+ 
+ static inline bool sk_can_gso(const struct sock *sk)
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index 6c9615c..fbe63cc 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -222,7 +222,10 @@ static int ip_finish_output2(struct net *net, struct sock *sk, struct sk_buff *s
+ 	if (unlikely(!neigh))
+ 		neigh = __neigh_create(&arp_tbl, &nexthop, dev, false);
+ 	if (!IS_ERR(neigh)) {
+-		int res = dst_neigh_output(dst, neigh, skb);
++		int res;
++
++		sock_confirm_neigh(skb, neigh);
++		res = dst_neigh_output(dst, neigh, skb);
+ 
+ 		rcu_read_unlock_bh();
+ 		return res;
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 70d0de40..285aa9f 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -119,6 +119,7 @@ static int ip6_finish_output2(struct net *net, struct sock *sk, struct sk_buff *
+ 	if (unlikely(!neigh))
+ 		neigh = __neigh_create(&nd_tbl, nexthop, dst->dev, false);
+ 	if (!IS_ERR(neigh)) {
++		sock_confirm_neigh(skb, neigh);
+ 		ret = dst_neigh_output(dst, neigh, skb);
+ 		rcu_read_unlock_bh();
+ 		return ret;
+-- 
+1.9.3
