@@ -1,44 +1,54 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [RFC PATCH net-next] virtio_net: Support UDP Tunnel offloads.
-Date: Mon, 19 Dec 2016 09:26:49 -0500
-Message-ID: <abd81d97-c692-a45c-8f08-c31d2e894e9e@redhat.com>
-References: <1479423717-2339-1-git-send-email-jarno@ovn.org>
- <CAJ3xEMh79catGjC4p7EsCqix_fmUgbcDtaz-1OUnR2xFpNq99g@mail.gmail.com>
-Reply-To: vyasevic@redhat.com
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH 1/4] net: dsa: mv88e6xxx: Allow mv88e6xxx_smi_init() to
+ be used at address 0x1
+Date: Mon, 19 Dec 2016 15:38:48 +0100
+Message-ID: <20161219143848.GA10048@lunn.ch>
+References: <20161219141610.30934-1-romain.perier@free-electrons.com>
+ <20161219141610.30934-2-romain.perier@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-        james.zhangming@huawei.com,
-        "Michael S. Tsirkin <mst@redhat.com> (mst@redhat.com)"
-        <mst@redhat.com>, ailan@redhat.com
-To: Or Gerlitz <gerlitz.or@gmail.com>, Jarno Rajahalme <jarno@ovn.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Jason Cooper <jason@lakedaemon.net>,
+        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+        Gregory Clement <gregory.clement@free-electrons.com>,
+        netdev@vger.kernel.org, devicetree@vger.kernel.org,
+        Rob Herring <robh+dt@kernel.org>,
+        Ian Campbell <ijc+devicetree@hellion.org.uk>,
+        Pawel Moll <pawel.moll@arm.com>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Kumar Gala <galak@codeaurora.org>,
+        linux-arm-kernel@lists.infradead.org,
+        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+        Nadav Haklai <nadavh@marvell.com>
+To: Romain Perier <romain.perier@free-electrons.com>,
+        Volodymyr Bendiuga <volodymyr.bendiuga@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:38568 "EHLO mx1.redhat.com"
+Received: from vps0.lunn.ch ([178.209.37.122]:58618 "EHLO vps0.lunn.ch"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932603AbcLSO0w (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 19 Dec 2016 09:26:52 -0500
-In-Reply-To: <CAJ3xEMh79catGjC4p7EsCqix_fmUgbcDtaz-1OUnR2xFpNq99g@mail.gmail.com>
+        id S933024AbcLSOiz (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 19 Dec 2016 09:38:55 -0500
+Content-Disposition: inline
+In-Reply-To: <20161219141610.30934-2-romain.perier@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/15/2016 02:07 AM, Or Gerlitz wrote:
-> On Fri, Nov 18, 2016 at 1:01 AM, Jarno Rajahalme <jarno@ovn.org> wrote:
->> This patch is a proof-of-concept I did a few months ago for UDP tunnel
->> offload support in virtio_net interface [..]
-> 
-> What's the use case you were considering for a guest running a UDP based VTEP?
+On Mon, Dec 19, 2016 at 03:16:06PM +0100, Romain Perier wrote:
+> Currently, the function mv88e6xxx_smi_init() returns -EINVAL if the bit
+> zero of sw_addr is 0x1. However, on some platforms, ethernet switches
+> are configured in Multi chip addressing mode and available at MDIO
+> address 0x1.
 
-Two cases that I've been aware of are nested virt or simply a guest acting
-as router/bridge with possible different tunnel devices.
+Hi Romain
 
--vlad
+What branch is this against? net-next?
 
-> 
->> Real implementation needs to extend the virtio_net header rather than
->> piggy-backing on existing fields.  Inner MAC length (or inner network
->> offset) also needs to be passed as a new field.  Control plane (QEMU)
->> also needs to be updated.
->>
->> All testing was done using Geneve, but this should work for all UDP
->> tunnels the same.
+Please see:
+
+https://www.spinics.net/lists/netdev/msg409156.html
+
+It would be nicer to use Volodymyr, since it has been reviewed. 
+
+Volodymyr, what happened to your version 2? Did David accept it?
+
+	   Andrew
