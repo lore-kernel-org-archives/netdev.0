@@ -1,54 +1,69 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v5 1/4] siphash: add cryptographically secure PRF
-Date: Mon, 19 Dec 2016 14:14:59 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB0242669@AcuExch.aculab.com>
-References: <CALx6S351VFRZmEQphRQy6YtmZYPnOtTN7=XiNrJmhWJGv4HUBg@mail.gmail.com>
- <20161217152122.19677.qmail@ns.sciencehorizons.net>
-Reply-To: kernel-hardening@lists.openwall.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: quoted-printable
-Cc: "ak@linux.intel.com" <ak@linux.intel.com>, "davem@davemloft.net"
-	<davem@davemloft.net>, "djb@cr.yp.to" <djb@cr.yp.to>, "ebiggers3@gmail.com"
-	<ebiggers3@gmail.com>, "hannes@stressinduktion.org"
-	<hannes@stressinduktion.org>, "Jason@zx2c4.com" <Jason@zx2c4.com>,
-	"jeanphilippe.aumasson@gmail.com" <jeanphilippe.aumasson@gmail.com>,
-	"kernel-hardening@lists.openwall.com" <kernel-hardening@lists.openwall.com>,
-	"linux-crypto@vger.kernel.org" <linux-crypto@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"luto@amacapital.net" <luto@amacapital.net>, "netdev@vger.kernel.org"
-	<netdev@vger.kernel.org>, "torvalds@linux-foundation.org"
-	<torvalds@linux-foundation.org>, "tytso@mit.edu" <tytso@mit.edu>,
-	"vegard.nossum@gmail.com" <vegard.nossum@gmail.com>
-To: 'George Spelvin' <linux@sciencehorizons.net>, "tom@herbertland.com"
-	<tom@herbertland.com>
-Return-path: <kernel-hardening-return-5699-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <20161217152122.19677.qmail@ns.sciencehorizons.net>
-Content-Language: en-US
-List-Id: netdev.vger.kernel.org
+From: Romain Perier <romain.perier@free-electrons.com>
+Subject: [PATCH 2/4] net: dsa: mv88e6xxx: Don't forbid MDIO I/Os for PHY addr >= num_of_ports
+Date: Mon, 19 Dec 2016 15:16:07 +0100
+Message-ID: <20161219141610.30934-3-romain.perier@free-electrons.com>
+References: <20161219141610.30934-1-romain.perier@free-electrons.com>
+Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
+        Rob Herring <robh+dt@kernel.org>,
+        Ian Campbell <ijc+devicetree@hellion.org.uk>,
+        Pawel Moll <pawel.moll@arm.com>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Kumar Gala <galak@codeaurora.org>,
+        linux-arm-kernel@lists.infradead.org,
+        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+        Nadav Haklai <nadavh@marvell.com>,
+        Romain Perier <romain.perier@free-electrons.com>
+To: Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Jason Cooper <jason@lakedaemon.net>,
+        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+        Gregory Clement <gregory.clement@free-electrons.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.free-electrons.com ([62.4.15.54]:45051 "EHLO
+        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755519AbcLSOQS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2016 09:16:18 -0500
+In-Reply-To: <20161219141610.30934-1-romain.perier@free-electrons.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: George Spelvin
-> Sent: 17 December 2016 15:21
-...
-> uint32_t
-> hsiphash24(char const *in, size_t len, uint32_t const key[2])
-> {
-> 	uint32_t c =3D key[0];
-> 	uint32_t d =3D key[1];
-> 	uint32_t a =3D     0x6c796765 ^ 0x736f6d65;
-> 	uint32_t b =3D d ^ 0x74656462 ^ 0x646f7261;
+Some Marvell ethernet switches have internal ethernet transceivers with
+hardcoded phy addresses. These addresses can be grearer than the number
+of ports or its value might be different than the associated port number.
+This is for example the case for MV88E6341 that has 6 ports and internal
+Port 1 to Port4 PHYs mapped at SMI addresses from 0x11 to 0x14.
 
-I've not looked closely, but is that (in some sense) duplicating
-the key length?
-So you could set a =3D key[2] and b =3D key[3] and still have an
-working hash - albeit not exactly the one specified.
+This commits fixes the issue by removing the condition in MDIO callbacks.
 
-I'll add another comment here...
-Is it worth using the 32bit hash for IP addresses on 64bit systems that
-can't do misaligned accessed?
+Signed-off-by: Romain Perier <romain.perier@free-electrons.com>
+---
+ drivers/net/dsa/mv88e6xxx/chip.c | 6 ------
+ 1 file changed, 6 deletions(-)
 
-	David
+diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+index b5f0e1e..76d944e 100644
+--- a/drivers/net/dsa/mv88e6xxx/chip.c
++++ b/drivers/net/dsa/mv88e6xxx/chip.c
+@@ -2881,9 +2881,6 @@ static int mv88e6xxx_mdio_read(struct mii_bus *bus, int phy, int reg)
+ 	u16 val;
+ 	int err;
+ 
+-	if (phy >= mv88e6xxx_num_ports(chip))
+-		return 0xffff;
+-
+ 	mutex_lock(&chip->reg_lock);
+ 	err = mv88e6xxx_phy_read(chip, phy, reg, &val);
+ 	mutex_unlock(&chip->reg_lock);
+@@ -2896,9 +2893,6 @@ static int mv88e6xxx_mdio_write(struct mii_bus *bus, int phy, int reg, u16 val)
+ 	struct mv88e6xxx_chip *chip = bus->priv;
+ 	int err;
+ 
+-	if (phy >= mv88e6xxx_num_ports(chip))
+-		return 0xffff;
+-
+ 	mutex_lock(&chip->reg_lock);
+ 	err = mv88e6xxx_phy_write(chip, phy, reg, val);
+ 	mutex_unlock(&chip->reg_lock);
+-- 
+2.9.3
