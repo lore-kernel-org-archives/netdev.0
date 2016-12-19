@@ -1,7 +1,7 @@
 From: Romain Perier <romain.perier@free-electrons.com>
-Subject: [PATCH 2/4] net: dsa: mv88e6xxx: Don't forbid MDIO I/Os for PHY addr >= num_of_ports
-Date: Mon, 19 Dec 2016 15:16:07 +0100
-Message-ID: <20161219141610.30934-3-romain.perier@free-electrons.com>
+Subject: [PATCH 1/4] net: dsa: mv88e6xxx: Allow mv88e6xxx_smi_init() to be used at address 0x1
+Date: Mon, 19 Dec 2016 15:16:06 +0100
+Message-ID: <20161219141610.30934-2-romain.perier@free-electrons.com>
 References: <20161219141610.30934-1-romain.perier@free-electrons.com>
 Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
         Rob Herring <robh+dt@kernel.org>,
@@ -20,50 +20,38 @@ To: Andrew Lunn <andrew@lunn.ch>,
         Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
         Gregory Clement <gregory.clement@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:45051 "EHLO
+Received: from mail.free-electrons.com ([62.4.15.54]:45042 "EHLO
         mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755519AbcLSOQS (ORCPT
+        with ESMTP id S1755498AbcLSOQS (ORCPT
         <rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2016 09:16:18 -0500
 In-Reply-To: <20161219141610.30934-1-romain.perier@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some Marvell ethernet switches have internal ethernet transceivers with
-hardcoded phy addresses. These addresses can be grearer than the number
-of ports or its value might be different than the associated port number.
-This is for example the case for MV88E6341 that has 6 ports and internal
-Port 1 to Port4 PHYs mapped at SMI addresses from 0x11 to 0x14.
-
-This commits fixes the issue by removing the condition in MDIO callbacks.
+Currently, the function mv88e6xxx_smi_init() returns -EINVAL if the bit
+zero of sw_addr is 0x1. However, on some platforms, ethernet switches
+are configured in Multi chip addressing mode and available at MDIO
+address 0x1.
 
 Signed-off-by: Romain Perier <romain.perier@free-electrons.com>
 ---
- drivers/net/dsa/mv88e6xxx/chip.c | 6 ------
- 1 file changed, 6 deletions(-)
+ drivers/net/dsa/mv88e6xxx/chip.c | 4 ----
+ 1 file changed, 4 deletions(-)
 
 diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index b5f0e1e..76d944e 100644
+index f7222dc..b5f0e1e 100644
 --- a/drivers/net/dsa/mv88e6xxx/chip.c
 +++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -2881,9 +2881,6 @@ static int mv88e6xxx_mdio_read(struct mii_bus *bus, int phy, int reg)
- 	u16 val;
- 	int err;
- 
--	if (phy >= mv88e6xxx_num_ports(chip))
--		return 0xffff;
+@@ -4240,10 +4240,6 @@ static void mv88e6xxx_phy_destroy(struct mv88e6xxx_chip *chip)
+ static int mv88e6xxx_smi_init(struct mv88e6xxx_chip *chip,
+ 			      struct mii_bus *bus, int sw_addr)
+ {
+-	/* ADDR[0] pin is unavailable externally and considered zero */
+-	if (sw_addr & 0x1)
+-		return -EINVAL;
 -
- 	mutex_lock(&chip->reg_lock);
- 	err = mv88e6xxx_phy_read(chip, phy, reg, &val);
- 	mutex_unlock(&chip->reg_lock);
-@@ -2896,9 +2893,6 @@ static int mv88e6xxx_mdio_write(struct mii_bus *bus, int phy, int reg, u16 val)
- 	struct mv88e6xxx_chip *chip = bus->priv;
- 	int err;
- 
--	if (phy >= mv88e6xxx_num_ports(chip))
--		return 0xffff;
--
- 	mutex_lock(&chip->reg_lock);
- 	err = mv88e6xxx_phy_write(chip, phy, reg, val);
- 	mutex_unlock(&chip->reg_lock);
+ 	if (sw_addr == 0)
+ 		chip->smi_ops = &mv88e6xxx_smi_single_chip_ops;
+ 	else if (mv88e6xxx_has(chip, MV88E6XXX_FLAGS_MULTI_CHIP))
 -- 
 2.9.3
