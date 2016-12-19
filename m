@@ -1,7 +1,7 @@
 From: Madalin Bucur <madalin.bucur@nxp.com>
-Subject: [PATCH net v4 3/4] fsl/fman: A007273 only applies to PPC SoCs
-Date: Mon, 19 Dec 2016 22:42:45 +0200
-Message-ID: <1482180166-10677-4-git-send-email-madalin.bucur@nxp.com>
+Subject: [PATCH net v4 2/4] powerpc: fsl/fman: remove fsl,fman from of_device_ids[]
+Date: Mon, 19 Dec 2016 22:42:44 +0200
+Message-ID: <1482180166-10677-3-git-send-email-madalin.bucur@nxp.com>
 References: <1482180166-10677-1-git-send-email-madalin.bucur@nxp.com>
 Reply-To: <madalin.bucur@nxp.com>
 Mime-Version: 1.0
@@ -9,73 +9,54 @@ Content-Type: text/plain
 Cc: <linuxppc-dev@lists.ozlabs.org>, <linux-kernel@vger.kernel.org>,
         <davem@davemloft.net>, <scott.wood@nxp.com>, <mpe@ellerman.id.au>
 To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam03on0065.outbound.protection.outlook.com ([104.47.42.65]:35571
-        "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S932188AbcLSUm7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 19 Dec 2016 15:42:59 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1482180166-10677-1-git-send-email-madalin.bucur@nxp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+The fsl/fman drivers will use of_platform_populate() on all
+supported platforms. Call of_platform_populate() to probe the
+FMan sub-nodes.
+
+Signed-off-by: Igal Liberman <igal.liberman@freescale.com>
 Signed-off-by: Madalin Bucur <madalin.bucur@nxp.com>
-Reviewed-by: Camelia Groza <camelia.groza@nxp.com>
+Acked-by: Scott Wood <oss@buserror.net>
 ---
- drivers/net/ethernet/freescale/fman/fman.c | 8 ++++++++
- 1 file changed, 8 insertions(+)
+ arch/powerpc/platforms/85xx/corenet_generic.c | 3 ---
+ drivers/net/ethernet/freescale/fman/fman.c    | 7 +++++++
+ 2 files changed, 7 insertions(+), 3 deletions(-)
 
+diff --git a/arch/powerpc/platforms/85xx/corenet_generic.c b/arch/powerpc/platforms/85xx/corenet_generic.c
+index 1179115..824b7f1 100644
+--- a/arch/powerpc/platforms/85xx/corenet_generic.c
++++ b/arch/powerpc/platforms/85xx/corenet_generic.c
+@@ -117,9 +117,6 @@ static const struct of_device_id of_device_ids[] = {
+ 	{
+ 		.compatible	= "fsl,qe",
+ 	},
+-	{
+-		.compatible    = "fsl,fman",
+-	},
+ 	/* The following two are for the Freescale hypervisor */
+ 	{
+ 		.name		= "hypervisor",
 diff --git a/drivers/net/ethernet/freescale/fman/fman.c b/drivers/net/ethernet/freescale/fman/fman.c
-index 4b83263..f60845f 100644
+index dafd9e1..4b83263 100644
 --- a/drivers/net/ethernet/freescale/fman/fman.c
 +++ b/drivers/net/ethernet/freescale/fman/fman.c
-@@ -1890,6 +1890,7 @@ static int fman_reset(struct fman *fman)
+@@ -2868,6 +2868,13 @@ static struct fman *read_dts_node(struct platform_device *of_dev)
  
- 		goto _return;
- 	} else {
-+#ifdef CONFIG_PPC
- 		struct device_node *guts_node;
- 		struct ccsr_guts __iomem *guts_regs;
- 		u32 devdisr2, reg;
-@@ -1921,6 +1922,7 @@ static int fman_reset(struct fman *fman)
+ 	fman->dev = &of_dev->dev;
  
- 		/* Enable all MACs */
- 		iowrite32be(reg, &guts_regs->devdisr2);
-+#endif
++	err = of_platform_populate(fm_node, NULL, NULL, &of_dev->dev);
++	if (err) {
++		dev_err(&of_dev->dev, "%s: of_platform_populate() failed\n",
++			__func__);
++		goto fman_free;
++	}
++
+ 	return fman;
  
- 		/* Perform FMan reset */
- 		iowrite32be(FPM_RSTC_FM_RESET, &fman->fpm_regs->fm_rstc);
-@@ -1932,25 +1934,31 @@ static int fman_reset(struct fman *fman)
- 		} while (((ioread32be(&fman->fpm_regs->fm_rstc)) &
- 			 FPM_RSTC_FM_RESET) && --count);
- 		if (count == 0) {
-+#ifdef CONFIG_PPC
- 			iounmap(guts_regs);
- 			of_node_put(guts_node);
-+#endif
- 			err = -EBUSY;
- 			goto _return;
- 		}
-+#ifdef CONFIG_PPC
- 
- 		/* Restore devdisr2 value */
- 		iowrite32be(devdisr2, &guts_regs->devdisr2);
- 
- 		iounmap(guts_regs);
- 		of_node_put(guts_node);
-+#endif
- 
- 		goto _return;
- 
-+#ifdef CONFIG_PPC
- guts_regs:
- 		of_node_put(guts_node);
- guts_node:
- 		dev_dbg(fman->dev, "%s: Didn't perform FManV3 reset due to Errata A007273!\n",
- 			__func__);
-+#endif
- 	}
- _return:
- 	return err;
+ fman_node_put:
 -- 
 2.1.0
