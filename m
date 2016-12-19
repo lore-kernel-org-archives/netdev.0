@@ -1,75 +1,113 @@
-From: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [RFC v2 03/10] IB/hfi-vnic: Virtual Network Interface Controller
- (VNIC) netdev
-Date: Sun, 18 Dec 2016 22:43:03 -0800
-Message-ID: <20161219064303.GA94834@knc-06.sc.intel.com>
-References: <1481788782-89964-1-git-send-email-niranjana.vishwanathapura@intel.com>
- <1481788782-89964-4-git-send-email-niranjana.vishwanathapura@intel.com>
- <20161215170109.GC3264@obsidianresearch.com>
- <20161216025947.GC90951@knc-06.sc.intel.com>
- <20161216042420.GB3797@obsidianresearch.com>
+From: Dongpo Li <lidongpo@hisilicon.com>
+Subject: Re: [PATCH v2 1/4] net: hix5hd2_gmac: add generic compatible string
+Date: Mon, 19 Dec 2016 16:14:14 +0800
+Message-ID: <585796D6.1080407@hisilicon.com>
+References: <1480944481-118803-1-git-send-email-lidongpo@hisilicon.com>
+ <1480944481-118803-2-git-send-email-lidongpo@hisilicon.com>
+ <20161209223521.5dnj7l44e663sntl@rob-hp-laptop>
+ <584E871D.7060200@hisilicon.com>
+ <CAL_Jsq+d5xHsxMKxbWSYy3cDXnC+HQj3=wun1zxf5PZ_BYrD-Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-        ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, Sadanand Warrier <sadanand.warrier-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Sudeep Dutt <sudeep.dutt-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Tanya K Jajodia <tanya.k.jajodia-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Andrzej Kacprowski <andrzej.kacprowski-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20161216042420.GB3797-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Mark Rutland <mark.rutland@arm.com>,
+        Michael Turquette <mturquette@baylibre.com>,
+        Stephen Boyd <sboyd@codeaurora.org>,
+        Russell King <linux@armlinux.org.uk>,
+        Zhangfei Gao <zhangfei.gao@linaro.org>,
+        Yisen Zhuang <yisen.zhuang@huawei.com>,
+        <salil.mehta@huawei.com>, Arnd Bergmann <arnd@arndb.de>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Jiancheng Xue <xuejiancheng@hisilicon.com>,
+        <benjamin.chenhao@hisilicon.com>, <caizhiyong@hisilicon.com>,
+        netdev <netdev@vger.kernel.org>,
+        "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Rob Herring <robh@kernel.org>, David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAL_Jsq+d5xHsxMKxbWSYy3cDXnC+HQj3=wun1zxf5PZ_BYrD-Q@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 15, 2016 at 09:24:20PM -0700, Jason Gunthorpe wrote:
->> >>+struct __hfi_vesw_info {
->> >>+	u16  fabric_id;
->> >>+	u16  vesw_id;
->> >>+
->> >>+	u8   rsvd0[6];
->> >>+	u16  def_port_mask;
->> >>+
->> >>+	u8   rsvd1[2];
->> >>+	u16  pkey;
->> >>+
->> >>+	u8   rsvd2[4];
->> >>+	u32  u_mcast_dlid;
->> >>+	u32  u_ucast_dlid[HFI_VESW_MAX_NUM_DEF_PORT];
->> >>+
->> >>+	u8   rsvd3[44];
->> >>+	u16  eth_mtu[HFI_VNIC_MAX_NUM_PCP];
->> >>+	u16  eth_mtu_non_vlan;
->> >>+	u8   rsvd4[2];
->> >>+} __packed;
->> >
->> >This goes on the network too? Also looks like it has endian problems.
->> >
->> >Ditto for all the __packed structures.
->> >
+Hi Rob and David,
+
+On 2016/12/12 22:21, Rob Herring wrote:
+> On Mon, Dec 12, 2016 at 5:16 AM, Dongpo Li <lidongpo@hisilicon.com> wrote:
+>> Hi Rob,
 >>
->> This is in CPU format. There is a separate big endian version of
->> this
->
->Why are CPU handled structures packed and full of reserved fields?
->Don't pack them if they are not pushed out to the network..
->
->There were lots of __packed structures, any that go on the network
->need be/le annoations.
->
+>> On 2016/12/10 6:35, Rob Herring wrote:
+>>> On Mon, Dec 05, 2016 at 09:27:58PM +0800, Dongpo Li wrote:
+>>>> The "hix5hd2" is SoC name, add the generic ethernet driver name.
+>>>> The "hisi-gemac-v1" is the basic version and "hisi-gemac-v2" adds
+>>>> the SG/TXCSUM/TSO/UFO features.
+>>>>
+>>>> Signed-off-by: Dongpo Li <lidongpo@hisilicon.com>
+>>>> ---
+>>>>  .../devicetree/bindings/net/hisilicon-hix5hd2-gmac.txt    |  9 +++++++--
+>>>>  drivers/net/ethernet/hisilicon/hix5hd2_gmac.c             | 15 +++++++++++----
+>>>>  2 files changed, 18 insertions(+), 6 deletions(-)
+>>>>
+>>>> diff --git a/Documentation/devicetree/bindings/net/hisilicon-hix5hd2-gmac.txt b/Documentation/devicetree/bindings/net/hisilicon-hix5hd2-gmac.txt
+>>>> index 75d398b..75920f0 100644
+>>>> --- a/Documentation/devicetree/bindings/net/hisilicon-hix5hd2-gmac.txt
+>>>> +++ b/Documentation/devicetree/bindings/net/hisilicon-hix5hd2-gmac.txt
+>>>> @@ -1,7 +1,12 @@
+>>>>  Hisilicon hix5hd2 gmac controller
+>>>>
+>>>>  Required properties:
+>>>> -- compatible: should be "hisilicon,hix5hd2-gmac".
+>>>> +- compatible: should contain one of the following SoC strings:
+>>>> +    * "hisilicon,hix5hd2-gemac"
+>>>> +    * "hisilicon,hi3798cv200-gemac"
+>>>> +    and one of the following version string:
+>>>> +    * "hisilicon,hisi-gemac-v1"
+>>>> +    * "hisilicon,hisi-gemac-v2"
+>>>
+>>> What combinations are valid? I assume both chips don't have both v1 and
+>>> v2. 2 SoCs and 2 versions so far, I don't think there is much point to
+>>> have the v1 and v2 compatible strings.
+>>>
+>> The v1 and v2 are generic MAC compatible strings, many HiSilicon SoCs may
+>> use the same MAC version. For example,
+>> hix5hd2, hi3716cv200 SoCs use the v1 MAC version,
+>> hi3798cv200, hi3516a SoCs use the v2 MAC version,
+>> and there may be more SoCs added in future.
+>> So I think the generic compatible strings are okay here.
+>> Should I add the hi3716cv200, hi3516a SoCs compatible here?
+> 
+> Yes.
+> 
+>> Do you have any good advice?
+>>
+>>>>  - reg: specifies base physical address(s) and size of the device registers.
+>>>>    The first region is the MAC register base and size.
+>>>>    The second region is external interface control register.
+>>>> @@ -20,7 +25,7 @@ Required properties:
+>>>>
+>>>>  Example:
+>>>>      gmac0: ethernet@f9840000 {
+>>>> -            compatible = "hisilicon,hix5hd2-gmac";
+>>>> +            compatible = "hisilicon,hix5hd2-gemac", "hisilicon,hisi-gemac-v1";
+>>>
+>>> You can't just change compatible strings.
+>>>
+>> Okay, maybe I should name all the compatible string with the suffix "-gmac" instead of
+>> "-gemac". This can keep the compatible strings with the same suffix. Is this okay?
+>> Can I just add the generic compatible string without changing the SoCs compatible string?
+>> Like following:
+>>         gmac0: ethernet@f9840000 {
+>>  -              compatible = "hisilicon,hix5hd2-gmac";
+>>  +              compatible = "hisilicon,hix5hd2-gmac", "hisilicon,hisi-gmac-v1";
+> 
+> Yes, this is fine.
 
-Well, driver treats the reserved fields to be sticky. ie., information
-block returned (upon GET) to EM is not changed (from SET) except few fields 
-which driver is expected to modify.
-Structures that go on wire are big endian __packed structures in 
-hfi_vnic_encap.h. Ok, I will remove the __packed attribute from CPU handled 
-structures here.
+As the patch series have been applied to net-next branch,
+in which way should I commit this compatible fix?
+Should I send a new patch fixing this compatible string error with "Fixes: xxx"?
+Looking forward to your reply!
 
-Niranjana
 
->Jason
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+    Regards,
+    Dongpo
+
+.
