@@ -1,7 +1,8 @@
 From: Madalin Bucur <madalin.bucur@nxp.com>
-Subject: [PATCH net v3 0/4] fsl/fman: fixes for ARM
-Date: Mon, 19 Dec 2016 18:13:29 +0200
-Message-ID: <1482164013-6111-1-git-send-email-madalin.bucur@nxp.com>
+Subject: [PATCH net v3 4/4] fsl/fman: enable compilation on ARM64
+Date: Mon, 19 Dec 2016 18:13:33 +0200
+Message-ID: <1482164013-6111-5-git-send-email-madalin.bucur@nxp.com>
+References: <1482164013-6111-1-git-send-email-madalin.bucur@nxp.com>
 Reply-To: <madalin.bucur@nxp.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,28 +10,26 @@ Cc: <linuxppc-dev@lists.ozlabs.org>, <linux-kernel@vger.kernel.org>,
         <davem@davemloft.net>, <scott.wood@nxp.com>, <mpe@ellerman.id.au>
 To: <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1482164013-6111-1-git-send-email-madalin.bucur@nxp.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The patch set fixes advertised speeds for QSGMII interfaces, disables
-A007273 erratum workaround on non-PowerPC platforms where it does not
-apply, enables compilation on ARM64 and addresses a probing issue on
-non PPC platforms.
+Signed-off-by: Madalin Bucur <madalin.bucur@nxp.com>
+---
+ drivers/net/ethernet/freescale/fman/Kconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Changes from v2: merged fsl/fman changes to avoid a point of failure
-Changes from v1: unifying probing on all supported platforms
-
-Madalin Bucur (4):
-  fsl/fman: fix 1G support for QSGMII interfaces
-  powerpc: fsl/fman: remove fsl,fman from of_device_ids[]
-  fsl/fman: A007273 only applies to PPC SoCs
-  fsl/fman: enable compilation on ARM64
-
- arch/powerpc/platforms/85xx/corenet_generic.c |  3 ---
- drivers/net/ethernet/freescale/fman/Kconfig   |  2 +-
- drivers/net/ethernet/freescale/fman/fman.c    | 16 ++++++++++++++++
- drivers/net/ethernet/freescale/fman/mac.c     |  1 +
- 4 files changed, 18 insertions(+), 4 deletions(-)
-
+diff --git a/drivers/net/ethernet/freescale/fman/Kconfig b/drivers/net/ethernet/freescale/fman/Kconfig
+index 79b7c84..dc0850b 100644
+--- a/drivers/net/ethernet/freescale/fman/Kconfig
++++ b/drivers/net/ethernet/freescale/fman/Kconfig
+@@ -1,6 +1,6 @@
+ config FSL_FMAN
+ 	tristate "FMan support"
+-	depends on FSL_SOC || COMPILE_TEST
++	depends on FSL_SOC || ARCH_LAYERSCAPE || COMPILE_TEST
+ 	select GENERIC_ALLOCATOR
+ 	select PHYLIB
+ 	default n
 -- 
 2.1.0
