@@ -1,101 +1,60 @@
-From: Niklas Cassel <niklas.cassel@axis.com>
-Subject: Re: [PATCH] stmmac: fix memory barriers
-Date: Mon, 19 Dec 2016 16:08:16 +0100
-Message-ID: <b78639f7-d225-22c1-d575-7d1e0016847d@axis.com>
-References: <20161218203812.GA1012@amd>
+From: Jerome Brunet <jbrunet@baylibre.com>
+Subject: Re: [PATCH net-next v4 2/4] dt-bindings: net: add EEE capability
+ constants
+Date: Mon, 19 Dec 2016 16:16:47 +0100
+Message-ID: <1482160607.5163.16.camel@baylibre.com>
+References: <1480348229-25672-1-git-send-email-jbrunet@baylibre.com>
+ <1480348229-25672-3-git-send-email-jbrunet@baylibre.com>
+ <20161205143942.f3w6nmp3jvmrk5es@rob-hp-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-To: Pavel Machek <pavel@ucw.cz>, <LinoSanfilippo@gmx.de>,
-        <peppe.cavallaro@st.com>, <alexandre.torgue@st.com>,
-        <davem@davemloft.net>, <linux-kernel@vger.kernel.org>,
-        <netdev@vger.kernel.org>, <Joao.Pinto@synopsys.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161218203812.GA1012@amd>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: devicetree@vger.kernel.org, Florian Fainelli <f.fainelli@gmail.com>,
+ Alexandre TORGUE <alexandre.torgue@st.com>, Andrew Lunn <andrew@lunn.ch>,
+ Martin Blumenstingl <martin.blumenstingl@googlemail.com>,
+ netdev@vger.kernel.org, Neil Armstrong <narmstrong@baylibre.com>,
+ linux-kernel@vger.kernel.org, Yegor Yefremov <yegorslists@googlemail.com>,
+ Julia Lawall <julia.lawall@lip6.fr>, Andre Roth <neolynx@gmail.com>,
+ Kevin Hilman <khilman@baylibre.com>, Carlo Caione <carlo@caione.org>,
+ Giuseppe Cavallaro <peppe.cavallaro@st.com>, linux-amlogic@lists.infradead.org,
+ Andreas =?ISO-8859-1?Q?F=E4rber?= <afaerber@suse.de>,
+ linux-arm-kernel@lists.infradead.org
+To: Rob Herring <robh@kernel.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <20161205143942.f3w6nmp3jvmrk5es@rob-hp-laptop>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-Tested-by: Niklas Cassel <niklas.cassel@axis.com>
-
-On 12/18/2016 09:38 PM, Pavel Machek wrote:
-> Fix up memory barriers in stmmac driver. They are meant to protect
-> against DMA engine, so smp_ variants are certainly wrong, and dma_
-> variants are preferable.
->     
-> Signed-off-by: Pavel Machek <pavel@denx.de>
->
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c
-> index a340fc8..8816515 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c
-> @@ -334,7 +334,7 @@ static void dwmac4_rd_prepare_tx_desc(struct dma_desc *p, int is_fs, int len,
->  		 * descriptors for the same frame has to be set before, to
->  		 * avoid race condition.
->  		 */
-> -		wmb();
-> +		dma_wmb();
->  
->  	p->des3 = cpu_to_le32(tdes3);
->  }
-> @@ -377,7 +377,7 @@ static void dwmac4_rd_prepare_tso_tx_desc(struct dma_desc *p, int is_fs,
->  		 * descriptors for the same frame has to be set before, to
->  		 * avoid race condition.
->  		 */
-> -		wmb();
-> +		dma_wmb();
->  
->  	p->des3 = cpu_to_le32(tdes3);
->  }
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/enh_desc.c b/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
-> index ce97e52..f0d8632 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
-> @@ -350,7 +350,7 @@ static void enh_desc_prepare_tx_desc(struct dma_desc *p, int is_fs, int len,
->  		 * descriptors for the same frame has to be set before, to
->  		 * avoid race condition.
->  		 */
-> -		wmb();
-> +		dma_wmb();
->  
->  	p->des0 = cpu_to_le32(tdes0);
->  }
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> index 3e40578..bb40382 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> @@ -2125,7 +2125,7 @@ static netdev_tx_t stmmac_tso_xmit(struct sk_buff *skb, struct net_device *dev)
->  	 * descriptor and then barrier is needed to make sure that
->  	 * all is coherent before granting the DMA engine.
->  	 */
-> -	smp_wmb();
-> +	dma_wmb();
->  
->  	if (netif_msg_pktdata(priv)) {
->  		pr_info("%s: curr=%d dirty=%d f=%d, e=%d, f_p=%p, nfrags %d\n",
-> @@ -2338,7 +2338,7 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
->  		 * descriptor and then barrier is needed to make sure that
->  		 * all is coherent before granting the DMA engine.
->  		 */
-> -		smp_wmb();
-> +		dma_wmb();
->  	}
->  
->  	netdev_sent_queue(dev, skb->len);
-> @@ -2443,14 +2443,14 @@ static inline void stmmac_rx_refill(struct stmmac_priv *priv)
->  			netif_dbg(priv, rx_status, priv->dev,
->  				  "refill entry #%d\n", entry);
->  		}
-> -		wmb();
-> +		dma_wmb();
->  
->  		if (unlikely(priv->synopsys_id >= DWMAC_CORE_4_00))
->  			priv->hw->desc->init_rx_desc(p, priv->use_riwt, 0, 0);
->  		else
->  			priv->hw->desc->set_rx_owner(p);
->  
-> -		wmb();
-> +		dma_wmb();
->  
->  		entry = STMMAC_GET_ENTRY(entry, DMA_RX_SIZE);
->  	}
->
+SGkgUm9iLAoKRmlyc3QsIFRoeCBmb3IgdGhpcyBpbmZvcm1hdGlvbiBhbmQgc29ycnkgZm9yIHRo
+aXMgbGF0ZSByZXBseQpBcyB5b3UgbWF5IGhhdmUgc2VlbiB5b3Vyc2VsZiwgdGhlcmUgd2FzIGxp
+dHRsZSBiaXQgb2YgY29uZnVzaW9uIHdoaWxlCmRpc2N1c3NpbmcgdGhpcyBwYXRjaCBzZXJpZXMu
+CgpUaGUgcG9pbnQgaXMgdGhlIHYzIHdhcyBhcHBsaWVkIGJlZm9yZSB5b3VyIHJlcGx5IChwYXRj
+aGVzIDIgYW5kIDMgbm90CmNvbWJpbmVkIHVuZm9ydHVuYXRlbHkpLgpCZWNhdXNlIG9mIHRoaXMg
+Y29uZnVzaW9uLCB0aGUgc2VyaWVzIG5lZWRlZCBhIGZldyBmaXhlcyB3aXRjaCByZW1vdmVzCnRo
+ZSBwcmV2aW91c2x5IGFkZGVkIGJpbmRpbmdzIFswXS4KVGhpcyB0aW1lLCBJIG1hZGUgc3VyZSB0
+byBtb2RpZnkgKHJlbW92ZSkgdGhlIGJpbmRpbmdzIGFsb25nIHdpdGggdGhlCmRvY3VtZW50YXRp
+b24uCgpbMF06wqBodHRwOi8vbGttbC5rZXJuZWwub3JnL3IvMTQ4MjE1OTkzOC0xMzIzOS0xLWdp
+dC1zZW5kLWVtYWlsLWpicnVuZXQKQGJheWxpYnJlLmNvbQoKQ2hlZXJzCkplcm9tZQoKT24gTW9u
+LCAyMDE2LTEyLTA1IGF0IDA4OjM5IC0wNjAwLCBSb2IgSGVycmluZyB3cm90ZToKPiBPbiBNb24s
+IE5vdiAyOCwgMjAxNiBhdCAwNDo1MDoyNlBNICswMTAwLCBKZXJvbWUgQnJ1bmV0IHdyb3RlOgo+
+ID4gCj4gPiBTaWduZWQtb2ZmLWJ5OiBKZXJvbWUgQnJ1bmV0IDxqYnJ1bmV0QGJheWxpYnJlLmNv
+bT4KPiA+IFRlc3RlZC1ieTogWWVnb3IgWWVmcmVtb3YgPHllZ29yc2xpc3RzQGdvb2dsZW1haWwu
+Y29tPgo+ID4gVGVzdGVkLWJ5OiBBbmRyZWFzIEbDpHJiZXIgPGFmYWVyYmVyQHN1c2UuZGU+Cj4g
+PiBUZXN0ZWQtYnk6IE5laWwgQXJtc3Ryb25nIDxuYXJtc3Ryb25nQGJheWxpYnJlLmNvbT4KPiA+
+IC0tLQo+ID4gwqBpbmNsdWRlL2R0LWJpbmRpbmdzL25ldC9tZGlvLmggfCAxOSArKysrKysrKysr
+KysrKysrKysrCj4gPiDCoDEgZmlsZSBjaGFuZ2VkLCAxOSBpbnNlcnRpb25zKCspCj4gPiDCoGNy
+ZWF0ZSBtb2RlIDEwMDY0NCBpbmNsdWRlL2R0LWJpbmRpbmdzL25ldC9tZGlvLmgKPiAKPiBTZWVt
+cyBjaGFuZ2VzIGFyZSB3YW50ZWQgb24gdGhpcywgYnV0IHBhdGNoZXMgMiBhbmQgMyBzaG91bGQg
+YmXCoAo+IGNvbWJpbmVkLiBUaGUgaGVhZGVyIGlzIHBhcnQgb2YgdGhlIGJpbmRpbmcgZG9jLgo+
+IAo+IFJvYgoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18K
+bGludXgtYXJtLWtlcm5lbCBtYWlsaW5nIGxpc3QKbGludXgtYXJtLWtlcm5lbEBsaXN0cy5pbmZy
+YWRlYWQub3JnCmh0dHA6Ly9saXN0cy5pbmZyYWRlYWQub3JnL21haWxtYW4vbGlzdGluZm8vbGlu
+dXgtYXJtLWtlcm5lbAo=
