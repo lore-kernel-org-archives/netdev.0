@@ -1,51 +1,55 @@
-From: Madalin-Cristian Bucur <madalin.bucur@nxp.com>
-Subject: RE: [PATCH net v2 2/5] powerpc: remove fsl,fman from of_device_ids[]
-Date: Mon, 19 Dec 2016 16:07:45 +0000
-Message-ID: <AM4PR04MB16044EBA36B62CBA1CEB5C96EC910@AM4PR04MB1604.eurprd04.prod.outlook.com>
-References: <1482139343-8975-1-git-send-email-madalin.bucur@nxp.com>
- <1482139343-8975-3-git-send-email-madalin.bucur@nxp.com>
- <20161219.103712.1578523196484939315.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net v2] ipvlan: fix crash when master is set in
+ loopback mode
+Date: Mon, 19 Dec 2016 11:11:56 -0500 (EST)
+Message-ID: <20161219.111156.1987012114474401231.davem@davemloft.net>
+References: <1482087625-30366-1-git-send-email-mahesh@bandewar.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- Scott Wood <scott.wood@nxp.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <20161219.103712.1578523196484939315.davem@davemloft.net>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, edumazet@google.com, maheshb@google.com
+To: mahesh@bandewar.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:46880 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755441AbcLSQL6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2016 11:11:58 -0500
+In-Reply-To: <1482087625-30366-1-git-send-email-mahesh@bandewar.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Monday, December 19, 2016 5:37 PM
->=20
-> From: Madalin Bucur <madalin.bucur@nxp.com>
-> Date: Mon, 19 Dec 2016 11:22:20 +0200
->=20
-> > The fsl/fman drivers will use of_platform_populate() on all
-> > supported platforms.
-> >
-> > Signed-off-by: Madalin Bucur <madalin.bucur@nxp.com>
->=20
-> It seems that this creates a failure point between patches #2 and
-> #3.  If the cases handled by this "fsl,fman" entry are only afterwards
-> covered by the of_platform_populate() code added in patch #3 then you
-> cannot split these two changes up like this.
->=20
-> The two changes must be done at the same time, otherwise probing will
-> fail for some people between patches #2 and #3.
+From: Mahesh Bandewar <mahesh@bandewar.net>
+Date: Sun, 18 Dec 2016 11:00:25 -0800
 
-You are right, that will happen. I was not convinced these need to be
-merged due to the different places they touch. I'll send a v3.
+> From: Mahesh Bandewar <maheshb@google.com>
+> 
+> In an IPvlan setup when master is set in loopback mode e.g.
+> 
+>   ethtool -K eth0 set loopback on
+> 
+>   where eth0 is master device for IPvlan setup.
+> 
+> The failure actually happens while processing mulitcast packets
+> but that's a result of unconditionally queueing packets without
+> ensuring ether-header is part of the linear part of skb.
+> 
+> This patch forces this check at the reception and drops packets
+> which fail this check before queuing them.
+...
+> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+> ---
+> v1->v2: commit log update
+
+Like Eric, I still do not like this change nor the explanation.
+
+Whether in loopback mode or not, your explanation makes no sense at
+all.
+
+If the packet comes from the ethernet device, the freakin' ethernet
+header is there in the linear SKB area.  No pulling should be needed
+whatsoever.
+
+Something creates this bad situation where the ethernet header is not
+there, but you have not explained that sufficiently yet.
+
+Thank you.
