@@ -1,203 +1,69 @@
-From: Mika Westerberg <mika.westerberg@intel.com>
-Subject: Re: [PATCH v8 3/8] thunderbolt: Communication with the ICM (firmware)
-Date: Mon, 19 Dec 2016 14:24:07 +0200
-Message-ID: <20161219122407.GQ1460@lahna.fi.intel.com>
-References: <1475073870-2126-1-git-send-email-amir.jer.levy@intel.com>
- <1475073870-2126-4-git-send-email-amir.jer.levy@intel.com>
- <fe0f0a6f-488b-bbc0-8987-a9c47d9ed9b9@kernel.org>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH net 2/2] sctp: not copying duplicate addrs to the assoc's
+ bind address list
+Date: Mon, 19 Dec 2016 07:35:02 -0500
+Message-ID: <20161219123502.GA19620@hmsreliant.think-freely.org>
+References: <cover.1471605833.git.lucien.xin@gmail.com>
+ <130956b1e880eab780162a795fde156d61d4de0f.1471605833.git.lucien.xin@gmail.com>
+ <20160819175007.GB3578@hmsreliant.think-freely.org>
+ <CADvbK_do3kQSotq7-PbvoCBBSwOBBdZtx=rR+Q2XX3_bhV4_0w@mail.gmail.com>
+ <20160822142538.GA10323@hmsreliant.think-freely.org>
+ <CADvbK_ce8EGH5zyvBnOqQX+D5_zj9KTWS=2HbR0BfJ2s-dvWAw@mail.gmail.com>
+ <20160824103854.GA13154@hmsreliant.think-freely.org>
+ <CADvbK_fH-Va3t4EfTktH-pRV-ht-W0N0SW_pBh90mHj8ZW+kYA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Amir Levy <amir.jer.levy@intel.com>, gregkh@linuxfoundation.org,
-        andreas.noever@gmail.com, bhelgaas@google.com, corbet@lwn.net,
-        linux-kernel@vger.kernel.org, linux-pci@vger.kernel.org,
-        netdev@vger.kernel.org, linux-doc@vger.kernel.org,
-        mario_limonciello@dell.com, thunderbolt-linux@intel.com,
-        tomas.winkler@intel.com, xiong.y.zhang@intel.com
-To: Andy Lutomirski <luto@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+        davem <davem@davemloft.net>,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Vlad Yasevich <vyasevich@gmail.com>,
+        Daniel Borkmann <daniel@iogearbox.net>
+To: Xin Long <lucien.xin@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:60084 "EHLO
+        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751673AbcLSMfu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2016 07:35:50 -0500
 Content-Disposition: inline
-In-Reply-To: <fe0f0a6f-488b-bbc0-8987-a9c47d9ed9b9@kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <CADvbK_fH-Va3t4EfTktH-pRV-ht-W0N0SW_pBh90mHj8ZW+kYA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 01, 2016 at 05:21:01PM -0800, Andy Lutomirski wrote:
-> On 09/28/2016 07:44 AM, Amir Levy wrote:
-> > This patch provides the communication protocol between the
-> > Intel Connection Manager(ICM) firmware that is operational in the
-> > Thunderbolt controller in non-Apple hardware.
-> > The ICM firmware-based controller is used for establishing and maintaining
-> > the Thunderbolt Networking connection - we need to be able to communicate
-> > with it.
+On Sat, Dec 17, 2016 at 05:56:51PM +0800, Xin Long wrote:
+> On Wed, Aug 24, 2016 at 6:38 PM, Neil Horman <nhorman@tuxdriver.com> wrote:
+> > On Wed, Aug 24, 2016 at 01:14:27PM +0800, Xin Long wrote:
+> >> >> > Ah, I see what you're doing.  Ok, this makes some sense, at least on the receive
+> >> >> > side, when you get a cookie unpacked and modify the remote peers address list,
+> >> >> > it makes sense to check for duplicates.  On the local side however, I would,
+> >> >> > instead of checking it when the list gets copied, I'd check it when the master
+> >> >> > list gets updated (in the NETDEV_UP event notifier for the local address list,
+> >> >>
+> >> >> I was thinking about to check it in the NETDEV_UP, yes it can make the
+> >> >> master list has no duplicated addresses.  But what if two same addresses
+> >> >> events come, and they come from different NICs (though I can't point  out
+> >> >> the valid use case), then we filter there.
+> >> >>
+> >> > That I think would be a bug in the protocol code.  For the ipv4 case, all
+> >> > addresses are owned by the system and the same addresses added to multiple
+> >> > interfaces should not be allowed.  The same is true of ipv6 case.  The only
+> >> > exception there is a link local address and that should still be unique within
+> >> > the context of an address/dev tuple.
+> >> >
+> >> understand, just sounds a little harsh. :-)
+> >>
+> >> For now, does it make sense to you to just leave as the master list
+> >> is, and check
+> >> the duplicate address when sctp is really binding them ?
+> >>
+> > I would think so, yes.
 > 
-> I'm a bit late to the party, but here goes.  I have two big questions:
->
-> 1. Why is this using netlink at all?  A system has zero or more Thunderbolt
-> controllers, they're probed just like any other PCI devices (by nhi_probe()
-> if I'm understanding correctly), they'll have nodes in sysfs, etc.
-> Shouldn't there be a simple char device per Thunderbolt controller that a
-> daemon can connect to?  This will clean up lots of things:
+> Hi, Neil,
 > 
-> a) You can actually enforce one-daemon-at-a-time in a very natural way. Your
-> current code seems to try, but it's rather buggy.  Your subscription count
-> is a guess, your unsubscribe is entirely unchecked, and you are entirely
-> unable to detect if a daemon crashes AFAICT.
+> About this patch, I think we are on the page, right ?
 > 
-> b) You won't need all of the complexity that's currently there to figure out
-> *which* Thunderbolt device a daemon is talking to.
+Yes, I think we are.
+Neil
+
+> If yes, I will repost v2, but other than improving some changelog,
+> no other change compare to v1. Do you agree ?
 > 
-> c) You can use regular ioctl passing *structs* instead of netlink attrs.
-> There's nothing wrong with netlink attrs, except that your driver seems to
-> have a whole lot of boilerplate that just converts back and forth to regular
-> structures.
-> 
-> d) The userspace code that does stuff like "send message, wait 150ms,
-> receive reply, complain if no reply" goes away because ioctl is synchronous.
-> (Or you can use read and write, but it's still simpler.)
-> 
-> e) You could have one daemon per Thunderbolt device if you were so inclined.
-> 
-> f) You get privilege separation in userspace.  Creating a netlink socket and
-> dropping privilege is busted^Winteresting.  Opening a device node and
-> dropping privilege works quite nicely.
-
-I agree with your points. Using a char device here instead seems to be
-the right way to go forward.
-
-There is small problem, though. On non-Apple systems the host controller
-only appears when something is connected to thunderbolt ports. So the
-char device would not be there all the time. However, I think we can
-still notify the userspace by sending an extra uevent when we detect
-there is a PCIe device or inter-domain connection plugged in.
-
-> 2. Why do you need a daemon anyway.  Functionally, what exactly does it do?
-> (Okay, I get that it seems to talk to a giant pile of code running in SMM,
-> and I get that Intel, for some bizarre reason, wants everyone except Apple
-> to use this code in SMM, and that Apple (for entirely understandable
-> reasons) turned it off, but that's beside the point. What does the user code
-> do that's useful and that the kernel can't do all by itself?  The only
-> really interesting bit I can see is the part that approves PCI devices.
-
-As far as I can tell it is used to notify user (via dbus, I guess) that
-there is a new PCIe device or inter-domain connection (networking)
-available and it needs to be approved before it can be used.
-
-I don't think anything prevents the kernel to do all this (Amir, Michael
-can correct me if I'm mistaken).
-
-In fact we could provide a simple "tbtadm" tool, built on top of the
-char device that can be used to list and approve devices from shell
-command line. That could also allow user to turn on "auto-approve" mode
-or similar where the kernel approves all connected devices automatically
-(if such functionality is wanted).
-
-The daemon can still be useful for listening uevents generated by the
-driver and forwarding approval requests to user.
-
-> I'm not going to review this in detail, but here's a tiny bit:
-> 
-> > +static int nhi_genl_unsubscribe(__always_unused struct sk_buff *u_skb,
-> > +				__always_unused struct genl_info *info)
-> > +{
-> > +	atomic_dec_if_positive(&subscribers);
-> > +
-> > +	return 0;
-> > +}
-> > +
-> 
-> This, for example, is really quite buggy.
-
-OK.
-
-> This entire function here:
-> 
-> > +static int nhi_genl_query_information(__always_unused struct sk_buff *u_skb,
-> > +				      struct genl_info *info)
-> > +{
-> > +	struct tbt_nhi_ctxt *nhi_ctxt;
-> > +	struct sk_buff *skb;
-> > +	bool msg_too_long;
-> > +	int res = -ENODEV;
-> > +	u32 *msg_head;
-> > +
-> > +	if (!info || !info->userhdr)
-> > +		return -EINVAL;
-> > +
-> > +	skb = genlmsg_new(NLMSG_ALIGN(nhi_genl_family.hdrsize) +
-> > +			  nla_total_size(sizeof(DRV_VERSION)) +
-> > +			  nla_total_size(sizeof(nhi_ctxt->nvm_ver_offset)) +
-> > +			  nla_total_size(sizeof(nhi_ctxt->num_ports)) +
-> > +			  nla_total_size(sizeof(nhi_ctxt->dma_port)) +
-> > +			  nla_total_size(0),	/* nhi_ctxt->support_full_e2e */
-> > +			  GFP_KERNEL);
-> > +	if (!skb)
-> > +		return -ENOMEM;
-> > +
-> > +	msg_head = genlmsg_put_reply(skb, info, &nhi_genl_family, 0,
-> > +				     NHI_CMD_QUERY_INFORMATION);
-> > +	if (!msg_head) {
-> > +		res = -ENOMEM;
-> > +		goto genl_put_reply_failure;
-> > +	}
-> > +
-> > +	if (mutex_lock_interruptible(&controllers_list_mutex)) {
-> > +		res = -ERESTART;
-> > +		goto genl_put_reply_failure;
-> > +	}
-> > +
-> > +	nhi_ctxt = nhi_search_ctxt(*(u32 *)info->userhdr);
-> > +	if (nhi_ctxt && !nhi_ctxt->d0_exit) {
-> > +		*msg_head = nhi_ctxt->id;
-> > +
-> > +		msg_too_long = !!nla_put_string(skb, NHI_ATTR_DRV_VERSION,
-> > +						DRV_VERSION);
-> > +
-> > +		msg_too_long = msg_too_long ||
-> > +			       nla_put_u16(skb, NHI_ATTR_NVM_VER_OFFSET,
-> > +					   nhi_ctxt->nvm_ver_offset);
-> > +
-> > +		msg_too_long = msg_too_long ||
-> > +			       nla_put_u8(skb, NHI_ATTR_NUM_PORTS,
-> > +					  nhi_ctxt->num_ports);
-> > +
-> > +		msg_too_long = msg_too_long ||
-> > +			       nla_put_u8(skb, NHI_ATTR_DMA_PORT,
-> > +					  nhi_ctxt->dma_port);
-> > +
-> > +		if (msg_too_long) {
-> > +			res = -EMSGSIZE;
-> > +			goto release_ctl_list_lock;
-> > +		}
-> > +
-> > +		if (nhi_ctxt->support_full_e2e &&
-> > +		    nla_put_flag(skb, NHI_ATTR_SUPPORT_FULL_E2E)) {
-> > +			res = -EMSGSIZE;
-> > +			goto release_ctl_list_lock;
-> > +		}
-> > +		mutex_unlock(&controllers_list_mutex);
-> > +
-> > +		genlmsg_end(skb, msg_head);
-> > +
-> > +		return genlmsg_reply(skb, info);
-> > +	}
-> > +
-> > +release_ctl_list_lock:
-> > +	mutex_unlock(&controllers_list_mutex);
-> > +	genlmsg_cancel(skb, msg_head);
-> > +
-> > +genl_put_reply_failure:
-> > +	nlmsg_free(skb);
-> > +
-> > +	return res;
-> > +}
-> 
-> would be about three lines of code if you used copy_to_user and a struct.
-
-Understood.
-
-Thanks Andy for your comments.
-
-We will rework the driver to take your suggestions into account and
-expose a char device instead of using netlink.
-
-Meanwhile we will continue in the github to add new features and support
-the new Thunderbolt HW generation.
