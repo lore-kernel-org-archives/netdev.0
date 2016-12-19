@@ -1,7 +1,7 @@
 From: Jerome Brunet <jbrunet@baylibre.com>
-Subject: [PATCH net 2/3] net: phy: use boolean dt properties for eee broken modes
-Date: Mon, 19 Dec 2016 16:05:37 +0100
-Message-ID: <1482159938-13239-3-git-send-email-jbrunet@baylibre.com>
+Subject: [PATCH net 1/3] net: phy: fix sign type error in genphy_config_eee_advert
+Date: Mon, 19 Dec 2016 16:05:36 +0100
+Message-ID: <1482159938-13239-2-git-send-email-jbrunet@baylibre.com>
 References: <1482159938-13239-1-git-send-email-jbrunet@baylibre.com>
 Cc: Jerome Brunet <jbrunet@baylibre.com>,
         Carlo Caione <carlo@caione.org>,
@@ -11,67 +11,48 @@ Cc: Jerome Brunet <jbrunet@baylibre.com>,
         Neil Armstrong <narmstrong@baylibre.com>,
         linux-amlogic@lists.infradead.org,
         linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+        Julia Lawall <julia.lawall@lip6.fr>,
         Yegor Yefremov <yegorslists@googlemail.com>,
         =?UTF-8?q?Andreas=20F=C3=A4rber?= <afaerber@suse.de>
 To: netdev@vger.kernel.org, devicetree@vger.kernel.org,
         Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f46.google.com ([74.125.82.46]:37324 "EHLO
+        mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1762389AbcLSPFt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2016 10:05:49 -0500
+Received: by mail-wm0-f46.google.com with SMTP id t79so103465011wmt.0
+        for <netdev@vger.kernel.org>; Mon, 19 Dec 2016 07:05:49 -0800 (PST)
 In-Reply-To: <1482159938-13239-1-git-send-email-jbrunet@baylibre.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The patches regarding eee-broken-modes was merged before all people
-involved could find an agreement on the best way to move forward.
+In genphy_config_eee_advert, the return value of phy_read_mmd_indirect is
+checked to know if the register could be accessed but the result is
+assigned to a 'u32'.
+Changing to 'int' to correctly get errors from phy_read_mmd_indirect.
 
-While we agreed on having a DT property to mark particular modes as broken,
-the value used for eee-broken-modes mapped the phy register in very direct
-way. Because of this, the concern is that it could be used to implement
-configuration policies instead of describing a broken HW.
-
-In the end, having a boolean property for each mode seems to be preferred
-over one bit field value mapping the register (too) directly.
-
-Cc: Florian Fainelli <f.fainelli@gmail.com>
+Fixes: d853d145ea3e ("net: phy: add an option to disable EEE advertisement")
+Reported-by: Julia Lawall <julia.lawall@lip6.fr>
 Signed-off-by: Jerome Brunet <jbrunet@baylibre.com>
 ---
- drivers/net/phy/phy_device.c | 18 +++++++++++++++---
- 1 file changed, 15 insertions(+), 3 deletions(-)
+ drivers/net/phy/phy_device.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index ee5ebadb1463..92b08383cafa 100644
+index 9c06f8028f0c..ee5ebadb1463 100644
 --- a/drivers/net/phy/phy_device.c
 +++ b/drivers/net/phy/phy_device.c
-@@ -1665,7 +1665,7 @@ static void of_set_phy_supported(struct phy_device *phydev)
- static void of_set_phy_eee_broken(struct phy_device *phydev)
+@@ -1187,8 +1187,8 @@ static int genphy_config_advert(struct phy_device *phydev)
+  */
+ static int genphy_config_eee_advert(struct phy_device *phydev)
  {
- 	struct device_node *node = phydev->mdio.dev.of_node;
--	u32 broken;
-+	u32 broken = 0;
+-	u32 broken = phydev->eee_broken_modes;
+-	u32 old_adv, adv;
++	int broken = phydev->eee_broken_modes;
++	int old_adv, adv;
  
- 	if (!IS_ENABLED(CONFIG_OF_MDIO))
- 		return;
-@@ -1673,8 +1673,20 @@ static void of_set_phy_eee_broken(struct phy_device *phydev)
- 	if (!node)
- 		return;
- 
--	if (!of_property_read_u32(node, "eee-broken-modes", &broken))
--		phydev->eee_broken_modes = broken;
-+	if (of_property_read_bool(node, "eee-broken-100tx"))
-+		broken |= MDIO_EEE_100TX;
-+	if (of_property_read_bool(node, "eee-broken-1000t"))
-+		broken |= MDIO_EEE_1000T;
-+	if (of_property_read_bool(node, "eee-broken-10gt"))
-+		broken |= MDIO_EEE_10GT;
-+	if (of_property_read_bool(node, "eee-broken-1000kx"))
-+		broken |= MDIO_EEE_1000KX;
-+	if (of_property_read_bool(node, "eee-broken-10gkx4"))
-+		broken |= MDIO_EEE_10GKX4;
-+	if (of_property_read_bool(node, "eee-broken-10gkr"))
-+		broken |= MDIO_EEE_10GKR;
-+
-+	phydev->eee_broken_modes = broken;
- }
- 
- /**
+ 	/* Nothing to disable */
+ 	if (!broken)
 -- 
 2.7.4
