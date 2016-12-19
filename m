@@ -1,7 +1,7 @@
 From: Madalin Bucur <madalin.bucur@nxp.com>
-Subject: [PATCH net v4 1/4] fsl/fman: fix 1G support for QSGMII interfaces
-Date: Mon, 19 Dec 2016 22:42:43 +0200
-Message-ID: <1482180166-10677-2-git-send-email-madalin.bucur@nxp.com>
+Subject: [PATCH net v4 3/4] fsl/fman: A007273 only applies to PPC SoCs
+Date: Mon, 19 Dec 2016 22:42:45 +0200
+Message-ID: <1482180166-10677-4-git-send-email-madalin.bucur@nxp.com>
 References: <1482180166-10677-1-git-send-email-madalin.bucur@nxp.com>
 Reply-To: <madalin.bucur@nxp.com>
 Mime-Version: 1.0
@@ -9,30 +9,73 @@ Content-Type: text/plain
 Cc: <linuxppc-dev@lists.ozlabs.org>, <linux-kernel@vger.kernel.org>,
         <davem@davemloft.net>, <scott.wood@nxp.com>, <mpe@ellerman.id.au>
 To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-by2nam03on0065.outbound.protection.outlook.com ([104.47.42.65]:35571
+        "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S932188AbcLSUm7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 19 Dec 2016 15:42:59 -0500
 In-Reply-To: <1482180166-10677-1-git-send-email-madalin.bucur@nxp.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-QSGMII ports were not advertising 1G speed.
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Madalin Bucur <madalin.bucur@nxp.com>
 Reviewed-by: Camelia Groza <camelia.groza@nxp.com>
 ---
- drivers/net/ethernet/freescale/fman/mac.c | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/ethernet/freescale/fman/fman.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
 
-diff --git a/drivers/net/ethernet/freescale/fman/mac.c b/drivers/net/ethernet/freescale/fman/mac.c
-index 69ca42c..0b31f85 100644
---- a/drivers/net/ethernet/freescale/fman/mac.c
-+++ b/drivers/net/ethernet/freescale/fman/mac.c
-@@ -594,6 +594,7 @@ static const u16 phy2speed[] = {
- 	[PHY_INTERFACE_MODE_RGMII_RXID]	= SPEED_1000,
- 	[PHY_INTERFACE_MODE_RGMII_TXID]	= SPEED_1000,
- 	[PHY_INTERFACE_MODE_RTBI]		= SPEED_1000,
-+	[PHY_INTERFACE_MODE_QSGMII]		= SPEED_1000,
- 	[PHY_INTERFACE_MODE_XGMII]		= SPEED_10000
- };
+diff --git a/drivers/net/ethernet/freescale/fman/fman.c b/drivers/net/ethernet/freescale/fman/fman.c
+index 4b83263..f60845f 100644
+--- a/drivers/net/ethernet/freescale/fman/fman.c
++++ b/drivers/net/ethernet/freescale/fman/fman.c
+@@ -1890,6 +1890,7 @@ static int fman_reset(struct fman *fman)
  
+ 		goto _return;
+ 	} else {
++#ifdef CONFIG_PPC
+ 		struct device_node *guts_node;
+ 		struct ccsr_guts __iomem *guts_regs;
+ 		u32 devdisr2, reg;
+@@ -1921,6 +1922,7 @@ static int fman_reset(struct fman *fman)
+ 
+ 		/* Enable all MACs */
+ 		iowrite32be(reg, &guts_regs->devdisr2);
++#endif
+ 
+ 		/* Perform FMan reset */
+ 		iowrite32be(FPM_RSTC_FM_RESET, &fman->fpm_regs->fm_rstc);
+@@ -1932,25 +1934,31 @@ static int fman_reset(struct fman *fman)
+ 		} while (((ioread32be(&fman->fpm_regs->fm_rstc)) &
+ 			 FPM_RSTC_FM_RESET) && --count);
+ 		if (count == 0) {
++#ifdef CONFIG_PPC
+ 			iounmap(guts_regs);
+ 			of_node_put(guts_node);
++#endif
+ 			err = -EBUSY;
+ 			goto _return;
+ 		}
++#ifdef CONFIG_PPC
+ 
+ 		/* Restore devdisr2 value */
+ 		iowrite32be(devdisr2, &guts_regs->devdisr2);
+ 
+ 		iounmap(guts_regs);
+ 		of_node_put(guts_node);
++#endif
+ 
+ 		goto _return;
+ 
++#ifdef CONFIG_PPC
+ guts_regs:
+ 		of_node_put(guts_node);
+ guts_node:
+ 		dev_dbg(fman->dev, "%s: Didn't perform FManV3 reset due to Errata A007273!\n",
+ 			__func__);
++#endif
+ 	}
+ _return:
+ 	return err;
 -- 
 2.1.0
