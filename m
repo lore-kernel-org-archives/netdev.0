@@ -1,11 +1,11 @@
 From: Romain Perier <romain.perier@free-electrons.com>
-Subject: Re: [PATCH 1/4] net: dsa: mv88e6xxx: Allow mv88e6xxx_smi_init() to be
- used at address 0x1
-Date: Mon, 19 Dec 2016 15:56:34 +0100
-Message-ID: <292d4f15-c58b-3565-26ec-98a025b6adb3@free-electrons.com>
+Subject: Re: [PATCH 3/4] net: dsa: mv88e6xxx: Add support for ethernet switch
+ 88E6341/88E6141
+Date: Mon, 19 Dec 2016 15:58:17 +0100
+Message-ID: <bc0af369-28a9-af38-723b-d4b182bb153e@free-electrons.com>
 References: <20161219141610.30934-1-romain.perier@free-electrons.com>
- <20161219141610.30934-2-romain.perier@free-electrons.com>
- <20161219143848.GA10048@lunn.ch>
+ <20161219141610.30934-4-romain.perier@free-electrons.com>
+ <20161219145227.GC10048@lunn.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="windows-1252"; Format="flowed"
 Content-Transfer-Encoding: quoted-printable
@@ -20,10 +20,9 @@ Cc: Mark Rutland <mark.rutland@arm.com>, devicetree@vger.kernel.org,
  Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
  linux-arm-kernel@lists.infradead.org,
  Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: Andrew Lunn <andrew@lunn.ch>,
- Volodymyr Bendiuga <volodymyr.bendiuga@gmail.com>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20161219143848.GA10048@lunn.ch>
+In-Reply-To: <20161219145227.GC10048@lunn.ch>
 List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
  <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
 List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
@@ -37,33 +36,56 @@ List-Id: netdev.vger.kernel.org
 
 Hi Andrew,
 
-Le 19/12/2016 =E0 15:38, Andrew Lunn a =E9crit :
-> On Mon, Dec 19, 2016 at 03:16:06PM +0100, Romain Perier wrote:
->> Currently, the function mv88e6xxx_smi_init() returns -EINVAL if the bit
->> zero of sw_addr is 0x1. However, on some platforms, ethernet switches
->> are configured in Multi chip addressing mode and available at MDIO
->> address 0x1.
->
+Le 19/12/2016 =E0 15:52, Andrew Lunn a =E9crit :
 > Hi Romain
 >
-> What branch is this against? net-next?
+>> diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xx=
+x/chip.c
+>> index 76d944e..72ba24b 100644
+>> --- a/drivers/net/dsa/mv88e6xxx/chip.c
+>> +++ b/drivers/net/dsa/mv88e6xxx/chip.c
+>> @@ -4086,6 +4086,20 @@ static const struct mv88e6xxx_info mv88e6xxx_tabl=
+e[] =3D {
+>>  		.ops =3D &mv88e6321_ops,
+>>  	},
+>>
+>> +	[MV88E6341] =3D {
+>> +		.prod_num =3D PORT_SWITCH_ID_PROD_NUM_6341,
+>> +		.family =3D MV88E6XXX_FAMILY_6352,
+>> +		.name =3D "Marvell 88E6341",
+>> +		.num_databases =3D 4096,
+>> +		.num_ports =3D 6,
+>> +		.port_base_addr =3D 0x10,
+>> +		.global1_addr =3D 0x1b,
+>> +		.age_time_coeff =3D 15000,
+>> +		.tag_protocol =3D DSA_TAG_PROTO_EDSA,
+>> +		.flags =3D MV88E6XXX_FLAGS_FAMILY_6352,
+>> +		.ops =3D &mv88e6352_ops,
+>
+> Even if it i 100% compatible with the 6532, you should still add an
+> ops structure for it. All chips have their own, even when the are
+> exactly the same as other in the family.
 
-Until last friday it was based onto next-20161216, I rebased onto the =
-
-torvalds's tree this morning (so ~4.10-pre-rc1).
+Ack, I will fix this.
 
 >
-> Please see:
+>> --- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
+>> +++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
+>> @@ -86,6 +86,7 @@
+>>  #define PORT_SWITCH_ID_PROD_NUM_6097	0x099
+>>  #define PORT_SWITCH_ID_PROD_NUM_6131	0x106
+>>  #define PORT_SWITCH_ID_PROD_NUM_6320	0x115
+>> +#define PORT_SWITCH_ID_PROD_NUM_6341	0x340
+>>  #define PORT_SWITCH_ID_PROD_NUM_6123	0x121
+>>  #define PORT_SWITCH_ID_PROD_NUM_6161	0x161
 >
-> https://www.spinics.net/lists/netdev/msg409156.html
-
-Oh, it's already fixed, good. I did not see this patch :)
-
+> Ah, err..
 >
-> It would be nicer to use Volodymyr, since it has been reviewed.
+> These should be in numerical order of the macro.
+> PORT_SWITCH_ID_PROD_NUM_6320 is however in the wrong place.  Please
+> put the 6341 after the 6321.
 
-
-As the fix is already there, I will use it, sure.
+good catch, ok.
 
 Thanks,
 Romain
