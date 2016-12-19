@@ -1,62 +1,51 @@
-From: Madalin Bucur <madalin.bucur@nxp.com>
-Subject: [PATCH net v3 2/4] powerpc: fsl/fman: remove fsl,fman from of_device_ids[]
-Date: Mon, 19 Dec 2016 18:13:31 +0200
-Message-ID: <1482164013-6111-3-git-send-email-madalin.bucur@nxp.com>
-References: <1482164013-6111-1-git-send-email-madalin.bucur@nxp.com>
-Reply-To: <madalin.bucur@nxp.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH RFC net-next 2/7] net: add dst_pending_confirm flag to
+ skbuff
+Date: Mon, 19 Dec 2016 08:17:32 -0800
+Message-ID: <1482164252.1521.7.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1482094596-26046-1-git-send-email-ja@ssi.bg>
+         <1482094596-26046-3-git-send-email-ja@ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linuxppc-dev@lists.ozlabs.org>, <linux-kernel@vger.kernel.org>,
-        <davem@davemloft.net>, <scott.wood@nxp.com>, <mpe@ellerman.id.au>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1482164013-6111-1-git-send-email-madalin.bucur@nxp.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+        YueHaibing <yuehaibing@huawei.com>
+To: Julian Anastasov <ja@ssi.bg>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:36014 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933782AbcLSQRt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2016 11:17:49 -0500
+In-Reply-To: <1482094596-26046-3-git-send-email-ja@ssi.bg>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The fsl/fman drivers will use of_platform_populate() on all
-supported platforms. Call of_platform_populate() to probe the
-FMan sub-nodes.
+On Sun, 2016-12-18 at 22:56 +0200, Julian Anastasov wrote:
 
-Signed-off-by: Igal Liberman <igal.liberman@freescale.com>
-Signed-off-by: Madalin Bucur <madalin.bucur@nxp.com>
----
- arch/powerpc/platforms/85xx/corenet_generic.c | 3 ---
- drivers/net/ethernet/freescale/fman/fman.c    | 8 ++++++++
- 2 files changed, 8 insertions(+), 3 deletions(-)
+>  
+> +static inline void sock_confirm_neigh(struct sk_buff *skb, struct neighbour *n)
+> +{
+> +	if (unlikely(skb->dst_pending_confirm)) {
+> +		struct sock *sk = skb->sk;
+> +		unsigned long now = jiffies;
+> +
+> +		/* avoid dirtying neighbour */
+> +		if (n->confirmed != now)
+> +			n->confirmed = now;
+> +		if (sk && sk->sk_dst_pending_confirm)
+> +			sk->sk_dst_pending_confirm = 0;
+> +	}
+> +}
+> +
 
-diff --git a/arch/powerpc/platforms/85xx/corenet_generic.c b/arch/powerpc/platforms/85xx/corenet_generic.c
-index 1179115..824b7f1 100644
---- a/arch/powerpc/platforms/85xx/corenet_generic.c
-+++ b/arch/powerpc/platforms/85xx/corenet_generic.c
-@@ -117,9 +117,6 @@ static const struct of_device_id of_device_ids[] = {
- 	{
- 		.compatible	= "fsl,qe",
- 	},
--	{
--		.compatible    = "fsl,fman",
--	},
- 	/* The following two are for the Freescale hypervisor */
- 	{
- 		.name		= "hypervisor",
-diff --git a/drivers/net/ethernet/freescale/fman/fman.c b/drivers/net/ethernet/freescale/fman/fman.c
-index dafd9e1..0b7f711 100644
---- a/drivers/net/ethernet/freescale/fman/fman.c
-+++ b/drivers/net/ethernet/freescale/fman/fman.c
-@@ -2868,6 +2868,14 @@ static struct fman *read_dts_node(struct platform_device *of_dev)
- 
- 	fman->dev = &of_dev->dev;
- 
-+	/* call of_platform_populate in order to probe sub-nodes on arm64 */
-+	err = of_platform_populate(fm_node, NULL, NULL, &of_dev->dev);
-+	if (err) {
-+		dev_err(&of_dev->dev, "%s: of_platform_populate() failed\n",
-+			__func__);
-+		goto fman_free;
-+	}
-+
- 	return fman;
- 
- fman_node_put:
--- 
-2.1.0
+I am still digesting this awesome patch series ;)
+
+Not sure why you used an unlikely() here. TCP for example would hit this
+path quite often.
+
+So considering sk_dst_pending_confirm might be dirtied quite often,
+
+I am not sure why you placed it in the cache line that contains
+sk_rx_dst (in 1st patch)
+
+Thanks.
