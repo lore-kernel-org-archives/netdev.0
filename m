@@ -1,66 +1,75 @@
-From: Andy Duan <fugang.duan@nxp.com>
-Subject: RE: [PATCH 3/3] net: fec: Fix typo in error msg and comment
-Date: Mon, 19 Dec 2016 02:14:33 +0000
-Message-ID: <AM4PR0401MB2260FD3080A50A345D671FF4FF910@AM4PR0401MB2260.eurprd04.prod.outlook.com>
-References: <1481894616-4517-1-git-send-email-pmeerw@pmeerw.net>
+From: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [RFC v2 03/10] IB/hfi-vnic: Virtual Network Interface Controller
+ (VNIC) netdev
+Date: Sun, 18 Dec 2016 22:43:03 -0800
+Message-ID: <20161219064303.GA94834@knc-06.sc.intel.com>
+References: <1481788782-89964-1-git-send-email-niranjana.vishwanathapura@intel.com>
+ <1481788782-89964-4-git-send-email-niranjana.vishwanathapura@intel.com>
+ <20161215170109.GC3264@obsidianresearch.com>
+ <20161216025947.GC90951@knc-06.sc.intel.com>
+ <20161216042420.GB3797@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "trivial@kernel.org" <trivial@kernel.org>
-To: Peter Meerwald-Stadler <pmeerw@pmeerw.net>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0089.outbound.protection.outlook.com ([104.47.2.89]:1104
-        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1752111AbcLSFrI (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 19 Dec 2016 00:47:08 -0500
-In-Reply-To: <1481894616-4517-1-git-send-email-pmeerw@pmeerw.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+        ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, Sadanand Warrier <sadanand.warrier-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        Sudeep Dutt <sudeep.dutt-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        Tanya K Jajodia <tanya.k.jajodia-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        Andrzej Kacprowski <andrzej.kacprowski-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20161216042420.GB3797-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Peter Meerwald-Stadler <pmeerw@pmeerw.net> Sent: Friday, December 16,=
- 2016 9:24 PM
->To: netdev@vger.kernel.org
->Cc: Peter Meerwald-Stadler <pmeerw@pmeerw.net>; Andy Duan
-><fugang.duan@nxp.com>; trivial@kernel.org
->Subject: [PATCH 3/3] net: fec: Fix typo in error msg and comment
+On Thu, Dec 15, 2016 at 09:24:20PM -0700, Jason Gunthorpe wrote:
+>> >>+struct __hfi_vesw_info {
+>> >>+	u16  fabric_id;
+>> >>+	u16  vesw_id;
+>> >>+
+>> >>+	u8   rsvd0[6];
+>> >>+	u16  def_port_mask;
+>> >>+
+>> >>+	u8   rsvd1[2];
+>> >>+	u16  pkey;
+>> >>+
+>> >>+	u8   rsvd2[4];
+>> >>+	u32  u_mcast_dlid;
+>> >>+	u32  u_ucast_dlid[HFI_VESW_MAX_NUM_DEF_PORT];
+>> >>+
+>> >>+	u8   rsvd3[44];
+>> >>+	u16  eth_mtu[HFI_VNIC_MAX_NUM_PCP];
+>> >>+	u16  eth_mtu_non_vlan;
+>> >>+	u8   rsvd4[2];
+>> >>+} __packed;
+>> >
+>> >This goes on the network too? Also looks like it has endian problems.
+>> >
+>> >Ditto for all the __packed structures.
+>> >
+>>
+>> This is in CPU format. There is a separate big endian version of
+>> this
 >
->Signed-off-by: Peter Meerwald-Stadler <pmeerw@pmeerw.net>
->Cc: Fugang Duan <fugang.duan@nxp.com>
->Cc: trivial@kernel.org
->---
-> drivers/net/ethernet/freescale/fec_main.c |    4 ++--
-> 1 file changed, 2 insertions(+), 2 deletions(-)
+>Why are CPU handled structures packed and full of reserved fields?
+>Don't pack them if they are not pushed out to the network..
+>
+>There were lots of __packed structures, any that go on the network
+>need be/le annoations.
 >
 
-Acked-by: Fugang Duan <fugang.duan@nxp.com>
+Well, driver treats the reserved fields to be sticky. ie., information
+block returned (upon GET) to EM is not changed (from SET) except few fields 
+which driver is expected to modify.
+Structures that go on wire are big endian __packed structures in 
+hfi_vnic_encap.h. Ok, I will remove the __packed attribute from CPU handled 
+structures here.
 
->diff --git a/drivers/net/ethernet/freescale/fec_main.c
->b/drivers/net/ethernet/freescale/fec_main.c
->index 38160c2..250b790 100644
->--- a/drivers/net/ethernet/freescale/fec_main.c
->+++ b/drivers/net/ethernet/freescale/fec_main.c
->@@ -2001,7 +2001,7 @@ static int fec_enet_mii_init(struct platform_device
->*pdev)
-> 		mii_speed--;
-> 	if (mii_speed > 63) {
-> 		dev_err(&pdev->dev,
->-			"fec clock (%lu) to fast to get right mii speed\n",
->+			"fec clock (%lu) too fast to get right mii speed\n",
-> 			clk_get_rate(fep->clk_ipg));
-> 		err =3D -EINVAL;
-> 		goto err_out;
->@@ -2950,7 +2950,7 @@ static void set_multicast_list(struct net_device
->*ndev)
-> 		}
->
-> 		/* only upper 6 bits (FEC_HASH_BITS) are used
->-		 * which point to specific bit in he hash registers
->+		 * which point to specific bit in the hash registers
-> 		 */
-> 		hash =3D (crc >> (32 - FEC_HASH_BITS)) & 0x3f;
->
->--
->1.7.10.4
+Niranjana
+
+>Jason
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
