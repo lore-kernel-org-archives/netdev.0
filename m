@@ -1,103 +1,45 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH] stmmac: fix memory barriers
-Date: Mon, 19 Dec 2016 16:36:54 +0100
-Message-ID: <2f88bee3-779e-68d6-d117-74fdc640f2e5@st.com>
-References: <20161218203812.GA1012@amd>
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: Re: [PATCH net] virtio_net: reject XDP programs using header adjustment
+Date: Mon, 19 Dec 2016 15:42:24 +0000
+Message-ID: <CAJpBn1yCHOLRYs2p4-YBYG5q3omynWkB7=5ZvoND_ULhHNv0Qw@mail.gmail.com>
+References: <20161219150500.2600-1-jakub.kicinski@netronome.com> <BL2PR07MB2306FB78FBB5F2D17681699D8D910@BL2PR07MB2306.namprd07.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Pavel Machek <pavel@ucw.cz>, <LinoSanfilippo@gmx.de>,
-        <alexandre.torgue@st.com>, <davem@davemloft.net>,
-        <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-        <niklas.cassel@axis.com>, <Joao.Pinto@synopsys.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161218203812.GA1012@amd>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "john.fastabend@gmail.com" <john.fastabend@gmail.com>,
+        "kafai@fb.com" <kafai@fb.com>,
+        "daniel@iogearbox.net" <daniel@iogearbox.net>,
+        "alexei.starovoitov@gmail.com" <alexei.starovoitov@gmail.com>,
+        "mst@redhat.com" <mst@redhat.com>
+To: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qt0-f173.google.com ([209.85.216.173]:35582 "EHLO
+        mail-qt0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754883AbcLSPmZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2016 10:42:25 -0500
+Received: by mail-qt0-f173.google.com with SMTP id c47so150289775qtc.2
+        for <netdev@vger.kernel.org>; Mon, 19 Dec 2016 07:42:25 -0800 (PST)
+In-Reply-To: <BL2PR07MB2306FB78FBB5F2D17681699D8D910@BL2PR07MB2306.namprd07.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/18/2016 9:38 PM, Pavel Machek wrote:
+On Mon, Dec 19, 2016 at 3:23 PM, Mintz, Yuval <Yuval.Mintz@cavium.com> wrote:
+>> commit 17bedab27231 ("bpf: xdp: Allow head adjustment in XDP prog")
+>> added a new XDP helper to prepend and remove data from a frame.
+>> Make virtio_net reject programs making use of this helper until proper
+>> support is added.
+>>
+>> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 >
-> Fix up memory barriers in stmmac driver. They are meant to protect
-> against DMA engine, so smp_ variants are certainly wrong, and dma_
-> variants are preferable.
->
-> Signed-off-by: Pavel Machek <pavel@denx.de>
+> Is that how it goes until we'll add the proper infrastructure?
+> Am I expected to provide the same for qede?
 
-Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+I asked Martin to fix the existing drivers like qede but virtio's XDP
+was not merged at that point.
 
->
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c
-> index a340fc8..8816515 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c
-> @@ -334,7 +334,7 @@ static void dwmac4_rd_prepare_tx_desc(struct dma_desc *p, int is_fs, int len,
->  		 * descriptors for the same frame has to be set before, to
->  		 * avoid race condition.
->  		 */
-> -		wmb();
-> +		dma_wmb();
->
->  	p->des3 = cpu_to_le32(tdes3);
->  }
-> @@ -377,7 +377,7 @@ static void dwmac4_rd_prepare_tso_tx_desc(struct dma_desc *p, int is_fs,
->  		 * descriptors for the same frame has to be set before, to
->  		 * avoid race condition.
->  		 */
-> -		wmb();
-> +		dma_wmb();
->
->  	p->des3 = cpu_to_le32(tdes3);
->  }
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/enh_desc.c b/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
-> index ce97e52..f0d8632 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/enh_desc.c
-> @@ -350,7 +350,7 @@ static void enh_desc_prepare_tx_desc(struct dma_desc *p, int is_fs, int len,
->  		 * descriptors for the same frame has to be set before, to
->  		 * avoid race condition.
->  		 */
-> -		wmb();
-> +		dma_wmb();
->
->  	p->des0 = cpu_to_le32(tdes0);
->  }
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> index 3e40578..bb40382 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> @@ -2125,7 +2125,7 @@ static netdev_tx_t stmmac_tso_xmit(struct sk_buff *skb, struct net_device *dev)
->  	 * descriptor and then barrier is needed to make sure that
->  	 * all is coherent before granting the DMA engine.
->  	 */
-> -	smp_wmb();
-> +	dma_wmb();
->
->  	if (netif_msg_pktdata(priv)) {
->  		pr_info("%s: curr=%d dirty=%d f=%d, e=%d, f_p=%p, nfrags %d\n",
-> @@ -2338,7 +2338,7 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
->  		 * descriptor and then barrier is needed to make sure that
->  		 * all is coherent before granting the DMA engine.
->  		 */
-> -		smp_wmb();
-> +		dma_wmb();
->  	}
->
->  	netdev_sent_queue(dev, skb->len);
-> @@ -2443,14 +2443,14 @@ static inline void stmmac_rx_refill(struct stmmac_priv *priv)
->  			netif_dbg(priv, rx_status, priv->dev,
->  				  "refill entry #%d\n", entry);
->  		}
-> -		wmb();
-> +		dma_wmb();
->
->  		if (unlikely(priv->synopsys_id >= DWMAC_CORE_4_00))
->  			priv->hw->desc->init_rx_desc(p, priv->use_riwt, 0, 0);
->  		else
->  			priv->hw->desc->set_rx_owner(p);
->
-> -		wmb();
-> +		dma_wmb();
->
->  		entry = STMMAC_GET_ENTRY(entry, DMA_RX_SIZE);
->  	}
->
+> I was under the impression that so long as this is being [early] developed
+> and there's no way to communicate what is and isn't supported by
+> a given implementation, it would simply be the user's responsibility
+> to make sure what he's trying is supported.
+
+IMHO the less user has to guess the better if we're hoping for wide adoption.
