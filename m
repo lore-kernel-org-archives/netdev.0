@@ -1,96 +1,111 @@
-From: Niklas Cassel <niklas.cassel@axis.com>
-Subject: Re: Synopsys Ethernet QoS
-Date: Mon, 19 Dec 2016 18:58:05 +0100
-Message-ID: <06d47014-5533-e761-2674-17f5688fb13c@axis.com>
-References: <93b73b79-36aa-56b8-f975-b890b7a48bd1@synopsys.com>
- <20161209.104152.1969880574279771010.davem@davemloft.net>
- <CAHp75VcKURaTQX9=SY8+46GGATuwO1oXAi8eMS+uwk58sjKx5Q@mail.gmail.com>
- <3aee5a67-5e19-34e6-1719-ff13c7b914ea@gmail.com>
- <CAHp75VfT9B3O5jU0eHoKtgYc48K2ZjCQ-g9ZQ9nX1Hew6tz-zw@mail.gmail.com>
- <556353b7-c847-7549-626d-3c324063647e@gmail.com>
- <f5357ea2-a295-ab08-046e-f8b8f6ca4344@synopsys.com>
- <1d445ec1-deb8-6e36-39c4-6813c446095f@axis.com>
- <73bf8cb4-5685-2db6-529c-1de99b1fd358@st.com>
- <99424968-ad8f-fec6-ebcf-ab7b19ee5486@axis.com> <20161214125735.GA19542@amd>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: Soft lockup in tc_classify
+Date: Mon, 19 Dec 2016 09:58:18 -0800
+Message-ID: <CAM_iQpXUQYvvXonEXe0czd4osL5YxZ+G5B-PUddautcHnGOtQw@mail.gmail.com>
+References: <c1c394d3-3aea-52a8-89e3-be57d4d46b8e@mellanox.com>
+ <7394f89e-e8a5-5fb2-ee04-63bf1c4ef6e7@mellanox.com> <584EA60B.80803@iogearbox.net>
+ <CAJ3xEMjABmvAMs6h0EqBgPH8QDDwF_x0COx01MkEw2pa+fp7LA@mail.gmail.com>
+ <CAM_iQpVJ_Y5bB-RP2S2tK7sPNo6Atwcz5Ud8sG6bwDOSnq4NnA@mail.gmail.com> <18a64d65-1241-6c72-8333-47b0ae933139@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
-        Joao Pinto <Joao.Pinto@synopsys.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andy Shevchenko <andy.shevchenko@gmail.com>,
-        David Miller <davem@davemloft.net>, <larper@axis.com>,
-        <rabinv@axis.com>, netdev <netdev@vger.kernel.org>,
-        <CARLOS.PALMINHA@synopsys.com>, <Jie.Deng1@synopsys.com>,
-        Stephen Warren <swarren@nvidia.com>
-To: Pavel Machek <pavel@ucw.cz>
+Content-Type: multipart/mixed; boundary=001a1141de84569a35054406ab83
+Cc: Or Gerlitz <gerlitz.or@gmail.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        Roi Dayan <roid@mellanox.com>,
+        David Miller <davem@davemloft.net>,
+        Jiri Pirko <jiri@mellanox.com>,
+        John Fastabend <john.fastabend@gmail.com>,
+        Hadar Hen Zion <hadarh@mellanox.com>
+To: Shahar Klein <shahark@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bastet.se.axis.com ([195.60.68.11]:52136 "EHLO
-        bastet.se.axis.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752280AbcLSR6J (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2016 12:58:09 -0500
-In-Reply-To: <20161214125735.GA19542@amd>
+Received: from mail-qt0-f193.google.com ([209.85.216.193]:36294 "EHLO
+        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752440AbcLSR6j (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2016 12:58:39 -0500
+Received: by mail-qt0-f193.google.com with SMTP id n34so20027514qtb.3
+        for <netdev@vger.kernel.org>; Mon, 19 Dec 2016 09:58:39 -0800 (PST)
+In-Reply-To: <18a64d65-1241-6c72-8333-47b0ae933139@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/14/2016 01:57 PM, Pavel Machek wrote:
-> Hi!
+--001a1141de84569a35054406ab83
+Content-Type: text/plain; charset=UTF-8
+
+Hello,
+
+On Mon, Dec 19, 2016 at 8:39 AM, Shahar Klein <shahark@mellanox.com> wrote:
 >
->> So if there is a long time before handling interrupts,
->> I guess that it makes sense that one stream could
->> get an advantage in the net scheduler.
+>
+> On 12/13/2016 12:51 AM, Cong Wang wrote:
 >>
->> If I find the time, and if no one beats me to it, I will try to replace
->> the normal timers with HR timers + a smaller default timeout.
+>> On Mon, Dec 12, 2016 at 1:18 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+>>>
+>>> On Mon, Dec 12, 2016 at 3:28 PM, Daniel Borkmann <daniel@iogearbox.net>
+>>> wrote:
+>>>
+>>>> Note that there's still the RCU fix missing for the deletion race that
+>>>> Cong will still send out, but you say that the only thing you do is to
+>>>> add a single rule, but no other operation in involved during that test?
+>>>
+>>>
+>>> What's missing to have the deletion race fixed? making a patch or
+>>> testing to a patch which was sent?
 >>
-> Can you try something like this? Highres timers will be needed, too,
-> but this fixes the logic problem.
+>>
+>> If you think it would help for this problem, here is my patch rebased
+>> on the latest net-next.
+>>
+>> Again, I don't see how it could help this case yet, especially I don't
+>> see how we could have a loop in this singly linked list.
+>>
 >
-> You'll need to apply it twice as code is copy&pasted.
+> I've applied cong's patch and hit a different lockup(full log attached):
+
+
+Are you sure this is really different? For me, it is still inside the loop
+in tc_classify(), with only a slightly different offset.
+
+
 >
-> Best regards,
-
-Hello Pavel
-
-If I first apply your other fix "stmmac: fix memory barriers",
-then I can apply this fix without getting a netdev watchdog timeout on tx queue0,
-and everything appears to work as it should.
-
-Regarding to fairness, I can't really see a difference, with or without your patch.
-I've noticed that for TX, the streams actually stabilize after 5 seconds or so,
-but with the default test length of 10 seconds, it's easy to get confused
-by the test result summary. So I guess from a fairness point of view,
-TX is not really a problem.
-
-For RX fairness, it is very much a real issue. The streams never stabilize.
-One key difference is that RX coalescing is implemented by using the
-RX watchdog.
-Here is an iperf3 run that went for 30 seconds:
-
-[  4]   0.00-30.00  sec  1.54 GBytes   440 Mbits/sec    0             sender
-[  4]   0.00-30.00  sec  1.54 GBytes   440 Mbits/sec                  receiver
-[  6]   0.00-30.00  sec   600 MBytes   168 Mbits/sec    0             sender
-[  6]   0.00-30.00  sec   599 MBytes   168 Mbits/sec                  receiver
-[  8]   0.00-30.00  sec  1.17 GBytes   334 Mbits/sec    0             sender
-[  8]   0.00-30.00  sec  1.17 GBytes   334 Mbits/sec                  receiver
-[SUM]   0.00-30.00  sec  3.29 GBytes   942 Mbits/sec    0             sender
-[SUM]   0.00-30.00  sec  3.29 GBytes   942 Mbits/sec                  receiver
-
-
-> 									Pavel
+> Daniel suggested I'll add a print:
+>                 case RTM_DELTFILTER:
+> -                   err = tp->ops->delete(tp, fh);
+> +                 printk(KERN_ERR "DEBUGG:SK %s:%d\n", __func__, __LINE__);
+> +                 err = tp->ops->delete(tp, fh, &last);
+>                         if (err == 0) {
 >
-> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
->
->  	 */
->  	priv->tx_count_frames += nfrags + 1;
->  	if (likely(priv->tx_coal_frames > priv->tx_count_frames)) {
-> -		mod_timer(&priv->txtimer,
-> -			  STMMAC_COAL_TIMER(priv->tx_coal_timer));
-> +		if (priv->tx_count_frames == nfrags + 1)
-> +			mod_timer(&priv->txtimer,
-> +				  STMMAC_COAL_TIMER(priv->tx_coal_timer));
->  	} else {
->  		priv->tx_count_frames = 0;
->  		priv->hw->desc->set_tx_ic(desc);
->
->
+> and I couldn't see this print in the output.....
+
+Hmm, that is odd, if this never prints, then my patch should not make any
+difference.
+
+There are still two other cases where we could change tp->next, so do you
+mind to add two more printk's for debugging?
+
+Attached is the delta patch.
+
+Thanks!
+
+--001a1141de84569a35054406ab83
+Content-Type: text/plain; charset=US-ASCII; name="tc-filter-debug.diff"
+Content-Disposition: attachment; filename="tc-filter-debug.diff"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_iwwdwh611
+
+ZGlmZiAtLWdpdCBhL25ldC9zY2hlZC9jbHNfYXBpLmMgYi9uZXQvc2NoZWQvY2xzX2FwaS5jCmlu
+ZGV4IGY5MTc5ZTAuLjQ1YmZlOWYgMTAwNjQ0Ci0tLSBhL25ldC9zY2hlZC9jbHNfYXBpLmMKKysr
+IGIvbmV0L3NjaGVkL2Nsc19hcGkuYwpAQCAtMzE3LDYgKzMxNyw4IEBAIHN0YXRpYyBpbnQgdGNf
+Y3RsX3RmaWx0ZXIoc3RydWN0IHNrX2J1ZmYgKnNrYiwgc3RydWN0IG5sbXNnaGRyICpuKQogCQlp
+ZiAobi0+bmxtc2dfdHlwZSA9PSBSVE1fREVMVEZJTFRFUiAmJiB0LT50Y21faGFuZGxlID09IDAp
+IHsKIAkJCXN0cnVjdCB0Y2ZfcHJvdG8gKm5leHQgPSBydG5sX2RlcmVmZXJlbmNlKHRwLT5uZXh0
+KTsKIAorCQkJcHJpbnRrKEtFUk5fRVJSICJERUJVR0c6U0sgZGVsZXRlIGZpbHRlciBieTogJXBm
+XG4iLCB0cC0+b3BzLT5nZXQpOworCiAJCQlSQ1VfSU5JVF9QT0lOVEVSKCpiYWNrLCBuZXh0KTsK
+IAogCQkJdGZpbHRlcl9ub3RpZnkobmV0LCBza2IsIG4sIHRwLCBmaCwKQEAgLTM3MCw2ICszNzIs
+NyBAQCBzdGF0aWMgaW50IHRjX2N0bF90ZmlsdGVyKHN0cnVjdCBza19idWZmICpza2IsIHN0cnVj
+dCBubG1zZ2hkciAqbikKIAkJCSAgICAgIG4tPm5sbXNnX2ZsYWdzICYgTkxNX0ZfQ1JFQVRFID8g
+VENBX0FDVF9OT1JFUExBQ0UgOiBUQ0FfQUNUX1JFUExBQ0UpOwogCWlmIChlcnIgPT0gMCkgewog
+CQlpZiAodHBfY3JlYXRlZCkgeworCQkJcHJpbnRrKEtFUk5fRVJSICJERUJVR0c6U0sgYWRkL2No
+YW5nZSBmaWx0ZXIgYnk6ICVwZlxuIiwgdHAtPm9wcy0+Y2hhbmdlKTsKIAkJCVJDVV9JTklUX1BP
+SU5URVIodHAtPm5leHQsIHJ0bmxfZGVyZWZlcmVuY2UoKmJhY2spKTsKIAkJCXJjdV9hc3NpZ25f
+cG9pbnRlcigqYmFjaywgdHApOwogCQl9Cg==
+--001a1141de84569a35054406ab83--
