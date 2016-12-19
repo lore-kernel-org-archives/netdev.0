@@ -1,54 +1,142 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: Re: [PATCH v5 1/4] siphash: add cryptographically secure PRF
-Date: Mon, 19 Dec 2016 18:08:47 +0100
-Message-ID: <CAHmME9o6CFuQJEp3QJgkh78r5Z2F8NJnpTCCFUiSnAiJxPGCJQ@mail.gmail.com>
-References: <20161215203003.31989-1-Jason@zx2c4.com> <20161215203003.31989-2-Jason@zx2c4.com>
- <CAH8yC8nE5CLfbv8gCRCeiNW3JLCAB3062-6pNO8mEXJYcsFUsw@mail.gmail.com>
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Subject: Re: [PATCH] stmmac: fix memory barriers
+Date: Mon, 19 Dec 2016 17:10:17 +0000
+Message-ID: <79efbe1a-bdc3-2aca-88a2-42a1b29f292d@synopsys.com>
+References: <20161218203812.GA1012@amd>
+ <20161219.110655.448567935176535028.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-        kernel-hardening@lists.openwall.com,
-        LKML <linux-kernel@vger.kernel.org>,
-        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-        David Laight <David.Laight@aculab.com>,
-        Ted Tso <tytso@mit.edu>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Linus Torvalds <torvalds@linux-foundation.org>,
-        Eric Biggers <ebiggers3@gmail.com>,
-        Tom Herbert <tom@herbertland.com>,
-        George Spelvin <linux@sciencehorizons.net>,
-        Vegard Nossum <vegard.nossum@gmail.com>,
-        Andi Kleen <ak@linux.intel.com>,
-        David Miller <davem@davemloft.net>,
-        Andy Lutomirski <luto@amacapital.net>,
-        Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>,
-        "Daniel J . Bernstein" <djb@cr.yp.to>
-To: noloader@gmail.com
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 8bit
+Cc: <LinoSanfilippo@gmx.de>, <peppe.cavallaro@st.com>,
+        <alexandre.torgue@st.com>, <linux-kernel@vger.kernel.org>,
+        <netdev@vger.kernel.org>, <niklas.cassel@axis.com>,
+        <Joao.Pinto@synopsys.com>
+To: David Miller <davem@davemloft.net>, <pavel@ucw.cz>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAH8yC8nE5CLfbv8gCRCeiNW3JLCAB3062-6pNO8mEXJYcsFUsw@mail.gmail.com>
+In-Reply-To: <20161219.110655.448567935176535028.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Dec 17, 2016 at 3:55 PM, Jeffrey Walton <noloader@gmail.com> wrote:
-> It may be prudent to include the endian reversal in the test to ensure
-> big endian machines produce expected results. Some closely related
-> testing on an old Apple PowerMac G5 revealed that result needed to be
-> reversed before returning it to a caller.
+Hi,
 
-The function [1] returns a u64. Originally I had it returning a
-__le64, but that was considered unnecessary by many prior reviewers on
-the list. It returns an integer. If you want uniform bytes out of it,
-then use the endian conversion function, the same as you would do with
-any other type of integer.
+I am trying to built net-next git tree and it is failing:
 
-Additionally, this function is *not* meant for af_alg or any of the
-crypto/* code. It's very unlikely to find a use there.
+  CC      drivers/pnp/card.o
+drivers/net/ethernet/stmicro/stmmac/stmmac_main.c: In function
+‘stmmac_hw_fix_mac_speed’:
+drivers/net/ethernet/stmicro/stmmac/stmmac_main.c:224:34: error: ‘struct
+stmmac_priv’ has no member named ‘phydev’
+  struct phy_device *phydev = priv->phydev;
+                                  ^
+drivers/net/ethernet/stmicro/stmmac/stmmac_main.c: In function ‘stmmac_eee_init’:
+drivers/net/ethernet/stmicro/stmmac/stmmac_main.c:298:24: error: ‘struct
+stmmac_priv’ has no member named ‘phydev’
+   if (phy_init_eee(priv->phydev, 1)) {
+                        ^
+drivers/net/ethernet/stmicro/stmmac/stmmac_main.c:330:44: error: ‘struct
+stmmac_priv’ has no member named ‘phydev’
+   priv->hw->mac->set_eee_pls(priv->hw, priv->phydev->link);
+                                            ^
+drivers/net/ethernet/stmicro/stmmac/stmmac_main.c: In function ‘stmmac_init_ptp’:
+drivers/net/ethernet/stmicro/stmmac/stmmac_main.c:672:2: error: void value not
+ignored as it ought to be
+  return stmmac_ptp_register(priv);
+  ^
+drivers/net/ethernet/stmicro/stmmac/stmmac_main.c: In function ‘stmmac_adjust_link’:
+drivers/net/ethernet/stmicro/stmmac/stmmac_main.c:694:34: error: ‘struct
+stmmac_priv’ has no member named ‘phydev’
+  struct phy_device *phydev = priv->phydev;
+                                  ^
+drivers/net/ethernet/stmicro/stmmac/stmmac_main.c: In function ‘stmmac_init_phy’:
+drivers/net/ethernet/stmicro/stmmac/stmmac_main.c:884:6: error: ‘struct
+stmmac_priv’ has no member named ‘phydev’
+  priv->phydev = phydev;
+      ^
+drivers/net/ethernet/stmicro/stmmac/stmmac_main.c: In function ‘stmmac_open’:
+drivers/net/ethernet/stmicro/stmmac/stmmac_main.c:1810:10: error: ‘struct
+stmmac_priv’ has no member named ‘phydev’
+  if (priv->phydev)
+          ^
+drivers/net/ethernet/stmicro/stmmac/stmmac_main.c:1811:17: error: ‘struct
+stmmac_priv’ has no member named ‘phydev’
+   phy_start(priv->phydev);
+                 ^
+drivers/net/ethernet/stmicro/stmmac/stmmac_main.c:1858:10: error: ‘struct
+stmmac_priv’ has no member named ‘phydev’
+  if (priv->phydev)
+          ^
+drivers/net/ethernet/stmicro/stmmac/stmmac_main.c:1859:22: error: ‘struct
+stmmac_priv’ has no member named ‘phydev’
+   phy_disconnect(priv->phydev);
+                      ^
+drivers/net/ethernet/stmicro/stmmac/stmmac_main.c: In function ‘stmmac_release’:
+drivers/net/ethernet/stmicro/stmmac/stmmac_main.c:1878:10: error: ‘struct
+stmmac_priv’ has no member named ‘phydev’
+  if (priv->phydev) {
+          ^
+drivers/net/ethernet/stmicro/stmmac/stmmac_main.c:1879:16: error: ‘struct
+stmmac_priv’ has no member named ‘phydev’
+   phy_stop(priv->phydev);
+                ^
+drivers/net/ethernet/stmicro/stmmac/stmmac_main.c:1880:22: error: ‘struct
+stmmac_priv’ has no member named ‘phydev’
+   phy_disconnect(priv->phydev);
+                      ^
+drivers/net/ethernet/stmicro/stmmac/stmmac_main.c:1881:7: error: ‘struct
+stmmac_priv’ has no member named ‘phydev’
+   priv->phydev = NULL;
+       ^
+drivers/net/ethernet/stmicro/stmmac/stmmac_main.c: In function ‘stmmac_ioctl’:
+drivers/net/ethernet/stmicro/stmmac/stmmac_main.c:2883:12: error: ‘struct
+stmmac_priv’ has no member named ‘phydev’
+   if (!priv->phydev)
+            ^
+drivers/net/ethernet/stmicro/stmmac/stmmac_main.c:2885:27: error: ‘struct
+stmmac_priv’ has no member named ‘phydev’
+   ret = phy_mii_ioctl(priv->phydev, rq, cmd);
+                           ^
+drivers/net/ethernet/stmicro/stmmac/stmmac_main.c: In function ‘stmmac_suspend’:
+drivers/net/ethernet/stmicro/stmmac/stmmac_main.c:3438:10: error: ‘struct
+stmmac_priv’ has no member named ‘phydev’
+  if (priv->phydev)
+          ^
+drivers/net/ethernet/stmicro/stmmac/stmmac_main.c:3439:16: error: ‘struct
+stmmac_priv’ has no member named ‘phydev’
+   phy_stop(priv->phydev);
+                ^
+drivers/net/ethernet/stmicro/stmmac/stmmac_main.c: In function ‘stmmac_resume’:
+drivers/net/ethernet/stmicro/stmmac/stmmac_main.c:3533:10: error: ‘struct
+stmmac_priv’ has no member named ‘phydev’
+  if (priv->phydev)
+          ^
+drivers/net/ethernet/stmicro/stmmac/stmmac_main.c:3534:17: error: ‘struct
+stmmac_priv’ has no member named ‘phydev’
+   phy_start(priv->phydev);
+                 ^
+drivers/net/ethernet/stmicro/stmmac/stmmac_main.c: In function ‘stmmac_init_ptp’:
+drivers/net/ethernet/stmicro/stmmac/stmmac_main.c:673:1: warning: control
+reaches end of non-void function [-Wreturn-type]
+ }
+ ^
+  CC      drivers/pnp/driver.o
+make[5]: *** [drivers/net/ethernet/stmicro/stmmac/stmmac_main.o] Error 1
+make[4]: *** [drivers/net/ethernet/stmicro/stmmac] Error 2
+make[3]: *** [drivers/net/ethernet/stmicro] Error 2
+make[3]: *** Waiting for unfinished jobs....
+  CC      drivers/pnp/resource.o
 
+Thanks,
+Joao
 
-> Forgive my ignorance... I did not find reading on using the primitive
-> in a PRNG. Does anyone know what Aumasson or Bernstein have to say?
-> Aumasson's site does not seem to discuss the use case:
-
-He's on this thread so I suppose he can speak up for himself. But in
-my conversations with him, the primary take-away was, "seems okay to
-me!". But please -- JP - correct me if I've misinterpreted.
+Às 4:06 PM de 12/19/2016, David Miller escreveu:
+> From: Pavel Machek <pavel@ucw.cz>
+> Date: Sun, 18 Dec 2016 21:38:12 +0100
+> 
+>> Fix up memory barriers in stmmac driver. They are meant to protect
+>> against DMA engine, so smp_ variants are certainly wrong, and dma_
+>> variants are preferable.
+>>     
+>> Signed-off-by: Pavel Machek <pavel@denx.de>
+> 
+> Applied.
+> 
