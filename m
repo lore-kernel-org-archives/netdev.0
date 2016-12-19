@@ -1,52 +1,42 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH RFC net-next 2/7] net: add dst_pending_confirm flag to
- skbuff
-Date: Mon, 19 Dec 2016 22:37:50 +0200 (EET)
-Message-ID: <alpine.LFD.2.11.1612192203480.3105@ja.home.ssi.bg>
-References: <1482094596-26046-1-git-send-email-ja@ssi.bg>  <1482094596-26046-3-git-send-email-ja@ssi.bg> <1482164252.1521.7.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Madalin Bucur <madalin.bucur@nxp.com>
+Subject: [PATCH net v4 0/4] fsl/fman: fixes for ARM
+Date: Mon, 19 Dec 2016 22:42:42 +0200
+Message-ID: <1482180166-10677-1-git-send-email-madalin.bucur@nxp.com>
+Reply-To: <madalin.bucur@nxp.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-        YueHaibing <yuehaibing@huawei.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain
+Cc: <linuxppc-dev@lists.ozlabs.org>, <linux-kernel@vger.kernel.org>,
+        <davem@davemloft.net>, <scott.wood@nxp.com>, <mpe@ellerman.id.au>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:56848 "EHLO ja.ssi.bg"
-        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753134AbcLSUiJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 19 Dec 2016 15:38:09 -0500
-In-Reply-To: <1482164252.1521.7.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-by2nam03on0076.outbound.protection.outlook.com ([104.47.42.76]:50980
+        "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1755130AbcLSUmy (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 19 Dec 2016 15:42:54 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+The patch set fixes advertised speeds for QSGMII interfaces, disables
+A007273 erratum workaround on non-PowerPC platforms where it does not
+apply, enables compilation on ARM64 and addresses a probing issue on
+non PPC platforms.
 
-	Hello,
+Changes from v3: removed redundant comment, added ack by Scott
+Changes from v2: merged fsl/fman changes to avoid a point of failure
+Changes from v1: unifying probing on all supported platforms
 
-On Mon, 19 Dec 2016, Eric Dumazet wrote:
+Madalin Bucur (4):
+  fsl/fman: fix 1G support for QSGMII interfaces
+  powerpc: fsl/fman: remove fsl,fman from of_device_ids[]
+  fsl/fman: A007273 only applies to PPC SoCs
+  fsl/fman: enable compilation on ARM64
 
-> I am still digesting this awesome patch series ;)
+ arch/powerpc/platforms/85xx/corenet_generic.c |  3 ---
+ drivers/net/ethernet/freescale/fman/Kconfig   |  2 +-
+ drivers/net/ethernet/freescale/fman/fman.c    | 15 +++++++++++++++
+ drivers/net/ethernet/freescale/fman/mac.c     |  1 +
+ 4 files changed, 17 insertions(+), 4 deletions(-)
 
-	Thanks. I don't feel quite comfortable with some
-of the changes (mostly XFRM, dst_confirm usage in CXGB) and
-I hope the discussion can provide adequate solution.
-
-> Not sure why you used an unlikely() here. TCP for example would hit this
-> path quite often.
-
-	I was not sure, may be because ACKs can come with lower
-rate than the sent packets. Also because non-TCP rarely uses
-MSG_CONFIRM. If you still think it is better without unlikely,
-I'll remove it.
-
-> So considering sk_dst_pending_confirm might be dirtied quite often,
-> 
-> I am not sure why you placed it in the cache line that contains
-> sk_rx_dst (in 1st patch)
-
-	I saw your recent changes and was worried if the
-sk_dst_confirm() calling on RX can cause unwanted dirtying of
-additional cache line. My preliminary analyze pointed
-sk_omem_alloc as good candidate for moving to next cache
-line. I know how critical is to properly place the new flags,
-so I really need recommendations about this.
-
-Regards
+-- 
+2.1.0
