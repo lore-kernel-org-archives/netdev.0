@@ -1,73 +1,64 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: HalfSipHash Acceptable Usage
-Date: Mon, 19 Dec 2016 18:32:44 +0100
-Message-ID: <CAHmME9rPmH=wP_eHYopt8ZPG9TSN7bos3fGOuqKL2HjQW-2SWA@mail.gmail.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [PATCH net] virtio_net: reject XDP programs using header
+ adjustment
+Date: Mon, 19 Dec 2016 09:50:57 -0800
+Message-ID: <58581E01.7070902@gmail.com>
+References: <20161219150500.2600-1-jakub.kicinski@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "Theodore Ts'o" <tytso@mit.edu>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Eric Biggers <ebiggers3@gmail.com>,
-        "Daniel J . Bernstein" <djb@cr.yp.to>,
-        David Laight <David.Laight@aculab.com>,
-        David Miller <davem@davemloft.net>,
-        Andi Kleen <ak@linux.intel.com>,
-        George Spelvin <linux@sciencehorizons.net>,
-        kernel-hardening@lists.openwall.com,
-        Andy Lutomirski <luto@amacapital.net>,
-        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-        Tom Herbert <tom@herbertland.com>,
-        Vegard Nossum <vegard.nossum@gmail.com>,
-        Netdev <netdev@vger.kernel.org>,
-        Linus Torvalds <torvalds@linux-foundation.org>
-To: Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: kafai@fb.com, daniel@iogearbox.net, alexei.starovoitov@gmail.com,
+        mst@redhat.com
+To: Jakub Kicinski <jakub.kicinski@netronome.com>,
+        netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:36706 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932581AbcLSRvZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2016 12:51:25 -0500
+Received: by mail-pg0-f67.google.com with SMTP id w68so3102116pgw.3
+        for <netdev@vger.kernel.org>; Mon, 19 Dec 2016 09:51:24 -0800 (PST)
+In-Reply-To: <20161219150500.2600-1-jakub.kicinski@netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi JP,
+On 16-12-19 07:05 AM, Jakub Kicinski wrote:
+> commit 17bedab27231 ("bpf: xdp: Allow head adjustment in XDP prog")
+> added a new XDP helper to prepend and remove data from a frame.
+> Make virtio_net reject programs making use of this helper until
+> proper support is added.
+> 
+> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+> ---
+>  drivers/net/virtio_net.c | 5 +++++
+>  1 file changed, 5 insertions(+)
+> 
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index 08327e005ccc..db761f37783e 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -1677,6 +1677,11 @@ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
+>  	u16 xdp_qp = 0, curr_qp;
+>  	int i, err;
+>  
+> +	if (prog && prog->xdp_adjust_head) {
+> +		netdev_warn(dev, "Does not support bpf_xdp_adjust_head()\n");
+> +		return -EOPNOTSUPP;
+> +	}
+> +
+>  	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_TSO4) ||
+>  	    virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_TSO6)) {
+>  		netdev_warn(dev, "can't set XDP while host is implementing LRO, disable LRO first\n");
+> 
 
-With the threads getting confusing, I've been urged to try and keep
-the topics and threads more closely constrained. Here's where we're
-at, and here's the current pressing security concern. It'd be helpful
-to have a definitive statement on what you think is best, so we can
-just build on top of that, instead of getting lost in the chorus of
-opinions.
+Acked-by: John Fastabend <john.r.fastabend@intel.com>
 
-1) Anything that requires actual long-term security will use
-SipHash2-4, with the 64-bit output and the 128-bit key. This includes
-things like TCP sequence numbers. This seems pretty uncontroversial to
-me. Seem okay to you?
+Thanks patch looks good. Alternatively we could push a "bug fix" to
+support the adjust header feature depending on how DaveM and MST feel
+about that. I don't have a strong opinion but I have the patch on my
+queue it just needs some more testing. The adjust header bits were
+merged in between some of the later versions of the patch which is how
+this check got missed.
 
-2) People seem to want something competitive, performance-wise, with
-jhash if it's going to replace jhash. The kernel community
-instinctively pushes back on anything that could harm performance,
-especially in networking and in critical data structures, so there
-have been some calls for something faster than SipHash. So, questions
-regarding this:
-
-2a) George thinks that HalfSipHash on 32-bit systems will have roughly
-comparable speed as SipHash on 64-bit systems, so the idea would be to
-use HalfSipHash on 32-bit systems' hash tables and SipHash on 64-bit
-systems' hash tables. The big obvious question is: does HalfSipHash
-have a sufficient security margin for hashtable usage and hashtable
-attacks? I'm not wondering about the security margin for other usages,
-but just of the hashtable usage. In your opinion, does HalfSipHash cut
-it?
-
-2b) While I certainly wouldn't consider making the use case in
-question (1) employ a weaker function, for this question (2), there
-has been some discussion about using HalfSipHash1-3 (or SipHash1-3 on
-64-bit) instead of 2-4. So, the same question is therefore posed:
-would using HalfSipHash1-3 give a sufficient security margin for
-hashtable usage and hashtable attacks?
-
-My plan is essentially to implement things according to your security
-recommendation. The thread started with me pushing a heavy duty
-security solution -- SipHash2-4 -- for _everything_. I've received
-understandable push back on that notion for certain use cases. So now
-I'm trying to discover what the most acceptable compromise is. Your
-answers on (2a) and (2b) will direct that compromise.
-
-Thanks again,
-Jason
+Thanks,
+John
