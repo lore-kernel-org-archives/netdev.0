@@ -1,50 +1,51 @@
 From: Rob Herring <robh@kernel.org>
-Subject: Re: [PATCH 3/3] Bluetooth: btusb: Configure Marvel to use one of the
- pins for oob wakeup
-Date: Mon, 19 Dec 2016 16:04:28 -0600
-Message-ID: <20161219220428.sn7pspjlss2w2rqb@rob-hp-laptop>
-References: <1481742779-15105-1-git-send-email-rajatja@google.com>
- <1481742779-15105-3-git-send-email-rajatja@google.com>
+Subject: Re: [PATCH 1/3] NFC: trf7970a: add device tree option for 27MHz clock
+Date: Mon, 19 Dec 2016 16:31:11 -0600
+Message-ID: <20161219223111.itu77g7wsqtj6cvs@rob-hp-laptop>
+References: <1481841044-4314-1-git-send-email-glansberry@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Mark Rutland <mark.rutland@arm.com>,
-        Marcel Holtmann <marcel@holtmann.org>,
-        Gustavo Padovan <gustavo@padovan.org>,
-        Johan Hedberg <johan.hedberg@gmail.com>,
-        Amitkumar Karwar <akarwar@marvell.com>,
-        Wei-Ning Huang <wnhuang@chromium.org>,
-        Xinming Hu <huxm@marvell.com>, netdev@vger.kernel.org,
-        devicetree@vger.kernel.org, linux-bluetooth@vger.kernel.org,
-        Brian Norris <briannorris@google.com>, rajatxjain@gmail.com
-To: Rajat Jain <rajatja@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f193.google.com ([209.85.223.193]:34311 "EHLO
-        mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751764AbcLSWEa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2016 17:04:30 -0500
+Cc: linux-wireless@vger.kernel.org, lauro.venancio@openbossa.org,
+        aloisio.almeida@openbossa.org, sameo@linux.intel.com,
+        mark.rutland@arm.com, netdev@vger.kernel.org,
+        devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
+        mgreer@animalcreek.com, justin@kuvee.com
+To: Geoff Lansberry <geoff@kuvee.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1481742779-15105-3-git-send-email-rajatja@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1481841044-4314-1-git-send-email-glansberry@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 14, 2016 at 11:12:59AM -0800, Rajat Jain wrote:
-> The Marvell devices may have many gpio pins, and hence for wakeup
-> on these out-of-band pins, the chip needs to be told which pin is
-> to be used for wakeup, using an hci command.
+On Thu, Dec 15, 2016 at 05:30:42PM -0500, Geoff Lansberry wrote:
+> From: Geoff Lansberry <geoff@kuvee.com>
 > 
-> Thus, we read the pin number etc from the device tree node and send
-> a command to the chip.
-> 
-> Signed-off-by: Rajat Jain <rajatja@google.com>
 > ---
-> Note that while I would have liked to name the compatible string as more
-> like "marvell, usb8997-bt", the devicetrees/bindings/usb/usb-device.txt
-> requires the compatible property to be of the form "usbVID,PID".
+>  .../devicetree/bindings/net/nfc/trf7970a.txt       |  3 ++
+>  drivers/nfc/trf7970a.c                             | 42 ++++++++++++++++------
+>  2 files changed, 34 insertions(+), 11 deletions(-)
 > 
->  .../{marvell-bt-sd8xxx.txt => marvell-bt-8xxx.txt} | 25 ++++++++-
+> diff --git a/Documentation/devicetree/bindings/net/nfc/trf7970a.txt b/Documentation/devicetree/bindings/net/nfc/trf7970a.txt
+> index 32b35a0..9dda879 100644
+> --- a/Documentation/devicetree/bindings/net/nfc/trf7970a.txt
+> +++ b/Documentation/devicetree/bindings/net/nfc/trf7970a.txt
+> @@ -21,6 +21,8 @@ Optional SoC Specific Properties:
+>  - t5t-rmb-extra-byte-quirk: Specify that the trf7970a has the erratum
+>    where an extra byte is returned by Read Multiple Block commands issued
+>    to Type 5 tags.
+> +- crystal_27mhz: Set to specify that the input frequency to the trf7970a is 27.12MHz
+> +
 
-Acked-by: Rob Herring <robh@kernel.org>
+Can't you use 'clock-frequency = "27000000";'?
 
->  drivers/bluetooth/btusb.c                          | 59 ++++++++++++++++++++++
->  2 files changed, 82 insertions(+), 2 deletions(-)
->  rename Documentation/devicetree/bindings/net/{marvell-bt-sd8xxx.txt => marvell-bt-8xxx.txt} (76%)
+>  
+>  Example (for ARM-based BeagleBone with TRF7970A on SPI1):
+>  
+> @@ -43,6 +45,7 @@ Example (for ARM-based BeagleBone with TRF7970A on SPI1):
+>  		irq-status-read-quirk;
+>  		en2-rf-quirk;
+>  		t5t-rmb-extra-byte-quirk;
+> +		crystal_27mhz;
+>  		status = "okay";
+>  	};
+>  };
