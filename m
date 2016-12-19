@@ -1,61 +1,77 @@
-From: Romain Perier <romain.perier@free-electrons.com>
-Subject: Re: [PATCH 4/4] arm64: dts: marvell: Add ethernet switch definition
- for the EXPRESSObin
-Date: Mon, 19 Dec 2016 16:03:15 +0100
-Message-ID: <8f8426ec-65fb-49ae-4238-74012010f1b5@free-electrons.com>
-References: <20161219141610.30934-1-romain.perier@free-electrons.com>
- <20161219141610.30934-5-romain.perier@free-electrons.com>
- <20161219155819.4cdf0f40@free-electrons.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; Format="flowed"
-Content-Transfer-Encoding: quoted-printable
-Cc: Mark Rutland <mark.rutland@arm.com>, Andrew Lunn <andrew@lunn.ch>,
- Florian Fainelli <f.fainelli@gmail.com>, Jason Cooper <jason@lakedaemon.net>,
- Pawel Moll <pawel.moll@arm.com>,
- Vivien Didelot <vivien.didelot@savoirfairelinux.com>, netdev@vger.kernel.org,
- Ian Campbell <ijc+devicetree@hellion.org.uk>,
- Nadav Haklai <nadavh@marvell.com>, devicetree@vger.kernel.org,
- Rob Herring <robh+dt@kernel.org>, Kumar Gala <galak@codeaurora.org>,
- Gregory Clement <gregory.clement@free-electrons.com>,
- linux-arm-kernel@lists.infradead.org,
- Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20161219155819.4cdf0f40@free-electrons.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+From: Jerome Brunet <jbrunet@baylibre.com>
+Subject: [PATCH net 2/3] net: phy: use boolean dt properties for eee broken modes
+Date: Mon, 19 Dec 2016 16:05:37 +0100
+Message-ID: <1482159938-13239-3-git-send-email-jbrunet@baylibre.com>
+References: <1482159938-13239-1-git-send-email-jbrunet@baylibre.com>
+Cc: Jerome Brunet <jbrunet@baylibre.com>,
+        Carlo Caione <carlo@caione.org>,
+        Kevin Hilman <khilman@baylibre.com>,
+        Martin Blumenstingl <martin.blumenstingl@googlemail.com>,
+        Andre Roth <neolynx@gmail.com>, Andrew Lunn <andrew@lunn.ch>,
+        Neil Armstrong <narmstrong@baylibre.com>,
+        linux-amlogic@lists.infradead.org,
+        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+        Yegor Yefremov <yegorslists@googlemail.com>,
+        =?UTF-8?q?Andreas=20F=C3=A4rber?= <afaerber@suse.de>
+To: netdev@vger.kernel.org, devicetree@vger.kernel.org,
+        Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1482159938-13239-1-git-send-email-jbrunet@baylibre.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+The patches regarding eee-broken-modes was merged before all people
+involved could find an agreement on the best way to move forward.
 
-Le 19/12/2016 =E0 15:58, Thomas Petazzoni a =E9crit :
-> Hello,
->
-> On Mon, 19 Dec 2016 15:16:09 +0100, Romain Perier wrote:
->> This defines and enables the Marvell ethernet switch MVE886341 on the
->> Marvell EXPRESSObin board.
->>
->> Signed-off-by: Romain Perier <romain.perier@free-electrons.com>
->
-> I didn't want to make this (silly) comment but since you got another
-> comment that will let you send a new iteration, here is my silly
-> comment: the name of the board is EspressoBin, not ExpressoBin.
->
-> Thanks!
->
-> Thomas
->
+While we agreed on having a DT property to mark particular modes as broken,
+the value used for eee-broken-modes mapped the phy register in very direct
+way. Because of this, the concern is that it could be used to implement
+configuration policies instead of describing a broken HW.
 
-Ack for the two feedback (I don't know why I have replaced "es" by "ex" =
+In the end, having a boolean property for each mode seems to be preferred
+over one bit field value mapping the register (too) directly.
 
-:/, anyway...)
+Cc: Florian Fainelli <f.fainelli@gmail.com>
+Signed-off-by: Jerome Brunet <jbrunet@baylibre.com>
+---
+ drivers/net/phy/phy_device.c | 18 +++++++++++++++---
+ 1 file changed, 15 insertions(+), 3 deletions(-)
 
-Thanks,
-Romain
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index ee5ebadb1463..92b08383cafa 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -1665,7 +1665,7 @@ static void of_set_phy_supported(struct phy_device *phydev)
+ static void of_set_phy_eee_broken(struct phy_device *phydev)
+ {
+ 	struct device_node *node = phydev->mdio.dev.of_node;
+-	u32 broken;
++	u32 broken = 0;
+ 
+ 	if (!IS_ENABLED(CONFIG_OF_MDIO))
+ 		return;
+@@ -1673,8 +1673,20 @@ static void of_set_phy_eee_broken(struct phy_device *phydev)
+ 	if (!node)
+ 		return;
+ 
+-	if (!of_property_read_u32(node, "eee-broken-modes", &broken))
+-		phydev->eee_broken_modes = broken;
++	if (of_property_read_bool(node, "eee-broken-100tx"))
++		broken |= MDIO_EEE_100TX;
++	if (of_property_read_bool(node, "eee-broken-1000t"))
++		broken |= MDIO_EEE_1000T;
++	if (of_property_read_bool(node, "eee-broken-10gt"))
++		broken |= MDIO_EEE_10GT;
++	if (of_property_read_bool(node, "eee-broken-1000kx"))
++		broken |= MDIO_EEE_1000KX;
++	if (of_property_read_bool(node, "eee-broken-10gkx4"))
++		broken |= MDIO_EEE_10GKX4;
++	if (of_property_read_bool(node, "eee-broken-10gkr"))
++		broken |= MDIO_EEE_10GKR;
++
++	phydev->eee_broken_modes = broken;
+ }
+ 
+ /**
+-- 
+2.7.4
