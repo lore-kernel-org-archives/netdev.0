@@ -1,157 +1,64 @@
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: Re: Synopsys Ethernet QoS
-Date: Mon, 19 Dec 2016 11:01:32 +0000
-Message-ID: <7dcf9815-cc02-42f8-df80-881cfc507671@synopsys.com>
-References: <CAHp75VcKURaTQX9=SY8+46GGATuwO1oXAi8eMS+uwk58sjKx5Q@mail.gmail.com>
- <3aee5a67-5e19-34e6-1719-ff13c7b914ea@gmail.com>
- <CAHp75VfT9B3O5jU0eHoKtgYc48K2ZjCQ-g9ZQ9nX1Hew6tz-zw@mail.gmail.com>
- <556353b7-c847-7549-626d-3c324063647e@gmail.com>
- <f5357ea2-a295-ab08-046e-f8b8f6ca4344@synopsys.com>
- <1d445ec1-deb8-6e36-39c4-6813c446095f@axis.com>
- <73bf8cb4-5685-2db6-529c-1de99b1fd358@st.com>
- <99424968-ad8f-fec6-ebcf-ab7b19ee5486@axis.com> <20161214125735.GA19542@amd>
- <79642215-95ce-7f04-3db7-121c585e2f2a@synopsys.com>
- <20161217173824.GB20231@amd>
- <3c70d3c0-d312-054f-6e8c-54035c63573e@synopsys.com>
+From: Miklos Szeredi <mszeredi@redhat.com>
+Subject: Re: [PATCH] af_unix: fix garbage collect vs. MSG_PEEK
+Date: Mon, 19 Dec 2016 12:21:16 +0100
+Message-ID: <CAOssrKfKuie9BXKs_bmT+48ba25Jd3+Y+W3FcuXyw8X7-2NW=w@mail.gmail.com>
+References: <1475150954-10152-1-git-send-email-mszeredi@redhat.com> <20161003.215103.2267442887041931968.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 8bit
-Cc: Niklas Cassel <niklas.cassel@axis.com>,
-        Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        "Andy Shevchenko" <andy.shevchenko@gmail.com>,
-        David Miller <davem@davemloft.net>, <larper@axis.com>,
-        <rabinv@axis.com>, netdev <netdev@vger.kernel.org>,
-        <CARLOS.PALMINHA@synopsys.com>, <Jie.Deng1@synopsys.com>,
-        Stephen Warren <swarren@nvidia.com>
-To: Pavel Machek <pavel@ucw.cz>, Joao Pinto <Joao.Pinto@synopsys.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay.synopsys.com ([198.182.47.9]:52184 "EHLO
-        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755594AbcLSLBj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2016 06:01:39 -0500
-In-Reply-To: <3c70d3c0-d312-054f-6e8c-54035c63573e@synopsys.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, lkml <linux-kernel@vger.kernel.org>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Nikolay Borisov <kernel@kyup.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161003.215103.2267442887041931968.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Às 10:55 AM de 12/19/2016, Joao Pinto escreveu:
-> 
-> Hi Pavel,
-> 
-> Às 5:38 PM de 12/17/2016, Pavel Machek escreveu:
->> Hi!
+On Tue, Oct 4, 2016 at 3:51 AM, David Miller <davem@davemloft.net> wrote:
+> From: Miklos Szeredi <mszeredi@redhat.com>
+> Date: Thu, 29 Sep 2016 14:09:14 +0200
+>
+>> @@ -1550,6 +1550,17 @@ static int unix_attach_fds(struct scm_cookie *scm, struct sk_buff *skb)
+>>       return max_level;
+>>  }
 >>
->>>>> So if there is a long time before handling interrupts,
->>>>> I guess that it makes sense that one stream could
->>>>> get an advantage in the net scheduler.
->>>>>
->>>>> If I find the time, and if no one beats me to it, I will try to replace
->>>>> the normal timers with HR timers + a smaller default timeout.
->>>>>
->>>>
->>>> Can you try something like this? Highres timers will be needed, too,
->>>> but this fixes the logic problem.
->>>>
->>>> You'll need to apply it twice as code is copy&pasted.
->>>>
->>>> Best regards,
->>>> 									Pavel
->>>>
->>>> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
->>>>
->>>>  	 */
->>>>  	priv->tx_count_frames += nfrags + 1;
->>>>  	if (likely(priv->tx_coal_frames > priv->tx_count_frames)) {
->>>> -		mod_timer(&priv->txtimer,
->>>> -			  STMMAC_COAL_TIMER(priv->tx_coal_timer));
->>>> +		if (priv->tx_count_frames == nfrags + 1)
->>>> +			mod_timer(&priv->txtimer,
->>>> +				  STMMAC_COAL_TIMER(priv->tx_coal_timer));
->>>>  	} else {
->>>>  		priv->tx_count_frames = 0;
->>>>  		priv->hw->desc->set_tx_ic(desc);
->>>>
->>>>
->>>
->>> I know that this is completely of topic, but I am facing a dificulty with
->>> stmmac. I have interrupts, mac well configured rx packets being received
->>> successfully, but TX is not working, resulting in Tx errors = Total TX packets.
->>> I have made a lot of debug and my conclusions is that by some reason when using
->>> stmmac after starting tx dma, the hw state machine enters a deadend state
->>> resulting in those errors. Anyone faced this trouble?
+>> +static void unix_peek_fds(struct scm_cookie *scm, struct sk_buff *skb)
+>> +{
+>> +     scm->fp = scm_fp_dup(UNIXCB(skb).fp);
+>> +     /*
+>> +      * During garbage collection it is assumed that in-flight sockets don't
+>> +      * get a new external reference.  So we need to wait until current run
+>> +      * finishes.
+>> +      */
+>> +     unix_gc_barrier();
+>> +}
+>  ...
+>> @@ -266,6 +266,11 @@ void wait_for_unix_gc(void)
+>>       wait_event(unix_gc_wait, gc_in_progress == false);
+>>  }
 >>
->> SMP or UP system? AFAICT the driver gets the memory barriers wrong. It
->> does not fail completely for me, but still fails rather quickly.
-> 
-> I was able to put my setup receiving and transmiting packets. The problem is
-> that because my hw controller supports multi-queues, I had to enable the TX
-> queue 0 in order for it to work.
-> 
-> Now I am facing a new problem. My DUT with stmmac does not answer to ARP
-> messages. When I execute a "ping" the other machine in the nework executes a ARP
-> message asking "who is the owner of IP XXXX" which my DUT does not reply. I used
-> wireshark and the ARP messages are reaching the DUT machine, but for some reason
-> it does not reply. Did you ever face this problem when using stmmac?
-> 
-> When using my internal driver, it works perfectly, so some detail in the stmmac
-> I suppose.
-> 
-> Tahnks.
+>> +void unix_gc_barrier(void)
+>> +{
+>> +     spin_unlock_wait(&unix_gc_lock);
+>> +}
+>
+> Can you explain why wait_for_unix_gc() isn't appropriate?  I'm a little
+> bit uncomfortable with a spinlock wait like this, and would rather see
+> something like the existing helper used.
 
-Forgot to say that I am using a PC with SMP and a PCI link to the controller.
+Missed this mail, sorry for the late reply...
 
-Thanks.
+AFAICS wait_for_unix_gc() lacks a barrier that the spin lock provides.
 
-> 
->>
->> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
->> index 3e40578..641b03d 100644
->> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
->> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
->> @@ -2121,11 +2205,11 @@ static netdev_tx_t stmmac_tso_xmit(struct sk_buff *skb, struct net_device *dev)
->>  	if (mss_desc)
->>  		priv->hw->desc->set_tx_owner(mss_desc);
->>  
->> -	/* The own bit must be the latest setting done when prepare the
->> +	/* The own bit must be the latest setting done when preparing the
->>  	 * descriptor and then barrier is needed to make sure that
->>  	 * all is coherent before granting the DMA engine.
->>  	 */
->> -	smp_wmb();
->> +	wmb();
->>  
->>  	if (netif_msg_pktdata(priv)) {
->>  		pr_info("%s: curr=%d dirty=%d f=%d, e=%d, f_p=%p, nfrags %d\n",
->> @@ -2336,9 +2401,9 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
->>  
->>  		/* The own bit must be the latest setting done when prepare the
->>  		 * descriptor and then barrier is needed to make sure that
->> -		 * all is coherent before granting the DMA engine.
->> +		 * all is coherent before granting access to the DMA engine.
->>  		 */
->> -		smp_wmb();
->> +		wmb();
->>  	}
->>  
->>  	netdev_sent_queue(dev, skb->len);
->>
->> Plus I'd suggest... at least (hand-edited). Driver should really be
->> modified to use readl() when accessing memory that changes.
->>
->> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
->> index 3e40578..641b03d 100644
->> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
->> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
->> @@ -1309,6 +1323,8 @@ static void stmmac_tx_clean(struct stmmac_priv *priv)
->>  		status = priv->hw->desc->tx_status(&priv->dev->stats,
->>  						      &priv->xstats, p,
->>  						      priv->ioaddr);
->> +		rmb();
->> +		
->>  		/* Check if the descriptor is owned by the DMA */
->>  		if (unlikely(status & tx_dma_own))
->>  			break;
->>
->> 									Pavel
->>
-> 
+The ordering needs to be strictly:
+
+A: duplicate file pointers
+B: garbage collect
+
+Also wait_for_unix_gc() is an overkill since the complete garbage
+collect (including purging the trash) will take longer than the
+collection stage, which we need to have ordering with.  This probably
+doesn't matter much in practice.
+
+Thanks,
+Miklos
