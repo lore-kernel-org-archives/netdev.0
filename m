@@ -1,41 +1,38 @@
-From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
-Subject: RE: [PATCH net] virtio_net: reject XDP programs using header
- adjustment
-Date: Mon, 19 Dec 2016 15:23:52 +0000
-Message-ID: <BL2PR07MB2306FB78FBB5F2D17681699D8D910@BL2PR07MB2306.namprd07.prod.outlook.com>
-References: <20161219150500.2600-1-jakub.kicinski@netronome.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net v2 2/5] powerpc: remove fsl,fman from
+ of_device_ids[]
+Date: Mon, 19 Dec 2016 10:37:12 -0500 (EST)
+Message-ID: <20161219.103712.1578523196484939315.davem@davemloft.net>
+References: <1482139343-8975-1-git-send-email-madalin.bucur@nxp.com>
+        <1482139343-8975-3-git-send-email-madalin.bucur@nxp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "john.fastabend@gmail.com" <john.fastabend@gmail.com>,
-        "kafai@fb.com" <kafai@fb.com>,
-        "daniel@iogearbox.net" <daniel@iogearbox.net>,
-        "alexei.starovoitov@gmail.com" <alexei.starovoitov@gmail.com>,
-        "mst@redhat.com" <mst@redhat.com>
-To: Jakub Kicinski <jakub.kicinski@netronome.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+        linux-kernel@vger.kernel.org, scott.wood@nxp.com,
+        mpe@ellerman.id.au
+To: madalin.bucur@nxp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-dm3nam03on0055.outbound.protection.outlook.com ([104.47.41.55]:30503
-        "EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S932170AbcLSPXy (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 19 Dec 2016 10:23:54 -0500
-In-Reply-To: <20161219150500.2600-1-jakub.kicinski@netronome.com>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([184.105.139.130]:46340 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754968AbcLSPhU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2016 10:37:20 -0500
+In-Reply-To: <1482139343-8975-3-git-send-email-madalin.bucur@nxp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> commit 17bedab27231 ("bpf: xdp: Allow head adjustment in XDP prog")
-> added a new XDP helper to prepend and remove data from a frame.
-> Make virtio_net reject programs making use of this helper until proper
-> support is added.
->=20
-> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+From: Madalin Bucur <madalin.bucur@nxp.com>
+Date: Mon, 19 Dec 2016 11:22:20 +0200
 
-Is that how it goes until we'll add the proper infrastructure?
-Am I expected to provide the same for qede?
+> The fsl/fman drivers will use of_platform_populate() on all
+> supported platforms.
+> 
+> Signed-off-by: Madalin Bucur <madalin.bucur@nxp.com>
 
-I was under the impression that so long as this is being [early] developed
-and there's no way to communicate what is and isn't supported by
-a given implementation, it would simply be the user's responsibility
-to make sure what he's trying is supported.
+It seems that this creates a failure point between patches #2 and
+#3.  If the cases handled by this "fsl,fman" entry are only afterwards
+covered by the of_platform_populate() code added in patch #3 then you
+cannot split these two changes up like this.
+
+The two changes must be done at the same time, otherwise probing will
+fail for some people between patches #2 and #3.
