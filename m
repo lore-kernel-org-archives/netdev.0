@@ -1,13 +1,14 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH 2/4] net: dsa: mv88e6xxx: Don't forbid MDIO I/Os for PHY
- addr >= num_of_ports
-Date: Mon, 19 Dec 2016 15:56:06 +0100
-Message-ID: <20161219145606.GD10048@lunn.ch>
+From: Romain Perier <romain.perier@free-electrons.com>
+Subject: Re: [PATCH 1/4] net: dsa: mv88e6xxx: Allow mv88e6xxx_smi_init() to be
+ used at address 0x1
+Date: Mon, 19 Dec 2016 15:56:34 +0100
+Message-ID: <292d4f15-c58b-3565-26ec-98a025b6adb3@free-electrons.com>
 References: <20161219141610.30934-1-romain.perier@free-electrons.com>
- <20161219141610.30934-3-romain.perier@free-electrons.com>
+ <20161219141610.30934-2-romain.perier@free-electrons.com>
+ <20161219143848.GA10048@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="windows-1252"; Format="flowed"
+Content-Transfer-Encoding: quoted-printable
 Cc: Mark Rutland <mark.rutland@arm.com>, devicetree@vger.kernel.org,
  Florian Fainelli <f.fainelli@gmail.com>, Jason Cooper <jason@lakedaemon.net>,
  Pawel Moll <pawel.moll@arm.com>,
@@ -19,10 +20,10 @@ Cc: Mark Rutland <mark.rutland@arm.com>, devicetree@vger.kernel.org,
  Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
  linux-arm-kernel@lists.infradead.org,
  Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: Romain Perier <romain.perier@free-electrons.com>
+To: Andrew Lunn <andrew@lunn.ch>,
+ Volodymyr Bendiuga <volodymyr.bendiuga@gmail.com>
 Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-Content-Disposition: inline
-In-Reply-To: <20161219141610.30934-3-romain.perier@free-electrons.com>
+In-Reply-To: <20161219143848.GA10048@lunn.ch>
 List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
  <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
 List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
@@ -34,19 +35,35 @@ Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 19, 2016 at 03:16:07PM +0100, Romain Perier wrote:
-> Some Marvell ethernet switches have internal ethernet transceivers with
-> hardcoded phy addresses. These addresses can be grearer than the number
-> of ports or its value might be different than the associated port number.
-> This is for example the case for MV88E6341 that has 6 ports and internal
-> Port 1 to Port4 PHYs mapped at SMI addresses from 0x11 to 0x14.
-> 
-> This commits fixes the issue by removing the condition in MDIO callbacks.
-> 
-> Signed-off-by: Romain Perier <romain.perier@free-electrons.com>
+Hi Andrew,
 
-So it is not quite compatible with the 6352. Thanks Marvell :-(
+Le 19/12/2016 =E0 15:38, Andrew Lunn a =E9crit :
+> On Mon, Dec 19, 2016 at 03:16:06PM +0100, Romain Perier wrote:
+>> Currently, the function mv88e6xxx_smi_init() returns -EINVAL if the bit
+>> zero of sw_addr is 0x1. However, on some platforms, ethernet switches
+>> are configured in Multi chip addressing mode and available at MDIO
+>> address 0x1.
+>
+> Hi Romain
+>
+> What branch is this against? net-next?
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+Until last friday it was based onto next-20161216, I rebased onto the =
 
-    Andrew
+torvalds's tree this morning (so ~4.10-pre-rc1).
+
+>
+> Please see:
+>
+> https://www.spinics.net/lists/netdev/msg409156.html
+
+Oh, it's already fixed, good. I did not see this patch :)
+
+>
+> It would be nicer to use Volodymyr, since it has been reviewed.
+
+
+As the fix is already there, I will use it, sure.
+
+Thanks,
+Romain
