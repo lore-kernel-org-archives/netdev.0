@@ -1,55 +1,97 @@
-From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-Subject: Re: [PATCH 1/2] net: ethernet: sxgbe: remove private tx queue lock
-Date: Mon, 19 Dec 2016 23:49:25 +0100
-Message-ID: <f007ba4c-71ea-0abf-8715-be7b0bec6080@gmx.de>
-References: <20161209112142.GA22710@amd>
- <c76124b9-6376-42b9-2821-b5a8185f5034@gmx.de> <20161211201104.GB20574@amd>
- <cfad6b84-de23-2e03-6d34-2b3451975179@gmx.de> <20161215210324.GA13878@amd>
- <f3fc8035-fb6e-fb06-d9b8-bfc96dc4e1d2@gmx.de>
- <6f43eac8-754b-cfa2-371d-050701deb4cd@gmx.de> <20161217173150.GA20231@amd>
- <20161218001507.GA5343@electric-eye.fr.zoreil.com>
- <a2cbcfcd-f377-565c-a21c-3daa3abce519@gmx.de> <20161218183010.GA7886@amd>
+From: Murali Karicheri <m-karicheri2@ti.com>
+Subject: [PATCH net 1/2] net: netcp: ethss: fix errors in ethtool ops
+Date: Mon, 19 Dec 2016 17:55:56 -0500
+Message-ID: <1482188157-24490-1-git-send-email-m-karicheri2@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Francois Romieu <romieu@fr.zoreil.com>, bh74.an@samsung.com,
-        ks.giri@samsung.com, vipul.pandya@samsung.com,
-        peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        davem@davemloft.net, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org
-To: Pavel Machek <pavel@ucw.cz>
+Content-Type: text/plain
+To: <netdev@vger.kernel.org>, <davem@davemloft.net>,
+        <linux-kernel@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161218183010.GA7886@amd>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+From: WingMan Kwok <w-kwok2@ti.com>
 
-On 18.12.2016 19:30, Pavel Machek wrote:
-> Hi!
-> 
->> > - e1efa87241272104d6a12c8b9fcdc4f62634d447
->> 
->> Yep, a sync of the dma descriptors before the hardware gets ownership of the tx tail
->> idx is missing in the stmmac, too.
-> 
-> I can reproduce failure with 4.4 fairly easily. I tried with dma_
-> variant of barriers, and it failed, too
-> 
-> [ 1018.410012] stmmac: early irq
-> [ 1023.939702] fpga_cmd_read:wait_event timed out!
-> [ 1033.128692] ------------[ cut here ]------------
-> [ 1033.133329] WARNING: CPU: 0 PID: 0 at net/sched/sch_generic.c:303
-> dev_watchdog+0x264/0x284()
-> [ 1033.141748] NETDEV WATCHDOG: eth0 (socfpga-dwmac): transmit queue 0
-> timed out
-> [ 1033.148861] Modules linked in:
+In ethtool ops, it needs to retrieve the corresponding
+ethss module (gbe or xgbe) from the net_device structure.
+Prior to this patch, the retrieving procedure only
+checks for the gbe module.  This patch fixes the issue
+by checking the xgbe module if the net_device structure
+does not correspond to the gbe module.
 
-This watchdog warning clearly says that for some reason the tx queue was stopped
-but never woken up in a certain timespan (5 sec in our case, which is a lot).
+Signed-off-by: WingMan Kwok <w-kwok2@ti.com>
+Signed-off-by: Murali Karicheri <m-karicheri2@ti.com>
+Signed-off-by: Sekhar Nori <nsekhar@ti.com>
+---
+ drivers/net/ethernet/ti/netcp_ethss.c | 21 ++++++++++++++++-----
+ 1 file changed, 16 insertions(+), 5 deletions(-)
 
-Does this occur after the queue has been stopped and woken up again a few times or
-is it already the first time the queue is stopped (and never woken up)? 
-
-Regards,
-Lino
+diff --git a/drivers/net/ethernet/ti/netcp_ethss.c b/drivers/net/ethernet/ti/netcp_ethss.c
+index c7e547e..a31931c 100644
+--- a/drivers/net/ethernet/ti/netcp_ethss.c
++++ b/drivers/net/ethernet/ti/netcp_ethss.c
+@@ -1746,6 +1746,17 @@ static void keystone_set_msglevel(struct net_device *ndev, u32 value)
+ 	netcp->msg_enable = value;
+ }
+ 
++static struct gbe_intf *keystone_get_intf_data(struct netcp_intf *netcp)
++{
++	struct gbe_intf *gbe_intf;
++
++	gbe_intf = netcp_module_get_intf_data(&gbe_module, netcp);
++	if (!gbe_intf)
++		gbe_intf = netcp_module_get_intf_data(&xgbe_module, netcp);
++
++	return gbe_intf;
++}
++
+ static void keystone_get_stat_strings(struct net_device *ndev,
+ 				      uint32_t stringset, uint8_t *data)
+ {
+@@ -1754,7 +1765,7 @@ static void keystone_get_stat_strings(struct net_device *ndev,
+ 	struct gbe_priv *gbe_dev;
+ 	int i;
+ 
+-	gbe_intf = netcp_module_get_intf_data(&gbe_module, netcp);
++	gbe_intf = keystone_get_intf_data(netcp);
+ 	if (!gbe_intf)
+ 		return;
+ 	gbe_dev = gbe_intf->gbe_dev;
+@@ -1778,7 +1789,7 @@ static int keystone_get_sset_count(struct net_device *ndev, int stringset)
+ 	struct gbe_intf *gbe_intf;
+ 	struct gbe_priv *gbe_dev;
+ 
+-	gbe_intf = netcp_module_get_intf_data(&gbe_module, netcp);
++	gbe_intf = keystone_get_intf_data(netcp);
+ 	if (!gbe_intf)
+ 		return -EINVAL;
+ 	gbe_dev = gbe_intf->gbe_dev;
+@@ -1896,7 +1907,7 @@ static void keystone_get_ethtool_stats(struct net_device *ndev,
+ 	struct gbe_intf *gbe_intf;
+ 	struct gbe_priv *gbe_dev;
+ 
+-	gbe_intf = netcp_module_get_intf_data(&gbe_module, netcp);
++	gbe_intf = keystone_get_intf_data(netcp);
+ 	if (!gbe_intf)
+ 		return;
+ 
+@@ -1920,7 +1931,7 @@ static int keystone_get_link_ksettings(struct net_device *ndev,
+ 	if (!phy)
+ 		return -EINVAL;
+ 
+-	gbe_intf = netcp_module_get_intf_data(&gbe_module, netcp);
++	gbe_intf = keystone_get_intf_data(netcp);
+ 	if (!gbe_intf)
+ 		return -EINVAL;
+ 
+@@ -1953,7 +1964,7 @@ static int keystone_set_link_ksettings(struct net_device *ndev,
+ 	if (!phy)
+ 		return -EINVAL;
+ 
+-	gbe_intf = netcp_module_get_intf_data(&gbe_module, netcp);
++	gbe_intf = keystone_get_intf_data(netcp);
+ 	if (!gbe_intf)
+ 		return -EINVAL;
+ 
+-- 
+1.9.1
