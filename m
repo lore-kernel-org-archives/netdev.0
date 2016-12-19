@@ -1,92 +1,73 @@
-From: "Niklas =?iso-8859-1?Q?S=F6derlund?=" <niklas.soderlund@ragnatech.se>
-Subject: Re: [PATCHv2 1/5] sh_eth: add generic wake-on-lan support via magic
- packet
-Date: Mon, 19 Dec 2016 17:41:59 +0100
-Message-ID: <20161219164159.GF21006@bigcity.dyn.berto.se>
-References: <20161212160931.6478-1-niklas.soderlund+renesas@ragnatech.se>
- <20161212160931.6478-2-niklas.soderlund+renesas@ragnatech.se>
- <079800f0-2e80-7a0b-01e2-51e09f05345c@cogentembedded.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH RFC net-next 2/7] net: add dst_pending_confirm flag to
+ skbuff
+Date: Mon, 19 Dec 2016 17:53:34 +0100
+Message-ID: <cf2013b6-8c5d-2e85-107d-a0faa52cc786@stressinduktion.org>
+References: <1482094596-26046-1-git-send-email-ja@ssi.bg>
+ <1482094596-26046-3-git-send-email-ja@ssi.bg>
+ <1482164252.1521.7.camel@edumazet-glaptop3.roam.corp.google.com>
+ <f9dadb5e-172a-4c39-c564-38be672ef0eb@stressinduktion.org>
+ <1482165628.1521.9.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: Simon Horman <horms+renesas@verge.net.au>, netdev@vger.kernel.org,
-        linux-renesas-soc@vger.kernel.org,
-        Geert Uytterhoeven <geert@linux-m68k.org>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Julian Anastasov <ja@ssi.bg>, netdev@vger.kernel.org,
+        linux-sctp@vger.kernel.org, YueHaibing <yuehaibing@huawei.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f52.google.com ([209.85.215.52]:36138 "EHLO
-        mail-lf0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932519AbcLSQmC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2016 11:42:02 -0500
-Received: by mail-lf0-f52.google.com with SMTP id t196so57982513lff.3
-        for <netdev@vger.kernel.org>; Mon, 19 Dec 2016 08:42:01 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <079800f0-2e80-7a0b-01e2-51e09f05345c@cogentembedded.com>
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:45990 "EHLO
+        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1755276AbcLSQxi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2016 11:53:38 -0500
+In-Reply-To: <1482165628.1521.9.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Sergei,
+On 19.12.2016 17:40, Eric Dumazet wrote:
+> On Mon, 2016-12-19 at 17:36 +0100, Hannes Frederic Sowa wrote:
+>> On 19.12.2016 17:17, Eric Dumazet wrote:
+>>> On Sun, 2016-12-18 at 22:56 +0200, Julian Anastasov wrote:
+>>>
+>>>>  
+>>>> +static inline void sock_confirm_neigh(struct sk_buff *skb, struct neighbour *n)
+>>>> +{
+>>>> +	if (unlikely(skb->dst_pending_confirm)) {
+>>>> +		struct sock *sk = skb->sk;
+>>>> +		unsigned long now = jiffies;
+>>>> +
+>>>> +		/* avoid dirtying neighbour */
+>>>> +		if (n->confirmed != now)
+>>>> +			n->confirmed = now;
+>>>> +		if (sk && sk->sk_dst_pending_confirm)
+>>>> +			sk->sk_dst_pending_confirm = 0;
+>>>> +	}
+>>>> +}
+>>>> +
+>>>
+>>> I am still digesting this awesome patch series ;)
+>>>
+>>> Not sure why you used an unlikely() here. TCP for example would hit this
+>>> path quite often.
+>>>
+>>> So considering sk_dst_pending_confirm might be dirtied quite often,
+>>>
+>>> I am not sure why you placed it in the cache line that contains
+>>> sk_rx_dst (in 1st patch)
+>>
+>> Because they have to stay synchronized?
+>>
+>> If we modify sk_rx_dst, we automatically also must clear
+>> pending_confirm, otherwise we might end up confirming a wrong neighbor.
+> 
+> Your answer makes little sense really...
+> 
+> For most TCP flows, we set sk_rx_dst exactly once.
+> 
+> Hardly a good reason to have these in the same cache line.
 
-On 2016-12-18 00:50:59 +0300, Sergei Shtylyov wrote:
-> Hello!
-> 
-> On 12/12/2016 07:09 PM, Niklas Söderlund wrote:
-> 
->    Not the complete review yet, just some superficial comments.
-> 
-> > Add generic functionality to support Wake-on-Lan using MagicPacket which
-> 
->    LAN.
-> 
-> > are supported by at least a few versions of sh_eth. Only add
-> > functionality for WoL, no specific sh_eth version are marked to support
-> > WoL yet.
-> 
-> [...]
-> 
-> > diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-> > index 05b0dc5..87640b9 100644
-> > --- a/drivers/net/ethernet/renesas/sh_eth.c
-> > +++ b/drivers/net/ethernet/renesas/sh_eth.c
-> [...]
-> > @@ -3150,15 +3187,67 @@ static int sh_eth_drv_remove(struct platform_device *pdev)
-> [...]
-> > +static int sh_eth_wol_restore(struct net_device *ndev)
-> > +{
-> > +	struct sh_eth_private *mdp = netdev_priv(ndev);
-> > +	int ret;
-> > +
-> > +	napi_enable(&mdp->napi);
-> > +
-> > +	/* Disable MagicPacket */
-> > +	sh_eth_modify(ndev, ECMR, ECMR_PMDE, 0);
-> > +
-> > +	/* The device need to be reset to restore MagicPacket logic
-> 
->    Needs.
-> 
-> [...]
-> > index d050f37..4ceed00 100644
-> > --- a/drivers/net/ethernet/renesas/sh_eth.h
-> > +++ b/drivers/net/ethernet/renesas/sh_eth.h
-> > @@ -493,6 +493,7 @@ struct sh_eth_cpu_data {
-> >  	unsigned shift_rd0:1;	/* shift Rx descriptor word 0 right by 16 */
-> >  	unsigned rmiimode:1;	/* EtherC has RMIIMODE register */
-> >  	unsigned rtrate:1;	/* EtherC has RTRATE register */
-> > +	unsigned magic:1;	/* EtherC has ECMR.PMDE and ECSR.MPD */
-> 
->    After looking at the SH7734/63 manuals it became obvious that PMDE was a
-> result of typo, the bit is called MPDE actually, the current name doesn't
-> make sense anyway. Care to fix?
+Right :) , and I didn't actually wanted to make an argument in favor of
+that. Just noted they are probably semantically grouped together as an
+explanation.
 
-Sure, I add fixup patch to the front of this series which cleans this up 
-before adding WoL support. Or would you prefer I sent a separate patch 
-and have the WoL series depend on it?
-
-> 
-> MBR, Sergei
-> 
-
--- 
-Regards,
-Niklas Söderlund
+Sorry,
+Hannes
