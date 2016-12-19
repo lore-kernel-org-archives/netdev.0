@@ -1,84 +1,88 @@
-From: Geoff Lansberry <geoff-R+k406RtEhcAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 1/3] NFC: trf7970a: add device tree option for 27MHz clock
-Date: Mon, 19 Dec 2016 18:23:00 -0500
-Message-ID: <CAO7Z3WKmEbJCN_=srxTVKXvtz84vHGi41RS+9T7fmkmhRB6nEw@mail.gmail.com>
-References: <1481841044-4314-1-git-send-email-glansberry@gmail.com> <20161219223111.itu77g7wsqtj6cvs@rob-hp-laptop>
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: Re: mlx4: Bug in XDP_TX + 16 rx-queues
+Date: Mon, 19 Dec 2016 15:37:09 -0800
+Message-ID: <20161219233709.GA29858@kafai-mba.local>
+References: <20161217101803.GB8732@kafai-mba.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Lauro Ramos Venancio <lauro.venancio-430g2QfJUUCGglJvpFV4uA@public.gmane.org>,
-        Aloisio Almeida Jr <aloisio.almeida-430g2QfJUUCGglJvpFV4uA@public.gmane.org>,
-        Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Mark Greer <mgreer-luAo+O/VEmrlveNOaEYElw@public.gmane.org>,
-        Justin Bronder <justin-R+k406RtEhcAvxtiuMwx3w@public.gmane.org>
-To: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20161219223111.itu77g7wsqtj6cvs@rob-hp-laptop>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: Saeed Mahameed <saeedm@mellanox.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Alexei Starovoitov <ast@fb.com>
+To: Tariq Toukan <tariqt@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:45973 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1753250AbcLSXhT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2016 18:37:19 -0500
+Content-Disposition: inline
+In-Reply-To: <20161217101803.GB8732@kafai-mba.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-I can make that change, however, I worry that it may be a bit
-misleading, since there are only two supported clock frequencies, but
-a number like that to me implies that it could be set to any number
-you want.   I'm new at this, and so I'll go ahead and change it as you
-request, but I'd like to hear your thoughts on my concern.
+Hi Tariq,
+
+On Sat, Dec 17, 2016 at 02:18:03AM -0800, Martin KaFai Lau wrote:
+> Hi All,
+>
+> I have been debugging with XDP_TX and 16 rx-queues.
+>
+> 1) When 16 rx-queues is used and an XDP prog is doing XDP_TX,
+> it seems that the packet cannot be XDP_TX out if the pkt
+> is received from some particular CPUs (/rx-queues).
+>
+> 2) If 8 rx-queues is used, it does not have problem.
+>
+> 3) The 16 rx-queues problem also went away after reverting these
+> two patches:
+> 15fca2c8eb41 net/mlx4_en: Add ethtool statistics for XDP cases
+> 67f8b1dcb9ee net/mlx4_en: Refactor the XDP forwarding rings scheme
+>
+After taking a closer look at 67f8b1dcb9ee ("net/mlx4_en: Refactor the XDP forwarding rings scheme")
+and armed with the fact that '>8 rx-queues does not work', I have
+made the attached change that fixed the issue.
+
+Making change in mlx4_en_fill_qp_context() could be an easier fix
+but I think this change will be easier for discussion purpose.
+
+I don't want to lie that I know anything about how this variable
+works in CX3.  If this change makes sense, I can cook up a diff.
+Otherwise, can you shed some light on what could be happening
+and hopefully can lead to a diff?
 
 Thanks
-Geoff
-Geoff Lansberry
+--Martin
 
 
-Engineering Guy
-Kuv=C3=A9e, Inc
-125 Kingston St., 3rd Floor
-Boston, MA 02111
-1-617-290-1118 (m)
-geoff.lansberry (skype)
-http://www.kuvee.com
+diff --git i/drivers/net/ethernet/mellanox/mlx4/en_netdev.c w/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index bcd955339058..b3bfb987e493 100644
+--- i/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ w/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -1638,10 +1638,10 @@ int mlx4_en_start_port(struct net_device *dev)
 
+ 	/* Configure tx cq's and rings */
+ 	for (t = 0 ; t < MLX4_EN_NUM_TX_TYPES; t++) {
+-		u8 num_tx_rings_p_up = t == TX ? priv->num_tx_rings_p_up : 1;
+-
+ 		for (i = 0; i < priv->tx_ring_num[t]; i++) {
+ 			/* Configure cq */
++			int user_prio;
++
+ 			cq = priv->tx_cq[t][i];
+ 			err = mlx4_en_activate_cq(priv, cq, i);
+ 			if (err) {
+@@ -1660,9 +1660,14 @@ int mlx4_en_start_port(struct net_device *dev)
 
-
-On Mon, Dec 19, 2016 at 5:31 PM, Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org> wrote:
-> On Thu, Dec 15, 2016 at 05:30:42PM -0500, Geoff Lansberry wrote:
->> From: Geoff Lansberry <geoff-R+k406RtEhcAvxtiuMwx3w@public.gmane.org>
->>
->> ---
->>  .../devicetree/bindings/net/nfc/trf7970a.txt       |  3 ++
->>  drivers/nfc/trf7970a.c                             | 42 +++++++++++++++=
-+------
->>  2 files changed, 34 insertions(+), 11 deletions(-)
->>
->> diff --git a/Documentation/devicetree/bindings/net/nfc/trf7970a.txt b/Do=
-cumentation/devicetree/bindings/net/nfc/trf7970a.txt
->> index 32b35a0..9dda879 100644
->> --- a/Documentation/devicetree/bindings/net/nfc/trf7970a.txt
->> +++ b/Documentation/devicetree/bindings/net/nfc/trf7970a.txt
->> @@ -21,6 +21,8 @@ Optional SoC Specific Properties:
->>  - t5t-rmb-extra-byte-quirk: Specify that the trf7970a has the erratum
->>    where an extra byte is returned by Read Multiple Block commands issue=
-d
->>    to Type 5 tags.
->> +- crystal_27mhz: Set to specify that the input frequency to the trf7970=
-a is 27.12MHz
->> +
->
-> Can't you use 'clock-frequency =3D "27000000";'?
->
->>
->>  Example (for ARM-based BeagleBone with TRF7970A on SPI1):
->>
->> @@ -43,6 +45,7 @@ Example (for ARM-based BeagleBone with TRF7970A on SPI=
-1):
->>               irq-status-read-quirk;
->>               en2-rf-quirk;
->>               t5t-rmb-extra-byte-quirk;
->> +             crystal_27mhz;
->>               status =3D "okay";
->>       };
->>  };
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ 			/* Configure ring */
+ 			tx_ring = priv->tx_ring[t][i];
++			if (t != TX_XDP)
++				user_prio = i / priv->num_tx_rings_p_up;
++			else
++				user_prio = i & 0x07;
++
+ 			err = mlx4_en_activate_tx_ring(priv, tx_ring,
+ 						       cq->mcq.cqn,
+-						       i / num_tx_rings_p_up);
++						       user_prio);
+ 			if (err) {
+ 				en_err(priv, "Failed allocating Tx ring\n");
+ 				mlx4_en_deactivate_cq(priv, cq);
