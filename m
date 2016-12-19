@@ -1,47 +1,76 @@
 From: Madalin Bucur <madalin.bucur@nxp.com>
-Subject: [PATCH net v2 0/5] fsl/fman: fixes for ARM
-Date: Mon, 19 Dec 2016 11:22:18 +0200
-Message-ID: <1482139343-8975-1-git-send-email-madalin.bucur@nxp.com>
-Reply-To: madalin.bucur@nxp.com
+Subject: [PATCH net v2 4/5] fsl/fman: A007273 only applies to PPC SoCs
+Date: Mon, 19 Dec 2016 11:22:22 +0200
+Message-ID: <1482139343-8975-5-git-send-email-madalin.bucur@nxp.com>
+References: <1482139343-8975-1-git-send-email-madalin.bucur@nxp.com>
+Reply-To: <madalin.bucur@nxp.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: scott.wood@nxp.com, linuxppc-dev@lists.ozlabs.org,
- linux-kernel@vger.kernel.org, davem@davemloft.net
+Cc: <linuxppc-dev@lists.ozlabs.org>, <linux-kernel@vger.kernel.org>,
+        <davem@davemloft.net>, <scott.wood@nxp.com>, <mpe@ellerman.id.au>
 To: <netdev@vger.kernel.org>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1482139343-8975-1-git-send-email-madalin.bucur@nxp.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The patch set fixes advertised speeds for QSGMII interfaces, disables
-A007273 erratum workaround on non-PowerPC platforms where it does not
-apply, enables compilation on ARM64 and addresses a probing issue on
-non PPC platforms.
+Signed-off-by: Madalin Bucur <madalin.bucur@nxp.com>
+Reviewed-by: Camelia Groza <camelia.groza@nxp.com>
+---
+ drivers/net/ethernet/freescale/fman/fman.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
 
-Changes from v1: unifying probing on all supported platforms
-
-Igal Liberman (1):
-  fsl/fman: call of_platform_populate()
-
-Madalin Bucur (4):
-  fsl/fman: fix 1G support for QSGMII interfaces
-  powerpc: remove fsl,fman from of_device_ids[]
-  fsl/fman: A007273 only applies to PPC SoCs
-  fsl/fman: enable compilation on ARM64
-
- arch/powerpc/platforms/85xx/corenet_generic.c |  3 ---
- drivers/net/ethernet/freescale/fman/Kconfig   |  2 +-
- drivers/net/ethernet/freescale/fman/fman.c    | 16 ++++++++++++++++
- drivers/net/ethernet/freescale/fman/mac.c     |  1 +
- 4 files changed, 18 insertions(+), 4 deletions(-)
-
+diff --git a/drivers/net/ethernet/freescale/fman/fman.c b/drivers/net/ethernet/freescale/fman/fman.c
+index 0b7f711..003b86d 100644
+--- a/drivers/net/ethernet/freescale/fman/fman.c
++++ b/drivers/net/ethernet/freescale/fman/fman.c
+@@ -1890,6 +1890,7 @@ static int fman_reset(struct fman *fman)
+ 
+ 		goto _return;
+ 	} else {
++#ifdef CONFIG_PPC
+ 		struct device_node *guts_node;
+ 		struct ccsr_guts __iomem *guts_regs;
+ 		u32 devdisr2, reg;
+@@ -1921,6 +1922,7 @@ static int fman_reset(struct fman *fman)
+ 
+ 		/* Enable all MACs */
+ 		iowrite32be(reg, &guts_regs->devdisr2);
++#endif
+ 
+ 		/* Perform FMan reset */
+ 		iowrite32be(FPM_RSTC_FM_RESET, &fman->fpm_regs->fm_rstc);
+@@ -1932,25 +1934,31 @@ static int fman_reset(struct fman *fman)
+ 		} while (((ioread32be(&fman->fpm_regs->fm_rstc)) &
+ 			 FPM_RSTC_FM_RESET) && --count);
+ 		if (count == 0) {
++#ifdef CONFIG_PPC
+ 			iounmap(guts_regs);
+ 			of_node_put(guts_node);
++#endif
+ 			err = -EBUSY;
+ 			goto _return;
+ 		}
++#ifdef CONFIG_PPC
+ 
+ 		/* Restore devdisr2 value */
+ 		iowrite32be(devdisr2, &guts_regs->devdisr2);
+ 
+ 		iounmap(guts_regs);
+ 		of_node_put(guts_node);
++#endif
+ 
+ 		goto _return;
+ 
++#ifdef CONFIG_PPC
+ guts_regs:
+ 		of_node_put(guts_node);
+ guts_node:
+ 		dev_dbg(fman->dev, "%s: Didn't perform FManV3 reset due to Errata A007273!\n",
+ 			__func__);
++#endif
+ 	}
+ _return:
+ 	return err;
 -- 
 2.1.0
