@@ -1,35 +1,80 @@
 From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCHv2 net 0/2] fix the issue that may copy duplicate addrs into assoc's bind address list
-Date: Tue, 20 Dec 2016 13:49:48 +0800
-Message-ID: <cover.1482212764.git.lucien.xin@gmail.com>
+Subject: [PATCHv2 net 1/2] sctp: reduce indent level in sctp_copy_local_addr_list
+Date: Tue, 20 Dec 2016 13:49:49 +0800
+Message-ID: <b4d6428c565955e9e81e3b4623a6458e7567e593.1482212764.git.lucien.xin@gmail.com>
+References: <cover.1482212764.git.lucien.xin@gmail.com>
 Cc: davem@davemloft.net,
         Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
         Neil Horman <nhorman@tuxdriver.com>
 To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:34577 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754058AbcLTFt7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2016 00:49:59 -0500
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:34621 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754745AbcLTFuH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2016 00:50:07 -0500
+In-Reply-To: <cover.1482212764.git.lucien.xin@gmail.com>
+In-Reply-To: <cover.1482212764.git.lucien.xin@gmail.com>
+References: <cover.1482212764.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patch 1/2 is to fix some indent level.
+This patch is to reduce indent level by using continue when the addr
+is not allowed, and also drop end_copy by using break.
 
-Given that we have kernels out there with this issue, patch 2/2 also
-fix sctp_raw_to_bind_addrs.
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
+---
+ net/sctp/protocol.c | 37 +++++++++++++++++++------------------
+ 1 file changed, 19 insertions(+), 18 deletions(-)
 
-v1 -> v2:
-  Explain why we didn't filter the duplicate addresses when global
-  address list gets updated in patch 2/2 changelog.
-
-Xin Long (2):
-  sctp: reduce indent level in sctp_copy_local_addr_list
-  sctp: not copying duplicate addrs to the assoc's bind address list
-
- net/sctp/bind_addr.c |  3 +++
- net/sctp/protocol.c  | 40 ++++++++++++++++++++++------------------
- 2 files changed, 25 insertions(+), 18 deletions(-)
-
+diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
+index 7b523e3..da5d82b 100644
+--- a/net/sctp/protocol.c
++++ b/net/sctp/protocol.c
+@@ -205,26 +205,27 @@ int sctp_copy_local_addr_list(struct net *net, struct sctp_bind_addr *bp,
+ 	list_for_each_entry_rcu(addr, &net->sctp.local_addr_list, list) {
+ 		if (!addr->valid)
+ 			continue;
+-		if (sctp_in_scope(net, &addr->a, scope)) {
+-			/* Now that the address is in scope, check to see if
+-			 * the address type is really supported by the local
+-			 * sock as well as the remote peer.
+-			 */
+-			if ((((AF_INET == addr->a.sa.sa_family) &&
+-			      (copy_flags & SCTP_ADDR4_PEERSUPP))) ||
+-			    (((AF_INET6 == addr->a.sa.sa_family) &&
+-			      (copy_flags & SCTP_ADDR6_ALLOWED) &&
+-			      (copy_flags & SCTP_ADDR6_PEERSUPP)))) {
+-				error = sctp_add_bind_addr(bp, &addr->a,
+-						    sizeof(addr->a),
+-						    SCTP_ADDR_SRC, GFP_ATOMIC);
+-				if (error)
+-					goto end_copy;
+-			}
+-		}
++		if (!sctp_in_scope(net, &addr->a, scope))
++			continue;
++
++		/* Now that the address is in scope, check to see if
++		 * the address type is really supported by the local
++		 * sock as well as the remote peer.
++		 */
++		if (addr->a.sa.sa_family == AF_INET &&
++		    !(copy_flags & SCTP_ADDR4_PEERSUPP))
++			continue;
++		if (addr->a.sa.sa_family == AF_INET6 &&
++		    (!(copy_flags & SCTP_ADDR6_ALLOWED) ||
++		     !(copy_flags & SCTP_ADDR6_PEERSUPP)))
++			continue;
++
++		error = sctp_add_bind_addr(bp, &addr->a, sizeof(addr->a),
++					   SCTP_ADDR_SRC, GFP_ATOMIC);
++		if (error)
++			break;
+ 	}
+ 
+-end_copy:
+ 	rcu_read_unlock();
+ 	return error;
+ }
 -- 
 2.1.0
