@@ -1,79 +1,33 @@
-From: Justin Bronder <justin-R+k406RtEhcAvxtiuMwx3w@public.gmane.org>
-Subject: Re: nfc: trf7970a: Prevent repeated polling from crashing the kernel
-Date: Tue, 20 Dec 2016 14:13:52 -0500
-Message-ID: <20161220191352.GB23496@lasswell.members.linode.com>
-References: <1482250592-4268-1-git-send-email-glansberry@gmail.com>
- <1482250592-4268-3-git-send-email-glansberry@gmail.com>
- <20161220185905.GA5867@animalcreek.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/2] net: hix5hd2_gmac: keep the compatible string not
+ changed
+Date: Tue, 20 Dec 2016 14:13:47 -0500 (EST)
+Message-ID: <20161220.141347.359771649872892693.davem@davemloft.net>
+References: <1482199769-106501-1-git-send-email-lidongpo@hisilicon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Geoff Lansberry <geoff-R+k406RtEhcAvxtiuMwx3w@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        lauro.venancio-430g2QfJUUCGglJvpFV4uA@public.gmane.org, aloisio.almeida-430g2QfJUUCGglJvpFV4uA@public.gmane.org,
-        sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Jaret Cantu <jaret.cantu-jEh4hwF5bVhBDgjK7y7TUQ@public.gmane.org>
-To: Mark Greer <mgreer-luAo+O/VEmrlveNOaEYElw@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20161220185905.GA5867-luAo+O/VEmrlveNOaEYElw@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: robh+dt@kernel.org, mark.rutland@arm.com, linux@armlinux.org.uk,
+        yisen.zhuang@huawei.com, salil.mehta@huawei.com, arnd@arndb.de,
+        andrew@lunn.ch, xuejiancheng@hisilicon.com,
+        benjamin.chenhao@hisilicon.com, caizhiyong@hisilicon.com,
+        netdev@vger.kernel.org, devicetree@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: lidongpo@hisilicon.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1482199769-106501-1-git-send-email-lidongpo@hisilicon.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 20/12/16 11:59 -0700, Mark Greer wrote:
-> On Tue, Dec 20, 2016 at 11:16:32AM -0500, Geoff Lansberry wrote:
-> > From: Jaret Cantu <jaret.cantu-jEh4hwF5bVhBDgjK7y7TUQ@public.gmane.org>
-> > 
-> > Repeated polling attempts cause a NULL dereference error to occur.
-> > This is because the state of the trf7970a is currently reading but
-> > another request has been made to send a command before it has finished.
+From: Dongpo Li <lidongpo@hisilicon.com>
+Date: Tue, 20 Dec 2016 10:09:27 +0800
+
+> This patch series fix the patch:
+> d0fb6ba75dc0 ("net: hix5hd2_gmac: add generic compatible string")
 > 
-> How is this happening?  Was trf7970a_abort_cmd() called and it didn't
-> work right?  Was it not called at all and there is a bug in the digital
-> layer?  More details please.
-> 
-> > The solution is to properly kill the waiting reading (workqueue)
-> > before failing on the send.
-> 
-> If the bug is in the calling code, then that is what should get fixed.
-> This seems to be a hack to work-around a digital layer bug.
+> The SoC hix5hd2 compatible string has the suffix "-gmac" and
+> we should not change its compatible string.
+> So we should name all the compatible string with the suffix "-gmac".
+> Creating a new name suffix "-gemac" is unnecessary.
 
-One of our uses of NFC is to begin polling to read a tag and then stop polling
-(in order to save power) until we know via user interaction that we need to poll
-again.  This is typically many minutes later so the power saving is pretty
-significant.  However, it's possible that a user will remove the tag before
-reading has completed.  We also detect this case and stop polling.  I can go
-more into this if necessary but that is what exposed a panic.
-
-You can reproduce using neard and python, in our testing it was very likely to
-occur in 10-100 iterations of the following.:
-
-    #!/usr/bin/python
-    import time
-
-    import dbus
-
-    bus = dbus.SystemBus()
-    nfc0 = bus.get_object('org.neard', '/org/neard/nfc0')
-    props = dbus.Interface(nfc0, 'org.freedesktop.DBus.Properties')
-
-    try:
-        props.Set('org.neard.Adapter', 'Powered', dbus.Boolean(1))
-    except:
-        pass
-
-    adapter = dbus.Interface(nfc0, 'org.neard.Adapter')
-
-    for i in range(1000):
-        adapter.StartPollLoop('Initiator')
-        time.sleep(0.1)
-        adapter.StopPollLoop()
-        print(i)
-
-I believe the last time we tested this was around the 4.1 release.
-
--- 
-Justin Bronder
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Series applied.
