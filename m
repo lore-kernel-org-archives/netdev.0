@@ -1,88 +1,53 @@
-From: Mark Greer <mgreer-luAo+O/VEmrlveNOaEYElw@public.gmane.org>
-Subject: Re: nfc: trf7970a: Prevent repeated polling from crashing the kernel
-Date: Tue, 20 Dec 2016 12:56:21 -0700
-Message-ID: <20161220195621.GA6400@animalcreek.com>
-References: <1482250592-4268-1-git-send-email-glansberry@gmail.com>
- <1482250592-4268-3-git-send-email-glansberry@gmail.com>
- <20161220185905.GA5867@animalcreek.com>
- <20161220191352.GB23496@lasswell.members.linode.com>
+From: Josef Bacik <jbacik@fb.com>
+Subject: [RFC][PATCH 0/5 net-next] Rework inet_csk_get_port
+Date: Tue, 20 Dec 2016 15:06:59 -0500
+Message-ID: <1482264424-15439-1-git-send-email-jbacik@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Geoff Lansberry <geoff-R+k406RtEhcAvxtiuMwx3w@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        lauro.venancio-430g2QfJUUCGglJvpFV4uA@public.gmane.org, aloisio.almeida-430g2QfJUUCGglJvpFV4uA@public.gmane.org,
-        sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Jaret Cantu <jaret.cantu-jEh4hwF5bVhBDgjK7y7TUQ@public.gmane.org>
-To: Justin Bronder <justin-R+k406RtEhcAvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20161220191352.GB23496-WrO9gjaJVAZ9BIO3fBtL+FdjMaeQq/Z1QQ4Iyu8u01E@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+To: <davem@davemloft.net>, <hannes@stressinduktion.org>,
+        <kraigatgoog@gmail.com>, <eric.dumazet@gmail.com>,
+        <tom@herbertland.com>, <netdev@vger.kernel.org>,
+        <kernel-team@fb.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:37127 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1754178AbcLTUHX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2016 15:07:23 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 20, 2016 at 02:13:52PM -0500, Justin Bronder wrote:
-> On 20/12/16 11:59 -0700, Mark Greer wrote:
-> > On Tue, Dec 20, 2016 at 11:16:32AM -0500, Geoff Lansberry wrote:
-> > > From: Jaret Cantu <jaret.cantu-jEh4hwF5bVhBDgjK7y7TUQ@public.gmane.org>
-> > > 
-> > > Repeated polling attempts cause a NULL dereference error to occur.
-> > > This is because the state of the trf7970a is currently reading but
-> > > another request has been made to send a command before it has finished.
-> > 
-> > How is this happening?  Was trf7970a_abort_cmd() called and it didn't
-> > work right?  Was it not called at all and there is a bug in the digital
-> > layer?  More details please.
-> > 
-> > > The solution is to properly kill the waiting reading (workqueue)
-> > > before failing on the send.
-> > 
-> > If the bug is in the calling code, then that is what should get fixed.
-> > This seems to be a hack to work-around a digital layer bug.
-> 
-> One of our uses of NFC is to begin polling to read a tag and then stop polling
-> (in order to save power) until we know via user interaction that we need to poll
-> again.  This is typically many minutes later so the power saving is pretty
-> significant.  However, it's possible that a user will remove the tag before
-> reading has completed.  We also detect this case and stop polling.  I can go
-> more into this if necessary but that is what exposed a panic.
-> 
-> You can reproduce using neard and python, in our testing it was very likely to
-> occur in 10-100 iterations of the following.:
-> 
->     #!/usr/bin/python
->     import time
-> 
->     import dbus
-> 
->     bus = dbus.SystemBus()
->     nfc0 = bus.get_object('org.neard', '/org/neard/nfc0')
->     props = dbus.Interface(nfc0, 'org.freedesktop.DBus.Properties')
-> 
->     try:
->         props.Set('org.neard.Adapter', 'Powered', dbus.Boolean(1))
->     except:
->         pass
-> 
->     adapter = dbus.Interface(nfc0, 'org.neard.Adapter')
-> 
->     for i in range(1000):
->         adapter.StartPollLoop('Initiator')
->         time.sleep(0.1)
->         adapter.StopPollLoop()
->         print(i)
-> 
-> I believe the last time we tested this was around the 4.1 release.
+At some point recently the guys working on our load balancer added the ability
+to use SO_REUSEPORT.  When they restarted their app with this option enabled
+they immediately hit a softlockup on what appeared to be the
+inet_bind_bucket->lock.  Eventually what all of our debugging and discussion led
+us to was the fact that the application comes up without SO_REUSEPORT, shuts
+down which creates around 100k twsk's, and then comes up and tries to open a
+bunch of sockets using SO_REUSEPORT, which meant traversing the inet_bind_bucket
+owners list under the lock.  Since this lock is needed for dealing with the
+twsk's and basically anything else related to connections we would softlockup,
+and sometimes not ever recover.
 
-Thanks for the info, Justin, but I was also seeking more information
-at the kernel NFC subsystem and trf7970a driver level.  This patch
-adds code inside an 'if' in the driver whose condition should never
-be evaluate to true but apparently it did.  How?
+To solve this problem I did what you see in Path 5/5.  Once we have a
+SO_REUSEPORT socket on the tb->owners list we know that the socket has no
+conflicts with any of the other sockets on that list.  So we can add a copy of
+the sock_common (really all we need is the recv_saddr but it seemed ugly to copy
+just the ipv6, ipv4, and flag to indicate if we were ipv6 only in there so I've
+copied the whole common) in order to check subsequent SO_REUSEPORT sockets.  If
+they match the previous one then we can skip the expensive
+inet_csk_bind_conflict check.  This is what eliminated the soft lockup that we
+were seeing.
 
-Thanks,
+Patches 1-4 are cleanups and re-workings.  For instance when we specify port ==
+0 we need to find an open port, but we would do two passes through
+inet_csk_bind_conflict every time we found a possible port.  We would also keep
+track of the smallest_port value in order to try and use it if we found no
+port our first run through.  This however made no sense as it would have had to
+fail the first pass through inet_csk_bind_conflict, so would not actually pass
+the second pass through either.  Finally I split the function into two functions
+in order to make it easier to read and to distinguish between the two behaviors.
 
-Mark
---
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I have tested this on one of our load balancing boxes during peak traffic and it
+hasn't fallen over.  But this is not my area, so obviously feel free to point
+out where I'm being stupid and I'll get it fixed up and retested.  Thanks,
+
+Josef
