@@ -1,226 +1,350 @@
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: Re: [PATCH v2] stmmac: enable rx queues
-Date: Tue, 20 Dec 2016 17:00:50 +0000
-Message-ID: <f2760f41-5ebd-e80d-75e8-539d70be3cf5@synopsys.com>
-References: <a72c10dc007210d93c5e8f17ac5fed2242bde5d4.1482250750.git.jpinto@synopsys.com>
- <7b73933c-3600-ec66-f53b-c26344b0a06f@st.com>
+From: Arnaldo Carvalho de Melo <acme@kernel.org>
+Subject: [GIT PULL 00/29] perf/core improvements and fixes
+Date: Tue, 20 Dec 2016 14:03:29 -0300
+Message-ID: <20161220170358.4350-1-acme@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
-Cc: <hock.leong.kweh@intel.com>, <niklas.cassel@axis.com>,
-        <pavel@ucw.cz>, <linux-kernel@vger.kernel.org>,
-        <netdev@vger.kernel.org>
-To: Seraphin BONNAFFE <seraphin.bonnaffe@st.com>,
-        Joao Pinto <Joao.Pinto@synopsys.com>, <peppe.cavallaro@st.com>,
-        <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay.synopsys.com ([198.182.60.111]:49153 "EHLO
-        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S936218AbcLTRA4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2016 12:00:56 -0500
-In-Reply-To: <7b73933c-3600-ec66-f53b-c26344b0a06f@st.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org,
+        Arnaldo Carvalho de Melo <acme@kernel.org>,
+        Adrian Hunter <adrian.hunter@intel.com>,
+        Alexander Shishkin <alexander.shishkin@linux.intel.com>,
+        Alexei Starovoitov <ast@fb.com>,
+        Andi Kleen <andi@firstfloor.org>,
+        Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+        Chris Riyder <chris.ryder@arm.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        David Ahern <dsahern@gmail.com>,
+        Davidlohr Bueso <dbueso@suse.de>, Jiri Olsa <jolsa@redhat.com>,
+        Joe Stringer <joe@ovn.org>, Kan Liang <kan.liang@intel.com>,
+        Kim Phillips <kim.phillips@arm.com>,
+        Kyle McMartin <kyle@redhat.com>, linuxppc-dev@lists.ozlabs.org,
+        Markus Trippelsdorf <markus@trippelsdorf.de>,
+        Masami Hiramatsu <mhiramat@kernel.org>,
+        Michael Ellerman <mpe@ellerman.id.au>,
+        Minchan Ki
+To: Ingo Molnar <mingo@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Às 4:51 PM de 12/20/2016, Seraphin BONNAFFE escreveu:
-> Hi Joao,
-> 
-> Please find two more comments below.
-> 
-> Regards,
-> Séraphin
-> 
-> 
-> On 12/20/2016 05:27 PM, Joao Pinto wrote:
->> When the hardware is synthesized with multiple queues, all queues are
->> disabled for default. This patch adds the rx queues configuration.
->> This patch was successfully tested in a Synopsys QoS Reference design.
->>
->> Signed-off-by: Joao Pinto <jpinto@synopsys.com>
->> ---
->> changes v1 -> v2 (Niklas Cassel and Seraphin Bonnaffe):
->> - Instead of using number of DMA channels, lets use number of queues
->> - Create 2 flavors of RX queue enable Macros: AV and DCB (AV by default)
->> - Make sure that the RX queue related bits are cleared before setting
->> - Check if rx_queue_enable is available before executing
->> stmmac_mac_enable_rx_queues()
->>
->>  drivers/net/ethernet/stmicro/stmmac/common.h      |  5 +++++
->>  drivers/net/ethernet/stmicro/stmmac/dwmac4.h      |  9 +++++++++
->>  drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c | 12 ++++++++++++
->>  drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c  |  5 +++++
->>  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 22 ++++++++++++++++++++++
->>  5 files changed, 53 insertions(+)
->>
->> diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h
->> b/drivers/net/ethernet/stmicro/stmmac/common.h
->> index b13a144..6c96291 100644
->> --- a/drivers/net/ethernet/stmicro/stmmac/common.h
->> +++ b/drivers/net/ethernet/stmicro/stmmac/common.h
->> @@ -323,6 +323,9 @@ struct dma_features {
->>      /* TX and RX number of channels */
->>      unsigned int number_rx_channel;
->>      unsigned int number_tx_channel;
->> +    /* TX and RX number of queues */
->> +    unsigned int number_rx_queues;
->> +    unsigned int number_tx_queues;
->>      /* Alternate (enhanced) DESC mode */
->>      unsigned int enh_desc;
->>  };
->> @@ -454,6 +457,8 @@ struct stmmac_ops {
->>      void (*core_init)(struct mac_device_info *hw, int mtu);
->>      /* Enable and verify that the IPC module is supported */
->>      int (*rx_ipc)(struct mac_device_info *hw);
->> +    /* Enable RX Queues */
->> +    void (*rx_queue_enable)(struct mac_device_info *hw, u32 queue);
->>      /* Dump MAC registers */
->>      void (*dump_regs)(struct mac_device_info *hw);
->>      /* Handle extra events on specific interrupts hw dependent */
->> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
->> b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
->> index 3e8d4fe..7d88517 100644
->> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
->> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
->> @@ -22,6 +22,7 @@
->>  #define GMAC_HASH_TAB_32_63        0x00000014
->>  #define GMAC_RX_FLOW_CTRL        0x00000090
->>  #define GMAC_QX_TX_FLOW_CTRL(x)        (0x70 + x * 4)
->> +#define GMAC_RXQ_CTRL0            0x000000a0
->>  #define GMAC_INT_STATUS            0x000000b0
->>  #define GMAC_INT_EN            0x000000b4
->>  #define GMAC_PCS_BASE            0x000000e0
->> @@ -44,6 +45,12 @@
->>
->>  #define GMAC_MAX_PERFECT_ADDRESSES    128
->>
->> +/* MAC RX Queue Enable */
->> +#define GMAC_RX_QUEUE_CLEAR(queue)    ~(BIT((queue) * 2) \
->> +                    | BIT(((queue) * 2) + 1))
-> 
-> 
-> What would you think about  ~(GENMASK(1, 0) << ((queue) * 2))) instead ?
-> Slightly more readable in my humble opinion.
+Hi Ingo,
 
-More readable indeed :)
+        Please consider pulling, I had most of this queued before your first
+pull req to Linus for 4.10, most are fixes, with 'perf sched timehist --idle'
+as a followup new feature to the 'perf sched timehist' command introduced in
+this window.
+	
+	One other thing that delayed this was the samples/bpf/ switch to
+tools/lib/bpf/ that involved fixing up merge clashes with net.git and also
+to properly test it, after more rounds than antecipated, but all seems ok
+now and would be good to get this merge issues past us ASAP.
 
-> 
-> 
->> +#define GMAC_RX_AV_QUEUE_ENABLE(queue)    BIT((queue) * 2)
->> +#define GMAC_RX_DCB_QUEUE_ENABLE(queue)    BIT(((queue) * 2) + 1)
->> +
->>  /* MAC Flow Control RX */
->>  #define GMAC_RX_FLOW_CTRL_RFE        BIT(0)
->>
->> @@ -133,6 +140,8 @@ enum power_event {
->>  /* MAC HW features2 bitmap */
->>  #define GMAC_HW_FEAT_TXCHCNT        GENMASK(21, 18)
->>  #define GMAC_HW_FEAT_RXCHCNT        GENMASK(15, 12)
->> +#define GMAC_HW_FEAT_TXQCNT        GENMASK(9, 6)
->> +#define GMAC_HW_FEAT_RXQCNT        GENMASK(3, 0)
->>
->>  /* MAC HW ADDR regs */
->>  #define GMAC_HI_DCS            GENMASK(18, 16)
->> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
->> b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
->> index eaed7cb..ecfbf57 100644
->> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
->> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
->> @@ -59,6 +59,17 @@ static void dwmac4_core_init(struct mac_device_info *hw,
->> int mtu)
->>      writel(value, ioaddr + GMAC_INT_EN);
->>  }
->>
->> +static void dwmac4_rx_queue_enable(struct mac_device_info *hw, u32 queue)
->> +{
->> +    void __iomem *ioaddr = hw->pcsr;
->> +    u32 value = readl(ioaddr + GMAC_RXQ_CTRL0);
->> +
->> +    value &= GMAC_RX_QUEUE_CLEAR(queue);
->> +    value |= GMAC_RX_AV_QUEUE_ENABLE(queue);
->> +
->> +    writel(value, ioaddr + GMAC_RXQ_CTRL0);
->> +}
->> +
->>  static void dwmac4_dump_regs(struct mac_device_info *hw)
->>  {
->>      void __iomem *ioaddr = hw->pcsr;
->> @@ -392,6 +403,7 @@ static void dwmac4_debug(void __iomem *ioaddr, struct
->> stmmac_extra_stats *x)
->>  static const struct stmmac_ops dwmac4_ops = {
->>      .core_init = dwmac4_core_init,
->>      .rx_ipc = dwmac4_rx_ipc_enable,
->> +    .rx_queue_enable = dwmac4_rx_queue_enable,
->>      .dump_regs = dwmac4_dump_regs,
->>      .host_irq_status = dwmac4_irq_status,
->>      .flow_ctrl = dwmac4_flow_ctrl,
->> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
->> b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
->> index 8196ab5..377d1b4 100644
->> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
->> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
->> @@ -303,6 +303,11 @@ static void dwmac4_get_hw_feature(void __iomem *ioaddr,
->>          ((hw_cap & GMAC_HW_FEAT_RXCHCNT) >> 12) + 1;
->>      dma_cap->number_tx_channel =
->>          ((hw_cap & GMAC_HW_FEAT_TXCHCNT) >> 18) + 1;
->> +    /* TX and RX number of queues */
->> +    dma_cap->number_rx_queues =
->> +        ((hw_cap & GMAC_HW_FEAT_RXQCNT) >> 0) + 1;
->> +    dma_cap->number_tx_queues =
->> +        ((hw_cap & GMAC_HW_FEAT_TXQCNT) >> 6) + 1;
->>
->>      /* IEEE 1588-2002 */
->>      dma_cap->time_stamp = 0;
->> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
->> b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
->> index 3e40578..20f0e80 100644
->> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
->> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
->> @@ -1271,6 +1271,24 @@ static void free_dma_desc_resources(struct stmmac_priv
->> *priv)
->>  }
->>
->>  /**
->> + *  stmmac_mac_enable_rx_queues - Enable MAC rx queues
->> + *  @priv: driver private structure
->> + *  Description: It is used for enabling the rx queues in the MAC
->> + */
->> +static void stmmac_mac_enable_rx_queues(struct stmmac_priv *priv)
->> +{
->> +    int rx_count = priv->dma_cap.number_rx_queues;
->> +    int queue = 0;
->> +
->> +    /* If GMAC does not have multiqueues, then this is not necessary*/
->> +    if (rx_count == 1)
->> +        return;
->> +
-> 
-> This piece of code is still not checking if "rx_queue_enable" is actually not NULL,
-> which will be the case for dwmac1000 and dwmac100.
+- Arnaldo
 
-It is checking when we call the function please check below.
+Test results at the end of this message, as usual.
 
-> 
->> +    for (queue = 0; queue < rx_count; queue++)
->> +        priv->hw->mac->rx_queue_enable(priv->hw, queue);
->> +}
->> +
->> +/**
->>   *  stmmac_dma_operation_mode - HW DMA operation mode
->>   *  @priv: driver private structure
->>   *  Description: it is used for configuring the DMA operation mode register in
->> @@ -1691,6 +1709,10 @@ static int stmmac_hw_setup(struct net_device *dev, bool
->> init_ptp)
->>      /* Initialize the MAC Core */
->>      priv->hw->mac->core_init(priv->hw, dev->mtu);
->>
+The following changes since commit e7aa8c2eb11ba69b1b69099c3c7bd6be3087b0ba:
 
-Here:
+  Merge tag 'docs-4.10' of git://git.lwn.net/linux (2016-12-12 21:58:13 -0800)
 
->> +    /* Initialize MAC RX Queues */
->> +    if (priv->hw->mac->rx_queue_enable)
->> +        stmmac_mac_enable_rx_queues(priv);
->> +
->>      ret = priv->hw->mac->rx_ipc(priv->hw);
->>      if (!ret) {
->>          netdev_warn(priv->dev, "RX IPC Checksum Offload disabled\n");
->>
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/acme/linux.git tags/perf-core-for-mingo-20161220
+
+for you to fetch changes up to 9899694a7f67714216665b87318eb367e2c5c901:
+
+  samples/bpf: Move open_raw_sock to separate header (2016-12-20 12:00:40 -0300)
+
+----------------------------------------------------------------
+perf/core improvements and fixes:
+
+New features:
+
+- Introduce 'perf sched timehist --idle', to analyse processes
+  going to/from idle state (Namhyung Kim)
+
+Fixes:
+
+- Allow 'perf record -u user' to continue when facing races with threads
+  going away after having scanned them via /proc (Jiri Olsa)
+
+- Fix 'perf mem' --all-user/--all-kernel options (Jiri Olsa)
+
+- Support jumps with multiple arguments (Ravi Bangoria)
+
+- Fix jumps to before the function where they are located (Ravi
+Bangoria)
+
+- Fix lock-pi help string (Davidlohr Bueso)
+
+- Fix build of 'perf trace' in odd systems such as a RHEL PPC one (Jiri Olsa)
+
+- Do not overwrite valid build id in 'perf diff' (Kan Liang)
+
+- Don't throw error for zero length symbols, allowing the use of the TUI
+  in PowerPC, where such symbols became more common recently (Ravi Bangoria)
+
+Infrastructure:
+
+- Switch of samples/bpf/ to use tools/lib/bpf, removing libbpf
+  duplication (Joe Stringer)
+
+- Move headers check into bash script (Jiri Olsa)
+
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+
+----------------------------------------------------------------
+Arnaldo Carvalho de Melo (3):
+      perf tools: Remove some needless __maybe_unused
+      samples/bpf: Make perf_event_read() static
+      samples/bpf: Be consistent with bpf_load_program bpf_insn parameter
+
+Davidlohr Bueso (1):
+      perf bench futex: Fix lock-pi help string
+
+Jiri Olsa (7):
+      perf tools: Move headers check into bash script
+      perf mem: Fix --all-user/--all-kernel options
+      perf evsel: Use variable instead of repeating lengthy FD macro
+      perf thread_map: Add thread_map__remove function
+      perf evsel: Allow to ignore missing pid
+      perf record: Force ignore_missing_thread for uid option
+      perf trace: Check if MAP_32BIT is defined (again)
+
+Joe Stringer (8):
+      tools lib bpf: Sync {tools,}/include/uapi/linux/bpf.h
+      tools lib bpf: use __u32 from linux/types.h
+      tools lib bpf: Add flags to bpf_create_map()
+      samples/bpf: Make samples more libbpf-centric
+      samples/bpf: Switch over to libbpf
+      tools lib bpf: Add bpf_prog_{attach,detach}
+      samples/bpf: Remove perf_event_open() declaration
+      samples/bpf: Move open_raw_sock to separate header
+
+Kan Liang (1):
+      perf diff: Do not overwrite valid build id
+
+Namhyung Kim (6):
+      perf sched timehist: Split is_idle_sample()
+      perf sched timehist: Introduce struct idle_time_data
+      perf sched timehist: Save callchain when entering idle
+      perf sched timehist: Skip non-idle events when necessary
+      perf sched timehist: Add -I/--idle-hist option
+      perf sched timehist: Show callchains for idle stat
+
+Ravi Bangoria (3):
+      perf annotate: Support jump instruction with target as second operand
+      perf annotate: Fix jump target outside of function address range
+      perf annotate: Don't throw error for zero length symbols
+
+ samples/bpf/Makefile                              |  70 +--
+ samples/bpf/README.rst                            |   4 +-
+ samples/bpf/bpf_load.c                            |  21 +-
+ samples/bpf/bpf_load.h                            |   3 +
+ samples/bpf/fds_example.c                         |  13 +-
+ samples/bpf/lathist_user.c                        |   2 +-
+ samples/bpf/libbpf.c                              | 176 -------
+ samples/bpf/libbpf.h                              |  28 +-
+ samples/bpf/lwt_len_hist_user.c                   |   6 +-
+ samples/bpf/offwaketime_user.c                    |   8 +-
+ samples/bpf/sampleip_user.c                       |   7 +-
+ samples/bpf/sock_example.c                        |  14 +-
+ samples/bpf/sock_example.h                        |  35 ++
+ samples/bpf/sockex1_user.c                        |   7 +-
+ samples/bpf/sockex2_user.c                        |   5 +-
+ samples/bpf/sockex3_user.c                        |   5 +-
+ samples/bpf/spintest_user.c                       |   8 +-
+ samples/bpf/tc_l2_redirect_user.c                 |   4 +-
+ samples/bpf/test_cgrp2_array_pin.c                |   4 +-
+ samples/bpf/test_cgrp2_attach.c                   |  12 +-
+ samples/bpf/test_cgrp2_attach2.c                  |   8 +-
+ samples/bpf/test_cgrp2_sock.c                     |   7 +-
+ samples/bpf/test_current_task_under_cgroup_user.c |   8 +-
+ samples/bpf/test_lru_dist.c                       |  32 +-
+ samples/bpf/test_probe_write_user_user.c          |   2 +-
+ samples/bpf/trace_event_user.c                    |  23 +-
+ samples/bpf/trace_output_user.c                   |   7 +-
+ samples/bpf/tracex2_user.c                        |  10 +-
+ samples/bpf/tracex3_user.c                        |   4 +-
+ samples/bpf/tracex4_user.c                        |   4 +-
+ samples/bpf/tracex6_user.c                        |   5 +-
+ samples/bpf/xdp1_user.c                           |   2 +-
+ samples/bpf/xdp_tx_iptunnel_user.c                |   6 +-
+ tools/include/uapi/linux/bpf.h                    | 593 +++++++++++++---------
+ tools/lib/bpf/bpf.c                               |  30 +-
+ tools/lib/bpf/bpf.h                               |   9 +-
+ tools/lib/bpf/libbpf.c                            |   3 +-
+ tools/perf/Documentation/perf-sched.txt           |   4 +
+ tools/perf/Makefile.perf                          |  94 +---
+ tools/perf/bench/futex-lock-pi.c                  |   2 +-
+ tools/perf/builtin-c2c.c                          |  13 +-
+ tools/perf/builtin-mem.c                          |   4 +-
+ tools/perf/builtin-record.c                       |   3 +
+ tools/perf/builtin-report.c                       |   2 +-
+ tools/perf/builtin-sched.c                        | 261 ++++++++--
+ tools/perf/builtin-stat.c                         |   6 +-
+ tools/perf/check-headers.sh                       |  59 +++
+ tools/perf/perf.h                                 |   1 +
+ tools/perf/tests/builtin-test.c                   |   4 +
+ tools/perf/tests/tests.h                          |   1 +
+ tools/perf/tests/thread-map.c                     |  44 ++
+ tools/perf/trace/beauty/mmap.c                    |   2 +
+ tools/perf/ui/browsers/annotate.c                 |   5 +-
+ tools/perf/util/annotate.c                        |  23 +-
+ tools/perf/util/annotate.h                        |   5 +-
+ tools/perf/util/evsel.c                           |  61 ++-
+ tools/perf/util/evsel.h                           |   1 +
+ tools/perf/util/symbol.c                          |   3 +-
+ tools/perf/util/thread_map.c                      |  22 +
+ tools/perf/util/thread_map.h                      |   1 +
+ 60 files changed, 1075 insertions(+), 731 deletions(-)
+ delete mode 100644 samples/bpf/libbpf.c
+ create mode 100644 samples/bpf/sock_example.h
+ create mode 100755 tools/perf/check-headers.sh
+
+  [root@jouet ~]# uname -a
+  Linux jouet 4.9.0+ #1 SMP Mon Dec 19 15:44:52 BRT 2016 x86_64 x86_64 x86_64 GNU/Linux
+  [root@jouet ~]# perf test
+   1: vmlinux symtab matches kallsyms            : Ok
+   2: Detect openat syscall event                : Ok
+   3: Detect openat syscall event on all cpus    : Ok
+   4: Read samples using the mmap interface      : Ok
+   5: Parse event definition strings             : Ok
+   6: PERF_RECORD_* events & perf_sample fields  : Ok
+   7: Parse perf pmu format                      : Ok
+   8: DSO data read                              : Ok
+   9: DSO data cache                             : Ok
+  10: DSO data reopen                            : Ok
+  11: Roundtrip evsel->name                      : Ok
+  12: Parse sched tracepoints fields             : Ok
+  13: syscalls:sys_enter_openat event fields     : Ok
+  14: Setup struct perf_event_attr               : Ok
+  15: Match and link multiple hists              : Ok
+  16: 'import perf' in python                    : Ok
+  17: Breakpoint overflow signal handler         : Ok
+  18: Breakpoint overflow sampling               : Ok
+  19: Number of exit events of a simple workload : Ok
+  20: Software clock events period values        : Ok
+  21: Object code reading                        : Ok
+  22: Sample parsing                             : Ok
+  23: Use a dummy software event to keep tracking: Ok
+  24: Parse with no sample_id_all bit set        : Ok
+  25: Filter hist entries                        : Ok
+  26: Lookup mmap thread                         : Ok
+  27: Share thread mg                            : Ok
+  28: Sort output of hist entries                : Ok
+  29: Cumulate child hist entries                : Ok
+  30: Track with sched_switch                    : Ok
+  31: Filter fds with revents mask in a fdarray  : Ok
+  32: Add fd to a fdarray, making it autogrow    : Ok
+  33: kmod_path__parse                           : Ok
+  34: Thread map                                 : Ok
+  35: LLVM search and compile                    :
+  35.1: Basic BPF llvm compile                    : Ok
+  35.2: kbuild searching                          : Ok
+  35.3: Compile source for BPF prologue generation: Ok
+  35.4: Compile source for BPF relocation         : Ok
+  36: Session topology                           : Ok
+  37: BPF filter                                 :
+  37.1: Basic BPF filtering                      : Ok
+  37.2: BPF prologue generation                  : Ok
+  37.3: BPF relocation checker                   : Ok
+  38: Synthesize thread map                      : Ok
+  39: Remove thread map                          : Ok
+  40: Synthesize cpu map                         : Ok
+  41: Synthesize stat config                     : Ok
+  42: Synthesize stat                            : Ok
+  43: Synthesize stat round                      : Ok
+  44: Synthesize attr update                     : Ok
+  45: Event times                                : Ok
+  46: Read backward ring buffer                  : Ok
+  47: Print cpu map                              : Ok
+  48: Probe SDT events                           : Ok
+  49: is_printable_array                         : Ok
+  50: Print bitmap                               : Ok
+  51: perf hooks                                 : Ok
+  52: builtin clang support                      : Skip (not compiled in)
+  53: x86 rdpmc                                  : Ok
+  54: Convert perf time to TSC                   : Ok
+  55: DWARF unwind                               : Ok
+  56: x86 instruction decoder - new instructions : Ok
+  57: Intel cqm nmi context read                 : Skip
+  [root@jouet ~]# 
+
+  # time dm
+   1 alpine:3.4: Ok
+   2 android-ndk:r12b-arm: Ok
+   3 archlinux:latest: Ok
+   4 centos:5: Ok
+   5 centos:6: Ok
+   6 centos:7: Ok
+   7 debian:7: Ok
+   8 debian:8: Ok
+   9 debian:experimental: Ok
+  10 debian:experimental-x-mips64: Ok
+  11 fedora:20: Ok
+  12 fedora:21: Ok
+  13 fedora:22: Ok
+  14 fedora:23: Ok
+  15 fedora:24: Ok
+  16 fedora:24-x-ARC-uClibc: Ok
+  17 fedora:25: Ok
+  18 fedora:rawhide: Ok
+  19 mageia:5: Ok
+  20 opensuse:13.2: Ok
+  21 opensuse:42.1: Ok
+  22 opensuse:tumbleweed: Ok
+  23 ubuntu:12.04.5: Ok
+  24 ubuntu:14.04.4-x-linaro-arm64: Ok
+  25 ubuntu:16.04: Ok
+  26 ubuntu:16.04-x-arm: Ok
+  27 ubuntu:16.04-x-arm64: Ok
+  28 ubuntu:16.04-x-powerpc: Ok
+  29 ubuntu:16.04-x-powerpc64: Ok
+  30 ubuntu:16.04-x-powerpc64el: Ok
+  31 ubuntu:16.04-x-s390: Ok
+  32 ubuntu:16.10: Ok
+  #
+
+  $ make -C tools/perf build-test
+  make: Entering directory `/home/acme/git/linux/tools/perf'
+  - tarpkg: ./tests/perf-targz-src-pkg .
+                make_minimal_O: cd . && make NO_LIBPERL=1 NO_LIBPYTHON=1 NO_NEWT=1 NO_GTK2=1 NO_DEMANGLE=1 NO_LIBELF=1 NO_LIBUNWIND=1 NO_BACKTRACE=1 NO_LIBNUMA=1 NO_LIBAUDIT=1 NO_LIBBIONIC=1 NO_LIBDW_DWARF_UNWIND=1 NO_AUXTRACE=1 NO_LIBBPF=1 NO_LIBCRYPTO=1 NO_SDT=1 NO_JVMTI=1
+              make_clean_all_O: cd . && make clean all
+            make_no_demangle_O: cd . && make NO_DEMANGLE=1
+            make_no_auxtrace_O: cd . && make NO_AUXTRACE=1
+         make_with_clangllvm_O: cd . && make LIBCLANGLLVM=1
+                 make_static_O: cd . && make LDFLAGS=-static
+                 make_cscope_O: cd . && make cscope
+                  make_no_ui_O: cd . && make NO_NEWT=1 NO_SLANG=1 NO_GTK2=1
+   make_install_prefix_slash_O: cd . && make install prefix=/tmp/krava/
+       make_util_pmu_bison_o_O: cd . && make util/pmu-bison.o
+        make_with_babeltrace_O: cd . && make LIBBABELTRACE=1
+             make_no_libnuma_O: cd . && make NO_LIBNUMA=1
+                make_no_gtk2_O: cd . && make NO_GTK2=1
+           make_no_libbionic_O: cd . && make NO_LIBBIONIC=1
+                  make_debug_O: cd . && make DEBUG=1
+                   make_tags_O: cd . && make tags
+             make_no_libperl_O: cd . && make NO_LIBPERL=1
+               make_no_slang_O: cd . && make NO_SLANG=1
+             make_util_map_o_O: cd . && make util/map.o
+           make_no_backtrace_O: cd . && make NO_BACKTRACE=1
+                    make_doc_O: cd . && make doc
+         make_install_prefix_O: cd . && make install prefix=/tmp/krava
+             make_no_scripts_O: cd . && make NO_LIBPYTHON=1 NO_LIBPERL=1
+                 make_perf_o_O: cd . && make perf.o
+            make_install_bin_O: cd . && make install-bin
+              make_no_libbpf_O: cd . && make NO_LIBBPF=1
+           make_no_libunwind_O: cd . && make NO_LIBUNWIND=1
+                   make_help_O: cd . && make help
+            make_no_libaudit_O: cd . && make NO_LIBAUDIT=1
+              make_no_libelf_O: cd . && make NO_LIBELF=1
+           make_no_libpython_O: cd . && make NO_LIBPYTHON=1
+  make_no_libdw_dwarf_unwind_O: cd . && make NO_LIBDW_DWARF_UNWIND=1
+                make_no_newt_O: cd . && make NO_NEWT=1
+                   make_pure_O: cd . && make
+                make_install_O: cd . && make install
+  OK
+  make: Leaving directory `/home/acme/git/linux/tools/perf'
+  $
