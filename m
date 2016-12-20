@@ -1,7 +1,8 @@
 From: Josef Bacik <jbacik@fb.com>
-Subject: [RFC][PATCH 0/5 net-next] Rework inet_csk_get_port
-Date: Tue, 20 Dec 2016 15:06:59 -0500
-Message-ID: <1482264424-15439-1-git-send-email-jbacik@fb.com>
+Subject: [PATCH 2/5 net-next] inet: kill smallest_size and smallest_port
+Date: Tue, 20 Dec 2016 15:07:01 -0500
+Message-ID: <1482264424-15439-3-git-send-email-jbacik@fb.com>
+References: <1482264424-15439-1-git-send-email-jbacik@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 To: <davem@davemloft.net>, <hannes@stressinduktion.org>,
@@ -9,45 +10,113 @@ To: <davem@davemloft.net>, <hannes@stressinduktion.org>,
         <tom@herbertland.com>, <netdev@vger.kernel.org>,
         <kernel-team@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:37127 "EHLO
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:37140 "EHLO
         mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1754178AbcLTUHX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2016 15:07:23 -0500
+        by vger.kernel.org with ESMTP id S1754529AbcLTUHa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2016 15:07:30 -0500
+In-Reply-To: <1482264424-15439-1-git-send-email-jbacik@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-At some point recently the guys working on our load balancer added the ability
-to use SO_REUSEPORT.  When they restarted their app with this option enabled
-they immediately hit a softlockup on what appeared to be the
-inet_bind_bucket->lock.  Eventually what all of our debugging and discussion led
-us to was the fact that the application comes up without SO_REUSEPORT, shuts
-down which creates around 100k twsk's, and then comes up and tries to open a
-bunch of sockets using SO_REUSEPORT, which meant traversing the inet_bind_bucket
-owners list under the lock.  Since this lock is needed for dealing with the
-twsk's and basically anything else related to connections we would softlockup,
-and sometimes not ever recover.
+In inet_csk_get_port we seem to be using smallest_port to figure out where the
+best place to look for a SO_REUSEPORT sk that matches with an existing set of
+SO_REUSEPORT's.  However if we get to the logic
 
-To solve this problem I did what you see in Path 5/5.  Once we have a
-SO_REUSEPORT socket on the tb->owners list we know that the socket has no
-conflicts with any of the other sockets on that list.  So we can add a copy of
-the sock_common (really all we need is the recv_saddr but it seemed ugly to copy
-just the ipv6, ipv4, and flag to indicate if we were ipv6 only in there so I've
-copied the whole common) in order to check subsequent SO_REUSEPORT sockets.  If
-they match the previous one then we can skip the expensive
-inet_csk_bind_conflict check.  This is what eliminated the soft lockup that we
-were seeing.
+if (smallest_size != -1) {
+	port = smallest_port;
+	goto have_port;
+}
 
-Patches 1-4 are cleanups and re-workings.  For instance when we specify port ==
-0 we need to find an open port, but we would do two passes through
-inet_csk_bind_conflict every time we found a possible port.  We would also keep
-track of the smallest_port value in order to try and use it if we found no
-port our first run through.  This however made no sense as it would have had to
-fail the first pass through inet_csk_bind_conflict, so would not actually pass
-the second pass through either.  Finally I split the function into two functions
-in order to make it easier to read and to distinguish between the two behaviors.
+we will do a useless search, because we would have already done the
+inet_csk_bind_conflict for that port and it would have returned 1, otherwise we
+would have gone to found_tb and succeeded.  Since this logic makes us do yet
+another trip through inet_csk_bind_conflict for a port we know won't work just
+delete this code and save us the time.
 
-I have tested this on one of our load balancing boxes during peak traffic and it
-hasn't fallen over.  But this is not my area, so obviously feel free to point
-out where I'm being stupid and I'll get it fixed up and retested.  Thanks,
+Signed-off-by: Josef Bacik <jbacik@fb.com>
+---
+ net/ipv4/inet_connection_sock.c | 26 ++++----------------------
+ 1 file changed, 4 insertions(+), 22 deletions(-)
 
-Josef
+diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
+index 74f6a57..1a1a94bd 100644
+--- a/net/ipv4/inet_connection_sock.c
++++ b/net/ipv4/inet_connection_sock.c
+@@ -93,7 +93,6 @@ int inet_csk_get_port(struct sock *sk, unsigned short snum)
+ 	bool reuse = sk->sk_reuse && sk->sk_state != TCP_LISTEN;
+ 	struct inet_hashinfo *hinfo = sk->sk_prot->h.hashinfo;
+ 	int ret = 1, attempts = 5, port = snum;
+-	int smallest_size = -1, smallest_port;
+ 	struct inet_bind_hashbucket *head;
+ 	struct net *net = sock_net(sk);
+ 	int i, low, high, attempt_half;
+@@ -103,7 +102,6 @@ int inet_csk_get_port(struct sock *sk, unsigned short snum)
+ 	bool reuseport_ok = !!snum;
+ 
+ 	if (port) {
+-have_port:
+ 		head = &hinfo->bhash[inet_bhashfn(net, port,
+ 						  hinfo->bhash_size)];
+ 		spin_lock_bh(&head->lock);
+@@ -137,8 +135,6 @@ other_half_scan:
+ 	 * We do the opposite to not pollute connect() users.
+ 	 */
+ 	offset |= 1U;
+-	smallest_size = -1;
+-	smallest_port = low; /* avoid compiler warning */
+ 
+ other_parity_scan:
+ 	port = low + offset;
+@@ -152,15 +148,6 @@ other_parity_scan:
+ 		spin_lock_bh(&head->lock);
+ 		inet_bind_bucket_for_each(tb, &head->chain)
+ 			if (net_eq(ib_net(tb), net) && tb->port == port) {
+-				if (((tb->fastreuse > 0 && reuse) ||
+-				     (tb->fastreuseport > 0 &&
+-				      sk->sk_reuseport &&
+-				      !rcu_access_pointer(sk->sk_reuseport_cb) &&
+-				      uid_eq(tb->fastuid, uid))) &&
+-				    (tb->num_owners < smallest_size || smallest_size == -1)) {
+-					smallest_size = tb->num_owners;
+-					smallest_port = port;
+-				}
+ 				if (!inet_csk_bind_conflict(sk, tb, false, reuseport_ok))
+ 					goto tb_found;
+ 				goto next_port;
+@@ -171,10 +158,6 @@ next_port:
+ 		cond_resched();
+ 	}
+ 
+-	if (smallest_size != -1) {
+-		port = smallest_port;
+-		goto have_port;
+-	}
+ 	offset--;
+ 	if (!(offset & 1))
+ 		goto other_parity_scan;
+@@ -196,19 +179,18 @@ tb_found:
+ 		if (sk->sk_reuse == SK_FORCE_REUSE)
+ 			goto success;
+ 
+-		if (((tb->fastreuse > 0 && reuse) ||
++		if ((tb->fastreuse > 0 && reuse) ||
+ 		     (tb->fastreuseport > 0 &&
+ 		      !rcu_access_pointer(sk->sk_reuseport_cb) &&
+-		      sk->sk_reuseport && uid_eq(tb->fastuid, uid))) &&
+-		    smallest_size == -1)
++		      sk->sk_reuseport && uid_eq(tb->fastuid, uid)))
+ 			goto success;
+ 		if (inet_csk_bind_conflict(sk, tb, true, reuseport_ok)) {
+ 			if ((reuse ||
+ 			     (tb->fastreuseport > 0 &&
+ 			      sk->sk_reuseport &&
+ 			      !rcu_access_pointer(sk->sk_reuseport_cb) &&
+-			      uid_eq(tb->fastuid, uid))) &&
+-			    !snum && smallest_size != -1 && --attempts >= 0) {
++			      uid_eq(tb->fastuid, uid))) && !snum &&
++			    --attempts >= 0) {
+ 				spin_unlock_bh(&head->lock);
+ 				goto again;
+ 			}
+-- 
+2.9.3
