@@ -1,610 +1,201 @@
-From: Rafal Ozieblo <rafalo@cadence.com>
-Subject: RE: [RFC PATCH net-next v4 2/2] macb: Enable 1588 support in SAMA5Dx
- platforms.
-Date: Tue, 20 Dec 2016 16:38:45 +0000
-Message-ID: <BN3PR07MB2516E276164A4C2B5F92DDFDC9900@BN3PR07MB2516.namprd07.prod.outlook.com>
-References: <1481720175-12703-1-git-send-email-andrei.pistirica@microchip.com>
- <1481720175-12703-2-git-send-email-andrei.pistirica@microchip.com>
+From: Seraphin BONNAFFE <seraphin.bonnaffe@st.com>
+Subject: Re: [PATCH v2] stmmac: enable rx queues
+Date: Tue, 20 Dec 2016 17:51:53 +0100
+Message-ID: <7b73933c-3600-ec66-f53b-c26344b0a06f@st.com>
+References: <a72c10dc007210d93c5e8f17ac5fed2242bde5d4.1482250750.git.jpinto@synopsys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "punnaia@xilinx.com" <punnaia@xilinx.com>,
-        "michals@xilinx.com" <michals@xilinx.com>,
-        "anirudh@xilinx.com" <anirudh@xilinx.com>,
-        "boris.brezillon@free-electrons.com"
-        <boris.brezillon@free-electrons.com>,
-        "alexandre.belloni@free-electrons.com"
-        <alexandre.belloni@free-electrons.com>,
-        "tbultel@pixelsurmer.com" <tbultel@pixelsurmer.com>,
-        "richardcochran@gmail.com" <richardcochran@gmail.com>
-To: Andrei Pistirica <andrei.pistirica@microchip.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "linux-arm-kernel@lists.infradead.org"
-        <linux-arm-kernel@lists.infradead.org>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "nicolas.ferre@atmel.com" <nicolas.ferre@atmel.com>,
-        "harinikatakamlinux@gmail.com" <harinikatakamlinux@gmail.com>,
-        "harini.katakam@xilinx.com" <harini.katakam@xilinx.com>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: <hock.leong.kweh@intel.com>, <niklas.cassel@axis.com>,
+        <pavel@ucw.cz>, <linux-kernel@vger.kernel.org>,
+        <netdev@vger.kernel.org>
+To: Joao Pinto <Joao.Pinto@synopsys.com>, <peppe.cavallaro@st.com>,
+        <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1481720175-12703-2-git-send-email-andrei.pistirica@microchip.com>
-Content-Language: en-US
+In-Reply-To: <a72c10dc007210d93c5e8f17ac5fed2242bde5d4.1482250750.git.jpinto@synopsys.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Andrei Pistirica [mailto:andrei.pistirica@microchip.com]=20
-Sent: 14 grudnia 2016 13:56
+Hi Joao,
 
-> This patch does the following:                                           =
-                                         =20
-> - Enable HW time stamp for the following platforms: SAMA5D2, SAMA5D3 and =
-                                         =20
->   SAMA5D4.                                                               =
-                                         =20
-> - HW time stamp capabilities are advertised via ethtool and macb ioctl is=
-                                         =20
->   updated accordingly.                                                   =
-                                         =20
-> - HW time stamp on the PTP Ethernet packets are received using the       =
-                                         =20
->   SO_TIMESTAMPING API. Where timers are obtained from the PTP event/peer =
-                                         =20
->   registers.                                                             =
-                                         =20
->                                                                          =
-                                         =20
-> Note: Patch on net-next, on December 7th.                                =
-                                         =20
->                                                                          =
-                                         =20
-> Signed-off-by: Andrei Pistirica <andrei.pistirica@microchip.com>         =
-                                         =20
-> ---                                                                      =
-                                         =20
-> Patch history:                                                           =
-                                         =20
->                                                                          =
-                                         =20
-> Version 1:                                                               =
-                                         =20
-> Integration with SAMA5D2 only. This feature wasn't tested on any other pl=
-atform that might use cadence/gem.       =20
->                                                                          =
-                                         =20
-> Patch is not completely ported to the very latest version of net-next, an=
-d it will be after review.               =20
->                                                                          =
-                                         =20
-> Version 2 modifications:                                                 =
-                                         =20
-> - add PTP caps for SAMA5D2/3/4 platforms                                 =
-                                         =20
-> - and cosmetic changes                                                   =
-                                         =20
->                                                                          =
-                                         =20
-> Version 3 modifications:                                                 =
-                                         =20
-> - add support for sama5D2/3/4 platforms using GEM-PTP interface.         =
-                                         =20
->                                                                          =
-                                         =20
-> Version 4 modifications:                                                 =
-                                         =20
-> - time stamp only PTP_V2 events                                          =
-                                         =20
-> - maximum adjustment value is set based on Richard's input               =
-                                         =20
->                                                                          =
-                                         =20
-> Note: Patch on net-next, on December 14th.                               =
-                                         =20
->                                                                          =
-                                         =20
->  drivers/net/ethernet/cadence/macb.c | 168 ++++++++++++++++++++++++++++++=
-++++--                                   =20
->  1 file changed, 163 insertions(+), 5 deletions(-)                       =
-                                         =20
->                                                                          =
-                                         =20
-> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/c=
-adence/macb.c                            =20
-> index 538544a..8d5c976 100644                                            =
-                                         =20
-> --- a/drivers/net/ethernet/cadence/macb.c                                =
-                                         =20
-> +++ b/drivers/net/ethernet/cadence/macb.c                                =
-                                         =20
-> @@ -714,6 +714,8 @@ static void macb_tx_interrupt(struct macb_queue *queu=
-e)                                       =20
->                                                                          =
-                                         =20
->                       /* First, update TX stats if needed */             =
-                                         =20
->                       if (skb) {                                         =
-                                         =20
-> +                             gem_ptp_do_txstamp(bp, skb);               =
-                                         =20
-> +                                                                        =
-                 =20
-I think, you can not do it in that way.=20
-It will hold two locks. If you enable appropriate option in kernel (as far =
-as I=20
-remember CONFIG_DEBUG_SPINLOCK) you will get a warning here.
+Please find two more comments below.
 
-Please look at following call-stack:
+Regards,
+Séraphin
 
-1. macb_interrupt()   // spin_lock(&bp->lock) is taken
-2. macb_tx_interrupt()
-3. macb_handle_txtstamp()
-4. skb_tstamp_tx()
-5. __skb_tstamp_tx()
-6. skb_may_tx_timestamp()
-7. read_lock_bh() // second lock is taken
 
-I know that those are different locks and different types. But this could l=
-ead=20
-to deadlocks. This is the reason of warning I could see.
-And this is the reason why I get timestamp in interrupt routine but pass it=
- to=20
-skb outside interrupt (using circular buffer).
-
-Please, refer to this:
-https://lkml.org/lkml/2016/11/18/168
-
-1. macb_tx_interrupt()
-2. macb_tx_timestamp_add() and schedule_work(&queue->tx_timestamp_task)
-
-Then, outside interrupt (without holding a lock) :
-1. macb_tx_timestamp_flush()
-2. macb_tstamp_tx()
-3. skb_tstamp_tx()
-
->                               netdev_vdbg(bp->dev, "skb %u (data %p) TX c=
-omplete\n",                              =20
->                                           macb_tx_ring_wrap(bp, tail),   =
-                                         =20
->                                           skb->data);                    =
-                                         =20
-> @@ -878,6 +880,8 @@ static int gem_rx(struct macb *bp, int budget)       =
-                                         =20
->                   GEM_BFEXT(RX_CSUM, ctrl) & GEM_RX_CSUM_CHECKED_MASK)   =
-                                         =20
->                       skb->ip_summed =3D CHECKSUM_UNNECESSARY;           =
-                                           =20
->                                                                          =
-                                         =20
-> +             gem_ptp_do_rxstamp(bp, skb);                               =
-                                         =20
-> +                                                                        =
-                                         =20
->               bp->stats.rx_packets++;                                    =
-                                         =20
->               bp->stats.rx_bytes +=3D skb->len;                          =
-                                           =20
->                                                                          =
-                                         =20
-> @@ -2080,6 +2084,9 @@ static int macb_open(struct net_device *dev)       =
-                                         =20
->                                                                          =
-                                         =20
->       netif_tx_start_all_queues(dev);                                    =
-                                         =20
->                                                                          =
-                                         =20
-> +     if (bp->ptp_info)                                                  =
-                                         =20
-> +             bp->ptp_info->ptp_init(dev);                               =
-                                         =20
-> +                                                                        =
-                                         =20
->       return 0;                                                          =
-                                         =20
->  }                                                                       =
-                                         =20
->                                                                          =
-                                         =20
-> @@ -2101,6 +2108,9 @@ static int macb_close(struct net_device *dev)      =
-                                         =20
->                                                                          =
-                                         =20
->       macb_free_consistent(bp);                                          =
-                                         =20
->                                                                          =
-                                         =20
-> +     if (bp->ptp_info)                                                  =
-                                         =20
-> +             bp->ptp_info->ptp_remove(dev);                             =
-                                         =20
-> +                                                                        =
-                                         =20
->       return 0;                                                          =
-                                         =20
->  }                                                                       =
-                                         =20
->                                                                          =
-                                         =20
-> @@ -2374,6 +2384,133 @@ static int macb_set_ringparam(struct net_device *=
-netdev,                                  =20
->       return 0;                                                          =
-                                         =20
->  }                                                                       =
-                                         =20
->                                                                          =
-                                         =20
-> +#ifdef CONFIG_MACB_USE_HWSTAMP                                          =
-                                         =20
-> +static unsigned int gem_get_tsu_rate(struct macb *bp) {                 =
-                                         =20
-> +     /* Note: TSU rate is hardwired to PCLK. */                         =
-                                         =20
-> +     return clk_get_rate(bp->pclk);                                     =
-                                         =20
-> +}    =20
-Not exactly. There could be separate TSU clock.=20
-In my solution I check tsu_clk in DT before I decide to take pclk.
-But it could be change in macb_ptp_info.
-
-> +                                                                        =
-                                         =20
-> +static s32 gem_get_ptp_max_adj(void)                                    =
-                                         =20
-> +{                                                                       =
-                                         =20
-> +     return 3921508;                                                    =
-                                         =20
-> +}                                                                       =
-                                         =20
-> +                                                                        =
-                                         =20
-> +static int gem_get_ts_info(struct net_device *dev,                      =
-                                         =20
-> +                        struct ethtool_ts_info *info)                   =
-                                         =20
-> +{                                                                       =
-                                         =20
-> +     struct macb *bp =3D netdev_priv(dev);                              =
-                                           =20
-> +                                                                        =
-                                         =20
-> +     ethtool_op_get_ts_info(dev, info);                                 =
-                                         =20
-> +     info->so_timestamping =3D                                          =
-                                           =20
-> +             SOF_TIMESTAMPING_TX_SOFTWARE |                             =
-                                         =20
-> +             SOF_TIMESTAMPING_RX_SOFTWARE |                             =
-                                         =20
-> +             SOF_TIMESTAMPING_SOFTWARE |                                =
-                                         =20
-> +             SOF_TIMESTAMPING_TX_HARDWARE |                             =
-                                         =20
-> +             SOF_TIMESTAMPING_RX_HARDWARE |                             =
-                                         =20
-> +             SOF_TIMESTAMPING_RAW_HARDWARE;                             =
-                                         =20
-> +     info->phc_index =3D -1;                                            =
-                                           =20
-> +                                                                        =
-                                         =20
-> +     if (bp->ptp_clock)                                                 =
-                                         =20
-> +             info->phc_index =3D ptp_clock_index(bp->ptp_clock);        =
-                                           =20
-> +                                                                        =
-                                         =20
-> +     return 0;                                                          =
-                                         =20
-> +}                                                                       =
-                                         =20
-> +                                                                        =
-                                         =20
-> +static int gem_set_hwtst(struct net_device *netdev,                     =
-                                         =20
-> +                      struct ifreq *ifr, int cmd)                       =
-                                         =20
-> +{                                                                       =
-                                         =20
-> +     struct hwtstamp_config config;                                     =
-                                         =20
-> +     struct macb *priv =3D netdev_priv(netdev);                         =
-                                           =20
-> +     u32 regval;                                                        =
-                                         =20
-> +                                                                        =
-                                         =20
-> +     netdev_vdbg(netdev, "macb_hwtstamp_ioctl\n");                      =
-                                         =20
-> +                                                                        =
-                                         =20
-> +     if (copy_from_user(&config, ifr->ifr_data, sizeof(config)))        =
-                                         =20
-> +             return -EFAULT;                                            =
-                                         =20
-> +                                                                        =
-                                         =20
-> +     /* reserved for future extensions */                               =
-                                         =20
-> +     if (config.flags)                                                  =
-                                         =20
-> +             return -EINVAL;                                            =
-                                         =20
-> +                                                                        =
-                                         =20
-> +     switch (config.tx_type) {                                          =
-                                         =20
-> +     case HWTSTAMP_TX_OFF:                                              =
-                                         =20
-> +             priv->hwts_tx_en =3D false;                                =
-                                           =20
-> +             break;                                                     =
-                                         =20
-> +     case HWTSTAMP_TX_ON:                                               =
-                                         =20
-> +             priv->hwts_tx_en =3D true;                                 =
-                                           =20
-> +             break;                                                     =
-                                         =20
-> +     default:                                                           =
-                                         =20
-> +             return -ERANGE;                                            =
-                                         =20
-> +     }                                                                  =
-                                         =20
-> +                                                                        =
-                                         =20
-> +     switch (config.rx_filter) {                                        =
-                                         =20
-> +     case HWTSTAMP_FILTER_NONE:                                         =
-                                         =20
-> +             if (priv->hwts_rx_en)                                      =
-                                         =20
-> +                     priv->hwts_rx_en =3D false;                        =
-                                           =20
-> +             break;                                                     =
-                                         =20
-> +     case HWTSTAMP_FILTER_PTP_V2_L4_EVENT:                              =
-                                         =20
-> +     case HWTSTAMP_FILTER_PTP_V2_L2_EVENT:                              =
-                                         =20
-> +     case HWTSTAMP_FILTER_PTP_V2_L2_SYNC:                               =
-                                         =20
-> +     case HWTSTAMP_FILTER_PTP_V2_L4_SYNC:                               =
-                                         =20
-> +     case HWTSTAMP_FILTER_PTP_V2_L2_DELAY_REQ:                          =
-                                         =20
-> +     case HWTSTAMP_FILTER_PTP_V2_L4_DELAY_REQ:                          =
-                                         =20
-> +     case HWTSTAMP_FILTER_PTP_V2_EVENT:                                 =
-                                         =20
-> +     case HWTSTAMP_FILTER_PTP_V2_SYNC:                                  =
-                                         =20
-> +     case HWTSTAMP_FILTER_PTP_V2_DELAY_REQ:                             =
-                                         =20
-> +             config.rx_filter =3D HWTSTAMP_FILTER_PTP_V2_EVENT;         =
-                                           =20
-> +             regval =3D macb_readl(priv, NCR);                          =
-                                           =20
-> +             macb_writel(priv, NCR, (regval | MACB_BIT(SRTSM)));        =
-                                         =20
-> +                                                                        =
-                                         =20
-> +             if (!priv->hwts_rx_en)                                     =
-                                         =20
-> +                     priv->hwts_rx_en =3D true;                         =
-                                           =20
-> +             break;                                                     =
-                                         =20
-> +     default:                                                           =
-                                         =20
-> +             config.rx_filter =3D HWTSTAMP_FILTER_NONE;                 =
-                                           =20
-> +             return -ERANGE;                                            =
-                                         =20
-> +     }                                                                  =
-                                         =20
-> +                                                                        =
-                                         =20
-> +     return copy_to_user(ifr->ifr_data, &config, sizeof(config)) ?      =
-                                         =20
-> +             -EFAULT : 0;                                               =
-                                         =20
-> +}                                                                       =
-                                         =20
-> +                                                                        =
-                                         =20
-> +static int gem_get_hwtst(struct net_device *netdev,                     =
-                                         =20
-> +                      struct ifreq *ifr)                                =
-                                         =20
-> +{                                                                       =
-                                         =20
-> +     struct hwtstamp_config config;                                     =
-                                         =20
-> +     struct macb *priv =3D netdev_priv(netdev);                         =
-                                           =20
-> +                                                                        =
-                                         =20
-> +     config.flags =3D 0;                                                =
-                                           =20
-> +     config.tx_type =3D priv->hwts_tx_en ? HWTSTAMP_TX_ON : HWTSTAMP_TX_=
-OFF;                                       =20
-> +     config.rx_filter =3D (priv->hwts_rx_en ?                           =
-                                           =20
-> +                         HWTSTAMP_FILTER_ALL : HWTSTAMP_FILTER_NONE);   =
-                                         =20
-> +                                                                        =
-                                         =20
-> +     return copy_to_user(ifr->ifr_data, &config, sizeof(config)) ?      =
-                                         =20
-> +             -EFAULT : 0;                                               =
-                                         =20
-> +}                                                                       =
-                                         =20
-> +                                                                        =
-                                         =20
-> +static struct macb_ptp_info gem_ptp_info =3D {                          =
-                                           =20
-> +     .ptp_init        =3D gem_ptp_init,                                 =
-                                           =20
-> +     .ptp_remove      =3D gem_ptp_remove,                               =
-                                           =20
-> +     .get_ptp_max_adj =3D gem_get_ptp_max_adj,                          =
-                                           =20
-> +     .get_tsu_rate    =3D gem_get_tsu_rate,                             =
-                                           =20
-> +     .get_ts_info     =3D gem_get_ts_info,                              =
-                                           =20
-> +     .get_hwtst       =3D gem_get_hwtst,                                =
-                                           =20
-> +     .set_hwtst       =3D gem_set_hwtst,                                =
-                                           =20
-> +};                                                                      =
-                                         =20
-> +#endif                                                                  =
-                                         =20
-> +                                                                        =
-                                         =20
-> +static int macb_get_ts_info(struct net_device *netdev,                  =
-                                         =20
-> +                         struct ethtool_ts_info *info)                  =
-                                         =20
-> +{                                                                       =
-                                         =20
-> +     struct macb *bp =3D netdev_priv(netdev);                           =
-                                           =20
-> +                                                                        =
-                                         =20
-> +     if (bp->ptp_info)                                                  =
-                                         =20
-> +             return bp->ptp_info->get_ts_info(netdev, info);            =
-                                         =20
-> +                                                                        =
-                                         =20
-> +     return ethtool_op_get_ts_info(netdev, info); }                     =
-                                         =20
-> +                                                                        =
-                                         =20
->  static const struct ethtool_ops macb_ethtool_ops =3D {                  =
-                                           =20
->       .get_regs_len           =3D macb_get_regs_len,                     =
-                                           =20
->       .get_regs               =3D macb_get_regs,                         =
-                                           =20
-> @@ -2391,7 +2528,7 @@ static const struct ethtool_ops gem_ethtool_ops =3D=
- {                                         =20
->       .get_regs_len           =3D macb_get_regs_len,                     =
-                                           =20
->       .get_regs               =3D macb_get_regs,                         =
-                                           =20
->       .get_link               =3D ethtool_op_get_link,                   =
-                                           =20
-> -     .get_ts_info            =3D ethtool_op_get_ts_info,                =
-                                           =20
-> +     .get_ts_info            =3D macb_get_ts_info,                      =
-                                           =20
->       .get_ethtool_stats      =3D gem_get_ethtool_stats,                 =
-                                           =20
->       .get_strings            =3D gem_get_ethtool_strings,               =
-                                           =20
->       .get_sset_count         =3D gem_get_sset_count,                    =
-                                           =20
-> @@ -2404,6 +2541,7 @@ static const struct ethtool_ops gem_ethtool_ops =3D=
- {  static int macb_ioctl(struct net_device *dev, struct ifreq *rq, int cmd=
-)  {                                                                       =
-          =20
->       struct phy_device *phydev =3D dev->phydev;                         =
-                                           =20
-> +     struct macb *bp =3D netdev_priv(dev);                              =
-                                           =20
->                                                                          =
-                                         =20
->       if (!netif_running(dev))                                           =
-                                         =20
->               return -EINVAL;                                            =
-                                         =20
-> @@ -2411,7 +2549,20 @@ static int macb_ioctl(struct net_device *dev, stru=
-ct ifreq *rq, int cmd)                   =20
->       if (!phydev)                                                       =
-                                         =20
->               return -ENODEV;
+On 12/20/2016 05:27 PM, Joao Pinto wrote:
+> When the hardware is synthesized with multiple queues, all queues are
+> disabled for default. This patch adds the rx queues configuration.
+> This patch was successfully tested in a Synopsys QoS Reference design.
 >
-> -     return phy_mii_ioctl(phydev, rq, cmd);
-> +     switch (cmd) {
-> +     case SIOCSHWTSTAMP:
-> +             if (bp->ptp_info)
-> +                     return bp->ptp_info->set_hwtst(dev, rq, cmd);
+> Signed-off-by: Joao Pinto <jpinto@synopsys.com>
+> ---
+> changes v1 -> v2 (Niklas Cassel and Seraphin Bonnaffe):
+> - Instead of using number of DMA channels, lets use number of queues
+> - Create 2 flavors of RX queue enable Macros: AV and DCB (AV by default)
+> - Make sure that the RX queue related bits are cleared before setting
+> - Check if rx_queue_enable is available before executing
+> stmmac_mac_enable_rx_queues()
+>
+>  drivers/net/ethernet/stmicro/stmmac/common.h      |  5 +++++
+>  drivers/net/ethernet/stmicro/stmmac/dwmac4.h      |  9 +++++++++
+>  drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c | 12 ++++++++++++
+>  drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c  |  5 +++++
+>  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 22 ++++++++++++++++++++++
+>  5 files changed, 53 insertions(+)
+>
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
+> index b13a144..6c96291 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/common.h
+> +++ b/drivers/net/ethernet/stmicro/stmmac/common.h
+> @@ -323,6 +323,9 @@ struct dma_features {
+>  	/* TX and RX number of channels */
+>  	unsigned int number_rx_channel;
+>  	unsigned int number_tx_channel;
+> +	/* TX and RX number of queues */
+> +	unsigned int number_rx_queues;
+> +	unsigned int number_tx_queues;
+>  	/* Alternate (enhanced) DESC mode */
+>  	unsigned int enh_desc;
+>  };
+> @@ -454,6 +457,8 @@ struct stmmac_ops {
+>  	void (*core_init)(struct mac_device_info *hw, int mtu);
+>  	/* Enable and verify that the IPC module is supported */
+>  	int (*rx_ipc)(struct mac_device_info *hw);
+> +	/* Enable RX Queues */
+> +	void (*rx_queue_enable)(struct mac_device_info *hw, u32 queue);
+>  	/* Dump MAC registers */
+>  	void (*dump_regs)(struct mac_device_info *hw);
+>  	/* Handle extra events on specific interrupts hw dependent */
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
+> index 3e8d4fe..7d88517 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
+> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
+> @@ -22,6 +22,7 @@
+>  #define GMAC_HASH_TAB_32_63		0x00000014
+>  #define GMAC_RX_FLOW_CTRL		0x00000090
+>  #define GMAC_QX_TX_FLOW_CTRL(x)		(0x70 + x * 4)
+> +#define GMAC_RXQ_CTRL0			0x000000a0
+>  #define GMAC_INT_STATUS			0x000000b0
+>  #define GMAC_INT_EN			0x000000b4
+>  #define GMAC_PCS_BASE			0x000000e0
+> @@ -44,6 +45,12 @@
+>
+>  #define GMAC_MAX_PERFECT_ADDRESSES	128
+>
+> +/* MAC RX Queue Enable */
+> +#define GMAC_RX_QUEUE_CLEAR(queue)	~(BIT((queue) * 2) \
+> +					| BIT(((queue) * 2) + 1))
+
+
+What would you think about  ~(GENMASK(1, 0) << ((queue) * 2))) instead ?
+Slightly more readable in my humble opinion.
+
+
+> +#define GMAC_RX_AV_QUEUE_ENABLE(queue)	BIT((queue) * 2)
+> +#define GMAC_RX_DCB_QUEUE_ENABLE(queue)	BIT(((queue) * 2) + 1)
 > +
-> +             return -EOPNOTSUPP;
-> +     case SIOCGHWTSTAMP:
-> +             if (bp->ptp_info)
-> +                     return bp->ptp_info->get_hwtst(dev, rq);
-> +
-> +             return -EOPNOTSUPP;
-> +     default:
-> +             return phy_mii_ioctl(phydev, rq, cmd);
-> +     }
+>  /* MAC Flow Control RX */
+>  #define GMAC_RX_FLOW_CTRL_RFE		BIT(0)
+>
+> @@ -133,6 +140,8 @@ enum power_event {
+>  /* MAC HW features2 bitmap */
+>  #define GMAC_HW_FEAT_TXCHCNT		GENMASK(21, 18)
+>  #define GMAC_HW_FEAT_RXCHCNT		GENMASK(15, 12)
+> +#define GMAC_HW_FEAT_TXQCNT		GENMASK(9, 6)
+> +#define GMAC_HW_FEAT_RXQCNT		GENMASK(3, 0)
+>
+>  /* MAC HW ADDR regs */
+>  #define GMAC_HI_DCS			GENMASK(18, 16)
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
+> index eaed7cb..ecfbf57 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
+> @@ -59,6 +59,17 @@ static void dwmac4_core_init(struct mac_device_info *hw, int mtu)
+>  	writel(value, ioaddr + GMAC_INT_EN);
 >  }
 >
->  static int macb_set_features(struct net_device *netdev, @@ -2485,6 +2636=
-,12 @@ static void macb_configure_caps(struct macb *bp,
->               dcfg =3D gem_readl(bp, DCFG2);
->               if ((dcfg & (GEM_BIT(RX_PKT_BUFF) | GEM_BIT(TX_PKT_BUFF))) =
-=3D=3D 0)
->                       bp->caps |=3D MACB_CAPS_FIFO_MODE;
+> +static void dwmac4_rx_queue_enable(struct mac_device_info *hw, u32 queue)
+> +{
+> +	void __iomem *ioaddr = hw->pcsr;
+> +	u32 value = readl(ioaddr + GMAC_RXQ_CTRL0);
 > +
-> +             /* iff HWSTAMP is configure and gem has the capability */ #=
-ifdef
-> +CONFIG_MACB_USE_HWSTAMP
-> +             if (gem_has_ptp(bp))
-> +                     bp->ptp_info =3D &gem_ptp_info;
-> +#endif
->       }
+> +	value &= GMAC_RX_QUEUE_CLEAR(queue);
+> +	value |= GMAC_RX_AV_QUEUE_ENABLE(queue);
+> +
+> +	writel(value, ioaddr + GMAC_RXQ_CTRL0);
+> +}
+> +
+>  static void dwmac4_dump_regs(struct mac_device_info *hw)
+>  {
+>  	void __iomem *ioaddr = hw->pcsr;
+> @@ -392,6 +403,7 @@ static void dwmac4_debug(void __iomem *ioaddr, struct stmmac_extra_stats *x)
+>  static const struct stmmac_ops dwmac4_ops = {
+>  	.core_init = dwmac4_core_init,
+>  	.rx_ipc = dwmac4_rx_ipc_enable,
+> +	.rx_queue_enable = dwmac4_rx_queue_enable,
+>  	.dump_regs = dwmac4_dump_regs,
+>  	.host_irq_status = dwmac4_irq_status,
+>  	.flow_ctrl = dwmac4_flow_ctrl,
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
+> index 8196ab5..377d1b4 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c
+> @@ -303,6 +303,11 @@ static void dwmac4_get_hw_feature(void __iomem *ioaddr,
+>  		((hw_cap & GMAC_HW_FEAT_RXCHCNT) >> 12) + 1;
+>  	dma_cap->number_tx_channel =
+>  		((hw_cap & GMAC_HW_FEAT_TXCHCNT) >> 18) + 1;
+> +	/* TX and RX number of queues */
+> +	dma_cap->number_rx_queues =
+> +		((hw_cap & GMAC_HW_FEAT_RXQCNT) >> 0) + 1;
+> +	dma_cap->number_tx_queues =
+> +		((hw_cap & GMAC_HW_FEAT_TXQCNT) >> 6) + 1;
 >
->       dev_dbg(&bp->pdev->dev, "Cadence caps 0x%08x\n", bp->caps); @@ -304=
-1,7 +3198,7 @@ static const struct macb_config pc302gem_config =3D {  };
+>  	/* IEEE 1588-2002 */
+>  	dma_cap->time_stamp = 0;
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> index 3e40578..20f0e80 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> @@ -1271,6 +1271,24 @@ static void free_dma_desc_resources(struct stmmac_priv *priv)
+>  }
 >
->  static const struct macb_config sama5d2_config =3D {
-> -     .caps =3D MACB_CAPS_USRIO_DEFAULT_IS_MII_GMII,
-> +     .caps =3D MACB_CAPS_USRIO_DEFAULT_IS_MII_GMII | MACB_CAPS_GEM_HAS_P=
-TP,
-There are many IP cores with many configuration. If it is possible, capabil=
-ities should be read from IP directly.
-And it is possible in that case:
-Design Configuration Register 5 (0x290)
-bit 8: tsu
-There is now PTP hardware support without that bit.
+>  /**
+> + *  stmmac_mac_enable_rx_queues - Enable MAC rx queues
+> + *  @priv: driver private structure
+> + *  Description: It is used for enabling the rx queues in the MAC
+> + */
+> +static void stmmac_mac_enable_rx_queues(struct stmmac_priv *priv)
+> +{
+> +	int rx_count = priv->dma_cap.number_rx_queues;
+> +	int queue = 0;
+> +
+> +	/* If GMAC does not have multiqueues, then this is not necessary*/
+> +	if (rx_count == 1)
+> +		return;
+> +
 
->       .dma_burst_length =3D 16,
->       .clk_init =3D macb_clk_init,
->       .init =3D macb_init,
-> @@ -3049,14 +3206,15 @@ static const struct macb_config sama5d2_config =
-=3D {
->
->  static const struct macb_config sama5d3_config =3D {
->       .caps =3D MACB_CAPS_SG_DISABLED | MACB_CAPS_GIGABIT_MODE_AVAILABLE
-> -           | MACB_CAPS_USRIO_DEFAULT_IS_MII_GMII,
-> +           | MACB_CAPS_USRIO_DEFAULT_IS_MII_GMII
-> +           | MACB_CAPS_GEM_HAS_PTP,
->       .dma_burst_length =3D 16,
->       .clk_init =3D macb_clk_init,
->       .init =3D macb_init,
->  };
->
->  static const struct macb_config sama5d4_config =3D {
-> -     .caps =3D MACB_CAPS_USRIO_DEFAULT_IS_MII_GMII,
-> +     .caps =3D MACB_CAPS_USRIO_DEFAULT_IS_MII_GMII | MACB_CAPS_GEM_HAS_P=
-TP,
->       .dma_burst_length =3D 4,
->       .clk_init =3D macb_clk_init,
->       .init =3D macb_init,
-> --
-> 2.7.4
+This piece of code is still not checking if "rx_queue_enable" is actually not NULL,
+which will be the case for dwmac1000 and dwmac100.
 
-In macb_start_xmit() there is also invoked skb_tx_timestamp() for software =
-timestamping.
-I think, it should be disabled if you do hardware timestamping.
-
-Best regards,=20
-Rafal Ozieblo   |   Firmware System Engineer,=20
-www.cadence.com
+> +	for (queue = 0; queue < rx_count; queue++)
+> +		priv->hw->mac->rx_queue_enable(priv->hw, queue);
+> +}
+> +
+> +/**
+>   *  stmmac_dma_operation_mode - HW DMA operation mode
+>   *  @priv: driver private structure
+>   *  Description: it is used for configuring the DMA operation mode register in
+> @@ -1691,6 +1709,10 @@ static int stmmac_hw_setup(struct net_device *dev, bool init_ptp)
+>  	/* Initialize the MAC Core */
+>  	priv->hw->mac->core_init(priv->hw, dev->mtu);
+>
+> +	/* Initialize MAC RX Queues */
+> +	if (priv->hw->mac->rx_queue_enable)
+> +		stmmac_mac_enable_rx_queues(priv);
+> +
+>  	ret = priv->hw->mac->rx_ipc(priv->hw);
+>  	if (!ret) {
+>  		netdev_warn(priv->dev, "RX IPC Checksum Offload disabled\n");
+>
