@@ -1,307 +1,96 @@
-From: Timur Tabi <timur@codeaurora.org>
-Subject: [PATCH] net: qcom/emac: add ethtool support
-Date: Tue, 20 Dec 2016 16:32:09 -0600
-Message-ID: <1482273129-11812-1-git-send-email-timur@codeaurora.org>
-To: David Miller <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        netdev@vger.kernel.org, Christopher Covington <cov@codeaurora.org>,
-        Alok Chauhan <alokc@codeaurora.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:55432 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752007AbcLTWcP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2016 17:32:15 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "George Spelvin" <linux@sciencehorizons.net>
+Subject: Re: HalfSipHash Acceptable Usage
+Date: 20 Dec 2016 18:07:52 -0500
+Message-ID: <20161220230752.31049.qmail@ns.sciencehorizons.net>
+References: <20161220213636.tiqj2o4uupasr4aj@thunk.org>
+Cc: ak@linux.intel.com, davem@davemloft.net, David.Laight@aculab.com,
+        djb@cr.yp.to, ebiggers3@gmail.com, hannes@stressinduktion.org,
+        jeanphilippe.aumasson@gmail.com,
+        kernel-hardening@lists.openwall.com, linux-crypto@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linux@sciencehorizons.net,
+        luto@amacapital.net, netdev@vger.kernel.org, tom@herbertland.com,
+        torvalds@linux-foundation.org, vegard.nossum@gmail.com
+To: Jason@zx2c4.com, tytso@mit.edu
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <20161220213636.tiqj2o4uupasr4aj@thunk.org>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Add support for some ethtool methods: get/set link settings, get/set
-message level, get statistics, get link status, and restart
-autonegotiation.
+Theodore Ts'o wrote:
+> On Mon, Dec 19, 2016 at 06:32:44PM +0100, Jason A. Donenfeld wrote:
+>> 1) Anything that requires actual long-term security will use
+>> SipHash2-4, with the 64-bit output and the 128-bit key. This includes
+>> things like TCP sequence numbers. This seems pretty uncontroversial to
+>> me. Seem okay to you?
 
-Signed-off-by: Timur Tabi <timur@codeaurora.org>
----
- drivers/net/ethernet/qualcomm/emac/Makefile       |   2 +-
- drivers/net/ethernet/qualcomm/emac/emac-ethtool.c | 156 ++++++++++++++++++++++
- drivers/net/ethernet/qualcomm/emac/emac.c         |  51 ++++---
- drivers/net/ethernet/qualcomm/emac/emac.h         |   3 +
- 4 files changed, 191 insertions(+), 21 deletions(-)
- create mode 100644 drivers/net/ethernet/qualcomm/emac/emac-ethtool.c
+> Um, why do TCP sequence numbers need long-term security?  So long as
+> you rekey every 5 minutes or so, TCP sequence numbers don't need any
+> more security than that, since even if you break the key used to
+> generate initial sequence numbers seven a minute or two later, any
+> pending TCP connections will have timed out long before.
+> 
+> See the security analysis done in RFC 6528[1], where among other
+> things, it points out why MD5 is acceptable with periodic rekeying,
+> although there is the concern that this could break certain hueristics
+> used when establishing new connections during the TIME-WAIT state.
 
-diff --git a/drivers/net/ethernet/qualcomm/emac/Makefile b/drivers/net/ethernet/qualcomm/emac/Makefile
-index 7a66879..fc57ced 100644
---- a/drivers/net/ethernet/qualcomm/emac/Makefile
-+++ b/drivers/net/ethernet/qualcomm/emac/Makefile
-@@ -4,6 +4,6 @@
- 
- obj-$(CONFIG_QCOM_EMAC) += qcom-emac.o
- 
--qcom-emac-objs := emac.o emac-mac.o emac-phy.o emac-sgmii.o \
-+qcom-emac-objs := emac.o emac-mac.o emac-phy.o emac-sgmii.o emac-ethtool.o \
- 		  emac-sgmii-fsm9900.o emac-sgmii-qdf2432.o \
- 		  emac-sgmii-qdf2400.o
-diff --git a/drivers/net/ethernet/qualcomm/emac/emac-ethtool.c b/drivers/net/ethernet/qualcomm/emac/emac-ethtool.c
-new file mode 100644
-index 0000000..6de5152
---- /dev/null
-+++ b/drivers/net/ethernet/qualcomm/emac/emac-ethtool.c
-@@ -0,0 +1,156 @@
-+/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 and
-+ * only version 2 as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ */
-+
-+#include <linux/ethtool.h>
-+#include <linux/phy.h>
-+
-+#include "emac.h"
-+
-+static const char * const emac_ethtool_stat_strings[] = {
-+	"rx_ok",
-+	"rx_bcast",
-+	"rx_mcast",
-+	"rx_pause",
-+	"rx_ctrl",
-+	"rx_fcs_err",
-+	"rx_len_err",
-+	"rx_byte_cnt",
-+	"rx_runt",
-+	"rx_frag",
-+	"rx_sz_64",
-+	"rx_sz_65_127",
-+	"rx_sz_128_255",
-+	"rx_sz_256_511",
-+	"rx_sz_512_1023",
-+	"rx_sz_1024_1518",
-+	"rx_sz_1519_max",
-+	"rx_sz_ov",
-+	"rx_rxf_ov",
-+	"rx_align_err",
-+	"rx_bcast_byte_cnt",
-+	"rx_mcast_byte_cnt",
-+	"rx_err_addr",
-+	"rx_crc_align",
-+	"rx_jabbers",
-+	"tx_ok",
-+	"tx_bcast",
-+	"tx_mcast",
-+	"tx_pause",
-+	"tx_exc_defer",
-+	"tx_ctrl",
-+	"tx_defer",
-+	"tx_byte_cnt",
-+	"tx_sz_64",
-+	"tx_sz_65_127",
-+	"tx_sz_128_255",
-+	"tx_sz_256_511",
-+	"tx_sz_512_1023",
-+	"tx_sz_1024_1518",
-+	"tx_sz_1519_max",
-+	"tx_1_col",
-+	"tx_2_col",
-+	"tx_late_col",
-+	"tx_abort_col",
-+	"tx_underrun",
-+	"tx_rd_eop",
-+	"tx_len_err",
-+	"tx_trunc",
-+	"tx_bcast_byte",
-+	"tx_mcast_byte",
-+	"tx_col",
-+};
-+
-+#define EMAC_STATS_LEN	ARRAY_SIZE(emac_ethtool_stat_strings)
-+
-+static u32 emac_get_msglevel(struct net_device *netdev)
-+{
-+	struct emac_adapter *adpt = netdev_priv(netdev);
-+
-+	return adpt->msg_enable;
-+}
-+
-+static void emac_set_msglevel(struct net_device *netdev, u32 data)
-+{
-+	struct emac_adapter *adpt = netdev_priv(netdev);
-+
-+	adpt->msg_enable = data;
-+}
-+
-+static int emac_get_sset_count(struct net_device *netdev, int sset)
-+{
-+	switch (sset) {
-+	case ETH_SS_STATS:
-+		return EMAC_STATS_LEN;
-+	default:
-+		return -EOPNOTSUPP;
-+	}
-+}
-+
-+static void emac_get_strings(struct net_device *netdev, u32 stringset, u8 *data)
-+{
-+	unsigned int i;
-+
-+	switch (stringset) {
-+	case ETH_SS_STATS:
-+		for (i = 0; i < EMAC_STATS_LEN; i++) {
-+			strlcpy(data, emac_ethtool_stat_strings[i],
-+				ETH_GSTRING_LEN);
-+			data += ETH_GSTRING_LEN;
-+		}
-+		break;
-+	}
-+}
-+
-+static void emac_get_ethtool_stats(struct net_device *netdev,
-+				   struct ethtool_stats *stats,
-+				   u64 *data)
-+{
-+	struct emac_adapter *adpt = netdev_priv(netdev);
-+
-+	spin_lock(&adpt->stats.lock);
-+
-+	emac_update_hw_stats(adpt);
-+	memcpy(data, &adpt->stats, EMAC_STATS_LEN * sizeof(u64));
-+
-+	spin_unlock(&adpt->stats.lock);
-+}
-+
-+static int emac_nway_reset(struct net_device *netdev)
-+{
-+	struct phy_device *phydev = netdev->phydev;
-+
-+	if (!phydev)
-+		return -ENODEV;
-+
-+	return genphy_restart_aneg(phydev);
-+}
-+
-+static const struct ethtool_ops emac_ethtool_ops = {
-+	.get_link_ksettings = phy_ethtool_get_link_ksettings,
-+	.set_link_ksettings = phy_ethtool_set_link_ksettings,
-+
-+	.get_msglevel    = emac_get_msglevel,
-+	.set_msglevel    = emac_set_msglevel,
-+
-+	.get_sset_count  = emac_get_sset_count,
-+	.get_strings = emac_get_strings,
-+	.get_ethtool_stats = emac_get_ethtool_stats,
-+
-+	.nway_reset = emac_nway_reset,
-+
-+	.get_link = ethtool_op_get_link,
-+};
-+
-+void emac_set_ethtool_ops(struct net_device *netdev)
-+{
-+	netdev->ethtool_ops = &emac_ethtool_ops;
-+}
-diff --git a/drivers/net/ethernet/qualcomm/emac/emac.c b/drivers/net/ethernet/qualcomm/emac/emac.c
-index 422289c..1ab4478 100644
---- a/drivers/net/ethernet/qualcomm/emac/emac.c
-+++ b/drivers/net/ethernet/qualcomm/emac/emac.c
-@@ -311,45 +311,55 @@ static int emac_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
- 	return phy_mii_ioctl(netdev->phydev, ifr, cmd);
- }
- 
--/* Provide network statistics info for the interface */
--static struct rtnl_link_stats64 *emac_get_stats64(struct net_device *netdev,
--						  struct rtnl_link_stats64 *net_stats)
-+/**
-+ * emac_update_hw_stats - read the EMAC stat registers
-+ *
-+ * Reads the stats registers and write the values to adpt->stats.
-+ *
-+ * adpt->stats.lock must be held while calling this function.
-+ */
-+void emac_update_hw_stats(struct emac_adapter *adpt)
- {
--	struct emac_adapter *adpt = netdev_priv(netdev);
--	unsigned int addr = REG_MAC_RX_STATUS_BIN;
- 	struct emac_stats *stats = &adpt->stats;
- 	u64 *stats_itr = &adpt->stats.rx_ok;
--	u32 val;
--
--	spin_lock(&stats->lock);
-+	void __iomem *base = adpt->base;
-+	unsigned int addr;
- 
-+	addr = REG_MAC_RX_STATUS_BIN;
- 	while (addr <= REG_MAC_RX_STATUS_END) {
--		val = readl_relaxed(adpt->base + addr);
--		*stats_itr += val;
-+		*stats_itr += readl_relaxed(base + addr);
- 		stats_itr++;
- 		addr += sizeof(u32);
- 	}
- 
- 	/* additional rx status */
--	val = readl_relaxed(adpt->base + EMAC_RXMAC_STATC_REG23);
--	adpt->stats.rx_crc_align += val;
--	val = readl_relaxed(adpt->base + EMAC_RXMAC_STATC_REG24);
--	adpt->stats.rx_jabbers += val;
-+	stats->rx_crc_align += readl_relaxed(base + EMAC_RXMAC_STATC_REG23);
-+	stats->rx_jabbers += readl_relaxed(base + EMAC_RXMAC_STATC_REG24);
- 
- 	/* update tx status */
- 	addr = REG_MAC_TX_STATUS_BIN;
--	stats_itr = &adpt->stats.tx_ok;
-+	stats_itr = &stats->tx_ok;
- 
- 	while (addr <= REG_MAC_TX_STATUS_END) {
--		val = readl_relaxed(adpt->base + addr);
--		*stats_itr += val;
--		++stats_itr;
-+		*stats_itr += readl_relaxed(base + addr);
-+		stats_itr++;
- 		addr += sizeof(u32);
- 	}
- 
- 	/* additional tx status */
--	val = readl_relaxed(adpt->base + EMAC_TXMAC_STATC_REG25);
--	adpt->stats.tx_col += val;
-+	stats->tx_col += readl_relaxed(base + EMAC_TXMAC_STATC_REG25);
-+}
-+
-+/* Provide network statistics info for the interface */
-+static struct rtnl_link_stats64 *
-+emac_get_stats64(struct net_device *netdev, struct rtnl_link_stats64 *net_stats)
-+{
-+	struct emac_adapter *adpt = netdev_priv(netdev);
-+	struct emac_stats *stats = &adpt->stats;
-+
-+	spin_lock(&stats->lock);
-+
-+	emac_update_hw_stats(adpt);
- 
- 	/* return parsed statistics */
- 	net_stats->rx_packets = stats->rx_ok;
-@@ -620,6 +630,7 @@ static int emac_probe(struct platform_device *pdev)
- 
- 	dev_set_drvdata(&pdev->dev, netdev);
- 	SET_NETDEV_DEV(netdev, &pdev->dev);
-+	emac_set_ethtool_ops(netdev);
- 
- 	adpt = netdev_priv(netdev);
- 	adpt->netdev = netdev;
-diff --git a/drivers/net/ethernet/qualcomm/emac/emac.h b/drivers/net/ethernet/qualcomm/emac/emac.h
-index 0c76e6c..4b8483c 100644
---- a/drivers/net/ethernet/qualcomm/emac/emac.h
-+++ b/drivers/net/ethernet/qualcomm/emac/emac.h
-@@ -332,4 +332,7 @@ struct emac_adapter {
- void emac_reg_update32(void __iomem *addr, u32 mask, u32 val);
- irqreturn_t emac_isr(int irq, void *data);
- 
-+void emac_set_ethtool_ops(struct net_device *netdev);
-+void emac_update_hw_stats(struct emac_adapter *adpt);
-+
- #endif /* _EMAC_H_ */
--- 
-Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
-Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
-Code Aurora Forum, a Linux Foundation Collaborative Project.
+Because we don't rekey TCP sequence numbers, ever.  See commit
+6e5714eaf77d79ae1c8b47e3e040ff5411b717ec
+
+To rekey them requires dividing the sequence number base into a "random"
+part and some "generation" msbits.  While we can do better than the
+previous 8+24 split (I'd suggest 4+28 or 3+29), only 2 is tricks, and
+1 generation bit isn't enough.
+
+So while it helps in the long term, it reduces the security offered by
+the random part in the short term.  (If I know 4 bits of your ISN,
+I only need to send 256 MB to hit your TCP window.)
+
+At the time, I objected, and suggested doing two hashes, with a fixed
+32-bit base plus a split rekeyed portion, but that was vetoed on the
+grounds of performance.
+
+On further consideration, the fixed base doesn't help much.
+(Details below for anyone that cares.)
+
+
+
+Suppose we let the TCP initial sequence number be:
+
+(Hash(<srcIP,dstIP,srcPort,dstPort>, fixed_key) & 0xffffffff) +
+(i << 28) + (Hash(<srcIP,dstIP,srcPort,dstPort>, key[i]) & 0x0fffffff) +
+(current_time_in_nanoseconds / 64)
+
+It's not hugely difficult to mount an effective attack against a
+64-bit fixed_key.
+
+As an attacker, I can ask the target to send me these numbers for dstPort
+values i control and other values I know.  I can (with high probability)
+detect the large jumps when the generation changes, so I can make a
+significant number of queries with the same generation.  After 23-ish
+queries, I have enough information to identify a 64-bit fixed_key.
+
+I don't know the current generation counter "i", but I know it's the
+same for all my queries, so for any two queries, the maximum difference
+between the 28-bit hash values is 29 bits.  (We can also add a small
+margin to allow for timeing uncertainty, but that's even less.)
+
+So if I guess a fixed key, hash my known plaintexts with that guess,
+subtract the ciphertexts from the observed sequence numbers, and the
+difference between the remaining (unknown) 28-bit hash values plus
+timestamps exceeds what's possible, my guess is wrong.
+
+I can then repeat with additional known plaintexts, reducing the space
+of admissible keys by about 3 bits each time.
+
+Assuming I can rent GPU horsepower from a bitcoin miner to do this in a
+reasonable period of time, after 22 known plaintext differences, I have
+uniquely identified the key.
+
+Of course, in practice I'd do is a first pass with maybe 6 plaintexts
+on the GPU, and then deal with the candidates found in a second pass.
+But either way, it's about 2.3 SipHash evaluations per key tested.
+As I noted earlier, a bitcoin blockchain block, worth 25 bitcoins,
+currently costs 2^71 evaluations of SHA-2 (2^70 evaluations of double
+SHA-2), and that's accomplished every 10 minutes, this is definitely
+practical.
