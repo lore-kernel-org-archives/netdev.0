@@ -1,82 +1,129 @@
-From: Weilong Chen <chenweilong@huawei.com>
-Subject: Re: [PATCH net-next] ixgbevf: fix 'Etherleak' in ixgbevf
-Date: Tue, 20 Dec 2016 19:50:30 +0800
-Message-ID: <5c942aba-f7fb-ede6-b6a2-e591025f53a5@huawei.com>
-References: <1481802034-77729-1-git-send-email-chenweilong@huawei.com>
- <CAKgT0UfA9VG4NQZLLxXvobtfp22yPpPssSM4Ge94KFa1RVnhyg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-        Netdev <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        <wangkefeng.wang@huawei.com>
-To: Alexander Duyck <alexander.duyck@gmail.com>
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Subject: [PATCH] stmmac: enable rx queues
+Date: Tue, 20 Dec 2016 12:55:24 +0000
+Message-ID: <9a8911dfd2ed07391106e9cd0f90475742a798dc.1482238007.git.jpinto@synopsys.com>
+Cc: hock.leong.kweh@intel.com, niklas.cassel@axis.com, pavel@ucw.cz,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        Joao Pinto <Joao.Pinto@synopsys.com>
+To: peppe.cavallaro@st.com, davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAKgT0UfA9VG4NQZLLxXvobtfp22yPpPssSM4Ge94KFa1RVnhyg@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+When the hardware is synthesized with multiple queues, all queues are
+disabled for default. This patch adds the rx queues configuration.
+This patch was successfully tested in a Synopsys QoS Reference design.
 
-Thanks for you reply.
-We test you patch, but the problem is still there, it seems do not work.
+Signed-off-by: Joao Pinto <jpinto@synopsys.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/common.h      |  2 ++
+ drivers/net/ethernet/stmicro/stmmac/dwmac4.h      |  4 ++++
+ drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c | 11 +++++++++++
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 21 +++++++++++++++++++++
+ 4 files changed, 38 insertions(+)
 
-I'm not sure why ixgbe use the limit 17. The kenel use ETH_ZLEN (60) 
-with out FCS. A lot of drivers such as e1000 use it. Any explaination?
-
-Thanks.
-
-On 2016/12/16 0:13, Alexander Duyck wrote:
-> On Thu, Dec 15, 2016 at 3:40 AM, Weilong Chen <chenweilong@huawei.com> wrote:
->> Nessus report the vf appears to leak memory in network packets.
->> Fix this by padding all small packets manually.
->>
->> And the CVE-2003-0001.
->> https://ofirarkin.files.wordpress.com/2008/11/atstake_etherleak_report.pdf
->>
->> Signed-off-by: Weilong Chen <chenweilong@huawei.com>
->> ---
->>  drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 7 +++++++
->>  1 file changed, 7 insertions(+)
->>
->> diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
->> index 6d4bef5..137a154 100644
->> --- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
->> +++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
->> @@ -3654,6 +3654,13 @@ static int ixgbevf_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
->>                 return NETDEV_TX_OK;
->>         }
->>
->> +       /* On PCI/PCI-X HW, if packet size is less than ETH_ZLEN,
->> +        * packets may get corrupted during padding by HW.
->> +        * To WA this issue, pad all small packets manually.
->> +        */
->> +       if (eth_skb_pad(skb))
->> +               return NETDEV_TX_OK;
->> +
->
-> So the patch description for this probably isn't correct.  It looks
-> like the problem isn't leaking data it is the fact that the frames
-> aren't being padded to prevent malicious events.  The only issue is
-> the patch is padding by a bit too much.  I would recommend replacing
-> this with the following from ixgbe:
->
->         /*
->          * The minimum packet size for olinfo paylen is 17 so pad the skb
->          * in order to meet this minimum size requirement.
->          */
->         if (skb_put_padto(skb, 17))
->                 return NETDEV_TX_OK;
->
->
->>         tx_ring = adapter->tx_ring[skb->queue_mapping];
->>
->>         /* need: 1 descriptor per page * PAGE_SIZE/IXGBE_MAX_DATA_PER_TXD,
->> --
->> 1.7.12
->>
->
-> .
->
+diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
+index b13a144..61bab50 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/common.h
++++ b/drivers/net/ethernet/stmicro/stmmac/common.h
+@@ -454,6 +454,8 @@ struct stmmac_ops {
+ 	void (*core_init)(struct mac_device_info *hw, int mtu);
+ 	/* Enable and verify that the IPC module is supported */
+ 	int (*rx_ipc)(struct mac_device_info *hw);
++	/* Enable RX Queues */
++	void (*rx_queue_enable)(struct mac_device_info *hw, u32 queue);
+ 	/* Dump MAC registers */
+ 	void (*dump_regs)(struct mac_device_info *hw);
+ 	/* Handle extra events on specific interrupts hw dependent */
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
+index 3e8d4fe..fd013bd 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
+@@ -22,6 +22,7 @@
+ #define GMAC_HASH_TAB_32_63		0x00000014
+ #define GMAC_RX_FLOW_CTRL		0x00000090
+ #define GMAC_QX_TX_FLOW_CTRL(x)		(0x70 + x * 4)
++#define GMAC_RXQ_CTRL0			0x000000a0
+ #define GMAC_INT_STATUS			0x000000b0
+ #define GMAC_INT_EN			0x000000b4
+ #define GMAC_PCS_BASE			0x000000e0
+@@ -44,6 +45,9 @@
+ 
+ #define GMAC_MAX_PERFECT_ADDRESSES	128
+ 
++/* MAC RX Queue Enable*/
++#define GMAC_RX_QUEUE_ENABLE(queue)	BIT(queue * 2)
++
+ /* MAC Flow Control RX */
+ #define GMAC_RX_FLOW_CTRL_RFE		BIT(0)
+ 
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
+index eaed7cb..7ec1887 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
+@@ -59,6 +59,16 @@ static void dwmac4_core_init(struct mac_device_info *hw, int mtu)
+ 	writel(value, ioaddr + GMAC_INT_EN);
+ }
+ 
++static void dwmac4_rx_queue_enable(struct mac_device_info *hw, u32 queue)
++{
++	void __iomem *ioaddr = hw->pcsr;
++	u32 value = readl(ioaddr + GMAC_RXQ_CTRL0);
++
++	value |= GMAC_RX_QUEUE_ENABLE(queue);
++
++	writel(value, ioaddr + GMAC_RXQ_CTRL0);
++}
++
+ static void dwmac4_dump_regs(struct mac_device_info *hw)
+ {
+ 	void __iomem *ioaddr = hw->pcsr;
+@@ -392,6 +402,7 @@ static void dwmac4_debug(void __iomem *ioaddr, struct stmmac_extra_stats *x)
+ static const struct stmmac_ops dwmac4_ops = {
+ 	.core_init = dwmac4_core_init,
+ 	.rx_ipc = dwmac4_rx_ipc_enable,
++	.rx_queue_enable = dwmac4_rx_queue_enable,
+ 	.dump_regs = dwmac4_dump_regs,
+ 	.host_irq_status = dwmac4_irq_status,
+ 	.flow_ctrl = dwmac4_flow_ctrl,
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 3e40578..e30034d 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -1271,6 +1271,24 @@ static void free_dma_desc_resources(struct stmmac_priv *priv)
+ }
+ 
+ /**
++ *  stmmac_mac_enable_rx_queues - Enable MAC rx queues
++ *  @priv: driver private structure
++ *  Description: It is used for enabling the rx queues in the MAC
++ */
++static void stmmac_mac_enable_rx_queues(struct stmmac_priv *priv)
++{
++	int rx_count = priv->dma_cap.number_rx_channel;
++	int queue = 0;
++
++	/* If GMAC does not have multiqueues, then this is not necessary*/
++	if (rx_count == 1)
++		return;
++
++	for (queue = 0; queue < rx_count; queue++)
++		priv->hw->mac->rx_queue_enable(priv->hw, queue);
++}
++
++/**
+  *  stmmac_dma_operation_mode - HW DMA operation mode
+  *  @priv: driver private structure
+  *  Description: it is used for configuring the DMA operation mode register in
+@@ -1691,6 +1709,9 @@ static int stmmac_hw_setup(struct net_device *dev, bool init_ptp)
+ 	/* Initialize the MAC Core */
+ 	priv->hw->mac->core_init(priv->hw, dev->mtu);
+ 
++	/* Initialize MAC RX Queues */
++	stmmac_mac_enable_rx_queues(priv);
++
+ 	ret = priv->hw->mac->rx_ipc(priv->hw);
+ 	if (!ret) {
+ 		netdev_warn(priv->dev, "RX IPC Checksum Offload disabled\n");
+-- 
+2.9.3
