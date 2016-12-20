@@ -1,35 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: ipv6: handle -EFAULT from skb_copy_bits
-Date: Mon, 19 Dec 2016 20:36:23 -0500 (EST)
-Message-ID: <20161219.203623.119653805184192345.davem@davemloft.net>
-References: <20161219.144848.736886978545428136.davem@davemloft.net>
-        <20161220003144.omoqyghgdfbxdyuu@codemonkey.org.uk>
-        <20161220004013.43pcopemc6im32az@codemonkey.org.uk>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: Which ethtool methods should I implement?
+Date: Mon, 19 Dec 2016 17:40:41 -0800
+Message-ID: <a7fbf45a-3b74-cbb8-f239-44c35717aabd@gmail.com>
+References: <58588982.5030006@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: davej@codemonkey.org.uk
+To: Timur Tabi <timur@codeaurora.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54608 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752315AbcLTBgY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2016 20:36:24 -0500
-In-Reply-To: <20161220004013.43pcopemc6im32az@codemonkey.org.uk>
+Received: from mail-pg0-f52.google.com ([74.125.83.52]:35685 "EHLO
+        mail-pg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754811AbcLTBkt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2016 20:40:49 -0500
+Received: by mail-pg0-f52.google.com with SMTP id i5so1392641pgh.2
+        for <netdev@vger.kernel.org>; Mon, 19 Dec 2016 17:40:48 -0800 (PST)
+In-Reply-To: <58588982.5030006@codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dave Jones <davej@codemonkey.org.uk>
-Date: Mon, 19 Dec 2016 19:40:13 -0500
-
-> On Mon, Dec 19, 2016 at 07:31:44PM -0500, Dave Jones wrote:
+On 12/19/2016 05:29 PM, Timur Tabi wrote:
+> I'm adding support for ethtool to my driver
+> (drivers/net/ethernet/qualcomm/emac/), and I can't find any meaningful
+> HOWTO documentation, so I'm not sure which methods I need to implement.
 > 
->  > Unfortunately, this made no difference.  I spent some time today trying
->  > to make a better reproducer, but failed. I'll revisit again tomorrow.
->  > 
->  > Maybe I need >1 process/thread to trigger this.  That would explain why
->  > I can trigger it with Trinity.
-> 
-> scratch that last part, I finally just repro'd it with a single process.
+> Is there some minimal set of must-have ethtool methods that should be
+> implemented?  Since I support phylib, I guess I should use
+> phy_ethtool_get_link_ksettings and phy_ethtool_set_link_ksettings.  What
+> else?
 
-Thanks for the info, I'll try to think about this some more.
+Ideally, everything that is supported by your HW, but I would with the
+basic essential stuff that you would need in case someone reports
+problems with your driver like:
+
+- statistics (MAC for sure) and PHY (if possible), -S
+- ability to restart auto-negotation (-r)
+- reporting of driver information (-i)
+- support toggling and reporting NETIF_F_* features -k/-K
+-- 
+Florian
