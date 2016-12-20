@@ -1,129 +1,41 @@
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: [PATCH] stmmac: enable rx queues
-Date: Tue, 20 Dec 2016 12:55:24 +0000
-Message-ID: <9a8911dfd2ed07391106e9cd0f90475742a798dc.1482238007.git.jpinto@synopsys.com>
-Cc: hock.leong.kweh@intel.com, niklas.cassel@axis.com, pavel@ucw.cz,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        Joao Pinto <Joao.Pinto@synopsys.com>
-To: peppe.cavallaro@st.com, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Michal Hocko <mhocko@kernel.org>
+Subject: [PATCH 0/2 v2] mm, slab: consolidate KMALLOC_MAX_SIZE
+Date: Tue, 20 Dec 2016 14:06:57 +0100
+Message-ID: <20161220130659.16461-1-mhocko@kernel.org>
+Cc: Cristopher Lameter <cl@linux.com>,
+	Alexei Starovoitov <ast@kernel.org>,
+	Andrey Konovalov <andreyknvl@google.com>,
+	netdev@vger.kernel.org,
+	<linux-mm@kvack.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <owner-linux-mm@kvack.org>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-When the hardware is synthesized with multiple queues, all queues are
-disabled for default. This patch adds the rx queues configuration.
-This patch was successfully tested in a Synopsys QoS Reference design.
+Hi,
+this is the second version of the patchset previously posted here [1].
+Alexei has insisted on the patches reordering which I've done in this
+series. I've also updated the changelog of the second patch to mention
+why KMALLOC_SHIFT_MAX has been used.
 
-Signed-off-by: Joao Pinto <jpinto@synopsys.com>
----
- drivers/net/ethernet/stmicro/stmmac/common.h      |  2 ++
- drivers/net/ethernet/stmicro/stmmac/dwmac4.h      |  4 ++++
- drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c | 11 +++++++++++
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 21 +++++++++++++++++++++
- 4 files changed, 38 insertions(+)
+Andrey has revealed a discrepancy between KMALLOC_MAX_SIZE and the
+maximum supported page allocator size [2]. The underlying problem
+should be fixed in the ep_write_iter code of course, but I do not feel
+qualified to do that. The discrepancy which it reveals (see patch 2)
+is worth fixing anyway, though.
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
-index b13a144..61bab50 100644
---- a/drivers/net/ethernet/stmicro/stmmac/common.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/common.h
-@@ -454,6 +454,8 @@ struct stmmac_ops {
- 	void (*core_init)(struct mac_device_info *hw, int mtu);
- 	/* Enable and verify that the IPC module is supported */
- 	int (*rx_ipc)(struct mac_device_info *hw);
-+	/* Enable RX Queues */
-+	void (*rx_queue_enable)(struct mac_device_info *hw, u32 queue);
- 	/* Dump MAC registers */
- 	void (*dump_regs)(struct mac_device_info *hw);
- 	/* Handle extra events on specific interrupts hw dependent */
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
-index 3e8d4fe..fd013bd 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
-@@ -22,6 +22,7 @@
- #define GMAC_HASH_TAB_32_63		0x00000014
- #define GMAC_RX_FLOW_CTRL		0x00000090
- #define GMAC_QX_TX_FLOW_CTRL(x)		(0x70 + x * 4)
-+#define GMAC_RXQ_CTRL0			0x000000a0
- #define GMAC_INT_STATUS			0x000000b0
- #define GMAC_INT_EN			0x000000b4
- #define GMAC_PCS_BASE			0x000000e0
-@@ -44,6 +45,9 @@
- 
- #define GMAC_MAX_PERFECT_ADDRESSES	128
- 
-+/* MAC RX Queue Enable*/
-+#define GMAC_RX_QUEUE_ENABLE(queue)	BIT(queue * 2)
-+
- /* MAC Flow Control RX */
- #define GMAC_RX_FLOW_CTRL_RFE		BIT(0)
- 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
-index eaed7cb..7ec1887 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
-@@ -59,6 +59,16 @@ static void dwmac4_core_init(struct mac_device_info *hw, int mtu)
- 	writel(value, ioaddr + GMAC_INT_EN);
- }
- 
-+static void dwmac4_rx_queue_enable(struct mac_device_info *hw, u32 queue)
-+{
-+	void __iomem *ioaddr = hw->pcsr;
-+	u32 value = readl(ioaddr + GMAC_RXQ_CTRL0);
-+
-+	value |= GMAC_RX_QUEUE_ENABLE(queue);
-+
-+	writel(value, ioaddr + GMAC_RXQ_CTRL0);
-+}
-+
- static void dwmac4_dump_regs(struct mac_device_info *hw)
- {
- 	void __iomem *ioaddr = hw->pcsr;
-@@ -392,6 +402,7 @@ static void dwmac4_debug(void __iomem *ioaddr, struct stmmac_extra_stats *x)
- static const struct stmmac_ops dwmac4_ops = {
- 	.core_init = dwmac4_core_init,
- 	.rx_ipc = dwmac4_rx_ipc_enable,
-+	.rx_queue_enable = dwmac4_rx_queue_enable,
- 	.dump_regs = dwmac4_dump_regs,
- 	.host_irq_status = dwmac4_irq_status,
- 	.flow_ctrl = dwmac4_flow_ctrl,
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 3e40578..e30034d 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -1271,6 +1271,24 @@ static void free_dma_desc_resources(struct stmmac_priv *priv)
- }
- 
- /**
-+ *  stmmac_mac_enable_rx_queues - Enable MAC rx queues
-+ *  @priv: driver private structure
-+ *  Description: It is used for enabling the rx queues in the MAC
-+ */
-+static void stmmac_mac_enable_rx_queues(struct stmmac_priv *priv)
-+{
-+	int rx_count = priv->dma_cap.number_rx_channel;
-+	int queue = 0;
-+
-+	/* If GMAC does not have multiqueues, then this is not necessary*/
-+	if (rx_count == 1)
-+		return;
-+
-+	for (queue = 0; queue < rx_count; queue++)
-+		priv->hw->mac->rx_queue_enable(priv->hw, queue);
-+}
-+
-+/**
-  *  stmmac_dma_operation_mode - HW DMA operation mode
-  *  @priv: driver private structure
-  *  Description: it is used for configuring the DMA operation mode register in
-@@ -1691,6 +1709,9 @@ static int stmmac_hw_setup(struct net_device *dev, bool init_ptp)
- 	/* Initialize the MAC Core */
- 	priv->hw->mac->core_init(priv->hw, dev->mtu);
- 
-+	/* Initialize MAC RX Queues */
-+	stmmac_mac_enable_rx_queues(priv);
-+
- 	ret = priv->hw->mac->rx_ipc(priv->hw);
- 	if (!ret) {
- 		netdev_warn(priv->dev, "RX IPC Checksum Offload disabled\n");
--- 
-2.9.3
+While I was looking into the code, I've noticed that the only code which
+uses KMALLOC_SHIFT_MAX outside of the slab code is bpf so I've updated
+it to use KMALLOC_MAX_SIZE instead. There shouldn't be any real reason
+to use KMALLOC_SHIFT_MAX which is a slab internal constant same as
+KMALLOC_SHIFT_{LOW,HIGH}
+
+[1] http://lkml.kernel.org/r/20161215164722.21586-1-mhocko@kernel.org
+[2] http://lkml.kernel.org/r/CAAeHK+ztusS68DejO8AH3nn-EfiYQpD5FmBwmqKG8BWvoqPNqQ@mail.gm
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
