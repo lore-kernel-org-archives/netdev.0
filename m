@@ -1,7 +1,7 @@
 From: Murali Karicheri <m-karicheri2@ti.com>
-Subject: [PATCH net-next 08/10] net: netcp: ale: update to support unknown vlan controls for NU switch
-Date: Tue, 20 Dec 2016 17:09:51 -0500
-Message-ID: <1482271793-7671-9-git-send-email-m-karicheri2@ti.com>
+Subject: [PATCH net-next 07/10] net: netcp: use hw capability to remove FCS word from rx packets
+Date: Tue, 20 Dec 2016 17:09:50 -0500
+Message-ID: <1482271793-7671-8-git-send-email-m-karicheri2@ti.com>
 References: <1482271793-7671-1-git-send-email-m-karicheri2@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -15,172 +15,84 @@ In-Reply-To: <1482271793-7671-1-git-send-email-m-karicheri2@ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In NU Ethernet switch used on some of the Keystone SoCs, there is
-separate UNKNOWNVLAN register for membership, unreg mcast flood, reg
-mcast flood and force untag egress bits in ALE. So control for these
-fields require different address offset, shift and size of field.
-As this ALE has the same version number as ALE in CPSW found on other
-SoCs, customazation based on version number is not possible. So
-use a configuration parameter, nu_switch_ale, to identify the ALE
-ALE found in NU Switch. Different treatment is needed for NU Switch
-ALE due to difference in the ale table bits, separate unknown vlan
-registers etc. The register information available in ale_controls,
-needs to be updated to support the netcp NU switch h/w. So it is not
-constant array any more since it needs to be updated based
-on ALE type. The header of the file is also updated to indicate it
-supports N port switch ALE, not just 3 port. The version mask is
-3 bits in NU Switch ALE vs 8 bits on other ALE types.
-
-While at it, change the debug print to info print so that ALE
-version gets displayed in boot log.
+Some of the newer Ethernet switch hw (such as that on k2e/l/g) can
+strip the Etherenet FCS from packet at the port 0 egress of the switch.
+So use this capability instead of doing it in software.
 
 Signed-off-by: Murali Karicheri <m-karicheri2@ti.com>
 Signed-off-by: Sekhar Nori <nsekhar@ti.com>
 ---
- drivers/net/ethernet/ti/cpsw_ale.c    | 50 +++++++++++++++++++++++++++++++----
- drivers/net/ethernet/ti/cpsw_ale.h    | 13 ++++++++-
- drivers/net/ethernet/ti/netcp_ethss.c |  5 +++-
- 3 files changed, 61 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/ti/netcp.h       |  2 ++
+ drivers/net/ethernet/ti/netcp_core.c  |  8 ++++++--
+ drivers/net/ethernet/ti/netcp_ethss.c | 10 ++++++++--
+ 3 files changed, 16 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/ti/cpsw_ale.c b/drivers/net/ethernet/ti/cpsw_ale.c
-index 43b061b..e15db39 100644
---- a/drivers/net/ethernet/ti/cpsw_ale.c
-+++ b/drivers/net/ethernet/ti/cpsw_ale.c
-@@ -1,5 +1,5 @@
- /*
-- * Texas Instruments 3-Port Ethernet Switch Address Lookup Engine
-+ * Texas Instruments N-Port Ethernet Switch Address Lookup Engine
-  *
-  * Copyright (C) 2012 Texas Instruments
-  *
-@@ -27,8 +27,9 @@
+diff --git a/drivers/net/ethernet/ti/netcp.h b/drivers/net/ethernet/ti/netcp.h
+index d243c5d..8900a6f 100644
+--- a/drivers/net/ethernet/ti/netcp.h
++++ b/drivers/net/ethernet/ti/netcp.h
+@@ -102,6 +102,8 @@ struct netcp_intf {
+ 	void			*rx_fdq[KNAV_DMA_FDQ_PER_CHAN];
+ 	struct napi_struct	rx_napi;
+ 	struct napi_struct	tx_napi;
++#define ETH_SW_CAN_REMOVE_ETH_FCS	BIT(0)
++	u32			hw_cap;
  
- #define BITMASK(bits)		(BIT(bits) - 1)
+ 	/* 64-bit netcp stats */
+ 	struct netcp_stats	stats;
+diff --git a/drivers/net/ethernet/ti/netcp_core.c b/drivers/net/ethernet/ti/netcp_core.c
+index b077ed4..68a75cc 100644
+--- a/drivers/net/ethernet/ti/netcp_core.c
++++ b/drivers/net/ethernet/ti/netcp_core.c
+@@ -739,8 +739,12 @@ static int netcp_process_one_rx_packet(struct netcp_intf *netcp)
+ 		dev_dbg(netcp->ndev_dev, "mismatch in packet size(%d) & sum of fragments(%d)\n",
+ 			pkt_sz, accum_sz);
  
--#define ALE_VERSION_MAJOR(rev)	((rev >> 8) & 0xff)
-+#define ALE_VERSION_MAJOR(rev, mask) (((rev) >> 8) & (mask))
- #define ALE_VERSION_MINOR(rev)	(rev & 0xff)
-+#define ALE_VERSION_1R4		0x0104
- 
- /* ALE Registers */
- #define ALE_IDVER		0x00
-@@ -39,6 +40,12 @@
- #define ALE_TABLE		0x34
- #define ALE_PORTCTL		0x40
- 
-+/* ALE NetCP NU switch specific Registers */
-+#define ALE_UNKNOWNVLAN_MEMBER			0x90
-+#define ALE_UNKNOWNVLAN_UNREG_MCAST_FLOOD	0x94
-+#define ALE_UNKNOWNVLAN_REG_MCAST_FLOOD		0x98
-+#define ALE_UNKNOWNVLAN_FORCE_UNTAG_EGRESS	0x9C
-+
- #define ALE_TABLE_WRITE		BIT(31)
- 
- #define ALE_TYPE_FREE			0
-@@ -464,7 +471,7 @@ struct ale_control_info {
- 	int		bits;
- };
- 
--static const struct ale_control_info ale_controls[ALE_NUM_CONTROLS] = {
-+static struct ale_control_info ale_controls[ALE_NUM_CONTROLS] = {
- 	[ALE_ENABLE]		= {
- 		.name		= "enable",
- 		.offset		= ALE_CONTROL,
-@@ -724,8 +731,41 @@ void cpsw_ale_start(struct cpsw_ale *ale)
- 	u32 rev;
- 
- 	rev = __raw_readl(ale->params.ale_regs + ALE_IDVER);
--	dev_dbg(ale->params.dev, "initialized cpsw ale revision %d.%d\n",
--		ALE_VERSION_MAJOR(rev), ALE_VERSION_MINOR(rev));
-+	if (!ale->params.major_ver_mask)
-+		ale->params.major_ver_mask = 0xff;
-+	ale->version =
-+		(ALE_VERSION_MAJOR(rev, ale->params.major_ver_mask) << 8) |
-+		 ALE_VERSION_MINOR(rev);
-+	dev_info(ale->params.dev, "initialized cpsw ale version %d.%d\n",
-+		 ALE_VERSION_MAJOR(rev, ale->params.major_ver_mask),
-+		 ALE_VERSION_MINOR(rev));
-+
-+	if (ale->params.nu_switch_ale) {
-+		/* Separate registers for unknown vlan configuration.
-+		 * Also there are N bits, where N is number of ale
-+		 * ports and shift value should be 0
-+		 */
-+		ale_controls[ALE_PORT_UNKNOWN_VLAN_MEMBER].bits =
-+					ale->params.ale_ports;
-+		ale_controls[ALE_PORT_UNKNOWN_VLAN_MEMBER].offset =
-+					ALE_UNKNOWNVLAN_MEMBER;
-+		ale_controls[ALE_PORT_UNKNOWN_MCAST_FLOOD].bits =
-+					ale->params.ale_ports;
-+		ale_controls[ALE_PORT_UNKNOWN_MCAST_FLOOD].shift = 0;
-+		ale_controls[ALE_PORT_UNKNOWN_MCAST_FLOOD].offset =
-+					ALE_UNKNOWNVLAN_UNREG_MCAST_FLOOD;
-+		ale_controls[ALE_PORT_UNKNOWN_REG_MCAST_FLOOD].bits =
-+					ale->params.ale_ports;
-+		ale_controls[ALE_PORT_UNKNOWN_REG_MCAST_FLOOD].shift = 0;
-+		ale_controls[ALE_PORT_UNKNOWN_REG_MCAST_FLOOD].offset =
-+					ALE_UNKNOWNVLAN_REG_MCAST_FLOOD;
-+		ale_controls[ALE_PORT_UNTAGGED_EGRESS].bits =
-+					ale->params.ale_ports;
-+		ale_controls[ALE_PORT_UNTAGGED_EGRESS].shift = 0;
-+		ale_controls[ALE_PORT_UNTAGGED_EGRESS].offset =
-+					ALE_UNKNOWNVLAN_FORCE_UNTAG_EGRESS;
-+	}
-+
- 	cpsw_ale_control_set(ale, 0, ALE_ENABLE, 1);
- 	cpsw_ale_control_set(ale, 0, ALE_CLEAR, 1);
- 
-diff --git a/drivers/net/ethernet/ti/cpsw_ale.h b/drivers/net/ethernet/ti/cpsw_ale.h
-index a700189..b1c7954 100644
---- a/drivers/net/ethernet/ti/cpsw_ale.h
-+++ b/drivers/net/ethernet/ti/cpsw_ale.h
-@@ -1,5 +1,5 @@
- /*
-- * Texas Instruments 3-Port Ethernet Switch Address Lookup Engine APIs
-+ * Texas Instruments N-Port Ethernet Switch Address Lookup Engine APIs
-  *
-  * Copyright (C) 2012 Texas Instruments
-  *
-@@ -21,6 +21,16 @@ struct cpsw_ale_params {
- 	unsigned long		ale_ageout;	/* in secs */
- 	unsigned long		ale_entries;
- 	unsigned long		ale_ports;
-+	/* NU Switch has specific handling as number of bits in ALE entries
-+	 * are different than other versions of ALE. Also there are specific
-+	 * registers for unknown vlan specific fields. So use nu_switch_ale
-+	 * to identify this hardware.
+-	/* Remove ethernet FCS from the packet */
+-	__pskb_trim(skb, skb->len - ETH_FCS_LEN);
++	/* Newer version of the Ethernet switch can trim the Ethernet FCS
++	 * from the packet and is indicated in hw_cap. So trim it only for
++	 * older h/w
 +	 */
-+	bool			nu_switch_ale;
-+	/* mask bit used in NU Switch ALE is 3 bits instead of 8 bits. So
-+	 * pass it from caller.
-+	 */
-+	u32			major_ver_mask;
- };
++	if (!(netcp->hw_cap & ETH_SW_CAN_REMOVE_ETH_FCS))
++		__pskb_trim(skb, skb->len - ETH_FCS_LEN);
  
- struct cpsw_ale {
-@@ -28,6 +38,7 @@ struct cpsw_ale {
- 	struct timer_list	timer;
- 	unsigned long		ageout;
- 	int			allmulti;
-+	u32			version;
- };
- 
- enum cpsw_ale_control {
+ 	/* Call each of the RX hooks */
+ 	p_info.skb = skb;
 diff --git a/drivers/net/ethernet/ti/netcp_ethss.c b/drivers/net/ethernet/ti/netcp_ethss.c
-index 4b2a911..b37fb73 100644
+index 9266961..4b2a911 100644
 --- a/drivers/net/ethernet/ti/netcp_ethss.c
 +++ b/drivers/net/ethernet/ti/netcp_ethss.c
-@@ -3716,7 +3716,10 @@ static int gbe_probe(struct netcp_device *netcp_device, struct device *dev,
- 	ale_params.ale_ageout	= GBE_DEFAULT_ALE_AGEOUT;
- 	ale_params.ale_entries	= gbe_dev->ale_entries;
- 	ale_params.ale_ports	= gbe_dev->ale_ports;
--
+@@ -133,6 +133,7 @@
+ #define MACSL_FULLDUPLEX			BIT(0)
+ 
+ #define GBE_CTL_P0_ENABLE			BIT(2)
++#define ETH_SW_CTL_P0_TX_CRC_REMOVE		BIT(13)
+ #define GBE13_REG_VAL_STAT_ENABLE_ALL		0xff
+ #define XGBE_REG_VAL_STAT_ENABLE_ALL		0xf
+ #define GBE_STATS_CD_SEL			BIT(28)
+@@ -2847,7 +2848,7 @@ static int gbe_open(void *intf_priv, struct net_device *ndev)
+ 	struct netcp_intf *netcp = netdev_priv(ndev);
+ 	struct gbe_slave *slave = gbe_intf->slave;
+ 	int port_num = slave->port_num;
+-	u32 reg;
++	u32 reg, val;
+ 	int ret;
+ 
+ 	reg = readl(GBE_REG_ADDR(gbe_dev, switch_regs, id_ver));
+@@ -2877,7 +2878,12 @@ static int gbe_open(void *intf_priv, struct net_device *ndev)
+ 	writel(0, GBE_REG_ADDR(gbe_dev, switch_regs, ptype));
+ 
+ 	/* Control register */
+-	writel(GBE_CTL_P0_ENABLE, GBE_REG_ADDR(gbe_dev, switch_regs, control));
++	val = GBE_CTL_P0_ENABLE;
 +	if (IS_SS_ID_MU(gbe_dev)) {
-+		ale_params.major_ver_mask = 0x7;
-+		ale_params.nu_switch_ale = true;
++		val |= ETH_SW_CTL_P0_TX_CRC_REMOVE;
++		netcp->hw_cap = ETH_SW_CAN_REMOVE_ETH_FCS;
 +	}
- 	gbe_dev->ale = cpsw_ale_create(&ale_params);
- 	if (!gbe_dev->ale) {
- 		dev_err(gbe_dev->dev, "error initializing ale engine\n");
++	writel(val, GBE_REG_ADDR(gbe_dev, switch_regs, control));
+ 
+ 	/* All statistics enabled and STAT AB visible by default */
+ 	writel(gbe_dev->stats_en_mask, GBE_REG_ADDR(gbe_dev, switch_regs,
 -- 
 1.9.1
