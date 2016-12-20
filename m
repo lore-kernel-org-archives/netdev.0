@@ -1,58 +1,120 @@
-From: Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-Subject: Re: Potential issues (security and otherwise) with the current
- cgroup-bpf API
-Date: Tue, 20 Dec 2016 10:11:50 +0100
-Message-ID: <20161220091150.GJ3124@twins.programming.kicks-ass.net>
-References: <CALCETrV81oFwq2AgeRsN54HA1jR=b5cOZfAgve8H8zhx83DTyA@mail.gmail.com>
- <20161219205631.GA31242@ast-mbp.thefacebook.com>
- <CALCETrWr5XMkexdGp7HdkiLkQV=P9ycj+sNO7xWSRoCVxihVZA@mail.gmail.com>
- <20161220000254.GA58895@ast-mbp.thefacebook.com>
- <CALCETrU1_bDVLfokQ7zasHVmeq7S-R+603GEw59V_wuj4eE1hw@mail.gmail.com>
- <2dbec775-6304-e44c-19c5-fbf07877e7b1@gmail.com>
- <CALCETrUW2jEYmjSsOrPj+MAjkDGGUCw_rdxQh+5Er0r4ReGLnA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Ahern <dsahern-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Andy Lutomirski <luto-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Daniel Mack <daniel-cYrQPVfZoowdnm+yROfE0A@public.gmane.org>,
-        =?iso-8859-1?Q?Micka=EBl_Sala=FCn?= <mic-WFhQfpSGs3bR7s880joybQ@public.gmane.org>,
-        Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, Jann Horn <jann-XZ1E9jl8jIdeoWH0uzbU5w@public.gmane.org>,
-        Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>,
-        Michael Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <CALCETrUW2jEYmjSsOrPj+MAjkDGGUCw_rdxQh+5Er0r4ReGLnA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Selvin Xavier <selvin.xavier-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Subject: [PATCH for bnxt_re V3 00/21] Broadcom RoCE Driver (bnxt_re)
+Date: Tue, 20 Dec 2016 01:13:10 -0800
+Message-ID: <1482225211-22423-1-git-send-email-selvin.xavier@broadcom.com>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, michael.chan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
+        Selvin Xavier <selvin.xavier-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+To: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 19, 2016 at 05:56:24PM -0800, Andy Lutomirski wrote:
-> >> Huh?  My example in the original email attaches a program in a
-> >> sub-hierarchy.  Are you saying that 4.11 could make that example stop
-> >> working?
-> >
-> > Are you suggesting sub-cgroups should not be allowed to override the filter of a parent cgroup?
-> 
-> Yes, exactly.  I think there are two sensible behaviors:
-> 
-> a) sub-cgroups cannot have a filter at all of the parent has a filter.
-> (This is the "punt" approach -- it lets different semantics be
-> assigned later without breaking userspace.)
-> 
-> b) sub-cgroups can have a filter if a parent does, too.  The semantics
-> are that the sub-cgroup filter runs first and all side-effects occur.
-> If that filter says "reject" then ancestor filters are skipped.  If
-> that filter says "accept", then the ancestor filter is run and its
-> side-effects happen as well.  (And so on, all the way up to the root.)
+This series introduces the RoCE driver for the Broadcom
+NetXtreme-E 10/25/40/50G RoCE HCAs.
+This driver is dependent on the bnxt_en NIC driver and is
+based on the bnxt_re branch in linux-rdma repository.
+bnxt_en changes required for this patch series are already
+available afore mentioned branch.
 
-So from what I understand the proposed cgroup is not in fact
-hierarchical at all.
+These changes are available for your reference in
+the bnxt_re_v3 branch of following repository.
+https://github.com/Broadcom/linux-rdma-nxt/
 
-@TJ, I thought you were enforcing all new cgroups to be properly
-hierarchical, that would very much include this one.
+Doug,
+Please review and consider applying this to linux-rdma repository
+for 4.11 merge cycle.
+
+Thanks,
+Selvin Xavier
+
+v2->v3:
+  * Fix 0day build breakage
+  * Fix cocci, kbuild robot, sparse, smatch and checkpatch warnings
+  * Changed the filename bnxt_re_uverbs_abi.h  to bnxtre-abi.h
+  * Removed the __packed qualifier from the uverbs structure and adjusted
+    the structure alignment to 64bits.
+  * Added retry count to bail out in case of delayed or no response
+    to FW commands
+  * Removed the debugfs support from this patch series
+  * Changed some of the defines as inline functions based on Jason's comment
+  * Split two functions to get rid of switch within switch construct
+  * Removed bnxt_re_copy_to_udata as it is just a wrapper for ib_copy_to_udata
+  * Added maintainers information to MAINTAINERS file
+
+v1-> v2:
+  * The license text in each file updated to reflect Dual license.
+  * Makefile and Kconfig changes are pushed to the last patch
+  * Moved bnxt_re_uverbs_abi.h to include/uapi/rdma folder
+  * Remove duplicate structure definitions from bnxt_re_hsi.h as
+    it is available in the corresponding bnxt_en header file (bnxt_hsi.h)
+  * Removed some unused code reported during code review.
+  * Fixed few sparse warnings
+
+
+Selvin Xavier (21):
+  bnxt_re: Add bnxt_re RoCE driver files
+  bnxt_re: Introducing autogenerated Host Software Interface(hsi) file
+  bnxt_re: register with the NIC driver
+  bnxt_re: Enabling RoCE control path
+  bnxt_re: Adding Notification Queue support
+  bnxt_re: Support for PD, ucontext and mmap verbs
+  bnxt_re: Support for query and modify device verbs
+  bnxt_re: Adding support for port related verbs
+  bnxt_re: Support for GID related verbs
+  bnxt_re: Support for CQ verbs
+  bnxt_re: Support for AH verbs
+  bnxt_re: Support memory registration verbs
+  bnxt_re: Support QP verbs
+  bnxt_re: Support post_send verb
+  bnxt_re: Support post_recv
+  bnxt_re: Support poll_cq verb
+  bnxt_re: Handling dispatching of events to IB stack
+  bnxt_re: Support for DCB
+  bnxt_re: Set uverbs command mask
+  bnxt_re: Add QP event handling
+  bnxt_re: Add bnxt_re driver build support
+
+ MAINTAINERS                                     |   11 +
+ drivers/infiniband/Kconfig                      |    2 +
+ drivers/infiniband/hw/Makefile                  |    1 +
+ drivers/infiniband/hw/bnxtre/Kconfig            |    9 +
+ drivers/infiniband/hw/bnxtre/Makefile           |    6 +
+ drivers/infiniband/hw/bnxtre/bnxt_qplib_fp.c    | 2167 +++++++++++++++
+ drivers/infiniband/hw/bnxtre/bnxt_qplib_fp.h    |  441 ++++
+ drivers/infiniband/hw/bnxtre/bnxt_qplib_rcfw.c  |  692 +++++
+ drivers/infiniband/hw/bnxtre/bnxt_qplib_rcfw.h  |  231 ++
+ drivers/infiniband/hw/bnxtre/bnxt_qplib_res.c   |  825 ++++++
+ drivers/infiniband/hw/bnxtre/bnxt_qplib_res.h   |  223 ++
+ drivers/infiniband/hw/bnxtre/bnxt_qplib_sp.c    |  838 ++++++
+ drivers/infiniband/hw/bnxtre/bnxt_qplib_sp.h    |  160 ++
+ drivers/infiniband/hw/bnxtre/bnxt_re.h          |  150 ++
+ drivers/infiniband/hw/bnxtre/bnxt_re_hsi.h      | 2821 ++++++++++++++++++++
+ drivers/infiniband/hw/bnxtre/bnxt_re_ib_verbs.c | 3206 +++++++++++++++++++++++
+ drivers/infiniband/hw/bnxtre/bnxt_re_ib_verbs.h |  196 ++
+ drivers/infiniband/hw/bnxtre/bnxt_re_main.c     | 1340 ++++++++++
+ include/uapi/rdma/bnxtre-abi.h                  |   89 +
+ 19 files changed, 13408 insertions(+)
+ create mode 100644 drivers/infiniband/hw/bnxtre/Kconfig
+ create mode 100644 drivers/infiniband/hw/bnxtre/Makefile
+ create mode 100644 drivers/infiniband/hw/bnxtre/bnxt_qplib_fp.c
+ create mode 100644 drivers/infiniband/hw/bnxtre/bnxt_qplib_fp.h
+ create mode 100644 drivers/infiniband/hw/bnxtre/bnxt_qplib_rcfw.c
+ create mode 100644 drivers/infiniband/hw/bnxtre/bnxt_qplib_rcfw.h
+ create mode 100644 drivers/infiniband/hw/bnxtre/bnxt_qplib_res.c
+ create mode 100644 drivers/infiniband/hw/bnxtre/bnxt_qplib_res.h
+ create mode 100644 drivers/infiniband/hw/bnxtre/bnxt_qplib_sp.c
+ create mode 100644 drivers/infiniband/hw/bnxtre/bnxt_qplib_sp.h
+ create mode 100644 drivers/infiniband/hw/bnxtre/bnxt_re.h
+ create mode 100644 drivers/infiniband/hw/bnxtre/bnxt_re_hsi.h
+ create mode 100644 drivers/infiniband/hw/bnxtre/bnxt_re_ib_verbs.c
+ create mode 100644 drivers/infiniband/hw/bnxtre/bnxt_re_ib_verbs.h
+ create mode 100644 drivers/infiniband/hw/bnxtre/bnxt_re_main.c
+ create mode 100644 include/uapi/rdma/bnxtre-abi.h
+
+-- 
+2.5.5
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
