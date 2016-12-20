@@ -1,134 +1,186 @@
-From: Murali Karicheri <m-karicheri2-l0cyMroinI0@public.gmane.org>
-Subject: [PATCH net-next 09/10] net: netcp: ale: use ale_status to size the ale table
-Date: Tue, 20 Dec 2016 17:09:52 -0500
-Message-ID: <1482271793-7671-10-git-send-email-m-karicheri2@ti.com>
+From: Murali Karicheri <m-karicheri2@ti.com>
+Subject: [PATCH net-next 08/10] net: netcp: ale: update to support unknown vlan controls for NU switch
+Date: Tue, 20 Dec 2016 17:09:51 -0500
+Message-ID: <1482271793-7671-9-git-send-email-m-karicheri2@ti.com>
 References: <1482271793-7671-1-git-send-email-m-karicheri2@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <grygorii.strashko-l0cyMroinI0@public.gmane.org>, <mugunthanvnm-l0cyMroinI0@public.gmane.org>,
-        <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <arnd-r2nGTMty4D4@public.gmane.org>,
-        <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <mark.rutland-5wv7dgnIgG8@public.gmane.org>, <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1482271793-7671-1-git-send-email-m-karicheri2-l0cyMroinI0@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: <netdev@vger.kernel.org>, <linux-omap@vger.kernel.org>,
+        <grygorii.strashko@ti.com>, <mugunthanvnm@ti.com>,
+        <linux-kernel@vger.kernel.org>, <arnd@arndb.de>,
+        <davem@davemloft.net>, <devicetree@vger.kernel.org>,
+        <mark.rutland@arm.com>, <robh+dt@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1482271793-7671-1-git-send-email-m-karicheri2@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-ALE h/w on newer version of NetCP (K2E/L/G) does provide a ALE_STATUS
-register for the size of the ALE Table implemented in h/w. Currently
-for example we set ALE Table size to 1024 for NetCP ALE on
-K2E even though the ALE Status/Documentation shows it has 8192 entries.
-So take advantage of this register to read the size of ALE table supported
-and use that value in the driver for the newer version of NetCP ALE.
-For NetCP lite, ALE Table size is much less (64) and indicated by a size
-of zero in ALE_STATUS. So use that as a default for now. While at it,
-also fix the ale table size on 10G switch to 2048 per User guide
-http://www.ti.com/lit/ug/spruhj5/spruhj5.pdf
+In NU Ethernet switch used on some of the Keystone SoCs, there is
+separate UNKNOWNVLAN register for membership, unreg mcast flood, reg
+mcast flood and force untag egress bits in ALE. So control for these
+fields require different address offset, shift and size of field.
+As this ALE has the same version number as ALE in CPSW found on other
+SoCs, customazation based on version number is not possible. So
+use a configuration parameter, nu_switch_ale, to identify the ALE
+ALE found in NU Switch. Different treatment is needed for NU Switch
+ALE due to difference in the ale table bits, separate unknown vlan
+registers etc. The register information available in ale_controls,
+needs to be updated to support the netcp NU switch h/w. So it is not
+constant array any more since it needs to be updated based
+on ALE type. The header of the file is also updated to indicate it
+supports N port switch ALE, not just 3 port. The version mask is
+3 bits in NU Switch ALE vs 8 bits on other ALE types.
 
-Signed-off-by: Murali Karicheri <m-karicheri2-l0cyMroinI0@public.gmane.org>
-Signed-off-by: Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>
+While at it, change the debug print to info print so that ALE
+version gets displayed in boot log.
+
+Signed-off-by: Murali Karicheri <m-karicheri2@ti.com>
+Signed-off-by: Sekhar Nori <nsekhar@ti.com>
 ---
- drivers/net/ethernet/ti/cpsw_ale.c    | 31 ++++++++++++++++++++++++++++++-
- drivers/net/ethernet/ti/netcp_ethss.c |  4 +---
- 2 files changed, 31 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/ti/cpsw_ale.c    | 50 +++++++++++++++++++++++++++++++----
+ drivers/net/ethernet/ti/cpsw_ale.h    | 13 ++++++++-
+ drivers/net/ethernet/ti/netcp_ethss.c |  5 +++-
+ 3 files changed, 61 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/net/ethernet/ti/cpsw_ale.c b/drivers/net/ethernet/ti/cpsw_ale.c
-index e15db39..62a18d6 100644
+index 43b061b..e15db39 100644
 --- a/drivers/net/ethernet/ti/cpsw_ale.c
 +++ b/drivers/net/ethernet/ti/cpsw_ale.c
-@@ -33,6 +33,7 @@
+@@ -1,5 +1,5 @@
+ /*
+- * Texas Instruments 3-Port Ethernet Switch Address Lookup Engine
++ * Texas Instruments N-Port Ethernet Switch Address Lookup Engine
+  *
+  * Copyright (C) 2012 Texas Instruments
+  *
+@@ -27,8 +27,9 @@
+ 
+ #define BITMASK(bits)		(BIT(bits) - 1)
+ 
+-#define ALE_VERSION_MAJOR(rev)	((rev >> 8) & 0xff)
++#define ALE_VERSION_MAJOR(rev, mask) (((rev) >> 8) & (mask))
+ #define ALE_VERSION_MINOR(rev)	(rev & 0xff)
++#define ALE_VERSION_1R4		0x0104
  
  /* ALE Registers */
  #define ALE_IDVER		0x00
-+#define ALE_STATUS		0x04
- #define ALE_CONTROL		0x08
- #define ALE_PRESCALE		0x10
- #define ALE_UNKNOWNVLAN		0x18
-@@ -58,6 +59,10 @@
- #define ALE_UCAST_OUI			2
- #define ALE_UCAST_TOUCHED		3
+@@ -39,6 +40,12 @@
+ #define ALE_TABLE		0x34
+ #define ALE_PORTCTL		0x40
  
-+#define ALE_TABLE_SIZE_MULTIPLIER	1024
-+#define ALE_STATUS_SIZE_MASK		0x1f
-+#define ALE_TABLE_SIZE_DEFAULT		64
++/* ALE NetCP NU switch specific Registers */
++#define ALE_UNKNOWNVLAN_MEMBER			0x90
++#define ALE_UNKNOWNVLAN_UNREG_MCAST_FLOOD	0x94
++#define ALE_UNKNOWNVLAN_REG_MCAST_FLOOD		0x98
++#define ALE_UNKNOWNVLAN_FORCE_UNTAG_EGRESS	0x9C
 +
- static inline int cpsw_ale_get_field(u32 *ale_entry, u32 start, u32 bits)
- {
- 	int idx;
-@@ -728,7 +733,7 @@ static void cpsw_ale_timer(unsigned long arg)
+ #define ALE_TABLE_WRITE		BIT(31)
  
- void cpsw_ale_start(struct cpsw_ale *ale)
- {
--	u32 rev;
-+	u32 rev, ale_entries;
+ #define ALE_TYPE_FREE			0
+@@ -464,7 +471,7 @@ struct ale_control_info {
+ 	int		bits;
+ };
+ 
+-static const struct ale_control_info ale_controls[ALE_NUM_CONTROLS] = {
++static struct ale_control_info ale_controls[ALE_NUM_CONTROLS] = {
+ 	[ALE_ENABLE]		= {
+ 		.name		= "enable",
+ 		.offset		= ALE_CONTROL,
+@@ -724,8 +731,41 @@ void cpsw_ale_start(struct cpsw_ale *ale)
+ 	u32 rev;
  
  	rev = __raw_readl(ale->params.ale_regs + ALE_IDVER);
- 	if (!ale->params.major_ver_mask)
-@@ -740,6 +745,30 @@ void cpsw_ale_start(struct cpsw_ale *ale)
- 		 ALE_VERSION_MAJOR(rev, ale->params.major_ver_mask),
- 		 ALE_VERSION_MINOR(rev));
- 
-+	if (!ale->params.ale_entries) {
-+		ale_entries =
-+			__raw_readl(ale->params.ale_regs + ALE_STATUS) &
-+				    ALE_STATUS_SIZE_MASK;
-+		/* ALE available on newer NetCP switches has introduced
-+		 * a register, ALE_STATUS, to indicate the size of ALE
-+		 * table which shows the size as a multiple of 1024 entries.
-+		 * For these, params.ale_entries will be set to zero. So
-+		 * read the register and update the value of ale_entries.
-+		 * ALE table on NetCP lite, is much smaller and is indicated
-+		 * by a value of zero in ALE_STATUS. So use a default value
-+		 * of ALE_TABLE_SIZE_DEFAULT for this. Caller is expected
-+		 * to set the value of ale_entries for all other versions
-+		 * of ALE.
-+		 */
-+		if (!ale_entries)
-+			ale_entries = ALE_TABLE_SIZE_DEFAULT;
-+		else
-+			ale_entries *= ALE_TABLE_SIZE_MULTIPLIER;
-+		ale->params.ale_entries = ale_entries;
-+	}
-+	dev_info(ale->params.dev,
-+		 "ALE Table size %ld\n", ale->params.ale_entries);
+-	dev_dbg(ale->params.dev, "initialized cpsw ale revision %d.%d\n",
+-		ALE_VERSION_MAJOR(rev), ALE_VERSION_MINOR(rev));
++	if (!ale->params.major_ver_mask)
++		ale->params.major_ver_mask = 0xff;
++	ale->version =
++		(ALE_VERSION_MAJOR(rev, ale->params.major_ver_mask) << 8) |
++		 ALE_VERSION_MINOR(rev);
++	dev_info(ale->params.dev, "initialized cpsw ale version %d.%d\n",
++		 ALE_VERSION_MAJOR(rev, ale->params.major_ver_mask),
++		 ALE_VERSION_MINOR(rev));
 +
- 	if (ale->params.nu_switch_ale) {
- 		/* Separate registers for unknown vlan configuration.
- 		 * Also there are N bits, where N is number of ale
++	if (ale->params.nu_switch_ale) {
++		/* Separate registers for unknown vlan configuration.
++		 * Also there are N bits, where N is number of ale
++		 * ports and shift value should be 0
++		 */
++		ale_controls[ALE_PORT_UNKNOWN_VLAN_MEMBER].bits =
++					ale->params.ale_ports;
++		ale_controls[ALE_PORT_UNKNOWN_VLAN_MEMBER].offset =
++					ALE_UNKNOWNVLAN_MEMBER;
++		ale_controls[ALE_PORT_UNKNOWN_MCAST_FLOOD].bits =
++					ale->params.ale_ports;
++		ale_controls[ALE_PORT_UNKNOWN_MCAST_FLOOD].shift = 0;
++		ale_controls[ALE_PORT_UNKNOWN_MCAST_FLOOD].offset =
++					ALE_UNKNOWNVLAN_UNREG_MCAST_FLOOD;
++		ale_controls[ALE_PORT_UNKNOWN_REG_MCAST_FLOOD].bits =
++					ale->params.ale_ports;
++		ale_controls[ALE_PORT_UNKNOWN_REG_MCAST_FLOOD].shift = 0;
++		ale_controls[ALE_PORT_UNKNOWN_REG_MCAST_FLOOD].offset =
++					ALE_UNKNOWNVLAN_REG_MCAST_FLOOD;
++		ale_controls[ALE_PORT_UNTAGGED_EGRESS].bits =
++					ale->params.ale_ports;
++		ale_controls[ALE_PORT_UNTAGGED_EGRESS].shift = 0;
++		ale_controls[ALE_PORT_UNTAGGED_EGRESS].offset =
++					ALE_UNKNOWNVLAN_FORCE_UNTAG_EGRESS;
++	}
++
+ 	cpsw_ale_control_set(ale, 0, ALE_ENABLE, 1);
+ 	cpsw_ale_control_set(ale, 0, ALE_CLEAR, 1);
+ 
+diff --git a/drivers/net/ethernet/ti/cpsw_ale.h b/drivers/net/ethernet/ti/cpsw_ale.h
+index a700189..b1c7954 100644
+--- a/drivers/net/ethernet/ti/cpsw_ale.h
++++ b/drivers/net/ethernet/ti/cpsw_ale.h
+@@ -1,5 +1,5 @@
+ /*
+- * Texas Instruments 3-Port Ethernet Switch Address Lookup Engine APIs
++ * Texas Instruments N-Port Ethernet Switch Address Lookup Engine APIs
+  *
+  * Copyright (C) 2012 Texas Instruments
+  *
+@@ -21,6 +21,16 @@ struct cpsw_ale_params {
+ 	unsigned long		ale_ageout;	/* in secs */
+ 	unsigned long		ale_entries;
+ 	unsigned long		ale_ports;
++	/* NU Switch has specific handling as number of bits in ALE entries
++	 * are different than other versions of ALE. Also there are specific
++	 * registers for unknown vlan specific fields. So use nu_switch_ale
++	 * to identify this hardware.
++	 */
++	bool			nu_switch_ale;
++	/* mask bit used in NU Switch ALE is 3 bits instead of 8 bits. So
++	 * pass it from caller.
++	 */
++	u32			major_ver_mask;
+ };
+ 
+ struct cpsw_ale {
+@@ -28,6 +38,7 @@ struct cpsw_ale {
+ 	struct timer_list	timer;
+ 	unsigned long		ageout;
+ 	int			allmulti;
++	u32			version;
+ };
+ 
+ enum cpsw_ale_control {
 diff --git a/drivers/net/ethernet/ti/netcp_ethss.c b/drivers/net/ethernet/ti/netcp_ethss.c
-index b37fb73..80d68cb 100644
+index 4b2a911..b37fb73 100644
 --- a/drivers/net/ethernet/ti/netcp_ethss.c
 +++ b/drivers/net/ethernet/ti/netcp_ethss.c
-@@ -94,7 +94,6 @@
- #define GBENU_CPTS_OFFSET		0x1d000
- #define GBENU_ALE_OFFSET		0x1e000
- #define GBENU_HOST_PORT_NUM		0
--#define GBENU_NUM_ALE_ENTRIES		1024
- 
- /* 10G Ethernet SS defines */
- #define XGBE_MODULE_NAME		"netcp-xgbe"
-@@ -114,7 +113,7 @@
- #define XGBE10_ALE_OFFSET		0x700
- #define XGBE10_HW_STATS_OFFSET		0x800
- #define XGBE10_HOST_PORT_NUM		0
--#define XGBE10_NUM_ALE_ENTRIES		1024
-+#define XGBE10_NUM_ALE_ENTRIES		2048
- 
- #define	GBE_TIMER_INTERVAL			(HZ / 2)
- 
-@@ -3548,7 +3547,6 @@ static int set_gbenu_ethss_priv(struct gbe_priv *gbe_dev,
- 	gbe_dev->ale_reg = gbe_dev->switch_regs + GBENU_ALE_OFFSET;
- 	gbe_dev->ale_ports = gbe_dev->max_num_ports;
- 	gbe_dev->host_port = GBENU_HOST_PORT_NUM;
--	gbe_dev->ale_entries = GBE13_NUM_ALE_ENTRIES;
- 	gbe_dev->stats_en_mask = (1 << (gbe_dev->max_num_ports)) - 1;
- 
- 	/* Subsystem registers */
+@@ -3716,7 +3716,10 @@ static int gbe_probe(struct netcp_device *netcp_device, struct device *dev,
+ 	ale_params.ale_ageout	= GBE_DEFAULT_ALE_AGEOUT;
+ 	ale_params.ale_entries	= gbe_dev->ale_entries;
+ 	ale_params.ale_ports	= gbe_dev->ale_ports;
+-
++	if (IS_SS_ID_MU(gbe_dev)) {
++		ale_params.major_ver_mask = 0x7;
++		ale_params.nu_switch_ale = true;
++	}
+ 	gbe_dev->ale = cpsw_ale_create(&ale_params);
+ 	if (!gbe_dev->ale) {
+ 		dev_err(gbe_dev->dev, "error initializing ale engine\n");
 -- 
 1.9.1
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
