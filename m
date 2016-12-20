@@ -1,51 +1,39 @@
-From: Arnaldo Carvalho de Melo <acme@kernel.org>
-Subject: Re: [PATCH perf/core REBASE 2/5] samples/bpf: Switch over to libbpf
-Date: Tue, 20 Dec 2016 10:41:26 -0300
-Message-ID: <20161220134126.GF551@kernel.org>
-References: <20161214224342.12858-1-joe@ovn.org>
- <20161214224342.12858-3-joe@ovn.org>
- <20161215155022.GE6866@kernel.org>
- <20161215182918.GG6866@kernel.org>
- <20161215183440.GH6866@kernel.org>
- <CAPWQB7GhHZOf4c5mu=__mNNyFFeq+jOZMawweMBg=sNiPpt-zg@mail.gmail.com>
- <CAPWQB7EAN7Fg8+vO3Tn7WYWcZW_JpKQFNCJzY_K100ckab6JRg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: LKML <linux-kernel@vger.kernel.org>,
-        netdev <netdev@vger.kernel.org>, Wang Nan <wangnan0@huawei.com>,
-        ast@fb.com, Daniel Borkmann <daniel@iogearbox.net>,
-        Arnaldo Carvalho de Melo <acme@redhat.com>
-To: Joe Stringer <joe@ovn.org>
+From: Geliang Tang <geliangtang@gmail.com>
+Subject: [PATCH] net_sched: sch_netem: use rb_entry()
+Date: Tue, 20 Dec 2016 22:02:16 +0800
+Message-ID: <dc6e312e4e2ff3868d1791032c329477d27ba50b.1482204694.git.geliangtang@gmail.com>
+References: <ddabc96c798df194791134d8e070d728e2a7b59f.1482203698.git.geliangtang@gmail.com>
+Cc: Geliang Tang <geliangtang@gmail.com>,
+        netem@lists.linux-foundation.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAPWQB7EAN7Fg8+vO3Tn7WYWcZW_JpKQFNCJzY_K100ckab6JRg@mail.gmail.com>
+In-Reply-To: <ddabc96c798df194791134d8e070d728e2a7b59f.1482203698.git.geliangtang@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Em Thu, Dec 15, 2016 at 05:48:31PM -0800, Joe Stringer escreveu:
-> On 15 December 2016 at 14:00, Joe Stringer <joe@ovn.org> wrote:
-> > On 15 December 2016 at 10:34, Arnaldo Carvalho de Melo <acme@kernel.org> wrote:
-> >> So, I'm stopping here so that I can push what I have to Ingo, then I'll get
-> >> back to this, hopefully by then you beat me and I have just to retest 8-)
+To make the code clearer, use rb_entry() instead of container_of() to
+deal with rbtree.
 
-> > OK, thanks for the report. Looks like there was another difference
-> > between the two libbpfs - one used total program size for its
-> > load_program API; the actual kernel API uses instruction count. This
-> > incremental should do the trick:
+Signed-off-by: Geliang Tang <geliangtang@gmail.com>
+---
+ net/sched/sch_netem.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-> > https://github.com/joestringer/linux/commit/6ff7726f20077bed66fb725f5189c13690154b6a
+diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
+index 9f7b380..b7e4097 100644
+--- a/net/sched/sch_netem.c
++++ b/net/sched/sch_netem.c
+@@ -152,7 +152,7 @@ struct netem_skb_cb {
  
-> The full branch with this change (fast-forward from your tmp branch)
-> is available here:
-> https://github.com/joestringer/linux/tree/submit/libbpf_samples_v5
+ static struct sk_buff *netem_rb_to_skb(struct rb_node *rb)
+ {
+-	return container_of(rb, struct sk_buff, rbnode);
++	return rb_entry(rb, struct sk_buff, rbnode);
+ }
  
-> I tried running every selftest and BPF sample I could get my hands on;
-> there's one or two that I couldn't run, but seemed more to do with my
-> versions of TC/iproute and kernel config rather than libbpf changes.
-> Let me know if you see any further trouble.
-
-Finally getting back to this, now after I figured out how to get patches
-out of github (wget commit + .patch) I applied this and at least the
-samples/bpf/offwaketime seems to work as before, applying.
-
-- Arnaldo
+ static inline struct netem_skb_cb *netem_skb_cb(struct sk_buff *skb)
+-- 
+2.9.3
