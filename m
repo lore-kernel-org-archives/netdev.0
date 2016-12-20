@@ -1,108 +1,80 @@
-From: David Ahern <dsahern-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: Potential issues (security and otherwise) with the current
- cgroup-bpf API
-Date: Mon, 19 Dec 2016 19:52:15 -0700
-Message-ID: <80574175-3692-0278-a74e-23b752d44f73@gmail.com>
-References: <CALCETrV81oFwq2AgeRsN54HA1jR=b5cOZfAgve8H8zhx83DTyA@mail.gmail.com>
- <20161219205631.GA31242@ast-mbp.thefacebook.com>
- <CALCETrWr5XMkexdGp7HdkiLkQV=P9ycj+sNO7xWSRoCVxihVZA@mail.gmail.com>
- <20161220000254.GA58895@ast-mbp.thefacebook.com>
- <CALCETrU1_bDVLfokQ7zasHVmeq7S-R+603GEw59V_wuj4eE1hw@mail.gmail.com>
- <2dbec775-6304-e44c-19c5-fbf07877e7b1@gmail.com>
- <CALCETrUW2jEYmjSsOrPj+MAjkDGGUCw_rdxQh+5Er0r4ReGLnA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Andy Lutomirski <luto-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Daniel Mack <daniel-cYrQPVfZoowdnm+yROfE0A@public.gmane.org>,
-        =?UTF-8?Q?Micka=c3=abl_Sala=c3=bcn?= <mic-WFhQfpSGs3bR7s880joybQ@public.gmane.org>,
-        Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, Jann Horn <jann-XZ1E9jl8jIdeoWH0uzbU5w@public.gmane.org>,
-        Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>,
-        Michael Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-        Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CALCETrUW2jEYmjSsOrPj+MAjkDGGUCw_rdxQh+5Er0r4ReGLnA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Rajat Jain <rajatja@google.com>
+Subject: [PATCH v3 1/3] Bluetooth: btusb: Use an error label for error paths
+Date: Mon, 19 Dec 2016 18:56:30 -0800
+Message-ID: <1482202592-76314-1-git-send-email-rajatja@google.com>
+Cc: Rajat Jain <rajatja@google.com>, rajatxjain@gmail.com
+To: Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Marcel Holtmann <marcel@holtmann.org>,
+        Gustavo Padovan <gustavo@padovan.org>,
+        Johan Hedberg <johan.hedberg@gmail.com>,
+        Amitkumar Karwar <akarwar@marvell.com>,
+        Wei-Ning Huang <wnhuang@chromium.org>,
+        Xinming Hu <huxm@marvell.com>, netdev@vger.kernel.org,
+        devicetree@vger.kernel.org, linux-bluetooth@vger.kernel.org,
+        Brian Norris <briannorris@google.com>,
+        linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 12/19/16 6:56 PM, Andy Lutomirski wrote:
-> On Mon, Dec 19, 2016 at 5:44 PM, David Ahern <dsahern-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
->> On 12/19/16 5:25 PM, Andy Lutomirski wrote:
->>> net.socket_create_filter = "none": no filter
->>> net.socket_create_filter = "bpf:baadf00d": bpf filter
->>> net.socket_create_filter = "disallow": no sockets created period
->>> net.socket_create_filter = "iptables:foobar": some iptables thingy
->>> net.socket_create_filter = "nft:blahblahblah": some nft thingy
->>> net.socket_create_filter = "address_family_list:1,2,3": allow AF 1, 2, and 3
->>
->> Such a scheme works for the socket create filter b/c it is a very simple use case. It does not work for the ingress and egress which allow generic bpf filters.
-> 
-> Can you elaborate on what goes wrong?  (Obviously the
-> "address_family_list" example makes no sense in that context.)
+Use a label to remove the repetetive cleanup, for error cases.
 
-Being able to dump a filter or see that one exists would be a great add-on, but I don't see how 'net.socket_create_filter = "bpf:baadf00d"' is a viable API for loading generic BPF filters. Simple cases like "disallow" are easy -- just return 0 in the filter, no complicated BPF code needed. The rest are specific cases of the moment which goes against the intent of ebpf and generic programmability. 
+Signed-off-by: Rajat Jain <rajatja@google.com>
+Reviewed-by: Brian Norris <briannorris@chromium.org>
+---
+v3: Added Brian's "Reviewed-by"
+v2: same as v1
+
+ drivers/bluetooth/btusb.c | 19 +++++++++----------
+ 1 file changed, 9 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/bluetooth/btusb.c b/drivers/bluetooth/btusb.c
+index 2f633df..ce22cef 100644
+--- a/drivers/bluetooth/btusb.c
++++ b/drivers/bluetooth/btusb.c
+@@ -2991,18 +2991,15 @@ static int btusb_probe(struct usb_interface *intf,
+ 		err = usb_set_interface(data->udev, 0, 0);
+ 		if (err < 0) {
+ 			BT_ERR("failed to set interface 0, alt 0 %d", err);
+-			hci_free_dev(hdev);
+-			return err;
++			goto out_free_dev;
+ 		}
+ 	}
  
->>
->> ...
->>
->>>> you're ignoring use cases I described earlier.
->>>> In vrf case there is only one ifindex it needs to bind to.
->>>
->>> I'm totally lost.  Can you explain what this has to do with the cgroup
->>> hierarchy?
->>
->> I think the point is that a group hierarchy makes no sense for the VRF use case. What I put into iproute2 is
->>
->>     cgrp2/vrf/NAME
->>
->> where NAME is the vrf name. The filter added to it binds ipv4 and ipv6 sockets to a specific device index. cgrp2/vrf is the "default" vrf and does not have a filter. A user can certainly add another layer cgrp2/vrf/NAME/NAME2 but it provides no value since VRF in a VRF does not make sense.
-> 
-> I tend to agree.  I still think that the mechanism as it stands is
-> broken in other respects and should be fixed before it goes live.  I
-> have no desire to cause problems for the vrf use case.
-> 
-> But keep in mind that the vrf use case is, in Linus' tree, a bit
-> broken right now in its interactions with other users of the same
-> mechanism.  Suppose I create a container and want to trace all of its
-> created sockets.  I'll set up cgrp2/container and load my tracer as a
-> socket creation hook.  Then a container sets up
-> cgrp2/container/vrf/NAME (using delgation) and loads your vrf binding
-> filter.  Now the tracing stops working -- oops.
-
-There are other ways to achieve socket tracing, but I get your point -- nested cases do not work as users may want.
-
-
->>>>> I like this last one, but IT'S NOT A POSSIBLE FUTURE EXTENSION.  You
->>>>> have to do it now (or disable the feature for 4.10).  This is why I'm
->>>>> bringing this whole thing up now.
->>>>
->>>> We don't have to touch user visible api here, so extensions are fine.
->>>
->>> Huh?  My example in the original email attaches a program in a
->>> sub-hierarchy.  Are you saying that 4.11 could make that example stop
->>> working?
->>
->> Are you suggesting sub-cgroups should not be allowed to override the filter of a parent cgroup?
-> 
-> Yes, exactly.  I think there are two sensible behaviors:
-> 
-> a) sub-cgroups cannot have a filter at all of the parent has a filter.
-> (This is the "punt" approach -- it lets different semantics be
-> assigned later without breaking userspace.)
-> 
-> b) sub-cgroups can have a filter if a parent does, too.  The semantics
-> are that the sub-cgroup filter runs first and all side-effects occur.
-> If that filter says "reject" then ancestor filters are skipped.  If
-> that filter says "accept", then the ancestor filter is run and its
-> side-effects happen as well.  (And so on, all the way up to the root.)
-
-That comes with a big performance hit for skb / data path cases.
-
-I'm riding my use case on Daniel's work, and as I understand it the nesting case has been discussed. I'll defer to Daniel and Alexei on this part.
+ 	if (data->isoc) {
+ 		err = usb_driver_claim_interface(&btusb_driver,
+ 						 data->isoc, data);
+-		if (err < 0) {
+-			hci_free_dev(hdev);
+-			return err;
+-		}
++		if (err < 0)
++			goto out_free_dev;
+ 	}
+ 
+ #ifdef CONFIG_BT_HCIBTUSB_BCM
+@@ -3016,14 +3013,16 @@ static int btusb_probe(struct usb_interface *intf,
+ #endif
+ 
+ 	err = hci_register_dev(hdev);
+-	if (err < 0) {
+-		hci_free_dev(hdev);
+-		return err;
+-	}
++	if (err < 0)
++		goto out_free_dev;
+ 
+ 	usb_set_intfdata(intf, data);
+ 
+ 	return 0;
++
++out_free_dev:
++	hci_free_dev(hdev);
++	return err;
+ }
+ 
+ static void btusb_disconnect(struct usb_interface *intf)
+-- 
+2.8.0.rc3.226.g39d4020
