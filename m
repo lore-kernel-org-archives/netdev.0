@@ -1,48 +1,27 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [mm PATCH 0/3] Page fragment updates
-Date: Tue, 20 Dec 2016 11:22:34 -0800
-Message-ID: <CAKgT0UfgY089jdzXexB87yPOdEFhAAi=au8b4RX2LnHNOM_=kw@mail.gmail.com>
-References: <20161129182010.13445.31256.stgit@localhost.localdomain>
- <CAKgT0UchMkvsboO23R332j96=yumL7=oSSm97zqJ5-v30_SgCw@mail.gmail.com> <20161205121131.3c1d9ad8452d5e09247336e4@linux-foundation.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] RDS: use rb_entry()
+Date: Tue, 20 Dec 2016 14:23:22 -0500 (EST)
+Message-ID: <20161220.142322.1578566298966214653.davem@davemloft.net>
+References: <ddabc96c798df194791134d8e070d728e2a7b59f.1482203698.git.geliangtang@gmail.com>
+        <2cd84448fe04ffb7023be892c5ed04bbfc759c87.1482204342.git.geliangtang@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-mm <linux-mm@kvack.org>, Netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>, David Miller <davem@davemloft.net>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20161205121131.3c1d9ad8452d5e09247336e4@linux-foundation.org>
-Sender: owner-linux-mm@kvack.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: santosh.shilimkar@oracle.com, netdev@vger.kernel.org,
+        linux-rdma@vger.kernel.org, rds-devel@oss.oracle.com,
+        linux-kernel@vger.kernel.org
+To: geliangtang@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <2cd84448fe04ffb7023be892c5ed04bbfc759c87.1482204342.git.geliangtang@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 5, 2016 at 12:11 PM, Andrew Morton
-<akpm@linux-foundation.org> wrote:
-> On Mon, 5 Dec 2016 09:01:12 -0800 Alexander Duyck <alexander.duyck@gmail.com> wrote:
->
->> On Tue, Nov 29, 2016 at 10:23 AM, Alexander Duyck
->> <alexander.duyck@gmail.com> wrote:
->> > This patch series takes care of a few cleanups for the page fragments API.
->> >
->> > ...
->>
->> It's been about a week since I submitted this series.  Just wanted to
->> check in and see if anyone had any feedback or if this is good to be
->> accepted for 4.10-rc1 with the rest of the set?
->
-> Looks good to me.  I have it all queued for post-4.9 processing.
+From: Geliang Tang <geliangtang@gmail.com>
+Date: Tue, 20 Dec 2016 22:02:18 +0800
 
-So I guess there is a small bug in the first patch in that I was
-comparing a pointer to to 0 instead of NULL.  Just wondering if I
-should resubmit the first patch, the whole series, or if I need to
-just submit an incremental patch.
+> To make the code clearer, use rb_entry() instead of container_of() to
+> deal with rbtree.
+> 
+> Signed-off-by: Geliang Tang <geliangtang@gmail.com>
 
-Thanks.
-
-- Alex
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Applied.
