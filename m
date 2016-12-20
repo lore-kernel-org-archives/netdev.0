@@ -1,52 +1,40 @@
-From: Geoff Lansberry <geoff@kuvee.com>
-Subject: [PATCH 3/3] nfc: trf7970a: Prevent repeated polling from crashing the kernel
-Date: Tue, 20 Dec 2016 11:16:32 -0500
-Message-ID: <1482250592-4268-3-git-send-email-glansberry@gmail.com>
-References: <1482250592-4268-1-git-send-email-glansberry@gmail.com>
-Cc: lauro.venancio@openbossa.org, aloisio.almeida@openbossa.org,
-        sameo@linux.intel.com, robh+dt@kernel.org, mark.rutland@arm.com,
-        netdev@vger.kernel.org, devicetree@vger.kernel.org,
-        linux-kernel@vger.kernel.org, mgreer@animalcreek.com,
-        justin@kuvee.com, Jaret Cantu <jaret.cantu@timesys.com>,
-        Geoff Lansberry <geoff@kuvee.com>
-To: linux-wireless@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f177.google.com ([209.85.216.177]:35219 "EHLO
-        mail-qt0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757561AbcLTQQp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2016 11:16:45 -0500
-Received: by mail-qt0-f177.google.com with SMTP id c47so181136026qtc.2
-        for <netdev@vger.kernel.org>; Tue, 20 Dec 2016 08:16:44 -0800 (PST)
-In-Reply-To: <1482250592-4268-1-git-send-email-glansberry@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: kernel/bpf/verifier.c: 4 * possible unintended fallthrough ?
+Date: Tue, 20 Dec 2016 08:17:33 -0800
+Message-ID: <CAADnVQ+_2D9ExoyiDbMFUNk0KSMQVYQSND+eca0O3r_fku1L2g@mail.gmail.com>
+References: <VI1PR08MB102286884ADF02FB45C203109C900@VI1PR08MB1022.eurprd08.prod.outlook.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "ast@kernel.org" <ast@kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: David Binderman <dcb314@hotmail.com>, Josef Bacik <jbacik@fb.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <VI1PR08MB102286884ADF02FB45C203109C900@VI1PR08MB1022.eurprd08.prod.outlook.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jaret Cantu <jaret.cantu@timesys.com>
+On Tue, Dec 20, 2016 at 3:20 AM, David Binderman <dcb314@hotmail.com> wrote:
+> Hello there,
+>
+> I just tried to compile kernel-4.9 with a recent development
+> version of gcc. It said
+>
+> kernel/bpf/verifier.c:1907:23: warning: this statement may fall through [-Wimplicit-fallthrough=]
+> kernel/bpf/verifier.c:1918:23: warning: this statement may fall through [-Wimplicit-fallthrough=]
+> kernel/bpf/verifier.c:1859:24: warning: this statement may fall through [-Wimplicit-fallthrough=]
+> kernel/bpf/verifier.c:1869:24: warning: this statement may fall through [-Wimplicit-fallthrough=]
+>
+> Source code for the first one is
+>
+>     case BPF_JGT:
+>         /* Unsigned comparison, the minimum value is 0. */
+>         true_reg->min_value = 0;
+>     case BPF_JSGT:
+>
+> Suggest either add the missing break or document the fallthrough
+> with a comment something like /* FALLTHROUGH */
 
-Repeated polling attempts cause a NULL dereference error to occur.
-This is because the state of the trf7970a is currently reading but
-another request has been made to send a command before it has finished.
-
-The solution is to properly kill the waiting reading (workqueue)
-before failing on the send.
----
- drivers/nfc/trf7970a.c | 4 ++++
- 1 file changed, 4 insertions(+)
-
-diff --git a/drivers/nfc/trf7970a.c b/drivers/nfc/trf7970a.c
-index 8a88195..5916737 100644
---- a/drivers/nfc/trf7970a.c
-+++ b/drivers/nfc/trf7970a.c
-@@ -1496,6 +1496,10 @@ static int trf7970a_send_cmd(struct nfc_digital_dev *ddev,
- 			(trf->state != TRF7970A_ST_IDLE_RX_BLOCKED)) {
- 		dev_err(trf->dev, "%s - Bogus state: %d\n", __func__,
- 				trf->state);
-+		if (trf->state == TRF7970A_ST_WAIT_FOR_RX_DATA ||
-+		    trf->state == TRF7970A_ST_WAIT_FOR_RX_DATA_CONT)
-+			trf->ignore_timeout =
-+				!cancel_delayed_work(&trf->timeout_work);
- 		ret = -EIO;
- 		goto out_err;
- 	}
--- 
-Signed-off-by: Geoff Lansberry <geoff@kuvee.com>
+I've tried 4.9 and 5.2 and don't see this warning.
+Is this 6.x gcc?
+I suspect it will have such warnings all over the kernel.
