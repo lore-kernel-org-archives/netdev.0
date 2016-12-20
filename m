@@ -1,40 +1,32 @@
-From: Mark Greer <mgreer@animalcreek.com>
-Subject: Re: [PATCH 3/3] nfc: trf7970a: Prevent repeated polling from
- crashing the kernel
-Date: Tue, 20 Dec 2016 11:59:05 -0700
-Message-ID: <20161220185905.GA5867@animalcreek.com>
-References: <1482250592-4268-1-git-send-email-glansberry@gmail.com>
- <1482250592-4268-3-git-send-email-glansberry@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 1/2] net: netcp: ethss: fix errors in ethtool ops
+Date: Tue, 20 Dec 2016 14:08:09 -0500 (EST)
+Message-ID: <20161220.140809.1106859712498296957.davem@davemloft.net>
+References: <1482188157-24490-1-git-send-email-m-karicheri2@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless@vger.kernel.org, lauro.venancio@openbossa.org,
-        aloisio.almeida@openbossa.org, sameo@linux.intel.com,
-        robh+dt@kernel.org, mark.rutland@arm.com, netdev@vger.kernel.org,
-        devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
-        justin@kuvee.com, Jaret Cantu <jaret.cantu@timesys.com>
-To: Geoff Lansberry <geoff@kuvee.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: m-karicheri2@ti.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1482250592-4268-3-git-send-email-glansberry@gmail.com>
+In-Reply-To: <1482188157-24490-1-git-send-email-m-karicheri2@ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Dec 20, 2016 at 11:16:32AM -0500, Geoff Lansberry wrote:
-> From: Jaret Cantu <jaret.cantu@timesys.com>
+From: Murali Karicheri <m-karicheri2@ti.com>
+Date: Mon, 19 Dec 2016 17:55:56 -0500
+
+> From: WingMan Kwok <w-kwok2@ti.com>
 > 
-> Repeated polling attempts cause a NULL dereference error to occur.
-> This is because the state of the trf7970a is currently reading but
-> another request has been made to send a command before it has finished.
+> In ethtool ops, it needs to retrieve the corresponding
+> ethss module (gbe or xgbe) from the net_device structure.
+> Prior to this patch, the retrieving procedure only
+> checks for the gbe module.  This patch fixes the issue
+> by checking the xgbe module if the net_device structure
+> does not correspond to the gbe module.
+> 
+> Signed-off-by: WingMan Kwok <w-kwok2@ti.com>
+> Signed-off-by: Murali Karicheri <m-karicheri2@ti.com>
+> Signed-off-by: Sekhar Nori <nsekhar@ti.com>
 
-How is this happening?  Was trf7970a_abort_cmd() called and it didn't
-work right?  Was it not called at all and there is a bug in the digital
-layer?  More details please.
-
-> The solution is to properly kill the waiting reading (workqueue)
-> before failing on the send.
-
-If the bug is in the calling code, then that is what should get fixed.
-This seems to be a hack to work-around a digital layer bug.
-
-Mark
---
+Applied.
