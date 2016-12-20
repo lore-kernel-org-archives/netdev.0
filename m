@@ -1,13 +1,14 @@
-From: Niklas Cassel <niklas.cassel@axis.com>
+From: Seraphin BONNAFFE <seraphin.bonnaffe@st.com>
 Subject: Re: [PATCH] stmmac: enable rx queues
-Date: Tue, 20 Dec 2016 15:43:52 +0100
-Message-ID: <f5cda4a7-8c41-86b7-b133-cf41eaec0370@axis.com>
+Date: Tue, 20 Dec 2016 15:52:06 +0100
+Message-ID: <ba998f36-4ae2-10f3-2483-14b0bf351037@st.com>
 References: <9a8911dfd2ed07391106e9cd0f90475742a798dc.1482238007.git.jpinto@synopsys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <hock.leong.kweh@intel.com>, <pavel@ucw.cz>,
-        <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: <hock.leong.kweh@intel.com>, <niklas.cassel@axis.com>,
+        <pavel@ucw.cz>, <linux-kernel@vger.kernel.org>,
+        <netdev@vger.kernel.org>
 To: Joao Pinto <Joao.Pinto@synopsys.com>, <peppe.cavallaro@st.com>,
         <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -15,7 +16,15 @@ In-Reply-To: <9a8911dfd2ed07391106e9cd0f90475742a798dc.1482238007.git.jpinto@syn
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi Joao,
 
+Please see my in-line comments.
+
+Regards,
+Séraphin
+--
+Seraphin BONNAFFE | Tel: +33244027061
+STMicroelectronics | ADG | S/W Design
 
 On 12/20/2016 01:55 PM, Joao Pinto wrote:
 > When the hardware is synthesized with multiple queues, all queues are
@@ -56,22 +65,20 @@ On 12/20/2016 01:55 PM, Joao Pinto wrote:
 >  #define GMAC_INT_EN			0x000000b4
 >  #define GMAC_PCS_BASE			0x000000e0
 > @@ -44,6 +45,9 @@
->  
+>
 >  #define GMAC_MAX_PERFECT_ADDRESSES	128
->  
+>
 > +/* MAC RX Queue Enable*/
 > +#define GMAC_RX_QUEUE_ENABLE(queue)	BIT(queue * 2)
 
-Always have parentheses around a variable in a
-macro, otherwise strange things could happen.
-Imagine if you send 5 - 4 as argument,
-it will then expand to 5 - 4 * 2 = -3,
-instead of (5 - 4) * 2 = 2
+According to the GMAC_RXQ0 register description from the dwc_ether_qos_databok, I guess this will enable the queues in AV only.
+What if we would like to enable them in DCB (10)b ?
+
 
 > +
 >  /* MAC Flow Control RX */
 >  #define GMAC_RX_FLOW_CTRL_RFE		BIT(0)
->  
+>
 > diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
 > index eaed7cb..7ec1887 100644
 > --- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
@@ -79,13 +86,24 @@ instead of (5 - 4) * 2 = 2
 > @@ -59,6 +59,16 @@ static void dwmac4_core_init(struct mac_device_info *hw, int mtu)
 >  	writel(value, ioaddr + GMAC_INT_EN);
 >  }
->  
+>
 > +static void dwmac4_rx_queue_enable(struct mac_device_info *hw, u32 queue)
 > +{
 > +	void __iomem *ioaddr = hw->pcsr;
 > +	u32 value = readl(ioaddr + GMAC_RXQ_CTRL0);
 > +
 > +	value |= GMAC_RX_QUEUE_ENABLE(queue);
+
+What happen if for some reason the previous value of the register was 0xffff ?
+The OR mask, by itself, won't clear the bits. AFAIU each queue is enabled with a 2-bit value, and (11)b don't have the same effect as (01)b, does it ?
+
+I would suggest to clear the RXQ-enable bits before writing a new value.
+Something like
+   value &= GMAC_RX_QUEUE_CLEAR(queue)
+   value |= GMAC_RX_QUEUE_ENABLE(queue);
+
+What do you think about that ?
+
 > +
 > +	writel(value, ioaddr + GMAC_RXQ_CTRL0);
 > +}
@@ -107,7 +125,7 @@ instead of (5 - 4) * 2 = 2
 > +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
 > @@ -1271,6 +1271,24 @@ static void free_dma_desc_resources(struct stmmac_priv *priv)
 >  }
->  
+>
 >  /**
 > + *  stmmac_mac_enable_rx_queues - Enable MAC rx queues
 > + *  @priv: driver private structure
@@ -116,35 +134,6 @@ instead of (5 - 4) * 2 = 2
 > +static void stmmac_mac_enable_rx_queues(struct stmmac_priv *priv)
 > +{
 > +	int rx_count = priv->dma_cap.number_rx_channel;
-
-priv->dma_cap.number_rx_channel
-actually contains the value from register
-MAC_HW_Feature2, field RXCHCNT,
-which is the number of DMA rx channels.
-
-This is not the same as the number of MTL
-receive queues, field RXQCNT in MAC_HW_Feature2.
-
-I guess they will often have the same value,
-but since there actually are two different fields
-for them, I suppose that is not always the case.
-
-
-
-Reading the comments in dwmac4_dma.*
-
-#define DMA_CHANNEL_NB_MAX              1
-
-"Only Channel 0 is actually configured and used"
-
-"Following code only done for channel 0, other channels not yet supported"
-
-Is there any point in actually enabling more than RX queue 0 if the
-driver does not yet support more than one channel.
-Can RXCHCNT ever be different from RXQCNT?
-If so, when? Maybe when using an external DMA IP?
-
-
 > +	int queue = 0;
 > +
 > +	/* If GMAC does not have multiqueues, then this is not necessary*/
@@ -153,6 +142,13 @@ If so, when? Maybe when using an external DMA IP?
 > +
 > +	for (queue = 0; queue < rx_count; queue++)
 > +		priv->hw->mac->rx_queue_enable(priv->hw, queue);
+
+
+Maybe it is worth checking if (priv->hw->mac->rx_queue_enable)
+before actually calling this callback ?
+I can see you have implemented it for dwmac4, but not for dwmac100 and dwmac100
+In that case we may have a null pointer exception here.
+
 > +}
 > +
 > +/**
@@ -162,10 +158,11 @@ If so, when? Maybe when using an external DMA IP?
 > @@ -1691,6 +1709,9 @@ static int stmmac_hw_setup(struct net_device *dev, bool init_ptp)
 >  	/* Initialize the MAC Core */
 >  	priv->hw->mac->core_init(priv->hw, dev->mtu);
->  
+>
 > +	/* Initialize MAC RX Queues */
 > +	stmmac_mac_enable_rx_queues(priv);
 > +
 >  	ret = priv->hw->mac->rx_ipc(priv->hw);
 >  	if (!ret) {
 >  		netdev_warn(priv->dev, "RX IPC Checksum Offload disabled\n");
+>
