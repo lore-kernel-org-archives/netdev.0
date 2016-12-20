@@ -1,352 +1,307 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: [PATCH v5] net: dummy: Introduce dummy virtual functions
-Date: Tue, 20 Dec 2016 23:26:21 +0100
-Message-ID: <20161220222621.32493-1-phil@nwl.cc>
-Cc: netdev@vger.kernel.org, Sabrina Dubroca <sd@queasysnail.net>
-To: David Miller <davem@davemloft.net>
+From: Timur Tabi <timur@codeaurora.org>
+Subject: [PATCH] net: qcom/emac: add ethtool support
+Date: Tue, 20 Dec 2016 16:32:09 -0600
+Message-ID: <1482273129-11812-1-git-send-email-timur@codeaurora.org>
+To: David Miller <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        netdev@vger.kernel.org, Christopher Covington <cov@codeaurora.org>,
+        Alok Chauhan <alokc@codeaurora.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:53841 "EHLO mail.nwl.cc"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752516AbcLTW0d (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 20 Dec 2016 17:26:33 -0500
+Received: from smtp.codeaurora.org ([198.145.29.96]:55432 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752007AbcLTWcP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2016 17:32:15 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The idea for this was born when testing VF support in iproute2 which was
-impeded by hardware requirements. In fact, not every VF-capable hardware
-driver implements all netdev ops, so testing the interface is still hard
-to do even with a well-sorted hardware shelf.
+Add support for some ethtool methods: get/set link settings, get/set
+message level, get statistics, get link status, and restart
+autonegotiation.
 
-To overcome this and allow for testing the user-kernel interface, this
-patch allows to turn dummy into a PF with a configurable amount of VFs.
-
-Due to the assumption that all PFs are PCI devices, this implementation
-is not completely straightforward: In order to allow for
-rtnl_fill_ifinfo() to see the dummy VFs, a fake PCI parent device is
-attached to the dummy netdev. This has to happen at the right spot so
-register_netdevice() does not get confused. This patch abuses
-ndo_fix_features callback for that. In ndo_uninit callback, the fake
-parent is removed again for the same purpose.
-
-Joint work with Sabrina Dubroca.
-
-Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
-Signed-off-by: Phil Sutter <phil@nwl.cc>
+Signed-off-by: Timur Tabi <timur@codeaurora.org>
 ---
-Changes since v4:
-- Initialize pci_pdev.sriov at runtime - older gcc versions don't allow
-  initializing fields of anonymous unions at declaration time.
-- Rebased onto current net-next/master.
-  
-Changes since v3:
-- Changed type of vf_mac field from unsigned char to u8.
-- Column-aligned structs' field names.
+ drivers/net/ethernet/qualcomm/emac/Makefile       |   2 +-
+ drivers/net/ethernet/qualcomm/emac/emac-ethtool.c | 156 ++++++++++++++++++++++
+ drivers/net/ethernet/qualcomm/emac/emac.c         |  51 ++++---
+ drivers/net/ethernet/qualcomm/emac/emac.h         |   3 +
+ 4 files changed, 191 insertions(+), 21 deletions(-)
+ create mode 100644 drivers/net/ethernet/qualcomm/emac/emac-ethtool.c
 
-Changes since v2:
-- Fixed oops on reboot (need to initialize parent device mutex).
-- Got rid of potential mem leak noticed by Eric Dumazet.
-- Dropped stray newline insertion.
-
-Changes since v1:
-- Fixed issues reported by kbuild test robot:
-  - pci_dev->sriov is only present if CONFIG_PCI_ATS is active.
-  - pci_bus_type does not exist if CONFIG_PCI is not defined.
----
- drivers/net/dummy.c | 205 +++++++++++++++++++++++++++++++++++++++++++++++++++-
- 1 file changed, 203 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/dummy.c b/drivers/net/dummy.c
-index 6421835f11b7e..7f8d8598bbbfe 100644
---- a/drivers/net/dummy.c
-+++ b/drivers/net/dummy.c
-@@ -34,6 +34,8 @@
- #include <linux/etherdevice.h>
- #include <linux/init.h>
- #include <linux/moduleparam.h>
-+#include <linux/pci.h>
-+#include "../pci/pci.h"		/* for struct pci_sriov */
- #include <linux/rtnetlink.h>
- #include <net/rtnetlink.h>
- #include <linux/u64_stats_sync.h>
-@@ -42,6 +44,34 @@
- #define DRV_VERSION	"1.0"
+diff --git a/drivers/net/ethernet/qualcomm/emac/Makefile b/drivers/net/ethernet/qualcomm/emac/Makefile
+index 7a66879..fc57ced 100644
+--- a/drivers/net/ethernet/qualcomm/emac/Makefile
++++ b/drivers/net/ethernet/qualcomm/emac/Makefile
+@@ -4,6 +4,6 @@
  
- static int numdummies = 1;
-+static int num_vfs;
+ obj-$(CONFIG_QCOM_EMAC) += qcom-emac.o
+ 
+-qcom-emac-objs := emac.o emac-mac.o emac-phy.o emac-sgmii.o \
++qcom-emac-objs := emac.o emac-mac.o emac-phy.o emac-sgmii.o emac-ethtool.o \
+ 		  emac-sgmii-fsm9900.o emac-sgmii-qdf2432.o \
+ 		  emac-sgmii-qdf2400.o
+diff --git a/drivers/net/ethernet/qualcomm/emac/emac-ethtool.c b/drivers/net/ethernet/qualcomm/emac/emac-ethtool.c
+new file mode 100644
+index 0000000..6de5152
+--- /dev/null
++++ b/drivers/net/ethernet/qualcomm/emac/emac-ethtool.c
+@@ -0,0 +1,156 @@
++/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 and
++ * only version 2 as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ */
 +
-+static struct pci_sriov pdev_sriov;
++#include <linux/ethtool.h>
++#include <linux/phy.h>
 +
-+static struct pci_dev pci_pdev = {
-+	.is_physfn = 0,
-+#ifdef CONFIG_PCI
-+	.dev.bus = &pci_bus_type,
-+#endif
++#include "emac.h"
++
++static const char * const emac_ethtool_stat_strings[] = {
++	"rx_ok",
++	"rx_bcast",
++	"rx_mcast",
++	"rx_pause",
++	"rx_ctrl",
++	"rx_fcs_err",
++	"rx_len_err",
++	"rx_byte_cnt",
++	"rx_runt",
++	"rx_frag",
++	"rx_sz_64",
++	"rx_sz_65_127",
++	"rx_sz_128_255",
++	"rx_sz_256_511",
++	"rx_sz_512_1023",
++	"rx_sz_1024_1518",
++	"rx_sz_1519_max",
++	"rx_sz_ov",
++	"rx_rxf_ov",
++	"rx_align_err",
++	"rx_bcast_byte_cnt",
++	"rx_mcast_byte_cnt",
++	"rx_err_addr",
++	"rx_crc_align",
++	"rx_jabbers",
++	"tx_ok",
++	"tx_bcast",
++	"tx_mcast",
++	"tx_pause",
++	"tx_exc_defer",
++	"tx_ctrl",
++	"tx_defer",
++	"tx_byte_cnt",
++	"tx_sz_64",
++	"tx_sz_65_127",
++	"tx_sz_128_255",
++	"tx_sz_256_511",
++	"tx_sz_512_1023",
++	"tx_sz_1024_1518",
++	"tx_sz_1519_max",
++	"tx_1_col",
++	"tx_2_col",
++	"tx_late_col",
++	"tx_abort_col",
++	"tx_underrun",
++	"tx_rd_eop",
++	"tx_len_err",
++	"tx_trunc",
++	"tx_bcast_byte",
++	"tx_mcast_byte",
++	"tx_col",
 +};
 +
-+struct vf_data_storage {
-+	u8	vf_mac[ETH_ALEN];
-+	u16	pf_vlan; /* When set, guest VLAN config not allowed. */
-+	u16	pf_qos;
-+	__be16	vlan_proto;
-+	u16	min_tx_rate;
-+	u16	max_tx_rate;
-+	u8	spoofchk_enabled;
-+	bool	rss_query_enabled;
-+	u8	trusted;
-+	int	link_state;
-+};
++#define EMAC_STATS_LEN	ARRAY_SIZE(emac_ethtool_stat_strings)
 +
-+struct dummy_priv {
-+	int			num_vfs;
-+	struct vf_data_storage	*vfinfo;
-+};
- 
- /* fake multicast ability */
- static void set_multicast_list(struct net_device *dev)
-@@ -91,15 +121,31 @@ static netdev_tx_t dummy_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- static int dummy_dev_init(struct net_device *dev)
- {
-+	struct dummy_priv *priv = netdev_priv(dev);
-+
- 	dev->dstats = netdev_alloc_pcpu_stats(struct pcpu_dstats);
- 	if (!dev->dstats)
- 		return -ENOMEM;
- 
-+	priv->num_vfs = num_vfs;
-+	priv->vfinfo = NULL;
-+
-+	if (!num_vfs)
-+		return 0;
-+
-+	priv->vfinfo = kcalloc(num_vfs, sizeof(struct vf_data_storage),
-+			       GFP_KERNEL);
-+	if (!priv->vfinfo) {
-+		free_percpu(dev->dstats);
-+		return -ENOMEM;
-+	}
-+
- 	return 0;
- }
- 
- static void dummy_dev_uninit(struct net_device *dev)
- {
-+	dev->dev.parent = NULL;
- 	free_percpu(dev->dstats);
- }
- 
-@@ -112,6 +158,137 @@ static int dummy_change_carrier(struct net_device *dev, bool new_carrier)
- 	return 0;
- }
- 
-+/* fake, just to set fake PCI parent after netdev_register_kobject() */
-+static netdev_features_t dummy_fix_features(struct net_device *dev,
-+					    netdev_features_t features)
++static u32 emac_get_msglevel(struct net_device *netdev)
 +{
-+	struct dummy_priv *priv = netdev_priv(dev);
++	struct emac_adapter *adpt = netdev_priv(netdev);
 +
-+	if (priv->num_vfs) {
-+#ifdef CONFIG_PCI_ATS
-+		pci_pdev.sriov = &pdev_sriov;
-+#endif
-+		dev->dev.parent = &pci_pdev.dev;
-+		if (!pci_pdev.is_physfn) {
-+			mutex_init(&pci_pdev.dev.mutex);
-+			pci_pdev.is_physfn = 1;
++	return adpt->msg_enable;
++}
++
++static void emac_set_msglevel(struct net_device *netdev, u32 data)
++{
++	struct emac_adapter *adpt = netdev_priv(netdev);
++
++	adpt->msg_enable = data;
++}
++
++static int emac_get_sset_count(struct net_device *netdev, int sset)
++{
++	switch (sset) {
++	case ETH_SS_STATS:
++		return EMAC_STATS_LEN;
++	default:
++		return -EOPNOTSUPP;
++	}
++}
++
++static void emac_get_strings(struct net_device *netdev, u32 stringset, u8 *data)
++{
++	unsigned int i;
++
++	switch (stringset) {
++	case ETH_SS_STATS:
++		for (i = 0; i < EMAC_STATS_LEN; i++) {
++			strlcpy(data, emac_ethtool_stat_strings[i],
++				ETH_GSTRING_LEN);
++			data += ETH_GSTRING_LEN;
 +		}
++		break;
 +	}
-+
-+	return features;
 +}
 +
-+static int dummy_set_vf_mac(struct net_device *dev, int vf, u8 *mac)
++static void emac_get_ethtool_stats(struct net_device *netdev,
++				   struct ethtool_stats *stats,
++				   u64 *data)
 +{
-+	struct dummy_priv *priv = netdev_priv(dev);
++	struct emac_adapter *adpt = netdev_priv(netdev);
 +
-+	if (!is_valid_ether_addr(mac) || (vf >= priv->num_vfs))
-+		return -EINVAL;
++	spin_lock(&adpt->stats.lock);
 +
-+	memcpy(priv->vfinfo[vf].vf_mac, mac, ETH_ALEN);
++	emac_update_hw_stats(adpt);
++	memcpy(data, &adpt->stats, EMAC_STATS_LEN * sizeof(u64));
 +
-+	return 0;
++	spin_unlock(&adpt->stats.lock);
 +}
 +
-+static int dummy_set_vf_vlan(struct net_device *dev, int vf,
-+			     u16 vlan, u8 qos, __be16 vlan_proto)
++static int emac_nway_reset(struct net_device *netdev)
 +{
-+	struct dummy_priv *priv = netdev_priv(dev);
++	struct phy_device *phydev = netdev->phydev;
 +
-+	if ((vf >= priv->num_vfs) || (vlan > 4095) || (qos > 7))
-+		return -EINVAL;
++	if (!phydev)
++		return -ENODEV;
 +
-+	priv->vfinfo[vf].pf_vlan = vlan;
-+	priv->vfinfo[vf].pf_qos = qos;
-+	priv->vfinfo[vf].vlan_proto = vlan_proto;
-+
-+	return 0;
++	return genphy_restart_aneg(phydev);
 +}
 +
-+static int dummy_set_vf_rate(struct net_device *dev, int vf, int min, int max)
++static const struct ethtool_ops emac_ethtool_ops = {
++	.get_link_ksettings = phy_ethtool_get_link_ksettings,
++	.set_link_ksettings = phy_ethtool_set_link_ksettings,
++
++	.get_msglevel    = emac_get_msglevel,
++	.set_msglevel    = emac_set_msglevel,
++
++	.get_sset_count  = emac_get_sset_count,
++	.get_strings = emac_get_strings,
++	.get_ethtool_stats = emac_get_ethtool_stats,
++
++	.nway_reset = emac_nway_reset,
++
++	.get_link = ethtool_op_get_link,
++};
++
++void emac_set_ethtool_ops(struct net_device *netdev)
 +{
-+	struct dummy_priv *priv = netdev_priv(dev);
-+
-+	if (vf >= priv->num_vfs)
-+		return -EINVAL;
-+
-+	priv->vfinfo[vf].min_tx_rate = min;
-+	priv->vfinfo[vf].max_tx_rate = max;
-+
-+	return 0;
++	netdev->ethtool_ops = &emac_ethtool_ops;
 +}
-+
-+static int dummy_set_vf_spoofchk(struct net_device *dev, int vf, bool val)
-+{
-+	struct dummy_priv *priv = netdev_priv(dev);
-+
-+	if (vf >= priv->num_vfs)
-+		return -EINVAL;
-+
-+	priv->vfinfo[vf].spoofchk_enabled = val;
-+
-+	return 0;
-+}
-+
-+static int dummy_set_vf_rss_query_en(struct net_device *dev, int vf, bool val)
-+{
-+	struct dummy_priv *priv = netdev_priv(dev);
-+
-+	if (vf >= priv->num_vfs)
-+		return -EINVAL;
-+
-+	priv->vfinfo[vf].rss_query_enabled = val;
-+
-+	return 0;
-+}
-+
-+static int dummy_set_vf_trust(struct net_device *dev, int vf, bool val)
-+{
-+	struct dummy_priv *priv = netdev_priv(dev);
-+
-+	if (vf >= priv->num_vfs)
-+		return -EINVAL;
-+
-+	priv->vfinfo[vf].trusted = val;
-+
-+	return 0;
-+}
-+
-+static int dummy_get_vf_config(struct net_device *dev,
-+			       int vf, struct ifla_vf_info *ivi)
-+{
-+	struct dummy_priv *priv = netdev_priv(dev);
-+
-+	if (vf >= priv->num_vfs)
-+		return -EINVAL;
-+
-+	ivi->vf = vf;
-+	memcpy(&ivi->mac, priv->vfinfo[vf].vf_mac, ETH_ALEN);
-+	ivi->vlan = priv->vfinfo[vf].pf_vlan;
-+	ivi->qos = priv->vfinfo[vf].pf_qos;
-+	ivi->spoofchk = priv->vfinfo[vf].spoofchk_enabled;
-+	ivi->linkstate = priv->vfinfo[vf].link_state;
-+	ivi->min_tx_rate = priv->vfinfo[vf].min_tx_rate;
-+	ivi->max_tx_rate = priv->vfinfo[vf].max_tx_rate;
-+	ivi->rss_query_en = priv->vfinfo[vf].rss_query_enabled;
-+	ivi->trusted = priv->vfinfo[vf].trusted;
-+	ivi->vlan_proto = priv->vfinfo[vf].vlan_proto;
-+
-+	return 0;
-+}
-+
-+static int dummy_set_vf_link_state(struct net_device *dev, int vf, int state)
-+{
-+	struct dummy_priv *priv = netdev_priv(dev);
-+
-+	if (vf >= priv->num_vfs)
-+		return -EINVAL;
-+
-+	priv->vfinfo[vf].link_state = state;
-+
-+	return 0;
-+}
-+
- static const struct net_device_ops dummy_netdev_ops = {
- 	.ndo_init		= dummy_dev_init,
- 	.ndo_uninit		= dummy_dev_uninit,
-@@ -121,6 +298,15 @@ static const struct net_device_ops dummy_netdev_ops = {
- 	.ndo_set_mac_address	= eth_mac_addr,
- 	.ndo_get_stats64	= dummy_get_stats64,
- 	.ndo_change_carrier	= dummy_change_carrier,
-+	.ndo_fix_features	= dummy_fix_features,
-+	.ndo_set_vf_mac		= dummy_set_vf_mac,
-+	.ndo_set_vf_vlan	= dummy_set_vf_vlan,
-+	.ndo_set_vf_rate	= dummy_set_vf_rate,
-+	.ndo_set_vf_spoofchk	= dummy_set_vf_spoofchk,
-+	.ndo_set_vf_trust	= dummy_set_vf_trust,
-+	.ndo_get_vf_config	= dummy_get_vf_config,
-+	.ndo_set_vf_link_state	= dummy_set_vf_link_state,
-+	.ndo_set_vf_rss_query_en = dummy_set_vf_rss_query_en,
- };
+diff --git a/drivers/net/ethernet/qualcomm/emac/emac.c b/drivers/net/ethernet/qualcomm/emac/emac.c
+index 422289c..1ab4478 100644
+--- a/drivers/net/ethernet/qualcomm/emac/emac.c
++++ b/drivers/net/ethernet/qualcomm/emac/emac.c
+@@ -311,45 +311,55 @@ static int emac_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
+ 	return phy_mii_ioctl(netdev->phydev, ifr, cmd);
+ }
  
- static void dummy_get_drvinfo(struct net_device *dev,
-@@ -134,6 +320,14 @@ static const struct ethtool_ops dummy_ethtool_ops = {
- 	.get_drvinfo            = dummy_get_drvinfo,
- };
- 
-+static void dummy_free_netdev(struct net_device *dev)
-+{
-+	struct dummy_priv *priv = netdev_priv(dev);
-+
-+	kfree(priv->vfinfo);
-+	free_netdev(dev);
-+}
-+
- static void dummy_setup(struct net_device *dev)
+-/* Provide network statistics info for the interface */
+-static struct rtnl_link_stats64 *emac_get_stats64(struct net_device *netdev,
+-						  struct rtnl_link_stats64 *net_stats)
++/**
++ * emac_update_hw_stats - read the EMAC stat registers
++ *
++ * Reads the stats registers and write the values to adpt->stats.
++ *
++ * adpt->stats.lock must be held while calling this function.
++ */
++void emac_update_hw_stats(struct emac_adapter *adpt)
  {
- 	ether_setup(dev);
-@@ -141,7 +335,7 @@ static void dummy_setup(struct net_device *dev)
- 	/* Initialize the device structure. */
- 	dev->netdev_ops = &dummy_netdev_ops;
- 	dev->ethtool_ops = &dummy_ethtool_ops;
--	dev->destructor = free_netdev;
-+	dev->destructor = dummy_free_netdev;
+-	struct emac_adapter *adpt = netdev_priv(netdev);
+-	unsigned int addr = REG_MAC_RX_STATUS_BIN;
+ 	struct emac_stats *stats = &adpt->stats;
+ 	u64 *stats_itr = &adpt->stats.rx_ok;
+-	u32 val;
+-
+-	spin_lock(&stats->lock);
++	void __iomem *base = adpt->base;
++	unsigned int addr;
  
- 	/* Fill in device structure with ethernet-generic values. */
- 	dev->flags |= IFF_NOARP;
-@@ -172,6 +366,7 @@ static int dummy_validate(struct nlattr *tb[], struct nlattr *data[])
++	addr = REG_MAC_RX_STATUS_BIN;
+ 	while (addr <= REG_MAC_RX_STATUS_END) {
+-		val = readl_relaxed(adpt->base + addr);
+-		*stats_itr += val;
++		*stats_itr += readl_relaxed(base + addr);
+ 		stats_itr++;
+ 		addr += sizeof(u32);
+ 	}
  
- static struct rtnl_link_ops dummy_link_ops __read_mostly = {
- 	.kind		= DRV_NAME,
-+	.priv_size	= sizeof(struct dummy_priv),
- 	.setup		= dummy_setup,
- 	.validate	= dummy_validate,
- };
-@@ -180,12 +375,16 @@ static struct rtnl_link_ops dummy_link_ops __read_mostly = {
- module_param(numdummies, int, 0);
- MODULE_PARM_DESC(numdummies, "Number of dummy pseudo devices");
+ 	/* additional rx status */
+-	val = readl_relaxed(adpt->base + EMAC_RXMAC_STATC_REG23);
+-	adpt->stats.rx_crc_align += val;
+-	val = readl_relaxed(adpt->base + EMAC_RXMAC_STATC_REG24);
+-	adpt->stats.rx_jabbers += val;
++	stats->rx_crc_align += readl_relaxed(base + EMAC_RXMAC_STATC_REG23);
++	stats->rx_jabbers += readl_relaxed(base + EMAC_RXMAC_STATC_REG24);
  
-+module_param(num_vfs, int, 0);
-+MODULE_PARM_DESC(num_vfs, "Number of dummy VFs per dummy device");
+ 	/* update tx status */
+ 	addr = REG_MAC_TX_STATUS_BIN;
+-	stats_itr = &adpt->stats.tx_ok;
++	stats_itr = &stats->tx_ok;
+ 
+ 	while (addr <= REG_MAC_TX_STATUS_END) {
+-		val = readl_relaxed(adpt->base + addr);
+-		*stats_itr += val;
+-		++stats_itr;
++		*stats_itr += readl_relaxed(base + addr);
++		stats_itr++;
+ 		addr += sizeof(u32);
+ 	}
+ 
+ 	/* additional tx status */
+-	val = readl_relaxed(adpt->base + EMAC_TXMAC_STATC_REG25);
+-	adpt->stats.tx_col += val;
++	stats->tx_col += readl_relaxed(base + EMAC_TXMAC_STATC_REG25);
++}
 +
- static int __init dummy_init_one(void)
- {
- 	struct net_device *dev_dummy;
- 	int err;
- 
--	dev_dummy = alloc_netdev(0, "dummy%d", NET_NAME_UNKNOWN, dummy_setup);
-+	dev_dummy = alloc_netdev(sizeof(struct dummy_priv),
-+				 "dummy%d", NET_NAME_UNKNOWN, dummy_setup);
- 	if (!dev_dummy)
- 		return -ENOMEM;
- 
-@@ -204,6 +403,8 @@ static int __init dummy_init_module(void)
- {
- 	int i, err = 0;
- 
-+	pdev_sriov.num_VFs = num_vfs;
++/* Provide network statistics info for the interface */
++static struct rtnl_link_stats64 *
++emac_get_stats64(struct net_device *netdev, struct rtnl_link_stats64 *net_stats)
++{
++	struct emac_adapter *adpt = netdev_priv(netdev);
++	struct emac_stats *stats = &adpt->stats;
 +
- 	rtnl_lock();
- 	err = __rtnl_link_register(&dummy_link_ops);
- 	if (err < 0)
++	spin_lock(&stats->lock);
++
++	emac_update_hw_stats(adpt);
+ 
+ 	/* return parsed statistics */
+ 	net_stats->rx_packets = stats->rx_ok;
+@@ -620,6 +630,7 @@ static int emac_probe(struct platform_device *pdev)
+ 
+ 	dev_set_drvdata(&pdev->dev, netdev);
+ 	SET_NETDEV_DEV(netdev, &pdev->dev);
++	emac_set_ethtool_ops(netdev);
+ 
+ 	adpt = netdev_priv(netdev);
+ 	adpt->netdev = netdev;
+diff --git a/drivers/net/ethernet/qualcomm/emac/emac.h b/drivers/net/ethernet/qualcomm/emac/emac.h
+index 0c76e6c..4b8483c 100644
+--- a/drivers/net/ethernet/qualcomm/emac/emac.h
++++ b/drivers/net/ethernet/qualcomm/emac/emac.h
+@@ -332,4 +332,7 @@ struct emac_adapter {
+ void emac_reg_update32(void __iomem *addr, u32 mask, u32 val);
+ irqreturn_t emac_isr(int irq, void *data);
+ 
++void emac_set_ethtool_ops(struct net_device *netdev);
++void emac_update_hw_stats(struct emac_adapter *adpt);
++
+ #endif /* _EMAC_H_ */
 -- 
-2.11.0
+Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
+Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
+Code Aurora Forum, a Linux Foundation Collaborative Project.
