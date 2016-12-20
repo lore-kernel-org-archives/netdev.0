@@ -1,74 +1,192 @@
-From: Leon Romanovsky <leonro@mellanox.com>
-Subject: Re: [PATCH] net/mlx5: use rb_entry()
-Date: Tue, 20 Dec 2016 16:19:36 +0200
-Message-ID: <20161220141936.GX1074@mtr-leonro.local>
-References: <ddabc96c798df194791134d8e070d728e2a7b59f.1482203698.git.geliangtang@gmail.com>
- <8443fa3fa03d82c2b829375d8020762e5236dc6d.1482203930.git.geliangtang@gmail.com>
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Subject: Re: [PATCH] stmmac: enable rx queues
+Date: Tue, 20 Dec 2016 14:52:13 +0000
+Message-ID: <020e1c77-504e-3cfc-e526-ce1645fd6b32@synopsys.com>
+References: <9a8911dfd2ed07391106e9cd0f90475742a798dc.1482238007.git.jpinto@synopsys.com>
+ <f5cda4a7-8c41-86b7-b133-cf41eaec0370@axis.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="3rx43rDlPB5nB2+S"
-Cc: Saeed Mahameed <saeedm@mellanox.com>,
-        Matan Barak <matanb@mellanox.com>, <netdev@vger.kernel.org>,
-        <linux-rdma@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Geliang Tang <geliangtang@gmail.com>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 8bit
+Cc: <hock.leong.kweh@intel.com>, <pavel@ucw.cz>,
+        <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
+To: Niklas Cassel <niklas.cassel@axis.com>,
+        Joao Pinto <Joao.Pinto@synopsys.com>, <peppe.cavallaro@st.com>,
+        <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <8443fa3fa03d82c2b829375d8020762e5236dc6d.1482203930.git.geliangtang@gmail.com>
+In-Reply-To: <f5cda4a7-8c41-86b7-b133-cf41eaec0370@axis.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---3rx43rDlPB5nB2+S
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
 
-On Tue, Dec 20, 2016 at 10:02:14PM +0800, Geliang Tang wrote:
-> To make the code clearer, use rb_entry() instead of container_of() to
-> deal with rbtree.
->
-> Signed-off-by: Geliang Tang <geliangtang@gmail.com>
-> ---
->  drivers/net/ethernet/mellanox/mlx5/core/fs_counters.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+Hi Niklas,
 
-Thanks,
-Acked-by: Leon Romanovsky <leonro@mellanox.com>
+Às 2:43 PM de 12/20/2016, Niklas Cassel escreveu:
+> 
+> 
+> On 12/20/2016 01:55 PM, Joao Pinto wrote:
+>> When the hardware is synthesized with multiple queues, all queues are
+>> disabled for default. This patch adds the rx queues configuration.
+>> This patch was successfully tested in a Synopsys QoS Reference design.
+>>
+>> Signed-off-by: Joao Pinto <jpinto@synopsys.com>
+>> ---
+>>  drivers/net/ethernet/stmicro/stmmac/common.h      |  2 ++
+>>  drivers/net/ethernet/stmicro/stmmac/dwmac4.h      |  4 ++++
+>>  drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c | 11 +++++++++++
+>>  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 21 +++++++++++++++++++++
+>>  4 files changed, 38 insertions(+)
+>>
+>> diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
+>> index b13a144..61bab50 100644
+>> --- a/drivers/net/ethernet/stmicro/stmmac/common.h
+>> +++ b/drivers/net/ethernet/stmicro/stmmac/common.h
+>> @@ -454,6 +454,8 @@ struct stmmac_ops {
+>>  	void (*core_init)(struct mac_device_info *hw, int mtu);
+>>  	/* Enable and verify that the IPC module is supported */
+>>  	int (*rx_ipc)(struct mac_device_info *hw);
+>> +	/* Enable RX Queues */
+>> +	void (*rx_queue_enable)(struct mac_device_info *hw, u32 queue);
+>>  	/* Dump MAC registers */
+>>  	void (*dump_regs)(struct mac_device_info *hw);
+>>  	/* Handle extra events on specific interrupts hw dependent */
+>> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
+>> index 3e8d4fe..fd013bd 100644
+>> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
+>> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
+>> @@ -22,6 +22,7 @@
+>>  #define GMAC_HASH_TAB_32_63		0x00000014
+>>  #define GMAC_RX_FLOW_CTRL		0x00000090
+>>  #define GMAC_QX_TX_FLOW_CTRL(x)		(0x70 + x * 4)
+>> +#define GMAC_RXQ_CTRL0			0x000000a0
+>>  #define GMAC_INT_STATUS			0x000000b0
+>>  #define GMAC_INT_EN			0x000000b4
+>>  #define GMAC_PCS_BASE			0x000000e0
+>> @@ -44,6 +45,9 @@
+>>  
+>>  #define GMAC_MAX_PERFECT_ADDRESSES	128
+>>  
+>> +/* MAC RX Queue Enable*/
+>> +#define GMAC_RX_QUEUE_ENABLE(queue)	BIT(queue * 2)
+> 
+> Always have parentheses around a variable in a
+> macro, otherwise strange things could happen.
+> Imagine if you send 5 - 4 as argument,
+> it will then expand to 5 - 4 * 2 = -3,
+> instead of (5 - 4) * 2 = 2
 
->
-> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_counters.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_counters.c
-> index 3b026c1..7431f63 100644
-> --- a/drivers/net/ethernet/mellanox/mlx5/core/fs_counters.c
-> +++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_counters.c
-> @@ -75,7 +75,7 @@ static void mlx5_fc_stats_insert(struct rb_root *root, struct mlx5_fc *counter)
->  	struct rb_node *parent = NULL;
->
->  	while (*new) {
-> -		struct mlx5_fc *this = container_of(*new, struct mlx5_fc, node);
-> +		struct mlx5_fc *this = rb_entry(*new, struct mlx5_fc, node);
->  		int result = counter->id - this->id;
->
->  		parent = *new;
-> --
-> 2.9.3
->
+Right. I am going to do that.
 
---3rx43rDlPB5nB2+S
-Content-Type: application/pgp-signature; name="signature.asc"
+> 
+>> +
+>>  /* MAC Flow Control RX */
+>>  #define GMAC_RX_FLOW_CTRL_RFE		BIT(0)
+>>  
+>> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
+>> index eaed7cb..7ec1887 100644
+>> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
+>> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
+>> @@ -59,6 +59,16 @@ static void dwmac4_core_init(struct mac_device_info *hw, int mtu)
+>>  	writel(value, ioaddr + GMAC_INT_EN);
+>>  }
+>>  
+>> +static void dwmac4_rx_queue_enable(struct mac_device_info *hw, u32 queue)
+>> +{
+>> +	void __iomem *ioaddr = hw->pcsr;
+>> +	u32 value = readl(ioaddr + GMAC_RXQ_CTRL0);
+>> +
+>> +	value |= GMAC_RX_QUEUE_ENABLE(queue);
+>> +
+>> +	writel(value, ioaddr + GMAC_RXQ_CTRL0);
+>> +}
+>> +
+>>  static void dwmac4_dump_regs(struct mac_device_info *hw)
+>>  {
+>>  	void __iomem *ioaddr = hw->pcsr;
+>> @@ -392,6 +402,7 @@ static void dwmac4_debug(void __iomem *ioaddr, struct stmmac_extra_stats *x)
+>>  static const struct stmmac_ops dwmac4_ops = {
+>>  	.core_init = dwmac4_core_init,
+>>  	.rx_ipc = dwmac4_rx_ipc_enable,
+>> +	.rx_queue_enable = dwmac4_rx_queue_enable,
+>>  	.dump_regs = dwmac4_dump_regs,
+>>  	.host_irq_status = dwmac4_irq_status,
+>>  	.flow_ctrl = dwmac4_flow_ctrl,
+>> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+>> index 3e40578..e30034d 100644
+>> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+>> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+>> @@ -1271,6 +1271,24 @@ static void free_dma_desc_resources(struct stmmac_priv *priv)
+>>  }
+>>  
+>>  /**
+>> + *  stmmac_mac_enable_rx_queues - Enable MAC rx queues
+>> + *  @priv: driver private structure
+>> + *  Description: It is used for enabling the rx queues in the MAC
+>> + */
+>> +static void stmmac_mac_enable_rx_queues(struct stmmac_priv *priv)
+>> +{
+>> +	int rx_count = priv->dma_cap.number_rx_channel;
+> 
+> priv->dma_cap.number_rx_channel
+> actually contains the value from register
+> MAC_HW_Feature2, field RXCHCNT,
+> which is the number of DMA rx channels.
+> 
+> This is not the same as the number of MTL
+> receive queues, field RXQCNT in MAC_HW_Feature2.
+> 
+> I guess they will often have the same value,
+> but since there actually are two different fields
+> for them, I suppose that is not always the case.
 
------BEGIN PGP SIGNATURE-----
+Yes, you typically have a match between channels and queues.
+But I can use RXQCNT of course, I agree.
 
-iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAlhZPfgACgkQ5GN7iDZy
-WKeJ+hAAlSCSAtxBiHM84PF/F+Vd3LVyBs8x4nCuIWaHdRwPv7rQwvVbC6HoSFRz
-aDGGgw74AV9AnYsmiLHtcIYOTFp/MIDY/b9wYhRi+Kowc/dJuwuD9fBpx2s/97v+
-c69oJL1QkhUU7eYT6bKzrFAL43YFNM5QV6LcRBBuFgfCuHUw46iWBX/yrXb2tElM
-9y2U1y8Cj4RWZ19IoF0YiWw8+S7R39WLUT4lCRJX7kvekP8Hd/xZI83q/8/Dpmr+
-bgnudWnD1xx23Y6ncgG7mO3lSJaRJNOmmavCS4UZnDyuXUPvArtNueee7duAMnsE
-fWBMjlQz9bqaCBela/myiJhrA/csAvcFbUhiqM3/NvhUwwQ7a6fOJ/0BT5aHfSfD
-U1utFuQ4/cAftVks8BpZasUe+h75NSEQ6c5gA/cPDdSrKz1IqQChpV61ZwDb9qhD
-MssxcjsSFLKmccUqbaLTG0Rtc4j83QsQRoYhV8jhMak3WthpHWHJr2mslyE8e1+Y
-XHIYgu/eEK/IS5TiLVp3e0e50SRJkMrySa1AoPNEdU7poB84JgDan2pHxvSTHyTa
-KhoQH3T+cEvvV87VJvAKz4wVWIOfHsMWMuvuEECc64Kb/dcwAd11SSeeFlCuvVpd
-NdnT7yZ5ZjcHaWTFJAve0hcne/NaTYlRosZpRhZDKy64w/uV4fc=
-=ZGfY
------END PGP SIGNATURE-----
+> 
+> 
+> 
+> Reading the comments in dwmac4_dma.*
+> 
+> #define DMA_CHANNEL_NB_MAX              1
+> 
+> "Only Channel 0 is actually configured and used"
+> 
+> "Following code only done for channel 0, other channels not yet supported"
+> 
+> Is there any point in actually enabling more than RX queue 0 if the
+> driver does not yet support more than one channel.
+> Can RXCHCNT ever be different from RXQCNT?
+> If so, when? Maybe when using an external DMA IP?
 
---3rx43rDlPB5nB2+S--
+Yes, currently stmmac only supports 1 Channel. Bt it needs this feature if the
+hardware is multi-channel. The hardware I have is multi-channel and so you have
+to enable RX queue for it to work and that's why I made this fix.
+In the future I will develope multi channel support for stmmac and this RX queue
+enable will be already made.
+
+> 
+> 
+>> +	int queue = 0;
+>> +
+>> +	/* If GMAC does not have multiqueues, then this is not necessary*/
+>> +	if (rx_count == 1)
+>> +		return;
+>> +
+>> +	for (queue = 0; queue < rx_count; queue++)
+>> +		priv->hw->mac->rx_queue_enable(priv->hw, queue);
+>> +}
+>> +
+>> +/**
+>>   *  stmmac_dma_operation_mode - HW DMA operation mode
+>>   *  @priv: driver private structure
+>>   *  Description: it is used for configuring the DMA operation mode register in
+>> @@ -1691,6 +1709,9 @@ static int stmmac_hw_setup(struct net_device *dev, bool init_ptp)
+>>  	/* Initialize the MAC Core */
+>>  	priv->hw->mac->core_init(priv->hw, dev->mtu);
+>>  
+>> +	/* Initialize MAC RX Queues */
+>> +	stmmac_mac_enable_rx_queues(priv);
+>> +
+>>  	ret = priv->hw->mac->rx_ipc(priv->hw);
+>>  	if (!ret) {
+>>  		netdev_warn(priv->dev, "RX IPC Checksum Offload disabled\n");
+> 
