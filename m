@@ -1,69 +1,69 @@
-From: Michal Hocko <mhocko@kernel.org>
-Subject: [PATCH 2/2] bpf: do not use KMALLOC_SHIFT_MAX
-Date: Tue, 20 Dec 2016 14:06:59 +0100
-Message-ID: <20161220130659.16461-3-mhocko@kernel.org>
-References: <20161220130659.16461-1-mhocko@kernel.org>
-Cc: Cristopher Lameter <cl@linux.com>,
-	Alexei Starovoitov <ast@kernel.org>,
-	Andrey Konovalov <andreyknvl@google.com>,
-	netdev@vger.kernel.org,
-	<linux-mm@kvack.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Michal Hocko <mhocko@suse.com>
-To: Andrew Morton <akpm@linux-foundation.org>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: [RFC PATCH 0/4] page_pool proof-of-concept early code
+Date: Tue, 20 Dec 2016 14:28:07 +0100
+Message-ID: <20161220132444.18788.50875.stgit@firesoul>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: willemdebruijn.kernel@gmail.com, netdev@vger.kernel.org,
+        john.fastabend@gmail.com, Saeed Mahameed <saeedm@mellanox.com>,
+        Jesper Dangaard Brouer <brouer@redhat.com>, bjorn.topel@intel.com,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Tariq Toukan <tariqt@mellanox.com>
+To: linux-mm@kvack.org, Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20161220130659.16461-1-mhocko@kernel.org>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-From: Michal Hocko <mhocko@suse.com>
+This is an RFC patchset of my *work-in-progress* page_pool implemenation.
+This is NOT ready for inclusion.  People asked to see the code, so here we go.
 
-01b3f52157ff ("bpf: fix allocation warnings in bpf maps and integer
-overflow") has added checks for the maximum allocateable size. It
-(ab)used KMALLOC_SHIFT_MAX for that purpose. While this is not incorrect
-it is not very clean because we already have KMALLOC_MAX_SIZE for this
-very reason so let's change both checks to use KMALLOC_MAX_SIZE instead.
+This patchset is focused providing a generic replacement for the
+driver page recycle caches. Where mlx5 is the first user in patch-3.
 
-The original motivation for using KMALLOC_SHIFT_MAX was to work around
-an incorrect KMALLOC_MAX_SIZE which could lead to allocation warnings
-but it is no longer needed since "slab: make sure that KMALLOC_MAX_SIZE
-will fit into MAX_ORDER".
+Notice that patch-2 is more "MM-invasive" (modifies put_page) than
+patch-4 which is less MM-agressive (scaled back based on input from
+Mel Gorman).
 
-Signed-off-by: Michal Hocko <mhocko@suse.com>
-Acked-by: Christoph Lameter <cl@linux.com>
+I do know that all page-flags are used (for 32bit), thus I'm open to
+suggestions/ideas on howto work-around this (need some way to identify
+a page belongs to a page pool).
+
+
+This patchset is the bare-minimum PoC that allows me to benchmarks
+these ideas and see if performance is going in the right direction.
+It is not safe, e.g. unloading the driver can crash the kernel.
+
 ---
- kernel/bpf/arraymap.c | 2 +-
- kernel/bpf/hashtab.c  | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/kernel/bpf/arraymap.c b/kernel/bpf/arraymap.c
-index a2ac051c342f..229a5d5df977 100644
---- a/kernel/bpf/arraymap.c
-+++ b/kernel/bpf/arraymap.c
-@@ -56,7 +56,7 @@ static struct bpf_map *array_map_alloc(union bpf_attr *attr)
- 	    attr->value_size == 0 || attr->map_flags)
- 		return ERR_PTR(-EINVAL);
- 
--	if (attr->value_size >= 1 << (KMALLOC_SHIFT_MAX - 1))
-+	if (attr->value_size > KMALLOC_MAX_SIZE)
- 		/* if value_size is bigger, the user space won't be able to
- 		 * access the elements.
- 		 */
-diff --git a/kernel/bpf/hashtab.c b/kernel/bpf/hashtab.c
-index ad1bc67aff1b..c5ec7dc71c84 100644
---- a/kernel/bpf/hashtab.c
-+++ b/kernel/bpf/hashtab.c
-@@ -181,7 +181,7 @@ static struct bpf_map *htab_map_alloc(union bpf_attr *attr)
- 		 */
- 		goto free_htab;
- 
--	if (htab->map.value_size >= (1 << (KMALLOC_SHIFT_MAX - 1)) -
-+	if (htab->map.value_size >= KMALLOC_MAX_SIZE -
- 	    MAX_BPF_STACK - sizeof(struct htab_elem))
- 		/* if value_size is bigger, the user space won't be able to
- 		 * access the elements via bpf syscall. This check also makes
--- 
-2.10.2
+Jesper Dangaard Brouer (4):
+      doc: page_pool introduction documentation
+      page_pool: basic implementation of page_pool
+      mlx5: use page_pool
+      page_pool: change refcnt model
+
+
+ Documentation/vm/page_pool/introduction.rst       |   71 ++++
+ drivers/net/ethernet/mellanox/mlx5/core/en.h      |    1 
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c |   28 +
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx.c   |   47 ++
+ include/linux/mm.h                                |    1 
+ include/linux/mm_types.h                          |   11 +
+ include/linux/page-flags.h                        |   13 +
+ include/linux/page_pool.h                         |  168 +++++++++
+ include/linux/skbuff.h                            |    2 
+ include/trace/events/mmflags.h                    |    3 
+ mm/Makefile                                       |    3 
+ mm/page_alloc.c                                   |    6 
+ mm/page_pool.c                                    |  402 +++++++++++++++++++++
+ mm/slub.c                                         |    4 
+ mm/swap.c                                         |    3 
+ 15 files changed, 741 insertions(+), 22 deletions(-)
+ create mode 100644 Documentation/vm/page_pool/introduction.rst
+ create mode 100644 include/linux/page_pool.h
+ create mode 100644 mm/page_pool.c
+
+--
 
 --
 To unsubscribe, send a message with 'unsubscribe linux-mm' in
