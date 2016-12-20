@@ -1,34 +1,42 @@
-From: Dave Jones <davej@codemonkey.org.uk>
-Subject: Re: ipv6: handle -EFAULT from skb_copy_bits
-Date: Mon, 19 Dec 2016 19:40:13 -0500
-Message-ID: <20161220004013.43pcopemc6im32az@codemonkey.org.uk>
-References: <20161214154729.g4yg4mxcgkvpe5w7@codemonkey.org.uk>
- <20161217.104120.945262627572958024.davem@davemloft.net>
- <20161219170320.nnezhql2vj5mrrrp@codemonkey.org.uk>
- <20161219.144848.736886978545428136.davem@davemloft.net>
- <20161220003144.omoqyghgdfbxdyuu@codemonkey.org.uk>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH net] netfilter: check duplicate config when initializing
+ in ipt_CLUSTERIP
+Date: Tue, 20 Dec 2016 01:48:03 +0100
+Message-ID: <20161220004803.GA14656@salvia>
+References: <9b3e1f76b5670d33727e63b6e166ae416b0d65af.1481776300.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from arcturus.aphlor.org ([188.246.204.175]:50886 "EHLO
-        arcturus.aphlor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753219AbcLTAkT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2016 19:40:19 -0500
+Cc: network dev <netdev@vger.kernel.org>,
+        netfilter-devel@vger.kernel.org, davem@davemloft.net,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+To: Xin Long <lucien.xin@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20161220003144.omoqyghgdfbxdyuu@codemonkey.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <9b3e1f76b5670d33727e63b6e166ae416b0d65af.1481776300.git.lucien.xin@gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 19, 2016 at 07:31:44PM -0500, Dave Jones wrote:
+On Thu, Dec 15, 2016 at 12:31:40PM +0800, Xin Long wrote:
+> @@ -185,6 +186,17 @@ clusterip_config_init(const struct ipt_clusterip_tgt_info *i, __be32 ip,
+>  	atomic_set(&c->refcount, 1);
+>  	atomic_set(&c->entries, 1);
+>  
+> +	spin_lock_bh(&cn->lock);
+> +	if (__clusterip_config_find(net, ip)) {
+> +		spin_unlock_bh(&cn->lock);
+> +		kfree(c);
+> +
+> +		return NULL;
+> +	}
 
- > Unfortunately, this made no difference.  I spent some time today trying
- > to make a better reproducer, but failed. I'll revisit again tomorrow.
- > 
- > Maybe I need >1 process/thread to trigger this.  That would explain why
- > I can trigger it with Trinity.
+This is going to result in ENOMEM error report to userspace on race,
+which can be confusing. Time for clusterip_config_init() to return
+PTR_ERR()?
 
-scratch that last part, I finally just repro'd it with a single process.
-
-	Dave
+> +
+> +	list_add_rcu(&c->list, &cn->configs);
+> +	spin_unlock_bh(&cn->lock);
+> +
+>  #ifdef CONFIG_PROC_FS
+>  	{
+>  		char buffer[16];
