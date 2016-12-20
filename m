@@ -1,29 +1,83 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: Potential issues (security and otherwise) with the current
- cgroup-bpf API
-Date: Mon, 19 Dec 2016 20:34:22 -0500 (EST)
-Message-ID: <20161219.203422.500916400463091702.davem@davemloft.net>
-References: <20161219205631.GA31242@ast-mbp.thefacebook.com>
-        <CALCETrWr5XMkexdGp7HdkiLkQV=P9ycj+sNO7xWSRoCVxihVZA@mail.gmail.com>
-        <20161220000254.GA58895@ast-mbp.thefacebook.com>
+From: Dongpo Li <lidongpo@hisilicon.com>
+Subject: Re: [PATCH v2 1/4] net: hix5hd2_gmac: add generic compatible string
+Date: Tue, 20 Dec 2016 09:35:36 +0800
+Message-ID: <58588AE8.4040901@hisilicon.com>
+References: <1480944481-118803-1-git-send-email-lidongpo@hisilicon.com>
+ <1480944481-118803-2-git-send-email-lidongpo@hisilicon.com>
+ <20161209223521.5dnj7l44e663sntl@rob-hp-laptop>
+ <584E871D.7060200@hisilicon.com>
+ <CAL_Jsq+d5xHsxMKxbWSYy3cDXnC+HQj3=wun1zxf5PZ_BYrD-Q@mail.gmail.com>
+ <585796D6.1080407@hisilicon.com>
+ <CAL_Jsq+Su84DonQbh2KZ2o8JQ0Mqarag60Oq=Dby3y8Doyozxg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: luto-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, daniel-cYrQPVfZoowdnm+yROfE0A@public.gmane.org, mic-WFhQfpSGs3bR7s880joybQ@public.gmane.org,
-        keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org, jann-XZ1E9jl8jIdeoWH0uzbU5w@public.gmane.org, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-        dsahern-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, tgraf-G/eBtMaohhA@public.gmane.org, mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-        peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20161220000254.GA58895-+o4/htvd0TDFYCXBM6kdu7fOX0fSgVTm@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: David Miller <davem@davemloft.net>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Michael Turquette <mturquette@baylibre.com>,
+        Stephen Boyd <sboyd@codeaurora.org>,
+        Russell King <linux@armlinux.org.uk>,
+        Zhangfei Gao <zhangfei.gao@linaro.org>,
+        Yisen Zhuang <yisen.zhuang@huawei.com>,
+        <salil.mehta@huawei.com>, Arnd Bergmann <arnd@arndb.de>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Jiancheng Xue <xuejiancheng@hisilicon.com>,
+        <benjamin.chenhao@hisilicon.com>, <caizhiyong@hisilicon.com>,
+        netdev <netdev@vger.kernel.org>,
+        "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Rob Herring <robh@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAL_Jsq+Su84DonQbh2KZ2o8JQ0Mqarag60Oq=Dby3y8Doyozxg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Mon, 19 Dec 2016 16:02:56 -0800
 
-> huh? 'not right api' because it's using bpf syscall instead
-> of cgroup control-file? I think the opposite is the truth.
 
-I completely agree with Alexei on this.
+On 2016/12/20 0:04, Rob Herring wrote:
+> On Mon, Dec 19, 2016 at 2:14 AM, Dongpo Li <lidongpo@hisilicon.com> wrote:
+>> Hi Rob and David,
+>>
+>> On 2016/12/12 22:21, Rob Herring wrote:
+>>> On Mon, Dec 12, 2016 at 5:16 AM, Dongpo Li <lidongpo@hisilicon.com> wrote:
+>>>> Hi Rob,
+>>>>
+>>>> On 2016/12/10 6:35, Rob Herring wrote:
+>>>>> On Mon, Dec 05, 2016 at 09:27:58PM +0800, Dongpo Li wrote:
+> 
+> [...]
+> 
+>>>>>> @@ -20,7 +25,7 @@ Required properties:
+>>>>>>
+>>>>>>  Example:
+>>>>>>      gmac0: ethernet@f9840000 {
+>>>>>> -            compatible = "hisilicon,hix5hd2-gmac";
+>>>>>> +            compatible = "hisilicon,hix5hd2-gemac", "hisilicon,hisi-gemac-v1";
+>>>>>
+>>>>> You can't just change compatible strings.
+>>>>>
+>>>> Okay, maybe I should name all the compatible string with the suffix "-gmac" instead of
+>>>> "-gemac". This can keep the compatible strings with the same suffix. Is this okay?
+>>>> Can I just add the generic compatible string without changing the SoCs compatible string?
+>>>> Like following:
+>>>>         gmac0: ethernet@f9840000 {
+>>>>  -              compatible = "hisilicon,hix5hd2-gmac";
+>>>>  +              compatible = "hisilicon,hix5hd2-gmac", "hisilicon,hisi-gmac-v1";
+>>>
+>>> Yes, this is fine.
+>>
+>> As the patch series have been applied to net-next branch,
+>> in which way should I commit this compatible fix?
+>> Should I send a new patch fixing this compatible string error with "Fixes: xxx"?
+>> Looking forward to your reply!
+> 
+> Yes to both.
+
+Okay, thanks for your reply!
+I will send the fix patch series as soon as possible.
+
+
+    Regards,
+    Dongpo
+
+.
