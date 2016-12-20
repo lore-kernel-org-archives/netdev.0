@@ -1,20 +1,20 @@
-From: Geoff Lansberry <geoff@kuvee.com>
-Subject: [PATCH 2/3] NFC: trf7970a: Add device tree option of 1.8 Volt IO voltage
-Date: Tue, 20 Dec 2016 11:10:46 -0500
-Message-ID: <1482250250-4192-3-git-send-email-glansberry@gmail.com>
+From: Geoff Lansberry <geoff-R+k406RtEhcAvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH 1/3] NFC: trf7970a: Add device tree option of 1.8 Volt IO voltage
+Date: Tue, 20 Dec 2016 11:10:45 -0500
+Message-ID: <1482250250-4192-2-git-send-email-glansberry@gmail.com>
 References: <1482250250-4192-1-git-send-email-glansberry@gmail.com>
-Cc: lauro.venancio@openbossa.org, aloisio.almeida@openbossa.org,
-        sameo@linux.intel.com, robh+dt@kernel.org, mark.rutland@arm.com,
-        netdev@vger.kernel.org, devicetree@vger.kernel.org,
-        linux-kernel@vger.kernel.org, mgreer@animalcreek.com,
-        justin@kuvee.com, Geoff Lansberry <geoff@kuvee.com>
-To: linux-wireless@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1482250250-4192-1-git-send-email-glansberry@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: lauro.venancio-430g2QfJUUCGglJvpFV4uA@public.gmane.org, aloisio.almeida-430g2QfJUUCGglJvpFV4uA@public.gmane.org,
+        sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, mgreer-luAo+O/VEmrlveNOaEYElw@public.gmane.org,
+        justin-R+k406RtEhcAvxtiuMwx3w@public.gmane.org, Geoff Lansberry <geoff-R+k406RtEhcAvxtiuMwx3w@public.gmane.org>
+To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1482250250-4192-1-git-send-email-glansberry-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Geoff Lansberry <geoff@kuvee.com>
+From: Geoff Lansberry <geoff-R+k406RtEhcAvxtiuMwx3w@public.gmane.org>
 
 The TRF7970A has configuration options for supporting hardware designs
 with 1.8 Volt or 3.3 Volt IO.   This commit adds a device tree option,
@@ -55,7 +55,7 @@ index e262ac1..b5777d8 100644
  		status = "okay";
  	};
 diff --git a/drivers/nfc/trf7970a.c b/drivers/nfc/trf7970a.c
-index 4e051e9..8a88195 100644
+index c9cb278..94c31f8 100644
 --- a/drivers/nfc/trf7970a.c
 +++ b/drivers/nfc/trf7970a.c
 @@ -444,6 +444,7 @@ struct trf7970a {
@@ -122,4 +122,9 @@ index 4e051e9..8a88195 100644
  			TRF7970A_SUPPORTED_PROTOCOLS,
  			NFC_DIGITAL_DRV_CAPS_IN_CRC |
 -- 
-Signed-off-by: Geoff Lansberry <geoff@kuvee.com>
+Signed-off-by: Geoff Lansberry <geoff-R+k406RtEhcAvxtiuMwx3w@public.gmane.org>
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
