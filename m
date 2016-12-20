@@ -1,48 +1,79 @@
-From: Murali Karicheri <m-karicheri2@ti.com>
-Subject: [PATCH net-next 06/10] net: netcp: ethss: get phy-handle only if link interface is MAC-to-PHY
-Date: Tue, 20 Dec 2016 17:09:49 -0500
-Message-ID: <1482271793-7671-7-git-send-email-m-karicheri2@ti.com>
-References: <1482271793-7671-1-git-send-email-m-karicheri2@ti.com>
+From: Dave Jones <davej@codemonkey.org.uk>
+Subject: Re: ipv6: handle -EFAULT from skb_copy_bits
+Date: Tue, 20 Dec 2016 17:12:14 -0500
+Message-ID: <20161220221214.w3zerfiy4wu6apee@codemonkey.org.uk>
+References: <20161219.144848.736886978545428136.davem@davemloft.net>
+ <20161220003144.omoqyghgdfbxdyuu@codemonkey.org.uk>
+ <20161220004013.43pcopemc6im32az@codemonkey.org.uk>
+ <20161219.203623.119653805184192345.davem@davemloft.net>
+ <20161220181728.dd2cynjwrceruwcu@codemonkey.org.uk>
+ <CAM_iQpUgqJEG544HqH1iwdQFL9-nV3-hMuuH_eU9OnJ--pX+jg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: <netdev@vger.kernel.org>, <linux-omap@vger.kernel.org>,
-        <grygorii.strashko@ti.com>, <mugunthanvnm@ti.com>,
-        <linux-kernel@vger.kernel.org>, <arnd@arndb.de>,
-        <davem@davemloft.net>, <devicetree@vger.kernel.org>,
-        <mark.rutland@arm.com>, <robh+dt@kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lelnx194.ext.ti.com ([198.47.27.80]:61081 "EHLO
-        lelnx194.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S936202AbcLTWKD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2016 17:10:03 -0500
-In-Reply-To: <1482271793-7671-1-git-send-email-m-karicheri2@ti.com>
+Received: from arcturus.aphlor.org ([188.246.204.175]:39322 "EHLO
+        arcturus.aphlor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752305AbcLTWMS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2016 17:12:18 -0500
+Content-Disposition: inline
+In-Reply-To: <CAM_iQpUgqJEG544HqH1iwdQFL9-nV3-hMuuH_eU9OnJ--pX+jg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently to parse phy-handle, driver doesn't check if the interface is
-MAC to PHY. This patch add this check for all MAC to PHY interface types
-supported by the driver.
+On Tue, Dec 20, 2016 at 11:31:38AM -0800, Cong Wang wrote:
+ > On Tue, Dec 20, 2016 at 10:17 AM, Dave Jones <davej@codemonkey.org.uk> wrote:
+ > > On Mon, Dec 19, 2016 at 08:36:23PM -0500, David Miller wrote:
+ > >  > From: Dave Jones <davej@codemonkey.org.uk>
+ > >  > Date: Mon, 19 Dec 2016 19:40:13 -0500
+ > >  >
+ > >  > > On Mon, Dec 19, 2016 at 07:31:44PM -0500, Dave Jones wrote:
+ > >  > >
+ > >  > >  > Unfortunately, this made no difference.  I spent some time today trying
+ > >  > >  > to make a better reproducer, but failed. I'll revisit again tomorrow.
+ > >  > >  >
+ > >  > >  > Maybe I need >1 process/thread to trigger this.  That would explain why
+ > >  > >  > I can trigger it with Trinity.
+ > >  > >
+ > >  > > scratch that last part, I finally just repro'd it with a single process.
+ > >  >
+ > >  > Thanks for the info, I'll try to think about this some more.
+ > >
+ > > I threw in some debug printks right before that BUG_ON.
+ > > it's always this:
+ > >
+ > > skb->len=31 skb->data_len=0 offset:30 total_len:9
+ > 
+ > Clearly we fail because 30 > 31 - 2, seems 'offset' is not correct here,
+ > off-by-one?
 
-Signed-off-by: Murali Karicheri <m-karicheri2@ti.com>
-Signed-off-by: Sekhar Nori <nsekhar@ti.com>
----
- drivers/net/ethernet/ti/netcp_ethss.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+Ok, I finally made a messy, albeit good enough reproducer.
 
-diff --git a/drivers/net/ethernet/ti/netcp_ethss.c b/drivers/net/ethernet/ti/netcp_ethss.c
-index cb48f88..9266961 100644
---- a/drivers/net/ethernet/ti/netcp_ethss.c
-+++ b/drivers/net/ethernet/ti/netcp_ethss.c
-@@ -2956,7 +2956,9 @@ static int init_slave(struct gbe_priv *gbe_dev, struct gbe_slave *slave,
- 	}
- 
- 	slave->open = false;
--	slave->phy_node = of_parse_phandle(node, "phy-handle", 0);
-+	if ((slave->link_interface == SGMII_LINK_MAC_PHY) ||
-+	    (slave->link_interface == XGMII_LINK_MAC_PHY))
-+		slave->phy_node = of_parse_phandle(node, "phy-handle", 0);
- 	slave->port_num = gbe_get_slave_port(gbe_dev, slave->slave_num);
- 
- 	if (slave->link_interface >= XGMII_LINK_MAC_PHY)
--- 
-1.9.1
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+
+#define LEN 504
+
+int main(int argc, char* argv[])
+{
+	int fd;
+	int zero = 0;
+	char buf[LEN];
+
+	memset(buf, 0, LEN);
+
+	fd = socket(AF_INET6, SOCK_RAW, 7);
+
+	setsockopt(fd, SOL_IPV6, IPV6_CHECKSUM, &zero, 4);
+	setsockopt(fd, SOL_IPV6, IPV6_DSTOPTS, &buf, LEN);
+
+	sendto(fd, buf, 1, 0, (struct sockaddr *) buf, 110);
+}
