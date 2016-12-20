@@ -1,129 +1,49 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCHv2 net] netfilter: check duplicate config when initializing in ipt_CLUSTERIP
-Date: Tue, 20 Dec 2016 19:14:34 +0800
-Message-ID: <b96e06fc4b0bc50a3c39dffebbcd43685d2e2a0b.1482232474.git.lucien.xin@gmail.com>
-Cc: davem@davemloft.net, pablo@netfilter.org,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-To: network dev <netdev@vger.kernel.org>,
-        netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:33576 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932220AbcLTLOn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2016 06:14:43 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Subject: [PATCH] stmmac: CSR clock configuration fix
+Date: Tue, 20 Dec 2016 11:21:47 +0000
+Message-ID: <6d4c6d15a60c93a8aef5e3e03b9cd64cdcf232c8.1482232420.git.jpinto@synopsys.com>
+Cc: hock.leong.kweh@intel.com, niklas.cassel@axis.com, pavel@ucw.cz,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        Joao Pinto <Joao.Pinto@synopsys.com>
+To: peppe.cavallaro@st.com, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Now when adding an ipt_CLUSTERIP rule, it only checks duplicate config in
-clusterip_config_find_get(). But after that, there may be still another
-thread to insert a config with the same ip, then it leaves proc_create_data
-to do duplicate check.
+When testing stmmac with my QoS reference design I checked a problem in the
+CSR clock configuration that was impossibilitating the phy discovery, since
+every read operation returned 0x0000ffff. This patch fixes the issue.
 
-It's more reasonable to check duplicate config by ipt_CLUSTERIP itself,
-instead of checking it by proc fs duplicate file check. Before, when proc
-fs allowed duplicate name files in a directory, It could even crash kernel
-because of use-after-free.
-
-This patch is to check duplicate config under the protection of clusterip
-net lock when initializing a new config and correct the return err.
-
-Note that it also moves proc file node creation after adding new config, as
-proc_create_data may sleep, it couldn't be called under the clusterip_net
-lock. clusterip_config_find_get returns NULL if c->pde is null to make sure
-it can't be used until the proc file node creation is done.
-
-v1->v2:
-  correct the err clusterip_config_init returns.
-
-Suggested-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
+Signed-off-by: Joao Pinto <jpinto@synopsys.com>
 ---
- net/ipv4/netfilter/ipt_CLUSTERIP.c | 34 +++++++++++++++++++++++-----------
- 1 file changed, 23 insertions(+), 11 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/net/ipv4/netfilter/ipt_CLUSTERIP.c b/net/ipv4/netfilter/ipt_CLUSTERIP.c
-index 21db00d..a6b8c1a 100644
---- a/net/ipv4/netfilter/ipt_CLUSTERIP.c
-+++ b/net/ipv4/netfilter/ipt_CLUSTERIP.c
-@@ -144,7 +144,7 @@ clusterip_config_find_get(struct net *net, __be32 clusterip, int entry)
- 	rcu_read_lock_bh();
- 	c = __clusterip_config_find(net, clusterip);
- 	if (c) {
--		if (unlikely(!atomic_inc_not_zero(&c->refcount)))
-+		if (!c->pde || unlikely(!atomic_inc_not_zero(&c->refcount)))
- 			c = NULL;
- 		else if (entry)
- 			atomic_inc(&c->entries);
-@@ -166,14 +166,15 @@ clusterip_config_init_nodelist(struct clusterip_config *c,
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+index 23322fd..fda01f7 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+@@ -81,8 +81,8 @@ static int stmmac_mdio_read(struct mii_bus *bus, int phyaddr, int phyreg)
+ 	value |= (phyaddr << priv->hw->mii.addr_shift)
+ 		& priv->hw->mii.addr_mask;
+ 	value |= (phyreg << priv->hw->mii.reg_shift) & priv->hw->mii.reg_mask;
+-	value |= (priv->clk_csr & priv->hw->mii.clk_csr_mask)
+-		<< priv->hw->mii.clk_csr_shift;
++	value |= (priv->clk_csr << priv->hw->mii.clk_csr_shift)
++		& priv->hw->mii.clk_csr_mask;
+ 	if (priv->plat->has_gmac4)
+ 		value |= MII_GMAC4_READ;
  
- static struct clusterip_config *
- clusterip_config_init(const struct ipt_clusterip_tgt_info *i, __be32 ip,
--			struct net_device *dev)
-+		      struct net_device *dev)
- {
-+	struct net *net = dev_net(dev);
- 	struct clusterip_config *c;
--	struct clusterip_net *cn = net_generic(dev_net(dev), clusterip_net_id);
-+	struct clusterip_net *cn = net_generic(net, clusterip_net_id);
+@@ -122,8 +122,8 @@ static int stmmac_mdio_write(struct mii_bus *bus, int phyaddr, int phyreg,
+ 		& priv->hw->mii.addr_mask;
+ 	value |= (phyreg << priv->hw->mii.reg_shift) & priv->hw->mii.reg_mask;
  
- 	c = kzalloc(sizeof(*c), GFP_ATOMIC);
- 	if (!c)
--		return NULL;
-+		return ERR_PTR(-ENOMEM);
+-	value |= ((priv->clk_csr & priv->hw->mii.clk_csr_mask)
+-		<< priv->hw->mii.clk_csr_shift);
++	value |= (priv->clk_csr << priv->hw->mii.clk_csr_shift)
++		& priv->hw->mii.clk_csr_mask;
+ 	if (priv->plat->has_gmac4)
+ 		value |= MII_GMAC4_WRITE;
  
- 	c->dev = dev;
- 	c->clusterip = ip;
-@@ -185,6 +186,17 @@ clusterip_config_init(const struct ipt_clusterip_tgt_info *i, __be32 ip,
- 	atomic_set(&c->refcount, 1);
- 	atomic_set(&c->entries, 1);
- 
-+	spin_lock_bh(&cn->lock);
-+	if (__clusterip_config_find(net, ip)) {
-+		spin_unlock_bh(&cn->lock);
-+		kfree(c);
-+
-+		return ERR_PTR(-EBUSY);
-+	}
-+
-+	list_add_rcu(&c->list, &cn->configs);
-+	spin_unlock_bh(&cn->lock);
-+
- #ifdef CONFIG_PROC_FS
- 	{
- 		char buffer[16];
-@@ -195,16 +207,16 @@ clusterip_config_init(const struct ipt_clusterip_tgt_info *i, __be32 ip,
- 					  cn->procdir,
- 					  &clusterip_proc_fops, c);
- 		if (!c->pde) {
-+			spin_lock_bh(&cn->lock);
-+			list_del_rcu(&c->list);
-+			spin_unlock_bh(&cn->lock);
- 			kfree(c);
--			return NULL;
-+
-+			return ERR_PTR(-ENOMEM);
- 		}
- 	}
- #endif
- 
--	spin_lock_bh(&cn->lock);
--	list_add_rcu(&c->list, &cn->configs);
--	spin_unlock_bh(&cn->lock);
--
- 	return c;
- }
- 
-@@ -410,9 +422,9 @@ static int clusterip_tg_check(const struct xt_tgchk_param *par)
- 
- 			config = clusterip_config_init(cipinfo,
- 							e->ip.dst.s_addr, dev);
--			if (!config) {
-+			if (IS_ERR(config)) {
- 				dev_put(dev);
--				return -ENOMEM;
-+				return PTR_ERR(config);
- 			}
- 			dev_mc_add(config->dev, config->clustermac);
- 		}
 -- 
-2.1.0
+2.9.3
