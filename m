@@ -1,90 +1,46 @@
-From: Joe Stringer <joe@ovn.org>
-Subject: Re: [PATCH perf/core REBASE 3/5] tools lib bpf: Add bpf_prog_{attach,detach}
-Date: Tue, 20 Dec 2016 10:50:22 -0800
-Message-ID: <CAPWQB7HyzaAck1LEX_ec7gRpoKjyaZPZ+dco3Ca=sR4qQ403BQ@mail.gmail.com>
-References: <20161214224342.12858-1-joe@ovn.org> <20161214224342.12858-4-joe@ovn.org>
- <20161220141851.GB32756@kernel.org> <20161220143217.GC32756@kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 0/3] Fix integration of eee-broken-modes
+Date: Tue, 20 Dec 2016 13:51:20 -0500 (EST)
+Message-ID: <20161220.135120.552249230607699619.davem@davemloft.net>
+References: <1482159938-13239-1-git-send-email-jbrunet@baylibre.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: LKML <linux-kernel@vger.kernel.org>,
-        netdev <netdev@vger.kernel.org>, Wang Nan <wangnan0@huawei.com>,
-        ast@fb.com, Daniel Borkmann <daniel@iogearbox.net>
-To: Arnaldo Carvalho de Melo <acme@kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
+        f.fainelli@gmail.com, carlo@caione.org, khilman@baylibre.com,
+        martin.blumenstingl@googlemail.com, neolynx@gmail.com,
+        andrew@lunn.ch, narmstrong@baylibre.com,
+        linux-amlogic@lists.infradead.org,
+        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+        julia.lawall@lip6.fr, yegorslists@googlemail.com, afaerber@suse.de
+To: jbrunet@baylibre.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay3-d.mail.gandi.net ([217.70.183.195]:42426 "EHLO
-        relay3-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1764815AbcLTSur (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2016 13:50:47 -0500
-In-Reply-To: <20161220143217.GC32756@kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:43688 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1765809AbcLTSvd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2016 13:51:33 -0500
+In-Reply-To: <1482159938-13239-1-git-send-email-jbrunet@baylibre.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 20 December 2016 at 06:32, Arnaldo Carvalho de Melo <acme@kernel.org> wrote:
-> Em Tue, Dec 20, 2016 at 11:18:51AM -0300, Arnaldo Carvalho de Melo escreveu:
->> Em Wed, Dec 14, 2016 at 02:43:40PM -0800, Joe Stringer escreveu:
->> > Commit d8c5b17f2bc0 ("samples: bpf: add userspace example for attaching
->> > eBPF programs to cgroups") added these functions to samples/libbpf, but
->> > during this merge all of the samples libbpf functionality is shifting to
->> > tools/lib/bpf. Shift these functions there.
->> >
->> > Signed-off-by: Joe Stringer <joe@ovn.org>
->> > ---
->> > Arnaldo, this is a new patch you didn't previously review which I've
->> > prepared due to the conflict with net-next. I figured it's better to try
->> > to get samples/bpf properly switched over this window rather than defer the
->> > problem and end up having to deal with another merge problem next time
->> > around. I hope that is fine for you. If not, this patch onwards will need
->> > to be dropped
->> >
->> > It's a simple copy/paste/delete with a minor change for sys_bpf() vs
->> > syscall().
->> > ---
->> >  samples/bpf/libbpf.c | 21 ---------------------
->> >  samples/bpf/libbpf.h |  3 ---
->> >  tools/lib/bpf/bpf.c  | 21 +++++++++++++++++++++
->> >  tools/lib/bpf/bpf.h  |  3 +++
->> >  4 files changed, 24 insertions(+), 24 deletions(-)
->> >
->> > diff --git a/samples/bpf/libbpf.c b/samples/bpf/libbpf.c
->> > index 3391225ad7e9..d9af876b4a2c 100644
->> > --- a/samples/bpf/libbpf.c
->> > +++ b/samples/bpf/libbpf.c
->> > @@ -11,27 +11,6 @@
->> >  #include <arpa/inet.h>
->> >  #include "libbpf.h"
->> >
->> > -int bpf_prog_attach(int prog_fd, int target_fd, enum bpf_attach_type type)
->> > -{
->> > -   union bpf_attr attr = {
->> > -           .target_fd = target_fd,
->> > -           .attach_bpf_fd = prog_fd,
->> > -           .attach_type = type,
->> > -   };
->> > -
->> > -   return syscall(__NR_bpf, BPF_PROG_ATTACH, &attr, sizeof(attr));
->>
->> This one makes it fail for CentOS 5 and 6, others may fail as well,
->> still building, investigating...
->
-> Ok, fixed it by making it follow the model of the other sys_bpf wrappers
-> setting up that bpf_attr union wrt initializing unamed struct members:
->
->  int bpf_prog_attach(int prog_fd, int target_fd, enum bpf_attach_type type)
->  {
-> -       union bpf_attr attr = {
-> -               .target_fd = target_fd,
-> -               .attach_bpf_fd = prog_fd,
-> -               .attach_type = type,
-> -       };
-> +       union bpf_attr attr;
-> +
-> +       bzero(&attr, sizeof(attr));
-> +       attr.target_fd     = target_fd;
-> +       attr.attach_bpf_fd = prog_fd;
-> +       attr.attach_type   = type;
->
->         return sys_bpf(BPF_PROG_ATTACH, &attr, sizeof(attr));
->  }
+From: Jerome Brunet <jbrunet@baylibre.com>
+Date: Mon, 19 Dec 2016 16:05:35 +0100
 
-Ah, I just shifted these across originally so the delta would be
-minimal but now I know why this code is like this. Thanks.
+> The purpose of this series is to fix the integration of the ethernet phy
+> property "eee-broken-modes" [0]
+> 
+> The v3 of this series has been merged, missing a fix (error reported by
+> kbuild robot) available in the v4 [1]
+> 
+> More importantly, Florian opposed adding a DT property mapping a device
+> register this directly [2]. The concern was that the property could be
+> abused to implement platform configuration policy. After discussing it,
+> I think we agreed that such information about the HW (defect) should appear
+> in the platform DT. However, the preferred way is to add a boolean property
+> for each EEE broken mode.
+> 
+> [0]: http://lkml.kernel.org/r/1480326409-25419-1-git-send-email-jbrunet@baylibre.com
+> [1]: http://lkml.kernel.org/r/1480348229-25672-1-git-send-email-jbrunet@baylibre.com
+> [2]: http://lkml.kernel.org/r/e14a3b0c-dc34-be14-48b3-518a0ad0c080@gmail.com
+
+Series applied, thank you.
