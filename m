@@ -1,7 +1,7 @@
 From: Murali Karicheri <m-karicheri2@ti.com>
-Subject: [PATCH net-next 01/10] net: netcp: ethss: add support of subsystem register region regmap
-Date: Tue, 20 Dec 2016 17:09:44 -0500
-Message-ID: <1482271793-7671-2-git-send-email-m-karicheri2@ti.com>
+Subject: [PATCH net-next 03/10] net: netcp: extract eflag from desc for rx_hook handling
+Date: Tue, 20 Dec 2016 17:09:46 -0500
+Message-ID: <1482271793-7671-4-git-send-email-m-karicheri2@ti.com>
 References: <1482271793-7671-1-git-send-email-m-karicheri2@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,386 +10,115 @@ To: <netdev@vger.kernel.org>, <linux-omap@vger.kernel.org>,
         <linux-kernel@vger.kernel.org>, <arnd@arndb.de>,
         <davem@davemloft.net>, <devicetree@vger.kernel.org>,
         <mark.rutland@arm.com>, <robh+dt@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fllnx209.ext.ti.com ([198.47.19.16]:44396 "EHLO
+        fllnx209.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934309AbcLTWKC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2016 17:10:02 -0500
 In-Reply-To: <1482271793-7671-1-git-send-email-m-karicheri2@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: WingMan Kwok <w-kwok2@ti.com>
+Extract the eflag bits from the received desc and pass it down
+the rx_hook chain to be available for netcp modules. Also the
+psdata and epib data has to be inspected by the netcp modules.
+So the desc can be freed only after returning from the rx_hook.
+So move knav_pool_desc_put() after the rx_hook processing.
 
-10gbe phy driver needs to access the 10gbe subsystem control
-register during phy initialization. To facilitate the shared
-access of the subsystem register region between the 10gbe Ethernet
-driver and the phy driver, this patch adds support of the
-subsystem register region defined by a syscon node in the dts.
-
-Although there is no shared access to the gbe subsystem register
-region, using syscon for that is for the sake of consistency.
-
-This change is backward compatible with previously released gbe
-devicetree bindings.
-
-Signed-off-by: WingMan Kwok <w-kwok2@ti.com>
 Signed-off-by: Murali Karicheri <m-karicheri2@ti.com>
-Signed-off-by: Sekhar Nori <nsekhar@ti.com>
 ---
- .../devicetree/bindings/net/keystone-netcp.txt     |  16 ++-
- drivers/net/ethernet/ti/netcp_ethss.c              | 140 +++++++++++++++++----
- 2 files changed, 127 insertions(+), 29 deletions(-)
+ drivers/net/ethernet/ti/netcp.h      |  1 +
+ drivers/net/ethernet/ti/netcp_core.c | 20 +++++++++++++++++---
+ include/linux/soc/ti/knav_dma.h      |  2 ++
+ 3 files changed, 20 insertions(+), 3 deletions(-)
 
-diff --git a/Documentation/devicetree/bindings/net/keystone-netcp.txt b/Documentation/devicetree/bindings/net/keystone-netcp.txt
-index 04ba1dc..0854a73 100644
---- a/Documentation/devicetree/bindings/net/keystone-netcp.txt
-+++ b/Documentation/devicetree/bindings/net/keystone-netcp.txt
-@@ -72,20 +72,24 @@ Required properties:
- 		"ti,netcp-gbe-2" for 1GbE N NetCP 1.5 (N=2)
- 		"ti,netcp-xgbe" for 10 GbE
- 
-+- syscon-subsys:	phandle to syscon node of the switch
-+			subsystem registers.
-+
- - reg:		register location and the size for the following register
- 		regions in the specified order.
- 		- switch subsystem registers
-+		- sgmii module registers
- 		- sgmii port3/4 module registers (only for NetCP 1.4)
- 		- switch module registers
- 		- serdes registers (only for 10G)
- 
- 		NetCP 1.4 ethss, here is the order
--			index #0 - switch subsystem registers
-+			index #0 - sgmii module registers
- 			index #1 - sgmii port3/4 module registers
- 			index #2 - switch module registers
- 
- 		NetCP 1.5 ethss 9 port, 5 port and 2 port
--			index #0 - switch subsystem registers
-+			index #0 - sgmii module registers
- 			index #1 - switch module registers
- 			index #2 - serdes registers
- 
-@@ -145,6 +149,11 @@ Optional properties:
- 
- Example binding:
- 
-+gbe_subsys: subsys@2090000 {
-+	compatible = "syscon";
-+	reg = <0x02090000 0x100>;
-+};
-+
- netcp: netcp@2000000 {
- 	reg = <0x2620110 0x8>;
- 	reg-names = "efuse";
-@@ -163,7 +172,8 @@ netcp: netcp@2000000 {
- 		ranges;
- 		gbe@90000 {
- 			label = "netcp-gbe";
--			reg = <0x90000 0x300>, <0x90400 0x400>, <0x90800 0x700>;
-+			syscon-subsys = <&gbe_subsys>;
-+			reg = <0x90100 0x200>, <0x90400 0x200>, <0x90800 0x700>;
- 			/* enable-ale; */
- 			tx-queue = <648>;
- 			tx-channel = <8>;
-diff --git a/drivers/net/ethernet/ti/netcp_ethss.c b/drivers/net/ethernet/ti/netcp_ethss.c
-index c7e547e..473edda1 100644
---- a/drivers/net/ethernet/ti/netcp_ethss.c
-+++ b/drivers/net/ethernet/ti/netcp_ethss.c
-@@ -19,9 +19,11 @@
-  */
- 
- #include <linux/io.h>
-+#include <linux/mfd/syscon.h>
- #include <linux/module.h>
- #include <linux/of_mdio.h>
- #include <linux/of_address.h>
-+#include <linux/regmap.h>
- #include <linux/if_vlan.h>
- #include <linux/ptp_classify.h>
- #include <linux/net_tstamp.h>
-@@ -43,7 +45,10 @@
- #define GBE_MODULE_NAME			"netcp-gbe"
- #define GBE_SS_VERSION_14		0x4ed21104
- 
-+/* for devicetree backward compatible only */
- #define GBE_SS_REG_INDEX		0
-+
-+#define GBE_SGMII_REG_INDEX		0
- #define GBE_SGMII34_REG_INDEX		1
- #define GBE_SM_REG_INDEX		2
- /* offset relative to base of GBE_SS_REG_INDEX */
-@@ -71,9 +76,11 @@
- #define IS_SS_ID_NU(d) \
- 	(GBE_IDENT((d)->ss_version) == GBE_SS_ID_NU)
- 
--#define GBENU_SS_REG_INDEX		0
-+#define GBENU_SGMII_REG_INDEX		0
- #define GBENU_SM_REG_INDEX		1
-+/* offset relative to base of GBE_SS_REG_INDEX */
- #define GBENU_SGMII_MODULE_OFFSET	0x100
-+/* offset relative to base of GBENU_SM_REG_INDEX */
- #define GBENU_HOST_PORT_OFFSET		0x1000
- #define GBENU_SLAVE_PORT_OFFSET		0x2000
- #define GBENU_EMAC_OFFSET		0x2330
-@@ -82,13 +89,12 @@
- #define GBENU_ALE_OFFSET		0x1e000
- #define GBENU_HOST_PORT_NUM		0
- #define GBENU_NUM_ALE_ENTRIES		1024
--#define GBENU_SGMII_MODULE_SIZE		0x100
- 
- /* 10G Ethernet SS defines */
- #define XGBE_MODULE_NAME		"netcp-xgbe"
- #define XGBE_SS_VERSION_10		0x4ee42100
- 
--#define XGBE_SS_REG_INDEX		0
-+#define XGBE_SGMII_REG_INDEX		0
- #define XGBE_SM_REG_INDEX		1
- #define XGBE_SERDES_REG_INDEX		2
- 
-@@ -173,6 +179,7 @@
- #define XGBE_SET_REG_OFS(p, rb, rn) p->rb##_ofs.rn = \
- 		offsetof(struct xgbe##_##rb, rn)
- #define GBE_REG_ADDR(p, rb, rn) (p->rb + p->rb##_ofs.rn)
-+#define GBE_REG_OFS(p, rb, rn) ((p)->rb##_ofs.rn)
- 
- #define HOST_TX_PRI_MAP_DEFAULT			0x00000000
- 
-@@ -225,6 +232,7 @@
- /* The PTP event messages - Sync, Delay_Req, Pdelay_Req, and Pdelay_Resp. */
- #define EVENT_MSG_BITS (BIT(0) | BIT(1) | BIT(2) | BIT(3))
- #endif /* CONFIG_TI_CPTS */
-+#define SGMII_MODULE_SIZE			0x100
- 
- struct xgbe_ss_regs {
- 	u32	id_ver;
-@@ -716,7 +724,9 @@ struct gbe_priv {
- 	u32				ss_version;
- 	u32				stats_en_mask;
- 
--	void __iomem			*ss_regs;
-+	struct regmap			*ss_regmap;
-+	struct regmap			*pcsr_regmap;
-+	void __iomem                    *ss_regs;
- 	void __iomem			*switch_regs;
- 	void __iomem			*host_port_regs;
- 	void __iomem			*ale_reg;
-@@ -2192,7 +2202,7 @@ static void gbe_port_config(struct gbe_priv *gbe_dev, struct gbe_slave *slave,
- 			    int max_rx_len)
- {
- 	void __iomem *rx_maxlen_reg;
--	u32 xgmii_mode;
-+	int ret;
- 
- 	if (max_rx_len > NETCP_MAX_FRAME_SIZE)
- 		max_rx_len = NETCP_MAX_FRAME_SIZE;
-@@ -2200,9 +2210,16 @@ static void gbe_port_config(struct gbe_priv *gbe_dev, struct gbe_slave *slave,
- 	/* Enable correct MII mode at SS level */
- 	if ((gbe_dev->ss_version == XGBE_SS_VERSION_10) &&
- 	    (slave->link_interface >= XGMII_LINK_MAC_PHY)) {
--		xgmii_mode = readl(GBE_REG_ADDR(gbe_dev, ss_regs, control));
--		xgmii_mode |= (1 << slave->slave_num);
--		writel(xgmii_mode, GBE_REG_ADDR(gbe_dev, ss_regs, control));
-+		ret = regmap_update_bits(gbe_dev->ss_regmap,
-+					 GBE_REG_OFS(gbe_dev, ss_regs, control),
-+					 1 << slave->slave_num,
-+					 1 << slave->slave_num);
-+
-+		if (ret) {
-+			dev_err(gbe_dev->dev,
-+				"regmap update xgmii mode bit Failed\n");
-+			return;
-+		}
- 	}
- 
- 	if (IS_SS_ID_MU(gbe_dev))
-@@ -3127,35 +3144,46 @@ static int set_xgbe_ethss10_priv(struct gbe_priv *gbe_dev,
- 	void __iomem *regs;
- 	int ret, i;
- 
--	ret = of_address_to_resource(node, XGBE_SS_REG_INDEX, &res);
-+	gbe_dev->ss_regmap = syscon_regmap_lookup_by_phandle(node,
-+							     "syscon-subsys");
-+
-+	if (IS_ERR(gbe_dev->ss_regmap)) {
-+		dev_err(gbe_dev->dev,
-+			"subsys regmap lookup failed: %ld\n",
-+			PTR_ERR(gbe_dev->ss_regmap));
-+		return PTR_ERR(gbe_dev->ss_regmap);
-+	}
-+
-+	ret = of_address_to_resource(node, XGBE_SM_REG_INDEX, &res);
- 	if (ret) {
- 		dev_err(gbe_dev->dev,
--			"Can't xlate xgbe of node(%s) ss address at %d\n",
--			node->name, XGBE_SS_REG_INDEX);
-+			"Can't xlate xgbe of node(%s) sm address at %d\n",
-+			node->name, XGBE_SM_REG_INDEX);
- 		return ret;
- 	}
- 
- 	regs = devm_ioremap_resource(gbe_dev->dev, &res);
- 	if (IS_ERR(regs)) {
--		dev_err(gbe_dev->dev, "Failed to map xgbe ss register base\n");
-+		dev_err(gbe_dev->dev, "Failed to map xgbe sm register base\n");
- 		return PTR_ERR(regs);
- 	}
--	gbe_dev->ss_regs = regs;
-+	gbe_dev->switch_regs = regs;
- 
--	ret = of_address_to_resource(node, XGBE_SM_REG_INDEX, &res);
-+	ret = of_address_to_resource(node, XGBE_SGMII_REG_INDEX, &res);
- 	if (ret) {
- 		dev_err(gbe_dev->dev,
--			"Can't xlate xgbe of node(%s) sm address at %d\n",
--			node->name, XGBE_SM_REG_INDEX);
-+			"Can't xlate xgbe of node(%s) sgmii address at %d\n",
-+			node->name, XGBE_SGMII_REG_INDEX);
- 		return ret;
- 	}
- 
- 	regs = devm_ioremap_resource(gbe_dev->dev, &res);
- 	if (IS_ERR(regs)) {
--		dev_err(gbe_dev->dev, "Failed to map xgbe sm register base\n");
-+		dev_err(gbe_dev->dev,
-+			"Failed to map xgbe sgmii register base\n");
- 		return PTR_ERR(regs);
- 	}
--	gbe_dev->switch_regs = regs;
-+	gbe_dev->sgmii_port_regs = regs;
- 
- 	ret = of_address_to_resource(node, XGBE_SERDES_REG_INDEX, &res);
- 	if (ret) {
-@@ -3171,6 +3199,8 @@ static int set_xgbe_ethss10_priv(struct gbe_priv *gbe_dev,
- 		return PTR_ERR(regs);
- 	}
- 	gbe_dev->xgbe_serdes_regs = regs;
-+	gbe_dev->sgmii_port34_regs = gbe_dev->sgmii_port_regs +
-+				     (2 * SGMII_MODULE_SIZE);
- 
- 	gbe_dev->num_stats_mods = gbe_dev->max_num_ports;
- 	gbe_dev->et_stats = xgbe10_et_stats;
-@@ -3195,9 +3225,9 @@ static int set_xgbe_ethss10_priv(struct gbe_priv *gbe_dev,
- 	}
- 
- 	gbe_dev->ss_version = XGBE_SS_VERSION_10;
--	gbe_dev->sgmii_port_regs = gbe_dev->ss_regs +
--					XGBE10_SGMII_MODULE_OFFSET;
--	gbe_dev->host_port_regs = gbe_dev->ss_regs + XGBE10_HOST_PORT_OFFSET;
-+
-+	gbe_dev->host_port_regs = gbe_dev->switch_regs +
-+					XGBE10_HOST_PORT_OFFSET;
- 
- 	for (i = 0; i < gbe_dev->max_num_ports; i++)
- 		gbe_dev->hw_stats_regs[i] = gbe_dev->switch_regs +
-@@ -3228,8 +3258,8 @@ static int set_xgbe_ethss10_priv(struct gbe_priv *gbe_dev,
- 	return 0;
+diff --git a/drivers/net/ethernet/ti/netcp.h b/drivers/net/ethernet/ti/netcp.h
+index 0f58c58..a92abd6 100644
+--- a/drivers/net/ethernet/ti/netcp.h
++++ b/drivers/net/ethernet/ti/netcp.h
+@@ -115,6 +115,7 @@ struct netcp_packet {
+ 	struct sk_buff		*skb;
+ 	__le32			*epib;
+ 	u32			*psdata;
++	u32			eflags;
+ 	unsigned int		psdata_len;
+ 	struct netcp_intf	*netcp;
+ 	struct netcp_tx_pipe	*tx_pipe;
+diff --git a/drivers/net/ethernet/ti/netcp_core.c b/drivers/net/ethernet/ti/netcp_core.c
+index c243335..a136c56 100644
+--- a/drivers/net/ethernet/ti/netcp_core.c
++++ b/drivers/net/ethernet/ti/netcp_core.c
+@@ -122,6 +122,13 @@ static void get_pkt_info(dma_addr_t *buff, u32 *buff_len, dma_addr_t *ndesc,
+ 	*ndesc = le32_to_cpu(desc->next_desc);
  }
  
--static int get_gbe_resource_version(struct gbe_priv *gbe_dev,
--				    struct device_node *node)
-+static int get_gbe_resource_version_ss_regs(struct gbe_priv *gbe_dev,
-+					    struct device_node *node)
- {
- 	struct resource res;
- 	void __iomem *regs;
-@@ -3248,8 +3278,27 @@ static int get_gbe_resource_version(struct gbe_priv *gbe_dev,
- 		dev_err(gbe_dev->dev, "Failed to map gbe register base\n");
- 		return PTR_ERR(regs);
- 	}
-+
- 	gbe_dev->ss_regs = regs;
- 	gbe_dev->ss_version = readl(gbe_dev->ss_regs);
-+	gbe_dev->ss_regmap = NULL;
-+	return 0;
++static void get_desc_info(u32 *desc_info, u32 *pkt_info,
++			  struct knav_dma_desc *desc)
++{
++	*desc_info = le32_to_cpu(desc->desc_info);
++	*pkt_info = le32_to_cpu(desc->packet_info);
 +}
 +
-+static int get_gbe_resource_version(struct gbe_priv *gbe_dev,
-+				    struct device_node *node)
-+{
-+	gbe_dev->ss_regmap = syscon_regmap_lookup_by_phandle(node,
-+							     "syscon-subsys");
-+	if (IS_ERR(gbe_dev->ss_regmap)) {
-+		dev_dbg(gbe_dev->dev,
-+			"subsys regmap lookup failed: %ld. try reg property\n",
-+			PTR_ERR(gbe_dev->ss_regmap));
-+		return get_gbe_resource_version_ss_regs(gbe_dev, node);
-+	}
-+
-+	regmap_read(gbe_dev->ss_regmap, 0, &gbe_dev->ss_version);
-+	gbe_dev->ss_regs = NULL;
- 	return 0;
- }
+ static u32 get_sw_data(int index, struct knav_dma_desc *desc)
+ {
+ 	/* No Endian conversion needed as this data is untouched by hw */
+@@ -653,6 +660,7 @@ static int netcp_process_one_rx_packet(struct netcp_intf *netcp)
+ 	struct netcp_packet p_info;
+ 	struct sk_buff *skb;
+ 	void *org_buf_ptr;
++	u32 tmp;
  
-@@ -3260,6 +3309,27 @@ static int set_gbe_ethss14_priv(struct gbe_priv *gbe_dev,
- 	void __iomem *regs;
- 	int i, ret;
- 
-+	if (gbe_dev->ss_regs) {
-+		gbe_dev->sgmii_port_regs = gbe_dev->ss_regs +
-+					   GBE13_SGMII_MODULE_OFFSET;
-+	} else {
-+		ret = of_address_to_resource(node, GBE_SGMII_REG_INDEX, &res);
-+		if (ret) {
-+			dev_err(gbe_dev->dev,
-+				"Can't translate of gbe node(%s) address at index %d\n",
-+				node->name, GBE_SGMII_REG_INDEX);
-+			return ret;
-+		}
-+
-+		regs = devm_ioremap_resource(gbe_dev->dev, &res);
-+		if (IS_ERR(regs)) {
-+			dev_err(gbe_dev->dev,
-+				"Failed to map gbe sgmii port register base\n");
-+			return PTR_ERR(regs);
-+		}
-+		gbe_dev->sgmii_port_regs = regs;
-+	}
-+
- 	ret = of_address_to_resource(node, GBE_SGMII34_REG_INDEX, &res);
- 	if (ret) {
- 		dev_err(gbe_dev->dev,
-@@ -3314,7 +3384,6 @@ static int set_gbe_ethss14_priv(struct gbe_priv *gbe_dev,
- 		return -ENOMEM;
+ 	dma_desc = knav_queue_pop(netcp->rx_queue, &dma_sz);
+ 	if (!dma_desc)
+@@ -724,9 +732,6 @@ static int netcp_process_one_rx_packet(struct netcp_intf *netcp)
+ 		knav_pool_desc_put(netcp->rx_pool, ndesc);
  	}
  
--	gbe_dev->sgmii_port_regs = gbe_dev->ss_regs + GBE13_SGMII_MODULE_OFFSET;
- 	gbe_dev->host_port_regs = gbe_dev->switch_regs + GBE13_HOST_PORT_OFFSET;
+-	/* Free the primary descriptor */
+-	knav_pool_desc_put(netcp->rx_pool, desc);
+-
+ 	/* check for packet len and warn */
+ 	if (unlikely(pkt_sz != accum_sz))
+ 		dev_dbg(netcp->ndev_dev, "mismatch in packet size(%d) & sum of fragments(%d)\n",
+@@ -739,6 +744,11 @@ static int netcp_process_one_rx_packet(struct netcp_intf *netcp)
+ 	p_info.skb = skb;
+ 	skb->dev = netcp->ndev;
+ 	p_info.rxtstamp_complete = false;
++	get_desc_info(&tmp, &p_info.eflags, desc);
++	p_info.epib = desc->epib;
++	p_info.psdata = (u32 __force *)desc->psdata;
++	p_info.eflags = ((p_info.eflags >> KNAV_DMA_DESC_EFLAGS_SHIFT) &
++			 KNAV_DMA_DESC_EFLAGS_MASK);
+ 	list_for_each_entry(rx_hook, &netcp->rxhook_list_head, list) {
+ 		int ret;
  
- 	/* K2HK has only 2 hw stats modules visible at a time, so
-@@ -3402,14 +3471,33 @@ static int set_gbenu_ethss_priv(struct gbe_priv *gbe_dev,
+@@ -748,10 +758,14 @@ static int netcp_process_one_rx_packet(struct netcp_intf *netcp)
+ 			dev_err(netcp->ndev_dev, "RX hook %d failed: %d\n",
+ 				rx_hook->order, ret);
+ 			netcp->ndev->stats.rx_errors++;
++			/* Free the primary descriptor */
++			knav_pool_desc_put(netcp->rx_pool, desc);
+ 			dev_kfree_skb(skb);
+ 			return 0;
+ 		}
  	}
- 	gbe_dev->switch_regs = regs;
++	/* Free the primary descriptor */
++	knav_pool_desc_put(netcp->rx_pool, desc);
  
--	gbe_dev->sgmii_port_regs = gbe_dev->ss_regs + GBENU_SGMII_MODULE_OFFSET;
-+	if (gbe_dev->ss_regs) {
-+		gbe_dev->sgmii_port_regs = gbe_dev->ss_regs +
-+					   GBENU_SGMII_MODULE_OFFSET;
-+	} else {
-+		ret = of_address_to_resource(node, GBENU_SGMII_REG_INDEX, &res);
-+		if (ret) {
-+			dev_err(gbe_dev->dev,
-+				"Can't translate of gbenu node(%s) addr at index %d\n",
-+				node->name, GBENU_SGMII_REG_INDEX);
-+			return ret;
-+		}
-+
-+		regs = devm_ioremap_resource(gbe_dev->dev, &res);
-+		if (IS_ERR(regs)) {
-+			dev_err(gbe_dev->dev,
-+				"Failed to map gbenu sgmii port register base\n");
-+			return PTR_ERR(regs);
-+		}
-+		gbe_dev->sgmii_port_regs = regs;
-+	}
+ 	netcp->ndev->stats.rx_packets++;
+ 	netcp->ndev->stats.rx_bytes += skb->len;
+diff --git a/include/linux/soc/ti/knav_dma.h b/include/linux/soc/ti/knav_dma.h
+index 35cb926..2b78826 100644
+--- a/include/linux/soc/ti/knav_dma.h
++++ b/include/linux/soc/ti/knav_dma.h
+@@ -41,6 +41,8 @@
+ #define KNAV_DMA_DESC_RETQ_SHIFT		0
+ #define KNAV_DMA_DESC_RETQ_MASK			MASK(14)
+ #define KNAV_DMA_DESC_BUF_LEN_MASK		MASK(22)
++#define KNAV_DMA_DESC_EFLAGS_MASK		MASK(4)
++#define KNAV_DMA_DESC_EFLAGS_SHIFT		20
  
- 	/* Although sgmii modules are mem mapped to one contiguous
- 	 * region on GBENU devices, setting sgmii_port34_regs allows
- 	 * consistent code when accessing sgmii api
- 	 */
- 	gbe_dev->sgmii_port34_regs = gbe_dev->sgmii_port_regs +
--				     (2 * GBENU_SGMII_MODULE_SIZE);
-+				     (2 * SGMII_MODULE_SIZE);
- 
- 	gbe_dev->host_port_regs = gbe_dev->switch_regs + GBENU_HOST_PORT_OFFSET;
- 
+ #define KNAV_DMA_NUM_EPIB_WORDS			4
+ #define KNAV_DMA_NUM_PS_WORDS			16
 -- 
 1.9.1
