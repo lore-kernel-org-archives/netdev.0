@@ -1,7 +1,7 @@
 From: Murali Karicheri <m-karicheri2-l0cyMroinI0@public.gmane.org>
-Subject: [PATCH net-next 10/10] net: netcp: ale: add proper ale entry mask bits for netcp switch ALE
-Date: Tue, 20 Dec 2016 17:09:53 -0500
-Message-ID: <1482271793-7671-11-git-send-email-m-karicheri2@ti.com>
+Subject: [PATCH net-next 09/10] net: netcp: ale: use ale_status to size the ale table
+Date: Tue, 20 Dec 2016 17:09:52 -0500
+Message-ID: <1482271793-7671-10-git-send-email-m-karicheri2@ti.com>
 References: <1482271793-7671-1-git-send-email-m-karicheri2@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -15,249 +15,116 @@ In-Reply-To: <1482271793-7671-1-git-send-email-m-karicheri2-l0cyMroinI0@public.g
 Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-For NetCP NU Switch ALE, some of the mask bits are different than
-defaults used in the driver. Add a new macro DEFINE_ALE_FIELD1 that use
-a configurable mask bits and use it in the driver. These bits are set to
-correct values by using the new variables added to cpsw_ale structure
-and re-used in the macros. The parameter nu_switch_ale is configured by
-the caller driver to indicate the ALE is for that switch and is used in
-the ALE driver to do customization as needed.
+ALE h/w on newer version of NetCP (K2E/L/G) does provide a ALE_STATUS
+register for the size of the ALE Table implemented in h/w. Currently
+for example we set ALE Table size to 1024 for NetCP ALE on
+K2E even though the ALE Status/Documentation shows it has 8192 entries.
+So take advantage of this register to read the size of ALE table supported
+and use that value in the driver for the newer version of NetCP ALE.
+For NetCP lite, ALE Table size is much less (64) and indicated by a size
+of zero in ALE_STATUS. So use that as a default for now. While at it,
+also fix the ale table size on 10G switch to 2048 per User guide
+http://www.ti.com/lit/ug/spruhj5/spruhj5.pdf
 
 Signed-off-by: Murali Karicheri <m-karicheri2-l0cyMroinI0@public.gmane.org>
 Signed-off-by: Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>
 ---
- drivers/net/ethernet/ti/cpsw_ale.c | 99 ++++++++++++++++++++++++++++++--------
- drivers/net/ethernet/ti/cpsw_ale.h |  4 ++
- 2 files changed, 84 insertions(+), 19 deletions(-)
+ drivers/net/ethernet/ti/cpsw_ale.c    | 31 ++++++++++++++++++++++++++++++-
+ drivers/net/ethernet/ti/netcp_ethss.c |  4 +---
+ 2 files changed, 31 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/ethernet/ti/cpsw_ale.c b/drivers/net/ethernet/ti/cpsw_ale.c
-index 62a18d6..ddd43e0 100644
+index e15db39..62a18d6 100644
 --- a/drivers/net/ethernet/ti/cpsw_ale.c
 +++ b/drivers/net/ethernet/ti/cpsw_ale.c
-@@ -29,6 +29,7 @@
- 
- #define ALE_VERSION_MAJOR(rev, mask) (((rev) >> 8) & (mask))
- #define ALE_VERSION_MINOR(rev)	(rev & 0xff)
-+#define ALE_VERSION_1R3		0x0103
- #define ALE_VERSION_1R4		0x0104
+@@ -33,6 +33,7 @@
  
  /* ALE Registers */
-@@ -46,6 +47,7 @@
- #define ALE_UNKNOWNVLAN_UNREG_MCAST_FLOOD	0x94
- #define ALE_UNKNOWNVLAN_REG_MCAST_FLOOD		0x98
- #define ALE_UNKNOWNVLAN_FORCE_UNTAG_EGRESS	0x9C
-+#define ALE_VLAN_MASK_MUX(reg)			(0xc0 + (0x4 * (reg)))
+ #define ALE_IDVER		0x00
++#define ALE_STATUS		0x04
+ #define ALE_CONTROL		0x08
+ #define ALE_PRESCALE		0x10
+ #define ALE_UNKNOWNVLAN		0x18
+@@ -58,6 +59,10 @@
+ #define ALE_UCAST_OUI			2
+ #define ALE_UCAST_TOUCHED		3
  
- #define ALE_TABLE_WRITE		BIT(31)
- 
-@@ -96,20 +98,34 @@ static inline void cpsw_ale_set_field(u32 *ale_entry, u32 start, u32 bits,
- 	cpsw_ale_set_field(ale_entry, start, bits, value);		\
- }
- 
-+#define DEFINE_ALE_FIELD1(name, start)					\
-+static inline int cpsw_ale_get_##name(u32 *ale_entry, u32 bits)		\
-+{									\
-+	return cpsw_ale_get_field(ale_entry, start, bits);		\
-+}									\
-+static inline void cpsw_ale_set_##name(u32 *ale_entry, u32 value,	\
-+		u32 bits)						\
-+{									\
-+	cpsw_ale_set_field(ale_entry, start, bits, value);		\
-+}
++#define ALE_TABLE_SIZE_MULTIPLIER	1024
++#define ALE_STATUS_SIZE_MASK		0x1f
++#define ALE_TABLE_SIZE_DEFAULT		64
 +
- DEFINE_ALE_FIELD(entry_type,		60,	2)
- DEFINE_ALE_FIELD(vlan_id,		48,	12)
- DEFINE_ALE_FIELD(mcast_state,		62,	2)
--DEFINE_ALE_FIELD(port_mask,		66,     3)
-+DEFINE_ALE_FIELD1(port_mask,		66)
- DEFINE_ALE_FIELD(super,			65,	1)
- DEFINE_ALE_FIELD(ucast_type,		62,     2)
--DEFINE_ALE_FIELD(port_num,		66,     2)
-+DEFINE_ALE_FIELD1(port_num,		66)
- DEFINE_ALE_FIELD(blocked,		65,     1)
- DEFINE_ALE_FIELD(secure,		64,     1)
--DEFINE_ALE_FIELD(vlan_untag_force,	24,	3)
--DEFINE_ALE_FIELD(vlan_reg_mcast,	16,	3)
--DEFINE_ALE_FIELD(vlan_unreg_mcast,	8,	3)
--DEFINE_ALE_FIELD(vlan_member_list,	0,	3)
-+DEFINE_ALE_FIELD1(vlan_untag_force,	24)
-+DEFINE_ALE_FIELD1(vlan_reg_mcast,	16)
-+DEFINE_ALE_FIELD1(vlan_unreg_mcast,	8)
-+DEFINE_ALE_FIELD1(vlan_member_list,	0)
- DEFINE_ALE_FIELD(mcast,			40,	1)
-+/* ALE NetCP nu switch specific */
-+DEFINE_ALE_FIELD(vlan_unreg_mcast_idx,	20,	3)
-+DEFINE_ALE_FIELD(vlan_reg_mcast_idx,	44,	3)
- 
- /* The MAC address field in the ALE entry cannot be macroized as above */
- static inline void cpsw_ale_get_addr(u32 *ale_entry, u8 *addr)
-@@ -235,14 +251,16 @@ static void cpsw_ale_flush_mcast(struct cpsw_ale *ale, u32 *ale_entry,
+ static inline int cpsw_ale_get_field(u32 *ale_entry, u32 start, u32 bits)
  {
- 	int mask;
+ 	int idx;
+@@ -728,7 +733,7 @@ static void cpsw_ale_timer(unsigned long arg)
  
--	mask = cpsw_ale_get_port_mask(ale_entry);
-+	mask = cpsw_ale_get_port_mask(ale_entry,
-+				      ale->port_mask_bits);
- 	if ((mask & port_mask) == 0)
- 		return; /* ports dont intersect, not interested */
- 	mask &= ~port_mask;
- 
- 	/* free if only remaining port is host port */
- 	if (mask)
--		cpsw_ale_set_port_mask(ale_entry, mask);
-+		cpsw_ale_set_port_mask(ale_entry, mask,
-+				       ale->port_mask_bits);
- 	else
- 		cpsw_ale_set_entry_type(ale_entry, ALE_TYPE_FREE);
- }
-@@ -303,7 +321,7 @@ int cpsw_ale_add_ucast(struct cpsw_ale *ale, u8 *addr, int port,
- 	cpsw_ale_set_ucast_type(ale_entry, ALE_UCAST_PERSISTANT);
- 	cpsw_ale_set_secure(ale_entry, (flags & ALE_SECURE) ? 1 : 0);
- 	cpsw_ale_set_blocked(ale_entry, (flags & ALE_BLOCKED) ? 1 : 0);
--	cpsw_ale_set_port_num(ale_entry, port);
-+	cpsw_ale_set_port_num(ale_entry, port, ale->port_num_bits);
- 
- 	idx = cpsw_ale_match_addr(ale, addr, (flags & ALE_VLAN) ? vid : 0);
- 	if (idx < 0)
-@@ -350,9 +368,11 @@ int cpsw_ale_add_mcast(struct cpsw_ale *ale, u8 *addr, int port_mask,
- 	cpsw_ale_set_super(ale_entry, (flags & ALE_BLOCKED) ? 1 : 0);
- 	cpsw_ale_set_mcast_state(ale_entry, mcast_state);
- 
--	mask = cpsw_ale_get_port_mask(ale_entry);
-+	mask = cpsw_ale_get_port_mask(ale_entry,
-+				      ale->port_mask_bits);
- 	port_mask |= mask;
--	cpsw_ale_set_port_mask(ale_entry, port_mask);
-+	cpsw_ale_set_port_mask(ale_entry, port_mask,
-+			       ale->port_mask_bits);
- 
- 	if (idx < 0)
- 		idx = cpsw_ale_match_free(ale);
-@@ -379,7 +399,8 @@ int cpsw_ale_del_mcast(struct cpsw_ale *ale, u8 *addr, int port_mask,
- 	cpsw_ale_read(ale, idx, ale_entry);
- 
- 	if (port_mask)
--		cpsw_ale_set_port_mask(ale_entry, port_mask);
-+		cpsw_ale_set_port_mask(ale_entry, port_mask,
-+				       ale->port_mask_bits);
- 	else
- 		cpsw_ale_set_entry_type(ale_entry, ALE_TYPE_FREE);
- 
-@@ -388,6 +409,21 @@ int cpsw_ale_del_mcast(struct cpsw_ale *ale, u8 *addr, int port_mask,
- }
- EXPORT_SYMBOL_GPL(cpsw_ale_del_mcast);
- 
-+/* ALE NetCP NU switch specific vlan functions */
-+static void cpsw_ale_set_vlan_mcast(struct cpsw_ale *ale, u32 *ale_entry,
-+				    int reg_mcast, int unreg_mcast)
-+{
-+	int idx;
-+
-+	/* Set VLAN registered multicast flood mask */
-+	idx = cpsw_ale_get_vlan_reg_mcast_idx(ale_entry);
-+	writel(reg_mcast, ale->params.ale_regs + ALE_VLAN_MASK_MUX(idx));
-+
-+	/* Set VLAN unregistered multicast flood mask */
-+	idx = cpsw_ale_get_vlan_unreg_mcast_idx(ale_entry);
-+	writel(unreg_mcast, ale->params.ale_regs + ALE_VLAN_MASK_MUX(idx));
-+}
-+
- int cpsw_ale_add_vlan(struct cpsw_ale *ale, u16 vid, int port, int untag,
- 		      int reg_mcast, int unreg_mcast)
+ void cpsw_ale_start(struct cpsw_ale *ale)
  {
-@@ -401,10 +437,16 @@ int cpsw_ale_add_vlan(struct cpsw_ale *ale, u16 vid, int port, int untag,
- 	cpsw_ale_set_entry_type(ale_entry, ALE_TYPE_VLAN);
- 	cpsw_ale_set_vlan_id(ale_entry, vid);
+-	u32 rev;
++	u32 rev, ale_entries;
  
--	cpsw_ale_set_vlan_untag_force(ale_entry, untag);
--	cpsw_ale_set_vlan_reg_mcast(ale_entry, reg_mcast);
--	cpsw_ale_set_vlan_unreg_mcast(ale_entry, unreg_mcast);
--	cpsw_ale_set_vlan_member_list(ale_entry, port);
-+	cpsw_ale_set_vlan_untag_force(ale_entry, untag, ale->vlan_field_bits);
-+	if (!ale->params.nu_switch_ale) {
-+		cpsw_ale_set_vlan_reg_mcast(ale_entry, reg_mcast,
-+					    ale->vlan_field_bits);
-+		cpsw_ale_set_vlan_unreg_mcast(ale_entry, unreg_mcast,
-+					      ale->vlan_field_bits);
-+	} else {
-+		cpsw_ale_set_vlan_mcast(ale, ale_entry, reg_mcast, unreg_mcast);
+ 	rev = __raw_readl(ale->params.ale_regs + ALE_IDVER);
+ 	if (!ale->params.major_ver_mask)
+@@ -740,6 +745,30 @@ void cpsw_ale_start(struct cpsw_ale *ale)
+ 		 ALE_VERSION_MAJOR(rev, ale->params.major_ver_mask),
+ 		 ALE_VERSION_MINOR(rev));
+ 
++	if (!ale->params.ale_entries) {
++		ale_entries =
++			__raw_readl(ale->params.ale_regs + ALE_STATUS) &
++				    ALE_STATUS_SIZE_MASK;
++		/* ALE available on newer NetCP switches has introduced
++		 * a register, ALE_STATUS, to indicate the size of ALE
++		 * table which shows the size as a multiple of 1024 entries.
++		 * For these, params.ale_entries will be set to zero. So
++		 * read the register and update the value of ale_entries.
++		 * ALE table on NetCP lite, is much smaller and is indicated
++		 * by a value of zero in ALE_STATUS. So use a default value
++		 * of ALE_TABLE_SIZE_DEFAULT for this. Caller is expected
++		 * to set the value of ale_entries for all other versions
++		 * of ALE.
++		 */
++		if (!ale_entries)
++			ale_entries = ALE_TABLE_SIZE_DEFAULT;
++		else
++			ale_entries *= ALE_TABLE_SIZE_MULTIPLIER;
++		ale->params.ale_entries = ale_entries;
 +	}
-+	cpsw_ale_set_vlan_member_list(ale_entry, port, ale->vlan_field_bits);
- 
- 	if (idx < 0)
- 		idx = cpsw_ale_match_free(ale);
-@@ -430,7 +472,8 @@ int cpsw_ale_del_vlan(struct cpsw_ale *ale, u16 vid, int port_mask)
- 	cpsw_ale_read(ale, idx, ale_entry);
- 
- 	if (port_mask)
--		cpsw_ale_set_vlan_member_list(ale_entry, port_mask);
-+		cpsw_ale_set_vlan_member_list(ale_entry, port_mask,
-+					      ale->vlan_field_bits);
- 	else
- 		cpsw_ale_set_entry_type(ale_entry, ALE_TYPE_FREE);
- 
-@@ -458,12 +501,15 @@ void cpsw_ale_set_allmulti(struct cpsw_ale *ale, int allmulti)
- 		if (type != ALE_TYPE_VLAN)
- 			continue;
- 
--		unreg_mcast = cpsw_ale_get_vlan_unreg_mcast(ale_entry);
-+		unreg_mcast =
-+			cpsw_ale_get_vlan_unreg_mcast(ale_entry,
-+						      ale->vlan_field_bits);
- 		if (allmulti)
- 			unreg_mcast |= 1;
- 		else
- 			unreg_mcast &= ~1;
--		cpsw_ale_set_vlan_unreg_mcast(ale_entry, unreg_mcast);
-+		cpsw_ale_set_vlan_unreg_mcast(ale_entry, unreg_mcast,
-+					      ale->vlan_field_bits);
- 		cpsw_ale_write(ale, idx, ale_entry);
- 	}
- }
-@@ -769,6 +815,14 @@ void cpsw_ale_start(struct cpsw_ale *ale)
- 	dev_info(ale->params.dev,
- 		 "ALE Table size %ld\n", ale->params.ale_entries);
- 
-+	/* set default bits for existing h/w */
-+	ale->port_mask_bits = 3;
-+	ale->port_num_bits = 2;
-+	ale->vlan_field_bits = 3;
++	dev_info(ale->params.dev,
++		 "ALE Table size %ld\n", ale->params.ale_entries);
 +
-+	/* Set defaults override for ALE on NetCP NU switch and for version
-+	 * 1R3
-+	 */
  	if (ale->params.nu_switch_ale) {
  		/* Separate registers for unknown vlan configuration.
  		 * Also there are N bits, where N is number of ale
-@@ -793,6 +847,13 @@ void cpsw_ale_start(struct cpsw_ale *ale)
- 		ale_controls[ALE_PORT_UNTAGGED_EGRESS].shift = 0;
- 		ale_controls[ALE_PORT_UNTAGGED_EGRESS].offset =
- 					ALE_UNKNOWNVLAN_FORCE_UNTAG_EGRESS;
-+		ale->port_mask_bits = ale->params.ale_ports;
-+		ale->port_num_bits = ale->params.ale_ports - 1;
-+		ale->vlan_field_bits = ale->params.ale_ports;
-+	} else if (ale->version == ALE_VERSION_1R3) {
-+		ale->port_mask_bits = ale->params.ale_ports;
-+		ale->port_num_bits = 3;
-+		ale->vlan_field_bits = ale->params.ale_ports;
- 	}
+diff --git a/drivers/net/ethernet/ti/netcp_ethss.c b/drivers/net/ethernet/ti/netcp_ethss.c
+index b37fb73..80d68cb 100644
+--- a/drivers/net/ethernet/ti/netcp_ethss.c
++++ b/drivers/net/ethernet/ti/netcp_ethss.c
+@@ -94,7 +94,6 @@
+ #define GBENU_CPTS_OFFSET		0x1d000
+ #define GBENU_ALE_OFFSET		0x1e000
+ #define GBENU_HOST_PORT_NUM		0
+-#define GBENU_NUM_ALE_ENTRIES		1024
  
- 	cpsw_ale_control_set(ale, 0, ALE_ENABLE, 1);
-diff --git a/drivers/net/ethernet/ti/cpsw_ale.h b/drivers/net/ethernet/ti/cpsw_ale.h
-index b1c7954..25d24e8 100644
---- a/drivers/net/ethernet/ti/cpsw_ale.h
-+++ b/drivers/net/ethernet/ti/cpsw_ale.h
-@@ -39,6 +39,10 @@ struct cpsw_ale {
- 	unsigned long		ageout;
- 	int			allmulti;
- 	u32			version;
-+	/* These bits are different on NetCP NU Switch ALE */
-+	u32			port_mask_bits;
-+	u32			port_num_bits;
-+	u32			vlan_field_bits;
- };
+ /* 10G Ethernet SS defines */
+ #define XGBE_MODULE_NAME		"netcp-xgbe"
+@@ -114,7 +113,7 @@
+ #define XGBE10_ALE_OFFSET		0x700
+ #define XGBE10_HW_STATS_OFFSET		0x800
+ #define XGBE10_HOST_PORT_NUM		0
+-#define XGBE10_NUM_ALE_ENTRIES		1024
++#define XGBE10_NUM_ALE_ENTRIES		2048
  
- enum cpsw_ale_control {
+ #define	GBE_TIMER_INTERVAL			(HZ / 2)
+ 
+@@ -3548,7 +3547,6 @@ static int set_gbenu_ethss_priv(struct gbe_priv *gbe_dev,
+ 	gbe_dev->ale_reg = gbe_dev->switch_regs + GBENU_ALE_OFFSET;
+ 	gbe_dev->ale_ports = gbe_dev->max_num_ports;
+ 	gbe_dev->host_port = GBENU_HOST_PORT_NUM;
+-	gbe_dev->ale_entries = GBE13_NUM_ALE_ENTRIES;
+ 	gbe_dev->stats_en_mask = (1 << (gbe_dev->max_num_ports)) - 1;
+ 
+ 	/* Subsystem registers */
 -- 
 1.9.1
 
