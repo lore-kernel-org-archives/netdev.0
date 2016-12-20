@@ -1,45 +1,27 @@
-From: Josef Bacik <jbacik@fb.com>
-Subject: Re: kernel/bpf/verifier.c: 4 * possible unintended fallthrough ?
-Date: Tue, 20 Dec 2016 13:28:43 -0500
-Message-ID: <1482258523.24490.10@smtp.office365.com>
-References: <VI1PR08MB102286884ADF02FB45C203109C900@VI1PR08MB1022.eurprd08.prod.outlook.com>
-        <CAADnVQ+_2D9ExoyiDbMFUNk0KSMQVYQSND+eca0O3r_fku1L2g@mail.gmail.com>
-        <VI1PR08MB10228EE1E2FA0EBFEA78DE919C900@VI1PR08MB1022.eurprd08.prod.outlook.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 1/1] driver: ipvlan: Define common functions
+ to decrease duplicated codes used to add or del IP address
+Date: Tue, 20 Dec 2016 13:30:25 -0500 (EST)
+Message-ID: <20161220.133025.2171735752938243916.davem@davemloft.net>
+References: <1482110645-1853-1-git-send-email-fgao@ikuai8.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        "ast@kernel.org" <ast@kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: David Binderman <dcb314@hotmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <VI1PR08MB10228EE1E2FA0EBFEA78DE919C900@VI1PR08MB1022.eurprd08.prod.outlook
-        .com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: maheshb@google.com, edumazet@google.com, netdev@vger.kernel.org,
+        gfree.wind@gmail.com
+To: fgao@ikuai8.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:42986 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754323AbcLTSbP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2016 13:31:15 -0500
+In-Reply-To: <1482110645-1853-1-git-send-email-fgao@ikuai8.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 20, 2016 at 11:34 AM, David Binderman <dcb314@hotmail.com> 
-wrote:
-> 
-> Hello there,
-> 
->> From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
->> I've tried 4.9 and 5.2 and don't see this warning.
-> 
-> As expected - I used a development version of gcc.
-> Latest released version is 6.2
-> 
->> Is this 6.x gcc?
-> 
-> 7.0 would be more accurate.
-> 
->> I suspect it will have such warnings all over the kernel.
-> 
-> Indeed it has hundreds, but the subject under discussion is file
-> kernel/bpf/verifier.c.
-> 
-> I am still not sure if I have found a fallthrough bug or not.
+From: fgao@ikuai8.com
+Date: Mon, 19 Dec 2016 09:24:05 +0800
 
-You haven't, this is intended so is a useless warning.  Thanks,
+>  It is sent again because the first email is sent during net-next closing.
 
-Josef
+It is still closed, and will not open again for at least one week.
