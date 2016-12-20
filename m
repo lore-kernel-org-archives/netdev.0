@@ -1,350 +1,515 @@
 From: Arnaldo Carvalho de Melo <acme@kernel.org>
-Subject: [GIT PULL 00/29] perf/core improvements and fixes
-Date: Tue, 20 Dec 2016 14:03:29 -0300
-Message-ID: <20161220170358.4350-1-acme@kernel.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org,
-        Arnaldo Carvalho de Melo <acme@kernel.org>,
-        Adrian Hunter <adrian.hunter@intel.com>,
-        Alexander Shishkin <alexander.shishkin@linux.intel.com>,
+Subject: [PATCH 25/29] samples/bpf: Switch over to libbpf
+Date: Tue, 20 Dec 2016 14:03:54 -0300
+Message-ID: <20161220170358.4350-26-acme@kernel.org>
+References: <20161220170358.4350-1-acme@kernel.org>
+Cc: linux-kernel@vger.kernel.org, Joe Stringer <joe@ovn.org>,
         Alexei Starovoitov <ast@fb.com>,
-        Andi Kleen <andi@firstfloor.org>,
-        Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-        Chris Riyder <chris.ryder@arm.com>,
         Daniel Borkmann <daniel@iogearbox.net>,
-        David Ahern <dsahern@gmail.com>,
-        Davidlohr Bueso <dbueso@suse.de>, Jiri Olsa <jolsa@redhat.com>,
-        Joe Stringer <joe@ovn.org>, Kan Liang <kan.liang@intel.com>,
-        Kim Phillips <kim.phillips@arm.com>,
-        Kyle McMartin <kyle@redhat.com>, linuxppc-dev@lists.ozlabs.org,
-        Markus Trippelsdorf <markus@trippelsdorf.de>,
-        Masami Hiramatsu <mhiramat@kernel.org>,
-        Michael Ellerman <mpe@ellerman.id.au>,
-        Minchan Ki
+        Wang Nan <wangnan0@huawei.com>, netdev@vger.kernel.org,
+        Arnaldo Carvalho de Melo <acme@redhat.com>
 To: Ingo Molnar <mingo@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bombadil.infradead.org ([198.137.202.9]:45141 "EHLO
+        bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S936469AbcLTREf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2016 12:04:35 -0500
+In-Reply-To: <20161220170358.4350-1-acme@kernel.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Ingo,
+From: Joe Stringer <joe@ovn.org>
 
-        Please consider pulling, I had most of this queued before your first
-pull req to Linus for 4.10, most are fixes, with 'perf sched timehist --idle'
-as a followup new feature to the 'perf sched timehist' command introduced in
-this window.
-	
-	One other thing that delayed this was the samples/bpf/ switch to
-tools/lib/bpf/ that involved fixing up merge clashes with net.git and also
-to properly test it, after more rounds than antecipated, but all seems ok
-now and would be good to get this merge issues past us ASAP.
+Now that libbpf under tools/lib/bpf/* is synced with the version from
+samples/bpf, we can get rid most of the libbpf library here.
 
-- Arnaldo
+Committer notes:
 
-Test results at the end of this message, as usual.
+Built it in a docker fedora rawhide container and ran it in the f25 host, seems
+to work just like it did before this patch, i.e. the switch to tools/lib/bpf/
+doesn't seem to have introduced problems and Joe said he tested it with
+all the entries in samples/bpf/ and other code he found:
 
-The following changes since commit e7aa8c2eb11ba69b1b69099c3c7bd6be3087b0ba:
+  [root@f5065a7d6272 linux]# make -j4 O=/tmp/build/linux headers_install
+  <SNIP>
+  [root@f5065a7d6272 linux]# rm -rf /tmp/build/linux/samples/bpf/
+  [root@f5065a7d6272 linux]# make -j4 O=/tmp/build/linux samples/bpf/
+  make[1]: Entering directory '/tmp/build/linux'
+    CHK     include/config/kernel.release
+    HOSTCC  scripts/basic/fixdep
+    GEN     ./Makefile
+    CHK     include/generated/uapi/linux/version.h
+    Using /git/linux as source for kernel
+    CHK     include/generated/utsrelease.h
+    HOSTCC  scripts/basic/bin2c
+    HOSTCC  arch/x86/tools/relocs_32.o
+    HOSTCC  arch/x86/tools/relocs_64.o
+    LD      samples/bpf/built-in.o
+  <SNIP>
+    HOSTCC  samples/bpf/fds_example.o
+    HOSTCC  samples/bpf/sockex1_user.o
+  /git/linux/samples/bpf/fds_example.c: In function 'bpf_prog_create':
+  /git/linux/samples/bpf/fds_example.c:63:6: warning: passing argument 2 of 'bpf_load_program' discards 'const' qualifier from pointer target type [-Wdiscarded-qualifiers]
+        insns, insns_cnt, "GPL", 0,
+        ^~~~~
+  In file included from /git/linux/samples/bpf/libbpf.h:5:0,
+                   from /git/linux/samples/bpf/bpf_load.h:4,
+                   from /git/linux/samples/bpf/fds_example.c:15:
+  /git/linux/tools/lib/bpf/bpf.h:31:5: note: expected 'struct bpf_insn *' but argument is of type 'const struct bpf_insn *'
+   int bpf_load_program(enum bpf_prog_type type, struct bpf_insn *insns,
+       ^~~~~~~~~~~~~~~~
+    HOSTCC  samples/bpf/sockex2_user.o
+  <SNIP>
+    HOSTCC  samples/bpf/xdp_tx_iptunnel_user.o
+  clang  -nostdinc -isystem /usr/lib/gcc/x86_64-redhat-linux/6.2.1/include -I/git/linux/arch/x86/include -I./arch/x86/include/generated/uapi -I./arch/x86/include/generated  -I/git/linux/include -I./include -I/git/linux/arch/x86/include/uapi -I/git/linux/include/uapi -I./include/generated/uapi -include /git/linux/include/linux/kconfig.h  \
+	  -D__KERNEL__ -D__ASM_SYSREG_H -Wno-unused-value -Wno-pointer-sign \
+	  -Wno-compare-distinct-pointer-types \
+	  -Wno-gnu-variable-sized-type-not-at-end \
+	  -Wno-address-of-packed-member -Wno-tautological-compare \
+	  -O2 -emit-llvm -c /git/linux/samples/bpf/sockex1_kern.c -o -| llc -march=bpf -filetype=obj -o samples/bpf/sockex1_kern.o
+    HOSTLD  samples/bpf/tc_l2_redirect
+  <SNIP>
+    HOSTLD  samples/bpf/lwt_len_hist
+    HOSTLD  samples/bpf/xdp_tx_iptunnel
+  make[1]: Leaving directory '/tmp/build/linux'
+  [root@f5065a7d6272 linux]#
 
-  Merge tag 'docs-4.10' of git://git.lwn.net/linux (2016-12-12 21:58:13 -0800)
+And then, in the host:
 
-are available in the git repository at:
+  [root@jouet bpf]# mount | grep "docker.*devicemapper\/"
+  /dev/mapper/docker-253:0-1705076-9bd8aa1e0af33adce89ff42090847868ca676932878942be53941a06ec5923f9 on /var/lib/docker/devicemapper/mnt/9bd8aa1e0af33adce89ff42090847868ca676932878942be53941a06ec5923f9 type xfs (rw,relatime,context="system_u:object_r:container_file_t:s0:c73,c276",nouuid,attr2,inode64,sunit=1024,swidth=1024,noquota)
+  [root@jouet bpf]# cd /var/lib/docker/devicemapper/mnt/9bd8aa1e0af33adce89ff42090847868ca676932878942be53941a06ec5923f9/rootfs/tmp/build/linux/samples/bpf/
+  [root@jouet bpf]# file offwaketime
+  offwaketime: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 2.6.32, BuildID[sha1]=f423d171e0487b2f802b6a792657f0f3c8f6d155, not stripped
+  [root@jouet bpf]# readelf -SW offwaketime
+  offwaketime         offwaketime_kern.o  offwaketime_user.o
+  [root@jouet bpf]# readelf -SW offwaketime_kern.o
+  There are 11 section headers, starting at offset 0x700:
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/acme/linux.git tags/perf-core-for-mingo-20161220
+  Section Headers:
+    [Nr] Name              Type            Address          Off    Size   ES Flg Lk Inf Al
+    [ 0]                   NULL            0000000000000000 000000 000000 00      0   0  0
+    [ 1] .strtab           STRTAB          0000000000000000 000658 0000a8 00      0   0  1
+    [ 2] .text             PROGBITS        0000000000000000 000040 000000 00  AX  0   0  4
+    [ 3] kprobe/try_to_wake_up PROGBITS        0000000000000000 000040 0000d8 00  AX  0   0  8
+    [ 4] .relkprobe/try_to_wake_up REL             0000000000000000 0005a8 000020 10     10   3  8
+    [ 5] tracepoint/sched/sched_switch PROGBITS        0000000000000000 000118 000318 00  AX  0   0  8
+    [ 6] .reltracepoint/sched/sched_switch REL             0000000000000000 0005c8 000090 10     10   5  8
+    [ 7] maps              PROGBITS        0000000000000000 000430 000050 00  WA  0   0  4
+    [ 8] license           PROGBITS        0000000000000000 000480 000004 00  WA  0   0  1
+    [ 9] version           PROGBITS        0000000000000000 000484 000004 00  WA  0   0  4
+    [10] .symtab           SYMTAB          0000000000000000 000488 000120 18      1   4  8
+  Key to Flags:
+    W (write), A (alloc), X (execute), M (merge), S (strings)
+    I (info), L (link order), G (group), T (TLS), E (exclude), x (unknown)
+    O (extra OS processing required) o (OS specific), p (processor specific)
+    [root@jouet bpf]# ./offwaketime | head -3
+  qemu-system-x86;entry_SYSCALL_64_fastpath;sys_ppoll;do_sys_poll;poll_schedule_timeout;schedule_hrtimeout_range;schedule_hrtimeout_range_clock;schedule;__schedule;-;try_to_wake_up;hrtimer_wakeup;__hrtimer_run_queues;hrtimer_interrupt;local_apic_timer_interrupt;smp_apic_timer_interrupt;__irqentry_text_start;cpuidle_enter_state;cpuidle_enter;call_cpuidle;cpu_startup_entry;rest_init;start_kernel;x86_64_start_reservations;x86_64_start_kernel;start_cpu;;swapper/0 4
+  firefox;entry_SYSCALL_64_fastpath;sys_poll;do_sys_poll;poll_schedule_timeout;schedule_hrtimeout_range;schedule_hrtimeout_range_clock;schedule;__schedule;-;try_to_wake_up;pollwake;__wake_up_common;__wake_up_sync_key;pipe_write;__vfs_write;vfs_write;sys_write;entry_SYSCALL_64_fastpath;;Timer 1
+  swapper/2;start_cpu;start_secondary;cpu_startup_entry;schedule_preempt_disabled;schedule;__schedule;-;---;; 61
+  [root@jouet bpf]#
 
-for you to fetch changes up to 9899694a7f67714216665b87318eb367e2c5c901:
-
-  samples/bpf: Move open_raw_sock to separate header (2016-12-20 12:00:40 -0300)
-
-----------------------------------------------------------------
-perf/core improvements and fixes:
-
-New features:
-
-- Introduce 'perf sched timehist --idle', to analyse processes
-  going to/from idle state (Namhyung Kim)
-
-Fixes:
-
-- Allow 'perf record -u user' to continue when facing races with threads
-  going away after having scanned them via /proc (Jiri Olsa)
-
-- Fix 'perf mem' --all-user/--all-kernel options (Jiri Olsa)
-
-- Support jumps with multiple arguments (Ravi Bangoria)
-
-- Fix jumps to before the function where they are located (Ravi
-Bangoria)
-
-- Fix lock-pi help string (Davidlohr Bueso)
-
-- Fix build of 'perf trace' in odd systems such as a RHEL PPC one (Jiri Olsa)
-
-- Do not overwrite valid build id in 'perf diff' (Kan Liang)
-
-- Don't throw error for zero length symbols, allowing the use of the TUI
-  in PowerPC, where such symbols became more common recently (Ravi Bangoria)
-
-Infrastructure:
-
-- Switch of samples/bpf/ to use tools/lib/bpf, removing libbpf
-  duplication (Joe Stringer)
-
-- Move headers check into bash script (Jiri Olsa)
-
+Signed-off-by: Joe Stringer <joe@ovn.org>
+Tested-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+Cc: Alexei Starovoitov <ast@fb.com>
+Cc: Daniel Borkmann <daniel@iogearbox.net>
+Cc: Wang Nan <wangnan0@huawei.com>
+Cc: netdev@vger.kernel.org
+Link: https://github.com/joestringer/linux/commit/5c40f54a52b1f437123c81e21873f4b4b1f9bd55.patch
+Link: http://lkml.kernel.org/n/tip-xr8twtx7sjh5821g8qw47yxk@git.kernel.org
+[ Use -I$(srctree)/tools/lib/ to support out of source code tree builds, as noticed by Wang Nan ]
 Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
 
-----------------------------------------------------------------
-Arnaldo Carvalho de Melo (3):
-      perf tools: Remove some needless __maybe_unused
-      samples/bpf: Make perf_event_read() static
-      samples/bpf: Be consistent with bpf_load_program bpf_insn parameter
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+---
+ samples/bpf/Makefile             |  68 +++++++++++++-----------
+ samples/bpf/README.rst           |   4 +-
+ samples/bpf/bpf_load.c           |   3 +-
+ samples/bpf/fds_example.c        |   3 +-
+ samples/bpf/libbpf.c             | 111 ---------------------------------------
+ samples/bpf/libbpf.h             |  19 +------
+ samples/bpf/sock_example.c       |   3 +-
+ samples/bpf/test_cgrp2_attach.c  |   3 +-
+ samples/bpf/test_cgrp2_attach2.c |   3 +-
+ samples/bpf/test_cgrp2_sock.c    |   3 +-
+ 10 files changed, 52 insertions(+), 168 deletions(-)
 
-Davidlohr Bueso (1):
-      perf bench futex: Fix lock-pi help string
-
-Jiri Olsa (7):
-      perf tools: Move headers check into bash script
-      perf mem: Fix --all-user/--all-kernel options
-      perf evsel: Use variable instead of repeating lengthy FD macro
-      perf thread_map: Add thread_map__remove function
-      perf evsel: Allow to ignore missing pid
-      perf record: Force ignore_missing_thread for uid option
-      perf trace: Check if MAP_32BIT is defined (again)
-
-Joe Stringer (8):
-      tools lib bpf: Sync {tools,}/include/uapi/linux/bpf.h
-      tools lib bpf: use __u32 from linux/types.h
-      tools lib bpf: Add flags to bpf_create_map()
-      samples/bpf: Make samples more libbpf-centric
-      samples/bpf: Switch over to libbpf
-      tools lib bpf: Add bpf_prog_{attach,detach}
-      samples/bpf: Remove perf_event_open() declaration
-      samples/bpf: Move open_raw_sock to separate header
-
-Kan Liang (1):
-      perf diff: Do not overwrite valid build id
-
-Namhyung Kim (6):
-      perf sched timehist: Split is_idle_sample()
-      perf sched timehist: Introduce struct idle_time_data
-      perf sched timehist: Save callchain when entering idle
-      perf sched timehist: Skip non-idle events when necessary
-      perf sched timehist: Add -I/--idle-hist option
-      perf sched timehist: Show callchains for idle stat
-
-Ravi Bangoria (3):
-      perf annotate: Support jump instruction with target as second operand
-      perf annotate: Fix jump target outside of function address range
-      perf annotate: Don't throw error for zero length symbols
-
- samples/bpf/Makefile                              |  70 +--
- samples/bpf/README.rst                            |   4 +-
- samples/bpf/bpf_load.c                            |  21 +-
- samples/bpf/bpf_load.h                            |   3 +
- samples/bpf/fds_example.c                         |  13 +-
- samples/bpf/lathist_user.c                        |   2 +-
- samples/bpf/libbpf.c                              | 176 -------
- samples/bpf/libbpf.h                              |  28 +-
- samples/bpf/lwt_len_hist_user.c                   |   6 +-
- samples/bpf/offwaketime_user.c                    |   8 +-
- samples/bpf/sampleip_user.c                       |   7 +-
- samples/bpf/sock_example.c                        |  14 +-
- samples/bpf/sock_example.h                        |  35 ++
- samples/bpf/sockex1_user.c                        |   7 +-
- samples/bpf/sockex2_user.c                        |   5 +-
- samples/bpf/sockex3_user.c                        |   5 +-
- samples/bpf/spintest_user.c                       |   8 +-
- samples/bpf/tc_l2_redirect_user.c                 |   4 +-
- samples/bpf/test_cgrp2_array_pin.c                |   4 +-
- samples/bpf/test_cgrp2_attach.c                   |  12 +-
- samples/bpf/test_cgrp2_attach2.c                  |   8 +-
- samples/bpf/test_cgrp2_sock.c                     |   7 +-
- samples/bpf/test_current_task_under_cgroup_user.c |   8 +-
- samples/bpf/test_lru_dist.c                       |  32 +-
- samples/bpf/test_probe_write_user_user.c          |   2 +-
- samples/bpf/trace_event_user.c                    |  23 +-
- samples/bpf/trace_output_user.c                   |   7 +-
- samples/bpf/tracex2_user.c                        |  10 +-
- samples/bpf/tracex3_user.c                        |   4 +-
- samples/bpf/tracex4_user.c                        |   4 +-
- samples/bpf/tracex6_user.c                        |   5 +-
- samples/bpf/xdp1_user.c                           |   2 +-
- samples/bpf/xdp_tx_iptunnel_user.c                |   6 +-
- tools/include/uapi/linux/bpf.h                    | 593 +++++++++++++---------
- tools/lib/bpf/bpf.c                               |  30 +-
- tools/lib/bpf/bpf.h                               |   9 +-
- tools/lib/bpf/libbpf.c                            |   3 +-
- tools/perf/Documentation/perf-sched.txt           |   4 +
- tools/perf/Makefile.perf                          |  94 +---
- tools/perf/bench/futex-lock-pi.c                  |   2 +-
- tools/perf/builtin-c2c.c                          |  13 +-
- tools/perf/builtin-mem.c                          |   4 +-
- tools/perf/builtin-record.c                       |   3 +
- tools/perf/builtin-report.c                       |   2 +-
- tools/perf/builtin-sched.c                        | 261 ++++++++--
- tools/perf/builtin-stat.c                         |   6 +-
- tools/perf/check-headers.sh                       |  59 +++
- tools/perf/perf.h                                 |   1 +
- tools/perf/tests/builtin-test.c                   |   4 +
- tools/perf/tests/tests.h                          |   1 +
- tools/perf/tests/thread-map.c                     |  44 ++
- tools/perf/trace/beauty/mmap.c                    |   2 +
- tools/perf/ui/browsers/annotate.c                 |   5 +-
- tools/perf/util/annotate.c                        |  23 +-
- tools/perf/util/annotate.h                        |   5 +-
- tools/perf/util/evsel.c                           |  61 ++-
- tools/perf/util/evsel.h                           |   1 +
- tools/perf/util/symbol.c                          |   3 +-
- tools/perf/util/thread_map.c                      |  22 +
- tools/perf/util/thread_map.h                      |   1 +
- 60 files changed, 1075 insertions(+), 731 deletions(-)
- delete mode 100644 samples/bpf/libbpf.c
- create mode 100644 samples/bpf/sock_example.h
- create mode 100755 tools/perf/check-headers.sh
-
-  [root@jouet ~]# uname -a
-  Linux jouet 4.9.0+ #1 SMP Mon Dec 19 15:44:52 BRT 2016 x86_64 x86_64 x86_64 GNU/Linux
-  [root@jouet ~]# perf test
-   1: vmlinux symtab matches kallsyms            : Ok
-   2: Detect openat syscall event                : Ok
-   3: Detect openat syscall event on all cpus    : Ok
-   4: Read samples using the mmap interface      : Ok
-   5: Parse event definition strings             : Ok
-   6: PERF_RECORD_* events & perf_sample fields  : Ok
-   7: Parse perf pmu format                      : Ok
-   8: DSO data read                              : Ok
-   9: DSO data cache                             : Ok
-  10: DSO data reopen                            : Ok
-  11: Roundtrip evsel->name                      : Ok
-  12: Parse sched tracepoints fields             : Ok
-  13: syscalls:sys_enter_openat event fields     : Ok
-  14: Setup struct perf_event_attr               : Ok
-  15: Match and link multiple hists              : Ok
-  16: 'import perf' in python                    : Ok
-  17: Breakpoint overflow signal handler         : Ok
-  18: Breakpoint overflow sampling               : Ok
-  19: Number of exit events of a simple workload : Ok
-  20: Software clock events period values        : Ok
-  21: Object code reading                        : Ok
-  22: Sample parsing                             : Ok
-  23: Use a dummy software event to keep tracking: Ok
-  24: Parse with no sample_id_all bit set        : Ok
-  25: Filter hist entries                        : Ok
-  26: Lookup mmap thread                         : Ok
-  27: Share thread mg                            : Ok
-  28: Sort output of hist entries                : Ok
-  29: Cumulate child hist entries                : Ok
-  30: Track with sched_switch                    : Ok
-  31: Filter fds with revents mask in a fdarray  : Ok
-  32: Add fd to a fdarray, making it autogrow    : Ok
-  33: kmod_path__parse                           : Ok
-  34: Thread map                                 : Ok
-  35: LLVM search and compile                    :
-  35.1: Basic BPF llvm compile                    : Ok
-  35.2: kbuild searching                          : Ok
-  35.3: Compile source for BPF prologue generation: Ok
-  35.4: Compile source for BPF relocation         : Ok
-  36: Session topology                           : Ok
-  37: BPF filter                                 :
-  37.1: Basic BPF filtering                      : Ok
-  37.2: BPF prologue generation                  : Ok
-  37.3: BPF relocation checker                   : Ok
-  38: Synthesize thread map                      : Ok
-  39: Remove thread map                          : Ok
-  40: Synthesize cpu map                         : Ok
-  41: Synthesize stat config                     : Ok
-  42: Synthesize stat                            : Ok
-  43: Synthesize stat round                      : Ok
-  44: Synthesize attr update                     : Ok
-  45: Event times                                : Ok
-  46: Read backward ring buffer                  : Ok
-  47: Print cpu map                              : Ok
-  48: Probe SDT events                           : Ok
-  49: is_printable_array                         : Ok
-  50: Print bitmap                               : Ok
-  51: perf hooks                                 : Ok
-  52: builtin clang support                      : Skip (not compiled in)
-  53: x86 rdpmc                                  : Ok
-  54: Convert perf time to TSC                   : Ok
-  55: DWARF unwind                               : Ok
-  56: x86 instruction decoder - new instructions : Ok
-  57: Intel cqm nmi context read                 : Skip
-  [root@jouet ~]# 
-
-  # time dm
-   1 alpine:3.4: Ok
-   2 android-ndk:r12b-arm: Ok
-   3 archlinux:latest: Ok
-   4 centos:5: Ok
-   5 centos:6: Ok
-   6 centos:7: Ok
-   7 debian:7: Ok
-   8 debian:8: Ok
-   9 debian:experimental: Ok
-  10 debian:experimental-x-mips64: Ok
-  11 fedora:20: Ok
-  12 fedora:21: Ok
-  13 fedora:22: Ok
-  14 fedora:23: Ok
-  15 fedora:24: Ok
-  16 fedora:24-x-ARC-uClibc: Ok
-  17 fedora:25: Ok
-  18 fedora:rawhide: Ok
-  19 mageia:5: Ok
-  20 opensuse:13.2: Ok
-  21 opensuse:42.1: Ok
-  22 opensuse:tumbleweed: Ok
-  23 ubuntu:12.04.5: Ok
-  24 ubuntu:14.04.4-x-linaro-arm64: Ok
-  25 ubuntu:16.04: Ok
-  26 ubuntu:16.04-x-arm: Ok
-  27 ubuntu:16.04-x-arm64: Ok
-  28 ubuntu:16.04-x-powerpc: Ok
-  29 ubuntu:16.04-x-powerpc64: Ok
-  30 ubuntu:16.04-x-powerpc64el: Ok
-  31 ubuntu:16.04-x-s390: Ok
-  32 ubuntu:16.10: Ok
-  #
-
-  $ make -C tools/perf build-test
-  make: Entering directory `/home/acme/git/linux/tools/perf'
-  - tarpkg: ./tests/perf-targz-src-pkg .
-                make_minimal_O: cd . && make NO_LIBPERL=1 NO_LIBPYTHON=1 NO_NEWT=1 NO_GTK2=1 NO_DEMANGLE=1 NO_LIBELF=1 NO_LIBUNWIND=1 NO_BACKTRACE=1 NO_LIBNUMA=1 NO_LIBAUDIT=1 NO_LIBBIONIC=1 NO_LIBDW_DWARF_UNWIND=1 NO_AUXTRACE=1 NO_LIBBPF=1 NO_LIBCRYPTO=1 NO_SDT=1 NO_JVMTI=1
-              make_clean_all_O: cd . && make clean all
-            make_no_demangle_O: cd . && make NO_DEMANGLE=1
-            make_no_auxtrace_O: cd . && make NO_AUXTRACE=1
-         make_with_clangllvm_O: cd . && make LIBCLANGLLVM=1
-                 make_static_O: cd . && make LDFLAGS=-static
-                 make_cscope_O: cd . && make cscope
-                  make_no_ui_O: cd . && make NO_NEWT=1 NO_SLANG=1 NO_GTK2=1
-   make_install_prefix_slash_O: cd . && make install prefix=/tmp/krava/
-       make_util_pmu_bison_o_O: cd . && make util/pmu-bison.o
-        make_with_babeltrace_O: cd . && make LIBBABELTRACE=1
-             make_no_libnuma_O: cd . && make NO_LIBNUMA=1
-                make_no_gtk2_O: cd . && make NO_GTK2=1
-           make_no_libbionic_O: cd . && make NO_LIBBIONIC=1
-                  make_debug_O: cd . && make DEBUG=1
-                   make_tags_O: cd . && make tags
-             make_no_libperl_O: cd . && make NO_LIBPERL=1
-               make_no_slang_O: cd . && make NO_SLANG=1
-             make_util_map_o_O: cd . && make util/map.o
-           make_no_backtrace_O: cd . && make NO_BACKTRACE=1
-                    make_doc_O: cd . && make doc
-         make_install_prefix_O: cd . && make install prefix=/tmp/krava
-             make_no_scripts_O: cd . && make NO_LIBPYTHON=1 NO_LIBPERL=1
-                 make_perf_o_O: cd . && make perf.o
-            make_install_bin_O: cd . && make install-bin
-              make_no_libbpf_O: cd . && make NO_LIBBPF=1
-           make_no_libunwind_O: cd . && make NO_LIBUNWIND=1
-                   make_help_O: cd . && make help
-            make_no_libaudit_O: cd . && make NO_LIBAUDIT=1
-              make_no_libelf_O: cd . && make NO_LIBELF=1
-           make_no_libpython_O: cd . && make NO_LIBPYTHON=1
-  make_no_libdw_dwarf_unwind_O: cd . && make NO_LIBDW_DWARF_UNWIND=1
-                make_no_newt_O: cd . && make NO_NEWT=1
-                   make_pure_O: cd . && make
-                make_install_O: cd . && make install
-  OK
-  make: Leaving directory `/home/acme/git/linux/tools/perf'
-  $
+diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
+index f2219c1489e5..81b0ef2f7994 100644
+--- a/samples/bpf/Makefile
++++ b/samples/bpf/Makefile
+@@ -35,40 +35,43 @@ hostprogs-y += tc_l2_redirect
+ hostprogs-y += lwt_len_hist
+ hostprogs-y += xdp_tx_iptunnel
+ 
+-test_lru_dist-objs := test_lru_dist.o libbpf.o
+-sock_example-objs := sock_example.o libbpf.o
+-fds_example-objs := bpf_load.o libbpf.o fds_example.o
+-sockex1-objs := bpf_load.o libbpf.o sockex1_user.o
+-sockex2-objs := bpf_load.o libbpf.o sockex2_user.o
+-sockex3-objs := bpf_load.o libbpf.o sockex3_user.o
+-tracex1-objs := bpf_load.o libbpf.o tracex1_user.o
+-tracex2-objs := bpf_load.o libbpf.o tracex2_user.o
+-tracex3-objs := bpf_load.o libbpf.o tracex3_user.o
+-tracex4-objs := bpf_load.o libbpf.o tracex4_user.o
+-tracex5-objs := bpf_load.o libbpf.o tracex5_user.o
+-tracex6-objs := bpf_load.o libbpf.o tracex6_user.o
+-test_probe_write_user-objs := bpf_load.o libbpf.o test_probe_write_user_user.o
+-trace_output-objs := bpf_load.o libbpf.o trace_output_user.o
+-lathist-objs := bpf_load.o libbpf.o lathist_user.o
+-offwaketime-objs := bpf_load.o libbpf.o offwaketime_user.o
+-spintest-objs := bpf_load.o libbpf.o spintest_user.o
+-map_perf_test-objs := bpf_load.o libbpf.o map_perf_test_user.o
+-test_overhead-objs := bpf_load.o libbpf.o test_overhead_user.o
+-test_cgrp2_array_pin-objs := libbpf.o test_cgrp2_array_pin.o
+-test_cgrp2_attach-objs := libbpf.o test_cgrp2_attach.o
+-test_cgrp2_attach2-objs := libbpf.o test_cgrp2_attach2.o cgroup_helpers.o
+-test_cgrp2_sock-objs := libbpf.o test_cgrp2_sock.o
+-test_cgrp2_sock2-objs := bpf_load.o libbpf.o test_cgrp2_sock2.o
+-xdp1-objs := bpf_load.o libbpf.o xdp1_user.o
++# Libbpf dependencies
++LIBBPF := libbpf.o ../../tools/lib/bpf/bpf.o
++
++test_lru_dist-objs := test_lru_dist.o $(LIBBPF)
++sock_example-objs := sock_example.o $(LIBBPF)
++fds_example-objs := bpf_load.o $(LIBBPF) fds_example.o
++sockex1-objs := bpf_load.o $(LIBBPF) sockex1_user.o
++sockex2-objs := bpf_load.o $(LIBBPF) sockex2_user.o
++sockex3-objs := bpf_load.o $(LIBBPF) sockex3_user.o
++tracex1-objs := bpf_load.o $(LIBBPF) tracex1_user.o
++tracex2-objs := bpf_load.o $(LIBBPF) tracex2_user.o
++tracex3-objs := bpf_load.o $(LIBBPF) tracex3_user.o
++tracex4-objs := bpf_load.o $(LIBBPF) tracex4_user.o
++tracex5-objs := bpf_load.o $(LIBBPF) tracex5_user.o
++tracex6-objs := bpf_load.o $(LIBBPF) tracex6_user.o
++test_probe_write_user-objs := bpf_load.o $(LIBBPF) test_probe_write_user_user.o
++trace_output-objs := bpf_load.o $(LIBBPF) trace_output_user.o
++lathist-objs := bpf_load.o $(LIBBPF) lathist_user.o
++offwaketime-objs := bpf_load.o $(LIBBPF) offwaketime_user.o
++spintest-objs := bpf_load.o $(LIBBPF) spintest_user.o
++map_perf_test-objs := bpf_load.o $(LIBBPF) map_perf_test_user.o
++test_overhead-objs := bpf_load.o $(LIBBPF) test_overhead_user.o
++test_cgrp2_array_pin-objs := $(LIBBPF) test_cgrp2_array_pin.o
++test_cgrp2_attach-objs := $(LIBBPF) test_cgrp2_attach.o
++test_cgrp2_attach2-objs := $(LIBBPF) test_cgrp2_attach2.o cgroup_helpers.o
++test_cgrp2_sock-objs := $(LIBBPF) test_cgrp2_sock.o
++test_cgrp2_sock2-objs := bpf_load.o $(LIBBPF) test_cgrp2_sock2.o
++xdp1-objs := bpf_load.o $(LIBBPF) xdp1_user.o
+ # reuse xdp1 source intentionally
+-xdp2-objs := bpf_load.o libbpf.o xdp1_user.o
+-test_current_task_under_cgroup-objs := bpf_load.o libbpf.o cgroup_helpers.o \
++xdp2-objs := bpf_load.o $(LIBBPF) xdp1_user.o
++test_current_task_under_cgroup-objs := bpf_load.o $(LIBBPF) cgroup_helpers.o \
+ 				       test_current_task_under_cgroup_user.o
+-trace_event-objs := bpf_load.o libbpf.o trace_event_user.o
+-sampleip-objs := bpf_load.o libbpf.o sampleip_user.o
+-tc_l2_redirect-objs := bpf_load.o libbpf.o tc_l2_redirect_user.o
+-lwt_len_hist-objs := bpf_load.o libbpf.o lwt_len_hist_user.o
+-xdp_tx_iptunnel-objs := bpf_load.o libbpf.o xdp_tx_iptunnel_user.o
++trace_event-objs := bpf_load.o $(LIBBPF) trace_event_user.o
++sampleip-objs := bpf_load.o $(LIBBPF) sampleip_user.o
++tc_l2_redirect-objs := bpf_load.o $(LIBBPF) tc_l2_redirect_user.o
++lwt_len_hist-objs := bpf_load.o $(LIBBPF) lwt_len_hist_user.o
++xdp_tx_iptunnel-objs := bpf_load.o $(LIBBPF) xdp_tx_iptunnel_user.o
+ 
+ # Tell kbuild to always build the programs
+ always := $(hostprogs-y)
+@@ -104,6 +107,7 @@ always += lwt_len_hist_kern.o
+ always += xdp_tx_iptunnel_kern.o
+ 
+ HOSTCFLAGS += -I$(objtree)/usr/include
++HOSTCFLAGS += -I$(srctree)/tools/lib/
+ HOSTCFLAGS += -I$(srctree)/tools/testing/selftests/bpf/
+ 
+ HOSTCFLAGS_bpf_load.o += -I$(objtree)/usr/include -Wno-unused-variable
+diff --git a/samples/bpf/README.rst b/samples/bpf/README.rst
+index a43eae3f0551..79f9a58f1872 100644
+--- a/samples/bpf/README.rst
++++ b/samples/bpf/README.rst
+@@ -1,8 +1,8 @@
+ eBPF sample programs
+ ====================
+ 
+-This directory contains a mini eBPF library, test stubs, verifier
+-test-suite and examples for using eBPF.
++This directory contains a test stubs, verifier test-suite and examples
++for using eBPF. The examples use libbpf from tools/lib/bpf.
+ 
+ Build dependencies
+ ==================
+diff --git a/samples/bpf/bpf_load.c b/samples/bpf/bpf_load.c
+index f5b186c46b7c..1bfb43394013 100644
+--- a/samples/bpf/bpf_load.c
++++ b/samples/bpf/bpf_load.c
+@@ -66,6 +66,7 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size)
+ 	bool is_perf_event = strncmp(event, "perf_event", 10) == 0;
+ 	bool is_cgroup_skb = strncmp(event, "cgroup/skb", 10) == 0;
+ 	bool is_cgroup_sk = strncmp(event, "cgroup/sock", 11) == 0;
++	size_t insns_cnt = size / sizeof(struct bpf_insn);
+ 	enum bpf_prog_type prog_type;
+ 	char buf[256];
+ 	int fd, efd, err, id;
+@@ -95,7 +96,7 @@ static int load_and_attach(const char *event, struct bpf_insn *prog, int size)
+ 		return -1;
+ 	}
+ 
+-	fd = bpf_load_program(prog_type, prog, size, license, kern_version,
++	fd = bpf_load_program(prog_type, prog, insns_cnt, license, kern_version,
+ 			      bpf_log_buf, BPF_LOG_BUF_SIZE);
+ 	if (fd < 0) {
+ 		printf("bpf_load_program() err=%d\n%s", errno, bpf_log_buf);
+diff --git a/samples/bpf/fds_example.c b/samples/bpf/fds_example.c
+index 8a4fc4ef3993..6245062844d1 100644
+--- a/samples/bpf/fds_example.c
++++ b/samples/bpf/fds_example.c
+@@ -53,13 +53,14 @@ static int bpf_prog_create(const char *object)
+ 		BPF_MOV64_IMM(BPF_REG_0, 1),
+ 		BPF_EXIT_INSN(),
+ 	};
++	size_t insns_cnt = sizeof(insns) / sizeof(struct bpf_insn);
+ 
+ 	if (object) {
+ 		assert(!load_bpf_file((char *)object));
+ 		return prog_fd[0];
+ 	} else {
+ 		return bpf_load_program(BPF_PROG_TYPE_SOCKET_FILTER,
+-					insns, sizeof(insns), "GPL", 0,
++					insns, insns_cnt, "GPL", 0,
+ 					bpf_log_buf, BPF_LOG_BUF_SIZE);
+ 	}
+ }
+diff --git a/samples/bpf/libbpf.c b/samples/bpf/libbpf.c
+index 6f076abdca35..3391225ad7e9 100644
+--- a/samples/bpf/libbpf.c
++++ b/samples/bpf/libbpf.c
+@@ -4,8 +4,6 @@
+ #include <linux/unistd.h>
+ #include <unistd.h>
+ #include <string.h>
+-#include <linux/netlink.h>
+-#include <linux/bpf.h>
+ #include <errno.h>
+ #include <net/ethernet.h>
+ #include <net/if.h>
+@@ -13,96 +11,6 @@
+ #include <arpa/inet.h>
+ #include "libbpf.h"
+ 
+-static __u64 ptr_to_u64(void *ptr)
+-{
+-	return (__u64) (unsigned long) ptr;
+-}
+-
+-int bpf_create_map(enum bpf_map_type map_type, int key_size, int value_size,
+-		   int max_entries, int map_flags)
+-{
+-	union bpf_attr attr = {
+-		.map_type = map_type,
+-		.key_size = key_size,
+-		.value_size = value_size,
+-		.max_entries = max_entries,
+-		.map_flags = map_flags,
+-	};
+-
+-	return syscall(__NR_bpf, BPF_MAP_CREATE, &attr, sizeof(attr));
+-}
+-
+-int bpf_map_update_elem(int fd, void *key, void *value, unsigned long long flags)
+-{
+-	union bpf_attr attr = {
+-		.map_fd = fd,
+-		.key = ptr_to_u64(key),
+-		.value = ptr_to_u64(value),
+-		.flags = flags,
+-	};
+-
+-	return syscall(__NR_bpf, BPF_MAP_UPDATE_ELEM, &attr, sizeof(attr));
+-}
+-
+-int bpf_map_lookup_elem(int fd, void *key, void *value)
+-{
+-	union bpf_attr attr = {
+-		.map_fd = fd,
+-		.key = ptr_to_u64(key),
+-		.value = ptr_to_u64(value),
+-	};
+-
+-	return syscall(__NR_bpf, BPF_MAP_LOOKUP_ELEM, &attr, sizeof(attr));
+-}
+-
+-int bpf_map_delete_elem(int fd, void *key)
+-{
+-	union bpf_attr attr = {
+-		.map_fd = fd,
+-		.key = ptr_to_u64(key),
+-	};
+-
+-	return syscall(__NR_bpf, BPF_MAP_DELETE_ELEM, &attr, sizeof(attr));
+-}
+-
+-int bpf_map_get_next_key(int fd, void *key, void *next_key)
+-{
+-	union bpf_attr attr = {
+-		.map_fd = fd,
+-		.key = ptr_to_u64(key),
+-		.next_key = ptr_to_u64(next_key),
+-	};
+-
+-	return syscall(__NR_bpf, BPF_MAP_GET_NEXT_KEY, &attr, sizeof(attr));
+-}
+-
+-#define ROUND_UP(x, n) (((x) + (n) - 1u) & ~((n) - 1u))
+-
+-int bpf_load_program(enum bpf_prog_type prog_type,
+-		     const struct bpf_insn *insns, int prog_len,
+-		     const char *license, int kern_version,
+-		     char *log_buf, size_t log_buf_sz)
+-{
+-	union bpf_attr attr = {
+-		.prog_type = prog_type,
+-		.insns = ptr_to_u64((void *) insns),
+-		.insn_cnt = prog_len / sizeof(struct bpf_insn),
+-		.license = ptr_to_u64((void *) license),
+-		.log_buf = ptr_to_u64(log_buf),
+-		.log_size = log_buf_sz,
+-		.log_level = 1,
+-	};
+-
+-	/* assign one field outside of struct init to make sure any
+-	 * padding is zero initialized
+-	 */
+-	attr.kern_version = kern_version;
+-
+-	log_buf[0] = 0;
+-
+-	return syscall(__NR_bpf, BPF_PROG_LOAD, &attr, sizeof(attr));
+-}
+-
+ int bpf_prog_attach(int prog_fd, int target_fd, enum bpf_attach_type type)
+ {
+ 	union bpf_attr attr = {
+@@ -124,25 +32,6 @@ int bpf_prog_detach(int target_fd, enum bpf_attach_type type)
+ 	return syscall(__NR_bpf, BPF_PROG_DETACH, &attr, sizeof(attr));
+ }
+ 
+-int bpf_obj_pin(int fd, const char *pathname)
+-{
+-	union bpf_attr attr = {
+-		.pathname	= ptr_to_u64((void *)pathname),
+-		.bpf_fd		= fd,
+-	};
+-
+-	return syscall(__NR_bpf, BPF_OBJ_PIN, &attr, sizeof(attr));
+-}
+-
+-int bpf_obj_get(const char *pathname)
+-{
+-	union bpf_attr attr = {
+-		.pathname	= ptr_to_u64((void *)pathname),
+-	};
+-
+-	return syscall(__NR_bpf, BPF_OBJ_GET, &attr, sizeof(attr));
+-}
+-
+ int open_raw_sock(const char *name)
+ {
+ 	struct sockaddr_ll sll;
+diff --git a/samples/bpf/libbpf.h b/samples/bpf/libbpf.h
+index 20e3457857ca..cf7d2386d1f9 100644
+--- a/samples/bpf/libbpf.h
++++ b/samples/bpf/libbpf.h
+@@ -2,28 +2,13 @@
+ #ifndef __LIBBPF_H
+ #define __LIBBPF_H
+ 
+-struct bpf_insn;
+-
+-int bpf_create_map(enum bpf_map_type map_type, int key_size, int value_size,
+-		   int max_entries, int map_flags);
+-int bpf_map_update_elem(int fd, void *key, void *value, unsigned long long flags);
+-int bpf_map_lookup_elem(int fd, void *key, void *value);
+-int bpf_map_delete_elem(int fd, void *key);
+-int bpf_map_get_next_key(int fd, void *key, void *next_key);
++#include <bpf/bpf.h>
+ 
+-int bpf_load_program(enum bpf_prog_type prog_type,
+-		     const struct bpf_insn *insns, int insn_len,
+-		     const char *license, int kern_version,
+-		     char *log_buf, size_t log_buf_sz);
++struct bpf_insn;
+ 
+ int bpf_prog_attach(int prog_fd, int attachable_fd, enum bpf_attach_type type);
+ int bpf_prog_detach(int attachable_fd, enum bpf_attach_type type);
+ 
+-int bpf_obj_pin(int fd, const char *pathname);
+-int bpf_obj_get(const char *pathname);
+-
+-#define BPF_LOG_BUF_SIZE (256 * 1024)
+-
+ /* ALU ops on registers, bpf_add|sub|...: dst_reg += src_reg */
+ 
+ #define BPF_ALU64_REG(OP, DST, SRC)				\
+diff --git a/samples/bpf/sock_example.c b/samples/bpf/sock_example.c
+index d6b91e9a38ad..5546f8aac37e 100644
+--- a/samples/bpf/sock_example.c
++++ b/samples/bpf/sock_example.c
+@@ -56,8 +56,9 @@ static int test_sock(void)
+ 		BPF_MOV64_IMM(BPF_REG_0, 0), /* r0 = 0 */
+ 		BPF_EXIT_INSN(),
+ 	};
++	size_t insns_cnt = sizeof(prog) / sizeof(struct bpf_insn);
+ 
+-	prog_fd = bpf_load_program(BPF_PROG_TYPE_SOCKET_FILTER, prog, sizeof(prog),
++	prog_fd = bpf_load_program(BPF_PROG_TYPE_SOCKET_FILTER, prog, insns_cnt,
+ 				   "GPL", 0, bpf_log_buf, BPF_LOG_BUF_SIZE);
+ 	if (prog_fd < 0) {
+ 		printf("failed to load prog '%s'\n", strerror(errno));
+diff --git a/samples/bpf/test_cgrp2_attach.c b/samples/bpf/test_cgrp2_attach.c
+index 8283ef86d392..504058631ffc 100644
+--- a/samples/bpf/test_cgrp2_attach.c
++++ b/samples/bpf/test_cgrp2_attach.c
+@@ -68,9 +68,10 @@ static int prog_load(int map_fd, int verdict)
+ 		BPF_MOV64_IMM(BPF_REG_0, verdict), /* r0 = verdict */
+ 		BPF_EXIT_INSN(),
+ 	};
++	size_t insns_cnt = sizeof(prog) / sizeof(struct bpf_insn);
+ 
+ 	return bpf_load_program(BPF_PROG_TYPE_CGROUP_SKB,
+-				prog, sizeof(prog), "GPL", 0,
++				prog, insns_cnt, "GPL", 0,
+ 				bpf_log_buf, BPF_LOG_BUF_SIZE);
+ }
+ 
+diff --git a/samples/bpf/test_cgrp2_attach2.c b/samples/bpf/test_cgrp2_attach2.c
+index fc6092fdc3b0..6e69be37f87f 100644
+--- a/samples/bpf/test_cgrp2_attach2.c
++++ b/samples/bpf/test_cgrp2_attach2.c
+@@ -41,9 +41,10 @@ static int prog_load(int verdict)
+ 		BPF_MOV64_IMM(BPF_REG_0, verdict), /* r0 = verdict */
+ 		BPF_EXIT_INSN(),
+ 	};
++	size_t insns_cnt = sizeof(prog) / sizeof(struct bpf_insn);
+ 
+ 	ret = bpf_load_program(BPF_PROG_TYPE_CGROUP_SKB,
+-			       prog, sizeof(prog), "GPL", 0,
++			       prog, insns_cnt, "GPL", 0,
+ 			       bpf_log_buf, BPF_LOG_BUF_SIZE);
+ 
+ 	if (ret < 0) {
+diff --git a/samples/bpf/test_cgrp2_sock.c b/samples/bpf/test_cgrp2_sock.c
+index 43b4bde5d05c..0791b949cbe4 100644
+--- a/samples/bpf/test_cgrp2_sock.c
++++ b/samples/bpf/test_cgrp2_sock.c
+@@ -35,8 +35,9 @@ static int prog_load(int idx)
+ 		BPF_MOV64_IMM(BPF_REG_0, 1), /* r0 = verdict */
+ 		BPF_EXIT_INSN(),
+ 	};
++	size_t insns_cnt = sizeof(prog) / sizeof(struct bpf_insn);
+ 
+-	return bpf_load_program(BPF_PROG_TYPE_CGROUP_SOCK, prog, sizeof(prog),
++	return bpf_load_program(BPF_PROG_TYPE_CGROUP_SOCK, prog, insns_cnt,
+ 				"GPL", 0, bpf_log_buf, BPF_LOG_BUF_SIZE);
+ }
+ 
+-- 
+2.9.3
