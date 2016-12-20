@@ -1,362 +1,352 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH 2/2] net: sfc: falcon: use new api ethtool_{get|set}_link_ksettings
-Date: Tue, 20 Dec 2016 23:24:27 +0100
-Message-ID: <1482272667-1206-2-git-send-email-tremyfr@gmail.com>
-References: <1482272667-1206-1-git-send-email-tremyfr@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Philippe Reynes <tremyfr@gmail.com>
-To: linux-net-drivers@solarflare.com, ecree@solarflare.com,
-        bkenward@solarflare.com, davem@davemloft.net, andrew@lunn.ch
+From: Phil Sutter <phil@nwl.cc>
+Subject: [PATCH v5] net: dummy: Introduce dummy virtual functions
+Date: Tue, 20 Dec 2016 23:26:21 +0100
+Message-ID: <20161220222621.32493-1-phil@nwl.cc>
+Cc: netdev@vger.kernel.org, Sabrina Dubroca <sd@queasysnail.net>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wj0-f194.google.com ([209.85.210.194]:35016 "EHLO
-        mail-wj0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756516AbcLTWYj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2016 17:24:39 -0500
-In-Reply-To: <1482272667-1206-1-git-send-email-tremyfr@gmail.com>
+Received: from orbyte.nwl.cc ([151.80.46.58]:53841 "EHLO mail.nwl.cc"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752516AbcLTW0d (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 20 Dec 2016 17:26:33 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The ethtool api {get|set}_settings is deprecated.
-We move this driver to new api {get|set}_link_ksettings.
+The idea for this was born when testing VF support in iproute2 which was
+impeded by hardware requirements. In fact, not every VF-capable hardware
+driver implements all netdev ops, so testing the interface is still hard
+to do even with a well-sorted hardware shelf.
 
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+To overcome this and allow for testing the user-kernel interface, this
+patch allows to turn dummy into a PF with a configurable amount of VFs.
+
+Due to the assumption that all PFs are PCI devices, this implementation
+is not completely straightforward: In order to allow for
+rtnl_fill_ifinfo() to see the dummy VFs, a fake PCI parent device is
+attached to the dummy netdev. This has to happen at the right spot so
+register_netdevice() does not get confused. This patch abuses
+ndo_fix_features callback for that. In ndo_uninit callback, the fake
+parent is removed again for the same purpose.
+
+Joint work with Sabrina Dubroca.
+
+Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- drivers/net/ethernet/sfc/falcon/efx.c          |    2 +-
- drivers/net/ethernet/sfc/falcon/ethtool.c      |   35 ++++++++++++-------
- drivers/net/ethernet/sfc/falcon/mdio_10g.c     |   44 +++++++++++++++---------
- drivers/net/ethernet/sfc/falcon/mdio_10g.h     |    3 +-
- drivers/net/ethernet/sfc/falcon/net_driver.h   |   12 +++---
- drivers/net/ethernet/sfc/falcon/qt202x_phy.c   |    9 +++--
- drivers/net/ethernet/sfc/falcon/tenxpress.c    |   22 ++++++------
- drivers/net/ethernet/sfc/falcon/txc43128_phy.c |    9 +++--
- 8 files changed, 80 insertions(+), 56 deletions(-)
+Changes since v4:
+- Initialize pci_pdev.sriov at runtime - older gcc versions don't allow
+  initializing fields of anonymous unions at declaration time.
+- Rebased onto current net-next/master.
+  
+Changes since v3:
+- Changed type of vf_mac field from unsigned char to u8.
+- Column-aligned structs' field names.
 
-diff --git a/drivers/net/ethernet/sfc/falcon/efx.c b/drivers/net/ethernet/sfc/falcon/efx.c
-index 5c5cb3c..438ef9e 100644
---- a/drivers/net/ethernet/sfc/falcon/efx.c
-+++ b/drivers/net/ethernet/sfc/falcon/efx.c
-@@ -986,7 +986,7 @@ void ef4_mac_reconfigure(struct ef4_nic *efx)
+Changes since v2:
+- Fixed oops on reboot (need to initialize parent device mutex).
+- Got rid of potential mem leak noticed by Eric Dumazet.
+- Dropped stray newline insertion.
+
+Changes since v1:
+- Fixed issues reported by kbuild test robot:
+  - pci_dev->sriov is only present if CONFIG_PCI_ATS is active.
+  - pci_bus_type does not exist if CONFIG_PCI is not defined.
+---
+ drivers/net/dummy.c | 205 +++++++++++++++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 203 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/dummy.c b/drivers/net/dummy.c
+index 6421835f11b7e..7f8d8598bbbfe 100644
+--- a/drivers/net/dummy.c
++++ b/drivers/net/dummy.c
+@@ -34,6 +34,8 @@
+ #include <linux/etherdevice.h>
+ #include <linux/init.h>
+ #include <linux/moduleparam.h>
++#include <linux/pci.h>
++#include "../pci/pci.h"		/* for struct pci_sriov */
+ #include <linux/rtnetlink.h>
+ #include <net/rtnetlink.h>
+ #include <linux/u64_stats_sync.h>
+@@ -42,6 +44,34 @@
+ #define DRV_VERSION	"1.0"
  
- /* Push loopback/power/transmit disable settings to the PHY, and reconfigure
-  * the MAC appropriately. All other PHY configuration changes are pushed
-- * through phy_op->set_settings(), and pushed asynchronously to the MAC
-+ * through phy_op->set_link_ksettings(), and pushed asynchronously to the MAC
-  * through ef4_monitor().
-  *
-  * Callers must hold the mac_lock
-diff --git a/drivers/net/ethernet/sfc/falcon/ethtool.c b/drivers/net/ethernet/sfc/falcon/ethtool.c
-index 8e1929b..659ece7 100644
---- a/drivers/net/ethernet/sfc/falcon/ethtool.c
-+++ b/drivers/net/ethernet/sfc/falcon/ethtool.c
-@@ -115,44 +115,53 @@ static int ef4_ethtool_phys_id(struct net_device *net_dev,
- }
- 
- /* This must be called with rtnl_lock held. */
--static int ef4_ethtool_get_settings(struct net_device *net_dev,
--				    struct ethtool_cmd *ecmd)
-+static int
-+ef4_ethtool_get_link_ksettings(struct net_device *net_dev,
-+			       struct ethtool_link_ksettings *cmd)
- {
- 	struct ef4_nic *efx = netdev_priv(net_dev);
- 	struct ef4_link_state *link_state = &efx->link_state;
-+	u32 supported;
+ static int numdummies = 1;
++static int num_vfs;
 +
-+	ethtool_convert_link_mode_to_legacy_u32(&supported,
-+						cmd->link_modes.supported);
++static struct pci_sriov pdev_sriov;
++
++static struct pci_dev pci_pdev = {
++	.is_physfn = 0,
++#ifdef CONFIG_PCI
++	.dev.bus = &pci_bus_type,
++#endif
++};
++
++struct vf_data_storage {
++	u8	vf_mac[ETH_ALEN];
++	u16	pf_vlan; /* When set, guest VLAN config not allowed. */
++	u16	pf_qos;
++	__be16	vlan_proto;
++	u16	min_tx_rate;
++	u16	max_tx_rate;
++	u8	spoofchk_enabled;
++	bool	rss_query_enabled;
++	u8	trusted;
++	int	link_state;
++};
++
++struct dummy_priv {
++	int			num_vfs;
++	struct vf_data_storage	*vfinfo;
++};
  
- 	mutex_lock(&efx->mac_lock);
--	efx->phy_op->get_settings(efx, ecmd);
-+	efx->phy_op->get_link_ksettings(efx, cmd);
- 	mutex_unlock(&efx->mac_lock);
+ /* fake multicast ability */
+ static void set_multicast_list(struct net_device *dev)
+@@ -91,15 +121,31 @@ static netdev_tx_t dummy_xmit(struct sk_buff *skb, struct net_device *dev)
  
- 	/* Both MACs support pause frames (bidirectional and respond-only) */
--	ecmd->supported |= SUPPORTED_Pause | SUPPORTED_Asym_Pause;
-+	supported |= SUPPORTED_Pause | SUPPORTED_Asym_Pause;
+ static int dummy_dev_init(struct net_device *dev)
+ {
++	struct dummy_priv *priv = netdev_priv(dev);
++
+ 	dev->dstats = netdev_alloc_pcpu_stats(struct pcpu_dstats);
+ 	if (!dev->dstats)
+ 		return -ENOMEM;
  
- 	if (LOOPBACK_INTERNAL(efx)) {
--		ethtool_cmd_speed_set(ecmd, link_state->speed);
--		ecmd->duplex = link_state->fd ? DUPLEX_FULL : DUPLEX_HALF;
-+		cmd->base.speed = link_state->speed;
-+		cmd->base.duplex = link_state->fd ? DUPLEX_FULL : DUPLEX_HALF;
- 	}
- 
-+	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.supported,
-+						supported);
++	priv->num_vfs = num_vfs;
++	priv->vfinfo = NULL;
++
++	if (!num_vfs)
++		return 0;
++
++	priv->vfinfo = kcalloc(num_vfs, sizeof(struct vf_data_storage),
++			       GFP_KERNEL);
++	if (!priv->vfinfo) {
++		free_percpu(dev->dstats);
++		return -ENOMEM;
++	}
 +
  	return 0;
  }
  
- /* This must be called with rtnl_lock held. */
--static int ef4_ethtool_set_settings(struct net_device *net_dev,
--				    struct ethtool_cmd *ecmd)
-+static int
-+ef4_ethtool_set_link_ksettings(struct net_device *net_dev,
-+			       const struct ethtool_link_ksettings *cmd)
+ static void dummy_dev_uninit(struct net_device *dev)
  {
- 	struct ef4_nic *efx = netdev_priv(net_dev);
- 	int rc;
- 
- 	/* GMAC does not support 1000Mbps HD */
--	if ((ethtool_cmd_speed(ecmd) == SPEED_1000) &&
--	    (ecmd->duplex != DUPLEX_FULL)) {
-+	if ((cmd->base.speed == SPEED_1000) &&
-+	    (cmd->base.duplex != DUPLEX_FULL)) {
- 		netif_dbg(efx, drv, efx->net_dev,
- 			  "rejecting unsupported 1000Mbps HD setting\n");
- 		return -EINVAL;
- 	}
- 
- 	mutex_lock(&efx->mac_lock);
--	rc = efx->phy_op->set_settings(efx, ecmd);
-+	rc = efx->phy_op->set_link_ksettings(efx, cmd);
- 	mutex_unlock(&efx->mac_lock);
- 	return rc;
- }
-@@ -1310,8 +1319,6 @@ static int ef4_ethtool_get_module_info(struct net_device *net_dev,
++	dev->dev.parent = NULL;
+ 	free_percpu(dev->dstats);
  }
  
- const struct ethtool_ops ef4_ethtool_ops = {
--	.get_settings		= ef4_ethtool_get_settings,
--	.set_settings		= ef4_ethtool_set_settings,
- 	.get_drvinfo		= ef4_ethtool_get_drvinfo,
- 	.get_regs_len		= ef4_ethtool_get_regs_len,
- 	.get_regs		= ef4_ethtool_get_regs,
-@@ -1340,4 +1347,6 @@ static int ef4_ethtool_get_module_info(struct net_device *net_dev,
- 	.set_rxfh		= ef4_ethtool_set_rxfh,
- 	.get_module_info	= ef4_ethtool_get_module_info,
- 	.get_module_eeprom	= ef4_ethtool_get_module_eeprom,
-+	.get_link_ksettings	= ef4_ethtool_get_link_ksettings,
-+	.set_link_ksettings	= ef4_ethtool_set_link_ksettings,
+@@ -112,6 +158,137 @@ static int dummy_change_carrier(struct net_device *dev, bool new_carrier)
+ 	return 0;
+ }
+ 
++/* fake, just to set fake PCI parent after netdev_register_kobject() */
++static netdev_features_t dummy_fix_features(struct net_device *dev,
++					    netdev_features_t features)
++{
++	struct dummy_priv *priv = netdev_priv(dev);
++
++	if (priv->num_vfs) {
++#ifdef CONFIG_PCI_ATS
++		pci_pdev.sriov = &pdev_sriov;
++#endif
++		dev->dev.parent = &pci_pdev.dev;
++		if (!pci_pdev.is_physfn) {
++			mutex_init(&pci_pdev.dev.mutex);
++			pci_pdev.is_physfn = 1;
++		}
++	}
++
++	return features;
++}
++
++static int dummy_set_vf_mac(struct net_device *dev, int vf, u8 *mac)
++{
++	struct dummy_priv *priv = netdev_priv(dev);
++
++	if (!is_valid_ether_addr(mac) || (vf >= priv->num_vfs))
++		return -EINVAL;
++
++	memcpy(priv->vfinfo[vf].vf_mac, mac, ETH_ALEN);
++
++	return 0;
++}
++
++static int dummy_set_vf_vlan(struct net_device *dev, int vf,
++			     u16 vlan, u8 qos, __be16 vlan_proto)
++{
++	struct dummy_priv *priv = netdev_priv(dev);
++
++	if ((vf >= priv->num_vfs) || (vlan > 4095) || (qos > 7))
++		return -EINVAL;
++
++	priv->vfinfo[vf].pf_vlan = vlan;
++	priv->vfinfo[vf].pf_qos = qos;
++	priv->vfinfo[vf].vlan_proto = vlan_proto;
++
++	return 0;
++}
++
++static int dummy_set_vf_rate(struct net_device *dev, int vf, int min, int max)
++{
++	struct dummy_priv *priv = netdev_priv(dev);
++
++	if (vf >= priv->num_vfs)
++		return -EINVAL;
++
++	priv->vfinfo[vf].min_tx_rate = min;
++	priv->vfinfo[vf].max_tx_rate = max;
++
++	return 0;
++}
++
++static int dummy_set_vf_spoofchk(struct net_device *dev, int vf, bool val)
++{
++	struct dummy_priv *priv = netdev_priv(dev);
++
++	if (vf >= priv->num_vfs)
++		return -EINVAL;
++
++	priv->vfinfo[vf].spoofchk_enabled = val;
++
++	return 0;
++}
++
++static int dummy_set_vf_rss_query_en(struct net_device *dev, int vf, bool val)
++{
++	struct dummy_priv *priv = netdev_priv(dev);
++
++	if (vf >= priv->num_vfs)
++		return -EINVAL;
++
++	priv->vfinfo[vf].rss_query_enabled = val;
++
++	return 0;
++}
++
++static int dummy_set_vf_trust(struct net_device *dev, int vf, bool val)
++{
++	struct dummy_priv *priv = netdev_priv(dev);
++
++	if (vf >= priv->num_vfs)
++		return -EINVAL;
++
++	priv->vfinfo[vf].trusted = val;
++
++	return 0;
++}
++
++static int dummy_get_vf_config(struct net_device *dev,
++			       int vf, struct ifla_vf_info *ivi)
++{
++	struct dummy_priv *priv = netdev_priv(dev);
++
++	if (vf >= priv->num_vfs)
++		return -EINVAL;
++
++	ivi->vf = vf;
++	memcpy(&ivi->mac, priv->vfinfo[vf].vf_mac, ETH_ALEN);
++	ivi->vlan = priv->vfinfo[vf].pf_vlan;
++	ivi->qos = priv->vfinfo[vf].pf_qos;
++	ivi->spoofchk = priv->vfinfo[vf].spoofchk_enabled;
++	ivi->linkstate = priv->vfinfo[vf].link_state;
++	ivi->min_tx_rate = priv->vfinfo[vf].min_tx_rate;
++	ivi->max_tx_rate = priv->vfinfo[vf].max_tx_rate;
++	ivi->rss_query_en = priv->vfinfo[vf].rss_query_enabled;
++	ivi->trusted = priv->vfinfo[vf].trusted;
++	ivi->vlan_proto = priv->vfinfo[vf].vlan_proto;
++
++	return 0;
++}
++
++static int dummy_set_vf_link_state(struct net_device *dev, int vf, int state)
++{
++	struct dummy_priv *priv = netdev_priv(dev);
++
++	if (vf >= priv->num_vfs)
++		return -EINVAL;
++
++	priv->vfinfo[vf].link_state = state;
++
++	return 0;
++}
++
+ static const struct net_device_ops dummy_netdev_ops = {
+ 	.ndo_init		= dummy_dev_init,
+ 	.ndo_uninit		= dummy_dev_uninit,
+@@ -121,6 +298,15 @@ static const struct net_device_ops dummy_netdev_ops = {
+ 	.ndo_set_mac_address	= eth_mac_addr,
+ 	.ndo_get_stats64	= dummy_get_stats64,
+ 	.ndo_change_carrier	= dummy_change_carrier,
++	.ndo_fix_features	= dummy_fix_features,
++	.ndo_set_vf_mac		= dummy_set_vf_mac,
++	.ndo_set_vf_vlan	= dummy_set_vf_vlan,
++	.ndo_set_vf_rate	= dummy_set_vf_rate,
++	.ndo_set_vf_spoofchk	= dummy_set_vf_spoofchk,
++	.ndo_set_vf_trust	= dummy_set_vf_trust,
++	.ndo_get_vf_config	= dummy_get_vf_config,
++	.ndo_set_vf_link_state	= dummy_set_vf_link_state,
++	.ndo_set_vf_rss_query_en = dummy_set_vf_rss_query_en,
  };
-diff --git a/drivers/net/ethernet/sfc/falcon/mdio_10g.c b/drivers/net/ethernet/sfc/falcon/mdio_10g.c
-index e7d7c09..ee0713f 100644
---- a/drivers/net/ethernet/sfc/falcon/mdio_10g.c
-+++ b/drivers/net/ethernet/sfc/falcon/mdio_10g.c
-@@ -226,33 +226,45 @@ void ef4_mdio_set_mmds_lpower(struct ef4_nic *efx,
- }
  
- /**
-- * ef4_mdio_set_settings - Set (some of) the PHY settings over MDIO.
-+ * ef4_mdio_set_link_ksettings - Set (some of) the PHY settings over MDIO.
-  * @efx:		Efx NIC
-- * @ecmd:		New settings
-+ * @cmd:		New settings
-  */
--int ef4_mdio_set_settings(struct ef4_nic *efx, struct ethtool_cmd *ecmd)
-+int ef4_mdio_set_link_ksettings(struct ef4_nic *efx,
-+				const struct ethtool_link_ksettings *cmd)
- {
--	struct ethtool_cmd prev = { .cmd = ETHTOOL_GSET };
--
--	efx->phy_op->get_settings(efx, &prev);
--
--	if (ecmd->advertising == prev.advertising &&
--	    ethtool_cmd_speed(ecmd) == ethtool_cmd_speed(&prev) &&
--	    ecmd->duplex == prev.duplex &&
--	    ecmd->port == prev.port &&
--	    ecmd->autoneg == prev.autoneg)
-+	struct ethtool_link_ksettings prev = {
-+		.base.cmd = ETHTOOL_GLINKSETTINGS
-+	};
-+	u32 prev_advertising, advertising;
-+	u32 prev_supported;
+ static void dummy_get_drvinfo(struct net_device *dev,
+@@ -134,6 +320,14 @@ static const struct ethtool_ops dummy_ethtool_ops = {
+ 	.get_drvinfo            = dummy_get_drvinfo,
+ };
+ 
++static void dummy_free_netdev(struct net_device *dev)
++{
++	struct dummy_priv *priv = netdev_priv(dev);
 +
-+	efx->phy_op->get_link_ksettings(efx, &prev);
++	kfree(priv->vfinfo);
++	free_netdev(dev);
++}
 +
-+	ethtool_convert_link_mode_to_legacy_u32(&advertising,
-+						cmd->link_modes.advertising);
-+	ethtool_convert_link_mode_to_legacy_u32(&prev_advertising,
-+						prev.link_modes.advertising);
-+	ethtool_convert_link_mode_to_legacy_u32(&prev_supported,
-+						prev.link_modes.supported);
+ static void dummy_setup(struct net_device *dev)
+ {
+ 	ether_setup(dev);
+@@ -141,7 +335,7 @@ static void dummy_setup(struct net_device *dev)
+ 	/* Initialize the device structure. */
+ 	dev->netdev_ops = &dummy_netdev_ops;
+ 	dev->ethtool_ops = &dummy_ethtool_ops;
+-	dev->destructor = free_netdev;
++	dev->destructor = dummy_free_netdev;
+ 
+ 	/* Fill in device structure with ethernet-generic values. */
+ 	dev->flags |= IFF_NOARP;
+@@ -172,6 +366,7 @@ static int dummy_validate(struct nlattr *tb[], struct nlattr *data[])
+ 
+ static struct rtnl_link_ops dummy_link_ops __read_mostly = {
+ 	.kind		= DRV_NAME,
++	.priv_size	= sizeof(struct dummy_priv),
+ 	.setup		= dummy_setup,
+ 	.validate	= dummy_validate,
+ };
+@@ -180,12 +375,16 @@ static struct rtnl_link_ops dummy_link_ops __read_mostly = {
+ module_param(numdummies, int, 0);
+ MODULE_PARM_DESC(numdummies, "Number of dummy pseudo devices");
+ 
++module_param(num_vfs, int, 0);
++MODULE_PARM_DESC(num_vfs, "Number of dummy VFs per dummy device");
 +
-+	if (advertising == prev_advertising &&
-+	    cmd->base.speed == prev.base.speed &&
-+	    cmd->base.duplex == prev.base.duplex &&
-+	    cmd->base.port == prev.base.port &&
-+	    cmd->base.autoneg == prev.base.autoneg)
- 		return 0;
- 
- 	/* We can only change these settings for -T PHYs */
--	if (prev.port != PORT_TP || ecmd->port != PORT_TP)
-+	if (prev.base.port != PORT_TP || cmd->base.port != PORT_TP)
- 		return -EINVAL;
- 
- 	/* Check that PHY supports these settings */
--	if (!ecmd->autoneg ||
--	    (ecmd->advertising | SUPPORTED_Autoneg) & ~prev.supported)
-+	if (!cmd->base.autoneg ||
-+	    (advertising | SUPPORTED_Autoneg) & ~prev_supported)
- 		return -EINVAL;
- 
--	ef4_link_set_advertising(efx, ecmd->advertising | ADVERTISED_Autoneg);
-+	ef4_link_set_advertising(efx, advertising | ADVERTISED_Autoneg);
- 	ef4_mdio_an_reconfigure(efx);
- 	return 0;
- }
-diff --git a/drivers/net/ethernet/sfc/falcon/mdio_10g.h b/drivers/net/ethernet/sfc/falcon/mdio_10g.h
-index 885cf7a..53cb5cc 100644
---- a/drivers/net/ethernet/sfc/falcon/mdio_10g.h
-+++ b/drivers/net/ethernet/sfc/falcon/mdio_10g.h
-@@ -83,7 +83,8 @@ void ef4_mdio_set_mmds_lpower(struct ef4_nic *efx, int low_power,
- 			      unsigned int mmd_mask);
- 
- /* Set (some of) the PHY settings over MDIO */
--int ef4_mdio_set_settings(struct ef4_nic *efx, struct ethtool_cmd *ecmd);
-+int ef4_mdio_set_link_ksettings(struct ef4_nic *efx,
-+				const struct ethtool_link_ksettings *cmd);
- 
- /* Push advertising flags and restart autonegotiation */
- void ef4_mdio_an_reconfigure(struct ef4_nic *efx);
-diff --git a/drivers/net/ethernet/sfc/falcon/net_driver.h b/drivers/net/ethernet/sfc/falcon/net_driver.h
-index 210b28f..fe59dd6 100644
---- a/drivers/net/ethernet/sfc/falcon/net_driver.h
-+++ b/drivers/net/ethernet/sfc/falcon/net_driver.h
-@@ -684,8 +684,8 @@ static inline bool ef4_link_state_equal(const struct ef4_link_state *left,
-  * @reconfigure: Reconfigure PHY (e.g. for new link parameters)
-  * @poll: Update @link_state and report whether it changed.
-  *	Serialised by the mac_lock.
-- * @get_settings: Get ethtool settings. Serialised by the mac_lock.
-- * @set_settings: Set ethtool settings. Serialised by the mac_lock.
-+ * @get_link_ksettings: Get ethtool settings. Serialised by the mac_lock.
-+ * @set_link_ksettings: Set ethtool settings. Serialised by the mac_lock.
-  * @set_npage_adv: Set abilities advertised in (Extended) Next Page
-  *	(only needed where AN bit is set in mmds)
-  * @test_alive: Test that PHY is 'alive' (online)
-@@ -700,10 +700,10 @@ struct ef4_phy_operations {
- 	void (*remove) (struct ef4_nic *efx);
- 	int (*reconfigure) (struct ef4_nic *efx);
- 	bool (*poll) (struct ef4_nic *efx);
--	void (*get_settings) (struct ef4_nic *efx,
--			      struct ethtool_cmd *ecmd);
--	int (*set_settings) (struct ef4_nic *efx,
--			     struct ethtool_cmd *ecmd);
-+	void (*get_link_ksettings)(struct ef4_nic *efx,
-+				   struct ethtool_link_ksettings *cmd);
-+	int (*set_link_ksettings)(struct ef4_nic *efx,
-+				  const struct ethtool_link_ksettings *cmd);
- 	void (*set_npage_adv) (struct ef4_nic *efx, u32);
- 	int (*test_alive) (struct ef4_nic *efx);
- 	const char *(*test_name) (struct ef4_nic *efx, unsigned int index);
-diff --git a/drivers/net/ethernet/sfc/falcon/qt202x_phy.c b/drivers/net/ethernet/sfc/falcon/qt202x_phy.c
-index d293316..f5e0f18 100644
---- a/drivers/net/ethernet/sfc/falcon/qt202x_phy.c
-+++ b/drivers/net/ethernet/sfc/falcon/qt202x_phy.c
-@@ -437,9 +437,10 @@ static int qt202x_phy_reconfigure(struct ef4_nic *efx)
- 	return 0;
- }
- 
--static void qt202x_phy_get_settings(struct ef4_nic *efx, struct ethtool_cmd *ecmd)
-+static void qt202x_phy_get_link_ksettings(struct ef4_nic *efx,
-+					  struct ethtool_link_ksettings *cmd)
+ static int __init dummy_init_one(void)
  {
--	mdio45_ethtool_gset(&efx->mdio, ecmd);
-+	mdio45_ethtool_ksettings_get(&efx->mdio, cmd);
- }
+ 	struct net_device *dev_dummy;
+ 	int err;
  
- static void qt202x_phy_remove(struct ef4_nic *efx)
-@@ -487,8 +488,8 @@ static int qt202x_phy_get_module_eeprom(struct ef4_nic *efx,
- 	.poll		 = qt202x_phy_poll,
- 	.fini		 = ef4_port_dummy_op_void,
- 	.remove		 = qt202x_phy_remove,
--	.get_settings	 = qt202x_phy_get_settings,
--	.set_settings	 = ef4_mdio_set_settings,
-+	.get_link_ksettings = qt202x_phy_get_link_ksettings,
-+	.set_link_ksettings = ef4_mdio_set_link_ksettings,
- 	.test_alive	 = ef4_mdio_test_alive,
- 	.get_module_eeprom = qt202x_phy_get_module_eeprom,
- 	.get_module_info = qt202x_phy_get_module_info,
-diff --git a/drivers/net/ethernet/sfc/falcon/tenxpress.c b/drivers/net/ethernet/sfc/falcon/tenxpress.c
-index acc548a..ff9b4e2 100644
---- a/drivers/net/ethernet/sfc/falcon/tenxpress.c
-+++ b/drivers/net/ethernet/sfc/falcon/tenxpress.c
-@@ -351,9 +351,6 @@ static int tenxpress_phy_reconfigure(struct ef4_nic *efx)
- 	return 0;
- }
+-	dev_dummy = alloc_netdev(0, "dummy%d", NET_NAME_UNKNOWN, dummy_setup);
++	dev_dummy = alloc_netdev(sizeof(struct dummy_priv),
++				 "dummy%d", NET_NAME_UNKNOWN, dummy_setup);
+ 	if (!dev_dummy)
+ 		return -ENOMEM;
  
--static void
--tenxpress_get_settings(struct ef4_nic *efx, struct ethtool_cmd *ecmd);
--
- /* Poll for link state changes */
- static bool tenxpress_phy_poll(struct ef4_nic *efx)
+@@ -204,6 +403,8 @@ static int __init dummy_init_module(void)
  {
-@@ -443,7 +440,8 @@ void tenxpress_set_id_led(struct ef4_nic *efx, enum ef4_led_mode mode)
- }
+ 	int i, err = 0;
  
- static void
--tenxpress_get_settings(struct ef4_nic *efx, struct ethtool_cmd *ecmd)
-+tenxpress_get_link_ksettings(struct ef4_nic *efx,
-+			     struct ethtool_link_ksettings *cmd)
- {
- 	u32 adv = 0, lpa = 0;
- 	int reg;
-@@ -455,20 +453,22 @@ void tenxpress_set_id_led(struct ef4_nic *efx, enum ef4_led_mode mode)
- 	if (reg & MDIO_AN_10GBT_STAT_LP10G)
- 		lpa |= ADVERTISED_10000baseT_Full;
- 
--	mdio45_ethtool_gset_npage(&efx->mdio, ecmd, adv, lpa);
-+	mdio45_ethtool_ksettings_get_npage(&efx->mdio, cmd, adv, lpa);
- 
- 	/* In loopback, the PHY automatically brings up the correct interface,
- 	 * but doesn't advertise the correct speed. So override it */
- 	if (LOOPBACK_EXTERNAL(efx))
--		ethtool_cmd_speed_set(ecmd, SPEED_10000);
-+		cmd->base.speed = SPEED_10000;
- }
- 
--static int tenxpress_set_settings(struct ef4_nic *efx, struct ethtool_cmd *ecmd)
-+static int
-+tenxpress_set_link_ksettings(struct ef4_nic *efx,
-+			     const struct ethtool_link_ksettings *cmd)
- {
--	if (!ecmd->autoneg)
-+	if (!cmd->base.autoneg)
- 		return -EINVAL;
- 
--	return ef4_mdio_set_settings(efx, ecmd);
-+	return ef4_mdio_set_link_ksettings(efx, cmd);
- }
- 
- static void sfx7101_set_npage_adv(struct ef4_nic *efx, u32 advertising)
-@@ -485,8 +485,8 @@ static void sfx7101_set_npage_adv(struct ef4_nic *efx, u32 advertising)
- 	.poll             = tenxpress_phy_poll,
- 	.fini             = sfx7101_phy_fini,
- 	.remove		  = tenxpress_phy_remove,
--	.get_settings	  = tenxpress_get_settings,
--	.set_settings	  = tenxpress_set_settings,
-+	.get_link_ksettings = tenxpress_get_link_ksettings,
-+	.set_link_ksettings = tenxpress_set_link_ksettings,
- 	.set_npage_adv    = sfx7101_set_npage_adv,
- 	.test_alive	  = ef4_mdio_test_alive,
- 	.test_name	  = sfx7101_test_name,
-diff --git a/drivers/net/ethernet/sfc/falcon/txc43128_phy.c b/drivers/net/ethernet/sfc/falcon/txc43128_phy.c
-index 18421f5..3c55fd2 100644
---- a/drivers/net/ethernet/sfc/falcon/txc43128_phy.c
-+++ b/drivers/net/ethernet/sfc/falcon/txc43128_phy.c
-@@ -540,9 +540,10 @@ static int txc43128_run_tests(struct ef4_nic *efx, int *results, unsigned flags)
- 	return rc;
- }
- 
--static void txc43128_get_settings(struct ef4_nic *efx, struct ethtool_cmd *ecmd)
-+static void txc43128_get_link_ksettings(struct ef4_nic *efx,
-+					struct ethtool_link_ksettings *cmd)
- {
--	mdio45_ethtool_gset(&efx->mdio, ecmd);
-+	mdio45_ethtool_ksettings_get(&efx->mdio, cmd);
- }
- 
- const struct ef4_phy_operations falcon_txc_phy_ops = {
-@@ -552,8 +553,8 @@ static void txc43128_get_settings(struct ef4_nic *efx, struct ethtool_cmd *ecmd)
- 	.poll		= txc43128_phy_poll,
- 	.fini		= txc43128_phy_fini,
- 	.remove		= txc43128_phy_remove,
--	.get_settings	= txc43128_get_settings,
--	.set_settings	= ef4_mdio_set_settings,
-+	.get_link_ksettings = txc43128_get_link_ksettings,
-+	.set_link_ksettings = ef4_mdio_set_link_ksettings,
- 	.test_alive	= ef4_mdio_test_alive,
- 	.run_tests	= txc43128_run_tests,
- 	.test_name	= txc43128_test_name,
++	pdev_sriov.num_VFs = num_vfs;
++
+ 	rtnl_lock();
+ 	err = __rtnl_link_register(&dummy_link_ops);
+ 	if (err < 0)
 -- 
-1.7.4.4
+2.11.0
