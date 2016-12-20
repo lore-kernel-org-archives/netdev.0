@@ -1,53 +1,56 @@
-From: Theodore Ts'o <tytso@mit.edu>
-Subject: Re: HalfSipHash Acceptable Usage
-Date: Tue, 20 Dec 2016 16:36:36 -0500
-Message-ID: <20161220213636.tiqj2o4uupasr4aj@thunk.org>
-References: <CAHmME9rPmH=wP_eHYopt8ZPG9TSN7bos3fGOuqKL2HjQW-2SWA@mail.gmail.com>
-Reply-To: kernel-hardening@lists.openwall.com
+From: Murali Karicheri <m-karicheri2-l0cyMroinI0@public.gmane.org>
+Subject: [PATCH net-next 00/10] netcp: enhancements and minor fixes
+Date: Tue, 20 Dec 2016 17:09:43 -0500
+Message-ID: <1482271793-7671-1-git-send-email-m-karicheri2@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Eric Biggers <ebiggers3@gmail.com>,
-	"Daniel J . Bernstein" <djb@cr.yp.to>,
-	David Laight <David.Laight@aculab.com>,
-	David Miller <davem@davemloft.net>, Andi Kleen <ak@linux.intel.com>,
-	George Spelvin <linux@sciencehorizons.net>,
-	kernel-hardening@lists.openwall.com,
-	Andy Lutomirski <luto@amacapital.net>,
-	Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-	Tom Herbert <tom@herbertland.com>,
-	Vegard Nossum <vegard.nossum@gmail.com>,
-	Netdev <netdev@vger.kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>
-To: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Return-path: <kernel-hardening-return-5726-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-Content-Disposition: inline
-In-Reply-To: <CAHmME9rPmH=wP_eHYopt8ZPG9TSN7bos3fGOuqKL2HjQW-2SWA@mail.gmail.com>
+Content-Type: text/plain
+To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        <grygorii.strashko-l0cyMroinI0@public.gmane.org>, <mugunthanvnm-l0cyMroinI0@public.gmane.org>,
+        <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <arnd-r2nGTMty4D4@public.gmane.org>,
+        <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        <mark.rutland-5wv7dgnIgG8@public.gmane.org>, <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 19, 2016 at 06:32:44PM +0100, Jason A. Donenfeld wrote:
-> 1) Anything that requires actual long-term security will use
-> SipHash2-4, with the 64-bit output and the 128-bit key. This includes
-> things like TCP sequence numbers. This seems pretty uncontroversial to
-> me. Seem okay to you?
+This series is for net-next. This propagates enhancements and minor
+bug fixes from internal version of the driver to keep the upstream
+in sync. Please review and apply if this looks good.
 
-Um, why do TCP sequence numbers need long-term security?  So long as
-you rekey every 5 minutes or so, TCP sequence numbers don't need any
-more security than that, since even if you break the key used to
-generate initial sequence numbers seven a minute or two later, any
-pending TCP connections will have timed out long before.
+Tested on all of K2HK/E/L boards.
 
-See the security analysis done in RFC 6528[1], where among other
-things, it points out why MD5 is acceptable with periodic rekeying,
-although there is the concern that this could break certain hueristics
-used when establishing new connections during the TIME-WAIT state.
+Thanks
+Murali Karicheri
 
-[1] https://tools.ietf.org/html/rfc6528
+Michael Scherban (1):
+  net: netcp: store network statistics in 64 bits
 
-						- Ted
+Murali Karicheri (7):
+  net: netcp: extract eflag from desc for rx_hook handling
+  net: netcp: remove the redundant memmov()
+  net: netcp: ethss: get phy-handle only if link interface is MAC-to-PHY
+  net: netcp: use hw capability to remove FCS word from rx packets
+  net: netcp: ale: update to support unknown vlan controls for NU switch
+  net: netcp: ale: use ale_status to size the ale table
+  net: netcp: ale: add proper ale entry mask bits for netcp switch ALE
+
+WingMan Kwok (2):
+  net: netcp: ethss: add support of subsystem register region regmap
+  net: netcp: ethss: add support of 10gbe pcsr link status
+
+ .../devicetree/bindings/net/keystone-netcp.txt     |  19 +-
+ drivers/net/ethernet/ti/cpsw_ale.c                 | 180 ++++++++++++++++---
+ drivers/net/ethernet/ti/cpsw_ale.h                 |  17 +-
+ drivers/net/ethernet/ti/netcp.h                    |  21 +++
+ drivers/net/ethernet/ti/netcp_core.c               | 102 ++++++++---
+ drivers/net/ethernet/ti/netcp_ethss.c              | 200 +++++++++++++++++----
+ include/linux/soc/ti/knav_dma.h                    |   2 +
+ 7 files changed, 456 insertions(+), 85 deletions(-)
+
+-- 
+1.9.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
