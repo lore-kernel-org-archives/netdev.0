@@ -1,42 +1,41 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH net] netfilter: check duplicate config when initializing
- in ipt_CLUSTERIP
-Date: Tue, 20 Dec 2016 01:48:03 +0100
-Message-ID: <20161220004803.GA14656@salvia>
-References: <9b3e1f76b5670d33727e63b6e166ae416b0d65af.1481776300.git.lucien.xin@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: network dev <netdev@vger.kernel.org>,
-        netfilter-devel@vger.kernel.org, davem@davemloft.net,
-        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-To: Xin Long <lucien.xin@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <9b3e1f76b5670d33727e63b6e166ae416b0d65af.1481776300.git.lucien.xin@gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jarno Rajahalme <jarno@ovn.org>
+Subject: [PATCH net] openvswitch: Add a missing break statement.
+Date: Mon, 19 Dec 2016 17:06:33 -0800
+Message-ID: <1482195993-97937-1-git-send-email-jarno@ovn.org>
+Cc: jarno@ovn.org, jbenc@redhat.com, pshelar@ovn.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay4-d.mail.gandi.net ([217.70.183.196]:37780 "EHLO
+        relay4-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933063AbcLTBGv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2016 20:06:51 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 15, 2016 at 12:31:40PM +0800, Xin Long wrote:
-> @@ -185,6 +186,17 @@ clusterip_config_init(const struct ipt_clusterip_tgt_info *i, __be32 ip,
->  	atomic_set(&c->refcount, 1);
->  	atomic_set(&c->entries, 1);
->  
-> +	spin_lock_bh(&cn->lock);
-> +	if (__clusterip_config_find(net, ip)) {
-> +		spin_unlock_bh(&cn->lock);
-> +		kfree(c);
-> +
-> +		return NULL;
-> +	}
+Add a break statement to prevent fall-through from
+OVS_KEY_ATTR_ETHERNET to OVS_KEY_ATTR_TUNNEL.  Without the break
+actions setting ethernet addresses fail to validate with log messages
+complaining about invalid tunnel attributes.
 
-This is going to result in ENOMEM error report to userspace on race,
-which can be confusing. Time for clusterip_config_init() to return
-PTR_ERR()?
+Fixes: 0a6410fbde ("openvswitch: netlink: support L3 packets")
+Signed-off-by: Jarno Rajahalme <jarno@ovn.org>
+Acked-by: Pravin B Shelar <pshelar@ovn.org>
+Acked-by: Jiri Benc <jbenc@redhat.com>
+---
+ net/openvswitch/flow_netlink.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-> +
-> +	list_add_rcu(&c->list, &cn->configs);
-> +	spin_unlock_bh(&cn->lock);
-> +
->  #ifdef CONFIG_PROC_FS
->  	{
->  		char buffer[16];
+diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
+index d19044f..c87d359 100644
+--- a/net/openvswitch/flow_netlink.c
++++ b/net/openvswitch/flow_netlink.c
+@@ -2195,6 +2195,7 @@ static int validate_set(const struct nlattr *a,
+ 	case OVS_KEY_ATTR_ETHERNET:
+ 		if (mac_proto != MAC_PROTO_ETHERNET)
+ 			return -EINVAL;
++		break;
+ 
+ 	case OVS_KEY_ATTR_TUNNEL:
+ 		if (masked)
+-- 
+2.1.4
