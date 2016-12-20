@@ -1,124 +1,252 @@
-From: Murali Karicheri <m-karicheri2@ti.com>
-Subject: [PATCH net-next 03/10] net: netcp: extract eflag from desc for rx_hook handling
-Date: Tue, 20 Dec 2016 17:09:46 -0500
-Message-ID: <1482271793-7671-4-git-send-email-m-karicheri2@ti.com>
-References: <1482271793-7671-1-git-send-email-m-karicheri2@ti.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-To: <netdev@vger.kernel.org>, <linux-omap@vger.kernel.org>,
-        <grygorii.strashko@ti.com>, <mugunthanvnm@ti.com>,
-        <linux-kernel@vger.kernel.org>, <arnd@arndb.de>,
-        <davem@davemloft.net>, <devicetree@vger.kernel.org>,
-        <mark.rutland@arm.com>, <robh+dt@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fllnx209.ext.ti.com ([198.47.19.16]:44396 "EHLO
-        fllnx209.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934309AbcLTWKC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2016 17:10:02 -0500
-In-Reply-To: <1482271793-7671-1-git-send-email-m-karicheri2@ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH 1/2] net: mdio: add mdio45_ethtool_ksettings_get
+Date: Tue, 20 Dec 2016 23:24:26 +0100
+Message-ID: <1482272667-1206-1-git-send-email-tremyfr@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Philippe Reynes <tremyfr@gmail.com>
+To: linux-net-drivers@solarflare.com, ecree@solarflare.com,
+        bkenward@solarflare.com, davem@davemloft.net, andrew@lunn.ch
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Extract the eflag bits from the received desc and pass it down
-the rx_hook chain to be available for netcp modules. Also the
-psdata and epib data has to be inspected by the netcp modules.
-So the desc can be freed only after returning from the rx_hook.
-So move knav_pool_desc_put() after the rx_hook processing.
+There is a function in mdio for the old ethtool api gset.
+We add a new function mdio45_ethtool_ksettings_get for the
+new ethtool api glinksettings.
 
-Signed-off-by: Murali Karicheri <m-karicheri2@ti.com>
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
 ---
- drivers/net/ethernet/ti/netcp.h      |  1 +
- drivers/net/ethernet/ti/netcp_core.c | 20 +++++++++++++++++---
- include/linux/soc/ti/knav_dma.h      |  2 ++
- 3 files changed, 20 insertions(+), 3 deletions(-)
+ drivers/net/mdio.c   |  178 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ include/linux/mdio.h |   21 ++++++
+ 2 files changed, 199 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/ti/netcp.h b/drivers/net/ethernet/ti/netcp.h
-index 0f58c58..a92abd6 100644
---- a/drivers/net/ethernet/ti/netcp.h
-+++ b/drivers/net/ethernet/ti/netcp.h
-@@ -115,6 +115,7 @@ struct netcp_packet {
- 	struct sk_buff		*skb;
- 	__le32			*epib;
- 	u32			*psdata;
-+	u32			eflags;
- 	unsigned int		psdata_len;
- 	struct netcp_intf	*netcp;
- 	struct netcp_tx_pipe	*tx_pipe;
-diff --git a/drivers/net/ethernet/ti/netcp_core.c b/drivers/net/ethernet/ti/netcp_core.c
-index c243335..a136c56 100644
---- a/drivers/net/ethernet/ti/netcp_core.c
-+++ b/drivers/net/ethernet/ti/netcp_core.c
-@@ -122,6 +122,13 @@ static void get_pkt_info(dma_addr_t *buff, u32 *buff_len, dma_addr_t *ndesc,
- 	*ndesc = le32_to_cpu(desc->next_desc);
+diff --git a/drivers/net/mdio.c b/drivers/net/mdio.c
+index 3e027ed..077364c 100644
+--- a/drivers/net/mdio.c
++++ b/drivers/net/mdio.c
+@@ -342,6 +342,184 @@ void mdio45_ethtool_gset_npage(const struct mdio_if_info *mdio,
+ EXPORT_SYMBOL(mdio45_ethtool_gset_npage);
+ 
+ /**
++ * mdio45_ethtool_ksettings_get_npage - get settings for ETHTOOL_GLINKSETTINGS
++ * @mdio: MDIO interface
++ * @cmd: Ethtool request structure
++ * @npage_adv: Modes currently advertised on next pages
++ * @npage_lpa: Modes advertised by link partner on next pages
++ *
++ * The @cmd parameter is expected to have been cleared before calling
++ * mdio45_ethtool_ksettings_get_npage().
++ *
++ * Since the CSRs for auto-negotiation using next pages are not fully
++ * standardised, this function does not attempt to decode them.  The
++ * caller must pass them in.
++ */
++void mdio45_ethtool_ksettings_get_npage(const struct mdio_if_info *mdio,
++					struct ethtool_link_ksettings *cmd,
++					u32 npage_adv, u32 npage_lpa)
++{
++	int reg;
++	u32 speed, supported = 0, advertising = 0, lp_advertising = 0;
++
++	BUILD_BUG_ON(MDIO_SUPPORTS_C22 != ETH_MDIO_SUPPORTS_C22);
++	BUILD_BUG_ON(MDIO_SUPPORTS_C45 != ETH_MDIO_SUPPORTS_C45);
++
++	cmd->base.phy_address = mdio->prtad;
++	cmd->base.mdio_support =
++		mdio->mode_support & (MDIO_SUPPORTS_C45 | MDIO_SUPPORTS_C22);
++
++	reg = mdio->mdio_read(mdio->dev, mdio->prtad, MDIO_MMD_PMAPMD,
++			      MDIO_CTRL2);
++	switch (reg & MDIO_PMA_CTRL2_TYPE) {
++	case MDIO_PMA_CTRL2_10GBT:
++	case MDIO_PMA_CTRL2_1000BT:
++	case MDIO_PMA_CTRL2_100BTX:
++	case MDIO_PMA_CTRL2_10BT:
++		cmd->base.port = PORT_TP;
++		supported = SUPPORTED_TP;
++		reg = mdio->mdio_read(mdio->dev, mdio->prtad, MDIO_MMD_PMAPMD,
++				      MDIO_SPEED);
++		if (reg & MDIO_SPEED_10G)
++			supported |= SUPPORTED_10000baseT_Full;
++		if (reg & MDIO_PMA_SPEED_1000)
++			supported |= (SUPPORTED_1000baseT_Full |
++					    SUPPORTED_1000baseT_Half);
++		if (reg & MDIO_PMA_SPEED_100)
++			supported |= (SUPPORTED_100baseT_Full |
++					    SUPPORTED_100baseT_Half);
++		if (reg & MDIO_PMA_SPEED_10)
++			supported |= (SUPPORTED_10baseT_Full |
++					    SUPPORTED_10baseT_Half);
++		advertising = ADVERTISED_TP;
++		break;
++
++	case MDIO_PMA_CTRL2_10GBCX4:
++		cmd->base.port = PORT_OTHER;
++		supported = 0;
++		advertising = 0;
++		break;
++
++	case MDIO_PMA_CTRL2_10GBKX4:
++	case MDIO_PMA_CTRL2_10GBKR:
++	case MDIO_PMA_CTRL2_1000BKX:
++		cmd->base.port = PORT_OTHER;
++		supported = SUPPORTED_Backplane;
++		reg = mdio->mdio_read(mdio->dev, mdio->prtad, MDIO_MMD_PMAPMD,
++				      MDIO_PMA_EXTABLE);
++		if (reg & MDIO_PMA_EXTABLE_10GBKX4)
++			supported |= SUPPORTED_10000baseKX4_Full;
++		if (reg & MDIO_PMA_EXTABLE_10GBKR)
++			supported |= SUPPORTED_10000baseKR_Full;
++		if (reg & MDIO_PMA_EXTABLE_1000BKX)
++			supported |= SUPPORTED_1000baseKX_Full;
++		reg = mdio->mdio_read(mdio->dev, mdio->prtad, MDIO_MMD_PMAPMD,
++				      MDIO_PMA_10GBR_FECABLE);
++		if (reg & MDIO_PMA_10GBR_FECABLE_ABLE)
++			supported |= SUPPORTED_10000baseR_FEC;
++		advertising = ADVERTISED_Backplane;
++		break;
++
++	/* All the other defined modes are flavours of optical */
++	default:
++		cmd->base.port = PORT_FIBRE;
++		supported = SUPPORTED_FIBRE;
++		advertising = ADVERTISED_FIBRE;
++		break;
++	}
++
++	if (mdio->mmds & MDIO_DEVS_AN) {
++		supported |= SUPPORTED_Autoneg;
++		reg = mdio->mdio_read(mdio->dev, mdio->prtad, MDIO_MMD_AN,
++				      MDIO_CTRL1);
++		if (reg & MDIO_AN_CTRL1_ENABLE) {
++			cmd->base.autoneg = AUTONEG_ENABLE;
++			advertising |=
++				ADVERTISED_Autoneg |
++				mdio45_get_an(mdio, MDIO_AN_ADVERTISE) |
++				npage_adv;
++		} else {
++			cmd->base.autoneg = AUTONEG_DISABLE;
++		}
++	} else {
++		cmd->base.autoneg = AUTONEG_DISABLE;
++	}
++
++	if (cmd->base.autoneg) {
++		u32 modes = 0;
++		int an_stat = mdio->mdio_read(mdio->dev, mdio->prtad,
++					      MDIO_MMD_AN, MDIO_STAT1);
++
++		/* If AN is complete and successful, report best common
++		 * mode, otherwise report best advertised mode.
++		 */
++		if (an_stat & MDIO_AN_STAT1_COMPLETE) {
++			lp_advertising =
++				mdio45_get_an(mdio, MDIO_AN_LPA) | npage_lpa;
++			if (an_stat & MDIO_AN_STAT1_LPABLE)
++				lp_advertising |= ADVERTISED_Autoneg;
++			modes = advertising & lp_advertising;
++		}
++		if ((modes & ~ADVERTISED_Autoneg) == 0)
++			modes = advertising;
++
++		if (modes & (ADVERTISED_10000baseT_Full |
++			     ADVERTISED_10000baseKX4_Full |
++			     ADVERTISED_10000baseKR_Full)) {
++			speed = SPEED_10000;
++			cmd->base.duplex = DUPLEX_FULL;
++		} else if (modes & (ADVERTISED_1000baseT_Full |
++				    ADVERTISED_1000baseT_Half |
++				    ADVERTISED_1000baseKX_Full)) {
++			speed = SPEED_1000;
++			cmd->base.duplex = !(modes & ADVERTISED_1000baseT_Half);
++		} else if (modes & (ADVERTISED_100baseT_Full |
++				    ADVERTISED_100baseT_Half)) {
++			speed = SPEED_100;
++			cmd->base.duplex = !!(modes & ADVERTISED_100baseT_Full);
++		} else {
++			speed = SPEED_10;
++			cmd->base.duplex = !!(modes & ADVERTISED_10baseT_Full);
++		}
++	} else {
++		/* Report forced settings */
++		reg = mdio->mdio_read(mdio->dev, mdio->prtad, MDIO_MMD_PMAPMD,
++				      MDIO_CTRL1);
++		speed = (((reg & MDIO_PMA_CTRL1_SPEED1000) ? 100 : 1)
++			 * ((reg & MDIO_PMA_CTRL1_SPEED100) ? 100 : 10));
++		cmd->base.duplex = (reg & MDIO_CTRL1_FULLDPLX ||
++				    speed == SPEED_10000);
++	}
++
++	cmd->base.speed = speed;
++
++	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.supported,
++						supported);
++	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.advertising,
++						advertising);
++	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.lp_advertising,
++						lp_advertising);
++
++	/* 10GBASE-T MDI/MDI-X */
++	if (cmd->base.port == PORT_TP && (cmd->base.speed == SPEED_10000)) {
++		switch (mdio->mdio_read(mdio->dev, mdio->prtad, MDIO_MMD_PMAPMD,
++					MDIO_PMA_10GBT_SWAPPOL)) {
++		case MDIO_PMA_10GBT_SWAPPOL_ABNX | MDIO_PMA_10GBT_SWAPPOL_CDNX:
++			cmd->base.eth_tp_mdix = ETH_TP_MDI;
++			break;
++		case 0:
++			cmd->base.eth_tp_mdix = ETH_TP_MDI_X;
++			break;
++		default:
++			/* It's complicated... */
++			cmd->base.eth_tp_mdix = ETH_TP_MDI_INVALID;
++			break;
++		}
++	}
++}
++EXPORT_SYMBOL(mdio45_ethtool_ksettings_get_npage);
++
++/**
+  * mdio_mii_ioctl - MII ioctl interface for MDIO (clause 22 or 45) PHYs
+  * @mdio: MDIO interface
+  * @mii_data: MII ioctl data structure
+diff --git a/include/linux/mdio.h b/include/linux/mdio.h
+index bf9d1d7..b6587a4 100644
+--- a/include/linux/mdio.h
++++ b/include/linux/mdio.h
+@@ -130,6 +130,10 @@ extern int mdio_set_flag(const struct mdio_if_info *mdio,
+ extern void mdio45_ethtool_gset_npage(const struct mdio_if_info *mdio,
+ 				      struct ethtool_cmd *ecmd,
+ 				      u32 npage_adv, u32 npage_lpa);
++extern void
++mdio45_ethtool_ksettings_get_npage(const struct mdio_if_info *mdio,
++				   struct ethtool_link_ksettings *cmd,
++				   u32 npage_adv, u32 npage_lpa);
+ 
+ /**
+  * mdio45_ethtool_gset - get settings for ETHTOOL_GSET
+@@ -147,6 +151,23 @@ static inline void mdio45_ethtool_gset(const struct mdio_if_info *mdio,
+ 	mdio45_ethtool_gset_npage(mdio, ecmd, 0, 0);
  }
  
-+static void get_desc_info(u32 *desc_info, u32 *pkt_info,
-+			  struct knav_dma_desc *desc)
++/**
++ * mdio45_ethtool_ksettings_get - get settings for ETHTOOL_GLINKSETTINGS
++ * @mdio: MDIO interface
++ * @cmd: Ethtool request structure
++ *
++ * Since the CSRs for auto-negotiation using next pages are not fully
++ * standardised, this function does not attempt to decode them.  Use
++ * mdio45_ethtool_ksettings_get_npage() to specify advertisement bits
++ * from next pages.
++ */
++static inline void
++mdio45_ethtool_ksettings_get(const struct mdio_if_info *mdio,
++			     struct ethtool_link_ksettings *cmd)
 +{
-+	*desc_info = le32_to_cpu(desc->desc_info);
-+	*pkt_info = le32_to_cpu(desc->packet_info);
++	mdio45_ethtool_ksettings_get_npage(mdio, cmd, 0, 0);
 +}
 +
- static u32 get_sw_data(int index, struct knav_dma_desc *desc)
- {
- 	/* No Endian conversion needed as this data is untouched by hw */
-@@ -653,6 +660,7 @@ static int netcp_process_one_rx_packet(struct netcp_intf *netcp)
- 	struct netcp_packet p_info;
- 	struct sk_buff *skb;
- 	void *org_buf_ptr;
-+	u32 tmp;
+ extern int mdio_mii_ioctl(const struct mdio_if_info *mdio,
+ 			  struct mii_ioctl_data *mii_data, int cmd);
  
- 	dma_desc = knav_queue_pop(netcp->rx_queue, &dma_sz);
- 	if (!dma_desc)
-@@ -724,9 +732,6 @@ static int netcp_process_one_rx_packet(struct netcp_intf *netcp)
- 		knav_pool_desc_put(netcp->rx_pool, ndesc);
- 	}
- 
--	/* Free the primary descriptor */
--	knav_pool_desc_put(netcp->rx_pool, desc);
--
- 	/* check for packet len and warn */
- 	if (unlikely(pkt_sz != accum_sz))
- 		dev_dbg(netcp->ndev_dev, "mismatch in packet size(%d) & sum of fragments(%d)\n",
-@@ -739,6 +744,11 @@ static int netcp_process_one_rx_packet(struct netcp_intf *netcp)
- 	p_info.skb = skb;
- 	skb->dev = netcp->ndev;
- 	p_info.rxtstamp_complete = false;
-+	get_desc_info(&tmp, &p_info.eflags, desc);
-+	p_info.epib = desc->epib;
-+	p_info.psdata = (u32 __force *)desc->psdata;
-+	p_info.eflags = ((p_info.eflags >> KNAV_DMA_DESC_EFLAGS_SHIFT) &
-+			 KNAV_DMA_DESC_EFLAGS_MASK);
- 	list_for_each_entry(rx_hook, &netcp->rxhook_list_head, list) {
- 		int ret;
- 
-@@ -748,10 +758,14 @@ static int netcp_process_one_rx_packet(struct netcp_intf *netcp)
- 			dev_err(netcp->ndev_dev, "RX hook %d failed: %d\n",
- 				rx_hook->order, ret);
- 			netcp->ndev->stats.rx_errors++;
-+			/* Free the primary descriptor */
-+			knav_pool_desc_put(netcp->rx_pool, desc);
- 			dev_kfree_skb(skb);
- 			return 0;
- 		}
- 	}
-+	/* Free the primary descriptor */
-+	knav_pool_desc_put(netcp->rx_pool, desc);
- 
- 	netcp->ndev->stats.rx_packets++;
- 	netcp->ndev->stats.rx_bytes += skb->len;
-diff --git a/include/linux/soc/ti/knav_dma.h b/include/linux/soc/ti/knav_dma.h
-index 35cb926..2b78826 100644
---- a/include/linux/soc/ti/knav_dma.h
-+++ b/include/linux/soc/ti/knav_dma.h
-@@ -41,6 +41,8 @@
- #define KNAV_DMA_DESC_RETQ_SHIFT		0
- #define KNAV_DMA_DESC_RETQ_MASK			MASK(14)
- #define KNAV_DMA_DESC_BUF_LEN_MASK		MASK(22)
-+#define KNAV_DMA_DESC_EFLAGS_MASK		MASK(4)
-+#define KNAV_DMA_DESC_EFLAGS_SHIFT		20
- 
- #define KNAV_DMA_NUM_EPIB_WORDS			4
- #define KNAV_DMA_NUM_PS_WORDS			16
 -- 
-1.9.1
+1.7.4.4
