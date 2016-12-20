@@ -1,63 +1,82 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: Re: [PATCH net] virtio_net: reject XDP programs using header adjustment
-Date: Tue, 20 Dec 2016 12:30:39 +0000
-Message-ID: <CAJpBn1wKkJ83GLznzQ+DCs7JZb-FkQ-zYu3d6i4p1RmfKy0mig@mail.gmail.com>
-References: <20161219150500.2600-1-jakub.kicinski@netronome.com> <58581E01.7070902@gmail.com>
+From: Weilong Chen <chenweilong@huawei.com>
+Subject: Re: [PATCH net-next] ixgbevf: fix 'Etherleak' in ixgbevf
+Date: Tue, 20 Dec 2016 19:50:30 +0800
+Message-ID: <5c942aba-f7fb-ede6-b6a2-e591025f53a5@huawei.com>
+References: <1481802034-77729-1-git-send-email-chenweilong@huawei.com>
+ <CAKgT0UfA9VG4NQZLLxXvobtfp22yPpPssSM4Ge94KFa1RVnhyg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, kafai@fb.com,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        alexei.starovoitov@gmail.com, mst@redhat.com
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f175.google.com ([209.85.216.175]:35233 "EHLO
-        mail-qt0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757447AbcLTMal (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2016 07:30:41 -0500
-Received: by mail-qt0-f175.google.com with SMTP id c47so174990694qtc.2
-        for <netdev@vger.kernel.org>; Tue, 20 Dec 2016 04:30:40 -0800 (PST)
-In-Reply-To: <58581E01.7070902@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+        Netdev <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        <wangkefeng.wang@huawei.com>
+To: Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAKgT0UfA9VG4NQZLLxXvobtfp22yPpPssSM4Ge94KFa1RVnhyg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 19, 2016 at 5:50 PM, John Fastabend
-<john.fastabend@gmail.com> wrote:
-> On 16-12-19 07:05 AM, Jakub Kicinski wrote:
->> commit 17bedab27231 ("bpf: xdp: Allow head adjustment in XDP prog")
->> added a new XDP helper to prepend and remove data from a frame.
->> Make virtio_net reject programs making use of this helper until
->> proper support is added.
+Hi,
+
+Thanks for you reply.
+We test you patch, but the problem is still there, it seems do not work.
+
+I'm not sure why ixgbe use the limit 17. The kenel use ETH_ZLEN (60) 
+with out FCS. A lot of drivers such as e1000 use it. Any explaination?
+
+Thanks.
+
+On 2016/12/16 0:13, Alexander Duyck wrote:
+> On Thu, Dec 15, 2016 at 3:40 AM, Weilong Chen <chenweilong@huawei.com> wrote:
+>> Nessus report the vf appears to leak memory in network packets.
+>> Fix this by padding all small packets manually.
 >>
->> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+>> And the CVE-2003-0001.
+>> https://ofirarkin.files.wordpress.com/2008/11/atstake_etherleak_report.pdf
+>>
+>> Signed-off-by: Weilong Chen <chenweilong@huawei.com>
 >> ---
->>  drivers/net/virtio_net.c | 5 +++++
->>  1 file changed, 5 insertions(+)
+>>  drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 7 +++++++
+>>  1 file changed, 7 insertions(+)
 >>
->> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
->> index 08327e005ccc..db761f37783e 100644
->> --- a/drivers/net/virtio_net.c
->> +++ b/drivers/net/virtio_net.c
->> @@ -1677,6 +1677,11 @@ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
->>       u16 xdp_qp = 0, curr_qp;
->>       int i, err;
+>> diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+>> index 6d4bef5..137a154 100644
+>> --- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+>> +++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+>> @@ -3654,6 +3654,13 @@ static int ixgbevf_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
+>>                 return NETDEV_TX_OK;
+>>         }
 >>
->> +     if (prog && prog->xdp_adjust_head) {
->> +             netdev_warn(dev, "Does not support bpf_xdp_adjust_head()\n");
->> +             return -EOPNOTSUPP;
->> +     }
+>> +       /* On PCI/PCI-X HW, if packet size is less than ETH_ZLEN,
+>> +        * packets may get corrupted during padding by HW.
+>> +        * To WA this issue, pad all small packets manually.
+>> +        */
+>> +       if (eth_skb_pad(skb))
+>> +               return NETDEV_TX_OK;
 >> +
->>       if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_TSO4) ||
->>           virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_TSO6)) {
->>               netdev_warn(dev, "can't set XDP while host is implementing LRO, disable LRO first\n");
+>
+> So the patch description for this probably isn't correct.  It looks
+> like the problem isn't leaking data it is the fact that the frames
+> aren't being padded to prevent malicious events.  The only issue is
+> the patch is padding by a bit too much.  I would recommend replacing
+> this with the following from ixgbe:
+>
+>         /*
+>          * The minimum packet size for olinfo paylen is 17 so pad the skb
+>          * in order to meet this minimum size requirement.
+>          */
+>         if (skb_put_padto(skb, 17))
+>                 return NETDEV_TX_OK;
+>
+>
+>>         tx_ring = adapter->tx_ring[skb->queue_mapping];
+>>
+>>         /* need: 1 descriptor per page * PAGE_SIZE/IXGBE_MAX_DATA_PER_TXD,
+>> --
+>> 1.7.12
 >>
 >
-> Acked-by: John Fastabend <john.r.fastabend@intel.com>
+> .
 >
-> Thanks patch looks good. Alternatively we could push a "bug fix" to
-> support the adjust header feature depending on how DaveM and MST feel
-> about that. I don't have a strong opinion but I have the patch on my
-> queue it just needs some more testing.
-
-Cool!  I thought to ask you what your plans are but then this patch is so
-trivial I decided to just post it :) I'm perfectly happy with dropping it
-for now and reposting after ~rc5 if needed.
