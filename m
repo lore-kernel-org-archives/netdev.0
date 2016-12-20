@@ -1,64 +1,104 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: Soft lockup in inet_put_port on 4.6
-Date: Mon, 19 Dec 2016 18:07:41 -0800
-Message-ID: <CALx6S340vCsaymbx+CcKL3Zi2p9EvDSwc0fDAxKsSqs4C2p5kg@mail.gmail.com>
-References: <1481928610.17731.0@smtp.office365.com> <e32b5375-38fb-1fd8-d97a-bf740e368205@stressinduktion.org>
- <286A21B1-2A15-4DDF-B334-A016DA3D52EA@fb.com> <20161219.205646.1955469060856026212.davem@davemloft.net>
+From: Dongpo Li <lidongpo@hisilicon.com>
+Subject: [PATCH 1/2] net: hix5hd2_gmac: fix compatible strings name
+Date: Tue, 20 Dec 2016 10:09:28 +0800
+Message-ID: <1482199769-106501-2-git-send-email-lidongpo@hisilicon.com>
+References: <1482199769-106501-1-git-send-email-lidongpo@hisilicon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Josef Bacik <jbacik@fb.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Craig Gallek <kraigatgoog@gmail.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f177.google.com ([209.85.220.177]:34638 "EHLO
-        mail-qk0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752315AbcLTCHm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2016 21:07:42 -0500
-Received: by mail-qk0-f177.google.com with SMTP id q68so35045688qki.1
-        for <netdev@vger.kernel.org>; Mon, 19 Dec 2016 18:07:42 -0800 (PST)
-In-Reply-To: <20161219.205646.1955469060856026212.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <xuejiancheng@hisilicon.com>, <benjamin.chenhao@hisilicon.com>,
+        <caizhiyong@hisilicon.com>, <netdev@vger.kernel.org>,
+        <devicetree@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        Dongpo Li <lidongpo@hisilicon.com>
+To: <robh+dt@kernel.org>, <mark.rutland@arm.com>,
+        <linux@armlinux.org.uk>, <yisen.zhuang@huawei.com>,
+        <salil.mehta@huawei.com>, <davem@davemloft.net>, <arnd@arndb.de>,
+        <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1482199769-106501-1-git-send-email-lidongpo@hisilicon.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 19, 2016 at 5:56 PM, David Miller <davem@davemloft.net> wrote:
-> From: Josef Bacik <jbacik@fb.com>
-> Date: Sat, 17 Dec 2016 13:26:00 +0000
->
->> So take my current duct tape fix and augment it with more
->> information in the bind bucket?  I'm not sure how to make this work
->> without at least having a list of the binded addrs as well to make
->> sure we are really ok.  I suppose we could save the fastreuseport
->> address that last succeeded to make it work properly, but I'd have
->> to make it protocol agnostic and then have a callback to have the
->> protocol to make sure we don't have to do the bind_conflict run.  Is
->> that what you were thinking of?  Thanks,
->
-> So there isn't a deadlock or lockup here, something is just running
-> really slow, right?
->
-Correct.
+The SoC hix5hd2 compatible string has the suffix "-gmac" and
+we should not change its compatible string.
+So we should name all the compatible string with the suffix "-gmac".
+Creating a new name suffix "-gemac" is unnecessary.
 
-> And that "something" is a scan of the sockets on a tb list, and
-> there's lots of timewait sockets hung off of that tb.
->
-Yes.
+We also add another SoC compatible string in dt binding documentation
+and describe which generic version the SoC belongs to.
 
-> As far as I can tell, this scan is happening in
-> inet_csk_bind_conflict().
->
-Yes.
+Fixes: d0fb6ba75dc0 ("net: hix5hd2_gmac: add generic compatible string")
+Signed-off-by: Dongpo Li <lidongpo@hisilicon.com>
+---
+ .../devicetree/bindings/net/hisilicon-hix5hd2-gmac.txt      | 13 ++++++++-----
+ drivers/net/ethernet/hisilicon/hix5hd2_gmac.c               | 13 +++++++------
+ 2 files changed, 15 insertions(+), 11 deletions(-)
 
-> Furthermore, reuseport is somehow required to make this problem
-> happen.  How exactly?
-
-When sockets created SO_REUSEPORT move to TW state they are placed
-back on the the tb->owners. fastreuse port is no longer set so we have
-to walk potential long list of sockets in tb->owners to open a new
-listener socket. I imagine this is happens when we try to open a new
-listener SO_REUSEPORT after the system has been running a while and so
-we hit the long tb->owners list.
-
-Tom
+diff --git a/Documentation/devicetree/bindings/net/hisilicon-hix5hd2-gmac.txt b/Documentation/devicetree/bindings/net/hisilicon-hix5hd2-gmac.txt
+index 063c02d..eea73ad 100644
+--- a/Documentation/devicetree/bindings/net/hisilicon-hix5hd2-gmac.txt
++++ b/Documentation/devicetree/bindings/net/hisilicon-hix5hd2-gmac.txt
+@@ -2,11 +2,14 @@ Hisilicon hix5hd2 gmac controller
+ 
+ Required properties:
+ - compatible: should contain one of the following SoC strings:
+-	* "hisilicon,hix5hd2-gemac"
+-	* "hisilicon,hi3798cv200-gemac"
++	* "hisilicon,hix5hd2-gmac"
++	* "hisilicon,hi3798cv200-gmac"
++	* "hisilicon,hi3516a-gmac"
+ 	and one of the following version string:
+-	* "hisilicon,hisi-gemac-v1"
+-	* "hisilicon,hisi-gemac-v2"
++	* "hisilicon,hisi-gmac-v1"
++	* "hisilicon,hisi-gmac-v2"
++  The version v1 includes SoCs hix5hd2.
++  The version v2 includes SoCs hi3798cv200, hi3516a.
+ - reg: specifies base physical address(s) and size of the device registers.
+   The first region is the MAC register base and size.
+   The second region is external interface control register.
+@@ -35,7 +38,7 @@ Required properties:
+ 
+ Example:
+ 	gmac0: ethernet@f9840000 {
+-		compatible = "hisilicon,hi3798cv200-gemac", "hisilicon,hisi-gemac-v2";
++		compatible = "hisilicon,hi3798cv200-gmac", "hisilicon,hisi-gmac-v2";
+ 		reg = <0xf9840000 0x1000>,<0xf984300c 0x4>;
+ 		interrupts = <0 71 4>;
+ 		#address-cells = <1>;
+diff --git a/drivers/net/ethernet/hisilicon/hix5hd2_gmac.c b/drivers/net/ethernet/hisilicon/hix5hd2_gmac.c
+index ee7e9ce..418ca1f3 100644
+--- a/drivers/net/ethernet/hisilicon/hix5hd2_gmac.c
++++ b/drivers/net/ethernet/hisilicon/hix5hd2_gmac.c
+@@ -1316,10 +1316,11 @@ static int hix5hd2_dev_remove(struct platform_device *pdev)
+ }
+ 
+ static const struct of_device_id hix5hd2_of_match[] = {
+-	{ .compatible = "hisilicon,hisi-gemac-v1", .data = (void *)GEMAC_V1 },
+-	{ .compatible = "hisilicon,hisi-gemac-v2", .data = (void *)GEMAC_V2 },
+-	{ .compatible = "hisilicon,hix5hd2-gemac", .data = (void *)GEMAC_V1 },
+-	{ .compatible = "hisilicon,hi3798cv200-gemac", .data = (void *)GEMAC_V2 },
++	{ .compatible = "hisilicon,hisi-gmac-v1", .data = (void *)GEMAC_V1 },
++	{ .compatible = "hisilicon,hisi-gmac-v2", .data = (void *)GEMAC_V2 },
++	{ .compatible = "hisilicon,hix5hd2-gmac", .data = (void *)GEMAC_V1 },
++	{ .compatible = "hisilicon,hi3798cv200-gmac", .data = (void *)GEMAC_V2 },
++	{ .compatible = "hisilicon,hi3516a-gmac", .data = (void *)GEMAC_V2 },
+ 	{},
+ };
+ 
+@@ -1327,7 +1328,7 @@ MODULE_DEVICE_TABLE(of, hix5hd2_of_match);
+ 
+ static struct platform_driver hix5hd2_dev_driver = {
+ 	.driver = {
+-		.name = "hisi-gemac",
++		.name = "hisi-gmac",
+ 		.of_match_table = hix5hd2_of_match,
+ 	},
+ 	.probe = hix5hd2_dev_probe,
+@@ -1338,4 +1339,4 @@ module_platform_driver(hix5hd2_dev_driver);
+ 
+ MODULE_DESCRIPTION("HISILICON Gigabit Ethernet MAC driver");
+ MODULE_LICENSE("GPL v2");
+-MODULE_ALIAS("platform:hisi-gemac");
++MODULE_ALIAS("platform:hisi-gmac");
+-- 
+2.8.2
