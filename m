@@ -1,55 +1,79 @@
-From: Josef Bacik <jbacik@fb.com>
-Subject: Re: Soft lockup in inet_put_port on 4.6
-Date: Tue, 20 Dec 2016 03:40:56 +0000
-Message-ID: <9DF94C8E-1463-4C10-81E3-E6F4534097CB@fb.com>
-References: <1481928610.17731.0@smtp.office365.com>
-         <e32b5375-38fb-1fd8-d97a-bf740e368205@stressinduktion.org>
-         <286A21B1-2A15-4DDF-B334-A016DA3D52EA@fb.com>
-         <20161219.205646.1955469060856026212.davem@davemloft.net>
-         <CALx6S340vCsaymbx+CcKL3Zi2p9EvDSwc0fDAxKsSqs4C2p5kg@mail.gmail.com>,<1482201702.1521.13.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Brian Norris <briannorris@chromium.org>
+Subject: Re: [PATCH v2 2/3] Bluetooth: btusb: Add out-of-band wakeup support
+Date: Mon, 19 Dec 2016 19:41:23 -0800
+Message-ID: <20161220034122.GA40060@google.com>
+References: <1481916604-114279-1-git-send-email-rajatja@google.com>
+ <1481916604-114279-2-git-send-email-rajatja@google.com>
+ <20161219231021.GA142074@google.com>
+ <CACK8Z6FteRYmrNq5Oq9LpHOUOYg49XrL0WsxD8G45pTw_cwaSg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: Tom Herbert <tom@herbertland.com>,
-        David Miller <davem@davemloft.net>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Craig Gallek <kraigatgoog@gmail.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:41959 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752111AbcLTDlE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2016 22:41:04 -0500
-In-Reply-To: <1482201702.1521.13.camel@edumazet-glaptop3.roam.corp.google.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Rob Herring <robh+dt@kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Marcel Holtmann <marcel@holtmann.org>,
+        Gustavo Padovan <gustavo@padovan.org>,
+        Johan Hedberg <johan.hedberg@gmail.com>,
+        Amitkumar Karwar <akarwar@marvell.com>,
+        Wei-Ning Huang <wnhuang@chromium.org>,
+        Xinming Hu <huxm@marvell.com>, netdev@vger.kernel.org,
+        devicetree@vger.kernel.org, linux-bluetooth@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Rajat Jain <rajatxjain@gmail.com>
+To: Rajat Jain <rajatja@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CACK8Z6FteRYmrNq5Oq9LpHOUOYg49XrL0WsxD8G45pTw_cwaSg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Mon, Dec 19, 2016 at 05:46:19PM -0800, Rajat Jain wrote:
+> On Mon, Dec 19, 2016 at 3:10 PM, Brian Norris <briannorris@chromium.org> wrote:
+> > On Fri, Dec 16, 2016 at 11:30:03AM -0800, Rajat Jain wrote:
+> >> diff --git a/drivers/bluetooth/btusb.c b/drivers/bluetooth/btusb.c
+> >> index ce22cef..beca4e9 100644
+> >> --- a/drivers/bluetooth/btusb.c
+> >> +++ b/drivers/bluetooth/btusb.c
 
-> On Dec 19, 2016, at 9:42 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->=20
->> On Mon, 2016-12-19 at 18:07 -0800, Tom Herbert wrote:
->>=20
->> When sockets created SO_REUSEPORT move to TW state they are placed
->> back on the the tb->owners. fastreuse port is no longer set so we have
->> to walk potential long list of sockets in tb->owners to open a new
->> listener socket. I imagine this is happens when we try to open a new
->> listener SO_REUSEPORT after the system has been running a while and so
->> we hit the long tb->owners list.
->=20
-> Hmm...  __inet_twsk_hashdance() does not change tb->fastreuse
->=20
-> So where tb->fastreuse is cleared ?
->=20
-> If all your sockets have SO_REUSEPORT set, this should not happen.
->=20
+> >> +static const struct of_device_id btusb_match_table[] = {
+> >> +     { .compatible = "usb1286,204e" },
+> >> +     { }
+> >> +};
+> >> +MODULE_DEVICE_TABLE(of, btusb_match_table);
+> >
+> > You define a match table here, but you also define essentially same
+> > table for Marvell-specific additions in patch 3. It looks like maybe
+> > it's legal to have more than one OF table in a module? But it seems like
+> > it would get confusing, besides being somewhat strange to maintain. It
+> > might also produce duplicate 'modinfo' output.
+> >
+> > If you really want to independently opt into device-tree-specified
+> > interrupts vs. Marvell-specific interrrupt configuration, then you
+> > should probably just merge the latter into the former table, and
+> > implement a Marvell/GPIO flag to stick in the .data field of this table.
+> 
+> The data we want to stick (The pin number on the chip) is board
+> specific rather than being chip specific, and hence .data may not be
+> useful here.
 
-The app starts out with no SO_REUSEPORT, and then we restart it with that o=
-ption enabled.  What I suspect is we have all the twsks from the original s=
-ervice, and the fastreuse stuff is cleared.  My naive patch resets it once =
-we add a reuseport sk to the tb and that makes the problem go away.  I'm re=
-working all of this logic and adding some extra info to the tb to make the =
-reset actually safe.  I'll send those patches out tomorrow. Thanks,
+I just meant that if you conceptually wanted Marvell devices to "opt in"
+to this, then you could turn the .data field into some kind of flag or
+struct for describing capabilities (e.g., MARVELL_GPIO_WAKE or similar),
+effectively merging the two tables instead of having two
+mostly-overlapping tables.
 
-Josef=
+But you could do the same by putting such flag(s) in the
+{btusb,blacklist}_table[], or add such flag(s) later whenever there's a
+Marvell device that doesn't support this feature.
+
+> > Or it might be fine to drop one or both "match" checks. Particularly for
+> > the Marvell-specific stuff, it's probably fair just to check if it has
+> > an ->of_node and if 'id->driver_info & BTUSB_MARVELL'. Any other Marvell
+> > device-specific quirks could probably be keyed off of the
+> > (weirdly-named?) blacklist_table[], which already matches PID/VID.
+> 
+> Yup, I think I can remove the compatible string checks.
+> 
+> I'll be sending a V3.
+
+Great!
+
+Brian
