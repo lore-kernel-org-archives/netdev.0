@@ -1,108 +1,46 @@
-From: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
-Subject: Re: Potential issues (security and otherwise) with the current
- cgroup-bpf API
-Date: Mon, 19 Dec 2016 17:56:24 -0800
-Message-ID: <CALCETrUW2jEYmjSsOrPj+MAjkDGGUCw_rdxQh+5Er0r4ReGLnA@mail.gmail.com>
-References: <CALCETrV81oFwq2AgeRsN54HA1jR=b5cOZfAgve8H8zhx83DTyA@mail.gmail.com>
- <20161219205631.GA31242@ast-mbp.thefacebook.com> <CALCETrWr5XMkexdGp7HdkiLkQV=P9ycj+sNO7xWSRoCVxihVZA@mail.gmail.com>
- <20161220000254.GA58895@ast-mbp.thefacebook.com> <CALCETrU1_bDVLfokQ7zasHVmeq7S-R+603GEw59V_wuj4eE1hw@mail.gmail.com>
- <2dbec775-6304-e44c-19c5-fbf07877e7b1@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Soft lockup in inet_put_port on 4.6
+Date: Mon, 19 Dec 2016 20:56:46 -0500 (EST)
+Message-ID: <20161219.205646.1955469060856026212.davem@davemloft.net>
+References: <1481928610.17731.0@smtp.office365.com>
+        <e32b5375-38fb-1fd8-d97a-bf740e368205@stressinduktion.org>
+        <286A21B1-2A15-4DDF-B334-A016DA3D52EA@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Andy Lutomirski <luto-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Daniel Mack <daniel-cYrQPVfZoowdnm+yROfE0A@public.gmane.org>,
-        =?UTF-8?B?TWlja2HDq2wgU2FsYcO8bg==?= <mic-WFhQfpSGs3bR7s880joybQ@public.gmane.org>,
-        Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, Jann Horn <jann-XZ1E9jl8jIdeoWH0uzbU5w@public.gmane.org>,
-        Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>,
-        Michael Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-        Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: David Ahern <dsahern-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <2dbec775-6304-e44c-19c5-fbf07877e7b1-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: hannes@stressinduktion.org, tom@herbertland.com,
+        kraigatgoog@gmail.com, eric.dumazet@gmail.com,
+        netdev@vger.kernel.org
+To: jbacik@fb.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:54794 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756863AbcLTB4s (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2016 20:56:48 -0500
+In-Reply-To: <286A21B1-2A15-4DDF-B334-A016DA3D52EA@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 19, 2016 at 5:44 PM, David Ahern <dsahern-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> On 12/19/16 5:25 PM, Andy Lutomirski wrote:
->> net.socket_create_filter =3D "none": no filter
->> net.socket_create_filter =3D "bpf:baadf00d": bpf filter
->> net.socket_create_filter =3D "disallow": no sockets created period
->> net.socket_create_filter =3D "iptables:foobar": some iptables thingy
->> net.socket_create_filter =3D "nft:blahblahblah": some nft thingy
->> net.socket_create_filter =3D "address_family_list:1,2,3": allow AF 1, 2,=
- and 3
->
-> Such a scheme works for the socket create filter b/c it is a very simple =
-use case. It does not work for the ingress and egress which allow generic b=
-pf filters.
+From: Josef Bacik <jbacik@fb.com>
+Date: Sat, 17 Dec 2016 13:26:00 +0000
 
-Can you elaborate on what goes wrong?  (Obviously the
-"address_family_list" example makes no sense in that context.)
+> So take my current duct tape fix and augment it with more
+> information in the bind bucket?  I'm not sure how to make this work
+> without at least having a list of the binded addrs as well to make
+> sure we are really ok.  I suppose we could save the fastreuseport
+> address that last succeeded to make it work properly, but I'd have
+> to make it protocol agnostic and then have a callback to have the
+> protocol to make sure we don't have to do the bind_conflict run.  Is
+> that what you were thinking of?  Thanks,
 
->
-> ...
->
->>> you're ignoring use cases I described earlier.
->>> In vrf case there is only one ifindex it needs to bind to.
->>
->> I'm totally lost.  Can you explain what this has to do with the cgroup
->> hierarchy?
->
-> I think the point is that a group hierarchy makes no sense for the VRF us=
-e case. What I put into iproute2 is
->
->     cgrp2/vrf/NAME
->
-> where NAME is the vrf name. The filter added to it binds ipv4 and ipv6 so=
-ckets to a specific device index. cgrp2/vrf is the "default" vrf and does n=
-ot have a filter. A user can certainly add another layer cgrp2/vrf/NAME/NAM=
-E2 but it provides no value since VRF in a VRF does not make sense.
+So there isn't a deadlock or lockup here, something is just running
+really slow, right?
 
-I tend to agree.  I still think that the mechanism as it stands is
-broken in other respects and should be fixed before it goes live.  I
-have no desire to cause problems for the vrf use case.
+And that "something" is a scan of the sockets on a tb list, and
+there's lots of timewait sockets hung off of that tb.
 
-But keep in mind that the vrf use case is, in Linus' tree, a bit
-broken right now in its interactions with other users of the same
-mechanism.  Suppose I create a container and want to trace all of its
-created sockets.  I'll set up cgrp2/container and load my tracer as a
-socket creation hook.  Then a container sets up
-cgrp2/container/vrf/NAME (using delgation) and loads your vrf binding
-filter.  Now the tracing stops working -- oops.
+As far as I can tell, this scan is happening in
+inet_csk_bind_conflict().
 
->
-> ...
->
->>>> I like this last one, but IT'S NOT A POSSIBLE FUTURE EXTENSION.  You
->>>> have to do it now (or disable the feature for 4.10).  This is why I'm
->>>> bringing this whole thing up now.
->>>
->>> We don't have to touch user visible api here, so extensions are fine.
->>
->> Huh?  My example in the original email attaches a program in a
->> sub-hierarchy.  Are you saying that 4.11 could make that example stop
->> working?
->
-> Are you suggesting sub-cgroups should not be allowed to override the filt=
-er of a parent cgroup?
-
-Yes, exactly.  I think there are two sensible behaviors:
-
-a) sub-cgroups cannot have a filter at all of the parent has a filter.
-(This is the "punt" approach -- it lets different semantics be
-assigned later without breaking userspace.)
-
-b) sub-cgroups can have a filter if a parent does, too.  The semantics
-are that the sub-cgroup filter runs first and all side-effects occur.
-If that filter says "reject" then ancestor filters are skipped.  If
-that filter says "accept", then the ancestor filter is run and its
-side-effects happen as well.  (And so on, all the way up to the root.)
-
---Andy
+Furthermore, reuseport is somehow required to make this problem
+happen.  How exactly?
