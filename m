@@ -1,29 +1,29 @@
-From: Timur Tabi <timur@codeaurora.org>
-Subject: Which ethtool methods should I implement?
-Date: Mon, 19 Dec 2016 19:29:38 -0600
-Message-ID: <58588982.5030006@codeaurora.org>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: Potential issues (security and otherwise) with the current
+ cgroup-bpf API
+Date: Mon, 19 Dec 2016 20:34:22 -0500 (EST)
+Message-ID: <20161219.203422.500916400463091702.davem@davemloft.net>
+References: <20161219205631.GA31242@ast-mbp.thefacebook.com>
+        <CALCETrWr5XMkexdGp7HdkiLkQV=P9ycj+sNO7xWSRoCVxihVZA@mail.gmail.com>
+        <20161220000254.GA58895@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:49132 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752461AbcLTB3k (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2016 20:29:40 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: luto-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, daniel-cYrQPVfZoowdnm+yROfE0A@public.gmane.org, mic-WFhQfpSGs3bR7s880joybQ@public.gmane.org,
+        keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org, jann-XZ1E9jl8jIdeoWH0uzbU5w@public.gmane.org, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+        dsahern-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, tgraf-G/eBtMaohhA@public.gmane.org, mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+        peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20161220000254.GA58895-+o4/htvd0TDFYCXBM6kdu7fOX0fSgVTm@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-I'm adding support for ethtool to my driver 
-(drivers/net/ethernet/qualcomm/emac/), and I can't find any meaningful 
-HOWTO documentation, so I'm not sure which methods I need to implement.
+From: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Mon, 19 Dec 2016 16:02:56 -0800
 
-Is there some minimal set of must-have ethtool methods that should be 
-implemented?  Since I support phylib, I guess I should use 
-phy_ethtool_get_link_ksettings and phy_ethtool_set_link_ksettings.  What 
-else?
+> huh? 'not right api' because it's using bpf syscall instead
+> of cgroup control-file? I think the opposite is the truth.
 
--- 
-Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
-Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
-Code Aurora Forum, a Linux Foundation Collaborative Project.
+I completely agree with Alexei on this.
