@@ -1,10 +1,10 @@
 From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
-Subject: Re: [PATCH v2 2/3] net: dsa: mv88e6xxx: Add support for ethernet
- switch 88E6341/88E6141
-Date: Tue, 20 Dec 2016 16:37:00 +0100
-Message-ID: <20161220153700.GB30952@lunn.ch>
+Subject: Re: [PATCH v2 3/3] arm64: dts: marvell: Add ethernet switch
+ definition for the ESPRESSObin
+Date: Tue, 20 Dec 2016 16:42:34 +0100
+Message-ID: <20161220154234.GC30952@lunn.ch>
 References: <20161220085138.3998-1-romain.perier@free-electrons.com>
- <20161220085138.3998-3-romain.perier@free-electrons.com>
+ <20161220085138.3998-4-romain.perier@free-electrons.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Vivien Didelot <vivien.didelot-4ysUXcep3aM1wj+D4I0NRVaTQe2KTcn/@public.gmane.org>,
@@ -24,23 +24,28 @@ Cc: Vivien Didelot <vivien.didelot-4ysUXcep3aM1wj+D4I0NRVaTQe2KTcn/@public.gmane
 To: Romain Perier <romain.perier-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
 Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20161220085138.3998-3-romain.perier-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+In-Reply-To: <20161220085138.3998-4-romain.perier-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
 Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Dec 20, 2016 at 09:51:37AM +0100, Romain Perier wrote:
-> The Marvell 88E6341 device is single-chip, 6-port ethernet switch with
-> four integrated 10/100/1000Mbps ethernet transceivers and one high speed
-> SerDes interfaces. It is compatible with switches of family 88E6352.
-> 
-> This commit adds basic support for this switch by describing its
-> capabilities to the driver.
-> 
-> Signed-off-by: Romain Perier <romain.perier-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+> +&mdio {
+> +	switch0: switch0@0 {
+> +		compatible = "marvell,mv88e6085";
+> +		#address-cells = <1>;
+> +		#size-cells = <0>;
+> +		reg = <1>;
 
-Reviewed-by: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+Ah, sorry, missed this last time. reg = <1>, that means switch0@1.
+That is a general rule for all device tree bindings.
 
-    Andrew
+> +		mdio {
+> +			#address-cells = <1>;
+> +			#size-cells = <0>;
+> +			reg = <1>;
+
+what is this reg value for?
+
+     Andrew
 --
 To unsubscribe from this list: send the line "unsubscribe devicetree" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
