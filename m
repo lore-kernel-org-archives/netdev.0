@@ -1,36 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ethernet: sfc: Add Kconfig entry for vendor Solarflare
-Date: Tue, 20 Dec 2016 14:20:46 -0500 (EST)
-Message-ID: <20161220.142046.673791508635574858.davem@davemloft.net>
-References: <20161220133826.1478-1-tklauser@distanz.ch>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [mm PATCH 0/3] Page fragment updates
+Date: Tue, 20 Dec 2016 11:22:34 -0800
+Message-ID: <CAKgT0UfgY089jdzXexB87yPOdEFhAAi=au8b4RX2LnHNOM_=kw@mail.gmail.com>
+References: <20161129182010.13445.31256.stgit@localhost.localdomain>
+ <CAKgT0UchMkvsboO23R332j96=yumL7=oSSm97zqJ5-v30_SgCw@mail.gmail.com> <20161205121131.3c1d9ad8452d5e09247336e4@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
-        ecree@solarflare.com, bkenward@solarflare.com
-To: tklauser@distanz.ch
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44318 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752793AbcLTTUs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2016 14:20:48 -0500
-In-Reply-To: <20161220133826.1478-1-tklauser@distanz.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: linux-mm <linux-mm@kvack.org>, Netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>, David Miller <davem@davemloft.net>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20161205121131.3c1d9ad8452d5e09247336e4@linux-foundation.org>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-From: Tobias Klauser <tklauser@distanz.ch>
-Date: Tue, 20 Dec 2016 14:38:26 +0100
+On Mon, Dec 5, 2016 at 12:11 PM, Andrew Morton
+<akpm@linux-foundation.org> wrote:
+> On Mon, 5 Dec 2016 09:01:12 -0800 Alexander Duyck <alexander.duyck@gmail.com> wrote:
+>
+>> On Tue, Nov 29, 2016 at 10:23 AM, Alexander Duyck
+>> <alexander.duyck@gmail.com> wrote:
+>> > This patch series takes care of a few cleanups for the page fragments API.
+>> >
+>> > ...
+>>
+>> It's been about a week since I submitted this series.  Just wanted to
+>> check in and see if anyone had any feedback or if this is good to be
+>> accepted for 4.10-rc1 with the rest of the set?
+>
+> Looks good to me.  I have it all queued for post-4.9 processing.
 
-> Since commit
-> 
->   5a6681e22c14 ("sfc: separate out SFC4000 ("Falcon") support into new sfc-falcon driver")
-> 
-> there are two drivers for Solarflare devices, but both still show up
-> directly beneath "Ethernet driver support" in the Kconfig. Follow the
-> pattern of other vendors and group them beneath an own vendor Kconfig
-> entry for Solarflare.
-> 
-> Cc: Edward Cree <ecree@solarflare.com>
-> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+So I guess there is a small bug in the first patch in that I was
+comparing a pointer to to 0 instead of NULL.  Just wondering if I
+should resubmit the first patch, the whole series, or if I need to
+just submit an incremental patch.
 
-Applied.
+Thanks.
+
+- Alex
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
