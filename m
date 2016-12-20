@@ -1,12 +1,14 @@
 From: Geliang Tang <geliangtang@gmail.com>
-Subject: [PATCH] RDS: use rb_entry()
-Date: Tue, 20 Dec 2016 22:02:18 +0800
-Message-ID: <2cd84448fe04ffb7023be892c5ed04bbfc759c87.1482204342.git.geliangtang@gmail.com>
+Subject: [PATCH] netfilter: xt_connlimit: use rb_entry()
+Date: Tue, 20 Dec 2016 22:02:13 +0800
+Message-ID: <5fab578543b7f15cb416438800e24e70af675835.1482204114.git.geliangtang@gmail.com>
 References: <ddabc96c798df194791134d8e070d728e2a7b59f.1482203698.git.geliangtang@gmail.com>
-Cc: Geliang Tang <geliangtang@gmail.com>, netdev@vger.kernel.org,
-        linux-rdma@vger.kernel.org, rds-devel@oss.oracle.com,
-        linux-kernel@vger.kernel.org
-To: Santosh Shilimkar <santosh.shilimkar@oracle.com>,
+Cc: Geliang Tang <geliangtang@gmail.com>,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>,
+        Patrick McHardy <kaber@trash.net>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
         "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <ddabc96c798df194791134d8e070d728e2a7b59f.1482203698.git.geliangtang@gmail.com>
@@ -18,21 +20,30 @@ deal with rbtree.
 
 Signed-off-by: Geliang Tang <geliangtang@gmail.com>
 ---
- net/rds/rdma.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/netfilter/xt_connlimit.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/rds/rdma.c b/net/rds/rdma.c
-index 4c93bad..ea96114 100644
---- a/net/rds/rdma.c
-+++ b/net/rds/rdma.c
-@@ -135,7 +135,7 @@ void rds_rdma_drop_keys(struct rds_sock *rs)
- 	/* Release any MRs associated with this socket */
- 	spin_lock_irqsave(&rs->rs_rdma_lock, flags);
- 	while ((node = rb_first(&rs->rs_rdma_keys))) {
--		mr = container_of(node, struct rds_mr, r_rb_node);
-+		mr = rb_entry(node, struct rds_mr, r_rb_node);
- 		if (mr->r_trans == rs->rs_transport)
- 			mr->r_invalidate = 0;
- 		rb_erase(&mr->r_rb_node, &rs->rs_rdma_keys);
+diff --git a/net/netfilter/xt_connlimit.c b/net/netfilter/xt_connlimit.c
+index 2aff2b7..660b61d 100644
+--- a/net/netfilter/xt_connlimit.c
++++ b/net/netfilter/xt_connlimit.c
+@@ -218,7 +218,7 @@ count_tree(struct net *net, struct rb_root *root,
+ 		int diff;
+ 		bool addit;
+ 
+-		rbconn = container_of(*rbnode, struct xt_connlimit_rb, node);
++		rbconn = rb_entry(*rbnode, struct xt_connlimit_rb, node);
+ 
+ 		parent = *rbnode;
+ 		diff = same_source_net(addr, mask, &rbconn->addr, family);
+@@ -398,7 +398,7 @@ static void destroy_tree(struct rb_root *r)
+ 	struct rb_node *node;
+ 
+ 	while ((node = rb_first(r)) != NULL) {
+-		rbconn = container_of(node, struct xt_connlimit_rb, node);
++		rbconn = rb_entry(node, struct xt_connlimit_rb, node);
+ 
+ 		rb_erase(node, r);
+ 
 -- 
 2.9.3
