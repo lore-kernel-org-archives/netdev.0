@@ -1,83 +1,35 @@
-From: Dongpo Li <lidongpo@hisilicon.com>
-Subject: Re: [PATCH v2 1/4] net: hix5hd2_gmac: add generic compatible string
-Date: Tue, 20 Dec 2016 09:35:36 +0800
-Message-ID: <58588AE8.4040901@hisilicon.com>
-References: <1480944481-118803-1-git-send-email-lidongpo@hisilicon.com>
- <1480944481-118803-2-git-send-email-lidongpo@hisilicon.com>
- <20161209223521.5dnj7l44e663sntl@rob-hp-laptop>
- <584E871D.7060200@hisilicon.com>
- <CAL_Jsq+d5xHsxMKxbWSYy3cDXnC+HQj3=wun1zxf5PZ_BYrD-Q@mail.gmail.com>
- <585796D6.1080407@hisilicon.com>
- <CAL_Jsq+Su84DonQbh2KZ2o8JQ0Mqarag60Oq=Dby3y8Doyozxg@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: ipv6: handle -EFAULT from skb_copy_bits
+Date: Mon, 19 Dec 2016 20:36:23 -0500 (EST)
+Message-ID: <20161219.203623.119653805184192345.davem@davemloft.net>
+References: <20161219.144848.736886978545428136.davem@davemloft.net>
+        <20161220003144.omoqyghgdfbxdyuu@codemonkey.org.uk>
+        <20161220004013.43pcopemc6im32az@codemonkey.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Michael Turquette <mturquette@baylibre.com>,
-        Stephen Boyd <sboyd@codeaurora.org>,
-        Russell King <linux@armlinux.org.uk>,
-        Zhangfei Gao <zhangfei.gao@linaro.org>,
-        Yisen Zhuang <yisen.zhuang@huawei.com>,
-        <salil.mehta@huawei.com>, Arnd Bergmann <arnd@arndb.de>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Jiancheng Xue <xuejiancheng@hisilicon.com>,
-        <benjamin.chenhao@hisilicon.com>, <caizhiyong@hisilicon.com>,
-        netdev <netdev@vger.kernel.org>,
-        "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Rob Herring <robh@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAL_Jsq+Su84DonQbh2KZ2o8JQ0Mqarag60Oq=Dby3y8Doyozxg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: davej@codemonkey.org.uk
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:54608 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752315AbcLTBgY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2016 20:36:24 -0500
+In-Reply-To: <20161220004013.43pcopemc6im32az@codemonkey.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Dave Jones <davej@codemonkey.org.uk>
+Date: Mon, 19 Dec 2016 19:40:13 -0500
 
-
-On 2016/12/20 0:04, Rob Herring wrote:
-> On Mon, Dec 19, 2016 at 2:14 AM, Dongpo Li <lidongpo@hisilicon.com> wrote:
->> Hi Rob and David,
->>
->> On 2016/12/12 22:21, Rob Herring wrote:
->>> On Mon, Dec 12, 2016 at 5:16 AM, Dongpo Li <lidongpo@hisilicon.com> wrote:
->>>> Hi Rob,
->>>>
->>>> On 2016/12/10 6:35, Rob Herring wrote:
->>>>> On Mon, Dec 05, 2016 at 09:27:58PM +0800, Dongpo Li wrote:
+> On Mon, Dec 19, 2016 at 07:31:44PM -0500, Dave Jones wrote:
 > 
-> [...]
+>  > Unfortunately, this made no difference.  I spent some time today trying
+>  > to make a better reproducer, but failed. I'll revisit again tomorrow.
+>  > 
+>  > Maybe I need >1 process/thread to trigger this.  That would explain why
+>  > I can trigger it with Trinity.
 > 
->>>>>> @@ -20,7 +25,7 @@ Required properties:
->>>>>>
->>>>>>  Example:
->>>>>>      gmac0: ethernet@f9840000 {
->>>>>> -            compatible = "hisilicon,hix5hd2-gmac";
->>>>>> +            compatible = "hisilicon,hix5hd2-gemac", "hisilicon,hisi-gemac-v1";
->>>>>
->>>>> You can't just change compatible strings.
->>>>>
->>>> Okay, maybe I should name all the compatible string with the suffix "-gmac" instead of
->>>> "-gemac". This can keep the compatible strings with the same suffix. Is this okay?
->>>> Can I just add the generic compatible string without changing the SoCs compatible string?
->>>> Like following:
->>>>         gmac0: ethernet@f9840000 {
->>>>  -              compatible = "hisilicon,hix5hd2-gmac";
->>>>  +              compatible = "hisilicon,hix5hd2-gmac", "hisilicon,hisi-gmac-v1";
->>>
->>> Yes, this is fine.
->>
->> As the patch series have been applied to net-next branch,
->> in which way should I commit this compatible fix?
->> Should I send a new patch fixing this compatible string error with "Fixes: xxx"?
->> Looking forward to your reply!
-> 
-> Yes to both.
+> scratch that last part, I finally just repro'd it with a single process.
 
-Okay, thanks for your reply!
-I will send the fix patch series as soon as possible.
-
-
-    Regards,
-    Dongpo
-
-.
+Thanks for the info, I'll try to think about this some more.
