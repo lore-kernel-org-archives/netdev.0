@@ -1,219 +1,155 @@
-From: Rajat Jain <rajatja-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH v3 3/3] Bluetooth: btusb: Configure Marvell to use one of the pins for oob wakeup
-Date: Mon, 19 Dec 2016 18:56:32 -0800
-Message-ID: <1482202592-76314-3-git-send-email-rajatja@google.com>
-References: <1482202592-76314-1-git-send-email-rajatja@google.com>
-Cc: Rajat Jain <rajatja-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, rajatxjain-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
-        Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
-        Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Amitkumar Karwar <akarwar-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
-        Wei-Ning Huang <wnhuang-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-        Xinming Hu <huxm-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Brian Norris <briannorris-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1482202592-76314-1-git-send-email-rajatja-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Andy Lutomirski <luto@amacapital.net>
+Subject: Re: Potential issues (security and otherwise) with the current
+ cgroup-bpf API
+Date: Mon, 19 Dec 2016 19:12:48 -0800
+Message-ID: <CALCETrVKu63BFVQFAJcLcd6ovPtq-WDdTh-BwyAPSprw8UarNQ@mail.gmail.com>
+References: <CALCETrV81oFwq2AgeRsN54HA1jR=b5cOZfAgve8H8zhx83DTyA@mail.gmail.com>
+ <20161219205631.GA31242@ast-mbp.thefacebook.com> <CALCETrWr5XMkexdGp7HdkiLkQV=P9ycj+sNO7xWSRoCVxihVZA@mail.gmail.com>
+ <20161220000254.GA58895@ast-mbp.thefacebook.com> <CALCETrU1_bDVLfokQ7zasHVmeq7S-R+603GEw59V_wuj4eE1hw@mail.gmail.com>
+ <2dbec775-6304-e44c-19c5-fbf07877e7b1@gmail.com> <CALCETrUW2jEYmjSsOrPj+MAjkDGGUCw_rdxQh+5Er0r4ReGLnA@mail.gmail.com>
+ <80574175-3692-0278-a74e-23b752d44f73@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Andy Lutomirski <luto@kernel.org>,
+        Daniel Mack <daniel@zonque.org>,
+        =?UTF-8?B?TWlja2HDq2wgU2FsYcO8bg==?= <mic@digikod.net>,
+        Kees Cook <keescook@chromium.org>, Jann Horn <jann@thejh.net>,
+        Tejun Heo <tj@kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Thomas Graf <tgraf@suug.ch>,
+        Michael Kerrisk <mtk.manpages@gmail.com>,
+        Peter Zijlstra <peterz@infradead.org>,
+        Linux API <linux-api@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>
+To: David Ahern <dsahern@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ua0-f180.google.com ([209.85.217.180]:35191 "EHLO
+        mail-ua0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754890AbcLTDNK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2016 22:13:10 -0500
+Received: by mail-ua0-f180.google.com with SMTP id 2so36434723uax.2
+        for <netdev@vger.kernel.org>; Mon, 19 Dec 2016 19:13:09 -0800 (PST)
+In-Reply-To: <80574175-3692-0278-a74e-23b752d44f73@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The Marvell devices may have many gpio pins, and hence for wakeup
-on these out-of-band pins, the chip needs to be told which pin is
-to be used for wakeup, using an hci command.
+On Mon, Dec 19, 2016 at 6:52 PM, David Ahern <dsahern@gmail.com> wrote:
+> On 12/19/16 6:56 PM, Andy Lutomirski wrote:
+>> On Mon, Dec 19, 2016 at 5:44 PM, David Ahern <dsahern@gmail.com> wrote:
+>>> On 12/19/16 5:25 PM, Andy Lutomirski wrote:
+>>>> net.socket_create_filter =3D "none": no filter
+>>>> net.socket_create_filter =3D "bpf:baadf00d": bpf filter
+>>>> net.socket_create_filter =3D "disallow": no sockets created period
+>>>> net.socket_create_filter =3D "iptables:foobar": some iptables thingy
+>>>> net.socket_create_filter =3D "nft:blahblahblah": some nft thingy
+>>>> net.socket_create_filter =3D "address_family_list:1,2,3": allow AF 1, =
+2, and 3
+>>>
+>>> Such a scheme works for the socket create filter b/c it is a very simpl=
+e use case. It does not work for the ingress and egress which allow generic=
+ bpf filters.
+>>
+>> Can you elaborate on what goes wrong?  (Obviously the
+>> "address_family_list" example makes no sense in that context.)
+>
+> Being able to dump a filter or see that one exists would be a great add-o=
+n, but I don't see how 'net.socket_create_filter =3D "bpf:baadf00d"' is a v=
+iable API for loading generic BPF filters. Simple cases like "disallow" are=
+ easy -- just return 0 in the filter, no complicated BPF code needed. The r=
+est are specific cases of the moment which goes against the intent of ebpf =
+and generic programmability.
 
-Thus, we read the pin number etc from the device tree node and send
-a command to the chip.
+Oh -- I'm not proposing that at all.  Let me clarify.  For the bpf
+case, if you *read* the file, you'd see "bpf:baadf00d".  But writing
+"bpf:baadf00d" is nonsense and would give you -EINVAL.  Instead you
+install a bpf filter by opening the file for write (O_RDWR or
+O_WRONLY) and doing ioctl(cgroup_socket_create_file_fd,
+CGROUP_IOCTL_SET_BPF_FILTER, bpf_fd);  It's kind of like
+BPF_PROG_ATTACH except that it respects filesystem permissions, it
+isn't in the bpf() multiplexer, the filter being set is implied (by
+the fd in use), and everything is nicely seccompable.
 
-Signed-off-by: Rajat Jain <rajatja-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Reviewed-by: Brian Norris <briannorris-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-Acked-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
----
-v3: * remove the Marvell specific id table and check
-    * Add reference to marvell-bt-8xxx.txt in btusb.txt
-    * Add "Reviewed-by" and "Acked-by"    
-v2: Fix the binding document to specify to use "wakeup" interrupt-name
+To remove the filter, you write "none" or "none\n" to the file.
 
- Documentation/devicetree/bindings/net/btusb.txt    |  3 ++
- .../{marvell-bt-sd8xxx.txt => marvell-bt-8xxx.txt} | 46 +++++++++++++++----
- drivers/bluetooth/btusb.c                          | 51 ++++++++++++++++++++++
- 3 files changed, 92 insertions(+), 8 deletions(-)
- rename Documentation/devicetree/bindings/net/{marvell-bt-sd8xxx.txt => marvell-bt-8xxx.txt} (50%)
+As a future extension, if someone wanted more than one filter to be
+able to coexist in the cgroup socket_create_filter slot, you could
+plausibly do 'echo disallow >>net.socket_create_filter' or use a new
+ioctl CGROUP_IOCTL_APPEND_BPF_FILTER, and then you'd read the file and
+see more than one line.  But this would be a future extension and may
+never be needed.
 
-diff --git a/Documentation/devicetree/bindings/net/btusb.txt b/Documentation/devicetree/bindings/net/btusb.txt
-index 2c0355c..01fa2d4 100644
---- a/Documentation/devicetree/bindings/net/btusb.txt
-+++ b/Documentation/devicetree/bindings/net/btusb.txt
-@@ -10,6 +10,9 @@ Required properties:
- 
- 		  "usb1286,204e" (Marvell 8997)
- 
-+Also, vendors that use btusb may have device additional properties, e.g:
-+Documentation/devicetree/bindings/net/marvell-bt-8xxx.txt
-+
- Optional properties:
- 
-   - interrupt-parent: phandle of the parent interrupt controller
-diff --git a/Documentation/devicetree/bindings/net/marvell-bt-sd8xxx.txt b/Documentation/devicetree/bindings/net/marvell-bt-8xxx.txt
-similarity index 50%
-rename from Documentation/devicetree/bindings/net/marvell-bt-sd8xxx.txt
-rename to Documentation/devicetree/bindings/net/marvell-bt-8xxx.txt
-index 6a9a63c..9be1059 100644
---- a/Documentation/devicetree/bindings/net/marvell-bt-sd8xxx.txt
-+++ b/Documentation/devicetree/bindings/net/marvell-bt-8xxx.txt
-@@ -1,16 +1,21 @@
--Marvell 8897/8997 (sd8897/sd8997) bluetooth SDIO devices
-+Marvell 8897/8997 (sd8897/sd8997) bluetooth devices (SDIO or USB based)
- ------
-+The 8997 devices supports multiple interfaces. When used on SDIO interfaces,
-+the btmrvl driver is used and when used on USB interface, the btusb driver is
-+used.
- 
- Required properties:
- 
-   - compatible : should be one of the following:
--	* "marvell,sd8897-bt"
--	* "marvell,sd8997-bt"
-+	* "marvell,sd8897-bt" (for SDIO)
-+	* "marvell,sd8997-bt" (for SDIO)
-+	* "usb1286,204e"      (for USB)
- 
- Optional properties:
- 
-   - marvell,cal-data: Calibration data downloaded to the device during
- 		      initialization. This is an array of 28 values(u8).
-+		      This is only applicable to SDIO devices.
- 
-   - marvell,wakeup-pin: It represents wakeup pin number of the bluetooth chip.
- 		        firmware will use the pin to wakeup host system (u16).
-@@ -18,10 +23,15 @@ Optional properties:
- 		      platform. The value will be configured to firmware. This
- 		      is needed to work chip's sleep feature as expected (u16).
-   - interrupt-parent: phandle of the parent interrupt controller
--  - interrupts : interrupt pin number to the cpu. Driver will request an irq based
--		 on this interrupt number. During system suspend, the irq will be
--		 enabled so that the bluetooth chip can wakeup host platform under
--		 certain condition. During system resume, the irq will be disabled
-+  - interrupt-names: Used only for USB based devices (See below)
-+  - interrupts : specifies the interrupt pin number to the cpu. For SDIO, the
-+		 driver will use the first interrupt specified in the interrupt
-+		 array. For USB based devices, the driver will use the interrupt
-+		 named "wakeup" from the interrupt-names and interrupt arrays.
-+		 The driver will request an irq based on this interrupt number.
-+		 During system suspend, the irq will be enabled so that the
-+		 bluetooth chip can wakeup host platform under certain
-+		 conditions. During system resume, the irq will be disabled
- 		 to make sure unnecessary interrupt is not received.
- 
- Example:
-@@ -29,7 +39,9 @@ Example:
- IRQ pin 119 is used as system wakeup source interrupt.
- wakeup pin 13 and gap 100ms are configured so that firmware can wakeup host
- using this device side pin and wakeup latency.
--calibration data is also available in below example.
-+
-+Example for SDIO device follows (calibration data is also available in
-+below example).
- 
- &mmc3 {
- 	status = "okay";
-@@ -54,3 +66,21 @@ calibration data is also available in below example.
- 		marvell,wakeup-gap-ms = /bits/ 16 <0x64>;
- 	};
- };
-+
-+Example for USB device:
-+
-+&usb_host1_ohci {
-+    status = "okay";
-+    #address-cells = <1>;
-+    #size-cells = <0>;
-+
-+    mvl_bt1: bt@1 {
-+	compatible = "usb1286,204e";
-+	reg = <1>;
-+	interrupt-parent = <&gpio0>;
-+	interrupt-names = "wakeup";
-+	interrupts = <119 IRQ_TYPE_LEVEL_LOW>;
-+	marvell,wakeup-pin = /bits/ 16 <0x0d>;
-+	marvell,wakeup-gap-ms = /bits/ 16 <0x64>;
-+    };
-+};
-diff --git a/drivers/bluetooth/btusb.c b/drivers/bluetooth/btusb.c
-index beca4e9..a5c2cf9 100644
---- a/drivers/bluetooth/btusb.c
-+++ b/drivers/bluetooth/btusb.c
-@@ -2343,6 +2343,50 @@ static int btusb_shutdown_intel(struct hci_dev *hdev)
- 	return 0;
- }
- 
-+#ifdef CONFIG_PM
-+/* Configure an out-of-band gpio as wake-up pin, if specified in device tree */
-+static int marvell_config_oob_wake(struct hci_dev *hdev)
-+{
-+	struct sk_buff *skb;
-+	struct btusb_data *data = hci_get_drvdata(hdev);
-+	struct device *dev = &data->udev->dev;
-+	u16 pin, gap, opcode;
-+	int ret;
-+	u8 cmd[5];
-+
-+	/* Move on if no wakeup pin specified */
-+	if (of_property_read_u16(dev->of_node, "marvell,wakeup-pin", &pin) ||
-+	    of_property_read_u16(dev->of_node, "marvell,wakeup-gap-ms", &gap))
-+		return 0;
-+
-+	/* Vendor specific command to configure a GPIO as wake-up pin */
-+	opcode = hci_opcode_pack(0x3F, 0x59);
-+	cmd[0] = opcode & 0xFF;
-+	cmd[1] = opcode >> 8;
-+	cmd[2] = 2; /* length of parameters that follow */
-+	cmd[3] = pin;
-+	cmd[4] = gap; /* time in ms, for which wakeup pin should be asserted */
-+
-+	skb = bt_skb_alloc(sizeof(cmd), GFP_KERNEL);
-+	if (!skb) {
-+		bt_dev_err(hdev, "%s: No memory\n", __func__);
-+		return -ENOMEM;
-+	}
-+
-+	memcpy(skb_put(skb, sizeof(cmd)), cmd, sizeof(cmd));
-+	hci_skb_pkt_type(skb) = HCI_COMMAND_PKT;
-+
-+	ret = btusb_send_frame(hdev, skb);
-+	if (ret) {
-+		bt_dev_err(hdev, "%s: configuration failed\n", __func__);
-+		kfree_skb(skb);
-+		return ret;
-+	}
-+
-+	return 0;
-+}
-+#endif
-+
- static int btusb_set_bdaddr_marvell(struct hci_dev *hdev,
- 				    const bdaddr_t *bdaddr)
- {
-@@ -2917,6 +2961,13 @@ static int btusb_probe(struct usb_interface *intf,
- 	err = btusb_config_oob_wake(hdev);
- 	if (err)
- 		goto out_free_dev;
-+
-+	/* Marvell devices may need a specific chip configuration */
-+	if (id->driver_info & BTUSB_MARVELL && data->oob_wake_irq) {
-+		err = marvell_config_oob_wake(hdev);
-+		if (err)
-+			goto out_free_dev;
-+	}
- #endif
- 	if (id->driver_info & BTUSB_CW6622)
- 		set_bit(HCI_QUIRK_BROKEN_STORED_LINK_KEY, &hdev->quirks);
--- 
-2.8.0.rc3.226.g39d4020
+>>
+>> a) sub-cgroups cannot have a filter at all of the parent has a filter.
+>> (This is the "punt" approach -- it lets different semantics be
+>> assigned later without breaking userspace.)
+>>
+>> b) sub-cgroups can have a filter if a parent does, too.  The semantics
+>> are that the sub-cgroup filter runs first and all side-effects occur.
+>> If that filter says "reject" then ancestor filters are skipped.  If
+>> that filter says "accept", then the ancestor filter is run and its
+>> side-effects happen as well.  (And so on, all the way up to the root.)
+>
+> That comes with a big performance hit for skb / data path cases.
+>
+> I'm riding my use case on Daniel's work, and as I understand it the nesti=
+ng case has been discussed. I'll defer to Daniel and Alexei on this part.
 
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I'm not sure I buy the performance hit.  If you do it naively, then
+performance will indeed suck.  But there's already a bunch of code in
+there to pre-populate a filter list for faster use.  Currently, we
+have:
+
+struct cgroup_bpf {
+        /*
+         * Store two sets of bpf_prog pointers, one for programs that are
+         * pinned directly to this cgroup, and one for those that are effec=
+tive
+         * when this cgroup is accessed.
+         */
+        struct bpf_prog *prog[MAX_BPF_ATTACH_TYPE];
+        struct bpf_prog *effective[MAX_BPF_ATTACH_TYPE];
+};
+
+in struct cgroup, there's a 'struct cgroup_bpf bpf;'.
+
+This would change to something like:
+
+struct cgroup_filter_slot {
+  struct bpf_prog *effective;
+  struct cgroup_filter_slot *next;
+  struct bpf_prog *local;
+}
+
+local is NULL unless *this* cgroup has a filter.  effective points to
+the bpf_prog that's active in this cgroup or the nearest ancestor that
+has a filter.  next is NULL if there are no filters higher in the
+chain or points to the next slot that has a filter.  struct cgroup
+has:
+
+struct cgroup_filter_slot filters[MAX_BPF_ATTACH_TYPE];
+
+To evaluate it, you do:
+
+struct cgroup_filter_slot *slot =3D &cgroup->slot[the index];
+
+if (!slot->effective)
+  return;
+
+do {
+  evaluate(slot->effective);
+  slot =3D slot->next;
+} while (unlikely(slot));
+
+The old code was one branch per evaluation.  The new code is n+1
+branches where n is the number of filters, so it's one extra branch in
+the worst case.  But the extra branch is cache-hot (the variable is
+right next to slot->effective, which is needed regardless) and highly
+predictable (in the case where nesting isn't used, the branch is not
+taken, and it's a backward branch which most CPUs will predict as not
+taken).
+
+I expect that, on x86, this adds at most a cycle or two and quite
+possibly adds no measurable overhead at all.
