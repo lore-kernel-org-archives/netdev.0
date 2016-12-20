@@ -1,86 +1,45 @@
-From: Josef Bacik <jbacik@fb.com>
-Subject: Re: Soft lockup in inet_put_port on 4.6
-Date: Tue, 20 Dec 2016 04:59:22 +0000
-Message-ID: <067589C4-361F-49FE-B493-83BC0EC38277@fb.com>
-References: <1481928610.17731.0@smtp.office365.com>
-         <e32b5375-38fb-1fd8-d97a-bf740e368205@stressinduktion.org>
-         <286A21B1-2A15-4DDF-B334-A016DA3D52EA@fb.com>
-         <20161219.205646.1955469060856026212.davem@davemloft.net>
-         <CALx6S340vCsaymbx+CcKL3Zi2p9EvDSwc0fDAxKsSqs4C2p5kg@mail.gmail.com>
-        ,<1482201702.1521.13.camel@edumazet-glaptop3.roam.corp.google.com>
-         <9DF94C8E-1463-4C10-81E3-E6F4534097CB@fb.com>,<1482209536.1521.21.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Andy Lutomirski <luto@amacapital.net>
+Subject: Re: Potential issues (security and otherwise) with the current
+ cgroup-bpf API
+Date: Mon, 19 Dec 2016 21:26:22 -0800
+Message-ID: <CALCETrXY4f4Fbxv+d4QV-Tfhbc0-tJUnXph6uAdMAOofy116RQ@mail.gmail.com>
+References: <20161219205631.GA31242@ast-mbp.thefacebook.com>
+ <CALCETrWr5XMkexdGp7HdkiLkQV=P9ycj+sNO7xWSRoCVxihVZA@mail.gmail.com>
+ <20161220000254.GA58895@ast-mbp.thefacebook.com> <20161219.203422.500916400463091702.davem@davemloft.net>
+ <CALCETrUc-iDUT8isKc43PPZ3xz31Sz+QTU+_SQQTAsWhH+zkLw@mail.gmail.com> <20161220045155.GC86803@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: Tom Herbert <tom@herbertland.com>,
-        David Miller <davem@davemloft.net>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Craig Gallek <kraigatgoog@gmail.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:55718 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751734AbcLTE7b (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 19 Dec 2016 23:59:31 -0500
-In-Reply-To: <1482209536.1521.21.camel@edumazet-glaptop3.roam.corp.google.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        Andrew Lutomirski <luto@kernel.org>,
+        Daniel Mack <daniel@zonque.org>,
+        =?UTF-8?B?TWlja2HDq2wgU2FsYcO8bg==?= <mic@digikod.net>,
+        Kees Cook <keescook@chromium.org>, Jann Horn <jann@thejh.net>,
+        Tejun Heo <tj@kernel.org>, David Ahern <dsahern@gmail.com>,
+        Thomas Graf <tgraf@suug.ch>,
+        Michael Kerrisk <mtk.manpages@gmail.com>,
+        Peter Zijlstra <peterz@infradead.org>,
+        Linux API <linux-api@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161220045155.GC86803@ast-mbp.thefacebook.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Mon, Dec 19, 2016 at 8:51 PM, Alexei Starovoitov
+<alexei.starovoitov@gmail.com> wrote:
+> On Mon, Dec 19, 2016 at 05:40:53PM -0800, Andy Lutomirski wrote:
+>>
+>> By the way, even if Alexei is right, the BPF_PROG_DETACH API doesn't
+>> even take a reference to a BPF program as an argument.  What is it
+>> supposed to do if this mechanism ever gets extended?
+>
+> we just add another field to that anonymous union just like
+> we did for other commands and everything is backwards compatible.
+> It's the basics of bpf syscall that we've been relying on for some
+> time now and it worked just fine.
 
-> On Dec 19, 2016, at 11:52 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote=
-:
->=20
-> On Tue, 2016-12-20 at 03:40 +0000, Josef Bacik wrote:
->>> On Dec 19, 2016, at 9:42 PM, Eric Dumazet <eric.dumazet@gmail.com> wrot=
-e:
->>>=20
->>>> On Mon, 2016-12-19 at 18:07 -0800, Tom Herbert wrote:
->>>>=20
->>>> When sockets created SO_REUSEPORT move to TW state they are placed
->>>> back on the the tb->owners. fastreuse port is no longer set so we have
->>>> to walk potential long list of sockets in tb->owners to open a new
->>>> listener socket. I imagine this is happens when we try to open a new
->>>> listener SO_REUSEPORT after the system has been running a while and so
->>>> we hit the long tb->owners list.
->>>=20
->>> Hmm...  __inet_twsk_hashdance() does not change tb->fastreuse
->>>=20
->>> So where tb->fastreuse is cleared ?
->>>=20
->>> If all your sockets have SO_REUSEPORT set, this should not happen.
->>>=20
->>=20
->> The app starts out with no SO_REUSEPORT, and then we restart it with
->> that option enabled.
->=20
-> But... why would the application do this dance ?
->=20
-> I now better understand why we never had these issues...
->=20
+And what happens if you don't specify that member and two programs are attached?
 
-It doesn't do it as a part of it's normal operation.  The old version didn'=
-t use SO_REUSEPORT and then somebody added support for it, restarted the se=
-rvice with the new option enabled and boom.  They immediately stopped doing=
- anything and gave it to me to figure out.
-
->=20
->>  What I suspect is we have all the twsks from the original service,
->> and the fastreuse stuff is cleared.  My naive patch resets it once we
->> add a reuseport sk to the tb and that makes the problem go away.  I'm
->> reworking all of this logic and adding some extra info to the tb to
->> make the reset actually safe.  I'll send those patches out tomorrow.
->> Thanks,
->=20
-> Okay, we will review them ;)
->=20
-> Note that Willy Tarreau wants some mechanism to be able to freeze a
-> listener, to allow haproxy to be replaced without closing any sessions.
->=20
-
-I assume that's what these guys would want as well.  They have some weird h=
-andoff thing they do when the app starts but I'm not entirely convinced it =
-does what they think it does.  Thanks,
-
-Josef=
+--Andy
