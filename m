@@ -1,28 +1,46 @@
-From: Mark Greer <mgreer@animalcreek.com>
-Subject: Re: [PATCH 1/3] NFC: trf7970a: add device tree option for 27MHz clock
-Date: Tue, 20 Dec 2016 11:11:57 -0700
-Message-ID: <20161220181157.GB30273@animalcreek.com>
-References: <1482250592-4268-1-git-send-email-glansberry@gmail.com>
+From: Dave Jones <davej@codemonkey.org.uk>
+Subject: Re: ipv6: handle -EFAULT from skb_copy_bits
+Date: Tue, 20 Dec 2016 13:17:28 -0500
+Message-ID: <20161220181728.dd2cynjwrceruwcu@codemonkey.org.uk>
+References: <20161219.144848.736886978545428136.davem@davemloft.net>
+ <20161220003144.omoqyghgdfbxdyuu@codemonkey.org.uk>
+ <20161220004013.43pcopemc6im32az@codemonkey.org.uk>
+ <20161219.203623.119653805184192345.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless@vger.kernel.org, lauro.venancio@openbossa.org,
-        aloisio.almeida@openbossa.org, sameo@linux.intel.com,
-        robh+dt@kernel.org, mark.rutland@arm.com, netdev@vger.kernel.org,
-        devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
-        justin@kuvee.com
-To: Geoff Lansberry <geoff@kuvee.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from arcturus.aphlor.org ([188.246.204.175]:35220 "EHLO
+        arcturus.aphlor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751441AbcLTSRc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2016 13:17:32 -0500
 Content-Disposition: inline
-In-Reply-To: <1482250592-4268-1-git-send-email-glansberry@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20161219.203623.119653805184192345.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Geoff.
+On Mon, Dec 19, 2016 at 08:36:23PM -0500, David Miller wrote:
+ > From: Dave Jones <davej@codemonkey.org.uk>
+ > Date: Mon, 19 Dec 2016 19:40:13 -0500
+ > 
+ > > On Mon, Dec 19, 2016 at 07:31:44PM -0500, Dave Jones wrote:
+ > > 
+ > >  > Unfortunately, this made no difference.  I spent some time today trying
+ > >  > to make a better reproducer, but failed. I'll revisit again tomorrow.
+ > >  > 
+ > >  > Maybe I need >1 process/thread to trigger this.  That would explain why
+ > >  > I can trigger it with Trinity.
+ > > 
+ > > scratch that last part, I finally just repro'd it with a single process.
+ > 
+ > Thanks for the info, I'll try to think about this some more.
 
-Please put the version in your subjects when submitting anything but the
-initial version of a patch (e.g., [PATCH v2 1/3]).
+I threw in some debug printks right before that BUG_ON.
+it's always this:
 
-Which series do you want reviewed?
+skb->len=31 skb->data_len=0 offset:30 total_len:9
 
-Mark
---
+Shouldn't we have kicked out data_len=0 skb's somewhere before we got this far ?
+
+	Dave
