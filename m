@@ -1,188 +1,171 @@
-From: Arnaldo Carvalho de Melo <acme@kernel.org>
-Subject: Re: [PATCH perf/core REBASE 3/5] tools lib bpf: Add
- bpf_prog_{attach,detach}
-Date: Tue, 20 Dec 2016 11:32:17 -0300
-Message-ID: <20161220143217.GC32756@kernel.org>
-References: <20161214224342.12858-1-joe@ovn.org>
- <20161214224342.12858-4-joe@ovn.org>
- <20161220141851.GB32756@kernel.org>
+From: Niklas Cassel <niklas.cassel@axis.com>
+Subject: Re: [PATCH] stmmac: enable rx queues
+Date: Tue, 20 Dec 2016 15:43:52 +0100
+Message-ID: <f5cda4a7-8c41-86b7-b133-cf41eaec0370@axis.com>
+References: <9a8911dfd2ed07391106e9cd0f90475742a798dc.1482238007.git.jpinto@synopsys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        wangnan0@huawei.com, ast@fb.com, daniel@iogearbox.net
-To: Joe Stringer <joe@ovn.org>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <hock.leong.kweh@intel.com>, <pavel@ucw.cz>,
+        <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
+To: Joao Pinto <Joao.Pinto@synopsys.com>, <peppe.cavallaro@st.com>,
+        <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20161220141851.GB32756@kernel.org>
+In-Reply-To: <9a8911dfd2ed07391106e9cd0f90475742a798dc.1482238007.git.jpinto@synopsys.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Em Tue, Dec 20, 2016 at 11:18:51AM -0300, Arnaldo Carvalho de Melo escreveu:
-> Em Wed, Dec 14, 2016 at 02:43:40PM -0800, Joe Stringer escreveu:
-> > Commit d8c5b17f2bc0 ("samples: bpf: add userspace example for attaching
-> > eBPF programs to cgroups") added these functions to samples/libbpf, but
-> > during this merge all of the samples libbpf functionality is shifting to
-> > tools/lib/bpf. Shift these functions there.
-> > 
-> > Signed-off-by: Joe Stringer <joe@ovn.org>
-> > ---
-> > Arnaldo, this is a new patch you didn't previously review which I've
-> > prepared due to the conflict with net-next. I figured it's better to try
-> > to get samples/bpf properly switched over this window rather than defer the
-> > problem and end up having to deal with another merge problem next time
-> > around. I hope that is fine for you. If not, this patch onwards will need
-> > to be dropped
-> > 
-> > It's a simple copy/paste/delete with a minor change for sys_bpf() vs
-> > syscall().
-> > ---
-> >  samples/bpf/libbpf.c | 21 ---------------------
-> >  samples/bpf/libbpf.h |  3 ---
-> >  tools/lib/bpf/bpf.c  | 21 +++++++++++++++++++++
-> >  tools/lib/bpf/bpf.h  |  3 +++
-> >  4 files changed, 24 insertions(+), 24 deletions(-)
-> > 
-> > diff --git a/samples/bpf/libbpf.c b/samples/bpf/libbpf.c
-> > index 3391225ad7e9..d9af876b4a2c 100644
-> > --- a/samples/bpf/libbpf.c
-> > +++ b/samples/bpf/libbpf.c
-> > @@ -11,27 +11,6 @@
-> >  #include <arpa/inet.h>
-> >  #include "libbpf.h"
-> >  
-> > -int bpf_prog_attach(int prog_fd, int target_fd, enum bpf_attach_type type)
-> > -{
-> > -	union bpf_attr attr = {
-> > -		.target_fd = target_fd,
-> > -		.attach_bpf_fd = prog_fd,
-> > -		.attach_type = type,
-> > -	};
-> > -
-> > -	return syscall(__NR_bpf, BPF_PROG_ATTACH, &attr, sizeof(attr));
-> 
-> This one makes it fail for CentOS 5 and 6, others may fail as well,
-> still building, investigating...
 
-Ok, fixed it by making it follow the model of the other sys_bpf wrappers
-setting up that bpf_attr union wrt initializing unamed struct members:
 
- int bpf_prog_attach(int prog_fd, int target_fd, enum bpf_attach_type type)
- {
--       union bpf_attr attr = {
--               .target_fd = target_fd,
--               .attach_bpf_fd = prog_fd,
--               .attach_type = type,
--       };
-+       union bpf_attr attr;
-+
-+       bzero(&attr, sizeof(attr));
-+       attr.target_fd     = target_fd;
-+       attr.attach_bpf_fd = prog_fd;
-+       attr.attach_type   = type;
- 
-        return sys_bpf(BPF_PROG_ATTACH, &attr, sizeof(attr));
- }
- 
-> 
->    4 10.853874028 centos:5: FAIL
-> ...                         glibc: [ on  ]
-> ...                          gtk2: [ OFF ]
-> ...                      libaudit: [ on  ]
-> ...                        libbfd: [ OFF ]
-> ...                        libelf: [ on  ]
-> ...                       libnuma: [ on  ]
-> ...        numa_num_possible_cpus: [ OFF ]
-> ...                       libperl: [ on  ]
-> ...                     libpython: [ OFF ]
-> ...                      libslang: [ on  ]
-> ...                     libcrypto: [ on  ]
-> ...                     libunwind: [ OFF ]
-> ...            libdw-dwarf-unwind: [ OFF ]
-> ...                          zlib: [ on  ]
-> ...                          lzma: [ on  ]
-> ...                     get_cpuid: [ OFF ]
-> ...                           bpf: [ on  ]
-> 
-> Makefile.config:290: No libdw DWARF unwind found, Please install elfutils-devel/libdw-dev >= 0.158 and/or set LIBDW_DIR
-> Makefile.config:294: No libdw.h found or old libdw.h found or elfutils is older than 0.138, disables dwarf support. Please install new elfutils-devel/libdw-dev
-> Makefile.config:363: DWARF support is off, BPF prologue is disabled
-> Makefile.config:417: No libunwind found. Please install libunwind-dev[el] >= 1.1 and/or set LIBUNWIND_DIR
-> Makefile.config:444: Disabling post unwind, no support found.
-> Makefile.config:530: GTK2 not found, disables GTK2 support. Please install gtk2-devel or libgtk2.0-dev
-> Makefile.config:569: No timerfd support. Disables 'perf kvm stat live'
-> Makefile.config:589: No 'python-config' tool was found: disables Python support - please install python-devel/python-dev
-> Makefile.config:662: No bfd.h/libbfd found, please install binutils-dev[el]/zlib-static/libiberty-dev to gain symbol demangling
-> Makefile.config:708: Old numa library found, disables 'perf bench numa mem' benchmark, please install numactl-devel/libnuma-devel/libnuma-dev >= 2.0.8
-> Makefile.config:762: Your gcc lacks the __get_cpuid() builtin, disables support for auxtrace/Intel PT, please install a newer gcc
-> Makefile.config:792: No openjdk development package found, please install JDK package
->   GEN      /tmp/build/perf/common-cmds.h
->   MKDIR    /tmp/build/perf/fd/
->   CC       /tmp/build/perf/fd/array.o
->   CC       /tmp/build/perf/event-parse.o
->   CC       /tmp/build/perf/exec-cmd.o
->   MKDIR    /tmp/build/perf/fd/
->   CC       /tmp/build/perf/help.o
->   LD       /tmp/build/perf/fd/libapi-in.o
->   MKDIR    /tmp/build/perf/fs/
->   CC       /tmp/build/perf/fs/fs.o
->   CC       /tmp/build/perf/event-plugin.o
->   CC       /tmp/build/perf/pager.o
->   MKDIR    /tmp/build/perf/fs/
->   CC       /tmp/build/perf/fs/tracing_path.o
->   CC       /tmp/build/perf/trace-seq.o
->   CC       /tmp/build/perf/parse-options.o
->   CC       /tmp/build/perf/parse-filter.o
->   MKDIR    /tmp/build/perf/fs/
->   LD       /tmp/build/perf/fs/libapi-in.o
->   CC       /tmp/build/perf/cpu.o
->   CC       /tmp/build/perf/debug.o
->   CC       /tmp/build/perf/str_error_r.o
->   CC       /tmp/build/perf/parse-utils.o
->   CC       /tmp/build/perf/kbuffer-parse.o
->   LD       /tmp/build/perf/libapi-in.o
->   AR       /tmp/build/perf/libapi.a
->   LD       /tmp/build/perf/libtraceevent-in.o
->   CC       /tmp/build/perf/libbpf.o
->   LINK     /tmp/build/perf/libtraceevent.a
->   MKDIR    /tmp/build/perf/pmu-events/
->   HOSTCC   /tmp/build/perf/pmu-events/json.o
->   CC       /tmp/build/perf/run-command.o
->   MKDIR    /tmp/build/perf/pmu-events/
->   HOSTCC   /tmp/build/perf/pmu-events/jsmn.o
->   MKDIR    /tmp/build/perf/pmu-events/
->   HOSTCC   /tmp/build/perf/pmu-events/jevents.o
->   CC       /tmp/build/perf/bpf.o
->   PERF_VERSION = 4.9.0
->   CC       /tmp/build/perf/sigchain.o
-> bpf.c: In function 'bpf_prog_attach':
-> bpf.c:174: error: unknown field 'target_fd' specified in initializer
-> cc1: warnings being treated as errors
-> bpf.c:174: warning: missing braces around initializer
-> bpf.c:174: warning: (near initialization for 'attr.<anonymous>')
-> bpf.c:175: error: unknown field 'attach_bpf_fd' specified in initializer
-> bpf.c:175: warning: excess elements in union initializer
-> bpf.c:175: warning: (near initialization for 'attr')
-> bpf.c:176: error: unknown field 'attach_type' specified in initializer
-> bpf.c:176: warning: excess elements in union initializer
-> bpf.c:176: warning: (near initialization for 'attr')
-> bpf.c: In function 'bpf_prog_detach':
-> bpf.c:185: error: unknown field 'target_fd' specified in initializer
-> bpf.c:185: warning: missing braces around initializer
-> bpf.c:185: warning: (near initialization for 'attr.<anonymous>')
-> bpf.c:186: error: unknown field 'attach_type' specified in initializer
-> bpf.c:186: warning: excess elements in union initializer
-> bpf.c:186: warning: (near initialization for 'attr')
-> mv: cannot stat `/tmp/build/perf/.bpf.o.tmp': No such file or directory
-> make[4]: *** [/tmp/build/perf/bpf.o] Error 1
-> make[3]: *** [/tmp/build/perf/libbpf-in.o] Error 2
-> make[2]: *** [/tmp/build/perf/libbpf.a] Error 2
-> make[2]: *** Waiting for unfinished jobs....
->   CC       /tmp/build/perf/subcmd-config.o
->   MKDIR    /tmp/build/perf/pmu-events/
->   HOSTLD   /tmp/build/perf/pmu-events/jevents-in.o
->   LD       /tmp/build/perf/libsubcmd-in.o
->   AR       /tmp/build/perf/libsubcmd.a
-> make[1]: *** [sub-make] Error 2
-> make: *** [all] Error 2
-> make: Leaving directory `/git/linux/tools/perf'
-> 
+On 12/20/2016 01:55 PM, Joao Pinto wrote:
+> When the hardware is synthesized with multiple queues, all queues are
+> disabled for default. This patch adds the rx queues configuration.
+> This patch was successfully tested in a Synopsys QoS Reference design.
+>
+> Signed-off-by: Joao Pinto <jpinto@synopsys.com>
+> ---
+>  drivers/net/ethernet/stmicro/stmmac/common.h      |  2 ++
+>  drivers/net/ethernet/stmicro/stmmac/dwmac4.h      |  4 ++++
+>  drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c | 11 +++++++++++
+>  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 21 +++++++++++++++++++++
+>  4 files changed, 38 insertions(+)
+>
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
+> index b13a144..61bab50 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/common.h
+> +++ b/drivers/net/ethernet/stmicro/stmmac/common.h
+> @@ -454,6 +454,8 @@ struct stmmac_ops {
+>  	void (*core_init)(struct mac_device_info *hw, int mtu);
+>  	/* Enable and verify that the IPC module is supported */
+>  	int (*rx_ipc)(struct mac_device_info *hw);
+> +	/* Enable RX Queues */
+> +	void (*rx_queue_enable)(struct mac_device_info *hw, u32 queue);
+>  	/* Dump MAC registers */
+>  	void (*dump_regs)(struct mac_device_info *hw);
+>  	/* Handle extra events on specific interrupts hw dependent */
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
+> index 3e8d4fe..fd013bd 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
+> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
+> @@ -22,6 +22,7 @@
+>  #define GMAC_HASH_TAB_32_63		0x00000014
+>  #define GMAC_RX_FLOW_CTRL		0x00000090
+>  #define GMAC_QX_TX_FLOW_CTRL(x)		(0x70 + x * 4)
+> +#define GMAC_RXQ_CTRL0			0x000000a0
+>  #define GMAC_INT_STATUS			0x000000b0
+>  #define GMAC_INT_EN			0x000000b4
+>  #define GMAC_PCS_BASE			0x000000e0
+> @@ -44,6 +45,9 @@
+>  
+>  #define GMAC_MAX_PERFECT_ADDRESSES	128
+>  
+> +/* MAC RX Queue Enable*/
+> +#define GMAC_RX_QUEUE_ENABLE(queue)	BIT(queue * 2)
+
+Always have parentheses around a variable in a
+macro, otherwise strange things could happen.
+Imagine if you send 5 - 4 as argument,
+it will then expand to 5 - 4 * 2 = -3,
+instead of (5 - 4) * 2 = 2
+
+> +
+>  /* MAC Flow Control RX */
+>  #define GMAC_RX_FLOW_CTRL_RFE		BIT(0)
+>  
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
+> index eaed7cb..7ec1887 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
+> @@ -59,6 +59,16 @@ static void dwmac4_core_init(struct mac_device_info *hw, int mtu)
+>  	writel(value, ioaddr + GMAC_INT_EN);
+>  }
+>  
+> +static void dwmac4_rx_queue_enable(struct mac_device_info *hw, u32 queue)
+> +{
+> +	void __iomem *ioaddr = hw->pcsr;
+> +	u32 value = readl(ioaddr + GMAC_RXQ_CTRL0);
+> +
+> +	value |= GMAC_RX_QUEUE_ENABLE(queue);
+> +
+> +	writel(value, ioaddr + GMAC_RXQ_CTRL0);
+> +}
+> +
+>  static void dwmac4_dump_regs(struct mac_device_info *hw)
+>  {
+>  	void __iomem *ioaddr = hw->pcsr;
+> @@ -392,6 +402,7 @@ static void dwmac4_debug(void __iomem *ioaddr, struct stmmac_extra_stats *x)
+>  static const struct stmmac_ops dwmac4_ops = {
+>  	.core_init = dwmac4_core_init,
+>  	.rx_ipc = dwmac4_rx_ipc_enable,
+> +	.rx_queue_enable = dwmac4_rx_queue_enable,
+>  	.dump_regs = dwmac4_dump_regs,
+>  	.host_irq_status = dwmac4_irq_status,
+>  	.flow_ctrl = dwmac4_flow_ctrl,
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> index 3e40578..e30034d 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> @@ -1271,6 +1271,24 @@ static void free_dma_desc_resources(struct stmmac_priv *priv)
+>  }
+>  
+>  /**
+> + *  stmmac_mac_enable_rx_queues - Enable MAC rx queues
+> + *  @priv: driver private structure
+> + *  Description: It is used for enabling the rx queues in the MAC
+> + */
+> +static void stmmac_mac_enable_rx_queues(struct stmmac_priv *priv)
+> +{
+> +	int rx_count = priv->dma_cap.number_rx_channel;
+
+priv->dma_cap.number_rx_channel
+actually contains the value from register
+MAC_HW_Feature2, field RXCHCNT,
+which is the number of DMA rx channels.
+
+This is not the same as the number of MTL
+receive queues, field RXQCNT in MAC_HW_Feature2.
+
+I guess they will often have the same value,
+but since there actually are two different fields
+for them, I suppose that is not always the case.
+
+
+
+Reading the comments in dwmac4_dma.*
+
+#define DMA_CHANNEL_NB_MAX              1
+
+"Only Channel 0 is actually configured and used"
+
+"Following code only done for channel 0, other channels not yet supported"
+
+Is there any point in actually enabling more than RX queue 0 if the
+driver does not yet support more than one channel.
+Can RXCHCNT ever be different from RXQCNT?
+If so, when? Maybe when using an external DMA IP?
+
+
+> +	int queue = 0;
+> +
+> +	/* If GMAC does not have multiqueues, then this is not necessary*/
+> +	if (rx_count == 1)
+> +		return;
+> +
+> +	for (queue = 0; queue < rx_count; queue++)
+> +		priv->hw->mac->rx_queue_enable(priv->hw, queue);
+> +}
+> +
+> +/**
+>   *  stmmac_dma_operation_mode - HW DMA operation mode
+>   *  @priv: driver private structure
+>   *  Description: it is used for configuring the DMA operation mode register in
+> @@ -1691,6 +1709,9 @@ static int stmmac_hw_setup(struct net_device *dev, bool init_ptp)
+>  	/* Initialize the MAC Core */
+>  	priv->hw->mac->core_init(priv->hw, dev->mtu);
+>  
+> +	/* Initialize MAC RX Queues */
+> +	stmmac_mac_enable_rx_queues(priv);
+> +
+>  	ret = priv->hw->mac->rx_ipc(priv->hw);
+>  	if (!ret) {
+>  		netdev_warn(priv->dev, "RX IPC Checksum Offload disabled\n");
