@@ -1,136 +1,90 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: Soft lockup in tc_classify
-Date: Tue, 20 Dec 2016 12:47:18 +0100
-Message-ID: <58591A46.4060703@iogearbox.net>
-References: <c1c394d3-3aea-52a8-89e3-be57d4d46b8e@mellanox.com> <7394f89e-e8a5-5fb2-ee04-63bf1c4ef6e7@mellanox.com> <584EA60B.80803@iogearbox.net> <CAJ3xEMjABmvAMs6h0EqBgPH8QDDwF_x0COx01MkEw2pa+fp7LA@mail.gmail.com> <CAM_iQpVJ_Y5bB-RP2S2tK7sPNo6Atwcz5Ud8sG6bwDOSnq4NnA@mail.gmail.com> <18a64d65-1241-6c72-8333-47b0ae933139@mellanox.com> <CAM_iQpXUQYvvXonEXe0czd4osL5YxZ+G5B-PUddautcHnGOtQw@mail.gmail.com> <5a985705-11e5-1575-a049-723accb97608@mellanox.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: wl1251 & mac address & calibration data
+Date: Tue, 20 Dec 2016 13:47:23 +0200
+Message-ID: <87shpiu8j8.fsf@kamboji.qca.qualcomm.com>
+References: <201611111820.52072@pali> <201612181204.52928@pali>
+        <83b2e9a4-f990-68a8-241e-375e46448d47@broadcom.com>
+        <201612181309.01298@pali>
+        <fd180271-1cd4-9891-e3d5-ae9cd0fb088b@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Or Gerlitz <gerlitz.or@gmail.com>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        Roi Dayan <roid@mellanox.com>,
-        David Miller <davem@davemloft.net>,
-        Jiri Pirko <jiri@mellanox.com>,
-        John Fastabend <john.fastabend@gmail.com>,
-        Hadar Hen Zion <hadarh@mellanox.com>
-To: Shahar Klein <shahark@mellanox.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:48224 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751967AbcLTLrW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2016 06:47:22 -0500
-In-Reply-To: <5a985705-11e5-1575-a049-723accb97608@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Pali =?utf-8?Q?Roh=C3=A1r?= <pali.rohar@gmail.com>,
+        Daniel Wagner <wagi@monom.org>,
+        "Luis R. Rodriguez" <mcgrof@kernel.org>,
+        Tom Gundersen <teg@jklm.no>,
+        Johannes Berg <johannes@sipsolutions.net>,
+        Ming Lei <ming.lei@canonical.com>,
+        Mimi Zohar <zohar@linux.vnet.ibm.com>,
+        Bjorn Andersson <bjorn.andersson@linaro.org>,
+        =?utf-8?Q?Rafa=C5=82_Mi=C5=82eck?= =?utf-8?Q?i?=
+        <zajec5@gmail.com>, Sebastian Reichel <sre@kernel.org>,
+        Pavel Machek <pavel@ucw.cz>,
+        Michal Kazior <michal.kazior@tieto.com>,
+        Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
+        Aaro Koskinen <aaro.koskinen@iki.fi>,
+        Tony Lindgren <tony@atomide.com>,
+        linux-wireless <linux-wireless@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>,
+        "linux-kernel\@vger.kernel.org" <linux-kernel@vger.ke
+To: Arend Van Spriel <arend.vanspriel@broadcom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <fd180271-1cd4-9891-e3d5-ae9cd0fb088b@broadcom.com> (Arend Van
+        Spriel's message of "Sun, 18 Dec 2016 21:08:43 +0100")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Shahar,
+Arend Van Spriel <arend.vanspriel@broadcom.com> writes:
 
-On 12/20/2016 07:22 AM, Shahar Klein wrote:
-> On 12/19/2016 7:58 PM, Cong Wang wrote:
->> On Mon, Dec 19, 2016 at 8:39 AM, Shahar Klein <shahark@mellanox.com> wrote:
->>> On 12/13/2016 12:51 AM, Cong Wang wrote:
->>>>
->>>> On Mon, Dec 12, 2016 at 1:18 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
->>>>>
->>>>> On Mon, Dec 12, 2016 at 3:28 PM, Daniel Borkmann <daniel@iogearbox.net>
->>>>> wrote:
->>>>>
->>>>>> Note that there's still the RCU fix missing for the deletion race that
->>>>>> Cong will still send out, but you say that the only thing you do is to
->>>>>> add a single rule, but no other operation in involved during that test?
->>>>>
->>>>> What's missing to have the deletion race fixed? making a patch or
->>>>> testing to a patch which was sent?
->>>>
->>>> If you think it would help for this problem, here is my patch rebased
->>>> on the latest net-next.
->>>>
->>>> Again, I don't see how it could help this case yet, especially I don't
->>>> see how we could have a loop in this singly linked list.
->>>
->>> I've applied cong's patch and hit a different lockup(full log attached):
->>
->> Are you sure this is really different? For me, it is still inside the loop
->> in tc_classify(), with only a slightly different offset.
->>
->>>
->>> Daniel suggested I'll add a print:
->>>                 case RTM_DELTFILTER:
->>> -                   err = tp->ops->delete(tp, fh);
->>> +                 printk(KERN_ERR "DEBUGG:SK %s:%d\n", __func__, __LINE__);
->>> +                 err = tp->ops->delete(tp, fh, &last);
->>>                         if (err == 0) {
->>>
->>> and I couldn't see this print in the output.....
->>
->> Hmm, that is odd, if this never prints, then my patch should not make any
->> difference.
->>
->> There are still two other cases where we could change tp->next, so do you
->> mind to add two more printk's for debugging?
->>
->> Attached is the delta patch.
->>
->> Thanks!
+> On 18-12-2016 13:09, Pali Roh=C3=A1r wrote:
 >
-> I've added a slightly different debug print:
-> @@ -368,11 +375,12 @@ static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n)
->                  if (tp_created) {
->                          RCU_INIT_POINTER(tp->next, rtnl_dereference(*back));
->                          rcu_assign_pointer(*back, tp);
-> +                 printk(KERN_ERR "DEBUGG:SK add/change filter by: %pf tp=%p tp->next=%p\n", tp->ops->get, tp, tp->next);
->                  }
->                  tfilter_notify(net, skb, n, tp, fh, RTM_NEWTFILTER, false);
-
-I'm curious, could you be a bit more verbose why you didn't go with Cong's
-debug patch?
-
-In particular, why you removed the hunk from the condition 'n->nlmsg_type ==
-RTM_DELTFILTER && t->tcm_handle == 0' where we delete the whole tp instance?
-
-Is it because if you have that printk() there, then the issue doesn't trigger
-for you anymore? Or any other reason?
-
-How many CPUs does your test machine have, I suspect more than 1, right?
-
-So iff RTM_DELTFILTER with tcm_handle of 0 really played a role in this, I'm
-wondering whether there was a subtle deletion + add race where the newly added
-filter on the other CPU still saw a stale pointer in the list. But just a wild
-guess at this point.
-
-Hmm, could you try this below to see whether the issue still appears?
-
-Thanks,
-Daniel
-
-diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
-index 3fbba79..4eee1cb 100644
---- a/net/sched/cls_api.c
-+++ b/net/sched/cls_api.c
-@@ -317,7 +317,7 @@ static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n)
-  		if (n->nlmsg_type == RTM_DELTFILTER && t->tcm_handle == 0) {
-  			struct tcf_proto *next = rtnl_dereference(tp->next);
-
--			RCU_INIT_POINTER(*back, next);
-+			rcu_assign_pointer(*back, next);
-
-  			tfilter_notify(net, skb, n, tp, fh,
-  				       RTM_DELTFILTER, false);
-
-
-> full output attached:
+>> File wl1251-nvs.bin is provided by linux-firmware package and contains=20
+>> default data which should be overriden by model specific calibrated=20
+>> data.
 >
-> [  283.290271] Mirror/redirect action on
-> [  283.305031] DEBUGG:SK add/change filter by: fl_get [cls_flower] tp=ffff9432d704df60 tp->next=          (null)
-> [  283.322563] DEBUGG:SK add/change filter by: fl_get [cls_flower] tp=ffff9436e718d240 tp->next=          (null)
-> [  283.359997] GACT probability on
-> [  283.365923] DEBUGG:SK add/change filter by: fl_get [cls_flower] tp=ffff9436e718d3c0 tp->next=ffff9436e718d240
-> [  283.378725] DEBUGG:SK add/change filter by: fl_get [cls_flower] tp=ffff9436e718d3c0 tp->next=ffff9436e718d3c0
-> [  283.391310] DEBUGG:SK add/change filter by: fl_get [cls_flower] tp=ffff9436e718d3c0 tp->next=ffff9436e718d3c0
-> [  283.403923] DEBUGG:SK add/change filter by: fl_get [cls_flower] tp=ffff9436e718d3c0 tp->next=ffff9436e718d3c0
-> [  283.416542] DEBUGG:SK add/change filter by: fl_get [cls_flower] tp=ffff9436e718d3c0 tp->next=ffff9436e718d3c0
-> [  308.538571] NMI watchdog: BUG: soft lockup - CPU#0 stuck for 23s! [swapper/0:0]
+> Ah. Someone thought it was a good idea to provide the "one ring to rule
+> them all". Nice.
+
+Yes, that was a bad idea. wl1251-nvs.bin in linux-firmware.git should be
+renamed to wl1251-nvs.bin.example, or something like that, as it should
+be only installed to a real system only if there's no real calibration
+data available (only for developers to use, not real users).
+
+>> But overwriting that one file is not possible as it next update of=20
+>> linux-firmware package will overwrite it back. It break any normal usage=
+=20
+>> of package management.
+>>=20
+>> Also it is ridiculously broken by design if some "boot" files needs to=20
+>> be overwritten to initialize hardware properly. To not break booting you=
+=20
+>> need to overwrite that file before first boot. But without booting=20
+>> device you cannot read calibration data. So some hack with autoreboot=20
+>> after boot is needed.
+
+Providing the calibration data via Device Tree is the proper way to
+solve this. Yes yes, I know N900 doesn't support it but that's a
+deficiency in N900, not Linux.
+
+>> And how to detect that we have real overwritten calibration data and
+>> not default one from linux-firmware? Any heuristic or checks will be
+>> broken here. And no, nothing like you need to reboot your device now
+>> (and similar concept) from windows world is not accepted.
 >
-> Thanks
-> Shahar
+> Well. After reading and creating calibration data you could just rebind
+> the driver to the device to have it probed again.
+
+Or load wl1251 as a module and make sure calibration data is installed
+before the module is loaded. LEDE does that with ath10k:
+
+https://git.lede-project.org/?p=3Dsource.git;a=3Dblob;f=3Dtarget/linux/ar71=
+xx/base-files/etc/hotplug.d/firmware/11-ath10k-caldata;h=3D97875bd79a579a00=
+10da3f60324b6ec966fe9c6a;hb=3DHEAD
+
+> But yeah, the default one from linux-firmware should never have been
+> there in the first place.
+
+Agreed.
+
+--=20
+Kalle Valo
