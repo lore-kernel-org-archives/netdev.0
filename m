@@ -1,36 +1,56 @@
-From: "George Spelvin" <linux@sciencehorizons.net>
-Subject: Re: HalfSipHash Acceptable Usage
-Date: 21 Dec 2016 10:55:40 -0500
-Message-ID: <20161221155540.29529.qmail@ns.sciencehorizons.net>
-References: <CAHmME9oJDOLpPKRpX=N+DY9BuzTueWjTaWzeVtdVMBG7mcrqKA@mail.gmail.com>
-Cc: ak@linux.intel.com, davem@davemloft.net, David.Laight@aculab.com,
-        djb@cr.yp.to, ebiggers3@gmail.com, eric.dumazet@gmail.com,
-        hannes@stressinduktion.org, jeanphilippe.aumasson@gmail.com,
-        kernel-hardening@lists.openwall.com, linux-crypto@vger.kernel.org,
-        linux-kernel@vger.kernel.org, luto@amacapital.net,
-        netdev@vger.kernel.org, tom@herbertland.com,
-        torvalds@linux-foundation.org, tytso@mit.edu,
-        vegard.nossum@gmail.com
-To: Jason@zx2c4.com, linux@sciencehorizons.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAHmME9oJDOLpPKRpX=N+DY9BuzTueWjTaWzeVtdVMBG7mcrqKA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Madalin-Cristian Bucur <madalin.bucur@nxp.com>
+Subject: RE: [PATCH net] tcp: add a missing barrier in tcp_tasklet_func()
+Date: Wed, 21 Dec 2016 14:23:53 +0000
+Message-ID: <AM4PR04MB1604328D760BEDEEA234460CEC930@AM4PR04MB1604.eurprd04.prod.outlook.com>
+References: <1482327763.8944.26.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev <netdev@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>,
+        Miffy Lei <xing.lei@nxp.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+        David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-db5eur01on0060.outbound.protection.outlook.com ([104.47.2.60]:16064
+        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S936446AbcLUP4W (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 21 Dec 2016 10:56:22 -0500
+In-Reply-To: <1482327763.8944.26.camel@edumazet-glaptop3.roam.corp.google.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Actually, DJB just made a very relevant suggestion.
-
-As I've mentioned, the 32-bit performance problems are an x86-specific
-problem.  ARM does very well, and other processors aren't bad at all.
-
-SipHash fits very nicely (and runs very fast) in the MMX registers.
-
-They're 64 bits, and there are 8 of them, so the integer registers can
-be reserved for pointers and loop counters and all that.  And there's
-reference code available.
-
-How much does kernel_fpu_begin()/kernel_fpu_end() cost?
-
-Although there are a lot of pre-MMX x86es in embedded control applications,
-I don't think anyone is worried about their networking performance.
-(Specifically, all of this affects only connection setup, not throughput 
-on established connections.)
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0
+bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXQ0KPiBTZW50OiBXZWRuZXNkYXksIERlY2VtYmVyIDIx
+LCAyMDE2IDM6NDMgUE0NCj4gDQo+IE1hZGFsaW4gcmVwb3J0ZWQgY3Jhc2hlcyBoYXBwZW5pbmcg
+aW4gdGNwX3Rhc2tsZXRfZnVuYygpIG9uIHBvd2VycGM2NA0KPiANCj4gQmVmb3JlIFRTUV9RVUVV
+RUQgYml0IGlzIGNsZWFyZWQsIHdlIG11c3QgZW5zdXJlIHRoZSBjaGFuZ2VzIGRvbmUNCj4gYnkg
+bGlzdF9kZWwoJnRwLT50c3Ffbm9kZSk7IGFyZSBjb21taXR0ZWQgdG8gbWVtb3J5LCBvdGhlcndp
+c2UNCj4gY29ycnVwdGlvbiBtaWdodCBoYXBwZW4sIGFzIGFuIG90aGVyIGNwdSBjb3VsZCBjYXRj
+aCBUU1FfUVVFVUVEDQo+IGNsZWFyYW5jZSB0b28gc29vbi4NCj4gDQo+IFdlIGNhbiBub3RpY2Ug
+dGhhdCBvbGQga2VybmVscyB3ZXJlIGltbXVuZSB0byB0aGlzIGJ1ZywgYmVjYXVzZQ0KPiBUU1Ff
+UVVFVUVEIHdhcyBjbGVhcmVkIGFmdGVyIGEgYmhfbG9ja19zb2NrKHNrKS9iaF91bmxvY2tfc29j
+ayhzaykNCj4gc2VjdGlvbiwgYnV0IHRoZXkgY291bGQgaGF2ZSBtaXNzZWQgYSBraWNrIHRvIHdy
+aXRlIGFkZGl0aW9uYWwgYnl0ZXMsDQo+IHdoZW4gTklDIGludGVycnVwdHMgZm9yIGEgZ2l2ZW4g
+ZmxvdyBhcmUgc3ByZWFkIHRvIG11bHRpcGxlIGNwdXMuDQo+IA0KPiBBZmZlY3RlZCBUQ1AgZmxv
+d3Mgd291bGQgbmVlZCBhbiBpbmNvbWluZyBBQ0sgb3IgUlRPIHRpbWVyIHRvIGFkZCBtb3JlDQo+
+IHBhY2tldHMgdG8gdGhlIHBpcGUuIFNvIG92ZXJhbGwgc2l0dWF0aW9uIHNob3VsZCBiZSBiZXR0
+ZXIgbm93Lg0KPiANCj4gRml4ZXM6IGIyMjNmZWI5ZGUyYSAoInRjcDogdHNxOiBhZGQgc2hvcnRj
+dXQgaW4gdGNwX3Rhc2tsZXRfZnVuYygpIikNCj4gU2lnbmVkLW9mZi1ieTogRXJpYyBEdW1hemV0
+IDxlZHVtYXpldEBnb29nbGUuY29tPg0KPiBSZXBvcnRlZC1ieTogTWFkYWxpbiBCdWN1ciA8bWFk
+YWxpbi5idWN1ckBueHAuY29tPg0KPiBUZXN0ZWQtYnk6IE1hZGFsaW4gQnVjdXIgPG1hZGFsaW4u
+YnVjdXJAbnhwLmNvbT4NCg0KSXQncyBhY3R1YWxseSB0ZXN0ZWQgYnkgWGluZyBMZWk6DQoNClRl
+c3RlZC1ieTogWGluZyBMZWkgPHhpbmcubGVpQG54cC5jb20+DQoNClRoYW5rIHlvdSBmb3IgdGhl
+IGZhc3QgcmVzb2x1dGlvbi4NCg0KPiAtLS0NCj4gIG5ldC9pcHY0L3RjcF9vdXRwdXQuYyB8ICAg
+IDEgKw0KPiAgMSBmaWxlIGNoYW5nZWQsIDEgaW5zZXJ0aW9uKCspDQo+IA0KPiBkaWZmIC0tZ2l0
+IGEvbmV0L2lwdjQvdGNwX291dHB1dC5jIGIvbmV0L2lwdjQvdGNwX291dHB1dC5jDQo+IGluZGV4
+DQo+IGI0NTEwMWYzZDJiZDJlMGYwMDc3MzA1YTA2MWFkZDRmN2VhMGRlMjcuLjMxYTI1NWI1NTVh
+ZDg2YTM1MzdjMDc3ODYyZTNlYTM4DQo+IGY5YjQ0Mjg0IDEwMDY0NA0KPiAtLS0gYS9uZXQvaXB2
+NC90Y3Bfb3V0cHV0LmMNCj4gKysrIGIvbmV0L2lwdjQvdGNwX291dHB1dC5jDQo+IEBAIC03Njks
+NiArNzY5LDcgQEAgc3RhdGljIHZvaWQgdGNwX3Rhc2tsZXRfZnVuYyh1bnNpZ25lZCBsb25nIGRh
+dGEpDQo+ICAJCWxpc3RfZGVsKCZ0cC0+dHNxX25vZGUpOw0KPiANCj4gIAkJc2sgPSAoc3RydWN0
+IHNvY2sgKil0cDsNCj4gKwkJc21wX21iX19iZWZvcmVfYXRvbWljKCk7DQo+ICAJCWNsZWFyX2Jp
+dChUU1FfUVVFVUVELCAmc2stPnNrX3RzcV9mbGFncyk7DQo+IA0KPiAgCQlpZiAoIXNrLT5za19s
+b2NrLm93bmVkICYmDQo+IA0KDQo=
