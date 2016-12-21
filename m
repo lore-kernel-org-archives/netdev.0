@@ -1,58 +1,65 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] phy: check if parent device is NULL
-Date: Tue, 20 Dec 2016 16:33:53 -0800
-Message-ID: <8cdfecf2-60c1-121d-a708-20de9f44d906@gmail.com>
-References: <87oa06upl5.fsf@babayev.com>
+Subject: Re: [PATCH] staging: octeon: Call SET_NETDEV_DEV()
+Date: Tue, 20 Dec 2016 17:02:37 -0800
+Message-ID: <d5cd5832-4402-2468-9d64-0a8d6e62d965@gmail.com>
+References: <20161215011326.8852-1-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-To: Ruslan Babayev <ruslan@babayev.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:34257 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754484AbcLUAd4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2016 19:33:56 -0500
-Received: by mail-pg0-f66.google.com with SMTP id b1so14023658pgc.1
-        for <netdev@vger.kernel.org>; Tue, 20 Dec 2016 16:33:56 -0800 (PST)
-In-Reply-To: <87oa06upl5.fsf@babayev.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davem@davemloft.net,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Aaro Koskinen <aaro.koskinen@iki.fi>,
+        Laura Garcia Liebana <nevola@gmail.com>,
+        Philippe Reynes <tremyfr@gmail.com>,
+        Asbjoern Sloth Toennesen <asbjorn@asbjorn.st>,
+        Jarod Wilson <jarod@redhat.com>,
+        Bhaktipriya Shridhar <bhaktipriya96@gmail.com>,
+        "open list:STAGING SUBSYSTEM" <devel@driverdev.osuosl.org>,
+        open list <linux-kernel@vger.kernel.org>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161215011326.8852-1-f.fainelli@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/20/2016 03:51 PM, Ruslan Babayev wrote:
-> Fixes a crash observed on Octeon.
+On 12/14/2016 05:13 PM, Florian Fainelli wrote:
+> The Octeon driver calls into PHYLIB which now checks for
+> net_device->dev.parent, so make sure we do set it before calling into
+> any MDIO/PHYLIB related function.
 > 
-> Signed-off-by: Ruslan Babayev <ruslan@babayev.com>
-> Fixes: ec988ad78ed6 ("phy: Don't increment MDIO bus refcount unless it's a
-> different owner")
+> Fixes: ec988ad78ed6 ("phy: Don't increment MDIO bus refcount unless it's a different owner")
+> Reported-by: Aaro Koskinen <aaro.koskinen@iki.fi>
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 
-Assuming you saw this with the staging Octeon driver, a fix has already
-been submitted:
-
-https://lkml.org/lkml/2016/12/14/756
-
-If this is with a different driver, I would rather we fix it in a
-similar way that the fix proposed above.
+Greg, David, since this is a fix for a regression introduced in the net
+tree, it may make sense that David take it via his tree.
 
 Thanks
 
 > ---
->  drivers/net/phy/phy_device.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
+>  drivers/staging/octeon/ethernet.c | 2 ++
+>  1 file changed, 2 insertions(+)
 > 
-> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-> index 9c06f8028f0c..043328b85643 100644
-> --- a/drivers/net/phy/phy_device.c
-> +++ b/drivers/net/phy/phy_device.c
-> @@ -905,7 +905,8 @@ EXPORT_SYMBOL(phy_attached_print);
->  int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
->  		      u32 flags, phy_interface_t interface)
->  {
-> -	struct module *ndev_owner = dev->dev.parent->driver->owner;
-> +	struct device *parent = dev->dev.parent;
-> +	struct module *ndev_owner = parent ? parent->driver->owner : NULL;
->  	struct mii_bus *bus = phydev->mdio.bus;
->  	struct device *d = &phydev->mdio.dev;
->  	int err;
+> diff --git a/drivers/staging/octeon/ethernet.c b/drivers/staging/octeon/ethernet.c
+> index 8130dfe89745..4971aa54756a 100644
+> --- a/drivers/staging/octeon/ethernet.c
+> +++ b/drivers/staging/octeon/ethernet.c
+> @@ -770,6 +770,7 @@ static int cvm_oct_probe(struct platform_device *pdev)
+>  			/* Initialize the device private structure. */
+>  			struct octeon_ethernet *priv = netdev_priv(dev);
+>  
+> +			SET_NETDEV_DEV(dev, &pdev->dev);
+>  			dev->netdev_ops = &cvm_oct_pow_netdev_ops;
+>  			priv->imode = CVMX_HELPER_INTERFACE_MODE_DISABLED;
+>  			priv->port = CVMX_PIP_NUM_INPUT_PORTS;
+> @@ -816,6 +817,7 @@ static int cvm_oct_probe(struct platform_device *pdev)
+>  			}
+>  
+>  			/* Initialize the device private structure. */
+> +			SET_NETDEV_DEV(dev, &pdev->dev);
+>  			priv = netdev_priv(dev);
+>  			priv->netdev = dev;
+>  			priv->of_node = cvm_oct_node_for_port(pip, interface,
 > 
 
 
