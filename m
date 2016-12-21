@@ -1,129 +1,67 @@
-From: Mark Greer <mgreer@animalcreek.com>
-Subject: Re: [PATCH 2/3] NFC: trf7970a: Add device tree option of 1.8 Volt IO
- voltage
-Date: Tue, 20 Dec 2016 19:23:47 -0700
-Message-ID: <20161221022347.GB5444@animalcreek.com>
-References: <1482250592-4268-1-git-send-email-glansberry@gmail.com>
- <1482250592-4268-2-git-send-email-glansberry@gmail.com>
+From: Ruslan Babayev <ruslan@babayev.com>
+Subject: Re: [PATCH] phy: check if parent device is NULL
+Date: Tue, 20 Dec 2016 18:35:53 -0800
+Message-ID: <CAOpYhv9y_aD3CMcr+xkU56n+0RUYP4bxxorFiKDL_0WjvjvXbw@mail.gmail.com>
+References: <87oa06upl5.fsf@babayev.com> <8cdfecf2-60c1-121d-a708-20de9f44d906@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless@vger.kernel.org, lauro.venancio@openbossa.org,
-        aloisio.almeida@openbossa.org, sameo@linux.intel.com,
-        robh+dt@kernel.org, mark.rutland@arm.com, netdev@vger.kernel.org,
-        devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
-        justin@kuvee.com
-To: Geoff Lansberry <geoff@kuvee.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1482250592-4268-2-git-send-email-glansberry@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f196.google.com ([209.85.223.196]:33613 "EHLO
+        mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756411AbcLUCfz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2016 21:35:55 -0500
+Received: by mail-io0-f196.google.com with SMTP id j76so66550ioe.0
+        for <netdev@vger.kernel.org>; Tue, 20 Dec 2016 18:35:54 -0800 (PST)
+In-Reply-To: <8cdfecf2-60c1-121d-a708-20de9f44d906@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 20, 2016 at 11:16:31AM -0500, Geoff Lansberry wrote:
-> From: Geoff Lansberry <geoff@kuvee.com>
-> 
-> The TRF7970A has configuration options for supporting hardware designs
-> with 1.8 Volt or 3.3 Volt IO.   This commit adds a device tree option,
-> using a fixed regulator binding, for setting the io voltage to match
-> the hardware configuration. If no option is supplied it defaults to
-> 3.3 volt configuration.
+Yes, I saw that with the staging Octeon driver.
+Your patch works for me too.
 
-Sign-off ??  Same comment for you other patches.
+Thanks Florian!
 
-<time passes>
 
-Okay I see you have it at the end of the patch.  It should be here.
-'git commit -s' is your friend.
-
-> ---
->  .../devicetree/bindings/net/nfc/trf7970a.txt       |  4 ++--
->  drivers/nfc/trf7970a.c                             | 28 +++++++++++++++++++++-
->  2 files changed, 29 insertions(+), 3 deletions(-)
-> 
-> diff --git a/Documentation/devicetree/bindings/net/nfc/trf7970a.txt b/Documentation/devicetree/bindings/net/nfc/trf7970a.txt
-> index e262ac1..b5777d8 100644
-> --- a/Documentation/devicetree/bindings/net/nfc/trf7970a.txt
-> +++ b/Documentation/devicetree/bindings/net/nfc/trf7970a.txt
-> @@ -21,9 +21,9 @@ Optional SoC Specific Properties:
->  - t5t-rmb-extra-byte-quirk: Specify that the trf7970a has the erratum
->    where an extra byte is returned by Read Multiple Block commands issued
->    to Type 5 tags.
-> +- vdd-io-supply: Regulator specifying voltage for vdd-io
->  - clock-frequency: Set to specify that the input frequency to the trf7970a is 13560000Hz or 27120000Hz
->  
-> -
->  Example (for ARM-based BeagleBone with TRF7970A on SPI1):
->  
->  &spi1 {
-> @@ -41,11 +41,11 @@ Example (for ARM-based BeagleBone with TRF7970A on SPI1):
->  				  <&gpio2 5 GPIO_ACTIVE_LOW>;
->  		vin-supply = <&ldo3_reg>;
->  		vin-voltage-override = <5000000>;
-> +		vdd-io-supply = <&ldo2_reg>;
->  		autosuspend-delay = <30000>;
->  		irq-status-read-quirk;
->  		en2-rf-quirk;
->  		t5t-rmb-extra-byte-quirk;
-> -		vdd_io_1v8;
-
-It was already mentioned but this shouldn't have been added in the
-previous patch so it shouldn't be here now.
-
->  		clock-frequency = <27120000>;
->  		status = "okay";
->  	};
-> diff --git a/drivers/nfc/trf7970a.c b/drivers/nfc/trf7970a.c
-> index 4e051e9..8a88195 100644
-> --- a/drivers/nfc/trf7970a.c
-> +++ b/drivers/nfc/trf7970a.c
-
-> @@ -2062,6 +2068,7 @@ static int trf7970a_probe(struct spi_device *spi)
->  		return ret;
->  	}
->  
-> +
-
-Please don't add an extra blank line.
-
->  	of_property_read_u32(np, "clock-frequency", &clk_freq);
->  	if ((clk_freq != TRF7970A_27MHZ_CLOCK_FREQUENCY) ||
->  		(clk_freq != TRF7970A_27MHZ_CLOCK_FREQUENCY)) {
-> @@ -2105,6 +2112,25 @@ static int trf7970a_probe(struct spi_device *spi)
->  	if (uvolts > 4000000)
->  		trf->chip_status_ctrl = TRF7970A_CHIP_STATUS_VRS5_3;
->  
-> +	trf->regulator = devm_regulator_get(&spi->dev, "vdd-io");
-> +	if (IS_ERR(trf->regulator)) {
-> +		ret = PTR_ERR(trf->regulator);
-> +		dev_err(trf->dev, "Can't get VDD_IO regulator: %d\n", ret);
-> +		goto err_destroy_lock;
-> +	}
-> +
-> +	ret = regulator_enable(trf->regulator);
-> +	if (ret) {
-> +		dev_err(trf->dev, "Can't enable VDD_IO: %d\n", ret);
-> +		goto err_destroy_lock;
-> +	}
-> +
-> +
-
-Please don't add an extra blank line.
-
-> +	if (regulator_get_voltage(trf->regulator) == 1800000) {
-> +		trf->io_ctrl = TRF7970A_REG_IO_CTRL_IO_LOW;
-> +		dev_dbg(trf->dev, "trf7970a config vdd_io to 1.8V\n");
-> +	}
-> +
->  	trf->ddev = nfc_digital_allocate_device(&trf7970a_nfc_ops,
->  			TRF7970A_SUPPORTED_PROTOCOLS,
->  			NFC_DIGITAL_DRV_CAPS_IN_CRC |
-> -- 
-> Signed-off-by: Geoff Lansberry <geoff@kuvee.com>
-
-Your 'Signed-off-by:' goes at the end of the commit description not here.
-
-Overall, I think you did the right thing (unless someone disagrees).
-Just some minor issues.
-
-Mark
---
+On Tue, Dec 20, 2016 at 4:33 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+> On 12/20/2016 03:51 PM, Ruslan Babayev wrote:
+>> Fixes a crash observed on Octeon.
+>>
+>> Signed-off-by: Ruslan Babayev <ruslan@babayev.com>
+>> Fixes: ec988ad78ed6 ("phy: Don't increment MDIO bus refcount unless it's a
+>> different owner")
+>
+> Assuming you saw this with the staging Octeon driver, a fix has already
+> been submitted:
+>
+> https://lkml.org/lkml/2016/12/14/756
+>
+> If this is with a different driver, I would rather we fix it in a
+> similar way that the fix proposed above.
+>
+> Thanks
+>
+>> ---
+>>  drivers/net/phy/phy_device.c | 3 ++-
+>>  1 file changed, 2 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+>> index 9c06f8028f0c..043328b85643 100644
+>> --- a/drivers/net/phy/phy_device.c
+>> +++ b/drivers/net/phy/phy_device.c
+>> @@ -905,7 +905,8 @@ EXPORT_SYMBOL(phy_attached_print);
+>>  int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
+>>                     u32 flags, phy_interface_t interface)
+>>  {
+>> -     struct module *ndev_owner = dev->dev.parent->driver->owner;
+>> +     struct device *parent = dev->dev.parent;
+>> +     struct module *ndev_owner = parent ? parent->driver->owner : NULL;
+>>       struct mii_bus *bus = phydev->mdio.bus;
+>>       struct device *d = &phydev->mdio.dev;
+>>       int err;
+>>
+>
+>
+> --
+> Florian
