@@ -1,122 +1,69 @@
-From: Bert Kenward <bkenward@solarflare.com>
-Subject: Re: [PATCH 2/2] net: sfc: falcon: use new api
- ethtool_{get|set}_link_ksettings
-Date: Wed, 21 Dec 2016 14:38:38 +0000
-Message-ID: <f08f69d5-f609-f1de-05d1-2a7a51ceeddc@solarflare.com>
-References: <1482272667-1206-1-git-send-email-tremyfr@gmail.com>
- <1482272667-1206-2-git-send-email-tremyfr@gmail.com>
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: Re: HalfSipHash Acceptable Usage
+Date: Wed, 21 Dec 2016 15:42:33 +0100
+Message-ID: <CAHmME9oCfCwAq1qP09uAN6vvakh4wXDMHunsL9D7W_LDeN_OQQ@mail.gmail.com>
+References: <20161221032829.3031.qmail@ns.sciencehorizons.net> <1482298164.8944.8.camel@edumazet-glaptop3.roam.corp.google.com>
+Reply-To: kernel-hardening@lists.openwall.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Philippe Reynes <tremyfr@gmail.com>,
-        <linux-net-drivers@solarflare.com>, <ecree@solarflare.com>,
-        <davem@davemloft.net>, <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1482272667-1206-2-git-send-email-tremyfr@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: George Spelvin <linux@sciencehorizons.net>, "Theodore Ts'o" <tytso@mit.edu>,
+	Andi Kleen <ak@linux.intel.com>, David Miller <davem@davemloft.net>,
+	David Laight <David.Laight@aculab.com>, "Daniel J . Bernstein" <djb@cr.yp.to>,
+	Eric Biggers <ebiggers3@gmail.com>, Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>, kernel-hardening@lists.openwall.com,
+	Linux Crypto Mailing List <linux-crypto@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>,
+	Andy Lutomirski <luto@amacapital.net>, Netdev <netdev@vger.kernel.org>,
+	Tom Herbert <tom@herbertland.com>, Linus Torvalds <torvalds@linux-foundation.org>,
+	Vegard Nossum <vegard.nossum@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <kernel-hardening-return-5733-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+In-Reply-To: <1482298164.8944.8.camel@edumazet-glaptop3.roam.corp.google.com>
 List-Id: netdev.vger.kernel.org
 
-On 20/12/16 22:24, Philippe Reynes wrote:
-> The ethtool api {get|set}_settings is deprecated.
-> We move this driver to new api {get|set}_link_ksettings.
-> 
-> Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
-> ---
->  drivers/net/ethernet/sfc/falcon/efx.c          |    2 +-
->  drivers/net/ethernet/sfc/falcon/ethtool.c      |   35 ++++++++++++-------
->  drivers/net/ethernet/sfc/falcon/mdio_10g.c     |   44 +++++++++++++++---------
->  drivers/net/ethernet/sfc/falcon/mdio_10g.h     |    3 +-
->  drivers/net/ethernet/sfc/falcon/net_driver.h   |   12 +++---
->  drivers/net/ethernet/sfc/falcon/qt202x_phy.c   |    9 +++--
->  drivers/net/ethernet/sfc/falcon/tenxpress.c    |   22 ++++++------
->  drivers/net/ethernet/sfc/falcon/txc43128_phy.c |    9 +++--
->  8 files changed, 80 insertions(+), 56 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/sfc/falcon/efx.c b/drivers/net/ethernet/sfc/falcon/efx.c
-> index 5c5cb3c..438ef9e 100644
-> --- a/drivers/net/ethernet/sfc/falcon/efx.c
-> +++ b/drivers/net/ethernet/sfc/falcon/efx.c
-> @@ -986,7 +986,7 @@ void ef4_mac_reconfigure(struct ef4_nic *efx)
->  
->  /* Push loopback/power/transmit disable settings to the PHY, and reconfigure
->   * the MAC appropriately. All other PHY configuration changes are pushed
-> - * through phy_op->set_settings(), and pushed asynchronously to the MAC
-> + * through phy_op->set_link_ksettings(), and pushed asynchronously to the MAC
->   * through ef4_monitor().
->   *
->   * Callers must hold the mac_lock
-> diff --git a/drivers/net/ethernet/sfc/falcon/ethtool.c b/drivers/net/ethernet/sfc/falcon/ethtool.c
-> index 8e1929b..659ece7 100644
-> --- a/drivers/net/ethernet/sfc/falcon/ethtool.c
-> +++ b/drivers/net/ethernet/sfc/falcon/ethtool.c
-> @@ -115,44 +115,53 @@ static int ef4_ethtool_phys_id(struct net_device *net_dev,
->  }
->  
->  /* This must be called with rtnl_lock held. */
-> -static int ef4_ethtool_get_settings(struct net_device *net_dev,
-> -				    struct ethtool_cmd *ecmd)
-> +static int
-> +ef4_ethtool_get_link_ksettings(struct net_device *net_dev,
-> +			       struct ethtool_link_ksettings *cmd)
->  {
->  	struct ef4_nic *efx = netdev_priv(net_dev);
->  	struct ef4_link_state *link_state = &efx->link_state;
-> +	u32 supported;
-> +
-> +	ethtool_convert_link_mode_to_legacy_u32(&supported,
-> +						cmd->link_modes.supported);
->  
->  	mutex_lock(&efx->mac_lock);
-> -	efx->phy_op->get_settings(efx, ecmd);
-> +	efx->phy_op->get_link_ksettings(efx, cmd);
->  	mutex_unlock(&efx->mac_lock);
->  
->  	/* Both MACs support pause frames (bidirectional and respond-only) */
-> -	ecmd->supported |= SUPPORTED_Pause | SUPPORTED_Asym_Pause;
-> +	supported |= SUPPORTED_Pause | SUPPORTED_Asym_Pause;
->  
->  	if (LOOPBACK_INTERNAL(efx)) {
-> -		ethtool_cmd_speed_set(ecmd, link_state->speed);
-> -		ecmd->duplex = link_state->fd ? DUPLEX_FULL : DUPLEX_HALF;
-> +		cmd->base.speed = link_state->speed;
-> +		cmd->base.duplex = link_state->fd ? DUPLEX_FULL : DUPLEX_HALF;
->  	}
->  
-> +	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.supported,
-> +						supported);
-> +
->  	return 0;
->  }
+Hi Eric,
 
-This translates cmd->link_modes.supported in to the legacy supported
-bitmap before we've actually read the values from the phy. Given we're
-only using the legacy bitmap so we can add the pause frame settings, I
-suggest something like:
+I computed performance numbers for both 32-bit and 64-bit using the
+actual functions in which talking about replacing MD5 with SipHash.
+The basic harness is here [1] if you're curious. SipHash was a pretty
+clear winner for both cases.
 
-ef4_ethtool_get_link_ksettings(struct net_device *net_dev,
-			       struct ethtool_link_ksettings *cmd)
-{
-	struct ef4_nic *efx = netdev_priv(net_dev);
-	struct ef4_link_state *link_state = &efx->link_state;
+x86_64:
+[    1.714302] secure_tcpv6_sequence_number_md5# cycles: 102373398
+[    1.747685] secure_tcp_sequence_number_md5# cycles: 92042258
+[    1.773522] secure_tcpv6_sequence_number_siphash# cycles: 70786533
+[    1.798701] secure_tcp_sequence_number_siphash# cycles: 68941043
 
-	mutex_lock(&efx->mac_lock);
-	efx->phy_op->get_link_ksettings(efx, cmd);
-	mutex_unlock(&efx->mac_lock);
+x86:
+[    1.635749] secure_tcpv6_sequence_number_md5# cycles: 106016335
+[    1.670259] secure_tcp_sequence_number_md5# cycles: 95670512
+[    1.708387] secure_tcpv6_sequence_number_siphash# cycles: 105988635
+[    1.740264] secure_tcp_sequence_number_siphash# cycles: 88225395
 
-	/* Both MACs support pause frames (bidirectional and respond-only) */
-	ethtool_link_ksettings_add_link_mode(cmd, supported, Pause);
-	ethtool_link_ksettings_add_link_mode(cmd, supported, Asym_Pause);
+>>> 102373398 > 70786533
+True
+>>> 92042258 > 68941043
+True
+>>> 106016335 > 105988635
+True
+>>> 95670512 > 88225395
+True
 
-	if (LOOPBACK_INTERNAL(efx)) {
-		cmd->base.speed = link_state->speed;
-		cmd->base.duplex = link_state->fd ? DUPLEX_FULL : DUPLEX_HALF;
-	}
+While MD5 is probably faster for some kind of large-data
+cycles-per-byte, due to its 64-byte internal state, SipHash -- the
+"Sip" part standing "Short Input PRF" -- is fast for shorter inputs.
+In practice with the functions we're talking about replacing, there's
+no need to hash 64-bytes. So, SipHash comes out faster and more
+secure.
 
-	return 0;
-}
+I also haven't begun to look focusedly at the assembly my SipHash
+implemention is generating, which means there's still window for even
+more performance improvements.
+
+Jason
 
 
-Thanks,
-
-Bert.
+[1] https://git.zx2c4.com/linux-dev/tree/net/core/secure_seq.c?h=siphash-bench#n194
