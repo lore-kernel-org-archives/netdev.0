@@ -1,67 +1,142 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] staging: octeon: Call SET_NETDEV_DEV()
-Date: Tue, 20 Dec 2016 17:02:37 -0800
-Message-ID: <d5cd5832-4402-2468-9d64-0a8d6e62d965@gmail.com>
-References: <20161215011326.8852-1-f.fainelli@gmail.com>
+From: Weilong Chen <chenweilong@huawei.com>
+Subject: Re: [PATCH net-next] ixgbevf: fix 'Etherleak' in ixgbevf
+Date: Wed, 21 Dec 2016 09:40:14 +0800
+Message-ID: <ee9ad90d-1c4b-7358-a172-8369a0c7da8b@huawei.com>
+References: <1481802034-77729-1-git-send-email-chenweilong@huawei.com>
+ <CAKgT0UfA9VG4NQZLLxXvobtfp22yPpPssSM4Ge94KFa1RVnhyg@mail.gmail.com>
+ <5c942aba-f7fb-ede6-b6a2-e591025f53a5@huawei.com>
+ <CAKgT0Uf_HXtJiZJsEYm9L19cZ+deVX=E+Y8JvU5+u0=bggpAqw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="utf-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        Aaro Koskinen <aaro.koskinen@iki.fi>,
-        Laura Garcia Liebana <nevola@gmail.com>,
-        Philippe Reynes <tremyfr@gmail.com>,
-        Asbjoern Sloth Toennesen <asbjorn@asbjorn.st>,
-        Jarod Wilson <jarod@redhat.com>,
-        Bhaktipriya Shridhar <bhaktipriya96@gmail.com>,
-        "open list:STAGING SUBSYSTEM" <devel@driverdev.osuosl.org>,
-        open list <linux-kernel@vger.kernel.org>
-To: netdev@vger.kernel.org
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+        Netdev <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        <wangkefeng.wang@huawei.com>
+To: Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161215011326.8852-1-f.fainelli@gmail.com>
+In-Reply-To: <CAKgT0Uf_HXtJiZJsEYm9L19cZ+deVX=E+Y8JvU5+u0=bggpAqw@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 12/14/2016 05:13 PM, Florian Fainelli wrote:
-> The Octeon driver calls into PHYLIB which now checks for
-> net_device->dev.parent, so make sure we do set it before calling into
-> any MDIO/PHYLIB related function.
-> 
-> Fixes: ec988ad78ed6 ("phy: Don't increment MDIO bus refcount unless it's a different owner")
-> Reported-by: Aaro Koskinen <aaro.koskinen@iki.fi>
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+Thanks for you explanation, it's very professional.
 
-Greg, David, since this is a fix for a regression introduced in the net
-tree, it may make sense that David take it via his tree.
+My test is like this:
+The Nessus is deployed on a windows server, the peer is a X86_64 linux 
+host which run several VMs on it. The nic is Intel 82599 and SRIOV is 
+enabled. VFs are passthroughed to the VMs. No DPDK.
 
-Thanks
+The Nessus server send small ICMP echo request packets to the VM, and
+then check the reply, and report the error:
 
-> ---
->  drivers/staging/octeon/ethernet.c | 2 ++
->  1 file changed, 2 insertions(+)
-> 
-> diff --git a/drivers/staging/octeon/ethernet.c b/drivers/staging/octeon/ethernet.c
-> index 8130dfe89745..4971aa54756a 100644
-> --- a/drivers/staging/octeon/ethernet.c
-> +++ b/drivers/staging/octeon/ethernet.c
-> @@ -770,6 +770,7 @@ static int cvm_oct_probe(struct platform_device *pdev)
->  			/* Initialize the device private structure. */
->  			struct octeon_ethernet *priv = netdev_priv(dev);
->  
-> +			SET_NETDEV_DEV(dev, &pdev->dev);
->  			dev->netdev_ops = &cvm_oct_pow_netdev_ops;
->  			priv->imode = CVMX_HELPER_INTERFACE_MODE_DISABLED;
->  			priv->port = CVMX_PIP_NUM_INPUT_PORTS;
-> @@ -816,6 +817,7 @@ static int cvm_oct_probe(struct platform_device *pdev)
->  			}
->  
->  			/* Initialize the device private structure. */
-> +			SET_NETDEV_DEV(dev, &pdev->dev);
->  			priv = netdev_priv(dev);
->  			priv->netdev = dev;
->  			priv->of_node = cvm_oct_node_for_port(pip, interface,
-> 
+"11197 - Multiple Ethernet Driver Frame Padding Information Disclosure 
+(Etherleak)"
 
+"Padding observed in one frame :
 
--- 
-Florian
+0x00: 00 00 00 00 00 00 00 00 00 00 00 00 00 57 37 28 .............W7(
+0x10: 76 v
+
+Padding observed in another frame :
+
+0x00: 00 00 00 00 00 00 00 00 00 00 00 00 00 D3 4D 75 ..............Mu
+0x10: 28 ("
+
+I only have Nessus's windows version, so can't test on linux. Maybe the 
+windows server does not pad small packets to 60 bytes on the receive path.
+
+On 2016/12/21 0:36, Alexander Duyck wrote:
+> The limit of 17 is just based on the hardware.  Specifically the
+> olinfo field in the Tx descriptor has a minimum length of 17 has a
+> requirement.  The hardware itself is supposed to be capable of padding
+> short frames that are supposed to be transmitted.  The drivers are
+> supposed to pad short frames on receive to get them up to 60 bytes.
+>
+> When you are seeing this issue are you sending frames from the VF to
+> one of the local interfaces on the same port or to an external
+> interface?  Also are you receiving on another linux ixgbevf driver or
+> are you receiving the packet using a different driver interface such
+> as DPDK?  I'm just wanting to verify this as it is possible that the
+> memory leak you are seeing is on the receiver and not on the source if
+> you are transmitting to a local VF or the PF as the receiver will have
+> to pad the frame in such a case to get it up to 60 bytes.
+>
+> - Alex
+>
+> On Tue, Dec 20, 2016 at 3:50 AM, Weilong Chen <chenweilong@huawei.com> wrote:
+>> Hi,
+>>
+>> Thanks for you reply.
+>> We test you patch, but the problem is still there, it seems do not work.
+>>
+>> I'm not sure why ixgbe use the limit 17. The kenel use ETH_ZLEN (60) with
+>> out FCS. A lot of drivers such as e1000 use it. Any explaination?
+>>
+>> Thanks.
+>>
+>>
+>> On 2016/12/16 0:13, Alexander Duyck wrote:
+>>>
+>>> On Thu, Dec 15, 2016 at 3:40 AM, Weilong Chen <chenweilong@huawei.com>
+>>> wrote:
+>>>>
+>>>> Nessus report the vf appears to leak memory in network packets.
+>>>> Fix this by padding all small packets manually.
+>>>>
+>>>> And the CVE-2003-0001.
+>>>>
+>>>> https://ofirarkin.files.wordpress.com/2008/11/atstake_etherleak_report.pdf
+>>>>
+>>>> Signed-off-by: Weilong Chen <chenweilong@huawei.com>
+>>>> ---
+>>>>  drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 7 +++++++
+>>>>  1 file changed, 7 insertions(+)
+>>>>
+>>>> diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+>>>> b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+>>>> index 6d4bef5..137a154 100644
+>>>> --- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+>>>> +++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+>>>> @@ -3654,6 +3654,13 @@ static int ixgbevf_xmit_frame(struct sk_buff *skb,
+>>>> struct net_device *netdev)
+>>>>                 return NETDEV_TX_OK;
+>>>>         }
+>>>>
+>>>> +       /* On PCI/PCI-X HW, if packet size is less than ETH_ZLEN,
+>>>> +        * packets may get corrupted during padding by HW.
+>>>> +        * To WA this issue, pad all small packets manually.
+>>>> +        */
+>>>> +       if (eth_skb_pad(skb))
+>>>> +               return NETDEV_TX_OK;
+>>>> +
+>>>
+>>>
+>>> So the patch description for this probably isn't correct.  It looks
+>>> like the problem isn't leaking data it is the fact that the frames
+>>> aren't being padded to prevent malicious events.  The only issue is
+>>> the patch is padding by a bit too much.  I would recommend replacing
+>>> this with the following from ixgbe:
+>>>
+>>>         /*
+>>>          * The minimum packet size for olinfo paylen is 17 so pad the skb
+>>>          * in order to meet this minimum size requirement.
+>>>          */
+>>>         if (skb_put_padto(skb, 17))
+>>>                 return NETDEV_TX_OK;
+>>>
+>>>
+>>>>         tx_ring = adapter->tx_ring[skb->queue_mapping];
+>>>>
+>>>>         /* need: 1 descriptor per page *
+>>>> PAGE_SIZE/IXGBE_MAX_DATA_PER_TXD,
+>>>> --
+>>>> 1.7.12
+>>>>
+>>>
+>>> .
+>>>
+>>
+>
+> .
+>
