@@ -1,43 +1,107 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net] net, sched: fix soft lockup in tc_classify
-Date: Wed, 21 Dec 2016 20:16:19 +0100
-Message-ID: <585AD503.2070300@iogearbox.net>
-References: <1954223e8b7aa90ff835357e8a3ef7537be33e43.1482337600.git.daniel@iogearbox.net> <CAM_iQpXadrGWJYqizEkq+xmMKVV9krrcCWKur=ZCRZBS9Mx_8w@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 2/5 net-next] inet: kill smallest_size and smallest_port
+Date: Wed, 21 Dec 2016 11:29:04 -0800
+Message-ID: <1482348544.8944.67.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1482264424-15439-1-git-send-email-jbacik@fb.com>
+         <1482264424-15439-3-git-send-email-jbacik@fb.com>
+         <20161221.133003.1401543777326711002.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        Shahar Klein <shahark@mellanox.com>,
-        Or Gerlitz <gerlitz.or@gmail.com>,
-        Roi Dayan <roid@mellanox.com>, Jiri Pirko <jiri@mellanox.com>,
-        John Fastabend <john.fastabend@gmail.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Cc: jbacik@fb.com, hannes@stressinduktion.org, kraigatgoog@gmail.com,
+        tom@herbertland.com, netdev@vger.kernel.org, kernel-team@fb.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:53349 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1758333AbcLUTQY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2016 14:16:24 -0500
-In-Reply-To: <CAM_iQpXadrGWJYqizEkq+xmMKVV9krrcCWKur=ZCRZBS9Mx_8w@mail.gmail.com>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:34400 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1763472AbcLUT3V (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2016 14:29:21 -0500
+Received: by mail-pg0-f68.google.com with SMTP id b1so17281512pgc.1
+        for <netdev@vger.kernel.org>; Wed, 21 Dec 2016 11:29:21 -0800 (PST)
+In-Reply-To: <20161221.133003.1401543777326711002.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/21/2016 07:51 PM, Cong Wang wrote:
-> On Wed, Dec 21, 2016 at 9:04 AM, Daniel Borkmann <daniel@iogearbox.net> wrote:
->> What happens is that in tc_ctl_tfilter(), thread A allocates a new
->> tp, initializes it, sets tp_created to 1, and calls into tp->ops->change()
->> with it. In that classifier callback we had to unlock/lock the rtnl
->> mutex and returned with -EAGAIN. One reason why we need to drop there
->> is, for example, that we need to request an action module to be loaded.
->
-> Excellent catch!
->
-> But why do we have to replay the request here? Shouldn't we just return
-> EAGAIN to user-space and let user-space decide to retry or not?
-> Replaying is the root of the evil here.
+On Wed, 2016-12-21 at 13:30 -0500, David Miller wrote:
+> From: Josef Bacik <jbacik@fb.com>
+> Date: Tue, 20 Dec 2016 15:07:01 -0500
+> 
+> > In inet_csk_get_port we seem to be using smallest_port to figure out where the
+> > best place to look for a SO_REUSEPORT sk that matches with an existing set of
+> > SO_REUSEPORT's.  However if we get to the logic
+> > 
+> > if (smallest_size != -1) {
+> > 	port = smallest_port;
+> > 	goto have_port;
+> > }
+> > 
+> > we will do a useless search, because we would have already done the
+> > inet_csk_bind_conflict for that port and it would have returned 1, otherwise we
+> > would have gone to found_tb and succeeded.  Since this logic makes us do yet
+> > another trip through inet_csk_bind_conflict for a port we know won't work just
+> > delete this code and save us the time.
+> > 
+> > Signed-off-by: Josef Bacik <jbacik@fb.com>
+> 
+> So the "all else being equal, use 'tb' with smallest socket count" logic
+> wasn't being used at all?
+> 
+> Instead of removing it why don't we make it work properly again?  Something
+> obviously broke it somewhere along the line, because I am pretty sure this
+> heuristic worked at some point in the past.
 
-Right, this behavior is already pretty old (2005), see history
-tree 8d7c694553dc ("[PKT_SCHED]: act_api.c: drop rtnl for loading
-modules") and 437293de63d8 ("[PKT_SCHED]: cls_api.c: drop rtnl
-for loading modules"), some binaries could rely on that behavior
-in one way or another I'd presume.
+Yeah, but heuristic to choose the smallest list was hurting a lot, since
+it tends to consume all ports.
+
+At connect() time we prefer to have another heuristic, actually leaving
+some slots absolutely empty, so that a bind() will succeed later.
+
+Remember I had more than 30 ms latency as described in the 2nd commit
+changelog :
+
+References :
+
+commit ea8add2b190395408b22a9127bed2c0912aecbc8
+Author: Eric Dumazet <edumazet@google.com>
+Date:   Thu Feb 11 16:28:50 2016 -0800
+
+    tcp/dccp: better use of ephemeral ports in bind()
+    
+    Implement strategy used in __inet_hash_connect() in opposite way :
+    
+    Try to find a candidate using odd ports, then fallback to even ports.
+    
+    We no longer disable BH for whole traversal, but one bucket at a time.
+    We also use cond_resched() to yield cpu to other tasks if needed.
+    
+    I removed one indentation level and tried to mirror the loop we have
+    in __inet_hash_connect() and variable names to ease code maintenance.
+    
+    Signed-off-by: Eric Dumazet <edumazet@google.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+commit 1580ab63fc9a03593072cc5656167a75c4f1d173
+Author: Eric Dumazet <edumazet@google.com>
+Date:   Thu Feb 11 16:28:49 2016 -0800
+
+    tcp/dccp: better use of ephemeral ports in connect()
+    
+    In commit 07f4c90062f8 ("tcp/dccp: try to not exhaust ip_local_port_range
+    in connect()"), I added a very simple heuristic, so that we got better
+    chances to use even ports, and allow bind() users to have more available
+    slots.
+    
+    It gave nice results, but with more than 200,000 TCP sessions on a typical
+    server, the ~30,000 ephemeral ports are still a rare resource.
+    
+    I chose to go a step further, by looking at all even ports, and if none
+    was available, fallback to odd ports.
+    
+    The companion patch does the same in bind(), but in opposite way.
+    
+    I've seen exec times of up to 30ms on busy servers, so I no longer
+    disable BH for the whole traversal, but only for each hash bucket.
+    I also call cond_resched() to be gentle to other tasks.
+    
+    Signed-off-by: Eric Dumazet <edumazet@google.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
