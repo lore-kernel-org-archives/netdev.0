@@ -1,48 +1,95 @@
-From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
-Subject: RE: [PATCH][V2] qed: fix memory leak of a qed_spq_entry on error
- failure paths
-Date: Wed, 21 Dec 2016 13:29:56 +0000
-Message-ID: <BL2PR07MB230615AAE3CF67DEBC6083778D930@BL2PR07MB2306.namprd07.prod.outlook.com>
-References: <20161220114424.11244-1-colin.king@canonical.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH 1/5 net-next] inet: replace ->bind_conflict with
+ ->rcv_saddr_equal
+Date: Wed, 21 Dec 2016 16:06:54 +0100
+Message-ID: <1482332814.2260.6.camel@stressinduktion.org>
+References: <1482264424-15439-1-git-send-email-jbacik@fb.com>
+         <1482264424-15439-2-git-send-email-jbacik@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "Elior, Ariel" <Ariel.Elior@cavium.com>,
-        "Tayar, Tomer" <Tomer.Tayar@cavium.com>
-To: Colin King <colin.king@canonical.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: Josef Bacik <jbacik@fb.com>, davem@davemloft.net,
+        kraigatgoog@gmail.com, eric.dumazet@gmail.com, tom@herbertland.com,
+        netdev@vger.kernel.org, kernel-team@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2nam02on0072.outbound.protection.outlook.com ([104.47.38.72]:21028
-        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751294AbcLUPDG (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 21 Dec 2016 10:03:06 -0500
-In-Reply-To: <20161220114424.11244-1-colin.king@canonical.com>
-Content-Language: en-US
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:46003 "EHLO
+        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S934293AbcLUPHB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2016 10:07:01 -0500
+In-Reply-To: <1482264424-15439-2-git-send-email-jbacik@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiBGcm9tOiBDb2xpbiBJYW4gS2luZyA8Y29saW4ua2luZ0BjYW5vbmljYWwuY29tPg0KPiANCj4g
-QSBxZWRfc3BxX2VudHJ5IGVudHJ5IGlzIGFsbG9jYXRlZCBieSBxZWRfc3BfaW5pdF9yZXF1ZXN0
-IGJ1dCBpcyBub3Qga2ZyZWUnZA0KPiBpZiBhbiBlcnJvciBvY2N1cnMsIGNhdXNpbmcgYSBtZW1v
-cnkgbGVhay4gRml4IHRoaXMgYnkgcmV0dXJuaW5nIHRoZSBwcmV2aW91c2x5DQo+IGFsbG9jYXRl
-ZCBzcHEgZW50cnkgYW5kIGFsc28gc2V0dGluZyAqcHBfZW50IHRvIE5VTEwgdG8gYmUgc2FmZS4N
-Cj4gDQo+IFRoYW5rcyB0byBZdXZhbCBNaW50eiBmb3Igc3VnZ2VzdGlvbnMgb24gaG93IHRvIGlt
-cHJvdmUgbXkgb3JpZ2luYWwgZml4Lg0KPiANCj4gU2lnbmVkLW9mZi1ieTogQ29saW4gSWFuIEtp
-bmcgPGNvbGluLmtpbmdAY2Fub25pY2FsLmNvbT4NCg0KV2UndmUgZ2l2ZW4gaXQgYSBtb3JlIHRo
-b3JvdWdoIGxvb2ssIGFuZCBhcHBhcmVudGx5IHRoaXMgaXNuJ3QgdGhlIGNvcnJlY3QgZml4Lg0K
-U28gSSdsbCBzdGFydCBieSBzYXlpbmcgc29ycnkgZm9yIG1ha2luZyB5b3Ugc2VuZCB0aGlzIFYy
-IG5lZWRsZXNzbHkuDQoNCkl0IGJvaWxzIGRvd24gdG8gdGhlIGZhY3QgdGhlcmUgYXJlIHR3byBr
-aW5kcyBvZiBTUFEgZW50cmllcyAtDQpUaG9zZSBvcmlnaW5hdGluZyBmcm9tIHRoZSAnZnJlZV9w
-b29sJyBhbmQgdGhvc2UgZnJvbSB0aGUgJ3VubGltaXRlZF9wZW5kaW5nJy4NCk9ubHkgdGhvc2Ug
-b3JpZ2luYXRpbmcgZnJvbSB0aGUgZnJlZV9wb29sIHNob3VsZCBiZSByZXR1cm5lZA0KdXNpbmcg
-dGhlIHFlZF9zcHFfcmV0dXJuX2VudHJ5KCksIGFzIG9ubHkgdGhvc2UgYWN0dWFsbHkgcG9pbnQg
-dG8gYSB2YWxpZA0KZG1hLW1hcHBlZCBtZW1vcnkgd2hlcmUgRlcgZXhwZWN0cyB0byBmaW5kIHRo
-ZSBlbnRyaWVzOw0KUmV0dXJuaW5nIHRoZSBvdGhlciBraW5kIHdvdWxkIGxlYWQgdG8gYXNzZXJ0
-aW9ucyBsYXRlciwNCmFzIGRyaXZlciB3b3VsZCBwb3N0IGEgcmFtcm9kIHRvIEZXIHdoaWNoIGFj
-dHVhbGx5IHBvaW50cyB0byBhZGRyZXNzIDAuDQoNCkxvb2tpbmcgYXQgdGhlIGVycm9yIGZsb3dz
-LCBpdCBzZWVtcyBwb3NzaWJsZSB0aGlzIGlzbid0IHRoZSBvbmx5IGZhdWx0eQ0KZXJyb3IgZmxv
-dyBpbiB0aGUgU1BRLiBJIHN1Z2dlc3QgeW91J2QgZHJvcCB0aGlzIGFuZCB3ZSdsbCB0YWtlIGl0
-IGZyb20NCmhlcmUgW2FsdGhvdWdoIGlmIHlvdSByZWFsbHkgaGF2ZSB0aGUgdXJnZSB0byBjb250
-aW51ZSAtIHBsZWFzZSBkb10uDQoNClRoYW5rcywNCll1dmFsDQoNCg0K
+On Tue, 2016-12-20 at 15:07 -0500, Josef Bacik wrote:
+> The only difference between inet6_csk_bind_conflict and inet_csk_bind_conflict
+> is how they check the rcv_saddr.  Since we want to be able to check the saddr in
+> other places just drop the protocol specific ->bind_conflict and replace it with
+> ->rcv_saddr_equal, then make inet_csk_bind_conflict the one true bind conflict
+> function.
+> 
+> Signed-off-by: Josef Bacik <jbacik@fb.com>
+> 
+
+
+
+> ---
+>  include/net/inet6_connection_sock.h |  5 -----
+>  include/net/inet_connection_sock.h  |  9 +++------
+>  net/dccp/ipv4.c                     |  3 ++-
+>  net/dccp/ipv6.c                     |  2 +-
+>  net/ipv4/inet_connection_sock.c     | 22 +++++++-------------
+>  net/ipv4/tcp_ipv4.c                 |  3 ++-
+>  net/ipv4/udp.c                      |  1 +
+>  net/ipv6/inet6_connection_sock.c    | 40 -------------------------------------
+>  net/ipv6/tcp_ipv6.c                 |  4 ++--
+>  9 files changed, 18 insertions(+), 71 deletions(-)
+> 
+> diff --git a/include/net/inet6_connection_sock.h b/include/net/inet6_connection_sock.h
+> index 3212b39..8ec87b6 100644
+> --- a/include/net/inet6_connection_sock.h
+> +++ b/include/net/inet6_connection_sock.h
+> @@ -15,16 +15,11 @@
+>  
+>  #include <linux/types.h>
+>  
+> -struct inet_bind_bucket;
+>  struct request_sock;
+>  struct sk_buff;
+>  struct sock;
+>  struct sockaddr;
+>  
+> -int inet6_csk_bind_conflict(const struct sock *sk,
+> -			    const struct inet_bind_bucket *tb, bool relax,
+> -			    bool soreuseport_ok);
+> -
+>  struct dst_entry *inet6_csk_route_req(const struct sock *sk, struct flowi6 *fl6,
+>  				      const struct request_sock *req, u8 proto);
+>  
+> diff --git a/include/net/inet_connection_sock.h b/include/net/inet_connection_sock.h
+> index ec0479a..9cd43c5 100644
+> --- a/include/net/inet_connection_sock.h
+> +++ b/include/net/inet_connection_sock.h
+> @@ -62,9 +62,9 @@ struct inet_connection_sock_af_ops {
+>  				char __user *optval, int __user *optlen);
+>  #endif
+>  	void	    (*addr2sockaddr)(struct sock *sk, struct sockaddr *);
+> -	int	    (*bind_conflict)(const struct sock *sk,
+> -				     const struct inet_bind_bucket *tb,
+> -				     bool relax, bool soreuseport_ok);
+> +	int         (*rcv_saddr_equal)(const struct sock *sk1,
+> +				       const struct sock *sk2,
+> +				       bool match_wildcard);
+>  	void	    (*mtu_reduced)(struct sock *sk);
+>  };
+>  
+> 
+
+The patch looks as a nice code cleanup already!
+
+Have you looked if we can simply have one rcv_saddr_equal for both ipv4
+and ipv6 that e.g. uses sk->sk_family instead of function pointers?
+This could give us even more possibilities to remove some indirect
+functions calls and thus might relieve some cycles?
+
+Thanks,
+Hannes
