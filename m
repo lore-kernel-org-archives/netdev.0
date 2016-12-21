@@ -1,127 +1,64 @@
-From: Bartosz Folta <bfolta@cadence.com>
-Subject: [PATCH v2] net: macb: Applied changes according to review made by
- Andy Shevchenko.
-Date: Wed, 21 Dec 2016 13:04:17 +0000
-Message-ID: <SN1PR0701MB19512EB0A5CF617CE48169ABCC930@SN1PR0701MB1951.namprd07.prod.outlook.com>
-References: <1482325169-22771-1-git-send-email-bfolta@cadence.com>
+From: Sunil Kovvuri <sunil.kovvuri@gmail.com>
+Subject: Re: [RFC PATCH 1/7] PF driver modified to enable HW filter support,
+ changes works in backward compatibility mode Enable required things in
+ Makefile Enable LZ4 dependecy inside config file
+Date: Wed, 21 Dec 2016 18:35:20 +0530
+Message-ID: <CA+sq2CfwTN5u6nhxriqWqoFxsYHdEYikbjBgMCL2YwNXpqyQ=Q@mail.gmail.com>
+References: <1482310011-1862-1-git-send-email-satha.rao@caviumnetworks.com> <1482310011-1862-2-git-send-email-satha.rao@caviumnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: Bartosz Folta <bfolta@cadence.com>,
-        Rafal Ozieblo <rafalo@cadence.com>
-To: Nicolas Ferre <nicolas.ferre@atmel.com>,
+Content-Type: text/plain; charset=UTF-8
+Cc: LKML <linux-kernel@vger.kernel.org>,
+        Sunil Goutham <sgoutham@cavium.com>,
+        Robert Richter <rric@kernel.org>,
         "David S. Miller" <davem@davemloft.net>,
-        Niklas Cassel <niklas.cassel@axis.com>,
-        "Alexandre Torgue" <alexandre.torgue@st.com>,
-        Satanand Burla <satananda.burla@caviumnetworks.com>,
-        Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>,
-        Simon Horman <simon.horman@netronome.com>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam02on0041.outbound.protection.outlook.com ([104.47.36.41]:34160
-        "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750754AbcLUNEU (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 21 Dec 2016 08:04:20 -0500
-In-Reply-To: <1482325169-22771-1-git-send-email-bfolta@cadence.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+        David Daney <david.daney@cavium.com>,
+        rvatsavayi@caviumnetworks.com, derek.chickles@caviumnetworks.com,
+        philip.romanov@cavium.com,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        LAKML <linux-arm-kernel@lists.infradead.org>
+To: Satha Koteswara Rao <satha.rao@caviumnetworks.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1482310011-1862-2-git-send-email-satha.rao@caviumnetworks.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch is sent in regard to recently applied patch
-Commit 83a77e9ec4150ee4acc635638f7dedd9da523a26
-net: macb: Added PCI wrapper for Platform Driver.
+>
+>  #define NIC_MAX_RSS_HASH_BITS          8
+>  #define NIC_MAX_RSS_IDR_TBL_SIZE       (1 << NIC_MAX_RSS_HASH_BITS)
+> +#define NIC_TNS_RSS_IDR_TBL_SIZE       5
 
-Signed-off-by: Bartosz Folta <bfolta@cadence.com>
----
-Changed in v2:
-Size of DMA mask is set based on value held by PCI device.
----
- drivers/net/ethernet/cadence/macb_pci.c | 27 ++++++++++-----------------
- 1 file changed, 10 insertions(+), 17 deletions(-)
+So you want to use only 5 queues per VF when TNS is enabled, is it ??
+There are 4096 RSS indices in total, for each VF you can use max 32.
+I guess you wanted to set no of hash bits to 5 instead of table size.
 
-diff --git a/drivers/net/ethernet/cadence/macb_pci.c b/drivers/net/ethernet=
-/cadence/macb_pci.c
-index 92be2cd..9906fda 100644
---- a/drivers/net/ethernet/cadence/macb_pci.c
-+++ b/drivers/net/ethernet/cadence/macb_pci.c
-@@ -1,5 +1,5 @@
- /**
-- * macb_pci.c - Cadence GEM PCI wrapper.
-+ * Cadence GEM PCI wrapper.
-  *
-  * Copyright (C) 2016 Cadence Design Systems - http://www.cadence.com
-  *
-@@ -45,32 +45,27 @@ static int macb_probe(struct pci_dev *pdev, const struc=
-t pci_device_id *id)
- 	struct macb_platform_data plat_data;
- 	struct resource res[2];
-=20
--	/* sanity check */
--	if (!id)
--		return -EINVAL;
--
- 	/* enable pci device */
--	err =3D pci_enable_device(pdev);
-+	err =3D pcim_enable_device(pdev);
- 	if (err < 0) {
--		dev_err(&pdev->dev, "Enabling PCI device has failed: 0x%04X",
--			err);
--		return -EACCES;
-+		dev_err(&pdev->dev, "Enabling PCI device has failed: %d", err);
-+		return err;
- 	}
-=20
- 	pci_set_master(pdev);
-=20
- 	/* set up resources */
- 	memset(res, 0x00, sizeof(struct resource) * ARRAY_SIZE(res));
--	res[0].start =3D pdev->resource[0].start;
--	res[0].end =3D pdev->resource[0].end;
-+	res[0].start =3D pci_resource_start(pdev, 0);
-+	res[0].end =3D pci_resource_end(pdev, 0);
- 	res[0].name =3D PCI_DRIVER_NAME;
- 	res[0].flags =3D IORESOURCE_MEM;
--	res[1].start =3D pdev->irq;
-+	res[1].start =3D pci_irq_vector(pdev, 0);
- 	res[1].name =3D PCI_DRIVER_NAME;
- 	res[1].flags =3D IORESOURCE_IRQ;
-=20
--	dev_info(&pdev->dev, "EMAC physical base addr =3D 0x%p\n",
--		 (void *)(uintptr_t)pci_resource_start(pdev, 0));
-+	dev_info(&pdev->dev, "EMAC physical base addr: %pa\n",
-+		 &res[0].start);
-=20
- 	/* set up macb platform data */
- 	memset(&plat_data, 0, sizeof(plat_data));
-@@ -100,7 +95,7 @@ static int macb_probe(struct pci_dev *pdev, const struct=
- pci_device_id *id)
- 	plat_info.num_res =3D ARRAY_SIZE(res);
- 	plat_info.data =3D &plat_data;
- 	plat_info.size_data =3D sizeof(plat_data);
--	plat_info.dma_mask =3D DMA_BIT_MASK(32);
-+	plat_info.dma_mask =3D pdev->dma_mask;
-=20
- 	/* register platform device */
- 	plat_dev =3D platform_device_register_full(&plat_info);
-@@ -120,7 +115,6 @@ static int macb_probe(struct pci_dev *pdev, const struc=
-t pci_device_id *id)
- 	clk_unregister(plat_data.pclk);
-=20
- err_pclk_register:
--	pci_disable_device(pdev);
- 	return err;
- }
-=20
-@@ -130,7 +124,6 @@ static void macb_remove(struct pci_dev *pdev)
- 	struct macb_platform_data *plat_data =3D dev_get_platdata(&plat_dev->dev)=
-;
-=20
- 	platform_device_unregister(plat_dev);
--	pci_disable_device(pdev);
- 	clk_unregister(plat_data->pclk);
- 	clk_unregister(plat_data->hclk);
- }
---=20
-1.9.1
+>  #define RSS_HASH_KEY_SIZE              5 /* 320 bit key */
+>
+>  struct nicvf_rss_info {
+> @@ -255,74 +258,6 @@ struct nicvf_drv_stats {
+>         struct u64_stats_sync   syncp;
+>  };
+>
+> -struct nicvf {
+> -       struct nicvf            *pnicvf;
+> -       struct net_device       *netdev;
+> -       struct pci_dev          *pdev;
+> -       void __iomem            *reg_base;
+
+Didn't get why you moved this structure to the end of file.
+Looks like an unnecessary modification.
+
+
+> +static unsigned int num_vfs;
+> +module_param(num_vfs, uint, 0644);
+> +MODULE_PARM_DESC(num_vfs, "Non zero positive value, specifies number of VF's per physical port");
+
+So what if driver is built-in instead of module, I can't use TNS is it ?
+
+>
+> +/* Set RBDR Backpressure (RBDR_BP) and CQ backpressure (CQ_BP) of vnic queues
+> + * to 129 each
+
+Why 129 ??
+RBDR minimum size is 8K buffers, why you want to assert BP when still
+~4K buffers
+are available. Isn't 4K a huge number to start asserting backpressure ?
