@@ -1,42 +1,40 @@
-From: "George Spelvin" <linux@sciencehorizons.net>
-Subject: Re: HalfSipHash Acceptable Usage
-Date: 21 Dec 2016 13:07:22 -0500
-Message-ID: <20161221180722.564.qmail@ns.sciencehorizons.net>
-References: <CA+55aFy8fNOxw3bnwkX1S46jKnW6i26mueaiuOsScyN3kFJp+A@mail.gmail.com>
-Cc: ak@linux.intel.com, davem@davemloft.net, David.Laight@aculab.com,
-        djb@cr.yp.to, ebiggers3@gmail.com, eric.dumazet@gmail.com,
-        hannes@stressinduktion.org, Jason@zx2c4.com,
-        jeanphilippe.aumasson@gmail.com,
-        kernel-hardening@lists.openwall.com, linux-crypto@vger.kernel.org,
-        linux-kernel@vger.kernel.org, luto@amacapital.net,
-        netdev@vger.kernel.org, tom@herbertland.com, tytso@mit.edu,
-        vegard.nossum@gmail.com
-To: linux@sciencehorizons.net, torvalds@linux-foundation.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] stmmac: CSR clock configuration fix
+Date: Wed, 21 Dec 2016 13:21:04 -0500 (EST)
+Message-ID: <20161221.132104.1026207180067066991.davem@davemloft.net>
+References: <6d4c6d15a60c93a8aef5e3e03b9cd64cdcf232c8.1482232420.git.jpinto@synopsys.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: peppe.cavallaro@st.com, hock.leong.kweh@intel.com,
+        niklas.cassel@axis.com, pavel@ucw.cz, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org
+To: Joao.Pinto@synopsys.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+55aFy8fNOxw3bnwkX1S46jKnW6i26mueaiuOsScyN3kFJp+A@mail.gmail.com>
+In-Reply-To: <6d4c6d15a60c93a8aef5e3e03b9cd64cdcf232c8.1482232420.git.jpinto@synopsys.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Linus wrote:
->> How much does kernel_fpu_begin()/kernel_fpu_end() cost?
->
-> It's now better than it used to be, but it's absolutely disastrous
-> still. We're talking easily many hundreds of cycles. Under some loads,
-> thousands.
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Date: Tue, 20 Dec 2016 11:21:47 +0000
 
-I think I've been thoroughly dissuaded, but just to clarify one thing
-that resembles a misunderstanding:
+> When testing stmmac with my QoS reference design I checked a problem in the
+> CSR clock configuration that was impossibilitating the phy discovery, since
+> every read operation returned 0x0000ffff. This patch fixes the issue.
+> 
+> Signed-off-by: Joao Pinto <jpinto@synopsys.com>
 
-> In contrast, in reality, especially with things like "do it once or
-> twice per incoming packet", you'll easily hit the absolute worst
-> cases, where not only does it take a few hundred cycles to save the FP
-> state, you'll then return to user space in between packets, which
-> triggers the slow-path return code and reloads the FP state, which is
-> another few hundred cycles plus.
+This isn't enough.
 
-Everything being discussed is per-TCP-connection overhead, *not* per
-packet.  (Twice for outgoing connections, because one is to generate
-the ephemeral port number.)
+It looks like various parts of this driver set the mask field
+differently.
 
-I know you know this, but I don't want anyone spectating to be confused
-about it.
+dwmac1000_core.c and dwmac100_core.c set the mask to be the low bits.
+
+But dwmac4_core.c uses GENMASK(11, 8) which means the mask is a value
+which is shifted up already.
+
+So your patch will break chips driven by dwmac4_core.c.
+
+In order for your change to be correct you must consolidate all of
+these various pieces to use the same convention.
