@@ -1,50 +1,43 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [PATCH v5] net: dummy: Introduce dummy virtual functions
-Date: Wed, 21 Dec 2016 21:06:12 +0100
-Message-ID: <20161221200612.GM13857@orbyte.nwl.cc>
-References: <20161220222621.32493-1-phil@nwl.cc>
- <20161221.133200.173665554896949124.davem@davemloft.net>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH RFC net-next 3/7] sctp: add dst_pending_confirm flag
+Date: Wed, 21 Dec 2016 22:19:17 +0200 (EET)
+Message-ID: <alpine.LFD.2.11.1612212159240.1945@ja.home.ssi.bg>
+References: <1482094596-26046-1-git-send-email-ja@ssi.bg> <1482094596-26046-4-git-send-email-ja@ssi.bg> <20161221141108.GB23197@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, sd@queasysnail.net
-To: David Miller <davem@davemloft.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+        YueHaibing <yuehaibing@huawei.com>
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:40942 "EHLO mail.nwl.cc"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1756677AbcLUURK (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 21 Dec 2016 15:17:10 -0500
-Content-Disposition: inline
-In-Reply-To: <20161221.133200.173665554896949124.davem@davemloft.net>
+Received: from ja.ssi.bg ([178.16.129.10]:50652 "EHLO ja.ssi.bg"
+        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1756741AbcLUUTr (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 21 Dec 2016 15:19:47 -0500
+In-Reply-To: <20161221141108.GB23197@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 21, 2016 at 01:32:00PM -0500, David Miller wrote:
-> From: Phil Sutter <phil@nwl.cc>
-> Date: Tue, 20 Dec 2016 23:26:21 +0100
-> 
-> > The idea for this was born when testing VF support in iproute2 which was
-> > impeded by hardware requirements. In fact, not every VF-capable hardware
-> > driver implements all netdev ops, so testing the interface is still hard
-> > to do even with a well-sorted hardware shelf.
-> > 
-> > To overcome this and allow for testing the user-kernel interface, this
-> > patch allows to turn dummy into a PF with a configurable amount of VFs.
-> > 
-> > Due to the assumption that all PFs are PCI devices, this implementation
-> > is not completely straightforward: In order to allow for
-> > rtnl_fill_ifinfo() to see the dummy VFs, a fake PCI parent device is
-> > attached to the dummy netdev. This has to happen at the right spot so
-> > register_netdevice() does not get confused. This patch abuses
-> > ndo_fix_features callback for that. In ndo_uninit callback, the fake
-> > parent is removed again for the same purpose.
-> > 
-> > Joint work with Sabrina Dubroca.
-> > 
-> > Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
-> > Signed-off-by: Phil Sutter <phil@nwl.cc>
-> 
-> Please resubmit when net-next opens back up, thanks.
 
-Sure, thanks for the heads-up!
+	Hello,
 
-Cheers, Phil
+On Wed, 21 Dec 2016, Neil Horman wrote:
+
+> On Sun, Dec 18, 2016 at 10:56:32PM +0200, Julian Anastasov wrote:
+
+> > -	tp->af_specific->sctp_xmit(head, tp);
+> > +	confirm = tp->dst_pending_confirm;
+> > +	if (confirm)
+> > +		head->dst_pending_confirm = 1;
+> Why not use your confirm helper function here?
+
+	It is for sk, I can add a skb_set_dst_pending_confirm(skb,int)
+helper, if needed.
+
+> > +	if (!t->dst_pending_confirm)
+> > +		t->dst_pending_confirm = 1;
+> I'm not sure why you check it for being zero before setting it here, just set it
+> unilaterally instead, or are you trying to avoid dirtying a cacheline?
+
+	Yes, no other reason. I'll change it in the next version.
+
+Regards
