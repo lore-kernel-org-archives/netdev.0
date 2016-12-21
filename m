@@ -1,67 +1,162 @@
-From: Rik van Riel <riel@redhat.com>
-Subject: Re: [kernel-hardening] Re: HalfSipHash Acceptable Usage
-Date: Wed, 21 Dec 2016 11:41:28 -0500
-Message-ID: <1482338488.11006.70.camel@redhat.com>
-References: <20161221155540.29529.qmail@ns.sciencehorizons.net>
+From: Tariq Toukan <ttoukan.linux@gmail.com>
+Subject: Re: mlx4: Bug in XDP_TX + 16 rx-queues
+Date: Wed, 21 Dec 2016 18:47:28 +0200
+Message-ID: <17fa9937-a378-19b5-cbde-c72ed15ddf24@gmail.com>
+References: <20161219233709.GA29858@kafai-mba.local>
+ <a586ecb7-e290-8c70-714b-2eea0b94c7fb@gmail.com>
+ <20161220183117.GA63721@kafai-mba.local>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha256";
-        protocol="application/pgp-signature"; boundary="=-0zGKtKxh0W2ZQTwz4HDa"
-Cc: ak@linux.intel.com, davem@davemloft.net, David.Laight@aculab.com,
-        djb@cr.yp.to, ebiggers3@gmail.com, eric.dumazet@gmail.com,
-        hannes@stressinduktion.org, jeanphilippe.aumasson@gmail.com,
-        linux-crypto@vger.kernel.org, linux-kernel@vger.kernel.org,
-        luto@amacapital.net, netdev@vger.kernel.org, tom@herbertland.com,
-        torvalds@linux-foundation.org, tytso@mit.edu,
-        vegard.nossum@gmail.com
-To: kernel-hardening@lists.openwall.com, Jason@zx2c4.com,
-        linux@sciencehorizons.net
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <20161221155540.29529.qmail@ns.sciencehorizons.net>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Tariq Toukan <tariqt@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Alexei Starovoitov <ast@fb.com>
+To: Martin KaFai Lau <kafai@fb.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:34969 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751506AbcLUQrb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2016 11:47:31 -0500
+Received: by mail-wm0-f68.google.com with SMTP id l2so5952454wml.2
+        for <netdev@vger.kernel.org>; Wed, 21 Dec 2016 08:47:31 -0800 (PST)
+In-Reply-To: <20161220183117.GA63721@kafai-mba.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
---=-0zGKtKxh0W2ZQTwz4HDa
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
 
-On Wed, 2016-12-21 at 10:55 -0500, George Spelvin wrote:
-> Actually, DJB just made a very relevant suggestion.
->=20
-> As I've mentioned, the 32-bit performance problems are an x86-
-> specific
-> problem.=C2=A0=C2=A0ARM does very well, and other processors aren't bad a=
-t all.
->=20
-> SipHash fits very nicely (and runs very fast) in the MMX registers.
->=20
-> They're 64 bits, and there are 8 of them, so the integer registers
-> can
-> be reserved for pointers and loop counters and all that.=C2=A0=C2=A0And t=
-here's
-> reference code available.
->=20
-> How much does kernel_fpu_begin()/kernel_fpu_end() cost?
-
-Those can be very expensive. Almost certainly not
-worth it for small amounts of data.
-
---=20
-All Rights Reversed.
---=-0zGKtKxh0W2ZQTwz4HDa
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQEcBAABCAAGBQJYWrC4AAoJEM553pKExN6DtjoH+gORlWNB2YRtjw6x57PfVui5
-yiPwJ3TxC1y8tbLl+g7Jh7ogmtq3HDO2rss+8yYxdMtYDc2NsDhwG29+sZ+i7Jnh
-jWmgNgufUZ0mC/GI2jkCKL19r4lelXQCLb7RIf1JfVBA6ba65CZ6L7+1FFb4okPy
-QxcyBh4hHuA/VDF5ypiC9gXY5RgJFjLr/LkeUpyogXJ9Kl+8kzMQ80UXoPi3W/go
-8JB7NgXHHTA3Dxo/pjcy0Y//DfBJVRol+p1AE34s8JIQD1hioLR5/YvA4MPn7RLh
-gjGlehVNsqEOirnoDY8LyAPMOy13Su0PAGyHeYVUSIk4fyRs2+hw3JN2t3QtVf0=
-=R3Y6
------END PGP SIGNATURE-----
-
---=-0zGKtKxh0W2ZQTwz4HDa--
+On 20/12/2016 8:31 PM, Martin KaFai Lau wrote:
+> On Tue, Dec 20, 2016 at 02:02:05PM +0200, Tariq Toukan wrote:
+>> Thanks Martin, nice catch!
+>>
+>>
+>> On 20/12/2016 1:37 AM, Martin KaFai Lau wrote:
+>>> Hi Tariq,
+>>>
+>>> On Sat, Dec 17, 2016 at 02:18:03AM -0800, Martin KaFai Lau wrote:
+>>>> Hi All,
+>>>>
+>>>> I have been debugging with XDP_TX and 16 rx-queues.
+>>>>
+>>>> 1) When 16 rx-queues is used and an XDP prog is doing XDP_TX,
+>>>> it seems that the packet cannot be XDP_TX out if the pkt
+>>>> is received from some particular CPUs (/rx-queues).
+>>>>
+>>>> 2) If 8 rx-queues is used, it does not have problem.
+>>>>
+>>>> 3) The 16 rx-queues problem also went away after reverting these
+>>>> two patches:
+>>>> 15fca2c8eb41 net/mlx4_en: Add ethtool statistics for XDP cases
+>>>> 67f8b1dcb9ee net/mlx4_en: Refactor the XDP forwarding rings scheme
+>>>>
+>>> After taking a closer look at 67f8b1dcb9ee ("net/mlx4_en: Refactor the XDP forwarding rings scheme")
+>>> and armed with the fact that '>8 rx-queues does not work', I have
+>>> made the attached change that fixed the issue.
+>>>
+>>> Making change in mlx4_en_fill_qp_context() could be an easier fix
+>>> but I think this change will be easier for discussion purpose.
+>>>
+>>> I don't want to lie that I know anything about how this variable
+>>> works in CX3.  If this change makes sense, I can cook up a diff.
+>>> Otherwise, can you shed some light on what could be happening
+>>> and hopefully can lead to a diff?
+>>>
+>>> Thanks
+>>> --Martin
+>>>
+>>>
+>>> diff --git i/drivers/net/ethernet/mellanox/mlx4/en_netdev.c w/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+>>> index bcd955339058..b3bfb987e493 100644
+>>> --- i/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+>>> +++ w/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+>>> @@ -1638,10 +1638,10 @@ int mlx4_en_start_port(struct net_device *dev)
+>>>
+>>>   	/* Configure tx cq's and rings */
+>>>   	for (t = 0 ; t < MLX4_EN_NUM_TX_TYPES; t++) {
+>>> -		u8 num_tx_rings_p_up = t == TX ? priv->num_tx_rings_p_up : 1;
+>> The bug lies in this line.
+>> Number of rings per UP in case of TX_XDP should be priv->tx_ring_num[TX_XDP
+>> ], not 1.
+>> Please try the following fix.
+>> I can prepare and send it once the window opens again.
+>>
+>> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+>> b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+>> index bcd955339058..edbe200ac2fa 100644
+>> --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+>> +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+>> @@ -1638,7 +1638,8 @@ int mlx4_en_start_port(struct net_device *dev)
+>>
+>>          /* Configure tx cq's and rings */
+>>          for (t = 0 ; t < MLX4_EN_NUM_TX_TYPES; t++) {
+>> -               u8 num_tx_rings_p_up = t == TX ? priv->num_tx_rings_p_up :
+>> 1;
+>> +               u8 num_tx_rings_p_up = t == TX ?
+>> +                       priv->num_tx_rings_p_up : priv->tx_ring_num[t];
+>>
+>>                  for (i = 0; i < priv->tx_ring_num[t]; i++) {
+>>                          /* Configure cq */
+>>
+> Thanks for confirming the bug is related to the user_prio argument.
+>
+> I have some questions:
+>
+> 1. Just to confirm the intention of the change.  Your change is essentially
+>     always passing 0 to the user_prio parameter for the TX_XDP type by
+>     doing (i / priv->tx_ring_num[t])?
+Yes
+>    If yes, would it be clearer to
+>     always pass 0 instead?
+I think that it should be implied by num_tx_rings_p_up, it simply hadthe 
+wrong value.
+>
+>     And yes, it also works in our test.  Please post an offical patch
+>     if it is the fix.
+Sure.
+>
+> 2. Can you explain a little on how does the user_prio affect
+>     the tx behavior?  e.g. What is the difference between
+>     different user_prio like 0, 1, 2...etc?
+An implementation of QoS (Quality of Service).
+This would tell the HW to prioritize between different send queues.
+In XDP forward we use a single user prio, 0 (default).
+>
+> 3. Mostly a follow up on (2).
+>     In mlx4_en_get_profile(), num_tx_rings_p_up (of the struct mlx4_en_profile)
+>     depends on mlx4_low_memory_profile() and number of cpu.  Does these
+>     similar bounds apply to the 'u8 num_tx_rings_p_up' here for
+>     TX_XDP type?
+No.
+The number of XDP_TX rings is equal to the number of RX rings.
+>
+> Thanks,
+> Martin
+Regards,
+Tariq
+>>> -
+>>>   		for (i = 0; i < priv->tx_ring_num[t]; i++) {
+>>>   			/* Configure cq */
+>>> +			int user_prio;
+>>> +
+>>>   			cq = priv->tx_cq[t][i];
+>>>   			err = mlx4_en_activate_cq(priv, cq, i);
+>>>   			if (err) {
+>>> @@ -1660,9 +1660,14 @@ int mlx4_en_start_port(struct net_device *dev)
+>>>
+>>>   			/* Configure ring */
+>>>   			tx_ring = priv->tx_ring[t][i];
+>>> +			if (t != TX_XDP)
+>>> +				user_prio = i / priv->num_tx_rings_p_up;
+>>> +			else
+>>> +				user_prio = i & 0x07;
+>>> +
+>>>   			err = mlx4_en_activate_tx_ring(priv, tx_ring,
+>>>   						       cq->mcq.cqn,
+>>> -						       i / num_tx_rings_p_up);
+>>> +						       user_prio);
+>>>   			if (err) {
+>>>   				en_err(priv, "Failed allocating Tx ring\n");
+>>>   				mlx4_en_deactivate_cq(priv, cq);
+>> Regards,
+>> Tariq Toukan.
