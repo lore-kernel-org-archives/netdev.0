@@ -1,67 +1,41 @@
-From: Ruslan Babayev <ruslan@babayev.com>
-Subject: Re: [PATCH] phy: check if parent device is NULL
-Date: Tue, 20 Dec 2016 18:35:53 -0800
-Message-ID: <CAOpYhv9y_aD3CMcr+xkU56n+0RUYP4bxxorFiKDL_0WjvjvXbw@mail.gmail.com>
-References: <87oa06upl5.fsf@babayev.com> <8cdfecf2-60c1-121d-a708-20de9f44d906@gmail.com>
+From: Gao Feng <fgao@ikuai8.com>
+Subject: Re: [PATCH net-next 1/1] driver: ipvlan: Define common functions to
+ decrease duplicated codes used to add or del IP address
+Date: Wed, 21 Dec 2016 11:00:25 +0800
+Message-ID: <CA+6hz4q=hVjigGdjzDVLd+mwNNfW5NO2BeuhO+3ukYo48YajKw@mail.gmail.com>
+References: <1482110645-1853-1-git-send-email-fgao@ikuai8.com> <20161220.133025.2171735752938243916.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org
-To: Florian Fainelli <f.fainelli@gmail.com>
+Cc: Mahesh Bandewar <maheshb@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f196.google.com ([209.85.223.196]:33613 "EHLO
-        mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756411AbcLUCfz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 20 Dec 2016 21:35:55 -0500
-Received: by mail-io0-f196.google.com with SMTP id j76so66550ioe.0
-        for <netdev@vger.kernel.org>; Tue, 20 Dec 2016 18:35:54 -0800 (PST)
-In-Reply-To: <8cdfecf2-60c1-121d-a708-20de9f44d906@gmail.com>
+Received: from smtpbg65.qq.com ([103.7.28.233]:33323 "EHLO smtpbg65.qq.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751845AbcLUDAr (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 20 Dec 2016 22:00:47 -0500
+Received: from mail-ua0-f170.google.com (unknown [209.85.217.170])
+        by esmtp4.qq.com (ESMTP) with SMTP id 0
+        for <netdev@vger.kernel.org>; Wed, 21 Dec 2016 11:00:27 +0800 (CST)
+Received: by mail-ua0-f170.google.com with SMTP id 88so38823592uaq.3
+        for <netdev@vger.kernel.org>; Tue, 20 Dec 2016 19:00:27 -0800 (PST)
+In-Reply-To: <20161220.133025.2171735752938243916.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Yes, I saw that with the staging Octeon driver.
-Your patch works for me too.
+On Wed, Dec 21, 2016 at 2:30 AM, David Miller <davem@davemloft.net> wrote:
+> From: fgao@ikuai8.com
+> Date: Mon, 19 Dec 2016 09:24:05 +0800
+>
+>>  It is sent again because the first email is sent during net-next closing.
+>
+> It is still closed, and will not open again for at least one week.
 
-Thanks Florian!
+Thanks David.
+I thought it only last one week.
 
+I would waiting for reopen, and resend again.
 
-On Tue, Dec 20, 2016 at 4:33 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
-> On 12/20/2016 03:51 PM, Ruslan Babayev wrote:
->> Fixes a crash observed on Octeon.
->>
->> Signed-off-by: Ruslan Babayev <ruslan@babayev.com>
->> Fixes: ec988ad78ed6 ("phy: Don't increment MDIO bus refcount unless it's a
->> different owner")
->
-> Assuming you saw this with the staging Octeon driver, a fix has already
-> been submitted:
->
-> https://lkml.org/lkml/2016/12/14/756
->
-> If this is with a different driver, I would rather we fix it in a
-> similar way that the fix proposed above.
->
-> Thanks
->
->> ---
->>  drivers/net/phy/phy_device.c | 3 ++-
->>  1 file changed, 2 insertions(+), 1 deletion(-)
->>
->> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
->> index 9c06f8028f0c..043328b85643 100644
->> --- a/drivers/net/phy/phy_device.c
->> +++ b/drivers/net/phy/phy_device.c
->> @@ -905,7 +905,8 @@ EXPORT_SYMBOL(phy_attached_print);
->>  int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
->>                     u32 flags, phy_interface_t interface)
->>  {
->> -     struct module *ndev_owner = dev->dev.parent->driver->owner;
->> +     struct device *parent = dev->dev.parent;
->> +     struct module *ndev_owner = parent ? parent->driver->owner : NULL;
->>       struct mii_bus *bus = phydev->mdio.bus;
->>       struct device *d = &phydev->mdio.dev;
->>       int err;
->>
->
->
-> --
-> Florian
+Regards
+Feng
