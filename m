@@ -1,42 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 00/27] net: mvpp2: add basic support for PPv2.2
-Date: Wed, 21 Dec 2016 11:24:35 -0500 (EST)
-Message-ID: <20161221.112435.1104255214739552545.davem@davemloft.net>
-References: <1482318994-23488-1-git-send-email-thomas.petazzoni@free-electrons.com>
-        <20161221.110348.346806544020316686.davem@davemloft.net>
-        <20161221171246.77e91d2c@free-electrons.com>
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: Re: HalfSipHash Acceptable Usage
+Date: Wed, 21 Dec 2016 17:33:29 +0100
+Message-ID: <CAHmME9pBFbNt=dfBZiYvjUxqo3aLWb-6aD6V3+L1ujsmJA95+g@mail.gmail.com>
+References: <20161221032829.3031.qmail@ns.sciencehorizons.net>
+ <1482298164.8944.8.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAHmME9oCfCwAq1qP09uAN6vvakh4wXDMHunsL9D7W_LDeN_OQQ@mail.gmail.com> <1482335804.8944.44.camel@edumazet-glaptop3.roam.corp.google.com>
+Reply-To: kernel-hardening@lists.openwall.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nadavh@marvell.com, hannah@marvell.com,
-        yehuday@marvell.com, jason@lakedaemon.net, andrew@lunn.ch,
-        sebastian.hesselbarth@gmail.com,
-        gregory.clement@free-electrons.com,
-        linux-arm-kernel@lists.infradead.org, stefanc@marvell.com,
-        mw@semihalf.com
-To: thomas.petazzoni@free-electrons.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60148 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755936AbcLUQYh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2016 11:24:37 -0500
-In-Reply-To: <20161221171246.77e91d2c@free-electrons.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: George Spelvin <linux@sciencehorizons.net>, "Theodore Ts'o" <tytso@mit.edu>,
+	Andi Kleen <ak@linux.intel.com>, David Miller <davem@davemloft.net>,
+	David Laight <David.Laight@aculab.com>, "Daniel J . Bernstein" <djb@cr.yp.to>,
+	Eric Biggers <ebiggers3@gmail.com>, Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>, kernel-hardening@lists.openwall.com,
+	Linux Crypto Mailing List <linux-crypto@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>,
+	Andy Lutomirski <luto@amacapital.net>, Netdev <netdev@vger.kernel.org>,
+	Tom Herbert <tom@herbertland.com>, Linus Torvalds <torvalds@linux-foundation.org>,
+	Vegard Nossum <vegard.nossum@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <kernel-hardening-return-5736-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+In-Reply-To: <1482335804.8944.44.camel@edumazet-glaptop3.roam.corp.google.com>
+List-Id: netdev.vger.kernel.org
 
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Date: Wed, 21 Dec 2016 17:12:46 +0100
+Hi Eric,
 
-> Hello,
-> 
-> On Wed, 21 Dec 2016 11:03:48 -0500 (EST), David Miller wrote:
-> 
->> 1) net-next is closed, please do not submit net-next material during
->>    this time.
-> 
-> I did not expect you to review these patches right now, as I know
-> net-next is closed. However I expect other people in the net community
-> and people interested in Marvell platforms to look at those patches,
-> potentially test them and give feedback.
+On Wed, Dec 21, 2016 at 4:56 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> That really was for 1024 bytes blocks, so pretty much useless for our
+> discussion ?
+>
+> Reading your numbers last week, I thought SipHash was faster, but George
+> numbers are giving the opposite impression.
+>
+> I do not have a P4 to make tests, so I only can trust you or George.
 
-Then mark the patches as "RFC".
+I'm not sure how George came up with those numbers, but the ones I
+sent are output from that benchmark function in the last email. I'd be
+interested in learning this too.
+
+As mentioned in the last email, it looks like potential 32-bit issues
+are really just specific to old Intel chips. Other 32-bit
+architectures do fine. So, for new kernels, even if somehow there is a
+tiny performance regression (though I couldn't see one) on old
+architectures, I really doubt it will affect anybody in practice.
+
+Jason
