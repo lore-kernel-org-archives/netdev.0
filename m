@@ -1,51 +1,61 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: Re: [PATCH net-next 14/27] net: mvpp2: add ip_version field in
- "struct mvpp2"
-Date: Wed, 21 Dec 2016 18:04:00 +0100
-Message-ID: <20161221180400.27aca37c@free-electrons.com>
-References: <1482318994-23488-1-git-send-email-thomas.petazzoni@free-electrons.com>
- <1482318994-23488-15-git-send-email-thomas.petazzoni@free-electrons.com>
- <20161221170252.GO30952@lunn.ch>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [kernel-hardening] Re: HalfSipHash Acceptable Usage
+Date: Wed, 21 Dec 2016 09:08:21 -0800
+Message-ID: <1482340101.8944.53.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20161221032829.3031.qmail@ns.sciencehorizons.net>
+         <1482298164.8944.8.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CAHmME9oCfCwAq1qP09uAN6vvakh4wXDMHunsL9D7W_LDeN_OQQ@mail.gmail.com>
+         <1482335804.8944.44.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1482338385.11006.67.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Yehuda Yitschak <yehuday@marvell.com>, Jason Cooper <jason@lakedaemon.net>,
- netdev@vger.kernel.org, Hanna Hawa <hannah@marvell.com>,
- Nadav Haklai <nadavh@marvell.com>,
- Gregory Clement <gregory.clement@free-electrons.com>,
- Stefan Chulski <stefanc@marvell.com>, Marcin Wojtas <mw@semihalf.com>,
- "David S. Miller" <davem@davemloft.net>, linux-arm-kernel@lists.infradead.org,
- Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20161221170252.GO30952@lunn.ch>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Cc: kernel-hardening@lists.openwall.com,
+        "Jason A. Donenfeld" <Jason@zx2c4.com>,
+        George Spelvin <linux@sciencehorizons.net>,
+        Theodore Ts'o <tytso@mit.edu>, Andi Kleen <ak@linux.intel.com>,
+        David Miller <davem@davemloft.net>,
+        David Laight <David.Laight@aculab.com>,
+        "Daniel J . Bernstein" <djb@cr.yp.to>,
+        Eric Biggers <ebiggers3@gmail.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>,
+        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Andy Lutomirski <luto@amacapital.net>,
+        Netdev <netdev@vger.kernel.org>,
+        Tom Herbert <tom@herbertland.com>,
+        Linus Torvalds <torvalds@linux-foundation.org>,
+        Vegard Nossum <vegard.nossum@gmail.com>
+To: Rik van Riel <riel@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:33801 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932859AbcLURIj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2016 12:08:39 -0500
+In-Reply-To: <1482338385.11006.67.camel@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On Wed, 2016-12-21 at 11:39 -0500, Rik van Riel wrote:
 
-On Wed, 21 Dec 2016 18:02:52 +0100, Andrew Lunn wrote:
-
-> On Wed, Dec 21, 2016 at 12:16:21PM +0100, Thomas Petazzoni wrote:
-> > In preparation to the introduction for the support of PPv2.2 in the
-> > mvpp2 driver, this commit adds an ip_version field to the struct
-> > mvpp2  
+> Does anybody still have a P4?
 > 
-> When i read this, i was thinking IPv4 vs IPv6. It is a network driver after all.
-> Could you maybe call this hw_version?
+> If they do, they're probably better off replacing
+> it with an Atom. The reduced power bills will pay
+> for replacing that P4 within a year or two.
 
-Sure, will do. Thanks for the feedback!
+Well, maybe they have millions of units to replace.
 
-Thomas
--- 
-Thomas Petazzoni, CTO, Free Electrons
-Embedded Linux and Kernel engineering
-http://free-electrons.com
+> 
+> In short, I am not sure how important the P4
+> performance numbers are, especially if we can
+> improve security for everybody else...
+
+Worth adding that the ISN or syncookie generation are less than 10% of
+the actual cost of handling a problematic (having to generate ISN or
+syncookie) TCP packet anyway.
+
+So we are talking of minors potential impact for '2000-era' cpus.
+
+Definitely I vote for using SipHash in TCP ASAP.
