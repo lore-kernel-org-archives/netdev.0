@@ -1,370 +1,66 @@
-From: Satha Koteswara Rao <satha.rao@caviumnetworks.com>
-Subject: [RFC PATCH 6/7] HW Filter Table access API's
-Date: Wed, 21 Dec 2016 14:16:50 +0530
-Message-ID: <1482310011-1862-7-git-send-email-satha.rao@caviumnetworks.com>
-References: <1482310011-1862-1-git-send-email-satha.rao@caviumnetworks.com>
+From: Romain Perier <romain.perier@free-electrons.com>
+Subject: Re: [PATCH v2 3/3] arm64: dts: marvell: Add ethernet switch
+ definition for the ESPRESSObin
+Date: Wed, 21 Dec 2016 09:57:55 +0100
+Message-ID: <28dca2e8-64e2-a39b-600c-0530f03d988f@free-electrons.com>
+References: <20161220085138.3998-1-romain.perier@free-electrons.com>
+ <20161220085138.3998-4-romain.perier@free-electrons.com>
+ <20161220154234.GC30952@lunn.ch>
+ <c27998fd-3807-5c99-382b-b8d0d0f06526@free-electrons.com>
+ <20161220161714.GD30952@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: rvatsavayi@caviumnetworks.com, rric@kernel.org, david.daney@cavium.com,
- netdev@vger.kernel.org, satha.rao@caviumnetworks.com,
- derek.chickles@caviumnetworks.com, sgoutham@cavium.com, davem@davemloft.net,
- linux-arm-kernel@lists.infradead.org, philip.romanov@cavium.com
-To: <linux-kernel@vger.kernel.org>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1482310011-1862-1-git-send-email-satha.rao@caviumnetworks.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Jason Cooper <jason@lakedaemon.net>,
+        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+        Gregory Clement <gregory.clement@free-electrons.com>,
+        netdev@vger.kernel.org, devicetree@vger.kernel.org,
+        Rob Herring <robh+dt@kernel.org>,
+        Ian Campbell <ijc+devicetree@hellion.org.uk>,
+        Pawel Moll <pawel.moll@arm.com>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Kumar Gala <galak@codeaurora.org>,
+        linux-arm-kernel@lists.infradead.org,
+        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+        Nadav Haklai <nadavh@marvell.com>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.free-electrons.com ([62.4.15.54]:53175 "EHLO
+        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757555AbcLUI6Y (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2016 03:58:24 -0500
+In-Reply-To: <20161220161714.GD30952@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
----
- drivers/net/ethernet/cavium/thunder/tbl_access.c | 262 +++++++++++++++++++++++
- drivers/net/ethernet/cavium/thunder/tbl_access.h |  61 ++++++
- 2 files changed, 323 insertions(+)
- create mode 100644 drivers/net/ethernet/cavium/thunder/tbl_access.c
- create mode 100644 drivers/net/ethernet/cavium/thunder/tbl_access.h
+Hi,
 
-diff --git a/drivers/net/ethernet/cavium/thunder/tbl_access.c b/drivers/net/ethernet/cavium/thunder/tbl_access.c
-new file mode 100644
-index 0000000..6be31eb
---- /dev/null
-+++ b/drivers/net/ethernet/cavium/thunder/tbl_access.c
-@@ -0,0 +1,262 @@
-+/*
-+ * Copyright (C) 2015 Cavium, Inc.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of version 2 of the GNU General Public License
-+ * as published by the Free Software Foundation.
-+ */
-+
-+#include <linux/uaccess.h>
-+#include "pf_globals.h"
-+#include "pf_locals.h"
-+#include "tbl_access.h"
-+
-+struct tns_table_s *get_table_information(int table_id)
-+{
-+	int i;
-+
-+	for (i = 0; i < TNS_MAX_TABLE; i++) {
-+		if (!tbl_info[i].sdata.valid)
-+			continue;
-+
-+		if (tbl_info[i].sdata.tbl_id == table_id)
-+			return &tbl_info[i];
-+	}
-+
-+	return NULL;
-+}
-+
-+int tbl_write(int node, int table_id, int tbl_index, void *key, void *mask,
-+	      void *data)
-+{
-+	int i;
-+	struct tns_table_s *tbl = get_table_information(table_id);
-+	int bck_cnt, data_index, data_offset;
-+	u64 data_entry[4];
-+
-+	if (!tbl) {
-+		filter_dbg(FERR, "Invalid Table ID: %d\n", table_id);
-+		return TNS_ERR_INVALID_TBL_ID;
-+	}
-+
-+	bck_cnt = tbl->sdata.data_width / tbl->sdata.data_size;
-+	data_index = (tbl_index / bck_cnt);
-+	data_offset = (tbl_index % bck_cnt);
-+	//TCAM Table, we need to parse key & mask into single array
-+	if (tbl->sdata.tbl_type == TNS_TBL_TYPE_TT) {
-+		struct filter_keymask_s *tk = (struct filter_keymask_s *)key;
-+		struct filter_keymask_s *tm = (struct filter_keymask_s *)mask;
-+		u8 km[32];
-+		u64 mod_key, mod_mask, temp_mask;
-+		int index = 0, offset = 0;
-+
-+		memset(km, 0x0, 32);
-+
-+/* TCAM truth table data creation. Translation from data/mask to following
-+ * truth table:
-+ *
-+ *         Mask   Data     Content
-+ *          0     0         X
-+ *          0     1         1
-+ *          1     0         0
-+ *          1     1         Always Mismatch
-+ *
-+ */
-+		mod_mask = ~tk->key_value;
-+		temp_mask = tm->key_value;
-+		mod_key = tk->key_value;
-+		mod_key = mod_key & (~temp_mask);
-+		mod_mask = mod_mask & (~temp_mask);
-+
-+		for (i = 0; i < 64; i++) {
-+			km[index] = km[index] | (((mod_mask >> i) & 0x1) <<
-+						 offset);
-+			km[index] = km[index] | (((mod_key >> i) & 0x1) <<
-+						 (offset + 1));
-+			offset += 2;
-+			if (offset == 8) {
-+				offset = 0;
-+				index += 1;
-+			}
-+		}
-+		km[index] = 0x2;
-+		if (tns_write_register_indirect(node,
-+						(tbl->sdata.key_base_addr +
-+						 (tbl_index * 32)), 32,
-+						(void *)&km[0])) {
-+			filter_dbg(FERR, "key write failed node %d tbl ID %d",
-+				   node, table_id);
-+			filter_dbg(FERR, " index %d\n", tbl_index);
-+			return TNS_ERR_DRIVER_WRITE;
-+		}
-+	}
-+
-+	/* Data Writes are ReadModifyWrite */
-+	if (tns_read_register_indirect(node, (tbl->sdata.data_base_addr +
-+					      (data_index * 32)), 32,
-+				       (void *)&data_entry[0])) {
-+		filter_dbg(FERR, "data read failed node %d tbl ID %d idx %d\n",
-+			   node, table_id, tbl_index);
-+		return TNS_ERR_DRIVER_READ;
-+	}
-+	memcpy(&data_entry[data_offset], data, tbl->sdata.data_size / 8);
-+	if (tns_write_register_indirect(node, (tbl->sdata.data_base_addr +
-+					       (data_index * 32)), 32,
-+					(void *)&data_entry[0])) {
-+		filter_dbg(FERR, "data write failed node %d tbl ID %d idx %d\n",
-+			   node, table_id, tbl_index);
-+		return TNS_ERR_DRIVER_WRITE;
-+	}
-+
-+	return TNS_NO_ERR;
-+}
-+
-+int tbl_read(int node, int table_id, int tbl_index, void *key, void *mask,
-+	     void *data)
-+{
-+	struct tns_table_s *tbl = get_table_information(table_id);
-+	int i, bck_cnt, data_index, data_offset;
-+	u64 data_entry[4];
-+	u8 km[32];
-+
-+	if (!tbl) {
-+		filter_dbg(FERR, "Invalid Table ID: %d\n", table_id);
-+		return TNS_ERR_INVALID_TBL_ID;
-+	}
-+
-+	bck_cnt = tbl->sdata.data_width / tbl->sdata.data_size;
-+	data_index = (tbl_index / bck_cnt);
-+	data_offset = (tbl_index % bck_cnt);
-+
-+	//TCAM Table, we need to parse key & mask into single array
-+	if (tbl->sdata.tbl_type == TNS_TBL_TYPE_TT) {
-+		memset(km, 0x0, 32);
-+
-+		if (tns_read_register_indirect(node, (tbl->sdata.key_base_addr +
-+						      (tbl_index * 32)), 32,
-+					       (void *)&km[0])) {
-+			filter_dbg(FERR, "key read failed node %d tbl ID %d",
-+				   node, table_id);
-+			filter_dbg(FERR, " idx %d\n", tbl_index);
-+			return TNS_ERR_DRIVER_READ;
-+		}
-+		if (!(km[((tbl->sdata.key_size * 2) / 8)] == 0x2))
-+			return TNS_ERR_MAC_FILTER_INVALID_ENTRY;
-+	}
-+
-+	if (tns_read_register_indirect(node, (tbl->sdata.data_base_addr +
-+					      (data_index * 32)), 32,
-+				       (void *)&data_entry[0])) {
-+		filter_dbg(FERR, "data read failed node %d tbl ID %d idx %d\n",
-+			   node, table_id, tbl_index);
-+		return TNS_ERR_DRIVER_READ;
-+	}
-+	memcpy(data, (void *)(&data_entry[data_offset]),
-+	       (tbl->sdata.data_size / 8));
-+
-+	if (tbl->sdata.tbl_type == TNS_TBL_TYPE_TT) {
-+		struct filter_keymask_s *tk = (struct filter_keymask_s *)key;
-+		struct filter_keymask_s *tm = (struct filter_keymask_s *)mask;
-+		u8 temp_km;
-+		int index = 0, offset = 0;
-+
-+		tk->key_value = 0x0ull;
-+		tm->key_value = 0x0ull;
-+		temp_km = km[0];
-+		for (i = 0; i < 64; i++) {
-+			tm->key_value = tm->key_value |
-+					 ((temp_km & 0x1ull) << i);
-+			temp_km >>= 1;
-+			tk->key_value = tk->key_value |
-+					 ((temp_km & 0x1ull) << i);
-+			temp_km >>= 1;
-+			offset += 2;
-+			if (offset == 8) {
-+				offset = 0;
-+				index += 1;
-+				temp_km = km[index];
-+			}
-+		}
-+		tm->key_value = ~tm->key_value & ~tk->key_value;
-+		tk->is_valid = 1;
-+		tm->is_valid = 0;
-+	}
-+
-+	return TNS_NO_ERR;
-+}
-+
-+int invalidate_table_entry(int node, int table_id, int tbl_idx)
-+{
-+	struct tns_table_s *tbl = get_table_information(table_id);
-+
-+	if (!tbl) {
-+		filter_dbg(FERR, "Invalid Table ID: %d\n", table_id);
-+		return TNS_ERR_INVALID_TBL_ID;
-+	}
-+
-+	if (tbl->sdata.tbl_type == TNS_TBL_TYPE_TT) {
-+		u8 km[32];
-+
-+		memset(km, 0x0, 32);
-+		km[((tbl->sdata.key_size * 2) / 8)] = 0x1;
-+
-+		if (tns_write_register_indirect(node,
-+						(tbl->sdata.key_base_addr +
-+						 (tbl_idx * 32)), 32,
-+						(void *)&km[0])) {
-+			filter_dbg(FERR, "%s failed node %d tbl ID %d idx %d\n",
-+				   __func__, node, table_id, tbl_idx);
-+			return TNS_ERR_DRIVER_WRITE;
-+		}
-+	}
-+
-+	return TNS_NO_ERR;
-+}
-+
-+int alloc_table_index(int node, int table_id, int *index)
-+{
-+	int err = 0;
-+	struct tns_table_s *tbl = get_table_information(table_id);
-+
-+	if (!tbl) {
-+		filter_dbg(FERR, "%s Invalid TableID %d\n", __func__, table_id);
-+		return TNS_ERR_INVALID_TBL_ID;
-+	}
-+
-+	if (*index == -1) {
-+		*index = find_first_zero_bit(tbl->ddata[node].bitmap,
-+					     tbl->sdata.depth);
-+
-+		if (*index < 0 || *index >= tbl->sdata.depth)
-+			err = -ENOSPC;
-+		else
-+			__set_bit(*index, tbl->ddata[node].bitmap);
-+
-+		return err;
-+	} else if (*index < 0 || *index >= tbl->sdata.depth) {
-+		filter_dbg(FERR, "%s Out of bound index %d requested[0...%d]\n",
-+			   __func__, *index, tbl->sdata.depth);
-+		return TNS_ERR_MAC_FILTER_INVALID_ENTRY;
-+	}
-+	if (test_and_set_bit(*index, tbl->ddata[node].bitmap))
-+		filter_dbg(FDEBUG, "%s Entry Already exists\n", __func__);
-+
-+	return err;
-+}
-+
-+void free_table_index(int node, int table_id, int index)
-+{
-+	struct tns_table_s *tbl = get_table_information(table_id);
-+
-+	if (!tbl) {
-+		filter_dbg(FERR, "%s Invalid TableID %d\n", __func__, table_id);
-+		return;
-+	}
-+	if (index < 0 || index >= tbl->sdata.depth) {
-+		filter_dbg(FERR, "%s Invalid Index %d Max Limit %d\n",
-+			   __func__, index, tbl->sdata.depth);
-+		return;
-+	}
-+
-+	__clear_bit(index, tbl->ddata[node].bitmap);
-+}
-diff --git a/drivers/net/ethernet/cavium/thunder/tbl_access.h b/drivers/net/ethernet/cavium/thunder/tbl_access.h
-new file mode 100644
-index 0000000..c098410
---- /dev/null
-+++ b/drivers/net/ethernet/cavium/thunder/tbl_access.h
-@@ -0,0 +1,61 @@
-+/*
-+ * Copyright (C) 2015 Cavium, Inc.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of version 2 of the GNU General Public License
-+ * as published by the Free Software Foundation.
-+ */
-+
-+#ifndef __TBL_ACCESS_H__
-+#define __TBL_ACCESS_H__
-+
-+#define TNS_MAX_TABLE	8
-+
-+enum {
-+	TNS_TBL_TYPE_DT,
-+	TNS_TBL_TYPE_HT,
-+	TNS_TBL_TYPE_TT,
-+	TNS_TBL_TYPE_MAX
-+};
-+
-+struct table_static_s {
-+	u8 tbl_type;
-+	u8 tbl_id;
-+	u8 valid;
-+	u8 rsvd;
-+	u16 key_size;
-+	u16 data_size;
-+	u16 data_width;
-+	u16 key_width;
-+	u32 depth;
-+	u64 key_base_addr;
-+	u64 data_base_addr;
-+	u8 tbl_name[32];
-+};
-+
-+struct table_dynamic_s {
-+	unsigned long *bitmap;
-+};
-+
-+struct tns_table_s {
-+	struct table_static_s sdata;
-+	struct table_dynamic_s ddata[MAX_NUMNODES];
-+};
-+
-+enum {
-+	MAC_FILTER_TABLE = 102,
-+	VLAN_FILTER_TABLE = 103,
-+	MAC_EVIF_TABLE = 140,
-+	VLAN_EVIF_TABLE = 201,
-+	PORT_CONFIG_TABLE = 202,
-+	TABLE_ID_END
-+};
-+
-+extern struct tns_table_s	tbl_info[TNS_MAX_TABLE];
-+
-+struct filter_keymask_s {
-+	u8 is_valid;
-+	u64 key_value;
-+};
-+
-+#endif /* __TBL_ACCESS_H__ */
--- 
-1.8.3.1
+Le 20/12/2016 à 17:17, Andrew Lunn a écrit :
+>>>> +		mdio {
+>>>> +			#address-cells = <1>;
+>>>> +			#size-cells = <0>;
+>>>> +			reg = <1>;
+>>>
+>>> what is this reg value for?
+>>>
+>>>     Andrew
+>>>
+>>
+>> It was required to avoid a warning thrown by the mdio subsystem
+>
+> Do you remember what the warning was?
+>
+> This seems odd to me. I don't see why a reg is needed here.
+>
+> Thanks
+> 	Andrew
+>
+
+Mhhh, in fact, I did changes to this mdio node, I relocated it...
+the warning was probably before the relocation, because I no longer see 
+it. So I have removed this reg value.
+
+Thanks,
+Romain
