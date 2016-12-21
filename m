@@ -1,7 +1,7 @@
 From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCH net-next 26/27] net: mvpp2: add support for an additional clock needed for PPv2.2
-Date: Wed, 21 Dec 2016 12:16:33 +0100
-Message-ID: <1482318994-23488-27-git-send-email-thomas.petazzoni@free-electrons.com>
+Subject: [PATCH net-next 22/27] net: mvpp2: handle misc PPv2.1/PPv2.2 differences
+Date: Wed, 21 Dec 2016 12:16:29 +0100
+Message-ID: <1482318994-23488-23-git-send-email-thomas.petazzoni@free-electrons.com>
 References: <1482318994-23488-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Cc: Nadav Haklai <nadavh@marvell.com>, Hanna Hawa <hannah@marvell.com>,
         Yehuda Yitschak <yehuday@marvell.com>,
@@ -15,104 +15,107 @@ Cc: Nadav Haklai <nadavh@marvell.com>, Hanna Hawa <hannah@marvell.com>,
         Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:56114 "EHLO
+Received: from mail.free-electrons.com ([62.4.15.54]:56127 "EHLO
         mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757512AbcLULQr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2016 06:16:47 -0500
+        with ESMTP id S932234AbcLULQq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2016 06:16:46 -0500
 In-Reply-To: <1482318994-23488-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The PPv2.2 variant of the network controller needs an additional
-clock, the "MG clock" in order for the IP block to operate
-properly. This commit adds support for this additional clock to the
-driver, reworking as needed the error handling path.
+This commit handles a few miscellaneous differences between PPv2.1 and
+PPv2.2 in different areas, where code done for PPv2.1 doesn't apply for
+PPv2.2 or needs to be adjusted (getting the MAC address, disabling PHY
+polling, etc.).
 
 Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 ---
- drivers/net/ethernet/marvell/mvpp2.c | 25 +++++++++++++++++++++----
- 1 file changed, 21 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/marvell/mvpp2.c | 31 ++++++++++++++++++++++---------
+ 1 file changed, 22 insertions(+), 9 deletions(-)
 
 diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index c389590..d9368d6 100644
+index 4163b0e..9b5a7c2 100644
 --- a/drivers/net/ethernet/marvell/mvpp2.c
 +++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -702,6 +702,7 @@ struct mvpp2 {
- 	/* Common clocks */
- 	struct clk *pp_clk;
- 	struct clk *gop_clk;
-+	struct clk *mg_clk;
+@@ -304,6 +304,9 @@
+ #define      MVPP2_GMAC_TX_FIFO_MIN_TH_MASK(v)	(((v) << 6) & \
+ 					MVPP2_GMAC_TX_FIFO_MIN_TH_ALL_MASK)
  
- 	/* List of pointers to port structures */
- 	struct mvpp2_port **port_list;
-@@ -6916,6 +6917,18 @@ static int mvpp2_probe(struct platform_device *pdev)
- 	if (err < 0)
- 		goto err_pp_clk;
- 
-+	if (priv->ip_version == MVPP22) {
-+		priv->mg_clk = devm_clk_get(&pdev->dev, "mg_clk");
-+		if (IS_ERR(priv->mg_clk)) {
-+			err = PTR_ERR(priv->mg_clk);
-+			goto err_gop_clk;
-+		}
++#define MVPP22_SMI_MISC_CFG_REG			0x2a204
++#define      MVPP22_SMI_POLLING_EN		BIT(10)
 +
-+		err = clk_prepare_enable(priv->mg_clk);
-+		if (err < 0)
-+			goto err_gop_clk;
-+	}
-+
- 	/* Get system's tclk rate */
- 	priv->tclk = clk_get_rate(priv->pp_clk);
+ #define MVPP22_PORT_BASE			0x30e00
+ #define MVPP22_PORT_OFFSET			0x1000
  
-@@ -6923,14 +6936,14 @@ static int mvpp2_probe(struct platform_device *pdev)
- 	err = mvpp2_init(pdev, priv);
- 	if (err < 0) {
- 		dev_err(&pdev->dev, "failed to initialize controller\n");
--		goto err_gop_clk;
-+		goto err_mg_clk;
- 	}
- 
- 	port_count = of_get_available_child_count(dn);
- 	if (port_count == 0) {
- 		dev_err(&pdev->dev, "no ports enabled\n");
- 		err = -ENODEV;
--		goto err_gop_clk;
-+		goto err_mg_clk;
- 	}
- 
- 	priv->port_list = devm_kcalloc(&pdev->dev, port_count,
-@@ -6938,19 +6951,22 @@ static int mvpp2_probe(struct platform_device *pdev)
- 				      GFP_KERNEL);
- 	if (!priv->port_list) {
- 		err = -ENOMEM;
--		goto err_gop_clk;
-+		goto err_mg_clk;
- 	}
- 
- 	/* Initialize ports */
- 	for_each_available_child_of_node(dn, port_node) {
- 		err = mvpp2_port_probe(pdev, port_node, priv);
- 		if (err < 0)
--			goto err_gop_clk;
-+			goto err_mg_clk;
- 	}
- 
- 	platform_set_drvdata(pdev, priv);
+@@ -5846,7 +5849,7 @@ static int mvpp2_check_ringparam_valid(struct net_device *dev,
  	return 0;
+ }
  
-+err_mg_clk:
-+	if (priv->ip_version == MVPP22)
-+		clk_disable_unprepare(priv->mg_clk);
- err_gop_clk:
- 	clk_disable_unprepare(priv->gop_clk);
- err_pp_clk:
-@@ -6986,6 +7002,7 @@ static int mvpp2_remove(struct platform_device *pdev)
- 				  aggr_txq->descs_phys);
+-static void mvpp2_get_mac_address(struct mvpp2_port *port, unsigned char *addr)
++static void mvpp21_get_mac_address(struct mvpp2_port *port, unsigned char *addr)
+ {
+ 	u32 mac_addr_l, mac_addr_m, mac_addr_h;
+ 
+@@ -6294,7 +6297,7 @@ static const struct ethtool_ops mvpp2_eth_tool_ops = {
+ 
+ /* Driver initialization */
+ 
+-static void mvpp2_port_power_up(struct mvpp2_port *port)
++static void mvpp21_port_power_up(struct mvpp2_port *port)
+ {
+ 	mvpp2_port_mii_set(port);
+ 	mvpp2_port_periodic_xon_disable(port);
+@@ -6513,7 +6516,8 @@ static int mvpp2_port_probe(struct platform_device *pdev,
+ 		mac_from = "device tree";
+ 		ether_addr_copy(dev->dev_addr, dt_mac_addr);
+ 	} else {
+-		mvpp2_get_mac_address(port, hw_mac_addr);
++		if (priv->ip_version == MVPP21)
++			mvpp21_get_mac_address(port, hw_mac_addr);
+ 		if (is_valid_ether_addr(hw_mac_addr)) {
+ 			mac_from = "hardware";
+ 			ether_addr_copy(dev->dev_addr, hw_mac_addr);
+@@ -6533,7 +6537,9 @@ static int mvpp2_port_probe(struct platform_device *pdev,
+ 		dev_err(&pdev->dev, "failed to init port %d\n", id);
+ 		goto err_free_stats;
  	}
+-	mvpp2_port_power_up(port);
++
++	if (priv->ip_version == MVPP21)
++		mvpp21_port_power_up(port);
  
-+	clk_disable_unprepare(priv->mg_clk);
- 	clk_disable_unprepare(priv->pp_clk);
- 	clk_disable_unprepare(priv->gop_clk);
+ 	port->pcpu = alloc_percpu(struct mvpp2_port_pcpu);
+ 	if (!port->pcpu) {
+@@ -6671,9 +6677,15 @@ static int mvpp2_init(struct platform_device *pdev, struct mvpp2 *priv)
+ 		mvpp2_conf_mbus_windows(dram_target_info, priv);
  
+ 	/* Disable HW PHY polling */
+-	val = readl(priv->lms_base + MVPP2_PHY_AN_CFG0_REG);
+-	val |= MVPP2_PHY_AN_STOP_SMI0_MASK;
+-	writel(val, priv->lms_base + MVPP2_PHY_AN_CFG0_REG);
++	if (priv->ip_version == MVPP21) {
++		val = readl(priv->lms_base + MVPP2_PHY_AN_CFG0_REG);
++		val |= MVPP2_PHY_AN_STOP_SMI0_MASK;
++		writel(val, priv->lms_base + MVPP2_PHY_AN_CFG0_REG);
++	} else {
++		val = readl(priv->iface_base + MVPP22_SMI_MISC_CFG_REG);
++		val &= ~MVPP22_SMI_POLLING_EN;
++		writel(val, priv->iface_base + MVPP22_SMI_MISC_CFG_REG);
++	}
+ 
+ 	/* Allocate and initialize aggregated TXQs */
+ 	priv->aggr_txqs = devm_kcalloc(&pdev->dev, num_present_cpus(),
+@@ -6698,8 +6710,9 @@ static int mvpp2_init(struct platform_device *pdev, struct mvpp2 *priv)
+ 	for (i = 0; i < MVPP2_MAX_PORTS; i++)
+ 		mvpp2_write(priv, MVPP2_ISR_RXQ_GROUP_REG(i), rxq_number);
+ 
+-	writel(MVPP2_EXT_GLOBAL_CTRL_DEFAULT,
+-	       priv->lms_base + MVPP2_MNG_EXTENDED_GLOBAL_CTRL_REG);
++	if (priv->ip_version == MVPP21)
++		writel(MVPP2_EXT_GLOBAL_CTRL_DEFAULT,
++		       priv->lms_base + MVPP2_MNG_EXTENDED_GLOBAL_CTRL_REG);
+ 
+ 	/* Allow cache snoop when transmiting packets */
+ 	mvpp2_write(priv, MVPP2_TX_SNOOP_REG, 0x1);
 -- 
 2.7.4
