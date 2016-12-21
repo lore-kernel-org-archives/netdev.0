@@ -1,78 +1,40 @@
-From: Ozgur Karatas <okaratas@member.fsf.org>
-Subject: [PATCH 2/2] net: wireless: fix to uses struct
-Date: Thu, 22 Dec 2016 00:23:01 +0200
-Message-ID: <608881482358981@web17g.yandex.ru>
+From: Theodore Ts'o <tytso@mit.edu>
+Subject: Re: HalfSipHash Acceptable Usage
+Date: Wed, 21 Dec 2016 17:27:02 -0500
+Message-ID: <20161221222702.h2vboms776zpgpi4@thunk.org>
+References: <1482335804.8944.44.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20161221183751.1123.qmail@ns.sciencehorizons.net>
+Reply-To: kernel-hardening@lists.openwall.com
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless <linux-wireless@vger.kernel.org>,
-        netdev <netdev@vger.kernel.org>,
-        linux-kernel <linux-kernel@vger.kernel.org>
-To: johannes <johannes@sipsolutions.net>,
-        David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: eric.dumazet@gmail.com, Jason@zx2c4.com, ak@linux.intel.com,
+	davem@davemloft.net, David.Laight@aculab.com, djb@cr.yp.to,
+	ebiggers3@gmail.com, hannes@stressinduktion.org,
+	jeanphilippe.aumasson@gmail.com,
+	kernel-hardening@lists.openwall.com, linux-crypto@vger.kernel.org,
+	linux-kernel@vger.kernel.org, luto@amacapital.net,
+	netdev@vger.kernel.org, tom@herbertland.com,
+	torvalds@linux-foundation.org, vegard.nossum@gmail.com
+To: George Spelvin <linux@sciencehorizons.net>
+Return-path: <kernel-hardening-return-5745-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+Content-Disposition: inline
+In-Reply-To: <20161221183751.1123.qmail@ns.sciencehorizons.net>
 List-Id: netdev.vger.kernel.org
 
+On Wed, Dec 21, 2016 at 01:37:51PM -0500, George Spelvin wrote:
+> SipHash annihilates the competition on 64-bit superscalar hardware.
+> SipHash dominates the field on 64-bit in-order hardware.
+> SipHash wins easily on 32-bit hardware *with enough registers*.
+> On register-starved 32-bit machines, it really struggles.
 
-The patch fixed to struct uses in reg.c, I think doesn't need to be use to "struct". 
-There is dataype not have to logical link and each is different definitons.
+And "with enough registers" includes ARM and MIPS, right?  So the only
+real problem is 32-bit x86, and you're right, at that point, only
+people who might care are people who are using a space-radiation
+hardened 386 --- and they're not likely to be doing high throughput
+TCP connections.  :-)
 
-I'm undecided on this patch. I compiled and didn't to errors.
- 
-Signed-off-by: Ozgur Karatas <okaratas@member.fsf.org>
----
- net/wireless/reg.c  | 10 +++++-----
- 1 files changed, 5 insertions(+), 5 deletions(-)
-
-diff --git a/net/wireless/reg.c b/net/wireless/reg.c
-index 5dbac37..5b70970 100644
---- a/net/wireless/reg.c
-+++ b/net/wireless/reg.c
-@@ -490,7 +490,7 @@ static int reg_query_builtin(const char *alpha2)
- 	if (!regdom)
- 		return -ENODATA;
- 
--	request = kzalloc(sizeof(struct reg_regdb_apply_request), GFP_KERNEL);
-+	request = kzalloc(sizeof(*reg_regdb_apply_request), GFP_KERNEL);
- 	if (!request)
- 		return -ENOMEM;
- 
-@@ -2291,7 +2291,7 @@ static int regulatory_hint_core(const char *alpha2)
- {
- 	struct regulatory_request *request;
- 
--	request = kzalloc(sizeof(struct regulatory_request), GFP_KERNEL);
-+	request = kzalloc(sizeof(*regulatory_request), GFP_KERNEL);
- 	if (!request)
- 		return -ENOMEM;
- 
-@@ -2313,7 +2313,7 @@ int regulatory_hint_user(const char *alpha2,
- 	if (WARN_ON(!alpha2))
- 		return -EINVAL;
- 
--	request = kzalloc(sizeof(struct regulatory_request), GFP_KERNEL);
-+	request = kzalloc(sizeof(*regulatory_request), GFP_KERNEL);
- 	if (!request)
- 		return -ENOMEM;
- 
-@@ -2385,7 +2385,7 @@ int regulatory_hint(struct wiphy *wiphy, const char *alpha2)
- 
- 	wiphy->regulatory_flags &= ~REGULATORY_CUSTOM_REG;
- 
--	request = kzalloc(sizeof(struct regulatory_request), GFP_KERNEL);
-+	request = kzalloc(sizeof(*regulatory_request), GFP_KERNEL);
- 	if (!request)
- 		return -ENOMEM;
- 
-@@ -2661,7 +2661,7 @@ int regulatory_hint_found_beacon(struct wiphy *wiphy,
- 	if (processing)
- 		return 0;
- 
--	reg_beacon = kzalloc(sizeof(struct reg_beacon), gfp);
-+	reg_beacon = kzalloc(sizeof(*reg_beacon), gfp);
- 	if (!reg_beacon)
- 		return -ENOMEM;
- 
--- 
-2.1.4
+					- Ted
