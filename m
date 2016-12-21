@@ -1,64 +1,67 @@
-From: Stefan Schmidt <stefan@osg.samsung.com>
-Subject: Re: [PATCH] at86rf230: Allow slow GPIO pins for "rstn"
-Date: Wed, 21 Dec 2016 22:01:15 +0100
-Message-ID: <d1a4cfb5-9c0a-1bbe-1a5a-67f3f9e79d43@osg.samsung.com>
-References: <1482103533-13187-1-git-send-email-andrew.smirnov@gmail.com>
- <7435a0a2-3f0f-a0db-9e0e-cb1ac838737c@osg.samsung.com>
- <CAFXsbZpgiTM2qngYERVpfXHvePW8M8DN91YnZwc-voKO=FDUUA@mail.gmail.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net] net, sched: fix soft lockup in tc_classify
+Date: Wed, 21 Dec 2016 22:07:48 +0100
+Message-ID: <585AEF24.4070800@iogearbox.net>
+References: <1954223e8b7aa90ff835357e8a3ef7537be33e43.1482337600.git.daniel@iogearbox.net> <CAM_iQpXadrGWJYqizEkq+xmMKVV9krrcCWKur=ZCRZBS9Mx_8w@mail.gmail.com> <CAM_iQpX3Sk_YGDmvY-yj0CxPbG5qfT7P7ioNgY5Lb_DqsTWh6Q@mail.gmail.com> <585ADFEB.3030206@iogearbox.net> <CAM_iQpUEUmJpjQYV7HV+4NVtGe6D-yZs6=YizcDtf7dogkNR0Q@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Alexander Aring <aar@pengutronix.de>,
-        Andrey Smirnov <andrew.smirnov@gmail.com>,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        linux-wpan@vger.kernel.org
-To: Chris Healy <cphealy@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAFXsbZpgiTM2qngYERVpfXHvePW8M8DN91YnZwc-voKO=FDUUA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+        Shahar Klein <shahark@mellanox.com>,
+        Or Gerlitz <gerlitz.or@gmail.com>,
+        Roi Dayan <roid@mellanox.com>, Jiri Pirko <jiri@mellanox.com>,
+        John Fastabend <john.fastabend@gmail.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:34574 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752035AbcLUVHy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2016 16:07:54 -0500
+In-Reply-To: <CAM_iQpUEUmJpjQYV7HV+4NVtGe6D-yZs6=YizcDtf7dogkNR0Q@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On 12/21/2016 09:47 PM, Cong Wang wrote:
+> On Wed, Dec 21, 2016 at 12:02 PM, Daniel Borkmann <daniel@iogearbox.net> wrote:
+>> On 12/21/2016 08:10 PM, Cong Wang wrote:
+>>> On Wed, Dec 21, 2016 at 10:51 AM, Cong Wang <xiyou.wangcong@gmail.com>
+>>> wrote:
+>>>> On Wed, Dec 21, 2016 at 9:04 AM, Daniel Borkmann <daniel@iogearbox.net>
+>>>> wrote:
+>>>>>
+>>>>> What happens is that in tc_ctl_tfilter(), thread A allocates a new
+>>>>> tp, initializes it, sets tp_created to 1, and calls into
+>>>>> tp->ops->change()
+>>>>> with it. In that classifier callback we had to unlock/lock the rtnl
+>>>>> mutex and returned with -EAGAIN. One reason why we need to drop there
+>>>>> is, for example, that we need to request an action module to be loaded.
+>>>>
+>>>> Excellent catch!
+>>>>
+>>>> But why do we have to replay the request here? Shouldn't we just return
+>>>> EAGAIN to user-space and let user-space decide to retry or not?
+>>>> Replaying is the root of the evil here.
+>>>
+>>> Answer myself: probably due to historical reasons, but still replaying
+>>> inside such a big function is just error-prone, we should promote it
+>>> out:
+>>
+>> Have no strong opinion, I guess it could be done as a simplification
+>> for net-next, why not, along with moving out the netlink_ns_capable()
+>> check or possibly other things after careful analysis that don't need
+>> to be redone in that circumstance.
+>
+> It is only slightly bigger than your current one so could fit for -stable too.
+> Also, it could fix all potential problems like this one. Let compiler do the
+> work, not human. ;)
 
-On 21/12/16 19:30, Chris Healy wrote:
->
->
-> On Dec 21, 2016 5:11 AM, "Stefan Schmidt" <stefan@osg.samsung.com
-> <mailto:stefan@osg.samsung.com>> wrote:
->
->     Hello.
->
->
->     On 19/12/16 00:25, Andrey Smirnov wrote:
->
->         Driver code never touches "rstn" signal in atomic context, so
->         there's
->         no need to implicitly put such restriction on it by using
->         gpio_set_value
->         to manipulate it. Replace gpio_set_value to
->         gpio_set_value_cansleep to
->         fix that.
->
->
->     We need to make sure we are not assuming it can be called  in such a
->     context in the future now. But that is something we can worry about
->     if it comes up.
->
->
->         As a an example of where such restriction might be inconvenient,
->         consider a hardware design where "rstn" is connected to a pin of
->         I2C/SPI
->         GPIO expander chip.
->
->
->     Is this a real life issue you run into?
->
->
-> I have a platform with this configuration.  The DTS for the platform is
-> in the process of being mainlined right now.
+Ok, you mean for net. In that case I prefer the smaller sized fix to be
+honest. It also covers everything from the point where we fetch the chain
+via cops->tcf_chain() to the end of the function, which is where most of
+the complexity resides, and only the two mentioned commits do the relock,
+so as a fix I think it's fine as-is. As mentioned, if there's need to
+refactor tc_ctl_tfilter() net-next would be better, imho.
 
-Thanks for letting us know. What platform is that? I'm always interested 
-in hearing about devices that use the Linux ieee802154 subsystem. :)
-
-regards
-Stefan Schmidt
+Thanks,
+Daniel
