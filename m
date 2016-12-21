@@ -1,162 +1,163 @@
-From: Tariq Toukan <ttoukan.linux@gmail.com>
-Subject: Re: mlx4: Bug in XDP_TX + 16 rx-queues
-Date: Wed, 21 Dec 2016 18:47:28 +0200
-Message-ID: <17fa9937-a378-19b5-cbde-c72ed15ddf24@gmail.com>
-References: <20161219233709.GA29858@kafai-mba.local>
- <a586ecb7-e290-8c70-714b-2eea0b94c7fb@gmail.com>
- <20161220183117.GA63721@kafai-mba.local>
+From: Craig Gallek <kraigatgoog@gmail.com>
+Subject: Re: [PATCH 5/5 net-next] inet: reset tb->fastreuseport when adding a
+ reuseport sk
+Date: Wed, 21 Dec 2016 11:49:09 -0500
+Message-ID: <CAEfhGixdnn32bw=BWYQqG5KirdmA8rNZJEYG4MhCpLZGm7npvA@mail.gmail.com>
+References: <1482264424-15439-1-git-send-email-jbacik@fb.com> <1482264424-15439-6-git-send-email-jbacik@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Tariq Toukan <tariqt@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Alexei Starovoitov <ast@fb.com>
-To: Martin KaFai Lau <kafai@fb.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Tom Herbert <tom@herbertland.com>,
+        netdev <netdev@vger.kernel.org>, kernel-team@fb.com
+To: Josef Bacik <jbacik@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:34969 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751506AbcLUQrb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2016 11:47:31 -0500
-Received: by mail-wm0-f68.google.com with SMTP id l2so5952454wml.2
-        for <netdev@vger.kernel.org>; Wed, 21 Dec 2016 08:47:31 -0800 (PST)
-In-Reply-To: <20161220183117.GA63721@kafai-mba.local>
+Received: from mail-lf0-f66.google.com ([209.85.215.66]:35574 "EHLO
+        mail-lf0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755524AbcLUQtO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2016 11:49:14 -0500
+Received: by mail-lf0-f66.google.com with SMTP id p100so14283694lfg.2
+        for <netdev@vger.kernel.org>; Wed, 21 Dec 2016 08:49:13 -0800 (PST)
+Received: from mail-lf0-f53.google.com (mail-lf0-f53.google.com. [209.85.215.53])
+        by smtp.gmail.com with ESMTPSA id f186sm5994211lfg.25.2016.12.21.08.49.10
+        for <netdev@vger.kernel.org>
+        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Wed, 21 Dec 2016 08:49:11 -0800 (PST)
+Received: by mail-lf0-f53.google.com with SMTP id b14so101607435lfg.2
+        for <netdev@vger.kernel.org>; Wed, 21 Dec 2016 08:49:10 -0800 (PST)
+In-Reply-To: <1482264424-15439-6-git-send-email-jbacik@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, Dec 20, 2016 at 3:07 PM, Josef Bacik <jbacik@fb.com> wrote:
+> If we have non reuseport sockets on a tb we will set tb->fastreuseport to 0 and
+> never set it again.  Which means that in the future if we end up adding a bunch
+> of reuseport sk's to that tb we'll have to do the expensive scan every time.
+> Instead add a sock_common to the tb so we know what reuseport sk succeeded last.
+> Once one sk has made it onto the list we know that there are no potential bind
+> conflicts on the owners list that match that sk's rcv_addr.  So copy the sk's
+> common into our tb->fastsock and set tb->fastruseport to FASTREUSESOCK_STRICT so
+> we know we have to do an extra check for subsequent reuseport sockets and skip
+> the expensive bind conflict check.
+>
+> Signed-off-by: Josef Bacik <jbacik@fb.com>
+> ---
+>  include/net/inet_hashtables.h   |  4 ++++
+>  net/ipv4/inet_connection_sock.c | 53 +++++++++++++++++++++++++++++++++++++----
+>  2 files changed, 53 insertions(+), 4 deletions(-)
+>
+> diff --git a/include/net/inet_hashtables.h b/include/net/inet_hashtables.h
+> index 50f635c..b776401 100644
+> --- a/include/net/inet_hashtables.h
+> +++ b/include/net/inet_hashtables.h
+> @@ -74,12 +74,16 @@ struct inet_ehash_bucket {
+>   * users logged onto your box, isn't it nice to know that new data
+>   * ports are created in O(1) time?  I thought so. ;-)  -DaveM
+>   */
+> +#define FASTREUSEPORT_ANY      1
+> +#define FASTREUSEPORT_STRICT   2
+> +
+>  struct inet_bind_bucket {
+>         possible_net_t          ib_net;
+>         unsigned short          port;
+>         signed char             fastreuse;
+>         signed char             fastreuseport;
+>         kuid_t                  fastuid;
+> +       struct sock_common      fastsock;
+>         int                     num_owners;
+>         struct hlist_node       node;
+>         struct hlist_head       owners;
+> diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
+> index d3ccf62..9e29fad 100644
+> --- a/net/ipv4/inet_connection_sock.c
+> +++ b/net/ipv4/inet_connection_sock.c
+> @@ -164,6 +164,32 @@ success:
+>         return head;
+>  }
+>
+> +static inline int sk_reuseport_match(struct inet_bind_bucket *tb,
+> +                                    struct sock *sk)
+> +{
+> +       struct sock *sk2 = (struct sock *)&tb->fastsock;
+> +       kuid_t uid = sock_i_uid(sk);
+> +
+> +       if (tb->fastreuseport <= 0)
+> +               return 0;
+> +       if (!sk->sk_reuseport)
+> +               return 0;
+> +       if (rcu_access_pointer(sk->sk_reuseport_cb))
+> +               return 0;
+> +       if (!uid_eq(tb->fastuid, uid))
+> +               return 0;
+> +       /* We only need to check the rcv_saddr if this tb was once marked
+> +        * without fastreuseport and then was reset, as we can only know that
+> +        * the fastsock has no potential bind conflicts with the rest of the
+> +        * possible socks on the owners list.
+> +        */
+> +       if (tb->fastreuseport == FASTREUSEPORT_ANY)
+> +               return 1;
+> +       if (!inet_csk(sk)->icsk_af_ops->rcv_saddr_equal(sk, sk2, true))
+The rcv_saddr_equal functions assume the type of the sk to be
+inet_sock.  It doesn't look like they actually depend on any of the
+inet-specific fields, but it's probably safer to either remove this
+assumption or change the type of tb->fastsock to be a full inet_sock.
 
-
-On 20/12/2016 8:31 PM, Martin KaFai Lau wrote:
-> On Tue, Dec 20, 2016 at 02:02:05PM +0200, Tariq Toukan wrote:
->> Thanks Martin, nice catch!
->>
->>
->> On 20/12/2016 1:37 AM, Martin KaFai Lau wrote:
->>> Hi Tariq,
->>>
->>> On Sat, Dec 17, 2016 at 02:18:03AM -0800, Martin KaFai Lau wrote:
->>>> Hi All,
->>>>
->>>> I have been debugging with XDP_TX and 16 rx-queues.
->>>>
->>>> 1) When 16 rx-queues is used and an XDP prog is doing XDP_TX,
->>>> it seems that the packet cannot be XDP_TX out if the pkt
->>>> is received from some particular CPUs (/rx-queues).
->>>>
->>>> 2) If 8 rx-queues is used, it does not have problem.
->>>>
->>>> 3) The 16 rx-queues problem also went away after reverting these
->>>> two patches:
->>>> 15fca2c8eb41 net/mlx4_en: Add ethtool statistics for XDP cases
->>>> 67f8b1dcb9ee net/mlx4_en: Refactor the XDP forwarding rings scheme
->>>>
->>> After taking a closer look at 67f8b1dcb9ee ("net/mlx4_en: Refactor the XDP forwarding rings scheme")
->>> and armed with the fact that '>8 rx-queues does not work', I have
->>> made the attached change that fixed the issue.
->>>
->>> Making change in mlx4_en_fill_qp_context() could be an easier fix
->>> but I think this change will be easier for discussion purpose.
->>>
->>> I don't want to lie that I know anything about how this variable
->>> works in CX3.  If this change makes sense, I can cook up a diff.
->>> Otherwise, can you shed some light on what could be happening
->>> and hopefully can lead to a diff?
->>>
->>> Thanks
->>> --Martin
->>>
->>>
->>> diff --git i/drivers/net/ethernet/mellanox/mlx4/en_netdev.c w/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
->>> index bcd955339058..b3bfb987e493 100644
->>> --- i/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
->>> +++ w/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
->>> @@ -1638,10 +1638,10 @@ int mlx4_en_start_port(struct net_device *dev)
->>>
->>>   	/* Configure tx cq's and rings */
->>>   	for (t = 0 ; t < MLX4_EN_NUM_TX_TYPES; t++) {
->>> -		u8 num_tx_rings_p_up = t == TX ? priv->num_tx_rings_p_up : 1;
->> The bug lies in this line.
->> Number of rings per UP in case of TX_XDP should be priv->tx_ring_num[TX_XDP
->> ], not 1.
->> Please try the following fix.
->> I can prepare and send it once the window opens again.
->>
->> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
->> b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
->> index bcd955339058..edbe200ac2fa 100644
->> --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
->> +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
->> @@ -1638,7 +1638,8 @@ int mlx4_en_start_port(struct net_device *dev)
->>
->>          /* Configure tx cq's and rings */
->>          for (t = 0 ; t < MLX4_EN_NUM_TX_TYPES; t++) {
->> -               u8 num_tx_rings_p_up = t == TX ? priv->num_tx_rings_p_up :
->> 1;
->> +               u8 num_tx_rings_p_up = t == TX ?
->> +                       priv->num_tx_rings_p_up : priv->tx_ring_num[t];
->>
->>                  for (i = 0; i < priv->tx_ring_num[t]; i++) {
->>                          /* Configure cq */
->>
-> Thanks for confirming the bug is related to the user_prio argument.
+> +               return 0;
+> +       return 1;
+> +}
+> +
+>  /* Obtain a reference to a local port for the given sock,
+>   * if snum is zero it means select any available local port.
+>   * We try to allocate an odd port (and leave even ports for connect())
+> @@ -206,9 +232,7 @@ tb_found:
+>                         goto success;
 >
-> I have some questions:
+>                 if ((tb->fastreuse > 0 && reuse) ||
+> -                    (tb->fastreuseport > 0 &&
+> -                     !rcu_access_pointer(sk->sk_reuseport_cb) &&
+> -                     sk->sk_reuseport && uid_eq(tb->fastuid, uid)))
+> +                   sk_reuseport_match(tb, sk))
+>                         goto success;
+>                 if (inet_csk_bind_conflict(sk, tb, true, true))
+>                         goto fail_unlock;
+> @@ -220,14 +244,35 @@ success:
+>                 if (sk->sk_reuseport) {
+>                         tb->fastreuseport = 1;
+>                         tb->fastuid = uid;
+> +                       memcpy(&tb->fastsock, &sk->__sk_common,
+> +                              sizeof(struct sock_common));
+>                 } else {
+>                         tb->fastreuseport = 0;
+>                 }
+>         } else {
+>                 if (!reuse)
+>                         tb->fastreuse = 0;
+> -               if (!sk->sk_reuseport || !uid_eq(tb->fastuid, uid))
+> +               if (sk->sk_reuseport) {
+> +                       /* We didn't match or we don't have fastreuseport set on
+> +                        * the tb, but we have sk_reuseport set on this socket
+> +                        * and we know that there are no bind conflicts with
+> +                        * this socket in this tb, so reset our tb's reuseport
+> +                        * settings so that any subsequent sockets that match
+> +                        * our current socket will be put on the fast path.
+> +                        *
+> +                        * If we reset we need to set FASTREUSEPORT_STRICT so we
+> +                        * do extra checking for all subsequent sk_reuseport
+> +                        * socks.
+> +                        */
+> +                       if (!sk_reuseport_match(tb, sk)) {
+> +                               tb->fastreuseport = FASTREUSEPORT_STRICT;
+> +                               tb->fastuid = uid;
+> +                               memcpy(&tb->fastsock, &sk->__sk_common,
+> +                                      sizeof(struct sock_common));
+> +                       }
+> +               } else {
+>                         tb->fastreuseport = 0;
+> +               }
+>         }
+>         if (!inet_csk(sk)->icsk_bind_hash)
+>                 inet_bind_hash(sk, tb, port);
+> --
+> 2.9.3
 >
-> 1. Just to confirm the intention of the change.  Your change is essentially
->     always passing 0 to the user_prio parameter for the TX_XDP type by
->     doing (i / priv->tx_ring_num[t])?
-Yes
->    If yes, would it be clearer to
->     always pass 0 instead?
-I think that it should be implied by num_tx_rings_p_up, it simply hadthe 
-wrong value.
->
->     And yes, it also works in our test.  Please post an offical patch
->     if it is the fix.
-Sure.
->
-> 2. Can you explain a little on how does the user_prio affect
->     the tx behavior?  e.g. What is the difference between
->     different user_prio like 0, 1, 2...etc?
-An implementation of QoS (Quality of Service).
-This would tell the HW to prioritize between different send queues.
-In XDP forward we use a single user prio, 0 (default).
->
-> 3. Mostly a follow up on (2).
->     In mlx4_en_get_profile(), num_tx_rings_p_up (of the struct mlx4_en_profile)
->     depends on mlx4_low_memory_profile() and number of cpu.  Does these
->     similar bounds apply to the 'u8 num_tx_rings_p_up' here for
->     TX_XDP type?
-No.
-The number of XDP_TX rings is equal to the number of RX rings.
->
-> Thanks,
-> Martin
-Regards,
-Tariq
->>> -
->>>   		for (i = 0; i < priv->tx_ring_num[t]; i++) {
->>>   			/* Configure cq */
->>> +			int user_prio;
->>> +
->>>   			cq = priv->tx_cq[t][i];
->>>   			err = mlx4_en_activate_cq(priv, cq, i);
->>>   			if (err) {
->>> @@ -1660,9 +1660,14 @@ int mlx4_en_start_port(struct net_device *dev)
->>>
->>>   			/* Configure ring */
->>>   			tx_ring = priv->tx_ring[t][i];
->>> +			if (t != TX_XDP)
->>> +				user_prio = i / priv->num_tx_rings_p_up;
->>> +			else
->>> +				user_prio = i & 0x07;
->>> +
->>>   			err = mlx4_en_activate_tx_ring(priv, tx_ring,
->>>   						       cq->mcq.cqn,
->>> -						       i / num_tx_rings_p_up);
->>> +						       user_prio);
->>>   			if (err) {
->>>   				en_err(priv, "Failed allocating Tx ring\n");
->>>   				mlx4_en_deactivate_cq(priv, cq);
->> Regards,
->> Tariq Toukan.
