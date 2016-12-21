@@ -1,111 +1,47 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] net: fddi: skfp: use %p format specifier for addresses rather than %x
-Date: Wed, 21 Dec 2016 16:03:23 +0000
-Message-ID: <20161221160323.27780-1-colin.king@canonical.com>
+From: Arnaldo Carvalho de Melo <acme@kernel.org>
+Subject: Re: [PATCH perf/core REBASE 3/5] tools lib bpf: Add
+ bpf_prog_{attach,detach}
+Date: Wed, 21 Dec 2016 13:06:47 -0300
+Message-ID: <20161221160647.GA3717@kernel.org>
+References: <20161214224342.12858-1-joe@ovn.org>
+ <20161214224342.12858-4-joe@ovn.org>
+ <20161220141851.GB32756@kernel.org>
+ <20161220143217.GC32756@kernel.org>
+ <CAPWQB7HyzaAck1LEX_ec7gRpoKjyaZPZ+dco3Ca=sR4qQ403BQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: LKML <linux-kernel@vger.kernel.org>,
+        netdev <netdev@vger.kernel.org>, Wang Nan <wangnan0@huawei.com>,
+        ast@fb.com, Daniel Borkmann <daniel@iogearbox.net>
+To: Joe Stringer <joe@ovn.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAPWQB7HyzaAck1LEX_ec7gRpoKjyaZPZ+dco3Ca=sR4qQ403BQ@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Colin Ian King <colin.king@canonical.com>
+Em Tue, Dec 20, 2016 at 10:50:22AM -0800, Joe Stringer escreveu:
+> On 20 December 2016 at 06:32, Arnaldo Carvalho de Melo <acme@kernel.org> wrote:
+> > Em Tue, Dec 20, 2016 at 11:18:51AM -0300, Arnaldo Carvalho de Melo escreveu:
+> >> This one makes it fail for CentOS 5 and 6, others may fail as well,
+> >> still building, investigating...
+> >
+> > Ok, fixed it by making it follow the model of the other sys_bpf wrappers
+> > setting up that bpf_attr union wrt initializing unamed struct members:
+> > -       union bpf_attr attr = {
+> > -               .target_fd = target_fd,
+> > -       };
+> > +       union bpf_attr attr;
+> > +
+> > +       bzero(&attr, sizeof(attr));
+> > +       attr.target_fd     = target_fd;
 
-Trivial fix: Addresses should be printed using the %p format specifier
-rather than using %x.
+> Ah, I just shifted these across originally so the delta would be
+> minimal but now I know why this code is like this. Thanks.
 
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- drivers/net/fddi/skfp/hwmtm.c | 12 ++++++------
- drivers/net/fddi/skfp/pmf.c   |  2 +-
- drivers/net/fddi/skfp/smt.c   |  2 +-
- 3 files changed, 8 insertions(+), 8 deletions(-)
+np, making sure this code works in all those environments requires
+automation, I'd say its impossible otherwise, too many details :-\
 
-diff --git a/drivers/net/fddi/skfp/hwmtm.c b/drivers/net/fddi/skfp/hwmtm.c
-index e26398b..d0a68bd 100644
---- a/drivers/net/fddi/skfp/hwmtm.c
-+++ b/drivers/net/fddi/skfp/hwmtm.c
-@@ -1483,7 +1483,7 @@ void mac_drv_clear_rx_queue(struct s_smc *smc)
- 	r = queue->rx_curr_get ;
- 	while (queue->rx_used) {
- 		DRV_BUF_FLUSH(r,DDI_DMA_SYNC_FORCPU) ;
--		DB_RX("switch OWN bit of RxD 0x%x ",r,0,5) ;
-+		DB_RX("switch OWN bit of RxD 0x%p ",r,0,5) ;
- 		r->rxd_rbctrl &= ~cpu_to_le32(BMU_OWN) ;
- 		frag_count = 1 ;
- 		DRV_BUF_FLUSH(r,DDI_DMA_SYNC_FORDEV) ;
-@@ -1645,7 +1645,7 @@ void hwm_tx_frag(struct s_smc *smc, char far *virt, u_long phys, int len,
- 	DB_TX("hwm_tx_frag: len = %d, frame_status = %x ",len,frame_status,2) ;
- 	if (frame_status & LAN_TX) {
- 		/* '*t' is already defined */
--		DB_TX("LAN_TX: TxD = %x, virt = %x ",t,virt,3) ;
-+		DB_TX("LAN_TX: TxD = %p, virt = %p ",t,virt,3) ;
- 		t->txd_virt = virt ;
- 		t->txd_txdscr = cpu_to_le32(smc->os.hwm.tx_descr) ;
- 		t->txd_tbadr = cpu_to_le32(phys) ;
-@@ -1819,7 +1819,7 @@ void smt_send_mbuf(struct s_smc *smc, SMbuf *mb, int fc)
- 	__le32	tbctrl;
- 
- 	NDD_TRACE("THSB",mb,fc,0) ;
--	DB_TX("smt_send_mbuf: mb = 0x%x, fc = 0x%x",mb,fc,4) ;
-+	DB_TX("smt_send_mbuf: mb = 0x%p, fc = 0x%x",mb,fc,4) ;
- 
- 	mb->sm_off-- ;	/* set to fc */
- 	mb->sm_len++ ;	/* + fc */
-@@ -1960,7 +1960,7 @@ static void mac_drv_clear_txd(struct s_smc *smc)
- 
- 			do {
- 				DRV_BUF_FLUSH(t1,DDI_DMA_SYNC_FORCPU) ;
--				DB_TX("check OWN/EOF bit of TxD 0x%x",t1,0,5) ;
-+				DB_TX("check OWN/EOF bit of TxD 0x%p",t1,0,5) ;
- 				tbctrl = le32_to_cpu(CR_READ(t1->txd_tbctrl));
- 
- 				if (tbctrl & BMU_OWN || !queue->tx_used){
-@@ -1988,7 +1988,7 @@ static void mac_drv_clear_txd(struct s_smc *smc)
- 			}
- 			else {
- #ifndef PASS_1ST_TXD_2_TX_COMP
--				DB_TX("mac_drv_tx_comp for TxD 0x%x",t2,0,4) ;
-+				DB_TX("mac_drv_tx_comp for TxD 0x%p",t2,0,4) ;
- 				mac_drv_tx_complete(smc,t2) ;
- #else
- 				DB_TX("mac_drv_tx_comp for TxD 0x%x",
-@@ -2052,7 +2052,7 @@ void mac_drv_clear_tx_queue(struct s_smc *smc)
- 		tx_used = queue->tx_used ;
- 		while (tx_used) {
- 			DRV_BUF_FLUSH(t,DDI_DMA_SYNC_FORCPU) ;
--			DB_TX("switch OWN bit of TxD 0x%x ",t,0,5) ;
-+			DB_TX("switch OWN bit of TxD 0x%p ",t,0,5) ;
- 			t->txd_tbctrl &= ~cpu_to_le32(BMU_OWN) ;
- 			DRV_BUF_FLUSH(t,DDI_DMA_SYNC_FORDEV) ;
- 			t = t->txd_next ;
-diff --git a/drivers/net/fddi/skfp/pmf.c b/drivers/net/fddi/skfp/pmf.c
-index 441b4dc..52fa162 100644
---- a/drivers/net/fddi/skfp/pmf.c
-+++ b/drivers/net/fddi/skfp/pmf.c
-@@ -284,7 +284,7 @@ void smt_pmf_received_pack(struct s_smc *smc, SMbuf *mb, int local)
- 	SMbuf		*reply ;
- 
- 	sm = smtod(mb,struct smt_header *) ;
--	DB_SMT("SMT: processing PMF frame at %x len %d\n",sm,mb->sm_len) ;
-+	DB_SMT("SMT: processing PMF frame at %p len %d\n",sm,mb->sm_len) ;
- #ifdef	DEBUG
- 	dump_smt(smc,sm,"PMF Received") ;
- #endif
-diff --git a/drivers/net/fddi/skfp/smt.c b/drivers/net/fddi/skfp/smt.c
-index cd78b7c..e80a089 100644
---- a/drivers/net/fddi/skfp/smt.c
-+++ b/drivers/net/fddi/skfp/smt.c
-@@ -504,7 +504,7 @@ void smt_received_pack(struct s_smc *smc, SMbuf *mb, int fs)
- #endif
- 
- 	smt_swap_para(sm,(int) mb->sm_len,1) ;
--	DB_SMT("SMT : received packet [%s] at 0x%x\n",
-+	DB_SMT("SMT : received packet [%s] at 0x%p\n",
- 		smt_type_name[m_fc(mb) & 0xf],sm) ;
- 	DB_SMT("SMT : version %d, class %s\n",sm->smt_version,
- 		smt_class_name[(sm->smt_class>LAST_CLASS)?0 : sm->smt_class]) ;
--- 
-2.10.2
+Fixed, pushed, merged, should hit 4.10 soon :-)
+
+- Arnaldo
