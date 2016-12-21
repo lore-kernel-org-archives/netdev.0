@@ -1,49 +1,36 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH 1/5 net-next] inet: replace ->bind_conflict with
- ->rcv_saddr_equal
-Date: Wed, 21 Dec 2016 16:23:06 +0100
-Message-ID: <1482333786.2260.10.camel@stressinduktion.org>
-References: <1482264424-15439-1-git-send-email-jbacik@fb.com>
-         <1482264424-15439-2-git-send-email-jbacik@fb.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-To: Josef Bacik <jbacik@fb.com>, davem@davemloft.net,
-        kraigatgoog@gmail.com, eric.dumazet@gmail.com, tom@herbertland.com,
-        netdev@vger.kernel.org, kernel-team@fb.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:52187 "EHLO
-        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1758883AbcLUPXL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2016 10:23:11 -0500
-In-Reply-To: <1482264424-15439-2-git-send-email-jbacik@fb.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "George Spelvin" <linux@sciencehorizons.net>
+Subject: Re: HalfSipHash Acceptable Usage
+Date: 21 Dec 2016 10:55:40 -0500
+Message-ID: <20161221155540.29529.qmail@ns.sciencehorizons.net>
+References: <CAHmME9oJDOLpPKRpX=N+DY9BuzTueWjTaWzeVtdVMBG7mcrqKA@mail.gmail.com>
+Cc: ak@linux.intel.com, davem@davemloft.net, David.Laight@aculab.com,
+        djb@cr.yp.to, ebiggers3@gmail.com, eric.dumazet@gmail.com,
+        hannes@stressinduktion.org, jeanphilippe.aumasson@gmail.com,
+        kernel-hardening@lists.openwall.com, linux-crypto@vger.kernel.org,
+        linux-kernel@vger.kernel.org, luto@amacapital.net,
+        netdev@vger.kernel.org, tom@herbertland.com,
+        torvalds@linux-foundation.org, tytso@mit.edu,
+        vegard.nossum@gmail.com
+To: Jason@zx2c4.com, linux@sciencehorizons.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAHmME9oJDOLpPKRpX=N+DY9BuzTueWjTaWzeVtdVMBG7mcrqKA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2016-12-20 at 15:07 -0500, Josef Bacik wrote:
-> --- a/net/dccp/ipv6.c
-> +++ b/net/dccp/ipv6.c
-> @@ -926,7 +926,7 @@ static const struct inet_connection_sock_af_ops dccp_ipv6_af_ops = {
->  	.getsockopt	   = ipv6_getsockopt,
->  	.addr2sockaddr	   = inet6_csk_addr2sockaddr,
->  	.sockaddr_len	   = sizeof(struct sockaddr_in6),
-> -	.bind_conflict	   = inet6_csk_bind_conflict,
-> +	.rcv_saddr_equal   = ipv6_rcv_saddr_equal,
->  #ifdef CONFIG_COMPAT
->  	.compat_setsockopt = compat_ipv6_setsockopt,
->  	.compat_getsockopt = compat_ipv6_getsockopt,
-> 
+Actually, DJB just made a very relevant suggestion.
 
-Btw, small nit, you forgot the corresponding changes in
-dccp_ipv6_mapped, thus causing this compiler error:
+As I've mentioned, the 32-bit performance problems are an x86-specific
+problem.  ARM does very well, and other processors aren't bad at all.
 
-net/dccp/ipv6.c:961:2: error: unknown field ‘bind_conflict’ specified in initializer
-  .bind_conflict    = inet6_csk_bind_conflict,
-  ^
-net/dccp/ipv6.c:961:22: error: ‘inet6_csk_bind_conflict’ undeclared here (not in a function)
-  .bind_conflict    = inet6_csk_bind_conflict,
-                      ^~~~~~~~~~~~~~~~~~~~~~~
-scripts/Makefile.build:293: recipe for target 'net/dccp/ipv6.o' failed
+SipHash fits very nicely (and runs very fast) in the MMX registers.
 
-Bye,
-Hannes
+They're 64 bits, and there are 8 of them, so the integer registers can
+be reserved for pointers and loop counters and all that.  And there's
+reference code available.
+
+How much does kernel_fpu_begin()/kernel_fpu_end() cost?
+
+Although there are a lot of pre-MMX x86es in embedded control applications,
+I don't think anyone is worried about their networking performance.
+(Specifically, all of this affects only connection setup, not throughput 
+on established connections.)
