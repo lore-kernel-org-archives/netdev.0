@@ -1,73 +1,32 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: HalfSipHash Acceptable Usage
-Date: Wed, 21 Dec 2016 09:25:01 -0800
-Message-ID: <CA+55aFy8fNOxw3bnwkX1S46jKnW6i26mueaiuOsScyN3kFJp+A@mail.gmail.com>
-References: <CAHmME9oJDOLpPKRpX=N+DY9BuzTueWjTaWzeVtdVMBG7mcrqKA@mail.gmail.com>
- <20161221155540.29529.qmail@ns.sciencehorizons.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] net, sched: fix soft lockup in tc_classify
+Date: Wed, 21 Dec 2016 09:37:24 -0800
+Message-ID: <1482341844.8944.56.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1954223e8b7aa90ff835357e8a3ef7537be33e43.1482337600.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>,
-        Andi Kleen <ak@linux.intel.com>,
-        David Miller <davem@davemloft.net>,
-        David Laight <David.Laight@aculab.com>,
-        "Daniel J . Bernstein" <djb@cr.yp.to>,
-        Eric Biggers <ebiggers3@gmail.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>,
-        "kernel-hardening@lists.openwall.com"
-        <kernel-hardening@lists.openwall.com>,
-        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        Andy Lutomirski <luto@amacapital.net>,
-        Network Development <netdev@vger.kernel.org>,
-        Tom Herbert <tom@herbertland.com>,
-        "Theodore Ts'o" <tytso@mit.edu>,
-        Vegard Nossum <vegard.nossum@gmail.com>
-To: George Spelvin <linux@sciencehorizons.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161221155540.29529.qmail@ns.sciencehorizons.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, shahark@mellanox.com,
+        xiyou.wangcong@gmail.com, gerlitz.or@gmail.com, roid@mellanox.com,
+        jiri@mellanox.com, john.fastabend@gmail.com, netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:33473 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750724AbcLURhl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2016 12:37:41 -0500
+Received: by mail-pg0-f65.google.com with SMTP id g1so15225586pgn.0
+        for <netdev@vger.kernel.org>; Wed, 21 Dec 2016 09:37:41 -0800 (PST)
+In-Reply-To: <1954223e8b7aa90ff835357e8a3ef7537be33e43.1482337600.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 21, 2016 at 7:55 AM, George Spelvin
-<linux@sciencehorizons.net> wrote:
->
-> How much does kernel_fpu_begin()/kernel_fpu_end() cost?
+On Wed, 2016-12-21 at 18:04 +0100, Daniel Borkmann wrote:
+> Shahar reported a soft lockup in tc_classify(), where we run into an
+> endless loop when walking the classifier chain due to tp->next == tp
+> which is a state we should never run into. The issue only seems to
+> trigger under load in the tc control path.
 
-It's now better than it used to be, but it's absolutely disastrous
-still. We're talking easily many hundreds of cycles. Under some loads,
-thousands.
+Nice fix, thanks !
 
-And I warn you already: it will _benchmark_ a hell of a lot better
-than it will work in reality. In benchmarks, you'll hit all the
-optimizations ("oh, I've already saved away all the FP registers, no
-need to do it again").
-
-In contrast, in reality, especially with things like "do it once or
-twice per incoming packet", you'll easily hit the absolute worst
-cases, where not only does it take a few hundred cycles to save the FP
-state, you'll then return to user space in between packets, which
-triggers the slow-path return code and reloads the FP state, which is
-another few hundred cycles plus.
-
-Similarly, in benchmarks you'll hit the "modern CPU's power on the AVX
-unit and keep it powered up for a while afterwards", while in real
-life you would quite easily hit the "oh, AVX is powered down because
-we were idle, now it powers up at half speed which is another latency
-hit _and_ the AVX unit won't run full out anyway".
-
-Don't do it. There are basically no real situations where the AVX
-state optimizations help for the kernel. We just don't have the loop
-counts to make up for the problems it causes.
-
-The one exception is likely if you're doing things like
-high-throughput disk IO encryption, and then you'd be much better off
-using SHA256 instead (which often has hw encryption on modern CPU's -
-both x86 and ARM).
-
-(I'm sure that you could see it on some high-throughput network
-benchmark too when the benchmark entirely saturates the CPU. And then
-in real life it would suck horribly for all the reasons above).
-
-                Linus
+Acked-by: Eric Dumazet <edumazet@google.com>
