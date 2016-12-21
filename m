@@ -1,40 +1,56 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: Re: [kernel-hardening] Re: HalfSipHash Acceptable Usage
-Date: Wed, 21 Dec 2016 23:29:12 +0100
-Message-ID: <CAHmME9pww5Q0Wy9MtkO7PAx2Tstfp=6Og3qZLZ=Rh8NaFo0Gog@mail.gmail.com>
+From: Paul Bolle <pebolle@tiscali.nl>
+Subject: Re: [PATCH 2/2] net: wireless: fix to uses struct
+Date: Wed, 21 Dec 2016 23:33:45 +0100
+Message-ID: <1482359625.28171.2.camel@tiscali.nl>
+References: <608881482358981@web17g.yandex.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: kernel-hardening@lists.openwall.com,
-        "Theodore Ts'o" <tytso@mit.edu>,
-        George Spelvin <linux@sciencehorizons.net>,
-        Eric Dumazet <eric.dumazet@gmail.com>, Jason <Jason@zx2c4.com>,
-        Andi Kleen <ak@linux.intel.com>,
-        David Miller <davem@davemloft.net>,
-        David Laight <David.Laight@aculab.com>,
-        "Daniel J . Bernstein" <djb@cr.yp.to>,
-        Eric Biggers <ebiggers3@gmail.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>,
-        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Andy Lutomirski <luto@amacapital.net>,
-        Netdev <netdev@vger.kernel.org>,
-        Tom Herbert <tom@herbertland.com>,
-        Linus Torvalds <torvalds@linux-foundation.org>,
-        Vegard Nossum <vegard.nossum@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: Thomas Gleixner <tglx@linutronix.de>,
+        linux-wireless <linux-wireless@vger.kernel.org>,
+        netdev <netdev@vger.kernel.org>,
+        linux-kernel <linux-kernel@vger.kernel.org>
+To: Ozgur Karatas <okaratas@member.fsf.org>,
+        johannes <johannes@sipsolutions.net>,
+        David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <608881482358981@web17g.yandex.ru>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 21, 2016 at 11:27 PM, Theodore Ts'o <tytso@mit.edu> wrote:
-> And "with enough registers" includes ARM and MIPS, right?  So the only
-> real problem is 32-bit x86, and you're right, at that point, only
-> people who might care are people who are using a space-radiation
-> hardened 386 --- and they're not likely to be doing high throughput
-> TCP connections.  :-)
+On Thu, 2016-12-22 at 00:23 +0200, Ozgur Karatas wrote:
+> I compiled and didn't to errors.
 
-Plus the benchmark was bogus anyway, and when I built a more specific
-harness -- actually comparing the TCP sequence number functions --
-SipHash was faster than MD5, even on register starved x86. So I think
-we're fine and this chapter of the discussion can come to a close, in
-order to move on to more interesting things.
+Really?
+
+$ make net/wireless/reg.o
+  CHK     include/config/kernel.release
+  CHK     include/generated/uapi/linux/version.h
+  CHK     include/generated/utsrelease.h
+  CHK     include/generated/bounds.h
+  CHK     include/generated/timeconst.h
+  CHK     include/generated/asm-offsets.h
+  CALL    scripts/checksyscalls.sh
+  CC      net/wireless/reg.o
+net/wireless/reg.c: In function ‘regulatory_hint_core’:
+net/wireless/reg.c:2294:28: error: ‘regulatory_request’ undeclared (first use in this function)
+  request = kzalloc(sizeof(*regulatory_request), GFP_KERNEL);
+                            ^~~~~~~~~~~~~~~~~~
+net/wireless/reg.c:2294:28: note: each undeclared identifier is reported only once for each function it appears in
+net/wireless/reg.c: In function ‘regulatory_hint_user’:
+net/wireless/reg.c:2316:28: error: ‘regulatory_request’ undeclared (first use in this function)
+  request = kzalloc(sizeof(*regulatory_request), GFP_KERNEL);
+                            ^~~~~~~~~~~~~~~~~~
+net/wireless/reg.c: In function ‘regulatory_hint’:
+net/wireless/reg.c:2388:28: error: ‘regulatory_request’ undeclared (first use in this function)
+  request = kzalloc(sizeof(*regulatory_request), GFP_KERNEL);
+                            ^~~~~~~~~~~~~~~~~~
+scripts/Makefile.build:293: recipe for target 'net/wireless/reg.o' failed
+make[1]: *** [net/wireless/reg.o] Error 1
+Makefile:1640: recipe for target 'net/wireless/reg.o' failed
+make: *** [net/wireless/reg.o] Error 2 
+
+Didn't Thomas Gleixner suggest that you do a basic C course just yesterday?
+
+
+Paul Bolle
