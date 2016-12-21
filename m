@@ -1,410 +1,480 @@
-From: Selvin Xavier <selvin.xavier-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Subject: [PATCH for bnxt_re V4 05/21] RDMA/bnxt_re: Adding Notification Queue support
-Date: Wed, 21 Dec 2016 03:41:54 -0800
-Message-ID: <1482320530-5344-6-git-send-email-selvin.xavier@broadcom.com>
+From: Selvin Xavier <selvin.xavier@broadcom.com>
+Subject: [PATCH for bnxt_re V4 06/21] RDMA/bnxt_re: Support for PD, ucontext and mmap verbs
+Date: Wed, 21 Dec 2016 03:41:55 -0800
+Message-ID: <1482320530-5344-7-git-send-email-selvin.xavier@broadcom.com>
 References: <1482320530-5344-1-git-send-email-selvin.xavier@broadcom.com>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, michael.chan-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
-        Selvin Xavier <selvin.xavier-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Eddie Wai <eddie.wai-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Devesh Sharma <devesh.sharma-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Somnath Kotur <somnath.kotur-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-        Sriharsha Basavapatna <sriharsha.basavapatna-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-To: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1482320530-5344-1-git-send-email-selvin.xavier-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, michael.chan@broadcom.com,
+        Selvin Xavier <selvin.xavier@broadcom.com>,
+        Eddie Wai <eddie.wai@broadcom.com>,
+        Devesh Sharma <devesh.sharma@broadcom.com>,
+        Somnath Kotur <somnath.kotur@broadcom.com>,
+        Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
+To: dledford@redhat.com, linux-rdma@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wj0-f182.google.com ([209.85.210.182]:33565 "EHLO
+        mail-wj0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757257AbcLULnE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2016 06:43:04 -0500
+Received: by mail-wj0-f182.google.com with SMTP id xy5so199957352wjc.0
+        for <netdev@vger.kernel.org>; Wed, 21 Dec 2016 03:43:01 -0800 (PST)
+In-Reply-To: <1482320530-5344-1-git-send-email-selvin.xavier@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Completion Notifcations are handled by Notification Queue (NQ). This
-patch configures the NQs. Also, configures the Door bell page mapping
+This patch includes the uverbs ABI header file to enable user verbs.
+Also, adds support for the Protection Domain, User Context and mmap
+verbs.
 
-v3: Fixes some sparse warnings related to endianness checks
-v4: Change include file names
+v2: Moved the bnxt_re_uverbs_abi.h file to include/uapi/rdma folder.
+    Also, Fixed one sparse warning.
+v3: Fixes some cross compile and sparse warnings. Changes the
+    bnxt_re_uverbs_abi.h file name to bnxtre-abi.h. Aligns the data
+    structure to 64 bit and eliminates __packed qualifier from
+    bnxtre-abi.h
+v3  Changes the bnxtre_abi.h file name to bnxt_re-abi.h to follow
+    modulename-abi.h format. Also, modifies the include file name.
 
-Signed-off-by: Eddie Wai <eddie.wai-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Signed-off-by: Devesh Sharma <devesh.sharma-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Signed-off-by: Somnath Kotur <somnath.kotur-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Signed-off-by: Sriharsha Basavapatna <sriharsha.basavapatna-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Signed-off-by: Selvin Xavier <selvin.xavier-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Signed-off-by: Eddie Wai <eddie.wai@broadcom.com>
+Signed-off-by: Devesh Sharma <devesh.sharma@broadcom.com>
+Signed-off-by: Somnath Kotur <somnath.kotur@broadcom.com>
+Signed-off-by: Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
+Signed-off-by: Selvin Xavier <selvin.xavier@broadcom.com>
 ---
- drivers/infiniband/hw/bnxt_re/bnxt_re.h   |   8 ++
- drivers/infiniband/hw/bnxt_re/main.c      |  52 +++++++++-
- drivers/infiniband/hw/bnxt_re/qplib_fp.c  | 161 ++++++++++++++++++++++++++++++
- drivers/infiniband/hw/bnxt_re/qplib_fp.h  |  60 +++++++++++
- drivers/infiniband/hw/bnxt_re/qplib_res.h |   6 ++
- 5 files changed, 286 insertions(+), 1 deletion(-)
+ drivers/infiniband/hw/bnxt_re/ib_verbs.c  | 218 ++++++++++++++++++++++++++++++
+ drivers/infiniband/hw/bnxt_re/ib_verbs.h  |  23 ++++
+ drivers/infiniband/hw/bnxt_re/main.c      |   7 +
+ drivers/infiniband/hw/bnxt_re/qplib_res.c |  28 ++++
+ drivers/infiniband/hw/bnxt_re/qplib_res.h |   6 +
+ drivers/infiniband/hw/bnxt_re/qplib_sp.h  |   4 +
+ include/uapi/rdma/bnxt_re-abi.h           |  59 ++++++++
+ 7 files changed, 345 insertions(+)
+ create mode 100644 include/uapi/rdma/bnxt_re-abi.h
 
-diff --git a/drivers/infiniband/hw/bnxt_re/bnxt_re.h b/drivers/infiniband/hw/bnxt_re/bnxt_re.h
-index 78e95a5..8d2f42f 100644
---- a/drivers/infiniband/hw/bnxt_re/bnxt_re.h
-+++ b/drivers/infiniband/hw/bnxt_re/bnxt_re.h
-@@ -60,6 +60,8 @@ struct bnxt_re_work {
- #define BNXT_RE_MIN_MSIX		2
- #define BNXT_RE_MAX_MSIX		16
- #define BNXT_RE_AEQ_IDX			0
-+#define BNXT_RE_NQ_IDX			1
-+
- struct bnxt_re_dev {
- 	struct ib_device		ibdev;
- 	struct list_head		list;
-@@ -78,9 +80,15 @@ struct bnxt_re_dev {
- 
- 	int				id;
- 
-+	/* FP Notification Queue (CQ & SRQ) */
-+	struct tasklet_struct		nq_task;
-+
- 	/* RCFW Channel */
- 	struct bnxt_qplib_rcfw		rcfw;
- 
-+	/* NQ */
-+	struct bnxt_qplib_nq		nq;
-+
- 	/* Device Resources */
- 	struct bnxt_qplib_dev_attr	dev_attr;
- 	struct bnxt_qplib_ctx		qplib_ctx;
-diff --git a/drivers/infiniband/hw/bnxt_re/main.c b/drivers/infiniband/hw/bnxt_re/main.c
-index a8d0f9b..bef654e 100644
---- a/drivers/infiniband/hw/bnxt_re/main.c
-+++ b/drivers/infiniband/hw/bnxt_re/main.c
-@@ -568,6 +568,9 @@ static int bnxt_re_aeq_handler(struct bnxt_qplib_rcfw *rcfw,
- 
- static void bnxt_re_cleanup_res(struct bnxt_re_dev *rdev)
- {
-+	if (rdev->nq.hwq.max_elements)
-+		bnxt_qplib_disable_nq(&rdev->nq);
-+
- 	if (rdev->qplib_res.rcfw)
- 		bnxt_qplib_cleanup_res(&rdev->qplib_res);
- }
-@@ -578,11 +581,32 @@ static int bnxt_re_init_res(struct bnxt_re_dev *rdev)
- 
- 	bnxt_qplib_init_res(&rdev->qplib_res);
- 
-+	if (rdev->msix_entries[BNXT_RE_NQ_IDX].vector <= 0)
-+		return -EINVAL;
-+
-+	rc = bnxt_qplib_enable_nq(rdev->en_dev->pdev, &rdev->nq,
-+				  rdev->msix_entries[BNXT_RE_NQ_IDX].vector,
-+				  rdev->msix_entries[BNXT_RE_NQ_IDX].db_offset,
-+				  NULL,
-+				  NULL);
-+
-+	if (rc)
-+		dev_err(rdev_to_dev(rdev), "Failed to enable NQ: %#x", rc);
-+
- 	return rc;
- }
- 
- static void bnxt_re_free_res(struct bnxt_re_dev *rdev, bool lock_wait)
- {
-+	if (rdev->nq.hwq.max_elements) {
-+		bnxt_re_net_ring_free(rdev, rdev->nq.ring_id, lock_wait);
-+		bnxt_qplib_free_nq(&rdev->nq);
-+	}
-+	if (rdev->qplib_res.dpi_tbl.max) {
-+		bnxt_qplib_dealloc_dpi(&rdev->qplib_res,
-+				       &rdev->qplib_res.dpi_tbl,
-+				       &rdev->dpi_privileged);
-+	}
- 	if (rdev->qplib_res.rcfw) {
- 		bnxt_qplib_free_res(&rdev->qplib_res);
- 		rdev->qplib_res.rcfw = NULL;
-@@ -604,8 +628,34 @@ static int bnxt_re_alloc_res(struct bnxt_re_dev *rdev)
- 	if (rc)
- 		goto fail;
- 
--	return 0;
-+	rc = bnxt_qplib_alloc_dpi(&rdev->qplib_res.dpi_tbl,
-+				  &rdev->dpi_privileged,
-+				  rdev);
-+	if (rc)
-+		goto fail;
- 
-+	rdev->nq.hwq.max_elements = BNXT_RE_MAX_CQ_COUNT +
-+				    BNXT_RE_MAX_SRQC_COUNT + 2;
-+	rc = bnxt_qplib_alloc_nq(rdev->en_dev->pdev, &rdev->nq);
-+	if (rc) {
-+		dev_err(rdev_to_dev(rdev),
-+			"Failed to allocate NQ memory: %#x", rc);
-+		goto fail;
-+	}
-+	rc = bnxt_re_net_ring_alloc
-+			(rdev, rdev->nq.hwq.pbl[PBL_LVL_0].pg_map_arr,
-+			 rdev->nq.hwq.pbl[rdev->nq.hwq.level].pg_count,
-+			 HWRM_RING_ALLOC_CMPL, BNXT_QPLIB_NQE_MAX_CNT - 1,
-+			 rdev->msix_entries[BNXT_RE_NQ_IDX].ring_idx,
-+			 &rdev->nq.ring_id);
-+	if (rc) {
-+		dev_err(rdev_to_dev(rdev),
-+			"Failed to allocate NQ ring: %#x", rc);
-+		goto free_nq;
-+	}
-+	return 0;
-+free_nq:
-+	bnxt_qplib_free_nq(&rdev->nq);
- fail:
- 	rdev->qplib_res.rcfw = NULL;
- 	return rc;
-diff --git a/drivers/infiniband/hw/bnxt_re/qplib_fp.c b/drivers/infiniband/hw/bnxt_re/qplib_fp.c
-index 36c4b81..a33960b 100644
---- a/drivers/infiniband/hw/bnxt_re/qplib_fp.c
-+++ b/drivers/infiniband/hw/bnxt_re/qplib_fp.c
-@@ -35,3 +35,164 @@
+diff --git a/drivers/infiniband/hw/bnxt_re/ib_verbs.c b/drivers/infiniband/hw/bnxt_re/ib_verbs.c
+index c01fa40..fed80ed 100644
+--- a/drivers/infiniband/hw/bnxt_re/ib_verbs.c
++++ b/drivers/infiniband/hw/bnxt_re/ib_verbs.c
+@@ -35,3 +35,221 @@
   *
-  * Description: Fast Path Operators
+  * Description: IB Verbs interpreter
   */
 +
 +#include <linux/interrupt.h>
-+#include <linux/spinlock.h>
-+#include <linux/sched.h>
-+#include <linux/slab.h>
++#include <linux/types.h>
 +#include <linux/pci.h>
-+#include <linux/prefetch.h>
++#include <linux/netdevice.h>
++
++#include <rdma/ib_verbs.h>
++#include <rdma/ib_user_verbs.h>
++#include <rdma/ib_umem.h>
++#include <rdma/ib_addr.h>
++#include <rdma/ib_mad.h>
++#include <rdma/ib_cache.h>
++
++#include "bnxt_ulp.h"
 +
 +#include "roce_hsi.h"
-+
 +#include "qplib_res.h"
-+#include "qplib_rcfw.h"
 +#include "qplib_sp.h"
 +#include "qplib_fp.h"
++#include "qplib_rcfw.h"
 +
-+static void bnxt_qplib_service_nq(unsigned long data)
++#include "bnxt_re.h"
++#include "ib_verbs.h"
++#include <rdma/bnxt_re-abi.h>
++
++/* Protection Domains */
++int bnxt_re_dealloc_pd(struct ib_pd *ib_pd)
 +{
-+	struct bnxt_qplib_nq *nq = (struct bnxt_qplib_nq *)data;
-+	struct bnxt_qplib_hwq *hwq = &nq->hwq;
-+	struct nq_base *nqe, **nq_ptr;
-+	u32 sw_cons, raw_cons;
-+	u16 type;
-+	int budget = nq->budget;
-+
-+	/* Service the NQ until empty */
-+	raw_cons = hwq->cons;
-+	while (budget--) {
-+		sw_cons = HWQ_CMP(raw_cons, hwq);
-+		nq_ptr = (struct nq_base **)hwq->pbl_ptr;
-+		nqe = &nq_ptr[NQE_PG(sw_cons)][NQE_IDX(sw_cons)];
-+		if (!NQE_CMP_VALID(nqe, raw_cons, hwq->max_elements))
-+			break;
-+
-+		type = le16_to_cpu(nqe->info10_type) & NQ_BASE_TYPE_MASK;
-+		switch (type) {
-+		case NQ_BASE_TYPE_CQ_NOTIFICATION:
-+			break;
-+		case NQ_BASE_TYPE_DBQ_EVENT:
-+			break;
-+		default:
-+			dev_warn(&nq->pdev->dev,
-+				 "QPLIB: nqe with type = 0x%x not handled",
-+				 type);
-+			break;
-+		}
-+		raw_cons++;
-+	}
-+	if (hwq->cons != raw_cons) {
-+		hwq->cons = raw_cons;
-+		NQ_DB_REARM(nq->bar_reg_iomem, hwq->cons, hwq->max_elements);
-+	}
-+}
-+
-+static irqreturn_t bnxt_qplib_nq_irq(int irq, void *dev_instance)
-+{
-+	struct bnxt_qplib_nq *nq = dev_instance;
-+	struct bnxt_qplib_hwq *hwq = &nq->hwq;
-+	struct nq_base **nq_ptr;
-+	u32 sw_cons;
-+
-+	/* Prefetch the NQ element */
-+	sw_cons = HWQ_CMP(hwq->cons, hwq);
-+	nq_ptr = (struct nq_base **)nq->hwq.pbl_ptr;
-+	prefetch(&nq_ptr[NQE_PG(sw_cons)][NQE_IDX(sw_cons)]);
-+
-+	/* Fan out to CPU affinitized kthreads? */
-+	tasklet_schedule(&nq->worker);
-+
-+	return IRQ_HANDLED;
-+}
-+
-+void bnxt_qplib_disable_nq(struct bnxt_qplib_nq *nq)
-+{
-+	/* Make sure the HW is stopped! */
-+	synchronize_irq(nq->vector);
-+	tasklet_disable(&nq->worker);
-+	tasklet_kill(&nq->worker);
-+
-+	if (nq->requested) {
-+		free_irq(nq->vector, nq);
-+		nq->requested = false;
-+	}
-+	if (nq->bar_reg_iomem)
-+		iounmap(nq->bar_reg_iomem);
-+	nq->bar_reg_iomem = NULL;
-+
-+	nq->cqn_handler = NULL;
-+	nq->srqn_handler = NULL;
-+	nq->vector = 0;
-+}
-+
-+int bnxt_qplib_enable_nq(struct pci_dev *pdev, struct bnxt_qplib_nq *nq,
-+			 int msix_vector, int bar_reg_offset,
-+			 int (*cqn_handler)(struct bnxt_qplib_nq *nq,
-+					    void *),
-+			 int (*srqn_handler)(struct bnxt_qplib_nq *nq,
-+					     void *, u8 event))
-+{
-+	resource_size_t nq_base;
++	struct bnxt_re_pd *pd = container_of(ib_pd, struct bnxt_re_pd, ib_pd);
++	struct bnxt_re_dev *rdev = pd->rdev;
 +	int rc;
 +
-+	nq->pdev = pdev;
-+	nq->vector = msix_vector;
++	if (ib_pd->uobject && pd->dpi.dbr) {
++		struct ib_ucontext *ib_uctx = ib_pd->uobject->context;
++		struct bnxt_re_ucontext *ucntx;
 +
-+	nq->cqn_handler = cqn_handler;
++		/* Free DPI only if this is the first PD allocated by the
++		 * application and mark the context dpi as NULL
++		 */
++		ucntx = container_of(ib_uctx, struct bnxt_re_ucontext, ib_uctx);
 +
-+	nq->srqn_handler = srqn_handler;
++		rc = bnxt_qplib_dealloc_dpi(&rdev->qplib_res,
++					    &rdev->qplib_res.dpi_tbl,
++					    &pd->dpi);
++		if (rc)
++			dev_err(rdev_to_dev(rdev), "Failed to deallocate HW DPI");
++			/* Don't fail, continue*/
++		ucntx->dpi = NULL;
++	}
 +
-+	tasklet_init(&nq->worker, bnxt_qplib_service_nq, (unsigned long)nq);
-+
-+	nq->requested = false;
-+	rc = request_irq(nq->vector, bnxt_qplib_nq_irq, 0, "bnxt_qplib_nq", nq);
++	rc = bnxt_qplib_dealloc_pd(&rdev->qplib_res,
++				   &rdev->qplib_res.pd_tbl,
++				   &pd->qplib_pd);
 +	if (rc) {
-+		dev_err(&nq->pdev->dev,
-+			"Failed to request IRQ for NQ: %#x", rc);
-+		bnxt_qplib_disable_nq(nq);
-+		goto fail;
++		dev_err(rdev_to_dev(rdev), "Failed to deallocate HW PD");
++		return rc;
 +	}
-+	nq->requested = true;
-+	nq->bar_reg = NQ_CONS_PCI_BAR_REGION;
-+	nq->bar_reg_off = bar_reg_offset;
-+	nq_base = pci_resource_start(pdev, nq->bar_reg);
-+	if (!nq_base) {
-+		rc = -ENOMEM;
-+		goto fail;
-+	}
-+	nq->bar_reg_iomem = ioremap_nocache(nq_base + nq->bar_reg_off, 4);
-+	if (!nq->bar_reg_iomem) {
-+		rc = -ENOMEM;
-+		goto fail;
-+	}
-+	NQ_DB_REARM(nq->bar_reg_iomem, nq->hwq.cons, nq->hwq.max_elements);
 +
++	kfree(pd);
 +	return 0;
++}
++
++struct ib_pd *bnxt_re_alloc_pd(struct ib_device *ibdev,
++			       struct ib_ucontext *ucontext,
++			       struct ib_udata *udata)
++{
++	struct bnxt_re_dev *rdev = to_bnxt_re_dev(ibdev, ibdev);
++	struct bnxt_re_ucontext *ucntx = container_of(ucontext,
++						      struct bnxt_re_ucontext,
++						      ib_uctx);
++	struct bnxt_re_pd *pd;
++	int rc;
++
++	pd = kzalloc(sizeof(*pd), GFP_KERNEL);
++	if (!pd)
++		return ERR_PTR(-ENOMEM);
++
++	pd->rdev = rdev;
++	if (bnxt_qplib_alloc_pd(&rdev->qplib_res.pd_tbl, &pd->qplib_pd)) {
++		dev_err(rdev_to_dev(rdev), "Failed to allocate HW PD");
++		rc = -ENOMEM;
++		goto fail;
++	}
++
++	if (udata) {
++		struct bnxt_re_pd_resp resp;
++
++		if (!ucntx->dpi) {
++			/* Allocate DPI in alloc_pd to avoid failing of
++			 * ibv_devinfo and family of application when DPIs
++			 * are depleted.
++			 */
++			if (bnxt_qplib_alloc_dpi(&rdev->qplib_res.dpi_tbl,
++						 &pd->dpi, ucntx)) {
++				rc = -ENOMEM;
++				goto dbfail;
++			}
++			ucntx->dpi = &pd->dpi;
++		}
++
++		resp.pdid = pd->qplib_pd.id;
++		/* Still allow mapping this DBR to the new user PD. */
++		resp.dpi = ucntx->dpi->dpi;
++		resp.dbr = (u64)ucntx->dpi->umdbr;
++
++		rc = ib_copy_to_udata(udata, &resp, sizeof(resp));
++		if (rc) {
++			dev_err(rdev_to_dev(rdev),
++				"Failed to copy user response\n");
++			goto dbfail;
++		}
++	}
++
++	return &pd->ib_pd;
++dbfail:
++	(void)bnxt_qplib_dealloc_pd(&rdev->qplib_res, &rdev->qplib_res.pd_tbl,
++				    &pd->qplib_pd);
 +fail:
-+	bnxt_qplib_disable_nq(nq);
-+	return rc;
++	kfree(pd);
++	return ERR_PTR(rc);
 +}
 +
-+void bnxt_qplib_free_nq(struct bnxt_qplib_nq *nq)
++struct ib_ucontext *bnxt_re_alloc_ucontext(struct ib_device *ibdev,
++					   struct ib_udata *udata)
 +{
-+	if (nq->hwq.max_elements)
-+		bnxt_qplib_free_hwq(nq->pdev, &nq->hwq);
++	struct bnxt_re_dev *rdev = to_bnxt_re_dev(ibdev, ibdev);
++	struct bnxt_re_uctx_resp resp;
++	struct bnxt_re_ucontext *uctx;
++	struct bnxt_qplib_dev_attr *dev_attr = &rdev->dev_attr;
++	int rc;
++
++	dev_dbg(rdev_to_dev(rdev), "ABI version requested %d",
++		ibdev->uverbs_abi_ver);
++
++	if (ibdev->uverbs_abi_ver != BNXT_RE_ABI_VERSION) {
++		dev_dbg(rdev_to_dev(rdev), " is different from the device %d ",
++			BNXT_RE_ABI_VERSION);
++		return ERR_PTR(-EPERM);
++	}
++
++	uctx = kzalloc(sizeof(*uctx), GFP_KERNEL);
++	if (!uctx)
++		return ERR_PTR(-ENOMEM);
++
++	uctx->rdev = rdev;
++
++	uctx->shpg = (void *)__get_free_page(GFP_KERNEL);
++	if (!uctx->shpg) {
++		rc = -ENOMEM;
++		goto fail;
++	}
++	spin_lock_init(&uctx->sh_lock);
++
++	resp.dev_id = rdev->en_dev->pdev->devfn; /*Temp, Use idr_alloc instead*/
++	resp.max_qp = rdev->qplib_ctx.qpc_count;
++	resp.pg_size = PAGE_SIZE;
++	resp.cqe_sz = sizeof(struct cq_base);
++	resp.max_cqd = dev_attr->max_cq_wqes;
++	resp.rsvd    = 0;
++
++	rc = ib_copy_to_udata(udata, &resp, sizeof(resp));
++	if (rc) {
++		dev_err(rdev_to_dev(rdev), "Failed to copy user context");
++		rc = -EFAULT;
++		goto cfail;
++	}
++
++	return &uctx->ib_uctx;
++cfail:
++	free_page((unsigned long)uctx->shpg);
++	uctx->shpg = NULL;
++fail:
++	kfree(uctx);
++	return ERR_PTR(rc);
 +}
 +
-+int bnxt_qplib_alloc_nq(struct pci_dev *pdev, struct bnxt_qplib_nq *nq)
++int bnxt_re_dealloc_ucontext(struct ib_ucontext *ib_uctx)
 +{
-+	nq->pdev = pdev;
-+	if (!nq->hwq.max_elements ||
-+	    nq->hwq.max_elements > BNXT_QPLIB_NQE_MAX_CNT)
-+		nq->hwq.max_elements = BNXT_QPLIB_NQE_MAX_CNT;
-+
-+	if (bnxt_qplib_alloc_init_hwq(nq->pdev, &nq->hwq, NULL, 0,
-+				      &nq->hwq.max_elements,
-+				      BNXT_QPLIB_MAX_NQE_ENTRY_SIZE, 0,
-+				      PAGE_SIZE, HWQ_TYPE_L2_CMPL))
-+		return -ENOMEM;
-+
-+	nq->budget = 8;
++	struct bnxt_re_ucontext *uctx = container_of(ib_uctx,
++						   struct bnxt_re_ucontext,
++						   ib_uctx);
++	if (uctx->shpg)
++		free_page((unsigned long)uctx->shpg);
++	kfree(uctx);
 +	return 0;
 +}
-diff --git a/drivers/infiniband/hw/bnxt_re/qplib_fp.h b/drivers/infiniband/hw/bnxt_re/qplib_fp.h
-index 0983465..25a4494 100644
---- a/drivers/infiniband/hw/bnxt_re/qplib_fp.h
-+++ b/drivers/infiniband/hw/bnxt_re/qplib_fp.h
-@@ -39,4 +39,64 @@
- #ifndef __BNXT_QPLIB_FP_H__
- #define __BNXT_QPLIB_FP_H__
++
++/* Helper function to mmap the virtual memory from user app */
++int bnxt_re_mmap(struct ib_ucontext *ib_uctx, struct vm_area_struct *vma)
++{
++	struct bnxt_re_ucontext *uctx = container_of(ib_uctx,
++						   struct bnxt_re_ucontext,
++						   ib_uctx);
++	struct bnxt_re_dev *rdev = uctx->rdev;
++	u64 pfn;
++
++	if (vma->vm_end - vma->vm_start != PAGE_SIZE)
++		return -EINVAL;
++
++	if (vma->vm_pgoff) {
++		vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
++		if (io_remap_pfn_range(vma, vma->vm_start, vma->vm_pgoff,
++				       PAGE_SIZE, vma->vm_page_prot)) {
++			dev_err(rdev_to_dev(rdev), "Failed to map DPI");
++			return -EAGAIN;
++		}
++	} else {
++		pfn = virt_to_phys(uctx->shpg) >> PAGE_SHIFT;
++		if (remap_pfn_range(vma, vma->vm_start,
++				    pfn, PAGE_SIZE, vma->vm_page_prot)) {
++			dev_err(rdev_to_dev(rdev),
++				"Failed to map shared page");
++			return -EAGAIN;
++		}
++	}
++
++	return 0;
++}
+diff --git a/drivers/infiniband/hw/bnxt_re/ib_verbs.h b/drivers/infiniband/hw/bnxt_re/ib_verbs.h
+index 9162774..a133d81 100644
+--- a/drivers/infiniband/hw/bnxt_re/ib_verbs.h
++++ b/drivers/infiniband/hw/bnxt_re/ib_verbs.h
+@@ -39,4 +39,27 @@
+ #ifndef __BNXT_RE_IB_VERBS_H__
+ #define __BNXT_RE_IB_VERBS_H__
  
-+#define BNXT_QPLIB_MAX_NQE_ENTRY_SIZE	sizeof(struct nq_base)
-+
-+#define NQE_CNT_PER_PG		(PAGE_SIZE / BNXT_QPLIB_MAX_NQE_ENTRY_SIZE)
-+#define NQE_MAX_IDX_PER_PG	(NQE_CNT_PER_PG - 1)
-+#define NQE_PG(x)		(((x) & ~NQE_MAX_IDX_PER_PG) / NQE_CNT_PER_PG)
-+#define NQE_IDX(x)		((x) & NQE_MAX_IDX_PER_PG)
-+
-+#define NQE_CMP_VALID(hdr, raw_cons, cp_bit)			\
-+	(!!(le32_to_cpu((hdr)->info63_v[0]) & NQ_BASE_V) ==	\
-+	   !((raw_cons) & (cp_bit)))
-+
-+#define BNXT_QPLIB_NQE_MAX_CNT		(128 * 1024)
-+
-+#define NQ_CONS_PCI_BAR_REGION		2
-+#define NQ_DB_KEY_CP			(0x2 << CMPL_DOORBELL_KEY_SFT)
-+#define NQ_DB_IDX_VALID			CMPL_DOORBELL_IDX_VALID
-+#define NQ_DB_IRQ_DIS			CMPL_DOORBELL_MASK
-+#define NQ_DB_CP_FLAGS_REARM		(NQ_DB_KEY_CP |		\
-+					 NQ_DB_IDX_VALID)
-+#define NQ_DB_CP_FLAGS			(NQ_DB_KEY_CP    |	\
-+					 NQ_DB_IDX_VALID |	\
-+					 NQ_DB_IRQ_DIS)
-+#define NQ_DB_REARM(db, raw_cons, cp_bit)			\
-+	writel(NQ_DB_CP_FLAGS_REARM | ((raw_cons) & ((cp_bit) - 1)), db)
-+#define NQ_DB(db, raw_cons, cp_bit)				\
-+	writel(NQ_DB_CP_FLAGS | ((raw_cons) & ((cp_bit) - 1)), db)
-+
-+struct bnxt_qplib_nq {
-+	struct pci_dev			*pdev;
-+
-+	int				vector;
-+	int				budget;
-+	bool				requested;
-+	struct tasklet_struct		worker;
-+	struct bnxt_qplib_hwq		hwq;
-+
-+	u16				bar_reg;
-+	u16				bar_reg_off;
-+	u16				ring_id;
-+	void __iomem			*bar_reg_iomem;
-+
-+	int				(*cqn_handler)
-+						(struct bnxt_qplib_nq *nq,
-+						 void *cq);
-+	int				(*srqn_handler)
-+						(struct bnxt_qplib_nq *nq,
-+						 void *srq,
-+						 u8 event);
++struct bnxt_re_pd {
++	struct bnxt_re_dev	*rdev;
++	struct ib_pd		ib_pd;
++	struct bnxt_qplib_pd	qplib_pd;
++	struct bnxt_qplib_dpi	dpi;
 +};
 +
-+void bnxt_qplib_disable_nq(struct bnxt_qplib_nq *nq);
-+int bnxt_qplib_enable_nq(struct pci_dev *pdev, struct bnxt_qplib_nq *nq,
-+			 int msix_vector, int bar_reg_offset,
-+			 int (*cqn_handler)(struct bnxt_qplib_nq *nq,
-+					    void *cq),
-+			 int (*srqn_handler)(struct bnxt_qplib_nq *nq,
-+					     void *srq,
-+					     u8 event));
-+void bnxt_qplib_free_nq(struct bnxt_qplib_nq *nq);
-+int bnxt_qplib_alloc_nq(struct pci_dev *pdev, struct bnxt_qplib_nq *nq);
- #endif /* __BNXT_QPLIB_FP_H__ */
++struct bnxt_re_ucontext {
++	struct bnxt_re_dev	*rdev;
++	struct ib_ucontext	ib_uctx;
++	struct bnxt_qplib_dpi	*dpi;
++	void			*shpg;
++	spinlock_t		sh_lock;	/* protect shpg */
++};
++
++struct ib_pd *bnxt_re_alloc_pd(struct ib_device *ibdev,
++			       struct ib_ucontext *context,
++			       struct ib_udata *udata);
++int bnxt_re_dealloc_pd(struct ib_pd *pd);
++struct ib_ucontext *bnxt_re_alloc_ucontext(struct ib_device *ibdev,
++					   struct ib_udata *udata);
++int bnxt_re_dealloc_ucontext(struct ib_ucontext *context);
++int bnxt_re_mmap(struct ib_ucontext *context, struct vm_area_struct *vma);
+ #endif /* __BNXT_RE_IB_VERBS_H__ */
+diff --git a/drivers/infiniband/hw/bnxt_re/main.c b/drivers/infiniband/hw/bnxt_re/main.c
+index bef654e..6f07657 100644
+--- a/drivers/infiniband/hw/bnxt_re/main.c
++++ b/drivers/infiniband/hw/bnxt_re/main.c
+@@ -59,6 +59,7 @@
+ #include "qplib_fp.h"
+ #include "qplib_rcfw.h"
+ #include "bnxt_re.h"
++#include "ib_verbs.h"
+ #include "bnxt.h"
+ static char version[] =
+ 		BNXT_RE_DESC " v" ROCE_DRV_MODULE_VERSION "\n";
+@@ -435,6 +436,12 @@ static int bnxt_re_register_ib(struct bnxt_re_dev *rdev)
+ 
+ 	ibdev->num_comp_vectors	= 1;
+ 	ibdev->dma_device = &rdev->en_dev->pdev->dev;
++	ibdev->alloc_pd			= bnxt_re_alloc_pd;
++	ibdev->dealloc_pd		= bnxt_re_dealloc_pd;
++	ibdev->alloc_ucontext		= bnxt_re_alloc_ucontext;
++	ibdev->dealloc_ucontext		= bnxt_re_dealloc_ucontext;
++	ibdev->mmap			= bnxt_re_mmap;
++
+ 	return ib_register_device(ibdev, NULL);
+ }
+ 
+diff --git a/drivers/infiniband/hw/bnxt_re/qplib_res.c b/drivers/infiniband/hw/bnxt_re/qplib_res.c
+index c9ef4c2..1648b45 100644
+--- a/drivers/infiniband/hw/bnxt_re/qplib_res.c
++++ b/drivers/infiniband/hw/bnxt_re/qplib_res.c
+@@ -527,6 +527,34 @@ static int bnxt_qplib_alloc_pkey_tbl(struct bnxt_qplib_res *res,
+ 	return 0;
+ };
+ 
++/* PDs */
++int bnxt_qplib_alloc_pd(struct bnxt_qplib_pd_tbl *pdt, struct bnxt_qplib_pd *pd)
++{
++	u32 bit_num;
++
++	bit_num = find_first_bit(pdt->tbl, pdt->max);
++	if (bit_num == pdt->max)
++		return -ENOMEM;
++
++	/* Found unused PD */
++	clear_bit(bit_num, pdt->tbl);
++	pd->id = bit_num;
++	return 0;
++}
++
++int bnxt_qplib_dealloc_pd(struct bnxt_qplib_res *res,
++			  struct bnxt_qplib_pd_tbl *pdt,
++			  struct bnxt_qplib_pd *pd)
++{
++	if (test_and_set_bit(pd->id, pdt->tbl)) {
++		dev_warn(&res->pdev->dev, "Freeing an unused PD? pdn = %d",
++			 pd->id);
++		return -EINVAL;
++	}
++	pd->id = 0;
++	return 0;
++}
++
+ static void bnxt_qplib_free_pd_tbl(struct bnxt_qplib_pd_tbl *pdt)
+ {
+ 	kfree(pdt->tbl);
 diff --git a/drivers/infiniband/hw/bnxt_re/qplib_res.h b/drivers/infiniband/hw/bnxt_re/qplib_res.h
-index ce122cf..571feda 100644
+index 571feda..c9e376a 100644
 --- a/drivers/infiniband/hw/bnxt_re/qplib_res.h
 +++ b/drivers/infiniband/hw/bnxt_re/qplib_res.h
-@@ -193,6 +193,12 @@ int bnxt_qplib_alloc_init_hwq(struct pci_dev *pdev, struct bnxt_qplib_hwq *hwq,
+@@ -186,6 +186,7 @@ struct bnxt_qplib_res {
+ 	struct bnxt_qplib_dpi_tbl	dpi_tbl;
+ };
+ 
++struct bnxt_qplib_pd;
+ struct bnxt_qplib_dev_attr;
+ 
+ void bnxt_qplib_free_hwq(struct pci_dev *pdev, struct bnxt_qplib_hwq *hwq);
+@@ -193,6 +194,11 @@ int bnxt_qplib_alloc_init_hwq(struct pci_dev *pdev, struct bnxt_qplib_hwq *hwq,
  			      struct scatterlist *sl, int nmap, u32 *elements,
  			      u32 elements_per_page, u32 aux, u32 pg_size,
  			      enum bnxt_qplib_hwq_type hwq_type);
-+int bnxt_qplib_alloc_dpi(struct bnxt_qplib_dpi_tbl *dpit,
-+			 struct bnxt_qplib_dpi     *dpi,
-+			 void                      *app);
-+int bnxt_qplib_dealloc_dpi(struct bnxt_qplib_res *res,
-+			   struct bnxt_qplib_dpi_tbl *dpi_tbl,
-+			   struct bnxt_qplib_dpi *dpi);
- void bnxt_qplib_cleanup_res(struct bnxt_qplib_res *res);
- int bnxt_qplib_init_res(struct bnxt_qplib_res *res);
- void bnxt_qplib_free_res(struct bnxt_qplib_res *res);
++int bnxt_qplib_alloc_pd(struct bnxt_qplib_pd_tbl *pd_tbl,
++			struct bnxt_qplib_pd *pd);
++int bnxt_qplib_dealloc_pd(struct bnxt_qplib_res *res,
++			  struct bnxt_qplib_pd_tbl *pd_tbl,
++			  struct bnxt_qplib_pd *pd);
+ int bnxt_qplib_alloc_dpi(struct bnxt_qplib_dpi_tbl *dpit,
+ 			 struct bnxt_qplib_dpi     *dpi,
+ 			 void                      *app);
+diff --git a/drivers/infiniband/hw/bnxt_re/qplib_sp.h b/drivers/infiniband/hw/bnxt_re/qplib_sp.h
+index 0b5adda..7de6600 100644
+--- a/drivers/infiniband/hw/bnxt_re/qplib_sp.h
++++ b/drivers/infiniband/hw/bnxt_re/qplib_sp.h
+@@ -70,6 +70,10 @@ struct bnxt_qplib_dev_attr {
+ 	u8				tqm_alloc_reqs[MAX_TQM_ALLOC_REQ];
+ };
+ 
++struct bnxt_qplib_pd {
++	u32				id;
++};
++
+ struct bnxt_qplib_gid {
+ 	u8				data[16];
+ };
+diff --git a/include/uapi/rdma/bnxt_re-abi.h b/include/uapi/rdma/bnxt_re-abi.h
+new file mode 100644
+index 0000000..7998eff
+--- /dev/null
++++ b/include/uapi/rdma/bnxt_re-abi.h
+@@ -0,0 +1,59 @@
++/*
++ * Broadcom NetXtreme-E RoCE driver.
++ *
++ * Copyright (c) 2016, Broadcom. All rights reserved.  The term
++ * Broadcom refers to Broadcom Limited and/or its subsidiaries.
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * BSD license below:
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ *
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in
++ *    the documentation and/or other materials provided with the
++ *    distribution.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS''
++ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
++ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS
++ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
++ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
++ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
++ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
++ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
++ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ *
++ * Description: Uverbs ABI header file
++ */
++
++#ifndef __BNXT_RE_UVERBS_ABI_H__
++#define __BNXT_RE_UVERBS_ABI_H__
++
++#define BNXT_RE_ABI_VERSION	1
++
++struct bnxt_re_uctx_resp {
++	__u32 dev_id;
++	__u32 max_qp;
++	__u32 pg_size;
++	__u32 cqe_sz;
++	__u32 max_cqd;
++	__u32 rsvd;
++};
++
++struct bnxt_re_pd_resp {
++	__u32 pdid;
++	__u32 dpi;
++	__u64 dbr;
++};
++
++#endif /* __BNXT_RE_UVERBS_ABI_H__*/
 -- 
 2.5.5
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
