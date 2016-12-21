@@ -1,8 +1,7 @@
 From: Romain Perier <romain.perier-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Subject: [PATCH v3 net-next 1/3] net: dsa: mv88e6xxx: Don't forbid MDIO I/Os for PHY addr >= num_of_ports
-Date: Wed, 21 Dec 2016 10:00:43 +0100
-Message-ID: <20161221090045.474-2-romain.perier@free-electrons.com>
-References: <20161221090045.474-1-romain.perier@free-electrons.com>
+Subject: [PATCH v3 net-next 0/3] Add support for the ethernet switch on the ESPRESSObin
+Date: Wed, 21 Dec 2016 10:00:42 +0100
+Message-ID: <20161221090045.474-1-romain.perier@free-electrons.com>
 Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
         Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
         Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
@@ -20,53 +19,24 @@ To: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
         Sebastian Hesselbarth <sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
         Gregory Clement <gregory.clement-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
 Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20161221090045.474-1-romain.perier-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
 Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Some Marvell ethernet switches have internal ethernet transceivers with
-hardcoded phy addresses. These addresses can be grearer than the number
-of ports or its value might be different than the associated port number.
-This is for example the case for MV88E6341 that has 6 ports and internal
-Port 1 to Port4 PHYs mapped at SMI addresses from 0x11 to 0x14.
+This set of patches adds support for the Marvell ethernet switch 88E6341.
+It also add the devicetree definition of this switch to the DT board.
 
-This commits fixes the issue by removing the condition in MDIO callbacks.
+Romain Perier (3):
+  net: dsa: mv88e6xxx: Don't forbid MDIO I/Os for PHY addr >=
+    num_of_ports
+  net: dsa: mv88e6xxx: Add support for ethernet switch 88E6341/88E6141
+  arm64: dts: marvell: Add ethernet switch definition for the
+    ESPRESSObin
 
-Signed-off-by: Romain Perier <romain.perier-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Reviewed-by: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
----
+ .../boot/dts/marvell/armada-3720-espressobin.dts   | 66 ++++++++++++++++++++++
+ drivers/net/dsa/mv88e6xxx/chip.c                   | 48 ++++++++++++++--
+ drivers/net/dsa/mv88e6xxx/mv88e6xxx.h              |  4 +-
+ 3 files changed, 111 insertions(+), 7 deletions(-)
 
-Changes in v2:
- - Added tag "Reviewed-by" by Andrew
- - Fixed typo in the commit log
-
- drivers/net/dsa/mv88e6xxx/chip.c | 6 ------
- 1 file changed, 6 deletions(-)
-
-diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index b5f0e1e..76d944e 100644
---- a/drivers/net/dsa/mv88e6xxx/chip.c
-+++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -2881,9 +2881,6 @@ static int mv88e6xxx_mdio_read(struct mii_bus *bus, int phy, int reg)
- 	u16 val;
- 	int err;
- 
--	if (phy >= mv88e6xxx_num_ports(chip))
--		return 0xffff;
--
- 	mutex_lock(&chip->reg_lock);
- 	err = mv88e6xxx_phy_read(chip, phy, reg, &val);
- 	mutex_unlock(&chip->reg_lock);
-@@ -2896,9 +2893,6 @@ static int mv88e6xxx_mdio_write(struct mii_bus *bus, int phy, int reg, u16 val)
- 	struct mv88e6xxx_chip *chip = bus->priv;
- 	int err;
- 
--	if (phy >= mv88e6xxx_num_ports(chip))
--		return 0xffff;
--
- 	mutex_lock(&chip->reg_lock);
- 	err = mv88e6xxx_phy_write(chip, phy, reg, val);
- 	mutex_unlock(&chip->reg_lock);
 -- 
 2.9.3
 
