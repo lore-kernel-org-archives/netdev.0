@@ -1,11 +1,12 @@
 From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: [PATCH v7 3/6] random: use SipHash in place of MD5
-Date: Thu, 22 Dec 2016 00:02:13 +0100
-Message-ID: <20161221230216.25341-4-Jason@zx2c4.com>
+Subject: [PATCH v7 2/6] secure_seq: use SipHash in place of MD5
+Date: Thu, 22 Dec 2016 00:02:12 +0100
+Message-ID: <20161221230216.25341-3-Jason@zx2c4.com>
 References: <20161216030328.11602-1-Jason@zx2c4.com>
  <20161221230216.25341-1-Jason@zx2c4.com>
 Reply-To: kernel-hardening@lists.openwall.com
-Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
 To: Netdev <netdev@vger.kernel.org>,
 	kernel-hardening@lists.openwall.com,
 	LKML <linux-kernel@vger.kernel.org>,
@@ -21,7 +22,7 @@ To: Netdev <netdev@vger.kernel.org>,
 	davem@davemloft.net,
 	luto@amacapital.net,
 	Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>
-Return-path: <kernel-hardening-return-5750-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+Return-path: <kernel-hardening-return-5749-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
 List-Post: <mailto:kernel-hardening@lists.openwall.com>
 List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
 List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
@@ -29,179 +30,243 @@ List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
 In-Reply-To: <20161221230216.25341-1-Jason@zx2c4.com>
 List-Id: netdev.vger.kernel.org
 
-This duplicates the current algorithm for get_random_int/long, but uses
-siphash instead. This comes with several benefits. It's certainly
-faster and more cryptographically secure than MD5. This patch also
-separates hashed fields into three values instead of one, in order to
-increase diffusion.
+This gives a clear speed and security improvement. Siphash is both
+faster and is more solid crypto than the aging MD5.
 
-The previous MD5 algorithm used a per-cpu MD5 state, which caused
-successive calls to the function to chain upon each other. While it's
-not entirely clear that this kind of chaining is absolutely necessary
-when using a secure PRF like siphash, it can't hurt, and the timing of
-the call chain does add a degree of natural entropy. So, in keeping with
-this design, instead of the massive per-cpu 64-byte MD5 state, there is
-instead a per-cpu previously returned value for chaining.
+Rather than manually filling MD5 buffers, for IPv6, we simply create
+a layout by a simple anonymous struct, for which gcc generates
+rather efficient code. For IPv4, we pass the values directly to the
+short input convenience functions.
 
-The speed benefits are substantial:
+64-bit x86_64:
+[    1.683628] secure_tcpv6_sequence_number_md5# cycles: 99563527
+[    1.717350] secure_tcp_sequence_number_md5# cycles: 92890502
+[    1.741968] secure_tcpv6_sequence_number_siphash# cycles: 67825362
+[    1.762048] secure_tcp_sequence_number_siphash# cycles: 67485526
 
-                | siphash | md5    | speedup |
-		------------------------------
-get_random_long | 137130  | 415983 | 3.03x   |
-get_random_int  | 86384   | 343323 | 3.97x   |
+32-bit x86:
+[    1.600012] secure_tcpv6_sequence_number_md5# cycles: 103227892
+[    1.634219] secure_tcp_sequence_number_md5# cycles: 94732544
+[    1.669102] secure_tcpv6_sequence_number_siphash# cycles: 96299384
+[    1.700165] secure_tcp_sequence_number_siphash# cycles: 86015473
 
 Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
-Cc: Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>
-Cc: Ted Tso <tytso@mit.edu>
+Cc: Andi Kleen <ak@linux.intel.com>
+Cc: David Miller <davem@davemloft.net>
+Cc: David Laight <David.Laight@aculab.com>
+Cc: Tom Herbert <tom@herbertland.com>
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
 ---
- drivers/char/random.c  | 84 +++++++++++++++++++++++++++++---------------------
- include/linux/random.h |  1 -
- init/main.c            |  1 -
- 3 files changed, 49 insertions(+), 37 deletions(-)
+ net/core/secure_seq.c | 135 ++++++++++++++++++++------------------------------
+ 1 file changed, 54 insertions(+), 81 deletions(-)
 
-diff --git a/drivers/char/random.c b/drivers/char/random.c
-index d6876d506220..ea9858d9d8b4 100644
---- a/drivers/char/random.c
-+++ b/drivers/char/random.c
-@@ -262,6 +262,7 @@
- #include <linux/syscalls.h>
- #include <linux/completion.h>
- #include <linux/uuid.h>
+diff --git a/net/core/secure_seq.c b/net/core/secure_seq.c
+index 88a8e429fc3e..3dc2689bcc64 100644
+--- a/net/core/secure_seq.c
++++ b/net/core/secure_seq.c
+@@ -1,3 +1,5 @@
++/* Copyright (C) 2016 Jason A. Donenfeld <Jason@zx2c4.com>. All Rights Reserved. */
++
+ #include <linux/kernel.h>
+ #include <linux/init.h>
+ #include <linux/cryptohash.h>
+@@ -8,14 +10,14 @@
+ #include <linux/ktime.h>
+ #include <linux/string.h>
+ #include <linux/net.h>
+-
 +#include <linux/siphash.h>
- #include <crypto/chacha20.h>
+ #include <net/secure_seq.h>
  
- #include <asm/processor.h>
-@@ -2042,17 +2043,31 @@ struct ctl_table random_table[] = {
- };
- #endif 	/* CONFIG_SYSCTL */
+ #if IS_ENABLED(CONFIG_IPV6) || IS_ENABLED(CONFIG_INET)
++#include <linux/in6.h>
+ #include <net/tcp.h>
+-#define NET_SECRET_SIZE (MD5_MESSAGE_BYTES / 4)
  
--static u32 random_int_secret[MD5_MESSAGE_BYTES / 4] ____cacheline_aligned;
+-static u32 net_secret[NET_SECRET_SIZE] ____cacheline_aligned;
++static siphash_key_t net_secret;
  
--int random_int_secret_init(void)
-+struct random_int_secret {
-+	siphash_key_t secret;
-+	u64 chaining;
-+	unsigned long birthdate;
-+	bool initialized;
-+};
-+static DEFINE_PER_CPU(struct random_int_secret, random_int_secret);
-+
-+enum {
-+	SECRET_ROTATION_TIME = HZ * 60 * 5
-+};
-+
-+static struct random_int_secret *get_random_int_secret(void)
+ static __always_inline void net_secret_init(void)
  {
--	get_random_bytes(random_int_secret, sizeof(random_int_secret));
--	return 0;
-+	struct random_int_secret *secret = &get_cpu_var(random_int_secret);
-+	if (unlikely(!secret->initialized ||
-+		     !time_is_after_jiffies(secret->birthdate + SECRET_ROTATION_TIME))) {
-+		secret->initialized = true;
-+		secret->birthdate = jiffies;
-+		get_random_bytes(secret->secret, sizeof(secret->secret));
-+	}
-+	return secret;
- }
- 
--static DEFINE_PER_CPU(__u32 [MD5_DIGEST_WORDS], get_random_int_hash)
--		__aligned(sizeof(unsigned long));
--
- /*
-  * Get a random word for internal kernel use only. Similar to urandom but
-  * with the goal of minimal entropy pool depletion. As a result, the random
-@@ -2061,20 +2076,20 @@ static DEFINE_PER_CPU(__u32 [MD5_DIGEST_WORDS], get_random_int_hash)
-  */
- unsigned int get_random_int(void)
+@@ -44,80 +46,65 @@ static u32 seq_scale(u32 seq)
+ u32 secure_tcpv6_sequence_number(const __be32 *saddr, const __be32 *daddr,
+ 				 __be16 sport, __be16 dport, u32 *tsoff)
  {
--	__u32 *hash;
--	unsigned int ret;
+-	u32 secret[MD5_MESSAGE_BYTES / 4];
+-	u32 hash[MD5_DIGEST_WORDS];
+-	u32 i;
 -
--	if (arch_get_random_int(&ret))
--		return ret;
++	const struct {
++		struct in6_addr saddr;
++		struct in6_addr daddr;
++		__be16 sport;
++		__be16 dport;
++	} __aligned(SIPHASH_ALIGNMENT) combined = {
++		.saddr = *(struct in6_addr *)saddr,
++		.daddr = *(struct in6_addr *)daddr,
++		.sport = sport,
++		.dport = dport
++	};
++	u64 hash;
+ 	net_secret_init();
+-	memcpy(hash, saddr, 16);
+-	for (i = 0; i < 4; i++)
+-		secret[i] = net_secret[i] + (__force u32)daddr[i];
+-	secret[4] = net_secret[4] +
+-		(((__force u16)sport << 16) + (__force u16)dport);
+-	for (i = 5; i < MD5_MESSAGE_BYTES / 4; i++)
+-		secret[i] = net_secret[i];
 -
--	hash = get_cpu_var(get_random_int_hash);
+-	md5_transform(hash, secret);
 -
--	hash[0] += current->pid + jiffies + random_get_entropy();
--	md5_transform(hash, random_int_secret);
--	ret = hash[0];
--	put_cpu_var(get_random_int_hash);
--
--	return ret;
-+	unsigned int arch_result;
-+	u64 result;
-+	struct random_int_secret *secret;
-+
-+	if (arch_get_random_int(&arch_result))
-+		return arch_result;
-+
-+	secret = get_random_int_secret();
-+	result = siphash_3u64(secret->chaining, jiffies,
-+			      (u64)random_get_entropy() + current->pid,
-+			      secret->secret);
-+	secret->chaining += result;
-+	put_cpu_var(secret);
-+	return result;
+-	*tsoff = sysctl_tcp_timestamps == 1 ? hash[1] : 0;
+-	return seq_scale(hash[0]);
++	hash = siphash(&combined, offsetofend(typeof(combined), dport), net_secret);
++	*tsoff = sysctl_tcp_timestamps == 1 ? (hash >> 32) : 0;
++	return seq_scale(hash);
  }
- EXPORT_SYMBOL(get_random_int);
+ EXPORT_SYMBOL(secure_tcpv6_sequence_number);
  
-@@ -2083,20 +2098,19 @@ EXPORT_SYMBOL(get_random_int);
-  */
- unsigned long get_random_long(void)
+ u32 secure_ipv6_port_ephemeral(const __be32 *saddr, const __be32 *daddr,
+ 			       __be16 dport)
  {
--	__u32 *hash;
--	unsigned long ret;
+-	u32 secret[MD5_MESSAGE_BYTES / 4];
+-	u32 hash[MD5_DIGEST_WORDS];
+-	u32 i;
 -
--	if (arch_get_random_long(&ret))
--		return ret;
++	const struct {
++		struct in6_addr saddr;
++		struct in6_addr daddr;
++		__be16 dport;
++	} __aligned(SIPHASH_ALIGNMENT) combined = {
++		.saddr = *(struct in6_addr *)saddr,
++		.daddr = *(struct in6_addr *)daddr,
++		.dport = dport
++	};
+ 	net_secret_init();
+-	memcpy(hash, saddr, 16);
+-	for (i = 0; i < 4; i++)
+-		secret[i] = net_secret[i] + (__force u32) daddr[i];
+-	secret[4] = net_secret[4] + (__force u32)dport;
+-	for (i = 5; i < MD5_MESSAGE_BYTES / 4; i++)
+-		secret[i] = net_secret[i];
 -
--	hash = get_cpu_var(get_random_int_hash);
+-	md5_transform(hash, secret);
 -
--	hash[0] += current->pid + jiffies + random_get_entropy();
--	md5_transform(hash, random_int_secret);
--	ret = *(unsigned long *)hash;
--	put_cpu_var(get_random_int_hash);
--
--	return ret;
-+	unsigned long arch_result;
-+	u64 result;
-+	struct random_int_secret *secret;
-+
-+	if (arch_get_random_long(&arch_result))
-+		return arch_result;
-+
-+	secret = get_random_int_secret();
-+	result = siphash_3u64(secret->chaining, jiffies, random_get_entropy() +
-+			      current->pid, secret->secret);
-+	secret->chaining += result;
-+	put_cpu_var(secret);
-+	return result;
+-	return hash[0];
++	return siphash(&combined, offsetofend(typeof(combined), dport), net_secret);
  }
- EXPORT_SYMBOL(get_random_long);
+ EXPORT_SYMBOL(secure_ipv6_port_ephemeral);
+ #endif
  
-diff --git a/include/linux/random.h b/include/linux/random.h
-index 7bd2403e4fef..16ab429735a7 100644
---- a/include/linux/random.h
-+++ b/include/linux/random.h
-@@ -37,7 +37,6 @@ extern void get_random_bytes(void *buf, int nbytes);
- extern int add_random_ready_callback(struct random_ready_callback *rdy);
- extern void del_random_ready_callback(struct random_ready_callback *rdy);
- extern void get_random_bytes_arch(void *buf, int nbytes);
--extern int random_int_secret_init(void);
+ #ifdef CONFIG_INET
  
- #ifndef MODULE
- extern const struct file_operations random_fops, urandom_fops;
-diff --git a/init/main.c b/init/main.c
-index 23c275cca73a..a3af9296cafd 100644
---- a/init/main.c
-+++ b/init/main.c
-@@ -879,7 +879,6 @@ static void __init do_basic_setup(void)
- 	do_ctors();
- 	usermodehelper_enable();
- 	do_initcalls();
--	random_int_secret_init();
++/* secure_tcp_sequence_number(a, b, 0, d) == secure_ipv4_port_ephemeral(a, b, d),
++ * but fortunately, `sport' cannot be 0 in any circumstances. If this changes,
++ * it would be easy enough to have the former function use siphash_4u32, passing
++ * the arguments as separate u32.
++ */
++
+ u32 secure_tcp_sequence_number(__be32 saddr, __be32 daddr,
+ 			       __be16 sport, __be16 dport, u32 *tsoff)
+ {
+-	u32 hash[MD5_DIGEST_WORDS];
+-
++	u64 hash;
+ 	net_secret_init();
+-	hash[0] = (__force u32)saddr;
+-	hash[1] = (__force u32)daddr;
+-	hash[2] = ((__force u16)sport << 16) + (__force u16)dport;
+-	hash[3] = net_secret[15];
+-
+-	md5_transform(hash, net_secret);
+-
+-	*tsoff = sysctl_tcp_timestamps == 1 ? hash[1] : 0;
+-	return seq_scale(hash[0]);
++	hash = siphash_3u32(saddr, daddr, (u32)sport << 16 | dport, net_secret);
++	*tsoff = sysctl_tcp_timestamps == 1 ? (hash >> 32) : 0;
++	return seq_scale(hash);
  }
  
- static void __init do_pre_smp_initcalls(void)
+ u32 secure_ipv4_port_ephemeral(__be32 saddr, __be32 daddr, __be16 dport)
+ {
+-	u32 hash[MD5_DIGEST_WORDS];
+-
+ 	net_secret_init();
+-	hash[0] = (__force u32)saddr;
+-	hash[1] = (__force u32)daddr;
+-	hash[2] = (__force u32)dport ^ net_secret[14];
+-	hash[3] = net_secret[15];
+-
+-	md5_transform(hash, net_secret);
+-
+-	return hash[0];
++	return siphash_3u32(saddr, daddr, dport, net_secret);
+ }
+ EXPORT_SYMBOL_GPL(secure_ipv4_port_ephemeral);
+ #endif
+@@ -126,21 +113,11 @@ EXPORT_SYMBOL_GPL(secure_ipv4_port_ephemeral);
+ u64 secure_dccp_sequence_number(__be32 saddr, __be32 daddr,
+ 				__be16 sport, __be16 dport)
+ {
+-	u32 hash[MD5_DIGEST_WORDS];
+ 	u64 seq;
+-
+ 	net_secret_init();
+-	hash[0] = (__force u32)saddr;
+-	hash[1] = (__force u32)daddr;
+-	hash[2] = ((__force u16)sport << 16) + (__force u16)dport;
+-	hash[3] = net_secret[15];
+-
+-	md5_transform(hash, net_secret);
+-
+-	seq = hash[0] | (((u64)hash[1]) << 32);
++	seq = siphash_3u32(saddr, daddr, (u32)sport << 16 | dport, net_secret);
+ 	seq += ktime_get_real_ns();
+ 	seq &= (1ull << 48) - 1;
+-
+ 	return seq;
+ }
+ EXPORT_SYMBOL(secure_dccp_sequence_number);
+@@ -149,26 +126,22 @@ EXPORT_SYMBOL(secure_dccp_sequence_number);
+ u64 secure_dccpv6_sequence_number(__be32 *saddr, __be32 *daddr,
+ 				  __be16 sport, __be16 dport)
+ {
+-	u32 secret[MD5_MESSAGE_BYTES / 4];
+-	u32 hash[MD5_DIGEST_WORDS];
++	const struct {
++		struct in6_addr saddr;
++		struct in6_addr daddr;
++		__be16 sport;
++		__be16 dport;
++	} __aligned(SIPHASH_ALIGNMENT) combined = {
++		.saddr = *(struct in6_addr *)saddr,
++		.daddr = *(struct in6_addr *)daddr,
++		.sport = sport,
++		.dport = dport
++	};
+ 	u64 seq;
+-	u32 i;
+-
+ 	net_secret_init();
+-	memcpy(hash, saddr, 16);
+-	for (i = 0; i < 4; i++)
+-		secret[i] = net_secret[i] + (__force u32)daddr[i];
+-	secret[4] = net_secret[4] +
+-		(((__force u16)sport << 16) + (__force u16)dport);
+-	for (i = 5; i < MD5_MESSAGE_BYTES / 4; i++)
+-		secret[i] = net_secret[i];
+-
+-	md5_transform(hash, secret);
+-
+-	seq = hash[0] | (((u64)hash[1]) << 32);
++	seq = siphash(&combined, offsetofend(typeof(combined), dport), net_secret);
+ 	seq += ktime_get_real_ns();
+ 	seq &= (1ull << 48) - 1;
+-
+ 	return seq;
+ }
+ EXPORT_SYMBOL(secure_dccpv6_sequence_number);
 -- 
 2.11.0
