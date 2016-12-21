@@ -1,144 +1,127 @@
-From: Romain Perier <romain.perier@free-electrons.com>
-Subject: [PATCH net-next v4 2/2] net: dsa: mv88e6xxx: Add support for ethernet switch 88E6341/88E6141
-Date: Wed, 21 Dec 2016 13:57:34 +0100
-Message-ID: <20161221125734.1034-3-romain.perier@free-electrons.com>
-References: <20161221125734.1034-1-romain.perier@free-electrons.com>
-Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
-        Rob Herring <robh+dt@kernel.org>,
-        Ian Campbell <ijc+devicetree@hellion.org.uk>,
-        Pawel Moll <pawel.moll@arm.com>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Kumar Gala <galak@codeaurora.org>,
-        linux-arm-kernel@lists.infradead.org,
-        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-        Nadav Haklai <nadavh@marvell.com>,
-        Romain Perier <romain.perier@free-electrons.com>
-To: Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Jason Cooper <jason@lakedaemon.net>,
-        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-        Gregory Clement <gregory.clement@free-electrons.com>
+From: Bartosz Folta <bfolta@cadence.com>
+Subject: [PATCH v2] net: macb: Applied changes according to review made by
+ Andy Shevchenko.
+Date: Wed, 21 Dec 2016 13:04:17 +0000
+Message-ID: <SN1PR0701MB19512EB0A5CF617CE48169ABCC930@SN1PR0701MB1951.namprd07.prod.outlook.com>
+References: <1482325169-22771-1-git-send-email-bfolta@cadence.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: Bartosz Folta <bfolta@cadence.com>,
+        Rafal Ozieblo <rafalo@cadence.com>
+To: Nicolas Ferre <nicolas.ferre@atmel.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Niklas Cassel <niklas.cassel@axis.com>,
+        "Alexandre Torgue" <alexandre.torgue@st.com>,
+        Satanand Burla <satananda.burla@caviumnetworks.com>,
+        Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>,
+        Simon Horman <simon.horman@netronome.com>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:58609 "EHLO
-        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752204AbcLUM5v (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2016 07:57:51 -0500
-In-Reply-To: <20161221125734.1034-1-romain.perier@free-electrons.com>
+Received: from mail-sn1nam02on0041.outbound.protection.outlook.com ([104.47.36.41]:34160
+        "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1750754AbcLUNEU (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 21 Dec 2016 08:04:20 -0500
+In-Reply-To: <1482325169-22771-1-git-send-email-bfolta@cadence.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The Marvell 88E6341 device is single-chip, 6-port ethernet switch with
-four integrated 10/100/1000Mbps ethernet transceivers and one high speed
-SerDes interfaces. It is compatible with switches of family 88E6352.
+This patch is sent in regard to recently applied patch
+Commit 83a77e9ec4150ee4acc635638f7dedd9da523a26
+net: macb: Added PCI wrapper for Platform Driver.
 
-This commit adds basic support for this switch by describing its
-capabilities to the driver.
-
-Signed-off-by: Romain Perier <romain.perier@free-electrons.com>
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+Signed-off-by: Bartosz Folta <bfolta@cadence.com>
 ---
+Changed in v2:
+Size of DMA mask is set based on value held by PCI device.
+---
+ drivers/net/ethernet/cadence/macb_pci.c | 27 ++++++++++-----------------
+ 1 file changed, 10 insertions(+), 17 deletions(-)
 
-Changes in v3:
- - Added tag "Reviewed-by" by Andrew
- 
-Changes in v2:
- - Add a dedicated data structure for the operations of the 88E6341
- - Re-ordered PORT_SWITCH_ID_PROD_NUM_6341 in alphabetic order with other
-   macros
-
- drivers/net/dsa/mv88e6xxx/chip.c      | 42 +++++++++++++++++++++++++++++++++++
- drivers/net/dsa/mv88e6xxx/mv88e6xxx.h |  4 +++-
- 2 files changed, 45 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index 76d944e..5e97dc4 100644
---- a/drivers/net/dsa/mv88e6xxx/chip.c
-+++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -3625,6 +3625,34 @@ static const struct mv88e6xxx_ops mv88e6321_ops = {
- 	.reset = mv88e6352_g1_reset,
- };
- 
-+static const struct mv88e6xxx_ops mv88e6341_ops = {
-+	/* MV88E6XXX_FAMILY_6352 */
-+	.get_eeprom = mv88e6xxx_g2_get_eeprom16,
-+	.set_eeprom = mv88e6xxx_g2_set_eeprom16,
-+	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
-+	.phy_read = mv88e6xxx_g2_smi_phy_read,
-+	.phy_write = mv88e6xxx_g2_smi_phy_write,
-+	.port_set_link = mv88e6xxx_port_set_link,
-+	.port_set_duplex = mv88e6xxx_port_set_duplex,
-+	.port_set_rgmii_delay = mv88e6352_port_set_rgmii_delay,
-+	.port_set_speed = mv88e6352_port_set_speed,
-+	.port_tag_remap = mv88e6095_port_tag_remap,
-+	.port_set_frame_mode = mv88e6351_port_set_frame_mode,
-+	.port_set_egress_unknowns = mv88e6351_port_set_egress_unknowns,
-+	.port_set_ether_type = mv88e6351_port_set_ether_type,
-+	.port_jumbo_config = mv88e6165_port_jumbo_config,
-+	.port_egress_rate_limiting = mv88e6097_port_egress_rate_limiting,
-+	.port_pause_config = mv88e6097_port_pause_config,
-+	.stats_snapshot = mv88e6320_g1_stats_snapshot,
-+	.stats_get_sset_count = mv88e6095_stats_get_sset_count,
-+	.stats_get_strings = mv88e6095_stats_get_strings,
-+	.stats_get_stats = mv88e6095_stats_get_stats,
-+	.g1_set_cpu_port = mv88e6095_g1_set_cpu_port,
-+	.g1_set_egress_port = mv88e6095_g1_set_egress_port,
-+	.mgmt_rsvd2cpu = mv88e6095_g2_mgmt_rsvd2cpu,
-+	.reset = mv88e6352_g1_reset,
-+};
-+
- static const struct mv88e6xxx_ops mv88e6350_ops = {
- 	/* MV88E6XXX_FAMILY_6351 */
- 	.set_switch_mac = mv88e6xxx_g2_set_switch_mac,
-@@ -4086,6 +4114,20 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.ops = &mv88e6321_ops,
- 	},
- 
-+	[MV88E6341] = {
-+		.prod_num = PORT_SWITCH_ID_PROD_NUM_6341,
-+		.family = MV88E6XXX_FAMILY_6352,
-+		.name = "Marvell 88E6341",
-+		.num_databases = 4096,
-+		.num_ports = 6,
-+		.port_base_addr = 0x10,
-+		.global1_addr = 0x1b,
-+		.age_time_coeff = 15000,
-+		.tag_protocol = DSA_TAG_PROTO_EDSA,
-+		.flags = MV88E6XXX_FLAGS_FAMILY_6352,
-+		.ops = &mv88e6341_ops,
-+	},
-+
- 	[MV88E6350] = {
- 		.prod_num = PORT_SWITCH_ID_PROD_NUM_6350,
- 		.family = MV88E6XXX_FAMILY_6351,
-diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-index af54bae..cb55fdb 100644
---- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-@@ -100,6 +100,7 @@
- #define PORT_SWITCH_ID_PROD_NUM_6240	0x240
- #define PORT_SWITCH_ID_PROD_NUM_6290	0x290
- #define PORT_SWITCH_ID_PROD_NUM_6321	0x310
-+#define PORT_SWITCH_ID_PROD_NUM_6341	0x340
- #define PORT_SWITCH_ID_PROD_NUM_6352	0x352
- #define PORT_SWITCH_ID_PROD_NUM_6350	0x371
- #define PORT_SWITCH_ID_PROD_NUM_6351	0x375
-@@ -432,6 +433,7 @@ enum mv88e6xxx_model {
- 	MV88E6290,
- 	MV88E6320,
- 	MV88E6321,
-+	MV88E6341,
- 	MV88E6350,
- 	MV88E6351,
- 	MV88E6352,
-@@ -448,7 +450,7 @@ enum mv88e6xxx_family {
- 	MV88E6XXX_FAMILY_6185,	/* 6108 6121 6122 6131 6152 6155 6182 6185 */
- 	MV88E6XXX_FAMILY_6320,	/* 6320 6321 */
- 	MV88E6XXX_FAMILY_6351,	/* 6171 6175 6350 6351 */
--	MV88E6XXX_FAMILY_6352,	/* 6172 6176 6240 6352 */
-+	MV88E6XXX_FAMILY_6352,	/* 6172 6176 6240 6341 6352 */
- 	MV88E6XXX_FAMILY_6390,  /* 6190 6190X 6191 6290 6390 6390X */
- };
- 
--- 
-2.9.3
+diff --git a/drivers/net/ethernet/cadence/macb_pci.c b/drivers/net/ethernet=
+/cadence/macb_pci.c
+index 92be2cd..9906fda 100644
+--- a/drivers/net/ethernet/cadence/macb_pci.c
++++ b/drivers/net/ethernet/cadence/macb_pci.c
+@@ -1,5 +1,5 @@
+ /**
+- * macb_pci.c - Cadence GEM PCI wrapper.
++ * Cadence GEM PCI wrapper.
+  *
+  * Copyright (C) 2016 Cadence Design Systems - http://www.cadence.com
+  *
+@@ -45,32 +45,27 @@ static int macb_probe(struct pci_dev *pdev, const struc=
+t pci_device_id *id)
+ 	struct macb_platform_data plat_data;
+ 	struct resource res[2];
+=20
+-	/* sanity check */
+-	if (!id)
+-		return -EINVAL;
+-
+ 	/* enable pci device */
+-	err =3D pci_enable_device(pdev);
++	err =3D pcim_enable_device(pdev);
+ 	if (err < 0) {
+-		dev_err(&pdev->dev, "Enabling PCI device has failed: 0x%04X",
+-			err);
+-		return -EACCES;
++		dev_err(&pdev->dev, "Enabling PCI device has failed: %d", err);
++		return err;
+ 	}
+=20
+ 	pci_set_master(pdev);
+=20
+ 	/* set up resources */
+ 	memset(res, 0x00, sizeof(struct resource) * ARRAY_SIZE(res));
+-	res[0].start =3D pdev->resource[0].start;
+-	res[0].end =3D pdev->resource[0].end;
++	res[0].start =3D pci_resource_start(pdev, 0);
++	res[0].end =3D pci_resource_end(pdev, 0);
+ 	res[0].name =3D PCI_DRIVER_NAME;
+ 	res[0].flags =3D IORESOURCE_MEM;
+-	res[1].start =3D pdev->irq;
++	res[1].start =3D pci_irq_vector(pdev, 0);
+ 	res[1].name =3D PCI_DRIVER_NAME;
+ 	res[1].flags =3D IORESOURCE_IRQ;
+=20
+-	dev_info(&pdev->dev, "EMAC physical base addr =3D 0x%p\n",
+-		 (void *)(uintptr_t)pci_resource_start(pdev, 0));
++	dev_info(&pdev->dev, "EMAC physical base addr: %pa\n",
++		 &res[0].start);
+=20
+ 	/* set up macb platform data */
+ 	memset(&plat_data, 0, sizeof(plat_data));
+@@ -100,7 +95,7 @@ static int macb_probe(struct pci_dev *pdev, const struct=
+ pci_device_id *id)
+ 	plat_info.num_res =3D ARRAY_SIZE(res);
+ 	plat_info.data =3D &plat_data;
+ 	plat_info.size_data =3D sizeof(plat_data);
+-	plat_info.dma_mask =3D DMA_BIT_MASK(32);
++	plat_info.dma_mask =3D pdev->dma_mask;
+=20
+ 	/* register platform device */
+ 	plat_dev =3D platform_device_register_full(&plat_info);
+@@ -120,7 +115,6 @@ static int macb_probe(struct pci_dev *pdev, const struc=
+t pci_device_id *id)
+ 	clk_unregister(plat_data.pclk);
+=20
+ err_pclk_register:
+-	pci_disable_device(pdev);
+ 	return err;
+ }
+=20
+@@ -130,7 +124,6 @@ static void macb_remove(struct pci_dev *pdev)
+ 	struct macb_platform_data *plat_data =3D dev_get_platdata(&plat_dev->dev)=
+;
+=20
+ 	platform_device_unregister(plat_dev);
+-	pci_disable_device(pdev);
+ 	clk_unregister(plat_data->pclk);
+ 	clk_unregister(plat_data->hclk);
+ }
+--=20
+1.9.1
