@@ -1,12 +1,11 @@
 From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCH net-next 06/27] net: mvpp2: drop useless fields in
- mvpp2_bm_pool and related code
-Date: Wed, 21 Dec 2016 12:16:13 +0100
-Message-ID: <1482318994-23488-7-git-send-email-thomas.petazzoni@free-electrons.com>
+Subject: [PATCH net-next 10/27] net: mvpp2: simplify MVPP2_PRS_RI_* definitions
+Date: Wed, 21 Dec 2016 12:16:17 +0100
+Message-ID: <1482318994-23488-11-git-send-email-thomas.petazzoni@free-electrons.com>
 References: <1482318994-23488-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
  Andrew Lunn <andrew@lunn.ch>, Yehuda Yitschak <yehuday@marvell.com>,
  Jason Cooper <jason@lakedaemon.net>, Hanna Hawa <hannah@marvell.com>,
@@ -30,97 +29,67 @@ Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-This commit drops dead code from the mvpp2 driver. The 'in_use' and
-'in_use_thresh' fields of 'struct mvpp2_bm_pool' are
-incremented/decremented/initialized in various places. But they are only
-used in one place:
-
-       if (is_recycle &&
-           (atomic_read(&bm_pool->in_use) < bm_pool->in_use_thresh))
-               return 0;
-
-However 'is_recycle', passed as argument to mvpp2_rx_refill() is always
-false. So in fact, this code is never reached, and the 'is_recycle'
-argument is useless. So let's drop this code.
-
-Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
----
- drivers/net/ethernet/marvell/mvpp2.c | 18 +++---------------
- 1 file changed, 3 insertions(+), 15 deletions(-)
-
-diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index fe854b3..868ef4c 100644
---- a/drivers/net/ethernet/marvell/mvpp2.c
-+++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -930,10 +930,6 @@ struct mvpp2_bm_pool {
- 
- 	/* Ports using BM pool */
- 	u32 port_map;
--
--	/* Occupied buffers indicator */
--	atomic_t in_use;
--	int in_use_thresh;
- };
- 
- struct mvpp2_buff_hdr {
-@@ -3399,7 +3395,6 @@ static int mvpp2_bm_pool_create(struct platform_device *pdev,
- 	bm_pool->size = size;
- 	bm_pool->pkt_size = 0;
- 	bm_pool->buf_num = 0;
--	atomic_set(&bm_pool->in_use, 0);
- 
- 	return 0;
- }
-@@ -3656,7 +3651,6 @@ static int mvpp2_bm_bufs_add(struct mvpp2_port *port,
- 
- 	/* Update BM driver with number of buffers added to pool */
- 	bm_pool->buf_num += i;
--	bm_pool->in_use_thresh = bm_pool->buf_num / 4;
- 
- 	netdev_dbg(port->dev,
- 		   "%s pool %d: pkt_size=%4d, buf_size=%4d, total_size=%4d\n",
-@@ -4997,23 +4991,18 @@ static void mvpp2_rx_csum(struct mvpp2_port *port, u32 status,
- 
- /* Reuse skb if possible, or allocate a new skb and add it to BM pool */
- static int mvpp2_rx_refill(struct mvpp2_port *port,
--			   struct mvpp2_bm_pool *bm_pool,
--			   u32 bm, int is_recycle)
-+			   struct mvpp2_bm_pool *bm_pool, u32 bm)
- {
- 	struct sk_buff *skb;
- 	dma_addr_t phys_addr;
- 
--	if (is_recycle &&
--	    (atomic_read(&bm_pool->in_use) < bm_pool->in_use_thresh))
--		return 0;
--
- 	/* No recycle or too many buffers are in use, so allocate a new skb */
- 	skb = mvpp2_skb_alloc(port, bm_pool, &phys_addr, GFP_ATOMIC);
- 	if (!skb)
- 		return -ENOMEM;
- 
- 	mvpp2_pool_refill(port, bm, (u32)phys_addr, (u32)skb);
--	atomic_dec(&bm_pool->in_use);
-+
- 	return 0;
- }
- 
-@@ -5139,7 +5128,7 @@ static int mvpp2_rx(struct mvpp2_port *port, int rx_todo,
- 
- 		skb = (struct sk_buff *)rx_desc->buf_cookie;
- 
--		err = mvpp2_rx_refill(port, bm_pool, bm, 0);
-+		err = mvpp2_rx_refill(port, bm_pool, bm);
- 		if (err) {
- 			netdev_err(port->dev, "failed to refill BM pools\n");
- 			goto err_drop_frame;
-@@ -5150,7 +5139,6 @@ static int mvpp2_rx(struct mvpp2_port *port, int rx_todo,
- 
- 		rcvd_pkts++;
- 		rcvd_bytes += rx_bytes;
--		atomic_inc(&bm_pool->in_use);
- 
- 		skb_reserve(skb, MVPP2_MH_SIZE);
- 		skb_put(skb, rx_bytes);
--- 
-2.7.4
+U29tZSBvZiB0aGUgTVZQUDJfUFJTX1JJXyogZGVmaW5pdGlvbnMgdXNlIHRoZSB+KHZhbHVlKSBz
+eW50YXgsIHdoaWNoCmRvZXNuJ3QgY29tcGlsZSBuaWNlbHkgb24gNjQtYml0LiBNb3Jlb3Zlciwg
+dGhvc2UgZGVmaW5pdGlvbnMgYXJlIGluCmZhY3QgdW5uZWVkZWQsIHNpbmNlIHRoZXkgYXJlIGFs
+d2F5cyB1c2VkIGluIGNvbWJpbmF0aW9uIHdpdGggYSBiaXQKbWFzayB0aGF0IGVuc3VyZXMgb25s
+eSB0aGUgYXBwcm9wcmlhdGUgYml0cyBhcmUgbW9kaWZpZWQuCgpUaGVyZWZvcmUsIHN1Y2ggZGVm
+aW5pdGlvbnMgc2hvdWxkIGp1c3QgYmUgc2V0IHRvIDB4MC4gRm9yIGV4YW1wbGU6CgogI2RlZmlu
+ZSBNVlBQMl9QUlNfUklfTDJfQ0FTVF9NQVNLICAgICAgICAgICAgICAweDYwMAogI2RlZmluZSBN
+VlBQMl9QUlNfUklfTDJfVUNBU1QgICAgICAgICAgICAgICAgICB+KEJJVCg5KSB8IEJJVCgxMCkp
+CiAjZGVmaW5lIE1WUFAyX1BSU19SSV9MMl9NQ0FTVCAgICAgICAgICAgICAgICAgIEJJVCg5KQog
+I2RlZmluZSBNVlBQMl9QUlNfUklfTDJfQkNBU1QgICAgICAgICAgICAgICAgICBCSVQoMTApCgpi
+ZWNvbWVzCgogI2RlZmluZSBNVlBQMl9QUlNfUklfTDJfQ0FTVF9NQVNLICAgICAgICAgICAgICAw
+eDYwMAogI2RlZmluZSBNVlBQMl9QUlNfUklfTDJfVUNBU1QgICAgICAgICAgICAgICAgICAweDAK
+ICNkZWZpbmUgTVZQUDJfUFJTX1JJX0wyX01DQVNUICAgICAgICAgICAgICAgICAgQklUKDkpCiAj
+ZGVmaW5lIE1WUFAyX1BSU19SSV9MMl9CQ0FTVCAgICAgICAgICAgICAgICAgIEJJVCgxMCkKCkJl
+Y2F1c2UgdGhlIHZhbHVlcyAoTVZQUDJfUFJTX1JJX0wyX1VDQVNULCBNVlBQMl9QUlNfUklfTDJf
+TUNBU1QgYW5kCk1WUFAyX1BSU19SSV9MMl9CQ0FTVCkgYXJlIGFsd2F5cyBhcHBsaWVkIHdpdGgK
+TVZQUDJfUFJTX1JJX0wyX0NBU1RfTUFTSywgYW5kIHRoZXJlZm9yZSB0aGVyZSBpcyBubyBuZWVk
+IGZvcgpNVlBQMl9QUlNfUklfTDJfVUNBU1QgdG8gYmUgZGVmaW5lZCBhcyB+KEJJVCg5KSB8IEJJ
+VCgxMCkpLgoKSXQgZml4ZXMgdGhlIGZvbGxvd2luZyB3YXJuaW5ncyB3aGVuIGJ1aWxkaW5nIHRo
+ZSBkcml2ZXIgb24gYSA2NC1iaXQKcGxhdGZvcm0gKHdoaWNoIGlzIG5vdCBwb3NzaWJsZSBhcyBv
+ZiB0aGlzIGNvbW1pdCwgYnV0IHdpbGwgYmUgZW5hYmxlZAppbiBhIGZvbGxvdy11cCBjb21taXQp
+OgoKZHJpdmVycy9uZXQvZXRoZXJuZXQvbWFydmVsbC9tdnBwMi5jOiBJbiBmdW5jdGlvbiDigJht
+dnBwMl9wcnNfbWFjX3Byb21pc2Nfc2V04oCZOgpkcml2ZXJzL25ldC9ldGhlcm5ldC9tYXJ2ZWxs
+L212cHAyLmM6NTI0OjMzOiB3YXJuaW5nOiBsYXJnZSBpbnRlZ2VyIGltcGxpY2l0bHkgdHJ1bmNh
+dGVkIHRvIHVuc2lnbmVkIHR5cGUgWy1Xb3ZlcmZsb3ddCiAjZGVmaW5lIE1WUFAyX1BSU19SSV9M
+Ml9VQ0FTVCAgIH4oQklUKDkpIHwgQklUKDEwKSkKICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgXgpkcml2ZXJzL25ldC9ldGhlcm5ldC9tYXJ2ZWxsL212cHAyLmM6MTQ1OTozMzogbm90
+ZTogaW4gZXhwYW5zaW9uIG9mIG1hY3JvIOKAmE1WUFAyX1BSU19SSV9MMl9VQ0FTVOKAmQogICBt
+dnBwMl9wcnNfc3JhbV9yaV91cGRhdGUoJnBlLCBNVlBQMl9QUlNfUklfTDJfVUNBU1QsCgpTaWdu
+ZWQtb2ZmLWJ5OiBUaG9tYXMgUGV0YXp6b25pIDx0aG9tYXMucGV0YXp6b25pQGZyZWUtZWxlY3Ry
+b25zLmNvbT4KLS0tCiBkcml2ZXJzL25ldC9ldGhlcm5ldC9tYXJ2ZWxsL212cHAyLmMgfCA4ICsr
+KystLS0tCiAxIGZpbGUgY2hhbmdlZCwgNCBpbnNlcnRpb25zKCspLCA0IGRlbGV0aW9ucygtKQoK
+ZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L21hcnZlbGwvbXZwcDIuYyBiL2RyaXZl
+cnMvbmV0L2V0aGVybmV0L21hcnZlbGwvbXZwcDIuYwppbmRleCA2ZWMxMTM1Li5hNzEzZTdkIDEw
+MDY0NAotLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9tYXJ2ZWxsL212cHAyLmMKKysrIGIvZHJp
+dmVycy9uZXQvZXRoZXJuZXQvbWFydmVsbC9tdnBwMi5jCkBAIC01MTEsMTkgKzUxMSwxOSBAQCBl
+bnVtIG12cHAyX3RhZ190eXBlIHsKICNkZWZpbmUgTVZQUDJfUFJTX1JJX01BQ19NRV9NQVNLCQkw
+eDEKICNkZWZpbmUgTVZQUDJfUFJTX1JJX0RTQV9NQVNLCQkJMHgyCiAjZGVmaW5lIE1WUFAyX1BS
+U19SSV9WTEFOX01BU0sJCQkweGMKLSNkZWZpbmUgTVZQUDJfUFJTX1JJX1ZMQU5fTk9ORQkJCX4o
+QklUKDIpIHwgQklUKDMpKQorI2RlZmluZSBNVlBQMl9QUlNfUklfVkxBTl9OT05FCQkJMHgwCiAj
+ZGVmaW5lIE1WUFAyX1BSU19SSV9WTEFOX1NJTkdMRQkJQklUKDIpCiAjZGVmaW5lIE1WUFAyX1BS
+U19SSV9WTEFOX0RPVUJMRQkJQklUKDMpCiAjZGVmaW5lIE1WUFAyX1BSU19SSV9WTEFOX1RSSVBM
+RQkJKEJJVCgyKSB8IEJJVCgzKSkKICNkZWZpbmUgTVZQUDJfUFJTX1JJX0NQVV9DT0RFX01BU0sJ
+CTB4NzAKICNkZWZpbmUgTVZQUDJfUFJTX1JJX0NQVV9DT0RFX1JYX1NQRUMJCUJJVCg0KQogI2Rl
+ZmluZSBNVlBQMl9QUlNfUklfTDJfQ0FTVF9NQVNLCQkweDYwMAotI2RlZmluZSBNVlBQMl9QUlNf
+UklfTDJfVUNBU1QJCQl+KEJJVCg5KSB8IEJJVCgxMCkpCisjZGVmaW5lIE1WUFAyX1BSU19SSV9M
+Ml9VQ0FTVAkJCTB4MAogI2RlZmluZSBNVlBQMl9QUlNfUklfTDJfTUNBU1QJCQlCSVQoOSkKICNk
+ZWZpbmUgTVZQUDJfUFJTX1JJX0wyX0JDQVNUCQkJQklUKDEwKQogI2RlZmluZSBNVlBQMl9QUlNf
+UklfUFBQT0VfTUFTSwkJCTB4ODAwCiAjZGVmaW5lIE1WUFAyX1BSU19SSV9MM19QUk9UT19NQVNL
+CQkweDcwMDAKLSNkZWZpbmUgTVZQUDJfUFJTX1JJX0wzX1VOCQkJfihCSVQoMTIpIHwgQklUKDEz
+KSB8IEJJVCgxNCkpCisjZGVmaW5lIE1WUFAyX1BSU19SSV9MM19VTgkJCTB4MAogI2RlZmluZSBN
+VlBQMl9QUlNfUklfTDNfSVA0CQkJQklUKDEyKQogI2RlZmluZSBNVlBQMl9QUlNfUklfTDNfSVA0
+X09QVAkJCUJJVCgxMykKICNkZWZpbmUgTVZQUDJfUFJTX1JJX0wzX0lQNF9PVEhFUgkJKEJJVCgx
+MikgfCBCSVQoMTMpKQpAQCAtNTMxLDcgKzUzMSw3IEBAIGVudW0gbXZwcDJfdGFnX3R5cGUgewog
+I2RlZmluZSBNVlBQMl9QUlNfUklfTDNfSVA2X0VYVAkJCShCSVQoMTIpIHwgQklUKDE0KSkKICNk
+ZWZpbmUgTVZQUDJfUFJTX1JJX0wzX0FSUAkJCShCSVQoMTMpIHwgQklUKDE0KSkKICNkZWZpbmUg
+TVZQUDJfUFJTX1JJX0wzX0FERFJfTUFTSwkJMHgxODAwMAotI2RlZmluZSBNVlBQMl9QUlNfUklf
+TDNfVUNBU1QJCQl+KEJJVCgxNSkgfCBCSVQoMTYpKQorI2RlZmluZSBNVlBQMl9QUlNfUklfTDNf
+VUNBU1QJCQkweDAKICNkZWZpbmUgTVZQUDJfUFJTX1JJX0wzX01DQVNUCQkJQklUKDE1KQogI2Rl
+ZmluZSBNVlBQMl9QUlNfUklfTDNfQkNBU1QJCQkoQklUKDE1KSB8IEJJVCgxNikpCiAjZGVmaW5l
+IE1WUFAyX1BSU19SSV9JUF9GUkFHX01BU0sJCTB4MjAwMDAKLS0gCjIuNy40CgoKX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KbGludXgtYXJtLWtlcm5lbCBt
+YWlsaW5nIGxpc3QKbGludXgtYXJtLWtlcm5lbEBsaXN0cy5pbmZyYWRlYWQub3JnCmh0dHA6Ly9s
+aXN0cy5pbmZyYWRlYWQub3JnL21haWxtYW4vbGlzdGluZm8vbGludXgtYXJtLWtlcm5lbAo=
