@@ -1,144 +1,58 @@
-From: Shahar Klein <shahark@mellanox.com>
-Subject: Re: Soft lockup in tc_classify
-Date: Wed, 21 Dec 2016 14:58:17 +0200
-Message-ID: <cb55ede9-3e6e-8e68-3005-8bdb2105122e@mellanox.com>
-References: <c1c394d3-3aea-52a8-89e3-be57d4d46b8e@mellanox.com>
- <7394f89e-e8a5-5fb2-ee04-63bf1c4ef6e7@mellanox.com>
- <584EA60B.80803@iogearbox.net>
- <CAJ3xEMjABmvAMs6h0EqBgPH8QDDwF_x0COx01MkEw2pa+fp7LA@mail.gmail.com>
- <CAM_iQpVJ_Y5bB-RP2S2tK7sPNo6Atwcz5Ud8sG6bwDOSnq4NnA@mail.gmail.com>
- <18a64d65-1241-6c72-8333-47b0ae933139@mellanox.com>
- <CAM_iQpXUQYvvXonEXe0czd4osL5YxZ+G5B-PUddautcHnGOtQw@mail.gmail.com>
- <5a985705-11e5-1575-a049-723accb97608@mellanox.com>
- <58591A46.4060703@iogearbox.net>
- <66a3cb1e-862f-70e6-fff4-5a421766c432@mellanox.com>
- <CAM_iQpX3jL4URUQn5+-wV+3g2UKHWGBWYHr31wyZk2FQKVCzVA@mail.gmail.com>
- <585A564D.4030702@iogearbox.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] tcp: add a missing barrier in tcp_tasklet_func()
+Date: Wed, 21 Dec 2016 05:42:43 -0800
+Message-ID: <1482327763.8944.26.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <shahark@mellanox.com>, Or Gerlitz <gerlitz.or@gmail.com>,
-        "Linux Netdev List" <netdev@vger.kernel.org>,
-        Roi Dayan <roid@mellanox.com>,
-        David Miller <davem@davemloft.net>,
-        Jiri Pirko <jiri@mellanox.com>,
-        John Fastabend <john.fastabend@gmail.com>,
-        Hadar Hen Zion <hadarh@mellanox.com>
-To: Daniel Borkmann <daniel@iogearbox.net>,
-        Cong Wang <xiyou.wangcong@gmail.com>
+Cc: netdev <netdev@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>,
+        Madalin Bucur <madalin.bucur@nxp.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0041.outbound.protection.outlook.com ([104.47.2.41]:33540
-        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1756898AbcLUNbY (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 21 Dec 2016 08:31:24 -0500
-In-Reply-To: <585A564D.4030702@iogearbox.net>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:36173 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758444AbcLUNmp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2016 08:42:45 -0500
+Received: by mail-pg0-f68.google.com with SMTP id w68so10386180pgw.3
+        for <netdev@vger.kernel.org>; Wed, 21 Dec 2016 05:42:44 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Eric Dumazet <edumazet@google.com>
 
+Madalin reported crashes happening in tcp_tasklet_func() on powerpc64
 
-On 12/21/2016 12:15 PM, Daniel Borkmann wrote:
-> On 12/21/2016 08:03 AM, Cong Wang wrote:
->> On Tue, Dec 20, 2016 at 10:44 PM, Shahar Klein <shahark@mellanox.com>
->> wrote:
-> [...]
->> Looks like you added a debug printk inside tcf_destroy() too,
->> which seems racy with filter creation, it should not happen since
->> in both cases we take RTNL lock.
->>
->> Don't know if changing all RCU_INIT_POINTER in that file to
->> rcu_assign_pointer could help anything or not. Mind to try?
->
-> I don't think at this point that it's RCU related at all.
->
-> I have a theory on what is happening. Quoting the piece in question from
-> Shahar's log:
->
->  1: thread-2845[cpu-1] setting tp_created to 1 tp=ffff94b5b0280780
-> back=ffff94b9ea932060
->  2: thread-2856[cpu-1] setting tp_created to 1 tp=ffff94b9ea9322a0
-> back=ffff94b9ea932060
->  3: thread-2843[cpu-1] setting tp_created to 1 tp=ffff94b5b402c960
-> back=ffff94b9ea932060
->  4: destroy ffff94b5b669fea0 tcf_destroy:1905
->  5: thread-2853[cpu-1] setting tp_created to 1 tp=ffff94b5b02805a0
-> back=ffff94b9ea932060
->  6: thread-2853[cpu-1] add/change filter by: fl_get [cls_flower]
-> tp=ffff94b5b02805a0 tp->next=ffff94b9ea932060
->  7: destroy ffff94b5b0280780 tcf_destroy:1905
->  8: thread-2845[cpu-1] add/change filter by: fl_get [cls_flower]
-> tp=ffff94b5b02805a0 tp->next=ffff94b5b02805a0
->
-> The interesting thing is that all this happens on CPU1, so as you say
-> we're under rtnl.
-> In 1), thread-2845 creates tp=ffff94b5b0280780, which is destroyed in
-> 7), presumably also
-> by thread-2845, and the weird part is why suddenly in 8) thread-2845
-> adds a created filter
-> without actually creating it. Plus, thread-2845 got interrupted, which
-> means it must have
-> dropped rntl in the middle. We drop it in tc_ctl_tfilter() when we do
-> tcf_proto_lookup_ops()
-> and need to pull in a module, but here this doesn't make sense at all
-> since i) at this
-> point we haven't created the tp yet and 2) flower was already there.
-> Thus the only explanation
-> where this must have happened is where we called tp->ops->change(). So
-> here the return
-> code must have been -EAGAIN, which makes sense because in 7) we
-> destroyed that specific
-> tp instance. Which means we goto replay but *do not* clear tp_created. I
-> think that is
-> the bug in question. So, while we dropped rtnl in the meantime, some
-> other tp instance
-> was added (tp=ffff94b5b02805a0) that we had a match on in round 2, but
-> we still think it
-> was newly created which wasn't the actual case. So we'd need to deal
-> with the fact that
-> ->change() callback could return -EAGAIN as well. Now looking at flower,
-> I think the call
-> chain must have been fl_change() -> fl_set_parms() ->
-> tcf_exts_validate() -> tcf_action_init()
-> -> tcf_action_init_1(). And here one possibility I see is that
-> tc_lookup_action_n()
-> failed, therefore we shortly dropped rtnl for the request_module() where
-> the module
-> got loaded successfully and thus error code from there is -EAGAIN that
-> got propagated
-> all the way through ->change() from tc_ctl_tfilter(). So it looks like a
-> generic issue
-> not specifically tied to flower.
->
-> Shahar, can you test the following? Thanks!
->
->  net/sched/cls_api.c | 4 +++-
->  1 file changed, 3 insertions(+), 1 deletion(-)
->
-> diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
-> index 3fbba79..1ecdf80 100644
-> --- a/net/sched/cls_api.c
-> +++ b/net/sched/cls_api.c
-> @@ -148,13 +148,15 @@ static int tc_ctl_tfilter(struct sk_buff *skb,
-> struct nlmsghdr *n)
->      unsigned long cl;
->      unsigned long fh;
->      int err;
-> -    int tp_created = 0;
-> +    int tp_created;
->
->      if ((n->nlmsg_type != RTM_GETTFILTER) &&
->          !netlink_ns_capable(skb, net->user_ns, CAP_NET_ADMIN))
->          return -EPERM;
->
->  replay:
-> +    tp_created = 0;
-> +
->      err = nlmsg_parse(n, sizeof(*t), tca, TCA_MAX, NULL);
->      if (err < 0)
->          return err;
+Before TSQ_QUEUED bit is cleared, we must ensure the changes done
+by list_del(&tp->tsq_node); are committed to memory, otherwise
+corruption might happen, as an other cpu could catch TSQ_QUEUED
+clearance too soon.
 
-Test run successfully!
-I'll remove all other debug "fixes" and run again later
+We can notice that old kernels were immune to this bug, because
+TSQ_QUEUED was cleared after a bh_lock_sock(sk)/bh_unlock_sock(sk)
+section, but they could have missed a kick to write additional bytes,
+when NIC interrupts for a given flow are spread to multiple cpus.
 
-Thanks Daniel!
+Affected TCP flows would need an incoming ACK or RTO timer to add more
+packets to the pipe. So overall situation should be better now.
+
+Fixes: b223feb9de2a ("tcp: tsq: add shortcut in tcp_tasklet_func()")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Reported-by: Madalin Bucur <madalin.bucur@nxp.com>
+Tested-by: Madalin Bucur <madalin.bucur@nxp.com>
+---
+ net/ipv4/tcp_output.c |    1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index b45101f3d2bd2e0f0077305a061add4f7ea0de27..31a255b555ad86a3537c077862e3ea38f9b44284 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -769,6 +769,7 @@ static void tcp_tasklet_func(unsigned long data)
+ 		list_del(&tp->tsq_node);
+ 
+ 		sk = (struct sock *)tp;
++		smp_mb__before_atomic();
+ 		clear_bit(TSQ_QUEUED, &sk->sk_tsq_flags);
+ 
+ 		if (!sk->sk_lock.owned &&
