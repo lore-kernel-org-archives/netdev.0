@@ -1,52 +1,39 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: Re: [PATCH net-next 00/27] net: mvpp2: add basic support for PPv2.2
-Date: Wed, 21 Dec 2016 17:12:46 +0100
-Message-ID: <20161221171246.77e91d2c@free-electrons.com>
-References: <1482318994-23488-1-git-send-email-thomas.petazzoni@free-electrons.com>
- <20161221.110348.346806544020316686.davem@davemloft.net>
+From: Mark Greer <mgreer@animalcreek.com>
+Subject: Re: [PATCH 2/3] NFC: trf7970a: Add device tree option of 1.8 Volt IO
+ voltage
+Date: Wed, 21 Dec 2016 09:13:57 -0700
+Message-ID: <20161221161357.GA15927@animalcreek.com>
+References: <1482250592-4268-1-git-send-email-glansberry@gmail.com>
+ <1482250592-4268-2-git-send-email-glansberry@gmail.com>
+ <20161221022347.GB5444@animalcreek.com>
+ <32FAB08E-BE8E-4127-80A6-013300B43BD0@kuvee.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, yehuday@marvell.com, jason@lakedaemon.net,
- netdev@vger.kernel.org, hannah@marvell.com, nadavh@marvell.com,
- gregory.clement@free-electrons.com, stefanc@marvell.com, mw@semihalf.com,
- linux-arm-kernel@lists.infradead.org, sebastian.hesselbarth@gmail.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20161221.110348.346806544020316686.davem@davemloft.net>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless@vger.kernel.org, lauro.venancio@openbossa.org,
+        aloisio.almeida@openbossa.org, sameo@linux.intel.com,
+        robh+dt@kernel.org, mark.rutland@arm.com, netdev@vger.kernel.org,
+        devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
+        justin@kuvee.com
+To: Geoff Lansberry <geoff@kuvee.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <32FAB08E-BE8E-4127-80A6-013300B43BD0@kuvee.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+On Wed, Dec 21, 2016 at 06:47:36AM -0500, Geoff Lansberry wrote:
+> Thanks Mark.   Should I resubmit patches with the requested edits today, or wait a bit for more comments?  What is the desired etiquette?
 
-On Wed, 21 Dec 2016 11:03:48 -0500 (EST), David Miller wrote:
+Its up to you.  I don't think there are any hard & fast rules on this.
 
-> 1) net-next is closed, please do not submit net-next material during
->    this time.
+If it were me, I would likely spin a new version today because there are
+several responses already and it lets people review them at their leisure
+over the holidays.
 
-I did not expect you to review these patches right now, as I know
-net-next is closed. However I expect other people in the net community
-and people interested in Marvell platforms to look at those patches,
-potentially test them and give feedback.
+Just a thought - you may want to consider separating the third patch from
+the other two.  The problems the first two solve are well understood and
+have reasonable solutions (I believe).  The third one - for me, at least -
+tries to fix a problem that is not well understood yet.
 
-> 2) 27 patches is way too many to submit at one time, please keep your
->    patch series submissions to a small, reasonable size.
-
-OK, I will do some arbitrary cut in the series and send several
-smaller series instead.
-
-Thanks for the feedback,
-
-Thomas
--- 
-Thomas Petazzoni, CTO, Free Electrons
-Embedded Linux and Kernel engineering
-http://free-electrons.com
+Mark
+--
