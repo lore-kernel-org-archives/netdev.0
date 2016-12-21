@@ -1,186 +1,110 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCHv2] net: mvpp2: fix dma unmapping of TX buffers for fragments
-Date: Wed, 21 Dec 2016 11:28:49 +0100
-Message-ID: <1482316129-22332-1-git-send-email-thomas.petazzoni@free-electrons.com>
-Cc: Jason Cooper <jason@lakedaemon.net>, Andrew Lunn <andrew@lunn.ch>,
-        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-        Gregory Clement <gregory.clement@free-electrons.com>,
-        Nadav Haklai <nadavh@marvell.com>,
-        Hanna Hawa <hannah@marvell.com>,
-        Yehuda Yitschak <yehuday@marvell.com>,
-        Marcin Wojtas <mw@semihalf.com>,
-        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-        Raphael G <raphael.glon@corp.ovh.com>, stable@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:55196 "EHLO
-        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933530AbcLUK2z (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2016 05:28:55 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Bartosz Folta <bfolta@cadence.com>
+Subject: [PATCH] net: macb: Applied changes according to review made by Andy
+ Shevchenko.
+Date: Wed, 21 Dec 2016 08:53:05 +0000
+Message-ID: <SN1PR0701MB1951B994F86160A24C436F30CC930@SN1PR0701MB1951.namprd07.prod.outlook.com>
+References: <1482309315-582-1-git-send-email-bfolta@cadence.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: Bartosz Folta <bfolta@cadence.com>,
+        Rafal Ozieblo <rafalo@cadence.com>
+To: Nicolas Ferre <nicolas.ferre@atmel.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Niklas Cassel <niklas.cassel@axis.com>,
+        "Alexandre Torgue" <alexandre.torgue@st.com>,
+        Satanand Burla <satananda.burla@caviumnetworks.com>,
+        Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>,
+        Simon Horman <simon.horman@netronome.com>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1482309315-582-1-git-send-email-bfolta@cadence.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Since commit 71ce391dfb784 ("net: mvpp2: enable proper per-CPU TX
-buffers unmapping"), we are not correctly DMA unmapping TX buffers for
-fragments.
+This patch is sent in regard to recently applied patch
+Commit 83a77e9ec4150ee4acc635638f7dedd9da523a26
+net: macb: Added PCI wrapper for Platform Driver.
+Andy's review does not appear on mailing lists. I can't reference it.
 
-Indeed, the mvpp2_txq_inc_put() function only stores in the
-txq_cpu->tx_buffs[] array the physical address of the buffer to be
-DMA-unmapped when skb != NULL. In addition, when DMA-unmapping, we use
-skb_headlen(skb) to get the size to be unmapped. Both of this works fine
-for TX descriptors that are associated directly to a SKB, but not the
-ones that are used for fragments, with a NULL pointer as skb:
-
- - We have a NULL physical address when calling DMA unmap
- - skb_headlen(skb) crashes because skb is NULL
-
-This causes random crashes when fragments are used.
-
-To solve this problem, we need to:
-
- - Store the physical address of the buffer to be unmapped
-   unconditionally, regardless of whether it is tied to a SKB or not.
-
- - Store the length of the buffer to be unmapped, which requires a new
-   field.
-
-Instead of adding a third array to store the length of the buffer to be
-unmapped, and as suggested by David Miller, this commit refactors the
-tx_buffs[] and tx_skb[] arrays of 'struct mvpp2_txq_pcpu' into a
-separate structure 'mvpp2_txq_pcpu_buf', to which a 'size' field is
-added. Therefore, instead of having three arrays to allocate/free, we
-have a single one, which also improve data locality, reducing the
-impact on the CPU cache.
-
-Fixes: 71ce391dfb784 ("net: mvpp2: enable proper per-CPU TX buffers unmapping")
-Reported-by: Raphael G <raphael.glon@corp.ovh.com>
-Cc: Raphael G <raphael.glon@corp.ovh.com>
-Cc: stable@vger.kernel.org
-Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Signed-off-by: Bartosz Folta <bfolta@cadence.com>
 ---
-Changes since v1:
- - As requested by David Miller, move the per TX buffer fields into a
-   separate structure, 'struct mvpp2_txq_pcpu_buf', so that instead of
-   allocating three arrays, we allocate a single array.
+ drivers/net/ethernet/cadence/macb_pci.c | 25 +++++++++----------------
+ 1 file changed, 9 insertions(+), 16 deletions(-)
 
- drivers/net/ethernet/marvell/mvpp2.c | 59 ++++++++++++++++++------------------
- 1 file changed, 30 insertions(+), 29 deletions(-)
-
-diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 1026c45..930c816 100644
---- a/drivers/net/ethernet/marvell/mvpp2.c
-+++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -770,6 +770,17 @@ struct mvpp2_rx_desc {
- 	u32 reserved8;
- };
- 
-+struct mvpp2_txq_pcpu_buf {
-+	/* Transmitted SKB */
-+	struct sk_buff *skb;
-+
-+	/* Physical address of transmitted buffer */
-+	dma_addr_t phys;
-+
-+	/* Size transmitted */
-+	size_t size;
-+};
-+
- /* Per-CPU Tx queue control */
- struct mvpp2_txq_pcpu {
- 	int cpu;
-@@ -785,11 +796,8 @@ struct mvpp2_txq_pcpu {
- 	/* Number of Tx DMA descriptors reserved for each CPU */
- 	int reserved_num;
- 
--	/* Array of transmitted skb */
--	struct sk_buff **tx_skb;
+diff --git a/drivers/net/ethernet/cadence/macb_pci.c b/drivers/net/ethernet=
+/cadence/macb_pci.c
+index 92be2cd..6cec52c 100644
+--- a/drivers/net/ethernet/cadence/macb_pci.c
++++ b/drivers/net/ethernet/cadence/macb_pci.c
+@@ -1,5 +1,5 @@
+ /**
+- * macb_pci.c - Cadence GEM PCI wrapper.
++ * Cadence GEM PCI wrapper.
+  *
+  * Copyright (C) 2016 Cadence Design Systems - http://www.cadence.com
+  *
+@@ -45,32 +45,27 @@ static int macb_probe(struct pci_dev *pdev, const struc=
+t pci_device_id *id)
+ 	struct macb_platform_data plat_data;
+ 	struct resource res[2];
+=20
+-	/* sanity check */
+-	if (!id)
+-		return -EINVAL;
 -
--	/* Array of transmitted buffers' physical addresses */
--	dma_addr_t *tx_buffs;
-+	/* Infos about transmitted buffers */
-+	struct mvpp2_txq_pcpu_buf *buffs;
- 
- 	/* Index of last TX DMA descriptor that was inserted */
- 	int txq_put_index;
-@@ -979,10 +987,11 @@ static void mvpp2_txq_inc_put(struct mvpp2_txq_pcpu *txq_pcpu,
- 			      struct sk_buff *skb,
- 			      struct mvpp2_tx_desc *tx_desc)
- {
--	txq_pcpu->tx_skb[txq_pcpu->txq_put_index] = skb;
--	if (skb)
--		txq_pcpu->tx_buffs[txq_pcpu->txq_put_index] =
--							 tx_desc->buf_phys_addr;
-+	struct mvpp2_txq_pcpu_buf *tx_buf =
-+		txq_pcpu->buffs + txq_pcpu->txq_put_index;
-+	tx_buf->skb = skb;
-+	tx_buf->size = tx_desc->data_size;
-+	tx_buf->phys = tx_desc->buf_phys_addr;
- 	txq_pcpu->txq_put_index++;
- 	if (txq_pcpu->txq_put_index == txq_pcpu->size)
- 		txq_pcpu->txq_put_index = 0;
-@@ -4401,17 +4410,16 @@ static void mvpp2_txq_bufs_free(struct mvpp2_port *port,
- 	int i;
- 
- 	for (i = 0; i < num; i++) {
--		dma_addr_t buf_phys_addr =
--				    txq_pcpu->tx_buffs[txq_pcpu->txq_get_index];
--		struct sk_buff *skb = txq_pcpu->tx_skb[txq_pcpu->txq_get_index];
-+		struct mvpp2_txq_pcpu_buf *tx_buf =
-+			txq_pcpu->buffs + txq_pcpu->txq_get_index;
- 
- 		mvpp2_txq_inc_get(txq_pcpu);
- 
--		dma_unmap_single(port->dev->dev.parent, buf_phys_addr,
--				 skb_headlen(skb), DMA_TO_DEVICE);
--		if (!skb)
-+		dma_unmap_single(port->dev->dev.parent, tx_buf->phys,
-+				 tx_buf->size, DMA_TO_DEVICE);
-+		if (!tx_buf->skb)
- 			continue;
--		dev_kfree_skb_any(skb);
-+		dev_kfree_skb_any(tx_buf->skb);
+ 	/* enable pci device */
+-	err =3D pci_enable_device(pdev);
++	err =3D pcim_enable_device(pdev);
+ 	if (err < 0) {
+-		dev_err(&pdev->dev, "Enabling PCI device has failed: 0x%04X",
+-			err);
+-		return -EACCES;
++		dev_err(&pdev->dev, "Enabling PCI device has failed: %d", err);
++		return err;
  	}
+=20
+ 	pci_set_master(pdev);
+=20
+ 	/* set up resources */
+ 	memset(res, 0x00, sizeof(struct resource) * ARRAY_SIZE(res));
+-	res[0].start =3D pdev->resource[0].start;
+-	res[0].end =3D pdev->resource[0].end;
++	res[0].start =3D pci_resource_start(pdev, 0);
++	res[0].end =3D pci_resource_end(pdev, 0);
+ 	res[0].name =3D PCI_DRIVER_NAME;
+ 	res[0].flags =3D IORESOURCE_MEM;
+-	res[1].start =3D pdev->irq;
++	res[1].start =3D pci_irq_vector(pdev, 0);
+ 	res[1].name =3D PCI_DRIVER_NAME;
+ 	res[1].flags =3D IORESOURCE_IRQ;
+=20
+-	dev_info(&pdev->dev, "EMAC physical base addr =3D 0x%p\n",
+-		 (void *)(uintptr_t)pci_resource_start(pdev, 0));
++	dev_info(&pdev->dev, "EMAC physical base addr: %pa\n",
++		 &res[0].start);
+=20
+ 	/* set up macb platform data */
+ 	memset(&plat_data, 0, sizeof(plat_data));
+@@ -120,7 +115,6 @@ static int macb_probe(struct pci_dev *pdev, const struc=
+t pci_device_id *id)
+ 	clk_unregister(plat_data.pclk);
+=20
+ err_pclk_register:
+-	pci_disable_device(pdev);
+ 	return err;
  }
- 
-@@ -4651,15 +4659,10 @@ static int mvpp2_txq_init(struct mvpp2_port *port,
- 	for_each_present_cpu(cpu) {
- 		txq_pcpu = per_cpu_ptr(txq->pcpu, cpu);
- 		txq_pcpu->size = txq->size;
--		txq_pcpu->tx_skb = kmalloc(txq_pcpu->size *
--					   sizeof(*txq_pcpu->tx_skb),
--					   GFP_KERNEL);
--		if (!txq_pcpu->tx_skb)
--			goto error;
--
--		txq_pcpu->tx_buffs = kmalloc(txq_pcpu->size *
--					     sizeof(dma_addr_t), GFP_KERNEL);
--		if (!txq_pcpu->tx_buffs)
-+		txq_pcpu->buffs = kmalloc(txq_pcpu->size *
-+					  sizeof(struct mvpp2_txq_pcpu_buf),
-+					  GFP_KERNEL);
-+		if (!txq_pcpu->buffs)
- 			goto error;
- 
- 		txq_pcpu->count = 0;
-@@ -4673,8 +4676,7 @@ static int mvpp2_txq_init(struct mvpp2_port *port,
- error:
- 	for_each_present_cpu(cpu) {
- 		txq_pcpu = per_cpu_ptr(txq->pcpu, cpu);
--		kfree(txq_pcpu->tx_skb);
--		kfree(txq_pcpu->tx_buffs);
-+		kfree(txq_pcpu->buffs);
- 	}
- 
- 	dma_free_coherent(port->dev->dev.parent,
-@@ -4693,8 +4695,7 @@ static void mvpp2_txq_deinit(struct mvpp2_port *port,
- 
- 	for_each_present_cpu(cpu) {
- 		txq_pcpu = per_cpu_ptr(txq->pcpu, cpu);
--		kfree(txq_pcpu->tx_skb);
--		kfree(txq_pcpu->tx_buffs);
-+		kfree(txq_pcpu->buffs);
- 	}
- 
- 	if (txq->descs)
--- 
-2.7.4
+=20
+@@ -130,7 +124,6 @@ static void macb_remove(struct pci_dev *pdev)
+ 	struct macb_platform_data *plat_data =3D dev_get_platdata(&plat_dev->dev)=
+;
+=20
+ 	platform_device_unregister(plat_dev);
+-	pci_disable_device(pdev);
+ 	clk_unregister(plat_data->pclk);
+ 	clk_unregister(plat_data->hclk);
+ }
+--=20
+1.9.1
