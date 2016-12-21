@@ -1,92 +1,51 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net] net, sched: fix soft lockup in tc_classify
-Date: Wed, 21 Dec 2016 18:04:11 +0100
-Message-ID: <1954223e8b7aa90ff835357e8a3ef7537be33e43.1482337600.git.daniel@iogearbox.net>
-Cc: shahark@mellanox.com, xiyou.wangcong@gmail.com,
-        gerlitz.or@gmail.com, roid@mellanox.com, jiri@mellanox.com,
-        john.fastabend@gmail.com, netdev@vger.kernel.org,
-        Daniel Borkmann <daniel@iogearbox.net>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:41868 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965012AbcLURE3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2016 12:04:29 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: Re: [PATCH net-next 14/27] net: mvpp2: add ip_version field in
+ "struct mvpp2"
+Date: Wed, 21 Dec 2016 18:04:00 +0100
+Message-ID: <20161221180400.27aca37c@free-electrons.com>
+References: <1482318994-23488-1-git-send-email-thomas.petazzoni@free-electrons.com>
+ <1482318994-23488-15-git-send-email-thomas.petazzoni@free-electrons.com>
+ <20161221170252.GO30952@lunn.ch>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Yehuda Yitschak <yehuday@marvell.com>, Jason Cooper <jason@lakedaemon.net>,
+ netdev@vger.kernel.org, Hanna Hawa <hannah@marvell.com>,
+ Nadav Haklai <nadavh@marvell.com>,
+ Gregory Clement <gregory.clement@free-electrons.com>,
+ Stefan Chulski <stefanc@marvell.com>, Marcin Wojtas <mw@semihalf.com>,
+ "David S. Miller" <davem@davemloft.net>, linux-arm-kernel@lists.infradead.org,
+ Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <20161221170252.GO30952@lunn.ch>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-Shahar reported a soft lockup in tc_classify(), where we run into an
-endless loop when walking the classifier chain due to tp->next == tp
-which is a state we should never run into. The issue only seems to
-trigger under load in the tc control path.
+Hello,
 
-What happens is that in tc_ctl_tfilter(), thread A allocates a new
-tp, initializes it, sets tp_created to 1, and calls into tp->ops->change()
-with it. In that classifier callback we had to unlock/lock the rtnl
-mutex and returned with -EAGAIN. One reason why we need to drop there
-is, for example, that we need to request an action module to be loaded.
+On Wed, 21 Dec 2016 18:02:52 +0100, Andrew Lunn wrote:
 
-This happens via tcf_exts_validate() -> tcf_action_init/_1() meaning
-after we loaded and found the requested action, we need to redo the
-whole request so we don't race against others. While we had to unlock
-rtnl in that time, thread B's request was processed next on that CPU.
-Thread B added a new tp instance successfully to the classifier chain.
-When thread A returned grabbing the rtnl mutex again, propagating -EAGAIN
-and destroying its tp instance which never got linked, we goto replay
-and redo A's request.
+> On Wed, Dec 21, 2016 at 12:16:21PM +0100, Thomas Petazzoni wrote:
+> > In preparation to the introduction for the support of PPv2.2 in the
+> > mvpp2 driver, this commit adds an ip_version field to the struct
+> > mvpp2  
+> 
+> When i read this, i was thinking IPv4 vs IPv6. It is a network driver after all.
+> Could you maybe call this hw_version?
 
-This time when walking the classifier chain in tc_ctl_tfilter() for
-checking for existing tp instances we had a priority match and found
-the tp instance that was created and linked by thread B. Now calling
-again into tp->ops->change() with that tp was successful and returned
-without error.
+Sure, will do. Thanks for the feedback!
 
-tp_created was never cleared in the second round, thus kernel thinks
-that we need to link it into the classifier chain (once again). tp and
-*back point to the same object due to the match we had earlier on. Thus
-for thread B's already public tp, we reset tp->next to tp itself and
-link it into the chain, which eventually causes the mentioned endless
-loop in tc_classify() once a packet hits the data path.
-
-Fix is to clear tp_created at the beginning of each request, also when
-we replay it. On the paths that can cause -EAGAIN we already destroy
-the original tp instance we had and on replay we really need to start
-from scratch. It seems that this issue was first introduced in commit
-12186be7d2e1 ("net_cls: fix unconfigured struct tcf_proto keeps chaining
-and avoid kernel panic when we use cls_cgroup").
-
-Fixes: 12186be7d2e1 ("net_cls: fix unconfigured struct tcf_proto keeps chaining and avoid kernel panic when we use cls_cgroup")
-Reported-by: Shahar Klein <shahark@mellanox.com>
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-Cc: Cong Wang <xiyou.wangcong@gmail.com>
----
- Shahar, you mentioned you wanted to run again later without the debug
- printk's. Once you do that and come to the same result again, please
- feel free to reply with a Tested-by or such. Thanks everyone!
-
- net/sched/cls_api.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
-
-diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
-index 3fbba79..1ecdf80 100644
---- a/net/sched/cls_api.c
-+++ b/net/sched/cls_api.c
-@@ -148,13 +148,15 @@ static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n)
- 	unsigned long cl;
- 	unsigned long fh;
- 	int err;
--	int tp_created = 0;
-+	int tp_created;
- 
- 	if ((n->nlmsg_type != RTM_GETTFILTER) &&
- 	    !netlink_ns_capable(skb, net->user_ns, CAP_NET_ADMIN))
- 		return -EPERM;
- 
- replay:
-+	tp_created = 0;
-+
- 	err = nlmsg_parse(n, sizeof(*t), tca, TCA_MAX, NULL);
- 	if (err < 0)
- 		return err;
+Thomas
 -- 
-1.9.3
+Thomas Petazzoni, CTO, Free Electrons
+Embedded Linux and Kernel engineering
+http://free-electrons.com
