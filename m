@@ -1,7 +1,7 @@
 From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCH net-next 04/27] net: mvpp2: release reference to txq_cpu[] entry after unmapping
-Date: Wed, 21 Dec 2016 12:16:11 +0100
-Message-ID: <1482318994-23488-5-git-send-email-thomas.petazzoni@free-electrons.com>
+Subject: [PATCH net-next 02/27] net: mvpp2: handle too large value handling in mvpp2_rx_pkts_coal_set()
+Date: Wed, 21 Dec 2016 12:16:09 +0100
+Message-ID: <1482318994-23488-3-git-send-email-thomas.petazzoni@free-electrons.com>
 References: <1482318994-23488-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Cc: Nadav Haklai <nadavh@marvell.com>, Hanna Hawa <hannah@marvell.com>,
         Yehuda Yitschak <yehuday@marvell.com>,
@@ -15,52 +15,47 @@ Cc: Nadav Haklai <nadavh@marvell.com>, Hanna Hawa <hannah@marvell.com>,
         Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:56087 "EHLO
+Received: from mail.free-electrons.com ([62.4.15.54]:56076 "EHLO
         mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750795AbcLULQk (ORCPT
+        with ESMTP id S1750745AbcLULQk (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2016 06:16:40 -0500
 In-Reply-To: <1482318994-23488-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The mvpp2_txq_bufs_free() function is called upon TX completion to DMA
-unmap TX buffers, and free the corresponding SKBs. It gets the
-references to the SKB to free and the DMA buffer to unmap from a per-CPU
-txq_pcpu data structure.
+Currently, mvpp2_rx_pkts_coal_set() does the following to avoid setting
+a too large value for the RX coalescing by packet number:
 
-However, the code currently increments the pointer to the next entry
-before doing the DMA unmap and freeing the SKB. It does not cause any
-visible problem because for a given SKB the TX completion is guaranteed
-to take place on the CPU where the TX was started. However, it is much
-more logical to increment the pointer to the next entry once the current
-entry has been completely unmapped/released.
+  val = (pkts & MVPP2_OCCUPIED_THRESH_MASK);
+
+This means that if you set a value that is slightly higher the the
+maximum number of packets, you in fact get a very low value. It makes a
+lot more sense to simply check if the value is too high, and if it's too
+high, limit it to the maximum possible value.
 
 Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 ---
- drivers/net/ethernet/marvell/mvpp2.c | 9 ++++-----
- 1 file changed, 4 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/marvell/mvpp2.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 12edefe..84eb5fb 100644
+index 930c816..4c9e3ea 100644
 --- a/drivers/net/ethernet/marvell/mvpp2.c
 +++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -4420,13 +4420,12 @@ static void mvpp2_txq_bufs_free(struct mvpp2_port *port,
- 		struct mvpp2_txq_pcpu_buf *tx_buf =
- 			txq_pcpu->buffs + txq_pcpu->txq_get_index;
+@@ -4381,11 +4381,11 @@ static void mvpp2_txp_max_tx_size_set(struct mvpp2_port *port)
+ static void mvpp2_rx_pkts_coal_set(struct mvpp2_port *port,
+ 				   struct mvpp2_rx_queue *rxq, u32 pkts)
+ {
+-	u32 val;
++	if (pkts > MVPP2_OCCUPIED_THRESH_MASK)
++		pkts = MVPP2_OCCUPIED_THRESH_MASK;
  
--		mvpp2_txq_inc_get(txq_pcpu);
--
- 		dma_unmap_single(port->dev->dev.parent, tx_buf->phys,
- 				 tx_buf->size, DMA_TO_DEVICE);
--		if (!tx_buf->skb)
--			continue;
--		dev_kfree_skb_any(tx_buf->skb);
-+		if (tx_buf->skb)
-+			dev_kfree_skb_any(tx_buf->skb);
-+
-+		mvpp2_txq_inc_get(txq_pcpu);
- 	}
+-	val = (pkts & MVPP2_OCCUPIED_THRESH_MASK);
+ 	mvpp2_write(port->priv, MVPP2_RXQ_NUM_REG, rxq->id);
+-	mvpp2_write(port->priv, MVPP2_RXQ_THRESH_REG, val);
++	mvpp2_write(port->priv, MVPP2_RXQ_THRESH_REG, pkts);
+ 
+ 	rxq->pkts_coal = pkts;
  }
- 
 -- 
 2.7.4
