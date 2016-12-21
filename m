@@ -1,230 +1,144 @@
 From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCH net-next 16/27] net: mvpp2: introduce PPv2.2 HW descriptors and adapt accessors
-Date: Wed, 21 Dec 2016 12:16:23 +0100
-Message-ID: <1482318994-23488-17-git-send-email-thomas.petazzoni@free-electrons.com>
+Subject: [PATCH net-next 01/27] dt-bindings: net: update Marvell PPv2 binding
+ for PPv2.2 support
+Date: Wed, 21 Dec 2016 12:16:08 +0100
+Message-ID: <1482318994-23488-2-git-send-email-thomas.petazzoni@free-electrons.com>
 References: <1482318994-23488-1-git-send-email-thomas.petazzoni@free-electrons.com>
-Cc: Nadav Haklai <nadavh@marvell.com>, Hanna Hawa <hannah@marvell.com>,
-        Yehuda Yitschak <yehuday@marvell.com>,
-        Jason Cooper <jason@lakedaemon.net>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-        Gregory Clement <gregory.clement@free-electrons.com>,
-        linux-arm-kernel@lists.infradead.org,
-        Stefan Chulski <stefanc@marvell.com>,
-        Marcin Wojtas <mw@semihalf.com>,
-        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:56142 "EHLO
-        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757394AbcLULQo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2016 06:16:44 -0500
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+ Andrew Lunn <andrew@lunn.ch>, Yehuda Yitschak <yehuday@marvell.com>,
+ Jason Cooper <jason@lakedaemon.net>, Hanna Hawa <hannah@marvell.com>,
+ Nadav Haklai <nadavh@marvell.com>,
+ Gregory Clement <gregory.clement@free-electrons.com>,
+ Stefan Chulski <stefanc@marvell.com>, Marcin Wojtas <mw@semihalf.com>,
+ linux-arm-kernel@lists.infradead.org,
+ Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	netdev@vger.kernel.org
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 In-Reply-To: <1482318994-23488-1-git-send-email-thomas.petazzoni@free-electrons.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-This commit adds the definition of the PPv2.2 HW descriptors, adjusts
-the mvpp2_tx_desc and mvpp2_rx_desc structures accordingly, and adapts
-the accessors to work on both PPv2.1 and PPv2.2.
+The Marvell PPv2 Device Tree binding was so far only used to describe
+the PPv2.1 network controller, used in the Marvell Armada 375.
+
+A new version of this IP block, PPv2.2 is used in the Marvell Armada
+7K/8K processor. This commit extends the existing binding so that it can
+also be used to describe PPv2.2 hardware.
 
 Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 ---
- drivers/net/ethernet/marvell/mvpp2.c | 109 +++++++++++++++++++++++++++++++----
- 1 file changed, 98 insertions(+), 11 deletions(-)
+ .../devicetree/bindings/net/marvell-pp2.txt        | 66 ++++++++++++++++++----
+ 1 file changed, 55 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 1086b36..41d7bed 100644
---- a/drivers/net/ethernet/marvell/mvpp2.c
-+++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -773,18 +773,42 @@ struct mvpp21_rx_desc {
- 	u32 reserved8;
- };
+diff --git a/Documentation/devicetree/bindings/net/marvell-pp2.txt b/Documentation/devicetree/bindings/net/marvell-pp2.txt
+index aa4f423..76071f3 100644
+--- a/Documentation/devicetree/bindings/net/marvell-pp2.txt
++++ b/Documentation/devicetree/bindings/net/marvell-pp2.txt
+@@ -1,17 +1,28 @@
+-* Marvell Armada 375 Ethernet Controller (PPv2)
++* Marvell Armada 375 Ethernet Controller (PPv2.1)
++  Marvell Armada 7K/8K Ethernet Controller (PPv2.2)
  
-+/* HW TX descriptor for PPv2.2 */
-+struct mvpp22_tx_desc {
-+	u32 command;
-+	u8  packet_offset;
-+	u8  phys_txq;
-+	u16 data_size;
-+	u64 reserved1;
-+	u64 buf_phys_addr_ptp;
-+	u64 buf_cookie_misc;
-+};
+ Required properties:
+ 
+-- compatible: should be "marvell,armada-375-pp2"
++- compatible: should be one of:
++    "marvell,armada-375-pp2"
++    "marvell,armada-7k-pp2"
+ - reg: addresses and length of the register sets for the device.
+-  Must contain the following register sets:
++  For "marvell,armada-375-pp2", must contain the following register
++  sets:
+ 	- common controller registers
+ 	- LMS registers
+-  In addition, at least one port register set is required.
+-- clocks: a pointer to the reference clocks for this device, consequently:
+-	- main controller clock
+-	- GOP clock
+-- clock-names: names of used clocks, must be "pp_clk" and "gop_clk".
++	- one register area per Ethernet port
++  For "marvell,armda-7k-pp2", must contain the following register
++  sets:
++        - common controller registers
++	- per-port registers
 +
-+/* HW RX descriptor for PPv2.2 */
-+struct mvpp22_rx_desc {
-+	u32 status;
-+	u16 reserved1;
-+	u16 data_size;
-+	u32 reserved2;
-+	u32 reserved3;
-+	u64 buf_phys_addr_key_hash;
-+	u64 buf_cookie_misc;
-+};
-+
- /* Opaque type used by the driver to manipulate the HW TX and RX
-  * descriptors
-  */
- struct mvpp2_tx_desc {
- 	union {
- 		struct mvpp21_tx_desc pp21;
-+		struct mvpp22_tx_desc pp22;
++- clocks: pointers to the reference clocks for this device, consequently:
++	- main controller clock (for both armada-375-pp2 and armada-7k-pp2)
++	- GOP clock (for both armada-375-pp2 and armada-7k-pp2)
++	- MG clock (only for armada-7k-pp2)
++- clock-names: names of used clocks, must be "pp_clk", "gop_clk" and
++  "mg_clk" (the latter only for armada-7k-pp2).
+ 
+ The ethernet ports are represented by subnodes. At least one port is
+ required.
+@@ -19,8 +30,9 @@ required.
+ Required properties (port):
+ 
+ - interrupts: interrupt for the port
+-- port-id: should be '0' or '1' for ethernet ports, and '2' for the
+-           loopback port
++- port-id: ID of the port from the MAC point of view
++- gop-port-id: only for marvell,armada-7k-pp2, ID of the port from the
++  GOP (Group Of Ports) point of view
+ - phy-mode: See ethernet.txt file in the same directory
+ 
+ Optional properties (port):
+@@ -31,7 +43,7 @@ Optional properties (port):
+   then fixed link is assumed, and the 'fixed-link' property is
+   mandatory.
+ 
+-Example:
++Example for marvell,armada-375-pp2:
+ 
+ ethernet@f0000 {
+ 	compatible = "marvell,armada-375-pp2";
+@@ -59,3 +71,35 @@ ethernet@f0000 {
+ 		phy-mode = "gmii";
  	};
  };
- 
- struct mvpp2_rx_desc {
- 	union {
- 		struct mvpp21_rx_desc pp21;
-+		struct mvpp22_rx_desc pp22;
- 	};
- };
- 
-@@ -991,72 +1015,135 @@ static u32 mvpp2_read(struct mvpp2 *priv, u32 offset)
- static dma_addr_t mvpp2_txdesc_phys_addr_get(struct mvpp2_port *port,
- 					     struct mvpp2_tx_desc *tx_desc)
- {
--	return tx_desc->pp21.buf_phys_addr;
-+	if (port->priv->ip_version == MVPP21)
-+		return tx_desc->pp21.buf_phys_addr;
-+	else
-+		return tx_desc->pp22.buf_phys_addr_ptp & DMA_BIT_MASK(40);
- }
- 
- static void mvpp2_txdesc_phys_addr_set(struct mvpp2_port *port,
- 				       struct mvpp2_tx_desc *tx_desc,
- 				       dma_addr_t phys_addr)
- {
--	tx_desc->pp21.buf_phys_addr = phys_addr;
-+	if (port->priv->ip_version == MVPP21) {
-+		tx_desc->pp21.buf_phys_addr = phys_addr;
-+	} else {
-+		u64 val = (u64)phys_addr;
 +
-+		tx_desc->pp22.buf_phys_addr_ptp &= ~DMA_BIT_MASK(40);
-+		tx_desc->pp22.buf_phys_addr_ptp |= val;
-+	}
- }
- 
- static size_t mvpp2_txdesc_size_get(struct mvpp2_port *port,
- 				    struct mvpp2_tx_desc *tx_desc)
- {
--	return tx_desc->pp21.data_size;
-+	if (port->priv->ip_version == MVPP21)
-+		return tx_desc->pp21.data_size;
-+	else
-+		return tx_desc->pp22.data_size;
- }
- 
- static void mvpp2_txdesc_size_set(struct mvpp2_port *port,
- 				  struct mvpp2_tx_desc *tx_desc,
- 				  size_t size)
- {
--	tx_desc->pp21.data_size = size;
-+	if (port->priv->ip_version == MVPP21)
-+		tx_desc->pp21.data_size = size;
-+	else
-+		tx_desc->pp22.data_size = size;
- }
- 
- static void mvpp2_txdesc_txq_set(struct mvpp2_port *port,
- 				 struct mvpp2_tx_desc *tx_desc,
- 				 unsigned int txq)
- {
--	tx_desc->pp21.phys_txq = txq;
-+	if (port->priv->ip_version == MVPP21)
-+		tx_desc->pp21.phys_txq = txq;
-+	else
-+		tx_desc->pp22.phys_txq = txq;
- }
- 
- static void mvpp2_txdesc_cmd_set(struct mvpp2_port *port,
- 				 struct mvpp2_tx_desc *tx_desc,
- 				 unsigned int command)
- {
--	tx_desc->pp21.command = command;
-+	if (port->priv->ip_version == MVPP21)
-+		tx_desc->pp21.command = command;
-+	else
-+		tx_desc->pp22.command = command;
- }
- 
- static void mvpp2_txdesc_offset_set(struct mvpp2_port *port,
- 				    struct mvpp2_tx_desc *tx_desc,
- 				    unsigned int offset)
- {
--	tx_desc->pp21.packet_offset = offset;
-+	if (port->priv->ip_version == MVPP21)
-+		tx_desc->pp21.packet_offset = offset;
-+	else
-+		tx_desc->pp22.packet_offset = offset;
- }
- 
- static dma_addr_t mvpp2_rxdesc_phys_addr_get(struct mvpp2_port *port,
- 					     struct mvpp2_rx_desc *rx_desc)
- {
--	return rx_desc->pp21.buf_phys_addr;
-+	if (port->priv->ip_version == MVPP21)
-+		return rx_desc->pp21.buf_phys_addr;
-+	else
-+		return rx_desc->pp22.buf_phys_addr_key_hash & DMA_BIT_MASK(40);
- }
- 
- static unsigned long mvpp2_rxdesc_virt_addr_get(struct mvpp2_port *port,
- 						struct mvpp2_rx_desc *rx_desc)
- {
--	return rx_desc->pp21.buf_cookie;
-+	/* PPv2.1 can only be used on 32 bits architectures, and there
-+	 * are 32 bits in buf_cookie which are enough to store the
-+	 * full virtual address, so things are easy.
-+	 */
-+	if (port->priv->ip_version == MVPP21) {
-+		return rx_desc->pp21.buf_cookie;
-+	} else {
-+		/* On PPv2.2, the situation is more complicated,
-+		 * because there is only 40 bits to store the virtual
-+		 * address, which is not sufficient. So on 64 bits
-+		 * systems, we use phys_to_virt() to get the virtual
-+		 * address from the physical address, which is fine
-+		 * because the kernel linear mapping includes the
-+		 * entire 40 bits physical address space. On 32 bits
-+		 * systems however, we can't use phys_to_virt(), but
-+		 * since virtual addresses are 32 bits only, there is
-+		 * enough space in the RX descriptor for the full
-+		 * virtual address.
-+		 */
-+#ifdef CONFIG_ARCH_DMA_ADDR_T_64BIT
-+		dma_addr_t dma_addr =
-+			rx_desc->pp22.buf_phys_addr_key_hash & DMA_BIT_MASK(40);
-+		phys_addr_t phys_addr =
-+			dma_to_phys(port->dev->dev.parent, dma_addr);
++Example for marvell,armada-7k-pp2:
 +
-+		return (unsigned long)phys_to_virt(phys_addr);
-+#else
-+		return rx_desc->pp22.buf_cookie_misc & DMA_BIT_MASK(40);
-+#endif
-+	}
- }
- 
- static size_t mvpp2_rxdesc_size_get(struct mvpp2_port *port,
- 				    struct mvpp2_rx_desc *rx_desc)
- {
--	return rx_desc->pp21.data_size;
-+	if (port->priv->ip_version == MVPP21)
-+		return rx_desc->pp21.data_size;
-+	else
-+		return rx_desc->pp22.data_size;
- }
- 
- static u32 mvpp2_rxdesc_status_get(struct mvpp2_port *port,
- 				   struct mvpp2_rx_desc *rx_desc)
- {
--	return rx_desc->pp21.status;
-+	if (port->priv->ip_version == MVPP21)
-+		return rx_desc->pp21.status;
-+	else
-+		return rx_desc->pp22.status;
- }
- 
- static void mvpp2_txq_inc_get(struct mvpp2_txq_pcpu *txq_pcpu)
++cpm_ethernet: ethernet@0 {
++	compatible = "marvell,armada-7k-pp22";
++	reg = <0x0 0x100000>,
++	      <0x100000 0x80000>;
++	clocks = <&cpm_syscon0 1 3>, <&cpm_syscon0 1 9>, <&cpm_syscon0 1 5>;
++	clock-names = "pp_clk", "gop_clk", "gp_clk";
++	status = "disabled";
++
++	eth0: eth@0 {
++		interrupts = <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>;
++		port-id = <0>;
++		gop-port-id = <0>;
++		status = "disabled";
++	};
++
++	eth1: eth@1 {
++		interrupts = <GIC_SPI 38 IRQ_TYPE_LEVEL_HIGH>;
++		port-id = <1>;
++		gop-port-id = <2>;
++		status = "disabled";
++	};
++
++	eth2: eth@2 {
++		interrupts = <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>;
++		port-id = <2>;
++		gop-port-id = <3>;
++		status = "disabled";
++	};
++};
 -- 
 2.7.4
