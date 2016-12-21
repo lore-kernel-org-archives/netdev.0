@@ -1,7 +1,7 @@
 From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCH net-next 23/27] net: mvpp2: add AXI bridge initialization for PPv2.2
-Date: Wed, 21 Dec 2016 12:16:30 +0100
-Message-ID: <1482318994-23488-24-git-send-email-thomas.petazzoni@free-electrons.com>
+Subject: [PATCH net-next 24/27] net: mvpp2: rework RXQ interrupt group initialization for PPv2.2
+Date: Wed, 21 Dec 2016 12:16:31 +0100
+Message-ID: <1482318994-23488-25-git-send-email-thomas.petazzoni@free-electrons.com>
 References: <1482318994-23488-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Cc: Nadav Haklai <nadavh@marvell.com>, Hanna Hawa <hannah@marvell.com>,
         Yehuda Yitschak <yehuday@marvell.com>,
@@ -15,131 +15,91 @@ Cc: Nadav Haklai <nadavh@marvell.com>, Hanna Hawa <hannah@marvell.com>,
         Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:56109 "EHLO
+Received: from mail.free-electrons.com ([62.4.15.54]:56192 "EHLO
         mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751591AbcLULQr (ORCPT
+        with ESMTP id S1757500AbcLULQr (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2016 06:16:47 -0500
 In-Reply-To: <1482318994-23488-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The PPv2.2 unit is connected to an AXI bus on Armada 7K/8K, so this
-commit adds the necessary initialization of the AXI bridge.
+This commit adjusts how the MVPP2_ISR_RXQ_GROUP_REG register is
+configured, since it changed between PPv2.1 and PPv2.2.
 
 Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 ---
- drivers/net/ethernet/marvell/mvpp2.c | 85 ++++++++++++++++++++++++++++++++++++
- 1 file changed, 85 insertions(+)
+ drivers/net/ethernet/marvell/mvpp2.c | 45 ++++++++++++++++++++++++++++++++----
+ 1 file changed, 41 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 9b5a7c2..6c17c7d 100644
+index 6c17c7d..d061a1a 100644
 --- a/drivers/net/ethernet/marvell/mvpp2.c
 +++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -157,6 +157,34 @@
- #define MVPP2_WIN_REMAP(w)			(0x4040 + ((w) << 2))
- #define MVPP2_BASE_ADDR_ENABLE			0x4060
- 
-+/* AXI Bridge Registers */
-+#define MVPP22_AXI_BM_WR_ATTR_REG		0x4100
-+#define MVPP22_AXI_BM_RD_ATTR_REG		0x4104
-+#define MVPP22_AXI_AGGRQ_DESCR_RD_ATTR_REG	0x4110
-+#define MVPP22_AXI_TXQ_DESCR_WR_ATTR_REG	0x4114
-+#define MVPP22_AXI_TXQ_DESCR_RD_ATTR_REG	0x4118
-+#define MVPP22_AXI_RXQ_DESCR_WR_ATTR_REG	0x411c
-+#define MVPP22_AXI_RX_DATA_WR_ATTR_REG		0x4120
-+#define MVPP22_AXI_TX_DATA_RD_ATTR_REG		0x4130
-+#define MVPP22_AXI_RD_NORMAL_CODE_REG		0x4150
-+#define MVPP22_AXI_RD_SNOOP_CODE_REG		0x4154
-+#define MVPP22_AXI_WR_NORMAL_CODE_REG		0x4160
-+#define MVPP22_AXI_WR_SNOOP_CODE_REG		0x4164
-+
-+/* Values for AXI Bridge registers */
-+#define MVPP22_AXI_ATTR_CACHE_OFFS		0
-+#define MVPP22_AXI_ATTR_DOMAIN_OFFS		12
-+
-+#define MVPP22_AXI_CODE_CACHE_OFFS		0
-+#define MVPP22_AXI_CODE_DOMAIN_OFFS		4
-+
-+#define MVPP22_AXI_CODE_CACHE_NON_CACHE		0x3
-+#define MVPP22_AXI_CODE_CACHE_WR_CACHE		0x7
-+#define MVPP22_AXI_CODE_CACHE_RD_CACHE		0xb
-+
-+#define MVPP22_AXI_CODE_DOMAIN_OUTER_DOM	2
-+#define MVPP22_AXI_CODE_DOMAIN_SYSTEM		3
-+
+@@ -188,7 +188,21 @@
  /* Interrupt Cause and Mask registers */
  #define MVPP2_ISR_RX_THRESHOLD_REG(rxq)		(0x5200 + 4 * (rxq))
  #define     MVPP2_MAX_ISR_RX_THRESHOLD		0xfffff0
-@@ -6657,6 +6685,60 @@ static void mvpp2_rx_fifo_init(struct mvpp2 *priv)
- 	mvpp2_write(priv, MVPP2_RX_FIFO_INIT_REG, 0x1);
- }
+-#define MVPP2_ISR_RXQ_GROUP_REG(rxq)		(0x5400 + 4 * (rxq))
++#define MVPP21_ISR_RXQ_GROUP_REG(rxq)		(0x5400 + 4 * (rxq))
++
++#define MVPP22_ISR_RXQ_GROUP_INDEX_REG          0x5400
++#define MVPP22_ISR_RXQ_GROUP_INDEX_SUBGROUP_MASK 0xf
++#define MVPP22_ISR_RXQ_GROUP_INDEX_GROUP_MASK   0x380
++#define MVPP22_ISR_RXQ_GROUP_INDEX_GROUP_OFFSET 7
++
++#define MVPP22_ISR_RXQ_GROUP_INDEX_SUBGROUP_MASK 0xf
++#define MVPP22_ISR_RXQ_GROUP_INDEX_GROUP_MASK   0x380
++
++#define MVPP22_ISR_RXQ_SUB_GROUP_CONFIG_REG     0x5404
++#define MVPP22_ISR_RXQ_SUB_GROUP_STARTQ_MASK    0x1f
++#define MVPP22_ISR_RXQ_SUB_GROUP_SIZE_MASK      0xf00
++#define MVPP22_ISR_RXQ_SUB_GROUP_SIZE_OFFSET    8
++
+ #define MVPP2_ISR_ENABLE_REG(port)		(0x5420 + 4 * (port))
+ #define     MVPP2_ISR_ENABLE_INTERRUPT(mask)	((mask) & 0xffff)
+ #define     MVPP2_ISR_DISABLE_INTERRUPT(mask)	(((mask) << 16) & 0xffff0000)
+@@ -6407,7 +6421,18 @@ static int mvpp2_port_init(struct mvpp2_port *port)
+ 	}
  
-+static void mvpp2_axi_init(struct mvpp2 *priv)
-+{
-+	u32 val, rdval, wrval;
+ 	/* Configure Rx queue group interrupt for this port */
+-	mvpp2_write(priv, MVPP2_ISR_RXQ_GROUP_REG(port->id), rxq_number);
++	if (priv->ip_version == MVPP21)
++		mvpp2_write(priv, MVPP21_ISR_RXQ_GROUP_REG(port->id),
++			    rxq_number);
++	else {
++		u32 val;
 +
-+	mvpp2_write(priv, MVPP22_BM_ADDR_HIGH_RLS_REG, 0x0);
++		val = (port->id << MVPP22_ISR_RXQ_GROUP_INDEX_GROUP_OFFSET);
++		mvpp2_write(priv, MVPP22_ISR_RXQ_GROUP_INDEX_REG, val);
 +
-+	/* AXI Bridge Configuration */
-+
-+	rdval = MVPP22_AXI_CODE_CACHE_RD_CACHE
-+		<< MVPP22_AXI_ATTR_CACHE_OFFS;
-+	rdval |= MVPP22_AXI_CODE_DOMAIN_OUTER_DOM
-+		<< MVPP22_AXI_ATTR_DOMAIN_OFFS;
-+
-+	wrval = MVPP22_AXI_CODE_CACHE_WR_CACHE
-+		<< MVPP22_AXI_ATTR_CACHE_OFFS;
-+	wrval |= MVPP22_AXI_CODE_DOMAIN_OUTER_DOM
-+		<< MVPP22_AXI_ATTR_DOMAIN_OFFS;
-+
-+	/* BM */
-+	mvpp2_write(priv, MVPP22_AXI_BM_WR_ATTR_REG, wrval);
-+	mvpp2_write(priv, MVPP22_AXI_BM_RD_ATTR_REG, rdval);
-+
-+	/* Descriptors */
-+	mvpp2_write(priv, MVPP22_AXI_AGGRQ_DESCR_RD_ATTR_REG, rdval);
-+	mvpp2_write(priv, MVPP22_AXI_TXQ_DESCR_WR_ATTR_REG, wrval);
-+	mvpp2_write(priv, MVPP22_AXI_TXQ_DESCR_RD_ATTR_REG, rdval);
-+	mvpp2_write(priv, MVPP22_AXI_RXQ_DESCR_WR_ATTR_REG, wrval);
-+
-+	/* Buffer Data */
-+	mvpp2_write(priv, MVPP22_AXI_TX_DATA_RD_ATTR_REG, rdval);
-+	mvpp2_write(priv, MVPP22_AXI_RX_DATA_WR_ATTR_REG, wrval);
-+
-+	val = MVPP22_AXI_CODE_CACHE_NON_CACHE
-+		<< MVPP22_AXI_CODE_CACHE_OFFS;
-+	val |= MVPP22_AXI_CODE_DOMAIN_SYSTEM
-+		<< MVPP22_AXI_CODE_DOMAIN_OFFS;
-+	mvpp2_write(priv, MVPP22_AXI_RD_NORMAL_CODE_REG, val);
-+	mvpp2_write(priv, MVPP22_AXI_WR_NORMAL_CODE_REG, val);
-+
-+	val = MVPP22_AXI_CODE_CACHE_RD_CACHE
-+		<< MVPP22_AXI_CODE_CACHE_OFFS;
-+	val |= MVPP22_AXI_CODE_DOMAIN_OUTER_DOM
-+		<< MVPP22_AXI_CODE_DOMAIN_OFFS;
-+
-+	mvpp2_write(priv, MVPP22_AXI_RD_SNOOP_CODE_REG, val);
-+
-+	val = MVPP22_AXI_CODE_CACHE_WR_CACHE
-+		<< MVPP22_AXI_CODE_CACHE_OFFS;
-+	val |= MVPP22_AXI_CODE_DOMAIN_OUTER_DOM
-+		<< MVPP22_AXI_CODE_DOMAIN_OFFS;
-+
-+	mvpp2_write(priv, MVPP22_AXI_WR_SNOOP_CODE_REG, val);
-+}
-+
- /* Initialize network controller common part HW */
- static int mvpp2_init(struct platform_device *pdev, struct mvpp2 *priv)
- {
-@@ -6676,6 +6758,9 @@ static int mvpp2_init(struct platform_device *pdev, struct mvpp2 *priv)
- 	if (dram_target_info)
- 		mvpp2_conf_mbus_windows(dram_target_info, priv);
++		val = (rxq_number << MVPP22_ISR_RXQ_SUB_GROUP_SIZE_OFFSET);
++		mvpp2_write(priv, MVPP22_ISR_RXQ_SUB_GROUP_CONFIG_REG, val);
++	}
  
-+	if (priv->ip_version == MVPP22)
-+		mvpp2_axi_init(priv);
+ 	/* Create Rx descriptor rings */
+ 	for (queue = 0; queue < rxq_number; queue++) {
+@@ -6792,8 +6817,20 @@ static int mvpp2_init(struct platform_device *pdev, struct mvpp2 *priv)
+ 	mvpp2_rx_fifo_init(priv);
+ 
+ 	/* Reset Rx queue group interrupt configuration */
+-	for (i = 0; i < MVPP2_MAX_PORTS; i++)
+-		mvpp2_write(priv, MVPP2_ISR_RXQ_GROUP_REG(i), rxq_number);
++	for (i = 0; i < MVPP2_MAX_PORTS; i++) {
++		if (priv->ip_version == MVPP21)
++			mvpp2_write(priv, MVPP21_ISR_RXQ_GROUP_REG(i),
++				    rxq_number);
++		else {
++			u32 val;
 +
- 	/* Disable HW PHY polling */
- 	if (priv->ip_version == MVPP21) {
- 		val = readl(priv->lms_base + MVPP2_PHY_AN_CFG0_REG);
++			val = (i << MVPP22_ISR_RXQ_GROUP_INDEX_GROUP_OFFSET);
++			mvpp2_write(priv, MVPP22_ISR_RXQ_GROUP_INDEX_REG, val);
++
++			val = (rxq_number << MVPP22_ISR_RXQ_SUB_GROUP_SIZE_OFFSET);
++			mvpp2_write(priv, MVPP22_ISR_RXQ_SUB_GROUP_CONFIG_REG, val);
++		}
++	}
+ 
+ 	if (priv->ip_version == MVPP21)
+ 		writel(MVPP2_EXT_GLOBAL_CTRL_DEFAULT,
 -- 
 2.7.4
