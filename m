@@ -1,50 +1,38 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: HalfSipHash Acceptable Usage
-Date: Tue, 20 Dec 2016 21:29:24 -0800
-Message-ID: <1482298164.8944.8.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20161221032829.3031.qmail@ns.sciencehorizons.net>
-Reply-To: kernel-hardening@lists.openwall.com
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: ipv6: handle -EFAULT from skb_copy_bits
+Date: Tue, 20 Dec 2016 22:09:49 -0800
+Message-ID: <CAM_iQpXWCWMKDjLVTLuHNSKKGq5MWf5ZRLpyE=PDD3EgQ7PS4Q@mail.gmail.com>
+References: <20161219.144848.736886978545428136.davem@davemloft.net>
+ <20161220003144.omoqyghgdfbxdyuu@codemonkey.org.uk> <20161220004013.43pcopemc6im32az@codemonkey.org.uk>
+ <20161219.203623.119653805184192345.davem@davemloft.net> <20161220181728.dd2cynjwrceruwcu@codemonkey.org.uk>
+ <CAM_iQpUgqJEG544HqH1iwdQFL9-nV3-hMuuH_eU9OnJ--pX+jg@mail.gmail.com> <20161220221214.w3zerfiy4wu6apee@codemonkey.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: tytso@mit.edu, ak@linux.intel.com, davem@davemloft.net,
- David.Laight@aculab.com, djb@cr.yp.to, ebiggers3@gmail.com,
- hannes@stressinduktion.org, Jason@zx2c4.com,
- jeanphilippe.aumasson@gmail.com,  kernel-hardening@lists.openwall.com,
- linux-crypto@vger.kernel.org,  linux-kernel@vger.kernel.org,
- luto@amacapital.net, netdev@vger.kernel.org,  tom@herbertland.com,
- torvalds@linux-foundation.org, vegard.nossum@gmail.com
-To: George Spelvin <linux@sciencehorizons.net>
-Return-path: <kernel-hardening-return-5730-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <20161221032829.3031.qmail@ns.sciencehorizons.net>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Dave Jones <davej@codemonkey.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qt0-f174.google.com ([209.85.216.174]:35798 "EHLO
+        mail-qt0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754020AbcLUGKL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2016 01:10:11 -0500
+Received: by mail-qt0-f174.google.com with SMTP id c47so197485365qtc.2
+        for <netdev@vger.kernel.org>; Tue, 20 Dec 2016 22:10:10 -0800 (PST)
+In-Reply-To: <20161220221214.w3zerfiy4wu6apee@codemonkey.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2016-12-20 at 22:28 -0500, George Spelvin wrote:
-> > I do not see why SipHash, if faster than MD5 and more secure, would be a
-> > problem.
-> 
-> Because on 32-bit x86, it's slower.
-> 
-> Cycles per byte on 1024 bytes of data:
-> 			Pentium	Core 2	Ivy
-> 			4	Duo	Bridge
-> SipHash-2-4		38.9	 8.3	 5.8
-> HalfSipHash-2-4		12.7	 4.5	 3.2
-> MD5			 8.3	 5.7	 4.7
+On Tue, Dec 20, 2016 at 2:12 PM, Dave Jones <davej@codemonkey.org.uk> wrote:
+>         fd = socket(AF_INET6, SOCK_RAW, 7);
+>
+>         setsockopt(fd, SOL_IPV6, IPV6_CHECKSUM, &zero, 4);
+>         setsockopt(fd, SOL_IPV6, IPV6_DSTOPTS, &buf, LEN);
+>
 
-So definitely not faster.
+Interesting, you set the checksum offset to be 0, but the packet size
+is actually 49, transport header is located at offset 48, so apparently
+the packet doesn't have room for a 16bit checksum after network header.
 
-38 cycles per byte is a problem, considering IPV6 is ramping up.
-
-But TCP session establishment on P4 is probably not a big deal.
-Nobody would expect a P4 to handle gazillions of TCP flows (using a
-32bit kernel)
-
-What about SHA performance (syncookies) on P4 ?
-
-Synfloods are probably the only case we might take care of for 2000-era
-cpus.
+Your original patch seems reasonable to me, unless there is some
+check in __ip6_append_data() which is supposed to catch this, but
+CHECKSUM is specific to raw socket only.
