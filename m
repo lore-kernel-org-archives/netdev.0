@@ -1,122 +1,104 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] ipvlan: fix various issues in ipvlan_process_multicast()
-Date: Wed, 21 Dec 2016 13:30:00 -0800
-Message-ID: <1482355800.8944.75.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: ipv6: handle -EFAULT from skb_copy_bits
+Date: Wed, 21 Dec 2016 22:33:20 +0100
+Message-ID: <1482356000.2260.13.camel@stressinduktion.org>
+References: <CAM_iQpXWCWMKDjLVTLuHNSKKGq5MWf5ZRLpyE=PDD3EgQ7PS4Q@mail.gmail.com>
+         <1482323232.2260.2.camel@stressinduktion.org>
+         <1482324073.2260.4.camel@stressinduktion.org>
+         <20161221.140431.1651188849352763159.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-        Mahesh Bandewar <maheshb@google.com>
+Content-Transfer-Encoding: 8bit
+Cc: xiyou.wangcong@gmail.com, davej@codemonkey.org.uk,
+        netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:36008 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1758071AbcLUVa0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2016 16:30:26 -0500
-Received: by mail-pf0-f196.google.com with SMTP id c4so11375175pfb.3
-        for <netdev@vger.kernel.org>; Wed, 21 Dec 2016 13:30:18 -0800 (PST)
+Received: from out3-smtp.messagingengine.com ([66.111.4.27]:38218 "EHLO
+        out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1756183AbcLUVd3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2016 16:33:29 -0500
+In-Reply-To: <20161221.140431.1651188849352763159.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Wed, 2016-12-21 at 14:04 -0500, David Miller wrote:
+> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Date: Wed, 21 Dec 2016 13:41:13 +0100
+> 
+> > On Wed, 2016-12-21 at 13:27 +0100, Hannes Frederic Sowa wrote: 
+> >> @@ -555,8 +566,8 @@ static int rawv6_push_pending_frames(struct sock *sk, struct flowi6 *fl6,
+> >>                 goto out;
+> >>  
+> >>         offset = rp->offset;
+> >> -       total_len = inet_sk(sk)->cork.base.length;
+> >> -       if (offset >= total_len - 1) {
+> >> +       transport_len = raw6_corked_transport_len(sk);
+> >> +       if (offset >= transport_len - 1) {
+> >>                 err = -EINVAL;
+> >>                 ip6_flush_pending_frames(sk);
+> >>                 goto out;
+> >> @@ -598,7 +609,7 @@ static int rawv6_push_pending_frames(struct sock *sk, struct flowi6 *fl6,
+> >>                 tmp_csum = csum_sub(tmp_csum, csum_unfold(csum));
+> >>  
+> >>         csum = csum_ipv6_magic(&fl6->saddr, &fl6->daddr,
+> >> -                              total_len, fl6->flowi6_proto, tmp_csum);
+> >> +                              transport_len, fl6->flowi6_proto, tmp_csum);
+> >>  
+> >> 
+> > 
+> > Ops, here we need actually the total_len plus the opt->opt_nflen to
+> > always calculate the correct checksum.
+> 
+> It's a real shame we can't just use skb_transport_offset().  This value
+> has essentially been calculated for us already.
 
-1) netif_rx() / dev_forward_skb() should not be called from process
-context.
+This code path is called when we want to send out the socket write
+queue. Because of MSG_MORE we might have multiple skbs in there, but
+only the first one actually carries the true header, the others are
+optimized for the ipv6 fragmentation fast path, thus we need to use
+skb_transport_offset to find the correct offset but we must not
+touch/read the data area before, as it is undefined data at that point.
 
-2) ipvlan_count_rx() should be called with preemption disabled.
+Basically total_len so far accumulated all the payload length written
+to the socket from the syscall argument from the user, but
+unfortunately it also accounts for the first sendmsg's synthesized
+extension header length in the write queue. We need to reverse this
+calculation at this point in time.
 
-3) We should check if ipvlan->dev is up before feeding packets
-to netif_rx()
+So total_len is independent from the loop we do below and the length
+should always reflect the length of all skbs stored in the write queue.
 
-4) We need to prevent device from disappearing if some packets
-are in the multicast backlog.
+The loop adjusts the offset of the checksum in case the checksum offset
+points to data in one of the later skbs, but we know before if that can
+happen or not because of the cork length.
 
-5) One kfree_skb() should be a consume_skb() eventually
+> Also, if we iterate over multiple SKBs in the write queue, don't you have
+> to redo this calculation for every SKB we iterate over?
 
-Fixes: ba35f8588f47 ("ipvlan: Defer multicast / broadcast processing to a work-queue")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Mahesh Bandewar <maheshb@google.com>
----
- drivers/net/ipvlan/ipvlan_core.c |   38 +++++++++++++++++++----------
- 1 file changed, 25 insertions(+), 13 deletions(-)
+All the skb's payload length are summed up in the cork's length field,
+so we don't need to sum it up again but just can use that value as is
+minus the extension header adjustment.
 
-diff --git a/drivers/net/ipvlan/ipvlan_core.c b/drivers/net/ipvlan/ipvlan_core.c
-index b4e990743e1da0cb3a946f5473d02cce7447bd1a..ea6bc1e12cdf6827a69d8d54d96b4b59106ede96 100644
---- a/drivers/net/ipvlan/ipvlan_core.c
-+++ b/drivers/net/ipvlan/ipvlan_core.c
-@@ -207,6 +207,9 @@ void ipvlan_process_multicast(struct work_struct *work)
- 	spin_unlock_bh(&port->backlog.lock);
- 
- 	while ((skb = __skb_dequeue(&list)) != NULL) {
-+		struct net_device *dev = skb->dev;
-+		bool consumed = false;
-+
- 		ethh = eth_hdr(skb);
- 		hlocal = ether_addr_equal(ethh->h_source, port->dev->dev_addr);
- 		mac_hash = ipvlan_mac_hash(ethh->h_dest);
-@@ -219,27 +222,29 @@ void ipvlan_process_multicast(struct work_struct *work)
- 		dlocal = false;
- 		rcu_read_lock();
- 		list_for_each_entry_rcu(ipvlan, &port->ipvlans, pnode) {
--			if (hlocal && (ipvlan->dev == skb->dev)) {
-+			if (hlocal && (ipvlan->dev == dev)) {
- 				dlocal = true;
- 				continue;
- 			}
- 			if (!test_bit(mac_hash, ipvlan->mac_filters))
- 				continue;
--
-+			if (!(ipvlan->dev->flags & IFF_UP))
-+				continue;
- 			ret = NET_RX_DROP;
- 			len = skb->len + ETH_HLEN;
- 			nskb = skb_clone(skb, GFP_ATOMIC);
--			if (!nskb)
--				goto acct;
--
--			nskb->pkt_type = pkt_type;
--			nskb->dev = ipvlan->dev;
--			if (hlocal)
--				ret = dev_forward_skb(ipvlan->dev, nskb);
--			else
--				ret = netif_rx(nskb);
--acct:
-+			local_bh_disable();
-+			if (nskb) {
-+				consumed = true;
-+				nskb->pkt_type = pkt_type;
-+				nskb->dev = ipvlan->dev;
-+				if (hlocal)
-+					ret = dev_forward_skb(ipvlan->dev, nskb);
-+				else
-+					ret = netif_rx(nskb);
-+			}
- 			ipvlan_count_rx(ipvlan, len, ret == NET_RX_SUCCESS, true);
-+			local_bh_enable();
- 		}
- 		rcu_read_unlock();
- 
-@@ -249,8 +254,13 @@ void ipvlan_process_multicast(struct work_struct *work)
- 			skb->pkt_type = pkt_type;
- 			dev_queue_xmit(skb);
- 		} else {
--			kfree_skb(skb);
-+			if (consumed)
-+				consume_skb(skb);
-+			else
-+				kfree_skb(skb);
- 		}
-+		if (dev)
-+			dev_put(dev);
- 	}
- }
- 
-@@ -479,6 +489,8 @@ static void ipvlan_multicast_enqueue(struct ipvl_port *port,
- 
- 	spin_lock(&port->backlog.lock);
- 	if (skb_queue_len(&port->backlog) < IPVLAN_QBACKLOG_LIMIT) {
-+		if (skb->dev)
-+			dev_hold(skb->dev);
- 		__skb_queue_tail(&port->backlog, skb);
- 		spin_unlock(&port->backlog.lock);
- 		schedule_work(&port->wq);
+> Furthermore, what if the user queued up some SKBs in the raw socket
+> with MSG_MORE, and then changed some of the options for a subsequent
+> sendmsg() call?
+
+We only refresh the extension headers the next time we prepare an ipv6
+header, which is the first sendmsg after one without MSG_MORE. We are
+protected in this situation and don't change header lengths later
+during further MSG_MORE sendmsgs.
+
+> Given all of this, I think the best thing to do is validate the offset
+> after the queue walks, which is pretty much what Dave Jones's original
+> patch was doing.
+
+I think both approaches protect against the bug reasonably well, but
+Dave's patch has a bug: we must either call ip6_flush_pending_frames to
+clear the socket write queue with the buggy send request.
+
+> Sigh... well, at least we now understand what's going on here.
+
+Yep, the code is more than a bit complex. :/
+
+Bye,
+Hannes
