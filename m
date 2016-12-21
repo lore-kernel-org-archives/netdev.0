@@ -1,45 +1,94 @@
-From: Ozgur Karatas <okaratas@member.fsf.org>
-Subject: Re: [PATCH 2/2] net: wireless: fix to uses struct
-Date: Thu, 22 Dec 2016 01:16:16 +0200
-Message-ID: <489331482362176@web18m.yandex.ru>
-References: <608881482358981@web17g.yandex.ru>
-         <1482359625.28171.2.camel@tiscali.nl> <601101482360611@web25o.yandex.ru> <1482361572.28171.8.camel@tiscali.nl>
+From: Andy Lutomirski <luto@amacapital.net>
+Subject: Re: [PATCH v7 3/6] random: use SipHash in place of MD5
+Date: Wed, 21 Dec 2016 15:42:38 -0800
+Message-ID: <CALCETrVttVoZMvCYZcrAqM1c=YQP_nCfdfO1MsrSHjvjTFxH+A@mail.gmail.com>
+References: <20161216030328.11602-1-Jason@zx2c4.com> <20161221230216.25341-1-Jason@zx2c4.com>
+ <20161221230216.25341-4-Jason@zx2c4.com>
+Reply-To: kernel-hardening@lists.openwall.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Thomas Gleixner <tglx@linutronix.de>,
-        linux-wireless <linux-wireless@vger.kernel.org>,
-        netdev <netdev@vger.kernel.org>,
-        linux-kernel <linux-kernel@vger.kernel.org>
-To: Paul Bolle <pebolle@tiscali.nl>,
-        johannes <johannes@sipsolutions.net>,
-        David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1482361572.28171.8.camel@tiscali.nl>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>,
+	"kernel-hardening@lists.openwall.com" <kernel-hardening@lists.openwall.com>, LKML <linux-kernel@vger.kernel.org>,
+	Linux Crypto Mailing List <linux-crypto@vger.kernel.org>, David Laight <David.Laight@aculab.com>,
+	Ted Tso <tytso@mit.edu>, Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Eric Dumazet <edumazet@google.com>, Linus Torvalds <torvalds@linux-foundation.org>,
+	Eric Biggers <ebiggers3@gmail.com>, Tom Herbert <tom@herbertland.com>,
+	Andi Kleen <ak@linux.intel.com>, "David S. Miller" <davem@davemloft.net>,
+	Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>
+To: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Return-path: <kernel-hardening-return-5755-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+In-Reply-To: <20161221230216.25341-4-Jason@zx2c4.com>
 List-Id: netdev.vger.kernel.org
 
+On Wed, Dec 21, 2016 at 3:02 PM, Jason A. Donenfeld <Jason@zx2c4.com> wrote:
+>  unsigned int get_random_int(void)
+>  {
+> -       __u32 *hash;
+> -       unsigned int ret;
+> -
+> -       if (arch_get_random_int(&ret))
+> -               return ret;
+> -
+> -       hash = get_cpu_var(get_random_int_hash);
+> -
+> -       hash[0] += current->pid + jiffies + random_get_entropy();
+> -       md5_transform(hash, random_int_secret);
+> -       ret = hash[0];
+> -       put_cpu_var(get_random_int_hash);
+> -
+> -       return ret;
+> +       unsigned int arch_result;
+> +       u64 result;
+> +       struct random_int_secret *secret;
+> +
+> +       if (arch_get_random_int(&arch_result))
+> +               return arch_result;
+> +
+> +       secret = get_random_int_secret();
+> +       result = siphash_3u64(secret->chaining, jiffies,
+> +                             (u64)random_get_entropy() + current->pid,
+> +                             secret->secret);
+> +       secret->chaining += result;
+> +       put_cpu_var(secret);
+> +       return result;
+>  }
+>  EXPORT_SYMBOL(get_random_int);
 
-22.12.2016, 01:06, "Paul Bolle" <pebolle@tiscali.nl>:
-> On Thu, 2016-12-22 at 01:50 +0300, Ozgur Karatas wrote:
->>  I don't have a problem with C programming
->
-> I'm sorry, but you do need to learn C, at a basic level, first.
+Hmm.  I haven't tried to prove anything for real.  But here goes (in
+the random oracle model):
 
-Hmm, I don't like to discussion but I'm an assertive on C/C++.
-So, I'm not into the Linux kernel, I writing code with C/C++ for many years. 
-I'm having trouble using Linux tools and trying to learn git/diff/format-patch/etc. 
+Suppose I'm an attacker and I don't know the secret or the chaining
+value.  Then, regardless of what the entropy is, I can't predict the
+numbers.
 
-Also, I'm reading over 600 e-mails per day and I'm reading to Documentation (kernel). I learn :)
+Now suppose I do know the secret and the chaining value due to some
+leak.  If I want to deduce prior outputs, I think I'm stuck: I'd need
+to find a value "result" such that prev_chaining + result = chaining
+and result = H(prev_chaining, ..., secret);.  I don't think this can
+be done efficiently in the random oracle model regardless of what the
+"..." is.
 
-I don't have to problem with C, you can see my early codes and software (github).
+But, if I know the secret and chaining value, I can predict the next
+output assuming I can guess the entropy.  What's worse is that, even
+if I can't guess the entropy, if I *observe* the next output then I
+can calculate the next chaining value.
 
-I need to get a good sense of the coding style and Documentation.
+So this is probably good enough, and making it better is hard.  Changing it to:
 
-And thank you.
+u64 entropy = (u64)random_get_entropy() + current->pid;
+result = siphash(..., entropy, ...);
+secret->chaining += result + entropy;
 
-Regards
+would reduce this problem by forcing an attacker to brute-force the
+entropy on each iteration, which is probably an improvement.
 
-> Paul Bolle
+To fully fix it, something like "catastrophic reseeding" would be
+needed, but that's hard to get right.
 
-~Ozgur
+(An aside: on x86 at least, using two percpu variables is faster
+because directly percpu access is essentially free, whereas getting
+the address of a percpu variable is not free.)
