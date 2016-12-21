@@ -1,79 +1,67 @@
 From: Rik van Riel <riel@redhat.com>
 Subject: Re: [kernel-hardening] Re: HalfSipHash Acceptable Usage
-Date: Wed, 21 Dec 2016 11:39:45 -0500
-Message-ID: <1482338385.11006.67.camel@redhat.com>
-References: <20161221032829.3031.qmail@ns.sciencehorizons.net>
-         <1482298164.8944.8.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CAHmME9oCfCwAq1qP09uAN6vvakh4wXDMHunsL9D7W_LDeN_OQQ@mail.gmail.com>
-         <1482335804.8944.44.camel@edumazet-glaptop3.roam.corp.google.com>
+Date: Wed, 21 Dec 2016 11:41:28 -0500
+Message-ID: <1482338488.11006.70.camel@redhat.com>
+References: <20161221155540.29529.qmail@ns.sciencehorizons.net>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha256";
-        protocol="application/pgp-signature"; boundary="=-TH0YgLvFvu+JyaskGOo8"
-Cc: George Spelvin <linux@sciencehorizons.net>,
-        "Theodore Ts'o" <tytso@mit.edu>, Andi Kleen <ak@linux.intel.com>,
-        David Miller <davem@davemloft.net>,
-        David Laight <David.Laight@aculab.com>,
-        "Daniel J . Bernstein" <djb@cr.yp.to>,
-        Eric Biggers <ebiggers3@gmail.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>,
-        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Andy Lutomirski <luto@amacapital.net>,
-        Netdev <netdev@vger.kernel.org>,
-        Tom Herbert <tom@herbertland.com>,
-        Linus Torvalds <torvalds@linux-foundation.org>,
-        Vegard Nossum <vegard.nossum@gmail.com>
-To: kernel-hardening@lists.openwall.com,
-        "Jason A. Donenfeld" <Jason@zx2c4.com>
+        protocol="application/pgp-signature"; boundary="=-0zGKtKxh0W2ZQTwz4HDa"
+Cc: ak@linux.intel.com, davem@davemloft.net, David.Laight@aculab.com,
+        djb@cr.yp.to, ebiggers3@gmail.com, eric.dumazet@gmail.com,
+        hannes@stressinduktion.org, jeanphilippe.aumasson@gmail.com,
+        linux-crypto@vger.kernel.org, linux-kernel@vger.kernel.org,
+        luto@amacapital.net, netdev@vger.kernel.org, tom@herbertland.com,
+        torvalds@linux-foundation.org, tytso@mit.edu,
+        vegard.nossum@gmail.com
+To: kernel-hardening@lists.openwall.com, Jason@zx2c4.com,
+        linux@sciencehorizons.net
 Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <1482335804.8944.44.camel@edumazet-glaptop3.roam.corp.google.com>
+In-Reply-To: <20161221155540.29529.qmail@ns.sciencehorizons.net>
 Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---=-TH0YgLvFvu+JyaskGOo8
+--=-0zGKtKxh0W2ZQTwz4HDa
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: base64
+Content-Transfer-Encoding: quoted-printable
 
-T24gV2VkLCAyMDE2LTEyLTIxIGF0IDA3OjU2IC0wODAwLCBFcmljIER1bWF6ZXQgd3JvdGU6Cj4g
-T24gV2VkLCAyMDE2LTEyLTIxIGF0IDE1OjQyICswMTAwLCBKYXNvbiBBLiBEb25lbmZlbGQgd3Jv
-dGU6Cj4gR2VvcmdlIHNhaWQgOgo+IAo+ID4gQ3ljbGVzIHBlciBieXRlIG9uIDEwMjQgYnl0ZXMg
-b2YgZGF0YToKPiA+IMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
-UGVudGl1bSBDb3JlIDLCoMKgSXZ5Cj4gPiDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
-oMKgwqDCoMKgwqDCoDTCoMKgwqDCoMKgwqDCoER1b8KgwqDCoMKgwqBCcmlkZ2UKPiA+IFNpcEhh
-c2gtMi00wqDCoMKgwqDCoMKgwqDCoMKgwqDCoDM4LjnCoMKgwqDCoMKgOC4zwqDCoMKgwqDCoDUu
-OAo+ID4gSGFsZlNpcEhhc2gtMi00wqDCoMKgwqDCoMKgwqAxMi43wqDCoMKgwqDCoDQuNcKgwqDC
-oMKgwqAzLjIKPiA+IE1ENcKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqA4
-LjPCoMKgwqDCoMKgNS43wqDCoMKgwqDCoDQuNwo+IAo+IAo+IFRoYXQgcmVhbGx5IHdhcyBmb3Ig
-MTAyNCBieXRlcyBibG9ja3MsIHNvIHByZXR0eSBtdWNoIHVzZWxlc3MgZm9yIG91cgo+IGRpc2N1
-c3Npb24gPwo+IAo+IFJlYWRpbmcgeW91ciBudW1iZXJzIGxhc3Qgd2VlaywgSSB0aG91Z2h0IFNp
-cEhhc2ggd2FzIGZhc3RlciwgYnV0Cj4gR2VvcmdlCj4gbnVtYmVycyBhcmUgZ2l2aW5nIHRoZSBv
-cHBvc2l0ZSBpbXByZXNzaW9uLgo+IAo+IEkgZG8gbm90IGhhdmUgYSBQNCB0byBtYWtlIHRlc3Rz
-LCBzbyBJIG9ubHkgY2FuIHRydXN0IHlvdSBvciBHZW9yZ2UuCgpEb2VzIGFueWJvZHkgc3RpbGwg
-aGF2ZSBhIFA0PwoKSWYgdGhleSBkbywgdGhleSdyZSBwcm9iYWJseSBiZXR0ZXIgb2ZmIHJlcGxh
-Y2luZwppdCB3aXRoIGFuIEF0b20uIFRoZSByZWR1Y2VkIHBvd2VyIGJpbGxzIHdpbGwgcGF5CmZv
-ciByZXBsYWNpbmcgdGhhdCBQNCB3aXRoaW4gYSB5ZWFyIG9yIHR3by4KCkluIHNob3J0LCBJIGFt
-IG5vdCBzdXJlIGhvdyBpbXBvcnRhbnQgdGhlIFA0CnBlcmZvcm1hbmNlIG51bWJlcnMgYXJlLCBl
-c3BlY2lhbGx5IGlmIHdlIGNhbgppbXByb3ZlIHNlY3VyaXR5IGZvciBldmVyeWJvZHkgZWxzZS4u
-LgoKLS0gCkFsbCBSaWdodHMgUmV2ZXJzZWQu
+On Wed, 2016-12-21 at 10:55 -0500, George Spelvin wrote:
+> Actually, DJB just made a very relevant suggestion.
+>=20
+> As I've mentioned, the 32-bit performance problems are an x86-
+> specific
+> problem.=C2=A0=C2=A0ARM does very well, and other processors aren't bad a=
+t all.
+>=20
+> SipHash fits very nicely (and runs very fast) in the MMX registers.
+>=20
+> They're 64 bits, and there are 8 of them, so the integer registers
+> can
+> be reserved for pointers and loop counters and all that.=C2=A0=C2=A0And t=
+here's
+> reference code available.
+>=20
+> How much does kernel_fpu_begin()/kernel_fpu_end() cost?
 
+Those can be very expensive. Almost certainly not
+worth it for small amounts of data.
 
---=-TH0YgLvFvu+JyaskGOo8
+--=20
+All Rights Reversed.
+--=-0zGKtKxh0W2ZQTwz4HDa
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v2
 
-iQEcBAABCAAGBQJYWrBSAAoJEM553pKExN6DwdUIALPUu/DRnMjW+u0FQ2tJ+ASU
-1W3Go6JyAhcXhPpQOv1EV61btwsg18ZQM0YlxBm6CCgiygCW2ComVYnRvOdEq+Ee
-zeEAuTGLaF5qHIW1g1ZFDasn1M6zR4z2/HKNKTLIqte6Hn7AMpP+4DR8OxZ3DeiG
-LCD0UWCQJAdmFCvU+q89RHKLq/jRoI0KiNo3xyfH4saBcDWJBM4HPJkY85z+SXkJ
-v+xsEmRfrjbTxGEGHrCmqvaO4aGRNvegCbn1yrsCN9ditCW5GL9VSBevj10AvMPA
-1eOJsXAsM1SZiPojkNR/JHfcgY5DjHw8kn81xPGGZRG9ltc7PPblq1V/Ej3iB7U=
-=hCNR
+iQEcBAABCAAGBQJYWrC4AAoJEM553pKExN6DtjoH+gORlWNB2YRtjw6x57PfVui5
+yiPwJ3TxC1y8tbLl+g7Jh7ogmtq3HDO2rss+8yYxdMtYDc2NsDhwG29+sZ+i7Jnh
+jWmgNgufUZ0mC/GI2jkCKL19r4lelXQCLb7RIf1JfVBA6ba65CZ6L7+1FFb4okPy
+QxcyBh4hHuA/VDF5ypiC9gXY5RgJFjLr/LkeUpyogXJ9Kl+8kzMQ80UXoPi3W/go
+8JB7NgXHHTA3Dxo/pjcy0Y//DfBJVRol+p1AE34s8JIQD1hioLR5/YvA4MPn7RLh
+gjGlehVNsqEOirnoDY8LyAPMOy13Su0PAGyHeYVUSIk4fyRs2+hw3JN2t3QtVf0=
+=R3Y6
 -----END PGP SIGNATURE-----
 
---=-TH0YgLvFvu+JyaskGOo8--
+--=-0zGKtKxh0W2ZQTwz4HDa--
