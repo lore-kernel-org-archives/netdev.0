@@ -1,67 +1,122 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net] net, sched: fix soft lockup in tc_classify
-Date: Wed, 21 Dec 2016 22:07:48 +0100
-Message-ID: <585AEF24.4070800@iogearbox.net>
-References: <1954223e8b7aa90ff835357e8a3ef7537be33e43.1482337600.git.daniel@iogearbox.net> <CAM_iQpXadrGWJYqizEkq+xmMKVV9krrcCWKur=ZCRZBS9Mx_8w@mail.gmail.com> <CAM_iQpX3Sk_YGDmvY-yj0CxPbG5qfT7P7ioNgY5Lb_DqsTWh6Q@mail.gmail.com> <585ADFEB.3030206@iogearbox.net> <CAM_iQpUEUmJpjQYV7HV+4NVtGe6D-yZs6=YizcDtf7dogkNR0Q@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] ipvlan: fix various issues in ipvlan_process_multicast()
+Date: Wed, 21 Dec 2016 13:30:00 -0800
+Message-ID: <1482355800.8944.75.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        Shahar Klein <shahark@mellanox.com>,
-        Or Gerlitz <gerlitz.or@gmail.com>,
-        Roi Dayan <roid@mellanox.com>, Jiri Pirko <jiri@mellanox.com>,
-        John Fastabend <john.fastabend@gmail.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Cc: netdev <netdev@vger.kernel.org>,
+        Mahesh Bandewar <maheshb@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:34574 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752035AbcLUVHy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2016 16:07:54 -0500
-In-Reply-To: <CAM_iQpUEUmJpjQYV7HV+4NVtGe6D-yZs6=YizcDtf7dogkNR0Q@mail.gmail.com>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:36008 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758071AbcLUVa0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2016 16:30:26 -0500
+Received: by mail-pf0-f196.google.com with SMTP id c4so11375175pfb.3
+        for <netdev@vger.kernel.org>; Wed, 21 Dec 2016 13:30:18 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/21/2016 09:47 PM, Cong Wang wrote:
-> On Wed, Dec 21, 2016 at 12:02 PM, Daniel Borkmann <daniel@iogearbox.net> wrote:
->> On 12/21/2016 08:10 PM, Cong Wang wrote:
->>> On Wed, Dec 21, 2016 at 10:51 AM, Cong Wang <xiyou.wangcong@gmail.com>
->>> wrote:
->>>> On Wed, Dec 21, 2016 at 9:04 AM, Daniel Borkmann <daniel@iogearbox.net>
->>>> wrote:
->>>>>
->>>>> What happens is that in tc_ctl_tfilter(), thread A allocates a new
->>>>> tp, initializes it, sets tp_created to 1, and calls into
->>>>> tp->ops->change()
->>>>> with it. In that classifier callback we had to unlock/lock the rtnl
->>>>> mutex and returned with -EAGAIN. One reason why we need to drop there
->>>>> is, for example, that we need to request an action module to be loaded.
->>>>
->>>> Excellent catch!
->>>>
->>>> But why do we have to replay the request here? Shouldn't we just return
->>>> EAGAIN to user-space and let user-space decide to retry or not?
->>>> Replaying is the root of the evil here.
->>>
->>> Answer myself: probably due to historical reasons, but still replaying
->>> inside such a big function is just error-prone, we should promote it
->>> out:
->>
->> Have no strong opinion, I guess it could be done as a simplification
->> for net-next, why not, along with moving out the netlink_ns_capable()
->> check or possibly other things after careful analysis that don't need
->> to be redone in that circumstance.
->
-> It is only slightly bigger than your current one so could fit for -stable too.
-> Also, it could fix all potential problems like this one. Let compiler do the
-> work, not human. ;)
+From: Eric Dumazet <edumazet@google.com>
 
-Ok, you mean for net. In that case I prefer the smaller sized fix to be
-honest. It also covers everything from the point where we fetch the chain
-via cops->tcf_chain() to the end of the function, which is where most of
-the complexity resides, and only the two mentioned commits do the relock,
-so as a fix I think it's fine as-is. As mentioned, if there's need to
-refactor tc_ctl_tfilter() net-next would be better, imho.
+1) netif_rx() / dev_forward_skb() should not be called from process
+context.
 
-Thanks,
-Daniel
+2) ipvlan_count_rx() should be called with preemption disabled.
+
+3) We should check if ipvlan->dev is up before feeding packets
+to netif_rx()
+
+4) We need to prevent device from disappearing if some packets
+are in the multicast backlog.
+
+5) One kfree_skb() should be a consume_skb() eventually
+
+Fixes: ba35f8588f47 ("ipvlan: Defer multicast / broadcast processing to a work-queue")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Mahesh Bandewar <maheshb@google.com>
+---
+ drivers/net/ipvlan/ipvlan_core.c |   38 +++++++++++++++++++----------
+ 1 file changed, 25 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/net/ipvlan/ipvlan_core.c b/drivers/net/ipvlan/ipvlan_core.c
+index b4e990743e1da0cb3a946f5473d02cce7447bd1a..ea6bc1e12cdf6827a69d8d54d96b4b59106ede96 100644
+--- a/drivers/net/ipvlan/ipvlan_core.c
++++ b/drivers/net/ipvlan/ipvlan_core.c
+@@ -207,6 +207,9 @@ void ipvlan_process_multicast(struct work_struct *work)
+ 	spin_unlock_bh(&port->backlog.lock);
+ 
+ 	while ((skb = __skb_dequeue(&list)) != NULL) {
++		struct net_device *dev = skb->dev;
++		bool consumed = false;
++
+ 		ethh = eth_hdr(skb);
+ 		hlocal = ether_addr_equal(ethh->h_source, port->dev->dev_addr);
+ 		mac_hash = ipvlan_mac_hash(ethh->h_dest);
+@@ -219,27 +222,29 @@ void ipvlan_process_multicast(struct work_struct *work)
+ 		dlocal = false;
+ 		rcu_read_lock();
+ 		list_for_each_entry_rcu(ipvlan, &port->ipvlans, pnode) {
+-			if (hlocal && (ipvlan->dev == skb->dev)) {
++			if (hlocal && (ipvlan->dev == dev)) {
+ 				dlocal = true;
+ 				continue;
+ 			}
+ 			if (!test_bit(mac_hash, ipvlan->mac_filters))
+ 				continue;
+-
++			if (!(ipvlan->dev->flags & IFF_UP))
++				continue;
+ 			ret = NET_RX_DROP;
+ 			len = skb->len + ETH_HLEN;
+ 			nskb = skb_clone(skb, GFP_ATOMIC);
+-			if (!nskb)
+-				goto acct;
+-
+-			nskb->pkt_type = pkt_type;
+-			nskb->dev = ipvlan->dev;
+-			if (hlocal)
+-				ret = dev_forward_skb(ipvlan->dev, nskb);
+-			else
+-				ret = netif_rx(nskb);
+-acct:
++			local_bh_disable();
++			if (nskb) {
++				consumed = true;
++				nskb->pkt_type = pkt_type;
++				nskb->dev = ipvlan->dev;
++				if (hlocal)
++					ret = dev_forward_skb(ipvlan->dev, nskb);
++				else
++					ret = netif_rx(nskb);
++			}
+ 			ipvlan_count_rx(ipvlan, len, ret == NET_RX_SUCCESS, true);
++			local_bh_enable();
+ 		}
+ 		rcu_read_unlock();
+ 
+@@ -249,8 +254,13 @@ void ipvlan_process_multicast(struct work_struct *work)
+ 			skb->pkt_type = pkt_type;
+ 			dev_queue_xmit(skb);
+ 		} else {
+-			kfree_skb(skb);
++			if (consumed)
++				consume_skb(skb);
++			else
++				kfree_skb(skb);
+ 		}
++		if (dev)
++			dev_put(dev);
+ 	}
+ }
+ 
+@@ -479,6 +489,8 @@ static void ipvlan_multicast_enqueue(struct ipvl_port *port,
+ 
+ 	spin_lock(&port->backlog.lock);
+ 	if (skb_queue_len(&port->backlog) < IPVLAN_QBACKLOG_LIMIT) {
++		if (skb->dev)
++			dev_hold(skb->dev);
+ 		__skb_queue_tail(&port->backlog, skb);
+ 		spin_unlock(&port->backlog.lock);
+ 		schedule_work(&port->wq);
