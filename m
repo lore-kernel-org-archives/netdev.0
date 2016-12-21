@@ -1,142 +1,74 @@
-From: Weilong Chen <chenweilong@huawei.com>
-Subject: Re: [PATCH net-next] ixgbevf: fix 'Etherleak' in ixgbevf
-Date: Wed, 21 Dec 2016 09:40:14 +0800
-Message-ID: <ee9ad90d-1c4b-7358-a172-8369a0c7da8b@huawei.com>
-References: <1481802034-77729-1-git-send-email-chenweilong@huawei.com>
- <CAKgT0UfA9VG4NQZLLxXvobtfp22yPpPssSM4Ge94KFa1RVnhyg@mail.gmail.com>
- <5c942aba-f7fb-ede6-b6a2-e591025f53a5@huawei.com>
- <CAKgT0Uf_HXtJiZJsEYm9L19cZ+deVX=E+Y8JvU5+u0=bggpAqw@mail.gmail.com>
+From: Mark Greer <mgreer-luAo+O/VEmrlveNOaEYElw@public.gmane.org>
+Subject: Re: [PATCH 2/3] NFC: trf7970a: Add device tree option of 1.8 Volt IO
+ voltage
+Date: Tue, 20 Dec 2016 19:07:17 -0700
+Message-ID: <20161221020717.GA5444@animalcreek.com>
+References: <1481841044-4314-1-git-send-email-glansberry@gmail.com>
+ <1481841044-4314-2-git-send-email-glansberry@gmail.com>
+ <20161219223504.ttwayzpfvdumgouu@rob-hp-laptop>
+ <CAO7Z3WLC7J+JzmtArOc-ZUNoLGeMX6s=1XQbzwB1zx1U3yTX2Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-        Netdev <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        <wangkefeng.wang@huawei.com>
-To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAKgT0Uf_HXtJiZJsEYm9L19cZ+deVX=E+Y8JvU5+u0=bggpAqw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Lauro Ramos Venancio <lauro.venancio-430g2QfJUUCGglJvpFV4uA@public.gmane.org>,
+        Aloisio Almeida Jr <aloisio.almeida-430g2QfJUUCGglJvpFV4uA@public.gmane.org>,
+        Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Justin Bronder <justin-R+k406RtEhcAvxtiuMwx3w@public.gmane.org>
+To: Geoff Lansberry <geoff-R+k406RtEhcAvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CAO7Z3WLC7J+JzmtArOc-ZUNoLGeMX6s=1XQbzwB1zx1U3yTX2Q-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Thanks for you explanation, it's very professional.
+On Tue, Dec 20, 2016 at 11:13:23AM -0500, Geoff Lansberry wrote:
+> On Mon, Dec 19, 2016 at 5:35 PM, Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org> wrote:
+> > On Thu, Dec 15, 2016 at 05:30:43PM -0500, Geoff Lansberry wrote:
+> >> From: Geoff Lansberry <geoff-R+k406RtEhcAvxtiuMwx3w@public.gmane.org>
+> >>
+> >> ---
+> >>  Documentation/devicetree/bindings/net/nfc/trf7970a.txt |  2 ++
+> >>  drivers/nfc/trf7970a.c                                 | 13 ++++++++++++-
+> >>  2 files changed, 14 insertions(+), 1 deletion(-)
+> >>
+> >> diff --git a/Documentation/devicetree/bindings/net/nfc/trf7970a.txt b/Documentation/devicetree/bindings/net/nfc/trf7970a.txt
+> >> index 9dda879..208f045 100644
+> >> --- a/Documentation/devicetree/bindings/net/nfc/trf7970a.txt
+> >> +++ b/Documentation/devicetree/bindings/net/nfc/trf7970a.txt
+> >> @@ -21,6 +21,7 @@ Optional SoC Specific Properties:
+> >>  - t5t-rmb-extra-byte-quirk: Specify that the trf7970a has the erratum
+> >>    where an extra byte is returned by Read Multiple Block commands issued
+> >>    to Type 5 tags.
+> >> +- vdd_io_1v8: Set to specify that the trf7970a io voltage should be set to 1.8V
+> >
+> > Use the regulator binding and provide a fixed 1.8V supply.
+> >
+> >>  - crystal_27mhz: Set to specify that the input frequency to the trf7970a is 27.12MHz
+> >>
+> >>
+> >> @@ -45,6 +46,7 @@ Example (for ARM-based BeagleBone with TRF7970A on SPI1):
+> >>               irq-status-read-quirk;
+> >>               en2-rf-quirk;
+> >>               t5t-rmb-extra-byte-quirk;
+> >> +             vdd_io_1v8;
+> >>               crystal_27mhz;
+> >>               status = "okay";
+> >>       };
+> 
+> Rob - using the regulator binding is new to me, but I've given it a
+> shot and just sent you another set of patches for your inspection.
+> Please let me know if this is what you had in mind.
 
-My test is like this:
-The Nessus is deployed on a windows server, the peer is a X86_64 linux 
-host which run several VMs on it. The nic is Intel 82599 and SRIOV is 
-enabled. VFs are passthroughed to the VMs. No DPDK.
+This is my bad.  Geoff followed my example and did something similar to
+'vin-voltage-override' which shouldn't have been there in the first place.
+I have this fixed (I think) locally and will submit once it I'm back from
+my holiday travels.
 
-The Nessus server send small ICMP echo request packets to the VM, and
-then check the reply, and report the error:
-
-"11197 - Multiple Ethernet Driver Frame Padding Information Disclosure 
-(Etherleak)"
-
-"Padding observed in one frame :
-
-0x00: 00 00 00 00 00 00 00 00 00 00 00 00 00 57 37 28 .............W7(
-0x10: 76 v
-
-Padding observed in another frame :
-
-0x00: 00 00 00 00 00 00 00 00 00 00 00 00 00 D3 4D 75 ..............Mu
-0x10: 28 ("
-
-I only have Nessus's windows version, so can't test on linux. Maybe the 
-windows server does not pad small packets to 60 bytes on the receive path.
-
-On 2016/12/21 0:36, Alexander Duyck wrote:
-> The limit of 17 is just based on the hardware.  Specifically the
-> olinfo field in the Tx descriptor has a minimum length of 17 has a
-> requirement.  The hardware itself is supposed to be capable of padding
-> short frames that are supposed to be transmitted.  The drivers are
-> supposed to pad short frames on receive to get them up to 60 bytes.
->
-> When you are seeing this issue are you sending frames from the VF to
-> one of the local interfaces on the same port or to an external
-> interface?  Also are you receiving on another linux ixgbevf driver or
-> are you receiving the packet using a different driver interface such
-> as DPDK?  I'm just wanting to verify this as it is possible that the
-> memory leak you are seeing is on the receiver and not on the source if
-> you are transmitting to a local VF or the PF as the receiver will have
-> to pad the frame in such a case to get it up to 60 bytes.
->
-> - Alex
->
-> On Tue, Dec 20, 2016 at 3:50 AM, Weilong Chen <chenweilong@huawei.com> wrote:
->> Hi,
->>
->> Thanks for you reply.
->> We test you patch, but the problem is still there, it seems do not work.
->>
->> I'm not sure why ixgbe use the limit 17. The kenel use ETH_ZLEN (60) with
->> out FCS. A lot of drivers such as e1000 use it. Any explaination?
->>
->> Thanks.
->>
->>
->> On 2016/12/16 0:13, Alexander Duyck wrote:
->>>
->>> On Thu, Dec 15, 2016 at 3:40 AM, Weilong Chen <chenweilong@huawei.com>
->>> wrote:
->>>>
->>>> Nessus report the vf appears to leak memory in network packets.
->>>> Fix this by padding all small packets manually.
->>>>
->>>> And the CVE-2003-0001.
->>>>
->>>> https://ofirarkin.files.wordpress.com/2008/11/atstake_etherleak_report.pdf
->>>>
->>>> Signed-off-by: Weilong Chen <chenweilong@huawei.com>
->>>> ---
->>>>  drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 7 +++++++
->>>>  1 file changed, 7 insertions(+)
->>>>
->>>> diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
->>>> b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
->>>> index 6d4bef5..137a154 100644
->>>> --- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
->>>> +++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
->>>> @@ -3654,6 +3654,13 @@ static int ixgbevf_xmit_frame(struct sk_buff *skb,
->>>> struct net_device *netdev)
->>>>                 return NETDEV_TX_OK;
->>>>         }
->>>>
->>>> +       /* On PCI/PCI-X HW, if packet size is less than ETH_ZLEN,
->>>> +        * packets may get corrupted during padding by HW.
->>>> +        * To WA this issue, pad all small packets manually.
->>>> +        */
->>>> +       if (eth_skb_pad(skb))
->>>> +               return NETDEV_TX_OK;
->>>> +
->>>
->>>
->>> So the patch description for this probably isn't correct.  It looks
->>> like the problem isn't leaking data it is the fact that the frames
->>> aren't being padded to prevent malicious events.  The only issue is
->>> the patch is padding by a bit too much.  I would recommend replacing
->>> this with the following from ixgbe:
->>>
->>>         /*
->>>          * The minimum packet size for olinfo paylen is 17 so pad the skb
->>>          * in order to meet this minimum size requirement.
->>>          */
->>>         if (skb_put_padto(skb, 17))
->>>                 return NETDEV_TX_OK;
->>>
->>>
->>>>         tx_ring = adapter->tx_ring[skb->queue_mapping];
->>>>
->>>>         /* need: 1 descriptor per page *
->>>> PAGE_SIZE/IXGBE_MAX_DATA_PER_TXD,
->>>> --
->>>> 1.7.12
->>>>
->>>
->>> .
->>>
->>
->
-> .
->
+Mark
+--
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
