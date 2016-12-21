@@ -1,7 +1,7 @@
 From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCH net-next 03/27] net: mvpp2: handle too large value in mvpp2_rx_time_coal_set()
-Date: Wed, 21 Dec 2016 12:16:10 +0100
-Message-ID: <1482318994-23488-4-git-send-email-thomas.petazzoni@free-electrons.com>
+Subject: [PATCH net-next 08/27] net: mvpp2: remove unused register definitions
+Date: Wed, 21 Dec 2016 12:16:15 +0100
+Message-ID: <1482318994-23488-9-git-send-email-thomas.petazzoni@free-electrons.com>
 References: <1482318994-23488-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Cc: Nadav Haklai <nadavh@marvell.com>, Hanna Hawa <hannah@marvell.com>,
         Yehuda Yitschak <yehuday@marvell.com>,
@@ -15,50 +15,33 @@ Cc: Nadav Haklai <nadavh@marvell.com>, Hanna Hawa <hannah@marvell.com>,
         Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:56077 "EHLO
+Received: from mail.free-electrons.com ([62.4.15.54]:56114 "EHLO
         mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751591AbcLULQk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2016 06:16:40 -0500
+        with ESMTP id S1755154AbcLULQm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2016 06:16:42 -0500
 In-Reply-To: <1482318994-23488-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When configuring the MVPP2_ISR_RX_THRESHOLD_REG with the RX coalescing
-time threshold, we do not check for the maximum allowed value supported
-by the driver, which means we might overflow and use a bogus value. This
-commit adds a check for this situation, and if a value higher than what
-is supported by the hardware is provided, then we use the maximum value
-supported by the hardware.
-
 Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 ---
- drivers/net/ethernet/marvell/mvpp2.c | 7 +++++++
- 1 file changed, 7 insertions(+)
+ drivers/net/ethernet/marvell/mvpp2.c | 4 ----
+ 1 file changed, 4 deletions(-)
 
 diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 4c9e3ea..12edefe 100644
+index 98edcb6..e11eb6f 100644
 --- a/drivers/net/ethernet/marvell/mvpp2.c
 +++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -154,6 +154,7 @@
+@@ -253,10 +253,6 @@
+ #define MVPP2_SRC_ADDR_HIGH			0x28
+ #define MVPP2_PHY_AN_CFG0_REG			0x34
+ #define     MVPP2_PHY_AN_STOP_SMI0_MASK		BIT(7)
+-#define MVPP2_MIB_COUNTERS_BASE(port)		(0x1000 + ((port) >> 1) * \
+-						0x400 + (port) * 0x400)
+-#define     MVPP2_MIB_LATE_COLLISION		0x7c
+-#define MVPP2_ISR_SUM_MASK_REG			0x220c
+ #define MVPP2_MNG_EXTENDED_GLOBAL_CTRL_REG	0x305c
+ #define MVPP2_EXT_GLOBAL_CTRL_DEFAULT		0x27
  
- /* Interrupt Cause and Mask registers */
- #define MVPP2_ISR_RX_THRESHOLD_REG(rxq)		(0x5200 + 4 * (rxq))
-+#define     MVPP2_MAX_ISR_RX_THRESHOLD		0xfffff0
- #define MVPP2_ISR_RXQ_GROUP_REG(rxq)		(0x5400 + 4 * (rxq))
- #define MVPP2_ISR_ENABLE_REG(port)		(0x5420 + 4 * (port))
- #define     MVPP2_ISR_ENABLE_INTERRUPT(mask)	((mask) & 0xffff)
-@@ -4397,6 +4398,12 @@ static void mvpp2_rx_time_coal_set(struct mvpp2_port *port,
- 	u32 val;
- 
- 	val = (port->priv->tclk / USEC_PER_SEC) * usec;
-+
-+	if (val > MVPP2_MAX_ISR_RX_THRESHOLD) {
-+		val = MVPP2_MAX_ISR_RX_THRESHOLD;
-+		usec = (val * USEC_PER_SEC) / port->priv->tclk;
-+	}
-+
- 	mvpp2_write(port->priv, MVPP2_ISR_RX_THRESHOLD_REG(rxq->id), val);
- 
- 	rxq->time_coal = usec;
 -- 
 2.7.4
