@@ -1,74 +1,50 @@
-From: Josef Bacik <jbacik@fb.com>
-Subject: Re: [PATCH 2/5 net-next] inet: kill smallest_size and smallest_port
-Date: Wed, 21 Dec 2016 14:32:33 -0500
-Message-ID: <1482348753.24490.14@smtp.office365.com>
-References: <1482264424-15439-1-git-send-email-jbacik@fb.com>
-        <1482264424-15439-3-git-send-email-jbacik@fb.com>
-        <20161221.133003.1401543777326711002.davem@davemloft.net>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net] net, sched: fix soft lockup in tc_classify
+Date: Wed, 21 Dec 2016 21:02:51 +0100
+Message-ID: <585ADFEB.3030206@iogearbox.net>
+References: <1954223e8b7aa90ff835357e8a3ef7537be33e43.1482337600.git.daniel@iogearbox.net> <CAM_iQpXadrGWJYqizEkq+xmMKVV9krrcCWKur=ZCRZBS9Mx_8w@mail.gmail.com> <CAM_iQpX3Sk_YGDmvY-yj0CxPbG5qfT7P7ioNgY5Lb_DqsTWh6Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Cc: <hannes@stressinduktion.org>, <kraigatgoog@gmail.com>,
-        <eric.dumazet@gmail.com>, <tom@herbertland.com>,
-        <netdev@vger.kernel.org>, <kernel-team@fb.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+        Shahar Klein <shahark@mellanox.com>,
+        Or Gerlitz <gerlitz.or@gmail.com>,
+        Roi Dayan <roid@mellanox.com>, Jiri Pirko <jiri@mellanox.com>,
+        John Fastabend <john.fastabend@gmail.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:50971 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751316AbcLUTcu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2016 14:32:50 -0500
-In-Reply-To: <20161221.133003.1401543777326711002.davem@davemloft.net>
+Received: from www62.your-server.de ([213.133.104.62]:56985 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750864AbcLUUC5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2016 15:02:57 -0500
+In-Reply-To: <CAM_iQpX3Sk_YGDmvY-yj0CxPbG5qfT7P7ioNgY5Lb_DqsTWh6Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 21, 2016 at 1:30 PM, David Miller <davem@davemloft.net> 
-wrote:
-> From: Josef Bacik <jbacik@fb.com>
-> Date: Tue, 20 Dec 2016 15:07:01 -0500
-> 
->>  In inet_csk_get_port we seem to be using smallest_port to figure 
->> out where the
->>  best place to look for a SO_REUSEPORT sk that matches with an 
->> existing set of
->>  SO_REUSEPORT's.  However if we get to the logic
->> 
->>  if (smallest_size != -1) {
->>  	port = smallest_port;
->>  	goto have_port;
->>  }
->> 
->>  we will do a useless search, because we would have already done the
->>  inet_csk_bind_conflict for that port and it would have returned 1, 
->> otherwise we
->>  would have gone to found_tb and succeeded.  Since this logic makes 
->> us do yet
->>  another trip through inet_csk_bind_conflict for a port we know 
->> won't work just
->>  delete this code and save us the time.
->> 
->>  Signed-off-by: Josef Bacik <jbacik@fb.com>
-> 
-> So the "all else being equal, use 'tb' with smallest socket count" 
-> logic
-> wasn't being used at all?
-> 
-> Instead of removing it why don't we make it work properly again?  
-> Something
-> obviously broke it somewhere along the line, because I am pretty sure 
-> this
-> heuristic worked at some point in the past.
+On 12/21/2016 08:10 PM, Cong Wang wrote:
+> On Wed, Dec 21, 2016 at 10:51 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+>> On Wed, Dec 21, 2016 at 9:04 AM, Daniel Borkmann <daniel@iogearbox.net> wrote:
+>>> What happens is that in tc_ctl_tfilter(), thread A allocates a new
+>>> tp, initializes it, sets tp_created to 1, and calls into tp->ops->change()
+>>> with it. In that classifier callback we had to unlock/lock the rtnl
+>>> mutex and returned with -EAGAIN. One reason why we need to drop there
+>>> is, for example, that we need to request an action module to be loaded.
+>>
+>> Excellent catch!
+>>
+>> But why do we have to replay the request here? Shouldn't we just return
+>> EAGAIN to user-space and let user-space decide to retry or not?
+>> Replaying is the root of the evil here.
+>
+> Answer myself: probably due to historical reasons, but still replaying
+> inside such a big function is just error-prone, we should promote it
+> out:
 
-Yeah as soon as we would find a tb with no bind conflicts we'd 
-immediately jump to found_tb: and subsequently exit, so if we did 
-manage to get to the point of checking smallest_size it would be 
-redundant as we would have had to hit a bind conflict for that port to 
-even reach that code.
+Have no strong opinion, I guess it could be done as a simplification
+for net-next, why not, along with moving out the netlink_ns_capable()
+check or possibly other things after careful analysis that don't need
+to be redone in that circumstance.
 
-How do you want me to add it back?  The logic only kicked in if we were 
-SO_REUSEPORT with snum == 0, but Tom tells me that is basically 
-useless, so we've disallowed that behavior.  Should we call a 
-bind_conflict() for every port and then go back and pick the one with 
-the smallest tb?  That's a lot of scanning.  Can you tell me what 
-behavior you desire and I'll add another patch to reintroduce it?  
 Thanks,
-
-Josef
+Daniel
