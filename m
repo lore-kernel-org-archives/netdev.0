@@ -1,53 +1,122 @@
-From: Colin Ian King <colin.king@canonical.com>
-Subject: Re: [PATCH][V2] qed: fix memory leak of a qed_spq_entry on error
- failure paths
-Date: Wed, 21 Dec 2016 14:28:01 +0000
-Message-ID: <2f9e0ee7-4c59-1b4b-ebeb-13ca52aa912a@canonical.com>
-References: <20161220114424.11244-1-colin.king@canonical.com>
- <BL2PR07MB230615AAE3CF67DEBC6083778D930@BL2PR07MB2306.namprd07.prod.outlook.com>
+From: Bert Kenward <bkenward@solarflare.com>
+Subject: Re: [PATCH 2/2] net: sfc: falcon: use new api
+ ethtool_{get|set}_link_ksettings
+Date: Wed, 21 Dec 2016 14:38:38 +0000
+Message-ID: <f08f69d5-f609-f1de-05d1-2a7a51ceeddc@solarflare.com>
+References: <1482272667-1206-1-git-send-email-tremyfr@gmail.com>
+ <1482272667-1206-2-git-send-email-tremyfr@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "Elior, Ariel" <Ariel.Elior@cavium.com>,
-        "Tayar, Tomer" <Tomer.Tayar@cavium.com>
-To: "Mintz, Yuval" <Yuval.Mintz@cavium.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Philippe Reynes <tremyfr@gmail.com>,
+        <linux-net-drivers@solarflare.com>, <ecree@solarflare.com>,
+        <davem@davemloft.net>, <andrew@lunn.ch>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <BL2PR07MB230615AAE3CF67DEBC6083778D930@BL2PR07MB2306.namprd07.prod.outlook.com>
+In-Reply-To: <1482272667-1206-2-git-send-email-tremyfr@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 21/12/16 13:29, Mintz, Yuval wrote:
->> From: Colin Ian King <colin.king@canonical.com>
->>
->> A qed_spq_entry entry is allocated by qed_sp_init_request but is not kfree'd
->> if an error occurs, causing a memory leak. Fix this by returning the previously
->> allocated spq entry and also setting *pp_ent to NULL to be safe.
->>
->> Thanks to Yuval Mintz for suggestions on how to improve my original fix.
->>
->> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+On 20/12/16 22:24, Philippe Reynes wrote:
+> The ethtool api {get|set}_settings is deprecated.
+> We move this driver to new api {get|set}_link_ksettings.
 > 
-> We've given it a more thorough look, and apparently this isn't the correct fix.
-> So I'll start by saying sorry for making you send this V2 needlessly.
+> Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+> ---
+>  drivers/net/ethernet/sfc/falcon/efx.c          |    2 +-
+>  drivers/net/ethernet/sfc/falcon/ethtool.c      |   35 ++++++++++++-------
+>  drivers/net/ethernet/sfc/falcon/mdio_10g.c     |   44 +++++++++++++++---------
+>  drivers/net/ethernet/sfc/falcon/mdio_10g.h     |    3 +-
+>  drivers/net/ethernet/sfc/falcon/net_driver.h   |   12 +++---
+>  drivers/net/ethernet/sfc/falcon/qt202x_phy.c   |    9 +++--
+>  drivers/net/ethernet/sfc/falcon/tenxpress.c    |   22 ++++++------
+>  drivers/net/ethernet/sfc/falcon/txc43128_phy.c |    9 +++--
+>  8 files changed, 80 insertions(+), 56 deletions(-)
 > 
-> It boils down to the fact there are two kinds of SPQ entries -
-> Those originating from the 'free_pool' and those from the 'unlimited_pending'.
-> Only those originating from the free_pool should be returned
-> using the qed_spq_return_entry(), as only those actually point to a valid
-> dma-mapped memory where FW expects to find the entries;
-> Returning the other kind would lead to assertions later,
-> as driver would post a ramrod to FW which actually points to address 0.
-> 
-> Looking at the error flows, it seems possible this isn't the only faulty
-> error flow in the SPQ. I suggest you'd drop this and we'll take it from
-> here [although if you really have the urge to continue - please do].
-> 
-> Thanks,
-> Yuval
-> 
-> 
-Sure, lets drop my fixes, I'm out of time on this for 2016 anyhow.
+> diff --git a/drivers/net/ethernet/sfc/falcon/efx.c b/drivers/net/ethernet/sfc/falcon/efx.c
+> index 5c5cb3c..438ef9e 100644
+> --- a/drivers/net/ethernet/sfc/falcon/efx.c
+> +++ b/drivers/net/ethernet/sfc/falcon/efx.c
+> @@ -986,7 +986,7 @@ void ef4_mac_reconfigure(struct ef4_nic *efx)
+>  
+>  /* Push loopback/power/transmit disable settings to the PHY, and reconfigure
+>   * the MAC appropriately. All other PHY configuration changes are pushed
+> - * through phy_op->set_settings(), and pushed asynchronously to the MAC
+> + * through phy_op->set_link_ksettings(), and pushed asynchronously to the MAC
+>   * through ef4_monitor().
+>   *
+>   * Callers must hold the mac_lock
+> diff --git a/drivers/net/ethernet/sfc/falcon/ethtool.c b/drivers/net/ethernet/sfc/falcon/ethtool.c
+> index 8e1929b..659ece7 100644
+> --- a/drivers/net/ethernet/sfc/falcon/ethtool.c
+> +++ b/drivers/net/ethernet/sfc/falcon/ethtool.c
+> @@ -115,44 +115,53 @@ static int ef4_ethtool_phys_id(struct net_device *net_dev,
+>  }
+>  
+>  /* This must be called with rtnl_lock held. */
+> -static int ef4_ethtool_get_settings(struct net_device *net_dev,
+> -				    struct ethtool_cmd *ecmd)
+> +static int
+> +ef4_ethtool_get_link_ksettings(struct net_device *net_dev,
+> +			       struct ethtool_link_ksettings *cmd)
+>  {
+>  	struct ef4_nic *efx = netdev_priv(net_dev);
+>  	struct ef4_link_state *link_state = &efx->link_state;
+> +	u32 supported;
+> +
+> +	ethtool_convert_link_mode_to_legacy_u32(&supported,
+> +						cmd->link_modes.supported);
+>  
+>  	mutex_lock(&efx->mac_lock);
+> -	efx->phy_op->get_settings(efx, ecmd);
+> +	efx->phy_op->get_link_ksettings(efx, cmd);
+>  	mutex_unlock(&efx->mac_lock);
+>  
+>  	/* Both MACs support pause frames (bidirectional and respond-only) */
+> -	ecmd->supported |= SUPPORTED_Pause | SUPPORTED_Asym_Pause;
+> +	supported |= SUPPORTED_Pause | SUPPORTED_Asym_Pause;
+>  
+>  	if (LOOPBACK_INTERNAL(efx)) {
+> -		ethtool_cmd_speed_set(ecmd, link_state->speed);
+> -		ecmd->duplex = link_state->fd ? DUPLEX_FULL : DUPLEX_HALF;
+> +		cmd->base.speed = link_state->speed;
+> +		cmd->base.duplex = link_state->fd ? DUPLEX_FULL : DUPLEX_HALF;
+>  	}
+>  
+> +	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.supported,
+> +						supported);
+> +
+>  	return 0;
+>  }
 
-Colin
+This translates cmd->link_modes.supported in to the legacy supported
+bitmap before we've actually read the values from the phy. Given we're
+only using the legacy bitmap so we can add the pause frame settings, I
+suggest something like:
+
+ef4_ethtool_get_link_ksettings(struct net_device *net_dev,
+			       struct ethtool_link_ksettings *cmd)
+{
+	struct ef4_nic *efx = netdev_priv(net_dev);
+	struct ef4_link_state *link_state = &efx->link_state;
+
+	mutex_lock(&efx->mac_lock);
+	efx->phy_op->get_link_ksettings(efx, cmd);
+	mutex_unlock(&efx->mac_lock);
+
+	/* Both MACs support pause frames (bidirectional and respond-only) */
+	ethtool_link_ksettings_add_link_mode(cmd, supported, Pause);
+	ethtool_link_ksettings_add_link_mode(cmd, supported, Asym_Pause);
+
+	if (LOOPBACK_INTERNAL(efx)) {
+		cmd->base.speed = link_state->speed;
+		cmd->base.duplex = link_state->fd ? DUPLEX_FULL : DUPLEX_HALF;
+	}
+
+	return 0;
+}
+
+
+Thanks,
+
+Bert.
