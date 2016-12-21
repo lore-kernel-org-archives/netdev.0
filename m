@@ -1,56 +1,98 @@
-From: Madalin-Cristian Bucur <madalin.bucur@nxp.com>
-Subject: RE: [PATCH net] tcp: add a missing barrier in tcp_tasklet_func()
-Date: Wed, 21 Dec 2016 14:23:53 +0000
-Message-ID: <AM4PR04MB1604328D760BEDEEA234460CEC930@AM4PR04MB1604.eurprd04.prod.outlook.com>
-References: <1482327763.8944.26.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: HalfSipHash Acceptable Usage
+Date: Wed, 21 Dec 2016 07:56:44 -0800
+Message-ID: <1482335804.8944.44.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20161221032829.3031.qmail@ns.sciencehorizons.net>
+         <1482298164.8944.8.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CAHmME9oCfCwAq1qP09uAN6vvakh4wXDMHunsL9D7W_LDeN_OQQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev <netdev@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        Miffy Lei <xing.lei@nxp.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-        David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0060.outbound.protection.outlook.com ([104.47.2.60]:16064
-        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S936446AbcLUP4W (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 21 Dec 2016 10:56:22 -0500
-In-Reply-To: <1482327763.8944.26.camel@edumazet-glaptop3.roam.corp.google.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: George Spelvin <linux@sciencehorizons.net>,
+        Theodore Ts'o <tytso@mit.edu>, Andi Kleen <ak@linux.intel.com>,
+        David Miller <davem@davemloft.net>,
+        David Laight <David.Laight@aculab.com>,
+        "Daniel J . Bernstein" <djb@cr.yp.to>,
+        Eric Biggers <ebiggers3@gmail.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>,
+        kernel-hardening@lists.openwall.com,
+        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Andy Lutomirski <luto@amacapital.net>,
+        Netdev <netdev@vger.kernel.org>,
+        Tom Herbert <tom@herbertland.com>,
+        Linus Torvalds <torvalds@linux-foundation.org>,
+        Vegard Nossum <vegard.nossum@gmail.com>
+To: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <CAHmME9oCfCwAq1qP09uAN6vvakh4wXDMHunsL9D7W_LDeN_OQQ@mail.gmail.com>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0
-bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXQ0KPiBTZW50OiBXZWRuZXNkYXksIERlY2VtYmVyIDIx
-LCAyMDE2IDM6NDMgUE0NCj4gDQo+IE1hZGFsaW4gcmVwb3J0ZWQgY3Jhc2hlcyBoYXBwZW5pbmcg
-aW4gdGNwX3Rhc2tsZXRfZnVuYygpIG9uIHBvd2VycGM2NA0KPiANCj4gQmVmb3JlIFRTUV9RVUVV
-RUQgYml0IGlzIGNsZWFyZWQsIHdlIG11c3QgZW5zdXJlIHRoZSBjaGFuZ2VzIGRvbmUNCj4gYnkg
-bGlzdF9kZWwoJnRwLT50c3Ffbm9kZSk7IGFyZSBjb21taXR0ZWQgdG8gbWVtb3J5LCBvdGhlcndp
-c2UNCj4gY29ycnVwdGlvbiBtaWdodCBoYXBwZW4sIGFzIGFuIG90aGVyIGNwdSBjb3VsZCBjYXRj
-aCBUU1FfUVVFVUVEDQo+IGNsZWFyYW5jZSB0b28gc29vbi4NCj4gDQo+IFdlIGNhbiBub3RpY2Ug
-dGhhdCBvbGQga2VybmVscyB3ZXJlIGltbXVuZSB0byB0aGlzIGJ1ZywgYmVjYXVzZQ0KPiBUU1Ff
-UVVFVUVEIHdhcyBjbGVhcmVkIGFmdGVyIGEgYmhfbG9ja19zb2NrKHNrKS9iaF91bmxvY2tfc29j
-ayhzaykNCj4gc2VjdGlvbiwgYnV0IHRoZXkgY291bGQgaGF2ZSBtaXNzZWQgYSBraWNrIHRvIHdy
-aXRlIGFkZGl0aW9uYWwgYnl0ZXMsDQo+IHdoZW4gTklDIGludGVycnVwdHMgZm9yIGEgZ2l2ZW4g
-ZmxvdyBhcmUgc3ByZWFkIHRvIG11bHRpcGxlIGNwdXMuDQo+IA0KPiBBZmZlY3RlZCBUQ1AgZmxv
-d3Mgd291bGQgbmVlZCBhbiBpbmNvbWluZyBBQ0sgb3IgUlRPIHRpbWVyIHRvIGFkZCBtb3JlDQo+
-IHBhY2tldHMgdG8gdGhlIHBpcGUuIFNvIG92ZXJhbGwgc2l0dWF0aW9uIHNob3VsZCBiZSBiZXR0
-ZXIgbm93Lg0KPiANCj4gRml4ZXM6IGIyMjNmZWI5ZGUyYSAoInRjcDogdHNxOiBhZGQgc2hvcnRj
-dXQgaW4gdGNwX3Rhc2tsZXRfZnVuYygpIikNCj4gU2lnbmVkLW9mZi1ieTogRXJpYyBEdW1hemV0
-IDxlZHVtYXpldEBnb29nbGUuY29tPg0KPiBSZXBvcnRlZC1ieTogTWFkYWxpbiBCdWN1ciA8bWFk
-YWxpbi5idWN1ckBueHAuY29tPg0KPiBUZXN0ZWQtYnk6IE1hZGFsaW4gQnVjdXIgPG1hZGFsaW4u
-YnVjdXJAbnhwLmNvbT4NCg0KSXQncyBhY3R1YWxseSB0ZXN0ZWQgYnkgWGluZyBMZWk6DQoNClRl
-c3RlZC1ieTogWGluZyBMZWkgPHhpbmcubGVpQG54cC5jb20+DQoNClRoYW5rIHlvdSBmb3IgdGhl
-IGZhc3QgcmVzb2x1dGlvbi4NCg0KPiAtLS0NCj4gIG5ldC9pcHY0L3RjcF9vdXRwdXQuYyB8ICAg
-IDEgKw0KPiAgMSBmaWxlIGNoYW5nZWQsIDEgaW5zZXJ0aW9uKCspDQo+IA0KPiBkaWZmIC0tZ2l0
-IGEvbmV0L2lwdjQvdGNwX291dHB1dC5jIGIvbmV0L2lwdjQvdGNwX291dHB1dC5jDQo+IGluZGV4
-DQo+IGI0NTEwMWYzZDJiZDJlMGYwMDc3MzA1YTA2MWFkZDRmN2VhMGRlMjcuLjMxYTI1NWI1NTVh
-ZDg2YTM1MzdjMDc3ODYyZTNlYTM4DQo+IGY5YjQ0Mjg0IDEwMDY0NA0KPiAtLS0gYS9uZXQvaXB2
-NC90Y3Bfb3V0cHV0LmMNCj4gKysrIGIvbmV0L2lwdjQvdGNwX291dHB1dC5jDQo+IEBAIC03Njks
-NiArNzY5LDcgQEAgc3RhdGljIHZvaWQgdGNwX3Rhc2tsZXRfZnVuYyh1bnNpZ25lZCBsb25nIGRh
-dGEpDQo+ICAJCWxpc3RfZGVsKCZ0cC0+dHNxX25vZGUpOw0KPiANCj4gIAkJc2sgPSAoc3RydWN0
-IHNvY2sgKil0cDsNCj4gKwkJc21wX21iX19iZWZvcmVfYXRvbWljKCk7DQo+ICAJCWNsZWFyX2Jp
-dChUU1FfUVVFVUVELCAmc2stPnNrX3RzcV9mbGFncyk7DQo+IA0KPiAgCQlpZiAoIXNrLT5za19s
-b2NrLm93bmVkICYmDQo+IA0KDQo=
+On Wed, 2016-12-21 at 15:42 +0100, Jason A. Donenfeld wrote:
+> Hi Eric,
+> 
+> I computed performance numbers for both 32-bit and 64-bit using the
+> actual functions in which talking about replacing MD5 with SipHash.
+> The basic harness is here [1] if you're curious. SipHash was a pretty
+> clear winner for both cases.
+> 
+> x86_64:
+> [    1.714302] secure_tcpv6_sequence_number_md5# cycles: 102373398
+> [    1.747685] secure_tcp_sequence_number_md5# cycles: 92042258
+> [    1.773522] secure_tcpv6_sequence_number_siphash# cycles: 70786533
+> [    1.798701] secure_tcp_sequence_number_siphash# cycles: 68941043
+> 
+> x86:
+> [    1.635749] secure_tcpv6_sequence_number_md5# cycles: 106016335
+> [    1.670259] secure_tcp_sequence_number_md5# cycles: 95670512
+> [    1.708387] secure_tcpv6_sequence_number_siphash# cycles: 105988635
+> [    1.740264] secure_tcp_sequence_number_siphash# cycles: 88225395
+> 
+> >>> 102373398 > 70786533
+> True
+> >>> 92042258 > 68941043
+> True
+> >>> 106016335 > 105988635
+> True
+> >>> 95670512 > 88225395
+> True
+> 
+> While MD5 is probably faster for some kind of large-data
+> cycles-per-byte, due to its 64-byte internal state, SipHash -- the
+> "Sip" part standing "Short Input PRF" -- is fast for shorter inputs.
+> In practice with the functions we're talking about replacing, there's
+> no need to hash 64-bytes. So, SipHash comes out faster and more
+> secure.
+> 
+> I also haven't begun to look focusedly at the assembly my SipHash
+> implemention is generating, which means there's still window for even
+> more performance improvements.
+> 
+> Jason
+> 
+> 
+> [1] https://git.zx2c4.com/linux-dev/tree/net/core/secure_seq.c?h=siphash-bench#n194
+
+Now I am quite confused.
+
+George said :
+
+> Cycles per byte on 1024 bytes of data:
+>                       Pentium Core 2  Ivy
+>                       4       Duo     Bridge
+> SipHash-2-4           38.9     8.3     5.8
+> HalfSipHash-2-4               12.7     4.5     3.2
+> MD5                    8.3     5.7     4.7
+
+
+That really was for 1024 bytes blocks, so pretty much useless for our
+discussion ?
+
+Reading your numbers last week, I thought SipHash was faster, but George
+numbers are giving the opposite impression.
+
+I do not have a P4 to make tests, so I only can trust you or George.
+
+Thanks.
