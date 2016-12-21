@@ -1,7 +1,7 @@
 From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCH net-next 22/27] net: mvpp2: handle misc PPv2.1/PPv2.2 differences
-Date: Wed, 21 Dec 2016 12:16:29 +0100
-Message-ID: <1482318994-23488-23-git-send-email-thomas.petazzoni@free-electrons.com>
+Subject: [PATCH net-next 25/27] net: mvpp2: adapt rxq distribution to PPv2.2
+Date: Wed, 21 Dec 2016 12:16:32 +0100
+Message-ID: <1482318994-23488-26-git-send-email-thomas.petazzoni@free-electrons.com>
 References: <1482318994-23488-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Cc: Nadav Haklai <nadavh@marvell.com>, Hanna Hawa <hannah@marvell.com>,
         Yehuda Yitschak <yehuday@marvell.com>,
@@ -15,107 +15,156 @@ Cc: Nadav Haklai <nadavh@marvell.com>, Hanna Hawa <hannah@marvell.com>,
         Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:56127 "EHLO
+Received: from mail.free-electrons.com ([62.4.15.54]:56130 "EHLO
         mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932234AbcLULQq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2016 06:16:46 -0500
+        with ESMTP id S1754359AbcLULQr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2016 06:16:47 -0500
 In-Reply-To: <1482318994-23488-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This commit handles a few miscellaneous differences between PPv2.1 and
-PPv2.2 in different areas, where code done for PPv2.1 doesn't apply for
-PPv2.2 or needs to be adjusted (getting the MAC address, disabling PHY
-polling, etc.).
+In PPv2.1, we have a maximum of 8 RXQs per port, with a default of 4
+RXQs per port, and we were assigning RXQs 0->3 to the first port, 4->7
+to the second port, 8->11 to the third port, etc.
+
+In PPv2.2, we have a maximum of 32 RXQs per port, and we must allocate
+RXQs from the range of 32 RXQs available for each port. So port 0 must
+use RXQs in the range 0->31, port 1 in the range 32->63, etc.
+
+This commit adapts the mvpp2 to this difference between PPv2.1 and
+PPv2.2:
+
+ - The constant definition MVPP2_MAX_RXQ is replaced by a new field
+   'max_port_rxqs' in 'struct mvpp2', which stores the maximum number of
+   RXQs per port. This field is initialized during ->probe() depending
+   on the IP version.
+
+ - MVPP2_RXQ_TOTAL_NUM is removed, and instead we calculate the total
+   number of RXQs by multiplying the number of ports by the maximum of
+   RXQs per port. This was anyway used in only one place.
+
+ - In mvpp2_port_probe(), the calculation of port->first_rxq is adjusted
+   to cope with the different allocation strategy between PPv2.1 and
+   PPv2.2. Due to this change, the 'next_first_rxq' argument of this
+   function is no longer needed and is removed.
 
 Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 ---
- drivers/net/ethernet/marvell/mvpp2.c | 31 ++++++++++++++++++++++---------
- 1 file changed, 22 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/marvell/mvpp2.c | 35 +++++++++++++++++++----------------
+ 1 file changed, 19 insertions(+), 16 deletions(-)
 
 diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 4163b0e..9b5a7c2 100644
+index d061a1a..c389590 100644
 --- a/drivers/net/ethernet/marvell/mvpp2.c
 +++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -304,6 +304,9 @@
- #define      MVPP2_GMAC_TX_FIFO_MIN_TH_MASK(v)	(((v) << 6) & \
- 					MVPP2_GMAC_TX_FIFO_MIN_TH_ALL_MASK)
+@@ -399,15 +399,9 @@
+ /* Maximum number of TXQs used by single port */
+ #define MVPP2_MAX_TXQ			8
  
-+#define MVPP22_SMI_MISC_CFG_REG			0x2a204
-+#define      MVPP22_SMI_POLLING_EN		BIT(10)
+-/* Maximum number of RXQs used by single port */
+-#define MVPP2_MAX_RXQ			8
+-
+ /* Dfault number of RXQs in use */
+ #define MVPP2_DEFAULT_RXQ		4
+ 
+-/* Total number of RXQs available to all ports */
+-#define MVPP2_RXQ_TOTAL_NUM		(MVPP2_MAX_PORTS * MVPP2_MAX_RXQ)
+-
+ /* Max number of Rx descriptors */
+ #define MVPP2_MAX_RXD			128
+ 
+@@ -728,6 +722,9 @@ struct mvpp2 {
+ 
+ 	/* HW IP Version */
+ 	enum { MVPP21, MVPP22 } ip_version;
 +
- #define MVPP22_PORT_BASE			0x30e00
- #define MVPP22_PORT_OFFSET			0x1000
++	/* Maximum number of RXQs per port */
++	unsigned int max_port_rxqs;
+ };
  
-@@ -5846,7 +5849,7 @@ static int mvpp2_check_ringparam_valid(struct net_device *dev,
- 	return 0;
- }
+ struct mvpp2_pcpu_stats {
+@@ -6355,7 +6352,8 @@ static int mvpp2_port_init(struct mvpp2_port *port)
+ 	struct mvpp2_txq_pcpu *txq_pcpu;
+ 	int queue, cpu, err;
  
--static void mvpp2_get_mac_address(struct mvpp2_port *port, unsigned char *addr)
-+static void mvpp21_get_mac_address(struct mvpp2_port *port, unsigned char *addr)
+-	if (port->first_rxq + rxq_number > MVPP2_RXQ_TOTAL_NUM)
++	if (port->first_rxq + rxq_number >
++	    MVPP2_MAX_PORTS * priv->max_port_rxqs)
+ 		return -EINVAL;
+ 
+ 	/* Disable port */
+@@ -6474,8 +6472,7 @@ static int mvpp2_port_init(struct mvpp2_port *port)
+ /* Ports initialization */
+ static int mvpp2_port_probe(struct platform_device *pdev,
+ 			    struct device_node *port_node,
+-			    struct mvpp2 *priv,
+-			    int *next_first_rxq)
++			    struct mvpp2 *priv)
  {
- 	u32 mac_addr_l, mac_addr_m, mac_addr_h;
+ 	struct device_node *phy_node;
+ 	struct mvpp2_port *port;
+@@ -6533,7 +6530,11 @@ static int mvpp2_port_probe(struct platform_device *pdev,
  
-@@ -6294,7 +6297,7 @@ static const struct ethtool_ops mvpp2_eth_tool_ops = {
+ 	port->priv = priv;
+ 	port->id = id;
+-	port->first_rxq = *next_first_rxq;
++	if (priv->ip_version == MVPP21)
++		port->first_rxq = port->id * rxq_number;
++	else
++		port->first_rxq = port->id * priv->max_port_rxqs;
++
+ 	port->phy_node = phy_node;
+ 	port->phy_interface = phy_mode;
  
- /* Driver initialization */
- 
--static void mvpp2_port_power_up(struct mvpp2_port *port)
-+static void mvpp21_port_power_up(struct mvpp2_port *port)
- {
- 	mvpp2_port_mii_set(port);
- 	mvpp2_port_periodic_xon_disable(port);
-@@ -6513,7 +6516,8 @@ static int mvpp2_port_probe(struct platform_device *pdev,
- 		mac_from = "device tree";
- 		ether_addr_copy(dev->dev_addr, dt_mac_addr);
- 	} else {
--		mvpp2_get_mac_address(port, hw_mac_addr);
-+		if (priv->ip_version == MVPP21)
-+			mvpp21_get_mac_address(port, hw_mac_addr);
- 		if (is_valid_ether_addr(hw_mac_addr)) {
- 			mac_from = "hardware";
- 			ether_addr_copy(dev->dev_addr, hw_mac_addr);
-@@ -6533,7 +6537,9 @@ static int mvpp2_port_probe(struct platform_device *pdev,
- 		dev_err(&pdev->dev, "failed to init port %d\n", id);
- 		goto err_free_stats;
+@@ -6625,8 +6626,6 @@ static int mvpp2_port_probe(struct platform_device *pdev,
  	}
--	mvpp2_port_power_up(port);
+ 	netdev_info(dev, "Using %s mac address %pM\n", mac_from, dev->dev_addr);
+ 
+-	/* Increment the first Rx queue number to be used by the next port */
+-	*next_first_rxq += rxq_number;
+ 	priv->port_list[id] = port;
+ 	return 0;
+ 
+@@ -6772,7 +6771,7 @@ static int mvpp2_init(struct platform_device *pdev, struct mvpp2 *priv)
+ 	u32 val;
+ 
+ 	/* Checks for hardware constraints */
+-	if (rxq_number % 4 || (rxq_number > MVPP2_MAX_RXQ) ||
++	if (rxq_number % 4 || (rxq_number > priv->max_port_rxqs) ||
+ 	    (txq_number > MVPP2_MAX_TXQ)) {
+ 		dev_err(&pdev->dev, "invalid queue size parameter\n");
+ 		return -EINVAL;
+@@ -6861,7 +6860,7 @@ static int mvpp2_probe(struct platform_device *pdev)
+ 	struct device_node *port_node;
+ 	struct mvpp2 *priv;
+ 	struct resource *res;
+-	int port_count, first_rxq, cpu;
++	int port_count, cpu;
+ 	int err;
+ 
+ 	priv = devm_kzalloc(&pdev->dev, sizeof(struct mvpp2), GFP_KERNEL);
+@@ -6896,6 +6895,11 @@ static int mvpp2_probe(struct platform_device *pdev)
+ 		priv->cpu_base[cpu] = priv->base + cpu * addr_space_sz;
+ 	}
+ 
++	if (priv->ip_version == MVPP21)
++		priv->max_port_rxqs = 8;
++	else
++		priv->max_port_rxqs = 32;
 +
-+	if (priv->ip_version == MVPP21)
-+		mvpp21_port_power_up(port);
+ 	priv->pp_clk = devm_clk_get(&pdev->dev, "pp_clk");
+ 	if (IS_ERR(priv->pp_clk))
+ 		return PTR_ERR(priv->pp_clk);
+@@ -6938,9 +6942,8 @@ static int mvpp2_probe(struct platform_device *pdev)
+ 	}
  
- 	port->pcpu = alloc_percpu(struct mvpp2_port_pcpu);
- 	if (!port->pcpu) {
-@@ -6671,9 +6677,15 @@ static int mvpp2_init(struct platform_device *pdev, struct mvpp2 *priv)
- 		mvpp2_conf_mbus_windows(dram_target_info, priv);
- 
- 	/* Disable HW PHY polling */
--	val = readl(priv->lms_base + MVPP2_PHY_AN_CFG0_REG);
--	val |= MVPP2_PHY_AN_STOP_SMI0_MASK;
--	writel(val, priv->lms_base + MVPP2_PHY_AN_CFG0_REG);
-+	if (priv->ip_version == MVPP21) {
-+		val = readl(priv->lms_base + MVPP2_PHY_AN_CFG0_REG);
-+		val |= MVPP2_PHY_AN_STOP_SMI0_MASK;
-+		writel(val, priv->lms_base + MVPP2_PHY_AN_CFG0_REG);
-+	} else {
-+		val = readl(priv->iface_base + MVPP22_SMI_MISC_CFG_REG);
-+		val &= ~MVPP22_SMI_POLLING_EN;
-+		writel(val, priv->iface_base + MVPP22_SMI_MISC_CFG_REG);
-+	}
- 
- 	/* Allocate and initialize aggregated TXQs */
- 	priv->aggr_txqs = devm_kcalloc(&pdev->dev, num_present_cpus(),
-@@ -6698,8 +6710,9 @@ static int mvpp2_init(struct platform_device *pdev, struct mvpp2 *priv)
- 	for (i = 0; i < MVPP2_MAX_PORTS; i++)
- 		mvpp2_write(priv, MVPP2_ISR_RXQ_GROUP_REG(i), rxq_number);
- 
--	writel(MVPP2_EXT_GLOBAL_CTRL_DEFAULT,
--	       priv->lms_base + MVPP2_MNG_EXTENDED_GLOBAL_CTRL_REG);
-+	if (priv->ip_version == MVPP21)
-+		writel(MVPP2_EXT_GLOBAL_CTRL_DEFAULT,
-+		       priv->lms_base + MVPP2_MNG_EXTENDED_GLOBAL_CTRL_REG);
- 
- 	/* Allow cache snoop when transmiting packets */
- 	mvpp2_write(priv, MVPP2_TX_SNOOP_REG, 0x1);
+ 	/* Initialize ports */
+-	first_rxq = 0;
+ 	for_each_available_child_of_node(dn, port_node) {
+-		err = mvpp2_port_probe(pdev, port_node, priv, &first_rxq);
++		err = mvpp2_port_probe(pdev, port_node, priv);
+ 		if (err < 0)
+ 			goto err_gop_clk;
+ 	}
 -- 
 2.7.4
