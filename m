@@ -1,7 +1,7 @@
 From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCH net-next 27/27] net: mvpp2: finally add the PPv2.2 compatible string
-Date: Wed, 21 Dec 2016 12:16:34 +0100
-Message-ID: <1482318994-23488-28-git-send-email-thomas.petazzoni@free-electrons.com>
+Subject: [PATCH net-next 26/27] net: mvpp2: add support for an additional clock needed for PPv2.2
+Date: Wed, 21 Dec 2016 12:16:33 +0100
+Message-ID: <1482318994-23488-27-git-send-email-thomas.petazzoni@free-electrons.com>
 References: <1482318994-23488-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Cc: Nadav Haklai <nadavh@marvell.com>, Hanna Hawa <hannah@marvell.com>,
         Yehuda Yitschak <yehuday@marvell.com>,
@@ -15,37 +15,104 @@ Cc: Nadav Haklai <nadavh@marvell.com>, Hanna Hawa <hannah@marvell.com>,
         Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:56108 "EHLO
+Received: from mail.free-electrons.com ([62.4.15.54]:56114 "EHLO
         mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757535AbcLULQs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2016 06:16:48 -0500
+        with ESMTP id S1757512AbcLULQr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2016 06:16:47 -0500
 In-Reply-To: <1482318994-23488-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now that the mvpp2 driver has been modified to accommodate the support
-for PPv2.2, we can finally advertise this support by adding the
-appropriate compatible string.
+The PPv2.2 variant of the network controller needs an additional
+clock, the "MG clock" in order for the IP block to operate
+properly. This commit adds support for this additional clock to the
+driver, reworking as needed the error handling path.
 
 Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 ---
- drivers/net/ethernet/marvell/mvpp2.c | 4 ++++
- 1 file changed, 4 insertions(+)
+ drivers/net/ethernet/marvell/mvpp2.c | 25 +++++++++++++++++++++----
+ 1 file changed, 21 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index d9368d6..2dc1003 100644
+index c389590..d9368d6 100644
 --- a/drivers/net/ethernet/marvell/mvpp2.c
 +++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -7014,6 +7014,10 @@ static const struct of_device_id mvpp2_match[] = {
- 		.compatible = "marvell,armada-375-pp2",
- 		.data = (void *)MVPP21,
- 	},
-+	{
-+		.compatible = "marvell,armada-7k-pp22",
-+		.data = (void *)MVPP22,
-+	},
- 	{ }
- };
- MODULE_DEVICE_TABLE(of, mvpp2_match);
+@@ -702,6 +702,7 @@ struct mvpp2 {
+ 	/* Common clocks */
+ 	struct clk *pp_clk;
+ 	struct clk *gop_clk;
++	struct clk *mg_clk;
+ 
+ 	/* List of pointers to port structures */
+ 	struct mvpp2_port **port_list;
+@@ -6916,6 +6917,18 @@ static int mvpp2_probe(struct platform_device *pdev)
+ 	if (err < 0)
+ 		goto err_pp_clk;
+ 
++	if (priv->ip_version == MVPP22) {
++		priv->mg_clk = devm_clk_get(&pdev->dev, "mg_clk");
++		if (IS_ERR(priv->mg_clk)) {
++			err = PTR_ERR(priv->mg_clk);
++			goto err_gop_clk;
++		}
++
++		err = clk_prepare_enable(priv->mg_clk);
++		if (err < 0)
++			goto err_gop_clk;
++	}
++
+ 	/* Get system's tclk rate */
+ 	priv->tclk = clk_get_rate(priv->pp_clk);
+ 
+@@ -6923,14 +6936,14 @@ static int mvpp2_probe(struct platform_device *pdev)
+ 	err = mvpp2_init(pdev, priv);
+ 	if (err < 0) {
+ 		dev_err(&pdev->dev, "failed to initialize controller\n");
+-		goto err_gop_clk;
++		goto err_mg_clk;
+ 	}
+ 
+ 	port_count = of_get_available_child_count(dn);
+ 	if (port_count == 0) {
+ 		dev_err(&pdev->dev, "no ports enabled\n");
+ 		err = -ENODEV;
+-		goto err_gop_clk;
++		goto err_mg_clk;
+ 	}
+ 
+ 	priv->port_list = devm_kcalloc(&pdev->dev, port_count,
+@@ -6938,19 +6951,22 @@ static int mvpp2_probe(struct platform_device *pdev)
+ 				      GFP_KERNEL);
+ 	if (!priv->port_list) {
+ 		err = -ENOMEM;
+-		goto err_gop_clk;
++		goto err_mg_clk;
+ 	}
+ 
+ 	/* Initialize ports */
+ 	for_each_available_child_of_node(dn, port_node) {
+ 		err = mvpp2_port_probe(pdev, port_node, priv);
+ 		if (err < 0)
+-			goto err_gop_clk;
++			goto err_mg_clk;
+ 	}
+ 
+ 	platform_set_drvdata(pdev, priv);
+ 	return 0;
+ 
++err_mg_clk:
++	if (priv->ip_version == MVPP22)
++		clk_disable_unprepare(priv->mg_clk);
+ err_gop_clk:
+ 	clk_disable_unprepare(priv->gop_clk);
+ err_pp_clk:
+@@ -6986,6 +7002,7 @@ static int mvpp2_remove(struct platform_device *pdev)
+ 				  aggr_txq->descs_phys);
+ 	}
+ 
++	clk_disable_unprepare(priv->mg_clk);
+ 	clk_disable_unprepare(priv->pp_clk);
+ 	clk_disable_unprepare(priv->gop_clk);
+ 
 -- 
 2.7.4
