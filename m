@@ -1,40 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] stmmac: CSR clock configuration fix
-Date: Wed, 21 Dec 2016 13:21:04 -0500 (EST)
-Message-ID: <20161221.132104.1026207180067066991.davem@davemloft.net>
-References: <6d4c6d15a60c93a8aef5e3e03b9cd64cdcf232c8.1482232420.git.jpinto@synopsys.com>
+Subject: Re: [PATCH net] be2net: Increase skb headroom size to 256 bytes
+Date: Wed, 21 Dec 2016 13:23:20 -0500 (EST)
+Message-ID: <20161221.132320.330335542481892983.davem@davemloft.net>
+References: <20161220151430.11115-1-suresh.reddy@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, hock.leong.kweh@intel.com,
-        niklas.cassel@axis.com, pavel@ucw.cz, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org
-To: Joao.Pinto@synopsys.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <6d4c6d15a60c93a8aef5e3e03b9cd64cdcf232c8.1482232420.git.jpinto@synopsys.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, kalesh-anakkur.purayil@broadcom.com
+To: suresh.reddy@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:33620 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934820AbcLUSXW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2016 13:23:22 -0500
+In-Reply-To: <20161220151430.11115-1-suresh.reddy@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Date: Tue, 20 Dec 2016 11:21:47 +0000
+From: Suresh Reddy <suresh.reddy@broadcom.com>
+Date: Tue, 20 Dec 2016 10:14:30 -0500
 
-> When testing stmmac with my QoS reference design I checked a problem in the
-> CSR clock configuration that was impossibilitating the phy discovery, since
-> every read operation returned 0x0000ffff. This patch fixes the issue.
+> From: Kalesh A P <kalesh-anakkur.purayil@broadcom.com>
 > 
-> Signed-off-by: Joao Pinto <jpinto@synopsys.com>
+> The driver currently allocates 128 bytes of skb headroom.
+> This was found to be insufficient with some configurations
+> like Geneve tunnels, which resulted in skb head reallocations.
+> 
+> Increase the headroom to 256 bytes to fix this.
+> 
+> Signed-off-by: Kalesh A P <kalesh-anakkur.purayil@broadcom.com>
+> Signed-off-by: Suresh Reddy <suresh.reddy@broadcom.com>
 
-This isn't enough.
-
-It looks like various parts of this driver set the mask field
-differently.
-
-dwmac1000_core.c and dwmac100_core.c set the mask to be the low bits.
-
-But dwmac4_core.c uses GENMASK(11, 8) which means the mask is a value
-which is shifted up already.
-
-So your patch will break chips driven by dwmac4_core.c.
-
-In order for your change to be correct you must consolidate all of
-these various pieces to use the same convention.
+Applied.
