@@ -1,54 +1,70 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [PATCH iproute2 v3 4/4] ifstat: Add "sw only" extended statistics
- to ifstat
-Date: Thu, 22 Dec 2016 13:10:19 -0800
-Message-ID: <585C413B.9050905@cumulusnetworks.com>
-References: <1482423795-6531-1-git-send-email-nogahf@mellanox.com> <1482423795-6531-5-git-send-email-nogahf@mellanox.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
-        roszenrami@gmail.com, ogerlitz@mellanox.com, jiri@mellanox.com,
-        eladr@mellanox.com, yotamg@mellanox.com, idosch@mellanox.com
-To: Nogah Frankel <nogahf@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f45.google.com ([74.125.83.45]:34721 "EHLO
-        mail-pg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756545AbcLVVKW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 22 Dec 2016 16:10:22 -0500
-Received: by mail-pg0-f45.google.com with SMTP id y62so49436423pgy.1
-        for <netdev@vger.kernel.org>; Thu, 22 Dec 2016 13:10:22 -0800 (PST)
-In-Reply-To: <1482423795-6531-5-git-send-email-nogahf@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "George Spelvin" <linux@sciencehorizons.net>
+Subject: Re: George's crazy full state idea (Re: HalfSipHash Acceptable Usage)
+Date: 22 Dec 2016 16:11:40 -0500
+Message-ID: <20161222211140.2816.qmail@ns.sciencehorizons.net>
+References: <CALCETrW63gL1821jCMvxnm8gR+o5ifdOXKnWHsLnqoFK77-epw@mail.gmail.com>
+Cc: ak@linux.intel.com, davem@davemloft.net, David.Laight@aculab.com,
+        djb@cr.yp.to, ebiggers3@gmail.com, eric.dumazet@gmail.com,
+        hannes@stressinduktion.org, Jason@zx2c4.com,
+        jeanphilippe.aumasson@gmail.com,
+        kernel-hardening@lists.openwall.com, linux-crypto@vger.kernel.org,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        tom@herbertland.com, torvalds@linux-foundation.org, tytso@mit.edu,
+        vegard.nossum@gmail.com
+To: linux@sciencehorizons.net, luto@kernel.org
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <CALCETrW63gL1821jCMvxnm8gR+o5ifdOXKnWHsLnqoFK77-epw@mail.gmail.com>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/22/16, 8:23 AM, Nogah Frankel wrote:
-> Add support for extended statistics of SW only type, for counting only the
-> packets that went via the cpu. (useful for systems with forward
-> offloading). It reads it from filter type IFLA_STATS_LINK_OFFLOAD_XSTATS
-> and sub type IFLA_OFFLOAD_XSTATS_CPU_HIT.
->
-> It is under the name 'software'
-> (or any shorten of it as 'soft' or simply 's')
->
-> For example:
-> ifstat -x s
->
->
-Nogah, can we keep the option names closer to the attribute names ?
-That would avoid some confusion and help with the follow-up stats.
+> I do tend to like Ted's version in which we use batched
+> get_random_bytes() output.  If it's fast enough, it's simpler and lets
+> us get the full strength of a CSPRNG.
 
-ifstat -x offload cpu
-or
-ifstat -x cpu
+With the ChaCha20 generator, that's fine, although note that this abandons
+anti-backtracking entirely.
 
-for others it would be:
+It also takes locks, something the previous get_random_int code
+path avoided.  Do we need to audit the call sites to ensure that's safe?
 
-ifstat -x link [vlan|igmp]
-ifstat -x vlan
-ifstat -x igmp
-ifstat -x lacp
+And there is the issue that the existing callers assume that there's a
+fixed cost per word.  A good half of get_random_long calls are followed by
+"& ~PAGE_MASK" to extract the low 12 bits.  Or "& ((1ul << mmap_rnd_bits)
+- 1)" to extract the low 28.  If we have a buffer we're going to have to
+pay to refill, it would be nice to use less than 8 bytes to satisfy those.
 
-and so on...
+But that can be a followup patch.  I'm thinking
 
-thanks!
+unsigned long get_random_bits(unsigned bits)
+	E.g. get_random_bits(PAGE_SHIFT),
+	     get_random_bits(mmap_rnd_bits),
+	u32 imm_rnd = get_random_bits(32)
+
+unsigned get_random_mod(unsigned modulus)
+	E.g. get_random_mod(hole) & ~(alignment - 1);
+	     get_random_mod(port_scan_backoff)
+	(Althogh probably drivers/s390/scsi/zfcp_fc.c should be changed
+	to prandom.)
+
+with, until the audit is completed:
+#define get_random_int() get_random_bits(32)
+#define get_random_long() get_random_bits(BITS_PER_LONG)
+
+> It could only mix the output back in every two calls, in which case
+> you can backtrack up to one call but you need to do 2^128 work to
+> backtrack farther.  But yes, this is getting excessively complicated.
+
+No, if you're willing to accept limited backtrack, this is a perfectly
+acceptable solution, and not too complicated.  You could do it phase-less
+if you like; store the previous output, then after generating the new
+one, mix in both.  Then overwrite the previous output.  (But doing two
+rounds of a crypto primtive to avoid one conditional jump is stupid,
+so forget that.)
+
+>> Hmm, interesting.  Although, for ASLR, we could use get_random_bytes()
+>> directly and be done with it.  It won't be a bottleneck.
+
+Isn't that what you already suggested?
+
+I don't mind fewer primtives; I got a bit fixated on "Replace MD5 with
+SipHash".  It's just the locking that I want to check isn't a problem.
