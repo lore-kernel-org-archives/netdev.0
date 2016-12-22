@@ -1,38 +1,36 @@
-From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH v3 1/3] NFC: trf7970a: add device tree option for 27MHz
- clock
-Date: Thu, 22 Dec 2016 17:01:33 -0600
-Message-ID: <20161222230133.jmqgtpyqg4bic7tq@rob-hp-laptop>
+From: Rob Herring <robh@kernel.org>
+Subject: Re: [PATCH v3 2/3] NFC: trf7970a: Add device tree option of 1.8 Volt
+ IO voltage
+Date: Thu, 22 Dec 2016 17:02:27 -0600
+Message-ID: <20161222230227.fubwn6wjmwcf5vsr@rob-hp-laptop>
 References: <1482380314-16440-1-git-send-email-geoff@kuvee.com>
+ <1482380314-16440-2-git-send-email-geoff@kuvee.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, lauro.venancio-430g2QfJUUCGglJvpFV4uA@public.gmane.org,
-        aloisio.almeida-430g2QfJUUCGglJvpFV4uA@public.gmane.org, sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org,
-        mark.rutland-5wv7dgnIgG8@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        mgreer-luAo+O/VEmrlveNOaEYElw@public.gmane.org, justin-R+k406RtEhcAvxtiuMwx3w@public.gmane.org
-To: Geoff Lansberry <geoff-R+k406RtEhcAvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: linux-wireless@vger.kernel.org, lauro.venancio@openbossa.org,
+        aloisio.almeida@openbossa.org, sameo@linux.intel.com,
+        mark.rutland@arm.com, netdev@vger.kernel.org,
+        devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
+        mgreer@animalcreek.com, justin@kuvee.com
+To: Geoff Lansberry <geoff@kuvee.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1482380314-16440-1-git-send-email-geoff-R+k406RtEhcAvxtiuMwx3w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <1482380314-16440-2-git-send-email-geoff@kuvee.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 21, 2016 at 11:18:32PM -0500, Geoff Lansberry wrote:
-> The TRF7970A has configuration options to support hardware designs
-> which use a 27.12MHz clock. This commit adds a device tree option
-> 'clock-frequency' to support configuring the this chip for default
-> 13.56MHz clock or the optional 27.12MHz clock.
+On Wed, Dec 21, 2016 at 11:18:33PM -0500, Geoff Lansberry wrote:
+> The TRF7970A has configuration options for supporting hardware designs
+> with 1.8 Volt or 3.3 Volt IO.   This commit adds a device tree option,
+> using a fixed regulator binding, for setting the io voltage to match
+> the hardware configuration. If no option is supplied it defaults to
+> 3.3 volt configuration.
 > 
-> Signed-off-by: Geoff Lansberry <geoff-R+k406RtEhcAvxtiuMwx3w@public.gmane.org>
+> Signed-off-by: Geoff Lansberry <geoff@kuvee.com>
 > ---
->  .../devicetree/bindings/net/nfc/trf7970a.txt       |  2 +
+>  .../devicetree/bindings/net/nfc/trf7970a.txt       |  2 ++
 
-Acked-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Acked-by: Rob Herring <robh@kernel.org>
 
->  drivers/nfc/trf7970a.c                             | 50 +++++++++++++++++-----
->  2 files changed, 41 insertions(+), 11 deletions(-)
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>  drivers/nfc/trf7970a.c                             | 26 +++++++++++++++++++++-
+>  2 files changed, 27 insertions(+), 1 deletion(-)
