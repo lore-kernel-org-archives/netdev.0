@@ -1,96 +1,42 @@
-From: Andy Lutomirski <luto@kernel.org>
-Subject: George's crazy full state idea (Re: HalfSipHash Acceptable Usage)
-Date: Wed, 21 Dec 2016 18:07:56 -0800
-Message-ID: <CALCETrVn1tWBQx-RCSqCQ2ZcB6hPdioaV52q8vY+Mz1fRKsUXA@mail.gmail.com>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: Re: [PATCH net 1/1] tipc: revert use of copy_from_iter_full()
+Date: Thu, 22 Dec 2016 01:21:01 +0000
+Message-ID: <20161222012101.GF1555@ZenIV.linux.org.uk>
+References: <1482368497-7103-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "Ted Ts'o" <tytso@mit.edu>, Andi Kleen <ak@linux.intel.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        David Laight <David.Laight@aculab.com>,
-        "D. J. Bernstein" <djb@cr.yp.to>,
-        Eric Biggers <ebiggers3@gmail.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        "Jason A. Donenfeld" <Jason@zx2c4.com>,
-        Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>,
-        "kernel-hardening@lists.openwall.com"
-        <kernel-hardening@lists.openwall.com>,
-        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Network Development <netdev@vger.kernel.org>,
-        Tom Herbert <tom@herbertland.com>,
-        Linus Torvalds <torvalds@linux-foundation.org>,
-        Vegard Nossum <vegard.nossum@gmail.com>
-To: George Spelvin <linux@sciencehorizons.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+        parthasarathy.bhuvaragan@ericsson.com, ying.xue@windriver.com,
+        maloy@donjonn.com, tipc-discussion@lists.sourceforge.net
+To: Jon Maloy <jon.maloy@ericsson.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zeniv.linux.org.uk ([195.92.253.2]:49936 "EHLO
+        ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753024AbcLVCJk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2016 21:09:40 -0500
+Content-Disposition: inline
+In-Reply-To: <1482368497-7103-1-git-send-email-jon.maloy@ericsson.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 21, 2016 at 5:13 PM, George Spelvin
-<linux@sciencehorizons.net> wrote:
-> As a separate message, to disentangle the threads, I'd like to
-> talk about get_random_long().
->
-> After some thinking, I still like the "state-preserving" construct
-> that's equivalent to the current MD5 code.  Yes, we could just do
-> siphash(current_cpu || per_cpu_counter, global_key), but it's nice to
-> preserve a bit more.
->
-> It requires library support from the SipHash code to return the full
-> SipHash state, but I hope that's a fair thing to ask for.
+On Wed, Dec 21, 2016 at 08:01:37PM -0500, Jon Maloy wrote:
+> commit cbbd26b8b1a6 ("[iov_iter] new primitives - copy_from_iter_full()
+> and friends") replaced calls to copy_from_iter() in the function
+> tipc_msg_build(). This causes a an immediate crash as follows:
 
-I don't even think it needs that.  This is just adding a
-non-destructive final operation, right?
+Very interesting.
 
->
-> Here's my current straw man design for comment.  It's very similar to
-> the current MD5-based design, but feeds all the seed material in the
-> "correct" way, as opposed to Xring directly into the MD5 state.
->
-> * Each CPU has a (Half)SipHash state vector,
->   "unsigned long get_random_int_hash[4]".  Unlike the current
->   MD5 code, we take care to initialize it to an asymmetric state.
->
-> * There's a global 256-bit random_int_secret (which we could
->   reseed periodically).
->
-> To generate a random number:
-> * If get_random_int_hash is all-zero, seed it with fresh a half-sized
->   SipHash key and the appropriate XOR constants.
-> * Generate three words of random_get_entropy(), jiffies, and current->pid.
->   (This is arbitary seed material, copied from the current code.)
-> * Crank through that with (Half)SipHash-1-0.
-> * Crank through the random_int_secret with (Half)SipHash-1-0.
-> * Return v1 ^ v3.
+> [ 1209.597076] BUG: unable to handle kernel NULL pointer dereference at 0000000000000008
+> [ 1209.607025] IP: copy_from_iter_full+0x43/0x290
 
-Just to clarify, if we replace SipHash with a black box, I think this
-effectively means, where "entropy" is random_get_entropy() || jiffies
-|| current->pid:
+> [ 1209.689257]  tipc_msg_build+0xe1/0x590 [tipc]
+> [ 1209.691479]  ? _raw_spin_unlock_bh+0x1e/0x20
+> [ 1209.694641]  ? tipc_node_find+0x30/0xa0 [tipc]
+> [ 1209.696789]  __tipc_sendmsg+0x189/0x480 [tipc]
+> [ 1209.699017]  ? remove_wait_queue+0x4d/0x60
+> [ 1209.700354]  tipc_connect+0x15f/0x1b0 [tipc]
+> [ 1209.701684]  SYSC_connect+0xd9/0x110
 
-The first call returns H(random seed || entropy_0 || secret).  The
-second call returns H(random seed || entropy_0 || secret || entropy_1
-|| secret).  Etc.
-
-If not, then I have a fairly strong preference to keep whatever
-construction we come up with consistent with something that could
-actually happen with invocations of unmodified SipHash -- then all the
-security analysis on SipHash goes through.
-
-Anyway, I have mixed thoughts about the construction.  It manages to
-have a wide state at essentially no cost, which buys us quite a bit of
-work factor to break it.  Even with full knowledge of the state, an
-output doesn't reveal the entropy except to the extent that it can be
-brute-force (this is just whatever the appropriate extended version of
-first preimage resistance gives us).  The one thing I don't like is
-that I don't see how to prove that you can't run it backwards if you
-manage to acquire a memory dump.  In fact, I that that there exist, at
-least in theory, hash functions that are secure in the random oracle
-model but that *can* be run backwards given the full state.  From
-memory, SHA-3 has exactly that property, and it would be a bit sad for
-a CSPRNG to be reversible.
-
-We could also periodically mix in a big (128-bit?) chunk of fresh
-urandom output to keep the bad guys guessing.
-
-(P.S.  This kind of resembles the duplex sponge construction.  If
-hardware SHA-3 ever shows up, a duplex sponge RNG might nice indeed.)
+I don't believe that it's something tipc-specific; could you post an objdump
+of copy_from_iter_full() in your kernel?  That smells like a bug in there
+and it really ought to be fixed...
