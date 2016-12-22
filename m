@@ -1,46 +1,59 @@
-From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH] Fixed status entry in m_can documentation
-Date: Thu, 22 Dec 2016 17:14:08 -0600
-Message-ID: <20161222231408.drbakherghdegnam@rob-hp-laptop>
-References: <20161222104521.20683-1-uvv.mail@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Jiri Kosina <trivial-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>,
-        Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>
-To: "Vyacheslav V. Yurkov" <uvv.mail-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20161222104521.20683-1-uvv.mail-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: [PATCH net] inet: fix IP(V6)_RECVORIGDSTADDR for udp sockets
+Date: Thu, 22 Dec 2016 18:19:16 -0500
+Message-ID: <1482448756-83129-1-git-send-email-willemdebruijn.kernel@gmail.com>
+Cc: davem@davemloft.net, njagabar@cloudmark.com,
+        samanthakumar@google.com, Willem de Bruijn <willemb@google.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f193.google.com ([209.85.220.193]:34746 "EHLO
+        mail-qk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S941233AbcLVXTU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Dec 2016 18:19:20 -0500
+Received: by mail-qk0-f193.google.com with SMTP id t184so15130474qkd.1
+        for <netdev@vger.kernel.org>; Thu, 22 Dec 2016 15:19:19 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 22, 2016 at 11:45:21AM +0100, Vyacheslav V. Yurkov wrote:
-> Use valid value for 'enabled' in status field
-> 
-> Signed-off-by: Vyacheslav V. Yurkov <uvv.mail-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> ---
->  Documentation/devicetree/bindings/net/can/m_can.txt | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/Documentation/devicetree/bindings/net/can/m_can.txt b/Documentation/devicetree/bindings/net/can/m_can.txt
-> index 9e33177..5facaf5 100644
-> --- a/Documentation/devicetree/bindings/net/can/m_can.txt
-> +++ b/Documentation/devicetree/bindings/net/can/m_can.txt
-> @@ -63,5 +63,5 @@ Board dts:
->  &m_can1 {
->  	pinctrl-names = "default";
->  	pinctrl-0 = <&pinctrl_m_can1>;
-> -	status = "enabled";
-> +	status = "okay";
+From: Willem de Bruijn <willemb@google.com>
 
-Examples don't need to have status prop. Just remove.
+Socket cmsg IP(V6)_RECVORIGDSTADDR checks that port range lies within
+the packet. For sockets that have transport headers pulled, transport
+offset can be negative. Use signed comparison to avoid overflow.
 
-Rob
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Fixes: e6afc8ace6dd ("udp: remove headers from UDP packets before queueing")
+Reported-by: Nisar Jagabar <njagabar@cloudmark.com>
+Signed-off-by: Willem de Bruijn <willemb@google.com>
+---
+ net/ipv4/ip_sockglue.c | 2 +-
+ net/ipv6/datagram.c    | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
+index 8b13881..9760734 100644
+--- a/net/ipv4/ip_sockglue.c
++++ b/net/ipv4/ip_sockglue.c
+@@ -148,7 +148,7 @@ static void ip_cmsg_recv_dstaddr(struct msghdr *msg, struct sk_buff *skb)
+ 	const struct iphdr *iph = ip_hdr(skb);
+ 	__be16 *ports = (__be16 *)skb_transport_header(skb);
+ 
+-	if (skb_transport_offset(skb) + 4 > skb->len)
++	if (skb_transport_offset(skb) + 4 > (int)skb->len)
+ 		return;
+ 
+ 	/* All current transport protocols have the port numbers in the
+diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
+index 0489e19..1407426 100644
+--- a/net/ipv6/datagram.c
++++ b/net/ipv6/datagram.c
+@@ -701,7 +701,7 @@ void ip6_datagram_recv_specific_ctl(struct sock *sk, struct msghdr *msg,
+ 		struct sockaddr_in6 sin6;
+ 		__be16 *ports = (__be16 *) skb_transport_header(skb);
+ 
+-		if (skb_transport_offset(skb) + 4 <= skb->len) {
++		if (skb_transport_offset(skb) + 4 <= (int)skb->len) {
+ 			/* All current transport protocols have the port numbers in the
+ 			 * first four bytes of the transport header and this function is
+ 			 * written with this assumption in mind.
+-- 
+2.8.0.rc3.226.g39d4020
