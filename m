@@ -1,56 +1,38 @@
-From: maowenan <maowenan@huawei.com>
-Subject: RE: [PATCH] ethtool: add one ethtool option to set relax ordering
- mode
-Date: Thu, 22 Dec 2016 01:39:09 +0000
-Message-ID: <F95AC9340317A84688A5F0DF0246F3F20151F189@szxeml504-mbs.china.huawei.com>
-References: <1481179898-10668-1-git-send-email-maowenan@huawei.com>
-        <1481179898-10668-2-git-send-email-maowenan@huawei.com>
- <20161221172759.1bc0d0dd@xeon-e3>
+From: Dave Jones <davej@codemonkey.org.uk>
+Subject: Re: ipv6: handle -EFAULT from skb_copy_bits
+Date: Wed, 21 Dec 2016 20:40:19 -0500
+Message-ID: <20161222014019.5szwzj7lu4vbgidq@codemonkey.org.uk>
+References: <CAM_iQpXWCWMKDjLVTLuHNSKKGq5MWf5ZRLpyE=PDD3EgQ7PS4Q@mail.gmail.com>
+ <1482323232.2260.2.camel@stressinduktion.org>
+ <1482324073.2260.4.camel@stressinduktion.org>
+ <20161221.140431.1651188849352763159.davem@davemloft.net>
+ <1482356000.2260.13.camel@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
-        "weiyongjun (A)" <weiyongjun1@huawei.com>,
-        Dingtianhong <dingtianhong@huawei.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, xiyou.wangcong@gmail.com,
+        netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:35809 "EHLO
-        szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756276AbcLVBj4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2016 20:39:56 -0500
-In-Reply-To: <20161221172759.1bc0d0dd@xeon-e3>
-Content-Language: zh-CN
+Received: from arcturus.aphlor.org ([188.246.204.175]:36086 "EHLO
+        arcturus.aphlor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932368AbcLVBk0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2016 20:40:26 -0500
+Content-Disposition: inline
+In-Reply-To: <1482356000.2260.13.camel@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, Dec 21, 2016 at 10:33:20PM +0100, Hannes Frederic Sowa wrote:
 
+ > > Given all of this, I think the best thing to do is validate the offset
+ > > after the queue walks, which is pretty much what Dave Jones's original
+ > > patch was doing.
+ > 
+ > I think both approaches protect against the bug reasonably well, but
+ > Dave's patch has a bug: we must either call ip6_flush_pending_frames to
+ > clear the socket write queue with the buggy send request.
 
-> -----Original Message-----
-> From: Stephen Hemminger [mailto:stephen@networkplumber.org]
-> Sent: Thursday, December 22, 2016 9:28 AM
-> To: maowenan
-> Cc: netdev@vger.kernel.org; jeffrey.t.kirsher@intel.com
-> Subject: Re: [PATCH] ethtool: add one ethtool option to set relax ordering mode
-> 
-> On Thu, 8 Dec 2016 14:51:38 +0800
-> Mao Wenan <maowenan@huawei.com> wrote:
-> 
-> > This patch provides one way to set/unset IXGBE NIC TX and RX relax
-> > ordering mode, which can be set by ethtool.
-> > Relax ordering is one mode of 82599 NIC, to enable this mode can
-> > enhance the performance for some cpu architecure.
-> 
-> Then it should be done by CPU architecture specific quirks (preferably in PCI
-> layer) so that all users get the option without having to do manual intervention.
-> 
-> > example:
-> > ethtool -s enp1s0f0 relaxorder off
-> > ethtool -s enp1s0f0 relaxorder on
-> 
-> Doing it via ethtool is a developer API (for testing) not something that makes
-> sense in production.
+I can fix that up and resubmit, or we can go with your approach.
+DaveM ?
 
-
-This feature is not mandatory for all users, acturally relax ordering default configuration of 82599 is 'disable',
-So this patch gives one way to enable relax ordering to be selected in some performance condition.
+	Dave
