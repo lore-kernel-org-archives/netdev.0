@@ -1,48 +1,73 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: Re: [kernel-hardening] Re: [PATCH v7 3/6] random: use SipHash in
- place of MD5
-Date: Thu, 22 Dec 2016 16:53:20 +0100
-Message-ID: <CAHmME9or5jdJUCAyY3-L1Wto6LGG9XDvMyhuxiTgTpVgQdWtjw@mail.gmail.com>
-References: <20161216030328.11602-1-Jason@zx2c4.com> <20161221230216.25341-1-Jason@zx2c4.com>
- <20161221230216.25341-4-Jason@zx2c4.com> <CALCETrVttVoZMvCYZcrAqM1c=YQP_nCfdfO1MsrSHjvjTFxH+A@mail.gmail.com>
- <17bd0c70-d2c1-165b-f5b2-252dfca404e8@stressinduktion.org>
- <CAHmME9phg=GuhEUaMxxv_=RexffPDqrOEhmaKffy_ZSt7bfC7g@mail.gmail.com>
- <20161222054125.lzxhd6ctovm3wk4p@thunk.org> <1482410840.2472.2.camel@stressinduktion.org>
- <CAHmME9r_zTHo=dxRRK6UrjJ_dKV14yYsZsxCc362z4CPoVkddw@mail.gmail.com>
- <5c306c80-3499-8b92-21d0-c197f30ce326@stressinduktion.org>
- <CAHmME9qZviooxOW+e=khazG0phSEWwZyKj=eayre_7hs8d+cQw@mail.gmail.com>
- <CAHmME9pu-2CY2WRHevnpwo-9qnZcTpqQgC2voGFOpSjo+LPiUA@mail.gmail.com>
- <1482420815.2673.1.camel@stressinduktion.org> <CAHmME9ok8iWfZybyDki13v6Xf3usRet1y8oUcDcy+5YwkARQPA@mail.gmail.com>
- <1482421900.2673.3.camel@stressinduktion.org>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH] ethtool: add one ethtool option to set relax ordering mode
+Date: Thu, 22 Dec 2016 07:53:42 -0800
+Message-ID: <CAKgT0Uc2ztu_iDn79zdNtsAdb-Ftu65V6YHV-sqXb6vTCTiGCQ@mail.gmail.com>
+References: <1481179898-10668-1-git-send-email-maowenan@huawei.com>
+ <1481179898-10668-2-git-send-email-maowenan@huawei.com> <20161221172759.1bc0d0dd@xeon-e3>
+ <F95AC9340317A84688A5F0DF0246F3F20151F189@szxeml504-mbs.china.huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: kernel-hardening@lists.openwall.com,
-        "Theodore Ts'o" <tytso@mit.edu>,
-        Andy Lutomirski <luto@amacapital.net>,
-        Netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-        David Laight <David.Laight@aculab.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Linus Torvalds <torvalds@linux-foundation.org>,
-        Eric Biggers <ebiggers3@gmail.com>,
-        Tom Herbert <tom@herbertland.com>,
-        Andi Kleen <ak@linux.intel.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1482421900.2673.3.camel@stressinduktion.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
+        "weiyongjun (A)" <weiyongjun1@huawei.com>,
+        Dingtianhong <dingtianhong@huawei.com>
+To: maowenan <maowenan@huawei.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f177.google.com ([209.85.223.177]:34409 "EHLO
+        mail-io0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S965431AbcLVPxs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Dec 2016 10:53:48 -0500
+Received: by mail-io0-f177.google.com with SMTP id p42so233962812ioo.1
+        for <netdev@vger.kernel.org>; Thu, 22 Dec 2016 07:53:48 -0800 (PST)
+In-Reply-To: <F95AC9340317A84688A5F0DF0246F3F20151F189@szxeml504-mbs.china.huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 22, 2016 at 4:51 PM, Hannes Frederic Sowa
-<hannes@stressinduktion.org> wrote:
-> This algorithm should be a non-seeded algorithm, because the hashes
-> should be stable and verifiable by user space tooling. Thus this would
-> need a hashing algorithm that is hardened against pre-image
-> attacks/collision resistance, which siphash is not. I would prefer some
-> higher order SHA algorithm for that actually.
+On Wed, Dec 21, 2016 at 5:39 PM, maowenan <maowenan@huawei.com> wrote:
+>
+>
+>> -----Original Message-----
+>> From: Stephen Hemminger [mailto:stephen@networkplumber.org]
+>> Sent: Thursday, December 22, 2016 9:28 AM
+>> To: maowenan
+>> Cc: netdev@vger.kernel.org; jeffrey.t.kirsher@intel.com
+>> Subject: Re: [PATCH] ethtool: add one ethtool option to set relax ordering mode
+>>
+>> On Thu, 8 Dec 2016 14:51:38 +0800
+>> Mao Wenan <maowenan@huawei.com> wrote:
+>>
+>> > This patch provides one way to set/unset IXGBE NIC TX and RX relax
+>> > ordering mode, which can be set by ethtool.
+>> > Relax ordering is one mode of 82599 NIC, to enable this mode can
+>> > enhance the performance for some cpu architecure.
+>>
+>> Then it should be done by CPU architecture specific quirks (preferably in PCI
+>> layer) so that all users get the option without having to do manual intervention.
+>>
+>> > example:
+>> > ethtool -s enp1s0f0 relaxorder off
+>> > ethtool -s enp1s0f0 relaxorder on
+>>
+>> Doing it via ethtool is a developer API (for testing) not something that makes
+>> sense in production.
+>
+>
+> This feature is not mandatory for all users, acturally relax ordering default configuration of 82599 is 'disable',
+> So this patch gives one way to enable relax ordering to be selected in some performance condition.
 
-Right. SHA-256, SHA-512/256, Blake2s, or Blake2b would probably be
-good candidates for this.
+That isn't quite true.  The default for Sparc systems is to have it enabled.
+
+Really this is something that is platform specific.  I agree with
+Stephen that it would work better if this was handled as a series of
+platform specific quirks handled at something like the PCI layer
+rather than be a switch the user can toggle on and off.
+
+With that being said there are changes being made that should help to
+improve the situation.  Specifically I am looking at adding support
+for the DMA_ATTR_WEAK_ORDERING which may also allow us to identify
+cases where you might be able to specify the DMA behavior via the DMA
+mapping instead of having to make the final decision in the device
+itself.
+
+- Alex
