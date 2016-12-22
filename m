@@ -1,51 +1,38 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: Re: BPF hash algo (Re: [kernel-hardening] Re: [PATCH v7 3/6] random:
- use SipHash in place of MD5)
-Date: Thu, 22 Dec 2016 19:19:12 +0100
-Message-ID: <CAHmME9rPzhi456Jq5z7cFZnjfJeWUiHyxxdXL882s2TZPwvF=g@mail.gmail.com>
-References: <CALCETrUATPeaCJTQZN2h=ct6HH-xLt4V8T0PfPHNFGFN2HWtTA@mail.gmail.com>
- <1482425969.2673.5.camel@stressinduktion.org>
-Reply-To: kernel-hardening@lists.openwall.com
+From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH 1/3] NFC: trf7970a: add device tree option for 27MHz clock
+Date: Thu, 22 Dec 2016 12:48:27 -0600
+Message-ID: <CAL_JsqL4TMDaMQZM3h5gRBEiAa7-ApUWj4GgS_BPG6qpoLxv6g@mail.gmail.com>
+References: <1481841044-4314-1-git-send-email-glansberry@gmail.com>
+ <20161219223111.itu77g7wsqtj6cvs@rob-hp-laptop> <CAO7Z3WKmEbJCN_=srxTVKXvtz84vHGi41RS+9T7fmkmhRB6nEw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Andy Lutomirski <luto@amacapital.net>, Daniel Borkmann <daniel@iogearbox.net>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	"kernel-hardening@lists.openwall.com" <kernel-hardening@lists.openwall.com>, "Theodore Ts'o" <tytso@mit.edu>,
-	Netdev <netdev@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>,
-	Linux Crypto Mailing List <linux-crypto@vger.kernel.org>, David Laight <David.Laight@aculab.com>,
-	Eric Dumazet <edumazet@google.com>, Linus Torvalds <torvalds@linux-foundation.org>,
-	Eric Biggers <ebiggers3@gmail.com>, Tom Herbert <tom@herbertland.com>,
-	Andi Kleen <ak@linux.intel.com>, "David S. Miller" <davem@davemloft.net>,
-	Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <kernel-hardening-return-5801-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <1482425969.2673.5.camel@stressinduktion.org>
+Cc: linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Lauro Ramos Venancio <lauro.venancio-430g2QfJUUCGglJvpFV4uA@public.gmane.org>,
+        Aloisio Almeida Jr <aloisio.almeida-430g2QfJUUCGglJvpFV4uA@public.gmane.org>,
+        Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Mark Greer <mgreer-luAo+O/VEmrlveNOaEYElw@public.gmane.org>,
+        Justin Bronder <justin-R+k406RtEhcAvxtiuMwx3w@public.gmane.org>
+To: Geoff Lansberry <geoff-R+k406RtEhcAvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAO7Z3WKmEbJCN_=srxTVKXvtz84vHGi41RS+9T7fmkmhRB6nEw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 22, 2016 at 5:59 PM, Hannes Frederic Sowa
-<hannes@stressinduktion.org> wrote:
-> We don't prevent ebpf programs being loaded based on the digest but
-> just to uniquely identify loaded programs from user space and match up
-> with their source.
+On Mon, Dec 19, 2016 at 5:23 PM, Geoff Lansberry <geoff-R+k406RtEhcAvxtiuMwx3w@public.gmane.org> wrote:
+> I can make that change, however, I worry that it may be a bit
+> misleading, since there are only two supported clock frequencies, but
+> a number like that to me implies that it could be set to any number
+> you want.   I'm new at this, and so I'll go ahead and change it as you
+> request, but I'd like to hear your thoughts on my concern.
 
-Okay, so in that case, a weak hashing function like SHA1 could result
-in a real vulnerability. Therefore, this SHA1 stuff needs to be
-reverted immediately, pending a different implementation. If this has
-ever shipped in a kernel version, it could even deserve a CVE. No
-SHA1!
+Then the binding doc just needs to state what are the 2 valid frequencies.
 
-> The hashing is not a proper sha1 neither, unfortunately. I think that
-> is why it will have a custom implementation in iproute2?
-
-Jeepers creepers. So for some ungodly reason, LKML has invented yet
-another homebrewed crypto primitive. This story really gets more
-horrifying every day. No bueno.
-
-So yea, let's revert and re-commit (repeal and replace? just
-kidding...). Out with SHA-1, in with Blake2 or SHA2.
-
-Jason
+Rob
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
