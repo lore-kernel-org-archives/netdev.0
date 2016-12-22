@@ -1,224 +1,144 @@
-From: Theodore Ts'o <tytso@mit.edu>
-Subject: Re: Re: [PATCH v7 3/6] random: use SipHash in
- place of MD5
-Date: Thu, 22 Dec 2016 00:41:25 -0500
-Message-ID: <20161222054125.lzxhd6ctovm3wk4p@thunk.org>
-References: <20161216030328.11602-1-Jason@zx2c4.com>
- <20161221230216.25341-1-Jason@zx2c4.com>
- <20161221230216.25341-4-Jason@zx2c4.com>
- <CALCETrVttVoZMvCYZcrAqM1c=YQP_nCfdfO1MsrSHjvjTFxH+A@mail.gmail.com>
- <17bd0c70-d2c1-165b-f5b2-252dfca404e8@stressinduktion.org>
- <CAHmME9phg=GuhEUaMxxv_=RexffPDqrOEhmaKffy_ZSt7bfC7g@mail.gmail.com>
-Reply-To: kernel-hardening@lists.openwall.com
+From: Andy Lutomirski <luto@amacapital.net>
+Subject: Re: George's crazy full state idea (Re: HalfSipHash Acceptable Usage)
+Date: Wed, 21 Dec 2016 21:42:45 -0800
+Message-ID: <CALCETrU84-EeU91AkoAZLWrhK=FSrBgV139oSSM-Vw5Mc0mdAg@mail.gmail.com>
+References: <CALCETrVn1tWBQx-RCSqCQ2ZcB6hPdioaV52q8vY+Mz1fRKsUXA@mail.gmail.com>
+ <20161222050138.12011.qmail@ns.sciencehorizons.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Andy Lutomirski <luto@amacapital.net>,
-	Netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-	David Laight <David.Laight@aculab.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Eric Biggers <ebiggers3@gmail.com>,
-	Tom Herbert <tom@herbertland.com>, Andi Kleen <ak@linux.intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>
-To: kernel-hardening@lists.openwall.com
-Return-path: <kernel-hardening-return-5772-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-Content-Disposition: inline
-In-Reply-To: <CAHmME9phg=GuhEUaMxxv_=RexffPDqrOEhmaKffy_ZSt7bfC7g@mail.gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Andrew Lutomirski <luto@kernel.org>,
+        Andi Kleen <ak@linux.intel.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        David Laight <David.Laight@aculab.com>,
+        "D. J. Bernstein" <djb@cr.yp.to>,
+        Eric Biggers <ebiggers3@gmail.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        "Jason A. Donenfeld" <Jason@zx2c4.com>,
+        Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>,
+        "kernel-hardening@lists.openwall.com"
+        <kernel-hardening@lists.openwall.com>,
+        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>,
+        Tom Herbert <tom@herbertland.com>,
+        Linus Torvalds <torvalds@linux-foundation.org>,
+        "Ted Ts'o" <tytso@mit.e
+To: George Spelvin <linux@sciencehorizons.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161222050138.12011.qmail@ns.sciencehorizons.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 22, 2016 at 03:49:39AM +0100, Jason A. Donenfeld wrote:
-> 
-> Funny -- while you guys were sending this back & forth, I was writing
-> my reply to Andy which essentially arrives at the same conclusion.
-> Given that we're all arriving to the same thing, and that Ted shot in
-> this direction long before we all did, I'm leaning toward abandoning
-> SipHash for the de-MD5-ification of get_random_int/long, and working
-> on polishing Ted's idea into something shiny for this patchset.
+On Wed, Dec 21, 2016 at 9:01 PM, George Spelvin
+<linux@sciencehorizons.net> wrote:
+> Andy Lutomirski wrote:
+>> I don't even think it needs that.  This is just adding a
+>> non-destructive final operation, right?
+>
+> It is, but the problem is that SipHash is intended for *small* inputs,
+> so the standard implementations aren't broken into init/update/final
+> functions.
+>
+> There's just one big function that keeps the state variables in
+> registers and never stores them anywhere.
+>
+> If we *had* init/update/final functions, then it would be trivial.
+>
+>> Just to clarify, if we replace SipHash with a black box, I think this
+>> effectively means, where "entropy" is random_get_entropy() || jiffies
+>> || current->pid:
+>
+>> The first call returns H(random seed || entropy_0 || secret).  The
+>> second call returns H(random seed || entropy_0 || secret || entropy_1
+>> || secret).  Etc.
+>
+> Basically, yes.  I was skipping the padding byte and keying the
+> finalization rounds on the grounds of "can't hurt and might help",
+> but we could do it a more standard way.
+>
+>> If not, then I have a fairly strong preference to keep whatever
+>> construction we come up with consistent with something that could
+>> actually happen with invocations of unmodified SipHash -- then all the
+>> security analysis on SipHash goes through.
+>
+> Okay.  I don't think it makes a difference, but it's not a *big* waste
+> of time.  If we have finalization rounds, we can reduce the secret
+> to 128 bits.
+>
+> If we include the padding byte, we can do one of two things:
+> 1) Make the secret 184 bits, to fill up the final partial word as
+>    much as possible, or
+> 2) Make the entropy 1 byte smaller and conceptually misalign the
+>    secret.  What we'd actually do is remove the last byte of
+>    the secret and include it in the entropy words, but that's
+>    just a rotation of the secret between storage and hashing.
+>
+> Also, I assume you'd like SipHash-2-4, since you want to rely
+> on a security analysis.
 
-here are my numbers comparing siphash (using the first three patches
-of the v7 siphash patches) with my batched chacha20 implementation.
-The results are taken by running get_random_* 10000 times, and then
-dividing the numbers by 10000 to get the average number of cycles for
-the call.  I compiled 32-bit and 64-bit kernels, and ran the results
-using kvm:
+I haven't looked, but I assume that the analysis at least thought
+about reduced rounds, so maybe other variants are okay.
 
-                   siphash                        batched chacha20
-         get_random_int  get_random_long   get_random_int   get_random_long   
+>> The one thing I don't like is
+>> that I don't see how to prove that you can't run it backwards if you
+>> manage to acquire a memory dump.  In fact, I that that there exist, at
+>> least in theory, hash functions that are secure in the random oracle
+>> model but that *can* be run backwards given the full state.  From
+>> memory, SHA-3 has exactly that property, and it would be a bit sad for
+>> a CSPRNG to be reversible.
+>
+> Er...  get_random_int() is specifically *not* designed to be resistant
+> to state capture, and I didn't try.  Remember, what it's used for
+> is ASLR, what we're worried about is somene learning the layouts
+> of still-running processes, and and if you get a memory dump, you have
+> the memory layout!
 
-32-bit    270                  278             114            146
-64-bit     75                   75             106            186
+True, but it's called get_random_int(), and it seems like making it
+stronger, especially if the performance cost is low to zero, is a good
+thing.
 
-> I did have two objections to this. The first was that my SipHash
-> construction is faster.
+>
+> If you want anti-backtracking, though, it's easy to add.  What we
+> hash is:
+>
+> entropy_0 || secret || output_0 || entropy_1 || secret || output_1 || ...
+>
+> You mix the output word right back in to the (unfinalized) state after
+> generating it.  This is still equivalent to unmodified back-box SipHash,
+> you're just using a (conceptually independent) SipHash invocation to
+> produce some of its input.
 
-Well, it's faster on everything except 32-bit x86.  :-P
+Ah, cute.  This could probably be sped up by doing something like:
 
-> The second, and the more
-> important one, was that batching entropy up like this means that 32
-> calls will be really fast, and then the 33rd will be slow, since it
-> has to do a whole ChaCha round, because get_random_bytes must be
-> called to refill the batch.
+entropy_0 || secret || output_0 ^ entropy_1 || secret || ...
 
-... and this will take 2121 cycles on 64-bit x86, and 2315 cycles on a
-32-bit x86.  Which on a 2.3 GHz processor, is just under a
-microsecond.  As far as being inconsistent on process startup, I very
-much doubt a microsecond is really going to be visible to the user.  :-)
+It's a little weak because the output is only 64 bits, so you could
+plausibly backtrack it on a GPU or FPGA cluster or on an ASIC if the
+old entropy is guessable.  I suspect there are sneaky ways around it
+like using output_n-1 ^ output_n-2 or similar.  I'll sleep on it.
 
-The bottom line is that I think we're really "pixel peeping" at this
-point --- which is what obsessed digital photographers will do when
-debating the quality of a Canon vs Nikon DSLR by blowing up a photo by
-a thousand times, and then trying to claim that this is visible to the
-human eye.  Or people who obsessing over the frequency response curves
-of TH-X00 headphones with Mahogony vs Purpleheart wood, when it's
-likely that in a blind head-to-head comparison, most people wouldn't
-be able to tell the difference....
+>
+> The only remaining issues are:
+> 1) How many rounds, and
+> 2) May we use HalfSipHash?
 
-I think the main argument for using the batched getrandom approach is
-that it, I would argue, simpler than introducing siphash into the
-picture.  On 64-bit platforms it is faster and more consistent, so
-it's basically that versus complexity of having to adding siphash to
-the things that people have to analyze when considering random number
-security on Linux.   But it's a close call either way, I think.
+I haven't looked closely enough to have a real opinion here.  I don't
+know what the security margin is believed to be.
 
-	    	     	      	      - Ted
+>
+> I'd *like* to persuade you that skipping the padding byte wouldn't
+> invalidate any security proofs, because it's true and would simplify
+> the code.  But if you want 100% stock, I'm willing to cater to that.
 
-P.S.  My benchmarking code....
+I lean toward stock in the absence of a particularly good reason.  At
+the very least I'd want to read that paper carefully.
 
-diff --git a/drivers/char/random.c b/drivers/char/random.c
-index a51f0ff43f00..41860864b775 100644
---- a/drivers/char/random.c
-+++ b/drivers/char/random.c
-@@ -1682,6 +1682,55 @@ static int rand_initialize(void)
- }
- early_initcall(rand_initialize);
- 
-+static unsigned int get_random_int_new(void);
-+static unsigned long get_random_long_new(void);
-+
-+#define NUM_CYCLES 10000
-+#define AVG(finish, start) ((unsigned int)(finish - start + NUM_CYCLES/2) / NUM_CYCLES)
-+
-+static int rand_benchmark(void)
-+{
-+	cycles_t start,finish;
-+	int i, out;
-+
-+	pr_crit("random benchmark!!\n");
-+	start = get_cycles();
-+	for (i = 0; i < NUM_CYCLES; i++) {
-+		get_random_int();}
-+	finish = get_cycles();
-+	pr_err("get_random_int # cycles: %u\n", AVG(finish, start));
-+
-+	start = get_cycles();
-+	for (i = 0; i < NUM_CYCLES; i++) {
-+		get_random_int_new();
-+	}
-+	finish = get_cycles();
-+	pr_err("get_random_int_new (batched chacha20) # cycles: %u\n", AVG(finish, start));
-+
-+	start = get_cycles();
-+	for (i = 0; i < NUM_CYCLES; i++) {
-+		get_random_long();
-+	}
-+	finish = get_cycles();
-+	pr_err("get_random_long # cycles: %u\n", AVG(finish, start));
-+
-+	start = get_cycles();
-+	for (i = 0; i < NUM_CYCLES; i++) {
-+		get_random_long_new();
-+	}
-+	finish = get_cycles();
-+	pr_err("get_random_long_new (batched chacha20) # cycles: %u\n", AVG(finish, start));
-+
-+	start = get_cycles();
-+	for (i = 0; i < NUM_CYCLES; i++) {
-+		get_random_bytes(&out, sizeof(out));
-+	}
-+	finish = get_cycles();
-+	pr_err("get_random_bytes # cycles: %u\n", AVG(finish, start));
-+	return 0;
-+}
-+device_initcall(rand_benchmark);
-+
- #ifdef CONFIG_BLOCK
- void rand_initialize_disk(struct gendisk *disk)
- {
-@@ -2064,8 +2113,10 @@ unsigned int get_random_int(void)
- 	unsigned int ret;
- 	u64 *chaining;
- 
-+#if 0	// force slow path
- 	if (arch_get_random_int(&ret))
- 		return ret;
-+#endif
- 
- 	chaining = &get_cpu_var(get_random_int_chaining);
- 	ret = *chaining = siphash_3u64(*chaining, jiffies, random_get_entropy() +
-@@ -2083,8 +2134,10 @@ unsigned long get_random_long(void)
- 	unsigned long ret;
- 	u64 *chaining;
- 
-+#if 0 // force slow path
- 	if (arch_get_random_long(&ret))
- 		return ret;
-+#endif 
- 
- 	chaining = &get_cpu_var(get_random_int_chaining);
- 	ret = *chaining = siphash_3u64(*chaining, jiffies, random_get_entropy() +
-@@ -2094,6 +2147,47 @@ unsigned long get_random_long(void)
- }
- EXPORT_SYMBOL(get_random_long);
- 
-+struct random_buf {
-+	__u8 buf[CHACHA20_BLOCK_SIZE];
-+	int ptr;
-+};
-+
-+static DEFINE_PER_CPU(struct random_buf, batched_entropy);
-+
-+static void get_batched_entropy(void *buf, int n)
-+{
-+	struct random_buf *p;
-+
-+	p = &get_cpu_var(batched_entropy);
-+
-+	if ((p->ptr == 0) ||
-+	    (p->ptr + n >= CHACHA20_BLOCK_SIZE)) {
-+		extract_crng(p->buf);
-+		p->ptr = 0;
-+	}
-+	BUG_ON(n > CHACHA20_BLOCK_SIZE);
-+	memcpy(buf, p->buf, n);
-+	p->ptr += n;
-+	put_cpu_var(batched_entropy);
-+}
-+
-+static unsigned int get_random_int_new(void)
-+{
-+	unsigned int ret;
-+
-+	get_batched_entropy(&ret, sizeof(ret));
-+	return ret;
-+}
-+
-+static unsigned long get_random_long_new(void)
-+{
-+	unsigned long ret;
-+
-+	get_batched_entropy(&ret, sizeof(ret));
-+	return ret;
-+}
-+
-+
- /**
-  * randomize_page - Generate a random, page aligned address
-  * @start:	The smallest acceptable address the caller will take.
+>
+> Ted, what do you think?
+
+
+
+-- 
+Andy Lutomirski
+AMA Capital Management, LLC
