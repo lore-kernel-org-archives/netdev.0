@@ -1,52 +1,59 @@
-From: Lorenzo Colitti <lorenzo@google.com>
-Subject: [PATCH net] net: ipv4: Don't crash if passing a null sk to ip_do_redirect.
-Date: Fri, 23 Dec 2016 00:33:57 +0900
-Message-ID: <1482420837-30324-1-git-send-email-lorenzo@google.com>
-Cc: davem@davemloft.net, Lorenzo Colitti <lorenzo@google.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f182.google.com ([209.85.192.182]:34613 "EHLO
-        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756270AbcLVPeF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 22 Dec 2016 10:34:05 -0500
-Received: by mail-pf0-f182.google.com with SMTP id c4so40438334pfb.1
-        for <netdev@vger.kernel.org>; Thu, 22 Dec 2016 07:34:05 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: Re: [kernel-hardening] Re: [PATCH v7 3/6] random: use SipHash in
+ place of MD5
+Date: Thu, 22 Dec 2016 16:41:59 +0100
+Message-ID: <CAHmME9ok8iWfZybyDki13v6Xf3usRet1y8oUcDcy+5YwkARQPA@mail.gmail.com>
+References: <20161216030328.11602-1-Jason@zx2c4.com> <20161221230216.25341-1-Jason@zx2c4.com>
+ <20161221230216.25341-4-Jason@zx2c4.com> <CALCETrVttVoZMvCYZcrAqM1c=YQP_nCfdfO1MsrSHjvjTFxH+A@mail.gmail.com>
+ <17bd0c70-d2c1-165b-f5b2-252dfca404e8@stressinduktion.org>
+ <CAHmME9phg=GuhEUaMxxv_=RexffPDqrOEhmaKffy_ZSt7bfC7g@mail.gmail.com>
+ <20161222054125.lzxhd6ctovm3wk4p@thunk.org> <1482410840.2472.2.camel@stressinduktion.org>
+ <CAHmME9r_zTHo=dxRRK6UrjJ_dKV14yYsZsxCc362z4CPoVkddw@mail.gmail.com>
+ <5c306c80-3499-8b92-21d0-c197f30ce326@stressinduktion.org>
+ <CAHmME9qZviooxOW+e=khazG0phSEWwZyKj=eayre_7hs8d+cQw@mail.gmail.com>
+ <CAHmME9pu-2CY2WRHevnpwo-9qnZcTpqQgC2voGFOpSjo+LPiUA@mail.gmail.com> <1482420815.2673.1.camel@stressinduktion.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: kernel-hardening@lists.openwall.com,
+        "Theodore Ts'o" <tytso@mit.edu>,
+        Andy Lutomirski <luto@amacapital.net>,
+        Netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+        David Laight <David.Laight@aculab.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Linus Torvalds <torvalds@linux-foundation.org>,
+        Eric Biggers <ebiggers3@gmail.com>,
+        Tom Herbert <tom@herbertland.com>,
+        Andi Kleen <ak@linux.intel.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <1482420815.2673.1.camel@stressinduktion.org>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Commit e2d118a1cb5e ("net: inet: Support UID-based routing in IP
-protocols.") made ip_do_redirect call sock_net(sk) to determine
-the network namespace of the passed-in socket. This crashes if sk
-is NULL.
+Hi Hannes,
 
-Fix this by getting the network namespace from the skb instead.
+On Thu, Dec 22, 2016 at 4:33 PM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> IPv6 you cannot touch anymore. The hashing algorithm is part of uAPI.
+> You don't want to give people new IPv6 addresses with the same stable
+> secret (across reboots) after a kernel upgrade. Maybe they lose
+> connectivity then and it is extra work?
 
-Fixes: e2d118a1cb5e ("net: inet: Support UID-based routing in IP protocols.")
-Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
----
- net/ipv4/route.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+Ahh, too bad. So it goes.
 
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index fa5c037227..9eabf49013 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -798,6 +798,7 @@ static void ip_do_redirect(struct dst_entry *dst, struct sock *sk, struct sk_buf
- 	struct rtable *rt;
- 	struct flowi4 fl4;
- 	const struct iphdr *iph = (const struct iphdr *) skb->data;
-+	struct net *net = dev_net(skb->dev);
- 	int oif = skb->dev->ifindex;
- 	u8 tos = RT_TOS(iph->tos);
- 	u8 prot = iph->protocol;
-@@ -805,7 +806,7 @@ static void ip_do_redirect(struct dst_entry *dst, struct sock *sk, struct sk_buf
- 
- 	rt = (struct rtable *) dst;
- 
--	__build_flow_key(sock_net(sk), &fl4, sk, iph, oif, tos, prot, mark, 0);
-+	__build_flow_key(net, &fl4, sk, iph, oif, tos, prot, mark, 0);
- 	__ip_do_redirect(rt, skb, &fl4, true);
- }
- 
--- 
-2.8.0.rc3.226.g39d4020
+> The bpf hash stuff can be changed during this merge window, as it is
+> not yet in a released kernel. Albeit I would probably have preferred
+> something like sha256 here, which can be easily replicated by user
+> space tools (minus the problem of patching out references to not
+> hashable data, which must be zeroed).
+
+Oh, interesting, so time is of the essence then. Do you want to handle
+changing the new eBPF code to something not-SHA1 before it's too late,
+as part of a new patchset that can fast track itself to David? And
+then I can preserve my large series for the next merge window.
+
+Jason
