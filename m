@@ -1,86 +1,45 @@
-From: Dave Jones <davej@codemonkey.org.uk>
-Subject: ipv6: handle -EFAULT from skb_copy_bits
-Date: Thu, 22 Dec 2016 11:16:22 -0500
-Message-ID: <20161222161622.o6gtidv24znbfs7n@codemonkey.org.uk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net] ipvlan: fix various issues in
+ ipvlan_process_multicast()
+Date: Thu, 22 Dec 2016 11:20:28 -0500 (EST)
+Message-ID: <20161222.112028.2305636805598303877.davem@davemloft.net>
+References: <1482355800.8944.75.camel@edumazet-glaptop3.roam.corp.google.com>
+        <1482372024.8944.79.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, maheshb@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from arcturus.aphlor.org ([188.246.204.175]:43746 "EHLO
-        arcturus.aphlor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965957AbcLVQRF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 22 Dec 2016 11:17:05 -0500
-Content-Disposition: inline
+Received: from shards.monkeyblade.net ([184.105.139.130]:46686 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S966065AbcLVQUa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Dec 2016 11:20:30 -0500
+In-Reply-To: <1482372024.8944.79.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-By setting certain socket options on ipv6 raw sockets, we can confuse the
-length calculation in rawv6_push_pending_frames triggering a BUG_ON.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 21 Dec 2016 18:00:24 -0800
 
-RIP: 0010:[<ffffffff817c6390>] [<ffffffff817c6390>] rawv6_sendmsg+0xc30/0xc40
-RSP: 0018:ffff881f6c4a7c18  EFLAGS: 00010282
-RAX: 00000000fffffff2 RBX: ffff881f6c681680 RCX: 0000000000000002
-RDX: ffff881f6c4a7cf8 RSI: 0000000000000030 RDI: ffff881fed0f6a00
-RBP: ffff881f6c4a7da8 R08: 0000000000000000 R09: 0000000000000009
-R10: ffff881fed0f6a00 R11: 0000000000000009 R12: 0000000000000030
-R13: ffff881fed0f6a00 R14: ffff881fee39ba00 R15: ffff881fefa93a80
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> 1) netif_rx() / dev_forward_skb() should not be called from process
+> context.
+> 
+> 2) ipvlan_count_rx() should be called with preemption disabled.
+> 
+> 3) We should check if ipvlan->dev is up before feeding packets
+> to netif_rx()
+> 
+> 4) We need to prevent device from disappearing if some packets
+> are in the multicast backlog.
+> 
+> 5) One kfree_skb() should be a consume_skb() eventually
+> 
+> Fixes: ba35f8588f47 ("ipvlan: Defer multicast / broadcast processing to
+> a work-queue")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Mahesh Bandewar <maheshb@google.com>
 
-Call Trace:
- [<ffffffff8118ba23>] ? unmap_page_range+0x693/0x830
- [<ffffffff81772697>] inet_sendmsg+0x67/0xa0
- [<ffffffff816d93f8>] sock_sendmsg+0x38/0x50
- [<ffffffff816d982f>] SYSC_sendto+0xef/0x170
- [<ffffffff816da27e>] SyS_sendto+0xe/0x10
- [<ffffffff81002910>] do_syscall_64+0x50/0xa0
- [<ffffffff817f7cbc>] entry_SYSCALL64_slow_path+0x25/0x25
-
-Handle by jumping to the failure path if skb_copy_bits gets an EFAULT.
-
-Reproducer:
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-
-#define LEN 504
-
-int main(int argc, char* argv[])
-{
-	int fd;
-	int zero = 0;
-	char buf[LEN];
-
-	memset(buf, 0, LEN);
-
-	fd = socket(AF_INET6, SOCK_RAW, 7);
-
-	setsockopt(fd, SOL_IPV6, IPV6_CHECKSUM, &zero, 4);
-	setsockopt(fd, SOL_IPV6, IPV6_DSTOPTS, &buf, LEN);
-
-	sendto(fd, buf, 1, 0, (struct sockaddr *) buf, 110);
-}
-
-Signed-off-by: Dave Jones <davej@codemonkey.org.uk>
-
-diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
-index 291ebc260e70..ea89073c8247 100644
---- a/net/ipv6/raw.c
-+++ b/net/ipv6/raw.c
-@@ -591,7 +591,11 @@ static int rawv6_push_pending_frames(struct sock *sk, struct flowi6 *fl6,
- 	}
- 
- 	offset += skb_transport_offset(skb);
--	BUG_ON(skb_copy_bits(skb, offset, &csum, 2));
-+	err = skb_copy_bits(skb, offset, &csum, 2);
-+	if (err < 0) {
-+		ip6_flush_pending_frames(sk);
-+		goto out;
-+	}
- 
- 	/* in case cksum was not initialized */
- 	if (unlikely(csum))
+Applied.
