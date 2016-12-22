@@ -1,59 +1,98 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: Re: [kernel-hardening] Re: [PATCH v7 3/6] random: use SipHash in
- place of MD5
-Date: Thu, 22 Dec 2016 16:41:59 +0100
-Message-ID: <CAHmME9ok8iWfZybyDki13v6Xf3usRet1y8oUcDcy+5YwkARQPA@mail.gmail.com>
-References: <20161216030328.11602-1-Jason@zx2c4.com> <20161221230216.25341-1-Jason@zx2c4.com>
- <20161221230216.25341-4-Jason@zx2c4.com> <CALCETrVttVoZMvCYZcrAqM1c=YQP_nCfdfO1MsrSHjvjTFxH+A@mail.gmail.com>
- <17bd0c70-d2c1-165b-f5b2-252dfca404e8@stressinduktion.org>
- <CAHmME9phg=GuhEUaMxxv_=RexffPDqrOEhmaKffy_ZSt7bfC7g@mail.gmail.com>
- <20161222054125.lzxhd6ctovm3wk4p@thunk.org> <1482410840.2472.2.camel@stressinduktion.org>
- <CAHmME9r_zTHo=dxRRK6UrjJ_dKV14yYsZsxCc362z4CPoVkddw@mail.gmail.com>
- <5c306c80-3499-8b92-21d0-c197f30ce326@stressinduktion.org>
- <CAHmME9qZviooxOW+e=khazG0phSEWwZyKj=eayre_7hs8d+cQw@mail.gmail.com>
- <CAHmME9pu-2CY2WRHevnpwo-9qnZcTpqQgC2voGFOpSjo+LPiUA@mail.gmail.com> <1482420815.2673.1.camel@stressinduktion.org>
+From: Phil Reid <preid@electromag.com.au>
+Subject: Re: [PATCH v2] stmmac: CSR clock configuration fix
+Date: Thu, 22 Dec 2016 23:42:01 +0800
+Message-ID: <15975894-6a5e-1706-ff9e-660c0bac3971@electromag.com.au>
+References: <7b395fd7dfd0c808243a744393473cbbf89b268a.1482410161.git.jpinto@synopsys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: kernel-hardening@lists.openwall.com,
-        "Theodore Ts'o" <tytso@mit.edu>,
-        Andy Lutomirski <luto@amacapital.net>,
-        Netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-        David Laight <David.Laight@aculab.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Linus Torvalds <torvalds@linux-foundation.org>,
-        Eric Biggers <ebiggers3@gmail.com>,
-        Tom Herbert <tom@herbertland.com>,
-        Andi Kleen <ak@linux.intel.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <1482420815.2673.1.camel@stressinduktion.org>
-Sender: linux-crypto-owner@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: hock.leong.kweh@intel.com, niklas.cassel@axis.com, pavel@ucw.cz,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Joao Pinto <Joao.Pinto@synopsys.com>, peppe.cavallaro@st.com,
+        davem@davemloft.net, seraphin.bonnaffe@st.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <7b395fd7dfd0c808243a744393473cbbf89b268a.1482410161.git.jpinto@synopsys.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Hannes,
+G'day Joao,
 
-On Thu, Dec 22, 2016 at 4:33 PM, Hannes Frederic Sowa
-<hannes@stressinduktion.org> wrote:
-> IPv6 you cannot touch anymore. The hashing algorithm is part of uAPI.
-> You don't want to give people new IPv6 addresses with the same stable
-> secret (across reboots) after a kernel upgrade. Maybe they lose
-> connectivity then and it is extra work?
+On 22/12/2016 20:38, Joao Pinto wrote:
+> When testing stmmac with my QoS reference design I checked a problem in the
+> CSR clock configuration that was impossibilitating the phy discovery, since
+> every read operation returned 0x0000ffff. This patch fixes the issue.
+>
+> Signed-off-by: Joao Pinto <jpinto@synopsys.com>
+> ---
+> changes v1->v2 (David Miller)
+> - DWMAC100 and DWMAC1000 csr clocks masks should also be fixed for the patch
+> to make sense
+>
+>  drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c | 2 +-
+>  drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c  | 2 +-
+>  drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c    | 8 ++++----
+>  3 files changed, 6 insertions(+), 6 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
+> index b21d03f..94223c8 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
+> @@ -539,7 +539,7 @@ struct mac_device_info *dwmac1000_setup(void __iomem *ioaddr, int mcbins,
+>  	mac->mii.reg_shift = 6;
+>  	mac->mii.reg_mask = 0x000007C0;
+>  	mac->mii.clk_csr_shift = 2;
+> -	mac->mii.clk_csr_mask = 0xF;
+> +	mac->mii.clk_csr_mask = GENMASK(4, 2);
 
-Ahh, too bad. So it goes.
+Should this not be GENMASK(5,2)
 
-> The bpf hash stuff can be changed during this merge window, as it is
-> not yet in a released kernel. Albeit I would probably have preferred
-> something like sha256 here, which can be easily replicated by user
-> space tools (minus the problem of patching out references to not
-> hashable data, which must be zeroed).
+>
+>  	/* Get and dump the chip ID */
+>  	*synopsys_id = stmmac_get_synopsys_id(hwid);
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
+> index a1d582f..8a40e69 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
+> @@ -197,7 +197,7 @@ struct mac_device_info *dwmac100_setup(void __iomem *ioaddr, int *synopsys_id)
+>  	mac->mii.reg_shift = 6;
+>  	mac->mii.reg_mask = 0x000007C0;
+>  	mac->mii.clk_csr_shift = 2;
+> -	mac->mii.clk_csr_mask = 0xF;
+> +	mac->mii.clk_csr_mask = GENMASK(4, 2);
+same as above?
 
-Oh, interesting, so time is of the essence then. Do you want to handle
-changing the new eBPF code to something not-SHA1 before it's too late,
-as part of a new patchset that can fast track itself to David? And
-then I can preserve my large series for the next merge window.
+>
+>  	/* Synopsys Id is not available on old chips */
+>  	*synopsys_id = 0;
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+> index 23322fd..fda01f7 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+> @@ -81,8 +81,8 @@ static int stmmac_mdio_read(struct mii_bus *bus, int phyaddr, int phyreg)
+>  	value |= (phyaddr << priv->hw->mii.addr_shift)
+>  		& priv->hw->mii.addr_mask;
+>  	value |= (phyreg << priv->hw->mii.reg_shift) & priv->hw->mii.reg_mask;
+> -	value |= (priv->clk_csr & priv->hw->mii.clk_csr_mask)
+> -		<< priv->hw->mii.clk_csr_shift;
+> +	value |= (priv->clk_csr << priv->hw->mii.clk_csr_shift)
+> +		& priv->hw->mii.clk_csr_mask;
+>  	if (priv->plat->has_gmac4)
+>  		value |= MII_GMAC4_READ;
+>
+> @@ -122,8 +122,8 @@ static int stmmac_mdio_write(struct mii_bus *bus, int phyaddr, int phyreg,
+>  		& priv->hw->mii.addr_mask;
+>  	value |= (phyreg << priv->hw->mii.reg_shift) & priv->hw->mii.reg_mask;
+>
+> -	value |= ((priv->clk_csr & priv->hw->mii.clk_csr_mask)
+> -		<< priv->hw->mii.clk_csr_shift);
+> +	value |= (priv->clk_csr << priv->hw->mii.clk_csr_shift)
+> +		& priv->hw->mii.clk_csr_mask;
+>  	if (priv->plat->has_gmac4)
+>  		value |= MII_GMAC4_WRITE;
+>
+>
 
-Jason
+
+-- 
+Regards
+Phil Reid
