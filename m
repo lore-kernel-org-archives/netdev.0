@@ -1,38 +1,73 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net, sched: fix soft lockup in tc_classify
-Date: Thu, 22 Dec 2016 11:53:26 -0500 (EST)
-Message-ID: <20161222.115326.376675148706578174.davem@davemloft.net>
-References: <585ADFEB.3030206@iogearbox.net>
-        <CAM_iQpUEUmJpjQYV7HV+4NVtGe6D-yZs6=YizcDtf7dogkNR0Q@mail.gmail.com>
-        <585AEF24.4070800@iogearbox.net>
+From: Andy Lutomirski <luto@amacapital.net>
+Subject: Re: BPF hash algo (Re: [kernel-hardening] Re: [PATCH v7 3/6] random:
+ use SipHash in place of MD5)
+Date: Thu, 22 Dec 2016 08:53:54 -0800
+Message-ID: <CALCETrVoVZ3ErHXa=xw00HDuq-ThbtCr1XQbfGr8dT-Ru-KM8Q@mail.gmail.com>
+References: <CALCETrUATPeaCJTQZN2h=ct6HH-xLt4V8T0PfPHNFGFN2HWtTA@mail.gmail.com>
+ <CAHmME9pvPXiBu5TUYJL7gED7b=iXKrkXu45fXstnBFe77Esv5Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: xiyou.wangcong@gmail.com, shahark@mellanox.com,
-        gerlitz.or@gmail.com, roid@mellanox.com, jiri@mellanox.com,
-        john.fastabend@gmail.com, netdev@vger.kernel.org
-To: daniel@iogearbox.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:47060 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S941270AbcLVQxa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 22 Dec 2016 11:53:30 -0500
-In-Reply-To: <585AEF24.4070800@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        "kernel-hardening@lists.openwall.com"
+        <kernel-hardening@lists.openwall.com>,
+        "Theodore Ts'o" <tytso@mit.edu>, Netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+        David Laight <David.Laight@aculab.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Linus Torvalds <torvalds@linux-foundation.org>,
+        Eric Biggers <ebiggers3@gmail.com>,
+        Tom Herbert <tom@herbertland.com>,
+        Andi Kleen <ak@linux.intel.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>
+To: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <CAHmME9pvPXiBu5TUYJL7gED7b=iXKrkXu45fXstnBFe77Esv5Q@mail.gmail.com>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Wed, 21 Dec 2016 22:07:48 +0100
+On Thu, Dec 22, 2016 at 8:28 AM, Jason A. Donenfeld <Jason@zx2c4.com> wrote:
+> Hi all,
+>
+> I don't know what your design requirements are for this. It looks like
+> you're generating some kind of crypto digest of a program, and you
+> need to avoid collisions. If you'd like to go with a PRF (keyed hash
+> function) that uses some kernel secret key, then I'd strongly suggest
+> using Keyed-Blake2. Alternatively, if you need for userspace to be
+> able to calculate the same hash, and don't want to use some kernel
+> secret, then I'd still suggest using Blake2, which will be fast and
+> secure.
+>
+> If you can wait until January, I'll work on a commit adding the
+> primitive to the tree. I've already written it and I just need to get
+> things cleaned up.
+>
+>> Blake2 is both less stable (didn't they slightly change it recently?)
+>
+> No, Blake2 is very stable. It's also extremely secure and has been
+> extensively studied. Not to mention it's faster than SHA2. And if you
+> want to use it as a PRF, it's obvious better suited and faster to use
+> Blake2's keyed PRF mode than HMAC-SHA2.
+>
+> If you don't care about performance, and you don't want to use a PRF,
+> then just use SHA2-256. If you're particularly concerned about certain
+> types of attacks, you could go with SHA2-512 truncated to 256 bytes,
+> but somehow I doubt you need this.
 
-> Ok, you mean for net. In that case I prefer the smaller sized fix to
-> be honest. It also covers everything from the point where we fetch
-> the chain via cops->tcf_chain() to the end of the function, which is
-> where most of the complexity resides, and only the two mentioned
-> commits do the relock, so as a fix I think it's fine as-is. As
-> mentioned, if there's need to refactor tc_ctl_tfilter() net-next
-> would be better, imho.
+I don't think this cares about performance.  (Well, it cares about
+performance, but the verifier will likely dominiate the cost by such a
+large margin that the hash algo doesn't matter.)  And staying
+FIPS-compliant-ish is worth a little bit, so I'd advocate for
+something in the SHA2 family.
 
-Please, can you two work towards an agreement as to what fix should
-go in at this time?
+> If userspace hasn't landed, can we get away with changing this code
+> after 4.10? Or should we just fix it before 4.10? Or should we revert
+> it before 4.10? Development-policy-things like this I have zero clue
+> about, so I heed to your guidance.
 
-Thanks.
+I think it should be fixed or reverted before 4.10.
+
+--Andy
