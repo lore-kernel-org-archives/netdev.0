@@ -1,179 +1,56 @@
-From: Mahesh Bandewar <mahesh@bandewar.net>
-Subject: [PATCH net] ipvlan: fix multicast processing
-Date: Wed, 21 Dec 2016 17:30:16 -0800
-Message-ID: <1482370216-14833-1-git-send-email-mahesh@bandewar.net>
-Cc: Mahesh Bandewar <maheshb@google.com>
-To: netdev <netdev@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        David Miller <davem@davemloft.net>
+From: maowenan <maowenan@huawei.com>
+Subject: RE: [PATCH] ethtool: add one ethtool option to set relax ordering
+ mode
+Date: Thu, 22 Dec 2016 01:39:09 +0000
+Message-ID: <F95AC9340317A84688A5F0DF0246F3F20151F189@szxeml504-mbs.china.huawei.com>
+References: <1481179898-10668-1-git-send-email-maowenan@huawei.com>
+        <1481179898-10668-2-git-send-email-maowenan@huawei.com>
+ <20161221172759.1bc0d0dd@xeon-e3>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
+        "weiyongjun (A)" <weiyongjun1@huawei.com>,
+        Dingtianhong <dingtianhong@huawei.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:33319 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1760412AbcLVBaY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2016 20:30:24 -0500
-Received: by mail-pf0-f195.google.com with SMTP id 127so1563149pfg.0
-        for <netdev@vger.kernel.org>; Wed, 21 Dec 2016 17:30:24 -0800 (PST)
+Received: from szxga02-in.huawei.com ([119.145.14.65]:35809 "EHLO
+        szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756276AbcLVBj4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2016 20:39:56 -0500
+In-Reply-To: <20161221172759.1bc0d0dd@xeon-e3>
+Content-Language: zh-CN
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mahesh Bandewar <maheshb@google.com>
 
-In an IPvlan setup when master is set in loopback mode e.g.
 
-  ethtool -K eth0 set loopback on
+> -----Original Message-----
+> From: Stephen Hemminger [mailto:stephen@networkplumber.org]
+> Sent: Thursday, December 22, 2016 9:28 AM
+> To: maowenan
+> Cc: netdev@vger.kernel.org; jeffrey.t.kirsher@intel.com
+> Subject: Re: [PATCH] ethtool: add one ethtool option to set relax ordering mode
+> 
+> On Thu, 8 Dec 2016 14:51:38 +0800
+> Mao Wenan <maowenan@huawei.com> wrote:
+> 
+> > This patch provides one way to set/unset IXGBE NIC TX and RX relax
+> > ordering mode, which can be set by ethtool.
+> > Relax ordering is one mode of 82599 NIC, to enable this mode can
+> > enhance the performance for some cpu architecure.
+> 
+> Then it should be done by CPU architecture specific quirks (preferably in PCI
+> layer) so that all users get the option without having to do manual intervention.
+> 
+> > example:
+> > ethtool -s enp1s0f0 relaxorder off
+> > ethtool -s enp1s0f0 relaxorder on
+> 
+> Doing it via ethtool is a developer API (for testing) not something that makes
+> sense in production.
 
-  where eth0 is master device for IPvlan setup.
 
-The failure is caused by the faulty logic that determines if the
-packet is from TX-path vs. RX-path by just looking at the mac-
-addresses on the packet while processing multicast packets.
-
-In the loopback-mode where this crash was happening, the packets
-that are sent out are reflected by the NIC and are processed on
-the RX path, but mac-address check tricks into thinking this
-packet is from TX path and falsely uses dev_forward_skb() to pass
-packets to the slave (virtual) devices.
-
-This patch records the path while queueing packets and eliminates
-logic of looking at mac-addresses for the same decision.
-
-------------[ cut here ]------------
-kernel BUG at include/linux/skbuff.h:1737!
-Call Trace:
- [<ffffffff921fbbc2>] dev_forward_skb+0x92/0xd0
- [<ffffffffc031ac65>] ipvlan_process_multicast+0x395/0x4c0 [ipvlan]
- [<ffffffffc031a9a7>] ? ipvlan_process_multicast+0xd7/0x4c0 [ipvlan]
- [<ffffffff91cdfea7>] ? process_one_work+0x147/0x660
- [<ffffffff91cdff09>] process_one_work+0x1a9/0x660
- [<ffffffff91cdfea7>] ? process_one_work+0x147/0x660
- [<ffffffff91ce086d>] worker_thread+0x11d/0x360
- [<ffffffff91ce0750>] ? rescuer_thread+0x350/0x350
- [<ffffffff91ce960b>] kthread+0xdb/0xe0
- [<ffffffff91c05c70>] ? _raw_spin_unlock_irq+0x30/0x50
- [<ffffffff91ce9530>] ? flush_kthread_worker+0xc0/0xc0
- [<ffffffff92348b7a>] ret_from_fork+0x9a/0xd0
- [<ffffffff91ce9530>] ? flush_kthread_worker+0xc0/0xc0
-
-Fixes: ba35f8588f47 ("ipvlan: Defer multicast / broadcast processing to a work-queue")
-Signed-off-by: Mahesh Bandewar <maheshb@google.com>
-CC: Eric Dumazet <edumazet@google.com>
----
-Note that this is on top of Eric's patch sent earlier.
-
- drivers/net/ipvlan/ipvlan.h      |  5 +++++
- drivers/net/ipvlan/ipvlan_core.c | 26 +++++++++++++++-----------
- 2 files changed, 20 insertions(+), 11 deletions(-)
-
-diff --git a/drivers/net/ipvlan/ipvlan.h b/drivers/net/ipvlan/ipvlan.h
-index 031093e1c25f..dbfbb33ac66c 100644
---- a/drivers/net/ipvlan/ipvlan.h
-+++ b/drivers/net/ipvlan/ipvlan.h
-@@ -99,6 +99,11 @@ struct ipvl_port {
- 	int			count;
- };
- 
-+struct ipvl_skb_cb {
-+	bool tx_pkt;
-+};
-+#define IPVL_SKB_CB(_skb) ((struct ipvl_skb_cb *)&((_skb)->cb[0]))
-+
- static inline struct ipvl_port *ipvlan_port_get_rcu(const struct net_device *d)
- {
- 	return rcu_dereference(d->rx_handler_data);
-diff --git a/drivers/net/ipvlan/ipvlan_core.c b/drivers/net/ipvlan/ipvlan_core.c
-index ea6bc1e12cdf..83ce74acf82d 100644
---- a/drivers/net/ipvlan/ipvlan_core.c
-+++ b/drivers/net/ipvlan/ipvlan_core.c
-@@ -198,7 +198,7 @@ void ipvlan_process_multicast(struct work_struct *work)
- 	unsigned int mac_hash;
- 	int ret;
- 	u8 pkt_type;
--	bool hlocal, dlocal;
-+	bool tx_pkt;
- 
- 	__skb_queue_head_init(&list);
- 
-@@ -211,7 +211,7 @@ void ipvlan_process_multicast(struct work_struct *work)
- 		bool consumed = false;
- 
- 		ethh = eth_hdr(skb);
--		hlocal = ether_addr_equal(ethh->h_source, port->dev->dev_addr);
-+		tx_pkt = IPVL_SKB_CB(skb)->tx_pkt;
- 		mac_hash = ipvlan_mac_hash(ethh->h_dest);
- 
- 		if (ether_addr_equal(ethh->h_dest, port->dev->broadcast))
-@@ -219,13 +219,10 @@ void ipvlan_process_multicast(struct work_struct *work)
- 		else
- 			pkt_type = PACKET_MULTICAST;
- 
--		dlocal = false;
- 		rcu_read_lock();
- 		list_for_each_entry_rcu(ipvlan, &port->ipvlans, pnode) {
--			if (hlocal && (ipvlan->dev == dev)) {
--				dlocal = true;
-+			if (tx_pkt && (ipvlan->dev == skb->dev))
- 				continue;
--			}
- 			if (!test_bit(mac_hash, ipvlan->mac_filters))
- 				continue;
- 			if (!(ipvlan->dev->flags & IFF_UP))
-@@ -238,7 +235,7 @@ void ipvlan_process_multicast(struct work_struct *work)
- 				consumed = true;
- 				nskb->pkt_type = pkt_type;
- 				nskb->dev = ipvlan->dev;
--				if (hlocal)
-+				if (tx_pkt)
- 					ret = dev_forward_skb(ipvlan->dev, nskb);
- 				else
- 					ret = netif_rx(nskb);
-@@ -248,7 +245,7 @@ void ipvlan_process_multicast(struct work_struct *work)
- 		}
- 		rcu_read_unlock();
- 
--		if (dlocal) {
-+		if (tx_pkt) {
- 			/* If the packet originated here, send it out. */
- 			skb->dev = port->dev;
- 			skb->pkt_type = pkt_type;
-@@ -480,13 +477,20 @@ static int ipvlan_process_outbound(struct sk_buff *skb)
- }
- 
- static void ipvlan_multicast_enqueue(struct ipvl_port *port,
--				     struct sk_buff *skb)
-+				     struct sk_buff *skb, bool tx_pkt)
- {
- 	if (skb->protocol == htons(ETH_P_PAUSE)) {
- 		kfree_skb(skb);
- 		return;
- 	}
- 
-+	/* Record that the deferred packet is from TX or RX path. By
-+	 * looking at mac-addresses on packet will lead to erronus decisions.
-+	 * (This would be true for a loopback-mode on master device or a
-+	 * hair-pin mode of the switch.)
-+	 */
-+	IPVL_SKB_CB(skb)->tx_pkt = tx_pkt;
-+
- 	spin_lock(&port->backlog.lock);
- 	if (skb_queue_len(&port->backlog) < IPVLAN_QBACKLOG_LIMIT) {
- 		if (skb->dev)
-@@ -549,7 +553,7 @@ static int ipvlan_xmit_mode_l2(struct sk_buff *skb, struct net_device *dev)
- 
- 	} else if (is_multicast_ether_addr(eth->h_dest)) {
- 		ipvlan_skb_crossing_ns(skb, NULL);
--		ipvlan_multicast_enqueue(ipvlan->port, skb);
-+		ipvlan_multicast_enqueue(ipvlan->port, skb, true);
- 		return NET_XMIT_SUCCESS;
- 	}
- 
-@@ -646,7 +650,7 @@ static rx_handler_result_t ipvlan_handle_mode_l2(struct sk_buff **pskb,
- 			 */
- 			if (nskb) {
- 				ipvlan_skb_crossing_ns(nskb, NULL);
--				ipvlan_multicast_enqueue(port, nskb);
-+				ipvlan_multicast_enqueue(port, nskb, false);
- 			}
- 		}
- 	} else {
--- 
-2.8.0.rc3.226.g39d4020
+This feature is not mandatory for all users, acturally relax ordering default configuration of 82599 is 'disable',
+So this patch gives one way to enable relax ordering to be selected in some performance condition.
