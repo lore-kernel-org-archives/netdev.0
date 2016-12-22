@@ -1,107 +1,96 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH v7 3/6] random: use SipHash in place of MD5
-Date: Thu, 22 Dec 2016 03:07:29 +0100
-Message-ID: <17bd0c70-d2c1-165b-f5b2-252dfca404e8@stressinduktion.org>
-References: <20161216030328.11602-1-Jason@zx2c4.com>
- <20161221230216.25341-1-Jason@zx2c4.com>
- <20161221230216.25341-4-Jason@zx2c4.com>
- <CALCETrVttVoZMvCYZcrAqM1c=YQP_nCfdfO1MsrSHjvjTFxH+A@mail.gmail.com>
+From: Andy Lutomirski <luto@kernel.org>
+Subject: George's crazy full state idea (Re: HalfSipHash Acceptable Usage)
+Date: Wed, 21 Dec 2016 18:07:56 -0800
+Message-ID: <CALCETrVn1tWBQx-RCSqCQ2ZcB6hPdioaV52q8vY+Mz1fRKsUXA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>,
+Content-Type: text/plain; charset=UTF-8
+Cc: "Ted Ts'o" <tytso@mit.edu>, Andi Kleen <ak@linux.intel.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        David Laight <David.Laight@aculab.com>,
+        "D. J. Bernstein" <djb@cr.yp.to>,
+        Eric Biggers <ebiggers3@gmail.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        "Jason A. Donenfeld" <Jason@zx2c4.com>,
+        Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>,
         "kernel-hardening@lists.openwall.com"
         <kernel-hardening@lists.openwall.com>,
-        LKML <linux-kernel@vger.kernel.org>,
         Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-        David Laight <David.Laight@aculab.com>,
-        Ted Tso <tytso@mit.edu>, Eric Dumazet <edumazet@google.com>,
-        Linus Torvalds <torvalds@linux-foundation.org>,
-        Eric Biggers <ebiggers3@gmail.com>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>,
         Tom Herbert <tom@herbertland.com>,
-        Andi Kleen <ak@linux.intel.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>
-To: Andy Lutomirski <luto@amacapital.net>,
-        "Jason A. Donenfeld" <Jason@zx2c4.com>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <CALCETrVttVoZMvCYZcrAqM1c=YQP_nCfdfO1MsrSHjvjTFxH+A@mail.gmail.com>
-Sender: linux-crypto-owner@vger.kernel.org
+        Linus Torvalds <torvalds@linux-foundation.org>,
+        Vegard Nossum <vegard.nossum@gmail.com>
+To: George Spelvin <linux@sciencehorizons.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 22.12.2016 00:42, Andy Lutomirski wrote:
-> On Wed, Dec 21, 2016 at 3:02 PM, Jason A. Donenfeld <Jason@zx2c4.com> wrote:
->>  unsigned int get_random_int(void)
->>  {
->> -       __u32 *hash;
->> -       unsigned int ret;
->> -
->> -       if (arch_get_random_int(&ret))
->> -               return ret;
->> -
->> -       hash = get_cpu_var(get_random_int_hash);
->> -
->> -       hash[0] += current->pid + jiffies + random_get_entropy();
->> -       md5_transform(hash, random_int_secret);
->> -       ret = hash[0];
->> -       put_cpu_var(get_random_int_hash);
->> -
->> -       return ret;
->> +       unsigned int arch_result;
->> +       u64 result;
->> +       struct random_int_secret *secret;
->> +
->> +       if (arch_get_random_int(&arch_result))
->> +               return arch_result;
->> +
->> +       secret = get_random_int_secret();
->> +       result = siphash_3u64(secret->chaining, jiffies,
->> +                             (u64)random_get_entropy() + current->pid,
->> +                             secret->secret);
->> +       secret->chaining += result;
->> +       put_cpu_var(secret);
->> +       return result;
->>  }
->>  EXPORT_SYMBOL(get_random_int);
-> 
-> Hmm.  I haven't tried to prove anything for real.  But here goes (in
-> the random oracle model):
-> 
-> Suppose I'm an attacker and I don't know the secret or the chaining
-> value.  Then, regardless of what the entropy is, I can't predict the
-> numbers.
-> 
-> Now suppose I do know the secret and the chaining value due to some
-> leak.  If I want to deduce prior outputs, I think I'm stuck: I'd need
-> to find a value "result" such that prev_chaining + result = chaining
-> and result = H(prev_chaining, ..., secret);.  I don't think this can
-> be done efficiently in the random oracle model regardless of what the
-> "..." is.
-> 
-> But, if I know the secret and chaining value, I can predict the next
-> output assuming I can guess the entropy.  What's worse is that, even
-> if I can't guess the entropy, if I *observe* the next output then I
-> can calculate the next chaining value.
-> 
-> So this is probably good enough, and making it better is hard.  Changing it to:
-> 
-> u64 entropy = (u64)random_get_entropy() + current->pid;
-> result = siphash(..., entropy, ...);
-> secret->chaining += result + entropy;
-> 
-> would reduce this problem by forcing an attacker to brute-force the
-> entropy on each iteration, which is probably an improvement.
-> 
-> To fully fix it, something like "catastrophic reseeding" would be
-> needed, but that's hard to get right.
+On Wed, Dec 21, 2016 at 5:13 PM, George Spelvin
+<linux@sciencehorizons.net> wrote:
+> As a separate message, to disentangle the threads, I'd like to
+> talk about get_random_long().
+>
+> After some thinking, I still like the "state-preserving" construct
+> that's equivalent to the current MD5 code.  Yes, we could just do
+> siphash(current_cpu || per_cpu_counter, global_key), but it's nice to
+> preserve a bit more.
+>
+> It requires library support from the SipHash code to return the full
+> SipHash state, but I hope that's a fair thing to ask for.
 
-I wonder if Ted's proposal was analyzed further in terms of performance
-if get_random_int should provide cprng alike properties?
+I don't even think it needs that.  This is just adding a
+non-destructive final operation, right?
 
-For reference: https://lkml.org/lkml/2016/12/14/351
+>
+> Here's my current straw man design for comment.  It's very similar to
+> the current MD5-based design, but feeds all the seed material in the
+> "correct" way, as opposed to Xring directly into the MD5 state.
+>
+> * Each CPU has a (Half)SipHash state vector,
+>   "unsigned long get_random_int_hash[4]".  Unlike the current
+>   MD5 code, we take care to initialize it to an asymmetric state.
+>
+> * There's a global 256-bit random_int_secret (which we could
+>   reseed periodically).
+>
+> To generate a random number:
+> * If get_random_int_hash is all-zero, seed it with fresh a half-sized
+>   SipHash key and the appropriate XOR constants.
+> * Generate three words of random_get_entropy(), jiffies, and current->pid.
+>   (This is arbitary seed material, copied from the current code.)
+> * Crank through that with (Half)SipHash-1-0.
+> * Crank through the random_int_secret with (Half)SipHash-1-0.
+> * Return v1 ^ v3.
 
-The proposal made sense to me and would completely solve the above
-mentioned problem on the cost of repeatedly reseeding from the crng.
+Just to clarify, if we replace SipHash with a black box, I think this
+effectively means, where "entropy" is random_get_entropy() || jiffies
+|| current->pid:
 
-Bye,
-Hannes
+The first call returns H(random seed || entropy_0 || secret).  The
+second call returns H(random seed || entropy_0 || secret || entropy_1
+|| secret).  Etc.
+
+If not, then I have a fairly strong preference to keep whatever
+construction we come up with consistent with something that could
+actually happen with invocations of unmodified SipHash -- then all the
+security analysis on SipHash goes through.
+
+Anyway, I have mixed thoughts about the construction.  It manages to
+have a wide state at essentially no cost, which buys us quite a bit of
+work factor to break it.  Even with full knowledge of the state, an
+output doesn't reveal the entropy except to the extent that it can be
+brute-force (this is just whatever the appropriate extended version of
+first preimage resistance gives us).  The one thing I don't like is
+that I don't see how to prove that you can't run it backwards if you
+manage to acquire a memory dump.  In fact, I that that there exist, at
+least in theory, hash functions that are secure in the random oracle
+model but that *can* be run backwards given the full state.  From
+memory, SHA-3 has exactly that property, and it would be a bit sad for
+a CSPRNG to be reversible.
+
+We could also periodically mix in a big (128-bit?) chunk of fresh
+urandom output to keep the bad guys guessing.
+
+(P.S.  This kind of resembles the duplex sponge construction.  If
+hardware SHA-3 ever shows up, a duplex sponge RNG might nice indeed.)
