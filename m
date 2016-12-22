@@ -1,103 +1,85 @@
 From: Andy Lutomirski <luto@amacapital.net>
-Subject: BPF hash algo (Re: [kernel-hardening] Re: [PATCH v7 3/6] random: use
- SipHash in place of MD5)
-Date: Thu, 22 Dec 2016 08:07:07 -0800
-Message-ID: <CALCETrUATPeaCJTQZN2h=ct6HH-xLt4V8T0PfPHNFGFN2HWtTA@mail.gmail.com>
-Reply-To: kernel-hardening@lists.openwall.com
+Subject: Re: George's crazy full state idea (Re: HalfSipHash Acceptable Usage)
+Date: Thu, 22 Dec 2016 08:09:54 -0800
+Message-ID: <CALCETrUSM7KDNuVqh169241PNumJVOF5hrNQUq=k5Fnet6nSgA@mail.gmail.com>
+References: <CALCETrVn1tWBQx-RCSqCQ2ZcB6hPdioaV52q8vY+Mz1fRKsUXA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>,
-	"kernel-hardening@lists.openwall.com" <kernel-hardening@lists.openwall.com>, "Theodore Ts'o" <tytso@mit.edu>,
-	Netdev <netdev@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>,
-	Linux Crypto Mailing List <linux-crypto@vger.kernel.org>, David Laight <David.Laight@aculab.com>,
-	Eric Dumazet <edumazet@google.com>, Linus Torvalds <torvalds@linux-foundation.org>,
-	Eric Biggers <ebiggers3@gmail.com>, Tom Herbert <tom@herbertland.com>,
-	Andi Kleen <ak@linux.intel.com>, "David S. Miller" <davem@davemloft.net>,
-	Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>, Daniel Borkmann <daniel@iogearbox.net>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <kernel-hardening-return-5787-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+Cc: George Spelvin <linux@sciencehorizons.net>,
+        "Ted Ts'o" <tytso@mit.edu>, Andi Kleen <ak@linux.intel.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        David Laight <David.Laight@aculab.com>,
+        "D. J. Bernstein" <djb@cr.yp.to>,
+        Eric Biggers <ebiggers3@gmail.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        "Jason A. Donenfeld" <Jason@zx2c4.com>,
+        Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>,
+        "kernel-hardening@lists.openwall.com"
+        <kernel-hardening@lists.openwall.com>,
+        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>,
+        Tom Herbert <tom@herbertland.com>,
+        Linus Torvalds <torvalds@linux-foundation.or
+To: Andy Lutomirski <luto@kernel.org>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <CALCETrVn1tWBQx-RCSqCQ2ZcB6hPdioaV52q8vY+Mz1fRKsUXA@mail.gmail.com>
+Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 22, 2016 at 7:51 AM, Hannes Frederic Sowa
-<hannes@stressinduktion.org> wrote:
-> On Thu, 2016-12-22 at 16:41 +0100, Jason A. Donenfeld wrote:
->> Hi Hannes,
+On Wed, Dec 21, 2016 at 6:07 PM, Andy Lutomirski <luto@kernel.org> wrote:
+> On Wed, Dec 21, 2016 at 5:13 PM, George Spelvin
+> <linux@sciencehorizons.net> wrote:
+>> As a separate message, to disentangle the threads, I'd like to
+>> talk about get_random_long().
 >>
->> On Thu, Dec 22, 2016 at 4:33 PM, Hannes Frederic Sowa
->> <hannes@stressinduktion.org> wrote:
->> > IPv6 you cannot touch anymore. The hashing algorithm is part of uAPI.
->> > You don't want to give people new IPv6 addresses with the same stable
->> > secret (across reboots) after a kernel upgrade. Maybe they lose
->> > connectivity then and it is extra work?
+>> After some thinking, I still like the "state-preserving" construct
+>> that's equivalent to the current MD5 code.  Yes, we could just do
+>> siphash(current_cpu || per_cpu_counter, global_key), but it's nice to
+>> preserve a bit more.
 >>
->> Ahh, too bad. So it goes.
+>> It requires library support from the SipHash code to return the full
+>> SipHash state, but I hope that's a fair thing to ask for.
 >
-> If no other users survive we can put it into the ipv6 module.
+> I don't even think it needs that.  This is just adding a
+> non-destructive final operation, right?
 >
->> > The bpf hash stuff can be changed during this merge window, as it is
->> > not yet in a released kernel. Albeit I would probably have preferred
->> > something like sha256 here, which can be easily replicated by user
->> > space tools (minus the problem of patching out references to not
->> > hashable data, which must be zeroed).
 >>
->> Oh, interesting, so time is of the essence then. Do you want to handle
->> changing the new eBPF code to something not-SHA1 before it's too late,
->> as part of a ne
-w patchset that can fast track itself to David? And
->> then I can preserve my large series for the next merge window.
+>> Here's my current straw man design for comment.  It's very similar to
+>> the current MD5-based design, but feeds all the seed material in the
+>> "correct" way, as opposed to Xring directly into the MD5 state.
+>>
+>> * Each CPU has a (Half)SipHash state vector,
+>>   "unsigned long get_random_int_hash[4]".  Unlike the current
+>>   MD5 code, we take care to initialize it to an asymmetric state.
+>>
+>> * There's a global 256-bit random_int_secret (which we could
+>>   reseed periodically).
+>>
+>> To generate a random number:
+>> * If get_random_int_hash is all-zero, seed it with fresh a half-sized
+>>   SipHash key and the appropriate XOR constants.
+>> * Generate three words of random_get_entropy(), jiffies, and current->pid.
+>>   (This is arbitary seed material, copied from the current code.)
+>> * Crank through that with (Half)SipHash-1-0.
+>> * Crank through the random_int_secret with (Half)SipHash-1-0.
+>> * Return v1 ^ v3.
 >
-> This algorithm should be a non-seeded algorithm, because the hashes
-> should be stable and verifiable by user space tooling. Thus this would
-> need a hashing algorithm that is hardened against pre-image
-> attacks/collision resistance, which siphash is not. I would prefer some
-> higher order SHA algorithm for that actually.
+> Just to clarify, if we replace SipHash with a black box, I think this
+> effectively means, where "entropy" is random_get_entropy() || jiffies
+> || current->pid:
 >
+> The first call returns H(random seed || entropy_0 || secret).  The
+> second call returns H(random seed || entropy_0 || secret || entropy_1
+> || secret).  Etc.
 
-You mean:
-
-commit 7bd509e311f408f7a5132fcdde2069af65fa05ae
-Author: Daniel Borkmann <daniel@iogearbox.net>
-Date:   Sun Dec 4 23:19:41 2016 +0100
-
-    bpf: add prog_digest and expose it via fdinfo/netlink
-
-
-Yes, please!  This actually matters for security -- imagine a
-malicious program brute-forcing a collision so that it gets loaded
-wrong.  And this is IMO a use case for SHA-256 or SHA-512/256
-(preferably the latter).  Speed basically doesn't matter here and
-Blake2 is both less stable (didn't they slightly change it recently?)
-and much less well studied.
-
-My inclination would have been to seed them with something that isn't
-exposed to userspace for the precise reason that it would prevent user
-code from making assumptions about what's in the hash.  But if there's
-a use case for why user code needs to be able to calculate the hash on
-its own, then that's fine.  But perhaps the actual fdinfo string
-should be "sha256:abcd1234..." to give some flexibility down the road.
-
-Also:
-
-+       result = (__force __be32 *)fp->digest;
-+       for (i = 0; i < SHA_DIGEST_WORDS; i++)
-+               result[i] = cpu_to_be32(fp->digest[i]);
-
-Everyone, please, please, please don't open-code crypto primitives.
-Is this and the code above it even correct?  It might be but on a very
-brief glance it looks wrong to me.  If you're doing this to avoid
-depending on crypto, then fix crypto so you can pull in the algorithm
-without pulling in the whole crypto core.
-
-At the very least, there should be a separate function that calculates
-the hash of a buffer and that function should explicitly run itself
-against test vectors of various lengths to make sure that it's
-calculating what it claims to be calculating.  And it doesn't look
-like the userspace code has landed, so, if this thing isn't
-calculating SHA1 correctly, it's plausible that no one has noticed.
+Having slept on this, I like it less.  The problem is that a
+backtracking attacker doesn't just learn H(random seed || entropy_0 ||
+secret || ...) -- they learn the internal state of the hash function
+that generates that value.  This probably breaks any attempt to apply
+security properties of the hash function.  For example, the internal
+state could easily contain a whole bunch of prior outputs it in
+verbatim.
 
 --Andy
