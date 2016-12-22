@@ -1,92 +1,76 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH net-next] ixgbevf: fix 'Etherleak' in ixgbevf
-Date: Thu, 22 Dec 2016 09:55:03 -0800
-Message-ID: <CAKgT0Uffy-PEqTEKdFDeb_v=vF24wpn8JkKQdUhOPTKNuTuBkw@mail.gmail.com>
-References: <1481802034-77729-1-git-send-email-chenweilong@huawei.com>
- <CAKgT0UfA9VG4NQZLLxXvobtfp22yPpPssSM4Ge94KFa1RVnhyg@mail.gmail.com>
- <5c942aba-f7fb-ede6-b6a2-e591025f53a5@huawei.com> <CAKgT0Uf_HXtJiZJsEYm9L19cZ+deVX=E+Y8JvU5+u0=bggpAqw@mail.gmail.com>
- <ee9ad90d-1c4b-7358-a172-8369a0c7da8b@huawei.com> <CAKgT0Uf+hV=TDvNTqFz0aiKQ+iio7VhBc5pusc4aDtFAVbREpA@mail.gmail.com>
- <74e1e76d-40f6-db8e-74ac-90b0474d4e11@huawei.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [kernel-hardening] Re: [PATCH v7 3/6] random: use SipHash in
+ place of MD5
+Date: Thu, 22 Dec 2016 19:08:37 +0100
+Message-ID: <32db19ab-0c19-628c-3475-2ccb8050563a@stressinduktion.org>
+References: <20161216030328.11602-1-Jason@zx2c4.com>
+ <20161221230216.25341-1-Jason@zx2c4.com>
+ <20161221230216.25341-4-Jason@zx2c4.com>
+ <CALCETrVttVoZMvCYZcrAqM1c=YQP_nCfdfO1MsrSHjvjTFxH+A@mail.gmail.com>
+ <17bd0c70-d2c1-165b-f5b2-252dfca404e8@stressinduktion.org>
+ <CAHmME9phg=GuhEUaMxxv_=RexffPDqrOEhmaKffy_ZSt7bfC7g@mail.gmail.com>
+ <20161222054125.lzxhd6ctovm3wk4p@thunk.org>
+ <1482410840.2472.2.camel@stressinduktion.org>
+ <CAHmME9r_zTHo=dxRRK6UrjJ_dKV14yYsZsxCc362z4CPoVkddw@mail.gmail.com>
+ <20161222155447.u3ayvw4gmorhswjv@thunk.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Weilong Chen <chenweilong@huawei.com>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: Theodore Ts'o <tytso@mit.edu>,
+        "Jason A. Donenfeld" <Jason@zx2c4.com>,
+        kernel-hardening@lists.openwall.com,
+        Andy Lutomirski <luto@amacapital.net>,
         Netdev <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Kefeng Wang <wangkefeng.wang@huawei.com>
+        LKML <linux-kernel@vger.kernel.org>,
+        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+        David Laight <David.Laight@aculab.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Linus Torvalds <torvalds@linux-foundation.org>,
+        Eric Biggers <ebiggers3@gmail.com>,
+        Tom Herbert <tom@herbertland.com>,
+        Andi Kleen <ak@linux.intel.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <74e1e76d-40f6-db8e-74ac-90b0474d4e11@huawei.com>
+In-Reply-To: <20161222155447.u3ayvw4gmorhswjv@thunk.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Yes that is much more helpful.  So looking at it things are being
-padded but the last 4 bytes always have this extra data in them.  I've
-been trying to recreate the issue on an 82599 with an SR-IOV VF and I
-haven't been having much luck reproducing the problem.
-
-In your test environment is the 82599 connected directly to the
-Windows machine or are there any
-switches/routers/gateways/tunnels/vlans in between?  I've tried
-several iterations but with the 82599 connected directly to another
-NIC I have I am not able to get it to produce the garbage padding you
-are seeing. It makes me wonder if there might be something that is
-manipulating the packets in between the two systems.  For example if
-there was a VLAN being associated with the VF that is later stripped
-and then the packet handed raw to the test system it might explain
-what is introducing the extra padding and reason for pulling in the
-CRC, and your patch would mask the issue since it would push the
-minimum frame size with a VLAN to 68 instead of 64.
-
-- Alex
-
-On Wed, Dec 21, 2016 at 6:00 PM, Kefeng Wang <wangkefeng.wang@huawei.com> wrote:
->
->
-> On 2016/12/21 10:20, Alexander Duyck wrote:
->> I find it curious that only the last 4 bytes have data in them.  I'm
->> wondering if the NIC/driver in the Windows/Nessus system is
->> interpreting the 4 byte CRC on the end of the frame as padding instead
->> of stripping it.
+On 22.12.2016 16:54, Theodore Ts'o wrote:
+> On Thu, Dec 22, 2016 at 02:10:33PM +0100, Jason A. Donenfeld wrote:
+>> On Thu, Dec 22, 2016 at 1:47 PM, Hannes Frederic Sowa
+>> <hannes@stressinduktion.org> wrote:
+>>> following up on what appears to be a random subject: ;)
+>>>
+>>> IIRC, ext4 code by default still uses half_md4 for hashing of filenames
+>>> in the htree. siphash seems to fit this use case pretty good.
 >>
->> Is there any chance you could capture the entire frame instead of just
->> the padding?  Maybe you could run something like wireshark without
->> enabling promiscuous mode on the VF and capture the frames it is
->> trying to send and receive.  What I want to verify is what the actual
->> amount of padding is that is needed to get to 60 bytes and where the
->> CRC should start.
->>
->> - Alex
->
-> Here is the verbose output, is this useful?
-> Or we will try according to your advice, thanks,
->
-> D:\Program Files\Tenable\Nessus>nasl.exe -aX -t 192.169.0.151 etherleak.nasl
-> --------------------------
->  ---[ ICMP ]---
-> 0x00:  45 00 00 1D 20 81 00 00 40 01 D7 F3 C0 A9 00 97    E... ...@.......
-> 0x10:  C0 A9 00 82 00 00 87 FD 00 01 00 01 78 00 00 00    ............x...
-> 0x20:  00 00 00 00 00 00 00 00 00 00 98 E4 75 DF          ............u.
-> --------------------------
->  ---[ ICMP ]---
-> 0x00:  45 00 00 1D 20 85 00 00 40 01 D7 EF C0 A9 00 97    E... ...@.......
-> 0x10:  C0 A9 00 82 00 00 87 FD 00 01 00 01 78 00 00 00    ............x...
-> 0x20:  00 00 00 00 00 00 00 00 00 00 FB DA F8 13          ..............
-> ---[ ether1 ]---
-> 0x00:  00 00 00 00 00 00 00 00 00 00 00 00 00 98 E4 75    ...............u
-> 0x10:  DF                                                 .
-> ---[ ether2 ]---
-> 0x00:  00 00 00 00 00 00 00 00 00 00 00 00 00 FB DA F8    ................
-> 0x10:  13                                                 .
->
-> Padding observed in one frame :
->
->   0x00:  00 00 00 00 00 00 00 00 00 00 00 00 00 98 E4 75    ...............u
->   0x10:  DF                                                 .
->
-> Padding observed in another frame :
->
->   0x00:  00 00 00 00 00 00 00 00 00 00 00 00 00 FB DA F8    ................
->   0x10:  13
->
->
+>> I saw this too. I'll try to address it in v8 of this series.
+> 
+> This is a separate issue, and this series is getting a bit too
+> complex.  So I'd suggest pushing this off to a separate change.
+> 
+> Changing the htree hash algorithm is an on-disk format change, and so
+> we couldn't roll it out until e2fsprogs gets updated and rolled out
+> pretty broadley.  In fact George sent me patches to add siphash as a
+> hash algorithm for htree a while back (for both the kernel and
+> e2fsprogs), but I never got around to testing and applying them,
+> mainly because while it's technically faster, I had other higher
+> priority issues to work on --- and see previous comments regarding
+> pixel peeping.  Improving the hash algorithm by tens or even hundreds
+> of nanoseconds isn't really going to matter since we only do a htree
+> lookup on a file creation or cold cache lookup, and the SSD or HDD I/O
+> times will dominate.  And from the power perspective, saving
+> microwatts of CPU power isn't going to matter if you're going to be
+> spinning up the storage device....
+
+I wasn't concerned about performance but more about DoS resilience. I
+wonder how safe half md4 actually is in terms of allowing users to
+generate long hash chains in the filesystem (in terms of length
+extension attacks against half_md4).
+
+In ext4, is it actually possible that a "disrupter" learns about the
+hashing secret in the way how the inodes are returned during getdents?
+
+Thanks,
+Hannes
