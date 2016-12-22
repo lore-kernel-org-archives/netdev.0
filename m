@@ -1,33 +1,46 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH] ip: vfinfo: remove code duplication for
- IFLA_VF_RSS_QUERY_EN
-Date: Wed, 21 Dec 2016 16:05:03 -0800
-Message-ID: <20161221160503.214fd5b0@xeon-e3>
-References: <20161216163605.19728-1-julien@cumulusnetworks.com>
+Subject: Re: [PATCH iproute2/net-next 0/2] tc: flower: enhance mask support
+Date: Wed, 21 Dec 2016 16:09:08 -0800
+Message-ID: <20161221160908.2216a78c@xeon-e3>
+References: <1481896477-13497-1-git-send-email-simon.horman@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@vger.kernel.org, phil@nwl.cc
-To: Julien Fortin <julien@cumulusnetworks.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Simon Horman <simon.horman@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f43.google.com ([74.125.83.43]:34813 "EHLO
-        mail-pg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1760107AbcLVAFL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2016 19:05:11 -0500
-Received: by mail-pg0-f43.google.com with SMTP id y62so38440519pgy.1
-        for <netdev@vger.kernel.org>; Wed, 21 Dec 2016 16:05:11 -0800 (PST)
-In-Reply-To: <20161216163605.19728-1-julien@cumulusnetworks.com>
+Received: from mail-pg0-f53.google.com ([74.125.83.53]:33490 "EHLO
+        mail-pg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757629AbcLVAJL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2016 19:09:11 -0500
+Received: by mail-pg0-f53.google.com with SMTP id g1so51345470pgn.0
+        for <netdev@vger.kernel.org>; Wed, 21 Dec 2016 16:09:10 -0800 (PST)
+In-Reply-To: <1481896477-13497-1-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 16 Dec 2016 17:36:05 +0100
-Julien Fortin <julien@cumulusnetworks.com> wrote:
+On Fri, 16 Dec 2016 14:54:35 +0100
+Simon Horman <simon.horman@netronome.com> wrote:
 
-> From: Julien Fortin <julien@cumulusnetworks.com>
->=20
-> Fixes: 4fb4a10e120b1 ("ipaddress: Print IFLA_VF_QUERY_RSS_EN setting=E2=
-=80=9D)
->=20
-> Signed-off-by: Julien Fortin <julien@cumulusnetworks.com>
+> Hi,
+> 
+> this short series enhances mask support for tc flower by:
+> * Documenting existing mask support for *_ip parameters
+> * Allowing *_mac options to accept a mask.
+>   This makes use of existing kernel features.
+> 
+> Based on net-next +
+> "[PATCH iproute2 0/2] Add dest UDP port to IP tunnel parameters"
+> 
+> Simon Horman (2):
+>   tc: flower: document that *_ip parameters take a PREFIX as an
+>     argument.
+>   tc: flower: Allow *_mac options to accept a mask
+> 
+>  man/man8/tc-flower.8 | 41 +++++++++++++++++++++++------------------
+>  tc/f_flower.c        | 51 ++++++++++++++++++++++++++++++++++++++++-----------
+>  2 files changed, 63 insertions(+), 29 deletions(-)
+> 
 
-Applied, thanks.
+Thanks, applied to net-next.
+Initially applied to wrong tree then reapplied to right tree.
