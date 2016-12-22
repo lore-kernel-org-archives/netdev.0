@@ -1,122 +1,85 @@
-From: Josef Bacik <jbacik@fb.com>
-Subject: [PATCH 3/6 net-next] inet: kill smallest_size and smallest_port
-Date: Thu, 22 Dec 2016 16:26:35 -0500
-Message-ID: <1482441998-28359-4-git-send-email-jbacik@fb.com>
-References: <1482441998-28359-1-git-send-email-jbacik@fb.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: George's crazy full state idea (Re: HalfSipHash Acceptable Usage)
+Date: Thu, 22 Dec 2016 22:38:09 +0100
+Message-ID: <30d9513a-129b-d246-1461-2326130e118f@stressinduktion.org>
+References: <20161222211140.2816.qmail@ns.sciencehorizons.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: <davem@davemloft.net>, <hannes@stressinduktion.org>,
-        <kraigatgoog@gmail.com>, <eric.dumazet@gmail.com>,
-        <tom@herbertland.com>, <netdev@vger.kernel.org>,
-        <kernel-team@fb.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:59953 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S965894AbcLVV10 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 22 Dec 2016 16:27:26 -0500
-In-Reply-To: <1482441998-28359-1-git-send-email-jbacik@fb.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: ak@linux.intel.com, davem@davemloft.net, David.Laight@aculab.com,
+        djb@cr.yp.to, ebiggers3@gmail.com, eric.dumazet@gmail.com,
+        Jason@zx2c4.com, jeanphilippe.aumasson@gmail.com,
+        kernel-hardening@lists.openwall.com, linux-crypto@vger.kernel.org,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        tom@herbertland.com, torvalds@linux-foundation.org, tytso@mit.edu,
+        vegard.nossum@gmail.com
+To: George Spelvin <linux@sciencehorizons.net>, luto@kernel.org
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <20161222211140.2816.qmail@ns.sciencehorizons.net>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In inet_csk_get_port we seem to be using smallest_port to figure out where the
-best place to look for a SO_REUSEPORT sk that matches with an existing set of
-SO_REUSEPORT's.  However if we get to the logic
+On 22.12.2016 22:11, George Spelvin wrote:
+>> I do tend to like Ted's version in which we use batched
+>> get_random_bytes() output.  If it's fast enough, it's simpler and lets
+>> us get the full strength of a CSPRNG.
+> 
+> With the ChaCha20 generator, that's fine, although note that this abandons
+> anti-backtracking entirely.
+> 
+> It also takes locks, something the previous get_random_int code
+> path avoided.  Do we need to audit the call sites to ensure that's safe?
 
-if (smallest_size != -1) {
-	port = smallest_port;
-	goto have_port;
-}
+We have spin_lock_irq* locks on the way. Of course they can hurt in when
+contended. The situation should be the same as with get_random_bytes,
+callable from every possible situation in the kernel without fear, so
+this should also work for get_random_int. A lockdep test should still be
+done. ;)
 
-we will do a useless search, because we would have already done the
-inet_csk_bind_conflict for that port and it would have returned 1, otherwise we
-would have gone to found_tb and succeeded.  Since this logic makes us do yet
-another trip through inet_csk_bind_conflict for a port we know won't work just
-delete this code and save us the time.
+> And there is the issue that the existing callers assume that there's a
+> fixed cost per word.  A good half of get_random_long calls are followed by
+> "& ~PAGE_MASK" to extract the low 12 bits.  Or "& ((1ul << mmap_rnd_bits)
+> - 1)" to extract the low 28.  If we have a buffer we're going to have to
+> pay to refill, it would be nice to use less than 8 bytes to satisfy those.
+> 
+> But that can be a followup patch.  I'm thinking
+> 
+> unsigned long get_random_bits(unsigned bits)
+> 	E.g. get_random_bits(PAGE_SHIFT),
+> 	     get_random_bits(mmap_rnd_bits),
+> 	u32 imm_rnd = get_random_bits(32)
+> 
+> unsigned get_random_mod(unsigned modulus)
+> 	E.g. get_random_mod(hole) & ~(alignment - 1);
+> 	     get_random_mod(port_scan_backoff)
+> 	(Althogh probably drivers/s390/scsi/zfcp_fc.c should be changed
+> 	to prandom.)
+> 
+> with, until the audit is completed:
+> #define get_random_int() get_random_bits(32)
+> #define get_random_long() get_random_bits(BITS_PER_LONG)
 
-Signed-off-by: Josef Bacik <jbacik@fb.com>
----
- net/ipv4/inet_connection_sock.c | 26 ++++----------------------
- 1 file changed, 4 insertions(+), 22 deletions(-)
+Yes, that does look nice indeed. Accounting for bits instead of bytes
+shouldn't be a huge problem either. Maybe it gets a bit more verbose in
+case you can't satisfy a request with one batched entropy block and have
+to consume randomness from two.
 
-diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
-index a1c9055..d352366 100644
---- a/net/ipv4/inet_connection_sock.c
-+++ b/net/ipv4/inet_connection_sock.c
-@@ -165,7 +165,6 @@ int inet_csk_get_port(struct sock *sk, unsigned short snum)
- 	bool reuse = sk->sk_reuse && sk->sk_state != TCP_LISTEN;
- 	struct inet_hashinfo *hinfo = sk->sk_prot->h.hashinfo;
- 	int ret = 1, attempts = 5, port = snum;
--	int smallest_size = -1, smallest_port;
- 	struct inet_bind_hashbucket *head;
- 	struct net *net = sock_net(sk);
- 	int i, low, high, attempt_half;
-@@ -175,7 +174,6 @@ int inet_csk_get_port(struct sock *sk, unsigned short snum)
- 	bool reuseport_ok = !!snum;
- 
- 	if (port) {
--have_port:
- 		head = &hinfo->bhash[inet_bhashfn(net, port,
- 						  hinfo->bhash_size)];
- 		spin_lock_bh(&head->lock);
-@@ -209,8 +207,6 @@ int inet_csk_get_port(struct sock *sk, unsigned short snum)
- 	 * We do the opposite to not pollute connect() users.
- 	 */
- 	offset |= 1U;
--	smallest_size = -1;
--	smallest_port = low; /* avoid compiler warning */
- 
- other_parity_scan:
- 	port = low + offset;
-@@ -224,15 +220,6 @@ int inet_csk_get_port(struct sock *sk, unsigned short snum)
- 		spin_lock_bh(&head->lock);
- 		inet_bind_bucket_for_each(tb, &head->chain)
- 			if (net_eq(ib_net(tb), net) && tb->port == port) {
--				if (((tb->fastreuse > 0 && reuse) ||
--				     (tb->fastreuseport > 0 &&
--				      sk->sk_reuseport &&
--				      !rcu_access_pointer(sk->sk_reuseport_cb) &&
--				      uid_eq(tb->fastuid, uid))) &&
--				    (tb->num_owners < smallest_size || smallest_size == -1)) {
--					smallest_size = tb->num_owners;
--					smallest_port = port;
--				}
- 				if (!inet_csk_bind_conflict(sk, tb, false, reuseport_ok))
- 					goto tb_found;
- 				goto next_port;
-@@ -243,10 +230,6 @@ int inet_csk_get_port(struct sock *sk, unsigned short snum)
- 		cond_resched();
- 	}
- 
--	if (smallest_size != -1) {
--		port = smallest_port;
--		goto have_port;
--	}
- 	offset--;
- 	if (!(offset & 1))
- 		goto other_parity_scan;
-@@ -268,19 +251,18 @@ int inet_csk_get_port(struct sock *sk, unsigned short snum)
- 		if (sk->sk_reuse == SK_FORCE_REUSE)
- 			goto success;
- 
--		if (((tb->fastreuse > 0 && reuse) ||
-+		if ((tb->fastreuse > 0 && reuse) ||
- 		     (tb->fastreuseport > 0 &&
- 		      !rcu_access_pointer(sk->sk_reuseport_cb) &&
--		      sk->sk_reuseport && uid_eq(tb->fastuid, uid))) &&
--		    smallest_size == -1)
-+		      sk->sk_reuseport && uid_eq(tb->fastuid, uid)))
- 			goto success;
- 		if (inet_csk_bind_conflict(sk, tb, true, reuseport_ok)) {
- 			if ((reuse ||
- 			     (tb->fastreuseport > 0 &&
- 			      sk->sk_reuseport &&
- 			      !rcu_access_pointer(sk->sk_reuseport_cb) &&
--			      uid_eq(tb->fastuid, uid))) &&
--			    !snum && smallest_size != -1 && --attempts >= 0) {
-+			      uid_eq(tb->fastuid, uid))) && !snum &&
-+			    --attempts >= 0) {
- 				spin_unlock_bh(&head->lock);
- 				goto again;
- 			}
--- 
-2.5.5
+>> It could only mix the output back in every two calls, in which case
+>> you can backtrack up to one call but you need to do 2^128 work to
+>> backtrack farther.  But yes, this is getting excessively complicated.
+> 
+> No, if you're willing to accept limited backtrack, this is a perfectly
+> acceptable solution, and not too complicated.  You could do it phase-less
+> if you like; store the previous output, then after generating the new
+> one, mix in both.  Then overwrite the previous output.  (But doing two
+> rounds of a crypto primtive to avoid one conditional jump is stupid,
+> so forget that.)
+
+Can you quickly explain why we lose the backtracking capability?
+
+ChaCha as a block cipher gives a "perfect" permutation from the output
+of either the CRNG or the CPRNG, which actually itself has backtracking
+protection.
+
+Thanks for explaining,
+Hannes
