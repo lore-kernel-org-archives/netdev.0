@@ -1,73 +1,57 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: Re: HalfSipHash Acceptable Usage
-Date: Wed, 21 Dec 2016 17:54:26 -0800
-Message-ID: <CALCETrVxFDQGJeQX5k39pM3TvqH4q10SduPY=Os_RiJGEg_0Hg@mail.gmail.com>
-References: <CAHmME9oJDOLpPKRpX=N+DY9BuzTueWjTaWzeVtdVMBG7mcrqKA@mail.gmail.com>
- <20161221155540.29529.qmail@ns.sciencehorizons.net> <CA+55aFy8fNOxw3bnwkX1S46jKnW6i26mueaiuOsScyN3kFJp+A@mail.gmail.com>
-Reply-To: kernel-hardening@lists.openwall.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] ipvlan: fix various issues in
+ ipvlan_process_multicast()
+Date: Wed, 21 Dec 2016 17:58:32 -0800
+Message-ID: <1482371912.8944.77.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1482355800.8944.75.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CAF2d9jhPAmkCNDNXUaUVRgQMq3TSCyKBdzdepnjczQf-=x1Oag@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: George Spelvin <linux@sciencehorizons.net>, "Jason A. Donenfeld" <Jason@zx2c4.com>,
-	Andi Kleen <ak@linux.intel.com>, David Miller <davem@davemloft.net>,
-	David Laight <David.Laight@aculab.com>, "Daniel J . Bernstein" <djb@cr.yp.to>,
-	Eric Biggers <ebiggers3@gmail.com>, Eric Dumazet <eric.dumazet@gmail.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>,
-	"kernel-hardening@lists.openwall.com" <kernel-hardening@lists.openwall.com>,
-	Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, Network Development <netdev@vger.kernel.org>,
-	Tom Herbert <tom@herbertland.com>, "Theodore Ts'o" <tytso@mit.edu>,
-	Vegard Nossum <vegard.nossum@gmail.com>
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <kernel-hardening-return-5761-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <CA+55aFy8fNOxw3bnwkX1S46jKnW6i26mueaiuOsScyN3kFJp+A@mail.gmail.com>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Mahesh Bandewar
+         =?UTF-8?Q?=28=E0=A4=AE=E0=A4=B9=E0=A5=87=E0=A4=B6_?=
+         =?UTF-8?Q?=E0=A4=AC=E0=A4=82=E0=A4=A1=E0=A5=87=E0=A4=B5=E0=A4=BE?=
+         =?UTF-8?Q?=E0=A4=B0=29?= <maheshb@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:36546 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753755AbcLVB6f (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2016 20:58:35 -0500
+Received: by mail-pg0-f67.google.com with SMTP id w68so12226682pgw.3
+        for <netdev@vger.kernel.org>; Wed, 21 Dec 2016 17:58:34 -0800 (PST)
+In-Reply-To: <CAF2d9jhPAmkCNDNXUaUVRgQMq3TSCyKBdzdepnjczQf-=x1Oag@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 21, 2016 at 9:25 AM, Linus Torvalds
-<torvalds@linux-foundation.org> wrote:
-> On Wed, Dec 21, 2016 at 7:55 AM, George Spelvin
-> <linux@sciencehorizons.net> wrote:
->>
->> How much does kernel_fpu_begin()/kernel_fpu_end() cost?
->
-> It's now better than it used to be, but it's absolutely disastrous
-> still. We're talking easily many hundreds of cycles. Under some loads,
-> thousands.
->
-> And I warn you already: it will _benchmark_ a hell of a lot better
-> than it will work in reality. In benchmarks, you'll hit all the
-> optimizations ("oh, I've already saved away all the FP registers, no
-> need to do it again").
->
-> In contrast, in reality, especially with things like "do it once or
-> twice per incoming packet", you'll easily hit the absolute worst
-> cases, where not only does it take a few hundred cycles to save the FP
-> state, you'll then return to user space in between packets, which
-> triggers the slow-path return code and reloads the FP state, which is
-> another few hundred cycles plus.
+On Wed, 2016-12-21 at 14:21 -0800, Mahesh Bandewar (महेश बंडेवार) wrote:
+> >
+> Thank you Eric for all these fixes.
 
-Hah, you're thinking that the x86 code works the way that Rik and I
-want it to work, and you just made my day. :)  What actually happens
-is that the state is saved in kernel_fpu_begin() and restored in
-kernel_fpu_end(), and it'll take a few hundred cycles best case.  If
-you do it a bunch of times in a loop, you *might* trigger a CPU
-optimization that notices that the state being saved is the same state
-that was just restored, but you're still going to pay the full restore
-code each round trip no matter what.
+Thanks Mahesh. I will send a V2 to include this part as well :
 
-The code is much clearer in 4.10 kernels now that I deleted the unused
-"lazy" branches.
-
->
-> Similarly, in benchmarks you'll hit the "modern CPU's power on the AVX
-> unit and keep it powered up for a while afterwards", while in real
-> life you would quite easily hit the "oh, AVX is powered down because
-> we were idle, now it powers up at half speed which is another latency
-> hit _and_ the AVX unit won't run full out anyway".
-
-I *think* that was mostly fixed in Broadwell or thereabouts (in terms
-of latency -- throughput and power consumption still suffers).
+diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
+index 693ec5b6622233cd3a28c64c11d6abb97585318b..8b0f99300cbc97d8c8b93c3dfa99cd841914c086 100644
+--- a/drivers/net/ipvlan/ipvlan_main.c
++++ b/drivers/net/ipvlan/ipvlan_main.c
+@@ -135,6 +135,7 @@ static int ipvlan_port_create(struct net_device *dev)
+ static void ipvlan_port_destroy(struct net_device *dev)
+ {
+ 	struct ipvl_port *port = ipvlan_port_get_rtnl(dev);
++	struct sk_buff *skb;
+ 
+ 	dev->priv_flags &= ~IFF_IPVLAN_MASTER;
+ 	if (port->mode == IPVLAN_MODE_L3S) {
+@@ -144,7 +145,11 @@ static void ipvlan_port_destroy(struct net_device *dev)
+ 	}
+ 	netdev_rx_handler_unregister(dev);
+ 	cancel_work_sync(&port->wq);
+-	__skb_queue_purge(&port->backlog);
++	while ((skb = __skb_dequeue(&port->backlog)) != NULL) {
++		if (skb->dev)
++			dev_put(skb->dev);
++		kfree_skb(skb);
++	}
+ 	kfree(port);
+ }
+ 
