@@ -1,50 +1,40 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net] net, sched: fix soft lockup in tc_classify
-Date: Thu, 22 Dec 2016 11:05:10 -0800
-Message-ID: <CAM_iQpW9Ly+fMEiBtHq4XwUgvt89-5uE2Bwdw1FXJGV3=eY1ZA@mail.gmail.com>
-References: <1954223e8b7aa90ff835357e8a3ef7537be33e43.1482337600.git.daniel@iogearbox.net>
- <CAM_iQpXadrGWJYqizEkq+xmMKVV9krrcCWKur=ZCRZBS9Mx_8w@mail.gmail.com>
- <CAM_iQpX3Sk_YGDmvY-yj0CxPbG5qfT7P7ioNgY5Lb_DqsTWh6Q@mail.gmail.com>
- <585ADFEB.3030206@iogearbox.net> <CAM_iQpUEUmJpjQYV7HV+4NVtGe6D-yZs6=YizcDtf7dogkNR0Q@mail.gmail.com>
- <585AEF24.4070800@iogearbox.net>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2 0/2] Fix the usage of TC tunnel key
+Date: Thu, 22 Dec 2016 11:03:01 -0800
+Message-ID: <20161222110301.2d7c830d@xeon-e3>
+References: <1482394481-19624-1-git-send-email-hadarh@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        Shahar Klein <shahark@mellanox.com>,
-        Or Gerlitz <gerlitz.or@gmail.com>,
-        Roi Dayan <roid@mellanox.com>, Jiri Pirko <jiri@mellanox.com>,
-        John Fastabend <john.fastabend@gmail.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Daniel Borkmann <daniel@iogearbox.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Simon Horman <simon.horman@netronome.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Roi Dayan <roid@mellanox.com>
+To: Hadar Hen Zion <hadarh@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f196.google.com ([209.85.220.196]:33916 "EHLO
-        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750979AbcLVTFb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 22 Dec 2016 14:05:31 -0500
-Received: by mail-qk0-f196.google.com with SMTP id t184so14364244qkd.1
-        for <netdev@vger.kernel.org>; Thu, 22 Dec 2016 11:05:31 -0800 (PST)
-In-Reply-To: <585AEF24.4070800@iogearbox.net>
+Received: from mail-pg0-f50.google.com ([74.125.83.50]:36373 "EHLO
+        mail-pg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S966091AbcLVTMH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Dec 2016 14:12:07 -0500
+Received: by mail-pg0-f50.google.com with SMTP id f188so100643481pgc.3
+        for <netdev@vger.kernel.org>; Thu, 22 Dec 2016 11:12:07 -0800 (PST)
+In-Reply-To: <1482394481-19624-1-git-send-email-hadarh@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 21, 2016 at 1:07 PM, Daniel Borkmann <daniel@iogearbox.net> wrote:
->
-> Ok, you mean for net. In that case I prefer the smaller sized fix to be
-> honest. It also covers everything from the point where we fetch the chain
-> via cops->tcf_chain() to the end of the function, which is where most of
-> the complexity resides, and only the two mentioned commits do the relock,
+On Thu, 22 Dec 2016 10:14:39 +0200
+Hadar Hen Zion <hadarh@mellanox.com> wrote:
 
-I really wish the problem is only about relocking, but look at the code,
-the deeper reason why we have this bug is the complexity of the logic
-inside tc_ctl_tfilter(): 1) the replay logic is hard, we have to make it
-idempotent; 2) the request logic itself is hard, because of tc filter design
-and implementation.
+> Add dest UDP port parameter to the usage of tc tunnle key action and
+> classifcation.
+> 
+> 
+> Hadar Hen Zion (2):
+>   tc/cls_flower: Add to the usage encapsulation dest UDP port
+>   tc/m_tunnel_key: Add to the usage encapsulation dest UDP port
+> 
+>  tc/f_flower.c     | 5 +++--
+>  tc/m_tunnel_key.c | 2 +-
+>  2 files changed, 4 insertions(+), 3 deletions(-)
+> 
 
-This is why I worry more than just relocking.
-
-> so as a fix I think it's fine as-is. As mentioned, if there's need to
-> refactor tc_ctl_tfilter() net-next would be better, imho.
-
-Refactor is a too strong word, just moving the replay out is not a refactor.
-The end result will be still smaller than your commit d936377414fadbafb4,
-which is already backported to stable.
+Looks good, both applied
