@@ -1,107 +1,38 @@
-From: Shahar Klein <shahark@mellanox.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH net] net, sched: fix soft lockup in tc_classify
-Date: Thu, 22 Dec 2016 15:16:42 +0200
-Message-ID: <7033ed3d-0665-1a38-7631-a1346d46e1b4@mellanox.com>
-References: <1954223e8b7aa90ff835357e8a3ef7537be33e43.1482337600.git.daniel@iogearbox.net>
+Date: Thu, 22 Dec 2016 11:53:26 -0500 (EST)
+Message-ID: <20161222.115326.376675148706578174.davem@davemloft.net>
+References: <585ADFEB.3030206@iogearbox.net>
+        <CAM_iQpUEUmJpjQYV7HV+4NVtGe6D-yZs6=YizcDtf7dogkNR0Q@mail.gmail.com>
+        <585AEF24.4070800@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <shahark@mellanox.com>, <xiyou.wangcong@gmail.com>,
-        <gerlitz.or@gmail.com>, <roid@mellanox.com>, <jiri@mellanox.com>,
-        <john.fastabend@gmail.com>, <netdev@vger.kernel.org>
-To: Daniel Borkmann <daniel@iogearbox.net>, <davem@davemloft.net>
+Cc: xiyou.wangcong@gmail.com, shahark@mellanox.com,
+        gerlitz.or@gmail.com, roid@mellanox.com, jiri@mellanox.com,
+        john.fastabend@gmail.com, netdev@vger.kernel.org
+To: daniel@iogearbox.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-he1eur01on0041.outbound.protection.outlook.com ([104.47.0.41]:18512
-        "EHLO EUR01-HE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1763505AbcLVQwy (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 22 Dec 2016 11:52:54 -0500
-In-Reply-To: <1954223e8b7aa90ff835357e8a3ef7537be33e43.1482337600.git.daniel@iogearbox.net>
+Received: from shards.monkeyblade.net ([184.105.139.130]:47060 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S941270AbcLVQxa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Dec 2016 11:53:30 -0500
+In-Reply-To: <585AEF24.4070800@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Wed, 21 Dec 2016 22:07:48 +0100
 
+> Ok, you mean for net. In that case I prefer the smaller sized fix to
+> be honest. It also covers everything from the point where we fetch
+> the chain via cops->tcf_chain() to the end of the function, which is
+> where most of the complexity resides, and only the two mentioned
+> commits do the relock, so as a fix I think it's fine as-is. As
+> mentioned, if there's need to refactor tc_ctl_tfilter() net-next
+> would be better, imho.
 
-On 12/21/2016 7:04 PM, Daniel Borkmann wrote:
-> Shahar reported a soft lockup in tc_classify(), where we run into an
-> endless loop when walking the classifier chain due to tp->next == tp
-> which is a state we should never run into. The issue only seems to
-> trigger under load in the tc control path.
->
-> What happens is that in tc_ctl_tfilter(), thread A allocates a new
-> tp, initializes it, sets tp_created to 1, and calls into tp->ops->change()
-> with it. In that classifier callback we had to unlock/lock the rtnl
-> mutex and returned with -EAGAIN. One reason why we need to drop there
-> is, for example, that we need to request an action module to be loaded.
->
-> This happens via tcf_exts_validate() -> tcf_action_init/_1() meaning
-> after we loaded and found the requested action, we need to redo the
-> whole request so we don't race against others. While we had to unlock
-> rtnl in that time, thread B's request was processed next on that CPU.
-> Thread B added a new tp instance successfully to the classifier chain.
-> When thread A returned grabbing the rtnl mutex again, propagating -EAGAIN
-> and destroying its tp instance which never got linked, we goto replay
-> and redo A's request.
->
-> This time when walking the classifier chain in tc_ctl_tfilter() for
-> checking for existing tp instances we had a priority match and found
-> the tp instance that was created and linked by thread B. Now calling
-> again into tp->ops->change() with that tp was successful and returned
-> without error.
->
-> tp_created was never cleared in the second round, thus kernel thinks
-> that we need to link it into the classifier chain (once again). tp and
-> *back point to the same object due to the match we had earlier on. Thus
-> for thread B's already public tp, we reset tp->next to tp itself and
-> link it into the chain, which eventually causes the mentioned endless
-> loop in tc_classify() once a packet hits the data path.
->
-> Fix is to clear tp_created at the beginning of each request, also when
-> we replay it. On the paths that can cause -EAGAIN we already destroy
-> the original tp instance we had and on replay we really need to start
-> from scratch. It seems that this issue was first introduced in commit
-> 12186be7d2e1 ("net_cls: fix unconfigured struct tcf_proto keeps chaining
-> and avoid kernel panic when we use cls_cgroup").
->
-> Fixes: 12186be7d2e1 ("net_cls: fix unconfigured struct tcf_proto keeps chaining and avoid kernel panic when we use cls_cgroup")
-> Reported-by: Shahar Klein <shahark@mellanox.com>
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-> Cc: Cong Wang <xiyou.wangcong@gmail.com>
-> ---
->  Shahar, you mentioned you wanted to run again later without the debug
->  printk's. Once you do that and come to the same result again, please
->  feel free to reply with a Tested-by or such. Thanks everyone!
->
->  net/sched/cls_api.c | 4 +++-
->  1 file changed, 3 insertions(+), 1 deletion(-)
->
-> diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
-> index 3fbba79..1ecdf80 100644
-> --- a/net/sched/cls_api.c
-> +++ b/net/sched/cls_api.c
-> @@ -148,13 +148,15 @@ static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n)
->  	unsigned long cl;
->  	unsigned long fh;
->  	int err;
-> -	int tp_created = 0;
-> +	int tp_created;
->
->  	if ((n->nlmsg_type != RTM_GETTFILTER) &&
->  	    !netlink_ns_capable(skb, net->user_ns, CAP_NET_ADMIN))
->  		return -EPERM;
->
->  replay:
-> +	tp_created = 0;
-> +
->  	err = nlmsg_parse(n, sizeof(*t), tca, TCA_MAX, NULL);
->  	if (err < 0)
->  		return err;
->
+Please, can you two work towards an agreement as to what fix should
+go in at this time?
 
-I've tested this specific patch (without cong's patch and without the 
-many prints) many times and in many test permutations today and it 
-didn't lock
-
-Thanks again Daniel!
-
-Shahar
+Thanks.
