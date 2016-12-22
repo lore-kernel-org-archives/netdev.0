@@ -1,41 +1,78 @@
-From: "Vyacheslav V. Yurkov" <uvv.mail-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH] Fixed status entry in m_can documentation
-Date: Thu, 22 Dec 2016 11:45:21 +0100
-Message-ID: <20161222104521.20683-1-uvv.mail@gmail.com>
-Cc: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>,
-        Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        "Vyacheslav V. Yurkov" <uvv.mail-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Jiri Kosina <trivial-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: [PATCH net 1/1] tipc: don't send FIN message from connectionless socket
+Date: Thu, 22 Dec 2016 07:22:29 -0500
+Message-ID: <1482409349-17081-1-git-send-email-jon.maloy@ericsson.com>
+Cc: netdev@vger.kernel.org, Al Viro <viro@zeniv.linux.org.uk>,
+        parthasarathy.bhuvaragan@ericsson.com, ying.xue@windriver.com,
+        maloy@donjonn.com, tipc-discussion@lists.sourceforge.net,
+        Jon Maloy <jon.maloy@ericsson.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp102.biz.mail.bf1.yahoo.com ([98.139.221.61]:44139 "EHLO
+        smtp102.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1754427AbcLVMWi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Dec 2016 07:22:38 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use valid value for 'enabled' in status field
+In commit 6f00089c7372 ("tipc: remove SS_DISCONNECTING state") the
+check for socket type is in the wrong place, causing a closing socket
+to always send out a FIN message even when the socket was never
+connected. This is normally harmless, since the destination node for
+such messages most often is zero, and the message will be dropped, but
+it is still a wrong and confusing behavior.
 
-Signed-off-by: Vyacheslav V. Yurkov <uvv.mail-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+We fix this in this commit.
+
+Reviewed-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- Documentation/devicetree/bindings/net/can/m_can.txt | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/tipc/socket.c | 24 +++++++++++++-----------
+ 1 file changed, 13 insertions(+), 11 deletions(-)
 
-diff --git a/Documentation/devicetree/bindings/net/can/m_can.txt b/Documentation/devicetree/bindings/net/can/m_can.txt
-index 9e33177..5facaf5 100644
---- a/Documentation/devicetree/bindings/net/can/m_can.txt
-+++ b/Documentation/devicetree/bindings/net/can/m_can.txt
-@@ -63,5 +63,5 @@ Board dts:
- &m_can1 {
- 	pinctrl-names = "default";
- 	pinctrl-0 = <&pinctrl_m_can1>;
--	status = "enabled";
-+	status = "okay";
- };
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index 333c5da..800caaa 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -441,15 +441,19 @@ static void __tipc_shutdown(struct socket *sock, int error)
+ 	while ((skb = __skb_dequeue(&sk->sk_receive_queue)) != NULL) {
+ 		if (TIPC_SKB_CB(skb)->bytes_read) {
+ 			kfree_skb(skb);
+-		} else {
+-			if (!tipc_sk_type_connectionless(sk) &&
+-			    sk->sk_state != TIPC_DISCONNECTING) {
+-				tipc_set_sk_state(sk, TIPC_DISCONNECTING);
+-				tipc_node_remove_conn(net, dnode, tsk->portid);
+-			}
+-			tipc_sk_respond(sk, skb, error);
++			continue;
++		}
++		if (!tipc_sk_type_connectionless(sk) &&
++		    sk->sk_state != TIPC_DISCONNECTING) {
++			tipc_set_sk_state(sk, TIPC_DISCONNECTING);
++			tipc_node_remove_conn(net, dnode, tsk->portid);
+ 		}
++		tipc_sk_respond(sk, skb, error);
+ 	}
++
++	if (tipc_sk_type_connectionless(sk))
++		return;
++
+ 	if (sk->sk_state != TIPC_DISCONNECTING) {
+ 		skb = tipc_msg_create(TIPC_CRITICAL_IMPORTANCE,
+ 				      TIPC_CONN_MSG, SHORT_H_SIZE, 0, dnode,
+@@ -457,10 +461,8 @@ static void __tipc_shutdown(struct socket *sock, int error)
+ 				      tsk->portid, error);
+ 		if (skb)
+ 			tipc_node_xmit_skb(net, skb, dnode, tsk->portid);
+-		if (!tipc_sk_type_connectionless(sk)) {
+-			tipc_node_remove_conn(net, dnode, tsk->portid);
+-			tipc_set_sk_state(sk, TIPC_DISCONNECTING);
+-		}
++		tipc_node_remove_conn(net, dnode, tsk->portid);
++		tipc_set_sk_state(sk, TIPC_DISCONNECTING);
+ 	}
+ }
+ 
 -- 
-2.9.0
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+2.7.4
