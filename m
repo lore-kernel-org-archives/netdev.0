@@ -1,44 +1,82 @@
-From: Tariq Toukan <tariqt@mellanox.com>
-Subject: [PATCH net] net/mlx4_en: Fix user prio field in XDP forward
-Date: Thu, 22 Dec 2016 14:32:58 +0200
-Message-ID: <1482409978-17590-1-git-send-email-tariqt@mellanox.com>
-Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Martin KaFai Lau <kafai@fb.com>,
-        Tariq Toukan <tariqt@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:59201 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S965418AbcLVMdV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 22 Dec 2016 07:33:21 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Subject: [PATCH v2] stmmac: CSR clock configuration fix
+Date: Thu, 22 Dec 2016 12:38:00 +0000
+Message-ID: <7b395fd7dfd0c808243a744393473cbbf89b268a.1482410161.git.jpinto@synopsys.com>
+Cc: hock.leong.kweh@intel.com, niklas.cassel@axis.com, pavel@ucw.cz,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        Joao Pinto <Joao.Pinto@synopsys.com>
+To: peppe.cavallaro@st.com, davem@davemloft.net,
+        seraphin.bonnaffe@st.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The user prio field is wrong (and overflows) in the XDP forward
-flow.
-This is a result of a bad value for num_tx_rings_p_up, which should
-account all XDP TX rings, as they operate for the same user prio.
+When testing stmmac with my QoS reference design I checked a problem in the
+CSR clock configuration that was impossibilitating the phy discovery, since
+every read operation returned 0x0000ffff. This patch fixes the issue.
 
-Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
-Reported-by: Martin KaFai Lau <kafai@fb.com>
+Signed-off-by: Joao Pinto <jpinto@synopsys.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+changes v1->v2 (David Miller)
+- DWMAC100 and DWMAC1000 csr clocks masks should also be fixed for the patch
+to make sense
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index bcd955339058..edbe200ac2fa 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -1638,7 +1638,8 @@ int mlx4_en_start_port(struct net_device *dev)
+ drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c | 2 +-
+ drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c  | 2 +-
+ drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c    | 8 ++++----
+ 3 files changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
+index b21d03f..94223c8 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
+@@ -539,7 +539,7 @@ struct mac_device_info *dwmac1000_setup(void __iomem *ioaddr, int mcbins,
+ 	mac->mii.reg_shift = 6;
+ 	mac->mii.reg_mask = 0x000007C0;
+ 	mac->mii.clk_csr_shift = 2;
+-	mac->mii.clk_csr_mask = 0xF;
++	mac->mii.clk_csr_mask = GENMASK(4, 2);
  
- 	/* Configure tx cq's and rings */
- 	for (t = 0 ; t < MLX4_EN_NUM_TX_TYPES; t++) {
--		u8 num_tx_rings_p_up = t == TX ? priv->num_tx_rings_p_up : 1;
-+		u8 num_tx_rings_p_up = t == TX ?
-+			priv->num_tx_rings_p_up : priv->tx_ring_num[t];
+ 	/* Get and dump the chip ID */
+ 	*synopsys_id = stmmac_get_synopsys_id(hwid);
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
+index a1d582f..8a40e69 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
+@@ -197,7 +197,7 @@ struct mac_device_info *dwmac100_setup(void __iomem *ioaddr, int *synopsys_id)
+ 	mac->mii.reg_shift = 6;
+ 	mac->mii.reg_mask = 0x000007C0;
+ 	mac->mii.clk_csr_shift = 2;
+-	mac->mii.clk_csr_mask = 0xF;
++	mac->mii.clk_csr_mask = GENMASK(4, 2);
  
- 		for (i = 0; i < priv->tx_ring_num[t]; i++) {
- 			/* Configure cq */
+ 	/* Synopsys Id is not available on old chips */
+ 	*synopsys_id = 0;
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+index 23322fd..fda01f7 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+@@ -81,8 +81,8 @@ static int stmmac_mdio_read(struct mii_bus *bus, int phyaddr, int phyreg)
+ 	value |= (phyaddr << priv->hw->mii.addr_shift)
+ 		& priv->hw->mii.addr_mask;
+ 	value |= (phyreg << priv->hw->mii.reg_shift) & priv->hw->mii.reg_mask;
+-	value |= (priv->clk_csr & priv->hw->mii.clk_csr_mask)
+-		<< priv->hw->mii.clk_csr_shift;
++	value |= (priv->clk_csr << priv->hw->mii.clk_csr_shift)
++		& priv->hw->mii.clk_csr_mask;
+ 	if (priv->plat->has_gmac4)
+ 		value |= MII_GMAC4_READ;
+ 
+@@ -122,8 +122,8 @@ static int stmmac_mdio_write(struct mii_bus *bus, int phyaddr, int phyreg,
+ 		& priv->hw->mii.addr_mask;
+ 	value |= (phyreg << priv->hw->mii.reg_shift) & priv->hw->mii.reg_mask;
+ 
+-	value |= ((priv->clk_csr & priv->hw->mii.clk_csr_mask)
+-		<< priv->hw->mii.clk_csr_shift);
++	value |= (priv->clk_csr << priv->hw->mii.clk_csr_shift)
++		& priv->hw->mii.clk_csr_mask;
+ 	if (priv->plat->has_gmac4)
+ 		value |= MII_GMAC4_WRITE;
+ 
 -- 
-1.8.3.1
+2.9.3
