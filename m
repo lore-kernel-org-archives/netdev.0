@@ -1,50 +1,42 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 0/4] ip vrf fixups
-Date: Wed, 21 Dec 2016 16:09:56 -0800
-Message-ID: <20161221160956.4660a386@xeon-e3>
-References: <1481832422-10267-1-git-send-email-dsa@cumulusnetworks.com>
+Subject: Re: [PATCH iproute2 0/2] Man page fixes
+Date: Wed, 21 Dec 2016 16:10:34 -0800
+Message-ID: <20161221161034.04d6a2b4@xeon-e3>
+References: <1481607232-1342-1-git-send-email-roid@mellanox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Ahern <dsa@cumulusnetworks.com>
+Cc: netdev@vger.kernel.org, Amir Vadai <amir@vadai.me>,
+        Hadar Hen Zion <hadarh@mellanox.com>
+To: Roi Dayan <roid@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f50.google.com ([74.125.83.50]:36671 "EHLO
-        mail-pg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757753AbcLVAKD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2016 19:10:03 -0500
-Received: by mail-pg0-f50.google.com with SMTP id f188so90605698pgc.3
-        for <netdev@vger.kernel.org>; Wed, 21 Dec 2016 16:10:03 -0800 (PST)
-In-Reply-To: <1481832422-10267-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from mail-pg0-f51.google.com ([74.125.83.51]:36758 "EHLO
+        mail-pg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758295AbcLVAKh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2016 19:10:37 -0500
+Received: by mail-pg0-f51.google.com with SMTP id f188so90610546pgc.3
+        for <netdev@vger.kernel.org>; Wed, 21 Dec 2016 16:10:37 -0800 (PST)
+In-Reply-To: <1481607232-1342-1-git-send-email-roid@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 15 Dec 2016 12:06:58 -0800
-David Ahern <dsa@cumulusnetworks.com> wrote:
+On Tue, 13 Dec 2016 07:33:50 +0200
+Roi Dayan <roid@mellanox.com> wrote:
 
-> Some minor cleanups to the 'ip vrf' command.
+> Hi,
 > 
-> Patch 1 moves the CGROUP_BPF hint to the failure of prog_load since it
-> fails first.
+> The 2 patches are man page related only.
+> First fixes a typo and second adding missing man page to the Makefile.
 > 
-> Patch 2 refactors ipvrf_identify. The action part is moved to a function
-> that can be used standalone and in the process flipped to fopen/fgets for
-> robustness should the cgroups file grow larger than 4k.
+> Thanks
 > 
-> Patch 3 fixes the path switching to "default" VRF.
+> Roi Dayan (2):
+>   tc: flower: Fix typo in the flower man page
+>   tc: tunnel_key: Add tc-tunnel_key man page to Makefile
 > 
-> Patch 4 moves a task to default VRF when switching namespaces.
-> 
-> David Ahern (4):
->   ip vrf: Move kernel config hint to prog_load failure
->   ip vrf: Refactor ipvrf_identify
->   ip vrf: Fix reset to default VRF
->   ip netns: Reset vrf to default VRF on namespace switch
-> 
->  ip/ip_common.h |   1 +
->  ip/ipnetns.c   |   5 +++
->  ip/ipvrf.c     | 103 +++++++++++++++++++++++++++++++++++----------------------
->  3 files changed, 69 insertions(+), 40 deletions(-)
+>  man/man8/Makefile    | 1 +
+>  man/man8/tc-flower.8 | 4 ++--
+>  2 files changed, 3 insertions(+), 2 deletions(-)
 > 
 
 Applied thanks.
