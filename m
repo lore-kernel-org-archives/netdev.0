@@ -1,42 +1,81 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 0/2] Man page fixes
-Date: Wed, 21 Dec 2016 16:10:34 -0800
-Message-ID: <20161221161034.04d6a2b4@xeon-e3>
-References: <1481607232-1342-1-git-send-email-roid@mellanox.com>
+From: maowenan <maowenan@huawei.com>
+Subject: RE: [PATCH] net: add one ethtool option to set relax ordering mode
+Date: Thu, 22 Dec 2016 00:10:00 +0000
+Message-ID: <F95AC9340317A84688A5F0DF0246F3F20151F10A@szxeml504-mbs.china.huawei.com>
+References: <1481179898-10668-1-git-send-email-maowenan@huawei.com>
+ <20161208141153.GI26852@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Amir Vadai <amir@vadai.me>,
-        Hadar Hen Zion <hadarh@mellanox.com>
-To: Roi Dayan <roid@mellanox.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
+        "weiyongjun (A)" <weiyongjun1@huawei.com>,
+        "davem@davemloft.net" <davem@davemloft.net>
+To: maowenan <maowenan@huawei.com>, Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f51.google.com ([74.125.83.51]:36758 "EHLO
-        mail-pg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1758295AbcLVAKh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2016 19:10:37 -0500
-Received: by mail-pg0-f51.google.com with SMTP id f188so90610546pgc.3
-        for <netdev@vger.kernel.org>; Wed, 21 Dec 2016 16:10:37 -0800 (PST)
-In-Reply-To: <1481607232-1342-1-git-send-email-roid@mellanox.com>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:4513 "EHLO
+        szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1761421AbcLVAKn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2016 19:10:43 -0500
+Content-Language: zh-CN
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 13 Dec 2016 07:33:50 +0200
-Roi Dayan <roid@mellanox.com> wrote:
+Hi,
 
-> Hi,
+> -----Original Message-----
+> From: maowenan
+> Sent: Monday, December 12, 2016 4:29 PM
+> To: 'Andrew Lunn'
+> Cc: netdev@vger.kernel.org; jeffrey.t.kirsher@intel.com; weiyongjun (A)
+> Subject: RE: [PATCH] net: add one ethtool option to set relax ordering mode
 > 
-> The 2 patches are man page related only.
-> First fixes a typo and second adding missing man page to the Makefile.
 > 
-> Thanks
 > 
-> Roi Dayan (2):
->   tc: flower: Fix typo in the flower man page
->   tc: tunnel_key: Add tc-tunnel_key man page to Makefile
+> > -----Original Message-----
+> > From: netdev-owner@vger.kernel.org
+> > [mailto:netdev-owner@vger.kernel.org]
+> > On Behalf Of Andrew Lunn
+> > Sent: Thursday, December 08, 2016 10:12 PM
+> > To: maowenan
+> > Cc: netdev@vger.kernel.org; jeffrey.t.kirsher@intel.com
+> > Subject: Re: [PATCH] net: add one ethtool option to set relax ordering
+> > mode
+> >
+> > On Thu, Dec 08, 2016 at 02:51:37PM +0800, Mao Wenan wrote:
+> > > This patch provides one way to set/unset IXGBE NIC TX and RX relax
+> > > ordering mode, which can be set by ethtool.
+> > > Relax ordering is one mode of 82599 NIC, to enable this mode can
+> > > enhance the performance for some cpu architecure.
+> > > example:
+> > > ethtool -s enp1s0f0 relaxorder off
+> > > ethtool -s enp1s0f0 relaxorder on
+> >
+> > Since this is a simple on/off, could it not be done with a feature?
+> > ethtool --feature?
+> >
+> > 	Andrew
 > 
->  man/man8/Makefile    | 1 +
->  man/man8/tc-flower.8 | 4 ++--
->  2 files changed, 3 insertions(+), 2 deletions(-)
-> 
+> Hello Andrew,
+> 	Thank you for your comments.
+> 	I get your idea about using ethtool -K|--feature is good for this feature,
+> right?
+> My original concert is about this is a relax ordering mode exist in 82599, it is
+> the hardware related feature. And ethtool -s option is related hardware of phy
+> and other (e.g: speed, duplex...), it is very easy to implement in do_sset().
+> But ethtool -K is mainly used for protocol offload,
+>         ethtool -K|--features|--offload DEVNAME Set protocol offload and
+> other features
+>                 FEATURE on|off ...
+> @Jeff Kirsher, what's your comments?
 
-Applied thanks.
+@Jeff Kirsher and @David Miller, do you have any other comments about this patch which wants to add ethtool option to on|off relax ordering with 82599?  Thank you.
+Here Andrew have comment about using -K or --features on|off relax ordering.
+
+
+
+
+
+
+
+ 
