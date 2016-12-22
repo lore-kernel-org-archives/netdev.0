@@ -1,7 +1,7 @@
 From: Josef Bacik <jbacik@fb.com>
-Subject: [PATCH 2/6 net-next] inet: drop ->bind_conflict
-Date: Thu, 22 Dec 2016 16:26:34 -0500
-Message-ID: <1482441998-28359-3-git-send-email-jbacik@fb.com>
+Subject: [PATCH 4/6 net-next] inet: don't check for bind conflicts twice when searching for a port
+Date: Thu, 22 Dec 2016 16:26:36 -0500
+Message-ID: <1482441998-28359-5-git-send-email-jbacik@fb.com>
 References: <1482441998-28359-1-git-send-email-jbacik@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,276 +10,100 @@ To: <davem@davemloft.net>, <hannes@stressinduktion.org>,
         <tom@herbertland.com>, <netdev@vger.kernel.org>,
         <kernel-team@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:58666 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S965801AbcLVV1J (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 22 Dec 2016 16:27:09 -0500
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:37883 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S932510AbcLVV1U (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Dec 2016 16:27:20 -0500
 In-Reply-To: <1482441998-28359-1-git-send-email-jbacik@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The only difference between inet6_csk_bind_conflict and inet_csk_bind_conflict
-is how they check the rcv_saddr, so delete this call back and simply
-change inet_csk_bind_conflict to call inet_rcv_saddr_equal.
+This is just wasted time, we've already found a tb that doesn't have a bind
+conflict, and we don't drop the head lock so scanning again isn't going to give
+us a different answer.  Instead move the tb->reuse setting logic outside of the
+found_tb path and put it in the success: path.  Then make it so that we don't
+goto again if we find a bind conflict in the found_tb path as we won't reach
+this anymore when we are scanning for an ephemeral port.
 
 Signed-off-by: Josef Bacik <jbacik@fb.com>
 ---
- include/net/inet6_connection_sock.h |  5 -----
- include/net/inet_connection_sock.h  |  6 ------
- net/dccp/ipv4.c                     |  2 +-
- net/dccp/ipv6.c                     |  2 --
- net/ipv4/inet_connection_sock.c     | 22 +++++++-------------
- net/ipv4/tcp_ipv4.c                 |  2 +-
- net/ipv6/inet6_connection_sock.c    | 40 -------------------------------------
- net/ipv6/tcp_ipv6.c                 |  2 --
- 8 files changed, 9 insertions(+), 72 deletions(-)
+ net/ipv4/inet_connection_sock.c | 33 +++++++++++++--------------------
+ 1 file changed, 13 insertions(+), 20 deletions(-)
 
-diff --git a/include/net/inet6_connection_sock.h b/include/net/inet6_connection_sock.h
-index 3212b39..8ec87b6 100644
---- a/include/net/inet6_connection_sock.h
-+++ b/include/net/inet6_connection_sock.h
-@@ -15,16 +15,11 @@
- 
- #include <linux/types.h>
- 
--struct inet_bind_bucket;
- struct request_sock;
- struct sk_buff;
- struct sock;
- struct sockaddr;
- 
--int inet6_csk_bind_conflict(const struct sock *sk,
--			    const struct inet_bind_bucket *tb, bool relax,
--			    bool soreuseport_ok);
--
- struct dst_entry *inet6_csk_route_req(const struct sock *sk, struct flowi6 *fl6,
- 				      const struct request_sock *req, u8 proto);
- 
-diff --git a/include/net/inet_connection_sock.h b/include/net/inet_connection_sock.h
-index 85ee387..add75c7 100644
---- a/include/net/inet_connection_sock.h
-+++ b/include/net/inet_connection_sock.h
-@@ -62,9 +62,6 @@ struct inet_connection_sock_af_ops {
- 				char __user *optval, int __user *optlen);
- #endif
- 	void	    (*addr2sockaddr)(struct sock *sk, struct sockaddr *);
--	int	    (*bind_conflict)(const struct sock *sk,
--				     const struct inet_bind_bucket *tb,
--				     bool relax, bool soreuseport_ok);
- 	void	    (*mtu_reduced)(struct sock *sk);
- };
- 
-@@ -261,9 +258,6 @@ inet_csk_rto_backoff(const struct inet_connection_sock *icsk,
- 
- struct sock *inet_csk_accept(struct sock *sk, int flags, int *err);
- 
--int inet_csk_bind_conflict(const struct sock *sk,
--			   const struct inet_bind_bucket *tb, bool relax,
--			   bool soreuseport_ok);
- int inet_csk_get_port(struct sock *sk, unsigned short snum);
- 
- struct dst_entry *inet_csk_route_req(const struct sock *sk, struct flowi4 *fl4,
-diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
-index d859a5c..ed6f99b 100644
---- a/net/dccp/ipv4.c
-+++ b/net/dccp/ipv4.c
-@@ -17,6 +17,7 @@
- #include <linux/skbuff.h>
- #include <linux/random.h>
- 
-+#include <net/addrconf.h>
- #include <net/icmp.h>
- #include <net/inet_common.h>
- #include <net/inet_hashtables.h>
-@@ -904,7 +905,6 @@ static const struct inet_connection_sock_af_ops dccp_ipv4_af_ops = {
- 	.getsockopt	   = ip_getsockopt,
- 	.addr2sockaddr	   = inet_csk_addr2sockaddr,
- 	.sockaddr_len	   = sizeof(struct sockaddr_in),
--	.bind_conflict	   = inet_csk_bind_conflict,
- #ifdef CONFIG_COMPAT
- 	.compat_setsockopt = compat_ip_setsockopt,
- 	.compat_getsockopt = compat_ip_getsockopt,
-diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
-index adfc790..08bcdc3 100644
---- a/net/dccp/ipv6.c
-+++ b/net/dccp/ipv6.c
-@@ -937,7 +937,6 @@ static const struct inet_connection_sock_af_ops dccp_ipv6_af_ops = {
- 	.getsockopt	   = ipv6_getsockopt,
- 	.addr2sockaddr	   = inet6_csk_addr2sockaddr,
- 	.sockaddr_len	   = sizeof(struct sockaddr_in6),
--	.bind_conflict	   = inet6_csk_bind_conflict,
- #ifdef CONFIG_COMPAT
- 	.compat_setsockopt = compat_ipv6_setsockopt,
- 	.compat_getsockopt = compat_ipv6_getsockopt,
-@@ -958,7 +957,6 @@ static const struct inet_connection_sock_af_ops dccp_ipv6_mapped = {
- 	.getsockopt	   = ipv6_getsockopt,
- 	.addr2sockaddr	   = inet6_csk_addr2sockaddr,
- 	.sockaddr_len	   = sizeof(struct sockaddr_in6),
--	.bind_conflict	   = inet6_csk_bind_conflict,
- #ifdef CONFIG_COMPAT
- 	.compat_setsockopt = compat_ipv6_setsockopt,
- 	.compat_getsockopt = compat_ipv6_getsockopt,
 diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
-index ba597cb..a1c9055 100644
+index d352366..f6a34bc 100644
 --- a/net/ipv4/inet_connection_sock.c
 +++ b/net/ipv4/inet_connection_sock.c
-@@ -116,9 +116,9 @@ void inet_get_local_port_range(struct net *net, int *low, int *high)
- }
- EXPORT_SYMBOL(inet_get_local_port_range);
- 
--int inet_csk_bind_conflict(const struct sock *sk,
--			   const struct inet_bind_bucket *tb, bool relax,
--			   bool reuseport_ok)
-+static int inet_csk_bind_conflict(const struct sock *sk,
-+				  const struct inet_bind_bucket *tb,
-+				  bool relax, bool reuseport_ok)
+@@ -164,7 +164,7 @@ int inet_csk_get_port(struct sock *sk, unsigned short snum)
  {
- 	struct sock *sk2;
- 	bool reuse = sk->sk_reuse;
-@@ -134,7 +134,6 @@ int inet_csk_bind_conflict(const struct sock *sk,
+ 	bool reuse = sk->sk_reuse && sk->sk_state != TCP_LISTEN;
+ 	struct inet_hashinfo *hinfo = sk->sk_prot->h.hashinfo;
+-	int ret = 1, attempts = 5, port = snum;
++	int ret = 1, port = snum;
+ 	struct inet_bind_hashbucket *head;
+ 	struct net *net = sock_net(sk);
+ 	int i, low, high, attempt_half;
+@@ -183,7 +183,6 @@ int inet_csk_get_port(struct sock *sk, unsigned short snum)
  
- 	sk_for_each_bound(sk2, &tb->owners) {
- 		if (sk != sk2 &&
--		    !inet_v6_ipv6only(sk2) &&
- 		    (!sk->sk_bound_dev_if ||
- 		     !sk2->sk_bound_dev_if ||
- 		     sk->sk_bound_dev_if == sk2->sk_bound_dev_if)) {
-@@ -144,23 +143,18 @@ int inet_csk_bind_conflict(const struct sock *sk,
- 			     rcu_access_pointer(sk->sk_reuseport_cb) ||
- 			     (sk2->sk_state != TCP_TIME_WAIT &&
- 			     !uid_eq(uid, sock_i_uid(sk2))))) {
--
--				if (!sk2->sk_rcv_saddr || !sk->sk_rcv_saddr ||
--				    sk2->sk_rcv_saddr == sk->sk_rcv_saddr)
-+				if (inet_rcv_saddr_equal(sk, sk2, true))
- 					break;
- 			}
- 			if (!relax && reuse && sk2->sk_reuse &&
- 			    sk2->sk_state != TCP_LISTEN) {
--
--				if (!sk2->sk_rcv_saddr || !sk->sk_rcv_saddr ||
--				    sk2->sk_rcv_saddr == sk->sk_rcv_saddr)
-+				if (inet_rcv_saddr_equal(sk, sk2, true))
- 					break;
- 			}
- 		}
+ 		goto tb_not_found;
  	}
- 	return sk2 != NULL;
- }
--EXPORT_SYMBOL_GPL(inet_csk_bind_conflict);
- 
- /* Obtain a reference to a local port for the given sock,
-  * if snum is zero it means select any available local port.
-@@ -239,8 +233,7 @@ int inet_csk_get_port(struct sock *sk, unsigned short snum)
- 					smallest_size = tb->num_owners;
- 					smallest_port = port;
- 				}
--				if (!inet_csk(sk)->icsk_af_ops->bind_conflict(sk, tb, false,
--									      reuseport_ok))
-+				if (!inet_csk_bind_conflict(sk, tb, false, reuseport_ok))
- 					goto tb_found;
+-again:
+ 	attempt_half = (sk->sk_reuse == SK_CAN_REUSE) ? 1 : 0;
+ other_half_scan:
+ 	inet_get_local_port_range(net, &low, &high);
+@@ -220,8 +219,10 @@ int inet_csk_get_port(struct sock *sk, unsigned short snum)
+ 		spin_lock_bh(&head->lock);
+ 		inet_bind_bucket_for_each(tb, &head->chain)
+ 			if (net_eq(ib_net(tb), net) && tb->port == port) {
++				if (hlist_empty(&tb->owners))
++					goto success;
+ 				if (!inet_csk_bind_conflict(sk, tb, false, reuseport_ok))
+-					goto tb_found;
++					goto success;
  				goto next_port;
  			}
-@@ -281,8 +274,7 @@ int inet_csk_get_port(struct sock *sk, unsigned short snum)
- 		      sk->sk_reuseport && uid_eq(tb->fastuid, uid))) &&
- 		    smallest_size == -1)
+ 		goto tb_not_found;
+@@ -256,23 +257,11 @@ int inet_csk_get_port(struct sock *sk, unsigned short snum)
+ 		      !rcu_access_pointer(sk->sk_reuseport_cb) &&
+ 		      sk->sk_reuseport && uid_eq(tb->fastuid, uid)))
  			goto success;
--		if (inet_csk(sk)->icsk_af_ops->bind_conflict(sk, tb, true,
--							     reuseport_ok)) {
-+		if (inet_csk_bind_conflict(sk, tb, true, reuseport_ok)) {
- 			if ((reuse ||
- 			     (tb->fastreuseport > 0 &&
- 			      sk->sk_reuseport &&
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 30d81f5..7664386 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -63,6 +63,7 @@
- #include <linux/times.h>
- #include <linux/slab.h>
- 
-+#include <net/addrconf.h>
- #include <net/net_namespace.h>
- #include <net/icmp.h>
- #include <net/inet_hashtables.h>
-@@ -1817,7 +1818,6 @@ const struct inet_connection_sock_af_ops ipv4_specific = {
- 	.getsockopt	   = ip_getsockopt,
- 	.addr2sockaddr	   = inet_csk_addr2sockaddr,
- 	.sockaddr_len	   = sizeof(struct sockaddr_in),
--	.bind_conflict	   = inet_csk_bind_conflict,
- #ifdef CONFIG_COMPAT
- 	.compat_setsockopt = compat_ip_setsockopt,
- 	.compat_getsockopt = compat_ip_getsockopt,
-diff --git a/net/ipv6/inet6_connection_sock.c b/net/ipv6/inet6_connection_sock.c
-index 55ee2ea..97074c4 100644
---- a/net/ipv6/inet6_connection_sock.c
-+++ b/net/ipv6/inet6_connection_sock.c
-@@ -28,46 +28,6 @@
- #include <net/inet6_connection_sock.h>
- #include <net/sock_reuseport.h>
- 
--int inet6_csk_bind_conflict(const struct sock *sk,
--			    const struct inet_bind_bucket *tb, bool relax,
--			    bool reuseport_ok)
--{
--	const struct sock *sk2;
--	bool reuse = !!sk->sk_reuse;
--	bool reuseport = !!sk->sk_reuseport && reuseport_ok;
--	kuid_t uid = sock_i_uid((struct sock *)sk);
--
--	/* We must walk the whole port owner list in this case. -DaveM */
--	/*
--	 * See comment in inet_csk_bind_conflict about sock lookup
--	 * vs net namespaces issues.
--	 */
--	sk_for_each_bound(sk2, &tb->owners) {
--		if (sk != sk2 &&
--		    (!sk->sk_bound_dev_if ||
--		     !sk2->sk_bound_dev_if ||
--		     sk->sk_bound_dev_if == sk2->sk_bound_dev_if)) {
--			if ((!reuse || !sk2->sk_reuse ||
--			     sk2->sk_state == TCP_LISTEN) &&
--			    (!reuseport || !sk2->sk_reuseport ||
--			     rcu_access_pointer(sk->sk_reuseport_cb) ||
--			     (sk2->sk_state != TCP_TIME_WAIT &&
--			      !uid_eq(uid,
--				      sock_i_uid((struct sock *)sk2))))) {
--				if (inet_rcv_saddr_equal(sk, sk2, true))
--					break;
+-		if (inet_csk_bind_conflict(sk, tb, true, reuseport_ok)) {
+-			if ((reuse ||
+-			     (tb->fastreuseport > 0 &&
+-			      sk->sk_reuseport &&
+-			      !rcu_access_pointer(sk->sk_reuseport_cb) &&
+-			      uid_eq(tb->fastuid, uid))) && !snum &&
+-			    --attempts >= 0) {
+-				spin_unlock_bh(&head->lock);
+-				goto again;
 -			}
--			if (!relax && reuse && sk2->sk_reuse &&
--			    sk2->sk_state != TCP_LISTEN &&
--			    inet_rcv_saddr_equal(sk, sk2, true))
--				break;
++		if (inet_csk_bind_conflict(sk, tb, true, reuseport_ok))
+ 			goto fail_unlock;
 -		}
--	}
--
--	return sk2 != NULL;
--}
--EXPORT_SYMBOL_GPL(inet6_csk_bind_conflict);
--
- struct dst_entry *inet6_csk_route_req(const struct sock *sk,
- 				      struct flowi6 *fl6,
- 				      const struct request_sock *req,
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 73bc8fc6..bd846d1 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1620,7 +1620,6 @@ static const struct inet_connection_sock_af_ops ipv6_specific = {
- 	.getsockopt	   = ipv6_getsockopt,
- 	.addr2sockaddr	   = inet6_csk_addr2sockaddr,
- 	.sockaddr_len	   = sizeof(struct sockaddr_in6),
--	.bind_conflict	   = inet6_csk_bind_conflict,
- #ifdef CONFIG_COMPAT
- 	.compat_setsockopt = compat_ipv6_setsockopt,
- 	.compat_getsockopt = compat_ipv6_getsockopt,
-@@ -1651,7 +1650,6 @@ static const struct inet_connection_sock_af_ops ipv6_mapped = {
- 	.getsockopt	   = ipv6_getsockopt,
- 	.addr2sockaddr	   = inet6_csk_addr2sockaddr,
- 	.sockaddr_len	   = sizeof(struct sockaddr_in6),
--	.bind_conflict	   = inet6_csk_bind_conflict,
- #ifdef CONFIG_COMPAT
- 	.compat_setsockopt = compat_ipv6_setsockopt,
- 	.compat_getsockopt = compat_ipv6_getsockopt,
+-		if (!reuse)
+-			tb->fastreuse = 0;
+-		if (!sk->sk_reuseport || !uid_eq(tb->fastuid, uid))
+-			tb->fastreuseport = 0;
+-	} else {
++	}
++success:
++	if (!hlist_empty(&tb->owners)) {
+ 		tb->fastreuse = reuse;
+ 		if (sk->sk_reuseport) {
+ 			tb->fastreuseport = 1;
+@@ -280,8 +269,12 @@ int inet_csk_get_port(struct sock *sk, unsigned short snum)
+ 		} else {
+ 			tb->fastreuseport = 0;
+ 		}
++	} else {
++		if (!reuse)
++			tb->fastreuse = 0;
++		if (!sk->sk_reuseport || !uid_eq(tb->fastuid, uid))
++			tb->fastreuseport = 0;
+ 	}
+-success:
+ 	if (!inet_csk(sk)->icsk_bind_hash)
+ 		inet_bind_hash(sk, tb, port);
+ 	WARN_ON(inet_csk(sk)->icsk_bind_hash != tb);
 -- 
 2.5.5
