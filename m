@@ -1,142 +1,68 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: Re: [PATCH net 1/1] tipc: revert use of
-	copy_from_iter_full()
-Date: Thu, 22 Dec 2016 02:47:09 +0000
-Message-ID: <A2BAEFC30C8FD34388F02C9B3121859D225E8E2B@eusaamb103.ericsson.se>
-References: <1482368497-7103-1-git-send-email-jon.maloy@ericsson.com>
-	<20161222012101.GF1555@ZenIV.linux.org.uk>
-	<20161222014321.GA2805@ZenIV.linux.org.uk>
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: Re: [PATCH v7 3/6] random: use SipHash in place of MD5
+Date: Thu, 22 Dec 2016 03:49:39 +0100
+Message-ID: <CAHmME9phg=GuhEUaMxxv_=RexffPDqrOEhmaKffy_ZSt7bfC7g@mail.gmail.com>
+References: <20161216030328.11602-1-Jason@zx2c4.com> <20161221230216.25341-1-Jason@zx2c4.com>
+ <20161221230216.25341-4-Jason@zx2c4.com> <CALCETrVttVoZMvCYZcrAqM1c=YQP_nCfdfO1MsrSHjvjTFxH+A@mail.gmail.com>
+ <17bd0c70-d2c1-165b-f5b2-252dfca404e8@stressinduktion.org>
+Reply-To: kernel-hardening@lists.openwall.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"tipc-discussion@lists.sourceforge.net"
-	<tipc-discussion@lists.sourceforge.net>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: Al Viro <viro@ZenIV.linux.org.uk>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <20161222014321.GA2805@ZenIV.linux.org.uk>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=UTF-8
+Cc: Andy Lutomirski <luto@amacapital.net>, Netdev <netdev@vger.kernel.org>,
+	"kernel-hardening@lists.openwall.com" <kernel-hardening@lists.openwall.com>, LKML <linux-kernel@vger.kernel.org>,
+	Linux Crypto Mailing List <linux-crypto@vger.kernel.org>, David Laight <David.Laight@aculab.com>,
+	Ted Tso <tytso@mit.edu>, Eric Dumazet <edumazet@google.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>, Eric Biggers <ebiggers3@gmail.com>,
+	Tom Herbert <tom@herbertland.com>, Andi Kleen <ak@linux.intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <kernel-hardening-return-5767-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+In-Reply-To: <17bd0c70-d2c1-165b-f5b2-252dfca404e8@stressinduktion.org>
 List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: Al Viro [mailto:viro@ftp.linux.org.uk] On Behalf Of Al Viro
-> Sent: Wednesday, 21 December, 2016 20:43
-> To: Jon Maloy <jon.maloy@ericsson.com>
-> Cc: davem@davemloft.net; netdev@vger.kernel.org; Parthasarathy Bhuvaragan
-> <parthasarathy.bhuvaragan@ericsson.com>; Ying Xue
-> <ying.xue@windriver.com>; maloy@donjonn.com; tipc-
-> discussion@lists.sourceforge.net
-> Subject: Re: [PATCH net 1/1] tipc: revert use of copy_from_iter_full()
-> 
-> On Thu, Dec 22, 2016 at 01:21:01AM +0000, Al Viro wrote:
-> > On Wed, Dec 21, 2016 at 08:01:37PM -0500, Jon Maloy wrote:
-> > > commit cbbd26b8b1a6 ("[iov_iter] new primitives - copy_from_iter_full()
-> > > and friends") replaced calls to copy_from_iter() in the function
-> > > tipc_msg_build(). This causes a an immediate crash as follows:
-> >
-> > Very interesting.
-> >
-> > > [ 1209.597076] BUG: unable to handle kernel NULL pointer dereference at
-> 0000000000000008
-> > > [ 1209.607025] IP: copy_from_iter_full+0x43/0x290
-> >
-> > > [ 1209.689257]  tipc_msg_build+0xe1/0x590 [tipc]
-> > > [ 1209.691479]  ? _raw_spin_unlock_bh+0x1e/0x20
-> > > [ 1209.694641]  ? tipc_node_find+0x30/0xa0 [tipc]
-> > > [ 1209.696789]  __tipc_sendmsg+0x189/0x480 [tipc]
-> > > [ 1209.699017]  ? remove_wait_queue+0x4d/0x60
-> > > [ 1209.700354]  tipc_connect+0x15f/0x1b0 [tipc]
-> > > [ 1209.701684]  SYSC_connect+0xd9/0x110
-> >
-> > I don't believe that it's something tipc-specific; could you post an objdump
-> > of copy_from_iter_full() in your kernel?  That smells like a bug in there
-> > and it really ought to be fixed...
-> 
-> FWIW, looking at the tipc, am I reading the trace correctly?  We seem to
-> have tipc_connect() taking an msghdr with empty payload and hitting this
->         switch (sk->sk_state) {
->         case TIPC_OPEN:
->                 /* Send a 'SYN-' to destination */
->                 m.msg_name = dest;
->                 m.msg_namelen = destlen;
-> 
->                 /* If connect is in non-blocking case, set MSG_DONTWAIT to
->                  * indicate send_msg() is never blocked.
->                  */
->                 if (!timeout)
->                         m.msg_flags = MSG_DONTWAIT;
-> 
->                 res = __tipc_sendmsg(sock, &m, 0);
-> which eventually calls
->         rc = tipc_msg_build(mhdr, m, 0, dsz, mtu, &pktchain);
-> possibly more than once, but with explicit "restore m->msg_iter to what
-> it was before the first call" before each subsequent call.
-> 
-> What's putting anything into m.msg_iter on that codepath?  AFAICS, it should
-> be completely empty...  Wait.  AAARRRGH!
-> 
-> OK, I see what's going on there - unlike iterate_and_advance(), which
-> explicitly skips any work in case of empty iterator, iterate_all_kind()
-> does not.  Could you check if the following fixes your problem?
+Hi Andy & Hannes,
 
-Confirmed. The crash disappeared and everything works fine.
+On Thu, Dec 22, 2016 at 3:07 AM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> I wonder if Ted's proposal was analyzed further in terms of performance
+> if get_random_int should provide cprng alike properties?
+>
+> For reference: https://lkml.org/lkml/2016/12/14/351
+>
+> The proposal made sense to me and would completely solve the above
+> mentioned problem on the cost of repeatedly reseeding from the crng.
 
-BR
-///jon
+On Thu, Dec 22, 2016 at 3:09 AM, Andy Lutomirski <luto@amacapital.net> wrote:
+> Unless I've misunderstood it, Ted's proposal causes get_random_int()
+> to return bytes straight from urandom (effectively), which should make
+> it very strong.  And if urandom is competitively fast now, I don't see
+> the problem.  ChaCha20 is designed for speed, after all.
 
-> 
-> diff --git a/lib/iov_iter.c b/lib/iov_iter.c
-> index 228892dabba6..6a0396b8d47f 100644
-> --- a/lib/iov_iter.c
-> +++ b/lib/iov_iter.c
-> @@ -73,19 +73,21 @@
->  }
-> 
->  #define iterate_all_kinds(i, n, v, I, B, K) {			\
-> -	size_t skip = i->iov_offset;				\
-> -	if (unlikely(i->type & ITER_BVEC)) {			\
-> -		struct bio_vec v;				\
-> -		struct bvec_iter __bi;				\
-> -		iterate_bvec(i, n, v, __bi, skip, (B))		\
-> -	} else if (unlikely(i->type & ITER_KVEC)) {		\
-> -		const struct kvec *kvec;			\
-> -		struct kvec v;					\
-> -		iterate_kvec(i, n, v, kvec, skip, (K))		\
-> -	} else {						\
-> -		const struct iovec *iov;			\
-> -		struct iovec v;					\
-> -		iterate_iovec(i, n, v, iov, skip, (I))		\
-> +	if (i->count) {						\
-> +		size_t skip = i->iov_offset;			\
-> +		if (unlikely(i->type & ITER_BVEC)) {		\
-> +			struct bio_vec v;			\
-> +			struct bvec_iter __bi;			\
-> +			iterate_bvec(i, n, v, __bi, skip, (B))	\
-> +		} else if (unlikely(i->type & ITER_KVEC)) {	\
-> +			const struct kvec *kvec;		\
-> +			struct kvec v;				\
-> +			iterate_kvec(i, n, v, kvec, skip, (K))	\
-> +		} else {					\
-> +			const struct iovec *iov;		\
-> +			struct iovec v;				\
-> +			iterate_iovec(i, n, v, iov, skip, (I))	\
-> +		}						\
->  	}							\
->  }
-> 
+Funny -- while you guys were sending this back & forth, I was writing
+my reply to Andy which essentially arrives at the same conclusion.
+Given that we're all arriving to the same thing, and that Ted shot in
+this direction long before we all did, I'm leaning toward abandoning
+SipHash for the de-MD5-ification of get_random_int/long, and working
+on polishing Ted's idea into something shiny for this patchset.
 
-------------------------------------------------------------------------------
-Developer Access Program for Intel Xeon Phi Processors
-Access to Intel Xeon Phi processor-based developer platforms.
-With one year of Intel Parallel Studio XE.
-Training and support from Colfax.
-Order your platform today.http://sdm.link/intel
+I did have two objections to this. The first was that my SipHash
+construction is faster. But in any case, they're both faster than the
+current MD5, so it's just extra rice. The second, and the more
+important one, was that batching entropy up like this means that 32
+calls will be really fast, and then the 33rd will be slow, since it
+has to do a whole ChaCha round, because get_random_bytes must be
+called to refill the batch. Since get_random_long is called for every
+process startup, I didn't really like there being inconsistent
+performance on process startup. And I'm pretty sure that one ChaCha
+whole block is slower than computing MD5, even though it lasts 32
+times as long, though I need to measure this. But maybe that's dumb in
+the end? Are these concerns that should point us toward the
+determinism (and speed) of SipHash? Are these concerns that don't
+matter and so we should roll with the simplicity of reusing ChaCha?
+
+Jason
