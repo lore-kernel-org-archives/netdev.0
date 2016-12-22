@@ -1,104 +1,63 @@
-From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH net-next 01/10] net: netcp: ethss: add support of
- subsystem register region regmap
-Date: Thu, 22 Dec 2016 15:24:09 -0600
-Message-ID: <20161222212409.arhurpl4bpqf2yw6@rob-hp-laptop>
-References: <1482271793-7671-1-git-send-email-m-karicheri2@ti.com>
- <1482271793-7671-2-git-send-email-m-karicheri2@ti.com>
+From: Josef Bacik <jbacik@fb.com>
+Subject: [PATCH 0/6 net-next][V2] Rework inet_csk_get_port
+Date: Thu, 22 Dec 2016 16:26:32 -0500
+Message-ID: <1482441998-28359-1-git-send-email-jbacik@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        grygorii.strashko-l0cyMroinI0@public.gmane.org, mugunthanvnm-l0cyMroinI0@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, arnd-r2nGTMty4D4@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org
-To: Murali Karicheri <m-karicheri2-l0cyMroinI0@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1482271793-7671-2-git-send-email-m-karicheri2-l0cyMroinI0@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+To: <davem@davemloft.net>, <hannes@stressinduktion.org>,
+        <kraigatgoog@gmail.com>, <eric.dumazet@gmail.com>,
+        <tom@herbertland.com>, <netdev@vger.kernel.org>,
+        <kernel-team@fb.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:59875 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1752715AbcLVV05 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Dec 2016 16:26:57 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 20, 2016 at 05:09:44PM -0500, Murali Karicheri wrote:
-> From: WingMan Kwok <w-kwok2-l0cyMroinI0@public.gmane.org>
-> 
-> 10gbe phy driver needs to access the 10gbe subsystem control
-> register during phy initialization. To facilitate the shared
-> access of the subsystem register region between the 10gbe Ethernet
-> driver and the phy driver, this patch adds support of the
-> subsystem register region defined by a syscon node in the dts.
-> 
-> Although there is no shared access to the gbe subsystem register
-> region, using syscon for that is for the sake of consistency.
-> 
-> This change is backward compatible with previously released gbe
-> devicetree bindings.
-> 
-> Signed-off-by: WingMan Kwok <w-kwok2-l0cyMroinI0@public.gmane.org>
-> Signed-off-by: Murali Karicheri <m-karicheri2-l0cyMroinI0@public.gmane.org>
-> Signed-off-by: Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>
-> ---
->  .../devicetree/bindings/net/keystone-netcp.txt     |  16 ++-
->  drivers/net/ethernet/ti/netcp_ethss.c              | 140 +++++++++++++++++----
->  2 files changed, 127 insertions(+), 29 deletions(-)
-> 
-> diff --git a/Documentation/devicetree/bindings/net/keystone-netcp.txt b/Documentation/devicetree/bindings/net/keystone-netcp.txt
-> index 04ba1dc..0854a73 100644
-> --- a/Documentation/devicetree/bindings/net/keystone-netcp.txt
-> +++ b/Documentation/devicetree/bindings/net/keystone-netcp.txt
-> @@ -72,20 +72,24 @@ Required properties:
->  		"ti,netcp-gbe-2" for 1GbE N NetCP 1.5 (N=2)
->  		"ti,netcp-xgbe" for 10 GbE
->  
-> +- syscon-subsys:	phandle to syscon node of the switch
-> +			subsystem registers.
-> +
->  - reg:		register location and the size for the following register
->  		regions in the specified order.
->  		- switch subsystem registers
-> +		- sgmii module registers
+V1->V2:
+-Added a new patch 'inet: collapse ipv4/v6 rcv_saddr_equal functions into one'
+ at Hannes' suggestion.
+-Dropped ->bind_conflict and just use the new helper.
+-Fixed a compile bug from the original ->bind_conflict patch.
 
-This needs to go on the end of the list. Otherwise, it is not backwards 
-compatible.
+The original description of the series follows
 
->  		- sgmii port3/4 module registers (only for NetCP 1.4)
->  		- switch module registers
->  		- serdes registers (only for 10G)
->  
->  		NetCP 1.4 ethss, here is the order
-> -			index #0 - switch subsystem registers
-> +			index #0 - sgmii module registers
->  			index #1 - sgmii port3/4 module registers
->  			index #2 - switch module registers
->  
->  		NetCP 1.5 ethss 9 port, 5 port and 2 port
-> -			index #0 - switch subsystem registers
-> +			index #0 - sgmii module registers
->  			index #1 - switch module registers
->  			index #2 - serdes registers
->  
-> @@ -145,6 +149,11 @@ Optional properties:
->  
->  Example binding:
->  
-> +gbe_subsys: subsys@2090000 {
-> +	compatible = "syscon";
-> +	reg = <0x02090000 0x100>;
-> +};
-> +
->  netcp: netcp@2000000 {
->  	reg = <0x2620110 0x8>;
->  	reg-names = "efuse";
-> @@ -163,7 +172,8 @@ netcp: netcp@2000000 {
->  		ranges;
->  		gbe@90000 {
->  			label = "netcp-gbe";
-> -			reg = <0x90000 0x300>, <0x90400 0x400>, <0x90800 0x700>;
-> +			syscon-subsys = <&gbe_subsys>;
-> +			reg = <0x90100 0x200>, <0x90400 0x200>, <0x90800 0x700>;
->  			/* enable-ale; */
->  			tx-queue = <648>;
->  			tx-channel = <8>;
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+=========================================================
+
+At some point recently the guys working on our load balancer added the ability
+to use SO_REUSEPORT.  When they restarted their app with this option enabled
+they immediately hit a softlockup on what appeared to be the
+inet_bind_bucket->lock.  Eventually what all of our debugging and discussion led
+us to was the fact that the application comes up without SO_REUSEPORT, shuts
+down which creates around 100k twsk's, and then comes up and tries to open a
+bunch of sockets using SO_REUSEPORT, which meant traversing the inet_bind_bucket
+owners list under the lock.  Since this lock is needed for dealing with the
+twsk's and basically anything else related to connections we would softlockup,
+and sometimes not ever recover.
+
+To solve this problem I did what you see in Path 5/5.  Once we have a
+SO_REUSEPORT socket on the tb->owners list we know that the socket has no
+conflicts with any of the other sockets on that list.  So we can add a copy of
+the sock_common (really all we need is the recv_saddr but it seemed ugly to copy
+just the ipv6, ipv4, and flag to indicate if we were ipv6 only in there so I've
+copied the whole common) in order to check subsequent SO_REUSEPORT sockets.  If
+they match the previous one then we can skip the expensive
+inet_csk_bind_conflict check.  This is what eliminated the soft lockup that we
+were seeing.
+
+Patches 1-4 are cleanups and re-workings.  For instance when we specify port ==
+0 we need to find an open port, but we would do two passes through
+inet_csk_bind_conflict every time we found a possible port.  We would also keep
+track of the smallest_port value in order to try and use it if we found no
+port our first run through.  This however made no sense as it would have had to
+fail the first pass through inet_csk_bind_conflict, so would not actually pass
+the second pass through either.  Finally I split the function into two functions
+in order to make it easier to read and to distinguish between the two behaviors.
+
+I have tested this on one of our load balancing boxes during peak traffic and it
+hasn't fallen over.  But this is not my area, so obviously feel free to point
+out where I'm being stupid and I'll get it fixed up and retested.  Thanks,
+
+Josef
