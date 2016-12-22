@@ -1,127 +1,107 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: Re: [kernel-hardening] Re: [PATCH v7 3/6] random: use SipHash in
- place of MD5
-Date: Thu, 22 Dec 2016 17:36:47 +0100
-Message-ID: <CAHmME9o6Qt5aLrP68p-6yPrLz9+DP_kictsXa5GbKz0Bfa3o7Q@mail.gmail.com>
-References: <20161216030328.11602-1-Jason@zx2c4.com> <20161221230216.25341-1-Jason@zx2c4.com>
- <20161221230216.25341-4-Jason@zx2c4.com> <CALCETrVttVoZMvCYZcrAqM1c=YQP_nCfdfO1MsrSHjvjTFxH+A@mail.gmail.com>
- <17bd0c70-d2c1-165b-f5b2-252dfca404e8@stressinduktion.org>
- <CAHmME9phg=GuhEUaMxxv_=RexffPDqrOEhmaKffy_ZSt7bfC7g@mail.gmail.com>
- <20161222054125.lzxhd6ctovm3wk4p@thunk.org> <CAHmME9o=yLOLr2w3xYj2up-UW0tXtv=0A5ffiTiVCCHkv6Twxg@mail.gmail.com>
- <20161222155853.beqowf2qfg7igf23@thunk.org> <CAHmME9r3zCE6zLsL9Jrp3a2D3mpH6oYEnz3BBerAGZXyJpr2mQ@mail.gmail.com>
- <20161222163041.xb2ysx4uswpaqfev@thunk.org>
+From: Shahar Klein <shahark@mellanox.com>
+Subject: Re: [PATCH net] net, sched: fix soft lockup in tc_classify
+Date: Thu, 22 Dec 2016 15:16:42 +0200
+Message-ID: <7033ed3d-0665-1a38-7631-a1346d46e1b4@mellanox.com>
+References: <1954223e8b7aa90ff835357e8a3ef7537be33e43.1482337600.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: kernel-hardening@lists.openwall.com,
-        "Theodore Ts'o" <tytso@mit.edu>,
-        "Jason A. Donenfeld" <Jason@zx2c4.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Andy Lutomirski <luto@amacapital.net>,
-        Netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-        David Laight <David.Laight@aculab.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Linus Torvalds <torvalds@linux-foundation.org>,
-        Eric Biggers <ebiggers3@gmail.com>,
-        Tom Herbert <tom@herbertland.com>,
-        Andi Kleen <ak@linux.intel.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <20161222163041.xb2ysx4uswpaqfev@thunk.org>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <shahark@mellanox.com>, <xiyou.wangcong@gmail.com>,
+        <gerlitz.or@gmail.com>, <roid@mellanox.com>, <jiri@mellanox.com>,
+        <john.fastabend@gmail.com>, <netdev@vger.kernel.org>
+To: Daniel Borkmann <daniel@iogearbox.net>, <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-he1eur01on0041.outbound.protection.outlook.com ([104.47.0.41]:18512
+        "EHLO EUR01-HE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1763505AbcLVQwy (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 22 Dec 2016 11:52:54 -0500
+In-Reply-To: <1954223e8b7aa90ff835357e8a3ef7537be33e43.1482337600.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 22, 2016 at 5:30 PM, Theodore Ts'o <tytso@mit.edu> wrote:
-> I'd do this first, as one set.  Adding a new file to crypto is
-> unlikely to cause merge conflicts.
 
-Ack.
 
+On 12/21/2016 7:04 PM, Daniel Borkmann wrote:
+> Shahar reported a soft lockup in tc_classify(), where we run into an
+> endless loop when walking the classifier chain due to tp->next == tp
+> which is a state we should never run into. The issue only seems to
+> trigger under load in the tc control path.
 >
->> 2. convert char/random to use siphash. to: ted ts'o's random-next
+> What happens is that in tc_ctl_tfilter(), thread A allocates a new
+> tp, initializes it, sets tp_created to 1, and calls into tp->ops->change()
+> with it. In that classifier callback we had to unlock/lock the rtnl
+> mutex and returned with -EAGAIN. One reason why we need to drop there
+> is, for example, that we need to request an action module to be loaded.
 >
-> I'm confused, I thought you had agreed to the batched chacha20
-> approach?
+> This happens via tcf_exts_validate() -> tcf_action_init/_1() meaning
+> after we loaded and found the requested action, we need to redo the
+> whole request so we don't race against others. While we had to unlock
+> rtnl in that time, thread B's request was processed next on that CPU.
+> Thread B added a new tp instance successfully to the classifier chain.
+> When thread A returned grabbing the rtnl mutex again, propagating -EAGAIN
+> and destroying its tp instance which never got linked, we goto replay
+> and redo A's request.
+>
+> This time when walking the classifier chain in tc_ctl_tfilter() for
+> checking for existing tp instances we had a priority match and found
+> the tp instance that was created and linked by thread B. Now calling
+> again into tp->ops->change() with that tp was successful and returned
+> without error.
+>
+> tp_created was never cleared in the second round, thus kernel thinks
+> that we need to link it into the classifier chain (once again). tp and
+> *back point to the same object due to the match we had earlier on. Thus
+> for thread B's already public tp, we reset tp->next to tp itself and
+> link it into the chain, which eventually causes the mentioned endless
+> loop in tc_classify() once a packet hits the data path.
+>
+> Fix is to clear tp_created at the beginning of each request, also when
+> we replay it. On the paths that can cause -EAGAIN we already destroy
+> the original tp instance we had and on replay we really need to start
+> from scratch. It seems that this issue was first introduced in commit
+> 12186be7d2e1 ("net_cls: fix unconfigured struct tcf_proto keeps chaining
+> and avoid kernel panic when we use cls_cgroup").
+>
+> Fixes: 12186be7d2e1 ("net_cls: fix unconfigured struct tcf_proto keeps chaining and avoid kernel panic when we use cls_cgroup")
+> Reported-by: Shahar Klein <shahark@mellanox.com>
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> Cc: Cong Wang <xiyou.wangcong@gmail.com>
+> ---
+>  Shahar, you mentioned you wanted to run again later without the debug
+>  printk's. Once you do that and come to the same result again, please
+>  feel free to reply with a Tested-by or such. Thanks everyone!
+>
+>  net/sched/cls_api.c | 4 +++-
+>  1 file changed, 3 insertions(+), 1 deletion(-)
+>
+> diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
+> index 3fbba79..1ecdf80 100644
+> --- a/net/sched/cls_api.c
+> +++ b/net/sched/cls_api.c
+> @@ -148,13 +148,15 @@ static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n)
+>  	unsigned long cl;
+>  	unsigned long fh;
+>  	int err;
+> -	int tp_created = 0;
+> +	int tp_created;
+>
+>  	if ((n->nlmsg_type != RTM_GETTFILTER) &&
+>  	    !netlink_ns_capable(skb, net->user_ns, CAP_NET_ADMIN))
+>  		return -EPERM;
+>
+>  replay:
+> +	tp_created = 0;
+> +
+>  	err = nlmsg_parse(n, sizeof(*t), tca, TCA_MAX, NULL);
+>  	if (err < 0)
+>  		return err;
+>
 
-Sorry, I meant to write this. Long day, little sleep. Yes, of course.
-Batched entropy.
+I've tested this specific patch (without cong's patch and without the 
+many prints) many times and in many test permutations today and it 
+didn't lock
 
->> 3. move lib/md5.c to static function in crypto/md5.c, remove entry
->> inside of linux/cryptohash.h. to: ??'s ??-next
->
-> This is cleanup, so it doesn't matter that much when it happens.  md5
-> changes to crypto is also unlikely to cause conflicts, so we could do
-> this at the same time as (2), if Herbert (the crypto maintainer) agrees.
+Thanks again Daniel!
 
-Alright, sure.
-
->
->> 4. move lib/halfmd4.c to static function in fs/ext/hash.c, remove
->> entry inside of linux/cryptohash.c. to: td ts'o's ext-next
->
-> This is definitely separate.
-
-Okay, I'll submit it to you separately.
-
-> One more thing.  Can you add some test cases to lib/siphash.h?
-> Triggered off of a CONFIG_SIPHASH_REGRESSION_TEST config flag, with
-> some test inputs and known outputs?  I'm going to need to add a
-> version of siphash to e2fsprogs, and I want to make sure the userspace
-> version is implementing the same algorithm as the kernel siphash.
-
-I've already written these. They're behind TEST_HASH. They currently
-test every single line of code of all implementations of siphash. I
-spent a long time on these. The test vectors themselves were taken
-from the SipHash creators' reference publication. Check out
-lib/test_siphash.c in my tree.
-
-Jason
-
-On Thu, Dec 22, 2016 at 5:30 PM, Theodore Ts'o <tytso@mit.edu> wrote:
-> On Thu, Dec 22, 2016 at 05:16:47PM +0100, Jason A. Donenfeld wrote:
->> Could you offer a bit of advice on how to manage dependencies between
->> patchsets during merge windows? I'm a bit new to the process.
->>
->> Specifically, we how have 4 parts:
->> 1. add siphash, and use it for some networking code. to: david miller's net-next
->
-> I'd do this first, as one set.  Adding a new file to crypto is
-> unlikely to cause merge conflicts.
->
->> 2. convert char/random to use siphash. to: ted ts'o's random-next
->
-> I'm confused, I thought you had agreed to the batched chacha20
-> approach?
->
->> 3. move lib/md5.c to static function in crypto/md5.c, remove entry
->> inside of linux/cryptohash.h. to: ??'s ??-next
->
-> This is cleanup, so it doesn't matter that much when it happens.  md5
-> changes to crypto is also unlikely to cause conflicts, so we could do
-> this at the same time as (2), if Herbert (the crypto maintainer) agrees.
->
->> 4. move lib/halfmd4.c to static function in fs/ext/hash.c, remove
->> entry inside of linux/cryptohash.c. to: td ts'o's ext-next
->
-> This is definitely separate.
->
-> One more thing.  Can you add some test cases to lib/siphash.h?
-> Triggered off of a CONFIG_SIPHASH_REGRESSION_TEST config flag, with
-> some test inputs and known outputs?  I'm going to need to add a
-> version of siphash to e2fsprogs, and I want to make sure the userspace
-> version is implementing the same algorithm as the kernel siphash.
->
->                                               - Ted
-
-
-
--- 
-Jason A. Donenfeld
-Deep Space Explorer
-fr: +33 6 51 90 82 66
-us: +1 513 476 1200
-www.jasondonenfeld.com
-www.zx2c4.com
-zx2c4.com/keys/AB9942E6D4A4CFC3412620A749FC7012A5DE03AE.asc
+Shahar
