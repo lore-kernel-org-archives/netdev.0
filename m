@@ -1,7 +1,7 @@
 From: Nogah Frankel <nogahf@mellanox.com>
-Subject: [PATCH iproute2 v3 1/4] ifstat: Includes reorder
-Date: Thu, 22 Dec 2016 18:23:12 +0200
-Message-ID: <1482423795-6531-2-git-send-email-nogahf@mellanox.com>
+Subject: [PATCH iproute2 v3 4/4] ifstat: Add "sw only" extended statistics to ifstat
+Date: Thu, 22 Dec 2016 18:23:15 +0200
+Message-ID: <1482423795-6531-5-git-send-email-nogahf@mellanox.com>
 References: <1482423795-6531-1-git-send-email-nogahf@mellanox.com>
 Cc: stephen@networkplumber.org, roopa@cumulusnetworks.com,
         roszenrami@gmail.com, ogerlitz@mellanox.com, jiri@mellanox.com,
@@ -9,41 +9,52 @@ Cc: stephen@networkplumber.org, roopa@cumulusnetworks.com,
         Nogah Frankel <nogahf@mellanox.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:60669 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:60697 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S966222AbcLVQVN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 22 Dec 2016 11:21:13 -0500
+        with ESMTP id S936238AbcLVQV2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Dec 2016 11:21:28 -0500
 In-Reply-To: <1482423795-6531-1-git-send-email-nogahf@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Reorder the includes order in misc/ifstat.c to match convention.
+Add support for extended statistics of SW only type, for counting only the
+packets that went via the cpu. (useful for systems with forward
+offloading). It reads it from filter type IFLA_STATS_LINK_OFFLOAD_XSTATS
+and sub type IFLA_OFFLOAD_XSTATS_CPU_HIT.
+
+It is under the name 'software'
+(or any shorten of it as 'soft' or simply 's')
+
+For example:
+ifstat -x s
 
 Signed-off-by: Nogah Frankel <nogahf@mellanox.com>
 Reviewed-by: Jiri Pirko <jiri@mellanox.com>
 ---
- misc/ifstat.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ misc/ifstat.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
 diff --git a/misc/ifstat.c b/misc/ifstat.c
-index 92d67b0..5bcbcc8 100644
+index 8325ac7..79c0dba 100644
 --- a/misc/ifstat.c
 +++ b/misc/ifstat.c
-@@ -28,12 +28,12 @@
- #include <math.h>
- #include <getopt.h>
+@@ -730,7 +730,8 @@ static void xstat_usage(void)
+ {
+ 	fprintf(stderr,
+ "Usage: ifstat supported xstats:\n"
+-"       64bits         default stats, with 64 bits support\n");
++"       64bits         default stats, with 64 bits support\n"
++"       software        SW stats. Counts only packets that went via the CPU\n");
+ }
  
--#include <libnetlink.h>
--#include <json_writer.h>
- #include <linux/if.h>
- #include <linux/if_link.h>
+ struct extended_stats_options_t {
+@@ -745,6 +746,7 @@ struct extended_stats_options_t {
+  */
+ static const struct extended_stats_options_t extended_stats_options[] = {
+ 	{"64bits", IFLA_STATS_LINK_64, NO_SUB_TYPE},
++	{"software",  IFLA_STATS_LINK_OFFLOAD_XSTATS, IFLA_OFFLOAD_XSTATS_CPU_HIT},
+ };
  
--#include <SNAPSHOT.h>
-+#include "libnetlink.h"
-+#include "json_writer.h"
-+#include "SNAPSHOT.h"
- 
- int dump_zeros;
- int reset_history;
+ static bool get_filter_type(char *name)
 -- 
 2.4.3
