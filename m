@@ -1,105 +1,218 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: Re: [PATCH v7 3/6] random: use SipHash in
- place of MD5
-Date: Thu, 22 Dec 2016 13:47:20 +0100
-Message-ID: <1482410840.2472.2.camel@stressinduktion.org>
-References: <20161216030328.11602-1-Jason@zx2c4.com>
-	 <20161221230216.25341-1-Jason@zx2c4.com>
-	 <20161221230216.25341-4-Jason@zx2c4.com>
-	 <CALCETrVttVoZMvCYZcrAqM1c=YQP_nCfdfO1MsrSHjvjTFxH+A@mail.gmail.com>
-	 <17bd0c70-d2c1-165b-f5b2-252dfca404e8@stressinduktion.org>
-	 <CAHmME9phg=GuhEUaMxxv_=RexffPDqrOEhmaKffy_ZSt7bfC7g@mail.gmail.com>
-	 <20161222054125.lzxhd6ctovm3wk4p@thunk.org>
-Reply-To: kernel-hardening@lists.openwall.com
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: Re: [PATCH net 1/1] tipc: revert use of
+	copy_from_iter_full()
+Date: Thu, 22 Dec 2016 12:57:04 +0000
+Message-ID: <A2BAEFC30C8FD34388F02C9B3121859D225E9FE9@eusaamb103.ericsson.se>
+References: <1482368497-7103-1-git-send-email-jon.maloy@ericsson.com>
+	<20161222012101.GF1555@ZenIV.linux.org.uk>
+	<20161222014321.GA2805@ZenIV.linux.org.uk>
+	<A2BAEFC30C8FD34388F02C9B3121859D225E8E2B@eusaamb103.ericsson.se>
+	<20161222030754.GG1555@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Andy Lutomirski <luto@amacapital.net>, Netdev <netdev@vger.kernel.org>,
- LKML <linux-kernel@vger.kernel.org>, Linux Crypto Mailing List
- <linux-crypto@vger.kernel.org>, David Laight <David.Laight@aculab.com>,
- Eric Dumazet <edumazet@google.com>, Linus Torvalds
- <torvalds@linux-foundation.org>, Eric Biggers <ebiggers3@gmail.com>, Tom
- Herbert <tom@herbertland.com>, Andi Kleen <ak@linux.intel.com>, "David S.
- Miller" <davem@davemloft.net>, Jean-Philippe Aumasson
- <jeanphilippe.aumasson@gmail.com>
-To: Theodore Ts'o <tytso@mit.edu>, kernel-hardening@lists.openwall.com
-Return-path: <kernel-hardening-return-5776-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <20161222054125.lzxhd6ctovm3wk4p@thunk.org>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"tipc-discussion@lists.sourceforge.net"
+	<tipc-discussion@lists.sourceforge.net>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: Al Viro <viro@ZenIV.linux.org.uk>
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: <20161222030754.GG1555@ZenIV.linux.org.uk>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Hi Ted,
 
-On Thu, 2016-12-22 at 00:41 -0500, Theodore Ts'o wrote:
-> On Thu, Dec 22, 2016 at 03:49:39AM +0100, Jason A. Donenfeld wrote:
-> > 
-> > Funny -- while you guys were sending this back & forth, I was writing
-> > my reply to Andy which essentially arrives at the same conclusion.
-> > Given that we're all arriving to the same thing, and that Ted shot in
-> > this direction long before we all did, I'm leaning toward abandoning
-> > SipHash for the de-MD5-ification of get_random_int/long, and working
-> > on polishing Ted's idea into something shiny for this patchset.
-> 
-> here are my numbers comparing siphash (using the first three patches
-> of the v7 siphash patches) with my batched chacha20 implementation.
-> The results are taken by running get_random_* 10000 times, and then
-> dividing the numbers by 10000 to get the average number of cycles for
-> the call.  I compiled 32-bit and 64-bit kernels, and ran the results
-> using kvm:
-> 
->                    siphash                        batched chacha20
->          get_random_int  get_random_long   get_random_int   get_random_long   
-> 
-> 32-bit    270                  278             114            146
-> 64-bit     75                   75             106            186
-> 
-> > I did have two objections to this. The first was that my SipHash
-> > construction is faster.
-> 
-> Well, it's faster on everything except 32-bit x86.  :-P
-> 
-> > The second, and the more
-> > important one, was that batching entropy up like this means that 32
-> > calls will be really fast, and then the 33rd will be slow, since it
-> > has to do a whole ChaCha round, because get_random_bytes must be
-> > called to refill the batch.
-> 
-> ... and this will take 2121 cycles on 64-bit x86, and 2315 cycles on a
-> 32-bit x86.  Which on a 2.3 GHz processor, is just under a
-> microsecond.  As far as being inconsistent on process startup, I very
-> much doubt a microsecond is really going to be visible to the user.  :-)
-> 
-> The bottom line is that I think we're really "pixel peeping" at this
-> point --- which is what obsessed digital photographers will do when
-> debating the quality of a Canon vs Nikon DSLR by blowing up a photo by
-> a thousand times, and then trying to claim that this is visible to the
-> human eye.  Or people who obsessing over the frequency response curves
-> of TH-X00 headphones with Mahogony vs Purpleheart wood, when it's
-> likely that in a blind head-to-head comparison, most people wouldn't
-> be able to tell the difference....
-> 
-> I think the main argument for using the batched getrandom approach is
-> that it, I would argue, simpler than introducing siphash into the
-> picture.  On 64-bit platforms it is faster and more consistent, so
-> it's basically that versus complexity of having to adding siphash to
-> the things that people have to analyze when considering random number
-> security on Linux.   But it's a close call either way, I think.
 
-following up on what appears to be a random subject: ;)
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
+> On Behalf Of Al Viro
+> Sent: Wednesday, 21 December, 2016 22:08
+> To: Jon Maloy <jon.maloy@ericsson.com>
+> Cc: davem@davemloft.net; netdev@vger.kernel.org; Parthasarathy Bhuvaragan
+> <parthasarathy.bhuvaragan@ericsson.com>; Ying Xue
+> <ying.xue@windriver.com>; maloy@donjonn.com; tipc-
+> discussion@lists.sourceforge.net
+> Subject: Re: [PATCH net 1/1] tipc: revert use of copy_from_iter_full()
+> 
+> On Thu, Dec 22, 2016 at 02:47:09AM +0000, Jon Maloy wrote:
+> 
+> > > OK, I see what's going on there - unlike iterate_and_advance(), which
+> > > explicitly skips any work in case of empty iterator, iterate_all_kind()
+> > > does not.  Could you check if the following fixes your problem?
+> >
+> > Confirmed. The crash disappeared and everything works fine.
+> 
+> OK...  This is the somewhat cleaned version of the same that will go to Linus,
+> assuming it survives the local beating.  Hopefully, cleanups hadn't broken it
+> in your case...
 
-IIRC, ext4 code by default still uses half_md4 for hashing of filenames
-in the htree. siphash seems to fit this use case pretty good.
+I tested it, and it still works with me.
 
-xfs could also need an update, as they don't seed the directory hash
-tables at all (but not sure if they are vulnerable). I should improve
-[1] a bit.
+///jon
 
-[1] http://oss.sgi.com/cgi-bin/gitweb.cgi?p=xfs/cmds/xfstests.git;a=blo
-b;f=src/dirhash_collide.c;h=55cec872d5061ac2ca0f56d1f11e6bf349d5bb97;hb
-=HEAD
+> 
+> [iov_iter] fix iterate_all_kinds() on empty iterators
+> 
+> Problem similar to ones dealt with in "fold checks into iterate_and_advance()"
+> and followups, except that in this case we really want to do nothing when
+> asked for zero-length operation - unlike zero-length iterate_and_advance(),
+> zero-length iterate_all_kinds() has no side effects, and callers are simpler
+> that way.
+> 
+> That got exposed when copy_from_iter_full() had been used by tipc, which
+> builds an msghdr with zero payload and (now) feeds it to a primitive
+> based on iterate_all_kinds() instead of iterate_and_advance().
+> 
+> Reported-by: Jon Maloy <jon.maloy@ericsson.com>
+> Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
+> 
+> diff --git a/lib/iov_iter.c b/lib/iov_iter.c
+> index 228892dabba6..25f572303801 100644
+> --- a/lib/iov_iter.c
+> +++ b/lib/iov_iter.c
+> @@ -73,19 +73,21 @@
+>  }
+> 
+>  #define iterate_all_kinds(i, n, v, I, B, K) {			\
+> -	size_t skip = i->iov_offset;				\
+> -	if (unlikely(i->type & ITER_BVEC)) {			\
+> -		struct bio_vec v;				\
+> -		struct bvec_iter __bi;				\
+> -		iterate_bvec(i, n, v, __bi, skip, (B))		\
+> -	} else if (unlikely(i->type & ITER_KVEC)) {		\
+> -		const struct kvec *kvec;			\
+> -		struct kvec v;					\
+> -		iterate_kvec(i, n, v, kvec, skip, (K))		\
+> -	} else {						\
+> -		const struct iovec *iov;			\
+> -		struct iovec v;					\
+> -		iterate_iovec(i, n, v, iov, skip, (I))		\
+> +	if (likely(n)) {					\
+> +		size_t skip = i->iov_offset;			\
+> +		if (unlikely(i->type & ITER_BVEC)) {		\
+> +			struct bio_vec v;			\
+> +			struct bvec_iter __bi;			\
+> +			iterate_bvec(i, n, v, __bi, skip, (B))	\
+> +		} else if (unlikely(i->type & ITER_KVEC)) {	\
+> +			const struct kvec *kvec;		\
+> +			struct kvec v;				\
+> +			iterate_kvec(i, n, v, kvec, skip, (K))	\
+> +		} else {					\
+> +			const struct iovec *iov;		\
+> +			struct iovec v;				\
+> +			iterate_iovec(i, n, v, iov, skip, (I))	\
+> +		}						\
+>  	}							\
+>  }
+> 
+> @@ -576,7 +578,7 @@ bool copy_from_iter_full(void *addr, size_t bytes, struct
+> iov_iter *i)
+>  		WARN_ON(1);
+>  		return false;
+>  	}
+> -	if (unlikely(i->count < bytes))				\
+> +	if (unlikely(i->count < bytes))
+>  		return false;
+> 
+>  	iterate_all_kinds(i, bytes, v, ({
+> @@ -620,7 +622,7 @@ bool copy_from_iter_full_nocache(void *addr, size_t
+> bytes, struct iov_iter *i)
+>  		WARN_ON(1);
+>  		return false;
+>  	}
+> -	if (unlikely(i->count < bytes))				\
+> +	if (unlikely(i->count < bytes))
+>  		return false;
+>  	iterate_all_kinds(i, bytes, v, ({
+>  		if (__copy_from_user_nocache((to += v.iov_len) - v.iov_len,
+> @@ -837,11 +839,8 @@ unsigned long iov_iter_alignment(const struct iov_iter
+> *i)
+>  	unsigned long res = 0;
+>  	size_t size = i->count;
+> 
+> -	if (!size)
+> -		return 0;
+> -
+>  	if (unlikely(i->type & ITER_PIPE)) {
+> -		if (i->iov_offset && allocated(&i->pipe->bufs[i->idx]))
+> +		if (size && i->iov_offset && allocated(&i->pipe->bufs[i->idx]))
+>  			return size | i->iov_offset;
+>  		return size;
+>  	}
+> @@ -856,10 +855,8 @@ EXPORT_SYMBOL(iov_iter_alignment);
+> 
+>  unsigned long iov_iter_gap_alignment(const struct iov_iter *i)
+>  {
+> -        unsigned long res = 0;
+> +	unsigned long res = 0;
+>  	size_t size = i->count;
+> -	if (!size)
+> -		return 0;
+> 
+>  	if (unlikely(i->type & ITER_PIPE)) {
+>  		WARN_ON(1);
+> @@ -874,7 +871,7 @@ unsigned long iov_iter_gap_alignment(const struct
+> iov_iter *i)
+>  		(res |= (!res ? 0 : (unsigned long)v.iov_base) |
+>  			(size != v.iov_len ? size : 0))
+>  		);
+> -		return res;
+> +	return res;
+>  }
+>  EXPORT_SYMBOL(iov_iter_gap_alignment);
+> 
+> @@ -908,6 +905,9 @@ static ssize_t pipe_get_pages(struct iov_iter *i,
+>  	size_t capacity;
+>  	int idx;
+> 
+> +	if (!maxsize)
+> +		return 0;
+> +
+>  	if (!sanity(i))
+>  		return -EFAULT;
+> 
+> @@ -926,9 +926,6 @@ ssize_t iov_iter_get_pages(struct iov_iter *i,
+>  	if (maxsize > i->count)
+>  		maxsize = i->count;
+> 
+> -	if (!maxsize)
+> -		return 0;
+> -
+>  	if (unlikely(i->type & ITER_PIPE))
+>  		return pipe_get_pages(i, pages, maxsize, maxpages, start);
+>  	iterate_all_kinds(i, maxsize, v, ({
+> @@ -975,6 +972,9 @@ static ssize_t pipe_get_pages_alloc(struct iov_iter *i,
+>  	int idx;
+>  	int npages;
+> 
+> +	if (!maxsize)
+> +		return 0;
+> +
+>  	if (!sanity(i))
+>  		return -EFAULT;
+> 
+> @@ -1006,9 +1006,6 @@ ssize_t iov_iter_get_pages_alloc(struct iov_iter *i,
+>  	if (maxsize > i->count)
+>  		maxsize = i->count;
+> 
+> -	if (!maxsize)
+> -		return 0;
+> -
+>  	if (unlikely(i->type & ITER_PIPE))
+>  		return pipe_get_pages_alloc(i, pages, maxsize, start);
+>  	iterate_all_kinds(i, maxsize, v, ({
 
-Bye,
-Hannes
+------------------------------------------------------------------------------
+Developer Access Program for Intel Xeon Phi Processors
+Access to Intel Xeon Phi processor-based developer platforms.
+With one year of Intel Parallel Studio XE.
+Training and support from Colfax.
+Order your platform today.http://sdm.link/intel
