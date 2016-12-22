@@ -1,111 +1,73 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: Re: [PATCH net 1/1] tipc: revert use of copy_from_iter_full()
-Date: Thu, 22 Dec 2016 01:43:21 +0000
-Message-ID: <20161222014321.GA2805@ZenIV.linux.org.uk>
-References: <1482368497-7103-1-git-send-email-jon.maloy@ericsson.com>
- <20161222012101.GF1555@ZenIV.linux.org.uk>
+From: Andy Lutomirski <luto@amacapital.net>
+Subject: Re: HalfSipHash Acceptable Usage
+Date: Wed, 21 Dec 2016 17:54:26 -0800
+Message-ID: <CALCETrVxFDQGJeQX5k39pM3TvqH4q10SduPY=Os_RiJGEg_0Hg@mail.gmail.com>
+References: <CAHmME9oJDOLpPKRpX=N+DY9BuzTueWjTaWzeVtdVMBG7mcrqKA@mail.gmail.com>
+ <20161221155540.29529.qmail@ns.sciencehorizons.net> <CA+55aFy8fNOxw3bnwkX1S46jKnW6i26mueaiuOsScyN3kFJp+A@mail.gmail.com>
+Reply-To: kernel-hardening@lists.openwall.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-        parthasarathy.bhuvaragan@ericsson.com, ying.xue@windriver.com,
-        maloy@donjonn.com, tipc-discussion@lists.sourceforge.net
-To: Jon Maloy <jon.maloy@ericsson.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:49574 "EHLO
-        ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934181AbcLVBnZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 21 Dec 2016 20:43:25 -0500
-Content-Disposition: inline
-In-Reply-To: <20161222012101.GF1555@ZenIV.linux.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: George Spelvin <linux@sciencehorizons.net>, "Jason A. Donenfeld" <Jason@zx2c4.com>,
+	Andi Kleen <ak@linux.intel.com>, David Miller <davem@davemloft.net>,
+	David Laight <David.Laight@aculab.com>, "Daniel J . Bernstein" <djb@cr.yp.to>,
+	Eric Biggers <ebiggers3@gmail.com>, Eric Dumazet <eric.dumazet@gmail.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>,
+	"kernel-hardening@lists.openwall.com" <kernel-hardening@lists.openwall.com>,
+	Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, Network Development <netdev@vger.kernel.org>,
+	Tom Herbert <tom@herbertland.com>, "Theodore Ts'o" <tytso@mit.edu>,
+	Vegard Nossum <vegard.nossum@gmail.com>
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <kernel-hardening-return-5761-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+In-Reply-To: <CA+55aFy8fNOxw3bnwkX1S46jKnW6i26mueaiuOsScyN3kFJp+A@mail.gmail.com>
+List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 22, 2016 at 01:21:01AM +0000, Al Viro wrote:
-> On Wed, Dec 21, 2016 at 08:01:37PM -0500, Jon Maloy wrote:
-> > commit cbbd26b8b1a6 ("[iov_iter] new primitives - copy_from_iter_full()
-> > and friends") replaced calls to copy_from_iter() in the function
-> > tipc_msg_build(). This causes a an immediate crash as follows:
-> 
-> Very interesting.
-> 
-> > [ 1209.597076] BUG: unable to handle kernel NULL pointer dereference at 0000000000000008
-> > [ 1209.607025] IP: copy_from_iter_full+0x43/0x290
-> 
-> > [ 1209.689257]  tipc_msg_build+0xe1/0x590 [tipc]
-> > [ 1209.691479]  ? _raw_spin_unlock_bh+0x1e/0x20
-> > [ 1209.694641]  ? tipc_node_find+0x30/0xa0 [tipc]
-> > [ 1209.696789]  __tipc_sendmsg+0x189/0x480 [tipc]
-> > [ 1209.699017]  ? remove_wait_queue+0x4d/0x60
-> > [ 1209.700354]  tipc_connect+0x15f/0x1b0 [tipc]
-> > [ 1209.701684]  SYSC_connect+0xd9/0x110
-> 
-> I don't believe that it's something tipc-specific; could you post an objdump
-> of copy_from_iter_full() in your kernel?  That smells like a bug in there
-> and it really ought to be fixed...
+On Wed, Dec 21, 2016 at 9:25 AM, Linus Torvalds
+<torvalds@linux-foundation.org> wrote:
+> On Wed, Dec 21, 2016 at 7:55 AM, George Spelvin
+> <linux@sciencehorizons.net> wrote:
+>>
+>> How much does kernel_fpu_begin()/kernel_fpu_end() cost?
+>
+> It's now better than it used to be, but it's absolutely disastrous
+> still. We're talking easily many hundreds of cycles. Under some loads,
+> thousands.
+>
+> And I warn you already: it will _benchmark_ a hell of a lot better
+> than it will work in reality. In benchmarks, you'll hit all the
+> optimizations ("oh, I've already saved away all the FP registers, no
+> need to do it again").
+>
+> In contrast, in reality, especially with things like "do it once or
+> twice per incoming packet", you'll easily hit the absolute worst
+> cases, where not only does it take a few hundred cycles to save the FP
+> state, you'll then return to user space in between packets, which
+> triggers the slow-path return code and reloads the FP state, which is
+> another few hundred cycles plus.
 
-FWIW, looking at the tipc, am I reading the trace correctly?  We seem to
-have tipc_connect() taking an msghdr with empty payload and hitting this
-        switch (sk->sk_state) {
-        case TIPC_OPEN:
-                /* Send a 'SYN-' to destination */
-                m.msg_name = dest;
-                m.msg_namelen = destlen;
+Hah, you're thinking that the x86 code works the way that Rik and I
+want it to work, and you just made my day. :)  What actually happens
+is that the state is saved in kernel_fpu_begin() and restored in
+kernel_fpu_end(), and it'll take a few hundred cycles best case.  If
+you do it a bunch of times in a loop, you *might* trigger a CPU
+optimization that notices that the state being saved is the same state
+that was just restored, but you're still going to pay the full restore
+code each round trip no matter what.
 
-                /* If connect is in non-blocking case, set MSG_DONTWAIT to
-                 * indicate send_msg() is never blocked.
-                 */
-                if (!timeout)
-                        m.msg_flags = MSG_DONTWAIT;
+The code is much clearer in 4.10 kernels now that I deleted the unused
+"lazy" branches.
 
-                res = __tipc_sendmsg(sock, &m, 0);
-which eventually calls
-        rc = tipc_msg_build(mhdr, m, 0, dsz, mtu, &pktchain);
-possibly more than once, but with explicit "restore m->msg_iter to what
-it was before the first call" before each subsequent call.
+>
+> Similarly, in benchmarks you'll hit the "modern CPU's power on the AVX
+> unit and keep it powered up for a while afterwards", while in real
+> life you would quite easily hit the "oh, AVX is powered down because
+> we were idle, now it powers up at half speed which is another latency
+> hit _and_ the AVX unit won't run full out anyway".
 
-What's putting anything into m.msg_iter on that codepath?  AFAICS, it should
-be completely empty...  Wait.  AAARRRGH!
-
-OK, I see what's going on there - unlike iterate_and_advance(), which
-explicitly skips any work in case of empty iterator, iterate_all_kind()
-does not.  Could you check if the following fixes your problem?
-
-diff --git a/lib/iov_iter.c b/lib/iov_iter.c
-index 228892dabba6..6a0396b8d47f 100644
---- a/lib/iov_iter.c
-+++ b/lib/iov_iter.c
-@@ -73,19 +73,21 @@
- }
- 
- #define iterate_all_kinds(i, n, v, I, B, K) {			\
--	size_t skip = i->iov_offset;				\
--	if (unlikely(i->type & ITER_BVEC)) {			\
--		struct bio_vec v;				\
--		struct bvec_iter __bi;				\
--		iterate_bvec(i, n, v, __bi, skip, (B))		\
--	} else if (unlikely(i->type & ITER_KVEC)) {		\
--		const struct kvec *kvec;			\
--		struct kvec v;					\
--		iterate_kvec(i, n, v, kvec, skip, (K))		\
--	} else {						\
--		const struct iovec *iov;			\
--		struct iovec v;					\
--		iterate_iovec(i, n, v, iov, skip, (I))		\
-+	if (i->count) {						\
-+		size_t skip = i->iov_offset;			\
-+		if (unlikely(i->type & ITER_BVEC)) {		\
-+			struct bio_vec v;			\
-+			struct bvec_iter __bi;			\
-+			iterate_bvec(i, n, v, __bi, skip, (B))	\
-+		} else if (unlikely(i->type & ITER_KVEC)) {	\
-+			const struct kvec *kvec;		\
-+			struct kvec v;				\
-+			iterate_kvec(i, n, v, kvec, skip, (K))	\
-+		} else {					\
-+			const struct iovec *iov;		\
-+			struct iovec v;				\
-+			iterate_iovec(i, n, v, iov, skip, (I))	\
-+		}						\
- 	}							\
- }
- 
+I *think* that was mostly fixed in Broadwell or thereabouts (in terms
+of latency -- throughput and power consumption still suffers).
