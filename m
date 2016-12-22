@@ -1,47 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ipvlan: fix multicast processing
-Date: Thu, 22 Dec 2016 11:20:46 -0500 (EST)
-Message-ID: <20161222.112046.1340472049113932122.davem@davemloft.net>
-References: <1482370216-14833-1-git-send-email-mahesh@bandewar.net>
+Subject: Re: [PATCH net 1/1] tipc: don't send FIN message
+ from connectionless socket
+Date: Thu, 22 Dec 2016 11:20:57 -0500 (EST)
+Message-ID: <20161222.112057.1343936871026993835.davem@davemloft.net>
+References: <1482409349-17081-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com, maheshb@google.com
-To: mahesh@bandewar.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:46692 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965757AbcLVQUs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 22 Dec 2016 11:20:48 -0500
-In-Reply-To: <1482370216-14833-1-git-send-email-mahesh@bandewar.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net,
+	viro@zeniv.linux.org.uk
+To: jon.maloy@ericsson.com
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: <1482409349-17081-1-git-send-email-jon.maloy@ericsson.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-From: Mahesh Bandewar <mahesh@bandewar.net>
-Date: Wed, 21 Dec 2016 17:30:16 -0800
+From: Jon Maloy <jon.maloy@ericsson.com>
+Date: Thu, 22 Dec 2016 07:22:29 -0500
 
-> From: Mahesh Bandewar <maheshb@google.com>
+> In commit 6f00089c7372 ("tipc: remove SS_DISCONNECTING state") the
+> check for socket type is in the wrong place, causing a closing socket
+> to always send out a FIN message even when the socket was never
+> connected. This is normally harmless, since the destination node for
+> such messages most often is zero, and the message will be dropped, but
+> it is still a wrong and confusing behavior.
 > 
-> In an IPvlan setup when master is set in loopback mode e.g.
+> We fix this in this commit.
 > 
->   ethtool -K eth0 set loopback on
-> 
->   where eth0 is master device for IPvlan setup.
-> 
-> The failure is caused by the faulty logic that determines if the
-> packet is from TX-path vs. RX-path by just looking at the mac-
-> addresses on the packet while processing multicast packets.
-> 
-> In the loopback-mode where this crash was happening, the packets
-> that are sent out are reflected by the NIC and are processed on
-> the RX path, but mac-address check tricks into thinking this
-> packet is from TX path and falsely uses dev_forward_skb() to pass
-> packets to the slave (virtual) devices.
-> 
-> This patch records the path while queueing packets and eliminates
-> logic of looking at mac-addresses for the same decision.
- ...
-> Fixes: ba35f8588f47 ("ipvlan: Defer multicast / broadcast processing to a work-queue")
-> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+> Reviewed-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
+> Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 
-This looks a lot better, applied, thanks.
+Applied.
+
+------------------------------------------------------------------------------
+Developer Access Program for Intel Xeon Phi Processors
+Access to Intel Xeon Phi processor-based developer platforms.
+With one year of Intel Parallel Studio XE.
+Training and support from Colfax.
+Order your platform today.http://sdm.link/intel
