@@ -1,71 +1,107 @@
-From: Kefeng Wang <wangkefeng.wang@huawei.com>
-Subject: Re: [PATCH net-next] ixgbevf: fix 'Etherleak' in ixgbevf
-Date: Thu, 22 Dec 2016 10:00:50 +0800
-Message-ID: <74e1e76d-40f6-db8e-74ac-90b0474d4e11@huawei.com>
-References: <1481802034-77729-1-git-send-email-chenweilong@huawei.com>
- <CAKgT0UfA9VG4NQZLLxXvobtfp22yPpPssSM4Ge94KFa1RVnhyg@mail.gmail.com>
- <5c942aba-f7fb-ede6-b6a2-e591025f53a5@huawei.com>
- <CAKgT0Uf_HXtJiZJsEYm9L19cZ+deVX=E+Y8JvU5+u0=bggpAqw@mail.gmail.com>
- <ee9ad90d-1c4b-7358-a172-8369a0c7da8b@huawei.com>
- <CAKgT0Uf+hV=TDvNTqFz0aiKQ+iio7VhBc5pusc4aDtFAVbREpA@mail.gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH v7 3/6] random: use SipHash in place of MD5
+Date: Thu, 22 Dec 2016 03:07:29 +0100
+Message-ID: <17bd0c70-d2c1-165b-f5b2-252dfca404e8@stressinduktion.org>
+References: <20161216030328.11602-1-Jason@zx2c4.com>
+ <20161221230216.25341-1-Jason@zx2c4.com>
+ <20161221230216.25341-4-Jason@zx2c4.com>
+ <CALCETrVttVoZMvCYZcrAqM1c=YQP_nCfdfO1MsrSHjvjTFxH+A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-        Netdev <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Alexander Duyck <alexander.duyck@gmail.com>,
-        Weilong Chen <chenweilong@huawei.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAKgT0Uf+hV=TDvNTqFz0aiKQ+iio7VhBc5pusc4aDtFAVbREpA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Netdev <netdev@vger.kernel.org>,
+        "kernel-hardening@lists.openwall.com"
+        <kernel-hardening@lists.openwall.com>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+        David Laight <David.Laight@aculab.com>,
+        Ted Tso <tytso@mit.edu>, Eric Dumazet <edumazet@google.com>,
+        Linus Torvalds <torvalds@linux-foundation.org>,
+        Eric Biggers <ebiggers3@gmail.com>,
+        Tom Herbert <tom@herbertland.com>,
+        Andi Kleen <ak@linux.intel.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>
+To: Andy Lutomirski <luto@amacapital.net>,
+        "Jason A. Donenfeld" <Jason@zx2c4.com>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <CALCETrVttVoZMvCYZcrAqM1c=YQP_nCfdfO1MsrSHjvjTFxH+A@mail.gmail.com>
+Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-
-On 2016/12/21 10:20, Alexander Duyck wrote:
-> I find it curious that only the last 4 bytes have data in them.  I'm
-> wondering if the NIC/driver in the Windows/Nessus system is
-> interpreting the 4 byte CRC on the end of the frame as padding instead
-> of stripping it.
+On 22.12.2016 00:42, Andy Lutomirski wrote:
+> On Wed, Dec 21, 2016 at 3:02 PM, Jason A. Donenfeld <Jason@zx2c4.com> wrote:
+>>  unsigned int get_random_int(void)
+>>  {
+>> -       __u32 *hash;
+>> -       unsigned int ret;
+>> -
+>> -       if (arch_get_random_int(&ret))
+>> -               return ret;
+>> -
+>> -       hash = get_cpu_var(get_random_int_hash);
+>> -
+>> -       hash[0] += current->pid + jiffies + random_get_entropy();
+>> -       md5_transform(hash, random_int_secret);
+>> -       ret = hash[0];
+>> -       put_cpu_var(get_random_int_hash);
+>> -
+>> -       return ret;
+>> +       unsigned int arch_result;
+>> +       u64 result;
+>> +       struct random_int_secret *secret;
+>> +
+>> +       if (arch_get_random_int(&arch_result))
+>> +               return arch_result;
+>> +
+>> +       secret = get_random_int_secret();
+>> +       result = siphash_3u64(secret->chaining, jiffies,
+>> +                             (u64)random_get_entropy() + current->pid,
+>> +                             secret->secret);
+>> +       secret->chaining += result;
+>> +       put_cpu_var(secret);
+>> +       return result;
+>>  }
+>>  EXPORT_SYMBOL(get_random_int);
 > 
-> Is there any chance you could capture the entire frame instead of just
-> the padding?  Maybe you could run something like wireshark without
-> enabling promiscuous mode on the VF and capture the frames it is
-> trying to send and receive.  What I want to verify is what the actual
-> amount of padding is that is needed to get to 60 bytes and where the
-> CRC should start.
+> Hmm.  I haven't tried to prove anything for real.  But here goes (in
+> the random oracle model):
 > 
-> - Alex
+> Suppose I'm an attacker and I don't know the secret or the chaining
+> value.  Then, regardless of what the entropy is, I can't predict the
+> numbers.
+> 
+> Now suppose I do know the secret and the chaining value due to some
+> leak.  If I want to deduce prior outputs, I think I'm stuck: I'd need
+> to find a value "result" such that prev_chaining + result = chaining
+> and result = H(prev_chaining, ..., secret);.  I don't think this can
+> be done efficiently in the random oracle model regardless of what the
+> "..." is.
+> 
+> But, if I know the secret and chaining value, I can predict the next
+> output assuming I can guess the entropy.  What's worse is that, even
+> if I can't guess the entropy, if I *observe* the next output then I
+> can calculate the next chaining value.
+> 
+> So this is probably good enough, and making it better is hard.  Changing it to:
+> 
+> u64 entropy = (u64)random_get_entropy() + current->pid;
+> result = siphash(..., entropy, ...);
+> secret->chaining += result + entropy;
+> 
+> would reduce this problem by forcing an attacker to brute-force the
+> entropy on each iteration, which is probably an improvement.
+> 
+> To fully fix it, something like "catastrophic reseeding" would be
+> needed, but that's hard to get right.
 
-Here is the verbose output, is this useful?
-Or we will try according to your advice, thanks,
+I wonder if Ted's proposal was analyzed further in terms of performance
+if get_random_int should provide cprng alike properties?
 
-D:\Program Files\Tenable\Nessus>nasl.exe -aX -t 192.169.0.151 etherleak.nasl
---------------------------
- ---[ ICMP ]---
-0x00:  45 00 00 1D 20 81 00 00 40 01 D7 F3 C0 A9 00 97    E... ...@.......
-0x10:  C0 A9 00 82 00 00 87 FD 00 01 00 01 78 00 00 00    ............x...
-0x20:  00 00 00 00 00 00 00 00 00 00 98 E4 75 DF          ............u.
---------------------------
- ---[ ICMP ]---
-0x00:  45 00 00 1D 20 85 00 00 40 01 D7 EF C0 A9 00 97    E... ...@.......
-0x10:  C0 A9 00 82 00 00 87 FD 00 01 00 01 78 00 00 00    ............x...
-0x20:  00 00 00 00 00 00 00 00 00 00 FB DA F8 13          ..............
----[ ether1 ]---
-0x00:  00 00 00 00 00 00 00 00 00 00 00 00 00 98 E4 75    ...............u
-0x10:  DF                                                 .
----[ ether2 ]---
-0x00:  00 00 00 00 00 00 00 00 00 00 00 00 00 FB DA F8    ................
-0x10:  13                                                 .
+For reference: https://lkml.org/lkml/2016/12/14/351
 
-Padding observed in one frame :
+The proposal made sense to me and would completely solve the above
+mentioned problem on the cost of repeatedly reseeding from the crng.
 
-  0x00:  00 00 00 00 00 00 00 00 00 00 00 00 00 98 E4 75    ...............u
-  0x10:  DF                                                 .
-
-Padding observed in another frame :
-
-  0x00:  00 00 00 00 00 00 00 00 00 00 00 00 00 FB DA F8    ................
-  0x10:  13
+Bye,
+Hannes
