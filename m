@@ -1,108 +1,102 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: BPF hash algo (Re: [kernel-hardening] Re: [PATCH v7 3/6] random:
- use SipHash in place of MD5)
-Date: Fri, 23 Dec 2016 19:19:36 +0100
-Message-ID: <ec43894a-7b54-ff30-9874-bb4a25314e09@stressinduktion.org>
-References: <CALCETrUATPeaCJTQZN2h=ct6HH-xLt4V8T0PfPHNFGFN2HWtTA@mail.gmail.com>
- <1482425969.2673.5.camel@stressinduktion.org>
- <585CF6A3.1050107@iogearbox.net>
- <1482490762.3353.2.camel@stressinduktion.org> <585D11BF.60903@iogearbox.net>
- <CALCETrVgnnbstPoPf-0bZ_ySDydXNCp5dLAEvhAD9cApozFsng@mail.gmail.com>
- <CALCETrXHoPBV1UpLwtLjjmqJXVpgEUTCnwePDLx4g6a1SFMZaw@mail.gmail.com>
-Reply-To: kernel-hardening@lists.openwall.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
- "Jason A. Donenfeld" <Jason@zx2c4.com>,
- "kernel-hardening@lists.openwall.com" <kernel-hardening@lists.openwall.com>,
- Theodore Ts'o <tytso@mit.edu>, Netdev <netdev@vger.kernel.org>,
- LKML <linux-kernel@vger.kernel.org>,
- Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
- David Laight <David.Laight@aculab.com>, Eric Dumazet <edumazet@google.com>,
- Linus Torvalds <torvalds@linux-foundation.org>,
- Eric Biggers <ebiggers3@gmail.com>, Tom Herbert <tom@herbertland.com>,
- Andi Kleen <ak@linux.intel.com>, "David S. Miller" <davem@davemloft.net>,
- Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>
-To: Andy Lutomirski <luto@amacapital.net>,
- Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <kernel-hardening-return-5818-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
-List-Post: <mailto:kernel-hardening@lists.openwall.com>
-List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
-List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
-List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
-In-Reply-To: <CALCETrXHoPBV1UpLwtLjjmqJXVpgEUTCnwePDLx4g6a1SFMZaw@mail.gmail.com>
+From: "George Spelvin" <linux@sciencehorizons.net>
+Subject: Re: George's crazy full state idea (Re: HalfSipHash Acceptable Usage)
+Date: 23 Dec 2016 13:26:26 -0500
+Message-ID: <20161223182626.6290.qmail@ns.sciencehorizons.net>
+References: <1482494724.3353.7.camel@stressinduktion.org>
+Cc: ak@linux.intel.com, davem@davemloft.net, David.Laight@aculab.com,
+        ebiggers3@gmail.com, eric.dumazet@gmail.com, Jason@zx2c4.com,
+        kernel-hardening@lists.openwall.com, linux-crypto@vger.kernel.org,
+        linux-kernel@vger.kernel.org, luto@kernel.org,
+        netdev@vger.kernel.org, tom@herbertland.com, tytso@mit.edu,
+        vegard.nossum@gmail.com
+To: hannes@stressinduktion.org, linux@sciencehorizons.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1482494724.3353.7.camel@stressinduktion.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 23.12.2016 17:42, Andy Lutomirski wrote:
-> On Fri, Dec 23, 2016 at 8:23 AM, Andy Lutomirski <luto@amacapital.net> wrote:
->> On Fri, Dec 23, 2016 at 3:59 AM, Daniel Borkmann <daniel@iogearbox.net> wrote:
->>> On 12/23/2016 11:59 AM, Hannes Frederic Sowa wrote:
->>>>
->>>> On Fri, 2016-12-23 at 11:04 +0100, Daniel Borkmann wrote:
->>>>>
->>>>> On 12/22/2016 05:59 PM, Hannes Frederic Sowa wrote:
->>>>>>
->>>>>> On Thu, 2016-12-22 at 08:07 -0800, Andy Lutomirski wrote:
->>>
->>> [...]
->>>
->>>>>> The hashing is not a proper sha1 neither, unfortunately. I think that
->>>>>> is why it will have a custom implementation in iproute2?
->>>>>
->>>>>
->>>>> Still trying to catch up on this admittedly bit confusing thread. I
->>>>> did run automated tests over couple of days comparing the data I got
->>>>> from fdinfo with the one from af_alg and found no mismatch on the test
->>>>> cases varying from min to max possible program sizes. In the process
->>>>> of testing, as you might have seen on netdev, I found couple of other
->>>>> bugs in bpf code along the way and fixed them up as well. So my question,
->>>>> do you or Andy or anyone participating in claiming this have any
->>>>> concrete data or test cases that suggests something different? If yes,
->>>>> I'm very curious to hear about it and willing fix it up, of course.
->>>>> When I'm back from pto I'll prep and cook up my test suite to be
->>>>> included into the selftests/bpf/, should have done this initially,
->>>>> sorry about that. I'll also post something to expose the alg, that
->>>>> sounds fine to me.
->>>>
->>>>
->>>> Looking into your code closer, I noticed that you indeed seem to do the
->>>> finalization of sha-1 by hand by aligning and padding the buffer
->>>> accordingly and also patching in the necessary payload length.
->>>>
->>>> Apologies for my side for claiming that this is not correct sha1
->>>> output, I was only looking at sha_transform and its implementation and
->>>> couldn't see the padding and finalization round with embedding the data
->>>> length in there and hadn't thought of it being done manually.
->>>>
->>>> Anyway, is it difficult to get the sha finalization into some common
->>>> code library? It is not very bpf specific and crypto code reviewers
->>>> won't find it there at all.
->>>
->>>
->>> Yes, sure, I'll rework it that way (early next year when I'm back if
->>> that's fine with you).
->>
->> Can we make it SHA-256 before 4.10 comes out, though?  This really
->> looks like it will be used in situations where collisions matter and
->> it will be exposed to malicious programs, and SHA-1 should not be used
->> for new designs for this purpose because it simply isn't long enough.
->>
->> Also, a SHA-1 digest isn't a pile of u32s, so u32 digest[...] is very
->> misleading.  That should be u8 or, at the very least, __be32.
->>
->> I realize that there isn't a sha-256 implementation in lib, but would
->> it really be so bad to make the bpf digest only work (for now) when
->> crypto is enabled?  I would *love* to see the crypto core learn how to
->> export simple primitives for direct use without needing the whole
->> crypto core, and this doesn't seem particularly hard to do, but I
->> don't think that's 4.10 material.
-> 
-> I'm going to try to send out RFC patches for all of this today or
-> tomorrow.  It doesn't look bad at all.
+(Cc: list trimmed slightly as the topic is wandering a bit.)
 
-Factoring out sha3 to lib/ and use it as standalone and in crypto api
-doesn't seem hard, yep. I also proposed this to Daniel offlist.
+Hannes Frederic Sowa wrote:
+> On Thu, 2016-12-22 at 19:07 -0500, George Spelvin wrote:
+>> Adding might_lock() annotations will improve coverage a lot.
+>
+> Might be hard to find the correct lock we take later down the code
+> path, but if that is possible, certainly.
 
-Bye,
-Hannes
+The point of might_lock() is that you don't have to.  You find the
+worst case (most global) lock that the code *might* take if all the
+buffer-empty conditions are true, and tell lockdep "assume this lock is
+taken all the time".
+
+>> Hannes Frederic Sowa wrote:
+>>> Yes, that does look nice indeed. Accounting for bits instead of bytes
+>>> shouldn't be a huge problem either. Maybe it gets a bit more verbose in
+>>> case you can't satisfy a request with one batched entropy block and have
+>>> to consume randomness from two.
+
+For example, here's a simple bit-buffer implementation that wraps around
+a get_random_long.  The bitbuffer is of the form "00001xxxx", where the
+x bits are valid, and the position of the msbit indicates how many bits
+are valid.
+
+extern unsigned long get_random_long();
+static unsigned long bitbuffer = 1;	/* Holds 0..BITS_PER_LONG-1 bits */
+unsigned long get_random_bits(unsigned char bits)
+{
+	/* We handle bits == BITS_PER_LONG,and not bits == 0 */
+	unsigned long mask = -1ul >> (BITS_PER_LONG - bits);
+	unsigned long val;
+
+	if (bitbuffer > mask) {
+		/* Request can be satisfied out of the bit buffer */
+		val = bitbuffer;
+		bitbuffer >>= bits;
+	} else {
+		/*
+		 * Not enough bits, but enough room in bitbuffer for the
+		 * leftovers.  avail < bits, so avail + 64 <= bits + 63.
+		 */
+		val = get_random_long();
+		bitbuffer = bitbuffer << (BITS_PER_LONG - bits)
+			| val >> 1 >> (bits-1);
+	}
+	return val & mask;
+}
+
+> When we hit the chacha20 without doing a reseed we only mutate the
+> state of chacha, but being an invertible function in its own, a
+> proposal would be to mix parts of the chacha20 output back into the
+> state, which, as a result, would cause slowdown because we couldn't
+> propagate the complete output of the cipher back to the caller (looking
+> at the function _extract_crng).
+
+Basically, yes.  Half of the output goes to rekeying itself.
+
+But, I just realized I've been overlooking something glaringly obvious...
+there's no reason you can't compute multple blocks in advance.
+
+The standard assumption in antibacktracking is that you'll *notice* the
+state capture and stop trusting the random numbers afterward; you just
+want the output *before* to be secure.  In other words, cops busting
+down the door can't find the session key used in the message you just sent.
+
+So you can compute and store random numbers ahead of need.
+
+This can amortize the antibacktracking as much as you'd like.
+
+For example, suppose we gave each CPU a small pool to minimize locking.
+When one runs out and calls the global refill, it could refill *all*
+of the CPU pools.  (You don't even need locking; there may be a race to
+determine *which* random numbers the reader sees, but they're equally
+good either way.)
+
+> Or are you referring that the anti-backtrack protection should happen
+> in every call from get_random_int?
+
+If you ask for anti-backtracking without qualification, that's the
+goal, since you don't know how long will elapse until the next call.  
+
+It's like fsync().  There are lots of more limited forms of "keep my
+data safe in case of a crash", but the most basic one is "if we lost
+power the very instant the call returned, the data would be safe."
