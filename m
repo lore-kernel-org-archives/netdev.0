@@ -1,111 +1,38 @@
-From: maowenan <maowenan@huawei.com>
-Subject: RE: [PATCH] ethtool: add one ethtool option to set relax ordering
- mode
-Date: Fri, 23 Dec 2016 06:14:24 +0000
-Message-ID: <F95AC9340317A84688A5F0DF0246F3F20151FE86@szxeml504-mbs.china.huawei.com>
-References: <1481179898-10668-1-git-send-email-maowenan@huawei.com>
-         <1481179898-10668-2-git-send-email-maowenan@huawei.com>
-         <20161221172759.1bc0d0dd@xeon-e3>
-         <F95AC9340317A84688A5F0DF0246F3F20151F189@szxeml504-mbs.china.huawei.com>
-         <CAKgT0Uc2ztu_iDn79zdNtsAdb-Ftu65V6YHV-sqXb6vTCTiGCQ@mail.gmail.com>
-         <F95AC9340317A84688A5F0DF0246F3F20151FD1C@szxeml504-mbs.china.huawei.com>
- <1482455203.2481.31.camel@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "weiyongjun (A)" <weiyongjun1@huawei.com>,
-        Dingtianhong <dingtianhong@huawei.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        Alexander Duyck <alexander.duyck@gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net 0/3] mlxsw: Router fixes
+Date: Fri, 23 Dec 2016 09:32:47 +0100
+Message-ID: <1482481970-2327-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+        yotamg@mellanox.com, nogahf@mellanox.com, arkadis@mellanox.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([58.251.152.64]:24256 "EHLO
-        szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752002AbcLWGOw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 23 Dec 2016 01:14:52 -0500
-In-Reply-To: <1482455203.2481.31.camel@intel.com>
-Content-Language: zh-CN
+Received: from mail-wj0-f193.google.com ([209.85.210.193]:33548 "EHLO
+        mail-wj0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754763AbcLWIcx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 23 Dec 2016 03:32:53 -0500
+Received: by mail-wj0-f193.google.com with SMTP id kp2so39197123wjc.0
+        for <netdev@vger.kernel.org>; Fri, 23 Dec 2016 00:32:52 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogSmVmZiBLaXJzaGVyIFtt
-YWlsdG86amVmZnJleS50LmtpcnNoZXJAaW50ZWwuY29tXQ0KPiBTZW50OiBGcmlkYXksIERlY2Vt
-YmVyIDIzLCAyMDE2IDk6MDcgQU0NCj4gVG86IG1hb3dlbmFuOyBBbGV4YW5kZXIgRHV5Y2sNCj4g
-Q2M6IFN0ZXBoZW4gSGVtbWluZ2VyOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyB3ZWl5b25nanVu
-IChBKTsNCj4gRGluZ3RpYW5ob25nDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0hdIGV0aHRvb2w6IGFk
-ZCBvbmUgZXRodG9vbCBvcHRpb24gdG8gc2V0IHJlbGF4IG9yZGVyaW5nIG1vZGUNCj4gDQo+IE9u
-IEZyaSwgMjAxNi0xMi0yMyBhdCAwMDo0MCArMDAwMCwgbWFvd2VuYW4gd3JvdGU6DQo+ID4gPiAt
-LS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiA+ID4gRnJvbTogQWxleGFuZGVyIER1eWNrIFtt
-YWlsdG86YWxleGFuZGVyLmR1eWNrQGdtYWlsLmNvbV0NCj4gPiA+IFNlbnQ6IFRodXJzZGF5LCBE
-ZWNlbWJlciAyMiwgMjAxNiAxMTo1NCBQTQ0KPiA+ID4gVG86IG1hb3dlbmFuDQo+ID4gPiBDYzog
-U3RlcGhlbiBIZW1taW5nZXI7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IGplZmZyZXkudC5raXJz
-aGVyQGludGVsLg0KPiA+ID4gY29tOw0KPiA+ID4gd2VpeW9uZ2p1biAoQSk7IERpbmd0aWFuaG9u
-Zw0KPiA+ID4gU3ViamVjdDogUmU6IFtQQVRDSF0gZXRodG9vbDogYWRkIG9uZSBldGh0b29sIG9w
-dGlvbiB0byBzZXQgcmVsYXgNCj4gPiA+IG9yZGVyaW5nIG1vZGUNCj4gPiA+DQo+ID4gPiBPbiBX
-ZWQsIERlYyAyMSwgMjAxNiBhdCA1OjM5IFBNLCBtYW93ZW5hbiA8bWFvd2VuYW5AaHVhd2VpLmNv
-bT4NCj4gPiA+IHdyb3RlOg0KPiA+ID4gPg0KPiA+ID4gPg0KPiA+ID4gPiA+IC0tLS0tT3JpZ2lu
-YWwgTWVzc2FnZS0tLS0tDQo+ID4gPiA+ID4gRnJvbTogU3RlcGhlbiBIZW1taW5nZXIgW21haWx0
-bzpzdGVwaGVuQG5ldHdvcmtwbHVtYmVyLm9yZ10NCj4gPiA+ID4gPiBTZW50OiBUaHVyc2RheSwg
-RGVjZW1iZXIgMjIsIDIwMTYgOToyOCBBTQ0KPiA+ID4gPiA+IFRvOiBtYW93ZW5hbg0KPiA+ID4g
-PiA+IENjOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBqZWZmcmV5LnQua2lyc2hlckBpbnRlbC5j
-b20NCj4gPiA+ID4gPiBTdWJqZWN0OiBSZTogW1BBVENIXSBldGh0b29sOiBhZGQgb25lIGV0aHRv
-b2wgb3B0aW9uIHRvIHNldA0KPiA+ID4gPiA+IHJlbGF4IG9yZGVyaW5nIG1vZGUNCj4gPiA+ID4g
-Pg0KPiA+ID4gPiA+IE9uIFRodSwgOCBEZWMgMjAxNiAxNDo1MTozOCArMDgwMCBNYW8gV2VuYW4N
-Cj4gPiA+ID4gPiA8bWFvd2VuYW5AaHVhd2VpLmNvbT4gd3JvdGU6DQo+ID4gPiA+ID4NCj4gPiA+
-ID4gPiA+IFRoaXMgcGF0Y2ggcHJvdmlkZXMgb25lIHdheSB0byBzZXQvdW5zZXQgSVhHQkUgTklD
-IFRYIGFuZCBSWA0KPiA+ID4gPiA+ID4gcmVsYXggb3JkZXJpbmcgbW9kZSwgd2hpY2ggY2FuIGJl
-IHNldCBieSBldGh0b29sLg0KPiA+ID4gPiA+ID4gUmVsYXggb3JkZXJpbmcgaXMgb25lIG1vZGUg
-b2YgODI1OTkgTklDLCB0byBlbmFibGUgdGhpcyBtb2RlDQo+ID4gPiA+ID4gPiBjYW4gZW5oYW5j
-ZSB0aGUgcGVyZm9ybWFuY2UgZm9yIHNvbWUgY3B1IGFyY2hpdGVjdXJlLg0KPiA+ID4gPiA+DQo+
-ID4gPiA+ID4gVGhlbiBpdCBzaG91bGQgYmUgZG9uZSBieSBDUFUgYXJjaGl0ZWN0dXJlIHNwZWNp
-ZmljIHF1aXJrcw0KPiA+ID4gPiA+IChwcmVmZXJhYmx5IGluIFBDSQ0KPiA+ID4gPiA+IGxheWVy
-KSBzbyB0aGF0IGFsbCB1c2VycyBnZXQgdGhlIG9wdGlvbiB3aXRob3V0IGhhdmluZyB0byBkbw0K
-PiA+ID4gPiA+IG1hbnVhbA0KPiA+ID4NCj4gPiA+IGludGVydmVudGlvbi4NCj4gPiA+ID4gPg0K
-PiA+ID4gPiA+ID4gZXhhbXBsZToNCj4gPiA+ID4gPiA+IGV0aHRvb2wgLXMgZW5wMXMwZjAgcmVs
-YXhvcmRlciBvZmYgZXRodG9vbCAtcyBlbnAxczBmMA0KPiA+ID4gPiA+ID4gcmVsYXhvcmRlciBv
-bg0KPiA+ID4gPiA+DQo+ID4gPiA+ID4gRG9pbmcgaXQgdmlhIGV0aHRvb2wgaXMgYSBkZXZlbG9w
-ZXIgQVBJIChmb3IgdGVzdGluZykgbm90DQo+ID4gPiA+ID4gc29tZXRoaW5nIHRoYXQgbWFrZXMg
-c2Vuc2UgaW4gcHJvZHVjdGlvbi4NCj4gPiA+ID4NCj4gPiA+ID4NCj4gPiA+ID4gVGhpcyBmZWF0
-dXJlIGlzIG5vdCBtYW5kYXRvcnkgZm9yIGFsbCB1c2VycywgYWN0dXJhbGx5IHJlbGF4DQo+ID4g
-PiA+IG9yZGVyaW5nIGRlZmF1bHQgY29uZmlndXJhdGlvbiBvZiA4MjU5OSBpcyAnZGlzYWJsZScs
-IFNvIHRoaXMNCj4gPiA+ID4gcGF0Y2ggZ2l2ZXMgb25lIHdheSB0bw0KPiA+ID4NCj4gPiA+IGVu
-YWJsZSByZWxheCBvcmRlcmluZyB0byBiZSBzZWxlY3RlZCBpbiBzb21lIHBlcmZvcm1hbmNlIGNv
-bmRpdGlvbi4NCj4gPiA+DQo+ID4gPiBUaGF0IGlzbid0IHF1aXRlIHRydWUuwqDCoFRoZSBkZWZh
-dWx0IGZvciBTcGFyYyBzeXN0ZW1zIGlzIHRvIGhhdmUgaXQNCj4gPiA+IGVuYWJsZWQuDQo+ID4g
-Pg0KPiA+ID4gUmVhbGx5IHRoaXMgaXMgc29tZXRoaW5nIHRoYXQgaXMgcGxhdGZvcm0gc3BlY2lm
-aWMuwqDCoEkgYWdyZWUgd2l0aA0KPiA+ID4gU3RlcGhlbiB0aGF0IGl0IHdvdWxkIHdvcmsgYmV0
-dGVyIGlmIHRoaXMgd2FzIGhhbmRsZWQgYXMgYSBzZXJpZXMgb2YNCj4gPiA+IHBsYXRmb3JtIHNw
-ZWNpZmljIHF1aXJrcyBoYW5kbGVkIGF0IHNvbWV0aGluZyBsaWtlIHRoZSBQQ0kgbGF5ZXINCj4g
-PiA+IHJhdGhlciB0aGFuIGJlIGEgc3dpdGNoIHRoZSB1c2VyIGNhbiB0b2dnbGUgb24gYW5kIG9m
-Zi4NCj4gPiA+DQo+ID4gPiBXaXRoIHRoYXQgYmVpbmcgc2FpZCB0aGVyZSBhcmUgY2hhbmdlcyBi
-ZWluZyBtYWRlIHRoYXQgc2hvdWxkIGhlbHANCj4gPiA+IHRvIGltcHJvdmUgdGhlIHNpdHVhdGlv
-bi7CoMKgU3BlY2lmaWNhbGx5IEkgYW0gbG9va2luZyBhdCBhZGRpbmcNCj4gPiA+IHN1cHBvcnQg
-Zm9yIHRoZSBETUFfQVRUUl9XRUFLX09SREVSSU5HIHdoaWNoIG1heSBhbHNvIGFsbG93IHVzIHRv
-DQo+ID4gPiBpZGVudGlmeSBjYXNlcyB3aGVyZSB5b3UgbWlnaHQgYmUgYWJsZSB0byBzcGVjaWZ5
-IHRoZSBETUEgYmVoYXZpb3INCj4gPiA+IHZpYSB0aGUgRE1BIG1hcHBpbmcgaW5zdGVhZCBvZiBo
-YXZpbmcgdG8gbWFrZSB0aGUgZmluYWwgZGVjaXNpb24gaW4NCj4gPiA+IHRoZSBkZXZpY2UgaXRz
-ZWxmLg0KPiA+ID4NCj4gPiA+IC0gQWxleA0KPiA+DQo+ID4gWWVzLCBTcGFyYyBpcyBhIHNwZWNp
-YWwgY2FzZS4gRnJvbSB0aGUgTklDIGRyaXZlciBwb2ludCBvZiB2aWV3LCBJdCBpcw0KPiA+IG5v
-IG5lZWQgZm9yIHNvbWUgQVJDSHMgdG8gZG8gcGFydGljdWxhciBvcGVyYXRpb24gYW5kIGNvbXBp
-bGluZw0KPiA+IGJyYW5jaCwgZXRodG9vbCBpcyBhIGZsZXhpYmxlIG1ldGhvZCBmb3IgdXNlciB0
-byBtYWtlIGRlY2lzaW9uIHdoZXRoZXINCj4gPiBvbnxvZmYgdGhpcyBmZWF0dXJlLg0KPiA+IEkg
-dGhpbmsgSmVmZiBhcyBtYWludGFpbmVyIG9mIDgyNTk5IGhhcyBzb21lIGNvbW1lbnRzIGFib3V0
-IHRoaXMuDQo+IA0KPiBNeSBvcmlnaW5hbCBjb21tZW50L29iamVjdGlvbiB3YXMgdGhhdCB5b3Ug
-YXR0ZW1wdGVkIHRvIGRvIHRoaXMgY2hhbmdlIGFzIGENCj4gbW9kdWxlIHBhcmFtZXRlciB0byB0
-aGUgaXhnYmUgZHJpdmVyLCB3aGVyZSBJIGRpcmVjdGVkIHlvdSB0byB1c2UgZXRodG9vbCBzbw0K
-PiB0aGF0IG90aGVyIGRyaXZlcnMgY291bGQgYmVuZWZpdCBmcm9tIHRoZSBhYmlsaXR5IHRvIGVu
-YWJsZS9kaXNhYmxlIHJlbGF4ZWQNCj4gb3JkZXJpbmcuICBBcyBmYXIgYXMgaG93IGl0IGdldHMg
-aW1wbGVtZW50ZWQgaW4gZXRodG9vbCBvciBQQ0kgbGF5ZXIsIG1ha2VzDQo+IGxpdHRsZSBkaWZm
-ZXJlbmNlIHRvIG1lLCBJIG9ubHkgaGFkIGlzc3VlcyB3aXRoIHRoZSBkcml2ZXIgc3BlY2lmaWMg
-bW9kdWxlDQo+IHBhcmFtZXRlciBpbXBsZW1lbnRhdGlvbiwgd2hpY2ggaXMgbm90IGFjY2VwdGFi
-bGUuDQoNCg0KVGhhbmsgeW91IEplZmYgYW5kIEFsZXguDQpBbmQgdGhlbiBJIGhhdmUgZ29uZSB0
-aHJvdWdoIG1haWwgdGhyZWFkIGFib3V0ICJpNDBlOiBlbmFibGUgUENJZSByZWxheCBvcmRlcmlu
-ZyBmb3IgU1BBUkMiLA0KSXQgb25seSB3b3JrcyBmb3IgU1BBUkMsIGFueSBvdGhlciBBUkNIIHdo
-byB3YW50cyB0byBlbmFibGUgRE1BX0FUVFJfV0VBS19PUkRFUklORyANCmZlYXR1cmUsIHNob3Vs
-ZCBkZWZpbmUgdGhlIG5ldyBtYWNybywgcmVjb21waWxlIHRoZSBkcml2ZXIgbW9kdWxlLg0KDQpC
-ZWNhdXNlIG9mIHRoZSBhYm92ZSByZWFzb25zLCB3ZSBpbXBsZW1lbnQgaW4gZXRodG9vbCB0byBn
-aXZlIHRoZSBmaW5hbCB1c2VyIGEgY29udmVuaWVudA0Kd2F5IHRvIG9ufG9mZiBzcGVjaWFsIGZl
-YXR1cmUsIG5vIG5lZWQgZGVmaW5lIG5ldyBtYWNybywgZWFzeSB0byBleHRlbmQgdGhlIG5ldyBm
-ZWF0dXJlcywNCmFuZCBhbHNvIGdvb2QgYmVuZWZpdCBmb3Igb3RoZXIgZHJpdmVyIGFzIEplZmYg
-cmVmZXJyZWQuDQoNCg==
+From: Jiri Pirko <jiri@mellanox.com>
+
+Ido says:
+
+First two patches ensure we remove from the device's table neighbours
+that are considered to be dead by the neighbour core.
+
+The last patch removes nexthop groups from the device when they are no
+longer valid.
+
+Ido Schimmel (3):
+  neigh: Send netevent after marking neigh as dead
+  mlxsw: spectrum_router: Don't reflect dead neighs
+  mlxsw: spectrum_router: Correctly remove nexthop groups
+
+ drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c | 13 +++++++++----
+ net/core/neighbour.c                                  |  1 +
+ 2 files changed, 10 insertions(+), 4 deletions(-)
+
+-- 
+2.7.4
