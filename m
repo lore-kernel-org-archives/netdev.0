@@ -1,84 +1,44 @@
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: [PATCH v3] stmmac: CSR clock configuration fix
-Date: Fri, 23 Dec 2016 10:15:59 +0000
-Message-ID: <f586b394955d543470b614ddc8c5bc766c450c40.1482487963.git.jpinto@synopsys.com>
-Cc: hock.leong.kweh@intel.com, niklas.cassel@axis.com, pavel@ucw.cz,
-        linux-kernel@vger.kernel.org, preid@electromag.com.au,
-        netdev@vger.kernel.org, Joao Pinto <Joao.Pinto@synopsys.com>
-To: peppe.cavallaro@st.com, davem@davemloft.net,
-        seraphin.bonnaffe@st.com
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: BPF hash algo (Re: [kernel-hardening] Re: [PATCH v7 3/6] random:
+ use SipHash in place of MD5)
+Date: Fri, 23 Dec 2016 11:23:43 +0100
+Message-ID: <585CFB2F.8010102@iogearbox.net>
+References: <CALCETrUATPeaCJTQZN2h=ct6HH-xLt4V8T0PfPHNFGFN2HWtTA@mail.gmail.com> <1482425969.2673.5.camel@stressinduktion.org> <CALCETrW_T1v4qKPJDs5dXwAnAit3M52AWMH-K+GJLb1WoLMuRQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        "Jason A. Donenfeld" <Jason@zx2c4.com>,
+        "kernel-hardening@lists.openwall.com"
+        <kernel-hardening@lists.openwall.com>,
+        Theodore Ts'o <tytso@mit.edu>, Netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+        David Laight <David.Laight@aculab.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Linus Torvalds <torvalds@linux-foundation.org>,
+        Eric Biggers <ebiggers3@gmail.com>,
+        Tom Herbert <tom@herbertland.com>,
+        Andi Kleen <ak@linux.intel.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>
+To: Andy Lutomirski <luto@amacapital.net>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CALCETrW_T1v4qKPJDs5dXwAnAit3M52AWMH-K+GJLb1WoLMuRQ@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When testing stmmac with my QoS reference design I checked a problem in the
-CSR clock configuration that was impossibilitating the phy discovery, since
-every read operation returned 0x0000ffff. This patch fixes the issue.
+On 12/22/2016 06:25 PM, Andy Lutomirski wrote:
+> On Thu, Dec 22, 2016 at 8:59 AM, Hannes Frederic Sowa
+[...]
+>> I wondered if bpf program loading should have used the module loading
+>> infrastructure from the beginning...
+>
+> That would be way too complicated and would be nasty for the unprivileged cases.
 
-Signed-off-by: Joao Pinto <jpinto@synopsys.com>
----
-changes v2->v3 (Phil Reid)
-- Altera uses the reserved bit 5 also for CR clock, so the mask was changed
-changes v1->v2 (David Miller)
-- DWMAC100 and DWMAC1000 csr clocks masks should also be fixed for the patch
-to make sense
-
- drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c | 2 +-
- drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c  | 2 +-
- drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c    | 8 ++++----
- 3 files changed, 6 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-index b21d03f..be3c91c 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-@@ -539,7 +539,7 @@ struct mac_device_info *dwmac1000_setup(void __iomem *ioaddr, int mcbins,
- 	mac->mii.reg_shift = 6;
- 	mac->mii.reg_mask = 0x000007C0;
- 	mac->mii.clk_csr_shift = 2;
--	mac->mii.clk_csr_mask = 0xF;
-+	mac->mii.clk_csr_mask = GENMASK(5, 2);
- 
- 	/* Get and dump the chip ID */
- 	*synopsys_id = stmmac_get_synopsys_id(hwid);
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
-index a1d582f..9dd2987 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
-@@ -197,7 +197,7 @@ struct mac_device_info *dwmac100_setup(void __iomem *ioaddr, int *synopsys_id)
- 	mac->mii.reg_shift = 6;
- 	mac->mii.reg_mask = 0x000007C0;
- 	mac->mii.clk_csr_shift = 2;
--	mac->mii.clk_csr_mask = 0xF;
-+	mac->mii.clk_csr_mask = GENMASK(5, 2);
- 
- 	/* Synopsys Id is not available on old chips */
- 	*synopsys_id = 0;
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-index 23322fd..fda01f7 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-@@ -81,8 +81,8 @@ static int stmmac_mdio_read(struct mii_bus *bus, int phyaddr, int phyreg)
- 	value |= (phyaddr << priv->hw->mii.addr_shift)
- 		& priv->hw->mii.addr_mask;
- 	value |= (phyreg << priv->hw->mii.reg_shift) & priv->hw->mii.reg_mask;
--	value |= (priv->clk_csr & priv->hw->mii.clk_csr_mask)
--		<< priv->hw->mii.clk_csr_shift;
-+	value |= (priv->clk_csr << priv->hw->mii.clk_csr_shift)
-+		& priv->hw->mii.clk_csr_mask;
- 	if (priv->plat->has_gmac4)
- 		value |= MII_GMAC4_READ;
- 
-@@ -122,8 +122,8 @@ static int stmmac_mdio_write(struct mii_bus *bus, int phyaddr, int phyreg,
- 		& priv->hw->mii.addr_mask;
- 	value |= (phyreg << priv->hw->mii.reg_shift) & priv->hw->mii.reg_mask;
- 
--	value |= ((priv->clk_csr & priv->hw->mii.clk_csr_mask)
--		<< priv->hw->mii.clk_csr_shift);
-+	value |= (priv->clk_csr << priv->hw->mii.clk_csr_shift)
-+		& priv->hw->mii.clk_csr_mask;
- 	if (priv->plat->has_gmac4)
- 		value |= MII_GMAC4_WRITE;
- 
--- 
-2.9.3
+Also, there are users be it privileged or not that don't require to have a full
+obj loader from user space, but are fine with just hard-coding parts or all of
+the insns in their application. Back then we settled with using fds based on
+Andy's suggestion, it has both ups and downs as we saw along the way but worked
+okay thus far.
