@@ -1,32 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] stmmac: CSR clock configuration fix
-Date: Fri, 23 Dec 2016 11:46:48 -0500 (EST)
-Message-ID: <20161223.114648.1048864820894046883.davem@davemloft.net>
-References: <f586b394955d543470b614ddc8c5bc766c450c40.1482487963.git.jpinto@synopsys.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [PATCH net 9/9] virtio-net: XDP support for small buffers
+Date: Fri, 23 Dec 2016 08:51:59 -0800
+Message-ID: <585D562F.6000009@gmail.com>
+References: <1482503852-12438-1-git-send-email-jasowang@redhat.com>
+	<1482503852-12438-10-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, seraphin.bonnaffe@st.com,
-        hock.leong.kweh@intel.com, niklas.cassel@axis.com, pavel@ucw.cz,
-        linux-kernel@vger.kernel.org, preid@electromag.com.au,
-        netdev@vger.kernel.org
-To: Joao.Pinto@synopsys.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44338 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1761323AbcLWQrA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 23 Dec 2016 11:47:00 -0500
-In-Reply-To: <f586b394955d543470b614ddc8c5bc766c450c40.1482487963.git.jpinto@synopsys.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: john.r.fastabend@intel.com
+To: Jason Wang <jasowang@redhat.com>, mst@redhat.com,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1482503852-12438-10-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Date: Fri, 23 Dec 2016 10:15:59 +0000
-
-> When testing stmmac with my QoS reference design I checked a problem in the
-> CSR clock configuration that was impossibilitating the phy discovery, since
-> every read operation returned 0x0000ffff. This patch fixes the issue.
+On 16-12-23 06:37 AM, Jason Wang wrote:
+> Commit f600b6905015 ("virtio_net: Add XDP support") leaves the case of
+> small receive buffer untouched. This will confuse the user who want to
+> set XDP but use small buffers. Other than forbid XDP in small buffer
+> mode, let's make it work. XDP then can only work at skb->data since
+> virtio-net create skbs during refill, this is sub optimal which could
+> be optimized in the future.
 > 
-> Signed-off-by: Joao Pinto <jpinto@synopsys.com>
+> Cc: John Fastabend <john.r.fastabend@intel.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> ---
 
-Applied, thank you.
+
+Looks good to me thanks!
+
+Acked-by: John Fastabend <john.r.fastabend@intel.com>
