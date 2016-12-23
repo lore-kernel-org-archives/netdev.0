@@ -1,95 +1,68 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: Re: BPF hash algo (Re: [kernel-hardening] Re: [PATCH v7 3/6] random:
- use SipHash in place of MD5)
-Date: Fri, 23 Dec 2016 08:23:11 -0800
-Message-ID: <CALCETrVgnnbstPoPf-0bZ_ySDydXNCp5dLAEvhAD9cApozFsng@mail.gmail.com>
-References: <CALCETrUATPeaCJTQZN2h=ct6HH-xLt4V8T0PfPHNFGFN2HWtTA@mail.gmail.com>
- <1482425969.2673.5.camel@stressinduktion.org> <585CF6A3.1050107@iogearbox.net>
- <1482490762.3353.2.camel@stressinduktion.org> <585D11BF.60903@iogearbox.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        "Jason A. Donenfeld" <Jason@zx2c4.com>,
-        "kernel-hardening@lists.openwall.com"
-        <kernel-hardening@lists.openwall.com>,
-        "Theodore Ts'o" <tytso@mit.edu>, Netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-        David Laight <David.Laight@aculab.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Linus Torvalds <torvalds@linux-foundation.org>,
-        Eric Biggers <ebiggers3@gmail.com>,
-        Tom Herbert <tom@herbertland.com>,
-        Andi Kleen <ak@linux.intel.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>
-To: Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <585D11BF.60903@iogearbox.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: [PATCH net] sctp: do not loose window information if in rwnd_over
+Date: Fri, 23 Dec 2016 14:29:02 -0200
+Message-ID: <14d1eef1c9da4fcebc53d428a59ecaefab439b2c.1482510284.git.marcelo.leitner@gmail.com>
+Cc: linux-sctp@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>,
+        Vlad Yasevich <vyasevich@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f68.google.com ([209.85.218.68]:36677 "EHLO
+        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754033AbcLWQ3b (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 23 Dec 2016 11:29:31 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 23, 2016 at 3:59 AM, Daniel Borkmann <daniel@iogearbox.net> wrote:
-> On 12/23/2016 11:59 AM, Hannes Frederic Sowa wrote:
->>
->> On Fri, 2016-12-23 at 11:04 +0100, Daniel Borkmann wrote:
->>>
->>> On 12/22/2016 05:59 PM, Hannes Frederic Sowa wrote:
->>>>
->>>> On Thu, 2016-12-22 at 08:07 -0800, Andy Lutomirski wrote:
->
-> [...]
->
->>>> The hashing is not a proper sha1 neither, unfortunately. I think that
->>>> is why it will have a custom implementation in iproute2?
->>>
->>>
->>> Still trying to catch up on this admittedly bit confusing thread. I
->>> did run automated tests over couple of days comparing the data I got
->>> from fdinfo with the one from af_alg and found no mismatch on the test
->>> cases varying from min to max possible program sizes. In the process
->>> of testing, as you might have seen on netdev, I found couple of other
->>> bugs in bpf code along the way and fixed them up as well. So my question,
->>> do you or Andy or anyone participating in claiming this have any
->>> concrete data or test cases that suggests something different? If yes,
->>> I'm very curious to hear about it and willing fix it up, of course.
->>> When I'm back from pto I'll prep and cook up my test suite to be
->>> included into the selftests/bpf/, should have done this initially,
->>> sorry about that. I'll also post something to expose the alg, that
->>> sounds fine to me.
->>
->>
->> Looking into your code closer, I noticed that you indeed seem to do the
->> finalization of sha-1 by hand by aligning and padding the buffer
->> accordingly and also patching in the necessary payload length.
->>
->> Apologies for my side for claiming that this is not correct sha1
->> output, I was only looking at sha_transform and its implementation and
->> couldn't see the padding and finalization round with embedding the data
->> length in there and hadn't thought of it being done manually.
->>
->> Anyway, is it difficult to get the sha finalization into some common
->> code library? It is not very bpf specific and crypto code reviewers
->> won't find it there at all.
->
->
-> Yes, sure, I'll rework it that way (early next year when I'm back if
-> that's fine with you).
+It's possible that we receive a packet that is larger than current
+window. If it's the first packet in this way, it will cause it to
+increase rwnd_over. Then, if we receive another data chunk (specially as
+SCTP allows you to have one data chunk in flight even during 0 window),
+rwnd_over will be overwritten instead of added to.
 
-Can we make it SHA-256 before 4.10 comes out, though?  This really
-looks like it will be used in situations where collisions matter and
-it will be exposed to malicious programs, and SHA-1 should not be used
-for new designs for this purpose because it simply isn't long enough.
+In the long run, this could cause the window to grow bigger than its
+initial size, as rwnd_over would be charged only for the last received
+data chunk while the code will try open the window for all packets that
+were received and had its value in rwnd_over overwritten. This, then,
+can lead to the worsening of payload/buffer ratio and cause rwnd_press
+to kick in more often.
 
-Also, a SHA-1 digest isn't a pile of u32s, so u32 digest[...] is very
-misleading.  That should be u8 or, at the very least, __be32.
+The fix is to sum it too, same as is done for rwnd_press, so that if we
+receive 3 chunks after closing the window, we still have to release that
+same amount before re-opening it.
 
-I realize that there isn't a sha-256 implementation in lib, but would
-it really be so bad to make the bpf digest only work (for now) when
-crypto is enabled?  I would *love* to see the crypto core learn how to
-export simple primitives for direct use without needing the whole
-crypto core, and this doesn't seem particularly hard to do, but I
-don't think that's 4.10 material.
+Log snippet from sctp_test exhibiting the issue:
+[  146.209232] sctp: sctp_assoc_rwnd_decrease: asoc:ffff88013928e000
+rwnd decreased by 1 to (0, 1, 114221)
+[  146.209232] sctp: sctp_assoc_rwnd_decrease:
+association:ffff88013928e000 has asoc->rwnd:0, asoc->rwnd_over:1!
+[  146.209232] sctp: sctp_assoc_rwnd_decrease: asoc:ffff88013928e000
+rwnd decreased by 1 to (0, 1, 114221)
+[  146.209232] sctp: sctp_assoc_rwnd_decrease:
+association:ffff88013928e000 has asoc->rwnd:0, asoc->rwnd_over:1!
+[  146.209232] sctp: sctp_assoc_rwnd_decrease: asoc:ffff88013928e000
+rwnd decreased by 1 to (0, 1, 114221)
+[  146.209232] sctp: sctp_assoc_rwnd_decrease:
+association:ffff88013928e000 has asoc->rwnd:0, asoc->rwnd_over:1!
+[  146.209232] sctp: sctp_assoc_rwnd_decrease: asoc:ffff88013928e000
+rwnd decreased by 1 to (0, 1, 114221)
 
---Andy
+Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+---
+ net/sctp/associola.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/sctp/associola.c b/net/sctp/associola.c
+index 68428e1f71810fbe65b7f86c750c3ad61f0266ec..56ddcfaeb4f64235b54b0daa915fabf0cc0170a9 100644
+--- a/net/sctp/associola.c
++++ b/net/sctp/associola.c
+@@ -1539,7 +1539,7 @@ void sctp_assoc_rwnd_decrease(struct sctp_association *asoc, unsigned int len)
+ 			asoc->rwnd = 0;
+ 		}
+ 	} else {
+-		asoc->rwnd_over = len - asoc->rwnd;
++		asoc->rwnd_over += len - asoc->rwnd;
+ 		asoc->rwnd = 0;
+ 	}
+ 
+-- 
+2.9.3
