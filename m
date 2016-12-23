@@ -1,34 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net 0/3] mlxsw: Router fixes
-Date: Fri, 23 Dec 2016 12:31:36 -0500 (EST)
-Message-ID: <20161223.123136.1672408834618850953.davem@davemloft.net>
-References: <1482481970-2327-1-git-send-email-jiri@resnulli.us>
+Subject: Re: [net/mm PATCH v2 0/3] Page fragment updates
+Date: Fri, 23 Dec 2016 12:50:53 -0500 (EST)
+Message-ID: <20161223.125053.1340469257610308679.davem@davemloft.net>
+References: <20161223170756.14573.74139.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, idosch@mellanox.com, eladr@mellanox.com,
-        yotamg@mellanox.com, nogahf@mellanox.com, arkadis@mellanox.com
-To: jiri@resnulli.us
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:45686 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752974AbcLWRbi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 23 Dec 2016 12:31:38 -0500
-In-Reply-To: <1482481970-2327-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-mm@kvack.org, akpm@linux-foundation.org, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, jeffrey.t.kirsher@intel.com
+To: alexander.duyck@gmail.com
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20161223170756.14573.74139.stgit@localhost.localdomain>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Fri, 23 Dec 2016 09:32:47 +0100
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Date: Fri, 23 Dec 2016 09:16:39 -0800
 
-> From: Jiri Pirko <jiri@mellanox.com>
-> 
-> Ido says:
-> 
-> First two patches ensure we remove from the device's table neighbours
-> that are considered to be dead by the neighbour core.
-> 
-> The last patch removes nexthop groups from the device when they are no
-> longer valid.
+> I tried to get in touch with Andrew about this fix but I haven't heard any
+> reply to the email I sent out on Tuesday.  The last comment I had from
+> Andrew against v1 was "Looks good to me.  I have it all queued for post-4.9
+> processing.", but I haven't received any notice they were applied.
 
-Series applied, thank you.
+Andrew, please follow up with Alex.
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
