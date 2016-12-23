@@ -1,72 +1,79 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net] net, sched: fix soft lockup in tc_classify
-Date: Fri, 23 Dec 2016 01:26:49 +0100
-Message-ID: <585C6F49.5030900@iogearbox.net>
-References: <1954223e8b7aa90ff835357e8a3ef7537be33e43.1482337600.git.daniel@iogearbox.net> <CAM_iQpXadrGWJYqizEkq+xmMKVV9krrcCWKur=ZCRZBS9Mx_8w@mail.gmail.com> <CAM_iQpX3Sk_YGDmvY-yj0CxPbG5qfT7P7ioNgY5Lb_DqsTWh6Q@mail.gmail.com> <585ADFEB.3030206@iogearbox.net> <CAM_iQpUEUmJpjQYV7HV+4NVtGe6D-yZs6=YizcDtf7dogkNR0Q@mail.gmail.com> <585AEF24.4070800@iogearbox.net> <CAM_iQpW9Ly+fMEiBtHq4XwUgvt89-5uE2Bwdw1FXJGV3=eY1ZA@mail.gmail.com>
+From: maowenan <maowenan@huawei.com>
+Subject: RE: [PATCH] ethtool: add one ethtool option to set relax ordering
+ mode
+Date: Fri, 23 Dec 2016 00:40:23 +0000
+Message-ID: <F95AC9340317A84688A5F0DF0246F3F20151FD1C@szxeml504-mbs.china.huawei.com>
+References: <1481179898-10668-1-git-send-email-maowenan@huawei.com>
+ <1481179898-10668-2-git-send-email-maowenan@huawei.com>
+ <20161221172759.1bc0d0dd@xeon-e3>
+ <F95AC9340317A84688A5F0DF0246F3F20151F189@szxeml504-mbs.china.huawei.com>
+ <CAKgT0Uc2ztu_iDn79zdNtsAdb-Ftu65V6YHV-sqXb6vTCTiGCQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        Shahar Klein <shahark@mellanox.com>,
-        Or Gerlitz <gerlitz.or@gmail.com>,
-        Roi Dayan <roid@mellanox.com>, Jiri Pirko <jiri@mellanox.com>,
-        John Fastabend <john.fastabend@gmail.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
+        "weiyongjun (A)" <weiyongjun1@huawei.com>,
+        Dingtianhong <dingtianhong@huawei.com>
+To: Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:40366 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965919AbcLWA0z (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 22 Dec 2016 19:26:55 -0500
-In-Reply-To: <CAM_iQpW9Ly+fMEiBtHq4XwUgvt89-5uE2Bwdw1FXJGV3=eY1ZA@mail.gmail.com>
+Received: from szxga01-in.huawei.com ([58.251.152.64]:52181 "EHLO
+        szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753261AbcLWAnv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 22 Dec 2016 19:43:51 -0500
+In-Reply-To: <CAKgT0Uc2ztu_iDn79zdNtsAdb-Ftu65V6YHV-sqXb6vTCTiGCQ@mail.gmail.com>
+Content-Language: zh-CN
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/22/2016 08:05 PM, Cong Wang wrote:
-> On Wed, Dec 21, 2016 at 1:07 PM, Daniel Borkmann <daniel@iogearbox.net> wrote:
->>
->> Ok, you mean for net. In that case I prefer the smaller sized fix to be
->> honest. It also covers everything from the point where we fetch the chain
->> via cops->tcf_chain() to the end of the function, which is where most of
->> the complexity resides, and only the two mentioned commits do the relock,
->
-> I really wish the problem is only about relocking, but look at the code,
-> the deeper reason why we have this bug is the complexity of the logic
-> inside tc_ctl_tfilter(): 1) the replay logic is hard, we have to make it
-> idempotent; 2) the request logic itself is hard, because of tc filter design
-> and implementation.
->
-> This is why I worry more than just relocking.
-
-But do you have a concrete 2nd issue/bug you're seeing? It rather sounds to
-me your argument is more about fear of complexity on tc framework itself.
-I agree it's complex, and tc_ctl_tfilter() is quite big in itself, where it
-would be good to reduce it's complexity into smaller pieces. But it's not
-really related to the fix itself, reducing complexity requires significantly
-more and deeper work on the code. We can rework tc_ctl_tfilter() in net-next
-to try to simplify it, sure, but I don't get why we have to discuss so much
-on this matter in this context, really.
-
->> so as a fix I think it's fine as-is. As mentioned, if there's need to
->> refactor tc_ctl_tfilter() net-next would be better, imho.
->
-> Refactor is a too strong word, just moving the replay out is not a refactor.
-> The end result will be still smaller than your commit d936377414fadbafb4,
-> which is already backported to stable.
-
-Commit d936377414fa is a whole different thing, and not related to the
-topic at all. The two-line changes with the initialization fix is quite
-straight forward and fixes a bug in the logic. It's also less complex in
-terms of lines but also in terms of complexity than to refactor or move the
-replay out. Moving it out contextually means that you also wouldn't rule
-out that things like nlmsg_parse(), or in-fact *any* of the __tc_ctl_tfilter()
-return paths could potentially return an error that suddenly would require
-a replay of the request. So, while moving it out fixes the bug, too, it also
-adds more potential points where you would go and replay the request where
-you didn't do so before and therefore also adds more complexity to the code
-that needs review/audit when fixing bugs since you don't have these hard/direct
-return paths anymore. Therefore I don't think it's better to go that way
-for the fix.
-
-Thanks,
-Daniel
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogQWxleGFuZGVyIER1eWNr
+IFttYWlsdG86YWxleGFuZGVyLmR1eWNrQGdtYWlsLmNvbV0NCj4gU2VudDogVGh1cnNkYXksIERl
+Y2VtYmVyIDIyLCAyMDE2IDExOjU0IFBNDQo+IFRvOiBtYW93ZW5hbg0KPiBDYzogU3RlcGhlbiBI
+ZW1taW5nZXI7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IGplZmZyZXkudC5raXJzaGVyQGludGVs
+LmNvbTsNCj4gd2VpeW9uZ2p1biAoQSk7IERpbmd0aWFuaG9uZw0KPiBTdWJqZWN0OiBSZTogW1BB
+VENIXSBldGh0b29sOiBhZGQgb25lIGV0aHRvb2wgb3B0aW9uIHRvIHNldCByZWxheCBvcmRlcmlu
+ZyBtb2RlDQo+IA0KPiBPbiBXZWQsIERlYyAyMSwgMjAxNiBhdCA1OjM5IFBNLCBtYW93ZW5hbiA8
+bWFvd2VuYW5AaHVhd2VpLmNvbT4NCj4gd3JvdGU6DQo+ID4NCj4gPg0KPiA+PiAtLS0tLU9yaWdp
+bmFsIE1lc3NhZ2UtLS0tLQ0KPiA+PiBGcm9tOiBTdGVwaGVuIEhlbW1pbmdlciBbbWFpbHRvOnN0
+ZXBoZW5AbmV0d29ya3BsdW1iZXIub3JnXQ0KPiA+PiBTZW50OiBUaHVyc2RheSwgRGVjZW1iZXIg
+MjIsIDIwMTYgOToyOCBBTQ0KPiA+PiBUbzogbWFvd2VuYW4NCj4gPj4gQ2M6IG5ldGRldkB2Z2Vy
+Lmtlcm5lbC5vcmc7IGplZmZyZXkudC5raXJzaGVyQGludGVsLmNvbQ0KPiA+PiBTdWJqZWN0OiBS
+ZTogW1BBVENIXSBldGh0b29sOiBhZGQgb25lIGV0aHRvb2wgb3B0aW9uIHRvIHNldCByZWxheA0K
+PiA+PiBvcmRlcmluZyBtb2RlDQo+ID4+DQo+ID4+IE9uIFRodSwgOCBEZWMgMjAxNiAxNDo1MToz
+OCArMDgwMA0KPiA+PiBNYW8gV2VuYW4gPG1hb3dlbmFuQGh1YXdlaS5jb20+IHdyb3RlOg0KPiA+
+Pg0KPiA+PiA+IFRoaXMgcGF0Y2ggcHJvdmlkZXMgb25lIHdheSB0byBzZXQvdW5zZXQgSVhHQkUg
+TklDIFRYIGFuZCBSWCByZWxheA0KPiA+PiA+IG9yZGVyaW5nIG1vZGUsIHdoaWNoIGNhbiBiZSBz
+ZXQgYnkgZXRodG9vbC4NCj4gPj4gPiBSZWxheCBvcmRlcmluZyBpcyBvbmUgbW9kZSBvZiA4MjU5
+OSBOSUMsIHRvIGVuYWJsZSB0aGlzIG1vZGUgY2FuDQo+ID4+ID4gZW5oYW5jZSB0aGUgcGVyZm9y
+bWFuY2UgZm9yIHNvbWUgY3B1IGFyY2hpdGVjdXJlLg0KPiA+Pg0KPiA+PiBUaGVuIGl0IHNob3Vs
+ZCBiZSBkb25lIGJ5IENQVSBhcmNoaXRlY3R1cmUgc3BlY2lmaWMgcXVpcmtzDQo+ID4+IChwcmVm
+ZXJhYmx5IGluIFBDSQ0KPiA+PiBsYXllcikgc28gdGhhdCBhbGwgdXNlcnMgZ2V0IHRoZSBvcHRp
+b24gd2l0aG91dCBoYXZpbmcgdG8gZG8gbWFudWFsDQo+IGludGVydmVudGlvbi4NCj4gPj4NCj4g
+Pj4gPiBleGFtcGxlOg0KPiA+PiA+IGV0aHRvb2wgLXMgZW5wMXMwZjAgcmVsYXhvcmRlciBvZmYN
+Cj4gPj4gPiBldGh0b29sIC1zIGVucDFzMGYwIHJlbGF4b3JkZXIgb24NCj4gPj4NCj4gPj4gRG9p
+bmcgaXQgdmlhIGV0aHRvb2wgaXMgYSBkZXZlbG9wZXIgQVBJIChmb3IgdGVzdGluZykgbm90IHNv
+bWV0aGluZw0KPiA+PiB0aGF0IG1ha2VzIHNlbnNlIGluIHByb2R1Y3Rpb24uDQo+ID4NCj4gPg0K
+PiA+IFRoaXMgZmVhdHVyZSBpcyBub3QgbWFuZGF0b3J5IGZvciBhbGwgdXNlcnMsIGFjdHVyYWxs
+eSByZWxheCBvcmRlcmluZw0KPiA+IGRlZmF1bHQgY29uZmlndXJhdGlvbiBvZiA4MjU5OSBpcyAn
+ZGlzYWJsZScsIFNvIHRoaXMgcGF0Y2ggZ2l2ZXMgb25lIHdheSB0bw0KPiBlbmFibGUgcmVsYXgg
+b3JkZXJpbmcgdG8gYmUgc2VsZWN0ZWQgaW4gc29tZSBwZXJmb3JtYW5jZSBjb25kaXRpb24uDQo+
+IA0KPiBUaGF0IGlzbid0IHF1aXRlIHRydWUuICBUaGUgZGVmYXVsdCBmb3IgU3BhcmMgc3lzdGVt
+cyBpcyB0byBoYXZlIGl0IGVuYWJsZWQuDQo+IA0KPiBSZWFsbHkgdGhpcyBpcyBzb21ldGhpbmcg
+dGhhdCBpcyBwbGF0Zm9ybSBzcGVjaWZpYy4gIEkgYWdyZWUgd2l0aCBTdGVwaGVuIHRoYXQgaXQN
+Cj4gd291bGQgd29yayBiZXR0ZXIgaWYgdGhpcyB3YXMgaGFuZGxlZCBhcyBhIHNlcmllcyBvZiBw
+bGF0Zm9ybSBzcGVjaWZpYyBxdWlya3MNCj4gaGFuZGxlZCBhdCBzb21ldGhpbmcgbGlrZSB0aGUg
+UENJIGxheWVyIHJhdGhlciB0aGFuIGJlIGEgc3dpdGNoIHRoZSB1c2VyIGNhbg0KPiB0b2dnbGUg
+b24gYW5kIG9mZi4NCj4gDQo+IFdpdGggdGhhdCBiZWluZyBzYWlkIHRoZXJlIGFyZSBjaGFuZ2Vz
+IGJlaW5nIG1hZGUgdGhhdCBzaG91bGQgaGVscCB0byBpbXByb3ZlDQo+IHRoZSBzaXR1YXRpb24u
+ICBTcGVjaWZpY2FsbHkgSSBhbSBsb29raW5nIGF0IGFkZGluZyBzdXBwb3J0IGZvciB0aGUNCj4g
+RE1BX0FUVFJfV0VBS19PUkRFUklORyB3aGljaCBtYXkgYWxzbyBhbGxvdyB1cyB0byBpZGVudGlm
+eSBjYXNlcyB3aGVyZQ0KPiB5b3UgbWlnaHQgYmUgYWJsZSB0byBzcGVjaWZ5IHRoZSBETUEgYmVo
+YXZpb3IgdmlhIHRoZSBETUEgbWFwcGluZyBpbnN0ZWFkIG9mDQo+IGhhdmluZyB0byBtYWtlIHRo
+ZSBmaW5hbCBkZWNpc2lvbiBpbiB0aGUgZGV2aWNlIGl0c2VsZi4NCj4gDQo+IC0gQWxleA0KDQpZ
+ZXMsIFNwYXJjIGlzIGEgc3BlY2lhbCBjYXNlLiBGcm9tIHRoZSBOSUMgZHJpdmVyIHBvaW50IG9m
+IHZpZXcsIEl0IGlzIG5vIG5lZWQgZm9yIA0Kc29tZSBBUkNIcyB0byBkbyBwYXJ0aWN1bGFyIG9w
+ZXJhdGlvbiBhbmQgY29tcGlsaW5nIGJyYW5jaCwgZXRodG9vbCBpcyBhIGZsZXhpYmxlIA0KbWV0
+aG9kIGZvciB1c2VyIHRvIG1ha2UgZGVjaXNpb24gd2hldGhlciBvbnxvZmYgdGhpcyBmZWF0dXJl
+Lg0KSSB0aGluayBKZWZmIGFzIG1haW50YWluZXIgb2YgODI1OTkgaGFzIHNvbWUgY29tbWVudHMg
+YWJvdXQgdGhpcy4NCi1XZW5hbg0KDQo=
