@@ -1,9 +1,9 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] sctp: fix recovering from 0 win with small data
- chunks
-Date: Fri, 23 Dec 2016 14:02:09 -0500 (EST)
-Message-ID: <20161223.140209.1226868882402302341.davem@davemloft.net>
-References: <d9025eef1b2be8e7097fd4a5db73b4f5c0f5418b.1482510289.git.marcelo.leitner@gmail.com>
+Subject: Re: [PATCH net] sctp: do not loose window information if in
+ rwnd_over
+Date: Fri, 23 Dec 2016 14:01:59 -0500 (EST)
+Message-ID: <20161223.140159.2291080991092269291.davem@davemloft.net>
+References: <14d1eef1c9da4fcebc53d428a59ecaefab439b2c.1482510284.git.marcelo.leitner@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -11,37 +11,50 @@ Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
         nhorman@tuxdriver.com, vyasevich@gmail.com
 To: marcelo.leitner@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:48518 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:48502 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965069AbcLWTCO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 23 Dec 2016 14:02:14 -0500
-In-Reply-To: <d9025eef1b2be8e7097fd4a5db73b4f5c0f5418b.1482510289.git.marcelo.leitner@gmail.com>
+        with ESMTP id S1753320AbcLWTCA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 23 Dec 2016 14:02:00 -0500
+In-Reply-To: <14d1eef1c9da4fcebc53d428a59ecaefab439b2c.1482510284.git.marcelo.leitner@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Date: Fri, 23 Dec 2016 14:29:37 -0200
+Date: Fri, 23 Dec 2016 14:29:02 -0200
 
-> Currently if SCTP closes the receive window with window pressure, mostly
-> caused by excessive skb overhead on payload/overheads ratio, SCTP will
-> close the window abruptly while saving the delta on rwnd_press. It will
-> start recovering rwnd as the chunks are consumed by the application and
-> the rwnd_press will be only recovered after rwnd reach the same value as
-> of rwnd_press, mostly to prevent silly window syndrome.
+> It's possible that we receive a packet that is larger than current
+> window. If it's the first packet in this way, it will cause it to
+> increase rwnd_over. Then, if we receive another data chunk (specially as
+> SCTP allows you to have one data chunk in flight even during 0 window),
+> rwnd_over will be overwritten instead of added to.
 > 
-> Thing is, this is very inefficient with small data chunks, as with those
-> it will never reach back that value, and thus it will never recover from
-> such pressure. This means that we will not issue window updates when
-> recovering from 0 window and will rely on a sender retransmit to notice
-> it.
+> In the long run, this could cause the window to grow bigger than its
+> initial size, as rwnd_over would be charged only for the last received
+> data chunk while the code will try open the window for all packets that
+> were received and had its value in rwnd_over overwritten. This, then,
+> can lead to the worsening of payload/buffer ratio and cause rwnd_press
+> to kick in more often.
 > 
-> The fix here is to remove such threshold, as no value is good enough: it
-> depends on the (avg) chunk sizes being used.
+> The fix is to sum it too, same as is done for rwnd_press, so that if we
+> receive 3 chunks after closing the window, we still have to release that
+> same amount before re-opening it.
 > 
-> Test with netperf -t SCTP_STREAM -- -m 1, and trigger 0 window by
-> sending SIGSTOP to netserver, sleep 1.2, and SIGCONT.
-> Rate limited to 845kbps, for visibility. Capture done at netserver side.
- ...
+> Log snippet from sctp_test exhibiting the issue:
+> [  146.209232] sctp: sctp_assoc_rwnd_decrease: asoc:ffff88013928e000
+> rwnd decreased by 1 to (0, 1, 114221)
+> [  146.209232] sctp: sctp_assoc_rwnd_decrease:
+> association:ffff88013928e000 has asoc->rwnd:0, asoc->rwnd_over:1!
+> [  146.209232] sctp: sctp_assoc_rwnd_decrease: asoc:ffff88013928e000
+> rwnd decreased by 1 to (0, 1, 114221)
+> [  146.209232] sctp: sctp_assoc_rwnd_decrease:
+> association:ffff88013928e000 has asoc->rwnd:0, asoc->rwnd_over:1!
+> [  146.209232] sctp: sctp_assoc_rwnd_decrease: asoc:ffff88013928e000
+> rwnd decreased by 1 to (0, 1, 114221)
+> [  146.209232] sctp: sctp_assoc_rwnd_decrease:
+> association:ffff88013928e000 has asoc->rwnd:0, asoc->rwnd_over:1!
+> [  146.209232] sctp: sctp_assoc_rwnd_decrease: asoc:ffff88013928e000
+> rwnd decreased by 1 to (0, 1, 114221)
+> 
 > Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 
 Applied.
