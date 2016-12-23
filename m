@@ -1,69 +1,95 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [PATCH net 7/9] virtio-net: forbid XDP when
-	VIRTIO_NET_F_GUEST_UFO is support
-Date: Fri, 23 Dec 2016 08:10:06 -0800
-Message-ID: <585D4C5E.5050908@gmail.com>
-References: <1482503852-12438-1-git-send-email-jasowang@redhat.com>
-	<1482503852-12438-8-git-send-email-jasowang@redhat.com>
-	<585D4AAD.4030702@gmail.com>
+From: Andy Lutomirski <luto@amacapital.net>
+Subject: Re: BPF hash algo (Re: [kernel-hardening] Re: [PATCH v7 3/6] random:
+ use SipHash in place of MD5)
+Date: Fri, 23 Dec 2016 08:23:11 -0800
+Message-ID: <CALCETrVgnnbstPoPf-0bZ_ySDydXNCp5dLAEvhAD9cApozFsng@mail.gmail.com>
+References: <CALCETrUATPeaCJTQZN2h=ct6HH-xLt4V8T0PfPHNFGFN2HWtTA@mail.gmail.com>
+ <1482425969.2673.5.camel@stressinduktion.org> <585CF6A3.1050107@iogearbox.net>
+ <1482490762.3353.2.camel@stressinduktion.org> <585D11BF.60903@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: john.r.fastabend@intel.com
-To: Jason Wang <jasowang@redhat.com>, mst@redhat.com,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <585D4AAD.4030702@gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        "Jason A. Donenfeld" <Jason@zx2c4.com>,
+        "kernel-hardening@lists.openwall.com"
+        <kernel-hardening@lists.openwall.com>,
+        "Theodore Ts'o" <tytso@mit.edu>, Netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+        David Laight <David.Laight@aculab.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Linus Torvalds <torvalds@linux-foundation.org>,
+        Eric Biggers <ebiggers3@gmail.com>,
+        Tom Herbert <tom@herbertland.com>,
+        Andi Kleen <ak@linux.intel.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <585D11BF.60903@iogearbox.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 16-12-23 08:02 AM, John Fastabend wrote:
-> On 16-12-23 06:37 AM, Jason Wang wrote:
->> When VIRTIO_NET_F_GUEST_UFO is negotiated, host could still send UFO
->> packet that exceeds a single page which could not be handled
->> correctly by XDP. So this patch forbids setting XDP when GUEST_UFO is
->> supported. While at it, forbid XDP for ECN (which comes only from GRO)
->> too to prevent user from misconfiguration.
+On Fri, Dec 23, 2016 at 3:59 AM, Daniel Borkmann <daniel@iogearbox.net> wrote:
+> On 12/23/2016 11:59 AM, Hannes Frederic Sowa wrote:
 >>
-
-Is sending packets greater than single page though normal in this case?
-I don't have any need to support big packet mode other than MST asked
-for it. And I wasn't seeing this in my tests. MTU is capped at 4k - hdr
-when XDP is enabled.
-
-.John
-
->> Cc: John Fastabend <john.r.fastabend@intel.com>
->> Signed-off-by: Jason Wang <jasowang@redhat.com>
->> ---
->>  drivers/net/virtio_net.c | 4 +++-
->>  1 file changed, 3 insertions(+), 1 deletion(-)
+>> On Fri, 2016-12-23 at 11:04 +0100, Daniel Borkmann wrote:
+>>>
+>>> On 12/22/2016 05:59 PM, Hannes Frederic Sowa wrote:
+>>>>
+>>>> On Thu, 2016-12-22 at 08:07 -0800, Andy Lutomirski wrote:
+>
+> [...]
+>
+>>>> The hashing is not a proper sha1 neither, unfortunately. I think that
+>>>> is why it will have a custom implementation in iproute2?
+>>>
+>>>
+>>> Still trying to catch up on this admittedly bit confusing thread. I
+>>> did run automated tests over couple of days comparing the data I got
+>>> from fdinfo with the one from af_alg and found no mismatch on the test
+>>> cases varying from min to max possible program sizes. In the process
+>>> of testing, as you might have seen on netdev, I found couple of other
+>>> bugs in bpf code along the way and fixed them up as well. So my question,
+>>> do you or Andy or anyone participating in claiming this have any
+>>> concrete data or test cases that suggests something different? If yes,
+>>> I'm very curious to hear about it and willing fix it up, of course.
+>>> When I'm back from pto I'll prep and cook up my test suite to be
+>>> included into the selftests/bpf/, should have done this initially,
+>>> sorry about that. I'll also post something to expose the alg, that
+>>> sounds fine to me.
 >>
->> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
->> index 77ae358..c1f66d8 100644
->> --- a/drivers/net/virtio_net.c
->> +++ b/drivers/net/virtio_net.c
->> @@ -1684,7 +1684,9 @@ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
->>  	int i, err;
->>  
->>  	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_TSO4) ||
->> -	    virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_TSO6)) {
->> +	    virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_TSO6) ||
->> +	    virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_ECN) ||
->> +	    virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_UFO)) {
->>  		netdev_warn(dev, "can't set XDP while host is implementing LRO, disable LRO first\n");
->>  		return -EOPNOTSUPP;
->>  	}
 >>
-> 
-> Acked-by: John Fastabend <john.r.fastabend@intel.com>
-> 
+>> Looking into your code closer, I noticed that you indeed seem to do the
+>> finalization of sha-1 by hand by aligning and padding the buffer
+>> accordingly and also patching in the necessary payload length.
+>>
+>> Apologies for my side for claiming that this is not correct sha1
+>> output, I was only looking at sha_transform and its implementation and
+>> couldn't see the padding and finalization round with embedding the data
+>> length in there and hadn't thought of it being done manually.
+>>
+>> Anyway, is it difficult to get the sha finalization into some common
+>> code library? It is not very bpf specific and crypto code reviewers
+>> won't find it there at all.
+>
+>
+> Yes, sure, I'll rework it that way (early next year when I'm back if
+> that's fine with you).
+
+Can we make it SHA-256 before 4.10 comes out, though?  This really
+looks like it will be used in situations where collisions matter and
+it will be exposed to malicious programs, and SHA-1 should not be used
+for new designs for this purpose because it simply isn't long enough.
+
+Also, a SHA-1 digest isn't a pile of u32s, so u32 digest[...] is very
+misleading.  That should be u8 or, at the very least, __be32.
+
+I realize that there isn't a sha-256 implementation in lib, but would
+it really be so bad to make the bpf digest only work (for now) when
+crypto is enabled?  I would *love* to see the crypto core learn how to
+export simple primitives for direct use without needing the whole
+crypto core, and this doesn't seem particularly hard to do, but I
+don't think that's 4.10 material.
+
+--Andy
