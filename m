@@ -1,7 +1,8 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net 3/9] virtio-net: fix page miscount during XDP linearizing
-Date: Fri, 23 Dec 2016 22:37:26 +0800
-Message-ID: <1482503852-12438-4-git-send-email-jasowang@redhat.com>
+Subject: [PATCH net 4/9] virtio-net: correctly handle XDP_PASS for linearized
+	packets
+Date: Fri, 23 Dec 2016 22:37:27 +0800
+Message-ID: <1482503852-12438-5-git-send-email-jasowang@redhat.com>
 References: <1482503852-12438-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,77 +23,39 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-We don't put page during linearizing, the would cause leaking when
-xmit through XDP_TX or the packet exceeds PAGE_SIZE. Fix them by
-put page accordingly. Also decrease the number of buffers during
-linearizing to make sure caller can free buffers correctly when packet
-exceeds PAGE_SIZE. With this patch, we won't get OOM after linearize
-huge number of packets.
+When XDP_PASS were determined for linearized packets, we try to get
+new buffers in the virtqueue and build skbs from them. This is wrong,
+we should create skbs based on existed buffers instead. Fixing them by
+creating skb based on xdp_page.
+
+With this patch "ping 192.168.100.4 -s 3900 -M do" works for XDP_PASS.
 
 Cc: John Fastabend <john.r.fastabend@intel.com>
 Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- drivers/net/virtio_net.c | 19 +++++++++++--------
- 1 file changed, 11 insertions(+), 8 deletions(-)
+ drivers/net/virtio_net.c | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index fe4562d..58ad40e 100644
+index 58ad40e..470293e 100644
 --- a/drivers/net/virtio_net.c
 +++ b/drivers/net/virtio_net.c
-@@ -483,7 +483,7 @@ static struct sk_buff *receive_big(struct net_device *dev,
-  * anymore.
-  */
- static struct page *xdp_linearize_page(struct receive_queue *rq,
--				       u16 num_buf,
-+				       u16 *num_buf,
- 				       struct page *p,
- 				       int offset,
- 				       unsigned int *len)
-@@ -497,7 +497,7 @@ static struct page *xdp_linearize_page(struct receive_queue *rq,
- 	memcpy(page_address(page) + page_off, page_address(p) + offset, *len);
- 	page_off += *len;
- 
--	while (--num_buf) {
-+	while (--*num_buf) {
- 		unsigned int buflen;
- 		unsigned long ctx;
- 		void *buf;
-@@ -507,19 +507,22 @@ static struct page *xdp_linearize_page(struct receive_queue *rq,
- 		if (unlikely(!ctx))
- 			goto err_buf;
- 
-+		buf = mergeable_ctx_to_buf_address(ctx);
-+		p = virt_to_head_page(buf);
-+		off = buf - page_address(p);
-+
- 		/* guard against a misconfigured or uncooperative backend that
- 		 * is sending packet larger than the MTU.
- 		 */
--		if ((page_off + buflen) > PAGE_SIZE)
-+		if ((page_off + buflen) > PAGE_SIZE) {
-+			put_page(p);
- 			goto err_buf;
--
--		buf = mergeable_ctx_to_buf_address(ctx);
--		p = virt_to_head_page(buf);
--		off = buf - page_address(p);
-+		}
- 
- 		memcpy(page_address(page) + page_off,
- 		       page_address(p) + off, buflen);
- 		page_off += buflen;
-+		put_page(p);
- 	}
- 
- 	*len = page_off;
-@@ -555,7 +558,7 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
- 		/* This happens when rx buffer size is underestimated */
- 		if (unlikely(num_buf > 1)) {
- 			/* linearize data for XDP */
--			xdp_page = xdp_linearize_page(rq, num_buf,
-+			xdp_page = xdp_linearize_page(rq, &num_buf,
- 						      page, offset, &len);
- 			if (!xdp_page)
- 				goto err_xdp;
+@@ -578,8 +578,14 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
+ 		act = do_xdp_prog(vi, rq, xdp_prog, xdp_page, offset, len);
+ 		switch (act) {
+ 		case XDP_PASS:
+-			if (unlikely(xdp_page != page))
+-				__free_pages(xdp_page, 0);
++			/* We can only create skb based on xdp_page. */
++			if (unlikely(xdp_page != page)) {
++				rcu_read_unlock();
++				put_page(page);
++				head_skb = page_to_skb(vi, rq, xdp_page,
++						       0, len, PAGE_SIZE);
++				return head_skb;
++			}
+ 			break;
+ 		case XDP_TX:
+ 			if (unlikely(xdp_page != page))
 -- 
 2.7.4
