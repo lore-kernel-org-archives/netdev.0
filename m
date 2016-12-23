@@ -1,45 +1,35 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 1/3] net:dsa:mv88e6xxx: use hashtable to store
- multicast entries
-Date: Fri, 23 Dec 2016 11:17:41 +0100
-Message-ID: <20161223101741.GC29201@lunn.ch>
-References: <20161214104614.GD27370@lunn.ch>
- <CABHmqqDpiN2kwkTgrM8Qu8EEx3Sjk2yVBy8QQAJppGfJ6-MV5Q@mail.gmail.com>
- <87eg19hzw1.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
- <be3b69b7-b6a3-a939-cf77-c62e5a1fe719@gmail.com>
- <87bmwdcc96.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
- <CABHmqqCOYMPA-Py7Uu4gsQ=s8CrQd-tT4-Db+j8eJH9=2s4L2g@mail.gmail.com>
- <20161216100802.GA20359@lunn.ch>
- <CABHmqqAQddcQZqVBi7gTjR40cHx6+aQebmsY3BwJgeEbLsX5Yw@mail.gmail.com>
- <20161216110115.GC20359@lunn.ch>
- <5CB44DFD-2807-4FD8-B409-FD28A53DE8B6@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Volodymyr Bendiuga <valdr.linuxnext@gmail.com>,
-        netdev@vger.kernel.org,
-        Volodymyr Bendiuga <volodymyr.bendiuga@westermo.se>,
-        John Crispin <john@phrozen.org>
-To: Volodymyr Bendiuga <volodymyr.bendiuga@gmail.com>
+From: Alexey Kodanev <alexey.kodanev@oracle.com>
+Subject: [PATCH iproute2] fix typo in ip-xfrm man page, rmd610 -> rmd160
+Date: Fri, 23 Dec 2016 14:03:16 +0300
+Message-ID: <1482490996-17048-1-git-send-email-alexey.kodanev@oracle.com>
+Cc: netdev@vger.kernel.org, Vasily Isaenko <vasily.isaenko@oracle.com>,
+        Alexey Kodanev <alexey.kodanev@oracle.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:35203 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1760151AbcLWKkb (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 23 Dec 2016 05:40:31 -0500
-Content-Disposition: inline
-In-Reply-To: <5CB44DFD-2807-4FD8-B409-FD28A53DE8B6@gmail.com>
+Received: from userp1040.oracle.com ([156.151.31.81]:19833 "EHLO
+        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755808AbcLWK5n (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 23 Dec 2016 05:57:43 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 23, 2016 at 10:30:27AM +0100, Volodymyr Bendiuga wrote:
-> Hi Andrew,
-> Here is the program I promised you.
+Signed-off-by: Alexey Kodanev <alexey.kodanev@oracle.com>
+---
+ man/man8/ip-xfrm.8 |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Hi Volodymyr
-
-Thanks for this. I will try it out beginning of January. I don't have
-access to the hardware at the moment.
-
-       Thanks
-		Andrew
+diff --git a/man/man8/ip-xfrm.8 b/man/man8/ip-xfrm.8
+index 11f7104..a0bbef5 100644
+--- a/man/man8/ip-xfrm.8
++++ b/man/man8/ip-xfrm.8
+@@ -477,7 +477,7 @@ Encryption algorithms include
+ 
+ Authentication algorithms include
+ .BR digest_null ", " hmac(md5) ", " hmac(sha1) ", " hmac(sha256) ","
+-.BR hmac(sha384) ", " hmac(sha512) ", " hmac(rmd610) ", and " xcbc(aes) "."
++.BR hmac(sha384) ", " hmac(sha512) ", " hmac(rmd160) ", and " xcbc(aes) "."
+ 
+ Authenticated encryption with associated data (AEAD) algorithms include
+ .BR rfc4106(gcm(aes)) ", " rfc4309(ccm(aes)) ", and " rfc4543(gcm(aes)) "."
+-- 
+1.7.1
