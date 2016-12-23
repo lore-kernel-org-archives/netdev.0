@@ -1,7 +1,7 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net 2/9] virtio-net: correctly xmit linearized page on XDP_TX
-Date: Fri, 23 Dec 2016 22:37:25 +0800
-Message-ID: <1482503852-12438-3-git-send-email-jasowang@redhat.com>
+Subject: [PATCH net 3/9] virtio-net: fix page miscount during XDP linearizing
+Date: Fri, 23 Dec 2016 22:37:26 +0800
+Message-ID: <1482503852-12438-4-git-send-email-jasowang@redhat.com>
 References: <1482503852-12438-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,28 +22,77 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-After we linearize page, we should xmit this page instead of the page
-of first buffer which may lead unexpected result. With this patch, we
-can see correct packet during XDP_TX.
+We don't put page during linearizing, the would cause leaking when
+xmit through XDP_TX or the packet exceeds PAGE_SIZE. Fix them by
+put page accordingly. Also decrease the number of buffers during
+linearizing to make sure caller can free buffers correctly when packet
+exceeds PAGE_SIZE. With this patch, we won't get OOM after linearize
+huge number of packets.
 
 Cc: John Fastabend <john.r.fastabend@intel.com>
 Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- drivers/net/virtio_net.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/virtio_net.c | 19 +++++++++++--------
+ 1 file changed, 11 insertions(+), 8 deletions(-)
 
 diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 1067253..fe4562d 100644
+index fe4562d..58ad40e 100644
 --- a/drivers/net/virtio_net.c
 +++ b/drivers/net/virtio_net.c
-@@ -572,7 +572,7 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
- 		if (unlikely(hdr->hdr.gso_type || hdr->hdr.flags))
- 			goto err_xdp;
+@@ -483,7 +483,7 @@ static struct sk_buff *receive_big(struct net_device *dev,
+  * anymore.
+  */
+ static struct page *xdp_linearize_page(struct receive_queue *rq,
+-				       u16 num_buf,
++				       u16 *num_buf,
+ 				       struct page *p,
+ 				       int offset,
+ 				       unsigned int *len)
+@@ -497,7 +497,7 @@ static struct page *xdp_linearize_page(struct receive_queue *rq,
+ 	memcpy(page_address(page) + page_off, page_address(p) + offset, *len);
+ 	page_off += *len;
  
--		act = do_xdp_prog(vi, rq, xdp_prog, page, offset, len);
-+		act = do_xdp_prog(vi, rq, xdp_prog, xdp_page, offset, len);
- 		switch (act) {
- 		case XDP_PASS:
- 			if (unlikely(xdp_page != page))
+-	while (--num_buf) {
++	while (--*num_buf) {
+ 		unsigned int buflen;
+ 		unsigned long ctx;
+ 		void *buf;
+@@ -507,19 +507,22 @@ static struct page *xdp_linearize_page(struct receive_queue *rq,
+ 		if (unlikely(!ctx))
+ 			goto err_buf;
+ 
++		buf = mergeable_ctx_to_buf_address(ctx);
++		p = virt_to_head_page(buf);
++		off = buf - page_address(p);
++
+ 		/* guard against a misconfigured or uncooperative backend that
+ 		 * is sending packet larger than the MTU.
+ 		 */
+-		if ((page_off + buflen) > PAGE_SIZE)
++		if ((page_off + buflen) > PAGE_SIZE) {
++			put_page(p);
+ 			goto err_buf;
+-
+-		buf = mergeable_ctx_to_buf_address(ctx);
+-		p = virt_to_head_page(buf);
+-		off = buf - page_address(p);
++		}
+ 
+ 		memcpy(page_address(page) + page_off,
+ 		       page_address(p) + off, buflen);
+ 		page_off += buflen;
++		put_page(p);
+ 	}
+ 
+ 	*len = page_off;
+@@ -555,7 +558,7 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
+ 		/* This happens when rx buffer size is underestimated */
+ 		if (unlikely(num_buf > 1)) {
+ 			/* linearize data for XDP */
+-			xdp_page = xdp_linearize_page(rq, num_buf,
++			xdp_page = xdp_linearize_page(rq, &num_buf,
+ 						      page, offset, &len);
+ 			if (!xdp_page)
+ 				goto err_xdp;
 -- 
 2.7.4
