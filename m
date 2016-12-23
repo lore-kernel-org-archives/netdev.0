@@ -1,7 +1,7 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net 1/9] virtio-net: remove the warning before XDP linearizing
-Date: Fri, 23 Dec 2016 22:37:24 +0800
-Message-ID: <1482503852-12438-2-git-send-email-jasowang@redhat.com>
+Subject: [PATCH net 2/9] virtio-net: correctly xmit linearized page on XDP_TX
+Date: Fri, 23 Dec 2016 22:37:25 +0800
+Message-ID: <1482503852-12438-3-git-send-email-jasowang@redhat.com>
 References: <1482503852-12438-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,36 +22,28 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Since we use EWMA to estimate the size of rx buffer. When rx buffer
-size is underestimated, it's usual to have a packet with more than one
-buffers. Consider this is not a bug, remove the warning and correct
-the comment before XDP linearizing.
+After we linearize page, we should xmit this page instead of the page
+of first buffer which may lead unexpected result. With this patch, we
+can see correct packet during XDP_TX.
 
 Cc: John Fastabend <john.r.fastabend@intel.com>
 Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- drivers/net/virtio_net.c | 8 +-------
- 1 file changed, 1 insertion(+), 7 deletions(-)
+ drivers/net/virtio_net.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 08327e0..1067253 100644
+index 1067253..fe4562d 100644
 --- a/drivers/net/virtio_net.c
 +++ b/drivers/net/virtio_net.c
-@@ -552,14 +552,8 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
- 		struct page *xdp_page;
- 		u32 act;
+@@ -572,7 +572,7 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
+ 		if (unlikely(hdr->hdr.gso_type || hdr->hdr.flags))
+ 			goto err_xdp;
  
--		/* No known backend devices should send packets with
--		 * more than a single buffer when XDP conditions are
--		 * met. However it is not strictly illegal so the case
--		 * is handled as an exception and a warning is thrown.
--		 */
-+		/* This happens when rx buffer size is underestimated */
- 		if (unlikely(num_buf > 1)) {
--			bpf_warn_invalid_xdp_buffer();
--
- 			/* linearize data for XDP */
- 			xdp_page = xdp_linearize_page(rq, num_buf,
- 						      page, offset, &len);
+-		act = do_xdp_prog(vi, rq, xdp_prog, page, offset, len);
++		act = do_xdp_prog(vi, rq, xdp_prog, xdp_page, offset, len);
+ 		switch (act) {
+ 		case XDP_PASS:
+ 			if (unlikely(xdp_page != page))
 -- 
 2.7.4
