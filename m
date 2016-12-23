@@ -1,32 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/2] net/sched fixes for cls_flower and
- act_tunnel_key
-Date: Fri, 23 Dec 2016 12:00:22 -0500 (EST)
-Message-ID: <20161223.120022.476586057711270906.davem@davemloft.net>
-References: <1482409695-27956-1-git-send-email-ogerlitz@mellanox.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [PATCH net 0/9] several fixups for virtio-net XDP
+Date: Fri, 23 Dec 2016 09:10:09 -0800
+Message-ID: <585D5A71.4010106@gmail.com>
+References: <1482503852-12438-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, roid@mellanox.com, hadarh@mellanox.com
-To: ogerlitz@mellanox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44758 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934285AbcLWRAY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 23 Dec 2016 12:00:24 -0500
-In-Reply-To: <1482409695-27956-1-git-send-email-ogerlitz@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: john.r.fastabend@intel.com
+To: Jason Wang <jasowang@redhat.com>, mst@redhat.com,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1482503852-12438-1-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Date: Thu, 22 Dec 2016 14:28:13 +0200
+On 16-12-23 06:37 AM, Jason Wang wrote:
+> Merry Xmas and a Happy New year to all:
+> 
+> This series tries to fixes several issues for virtio-net XDP which
+> could be categorized into several parts:
+> 
+> - fix several issues during XDP linearizing
+> - allow csumed packet to work for XDP_PASS
+> - make EWMA rxbuf size estimation works for XDP
+> - forbid XDP when GUEST_UFO is support
+> - remove big packet XDP support
+> - add XDP support or small buffer
+> 
+> Please see individual patches for details.
+> 
+> Thanks
+> 
+> Jason Wang (9):
+>   virtio-net: remove the warning before XDP linearizing
+>   virtio-net: correctly xmit linearized page on XDP_TX
+>   virtio-net: fix page miscount during XDP linearizing
+>   virtio-net: correctly handle XDP_PASS for linearized packets
+>   virtio-net: unbreak csumed packets for XDP_PASS
+>   virtio-net: make rx buf size estimation works for XDP
+>   virtio-net: forbid XDP when VIRTIO_NET_F_GUEST_UFO is support
+>   virtio-net: remove big packet XDP codes
+>   virtio-net: XDP support for small buffers
+> 
+>  drivers/net/virtio_net.c | 172 ++++++++++++++++++++++++++++-------------------
+>  1 file changed, 102 insertions(+), 70 deletions(-)
+> 
 
-> This small series contain a fix to the matching flags support 
-> in flower and to the tunnel key action MD prep for IPv6.
+Thanks a lot Jason. The last piece that is needed is support to
+complete XDP support is to get the adjust_head part correct. I'll
+send out a patch in a bit but will need to merge it on top of this
+set.
 
-Series applied, thanks.
-
-> On a non related note, wishing everyone around here a happy new year, 
-> celebrate and take a rest so we can do lots of good patch work(s) next.
-
-Happy new year to you as well.
+.John
