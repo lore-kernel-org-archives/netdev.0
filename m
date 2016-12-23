@@ -1,106 +1,111 @@
-From: Phil Reid <preid@electromag.com.au>
-Subject: Re: [PATCH v2] stmmac: CSR clock configuration fix
-Date: Fri, 23 Dec 2016 09:09:17 +0800
-Message-ID: <bc49326e-15ff-cbb3-6117-9fb4b96cc281@electromag.com.au>
-References: <7b395fd7dfd0c808243a744393473cbbf89b268a.1482410161.git.jpinto@synopsys.com>
- <15975894-6a5e-1706-ff9e-660c0bac3971@electromag.com.au>
- <efb22734-df9a-fde0-7cff-d1658105e2ec@synopsys.com>
- <816bb34f-bb4c-648a-179e-7e72cab975b0@electromag.com.au>
- <67213186-8583-9f9c-6f6a-6f56d2ba4ff0@synopsys.com>
+From: maowenan <maowenan@huawei.com>
+Subject: RE: [PATCH] ethtool: add one ethtool option to set relax ordering
+ mode
+Date: Fri, 23 Dec 2016 06:14:24 +0000
+Message-ID: <F95AC9340317A84688A5F0DF0246F3F20151FE86@szxeml504-mbs.china.huawei.com>
+References: <1481179898-10668-1-git-send-email-maowenan@huawei.com>
+         <1481179898-10668-2-git-send-email-maowenan@huawei.com>
+         <20161221172759.1bc0d0dd@xeon-e3>
+         <F95AC9340317A84688A5F0DF0246F3F20151F189@szxeml504-mbs.china.huawei.com>
+         <CAKgT0Uc2ztu_iDn79zdNtsAdb-Ftu65V6YHV-sqXb6vTCTiGCQ@mail.gmail.com>
+         <F95AC9340317A84688A5F0DF0246F3F20151FD1C@szxeml504-mbs.china.huawei.com>
+ <1482455203.2481.31.camel@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: hock.leong.kweh@intel.com, niklas.cassel@axis.com, pavel@ucw.cz,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Joao Pinto <Joao.Pinto@synopsys.com>, peppe.cavallaro@st.com,
-        davem@davemloft.net, seraphin.bonnaffe@st.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <67213186-8583-9f9c-6f6a-6f56d2ba4ff0@synopsys.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "weiyongjun (A)" <weiyongjun1@huawei.com>,
+        Dingtianhong <dingtianhong@huawei.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga01-in.huawei.com ([58.251.152.64]:24256 "EHLO
+        szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752002AbcLWGOw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 23 Dec 2016 01:14:52 -0500
+In-Reply-To: <1482455203.2481.31.camel@intel.com>
+Content-Language: zh-CN
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-G'day Joao,
-On 23/12/2016 01:06, Joao Pinto wrote:
-> Às 4:57 PM de 12/22/2016, Phil Reid escreveu:
->> On 22/12/2016 23:47, Joao Pinto wrote:
->>>
->>> Hello Phil,
->>>
->>> Às 3:42 PM de 12/22/2016, Phil Reid escreveu:
->>>> G'day Joao,
->>>>
->>>> On 22/12/2016 20:38, Joao Pinto wrote:
->>>>> When testing stmmac with my QoS reference design I checked a problem in the
->>>>> CSR clock configuration that was impossibilitating the phy discovery, since
->>>>> every read operation returned 0x0000ffff. This patch fixes the issue.
->>>>>
->>>>> Signed-off-by: Joao Pinto <jpinto@synopsys.com>
->>>>> ---
->>>>> changes v1->v2 (David Miller)
->>>>> - DWMAC100 and DWMAC1000 csr clocks masks should also be fixed for the patch
->>>>> to make sense
->>>>>
->>>>>  drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c | 2 +-
->>>>>  drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c  | 2 +-
->>>>>  drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c    | 8 ++++----
->>>>>  3 files changed, 6 insertions(+), 6 deletions(-)
->>>>>
->>>>> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
->>>>> b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
->>>>> index b21d03f..94223c8 100644
->>>>> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
->>>>> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
->>>>> @@ -539,7 +539,7 @@ struct mac_device_info *dwmac1000_setup(void __iomem
->>>>> *ioaddr, int mcbins,
->>>>>      mac->mii.reg_shift = 6;
->>>>>      mac->mii.reg_mask = 0x000007C0;
->>>>>      mac->mii.clk_csr_shift = 2;
->>>>> -    mac->mii.clk_csr_mask = 0xF;
->>>>> +    mac->mii.clk_csr_mask = GENMASK(4, 2);
->>>>
->>>> Should this not be GENMASK(5,2)
->>>
->>> According to Universal MAC databook (valid for MAC100 and MAC1000), we have:
->>>
->>> Bits: 4:2
->>> 000 60-100 MHz clk_csr_i/42
->>> 001 100-150 MHz clk_csr_i/62
->>> 010 20-35 MHz clk_csr_i/16
->>> 011 35-60 MHz clk_csr_i/26
->>> 100 150-250 MHz clk_csr_i/102
->>> 101 250-300 MHz clk_csr_i/124
->>> 110, 111 Reserved
->>>
->>> So only bits 2, 3 and 4 should be masked.
->>>
->>> Thanks.
->>>
->> But this is a change in behaviour from what was there isn't.
->> Previous mask was 4 bits. now it's 3.
->>
->> And for example the altera socfgpa implementation in the cyclone V has valid values
->> for values 0x8-0xf, using bit 5:2.
->
-> According to the databook, bit 5 is reserved and RO. When reserved, it is
-> possible to customize. Is that the case? If there is hardware using the 5th bit
-> we can put it GENMASK(5, 2) with no problem.
->
-I've also checked the Aria 10 documentation and bit 5 is also RW.
-The following options are documented and supported
-     1000: CSR clock/4
-     1001: CSR clock/6
-     1010: CSR clock/8
-     1011: CSR clock/10
-     1100: CSR clock/12
-     1101: CSR clock/14
-     1110: CSR clock/16
-     1111: CSR clock/18
-They do mention that these values will probably be outside the IEEE 802.3 specified range.
-
-But there's at least a couple of cores out there where GENMASK(5,2) is valid.
-Can't say if anyone is using that setting thou.
-
-
--- 
-Regards
-Phil Reid
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogSmVmZiBLaXJzaGVyIFtt
+YWlsdG86amVmZnJleS50LmtpcnNoZXJAaW50ZWwuY29tXQ0KPiBTZW50OiBGcmlkYXksIERlY2Vt
+YmVyIDIzLCAyMDE2IDk6MDcgQU0NCj4gVG86IG1hb3dlbmFuOyBBbGV4YW5kZXIgRHV5Y2sNCj4g
+Q2M6IFN0ZXBoZW4gSGVtbWluZ2VyOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyB3ZWl5b25nanVu
+IChBKTsNCj4gRGluZ3RpYW5ob25nDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0hdIGV0aHRvb2w6IGFk
+ZCBvbmUgZXRodG9vbCBvcHRpb24gdG8gc2V0IHJlbGF4IG9yZGVyaW5nIG1vZGUNCj4gDQo+IE9u
+IEZyaSwgMjAxNi0xMi0yMyBhdCAwMDo0MCArMDAwMCwgbWFvd2VuYW4gd3JvdGU6DQo+ID4gPiAt
+LS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiA+ID4gRnJvbTogQWxleGFuZGVyIER1eWNrIFtt
+YWlsdG86YWxleGFuZGVyLmR1eWNrQGdtYWlsLmNvbV0NCj4gPiA+IFNlbnQ6IFRodXJzZGF5LCBE
+ZWNlbWJlciAyMiwgMjAxNiAxMTo1NCBQTQ0KPiA+ID4gVG86IG1hb3dlbmFuDQo+ID4gPiBDYzog
+U3RlcGhlbiBIZW1taW5nZXI7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IGplZmZyZXkudC5raXJz
+aGVyQGludGVsLg0KPiA+ID4gY29tOw0KPiA+ID4gd2VpeW9uZ2p1biAoQSk7IERpbmd0aWFuaG9u
+Zw0KPiA+ID4gU3ViamVjdDogUmU6IFtQQVRDSF0gZXRodG9vbDogYWRkIG9uZSBldGh0b29sIG9w
+dGlvbiB0byBzZXQgcmVsYXgNCj4gPiA+IG9yZGVyaW5nIG1vZGUNCj4gPiA+DQo+ID4gPiBPbiBX
+ZWQsIERlYyAyMSwgMjAxNiBhdCA1OjM5IFBNLCBtYW93ZW5hbiA8bWFvd2VuYW5AaHVhd2VpLmNv
+bT4NCj4gPiA+IHdyb3RlOg0KPiA+ID4gPg0KPiA+ID4gPg0KPiA+ID4gPiA+IC0tLS0tT3JpZ2lu
+YWwgTWVzc2FnZS0tLS0tDQo+ID4gPiA+ID4gRnJvbTogU3RlcGhlbiBIZW1taW5nZXIgW21haWx0
+bzpzdGVwaGVuQG5ldHdvcmtwbHVtYmVyLm9yZ10NCj4gPiA+ID4gPiBTZW50OiBUaHVyc2RheSwg
+RGVjZW1iZXIgMjIsIDIwMTYgOToyOCBBTQ0KPiA+ID4gPiA+IFRvOiBtYW93ZW5hbg0KPiA+ID4g
+PiA+IENjOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBqZWZmcmV5LnQua2lyc2hlckBpbnRlbC5j
+b20NCj4gPiA+ID4gPiBTdWJqZWN0OiBSZTogW1BBVENIXSBldGh0b29sOiBhZGQgb25lIGV0aHRv
+b2wgb3B0aW9uIHRvIHNldA0KPiA+ID4gPiA+IHJlbGF4IG9yZGVyaW5nIG1vZGUNCj4gPiA+ID4g
+Pg0KPiA+ID4gPiA+IE9uIFRodSwgOCBEZWMgMjAxNiAxNDo1MTozOCArMDgwMCBNYW8gV2VuYW4N
+Cj4gPiA+ID4gPiA8bWFvd2VuYW5AaHVhd2VpLmNvbT4gd3JvdGU6DQo+ID4gPiA+ID4NCj4gPiA+
+ID4gPiA+IFRoaXMgcGF0Y2ggcHJvdmlkZXMgb25lIHdheSB0byBzZXQvdW5zZXQgSVhHQkUgTklD
+IFRYIGFuZCBSWA0KPiA+ID4gPiA+ID4gcmVsYXggb3JkZXJpbmcgbW9kZSwgd2hpY2ggY2FuIGJl
+IHNldCBieSBldGh0b29sLg0KPiA+ID4gPiA+ID4gUmVsYXggb3JkZXJpbmcgaXMgb25lIG1vZGUg
+b2YgODI1OTkgTklDLCB0byBlbmFibGUgdGhpcyBtb2RlDQo+ID4gPiA+ID4gPiBjYW4gZW5oYW5j
+ZSB0aGUgcGVyZm9ybWFuY2UgZm9yIHNvbWUgY3B1IGFyY2hpdGVjdXJlLg0KPiA+ID4gPiA+DQo+
+ID4gPiA+ID4gVGhlbiBpdCBzaG91bGQgYmUgZG9uZSBieSBDUFUgYXJjaGl0ZWN0dXJlIHNwZWNp
+ZmljIHF1aXJrcw0KPiA+ID4gPiA+IChwcmVmZXJhYmx5IGluIFBDSQ0KPiA+ID4gPiA+IGxheWVy
+KSBzbyB0aGF0IGFsbCB1c2VycyBnZXQgdGhlIG9wdGlvbiB3aXRob3V0IGhhdmluZyB0byBkbw0K
+PiA+ID4gPiA+IG1hbnVhbA0KPiA+ID4NCj4gPiA+IGludGVydmVudGlvbi4NCj4gPiA+ID4gPg0K
+PiA+ID4gPiA+ID4gZXhhbXBsZToNCj4gPiA+ID4gPiA+IGV0aHRvb2wgLXMgZW5wMXMwZjAgcmVs
+YXhvcmRlciBvZmYgZXRodG9vbCAtcyBlbnAxczBmMA0KPiA+ID4gPiA+ID4gcmVsYXhvcmRlciBv
+bg0KPiA+ID4gPiA+DQo+ID4gPiA+ID4gRG9pbmcgaXQgdmlhIGV0aHRvb2wgaXMgYSBkZXZlbG9w
+ZXIgQVBJIChmb3IgdGVzdGluZykgbm90DQo+ID4gPiA+ID4gc29tZXRoaW5nIHRoYXQgbWFrZXMg
+c2Vuc2UgaW4gcHJvZHVjdGlvbi4NCj4gPiA+ID4NCj4gPiA+ID4NCj4gPiA+ID4gVGhpcyBmZWF0
+dXJlIGlzIG5vdCBtYW5kYXRvcnkgZm9yIGFsbCB1c2VycywgYWN0dXJhbGx5IHJlbGF4DQo+ID4g
+PiA+IG9yZGVyaW5nIGRlZmF1bHQgY29uZmlndXJhdGlvbiBvZiA4MjU5OSBpcyAnZGlzYWJsZScs
+IFNvIHRoaXMNCj4gPiA+ID4gcGF0Y2ggZ2l2ZXMgb25lIHdheSB0bw0KPiA+ID4NCj4gPiA+IGVu
+YWJsZSByZWxheCBvcmRlcmluZyB0byBiZSBzZWxlY3RlZCBpbiBzb21lIHBlcmZvcm1hbmNlIGNv
+bmRpdGlvbi4NCj4gPiA+DQo+ID4gPiBUaGF0IGlzbid0IHF1aXRlIHRydWUuwqDCoFRoZSBkZWZh
+dWx0IGZvciBTcGFyYyBzeXN0ZW1zIGlzIHRvIGhhdmUgaXQNCj4gPiA+IGVuYWJsZWQuDQo+ID4g
+Pg0KPiA+ID4gUmVhbGx5IHRoaXMgaXMgc29tZXRoaW5nIHRoYXQgaXMgcGxhdGZvcm0gc3BlY2lm
+aWMuwqDCoEkgYWdyZWUgd2l0aA0KPiA+ID4gU3RlcGhlbiB0aGF0IGl0IHdvdWxkIHdvcmsgYmV0
+dGVyIGlmIHRoaXMgd2FzIGhhbmRsZWQgYXMgYSBzZXJpZXMgb2YNCj4gPiA+IHBsYXRmb3JtIHNw
+ZWNpZmljIHF1aXJrcyBoYW5kbGVkIGF0IHNvbWV0aGluZyBsaWtlIHRoZSBQQ0kgbGF5ZXINCj4g
+PiA+IHJhdGhlciB0aGFuIGJlIGEgc3dpdGNoIHRoZSB1c2VyIGNhbiB0b2dnbGUgb24gYW5kIG9m
+Zi4NCj4gPiA+DQo+ID4gPiBXaXRoIHRoYXQgYmVpbmcgc2FpZCB0aGVyZSBhcmUgY2hhbmdlcyBi
+ZWluZyBtYWRlIHRoYXQgc2hvdWxkIGhlbHANCj4gPiA+IHRvIGltcHJvdmUgdGhlIHNpdHVhdGlv
+bi7CoMKgU3BlY2lmaWNhbGx5IEkgYW0gbG9va2luZyBhdCBhZGRpbmcNCj4gPiA+IHN1cHBvcnQg
+Zm9yIHRoZSBETUFfQVRUUl9XRUFLX09SREVSSU5HIHdoaWNoIG1heSBhbHNvIGFsbG93IHVzIHRv
+DQo+ID4gPiBpZGVudGlmeSBjYXNlcyB3aGVyZSB5b3UgbWlnaHQgYmUgYWJsZSB0byBzcGVjaWZ5
+IHRoZSBETUEgYmVoYXZpb3INCj4gPiA+IHZpYSB0aGUgRE1BIG1hcHBpbmcgaW5zdGVhZCBvZiBo
+YXZpbmcgdG8gbWFrZSB0aGUgZmluYWwgZGVjaXNpb24gaW4NCj4gPiA+IHRoZSBkZXZpY2UgaXRz
+ZWxmLg0KPiA+ID4NCj4gPiA+IC0gQWxleA0KPiA+DQo+ID4gWWVzLCBTcGFyYyBpcyBhIHNwZWNp
+YWwgY2FzZS4gRnJvbSB0aGUgTklDIGRyaXZlciBwb2ludCBvZiB2aWV3LCBJdCBpcw0KPiA+IG5v
+IG5lZWQgZm9yIHNvbWUgQVJDSHMgdG8gZG8gcGFydGljdWxhciBvcGVyYXRpb24gYW5kIGNvbXBp
+bGluZw0KPiA+IGJyYW5jaCwgZXRodG9vbCBpcyBhIGZsZXhpYmxlIG1ldGhvZCBmb3IgdXNlciB0
+byBtYWtlIGRlY2lzaW9uIHdoZXRoZXINCj4gPiBvbnxvZmYgdGhpcyBmZWF0dXJlLg0KPiA+IEkg
+dGhpbmsgSmVmZiBhcyBtYWludGFpbmVyIG9mIDgyNTk5IGhhcyBzb21lIGNvbW1lbnRzIGFib3V0
+IHRoaXMuDQo+IA0KPiBNeSBvcmlnaW5hbCBjb21tZW50L29iamVjdGlvbiB3YXMgdGhhdCB5b3Ug
+YXR0ZW1wdGVkIHRvIGRvIHRoaXMgY2hhbmdlIGFzIGENCj4gbW9kdWxlIHBhcmFtZXRlciB0byB0
+aGUgaXhnYmUgZHJpdmVyLCB3aGVyZSBJIGRpcmVjdGVkIHlvdSB0byB1c2UgZXRodG9vbCBzbw0K
+PiB0aGF0IG90aGVyIGRyaXZlcnMgY291bGQgYmVuZWZpdCBmcm9tIHRoZSBhYmlsaXR5IHRvIGVu
+YWJsZS9kaXNhYmxlIHJlbGF4ZWQNCj4gb3JkZXJpbmcuICBBcyBmYXIgYXMgaG93IGl0IGdldHMg
+aW1wbGVtZW50ZWQgaW4gZXRodG9vbCBvciBQQ0kgbGF5ZXIsIG1ha2VzDQo+IGxpdHRsZSBkaWZm
+ZXJlbmNlIHRvIG1lLCBJIG9ubHkgaGFkIGlzc3VlcyB3aXRoIHRoZSBkcml2ZXIgc3BlY2lmaWMg
+bW9kdWxlDQo+IHBhcmFtZXRlciBpbXBsZW1lbnRhdGlvbiwgd2hpY2ggaXMgbm90IGFjY2VwdGFi
+bGUuDQoNCg0KVGhhbmsgeW91IEplZmYgYW5kIEFsZXguDQpBbmQgdGhlbiBJIGhhdmUgZ29uZSB0
+aHJvdWdoIG1haWwgdGhyZWFkIGFib3V0ICJpNDBlOiBlbmFibGUgUENJZSByZWxheCBvcmRlcmlu
+ZyBmb3IgU1BBUkMiLA0KSXQgb25seSB3b3JrcyBmb3IgU1BBUkMsIGFueSBvdGhlciBBUkNIIHdo
+byB3YW50cyB0byBlbmFibGUgRE1BX0FUVFJfV0VBS19PUkRFUklORyANCmZlYXR1cmUsIHNob3Vs
+ZCBkZWZpbmUgdGhlIG5ldyBtYWNybywgcmVjb21waWxlIHRoZSBkcml2ZXIgbW9kdWxlLg0KDQpC
+ZWNhdXNlIG9mIHRoZSBhYm92ZSByZWFzb25zLCB3ZSBpbXBsZW1lbnQgaW4gZXRodG9vbCB0byBn
+aXZlIHRoZSBmaW5hbCB1c2VyIGEgY29udmVuaWVudA0Kd2F5IHRvIG9ufG9mZiBzcGVjaWFsIGZl
+YXR1cmUsIG5vIG5lZWQgZGVmaW5lIG5ldyBtYWNybywgZWFzeSB0byBleHRlbmQgdGhlIG5ldyBm
+ZWF0dXJlcywNCmFuZCBhbHNvIGdvb2QgYmVuZWZpdCBmb3Igb3RoZXIgZHJpdmVyIGFzIEplZmYg
+cmVmZXJyZWQuDQoNCg==
