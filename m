@@ -1,48 +1,105 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net] net, sched: fix soft lockup in tc_classify
-Date: Fri, 23 Dec 2016 00:21:39 +0100
-Message-ID: <585C6003.9050806@iogearbox.net>
-References: <585ADFEB.3030206@iogearbox.net> <CAM_iQpUEUmJpjQYV7HV+4NVtGe6D-yZs6=YizcDtf7dogkNR0Q@mail.gmail.com> <585AEF24.4070800@iogearbox.net> <20161222.115326.376675148706578174.davem@davemloft.net> <585C127E.7040509@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: xiyou.wangcong@gmail.com, shahark@mellanox.com,
-        gerlitz.or@gmail.com, roid@mellanox.com, jiri@mellanox.com,
-        netdev@vger.kernel.org
-To: John Fastabend <john.fastabend@gmail.com>,
-        David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:36461 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1761800AbcLVXVn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 22 Dec 2016 18:21:43 -0500
-In-Reply-To: <585C127E.7040509@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "George Spelvin" <linux@sciencehorizons.net>
+Subject: Re: George's crazy full state idea (Re: HalfSipHash Acceptable Usage)
+Date: 22 Dec 2016 19:07:16 -0500
+Message-ID: <20161223000716.5768.qmail@ns.sciencehorizons.net>
+References: <30d9513a-129b-d246-1461-2326130e118f@stressinduktion.org>
+Reply-To: kernel-hardening@lists.openwall.com
+Cc: ak@linux.intel.com, davem@davemloft.net, David.Laight@aculab.com,
+  djb@cr.yp.to, ebiggers3@gmail.com, eric.dumazet@gmail.com, Jason@zx2c4.com,
+  jeanphilippe.aumasson@gmail.com, kernel-hardening@lists.openwall.com,
+  linux-crypto@vger.kernel.org, linux-kernel@vger.kernel.org,
+  netdev@vger.kernel.org, tom@herbertland.com, torvalds@linux-foundation.org,
+  tytso@mit.edu, vegard.nossum@gmail.com
+To: hannes@stressinduktion.org, linux@sciencehorizons.net, luto@kernel.org
+Return-path: <kernel-hardening-return-5810-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+In-Reply-To: <30d9513a-129b-d246-1461-2326130e118f@stressinduktion.org>
+List-Id: netdev.vger.kernel.org
 
-On 12/22/2016 06:50 PM, John Fastabend wrote:
-> On 16-12-22 08:53 AM, David Miller wrote:
->> From: Daniel Borkmann <daniel@iogearbox.net>
->> Date: Wed, 21 Dec 2016 22:07:48 +0100
->>
->>> Ok, you mean for net. In that case I prefer the smaller sized fix to
->>> be honest. It also covers everything from the point where we fetch
->>> the chain via cops->tcf_chain() to the end of the function, which is
->>> where most of the complexity resides, and only the two mentioned
->>> commits do the relock, so as a fix I think it's fine as-is. As
->>> mentioned, if there's need to refactor tc_ctl_tfilter() net-next
->>> would be better, imho.
->>
->> Please, can you two work towards an agreement as to what fix should
->> go in at this time?
->>
->> Thanks.
->
-> Thanks for fixing this!
->
-> I have a slight preference to push this patch into net as its been
-> tested already by Shahar and is not particularly invasive. Then for
-> net-next do a larger cleanup to get rid of some of the complexity per
-> Cong's suggestion.
+Hannes Frederic Sowa wrote:
+> A lockdep test should still be done. ;)
 
-My preference as well, thanks.
+Adding might_lock() annotations will improve coverage a lot.
+
+> Yes, that does look nice indeed. Accounting for bits instead of bytes
+> shouldn't be a huge problem either. Maybe it gets a bit more verbose in
+> case you can't satisfy a request with one batched entropy block and have
+> to consume randomness from two.
+
+The bit granularity is also for the callers' convenience, so they don't
+have to mask again.  Whether get_random_bits rounds up to byte boundaries
+internally or not is something else.
+
+When the current batch runs low, I was actually thinking of throwing
+away the remaining bits and computing a new batch of 512.  But it's
+whatever works best at implementation time.
+
+>>> It could only mix the output back in every two calls, in which case
+>>> you can backtrack up to one call but you need to do 2^128 work to
+>>> backtrack farther.  But yes, this is getting excessively complicated.
+> 
+>> No, if you're willing to accept limited backtrack, this is a perfectly
+>> acceptable solution, and not too complicated.  You could do it phase-less
+>> if you like; store the previous output, then after generating the new
+>> one, mix in both.  Then overwrite the previous output.  (But doing two
+>> rounds of a crypto primtive to avoid one conditional jump is stupid,
+>> so forget that.)
+
+> Can you quickly explain why we lose the backtracking capability?
+
+Sure.  An RNG is (state[i], output[i]) = f(state[i-1]).  The goal of
+backtracking is to compute output[i], or better yet state[i-1], given
+state[i].
+
+For example, consider an OFB or CTR mode generator.  The state is a key
+and and IV, and you encrypt the IV with the key to produce output, then
+either replace the IV with the output, or increment it.  Either way,
+since you still have the key, you can invert the transformation and
+recover the previous IV.
+
+The standard way around this is to use the Davies-Meyer construction:
+
+IV[i] = IV[i-1] + E(IV[i-1], key)
+
+This is the standard way to make a non-invertible random function
+out of an invertible random permutation.
+
+>From the sum, there's no easy way to find the ciphertext *or* the
+plaintext that was encrypted.  Assuming the encryption is secure,
+the only way to reverse it is brute force: guess IV[i-1] and run the
+operation forward to see if the resultant IV[i] matches.
+
+There are a variety of ways to organize this computation, since the
+guess gives toy both IV[i-1] and E(IV[i-1], key) = IV[i] - IV[i-1], including
+running E forward, backward, or starting from both ends to see if you
+meet in the middle.
+
+The way you add the encryption output to the IV is not very important.
+It can be addition, xor, or some more complex invertible transformation.
+In the case of SipHash, the "encryption" output is smaller than the
+input, so we have to get a bit more creative, but it's still basically
+the same thing.
+
+The problem is that the output which is combined with the IV is too small.
+With only 64 bits, trying all possible values is practical.  (The world's
+Bitcoin miners are collectively computing SHA-256(SHA-256(input)) 1.7 * 2^64
+times per second.)
+
+By basically doing two iterations at once and mixing in 128 bits of
+output, the guessing attack is rendered impractical.  The only downside
+is that you need to remember and store one result between when it's
+computed and last used.  This is part of the state, so an attack can
+find output[i-1], but not anything farther back.
+
+> ChaCha as a block cipher gives a "perfect" permutation from the output
+> of either the CRNG or the CPRNG, which actually itself has backtracking
+> protection.
+
+I'm not quite understanding.  The /dev/random implementation uses some
+of the ChaCha output as a new ChaCha key (that's another way to mix output
+back into the state) to prevent backtracking.  But this slows it down, and
+again if you want to be efficient, you're generating and storing large batches
+of entropy and storing it in the RNG state.
