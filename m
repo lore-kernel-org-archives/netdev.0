@@ -1,148 +1,106 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH] ethtool: add one ethtool option to set relax ordering
- mode
-Date: Thu, 22 Dec 2016 17:06:43 -0800
-Message-ID: <1482455203.2481.31.camel@intel.com>
-References: <1481179898-10668-1-git-send-email-maowenan@huawei.com>
-         <1481179898-10668-2-git-send-email-maowenan@huawei.com>
-         <20161221172759.1bc0d0dd@xeon-e3>
-         <F95AC9340317A84688A5F0DF0246F3F20151F189@szxeml504-mbs.china.huawei.com>
-         <CAKgT0Uc2ztu_iDn79zdNtsAdb-Ftu65V6YHV-sqXb6vTCTiGCQ@mail.gmail.com>
-         <F95AC9340317A84688A5F0DF0246F3F20151FD1C@szxeml504-mbs.china.huawei.com>
+From: Phil Reid <preid@electromag.com.au>
+Subject: Re: [PATCH v2] stmmac: CSR clock configuration fix
+Date: Fri, 23 Dec 2016 09:09:17 +0800
+Message-ID: <bc49326e-15ff-cbb3-6117-9fb4b96cc281@electromag.com.au>
+References: <7b395fd7dfd0c808243a744393473cbbf89b268a.1482410161.git.jpinto@synopsys.com>
+ <15975894-6a5e-1706-ff9e-660c0bac3971@electromag.com.au>
+ <efb22734-df9a-fde0-7cff-d1658105e2ec@synopsys.com>
+ <816bb34f-bb4c-648a-179e-7e72cab975b0@electromag.com.au>
+ <67213186-8583-9f9c-6f6a-6f56d2ba4ff0@synopsys.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-        protocol="application/pgp-signature"; boundary="=-TY5wrsu/z1vdfhqBHY4g"
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "weiyongjun (A)" <weiyongjun1@huawei.com>,
-        Dingtianhong <dingtianhong@huawei.com>
-To: maowenan <maowenan@huawei.com>,
-        Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga06.intel.com ([134.134.136.31]:47874 "EHLO mga06.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933659AbcLWBGp (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 22 Dec 2016 20:06:45 -0500
-In-Reply-To: <F95AC9340317A84688A5F0DF0246F3F20151FD1C@szxeml504-mbs.china.huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: hock.leong.kweh@intel.com, niklas.cassel@axis.com, pavel@ucw.cz,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Joao Pinto <Joao.Pinto@synopsys.com>, peppe.cavallaro@st.com,
+        davem@davemloft.net, seraphin.bonnaffe@st.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <67213186-8583-9f9c-6f6a-6f56d2ba4ff0@synopsys.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+G'day Joao,
+On 23/12/2016 01:06, Joao Pinto wrote:
+> Às 4:57 PM de 12/22/2016, Phil Reid escreveu:
+>> On 22/12/2016 23:47, Joao Pinto wrote:
+>>>
+>>> Hello Phil,
+>>>
+>>> Às 3:42 PM de 12/22/2016, Phil Reid escreveu:
+>>>> G'day Joao,
+>>>>
+>>>> On 22/12/2016 20:38, Joao Pinto wrote:
+>>>>> When testing stmmac with my QoS reference design I checked a problem in the
+>>>>> CSR clock configuration that was impossibilitating the phy discovery, since
+>>>>> every read operation returned 0x0000ffff. This patch fixes the issue.
+>>>>>
+>>>>> Signed-off-by: Joao Pinto <jpinto@synopsys.com>
+>>>>> ---
+>>>>> changes v1->v2 (David Miller)
+>>>>> - DWMAC100 and DWMAC1000 csr clocks masks should also be fixed for the patch
+>>>>> to make sense
+>>>>>
+>>>>>  drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c | 2 +-
+>>>>>  drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c  | 2 +-
+>>>>>  drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c    | 8 ++++----
+>>>>>  3 files changed, 6 insertions(+), 6 deletions(-)
+>>>>>
+>>>>> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
+>>>>> b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
+>>>>> index b21d03f..94223c8 100644
+>>>>> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
+>>>>> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
+>>>>> @@ -539,7 +539,7 @@ struct mac_device_info *dwmac1000_setup(void __iomem
+>>>>> *ioaddr, int mcbins,
+>>>>>      mac->mii.reg_shift = 6;
+>>>>>      mac->mii.reg_mask = 0x000007C0;
+>>>>>      mac->mii.clk_csr_shift = 2;
+>>>>> -    mac->mii.clk_csr_mask = 0xF;
+>>>>> +    mac->mii.clk_csr_mask = GENMASK(4, 2);
+>>>>
+>>>> Should this not be GENMASK(5,2)
+>>>
+>>> According to Universal MAC databook (valid for MAC100 and MAC1000), we have:
+>>>
+>>> Bits: 4:2
+>>> 000 60-100 MHz clk_csr_i/42
+>>> 001 100-150 MHz clk_csr_i/62
+>>> 010 20-35 MHz clk_csr_i/16
+>>> 011 35-60 MHz clk_csr_i/26
+>>> 100 150-250 MHz clk_csr_i/102
+>>> 101 250-300 MHz clk_csr_i/124
+>>> 110, 111 Reserved
+>>>
+>>> So only bits 2, 3 and 4 should be masked.
+>>>
+>>> Thanks.
+>>>
+>> But this is a change in behaviour from what was there isn't.
+>> Previous mask was 4 bits. now it's 3.
+>>
+>> And for example the altera socfgpa implementation in the cyclone V has valid values
+>> for values 0x8-0xf, using bit 5:2.
+>
+> According to the databook, bit 5 is reserved and RO. When reserved, it is
+> possible to customize. Is that the case? If there is hardware using the 5th bit
+> we can put it GENMASK(5, 2) with no problem.
+>
+I've also checked the Aria 10 documentation and bit 5 is also RW.
+The following options are documented and supported
+     1000: CSR clock/4
+     1001: CSR clock/6
+     1010: CSR clock/8
+     1011: CSR clock/10
+     1100: CSR clock/12
+     1101: CSR clock/14
+     1110: CSR clock/16
+     1111: CSR clock/18
+They do mention that these values will probably be outside the IEEE 802.3 specified range.
+
+But there's at least a couple of cores out there where GENMASK(5,2) is valid.
+Can't say if anyone is using that setting thou.
 
 
---=-TY5wrsu/z1vdfhqBHY4g
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Fri, 2016-12-23 at 00:40 +0000, maowenan wrote:
-> > -----Original Message-----
-> > From: Alexander Duyck [mailto:alexander.duyck@gmail.com]
-> > Sent: Thursday, December 22, 2016 11:54 PM
-> > To: maowenan
-> > Cc: Stephen Hemminger; netdev@vger.kernel.org; jeffrey.t.kirsher@intel.
-> > com;
-> > weiyongjun (A); Dingtianhong
-> > Subject: Re: [PATCH] ethtool: add one ethtool option to set relax
-> > ordering mode
-> >=20
-> > On Wed, Dec 21, 2016 at 5:39 PM, maowenan <maowenan@huawei.com>
-> > wrote:
-> > >=20
-> > >=20
-> > > > -----Original Message-----
-> > > > From: Stephen Hemminger [mailto:stephen@networkplumber.org]
-> > > > Sent: Thursday, December 22, 2016 9:28 AM
-> > > > To: maowenan
-> > > > Cc: netdev@vger.kernel.org; jeffrey.t.kirsher@intel.com
-> > > > Subject: Re: [PATCH] ethtool: add one ethtool option to set relax
-> > > > ordering mode
-> > > >=20
-> > > > On Thu, 8 Dec 2016 14:51:38 +0800
-> > > > Mao Wenan <maowenan@huawei.com> wrote:
-> > > >=20
-> > > > > This patch provides one way to set/unset IXGBE NIC TX and RX
-> > > > > relax
-> > > > > ordering mode, which can be set by ethtool.
-> > > > > Relax ordering is one mode of 82599 NIC, to enable this mode can
-> > > > > enhance the performance for some cpu architecure.
-> > > >=20
-> > > > Then it should be done by CPU architecture specific quirks
-> > > > (preferably in PCI
-> > > > layer) so that all users get the option without having to do manual
-> >=20
-> > intervention.
-> > > >=20
-> > > > > example:
-> > > > > ethtool -s enp1s0f0 relaxorder off
-> > > > > ethtool -s enp1s0f0 relaxorder on
-> > > >=20
-> > > > Doing it via ethtool is a developer API (for testing) not something
-> > > > that makes sense in production.
-> > >=20
-> > >=20
-> > > This feature is not mandatory for all users, acturally relax ordering
-> > > default configuration of 82599 is 'disable', So this patch gives one
-> > > way to
-> >=20
-> > enable relax ordering to be selected in some performance condition.
-> >=20
-> > That isn't quite true.=C2=A0=C2=A0The default for Sparc systems is to h=
-ave it
-> > enabled.
-> >=20
-> > Really this is something that is platform specific.=C2=A0=C2=A0I agree =
-with
-> > Stephen that it
-> > would work better if this was handled as a series of platform specific
-> > quirks
-> > handled at something like the PCI layer rather than be a switch the
-> > user can
-> > toggle on and off.
-> >=20
-> > With that being said there are changes being made that should help to
-> > improve
-> > the situation.=C2=A0=C2=A0Specifically I am looking at adding support f=
-or the
-> > DMA_ATTR_WEAK_ORDERING which may also allow us to identify cases where
-> > you might be able to specify the DMA behavior via the DMA mapping
-> > instead of
-> > having to make the final decision in the device itself.
-> >=20
-> > - Alex
->=20
-> Yes, Sparc is a special case. From the NIC driver point of view, It is no
-> need for=C2=A0
-> some ARCHs to do particular operation and compiling branch, ethtool is a
-> flexible=C2=A0
-> method for user to make decision whether on|off this feature.
-> I think Jeff as maintainer of 82599 has some comments about this.
-
-My original comment/objection was that you attempted to do this change as a
-module parameter to the ixgbe driver, where I directed you to use ethtool=
-=20
-so that other drivers could benefit from the ability to enable/disable
-relaxed ordering.  As far as how it gets implemented in ethtool or PCI
-layer, makes little difference to me, I only had issues with the driver
-specific module parameter implementation, which is not acceptable.
---=-TY5wrsu/z1vdfhqBHY4g
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCgAGBQJYXHijAAoJEOVv75VaS+3OLukP/Apv7DOQI/EsxIuy9702wYcs
-eVZXmYGg6swg5y8qQKS/+pNcVWWjBgG2bzdhBn34LfH30pled2RPqQfaF5lKSA+T
-GxVbyNx68998tXsdRxd1+mRQZ8m2pnFgtQZc8UuQlZPilOMJSPwZaxw5tTrSpN21
-heRG29zx4CDvXOLP4wKd7jrqpMFWJbYdRh3cUpeWCzLvKlDq3Ww3BWRWVjpNMx8m
-axhPdso2wlClps/3P+qCaYEWOpAgfxGf678dknsykDL6Gy+/KuDYZlkPMwFv2LFO
-XXxN6mREP4SvF0wBX4j+grUhNzzbJnSPlTPUQYJxcFBa21aRRafODKwNj6T+peiS
-X9ozPxlXkgZF3RAe/XVmg6vO2/3nyAB+XcOy/rmPg0P4EvMIJ3keDJ6y582UWbGm
-VCdzpAxLbOx4ZTxvq/f9wQ+LayGTTiDAaM/PAp9pWgSIoHHt03NvD+xZvOta3ZCu
-RlbysdzLxZgd6UnauV7pYqRyHbA3kwzU7WMw8h4xqW3wZ3FqjiQlABq5GtbCrTHZ
-e4KUu8u9cLmviE8BgchYESVAlhAfnEEigxZvYP1UuobTx7z7FhaM5iBIXO8Ago3P
-AwF/FkAJWp48e5xNXUsMhElTUPSLnngk22ASskjQVnED2uw5VBSFOp5cXYXyqqsM
-E+aS7WFRCJ1l+ZlQLTrf
-=D2Kg
------END PGP SIGNATURE-----
-
---=-TY5wrsu/z1vdfhqBHY4g--
+-- 
+Regards
+Phil Reid
