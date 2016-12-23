@@ -1,50 +1,86 @@
 From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: [PATCH net] sctp: do not loose window information if in rwnd_over
-Date: Fri, 23 Dec 2016 14:29:02 -0200
-Message-ID: <14d1eef1c9da4fcebc53d428a59ecaefab439b2c.1482510284.git.marcelo.leitner@gmail.com>
+Subject: [PATCH net] sctp: fix recovering from 0 win with small data chunks
+Date: Fri, 23 Dec 2016 14:29:37 -0200
+Message-ID: <d9025eef1b2be8e7097fd4a5db73b4f5c0f5418b.1482510289.git.marcelo.leitner@gmail.com>
 Cc: linux-sctp@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>,
         Vlad Yasevich <vyasevich@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f68.google.com ([209.85.218.68]:36677 "EHLO
+Received: from mail-oi0-f68.google.com ([209.85.218.68]:35261 "EHLO
         mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754033AbcLWQ3b (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 23 Dec 2016 11:29:31 -0500
+        with ESMTP id S1761059AbcLWQ37 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 23 Dec 2016 11:29:59 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It's possible that we receive a packet that is larger than current
-window. If it's the first packet in this way, it will cause it to
-increase rwnd_over. Then, if we receive another data chunk (specially as
-SCTP allows you to have one data chunk in flight even during 0 window),
-rwnd_over will be overwritten instead of added to.
+Currently if SCTP closes the receive window with window pressure, mostly
+caused by excessive skb overhead on payload/overheads ratio, SCTP will
+close the window abruptly while saving the delta on rwnd_press. It will
+start recovering rwnd as the chunks are consumed by the application and
+the rwnd_press will be only recovered after rwnd reach the same value as
+of rwnd_press, mostly to prevent silly window syndrome.
 
-In the long run, this could cause the window to grow bigger than its
-initial size, as rwnd_over would be charged only for the last received
-data chunk while the code will try open the window for all packets that
-were received and had its value in rwnd_over overwritten. This, then,
-can lead to the worsening of payload/buffer ratio and cause rwnd_press
-to kick in more often.
+Thing is, this is very inefficient with small data chunks, as with those
+it will never reach back that value, and thus it will never recover from
+such pressure. This means that we will not issue window updates when
+recovering from 0 window and will rely on a sender retransmit to notice
+it.
 
-The fix is to sum it too, same as is done for rwnd_press, so that if we
-receive 3 chunks after closing the window, we still have to release that
-same amount before re-opening it.
+The fix here is to remove such threshold, as no value is good enough: it
+depends on the (avg) chunk sizes being used.
 
-Log snippet from sctp_test exhibiting the issue:
-[  146.209232] sctp: sctp_assoc_rwnd_decrease: asoc:ffff88013928e000
-rwnd decreased by 1 to (0, 1, 114221)
-[  146.209232] sctp: sctp_assoc_rwnd_decrease:
-association:ffff88013928e000 has asoc->rwnd:0, asoc->rwnd_over:1!
-[  146.209232] sctp: sctp_assoc_rwnd_decrease: asoc:ffff88013928e000
-rwnd decreased by 1 to (0, 1, 114221)
-[  146.209232] sctp: sctp_assoc_rwnd_decrease:
-association:ffff88013928e000 has asoc->rwnd:0, asoc->rwnd_over:1!
-[  146.209232] sctp: sctp_assoc_rwnd_decrease: asoc:ffff88013928e000
-rwnd decreased by 1 to (0, 1, 114221)
-[  146.209232] sctp: sctp_assoc_rwnd_decrease:
-association:ffff88013928e000 has asoc->rwnd:0, asoc->rwnd_over:1!
-[  146.209232] sctp: sctp_assoc_rwnd_decrease: asoc:ffff88013928e000
-rwnd decreased by 1 to (0, 1, 114221)
+Test with netperf -t SCTP_STREAM -- -m 1, and trigger 0 window by
+sending SIGSTOP to netserver, sleep 1.2, and SIGCONT.
+Rate limited to 845kbps, for visibility. Capture done at netserver side.
+
+Previously:
+01.500751 IP B.48277 > A.36925: sctp (1) [SACK] [cum ack 632372996] [a_rwnd 99153] [
+01.500752 IP A.36925 > B.48277: sctp (1) [DATA] (B)(E) [TSN: 632372997] [SID: 0] [SS
+01.517471 IP A.36925 > B.48277: sctp (1) [DATA] (B)(E) [TSN: 632373010] [SID: 0] [SS
+01.517483 IP B.48277 > A.36925: sctp (1) [SACK] [cum ack 632373009] [a_rwnd 0] [#gap
+01.517485 IP A.36925 > B.48277: sctp (1) [DATA] (B)(E) [TSN: 632373083] [SID: 0] [SS
+01.517488 IP B.48277 > A.36925: sctp (1) [SACK] [cum ack 632373009] [a_rwnd 0] [#gap
+01.534168 IP A.36925 > B.48277: sctp (1) [DATA] (B)(E) [TSN: 632373096] [SID: 0] [SS
+01.534180 IP B.48277 > A.36925: sctp (1) [SACK] [cum ack 632373009] [a_rwnd 0] [#gap
+01.534181 IP A.36925 > B.48277: sctp (1) [DATA] (B)(E) [TSN: 632373169] [SID: 0] [SS
+01.534185 IP B.48277 > A.36925: sctp (1) [SACK] [cum ack 632373009] [a_rwnd 0] [#gap
+02.525978 IP A.36925 > B.48277: sctp (1) [DATA] (B)(E) [TSN: 632373010] [SID: 0] [SS
+02.526021 IP B.48277 > A.36925: sctp (1) [SACK] [cum ack 632373009] [a_rwnd 0] [#gap
+  (window update missed)
+04.573807 IP A.36925 > B.48277: sctp (1) [DATA] (B)(E) [TSN: 632373010] [SID: 0] [SS
+04.779370 IP B.48277 > A.36925: sctp (1) [SACK] [cum ack 632373082] [a_rwnd 859] [#g
+04.789162 IP A.36925 > B.48277: sctp (1) [DATA] (B)(E) [TSN: 632373083] [SID: 0] [SS
+04.789323 IP A.36925 > B.48277: sctp (1) [DATA] (B)(E) [TSN: 632373156] [SID: 0] [SS
+04.789372 IP B.48277 > A.36925: sctp (1) [SACK] [cum ack 632373228] [a_rwnd 786] [#g
+
+After:
+02.568957 IP B.50536 > A.55173: sctp (1) [SACK] [cum ack 2490098728] [a_rwnd 99153]
+02.568961 IP A.55173 > B.50536: sctp (1) [DATA] (B)(E) [TSN: 2490098729] [SID: 0] [S
+02.585631 IP A.55173 > B.50536: sctp (1) [DATA] (B)(E) [TSN: 2490098742] [SID: 0] [S
+02.585666 IP B.50536 > A.55173: sctp (1) [SACK] [cum ack 2490098741] [a_rwnd 0] [#ga
+02.585671 IP A.55173 > B.50536: sctp (1) [DATA] (B)(E) [TSN: 2490098815] [SID: 0] [S
+02.585683 IP B.50536 > A.55173: sctp (1) [SACK] [cum ack 2490098741] [a_rwnd 0] [#ga
+02.602330 IP A.55173 > B.50536: sctp (1) [DATA] (B)(E) [TSN: 2490098828] [SID: 0] [S
+02.602359 IP B.50536 > A.55173: sctp (1) [SACK] [cum ack 2490098741] [a_rwnd 0] [#ga
+02.602363 IP A.55173 > B.50536: sctp (1) [DATA] (B)(E) [TSN: 2490098901] [SID: 0] [S
+02.602372 IP B.50536 > A.55173: sctp (1) [SACK] [cum ack 2490098741] [a_rwnd 0] [#ga
+03.600788 IP A.55173 > B.50536: sctp (1) [DATA] (B)(E) [TSN: 2490098742] [SID: 0] [S
+03.600830 IP B.50536 > A.55173: sctp (1) [SACK] [cum ack 2490098741] [a_rwnd 0] [#ga
+03.619455 IP B.50536 > A.55173: sctp (1) [SACK] [cum ack 2490098741] [a_rwnd 13508]
+03.619479 IP B.50536 > A.55173: sctp (1) [SACK] [cum ack 2490098741] [a_rwnd 27017]
+03.619497 IP B.50536 > A.55173: sctp (1) [SACK] [cum ack 2490098741] [a_rwnd 40526]
+03.619516 IP B.50536 > A.55173: sctp (1) [SACK] [cum ack 2490098741] [a_rwnd 54035]
+03.619533 IP B.50536 > A.55173: sctp (1) [SACK] [cum ack 2490098741] [a_rwnd 67544]
+03.619552 IP B.50536 > A.55173: sctp (1) [SACK] [cum ack 2490098741] [a_rwnd 81053]
+03.619570 IP B.50536 > A.55173: sctp (1) [SACK] [cum ack 2490098741] [a_rwnd 94562]
+  (following data transmission triggered by window updates above)
+03.633504 IP A.55173 > B.50536: sctp (1) [DATA] (B)(E) [TSN: 2490098742] [SID: 0] [S
+03.836445 IP B.50536 > A.55173: sctp (1) [SACK] [cum ack 2490098814] [a_rwnd 100000]
+03.843125 IP A.55173 > B.50536: sctp (1) [DATA] (B)(E) [TSN: 2490098815] [SID: 0] [S
+03.843285 IP A.55173 > B.50536: sctp (1) [DATA] (B)(E) [TSN: 2490098888] [SID: 0] [S
+03.843345 IP B.50536 > A.55173: sctp (1) [SACK] [cum ack 2490098960] [a_rwnd 99894]
+03.856546 IP A.55173 > B.50536: sctp (1) [DATA] (B)(E) [TSN: 2490098961] [SID: 0] [S
+03.866450 IP A.55173 > B.50536: sctp (1) [DATA] (B)(E) [TSN: 2490099011] [SID: 0] [S
 
 Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 ---
@@ -52,17 +88,17 @@ Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-index 68428e1f71810fbe65b7f86c750c3ad61f0266ec..56ddcfaeb4f64235b54b0daa915fabf0cc0170a9 100644
+index 56ddcfaeb4f64235b54b0daa915fabf0cc0170a9..d3cc30c25c41091c2bf18022506dff4145d29944 100644
 --- a/net/sctp/associola.c
 +++ b/net/sctp/associola.c
-@@ -1539,7 +1539,7 @@ void sctp_assoc_rwnd_decrease(struct sctp_association *asoc, unsigned int len)
- 			asoc->rwnd = 0;
- 		}
- 	} else {
--		asoc->rwnd_over = len - asoc->rwnd;
-+		asoc->rwnd_over += len - asoc->rwnd;
- 		asoc->rwnd = 0;
- 	}
- 
+@@ -1471,7 +1471,7 @@ void sctp_assoc_rwnd_increase(struct sctp_association *asoc, unsigned int len)
+ 	 * threshold.  The idea is to recover slowly, but up
+ 	 * to the initial advertised window.
+ 	 */
+-	if (asoc->rwnd_press && asoc->rwnd >= asoc->rwnd_press) {
++	if (asoc->rwnd_press) {
+ 		int change = min(asoc->pathmtu, asoc->rwnd_press);
+ 		asoc->rwnd += change;
+ 		asoc->rwnd_press -= change;
 -- 
 2.9.3
