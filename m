@@ -1,79 +1,54 @@
-From: maowenan <maowenan@huawei.com>
-Subject: RE: [PATCH] ethtool: add one ethtool option to set relax ordering
- mode
-Date: Fri, 23 Dec 2016 00:40:23 +0000
-Message-ID: <F95AC9340317A84688A5F0DF0246F3F20151FD1C@szxeml504-mbs.china.huawei.com>
-References: <1481179898-10668-1-git-send-email-maowenan@huawei.com>
- <1481179898-10668-2-git-send-email-maowenan@huawei.com>
- <20161221172759.1bc0d0dd@xeon-e3>
- <F95AC9340317A84688A5F0DF0246F3F20151F189@szxeml504-mbs.china.huawei.com>
- <CAKgT0Uc2ztu_iDn79zdNtsAdb-Ftu65V6YHV-sqXb6vTCTiGCQ@mail.gmail.com>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH] brcmfmac: fix spelling mistakes on "Ivalid"
+Date: Fri, 23 Dec 2016 00:43:22 +0000
+Message-ID: <20161223004322.7300-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
-        "weiyongjun (A)" <weiyongjun1@huawei.com>,
-        Dingtianhong <dingtianhong@huawei.com>
-To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([58.251.152.64]:52181 "EHLO
-        szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753261AbcLWAnv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 22 Dec 2016 19:43:51 -0500
-In-Reply-To: <CAKgT0Uc2ztu_iDn79zdNtsAdb-Ftu65V6YHV-sqXb6vTCTiGCQ@mail.gmail.com>
-Content-Language: zh-CN
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org
+To: Arend van Spriel <arend.vanspriel@broadcom.com>,
+        Franky Lin <franky.lin@broadcom.com>,
+        Hante Meuleman <hante.meuleman@broadcom.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        Pieter-Paul Giesberts <pieter-paul.giesberts@broadcom.com>,
+        =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <rafal@milecki.pl>,
+        linux-wireless@vger.kernel.org,
+        brcm80211-dev-list.pdl@broadcom.com, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogQWxleGFuZGVyIER1eWNr
-IFttYWlsdG86YWxleGFuZGVyLmR1eWNrQGdtYWlsLmNvbV0NCj4gU2VudDogVGh1cnNkYXksIERl
-Y2VtYmVyIDIyLCAyMDE2IDExOjU0IFBNDQo+IFRvOiBtYW93ZW5hbg0KPiBDYzogU3RlcGhlbiBI
-ZW1taW5nZXI7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IGplZmZyZXkudC5raXJzaGVyQGludGVs
-LmNvbTsNCj4gd2VpeW9uZ2p1biAoQSk7IERpbmd0aWFuaG9uZw0KPiBTdWJqZWN0OiBSZTogW1BB
-VENIXSBldGh0b29sOiBhZGQgb25lIGV0aHRvb2wgb3B0aW9uIHRvIHNldCByZWxheCBvcmRlcmlu
-ZyBtb2RlDQo+IA0KPiBPbiBXZWQsIERlYyAyMSwgMjAxNiBhdCA1OjM5IFBNLCBtYW93ZW5hbiA8
-bWFvd2VuYW5AaHVhd2VpLmNvbT4NCj4gd3JvdGU6DQo+ID4NCj4gPg0KPiA+PiAtLS0tLU9yaWdp
-bmFsIE1lc3NhZ2UtLS0tLQ0KPiA+PiBGcm9tOiBTdGVwaGVuIEhlbW1pbmdlciBbbWFpbHRvOnN0
-ZXBoZW5AbmV0d29ya3BsdW1iZXIub3JnXQ0KPiA+PiBTZW50OiBUaHVyc2RheSwgRGVjZW1iZXIg
-MjIsIDIwMTYgOToyOCBBTQ0KPiA+PiBUbzogbWFvd2VuYW4NCj4gPj4gQ2M6IG5ldGRldkB2Z2Vy
-Lmtlcm5lbC5vcmc7IGplZmZyZXkudC5raXJzaGVyQGludGVsLmNvbQ0KPiA+PiBTdWJqZWN0OiBS
-ZTogW1BBVENIXSBldGh0b29sOiBhZGQgb25lIGV0aHRvb2wgb3B0aW9uIHRvIHNldCByZWxheA0K
-PiA+PiBvcmRlcmluZyBtb2RlDQo+ID4+DQo+ID4+IE9uIFRodSwgOCBEZWMgMjAxNiAxNDo1MToz
-OCArMDgwMA0KPiA+PiBNYW8gV2VuYW4gPG1hb3dlbmFuQGh1YXdlaS5jb20+IHdyb3RlOg0KPiA+
-Pg0KPiA+PiA+IFRoaXMgcGF0Y2ggcHJvdmlkZXMgb25lIHdheSB0byBzZXQvdW5zZXQgSVhHQkUg
-TklDIFRYIGFuZCBSWCByZWxheA0KPiA+PiA+IG9yZGVyaW5nIG1vZGUsIHdoaWNoIGNhbiBiZSBz
-ZXQgYnkgZXRodG9vbC4NCj4gPj4gPiBSZWxheCBvcmRlcmluZyBpcyBvbmUgbW9kZSBvZiA4MjU5
-OSBOSUMsIHRvIGVuYWJsZSB0aGlzIG1vZGUgY2FuDQo+ID4+ID4gZW5oYW5jZSB0aGUgcGVyZm9y
-bWFuY2UgZm9yIHNvbWUgY3B1IGFyY2hpdGVjdXJlLg0KPiA+Pg0KPiA+PiBUaGVuIGl0IHNob3Vs
-ZCBiZSBkb25lIGJ5IENQVSBhcmNoaXRlY3R1cmUgc3BlY2lmaWMgcXVpcmtzDQo+ID4+IChwcmVm
-ZXJhYmx5IGluIFBDSQ0KPiA+PiBsYXllcikgc28gdGhhdCBhbGwgdXNlcnMgZ2V0IHRoZSBvcHRp
-b24gd2l0aG91dCBoYXZpbmcgdG8gZG8gbWFudWFsDQo+IGludGVydmVudGlvbi4NCj4gPj4NCj4g
-Pj4gPiBleGFtcGxlOg0KPiA+PiA+IGV0aHRvb2wgLXMgZW5wMXMwZjAgcmVsYXhvcmRlciBvZmYN
-Cj4gPj4gPiBldGh0b29sIC1zIGVucDFzMGYwIHJlbGF4b3JkZXIgb24NCj4gPj4NCj4gPj4gRG9p
-bmcgaXQgdmlhIGV0aHRvb2wgaXMgYSBkZXZlbG9wZXIgQVBJIChmb3IgdGVzdGluZykgbm90IHNv
-bWV0aGluZw0KPiA+PiB0aGF0IG1ha2VzIHNlbnNlIGluIHByb2R1Y3Rpb24uDQo+ID4NCj4gPg0K
-PiA+IFRoaXMgZmVhdHVyZSBpcyBub3QgbWFuZGF0b3J5IGZvciBhbGwgdXNlcnMsIGFjdHVyYWxs
-eSByZWxheCBvcmRlcmluZw0KPiA+IGRlZmF1bHQgY29uZmlndXJhdGlvbiBvZiA4MjU5OSBpcyAn
-ZGlzYWJsZScsIFNvIHRoaXMgcGF0Y2ggZ2l2ZXMgb25lIHdheSB0bw0KPiBlbmFibGUgcmVsYXgg
-b3JkZXJpbmcgdG8gYmUgc2VsZWN0ZWQgaW4gc29tZSBwZXJmb3JtYW5jZSBjb25kaXRpb24uDQo+
-IA0KPiBUaGF0IGlzbid0IHF1aXRlIHRydWUuICBUaGUgZGVmYXVsdCBmb3IgU3BhcmMgc3lzdGVt
-cyBpcyB0byBoYXZlIGl0IGVuYWJsZWQuDQo+IA0KPiBSZWFsbHkgdGhpcyBpcyBzb21ldGhpbmcg
-dGhhdCBpcyBwbGF0Zm9ybSBzcGVjaWZpYy4gIEkgYWdyZWUgd2l0aCBTdGVwaGVuIHRoYXQgaXQN
-Cj4gd291bGQgd29yayBiZXR0ZXIgaWYgdGhpcyB3YXMgaGFuZGxlZCBhcyBhIHNlcmllcyBvZiBw
-bGF0Zm9ybSBzcGVjaWZpYyBxdWlya3MNCj4gaGFuZGxlZCBhdCBzb21ldGhpbmcgbGlrZSB0aGUg
-UENJIGxheWVyIHJhdGhlciB0aGFuIGJlIGEgc3dpdGNoIHRoZSB1c2VyIGNhbg0KPiB0b2dnbGUg
-b24gYW5kIG9mZi4NCj4gDQo+IFdpdGggdGhhdCBiZWluZyBzYWlkIHRoZXJlIGFyZSBjaGFuZ2Vz
-IGJlaW5nIG1hZGUgdGhhdCBzaG91bGQgaGVscCB0byBpbXByb3ZlDQo+IHRoZSBzaXR1YXRpb24u
-ICBTcGVjaWZpY2FsbHkgSSBhbSBsb29raW5nIGF0IGFkZGluZyBzdXBwb3J0IGZvciB0aGUNCj4g
-RE1BX0FUVFJfV0VBS19PUkRFUklORyB3aGljaCBtYXkgYWxzbyBhbGxvdyB1cyB0byBpZGVudGlm
-eSBjYXNlcyB3aGVyZQ0KPiB5b3UgbWlnaHQgYmUgYWJsZSB0byBzcGVjaWZ5IHRoZSBETUEgYmVo
-YXZpb3IgdmlhIHRoZSBETUEgbWFwcGluZyBpbnN0ZWFkIG9mDQo+IGhhdmluZyB0byBtYWtlIHRo
-ZSBmaW5hbCBkZWNpc2lvbiBpbiB0aGUgZGV2aWNlIGl0c2VsZi4NCj4gDQo+IC0gQWxleA0KDQpZ
-ZXMsIFNwYXJjIGlzIGEgc3BlY2lhbCBjYXNlLiBGcm9tIHRoZSBOSUMgZHJpdmVyIHBvaW50IG9m
-IHZpZXcsIEl0IGlzIG5vIG5lZWQgZm9yIA0Kc29tZSBBUkNIcyB0byBkbyBwYXJ0aWN1bGFyIG9w
-ZXJhdGlvbiBhbmQgY29tcGlsaW5nIGJyYW5jaCwgZXRodG9vbCBpcyBhIGZsZXhpYmxlIA0KbWV0
-aG9kIGZvciB1c2VyIHRvIG1ha2UgZGVjaXNpb24gd2hldGhlciBvbnxvZmYgdGhpcyBmZWF0dXJl
-Lg0KSSB0aGluayBKZWZmIGFzIG1haW50YWluZXIgb2YgODI1OTkgaGFzIHNvbWUgY29tbWVudHMg
-YWJvdXQgdGhpcy4NCi1XZW5hbg0KDQo=
+From: Colin Ian King <colin.king@canonical.com>
+
+Trivial fixes to spelling mistake "Ivalid" to "Invalid" in
+brcmf_err error messages.
+
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c
+index 7ffc4ab..15eaf72 100644
+--- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c
++++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c
+@@ -3971,7 +3971,7 @@ brcmf_configure_wpaie(struct brcmf_if *ifp,
+ 			pval |= AES_ENABLED;
+ 			break;
+ 		default:
+-			brcmf_err("Ivalid unicast security info\n");
++			brcmf_err("Invalid unicast security info\n");
+ 		}
+ 		offset++;
+ 	}
+@@ -4015,7 +4015,7 @@ brcmf_configure_wpaie(struct brcmf_if *ifp,
+ 			wpa_auth |= WPA2_AUTH_1X_SHA256;
+ 			break;
+ 		default:
+-			brcmf_err("Ivalid key mgmt info\n");
++			brcmf_err("Invalid key mgmt info\n");
+ 		}
+ 		offset++;
+ 	}
+-- 
+2.10.2
