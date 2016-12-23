@@ -1,104 +1,99 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: [PATCH net] sctp: fix recovering from 0 win with small data chunks
-Date: Fri, 23 Dec 2016 14:29:37 -0200
-Message-ID: <d9025eef1b2be8e7097fd4a5db73b4f5c0f5418b.1482510289.git.marcelo.leitner@gmail.com>
-Cc: linux-sctp@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>,
-        Vlad Yasevich <vyasevich@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f68.google.com ([209.85.218.68]:35261 "EHLO
-        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1761059AbcLWQ37 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 23 Dec 2016 11:29:59 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andy Lutomirski <luto@amacapital.net>
+Subject: Re: BPF hash algo (Re: [kernel-hardening] Re: [PATCH v7 3/6] random:
+ use SipHash in place of MD5)
+Date: Fri, 23 Dec 2016 08:42:28 -0800
+Message-ID: <CALCETrXHoPBV1UpLwtLjjmqJXVpgEUTCnwePDLx4g6a1SFMZaw@mail.gmail.com>
+References: <CALCETrUATPeaCJTQZN2h=ct6HH-xLt4V8T0PfPHNFGFN2HWtTA@mail.gmail.com>
+ <1482425969.2673.5.camel@stressinduktion.org> <585CF6A3.1050107@iogearbox.net>
+ <1482490762.3353.2.camel@stressinduktion.org> <585D11BF.60903@iogearbox.net> <CALCETrVgnnbstPoPf-0bZ_ySDydXNCp5dLAEvhAD9cApozFsng@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        "Jason A. Donenfeld" <Jason@zx2c4.com>,
+        "kernel-hardening@lists.openwall.com"
+        <kernel-hardening@lists.openwall.com>,
+        "Theodore Ts'o" <tytso@mit.edu>, Netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+        David Laight <David.Laight@aculab.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Linus Torvalds <torvalds@linux-foundation.org>,
+        Eric Biggers <ebiggers3@gmail.com>,
+        Tom Herbert <tom@herbertland.com>,
+        Andi Kleen <ak@linux.intel.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>
+To: Daniel Borkmann <daniel@iogearbox.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CALCETrVgnnbstPoPf-0bZ_ySDydXNCp5dLAEvhAD9cApozFsng@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Currently if SCTP closes the receive window with window pressure, mostly
-caused by excessive skb overhead on payload/overheads ratio, SCTP will
-close the window abruptly while saving the delta on rwnd_press. It will
-start recovering rwnd as the chunks are consumed by the application and
-the rwnd_press will be only recovered after rwnd reach the same value as
-of rwnd_press, mostly to prevent silly window syndrome.
+On Fri, Dec 23, 2016 at 8:23 AM, Andy Lutomirski <luto@amacapital.net> wrote:
+> On Fri, Dec 23, 2016 at 3:59 AM, Daniel Borkmann <daniel@iogearbox.net> wrote:
+>> On 12/23/2016 11:59 AM, Hannes Frederic Sowa wrote:
+>>>
+>>> On Fri, 2016-12-23 at 11:04 +0100, Daniel Borkmann wrote:
+>>>>
+>>>> On 12/22/2016 05:59 PM, Hannes Frederic Sowa wrote:
+>>>>>
+>>>>> On Thu, 2016-12-22 at 08:07 -0800, Andy Lutomirski wrote:
+>>
+>> [...]
+>>
+>>>>> The hashing is not a proper sha1 neither, unfortunately. I think that
+>>>>> is why it will have a custom implementation in iproute2?
+>>>>
+>>>>
+>>>> Still trying to catch up on this admittedly bit confusing thread. I
+>>>> did run automated tests over couple of days comparing the data I got
+>>>> from fdinfo with the one from af_alg and found no mismatch on the test
+>>>> cases varying from min to max possible program sizes. In the process
+>>>> of testing, as you might have seen on netdev, I found couple of other
+>>>> bugs in bpf code along the way and fixed them up as well. So my question,
+>>>> do you or Andy or anyone participating in claiming this have any
+>>>> concrete data or test cases that suggests something different? If yes,
+>>>> I'm very curious to hear about it and willing fix it up, of course.
+>>>> When I'm back from pto I'll prep and cook up my test suite to be
+>>>> included into the selftests/bpf/, should have done this initially,
+>>>> sorry about that. I'll also post something to expose the alg, that
+>>>> sounds fine to me.
+>>>
+>>>
+>>> Looking into your code closer, I noticed that you indeed seem to do the
+>>> finalization of sha-1 by hand by aligning and padding the buffer
+>>> accordingly and also patching in the necessary payload length.
+>>>
+>>> Apologies for my side for claiming that this is not correct sha1
+>>> output, I was only looking at sha_transform and its implementation and
+>>> couldn't see the padding and finalization round with embedding the data
+>>> length in there and hadn't thought of it being done manually.
+>>>
+>>> Anyway, is it difficult to get the sha finalization into some common
+>>> code library? It is not very bpf specific and crypto code reviewers
+>>> won't find it there at all.
+>>
+>>
+>> Yes, sure, I'll rework it that way (early next year when I'm back if
+>> that's fine with you).
+>
+> Can we make it SHA-256 before 4.10 comes out, though?  This really
+> looks like it will be used in situations where collisions matter and
+> it will be exposed to malicious programs, and SHA-1 should not be used
+> for new designs for this purpose because it simply isn't long enough.
+>
+> Also, a SHA-1 digest isn't a pile of u32s, so u32 digest[...] is very
+> misleading.  That should be u8 or, at the very least, __be32.
+>
+> I realize that there isn't a sha-256 implementation in lib, but would
+> it really be so bad to make the bpf digest only work (for now) when
+> crypto is enabled?  I would *love* to see the crypto core learn how to
+> export simple primitives for direct use without needing the whole
+> crypto core, and this doesn't seem particularly hard to do, but I
+> don't think that's 4.10 material.
 
-Thing is, this is very inefficient with small data chunks, as with those
-it will never reach back that value, and thus it will never recover from
-such pressure. This means that we will not issue window updates when
-recovering from 0 window and will rely on a sender retransmit to notice
-it.
+I'm going to try to send out RFC patches for all of this today or
+tomorrow.  It doesn't look bad at all.
 
-The fix here is to remove such threshold, as no value is good enough: it
-depends on the (avg) chunk sizes being used.
-
-Test with netperf -t SCTP_STREAM -- -m 1, and trigger 0 window by
-sending SIGSTOP to netserver, sleep 1.2, and SIGCONT.
-Rate limited to 845kbps, for visibility. Capture done at netserver side.
-
-Previously:
-01.500751 IP B.48277 > A.36925: sctp (1) [SACK] [cum ack 632372996] [a_rwnd 99153] [
-01.500752 IP A.36925 > B.48277: sctp (1) [DATA] (B)(E) [TSN: 632372997] [SID: 0] [SS
-01.517471 IP A.36925 > B.48277: sctp (1) [DATA] (B)(E) [TSN: 632373010] [SID: 0] [SS
-01.517483 IP B.48277 > A.36925: sctp (1) [SACK] [cum ack 632373009] [a_rwnd 0] [#gap
-01.517485 IP A.36925 > B.48277: sctp (1) [DATA] (B)(E) [TSN: 632373083] [SID: 0] [SS
-01.517488 IP B.48277 > A.36925: sctp (1) [SACK] [cum ack 632373009] [a_rwnd 0] [#gap
-01.534168 IP A.36925 > B.48277: sctp (1) [DATA] (B)(E) [TSN: 632373096] [SID: 0] [SS
-01.534180 IP B.48277 > A.36925: sctp (1) [SACK] [cum ack 632373009] [a_rwnd 0] [#gap
-01.534181 IP A.36925 > B.48277: sctp (1) [DATA] (B)(E) [TSN: 632373169] [SID: 0] [SS
-01.534185 IP B.48277 > A.36925: sctp (1) [SACK] [cum ack 632373009] [a_rwnd 0] [#gap
-02.525978 IP A.36925 > B.48277: sctp (1) [DATA] (B)(E) [TSN: 632373010] [SID: 0] [SS
-02.526021 IP B.48277 > A.36925: sctp (1) [SACK] [cum ack 632373009] [a_rwnd 0] [#gap
-  (window update missed)
-04.573807 IP A.36925 > B.48277: sctp (1) [DATA] (B)(E) [TSN: 632373010] [SID: 0] [SS
-04.779370 IP B.48277 > A.36925: sctp (1) [SACK] [cum ack 632373082] [a_rwnd 859] [#g
-04.789162 IP A.36925 > B.48277: sctp (1) [DATA] (B)(E) [TSN: 632373083] [SID: 0] [SS
-04.789323 IP A.36925 > B.48277: sctp (1) [DATA] (B)(E) [TSN: 632373156] [SID: 0] [SS
-04.789372 IP B.48277 > A.36925: sctp (1) [SACK] [cum ack 632373228] [a_rwnd 786] [#g
-
-After:
-02.568957 IP B.50536 > A.55173: sctp (1) [SACK] [cum ack 2490098728] [a_rwnd 99153]
-02.568961 IP A.55173 > B.50536: sctp (1) [DATA] (B)(E) [TSN: 2490098729] [SID: 0] [S
-02.585631 IP A.55173 > B.50536: sctp (1) [DATA] (B)(E) [TSN: 2490098742] [SID: 0] [S
-02.585666 IP B.50536 > A.55173: sctp (1) [SACK] [cum ack 2490098741] [a_rwnd 0] [#ga
-02.585671 IP A.55173 > B.50536: sctp (1) [DATA] (B)(E) [TSN: 2490098815] [SID: 0] [S
-02.585683 IP B.50536 > A.55173: sctp (1) [SACK] [cum ack 2490098741] [a_rwnd 0] [#ga
-02.602330 IP A.55173 > B.50536: sctp (1) [DATA] (B)(E) [TSN: 2490098828] [SID: 0] [S
-02.602359 IP B.50536 > A.55173: sctp (1) [SACK] [cum ack 2490098741] [a_rwnd 0] [#ga
-02.602363 IP A.55173 > B.50536: sctp (1) [DATA] (B)(E) [TSN: 2490098901] [SID: 0] [S
-02.602372 IP B.50536 > A.55173: sctp (1) [SACK] [cum ack 2490098741] [a_rwnd 0] [#ga
-03.600788 IP A.55173 > B.50536: sctp (1) [DATA] (B)(E) [TSN: 2490098742] [SID: 0] [S
-03.600830 IP B.50536 > A.55173: sctp (1) [SACK] [cum ack 2490098741] [a_rwnd 0] [#ga
-03.619455 IP B.50536 > A.55173: sctp (1) [SACK] [cum ack 2490098741] [a_rwnd 13508]
-03.619479 IP B.50536 > A.55173: sctp (1) [SACK] [cum ack 2490098741] [a_rwnd 27017]
-03.619497 IP B.50536 > A.55173: sctp (1) [SACK] [cum ack 2490098741] [a_rwnd 40526]
-03.619516 IP B.50536 > A.55173: sctp (1) [SACK] [cum ack 2490098741] [a_rwnd 54035]
-03.619533 IP B.50536 > A.55173: sctp (1) [SACK] [cum ack 2490098741] [a_rwnd 67544]
-03.619552 IP B.50536 > A.55173: sctp (1) [SACK] [cum ack 2490098741] [a_rwnd 81053]
-03.619570 IP B.50536 > A.55173: sctp (1) [SACK] [cum ack 2490098741] [a_rwnd 94562]
-  (following data transmission triggered by window updates above)
-03.633504 IP A.55173 > B.50536: sctp (1) [DATA] (B)(E) [TSN: 2490098742] [SID: 0] [S
-03.836445 IP B.50536 > A.55173: sctp (1) [SACK] [cum ack 2490098814] [a_rwnd 100000]
-03.843125 IP A.55173 > B.50536: sctp (1) [DATA] (B)(E) [TSN: 2490098815] [SID: 0] [S
-03.843285 IP A.55173 > B.50536: sctp (1) [DATA] (B)(E) [TSN: 2490098888] [SID: 0] [S
-03.843345 IP B.50536 > A.55173: sctp (1) [SACK] [cum ack 2490098960] [a_rwnd 99894]
-03.856546 IP A.55173 > B.50536: sctp (1) [DATA] (B)(E) [TSN: 2490098961] [SID: 0] [S
-03.866450 IP A.55173 > B.50536: sctp (1) [DATA] (B)(E) [TSN: 2490099011] [SID: 0] [S
-
-Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
----
- net/sctp/associola.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-index 56ddcfaeb4f64235b54b0daa915fabf0cc0170a9..d3cc30c25c41091c2bf18022506dff4145d29944 100644
---- a/net/sctp/associola.c
-+++ b/net/sctp/associola.c
-@@ -1471,7 +1471,7 @@ void sctp_assoc_rwnd_increase(struct sctp_association *asoc, unsigned int len)
- 	 * threshold.  The idea is to recover slowly, but up
- 	 * to the initial advertised window.
- 	 */
--	if (asoc->rwnd_press && asoc->rwnd >= asoc->rwnd_press) {
-+	if (asoc->rwnd_press) {
- 		int change = min(asoc->pathmtu, asoc->rwnd_press);
- 		asoc->rwnd += change;
- 		asoc->rwnd_press -= change;
--- 
-2.9.3
+--Andy
