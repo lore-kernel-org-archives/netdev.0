@@ -1,55 +1,67 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: Re: [RFC PATCH 4.10 1/6] crypto/sha256: Refactor the API so it can be
- used without shash
-Date: Fri, 23 Dec 2016 18:26:37 -0800
-Message-ID: <CALCETrW8JFtmByxMnSQkP04JZH7V-zEcN+sJaBPNodyKcspvNw@mail.gmail.com>
-References: <cover.1482545792.git.luto@kernel.org> <942b91f25a63b22ec4946378a1fffe78d655cf18.1482545792.git.luto@kernel.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-        Netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-        "Jason A. Donenfeld" <Jason@zx2c4.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Eric Biggers <ebiggers3@gmail.com>,
-        Tom Herbert <tom@herbertland.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Ard Biesheuvel <ard.biesheuvel@linaro.org>,
-        Herbert Xu <herbert@gondor.apana.org.au>
-To: Andy Lutomirski <luto@kernel.org>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <942b91f25a63b22ec4946378a1fffe78d655cf18.1482545792.git.luto@kernel.org>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net] net: korina: Fix NAPI versus resources freeing
+Date: Fri, 23 Dec 2016 19:56:56 -0800
+Message-ID: <20161224035656.11289-1-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, alex@ozo.com, phil@nwl.cc,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f66.google.com ([209.85.218.66]:33820 "EHLO
+        mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751671AbcLXD5A (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 23 Dec 2016 22:57:00 -0500
+Received: by mail-oi0-f66.google.com with SMTP id 3so10275493oih.1
+        for <netdev@vger.kernel.org>; Fri, 23 Dec 2016 19:57:00 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 23, 2016 at 6:22 PM, Andy Lutomirski <luto@kernel.org> wrote:
-> There are some pieecs of kernel code that want to compute SHA256
-> directly without going through the crypto core.  Adjust the exported
-> API to decouple it from the crypto core.
->
-> I suspect this will very slightly speed up the SHA256 shash operations
-> as well by reducing the amount of indirection involved.
->
+Commit beb0babfb77e ("korina: disable napi on close and restart")
+introduced calls to napi_disable() that were missing before,
+unfortunately this leaves a small window during which NAPI has a chance
+to run, yet we just freed resources since korina_free_ring() has been
+called:
 
-I should also mention: there's a nice potential cleanup that's
-possible on top of this.  Currently, most of the accelerated SHA256
-implementations just swap out the block function.  Another approach to
-enabling this would be to restructure sha256_update along the lines
-of:
+Fix this by disabling NAPI first then freeing resource, and make sure
+that we also cancel the restart taks before doing the resource freeing.
 
-sha256_block_fn_t fn = arch_sha256_block_fn(len);
-sha256_base_do_update(sctx, data, len, arch_sha256_block_fn(len));
+Fixes: beb0babfb77e ("korina: disable napi on close and restart")
+Reported-by: Alexandros C. Couloumbis <alex@ozo.com>
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/ethernet/korina.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-The idea being that arch code can decide whether to use an accelerated
-block function based on context (x86, for example, can't always use
-xmm regs) and length (on x86, using the accelerated versions for short
-digests is very slow due to the state save/restore that happens) and
-then the core code can just use it.
-
-This would allow a lot of the boilerplate that this patch was forced
-to modify to be deleted outright.
-
---Andy
+diff --git a/drivers/net/ethernet/korina.c b/drivers/net/ethernet/korina.c
+index cbeea915f026..8037426ec50f 100644
+--- a/drivers/net/ethernet/korina.c
++++ b/drivers/net/ethernet/korina.c
+@@ -900,10 +900,10 @@ static void korina_restart_task(struct work_struct *work)
+ 				DMA_STAT_DONE | DMA_STAT_HALT | DMA_STAT_ERR,
+ 				&lp->rx_dma_regs->dmasm);
+ 
+-	korina_free_ring(dev);
+-
+ 	napi_disable(&lp->napi);
+ 
++	korina_free_ring(dev);
++
+ 	if (korina_init(dev) < 0) {
+ 		printk(KERN_ERR "%s: cannot restart device\n", dev->name);
+ 		return;
+@@ -1064,12 +1064,12 @@ static int korina_close(struct net_device *dev)
+ 	tmp = tmp | DMA_STAT_DONE | DMA_STAT_HALT | DMA_STAT_ERR;
+ 	writel(tmp, &lp->rx_dma_regs->dmasm);
+ 
+-	korina_free_ring(dev);
+-
+ 	napi_disable(&lp->napi);
+ 
+ 	cancel_work_sync(&lp->restart_task);
+ 
++	korina_free_ring(dev);
++
+ 	free_irq(lp->rx_irq, dev);
+ 	free_irq(lp->tx_irq, dev);
+ 	free_irq(lp->ovr_irq, dev);
+-- 
+2.9.3
