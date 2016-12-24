@@ -1,7 +1,7 @@
 From: Andy Lutomirski <luto@kernel.org>
-Subject: [RFC PATCH 4.10 2/6] crypto/sha256: Make the sha256 library functions selectable
-Date: Fri, 23 Dec 2016 18:22:28 -0800
-Message-ID: <dc10dd24cb5c2ef8a2f206dea06413e7d18bd2f5.1482545792.git.luto@kernel.org>
+Subject: [RFC PATCH 4.10 6/6] net: Rename TCA*BPF_DIGEST to ..._SHA256
+Date: Fri, 23 Dec 2016 18:22:32 -0800
+Message-ID: <09d8a4b12d3cc853cf9d2a7ea18d0b07d486549f.1482545792.git.luto@kernel.org>
 References: <cover.1482545792.git.luto@kernel.org>
 Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>,
         Hannes Frederic Sowa <hannes@stressinduktion.org>,
@@ -10,7 +10,8 @@ Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>,
         Eric Biggers <ebiggers3@gmail.com>,
         Tom Herbert <tom@herbertland.com>,
         "David S. Miller" <davem@davemloft.net>,
-        Andy Lutomirski <luto@kernel.org>
+        Andy Lutomirski <luto@kernel.org>,
+        Alexei Starovoitov <ast@kernel.org>
 To: Daniel Borkmann <daniel@iogearbox.net>,
         Netdev <netdev@vger.kernel.org>,
         LKML <linux-kernel@vger.kernel.org>,
@@ -22,99 +23,75 @@ References: <cover.1482545792.git.luto@kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This will let other kernel code call into sha256_init(), etc. without
-pulling in the core crypto code.
+This makes it easier to add another digest algorithm down the road if
+needed.  It also serves to force any programs that might have been
+written against a kernel that had the old field name to notice the
+change and make any necessary changes.
 
+This shouldn't violate any stable API policies, as no released kernel
+has ever had TCA*BPF_DIGEST.
+
+Cc: Daniel Borkmann <daniel@iogearbox.net>
+Cc: Alexei Starovoitov <ast@kernel.org>
 Signed-off-by: Andy Lutomirski <luto@kernel.org>
 ---
- crypto/Kconfig          | 8 ++++++++
- crypto/Makefile         | 2 +-
- crypto/sha256_generic.c | 4 ++++
- include/crypto/sha.h    | 4 ++++
- 4 files changed, 17 insertions(+), 1 deletion(-)
+ include/uapi/linux/pkt_cls.h       | 2 +-
+ include/uapi/linux/tc_act/tc_bpf.h | 2 +-
+ net/sched/act_bpf.c                | 2 +-
+ net/sched/cls_bpf.c                | 2 +-
+ 4 files changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/crypto/Kconfig b/crypto/Kconfig
-index 160f08e721cc..85a2b3440c2b 100644
---- a/crypto/Kconfig
-+++ b/crypto/Kconfig
-@@ -10,6 +10,13 @@ config XOR_BLOCKS
- source "crypto/async_tx/Kconfig"
+diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
+index cb4bcdc58543..ac6b300c1550 100644
+--- a/include/uapi/linux/pkt_cls.h
++++ b/include/uapi/linux/pkt_cls.h
+@@ -397,7 +397,7 @@ enum {
+ 	TCA_BPF_NAME,
+ 	TCA_BPF_FLAGS,
+ 	TCA_BPF_FLAGS_GEN,
+-	TCA_BPF_DIGEST,
++	TCA_BPF_SHA256,
+ 	__TCA_BPF_MAX,
+ };
  
- #
-+# Cryptographic algorithms that are usable without the Crypto API.
-+# None of these should have visible config options.
-+#
-+config CRYPTO_SHA256_LIB
-+	bool
-+
-+#
- # Cryptographic API Configuration
- #
- menuconfig CRYPTO
-@@ -763,6 +770,7 @@ config CRYPTO_SHA512_MB
+diff --git a/include/uapi/linux/tc_act/tc_bpf.h b/include/uapi/linux/tc_act/tc_bpf.h
+index a6b88a6f7f71..eae18a7430eb 100644
+--- a/include/uapi/linux/tc_act/tc_bpf.h
++++ b/include/uapi/linux/tc_act/tc_bpf.h
+@@ -27,7 +27,7 @@ enum {
+ 	TCA_ACT_BPF_FD,
+ 	TCA_ACT_BPF_NAME,
+ 	TCA_ACT_BPF_PAD,
+-	TCA_ACT_BPF_DIGEST,
++	TCA_ACT_BPF_SHA256,
+ 	__TCA_ACT_BPF_MAX,
+ };
+ #define TCA_ACT_BPF_MAX (__TCA_ACT_BPF_MAX - 1)
+diff --git a/net/sched/act_bpf.c b/net/sched/act_bpf.c
+index 1c60317f0121..3868a66d0b24 100644
+--- a/net/sched/act_bpf.c
++++ b/net/sched/act_bpf.c
+@@ -123,7 +123,7 @@ static int tcf_bpf_dump_ebpf_info(const struct tcf_bpf *prog,
+ 	    nla_put_string(skb, TCA_ACT_BPF_NAME, prog->bpf_name))
+ 		return -EMSGSIZE;
  
- config CRYPTO_SHA256
- 	tristate "SHA224 and SHA256 digest algorithm"
-+	select CRYPTO_SHA256_LIB
- 	select CRYPTO_HASH
- 	help
- 	  SHA256 secure hash standard (DFIPS 180-2).
-diff --git a/crypto/Makefile b/crypto/Makefile
-index b8f0e3eb0791..d147d4c911f5 100644
---- a/crypto/Makefile
-+++ b/crypto/Makefile
-@@ -71,7 +71,7 @@ obj-$(CONFIG_CRYPTO_RMD160) += rmd160.o
- obj-$(CONFIG_CRYPTO_RMD256) += rmd256.o
- obj-$(CONFIG_CRYPTO_RMD320) += rmd320.o
- obj-$(CONFIG_CRYPTO_SHA1) += sha1_generic.o
--obj-$(CONFIG_CRYPTO_SHA256) += sha256_generic.o
-+obj-$(CONFIG_CRYPTO_SHA256_LIB) += sha256_generic.o
- obj-$(CONFIG_CRYPTO_SHA512) += sha512_generic.o
- obj-$(CONFIG_CRYPTO_SHA3) += sha3_generic.o
- obj-$(CONFIG_CRYPTO_WP512) += wp512.o
-diff --git a/crypto/sha256_generic.c b/crypto/sha256_generic.c
-index f2747893402c..9df71ac66dc4 100644
---- a/crypto/sha256_generic.c
-+++ b/crypto/sha256_generic.c
-@@ -261,6 +261,8 @@ void sha256_final(struct sha256_state *sctx, u8 *out)
- }
- EXPORT_SYMBOL(sha256_final);
+-	nla = nla_reserve(skb, TCA_ACT_BPF_DIGEST,
++	nla = nla_reserve(skb, TCA_ACT_BPF_SHA256,
+ 			  sizeof(prog->filter->digest));
+ 	if (nla == NULL)
+ 		return -EMSGSIZE;
+diff --git a/net/sched/cls_bpf.c b/net/sched/cls_bpf.c
+index adc776048d1a..6fc110321621 100644
+--- a/net/sched/cls_bpf.c
++++ b/net/sched/cls_bpf.c
+@@ -555,7 +555,7 @@ static int cls_bpf_dump_ebpf_info(const struct cls_bpf_prog *prog,
+ 	    nla_put_string(skb, TCA_BPF_NAME, prog->bpf_name))
+ 		return -EMSGSIZE;
  
-+#ifdef CONFIG_CRYPTO_HASH
-+
- static int crypto_sha256_update(struct shash_desc *desc, const u8 *data,
- 				unsigned int len)
- {
-@@ -328,6 +330,8 @@ static void __exit sha256_generic_mod_fini(void)
- module_init(sha256_generic_mod_init);
- module_exit(sha256_generic_mod_fini);
- 
-+#endif /* CONFIG_CRYPTO_HASH */
-+
- MODULE_LICENSE("GPL");
- MODULE_DESCRIPTION("SHA-224 and SHA-256 Secure Hash Algorithm");
- 
-diff --git a/include/crypto/sha.h b/include/crypto/sha.h
-index 2b6978471605..381ba7fa5e3f 100644
---- a/include/crypto/sha.h
-+++ b/include/crypto/sha.h
-@@ -96,6 +96,8 @@ extern int crypto_sha1_update(struct shash_desc *desc, const u8 *data,
- extern int crypto_sha1_finup(struct shash_desc *desc, const u8 *data,
- 			     unsigned int len, u8 *hash);
- 
-+#ifdef CONFIG_CRYPTO_SHA256_LIB
-+
- static inline void sha256_init(struct sha256_state *sctx)
- {
- 	sctx->state[0] = SHA256_H0;
-@@ -121,6 +123,8 @@ static inline void sha256_finup(struct sha256_state *sctx, const u8 *data,
- 	sha256_final(sctx, hash);
- }
- 
-+#endif /* CONFIG_CRYPTO_SHA256_LIB */
-+
- extern int crypto_sha512_update(struct shash_desc *desc, const u8 *data,
- 			      unsigned int len);
+-	nla = nla_reserve(skb, TCA_BPF_DIGEST, sizeof(prog->filter->digest));
++	nla = nla_reserve(skb, TCA_BPF_SHA256, sizeof(prog->filter->digest));
+ 	if (nla == NULL)
+ 		return -EMSGSIZE;
  
 -- 
 2.9.3
