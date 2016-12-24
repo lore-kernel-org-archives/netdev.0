@@ -1,129 +1,114 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: George's crazy full state idea (Re: HalfSipHash Acceptable Usage)
-Date: Sat, 24 Dec 2016 01:12:09 +0100
-Message-ID: <254f8cd7-d045-172d-8692-6052d9da287e@stressinduktion.org>
-References: <20161223233904.11739.qmail@ns.sciencehorizons.net>
+From: "Mody, Rasesh" <Rasesh.Mody@cavium.com>
+Subject: RE: [PATCH] scsi: bfa: Increase requested firmware version to 3.2.5.1
+Date: Sat, 24 Dec 2016 00:15:01 +0000
+Message-ID: <BLUPR0701MB15724638DA0BB8FB5CB9B3CF9F940@BLUPR0701MB1572.namprd07.prod.outlook.com>
+References: <20161223220128.1226-1-bpoirier@suse.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: ak@linux.intel.com, davem@davemloft.net, David.Laight@aculab.com,
-        ebiggers3@gmail.com, eric.dumazet@gmail.com, Jason@zx2c4.com,
-        kernel-hardening@lists.openwall.com, linux-crypto@vger.kernel.org,
-        linux-kernel@vger.kernel.org, luto@kernel.org,
-        netdev@vger.kernel.org, tom@herbertland.com, tytso@mit.edu,
-        vegard.nossum@gmail.com
-To: George Spelvin <linux@sciencehorizons.net>, daniel@iogearbox.net
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <20161223233904.11739.qmail@ns.sciencehorizons.net>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: Tim Ehlers <tehlers@gwdg.de>, Rasesh Mody <rasesh.mody@qlogic.com>,
+        "Anil Gurumurthy" <anil.gurumurthy@qlogic.com>,
+        Sudarsana Kalluru <sudarsana.kalluru@qlogic.com>,
+        "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
+        "linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Benjamin Poirier <bpoirier@suse.com>,
+        "Martin K. Petersen" <martin.petersen@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-co1nam03on0045.outbound.protection.outlook.com ([104.47.40.45]:5572
+        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751572AbcLXAPE (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 23 Dec 2016 19:15:04 -0500
+In-Reply-To: <20161223220128.1226-1-bpoirier@suse.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+> From: Benjamin Poirier [mailto:benjamin.poirier@gmail.com] On Behalf Of
+> Benjamin Poirier
+> Sent: Friday, December 23, 2016 2:01 PM
+>=20
+> bna & bfa firmware version 3.2.5.1 was submitted to linux-firmware on Tue
+> Feb 17 19:10:20 2015 -0500 in 0ab54ff1dc ("linux-firmware: Add QLogic BR
+> Series Adapter Firmware").
+>=20
+> bna was updated to use the newer firmware on Thu, 19 Feb 2015 16:02:32
+> -0500 in 3f307c3d70 ("bna: Update the Driver and Firmware Version")
+>=20
+> bfa was not updated. I presume this was an oversight but it broke support
+> for bfa+bna cards such as the following
+> 	04:00.0 Fibre Channel [0c04]: Brocade Communications Systems, Inc.
+> 		1010/1020/1007/1741 10Gbps CNA [1657:0014] (rev 01)
+> 	04:00.1 Fibre Channel [0c04]: Brocade Communications Systems, Inc.
+> 		1010/1020/1007/1741 10Gbps CNA [1657:0014] (rev 01)
+> 	04:00.2 Ethernet controller [0200]: Brocade Communications
+> Systems,
+> 		Inc. 1010/1020/1007/1741 10Gbps CNA [1657:0014] (rev 01)
+> 	04:00.3 Ethernet controller [0200]: Brocade Communications
+> Systems,
+> 		Inc. 1010/1020/1007/1741 10Gbps CNA [1657:0014] (rev 01)
+>=20
+> Currently, if the bfa module is loaded first, bna fails to probe the resp=
+ective
+> devices with [  215.026787] bna: QLogic BR-series 10G Ethernet driver -
+> version: 3.2.25.1 [  215.043707] bna 0000:04:00.2: bar0 mapped to
+> ffffc90001fc0000, len 262144 [  215.060656] bna 0000:04:00.2: initializat=
+ion
+> failed err=3D1 [  215.073893] bna 0000:04:00.3: bar0 mapped to
+> ffffc90002040000, len 262144 [  215.090644] bna 0000:04:00.3: initializat=
+ion
+> failed err=3D1
+>=20
+> Whereas if bna is loaded first, bfa fails with [  249.592109] QLogic BR-s=
+eries
+> BFA FC/FCOE SCSI driver - version: 3.2.25.0 [  249.610738] bfa 0000:04:00=
+.0:
+> Running firmware version is incompatible with the driver version [
+> 249.833513] bfa 0000:04:00.0: bfa init failed [  249.833919] scsi host6: =
+QLogic
+> BR-series FC/FCOE Adapter, hwpath: 0000:04:00.0 driver: 3.2.25.0 [
+> 249.841446] bfa 0000:04:00.1: Running firmware version is incompatible wi=
+th
+> the driver version [  250.045449] bfa 0000:04:00.1: bfa init failed [  25=
+0.045962]
+> scsi host7: QLogic BR-series FC/FCOE Adapter, hwpath: 0000:04:00.1 driver=
+:
+> 3.2.25.0
+>=20
+> Increase bfa's requested firmware version.
+> I only tested that all of the devices probe without error.
+>=20
+> Cc: Rasesh Mody <rasesh.mody@qlogic.com>
+> Reported-by: Tim Ehlers <tehlers@gwdg.de>
+> Signed-off-by: Benjamin Poirier <bpoirier@suse.com>
 
-On 24.12.2016 00:39, George Spelvin wrote:
-> Hannes Frederic Sowa wrote:
->> In general this looks good, but bitbuffer needs to be protected from
->> concurrent access, thus needing at least some atomic instruction and
->> disabling of interrupts for the locking if done outside of
->> get_random_long. Thus I liked your previous approach more where you
->> simply embed this in the already necessary get_random_long and aliased
->> get_random_long as get_random_bits(BITS_PER_LONG) accordingly, IMHO.
-> 
-> It's meant to be part of the same approach, and I didn't include locking
-> because that's a requirement for *any* solution, and isn't specific
-> to the part I was trying to illustrate.
-> 
-> (As for re-using the name "get_random_long", that was just so
-> I didn't have to explain it.  Call it "get_random_long_internal"
-> if you like.)
-> 
-> Possible locking implementations include:
-> 1) Use the same locking as applies to get_random_long_internal(), or
-> 2) Make bitbuffer a per-CPU variable (note that we currently have 128
->    bits of per-CPU state in get_random_int_hash[]), and this is all a
->    fast-path to bypass heavier locking in get_random_long_internal().
+Acked-by: Rasesh Mody <rasesh.mody@cavium.com>=20
 
-I understood that this is definitely a solvable problem.
+Thanks! We also need to bump up the BFA driver version to 3.2.25.1.
 
->>> But, I just realized I've been overlooking something glaringly obvious...
->>> there's no reason you can't compute multple blocks in advance.
->>
->> In the current code on the cost of per cpu allocations thus memory.
-> 
-> Yes, but on 4-core machines it's still not much, and 4096-core
-> behemoths have RAM to burn.
-> 
->> In the extract_crng case, couldn't we simply use 8 bytes of the 64 byte
->> return block to feed it directly back into the state chacha? So we pass
->> on 56 bytes into the pcpu buffer, and consume 8 bytes for the next
->> state. This would make the window max shorter than the anti
->> backtracking protection right now from 300s to 14 get_random_int calls.
->> Not sure if this is worth it.
-> 
-> We just finished discussing why 8 bytes isn't enough.  If you only
-> feed back 8 bytes, an attacker who can do 2^64 computation can find it
-> (by guessing and computing forward to verify the guess) and recover the
-> previous state.  You need to feed back at least as much output as your
-> security targete.  For /dev/urandom's ChaCha20, that's 256 bits.
-
-I followed the discussion but it appeared to me that this has the
-additional constraint of time until the next reseeding event happenes,
-which is 300s (under the assumption that calls to get_random_int happen
-regularly, which I expect right now). After that the existing reseeding
-mechansim will ensure enough backtracking protection. The number of
-bytes can easily be increased here, given that reseeding was shown to be
-quite fast already and we produce enough output. But I am not sure if
-this is a bit overengineered in the end?
-
->>> For example, suppose we gave each CPU a small pool to minimize locking.
->>> When one runs out and calls the global refill, it could refill *all*
->>> of the CPU pools.  (You don't even need locking; there may be a race to
->>> determine *which* random numbers the reader sees, but they're equally
->>> good either way.)
-> 
->> Yes, but still disabled interrupts, otherwise the same state could be
->> used twice on the same CPU. Uff, I think we have this problem in
->> prandom_u32.
-> 
-> There are some locking gotchas, but it is doable lock-free.
-> 
-> Basically, it's a seqlock.  The writer increments it once (to an odd
-> number) before starting to overwrite the buffer, and a second time (to
-> an even number) after.  "Before" and "after" mean smp_wmb().
-> 
-> The reader can use this to figure out how much of the data in the buffer
-> is safely fresh.  The full sequence of checks is a bit intricate,
-> but straightforward.
-> 
-> I didn't discuss the locking because I'm confident it's solvable,
-> not because I wasn't aware it has to be solved.
-
-Also agreed. Given your solution below to prandom_u32, I do think it
-might also work without the seqlock now.
-
-> As for prandom_u32(), what's the problem?  Are you worried that
-> get_cpu_var disables preemption but not interrupts, and so an
-> ISR might return the same value as process-level code?
-
-Yes, exactly those were my thoughts.
-
-> First of all, that's not a problem because prandom_u32() doesn't
-> have security guarantees.  Occasionally returning a dupicate number
-> is okay.
->
-> Second, if you do care, that could be trivially fixed by throwing
-> a barrier() in the middle of the code.  (Patch appended; S-o-B
-> if anyone wants it.)
-
-I wouldn't have added a disable irqs, but given that I really like your
-proposal, I would take it in my todo branch and submit it when net-next
-window opens.
-
-> diff --git a/lib/random32.c b/lib/random32.c
-> index c750216d..6bee4a36 100644
-> --- a/lib/random32.c
-> +++ b/lib/random32.c
-> [...]
-
-Thanks,
-Hannes
+> ---
+>  drivers/scsi/bfa/bfad.c | 6 +++---
+>  1 file changed, 3 insertions(+), 3 deletions(-)
+>=20
+> diff --git a/drivers/scsi/bfa/bfad.c b/drivers/scsi/bfa/bfad.c index
+> 9d253cb..e70410b 100644
+> --- a/drivers/scsi/bfa/bfad.c
+> +++ b/drivers/scsi/bfa/bfad.c
+> @@ -64,9 +64,9 @@ int		max_rport_logins =3D
+> BFA_FCS_MAX_RPORT_LOGINS;
+>  u32	bfi_image_cb_size, bfi_image_ct_size, bfi_image_ct2_size;
+>  u32	*bfi_image_cb, *bfi_image_ct, *bfi_image_ct2;
+>=20
+> -#define BFAD_FW_FILE_CB		"cbfw-3.2.3.0.bin"
+> -#define BFAD_FW_FILE_CT		"ctfw-3.2.3.0.bin"
+> -#define BFAD_FW_FILE_CT2	"ct2fw-3.2.3.0.bin"
+> +#define BFAD_FW_FILE_CB		"cbfw-3.2.5.1.bin"
+> +#define BFAD_FW_FILE_CT		"ctfw-3.2.5.1.bin"
+> +#define BFAD_FW_FILE_CT2	"ct2fw-3.2.5.1.bin"
+>=20
+>  static u32 *bfad_load_fwimg(struct pci_dev *pdev);  static void
+> bfad_free_fwimg(void);
+> --
+> 2.10.2
