@@ -1,80 +1,109 @@
-From: Thomas Preisner <thomas.preisner+linux@fau.de>
-Subject: [PATCH v2 2/2] drivers: net: ethernet: 3com: fix return value
-Date: Sat, 24 Dec 2016 13:02:38 +0100
-Message-ID: <1482580958-15406-3-git-send-email-thomas.preisner+linux@fau.de>
-References: <1482541554.16278.2.camel@dillow-glaptop.roam.corp.google.com>
- <1482580958-15406-1-git-send-email-thomas.preisner+linux@fau.de>
+From: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+Subject: [PATCH] ipv4: Namespaceify tcp_tw_reuse knob
+Date: Sat, 24 Dec 2016 20:43:07 +0800
+Message-ID: <1482583387-79777-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-kernel@i4.cs.fau.de, milan.stephan+linux@fau.de,
-        thomas.preisner+linux@fau.de
-To: dave@thedillows.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from faui40.informatik.uni-erlangen.de ([131.188.34.40]:44616 "EHLO
-        faui40.informatik.uni-erlangen.de" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1754719AbcLXMC5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 24 Dec 2016 07:02:57 -0500
-In-Reply-To: <1482580958-15406-1-git-send-email-thomas.preisner+linux@fau.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+        Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+To: "David S. Miller" <davem@davemloft.net>,
+        lexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Patrick McHardy <kaber@trash.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In some cases the return value of a failing function is not being used
-and the function typhoon_init_one() returns another negative error
-code instead.
-
-Signed-off-by: Thomas Preisner <thomas.preisner+linux@fau.de>
-Signed-off-by: Milan Stephan <milan.stephan+linux@fau.de>
+Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
 ---
- drivers/net/ethernet/3com/typhoon.c | 16 ++++++++--------
- 1 file changed, 8 insertions(+), 8 deletions(-)
+ include/net/netns/ipv4.h   |  1 +
+ include/net/tcp.h          |  1 -
+ net/ipv4/sysctl_net_ipv4.c | 14 +++++++-------
+ net/ipv4/tcp_ipv4.c        |  4 ++--
+ 4 files changed, 10 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/3com/typhoon.c b/drivers/net/ethernet/3com/typhoon.c
-index c88b88a..8821a24 100644
---- a/drivers/net/ethernet/3com/typhoon.c
-+++ b/drivers/net/ethernet/3com/typhoon.c
-@@ -2370,9 +2370,9 @@ typhoon_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	 * 4) Get the hardware address.
- 	 * 5) Put the card to sleep.
+diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
+index f0cf5a1..0378e88 100644
+--- a/include/net/netns/ipv4.h
++++ b/include/net/netns/ipv4.h
+@@ -110,6 +110,7 @@ struct netns_ipv4 {
+ 	int sysctl_tcp_orphan_retries;
+ 	int sysctl_tcp_fin_timeout;
+ 	unsigned int sysctl_tcp_notsent_lowat;
++	int sysctl_tcp_tw_reuse;
+ 
+ 	int sysctl_igmp_max_memberships;
+ 	int sysctl_igmp_max_msf;
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 207147b..6061963 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -252,7 +252,6 @@
+ extern int sysctl_tcp_rmem[3];
+ extern int sysctl_tcp_app_win;
+ extern int sysctl_tcp_adv_win_scale;
+-extern int sysctl_tcp_tw_reuse;
+ extern int sysctl_tcp_frto;
+ extern int sysctl_tcp_low_latency;
+ extern int sysctl_tcp_nometrics_save;
+diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+index 80bc36b..22cbd61 100644
+--- a/net/ipv4/sysctl_net_ipv4.c
++++ b/net/ipv4/sysctl_net_ipv4.c
+@@ -433,13 +433,6 @@ static int proc_tcp_fastopen_key(struct ctl_table *ctl, int write,
+ 		.extra2		= &tcp_adv_win_scale_max,
+ 	},
+ 	{
+-		.procname	= "tcp_tw_reuse",
+-		.data		= &sysctl_tcp_tw_reuse,
+-		.maxlen		= sizeof(int),
+-		.mode		= 0644,
+-		.proc_handler	= proc_dointvec
+-	},
+-	{
+ 		.procname	= "tcp_frto",
+ 		.data		= &sysctl_tcp_frto,
+ 		.maxlen		= sizeof(int),
+@@ -960,6 +953,13 @@ static int proc_tcp_fastopen_key(struct ctl_table *ctl, int write,
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec,
+ 	},
++	{
++		.procname	= "tcp_tw_reuse",
++		.data		= &init_net.ipv4.sysctl_tcp_tw_reuse,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec
++	},
+ #ifdef CONFIG_IP_ROUTE_MULTIPATH
+ 	{
+ 		.procname	= "fib_multipath_use_neigh",
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 30d81f5..fe9da4f 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -84,7 +84,6 @@
+ #include <crypto/hash.h>
+ #include <linux/scatterlist.h>
+ 
+-int sysctl_tcp_tw_reuse __read_mostly;
+ int sysctl_tcp_low_latency __read_mostly;
+ 
+ #ifdef CONFIG_TCP_MD5SIG
+@@ -120,7 +119,7 @@ int tcp_twsk_unique(struct sock *sk, struct sock *sktw, void *twp)
+ 	   and use initial timestamp retrieved from peer table.
  	 */
--	if (typhoon_reset(ioaddr, WaitSleep) < 0) {
-+	err = typhoon_reset(ioaddr, WaitSleep);
-+	if (err < 0) {
- 		err_msg = "could not reset 3XP";
--		err = -EIO;
- 		goto error_out_dma;
- 	}
+ 	if (tcptw->tw_ts_recent_stamp &&
+-	    (!twp || (sysctl_tcp_tw_reuse &&
++	    (!twp || (sock_net(sk)->ipv4.sysctl_tcp_tw_reuse &&
+ 			     get_seconds() - tcptw->tw_ts_recent_stamp > 1))) {
+ 		tp->write_seq = tcptw->tw_snd_nxt + 65535 + 2;
+ 		if (tp->write_seq == 0)
+@@ -2456,6 +2455,7 @@ static int __net_init tcp_sk_init(struct net *net)
+ 	net->ipv4.sysctl_tcp_orphan_retries = 0;
+ 	net->ipv4.sysctl_tcp_fin_timeout = TCP_FIN_TIMEOUT;
+ 	net->ipv4.sysctl_tcp_notsent_lowat = UINT_MAX;
++	net->ipv4.sysctl_tcp_tw_reuse = 0;
  
-@@ -2386,16 +2386,16 @@ typhoon_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	typhoon_init_interface(tp);
- 	typhoon_init_rings(tp);
- 
--	if(typhoon_boot_3XP(tp, TYPHOON_STATUS_WAITING_FOR_HOST) < 0) {
-+	err = typhoon_boot_3XP(tp, TYPHOON_STATUS_WAITING_FOR_HOST);
-+	if(err < 0) {
- 		err_msg = "cannot boot 3XP sleep image";
--		err = -EIO;
- 		goto error_out_reset;
- 	}
- 
- 	INIT_COMMAND_WITH_RESPONSE(&xp_cmd, TYPHOON_CMD_READ_MAC_ADDRESS);
--	if(typhoon_issue_command(tp, 1, &xp_cmd, 1, xp_resp) < 0) {
-+	err = typhoon_issue_command(tp, 1, &xp_cmd, 1, xp_resp);
-+	if(err < 0) {
- 		err_msg = "cannot read MAC address";
--		err = -EIO;
- 		goto error_out_reset;
- 	}
- 
-@@ -2430,9 +2430,9 @@ typhoon_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	if(xp_resp[0].numDesc != 0)
- 		tp->capabilities |= TYPHOON_WAKEUP_NEEDS_RESET;
- 
--	if(typhoon_sleep(tp, PCI_D3hot, 0) < 0) {
-+	err = typhoon_sleep(tp, PCI_D3hot, 0);
-+	if(err < 0) {
- 		err_msg = "cannot put adapter to sleep";
--		err = -EIO;
- 		goto error_out_reset;
- 	}
- 
+ 	return 0;
+ fail:
 -- 
-2.7.4
+1.8.3.1
