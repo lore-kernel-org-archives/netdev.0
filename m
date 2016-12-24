@@ -1,7 +1,7 @@
 From: Andy Lutomirski <luto@kernel.org>
-Subject: [RFC PATCH 4.10 6/6] net: Rename TCA*BPF_DIGEST to ..._SHA256
-Date: Fri, 23 Dec 2016 18:22:32 -0800
-Message-ID: <09d8a4b12d3cc853cf9d2a7ea18d0b07d486549f.1482545792.git.luto@kernel.org>
+Subject: [RFC PATCH 4.10 5/6] bpf: Rename fdinfo's prog_digest to prog_sha256
+Date: Fri, 23 Dec 2016 18:22:31 -0800
+Message-ID: <094ba4e9a33f0cc4940591b65b970fd84183b0c1.1482545792.git.luto@kernel.org>
 References: <cover.1482545792.git.luto@kernel.org>
 Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>,
         Hannes Frederic Sowa <hannes@stressinduktion.org>,
@@ -23,75 +23,32 @@ References: <cover.1482545792.git.luto@kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This makes it easier to add another digest algorithm down the road if
-needed.  It also serves to force any programs that might have been
-written against a kernel that had the old field name to notice the
-change and make any necessary changes.
+This makes it easier to add another digest algorithm down the road
+if needed.  It also serves to force any programs that might have
+been written against a kernel that had 'prog_digest' to be updated.
 
-This shouldn't violate any stable API policies, as no released kernel
-has ever had TCA*BPF_DIGEST.
+This shouldn't violate any stable API policies, as no released
+kernel has ever had 'prog_digest'.
 
 Cc: Daniel Borkmann <daniel@iogearbox.net>
 Cc: Alexei Starovoitov <ast@kernel.org>
 Signed-off-by: Andy Lutomirski <luto@kernel.org>
 ---
- include/uapi/linux/pkt_cls.h       | 2 +-
- include/uapi/linux/tc_act/tc_bpf.h | 2 +-
- net/sched/act_bpf.c                | 2 +-
- net/sched/cls_bpf.c                | 2 +-
- 4 files changed, 4 insertions(+), 4 deletions(-)
+ kernel/bpf/syscall.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
-index cb4bcdc58543..ac6b300c1550 100644
---- a/include/uapi/linux/pkt_cls.h
-+++ b/include/uapi/linux/pkt_cls.h
-@@ -397,7 +397,7 @@ enum {
- 	TCA_BPF_NAME,
- 	TCA_BPF_FLAGS,
- 	TCA_BPF_FLAGS_GEN,
--	TCA_BPF_DIGEST,
-+	TCA_BPF_SHA256,
- 	__TCA_BPF_MAX,
- };
- 
-diff --git a/include/uapi/linux/tc_act/tc_bpf.h b/include/uapi/linux/tc_act/tc_bpf.h
-index a6b88a6f7f71..eae18a7430eb 100644
---- a/include/uapi/linux/tc_act/tc_bpf.h
-+++ b/include/uapi/linux/tc_act/tc_bpf.h
-@@ -27,7 +27,7 @@ enum {
- 	TCA_ACT_BPF_FD,
- 	TCA_ACT_BPF_NAME,
- 	TCA_ACT_BPF_PAD,
--	TCA_ACT_BPF_DIGEST,
-+	TCA_ACT_BPF_SHA256,
- 	__TCA_ACT_BPF_MAX,
- };
- #define TCA_ACT_BPF_MAX (__TCA_ACT_BPF_MAX - 1)
-diff --git a/net/sched/act_bpf.c b/net/sched/act_bpf.c
-index 1c60317f0121..3868a66d0b24 100644
---- a/net/sched/act_bpf.c
-+++ b/net/sched/act_bpf.c
-@@ -123,7 +123,7 @@ static int tcf_bpf_dump_ebpf_info(const struct tcf_bpf *prog,
- 	    nla_put_string(skb, TCA_ACT_BPF_NAME, prog->bpf_name))
- 		return -EMSGSIZE;
- 
--	nla = nla_reserve(skb, TCA_ACT_BPF_DIGEST,
-+	nla = nla_reserve(skb, TCA_ACT_BPF_SHA256,
- 			  sizeof(prog->filter->digest));
- 	if (nla == NULL)
- 		return -EMSGSIZE;
-diff --git a/net/sched/cls_bpf.c b/net/sched/cls_bpf.c
-index adc776048d1a..6fc110321621 100644
---- a/net/sched/cls_bpf.c
-+++ b/net/sched/cls_bpf.c
-@@ -555,7 +555,7 @@ static int cls_bpf_dump_ebpf_info(const struct cls_bpf_prog *prog,
- 	    nla_put_string(skb, TCA_BPF_NAME, prog->bpf_name))
- 		return -EMSGSIZE;
- 
--	nla = nla_reserve(skb, TCA_BPF_DIGEST, sizeof(prog->filter->digest));
-+	nla = nla_reserve(skb, TCA_BPF_SHA256, sizeof(prog->filter->digest));
- 	if (nla == NULL)
- 		return -EMSGSIZE;
- 
+diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
+index e89acea22ecf..956370b80296 100644
+--- a/kernel/bpf/syscall.c
++++ b/kernel/bpf/syscall.c
+@@ -694,7 +694,7 @@ static void bpf_prog_show_fdinfo(struct seq_file *m, struct file *filp)
+ 	seq_printf(m,
+ 		   "prog_type:\t%u\n"
+ 		   "prog_jited:\t%u\n"
+-		   "prog_digest:\t%s\n"
++		   "prog_sha256:\t%s\n"
+ 		   "memlock:\t%llu\n",
+ 		   prog->type,
+ 		   prog->jited,
 -- 
 2.9.3
