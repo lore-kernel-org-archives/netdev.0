@@ -1,7 +1,7 @@
 From: =?UTF-8?q?Pali=20Roh=C3=A1r?= <pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 2/6] wl1251: Use request_firmware_prefer_user() for loading NVS calibration data
-Date: Sat, 24 Dec 2016 17:52:57 +0100
-Message-ID: <1482598381-16513-3-git-send-email-pali.rohar@gmail.com>
+Subject: [PATCH 3/6] wl1251: Update wl->nvs_len after wl->nvs is valid
+Date: Sat, 24 Dec 2016 17:52:58 +0100
+Message-ID: <1482598381-16513-4-git-send-email-pali.rohar@gmail.com>
 References: <1482598381-16513-1-git-send-email-pali.rohar@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -27,59 +27,36 @@ In-Reply-To: <1482598381-16513-1-git-send-email-pali.rohar-Re5JQEeQqe8AvxtiuMwx3
 Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-NVS calibration data for wl1251 are model specific. Every one device with
-wl1251 chip has different and calibrated in factory.
-
-Not all wl1251 chips have own EEPROM where are calibration data stored. And
-in that case there is no "standard" place. Every device has stored them on
-different place (some in rootfs file, some in dedicated nand partition,
-some in another proprietary structure).
-
-Kernel wl1251 driver cannot support every one different storage decided by
-device manufacture so it will use request_firmware_prefer_user() call for
-loading NVS calibration data and userspace helper will be responsible to
-prepare correct data.
-
-In case userspace helper fails request_firmware_prefer_user() still try to
-load data file directly from VFS as fallback mechanism.
-
-On Nokia N900 device which has wl1251 chip, NVS calibration data are stored
-in CAL nand partition. CAL is proprietary Nokia key/value format for nand
-devices.
-
-With this patch it is finally possible to load correct model specific NVS
-calibration data for Nokia N900.
+In case kmemdup fails thne wl->nvs_len will contains invalid non-zero size.
+This patch fixes it.
 
 Signed-off-by: Pali Rohár <pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- drivers/net/wireless/ti/wl1251/Kconfig |    1 +
- drivers/net/wireless/ti/wl1251/main.c  |    2 +-
- 2 files changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/wireless/ti/wl1251/main.c |    5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/wireless/ti/wl1251/Kconfig b/drivers/net/wireless/ti/wl1251/Kconfig
-index 7142ccf..affe154 100644
---- a/drivers/net/wireless/ti/wl1251/Kconfig
-+++ b/drivers/net/wireless/ti/wl1251/Kconfig
-@@ -2,6 +2,7 @@ config WL1251
- 	tristate "TI wl1251 driver support"
- 	depends on MAC80211
- 	select FW_LOADER
-+	select FW_LOADER_USER_HELPER
- 	select CRC7
- 	---help---
- 	  This will enable TI wl1251 driver support. The drivers make
 diff --git a/drivers/net/wireless/ti/wl1251/main.c b/drivers/net/wireless/ti/wl1251/main.c
-index 208f062..24f8866 100644
+index 24f8866..8971b64 100644
 --- a/drivers/net/wireless/ti/wl1251/main.c
 +++ b/drivers/net/wireless/ti/wl1251/main.c
-@@ -110,7 +110,7 @@ static int wl1251_fetch_nvs(struct wl1251 *wl)
- 	struct device *dev = wiphy_dev(wl->hw->wiphy);
- 	int ret;
+@@ -124,8 +124,7 @@ static int wl1251_fetch_nvs(struct wl1251 *wl)
+ 		goto out;
+ 	}
  
--	ret = request_firmware(&fw, WL1251_NVS_NAME, dev);
-+	ret = request_firmware_prefer_user(&fw, WL1251_NVS_NAME, dev);
+-	wl->nvs_len = fw->size;
+-	wl->nvs = kmemdup(fw->data, wl->nvs_len, GFP_KERNEL);
++	wl->nvs = kmemdup(fw->data, fw->size, GFP_KERNEL);
  
- 	if (ret < 0) {
- 		wl1251_error("could not get nvs file: %d", ret);
+ 	if (!wl->nvs) {
+ 		wl1251_error("could not allocate memory for the nvs file");
+@@ -133,6 +132,8 @@ static int wl1251_fetch_nvs(struct wl1251 *wl)
+ 		goto out;
+ 	}
+ 
++	wl->nvs_len = fw->size;
++
+ 	ret = 0;
+ 
+ out:
 -- 
 1.7.9.5
