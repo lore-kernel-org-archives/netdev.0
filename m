@@ -1,83 +1,65 @@
-From: =?UTF-8?q?Pali=20Roh=C3=A1r?= <pali.rohar@gmail.com>
-Subject: [PATCH 6/6] wl1251: Set generated MAC address back to NVS data
-Date: Sat, 24 Dec 2016 17:53:01 +0100
-Message-ID: <1482598381-16513-7-git-send-email-pali.rohar@gmail.com>
-References: <1482598381-16513-1-git-send-email-pali.rohar@gmail.com>
+From: Mark Greer <mgreer-luAo+O/VEmrlveNOaEYElw@public.gmane.org>
+Subject: Re: [PATCH v3 3/3] nfc: trf7970a: Prevent repeated polling from
+ crashing the kernel
+Date: Sat, 24 Dec 2016 10:24:39 -0700
+Message-ID: <20161224172439.GA15103@animalcreek.com>
+References: <1482380314-16440-1-git-send-email-geoff@kuvee.com>
+ <1482380314-16440-3-git-send-email-geoff@kuvee.com>
+ <20161224060141.GA9069@animalcreek.com>
+ <CAO7Z3W+n85jbr8cmj3HJV1c+eL=oRh-XRy+O=iZ+mD=ov2WABA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org,
-        =?UTF-8?q?Pali=20Roh=C3=A1r?= <pali.rohar@gmail.com>
-To: Ming Lei <ming.lei@canonical.com>,
-        "Luis R. Rodriguez" <mcgrof@kernel.org>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        David Gnedt <david.gnedt@davizone.at>,
-        Michal Kazior <michal.kazior@tieto.com>,
-        Daniel Wagner <wagi@monom.org>,
-        Tony Lindgren <tony@atomide.com>,
-        Sebastian Reichel <sre@kernel.org>,
-        Pavel Machek <pavel@ucw.cz>,
-        Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
-        Aaro Koskinen <aaro.koskinen@iki.fi>,
-        Grazvydas Ignotas <notasas@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wj0-f196.google.com ([209.85.210.196]:35755 "EHLO
-        mail-wj0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755530AbcLXRCU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 24 Dec 2016 12:02:20 -0500
-In-Reply-To: <1482598381-16513-1-git-send-email-pali.rohar@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Lauro Ramos Venancio <lauro.venancio-430g2QfJUUCGglJvpFV4uA@public.gmane.org>,
+        Aloisio Almeida Jr <aloisio.almeida-430g2QfJUUCGglJvpFV4uA@public.gmane.org>,
+        Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+        mark.rutland-5wv7dgnIgG8@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Justin Bronder <justin-R+k406RtEhcAvxtiuMwx3w@public.gmane.org>,
+        Jaret Cantu <jaret.cantu-jEh4hwF5bVhBDgjK7y7TUQ@public.gmane.org>
+To: Geoff Lansberry <geoff-R+k406RtEhcAvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CAO7Z3W+n85jbr8cmj3HJV1c+eL=oRh-XRy+O=iZ+mD=ov2WABA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-In case there is no valid MAC address kernel generates random one. This
-patch propagate this generated MAC address back to NVS data which will be
-uploaded to wl1251 chip. So HW would have same MAC address as linux kernel
-uses.
+On Sat, Dec 24, 2016 at 11:17:18AM -0500, Geoff Lansberry wrote:
+> Mark - I'm sorry, but I did not write this code, and therefore was not
+> able to accurately describe it.   It is fixing a different issue, not
+> the neard segfault that we are still chasing. Last week Jaret Cantu
+> sent a separate email explaining the purpose of the code, which had
+> you copied, did you see that?
 
-Signed-off-by: Pali Rohár <pali.rohar@gmail.com>
----
- drivers/net/wireless/ti/wl1251/main.c |   20 ++++++++++++++++++++
- 1 file changed, 20 insertions(+)
+Hm, no, I didn't.  I received an email from Justin Bronder but not from
+Jaret Cantu.  Justin's email did help but is still pretty high-level.
+We need a clear understanding as to what is happening in the digital
+layer and the driver to know how execution is getting into a block of
+error handling code that should never be executed.  Once we understand
+that we can start thinking about what the best fix is.
 
-diff --git a/drivers/net/wireless/ti/wl1251/main.c b/drivers/net/wireless/ti/wl1251/main.c
-index 1454ba2..895ae05 100644
---- a/drivers/net/wireless/ti/wl1251/main.c
-+++ b/drivers/net/wireless/ti/wl1251/main.c
-@@ -1555,6 +1555,24 @@ static int wl1251_read_nvs_mac(struct wl1251 *wl)
- 	return 0;
- }
- 
-+static int wl1251_write_nvs_mac(struct wl1251 *wl)
-+{
-+	int i;
-+
-+	if (wl->nvs_len < 0x24)
-+		return -ENODATA;
-+
-+	/* length is 2 and data address is 0x546c (mask is 0xfffe) */
-+	if (wl->nvs[0x19] != 2 || wl->nvs[0x1a] != 0x6d || wl->nvs[0x1b] != 0x54)
-+		return -EINVAL;
-+
-+	/* MAC is stored in reverse order */
-+	for (i = 0; i < ETH_ALEN; i++)
-+		wl->nvs[0x1c + i] = wl->mac_addr[ETH_ALEN - i - 1];
-+
-+	return 0;
-+}
-+
- static int wl1251_register_hw(struct wl1251 *wl)
- {
- 	int ret;
-@@ -1620,6 +1638,8 @@ int wl1251_init_ieee80211(struct wl1251 *wl)
- 		static const u8 nokia_oui[3] = {0x00, 0x1f, 0xdf};
- 		memcpy(wl->mac_addr, nokia_oui, 3);
- 		get_random_bytes(wl->mac_addr + 3, 3);
-+		if (!wl->use_eeprom)
-+			wl1251_write_nvs_mac(wl);
- 		wl1251_warning("MAC address in eeprom or nvs data is not valid");
- 		wl1251_warning("Setting random MAC address: %pM", wl->mac_addr);
- 	}
--- 
-1.7.9.5
+> Does it explain why it was done to
+> your satisfaction?   I've asked him to join in on the effort to push
+> the change upstream, however he will not be available until the new
+> year.
+
+I expect that it would help if he joins.  After the holidays is fine -
+I think many people are taking it easy for the next week or so, anyway.
+
+> I know you did suggest that we split off that change from the others,
+> and if now is the time to do that, let me know.   If you don't have
+> the email from Jaret, also please let me know and I will forward it to
+> you.
+
+I think it would help you if you split it off because the first two patches
+have a good chance of being accepted but this one doesn't (yet).  If you
+separate the them, it will make it easier for Samuel to take the first two
+(or he may take the first two anyway but its always good to make it as
+easy maintainers as you can).
+
+Mark
+--
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
