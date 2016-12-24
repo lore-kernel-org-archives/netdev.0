@@ -1,133 +1,144 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net] net, sched: fix soft lockup in tc_classify
-Date: Fri, 23 Dec 2016 23:34:20 -0800
-Message-ID: <CAM_iQpX2X-WHbf1VxfQzh_-YUEqk=o6B+uYfYhj_45jJGaFSfQ@mail.gmail.com>
-References: <1954223e8b7aa90ff835357e8a3ef7537be33e43.1482337600.git.daniel@iogearbox.net>
- <CAM_iQpXadrGWJYqizEkq+xmMKVV9krrcCWKur=ZCRZBS9Mx_8w@mail.gmail.com>
- <CAM_iQpX3Sk_YGDmvY-yj0CxPbG5qfT7P7ioNgY5Lb_DqsTWh6Q@mail.gmail.com>
- <585ADFEB.3030206@iogearbox.net> <CAM_iQpUEUmJpjQYV7HV+4NVtGe6D-yZs6=YizcDtf7dogkNR0Q@mail.gmail.com>
- <585AEF24.4070800@iogearbox.net> <CAM_iQpW9Ly+fMEiBtHq4XwUgvt89-5uE2Bwdw1FXJGV3=eY1ZA@mail.gmail.com>
- <585C6F49.5030900@iogearbox.net>
+From: maowenan <maowenan@huawei.com>
+Subject: RE: [PATCH] ethtool: add one ethtool option to set relax ordering
+ mode
+Date: Sat, 24 Dec 2016 08:30:05 +0000
+Message-ID: <F95AC9340317A84688A5F0DF0246F3F20152045F@szxeml504-mbs.china.huawei.com>
+References: <1481179898-10668-1-git-send-email-maowenan@huawei.com>
+ <1481179898-10668-2-git-send-email-maowenan@huawei.com>
+ <20161221172759.1bc0d0dd@xeon-e3>
+ <F95AC9340317A84688A5F0DF0246F3F20151F189@szxeml504-mbs.china.huawei.com>
+ <CAKgT0Uc2ztu_iDn79zdNtsAdb-Ftu65V6YHV-sqXb6vTCTiGCQ@mail.gmail.com>
+ <F95AC9340317A84688A5F0DF0246F3F20151FD1C@szxeml504-mbs.china.huawei.com>
+ <1482455203.2481.31.camel@intel.com>
+ <F95AC9340317A84688A5F0DF0246F3F20151FE86@szxeml504-mbs.china.huawei.com>
+ <CAKgT0Ud0=fQpADLHPnZBLrG8xLGHUB20TZt1mi+GBNYJQngDCA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        Shahar Klein <shahark@mellanox.com>,
-        Or Gerlitz <gerlitz.or@gmail.com>,
-        Roi Dayan <roid@mellanox.com>, Jiri Pirko <jiri@mellanox.com>,
-        John Fastabend <john.fastabend@gmail.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Daniel Borkmann <daniel@iogearbox.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "weiyongjun (A)" <weiyongjun1@huawei.com>,
+        Dingtianhong <dingtianhong@huawei.com>,
+        "Wangzhou (B)" <wangzhou1@hisilicon.com>
+To: Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f196.google.com ([209.85.216.196]:32945 "EHLO
-        mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752212AbcLXHel (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 24 Dec 2016 02:34:41 -0500
-Received: by mail-qt0-f196.google.com with SMTP id 41so7865424qtn.0
-        for <netdev@vger.kernel.org>; Fri, 23 Dec 2016 23:34:41 -0800 (PST)
-In-Reply-To: <585C6F49.5030900@iogearbox.net>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:26738 "EHLO
+        szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751055AbcLXIeY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 24 Dec 2016 03:34:24 -0500
+In-Reply-To: <CAKgT0Ud0=fQpADLHPnZBLrG8xLGHUB20TZt1mi+GBNYJQngDCA@mail.gmail.com>
+Content-Language: zh-CN
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 22, 2016 at 4:26 PM, Daniel Borkmann <daniel@iogearbox.net> wrote:
-> On 12/22/2016 08:05 PM, Cong Wang wrote:
->>
->> On Wed, Dec 21, 2016 at 1:07 PM, Daniel Borkmann <daniel@iogearbox.net>
->> wrote:
->>>
->>>
->>> Ok, you mean for net. In that case I prefer the smaller sized fix to be
->>> honest. It also covers everything from the point where we fetch the chain
->>> via cops->tcf_chain() to the end of the function, which is where most of
->>> the complexity resides, and only the two mentioned commits do the relock,
->>
->>
->> I really wish the problem is only about relocking, but look at the code,
->> the deeper reason why we have this bug is the complexity of the logic
->> inside tc_ctl_tfilter(): 1) the replay logic is hard, we have to make it
->> idempotent; 2) the request logic itself is hard, because of tc filter
->> design
->> and implementation.
->>
->> This is why I worry more than just relocking.
->
->
-> But do you have a concrete 2nd issue/bug you're seeing? It rather sounds to
-> me your argument is more about fear of complexity on tc framework itself.
-> I agree it's complex, and tc_ctl_tfilter() is quite big in itself, where it
-> would be good to reduce it's complexity into smaller pieces. But it's not
-> really related to the fix itself, reducing complexity requires significantly
-> more and deeper work on the code. We can rework tc_ctl_tfilter() in net-next
-> to try to simplify it, sure, but I don't get why we have to discuss so much
-> on this matter in this context, really.
-
-Thanks for ignoring my point 1) above... You are dragging the discussion
-further.
-
-
->
->>> so as a fix I think it's fine as-is. As mentioned, if there's need to
->>> refactor tc_ctl_tfilter() net-next would be better, imho.
->>
->>
->> Refactor is a too strong word, just moving the replay out is not a
->> refactor.
->> The end result will be still smaller than your commit d936377414fadbafb4,
->> which is already backported to stable.
->
->
-> Commit d936377414fa is a whole different thing, and not related to the
-
-Nope, you said "small", I show an example of non-small, perfectly fits
-in the topic
-and beats your argument w.r.t. patch size with your previous case.
-
-
-> topic at all. The two-line changes with the initialization fix is quite
-> straight forward and fixes a bug in the logic. It's also less complex in
-> terms of lines but also in terms of complexity than to refactor or move the
-
-Size doesn't tell everything, focus on the code:
-
-1) With your current approach: we have to verify if 'tp_created' is really
-correct in ALL cases including replay case; we also have to verify if any
-other local variables are as correct as 'tp_created'.
-
-2) With my proposed approach: replay case is much easier, compiler
-does everything for us, the function itself is, and should be, good enough
-for replaying, no need to track ANY local variables.
-
-For me 2) is much better than 1). Don't look at size, look at the whole code
-in a bigger picture.
-
-> replay out. Moving it out contextually means that you also wouldn't rule
-> out that things like nlmsg_parse(), or in-fact *any* of the
-> __tc_ctl_tfilter()
-> return paths could potentially return an error that suddenly would require
-> a replay of the request. So, while moving it out fixes the bug, too, it also
-
-The current replay loop already covers almost all of the function, so this
-argument doesn't make sense.
-
-
-> adds more potential points where you would go and replay the request where
-> you didn't do so before and therefore also adds more complexity to the code
-> that needs review/audit when fixing bugs since you don't have these
-> hard/direct
-> return paths anymore. Therefore I don't think it's better to go that way
-> for the fix.
-
-Please read the code again:
-
-'goto replay' is located at line 383, tc_ctl_tfilter() ends at line 385
-
-'replay' label is located at line 157, tc_ctl_tfilter() starts
-(without local variables)
-at line 153.
-
-So, replay loop covers 227 lines of code, tc_ctl_tfilter() contains
-233 lines of code,
-therefore 97.4% of tc_ctl_tfilter() is the replay loop, moving it is
-out is literately just
-2.6%.
-
-You call this refactor... Huh? Do your math please.
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogQWxleGFuZGVyIER1eWNr
+IFttYWlsdG86YWxleGFuZGVyLmR1eWNrQGdtYWlsLmNvbV0NCj4gU2VudDogRnJpZGF5LCBEZWNl
+bWJlciAyMywgMjAxNiAxMTo0MyBQTQ0KPiBUbzogbWFvd2VuYW4NCj4gQ2M6IEplZmYgS2lyc2hl
+cjsgU3RlcGhlbiBIZW1taW5nZXI7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IHdlaXlvbmdqdW4g
+KEEpOw0KPiBEaW5ndGlhbmhvbmcNCj4gU3ViamVjdDogUmU6IFtQQVRDSF0gZXRodG9vbDogYWRk
+IG9uZSBldGh0b29sIG9wdGlvbiB0byBzZXQgcmVsYXggb3JkZXJpbmcgbW9kZQ0KPiANCj4gT24g
+VGh1LCBEZWMgMjIsIDIwMTYgYXQgMTA6MTQgUE0sIG1hb3dlbmFuIDxtYW93ZW5hbkBodWF3ZWku
+Y29tPg0KPiB3cm90ZToNCj4gPg0KPiA+DQo+ID4+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0t
+DQo+ID4+IEZyb206IEplZmYgS2lyc2hlciBbbWFpbHRvOmplZmZyZXkudC5raXJzaGVyQGludGVs
+LmNvbV0NCj4gPj4gU2VudDogRnJpZGF5LCBEZWNlbWJlciAyMywgMjAxNiA5OjA3IEFNDQo+ID4+
+IFRvOiBtYW93ZW5hbjsgQWxleGFuZGVyIER1eWNrDQo+ID4+IENjOiBTdGVwaGVuIEhlbW1pbmdl
+cjsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgd2VpeW9uZ2p1biAoQSk7DQo+ID4+IERpbmd0aWFu
+aG9uZw0KPiA+PiBTdWJqZWN0OiBSZTogW1BBVENIXSBldGh0b29sOiBhZGQgb25lIGV0aHRvb2wg
+b3B0aW9uIHRvIHNldCByZWxheA0KPiA+PiBvcmRlcmluZyBtb2RlDQo+ID4+DQo+ID4+IE9uIEZy
+aSwgMjAxNi0xMi0yMyBhdCAwMDo0MCArMDAwMCwgbWFvd2VuYW4gd3JvdGU6DQo+ID4+ID4gPiAt
+LS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiA+PiA+ID4gRnJvbTogQWxleGFuZGVyIER1eWNr
+IFttYWlsdG86YWxleGFuZGVyLmR1eWNrQGdtYWlsLmNvbV0NCj4gPj4gPiA+IFNlbnQ6IFRodXJz
+ZGF5LCBEZWNlbWJlciAyMiwgMjAxNiAxMTo1NCBQTQ0KPiA+PiA+ID4gVG86IG1hb3dlbmFuDQo+
+ID4+ID4gPiBDYzogU3RlcGhlbiBIZW1taW5nZXI7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7DQo+
+IGplZmZyZXkudC5raXJzaGVyQGludGVsLg0KPiA+PiA+ID4gY29tOw0KPiA+PiA+ID4gd2VpeW9u
+Z2p1biAoQSk7IERpbmd0aWFuaG9uZw0KPiA+PiA+ID4gU3ViamVjdDogUmU6IFtQQVRDSF0gZXRo
+dG9vbDogYWRkIG9uZSBldGh0b29sIG9wdGlvbiB0byBzZXQgcmVsYXgNCj4gPj4gPiA+IG9yZGVy
+aW5nIG1vZGUNCj4gPj4gPiA+DQo+ID4+ID4gPiBPbiBXZWQsIERlYyAyMSwgMjAxNiBhdCA1OjM5
+IFBNLCBtYW93ZW5hbg0KPiA8bWFvd2VuYW5AaHVhd2VpLmNvbT4NCj4gPj4gPiA+IHdyb3RlOg0K
+PiA+PiA+ID4gPg0KPiA+PiA+ID4gPg0KPiA+PiA+ID4gPiA+IC0tLS0tT3JpZ2luYWwgTWVzc2Fn
+ZS0tLS0tDQo+ID4+ID4gPiA+ID4gRnJvbTogU3RlcGhlbiBIZW1taW5nZXIgW21haWx0bzpzdGVw
+aGVuQG5ldHdvcmtwbHVtYmVyLm9yZ10NCj4gPj4gPiA+ID4gPiBTZW50OiBUaHVyc2RheSwgRGVj
+ZW1iZXIgMjIsIDIwMTYgOToyOCBBTQ0KPiA+PiA+ID4gPiA+IFRvOiBtYW93ZW5hbg0KPiA+PiA+
+ID4gPiA+IENjOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBqZWZmcmV5LnQua2lyc2hlckBpbnRl
+bC5jb20NCj4gPj4gPiA+ID4gPiBTdWJqZWN0OiBSZTogW1BBVENIXSBldGh0b29sOiBhZGQgb25l
+IGV0aHRvb2wgb3B0aW9uIHRvIHNldA0KPiA+PiA+ID4gPiA+IHJlbGF4IG9yZGVyaW5nIG1vZGUN
+Cj4gPj4gPiA+ID4gPg0KPiA+PiA+ID4gPiA+IE9uIFRodSwgOCBEZWMgMjAxNiAxNDo1MTozOCAr
+MDgwMCBNYW8gV2VuYW4NCj4gPj4gPiA+ID4gPiA8bWFvd2VuYW5AaHVhd2VpLmNvbT4gd3JvdGU6
+DQo+ID4+ID4gPiA+ID4NCj4gPj4gPiA+ID4gPiA+IFRoaXMgcGF0Y2ggcHJvdmlkZXMgb25lIHdh
+eSB0byBzZXQvdW5zZXQgSVhHQkUgTklDIFRYIGFuZA0KPiA+PiA+ID4gPiA+ID4gUlggcmVsYXgg
+b3JkZXJpbmcgbW9kZSwgd2hpY2ggY2FuIGJlIHNldCBieSBldGh0b29sLg0KPiA+PiA+ID4gPiA+
+ID4gUmVsYXggb3JkZXJpbmcgaXMgb25lIG1vZGUgb2YgODI1OTkgTklDLCB0byBlbmFibGUgdGhp
+cw0KPiA+PiA+ID4gPiA+ID4gbW9kZSBjYW4gZW5oYW5jZSB0aGUgcGVyZm9ybWFuY2UgZm9yIHNv
+bWUgY3B1IGFyY2hpdGVjdXJlLg0KPiA+PiA+ID4gPiA+DQo+ID4+ID4gPiA+ID4gVGhlbiBpdCBz
+aG91bGQgYmUgZG9uZSBieSBDUFUgYXJjaGl0ZWN0dXJlIHNwZWNpZmljIHF1aXJrcw0KPiA+PiA+
+ID4gPiA+IChwcmVmZXJhYmx5IGluIFBDSQ0KPiA+PiA+ID4gPiA+IGxheWVyKSBzbyB0aGF0IGFs
+bCB1c2VycyBnZXQgdGhlIG9wdGlvbiB3aXRob3V0IGhhdmluZyB0byBkbw0KPiA+PiA+ID4gPiA+
+IG1hbnVhbA0KPiA+PiA+ID4NCj4gPj4gPiA+IGludGVydmVudGlvbi4NCj4gPj4gPiA+ID4gPg0K
+PiA+PiA+ID4gPiA+ID4gZXhhbXBsZToNCj4gPj4gPiA+ID4gPiA+IGV0aHRvb2wgLXMgZW5wMXMw
+ZjAgcmVsYXhvcmRlciBvZmYgZXRodG9vbCAtcyBlbnAxczBmMA0KPiA+PiA+ID4gPiA+ID4gcmVs
+YXhvcmRlciBvbg0KPiA+PiA+ID4gPiA+DQo+ID4+ID4gPiA+ID4gRG9pbmcgaXQgdmlhIGV0aHRv
+b2wgaXMgYSBkZXZlbG9wZXIgQVBJIChmb3IgdGVzdGluZykgbm90DQo+ID4+ID4gPiA+ID4gc29t
+ZXRoaW5nIHRoYXQgbWFrZXMgc2Vuc2UgaW4gcHJvZHVjdGlvbi4NCj4gPj4gPiA+ID4NCj4gPj4g
+PiA+ID4NCj4gPj4gPiA+ID4gVGhpcyBmZWF0dXJlIGlzIG5vdCBtYW5kYXRvcnkgZm9yIGFsbCB1
+c2VycywgYWN0dXJhbGx5IHJlbGF4DQo+ID4+ID4gPiA+IG9yZGVyaW5nIGRlZmF1bHQgY29uZmln
+dXJhdGlvbiBvZiA4MjU5OSBpcyAnZGlzYWJsZScsIFNvIHRoaXMNCj4gPj4gPiA+ID4gcGF0Y2gg
+Z2l2ZXMgb25lIHdheSB0bw0KPiA+PiA+ID4NCj4gPj4gPiA+IGVuYWJsZSByZWxheCBvcmRlcmlu
+ZyB0byBiZSBzZWxlY3RlZCBpbiBzb21lIHBlcmZvcm1hbmNlIGNvbmRpdGlvbi4NCj4gPj4gPiA+
+DQo+ID4+ID4gPiBUaGF0IGlzbid0IHF1aXRlIHRydWUuICBUaGUgZGVmYXVsdCBmb3IgU3BhcmMg
+c3lzdGVtcyBpcyB0byBoYXZlDQo+ID4+ID4gPiBpdCBlbmFibGVkLg0KPiA+PiA+ID4NCj4gPj4g
+PiA+IFJlYWxseSB0aGlzIGlzIHNvbWV0aGluZyB0aGF0IGlzIHBsYXRmb3JtIHNwZWNpZmljLiAg
+SSBhZ3JlZSB3aXRoDQo+ID4+ID4gPiBTdGVwaGVuIHRoYXQgaXQgd291bGQgd29yayBiZXR0ZXIg
+aWYgdGhpcyB3YXMgaGFuZGxlZCBhcyBhIHNlcmllcw0KPiA+PiA+ID4gb2YgcGxhdGZvcm0gc3Bl
+Y2lmaWMgcXVpcmtzIGhhbmRsZWQgYXQgc29tZXRoaW5nIGxpa2UgdGhlIFBDSQ0KPiA+PiA+ID4g
+bGF5ZXIgcmF0aGVyIHRoYW4gYmUgYSBzd2l0Y2ggdGhlIHVzZXIgY2FuIHRvZ2dsZSBvbiBhbmQg
+b2ZmLg0KPiA+PiA+ID4NCj4gPj4gPiA+IFdpdGggdGhhdCBiZWluZyBzYWlkIHRoZXJlIGFyZSBj
+aGFuZ2VzIGJlaW5nIG1hZGUgdGhhdCBzaG91bGQNCj4gPj4gPiA+IGhlbHAgdG8gaW1wcm92ZSB0
+aGUgc2l0dWF0aW9uLiAgU3BlY2lmaWNhbGx5IEkgYW0gbG9va2luZyBhdA0KPiA+PiA+ID4gYWRk
+aW5nIHN1cHBvcnQgZm9yIHRoZSBETUFfQVRUUl9XRUFLX09SREVSSU5HIHdoaWNoIG1heSBhbHNv
+DQo+ID4+ID4gPiBhbGxvdyB1cyB0byBpZGVudGlmeSBjYXNlcyB3aGVyZSB5b3UgbWlnaHQgYmUg
+YWJsZSB0byBzcGVjaWZ5IHRoZQ0KPiA+PiA+ID4gRE1BIGJlaGF2aW9yIHZpYSB0aGUgRE1BIG1h
+cHBpbmcgaW5zdGVhZCBvZiBoYXZpbmcgdG8gbWFrZSB0aGUNCj4gPj4gPiA+IGZpbmFsIGRlY2lz
+aW9uIGluIHRoZSBkZXZpY2UgaXRzZWxmLg0KPiA+PiA+ID4NCj4gPj4gPiA+IC0gQWxleA0KPiA+
+PiA+DQo+ID4+ID4gWWVzLCBTcGFyYyBpcyBhIHNwZWNpYWwgY2FzZS4gRnJvbSB0aGUgTklDIGRy
+aXZlciBwb2ludCBvZiB2aWV3LCBJdA0KPiA+PiA+IGlzIG5vIG5lZWQgZm9yIHNvbWUgQVJDSHMg
+dG8gZG8gcGFydGljdWxhciBvcGVyYXRpb24gYW5kIGNvbXBpbGluZw0KPiA+PiA+IGJyYW5jaCwg
+ZXRodG9vbCBpcyBhIGZsZXhpYmxlIG1ldGhvZCBmb3IgdXNlciB0byBtYWtlIGRlY2lzaW9uDQo+
+ID4+ID4gd2hldGhlcg0KPiA+PiA+IG9ufG9mZiB0aGlzIGZlYXR1cmUuDQo+ID4+ID4gSSB0aGlu
+ayBKZWZmIGFzIG1haW50YWluZXIgb2YgODI1OTkgaGFzIHNvbWUgY29tbWVudHMgYWJvdXQgdGhp
+cy4NCj4gPj4NCj4gPj4gTXkgb3JpZ2luYWwgY29tbWVudC9vYmplY3Rpb24gd2FzIHRoYXQgeW91
+IGF0dGVtcHRlZCB0byBkbyB0aGlzDQo+ID4+IGNoYW5nZSBhcyBhIG1vZHVsZSBwYXJhbWV0ZXIg
+dG8gdGhlIGl4Z2JlIGRyaXZlciwgd2hlcmUgSSBkaXJlY3RlZA0KPiA+PiB5b3UgdG8gdXNlIGV0
+aHRvb2wgc28gdGhhdCBvdGhlciBkcml2ZXJzIGNvdWxkIGJlbmVmaXQgZnJvbSB0aGUNCj4gPj4g
+YWJpbGl0eSB0byBlbmFibGUvZGlzYWJsZSByZWxheGVkIG9yZGVyaW5nLiAgQXMgZmFyIGFzIGhv
+dyBpdCBnZXRzDQo+ID4+IGltcGxlbWVudGVkIGluIGV0aHRvb2wgb3IgUENJIGxheWVyLCBtYWtl
+cyBsaXR0bGUgZGlmZmVyZW5jZSB0byBtZSwgSQ0KPiA+PiBvbmx5IGhhZCBpc3N1ZXMgd2l0aCB0
+aGUgZHJpdmVyIHNwZWNpZmljIG1vZHVsZSBwYXJhbWV0ZXIgaW1wbGVtZW50YXRpb24sDQo+IHdo
+aWNoIGlzIG5vdCBhY2NlcHRhYmxlLg0KPiA+DQo+ID4NCj4gPiBUaGFuayB5b3UgSmVmZiBhbmQg
+QWxleC4NCj4gPiBBbmQgdGhlbiBJIGhhdmUgZ29uZSB0aHJvdWdoIG1haWwgdGhyZWFkIGFib3V0
+ICJpNDBlOiBlbmFibGUgUENJZQ0KPiA+IHJlbGF4IG9yZGVyaW5nIGZvciBTUEFSQyIsIEl0IG9u
+bHkgd29ya3MgZm9yIFNQQVJDLCBhbnkgb3RoZXIgQVJDSCB3aG8NCj4gPiB3YW50cyB0byBlbmFi
+bGUgRE1BX0FUVFJfV0VBS19PUkRFUklORyBmZWF0dXJlLCBzaG91bGQgZGVmaW5lIHRoZQ0KPiBu
+ZXcgbWFjcm8sIHJlY29tcGlsZSB0aGUgZHJpdmVyIG1vZHVsZS4NCj4gPg0KPiA+IEJlY2F1c2Ug
+b2YgdGhlIGFib3ZlIHJlYXNvbnMsIHdlIGltcGxlbWVudCBpbiBldGh0b29sIHRvIGdpdmUgdGhl
+DQo+ID4gZmluYWwgdXNlciBhIGNvbnZlbmllbnQgd2F5IHRvIG9ufG9mZiBzcGVjaWFsIGZlYXR1
+cmUsIG5vIG5lZWQgZGVmaW5lDQo+ID4gbmV3IG1hY3JvLCBlYXN5IHRvIGV4dGVuZCB0aGUgbmV3
+IGZlYXR1cmVzLCBhbmQgYWxzbyBnb29kIGJlbmVmaXQgZm9yIG90aGVyDQo+IGRyaXZlciBhcyBK
+ZWZmIHJlZmVycmVkLg0KPiA+DQo+IA0KPiBJIHRoaW5rIHRoZSBwb2ludCBpcyB3ZSBzaG91bGRu
+J3QgYmFzZSB0aGUgZGVjaXNpb24gb24gdXNlciBpbnB1dC4NCj4gVGhlIGZhY3QgaXMgdGhlIFBD
+SWUgZGV2aWNlIGNvbnRyb2wgcmVnaXN0ZXIgc2hvdWxkIGhhdmUgYSBiaXQgdGhhdCBpbmRpY2F0
+ZXMgaWYNCj4gdGhlIGRldmljZSBpcyBhbGxvd2VkIHRvIGVuYWJsZSByZWxheGVkIG9yZGVyaW5n
+IG9yIG5vdC4NCj4gSWYgd2UgY2FuIGd1YXJhbnRlZSB0aGF0IHRoZSBiaXQgaXMgc2V0IGluIGFs
+bCB0aGUgY2FzZXMgd2hlcmUgaXQgc2hvdWxkIGJlIHNldCwNCj4gYW5kIGNsZWFyZWQgaW4gYWxs
+IHRoZSBjYXNlcyB3aGVyZSBpdCBzaG91bGQgbm90IHRoZW4gd2UgY291bGQgdXNlIHNvbWV0aGlu
+Zw0KPiBsaWtlIHRoYXQgdG8gZGV0ZXJtaW5lIGlmIHRoZSBkZXZpY2UgaXMgc3VwcG9zZWQgdG8g
+ZW5hYmxlIHJlbGF4ZWQgb3JkZXJpbmcNCj4gaW5zdGVhZCBvZiB0cnlpbmcgdG8gbWFrZSB0aGUg
+ZGVjaXNpb24gb3Vyc2VsdmVzLg0KPiANCj4gLSBBbGV4DQoNCm9rLiBXZSBhcmUgZm9jdXNpbmcg
+b24gdGhlIHJlZ2lzdGVyLiANCkFuZCB5ZXMsIHRvIGVuYWJsZSByZWxheCBvcmRlcmluZyBmb3Ig
+ODI1OTkgc2hvdWxkIGJlIHNldCBieSBvbmUgb3IgbW9yZSBiaXRzIG9mIFJ4L1RYIERDQSBDb250
+cm9sIA0KUmVnaXN0ZXIsIHRoZXNlIGJpdHMgc2hvdWxkIGJlIHNldCBpbiBtYW55IGNwdSBhcmNo
+aXRlY3R1cmVzLCBzdWNoIGFzIGFybTY0LCBzcGFyYywgYW5kIHNvIG9uLCBhbmQgDQpzaG91bGQg
+YmUgY2xlYXJlZCBpbiBvdGhlciBBUkNIcy4NCkJ5IHRoZSB3YXksIGhvdyBkbyB5b3UgZW5hYmxl
+IFNQQVJDIG1hY3JvLCBob3cgYW5kIHdoZXJlIHRvIGRlZmluZSB0aGlzIGNvbXBpbGluZyBtYWNy
+byB3aGVuIHVzZXIgDQpvbmUgdG8gZW5hYmxlIHJlbGF4IG9yZGVyaW5nIHVuZGVyIFNQQVJDIHN5
+c3RlbT8gIA0KI2lmbmRlZiBDT05GSUdfU1BBUkMNCg0KDQoNCg==
