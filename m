@@ -1,65 +1,155 @@
-From: Mark Greer <mgreer-luAo+O/VEmrlveNOaEYElw@public.gmane.org>
-Subject: Re: [PATCH v3 3/3] nfc: trf7970a: Prevent repeated polling from
- crashing the kernel
-Date: Sat, 24 Dec 2016 10:24:39 -0700
-Message-ID: <20161224172439.GA15103@animalcreek.com>
-References: <1482380314-16440-1-git-send-email-geoff@kuvee.com>
- <1482380314-16440-3-git-send-email-geoff@kuvee.com>
- <20161224060141.GA9069@animalcreek.com>
- <CAO7Z3W+n85jbr8cmj3HJV1c+eL=oRh-XRy+O=iZ+mD=ov2WABA@mail.gmail.com>
+From: Andy Lutomirski <luto@amacapital.net>
+Subject: Re: [RFC PATCH 4.10 1/6] crypto/sha256: Refactor the API so it can be
+ used without shash
+Date: Sat, 24 Dec 2016 09:57:53 -0800
+Message-ID: <CALCETrVbT_1=cdU1+a-+KbhoFqeT3XvbHjY0s_U7C5JVgiPx_Q@mail.gmail.com>
+References: <cover.1482545792.git.luto@kernel.org> <942b91f25a63b22ec4946378a1fffe78d655cf18.1482545792.git.luto@kernel.org>
+ <CAKv+Gu-UCqwchgbhg8VN4s=Yxk=PkjXG46NZo=8P4wAQtJ2TXw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Lauro Ramos Venancio <lauro.venancio-430g2QfJUUCGglJvpFV4uA@public.gmane.org>,
-        Aloisio Almeida Jr <aloisio.almeida-430g2QfJUUCGglJvpFV4uA@public.gmane.org>,
-        Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-        mark.rutland-5wv7dgnIgG8@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Justin Bronder <justin-R+k406RtEhcAvxtiuMwx3w@public.gmane.org>,
-        Jaret Cantu <jaret.cantu-jEh4hwF5bVhBDgjK7y7TUQ@public.gmane.org>
-To: Geoff Lansberry <geoff-R+k406RtEhcAvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <CAO7Z3W+n85jbr8cmj3HJV1c+eL=oRh-XRy+O=iZ+mD=ov2WABA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Andy Lutomirski <luto@kernel.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+        "Jason A. Donenfeld" <Jason@zx2c4.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Eric Biggers <ebiggers3@gmail.com>,
+        Tom Herbert <tom@herbertland.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Herbert Xu <herbert@gondor.apana.org.au>
+To: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <CAKv+Gu-UCqwchgbhg8VN4s=Yxk=PkjXG46NZo=8P4wAQtJ2TXw@mail.gmail.com>
+Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Dec 24, 2016 at 11:17:18AM -0500, Geoff Lansberry wrote:
-> Mark - I'm sorry, but I did not write this code, and therefore was not
-> able to accurately describe it.   It is fixing a different issue, not
-> the neard segfault that we are still chasing. Last week Jaret Cantu
-> sent a separate email explaining the purpose of the code, which had
-> you copied, did you see that?
+On Sat, Dec 24, 2016 at 2:33 AM, Ard Biesheuvel
+<ard.biesheuvel@linaro.org> wrote:
+> Hi Andy,
+>
+> On 24 December 2016 at 02:22, Andy Lutomirski <luto@kernel.org> wrote:
+>> There are some pieecs of kernel code that want to compute SHA256
+>> directly without going through the crypto core.  Adjust the exported
+>> API to decouple it from the crypto core.
+>>
+>
+> There are a bunch of things happening at the same time in this patch,
+> i.e., unnecessary renames of functions with static linkage, return
+> type changes to the base prototypes (int (*)(...) to void (*)(...))
+> and the change for the base functions to take a struct sha256_state
+> ctx rather than a shash_desc. I suppose you are mainly after the
+> latter, so could we please drop the other changes?
+>
+> For the name clashes, could we simply use the crypto_ prefix for the
+> globally visible functions rather than using names that are already in
+> use? (and having to go around clean up the conflicts)
+> As for the return type changes, the base functions intentionally
+> return int to allow tail calls from the functions exposed by the
+> crypto API (whose prototypes cannot be changed). Unlikely to matter in
+> the grand scheme of things (especially now that the base layer
+> consists of static inline functions primarily), but it is equally
+> pointless to go around and change them to return void IMO.
+>
+> So what remains is the struct shash_desc to struct sha256_state
+> change, which makes sense given that you are after a sha256_digest()
+> function that does not require the crypto API. But it seems your use
+> case does not rely on incremental hashing, and so there is no reason
+> for the state to be exposed outside of the implementation, and we
+> could simply expose a crypto_sha256_digest() routine from the
+> sha256_generic.c implementation instead.
 
-Hm, no, I didn't.  I received an email from Justin Bronder but not from
-Jaret Cantu.  Justin's email did help but is still pretty high-level.
-We need a clear understanding as to what is happening in the digital
-layer and the driver to know how execution is getting into a block of
-error handling code that should never be executed.  Once we understand
-that we can start thinking about what the best fix is.
+I actually do use incremental hashing later on.   BPF currently
+vmallocs() a big temporary buffer just so it can fill it and hash it.
+I change it to hash as it goes.
 
-> Does it explain why it was done to
-> your satisfaction?   I've asked him to join in on the effort to push
-> the change upstream, however he will not be available until the new
-> year.
+I painted the bike shed the other way because I thought that crypto_
+names should indicate that they're the versions compatible with the
+crypto API, but I take your point about churn.  Part of the reason I
+didn't want to use crypto_sha256_update is because that function is
+currently like this:
 
-I expect that it would help if he joins.  After the holidays is fine -
-I think many people are taking it easy for the next week or so, anyway.
+int crypto_sha256_update(struct shash_desc *desc, const u8 *data,
+                          unsigned int len)
 
-> I know you did suggest that we split off that change from the others,
-> and if now is the time to do that, let me know.   If you don't have
-> the email from Jaret, also please let me know and I will forward it to
-> you.
+and I wanted to avoid churn.  The sha256_update() functions scattered
+all over were static, so I didn't worry about them.
 
-I think it would help you if you split it off because the first two patches
-have a good chance of being accepted but this one doesn't (yet).  If you
-separate the them, it will make it easier for Samuel to take the first two
-(or he may take the first two anyway but its always good to make it as
-easy maintainers as you can).
+I'm going to give this another try as a split-up series that tries to
+avoid making any changes beyond simple function renames to the
+drivers.
 
-Mark
---
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+> Also, I strongly feel that crypto and other security related patches
+> should be tested before being posted, even if they are only RFC,
+> especially when they are posted by high profile kernel devs like
+> yourself. (Your code incorrectly calls crypto_sha2_final() in a couple
+> of places, resulting in the finalization being performed twice, once
+> with the accelerated block transform and again with the generic
+> transform)
+>
+
+I tested it, albeit poorly.  I wanted feedback on the API (thanks!)
+and I figured I could more carefully check the implementation once the
+API survives a bit of review.  Since it looks like I have to rework
+this, I'd need to re-test anyway.
+
+>> I suspect this will very slightly speed up the SHA256 shash operations
+>> as well by reducing the amount of indirection involved.
+>>
+>
+> I think you have a valid point when it comes to the complexity of the
+> crypto API in general. But the struct sha256_state is embedded in the
+> shash_desc rather than referred to via a pointer, so the level of
+> indirection does not appear to change. And given how 99.9% of the
+> SHA256 execution time is spent in the block transform routine anyway,
+> I expect the performance delta to be in the noise tbh.
+
+s/very slightly/negligibly?  There's an extra speedup from avoiding a
+variable-length stack allocation, but that probably doesn't matter
+much either.
+
+>
+> Finally, another thing to keep in mind is that the base layers of
+> SHA-1, SHA-256 and SHA-512 are intentionally structured in the same
+> way. If there is a need for a digest() entry point, I'd prefer to add
+> them for all flavours.
+
+I want to get sha256 right first.  Once it's in good shape, making the
+same changes to the other variants should be easy.
+
+>
+> Whether this still belongs under crypto or under lib/sha256.c as a
+> library function (allowing archs to override it) is open for debate.
+> If hashing BPF programs becomes a hot spot, we probably have bigger
+> problems.
+>
+> Regards,
+> Ard.
+>
+> P.S. I do take your point regarding the arch_sha256_block_transform()
+> proposed in your follow up email, but there are some details (SIMD,
+> availability of the instructions etc) that would make it only suitable
+> for the generic implementation anyway, and the base layer was already
+> a huge improvement compared to the open coded implementations of the
+> SHA boilerplate.
+
+Agreed, and my model may not be quite right.  It might have to be
+something like:
+
+if (arch_begin_sha256(len)) {
+  ... do it with arch helpers...
+  arch_end_sha256();
+} else {
+  ... do it generically ...
+}
+
+>> -       return sha256_base_finish(desc, out);
+>> +       return crypto_sha2_final(desc, out);
+>
+> This is wrong: your crypto_sha2_final also calls sha256_base_do_finalize()
+
+Ugh, right.  I clearly need to organize this change better to avoid
+this kind of mistake.
