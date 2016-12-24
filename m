@@ -1,87 +1,47 @@
-From: Geoff Lansberry <geoff@kuvee.com>
-Subject: Re: [PATCH v3 3/3] nfc: trf7970a: Prevent repeated polling from
- crashing the kernel
-Date: Sat, 24 Dec 2016 11:17:18 -0500
-Message-ID: <CAO7Z3W+n85jbr8cmj3HJV1c+eL=oRh-XRy+O=iZ+mD=ov2WABA@mail.gmail.com>
-References: <1482380314-16440-1-git-send-email-geoff@kuvee.com>
- <1482380314-16440-3-git-send-email-geoff@kuvee.com> <20161224060141.GA9069@animalcreek.com>
+From: =?UTF-8?q?Pali=20Roh=C3=A1r?= <pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH 0/6] wl1251: Fix MAC address for Nokia N900
+Date: Sat, 24 Dec 2016 17:52:55 +0100
+Message-ID: <1482598381-16513-1-git-send-email-pali.rohar@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: linux-wireless <linux-wireless@vger.kernel.org>,
-        Lauro Ramos Venancio <lauro.venancio@openbossa.org>,
-        Aloisio Almeida Jr <aloisio.almeida@openbossa.org>,
-        Samuel Ortiz <sameo@linux.intel.com>, robh+dt@kernel.org,
-        mark.rutland@arm.com, netdev@vger.kernel.org,
-        devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Justin Bronder <justin@kuvee.com>,
-        Jaret Cantu <jaret.cantu@timesys.com>
-To: Mark Greer <mgreer@animalcreek.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161224060141.GA9069@animalcreek.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        =?UTF-8?q?Pali=20Roh=C3=A1r?= <pali.rohar-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>,
+        "Luis R. Rodriguez" <mcgrof-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+        Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+        David Gnedt <david.gnedt-rFfgOQFw6VLk7+2FdBfRIA@public.gmane.org>,
+        Michal Kazior <michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>,
+        Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>,
+        Tony Lindgren <tony-4v6yS6AI5VpBDgjK7y7TUQ@public.gmane.org>,
+        Sebastian Reichel <sre-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>,
+        Ivaylo Dimitrov <ivo.g.dimitrov.75-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Aaro Koskinen <aaro.koskinen-X3B1VOXEql0@public.gmane.org>,
+        Grazvydas Ignotas <notasas-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Mark - I'm sorry, but I did not write this code, and therefore was not
-able to accurately describe it.   It is fixing a different issue, not
-the neard segfault that we are still chasing. Last week Jaret Cantu
-sent a separate email explaining the purpose of the code, which had
-you copied, did you see that?   Does it explain why it was done to
-your satisfaction?   I've asked him to join in on the effort to push
-the change upstream, however he will not be available until the new
-year.
+This patch series fix processing MAC address for wl1251 chip found in Nokia N900.
 
-I know you did suggest that we split off that change from the others,
-and if now is the time to do that, let me know.   If you don't have
-the email from Jaret, also please let me know and I will forward it to
-you.
+Pali Rohár (6):
+  firmware: Add request_firmware_prefer_user() function
+  wl1251: Use request_firmware_prefer_user() for loading NVS
+    calibration data
+  wl1251: Update wl->nvs_len after wl->nvs is valid
+  wl1251: Generate random MAC address only if driver does not have
+    valid
+  wl1251: Parse and use MAC address from supplied NVS data
+  wl1251: Set generated MAC address back to NVS data
 
-Geoff
-Geoff Lansberry
+ drivers/base/firmware_class.c          |   45 +++++++++++++++-
+ drivers/net/wireless/ti/wl1251/Kconfig |    1 +
+ drivers/net/wireless/ti/wl1251/main.c  |   91 +++++++++++++++++++++++++-------
+ include/linux/firmware.h               |    9 ++++
+ 4 files changed, 125 insertions(+), 21 deletions(-)
 
-
-Engineering Guy
-Kuv=C3=A9e, Inc
-125 Kingston St., 3rd Floor
-Boston, MA 02111
-1-617-290-1118 (m)
-geoff.lansberry (skype)
-http://www.kuvee.com
-
-
-
-On Sat, Dec 24, 2016 at 1:01 AM, Mark Greer <mgreer@animalcreek.com> wrote:
-> On Wed, Dec 21, 2016 at 11:18:34PM -0500, Geoff Lansberry wrote:
->> From: Jaret Cantu <jaret.cantu@timesys.com>
->>
->> Repeated polling attempts cause a NULL dereference error to occur.
->> This is because the state of the trf7970a is currently reading but
->> another request has been made to send a command before it has finished.
->>
->> The solution is to properly kill the waiting reading (workqueue)
->> before failing on the send.
->>
->> Signed-off-by: Geoff Lansberry <geoff@kuvee.com>
->> ---
->
-> You've still provided virtually no information on the actual problem(s)
-> nor justified why you think this is the best solution.  You're adding
-> code to a section of code that should _never_ be executed so the only
-> reasonable things I can infer is that there are, at least, two problems:
->
-> 1) There is a bug causing execution to get into this block of code.
->
-> 2) Once in this block of code, there is another bug.
->
-> You seem to be attempting to fix 2) and completely ignoring 1).
-> 1) is the first bug that needs to be root-caused and fixed.
->
-> Also, what exactly is the "NULL dereference error" you mention?
-> Is this the neard crash you talked about in another thread or is
-> this a kernel crash?  If it is the kernel crash, please post the
-> relevant information.  If this is the neard crash - which seems
-> unlikely - then how can changing a section of kernel code that
-> shouldn't be executed in the first place fix that?
->
-> Mark
-> --
+-- 
+1.7.9.5
