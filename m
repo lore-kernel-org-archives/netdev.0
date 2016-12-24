@@ -1,70 +1,81 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net] net, sched: fix soft lockup in tc_classify
-Date: Sat, 24 Dec 2016 22:03:43 +0100
-Message-ID: <585EE2AF.2000100@iogearbox.net>
-References: <1954223e8b7aa90ff835357e8a3ef7537be33e43.1482337600.git.daniel@iogearbox.net> <CAM_iQpXadrGWJYqizEkq+xmMKVV9krrcCWKur=ZCRZBS9Mx_8w@mail.gmail.com> <CAM_iQpX3Sk_YGDmvY-yj0CxPbG5qfT7P7ioNgY5Lb_DqsTWh6Q@mail.gmail.com> <585ADFEB.3030206@iogearbox.net> <CAM_iQpUEUmJpjQYV7HV+4NVtGe6D-yZs6=YizcDtf7dogkNR0Q@mail.gmail.com> <585AEF24.4070800@iogearbox.net> <CAM_iQpW9Ly+fMEiBtHq4XwUgvt89-5uE2Bwdw1FXJGV3=eY1ZA@mail.gmail.com> <585C6F49.5030900@iogearbox.net> <CAM_iQpX2X-WHbf1VxfQzh_-YUEqk=o6B+uYfYhj_45jJGaFSfQ@mail.gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCHv2 1/5] sh_eth: add generic wake-on-lan support via magic
+ packet
+Date: Sun, 25 Dec 2016 00:53:53 +0300
+Message-ID: <8339b438-5fb2-6a19-23bd-8ce32e29f30d@cogentembedded.com>
+References: <20161212160931.6478-1-niklas.soderlund+renesas@ragnatech.se>
+ <20161212160931.6478-2-niklas.soderlund+renesas@ragnatech.se>
+ <87e3f9e6-0f5a-986c-772d-006cb25b9fd9@cogentembedded.com>
+ <20161219163904.GE21006@bigcity.dyn.berto.se>
+ <CAMuHMdXVVS_eLozvDnEz67_Fwg7jGDK0YEGh84rS+EAm4RFnag@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        Shahar Klein <shahark@mellanox.com>,
-        Or Gerlitz <gerlitz.or@gmail.com>,
-        Roi Dayan <roid@mellanox.com>, Jiri Pirko <jiri@mellanox.com>,
-        John Fastabend <john.fastabend@gmail.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:44811 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752118AbcLXVDs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 24 Dec 2016 16:03:48 -0500
-In-Reply-To: <CAM_iQpX2X-WHbf1VxfQzh_-YUEqk=o6B+uYfYhj_45jJGaFSfQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Simon Horman <horms+renesas@verge.net.au>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Linux-Renesas <linux-renesas-soc@vger.kernel.org>
+To: Geert Uytterhoeven <geert@linux-m68k.org>,
+        =?UTF-8?Q?Niklas_S=c3=b6derlund?= <niklas.soderlund@ragnatech.se>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <CAMuHMdXVVS_eLozvDnEz67_Fwg7jGDK0YEGh84rS+EAm4RFnag@mail.gmail.com>
+Sender: linux-renesas-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/24/2016 08:34 AM, Cong Wang wrote:
-> On Thu, Dec 22, 2016 at 4:26 PM, Daniel Borkmann <daniel@iogearbox.net> wrote:
->> On 12/22/2016 08:05 PM, Cong Wang wrote:
->>> On Wed, Dec 21, 2016 at 1:07 PM, Daniel Borkmann <daniel@iogearbox.net>
->>> wrote:
->>>>
->>>> Ok, you mean for net. In that case I prefer the smaller sized fix to be
->>>> honest. It also covers everything from the point where we fetch the chain
->>>> via cops->tcf_chain() to the end of the function, which is where most of
->>>> the complexity resides, and only the two mentioned commits do the relock,
+Hello!
+
+On 12/19/2016 08:11 PM, Geert Uytterhoeven wrote:
+
+>>>> One quirk needed for WoL is that the module clock needs to be prevented
+>>>> from being switched off by Runtime PM. To keep the clock alive the
 >>>
->>> I really wish the problem is only about relocking, but look at the code,
->>> the deeper reason why we have this bug is the complexity of the logic
->>> inside tc_ctl_tfilter(): 1) the replay logic is hard, we have to make it
->>> idempotent; 2) the request logic itself is hard, because of tc filter
->>> design
->>> and implementation.
->>>
->>> This is why I worry more than just relocking.
+>>>    I tried to find the code in question and failed, getting muddled in the
+>>> RPM maze. Could you point at this code for my education? :-)
 >>
->> But do you have a concrete 2nd issue/bug you're seeing? It rather sounds to
->> me your argument is more about fear of complexity on tc framework itself.
->> I agree it's complex, and tc_ctl_tfilter() is quite big in itself, where it
->> would be good to reduce it's complexity into smaller pieces. But it's not
->> really related to the fix itself, reducing complexity requires significantly
->> more and deeper work on the code. We can rework tc_ctl_tfilter() in net-next
->> to try to simplify it, sure, but I don't get why we have to discuss so much
->> on this matter in this context, really.
->
-> Thanks for ignoring my point 1) above... You are dragging the discussion
-> further.
+>> In my investigation I observed this (simplified) call graph with regards
+>> to clocks for suspend:
+>>
+>> pm_suspend
 
-I don't think so. The analysis and patch I proposed provides an explanation
-of how we get into the seen endless loop, it provides a logical fix for it,
-which has been reviewed by others and it has been tested extensively that it
-resolves the issue, which was easily reproducible for the reporter and that
-after the fix it never occurred again. The delta is absolutely simple and
-really low risk. Given this function has not much changed over time, also
-distros could pick it up that have a much older base kernel than current
-stable ones. This initiated follow-up discussion we're having here in general
-is dragging the focus away for everyone, and quite frankly I'm getting tired
-of discussing it. I have stated my preferences, you have stated yours, and
-we're only repeating ourselves in circles which isn't helpful in any way,
-the discussion is not about some concrete bug in the logic to fix anymore
-(otherwise please name it). Hence my proposal that everything else can wait
-and be done in net-next.
+    There's a long list of the calls skipped here. :-)
+
+>>   pm_clk_suspend
+>>     clk_disable
+>>       clk_core_disable
+>>         cpg_mstp_clock_disable
+>>
+>> The interesting function here are clk_core_disable(). In that function a
+>> 'enable_count' for each clock is decremented and the clock is only
+>> turned of if the count reaches zero, hence cpg_mstp_clock_disable() are
+>> only called if the counter reaches 0. At runtime the enable_count can be
+>> displayed by examining /sys/kernel/debug/clk/clk_summary.
+
+    Well, this is not new to me... it's more interesting how we get there... :-)
+
+[...]
+>>>> usage count of the clock. Then when Runtime PM decreases the clock usage
+>>>> count it won't reach 0 and be switched off.
+>>>
+>>>    You mean it does this even though we don't call pr_runtime_put_sync()
+>>> as done in sh_eth_close()?
+>>
+>> Yes.
+>>
+>> I had a look at the pm_runtime_* functions in include/linux/pm_runtime.h
+>> and drivers/base/power/runtime.c and could not find any clock handling.
+>> Maybe they only deal with power domains?
+>
+> There should be a generic way to prevent a device from being suspended.
+
+    Indeed.
+
+> This will make sure the module clock is not disabled, and the power domain
+> (if applicable) is not powered down.
+
+    I've just bumped into <linux/pm_wakeirq.h>, it looks promising...
+
+[...]
+> Gr{oetje,eeting}s,
+>
+>                         Geert
+
+MBR, Sergei
