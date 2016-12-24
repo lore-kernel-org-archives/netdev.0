@@ -1,68 +1,55 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v2 1/2] drivers: net: ethernet: 3com: fix return value
-Date: Sat, 24 Dec 2016 22:06:55 +0300
-Message-ID: <4200be74-f7e7-db6b-a258-8fd178fef369@cogentembedded.com>
-References: <1482541554.16278.2.camel@dillow-glaptop.roam.corp.google.com>
- <1482580958-15406-1-git-send-email-thomas.preisner+linux@fau.de>
- <1482580958-15406-2-git-send-email-thomas.preisner+linux@fau.de>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [RFC PATCH 4.10 3/6] bpf: Use SHA256 instead of SHA1 for bpf
+ digests
+Date: Sat, 24 Dec 2016 20:59:53 +0100
+Message-ID: <585ED3B9.6020407@iogearbox.net>
+References: <cover.1482545792.git.luto@kernel.org> <bbfd69226fd74391045bafc695bba9a46cacca85.1482545792.git.luto@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-kernel@i4.cs.fau.de, milan.stephan+linux@fau.de
-To: Thomas Preisner <thomas.preisner+linux@fau.de>, dave@thedillows.org
+Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Eric Biggers <ebiggers3@gmail.com>,
+        Tom Herbert <tom@herbertland.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Alexei Starovoitov <ast@kernel.org>
+To: Andy Lutomirski <luto@kernel.org>, Netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1482580958-15406-2-git-send-email-thomas.preisner+linux@fau.de>
+In-Reply-To: <bbfd69226fd74391045bafc695bba9a46cacca85.1482545792.git.luto@kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello!
+On 12/24/2016 03:22 AM, Andy Lutomirski wrote:
+> BPF digests are intended to be used to avoid reloading programs that
+> are already loaded.  For use cases (CRIU?) where untrusted programs
+> are involved, intentional hash collisions could cause the wrong BPF
+> program to execute.  Additionally, if BPF digests are ever used
+> in-kernel to skip verification, a hash collision could give privilege
+> escalation directly.
 
-On 12/24/2016 03:02 PM, Thomas Preisner wrote:
+Just for the record, digests will never ever be used to skip the
+verification step, so I don't know why this idea even comes up
+here (?) or is part of the changelog? As this will never be done
+anyway, rather drop that part so we can avoid confusion on this?
 
-> In a few cases the err-variable is not set to a negative error code if a
-> function call fails and thus 0 is returned instead.
-> It may be better to set err to the appropriate negative error code
-> before returning.
+Wrt untrusted programs, I don't see much of a use on this facility
+in general for them. Something like a tail call map would quite
+likely only be private to the application. And again, I really doubt
+we'll have something like user namespace support in the foreseeable
+future. Anyway, that said, I don't really have a big issue if you
+want to switch to sha256, though.
+
+> SHA1 is no longer considered adequately collision-resistant (see, for
+> example, all the major browsers dropping support for SHA1
+> certificates).  Use SHA256 instead.
 >
-> Bugzilla: https://bugzilla.kernel.org/show_bug.cgi?id=188841
+> I moved the digest field to keep all of the bpf program metadata in
+> the same cache line.
 >
-> Reported-by: Pan Bian <bianpan2016@163.com>
-> Signed-off-by: Thomas Preisner <thomas.preisner+linux@fau.de>
-> Signed-off-by: Milan Stephan <milan.stephan+linux@fau.de>
-> ---
->  drivers/net/ethernet/3com/typhoon.c | 7 +++++--
->  1 file changed, 5 insertions(+), 2 deletions(-)
->
-> diff --git a/drivers/net/ethernet/3com/typhoon.c b/drivers/net/ethernet/3com/typhoon.c
-> index a0cacbe..c88b88a 100644
-> --- a/drivers/net/ethernet/3com/typhoon.c
-> +++ b/drivers/net/ethernet/3com/typhoon.c
-[...]
-> @@ -2411,7 +2412,8 @@ typhoon_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
->  	 * later when we print out the version reported.
->  	 */
->  	INIT_COMMAND_WITH_RESPONSE(&xp_cmd, TYPHOON_CMD_READ_VERSIONS);
-> -	if(typhoon_issue_command(tp, 1, &xp_cmd, 3, xp_resp) < 0) {
-> +	err = typhoon_issue_command(tp, 1, &xp_cmd, 3, xp_resp);
-> +	if(err < 0) {
-
-    Need a space between *if* and (. Run your patches thru 
-scripts/checkpatch.pl before posting, please.
-
->  		err_msg = "Could not get Sleep Image version";
->  		goto error_out_reset;
->  	}
-> @@ -2453,7 +2455,8 @@ typhoon_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
->  	dev->features = dev->hw_features |
->  		NETIF_F_HW_VLAN_CTAG_RX | NETIF_F_RXCSUM;
->
-> -	if(register_netdev(dev) < 0) {
-> +	err = register_netdev(dev);
-> +	if(err < 0) {
-
-    Same here.
-
-[...]
-
-MBR, Sergei
+> Cc: Daniel Borkmann <daniel@iogearbox.net>
+> Cc: Alexei Starovoitov <ast@kernel.org>
+> Signed-off-by: Andy Lutomirski <luto@kernel.org>
