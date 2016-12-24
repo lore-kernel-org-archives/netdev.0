@@ -1,93 +1,68 @@
-From: Pali =?utf-8?q?Roh=C3=A1r?= <pali.rohar@gmail.com>
-Subject: Re: [PATCH 6/6] wl1251: Set generated MAC address back to NVS data
-Date: Sat, 24 Dec 2016 19:44:33 +0100
-Message-ID: <201612241944.33216@pali>
-References: <1482598381-16513-1-git-send-email-pali.rohar@gmail.com> <1482598381-16513-7-git-send-email-pali.rohar@gmail.com> <20161224181730.GD13590@amd>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v2 1/2] drivers: net: ethernet: 3com: fix return value
+Date: Sat, 24 Dec 2016 22:06:55 +0300
+Message-ID: <4200be74-f7e7-db6b-a258-8fd178fef369@cogentembedded.com>
+References: <1482541554.16278.2.camel@dillow-glaptop.roam.corp.google.com>
+ <1482580958-15406-1-git-send-email-thomas.preisner+linux@fau.de>
+ <1482580958-15406-2-git-send-email-thomas.preisner+linux@fau.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart1718528.OXHjyr1GyY";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Ming Lei <ming.lei@canonical.com>,
-        "Luis R. Rodriguez" <mcgrof@kernel.org>,
-        "Greg Kroah-Hartman" <gregkh@linuxfoundation.org>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        David Gnedt <david.gnedt@davizone.at>,
-        Michal Kazior <michal.kazior@tieto.com>,
-        Daniel Wagner <wagi@monom.org>,
-        Tony Lindgren <tony@atomide.com>,
-        Sebastian Reichel <sre@kernel.org>,
-        Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
-        Aaro Koskinen <aaro.koskinen@iki.fi>,
-        Grazvydas Ignotas <notasas@gmail.com>,
-        linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org
-To: Pavel Machek <pavel@ucw.cz>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-kernel@i4.cs.fau.de, milan.stephan+linux@fau.de
+To: Thomas Preisner <thomas.preisner+linux@fau.de>, dave@thedillows.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161224181730.GD13590@amd>
+In-Reply-To: <1482580958-15406-2-git-send-email-thomas.preisner+linux@fau.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart1718528.OXHjyr1GyY
-Content-Type: Text/Plain;
-  charset="utf-8"
-Content-Transfer-Encoding: quoted-printable
+Hello!
 
-On Saturday 24 December 2016 19:17:30 Pavel Machek wrote:
-> Hi!
->=20
-> > In case there is no valid MAC address kernel generates random one.
-> > This patch propagate this generated MAC address back to NVS data
-> > which will be uploaded to wl1251 chip. So HW would have same MAC
-> > address as linux kernel uses.
-> >=20
-> >  	return 0;
-> > =20
-> >  }
-> >=20
-> > +static int wl1251_write_nvs_mac(struct wl1251 *wl)
-> > +{
->=20
-> The name is quite confusing, this sounds like writing into
-> non-volatile storage.
->=20
-> > +	int i;
-> > +
-> > +	if (wl->nvs_len < 0x24)
-> > +		return -ENODATA;
-> > +
-> > +	/* length is 2 and data address is 0x546c (mask is 0xfffe) */
->=20
-> You don't actually check for the mask.
+On 12/24/2016 03:02 PM, Thomas Preisner wrote:
 
-It is quite complicated. { 0x6d, 0x54 } (=3D 0x546d) in data represent=20
-address 0x546c and content are data. You need to apply mask 0xfffe for=20
-0x546d and you get address where data will be written (so 0x546c).
+> In a few cases the err-variable is not set to a negative error code if a
+> function call fails and thus 0 is returned instead.
+> It may be better to set err to the appropriate negative error code
+> before returning.
+>
+> Bugzilla: https://bugzilla.kernel.org/show_bug.cgi?id=188841
+>
+> Reported-by: Pan Bian <bianpan2016@163.com>
+> Signed-off-by: Thomas Preisner <thomas.preisner+linux@fau.de>
+> Signed-off-by: Milan Stephan <milan.stephan+linux@fau.de>
+> ---
+>  drivers/net/ethernet/3com/typhoon.c | 7 +++++--
+>  1 file changed, 5 insertions(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/3com/typhoon.c b/drivers/net/ethernet/3com/typhoon.c
+> index a0cacbe..c88b88a 100644
+> --- a/drivers/net/ethernet/3com/typhoon.c
+> +++ b/drivers/net/ethernet/3com/typhoon.c
+[...]
+> @@ -2411,7 +2412,8 @@ typhoon_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+>  	 * later when we print out the version reported.
+>  	 */
+>  	INIT_COMMAND_WITH_RESPONSE(&xp_cmd, TYPHOON_CMD_READ_VERSIONS);
+> -	if(typhoon_issue_command(tp, 1, &xp_cmd, 3, xp_resp) < 0) {
+> +	err = typhoon_issue_command(tp, 1, &xp_cmd, 3, xp_resp);
+> +	if(err < 0) {
 
-> > +	if (wl->nvs[0x19] !=3D 2 || wl->nvs[0x1a] !=3D 0x6d || wl->nvs[0x1b]
-> > !=3D 0x54) +		return -EINVAL;
->=20
-> You have two copies of these. Does it make sense to move it to helper
-> function?
+    Need a space between *if* and (. Run your patches thru 
+scripts/checkpatch.pl before posting, please.
 
-I'm thinking if checks is really needed. But probably moving it to=20
-separate function is good idea.
+>  		err_msg = "Could not get Sleep Image version";
+>  		goto error_out_reset;
+>  	}
+> @@ -2453,7 +2455,8 @@ typhoon_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+>  	dev->features = dev->hw_features |
+>  		NETIF_F_HW_VLAN_CTAG_RX | NETIF_F_RXCSUM;
+>
+> -	if(register_netdev(dev) < 0) {
+> +	err = register_netdev(dev);
+> +	if(err < 0) {
 
-=2D-=20
-Pali Roh=C3=A1r
-pali.rohar@gmail.com
+    Same here.
 
---nextPart1718528.OXHjyr1GyY
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
+[...]
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iEYEABECAAYFAlhewhEACgkQi/DJPQPkQ1KV5wCdGd7wafObsgLTcfTkxUj7dS7I
-eU8An1whabSZSpk6AdMmYVTliBhTZSpm
-=krdG
------END PGP SIGNATURE-----
-
---nextPart1718528.OXHjyr1GyY--
+MBR, Sergei
