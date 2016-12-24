@@ -1,11 +1,11 @@
 From: Pali =?utf-8?q?Roh=C3=A1r?= <pali.rohar@gmail.com>
-Subject: Re: [PATCH 4/6] wl1251: Generate random MAC address only if driver does not have valid
-Date: Sat, 24 Dec 2016 19:38:44 +0100
-Message-ID: <201612241938.45077@pali>
-References: <1482598381-16513-1-git-send-email-pali.rohar@gmail.com> <1482598381-16513-5-git-send-email-pali.rohar@gmail.com> <20161224180854.GB13590@amd>
+Subject: Re: [PATCH 5/6] wl1251: Parse and use MAC address from supplied NVS data
+Date: Sat, 24 Dec 2016 19:40:24 +0100
+Message-ID: <201612241940.24299@pali>
+References: <1482598381-16513-1-git-send-email-pali.rohar@gmail.com> <1482598381-16513-6-git-send-email-pali.rohar@gmail.com> <20161224181421.GC13590@amd>
 Mime-Version: 1.0
 Content-Type: multipart/signed;
-  boundary="nextPart1531826.n4WbykfFOs";
+  boundary="nextPart2942364.PuALH76XNU";
   protocol="application/pgp-signature";
   micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
@@ -25,57 +25,48 @@ Cc: Ming Lei <ming.lei@canonical.com>,
         netdev@vger.kernel.org
 To: Pavel Machek <pavel@ucw.cz>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161224180854.GB13590@amd>
+In-Reply-To: <20161224181421.GC13590@amd>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart1531826.n4WbykfFOs
+--nextPart2942364.PuALH76XNU
 Content-Type: Text/Plain;
   charset="utf-8"
 Content-Transfer-Encoding: quoted-printable
 
-On Saturday 24 December 2016 19:08:54 Pavel Machek wrote:
-> On Sat 2016-12-24 17:52:59, Pali Roh=C3=A1r wrote:
-> > Before this patch driver generated random MAC address every time
-> > when was doing initialization. And after that random MAC address
-> > could be overwritten with fixed one if provided.
+On Saturday 24 December 2016 19:14:21 Pavel Machek wrote:
+> On Sat 2016-12-24 17:53:00, Pali Roh=C3=A1r wrote:
+> > @@ -1581,10 +1598,16 @@ int wl1251_init_ieee80211(struct wl1251
+> > *wl)
+> >=20
+> >  	wl->hw->queues =3D 4;
+> >=20
+> > +	if (wl->nvs =3D=3D NULL && !wl->use_eeprom) {
+> > +		ret =3D wl1251_fetch_nvs(wl);
+> > +		if (ret < 0)
+> > +			goto out;
+> > +	}
 >=20
-> Before this patch, driver generated random MAC address every time it
-> was initialized. After that random MAC address could be overwritten
-> with fixed one, if provided.
->=20
-> > This patch changes order. First it tries to read fixed MAC address
-> > and if it fails then driver generates random MAC address.
->=20
-> I don't quite get where the advantage is supposed to be. Is it that
-> "use_eeprom" is set, but reading fails?
+> Is goto out here good idea? IMNSHO it is copy&paste bug, it should
+> just proceed with generating random address.
 
-Random bytes are read from kernel only if random MAC address is needed.=20
-And in wl->mac_addr is always either invalid address or permanenent mac=20
-address which will be used. Without patch in wl->mac_addr can be random=20
-temporary address for some time...
-
-> The only case where this helps is if wl1251_read_eeprom_mac()
-> succeeds but reads invalid address.
->=20
-> > Signed-off-by: Pali Roh=C3=A1r <pali.rohar@gmail.com>
->=20
-> Acked-by: Pavel Machek <pavel@ucw.cz>
+No, goto is correct here. wl1251 cannot be initialized without NVS data.=20
+And when fetching (from userspace) fails it is fatal error.
 
 =2D-=20
 Pali Roh=C3=A1r
 pali.rohar@gmail.com
 
---nextPart1531826.n4WbykfFOs
+--nextPart2942364.PuALH76XNU
 Content-Type: application/pgp-signature; name=signature.asc 
 Content-Description: This is a digitally signed message part.
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.11 (GNU/Linux)
 
-iEYEABECAAYFAlhewLUACgkQi/DJPQPkQ1IYugCfSB1Le1TJ5Wgbi54C0Oz6W3E8
-p14An1s1w7G+qTRZdwSAEC3jO5fBBwC+
-=oBOF
+iEYEABECAAYFAlhewRgACgkQi/DJPQPkQ1LiOwCfUPdfVot77ESWFNVz9tDcpkn+
+ONwAn1TfMlF3B8fbwV4EJsbJVDKZUrti
+=7UyF
 -----END PGP SIGNATURE-----
 
---nextPart1531826.n4WbykfFOs--
+--nextPart2942364.PuALH76XNU--
