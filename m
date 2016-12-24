@@ -1,103 +1,58 @@
-From: Benjamin Poirier <bpoirier@suse.com>
-Subject: [PATCH v2] scsi: bfa: Increase requested firmware version to 3.2.5.1
-Date: Fri, 23 Dec 2016 20:40:19 -0800
-Message-ID: <20161224044019.13797-1-bpoirier@suse.com>
-References: <BLUPR0701MB15724638DA0BB8FB5CB9B3CF9F940@BLUPR0701MB1572.namprd07.prod.outlook.com>
-Cc: Tim Ehlers <tehlers@gwdg.de>, Rasesh Mody <rasesh.mody@cavium.com>,
-        Anil Gurumurthy <anil.gurumurthy@qlogic.com>,
-        Sudarsana Kalluru <sudarsana.kalluru@qlogic.com>,
-        "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
-        linux-scsi@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: "Martin K. Petersen" <martin.petersen@oracle.com>
+From: Mark Greer <mgreer@animalcreek.com>
+Subject: Re: [PATCH v3 3/3] nfc: trf7970a: Prevent repeated polling from
+ crashing the kernel
+Date: Fri, 23 Dec 2016 23:01:41 -0700
+Message-ID: <20161224060141.GA9069@animalcreek.com>
+References: <1482380314-16440-1-git-send-email-geoff@kuvee.com>
+ <1482380314-16440-3-git-send-email-geoff@kuvee.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless@vger.kernel.org, lauro.venancio@openbossa.org,
+        aloisio.almeida@openbossa.org, sameo@linux.intel.com,
+        robh+dt@kernel.org, mark.rutland@arm.com, netdev@vger.kernel.org,
+        devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
+        justin@kuvee.com, Jaret Cantu <jaret.cantu@timesys.com>
+To: Geoff Lansberry <geoff@kuvee.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yb0-f195.google.com ([209.85.213.195]:36288 "EHLO
-        mail-yb0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752448AbcLXEk5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 23 Dec 2016 23:40:57 -0500
-In-Reply-To: <BLUPR0701MB15724638DA0BB8FB5CB9B3CF9F940@BLUPR0701MB1572.namprd07.prod.outlook.com>
+Received: from out3-smtp.messagingengine.com ([66.111.4.27]:41906 "EHLO
+        out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751085AbcLXGBo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 24 Dec 2016 01:01:44 -0500
+Content-Disposition: inline
+In-Reply-To: <1482380314-16440-3-git-send-email-geoff@kuvee.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-bna & bfa firmware version 3.2.5.1 was submitted to linux-firmware on
-Feb 17 19:10:20 2015 -0500 in 0ab54ff1dc ("linux-firmware: Add QLogic BR
-Series Adapter Firmware").
+On Wed, Dec 21, 2016 at 11:18:34PM -0500, Geoff Lansberry wrote:
+> From: Jaret Cantu <jaret.cantu@timesys.com>
+> 
+> Repeated polling attempts cause a NULL dereference error to occur.
+> This is because the state of the trf7970a is currently reading but
+> another request has been made to send a command before it has finished.
+> 
+> The solution is to properly kill the waiting reading (workqueue)
+> before failing on the send.
+> 
+> Signed-off-by: Geoff Lansberry <geoff@kuvee.com>
+> ---
 
-bna was updated to use the newer firmware on Feb 19 16:02:32 2015 -0500 in
-3f307c3d70 ("bna: Update the Driver and Firmware Version")
+You've still provided virtually no information on the actual problem(s)
+nor justified why you think this is the best solution.  You're adding
+code to a section of code that should _never_ be executed so the only
+reasonable things I can infer is that there are, at least, two problems:
 
-bfa was not updated. I presume this was an oversight but it broke support
-for bfa+bna cards such as the following
-	04:00.0 Fibre Channel [0c04]: Brocade Communications Systems, Inc.
-		1010/1020/1007/1741 10Gbps CNA [1657:0014] (rev 01)
-	04:00.1 Fibre Channel [0c04]: Brocade Communications Systems, Inc.
-		1010/1020/1007/1741 10Gbps CNA [1657:0014] (rev 01)
-	04:00.2 Ethernet controller [0200]: Brocade Communications Systems,
-		Inc. 1010/1020/1007/1741 10Gbps CNA [1657:0014] (rev 01)
-	04:00.3 Ethernet controller [0200]: Brocade Communications Systems,
-		Inc. 1010/1020/1007/1741 10Gbps CNA [1657:0014] (rev 01)
+1) There is a bug causing execution to get into this block of code.
 
-Currently, if the bfa module is loaded first, bna fails to probe the
-respective devices with
-[  215.026787] bna: QLogic BR-series 10G Ethernet driver - version: 3.2.25.1
-[  215.043707] bna 0000:04:00.2: bar0 mapped to ffffc90001fc0000, len 262144
-[  215.060656] bna 0000:04:00.2: initialization failed err=1
-[  215.073893] bna 0000:04:00.3: bar0 mapped to ffffc90002040000, len 262144
-[  215.090644] bna 0000:04:00.3: initialization failed err=1
+2) Once in this block of code, there is another bug.
 
-Whereas if bna is loaded first, bfa fails with
-[  249.592109] QLogic BR-series BFA FC/FCOE SCSI driver - version: 3.2.25.0
-[  249.610738] bfa 0000:04:00.0: Running firmware version is incompatible with the driver version
-[  249.833513] bfa 0000:04:00.0: bfa init failed
-[  249.833919] scsi host6: QLogic BR-series FC/FCOE Adapter, hwpath: 0000:04:00.0 driver: 3.2.25.0
-[  249.841446] bfa 0000:04:00.1: Running firmware version is incompatible with the driver version
-[  250.045449] bfa 0000:04:00.1: bfa init failed
-[  250.045962] scsi host7: QLogic BR-series FC/FCOE Adapter, hwpath: 0000:04:00.1 driver: 3.2.25.0
+You seem to be attempting to fix 2) and completely ignoring 1).
+1) is the first bug that needs to be root-caused and fixed.
 
-Increase bfa's requested firmware version. Also increase the driver
-version.
-I only tested that all of the devices probe without error.
+Also, what exactly is the "NULL dereference error" you mention?
+Is this the neard crash you talked about in another thread or is
+this a kernel crash?  If it is the kernel crash, please post the
+relevant information.  If this is the neard crash - which seems
+unlikely - then how can changing a section of kernel code that
+shouldn't be executed in the first place fix that?
 
-Reported-by: Tim Ehlers <tehlers@gwdg.de>
-Signed-off-by: Benjamin Poirier <bpoirier@suse.com>
-Acked-by: Rasesh Mody <rasesh.mody@cavium.com>
----
- drivers/scsi/bfa/bfad.c     | 6 +++---
- drivers/scsi/bfa/bfad_drv.h | 2 +-
- 2 files changed, 4 insertions(+), 4 deletions(-)
-
-Changes v1-v2:
-Also increase the driver version
-
-diff --git a/drivers/scsi/bfa/bfad.c b/drivers/scsi/bfa/bfad.c
-index 9d253cb..e70410b 100644
---- a/drivers/scsi/bfa/bfad.c
-+++ b/drivers/scsi/bfa/bfad.c
-@@ -64,9 +64,9 @@ int		max_rport_logins = BFA_FCS_MAX_RPORT_LOGINS;
- u32	bfi_image_cb_size, bfi_image_ct_size, bfi_image_ct2_size;
- u32	*bfi_image_cb, *bfi_image_ct, *bfi_image_ct2;
- 
--#define BFAD_FW_FILE_CB		"cbfw-3.2.3.0.bin"
--#define BFAD_FW_FILE_CT		"ctfw-3.2.3.0.bin"
--#define BFAD_FW_FILE_CT2	"ct2fw-3.2.3.0.bin"
-+#define BFAD_FW_FILE_CB		"cbfw-3.2.5.1.bin"
-+#define BFAD_FW_FILE_CT		"ctfw-3.2.5.1.bin"
-+#define BFAD_FW_FILE_CT2	"ct2fw-3.2.5.1.bin"
- 
- static u32 *bfad_load_fwimg(struct pci_dev *pdev);
- static void bfad_free_fwimg(void);
-diff --git a/drivers/scsi/bfa/bfad_drv.h b/drivers/scsi/bfa/bfad_drv.h
-index f9e8620..cfcfff4 100644
---- a/drivers/scsi/bfa/bfad_drv.h
-+++ b/drivers/scsi/bfa/bfad_drv.h
-@@ -58,7 +58,7 @@
- #ifdef BFA_DRIVER_VERSION
- #define BFAD_DRIVER_VERSION    BFA_DRIVER_VERSION
- #else
--#define BFAD_DRIVER_VERSION    "3.2.25.0"
-+#define BFAD_DRIVER_VERSION    "3.2.25.1"
- #endif
- 
- #define BFAD_PROTO_NAME FCPI_NAME
--- 
-2.10.2
+Mark
