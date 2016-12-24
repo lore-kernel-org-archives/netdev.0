@@ -1,67 +1,103 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net] net: korina: Fix NAPI versus resources freeing
-Date: Fri, 23 Dec 2016 19:56:56 -0800
-Message-ID: <20161224035656.11289-1-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, alex@ozo.com, phil@nwl.cc,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: Benjamin Poirier <bpoirier@suse.com>
+Subject: [PATCH v2] scsi: bfa: Increase requested firmware version to 3.2.5.1
+Date: Fri, 23 Dec 2016 20:40:19 -0800
+Message-ID: <20161224044019.13797-1-bpoirier@suse.com>
+References: <BLUPR0701MB15724638DA0BB8FB5CB9B3CF9F940@BLUPR0701MB1572.namprd07.prod.outlook.com>
+Cc: Tim Ehlers <tehlers@gwdg.de>, Rasesh Mody <rasesh.mody@cavium.com>,
+        Anil Gurumurthy <anil.gurumurthy@qlogic.com>,
+        Sudarsana Kalluru <sudarsana.kalluru@qlogic.com>,
+        "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
+        linux-scsi@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: "Martin K. Petersen" <martin.petersen@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f66.google.com ([209.85.218.66]:33820 "EHLO
-        mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751671AbcLXD5A (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 23 Dec 2016 22:57:00 -0500
-Received: by mail-oi0-f66.google.com with SMTP id 3so10275493oih.1
-        for <netdev@vger.kernel.org>; Fri, 23 Dec 2016 19:57:00 -0800 (PST)
+Received: from mail-yb0-f195.google.com ([209.85.213.195]:36288 "EHLO
+        mail-yb0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752448AbcLXEk5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 23 Dec 2016 23:40:57 -0500
+In-Reply-To: <BLUPR0701MB15724638DA0BB8FB5CB9B3CF9F940@BLUPR0701MB1572.namprd07.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit beb0babfb77e ("korina: disable napi on close and restart")
-introduced calls to napi_disable() that were missing before,
-unfortunately this leaves a small window during which NAPI has a chance
-to run, yet we just freed resources since korina_free_ring() has been
-called:
+bna & bfa firmware version 3.2.5.1 was submitted to linux-firmware on
+Feb 17 19:10:20 2015 -0500 in 0ab54ff1dc ("linux-firmware: Add QLogic BR
+Series Adapter Firmware").
 
-Fix this by disabling NAPI first then freeing resource, and make sure
-that we also cancel the restart taks before doing the resource freeing.
+bna was updated to use the newer firmware on Feb 19 16:02:32 2015 -0500 in
+3f307c3d70 ("bna: Update the Driver and Firmware Version")
 
-Fixes: beb0babfb77e ("korina: disable napi on close and restart")
-Reported-by: Alexandros C. Couloumbis <alex@ozo.com>
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+bfa was not updated. I presume this was an oversight but it broke support
+for bfa+bna cards such as the following
+	04:00.0 Fibre Channel [0c04]: Brocade Communications Systems, Inc.
+		1010/1020/1007/1741 10Gbps CNA [1657:0014] (rev 01)
+	04:00.1 Fibre Channel [0c04]: Brocade Communications Systems, Inc.
+		1010/1020/1007/1741 10Gbps CNA [1657:0014] (rev 01)
+	04:00.2 Ethernet controller [0200]: Brocade Communications Systems,
+		Inc. 1010/1020/1007/1741 10Gbps CNA [1657:0014] (rev 01)
+	04:00.3 Ethernet controller [0200]: Brocade Communications Systems,
+		Inc. 1010/1020/1007/1741 10Gbps CNA [1657:0014] (rev 01)
+
+Currently, if the bfa module is loaded first, bna fails to probe the
+respective devices with
+[  215.026787] bna: QLogic BR-series 10G Ethernet driver - version: 3.2.25.1
+[  215.043707] bna 0000:04:00.2: bar0 mapped to ffffc90001fc0000, len 262144
+[  215.060656] bna 0000:04:00.2: initialization failed err=1
+[  215.073893] bna 0000:04:00.3: bar0 mapped to ffffc90002040000, len 262144
+[  215.090644] bna 0000:04:00.3: initialization failed err=1
+
+Whereas if bna is loaded first, bfa fails with
+[  249.592109] QLogic BR-series BFA FC/FCOE SCSI driver - version: 3.2.25.0
+[  249.610738] bfa 0000:04:00.0: Running firmware version is incompatible with the driver version
+[  249.833513] bfa 0000:04:00.0: bfa init failed
+[  249.833919] scsi host6: QLogic BR-series FC/FCOE Adapter, hwpath: 0000:04:00.0 driver: 3.2.25.0
+[  249.841446] bfa 0000:04:00.1: Running firmware version is incompatible with the driver version
+[  250.045449] bfa 0000:04:00.1: bfa init failed
+[  250.045962] scsi host7: QLogic BR-series FC/FCOE Adapter, hwpath: 0000:04:00.1 driver: 3.2.25.0
+
+Increase bfa's requested firmware version. Also increase the driver
+version.
+I only tested that all of the devices probe without error.
+
+Reported-by: Tim Ehlers <tehlers@gwdg.de>
+Signed-off-by: Benjamin Poirier <bpoirier@suse.com>
+Acked-by: Rasesh Mody <rasesh.mody@cavium.com>
 ---
- drivers/net/ethernet/korina.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ drivers/scsi/bfa/bfad.c     | 6 +++---
+ drivers/scsi/bfa/bfad_drv.h | 2 +-
+ 2 files changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/korina.c b/drivers/net/ethernet/korina.c
-index cbeea915f026..8037426ec50f 100644
---- a/drivers/net/ethernet/korina.c
-+++ b/drivers/net/ethernet/korina.c
-@@ -900,10 +900,10 @@ static void korina_restart_task(struct work_struct *work)
- 				DMA_STAT_DONE | DMA_STAT_HALT | DMA_STAT_ERR,
- 				&lp->rx_dma_regs->dmasm);
+Changes v1-v2:
+Also increase the driver version
+
+diff --git a/drivers/scsi/bfa/bfad.c b/drivers/scsi/bfa/bfad.c
+index 9d253cb..e70410b 100644
+--- a/drivers/scsi/bfa/bfad.c
++++ b/drivers/scsi/bfa/bfad.c
+@@ -64,9 +64,9 @@ int		max_rport_logins = BFA_FCS_MAX_RPORT_LOGINS;
+ u32	bfi_image_cb_size, bfi_image_ct_size, bfi_image_ct2_size;
+ u32	*bfi_image_cb, *bfi_image_ct, *bfi_image_ct2;
  
--	korina_free_ring(dev);
--
- 	napi_disable(&lp->napi);
+-#define BFAD_FW_FILE_CB		"cbfw-3.2.3.0.bin"
+-#define BFAD_FW_FILE_CT		"ctfw-3.2.3.0.bin"
+-#define BFAD_FW_FILE_CT2	"ct2fw-3.2.3.0.bin"
++#define BFAD_FW_FILE_CB		"cbfw-3.2.5.1.bin"
++#define BFAD_FW_FILE_CT		"ctfw-3.2.5.1.bin"
++#define BFAD_FW_FILE_CT2	"ct2fw-3.2.5.1.bin"
  
-+	korina_free_ring(dev);
-+
- 	if (korina_init(dev) < 0) {
- 		printk(KERN_ERR "%s: cannot restart device\n", dev->name);
- 		return;
-@@ -1064,12 +1064,12 @@ static int korina_close(struct net_device *dev)
- 	tmp = tmp | DMA_STAT_DONE | DMA_STAT_HALT | DMA_STAT_ERR;
- 	writel(tmp, &lp->rx_dma_regs->dmasm);
+ static u32 *bfad_load_fwimg(struct pci_dev *pdev);
+ static void bfad_free_fwimg(void);
+diff --git a/drivers/scsi/bfa/bfad_drv.h b/drivers/scsi/bfa/bfad_drv.h
+index f9e8620..cfcfff4 100644
+--- a/drivers/scsi/bfa/bfad_drv.h
++++ b/drivers/scsi/bfa/bfad_drv.h
+@@ -58,7 +58,7 @@
+ #ifdef BFA_DRIVER_VERSION
+ #define BFAD_DRIVER_VERSION    BFA_DRIVER_VERSION
+ #else
+-#define BFAD_DRIVER_VERSION    "3.2.25.0"
++#define BFAD_DRIVER_VERSION    "3.2.25.1"
+ #endif
  
--	korina_free_ring(dev);
--
- 	napi_disable(&lp->napi);
- 
- 	cancel_work_sync(&lp->restart_task);
- 
-+	korina_free_ring(dev);
-+
- 	free_irq(lp->rx_irq, dev);
- 	free_irq(lp->tx_irq, dev);
- 	free_irq(lp->ovr_irq, dev);
+ #define BFAD_PROTO_NAME FCPI_NAME
 -- 
-2.9.3
+2.10.2
