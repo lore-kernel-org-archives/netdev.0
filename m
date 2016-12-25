@@ -1,29 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 1/2] drivers: net: ethernet: 3com: fix return value
-Date: Sat, 24 Dec 2016 19:56:54 -0500 (EST)
-Message-ID: <20161224.195654.1632303818126752071.davem@davemloft.net>
-References: <4200be74-f7e7-db6b-a258-8fd178fef369@cogentembedded.com>
-        <1482625822-19658-1-git-send-email-thomas.preisner+linux@fau.de>
-        <1482625822-19658-2-git-send-email-thomas.preisner+linux@fau.de>
+Subject: Re: [PATCH] ipv4: Namespaceify tcp_tw_reuse knob
+Date: Sat, 24 Dec 2016 21:07:28 -0500 (EST)
+Message-ID: <20161224.210728.1213063344392674330.davem@davemloft.net>
+References: <1482583387-79777-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sergei.shtylyov@cogentembedded.com, dave@thedillows.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-kernel@i4.cs.fau.de, milan.stephan+linux@fau.de
-To: thomas.preisner+linux@fau.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1482625822-19658-2-git-send-email-thomas.preisner+linux@fau.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, kaber@trash.net,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: yanhaishuang@cmss.chinamobile.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:50990 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750785AbcLYCHc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 24 Dec 2016 21:07:32 -0500
+In-Reply-To: <1482583387-79777-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+Date: Sat, 24 Dec 2016 20:43:07 +0800
 
-It is never, ever, appropriate to use the same exact Subject: line
-text for two different changes.
+> Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
 
-Someone looking at "git shortlog" has no way to know what is different
-between the two changes.
+You need to provide something more than an empty commit message.
 
-You must put care and time into constructing Subject: lines because
-this text is critical for data mining and analysis done by both humans
-and machines.
+Instead, the commit message must explain why this particular
+sysctl should be considered for namespacification and what
+the implications, both good and bad, are for such a change.
