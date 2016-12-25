@@ -1,42 +1,117 @@
-From: "Mintz, Yuval" <Yuval.Mintz@cavium.com>
-Subject: RE: [PATCH v3 net-next] bnx2x: ethtool -x support for rss_key
-Date: Sun, 25 Dec 2016 11:36:53 +0000
-Message-ID: <BY2PR07MB2309A45B4840D485F98148FA8D970@BY2PR07MB2309.namprd07.prod.outlook.com>
-References: <1476810487.5650.68.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1480875338.18162.475.camel@edumazet-glaptop3.roam.corp.google.com>
-         <BL2PR07MB2306F104F51FD4494FDC172E8D830@BL2PR07MB2306.namprd07.prod.outlook.com>
- <1482342498.8944.62.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Arend Van Spriel <arend.vanspriel@broadcom.com>
+Subject: Re: [PATCH 2/6] wl1251: Use request_firmware_prefer_user() for
+ loading NVS calibration data
+Date: Sun, 25 Dec 2016 21:15:40 +0100
+Message-ID: <e728586e-80bf-c9e0-0063-71da4c4aba85@broadcom.com>
+References: <1482598381-16513-1-git-send-email-pali.rohar@gmail.com>
+ <1482598381-16513-3-git-send-email-pali.rohar@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam02on0075.outbound.protection.outlook.com ([104.47.36.75]:59808
-        "EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753137AbcLYLg4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 25 Dec 2016 06:36:56 -0500
-In-Reply-To: <1482342498.8944.62.camel@edumazet-glaptop3.roam.corp.google.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org
+To: =?UTF-8?Q?Pali_Roh=c3=a1r?= <pali.rohar@gmail.com>,
+        Ming Lei <ming.lei@canonical.com>,
+        "Luis R. Rodriguez" <mcgrof@kernel.org>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        David Gnedt <david.gnedt@davizone.at>,
+        Michal Kazior <michal.kazior@tieto.com>,
+        Daniel Wagner <wagi@monom.org>,
+        Tony Lindgren <tony@atomide.com>,
+        Sebastian Reichel <sre@kernel.org>,
+        Pavel Machek <pavel@ucw.cz>,
+        Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
+        Aaro Koskinen <aaro.koskinen@iki.fi>,
+        Grazvydas Ignotas <notasas@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1482598381-16513-3-git-send-email-pali.rohar@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-ICsJaWYgKGtleSkgew0KPiArCQlXQVJOX09OX09OQ0UoYm54MnhfZ2V0X3J4Zmhfa2V5X3NpemUo
-ZGV2KSAhPQ0KPiBUX0VUSF9SU1NfS0VZICogNCk7DQo+ICsJCWJueDJ4X2dldF9yc3Nfa2V5KCZi
-cC0+cnNzX2NvbmZfb2JqLCBrZXkpOw0KPiArCX0NCg0KVGhpcyBkb2VzbuKAmXQgd29yayBWRnMg
-W3RoZSBQRiBoYXMgdGhlIFJTUyBjb25maWd1cmF0aW9uIG9iamVjdCBpbiB0aGVpcg0KY2FzZTsg
-VGhleSBkb24ndCBoYXZlIGl0XSwgd2hpY2ggaXMgZmluZSBhcyAna2V5JyBzaG91bGQgbmV2ZXIg
-YmUgc2V0IGZvcg0KdGhlbSBbc2luY2UgeW91J3JlIGFkZGluZyBibngyeF9nZXRfcnhmaF9rZXlf
-c2l6ZSgpIHRvIGV0aHRvb2wgb3BzDQpvbmx5IGZvciBQRnNdLiBCdXQgdGhpcyBwcm9iYWJseSBz
-dGlsbCB3b3J0aCBhIGNvbW1lbnQsIHRob3VnaC4NCg0KPiAtCW1lbWNweShyc3MucnNzX2tleSwg
-cnNzX3Rsdi0+cnNzX2tleSwgc2l6ZW9mKHJzc190bHYtPnJzc19rZXkpKTsNCj4gKwltZW1jcHko
-JnZmLT5yc3NfY29uZl9vYmoucnNzX2tleSwgcnNzX3Rsdi0+cnNzX2tleSwNCj4gK3NpemVvZihy
-c3NfdGx2LT5yc3Nfa2V5KSk7DQo+ICAJcnNzLnJzc19vYmogPSAmdmYtPnJzc19jb25mX29iajsN
-Cj4gIAlyc3MucnNzX3Jlc3VsdF9tYXNrID0gcnNzX3Rsdi0+cnNzX3Jlc3VsdF9tYXNrOw0KDQpU
-aGUgY2hhbmdlIHlvdSd2ZSBhcHBsaWVkIGluIGJueDJ4X3NldHVwX3JzcygpIHNob3VsZCBhZmZl
-Y3QgaGVyZQ0KYXMgd2VsbCwgbWVhbmluZyB0aGUgUEYgd291bGQgY29weSB0aGUgcGFyYW1ldGVy
-cyBpbnRvIHRoZSBQRidzIFJTUw0KY29uZmlndXJhdGlvbiBvYmplY3QgYmVsb25naW5nIHRvIHRo
-ZSBWRiBmcm9tIHRoZSBwYXJhbWV0ZXIuDQoNClRoaXMgY2hhbmdlIHdvdWxkIGNhdXNlIHRoZSBQ
-RiB0byBjb25maWd1cmUgdGhlIFZGJ3MgUlNTIGtleQ0KYXMgYWxsLXplcm9zIFthcyBwYXJhbWV0
-ZXJzIHdlcmUgaW5pdGlhbGx5IHplcm9lZF0uDQo=
+On 24-12-2016 17:52, Pali Rohár wrote:
+> NVS calibration data for wl1251 are model specific. Every one device with
+> wl1251 chip has different and calibrated in factory.
+> 
+> Not all wl1251 chips have own EEPROM where are calibration data stored. And
+> in that case there is no "standard" place. Every device has stored them on
+> different place (some in rootfs file, some in dedicated nand partition,
+> some in another proprietary structure).
+> 
+> Kernel wl1251 driver cannot support every one different storage decided by
+> device manufacture so it will use request_firmware_prefer_user() call for
+> loading NVS calibration data and userspace helper will be responsible to
+> prepare correct data.
+
+Responding to this patch as it provides a lot of context to discuss. As
+you might have gathered from earlier discussions I am not a fan of using
+user-space helper. I can agree that the kernel driver, wl1251 in this
+case, should be agnostic to platform specific details regarding storage
+solutions and the firmware api should hide that. However, it seems your
+only solution is adding user-space to the mix and changing the api
+towards that. Can we solve it without user-space help?
+
+The firmware_class already supports a number of path prefixes it
+traverses looking for the requested firmware. So I was thinking about
+adding a hashtable in which a platform driver can add firmware which are
+stored in the hashtable using the hashed firmware name. Upon a firmware
+request from the driver we could check the hashtable before traversing
+the path prefixes on VFS. The obvious problem is that the request may
+come before the firmware is added to the hashtable. Just wanted to pitch
+the idea first and hear what others think about it and maybe someone has
+a nice solution for this problem. Fingers crossed :-p
+
+> In case userspace helper fails request_firmware_prefer_user() still try to
+> load data file directly from VFS as fallback mechanism.
+> 
+> On Nokia N900 device which has wl1251 chip, NVS calibration data are stored
+> in CAL nand partition. CAL is proprietary Nokia key/value format for nand
+> devices.
+
+With the firmware hashtable api on N900 a platform driver could
+interpret the CAL data in the nand partition and provide it through the
+firmware_class.
+
+> With this patch it is finally possible to load correct model specific NVS
+> calibration data for Nokia N900.
+
+But on other devices that use wl1251, but for instance have no userspace
+helper the request to userspace will fail (after 60 sec?) and try VFS
+after that. Maybe not so nice. You should consider other device
+configurations. Not just N900.
+
+Regards,
+Arend
+
+> Signed-off-by: Pali Rohár <pali.rohar@gmail.com>
+> ---
+>  drivers/net/wireless/ti/wl1251/Kconfig |    1 +
+>  drivers/net/wireless/ti/wl1251/main.c  |    2 +-
+>  2 files changed, 2 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/wireless/ti/wl1251/Kconfig b/drivers/net/wireless/ti/wl1251/Kconfig
+> index 7142ccf..affe154 100644
+> --- a/drivers/net/wireless/ti/wl1251/Kconfig
+> +++ b/drivers/net/wireless/ti/wl1251/Kconfig
+> @@ -2,6 +2,7 @@ config WL1251
+>  	tristate "TI wl1251 driver support"
+>  	depends on MAC80211
+>  	select FW_LOADER
+> +	select FW_LOADER_USER_HELPER
+>  	select CRC7
+>  	---help---
+>  	  This will enable TI wl1251 driver support. The drivers make
+> diff --git a/drivers/net/wireless/ti/wl1251/main.c b/drivers/net/wireless/ti/wl1251/main.c
+> index 208f062..24f8866 100644
+> --- a/drivers/net/wireless/ti/wl1251/main.c
+> +++ b/drivers/net/wireless/ti/wl1251/main.c
+> @@ -110,7 +110,7 @@ static int wl1251_fetch_nvs(struct wl1251 *wl)
+>  	struct device *dev = wiphy_dev(wl->hw->wiphy);
+>  	int ret;
+>  
+> -	ret = request_firmware(&fw, WL1251_NVS_NAME, dev);
+> +	ret = request_firmware_prefer_user(&fw, WL1251_NVS_NAME, dev);
+>  
+>  	if (ret < 0) {
+>  		wl1251_error("could not get nvs file: %d", ret);
+> 
