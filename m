@@ -1,31 +1,38 @@
-From: Vincent Bernat <bernat@luffy.cx>
-Subject: Re: [PATCH] net: ethtool: don't require CAP_NET_ADMIN for ETHTOOL_GLINKSETTINGS
-Date: Sun, 25 Dec 2016 08:44:40 +0100
-Message-ID: <87tw9s311z.fsf@luffy.cx>
-References: <20161124095506.25791-1-mlichvar@redhat.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v3 2/2] drivers: net: ethernet: 3com: fix return value
+Date: Sun, 25 Dec 2016 13:07:17 +0300
+Message-ID: <c11460ea-1fd6-0a1a-9a56-ade5216663db@cogentembedded.com>
+References: <4200be74-f7e7-db6b-a258-8fd178fef369@cogentembedded.com>
+ <1482625822-19658-1-git-send-email-thomas.preisner+linux@fau.de>
+ <1482625822-19658-3-git-send-email-thomas.preisner+linux@fau.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@vger.kernel.org, David Decotigny <decot@googlers.com>
-To: Miroslav Lichvar <mlichvar@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bart.luffy.cx ([78.47.78.131]:51584 "EHLO bart.luffy.cx"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752682AbcLYHxT (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 25 Dec 2016 02:53:19 -0500
-In-Reply-To: <20161124095506.25791-1-mlichvar@redhat.com> (Miroslav Lichvar's
-        message of "Thu, 24 Nov 2016 10:55:06 +0100")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: dave@thedillows.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linux-kernel@i4.cs.fau.de,
+        milan.stephan+linux@fau.de
+To: Thomas Preisner <thomas.preisner+linux@fau.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1482625822-19658-3-git-send-email-thomas.preisner+linux@fau.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
- =E2=9D=A6 24 novembre 2016 10:55 +0100, Miroslav Lichvar <mlichvar@redhat.=
-com>=C2=A0:
+Hello!
 
-> The ETHTOOL_GLINKSETTINGS command is deprecating the ETHTOOL_GSET
-> command and likewise it shouldn't require the CAP_NET_ADMIN
-> capability.
+On 12/25/2016 3:30 AM, Thomas Preisner wrote:
 
-Could this patch be pushed to stable branches too?
---=20
-Each module should do one thing well.
-            - The Elements of Programming Style (Kernighan & Plauger)
+> In some cases the return value of a failing function is not being used
+> and the function typhoon_init_one() returns another negative error
+> code instead.
+>
+> Signed-off-by: Thomas Preisner <thomas.preisner+linux@fau.de>
+> Signed-off-by: Milan Stephan <milan.stephan+linux@fau.de>
+> ---
+>  drivers/net/ethernet/3com/typhoon.c | 16 ++++++++--------
+>  1 file changed, 8 insertions(+), 8 deletions(-)
+
+    In addition to what DaveM said, your choise of the subject prefixes is too 
+wide -- it would seem that you're fixing all 3com drivers, while you're only 
+fixing typhoon. That "typhoon:" alone would have been an appropriate prefix.
+
+MBR, Sergei
