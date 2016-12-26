@@ -1,66 +1,66 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net 7/9] virtio-net: forbid XDP when
-	VIRTIO_NET_F_GUEST_UFO is support
-Date: Mon, 26 Dec 2016 10:38:16 +0800
-Message-ID: <45623ce6-5e9b-f341-9c60-8cfa725cec01@redhat.com>
+Subject: Re: [PATCH net 0/9] several fixups for virtio-net XDP
+Date: Mon, 26 Dec 2016 10:39:18 +0800
+Message-ID: <7163995d-9717-6bf5-3b86-a948e625a927@redhat.com>
 References: <1482503852-12438-1-git-send-email-jasowang@redhat.com>
-	<1482503852-12438-8-git-send-email-jasowang@redhat.com>
-	<585D4AAD.4030702@gmail.com> <585D4C5E.5050908@gmail.com>
+ <585D5A71.4010106@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 8bit
 Cc: john.r.fastabend@intel.com
 To: John Fastabend <john.fastabend@gmail.com>, mst@redhat.com,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <585D4C5E.5050908@gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+        virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:52964 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751304AbcLZCjZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 25 Dec 2016 21:39:25 -0500
+In-Reply-To: <585D5A71.4010106@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-CgpPbiAyMDE25bm0MTLmnIgyNOaXpSAwMDoxMCwgSm9obiBGYXN0YWJlbmQgd3JvdGU6Cj4gT24g
-MTYtMTItMjMgMDg6MDIgQU0sIEpvaG4gRmFzdGFiZW5kIHdyb3RlOgo+PiBPbiAxNi0xMi0yMyAw
-NjozNyBBTSwgSmFzb24gV2FuZyB3cm90ZToKPj4+IFdoZW4gVklSVElPX05FVF9GX0dVRVNUX1VG
-TyBpcyBuZWdvdGlhdGVkLCBob3N0IGNvdWxkIHN0aWxsIHNlbmQgVUZPCj4+PiBwYWNrZXQgdGhh
-dCBleGNlZWRzIGEgc2luZ2xlIHBhZ2Ugd2hpY2ggY291bGQgbm90IGJlIGhhbmRsZWQKPj4+IGNv
-cnJlY3RseSBieSBYRFAuIFNvIHRoaXMgcGF0Y2ggZm9yYmlkcyBzZXR0aW5nIFhEUCB3aGVuIEdV
-RVNUX1VGTyBpcwo+Pj4gc3VwcG9ydGVkLiBXaGlsZSBhdCBpdCwgZm9yYmlkIFhEUCBmb3IgRUNO
-ICh3aGljaCBjb21lcyBvbmx5IGZyb20gR1JPKQo+Pj4gdG9vIHRvIHByZXZlbnQgdXNlciBmcm9t
-IG1pc2NvbmZpZ3VyYXRpb24uCj4+Pgo+IElzIHNlbmRpbmcgcGFja2V0cyBncmVhdGVyIHRoYW4g
-c2luZ2xlIHBhZ2UgdGhvdWdoIG5vcm1hbCBpbiB0aGlzIGNhc2U/CgpZZXMsIHdoZW4gTkVUSUZf
-Rl9VRk8gd2FzIGVuYWJsZWQgZm9yIHRhcCwgaXQgd29uJ3Qgc2VnbWVudCBVRk8gcGFja2V0IAph
-bmQgd2lsbCBzZW5kIGl0IGRpcmVjdGx5IHRvIGd1ZXN0LiAoVGhpcyBjb3VsZCBiZSByZXByb2R1
-Y2VkIHdpdGggClVEUF9TVFJFQU0gYmV0d2VlbiB0d28gZ3Vlc3RzIG9yIGhvc3QgdG8gZ3Vlc3Qp
-LgoKVGhhbmtzCgo+IEkgZG9uJ3QgaGF2ZSBhbnkgbmVlZCB0byBzdXBwb3J0IGJpZyBwYWNrZXQg
-bW9kZSBvdGhlciB0aGFuIE1TVCBhc2tlZAo+IGZvciBpdC4gQW5kIEkgd2Fzbid0IHNlZWluZyB0
-aGlzIGluIG15IHRlc3RzLiBNVFUgaXMgY2FwcGVkIGF0IDRrIC0gaGRyCj4gd2hlbiBYRFAgaXMg
-ZW5hYmxlZC4KPgo+IC5Kb2huCj4KPj4+IENjOiBKb2huIEZhc3RhYmVuZCA8am9obi5yLmZhc3Rh
-YmVuZEBpbnRlbC5jb20+Cj4+PiBTaWduZWQtb2ZmLWJ5OiBKYXNvbiBXYW5nIDxqYXNvd2FuZ0By
-ZWRoYXQuY29tPgo+Pj4gLS0tCj4+PiAgIGRyaXZlcnMvbmV0L3ZpcnRpb19uZXQuYyB8IDQgKysr
-LQo+Pj4gICAxIGZpbGUgY2hhbmdlZCwgMyBpbnNlcnRpb25zKCspLCAxIGRlbGV0aW9uKC0pCj4+
-Pgo+Pj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L3ZpcnRpb19uZXQuYyBiL2RyaXZlcnMvbmV0
-L3ZpcnRpb19uZXQuYwo+Pj4gaW5kZXggNzdhZTM1OC4uYzFmNjZkOCAxMDA2NDQKPj4+IC0tLSBh
-L2RyaXZlcnMvbmV0L3ZpcnRpb19uZXQuYwo+Pj4gKysrIGIvZHJpdmVycy9uZXQvdmlydGlvX25l
-dC5jCj4+PiBAQCAtMTY4NCw3ICsxNjg0LDkgQEAgc3RhdGljIGludCB2aXJ0bmV0X3hkcF9zZXQo
-c3RydWN0IG5ldF9kZXZpY2UgKmRldiwgc3RydWN0IGJwZl9wcm9nICpwcm9nKQo+Pj4gICAJaW50
-IGksIGVycjsKPj4+ICAgCj4+PiAgIAlpZiAodmlydGlvX2hhc19mZWF0dXJlKHZpLT52ZGV2LCBW
-SVJUSU9fTkVUX0ZfR1VFU1RfVFNPNCkgfHwKPj4+IC0JICAgIHZpcnRpb19oYXNfZmVhdHVyZSh2
-aS0+dmRldiwgVklSVElPX05FVF9GX0dVRVNUX1RTTzYpKSB7Cj4+PiArCSAgICB2aXJ0aW9faGFz
-X2ZlYXR1cmUodmktPnZkZXYsIFZJUlRJT19ORVRfRl9HVUVTVF9UU082KSB8fAo+Pj4gKwkgICAg
-dmlydGlvX2hhc19mZWF0dXJlKHZpLT52ZGV2LCBWSVJUSU9fTkVUX0ZfR1VFU1RfRUNOKSB8fAo+
-Pj4gKwkgICAgdmlydGlvX2hhc19mZWF0dXJlKHZpLT52ZGV2LCBWSVJUSU9fTkVUX0ZfR1VFU1Rf
-VUZPKSkgewo+Pj4gICAJCW5ldGRldl93YXJuKGRldiwgImNhbid0IHNldCBYRFAgd2hpbGUgaG9z
-dCBpcyBpbXBsZW1lbnRpbmcgTFJPLCBkaXNhYmxlIExSTyBmaXJzdFxuIik7Cj4+PiAgIAkJcmV0
-dXJuIC1FT1BOT1RTVVBQOwo+Pj4gICAJfQo+Pj4KPj4gQWNrZWQtYnk6IEpvaG4gRmFzdGFiZW5k
-IDxqb2huLnIuZmFzdGFiZW5kQGludGVsLmNvbT4KPj4KCl9fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fClZpcnR1YWxpemF0aW9uIG1haWxpbmcgbGlzdApWaXJ0
-dWFsaXphdGlvbkBsaXN0cy5saW51eC1mb3VuZGF0aW9uLm9yZwpodHRwczovL2xpc3RzLmxpbnV4
-Zm91bmRhdGlvbi5vcmcvbWFpbG1hbi9saXN0aW5mby92aXJ0dWFsaXphdGlvbg==
+
+
+On 2016年12月24日 01:10, John Fastabend wrote:
+> On 16-12-23 06:37 AM, Jason Wang wrote:
+>> Merry Xmas and a Happy New year to all:
+>>
+>> This series tries to fixes several issues for virtio-net XDP which
+>> could be categorized into several parts:
+>>
+>> - fix several issues during XDP linearizing
+>> - allow csumed packet to work for XDP_PASS
+>> - make EWMA rxbuf size estimation works for XDP
+>> - forbid XDP when GUEST_UFO is support
+>> - remove big packet XDP support
+>> - add XDP support or small buffer
+>>
+>> Please see individual patches for details.
+>>
+>> Thanks
+>>
+>> Jason Wang (9):
+>>    virtio-net: remove the warning before XDP linearizing
+>>    virtio-net: correctly xmit linearized page on XDP_TX
+>>    virtio-net: fix page miscount during XDP linearizing
+>>    virtio-net: correctly handle XDP_PASS for linearized packets
+>>    virtio-net: unbreak csumed packets for XDP_PASS
+>>    virtio-net: make rx buf size estimation works for XDP
+>>    virtio-net: forbid XDP when VIRTIO_NET_F_GUEST_UFO is support
+>>    virtio-net: remove big packet XDP codes
+>>    virtio-net: XDP support for small buffers
+>>
+>>   drivers/net/virtio_net.c | 172 ++++++++++++++++++++++++++++-------------------
+>>   1 file changed, 102 insertions(+), 70 deletions(-)
+>>
+> Thanks a lot Jason. The last piece that is needed is support to
+> complete XDP support is to get the adjust_head part correct. I'll
+> send out a patch in a bit but will need to merge it on top of this
+> set.
+>
+> .John
+
+Yes, glad to see the your patch.
+
+Thanks.
