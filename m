@@ -1,50 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v1] net: dev_weight: TX/RX orthogonality,Re: [PATCH v1]
- net: dev_weight: TX/RX orthogonality
-Date: Mon, 26 Dec 2016 11:58:18 -0500 (EST)
-Message-ID: <20161226.115818.1691666598003246082.davem@davemloft.net>
-References: <1482745763-15082-1-git-send-email-matthias.tafelmeier@gmx.net>
-        <20161226.105238.2087282115500549289.davem@davemloft.net>
-        <ae0712c3-61c6-432e-78d9-665d0c291c9f@gmx.net>
+Subject: Re: [PATCH] net: ethtool: don't require CAP_NET_ADMIN for
+ ETHTOOL_GLINKSETTINGS
+Date: Mon, 26 Dec 2016 12:38:44 -0500 (EST)
+Message-ID: <20161226.123844.592887879230573929.davem@davemloft.net>
+References: <20161124095506.25791-1-mlichvar@redhat.com>
+        <87tw9s311z.fsf@luffy.cx>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hagen@jauu.net, fw@strlen.de,
-        edumazet@google.com, daniel@iogearbox.net
-To: matthias.tafelmeier@gmx.net
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: mlichvar@redhat.com, netdev@vger.kernel.org, decot@googlers.com
+To: bernat@luffy.cx
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:52956 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:53704 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754563AbcLZQ6X (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 26 Dec 2016 11:58:23 -0500
-In-Reply-To: <ae0712c3-61c6-432e-78d9-665d0c291c9f@gmx.net>
+        with ESMTP id S1754136AbcLZRis (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 26 Dec 2016 12:38:48 -0500
+In-Reply-To: <87tw9s311z.fsf@luffy.cx>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matthias Tafelmeier <matthias.tafelmeier@gmx.net>
-Date: Mon, 26 Dec 2016 17:43:08 +0100
-
-> 
->> From: Matthias Tafelmeier <matthias.tafelmeier@gmx.net>
->> Date: Mon, 26 Dec 2016 10:49:23 +0100
->>
->>> @@ -269,13 +269,21 @@ static struct ctl_table net_core_table[] = {
->>>  		.extra1		= &min_rcvbuf,
->>>  	},
->>>  	{
->>> -		.procname	= "dev_weight",
->>> -		.data		= &weight_p,
->>> +		.procname	= "dev_weight_rx",
->>> +		.data		= &weight_p_rx,
->>  ...
->>>  	{
->>> +		.procname	= "dev_weight_tx",
->> Sysctls are user visible APIs.  You cannot change them without
->> breaking userspace.  You particularly cannot change the name of
->> the sysctl.
-> 
-> What about leaving *dev_weight* in place for TX side as is and newly
-> introducing a sysctl param
-> *dev_weight_rx*. Though, am open to a better naming for the latter.
-
-This changes behavior for existing users, you cannot do this.
+RnJvbTogVmluY2VudCBCZXJuYXQgPGJlcm5hdEBsdWZmeS5jeD4NCkRhdGU6IFN1biwgMjUgRGVj
+IDIwMTYgMDg6NDQ6NDAgKzAxMDANCg0KPiAg4p2mIDI0IG5vdmVtYnJlIDIwMTYgMTA6NTUgKzAx
+MDAsIE1pcm9zbGF2IExpY2h2YXIgPG1saWNodmFyQHJlZGhhdC5jb20+wqA6DQo+IA0KPj4gVGhl
+IEVUSFRPT0xfR0xJTktTRVRUSU5HUyBjb21tYW5kIGlzIGRlcHJlY2F0aW5nIHRoZSBFVEhUT09M
+X0dTRVQNCj4+IGNvbW1hbmQgYW5kIGxpa2V3aXNlIGl0IHNob3VsZG4ndCByZXF1aXJlIHRoZSBD
+QVBfTkVUX0FETUlODQo+PiBjYXBhYmlsaXR5Lg0KPiANCj4gQ291bGQgdGhpcyBwYXRjaCBiZSBw
+dXNoZWQgdG8gc3RhYmxlIGJyYW5jaGVzIHRvbz8NCg0KU3VyZSwgcXVldWVkIHVwLg0K
