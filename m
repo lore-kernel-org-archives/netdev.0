@@ -1,38 +1,121 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v1] net: dev_weight: TX/RX orthogonality
-Date: Mon, 26 Dec 2016 10:52:38 -0500 (EST)
-Message-ID: <20161226.105238.2087282115500549289.davem@davemloft.net>
-References: <1482745763-15082-1-git-send-email-matthias.tafelmeier@gmx.net>
+From: Pali =?utf-8?q?Roh=C3=A1r?= <pali.rohar@gmail.com>
+Subject: Re: [PATCH 2/6] wl1251: Use request_firmware_prefer_user() for loading NVS calibration data
+Date: Mon, 26 Dec 2016 17:04:56 +0100
+Message-ID: <201612261704.56567@pali>
+References: <1482598381-16513-1-git-send-email-pali.rohar@gmail.com> <201612252146.44496@pali> <20161226154353.GA27087@amd>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: multipart/signed;
+  boundary="nextPart52962415.0az8tMa0k5";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hagen@jauu.net, fw@strlen.de,
-        edumazet@google.com, daniel@iogearbox.net
-To: matthias.tafelmeier@gmx.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:51070 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753356AbcLZPwm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 26 Dec 2016 10:52:42 -0500
-In-Reply-To: <1482745763-15082-1-git-send-email-matthias.tafelmeier@gmx.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Arend Van Spriel <arend.vanspriel@broadcom.com>,
+        Ming Lei <ming.lei@canonical.com>,
+        "Luis R. Rodriguez" <mcgrof@kernel.org>,
+        "Greg Kroah-Hartman" <gregkh@linuxfoundation.org>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        David Gnedt <david.gnedt@davizone.at>,
+        Michal Kazior <michal.kazior@tieto.com>,
+        Daniel Wagner <wagi@monom.org>,
+        Tony Lindgren <tony@atomide.com>,
+        Sebastian Reichel <sre@kernel.org>,
+        Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
+        Aaro Koskinen <aaro.koskinen@iki.fi>,
+        Grazvydas Ignotas <notasas@gmail.com>,
+        linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org
+To: Pavel Machek <pavel@ucw.cz>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161226154353.GA27087@amd>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Matthias Tafelmeier <matthias.tafelmeier@gmx.net>
-Date: Mon, 26 Dec 2016 10:49:23 +0100
+--nextPart52962415.0az8tMa0k5
+Content-Type: Text/Plain;
+  charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
 
-> @@ -269,13 +269,21 @@ static struct ctl_table net_core_table[] = {
->  		.extra1		= &min_rcvbuf,
->  	},
->  	{
-> -		.procname	= "dev_weight",
-> -		.data		= &weight_p,
-> +		.procname	= "dev_weight_rx",
-> +		.data		= &weight_p_rx,
- ...
->  	{
-> +		.procname	= "dev_weight_tx",
+On Monday 26 December 2016 16:43:53 Pavel Machek wrote:
+> Hi!
+>=20
+> > > > NVS calibration data for wl1251 are model specific. Every one
+> > > > device with wl1251 chip has different and calibrated in
+> > > > factory.
+> > > >=20
+> > > > Not all wl1251 chips have own EEPROM where are calibration data
+> > > > stored. And in that case there is no "standard" place. Every
+> > > > device has stored them on different place (some in rootfs file,
+> > > > some in dedicated nand partition, some in another proprietary
+> > > > structure).
+> > > >=20
+> > > > Kernel wl1251 driver cannot support every one different storage
+> > > > decided by device manufacture so it will use
+> > > > request_firmware_prefer_user() call for loading NVS calibration
+> > > > data and userspace helper will be responsible to prepare
+> > > > correct data.
+> > >=20
+> > > Responding to this patch as it provides a lot of context to
+> > > discuss. As you might have gathered from earlier discussions I
+> > > am not a fan of using user-space helper. I can agree that the
+> > > kernel driver, wl1251 in this case, should be agnostic to
+> > > platform specific details regarding storage solutions and the
+> > > firmware api should hide that. However, it seems your only
+> > > solution is adding user-space to the mix and changing the api
+> > > towards that. Can we solve it without user-space help?
+> >=20
+> > Without userspace helper it means that userspace helper code must
+> > be integrated into kernel.
+> >=20
+> > So what is userspace helper doing?
+> >=20
+> > 1) Read MAC address from CAL
+> > 2) Read NVS data from CAL
+> > 3) Modify MAC address in memory NVS data (new for this patch
+> > series) 4) Modify in memory NVS data if we in FCC country
+> >=20
+> > Checking for country is done via dbus call to either Maemo cellular
+> > daemon or alternatively via REGDOMAIN in /etc/default/crda. I have
+> > plan to use ofono (instead Maemo cellular daemon) too...
+> >=20
+> > Currently we are using closed Nokia proprietary CAL library.
+> >=20
+> > Steps 1) and 2) needs closed library, step 4) needs dbus call.
+>=20
+> I guess pointer to the source code implementing this would be
+> welcome.
 
-Sysctls are user visible APIs.  You cannot change them without
-breaking userspace.  You particularly cannot change the name of
-the sysctl.
+Here is current code: https://github.com/community-ssu/wl1251-cal
+
+(there is implemented also Maemo netlink interface)
+
+> > > But on other devices that use wl1251, but for instance have no
+> > > userspace helper the request to userspace will fail (after 60
+> > > sec?) and try VFS after that. Maybe not so nice.
+> >=20
+> > Currently support for those devices is broken (like for N900) as
+> > without proper NVS data they do not work correctly...
+>=20
+> Is it expected to work at all, perhaps with degraded performance /
+> range? Because it seems to work for me.
+
+Yes, some degraded performance or problems with connecting is expected.=20
+And random MAC address at every boot. Plus some regulatory problems in=20
+=46CC countries.
+
+=2D-=20
+Pali Roh=C3=A1r
+pali.rohar@gmail.com
+
+--nextPart52962415.0az8tMa0k5
+Content-Type: application/pgp-signature; name=signature.asc 
+Content-Description: This is a digitally signed message part.
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iEYEABECAAYFAlhhP6gACgkQi/DJPQPkQ1IURwCeKUzk1tpo8L9a13wVQ6nqCx7s
+9uoAoL257XYa8PrTwc3qnCasAmqtMd4c
+=9psR
+-----END PGP SIGNATURE-----
+
+--nextPart52962415.0az8tMa0k5--
