@@ -1,121 +1,69 @@
-From: Pali =?utf-8?q?Roh=C3=A1r?= <pali.rohar@gmail.com>
-Subject: Re: [PATCH 2/6] wl1251: Use request_firmware_prefer_user() for loading NVS calibration data
-Date: Mon, 26 Dec 2016 17:04:56 +0100
-Message-ID: <201612261704.56567@pali>
-References: <1482598381-16513-1-git-send-email-pali.rohar@gmail.com> <201612252146.44496@pali> <20161226154353.GA27087@amd>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] net, sched: fix soft lockup in tc_classify
+Date: Mon, 26 Dec 2016 11:24:35 -0500 (EST)
+Message-ID: <20161226.112435.1546744617856168761.davem@davemloft.net>
+References: <1954223e8b7aa90ff835357e8a3ef7537be33e43.1482337600.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart52962415.0az8tMa0k5";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Arend Van Spriel <arend.vanspriel@broadcom.com>,
-        Ming Lei <ming.lei@canonical.com>,
-        "Luis R. Rodriguez" <mcgrof@kernel.org>,
-        "Greg Kroah-Hartman" <gregkh@linuxfoundation.org>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        David Gnedt <david.gnedt@davizone.at>,
-        Michal Kazior <michal.kazior@tieto.com>,
-        Daniel Wagner <wagi@monom.org>,
-        Tony Lindgren <tony@atomide.com>,
-        Sebastian Reichel <sre@kernel.org>,
-        Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
-        Aaro Koskinen <aaro.koskinen@iki.fi>,
-        Grazvydas Ignotas <notasas@gmail.com>,
-        linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org
-To: Pavel Machek <pavel@ucw.cz>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161226154353.GA27087@amd>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: shahark@mellanox.com, xiyou.wangcong@gmail.com,
+        gerlitz.or@gmail.com, roid@mellanox.com, jiri@mellanox.com,
+        john.fastabend@gmail.com, netdev@vger.kernel.org
+To: daniel@iogearbox.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:52112 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751543AbcLZQYj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 26 Dec 2016 11:24:39 -0500
+In-Reply-To: <1954223e8b7aa90ff835357e8a3ef7537be33e43.1482337600.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---nextPart52962415.0az8tMa0k5
-Content-Type: Text/Plain;
-  charset="utf-8"
-Content-Transfer-Encoding: quoted-printable
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Wed, 21 Dec 2016 18:04:11 +0100
 
-On Monday 26 December 2016 16:43:53 Pavel Machek wrote:
-> Hi!
->=20
-> > > > NVS calibration data for wl1251 are model specific. Every one
-> > > > device with wl1251 chip has different and calibrated in
-> > > > factory.
-> > > >=20
-> > > > Not all wl1251 chips have own EEPROM where are calibration data
-> > > > stored. And in that case there is no "standard" place. Every
-> > > > device has stored them on different place (some in rootfs file,
-> > > > some in dedicated nand partition, some in another proprietary
-> > > > structure).
-> > > >=20
-> > > > Kernel wl1251 driver cannot support every one different storage
-> > > > decided by device manufacture so it will use
-> > > > request_firmware_prefer_user() call for loading NVS calibration
-> > > > data and userspace helper will be responsible to prepare
-> > > > correct data.
-> > >=20
-> > > Responding to this patch as it provides a lot of context to
-> > > discuss. As you might have gathered from earlier discussions I
-> > > am not a fan of using user-space helper. I can agree that the
-> > > kernel driver, wl1251 in this case, should be agnostic to
-> > > platform specific details regarding storage solutions and the
-> > > firmware api should hide that. However, it seems your only
-> > > solution is adding user-space to the mix and changing the api
-> > > towards that. Can we solve it without user-space help?
-> >=20
-> > Without userspace helper it means that userspace helper code must
-> > be integrated into kernel.
-> >=20
-> > So what is userspace helper doing?
-> >=20
-> > 1) Read MAC address from CAL
-> > 2) Read NVS data from CAL
-> > 3) Modify MAC address in memory NVS data (new for this patch
-> > series) 4) Modify in memory NVS data if we in FCC country
-> >=20
-> > Checking for country is done via dbus call to either Maemo cellular
-> > daemon or alternatively via REGDOMAIN in /etc/default/crda. I have
-> > plan to use ofono (instead Maemo cellular daemon) too...
-> >=20
-> > Currently we are using closed Nokia proprietary CAL library.
-> >=20
-> > Steps 1) and 2) needs closed library, step 4) needs dbus call.
->=20
-> I guess pointer to the source code implementing this would be
-> welcome.
+> Shahar reported a soft lockup in tc_classify(), where we run into an
+> endless loop when walking the classifier chain due to tp->next == tp
+> which is a state we should never run into. The issue only seems to
+> trigger under load in the tc control path.
+> 
+> What happens is that in tc_ctl_tfilter(), thread A allocates a new
+> tp, initializes it, sets tp_created to 1, and calls into tp->ops->change()
+> with it. In that classifier callback we had to unlock/lock the rtnl
+> mutex and returned with -EAGAIN. One reason why we need to drop there
+> is, for example, that we need to request an action module to be loaded.
+> 
+> This happens via tcf_exts_validate() -> tcf_action_init/_1() meaning
+> after we loaded and found the requested action, we need to redo the
+> whole request so we don't race against others. While we had to unlock
+> rtnl in that time, thread B's request was processed next on that CPU.
+> Thread B added a new tp instance successfully to the classifier chain.
+> When thread A returned grabbing the rtnl mutex again, propagating -EAGAIN
+> and destroying its tp instance which never got linked, we goto replay
+> and redo A's request.
+> 
+> This time when walking the classifier chain in tc_ctl_tfilter() for
+> checking for existing tp instances we had a priority match and found
+> the tp instance that was created and linked by thread B. Now calling
+> again into tp->ops->change() with that tp was successful and returned
+> without error.
+> 
+> tp_created was never cleared in the second round, thus kernel thinks
+> that we need to link it into the classifier chain (once again). tp and
+> *back point to the same object due to the match we had earlier on. Thus
+> for thread B's already public tp, we reset tp->next to tp itself and
+> link it into the chain, which eventually causes the mentioned endless
+> loop in tc_classify() once a packet hits the data path.
+> 
+> Fix is to clear tp_created at the beginning of each request, also when
+> we replay it. On the paths that can cause -EAGAIN we already destroy
+> the original tp instance we had and on replay we really need to start
+> from scratch. It seems that this issue was first introduced in commit
+> 12186be7d2e1 ("net_cls: fix unconfigured struct tcf_proto keeps chaining
+> and avoid kernel panic when we use cls_cgroup").
+> 
+> Fixes: 12186be7d2e1 ("net_cls: fix unconfigured struct tcf_proto keeps chaining and avoid kernel panic when we use cls_cgroup")
+> Reported-by: Shahar Klein <shahark@mellanox.com>
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 
-Here is current code: https://github.com/community-ssu/wl1251-cal
-
-(there is implemented also Maemo netlink interface)
-
-> > > But on other devices that use wl1251, but for instance have no
-> > > userspace helper the request to userspace will fail (after 60
-> > > sec?) and try VFS after that. Maybe not so nice.
-> >=20
-> > Currently support for those devices is broken (like for N900) as
-> > without proper NVS data they do not work correctly...
->=20
-> Is it expected to work at all, perhaps with degraded performance /
-> range? Because it seems to work for me.
-
-Yes, some degraded performance or problems with connecting is expected.=20
-And random MAC address at every boot. Plus some regulatory problems in=20
-=46CC countries.
-
-=2D-=20
-Pali Roh=C3=A1r
-pali.rohar@gmail.com
-
---nextPart52962415.0az8tMa0k5
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iEYEABECAAYFAlhhP6gACgkQi/DJPQPkQ1IURwCeKUzk1tpo8L9a13wVQ6nqCx7s
-9uoAoL257XYa8PrTwc3qnCasAmqtMd4c
-=9psR
------END PGP SIGNATURE-----
-
---nextPart52962415.0az8tMa0k5--
+Applied and queued up for -stable, thanks Daniel.
