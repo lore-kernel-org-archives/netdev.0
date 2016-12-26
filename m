@@ -1,158 +1,128 @@
-From: maowenan <maowenan@huawei.com>
-Subject: RE: [PATCH] ethtool: add one ethtool option to set relax ordering
- mode
-Date: Mon, 26 Dec 2016 08:33:43 +0000
-Message-ID: <F95AC9340317A84688A5F0DF0246F3F2015208F0@szxeml504-mbs.china.huawei.com>
-References: <1481179898-10668-1-git-send-email-maowenan@huawei.com>
- <1481179898-10668-2-git-send-email-maowenan@huawei.com>
- <20161221172759.1bc0d0dd@xeon-e3>
- <F95AC9340317A84688A5F0DF0246F3F20151F189@szxeml504-mbs.china.huawei.com>
- <CAKgT0Uc2ztu_iDn79zdNtsAdb-Ftu65V6YHV-sqXb6vTCTiGCQ@mail.gmail.com>
- <F95AC9340317A84688A5F0DF0246F3F20151FD1C@szxeml504-mbs.china.huawei.com>
- <1482455203.2481.31.camel@intel.com>
- <F95AC9340317A84688A5F0DF0246F3F20151FE86@szxeml504-mbs.china.huawei.com>
- <CAKgT0Ud0=fQpADLHPnZBLrG8xLGHUB20TZt1mi+GBNYJQngDCA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "weiyongjun (A)" <weiyongjun1@huawei.com>,
-        Dingtianhong <dingtianhong@huawei.com>,
-        "Wangzhou (B)" <wangzhou1@hisilicon.com>
-To: maowenan <maowenan@huawei.com>,
-        Alexander Duyck <alexander.duyck@gmail.com>
+From: Matthias Tafelmeier <matthias.tafelmeier@gmx.net>
+Subject: [PATCH v1] net: dev_weight: TX/RX orthogonality
+Date: Mon, 26 Dec 2016 10:49:23 +0100
+Message-ID: <1482745763-15082-1-git-send-email-matthias.tafelmeier@gmx.net>
+Cc: hagen@jauu.net, fw@strlen.de, edumazet@google.com,
+        daniel@iogearbox.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:45664 "EHLO
-        szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754356AbcLZIeB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 26 Dec 2016 03:34:01 -0500
-Content-Language: zh-CN
+Received: from mout.gmx.net ([212.227.15.18]:64341 "EHLO mout.gmx.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1755328AbcLZJtq (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 26 Dec 2016 04:49:46 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogbWFvd2VuYW4NCj4gU2Vu
-dDogU2F0dXJkYXksIERlY2VtYmVyIDI0LCAyMDE2IDQ6MzAgUE0NCj4gVG86ICdBbGV4YW5kZXIg
-RHV5Y2snDQo+IENjOiBKZWZmIEtpcnNoZXI7IFN0ZXBoZW4gSGVtbWluZ2VyOyBuZXRkZXZAdmdl
-ci5rZXJuZWwub3JnOyB3ZWl5b25nanVuIChBKTsNCj4gRGluZ3RpYW5ob25nOyBXYW5nemhvdSAo
-QikNCj4gU3ViamVjdDogUkU6IFtQQVRDSF0gZXRodG9vbDogYWRkIG9uZSBldGh0b29sIG9wdGlv
-biB0byBzZXQgcmVsYXggb3JkZXJpbmcgbW9kZQ0KPiANCj4gDQo+IA0KPiA+IC0tLS0tT3JpZ2lu
-YWwgTWVzc2FnZS0tLS0tDQo+ID4gRnJvbTogQWxleGFuZGVyIER1eWNrIFttYWlsdG86YWxleGFu
-ZGVyLmR1eWNrQGdtYWlsLmNvbV0NCj4gPiBTZW50OiBGcmlkYXksIERlY2VtYmVyIDIzLCAyMDE2
-IDExOjQzIFBNDQo+ID4gVG86IG1hb3dlbmFuDQo+ID4gQ2M6IEplZmYgS2lyc2hlcjsgU3RlcGhl
-biBIZW1taW5nZXI7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7DQo+ID4gd2VpeW9uZ2p1biAoQSk7
-IERpbmd0aWFuaG9uZw0KPiA+IFN1YmplY3Q6IFJlOiBbUEFUQ0hdIGV0aHRvb2w6IGFkZCBvbmUg
-ZXRodG9vbCBvcHRpb24gdG8gc2V0IHJlbGF4DQo+ID4gb3JkZXJpbmcgbW9kZQ0KPiA+DQo+ID4g
-T24gVGh1LCBEZWMgMjIsIDIwMTYgYXQgMTA6MTQgUE0sIG1hb3dlbmFuIDxtYW93ZW5hbkBodWF3
-ZWkuY29tPg0KPiA+IHdyb3RlOg0KPiA+ID4NCj4gPiA+DQo+ID4gPj4gLS0tLS1PcmlnaW5hbCBN
-ZXNzYWdlLS0tLS0NCj4gPiA+PiBGcm9tOiBKZWZmIEtpcnNoZXIgW21haWx0bzpqZWZmcmV5LnQu
-a2lyc2hlckBpbnRlbC5jb21dDQo+ID4gPj4gU2VudDogRnJpZGF5LCBEZWNlbWJlciAyMywgMjAx
-NiA5OjA3IEFNDQo+ID4gPj4gVG86IG1hb3dlbmFuOyBBbGV4YW5kZXIgRHV5Y2sNCj4gPiA+PiBD
-YzogU3RlcGhlbiBIZW1taW5nZXI7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IHdlaXlvbmdqdW4g
-KEEpOw0KPiA+ID4+IERpbmd0aWFuaG9uZw0KPiA+ID4+IFN1YmplY3Q6IFJlOiBbUEFUQ0hdIGV0
-aHRvb2w6IGFkZCBvbmUgZXRodG9vbCBvcHRpb24gdG8gc2V0IHJlbGF4DQo+ID4gPj4gb3JkZXJp
-bmcgbW9kZQ0KPiA+ID4+DQo+ID4gPj4gT24gRnJpLCAyMDE2LTEyLTIzIGF0IDAwOjQwICswMDAw
-LCBtYW93ZW5hbiB3cm90ZToNCj4gPiA+PiA+ID4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0N
-Cj4gPiA+PiA+ID4gRnJvbTogQWxleGFuZGVyIER1eWNrIFttYWlsdG86YWxleGFuZGVyLmR1eWNr
-QGdtYWlsLmNvbV0NCj4gPiA+PiA+ID4gU2VudDogVGh1cnNkYXksIERlY2VtYmVyIDIyLCAyMDE2
-IDExOjU0IFBNDQo+ID4gPj4gPiA+IFRvOiBtYW93ZW5hbg0KPiA+ID4+ID4gPiBDYzogU3RlcGhl
-biBIZW1taW5nZXI7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7DQo+ID4gamVmZnJleS50LmtpcnNo
-ZXJAaW50ZWwuDQo+ID4gPj4gPiA+IGNvbTsNCj4gPiA+PiA+ID4gd2VpeW9uZ2p1biAoQSk7IERp
-bmd0aWFuaG9uZw0KPiA+ID4+ID4gPiBTdWJqZWN0OiBSZTogW1BBVENIXSBldGh0b29sOiBhZGQg
-b25lIGV0aHRvb2wgb3B0aW9uIHRvIHNldA0KPiA+ID4+ID4gPiByZWxheCBvcmRlcmluZyBtb2Rl
-DQo+ID4gPj4gPiA+DQo+ID4gPj4gPiA+IE9uIFdlZCwgRGVjIDIxLCAyMDE2IGF0IDU6MzkgUE0s
-IG1hb3dlbmFuDQo+ID4gPG1hb3dlbmFuQGh1YXdlaS5jb20+DQo+ID4gPj4gPiA+IHdyb3RlOg0K
-PiA+ID4+ID4gPiA+DQo+ID4gPj4gPiA+ID4NCj4gPiA+PiA+ID4gPiA+IC0tLS0tT3JpZ2luYWwg
-TWVzc2FnZS0tLS0tDQo+ID4gPj4gPiA+ID4gPiBGcm9tOiBTdGVwaGVuIEhlbW1pbmdlciBbbWFp
-bHRvOnN0ZXBoZW5AbmV0d29ya3BsdW1iZXIub3JnXQ0KPiA+ID4+ID4gPiA+ID4gU2VudDogVGh1
-cnNkYXksIERlY2VtYmVyIDIyLCAyMDE2IDk6MjggQU0NCj4gPiA+PiA+ID4gPiA+IFRvOiBtYW93
-ZW5hbg0KPiA+ID4+ID4gPiA+ID4gQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IGplZmZyZXku
-dC5raXJzaGVyQGludGVsLmNvbQ0KPiA+ID4+ID4gPiA+ID4gU3ViamVjdDogUmU6IFtQQVRDSF0g
-ZXRodG9vbDogYWRkIG9uZSBldGh0b29sIG9wdGlvbiB0byBzZXQNCj4gPiA+PiA+ID4gPiA+IHJl
-bGF4IG9yZGVyaW5nIG1vZGUNCj4gPiA+PiA+ID4gPiA+DQo+ID4gPj4gPiA+ID4gPiBPbiBUaHUs
-IDggRGVjIDIwMTYgMTQ6NTE6MzggKzA4MDAgTWFvIFdlbmFuDQo+ID4gPj4gPiA+ID4gPiA8bWFv
-d2VuYW5AaHVhd2VpLmNvbT4gd3JvdGU6DQo+ID4gPj4gPiA+ID4gPg0KPiA+ID4+ID4gPiA+ID4g
-PiBUaGlzIHBhdGNoIHByb3ZpZGVzIG9uZSB3YXkgdG8gc2V0L3Vuc2V0IElYR0JFIE5JQyBUWCBh
-bmQNCj4gPiA+PiA+ID4gPiA+ID4gUlggcmVsYXggb3JkZXJpbmcgbW9kZSwgd2hpY2ggY2FuIGJl
-IHNldCBieSBldGh0b29sLg0KPiA+ID4+ID4gPiA+ID4gPiBSZWxheCBvcmRlcmluZyBpcyBvbmUg
-bW9kZSBvZiA4MjU5OSBOSUMsIHRvIGVuYWJsZSB0aGlzDQo+ID4gPj4gPiA+ID4gPiA+IG1vZGUg
-Y2FuIGVuaGFuY2UgdGhlIHBlcmZvcm1hbmNlIGZvciBzb21lIGNwdSBhcmNoaXRlY3VyZS4NCj4g
-PiA+PiA+ID4gPiA+DQo+ID4gPj4gPiA+ID4gPiBUaGVuIGl0IHNob3VsZCBiZSBkb25lIGJ5IENQ
-VSBhcmNoaXRlY3R1cmUgc3BlY2lmaWMgcXVpcmtzDQo+ID4gPj4gPiA+ID4gPiAocHJlZmVyYWJs
-eSBpbiBQQ0kNCj4gPiA+PiA+ID4gPiA+IGxheWVyKSBzbyB0aGF0IGFsbCB1c2VycyBnZXQgdGhl
-IG9wdGlvbiB3aXRob3V0IGhhdmluZyB0bw0KPiA+ID4+ID4gPiA+ID4gZG8gbWFudWFsDQo+ID4g
-Pj4gPiA+DQo+ID4gPj4gPiA+IGludGVydmVudGlvbi4NCj4gPiA+PiA+ID4gPiA+DQo+ID4gPj4g
-PiA+ID4gPiA+IGV4YW1wbGU6DQo+ID4gPj4gPiA+ID4gPiA+IGV0aHRvb2wgLXMgZW5wMXMwZjAg
-cmVsYXhvcmRlciBvZmYgZXRodG9vbCAtcyBlbnAxczBmMA0KPiA+ID4+ID4gPiA+ID4gPiByZWxh
-eG9yZGVyIG9uDQo+ID4gPj4gPiA+ID4gPg0KPiA+ID4+ID4gPiA+ID4gRG9pbmcgaXQgdmlhIGV0
-aHRvb2wgaXMgYSBkZXZlbG9wZXIgQVBJIChmb3IgdGVzdGluZykgbm90DQo+ID4gPj4gPiA+ID4g
-PiBzb21ldGhpbmcgdGhhdCBtYWtlcyBzZW5zZSBpbiBwcm9kdWN0aW9uLg0KPiA+ID4+ID4gPiA+
-DQo+ID4gPj4gPiA+ID4NCj4gPiA+PiA+ID4gPiBUaGlzIGZlYXR1cmUgaXMgbm90IG1hbmRhdG9y
-eSBmb3IgYWxsIHVzZXJzLCBhY3R1cmFsbHkgcmVsYXgNCj4gPiA+PiA+ID4gPiBvcmRlcmluZyBk
-ZWZhdWx0IGNvbmZpZ3VyYXRpb24gb2YgODI1OTkgaXMgJ2Rpc2FibGUnLCBTbyB0aGlzDQo+ID4g
-Pj4gPiA+ID4gcGF0Y2ggZ2l2ZXMgb25lIHdheSB0bw0KPiA+ID4+ID4gPg0KPiA+ID4+ID4gPiBl
-bmFibGUgcmVsYXggb3JkZXJpbmcgdG8gYmUgc2VsZWN0ZWQgaW4gc29tZSBwZXJmb3JtYW5jZSBj
-b25kaXRpb24uDQo+ID4gPj4gPiA+DQo+ID4gPj4gPiA+IFRoYXQgaXNuJ3QgcXVpdGUgdHJ1ZS4g
-IFRoZSBkZWZhdWx0IGZvciBTcGFyYyBzeXN0ZW1zIGlzIHRvDQo+ID4gPj4gPiA+IGhhdmUgaXQg
-ZW5hYmxlZC4NCj4gPiA+PiA+ID4NCj4gPiA+PiA+ID4gUmVhbGx5IHRoaXMgaXMgc29tZXRoaW5n
-IHRoYXQgaXMgcGxhdGZvcm0gc3BlY2lmaWMuICBJIGFncmVlDQo+ID4gPj4gPiA+IHdpdGggU3Rl
-cGhlbiB0aGF0IGl0IHdvdWxkIHdvcmsgYmV0dGVyIGlmIHRoaXMgd2FzIGhhbmRsZWQgYXMgYQ0K
-PiA+ID4+ID4gPiBzZXJpZXMgb2YgcGxhdGZvcm0gc3BlY2lmaWMgcXVpcmtzIGhhbmRsZWQgYXQg
-c29tZXRoaW5nIGxpa2UNCj4gPiA+PiA+ID4gdGhlIFBDSSBsYXllciByYXRoZXIgdGhhbiBiZSBh
-IHN3aXRjaCB0aGUgdXNlciBjYW4gdG9nZ2xlIG9uIGFuZCBvZmYuDQo+ID4gPj4gPiA+DQo+ID4g
-Pj4gPiA+IFdpdGggdGhhdCBiZWluZyBzYWlkIHRoZXJlIGFyZSBjaGFuZ2VzIGJlaW5nIG1hZGUg
-dGhhdCBzaG91bGQNCj4gPiA+PiA+ID4gaGVscCB0byBpbXByb3ZlIHRoZSBzaXR1YXRpb24uICBT
-cGVjaWZpY2FsbHkgSSBhbSBsb29raW5nIGF0DQo+ID4gPj4gPiA+IGFkZGluZyBzdXBwb3J0IGZv
-ciB0aGUgRE1BX0FUVFJfV0VBS19PUkRFUklORyB3aGljaCBtYXkgYWxzbw0KPiA+ID4+ID4gPiBh
-bGxvdyB1cyB0byBpZGVudGlmeSBjYXNlcyB3aGVyZSB5b3UgbWlnaHQgYmUgYWJsZSB0byBzcGVj
-aWZ5DQo+ID4gPj4gPiA+IHRoZSBETUEgYmVoYXZpb3IgdmlhIHRoZSBETUEgbWFwcGluZyBpbnN0
-ZWFkIG9mIGhhdmluZyB0byBtYWtlDQo+ID4gPj4gPiA+IHRoZSBmaW5hbCBkZWNpc2lvbiBpbiB0
-aGUgZGV2aWNlIGl0c2VsZi4NCj4gPiA+PiA+ID4NCj4gPiA+PiA+ID4gLSBBbGV4DQo+ID4gPj4g
-Pg0KPiA+ID4+ID4gWWVzLCBTcGFyYyBpcyBhIHNwZWNpYWwgY2FzZS4gRnJvbSB0aGUgTklDIGRy
-aXZlciBwb2ludCBvZiB2aWV3LA0KPiA+ID4+ID4gSXQgaXMgbm8gbmVlZCBmb3Igc29tZSBBUkNI
-cyB0byBkbyBwYXJ0aWN1bGFyIG9wZXJhdGlvbiBhbmQNCj4gPiA+PiA+IGNvbXBpbGluZyBicmFu
-Y2gsIGV0aHRvb2wgaXMgYSBmbGV4aWJsZSBtZXRob2QgZm9yIHVzZXIgdG8gbWFrZQ0KPiA+ID4+
-ID4gZGVjaXNpb24gd2hldGhlcg0KPiA+ID4+ID4gb258b2ZmIHRoaXMgZmVhdHVyZS4NCj4gPiA+
-PiA+IEkgdGhpbmsgSmVmZiBhcyBtYWludGFpbmVyIG9mIDgyNTk5IGhhcyBzb21lIGNvbW1lbnRz
-IGFib3V0IHRoaXMuDQo+ID4gPj4NCj4gPiA+PiBNeSBvcmlnaW5hbCBjb21tZW50L29iamVjdGlv
-biB3YXMgdGhhdCB5b3UgYXR0ZW1wdGVkIHRvIGRvIHRoaXMNCj4gPiA+PiBjaGFuZ2UgYXMgYSBt
-b2R1bGUgcGFyYW1ldGVyIHRvIHRoZSBpeGdiZSBkcml2ZXIsIHdoZXJlIEkgZGlyZWN0ZWQNCj4g
-PiA+PiB5b3UgdG8gdXNlIGV0aHRvb2wgc28gdGhhdCBvdGhlciBkcml2ZXJzIGNvdWxkIGJlbmVm
-aXQgZnJvbSB0aGUNCj4gPiA+PiBhYmlsaXR5IHRvIGVuYWJsZS9kaXNhYmxlIHJlbGF4ZWQgb3Jk
-ZXJpbmcuICBBcyBmYXIgYXMgaG93IGl0IGdldHMNCj4gPiA+PiBpbXBsZW1lbnRlZCBpbiBldGh0
-b29sIG9yIFBDSSBsYXllciwgbWFrZXMgbGl0dGxlIGRpZmZlcmVuY2UgdG8gbWUsDQo+ID4gPj4g
-SSBvbmx5IGhhZCBpc3N1ZXMgd2l0aCB0aGUgZHJpdmVyIHNwZWNpZmljIG1vZHVsZSBwYXJhbWV0
-ZXINCj4gPiA+PiBpbXBsZW1lbnRhdGlvbiwNCj4gPiB3aGljaCBpcyBub3QgYWNjZXB0YWJsZS4N
-Cj4gPiA+DQo+ID4gPg0KPiA+ID4gVGhhbmsgeW91IEplZmYgYW5kIEFsZXguDQo+ID4gPiBBbmQg
-dGhlbiBJIGhhdmUgZ29uZSB0aHJvdWdoIG1haWwgdGhyZWFkIGFib3V0ICJpNDBlOiBlbmFibGUg
-UENJZQ0KPiA+ID4gcmVsYXggb3JkZXJpbmcgZm9yIFNQQVJDIiwgSXQgb25seSB3b3JrcyBmb3Ig
-U1BBUkMsIGFueSBvdGhlciBBUkNIDQo+ID4gPiB3aG8gd2FudHMgdG8gZW5hYmxlIERNQV9BVFRS
-X1dFQUtfT1JERVJJTkcgZmVhdHVyZSwgc2hvdWxkIGRlZmluZQ0KPiA+ID4gdGhlDQo+ID4gbmV3
-IG1hY3JvLCByZWNvbXBpbGUgdGhlIGRyaXZlciBtb2R1bGUuDQo+ID4gPg0KPiA+ID4gQmVjYXVz
-ZSBvZiB0aGUgYWJvdmUgcmVhc29ucywgd2UgaW1wbGVtZW50IGluIGV0aHRvb2wgdG8gZ2l2ZSB0
-aGUNCj4gPiA+IGZpbmFsIHVzZXIgYSBjb252ZW5pZW50IHdheSB0byBvbnxvZmYgc3BlY2lhbCBm
-ZWF0dXJlLCBubyBuZWVkDQo+ID4gPiBkZWZpbmUgbmV3IG1hY3JvLCBlYXN5IHRvIGV4dGVuZCB0
-aGUgbmV3IGZlYXR1cmVzLCBhbmQgYWxzbyBnb29kDQo+ID4gPiBiZW5lZml0IGZvciBvdGhlcg0K
-PiA+IGRyaXZlciBhcyBKZWZmIHJlZmVycmVkLg0KPiA+ID4NCj4gPg0KPiA+IEkgdGhpbmsgdGhl
-IHBvaW50IGlzIHdlIHNob3VsZG4ndCBiYXNlIHRoZSBkZWNpc2lvbiBvbiB1c2VyIGlucHV0Lg0K
-PiA+IFRoZSBmYWN0IGlzIHRoZSBQQ0llIGRldmljZSBjb250cm9sIHJlZ2lzdGVyIHNob3VsZCBo
-YXZlIGEgYml0IHRoYXQNCj4gPiBpbmRpY2F0ZXMgaWYgdGhlIGRldmljZSBpcyBhbGxvd2VkIHRv
-IGVuYWJsZSByZWxheGVkIG9yZGVyaW5nIG9yIG5vdC4NCj4gPiBJZiB3ZSBjYW4gZ3VhcmFudGVl
-IHRoYXQgdGhlIGJpdCBpcyBzZXQgaW4gYWxsIHRoZSBjYXNlcyB3aGVyZSBpdA0KPiA+IHNob3Vs
-ZCBiZSBzZXQsIGFuZCBjbGVhcmVkIGluIGFsbCB0aGUgY2FzZXMgd2hlcmUgaXQgc2hvdWxkIG5v
-dCB0aGVuDQo+ID4gd2UgY291bGQgdXNlIHNvbWV0aGluZyBsaWtlIHRoYXQgdG8gZGV0ZXJtaW5l
-IGlmIHRoZSBkZXZpY2UgaXMNCj4gPiBzdXBwb3NlZCB0byBlbmFibGUgcmVsYXhlZCBvcmRlcmlu
-ZyBpbnN0ZWFkIG9mIHRyeWluZyB0byBtYWtlIHRoZSBkZWNpc2lvbg0KPiBvdXJzZWx2ZXMuDQo+
-ID4NCj4gPiAtIEFsZXgNCj4gDQo+IG9rLiBXZSBhcmUgZm9jdXNpbmcgb24gdGhlIHJlZ2lzdGVy
-Lg0KPiBBbmQgeWVzLCB0byBlbmFibGUgcmVsYXggb3JkZXJpbmcgZm9yIDgyNTk5IHNob3VsZCBi
-ZSBzZXQgYnkgb25lIG9yIG1vcmUgYml0cyBvZg0KPiBSeC9UWCBEQ0EgQ29udHJvbCBSZWdpc3Rl
-ciwgdGhlc2UgYml0cyBzaG91bGQgYmUgc2V0IGluIG1hbnkgY3B1IGFyY2hpdGVjdHVyZXMsDQo+
-IHN1Y2ggYXMgYXJtNjQsIHNwYXJjLCBhbmQgc28gb24sIGFuZCBzaG91bGQgYmUgY2xlYXJlZCBp
-biBvdGhlciBBUkNIcy4NCj4gQnkgdGhlIHdheSwgaG93IGRvIHlvdSBlbmFibGUgU1BBUkMgbWFj
-cm8sIGhvdyBhbmQgd2hlcmUgdG8gZGVmaW5lIHRoaXMNCj4gY29tcGlsaW5nIG1hY3JvIHdoZW4g
-dXNlciBvbmUgdG8gZW5hYmxlIHJlbGF4IG9yZGVyaW5nIHVuZGVyIFNQQVJDIHN5c3RlbT8NCj4g
-I2lmbmRlZiBDT05GSUdfU1BBUkMNCj4gDQo+IA0KDQoNCkhpLCBBbGV4LA0KSGF2ZSB5b3UgYWxy
-ZWFkeSBzZW50IG91dCB0aGUgcGF0Y2hlcyBhYm91dCBETUFfQVRUUl9XRUFLX09SREVSSU5HPw0K
-V2Ugd2FudCB0byBnZXQgeW91IGhvdyB0byBlbmFibGUgRE1BX0FUVFJfV0VBS19PUkRFUklORyBi
-eSBQQ0llIGxheWVyLA0KYW5kIHdlIGNhbiByZWZlciB0byB0aGF0Lg0KDQo=
+Oftenly, introducing side effects on packet processing on the other half
+of the stack by adjusting one of TX/RX via sysctl is not desirable.
+There are cases of demand for asymmetric, orthogonal configurability.
+
+This holds true especially for nodes where RPS for RFS usage on top is
+configured and therefore use the 'old dev_weight'. This is quite a
+common base configuration setup nowadays, even with NICs of superior processing
+support (e.g. aRFS).
+
+A good example use case are nodes acting as noSQL data bases with a
+large number of tiny requests and rather fewer but large packets as responses.
+It's affordable to have large budget and rx dev_weights for the
+requests. But as a side effect having this large a number on TX
+processed in one run can overwhelm drivers.
+
+This patch therefore introduces an independent configurability via procfs to
+userland.
+---
+ include/linux/netdevice.h  |  3 ++-
+ net/core/dev.c             |  7 ++++---
+ net/core/sysctl_net_core.c | 12 ++++++++++--
+ net/sched/sch_generic.c    |  2 +-
+ 4 files changed, 17 insertions(+), 7 deletions(-)
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 994f742..3616b35 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -3794,7 +3794,8 @@ void netdev_stats_to_stats64(struct rtnl_link_stats64 *stats64,
+ 
+ extern int		netdev_max_backlog;
+ extern int		netdev_tstamp_prequeue;
+-extern int		weight_p;
++extern int		weight_p_rx;
++extern int		weight_p_tx;
+ 
+ bool netdev_has_upper_dev(struct net_device *dev, struct net_device *upper_dev);
+ struct net_device *netdev_upper_get_next_dev_rcu(struct net_device *dev,
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 8db5a0b..fc9e506 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3427,7 +3427,8 @@ EXPORT_SYMBOL(netdev_max_backlog);
+ 
+ int netdev_tstamp_prequeue __read_mostly = 1;
+ int netdev_budget __read_mostly = 300;
+-int weight_p __read_mostly = 64;            /* old backlog weight */
++int weight_p_rx __read_mostly = 64;            /* old backlog weight */
++int weight_p_tx __read_mostly = 64;
+ 
+ /* Called with irq disabled */
+ static inline void ____napi_schedule(struct softnet_data *sd,
+@@ -4833,7 +4834,7 @@ static int process_backlog(struct napi_struct *napi, int quota)
+ 		net_rps_action_and_irq_enable(sd);
+ 	}
+ 
+-	napi->weight = weight_p;
++	napi->weight = weight_p_rx;
+ 	while (again) {
+ 		struct sk_buff *skb;
+ 
+@@ -8377,7 +8378,7 @@ static int __init net_dev_init(void)
+ #endif
+ 
+ 		sd->backlog.poll = process_backlog;
+-		sd->backlog.weight = weight_p;
++		sd->backlog.weight = weight_p_rx;
+ 	}
+ 
+ 	dev_boot_phase = 0;
+diff --git a/net/core/sysctl_net_core.c b/net/core/sysctl_net_core.c
+index 2a46e40..7eaa33a 100644
+--- a/net/core/sysctl_net_core.c
++++ b/net/core/sysctl_net_core.c
+@@ -269,13 +269,21 @@ static struct ctl_table net_core_table[] = {
+ 		.extra1		= &min_rcvbuf,
+ 	},
+ 	{
+-		.procname	= "dev_weight",
+-		.data		= &weight_p,
++		.procname	= "dev_weight_rx",
++		.data		= &weight_p_rx,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec
+ 	},
+ 	{
++		.procname	= "dev_weight_tx",
++		.data		= &weight_p_tx,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec
++	},
++
++	{
+ 		.procname	= "netdev_max_backlog",
+ 		.data		= &netdev_max_backlog,
+ 		.maxlen		= sizeof(int),
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index 6eb9c8e..8457e8c 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -247,7 +247,7 @@ static inline int qdisc_restart(struct Qdisc *q, int *packets)
+ 
+ void __qdisc_run(struct Qdisc *q)
+ {
+-	int quota = weight_p;
++	int quota = weight_p_tx;
+ 	int packets;
+ 
+ 	while (qdisc_restart(q, &packets)) {
+-- 
+2.7.4
