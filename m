@@ -1,76 +1,159 @@
 From: "Koteshwar Rao, Satha" <Satha.Rao@cavium.com>
-Subject: RE: [RFC PATCH 1/7] PF driver modified to enable HW filter support,
- changes works in backward compatibility mode Enable required things in
- Makefile Enable LZ4 dependecy inside config file
-Date: Mon, 26 Dec 2016 14:20:21 +0000
-Message-ID: <DM5PR07MB28428EE7B1679FAEC78103AD8D960@DM5PR07MB2842.namprd07.prod.outlook.com>
-References: <1482310011-1862-1-git-send-email-satha.rao@caviumnetworks.com>
- <1482310011-1862-2-git-send-email-satha.rao@caviumnetworks.com>
- <CA+sq2CfwTN5u6nhxriqWqoFxsYHdEYikbjBgMCL2YwNXpqyQ=Q@mail.gmail.com>
+Subject: RE: [RFC PATCH 3/7] Enable pause frame support
+Date: Mon, 26 Dec 2016 14:21:57 +0000
+Message-ID: <DM5PR07MB28423DB384D388B4B9F9C6FB8D960@DM5PR07MB2842.namprd07.prod.outlook.com>
+References: <1482310011-1862-1-git-send-email-satha.rao@caviumnetworks.com>,
+ <1482310011-1862-4-git-send-email-satha.rao@caviumnetworks.com>
+ <DM5PR07MB2889471E0668C95BD2A266709E930@DM5PR07MB2889.namprd07.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: LKML <linux-kernel@vger.kernel.org>,
-        "Goutham, Sunil" <Sunil.Goutham@cavium.com>,
-        Robert Richter <rric@kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        "Daney, David" <David.Daney@cavium.com>,
-        "Vatsavayi, Raghu" <Raghu.Vatsavayi@cavium.com>,
-        "Chickles, Derek" <Derek.Chickles@cavium.com>,
-        "Romanov, Philip" <Philip.Romanov@cavium.com>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        LAKML <linux-arm-kernel@lists.infradead.org>
-To: Sunil Kovvuri <sunil.kovvuri@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam01on0048.outbound.protection.outlook.com ([104.47.32.48]:55199
-        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751894AbcLZOUq (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 26 Dec 2016 09:20:46 -0500
-In-Reply-To: <CA+sq2CfwTN5u6nhxriqWqoFxsYHdEYikbjBgMCL2YwNXpqyQ=Q@mail.gmail.com>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: "rric@kernel.org" <rric@kernel.org>, "Chickles,
+ Derek" <Derek.Chickles@cavium.com>, "Daney, David" <David.Daney@cavium.com>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>, "Vatsavayi,
+ Raghu" <Raghu.Vatsavayi@cavium.com>,
+ "davem@davemloft.net" <davem@davemloft.net>,
+ "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>,
+ "Romanov, Philip" <Philip.Romanov@cavium.com>
+To: "Goutham, Sunil" <Sunil.Goutham@cavium.com>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <DM5PR07MB2889471E0668C95BD2A266709E930@DM5PR07MB2889.namprd07.prod.outlook.com>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-UmVzcG9uc2VzIGlubGluZQ0KDQpUaGFua3MsDQpTYXRoYQ0KDQotLS0tLU9yaWdpbmFsIE1lc3Nh
-Z2UtLS0tLQ0KRnJvbTogU3VuaWwgS292dnVyaSBbbWFpbHRvOnN1bmlsLmtvdnZ1cmlAZ21haWwu
-Y29tXSANClNlbnQ6IFdlZG5lc2RheSwgRGVjZW1iZXIgMjEsIDIwMTYgNTowNSBBTQ0KVG86IEtv
-dGVzaHdhciBSYW8sIFNhdGhhDQpDYzogTEtNTDsgR291dGhhbSwgU3VuaWw7IFJvYmVydCBSaWNo
-dGVyOyBEYXZpZCBTLiBNaWxsZXI7IERhbmV5LCBEYXZpZDsgVmF0c2F2YXlpLCBSYWdodTsgQ2hp
-Y2tsZXMsIERlcmVrOyBSb21hbm92LCBQaGlsaXA7IExpbnV4IE5ldGRldiBMaXN0OyBMQUtNTA0K
-U3ViamVjdDogUmU6IFtSRkMgUEFUQ0ggMS83XSBQRiBkcml2ZXIgbW9kaWZpZWQgdG8gZW5hYmxl
-IEhXIGZpbHRlciBzdXBwb3J0LCBjaGFuZ2VzIHdvcmtzIGluIGJhY2t3YXJkIGNvbXBhdGliaWxp
-dHkgbW9kZSBFbmFibGUgcmVxdWlyZWQgdGhpbmdzIGluIE1ha2VmaWxlIEVuYWJsZSBMWjQgZGVw
-ZW5kZWN5IGluc2lkZSBjb25maWcgZmlsZQ0KDQo+DQo+ICAjZGVmaW5lIE5JQ19NQVhfUlNTX0hB
-U0hfQklUUyAgICAgICAgICA4DQo+ICAjZGVmaW5lIE5JQ19NQVhfUlNTX0lEUl9UQkxfU0laRSAg
-ICAgICAoMSA8PCBOSUNfTUFYX1JTU19IQVNIX0JJVFMpDQo+ICsjZGVmaW5lIE5JQ19UTlNfUlNT
-X0lEUl9UQkxfU0laRSAgICAgICA1DQoNClNvIHlvdSB3YW50IHRvIHVzZSBvbmx5IDUgcXVldWVz
-IHBlciBWRiB3aGVuIFROUyBpcyBlbmFibGVkLCBpcyBpdCA/Pw0KVGhlcmUgYXJlIDQwOTYgUlNT
-IGluZGljZXMgaW4gdG90YWwsIGZvciBlYWNoIFZGIHlvdSBjYW4gdXNlIG1heCAzMi4NCkkgZ3Vl
-c3MgeW91IHdhbnRlZCB0byBzZXQgbm8gb2YgaGFzaCBiaXRzIHRvIDUgaW5zdGVhZCBvZiB0YWJs
-ZSBzaXplLg0KDQpTQVRIQT4+PiBXZSBlbmFibGVkIDggcXVldWVzIGZvciBWRi4gWWVzIE1hY3Jv
-IG5hbWUgbWlzbGVhZHMgaXQgaGFzIHRvIGJlIGhhc2ggYml0cywgd2lsbCBjaGFuZ2UgdGhpcyBp
-biBuZXh0IHZlcnNpb24NCg0KPiAgI2RlZmluZSBSU1NfSEFTSF9LRVlfU0laRSAgICAgICAgICAg
-ICAgNSAvKiAzMjAgYml0IGtleSAqLw0KPg0KPiAgc3RydWN0IG5pY3ZmX3Jzc19pbmZvIHsNCj4g
-QEAgLTI1NSw3NCArMjU4LDYgQEAgc3RydWN0IG5pY3ZmX2Rydl9zdGF0cyB7DQo+ICAgICAgICAg
-c3RydWN0IHU2NF9zdGF0c19zeW5jICAgc3luY3A7DQo+ICB9Ow0KPg0KPiAtc3RydWN0IG5pY3Zm
-IHsNCj4gLSAgICAgICBzdHJ1Y3QgbmljdmYgICAgICAgICAgICAqcG5pY3ZmOw0KPiAtICAgICAg
-IHN0cnVjdCBuZXRfZGV2aWNlICAgICAgICpuZXRkZXY7DQo+IC0gICAgICAgc3RydWN0IHBjaV9k
-ZXYgICAgICAgICAgKnBkZXY7DQo+IC0gICAgICAgdm9pZCBfX2lvbWVtICAgICAgICAgICAgKnJl
-Z19iYXNlOw0KDQpEaWRuJ3QgZ2V0IHdoeSB5b3UgbW92ZWQgdGhpcyBzdHJ1Y3R1cmUgdG8gdGhl
-IGVuZCBvZiBmaWxlLg0KTG9va3MgbGlrZSBhbiB1bm5lY2Vzc2FyeSBtb2RpZmljYXRpb24uDQpT
-QVRIQT4+PiBQcmV2aW91c2x5IHdlIGhhdmUgc29tZSBkZXBlbmRlbmN5LCB3ZSBsb29rIGludG8g
-dGhpcywgYW5kIGFkZHJlc3MgaW4gbmV4dCB2ZXJpc29uDQoNCj4gK3N0YXRpYyB1bnNpZ25lZCBp
-bnQgbnVtX3ZmczsNCj4gK21vZHVsZV9wYXJhbShudW1fdmZzLCB1aW50LCAwNjQ0KTsNCj4gK01P
-RFVMRV9QQVJNX0RFU0MobnVtX3ZmcywgIk5vbiB6ZXJvIHBvc2l0aXZlIHZhbHVlLCBzcGVjaWZp
-ZXMgbnVtYmVyIA0KPiArb2YgVkYncyBwZXIgcGh5c2ljYWwgcG9ydCIpOw0KDQpTbyB3aGF0IGlm
-IGRyaXZlciBpcyBidWlsdC1pbiBpbnN0ZWFkIG9mIG1vZHVsZSwgSSBjYW4ndCB1c2UgVE5TIGlz
-IGl0ID8NClNBVEhBPj4+IFN0aWxsIHlvdSBjYW4gZW5hYmxlIHRoaXMgc3BlY2lhbCBmZWF0dXJl
-cyBieSBwYXNzaW5nIGJvb3QgYXJndW1lbnQgIm5pY3BmLm51bV92ZnM9WCINCg0KPg0KPiArLyog
-U2V0IFJCRFIgQmFja3ByZXNzdXJlIChSQkRSX0JQKSBhbmQgQ1EgYmFja3ByZXNzdXJlIChDUV9C
-UCkgb2YgDQo+ICt2bmljIHF1ZXVlcw0KPiArICogdG8gMTI5IGVhY2gNCg0KV2h5IDEyOSA/Pw0K
-UkJEUiBtaW5pbXVtIHNpemUgaXMgOEsgYnVmZmVycywgd2h5IHlvdSB3YW50IHRvIGFzc2VydCBC
-UCB3aGVuIHN0aWxsIH40SyBidWZmZXJzIGFyZSBhdmFpbGFibGUuIElzbid0IDRLIGEgaHVnZSBu
-dW1iZXIgdG8gc3RhcnQgYXNzZXJ0aW5nIGJhY2twcmVzc3VyZSA/DQpTQVRIQT4+PiBBcyBDUSBj
-b3VudCB3YXMgNEsgZW50cmllcywgSSB1c2VkIHNhbWUgQlAgdmFsdWUgZm9yIGJvdGgsIHdpbGwg
-YWRkcmVzcyB0aGlzIGluIG5leHQgdmVyc2lvbg0K
+Thanks Sunil, will fix this in next version
+
+Thanks,
+Satha
+
+From: Goutham, Sunil =
+
+Sent: Wednesday, December 21, 2016 1:20 AM
+To: Koteshwar Rao, Satha; linux-kernel@vger.kernel.org
+Cc: rric@kernel.org; davem@davemloft.net; Daney, David; Vatsavayi, Raghu; C=
+hickles, Derek; Romanov, Philip; netdev@vger.kernel.org; linux-arm-kernel@l=
+ists.infradead.org
+Subject: Re: [RFC PATCH 3/7] Enable pause frame support
+
+>>+#define=A0 BGX_SMUX_CBFC_CTL=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 0x20218
+
+These macros are already defined.
+
+if you check 'net-next ' branch pause frame support has already been
+added. You should send patch on top it if you have further changes
+to the existing.
+
+Thanks,
+Sunil.
+
+________________________________________
+From: Koteshwar Rao, Satha
+Sent: Wednesday, December 21, 2016 2:16 PM
+To: linux-kernel@vger.kernel.org
+Cc: Goutham, Sunil; rric@kernel.org; davem@davemloft.net; Daney, David; Vat=
+savayi, Raghu; Chickles, Derek; Koteshwar Rao, Satha; Romanov, Philip; netd=
+ev@vger.kernel.org; linux-arm-kernel@lists.infradead.org
+Subject: [RFC PATCH 3/7] Enable pause frame support =
+
+=A0
+---
+=A0drivers/net/ethernet/cavium/thunder/thunder_bgx.c | 25 +++++++++++++++++=
+++++++
+=A0drivers/net/ethernet/cavium/thunder/thunder_bgx.h |=A0 7 +++++++
+=A02 files changed, 32 insertions(+)
+
+diff --git a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c b/drivers/ne=
+t/ethernet/cavium/thunder/thunder_bgx.c
+index 050e21f..92d7e04 100644
+--- a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
++++ b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
+@@ -121,6 +121,31 @@ static int bgx_poll_reg(struct bgx *bgx, u8 lmac, u64 =
+reg, u64 mask, bool zero)
+=A0=A0=A0=A0=A0=A0=A0=A0 return 1;
+=A0}
+=A0
++void enable_pause_frames(int node, int bgx_idx, int lmac)
++{
++=A0=A0=A0=A0=A0=A0 u64 reg_value =3D 0;
++=A0=A0=A0=A0=A0=A0 struct bgx *bgx =3D bgx_vnic[(node * MAX_BGX_PER_NODE) =
++ bgx_idx];
++
++=A0=A0=A0=A0=A0=A0 reg_value =3D=A0 bgx_reg_read(bgx, lmac, BGX_SMUX_TX_CT=
+L);
++=A0=A0=A0=A0=A0=A0 /* Enable BGX()_SMU()_TX_CTL */
++=A0=A0=A0=A0=A0=A0 if (!(reg_value & L2P_BP_CONV))
++=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 bgx_reg_write(bgx, lmac, BGX_SM=
+UX_TX_CTL,
++=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
+=A0=A0=A0=A0 (reg_value | (L2P_BP_CONV)));
++
++=A0=A0=A0=A0=A0=A0 reg_value =3D=A0 bgx_reg_read(bgx, lmac, BGX_SMUX_HG2_C=
+TL);
++=A0=A0=A0=A0=A0=A0 /* Clear if BGX()_SMU()_HG2_CONTROL[HG2TX_EN] is set */
++=A0=A0=A0=A0=A0=A0 if (reg_value & SMUX_HG2_CTL_HG2TX_EN)
++=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 bgx_reg_write(bgx, lmac, BGX_SM=
+UX_HG2_CTL,
++=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
+=A0=A0=A0=A0 (reg_value & (~SMUX_HG2_CTL_HG2TX_EN)));
++
++=A0=A0=A0=A0=A0=A0 reg_value =3D=A0 bgx_reg_read(bgx, lmac, BGX_SMUX_CBFC_=
+CTL);
++=A0=A0=A0=A0=A0=A0 /* Clear if BGX()_SMU()_CBFC_CTL[TX_EN] is set */
++=A0=A0=A0=A0=A0=A0 if (reg_value & CBFC_CTL_TX_EN)
++=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 bgx_reg_write(bgx, lmac, BGX_SM=
+UX_CBFC_CTL,
++=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
+=A0=A0=A0=A0 (reg_value & (~CBFC_CTL_TX_EN)));
++}
++EXPORT_SYMBOL(enable_pause_frames);
++
+=A0/* Return number of BGX present in HW */
+=A0unsigned bgx_get_map(int node)
+=A0{
+diff --git a/drivers/net/ethernet/cavium/thunder/thunder_bgx.h b/drivers/ne=
+t/ethernet/cavium/thunder/thunder_bgx.h
+index 01cc7c8..5b57bd1 100644
+--- a/drivers/net/ethernet/cavium/thunder/thunder_bgx.h
++++ b/drivers/net/ethernet/cavium/thunder/thunder_bgx.h
+@@ -131,6 +131,11 @@
+=A0#define BGX_SMUX_TX_CTL=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 =
+0x20178
+=A0#define=A0 SMU_TX_CTL_DIC_EN=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
+=A0=A0=A0=A0=A0=A0=A0 BIT_ULL(0)
+=A0#define=A0 SMU_TX_CTL_UNI_EN=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
+=A0=A0=A0=A0=A0=A0=A0 BIT_ULL(1)
++#define=A0 L2P_BP_CONV=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
+=A0=A0=A0=A0=A0=A0=A0=A0=A0 BIT_ULL(7)
++#define=A0 BGX_SMUX_CBFC_CTL=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 0x20218
++#define=A0 CBFC_CTL_TX_EN=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
+=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 BIT_ULL(1)
++#define=A0 BGX_SMUX_HG2_CTL=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 0x20210
++#define SMUX_HG2_CTL_HG2TX_EN=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
+=A0=A0 BIT_ULL(18)
+=A0#define=A0 SMU_TX_CTL_LNK_STATUS=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
+=A0=A0=A0=A0 (3ull << 4)
+=A0#define BGX_SMUX_TX_THRESH=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 0x20180
+=A0#define BGX_SMUX_CTL=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
+=A0=A0 0x20200
+@@ -212,6 +217,8 @@ void bgx_lmac_internal_loopback(int node, int bgx_idx,
+=A0
+=A0u64 bgx_get_rx_stats(int node, int bgx_idx, int lmac, int idx);
+=A0u64 bgx_get_tx_stats(int node, int bgx_idx, int lmac, int idx);
++void enable_pause_frames(int node, int bgx_idx, int lmac);
++
+=A0#define BGX_RX_STATS_COUNT 11
+=A0#define BGX_TX_STATS_COUNT 18
+=A0
+-- =
+
+1.8.3.1
