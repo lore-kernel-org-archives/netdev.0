@@ -1,33 +1,52 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net] net: xdp: remove unused bfp_warn_invalid_xdp_buffer()
-Date: Tue, 27 Dec 2016 10:29:28 +0100
-Message-ID: <58623478.10803@iogearbox.net>
-References: <1482806994-14649-1-git-send-email-jasowang@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: John Fastabend <john.r.fastabend@intel.com>
-To: Jason Wang <jasowang@redhat.com>, davem@davemloft.net,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+From: Wei Zhang <asuka.com@163.com>
+Subject: [PATCH] net: fix incorrect original ingress device index in PKTINFO
+Date: Tue, 27 Dec 2016 17:52:24 +0800
+Message-ID: <1482832344-24760-1-git-send-email-asuka.com@163.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+        yoshfuji@linux-ipv6.org, kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:57269 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751583AbcL0J3d (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Dec 2016 04:29:33 -0500
-In-Reply-To: <1482806994-14649-1-git-send-email-jasowang@redhat.com>
+Received: from m12-16.163.com ([220.181.12.16]:47283 "EHLO m12-16.163.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752752AbcL0JyD (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 27 Dec 2016 04:54:03 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/27/2016 03:49 AM, Jason Wang wrote:
-> After commit 73b62bd085f4737679ea9afc7867fa5f99ba7d1b ("virtio-net:
-> remove the warning before XDP linearizing"), there's no users for
-> bpf_warn_invalid_xdp_buffer(), so remove it. This is a revert for
-> commit f23bc46c30ca5ef58b8549434899fcbac41b2cfc.
->
-> Cc: Daniel Borkmann <daniel@iogearbox.net>
-> Cc: John Fastabend <john.r.fastabend@intel.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+When we send a packet for our own local address on a non-loopback
+interface (e.g. eth0), due to the change had been introduced from
+commit 0b922b7a829c ("net: original ingress device index in PKTINFO"), the
+original ingress device index would be set as the loopback interface.
+However, the packet should be considered as if it is being arrived via the
+sending interface (eth0), otherwise it would break the expectation of the
+userspace application (e.g. the DHCPRELEASE message from dhcp_release
+binary would be ignored by the dnsmasq daemon, since it come from lo which
+is not the interface dnsmasq bind to)
 
-Thanks for following up.
+Signed-off-by: Wei Zhang <asuka.com@163.com>
+---
+ net/ipv4/ip_sockglue.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
 
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
+index b8a2d63..76d78a7 100644
+--- a/net/ipv4/ip_sockglue.c
++++ b/net/ipv4/ip_sockglue.c
+@@ -1202,8 +1202,14 @@ void ipv4_pktinfo_prepare(const struct sock *sk, struct sk_buff *skb)
+ 		 * which has interface index (iif) as the first member of the
+ 		 * underlying inet{6}_skb_parm struct. This code then overlays
+ 		 * PKTINFO_SKB_CB and in_pktinfo also has iif as the first
+-		 * element so the iif is picked up from the prior IPCB
++		 * element so the iif is picked up from the prior IPCB except
++		 * iif is loopback interface which the packet should be
++		 * considered as if it is being arrived via the sending
++		 * interface
+ 		 */
++		if (pktinfo->ipi_ifindex == LOOPBACK_IFINDEX)
++			pktinfo->ipi_ifindex = inet_iif(skb);
++
+ 		pktinfo->ipi_spec_dst.s_addr = fib_compute_spec_dst(skb);
+ 	} else {
+ 		pktinfo->ipi_ifindex = 0;
+-- 
+1.8.3.1
