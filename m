@@ -1,38 +1,54 @@
-From: Chun-Hao Lin <hau@realtek.com>
-Subject: [PATCH net-next] r8169: add support for RTL8168 series add-on card.
-Date: Tue, 27 Dec 2016 16:29:43 +0800
-Message-ID: <1482827383-16069-1-git-send-email-hau@realtek.com>
+From: "wei zhang" <asuka.com@163.com>
+Subject: Re:[PATCH] net: fix incorrect original ingress device index in
+ PKTINFO
+Date: Tue, 27 Dec 2016 16:29:05 +0800 (CST)
+Message-ID: <64f198a9.a52b.1593f65ad7e.Coremail.asuka.com@163.com>
+References: <1482825138-2125-1-git-send-email-asuka.com@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
-        Chun-Hao Lin <hau@realtek.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtits2.realtek.com ([211.75.126.72]:55492 "EHLO
-        rtits2.realtek.com.tw" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750697AbcL0Ib6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Dec 2016 03:31:58 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=GBK
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: kuznet@ms2.inr.ac.ru, davem@davemloft.net, jmorris@namei.org,
+        yoshfuji@linux-ipv6.org, kaber@trash.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1482825138-2125-1-git-send-email-asuka.com@163.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This chip is the same as RTL8168, but its device id is 0x8161.
-
-Signed-off-by: Chun-Hao Lin <hau@realtek.com>
----
- drivers/net/ethernet/realtek/r8169.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index f9b97f5..44389c9 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -326,6 +326,7 @@ enum cfg_version {
- static const struct pci_device_id rtl8169_pci_tbl[] = {
- 	{ PCI_DEVICE(PCI_VENDOR_ID_REALTEK,	0x8129), 0, 0, RTL_CFG_0 },
- 	{ PCI_DEVICE(PCI_VENDOR_ID_REALTEK,	0x8136), 0, 0, RTL_CFG_2 },
-+	{ PCI_DEVICE(PCI_VENDOR_ID_REALTEK,	0x8161), 0, 0, RTL_CFG_1 },
- 	{ PCI_DEVICE(PCI_VENDOR_ID_REALTEK,	0x8167), 0, 0, RTL_CFG_0 },
- 	{ PCI_DEVICE(PCI_VENDOR_ID_REALTEK,	0x8168), 0, 0, RTL_CFG_1 },
- 	{ PCI_DEVICE(PCI_VENDOR_ID_REALTEK,	0x8169), 0, 0, RTL_CFG_0 },
--- 
-2.7.4
+QXQgMjAxNi0xMi0yNyAxNTo1MjoxOCwgIldlaSBaaGFuZyIgPGFzdWthLmNvbUAxNjMuY29tPiB3
+cm90ZToKPldoZW4gd2Ugc2VuZCBhIHBhY2tldCBmb3Igb3VyIG93biBsb2NhbCBhZGRyZXNzIG9u
+IGEgbm9uLWxvb3BiYWNrIGludGVyZmFjZQo+KGUuZy4gZXRoMCksIGR1ZSB0byB0aGUgY2hhbmdl
+IGhhZCBiZWVuIGludHJvZHVjZWQgZnJvbSBjb21taXQgMGI5MjJiN2E4MjljCj4oIm5ldDogb3Jp
+Z2luYWwgaW5ncmVzcyBkZXZpY2UgaW5kZXggaW4gUEtUSU5GTyIpLCB0aGUgb3JpZ2luYWwgaW5n
+cmVzcwo+ZGV2aWNlIGluZGV4IHdvdWxkIGJlIHNldCBhcyB0aGUgbG9vcGJhY2sgaW50ZXJmYWNl
+LiBIb3dldmVyLCB0aGUgcGFja2V0Cj5zaG91bGQgYmUgY29uc2lkZXJlZCBhcyBpZiBpdCBpcyBi
+ZWluZyBhcnJpdmVkIHZpYSB0aGUgc2VuZGluZyBpbnRlcmZhY2UKPihldGgwKSwgb3RoZXJ3aXNl
+IGl0IHdvdWxkIGJyZWFrIHRoZSBleHBlY3RhdGlvbiBvZiB0aGUgdXNlcnNwYWNlCj5hcHBsaWNh
+dGlvbiAoZS5nLiB0aGUgREhDUFJFTEVBU0UgbWVzc2FnZSBmcm9tIGRoY3BfcmVsZWFzZSBiaW5h
+cnkgd291bGQKPmJlIGlnbm9yZWQgYnkgdGhlIGRuc21hc3EgZGFlbW9uKQo+Cj5TaWduZWQtb2Zm
+LWJ5OiBXZWkgWmhhbmcgPGFzdWthLmNvbUAxNjMuY29tPgo+LS0tCj4gbmV0L2lwdjQvaXBfc29j
+a2dsdWUuYyB8IDcgKysrKysrLQo+IDEgZmlsZSBjaGFuZ2VkLCA2IGluc2VydGlvbnMoKyksIDEg
+ZGVsZXRpb24oLSkKPgo+ZGlmZiAtLWdpdCBhL25ldC9pcHY0L2lwX3NvY2tnbHVlLmMgYi9uZXQv
+aXB2NC9pcF9zb2NrZ2x1ZS5jCj5pbmRleCBiOGEyZDYzLi5iNmE2ZDM1IDEwMDY0NAo+LS0tIGEv
+bmV0L2lwdjQvaXBfc29ja2dsdWUuYwo+KysrIGIvbmV0L2lwdjQvaXBfc29ja2dsdWUuYwo+QEAg
+LTEyMDIsOCArMTIwMiwxMyBAQCB2b2lkIGlwdjRfcGt0aW5mb19wcmVwYXJlKGNvbnN0IHN0cnVj
+dCBzb2NrICpzaywgc3RydWN0IHNrX2J1ZmYgKnNrYikKPiAJCSAqIHdoaWNoIGhhcyBpbnRlcmZh
+Y2UgaW5kZXggKGlpZikgYXMgdGhlIGZpcnN0IG1lbWJlciBvZiB0aGUKPiAJCSAqIHVuZGVybHlp
+bmcgaW5ldHs2fV9za2JfcGFybSBzdHJ1Y3QuIFRoaXMgY29kZSB0aGVuIG92ZXJsYXlzCj4gCQkg
+KiBQS1RJTkZPX1NLQl9DQiBhbmQgaW5fcGt0aW5mbyBhbHNvIGhhcyBpaWYgYXMgdGhlIGZpcnN0
+Cj4tCQkgKiBlbGVtZW50IHNvIHRoZSBpaWYgaXMgcGlja2VkIHVwIGZyb20gdGhlIHByaW9yIElQ
+Q0IKPisJCSAqIGVsZW1lbnQgc28gdGhlIGlpZiBpcyBwaWNrZWQgdXAgZnJvbSB0aGUgcHJpb3Ig
+SVBDQiBleGNlcHQKPisJCSAqIGlpZiBpcyBsb29wYmFjayBpbnRlcmZhY2Ugd2hpY2ggdGhlIHBh
+Y2tldCBzaG91bGQgYmUgCj4rCQkgKiBjb25zaWRlcmVkIGFzIGlmIGl0IGlzIGJlaW5nIGFycml2
+ZWQgdmlhIHRoZSBzZW5kaW5nIGludGVyZmFjZQo+IAkJICovCj4rCQlpZiAocGt0aW5mby0+aXBp
+X2lmaW5kZXggPT0gTE9PUEJBQ0tfSUZJTkRFWCkgewo+KwkJCXBrdGluZm8tPmlwaV9pZmluZGV4
+ID0gaW5ldF9paWYoc2tiKTsKPisJCX0KPiAJCXBrdGluZm8tPmlwaV9zcGVjX2RzdC5zX2FkZHIg
+PSBmaWJfY29tcHV0ZV9zcGVjX2RzdChza2IpOwo+IAl9IGVsc2Ugewo+IAkJcGt0aW5mby0+aXBp
+X2lmaW5kZXggPSAwOwo+LS0gCj4xLjguMy4xCj4KCiAgV2hlbiBJIHVwZ3JhZGUgdG8gdGhlIDQu
+OSwgdGhlIGRoY3BfcmVsZWFzZSBjb3VsZCBub3QgcmVsZWFzZSB0aGUgZGhjcApsZWFzZSwgdGhl
+IGRuc21hc3EgaWdub3JlZCBhbGwgdGhlIERIQ1BSRUxFQVNFIG1lc3NhZ2Ugd2hpY2ggaXQgdGhp
+bmsgY29tZQpmcm9tIGxvLiBJIHRoaW5rIHRoaXMgaXMgZHVlIHRvIHRoZSBjb21taXQgMGI5MjJi
+N2E4MjljLCB3aGljaCBzZXQgdGhlCklQQ0Ioc2tiKS0+aWlmID0gc2tiLT5za2JfaWlmIGluIHRo
+ZSBpcF9yY3YoKSEKCiAgQW5kIEknbSB2ZXJ5IHNvcnJ5IGFib3V0IGZvcmdldHRpbmcgY2hlY2tw
+YXRjaCwgSSB3aWxsIHJlc2VuZCB0aGUgcGF0Y2gsCmhvcGUgSSdtIG5vdCBib3RoZXJpbmcgeW91
+IQoKVGhhbmtzLApXZWkgWmhhbmc=
