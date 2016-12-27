@@ -1,7 +1,7 @@
 From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCH v2 01/11] net: mvpp2: handle too large value handling in mvpp2_rx_pkts_coal_set()
-Date: Tue, 27 Dec 2016 17:54:10 +0100
-Message-ID: <1482857660-16092-2-git-send-email-thomas.petazzoni@free-electrons.com>
+Subject: [PATCH v2 06/11] net: mvpp2: simplify mvpp2_bm_bufs_add()
+Date: Tue, 27 Dec 2016 17:54:15 +0100
+Message-ID: <1482857660-16092-7-git-send-email-thomas.petazzoni@free-electrons.com>
 References: <1482857660-16092-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Cc: Nadav Haklai <nadavh@marvell.com>, Hanna Hawa <hannah@marvell.com>,
         Yehuda Yitschak <yehuday@marvell.com>,
@@ -15,47 +15,53 @@ Cc: Nadav Haklai <nadavh@marvell.com>, Hanna Hawa <hannah@marvell.com>,
         Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:36651 "EHLO
+Received: from mail.free-electrons.com ([62.4.15.54]:36659 "EHLO
         mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932820AbcL0Qyc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Dec 2016 11:54:32 -0500
+        with ESMTP id S933017AbcL0Qyd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Dec 2016 11:54:33 -0500
 In-Reply-To: <1482857660-16092-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, mvpp2_rx_pkts_coal_set() does the following to avoid setting
-a too large value for the RX coalescing by packet number:
+The mvpp2_bm_bufs_add() currently creates a fake cookie by calling
+mvpp2_bm_cookie_pool_set(), just to be able to call
+mvpp2_pool_refill(). But all what mvpp2_pool_refill() does is extract
+the pool ID from the cookie, and call mvpp2_bm_pool_put() with this ID.
 
-  val = (pkts & MVPP2_OCCUPIED_THRESH_MASK);
-
-This means that if you set a value that is slightly higher the the
-maximum number of packets, you in fact get a very low value. It makes a
-lot more sense to simply check if the value is too high, and if it's too
-high, limit it to the maximum possible value.
+Instead of doing this convoluted thing, just call mvpp2_bm_pool_put()
+directly, since we have the BM pool ID.
 
 Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 ---
- drivers/net/ethernet/marvell/mvpp2.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/marvell/mvpp2.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
 diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 4fe430c..02d91e4 100644
+index bfa9f77..8174f40 100644
 --- a/drivers/net/ethernet/marvell/mvpp2.c
 +++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -4381,11 +4381,11 @@ static void mvpp2_txp_max_tx_size_set(struct mvpp2_port *port)
- static void mvpp2_rx_pkts_coal_set(struct mvpp2_port *port,
- 				   struct mvpp2_rx_queue *rxq, u32 pkts)
+@@ -3626,7 +3626,6 @@ static int mvpp2_bm_bufs_add(struct mvpp2_port *port,
  {
--	u32 val;
-+	if (pkts > MVPP2_OCCUPIED_THRESH_MASK)
-+		pkts = MVPP2_OCCUPIED_THRESH_MASK;
+ 	struct sk_buff *skb;
+ 	int i, buf_size, total_size;
+-	u32 bm;
+ 	dma_addr_t phys_addr;
  
--	val = (pkts & MVPP2_OCCUPIED_THRESH_MASK);
- 	mvpp2_write(port->priv, MVPP2_RXQ_NUM_REG, rxq->id);
--	mvpp2_write(port->priv, MVPP2_RXQ_THRESH_REG, val);
-+	mvpp2_write(port->priv, MVPP2_RXQ_THRESH_REG, pkts);
+ 	buf_size = MVPP2_RX_BUF_SIZE(bm_pool->pkt_size);
+@@ -3640,13 +3639,12 @@ static int mvpp2_bm_bufs_add(struct mvpp2_port *port,
+ 		return 0;
+ 	}
  
- 	rxq->pkts_coal = pkts;
- }
+-	bm = mvpp2_bm_cookie_pool_set(0, bm_pool->id);
+ 	for (i = 0; i < buf_num; i++) {
+ 		skb = mvpp2_skb_alloc(port, bm_pool, &phys_addr, GFP_KERNEL);
+ 		if (!skb)
+ 			break;
+ 
+-		mvpp2_pool_refill(port, bm, (u32)phys_addr, (u32)skb);
++		mvpp2_bm_pool_put(port, bm_pool->id, (u32)phys_addr, (u32)skb);
+ 	}
+ 
+ 	/* Update BM driver with number of buffers added to pool */
 -- 
 2.7.4
