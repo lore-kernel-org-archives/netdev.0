@@ -1,33 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] ipv4: Namespaceify tcp_tw_reuse knob
-Date: Tue, 27 Dec 2016 12:29:44 -0500 (EST)
-Message-ID: <20161227.122944.1566432083534281121.davem@davemloft.net>
-References: <1482647596-25239-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
+Subject: Re: [PATCH net] openvswitch: upcall: Fix vlan handling.
+Date: Tue, 27 Dec 2016 12:29:51 -0500 (EST)
+Message-ID: <20161227.122951.662506742518657444.davem@davemloft.net>
+References: <1482769887-8022-1-git-send-email-pshelar@ovn.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, kaber@trash.net,
-        kernel@kyup.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: yanhaishuang@cmss.chinamobile.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1482647596-25239-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, jarno@ovn.org, jbenc@redhat.com
+To: pshelar@ovn.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:40602 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755850AbcL0R3w (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Dec 2016 12:29:52 -0500
+In-Reply-To: <1482769887-8022-1-git-send-email-pshelar@ovn.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-Date: Sun, 25 Dec 2016 14:33:16 +0800
+From: Pravin B Shelar <pshelar@ovn.org>
+Date: Mon, 26 Dec 2016 08:31:27 -0800
 
-> Different namespaces might have different requirements to reuse
-> TIME-WAIT sockets for new connections. This might be required in
-> cases where different namespace applications are in place which
-> require TIME_WAIT socket connections to be reduced independently
-> of the host.
+> Networking stack accelerate vlan tag handling by
+> keeping topmost vlan header in skb. This works as
+> long as packet remains in OVS datapath. But during
+> OVS upcall vlan header is pushed on to the packet.
+> When such packet is sent back to OVS datapath, core
+> networking stack might not handle it correctly. Following
+> patch avoids this issue by accelerating the vlan tag
+> during flow key extract. This simplifies datapath by
+> bringing uniform packet processing for packets from
+> all code paths.
 > 
-> Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-> 
-> ---
-> Changes in v2:
->   - Make the commit message more clearer.
+> Fixes: 5108bbaddc ("openvswitch: add processing of L3 packets").
+> CC: Jarno Rajahalme <jarno@ovn.org>
+> CC: Jiri Benc <jbenc@redhat.com>
+> Signed-off-by: Pravin B Shelar <pshelar@ovn.org>
 
 Applied.
