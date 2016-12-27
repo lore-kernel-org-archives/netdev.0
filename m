@@ -1,33 +1,50 @@
-From: David Dillow <dave@thedillows.org>
-Subject: Re: [PATCH v3 2/2] drivers: net: ethernet: 3com: fix return value
-Date: Tue, 27 Dec 2016 13:17:33 -0800
-Message-ID: <1482873453.20986.4.camel@dillow-glaptop.roam.corp.google.com>
-References: <4200be74-f7e7-db6b-a258-8fd178fef369@cogentembedded.com>
-         <1482625822-19658-1-git-send-email-thomas.preisner+linux@fau.de>
-         <1482625822-19658-3-git-send-email-thomas.preisner+linux@fau.de>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] staging: octeon: Call SET_NETDEV_DEV()
+Date: Tue, 27 Dec 2016 14:15:57 -0800
+Message-ID: <748b758b-7a9c-d58e-2fa5-52b6fa031ae3@gmail.com>
+References: <20161215011326.8852-1-f.fainelli@gmail.com>
+ <d5cd5832-4402-2468-9d64-0a8d6e62d965@gmail.com>
+ <20161220.222020.1448709395205678279.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: sergei.shtylyov@cogentembedded.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, linux-kernel@i4.cs.fau.de,
-        milan.stephan+linux@fau.de
-To: Thomas Preisner <thomas.preisner+linux@fau.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from matrix.voodoobox.net ([75.127.97.206]:56378 "EHLO voodoobox.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753160AbcL0VSQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 27 Dec 2016 16:18:16 -0500
-In-Reply-To: <1482625822-19658-3-git-send-email-thomas.preisner+linux@fau.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: devel@driverdev.osuosl.org, asbjorn@asbjorn.st, aaro.koskinen@iki.fi,
+ netdev@vger.kernel.org, nevola@gmail.com, linux-kernel@vger.kernel.org,
+ jarod@redhat.com, bhaktipriya96@gmail.com, David Miller <davem@davemloft.net>,
+ tremyfr@gmail.com
+To: gregkh@linuxfoundation.org
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <20161220.222020.1448709395205678279.davem@davemloft.net>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-On Sun, 2016-12-25 at 01:30 +0100, Thomas Preisner wrote:
-> In some cases the return value of a failing function is not being used
-> and the function typhoon_init_one() returns another negative error
-> code instead.
+On 12/20/2016 07:20 PM, David Miller wrote:
+> From: Florian Fainelli <f.fainelli@gmail.com>
+> Date: Tue, 20 Dec 2016 17:02:37 -0800
+> 
+>> On 12/14/2016 05:13 PM, Florian Fainelli wrote:
+>>> The Octeon driver calls into PHYLIB which now checks for
+>>> net_device->dev.parent, so make sure we do set it before calling into
+>>> any MDIO/PHYLIB related function.
+>>>
+>>> Fixes: ec988ad78ed6 ("phy: Don't increment MDIO bus refcount unless it's a different owner")
+>>> Reported-by: Aaro Koskinen <aaro.koskinen@iki.fi>
+>>> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+>>
+>> Greg, David, since this is a fix for a regression introduced in the net
+>> tree, it may make sense that David take it via his tree.
+> 
+> Since the change in question is in Linus's tree, it's equally valid
+> for Greg to take it as well.
 
-I'm not sure these changes are especially valuable, since we'll need to
-look at the dmesg log anyways to figure out what went wrong, but again I
-don't feel strongly.
-
-Fix up the subject issues and I'm happy to ack them.
+Sure, Greg, can you take this change? Thank you!
+-- 
+Florian
