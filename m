@@ -1,11 +1,8 @@
 From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCH v2 09/11] net: mvpp2: simplify MVPP2_PRS_RI_* definitions
-Date: Tue, 27 Dec 2016 17:54:18 +0100
-Message-ID: <1482857660-16092-10-git-send-email-thomas.petazzoni@free-electrons.com>
+Subject: [PATCH v2 10/11] net: mvpp2: switch to build_skb() in the RX path
+Date: Tue, 27 Dec 2016 17:54:19 +0100
+Message-ID: <1482857660-16092-11-git-send-email-thomas.petazzoni@free-electrons.com>
 References: <1482857660-16092-1-git-send-email-thomas.petazzoni@free-electrons.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
 Cc: Nadav Haklai <nadavh@marvell.com>, Hanna Hawa <hannah@marvell.com>,
         Yehuda Yitschak <yehuday@marvell.com>,
         Jason Cooper <jason@lakedaemon.net>,
@@ -18,89 +15,233 @@ Cc: Nadav Haklai <nadavh@marvell.com>, Hanna Hawa <hannah@marvell.com>,
         Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:36666 "EHLO
+Received: from mail.free-electrons.com ([62.4.15.54]:36667 "EHLO
         mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933053AbcL0Qyd (ORCPT
+        with ESMTP id S933054AbcL0Qyd (ORCPT
         <rfc822;netdev@vger.kernel.org>); Tue, 27 Dec 2016 11:54:33 -0500
 In-Reply-To: <1482857660-16092-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some of the MVPP2_PRS_RI_* definitions use the ~(value) syntax, which
-doesn't compile nicely on 64-bit. Moreover, those definitions are in
-fact unneeded, since they are always used in combination with a bit
-mask that ensures only the appropriate bits are modified.
+This commit adapts the mvpp2 RX path to use the build_skb() method. Not
+only build_skb() is now the recommended mechanism, but it also
+simplifies the addition of support for the PPv2.2 variant.
 
-Therefore, such definitions should just be set to 0x0. For example:
+Indeed, without build_skb(), we have to keep track for each RX
+descriptor of the physical address of the packet buffer, and the virtual
+address of the SKB. However, in PPv2.2 running on 64 bits platform,
+there is not enough space in the descriptor to store the virtual address
+of the SKB. So having to take care only of the address of the packet
+buffer, and building the SKB upon reception helps in supporting PPv2.2.
 
- #define MVPP2_PRS_RI_L2_CAST_MASK              0x600
- #define MVPP2_PRS_RI_L2_UCAST                  ~(BIT(9) | BIT(10))
- #define MVPP2_PRS_RI_L2_MCAST                  BIT(9)
- #define MVPP2_PRS_RI_L2_BCAST                  BIT(10)
+The implementation is fairly straightforward:
 
-becomes
+ - mvpp2_skb_alloc() is renamed to mvpp2_buf_alloc() and no longer
+   allocates a SKB. Instead, it allocates a buffer using the new
+   mvpp2_frag_alloc() function, with enough space for the data and SKB.
 
- #define MVPP2_PRS_RI_L2_CAST_MASK              0x600
- #define MVPP2_PRS_RI_L2_UCAST                  0x0
- #define MVPP2_PRS_RI_L2_MCAST                  BIT(9)
- #define MVPP2_PRS_RI_L2_BCAST                  BIT(10)
+ - The initialization of the RX buffers in mvpp2_bm_bufs_add() as well
+   as the refill of the RX buffers in mvpp2_rx_refill() is adjusted
+   accordingly.
 
-Because the values (MVPP2_PRS_RI_L2_UCAST, MVPP2_PRS_RI_L2_MCAST and
-MVPP2_PRS_RI_L2_BCAST) are always applied with
-MVPP2_PRS_RI_L2_CAST_MASK, and therefore there is no need for
-MVPP2_PRS_RI_L2_UCAST to be defined as ~(BIT(9) | BIT(10)).
-
-It fixes the following warnings when building the driver on a 64-bit
-platform (which is not possible as of this commit, but will be enabled
-in a follow-up commit):
-
-drivers/net/ethernet/marvell/mvpp2.c: In function ‘mvpp2_prs_mac_promisc_set’:
-drivers/net/ethernet/marvell/mvpp2.c:524:33: warning: large integer implicitly truncated to unsigned type [-Woverflow]
- #define MVPP2_PRS_RI_L2_UCAST   ~(BIT(9) | BIT(10))
-                                 ^
-drivers/net/ethernet/marvell/mvpp2.c:1459:33: note: in expansion of macro ‘MVPP2_PRS_RI_L2_UCAST’
-   mvpp2_prs_sram_ri_update(&pe, MVPP2_PRS_RI_L2_UCAST,
+ - Finally, the mvpp2_rx() is modified to use build_skb().
 
 Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 ---
- drivers/net/ethernet/marvell/mvpp2.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/marvell/mvpp2.c | 77 +++++++++++++++++++++++++-----------
+ 1 file changed, 55 insertions(+), 22 deletions(-)
 
 diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 36c73dc..58cf9af 100644
+index 58cf9af..1e08e8f 100644
 --- a/drivers/net/ethernet/marvell/mvpp2.c
 +++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -511,19 +511,19 @@ enum mvpp2_tag_type {
- #define MVPP2_PRS_RI_MAC_ME_MASK		0x1
- #define MVPP2_PRS_RI_DSA_MASK			0x2
- #define MVPP2_PRS_RI_VLAN_MASK			0xc
--#define MVPP2_PRS_RI_VLAN_NONE			~(BIT(2) | BIT(3))
-+#define MVPP2_PRS_RI_VLAN_NONE			0x0
- #define MVPP2_PRS_RI_VLAN_SINGLE		BIT(2)
- #define MVPP2_PRS_RI_VLAN_DOUBLE		BIT(3)
- #define MVPP2_PRS_RI_VLAN_TRIPLE		(BIT(2) | BIT(3))
- #define MVPP2_PRS_RI_CPU_CODE_MASK		0x70
- #define MVPP2_PRS_RI_CPU_CODE_RX_SPEC		BIT(4)
- #define MVPP2_PRS_RI_L2_CAST_MASK		0x600
--#define MVPP2_PRS_RI_L2_UCAST			~(BIT(9) | BIT(10))
-+#define MVPP2_PRS_RI_L2_UCAST			0x0
- #define MVPP2_PRS_RI_L2_MCAST			BIT(9)
- #define MVPP2_PRS_RI_L2_BCAST			BIT(10)
- #define MVPP2_PRS_RI_PPPOE_MASK			0x800
- #define MVPP2_PRS_RI_L3_PROTO_MASK		0x7000
--#define MVPP2_PRS_RI_L3_UN			~(BIT(12) | BIT(13) | BIT(14))
-+#define MVPP2_PRS_RI_L3_UN			0x0
- #define MVPP2_PRS_RI_L3_IP4			BIT(12)
- #define MVPP2_PRS_RI_L3_IP4_OPT			BIT(13)
- #define MVPP2_PRS_RI_L3_IP4_OTHER		(BIT(12) | BIT(13))
-@@ -531,7 +531,7 @@ enum mvpp2_tag_type {
- #define MVPP2_PRS_RI_L3_IP6_EXT			(BIT(12) | BIT(14))
- #define MVPP2_PRS_RI_L3_ARP			(BIT(13) | BIT(14))
- #define MVPP2_PRS_RI_L3_ADDR_MASK		0x18000
--#define MVPP2_PRS_RI_L3_UCAST			~(BIT(15) | BIT(16))
-+#define MVPP2_PRS_RI_L3_UCAST			0x0
- #define MVPP2_PRS_RI_L3_MCAST			BIT(15)
- #define MVPP2_PRS_RI_L3_BCAST			(BIT(15) | BIT(16))
- #define MVPP2_PRS_RI_IP_FRAG_MASK		0x20000
+@@ -918,6 +918,7 @@ struct mvpp2_bm_pool {
+ 	int buf_size;
+ 	/* Packet size */
+ 	int pkt_size;
++	int frag_size;
+ 
+ 	/* BPPE virtual base address */
+ 	u32 *virt_addr;
+@@ -3354,6 +3355,22 @@ static void mvpp2_cls_oversize_rxq_set(struct mvpp2_port *port)
+ 	mvpp2_write(port->priv, MVPP2_CLS_SWFWD_PCTRL_REG, val);
+ }
+ 
++static void *mvpp2_frag_alloc(const struct mvpp2_bm_pool *pool)
++{
++	if (likely(pool->frag_size <= PAGE_SIZE))
++		return netdev_alloc_frag(pool->frag_size);
++	else
++		return kmalloc(pool->frag_size, GFP_ATOMIC);
++}
++
++static void mvpp2_frag_free(const struct mvpp2_bm_pool *pool, void *data)
++{
++	if (likely(pool->frag_size <= PAGE_SIZE))
++		skb_free_frag(data);
++	else
++		kfree(data);
++}
++
+ /* Buffer Manager configuration routines */
+ 
+ /* Create pool */
+@@ -3428,7 +3445,8 @@ static void mvpp2_bm_bufs_free(struct device *dev, struct mvpp2 *priv,
+ 
+ 		if (!vaddr)
+ 			break;
+-		dev_kfree_skb_any((struct sk_buff *)vaddr);
++
++		mvpp2_frag_free(bm_pool, (void *)vaddr);
+ 	}
+ 
+ 	/* Update BM driver with number of buffers removed from pool */
+@@ -3542,29 +3560,28 @@ static void mvpp2_rxq_short_pool_set(struct mvpp2_port *port,
+ 	mvpp2_write(port->priv, MVPP2_RXQ_CONFIG_REG(prxq), val);
+ }
+ 
+-/* Allocate skb for BM pool */
+-static struct sk_buff *mvpp2_skb_alloc(struct mvpp2_port *port,
+-				       struct mvpp2_bm_pool *bm_pool,
+-				       dma_addr_t *buf_phys_addr,
+-				       gfp_t gfp_mask)
++static void *mvpp2_buf_alloc(struct mvpp2_port *port,
++			     struct mvpp2_bm_pool *bm_pool,
++			     dma_addr_t *buf_phys_addr,
++			     gfp_t gfp_mask)
+ {
+-	struct sk_buff *skb;
+ 	dma_addr_t phys_addr;
++	void *data;
+ 
+-	skb = __dev_alloc_skb(bm_pool->pkt_size, gfp_mask);
+-	if (!skb)
++	data = mvpp2_frag_alloc(bm_pool);
++	if (!data)
+ 		return NULL;
+ 
+-	phys_addr = dma_map_single(port->dev->dev.parent, skb->head,
++	phys_addr = dma_map_single(port->dev->dev.parent, data,
+ 				   MVPP2_RX_BUF_SIZE(bm_pool->pkt_size),
+ 				    DMA_FROM_DEVICE);
+ 	if (unlikely(dma_mapping_error(port->dev->dev.parent, phys_addr))) {
+-		dev_kfree_skb_any(skb);
++		mvpp2_frag_free(bm_pool, data);
+ 		return NULL;
+ 	}
+ 	*buf_phys_addr = phys_addr;
+ 
+-	return skb;
++	return data;
+ }
+ 
+ /* Set pool number in a BM cookie */
+@@ -3620,9 +3637,9 @@ static void mvpp2_pool_refill(struct mvpp2_port *port, u32 bm,
+ static int mvpp2_bm_bufs_add(struct mvpp2_port *port,
+ 			     struct mvpp2_bm_pool *bm_pool, int buf_num)
+ {
+-	struct sk_buff *skb;
+ 	int i, buf_size, total_size;
+ 	dma_addr_t phys_addr;
++	void *buf;
+ 
+ 	buf_size = MVPP2_RX_BUF_SIZE(bm_pool->pkt_size);
+ 	total_size = MVPP2_RX_TOTAL_SIZE(buf_size);
+@@ -3636,11 +3653,11 @@ static int mvpp2_bm_bufs_add(struct mvpp2_port *port,
+ 	}
+ 
+ 	for (i = 0; i < buf_num; i++) {
+-		skb = mvpp2_skb_alloc(port, bm_pool, &phys_addr, GFP_KERNEL);
+-		if (!skb)
++		buf = mvpp2_buf_alloc(port, bm_pool, &phys_addr, GFP_KERNEL);
++		if (!buf)
+ 			break;
+ 
+-		mvpp2_bm_pool_put(port, bm_pool->id, (u32)phys_addr, (u32)skb);
++		mvpp2_bm_pool_put(port, bm_pool->id, (u32)phys_addr, (u32)buf);
+ 	}
+ 
+ 	/* Update BM driver with number of buffers added to pool */
+@@ -3696,6 +3713,9 @@ mvpp2_bm_pool_use(struct mvpp2_port *port, int pool, enum mvpp2_bm_type type,
+ 					   port->priv, new_pool);
+ 
+ 		new_pool->pkt_size = pkt_size;
++		new_pool->frag_size =
++			SKB_DATA_ALIGN(MVPP2_RX_BUF_SIZE(pkt_size)) +
++			MVPP2_SKB_SHINFO_SIZE;
+ 
+ 		/* Allocate buffers for this pool */
+ 		num = mvpp2_bm_bufs_add(port, new_pool, pkts_num);
+@@ -4987,15 +5007,15 @@ static void mvpp2_rx_csum(struct mvpp2_port *port, u32 status,
+ static int mvpp2_rx_refill(struct mvpp2_port *port,
+ 			   struct mvpp2_bm_pool *bm_pool, u32 bm)
+ {
+-	struct sk_buff *skb;
+ 	dma_addr_t phys_addr;
++	void *buf;
+ 
+ 	/* No recycle or too many buffers are in use, so allocate a new skb */
+-	skb = mvpp2_skb_alloc(port, bm_pool, &phys_addr, GFP_ATOMIC);
+-	if (!skb)
++	buf = mvpp2_buf_alloc(port, bm_pool, &phys_addr, GFP_ATOMIC);
++	if (!buf)
+ 		return -ENOMEM;
+ 
+-	mvpp2_pool_refill(port, bm, (u32)phys_addr, (u32)skb);
++	mvpp2_pool_refill(port, bm, (u32)phys_addr, (u32)buf);
+ 
+ 	return 0;
+ }
+@@ -5087,14 +5107,17 @@ static int mvpp2_rx(struct mvpp2_port *port, int rx_todo,
+ 		struct mvpp2_rx_desc *rx_desc = mvpp2_rxq_next_desc_get(rxq);
+ 		struct mvpp2_bm_pool *bm_pool;
+ 		struct sk_buff *skb;
++		unsigned int frag_size;
+ 		dma_addr_t phys_addr;
+ 		u32 bm, rx_status;
+ 		int pool, rx_bytes, err;
++		void *data;
+ 
+ 		rx_done++;
+ 		rx_status = rx_desc->status;
+ 		rx_bytes = rx_desc->data_size - MVPP2_MH_SIZE;
+ 		phys_addr = rx_desc->buf_phys_addr;
++		data = (void *)rx_desc->buf_cookie;
+ 
+ 		bm = mvpp2_bm_cookie_build(rx_desc);
+ 		pool = mvpp2_bm_cookie_pool_get(bm);
+@@ -5115,12 +5138,22 @@ static int mvpp2_rx(struct mvpp2_port *port, int rx_todo,
+ 			dev->stats.rx_errors++;
+ 			mvpp2_rx_error(port, rx_desc);
+ 			/* Return the buffer to the pool */
++
+ 			mvpp2_pool_refill(port, bm, rx_desc->buf_phys_addr,
+ 					  rx_desc->buf_cookie);
+ 			continue;
+ 		}
+ 
+-		skb = (struct sk_buff *)rx_desc->buf_cookie;
++		if (bm_pool->frag_size > PAGE_SIZE)
++			frag_size = 0;
++		else
++			frag_size = bm_pool->frag_size;
++
++		skb = build_skb(data, frag_size);
++		if (!skb) {
++			netdev_warn(port->dev, "skb build failed\n");
++			goto err_drop_frame;
++		}
+ 
+ 		err = mvpp2_rx_refill(port, bm_pool, bm);
+ 		if (err) {
+@@ -5134,7 +5167,7 @@ static int mvpp2_rx(struct mvpp2_port *port, int rx_todo,
+ 		rcvd_pkts++;
+ 		rcvd_bytes += rx_bytes;
+ 
+-		skb_reserve(skb, MVPP2_MH_SIZE);
++		skb_reserve(skb, MVPP2_MH_SIZE + NET_SKB_PAD);
+ 		skb_put(skb, rx_bytes);
+ 		skb->protocol = eth_type_trans(skb, dev);
+ 		mvpp2_rx_csum(port, rx_status, skb);
 -- 
 2.7.4
