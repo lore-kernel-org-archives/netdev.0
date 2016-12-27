@@ -1,8 +1,10 @@
 From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCH v2 04/11] net: mvpp2: remove unused 'tx_skb' field of 'struct mvpp2_tx_queue'
-Date: Tue, 27 Dec 2016 17:54:13 +0100
-Message-ID: <1482857660-16092-5-git-send-email-thomas.petazzoni@free-electrons.com>
-References: <1482857660-16092-1-git-send-email-thomas.petazzoni@free-electrons.com>
+Subject: [PATCH v2 00/11] net: mvpp2: misc improvements and preparation patches
+Date: Tue, 27 Dec 2016 17:54:09 +0100
+Message-ID: <1482857660-16092-1-git-send-email-thomas.petazzoni@free-electrons.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
 Cc: Nadav Haklai <nadavh@marvell.com>, Hanna Hawa <hannah@marvell.com>,
         Yehuda Yitschak <yehuday@marvell.com>,
         Jason Cooper <jason@lakedaemon.net>,
@@ -15,35 +17,56 @@ Cc: Nadav Haklai <nadavh@marvell.com>, Hanna Hawa <hannah@marvell.com>,
         Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:36622 "EHLO
+Received: from mail.free-electrons.com ([62.4.15.54]:36624 "EHLO
         mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753998AbcL0Qyb (ORCPT
+        with ESMTP id S1754449AbcL0Qyb (ORCPT
         <rfc822;netdev@vger.kernel.org>); Tue, 27 Dec 2016 11:54:31 -0500
-In-Reply-To: <1482857660-16092-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This commit remove a field of 'struct mvpp2_tx_queue' that is not used
-anywhere.
+Hello,
 
-Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
----
- drivers/net/ethernet/marvell/mvpp2.c | 3 ---
- 1 file changed, 3 deletions(-)
+This series contains a number of misc improvements and preparation
+patches for an upcoming series that adds support for the new PPv2.2
+network controller to the mvpp2 driver.
 
-diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index d098c7b..6720cdac 100644
---- a/drivers/net/ethernet/marvell/mvpp2.c
-+++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -823,9 +823,6 @@ struct mvpp2_tx_queue {
- 	/* Per-CPU control of physical Tx queues */
- 	struct mvpp2_txq_pcpu __percpu *pcpu;
- 
--	/* Array of transmitted skb */
--	struct sk_buff **tx_skb;
--
- 	u32 done_pkts_coal;
- 
- 	/* Virtual address of thex Tx DMA descriptors array */
+The most significant improvements are:
+
+ - Switching to using build_skb(), which is necessary for the upcoming
+   PPv2.2 support, but anyway a good improvement to the current mvpp2
+   driver (supporting PPv2.1).
+
+ - Making the driver build on 64-bit platforms.
+
+Changes since v1:
+
+ - This series is split as a separate series from the larger patch set
+   adding support for PPv2.2 in the mvpp2 driver, as requested by
+   David Miller.
+
+ - Rebased on top of v4.10-rc1.
+
+Thanks!
+
+Thomas
+
+Thomas Petazzoni (11):
+  net: mvpp2: handle too large value handling in
+    mvpp2_rx_pkts_coal_set()
+  net: mvpp2: handle too large value in mvpp2_rx_time_coal_set()
+  net: mvpp2: release reference to txq_cpu[] entry after unmapping
+  net: mvpp2: remove unused 'tx_skb' field of 'struct mvpp2_tx_queue'
+  net: mvpp2: drop useless fields in mvpp2_bm_pool and related code
+  net: mvpp2: simplify mvpp2_bm_bufs_add()
+  net: mvpp2: remove unused register definitions
+  net: mvpp2: fix indentation of MVPP2_EXT_GLOBAL_CTRL_DEFAULT
+  net: mvpp2: simplify MVPP2_PRS_RI_* definitions
+  net: mvpp2: switch to build_skb() in the RX path
+  net: mvpp2: enable building on 64-bit platforms
+
+ drivers/net/ethernet/marvell/Kconfig |   3 +-
+ drivers/net/ethernet/marvell/mvpp2.c | 161 ++++++++++++++++++++---------------
+ 2 files changed, 93 insertions(+), 71 deletions(-)
+
 -- 
 2.7.4
