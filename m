@@ -1,7 +1,7 @@
 From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCH v2 11/16] net: mvpp2: handle misc PPv2.1/PPv2.2 differences
-Date: Tue, 27 Dec 2016 17:54:32 +0100
-Message-ID: <1482857677-16166-12-git-send-email-thomas.petazzoni@free-electrons.com>
+Subject: [PATCH v2 07/16] net: mvpp2: adapt the mvpp2_rxq_*_pool_set functions to PPv2.2
+Date: Tue, 27 Dec 2016 17:54:28 +0100
+Message-ID: <1482857677-16166-8-git-send-email-thomas.petazzoni@free-electrons.com>
 References: <1482857677-16166-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Cc: Nadav Haklai <nadavh@marvell.com>, Hanna Hawa <hannah@marvell.com>,
         Yehuda Yitschak <yehuday@marvell.com>,
@@ -15,107 +15,92 @@ Cc: Nadav Haklai <nadavh@marvell.com>, Hanna Hawa <hannah@marvell.com>,
         Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:36772 "EHLO
+Received: from mail.free-electrons.com ([62.4.15.54]:36742 "EHLO
         mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933068AbcL0Qyt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Dec 2016 11:54:49 -0500
+        with ESMTP id S933175AbcL0Qyr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Dec 2016 11:54:47 -0500
 In-Reply-To: <1482857677-16166-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This commit handles a few miscellaneous differences between PPv2.1 and
-PPv2.2 in different areas, where code done for PPv2.1 doesn't apply for
-PPv2.2 or needs to be adjusted (getting the MAC address, disabling PHY
-polling, etc.).
+The MVPP2_RXQ_CONFIG_REG register has a slightly different layout
+between PPv2.1 and PPv2.2, so this commit adapts the functions modifying
+this register to accommodate for both the PPv2.1 and PPv2.2 cases.
 
 Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 ---
- drivers/net/ethernet/marvell/mvpp2.c | 31 ++++++++++++++++++++++---------
- 1 file changed, 22 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/marvell/mvpp2.c | 32 ++++++++++++++++++++------------
+ 1 file changed, 20 insertions(+), 12 deletions(-)
 
 diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 389cc62..eb55576 100644
+index 160b787..8fc818d 100644
 --- a/drivers/net/ethernet/marvell/mvpp2.c
 +++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -304,6 +304,9 @@
- #define      MVPP2_GMAC_TX_FIFO_MIN_TH_MASK(v)	(((v) << 6) & \
- 					MVPP2_GMAC_TX_FIFO_MIN_TH_ALL_MASK)
+@@ -50,9 +50,11 @@
+ #define     MVPP2_SNOOP_PKT_SIZE_MASK		0x1ff
+ #define     MVPP2_SNOOP_BUF_HDR_MASK		BIT(9)
+ #define     MVPP2_RXQ_POOL_SHORT_OFFS		20
+-#define     MVPP2_RXQ_POOL_SHORT_MASK		0x700000
++#define     MVPP21_RXQ_POOL_SHORT_MASK		0x700000
++#define     MVPP22_RXQ_POOL_SHORT_MASK		0xf00000
+ #define     MVPP2_RXQ_POOL_LONG_OFFS		24
+-#define     MVPP2_RXQ_POOL_LONG_MASK		0x7000000
++#define     MVPP21_RXQ_POOL_LONG_MASK		0x7000000
++#define     MVPP22_RXQ_POOL_LONG_MASK		0xf000000
+ #define     MVPP2_RXQ_PACKET_OFFSET_OFFS	28
+ #define     MVPP2_RXQ_PACKET_OFFSET_MASK	0x70000000
+ #define     MVPP2_RXQ_DISABLE_MASK		BIT(31)
+@@ -3762,17 +3764,20 @@ static int mvpp2_bm_init(struct platform_device *pdev, struct mvpp2 *priv)
+ static void mvpp2_rxq_long_pool_set(struct mvpp2_port *port,
+ 				    int lrxq, int long_pool)
+ {
+-	u32 val;
++	u32 val, mask;
+ 	int prxq;
  
-+#define MVPP22_SMI_MISC_CFG_REG			0x2a204
-+#define      MVPP22_SMI_POLLING_EN		BIT(10)
-+
- #define MVPP22_PORT_BASE			0x30e00
- #define MVPP22_PORT_OFFSET			0x1000
+ 	/* Get queue physical ID */
+ 	prxq = port->rxqs[lrxq]->id;
  
-@@ -5823,7 +5826,7 @@ static int mvpp2_check_ringparam_valid(struct net_device *dev,
- 	return 0;
+-	val = mvpp2_read(port->priv, MVPP2_RXQ_CONFIG_REG(prxq));
+-	val &= ~MVPP2_RXQ_POOL_LONG_MASK;
+-	val |= ((long_pool << MVPP2_RXQ_POOL_LONG_OFFS) &
+-		    MVPP2_RXQ_POOL_LONG_MASK);
++	if (port->priv->hw_version == MVPP21)
++		mask = MVPP21_RXQ_POOL_LONG_MASK;
++	else
++		mask = MVPP22_RXQ_POOL_LONG_MASK;
+ 
++	val = mvpp2_read(port->priv, MVPP2_RXQ_CONFIG_REG(prxq));
++	val &= ~mask;
++	val |= (long_pool << MVPP2_RXQ_POOL_LONG_OFFS) & mask;
+ 	mvpp2_write(port->priv, MVPP2_RXQ_CONFIG_REG(prxq), val);
  }
  
--static void mvpp2_get_mac_address(struct mvpp2_port *port, unsigned char *addr)
-+static void mvpp21_get_mac_address(struct mvpp2_port *port, unsigned char *addr)
+@@ -3780,17 +3785,20 @@ static void mvpp2_rxq_long_pool_set(struct mvpp2_port *port,
+ static void mvpp2_rxq_short_pool_set(struct mvpp2_port *port,
+ 				     int lrxq, int short_pool)
  {
- 	u32 mac_addr_l, mac_addr_m, mac_addr_h;
+-	u32 val;
++	u32 val, mask;
+ 	int prxq;
  
-@@ -6272,7 +6275,7 @@ static const struct ethtool_ops mvpp2_eth_tool_ops = {
+ 	/* Get queue physical ID */
+ 	prxq = port->rxqs[lrxq]->id;
  
- /* Driver initialization */
+-	val = mvpp2_read(port->priv, MVPP2_RXQ_CONFIG_REG(prxq));
+-	val &= ~MVPP2_RXQ_POOL_SHORT_MASK;
+-	val |= ((short_pool << MVPP2_RXQ_POOL_SHORT_OFFS) &
+-		    MVPP2_RXQ_POOL_SHORT_MASK);
++	if (port->priv->hw_version == MVPP21)
++		mask = MVPP21_RXQ_POOL_SHORT_MASK;
++	else
++		mask = MVPP22_RXQ_POOL_SHORT_MASK;
  
--static void mvpp2_port_power_up(struct mvpp2_port *port)
-+static void mvpp21_port_power_up(struct mvpp2_port *port)
- {
- 	mvpp2_port_mii_set(port);
- 	mvpp2_port_periodic_xon_disable(port);
-@@ -6491,7 +6494,8 @@ static int mvpp2_port_probe(struct platform_device *pdev,
- 		mac_from = "device tree";
- 		ether_addr_copy(dev->dev_addr, dt_mac_addr);
- 	} else {
--		mvpp2_get_mac_address(port, hw_mac_addr);
-+		if (priv->hw_version == MVPP21)
-+			mvpp21_get_mac_address(port, hw_mac_addr);
- 		if (is_valid_ether_addr(hw_mac_addr)) {
- 			mac_from = "hardware";
- 			ether_addr_copy(dev->dev_addr, hw_mac_addr);
-@@ -6511,7 +6515,9 @@ static int mvpp2_port_probe(struct platform_device *pdev,
- 		dev_err(&pdev->dev, "failed to init port %d\n", id);
- 		goto err_free_stats;
- 	}
--	mvpp2_port_power_up(port);
-+
-+	if (priv->hw_version == MVPP21)
-+		mvpp21_port_power_up(port);
++	val = mvpp2_read(port->priv, MVPP2_RXQ_CONFIG_REG(prxq));
++	val &= ~mask;
++	val |= (short_pool << MVPP2_RXQ_POOL_SHORT_OFFS) & mask;
+ 	mvpp2_write(port->priv, MVPP2_RXQ_CONFIG_REG(prxq), val);
+ }
  
- 	port->pcpu = alloc_percpu(struct mvpp2_port_pcpu);
- 	if (!port->pcpu) {
-@@ -6654,9 +6660,15 @@ static int mvpp2_init(struct platform_device *pdev, struct mvpp2 *priv)
- 		mvpp2_conf_mbus_windows(dram_target_info, priv);
- 
- 	/* Disable HW PHY polling */
--	val = readl(priv->lms_base + MVPP2_PHY_AN_CFG0_REG);
--	val |= MVPP2_PHY_AN_STOP_SMI0_MASK;
--	writel(val, priv->lms_base + MVPP2_PHY_AN_CFG0_REG);
-+	if (priv->hw_version == MVPP21) {
-+		val = readl(priv->lms_base + MVPP2_PHY_AN_CFG0_REG);
-+		val |= MVPP2_PHY_AN_STOP_SMI0_MASK;
-+		writel(val, priv->lms_base + MVPP2_PHY_AN_CFG0_REG);
-+	} else {
-+		val = readl(priv->iface_base + MVPP22_SMI_MISC_CFG_REG);
-+		val &= ~MVPP22_SMI_POLLING_EN;
-+		writel(val, priv->iface_base + MVPP22_SMI_MISC_CFG_REG);
-+	}
- 
- 	/* Allocate and initialize aggregated TXQs */
- 	priv->aggr_txqs = devm_kcalloc(&pdev->dev, num_present_cpus(),
-@@ -6681,8 +6693,9 @@ static int mvpp2_init(struct platform_device *pdev, struct mvpp2 *priv)
- 	for (i = 0; i < MVPP2_MAX_PORTS; i++)
- 		mvpp2_write(priv, MVPP2_ISR_RXQ_GROUP_REG(i), rxq_number);
- 
--	writel(MVPP2_EXT_GLOBAL_CTRL_DEFAULT,
--	       priv->lms_base + MVPP2_MNG_EXTENDED_GLOBAL_CTRL_REG);
-+	if (priv->hw_version == MVPP21)
-+		writel(MVPP2_EXT_GLOBAL_CTRL_DEFAULT,
-+		       priv->lms_base + MVPP2_MNG_EXTENDED_GLOBAL_CTRL_REG);
- 
- 	/* Allow cache snoop when transmiting packets */
- 	mvpp2_write(priv, MVPP2_TX_SNOOP_REG, 0x1);
 -- 
 2.7.4
