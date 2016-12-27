@@ -1,57 +1,109 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net 1/9] virtio-net: remove the warning before XDP
-	linearizing
-Date: Tue, 27 Dec 2016 11:08:34 +0800
-Message-ID: <cd8dfbc9-58e4-2632-2b04-9d68af68cca8@redhat.com>
-References: <1482503852-12438-1-git-send-email-jasowang@redhat.com>
-	<1482503852-12438-2-git-send-email-jasowang@redhat.com>
-	<585D7BA9.50509@iogearbox.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: john.r.fastabend@intel.com
-To: Daniel Borkmann <daniel@iogearbox.net>, mst@redhat.com,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <585D7BA9.50509@iogearbox.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+From: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>
+Subject: [PATCH] net: stmmac: synchronize stmmac_open and stmmac_dvr_probe
+Date: Tue, 27 Dec 2016 19:44:59 +0800
+Message-ID: <1482839100-20612-1-git-send-email-hock.leong.kweh@intel.com>
+Cc: Alexandre TORGUE <alexandre.torgue@gmail.com>,
+        Joachim Eastwood <manabian@gmail.com>,
+        Niklas Cassel <niklas.cassel@axis.com>,
+        Johan Hovold <johan@kernel.org>, pavel@ucw.cz,
+        "Kweh, Hock Leong" <hock.leong.kweh@intel.com>,
+        Ong Boon Leong <boon.leong.ong@intel.com>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>, weifeng.voon@intel.com,
+        Lars Persson <lars.persson@axis.com>
+To: "David S. Miller" <davem@davemloft.net>,
+        Joao Pinto <Joao.Pinto@synopsys.com>,
+        Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
+        seraphin.bonnaffe@st.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-CgpPbiAyMDE25bm0MTLmnIgyNOaXpSAwMzozMSwgRGFuaWVsIEJvcmttYW5uIHdyb3RlOgo+IEhp
-IEphc29uLAo+Cj4gT24gMTIvMjMvMjAxNiAwMzozNyBQTSwgSmFzb24gV2FuZyB3cm90ZToKPj4g
-U2luY2Ugd2UgdXNlIEVXTUEgdG8gZXN0aW1hdGUgdGhlIHNpemUgb2YgcnggYnVmZmVyLiBXaGVu
-IHJ4IGJ1ZmZlcgo+PiBzaXplIGlzIHVuZGVyZXN0aW1hdGVkLCBpdCdzIHVzdWFsIHRvIGhhdmUg
-YSBwYWNrZXQgd2l0aCBtb3JlIHRoYW4gb25lCj4+IGJ1ZmZlcnMuIENvbnNpZGVyIHRoaXMgaXMg
-bm90IGEgYnVnLCByZW1vdmUgdGhlIHdhcm5pbmcgYW5kIGNvcnJlY3QKPj4gdGhlIGNvbW1lbnQg
-YmVmb3JlIFhEUCBsaW5lYXJpemluZy4KPj4KPj4gQ2M6IEpvaG4gRmFzdGFiZW5kIDxqb2huLnIu
-ZmFzdGFiZW5kQGludGVsLmNvbT4KPj4gU2lnbmVkLW9mZi1ieTogSmFzb24gV2FuZyA8amFzb3dh
-bmdAcmVkaGF0LmNvbT4KPj4gLS0tCj4+ICAgZHJpdmVycy9uZXQvdmlydGlvX25ldC5jIHwgOCAr
-LS0tLS0tLQo+PiAgIDEgZmlsZSBjaGFuZ2VkLCAxIGluc2VydGlvbigrKSwgNyBkZWxldGlvbnMo
-LSkKPj4KPj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L3ZpcnRpb19uZXQuYyBiL2RyaXZlcnMv
-bmV0L3ZpcnRpb19uZXQuYwo+PiBpbmRleCAwODMyN2UwLi4xMDY3MjUzIDEwMDY0NAo+PiAtLS0g
-YS9kcml2ZXJzL25ldC92aXJ0aW9fbmV0LmMKPj4gKysrIGIvZHJpdmVycy9uZXQvdmlydGlvX25l
-dC5jCj4+IEBAIC01NTIsMTQgKzU1Miw4IEBAIHN0YXRpYyBzdHJ1Y3Qgc2tfYnVmZiAqcmVjZWl2
-ZV9tZXJnZWFibGUoc3RydWN0IAo+PiBuZXRfZGV2aWNlICpkZXYsCj4+ICAgICAgICAgICBzdHJ1
-Y3QgcGFnZSAqeGRwX3BhZ2U7Cj4+ICAgICAgICAgICB1MzIgYWN0Owo+Pgo+PiAtICAgICAgICAv
-KiBObyBrbm93biBiYWNrZW5kIGRldmljZXMgc2hvdWxkIHNlbmQgcGFja2V0cyB3aXRoCj4+IC0g
-ICAgICAgICAqIG1vcmUgdGhhbiBhIHNpbmdsZSBidWZmZXIgd2hlbiBYRFAgY29uZGl0aW9ucyBh
-cmUKPj4gLSAgICAgICAgICogbWV0LiBIb3dldmVyIGl0IGlzIG5vdCBzdHJpY3RseSBpbGxlZ2Fs
-IHNvIHRoZSBjYXNlCj4+IC0gICAgICAgICAqIGlzIGhhbmRsZWQgYXMgYW4gZXhjZXB0aW9uIGFu
-ZCBhIHdhcm5pbmcgaXMgdGhyb3duLgo+PiAtICAgICAgICAgKi8KPj4gKyAgICAgICAgLyogVGhp
-cyBoYXBwZW5zIHdoZW4gcnggYnVmZmVyIHNpemUgaXMgdW5kZXJlc3RpbWF0ZWQgKi8KPj4gICAg
-ICAgICAgIGlmICh1bmxpa2VseShudW1fYnVmID4gMSkpIHsKPj4gLSAgICAgICAgICAgIGJwZl93
-YXJuX2ludmFsaWRfeGRwX2J1ZmZlcigpOwo+Cj4gQ291bGQgeW91IGFsc28gcmVtb3ZlIHRoZSBi
-cGZfd2Fybl9pbnZhbGlkX3hkcF9idWZmZXIoKSwgd2hpY2ggZ290IGFkZGVkCj4ganVzdCBmb3Ig
-dGhpcz8KPgo+IFRoYW5rcy4gCgpQb3N0ZWQuCgpUaGFua3MKX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX18KVmlydHVhbGl6YXRpb24gbWFpbGluZyBsaXN0ClZp
-cnR1YWxpemF0aW9uQGxpc3RzLmxpbnV4LWZvdW5kYXRpb24ub3JnCmh0dHBzOi8vbGlzdHMubGlu
-dXhmb3VuZGF0aW9uLm9yZy9tYWlsbWFuL2xpc3RpbmZvL3ZpcnR1YWxpemF0aW9u
+From: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>
+
+If kernel module stmmac driver being loaded after OS booted, there is a
+race condition between stmmac_open() and stmmac_mdio_register(), which is
+invoked inside stmmac_dvr_probe(), and the error is showed in dmesg log as
+PHY not found and stmmac_open() failed:
+[  473.919358] stmmaceth 0000:01:00.0 (unnamed net_device) (uninitialized):
+		stmmac_dvr_probe: warning: cannot get CSR clock
+[  473.919382] stmmaceth 0000:01:00.0: no reset control found
+[  473.919412] stmmac - user ID: 0x10, Synopsys ID: 0x42
+[  473.919429] stmmaceth 0000:01:00.0: DMA HW capability register supported
+[  473.919436] stmmaceth 0000:01:00.0: RX Checksum Offload Engine supported
+[  473.919443] stmmaceth 0000:01:00.0: TX Checksum insertion supported
+[  473.919451] stmmaceth 0000:01:00.0 (unnamed net_device) (uninitialized):
+		Enable RX Mitigation via HW Watchdog Timer
+[  473.921395] libphy: PHY stmmac-1:00 not found
+[  473.921417] stmmaceth 0000:01:00.0 eth0: Could not attach to PHY
+[  473.921427] stmmaceth 0000:01:00.0 eth0: stmmac_open: Cannot attach to
+		PHY (error: -19)
+[  473.959710] libphy: stmmac: probed
+[  473.959724] stmmaceth 0000:01:00.0 eth0: PHY ID 01410cc2 at 0 IRQ POLL
+		(stmmac-1:00) active
+[  473.959728] stmmaceth 0000:01:00.0 eth0: PHY ID 01410cc2 at 1 IRQ POLL
+		(stmmac-1:01)
+[  473.959731] stmmaceth 0000:01:00.0 eth0: PHY ID 01410cc2 at 2 IRQ POLL
+		(stmmac-1:02)
+[  473.959734] stmmaceth 0000:01:00.0 eth0: PHY ID 01410cc2 at 3 IRQ POLL
+		(stmmac-1:03)
+
+The resolution used wait_for_completion_interruptible() to synchronize
+stmmac_open() and stmmac_dvr_probe() to prevent the race condition
+happening.
+
+Signed-off-by: Kweh, Hock Leong <hock.leong.kweh@intel.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/stmmac.h      |    1 +
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |   10 ++++++++++
+ 2 files changed, 11 insertions(+)
+
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+index eab04ae..5daf8a5 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+@@ -131,6 +131,7 @@ struct stmmac_priv {
+ 	u32 rx_tail_addr;
+ 	u32 tx_tail_addr;
+ 	u32 mss;
++	struct completion probe_done;
+ 
+ #ifdef CONFIG_DEBUG_FS
+ 	struct dentry *dbgfs_dir;
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index bb40382..28e85f6 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -1770,6 +1770,14 @@ static int stmmac_open(struct net_device *dev)
+ 	struct stmmac_priv *priv = netdev_priv(dev);
+ 	int ret;
+ 
++	ret = wait_for_completion_interruptible(&priv->probe_done);
++	if (ret) {
++		netdev_err(priv->dev,
++			   "%s: Interrupted while waiting probe completion\n",
++			   __func__);
++		return ret;
++	}
++
+ 	stmmac_check_ether_addr(priv);
+ 
+ 	if (priv->hw->pcs != STMMAC_PCS_RGMII &&
+@@ -3226,6 +3234,7 @@ int stmmac_dvr_probe(struct device *device,
+ 	priv = netdev_priv(ndev);
+ 	priv->device = device;
+ 	priv->dev = ndev;
++	init_completion(&priv->probe_done);
+ 
+ 	stmmac_set_ethtool_ops(ndev);
+ 	priv->pause = pause;
+@@ -3372,6 +3381,7 @@ int stmmac_dvr_probe(struct device *device,
+ 		}
+ 	}
+ 
++	complete_all(&priv->probe_done);
+ 	return 0;
+ 
+ error_mdio_register:
+-- 
+1.7.9.5
