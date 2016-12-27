@@ -1,8 +1,7 @@
 From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCH v2 02/11] net: mvpp2: handle too large value in mvpp2_rx_time_coal_set()
-Date: Tue, 27 Dec 2016 17:54:11 +0100
-Message-ID: <1482857660-16092-3-git-send-email-thomas.petazzoni@free-electrons.com>
-References: <1482857660-16092-1-git-send-email-thomas.petazzoni@free-electrons.com>
+Subject: [PATCH v2 00/16] net: mvpp2: add basic support for PPv2.2
+Date: Tue, 27 Dec 2016 17:54:21 +0100
+Message-ID: <1482857677-16166-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Cc: Nadav Haklai <nadavh@marvell.com>, Hanna Hawa <hannah@marvell.com>,
         Yehuda Yitschak <yehuday@marvell.com>,
         Jason Cooper <jason@lakedaemon.net>,
@@ -15,50 +14,69 @@ Cc: Nadav Haklai <nadavh@marvell.com>, Hanna Hawa <hannah@marvell.com>,
         Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:36652 "EHLO
+Received: from mail.free-electrons.com ([62.4.15.54]:36683 "EHLO
         mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932987AbcL0Qyc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Dec 2016 11:54:32 -0500
-In-Reply-To: <1482857660-16092-1-git-send-email-thomas.petazzoni@free-electrons.com>
+        with ESMTP id S933053AbcL0Qyo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Dec 2016 11:54:44 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When configuring the MVPP2_ISR_RX_THRESHOLD_REG with the RX coalescing
-time threshold, we do not check for the maximum allowed value supported
-by the driver, which means we might overflow and use a bogus value. This
-commit adds a check for this situation, and if a value higher than what
-is supported by the hardware is provided, then we use the maximum value
-supported by the hardware.
+Hello,
 
-Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
----
- drivers/net/ethernet/marvell/mvpp2.c | 7 +++++++
- 1 file changed, 7 insertions(+)
+The goal of this patch series is to add basic support for PPv2.2 in
+the existing mvpp2 driver. mvpp2 currently supported the PPv2.1
+version of the IP, used in the 32 bits Marvell Armada 375 SoC. PPv2.2
+is an evolution of this IP block, used in the 64 bits Marvell Armada
+7K/8K SoCs.
 
-diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 02d91e4..a1ba89f 100644
---- a/drivers/net/ethernet/marvell/mvpp2.c
-+++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -154,6 +154,7 @@
- 
- /* Interrupt Cause and Mask registers */
- #define MVPP2_ISR_RX_THRESHOLD_REG(rxq)		(0x5200 + 4 * (rxq))
-+#define     MVPP2_MAX_ISR_RX_THRESHOLD		0xfffff0
- #define MVPP2_ISR_RXQ_GROUP_REG(rxq)		(0x5400 + 4 * (rxq))
- #define MVPP2_ISR_ENABLE_REG(port)		(0x5420 + 4 * (port))
- #define     MVPP2_ISR_ENABLE_INTERRUPT(mask)	((mask) & 0xffff)
-@@ -4397,6 +4398,12 @@ static void mvpp2_rx_time_coal_set(struct mvpp2_port *port,
- 	u32 val;
- 
- 	val = (port->priv->tclk / USEC_PER_SEC) * usec;
-+
-+	if (val > MVPP2_MAX_ISR_RX_THRESHOLD) {
-+		val = MVPP2_MAX_ISR_RX_THRESHOLD;
-+		usec = (val * USEC_PER_SEC) / port->priv->tclk;
-+	}
-+
- 	mvpp2_write(port->priv, MVPP2_ISR_RX_THRESHOLD_REG(rxq->id), val);
- 
- 	rxq->time_coal = usec;
+In order to ease the review, the introduction of PPv2.2 support has
+been made into multiple small commits, with the final commit adding
+the compatible string that makes the PPv2.2 support actually
+usable. The series remain fully bisectable.
+
+This series depends on the series named "net: mvpp2: misc improvements
+and preparation patches".
+
+I'd like to thank Stefan Chulski and Marcin Wojtas, who helped me a
+lot in the development of this patch series, by reviewing the patches,
+and giving lots of useful hints to debug the driver on PPv2.2. Thanks!
+
+Changes since v1:
+
+ - Made a separate series from the set of patches doing preparation
+   changes/fixes to the mvpp2 driver.
+
+ - Rebased on top of v4.10-rc1.
+
+ - Update Kconfig text of the mvpp2 driver to mention the support for
+   Armada 7K and 8K (PPv2.2).
+
+Best regards,
+
+Thomas
+
+Thomas Petazzoni (16):
+  dt-bindings: net: update Marvell PPv2 binding for PPv2.2 support
+  net: mvpp2: add and use accessors for TX/RX descriptors
+  net: mvpp2: add hw_version field in "struct mvpp2"
+  net: mvpp2: introduce an intermediate union for the TX/RX descriptors
+  net: mvpp2: introduce PPv2.2 HW descriptors and adapt accessors
+  net: mvpp2: adjust the allocation/free of BM pools for PPv2.2
+  net: mvpp2: adapt the mvpp2_rxq_*_pool_set functions to PPv2.2
+  net: mvpp2: adapt mvpp2_defaults_set() to PPv2.2
+  net: mvpp2: adjust mvpp2_{rxq,txq}_init for PPv2.2
+  net: mvpp2: handle register mapping and access for PPv2.2
+  net: mvpp2: handle misc PPv2.1/PPv2.2 differences
+  net: mvpp2: add AXI bridge initialization for PPv2.2
+  net: mvpp2: rework RXQ interrupt group initialization for PPv2.2
+  net: mvpp2: adapt rxq distribution to PPv2.2
+  net: mvpp2: add support for an additional clock needed for PPv2.2
+  net: mvpp2: finally add the PPv2.2 compatible string
+
+ .../devicetree/bindings/net/marvell-pp2.txt        |  66 +-
+ drivers/net/ethernet/marvell/Kconfig               |   4 +-
+ drivers/net/ethernet/marvell/mvpp2.c               | 783 +++++++++++++++++----
+ 3 files changed, 700 insertions(+), 153 deletions(-)
+
 -- 
 2.7.4
