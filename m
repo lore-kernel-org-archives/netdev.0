@@ -1,64 +1,46 @@
-From: Robert Grasso <robert.grasso@modulonet.fr>
-Subject: Re: driver r8169 suddenly failed
-Date: Tue, 27 Dec 2016 08:33:29 +0100
-Message-ID: <0d1c7e06-5c4a-b60c-6f7b-afe73532a57a@modulonet.fr>
-References: <428aa40c-e313-99ae-d3ae-97b6a5ef40e4@modulonet.fr>
- <20161227001248.GA20172@electric-eye.fr.zoreil.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Realtek linux nic maintainers <nic_swsd@realtek.com>,
-        netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.tech.numericable.fr ([82.216.111.37]:50792 "EHLO
-        smtp1.tech.numericable.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751038AbcL0Hdg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Dec 2016 02:33:36 -0500
-In-Reply-To: <20161227001248.GA20172@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Wei Zhang <asuka.com@163.com>
+Subject: [PATCH] net: fix incorrect original ingress device index in PKTINFO
+Date: Tue, 27 Dec 2016 15:52:18 +0800
+Message-ID: <1482825138-2125-1-git-send-email-asuka.com@163.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+        yoshfuji@linux-ipv6.org, kaber@trash.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Thank you for your quick answer ! Allow me some days for this test :
+When we send a packet for our own local address on a non-loopback interface
+(e.g. eth0), due to the change had been introduced from commit 0b922b7a829c
+("net: original ingress device index in PKTINFO"), the original ingress
+device index would be set as the loopback interface. However, the packet
+should be considered as if it is being arrived via the sending interface
+(eth0), otherwise it would break the expectation of the userspace
+application (e.g. the DHCPRELEASE message from dhcp_release binary would
+be ignored by the dnsmasq daemon)
 
-1 - I am at work these days
-2 - it has been a while since I have dealt with custom kernels, I am a 
-bit rusty, it will be good to review this topic
-
--- 
-Robert Grasso
-@home
+Signed-off-by: Wei Zhang <asuka.com@163.com>
 ---
-UNIX was not designed to stop you from doing stupid things, because
-   that would also stop you from doing clever things. -- Doug Gwyn
+ net/ipv4/ip_sockglue.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
 
-On 27/12/2016 01:12, Francois Romieu wrote:
-> Robert Grasso <robert.grasso@modulonet.fr> :
-> [dhcp snafu]
->> First of all, can you confirm that I am doing right in posting to you
->> (addresses found in README.Debian) ?
-> It isn't completely wrong.
->
->> If I do, can you help ? I am not very proficient with Ethernet, and I am not
->> able to figure out what my provider changed : their hotline is
->> underqualified, they are just able to tell that "the signal on the line is
->> ok".
-> You're spoiled. It is more than decent for a company whose core business
-> used to sell cable TV.
->
->> But if you want me to run various tests, try new versions, I would be
->> glad to do so : I would appreciate if I could salvage this Shuttle.
-> Please try a recent stable vanilla kernel and send a complete dmesg
-> from boot. I need to identify the specific 816x chipset.
->
-> Then record some traffic:
->
-> # touch gonzo.pcap && tshark -w gonzo.pcap -i eth1
->
-> It should only exhibit small outgoing packets but, well, one never knows.
->
-> Check the leds activity to be sure that the network interfaces have not
-> been renumbered.
->
-> Use ethtool to check that tso is disabled. If it isn't, disable it.
->
+diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
+index b8a2d63..b6a6d35 100644
+--- a/net/ipv4/ip_sockglue.c
++++ b/net/ipv4/ip_sockglue.c
+@@ -1202,8 +1202,13 @@ void ipv4_pktinfo_prepare(const struct sock *sk, struct sk_buff *skb)
+ 		 * which has interface index (iif) as the first member of the
+ 		 * underlying inet{6}_skb_parm struct. This code then overlays
+ 		 * PKTINFO_SKB_CB and in_pktinfo also has iif as the first
+-		 * element so the iif is picked up from the prior IPCB
++		 * element so the iif is picked up from the prior IPCB except
++		 * iif is loopback interface which the packet should be 
++		 * considered as if it is being arrived via the sending interface
+ 		 */
++		if (pktinfo->ipi_ifindex == LOOPBACK_IFINDEX) {
++			pktinfo->ipi_ifindex = inet_iif(skb);
++		}
+ 		pktinfo->ipi_spec_dst.s_addr = fib_compute_spec_dst(skb);
+ 	} else {
+ 		pktinfo->ipi_ifindex = 0;
+-- 
+1.8.3.1
