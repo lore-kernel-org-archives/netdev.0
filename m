@@ -1,51 +1,63 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC PATCH 4.10 1/6] crypto/sha256: Refactor the API so it can
- be used without shash
-Date: Tue, 27 Dec 2016 17:58:53 +0800
-Message-ID: <20161227095853.GA10588@gondor.apana.org.au>
-References: <cover.1482545792.git.luto@kernel.org>
- <942b91f25a63b22ec4946378a1fffe78d655cf18.1482545792.git.luto@kernel.org>
- <CAKv+Gu-UCqwchgbhg8VN4s=Yxk=PkjXG46NZo=8P4wAQtJ2TXw@mail.gmail.com>
- <CALCETrVbT_1=cdU1+a-+KbhoFqeT3XvbHjY0s_U7C5JVgiPx_Q@mail.gmail.com>
- <20161226075757.GA8916@gondor.apana.org.au>
- <CAKv+Gu-NMNCEs61f4k7JSf9iSJ1A_Gy1r=kZRGqtbDsEDz7--Q@mail.gmail.com>
- <CALCETrXFTQ2AXgbQzPnRcDRHK81=FS1R0zqfoTqGjUsqZy2PvQ@mail.gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] net: fix incorrect original ingress device index in
+ PKTINFO
+Date: Tue, 27 Dec 2016 13:01:29 +0300
+Message-ID: <f6d9c559-cd3c-4f0e-6bb3-954f8e116e8e@cogentembedded.com>
+References: <1482825138-2125-1-git-send-email-asuka.com@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ard Biesheuvel <ard.biesheuvel@linaro.org>,
-        Andy Lutomirski <luto@kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-        "Jason A. Donenfeld" <Jason@zx2c4.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Eric Biggers <ebiggers3@gmail.com>,
-        Tom Herbert <tom@herbertland.com>,
-        "David S. Miller" <davem@davemloft.net>
-To: Andy Lutomirski <luto@amacapital.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:35875 "EHLO
-        helcar.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751256AbcL0J73 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Dec 2016 04:59:29 -0500
-Content-Disposition: inline
-In-Reply-To: <CALCETrXFTQ2AXgbQzPnRcDRHK81=FS1R0zqfoTqGjUsqZy2PvQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Wei Zhang <asuka.com@163.com>, davem@davemloft.net,
+        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+        kaber@trash.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1482825138-2125-1-git-send-email-asuka.com@163.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 26, 2016 at 10:08:48AM -0800, Andy Lutomirski wrote:
+Hello!
+
+On 12/27/2016 10:52 AM, Wei Zhang wrote:
+
+> When we send a packet for our own local address on a non-loopback interface
+> (e.g. eth0), due to the change had been introduced from commit 0b922b7a829c
+> ("net: original ingress device index in PKTINFO"), the original ingress
+> device index would be set as the loopback interface. However, the packet
+> should be considered as if it is being arrived via the sending interface
+> (eth0), otherwise it would break the expectation of the userspace
+> application (e.g. the DHCPRELEASE message from dhcp_release binary would
+> be ignored by the dnsmasq daemon)
 >
-> According to Daniel, the networking folks want to let embedded systems
-> include BPF without requiring the crypto core.
+> Signed-off-by: Wei Zhang <asuka.com@163.com>
+> ---
+>  net/ipv4/ip_sockglue.c | 7 ++++++-
+>  1 file changed, 6 insertions(+), 1 deletion(-)
+>
+> diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
+> index b8a2d63..b6a6d35 100644
+> --- a/net/ipv4/ip_sockglue.c
+> +++ b/net/ipv4/ip_sockglue.c
+> @@ -1202,8 +1202,13 @@ void ipv4_pktinfo_prepare(const struct sock *sk, struct sk_buff *skb)
+>  		 * which has interface index (iif) as the first member of the
+>  		 * underlying inet{6}_skb_parm struct. This code then overlays
+>  		 * PKTINFO_SKB_CB and in_pktinfo also has iif as the first
+> -		 * element so the iif is picked up from the prior IPCB
+> +		 * element so the iif is picked up from the prior IPCB except
+> +		 * iif is loopback interface which the packet should be
 
-Last I checked the IPv4 stack depended on the crypto API so this
-sounds bogus.
+    Tail space.
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> +		 * considered as if it is being arrived via the sending interface
+>  		 */
+> +		if (pktinfo->ipi_ifindex == LOOPBACK_IFINDEX) {
+> +			pktinfo->ipi_ifindex = inet_iif(skb);
+> +		}
+
+    {} not needed here.
+
+>  		pktinfo->ipi_spec_dst.s_addr = fib_compute_spec_dst(skb);
+>  	} else {
+>  		pktinfo->ipi_ifindex = 0;
+
+MBR, Sergei
