@@ -1,109 +1,52 @@
-From: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>
-Subject: [PATCH] net: stmmac: synchronize stmmac_open and stmmac_dvr_probe
-Date: Tue, 27 Dec 2016 19:44:59 +0800
-Message-ID: <1482839100-20612-1-git-send-email-hock.leong.kweh@intel.com>
-Cc: Alexandre TORGUE <alexandre.torgue@gmail.com>,
-        Joachim Eastwood <manabian@gmail.com>,
-        Niklas Cassel <niklas.cassel@axis.com>,
-        Johan Hovold <johan@kernel.org>, pavel@ucw.cz,
-        "Kweh, Hock Leong" <hock.leong.kweh@intel.com>,
-        Ong Boon Leong <boon.leong.ong@intel.com>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>, weifeng.voon@intel.com,
-        Lars Persson <lars.persson@axis.com>
-To: "David S. Miller" <davem@davemloft.net>,
-        Joao Pinto <Joao.Pinto@synopsys.com>,
-        Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
-        seraphin.bonnaffe@st.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sunil Kovvuri <sunil.kovvuri@gmail.com>
+Subject: Re: [RFC PATCH 1/7] PF driver modified to enable HW filter support,
+ changes works in backward compatibility mode Enable required things in
+ Makefile Enable LZ4 dependecy inside config file
+Date: Tue, 27 Dec 2016 09:49:57 +0530
+Message-ID: <CA+sq2Cc0L3hqV_TUxtf00-UnUs8gMJfjL7bZaGejGevDYn6mPg@mail.gmail.com>
+References: <1482310011-1862-1-git-send-email-satha.rao@caviumnetworks.com>
+ <1482310011-1862-2-git-send-email-satha.rao@caviumnetworks.com>
+ <CA+sq2CfwTN5u6nhxriqWqoFxsYHdEYikbjBgMCL2YwNXpqyQ=Q@mail.gmail.com> <DM5PR07MB28428EE7B1679FAEC78103AD8D960@DM5PR07MB2842.namprd07.prod.outlook.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: LKML <linux-kernel@vger.kernel.org>,
+        "Goutham, Sunil" <Sunil.Goutham@cavium.com>,
+        Robert Richter <rric@kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        "Daney, David" <David.Daney@cavium.com>,
+        "Vatsavayi, Raghu" <Raghu.Vatsavayi@cavium.com>,
+        "Chickles, Derek" <Derek.Chickles@cavium.com>,
+        "Romanov, Philip" <Philip.Romanov@cavium.com>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        LAKML <linux-arm-kernel@lists.infradead.org>
+To: "Koteshwar Rao, Satha" <Satha.Rao@cavium.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:32963 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753455AbcL0EUA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 26 Dec 2016 23:20:00 -0500
+In-Reply-To: <DM5PR07MB28428EE7B1679FAEC78103AD8D960@DM5PR07MB2842.namprd07.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>
+>>  #define NIC_MAX_RSS_HASH_BITS          8
+>>  #define NIC_MAX_RSS_IDR_TBL_SIZE       (1 << NIC_MAX_RSS_HASH_BITS)
+>> +#define NIC_TNS_RSS_IDR_TBL_SIZE       5
+>
+> So you want to use only 5 queues per VF when TNS is enabled, is it ??
+> There are 4096 RSS indices in total, for each VF you can use max 32.
+> I guess you wanted to set no of hash bits to 5 instead of table size.
+>
+> SATHA>>> We enabled 8 queues for VF. Yes Macro name misleads it has to be hash bits, will change this in next version
 
-If kernel module stmmac driver being loaded after OS booted, there is a
-race condition between stmmac_open() and stmmac_mdio_register(), which is
-invoked inside stmmac_dvr_probe(), and the error is showed in dmesg log as
-PHY not found and stmmac_open() failed:
-[  473.919358] stmmaceth 0000:01:00.0 (unnamed net_device) (uninitialized):
-		stmmac_dvr_probe: warning: cannot get CSR clock
-[  473.919382] stmmaceth 0000:01:00.0: no reset control found
-[  473.919412] stmmac - user ID: 0x10, Synopsys ID: 0x42
-[  473.919429] stmmaceth 0000:01:00.0: DMA HW capability register supported
-[  473.919436] stmmaceth 0000:01:00.0: RX Checksum Offload Engine supported
-[  473.919443] stmmaceth 0000:01:00.0: TX Checksum insertion supported
-[  473.919451] stmmaceth 0000:01:00.0 (unnamed net_device) (uninitialized):
-		Enable RX Mitigation via HW Watchdog Timer
-[  473.921395] libphy: PHY stmmac-1:00 not found
-[  473.921417] stmmaceth 0000:01:00.0 eth0: Could not attach to PHY
-[  473.921427] stmmaceth 0000:01:00.0 eth0: stmmac_open: Cannot attach to
-		PHY (error: -19)
-[  473.959710] libphy: stmmac: probed
-[  473.959724] stmmaceth 0000:01:00.0 eth0: PHY ID 01410cc2 at 0 IRQ POLL
-		(stmmac-1:00) active
-[  473.959728] stmmaceth 0000:01:00.0 eth0: PHY ID 01410cc2 at 1 IRQ POLL
-		(stmmac-1:01)
-[  473.959731] stmmaceth 0000:01:00.0 eth0: PHY ID 01410cc2 at 2 IRQ POLL
-		(stmmac-1:02)
-[  473.959734] stmmaceth 0000:01:00.0 eth0: PHY ID 01410cc2 at 3 IRQ POLL
-		(stmmac-1:03)
+No, I am not referring to any discrepancy in naming the macro.
+If you check your code
 
-The resolution used wait_for_completion_interruptible() to synchronize
-stmmac_open() and stmmac_dvr_probe() to prevent the race condition
-happening.
+- hw->rss_ind_tbl_size = NIC_MAX_RSS_IDR_TBL_SIZE;
++ hw->rss_ind_tbl_size = veb_enabled ? NIC_TNS_RSS_IDR_TBL_SIZE :
++     NIC_MAX_RSS_IDR_TBL_SIZE;
 
-Signed-off-by: Kweh, Hock Leong <hock.leong.kweh@intel.com>
----
- drivers/net/ethernet/stmicro/stmmac/stmmac.h      |    1 +
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |   10 ++++++++++
- 2 files changed, 11 insertions(+)
-
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-index eab04ae..5daf8a5 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-@@ -131,6 +131,7 @@ struct stmmac_priv {
- 	u32 rx_tail_addr;
- 	u32 tx_tail_addr;
- 	u32 mss;
-+	struct completion probe_done;
- 
- #ifdef CONFIG_DEBUG_FS
- 	struct dentry *dbgfs_dir;
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index bb40382..28e85f6 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -1770,6 +1770,14 @@ static int stmmac_open(struct net_device *dev)
- 	struct stmmac_priv *priv = netdev_priv(dev);
- 	int ret;
- 
-+	ret = wait_for_completion_interruptible(&priv->probe_done);
-+	if (ret) {
-+		netdev_err(priv->dev,
-+			   "%s: Interrupted while waiting probe completion\n",
-+			   __func__);
-+		return ret;
-+	}
-+
- 	stmmac_check_ether_addr(priv);
- 
- 	if (priv->hw->pcs != STMMAC_PCS_RGMII &&
-@@ -3226,6 +3234,7 @@ int stmmac_dvr_probe(struct device *device,
- 	priv = netdev_priv(ndev);
- 	priv->device = device;
- 	priv->dev = ndev;
-+	init_completion(&priv->probe_done);
- 
- 	stmmac_set_ethtool_ops(ndev);
- 	priv->pause = pause;
-@@ -3372,6 +3381,7 @@ int stmmac_dvr_probe(struct device *device,
- 		}
- 	}
- 
-+	complete_all(&priv->probe_done);
- 	return 0;
- 
- error_mdio_register:
--- 
-1.7.9.5
+You are setting RSS table size to 5, i.e RSS hash bits will be set to 2.
+Hence only 4 queues (not even 5 as i mentioned earlier). Please check
+'nicvf_rss_init' you will understand what i am saying.
+Have you tested and observed pkts in all 8 queues ?
