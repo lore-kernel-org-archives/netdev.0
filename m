@@ -1,54 +1,33 @@
-From: "wei zhang" <asuka.com@163.com>
-Subject: Re:[PATCH] net: fix incorrect original ingress device index in
- PKTINFO
-Date: Tue, 27 Dec 2016 16:29:05 +0800 (CST)
-Message-ID: <64f198a9.a52b.1593f65ad7e.Coremail.asuka.com@163.com>
-References: <1482825138-2125-1-git-send-email-asuka.com@163.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net] net: xdp: remove unused bfp_warn_invalid_xdp_buffer()
+Date: Tue, 27 Dec 2016 10:29:28 +0100
+Message-ID: <58623478.10803@iogearbox.net>
+References: <1482806994-14649-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GBK
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: kuznet@ms2.inr.ac.ru, davem@davemloft.net, jmorris@namei.org,
-        yoshfuji@linux-ipv6.org, kaber@trash.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1482825138-2125-1-git-send-email-asuka.com@163.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: John Fastabend <john.r.fastabend@intel.com>
+To: Jason Wang <jasowang@redhat.com>, davem@davemloft.net,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:57269 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751583AbcL0J3d (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Dec 2016 04:29:33 -0500
+In-Reply-To: <1482806994-14649-1-git-send-email-jasowang@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-QXQgMjAxNi0xMi0yNyAxNTo1MjoxOCwgIldlaSBaaGFuZyIgPGFzdWthLmNvbUAxNjMuY29tPiB3
-cm90ZToKPldoZW4gd2Ugc2VuZCBhIHBhY2tldCBmb3Igb3VyIG93biBsb2NhbCBhZGRyZXNzIG9u
-IGEgbm9uLWxvb3BiYWNrIGludGVyZmFjZQo+KGUuZy4gZXRoMCksIGR1ZSB0byB0aGUgY2hhbmdl
-IGhhZCBiZWVuIGludHJvZHVjZWQgZnJvbSBjb21taXQgMGI5MjJiN2E4MjljCj4oIm5ldDogb3Jp
-Z2luYWwgaW5ncmVzcyBkZXZpY2UgaW5kZXggaW4gUEtUSU5GTyIpLCB0aGUgb3JpZ2luYWwgaW5n
-cmVzcwo+ZGV2aWNlIGluZGV4IHdvdWxkIGJlIHNldCBhcyB0aGUgbG9vcGJhY2sgaW50ZXJmYWNl
-LiBIb3dldmVyLCB0aGUgcGFja2V0Cj5zaG91bGQgYmUgY29uc2lkZXJlZCBhcyBpZiBpdCBpcyBi
-ZWluZyBhcnJpdmVkIHZpYSB0aGUgc2VuZGluZyBpbnRlcmZhY2UKPihldGgwKSwgb3RoZXJ3aXNl
-IGl0IHdvdWxkIGJyZWFrIHRoZSBleHBlY3RhdGlvbiBvZiB0aGUgdXNlcnNwYWNlCj5hcHBsaWNh
-dGlvbiAoZS5nLiB0aGUgREhDUFJFTEVBU0UgbWVzc2FnZSBmcm9tIGRoY3BfcmVsZWFzZSBiaW5h
-cnkgd291bGQKPmJlIGlnbm9yZWQgYnkgdGhlIGRuc21hc3EgZGFlbW9uKQo+Cj5TaWduZWQtb2Zm
-LWJ5OiBXZWkgWmhhbmcgPGFzdWthLmNvbUAxNjMuY29tPgo+LS0tCj4gbmV0L2lwdjQvaXBfc29j
-a2dsdWUuYyB8IDcgKysrKysrLQo+IDEgZmlsZSBjaGFuZ2VkLCA2IGluc2VydGlvbnMoKyksIDEg
-ZGVsZXRpb24oLSkKPgo+ZGlmZiAtLWdpdCBhL25ldC9pcHY0L2lwX3NvY2tnbHVlLmMgYi9uZXQv
-aXB2NC9pcF9zb2NrZ2x1ZS5jCj5pbmRleCBiOGEyZDYzLi5iNmE2ZDM1IDEwMDY0NAo+LS0tIGEv
-bmV0L2lwdjQvaXBfc29ja2dsdWUuYwo+KysrIGIvbmV0L2lwdjQvaXBfc29ja2dsdWUuYwo+QEAg
-LTEyMDIsOCArMTIwMiwxMyBAQCB2b2lkIGlwdjRfcGt0aW5mb19wcmVwYXJlKGNvbnN0IHN0cnVj
-dCBzb2NrICpzaywgc3RydWN0IHNrX2J1ZmYgKnNrYikKPiAJCSAqIHdoaWNoIGhhcyBpbnRlcmZh
-Y2UgaW5kZXggKGlpZikgYXMgdGhlIGZpcnN0IG1lbWJlciBvZiB0aGUKPiAJCSAqIHVuZGVybHlp
-bmcgaW5ldHs2fV9za2JfcGFybSBzdHJ1Y3QuIFRoaXMgY29kZSB0aGVuIG92ZXJsYXlzCj4gCQkg
-KiBQS1RJTkZPX1NLQl9DQiBhbmQgaW5fcGt0aW5mbyBhbHNvIGhhcyBpaWYgYXMgdGhlIGZpcnN0
-Cj4tCQkgKiBlbGVtZW50IHNvIHRoZSBpaWYgaXMgcGlja2VkIHVwIGZyb20gdGhlIHByaW9yIElQ
-Q0IKPisJCSAqIGVsZW1lbnQgc28gdGhlIGlpZiBpcyBwaWNrZWQgdXAgZnJvbSB0aGUgcHJpb3Ig
-SVBDQiBleGNlcHQKPisJCSAqIGlpZiBpcyBsb29wYmFjayBpbnRlcmZhY2Ugd2hpY2ggdGhlIHBh
-Y2tldCBzaG91bGQgYmUgCj4rCQkgKiBjb25zaWRlcmVkIGFzIGlmIGl0IGlzIGJlaW5nIGFycml2
-ZWQgdmlhIHRoZSBzZW5kaW5nIGludGVyZmFjZQo+IAkJICovCj4rCQlpZiAocGt0aW5mby0+aXBp
-X2lmaW5kZXggPT0gTE9PUEJBQ0tfSUZJTkRFWCkgewo+KwkJCXBrdGluZm8tPmlwaV9pZmluZGV4
-ID0gaW5ldF9paWYoc2tiKTsKPisJCX0KPiAJCXBrdGluZm8tPmlwaV9zcGVjX2RzdC5zX2FkZHIg
-PSBmaWJfY29tcHV0ZV9zcGVjX2RzdChza2IpOwo+IAl9IGVsc2Ugewo+IAkJcGt0aW5mby0+aXBp
-X2lmaW5kZXggPSAwOwo+LS0gCj4xLjguMy4xCj4KCiAgV2hlbiBJIHVwZ3JhZGUgdG8gdGhlIDQu
-OSwgdGhlIGRoY3BfcmVsZWFzZSBjb3VsZCBub3QgcmVsZWFzZSB0aGUgZGhjcApsZWFzZSwgdGhl
-IGRuc21hc3EgaWdub3JlZCBhbGwgdGhlIERIQ1BSRUxFQVNFIG1lc3NhZ2Ugd2hpY2ggaXQgdGhp
-bmsgY29tZQpmcm9tIGxvLiBJIHRoaW5rIHRoaXMgaXMgZHVlIHRvIHRoZSBjb21taXQgMGI5MjJi
-N2E4MjljLCB3aGljaCBzZXQgdGhlCklQQ0Ioc2tiKS0+aWlmID0gc2tiLT5za2JfaWlmIGluIHRo
-ZSBpcF9yY3YoKSEKCiAgQW5kIEknbSB2ZXJ5IHNvcnJ5IGFib3V0IGZvcmdldHRpbmcgY2hlY2tw
-YXRjaCwgSSB3aWxsIHJlc2VuZCB0aGUgcGF0Y2gsCmhvcGUgSSdtIG5vdCBib3RoZXJpbmcgeW91
-IQoKVGhhbmtzLApXZWkgWmhhbmc=
+On 12/27/2016 03:49 AM, Jason Wang wrote:
+> After commit 73b62bd085f4737679ea9afc7867fa5f99ba7d1b ("virtio-net:
+> remove the warning before XDP linearizing"), there's no users for
+> bpf_warn_invalid_xdp_buffer(), so remove it. This is a revert for
+> commit f23bc46c30ca5ef58b8549434899fcbac41b2cfc.
+>
+> Cc: Daniel Borkmann <daniel@iogearbox.net>
+> Cc: John Fastabend <john.r.fastabend@intel.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
+
+Thanks for following up.
+
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
