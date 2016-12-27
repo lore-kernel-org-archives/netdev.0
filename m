@@ -1,7 +1,7 @@
 From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCH v2 08/11] net: mvpp2: fix indentation of MVPP2_EXT_GLOBAL_CTRL_DEFAULT
-Date: Tue, 27 Dec 2016 17:54:17 +0100
-Message-ID: <1482857660-16092-9-git-send-email-thomas.petazzoni@free-electrons.com>
+Subject: [PATCH v2 01/11] net: mvpp2: handle too large value handling in mvpp2_rx_pkts_coal_set()
+Date: Tue, 27 Dec 2016 17:54:10 +0100
+Message-ID: <1482857660-16092-2-git-send-email-thomas.petazzoni@free-electrons.com>
 References: <1482857660-16092-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Cc: Nadav Haklai <nadavh@marvell.com>, Hanna Hawa <hannah@marvell.com>,
         Yehuda Yitschak <yehuday@marvell.com>,
@@ -15,31 +15,47 @@ Cc: Nadav Haklai <nadavh@marvell.com>, Hanna Hawa <hannah@marvell.com>,
         Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:36664 "EHLO
+Received: from mail.free-electrons.com ([62.4.15.54]:36651 "EHLO
         mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933068AbcL0Qyd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Dec 2016 11:54:33 -0500
+        with ESMTP id S932820AbcL0Qyc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Dec 2016 11:54:32 -0500
 In-Reply-To: <1482857660-16092-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Currently, mvpp2_rx_pkts_coal_set() does the following to avoid setting
+a too large value for the RX coalescing by packet number:
+
+  val = (pkts & MVPP2_OCCUPIED_THRESH_MASK);
+
+This means that if you set a value that is slightly higher the the
+maximum number of packets, you in fact get a very low value. It makes a
+lot more sense to simply check if the value is too high, and if it's too
+high, limit it to the maximum possible value.
+
 Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 ---
- drivers/net/ethernet/marvell/mvpp2.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/marvell/mvpp2.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index edffcc1..36c73dc 100644
+index 4fe430c..02d91e4 100644
 --- a/drivers/net/ethernet/marvell/mvpp2.c
 +++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -254,7 +254,7 @@
- #define MVPP2_PHY_AN_CFG0_REG			0x34
- #define     MVPP2_PHY_AN_STOP_SMI0_MASK		BIT(7)
- #define MVPP2_MNG_EXTENDED_GLOBAL_CTRL_REG	0x305c
--#define MVPP2_EXT_GLOBAL_CTRL_DEFAULT		0x27
-+#define     MVPP2_EXT_GLOBAL_CTRL_DEFAULT	0x27
+@@ -4381,11 +4381,11 @@ static void mvpp2_txp_max_tx_size_set(struct mvpp2_port *port)
+ static void mvpp2_rx_pkts_coal_set(struct mvpp2_port *port,
+ 				   struct mvpp2_rx_queue *rxq, u32 pkts)
+ {
+-	u32 val;
++	if (pkts > MVPP2_OCCUPIED_THRESH_MASK)
++		pkts = MVPP2_OCCUPIED_THRESH_MASK;
  
- /* Per-port registers */
- #define MVPP2_GMAC_CTRL_0_REG			0x0
+-	val = (pkts & MVPP2_OCCUPIED_THRESH_MASK);
+ 	mvpp2_write(port->priv, MVPP2_RXQ_NUM_REG, rxq->id);
+-	mvpp2_write(port->priv, MVPP2_RXQ_THRESH_REG, val);
++	mvpp2_write(port->priv, MVPP2_RXQ_THRESH_REG, pkts);
+ 
+ 	rxq->pkts_coal = pkts;
+ }
 -- 
 2.7.4
