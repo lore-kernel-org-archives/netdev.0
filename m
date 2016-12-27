@@ -1,28 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/5] SCTP cleanups
-Date: Tue, 27 Dec 2016 12:28:44 -0500 (EST)
-Message-ID: <20161227.122844.1684780104231808613.davem@davemloft.net>
-References: <cover.1482857832.git.marcelo.leitner@gmail.com>
+Subject: Re: [PATCH v2] ipv4: Namespaceify tcp_tw_reuse knob
+Date: Tue, 27 Dec 2016 12:29:44 -0500 (EST)
+Message-ID: <20161227.122944.1566432083534281121.davem@davemloft.net>
+References: <1482647596-25239-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-        vyasevich@gmail.com, nhorman@tuxdriver.com
-To: marcelo.leitner@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:40514 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755265AbcL0R2w (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Dec 2016 12:28:52 -0500
-In-Reply-To: <cover.1482857832.git.marcelo.leitner@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, kaber@trash.net,
+        kernel@kyup.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: yanhaishuang@cmss.chinamobile.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1482647596-25239-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Date: Tue, 27 Dec 2016 15:08:27 -0200
+From: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+Date: Sun, 25 Dec 2016 14:33:16 +0800
 
-> Some cleanups/simplifications I've been collecting.
+> Different namespaces might have different requirements to reuse
+> TIME-WAIT sockets for new connections. This might be required in
+> cases where different namespace applications are in place which
+> require TIME_WAIT socket connections to be reduced independently
+> of the host.
+> 
+> Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+> 
+> ---
+> Changes in v2:
+>   - Make the commit message more clearer.
 
-Please resubmit these when I open the net-next tree back up.
-
-Thank you.
+Applied.
