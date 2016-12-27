@@ -1,102 +1,45 @@
 From: David VomLehn <vomlehn@texas.net>
-Subject: [PATCH 01/12] Make and configuration files.
-Date: Tue, 27 Dec 2016 05:15:45 -0800
-Message-ID: <9cc1565a3a398b4f70248ca98d12991071142682.1482844556.git.vomlehn@texas.net>
+Subject: [PATCH 02/12] Common functions and definitions
+Date: Tue, 27 Dec 2016 05:17:38 -0800
+Message-ID: <67f8be9c3f6a4fede2eefaa4a3c45f9dbaf9b411.1482844668.git.vomlehn@texas.net>
+References: <9cc1565a3a398b4f70248ca98d12991071142682.1482844668.git.vomlehn@texas.net>
 Cc: Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
         David VomLehn <vomlehn@texas.net>,
         Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>,
         Alexander Loktionov <Alexander.Loktionov@aquantia.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from barracuda3.aus1.datafoundry.com ([209.99.124.134]:42404 "EHLO
-        milter.aus.datafoundry.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1754500AbcL0NgS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Dec 2016 08:36:18 -0500
+Received: from barracuda5.aus1.datafoundry.com ([209.99.124.136]:39217 "EHLO
+        barracuda.datafoundry.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1754775AbcL0Nun (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Dec 2016 08:50:43 -0500
+In-Reply-To: <9cc1565a3a398b4f70248ca98d12991071142682.1482844668.git.vomlehn@texas.net>
+In-Reply-To: <9cc1565a3a398b4f70248ca98d12991071142682.1482844668.git.vomlehn@texas.net>
+References: <9cc1565a3a398b4f70248ca98d12991071142682.1482844668.git.vomlehn@texas.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patches to create the make and configuration files.
+Add files containing the functions and definitions used in common in
+different functional areas.
 
 Signed-off-by: Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>
 Signed-off-by: Alexander Loktionov <Alexander.Loktionov@aquantia.com>
 Signed-off-by: David M. VomLehn <vomlehn@texas.net>
 ---
- drivers/net/ethernet/aquantia/atlantic/Kconfig  |  9 ++++++
- drivers/net/ethernet/aquantia/atlantic/Makefile | 40 +++++++++++++++++++++++++
- drivers/net/ethernet/aquantia/atlantic/ver.h    | 18 +++++++++++
- 3 files changed, 67 insertions(+)
- create mode 100644 drivers/net/ethernet/aquantia/atlantic/Kconfig
- create mode 100644 drivers/net/ethernet/aquantia/atlantic/Makefile
- create mode 100644 drivers/net/ethernet/aquantia/atlantic/ver.h
+ drivers/net/ethernet/aquantia/atlantic/aq_cfg.h    | 83 ++++++++++++++++++++++
+ drivers/net/ethernet/aquantia/atlantic/aq_common.h | 24 +++++++
+ drivers/net/ethernet/aquantia/atlantic/aq_utils.h  | 55 ++++++++++++++
+ 3 files changed, 162 insertions(+)
+ create mode 100644 drivers/net/ethernet/aquantia/atlantic/aq_cfg.h
+ create mode 100644 drivers/net/ethernet/aquantia/atlantic/aq_common.h
+ create mode 100644 drivers/net/ethernet/aquantia/atlantic/aq_utils.h
 
-diff --git a/drivers/net/ethernet/aquantia/atlantic/Kconfig b/drivers/net/ethernet/aquantia/atlantic/Kconfig
+diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_cfg.h b/drivers/net/ethernet/aquantia/atlantic/aq_cfg.h
 new file mode 100644
-index 0000000..33f1eb6
+index 0000000..054bc38
 --- /dev/null
-+++ b/drivers/net/ethernet/aquantia/atlantic/Kconfig
-@@ -0,0 +1,9 @@
-+#
-+# Aquantia device configuration
-+#
-+
-+config AQTION
-+	tristate "Aquantia AQtion Support"
-+	depends on PCI
-+	---help---
-+	  This enables the support for the Aquantia AQtion Ethernet card.
-\ No newline at end of file
-diff --git a/drivers/net/ethernet/aquantia/atlantic/Makefile b/drivers/net/ethernet/aquantia/atlantic/Makefile
-new file mode 100644
-index 0000000..f0d961f
---- /dev/null
-+++ b/drivers/net/ethernet/aquantia/atlantic/Makefile
-@@ -0,0 +1,40 @@
-+TARGET:=atlantic
-+
-+CC = gcc
-+
-+ifeq "$(CC)" "gcc"
-+	ccflags-y := -Wall
-+endif
-+
-+ifneq ($(KERNELRELEASE),)
-+	$(TARGET)-objs:=aq_main.o aq_nic.o aq_pci_func.o aq_nic.o aq_vec.o \
-+	aq_ring.o aq_hw_utils.o aq_ethtool.o hw_atl/hw_atl_a0.o \
-+	hw_atl/hw_atl_utils.o hw_atl/hw_atl_llh.o
-+
-+	obj-m:=$(TARGET).o
-+else
-+	ifndef KDIR
-+		BUILD_DIR:=/lib/modules/$(shell uname -r)/build
-+	else
-+		BUILD_DIR:=$(KDIR)
-+	endif
-+
-+	PWD:=$(shell pwd)
-+
-+all:
-+	$(MAKE) -j4 CC=$(CC) -C $(BUILD_DIR) M=$(PWD) modules
-+
-+dox:	.doxygen
-+	@doxygen $<
-+
-+clean:
-+	$(MAKE) -j4 -C $(BUILD_DIR) M=$(PWD) clean
-+	@-rm -rdf doc/html 2 > /dev/null
-+
-+load:
-+	insmod ./$(TARGET).ko
-+
-+unload:
-+	rmmod ./$(TARGET).ko
-+
-+endif
-diff --git a/drivers/net/ethernet/aquantia/atlantic/ver.h b/drivers/net/ethernet/aquantia/atlantic/ver.h
-new file mode 100644
-index 0000000..225f561
---- /dev/null
-+++ b/drivers/net/ethernet/aquantia/atlantic/ver.h
-@@ -0,0 +1,18 @@
++++ b/drivers/net/ethernet/aquantia/atlantic/aq_cfg.h
+@@ -0,0 +1,83 @@
 +/*
 + * Aquantia Corporation Network Driver
 + * Copyright (C) 2014-2016 Aquantia Corporation. All rights reserved
@@ -106,14 +49,170 @@ index 0000000..225f561
 + * version 2, as published by the Free Software Foundation.
 + */
 +
-+#ifndef VER_H
-+#define VER_H
++/*
++ * File aq_cfg.h: Definition of configuration parameters and constants.
++ */
 +
-+#define NIC_MAJOR_DRIVER_VERSION           1
-+#define NIC_MINOR_DRIVER_VERSION           4
-+#define NIC_BUILD_DRIVER_VERSION           1671
-+#define NIC_REVISION_DRIVER_VERSION        0
++#ifndef AQ_CFG_H
++#define AQ_CFG_H
 +
-+#endif				/* VER_H */
++#define AQ_CFG_VECS_DEF   4U
++#define AQ_CFG_TCS_DEF    1U
++
++#define AQ_CFG_TXDS_DEF    4096U
++#define AQ_CFG_RXDS_DEF    248U
++
++#define AQ_CFG_IS_POLLING_DEF 0U
++
++#define AQ_CFG_FORCE_LEGACY_INT 0U
++
++#define AQ_CFG_IS_INTERRUPT_MODERATION_DEF   1U
++#define AQ_CFG_INTERRUPT_MODERATION_RATE_DEF 0xFFFFU
++#define AQ_CFG_IRQ_MASK                      0x1FFU
++
++#define AQ_CFG_VECS_MAX   8U
++#define AQ_CFG_TCS_MAX    8U
++
++#define AQ_CFG_TXDS_MAX    (16U * 1024U)
++#define AQ_CFG_RXDS_MAX    (16U * 1024U)
++
++#define AQ_CFG_TX_FRAME_MAX  (16U * 1024U)
++#define AQ_CFG_RX_FRAME_MAX  (4U * 1024U)
++
++/* RSS */
++#define AQ_CFG_RSS_INDIRECTION_TABLE_MAX  128U
++#define AQ_CFG_RSS_HASHKEY_SIZE           320U
++
++#define AQ_CFG_IS_RSS_DEF           1U
++#define AQ_CFG_NUM_RSS_QUEUES_DEF   AQ_CFG_VECS_DEF
++#define AQ_CFG_RSS_BASE_CPU_NUM_DEF 0U
++
++#define AQ_CFG_PCI_FUNC_MSIX_IRQS   9U
++#define AQ_CFG_PCI_FUNC_PORTS       2U
++
++#define AQ_CFG_SERVICE_TIMER_INTERVAL    (2 * HZ)
++#define AQ_CFG_POLLING_TIMER_INTERVAL   ((unsigned int)(2 * HZ))
++
++#define AQ_CFG_SKB_FRAGS_MAX   32U
++#define AQ_CFG_IP_ALIGN         0U
++
++#define AQ_CFG_NAPI_WEIGHT     64U
++
++#define AQ_CFG_MULTICAST_ADDRESS_MAX     32U
++
++//#define AQ_CFG_MAC_ADDR_PERMANENT {0x30, 0x0E, 0xE3, 0x12, 0x34, 0x56}
++
++#define AQ_CFG_FC_MODE 3U
++
++#define AQ_CFG_SPEED_MSK  0xFFFFU	/* 0xFFFFU==auto_neg */
++
++#define AQ_CFG_IS_AUTONEG_DEF       1U
++#define AQ_CFG_MTU_DEF              1514U
++
++#define AQ_CFG_LOCK_TRYS   100U
++
++#define TXT(_T_) #_T_
++#define TXTTXT(_T_) TXT(_T_)
++
++#define AQ_CFG_DRV_AUTHOR      "Aquantia"
++#define AQ_CFG_DRV_DESC        "Aquantia Corporation(R) Network Driver"
++#define AQ_CFG_DRV_NAME        "aquantia"
++#define AQ_CFG_DRV_VERSION	TXTTXT(NIC_MAJOR_DRIVER_VERSION)"."\
++				TXTTXT(NIC_MINOR_DRIVER_VERSION)"."\
++				TXTTXT(NIC_BUILD_DRIVER_VERSION)"."\
++				TXTTXT(NIC_REVISION_DRIVER_VERSION)
++
++#endif /* AQ_CFG_H */
+diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_common.h b/drivers/net/ethernet/aquantia/atlantic/aq_common.h
+new file mode 100644
+index 0000000..f92201d
+--- /dev/null
++++ b/drivers/net/ethernet/aquantia/atlantic/aq_common.h
+@@ -0,0 +1,24 @@
++/*
++ * Aquantia Corporation Network Driver
++ * Copyright (C) 2014-2016 Aquantia Corporation. All rights reserved
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ */
++
++/*
++ * File aq_common.h: Basic includes for all files in project.
++ */
++
++#ifndef AQ_COMMON_H
++#define AQ_COMMON_H
++
++#include <linux/etherdevice.h>
++
++#include "ver.h"
++#include "aq_nic.h"
++#include "aq_cfg.h"
++#include "aq_utils.h"
++
++#endif /* AQ_COMMON_H */
+diff --git a/drivers/net/ethernet/aquantia/atlantic/aq_utils.h b/drivers/net/ethernet/aquantia/atlantic/aq_utils.h
+new file mode 100644
+index 0000000..07b4618
+--- /dev/null
++++ b/drivers/net/ethernet/aquantia/atlantic/aq_utils.h
+@@ -0,0 +1,55 @@
++/*
++ * Aquantia Corporation Network Driver
++ * Copyright (C) 2014-2016 Aquantia Corporation. All rights reserved
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ */
++
++/*
++ * File aq_utils.h: Useful macro and structures used in all layers of driver.
++ */
++
++#ifndef AQ_UTILS_H
++#define AQ_UTILS_H
++
++#include "aq_common.h"
++
++#ifndef MBIT
++#define MBIT ((u64)1000000U)
++#define GBIT ((u64)1000000000U)
++#endif
++
++#define AQ_IRQ_INVALID 0U
++#define AQ_IRQ_LEGACY  1U
++#define AQ_IRQ_MSI     2U
++#define AQ_IRQ_MSIX    3U
++
++#define AQ_DIMOF(_ARY_)  ARRAY_SIZE(_ARY_)
++
++#define AQ_OBJ_HEADER spinlock_t lock; atomic_t flags; atomic_t busy_count
++
++struct aq_obj_s {
++	AQ_OBJ_HEADER;
++};
++
++#define AQ_OBJ_TST(_OBJ_, _FLAG_)  ((_FLAG_) & atomic_read(&(_OBJ_)->flags))
++
++#define AQ_OBJ_SET(_OBJ_, _F_) \
++{ unsigned long flags_old, flags_new; atomic_t *flags = &(_OBJ_)->flags; \
++do { \
++	flags_old = atomic_read(flags); \
++	flags_new = flags_old | (_F_); \
++} while (atomic_cmpxchg(flags, \
++	flags_old, flags_new) != flags_old); }
++
++#define AQ_OBJ_CLR(_OBJ_, _F_) \
++{ unsigned long flags_old, flags_new; atomic_t *flags = &(_OBJ_)->flags; \
++do { \
++	flags_old = atomic_read(flags); \
++	flags_new = flags_old & ~(_F_); \
++} while (atomic_cmpxchg(flags, \
++	flags_old, flags_new) != flags_old); }
++
++#endif /* AQ_UTILS_H */
 -- 
 2.7.4
