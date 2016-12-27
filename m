@@ -1,52 +1,35 @@
-From: Wei Zhang <asuka.com@163.com>
-Subject: [PATCH] net: fix incorrect original ingress device index in PKTINFO
-Date: Tue, 27 Dec 2016 17:52:24 +0800
-Message-ID: <1482832344-24760-1-git-send-email-asuka.com@163.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-        yoshfuji@linux-ipv6.org, kaber@trash.net
+From: "Mr. Hamidou Kader" <mr.hamidoukader@gmail.com>
+Subject: Greetings From Mr. Hamidou Kader.
+Date: Tue, 27 Dec 2016 09:50:45 +0000 (UTC)
+Message-ID: <1424159083.2117965.1482832245161@mail.yahoo.com>
+References: <1424159083.2117965.1482832245161.ref@mail.yahoo.com>
+Reply-To: "Mr. Hamidou Kader" <hamidoukader@barid.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from m12-16.163.com ([220.181.12.16]:47283 "EHLO m12-16.163.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752752AbcL0JyD (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 27 Dec 2016 04:54:03 -0500
+Received: from nm15-vm2.bullet.mail.ne1.yahoo.com ([98.138.91.91]:46584 "EHLO
+        nm15-vm2.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751256AbcL0J4q (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Dec 2016 04:56:46 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When we send a packet for our own local address on a non-loopback
-interface (e.g. eth0), due to the change had been introduced from
-commit 0b922b7a829c ("net: original ingress device index in PKTINFO"), the
-original ingress device index would be set as the loopback interface.
-However, the packet should be considered as if it is being arrived via the
-sending interface (eth0), otherwise it would break the expectation of the
-userspace application (e.g. the DHCPRELEASE message from dhcp_release
-binary would be ignored by the dnsmasq daemon, since it come from lo which
-is not the interface dnsmasq bind to)
 
-Signed-off-by: Wei Zhang <asuka.com@163.com>
----
- net/ipv4/ip_sockglue.c | 8 +++++++-
- 1 file changed, 7 insertions(+), 1 deletion(-)
 
-diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
-index b8a2d63..76d78a7 100644
---- a/net/ipv4/ip_sockglue.c
-+++ b/net/ipv4/ip_sockglue.c
-@@ -1202,8 +1202,14 @@ void ipv4_pktinfo_prepare(const struct sock *sk, struct sk_buff *skb)
- 		 * which has interface index (iif) as the first member of the
- 		 * underlying inet{6}_skb_parm struct. This code then overlays
- 		 * PKTINFO_SKB_CB and in_pktinfo also has iif as the first
--		 * element so the iif is picked up from the prior IPCB
-+		 * element so the iif is picked up from the prior IPCB except
-+		 * iif is loopback interface which the packet should be
-+		 * considered as if it is being arrived via the sending
-+		 * interface
- 		 */
-+		if (pktinfo->ipi_ifindex == LOOPBACK_IFINDEX)
-+			pktinfo->ipi_ifindex = inet_iif(skb);
-+
- 		pktinfo->ipi_spec_dst.s_addr = fib_compute_spec_dst(skb);
- 	} else {
- 		pktinfo->ipi_ifindex = 0;
--- 
-1.8.3.1
+Greetings From Mr. Hamidou Kader.
+
+I have a Mutual/Beneficial Business Project that would be beneficial to you. I only have two questions to ask of you,if you are interested.
+
+1. Can you handle this project?
+2. Can I give you this trust ?
+
+Please note that the deal requires high level of maturity, honesty and secrecy. This will involve moving some money from my office, on trust to your hands or bank account. Also note that i will do everything to make sure that the money is moved as a purely legitimate fund, so you will not be exposed to any risk.
+
+I request for your full co-operation. I will give you details and procedure when I receive your reply, To commence this transaction, I require you to immediately indicate your interest by a return reply.
+
+I will be waiting for your response in a timely manner.
+please contact me through my private email address: hamidoukader@barid.com
+Best Regard,
+Mr. Hamidou Kader
