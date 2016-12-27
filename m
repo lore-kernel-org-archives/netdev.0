@@ -1,63 +1,119 @@
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: Re: [PATCH] net: stmmac: fix incorrect bit set in gmac4 mdio addr
- register
-Date: Tue, 27 Dec 2016 12:11:49 +0000
-Message-ID: <8361c024-3afe-f048-0cf6-d029d1a075d2@synopsys.com>
-References: <1482869261-23803-1-git-send-email-hock.leong.kweh@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 8bit
-Cc: Alexandre TORGUE <alexandre.torgue@gmail.com>,
-        Joachim Eastwood <manabian@gmail.com>,
-        Niklas Cassel <niklas.cassel@axis.com>,
-        Johan Hovold <johan@kernel.org>, <pavel@ucw.cz>,
-        Ong Boon Leong <boon.leong.ong@intel.com>,
-        <weifeng.voon@intel.com>, <lars.persson@axis.com>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>
-To: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Joao Pinto <Joao.Pinto@synopsys.com>,
-        "Giuseppe CAVALLARO" <peppe.cavallaro@st.com>,
-        <seraphin.bonnaffe@st.com>, <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1482869261-23803-1-git-send-email-hock.leong.kweh@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David VomLehn <vomlehn@texas.net>
+Subject: [PATCH 01/12] Make and configuration files.
+Date: Tue, 27 Dec 2016 05:17:37 -0800
+Message-ID: <9cc1565a3a398b4f70248ca98d12991071142682.1482844668.git.vomlehn@texas.net>
+Cc: Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
+        David VomLehn <vomlehn@texas.net>,
+        Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>,
+        Alexander Loktionov <Alexander.Loktionov@aquantia.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from barracuda5.aus1.datafoundry.com ([209.99.124.136]:38451 "EHLO
+        barracuda.datafoundry.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1753776AbcL0Nbw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Dec 2016 08:31:52 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Às 8:07 PM de 12/27/2016, Kweh, Hock Leong escreveu:
-> From: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>
-> 
-> Fixing the gmac4 mdio write access to use MII_GMAC4_WRITE only instead of
-> OR together with MII_WRITE.
-> 
-> Signed-off-by: Kweh, Hock Leong <hock.leong.kweh@intel.com>
-> ---
->  drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c |    4 +++-
->  1 file changed, 3 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-> index fda01f7..b0344c2 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
-> @@ -116,7 +116,7 @@ static int stmmac_mdio_write(struct mii_bus *bus, int phyaddr, int phyreg,
->  	unsigned int mii_address = priv->hw->mii.addr;
->  	unsigned int mii_data = priv->hw->mii.data;
->  
-> -	u32 value = MII_WRITE | MII_BUSY;
-> +	u32 value = MII_BUSY;
->  
->  	value |= (phyaddr << priv->hw->mii.addr_shift)
->  		& priv->hw->mii.addr_mask;
-> @@ -126,6 +126,8 @@ static int stmmac_mdio_write(struct mii_bus *bus, int phyaddr, int phyreg,
->  		& priv->hw->mii.clk_csr_mask;
->  	if (priv->plat->has_gmac4)
->  		value |= MII_GMAC4_WRITE;
-> +	else
-> +		value |= MII_WRITE;
->  
->  	/* Wait until any existing MII operation is complete */
->  	if (stmmac_mdio_busy_wait(priv->ioaddr, mii_address))
-> 
+Patches to create the make and configuration files.
 
-Acked-By: Joao Pinto <jpinto@synopsys.com>
+Signed-off-by: Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>
+Signed-off-by: Alexander Loktionov <Alexander.Loktionov@aquantia.com>
+Signed-off-by: David M. VomLehn <vomlehn@texas.net>
+---
+ drivers/net/ethernet/aquantia/atlantic/Kconfig  |  9 ++++++
+ drivers/net/ethernet/aquantia/atlantic/Makefile | 40 +++++++++++++++++++++++++
+ drivers/net/ethernet/aquantia/atlantic/ver.h    | 18 +++++++++++
+ 3 files changed, 67 insertions(+)
+ create mode 100644 drivers/net/ethernet/aquantia/atlantic/Kconfig
+ create mode 100644 drivers/net/ethernet/aquantia/atlantic/Makefile
+ create mode 100644 drivers/net/ethernet/aquantia/atlantic/ver.h
+
+diff --git a/drivers/net/ethernet/aquantia/atlantic/Kconfig b/drivers/net/ethernet/aquantia/atlantic/Kconfig
+new file mode 100644
+index 0000000..33f1eb6
+--- /dev/null
++++ b/drivers/net/ethernet/aquantia/atlantic/Kconfig
+@@ -0,0 +1,9 @@
++#
++# Aquantia device configuration
++#
++
++config AQTION
++	tristate "Aquantia AQtion Support"
++	depends on PCI
++	---help---
++	  This enables the support for the Aquantia AQtion Ethernet card.
+\ No newline at end of file
+diff --git a/drivers/net/ethernet/aquantia/atlantic/Makefile b/drivers/net/ethernet/aquantia/atlantic/Makefile
+new file mode 100644
+index 0000000..f0d961f
+--- /dev/null
++++ b/drivers/net/ethernet/aquantia/atlantic/Makefile
+@@ -0,0 +1,40 @@
++TARGET:=atlantic
++
++CC = gcc
++
++ifeq "$(CC)" "gcc"
++	ccflags-y := -Wall
++endif
++
++ifneq ($(KERNELRELEASE),)
++	$(TARGET)-objs:=aq_main.o aq_nic.o aq_pci_func.o aq_nic.o aq_vec.o \
++	aq_ring.o aq_hw_utils.o aq_ethtool.o hw_atl/hw_atl_a0.o \
++	hw_atl/hw_atl_utils.o hw_atl/hw_atl_llh.o
++
++	obj-m:=$(TARGET).o
++else
++	ifndef KDIR
++		BUILD_DIR:=/lib/modules/$(shell uname -r)/build
++	else
++		BUILD_DIR:=$(KDIR)
++	endif
++
++	PWD:=$(shell pwd)
++
++all:
++	$(MAKE) -j4 CC=$(CC) -C $(BUILD_DIR) M=$(PWD) modules
++
++dox:	.doxygen
++	@doxygen $<
++
++clean:
++	$(MAKE) -j4 -C $(BUILD_DIR) M=$(PWD) clean
++	@-rm -rdf doc/html 2 > /dev/null
++
++load:
++	insmod ./$(TARGET).ko
++
++unload:
++	rmmod ./$(TARGET).ko
++
++endif
+diff --git a/drivers/net/ethernet/aquantia/atlantic/ver.h b/drivers/net/ethernet/aquantia/atlantic/ver.h
+new file mode 100644
+index 0000000..225f561
+--- /dev/null
++++ b/drivers/net/ethernet/aquantia/atlantic/ver.h
+@@ -0,0 +1,18 @@
++/*
++ * Aquantia Corporation Network Driver
++ * Copyright (C) 2014-2016 Aquantia Corporation. All rights reserved
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ */
++
++#ifndef VER_H
++#define VER_H
++
++#define NIC_MAJOR_DRIVER_VERSION           1
++#define NIC_MINOR_DRIVER_VERSION           4
++#define NIC_BUILD_DRIVER_VERSION           1671
++#define NIC_REVISION_DRIVER_VERSION        0
++
++#endif				/* VER_H */
+-- 
+2.7.4
