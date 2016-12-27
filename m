@@ -1,35 +1,51 @@
-From: "Mr. Hamidou Kader" <mr.hamidoukader@gmail.com>
-Subject: Greetings From Mr. Hamidou Kader.
-Date: Tue, 27 Dec 2016 09:50:45 +0000 (UTC)
-Message-ID: <1424159083.2117965.1482832245161@mail.yahoo.com>
-References: <1424159083.2117965.1482832245161.ref@mail.yahoo.com>
-Reply-To: "Mr. Hamidou Kader" <hamidoukader@barid.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC PATCH 4.10 1/6] crypto/sha256: Refactor the API so it can
+ be used without shash
+Date: Tue, 27 Dec 2016 17:58:53 +0800
+Message-ID: <20161227095853.GA10588@gondor.apana.org.au>
+References: <cover.1482545792.git.luto@kernel.org>
+ <942b91f25a63b22ec4946378a1fffe78d655cf18.1482545792.git.luto@kernel.org>
+ <CAKv+Gu-UCqwchgbhg8VN4s=Yxk=PkjXG46NZo=8P4wAQtJ2TXw@mail.gmail.com>
+ <CALCETrVbT_1=cdU1+a-+KbhoFqeT3XvbHjY0s_U7C5JVgiPx_Q@mail.gmail.com>
+ <20161226075757.GA8916@gondor.apana.org.au>
+ <CAKv+Gu-NMNCEs61f4k7JSf9iSJ1A_Gy1r=kZRGqtbDsEDz7--Q@mail.gmail.com>
+ <CALCETrXFTQ2AXgbQzPnRcDRHK81=FS1R0zqfoTqGjUsqZy2PvQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: text/plain; charset=us-ascii
+Cc: Ard Biesheuvel <ard.biesheuvel@linaro.org>,
+        Andy Lutomirski <luto@kernel.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+        "Jason A. Donenfeld" <Jason@zx2c4.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Eric Biggers <ebiggers3@gmail.com>,
+        Tom Herbert <tom@herbertland.com>,
+        "David S. Miller" <davem@davemloft.net>
+To: Andy Lutomirski <luto@amacapital.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm15-vm2.bullet.mail.ne1.yahoo.com ([98.138.91.91]:46584 "EHLO
-        nm15-vm2.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751256AbcL0J4q (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Dec 2016 04:56:46 -0500
+Received: from helcar.hengli.com.au ([209.40.204.226]:35875 "EHLO
+        helcar.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1751256AbcL0J73 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Dec 2016 04:59:29 -0500
+Content-Disposition: inline
+In-Reply-To: <CALCETrXFTQ2AXgbQzPnRcDRHK81=FS1R0zqfoTqGjUsqZy2PvQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, Dec 26, 2016 at 10:08:48AM -0800, Andy Lutomirski wrote:
+>
+> According to Daniel, the networking folks want to let embedded systems
+> include BPF without requiring the crypto core.
 
+Last I checked the IPv4 stack depended on the crypto API so this
+sounds bogus.
 
-Greetings From Mr. Hamidou Kader.
-
-I have a Mutual/Beneficial Business Project that would be beneficial to you. I only have two questions to ask of you,if you are interested.
-
-1. Can you handle this project?
-2. Can I give you this trust ?
-
-Please note that the deal requires high level of maturity, honesty and secrecy. This will involve moving some money from my office, on trust to your hands or bank account. Also note that i will do everything to make sure that the money is moved as a purely legitimate fund, so you will not be exposed to any risk.
-
-I request for your full co-operation. I will give you details and procedure when I receive your reply, To commence this transaction, I require you to immediately indicate your interest by a return reply.
-
-I will be waiting for your response in a timely manner.
-please contact me through my private email address: hamidoukader@barid.com
-Best Regard,
-Mr. Hamidou Kader
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
