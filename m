@@ -1,63 +1,98 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] net: fix incorrect original ingress device index in
- PKTINFO
-Date: Tue, 27 Dec 2016 13:01:29 +0300
-Message-ID: <f6d9c559-cd3c-4f0e-6bb3-954f8e116e8e@cogentembedded.com>
-References: <1482825138-2125-1-git-send-email-asuka.com@163.com>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: [PATCH v2] net: stmmac: bug fix to synchronize stmmac_open and
+ stmmac_dvr_probe
+Date: Tue, 27 Dec 2016 11:48:26 +0100
+Message-ID: <20161227104826.GB15452@amd>
+References: <1482849756-21817-1-git-send-email-hock.leong.kweh@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Wei Zhang <asuka.com@163.com>, davem@davemloft.net,
-        kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-        kaber@trash.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1482825138-2125-1-git-send-email-asuka.com@163.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="V0207lvV8h4k8FAm"
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Joao Pinto <Joao.Pinto@synopsys.com>,
+        Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
+        seraphin.bonnaffe@st.com, f.fainelli@gmail.com,
+        Alexandre TORGUE <alexandre.torgue@gmail.com>,
+        Joachim Eastwood <manabian@gmail.com>,
+        Niklas Cassel <niklas.cassel@axis.com>,
+        Johan Hovold <johan@kernel.org>,
+        Ong Boon Leong <boon.leong.ong@intel.com>,
+        weifeng.voon@intel.com, lars.persson@axis.com,
+        Netdev list <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>
+To: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from atrey.karlin.mff.cuni.cz ([195.113.26.193]:41753 "EHLO
+        atrey.karlin.mff.cuni.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751667AbcL0Ks2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Dec 2016 05:48:28 -0500
+Content-Disposition: inline
+In-Reply-To: <1482849756-21817-1-git-send-email-hock.leong.kweh@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello!
 
-On 12/27/2016 10:52 AM, Wei Zhang wrote:
+--V0207lvV8h4k8FAm
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> When we send a packet for our own local address on a non-loopback interface
-> (e.g. eth0), due to the change had been introduced from commit 0b922b7a829c
-> ("net: original ingress device index in PKTINFO"), the original ingress
-> device index would be set as the loopback interface. However, the packet
-> should be considered as if it is being arrived via the sending interface
-> (eth0), otherwise it would break the expectation of the userspace
-> application (e.g. the DHCPRELEASE message from dhcp_release binary would
-> be ignored by the dnsmasq daemon)
->
-> Signed-off-by: Wei Zhang <asuka.com@163.com>
-> ---
->  net/ipv4/ip_sockglue.c | 7 ++++++-
->  1 file changed, 6 insertions(+), 1 deletion(-)
->
-> diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
-> index b8a2d63..b6a6d35 100644
-> --- a/net/ipv4/ip_sockglue.c
-> +++ b/net/ipv4/ip_sockglue.c
-> @@ -1202,8 +1202,13 @@ void ipv4_pktinfo_prepare(const struct sock *sk, struct sk_buff *skb)
->  		 * which has interface index (iif) as the first member of the
->  		 * underlying inet{6}_skb_parm struct. This code then overlays
->  		 * PKTINFO_SKB_CB and in_pktinfo also has iif as the first
-> -		 * element so the iif is picked up from the prior IPCB
-> +		 * element so the iif is picked up from the prior IPCB except
-> +		 * iif is loopback interface which the packet should be
+On Tue 2016-12-27 22:42:36, Kweh, Hock Leong wrote:
+> From: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>
+>=20
+> If kernel module stmmac driver being loaded after OS booted, there is a
+> race condition between stmmac_open() and stmmac_mdio_register(), which is
+> invoked inside stmmac_dvr_probe(), and the error is showed in dmesg log as
+> PHY not found and stmmac_open() failed:
+> [  473.919358] stmmaceth 0000:01:00.0 (unnamed net_device) (uninitialized=
+):
+>                 stmmac_dvr_probe: warning: cannot get CSR clock
+> [  473.919382] stmmaceth 0000:01:00.0: no reset control found
+> [  473.919412] stmmac - user ID: 0x10, Synopsys ID: 0x42
+> [  473.919429] stmmaceth 0000:01:00.0: DMA HW capability register support=
+ed
+> [  473.919436] stmmaceth 0000:01:00.0: RX Checksum Offload Engine support=
+ed
+> [  473.919443] stmmaceth 0000:01:00.0: TX Checksum insertion supported
+> [  473.919451] stmmaceth 0000:01:00.0 (unnamed net_device) (uninitialized=
+):
+>                 Enable RX Mitigation via HW Watchdog Timer
+> [  473.921395] libphy: PHY stmmac-1:00 not found
+> [  473.921417] stmmaceth 0000:01:00.0 eth0: Could not attach to PHY
+> [  473.921427] stmmaceth 0000:01:00.0 eth0: stmmac_open: Cannot attach to
+>                 PHY (error: -19)
+> [  473.959710] libphy: stmmac: probed
+> [  473.959724] stmmaceth 0000:01:00.0 eth0: PHY ID 01410cc2 at 0 IRQ POLL
+>                 (stmmac-1:00) active
+> [  473.959728] stmmaceth 0000:01:00.0 eth0: PHY ID 01410cc2 at 1 IRQ POLL
+>                 (stmmac-1:01)
+> [  473.959731] stmmaceth 0000:01:00.0 eth0: PHY ID 01410cc2 at 2 IRQ POLL
+>                 (stmmac-1:02)
+> [  473.959734] stmmaceth 0000:01:00.0 eth0: PHY ID 01410cc2 at 3 IRQ POLL
+>                 (stmmac-1:03)
+>=20
+> The resolution moved the register_netdev() function call to the end of
+> stmmac_dvr_probe() after stmmac_mdio_register().
+>=20
+> Suggested-by: Florian Fainelli <f.fainelli@gmail.com>
+> Signed-off-by: Kweh, Hock Leong <hock.leong.kweh@intel.com>
 
-    Tail space.
+Acked-by: Pavel Machek <pavel@ucw.cz>
 
-> +		 * considered as if it is being arrived via the sending interface
->  		 */
-> +		if (pktinfo->ipi_ifindex == LOOPBACK_IFINDEX) {
-> +			pktinfo->ipi_ifindex = inet_iif(skb);
-> +		}
+--=20
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
+g.html
 
-    {} not needed here.
+--V0207lvV8h4k8FAm
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
 
->  		pktinfo->ipi_spec_dst.s_addr = fib_compute_spec_dst(skb);
->  	} else {
->  		pktinfo->ipi_ifindex = 0;
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
 
-MBR, Sergei
+iEYEARECAAYFAlhiRvoACgkQMOfwapXb+vJrhACfYa4JPvHghBSoUUX6h7DmC0st
+eRQAn3qK1Wg0yv3rQZwQKMpREyRSHZGB
+=fAN2
+-----END PGP SIGNATURE-----
+
+--V0207lvV8h4k8FAm--
