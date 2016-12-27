@@ -1,7 +1,7 @@
 From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCH v2 07/16] net: mvpp2: adapt the mvpp2_rxq_*_pool_set functions to PPv2.2
-Date: Tue, 27 Dec 2016 17:54:28 +0100
-Message-ID: <1482857677-16166-8-git-send-email-thomas.petazzoni@free-electrons.com>
+Subject: [PATCH v2 15/16] net: mvpp2: add support for an additional clock needed for PPv2.2
+Date: Tue, 27 Dec 2016 17:54:36 +0100
+Message-ID: <1482857677-16166-16-git-send-email-thomas.petazzoni@free-electrons.com>
 References: <1482857677-16166-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Cc: Nadav Haklai <nadavh@marvell.com>, Hanna Hawa <hannah@marvell.com>,
         Yehuda Yitschak <yehuday@marvell.com>,
@@ -15,92 +15,104 @@ Cc: Nadav Haklai <nadavh@marvell.com>, Hanna Hawa <hannah@marvell.com>,
         Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:36742 "EHLO
+Received: from mail.free-electrons.com ([62.4.15.54]:36786 "EHLO
         mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933175AbcL0Qyr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Dec 2016 11:54:47 -0500
+        with ESMTP id S933208AbcL0Qyv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Dec 2016 11:54:51 -0500
 In-Reply-To: <1482857677-16166-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The MVPP2_RXQ_CONFIG_REG register has a slightly different layout
-between PPv2.1 and PPv2.2, so this commit adapts the functions modifying
-this register to accommodate for both the PPv2.1 and PPv2.2 cases.
+The PPv2.2 variant of the network controller needs an additional
+clock, the "MG clock" in order for the IP block to operate
+properly. This commit adds support for this additional clock to the
+driver, reworking as needed the error handling path.
 
 Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 ---
- drivers/net/ethernet/marvell/mvpp2.c | 32 ++++++++++++++++++++------------
- 1 file changed, 20 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/marvell/mvpp2.c | 25 +++++++++++++++++++++----
+ 1 file changed, 21 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 160b787..8fc818d 100644
+index 20e9429..194de00 100644
 --- a/drivers/net/ethernet/marvell/mvpp2.c
 +++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -50,9 +50,11 @@
- #define     MVPP2_SNOOP_PKT_SIZE_MASK		0x1ff
- #define     MVPP2_SNOOP_BUF_HDR_MASK		BIT(9)
- #define     MVPP2_RXQ_POOL_SHORT_OFFS		20
--#define     MVPP2_RXQ_POOL_SHORT_MASK		0x700000
-+#define     MVPP21_RXQ_POOL_SHORT_MASK		0x700000
-+#define     MVPP22_RXQ_POOL_SHORT_MASK		0xf00000
- #define     MVPP2_RXQ_POOL_LONG_OFFS		24
--#define     MVPP2_RXQ_POOL_LONG_MASK		0x7000000
-+#define     MVPP21_RXQ_POOL_LONG_MASK		0x7000000
-+#define     MVPP22_RXQ_POOL_LONG_MASK		0xf000000
- #define     MVPP2_RXQ_PACKET_OFFSET_OFFS	28
- #define     MVPP2_RXQ_PACKET_OFFSET_MASK	0x70000000
- #define     MVPP2_RXQ_DISABLE_MASK		BIT(31)
-@@ -3762,17 +3764,20 @@ static int mvpp2_bm_init(struct platform_device *pdev, struct mvpp2 *priv)
- static void mvpp2_rxq_long_pool_set(struct mvpp2_port *port,
- 				    int lrxq, int long_pool)
- {
--	u32 val;
-+	u32 val, mask;
- 	int prxq;
+@@ -702,6 +702,7 @@ struct mvpp2 {
+ 	/* Common clocks */
+ 	struct clk *pp_clk;
+ 	struct clk *gop_clk;
++	struct clk *mg_clk;
  
- 	/* Get queue physical ID */
- 	prxq = port->rxqs[lrxq]->id;
+ 	/* List of pointers to port structures */
+ 	struct mvpp2_port **port_list;
+@@ -6899,6 +6900,18 @@ static int mvpp2_probe(struct platform_device *pdev)
+ 	if (err < 0)
+ 		goto err_pp_clk;
  
--	val = mvpp2_read(port->priv, MVPP2_RXQ_CONFIG_REG(prxq));
--	val &= ~MVPP2_RXQ_POOL_LONG_MASK;
--	val |= ((long_pool << MVPP2_RXQ_POOL_LONG_OFFS) &
--		    MVPP2_RXQ_POOL_LONG_MASK);
-+	if (port->priv->hw_version == MVPP21)
-+		mask = MVPP21_RXQ_POOL_LONG_MASK;
-+	else
-+		mask = MVPP22_RXQ_POOL_LONG_MASK;
++	if (priv->hw_version == MVPP22) {
++		priv->mg_clk = devm_clk_get(&pdev->dev, "mg_clk");
++		if (IS_ERR(priv->mg_clk)) {
++			err = PTR_ERR(priv->mg_clk);
++			goto err_gop_clk;
++		}
++
++		err = clk_prepare_enable(priv->mg_clk);
++		if (err < 0)
++			goto err_gop_clk;
++	}
++
+ 	/* Get system's tclk rate */
+ 	priv->tclk = clk_get_rate(priv->pp_clk);
  
-+	val = mvpp2_read(port->priv, MVPP2_RXQ_CONFIG_REG(prxq));
-+	val &= ~mask;
-+	val |= (long_pool << MVPP2_RXQ_POOL_LONG_OFFS) & mask;
- 	mvpp2_write(port->priv, MVPP2_RXQ_CONFIG_REG(prxq), val);
- }
+@@ -6906,14 +6919,14 @@ static int mvpp2_probe(struct platform_device *pdev)
+ 	err = mvpp2_init(pdev, priv);
+ 	if (err < 0) {
+ 		dev_err(&pdev->dev, "failed to initialize controller\n");
+-		goto err_gop_clk;
++		goto err_mg_clk;
+ 	}
  
-@@ -3780,17 +3785,20 @@ static void mvpp2_rxq_long_pool_set(struct mvpp2_port *port,
- static void mvpp2_rxq_short_pool_set(struct mvpp2_port *port,
- 				     int lrxq, int short_pool)
- {
--	u32 val;
-+	u32 val, mask;
- 	int prxq;
+ 	port_count = of_get_available_child_count(dn);
+ 	if (port_count == 0) {
+ 		dev_err(&pdev->dev, "no ports enabled\n");
+ 		err = -ENODEV;
+-		goto err_gop_clk;
++		goto err_mg_clk;
+ 	}
  
- 	/* Get queue physical ID */
- 	prxq = port->rxqs[lrxq]->id;
+ 	priv->port_list = devm_kcalloc(&pdev->dev, port_count,
+@@ -6921,19 +6934,22 @@ static int mvpp2_probe(struct platform_device *pdev)
+ 				      GFP_KERNEL);
+ 	if (!priv->port_list) {
+ 		err = -ENOMEM;
+-		goto err_gop_clk;
++		goto err_mg_clk;
+ 	}
  
--	val = mvpp2_read(port->priv, MVPP2_RXQ_CONFIG_REG(prxq));
--	val &= ~MVPP2_RXQ_POOL_SHORT_MASK;
--	val |= ((short_pool << MVPP2_RXQ_POOL_SHORT_OFFS) &
--		    MVPP2_RXQ_POOL_SHORT_MASK);
-+	if (port->priv->hw_version == MVPP21)
-+		mask = MVPP21_RXQ_POOL_SHORT_MASK;
-+	else
-+		mask = MVPP22_RXQ_POOL_SHORT_MASK;
+ 	/* Initialize ports */
+ 	for_each_available_child_of_node(dn, port_node) {
+ 		err = mvpp2_port_probe(pdev, port_node, priv);
+ 		if (err < 0)
+-			goto err_gop_clk;
++			goto err_mg_clk;
+ 	}
  
-+	val = mvpp2_read(port->priv, MVPP2_RXQ_CONFIG_REG(prxq));
-+	val &= ~mask;
-+	val |= (short_pool << MVPP2_RXQ_POOL_SHORT_OFFS) & mask;
- 	mvpp2_write(port->priv, MVPP2_RXQ_CONFIG_REG(prxq), val);
- }
+ 	platform_set_drvdata(pdev, priv);
+ 	return 0;
+ 
++err_mg_clk:
++	if (priv->hw_version == MVPP22)
++		clk_disable_unprepare(priv->mg_clk);
+ err_gop_clk:
+ 	clk_disable_unprepare(priv->gop_clk);
+ err_pp_clk:
+@@ -6969,6 +6985,7 @@ static int mvpp2_remove(struct platform_device *pdev)
+ 				  aggr_txq->descs_phys);
+ 	}
+ 
++	clk_disable_unprepare(priv->mg_clk);
+ 	clk_disable_unprepare(priv->pp_clk);
+ 	clk_disable_unprepare(priv->gop_clk);
  
 -- 
 2.7.4
