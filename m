@@ -1,102 +1,64 @@
-From: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>
-Subject: [PATCH v2] net: stmmac: bug fix to synchronize stmmac_open and stmmac_dvr_probe
-Date: Tue, 27 Dec 2016 22:42:36 +0800
-Message-ID: <1482849756-21817-1-git-send-email-hock.leong.kweh@intel.com>
-Cc: Alexandre TORGUE <alexandre.torgue@gmail.com>,
-        Joachim Eastwood <manabian@gmail.com>,
-        Niklas Cassel <niklas.cassel@axis.com>,
-        Johan Hovold <johan@kernel.org>, pavel@ucw.cz,
-        Ong Boon Leong <boon.leong.ong@intel.com>,
-        "Kweh, Hock Leong" <hock.leong.kweh@intel.com>,
-        weifeng.voon@intel.com, lars.persson@axis.com,
-        netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>,
-        Joao Pinto <Joao.Pinto@synopsys.com>,
-        Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
-        seraphin.bonnaffe@st.com, f.fainelli@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Robert Grasso <robert.grasso@modulonet.fr>
+Subject: Re: driver r8169 suddenly failed
+Date: Tue, 27 Dec 2016 08:33:29 +0100
+Message-ID: <0d1c7e06-5c4a-b60c-6f7b-afe73532a57a@modulonet.fr>
+References: <428aa40c-e313-99ae-d3ae-97b6a5ef40e4@modulonet.fr>
+ <20161227001248.GA20172@electric-eye.fr.zoreil.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Realtek linux nic maintainers <nic_swsd@realtek.com>,
+        netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.tech.numericable.fr ([82.216.111.37]:50792 "EHLO
+        smtp1.tech.numericable.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751038AbcL0Hdg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Dec 2016 02:33:36 -0500
+In-Reply-To: <20161227001248.GA20172@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>
+Thank you for your quick answer ! Allow me some days for this test :
 
-If kernel module stmmac driver being loaded after OS booted, there is a
-race condition between stmmac_open() and stmmac_mdio_register(), which is
-invoked inside stmmac_dvr_probe(), and the error is showed in dmesg log as
-PHY not found and stmmac_open() failed:
-[  473.919358] stmmaceth 0000:01:00.0 (unnamed net_device) (uninitialized):
-                stmmac_dvr_probe: warning: cannot get CSR clock
-[  473.919382] stmmaceth 0000:01:00.0: no reset control found
-[  473.919412] stmmac - user ID: 0x10, Synopsys ID: 0x42
-[  473.919429] stmmaceth 0000:01:00.0: DMA HW capability register supported
-[  473.919436] stmmaceth 0000:01:00.0: RX Checksum Offload Engine supported
-[  473.919443] stmmaceth 0000:01:00.0: TX Checksum insertion supported
-[  473.919451] stmmaceth 0000:01:00.0 (unnamed net_device) (uninitialized):
-                Enable RX Mitigation via HW Watchdog Timer
-[  473.921395] libphy: PHY stmmac-1:00 not found
-[  473.921417] stmmaceth 0000:01:00.0 eth0: Could not attach to PHY
-[  473.921427] stmmaceth 0000:01:00.0 eth0: stmmac_open: Cannot attach to
-                PHY (error: -19)
-[  473.959710] libphy: stmmac: probed
-[  473.959724] stmmaceth 0000:01:00.0 eth0: PHY ID 01410cc2 at 0 IRQ POLL
-                (stmmac-1:00) active
-[  473.959728] stmmaceth 0000:01:00.0 eth0: PHY ID 01410cc2 at 1 IRQ POLL
-                (stmmac-1:01)
-[  473.959731] stmmaceth 0000:01:00.0 eth0: PHY ID 01410cc2 at 2 IRQ POLL
-                (stmmac-1:02)
-[  473.959734] stmmaceth 0000:01:00.0 eth0: PHY ID 01410cc2 at 3 IRQ POLL
-                (stmmac-1:03)
+1 - I am at work these days
+2 - it has been a while since I have dealt with custom kernels, I am a 
+bit rusty, it will be good to review this topic
 
-The resolution moved the register_netdev() function call to the end of
-stmmac_dvr_probe() after stmmac_mdio_register().
-
-Suggested-by: Florian Fainelli <f.fainelli@gmail.com>
-Signed-off-by: Kweh, Hock Leong <hock.leong.kweh@intel.com>
----
-changelog v2:
-* Re-implemented the fix base on David & Florian suggestion and tested.
-
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |   18 +++++++++---------
- 1 file changed, 9 insertions(+), 9 deletions(-)
-
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index bb40382..263ac53 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -3339,13 +3339,6 @@ int stmmac_dvr_probe(struct device *device,
- 
- 	spin_lock_init(&priv->lock);
- 
--	ret = register_netdev(ndev);
--	if (ret) {
--		netdev_err(priv->dev, "%s: ERROR %i registering the device\n",
--			   __func__, ret);
--		goto error_netdev_register;
--	}
--
- 	/* If a specific clk_csr value is passed from the platform
- 	 * this means that the CSR Clock Range selection cannot be
- 	 * changed at run-time and it is fixed. Viceversa the driver'll try to
-@@ -3372,11 +3365,18 @@ int stmmac_dvr_probe(struct device *device,
- 		}
- 	}
- 
-+	ret = register_netdev(ndev);
-+	if (ret) {
-+		netdev_err(priv->dev, "%s: ERROR %i registering the device\n",
-+			   __func__, ret);
-+		goto error_netdev_register;
-+	}
-+
- 	return 0;
- 
--error_mdio_register:
--	unregister_netdev(ndev);
- error_netdev_register:
-+	stmmac_mdio_unregister(ndev);
-+error_mdio_register:
- 	netif_napi_del(&priv->napi);
- error_hw_init:
- 	clk_disable_unprepare(priv->pclk);
 -- 
-1.7.9.5
+Robert Grasso
+@home
+---
+UNIX was not designed to stop you from doing stupid things, because
+   that would also stop you from doing clever things. -- Doug Gwyn
+
+On 27/12/2016 01:12, Francois Romieu wrote:
+> Robert Grasso <robert.grasso@modulonet.fr> :
+> [dhcp snafu]
+>> First of all, can you confirm that I am doing right in posting to you
+>> (addresses found in README.Debian) ?
+> It isn't completely wrong.
+>
+>> If I do, can you help ? I am not very proficient with Ethernet, and I am not
+>> able to figure out what my provider changed : their hotline is
+>> underqualified, they are just able to tell that "the signal on the line is
+>> ok".
+> You're spoiled. It is more than decent for a company whose core business
+> used to sell cable TV.
+>
+>> But if you want me to run various tests, try new versions, I would be
+>> glad to do so : I would appreciate if I could salvage this Shuttle.
+> Please try a recent stable vanilla kernel and send a complete dmesg
+> from boot. I need to identify the specific 816x chipset.
+>
+> Then record some traffic:
+>
+> # touch gonzo.pcap && tshark -w gonzo.pcap -i eth1
+>
+> It should only exhibit small outgoing packets but, well, one never knows.
+>
+> Check the leds activity to be sure that the network interfaces have not
+> been renumbered.
+>
+> Use ethtool to check that tso is disabled. If it isn't, disable it.
+>
