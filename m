@@ -1,56 +1,54 @@
-From: Mathias Krause <minipli@googlemail.com>
-Subject: [PATCH net] rtnl: stats - add missing netlink message size checks
-Date: Wed, 28 Dec 2016 17:52:15 +0100
-Message-ID: <1482943935-18052-1-git-send-email-minipli@googlemail.com>
-Cc: netdev@vger.kernel.org, Mathias Krause <minipli@googlemail.com>,
-        Roopa Prabhu <roopa@cumulusnetworks.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Dave Jones <davej@codemonkey.org.uk>
+Subject: ipv6: remove unnecessary inet6_sk check
+Date: Wed, 28 Dec 2016 11:53:18 -0500
+Message-ID: <20161228165318.5afrtlbulsgymc4c@codemonkey.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wj0-f194.google.com ([209.85.210.194]:36312 "EHLO
-        mail-wj0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750966AbcL1QxD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Dec 2016 11:53:03 -0500
-Received: by mail-wj0-f194.google.com with SMTP id j10so55090804wjb.3
-        for <netdev@vger.kernel.org>; Wed, 28 Dec 2016 08:52:57 -0800 (PST)
+Received: from arcturus.aphlor.org ([188.246.204.175]:43096 "EHLO
+        arcturus.aphlor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750966AbcL1QxV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Dec 2016 11:53:21 -0500
+Received: from c-65-96-119-39.hsd1.ma.comcast.net ([65.96.119.39] helo=wopr.kernelslacker.org)
+        by arcturus.aphlor.org with esmtpsa (TLS1.2:ECDHE_RSA_AES_256_GCM_SHA384:256)
+        (Exim 4.88)
+        (envelope-from <davej@codemonkey.org.uk>)
+        id 1cMHTc-0001Jn-5X
+        for netdev@vger.kernel.org; Wed, 28 Dec 2016 16:53:20 +0000
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We miss to check if the netlink message is actually big enough to contain
-a struct if_stats_msg.
+np is already assigned in the variable declaration of ping_v6_sendmsg.
+At this point, we have already dereferenced np several times, so the
+NULL check is also redundant.
 
-Add a check to prevent userland from sending us short messages that would
-make us access memory beyond the end of the message.
+Suggested-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Dave Jones <davej@codemonkey.org.uk>
 
-Fixes: 10c9ead9f3c6 ("rtnetlink: add new RTM_GETSTATS message to dump...")
-Signed-off-by: Mathias Krause <minipli@googlemail.com>
-Cc: Roopa Prabhu <roopa@cumulusnetworks.com>
----
- net/core/rtnetlink.c |    6 ++++++
- 1 file changed, 6 insertions(+)
-
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 18b5aae99bec..75e3ea7bda08 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -3898,6 +3898,9 @@ static int rtnl_stats_get(struct sk_buff *skb, struct nlmsghdr *nlh)
- 	u32 filter_mask;
- 	int err;
+diff --git a/net/ipv6/ping.c b/net/ipv6/ping.c
+index e1f8b34d7a2e..9b522fa90e6d 100644
+--- a/net/ipv6/ping.c
++++ b/net/ipv6/ping.c
+@@ -126,12 +126,6 @@ static int ping_v6_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
+ 		return PTR_ERR(dst);
+ 	rt = (struct rt6_info *) dst;
  
-+	if (nlmsg_len(nlh) < sizeof(*ifsm))
-+		return -EINVAL;
-+
- 	ifsm = nlmsg_data(nlh);
- 	if (ifsm->ifindex > 0)
- 		dev = __dev_get_by_index(net, ifsm->ifindex);
-@@ -3947,6 +3950,9 @@ static int rtnl_stats_dump(struct sk_buff *skb, struct netlink_callback *cb)
+-	np = inet6_sk(sk);
+-	if (!np) {
+-		err = -EBADF;
+-		goto dst_err_out;
+-	}
+-
+ 	if (!fl6.flowi6_oif && ipv6_addr_is_multicast(&fl6.daddr))
+ 		fl6.flowi6_oif = np->mcast_oif;
+ 	else if (!fl6.flowi6_oif)
+@@ -166,7 +160,6 @@ static int ping_v6_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
+ 	}
+ 	release_sock(sk);
  
- 	cb->seq = net->dev_base_seq;
+-dst_err_out:
+ 	dst_release(dst);
  
-+	if (nlmsg_len(cb->nlh) < sizeof(*ifsm))
-+		return -EINVAL;
-+
- 	ifsm = nlmsg_data(cb->nlh);
- 	filter_mask = ifsm->filter_mask;
- 	if (!filter_mask)
--- 
-1.7.10.4
+ 	if (err)
