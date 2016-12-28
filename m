@@ -1,8 +1,11 @@
 From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCHv2 net-next 11/11] net: mvpp2: enable building on 64-bit platforms
-Date: Wed, 28 Dec 2016 17:46:07 +0100
-Message-ID: <1482943567-12483-12-git-send-email-thomas.petazzoni@free-electrons.com>
+Subject: [PATCHv2 net-next 09/11] net: mvpp2: simplify MVPP2_PRS_RI_* definitions
+Date: Wed, 28 Dec 2016 17:46:05 +0100
+Message-ID: <1482943567-12483-10-git-send-email-thomas.petazzoni@free-electrons.com>
 References: <1482943567-12483-1-git-send-email-thomas.petazzoni@free-electrons.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
 Cc: Jason Cooper <jason@lakedaemon.net>, Andrew Lunn <andrew@lunn.ch>,
         Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
         Gregory Clement <gregory.clement@free-electrons.com>,
@@ -15,142 +18,89 @@ Cc: Jason Cooper <jason@lakedaemon.net>, Andrew Lunn <andrew@lunn.ch>,
         Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:47573 "EHLO
+Received: from mail.free-electrons.com ([62.4.15.54]:47568 "EHLO
         mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751853AbcL1Qq0 (ORCPT
+        with ESMTP id S1751826AbcL1Qq0 (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 28 Dec 2016 11:46:26 -0500
 In-Reply-To: <1482943567-12483-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The mvpp2 is going to be extended to support the Marvell Armada 7K/8K
-platform, which is ARM64. As a preparation to this work, this commit
-enables building the mvpp2 driver on ARM64, by:
+Some of the MVPP2_PRS_RI_* definitions use the ~(value) syntax, which
+doesn't compile nicely on 64-bit. Moreover, those definitions are in
+fact unneeded, since they are always used in combination with a bit
+mask that ensures only the appropriate bits are modified.
 
- - Adjusting the Kconfig dependency
+Therefore, such definitions should just be set to 0x0. For example:
 
- - Fixing the types used in the driver so that they are 32/64-bits
-   compliant. We use dma_addr_t for DMA addresses, and unsigned long
-   for virtual addresses.
+ #define MVPP2_PRS_RI_L2_CAST_MASK              0x600
+ #define MVPP2_PRS_RI_L2_UCAST                  ~(BIT(9) | BIT(10))
+ #define MVPP2_PRS_RI_L2_MCAST                  BIT(9)
+ #define MVPP2_PRS_RI_L2_BCAST                  BIT(10)
 
-It is worth mentioning that after this commit, the driver is for now
-still only used on 32-bits platforms.
+becomes
+
+ #define MVPP2_PRS_RI_L2_CAST_MASK              0x600
+ #define MVPP2_PRS_RI_L2_UCAST                  0x0
+ #define MVPP2_PRS_RI_L2_MCAST                  BIT(9)
+ #define MVPP2_PRS_RI_L2_BCAST                  BIT(10)
+
+Because the values (MVPP2_PRS_RI_L2_UCAST, MVPP2_PRS_RI_L2_MCAST and
+MVPP2_PRS_RI_L2_BCAST) are always applied with
+MVPP2_PRS_RI_L2_CAST_MASK, and therefore there is no need for
+MVPP2_PRS_RI_L2_UCAST to be defined as ~(BIT(9) | BIT(10)).
+
+It fixes the following warnings when building the driver on a 64-bit
+platform (which is not possible as of this commit, but will be enabled
+in a follow-up commit):
+
+drivers/net/ethernet/marvell/mvpp2.c: In function ‘mvpp2_prs_mac_promisc_set’:
+drivers/net/ethernet/marvell/mvpp2.c:524:33: warning: large integer implicitly truncated to unsigned type [-Woverflow]
+ #define MVPP2_PRS_RI_L2_UCAST   ~(BIT(9) | BIT(10))
+                                 ^
+drivers/net/ethernet/marvell/mvpp2.c:1459:33: note: in expansion of macro ‘MVPP2_PRS_RI_L2_UCAST’
+   mvpp2_prs_sram_ri_update(&pe, MVPP2_PRS_RI_L2_UCAST,
 
 Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 ---
- drivers/net/ethernet/marvell/Kconfig |  3 +--
- drivers/net/ethernet/marvell/mvpp2.c | 29 +++++++++++++++++------------
- 2 files changed, 18 insertions(+), 14 deletions(-)
+ drivers/net/ethernet/marvell/mvpp2.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/marvell/Kconfig b/drivers/net/ethernet/marvell/Kconfig
-index f4b7cf1..d2555e8b 100644
---- a/drivers/net/ethernet/marvell/Kconfig
-+++ b/drivers/net/ethernet/marvell/Kconfig
-@@ -83,9 +83,8 @@ config MVNETA_BM
- 
- config MVPP2
- 	tristate "Marvell Armada 375 network interface support"
--	depends on MACH_ARMADA_375 || COMPILE_TEST
-+	depends on ARCH_MVEBU || COMPILE_TEST
- 	depends on HAS_DMA
--	depends on !64BIT
- 	select MVMDIO
- 	---help---
- 	  This driver supports the network interface units in the
 diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 1e08e8f..2268808 100644
+index 36c73dc..58cf9af 100644
 --- a/drivers/net/ethernet/marvell/mvpp2.c
 +++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -3388,7 +3388,8 @@ static int mvpp2_bm_pool_create(struct platform_device *pdev,
- 	if (!bm_pool->virt_addr)
- 		return -ENOMEM;
- 
--	if (!IS_ALIGNED((u32)bm_pool->virt_addr, MVPP2_BM_POOL_PTR_ALIGN)) {
-+	if (!IS_ALIGNED((unsigned long)bm_pool->virt_addr,
-+			MVPP2_BM_POOL_PTR_ALIGN)) {
- 		dma_free_coherent(&pdev->dev, size_bytes, bm_pool->virt_addr,
- 				  bm_pool->phys_addr);
- 		dev_err(&pdev->dev, "BM pool %d is not %d bytes aligned\n",
-@@ -3433,7 +3434,7 @@ static void mvpp2_bm_bufs_free(struct device *dev, struct mvpp2 *priv,
- 
- 	for (i = 0; i < bm_pool->buf_num; i++) {
- 		dma_addr_t buf_phys_addr;
--		u32 vaddr;
-+		unsigned long vaddr;
- 
- 		/* Get buffer virtual address (indirect access) */
- 		buf_phys_addr = mvpp2_read(priv,
-@@ -3596,14 +3597,15 @@ static inline u32 mvpp2_bm_cookie_pool_set(u32 cookie, int pool)
- }
- 
- /* Get pool number from a BM cookie */
--static inline int mvpp2_bm_cookie_pool_get(u32 cookie)
-+static inline int mvpp2_bm_cookie_pool_get(unsigned long cookie)
- {
- 	return (cookie >> MVPP2_BM_COOKIE_POOL_OFFS) & 0xFF;
- }
- 
- /* Release buffer to BM */
- static inline void mvpp2_bm_pool_put(struct mvpp2_port *port, int pool,
--				     u32 buf_phys_addr, u32 buf_virt_addr)
-+				     dma_addr_t buf_phys_addr,
-+				     unsigned long buf_virt_addr)
- {
- 	mvpp2_write(port->priv, MVPP2_BM_VIRT_RLS_REG, buf_virt_addr);
- 	mvpp2_write(port->priv, MVPP2_BM_PHY_RLS_REG(pool), buf_phys_addr);
-@@ -3611,7 +3613,8 @@ static inline void mvpp2_bm_pool_put(struct mvpp2_port *port, int pool,
- 
- /* Release multicast buffer */
- static void mvpp2_bm_pool_mc_put(struct mvpp2_port *port, int pool,
--				 u32 buf_phys_addr, u32 buf_virt_addr,
-+				 dma_addr_t buf_phys_addr,
-+				 unsigned long buf_virt_addr,
- 				 int mc_id)
- {
- 	u32 val = 0;
-@@ -3626,7 +3629,8 @@ static void mvpp2_bm_pool_mc_put(struct mvpp2_port *port, int pool,
- 
- /* Refill BM pool */
- static void mvpp2_pool_refill(struct mvpp2_port *port, u32 bm,
--			      u32 phys_addr, u32 cookie)
-+			      dma_addr_t phys_addr,
-+			      unsigned long cookie)
- {
- 	int pool = mvpp2_bm_cookie_pool_get(bm);
- 
-@@ -3657,7 +3661,8 @@ static int mvpp2_bm_bufs_add(struct mvpp2_port *port,
- 		if (!buf)
- 			break;
- 
--		mvpp2_bm_pool_put(port, bm_pool->id, (u32)phys_addr, (u32)buf);
-+		mvpp2_bm_pool_put(port, bm_pool->id, phys_addr,
-+				  (unsigned long)buf);
- 	}
- 
- 	/* Update BM driver with number of buffers added to pool */
-@@ -5015,7 +5020,7 @@ static int mvpp2_rx_refill(struct mvpp2_port *port,
- 	if (!buf)
- 		return -ENOMEM;
- 
--	mvpp2_pool_refill(port, bm, (u32)phys_addr, (u32)buf);
-+	mvpp2_pool_refill(port, bm, phys_addr, (unsigned long)buf);
- 
- 	return 0;
- }
-@@ -5057,10 +5062,10 @@ static void mvpp2_buff_hdr_rx(struct mvpp2_port *port,
- 	struct mvpp2_buff_hdr *buff_hdr;
- 	struct sk_buff *skb;
- 	u32 rx_status = rx_desc->status;
--	u32 buff_phys_addr;
--	u32 buff_virt_addr;
--	u32 buff_phys_addr_next;
--	u32 buff_virt_addr_next;
-+	dma_addr_t buff_phys_addr;
-+	unsigned long buff_virt_addr;
-+	dma_addr_t buff_phys_addr_next;
-+	unsigned long buff_virt_addr_next;
- 	int mc_id;
- 	int pool_id;
- 
+@@ -511,19 +511,19 @@ enum mvpp2_tag_type {
+ #define MVPP2_PRS_RI_MAC_ME_MASK		0x1
+ #define MVPP2_PRS_RI_DSA_MASK			0x2
+ #define MVPP2_PRS_RI_VLAN_MASK			0xc
+-#define MVPP2_PRS_RI_VLAN_NONE			~(BIT(2) | BIT(3))
++#define MVPP2_PRS_RI_VLAN_NONE			0x0
+ #define MVPP2_PRS_RI_VLAN_SINGLE		BIT(2)
+ #define MVPP2_PRS_RI_VLAN_DOUBLE		BIT(3)
+ #define MVPP2_PRS_RI_VLAN_TRIPLE		(BIT(2) | BIT(3))
+ #define MVPP2_PRS_RI_CPU_CODE_MASK		0x70
+ #define MVPP2_PRS_RI_CPU_CODE_RX_SPEC		BIT(4)
+ #define MVPP2_PRS_RI_L2_CAST_MASK		0x600
+-#define MVPP2_PRS_RI_L2_UCAST			~(BIT(9) | BIT(10))
++#define MVPP2_PRS_RI_L2_UCAST			0x0
+ #define MVPP2_PRS_RI_L2_MCAST			BIT(9)
+ #define MVPP2_PRS_RI_L2_BCAST			BIT(10)
+ #define MVPP2_PRS_RI_PPPOE_MASK			0x800
+ #define MVPP2_PRS_RI_L3_PROTO_MASK		0x7000
+-#define MVPP2_PRS_RI_L3_UN			~(BIT(12) | BIT(13) | BIT(14))
++#define MVPP2_PRS_RI_L3_UN			0x0
+ #define MVPP2_PRS_RI_L3_IP4			BIT(12)
+ #define MVPP2_PRS_RI_L3_IP4_OPT			BIT(13)
+ #define MVPP2_PRS_RI_L3_IP4_OTHER		(BIT(12) | BIT(13))
+@@ -531,7 +531,7 @@ enum mvpp2_tag_type {
+ #define MVPP2_PRS_RI_L3_IP6_EXT			(BIT(12) | BIT(14))
+ #define MVPP2_PRS_RI_L3_ARP			(BIT(13) | BIT(14))
+ #define MVPP2_PRS_RI_L3_ADDR_MASK		0x18000
+-#define MVPP2_PRS_RI_L3_UCAST			~(BIT(15) | BIT(16))
++#define MVPP2_PRS_RI_L3_UCAST			0x0
+ #define MVPP2_PRS_RI_L3_MCAST			BIT(15)
+ #define MVPP2_PRS_RI_L3_BCAST			(BIT(15) | BIT(16))
+ #define MVPP2_PRS_RI_IP_FRAG_MASK		0x20000
 -- 
 2.7.4
