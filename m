@@ -1,53 +1,41 @@
-From: Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCHv2 net-next 00/16] net: mvpp2: add basic support for
- PPv2.2
-Date: Wed, 28 Dec 2016 22:08:43 +0100
-Message-ID: <20161228220843.6257cb52@free-electrons.com>
-References: <1482943592-12556-1-git-send-email-thomas.petazzoni@free-electrons.com>
-        <20161228.120644.1166014191192724301.davem@davemloft.net>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH] Bluetooth: fix spelling mistake: "advetising" -> "advertising"
+Date: Wed, 28 Dec 2016 21:17:54 +0000
+Message-ID: <20161228211754.6714-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org,
-        pawel.moll-5wv7dgnIgG8@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
-        jason-NLaQJdtUoK4Be96aLqz0jA@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org,
-        sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-        gregory.clement-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, nadavh-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org,
-        hannah-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org, yehuday-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org,
-        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, stefanc-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org,
-        mw-nYOzD4b6Jr9Wk0Htik3J/w@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20161228.120644.1166014191192724301.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org
+To: Marcel Holtmann <marcel@holtmann.org>,
+        Gustavo Padovan <gustavo@padovan.org>,
+        Johan Hedberg <johan.hedberg@gmail.com>,
+        "David S . Miller" <davem@davemloft.net>,
+        linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+From: Colin Ian King <colin.king@canonical.com>
 
-On Wed, 28 Dec 2016 12:06:44 -0500 (EST), David Miller wrote:
+trivial fix to spelling mistake in BT_ERR_RATELIMITED error message
 
-> > This series depends on the series named "net: mvpp2: misc improvements
-> > and preparation patches".  
-> 
-> Please in the future only submit one patch series at a time.
-> 
-> If I've told you that a large patch series is hard to review and that
-> therefore one should keep each submitted series small and to a
-> reasonable size, that is completely undermined when you submit
-> multiple series to work around that request.
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ net/bluetooth/hci_event.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Sure. I'll wait for the first patch series to be merged (potentially
-after several iterations) before resending the second patch series.
-
-Thanks for the feedback!
-
-Thomas
+diff --git a/net/bluetooth/hci_event.c b/net/bluetooth/hci_event.c
+index e17aacb..0b4dba0 100644
+--- a/net/bluetooth/hci_event.c
++++ b/net/bluetooth/hci_event.c
+@@ -4749,7 +4749,7 @@ static void process_adv_report(struct hci_dev *hdev, u8 type, bdaddr_t *bdaddr,
+ 	case LE_ADV_SCAN_RSP:
+ 		break;
+ 	default:
+-		BT_ERR_RATELIMITED("Unknown advetising packet type: 0x%02x",
++		BT_ERR_RATELIMITED("Unknown advertising packet type: 0x%02x",
+ 				   type);
+ 		return;
+ 	}
 -- 
-Thomas Petazzoni, CTO, Free Electrons
-Embedded Linux and Kernel engineering
-http://free-electrons.com
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+2.10.2
