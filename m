@@ -1,77 +1,27 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v2] net: stmmac: bug fix to synchronize stmmac_open and
- stmmac_dvr_probe
-Date: Wed, 28 Dec 2016 10:42:40 -0800
-Message-ID: <e88996a8-e010-c07f-7dee-d220a6dfc706@gmail.com>
-References: <1482849756-21817-1-git-send-email-hock.leong.kweh@intel.com>
- <20161227.113405.362102687632949941.davem@davemloft.net>
- <F54AEECA5E2B9541821D670476DAE19C5A916CA0@PGSMSX102.gar.corp.intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH RESEND net-next 0/5] SCTP cleanups
+Date: Wed, 28 Dec 2016 14:08:16 -0500 (EST)
+Message-ID: <20161228.140816.776145539187655804.davem@davemloft.net>
+References: <cover.1482924092.git.marcelo.leitner@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Joao.Pinto@synopsys.com" <Joao.Pinto@synopsys.com>,
-        "peppe.cavallaro@st.com" <peppe.cavallaro@st.com>,
-        "seraphin.bonnaffe@st.com" <seraphin.bonnaffe@st.com>,
-        "alexandre.torgue@gmail.com" <alexandre.torgue@gmail.com>,
-        "manabian@gmail.com" <manabian@gmail.com>,
-        "niklas.cassel@axis.com" <niklas.cassel@axis.com>,
-        "johan@kernel.org" <johan@kernel.org>,
-        "pavel@ucw.cz" <pavel@ucw.cz>,
-        "Ong, Boon Leong" <boon.leong.ong@intel.com>,
-        "Voon, Weifeng" <weifeng.voon@intel.com>,
-        "lars.persson@axis.com" <lars.persson@axis.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>,
-        David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <F54AEECA5E2B9541821D670476DAE19C5A916CA0@PGSMSX102.gar.corp.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+        vyasevich@gmail.com, nhorman@tuxdriver.com
+To: marcelo.leitner@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:43872 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751814AbcL1TIh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Dec 2016 14:08:37 -0500
+In-Reply-To: <cover.1482924092.git.marcelo.leitner@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/27/2016 09:49 PM, Kweh, Hock Leong wrote:
->> -----Original Message-----
->> From: David Miller [mailto:davem@davemloft.net]
->> Sent: Wednesday, December 28, 2016 12:34 AM
->> To: Kweh, Hock Leong <hock.leong.kweh@intel.com>
->> Cc: Joao.Pinto@synopsys.com; peppe.cavallaro@st.com;
->> seraphin.bonnaffe@st.com; f.fainelli@gmail.com;
->> alexandre.torgue@gmail.com; manabian@gmail.com; niklas.cassel@axis.com;
->> johan@kernel.org; pavel@ucw.cz; Ong, Boon Leong
->> <boon.leong.ong@intel.com>; Voon, Weifeng <weifeng.voon@intel.com>;
->> lars.persson@axis.com; netdev@vger.kernel.org; linux-kernel@vger.kernel.org
->> Subject: Re: [PATCH v2] net: stmmac: bug fix to synchronize stmmac_open and
->> stmmac_dvr_probe
->>
->> From: "Kweh, Hock Leong"	<hock.leong.kweh@intel.com>
->> Date: Tue, 27 Dec 2016 22:42:36 +0800
->>
->>> From: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>
->>
->> You are not the author of this change, do not take credit for it.
->>
->> You have copied Florian's patch character by character, therefore
->> he is the author.
->>
->> You also didn't CC: the netdev mailing list properly.
-> 
-> Hi David & Florian,
-> 
-> Just to clarify that I do not copy exactly from Florian.
-> I have changed it to have proper handling on mdio unregister
-> while netdev_register() failed as showed below:
-> 
-> 	return 0;
->  
-> -error_mdio_register:
-> -	unregister_netdev(ndev);
->  error_netdev_register:
-> +	stmmac_mdio_unregister(ndev);
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Date: Wed, 28 Dec 2016 09:26:30 -0200
 
-Although this is required, we can't be doing it in all circumstances, we
-need to mimic what stmmac_drv_remove() does.
+> Some cleanups/simplifications I've been collecting.
+> Resending now with net-next open.
 
-Let me submit an incremental fix which takes care of mdio bus
-unregistration.
--- 
-Florian
+Series applied, thanks.
