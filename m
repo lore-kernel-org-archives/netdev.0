@@ -1,39 +1,66 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] net: wan: slic_ds26522: fix spelling mistake: "configurated" -> "configured"
-Date: Wed, 28 Dec 2016 16:44:23 +0000
-Message-ID: <20161228164423.19070-1-colin.king@canonical.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org
-To: "David S . Miller" <davem@davemloft.net>,
-        Javier Martinez Canillas <javier@osg.samsung.com>,
-        Zhao Qiang <qiang.zhao@nxp.com>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: [PATCHv2 net-next 03/11] net: mvpp2: release reference to txq_cpu[] entry after unmapping
+Date: Wed, 28 Dec 2016 17:45:59 +0100
+Message-ID: <1482943567-12483-4-git-send-email-thomas.petazzoni@free-electrons.com>
+References: <1482943567-12483-1-git-send-email-thomas.petazzoni@free-electrons.com>
+Cc: Jason Cooper <jason@lakedaemon.net>, Andrew Lunn <andrew@lunn.ch>,
+        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+        Gregory Clement <gregory.clement@free-electrons.com>,
+        Nadav Haklai <nadavh@marvell.com>,
+        Hanna Hawa <hannah@marvell.com>,
+        Yehuda Yitschak <yehuday@marvell.com>,
+        linux-arm-kernel@lists.infradead.org,
+        Stefan Chulski <stefanc@marvell.com>,
+        Marcin Wojtas <mw@semihalf.com>,
+        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.free-electrons.com ([62.4.15.54]:47517 "EHLO
+        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751739AbcL1QqY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Dec 2016 11:46:24 -0500
+In-Reply-To: <1482943567-12483-1-git-send-email-thomas.petazzoni@free-electrons.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king@canonical.com>
+The mvpp2_txq_bufs_free() function is called upon TX completion to DMA
+unmap TX buffers, and free the corresponding SKBs. It gets the
+references to the SKB to free and the DMA buffer to unmap from a per-CPU
+txq_pcpu data structure.
 
-trivial fix to spelling mistake in pr_info message
+However, the code currently increments the pointer to the next entry
+before doing the DMA unmap and freeing the SKB. It does not cause any
+visible problem because for a given SKB the TX completion is guaranteed
+to take place on the CPU where the TX was started. However, it is much
+more logical to increment the pointer to the next entry once the current
+entry has been completely unmapped/released.
 
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
+Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 ---
- drivers/net/wan/slic_ds26522.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/marvell/mvpp2.c | 9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/wan/slic_ds26522.c b/drivers/net/wan/slic_ds26522.c
-index b776a0a..9d9b4e0 100644
---- a/drivers/net/wan/slic_ds26522.c
-+++ b/drivers/net/wan/slic_ds26522.c
-@@ -218,7 +218,7 @@ static int slic_ds26522_probe(struct spi_device *spi)
+diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
+index a1ba89f..d098c7b 100644
+--- a/drivers/net/ethernet/marvell/mvpp2.c
++++ b/drivers/net/ethernet/marvell/mvpp2.c
+@@ -4420,13 +4420,12 @@ static void mvpp2_txq_bufs_free(struct mvpp2_port *port,
+ 		struct mvpp2_txq_pcpu_buf *tx_buf =
+ 			txq_pcpu->buffs + txq_pcpu->txq_get_index;
  
- 	ret = slic_ds26522_init_configure(spi);
- 	if (ret == 0)
--		pr_info("DS26522 cs%d configurated\n", spi->chip_select);
-+		pr_info("DS26522 cs%d configured\n", spi->chip_select);
- 
- 	return ret;
+-		mvpp2_txq_inc_get(txq_pcpu);
+-
+ 		dma_unmap_single(port->dev->dev.parent, tx_buf->phys,
+ 				 tx_buf->size, DMA_TO_DEVICE);
+-		if (!tx_buf->skb)
+-			continue;
+-		dev_kfree_skb_any(tx_buf->skb);
++		if (tx_buf->skb)
++			dev_kfree_skb_any(tx_buf->skb);
++
++		mvpp2_txq_inc_get(txq_pcpu);
+ 	}
  }
+ 
 -- 
-2.10.2
+2.7.4
