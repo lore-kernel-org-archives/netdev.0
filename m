@@ -1,7 +1,7 @@
 From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCHv2 net-next 10/16] net: mvpp2: handle register mapping and access for PPv2.2
-Date: Wed, 28 Dec 2016 17:46:26 +0100
-Message-ID: <1482943592-12556-11-git-send-email-thomas.petazzoni@free-electrons.com>
+Subject: [PATCHv2 net-next 11/16] net: mvpp2: handle misc PPv2.1/PPv2.2 differences
+Date: Wed, 28 Dec 2016 17:46:27 +0100
+Message-ID: <1482943592-12556-12-git-send-email-thomas.petazzoni@free-electrons.com>
 References: <1482943592-12556-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Cc: Jason Cooper <jason@lakedaemon.net>, Andrew Lunn <andrew@lunn.ch>,
         Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
@@ -20,179 +20,107 @@ To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
         Mark Rutland <mark.rutland@arm.com>,
         Kumar Gala <galak@codeaurora.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:47965 "EHLO
+Received: from mail.free-electrons.com ([62.4.15.54]:47966 "EHLO
         mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751936AbcL1QsD (ORCPT
+        with ESMTP id S1751939AbcL1QsD (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 28 Dec 2016 11:48:03 -0500
 In-Reply-To: <1482943592-12556-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This commit adjusts the mvpp2 driver register mapping and access logic
-to support PPv2.2, to handle a number of differences.
-
-Due to how the registers are laid out in memory, the Device Tree binding
-for the "reg" property is different:
-
- - On PPv2.1, we had a first area for the common registers, and then one
-   area per port.
-
- - On PPv2.2, we have a first area for the common registers, and a
-   second area for all the per-ports registers.
-
-In addition, on PPv2.2, the area for the common registers is split into
-so-called "address spaces" of 64 KB each. They allow to access the same
-registers, but from different CPUs. Hence the introduction of cpu_base[]
-in 'struct mvpp2', and the modification of the mvpp2_write() and
-mvpp2_read() register accessors. For PPv2.1, the compatibility is
-preserved by using an "address space" size of 0.
+This commit handles a few miscellaneous differences between PPv2.1 and
+PPv2.2 in different areas, where code done for PPv2.1 doesn't apply for
+PPv2.2 or needs to be adjusted (getting the MAC address, disabling PHY
+polling, etc.).
 
 Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 ---
- drivers/net/ethernet/marvell/mvpp2.c | 78 +++++++++++++++++++++++++++++-------
- 1 file changed, 64 insertions(+), 14 deletions(-)
+ drivers/net/ethernet/marvell/mvpp2.c | 31 ++++++++++++++++++++++---------
+ 1 file changed, 22 insertions(+), 9 deletions(-)
 
 diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 22f7970..389cc62 100644
+index 389cc62..eb55576 100644
 --- a/drivers/net/ethernet/marvell/mvpp2.c
 +++ b/drivers/net/ethernet/marvell/mvpp2.c
 @@ -304,6 +304,9 @@
  #define      MVPP2_GMAC_TX_FIFO_MIN_TH_MASK(v)	(((v) << 6) & \
  					MVPP2_GMAC_TX_FIFO_MIN_TH_ALL_MASK)
  
-+#define MVPP22_PORT_BASE			0x30e00
-+#define MVPP22_PORT_OFFSET			0x1000
++#define MVPP22_SMI_MISC_CFG_REG			0x2a204
++#define      MVPP22_SMI_POLLING_EN		BIT(10)
 +
- #define MVPP2_CAUSE_TXQ_SENT_DESC_ALL_MASK	0xff
+ #define MVPP22_PORT_BASE			0x30e00
+ #define MVPP22_PORT_OFFSET			0x1000
  
- /* Descriptor ring Macros */
-@@ -631,6 +634,11 @@ enum mvpp2_prs_l3_cast {
-  */
- #define MVPP2_BM_SHORT_PKT_SIZE		MVPP2_RX_MAX_PKT_SIZE(512)
- 
-+#define MVPP21_ADDR_SPACE_SZ		0
-+#define MVPP22_ADDR_SPACE_SZ		SZ_64K
-+
-+#define MVPP2_MAX_CPUS			4
-+
- enum mvpp2_bm_type {
- 	MVPP2_BM_FREE,
- 	MVPP2_BM_SWF_LONG,
-@@ -644,6 +652,13 @@ struct mvpp2 {
- 	/* Shared registers' base addresses */
- 	void __iomem *base;
- 	void __iomem *lms_base;
-+	void __iomem *iface_base;
-+
-+	/* On PPv2.2, each CPU can access the base register through a
-+	 * separate address space, each 64 KB apart from each
-+	 * other.
-+	 */
-+	void __iomem *cpu_base[MVPP2_MAX_CPUS];
- 
- 	/* Common clocks */
- 	struct clk *pp_clk;
-@@ -1021,12 +1036,21 @@ static int txq_number = MVPP2_MAX_TXQ;
- 
- static void mvpp2_write(struct mvpp2 *priv, u32 offset, u32 data)
- {
--	writel(data, priv->base + offset);
-+	int cpu = get_cpu();
-+
-+	writel(data, priv->cpu_base[cpu] + offset);
-+	put_cpu();
+@@ -5823,7 +5826,7 @@ static int mvpp2_check_ringparam_valid(struct net_device *dev,
+ 	return 0;
  }
  
- static u32 mvpp2_read(struct mvpp2 *priv, u32 offset)
+-static void mvpp2_get_mac_address(struct mvpp2_port *port, unsigned char *addr)
++static void mvpp21_get_mac_address(struct mvpp2_port *port, unsigned char *addr)
  {
--	return readl(priv->base + offset);
-+	int cpu = get_cpu();
-+	u32 val;
-+
-+	val = readl(priv->cpu_base[cpu] + offset);
-+	put_cpu();
-+
-+	return val;
- }
+ 	u32 mac_addr_l, mac_addr_m, mac_addr_h;
  
- static dma_addr_t mvpp2_txdesc_phys_addr_get(struct mvpp2_port *port,
-@@ -6386,7 +6410,6 @@ static int mvpp2_port_probe(struct platform_device *pdev,
- 	u32 id;
- 	int features;
- 	int phy_mode;
--	int priv_common_regs_num = 2;
- 	int err, i, cpu;
+@@ -6272,7 +6275,7 @@ static const struct ethtool_ops mvpp2_eth_tool_ops = {
  
- 	dev = alloc_etherdev_mqs(sizeof(struct mvpp2_port), txq_number,
-@@ -6436,12 +6459,24 @@ static int mvpp2_port_probe(struct platform_device *pdev,
- 	port->phy_node = phy_node;
- 	port->phy_interface = phy_mode;
+ /* Driver initialization */
  
--	res = platform_get_resource(pdev, IORESOURCE_MEM,
--				    priv_common_regs_num + id);
--	port->base = devm_ioremap_resource(&pdev->dev, res);
--	if (IS_ERR(port->base)) {
--		err = PTR_ERR(port->base);
--		goto err_free_irq;
-+	if (priv->hw_version == MVPP21) {
-+		res = platform_get_resource(pdev, IORESOURCE_MEM, 2 + id);
-+		port->base = devm_ioremap_resource(&pdev->dev, res);
-+		if (IS_ERR(port->base)) {
-+			err = PTR_ERR(port->base);
-+			goto err_free_irq;
-+		}
-+	} else {
-+		u32 gop_id;
-+
-+		if (of_property_read_u32(port_node, "gop-port-id", &gop_id)) {
-+			err = -EINVAL;
-+			dev_err(&pdev->dev, "missing gop-port-id value\n");
-+			goto err_free_irq;
-+		}
-+
-+		port->base = priv->iface_base + MVPP22_PORT_BASE +
-+			gop_id * MVPP22_PORT_OFFSET;
+-static void mvpp2_port_power_up(struct mvpp2_port *port)
++static void mvpp21_port_power_up(struct mvpp2_port *port)
+ {
+ 	mvpp2_port_mii_set(port);
+ 	mvpp2_port_periodic_xon_disable(port);
+@@ -6491,7 +6494,8 @@ static int mvpp2_port_probe(struct platform_device *pdev,
+ 		mac_from = "device tree";
+ 		ether_addr_copy(dev->dev_addr, dt_mac_addr);
+ 	} else {
+-		mvpp2_get_mac_address(port, hw_mac_addr);
++		if (priv->hw_version == MVPP21)
++			mvpp21_get_mac_address(port, hw_mac_addr);
+ 		if (is_valid_ether_addr(hw_mac_addr)) {
+ 			mac_from = "hardware";
+ 			ether_addr_copy(dev->dev_addr, hw_mac_addr);
+@@ -6511,7 +6515,9 @@ static int mvpp2_port_probe(struct platform_device *pdev,
+ 		dev_err(&pdev->dev, "failed to init port %d\n", id);
+ 		goto err_free_stats;
  	}
+-	mvpp2_port_power_up(port);
++
++	if (priv->hw_version == MVPP21)
++		mvpp21_port_power_up(port);
  
- 	/* Alloc per-cpu stats */
-@@ -6674,7 +6709,7 @@ static int mvpp2_probe(struct platform_device *pdev)
- 	struct device_node *port_node;
- 	struct mvpp2 *priv;
- 	struct resource *res;
--	int port_count, first_rxq;
-+	int port_count, first_rxq, cpu;
- 	int err;
+ 	port->pcpu = alloc_percpu(struct mvpp2_port_pcpu);
+ 	if (!port->pcpu) {
+@@ -6654,9 +6660,15 @@ static int mvpp2_init(struct platform_device *pdev, struct mvpp2 *priv)
+ 		mvpp2_conf_mbus_windows(dram_target_info, priv);
  
- 	priv = devm_kzalloc(&pdev->dev, sizeof(struct mvpp2), GFP_KERNEL);
-@@ -6689,10 +6724,25 @@ static int mvpp2_probe(struct platform_device *pdev)
- 	if (IS_ERR(priv->base))
- 		return PTR_ERR(priv->base);
- 
--	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
--	priv->lms_base = devm_ioremap_resource(&pdev->dev, res);
--	if (IS_ERR(priv->lms_base))
--		return PTR_ERR(priv->lms_base);
+ 	/* Disable HW PHY polling */
+-	val = readl(priv->lms_base + MVPP2_PHY_AN_CFG0_REG);
+-	val |= MVPP2_PHY_AN_STOP_SMI0_MASK;
+-	writel(val, priv->lms_base + MVPP2_PHY_AN_CFG0_REG);
 +	if (priv->hw_version == MVPP21) {
-+		res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-+		priv->lms_base = devm_ioremap_resource(&pdev->dev, res);
-+		if (IS_ERR(priv->lms_base))
-+			return PTR_ERR(priv->lms_base);
++		val = readl(priv->lms_base + MVPP2_PHY_AN_CFG0_REG);
++		val |= MVPP2_PHY_AN_STOP_SMI0_MASK;
++		writel(val, priv->lms_base + MVPP2_PHY_AN_CFG0_REG);
 +	} else {
-+		res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-+		priv->iface_base = devm_ioremap_resource(&pdev->dev, res);
-+		if (IS_ERR(priv->iface_base))
-+			return PTR_ERR(priv->iface_base);
-+	}
-+
-+	for_each_present_cpu(cpu) {
-+		u32 addr_space_sz;
-+
-+		addr_space_sz = (priv->hw_version == MVPP21 ?
-+				 MVPP21_ADDR_SPACE_SZ : MVPP22_ADDR_SPACE_SZ);
-+		priv->cpu_base[cpu] = priv->base + cpu * addr_space_sz;
++		val = readl(priv->iface_base + MVPP22_SMI_MISC_CFG_REG);
++		val &= ~MVPP22_SMI_POLLING_EN;
++		writel(val, priv->iface_base + MVPP22_SMI_MISC_CFG_REG);
 +	}
  
- 	priv->pp_clk = devm_clk_get(&pdev->dev, "pp_clk");
- 	if (IS_ERR(priv->pp_clk))
+ 	/* Allocate and initialize aggregated TXQs */
+ 	priv->aggr_txqs = devm_kcalloc(&pdev->dev, num_present_cpus(),
+@@ -6681,8 +6693,9 @@ static int mvpp2_init(struct platform_device *pdev, struct mvpp2 *priv)
+ 	for (i = 0; i < MVPP2_MAX_PORTS; i++)
+ 		mvpp2_write(priv, MVPP2_ISR_RXQ_GROUP_REG(i), rxq_number);
+ 
+-	writel(MVPP2_EXT_GLOBAL_CTRL_DEFAULT,
+-	       priv->lms_base + MVPP2_MNG_EXTENDED_GLOBAL_CTRL_REG);
++	if (priv->hw_version == MVPP21)
++		writel(MVPP2_EXT_GLOBAL_CTRL_DEFAULT,
++		       priv->lms_base + MVPP2_MNG_EXTENDED_GLOBAL_CTRL_REG);
+ 
+ 	/* Allow cache snoop when transmiting packets */
+ 	mvpp2_write(priv, MVPP2_TX_SNOOP_REG, 0x1);
 -- 
 2.7.4
