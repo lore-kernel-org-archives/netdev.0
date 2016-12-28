@@ -1,149 +1,168 @@
-From: Matthias Tafelmeier <matthias.tafelmeier@gmx.net>
-Subject: [PATCH v3] net: dev_weight: TX/RX orthogonality
-Date: Wed, 28 Dec 2016 10:42:14 +0100
-Message-ID: <1482918134-10483-1-git-send-email-matthias.tafelmeier@gmx.net>
-References: <20161227164758.GA10870@localhost.localdomain>
-Cc: hagen@jauu.net, fw@strlen.de, edumazet@google.com,
-        daniel@iogearbox.net
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.15.18]:59092 "EHLO mout.gmx.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751181AbcL1Jmm (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 28 Dec 2016 04:42:42 -0500
-In-Reply-To: <20161227164758.GA10870@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+Subject: [PATCH 2/2] ipv4: Namespaceify tcp_max_syn_backlog knob
+Date: Wed, 28 Dec 2016 17:52:33 +0800
+Message-ID: <1482918753-1235-2-git-send-email-yanhaishuang@cmss.chinamobile.com>
+References: <1482918753-1235-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+To: "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Nikolay Borisov <kernel@kyup.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1482918753-1235-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Oftenly, introducing side effects on packet processing on the other half
-of the stack by adjusting one of TX/RX via sysctl is not desirable.
-There are cases of demand for asymmetric, orthogonal configurability.
+Different namespace application might require different maximal
+number of remembered connection requests.
 
-This holds true especially for nodes where RPS for RFS usage on top is
-configured and therefore use the 'old dev_weight'. This is quite a
-common base configuration setup nowadays, even with NICs of superior processing
-support (e.g. aRFS).
-
-A good example use case are nodes acting as noSQL data bases with a
-large number of tiny requests and rather fewer but large packets as responses.
-It's affordable to have large budget and rx dev_weights for the
-requests. But as a side effect having this large a number on TX
-processed in one run can overwhelm drivers.
-
-This patch therefore introduces an independent configurability via sysctl to
-userland.
+Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
 ---
- Documentation/sysctl/net.txt | 21 +++++++++++++++++++++
- include/linux/netdevice.h    |  2 ++
- net/core/dev.c               |  4 +++-
- net/core/sysctl_net_core.c   | 14 ++++++++++++++
- net/sched/sch_generic.c      |  2 +-
- 5 files changed, 41 insertions(+), 2 deletions(-)
+ include/net/netns/ipv4.h   |  1 +
+ include/net/request_sock.h |  4 +---
+ net/core/request_sock.c    |  2 --
+ net/ipv4/sysctl_net_ipv4.c | 14 +++++++-------
+ net/ipv4/tcp.c             |  2 --
+ net/ipv4/tcp_input.c       |  4 ++--
+ net/ipv4/tcp_ipv4.c        |  7 +++++--
+ 7 files changed, 16 insertions(+), 18 deletions(-)
 
-diff --git a/Documentation/sysctl/net.txt b/Documentation/sysctl/net.txt
-index f0480f7..53cef32 100644
---- a/Documentation/sysctl/net.txt
-+++ b/Documentation/sysctl/net.txt
-@@ -61,6 +61,27 @@ The maximum number of packets that kernel can handle on a NAPI interrupt,
- it's a Per-CPU variable.
- Default: 64
+diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
+index 99becaf..96b15a2 100644
+--- a/include/net/netns/ipv4.h
++++ b/include/net/netns/ipv4.h
+@@ -122,6 +122,7 @@ struct netns_ipv4 {
+ 	unsigned int sysctl_tcp_notsent_lowat;
+ 	int sysctl_tcp_tw_reuse;
+ 	struct inet_timewait_death_row tcp_death_row; 
++	int sysctl_max_syn_backlog;
  
-+dev_weight_rx_bias
-+--------------
-+
-+RPS (e.g. RFS, aRFS) processing is competing with the registered NAPI poll function 
-+of the driver for the per softirq cycle netdev_budget. This parameter influences 
-+the proportion of the configured netdev_budget that is spent on RPS based packet 
-+processing during RX softirq cycles. It is further meant for making current 
-+dev_weight adaptable for asymmetric CPU needs on RX/TX side of the network stack.
-+(see dev_weight_tx_bias) It is effective on a per CPU basis. Determination is based 
-+on dev_weight and is calculated multiplicative (dev_weight * dev_weight_rx_bias).
-+Default: 1
-+
-+dev_weight_tx_bias
-+--------------
-+
-+Scales the maximum number of packets that can be processed during a TX softirq cycle.
-+Effective on a per CPU basis. Allows scaling of current dev_weight for asymmetric 
-+net stack processing needs. Be careful to avoid making TX softirq processing a CPU hog.
-+Calculation is based on dev_weight (dev_weight * dev_weight_tx_bias).
-+Default: 1
-+
- default_qdisc
- --------------
+ 	int sysctl_igmp_max_memberships;
+ 	int sysctl_igmp_max_msf;
+diff --git a/include/net/request_sock.h b/include/net/request_sock.h
+index 6ebe13e..a12a5d2 100644
+--- a/include/net/request_sock.h
++++ b/include/net/request_sock.h
+@@ -1,7 +1,7 @@
+ /*
+  * NET		Generic infrastructure for Network protocols.
+  *
+- *		Definitions for request_sock 
++ *		Definitions for request_sock
+  *
+  * Authors:	Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+  *
+@@ -123,8 +123,6 @@ static inline void reqsk_put(struct request_sock *req)
+ 		reqsk_free(req);
+ }
  
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 994f742..46b4b66 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -3795,6 +3795,8 @@ void netdev_stats_to_stats64(struct rtnl_link_stats64 *stats64,
- extern int		netdev_max_backlog;
- extern int		netdev_tstamp_prequeue;
- extern int		weight_p;
-+extern int		dev_weight_rx_bias;
-+extern int		dev_weight_tx_bias;
+-extern int sysctl_max_syn_backlog;
+-
+ /*
+  * For a TCP Fast Open listener -
+  *	lock - protects the access to all the reqsk, which is co-owned by
+diff --git a/net/core/request_sock.c b/net/core/request_sock.c
+index 5d26056..9b8727c 100644
+--- a/net/core/request_sock.c
++++ b/net/core/request_sock.c
+@@ -34,8 +34,6 @@
+  * and it will increase in proportion to the memory of machine.
+  * Note : Dont forget somaxconn that may limit backlog too.
+  */
+-int sysctl_max_syn_backlog = 256;
+-EXPORT_SYMBOL(sysctl_max_syn_backlog);
  
- bool netdev_has_upper_dev(struct net_device *dev, struct net_device *upper_dev);
- struct net_device *netdev_upper_get_next_dev_rcu(struct net_device *dev,
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 8db5a0b..7ce1736 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3428,6 +3428,8 @@ EXPORT_SYMBOL(netdev_max_backlog);
- int netdev_tstamp_prequeue __read_mostly = 1;
- int netdev_budget __read_mostly = 300;
- int weight_p __read_mostly = 64;            /* old backlog weight */
-+int dev_weight_rx_bias __read_mostly = 1;            /* bias for backlog weight */
-+int dev_weight_tx_bias __read_mostly = 1;            /* bias for output_queue quota */
- 
- /* Called with irq disabled */
- static inline void ____napi_schedule(struct softnet_data *sd,
-@@ -4833,7 +4835,7 @@ static int process_backlog(struct napi_struct *napi, int quota)
- 		net_rps_action_and_irq_enable(sd);
- 	}
- 
--	napi->weight = weight_p;
-+	napi->weight = weight_p * dev_weight_rx_bias;
- 	while (again) {
- 		struct sk_buff *skb;
- 
-diff --git a/net/core/sysctl_net_core.c b/net/core/sysctl_net_core.c
-index 2a46e40..2197388 100644
---- a/net/core/sysctl_net_core.c
-+++ b/net/core/sysctl_net_core.c
-@@ -276,6 +276,20 @@ static struct ctl_table net_core_table[] = {
+ void reqsk_queue_alloc(struct request_sock_queue *queue)
+ {
+diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+index 66f8f1b..134d8e1 100644
+--- a/net/ipv4/sysctl_net_ipv4.c
++++ b/net/ipv4/sysctl_net_ipv4.c
+@@ -324,13 +324,6 @@ static struct ctl_table ipv4_table[] = {
  		.proc_handler	= proc_dointvec
  	},
  	{
-+		.procname	= "dev_weight_rx_bias",
-+		.data		= &dev_weight_rx_bias,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec
-+	},
-+	{
-+		.procname	= "dev_weight_tx_bias",
-+		.data		= &dev_weight_tx_bias,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec
-+	},
-+	{
- 		.procname	= "netdev_max_backlog",
- 		.data		= &netdev_max_backlog,
+-		.procname	= "tcp_max_syn_backlog",
+-		.data		= &sysctl_max_syn_backlog,
+-		.maxlen		= sizeof(int),
+-		.mode		= 0644,
+-		.proc_handler	= proc_dointvec
+-	},
+-	{
+ 		.procname	= "inet_peer_threshold",
+ 		.data		= &inet_peer_threshold,
  		.maxlen		= sizeof(int),
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index 6eb9c8e..19374ef 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -247,7 +247,7 @@ static inline int qdisc_restart(struct Qdisc *q, int *packets)
+@@ -960,6 +953,13 @@ static struct ctl_table ipv4_net_table[] = {
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec
+ 	},
++	{
++		.procname	= "tcp_max_syn_backlog",
++		.data		= &init_net.ipv4.sysctl_max_syn_backlog,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec
++	},
+ #ifdef CONFIG_IP_ROUTE_MULTIPATH
+ 	{
+ 		.procname	= "fib_multipath_use_neigh",
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 91938c9..f0637a9 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -3378,9 +3378,7 @@ void __init tcp_init(void)
  
- void __qdisc_run(struct Qdisc *q)
+ 
+ 	cnt = tcp_hashinfo.ehash_mask + 1;
+-
+ 	sysctl_tcp_max_orphans = cnt / 2;
+-	sysctl_max_syn_backlog = max(128, cnt / 256);
+ 
+ 	tcp_init_mem();
+ 	/* Set per-socket limits to no more than 1/128 the pressure threshold */
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index c614802..ec6d843 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -6377,8 +6377,8 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
+ 		}
+ 		/* Kill the following clause, if you dislike this way. */
+ 		else if (!net->ipv4.sysctl_tcp_syncookies &&
+-			 (sysctl_max_syn_backlog - inet_csk_reqsk_queue_len(sk) <
+-			  (sysctl_max_syn_backlog >> 2)) &&
++			 (net->ipv4.sysctl_max_syn_backlog - inet_csk_reqsk_queue_len(sk) <
++			  (net->ipv4.sysctl_max_syn_backlog >> 2)) &&
+ 			 !tcp_peer_is_proven(req, dst, false,
+ 					     tmp_opt.saw_tstamp)) {
+ 			/* Without syncookies last quarter of
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 56b5f49..7e4be4f 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -2419,7 +2419,7 @@ static void __net_exit tcp_sk_exit(struct net *net)
+ 
+ static int __net_init tcp_sk_init(struct net *net)
  {
--	int quota = weight_p;
-+	int quota = weight_p * dev_weight_tx_bias;
- 	int packets;
+-	int res, cpu;
++	int res, cpu, cnt;
  
- 	while (qdisc_restart(q, &packets)) {
+ 	net->ipv4.tcp_sk = alloc_percpu(struct sock *);
+ 	if (!net->ipv4.tcp_sk)
+@@ -2458,10 +2458,13 @@ static int __net_init tcp_sk_init(struct net *net)
+ 	net->ipv4.sysctl_tcp_notsent_lowat = UINT_MAX;
+ 	net->ipv4.sysctl_tcp_tw_reuse = 0;
+ 
++	cnt = tcp_hashinfo.ehash_mask + 1;
+ 	net->ipv4.tcp_death_row.sysctl_tw_recycle = 0;
+-	net->ipv4.tcp_death_row.sysctl_max_tw_buckets = (tcp_hashinfo.ehash_mask + 1) / 2;
++	net->ipv4.tcp_death_row.sysctl_max_tw_buckets = (cnt + 1) / 2;
+ 	net->ipv4.tcp_death_row.hashinfo = &tcp_hashinfo;
+ 
++	net->ipv4.sysctl_max_syn_backlog = max(128, cnt / 256);
++
+ 	return 0;
+ fail:
+ 	tcp_sk_exit(net);
 -- 
-2.7.4
+2.5.0
