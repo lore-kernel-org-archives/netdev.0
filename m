@@ -1,30 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] sctp: add pr_debug for tracking asocs not
- found
-Date: Wed, 28 Dec 2016 14:26:43 -0500 (EST)
-Message-ID: <20161228.142643.301838823990974094.davem@davemloft.net>
-References: <2e7482596bbf75efb56e313e33179f9e1c0e6996.1482924698.git.marcelo.leitner@gmail.com>
+Subject: Re: [PATCH net] net/sched: cls_flower: Fix missing addr_type in
+ classify
+Date: Wed, 28 Dec 2016 14:29:19 -0500 (EST)
+Message-ID: <20161228.142919.404725916273031482.davem@davemloft.net>
+References: <1482929687-20159-1-git-send-email-paulb@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-        vyasevich@gmail.com, nhorman@tuxdriver.com, lucien.xin@gmail.com
-To: marcelo.leitner@gmail.com
+Cc: netdev@vger.kernel.org, jiri@mellanox.com, hadarh@mellanox.com,
+        ogerlitz@mellanox.com, roid@mellanox.com
+To: paulb@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44128 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:44168 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751911AbcL1T1v (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Dec 2016 14:27:51 -0500
-In-Reply-To: <2e7482596bbf75efb56e313e33179f9e1c0e6996.1482924698.git.marcelo.leitner@gmail.com>
+        with ESMTP id S1751928AbcL1T3V (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Dec 2016 14:29:21 -0500
+In-Reply-To: <1482929687-20159-1-git-send-email-paulb@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Date: Wed, 28 Dec 2016 09:51:56 -0200
+From: Paul Blakey <paulb@mellanox.com>
+Date: Wed, 28 Dec 2016 14:54:47 +0200
 
-> This pr_debug may help identify why the system is generating some
-> Aborts. It's not something a sysadmin would be expected to use.
+> Since we now use a non zero mask on addr_type, we are matching on its
+> value (IPV4/IPV6). So before this fix, matching on enc_src_ip/enc_dst_ip
+> failed in SW/classify path since its value was zero.
+> This patch sets the proper value of addr_type for encapsulated packets.
 > 
-> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+> Fixes: 970bfcd09791 ('net/sched: cls_flower: Use mask for addr_type')
+> Signed-off-by: Paul Blakey <paulb@mellanox.com>
+> Reviewed-by: Hadar Hen Zion <hadarh@mellanox.com>
 
-Applied.
+Applied and queued up for -stable, thanks.
