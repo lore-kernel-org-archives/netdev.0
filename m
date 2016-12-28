@@ -1,54 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: avoid put_cmsg() possible copy longer data than
- input
-Date: Wed, 28 Dec 2016 14:48:40 -0500 (EST)
-Message-ID: <20161228.144840.961255110231598938.davem@davemloft.net>
-References: <1482935663-3428-1-git-send-email-cugyly@163.com>
+Subject: Re: [PATCH] net: atm: Fix warnings in net/atm/lec.c when
+ !CONFIG_PROC_FS
+Date: Wed, 28 Dec 2016 15:11:52 -0500 (EST)
+Message-ID: <20161228.151152.473602339886558260.davem@davemloft.net>
+References: <1482941006-28052-1-git-send-email-augustocaringi@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Linyu.Yuan@alcatel-sbell.com.cn
-To: cugyly@163.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44548 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751777AbcL1Tsp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Dec 2016 14:48:45 -0500
-In-Reply-To: <1482935663-3428-1-git-send-email-cugyly@163.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, felipe.balbi@linux.intel.com,
+        keescook@chromium.org, mugunthanvnm@ti.com, jarod@redhat.com,
+        javier@osg.samsung.com, fw@strlen.de, linux-kernel@vger.kernel.org
+To: augustocaringi@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1482941006-28052-1-git-send-email-augustocaringi@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: yuan linyu <cugyly@163.com>
-Date: Wed, 28 Dec 2016 22:34:23 +0800
-
-> From: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
-> 
-> if CMSG_ALIGN(sizeof(struct cmsghdr)) > sizeof(struct cmsghdr),
-> original (cmlen - sizeof(struct cmsghdr)) may greater than
-> input len.
-
-You are doing a lot of unrelated cleanups in this change.  This
-makes it hard to review.
-
-The important parts of the fix seems to be the added checks to make
-sure that we don't access the CMSG_DATA() unless we have more than
-CMSG_ALIGN(sizeof(struct cmsghdr)) bytes.
-
-I think you can fix that with a few one-line tests rather than
-restructuring all of the CMSG_*() macros.
-
-Also:
-
-> @@ -223,7 +223,7 @@ int put_cmsg(struct msghdr * msg, int level, int type, int len, void *data)
->  	if (MSG_CMSG_COMPAT & msg->msg_flags)
->  		return put_cmsg_compat(msg, level, type, len, data);
->  
-> -	if (cm==NULL || msg->msg_controllen < sizeof(*cm)) {
-> +	if (cm == NULL || msg->msg_controllen < sizeof(*cm)) {
->  		msg->msg_flags |= MSG_CTRUNC;
->  		return 0; /* XXX: return error? check spec. */
->  	}
-
-This is a coding style fix unrelated to the purpose of this change.
-
-Thanks.
+RnJvbTogQXVndXN0byBNZWNraW5nIENhcmluZ2kgPGF1Z3VzdG9jYXJpbmdpQGdtYWlsLmNvbT4N
+CkRhdGU6IFdlZCwgMjggRGVjIDIwMTYgMTY6MDI6MDUgKzAwMDANCg0KPiBUaGlzIHBhdGNoIGZp
+eGVzIHRoZSBmb2xsb3dpbmcgd2FybmluZ3Mgd2hlbiBDT05GSUdfUFJPQ19GUyBpcyBub3Qgc2V0
+Og0KPiANCj4gbGludXgvbmV0L2F0bS9sZWMuYzogSW4gZnVuY3Rpb24goWxhbmVfbW9kdWxlX2Ns
+ZWFudXCiOg0KPiBsaW51eC9uZXQvYXRtL2xlYy5jOjEwNjI6Mjc6IGVycm9yOiChYXRtX3Byb2Nf
+cm9vdKIgdW5kZWNsYXJlZCAoZmlyc3QNCj4gdXNlIGluIHRoaXMgZnVuY3Rpb24pDQo+IHJlbW92
+ZV9wcm9jX2VudHJ5KCJsZWMiLCBhdG1fcHJvY19yb290KTsNCj4gICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgXg0KPiBsaW51eC9uZXQvYXRtL2xlYy5jOjEwNjI6Mjc6IG5vdGU6IGVhY2ggdW5k
+ZWNsYXJlZCBpZGVudGlmaWVyIGlzDQo+IHJlcG9ydGVkIG9ubHkgb25jZSBmb3IgZWFjaCBmdW5j
+dGlvbiBpdCBhcHBlYXJzIGluDQo+IA0KPiBTaWduZWQtb2ZmLWJ5OiBBdWd1c3RvIE1lY2tpbmcg
+Q2FyaW5naSA8YXVndXN0b2NhcmluZ2lAZ21haWwuY29tPg0KDQpBcHBsaWVkLCB0aGFuayB5b3Uu
+DQo=
