@@ -1,81 +1,45 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net 01/12] net/mlx5: Disable RoCE on the e-switch management port under switchdev mode
-Date: Wed, 28 Dec 2016 14:58:31 +0200
-Message-ID: <1482929922-32626-2-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net 07/12] net/mlx5: Prevent setting multicast macs for VFs
+Date: Wed, 28 Dec 2016 14:58:37 +0200
+Message-ID: <1482929922-32626-8-git-send-email-saeedm@mellanox.com>
 References: <1482929922-32626-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
+Cc: netdev@vger.kernel.org, Mohamad Haj Yahia <mohamad@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:32803 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:32813 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751524AbcL1M66 (ORCPT
+        with ESMTP id S1751611AbcL1M66 (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 28 Dec 2016 07:58:58 -0500
 In-Reply-To: <1482929922-32626-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
+From: Mohamad Haj Yahia <mohamad@mellanox.com>
 
-Under the switchdev/offloads mode, packets that don't match any
-e-switch steering rule are sent towards the e-switch management
-port. We use a NIC HW steering rule set per vport (uplink and VFs)
-to make them be received into the host OS through the respective
-vport representor netdevice.
+Need to check that VF mac address entered by the admin user is either
+zero or unicast mac.
+Multicast mac addresses are prohibited.
 
-Currnetly such missed RoCE packets will not get to this NIC steering
-rule, and hence VF RoCE will not work over the slow path of the offloads
-mode. This is b/c these packets will be matched by a steering rule added
-by the firmware that serves RoCE traffic set on the PF NIC vport which
-is also the e-switch management port under SRIOV.
-
-Disabling RoCE on the e-switch management vport when we are in the offloads
-mode, will signal to the firmware to remove their RoCE rule, and then the
-missed RoCE packets will be matched by the representor NIC steering rule
-as any other missed packets.
-
-To achieve that, we disable RoCE on the PF vport. We do that by removing
-(hot-unplugging) the IB device instance associated with the PF. This is
-also required by our current model where the PF serves as the uplink
-representor and hence only SW switching (TC, bridge, OVS) applications
-and slow path vport mlx5e net-device should be running over that vport.
-
-Fixes: c930a3ad7453 ('net/mlx5e: Add devlink based SRIOV mode changes')
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-Reviewed-by: Hadar Hen Zion <hadarh@mellanox.com>
+Fixes: 77256579c6b4 ('net/mlx5: E-Switch, Introduce Vport administration functions')
+Signed-off-by: Mohamad Haj Yahia <mohamad@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c | 11 +++++++++++
- 1 file changed, 11 insertions(+)
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
-index 466e161..03293ed 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
-@@ -695,6 +695,12 @@ int esw_offloads_init(struct mlx5_eswitch *esw, int nvports)
- 		if (err)
- 			goto err_reps;
- 	}
-+
-+	/* disable PF RoCE so missed packets don't go through RoCE steering */
-+	mlx5_dev_list_lock();
-+	mlx5_remove_dev_by_protocol(esw->dev, MLX5_INTERFACE_PROTOCOL_IB);
-+	mlx5_dev_list_unlock();
-+
- 	return 0;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
+index d6807c3..f14d9c9 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
+@@ -1860,7 +1860,7 @@ int mlx5_eswitch_set_vport_mac(struct mlx5_eswitch *esw,
  
- err_reps:
-@@ -718,6 +724,11 @@ static int esw_offloads_stop(struct mlx5_eswitch *esw)
- {
- 	int err, err1, num_vfs = esw->dev->priv.sriov.num_vfs;
+ 	if (!ESW_ALLOWED(esw))
+ 		return -EPERM;
+-	if (!LEGAL_VPORT(esw, vport))
++	if (!LEGAL_VPORT(esw, vport) || is_multicast_ether_addr(mac))
+ 		return -EINVAL;
  
-+	/* enable back PF RoCE */
-+	mlx5_dev_list_lock();
-+	mlx5_add_dev_by_protocol(esw->dev, MLX5_INTERFACE_PROTOCOL_IB);
-+	mlx5_dev_list_unlock();
-+
- 	mlx5_eswitch_disable_sriov(esw);
- 	err = mlx5_eswitch_enable_sriov(esw, num_vfs, SRIOV_LEGACY);
- 	if (err) {
+ 	mutex_lock(&esw->state_lock);
 -- 
 2.7.4
