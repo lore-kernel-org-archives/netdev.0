@@ -1,119 +1,143 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCHv2 net-next 05/11] net: mvpp2: drop useless fields in mvpp2_bm_pool and related code
-Date: Wed, 28 Dec 2016 17:46:01 +0100
-Message-ID: <1482943567-12483-6-git-send-email-thomas.petazzoni@free-electrons.com>
-References: <1482943567-12483-1-git-send-email-thomas.petazzoni@free-electrons.com>
-Cc: Jason Cooper <jason@lakedaemon.net>, Andrew Lunn <andrew@lunn.ch>,
-        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-        Gregory Clement <gregory.clement@free-electrons.com>,
-        Nadav Haklai <nadavh@marvell.com>,
-        Hanna Hawa <hannah@marvell.com>,
-        Yehuda Yitschak <yehuday@marvell.com>,
-        linux-arm-kernel@lists.infradead.org,
-        Stefan Chulski <stefanc@marvell.com>,
-        Marcin Wojtas <mw@semihalf.com>,
-        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:47555 "EHLO
-        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751837AbcL1QqZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Dec 2016 11:46:25 -0500
-In-Reply-To: <1482943567-12483-1-git-send-email-thomas.petazzoni@free-electrons.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Subject: [PATCHv2 net-next 01/16] dt-bindings: net: update Marvell PPv2 binding for PPv2.2 support
+Date: Wed, 28 Dec 2016 17:46:17 +0100
+Message-ID: <1482943592-12556-2-git-send-email-thomas.petazzoni@free-electrons.com>
+References: <1482943592-12556-1-git-send-email-thomas.petazzoni@free-electrons.com>
+Cc: Jason Cooper <jason-NLaQJdtUoK4Be96aLqz0jA@public.gmane.org>, Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
+        Sebastian Hesselbarth <sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Gregory Clement <gregory.clement-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+        Nadav Haklai <nadavh-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
+        Hanna Hawa <hannah-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
+        Yehuda Yitschak <yehuday-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
+        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        Stefan Chulski <stefanc-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
+        Marcin Wojtas <mw-nYOzD4b6Jr9Wk0Htik3J/w@public.gmane.org>,
+        Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
+        Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1482943592-12556-1-git-send-email-thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This commit drops dead code from the mvpp2 driver. The 'in_use' and
-'in_use_thresh' fields of 'struct mvpp2_bm_pool' are
-incremented/decremented/initialized in various places. But they are only
-used in one place:
+The Marvell PPv2 Device Tree binding was so far only used to describe
+the PPv2.1 network controller, used in the Marvell Armada 375.
 
-       if (is_recycle &&
-           (atomic_read(&bm_pool->in_use) < bm_pool->in_use_thresh))
-               return 0;
+A new version of this IP block, PPv2.2 is used in the Marvell Armada
+7K/8K processor. This commit extends the existing binding so that it can
+also be used to describe PPv2.2 hardware.
 
-However 'is_recycle', passed as argument to mvpp2_rx_refill() is always
-false. So in fact, this code is never reached, and the 'is_recycle'
-argument is useless. So let's drop this code.
-
-Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Signed-off-by: Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
 ---
- drivers/net/ethernet/marvell/mvpp2.c | 18 +++---------------
- 1 file changed, 3 insertions(+), 15 deletions(-)
+ .../devicetree/bindings/net/marvell-pp2.txt        | 66 ++++++++++++++++++----
+ 1 file changed, 55 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 6720cdac..bfa9f77 100644
---- a/drivers/net/ethernet/marvell/mvpp2.c
-+++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -930,10 +930,6 @@ struct mvpp2_bm_pool {
+diff --git a/Documentation/devicetree/bindings/net/marvell-pp2.txt b/Documentation/devicetree/bindings/net/marvell-pp2.txt
+index aa4f423..76071f3 100644
+--- a/Documentation/devicetree/bindings/net/marvell-pp2.txt
++++ b/Documentation/devicetree/bindings/net/marvell-pp2.txt
+@@ -1,17 +1,28 @@
+-* Marvell Armada 375 Ethernet Controller (PPv2)
++* Marvell Armada 375 Ethernet Controller (PPv2.1)
++  Marvell Armada 7K/8K Ethernet Controller (PPv2.2)
  
- 	/* Ports using BM pool */
- 	u32 port_map;
--
--	/* Occupied buffers indicator */
--	atomic_t in_use;
--	int in_use_thresh;
- };
+ Required properties:
  
- struct mvpp2_buff_hdr {
-@@ -3399,7 +3395,6 @@ static int mvpp2_bm_pool_create(struct platform_device *pdev,
- 	bm_pool->size = size;
- 	bm_pool->pkt_size = 0;
- 	bm_pool->buf_num = 0;
--	atomic_set(&bm_pool->in_use, 0);
- 
- 	return 0;
- }
-@@ -3656,7 +3651,6 @@ static int mvpp2_bm_bufs_add(struct mvpp2_port *port,
- 
- 	/* Update BM driver with number of buffers added to pool */
- 	bm_pool->buf_num += i;
--	bm_pool->in_use_thresh = bm_pool->buf_num / 4;
- 
- 	netdev_dbg(port->dev,
- 		   "%s pool %d: pkt_size=%4d, buf_size=%4d, total_size=%4d\n",
-@@ -4997,23 +4991,18 @@ static void mvpp2_rx_csum(struct mvpp2_port *port, u32 status,
- 
- /* Reuse skb if possible, or allocate a new skb and add it to BM pool */
- static int mvpp2_rx_refill(struct mvpp2_port *port,
--			   struct mvpp2_bm_pool *bm_pool,
--			   u32 bm, int is_recycle)
-+			   struct mvpp2_bm_pool *bm_pool, u32 bm)
- {
- 	struct sk_buff *skb;
- 	dma_addr_t phys_addr;
- 
--	if (is_recycle &&
--	    (atomic_read(&bm_pool->in_use) < bm_pool->in_use_thresh))
--		return 0;
--
- 	/* No recycle or too many buffers are in use, so allocate a new skb */
- 	skb = mvpp2_skb_alloc(port, bm_pool, &phys_addr, GFP_ATOMIC);
- 	if (!skb)
- 		return -ENOMEM;
- 
- 	mvpp2_pool_refill(port, bm, (u32)phys_addr, (u32)skb);
--	atomic_dec(&bm_pool->in_use);
+-- compatible: should be "marvell,armada-375-pp2"
++- compatible: should be one of:
++    "marvell,armada-375-pp2"
++    "marvell,armada-7k-pp2"
+ - reg: addresses and length of the register sets for the device.
+-  Must contain the following register sets:
++  For "marvell,armada-375-pp2", must contain the following register
++  sets:
+ 	- common controller registers
+ 	- LMS registers
+-  In addition, at least one port register set is required.
+-- clocks: a pointer to the reference clocks for this device, consequently:
+-	- main controller clock
+-	- GOP clock
+-- clock-names: names of used clocks, must be "pp_clk" and "gop_clk".
++	- one register area per Ethernet port
++  For "marvell,armda-7k-pp2", must contain the following register
++  sets:
++        - common controller registers
++	- per-port registers
 +
- 	return 0;
- }
++- clocks: pointers to the reference clocks for this device, consequently:
++	- main controller clock (for both armada-375-pp2 and armada-7k-pp2)
++	- GOP clock (for both armada-375-pp2 and armada-7k-pp2)
++	- MG clock (only for armada-7k-pp2)
++- clock-names: names of used clocks, must be "pp_clk", "gop_clk" and
++  "mg_clk" (the latter only for armada-7k-pp2).
  
-@@ -5139,7 +5128,7 @@ static int mvpp2_rx(struct mvpp2_port *port, int rx_todo,
+ The ethernet ports are represented by subnodes. At least one port is
+ required.
+@@ -19,8 +30,9 @@ required.
+ Required properties (port):
  
- 		skb = (struct sk_buff *)rx_desc->buf_cookie;
+ - interrupts: interrupt for the port
+-- port-id: should be '0' or '1' for ethernet ports, and '2' for the
+-           loopback port
++- port-id: ID of the port from the MAC point of view
++- gop-port-id: only for marvell,armada-7k-pp2, ID of the port from the
++  GOP (Group Of Ports) point of view
+ - phy-mode: See ethernet.txt file in the same directory
  
--		err = mvpp2_rx_refill(port, bm_pool, bm, 0);
-+		err = mvpp2_rx_refill(port, bm_pool, bm);
- 		if (err) {
- 			netdev_err(port->dev, "failed to refill BM pools\n");
- 			goto err_drop_frame;
-@@ -5150,7 +5139,6 @@ static int mvpp2_rx(struct mvpp2_port *port, int rx_todo,
+ Optional properties (port):
+@@ -31,7 +43,7 @@ Optional properties (port):
+   then fixed link is assumed, and the 'fixed-link' property is
+   mandatory.
  
- 		rcvd_pkts++;
- 		rcvd_bytes += rx_bytes;
--		atomic_inc(&bm_pool->in_use);
+-Example:
++Example for marvell,armada-375-pp2:
  
- 		skb_reserve(skb, MVPP2_MH_SIZE);
- 		skb_put(skb, rx_bytes);
+ ethernet@f0000 {
+ 	compatible = "marvell,armada-375-pp2";
+@@ -59,3 +71,35 @@ ethernet@f0000 {
+ 		phy-mode = "gmii";
+ 	};
+ };
++
++Example for marvell,armada-7k-pp2:
++
++cpm_ethernet: ethernet@0 {
++	compatible = "marvell,armada-7k-pp22";
++	reg = <0x0 0x100000>,
++	      <0x100000 0x80000>;
++	clocks = <&cpm_syscon0 1 3>, <&cpm_syscon0 1 9>, <&cpm_syscon0 1 5>;
++	clock-names = "pp_clk", "gop_clk", "gp_clk";
++	status = "disabled";
++
++	eth0: eth@0 {
++		interrupts = <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>;
++		port-id = <0>;
++		gop-port-id = <0>;
++		status = "disabled";
++	};
++
++	eth1: eth@1 {
++		interrupts = <GIC_SPI 38 IRQ_TYPE_LEVEL_HIGH>;
++		port-id = <1>;
++		gop-port-id = <2>;
++		status = "disabled";
++	};
++
++	eth2: eth@2 {
++		interrupts = <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>;
++		port-id = <2>;
++		gop-port-id = <3>;
++		status = "disabled";
++	};
++};
 -- 
 2.7.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
