@@ -1,75 +1,64 @@
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: Re: [PATCH v3] stmmac: enable rx queues
-Date: Wed, 28 Dec 2016 11:53:43 +0000
-Message-ID: <089cbc8f-ed57-f5e5-51a7-c62e37998f6c@synopsys.com>
-References: <f159542b43e49004ab63aaaf1a1c5cc5cbb2dfa7.1482922898.git.jpinto@synopsys.com>
- <CAJ3s=NB-ic4OrXPVPpYyoYrEwfwCmrAB8ZNPorpyU+5Do_b2=g@mail.gmail.com>
+From: Kishan Sandeep <sandeepkishan108@gmail.com>
+Subject: Re: [PATCH v2] net: stmmac: bug fix to synchronize stmmac_open and stmmac_dvr_probe
+Date: Wed, 28 Dec 2016 17:26:03 +0530
+Message-ID: <CAJ3s=NAzfUSCnxxZph5j6Vk2T=pw2F9U3FLP7dOKRp21mmQvcg@mail.gmail.com>
+References: <1482849756-21817-1-git-send-email-hock.leong.kweh@intel.com>
+ <20161227.113405.362102687632949941.davem@davemloft.net> <F54AEECA5E2B9541821D670476DAE19C5A916C0E@PGSMSX102.gar.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Kishan Sandeep <sandeepkishan108@gmail.com>,
-        Joao Pinto <Joao.Pinto@synopsys.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay2.synopsys.com ([198.182.60.111]:40857 "EHLO
-        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751372AbcL1Lxs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Dec 2016 06:53:48 -0500
-In-Reply-To: <CAJ3s=NB-ic4OrXPVPpYyoYrEwfwCmrAB8ZNPorpyU+5Do_b2=g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        "f.fainelli@gmail.com" <f.fainelli@gmail.com>,
+        "Joao.Pinto@synopsys.com" <Joao.Pinto@synopsys.com>,
+        "peppe.cavallaro@st.com" <peppe.cavallaro@st.com>,
+        "seraphin.bonnaffe@st.com" <seraphin.bonnaffe@st.com>,
+        "alexandre.torgue@gmail.com" <alexandre.torgue@gmail.com>,
+        "manabian@gmail.com" <manabian@gmail.com>,
+        "niklas.cassel@axis.com" <niklas.cassel@axis.com>,
+        "johan@kernel.org" <johan@kernel.org>,
+        "pavel@ucw.cz" <pavel@ucw.cz>,
+        "lars.persson@axis.com" <lars.persson@axis.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <F54AEECA5E2B9541821D670476DAE19C5A916C0E@PGSMSX102.gar.corp.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
-
-Às 11:50 AM de 12/28/2016, Kishan Sandeep escreveu:
-> On Wed, Dec 28, 2016 at 4:45 PM, Joao Pinto <Joao.Pinto@synopsys.com> wrote:
-> 
->> When the hardware is synthesized with multiple queues, all queues are
->> disabled for default. This patch adds the rx queues configuration.
->> This patch was successfully tested in a Synopsys QoS Reference design.
+On Wed, Dec 28, 2016 at 7:10 AM, Kweh, Hock Leong
+<hock.leong.kweh@intel.com> wrote:
+>> -----Original Message-----
+>> From: David Miller [mailto:davem@davemloft.net]
+>> Sent: Wednesday, December 28, 2016 12:34 AM
+>> To: Kweh, Hock Leong <hock.leong.kweh@intel.com>
+>> Cc: Joao.Pinto@synopsys.com; peppe.cavallaro@st.com;
+>> seraphin.bonnaffe@st.com; f.fainelli@gmail.com;
+>> alexandre.torgue@gmail.com; manabian@gmail.com; niklas.cassel@axis.com;
+>> johan@kernel.org; pavel@ucw.cz; Ong, Boon Leong
+>> <boon.leong.ong@intel.com>; Voon, Weifeng <weifeng.voon@intel.com>;
+>> lars.persson@axis.com; netdev@vger.kernel.org; linux-kernel@vger.kernel.org
+>> Subject: Re: [PATCH v2] net: stmmac: bug fix to synchronize stmmac_open and
+>> stmmac_dvr_probe
 >>
->> Signed-off-by: Joao Pinto <jpinto@synopsys.com>
->> ---
->> changes v2 -> v3 (Seraphin Bonnaffe):
->> - GMAC_RX_QUEUE_CLEAR macro simplified
->> changes v1 -> v2 (Niklas Cassel and Seraphin Bonnaffe):
->> - Instead of using number of DMA channels, lets use number of queues
->> - Create 2 flavors of RX queue enable Macros: AV and DCB (AV by default)
->> - Make sure that the RX queue related bits are cleared before setting
->> - Check if rx_queue_enable is available before executing
+>> From: "Kweh, Hock Leong"      <hock.leong.kweh@intel.com>
+>> Date: Tue, 27 Dec 2016 22:42:36 +0800
 >>
->>  drivers/net/ethernet/stmicro/stmmac/common.h      |  5 +++++
->>  drivers/net/ethernet/stmicro/stmmac/dwmac4.h      |  8 ++++++++
->>  drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c | 12 ++++++++++++
->>  drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c  |  5 +++++
->>  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 22
->> ++++++++++++++++++++++
->>  5 files changed, 52 insertions(+)
+>> > From: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>
 >>
->> diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h
->> b/drivers/net/ethernet/stmicro/stmmac/common.h
->> index b13a144..6c96291 100644
->> --- a/drivers/net/ethernet/stmicro/stmmac/common.h
->> +++ b/drivers/net/ethernet/stmicro/stmmac/common.h
->> @@ -323,6 +323,9 @@ struct dma_features {
->>         /* TX and RX number of channels */
->>         unsigned int number_rx_channel;
->>         unsigned int number_tx_channel;
->> +       /* TX and RX number of queues */
->> +       unsigned int number_rx_queues;
->> +       unsigned int number_tx_queues;
+>> You are not the author of this change, do not take credit for it.
 >>
-> 
-> Looks like this variable is unused. Current driver is only supporting
-> single Tx channel/queue. ??  Is current driver not supporting
-> multichannel/multiqueue ?
-
-stmmac has a good base for multichannel / multiple queue support, but is only
-using 1 for now. My next task is to add complete multiple queues / channel to
-stmmac amd that is why number of tx queues is being available.
-
-Thanks!
-
-> 
-> Thanks!
-> 
+>> You have copied Florian's patch character by character, therefore
+>> he is the author.
+>>
+>> You also didn't CC: the netdev mailing list properly.
+>
+> Noted & Thanks.
+>
+> Hi Florian, could you submit this fix from your side so that you are the author.
+> I will help to test out.
+>
+> Thanks & Regards,
+> Wilson
+>
+I think you can give *--author* for giving author name. Try git commit
+-am "commit message" --author="Author_name <author_email>"
