@@ -1,37 +1,51 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net] net/sched: cls_flower: Fix missing addr_type in
- classify
-Date: Wed, 28 Dec 2016 16:48:55 +0100
-Message-ID: <20161228154855.GA1839@nanopsycho.orion>
-References: <1482929687-20159-1-git-send-email-paulb@mellanox.com>
+From: Augusto Mecking Caringi <augustocaringi@gmail.com>
+Subject: [PATCH] net: atm: Fix warnings in net/atm/lec.c when !CONFIG_PROC_FS
+Date: Wed, 28 Dec 2016 16:02:05 +0000
+Message-ID: <1482941006-28052-1-git-send-email-augustocaringi@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Jiri Pirko <jiri@mellanox.com>,
-        Hadar Hen Zion <hadarh@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Roi Dayan <roid@mellanox.com>
-To: Paul Blakey <paulb@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:36121 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750956AbcL1Ptj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Dec 2016 10:49:39 -0500
-Received: by mail-wm0-f66.google.com with SMTP id m203so62424955wma.3
-        for <netdev@vger.kernel.org>; Wed, 28 Dec 2016 07:48:57 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1482929687-20159-1-git-send-email-paulb@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: Augusto Mecking Caringi <augustocaringi@gmail.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Felipe Balbi <felipe.balbi@linux.intel.com>,
+        Kees Cook <keescook@chromium.org>,
+        Mugunthan V N <mugunthanvnm@ti.com>,
+        Jarod Wilson <jarod@redhat.com>,
+        Javier Martinez Canillas <javier@osg.samsung.com>,
+        Florian Westphal <fw@strlen.de>, linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Wed, Dec 28, 2016 at 01:54:47PM CET, paulb@mellanox.com wrote:
->Since we now use a non zero mask on addr_type, we are matching on its
->value (IPV4/IPV6). So before this fix, matching on enc_src_ip/enc_dst_ip
->failed in SW/classify path since its value was zero.
->This patch sets the proper value of addr_type for encapsulated packets.
->
->Fixes: 970bfcd09791 ('net/sched: cls_flower: Use mask for addr_type')
->Signed-off-by: Paul Blakey <paulb@mellanox.com>
->Reviewed-by: Hadar Hen Zion <hadarh@mellanox.com>
+This patch fixes the following warnings when CONFIG_PROC_FS is not set:
 
-Acked-by: Jiri Pirko <jiri@mellanox.com>
+linux/net/atm/lec.c: In function ‘lane_module_cleanup’:
+linux/net/atm/lec.c:1062:27: error: ‘atm_proc_root’ undeclared (first
+use in this function)
+remove_proc_entry("lec", atm_proc_root);
+                           ^
+linux/net/atm/lec.c:1062:27: note: each undeclared identifier is
+reported only once for each function it appears in
+
+Signed-off-by: Augusto Mecking Caringi <augustocaringi@gmail.com>
+---
+ net/atm/lec.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/net/atm/lec.c b/net/atm/lec.c
+index 019557d..09cfe87 100644
+--- a/net/atm/lec.c
++++ b/net/atm/lec.c
+@@ -1059,7 +1059,9 @@ static void __exit lane_module_cleanup(void)
+ {
+ 	int i;
+ 
++#ifdef CONFIG_PROC_FS
+ 	remove_proc_entry("lec", atm_proc_root);
++#endif
+ 
+ 	deregister_atm_ioctl(&lane_ioctl_ops);
+ 
+-- 
+2.7.4
