@@ -1,77 +1,55 @@
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: [PATCH] net: ethernet: ti: davinci_cpdma: fix access to uninitialized variable in cpdma_chan_set_descs()
-Date: Wed, 28 Dec 2016 17:42:13 -0600
-Message-ID: <20161228234213.22166-1-grygorii.strashko@ti.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Sekhar Nori <nsekhar@ti.com>, <linux-kernel@vger.kernel.org>,
-        <linux-omap@vger.kernel.org>,
-        Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>,
-        Grygorii Strashko <grygorii.strashko@ti.com>
-To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-        Mugunthan V N <mugunthanvnm@ti.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net] net: stmmac: Fix error path after register_netdev move
+Date: Wed, 28 Dec 2016 15:44:41 -0800
+Message-ID: <20161228234441.5026-1-f.fainelli@gmail.com>
+Cc: Florian Fainelli <f.fainelli@gmail.com>, pavel@ucw.cz,
+        Joao.Pinto@synopsys.com, seraphin.bonnaffe@st.com,
+        alexandre.torgue@gmail.com, manabian@gmail.com,
+        niklas.cassel@axis.com, johan@kernel.org, boon.leong.ong@intel.com,
+        weifeng.voon@intel.com, lars.persson@axis.com,
+        linux-kernel@vger.kernel.org,
+        Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+        Alexandre Torgue <alexandre.torgue@st.com>
+To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Now below code sequence causes "Unable to handle kernel NULL pointer
-dereference.." exception and system crash during CPSW CPDMA initialization:
+Commit 5701659004d6 ("net: stmmac: Fix race between stmmac_drv_probe and
+stmmac_open") re-ordered how the MDIO bus registration and the network
+device are registered, but missed to unwind the MDIO bus registration in
+case we fail to register the network device.
 
-cpsw_probe
-|-cpdma_chan_create (TX channel)
-  |-cpdma_chan_split_pool
-    |-cpdma_chan_set_descs(for TX channels)
-    |-cpdma_chan_set_descs(for RX channels) [1]
-
-- and -
-static void cpdma_chan_set_descs(struct cpdma_ctlr *ctlr,
-				 int rx, int desc_num,
-				 int per_ch_desc)
-{
-	struct cpdma_chan *chan, *most_chan = NULL;
-
-...
-
-	for (i = min; i < max; i++) {
-		chan = ctlr->channels[i];
-		if (!chan)
-			continue;
-...
-
-		if (most_dnum < chan->desc_num) {
-			most_dnum = chan->desc_num;
-			most_chan = chan;
-		}
-	}
-	/* use remains */
-	most_chan->desc_num += desc_cnt; [2]
-}
-
-So, most_chan value will never be reassigned when cpdma_chan_set_descs() is
-called second time [1], because there are no RX channels yet and system
-will crash at [2].
-
-Hence, fix the issue by checking most_chan for NULL before accessing it.
-
-Fixes: 0fc6432cc78d ("net: ethernet: ti: davinci_cpdma: add weight function for channels")
-Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
+Fixes: 5701659004d6 ("net: stmmac: Fix race between stmmac_drv_probe and stmmac_open")
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/ethernet/ti/davinci_cpdma.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c b/drivers/net/ethernet/ti/davinci_cpdma.c
-index 36518fc..b349d572 100644
---- a/drivers/net/ethernet/ti/davinci_cpdma.c
-+++ b/drivers/net/ethernet/ti/davinci_cpdma.c
-@@ -708,7 +708,8 @@ static void cpdma_chan_set_descs(struct cpdma_ctlr *ctlr,
- 		}
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 5910ea51f8f6..39eb7a65bb9f 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -3366,12 +3366,19 @@ int stmmac_dvr_probe(struct device *device,
  	}
- 	/* use remains */
--	most_chan->desc_num += desc_cnt;
-+	if (most_chan)
-+		most_chan->desc_num += desc_cnt;
- }
  
- /**
+ 	ret = register_netdev(ndev);
+-	if (ret)
++	if (ret) {
+ 		netdev_err(priv->dev, "%s: ERROR %i registering the device\n",
+ 			   __func__, ret);
++		goto error_netdev_register;
++	}
+ 
+ 	return ret;
+ 
++error_netdev_register:
++	if (priv->hw->pcs != STMMAC_PCS_RGMII &&
++	    priv->hw->pcs != STMMAC_PCS_TBI &&
++	    priv->hw->pcs != STMMAC_PCS_RTBI)
++		stmmac_mdio_unregister(ndev);
+ error_mdio_register:
+ 	netif_napi_del(&priv->napi);
+ error_hw_init:
 -- 
-2.10.1.dirty
+2.9.3
