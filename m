@@ -1,102 +1,96 @@
 From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: [PATCH RESEND net-next 2/5] sctp: reduce indent level in sctp_sf_shut_8_4_5
-Date: Wed, 28 Dec 2016 09:26:32 -0200
-Message-ID: <516c622c83445125697aa64f6c28c6538a09a37d.1482924092.git.marcelo.leitner@gmail.com>
+Subject: [PATCH RESEND net-next 3/5] sctp: simplify addr copy
+Date: Wed, 28 Dec 2016 09:26:33 -0200
+Message-ID: <dd32e257f5edc5395e3bc6eb3ed4999c822aaefa.1482924092.git.marcelo.leitner@gmail.com>
 References: <cover.1482924092.git.marcelo.leitner@gmail.com>
 Cc: linux-sctp@vger.kernel.org, Vlad Yasevich <vyasevich@gmail.com>,
         Neil Horman <nhorman@tuxdriver.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f195.google.com ([209.85.220.195]:35535 "EHLO
-        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751328AbcL1L1S (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Dec 2016 06:27:18 -0500
+Received: from mail-qk0-f194.google.com ([209.85.220.194]:34516 "EHLO
+        mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751328AbcL1L1V (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Dec 2016 06:27:21 -0500
 In-Reply-To: <cover.1482924092.git.marcelo.leitner@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Make it a bit easier to read.
+
 Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 ---
- net/sctp/sm_statefuns.c | 58 ++++++++++++++++++++++++-------------------------
- 1 file changed, 28 insertions(+), 30 deletions(-)
+ net/sctp/ipv6.c     | 16 +++++++---------
+ net/sctp/protocol.c | 18 +++++++-----------
+ 2 files changed, 14 insertions(+), 20 deletions(-)
 
-diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
-index 32587b1f84e729221965e270607fea7ef93a7430..a95915ef9dbabad30f6171f77b26feab61752f36 100644
---- a/net/sctp/sm_statefuns.c
-+++ b/net/sctp/sm_statefuns.c
-@@ -3501,45 +3501,43 @@ static sctp_disposition_t sctp_sf_shut_8_4_5(struct net *net,
- 	struct sctp_chunk *shut;
+diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
+index 176af3080a2b8f8ffc56b55f3ccb13a169e195fe..434167ac0c8e89078b0bac80f0a81da92be37e07 100644
+--- a/net/sctp/ipv6.c
++++ b/net/sctp/ipv6.c
+@@ -412,22 +412,20 @@ static void sctp_v6_copy_addrlist(struct list_head *addrlist,
+ static void sctp_v6_from_skb(union sctp_addr *addr, struct sk_buff *skb,
+ 			     int is_saddr)
+ {
+-	__be16 *port;
+-	struct sctphdr *sh;
++	/* Always called on head skb, so this is safe */
++	struct sctphdr *sh = sctp_hdr(skb);
++	struct sockaddr_in6 *sa = &addr->v6;
  
- 	packet = sctp_ootb_pkt_new(net, asoc, chunk);
-+	if (!packet)
-+		return SCTP_DISPOSITION_NOMEM;
+-	port = &addr->v6.sin6_port;
+ 	addr->v6.sin6_family = AF_INET6;
+ 	addr->v6.sin6_flowinfo = 0; /* FIXME */
+ 	addr->v6.sin6_scope_id = ((struct inet6_skb_parm *)skb->cb)->iif;
  
--	if (packet) {
--		/* Make an SHUTDOWN_COMPLETE.
--		 * The T bit will be set if the asoc is NULL.
--		 */
--		shut = sctp_make_shutdown_complete(asoc, chunk);
--		if (!shut) {
--			sctp_ootb_pkt_free(packet);
--			return SCTP_DISPOSITION_NOMEM;
--		}
--
--		/* Reflect vtag if T-Bit is set */
--		if (sctp_test_T_bit(shut))
--			packet->vtag = ntohl(chunk->sctp_hdr->vtag);
-+	/* Make an SHUTDOWN_COMPLETE.
-+	 * The T bit will be set if the asoc is NULL.
-+	 */
-+	shut = sctp_make_shutdown_complete(asoc, chunk);
-+	if (!shut) {
-+		sctp_ootb_pkt_free(packet);
-+		return SCTP_DISPOSITION_NOMEM;
-+	}
- 
--		/* Set the skb to the belonging sock for accounting.  */
--		shut->skb->sk = ep->base.sk;
-+	/* Reflect vtag if T-Bit is set */
-+	if (sctp_test_T_bit(shut))
-+		packet->vtag = ntohl(chunk->sctp_hdr->vtag);
- 
--		sctp_packet_append_chunk(packet, shut);
-+	/* Set the skb to the belonging sock for accounting.  */
-+	shut->skb->sk = ep->base.sk;
- 
--		sctp_add_cmd_sf(commands, SCTP_CMD_SEND_PKT,
--				SCTP_PACKET(packet));
-+	sctp_packet_append_chunk(packet, shut);
- 
--		SCTP_INC_STATS(net, SCTP_MIB_OUTCTRLCHUNKS);
-+	sctp_add_cmd_sf(commands, SCTP_CMD_SEND_PKT,
-+			SCTP_PACKET(packet));
- 
--		/* If the chunk length is invalid, we don't want to process
--		 * the reset of the packet.
--		 */
--		if (!sctp_chunk_length_valid(chunk, sizeof(sctp_chunkhdr_t)))
--			return sctp_sf_pdiscard(net, ep, asoc, type, arg, commands);
-+	SCTP_INC_STATS(net, SCTP_MIB_OUTCTRLCHUNKS);
- 
--		/* We need to discard the rest of the packet to prevent
--		 * potential bomming attacks from additional bundled chunks.
--		 * This is documented in SCTP Threats ID.
--		 */
-+	/* If the chunk length is invalid, we don't want to process
-+	 * the reset of the packet.
-+	 */
-+	if (!sctp_chunk_length_valid(chunk, sizeof(sctp_chunkhdr_t)))
- 		return sctp_sf_pdiscard(net, ep, asoc, type, arg, commands);
--	}
- 
--	return SCTP_DISPOSITION_NOMEM;
-+	/* We need to discard the rest of the packet to prevent
-+	 * potential bomming attacks from additional bundled chunks.
-+	 * This is documented in SCTP Threats ID.
-+	 */
-+	return sctp_sf_pdiscard(net, ep, asoc, type, arg, commands);
+-	/* Always called on head skb, so this is safe */
+-	sh = sctp_hdr(skb);
+ 	if (is_saddr) {
+-		*port  = sh->source;
+-		addr->v6.sin6_addr = ipv6_hdr(skb)->saddr;
++		sa->sin6_port = sh->source;
++		sa->sin6_addr = ipv6_hdr(skb)->saddr;
+ 	} else {
+-		*port = sh->dest;
+-		addr->v6.sin6_addr = ipv6_hdr(skb)->daddr;
++		sa->sin6_port = sh->dest;
++		sa->sin6_addr = ipv6_hdr(skb)->daddr;
+ 	}
  }
  
- /*
+diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
+index ad40fa153878f354a367b5cefa2ccd4322463eb2..fe6c62607e99961b5b3bf524b6f6f46d4be3251d 100644
+--- a/net/sctp/protocol.c
++++ b/net/sctp/protocol.c
+@@ -237,23 +237,19 @@ int sctp_copy_local_addr_list(struct net *net, struct sctp_bind_addr *bp,
+ static void sctp_v4_from_skb(union sctp_addr *addr, struct sk_buff *skb,
+ 			     int is_saddr)
+ {
+-	void *from;
+-	__be16 *port;
+-	struct sctphdr *sh;
++	/* Always called on head skb, so this is safe */
++	struct sctphdr *sh = sctp_hdr(skb);
++	struct sockaddr_in *sa = &addr->v4;
+ 
+-	port = &addr->v4.sin_port;
+ 	addr->v4.sin_family = AF_INET;
+ 
+-	/* Always called on head skb, so this is safe */
+-	sh = sctp_hdr(skb);
+ 	if (is_saddr) {
+-		*port  = sh->source;
+-		from = &ip_hdr(skb)->saddr;
++		sa->sin_port = sh->source;
++		sa->sin_addr.s_addr = ip_hdr(skb)->saddr;
+ 	} else {
+-		*port = sh->dest;
+-		from = &ip_hdr(skb)->daddr;
++		sa->sin_port = sh->dest;
++		sa->sin_addr.s_addr = ip_hdr(skb)->daddr;
+ 	}
+-	memcpy(&addr->v4.sin_addr.s_addr, from, sizeof(struct in_addr));
+ }
+ 
+ /* Initialize an sctp_addr from a socket. */
 -- 
 2.9.3
