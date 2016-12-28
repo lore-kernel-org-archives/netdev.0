@@ -1,7 +1,7 @@
 From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCHv2 net-next 04/11] net: mvpp2: remove unused 'tx_skb' field of 'struct mvpp2_tx_queue'
-Date: Wed, 28 Dec 2016 17:46:00 +0100
-Message-ID: <1482943567-12483-5-git-send-email-thomas.petazzoni@free-electrons.com>
+Subject: [PATCHv2 net-next 02/11] net: mvpp2: handle too large value in mvpp2_rx_time_coal_set()
+Date: Wed, 28 Dec 2016 17:45:58 +0100
+Message-ID: <1482943567-12483-3-git-send-email-thomas.petazzoni@free-electrons.com>
 References: <1482943567-12483-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Cc: Jason Cooper <jason@lakedaemon.net>, Andrew Lunn <andrew@lunn.ch>,
         Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
@@ -15,35 +15,50 @@ Cc: Jason Cooper <jason@lakedaemon.net>, Andrew Lunn <andrew@lunn.ch>,
         Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:47527 "EHLO
+Received: from mail.free-electrons.com ([62.4.15.54]:47509 "EHLO
         mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751823AbcL1QqY (ORCPT
+        with ESMTP id S1751726AbcL1QqY (ORCPT
         <rfc822;netdev@vger.kernel.org>); Wed, 28 Dec 2016 11:46:24 -0500
 In-Reply-To: <1482943567-12483-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This commit remove a field of 'struct mvpp2_tx_queue' that is not used
-anywhere.
+When configuring the MVPP2_ISR_RX_THRESHOLD_REG with the RX coalescing
+time threshold, we do not check for the maximum allowed value supported
+by the driver, which means we might overflow and use a bogus value. This
+commit adds a check for this situation, and if a value higher than what
+is supported by the hardware is provided, then we use the maximum value
+supported by the hardware.
 
 Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 ---
- drivers/net/ethernet/marvell/mvpp2.c | 3 ---
- 1 file changed, 3 deletions(-)
+ drivers/net/ethernet/marvell/mvpp2.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
 
 diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index d098c7b..6720cdac 100644
+index 02d91e4..a1ba89f 100644
 --- a/drivers/net/ethernet/marvell/mvpp2.c
 +++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -823,9 +823,6 @@ struct mvpp2_tx_queue {
- 	/* Per-CPU control of physical Tx queues */
- 	struct mvpp2_txq_pcpu __percpu *pcpu;
+@@ -154,6 +154,7 @@
  
--	/* Array of transmitted skb */
--	struct sk_buff **tx_skb;
--
- 	u32 done_pkts_coal;
+ /* Interrupt Cause and Mask registers */
+ #define MVPP2_ISR_RX_THRESHOLD_REG(rxq)		(0x5200 + 4 * (rxq))
++#define     MVPP2_MAX_ISR_RX_THRESHOLD		0xfffff0
+ #define MVPP2_ISR_RXQ_GROUP_REG(rxq)		(0x5400 + 4 * (rxq))
+ #define MVPP2_ISR_ENABLE_REG(port)		(0x5420 + 4 * (port))
+ #define     MVPP2_ISR_ENABLE_INTERRUPT(mask)	((mask) & 0xffff)
+@@ -4397,6 +4398,12 @@ static void mvpp2_rx_time_coal_set(struct mvpp2_port *port,
+ 	u32 val;
  
- 	/* Virtual address of thex Tx DMA descriptors array */
+ 	val = (port->priv->tclk / USEC_PER_SEC) * usec;
++
++	if (val > MVPP2_MAX_ISR_RX_THRESHOLD) {
++		val = MVPP2_MAX_ISR_RX_THRESHOLD;
++		usec = (val * USEC_PER_SEC) / port->priv->tclk;
++	}
++
+ 	mvpp2_write(port->priv, MVPP2_ISR_RX_THRESHOLD_REG(rxq->id), val);
+ 
+ 	rxq->time_coal = usec;
 -- 
 2.7.4
