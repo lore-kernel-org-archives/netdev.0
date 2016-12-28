@@ -1,7 +1,8 @@
 From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCHv2 net-next 00/16] net: mvpp2: add basic support for PPv2.2
-Date: Wed, 28 Dec 2016 17:46:16 +0100
-Message-ID: <1482943592-12556-1-git-send-email-thomas.petazzoni@free-electrons.com>
+Subject: [PATCHv2 net-next 10/16] net: mvpp2: handle register mapping and access for PPv2.2
+Date: Wed, 28 Dec 2016 17:46:26 +0100
+Message-ID: <1482943592-12556-11-git-send-email-thomas.petazzoni@free-electrons.com>
+References: <1482943592-12556-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Cc: Jason Cooper <jason@lakedaemon.net>, Andrew Lunn <andrew@lunn.ch>,
         Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
         Gregory Clement <gregory.clement@free-electrons.com>,
@@ -19,69 +20,179 @@ To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
         Mark Rutland <mark.rutland@arm.com>,
         Kumar Gala <galak@codeaurora.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:47647 "EHLO
+Received: from mail.free-electrons.com ([62.4.15.54]:47965 "EHLO
         mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750966AbcL1QsB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Dec 2016 11:48:01 -0500
+        with ESMTP id S1751936AbcL1QsD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Dec 2016 11:48:03 -0500
+In-Reply-To: <1482943592-12556-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+This commit adjusts the mvpp2 driver register mapping and access logic
+to support PPv2.2, to handle a number of differences.
 
-The goal of this patch series is to add basic support for PPv2.2 in
-the existing mvpp2 driver. mvpp2 currently supported the PPv2.1
-version of the IP, used in the 32 bits Marvell Armada 375 SoC. PPv2.2
-is an evolution of this IP block, used in the 64 bits Marvell Armada
-7K/8K SoCs.
+Due to how the registers are laid out in memory, the Device Tree binding
+for the "reg" property is different:
 
-In order to ease the review, the introduction of PPv2.2 support has
-been made into multiple small commits, with the final commit adding
-the compatible string that makes the PPv2.2 support actually
-usable. The series remain fully bisectable.
+ - On PPv2.1, we had a first area for the common registers, and then one
+   area per port.
 
-This series depends on the series named "net: mvpp2: misc improvements
-and preparation patches".
+ - On PPv2.2, we have a first area for the common registers, and a
+   second area for all the per-ports registers.
 
-I'd like to thank Stefan Chulski and Marcin Wojtas, who helped me a
-lot in the development of this patch series, by reviewing the patches,
-and giving lots of useful hints to debug the driver on PPv2.2. Thanks!
+In addition, on PPv2.2, the area for the common registers is split into
+so-called "address spaces" of 64 KB each. They allow to access the same
+registers, but from different CPUs. Hence the introduction of cpu_base[]
+in 'struct mvpp2', and the modification of the mvpp2_write() and
+mvpp2_read() register accessors. For PPv2.1, the compatibility is
+preserved by using an "address space" size of 0.
 
-Changes since v1:
+Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+---
+ drivers/net/ethernet/marvell/mvpp2.c | 78 +++++++++++++++++++++++++++++-------
+ 1 file changed, 64 insertions(+), 14 deletions(-)
 
- - Made a separate series from the set of patches doing preparation
-   changes/fixes to the mvpp2 driver.
-
- - Rebased on top of v4.10-rc1.
-
- - Update Kconfig text of the mvpp2 driver to mention the support for
-   Armada 7K and 8K (PPv2.2).
-
-Best regards,
-
-Thomas
-
-Thomas Petazzoni (16):
-  dt-bindings: net: update Marvell PPv2 binding for PPv2.2 support
-  net: mvpp2: add and use accessors for TX/RX descriptors
-  net: mvpp2: add hw_version field in "struct mvpp2"
-  net: mvpp2: introduce an intermediate union for the TX/RX descriptors
-  net: mvpp2: introduce PPv2.2 HW descriptors and adapt accessors
-  net: mvpp2: adjust the allocation/free of BM pools for PPv2.2
-  net: mvpp2: adapt the mvpp2_rxq_*_pool_set functions to PPv2.2
-  net: mvpp2: adapt mvpp2_defaults_set() to PPv2.2
-  net: mvpp2: adjust mvpp2_{rxq,txq}_init for PPv2.2
-  net: mvpp2: handle register mapping and access for PPv2.2
-  net: mvpp2: handle misc PPv2.1/PPv2.2 differences
-  net: mvpp2: add AXI bridge initialization for PPv2.2
-  net: mvpp2: rework RXQ interrupt group initialization for PPv2.2
-  net: mvpp2: adapt rxq distribution to PPv2.2
-  net: mvpp2: add support for an additional clock needed for PPv2.2
-  net: mvpp2: finally add the PPv2.2 compatible string
-
- .../devicetree/bindings/net/marvell-pp2.txt        |  66 +-
- drivers/net/ethernet/marvell/Kconfig               |   4 +-
- drivers/net/ethernet/marvell/mvpp2.c               | 783 +++++++++++++++++----
- 3 files changed, 700 insertions(+), 153 deletions(-)
-
+diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
+index 22f7970..389cc62 100644
+--- a/drivers/net/ethernet/marvell/mvpp2.c
++++ b/drivers/net/ethernet/marvell/mvpp2.c
+@@ -304,6 +304,9 @@
+ #define      MVPP2_GMAC_TX_FIFO_MIN_TH_MASK(v)	(((v) << 6) & \
+ 					MVPP2_GMAC_TX_FIFO_MIN_TH_ALL_MASK)
+ 
++#define MVPP22_PORT_BASE			0x30e00
++#define MVPP22_PORT_OFFSET			0x1000
++
+ #define MVPP2_CAUSE_TXQ_SENT_DESC_ALL_MASK	0xff
+ 
+ /* Descriptor ring Macros */
+@@ -631,6 +634,11 @@ enum mvpp2_prs_l3_cast {
+  */
+ #define MVPP2_BM_SHORT_PKT_SIZE		MVPP2_RX_MAX_PKT_SIZE(512)
+ 
++#define MVPP21_ADDR_SPACE_SZ		0
++#define MVPP22_ADDR_SPACE_SZ		SZ_64K
++
++#define MVPP2_MAX_CPUS			4
++
+ enum mvpp2_bm_type {
+ 	MVPP2_BM_FREE,
+ 	MVPP2_BM_SWF_LONG,
+@@ -644,6 +652,13 @@ struct mvpp2 {
+ 	/* Shared registers' base addresses */
+ 	void __iomem *base;
+ 	void __iomem *lms_base;
++	void __iomem *iface_base;
++
++	/* On PPv2.2, each CPU can access the base register through a
++	 * separate address space, each 64 KB apart from each
++	 * other.
++	 */
++	void __iomem *cpu_base[MVPP2_MAX_CPUS];
+ 
+ 	/* Common clocks */
+ 	struct clk *pp_clk;
+@@ -1021,12 +1036,21 @@ static int txq_number = MVPP2_MAX_TXQ;
+ 
+ static void mvpp2_write(struct mvpp2 *priv, u32 offset, u32 data)
+ {
+-	writel(data, priv->base + offset);
++	int cpu = get_cpu();
++
++	writel(data, priv->cpu_base[cpu] + offset);
++	put_cpu();
+ }
+ 
+ static u32 mvpp2_read(struct mvpp2 *priv, u32 offset)
+ {
+-	return readl(priv->base + offset);
++	int cpu = get_cpu();
++	u32 val;
++
++	val = readl(priv->cpu_base[cpu] + offset);
++	put_cpu();
++
++	return val;
+ }
+ 
+ static dma_addr_t mvpp2_txdesc_phys_addr_get(struct mvpp2_port *port,
+@@ -6386,7 +6410,6 @@ static int mvpp2_port_probe(struct platform_device *pdev,
+ 	u32 id;
+ 	int features;
+ 	int phy_mode;
+-	int priv_common_regs_num = 2;
+ 	int err, i, cpu;
+ 
+ 	dev = alloc_etherdev_mqs(sizeof(struct mvpp2_port), txq_number,
+@@ -6436,12 +6459,24 @@ static int mvpp2_port_probe(struct platform_device *pdev,
+ 	port->phy_node = phy_node;
+ 	port->phy_interface = phy_mode;
+ 
+-	res = platform_get_resource(pdev, IORESOURCE_MEM,
+-				    priv_common_regs_num + id);
+-	port->base = devm_ioremap_resource(&pdev->dev, res);
+-	if (IS_ERR(port->base)) {
+-		err = PTR_ERR(port->base);
+-		goto err_free_irq;
++	if (priv->hw_version == MVPP21) {
++		res = platform_get_resource(pdev, IORESOURCE_MEM, 2 + id);
++		port->base = devm_ioremap_resource(&pdev->dev, res);
++		if (IS_ERR(port->base)) {
++			err = PTR_ERR(port->base);
++			goto err_free_irq;
++		}
++	} else {
++		u32 gop_id;
++
++		if (of_property_read_u32(port_node, "gop-port-id", &gop_id)) {
++			err = -EINVAL;
++			dev_err(&pdev->dev, "missing gop-port-id value\n");
++			goto err_free_irq;
++		}
++
++		port->base = priv->iface_base + MVPP22_PORT_BASE +
++			gop_id * MVPP22_PORT_OFFSET;
+ 	}
+ 
+ 	/* Alloc per-cpu stats */
+@@ -6674,7 +6709,7 @@ static int mvpp2_probe(struct platform_device *pdev)
+ 	struct device_node *port_node;
+ 	struct mvpp2 *priv;
+ 	struct resource *res;
+-	int port_count, first_rxq;
++	int port_count, first_rxq, cpu;
+ 	int err;
+ 
+ 	priv = devm_kzalloc(&pdev->dev, sizeof(struct mvpp2), GFP_KERNEL);
+@@ -6689,10 +6724,25 @@ static int mvpp2_probe(struct platform_device *pdev)
+ 	if (IS_ERR(priv->base))
+ 		return PTR_ERR(priv->base);
+ 
+-	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+-	priv->lms_base = devm_ioremap_resource(&pdev->dev, res);
+-	if (IS_ERR(priv->lms_base))
+-		return PTR_ERR(priv->lms_base);
++	if (priv->hw_version == MVPP21) {
++		res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
++		priv->lms_base = devm_ioremap_resource(&pdev->dev, res);
++		if (IS_ERR(priv->lms_base))
++			return PTR_ERR(priv->lms_base);
++	} else {
++		res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
++		priv->iface_base = devm_ioremap_resource(&pdev->dev, res);
++		if (IS_ERR(priv->iface_base))
++			return PTR_ERR(priv->iface_base);
++	}
++
++	for_each_present_cpu(cpu) {
++		u32 addr_space_sz;
++
++		addr_space_sz = (priv->hw_version == MVPP21 ?
++				 MVPP21_ADDR_SPACE_SZ : MVPP22_ADDR_SPACE_SZ);
++		priv->cpu_base[cpu] = priv->base + cpu * addr_space_sz;
++	}
+ 
+ 	priv->pp_clk = devm_clk_get(&pdev->dev, "pp_clk");
+ 	if (IS_ERR(priv->pp_clk))
 -- 
 2.7.4
