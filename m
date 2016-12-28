@@ -1,37 +1,33 @@
-From: administrador <administrator@ancol.com>
-Subject: Admin
-Date: Wed, 28 Dec 2016 18:53:48 +0530
-Message-ID: <20161228132618.ED9391CE31EA@mail.surabaya.go.id.local>
-Reply-To: Sistemass_Adminss@mail2world.com
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 01/12] Make and configuration files.
+Date: Wed, 28 Dec 2016 06:34:29 -0800
+Message-ID: <1482935669.1876.4.camel@perches.com>
+References: <9cc1565a3a398b4f70248ca98d12991071142682.1482844668.git.vomlehn@texas.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: 8BIT
-To: Recipients <administrator@ancol.com>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
+        Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>,
+        Alexander Loktionov <Alexander.Loktionov@aquantia.com>
+To: David VomLehn <vomlehn@texas.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.surabaya.go.id ([222.124.212.34]:39806 "EHLO
-        mail.surabaya.go.id.local" rhost-flags-OK-FAIL-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1750814AbcL1OIg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Dec 2016 09:08:36 -0500
-Content-Description: Mail message body
+Received: from smtprelay0109.hostedemail.com ([216.40.44.109]:49094 "EHLO
+        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1750880AbcL1OfH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Dec 2016 09:35:07 -0500
+In-Reply-To: <9cc1565a3a398b4f70248ca98d12991071142682.1482844668.git.vomlehn@texas.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ATENCIÓN;
+On Tue, 2016-12-27 at 05:17 -0800, David VomLehn wrote:
+> Patches to create the make and configuration file
 
-Su buzón ha superado el límite de almacenamiento, que es de 5 GB definidos por el administrador, quien actualmente está ejecutando en 10.9GB, no puede ser capaz de enviar o recibir correo nuevo hasta que vuelva a validar su buzón de correo electrónico. Para revalidar su buzón de correo, envíe la siguiente información a continuación:
+[]
 
-nombre: 
-Nombre de usuario: 
-contraseña: 
-Confirmar contraseña: 
-E-mail: 
-teléfono: 
+> \ No newline at end of file
 
-Si usted no puede revalidar su buzón, el buzón se deshabilitará!
+Not good
 
-Disculpa las molestias.
-Código de verificación: es:00916gbd51.16 
-Correo Soporte Técnico © 2016
+> diff --git a/drivers/net/ethernet/aquantia/atlantic/Makefile b/drivers/net/ethernet/aquantia/atlantic/Makefile
 
-¡gracias
-Sistemas administrador
+A really atypical Makefile you'll probably need to rework
