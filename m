@@ -1,8 +1,7 @@
 From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCHv2 net-next 09/16] net: mvpp2: adjust mvpp2_{rxq,txq}_init for PPv2.2
-Date: Wed, 28 Dec 2016 17:46:25 +0100
-Message-ID: <1482943592-12556-10-git-send-email-thomas.petazzoni@free-electrons.com>
-References: <1482943592-12556-1-git-send-email-thomas.petazzoni@free-electrons.com>
+Subject: [PATCHv2 net-next 00/16] net: mvpp2: add basic support for PPv2.2
+Date: Wed, 28 Dec 2016 17:46:16 +0100
+Message-ID: <1482943592-12556-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Cc: Jason Cooper <jason@lakedaemon.net>, Andrew Lunn <andrew@lunn.ch>,
         Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
         Gregory Clement <gregory.clement@free-electrons.com>,
@@ -20,95 +19,69 @@ To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
         Mark Rutland <mark.rutland@arm.com>,
         Kumar Gala <galak@codeaurora.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:47964 "EHLO
+Received: from mail.free-electrons.com ([62.4.15.54]:47647 "EHLO
         mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751935AbcL1QsD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Dec 2016 11:48:03 -0500
-In-Reply-To: <1482943592-12556-1-git-send-email-thomas.petazzoni@free-electrons.com>
+        with ESMTP id S1750966AbcL1QsB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Dec 2016 11:48:01 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In PPv2.2, the MVPP2_RXQ_DESC_ADDR_REG and MVPP2_TXQ_DESC_ADDR_REG
-registers have a slightly different layout, because they need to contain
-a 64-bit address for the RX and TX descriptor arrays. This commit
-adjusts those functions accordingly.
+Hello,
 
-Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
----
- drivers/net/ethernet/marvell/mvpp2.c | 26 +++++++++++++++++++++-----
- 1 file changed, 21 insertions(+), 5 deletions(-)
+The goal of this patch series is to add basic support for PPv2.2 in
+the existing mvpp2 driver. mvpp2 currently supported the PPv2.1
+version of the IP, used in the 32 bits Marvell Armada 375 SoC. PPv2.2
+is an evolution of this IP block, used in the 64 bits Marvell Armada
+7K/8K SoCs.
 
-diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 23f2368..22f7970 100644
---- a/drivers/net/ethernet/marvell/mvpp2.c
-+++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -102,6 +102,7 @@
- /* Descriptor Manager Top Registers */
- #define MVPP2_RXQ_NUM_REG			0x2040
- #define MVPP2_RXQ_DESC_ADDR_REG			0x2044
-+#define     MVPP22_DESC_ADDR_OFFS		8
- #define MVPP2_RXQ_DESC_SIZE_REG			0x2048
- #define     MVPP2_RXQ_DESC_SIZE_MASK		0x3ff0
- #define MVPP2_RXQ_STATUS_UPDATE_REG(rxq)	(0x3000 + 4 * (rxq))
-@@ -143,6 +144,7 @@
- #define MVPP2_TXQ_RSVD_CLR_REG			0x20b8
- #define     MVPP2_TXQ_RSVD_CLR_OFFSET		16
- #define MVPP2_AGGR_TXQ_DESC_ADDR_REG(cpu)	(0x2100 + 4 * (cpu))
-+#define     MVPP22_AGGR_TXQ_DESC_ADDR_OFFS	8
- #define MVPP2_AGGR_TXQ_DESC_SIZE_REG(cpu)	(0x2140 + 4 * (cpu))
- #define     MVPP2_AGGR_TXQ_DESC_SIZE_MASK	0x3ff0
- #define MVPP2_AGGR_TXQ_STATUS_REG(cpu)		(0x2180 + 4 * (cpu))
-@@ -4769,6 +4771,8 @@ static int mvpp2_aggr_txq_init(struct platform_device *pdev,
- 			       int desc_num, int cpu,
- 			       struct mvpp2 *priv)
- {
-+	u32 txq_phys;
-+
- 	/* Allocate memory for TX descriptors */
- 	aggr_txq->descs = dma_alloc_coherent(&pdev->dev,
- 				desc_num * MVPP2_DESC_ALIGNED_SIZE,
-@@ -4782,10 +4786,16 @@ static int mvpp2_aggr_txq_init(struct platform_device *pdev,
- 	aggr_txq->next_desc_to_proc = mvpp2_read(priv,
- 						 MVPP2_AGGR_TXQ_INDEX_REG(cpu));
- 
--	/* Set Tx descriptors queue starting address */
--	/* indirect access */
--	mvpp2_write(priv, MVPP2_AGGR_TXQ_DESC_ADDR_REG(cpu),
--		    aggr_txq->descs_phys);
-+	/* Set Tx descriptors queue starting address indirect
-+	 * access
-+	 */
-+	if (priv->hw_version == MVPP21)
-+		txq_phys = aggr_txq->descs_phys;
-+	else
-+		txq_phys = aggr_txq->descs_phys >>
-+			MVPP22_AGGR_TXQ_DESC_ADDR_OFFS;
-+
-+	mvpp2_write(priv, MVPP2_AGGR_TXQ_DESC_ADDR_REG(cpu), txq_phys);
- 	mvpp2_write(priv, MVPP2_AGGR_TXQ_DESC_SIZE_REG(cpu), desc_num);
- 
- 	return 0;
-@@ -4796,6 +4806,8 @@ static int mvpp2_rxq_init(struct mvpp2_port *port,
- 			  struct mvpp2_rx_queue *rxq)
- 
- {
-+	u32 rxq_phys;
-+
- 	rxq->size = port->rx_ring_size;
- 
- 	/* Allocate memory for RX descriptors */
-@@ -4812,7 +4824,11 @@ static int mvpp2_rxq_init(struct mvpp2_port *port,
- 
- 	/* Set Rx descriptors queue starting address - indirect access */
- 	mvpp2_write(port->priv, MVPP2_RXQ_NUM_REG, rxq->id);
--	mvpp2_write(port->priv, MVPP2_RXQ_DESC_ADDR_REG, rxq->descs_phys);
-+	if (port->priv->hw_version == MVPP21)
-+		rxq_phys = rxq->descs_phys;
-+	else
-+		rxq_phys = rxq->descs_phys >> MVPP22_DESC_ADDR_OFFS;
-+	mvpp2_write(port->priv, MVPP2_RXQ_DESC_ADDR_REG, rxq_phys);
- 	mvpp2_write(port->priv, MVPP2_RXQ_DESC_SIZE_REG, rxq->size);
- 	mvpp2_write(port->priv, MVPP2_RXQ_INDEX_REG, 0);
- 
+In order to ease the review, the introduction of PPv2.2 support has
+been made into multiple small commits, with the final commit adding
+the compatible string that makes the PPv2.2 support actually
+usable. The series remain fully bisectable.
+
+This series depends on the series named "net: mvpp2: misc improvements
+and preparation patches".
+
+I'd like to thank Stefan Chulski and Marcin Wojtas, who helped me a
+lot in the development of this patch series, by reviewing the patches,
+and giving lots of useful hints to debug the driver on PPv2.2. Thanks!
+
+Changes since v1:
+
+ - Made a separate series from the set of patches doing preparation
+   changes/fixes to the mvpp2 driver.
+
+ - Rebased on top of v4.10-rc1.
+
+ - Update Kconfig text of the mvpp2 driver to mention the support for
+   Armada 7K and 8K (PPv2.2).
+
+Best regards,
+
+Thomas
+
+Thomas Petazzoni (16):
+  dt-bindings: net: update Marvell PPv2 binding for PPv2.2 support
+  net: mvpp2: add and use accessors for TX/RX descriptors
+  net: mvpp2: add hw_version field in "struct mvpp2"
+  net: mvpp2: introduce an intermediate union for the TX/RX descriptors
+  net: mvpp2: introduce PPv2.2 HW descriptors and adapt accessors
+  net: mvpp2: adjust the allocation/free of BM pools for PPv2.2
+  net: mvpp2: adapt the mvpp2_rxq_*_pool_set functions to PPv2.2
+  net: mvpp2: adapt mvpp2_defaults_set() to PPv2.2
+  net: mvpp2: adjust mvpp2_{rxq,txq}_init for PPv2.2
+  net: mvpp2: handle register mapping and access for PPv2.2
+  net: mvpp2: handle misc PPv2.1/PPv2.2 differences
+  net: mvpp2: add AXI bridge initialization for PPv2.2
+  net: mvpp2: rework RXQ interrupt group initialization for PPv2.2
+  net: mvpp2: adapt rxq distribution to PPv2.2
+  net: mvpp2: add support for an additional clock needed for PPv2.2
+  net: mvpp2: finally add the PPv2.2 compatible string
+
+ .../devicetree/bindings/net/marvell-pp2.txt        |  66 +-
+ drivers/net/ethernet/marvell/Kconfig               |   4 +-
+ drivers/net/ethernet/marvell/mvpp2.c               | 783 +++++++++++++++++----
+ 3 files changed, 700 insertions(+), 153 deletions(-)
+
 -- 
 2.7.4
