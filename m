@@ -1,54 +1,42 @@
-From: Dave Jones <davej@codemonkey.org.uk>
-Subject: ipv6: remove unnecessary inet6_sk check
-Date: Wed, 28 Dec 2016 11:53:18 -0500
-Message-ID: <20161228165318.5afrtlbulsgymc4c@codemonkey.org.uk>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCHv2 net-next 00/16] net: mvpp2: add basic support for
+ PPv2.2
+Date: Wed, 28 Dec 2016 12:06:44 -0500 (EST)
+Message-ID: <20161228.120644.1166014191192724301.davem@davemloft.net>
+References: <1482943592-12556-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from arcturus.aphlor.org ([188.246.204.175]:43096 "EHLO
-        arcturus.aphlor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750966AbcL1QxV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Dec 2016 11:53:21 -0500
-Received: from c-65-96-119-39.hsd1.ma.comcast.net ([65.96.119.39] helo=wopr.kernelslacker.org)
-        by arcturus.aphlor.org with esmtpsa (TLS1.2:ECDHE_RSA_AES_256_GCM_SHA384:256)
-        (Exim 4.88)
-        (envelope-from <davej@codemonkey.org.uk>)
-        id 1cMHTc-0001Jn-5X
-        for netdev@vger.kernel.org; Wed, 28 Dec 2016 16:53:20 +0000
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org,
+        pawel.moll-5wv7dgnIgG8@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
+        jason-NLaQJdtUoK4Be96aLqz0jA@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org,
+        sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+        gregory.clement-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, nadavh-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org,
+        hannah-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org, yehuday-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org,
+        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, stefanc-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org,
+        mw-nYOzD4b6Jr9Wk0Htik3J/w@public.gmane.org
+To: thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1482943592-12556-1-git-send-email-thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-np is already assigned in the variable declaration of ping_v6_sendmsg.
-At this point, we have already dereferenced np several times, so the
-NULL check is also redundant.
+From: Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Date: Wed, 28 Dec 2016 17:46:16 +0100
 
-Suggested-by: Eric Dumazet <eric.dumazet@gmail.com>
-Signed-off-by: Dave Jones <davej@codemonkey.org.uk>
+> This series depends on the series named "net: mvpp2: misc improvements
+> and preparation patches".
 
-diff --git a/net/ipv6/ping.c b/net/ipv6/ping.c
-index e1f8b34d7a2e..9b522fa90e6d 100644
---- a/net/ipv6/ping.c
-+++ b/net/ipv6/ping.c
-@@ -126,12 +126,6 @@ static int ping_v6_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
- 		return PTR_ERR(dst);
- 	rt = (struct rt6_info *) dst;
- 
--	np = inet6_sk(sk);
--	if (!np) {
--		err = -EBADF;
--		goto dst_err_out;
--	}
--
- 	if (!fl6.flowi6_oif && ipv6_addr_is_multicast(&fl6.daddr))
- 		fl6.flowi6_oif = np->mcast_oif;
- 	else if (!fl6.flowi6_oif)
-@@ -166,7 +160,6 @@ static int ping_v6_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
- 	}
- 	release_sock(sk);
- 
--dst_err_out:
- 	dst_release(dst);
- 
- 	if (err)
+Please in the future only submit one patch series at a time.
+
+If I've told you that a large patch series is hard to review and that
+therefore one should keep each submitted series small and to a
+reasonable size, that is completely undermined when you submit
+multiple series to work around that request.
+
+Thank you.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
