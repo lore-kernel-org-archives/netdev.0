@@ -1,31 +1,72 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] skfp: hwmtm: Use proper logging macros, correct
- mismatches
-Date: Tue, 27 Dec 2016 20:17:06 -0500 (EST)
-Message-ID: <20161227.201706.1509861992180599997.davem@davemloft.net>
-References: <8e5313732124084fd2084df874eed70f8f1af810.1482367105.git.joe@perches.com>
+From: Dave Jones <davej-rdkfGonbjUTCLXcRTR1eJlpr/1R2p/CL@public.gmane.org>
+Subject: sunrpc: Illegal context switch in RCU read-side critical section!
+Date: Tue, 27 Dec 2016 19:55:35 -0500
+Message-ID: <20161228005535.oh7ip4wkc2bfed74@codemonkey.org.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: colin.king@canonical.com, linux-kernel@vger.kernel.org,
-        netdev@vger.kernel.org
-To: joe@perches.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <8e5313732124084fd2084df874eed70f8f1af810.1482367105.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Joe Perches <joe@perches.com>
-Date: Wed, 21 Dec 2016 16:41:52 -0800
+Just noticed this on 4.9. Will try and repro on 4.10rc1 later, but hitting
+unrelated boot problems on that machine right now.
 
-> Logging macros should allow format and argument validation.
-> The DB_TX, DB_RX, and DB_GEN macros did not.
-> 
-> Update the macros and uses and add no_printk validation to the
-> previously compiled away #ifndef DEBUG variants.
-> 
-> Done with coccinelle and some typing.
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
+===============================
+[ INFO: suspicious RCU usage. ]
+4.9.0-backup-debug+ #1 Not tainted
+-------------------------------
+./include/linux/rcupdate.h:557 Illegal context switch in RCU read-side critical section!
 
-Applied.
+other info that might help us debug this:
+
+rcu_scheduler_active = 1, debug_locks = 1
+5 locks held by kworker/4:1/66:
+ #0:  ("%s"("ipv6_addrconf")){.+.+..}, at: [<ffffffff8e09dd14>] process_one_work+0x184/0x790
+ #1:  ((addr_chk_work).work){+.+...}, at: [<ffffffff8e09dd14>] process_one_work+0x184/0x790
+ #2:  (rtnl_mutex){+.+.+.}, at: [<ffffffff8e9eadc7>] rtnl_lock+0x17/0x20
+ #3:  (rcu_read_lock_bh){......}, at: [<ffffffff8ea8b0a3>] addrconf_verify_rtnl+0x23/0x500
+ #4:  (rcu_read_lock){......}, at: [<ffffffff8e0a6c65>] atomic_notifier_call_chain+0x5/0x110
+
+stack backtrace:
+CPU: 4 PID: 66 Comm: kworker/4:1 Not tainted 4.9.0-backup-debug+ #1
+Workqueue: ipv6_addrconf addrconf_verify_work
+ ffffc90000273a28 ffffffff8e5b4ca5 ffff88042ae19780 0000000000000001
+ ffffc90000273a58 ffffffff8e0d530e 0000000000000000 ffffffff8efcc659
+ 00000000000009a7 ffff8804180b8580 ffffc90000273a80 ffffffff8e0ad2b7
+Call Trace:
+ [<ffffffff8e5b4ca5>] dump_stack+0x68/0x93
+ [<ffffffff8e0d530e>] lockdep_rcu_suspicious+0xce/0xf0
+ [<ffffffff8e0ad2b7>] ___might_sleep.part.103+0xa7/0x230
+ [<ffffffff8e0b74db>] __might_sleep+0x4b/0x90
+ [<ffffffff8e9b9ed2>] lock_sock_nested+0x32/0xb0
+ [<ffffffff8e9ba2cb>] sock_setsockopt+0x8b/0xa50
+ [<ffffffff8e088025>] ? __local_bh_enable_ip+0x65/0xb0
+ [<ffffffff8e9b5f39>] kernel_setsockopt+0x49/0x50
+ [<ffffffff8eae7d6a>] svc_tcp_kill_temp_xprt+0x4a/0x60
+ [<ffffffff8eafa9ef>] svc_age_temp_xprts_now+0x12f/0x1b0
+ [<ffffffff8e350e32>] nfsd_inet6addr_event+0x192/0x1f0
+ [<ffffffff8e350ca5>] ? nfsd_inet6addr_event+0x5/0x1f0
+ [<ffffffff8e0a69f9>] notifier_call_chain+0x39/0xa0
+ [<ffffffff8e0a6cce>] atomic_notifier_call_chain+0x6e/0x110
+ [<ffffffff8e0a6c65>] ? atomic_notifier_call_chain+0x5/0x110
+ [<ffffffff8eac58cb>] inet6addr_notifier_call_chain+0x1b/0x20
+ [<ffffffff8ea8a89c>] ipv6_del_addr+0x12c/0x200
+ [<ffffffff8ea8b497>] addrconf_verify_rtnl+0x417/0x500
+ [<ffffffff8ea8b0a3>] ? addrconf_verify_rtnl+0x23/0x500
+ [<ffffffff8ea8b593>] addrconf_verify_work+0x13/0x20
+ [<ffffffff8e09dd9b>] process_one_work+0x20b/0x790
+ [<ffffffff8e09dd14>] ? process_one_work+0x184/0x790
+ [<ffffffff8e09e36e>] worker_thread+0x4e/0x490
+ [<ffffffff8e09e320>] ? process_one_work+0x790/0x790
+ [<ffffffff8e09e320>] ? process_one_work+0x790/0x790
+ [<ffffffff8e0a4ecf>] kthread+0xff/0x120
+ [<ffffffff8e0a4dd0>] ? kthread_worker_fn+0x140/0x140
+ [<ffffffff8eb14517>] ret_from_fork+0x27/0x40
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
