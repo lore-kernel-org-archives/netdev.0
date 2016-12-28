@@ -1,7 +1,7 @@
 From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCHv2 net-next 08/16] net: mvpp2: adapt mvpp2_defaults_set() to PPv2.2
-Date: Wed, 28 Dec 2016 17:46:24 +0100
-Message-ID: <1482943592-12556-9-git-send-email-thomas.petazzoni@free-electrons.com>
+Subject: [PATCHv2 net-next 04/16] net: mvpp2: introduce an intermediate union for the TX/RX descriptors
+Date: Wed, 28 Dec 2016 17:46:20 +0100
+Message-ID: <1482943592-12556-5-git-send-email-thomas.petazzoni@free-electrons.com>
 References: <1482943592-12556-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Cc: Jason Cooper <jason@lakedaemon.net>, Andrew Lunn <andrew@lunn.ch>,
         Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
@@ -20,55 +20,156 @@ To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
         Mark Rutland <mark.rutland@arm.com>,
         Kumar Gala <galak@codeaurora.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:47962 "EHLO
+Received: from mail.free-electrons.com ([62.4.15.54]:47704 "EHLO
         mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751930AbcL1QsD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Dec 2016 11:48:03 -0500
+        with ESMTP id S1751802AbcL1QsB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Dec 2016 11:48:01 -0500
 In-Reply-To: <1482943592-12556-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This commit modifies the mvpp2_defaults_set() function to not do the
-loopback and FIFO threshold initialization, which are not needed for
+Since the format of the HW descriptors is different between PPv2.1 and
+PPv2.2, this commit introduces an intermediate union, with for now
+only the PPv2.1 descriptors. The bulk of the driver code only
+manipulates opaque mvpp2_tx_desc and mvpp2_rx_desc pointers, and the
+descriptors can only be accessed and modified through the accessor
+functions. A follow-up commit will add the descriptor definitions for
 PPv2.2.
 
 Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 ---
- drivers/net/ethernet/marvell/mvpp2.c | 22 ++++++++++++----------
- 1 file changed, 12 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/marvell/mvpp2.c | 43 +++++++++++++++++++++++++-----------
+ 1 file changed, 30 insertions(+), 13 deletions(-)
 
 diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 8fc818d..23f2368 100644
+index bc359a9..a37ff50 100644
 --- a/drivers/net/ethernet/marvell/mvpp2.c
 +++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -4205,16 +4205,18 @@ static void mvpp2_defaults_set(struct mvpp2_port *port)
- {
- 	int tx_port_num, val, queue, ptxq, lrxq;
+@@ -745,7 +745,8 @@ struct mvpp2_port {
+ #define MVPP2_RXD_L3_IP6		BIT(30)
+ #define MVPP2_RXD_BUF_HDR		BIT(31)
  
--	/* Configure port to loopback if needed */
--	if (port->flags & MVPP2_F_LOOPBACK)
--		mvpp2_port_loopback_set(port);
--
--	/* Update TX FIFO MIN Threshold */
--	val = readl(port->base + MVPP2_GMAC_PORT_FIFO_CFG_1_REG);
--	val &= ~MVPP2_GMAC_TX_FIFO_MIN_TH_ALL_MASK;
--	/* Min. TX threshold must be less than minimal packet length */
--	val |= MVPP2_GMAC_TX_FIFO_MIN_TH_MASK(64 - 4 - 2);
--	writel(val, port->base + MVPP2_GMAC_PORT_FIFO_CFG_1_REG);
-+	if (port->priv->hw_version == MVPP21) {
-+		/* Configure port to loopback if needed */
-+		if (port->flags & MVPP2_F_LOOPBACK)
-+			mvpp2_port_loopback_set(port);
+-struct mvpp2_tx_desc {
++/* HW TX descriptor for PPv2.1 */
++struct mvpp21_tx_desc {
+ 	u32 command;		/* Options used by HW for packet transmitting.*/
+ 	u8  packet_offset;	/* the offset from the buffer beginning	*/
+ 	u8  phys_txq;		/* destination queue ID			*/
+@@ -756,7 +757,8 @@ struct mvpp2_tx_desc {
+ 	u32 reserved2;		/* reserved (for future use)		*/
+ };
+ 
+-struct mvpp2_rx_desc {
++/* HW RX descriptor for PPv2.1 */
++struct mvpp21_rx_desc {
+ 	u32 status;		/* info about received packet		*/
+ 	u16 reserved1;		/* parser_info (for future use, PnC)	*/
+ 	u16 data_size;		/* size of received packet in bytes	*/
+@@ -771,6 +773,21 @@ struct mvpp2_rx_desc {
+ 	u32 reserved8;
+ };
+ 
++/* Opaque type used by the driver to manipulate the HW TX and RX
++ * descriptors
++ */
++struct mvpp2_tx_desc {
++	union {
++		struct mvpp21_tx_desc pp21;
++	};
++};
 +
-+		/* Update TX FIFO MIN Threshold */
-+		val = readl(port->base + MVPP2_GMAC_PORT_FIFO_CFG_1_REG);
-+		val &= ~MVPP2_GMAC_TX_FIFO_MIN_TH_ALL_MASK;
-+		/* Min. TX threshold must be less than minimal packet length */
-+		val |= MVPP2_GMAC_TX_FIFO_MIN_TH_MASK(64 - 4 - 2);
-+		writel(val, port->base + MVPP2_GMAC_PORT_FIFO_CFG_1_REG);
-+	}
++struct mvpp2_rx_desc {
++	union {
++		struct mvpp21_rx_desc pp21;
++	};
++};
++
+ struct mvpp2_txq_pcpu_buf {
+ 	/* Transmitted SKB */
+ 	struct sk_buff *skb;
+@@ -974,72 +991,72 @@ static u32 mvpp2_read(struct mvpp2 *priv, u32 offset)
+ static dma_addr_t mvpp2_txdesc_phys_addr_get(struct mvpp2_port *port,
+ 					     struct mvpp2_tx_desc *tx_desc)
+ {
+-	return tx_desc->buf_phys_addr;
++	return tx_desc->pp21.buf_phys_addr;
+ }
  
- 	/* Disable Legacy WRR, Disable EJP, Release from reset */
- 	tx_port_num = mvpp2_egress_port(port);
+ static void mvpp2_txdesc_phys_addr_set(struct mvpp2_port *port,
+ 				       struct mvpp2_tx_desc *tx_desc,
+ 				       dma_addr_t phys_addr)
+ {
+-	tx_desc->buf_phys_addr = phys_addr;
++	tx_desc->pp21.buf_phys_addr = phys_addr;
+ }
+ 
+ static size_t mvpp2_txdesc_size_get(struct mvpp2_port *port,
+ 				    struct mvpp2_tx_desc *tx_desc)
+ {
+-	return tx_desc->data_size;
++	return tx_desc->pp21.data_size;
+ }
+ 
+ static void mvpp2_txdesc_size_set(struct mvpp2_port *port,
+ 				  struct mvpp2_tx_desc *tx_desc,
+ 				  size_t size)
+ {
+-	tx_desc->data_size = size;
++	tx_desc->pp21.data_size = size;
+ }
+ 
+ static void mvpp2_txdesc_txq_set(struct mvpp2_port *port,
+ 				 struct mvpp2_tx_desc *tx_desc,
+ 				 unsigned int txq)
+ {
+-	tx_desc->phys_txq = txq;
++	tx_desc->pp21.phys_txq = txq;
+ }
+ 
+ static void mvpp2_txdesc_cmd_set(struct mvpp2_port *port,
+ 				 struct mvpp2_tx_desc *tx_desc,
+ 				 unsigned int command)
+ {
+-	tx_desc->command = command;
++	tx_desc->pp21.command = command;
+ }
+ 
+ static void mvpp2_txdesc_offset_set(struct mvpp2_port *port,
+ 				    struct mvpp2_tx_desc *tx_desc,
+ 				    unsigned int offset)
+ {
+-	tx_desc->packet_offset = offset;
++	tx_desc->pp21.packet_offset = offset;
+ }
+ 
+ static dma_addr_t mvpp2_rxdesc_phys_addr_get(struct mvpp2_port *port,
+ 					     struct mvpp2_rx_desc *rx_desc)
+ {
+-	return rx_desc->buf_phys_addr;
++	return rx_desc->pp21.buf_phys_addr;
+ }
+ 
+ static unsigned long mvpp2_rxdesc_virt_addr_get(struct mvpp2_port *port,
+ 						struct mvpp2_rx_desc *rx_desc)
+ {
+-	return rx_desc->buf_cookie;
++	return rx_desc->pp21.buf_cookie;
+ }
+ 
+ static size_t mvpp2_rxdesc_size_get(struct mvpp2_port *port,
+ 				    struct mvpp2_rx_desc *rx_desc)
+ {
+-	return rx_desc->data_size;
++	return rx_desc->pp21.data_size;
+ }
+ 
+ static u32 mvpp2_rxdesc_status_get(struct mvpp2_port *port,
+ 				   struct mvpp2_rx_desc *rx_desc)
+ {
+-	return rx_desc->status;
++	return rx_desc->pp21.status;
+ }
+ 
+ static void mvpp2_txq_inc_get(struct mvpp2_txq_pcpu *txq_pcpu)
 -- 
 2.7.4
