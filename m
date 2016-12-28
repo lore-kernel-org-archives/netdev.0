@@ -1,51 +1,39 @@
-From: Augusto Mecking Caringi <augustocaringi@gmail.com>
-Subject: [PATCH] net: atm: Fix warnings in net/atm/lec.c when !CONFIG_PROC_FS
-Date: Wed, 28 Dec 2016 16:02:05 +0000
-Message-ID: <1482941006-28052-1-git-send-email-augustocaringi@gmail.com>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH] net: wan: slic_ds26522: fix spelling mistake: "configurated" -> "configured"
+Date: Wed, 28 Dec 2016 16:44:23 +0000
+Message-ID: <20161228164423.19070-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 8bit
-Cc: Augusto Mecking Caringi <augustocaringi@gmail.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Felipe Balbi <felipe.balbi@linux.intel.com>,
-        Kees Cook <keescook@chromium.org>,
-        Mugunthan V N <mugunthanvnm@ti.com>,
-        Jarod Wilson <jarod@redhat.com>,
+Cc: linux-kernel@vger.kernel.org
+To: "David S . Miller" <davem@davemloft.net>,
         Javier Martinez Canillas <javier@osg.samsung.com>,
-        Florian Westphal <fw@strlen.de>, linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
+        Zhao Qiang <qiang.zhao@nxp.com>, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch fixes the following warnings when CONFIG_PROC_FS is not set:
+From: Colin Ian King <colin.king@canonical.com>
 
-linux/net/atm/lec.c: In function ‘lane_module_cleanup’:
-linux/net/atm/lec.c:1062:27: error: ‘atm_proc_root’ undeclared (first
-use in this function)
-remove_proc_entry("lec", atm_proc_root);
-                           ^
-linux/net/atm/lec.c:1062:27: note: each undeclared identifier is
-reported only once for each function it appears in
+trivial fix to spelling mistake in pr_info message
 
-Signed-off-by: Augusto Mecking Caringi <augustocaringi@gmail.com>
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
 ---
- net/atm/lec.c | 2 ++
- 1 file changed, 2 insertions(+)
+ drivers/net/wan/slic_ds26522.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/atm/lec.c b/net/atm/lec.c
-index 019557d..09cfe87 100644
---- a/net/atm/lec.c
-+++ b/net/atm/lec.c
-@@ -1059,7 +1059,9 @@ static void __exit lane_module_cleanup(void)
- {
- 	int i;
+diff --git a/drivers/net/wan/slic_ds26522.c b/drivers/net/wan/slic_ds26522.c
+index b776a0a..9d9b4e0 100644
+--- a/drivers/net/wan/slic_ds26522.c
++++ b/drivers/net/wan/slic_ds26522.c
+@@ -218,7 +218,7 @@ static int slic_ds26522_probe(struct spi_device *spi)
  
-+#ifdef CONFIG_PROC_FS
- 	remove_proc_entry("lec", atm_proc_root);
-+#endif
+ 	ret = slic_ds26522_init_configure(spi);
+ 	if (ret == 0)
+-		pr_info("DS26522 cs%d configurated\n", spi->chip_select);
++		pr_info("DS26522 cs%d configured\n", spi->chip_select);
  
- 	deregister_atm_ioctl(&lane_ioctl_ops);
- 
+ 	return ret;
+ }
 -- 
-2.7.4
+2.10.2
