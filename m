@@ -1,87 +1,63 @@
-From: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>
-Subject: RE: [PATCH v2] net: stmmac: bug fix to synchronize stmmac_open and
- stmmac_dvr_probe
-Date: Wed, 28 Dec 2016 05:49:18 +0000
-Message-ID: <F54AEECA5E2B9541821D670476DAE19C5A916CA0@PGSMSX102.gar.corp.intel.com>
-References: <1482849756-21817-1-git-send-email-hock.leong.kweh@intel.com>
- <20161227.113405.362102687632949941.davem@davemloft.net>
+From: Jason Wang <jasowang@redhat.com>
+Subject: [PATCH net-next V2 0/3] vhost net tx batching
+Date: Wed, 28 Dec 2016 16:09:28 +0800
+Message-ID: <1482912571-3157-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Joao.Pinto@synopsys.com" <Joao.Pinto@synopsys.com>,
-        "peppe.cavallaro@st.com" <peppe.cavallaro@st.com>,
-        "seraphin.bonnaffe@st.com" <seraphin.bonnaffe@st.com>,
-        "alexandre.torgue@gmail.com" <alexandre.torgue@gmail.com>,
-        "manabian@gmail.com" <manabian@gmail.com>,
-        "niklas.cassel@axis.com" <niklas.cassel@axis.com>,
-        "johan@kernel.org" <johan@kernel.org>,
-        "pavel@ucw.cz" <pavel@ucw.cz>,
-        "Ong, Boon Leong" <boon.leong.ong@intel.com>,
-        "Voon, Weifeng" <weifeng.voon@intel.com>,
-        "lars.persson@axis.com" <lars.persson@axis.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>,
-        "f.fainelli@gmail.com" <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161227.113405.362102687632949941.davem@davemloft.net>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Transfer-Encoding: 7bit
+To: mst@redhat.com, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Wednesday, December 28, 2016 12:34 AM
-> To: Kweh, Hock Leong <hock.leong.kweh@intel.com>
-> Cc: Joao.Pinto@synopsys.com; peppe.cavallaro@st.com;
-> seraphin.bonnaffe@st.com; f.fainelli@gmail.com;
-> alexandre.torgue@gmail.com; manabian@gmail.com; niklas.cassel@axis.com;
-> johan@kernel.org; pavel@ucw.cz; Ong, Boon Leong
-> <boon.leong.ong@intel.com>; Voon, Weifeng <weifeng.voon@intel.com>;
-> lars.persson@axis.com; netdev@vger.kernel.org; linux-kernel@vger.kernel.org
-> Subject: Re: [PATCH v2] net: stmmac: bug fix to synchronize stmmac_open and
-> stmmac_dvr_probe
-> 
-> From: "Kweh, Hock Leong"	<hock.leong.kweh@intel.com>
-> Date: Tue, 27 Dec 2016 22:42:36 +0800
-> 
-> > From: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>
-> 
-> You are not the author of this change, do not take credit for it.
-> 
-> You have copied Florian's patch character by character, therefore
-> he is the author.
-> 
-> You also didn't CC: the netdev mailing list properly.
+Hi:
 
-Hi David & Florian,
+This series tries to implement tx batching support for vhost. This was
+done by using MSG_MORE as a hint for under layer socket. The backend
+(e.g tap) can then batch the packets temporarily in a list and
+submit it all once the number of bacthed exceeds a limitation.
 
-Just to clarify that I do not copy exactly from Florian.
-I have changed it to have proper handling on mdio unregister
-while netdev_register() failed as showed below:
+Tests shows obvious improvement on guest pktgen over over
+mlx4(noqueue) on host:
 
-	return 0;
- 
--error_mdio_register:
--	unregister_netdev(ndev);
- error_netdev_register:
-+	stmmac_mdio_unregister(ndev);
-+error_mdio_register:
-	netif_napi_del(&priv->napi);
+                    Mpps  -+%
+        rx_batched=0  0.90  +0%
+        rx_batched=4  0.97  +7.8%
+        rx_batched=8  0.97  +7.8%
+        rx_batched=16 0.98  +8.9%
+        rx_batched=32 1.03  +14.4%
+        rx_batched=48 1.09  +21.1%
+        rx_batched=64 1.02  +13.3%
 
-Vs 
+Changes from V1:
+- drop NAPI handler since we don't use NAPI now
+- fix the issues that may exceeds max pending of zerocopy
+- more improvement on available buffer detection
+- move the limitation of batched pacekts from vhost to tuntap
 
-+
-+       return ret;
+Please review.
 
- error_mdio_register:
--       unregister_netdev(ndev);
--error_netdev_register:
-        netif_napi_del(&priv->napi);
+Thanks
 
-Just to point it out here, so that Florian could aware if he/she submit
-this fix to the mailing list.
+Jason Wang (3):
+  vhost: better detection of available buffers
+  vhost_net: tx batching
+  tun: rx batching
 
+ drivers/net/tun.c     | 66 ++++++++++++++++++++++++++++++++++++++++++++-------
+ drivers/vhost/net.c   | 23 +++++++++++++++---
+ drivers/vhost/vhost.c |  8 +++++--
+ 3 files changed, 84 insertions(+), 13 deletions(-)
 
-Thanks & Regards,
-Wilson  
+-- 
+2.7.4
