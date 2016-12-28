@@ -1,105 +1,75 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: [PATCH RESEND net-next 4/5] sctp: remove return value from sctp_packet_init/config
-Date: Wed, 28 Dec 2016 09:26:34 -0200
-Message-ID: <7d9474410d944567be0dc09da373cf3d30713325.1482924092.git.marcelo.leitner@gmail.com>
-References: <cover.1482924092.git.marcelo.leitner@gmail.com>
-Cc: linux-sctp@vger.kernel.org, Vlad Yasevich <vyasevich@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>
-To: netdev@vger.kernel.org
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Subject: Re: [PATCH v3] stmmac: enable rx queues
+Date: Wed, 28 Dec 2016 11:53:43 +0000
+Message-ID: <089cbc8f-ed57-f5e5-51a7-c62e37998f6c@synopsys.com>
+References: <f159542b43e49004ab63aaaf1a1c5cc5cbb2dfa7.1482922898.git.jpinto@synopsys.com>
+ <CAJ3s=NB-ic4OrXPVPpYyoYrEwfwCmrAB8ZNPorpyU+5Do_b2=g@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Kishan Sandeep <sandeepkishan108@gmail.com>,
+        Joao Pinto <Joao.Pinto@synopsys.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f196.google.com ([209.85.216.196]:36196 "EHLO
-        mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751427AbcL1L1X (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Dec 2016 06:27:23 -0500
-In-Reply-To: <cover.1482924092.git.marcelo.leitner@gmail.com>
+Received: from smtprelay2.synopsys.com ([198.182.60.111]:40857 "EHLO
+        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751372AbcL1Lxs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Dec 2016 06:53:48 -0500
+In-Reply-To: <CAJ3s=NB-ic4OrXPVPpYyoYrEwfwCmrAB8ZNPorpyU+5Do_b2=g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is no reason to use this cascading. It doesn't add anything.
-Let's remove it and simplify.
+Hello,
 
-Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
----
- include/net/sctp/structs.h |  7 +++----
- net/sctp/output.c          | 14 +++++---------
- net/sctp/sm_statefuns.c    |  5 +++--
- 3 files changed, 11 insertions(+), 15 deletions(-)
+Às 11:50 AM de 12/28/2016, Kishan Sandeep escreveu:
+> On Wed, Dec 28, 2016 at 4:45 PM, Joao Pinto <Joao.Pinto@synopsys.com> wrote:
+> 
+>> When the hardware is synthesized with multiple queues, all queues are
+>> disabled for default. This patch adds the rx queues configuration.
+>> This patch was successfully tested in a Synopsys QoS Reference design.
+>>
+>> Signed-off-by: Joao Pinto <jpinto@synopsys.com>
+>> ---
+>> changes v2 -> v3 (Seraphin Bonnaffe):
+>> - GMAC_RX_QUEUE_CLEAR macro simplified
+>> changes v1 -> v2 (Niklas Cassel and Seraphin Bonnaffe):
+>> - Instead of using number of DMA channels, lets use number of queues
+>> - Create 2 flavors of RX queue enable Macros: AV and DCB (AV by default)
+>> - Make sure that the RX queue related bits are cleared before setting
+>> - Check if rx_queue_enable is available before executing
+>>
+>>  drivers/net/ethernet/stmicro/stmmac/common.h      |  5 +++++
+>>  drivers/net/ethernet/stmicro/stmmac/dwmac4.h      |  8 ++++++++
+>>  drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c | 12 ++++++++++++
+>>  drivers/net/ethernet/stmicro/stmmac/dwmac4_dma.c  |  5 +++++
+>>  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 22
+>> ++++++++++++++++++++++
+>>  5 files changed, 52 insertions(+)
+>>
+>> diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h
+>> b/drivers/net/ethernet/stmicro/stmmac/common.h
+>> index b13a144..6c96291 100644
+>> --- a/drivers/net/ethernet/stmicro/stmmac/common.h
+>> +++ b/drivers/net/ethernet/stmicro/stmmac/common.h
+>> @@ -323,6 +323,9 @@ struct dma_features {
+>>         /* TX and RX number of channels */
+>>         unsigned int number_rx_channel;
+>>         unsigned int number_tx_channel;
+>> +       /* TX and RX number of queues */
+>> +       unsigned int number_rx_queues;
+>> +       unsigned int number_tx_queues;
+>>
+> 
+> Looks like this variable is unused. Current driver is only supporting
+> single Tx channel/queue. ??  Is current driver not supporting
+> multichannel/multiqueue ?
 
-diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-index 92daabdc007d94a544baa10d278d229e42e40eb3..87d56cc80a3c1d8549b97391245dacc3b6193618 100644
---- a/include/net/sctp/structs.h
-+++ b/include/net/sctp/structs.h
-@@ -722,10 +722,9 @@ struct sctp_packet {
- 	    ipfragok:1;		/* So let ip fragment this packet */
- };
- 
--struct sctp_packet *sctp_packet_init(struct sctp_packet *,
--				     struct sctp_transport *,
--				     __u16 sport, __u16 dport);
--struct sctp_packet *sctp_packet_config(struct sctp_packet *, __u32 vtag, int);
-+void sctp_packet_init(struct sctp_packet *, struct sctp_transport *,
-+		      __u16 sport, __u16 dport);
-+void sctp_packet_config(struct sctp_packet *, __u32 vtag, int);
- sctp_xmit_t sctp_packet_transmit_chunk(struct sctp_packet *,
- 				       struct sctp_chunk *, int, gfp_t);
- sctp_xmit_t sctp_packet_append_chunk(struct sctp_packet *,
-diff --git a/net/sctp/output.c b/net/sctp/output.c
-index f5320a87341e160d46b1160edf4c38b569e7e79b..07ab5062e541dc663b619a278742425a92002945 100644
---- a/net/sctp/output.c
-+++ b/net/sctp/output.c
-@@ -81,8 +81,8 @@ static void sctp_packet_reset(struct sctp_packet *packet)
- /* Config a packet.
-  * This appears to be a followup set of initializations.
-  */
--struct sctp_packet *sctp_packet_config(struct sctp_packet *packet,
--				       __u32 vtag, int ecn_capable)
-+void sctp_packet_config(struct sctp_packet *packet, __u32 vtag,
-+			int ecn_capable)
- {
- 	struct sctp_transport *tp = packet->transport;
- 	struct sctp_association *asoc = tp->asoc;
-@@ -123,14 +123,12 @@ struct sctp_packet *sctp_packet_config(struct sctp_packet *packet,
- 		if (chunk)
- 			sctp_packet_append_chunk(packet, chunk);
- 	}
--
--	return packet;
- }
- 
- /* Initialize the packet structure. */
--struct sctp_packet *sctp_packet_init(struct sctp_packet *packet,
--				     struct sctp_transport *transport,
--				     __u16 sport, __u16 dport)
-+void sctp_packet_init(struct sctp_packet *packet,
-+		      struct sctp_transport *transport,
-+		      __u16 sport, __u16 dport)
- {
- 	struct sctp_association *asoc = transport->asoc;
- 	size_t overhead;
-@@ -151,8 +149,6 @@ struct sctp_packet *sctp_packet_init(struct sctp_packet *packet,
- 	packet->overhead = overhead;
- 	sctp_packet_reset(packet);
- 	packet->vtag = 0;
--
--	return packet;
- }
- 
- /* Free a packet.  */
-diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
-index a95915ef9dbabad30f6171f77b26feab61752f36..9a223d5b2314ff166be0446462c33219b7eec1b9 100644
---- a/net/sctp/sm_statefuns.c
-+++ b/net/sctp/sm_statefuns.c
-@@ -6032,8 +6032,9 @@ static struct sctp_packet *sctp_ootb_pkt_new(struct net *net,
- 	sctp_transport_route(transport, (union sctp_addr *)&chunk->dest,
- 			     sctp_sk(net->sctp.ctl_sock));
- 
--	packet = sctp_packet_init(&transport->packet, transport, sport, dport);
--	packet = sctp_packet_config(packet, vtag, 0);
-+	packet = &transport->packet;
-+	sctp_packet_init(packet, transport, sport, dport);
-+	sctp_packet_config(packet, vtag, 0);
- 
- 	return packet;
- 
--- 
-2.9.3
+stmmac has a good base for multichannel / multiple queue support, but is only
+using 1 for now. My next task is to add complete multiple queues / channel to
+stmmac amd that is why number of tx queues is being available.
+
+Thanks!
+
+> 
+> Thanks!
+> 
