@@ -1,8 +1,7 @@
 From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCHv2 net-next 09/11] net: mvpp2: simplify MVPP2_PRS_RI_* definitions
-Date: Wed, 28 Dec 2016 17:46:05 +0100
-Message-ID: <1482943567-12483-10-git-send-email-thomas.petazzoni@free-electrons.com>
-References: <1482943567-12483-1-git-send-email-thomas.petazzoni@free-electrons.com>
+Subject: [PATCHv2 net-next 00/11] net: mvpp2: misc improvements and preparation patches
+Date: Wed, 28 Dec 2016 17:45:56 +0100
+Message-ID: <1482943567-12483-1-git-send-email-thomas.petazzoni@free-electrons.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -18,89 +17,56 @@ Cc: Jason Cooper <jason@lakedaemon.net>, Andrew Lunn <andrew@lunn.ch>,
         Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([62.4.15.54]:47568 "EHLO
+Received: from mail.free-electrons.com ([62.4.15.54]:47518 "EHLO
         mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751826AbcL1Qq0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Dec 2016 11:46:26 -0500
-In-Reply-To: <1482943567-12483-1-git-send-email-thomas.petazzoni@free-electrons.com>
+        with ESMTP id S1751821AbcL1QqY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Dec 2016 11:46:24 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some of the MVPP2_PRS_RI_* definitions use the ~(value) syntax, which
-doesn't compile nicely on 64-bit. Moreover, those definitions are in
-fact unneeded, since they are always used in combination with a bit
-mask that ensures only the appropriate bits are modified.
+Hello,
 
-Therefore, such definitions should just be set to 0x0. For example:
+This series contains a number of misc improvements and preparation
+patches for an upcoming series that adds support for the new PPv2.2
+network controller to the mvpp2 driver.
 
- #define MVPP2_PRS_RI_L2_CAST_MASK              0x600
- #define MVPP2_PRS_RI_L2_UCAST                  ~(BIT(9) | BIT(10))
- #define MVPP2_PRS_RI_L2_MCAST                  BIT(9)
- #define MVPP2_PRS_RI_L2_BCAST                  BIT(10)
+The most significant improvements are:
 
-becomes
+ - Switching to using build_skb(), which is necessary for the upcoming
+   PPv2.2 support, but anyway a good improvement to the current mvpp2
+   driver (supporting PPv2.1).
 
- #define MVPP2_PRS_RI_L2_CAST_MASK              0x600
- #define MVPP2_PRS_RI_L2_UCAST                  0x0
- #define MVPP2_PRS_RI_L2_MCAST                  BIT(9)
- #define MVPP2_PRS_RI_L2_BCAST                  BIT(10)
+ - Making the driver build on 64-bit platforms.
 
-Because the values (MVPP2_PRS_RI_L2_UCAST, MVPP2_PRS_RI_L2_MCAST and
-MVPP2_PRS_RI_L2_BCAST) are always applied with
-MVPP2_PRS_RI_L2_CAST_MASK, and therefore there is no need for
-MVPP2_PRS_RI_L2_UCAST to be defined as ~(BIT(9) | BIT(10)).
+Changes since v1:
 
-It fixes the following warnings when building the driver on a 64-bit
-platform (which is not possible as of this commit, but will be enabled
-in a follow-up commit):
+ - This series is split as a separate series from the larger patch set
+   adding support for PPv2.2 in the mvpp2 driver, as requested by
+   David Miller.
 
-drivers/net/ethernet/marvell/mvpp2.c: In function ‘mvpp2_prs_mac_promisc_set’:
-drivers/net/ethernet/marvell/mvpp2.c:524:33: warning: large integer implicitly truncated to unsigned type [-Woverflow]
- #define MVPP2_PRS_RI_L2_UCAST   ~(BIT(9) | BIT(10))
-                                 ^
-drivers/net/ethernet/marvell/mvpp2.c:1459:33: note: in expansion of macro ‘MVPP2_PRS_RI_L2_UCAST’
-   mvpp2_prs_sram_ri_update(&pe, MVPP2_PRS_RI_L2_UCAST,
+ - Rebased on top of v4.10-rc1.
 
-Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
----
- drivers/net/ethernet/marvell/mvpp2.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+Thanks!
 
-diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 36c73dc..58cf9af 100644
---- a/drivers/net/ethernet/marvell/mvpp2.c
-+++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -511,19 +511,19 @@ enum mvpp2_tag_type {
- #define MVPP2_PRS_RI_MAC_ME_MASK		0x1
- #define MVPP2_PRS_RI_DSA_MASK			0x2
- #define MVPP2_PRS_RI_VLAN_MASK			0xc
--#define MVPP2_PRS_RI_VLAN_NONE			~(BIT(2) | BIT(3))
-+#define MVPP2_PRS_RI_VLAN_NONE			0x0
- #define MVPP2_PRS_RI_VLAN_SINGLE		BIT(2)
- #define MVPP2_PRS_RI_VLAN_DOUBLE		BIT(3)
- #define MVPP2_PRS_RI_VLAN_TRIPLE		(BIT(2) | BIT(3))
- #define MVPP2_PRS_RI_CPU_CODE_MASK		0x70
- #define MVPP2_PRS_RI_CPU_CODE_RX_SPEC		BIT(4)
- #define MVPP2_PRS_RI_L2_CAST_MASK		0x600
--#define MVPP2_PRS_RI_L2_UCAST			~(BIT(9) | BIT(10))
-+#define MVPP2_PRS_RI_L2_UCAST			0x0
- #define MVPP2_PRS_RI_L2_MCAST			BIT(9)
- #define MVPP2_PRS_RI_L2_BCAST			BIT(10)
- #define MVPP2_PRS_RI_PPPOE_MASK			0x800
- #define MVPP2_PRS_RI_L3_PROTO_MASK		0x7000
--#define MVPP2_PRS_RI_L3_UN			~(BIT(12) | BIT(13) | BIT(14))
-+#define MVPP2_PRS_RI_L3_UN			0x0
- #define MVPP2_PRS_RI_L3_IP4			BIT(12)
- #define MVPP2_PRS_RI_L3_IP4_OPT			BIT(13)
- #define MVPP2_PRS_RI_L3_IP4_OTHER		(BIT(12) | BIT(13))
-@@ -531,7 +531,7 @@ enum mvpp2_tag_type {
- #define MVPP2_PRS_RI_L3_IP6_EXT			(BIT(12) | BIT(14))
- #define MVPP2_PRS_RI_L3_ARP			(BIT(13) | BIT(14))
- #define MVPP2_PRS_RI_L3_ADDR_MASK		0x18000
--#define MVPP2_PRS_RI_L3_UCAST			~(BIT(15) | BIT(16))
-+#define MVPP2_PRS_RI_L3_UCAST			0x0
- #define MVPP2_PRS_RI_L3_MCAST			BIT(15)
- #define MVPP2_PRS_RI_L3_BCAST			(BIT(15) | BIT(16))
- #define MVPP2_PRS_RI_IP_FRAG_MASK		0x20000
+Thomas
+
+Thomas Petazzoni (11):
+  net: mvpp2: handle too large value handling in
+    mvpp2_rx_pkts_coal_set()
+  net: mvpp2: handle too large value in mvpp2_rx_time_coal_set()
+  net: mvpp2: release reference to txq_cpu[] entry after unmapping
+  net: mvpp2: remove unused 'tx_skb' field of 'struct mvpp2_tx_queue'
+  net: mvpp2: drop useless fields in mvpp2_bm_pool and related code
+  net: mvpp2: simplify mvpp2_bm_bufs_add()
+  net: mvpp2: remove unused register definitions
+  net: mvpp2: fix indentation of MVPP2_EXT_GLOBAL_CTRL_DEFAULT
+  net: mvpp2: simplify MVPP2_PRS_RI_* definitions
+  net: mvpp2: switch to build_skb() in the RX path
+  net: mvpp2: enable building on 64-bit platforms
+
+ drivers/net/ethernet/marvell/Kconfig |   3 +-
+ drivers/net/ethernet/marvell/mvpp2.c | 161 ++++++++++++++++++++---------------
+ 2 files changed, 93 insertions(+), 71 deletions(-)
+
 -- 
 2.7.4
