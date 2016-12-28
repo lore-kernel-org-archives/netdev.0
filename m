@@ -1,42 +1,52 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCHv2 net-next 00/16] net: mvpp2: add basic support for
- PPv2.2
-Date: Wed, 28 Dec 2016 12:06:44 -0500 (EST)
-Message-ID: <20161228.120644.1166014191192724301.davem@davemloft.net>
-References: <1482943592-12556-1-git-send-email-thomas.petazzoni@free-electrons.com>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH] drivers: atm: eni: rename macro DAUGTHER_ID to fix spelling mistake
+Date: Wed, 28 Dec 2016 17:31:20 +0000
+Message-ID: <20161228173120.20207-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org,
-        pawel.moll-5wv7dgnIgG8@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
-        jason-NLaQJdtUoK4Be96aLqz0jA@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org,
-        sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-        gregory.clement-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, nadavh-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org,
-        hannah-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org, yehuday-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org,
-        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, stefanc-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org,
-        mw-nYOzD4b6Jr9Wk0Htik3J/w@public.gmane.org
-To: thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1482943592-12556-1-git-send-email-thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org
+To: Chas Williams <3chas3@gmail.com>,
+        linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Date: Wed, 28 Dec 2016 17:46:16 +0100
+From: Colin Ian King <colin.king@canonical.com>
 
-> This series depends on the series named "net: mvpp2: misc improvements
-> and preparation patches".
+Rename DAUGTHER_ID to DAUGHTER_ID to fix spelling mistake
 
-Please in the future only submit one patch series at a time.
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ drivers/atm/eni.c    | 2 +-
+ drivers/atm/midway.h | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-If I've told you that a large patch series is hard to review and that
-therefore one should keep each submitted series small and to a
-reasonable size, that is completely undermined when you submit
-multiple series to work around that request.
-
-Thank you.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/atm/eni.c b/drivers/atm/eni.c
+index 40c2d56..13fe61a 100644
+--- a/drivers/atm/eni.c
++++ b/drivers/atm/eni.c
+@@ -1779,7 +1779,7 @@ static int eni_do_init(struct atm_dev *dev)
+ 	printk(")\n");
+ 	printk(KERN_NOTICE DEV_LABEL "(itf %d): %s,%s\n",dev->number,
+ 	    eni_in(MID_RES_ID_MCON) & 0x200 ? "ASIC" : "FPGA",
+-	    media_name[eni_in(MID_RES_ID_MCON) & DAUGTHER_ID]);
++	    media_name[eni_in(MID_RES_ID_MCON) & DAUGHTER_ID]);
+ 
+ 	error = suni_init(dev);
+ 	if (error)
+diff --git a/drivers/atm/midway.h b/drivers/atm/midway.h
+index 432525a..d8bec0f 100644
+--- a/drivers/atm/midway.h
++++ b/drivers/atm/midway.h
+@@ -56,7 +56,7 @@
+ #define MID_CON_SUNI	0x00000040	/* 0: UTOPIA; 1: SUNI */
+ #define MID_CON_V6	0x00000020	/* 0: non-pipel UTOPIA (required iff
+ 					   !CON_SUNI; 1: UTOPIA */
+-#define DAUGTHER_ID	0x0000001f	/* daugther board id */
++#define DAUGHTER_ID	0x0000001f	/* daughter board id */
+ 
+ /*
+  * Interrupt Status Acknowledge, Interrupt Status & Interrupt Enable
+-- 
+2.10.2
