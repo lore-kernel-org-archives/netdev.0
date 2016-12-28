@@ -1,275 +1,372 @@
 From: maowenan <maowenan@huawei.com>
-Subject: RE: [Intel-wired-lan] [RFC PATCH] i40e: enable PCIe relax ordering
- for SPARC
-Date: Wed, 28 Dec 2016 00:23:06 +0000
-Message-ID: <F95AC9340317A84688A5F0DF0246F3F201521142@szxeml504-mbs.china.huawei.com>
+Subject: RE: [RFC PATCH] i40e: enable PCIe relax ordering for SPARC
+Date: Wed, 28 Dec 2016 00:40:40 +0000
+Message-ID: <F95AC9340317A84688A5F0DF0246F3F201521164@szxeml504-mbs.china.huawei.com>
 References: <1480957627-16825-1-git-send-email-tushar.n.dave@oracle.com>
- <CAKgT0UcyRSub0NCi7oHX2Vf+N4vQxzwdWmcc+V+jOX_J=RYgfg@mail.gmail.com>
+ <F95AC9340317A84688A5F0DF0246F3F2015209E7@szxeml504-mbs.china.huawei.com>
+ <67edcc8a-93d2-8245-f24b-47dc13244879@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-        Netdev <netdev@vger.kernel.org>
-To: Alexander Duyck <alexander.duyck@gmail.com>,
-        Tushar Dave <tushar.n.dave@oracle.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "weiyongjun (A)" <weiyongjun1@huawei.com>,
+        Dingtianhong <dingtianhong@huawei.com>
+To: tndave <tushar.n.dave@oracle.com>,
+        "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
+        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:6710 "EHLO
-        szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754611AbcL1AXe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 27 Dec 2016 19:23:34 -0500
-In-Reply-To: <CAKgT0UcyRSub0NCi7oHX2Vf+N4vQxzwdWmcc+V+jOX_J=RYgfg@mail.gmail.com>
+Received: from szxga01-in.huawei.com ([58.251.152.64]:24157 "EHLO
+        szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754966AbcL1Alu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 27 Dec 2016 19:41:50 -0500
+In-Reply-To: <67edcc8a-93d2-8245-f24b-47dc13244879@oracle.com>
 Content-Language: zh-CN
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogbmV0ZGV2LW93bmVyQHZn
-ZXIua2VybmVsLm9yZyBbbWFpbHRvOm5ldGRldi1vd25lckB2Z2VyLmtlcm5lbC5vcmddDQo+IE9u
-IEJlaGFsZiBPZiBBbGV4YW5kZXIgRHV5Y2sNCj4gU2VudDogVHVlc2RheSwgRGVjZW1iZXIgMDYs
-IDIwMTYgNTo1NSBBTQ0KPiBUbzogVHVzaGFyIERhdmUNCj4gQ2M6IEplZmYgS2lyc2hlcjsgaW50
-ZWwtd2lyZWQtbGFuOyBOZXRkZXYNCj4gU3ViamVjdDogUmU6IFtJbnRlbC13aXJlZC1sYW5dIFtS
-RkMgUEFUQ0hdIGk0MGU6IGVuYWJsZSBQQ0llIHJlbGF4IG9yZGVyaW5nIGZvcg0KPiBTUEFSQw0K
-PiANCj4gT24gTW9uLCBEZWMgNSwgMjAxNiBhdCA5OjA3IEFNLCBUdXNoYXIgRGF2ZSA8dHVzaGFy
-Lm4uZGF2ZUBvcmFjbGUuY29tPg0KPiB3cm90ZToNCj4gPiBVbmxpa2UgcHJldmlvdXMgZ2VuZXJh
-dGlvbiBOSUMgKGUuZy4gaXhnYmUpIGk0MGUgZG9lc24ndCBzZWVtIHRvIGhhdmUNCj4gPiBzdGFu
-ZGFyZCBDU1Igd2hlcmUgUENJZSByZWxheGVkIG9yZGVyaW5nIGNhbiBiZSBzZXQuIFdpdGhvdXQg
-UENJZQ0KPiA+IHJlbGF4IG9yZGVyaW5nIGVuYWJsZWQsIGk0MGUgcGVyZm9ybWFuY2UgaXMgc2ln
-bmlmaWNhbnRseSBsb3cgb24gU1BBUkMuDQo+ID4NCj4gPiBUaGlzIHBhdGNoIHNldHMgUENJZSBy
-ZWxheCBvcmRlcmluZyBmb3IgU1BBUkMgYXJjaCBieSBzZXR0aW5nIGRtYSBhdHRyDQo+ID4gRE1B
-X0FUVFJfV0VBS19PUkRFUklORyBmb3IgZXZlcnkgdHggYW5kIHJ4IERNQSBtYXAvdW5tYXAuDQo+
-ID4gVGhpcyBoYXMgc2hvd24gMTB4IGluY3JlYXNlIGluIHBlcmZvcm1hbmNlIG51bWJlcnMuDQo+
-ID4NCj4gPiBlLmcuDQo+ID4gaXBlcmYgVENQIHRlc3Qgd2l0aCAxMCB0aHJlYWRzIG9uIFNQQVJD
-IFM3DQo+ID4NCj4gPiBUZXN0IDE6IFdpdGhvdXQgdGhpcyBwYXRjaA0KPiA+DQo+ID4gW3Jvb3RA
-YnJtLXNudDEtMDMgbmV0XSMgaXBlcmYgLXMNCj4gPiAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0NCj4gPiBTZXJ2ZXIgbGlzdGVuaW5n
-IG9uIFRDUCBwb3J0IDUwMDENCj4gPiBUQ1Agd2luZG93IHNpemU6IDg1LjMgS0J5dGUgKGRlZmF1
-bHQpDQo+ID4gLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tDQo+ID4gWyAgNF0gbG9jYWwgMTYuMC4wLjcgcG9ydCA1MDAxIGNvbm5lY3Rl
-ZCB3aXRoIDE2LjAuMC4xIHBvcnQgNDA5MjYgWw0KPiA+IDVdIGxvY2FsIDE2LjAuMC43IHBvcnQg
-NTAwMSBjb25uZWN0ZWQgd2l0aCAxNi4wLjAuMSBwb3J0IDQwOTM0IFsgIDZdDQo+ID4gbG9jYWwg
-MTYuMC4wLjcgcG9ydCA1MDAxIGNvbm5lY3RlZCB3aXRoIDE2LjAuMC4xIHBvcnQgNDA5MzAgWyAg
-N10NCj4gPiBsb2NhbCAxNi4wLjAuNyBwb3J0IDUwMDEgY29ubmVjdGVkIHdpdGggMTYuMC4wLjEg
-cG9ydCA0MDkyOCBbICA4XQ0KPiA+IGxvY2FsIDE2LjAuMC43IHBvcnQgNTAwMSBjb25uZWN0ZWQg
-d2l0aCAxNi4wLjAuMSBwb3J0IDQwOTIyIFsgIDldDQo+ID4gbG9jYWwgMTYuMC4wLjcgcG9ydCA1
-MDAxIGNvbm5lY3RlZCB3aXRoIDE2LjAuMC4xIHBvcnQgNDA5MzIgWyAxMF0NCj4gPiBsb2NhbCAx
-Ni4wLjAuNyBwb3J0IDUwMDEgY29ubmVjdGVkIHdpdGggMTYuMC4wLjEgcG9ydCA0MDkyMCBbIDEx
-XQ0KPiA+IGxvY2FsIDE2LjAuMC43IHBvcnQgNTAwMSBjb25uZWN0ZWQgd2l0aCAxNi4wLjAuMSBw
-b3J0IDQwOTI0IFsgMTRdDQo+ID4gbG9jYWwgMTYuMC4wLjcgcG9ydCA1MDAxIGNvbm5lY3RlZCB3
-aXRoIDE2LjAuMC4xIHBvcnQgNDA5ODIgWyAxMl0NCj4gPiBsb2NhbCAxNi4wLjAuNyBwb3J0IDUw
-MDEgY29ubmVjdGVkIHdpdGggMTYuMC4wLjEgcG9ydCA0MDk4MA0KPiA+IFsgSURdIEludGVydmFs
-ICAgICAgIFRyYW5zZmVyICAgICBCYW5kd2lkdGgNCj4gPiBbICA0XSAgMC4wLTIwLjAgc2VjICAg
-NTY2IE1CeXRlcyAgIDIzNyBNYml0cy9zZWMNCj4gPiBbICA1XSAgMC4wLTIwLjAgc2VjICAgNTMy
-IE1CeXRlcyAgIDIyMyBNYml0cy9zZWMNCj4gPiBbICA2XSAgMC4wLTIwLjAgc2VjICAgNTM3IE1C
-eXRlcyAgIDIyNSBNYml0cy9zZWMNCj4gPiBbICA4XSAgMC4wLTIwLjAgc2VjICAgNTQ2IE1CeXRl
-cyAgIDIyOSBNYml0cy9zZWMNCj4gPiBbIDExXSAgMC4wLTIwLjAgc2VjICAgNTkyIE1CeXRlcyAg
-IDI0OCBNYml0cy9zZWMNCj4gPiBbICA3XSAgMC4wLTIwLjAgc2VjICAgNTM5IE1CeXRlcyAgIDIy
-NiBNYml0cy9zZWMNCj4gPiBbICA5XSAgMC4wLTIwLjAgc2VjICAgNTcyIE1CeXRlcyAgIDI0MCBN
-Yml0cy9zZWMNCj4gPiBbIDEwXSAgMC4wLTIwLjAgc2VjICAgNjA0IE1CeXRlcyAgIDI1MyBNYml0
-cy9zZWMNCj4gPiBbIDE0XSAgMC4wLTIwLjAgc2VjICAgNTY3IE1CeXRlcyAgIDIzOCBNYml0cy9z
-ZWMNCj4gPiBbIDEyXSAgMC4wLTIwLjAgc2VjICAgNTExIE1CeXRlcyAgIDIxNCBNYml0cy9zZWMN
-Cj4gPiBbU1VNXSAgMC4wLTIwLjAgc2VjICA1LjQ0IEdCeXRlcyAgMi4zMyBHYml0cy9zZWMNCj4g
-Pg0KPiA+IFRlc3QgMjogd2l0aCB0aGlzIHBhdGNoOg0KPiA+DQo+ID4gW3Jvb3RAYnJtLXNudDEt
-MDMgbmV0XSMgaXBlcmYgLXMNCj4gPiAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0NCj4gPiBTZXJ2ZXIgbGlzdGVuaW5nIG9uIFRDUCBw
-b3J0IDUwMDENCj4gPiBUQ1Agd2luZG93IHNpemU6IDg1LjMgS0J5dGUgKGRlZmF1bHQpDQo+ID4g
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tDQo+ID4gVENQOiByZXF1ZXN0X3NvY2tfVENQOiBQb3NzaWJsZSBTWU4gZmxvb2Rpbmcgb24g
-cG9ydCA1MDAxLiBTZW5kaW5nDQo+ID4gY29va2llcy4gIENoZWNrIFNOTVAgY291bnRlcnMuDQo+
-ID4gWyAgNF0gbG9jYWwgMTYuMC4wLjcgcG9ydCA1MDAxIGNvbm5lY3RlZCB3aXRoIDE2LjAuMC4x
-IHBvcnQgNDY4NzYgWw0KPiA+IDVdIGxvY2FsIDE2LjAuMC43IHBvcnQgNTAwMSBjb25uZWN0ZWQg
-d2l0aCAxNi4wLjAuMSBwb3J0IDQ2ODc0IFsgIDZdDQo+ID4gbG9jYWwgMTYuMC4wLjcgcG9ydCA1
-MDAxIGNvbm5lY3RlZCB3aXRoIDE2LjAuMC4xIHBvcnQgNDY4NzIgWyAgN10NCj4gPiBsb2NhbCAx
-Ni4wLjAuNyBwb3J0IDUwMDEgY29ubmVjdGVkIHdpdGggMTYuMC4wLjEgcG9ydCA0Njg4MCBbICA4
-XQ0KPiA+IGxvY2FsIDE2LjAuMC43IHBvcnQgNTAwMSBjb25uZWN0ZWQgd2l0aCAxNi4wLjAuMSBw
-b3J0IDQ2ODc4IFsgIDldDQo+ID4gbG9jYWwgMTYuMC4wLjcgcG9ydCA1MDAxIGNvbm5lY3RlZCB3
-aXRoIDE2LjAuMC4xIHBvcnQgNDY4ODQgWyAxMF0NCj4gPiBsb2NhbCAxNi4wLjAuNyBwb3J0IDUw
-MDEgY29ubmVjdGVkIHdpdGggMTYuMC4wLjEgcG9ydCA0Njg4NiBbIDExXQ0KPiA+IGxvY2FsIDE2
-LjAuMC43IHBvcnQgNTAwMSBjb25uZWN0ZWQgd2l0aCAxNi4wLjAuMSBwb3J0IDQ2ODkwIFsgMTJd
-DQo+ID4gbG9jYWwgMTYuMC4wLjcgcG9ydCA1MDAxIGNvbm5lY3RlZCB3aXRoIDE2LjAuMC4xIHBv
-cnQgNDY4ODggWyAxM10NCj4gPiBsb2NhbCAxNi4wLjAuNyBwb3J0IDUwMDEgY29ubmVjdGVkIHdp
-dGggMTYuMC4wLjEgcG9ydCA0Njg4Mg0KPiA+IFsgSURdIEludGVydmFsICAgICAgIFRyYW5zZmVy
-ICAgICBCYW5kd2lkdGgNCj4gPiBbICA0XSAgMC4wLTIwLjAgc2VjICA3LjQ1IEdCeXRlcyAgMy4x
-OSBHYml0cy9zZWMgWyAgNV0gIDAuMC0yMC4wIHNlYw0KPiA+IDcuNDggR0J5dGVzICAzLjIxIEdi
-aXRzL3NlYyBbICA3XSAgMC4wLTIwLjAgc2VjICA3LjM0IEdCeXRlcyAgMy4xNQ0KPiA+IEdiaXRz
-L3NlYyBbICA4XSAgMC4wLTIwLjAgc2VjICA3LjQyIEdCeXRlcyAgMy4xOCBHYml0cy9zZWMgWyAg
-OV0NCj4gPiAwLjAtMjAuMCBzZWMgIDcuMjQgR0J5dGVzICAzLjExIEdiaXRzL3NlYyBbIDEwXSAg
-MC4wLTIwLjAgc2VjICA3LjQwDQo+ID4gR0J5dGVzICAzLjE3IEdiaXRzL3NlYyBbIDEyXSAgMC4w
-LTIwLjAgc2VjICA3LjQ5IEdCeXRlcyAgMy4yMQ0KPiA+IEdiaXRzL3NlYyBbICA2XSAgMC4wLTIw
-LjAgc2VjICA3LjMwIEdCeXRlcyAgMy4xMyBHYml0cy9zZWMgWyAxMV0NCj4gPiAwLjAtMjAuMCBz
-ZWMgIDcuNDQgR0J5dGVzICAzLjE5IEdiaXRzL3NlYyBbIDEzXSAgMC4wLTIwLjAgc2VjICA3LjIy
-DQo+ID4gR0J5dGVzICAzLjEwIEdiaXRzL3NlYyBbU1VNXSAgMC4wLTIwLjAgc2VjICA3My44IEdC
-eXRlcyAgMzEuNg0KPiA+IEdiaXRzL3NlYw0KPiA+DQo+ID4gTk9URTogSW4gbXkgdGVzdGluZywg
-dGhpcyBwYXRjaCBkb2VzIF9ub3RfIHNob3cgYW55IGhhcm0gdG8gaTQwZQ0KPiA+IHBlcmZvcm1h
-bmNlIG51bWJlcnMgb24geDg2Lg0KPiA+DQo+ID4gU2lnbmVkLW9mZi1ieTogVHVzaGFyIERhdmUg
-PHR1c2hhci5uLmRhdmVAb3JhY2xlLmNvbT4NCj4gDQo+IFlvdSB3ZW50IHRocm91Z2ggYW5kIHJl
-cGxhY2VkIGFsbCBvZiB0aGUgZG1hX3VubWFwL21hcF9wYWdlIGNhbGxzIHdpdGgNCj4gZG1hX21h
-cC91bm1hcF9zaW5nbGVfYXR0cnMgIEkgd291bGQgcHJlZmVyIHlvdSBkaWRuJ3QgZG8gdGhhdC4g
-IEkgaGF2ZQ0KPiBwYXRjaGVzIHRvIGFkZCB0aGUgYWJpbGl0eSB0byBtYXAgYW5kIHVubWFwIHBh
-Z2VzIHdpdGggYXR0cmlidXRlcyB0aGF0IHNob3VsZA0KPiBiZSBhdmFpbGFibGUgZm9yIDQuMTAt
-cmMxIHNvIGlmIHlvdSBjb3VsZCB3YWl0IG9uIHRoaXMgcGF0Y2ggdW50aWwgdGhlbiBpdCB3b3Vs
-ZCBiZQ0KPiBwcmVmZXJyZWQuDQo+IA0KW01hbyBXZW5hbl0gSGF2ZSB5b3UgYWxyZWFkeSBzZW50
-IG91dCB0aGUgcmVsYXRlZCBwYXRjaGVzPyBJIHdhbnQgdG8gcmVmZXIgdG8NCnlvdSBob3cgdG8g
-ZW5hYmxlIHRoaXMgYWJpbGl0eSwgdGhlbiB3ZSBjYW4gYWRvcHQgaXQgdG8gY29uZmlndXJlIHJl
-bGF4IG9yZGVyaW5nIA0KdGhyb3VnaCBEQ0EgY29udHJvbCByZWdpc3RlciBvbiBkZXZpY2UgODI1
-OTkuDQpUaGFuayB5b3UuDQoNCj4gPiAtLS0NCj4gPiAgZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50
-ZWwvaTQwZS9pNDBlX3R4cnguYyB8IDY5DQo+ID4gKysrKysrKysrKysrKysrKysrKystLS0tLS0t
-LS0NCj4gPiBkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pNDBlL2k0MGVfdHhyeC5oIHwgIDEg
-Kw0KPiA+ICAyIGZpbGVzIGNoYW5nZWQsIDQ5IGluc2VydGlvbnMoKyksIDIxIGRlbGV0aW9ucygt
-KQ0KPiA+DQo+ID4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2k0MGUv
-aTQwZV90eHJ4LmMNCj4gPiBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2k0MGUvaTQwZV90
-eHJ4LmMNCj4gPiBpbmRleCA2Mjg3YmY2Li44MDBkY2E3IDEwMDY0NA0KPiA+IC0tLSBhL2RyaXZl
-cnMvbmV0L2V0aGVybmV0L2ludGVsL2k0MGUvaTQwZV90eHJ4LmMNCj4gPiArKysgYi9kcml2ZXJz
-L25ldC9ldGhlcm5ldC9pbnRlbC9pNDBlL2k0MGVfdHhyeC5jDQo+ID4gQEAgLTU1MSwxNSArNTUx
-LDE3IEBAIHN0YXRpYyB2b2lkDQo+IGk0MGVfdW5tYXBfYW5kX2ZyZWVfdHhfcmVzb3VyY2Uoc3Ry
-dWN0IGk0MGVfcmluZyAqcmluZywNCj4gPiAgICAgICAgICAgICAgICAgZWxzZQ0KPiA+ICAgICAg
-ICAgICAgICAgICAgICAgICAgIGRldl9rZnJlZV9za2JfYW55KHR4X2J1ZmZlci0+c2tiKTsNCj4g
-PiAgICAgICAgICAgICAgICAgaWYgKGRtYV91bm1hcF9sZW4odHhfYnVmZmVyLCBsZW4pKQ0KPiA+
-IC0gICAgICAgICAgICAgICAgICAgICAgIGRtYV91bm1hcF9zaW5nbGUocmluZy0+ZGV2LA0KPiA+
-IC0NCj4gZG1hX3VubWFwX2FkZHIodHhfYnVmZmVyLCBkbWEpLA0KPiA+IC0gICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgZG1hX3VubWFwX2xlbih0eF9idWZmZXIsDQo+IGxl
-biksDQo+ID4gLSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBETUFfVE9f
-REVWSUNFKTsNCj4gPiArICAgICAgICAgICAgICAgICAgICAgICBkbWFfdW5tYXBfc2luZ2xlX2F0
-dHJzKHJpbmctPmRldiwNCj4gPiArDQo+IGRtYV91bm1hcF9hZGRyKHR4X2J1ZmZlciwgZG1hKSwN
-Cj4gPiArDQo+IGRtYV91bm1hcF9sZW4odHhfYnVmZmVyLCBsZW4pLA0KPiA+ICsgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgRE1BX1RPX0RFVklDRSwNCj4gPiAr
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHJpbmctPmRtYV9h
-dHRycyk7DQo+ID4gICAgICAgICB9IGVsc2UgaWYgKGRtYV91bm1hcF9sZW4odHhfYnVmZmVyLCBs
-ZW4pKSB7DQo+ID4gLSAgICAgICAgICAgICAgIGRtYV91bm1hcF9wYWdlKHJpbmctPmRldiwNCj4g
-PiAtICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgZG1hX3VubWFwX2FkZHIodHhfYnVmZmVy
-LCBkbWEpLA0KPiA+IC0gICAgICAgICAgICAgICAgICAgICAgICAgICAgICBkbWFfdW5tYXBfbGVu
-KHR4X2J1ZmZlciwgbGVuKSwNCj4gPiAtICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgRE1B
-X1RPX0RFVklDRSk7DQo+ID4gKyAgICAgICAgICAgICAgIGRtYV91bm1hcF9zaW5nbGVfYXR0cnMo
-cmluZy0+ZGV2LA0KPiA+ICsgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIGRt
-YV91bm1hcF9hZGRyKHR4X2J1ZmZlciwNCj4gZG1hKSwNCj4gPiArICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICBkbWFfdW5tYXBfbGVuKHR4X2J1ZmZlciwNCj4gbGVuKSwNCj4g
-PiArICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBETUFfVE9fREVWSUNFLA0K
-PiA+ICsgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHJpbmctPmRtYV9hdHRy
-cyk7DQo+ID4gICAgICAgICB9DQo+ID4NCj4gPiAgICAgICAgIHR4X2J1ZmZlci0+bmV4dF90b193
-YXRjaCA9IE5VTEw7IEBAIC02NjIsNiArNjY0LDggQEAgc3RhdGljDQo+ID4gYm9vbCBpNDBlX2Ns
-ZWFuX3R4X2lycShzdHJ1Y3QgaTQwZV92c2kgKnZzaSwNCj4gPiAgICAgICAgIHN0cnVjdCBpNDBl
-X3R4X2J1ZmZlciAqdHhfYnVmOw0KPiA+ICAgICAgICAgc3RydWN0IGk0MGVfdHhfZGVzYyAqdHhf
-aGVhZDsNCj4gPiAgICAgICAgIHN0cnVjdCBpNDBlX3R4X2Rlc2MgKnR4X2Rlc2M7DQo+ID4gKyAg
-ICAgICBkbWFfYWRkcl90IGFkZHI7DQo+ID4gKyAgICAgICBzaXplX3Qgc2l6ZTsNCj4gPiAgICAg
-ICAgIHVuc2lnbmVkIGludCB0b3RhbF9ieXRlcyA9IDAsIHRvdGFsX3BhY2tldHMgPSAwOw0KPiA+
-ICAgICAgICAgdW5zaWduZWQgaW50IGJ1ZGdldCA9IHZzaS0+d29ya19saW1pdDsNCj4gPg0KPiA+
-IEBAIC02OTYsMTAgKzcwMCwxMSBAQCBzdGF0aWMgYm9vbCBpNDBlX2NsZWFuX3R4X2lycShzdHJ1
-Y3QgaTQwZV92c2kgKnZzaSwNCj4gPiAgICAgICAgICAgICAgICAgbmFwaV9jb25zdW1lX3NrYih0
-eF9idWYtPnNrYiwgbmFwaV9idWRnZXQpOw0KPiA+DQo+ID4gICAgICAgICAgICAgICAgIC8qIHVu
-bWFwIHNrYiBoZWFkZXIgZGF0YSAqLw0KPiA+IC0gICAgICAgICAgICAgICBkbWFfdW5tYXBfc2lu
-Z2xlKHR4X3JpbmctPmRldiwNCj4gPiAtICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBk
-bWFfdW5tYXBfYWRkcih0eF9idWYsIGRtYSksDQo+ID4gLSAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgZG1hX3VubWFwX2xlbih0eF9idWYsIGxlbiksDQo+ID4gLSAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgRE1BX1RPX0RFVklDRSk7DQo+ID4gKyAgICAgICAgICAgICAgIGRt
-YV91bm1hcF9zaW5nbGVfYXR0cnModHhfcmluZy0+ZGV2LA0KPiA+ICsgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgIGRtYV91bm1hcF9hZGRyKHR4X2J1ZiwNCj4gZG1hKSwNCj4g
-PiArICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBkbWFfdW5tYXBfbGVuKHR4
-X2J1ZiwgbGVuKSwNCj4gPiArICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBE
-TUFfVE9fREVWSUNFLA0KPiA+ICsgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-IHR4X3JpbmctPmRtYV9hdHRycyk7DQo+ID4NCj4gPiAgICAgICAgICAgICAgICAgLyogY2xlYXIg
-dHhfYnVmZmVyIGRhdGEgKi8NCj4gPiAgICAgICAgICAgICAgICAgdHhfYnVmLT5za2IgPSBOVUxM
-Ow0KPiA+IEBAIC03MTcsMTIgKzcyMiwxNSBAQCBzdGF0aWMgYm9vbCBpNDBlX2NsZWFuX3R4X2ly
-cShzdHJ1Y3QgaTQwZV92c2kgKnZzaSwNCj4gPiAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgIHR4X2Rlc2MgPSBJNDBFX1RYX0RFU0ModHhfcmluZywgMCk7DQo+ID4gICAgICAgICAgICAg
-ICAgICAgICAgICAgfQ0KPiA+DQo+ID4gKyAgICAgICAgICAgICAgICAgICAgICAgYWRkciA9IGRt
-YV91bm1hcF9hZGRyKHR4X2J1ZiwgZG1hKTsNCj4gPiArICAgICAgICAgICAgICAgICAgICAgICBz
-aXplID0gZG1hX3VubWFwX2xlbih0eF9idWYsIGxlbik7DQo+IA0KPiBPbiBzb21lIGFyY2hpdGVj
-dHVyZXMgdGhpcyBjaGFuZ2UgY291bGQgbGVhZCB0byBpc3N1ZXMgc2luY2UgZG1hX3VubWFwX2xl
-bg0KPiBjb3VsZCBiZSAwIG1lYW5pbmcgdGhhdCBhZGRyIHdvdWxkIG5ldmVyIGJlIHVzZWQuDQo+
-IA0KPiA+ICAgICAgICAgICAgICAgICAgICAgICAgIC8qIHVubWFwIGFueSByZW1haW5pbmcgcGFn
-ZWQgZGF0YSAqLw0KPiA+ICAgICAgICAgICAgICAgICAgICAgICAgIGlmIChkbWFfdW5tYXBfbGVu
-KHR4X2J1ZiwgbGVuKSkgew0KPiA+IC0gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgZG1h
-X3VubWFwX3BhZ2UodHhfcmluZy0+ZGV2LA0KPiA+IC0NCj4gZG1hX3VubWFwX2FkZHIodHhfYnVm
-LCBkbWEpLA0KPiA+IC0NCj4gZG1hX3VubWFwX2xlbih0eF9idWYsIGxlbiksDQo+ID4gLSAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBETUFfVE9fREVWSUNFKTsN
-Cj4gPiArDQo+IGRtYV91bm1hcF9zaW5nbGVfYXR0cnModHhfcmluZy0+ZGV2LA0KPiA+ICsgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBhZGRyLA0K
-PiA+ICsgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICBzaXplLA0KPiA+ICsNCj4gRE1BX1RPX0RFVklDRSwNCj4gPiArDQo+ID4gKyB0eF9yaW5nLT5k
-bWFfYXR0cnMpOw0KPiA+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgZG1hX3VubWFw
-X2xlbl9zZXQodHhfYnVmLCBsZW4sIDApOw0KPiA+ICAgICAgICAgICAgICAgICAgICAgICAgIH0N
-Cj4gPiAgICAgICAgICAgICAgICAgfQ0KPiA+IEBAIC0xMDEwLDYgKzEwMTgsMTEgQEAgaW50IGk0
-MGVfc2V0dXBfdHhfZGVzY3JpcHRvcnMoc3RydWN0IGk0MGVfcmluZw0KPiAqdHhfcmluZykNCj4g
-PiAgICAgICAgICAqLw0KPiA+ICAgICAgICAgdHhfcmluZy0+c2l6ZSArPSBzaXplb2YodTMyKTsN
-Cj4gPiAgICAgICAgIHR4X3JpbmctPnNpemUgPSBBTElHTih0eF9yaW5nLT5zaXplLCA0MDk2KTsN
-Cj4gPiArI2lmZGVmIENPTkZJR19TUEFSQw0KPiA+ICsgICAgICAgdHhfcmluZy0+ZG1hX2F0dHJz
-ID0gRE1BX0FUVFJfV0VBS19PUkRFUklORzsgI2Vsc2UNCj4gPiArICAgICAgIHR4X3JpbmctPmRt
-YV9hdHRycyA9IDA7DQo+ID4gKyNlbmRpZg0KPiA+ICAgICAgICAgdHhfcmluZy0+ZGVzYyA9IGRt
-YV9hbGxvY19jb2hlcmVudChkZXYsIHR4X3JpbmctPnNpemUsDQo+ID4gICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICZ0eF9yaW5nLT5kbWEsDQo+IEdGUF9LRVJORUwp
-Ow0KPiA+ICAgICAgICAgaWYgKCF0eF9yaW5nLT5kZXNjKSB7DQo+IA0KPiBBbHNvIG5vdCBhIGZh
-biBvZiBhZGRpbmcgeWV0IHJpbmcgYXR0cmlidXRlLiAgSXMgdGhlcmUgYW55IHJlYXNvbiB3aHkg
-eW91DQo+IGNvdWxkbid0IHNpbXBseSBhZGQgYSBzZXQgb2YgaW5saW5lIGZ1bmN0aW9ucyBhdCB0
-aGUgc3RhcnQgb2YgaTQwZV90eHJ4LmMgdGhhdCBjb3VsZA0KPiByZXBsYWNlIHRoZSBETUEgbWFw
-L3VubWFwIG9wZXJhdGlvbnMgaW4gdGhpcyBjb2RlIGJ1dCBwYXNzIGVpdGhlciAwIG9yDQo+IERN
-QV9BVFRSX1dFQUtfT1JERVJJTkcgYXMgbmVlZGVkIGZvciB0aGUgZHJpdmVycz8gIFRoZW4gdGhl
-IHg4NiBjb2RlDQo+IGRvZXNuJ3QgaGF2ZSB0byBjaGFuZ2Ugd2hpbGUgdGhlIFNQQVJDIGNvZGUg
-d2lsbCBiZSBhYmxlIHRvIGJlIHBhc3NlZCB0aGUNCj4gYXR0cmlidXRlLg0KPiANCj4gPiBAQCAt
-MTA1Myw3ICsxMDY2LDExIEBAIHZvaWQgaTQwZV9jbGVhbl9yeF9yaW5nKHN0cnVjdCBpNDBlX3Jp
-bmcNCj4gKnJ4X3JpbmcpDQo+ID4gICAgICAgICAgICAgICAgIGlmICghcnhfYmktPnBhZ2UpDQo+
-ID4gICAgICAgICAgICAgICAgICAgICAgICAgY29udGludWU7DQo+ID4NCj4gPiAtICAgICAgICAg
-ICAgICAgZG1hX3VubWFwX3BhZ2UoZGV2LCByeF9iaS0+ZG1hLCBQQUdFX1NJWkUsDQo+IERNQV9G
-Uk9NX0RFVklDRSk7DQo+ID4gKyAgICAgICAgICAgICAgIGRtYV91bm1hcF9zaW5nbGVfYXR0cnMo
-ZGV2LA0KPiA+ICsgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHJ4X2JpLT5k
-bWEsDQo+ID4gKyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgUEFHRV9TSVpF
-LA0KPiA+ICsgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIERNQV9GUk9NX0RF
-VklDRSwNCj4gPiArICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICByeF9yaW5n
-LT5kbWFfYXR0cnMpOw0KPiA+ICAgICAgICAgICAgICAgICBfX2ZyZWVfcGFnZXMocnhfYmktPnBh
-Z2UsIDApOw0KPiA+DQo+ID4gICAgICAgICAgICAgICAgIHJ4X2JpLT5wYWdlID0gTlVMTDsNCj4g
-PiBAQCAtMTExMyw2ICsxMTMwLDExIEBAIGludCBpNDBlX3NldHVwX3J4X2Rlc2NyaXB0b3JzKHN0
-cnVjdCBpNDBlX3JpbmcNCj4gKnJ4X3JpbmcpDQo+ID4gICAgICAgICAvKiBSb3VuZCB1cCB0byBu
-ZWFyZXN0IDRLICovDQo+ID4gICAgICAgICByeF9yaW5nLT5zaXplID0gcnhfcmluZy0+Y291bnQg
-KiBzaXplb2YodW5pb24NCj4gaTQwZV8zMmJ5dGVfcnhfZGVzYyk7DQo+ID4gICAgICAgICByeF9y
-aW5nLT5zaXplID0gQUxJR04ocnhfcmluZy0+c2l6ZSwgNDA5Nik7DQo+ID4gKyNpZmRlZiBDT05G
-SUdfU1BBUkMNCj4gPiArICAgICAgIHJ4X3JpbmctPmRtYV9hdHRycyA9IERNQV9BVFRSX1dFQUtf
-T1JERVJJTkc7ICNlbHNlDQo+ID4gKyAgICAgICByeF9yaW5nLT5kbWFfYXR0cnMgPSAwOw0KPiA+
-ICsjZW5kaWYNCj4gPiAgICAgICAgIHJ4X3JpbmctPmRlc2MgPSBkbWFfYWxsb2NfY29oZXJlbnQo
-ZGV2LCByeF9yaW5nLT5zaXplLA0KPiA+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAmcnhfcmluZy0+ZG1hLA0KPiBHRlBfS0VSTkVMKTsNCj4gPg0KPiA+IEBAIC0x
-MTgyLDcgKzEyMDQsOCBAQCBzdGF0aWMgYm9vbCBpNDBlX2FsbG9jX21hcHBlZF9wYWdlKHN0cnVj
-dA0KPiBpNDBlX3JpbmcgKnJ4X3JpbmcsDQo+ID4gICAgICAgICB9DQo+ID4NCj4gPiAgICAgICAg
-IC8qIG1hcCBwYWdlIGZvciB1c2UgKi8NCj4gPiAtICAgICAgIGRtYSA9IGRtYV9tYXBfcGFnZShy
-eF9yaW5nLT5kZXYsIHBhZ2UsIDAsIFBBR0VfU0laRSwNCj4gRE1BX0ZST01fREVWSUNFKTsNCj4g
-PiArICAgICAgIGRtYSA9IGRtYV9tYXBfc2luZ2xlX2F0dHJzKHJ4X3JpbmctPmRldiwgcGFnZV9h
-ZGRyZXNzKHBhZ2UpLA0KPiBQQUdFX1NJWkUsDQo+ID4gKyAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICBETUFfRlJPTV9ERVZJQ0UsDQo+ID4gKyByeF9yaW5nLT5kbWFfYXR0cnMpOw0K
-PiA+DQo+ID4gICAgICAgICAvKiBpZiBtYXBwaW5nIGZhaWxlZCBmcmVlIG1lbW9yeSBiYWNrIHRv
-IHN5c3RlbSBzaW5jZQ0KPiA+ICAgICAgICAgICogdGhlcmUgaXNuJ3QgbXVjaCBwb2ludCBpbiBo
-b2xkaW5nIG1lbW9yeSB3ZSBjYW4ndCB1c2UgQEANCj4gPiAtMTY5NSw4ICsxNzE4LDExIEBAIHN0
-cnVjdCBza19idWZmICppNDBlX2ZldGNoX3J4X2J1ZmZlcihzdHJ1Y3QgaTQwZV9yaW5nDQo+ICpy
-eF9yaW5nLA0KPiA+ICAgICAgICAgICAgICAgICByeF9yaW5nLT5yeF9zdGF0cy5wYWdlX3JldXNl
-X2NvdW50Kys7DQo+ID4gICAgICAgICB9IGVsc2Ugew0KPiA+ICAgICAgICAgICAgICAgICAvKiB3
-ZSBhcmUgbm90IHJldXNpbmcgdGhlIGJ1ZmZlciBzbyB1bm1hcCBpdCAqLw0KPiA+IC0gICAgICAg
-ICAgICAgICBkbWFfdW5tYXBfcGFnZShyeF9yaW5nLT5kZXYsIHJ4X2J1ZmZlci0+ZG1hLA0KPiBQ
-QUdFX1NJWkUsDQo+ID4gLSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIERNQV9GUk9NX0RF
-VklDRSk7DQo+ID4gKyAgICAgICAgICAgICAgIGRtYV91bm1hcF9zaW5nbGVfYXR0cnMocnhfcmlu
-Zy0+ZGV2LA0KPiA+ICsgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHJ4X2J1
-ZmZlci0+ZG1hLA0KPiA+ICsgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIFBB
-R0VfU0laRSwNCj4gPiArICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBETUFf
-RlJPTV9ERVZJQ0UsDQo+ID4gKyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-cnhfcmluZy0+ZG1hX2F0dHJzKTsNCj4gPiAgICAgICAgIH0NCj4gPg0KPiA+ICAgICAgICAgLyog
-Y2xlYXIgY29udGVudHMgb2YgYnVmZmVyX2luZm8gKi8gQEAgLTI3MzcsNyArMjc2Myw4IEBADQo+
-ID4gc3RhdGljIGlubGluZSB2b2lkIGk0MGVfdHhfbWFwKHN0cnVjdCBpNDBlX3JpbmcgKnR4X3Jp
-bmcsIHN0cnVjdCBza19idWZmICpza2IsDQo+ID4gICAgICAgICBmaXJzdC0+c2tiID0gc2tiOw0K
-PiA+ICAgICAgICAgZmlyc3QtPnR4X2ZsYWdzID0gdHhfZmxhZ3M7DQo+ID4NCj4gPiAtICAgICAg
-IGRtYSA9IGRtYV9tYXBfc2luZ2xlKHR4X3JpbmctPmRldiwgc2tiLT5kYXRhLCBzaXplLA0KPiBE
-TUFfVE9fREVWSUNFKTsNCj4gPiArICAgICAgIGRtYSA9IGRtYV9tYXBfc2luZ2xlX2F0dHJzKHR4
-X3JpbmctPmRldiwgc2tiLT5kYXRhLCBzaXplLA0KPiA+ICsgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgRE1BX1RPX0RFVklDRSwNCj4gdHhfcmluZy0+ZG1hX2F0dHJzKTsNCj4gPg0K
-PiA+ICAgICAgICAgdHhfZGVzYyA9IEk0MEVfVFhfREVTQyh0eF9yaW5nLCBpKTsNCj4gPiAgICAg
-ICAgIHR4X2JpID0gZmlyc3Q7DQo+ID4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0
-L2ludGVsL2k0MGUvaTQwZV90eHJ4LmgNCj4gPiBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVs
-L2k0MGUvaTQwZV90eHJ4LmgNCj4gPiBpbmRleCA1MDg4NDA1Li45YTg2MjEyIDEwMDY0NA0KPiA+
-IC0tLSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2k0MGUvaTQwZV90eHJ4LmgNCj4gPiAr
-KysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pNDBlL2k0MGVfdHhyeC5oDQo+ID4gQEAg
-LTMyNyw2ICszMjcsNyBAQCBzdHJ1Y3QgaTQwZV9yaW5nIHsNCj4gPg0KPiA+ICAgICAgICAgdW5z
-aWduZWQgaW50IHNpemU7ICAgICAgICAgICAgICAvKiBsZW5ndGggb2YgZGVzY3JpcHRvciByaW5n
-IGluDQo+IGJ5dGVzICovDQo+ID4gICAgICAgICBkbWFfYWRkcl90IGRtYTsgICAgICAgICAgICAg
-ICAgIC8qIHBoeXNpY2FsIGFkZHJlc3Mgb2YgcmluZw0KPiAqLw0KPiA+ICsgICAgICAgdW5zaWdu
-ZWQgbG9uZyBkbWFfYXR0cnM7ICAgICAgICAvKiBETUEgYXR0cmlidXRlcyAqLw0KPiA+DQo+ID4g
-ICAgICAgICBzdHJ1Y3QgaTQwZV92c2kgKnZzaTsgICAgICAgICAgIC8qIEJhY2tyZWZlcmVuY2Ug
-dG8gYXNzb2NpYXRlZA0KPiBWU0kgKi8NCj4gPiAgICAgICAgIHN0cnVjdCBpNDBlX3FfdmVjdG9y
-ICpxX3ZlY3RvcjsgLyogQmFja3JlZmVyZW5jZSB0byBhc3NvY2lhdGVkDQo+ID4gdmVjdG9yICov
-DQo+ID4gLS0NCj4gPiAxLjkuMQ0KPiA+DQo+ID4gX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX18NCj4gPiBJbnRlbC13aXJlZC1sYW4gbWFpbGluZyBsaXN0DQo+
-ID4gSW50ZWwtd2lyZWQtbGFuQGxpc3RzLm9zdW9zbC5vcmcNCj4gPiBodHRwOi8vbGlzdHMub3N1
-b3NsLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2ludGVsLXdpcmVkLWxhbg0K
+
+
+> -----Original Message-----
+> From: tndave [mailto:tushar.n.dave@oracle.com]
+> Sent: Wednesday, December 28, 2016 6:28 AM
+> To: maowenan; jeffrey.t.kirsher@intel.com; intel-wired-lan@lists.osuosl.org
+> Cc: netdev@vger.kernel.org; weiyongjun (A); Dingtianhong
+> Subject: Re: [RFC PATCH] i40e: enable PCIe relax ordering for SPARC
+> 
+> 
+> 
+> On 12/26/2016 03:39 AM, maowenan wrote:
+> >
+> >
+> >> -----Original Message-----
+> >> From: netdev-owner@vger.kernel.org
+> >> [mailto:netdev-owner@vger.kernel.org]
+> >> On Behalf Of Tushar Dave
+> >> Sent: Tuesday, December 06, 2016 1:07 AM
+> >> To: jeffrey.t.kirsher@intel.com; intel-wired-lan@lists.osuosl.org
+> >> Cc: netdev@vger.kernel.org
+> >> Subject: [RFC PATCH] i40e: enable PCIe relax ordering for SPARC
+> >>
+> >> Unlike previous generation NIC (e.g. ixgbe) i40e doesn't seem to have
+> >> standard CSR where PCIe relaxed ordering can be set. Without PCIe
+> >> relax ordering enabled, i40e performance is significantly low on SPARC.
+> >>
+> > [Mao Wenan]Hi Tushar, you have referred to i40e doesn't seem to have
+> > standard CSR to set PCIe relaxed ordering, this CSR like TX&Rx DCA Control
+> Register in 82599, right?
+> Yes.
+> i40e datasheet mentions some CSR that can be used to enable/disable PCIe
+> relaxed ordering in device; however I don't see the exact definition of those
+> register in datasheet.
+> (https://www.mail-archive.com/netdev@vger.kernel.org/msg117219.html).
+> 
+> > Is DMA_ATTR_WEAK_ORDERING the same as TX&RX control register in
+> 82599?
+> No.
+> DMA_ATTR_WEAK_ORDERING applies to the PCIe root complex of the system.
+> 
+> -Tushar
+
+I understand that the PCIe Root Complex is the Host Bridge in the CPU that
+connects the CPU and memory to the PCIe architecture. So this attribute 
+DMA_ATTR_WEAK_ORDERING is only applied on CPU side(the SPARC in you 
+system), it can't apply on i40e, is it right? 
+And it is not the same as 82599 DCA control register's relax ordering bits.
+-Mao Wenan
+
+> >
+> > And to enable relax ordering mode in 82599 for SPARC using below codes:
+> > s32 ixgbe_start_hw_gen2(struct ixgbe_hw *hw) {
+> > 	u32 i;
+> >
+> > 	/* Clear the rate limiters */
+> > 	for (i = 0; i < hw->mac.max_tx_queues; i++) {
+> > 		IXGBE_WRITE_REG(hw, IXGBE_RTTDQSEL, i);
+> > 		IXGBE_WRITE_REG(hw, IXGBE_RTTBCNRC, 0);
+> > 	}
+> > 	IXGBE_WRITE_FLUSH(hw);
+> >
+> > #ifndef CONFIG_SPARC
+> > 	/* Disable relaxed ordering */
+> > 	for (i = 0; i < hw->mac.max_tx_queues; i++) {
+> > 		u32 regval;
+> >
+> > 		regval = IXGBE_READ_REG(hw, IXGBE_DCA_TXCTRL_82599(i));
+> > 		regval &= ~IXGBE_DCA_TXCTRL_DESC_WRO_EN;
+> > 		IXGBE_WRITE_REG(hw, IXGBE_DCA_TXCTRL_82599(i), regval);
+> > 	}
+> >
+> > 	for (i = 0; i < hw->mac.max_rx_queues; i++) {
+> > 		u32 regval;
+> >
+> > 		regval = IXGBE_READ_REG(hw, IXGBE_DCA_RXCTRL(i));
+> > 		regval &= ~(IXGBE_DCA_RXCTRL_DATA_WRO_EN |
+> > 			    IXGBE_DCA_RXCTRL_HEAD_WRO_EN);
+> > 		IXGBE_WRITE_REG(hw, IXGBE_DCA_RXCTRL(i), regval);
+> > 	}
+> > #endif
+> > 	return 0;
+> > }
+> >
+> >
+> >
+> >> This patch sets PCIe relax ordering for SPARC arch by setting dma
+> >> attr DMA_ATTR_WEAK_ORDERING for every tx and rx DMA map/unmap.
+> >> This has shown 10x increase in performance numbers.
+> >>
+> >> e.g.
+> >> iperf TCP test with 10 threads on SPARC S7
+> >>
+> >> Test 1: Without this patch
+> >>
+> >> [root@brm-snt1-03 net]# iperf -s
+> >> ------------------------------------------------------------
+> >> Server listening on TCP port 5001
+> >> TCP window size: 85.3 KByte (default)
+> >> ------------------------------------------------------------
+> >> [  4] local 16.0.0.7 port 5001 connected with 16.0.0.1 port 40926 [
+> >> 5] local
+> >> 16.0.0.7 port 5001 connected with 16.0.0.1 port 40934 [  6] local
+> >> 16.0.0.7 port
+> >> 5001 connected with 16.0.0.1 port 40930 [  7] local 16.0.0.7 port
+> >> 5001 connected with 16.0.0.1 port 40928 [  8] local 16.0.0.7 port
+> >> 5001 connected with 16.0.0.1 port 40922 [  9] local 16.0.0.7 port
+> >> 5001 connected with 16.0.0.1 port 40932 [ 10] local 16.0.0.7 port
+> >> 5001 connected with 16.0.0.1 port 40920 [ 11] local 16.0.0.7 port
+> >> 5001 connected with 16.0.0.1 port 40924 [ 14] local
+> >> 16.0.0.7 port 5001 connected with 16.0.0.1 port 40982 [ 12] local
+> >> 16.0.0.7 port
+> >> 5001 connected with 16.0.0.1 port 40980
+> >> [ ID] Interval       Transfer     Bandwidth
+> >> [  4]  0.0-20.0 sec   566 MBytes   237 Mbits/sec
+> >> [  5]  0.0-20.0 sec   532 MBytes   223 Mbits/sec
+> >> [  6]  0.0-20.0 sec   537 MBytes   225 Mbits/sec
+> >> [  8]  0.0-20.0 sec   546 MBytes   229 Mbits/sec
+> >> [ 11]  0.0-20.0 sec   592 MBytes   248 Mbits/sec
+> >> [  7]  0.0-20.0 sec   539 MBytes   226 Mbits/sec
+> >> [  9]  0.0-20.0 sec   572 MBytes   240 Mbits/sec
+> >> [ 10]  0.0-20.0 sec   604 MBytes   253 Mbits/sec
+> >> [ 14]  0.0-20.0 sec   567 MBytes   238 Mbits/sec
+> >> [ 12]  0.0-20.0 sec   511 MBytes   214 Mbits/sec
+> >> [SUM]  0.0-20.0 sec  5.44 GBytes  2.33 Gbits/sec
+> >>
+> >> Test 2: with this patch:
+> >>
+> >> [root@brm-snt1-03 net]# iperf -s
+> >> ------------------------------------------------------------
+> >> Server listening on TCP port 5001
+> >> TCP window size: 85.3 KByte (default)
+> >> ------------------------------------------------------------
+> >> TCP: request_sock_TCP: Possible SYN flooding on port 5001. Sending
+> cookies.
+> >> Check SNMP counters.
+> >> [  4] local 16.0.0.7 port 5001 connected with 16.0.0.1 port 46876 [
+> >> 5] local
+> >> 16.0.0.7 port 5001 connected with 16.0.0.1 port 46874 [  6] local
+> >> 16.0.0.7 port
+> >> 5001 connected with 16.0.0.1 port 46872 [  7] local 16.0.0.7 port
+> >> 5001 connected with 16.0.0.1 port 46880 [  8] local 16.0.0.7 port
+> >> 5001 connected with 16.0.0.1 port 46878 [  9] local 16.0.0.7 port
+> >> 5001 connected with 16.0.0.1 port 46884 [ 10] local 16.0.0.7 port
+> >> 5001 connected with 16.0.0.1 port 46886 [ 11] local 16.0.0.7 port
+> >> 5001 connected with 16.0.0.1 port 46890 [ 12] local
+> >> 16.0.0.7 port 5001 connected with 16.0.0.1 port 46888 [ 13] local
+> >> 16.0.0.7 port
+> >> 5001 connected with 16.0.0.1 port 46882
+> >> [ ID] Interval       Transfer     Bandwidth
+> >> [  4]  0.0-20.0 sec  7.45 GBytes  3.19 Gbits/sec [  5]  0.0-20.0 sec
+> >> 7.48 GBytes  3.21 Gbits/sec [  7]  0.0-20.0 sec  7.34 GBytes  3.15
+> >> Gbits/sec [  8]  0.0-20.0 sec  7.42 GBytes  3.18 Gbits/sec [  9]
+> >> 0.0-20.0 sec  7.24 GBytes  3.11 Gbits/sec [ 10]  0.0-20.0 sec  7.40
+> >> GBytes  3.17 Gbits/sec [ 12]  0.0-20.0 sec  7.49 GBytes  3.21
+> >> Gbits/sec [  6]  0.0-20.0 sec  7.30 GBytes  3.13 Gbits/sec [ 11]
+> >> 0.0-20.0 sec  7.44 GBytes  3.19 Gbits/sec [ 13]  0.0-20.0 sec  7.22
+> >> GBytes  3.10 Gbits/sec [SUM]  0.0-20.0 sec  73.8 GBytes  31.6
+> >> Gbits/sec
+> >>
+> >> NOTE: In my testing, this patch does _not_ show any harm to i40e
+> >> performance numbers on x86.
+> >>
+> >> Signed-off-by: Tushar Dave <tushar.n.dave@oracle.com>
+> >> ---
+> >>  drivers/net/ethernet/intel/i40e/i40e_txrx.c | 69
+> >> ++++++++++++++++++++---------
+> >> ++++++++++++++++++++drivers/net/ethernet/intel/i40e/i40e_txrx.h |
+> >> 1 +
+> >>  2 files changed, 49 insertions(+), 21 deletions(-)
+> >>
+> >> diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+> >> b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+> >> index 6287bf6..800dca7 100644
+> >> --- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+> >> +++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+> >> @@ -551,15 +551,17 @@ static void
+> >> i40e_unmap_and_free_tx_resource(struct i40e_ring *ring,
+> >>  		else
+> >>  			dev_kfree_skb_any(tx_buffer->skb);
+> >>  		if (dma_unmap_len(tx_buffer, len))
+> >> -			dma_unmap_single(ring->dev,
+> >> -					 dma_unmap_addr(tx_buffer, dma),
+> >> -					 dma_unmap_len(tx_buffer, len),
+> >> -					 DMA_TO_DEVICE);
+> >> +			dma_unmap_single_attrs(ring->dev,
+> >> +					       dma_unmap_addr(tx_buffer, dma),
+> >> +					       dma_unmap_len(tx_buffer, len),
+> >> +					       DMA_TO_DEVICE,
+> >> +					       ring->dma_attrs);
+> >>  	} else if (dma_unmap_len(tx_buffer, len)) {
+> >> -		dma_unmap_page(ring->dev,
+> >> -			       dma_unmap_addr(tx_buffer, dma),
+> >> -			       dma_unmap_len(tx_buffer, len),
+> >> -			       DMA_TO_DEVICE);
+> >> +		dma_unmap_single_attrs(ring->dev,
+> >> +				       dma_unmap_addr(tx_buffer, dma),
+> >> +				       dma_unmap_len(tx_buffer, len),
+> >> +				       DMA_TO_DEVICE,
+> >> +				       ring->dma_attrs);
+> >>  	}
+> >>
+> >>  	tx_buffer->next_to_watch = NULL;
+> >> @@ -662,6 +664,8 @@ static bool i40e_clean_tx_irq(struct i40e_vsi *vsi,
+> >>  	struct i40e_tx_buffer *tx_buf;
+> >>  	struct i40e_tx_desc *tx_head;
+> >>  	struct i40e_tx_desc *tx_desc;
+> >> +	dma_addr_t addr;
+> >> +	size_t size;
+> >>  	unsigned int total_bytes = 0, total_packets = 0;
+> >>  	unsigned int budget = vsi->work_limit;
+> >>
+> >> @@ -696,10 +700,11 @@ static bool i40e_clean_tx_irq(struct i40e_vsi *vsi,
+> >>  		napi_consume_skb(tx_buf->skb, napi_budget);
+> >>
+> >>  		/* unmap skb header data */
+> >> -		dma_unmap_single(tx_ring->dev,
+> >> -				 dma_unmap_addr(tx_buf, dma),
+> >> -				 dma_unmap_len(tx_buf, len),
+> >> -				 DMA_TO_DEVICE);
+> >> +		dma_unmap_single_attrs(tx_ring->dev,
+> >> +				       dma_unmap_addr(tx_buf, dma),
+> >> +				       dma_unmap_len(tx_buf, len),
+> >> +				       DMA_TO_DEVICE,
+> >> +				       tx_ring->dma_attrs);
+> >>
+> >>  		/* clear tx_buffer data */
+> >>  		tx_buf->skb = NULL;
+> >> @@ -717,12 +722,15 @@ static bool i40e_clean_tx_irq(struct i40e_vsi *vsi,
+> >>  				tx_desc = I40E_TX_DESC(tx_ring, 0);
+> >>  			}
+> >>
+> >> +			addr = dma_unmap_addr(tx_buf, dma);
+> >> +			size = dma_unmap_len(tx_buf, len);
+> >>  			/* unmap any remaining paged data */
+> >>  			if (dma_unmap_len(tx_buf, len)) {
+> >> -				dma_unmap_page(tx_ring->dev,
+> >> -					       dma_unmap_addr(tx_buf, dma),
+> >> -					       dma_unmap_len(tx_buf, len),
+> >> -					       DMA_TO_DEVICE);
+> >> +				dma_unmap_single_attrs(tx_ring->dev,
+> >> +						       addr,
+> >> +						       size,
+> >> +						       DMA_TO_DEVICE,
+> >> +						       tx_ring->dma_attrs);
+> >>  				dma_unmap_len_set(tx_buf, len, 0);
+> >>  			}
+> >>  		}
+> >> @@ -1010,6 +1018,11 @@ int i40e_setup_tx_descriptors(struct i40e_ring
+> >> *tx_ring)
+> >>  	 */
+> >>  	tx_ring->size += sizeof(u32);
+> >>  	tx_ring->size = ALIGN(tx_ring->size, 4096);
+> >> +#ifdef CONFIG_SPARC
+> >> +	tx_ring->dma_attrs = DMA_ATTR_WEAK_ORDERING; #else
+> >> +	tx_ring->dma_attrs = 0;
+> >> +#endif
+> >>  	tx_ring->desc = dma_alloc_coherent(dev, tx_ring->size,
+> >>  					   &tx_ring->dma, GFP_KERNEL);
+> >>  	if (!tx_ring->desc) {
+> >> @@ -1053,7 +1066,11 @@ void i40e_clean_rx_ring(struct i40e_ring
+> *rx_ring)
+> >>  		if (!rx_bi->page)
+> >>  			continue;
+> >>
+> >> -		dma_unmap_page(dev, rx_bi->dma, PAGE_SIZE,
+> >> DMA_FROM_DEVICE);
+> >> +		dma_unmap_single_attrs(dev,
+> >> +				       rx_bi->dma,
+> >> +				       PAGE_SIZE,
+> >> +				       DMA_FROM_DEVICE,
+> >> +				       rx_ring->dma_attrs);
+> >>  		__free_pages(rx_bi->page, 0);
+> >>
+> >>  		rx_bi->page = NULL;
+> >> @@ -1113,6 +1130,11 @@ int i40e_setup_rx_descriptors(struct i40e_ring
+> >> *rx_ring)
+> >>  	/* Round up to nearest 4K */
+> >>  	rx_ring->size = rx_ring->count * sizeof(union i40e_32byte_rx_desc);
+> >>  	rx_ring->size = ALIGN(rx_ring->size, 4096);
+> >> +#ifdef CONFIG_SPARC
+> >> +	rx_ring->dma_attrs = DMA_ATTR_WEAK_ORDERING; #else
+> >> +	rx_ring->dma_attrs = 0;
+> >> +#endif
+> >>  	rx_ring->desc = dma_alloc_coherent(dev, rx_ring->size,
+> >>  					   &rx_ring->dma, GFP_KERNEL);
+> >>
+> >> @@ -1182,7 +1204,8 @@ static bool i40e_alloc_mapped_page(struct
+> >> i40e_ring *rx_ring,
+> >>  	}
+> >>
+> >>  	/* map page for use */
+> >> -	dma = dma_map_page(rx_ring->dev, page, 0, PAGE_SIZE,
+> >> DMA_FROM_DEVICE);
+> >> +	dma = dma_map_single_attrs(rx_ring->dev, page_address(page),
+> >> PAGE_SIZE,
+> >> +				   DMA_FROM_DEVICE, rx_ring->dma_attrs);
+> >>
+> >>  	/* if mapping failed free memory back to system since
+> >>  	 * there isn't much point in holding memory we can't use @@
+> -1695,8
+> >> +1718,11 @@ struct sk_buff *i40e_fetch_rx_buffer(struct i40e_ring
+> >> +*rx_ring,
+> >>  		rx_ring->rx_stats.page_reuse_count++;
+> >>  	} else {
+> >>  		/* we are not reusing the buffer so unmap it */
+> >> -		dma_unmap_page(rx_ring->dev, rx_buffer->dma, PAGE_SIZE,
+> >> -			       DMA_FROM_DEVICE);
+> >> +		dma_unmap_single_attrs(rx_ring->dev,
+> >> +				       rx_buffer->dma,
+> >> +				       PAGE_SIZE,
+> >> +				       DMA_FROM_DEVICE,
+> >> +				       rx_ring->dma_attrs);
+> >>  	}
+> >>
+> >>  	/* clear contents of buffer_info */ @@ -2737,7 +2763,8 @@ static
+> >> inline void i40e_tx_map(struct i40e_ring *tx_ring, struct sk_buff
+> >> *skb,
+> >>  	first->skb = skb;
+> >>  	first->tx_flags = tx_flags;
+> >>
+> >> -	dma = dma_map_single(tx_ring->dev, skb->data, size, DMA_TO_DEVICE);
+> >> +	dma = dma_map_single_attrs(tx_ring->dev, skb->data, size,
+> >> +				   DMA_TO_DEVICE, tx_ring->dma_attrs);
+> >>
+> >>  	tx_desc = I40E_TX_DESC(tx_ring, i);
+> >>  	tx_bi = first;
+> >> diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.h
+> >> b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
+> >> index 5088405..9a86212 100644
+> >> --- a/drivers/net/ethernet/intel/i40e/i40e_txrx.h
+> >> +++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
+> >> @@ -327,6 +327,7 @@ struct i40e_ring {
+> >>
+> >>  	unsigned int size;		/* length of descriptor ring in bytes */
+> >>  	dma_addr_t dma;			/* physical address of ring */
+> >> +	unsigned long dma_attrs;	/* DMA attributes */
+> >>
+> >>  	struct i40e_vsi *vsi;		/* Backreference to associated VSI */
+> >>  	struct i40e_q_vector *q_vector;	/* Backreference to associated
+> vector
+> >> */
+> >> --
+> >> 1.9.1
+> >
+> >
