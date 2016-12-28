@@ -1,36 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next RESEND 1/1] driver: ipvlan: Remove unnecessary
- ipvlan NULL check in ipvlan_count_rx
-Date: Wed, 28 Dec 2016 14:24:53 -0500 (EST)
-Message-ID: <20161228.142453.1647994910230714441.davem@davemloft.net>
-References: <1482914862-2793-1-git-send-email-fgao@ikuai8.com>
+Subject: Re: [PATCH net-next] sctp: add pr_debug for tracking asocs not
+ found
+Date: Wed, 28 Dec 2016 14:26:43 -0500 (EST)
+Message-ID: <20161228.142643.301838823990974094.davem@davemloft.net>
+References: <2e7482596bbf75efb56e313e33179f9e1c0e6996.1482924698.git.marcelo.leitner@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: maheshb@google.com, edumazet@google.com, netdev@vger.kernel.org,
-        gfree.wind@gmail.com
-To: fgao@ikuai8.com
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+        vyasevich@gmail.com, nhorman@tuxdriver.com, lucien.xin@gmail.com
+To: marcelo.leitner@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44096 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:44128 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751911AbcL1TY5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Dec 2016 14:24:57 -0500
-In-Reply-To: <1482914862-2793-1-git-send-email-fgao@ikuai8.com>
+        with ESMTP id S1751911AbcL1T1v (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Dec 2016 14:27:51 -0500
+In-Reply-To: <2e7482596bbf75efb56e313e33179f9e1c0e6996.1482924698.git.marcelo.leitner@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: fgao@ikuai8.com
-Date: Wed, 28 Dec 2016 16:47:42 +0800
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Date: Wed, 28 Dec 2016 09:51:56 -0200
 
-> From: Gao Feng <fgao@ikuai8.com>
+> This pr_debug may help identify why the system is generating some
+> Aborts. It's not something a sysadmin would be expected to use.
 > 
-> There are three functions which would invoke the ipvlan_count_rx. They
-> are ipvlan_process_multicast, ipvlan_rcv_frame, and ipvlan_nf_input.
-> The former two functions already use the ipvlan directly before
-> ipvlan_count_rx, and ipvlan_nf_input gets the ipvlan from
-> ipvl_addr->master, it is not possible to be NULL too.
-> So the ipvlan pointer check is unnecessary in ipvlan_count_rx.
-> 
-> Signed-off-by: Gao Feng <fgao@ikuai8.com>
+> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 
 Applied.
