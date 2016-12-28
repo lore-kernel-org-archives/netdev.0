@@ -1,64 +1,59 @@
-From: Kishan Sandeep <sandeepkishan108@gmail.com>
-Subject: Re: [PATCH v2] net: stmmac: bug fix to synchronize stmmac_open and stmmac_dvr_probe
-Date: Wed, 28 Dec 2016 17:26:03 +0530
-Message-ID: <CAJ3s=NAzfUSCnxxZph5j6Vk2T=pw2F9U3FLP7dOKRp21mmQvcg@mail.gmail.com>
-References: <1482849756-21817-1-git-send-email-hock.leong.kweh@intel.com>
- <20161227.113405.362102687632949941.davem@davemloft.net> <F54AEECA5E2B9541821D670476DAE19C5A916C0E@PGSMSX102.gar.corp.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        "f.fainelli@gmail.com" <f.fainelli@gmail.com>,
-        "Joao.Pinto@synopsys.com" <Joao.Pinto@synopsys.com>,
-        "peppe.cavallaro@st.com" <peppe.cavallaro@st.com>,
-        "seraphin.bonnaffe@st.com" <seraphin.bonnaffe@st.com>,
-        "alexandre.torgue@gmail.com" <alexandre.torgue@gmail.com>,
-        "manabian@gmail.com" <manabian@gmail.com>,
-        "niklas.cassel@axis.com" <niklas.cassel@axis.com>,
-        "johan@kernel.org" <johan@kernel.org>,
-        "pavel@ucw.cz" <pavel@ucw.cz>,
-        "lars.persson@axis.com" <lars.persson@axis.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <F54AEECA5E2B9541821D670476DAE19C5A916C0E@PGSMSX102.gar.corp.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: [PATCH net-next] sctp: add pr_debug for tracking asocs not found
+Date: Wed, 28 Dec 2016 09:51:56 -0200
+Message-ID: <2e7482596bbf75efb56e313e33179f9e1c0e6996.1482924698.git.marcelo.leitner@gmail.com>
+Cc: linux-sctp@vger.kernel.org, Vlad Yasevich <vyasevich@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        Xin Long <lucien.xin@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f196.google.com ([209.85.220.196]:33239 "EHLO
+        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751384AbcL1MAm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Dec 2016 07:00:42 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 28, 2016 at 7:10 AM, Kweh, Hock Leong
-<hock.leong.kweh@intel.com> wrote:
->> -----Original Message-----
->> From: David Miller [mailto:davem@davemloft.net]
->> Sent: Wednesday, December 28, 2016 12:34 AM
->> To: Kweh, Hock Leong <hock.leong.kweh@intel.com>
->> Cc: Joao.Pinto@synopsys.com; peppe.cavallaro@st.com;
->> seraphin.bonnaffe@st.com; f.fainelli@gmail.com;
->> alexandre.torgue@gmail.com; manabian@gmail.com; niklas.cassel@axis.com;
->> johan@kernel.org; pavel@ucw.cz; Ong, Boon Leong
->> <boon.leong.ong@intel.com>; Voon, Weifeng <weifeng.voon@intel.com>;
->> lars.persson@axis.com; netdev@vger.kernel.org; linux-kernel@vger.kernel.org
->> Subject: Re: [PATCH v2] net: stmmac: bug fix to synchronize stmmac_open and
->> stmmac_dvr_probe
->>
->> From: "Kweh, Hock Leong"      <hock.leong.kweh@intel.com>
->> Date: Tue, 27 Dec 2016 22:42:36 +0800
->>
->> > From: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>
->>
->> You are not the author of this change, do not take credit for it.
->>
->> You have copied Florian's patch character by character, therefore
->> he is the author.
->>
->> You also didn't CC: the netdev mailing list properly.
->
-> Noted & Thanks.
->
-> Hi Florian, could you submit this fix from your side so that you are the author.
-> I will help to test out.
->
-> Thanks & Regards,
-> Wilson
->
-I think you can give *--author* for giving author name. Try git commit
--am "commit message" --author="Author_name <author_email>"
+This pr_debug may help identify why the system is generating some
+Aborts. It's not something a sysadmin would be expected to use.
+
+Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+---
+ net/sctp/input.c | 17 +++++++++++++++--
+ 1 file changed, 15 insertions(+), 2 deletions(-)
+
+diff --git a/net/sctp/input.c b/net/sctp/input.c
+index 458e506ef84bae3c53c239d6cf89a9349faafb11..704ad19c1565fe5d8a8aad8e73be124f4c21e0f1 100644
+--- a/net/sctp/input.c
++++ b/net/sctp/input.c
+@@ -1229,13 +1229,26 @@ static struct sctp_association *__sctp_rcv_lookup(struct net *net,
+ 	struct sctp_association *asoc;
+ 
+ 	asoc = __sctp_lookup_association(net, laddr, paddr, transportp);
++	if (asoc)
++		goto out;
+ 
+ 	/* Further lookup for INIT/INIT-ACK packets.
+ 	 * SCTP Implementors Guide, 2.18 Handling of address
+ 	 * parameters within the INIT or INIT-ACK.
+ 	 */
+-	if (!asoc)
+-		asoc = __sctp_rcv_lookup_harder(net, skb, laddr, transportp);
++	asoc = __sctp_rcv_lookup_harder(net, skb, laddr, transportp);
++	if (asoc)
++		goto out;
+ 
++	if (paddr->sa.sa_family == AF_INET)
++		pr_debug("sctp: asoc not found for src:%pI4:%d dst:%pI4:%d\n",
++			 &laddr->v4.sin_addr, ntohs(laddr->v4.sin_port),
++			 &paddr->v4.sin_addr, ntohs(paddr->v4.sin_port));
++	else
++		pr_debug("sctp: asoc not found for src:%pI6:%d dst:%pI6:%d\n",
++			 &laddr->v6.sin6_addr, ntohs(laddr->v6.sin6_port),
++			 &paddr->v6.sin6_addr, ntohs(paddr->v6.sin6_port));
++
++out:
+ 	return asoc;
+ }
+-- 
+2.9.3
