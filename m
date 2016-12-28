@@ -1,72 +1,61 @@
-From: Dave Jones <davej-rdkfGonbjUTCLXcRTR1eJlpr/1R2p/CL@public.gmane.org>
-Subject: sunrpc: Illegal context switch in RCU read-side critical section!
-Date: Tue, 27 Dec 2016 19:55:35 -0500
-Message-ID: <20161228005535.oh7ip4wkc2bfed74@codemonkey.org.uk>
+From: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>
+Subject: RE: [PATCH v2] net: stmmac: bug fix to synchronize stmmac_open and
+ stmmac_dvr_probe
+Date: Wed, 28 Dec 2016 01:40:08 +0000
+Message-ID: <F54AEECA5E2B9541821D670476DAE19C5A916C0E@PGSMSX102.gar.corp.intel.com>
+References: <1482849756-21817-1-git-send-email-hock.leong.kweh@intel.com>
+ <20161227.113405.362102687632949941.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Joao.Pinto@synopsys.com" <Joao.Pinto@synopsys.com>,
+        "peppe.cavallaro@st.com" <peppe.cavallaro@st.com>,
+        "seraphin.bonnaffe@st.com" <seraphin.bonnaffe@st.com>,
+        "alexandre.torgue@gmail.com" <alexandre.torgue@gmail.com>,
+        "manabian@gmail.com" <manabian@gmail.com>,
+        "niklas.cassel@axis.com" <niklas.cassel@axis.com>,
+        "johan@kernel.org" <johan@kernel.org>,
+        "pavel@ucw.cz" <pavel@ucw.cz>,
+        "lars.persson@axis.com" <lars.persson@axis.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
+        "f.fainelli@gmail.com" <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161227.113405.362102687632949941.davem@davemloft.net>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Just noticed this on 4.9. Will try and repro on 4.10rc1 later, but hitting
-unrelated boot problems on that machine right now.
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Wednesday, December 28, 2016 12:34 AM
+> To: Kweh, Hock Leong <hock.leong.kweh@intel.com>
+> Cc: Joao.Pinto@synopsys.com; peppe.cavallaro@st.com;
+> seraphin.bonnaffe@st.com; f.fainelli@gmail.com;
+> alexandre.torgue@gmail.com; manabian@gmail.com; niklas.cassel@axis.com;
+> johan@kernel.org; pavel@ucw.cz; Ong, Boon Leong
+> <boon.leong.ong@intel.com>; Voon, Weifeng <weifeng.voon@intel.com>;
+> lars.persson@axis.com; netdev@vger.kernel.org; linux-kernel@vger.kernel.org
+> Subject: Re: [PATCH v2] net: stmmac: bug fix to synchronize stmmac_open and
+> stmmac_dvr_probe
+> 
+> From: "Kweh, Hock Leong"	<hock.leong.kweh@intel.com>
+> Date: Tue, 27 Dec 2016 22:42:36 +0800
+> 
+> > From: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>
+> 
+> You are not the author of this change, do not take credit for it.
+> 
+> You have copied Florian's patch character by character, therefore
+> he is the author.
+> 
+> You also didn't CC: the netdev mailing list properly.
 
-===============================
-[ INFO: suspicious RCU usage. ]
-4.9.0-backup-debug+ #1 Not tainted
--------------------------------
-./include/linux/rcupdate.h:557 Illegal context switch in RCU read-side critical section!
+Noted & Thanks.
 
-other info that might help us debug this:
+Hi Florian, could you submit this fix from your side so that you are the author.
+I will help to test out.
 
-rcu_scheduler_active = 1, debug_locks = 1
-5 locks held by kworker/4:1/66:
- #0:  ("%s"("ipv6_addrconf")){.+.+..}, at: [<ffffffff8e09dd14>] process_one_work+0x184/0x790
- #1:  ((addr_chk_work).work){+.+...}, at: [<ffffffff8e09dd14>] process_one_work+0x184/0x790
- #2:  (rtnl_mutex){+.+.+.}, at: [<ffffffff8e9eadc7>] rtnl_lock+0x17/0x20
- #3:  (rcu_read_lock_bh){......}, at: [<ffffffff8ea8b0a3>] addrconf_verify_rtnl+0x23/0x500
- #4:  (rcu_read_lock){......}, at: [<ffffffff8e0a6c65>] atomic_notifier_call_chain+0x5/0x110
-
-stack backtrace:
-CPU: 4 PID: 66 Comm: kworker/4:1 Not tainted 4.9.0-backup-debug+ #1
-Workqueue: ipv6_addrconf addrconf_verify_work
- ffffc90000273a28 ffffffff8e5b4ca5 ffff88042ae19780 0000000000000001
- ffffc90000273a58 ffffffff8e0d530e 0000000000000000 ffffffff8efcc659
- 00000000000009a7 ffff8804180b8580 ffffc90000273a80 ffffffff8e0ad2b7
-Call Trace:
- [<ffffffff8e5b4ca5>] dump_stack+0x68/0x93
- [<ffffffff8e0d530e>] lockdep_rcu_suspicious+0xce/0xf0
- [<ffffffff8e0ad2b7>] ___might_sleep.part.103+0xa7/0x230
- [<ffffffff8e0b74db>] __might_sleep+0x4b/0x90
- [<ffffffff8e9b9ed2>] lock_sock_nested+0x32/0xb0
- [<ffffffff8e9ba2cb>] sock_setsockopt+0x8b/0xa50
- [<ffffffff8e088025>] ? __local_bh_enable_ip+0x65/0xb0
- [<ffffffff8e9b5f39>] kernel_setsockopt+0x49/0x50
- [<ffffffff8eae7d6a>] svc_tcp_kill_temp_xprt+0x4a/0x60
- [<ffffffff8eafa9ef>] svc_age_temp_xprts_now+0x12f/0x1b0
- [<ffffffff8e350e32>] nfsd_inet6addr_event+0x192/0x1f0
- [<ffffffff8e350ca5>] ? nfsd_inet6addr_event+0x5/0x1f0
- [<ffffffff8e0a69f9>] notifier_call_chain+0x39/0xa0
- [<ffffffff8e0a6cce>] atomic_notifier_call_chain+0x6e/0x110
- [<ffffffff8e0a6c65>] ? atomic_notifier_call_chain+0x5/0x110
- [<ffffffff8eac58cb>] inet6addr_notifier_call_chain+0x1b/0x20
- [<ffffffff8ea8a89c>] ipv6_del_addr+0x12c/0x200
- [<ffffffff8ea8b497>] addrconf_verify_rtnl+0x417/0x500
- [<ffffffff8ea8b0a3>] ? addrconf_verify_rtnl+0x23/0x500
- [<ffffffff8ea8b593>] addrconf_verify_work+0x13/0x20
- [<ffffffff8e09dd9b>] process_one_work+0x20b/0x790
- [<ffffffff8e09dd14>] ? process_one_work+0x184/0x790
- [<ffffffff8e09e36e>] worker_thread+0x4e/0x490
- [<ffffffff8e09e320>] ? process_one_work+0x790/0x790
- [<ffffffff8e09e320>] ? process_one_work+0x790/0x790
- [<ffffffff8e0a4ecf>] kthread+0xff/0x120
- [<ffffffff8e0a4dd0>] ? kthread_worker_fn+0x140/0x140
- [<ffffffff8eb14517>] ret_from_fork+0x27/0x40
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks & Regards,
+Wilson
