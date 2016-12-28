@@ -1,391 +1,71 @@
-From: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-Subject: [PATCH 1/2] ipv4: Namespaceify tcp_tw_recycle and tcp_max_tw_buckets knob
-Date: Wed, 28 Dec 2016 17:52:32 +0800
-Message-ID: <1482918753-1235-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-To: "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Nikolay Borisov <kernel@kyup.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmccmta3.chinamobile.com ([221.176.66.81]:26664 "EHLO
-        cmccmta3.chinamobile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751193AbcL1JxN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Dec 2016 04:53:13 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "George Spelvin" <linux@sciencehorizons.net>
+Subject: Re: George's crazy full state idea (Re: HalfSipHash Acceptable Usage)
+Date: 28 Dec 2016 05:04:43 -0500
+Message-ID: <20161228100443.18935.qmail@ns.sciencehorizons.net>
+References: <1482902602.2234.1.camel@stressinduktion.org>
+Cc: ak@linux.intel.com, davem@davemloft.net, David.Laight@aculab.com,
+        ebiggers3@gmail.com, eric.dumazet@gmail.com, Jason@zx2c4.com,
+        kernel-hardening@lists.openwall.com, linux-crypto@vger.kernel.org,
+        linux-kernel@vger.kernel.org, luto@kernel.org,
+        netdev@vger.kernel.org, tom@herbertland.com, tytso@mit.edu,
+        vegard.nossum@gmail.com
+To: daniel@iogearbox.net, hannes@stressinduktion.org,
+        linux@sciencehorizons.net
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <1482902602.2234.1.camel@stressinduktion.org>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Different namespace application might require fast recycling
-TIME-WAIT sockets independently of the host.
+Hannes Frederic Sowa wrote:
+> We call extract_crng when we run out of batched entropy and reseed. How
+> often we call down to extract_crng depends on how much entropy we
+> extracted by calls to get_random_int/long, so the number of calls into
+> those functions matter.
+> 
+> In extract_crng we have a timer which reseeds every 300s the CPRNG and
+> either uses completely new entropy from the CRNG or calls down into the
+> CPRNG while also doing backtracing protection (which feeds chacha's
+> block size / 2 back into chacha, if I read the code correctly, thus
+> 1024 bits, which should be enough).
 
-Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
----
- include/net/inet_timewait_sock.h | 13 +------------
- include/net/netns/ipv4.h         | 11 +++++++++++
- include/net/tcp.h                |  1 -
- net/ipv4/af_inet.c               |  2 --
- net/ipv4/inet_timewait_sock.c    |  3 +--
- net/ipv4/proc.c                  |  2 +-
- net/ipv4/sysctl_net_ipv4.c       | 28 ++++++++++++++--------------
- net/ipv4/tcp.c                   |  3 ++-
- net/ipv4/tcp_input.c             |  2 +-
- net/ipv4/tcp_ipv4.c              | 12 ++++++++----
- net/ipv4/tcp_minisocks.c         | 14 +++++---------
- net/ipv6/tcp_ipv6.c              |  7 ++++---
- 12 files changed, 48 insertions(+), 50 deletions(-)
+In the current code, _extract_crng checks to see if more than 300 s
+have elapsed since last time it was reseeded, and if so, reseeds with
+fresh entropy.
 
-diff --git a/include/net/inet_timewait_sock.h b/include/net/inet_timewait_sock.h
-index c9b3eb7..6a75d67 100644
---- a/include/net/inet_timewait_sock.h
-+++ b/include/net/inet_timewait_sock.h
-@@ -29,16 +29,6 @@
- 
- #include <linux/atomic.h>
- 
--struct inet_hashinfo;
--
--struct inet_timewait_death_row {
--	atomic_t		tw_count;
--
--	struct inet_hashinfo 	*hashinfo ____cacheline_aligned_in_smp;
--	int			sysctl_tw_recycle;
--	int			sysctl_max_tw_buckets;
--};
--
- struct inet_bind_bucket;
- 
- /*
-@@ -125,8 +115,7 @@ static inline void inet_twsk_reschedule(struct inet_timewait_sock *tw, int timeo
- 
- void inet_twsk_deschedule_put(struct inet_timewait_sock *tw);
- 
--void inet_twsk_purge(struct inet_hashinfo *hashinfo,
--		     struct inet_timewait_death_row *twdr, int family);
-+void inet_twsk_purge(struct inet_hashinfo *hashinfo, int family);
- 
- static inline
- struct net *twsk_net(const struct inet_timewait_sock *twsk)
-diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
-index 0378e88..99becaf 100644
---- a/include/net/netns/ipv4.h
-+++ b/include/net/netns/ipv4.h
-@@ -27,6 +27,16 @@ struct ping_group_range {
- 	kgid_t		range[2];
- };
- 
-+struct inet_hashinfo;
-+
-+struct inet_timewait_death_row {
-+	atomic_t		tw_count;
-+
-+	struct inet_hashinfo 	*hashinfo ____cacheline_aligned_in_smp;
-+	int			sysctl_tw_recycle;
-+	int			sysctl_max_tw_buckets;
-+};
-+
- struct netns_ipv4 {
- #ifdef CONFIG_SYSCTL
- 	struct ctl_table_header	*forw_hdr;
-@@ -111,6 +121,7 @@ struct netns_ipv4 {
- 	int sysctl_tcp_fin_timeout;
- 	unsigned int sysctl_tcp_notsent_lowat;
- 	int sysctl_tcp_tw_reuse;
-+	struct inet_timewait_death_row tcp_death_row; 
- 
- 	int sysctl_igmp_max_memberships;
- 	int sysctl_igmp_max_msf;
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 6061963..1da0aa7 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -231,7 +231,6 @@ void tcp_time_wait(struct sock *sk, int state, int timeo);
-  */
- #define	TFO_SERVER_WO_SOCKOPT1	0x400
- 
--extern struct inet_timewait_death_row tcp_death_row;
- 
- /* sysctl variables for tcp */
- extern int sysctl_tcp_timestamps;
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 1830e6f..29b1dd9 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -1831,8 +1831,6 @@ static int __init inet_init(void)
- 
- 	ip_init();
- 
--	tcp_v4_init();
--
- 	/* Setup TCP slab cache for open requests. */
- 	tcp_init();
- 
-diff --git a/net/ipv4/inet_timewait_sock.c b/net/ipv4/inet_timewait_sock.c
-index ddcd56c..f8aff2c 100644
---- a/net/ipv4/inet_timewait_sock.c
-+++ b/net/ipv4/inet_timewait_sock.c
-@@ -257,8 +257,7 @@ void __inet_twsk_schedule(struct inet_timewait_sock *tw, int timeo, bool rearm)
- }
- EXPORT_SYMBOL_GPL(__inet_twsk_schedule);
- 
--void inet_twsk_purge(struct inet_hashinfo *hashinfo,
--		     struct inet_timewait_death_row *twdr, int family)
-+void inet_twsk_purge(struct inet_hashinfo *hashinfo, int family)
- {
- 	struct inet_timewait_sock *tw;
- 	struct sock *sk;
-diff --git a/net/ipv4/proc.c b/net/ipv4/proc.c
-index 7143ca1..0247ca0 100644
---- a/net/ipv4/proc.c
-+++ b/net/ipv4/proc.c
-@@ -65,7 +65,7 @@ static int sockstat_seq_show(struct seq_file *seq, void *v)
- 	socket_seq_show(seq);
- 	seq_printf(seq, "TCP: inuse %d orphan %d tw %d alloc %d mem %ld\n",
- 		   sock_prot_inuse_get(net, &tcp_prot), orphans,
--		   atomic_read(&tcp_death_row.tw_count), sockets,
-+		   atomic_read(&net->ipv4.tcp_death_row.tw_count), sockets,
- 		   proto_memory_allocated(&tcp_prot));
- 	seq_printf(seq, "UDP: inuse %d mem %ld\n",
- 		   sock_prot_inuse_get(net, &udp_prot),
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index 22cbd61..66f8f1b 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -290,13 +290,6 @@ static struct ctl_table ipv4_table[] = {
- 		.proc_handler	= proc_dointvec
- 	},
- 	{
--		.procname	= "tcp_max_tw_buckets",
--		.data		= &tcp_death_row.sysctl_max_tw_buckets,
--		.maxlen		= sizeof(int),
--		.mode		= 0644,
--		.proc_handler	= proc_dointvec
--	},
--	{
- 		.procname	= "tcp_fastopen",
- 		.data		= &sysctl_tcp_fastopen,
- 		.maxlen		= sizeof(int),
-@@ -310,13 +303,6 @@ static struct ctl_table ipv4_table[] = {
- 		.proc_handler	= proc_tcp_fastopen_key,
- 	},
- 	{
--		.procname	= "tcp_tw_recycle",
--		.data		= &tcp_death_row.sysctl_tw_recycle,
--		.maxlen		= sizeof(int),
--		.mode		= 0644,
--		.proc_handler	= proc_dointvec
--	},
--	{
- 		.procname	= "tcp_abort_on_overflow",
- 		.data		= &sysctl_tcp_abort_on_overflow,
- 		.maxlen		= sizeof(int),
-@@ -960,6 +946,20 @@ static struct ctl_table ipv4_net_table[] = {
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec
- 	},
-+	{
-+		.procname	= "tcp_max_tw_buckets",
-+		.data		= &init_net.ipv4.tcp_death_row.sysctl_max_tw_buckets,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec
-+	},
-+	{
-+		.procname	= "tcp_tw_recycle",
-+		.data		= &init_net.ipv4.tcp_death_row.sysctl_tw_recycle,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec
-+	},
- #ifdef CONFIG_IP_ROUTE_MULTIPATH
- 	{
- 		.procname	= "fib_multipath_use_neigh",
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 1ef3165..91938c9 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -3334,6 +3334,7 @@ void __init tcp_init(void)
- 
- 	percpu_counter_init(&tcp_sockets_allocated, 0, GFP_KERNEL);
- 	percpu_counter_init(&tcp_orphan_count, 0, GFP_KERNEL);
-+	inet_hashinfo_init(&tcp_hashinfo);
- 	tcp_hashinfo.bind_bucket_cachep =
- 		kmem_cache_create("tcp_bind_bucket",
- 				  sizeof(struct inet_bind_bucket), 0,
-@@ -3378,7 +3379,6 @@ void __init tcp_init(void)
- 
- 	cnt = tcp_hashinfo.ehash_mask + 1;
- 
--	tcp_death_row.sysctl_max_tw_buckets = cnt / 2;
- 	sysctl_tcp_max_orphans = cnt / 2;
- 	sysctl_max_syn_backlog = max(128, cnt / 256);
- 
-@@ -3399,6 +3399,7 @@ void __init tcp_init(void)
- 	pr_info("Hash tables configured (established %u bind %u)\n",
- 		tcp_hashinfo.ehash_mask + 1, tcp_hashinfo.bhash_size);
- 
-+	tcp_v4_init();
- 	tcp_metrics_init();
- 	BUG_ON(tcp_register_congestion_control(&tcp_reno) != 0);
- 	tcp_tasklet_init();
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 6c79075..c614802 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -6363,7 +6363,7 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
- 		 * timewait bucket, so that all the necessary checks
- 		 * are made in the function processing timewait state.
- 		 */
--		if (tcp_death_row.sysctl_tw_recycle) {
-+		if (net->ipv4.tcp_death_row.sysctl_tw_recycle) {
- 			bool strict;
- 
- 			dst = af_ops->route_req(sk, &fl, req, &strict);
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index fe9da4f..56b5f49 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -146,6 +146,7 @@ int tcp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
- 	struct rtable *rt;
- 	int err;
- 	struct ip_options_rcu *inet_opt;
-+	struct inet_timewait_death_row *tcp_death_row = &sock_net(sk)->ipv4.tcp_death_row;
- 
- 	if (addr_len < sizeof(struct sockaddr_in))
- 		return -EINVAL;
-@@ -196,7 +197,7 @@ int tcp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
- 			tp->write_seq	   = 0;
- 	}
- 
--	if (tcp_death_row.sysctl_tw_recycle &&
-+	if (tcp_death_row->sysctl_tw_recycle &&
- 	    !tp->rx_opt.ts_recent_stamp && fl4->daddr == daddr)
- 		tcp_fetch_timewait_stamp(sk, &rt->dst);
- 
-@@ -215,7 +216,7 @@ int tcp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
- 	 * complete initialization after this.
- 	 */
- 	tcp_set_state(sk, TCP_SYN_SENT);
--	err = inet_hash_connect(&tcp_death_row, sk);
-+	err = inet_hash_connect(tcp_death_row, sk);
- 	if (err)
- 		goto failure;
- 
-@@ -2457,6 +2458,10 @@ static int __net_init tcp_sk_init(struct net *net)
- 	net->ipv4.sysctl_tcp_notsent_lowat = UINT_MAX;
- 	net->ipv4.sysctl_tcp_tw_reuse = 0;
- 
-+	net->ipv4.tcp_death_row.sysctl_tw_recycle = 0;
-+	net->ipv4.tcp_death_row.sysctl_max_tw_buckets = (tcp_hashinfo.ehash_mask + 1) / 2;
-+	net->ipv4.tcp_death_row.hashinfo = &tcp_hashinfo;
-+
- 	return 0;
- fail:
- 	tcp_sk_exit(net);
-@@ -2466,7 +2471,7 @@ static int __net_init tcp_sk_init(struct net *net)
- 
- static void __net_exit tcp_sk_exit_batch(struct list_head *net_exit_list)
- {
--	inet_twsk_purge(&tcp_hashinfo, &tcp_death_row, AF_INET);
-+	inet_twsk_purge(&tcp_hashinfo, AF_INET);
- }
- 
- static struct pernet_operations __net_initdata tcp_sk_ops = {
-@@ -2477,7 +2482,6 @@ static struct pernet_operations __net_initdata tcp_sk_ops = {
- 
- void __init tcp_v4_init(void)
- {
--	inet_hashinfo_init(&tcp_hashinfo);
- 	if (register_pernet_subsys(&tcp_sk_ops))
- 		panic("Failed to create the TCP control socket.\n");
- }
-diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
-index 28ce5ee..06fde26 100644
---- a/net/ipv4/tcp_minisocks.c
-+++ b/net/ipv4/tcp_minisocks.c
-@@ -29,12 +29,6 @@
- 
- int sysctl_tcp_abort_on_overflow __read_mostly;
- 
--struct inet_timewait_death_row tcp_death_row = {
--	.sysctl_max_tw_buckets = NR_FILE * 2,
--	.hashinfo	= &tcp_hashinfo,
--};
--EXPORT_SYMBOL_GPL(tcp_death_row);
--
- static bool tcp_in_window(u32 seq, u32 end_seq, u32 s_win, u32 e_win)
- {
- 	if (seq == s_win)
-@@ -100,6 +94,7 @@ tcp_timewait_state_process(struct inet_timewait_sock *tw, struct sk_buff *skb,
- 	struct tcp_options_received tmp_opt;
- 	struct tcp_timewait_sock *tcptw = tcp_twsk((struct sock *)tw);
- 	bool paws_reject = false;
-+	struct inet_timewait_death_row *tcp_death_row = &sock_net((struct sock*)tw)->ipv4.tcp_death_row;
- 
- 	tmp_opt.saw_tstamp = 0;
- 	if (th->doff > (sizeof(*th) >> 2) && tcptw->tw_ts_recent_stamp) {
-@@ -153,7 +148,7 @@ tcp_timewait_state_process(struct inet_timewait_sock *tw, struct sk_buff *skb,
- 			tcptw->tw_ts_recent	  = tmp_opt.rcv_tsval;
- 		}
- 
--		if (tcp_death_row.sysctl_tw_recycle &&
-+		if (tcp_death_row->sysctl_tw_recycle &&
- 		    tcptw->tw_ts_recent_stamp &&
- 		    tcp_tw_remember_stamp(tw))
- 			inet_twsk_reschedule(tw, tw->tw_timeout);
-@@ -264,11 +259,12 @@ void tcp_time_wait(struct sock *sk, int state, int timeo)
- 	const struct tcp_sock *tp = tcp_sk(sk);
- 	struct inet_timewait_sock *tw;
- 	bool recycle_ok = false;
-+	struct inet_timewait_death_row *tcp_death_row = &sock_net(sk)->ipv4.tcp_death_row;
- 
--	if (tcp_death_row.sysctl_tw_recycle && tp->rx_opt.ts_recent_stamp)
-+	if (tcp_death_row->sysctl_tw_recycle && tp->rx_opt.ts_recent_stamp)
- 		recycle_ok = tcp_remember_stamp(sk);
- 
--	tw = inet_twsk_alloc(sk, &tcp_death_row, state);
-+	tw = inet_twsk_alloc(sk, tcp_death_row, state);
- 
- 	if (tw) {
- 		struct tcp_timewait_sock *tcptw = tcp_twsk((struct sock *)tw);
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 73bc8fc6..a4cdf6a 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -123,6 +123,7 @@ static int tcp_v6_connect(struct sock *sk, struct sockaddr *uaddr,
- 	struct dst_entry *dst;
- 	int addr_type;
- 	int err;
-+	struct inet_timewait_death_row *tcp_death_row = &sock_net(sk)->ipv4.tcp_death_row;
- 
- 	if (addr_len < SIN6_LEN_RFC2133)
- 		return -EINVAL;
-@@ -258,7 +259,7 @@ static int tcp_v6_connect(struct sock *sk, struct sockaddr *uaddr,
- 	sk->sk_gso_type = SKB_GSO_TCPV6;
- 	ip6_dst_store(sk, dst, NULL, NULL);
- 
--	if (tcp_death_row.sysctl_tw_recycle &&
-+	if (tcp_death_row->sysctl_tw_recycle &&
- 	    !tp->rx_opt.ts_recent_stamp &&
- 	    ipv6_addr_equal(&fl6.daddr, &sk->sk_v6_daddr))
- 		tcp_fetch_timewait_stamp(sk, dst);
-@@ -273,7 +274,7 @@ static int tcp_v6_connect(struct sock *sk, struct sockaddr *uaddr,
- 	inet->inet_dport = usin->sin6_port;
- 
- 	tcp_set_state(sk, TCP_SYN_SENT);
--	err = inet6_hash_connect(&tcp_death_row, sk);
-+	err = inet6_hash_connect(tcp_death_row, sk);
- 	if (err)
- 		goto late_failure;
- 
-@@ -1948,7 +1949,7 @@ static void __net_exit tcpv6_net_exit(struct net *net)
- 
- static void __net_exit tcpv6_net_exit_batch(struct list_head *net_exit_list)
- {
--	inet_twsk_purge(&tcp_hashinfo, &tcp_death_row, AF_INET6);
-+	inet_twsk_purge(&tcp_hashinfo, AF_INET6);
- }
- 
- static struct pernet_operations tcpv6_net_ops = {
--- 
-2.5.0
+In addition, on every read (or get_random_bytes), if the request leaves
+enough ranfom bits in the last ChaCha block, it feeds back 256 bits
+(the ChaCha block size is 16*32 = 512 bits) for anti-backtracking.
+
+If the last read happened to not fit under that limit (size % 512 >
+256), *and* there are no calls for RNG output for a long time, there is
+no  upper limit to how long the old ChaCha key can hang around.
+
+> On Fri, 2016-12-23 at 20:17 -0500, George Spelvin wrote:
+>> For example, two mix-backs of 64 bits gives you 65 bit security, not 128.
+>> (Because each mixback can be guessed and verified separately.)
+
+> Exactly, but the full reseed after running out of entropy is strong
+> enough to not be defeated by your argumentation. Neither the reseed
+> from the CRNG.
+
+Yes, I was just reacting to your original statement:
+
+>>>>> couldn't we simply use 8 bytes of the 64 byte
+>>>>> return block to feed it directly back into the state chacha?
+
+It's not the idea that's bad, just the proposed quantity.
+
+
+>> If you want that, I have a pile of patches to prandom I really
+>> should push upstream.  Shall I refresh them and send them to you?
+
+> I would like to have a look at them in the new year, certainly! I can
+> also take care about the core prandom patches, but don't know if I have
+> time to submit the others to the different subsystems.
+>
+> Maybe, if David would be okay with that, we can submit all patches
+> through his tree, as he is also the dedicated maintainer for prandom.
+
+Amazing, thank you very much!  They're just minor cleanups, nothing
+too exciting.  I'll put it in the queue to make sure they're up to
+date.
