@@ -1,52 +1,77 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] drivers: atm: eni: rename macro DAUGTHER_ID to fix spelling mistake
-Date: Wed, 28 Dec 2016 17:31:20 +0000
-Message-ID: <20161228173120.20207-1-colin.king@canonical.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH v2] net: stmmac: bug fix to synchronize stmmac_open and
+ stmmac_dvr_probe
+Date: Wed, 28 Dec 2016 10:42:40 -0800
+Message-ID: <e88996a8-e010-c07f-7dee-d220a6dfc706@gmail.com>
+References: <1482849756-21817-1-git-send-email-hock.leong.kweh@intel.com>
+ <20161227.113405.362102687632949941.davem@davemloft.net>
+ <F54AEECA5E2B9541821D670476DAE19C5A916CA0@PGSMSX102.gar.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org
-To: Chas Williams <3chas3@gmail.com>,
-        linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "Joao.Pinto@synopsys.com" <Joao.Pinto@synopsys.com>,
+        "peppe.cavallaro@st.com" <peppe.cavallaro@st.com>,
+        "seraphin.bonnaffe@st.com" <seraphin.bonnaffe@st.com>,
+        "alexandre.torgue@gmail.com" <alexandre.torgue@gmail.com>,
+        "manabian@gmail.com" <manabian@gmail.com>,
+        "niklas.cassel@axis.com" <niklas.cassel@axis.com>,
+        "johan@kernel.org" <johan@kernel.org>,
+        "pavel@ucw.cz" <pavel@ucw.cz>,
+        "Ong, Boon Leong" <boon.leong.ong@intel.com>,
+        "Voon, Weifeng" <weifeng.voon@intel.com>,
+        "lars.persson@axis.com" <lars.persson@axis.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>,
+        David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <F54AEECA5E2B9541821D670476DAE19C5A916CA0@PGSMSX102.gar.corp.intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Colin Ian King <colin.king@canonical.com>
+On 12/27/2016 09:49 PM, Kweh, Hock Leong wrote:
+>> -----Original Message-----
+>> From: David Miller [mailto:davem@davemloft.net]
+>> Sent: Wednesday, December 28, 2016 12:34 AM
+>> To: Kweh, Hock Leong <hock.leong.kweh@intel.com>
+>> Cc: Joao.Pinto@synopsys.com; peppe.cavallaro@st.com;
+>> seraphin.bonnaffe@st.com; f.fainelli@gmail.com;
+>> alexandre.torgue@gmail.com; manabian@gmail.com; niklas.cassel@axis.com;
+>> johan@kernel.org; pavel@ucw.cz; Ong, Boon Leong
+>> <boon.leong.ong@intel.com>; Voon, Weifeng <weifeng.voon@intel.com>;
+>> lars.persson@axis.com; netdev@vger.kernel.org; linux-kernel@vger.kernel.org
+>> Subject: Re: [PATCH v2] net: stmmac: bug fix to synchronize stmmac_open and
+>> stmmac_dvr_probe
+>>
+>> From: "Kweh, Hock Leong"	<hock.leong.kweh@intel.com>
+>> Date: Tue, 27 Dec 2016 22:42:36 +0800
+>>
+>>> From: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>
+>>
+>> You are not the author of this change, do not take credit for it.
+>>
+>> You have copied Florian's patch character by character, therefore
+>> he is the author.
+>>
+>> You also didn't CC: the netdev mailing list properly.
+> 
+> Hi David & Florian,
+> 
+> Just to clarify that I do not copy exactly from Florian.
+> I have changed it to have proper handling on mdio unregister
+> while netdev_register() failed as showed below:
+> 
+> 	return 0;
+>  
+> -error_mdio_register:
+> -	unregister_netdev(ndev);
+>  error_netdev_register:
+> +	stmmac_mdio_unregister(ndev);
 
-Rename DAUGTHER_ID to DAUGHTER_ID to fix spelling mistake
+Although this is required, we can't be doing it in all circumstances, we
+need to mimic what stmmac_drv_remove() does.
 
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- drivers/atm/eni.c    | 2 +-
- drivers/atm/midway.h | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/atm/eni.c b/drivers/atm/eni.c
-index 40c2d56..13fe61a 100644
---- a/drivers/atm/eni.c
-+++ b/drivers/atm/eni.c
-@@ -1779,7 +1779,7 @@ static int eni_do_init(struct atm_dev *dev)
- 	printk(")\n");
- 	printk(KERN_NOTICE DEV_LABEL "(itf %d): %s,%s\n",dev->number,
- 	    eni_in(MID_RES_ID_MCON) & 0x200 ? "ASIC" : "FPGA",
--	    media_name[eni_in(MID_RES_ID_MCON) & DAUGTHER_ID]);
-+	    media_name[eni_in(MID_RES_ID_MCON) & DAUGHTER_ID]);
- 
- 	error = suni_init(dev);
- 	if (error)
-diff --git a/drivers/atm/midway.h b/drivers/atm/midway.h
-index 432525a..d8bec0f 100644
---- a/drivers/atm/midway.h
-+++ b/drivers/atm/midway.h
-@@ -56,7 +56,7 @@
- #define MID_CON_SUNI	0x00000040	/* 0: UTOPIA; 1: SUNI */
- #define MID_CON_V6	0x00000020	/* 0: non-pipel UTOPIA (required iff
- 					   !CON_SUNI; 1: UTOPIA */
--#define DAUGTHER_ID	0x0000001f	/* daugther board id */
-+#define DAUGHTER_ID	0x0000001f	/* daughter board id */
- 
- /*
-  * Interrupt Status Acknowledge, Interrupt Status & Interrupt Enable
+Let me submit an incremental fix which takes care of mdio bus
+unregistration.
 -- 
-2.10.2
+Florian
