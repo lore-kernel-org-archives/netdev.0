@@ -1,77 +1,81 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net 00/12] Mellanox 100G mlx5 fixes 28-12-2016
-Date: Wed, 28 Dec 2016 14:58:30 +0200
-Message-ID: <1482929922-32626-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Saeed Mahameed <saeedm@mellanox.com>
+Subject: [PATCH net 01/12] net/mlx5: Disable RoCE on the e-switch management port under switchdev mode
+Date: Wed, 28 Dec 2016 14:58:31 +0200
+Message-ID: <1482929922-32626-2-git-send-email-saeedm@mellanox.com>
+References: <1482929922-32626-1-git-send-email-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:32807 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:32803 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751693AbcL1M7B (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 28 Dec 2016 07:59:01 -0500
+        with ESMTP id S1751524AbcL1M66 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Dec 2016 07:58:58 -0500
+In-Reply-To: <1482929922-32626-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+From: Or Gerlitz <ogerlitz@mellanox.com>
 
-Some fixes for mlx5 core and ethernet driver.
+Under the switchdev/offloads mode, packets that don't match any
+e-switch steering rule are sent towards the e-switch management
+port. We use a NIC HW steering rule set per vport (uplink and VFs)
+to make them be received into the host OS through the respective
+vport representor netdevice.
 
-for -stable:
-    net/mlx5: Check FW limitations on log_max_qp before setting it
-    net/mlx5: Cancel recovery work in remove flow
-    net/mlx5: Avoid shadowing numa_node
-    net/mlx5: Mask destination mac value in ethtool steering rules
-    net/mlx5: Prevent setting multicast macs for VFs
-    net/mlx5e: Don't sync netdev state when not registered
-    net/mlx5e: Disable netdev after close
+Currnetly such missed RoCE packets will not get to this NIC steering
+rule, and hence VF RoCE will not work over the slow path of the offloads
+mode. This is b/c these packets will be matched by a steering rule added
+by the firmware that serves RoCE traffic set on the PF NIC vport which
+is also the e-switch management port under SRIOV.
 
-Thanks,
-Saeed.
+Disabling RoCE on the e-switch management vport when we are in the offloads
+mode, will signal to the firmware to remove their RoCE rule, and then the
+missed RoCE packets will be matched by the representor NIC steering rule
+as any other missed packets.
 
-Daniel Jurgens (1):
-  net/mlx5: Cancel recovery work in remove flow
+To achieve that, we disable RoCE on the PF vport. We do that by removing
+(hot-unplugging) the IB device instance associated with the PF. This is
+also required by our current model where the PF serves as the uplink
+representor and hence only SW switching (TC, bridge, OVS) applications
+and slow path vport mlx5e net-device should be running over that vport.
 
-Eli Cohen (1):
-  net/mlx5: Avoid shadowing numa_node
+Fixes: c930a3ad7453 ('net/mlx5e: Add devlink based SRIOV mode changes')
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Reviewed-by: Hadar Hen Zion <hadarh@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
 
-Gal Pressman (2):
-  Revert "net/mlx5e: Expose PCIe statistics to ethtool"
-  Revert "net/mlx5: Add MPCNT register infrastructure"
-
-Huy Nguyen (1):
-  net/mlx5e: Check ets capability before initializing ets settings
-
-Maor Gottlieb (2):
-  net/mlx5: Mask destination mac value in ethtool steering rules
-  net/mlx5: Release FTE lock in error flow
-
-Mohamad Haj Yahia (1):
-  net/mlx5: Prevent setting multicast macs for VFs
-
-Noa Osherovich (1):
-  net/mlx5: Check FW limitations on log_max_qp before setting it
-
-Or Gerlitz (1):
-  net/mlx5: Disable RoCE on the e-switch management port under switchdev
-    mode
-
-Saeed Mahameed (2):
-  net/mlx5e: Don't sync netdev state when not registered
-  net/mlx5e: Disable netdev after close
-
- drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c |  3 +
- .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   | 17 ----
- .../ethernet/mellanox/mlx5/core/en_fs_ethtool.c    |  1 +
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c  | 51 ++++--------
- drivers/net/ethernet/mellanox/mlx5/core/en_stats.h | 32 +-------
- drivers/net/ethernet/mellanox/mlx5/core/eswitch.c  |  2 +-
- .../ethernet/mellanox/mlx5/core/eswitch_offloads.c | 11 +++
- drivers/net/ethernet/mellanox/mlx5/core/fs_core.c  |  1 +
- drivers/net/ethernet/mellanox/mlx5/core/main.c     | 15 +++-
- include/linux/mlx5/device.h                        |  5 --
- include/linux/mlx5/driver.h                        |  1 -
- include/linux/mlx5/mlx5_ifc.h                      | 93 ----------------------
- 12 files changed, 45 insertions(+), 187 deletions(-)
-
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+index 466e161..03293ed 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+@@ -695,6 +695,12 @@ int esw_offloads_init(struct mlx5_eswitch *esw, int nvports)
+ 		if (err)
+ 			goto err_reps;
+ 	}
++
++	/* disable PF RoCE so missed packets don't go through RoCE steering */
++	mlx5_dev_list_lock();
++	mlx5_remove_dev_by_protocol(esw->dev, MLX5_INTERFACE_PROTOCOL_IB);
++	mlx5_dev_list_unlock();
++
+ 	return 0;
+ 
+ err_reps:
+@@ -718,6 +724,11 @@ static int esw_offloads_stop(struct mlx5_eswitch *esw)
+ {
+ 	int err, err1, num_vfs = esw->dev->priv.sriov.num_vfs;
+ 
++	/* enable back PF RoCE */
++	mlx5_dev_list_lock();
++	mlx5_add_dev_by_protocol(esw->dev, MLX5_INTERFACE_PROTOCOL_IB);
++	mlx5_dev_list_unlock();
++
+ 	mlx5_eswitch_disable_sriov(esw);
+ 	err = mlx5_eswitch_enable_sriov(esw, num_vfs, SRIOV_LEGACY);
+ 	if (err) {
 -- 
 2.7.4
