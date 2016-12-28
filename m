@@ -1,80 +1,123 @@
-From: Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Subject: [PATCHv2 net-next 16/16] net: mvpp2: finally add the PPv2.2 compatible string
-Date: Wed, 28 Dec 2016 17:46:32 +0100
-Message-ID: <1482943592-12556-17-git-send-email-thomas.petazzoni@free-electrons.com>
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: [PATCHv2 net-next 15/16] net: mvpp2: add support for an additional clock needed for PPv2.2
+Date: Wed, 28 Dec 2016 17:46:31 +0100
+Message-ID: <1482943592-12556-16-git-send-email-thomas.petazzoni@free-electrons.com>
 References: <1482943592-12556-1-git-send-email-thomas.petazzoni@free-electrons.com>
-Cc: Jason Cooper <jason-NLaQJdtUoK4Be96aLqz0jA@public.gmane.org>, Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
-        Sebastian Hesselbarth <sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        Gregory Clement <gregory.clement-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-        Nadav Haklai <nadavh-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
-        Hanna Hawa <hannah-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
-        Yehuda Yitschak <yehuday-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
-        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-        Stefan Chulski <stefanc-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
-        Marcin Wojtas <mw-nYOzD4b6Jr9Wk0Htik3J/w@public.gmane.org>,
-        Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
-        Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1482943592-12556-1-git-send-email-thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Jason Cooper <jason@lakedaemon.net>, Andrew Lunn <andrew@lunn.ch>,
+        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+        Gregory Clement <gregory.clement@free-electrons.com>,
+        Nadav Haklai <nadavh@marvell.com>,
+        Hanna Hawa <hannah@marvell.com>,
+        Yehuda Yitschak <yehuday@marvell.com>,
+        linux-arm-kernel@lists.infradead.org,
+        Stefan Chulski <stefanc@marvell.com>,
+        Marcin Wojtas <mw@semihalf.com>,
+        Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        devicetree@vger.kernel.org, Rob Herring <robh+dt@kernel.org>,
+        Ian Campbell <ijc+devicetree@hellion.org.uk>,
+        Pawel Moll <pawel.moll@arm.com>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Kumar Gala <galak@codeaurora.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.free-electrons.com ([62.4.15.54]:47962 "EHLO
+        mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751949AbcL1QsE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 28 Dec 2016 11:48:04 -0500
+In-Reply-To: <1482943592-12556-1-git-send-email-thomas.petazzoni@free-electrons.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Now that the mvpp2 driver has been modified to accommodate the support
-for PPv2.2, we can finally advertise this support by adding the
-appropriate compatible string.
+The PPv2.2 variant of the network controller needs an additional
+clock, the "MG clock" in order for the IP block to operate
+properly. This commit adds support for this additional clock to the
+driver, reworking as needed the error handling path.
 
-At the same time, we update the Kconfig description of the MVPP2 driver.
-
-Signed-off-by: Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 ---
- drivers/net/ethernet/marvell/Kconfig | 4 ++--
- drivers/net/ethernet/marvell/mvpp2.c | 4 ++++
- 2 files changed, 6 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/marvell/mvpp2.c | 25 +++++++++++++++++++++----
+ 1 file changed, 21 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/marvell/Kconfig b/drivers/net/ethernet/marvell/Kconfig
-index d2555e8b..da6fb82 100644
---- a/drivers/net/ethernet/marvell/Kconfig
-+++ b/drivers/net/ethernet/marvell/Kconfig
-@@ -82,13 +82,13 @@ config MVNETA_BM
- 	  that all dependencies are met.
- 
- config MVPP2
--	tristate "Marvell Armada 375 network interface support"
-+	tristate "Marvell Armada 375/7K/8K network interface support"
- 	depends on ARCH_MVEBU || COMPILE_TEST
- 	depends on HAS_DMA
- 	select MVMDIO
- 	---help---
- 	  This driver supports the network interface units in the
--	  Marvell ARMADA 375 SoC.
-+	  Marvell ARMADA 375, 7K and 8K SoCs.
- 
- config PXA168_ETH
- 	tristate "Marvell pxa168 ethernet support"
 diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 194de00..9e744d2 100644
+index 20e9429..194de00 100644
 --- a/drivers/net/ethernet/marvell/mvpp2.c
 +++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -6997,6 +6997,10 @@ static const struct of_device_id mvpp2_match[] = {
- 		.compatible = "marvell,armada-375-pp2",
- 		.data = (void *)MVPP21,
- 	},
-+	{
-+		.compatible = "marvell,armada-7k-pp22",
-+		.data = (void *)MVPP22,
-+	},
- 	{ }
- };
- MODULE_DEVICE_TABLE(of, mvpp2_match);
+@@ -702,6 +702,7 @@ struct mvpp2 {
+ 	/* Common clocks */
+ 	struct clk *pp_clk;
+ 	struct clk *gop_clk;
++	struct clk *mg_clk;
+ 
+ 	/* List of pointers to port structures */
+ 	struct mvpp2_port **port_list;
+@@ -6899,6 +6900,18 @@ static int mvpp2_probe(struct platform_device *pdev)
+ 	if (err < 0)
+ 		goto err_pp_clk;
+ 
++	if (priv->hw_version == MVPP22) {
++		priv->mg_clk = devm_clk_get(&pdev->dev, "mg_clk");
++		if (IS_ERR(priv->mg_clk)) {
++			err = PTR_ERR(priv->mg_clk);
++			goto err_gop_clk;
++		}
++
++		err = clk_prepare_enable(priv->mg_clk);
++		if (err < 0)
++			goto err_gop_clk;
++	}
++
+ 	/* Get system's tclk rate */
+ 	priv->tclk = clk_get_rate(priv->pp_clk);
+ 
+@@ -6906,14 +6919,14 @@ static int mvpp2_probe(struct platform_device *pdev)
+ 	err = mvpp2_init(pdev, priv);
+ 	if (err < 0) {
+ 		dev_err(&pdev->dev, "failed to initialize controller\n");
+-		goto err_gop_clk;
++		goto err_mg_clk;
+ 	}
+ 
+ 	port_count = of_get_available_child_count(dn);
+ 	if (port_count == 0) {
+ 		dev_err(&pdev->dev, "no ports enabled\n");
+ 		err = -ENODEV;
+-		goto err_gop_clk;
++		goto err_mg_clk;
+ 	}
+ 
+ 	priv->port_list = devm_kcalloc(&pdev->dev, port_count,
+@@ -6921,19 +6934,22 @@ static int mvpp2_probe(struct platform_device *pdev)
+ 				      GFP_KERNEL);
+ 	if (!priv->port_list) {
+ 		err = -ENOMEM;
+-		goto err_gop_clk;
++		goto err_mg_clk;
+ 	}
+ 
+ 	/* Initialize ports */
+ 	for_each_available_child_of_node(dn, port_node) {
+ 		err = mvpp2_port_probe(pdev, port_node, priv);
+ 		if (err < 0)
+-			goto err_gop_clk;
++			goto err_mg_clk;
+ 	}
+ 
+ 	platform_set_drvdata(pdev, priv);
+ 	return 0;
+ 
++err_mg_clk:
++	if (priv->hw_version == MVPP22)
++		clk_disable_unprepare(priv->mg_clk);
+ err_gop_clk:
+ 	clk_disable_unprepare(priv->gop_clk);
+ err_pp_clk:
+@@ -6969,6 +6985,7 @@ static int mvpp2_remove(struct platform_device *pdev)
+ 				  aggr_txq->descs_phys);
+ 	}
+ 
++	clk_disable_unprepare(priv->mg_clk);
+ 	clk_disable_unprepare(priv->pp_clk);
+ 	clk_disable_unprepare(priv->gop_clk);
+ 
 -- 
 2.7.4
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
