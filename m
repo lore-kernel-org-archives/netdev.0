@@ -1,30 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: ipv6: remove unnecessary inet6_sk check
-Date: Thu, 29 Dec 2016 12:06:09 -0500 (EST)
-Message-ID: <20161229.120609.273388969622365315.davem@davemloft.net>
-References: <20161228165318.5afrtlbulsgymc4c@codemonkey.org.uk>
+Subject: Re: [PATCH] drivers: atm: eni: rename macro DAUGTHER_ID to fix
+ spelling mistake
+Date: Thu, 29 Dec 2016 12:07:13 -0500 (EST)
+Message-ID: <20161229.120713.1312564302312568056.davem@davemloft.net>
+References: <20161228173120.20207-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: davej@codemonkey.org.uk
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54630 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752734AbcL2RHJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 29 Dec 2016 12:07:09 -0500
-In-Reply-To: <20161228165318.5afrtlbulsgymc4c@codemonkey.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: 3chas3@gmail.com, linux-atm-general@lists.sourceforge.net,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: colin.king@canonical.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161228173120.20207-1-colin.king@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Dave Jones <davej@codemonkey.org.uk>
-Date: Wed, 28 Dec 2016 11:53:18 -0500
+From: Colin King <colin.king@canonical.com>
+Date: Wed, 28 Dec 2016 17:31:20 +0000
 
-> np is already assigned in the variable declaration of ping_v6_sendmsg.
-> At this point, we have already dereferenced np several times, so the
-> NULL check is also redundant.
+> From: Colin Ian King <colin.king@canonical.com>
 > 
-> Suggested-by: Eric Dumazet <eric.dumazet@gmail.com>
-> Signed-off-by: Dave Jones <davej@codemonkey.org.uk>
+> Rename DAUGTHER_ID to DAUGHTER_ID to fix spelling mistake
+> 
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
-Applied, thanks Dave.
+Applied.
