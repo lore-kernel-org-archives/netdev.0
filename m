@@ -1,17 +1,17 @@
 From: yuan linyu <cugyly@163.com>
-Subject: [PATCH] scm: fix possible control message header alignment issue
-Date: Thu, 29 Dec 2016 20:10:14 +0800
-Message-ID: <1483013414-3558-1-git-send-email-cugyly@163.com>
+Subject: [PATCH v2] scm: fix possible control message header alignment issue
+Date: Thu, 29 Dec 2016 20:39:32 +0800
+Message-ID: <1483015172-5017-1-git-send-email-cugyly@163.com>
 Mime-Version: 1.0
 Content-Transfer-Encoding: 7bit
 Cc: "David S . Miller" <davem@davemloft.net>,
         yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from m12-11.163.com ([220.181.12.11]:50122 "EHLO m12-11.163.com"
+Received: from m50-138.163.com ([123.125.50.138]:37158 "EHLO m50-138.163.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752648AbcL2MLT (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 29 Dec 2016 07:11:19 -0500
+        id S1752474AbcL2MlC (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 29 Dec 2016 07:41:02 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -29,7 +29,7 @@ Signed-off-by: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
  2 files changed, 13 insertions(+), 5 deletions(-)
 
 diff --git a/net/compat.c b/net/compat.c
-index 96c544b..fe1f41c 100644
+index 96c544b..ffe7a04 100644
 --- a/net/compat.c
 +++ b/net/compat.c
 @@ -245,7 +245,9 @@ int put_cmsg_compat(struct msghdr *kmsg, int level, int type, int len, void *dat
@@ -37,9 +37,9 @@ index 96c544b..fe1f41c 100644
  	if (copy_to_user(cm, &cmhdr, sizeof cmhdr))
  		return -EFAULT;
 -	if (copy_to_user(CMSG_COMPAT_DATA(cm), data, cmlen - sizeof(struct compat_cmsghdr)))
-+	if (cmlen > CMSG_COMPAT_ALIGN(sizeof(struct compat_cmsghdr)) && 
-+	    copy_to_user(CMSG_COMPAT_DATA(cm), data, 
-+			cmlen - CMSG_COMPAT_ALIGN(sizeof(struct compat_cmsghdr))))
++	if (cmlen > CMSG_COMPAT_ALIGN(sizeof(struct compat_cmsghdr)) &&
++	    copy_to_user(CMSG_COMPAT_DATA(cm), data,
++			    cmlen - CMSG_COMPAT_ALIGN(sizeof(struct compat_cmsghdr))))
  		return -EFAULT;
  	cmlen = CMSG_COMPAT_SPACE(len);
  	if (kmsg->msg_controllen < cmlen)
@@ -55,14 +55,14 @@ index 96c544b..fe1f41c 100644
  	int err = 0, i;
  
 +	if (kmsg->msg_controllen > CMSG_COMPAT_ALIGN(sizeof(struct compat_cmsghdr)))
-+		fdmax = (kmsg->msg_controllen - 
++		fdmax = (kmsg->msg_controllen -
 +		         CMSG_COMPAT_ALIGN(sizeof(struct compat_cmsghdr))) / sizeof(int);
 +
  	if (fdnum < fdmax)
  		fdmax = fdnum;
  
 diff --git a/net/core/scm.c b/net/core/scm.c
-index d882043..5d8ef4f 100644
+index d882043..b2e60fd 100644
 --- a/net/core/scm.c
 +++ b/net/core/scm.c
 @@ -238,7 +238,9 @@ int put_cmsg(struct msghdr * msg, int level, int type, int len, void *data)
@@ -70,9 +70,9 @@ index d882043..5d8ef4f 100644
  	if (copy_to_user(cm, &cmhdr, sizeof cmhdr))
  		goto out;
 -	if (copy_to_user(CMSG_DATA(cm), data, cmlen - sizeof(struct cmsghdr)))
-+	if (cmlen > CMSG_ALIGN(sizeof(struct cmsghdr)) && 
-+	    copy_to_user(CMSG_DATA(cm), data, 
-+			cmlen - CMSG_ALIGN(sizeof(struct cmsghdr))))
++	if (cmlen > CMSG_ALIGN(sizeof(struct cmsghdr)) &&
++	    copy_to_user(CMSG_DATA(cm), data,
++			    cmlen - CMSG_ALIGN(sizeof(struct cmsghdr))))
  		goto out;
  	cmlen = CMSG_SPACE(len);
  	if (msg->msg_controllen < cmlen)
