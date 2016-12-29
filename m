@@ -1,55 +1,47 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next] net: dsa: Implement ndo_get_phys_port_id
-Date: Thu, 29 Dec 2016 14:20:56 -0800
-Message-ID: <20161229222056.12490-1-f.fainelli@gmail.com>
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        linux-kernel@vger.kernel.org (open list)
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH net] net: ipv4: dst for local input routes should use l3mdev if relevant
+Date: Thu, 29 Dec 2016 15:29:03 -0800
+Message-ID: <1483054143-11050-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f43.google.com ([74.125.83.43]:34930 "EHLO
+        mail-pg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751220AbcL2X3L (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 29 Dec 2016 18:29:11 -0500
+Received: by mail-pg0-f43.google.com with SMTP id i5so106070326pgh.2
+        for <netdev@vger.kernel.org>; Thu, 29 Dec 2016 15:29:11 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Implement ndo_get_phys_port_id() by returning the physical port number
-of the switch this per-port DSA created network interface corresponds
-to.
+IPv4 output routes already use l3mdev device instead of loopback for dst's
+if it is applicable. Change local input routes to do the same.
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+This fixes icmp responses for unreachable UDP ports which are directed
+to the wrong table after commit 9d1a6c4ea43e4 because local_input
+routes use the loopback device. Moving from ingress device to loopback
+loses the L3 domain causing responses based on the dst to get to lost.
+
+Fixes: 9d1a6c4ea43e4 ("net: icmp_route_lookup should use rt dev to
+		       determine L3 domain")
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- net/dsa/slave.c | 12 ++++++++++++
- 1 file changed, 12 insertions(+)
+ net/ipv4/route.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 68c9eea00518..ffd91969b830 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -984,6 +984,17 @@ static void dsa_slave_poll_controller(struct net_device *dev)
- }
- #endif
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index a82a11747b3f..0fcac8e7a2b2 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -1914,7 +1914,8 @@ out:	return err;
+ 		}
+ 	}
  
-+static int dsa_slave_get_phys_port_id(struct net_device *dev,
-+				      struct netdev_phys_item_id *ppid)
-+{
-+	struct dsa_slave_priv *p = netdev_priv(dev);
-+
-+	ppid->id_len = sizeof(p->port);
-+	memcpy(ppid->id, &p->port, ppid->id_len);
-+
-+	return 0;
-+}
-+
- void dsa_cpu_port_ethtool_init(struct ethtool_ops *ops)
- {
- 	ops->get_sset_count = dsa_cpu_port_get_sset_count;
-@@ -1031,6 +1042,7 @@ static const struct net_device_ops dsa_slave_netdev_ops = {
- 	.ndo_bridge_getlink	= switchdev_port_bridge_getlink,
- 	.ndo_bridge_setlink	= switchdev_port_bridge_setlink,
- 	.ndo_bridge_dellink	= switchdev_port_bridge_dellink,
-+	.ndo_get_phys_port_id	= dsa_slave_get_phys_port_id,
- };
- 
- static const struct switchdev_ops dsa_slave_switchdev_ops = {
+-	rth = rt_dst_alloc(net->loopback_dev, flags | RTCF_LOCAL, res.type,
++	rth = rt_dst_alloc(l3mdev_master_dev_rcu(dev) ? : net->loopback_dev,
++			   flags | RTCF_LOCAL, res.type,
+ 			   IN_DEV_CONF_GET(in_dev, NOPOLICY), false, do_cache);
+ 	if (!rth)
+ 		goto e_nobufs;
 -- 
-2.9.3
+2.1.4
