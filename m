@@ -1,56 +1,55 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH][V2] [media] gp8psk: fix spelling mistake: "firmare" -> "firmware"
-Date: Thu, 29 Dec 2016 21:38:15 +0000
-Message-ID: <20161229213815.27890-1-colin.king@canonical.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org
-To: Mauro Carvalho Chehab <mchehab@kernel.org>,
-        Larry Finger <Larry.Finger@lwfinger.net>,
-        Chaoming Li <chaoming_li@realsil.com.cn>,
-        Kalle Valo <kvalo@codeaurora.org>, linux-media@vger.kernel.org,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next] net: dsa: Implement ndo_get_phys_port_id
+Date: Thu, 29 Dec 2016 14:20:56 -0800
+Message-ID: <20161229222056.12490-1-f.fainelli@gmail.com>
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-kernel@vger.kernel.org (open list)
+To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Colin Ian King <colin.king@canonical.com>
+Implement ndo_get_phys_port_id() by returning the physical port number
+of the switch this per-port DSA created network interface corresponds
+to.
 
-Trivial fix to spelling mistake in err message. Also change "don't" to
-"does not".
-
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/media/usb/dvb-usb/gp8psk.c          | 2 +-
- drivers/net/wireless/realtek/rtlwifi/core.c | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ net/dsa/slave.c | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
 
-diff --git a/drivers/media/usb/dvb-usb/gp8psk.c b/drivers/media/usb/dvb-usb/gp8psk.c
-index 2360e7e..26461f2 100644
---- a/drivers/media/usb/dvb-usb/gp8psk.c
-+++ b/drivers/media/usb/dvb-usb/gp8psk.c
-@@ -161,7 +161,7 @@ static int gp8psk_load_bcm4500fw(struct dvb_usb_device *d)
- 			goto out_free;
- 		}
- 		if (buflen > 64) {
--			err("firmare chunk size bigger than 64 bytes.");
-+			err("firmware chunk size bigger than 64 bytes.");
- 			goto out_free;
- 		}
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 68c9eea00518..ffd91969b830 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -984,6 +984,17 @@ static void dsa_slave_poll_controller(struct net_device *dev)
+ }
+ #endif
  
-diff --git a/drivers/net/wireless/realtek/rtlwifi/core.c b/drivers/net/wireless/realtek/rtlwifi/core.c
-index ded1493..732de0a 100644
---- a/drivers/net/wireless/realtek/rtlwifi/core.c
-+++ b/drivers/net/wireless/realtek/rtlwifi/core.c
-@@ -1532,7 +1532,7 @@ static int rtl_op_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
- 		key_type = AESCMAC_ENCRYPTION;
- 		RT_TRACE(rtlpriv, COMP_SEC, DBG_DMESG, "alg:CMAC\n");
- 		RT_TRACE(rtlpriv, COMP_SEC, DBG_DMESG,
--			 "HW don't support CMAC encrypiton, use software CMAC encrypiton\n");
-+			 "HW does not support CMAC encryption, use software CMAC encryption\n");
- 		err = -EOPNOTSUPP;
- 		goto out_unlock;
- 	default:
++static int dsa_slave_get_phys_port_id(struct net_device *dev,
++				      struct netdev_phys_item_id *ppid)
++{
++	struct dsa_slave_priv *p = netdev_priv(dev);
++
++	ppid->id_len = sizeof(p->port);
++	memcpy(ppid->id, &p->port, ppid->id_len);
++
++	return 0;
++}
++
+ void dsa_cpu_port_ethtool_init(struct ethtool_ops *ops)
+ {
+ 	ops->get_sset_count = dsa_cpu_port_get_sset_count;
+@@ -1031,6 +1042,7 @@ static const struct net_device_ops dsa_slave_netdev_ops = {
+ 	.ndo_bridge_getlink	= switchdev_port_bridge_getlink,
+ 	.ndo_bridge_setlink	= switchdev_port_bridge_setlink,
+ 	.ndo_bridge_dellink	= switchdev_port_bridge_dellink,
++	.ndo_get_phys_port_id	= dsa_slave_get_phys_port_id,
+ };
+ 
+ static const struct switchdev_ops dsa_slave_switchdev_ops = {
 -- 
-2.10.2
+2.9.3
