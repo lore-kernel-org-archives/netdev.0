@@ -1,26 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] ipv4: Namespaceify tcp_max_syn_backlog knob
-Date: Thu, 29 Dec 2016 11:39:25 -0500 (EST)
-Message-ID: <20161229.113925.64077621856996772.davem@davemloft.net>
-References: <1482918753-1235-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
-        <1482918753-1235-2-git-send-email-yanhaishuang@cmss.chinamobile.com>
+Subject: Re: [PATCH v4] stmmac: enable rx queues
+Date: Thu, 29 Dec 2016 11:53:28 -0500 (EST)
+Message-ID: <20161229.115328.567699953533520388.davem@davemloft.net>
+References: <44464911a078d7494e1a968a2df6d2ad3401ef1c.1482929644.git.jpinto@synopsys.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, kernel@kyup.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: yanhaishuang@cmss.chinamobile.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1482918753-1235-2-git-send-email-yanhaishuang@cmss.chinamobile.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, sandeepkishan108@gmail.com
+To: Joao.Pinto@synopsys.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:54472 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752513AbcL2Qxd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 29 Dec 2016 11:53:33 -0500
+In-Reply-To: <44464911a078d7494e1a968a2df6d2ad3401ef1c.1482929644.git.jpinto@synopsys.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-Date: Wed, 28 Dec 2016 17:52:33 +0800
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Date: Wed, 28 Dec 2016 12:57:48 +0000
 
-> Different namespace application might require different maximal
-> number of remembered connection requests.
+> When the hardware is synthesized with multiple queues, all queues are
+> disabled for default. This patch adds the rx queues configuration.
+> This patch was successfully tested in a Synopsys QoS Reference design.
 > 
-> Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+> Signed-off-by: Joao Pinto <jpinto@synopsys.com>
 
-Applied.
+Applied, thanks.
