@@ -1,91 +1,57 @@
-From: yuan linyu <cugyly@163.com>
-Subject: [PATCH v2] scm: fix possible control message header alignment issue
-Date: Thu, 29 Dec 2016 20:39:32 +0800
-Message-ID: <1483015172-5017-1-git-send-email-cugyly@163.com>
-Mime-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Cc: "David S . Miller" <davem@davemloft.net>,
-        yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from m50-138.163.com ([123.125.50.138]:37158 "EHLO m50-138.163.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752474AbcL2MlC (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 29 Dec 2016 07:41:02 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pavel Tikhomirov <ptikhomirov@virtuozzo.com>
+Subject: [PATCH] ipv4: make tcp_notsent_lowat sysctl knob behave as true unsigned int
+Date: Thu, 29 Dec 2016 17:35:07 +0300
+Message-ID: <20161229143507.4934-1-ptikhomirov@virtuozzo.com>
+Cc: Eric Dumazet <edumazet@google.com>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org,
+        Konstantin Khorenko <khorenko@virtuozzo.com>,
+        Pavel Tikhomirov <ptikhomirov@virtuozzo.com>
+To: "David S . Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+> cat /proc/sys/net/ipv4/tcp_notsent_lowat
+-1
+> echo 4294967295 > /proc/sys/net/ipv4/tcp_notsent_lowat
+-bash: echo: write error: Invalid argument
+> echo -2147483648 > /proc/sys/net/ipv4/tcp_notsent_lowat
+> cat /proc/sys/net/ipv4/tcp_notsent_lowat
+-2147483648
 
-1. put_cmsg{_compat}() may copy data to user when buffer free space less than
-   control message header alignment size.
-2. scm_detach_fds{_compat}() may calc wrong fdmax if control message header
-   have greater alignment size.
+but in documentation we have "tcp_notsent_lowat - UNSIGNED INTEGER"
 
-Signed-off-by: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+Signed-off-by: Pavel Tikhomirov <ptikhomirov@virtuozzo.com>
 ---
- net/compat.c   | 10 ++++++++--
- net/core/scm.c |  8 +++++---
- 2 files changed, 13 insertions(+), 5 deletions(-)
+ net/ipv4/sysctl_net_ipv4.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-diff --git a/net/compat.c b/net/compat.c
-index 96c544b..ffe7a04 100644
---- a/net/compat.c
-+++ b/net/compat.c
-@@ -245,7 +245,9 @@ int put_cmsg_compat(struct msghdr *kmsg, int level, int type, int len, void *dat
+diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+index 80bc36b..5361373 100644
+--- a/net/ipv4/sysctl_net_ipv4.c
++++ b/net/ipv4/sysctl_net_ipv4.c
+@@ -41,6 +41,7 @@ static int tcp_syn_retries_min = 1;
+ static int tcp_syn_retries_max = MAX_TCP_SYNCNT;
+ static int ip_ping_group_range_min[] = { 0, 0 };
+ static int ip_ping_group_range_max[] = { GID_T_MAX, GID_T_MAX };
++static unsigned int uint_max = UINT_MAX;
  
- 	if (copy_to_user(cm, &cmhdr, sizeof cmhdr))
- 		return -EFAULT;
--	if (copy_to_user(CMSG_COMPAT_DATA(cm), data, cmlen - sizeof(struct compat_cmsghdr)))
-+	if (cmlen > CMSG_COMPAT_ALIGN(sizeof(struct compat_cmsghdr)) &&
-+	    copy_to_user(CMSG_COMPAT_DATA(cm), data,
-+			    cmlen - CMSG_COMPAT_ALIGN(sizeof(struct compat_cmsghdr))))
- 		return -EFAULT;
- 	cmlen = CMSG_COMPAT_SPACE(len);
- 	if (kmsg->msg_controllen < cmlen)
-@@ -258,12 +260,16 @@ int put_cmsg_compat(struct msghdr *kmsg, int level, int type, int len, void *dat
- void scm_detach_fds_compat(struct msghdr *kmsg, struct scm_cookie *scm)
- {
- 	struct compat_cmsghdr __user *cm = (struct compat_cmsghdr __user *) kmsg->msg_control;
--	int fdmax = (kmsg->msg_controllen - sizeof(struct compat_cmsghdr)) / sizeof(int);
-+	int fdmax = 0;
- 	int fdnum = scm->fp->count;
- 	struct file **fp = scm->fp->fp;
- 	int __user *cmfptr;
- 	int err = 0, i;
- 
-+	if (kmsg->msg_controllen > CMSG_COMPAT_ALIGN(sizeof(struct compat_cmsghdr)))
-+		fdmax = (kmsg->msg_controllen -
-+		         CMSG_COMPAT_ALIGN(sizeof(struct compat_cmsghdr))) / sizeof(int);
-+
- 	if (fdnum < fdmax)
- 		fdmax = fdnum;
- 
-diff --git a/net/core/scm.c b/net/core/scm.c
-index d882043..b2e60fd 100644
---- a/net/core/scm.c
-+++ b/net/core/scm.c
-@@ -238,7 +238,9 @@ int put_cmsg(struct msghdr * msg, int level, int type, int len, void *data)
- 	err = -EFAULT;
- 	if (copy_to_user(cm, &cmhdr, sizeof cmhdr))
- 		goto out;
--	if (copy_to_user(CMSG_DATA(cm), data, cmlen - sizeof(struct cmsghdr)))
-+	if (cmlen > CMSG_ALIGN(sizeof(struct cmsghdr)) &&
-+	    copy_to_user(CMSG_DATA(cm), data,
-+			    cmlen - CMSG_ALIGN(sizeof(struct cmsghdr))))
- 		goto out;
- 	cmlen = CMSG_SPACE(len);
- 	if (msg->msg_controllen < cmlen)
-@@ -267,8 +269,8 @@ void scm_detach_fds(struct msghdr *msg, struct scm_cookie *scm)
- 		return;
- 	}
- 
--	if (msg->msg_controllen > sizeof(struct cmsghdr))
--		fdmax = ((msg->msg_controllen - sizeof(struct cmsghdr))
-+	if (msg->msg_controllen > CMSG_ALIGN(sizeof(struct cmsghdr)))
-+		fdmax = ((msg->msg_controllen - CMSG_ALIGN(sizeof(struct cmsghdr)))
- 			 / sizeof(int));
- 
- 	if (fdnum < fdmax)
+ /* Update system visible IP port range */
+ static void set_local_port_range(struct net *net, int range[2])
+@@ -958,7 +959,9 @@ static struct ctl_table ipv4_net_table[] = {
+ 		.data		= &init_net.ipv4.sysctl_tcp_notsent_lowat,
+ 		.maxlen		= sizeof(unsigned int),
+ 		.mode		= 0644,
+-		.proc_handler	= proc_dointvec,
++		.proc_handler	= proc_doulongvec_minmax,
++		.extra1		= &zero,
++		.extra2		= &uint_max,
+ 	},
+ #ifdef CONFIG_IP_ROUTE_MULTIPATH
+ 	{
 -- 
-2.7.4
+2.9.3
