@@ -1,48 +1,104 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v2] net: stmmac: bug fix to synchronize stmmac_open and
- stmmac_dvr_probe
-Date: Wed, 28 Dec 2016 16:40:17 -0800
-Message-ID: <5939e711-ac50-3a25-fd35-cd427f44663e@gmail.com>
-References: <1482849756-21817-1-git-send-email-hock.leong.kweh@intel.com>
- <20161227.113405.362102687632949941.davem@davemloft.net>
- <F54AEECA5E2B9541821D670476DAE19C5A916CA0@PGSMSX102.gar.corp.intel.com>
- <e88996a8-e010-c07f-7dee-d220a6dfc706@gmail.com>
- <F54AEECA5E2B9541821D670476DAE19C5A916EB3@PGSMSX102.gar.corp.intel.com>
+From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+Subject: Re: [PATCH] net: ethernet: ti: davinci_cpdma: fix access to
+ uninitialized variable in cpdma_chan_set_descs()
+Date: Thu, 29 Dec 2016 03:49:06 +0200
+Message-ID: <20161229014904.GA22718@khorivan>
+References: <20161228234213.22166-1-grygorii.strashko@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "Joao.Pinto@synopsys.com" <Joao.Pinto@synopsys.com>,
-        "peppe.cavallaro@st.com" <peppe.cavallaro@st.com>,
-        "seraphin.bonnaffe@st.com" <seraphin.bonnaffe@st.com>,
-        "alexandre.torgue@gmail.com" <alexandre.torgue@gmail.com>,
-        "manabian@gmail.com" <manabian@gmail.com>,
-        "niklas.cassel@axis.com" <niklas.cassel@axis.com>,
-        "johan@kernel.org" <johan@kernel.org>,
-        "pavel@ucw.cz" <pavel@ucw.cz>,
-        "Ong, Boon Leong" <boon.leong.ong@intel.com>,
-        "Voon, Weifeng" <weifeng.voon@intel.com>,
-        "lars.persson@axis.com" <lars.persson@axis.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>,
-        David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        Mugunthan V N <mugunthanvnm@ti.com>,
+        Sekhar Nori <nsekhar@ti.com>, linux-kernel@vger.kernel.org,
+        linux-omap@vger.kernel.org
+To: Grygorii Strashko <grygorii.strashko@ti.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <F54AEECA5E2B9541821D670476DAE19C5A916EB3@PGSMSX102.gar.corp.intel.com>
+Content-Disposition: inline
+In-Reply-To: <20161228234213.22166-1-grygorii.strashko@ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 12/28/2016 04:28 PM, Kweh, Hock Leong wrote:
->> Although this is required, we can't be doing it in all circumstances, we need to
->> mimic what stmmac_drv_remove() does.
->>
->> Let me submit an incremental fix which takes care of mdio bus unregistration.
->> --
->> Florian
+On Wed, Dec 28, 2016 at 05:42:13PM -0600, Grygorii Strashko wrote:
+Grygorii,
+
+> Now below code sequence causes "Unable to handle kernel NULL pointer
+> dereference.." exception and system crash during CPSW CPDMA initialization:
 > 
-> Noted & Thanks. Will test it out once you submitted.
+> cpsw_probe
+> |-cpdma_chan_create (TX channel)
+>   |-cpdma_chan_split_pool
+>     |-cpdma_chan_set_descs(for TX channels)
+>     |-cpdma_chan_set_descs(for RX channels) [1]
+> 
+> - and -
+> static void cpdma_chan_set_descs(struct cpdma_ctlr *ctlr,
+> 				 int rx, int desc_num,
+> 				 int per_ch_desc)
+> {
+> 	struct cpdma_chan *chan, *most_chan = NULL;
+> 
+> ...
+> 
+> 	for (i = min; i < max; i++) {
+> 		chan = ctlr->channels[i];
+> 		if (!chan)
+> 			continue;
+> ...
+> 
+> 		if (most_dnum < chan->desc_num) {
+> 			most_dnum = chan->desc_num;
+> 			most_chan = chan;
+> 		}
+> 	}
+> 	/* use remains */
+> 	most_chan->desc_num += desc_cnt; [2]
+> }
+> 
+> So, most_chan value will never be reassigned when cpdma_chan_set_descs() is
+> called second time [1], because there are no RX channels yet and system
+> will crash at [2].
 
-It's done:
+How did you get this?
+I just remember as I fixed it before sending patchset.
 
-https://www.spinics.net/lists/netdev/msg411934.html
--- 
-Florian
+Maybe it was some experiment with it.
+I just wonder and want to find actual reason what's happening.
+
+Look bellow:
+
+cpsw_probe
+|-cpdma_chan_create (TX channel)
+  |-cpdma_chan_split_pool
+    |-cpdma_chan_set_descs(for TX channels)
+    |-cpdma_chan_set_descs(for RX channels) [1]
+
+|-cpdma_chan_set_descs(for RX channels) in case you'be described has to be
+called with rx_desc_num = 0, because all descs are assigned already for tx
+channel. And, if desc_num = 0, cpdma_chan_set_descs just exits and no issues.
+So, could you please explain how you get this, in what circumstances.
+
+> 
+> Hence, fix the issue by checking most_chan for NULL before accessing it.
+> 
+> Fixes: 0fc6432cc78d ("net: ethernet: ti: davinci_cpdma: add weight function for channels")
+> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
+> ---
+>  drivers/net/ethernet/ti/davinci_cpdma.c | 3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c b/drivers/net/ethernet/ti/davinci_cpdma.c
+> index 36518fc..b349d572 100644
+> --- a/drivers/net/ethernet/ti/davinci_cpdma.c
+> +++ b/drivers/net/ethernet/ti/davinci_cpdma.c
+> @@ -708,7 +708,8 @@ static void cpdma_chan_set_descs(struct cpdma_ctlr *ctlr,
+>  		}
+>  	}
+>  	/* use remains */
+> -	most_chan->desc_num += desc_cnt;
+> +	if (most_chan)
+> +		most_chan->desc_num += desc_cnt;
+>  }
+>  
+>  /**
+> -- 
+> 2.10.1.dirty
+> 
