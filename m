@@ -1,47 +1,46 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH] rtlwifi: fix spelling mistake: "contry" -> "country"
-Date: Thu, 29 Dec 2016 14:58:34 -0600
-Message-ID: <c2eb46b3-5f4c-bbe6-0adb-b78ca50cfb4c@lwfinger.net>
-References: <20161229160029.22117-1-colin.king@canonical.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: [PATCH] sh_eth: fix branch prediction in sh_eth_interrupt()
+Date: Fri, 30 Dec 2016 00:07:38 +0300
+Message-ID: <2810883.6xQhqSTVDe@wasted.cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org
-To: Colin King <colin.king@canonical.com>,
-        Chaoming Li <chaoming_li@realsil.com.cn>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161229160029.22117-1-colin.king@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: ben.hutchings@codethink.co.uk
+To: netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f50.google.com ([209.85.215.50]:33922 "EHLO
+        mail-lf0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750921AbcL2VHm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 29 Dec 2016 16:07:42 -0500
+Received: by mail-lf0-f50.google.com with SMTP id y21so227340990lfa.1
+        for <netdev@vger.kernel.org>; Thu, 29 Dec 2016 13:07:41 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/29/2016 10:00 AM, Colin King wrote:
-> From: Colin Ian King <colin.king@canonical.com>
->
-> trivial fix to spelling mistake in RT_TRACE message
->
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+IIUC, likely()/unlikely() should apply to the whole *if* statement's
+expression, not a part of it  -- fix such expression in  sh_eth_interrupt()
+accordingly...
 
-Acked-by: Larry Finger <Larry.Finger@lwfinger.net>
+Fixes: 283e38db65e7 ("sh_eth: Fix serialisation of interrupt disable with interrupt & NAPI handlers")
+Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
-Larry
+---
+The patch is against DaveM's 'net-next.git' repo; I'm not sure if it should
+be  targeted to the 'net.git' repo instead...
 
-> ---
->  drivers/net/wireless/realtek/rtlwifi/regd.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/drivers/net/wireless/realtek/rtlwifi/regd.c b/drivers/net/wireless/realtek/rtlwifi/regd.c
-> index 6ee6bf8..558c31b 100644
-> --- a/drivers/net/wireless/realtek/rtlwifi/regd.c
-> +++ b/drivers/net/wireless/realtek/rtlwifi/regd.c
-> @@ -440,7 +440,7 @@ int rtl_regd_init(struct ieee80211_hw *hw,
->
->  	if (rtlpriv->regd.country_code >= COUNTRY_CODE_MAX) {
->  		RT_TRACE(rtlpriv, COMP_REGD, DBG_DMESG,
-> -			 "rtl: EEPROM indicates invalid contry code, world wide 13 should be used\n");
-> +			 "rtl: EEPROM indicates invalid country code, world wide 13 should be used\n");
->
->  		rtlpriv->regd.country_code = COUNTRY_CODE_WORLD_WIDE_13;
->  	}
->
+ drivers/net/ethernet/renesas/sh_eth.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+Index: net-next/drivers/net/ethernet/renesas/sh_eth.c
+===================================================================
+--- net-next.orig/drivers/net/ethernet/renesas/sh_eth.c
++++ net-next/drivers/net/ethernet/renesas/sh_eth.c
+@@ -1656,7 +1656,7 @@ static irqreturn_t sh_eth_interrupt(int
+ 	else
+ 		goto out;
+ 
+-	if (!likely(mdp->irq_enabled)) {
++	if (unlikely(!mdp->irq_enabled)) {
+ 		sh_eth_write(ndev, 0, EESIPR);
+ 		goto out;
+ 	}
