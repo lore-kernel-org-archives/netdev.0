@@ -1,43 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4] net: dev_weight: TX/RX orthogonality
-Date: Thu, 29 Dec 2016 14:08:54 -0500 (EST)
-Message-ID: <20161229.140854.1456743873101323068.davem@davemloft.net>
-References: <20161228.141751.81302085672323860.davem@davemloft.net>
-        <1483005521-27799-1-git-send-email-matthias.tafelmeier@gmx.net>
+Subject: Re: [PATCH net 0/5] mlx4 misc fixes
+Date: Thu, 29 Dec 2016 14:18:23 -0500 (EST)
+Message-ID: <20161229.141823.405612404762772642.davem@davemloft.net>
+References: <1483029433-3624-1-git-send-email-tariqt@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hagen@jauu.net, fw@strlen.de,
-        edumazet@google.com, daniel@iogearbox.net
-To: matthias.tafelmeier@gmx.net
+Cc: netdev@vger.kernel.org, eranbe@mellanox.com
+To: tariqt@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:56338 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:56456 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753247AbcL2TI4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 29 Dec 2016 14:08:56 -0500
-In-Reply-To: <1483005521-27799-1-git-send-email-matthias.tafelmeier@gmx.net>
+        with ESMTP id S1752794AbcL2TSa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 29 Dec 2016 14:18:30 -0500
+In-Reply-To: <1483029433-3624-1-git-send-email-tariqt@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matthias Tafelmeier <matthias.tafelmeier@gmx.net>
-Date: Thu, 29 Dec 2016 10:58:41 +0100
+From: Tariq Toukan <tariqt@mellanox.com>
+Date: Thu, 29 Dec 2016 18:37:08 +0200
 
-> Oftenly, introducing side effects on packet processing on the other half
-> of the stack by adjusting one of TX/RX via sysctl is not desirable.
-> There are cases of demand for asymmetric, orthogonal configurability.
+> This patchset contains several bug fixes from the team to the
+> mlx4 Eth and Core drivers.
 > 
-> This holds true especially for nodes where RPS for RFS usage on top is
-> configured and therefore use the 'old dev_weight'. This is quite a
-> common base configuration setup nowadays, even with NICs of superior processing
-> support (e.g. aRFS).
-> 
-> A good example use case are nodes acting as noSQL data bases with a
-> large number of tiny requests and rather fewer but large packets as responses.
-> It's affordable to have large budget and rx dev_weights for the
-> requests. But as a side effect having this large a number on TX
-> processed in one run can overwhelm drivers.
-> 
-> This patch therefore introduces an independent configurability via sysctl to
-> userland.
+> Series generated against net commit:
+> 60133867f1f1 'net: wan: slic_ds26522: fix spelling mistake: "configurated" -> "configured"'
 
-This is missing a signoff.
+Series applied, thank you.
