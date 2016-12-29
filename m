@@ -1,73 +1,91 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH] vif queue counters from int to long
-Date: Thu, 29 Dec 2016 10:47:09 +0000
-Message-ID: <20161229104709.GY28690@citrix.com>
-References: <585D3E23.10509@greenhost.nl>
+From: yuan linyu <cugyly@163.com>
+Subject: [PATCH] scm: fix possible control message header alignment issue
+Date: Thu, 29 Dec 2016 20:10:14 +0800
+Message-ID: <1483013414-3558-1-git-send-email-cugyly@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, <wei.liu2@citrix.com>
-To: Mart van Santen <mart@greenhost.nl>
+Content-Transfer-Encoding: 7bit
+Cc: "David S . Miller" <davem@davemloft.net>,
+        yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:60494 "EHLO
-        SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752399AbcL2KrL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 29 Dec 2016 05:47:11 -0500
-Content-Disposition: inline
-In-Reply-To: <585D3E23.10509@greenhost.nl>
+Received: from m12-11.163.com ([220.181.12.11]:50122 "EHLO m12-11.163.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752648AbcL2MLT (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 29 Dec 2016 07:11:19 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 23, 2016 at 04:09:23PM +0100, Mart van Santen wrote:
-> 
-> Hello,
-> 
-> This patch fixes an issue where counters in the queue have type int,
-> while the counters of the vif itself are specified as long. This can
-> cause incorrect reporting of tx/rx values of the vif interface.
-> More extensively reported on xen-devel mailinglist.
-> 
+From: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
 
-Hello,
+1. put_cmsg{_compat}() may copy data to user when buffer free space less than
+   control message header alignment size.
+2. scm_detach_fds{_compat}() may calc wrong fdmax if control message header
+   have greater alignment size.
 
-Please also CC xen-devel@lists.xenproject.org for your future patch(es).
-And please note that the most up to date maintainer information should
-be used.
+Signed-off-by: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+---
+ net/compat.c   | 10 ++++++++--
+ net/core/scm.c |  8 +++++---
+ 2 files changed, 13 insertions(+), 5 deletions(-)
 
-Wei.
-
-> 
-> 
-> Signed-off-by: Mart van Santen <mart@greenhost.nl>
-> --- a/drivers/net/xen-netback/common.h  2016-12-22 15:41:07.785535748 +0000
-> +++ b/drivers/net/xen-netback/common.h  2016-12-23 13:08:18.123080064 +0000
-> @@ -113,10 +113,10 @@ struct xenvif_stats {
->          * A subset of struct net_device_stats that contains only the
->          * fields that are updated in netback.c for each queue.
->          */
-> -       unsigned int rx_bytes;
-> -       unsigned int rx_packets;
-> -       unsigned int tx_bytes;
-> -       unsigned int tx_packets;
-> +       unsigned long rx_bytes;
-> +       unsigned long rx_packets;
-> +       unsigned long tx_bytes;
-> +       unsigned long tx_packets;
-> 
->         /* Additional stats used by xenvif */
->         unsigned long rx_gso_checksum_fixup;
-> 
-> -- 
-> Mart van Santen
-> Greenhost
-> E: mart@greenhost.nl
-> T: +31 20 4890444
-> W: https://greenhost.nl
-> 
-> A PGP signature can be attached to this e-mail,
-> you need PGP software to verify it. 
-> My public key is available in keyserver(s)
-> see: http://tinyurl.com/openpgp-manual
-> 
-> PGP Fingerprint: CA85 EB11 2B70 042D AF66  B29A 6437 01A1 10A3 D3A5
-> 
-> 
+diff --git a/net/compat.c b/net/compat.c
+index 96c544b..fe1f41c 100644
+--- a/net/compat.c
++++ b/net/compat.c
+@@ -245,7 +245,9 @@ int put_cmsg_compat(struct msghdr *kmsg, int level, int type, int len, void *dat
+ 
+ 	if (copy_to_user(cm, &cmhdr, sizeof cmhdr))
+ 		return -EFAULT;
+-	if (copy_to_user(CMSG_COMPAT_DATA(cm), data, cmlen - sizeof(struct compat_cmsghdr)))
++	if (cmlen > CMSG_COMPAT_ALIGN(sizeof(struct compat_cmsghdr)) && 
++	    copy_to_user(CMSG_COMPAT_DATA(cm), data, 
++			cmlen - CMSG_COMPAT_ALIGN(sizeof(struct compat_cmsghdr))))
+ 		return -EFAULT;
+ 	cmlen = CMSG_COMPAT_SPACE(len);
+ 	if (kmsg->msg_controllen < cmlen)
+@@ -258,12 +260,16 @@ int put_cmsg_compat(struct msghdr *kmsg, int level, int type, int len, void *dat
+ void scm_detach_fds_compat(struct msghdr *kmsg, struct scm_cookie *scm)
+ {
+ 	struct compat_cmsghdr __user *cm = (struct compat_cmsghdr __user *) kmsg->msg_control;
+-	int fdmax = (kmsg->msg_controllen - sizeof(struct compat_cmsghdr)) / sizeof(int);
++	int fdmax = 0;
+ 	int fdnum = scm->fp->count;
+ 	struct file **fp = scm->fp->fp;
+ 	int __user *cmfptr;
+ 	int err = 0, i;
+ 
++	if (kmsg->msg_controllen > CMSG_COMPAT_ALIGN(sizeof(struct compat_cmsghdr)))
++		fdmax = (kmsg->msg_controllen - 
++		         CMSG_COMPAT_ALIGN(sizeof(struct compat_cmsghdr))) / sizeof(int);
++
+ 	if (fdnum < fdmax)
+ 		fdmax = fdnum;
+ 
+diff --git a/net/core/scm.c b/net/core/scm.c
+index d882043..5d8ef4f 100644
+--- a/net/core/scm.c
++++ b/net/core/scm.c
+@@ -238,7 +238,9 @@ int put_cmsg(struct msghdr * msg, int level, int type, int len, void *data)
+ 	err = -EFAULT;
+ 	if (copy_to_user(cm, &cmhdr, sizeof cmhdr))
+ 		goto out;
+-	if (copy_to_user(CMSG_DATA(cm), data, cmlen - sizeof(struct cmsghdr)))
++	if (cmlen > CMSG_ALIGN(sizeof(struct cmsghdr)) && 
++	    copy_to_user(CMSG_DATA(cm), data, 
++			cmlen - CMSG_ALIGN(sizeof(struct cmsghdr))))
+ 		goto out;
+ 	cmlen = CMSG_SPACE(len);
+ 	if (msg->msg_controllen < cmlen)
+@@ -267,8 +269,8 @@ void scm_detach_fds(struct msghdr *msg, struct scm_cookie *scm)
+ 		return;
+ 	}
+ 
+-	if (msg->msg_controllen > sizeof(struct cmsghdr))
+-		fdmax = ((msg->msg_controllen - sizeof(struct cmsghdr))
++	if (msg->msg_controllen > CMSG_ALIGN(sizeof(struct cmsghdr)))
++		fdmax = ((msg->msg_controllen - CMSG_ALIGN(sizeof(struct cmsghdr)))
+ 			 / sizeof(int));
+ 
+ 	if (fdnum < fdmax)
+-- 
+2.7.4
