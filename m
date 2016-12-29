@@ -1,42 +1,103 @@
 From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net-next 14/14] MAINTAINERS: Add bnxt_en maintainer info.
-Date: Thu, 29 Dec 2016 12:13:44 -0500
-Message-ID: <1483031624-20076-15-git-send-email-michael.chan@broadcom.com>
+Subject: [PATCH net-next 13/14] bnxt_en: Handle no aggregation ring gracefully.
+Date: Thu, 29 Dec 2016 12:13:43 -0500
+Message-ID: <1483031624-20076-14-git-send-email-michael.chan@broadcom.com>
 References: <1483031624-20076-1-git-send-email-michael.chan@broadcom.com>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f42.google.com ([74.125.83.42]:35455 "EHLO
-        mail-pg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753337AbcL2RON (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 29 Dec 2016 12:14:13 -0500
-Received: by mail-pg0-f42.google.com with SMTP id i5so103582221pgh.2
-        for <netdev@vger.kernel.org>; Thu, 29 Dec 2016 09:14:12 -0800 (PST)
+Received: from mail-pf0-f171.google.com ([209.85.192.171]:36847 "EHLO
+        mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753333AbcL2ROM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 29 Dec 2016 12:14:12 -0500
+Received: by mail-pf0-f171.google.com with SMTP id 189so63329919pfz.3
+        for <netdev@vger.kernel.org>; Thu, 29 Dec 2016 09:14:11 -0800 (PST)
 In-Reply-To: <1483031624-20076-1-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+The current code assumes that we will always have at least 2 rx rings, 1
+will be used as an aggregation ring for TPA and jumbo page placements.
+However, it is possible, especially on a VF, that there is only 1 rx
+ring available.  In this scenario, the current code will fail to initialize.
+To handle it, we need to properly set up only 1 ring without aggregation.
+Set a new flag BNXT_FLAG_NO_AGG_RINGS for this condition and add logic to
+set up the chip to place RX data linearly into a single buffer per packet.
+
 Signed-off-by: Michael Chan <michael.chan@broadcom.com>
 ---
- MAINTAINERS | 6 ++++++
- 1 file changed, 6 insertions(+)
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c | 25 +++++++++++++++++++++----
+ drivers/net/ethernet/broadcom/bnxt/bnxt.h |  1 +
+ 2 files changed, 22 insertions(+), 4 deletions(-)
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index cfff2c9..11904a9 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -2605,6 +2605,12 @@ L:	netdev@vger.kernel.org
- S:	Supported
- F:	drivers/net/ethernet/broadcom/bnx2x/
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+index 1f54a7a..98e9484 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+@@ -2496,7 +2496,7 @@ void bnxt_set_ring_params(struct bnxt *bp)
+ 		agg_factor = min_t(u32, 4, 65536 / BNXT_RX_PAGE_SIZE);
  
-+BROADCOM BNXT_EN 50 GIGABIT ETHERNET DRIVER
-+M:	Michael Chan <michael.chan@broadcom.com>
-+L:	netdev@vger.kernel.org
-+S:	Supported
-+F:	drivers/net/ethernet/broadcom/bnxt/
+ 	bp->flags &= ~BNXT_FLAG_JUMBO;
+-	if (rx_space > PAGE_SIZE) {
++	if (rx_space > PAGE_SIZE && !(bp->flags & BNXT_FLAG_NO_AGG_RINGS)) {
+ 		u32 jumbo_factor;
+ 
+ 		bp->flags |= BNXT_FLAG_JUMBO;
+@@ -6174,6 +6174,9 @@ static int bnxt_set_features(struct net_device *dev, netdev_features_t features)
+ 	if (features & NETIF_F_LRO)
+ 		flags |= BNXT_FLAG_LRO;
+ 
++	if (bp->flags & BNXT_FLAG_NO_AGG_RINGS)
++		flags &= ~BNXT_FLAG_TPA;
 +
- BROADCOM BCM281XX/BCM11XXX/BCM216XX ARM ARCHITECTURE
- M:	Florian Fainelli <f.fainelli@gmail.com>
- M:	Ray Jui <rjui@broadcom.com>
+ 	if (features & NETIF_F_HW_VLAN_CTAG_RX)
+ 		flags |= BNXT_FLAG_STRIP_VLAN;
+ 
+@@ -7040,8 +7043,17 @@ static int bnxt_get_dflt_rings(struct bnxt *bp, int *max_rx, int *max_tx,
+ 	int rc;
+ 
+ 	rc = bnxt_get_max_rings(bp, max_rx, max_tx, shared);
+-	if (rc)
+-		return rc;
++	if (rc && (bp->flags & BNXT_FLAG_AGG_RINGS)) {
++		/* Not enough rings, try disabling agg rings. */
++		bp->flags &= ~BNXT_FLAG_AGG_RINGS;
++		rc = bnxt_get_max_rings(bp, max_rx, max_tx, shared);
++		if (rc)
++			return rc;
++		bp->flags |= BNXT_FLAG_NO_AGG_RINGS;
++		bp->dev->hw_features &= ~NETIF_F_LRO;
++		bp->dev->features &= ~NETIF_F_LRO;
++		bnxt_set_ring_params(bp);
++	}
+ 
+ 	if (bp->flags & BNXT_FLAG_ROCE_CAP) {
+ 		int max_cp, max_stat, max_irq;
+@@ -7236,7 +7248,12 @@ static int bnxt_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	bnxt_set_tpa_flags(bp);
+ 	bnxt_set_ring_params(bp);
+ 	bnxt_set_max_func_irqs(bp, max_irqs);
+-	bnxt_set_dflt_rings(bp);
++	rc = bnxt_set_dflt_rings(bp);
++	if (rc) {
++		netdev_err(bp->dev, "Not enough rings available.\n");
++		rc = -ENOMEM;
++		goto init_err;
++	}
+ 
+ 	/* Default RSS hash cfg. */
+ 	bp->rss_hash_cfg = VNIC_RSS_CFG_REQ_HASH_TYPE_IPV4 |
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
+index d174729d..f6b9b1c 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
+@@ -950,6 +950,7 @@ struct bnxt {
+ 	#define BNXT_FLAG_ROCEV2_CAP	0x10000
+ 	#define BNXT_FLAG_ROCE_CAP	(BNXT_FLAG_ROCEV1_CAP |	\
+ 					 BNXT_FLAG_ROCEV2_CAP)
++	#define BNXT_FLAG_NO_AGG_RINGS	0x20000
+ 	#define BNXT_FLAG_CHIP_NITRO_A0	0x1000000
+ 
+ 	#define BNXT_FLAG_ALL_CONFIG_FEATS (BNXT_FLAG_TPA |		\
 -- 
 1.8.3.1
