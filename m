@@ -1,42 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next V2 3/3] tun: rx batching
-Date: Thu, 29 Dec 2016 11:35:06 -0500 (EST)
-Message-ID: <20161229.113506.1833529555874695164.davem@davemloft.net>
-References: <1482912571-3157-1-git-send-email-jasowang@redhat.com>
-	<1482912571-3157-4-git-send-email-jasowang@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, kvm@vger.kernel.org, mst@redhat.com
-To: jasowang@redhat.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1482912571-3157-4-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Tariq Toukan <tariqt@mellanox.com>
+Subject: [PATCH net 2/5] net/mlx4_en: Fix bad WQE issue
+Date: Thu, 29 Dec 2016 18:37:10 +0200
+Message-ID: <1483029433-3624-3-git-send-email-tariqt@mellanox.com>
+References: <1483029433-3624-1-git-send-email-tariqt@mellanox.com>
+Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
+        Eugenia Emantayev <eugenia@mellanox.com>,
+        Tariq Toukan <tariqt@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:51877 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1752869AbcL2Qh6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 29 Dec 2016 11:37:58 -0500
+In-Reply-To: <1483029433-3624-1-git-send-email-tariqt@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jason Wang <jasowang@redhat.com>
-Date: Wed, 28 Dec 2016 16:09:31 +0800
+From: Eugenia Emantayev <eugenia@mellanox.com>
 
-> +	spin_lock(&queue->lock);
-> +	qlen = skb_queue_len(queue);
-> +	if (qlen > rx_batched)
-> +		goto drop;
-> +	__skb_queue_tail(queue, skb);
-> +	if (!more || qlen + 1 > rx_batched) {
-> +		__skb_queue_head_init(&process_queue);
-> +		skb_queue_splice_tail_init(queue, &process_queue);
-> +		rcv = true;
-> +	}
-> +	spin_unlock(&queue->lock);
+Single send WQE in RX buffer should be stamped with software
+ownership in order to prevent the flow of QP in error in FW
+once UPDATE_QP is called.
 
-Since you always clear the 'queue' when you insert the skb that hits
-the limit, I don't see how the "goto drop" path can be possibly taken.
+
+Fixes: 9f519f68cfff ('mlx4_en: Not using Shared Receive Queues')
+Signed-off-by: Eugenia Emantayev <eugenia@mellanox.com>
+Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+index 3c37e216bbf3..eac527e25ec9 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+@@ -445,8 +445,14 @@ int mlx4_en_activate_rx_rings(struct mlx4_en_priv *priv)
+ 		ring->cqn = priv->rx_cq[ring_ind]->mcq.cqn;
+ 
+ 		ring->stride = stride;
+-		if (ring->stride <= TXBB_SIZE)
++		if (ring->stride <= TXBB_SIZE) {
++			/* Stamp first unused send wqe */
++			__be32 *ptr = (__be32 *)ring->buf;
++			__be32 stamp = cpu_to_be32(1 << STAMP_SHIFT);
++			*ptr = stamp;
++			/* Move pointer to start of rx section */
+ 			ring->buf += TXBB_SIZE;
++		}
+ 
+ 		ring->log_stride = ffs(ring->stride) - 1;
+ 		ring->buf_size = ring->size * ring->stride;
+-- 
+1.8.3.1
