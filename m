@@ -1,104 +1,82 @@
-From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-Subject: Re: [PATCH] net: ethernet: ti: davinci_cpdma: fix access to
- uninitialized variable in cpdma_chan_set_descs()
-Date: Thu, 29 Dec 2016 03:49:06 +0200
-Message-ID: <20161229014904.GA22718@khorivan>
-References: <20161228234213.22166-1-grygorii.strashko@ti.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH] net: fix incorrect original ingress device index in
+ PKTINFO
+Date: Wed, 28 Dec 2016 21:42:34 -0700
+Message-ID: <c60a95e6-b02b-2108-c0fd-9dd6f128316f@cumulusnetworks.com>
+References: <1482832344-24760-1-git-send-email-asuka.com@163.com>
+ <20161227.140313.1837464529059496066.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Mugunthan V N <mugunthanvnm@ti.com>,
-        Sekhar Nori <nsekhar@ti.com>, linux-kernel@vger.kernel.org,
-        linux-omap@vger.kernel.org
-To: Grygorii Strashko <grygorii.strashko@ti.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+        kaber@trash.net, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>, asuka.com@163.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20161228234213.22166-1-grygorii.strashko@ti.com>
+In-Reply-To: <20161227.140313.1837464529059496066.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 28, 2016 at 05:42:13PM -0600, Grygorii Strashko wrote:
-Grygorii,
+On 12/27/16 12:03 PM, David Miller wrote:
+> From: Wei Zhang <asuka.com@163.com>
+> Date: Tue, 27 Dec 2016 17:52:24 +0800
+> 
+>> When we send a packet for our own local address on a non-loopback
+>> interface (e.g. eth0), due to the change had been introduced from
+>> commit 0b922b7a829c ("net: original ingress device index in PKTINFO"), the
+>> original ingress device index would be set as the loopback interface.
+>> However, the packet should be considered as if it is being arrived via the
+>> sending interface (eth0), otherwise it would break the expectation of the
+>> userspace application (e.g. the DHCPRELEASE message from dhcp_release
+>> binary would be ignored by the dnsmasq daemon, since it come from lo which
+>> is not the interface dnsmasq bind to)
+>>
 
-> Now below code sequence causes "Unable to handle kernel NULL pointer
-> dereference.." exception and system crash during CPSW CPDMA initialization:
-> 
-> cpsw_probe
-> |-cpdma_chan_create (TX channel)
->   |-cpdma_chan_split_pool
->     |-cpdma_chan_set_descs(for TX channels)
->     |-cpdma_chan_set_descs(for RX channels) [1]
-> 
-> - and -
-> static void cpdma_chan_set_descs(struct cpdma_ctlr *ctlr,
-> 				 int rx, int desc_num,
-> 				 int per_ch_desc)
-> {
-> 	struct cpdma_chan *chan, *most_chan = NULL;
-> 
-> ...
-> 
-> 	for (i = min; i < max; i++) {
-> 		chan = ctlr->channels[i];
-> 		if (!chan)
-> 			continue;
-> ...
-> 
-> 		if (most_dnum < chan->desc_num) {
-> 			most_dnum = chan->desc_num;
-> 			most_chan = chan;
-> 		}
-> 	}
-> 	/* use remains */
-> 	most_chan->desc_num += desc_cnt; [2]
-> }
-> 
-> So, most_chan value will never be reassigned when cpdma_chan_set_descs() is
-> called second time [1], because there are no RX channels yet and system
-> will crash at [2].
+Add a Fixes line before the sign-off:
 
-How did you get this?
-I just remember as I fixed it before sending patchset.
-
-Maybe it was some experiment with it.
-I just wonder and want to find actual reason what's happening.
-
-Look bellow:
-
-cpsw_probe
-|-cpdma_chan_create (TX channel)
-  |-cpdma_chan_split_pool
-    |-cpdma_chan_set_descs(for TX channels)
-    |-cpdma_chan_set_descs(for RX channels) [1]
-
-|-cpdma_chan_set_descs(for RX channels) in case you'be described has to be
-called with rx_desc_num = 0, because all descs are assigned already for tx
-channel. And, if desc_num = 0, cpdma_chan_set_descs just exits and no issues.
-So, could you please explain how you get this, in what circumstances.
-
+Fixes: 0b922b7a829c ("net: original ingress device index in PKTINFO")
+>> Signed-off-by: Wei Zhang <asuka.com@163.com>
 > 
-> Hence, fix the issue by checking most_chan for NULL before accessing it.
+> When you are fixing a problem introduced by another change, always CC:
+> the author of that change as I have done so here.
 > 
-> Fixes: 0fc6432cc78d ("net: ethernet: ti: davinci_cpdma: add weight function for channels")
-> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
-> ---
->  drivers/net/ethernet/ti/davinci_cpdma.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
+> David, please take a look at this, thanks.
 > 
-> diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c b/drivers/net/ethernet/ti/davinci_cpdma.c
-> index 36518fc..b349d572 100644
-> --- a/drivers/net/ethernet/ti/davinci_cpdma.c
-> +++ b/drivers/net/ethernet/ti/davinci_cpdma.c
-> @@ -708,7 +708,8 @@ static void cpdma_chan_set_descs(struct cpdma_ctlr *ctlr,
->  		}
->  	}
->  	/* use remains */
-> -	most_chan->desc_num += desc_cnt;
-> +	if (most_chan)
-> +		most_chan->desc_num += desc_cnt;
->  }
->  
->  /**
-> -- 
-> 2.10.1.dirty
-> 
+>> ---
+>>  net/ipv4/ip_sockglue.c | 8 +++++++-
+>>  1 file changed, 7 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
+>> index b8a2d63..76d78a7 100644
+>> --- a/net/ipv4/ip_sockglue.c
+>> +++ b/net/ipv4/ip_sockglue.c
+>> @@ -1202,8 +1202,14 @@ void ipv4_pktinfo_prepare(const struct sock *sk, struct sk_buff *skb)
+>>  		 * which has interface index (iif) as the first member of the
+>>  		 * underlying inet{6}_skb_parm struct. This code then overlays
+>>  		 * PKTINFO_SKB_CB and in_pktinfo also has iif as the first
+>> -		 * element so the iif is picked up from the prior IPCB
+>> +		 * element so the iif is picked up from the prior IPCB except
+>> +		 * iif is loopback interface which the packet should be
+>> +		 * considered as if it is being arrived via the sending
+>> +		 * interface
+
+That comment change could use an adjustment (adjust to fit with in the 80 columns):
+
+element so the iif is picked up from the prior IPCB. If iif
+is the loopback interface, then return the sending interface
+(e.g., process binds socket to eth0 for Tx which is redirected
+to loopback in the rtable/dst).
+
+
+>>  		 */
+>> +		if (pktinfo->ipi_ifindex == LOOPBACK_IFINDEX)
+>> +			pktinfo->ipi_ifindex = inet_iif(skb);
+>> +
+>>  		pktinfo->ipi_spec_dst.s_addr = fib_compute_spec_dst(skb);
+>>  	} else {
+>>  		pktinfo->ipi_ifindex = 0;
+
+
+The actual change looks ok to me.
+
+Acked-by: David Ahern <dsa@cumulusnetworks.com>
