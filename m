@@ -1,36 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: fix incorrect original ingress device index in
- PKTINFO
-Date: Thu, 29 Dec 2016 14:08:27 -0500 (EST)
-Message-ID: <20161229.140827.902854827832353748.davem@davemloft.net>
-References: <1483001104-17614-1-git-send-email-asuka.com@163.com>
+Subject: Re: [PATCH v4] net: dev_weight: TX/RX orthogonality
+Date: Thu, 29 Dec 2016 14:08:54 -0500 (EST)
+Message-ID: <20161229.140854.1456743873101323068.davem@davemloft.net>
+References: <20161228.141751.81302085672323860.davem@davemloft.net>
+        <1483005521-27799-1-git-send-email-matthias.tafelmeier@gmx.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-        kaber@trash.net, dsa@cumulusnetworks.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: asuka.com@163.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1483001104-17614-1-git-send-email-asuka.com@163.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, hagen@jauu.net, fw@strlen.de,
+        edumazet@google.com, daniel@iogearbox.net
+To: matthias.tafelmeier@gmx.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:56338 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753247AbcL2TI4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 29 Dec 2016 14:08:56 -0500
+In-Reply-To: <1483005521-27799-1-git-send-email-matthias.tafelmeier@gmx.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Wei Zhang <asuka.com@163.com>
-Date: Thu, 29 Dec 2016 16:45:04 +0800
+From: Matthias Tafelmeier <matthias.tafelmeier@gmx.net>
+Date: Thu, 29 Dec 2016 10:58:41 +0100
 
-> When we send a packet for our own local address on a non-loopback
-> interface (e.g. eth0), due to the change had been introduced from
-> commit 0b922b7a829c ("net: original ingress device index in PKTINFO"), the
-> original ingress device index would be set as the loopback interface.
-> However, the packet should be considered as if it is being arrived via the
-> sending interface (eth0), otherwise it would break the expectation of the
-> userspace application (e.g. the DHCPRELEASE message from dhcp_release
-> binary would be ignored by the dnsmasq daemon, since it come from lo which
-> is not the interface dnsmasq bind to)
+> Oftenly, introducing side effects on packet processing on the other half
+> of the stack by adjusting one of TX/RX via sysctl is not desirable.
+> There are cases of demand for asymmetric, orthogonal configurability.
 > 
-> Fixes: 0b922b7a829c ("net: original ingress device index in PKTINFO")
-> Acked-by: David Ahern <dsa@cumulusnetworks.com>
-> Signed-off-by: Wei Zhang <asuka.com@163.com>
+> This holds true especially for nodes where RPS for RFS usage on top is
+> configured and therefore use the 'old dev_weight'. This is quite a
+> common base configuration setup nowadays, even with NICs of superior processing
+> support (e.g. aRFS).
+> 
+> A good example use case are nodes acting as noSQL data bases with a
+> large number of tiny requests and rather fewer but large packets as responses.
+> It's affordable to have large budget and rx dev_weights for the
+> requests. But as a side effect having this large a number on TX
+> processed in one run can overwhelm drivers.
+> 
+> This patch therefore introduces an independent configurability via sysctl to
+> userland.
 
-Applied and queued up for -stable.
+This is missing a signoff.
