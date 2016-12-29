@@ -1,37 +1,122 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: stmmac: Fix error path after register_netdev
- move
-Date: Thu, 29 Dec 2016 12:08:42 -0500 (EST)
-Message-ID: <20161229.120842.467810433862780290.davem@davemloft.net>
-References: <20161228234441.5026-1-f.fainelli@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, pavel@ucw.cz, Joao.Pinto@synopsys.com,
-        seraphin.bonnaffe@st.com, alexandre.torgue@gmail.com,
-        manabian@gmail.com, niklas.cassel@axis.com, johan@kernel.org,
-        boon.leong.ong@intel.com, weifeng.voon@intel.com,
-        lars.persson@axis.com, linux-kernel@vger.kernel.org,
-        peppe.cavallaro@st.com, alexandre.torgue@st.com
-To: f.fainelli@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:54672 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753174AbcL2RIp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 29 Dec 2016 12:08:45 -0500
-In-Reply-To: <20161228234441.5026-1-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Subject: [PATCH] stmmac: adding EEE to GMAC4
+Date: Thu, 29 Dec 2016 17:10:27 +0000
+Message-ID: <f89aaac8024e2a92834088545ad72fbe682b32ed.1483030665.git.jpinto@synopsys.com>
+Cc: peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        rayagond@vayavyalabs.com, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org, Joao Pinto <Joao.Pinto@synopsys.com>
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Wed, 28 Dec 2016 15:44:41 -0800
+This patch adds Energy Efficiency Ethernet to GMAC4.
 
-> Commit 5701659004d6 ("net: stmmac: Fix race between stmmac_drv_probe and
-> stmmac_open") re-ordered how the MDIO bus registration and the network
-> device are registered, but missed to unwind the MDIO bus registration in
-> case we fail to register the network device.
-> 
-> Fixes: 5701659004d6 ("net: stmmac: Fix race between stmmac_drv_probe and stmmac_open")
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+Signed-off-by: Joao Pinto <jpinto@synopsys.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/dwmac4.h      | 12 +++++
+ drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c | 59 +++++++++++++++++++++++
+ 2 files changed, 71 insertions(+)
 
-Applied, thanks Florian.
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
+index b524598..73d1dab 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4.h
+@@ -90,6 +90,18 @@ enum power_event {
+ 	power_down = 0x00000001,
+ };
+ 
++/* Energy Efficient Ethernet (EEE) for GMAC4
++ *
++ * LPI status, timer and control register offset
++ */
++#define GMAC4_LPI_CTRL_STATUS	0xd0
++#define GMAC4_LPI_TIMER_CTRL	0xd4
++
++/* LPI control and status defines */
++#define GMAC4_LPI_CTRL_STATUS_LPITXA	BIT(19)	/* Enable LPI TX Automate */
++#define GMAC4_LPI_CTRL_STATUS_PLS	BIT(17) /* PHY Link Status */
++#define GMAC4_LPI_CTRL_STATUS_LPIEN	BIT(16)	/* LPI Enable */
++
+ /* MAC Debug bitmap */
+ #define GMAC_DEBUG_TFCSTS_MASK		GENMASK(18, 17)
+ #define GMAC_DEBUG_TFCSTS_SHIFT		17
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
+index ecfbf57..02eab79 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
+@@ -137,6 +137,61 @@ static void dwmac4_get_umac_addr(struct mac_device_info *hw,
+ 				   GMAC_ADDR_LOW(reg_n));
+ }
+ 
++static void dwmac4_set_eee_mode(struct mac_device_info *hw)
++{
++	void __iomem *ioaddr = hw->pcsr;
++	u32 value;
++
++	/* Enable the link status receive on RGMII, SGMII ore SMII
++	 * receive path and instruct the transmit to enter in LPI
++	 * state.
++	 */
++	value = readl(ioaddr + GMAC4_LPI_CTRL_STATUS);
++	value |= GMAC4_LPI_CTRL_STATUS_LPIEN | GMAC4_LPI_CTRL_STATUS_LPITXA;
++
++	writel(value, ioaddr + GMAC4_LPI_CTRL_STATUS);
++}
++
++static void dwmac4_reset_eee_mode(struct mac_device_info *hw)
++{
++	void __iomem *ioaddr = hw->pcsr;
++	u32 value;
++
++	value = readl(ioaddr + GMAC4_LPI_CTRL_STATUS);
++	value &= ~(GMAC4_LPI_CTRL_STATUS_LPIEN | GMAC4_LPI_CTRL_STATUS_LPITXA);
++	writel(value, ioaddr + GMAC4_LPI_CTRL_STATUS);
++}
++
++static void dwmac4_set_eee_pls(struct mac_device_info *hw, int link)
++{
++	void __iomem *ioaddr = hw->pcsr;
++	u32 value;
++
++	value = readl(ioaddr + GMAC4_LPI_CTRL_STATUS);
++
++	if (link)
++		value |= GMAC4_LPI_CTRL_STATUS_PLS;
++	else
++		value &= ~GMAC4_LPI_CTRL_STATUS_PLS;
++
++	writel(value, ioaddr + GMAC4_LPI_CTRL_STATUS);
++}
++
++static void dwmac4_set_eee_timer(struct mac_device_info *hw, int ls, int tw)
++{
++	void __iomem *ioaddr = hw->pcsr;
++	int value = ((tw & 0xffff)) | ((ls & 0x7ff) << 16);
++
++	/* Program the timers in the LPI timer control register:
++	 * LS: minimum time (ms) for which the link
++	 *  status from PHY should be ok before transmitting
++	 *  the LPI pattern.
++	 * TW: minimum time (us) for which the core waits
++	 *  after it has stopped transmitting the LPI pattern.
++	 */
++	writel(value, ioaddr + GMAC4_LPI_TIMER_CTRL);
++}
++
+ static void dwmac4_set_filter(struct mac_device_info *hw,
+ 			      struct net_device *dev)
+ {
+@@ -410,6 +465,10 @@ static const struct stmmac_ops dwmac4_ops = {
+ 	.pmt = dwmac4_pmt,
+ 	.set_umac_addr = dwmac4_set_umac_addr,
+ 	.get_umac_addr = dwmac4_get_umac_addr,
++	.set_eee_mode = dwmac4_set_eee_mode,
++	.reset_eee_mode = dwmac4_reset_eee_mode,
++	.set_eee_timer = dwmac4_set_eee_timer,
++	.set_eee_pls = dwmac4_set_eee_pls,
+ 	.pcs_ctrl_ane = dwmac4_ctrl_ane,
+ 	.pcs_rane = dwmac4_rane,
+ 	.pcs_get_adv_lp = dwmac4_get_adv_lp,
+-- 
+2.9.3
