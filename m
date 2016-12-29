@@ -1,165 +1,92 @@
 From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net-next 03/14] bnxt_en: Improve the IRQ disable sequence during shutdown.
-Date: Thu, 29 Dec 2016 12:13:33 -0500
-Message-ID: <1483031624-20076-4-git-send-email-michael.chan@broadcom.com>
+Subject: [PATCH net-next 04/14] bnxt_en: Fix and clarify link_info->advertising.
+Date: Thu, 29 Dec 2016 12:13:34 -0500
+Message-ID: <1483031624-20076-5-git-send-email-michael.chan@broadcom.com>
 References: <1483031624-20076-1-git-send-email-michael.chan@broadcom.com>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f170.google.com ([209.85.192.170]:36842 "EHLO
-        mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753224AbcL2ROD (ORCPT
+Received: from mail-pg0-f44.google.com ([74.125.83.44]:34286 "EHLO
+        mail-pg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752912AbcL2ROD (ORCPT
         <rfc822;netdev@vger.kernel.org>); Thu, 29 Dec 2016 12:14:03 -0500
-Received: by mail-pf0-f170.google.com with SMTP id 189so63329664pfz.3
-        for <netdev@vger.kernel.org>; Thu, 29 Dec 2016 09:14:02 -0800 (PST)
+Received: by mail-pg0-f44.google.com with SMTP id y62so116419823pgy.1
+        for <netdev@vger.kernel.org>; Thu, 29 Dec 2016 09:14:03 -0800 (PST)
 In-Reply-To: <1483031624-20076-1-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The IRQ is disabled by writing to the completion ring doorbell.  This
-should be done before the hardware completion ring is freed for correctness.
-The current code disables IRQs after all the completion rings are freed.
+The advertising field is closely related to the auto_link_speeds field.
+The former is the user setting while the latter is the firmware setting.
+Both should be u16.  We should use the advertising field in
+bnxt_get_link_ksettings because the auto_link_speeds field may not
+be updated with the latest from the firmware yet.
 
-Fix it by calling bnxt_disable_int_sync() before freeing the completion
-rings.  Rearrange the code to avoid forward declaration.
-
-Signed-off-by: Michael Chan <michael.chan@broadocm.com>
+Signed-off-by: Michael Chan <michael.chan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt.c | 89 ++++++++++++++++---------------
- 1 file changed, 46 insertions(+), 43 deletions(-)
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c         | 2 +-
+ drivers/net/ethernet/broadcom/bnxt/bnxt.h         | 4 ++--
+ drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c | 5 +++--
+ 3 files changed, 6 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index 3fbc842..277573b 100644
+index 277573b..4a8059f 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -2953,6 +2953,45 @@ static int bnxt_alloc_mem(struct bnxt *bp, bool irq_re_init)
- 	return rc;
- }
- 
-+static void bnxt_disable_int(struct bnxt *bp)
-+{
-+	int i;
-+
-+	if (!bp->bnapi)
-+		return;
-+
-+	for (i = 0; i < bp->cp_nr_rings; i++) {
-+		struct bnxt_napi *bnapi = bp->bnapi[i];
-+		struct bnxt_cp_ring_info *cpr = &bnapi->cp_ring;
-+
-+		BNXT_CP_DB(cpr->cp_doorbell, cpr->cp_raw_cons);
-+	}
-+}
-+
-+static void bnxt_disable_int_sync(struct bnxt *bp)
-+{
-+	int i;
-+
-+	atomic_inc(&bp->intr_sem);
-+
-+	bnxt_disable_int(bp);
-+	for (i = 0; i < bp->cp_nr_rings; i++)
-+		synchronize_irq(bp->irq_tbl[i].vector);
-+}
-+
-+static void bnxt_enable_int(struct bnxt *bp)
-+{
-+	int i;
-+
-+	atomic_set(&bp->intr_sem, 0);
-+	for (i = 0; i < bp->cp_nr_rings; i++) {
-+		struct bnxt_napi *bnapi = bp->bnapi[i];
-+		struct bnxt_cp_ring_info *cpr = &bnapi->cp_ring;
-+
-+		BNXT_CP_DB_REARM(cpr->cp_doorbell, cpr->cp_raw_cons);
-+	}
-+}
-+
- void bnxt_hwrm_cmd_hdr_init(struct bnxt *bp, void *request, u16 req_type,
- 			    u16 cmpl_ring, u16 target_id)
+@@ -5363,7 +5363,7 @@ static void bnxt_hwrm_set_link_common(struct bnxt *bp,
  {
-@@ -3937,6 +3976,12 @@ static void bnxt_hwrm_ring_free(struct bnxt *bp, bool close_path)
- 		}
- 	}
+ 	u8 autoneg = bp->link_info.autoneg;
+ 	u16 fw_link_speed = bp->link_info.req_link_speed;
+-	u32 advertising = bp->link_info.advertising;
++	u16 advertising = bp->link_info.advertising;
  
-+	/* The completion rings are about to be freed.  After that the
-+	 * IRQ doorbell will not work anymore.  So we need to disable
-+	 * IRQ here.
-+	 */
-+	bnxt_disable_int_sync(bp);
-+
- 	for (i = 0; i < bp->cp_nr_rings; i++) {
- 		struct bnxt_napi *bnapi = bp->bnapi[i];
- 		struct bnxt_cp_ring_info *cpr = &bnapi->cp_ring;
-@@ -4658,34 +4703,6 @@ static int bnxt_init_nic(struct bnxt *bp, bool irq_re_init)
- 	return bnxt_init_chip(bp, irq_re_init);
- }
+ 	if (autoneg & BNXT_AUTONEG_SPEED) {
+ 		req->auto_mode |=
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
+index fddc316..0eb6401 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
+@@ -828,7 +828,7 @@ struct bnxt_link_info {
+ #define BNXT_LINK_SPEED_40GB	PORT_PHY_QCFG_RESP_LINK_SPEED_40GB
+ #define BNXT_LINK_SPEED_50GB	PORT_PHY_QCFG_RESP_LINK_SPEED_50GB
+ 	u16			support_speeds;
+-	u16			auto_link_speeds;
++	u16			auto_link_speeds;	/* fw adv setting */
+ #define BNXT_LINK_SPEED_MSK_100MB PORT_PHY_QCFG_RESP_SUPPORT_SPEEDS_100MB
+ #define BNXT_LINK_SPEED_MSK_1GB PORT_PHY_QCFG_RESP_SUPPORT_SPEEDS_1GB
+ #define BNXT_LINK_SPEED_MSK_2GB PORT_PHY_QCFG_RESP_SUPPORT_SPEEDS_2GB
+@@ -851,7 +851,7 @@ struct bnxt_link_info {
+ 	u8			req_duplex;
+ 	u8			req_flow_ctrl;
+ 	u16			req_link_speed;
+-	u32			advertising;
++	u16			advertising;	/* user adv setting */
+ 	bool			force_link_chng;
  
--static void bnxt_disable_int(struct bnxt *bp)
--{
--	int i;
--
--	if (!bp->bnapi)
--		return;
--
--	for (i = 0; i < bp->cp_nr_rings; i++) {
--		struct bnxt_napi *bnapi = bp->bnapi[i];
--		struct bnxt_cp_ring_info *cpr = &bnapi->cp_ring;
--
--		BNXT_CP_DB(cpr->cp_doorbell, cpr->cp_raw_cons);
--	}
--}
--
--static void bnxt_enable_int(struct bnxt *bp)
--{
--	int i;
--
--	atomic_set(&bp->intr_sem, 0);
--	for (i = 0; i < bp->cp_nr_rings; i++) {
--		struct bnxt_napi *bnapi = bp->bnapi[i];
--		struct bnxt_cp_ring_info *cpr = &bnapi->cp_ring;
--
--		BNXT_CP_DB_REARM(cpr->cp_doorbell, cpr->cp_raw_cons);
--	}
--}
--
- static int bnxt_set_real_num_queues(struct bnxt *bp)
+ 	/* a copy of phy_qcfg output used to report link
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
+index 784aa77..1cfa7a6 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
+@@ -893,7 +893,7 @@ u32 _bnxt_fw_to_ethtool_adv_spds(u16 fw_speeds, u8 fw_pause)
+ static void bnxt_fw_to_ethtool_advertised_spds(struct bnxt_link_info *link_info,
+ 				struct ethtool_link_ksettings *lk_ksettings)
  {
- 	int rc;
-@@ -5640,19 +5657,6 @@ static int bnxt_open(struct net_device *dev)
- 	return __bnxt_open_nic(bp, true, true);
- }
+-	u16 fw_speeds = link_info->auto_link_speeds;
++	u16 fw_speeds = link_info->advertising;
+ 	u8 fw_pause = 0;
  
--static void bnxt_disable_int_sync(struct bnxt *bp)
--{
--	int i;
--
--	atomic_inc(&bp->intr_sem);
--	if (!netif_running(bp->dev))
--		return;
--
--	bnxt_disable_int(bp);
--	for (i = 0; i < bp->cp_nr_rings; i++)
--		synchronize_irq(bp->irq_tbl[i].vector);
--}
--
- int bnxt_close_nic(struct bnxt *bp, bool irq_re_init, bool link_re_init)
- {
+ 	if (link_info->autoneg & BNXT_AUTONEG_FLOW_CTRL)
+@@ -1090,8 +1090,9 @@ static int bnxt_set_link_ksettings(struct net_device *dev,
+ 	struct bnxt *bp = netdev_priv(dev);
+ 	struct bnxt_link_info *link_info = &bp->link_info;
+ 	const struct ethtool_link_settings *base = &lk_ksettings->base;
+-	u32 speed, fw_advertising = 0;
+ 	bool set_pause = false;
++	u16 fw_advertising = 0;
++	u32 speed;
  	int rc = 0;
-@@ -5674,13 +5678,12 @@ int bnxt_close_nic(struct bnxt *bp, bool irq_re_init, bool link_re_init)
- 	while (test_bit(BNXT_STATE_IN_SP_TASK, &bp->state))
- 		msleep(20);
  
--	/* Flush rings before disabling interrupts */
-+	/* Flush rings and and disable interrupts */
- 	bnxt_shutdown_nic(bp, irq_re_init);
- 
- 	/* TODO CHIMP_FW: Link/PHY related cleanup if (link_re_init) */
- 
- 	bnxt_disable_napi(bp);
--	bnxt_disable_int_sync(bp);
- 	del_timer_sync(&bp->timer);
- 	bnxt_free_skbs(bp);
- 
+ 	if (!BNXT_SINGLE_PF(bp))
 -- 
 1.8.3.1
