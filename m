@@ -1,39 +1,56 @@
-From: Colin Ian King <colin.king@canonical.com>
-Subject: Re: [PATCH] [media] gp8psk: fix spelling mistake: "firmare" ->
- "firmware"
-Date: Thu, 29 Dec 2016 21:35:37 +0000
-Message-ID: <4ebb4c2e-2adc-d54c-69ce-fee427f0cb48@canonical.com>
-References: <20161229202952.27448-1-colin.king@canonical.com>
- <CAA7C2qjAk6LqTru2zimRr4_JUYXK+4d8VENpyYXjyE0-eJ+RKQ@mail.gmail.com>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH][V2] [media] gp8psk: fix spelling mistake: "firmare" -> "firmware"
+Date: Thu, 29 Dec 2016 21:38:15 +0000
+Message-ID: <20161229213815.27890-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Mauro Carvalho Chehab <mchehab@kernel.org>,
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org
+To: Mauro Carvalho Chehab <mchehab@kernel.org>,
         Larry Finger <Larry.Finger@lwfinger.net>,
         Chaoming Li <chaoming_li@realsil.com.cn>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        "mailing list: linux-media" <linux-media@vger.kernel.org>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: VDR User <user.vdr@gmail.com>
+        Kalle Valo <kvalo@codeaurora.org>, linux-media@vger.kernel.org,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAA7C2qjAk6LqTru2zimRr4_JUYXK+4d8VENpyYXjyE0-eJ+RKQ@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 29/12/16 21:23, VDR User wrote:
->> -                       err("firmare chunk size bigger than 64 bytes.");
->> +                       err("firmware chunk size bigger than 64 bytes.");
-> 
-> Yup.
-> 
->> -                        "HW don't support CMAC encrypiton, use software CMAC encrypiton\n");
->> +                        "HW don't support CMAC encryption, use software CMAC encryption\n");
-> 
-> Should be: "HW doesn't support CMAC encryption, use software CMAC
-> encryption\n");
-> 
-Very true, I was so focused on the spelling I overlooked the grammar.
-I'll re-send with that fixed.
+From: Colin Ian King <colin.king@canonical.com>
 
-Colin
+Trivial fix to spelling mistake in err message. Also change "don't" to
+"does not".
+
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ drivers/media/usb/dvb-usb/gp8psk.c          | 2 +-
+ drivers/net/wireless/realtek/rtlwifi/core.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/media/usb/dvb-usb/gp8psk.c b/drivers/media/usb/dvb-usb/gp8psk.c
+index 2360e7e..26461f2 100644
+--- a/drivers/media/usb/dvb-usb/gp8psk.c
++++ b/drivers/media/usb/dvb-usb/gp8psk.c
+@@ -161,7 +161,7 @@ static int gp8psk_load_bcm4500fw(struct dvb_usb_device *d)
+ 			goto out_free;
+ 		}
+ 		if (buflen > 64) {
+-			err("firmare chunk size bigger than 64 bytes.");
++			err("firmware chunk size bigger than 64 bytes.");
+ 			goto out_free;
+ 		}
+ 
+diff --git a/drivers/net/wireless/realtek/rtlwifi/core.c b/drivers/net/wireless/realtek/rtlwifi/core.c
+index ded1493..732de0a 100644
+--- a/drivers/net/wireless/realtek/rtlwifi/core.c
++++ b/drivers/net/wireless/realtek/rtlwifi/core.c
+@@ -1532,7 +1532,7 @@ static int rtl_op_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
+ 		key_type = AESCMAC_ENCRYPTION;
+ 		RT_TRACE(rtlpriv, COMP_SEC, DBG_DMESG, "alg:CMAC\n");
+ 		RT_TRACE(rtlpriv, COMP_SEC, DBG_DMESG,
+-			 "HW don't support CMAC encrypiton, use software CMAC encrypiton\n");
++			 "HW does not support CMAC encryption, use software CMAC encryption\n");
+ 		err = -EOPNOTSUPP;
+ 		goto out_unlock;
+ 	default:
+-- 
+2.10.2
