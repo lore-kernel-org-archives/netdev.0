@@ -1,45 +1,40 @@
-From: Yanjun Zhu <yanjun.zhu@oracle.com>
-Subject: Re: [PATCH 1/1] r8169: fix the typo
-Date: Fri, 30 Dec 2016 10:19:12 +0800
-Message-ID: <5865C420.8030200@oracle.com>
-References: <1482981062-6889-1-git-send-email-yanjun.zhu@oracle.com>
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Subject: Re: [PATCH net-next] liquidio: optimize reads from Octeon PCI console
+Date: Thu, 29 Dec 2016 17:48:26 -0800
+Message-ID: <20161230014826.GA6085@felix.cavium.com>
+References: <20161230010447.GA6015@felix.cavium.com>
+ <MWHPR07MB2943250F549EEF0D697C5E54F36A0@MWHPR07MB2943.namprd07.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: nic_swsd@realtek.com, netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "Vatsavayi, Raghu" <Raghu.Vatsavayi@cavium.com>,
+        "Burla, Satananda" <Satananda.Burla@cavium.com>
+To: "Chickles, Derek" <Derek.Chickles@cavium.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:41742 "EHLO
-        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751039AbcL3CTC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 29 Dec 2016 21:19:02 -0500
-In-Reply-To: <1482981062-6889-1-git-send-email-yanjun.zhu@oracle.com>
+Received: from mail-by2nam01on0049.outbound.protection.outlook.com ([104.47.34.49]:35456
+        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751039AbcL3CWW (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 29 Dec 2016 21:22:22 -0500
+Content-Disposition: inline
+In-Reply-To: <MWHPR07MB2943250F549EEF0D697C5E54F36A0@MWHPR07MB2943.namprd07.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Chickles, Derek <Derek.Chickles@cavium.com> wrote on Thu [2016-Dec-29 17:42:34 -0800]:
+> >  #ifdef __BIG_ENDIAN_BITFIELD
+> >  static inline void
+> > @@ -96,6 +96,25 @@ __octeon_pci_rw_core_mem(struct octeon_device
+> > *oct, u64 addr,
+> >  	u32 copy_len = 0, index_reg_val = 0;
+> >  	unsigned long flags;
+> >  	u8 __iomem *mapped_addr;
+> > +	u64 static_mapping_base;
+> > +
+> > +	static_mapping_base = oct->console_nb_info.dram_region_base;
+> > +
+> 
+> Does this work when there are multiple cards?
 
-Please comment on this patch.
-
-Zhu Yanjun
-
-On 2016/12/29 11:11, Zhu Yanjun wrote:
-> >From the realtek data sheet, the PID0 should be bit 0.
->
-> Signed-off-by: Zhu Yanjun <yanjun.zhu@oracle.com>
-> ---
->   drivers/net/ethernet/realtek/r8169.c | 2 +-
->   1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-> index 44389c9..8f1623b 100644
-> --- a/drivers/net/ethernet/realtek/r8169.c
-> +++ b/drivers/net/ethernet/realtek/r8169.c
-> @@ -696,7 +696,7 @@ enum rtl_tx_desc_bit_1 {
->   enum rtl_rx_desc_bit {
->   	/* Rx private */
->   	PID1		= (1 << 18), /* Protocol ID bit 1/2 */
-> -	PID0		= (1 << 17), /* Protocol ID bit 2/2 */
-> +	PID0		= (1 << 17), /* Protocol ID bit 0/2 */
->   
->   #define RxProtoUDP	(PID1)
->   #define RxProtoTCP	(PID0)
+Yes, it works when there are multiple cards.
