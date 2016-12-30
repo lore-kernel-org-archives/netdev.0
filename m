@@ -1,35 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] liquidio: optimize reads from Octeon PCI
- console
-Date: Thu, 29 Dec 2016 22:26:23 -0500 (EST)
-Message-ID: <20161229.222623.1253518242752301173.davem@davemloft.net>
-References: <20161230010447.GA6015@felix.cavium.com>
+Subject: Re: [PATCH net] net: ipv4: dst for local input routes should use
+ l3mdev if relevant
+Date: Thu, 29 Dec 2016 22:28:08 -0500 (EST)
+Message-ID: <20161229.222808.764899390610544123.davem@davemloft.net>
+References: <1483054143-11050-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
-        derek.chickles@cavium.com, satananda.burla@cavium.com
-To: felix.manlunas@cavium.com
+Cc: netdev@vger.kernel.org
+To: dsa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60406 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:60424 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752946AbcL3D0a (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 29 Dec 2016 22:26:30 -0500
-In-Reply-To: <20161230010447.GA6015@felix.cavium.com>
+        with ESMTP id S1752946AbcL3D2J (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 29 Dec 2016 22:28:09 -0500
+In-Reply-To: <1483054143-11050-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Felix Manlunas <felix.manlunas@cavium.com>
-Date: Thu, 29 Dec 2016 17:04:47 -0800
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Thu, 29 Dec 2016 15:29:03 -0800
 
-> Reads from Octeon PCI console are inefficient because before each read
-> operation, a dynamic mapping to Octeon DRAM is set up.  This patch replaces
-> the repeated setup of a dynamic mapping with a one-time setup of a static
-> mapping.
+> IPv4 output routes already use l3mdev device instead of loopback for dst's
+> if it is applicable. Change local input routes to do the same.
 > 
-> Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
-> Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@cavium.com>
-> Signed-off-by: Derek Chickles <derek.chickles@cavium.com>
-> Signed-off-by: Satanand Burla <satananda.burla@cavium.com>
+> This fixes icmp responses for unreachable UDP ports which are directed
+> to the wrong table after commit 9d1a6c4ea43e4 because local_input
+> routes use the loopback device. Moving from ingress device to loopback
+> loses the L3 domain causing responses based on the dst to get to lost.
+> 
+> Fixes: 9d1a6c4ea43e4 ("net: icmp_route_lookup should use rt dev to
+> 		       determine L3 domain")
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 
-Applied.
+Applied and queued up for -stable, thanks David.
