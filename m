@@ -1,70 +1,35 @@
 From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: libertas: constify cfg80211_ops structures
-Date: Fri, 30 Dec 2016 13:56:26 +0000 (UTC)
-Message-ID: <20161230135627.06A91613B1@smtp.codeaurora.org>
-References: <1482015444-28899-1-git-send-email-bhumirks@gmail.com>
+Subject: Re: rtlwifi: fix spelling mistake: "contry" -> "country"
+Date: Fri, 30 Dec 2016 13:57:54 +0000 (UTC)
+Message-ID: <20161230135754.9A950613E5@smtp.codeaurora.org>
+References: <20161229160029.22117-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: julia.lawall@lip6.fr, libertas-dev@lists.infradead.org,
+Cc: Larry Finger <Larry.Finger@lwfinger.net>,
+        Chaoming Li <chaoming_li@realsil.com.cn>,
         linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Bhumika Goyal <bhumirks@gmail.com>
-To: Bhumika Goyal <bhumirks@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:34270 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751854AbcL3N41 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 30 Dec 2016 08:56:27 -0500
-In-Reply-To: <1482015444-28899-1-git-send-email-bhumirks@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+        linux-kernel@vger.kernel.org
+To: Colin Ian King <colin.king@canonical.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161229160029.22117-1-colin.king@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Bhumika Goyal <bhumirks@gmail.com> wrote:
-> cfg80211_ops structures are only passed as an argument to the function
-> wiphy_new. This argument is of type const, so cfg80211_ops strutures
-> having this property can be declared as const.
-> Done using Coccinelle
+Colin Ian King <colin.king@canonical.com> wrote:
+> From: Colin Ian King <colin.king@canonical.com>
 > 
-> @r1 disable optional_qualifier @
-> identifier i;
-> position p;
-> @@
-> static struct cfg80211_ops i@p = {...};
+> trivial fix to spelling mistake in RT_TRACE message
 > 
-> @ok1@
-> identifier r1.i;
-> position p;
-> @@
-> wiphy_new(&i@p,...)
-> 
-> @bad@
-> position p!={r1.p,ok1.p};
-> identifier r1.i;
-> @@
-> i@p
-> 
-> @depends on !bad disable optional_qualifier@
-> identifier r1.i;
-> @@
-> +const
-> struct cfg80211_ops i;
-> 
-> File size before:
->    text	   data	    bss	    dec	    hex	filename
->   21225	   1954	     16	  23195	   5a9b	wireless/marvell/libertas/cfg.o
-> 
-> File size after:
->    text	   data	    bss	    dec	    hex	filename
->   22041	   1154	     16	  23211	   5aab	wireless/marvell/libertas/cfg.o
-> 
-> Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> Acked-by: Larry Finger <Larry.Finger@lwfinger.net>
 
 Patch applied to wireless-drivers-next.git, thanks.
 
-26eb994d5239 libertas: constify cfg80211_ops structures
+3b1fc7680a0f rtlwifi: fix spelling mistake: "contry" -> "country"
 
 -- 
-https://patchwork.kernel.org/patch/9479131/
+https://patchwork.kernel.org/patch/9491293/
 
 Documentation about submitting wireless patches and checking status
 from patchwork:
