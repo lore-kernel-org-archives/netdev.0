@@ -1,31 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sh_eth: fix branch prediction in sh_eth_interrupt()
-Date: Thu, 29 Dec 2016 22:16:22 -0500 (EST)
-Message-ID: <20161229.221622.1861506744608931336.davem@davemloft.net>
-References: <2810883.6xQhqSTVDe@wasted.cogentembedded.com>
+Subject: Re: [PATCH net-next] net: dsa: Implement ndo_get_phys_port_id
+Date: Thu, 29 Dec 2016 22:17:19 -0500 (EST)
+Message-ID: <20161229.221719.277090119224452126.davem@davemloft.net>
+References: <20161229222056.12490-1-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org,
-        ben.hutchings@codethink.co.uk
-To: sergei.shtylyov@cogentembedded.com
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <2810883.6xQhqSTVDe@wasted.cogentembedded.com>
-Sender: linux-renesas-soc-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com, linux-kernel@vger.kernel.org
+To: f.fainelli@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161229222056.12490-1-f.fainelli@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Date: Fri, 30 Dec 2016 00:07:38 +0300
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Thu, 29 Dec 2016 14:20:56 -0800
 
-> IIUC, likely()/unlikely() should apply to the whole *if* statement's
-> expression, not a part of it  -- fix such expression in  sh_eth_interrupt()
-> accordingly...
+> Implement ndo_get_phys_port_id() by returning the physical port number
+> of the switch this per-port DSA created network interface corresponds
+> to.
 > 
-> Fixes: 283e38db65e7 ("sh_eth: Fix serialisation of interrupt disable with interrupt & NAPI handlers")
-> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-> 
-> ---
-> The patch is against DaveM's 'net-next.git' repo; I'm not sure if it should
-> be  targeted to the 'net.git' repo instead...
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 
-I decided to apply this to 'net', thanks.
+Applied, thanks.
