@@ -1,18 +1,17 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/21] ixgbevf: handle race between close and suspend on shutdown
-Date: Fri, 30 Dec 2016 01:33:29 -0800
-Message-ID: <20161230093341.14674-10-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 08/21] ixgbe: handle close/suspend race with netif_device_detach/present
+Date: Fri, 30 Dec 2016 01:33:28 -0800
+Message-ID: <20161230093341.14674-9-jeffrey.t.kirsher@intel.com>
 References: <20161230093341.14674-1-jeffrey.t.kirsher@intel.com>
 Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
         guru.anbalagane@oracle.com,
-        Alexander Duyck <alexander.h.duyck@intel.com>,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga06.intel.com ([134.134.136.31]:54391 "EHLO mga06.intel.com"
+Received: from mga06.intel.com ([134.134.136.31]:32169 "EHLO mga06.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752236AbcL3Jdr (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1752210AbcL3Jdr (ORCPT <rfc822;netdev@vger.kernel.org>);
         Fri, 30 Dec 2016 04:33:47 -0500
 In-Reply-To: <20161230093341.14674-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -21,71 +20,69 @@ List-ID: <netdev.vger.kernel.org>
 From: Emil Tantilov <emil.s.tantilov@intel.com>
 
 When an interface is part of a namespace it is possible that
-ixgbevf_close() may be called while ixgbevf_suspend() is running
-which ends up in a double free WARN and/or a BUG in free_msi_irqs()
+ixgbe_close() may be called while __ixgbe_shutdown() is running
+which ends up in a double free WARN and/or a BUG in free_msi_irqs().
 
 To handle this situation we extend the rtnl_lock() to protect the
-call to netif_device_detach() and check for !netif_device_present()
-to avoid entering close while in suspend.
+call to netif_device_detach() and ixgbe_clear_interrupt_scheme()
+in __ixgbe_shutdown() and check for netif_device_present()
+to avoid clearing the interrupts second time in ixgbe_close();
 
-Also added rtnl locks to ixgbevf_queue_reset_subtask().
+Also extend the rtnl lock in ixgbe_resume() to netif_device_attach().
 
-CC: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 11 +++++++++--
- 1 file changed, 9 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 17 ++++++++---------
+ 1 file changed, 8 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index 6d4bef5..8574f21 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -3242,6 +3242,9 @@ int ixgbevf_close(struct net_device *netdev)
- {
- 	struct ixgbevf_adapter *adapter = netdev_priv(netdev);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 6732c90..476f012 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -6200,7 +6200,8 @@ int ixgbe_close(struct net_device *netdev)
  
-+	if (!netif_device_present(netdev))
-+		return 0;
-+
- 	ixgbevf_down(adapter);
- 	ixgbevf_free_irq(adapter);
+ 	ixgbe_ptp_stop(adapter);
  
-@@ -3268,6 +3271,8 @@ static void ixgbevf_queue_reset_subtask(struct ixgbevf_adapter *adapter)
- 	 * match packet buffer alignment. Unfortunately, the
- 	 * hardware is not flexible enough to do this dynamically.
- 	 */
-+	rtnl_lock();
-+
- 	if (netif_running(dev))
- 		ixgbevf_close(dev);
+-	ixgbe_close_suspend(adapter);
++	if (netif_device_present(netdev))
++		ixgbe_close_suspend(adapter);
  
-@@ -3276,6 +3281,8 @@ static void ixgbevf_queue_reset_subtask(struct ixgbevf_adapter *adapter)
+ 	ixgbe_fdir_filter_exit(adapter);
  
- 	if (netif_running(dev))
- 		ixgbevf_open(dev);
-+
+@@ -6245,14 +6246,12 @@ static int ixgbe_resume(struct pci_dev *pdev)
+ 	if (!err && netif_running(netdev))
+ 		err = ixgbe_open(netdev);
+ 
+-	rtnl_unlock();
+ 
+-	if (err)
+-		return err;
+-
+-	netif_device_attach(netdev);
++	if (!err)
++		netif_device_attach(netdev);
 +	rtnl_unlock();
- }
  
- static void ixgbevf_tx_ctxtdesc(struct ixgbevf_ring *tx_ring,
-@@ -3796,17 +3803,17 @@ static int ixgbevf_suspend(struct pci_dev *pdev, pm_message_t state)
+-	return 0;
++	return err;
+ }
+ #endif /* CONFIG_PM */
+ 
+@@ -6267,14 +6266,14 @@ static int __ixgbe_shutdown(struct pci_dev *pdev, bool *enable_wake)
  	int retval = 0;
  #endif
  
 +	rtnl_lock();
  	netif_device_detach(netdev);
  
- 	if (netif_running(netdev)) {
--		rtnl_lock();
- 		ixgbevf_down(adapter);
- 		ixgbevf_free_irq(adapter);
- 		ixgbevf_free_all_tx_resources(adapter);
- 		ixgbevf_free_all_rx_resources(adapter);
- 		ixgbevf_clear_interrupt_scheme(adapter);
--		rtnl_unlock();
- 	}
+-	rtnl_lock();
+ 	if (netif_running(netdev))
+ 		ixgbe_close_suspend(adapter);
+-	rtnl_unlock();
+ 
+ 	ixgbe_clear_interrupt_scheme(adapter);
 +	rtnl_unlock();
  
  #ifdef CONFIG_PM
