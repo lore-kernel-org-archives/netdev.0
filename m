@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 08/21] ixgbe: handle close/suspend race with netif_device_detach/present
-Date: Fri, 30 Dec 2016 01:33:28 -0800
-Message-ID: <20161230093341.14674-9-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 01/21] ixgbe: do not disable FEC from the driver
+Date: Fri, 30 Dec 2016 01:33:21 -0800
+Message-ID: <20161230093341.14674-2-jeffrey.t.kirsher@intel.com>
 References: <20161230093341.14674-1-jeffrey.t.kirsher@intel.com>
 Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
@@ -11,81 +11,36 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga06.intel.com ([134.134.136.31]:32169 "EHLO mga06.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752210AbcL3Jdr (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 30 Dec 2016 04:33:47 -0500
+        id S1752008AbcL3Jdo (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 30 Dec 2016 04:33:44 -0500
 In-Reply-To: <20161230093341.14674-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-When an interface is part of a namespace it is possible that
-ixgbe_close() may be called while __ixgbe_shutdown() is running
-which ends up in a double free WARN and/or a BUG in free_msi_irqs().
-
-To handle this situation we extend the rtnl_lock() to protect the
-call to netif_device_detach() and ixgbe_clear_interrupt_scheme()
-in __ixgbe_shutdown() and check for netif_device_present()
-to avoid clearing the interrupts second time in ixgbe_close();
-
-Also extend the rtnl lock in ixgbe_resume() to netif_device_attach().
+FEC is configured by the NVM and the driver should not be
+overriding it.
 
 Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Tested-by: Krishneil Singh <krishneil.k.singh@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 17 ++++++++---------
- 1 file changed, 8 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c | 2 --
+ 1 file changed, 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 6732c90..476f012 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -6200,7 +6200,8 @@ int ixgbe_close(struct net_device *netdev)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
+index 11fb433..f06b0e1 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
+@@ -2108,8 +2108,6 @@ static s32 ixgbe_setup_kr_speed_x550em(struct ixgbe_hw *hw,
+ 		return status;
  
- 	ixgbe_ptp_stop(adapter);
+ 	reg_val |= IXGBE_KRM_LINK_CTRL_1_TETH_AN_ENABLE;
+-	reg_val &= ~(IXGBE_KRM_LINK_CTRL_1_TETH_AN_FEC_REQ |
+-		     IXGBE_KRM_LINK_CTRL_1_TETH_AN_CAP_FEC);
+ 	reg_val &= ~(IXGBE_KRM_LINK_CTRL_1_TETH_AN_CAP_KR |
+ 		     IXGBE_KRM_LINK_CTRL_1_TETH_AN_CAP_KX);
  
--	ixgbe_close_suspend(adapter);
-+	if (netif_device_present(netdev))
-+		ixgbe_close_suspend(adapter);
- 
- 	ixgbe_fdir_filter_exit(adapter);
- 
-@@ -6245,14 +6246,12 @@ static int ixgbe_resume(struct pci_dev *pdev)
- 	if (!err && netif_running(netdev))
- 		err = ixgbe_open(netdev);
- 
--	rtnl_unlock();
- 
--	if (err)
--		return err;
--
--	netif_device_attach(netdev);
-+	if (!err)
-+		netif_device_attach(netdev);
-+	rtnl_unlock();
- 
--	return 0;
-+	return err;
- }
- #endif /* CONFIG_PM */
- 
-@@ -6267,14 +6266,14 @@ static int __ixgbe_shutdown(struct pci_dev *pdev, bool *enable_wake)
- 	int retval = 0;
- #endif
- 
-+	rtnl_lock();
- 	netif_device_detach(netdev);
- 
--	rtnl_lock();
- 	if (netif_running(netdev))
- 		ixgbe_close_suspend(adapter);
--	rtnl_unlock();
- 
- 	ixgbe_clear_interrupt_scheme(adapter);
-+	rtnl_unlock();
- 
- #ifdef CONFIG_PM
- 	retval = pci_save_state(pdev);
 -- 
 2.9.3
