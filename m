@@ -1,7 +1,7 @@
 From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: net: wireless: marvell: libertas: constify cfg80211_ops structures
-Date: Fri, 30 Dec 2016 13:02:42 +0000 (UTC)
-Message-ID: <20161230130243.02DAF6145A@smtp.codeaurora.org>
+Subject: Re: libertas: constify cfg80211_ops structures
+Date: Fri, 30 Dec 2016 13:56:26 +0000 (UTC)
+Message-ID: <20161230135627.06A91613B1@smtp.codeaurora.org>
 References: <1482015444-28899-1-git-send-email-bhumirks@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,10 +11,10 @@ Cc: julia.lawall@lip6.fr, libertas-dev@lists.infradead.org,
         linux-kernel@vger.kernel.org, Bhumika Goyal <bhumirks@gmail.com>
 To: Bhumika Goyal <bhumirks@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:42896 "EHLO
+Received: from smtp.codeaurora.org ([198.145.29.96]:34270 "EHLO
         smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753973AbcL3NCo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 30 Dec 2016 08:02:44 -0500
+        with ESMTP id S1751854AbcL3N41 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 30 Dec 2016 08:56:27 -0500
 In-Reply-To: <1482015444-28899-1-git-send-email-bhumirks@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -59,7 +59,9 @@ Bhumika Goyal <bhumirks@gmail.com> wrote:
 > 
 > Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
 
-The prefix should be "libertas:", I can fix that before I commit.
+Patch applied to wireless-drivers-next.git, thanks.
+
+26eb994d5239 libertas: constify cfg80211_ops structures
 
 -- 
 https://patchwork.kernel.org/patch/9479131/
