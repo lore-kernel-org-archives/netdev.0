@@ -1,67 +1,38 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: net: wireless: ath: wil6210: constify cfg80211_ops structures
-Date: Fri, 30 Dec 2016 13:01:07 +0000 (UTC)
-Message-ID: <20161230130107.3C0256145A@smtp.codeaurora.org>
-References: <1482014667-27082-1-git-send-email-bhumirks@gmail.com>
+From: "Rosen, Rami" <rami.rosen@intel.com>
+Subject: RE: [net-next 15/21] ixgbe: Configure advertised speeds correctly
+ for KR/KX backplane
+Date: Fri, 30 Dec 2016 13:01:27 +0000
+Message-ID: <9B0331B6EBBD0E4684FBFAEDA55776F93D472A16@HASMSX110.ger.corp.intel.com>
+References: <20161230093341.14674-1-jeffrey.t.kirsher@intel.com>
+ <20161230093341.14674-16-jeffrey.t.kirsher@intel.com>
+ <7a268273-d95d-16b4-a6a4-653caad791e9@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: julia.lawall@lip6.fr, qca_merez@qca.qualcomm.com,
-        linux-wireless@vger.kernel.org, wil6210@qca.qualcomm.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Bhumika Goyal <bhumirks@gmail.com>
-To: Bhumika Goyal <bhumirks@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1482014667-27082-1-git-send-email-bhumirks@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: base64
+Cc: "Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "nhorman@redhat.com" <nhorman@redhat.com>,
+        "sassmann@redhat.com" <sassmann@redhat.com>,
+        "jogreene@redhat.com" <jogreene@redhat.com>,
+        "guru.anbalagane@oracle.com" <guru.anbalagane@oracle.com>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+        "davem@davemloft.net" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga14.intel.com ([192.55.52.115]:50555 "EHLO mga14.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753937AbcL3NBc (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 30 Dec 2016 08:01:32 -0500
+In-Reply-To: <7a268273-d95d-16b4-a6a4-653caad791e9@cogentembedded.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Bhumika Goyal <bhumirks@gmail.com> wrote:
-> cfg80211_ops structures are only passed as an argument to the function
-> wiphy_new. This argument is of type const, so cfg80211_ops strutures
-> having this property can be declared as const.
-> Done using Coccinelle
-> 
-> @r1 disable optional_qualifier @
-> identifier i;
-> position p;
-> @@
-> static struct cfg80211_ops i@p = {...};
-> 
-> @ok1@
-> identifier r1.i;
-> position p;
-> @@
-> wiphy_new(&i@p,...)
-> 
-> @bad@
-> position p!={r1.p,ok1.p};
-> identifier r1.i;
-> @@
-> i@p
-> 
-> @depends on !bad disable optional_qualifier@
-> identifier r1.i;
-> @@
-> +const
-> struct cfg80211_ops i;
-> 
-> File size before:
->    text	   data	    bss	    dec	    hex	filename
->   18133	   6632	      0	  24765	   60bd wireless/ath/wil6210/cfg80211.o
-> 
-> File size after:
->    text	   data	    bss	    dec	    hex	filename
->   18933	   5832	      0	  24765	   60bd wireless/ath/wil6210/cfg80211.o
-> 
-> Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
-
-The prefix should be "wil6210:", I can fix that before I commit this.
-
--- 
-https://patchwork.kernel.org/patch/9479127/
-
-Documentation about submitting wireless patches and checking status
-from patchwork:
-
-https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
+SGksDQoNCkhpLA0KDQpPbiB0aGlzIG9jY2FzaW9uLCBhbHNvIHRoZSBuZXh0IGNhbiBiZSBmaXhl
+ZDoNCg0KPiBGcm9tOiBEb24gU2tpZG1vcmUgPGRvbmFsZC5jLnNraWRtb3JlQGludGVsLmNvbT4N
+Cj4NCj4gVGhpcyBwYXRjaCBlbnN1cmVzIHRoYXQgdGhlIGFkdmVydGlzZWQgbGluayBzcGVlZHMg
+YXJlIGNvbmZpZ3VyZWQgZm9yIA0KPiBYNTUzIEtSL0tYIGJhY2twbGFuZS4gIFdpdGhvdXQgdGhp
+cyBwYXRjaCB0aGUgbGluayByZW1haW5zIGF0IDFHIHdoZW4gDQo+IHJlc3VtaW5nIGZvcm0gbG93
+IHBvd2VyIGFmdGVyIGJlaW5nIGRvd25zaGlmdGVkIGJ5IExQTFUuDQoNClNob3VsZCBiZSAiZnJv
+bSIgaW5zdGVhZCAiZnJvbSIsIEkgd291bGQgYXNzdW1lLg0KDQpSZWdhcmRzLA0KUmFtaSBSb3Nl
+bg0KSW50ZWwgQ29ycG9yYXRpb24NCg0KDQo=
