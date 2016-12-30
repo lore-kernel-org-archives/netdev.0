@@ -1,81 +1,67 @@
-From: Niklas Cassel <niklas.cassel@axis.com>
-Subject: [PATCH] net: stmmac: remove unused duplicate property snps,axi_all
-Date: Fri, 30 Dec 2016 13:56:46 +0100
-Message-ID: <1483102609-21926-1-git-send-email-niklass@axis.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: net: wireless: ath: wil6210: constify cfg80211_ops structures
+Date: Fri, 30 Dec 2016 13:01:07 +0000 (UTC)
+Message-ID: <20161230130107.3C0256145A@smtp.codeaurora.org>
+References: <1482014667-27082-1-git-send-email-bhumirks@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Niklas Cassel <niklass@axis.com>, <netdev@vger.kernel.org>,
-        <devicetree@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Niklas Cassel <niklass@axis.com>,
-        Eric Engestrom <eric@engestrom.ch>,
-        Gabriel Fernandez <gabriel.fernandez@linaro.org>,
-        Joachim Eastwood <manabian@gmail.com>,
-        Vincent Palatin <vpalatin@chromium.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: julia.lawall@lip6.fr, qca_merez@qca.qualcomm.com,
+        linux-wireless@vger.kernel.org, wil6210@qca.qualcomm.com,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Bhumika Goyal <bhumirks@gmail.com>
+To: Bhumika Goyal <bhumirks@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1482014667-27082-1-git-send-email-bhumirks@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Niklas Cassel <niklas.cassel@axis.com>
+Bhumika Goyal <bhumirks@gmail.com> wrote:
+> cfg80211_ops structures are only passed as an argument to the function
+> wiphy_new. This argument is of type const, so cfg80211_ops strutures
+> having this property can be declared as const.
+> Done using Coccinelle
+> 
+> @r1 disable optional_qualifier @
+> identifier i;
+> position p;
+> @@
+> static struct cfg80211_ops i@p = {...};
+> 
+> @ok1@
+> identifier r1.i;
+> position p;
+> @@
+> wiphy_new(&i@p,...)
+> 
+> @bad@
+> position p!={r1.p,ok1.p};
+> identifier r1.i;
+> @@
+> i@p
+> 
+> @depends on !bad disable optional_qualifier@
+> identifier r1.i;
+> @@
+> +const
+> struct cfg80211_ops i;
+> 
+> File size before:
+>    text	   data	    bss	    dec	    hex	filename
+>   18133	   6632	      0	  24765	   60bd wireless/ath/wil6210/cfg80211.o
+> 
+> File size after:
+>    text	   data	    bss	    dec	    hex	filename
+>   18933	   5832	      0	  24765	   60bd wireless/ath/wil6210/cfg80211.o
+> 
+> Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
 
-For core revision 3.x Address-Aligned Beats is available in two registers.
-The DT property snps,aal was created for AAL in the DMA bus register,
-which is a read/write bit.
-The DT property snps,axi_all was created for AXI_AAL in the AXI bus mode
-register, which is a read only bit that reflects the value of AAL in the
-DMA bus register.
+The prefix should be "wil6210:", I can fix that before I commit this.
 
-Since the value of snps,axi_all is never used in the driver,
-and since the property was created for a bit that is read only,
-it should be safe to remove the property.
-
-Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Signed-off-by: Niklas Cassel <niklas.cassel@axis.com>
----
- Documentation/devicetree/bindings/net/stmmac.txt      | 1 -
- drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 1 -
- include/linux/stmmac.h                                | 1 -
- 3 files changed, 3 deletions(-)
-
-diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
-index 128da752fec9..c3d2fd480a1b 100644
---- a/Documentation/devicetree/bindings/net/stmmac.txt
-+++ b/Documentation/devicetree/bindings/net/stmmac.txt
-@@ -65,7 +65,6 @@ Optional properties:
- 	- snps,wr_osr_lmt: max write outstanding req. limit
- 	- snps,rd_osr_lmt: max read outstanding req. limit
- 	- snps,kbbe: do not cross 1KiB boundary.
--	- snps,axi_all: align address
- 	- snps,blen: this is a vector of supported burst length.
- 	- snps,fb: fixed-burst
- 	- snps,mb: mixed-burst
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index 082cd48db6a7..60ba8993c650 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -121,7 +121,6 @@ static struct stmmac_axi *stmmac_axi_setup(struct platform_device *pdev)
- 	axi->axi_lpi_en = of_property_read_bool(np, "snps,lpi_en");
- 	axi->axi_xit_frm = of_property_read_bool(np, "snps,xit_frm");
- 	axi->axi_kbbe = of_property_read_bool(np, "snps,axi_kbbe");
--	axi->axi_axi_all = of_property_read_bool(np, "snps,axi_all");
- 	axi->axi_fb = of_property_read_bool(np, "snps,axi_fb");
- 	axi->axi_mb = of_property_read_bool(np, "snps,axi_mb");
- 	axi->axi_rb =  of_property_read_bool(np, "snps,axi_rb");
-diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
-index 266dab9ad782..889e0e9a3f1c 100644
---- a/include/linux/stmmac.h
-+++ b/include/linux/stmmac.h
-@@ -103,7 +103,6 @@ struct stmmac_axi {
- 	u32 axi_wr_osr_lmt;
- 	u32 axi_rd_osr_lmt;
- 	bool axi_kbbe;
--	bool axi_axi_all;
- 	u32 axi_blen[AXI_BLEN];
- 	bool axi_fb;
- 	bool axi_mb;
 -- 
-2.1.4
+https://patchwork.kernel.org/patch/9479127/
+
+Documentation about submitting wireless patches and checking status
+from patchwork:
+
+https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
