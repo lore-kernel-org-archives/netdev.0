@@ -1,57 +1,43 @@
 From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: [PATCH net 1/2] l2tp: consider '::' as wildcard address in l2tp_ip6
- socket lookup
-Date: Fri, 30 Dec 2016 19:48:19 +0100
-Message-ID: <7bae3828719cfe1de6aeab1f12355dd8e7831f48.1483123297.git.g.nault@alphalink.fr>
-References: <cover.1483123297.git.g.nault@alphalink.fr>
+Subject: [PATCH net 0/2] l2tp: socket lookup fixes for l2tp_ip and l2tp_ip6
+Date: Fri, 30 Dec 2016 19:48:17 +0100
+Message-ID: <cover.1483123297.git.g.nault@alphalink.fr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: James Chapman <jchapman@katalix.com>,
         Chris Elston <celston@katalix.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.alphalink.fr ([217.15.80.77]:49280 "EHLO
+Received: from zimbra.alphalink.fr ([217.15.80.77]:49271 "EHLO
         zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753758AbcL3SsW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 30 Dec 2016 13:48:22 -0500
+        with ESMTP id S1753501AbcL3SsV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 30 Dec 2016 13:48:21 -0500
 Content-Disposition: inline
-In-Reply-To: <cover.1483123297.git.g.nault@alphalink.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-An L2TP socket bound to the unspecified address should match with any
-address. If not, it can't receive any packet and __l2tp_ip6_bind_lookup()
-can't prevent another socket from binding on the same device/tunnel ID.
+There are still some cases that aren't correctly handled in the socket
+lookup functions of l2tp_ip and l2tp_ip6. This series fixes lookups for
+connected sockets and for sockets bound to the IPv6 unspecified
+address.
 
-While there, rename the 'addr' variable to 'sk_laddr' (local addr), to
-make following patch clearer.
+bind() and connect() should now work as expected on IPPROTO_L2TP
+sockets. Extra features, like SO_REUSEADDR, remain unsupported.
 
-Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
----
- net/l2tp/l2tp_ip6.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+The matching conditions in __l2tp_ip6_bind_lookup() and
+__l2tp_ip_bind_lookup() are getting hard to read. I've kept the single
+test approach to make the intend of the patches clear. I'll split the
+conditionals once these fixes reach net-next.
 
-diff --git a/net/l2tp/l2tp_ip6.c b/net/l2tp/l2tp_ip6.c
-index f092ac441fdd..3135b9d55df5 100644
---- a/net/l2tp/l2tp_ip6.c
-+++ b/net/l2tp/l2tp_ip6.c
-@@ -64,7 +64,7 @@ static struct sock *__l2tp_ip6_bind_lookup(struct net *net,
- 	struct sock *sk;
- 
- 	sk_for_each_bound(sk, &l2tp_ip6_bind_table) {
--		const struct in6_addr *addr = inet6_rcv_saddr(sk);
-+		const struct in6_addr *sk_laddr = inet6_rcv_saddr(sk);
- 		struct l2tp_ip6_sock *l2tp = l2tp_ip6_sk(sk);
- 
- 		if (l2tp == NULL)
-@@ -72,7 +72,7 @@ static struct sock *__l2tp_ip6_bind_lookup(struct net *net,
- 
- 		if ((l2tp->conn_id == tunnel_id) &&
- 		    net_eq(sock_net(sk), net) &&
--		    (!addr || ipv6_addr_equal(addr, laddr)) &&
-+		    (!sk_laddr || ipv6_addr_any(sk_laddr) || ipv6_addr_equal(sk_laddr, laddr)) &&
- 		    (!sk->sk_bound_dev_if || !dif ||
- 		     sk->sk_bound_dev_if == dif))
- 			goto found;
+
+Guillaume Nault (2):
+  l2tp: consider '::' as wildcard address in l2tp_ip6 socket lookup
+  l2tp: take remote address into account in l2tp_ip and l2tp_ip6 socket
+    lookups
+
+ net/l2tp/l2tp_ip.c  | 19 ++++++-------------
+ net/l2tp/l2tp_ip6.c | 24 ++++++++----------------
+ 2 files changed, 14 insertions(+), 29 deletions(-)
+
 -- 
 2.11.0
