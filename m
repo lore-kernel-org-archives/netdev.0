@@ -1,64 +1,127 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 10/21] ixgbe: test for trust in macvlan adjustments for VF
-Date: Fri, 30 Dec 2016 01:33:30 -0800
-Message-ID: <20161230093341.14674-11-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 12/21] ixgbevf: fix AER error handling
+Date: Fri, 30 Dec 2016 01:33:32 -0800
+Message-ID: <20161230093341.14674-13-jeffrey.t.kirsher@intel.com>
 References: <20161230093341.14674-1-jeffrey.t.kirsher@intel.com>
-Cc: Ken Cox <jkc@redhat.com>, netdev@vger.kernel.org,
+Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
         guru.anbalagane@oracle.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga06.intel.com ([134.134.136.31]:60629 "EHLO mga06.intel.com"
+Received: from mga06.intel.com ([134.134.136.31]:54391 "EHLO mga06.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752275AbcL3Jdr (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 30 Dec 2016 04:33:47 -0500
+        id S1752267AbcL3Jds (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 30 Dec 2016 04:33:48 -0500
 In-Reply-To: <20161230093341.14674-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ken Cox <jkc@redhat.com>
+From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-There are two methods for setting mac addresses in a Macvlan, that
-differentiate themselves in the function macvlan_set_mac_Address.
-If the macvlan mode is passthru, then we use the dev_set_mac_address
-method, otherwise we use the dev_uc api via macvlan_sync_addresses.
-The latter method (which would stem from using any non-passthru mode,
-like bridge, or vepa), calls down into the driver in a path that terminates
-in ixgbevf_set_uc_addr_vf, which sends a IXGBE_VF_SET_MACVLAN message,
-which causes the pf to spawn the noted error message.  This occurs because
-it appears that the guest is trying to delete the mac address of the macvlan
-before adding another.
+Make sure that we free the IRQs in ixgbevf_io_error_detected() when
+responding to an PCIe AER error and also restore them when the
+interface recovers from it.
 
-The other path in macvlan_set_mac_address uses dev_set_mac_address, which
-calls into ixgbevf_set_mac which uses the IXGBE_VF_SET_MAC_ADDR to the
-pf to set the macvlan mac address.
+Previously it was possible to trigger BUG_ON() check in free_msix_irqs()
+in the case where we call ixgbevf_remove() after a failed recovery from
+AER error because the interrupts were not freed.
 
-The discrepancy here is in the handlers.  The handler function for
-IXGBE_VF_SET_MAC_ADDR (ixgbe_set_vf_mac_addr) has a check for
-the vfinfo[].trusted bit to allow the operation if the vf is trusted.
-In comparison, the IXGBE_VF_SET_MACVLAN message handler
-(ixgbe_set_vf_macvlan_msg) has no such check of the trusted bit.
+Also moved the down and free functions into ixgbevf_close_suspend()
+same as with ixgbe.
 
-Signed-off-by: Ken Cox <jkc@redhat.com>
+Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 43 +++++++++++++----------
+ 1 file changed, 25 insertions(+), 18 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-index 7e5d985..dd1187c 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-@@ -934,7 +934,8 @@ static int ixgbe_set_vf_macvlan_msg(struct ixgbe_adapter *adapter,
- 		    IXGBE_VT_MSGINFO_SHIFT;
- 	int err;
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+index 8574f21..7dfd1df 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+@@ -3228,6 +3228,21 @@ int ixgbevf_open(struct net_device *netdev)
+ }
  
--	if (adapter->vfinfo[vf].pf_set_mac && index > 0) {
-+	if (adapter->vfinfo[vf].pf_set_mac && !adapter->vfinfo[vf].trusted &&
-+	    index > 0) {
- 		e_warn(drv,
- 		       "VF %d requested MACVLAN filter but is administratively denied\n",
- 		       vf);
+ /**
++ * ixgbevf_close_suspend - actions necessary to both suspend and close flows
++ * @adapter: the private adapter struct
++ *
++ * This function should contain the necessary work common to both suspending
++ * and closing of the device.
++ */
++static void ixgbevf_close_suspend(struct ixgbevf_adapter *adapter)
++{
++		ixgbevf_down(adapter);
++		ixgbevf_free_irq(adapter);
++		ixgbevf_free_all_tx_resources(adapter);
++		ixgbevf_free_all_rx_resources(adapter);
++}
++
++/**
+  * ixgbevf_close - Disables a network interface
+  * @netdev: network interface device structure
+  *
+@@ -3242,14 +3257,8 @@ int ixgbevf_close(struct net_device *netdev)
+ {
+ 	struct ixgbevf_adapter *adapter = netdev_priv(netdev);
+ 
+-	if (!netif_device_present(netdev))
+-		return 0;
+-
+-	ixgbevf_down(adapter);
+-	ixgbevf_free_irq(adapter);
+-
+-	ixgbevf_free_all_tx_resources(adapter);
+-	ixgbevf_free_all_rx_resources(adapter);
++	if (netif_device_present(netdev))
++		ixgbevf_close_suspend(adapter);
+ 
+ 	return 0;
+ }
+@@ -3806,13 +3815,10 @@ static int ixgbevf_suspend(struct pci_dev *pdev, pm_message_t state)
+ 	rtnl_lock();
+ 	netif_device_detach(netdev);
+ 
+-	if (netif_running(netdev)) {
+-		ixgbevf_down(adapter);
+-		ixgbevf_free_irq(adapter);
+-		ixgbevf_free_all_tx_resources(adapter);
+-		ixgbevf_free_all_rx_resources(adapter);
+-		ixgbevf_clear_interrupt_scheme(adapter);
+-	}
++	if (netif_running(netdev))
++		ixgbevf_close_suspend(adapter);
++
++	ixgbevf_clear_interrupt_scheme(adapter);
+ 	rtnl_unlock();
+ 
+ #ifdef CONFIG_PM
+@@ -4251,7 +4257,7 @@ static pci_ers_result_t ixgbevf_io_error_detected(struct pci_dev *pdev,
+ 	}
+ 
+ 	if (netif_running(netdev))
+-		ixgbevf_down(adapter);
++		ixgbevf_close_suspend(adapter);
+ 
+ 	if (!test_and_set_bit(__IXGBEVF_DISABLED, &adapter->state))
+ 		pci_disable_device(pdev);
+@@ -4299,12 +4305,13 @@ static pci_ers_result_t ixgbevf_io_slot_reset(struct pci_dev *pdev)
+ static void ixgbevf_io_resume(struct pci_dev *pdev)
+ {
+ 	struct net_device *netdev = pci_get_drvdata(pdev);
+-	struct ixgbevf_adapter *adapter = netdev_priv(netdev);
+ 
++	rtnl_lock();
+ 	if (netif_running(netdev))
+-		ixgbevf_up(adapter);
++		ixgbevf_open(netdev);
+ 
+ 	netif_device_attach(netdev);
++	rtnl_unlock();
+ }
+ 
+ /* PCI Error Recovery (ERS) */
 -- 
 2.9.3
