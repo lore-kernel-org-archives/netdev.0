@@ -1,40 +1,34 @@
-From: Thomas Preisner <thomas.preisner+linux@fau.de>
-Subject: Re: Re: [PATCH v3 2/2] drivers: net: ethernet: 3com: fix return value
-Date: Fri, 30 Dec 2016 03:37:52 +0100
-Message-ID: <1483065474-11512-1-git-send-email-thomas.preisner+linux@fau.de>
-References: <1482873453.20986.4.camel@dillow-glaptop.roam.corp.google.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-kernel@i4.cs.fau.de, milan.stephan+linux@fau.de,
-        thomas.preisner+linux@fau.de, sergei.shtylyov@cogentembedded.com,
-        davem@davemloft.net
-To: dave@thedillows.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1482873453.20986.4.camel@dillow-glaptop.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next PATCH 2/6] i40e: Introduce VF Port
+ Representator(VFPR) netdevs.
+Date: Thu, 29 Dec 2016 21:52:51 -0500 (EST)
+Message-ID: <20161229.215251.689242851887487491.davem@davemloft.net>
+References: <1483078863-22026-1-git-send-email-sridhar.samudrala@intel.com>
+        <1483078863-22026-3-git-send-email-sridhar.samudrala@intel.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: alexander.h.duyck@intel.com, john.r.fastabend@intel.com,
+        anjali.singhai@intel.com, jakub.kicinski@netronome.com,
+        intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
+To: sridhar.samudrala@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:60062 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751075AbcL3Cwz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 29 Dec 2016 21:52:55 -0500
+In-Reply-To: <1483078863-22026-3-git-send-email-sridhar.samudrala@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2016-12-27 at 22:17:35 +0100, David Dillow wrote:
->On Sun, 2016-12-25 at 01:30 +0100, Thomas Preisner wrote:
->> In some cases the return value of a failing function is not being used
->> and the function typhoon_init_one() returns another negative error
->> code instead.
->
->I'm not sure these changes are especially valuable, since we'll need to
->look at the dmesg log anyways to figure out what went wrong, but again I
->don't feel strongly.
->
->Fix up the subject issues and I'm happy to ack them.
+From: Sridhar Samudrala <sridhar.samudrala@intel.com>
+Date: Thu, 29 Dec 2016 22:20:59 -0800
 
-As requested, here are the patchsets with the fixed subjects.
-The subjects aswell as the subject prefixes are more precise now.
-Hopefully that's ok.
+>  		/* VF resources get allocated during reset */
+>  		i40e_reset_vf(&vfs[i], false);
+>  
+> +		if (pf->eswitch_mode == DEVLINK_ESWITCH_MODE_SWITCHDEV)
+> +			i40e_alloc_vfpr_netdev(&vfs[i], i);
 
-Patch 1:
-Makes the function typhoon_init_one() return a negative error code instead of 0.
-
-Patch 2 [Optional]:
-Makes the function typhoon_init_one() return the return value of the
-corresponding failing function calls instead of a "fixed" negative error code.
-
-With Regards,
-Milan and Thomas
+You aren't checking for, and unwinding from, errors signalled
+by i40e_alloc_vfpr_netdev().
