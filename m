@@ -1,41 +1,44 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCH][V2] [media] gp8psk: fix spelling mistake: "firmare" -> "firmware"
-Date: Fri, 30 Dec 2016 16:35:47 +0200
-Message-ID: <87bmvtjxh8.fsf@purkki.adurom.net>
-References: <20161229213815.27890-1-colin.king@canonical.com>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH][V3] rtlwifi: fix spelling mistake: "encrypiton" -> "encryption"
+Date: Fri, 30 Dec 2016 14:50:27 +0000
+Message-ID: <20161230145027.14090-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Mauro Carvalho Chehab <mchehab@kernel.org>,
-        Larry Finger <Larry.Finger@lwfinger.net>,
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org
+To: Larry Finger <Larry.Finger@lwfinger.net>,
         Chaoming Li <chaoming_li@realsil.com.cn>,
-        linux-media@vger.kernel.org, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Colin King <colin.king@canonical.com>
+        Kalle Valo <kvalo@codeaurora.org>,
+        linux-wireless@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:41510 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754069AbcL3Of5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 30 Dec 2016 09:35:57 -0500
-In-Reply-To: <20161229213815.27890-1-colin.king@canonical.com> (Colin King's
-        message of "Thu, 29 Dec 2016 21:38:15 +0000")
+Received: from youngberry.canonical.com ([91.189.89.112]:40911 "EHLO
+        youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753953AbcL3OvX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 30 Dec 2016 09:51:23 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Colin King <colin.king@canonical.com> writes:
+From: Colin Ian King <colin.king@canonical.com>
 
-> From: Colin Ian King <colin.king@canonical.com>
->
-> Trivial fix to spelling mistake in err message. Also change "don't" to
-> "does not".
->
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
-> ---
->  drivers/media/usb/dvb-usb/gp8psk.c          | 2 +-
->  drivers/net/wireless/realtek/rtlwifi/core.c | 2 +-
->  2 files changed, 2 insertions(+), 2 deletions(-)
+trivial fix to spelling mistake in RT_TRACE message
 
-Could you split the rtlwifi part to it's own patch? I can't apply
-patches touching media drivers.
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ drivers/net/wireless/realtek/rtlwifi/core.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
+diff --git a/drivers/net/wireless/realtek/rtlwifi/core.c b/drivers/net/wireless/realtek/rtlwifi/core.c
+index ded1493..732de0a 100644
+--- a/drivers/net/wireless/realtek/rtlwifi/core.c
++++ b/drivers/net/wireless/realtek/rtlwifi/core.c
+@@ -1532,7 +1532,7 @@ static int rtl_op_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
+ 		key_type = AESCMAC_ENCRYPTION;
+ 		RT_TRACE(rtlpriv, COMP_SEC, DBG_DMESG, "alg:CMAC\n");
+ 		RT_TRACE(rtlpriv, COMP_SEC, DBG_DMESG,
+-			 "HW don't support CMAC encrypiton, use software CMAC encrypiton\n");
++			 "HW don't support CMAC encryption, use software CMAC encryption\n");
+ 		err = -EOPNOTSUPP;
+ 		goto out_unlock;
+ 	default:
 -- 
-Kalle Valo
+2.10.2
