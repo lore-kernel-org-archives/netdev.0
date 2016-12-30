@@ -1,109 +1,135 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next] net: Allow IP_MULTICAST_IF to set index to L3 slave
-Date: Thu, 29 Dec 2016 15:39:37 -0800
-Message-ID: <1483054777-11306-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: darwin.dingel@alliedtelesis.co.nz,
-        Mark.Tomlinson@alliedtelesis.co.nz,
-        David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Subject: [PATCH net-next] liquidio: optimize reads from Octeon PCI console
+Date: Thu, 29 Dec 2016 17:04:47 -0800
+Message-ID: <20161230010447.GA6015@felix.cavium.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, <raghu.vatsavayi@cavium.com>,
+        <derek.chickles@cavium.com>, <satananda.burla@cavium.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f51.google.com ([74.125.83.51]:34647 "EHLO
-        mail-pg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753039AbcL2Xjn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 29 Dec 2016 18:39:43 -0500
-Received: by mail-pg0-f51.google.com with SMTP id y62so118971394pgy.1
-        for <netdev@vger.kernel.org>; Thu, 29 Dec 2016 15:39:42 -0800 (PST)
+Received: from mail-by2nam03on0085.outbound.protection.outlook.com ([104.47.42.85]:10912
+        "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1750874AbcL3BFq (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 29 Dec 2016 20:05:46 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-IP_MULTICAST_IF fails if sk_bound_dev_if is already set and the new index
-does not match it. e.g.,
+Reads from Octeon PCI console are inefficient because before each read
+operation, a dynamic mapping to Octeon DRAM is set up.  This patch replaces
+the repeated setup of a dynamic mapping with a one-time setup of a static
+mapping.
 
-    ntpd[15381]: setsockopt IP_MULTICAST_IF 192.168.1.23 fails: Invalid argument
-
-Relax the check in setsockopt to allow setting mc_index to an L3 slave if
-sk_bound_dev_if points to an L3 master.
-
-Make a similar change for IPv6. In this case change the device lookup to
-take the rcu_read_lock avoiding a refcnt. The rcu lock is also needed for
-the lookup of a potential L3 master device.
-
-This really only silences a setsockopt failure since uses of mc_index are
-secondary to sk_bound_dev_if if it is set. In both cases, if either index
-is an L3 slave or master, lookups are directed to the same FIB table so
-relaxing the check at setsockopt time causes no harm.
-
-Patch is based on a suggested change by Darwin for a problem noted in
-their code base.
-
-Suggested-by: Darwin Dingel <darwin.dingel@alliedtelesis.co.nz>
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
+Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@cavium.com>
+Signed-off-by: Derek Chickles <derek.chickles@cavium.com>
+Signed-off-by: Satanand Burla <satananda.burla@cavium.com>
 ---
- net/ipv4/ip_sockglue.c   |  7 ++++++-
- net/ipv6/ipv6_sockglue.c | 16 ++++++++++++----
- 2 files changed, 18 insertions(+), 5 deletions(-)
+ .../net/ethernet/cavium/liquidio/octeon_config.h    | 10 +++-------
+ .../net/ethernet/cavium/liquidio/octeon_console.c   | 10 ++++++++++
+ .../net/ethernet/cavium/liquidio/octeon_device.h    |  6 ++++++
+ .../net/ethernet/cavium/liquidio/octeon_mem_ops.c   | 21 ++++++++++++++++++++-
+ 4 files changed, 39 insertions(+), 8 deletions(-)
 
-diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
-index 8b13881ed064..72071a9a348d 100644
---- a/net/ipv4/ip_sockglue.c
-+++ b/net/ipv4/ip_sockglue.c
-@@ -843,6 +843,7 @@ static int do_ip_setsockopt(struct sock *sk, int level,
- 	{
- 		struct ip_mreqn mreq;
- 		struct net_device *dev = NULL;
-+		int midx;
+diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_config.h b/drivers/net/ethernet/cavium/liquidio/octeon_config.h
+index 1cb3514..b3dc2e9 100644
+--- a/drivers/net/ethernet/cavium/liquidio/octeon_config.h
++++ b/drivers/net/ethernet/cavium/liquidio/octeon_config.h
+@@ -429,15 +429,11 @@ struct octeon_config {
  
- 		if (sk->sk_type == SOCK_STREAM)
- 			goto e_inval;
-@@ -887,11 +888,15 @@ static int do_ip_setsockopt(struct sock *sk, int level,
- 		err = -EADDRNOTAVAIL;
- 		if (!dev)
- 			break;
+ /* The following config values are fixed and should not be modified. */
+ 
+-/* Maximum address space to be mapped for Octeon's BAR1 index-based access. */
+-#define  MAX_BAR1_MAP_INDEX                     2
++#define  BAR1_INDEX_DYNAMIC_MAP          2
++#define  BAR1_INDEX_STATIC_MAP          15
+ #define  OCTEON_BAR1_ENTRY_SIZE         (4 * 1024 * 1024)
+ 
+-/* BAR1 Index 0 to (MAX_BAR1_MAP_INDEX - 1) for normal mapped memory access.
+- * Bar1 register at MAX_BAR1_MAP_INDEX used by driver for dynamic access.
+- */
+-#define  MAX_BAR1_IOREMAP_SIZE  ((MAX_BAR1_MAP_INDEX + 1) * \
+-				 OCTEON_BAR1_ENTRY_SIZE)
++#define  MAX_BAR1_IOREMAP_SIZE  (16 * OCTEON_BAR1_ENTRY_SIZE)
+ 
+ /* Response lists - 1 ordered, 1 unordered-blocking, 1 unordered-nonblocking
+  * NoResponse Lists are now maintained with each IQ. (Dec' 2007).
+diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_console.c b/drivers/net/ethernet/cavium/liquidio/octeon_console.c
+index 3265e0b..42b673d 100644
+--- a/drivers/net/ethernet/cavium/liquidio/octeon_console.c
++++ b/drivers/net/ethernet/cavium/liquidio/octeon_console.c
+@@ -549,6 +549,16 @@ int octeon_init_consoles(struct octeon_device *oct)
+ 		return ret;
+ 	}
+ 
++	/* Dedicate one of Octeon's BAR1 index registers to create a static
++	 * mapping to a region of Octeon DRAM that contains the PCI console
++	 * named block.
++	 */
++	oct->console_nb_info.bar1_index = BAR1_INDEX_STATIC_MAP;
++	oct->fn_list.bar1_idx_setup(oct, addr, oct->console_nb_info.bar1_index,
++				    true);
++	oct->console_nb_info.dram_region_base = addr
++		& ~(OCTEON_BAR1_ENTRY_SIZE - 1ULL);
 +
-+		midx = l3mdev_master_ifindex(dev);
+ 	/* num_consoles > 0, is an indication that the consoles
+ 	 * are accessible
+ 	 */
+diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_device.h b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
+index 18f6836..c301a38 100644
+--- a/drivers/net/ethernet/cavium/liquidio/octeon_device.h
++++ b/drivers/net/ethernet/cavium/liquidio/octeon_device.h
+@@ -477,6 +477,12 @@ struct octeon_device {
+ 	/* Console caches */
+ 	struct octeon_console console[MAX_OCTEON_MAPS];
+ 
++	/* Console named block info */
++	struct {
++		u64 dram_region_base;
++		int bar1_index;
++	} console_nb_info;
 +
- 		dev_put(dev);
+ 	/* Coprocessor clock rate. */
+ 	u64 coproc_clock_rate;
  
- 		err = -EINVAL;
- 		if (sk->sk_bound_dev_if &&
--		    mreq.imr_ifindex != sk->sk_bound_dev_if)
-+		    mreq.imr_ifindex != sk->sk_bound_dev_if &&
-+		    (!midx || midx != sk->sk_bound_dev_if))
- 			break;
+diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_mem_ops.c b/drivers/net/ethernet/cavium/liquidio/octeon_mem_ops.c
+index 13a18c9..5cd96e7 100644
+--- a/drivers/net/ethernet/cavium/liquidio/octeon_mem_ops.c
++++ b/drivers/net/ethernet/cavium/liquidio/octeon_mem_ops.c
+@@ -23,7 +23,7 @@
+ #include "response_manager.h"
+ #include "octeon_device.h"
  
- 		inet->mc_index = mreq.imr_ifindex;
-diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
-index 3ba530373560..bdf1227fd433 100644
---- a/net/ipv6/ipv6_sockglue.c
-+++ b/net/ipv6/ipv6_sockglue.c
-@@ -595,16 +595,24 @@ static int do_ipv6_setsockopt(struct sock *sk, int level, int optname,
+-#define MEMOPS_IDX   MAX_BAR1_MAP_INDEX
++#define MEMOPS_IDX   BAR1_INDEX_DYNAMIC_MAP
  
- 		if (val) {
- 			struct net_device *dev;
-+			int midx;
- 
--			if (sk->sk_bound_dev_if && sk->sk_bound_dev_if != val)
--				goto e_inval;
-+			rcu_read_lock();
- 
--			dev = dev_get_by_index(net, val);
-+			dev = dev_get_by_index_rcu(net, val);
- 			if (!dev) {
-+				rcu_read_unlock();
- 				retv = -ENODEV;
- 				break;
- 			}
--			dev_put(dev);
-+			midx = l3mdev_master_ifindex_rcu(dev);
+ #ifdef __BIG_ENDIAN_BITFIELD
+ static inline void
+@@ -96,6 +96,25 @@ __octeon_pci_rw_core_mem(struct octeon_device *oct, u64 addr,
+ 	u32 copy_len = 0, index_reg_val = 0;
+ 	unsigned long flags;
+ 	u8 __iomem *mapped_addr;
++	u64 static_mapping_base;
 +
-+			rcu_read_unlock();
++	static_mapping_base = oct->console_nb_info.dram_region_base;
 +
-+			if (sk->sk_bound_dev_if &&
-+			    sk->sk_bound_dev_if != val &&
-+			    (!midx || midx != sk->sk_bound_dev_if))
-+				goto e_inval;
- 		}
- 		np->mcast_oif = val;
- 		retv = 0;
--- 
-2.1.4
++	if (static_mapping_base &&
++	    static_mapping_base == (addr & ~(OCTEON_BAR1_ENTRY_SIZE - 1ULL))) {
++		int bar1_index = oct->console_nb_info.bar1_index;
++
++		mapped_addr = oct->mmio[1].hw_addr
++			+ (bar1_index << ilog2(OCTEON_BAR1_ENTRY_SIZE))
++			+ (addr & (OCTEON_BAR1_ENTRY_SIZE - 1ULL));
++
++		if (op)
++			octeon_pci_fastread(oct, mapped_addr, hostbuf, len);
++		else
++			octeon_pci_fastwrite(oct, mapped_addr, hostbuf, len);
++
++		return;
++	}
+ 
+ 	spin_lock_irqsave(&oct->mem_access_lock, flags);
+ 
