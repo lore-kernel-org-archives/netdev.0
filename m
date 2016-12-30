@@ -1,37 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv4: make tcp_notsent_lowat sysctl knob behave as
- true unsigned int
-Date: Fri, 30 Dec 2016 15:23:25 -0500 (EST)
-Message-ID: <20161230.152325.1460360247883491150.davem@davemloft.net>
-References: <20161229143507.4934-1-ptikhomirov@virtuozzo.com>
+Subject: Re: [PATCH v1 0/2] bpf: add longest prefix match map
+Date: Fri, 30 Dec 2016 15:25:36 -0500 (EST)
+Message-ID: <20161230.152536.1044375840168125040.davem@davemloft.net>
+References: <20161229172855.14910-1-daniel@zonque.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: edumazet@google.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-        yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, khorenko@virtuozzo.com
-To: ptikhomirov@virtuozzo.com
+Cc: ast@fb.com, dh.herrmann@gmail.com, daniel@iogearbox.net,
+        netdev@vger.kernel.org
+To: daniel@zonque.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:45982 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:46074 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752859AbcL3UX2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 30 Dec 2016 15:23:28 -0500
-In-Reply-To: <20161229143507.4934-1-ptikhomirov@virtuozzo.com>
+        with ESMTP id S1753499AbcL3UZi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 30 Dec 2016 15:25:38 -0500
+In-Reply-To: <20161229172855.14910-1-daniel@zonque.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pavel Tikhomirov <ptikhomirov@virtuozzo.com>
-Date: Thu, 29 Dec 2016 17:35:07 +0300
+From: Daniel Mack <daniel@zonque.org>
+Date: Thu, 29 Dec 2016 18:28:53 +0100
 
-> @@ -958,7 +959,9 @@ static struct ctl_table ipv4_net_table[] = {
->  		.data		= &init_net.ipv4.sysctl_tcp_notsent_lowat,
->  		.maxlen		= sizeof(unsigned int),
->  		.mode		= 0644,
-> -		.proc_handler	= proc_dointvec,
-> +		.proc_handler	= proc_doulongvec_minmax,
-> +		.extra1		= &zero,
-> +		.extra2		= &uint_max,
+> This patch set adds a longest prefix match algorithm that can be used
+> to match IP addresses to a stored set of ranges. It is exposed as a
+> bpf map type.
+>    
+> Internally, data is stored in an unbalanced tree of nodes that has a
+> maximum height of n, where n is the prefixlen the trie was created
+> with.
+>  
+> Not that this has nothing to do with fib or fib6 and is in no way meant
+> to replace or share code with it. It's rather a much simpler
+> implementation that is specifically written with bpf maps in mind.
+>  
+> Patch 1/2 adds the implementation, and 2/2 an extensive test suite.
+>  
+> Feedback is much appreciated.
 
-It seems much simpler to use "proc_douintvec()" to fix this bug.
-
-Doesn't it?
+I'll give Alexei and Daniel time to provide feedback on this series.
