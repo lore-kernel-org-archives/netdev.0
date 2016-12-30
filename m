@@ -1,40 +1,41 @@
-From: Colin King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Subject: [PATCH] ath9k: fix spelling mistake: "meaurement" -> "measurement"
-Date: Fri, 30 Dec 2016 14:06:47 +0000
-Message-ID: <20161230140647.12945-1-colin.king@canonical.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [PATCH][V2] [media] gp8psk: fix spelling mistake: "firmare" -> "firmware"
+Date: Fri, 30 Dec 2016 16:35:47 +0200
+Message-ID: <87bmvtjxh8.fsf@purkki.adurom.net>
+References: <20161229213815.27890-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: QCA ath9k Development <ath9k-devel-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
-        Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ath9k-devel-xDcbHBWguxHbcTqmT+pZeQ@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Mauro Carvalho Chehab <mchehab@kernel.org>,
+        Larry Finger <Larry.Finger@lwfinger.net>,
+        Chaoming Li <chaoming_li@realsil.com.cn>,
+        linux-media@vger.kernel.org, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Colin King <colin.king@canonical.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.codeaurora.org ([198.145.29.96]:41510 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754069AbcL3Of5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 30 Dec 2016 09:35:57 -0500
+In-Reply-To: <20161229213815.27890-1-colin.king@canonical.com> (Colin King's
+        message of "Thu, 29 Dec 2016 21:38:15 +0000")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Colin King <colin.king@canonical.com> writes:
 
-Trivial fix to spelling mistake in ath_err message
+> From: Colin Ian King <colin.king@canonical.com>
+>
+> Trivial fix to spelling mistake in err message. Also change "don't" to
+> "does not".
+>
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> ---
+>  drivers/media/usb/dvb-usb/gp8psk.c          | 2 +-
+>  drivers/net/wireless/realtek/rtlwifi/core.c | 2 +-
+>  2 files changed, 2 insertions(+), 2 deletions(-)
 
-Signed-off-by: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
----
- drivers/net/wireless/ath/ath9k/hw.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Could you split the rtlwifi part to it's own patch? I can't apply
+patches touching media drivers.
 
-diff --git a/drivers/net/wireless/ath/ath9k/hw.c b/drivers/net/wireless/ath/ath9k/hw.c
-index a35f78b..ac36873 100644
---- a/drivers/net/wireless/ath/ath9k/hw.c
-+++ b/drivers/net/wireless/ath/ath9k/hw.c
-@@ -731,7 +731,7 @@ u32 ar9003_get_pll_sqsum_dvc(struct ath_hw *ah)
- 		udelay(100);
- 
- 		if (WARN_ON_ONCE(i >= 100)) {
--			ath_err(common, "PLL4 meaurement not done\n");
-+			ath_err(common, "PLL4 measurement not done\n");
- 			break;
- 		}
- 
 -- 
-2.10.2
+Kalle Valo
