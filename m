@@ -1,111 +1,52 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/21][pull request] 10GbE Intel Wired LAN Driver Updates 2016-12-29
-Date: Fri, 30 Dec 2016 01:33:20 -0800
-Message-ID: <20161230093341.14674-1-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+Subject: [net-next 15/21] ixgbe: Configure advertised speeds correctly for KR/KX backplane
+Date: Fri, 30 Dec 2016 01:33:35 -0800
+Message-ID: <20161230093341.14674-16-jeffrey.t.kirsher@intel.com>
+References: <20161230093341.14674-1-jeffrey.t.kirsher@intel.com>
+Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        guru.anbalagane@oracle.com
+        guru.anbalagane@oracle.com,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga06.intel.com ([134.134.136.31]:32169 "EHLO mga06.intel.com"
+Received: from mga06.intel.com ([134.134.136.31]:54391 "EHLO mga06.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750830AbcL3Jdn (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 30 Dec 2016 04:33:43 -0500
+        id S1752320AbcL3Jdt (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 30 Dec 2016 04:33:49 -0500
+In-Reply-To: <20161230093341.14674-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to ixgbe and ixgbevf only.
+From: Don Skidmore <donald.c.skidmore@intel.com>
 
-Emil fixes ixgbe to use the NVM settings for FEC, so do not override the
-settings.  Fixed the indirection table for x550, where newer devices can
-support up to 64 RSS queues.  Extends the rtnl_lock() to protect the call
-to netif_device_detach() and ixgbe_clear_interrupt_scheme() to avoid
-against a double free WARN and/or a BUG in free_msi_irqs().  Fixed AER
-error handling by making sure that the driver frees the IRQs in
-ixgbe_io_error_detected() when responding to a PCIe AER error, and to
-restore them when the interface recovers.
+This patch ensures that the advertised link speeds are configured
+for X553 KR/KX backplane.  Without this patch the link remains at
+1G when resuming form low power after being downshifted by LPLU.
 
-Tony updates the driver to report the driver version to the firmware using
-the host interface command for x550 devices.  Fixed the PHY reset check
-for x550em_ext_t PHY type.  Fixed bounds checking for x540 devices to
-ensure the index is valid for the LED function.  Fixed the BaseT adapters
-which support 100Mb capability and were not reporting the capability.
+Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-Ken Cox adds a missing check for the trusted bit before trying to set the
-MACVLAN MAC address.
-
-Yusuke Suzuki fixes an issue with 82599 and x540 devices where receive
-timestamps were not working becase the bitwise operation for RX_HWSTAMP
-falg was incorrect.
-
-Don ensures that x553 KR/KX devices correctly advertise link speeds.
-Adds the mailbox message to allow for VF promiscuous mode support.
-
-Mark fixes two issues with EEPROM access, where the semaphore was not
-being held until the entire response was read and the acquiring/releasing
-of the semaphore is slow.  Cleaned up firmware version method and
-functions which are no longer used.  Added new interfaces for firmware
-commands to access some new PHYs.
-
-The following are changes since commit 15d3afcc051f74d04a285c08594629172a1a9131:
-  liquidio: optimize reads from Octeon PCI console
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 10GbE
-
-Don Skidmore (3):
-  ixgbe: Configure advertised speeds correctly for KR/KX backplane
-  ixgbevf: Add support for VF promiscuous mode
-  ixgbe: Add PF support for VF promiscuous mode
-
-Emil Tantilov (7):
-  ixgbe: do not disable FEC from the driver
-  ixgbe: add mask for 64 RSS queues
-  ixgbe: handle close/suspend race with netif_device_detach/present
-  ixgbevf: handle race between close and suspend on shutdown
-  ixgbe: fix AER error handling
-  ixgbevf: fix AER error handling
-  ixgbevf: restore hw_addr on resume or error
-
-Ken Cox (1):
-  ixgbe: test for trust in macvlan adjustments for VF
-
-Mark Rustad (4):
-  ixgbe: Fix issues with EEPROM access
-  ixgbe: Remove unused firmware version functions and method
-  ixgbe: Implement firmware interface to access some PHYs
-  ixgbe: Implement support for firmware-controlled PHYs
-
-Tony Nguyen (5):
-  ixgbe: Report driver version to firmware for x550 devices
-  ixgbe: Fix check for ixgbe_phy_x550em_ext_t reset
-  ixgbe: Add bounds check for x540 LED functions
-  ixgbe: Reduce I2C retry count on X550 devices
-  ixgbe: Fix reporting of 100Mb capability
-
-Yusuke Suzuki (1):
-  ixgbe: Fix incorrect bitwise operations of PTP Rx timestamp flags
-
- drivers/net/ethernet/intel/ixgbe/ixgbe.h          |   5 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c    |   2 -
- drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c    |   2 -
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c   | 113 ++--
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.h   |   6 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c  | 153 +++++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c      |   8 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     |  92 +++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h      |   1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c      |  66 +--
- drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h      |   4 -
- drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c      |  12 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c    |  50 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h     |  90 +++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c     |  10 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c     | 594 +++++++++++++++++++---
- drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |   1 +
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |  66 ++-
- drivers/net/ethernet/intel/ixgbevf/mbx.h          |   1 +
- drivers/net/ethernet/intel/ixgbevf/vf.c           |  24 +-
- 20 files changed, 1101 insertions(+), 199 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
+index 92f2b5e..675c198 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
+@@ -2187,12 +2187,11 @@ static s32 ixgbe_setup_kx4_x550em(struct ixgbe_hw *hw)
+ /**
+  * ixgbe_setup_kr_x550em - Configure the KR PHY
+  * @hw: pointer to hardware structure
+- *
+- * Configures the integrated KR PHY for X550EM_x.
+  **/
+ static s32 ixgbe_setup_kr_x550em(struct ixgbe_hw *hw)
+ {
+-	if (hw->mac.type != ixgbe_mac_X550EM_x)
++	/* leave linke alone for 2.5G */
++	if (hw->phy.autoneg_advertised & IXGBE_LINK_SPEED_2_5GB_FULL)
+ 		return 0;
+ 
+ 	return ixgbe_setup_kr_speed_x550em(hw, hw->phy.autoneg_advertised);
 -- 
 2.9.3
