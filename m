@@ -1,127 +1,94 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 12/21] ixgbevf: fix AER error handling
-Date: Fri, 30 Dec 2016 01:33:32 -0800
-Message-ID: <20161230093341.14674-13-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 09/21] ixgbevf: handle race between close and suspend on shutdown
+Date: Fri, 30 Dec 2016 01:33:29 -0800
+Message-ID: <20161230093341.14674-10-jeffrey.t.kirsher@intel.com>
 References: <20161230093341.14674-1-jeffrey.t.kirsher@intel.com>
 Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
         guru.anbalagane@oracle.com,
+        Alexander Duyck <alexander.h.duyck@intel.com>,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga06.intel.com ([134.134.136.31]:54391 "EHLO mga06.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752267AbcL3Jds (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 30 Dec 2016 04:33:48 -0500
+        id S1752236AbcL3Jdr (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 30 Dec 2016 04:33:47 -0500
 In-Reply-To: <20161230093341.14674-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-Make sure that we free the IRQs in ixgbevf_io_error_detected() when
-responding to an PCIe AER error and also restore them when the
-interface recovers from it.
+When an interface is part of a namespace it is possible that
+ixgbevf_close() may be called while ixgbevf_suspend() is running
+which ends up in a double free WARN and/or a BUG in free_msi_irqs()
 
-Previously it was possible to trigger BUG_ON() check in free_msix_irqs()
-in the case where we call ixgbevf_remove() after a failed recovery from
-AER error because the interrupts were not freed.
+To handle this situation we extend the rtnl_lock() to protect the
+call to netif_device_detach() and check for !netif_device_present()
+to avoid entering close while in suspend.
 
-Also moved the down and free functions into ixgbevf_close_suspend()
-same as with ixgbe.
+Also added rtnl locks to ixgbevf_queue_reset_subtask().
 
+CC: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 43 +++++++++++++----------
- 1 file changed, 25 insertions(+), 18 deletions(-)
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 11 +++++++++--
+ 1 file changed, 9 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index 8574f21..7dfd1df 100644
+index 6d4bef5..8574f21 100644
 --- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
 +++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -3228,6 +3228,21 @@ int ixgbevf_open(struct net_device *netdev)
- }
- 
- /**
-+ * ixgbevf_close_suspend - actions necessary to both suspend and close flows
-+ * @adapter: the private adapter struct
-+ *
-+ * This function should contain the necessary work common to both suspending
-+ * and closing of the device.
-+ */
-+static void ixgbevf_close_suspend(struct ixgbevf_adapter *adapter)
-+{
-+		ixgbevf_down(adapter);
-+		ixgbevf_free_irq(adapter);
-+		ixgbevf_free_all_tx_resources(adapter);
-+		ixgbevf_free_all_rx_resources(adapter);
-+}
-+
-+/**
-  * ixgbevf_close - Disables a network interface
-  * @netdev: network interface device structure
-  *
-@@ -3242,14 +3257,8 @@ int ixgbevf_close(struct net_device *netdev)
+@@ -3242,6 +3242,9 @@ int ixgbevf_close(struct net_device *netdev)
  {
  	struct ixgbevf_adapter *adapter = netdev_priv(netdev);
  
--	if (!netif_device_present(netdev))
--		return 0;
--
--	ixgbevf_down(adapter);
--	ixgbevf_free_irq(adapter);
--
--	ixgbevf_free_all_tx_resources(adapter);
--	ixgbevf_free_all_rx_resources(adapter);
-+	if (netif_device_present(netdev))
-+		ixgbevf_close_suspend(adapter);
- 
- 	return 0;
- }
-@@ -3806,13 +3815,10 @@ static int ixgbevf_suspend(struct pci_dev *pdev, pm_message_t state)
- 	rtnl_lock();
- 	netif_device_detach(netdev);
- 
--	if (netif_running(netdev)) {
--		ixgbevf_down(adapter);
--		ixgbevf_free_irq(adapter);
--		ixgbevf_free_all_tx_resources(adapter);
--		ixgbevf_free_all_rx_resources(adapter);
--		ixgbevf_clear_interrupt_scheme(adapter);
--	}
-+	if (netif_running(netdev))
-+		ixgbevf_close_suspend(adapter);
++	if (!netif_device_present(netdev))
++		return 0;
 +
-+	ixgbevf_clear_interrupt_scheme(adapter);
- 	rtnl_unlock();
+ 	ixgbevf_down(adapter);
+ 	ixgbevf_free_irq(adapter);
  
- #ifdef CONFIG_PM
-@@ -4251,7 +4257,7 @@ static pci_ers_result_t ixgbevf_io_error_detected(struct pci_dev *pdev,
- 	}
- 
- 	if (netif_running(netdev))
--		ixgbevf_down(adapter);
-+		ixgbevf_close_suspend(adapter);
- 
- 	if (!test_and_set_bit(__IXGBEVF_DISABLED, &adapter->state))
- 		pci_disable_device(pdev);
-@@ -4299,12 +4305,13 @@ static pci_ers_result_t ixgbevf_io_slot_reset(struct pci_dev *pdev)
- static void ixgbevf_io_resume(struct pci_dev *pdev)
- {
- 	struct net_device *netdev = pci_get_drvdata(pdev);
--	struct ixgbevf_adapter *adapter = netdev_priv(netdev);
- 
+@@ -3268,6 +3271,8 @@ static void ixgbevf_queue_reset_subtask(struct ixgbevf_adapter *adapter)
+ 	 * match packet buffer alignment. Unfortunately, the
+ 	 * hardware is not flexible enough to do this dynamically.
+ 	 */
 +	rtnl_lock();
- 	if (netif_running(netdev))
--		ixgbevf_up(adapter);
-+		ixgbevf_open(netdev);
++
+ 	if (netif_running(dev))
+ 		ixgbevf_close(dev);
  
- 	netif_device_attach(netdev);
+@@ -3276,6 +3281,8 @@ static void ixgbevf_queue_reset_subtask(struct ixgbevf_adapter *adapter)
+ 
+ 	if (netif_running(dev))
+ 		ixgbevf_open(dev);
++
 +	rtnl_unlock();
  }
  
- /* PCI Error Recovery (ERS) */
+ static void ixgbevf_tx_ctxtdesc(struct ixgbevf_ring *tx_ring,
+@@ -3796,17 +3803,17 @@ static int ixgbevf_suspend(struct pci_dev *pdev, pm_message_t state)
+ 	int retval = 0;
+ #endif
+ 
++	rtnl_lock();
+ 	netif_device_detach(netdev);
+ 
+ 	if (netif_running(netdev)) {
+-		rtnl_lock();
+ 		ixgbevf_down(adapter);
+ 		ixgbevf_free_irq(adapter);
+ 		ixgbevf_free_all_tx_resources(adapter);
+ 		ixgbevf_free_all_rx_resources(adapter);
+ 		ixgbevf_clear_interrupt_scheme(adapter);
+-		rtnl_unlock();
+ 	}
++	rtnl_unlock();
+ 
+ #ifdef CONFIG_PM
+ 	retval = pci_save_state(pdev);
 -- 
 2.9.3
