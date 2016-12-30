@@ -1,30 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] igmp: Make igmp group member RFC 3376 compliant
-Date: Thu, 29 Dec 2016 22:32:19 -0500 (EST)
-Message-ID: <20161229.223219.2123329632106400573.davem@davemloft.net>
-References: <20161116062045.GB17935@leo.usersys.redhat.com>
-        <20161116.111943.1827868712701090468.davem@davemloft.net>
-        <20161207123857.GA3632@sparky-lenivo.brq.redhat.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next V2 3/3] tun: rx batching
+Date: Fri, 30 Dec 2016 13:14:33 +0800
+Message-ID: <d7d1378d-2051-d962-8001-d63085c3e1bc@redhat.com>
+References: <1482912571-3157-1-git-send-email-jasowang@redhat.com>
+ <1482912571-3157-4-git-send-email-jasowang@redhat.com>
+ <20161229.113506.1833529555874695164.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: haliu@redhat.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-        kaber@trash.net, netdev@vger.kernel.org
-To: mtesar@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60458 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752946AbcL3DcV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 29 Dec 2016 22:32:21 -0500
-In-Reply-To: <20161207123857.GA3632@sparky-lenivo.brq.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: mst@redhat.com, kvm@vger.kernel.org,
+        virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161229.113506.1833529555874695164.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Michal Tesar <mtesar@redhat.com>
-Date: Wed, 7 Dec 2016 13:38:57 +0100
 
-> would it be possible to have another look at this patch and reconsider
-> its behavior? I really believe that current code does not behave
-> correctly.
 
-Please resubmit your patch.
+On 2016年12月30日 00:35, David Miller wrote:
+> From: Jason Wang <jasowang@redhat.com>
+> Date: Wed, 28 Dec 2016 16:09:31 +0800
+>
+>> +	spin_lock(&queue->lock);
+>> +	qlen = skb_queue_len(queue);
+>> +	if (qlen > rx_batched)
+>> +		goto drop;
+>> +	__skb_queue_tail(queue, skb);
+>> +	if (!more || qlen + 1 > rx_batched) {
+>> +		__skb_queue_head_init(&process_queue);
+>> +		skb_queue_splice_tail_init(queue, &process_queue);
+>> +		rcv = true;
+>> +	}
+>> +	spin_unlock(&queue->lock);
+> Since you always clear the 'queue' when you insert the skb that hits
+> the limit, I don't see how the "goto drop" path can be possibly taken.
+
+True, will fix this.
+
+Thanks
