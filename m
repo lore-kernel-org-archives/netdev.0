@@ -1,45 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v5] net: dev_weight: TX/RX orthogonality
-Date: Thu, 29 Dec 2016 20:16:47 -0500 (EST)
-Message-ID: <20161229.201647.324176080385260025.davem@davemloft.net>
-References: <20161229.144555.1740958763290967121.davem@davemloft.net>
-        <1483043841-10016-1-git-send-email-matthias.tafelmeier@gmx.net>
+From: "Chickles, Derek" <Derek.Chickles@cavium.com>
+Subject: RE: [PATCH net-next] liquidio: optimize reads from Octeon PCI console
+Date: Fri, 30 Dec 2016 01:42:34 +0000
+Message-ID: <MWHPR07MB2943250F549EEF0D697C5E54F36A0@MWHPR07MB2943.namprd07.prod.outlook.com>
+References: <20161230010447.GA6015@felix.cavium.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hagen@jauu.net, fw@strlen.de,
-        edumazet@google.com, daniel@iogearbox.net
-To: matthias.tafelmeier@gmx.net
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "Vatsavayi, Raghu" <Raghu.Vatsavayi@cavium.com>,
+        "Burla, Satananda" <Satananda.Burla@cavium.com>
+To: "Manlunas, Felix" <Felix.Manlunas@cavium.com>,
+        "davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59298 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751039AbcL3BQv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 29 Dec 2016 20:16:51 -0500
-In-Reply-To: <1483043841-10016-1-git-send-email-matthias.tafelmeier@gmx.net>
+Received: from mail-by2nam01on0070.outbound.protection.outlook.com ([104.47.34.70]:27658
+        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751402AbcL3B5D (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 29 Dec 2016 20:57:03 -0500
+In-Reply-To: <20161230010447.GA6015@felix.cavium.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matthias Tafelmeier <matthias.tafelmeier@gmx.net>
-Date: Thu, 29 Dec 2016 21:37:21 +0100
+>  #ifdef __BIG_ENDIAN_BITFIELD
+>  static inline void
+> @@ -96,6 +96,25 @@ __octeon_pci_rw_core_mem(struct octeon_device
+> *oct, u64 addr,
+>  	u32 copy_len =3D 0, index_reg_val =3D 0;
+>  	unsigned long flags;
+>  	u8 __iomem *mapped_addr;
+> +	u64 static_mapping_base;
+> +
+> +	static_mapping_base =3D oct->console_nb_info.dram_region_base;
+> +
 
-> Oftenly, introducing side effects on packet processing on the other half
-> of the stack by adjusting one of TX/RX via sysctl is not desirable.
-> There are cases of demand for asymmetric, orthogonal configurability.
-> 
-> This holds true especially for nodes where RPS for RFS usage on top is
-> configured and therefore use the 'old dev_weight'. This is quite a
-> common base configuration setup nowadays, even with NICs of superior processing
-> support (e.g. aRFS).
-> 
-> A good example use case are nodes acting as noSQL data bases with a
-> large number of tiny requests and rather fewer but large packets as responses.
-> It's affordable to have large budget and rx dev_weights for the
-> requests. But as a side effect having this large a number on TX
-> processed in one run can overwhelm drivers.
-> 
-> This patch therefore introduces an independent configurability via sysctl to
-> userland.
-> 
-> Signed-off-by: Matthias Tafelmeier <matthias.tafelmeier@gmx.net>
-
-Much better, applied, thanks.
+Does this work when there are multiple cards?
+=20
