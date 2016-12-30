@@ -1,46 +1,40 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: brcmfmac: fix spelling mistakes on "Ivalid"
-Date: Fri, 30 Dec 2016 13:59:41 +0000 (UTC)
-Message-ID: <20161230135942.192896114D@smtp.codeaurora.org>
-References: <20161223004322.7300-1-colin.king@canonical.com>
+From: Colin King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Subject: [PATCH] ath9k: fix spelling mistake: "meaurement" -> "measurement"
+Date: Fri, 30 Dec 2016 14:06:47 +0000
+Message-ID: <20161230140647.12945-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Arend van Spriel <arend.vanspriel@broadcom.com>,
-        Franky Lin <franky.lin@broadcom.com>,
-        Hante Meuleman <hante.meuleman@broadcom.com>,
-        Pieter-Paul Giesberts <pieter-paul.giesberts@broadcom.com>,
-        =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <rafal@milecki.pl>,
-        linux-wireless@vger.kernel.org,
-        brcm80211-dev-list.pdl@broadcom.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Colin Ian King <colin.king@canonical.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:34926 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751854AbcL3N7m (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 30 Dec 2016 08:59:42 -0500
-In-Reply-To: <20161223004322.7300-1-colin.king@canonical.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: QCA ath9k Development <ath9k-devel-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>,
+        Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+        linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ath9k-devel-xDcbHBWguxHbcTqmT+pZeQ@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Colin Ian King <colin.king@canonical.com> wrote:
-> From: Colin Ian King <colin.king@canonical.com>
-> 
-> Trivial fixes to spelling mistake "Ivalid" to "Invalid" in
-> brcmf_err error messages.
-> 
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
-> Acked-by: Arend van Spriel <arend.vanspriel@broadcom.com>
+From: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
 
-Patch applied to wireless-drivers-next.git, thanks.
+Trivial fix to spelling mistake in ath_err message
 
-ad334bbb07b0 brcmfmac: fix spelling mistakes on "Ivalid"
+Signed-off-by: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+---
+ drivers/net/wireless/ath/ath9k/hw.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
+diff --git a/drivers/net/wireless/ath/ath9k/hw.c b/drivers/net/wireless/ath/ath9k/hw.c
+index a35f78b..ac36873 100644
+--- a/drivers/net/wireless/ath/ath9k/hw.c
++++ b/drivers/net/wireless/ath/ath9k/hw.c
+@@ -731,7 +731,7 @@ u32 ar9003_get_pll_sqsum_dvc(struct ath_hw *ah)
+ 		udelay(100);
+ 
+ 		if (WARN_ON_ONCE(i >= 100)) {
+-			ath_err(common, "PLL4 meaurement not done\n");
++			ath_err(common, "PLL4 measurement not done\n");
+ 			break;
+ 		}
+ 
 -- 
-https://patchwork.kernel.org/patch/9487009/
-
-Documentation about submitting wireless patches and checking status
-from patchwork:
-
-https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
+2.10.2
