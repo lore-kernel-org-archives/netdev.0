@@ -1,34 +1,57 @@
-From: "Samudrala, Sridhar" <sridhar.samudrala@intel.com>
-Subject: Re: [net-next PATCH 3/6] i40e: Sync link state between VFs and VFPRs
-Date: Fri, 30 Dec 2016 09:10:27 -0800
-Message-ID: <58669503.2070502@intel.com>
-References: <1483078863-22026-1-git-send-email-sridhar.samudrala@intel.com> <1483078863-22026-4-git-send-email-sridhar.samudrala@intel.com> <CAJ3xEMiQaVc=aJMFJdWEDHEeYL5NnxAcqbM_cTa+X5CkNrLtZg@mail.gmail.com>
+From: Guillaume Nault <g.nault@alphalink.fr>
+Subject: [PATCH net 1/2] l2tp: consider '::' as wildcard address in l2tp_ip6
+ socket lookup
+Date: Fri, 30 Dec 2016 19:48:19 +0100
+Message-ID: <7bae3828719cfe1de6aeab1f12355dd8e7831f48.1483123297.git.g.nault@alphalink.fr>
+References: <cover.1483123297.git.g.nault@alphalink.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-        John Fastabend <john.r.fastabend@intel.com>,
-        Anjali Singhai Jain <anjali.singhai@intel.com>,
-        jakub.kicinski@netronome.com, intel-wired-lan@lists.osuosl.org,
-        Linux Netdev List <netdev@vger.kernel.org>
-To: Or Gerlitz <gerlitz.or@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: James Chapman <jchapman@katalix.com>,
+        Chris Elston <celston@katalix.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga04.intel.com ([192.55.52.120]:63723 "EHLO mga04.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750776AbcL3RKa (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 30 Dec 2016 12:10:30 -0500
-In-Reply-To: <CAJ3xEMiQaVc=aJMFJdWEDHEeYL5NnxAcqbM_cTa+X5CkNrLtZg@mail.gmail.com>
+Received: from zimbra.alphalink.fr ([217.15.80.77]:49280 "EHLO
+        zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753758AbcL3SsW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 30 Dec 2016 13:48:22 -0500
+Content-Disposition: inline
+In-Reply-To: <cover.1483123297.git.g.nault@alphalink.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/30/2016 7:43 AM, Or Gerlitz wrote:
-> On Fri, Dec 30, 2016 at 8:21 AM, Sridhar Samudrala
-> <sridhar.samudrala@intel.com> wrote:
->
-> [..]
->> - enable/disable VF link state via ndo_set_vf_link_state will update the
->>    admin state of associated VFPR.
-> why you want to do that? anything missing here w.o using the legacy mode?
-Nothing missing.  legacy way of controlling the VF link state is 
-supported even in switchdev mode
-until it is deprecated.
+An L2TP socket bound to the unspecified address should match with any
+address. If not, it can't receive any packet and __l2tp_ip6_bind_lookup()
+can't prevent another socket from binding on the same device/tunnel ID.
+
+While there, rename the 'addr' variable to 'sk_laddr' (local addr), to
+make following patch clearer.
+
+Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
+---
+ net/l2tp/l2tp_ip6.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/l2tp/l2tp_ip6.c b/net/l2tp/l2tp_ip6.c
+index f092ac441fdd..3135b9d55df5 100644
+--- a/net/l2tp/l2tp_ip6.c
++++ b/net/l2tp/l2tp_ip6.c
+@@ -64,7 +64,7 @@ static struct sock *__l2tp_ip6_bind_lookup(struct net *net,
+ 	struct sock *sk;
+ 
+ 	sk_for_each_bound(sk, &l2tp_ip6_bind_table) {
+-		const struct in6_addr *addr = inet6_rcv_saddr(sk);
++		const struct in6_addr *sk_laddr = inet6_rcv_saddr(sk);
+ 		struct l2tp_ip6_sock *l2tp = l2tp_ip6_sk(sk);
+ 
+ 		if (l2tp == NULL)
+@@ -72,7 +72,7 @@ static struct sock *__l2tp_ip6_bind_lookup(struct net *net,
+ 
+ 		if ((l2tp->conn_id == tunnel_id) &&
+ 		    net_eq(sock_net(sk), net) &&
+-		    (!addr || ipv6_addr_equal(addr, laddr)) &&
++		    (!sk_laddr || ipv6_addr_any(sk_laddr) || ipv6_addr_equal(sk_laddr, laddr)) &&
+ 		    (!sk->sk_bound_dev_if || !dif ||
+ 		     sk->sk_bound_dev_if == dif))
+ 			goto found;
+-- 
+2.11.0
