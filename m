@@ -1,60 +1,65 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
 Subject: Re: [PATCH net-next] af_packet: Provide a TPACKET_V2 compatible Tx
  path for TPACKET_V3
-Date: Fri, 30 Dec 2016 16:33:47 -0500
-Message-ID: <CAF=yD-+CMjr_9s2wVZOQEPAP5h9jpnMe3vckYGbQ9hnQoGWFEw@mail.gmail.com>
+Date: Fri, 30 Dec 2016 18:03:16 -0500
+Message-ID: <20161230230316.GB31800@oracle.com>
 References: <1483116853-45769-1-git-send-email-sowmini.varadhan@oracle.com>
+ <CAF=yD-+CMjr_9s2wVZOQEPAP5h9jpnMe3vckYGbQ9hnQoGWFEw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=us-ascii
 Cc: Network Development <netdev@vger.kernel.org>,
         Daniel Borkmann <daniel@iogearbox.net>,
         Willem de Bruijn <willemb@google.com>,
         David Miller <davem@davemloft.net>
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f195.google.com ([209.85.217.195]:33470 "EHLO
-        mail-ua0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752421AbcL3Ve3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 30 Dec 2016 16:34:29 -0500
-Received: by mail-ua0-f195.google.com with SMTP id d5so18600241uag.0
-        for <netdev@vger.kernel.org>; Fri, 30 Dec 2016 13:34:28 -0800 (PST)
-In-Reply-To: <1483116853-45769-1-git-send-email-sowmini.varadhan@oracle.com>
+Received: from aserp1040.oracle.com ([141.146.126.69]:23770 "EHLO
+        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754584AbcL3XDf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 30 Dec 2016 18:03:35 -0500
+Content-Disposition: inline
+In-Reply-To: <CAF=yD-+CMjr_9s2wVZOQEPAP5h9jpnMe3vckYGbQ9hnQoGWFEw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 30, 2016 at 11:54 AM, Sowmini Varadhan
-<sowmini.varadhan@oracle.com> wrote:
-> Although TPACKET_V3 Rx has some benefits over TPACKET_V2 Rx,
-> *_v3 does not currently have Tx support. As a result an application
-> that wants the best perf for Tx and Rx (e.g. to handle
-> request/response transacations) ends up needing 2 sockets,
-> one with *_v2 for Tx and another with *_v3 for Rx.
->
-> This patch enables TPACKET_V2 compatible Tx features in TPACKET_V3
-> so that _v3 supports at least as many features as _v2.
+On (12/30/16 16:33), Willem de Bruijn wrote:
+> 
+> Once we define the interface as equivalent to v2, we cannot redefine it to
+> support v3-only features later.
 
-Once we define the interface as equivalent to v2, we cannot redefine it to
-support v3-only features later.
+What v3 only features do we think we want to support?
 
-> Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-> ---
->  Documentation/networking/packet_mmap.txt |    6 ++++--
->  net/packet/af_packet.c                   |   23 +++++++++++++++--------
->  2 files changed, 19 insertions(+), 10 deletions(-)
->
-> diff --git a/Documentation/networking/packet_mmap.txt b/Documentation/networking/packet_mmap.txt
-> index daa015a..6425062 100644
-> --- a/Documentation/networking/packet_mmap.txt
-> +++ b/Documentation/networking/packet_mmap.txt
-> @@ -565,7 +565,7 @@ where 'tpacket_version' can be TPACKET_V1 (default), TPACKET_V2, TPACKET_V3.
->                    (void *)hdr + TPACKET_ALIGN(sizeof(struct tpacket_hdr))
->
->  TPACKET_V2 --> TPACKET_V3:
-> -       - Flexible buffer implementation:
-> +       - Flexible buffer implementation for RX_RING:
->                 1. Blocks can be configured with non-static frame-size
+Tpacket_v3 went in 
 
-This is one of the main advantages of the v3 interface, and also
-relevant to Tx. The current implementation does not consult
-tpacket3_hdr->tp_next_offset and would preclude adding that
-later.
+  commit f6fb8f100b807378fda19e83e5ac6828b638603a
+  :
+  Date:   Fri Aug 19 10:18:16 2011 +0000
+
+since then apps that want to use the Rx benefits
+have to deal with this dual socket feature, where
+with "one socket for super-fast rx, zero Tx".
+The zero-tx part sounds like a regression to me.
+
+If we want to have something that does block Tx,
+and we cannot figure out how to retro-fit it to 
+the exisiting APIs, we can always go for TPACKET_V4. 
+
+
+> >  TPACKET_V2 --> TPACKET_V3:
+> > -       - Flexible buffer implementation:
+> > +       - Flexible buffer implementation for RX_RING:
+> >                 1. Blocks can be configured with non-static frame-size
+> 
+> This is one of the main advantages of the v3 interface, and also
+
+sure, and we see some marginal benefits for this, when
+we try to use it for our apps. But the "marginal" part
+is not worth it, if I have to use separate sockets for tx and rx.
+
+> relevant to Tx. The current implementation does not consult
+> tpacket3_hdr->tp_next_offset and would preclude adding that
+> later.
+
+When is "later"? its been 6+ years.
+
+--Sowmini
