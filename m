@@ -1,80 +1,63 @@
-From: Olivier Brunel <jjk@jjacky.com>
-Subject: Bug w/ (policy) routing
-Date: Sat, 31 Dec 2016 00:00:06 +0100
-Message-ID: <20161231000006.17677918@jjacky.com>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH net-next] af_packet: Provide a TPACKET_V2 compatible Tx
+ path for TPACKET_V3
+Date: Fri, 30 Dec 2016 18:39:32 -0500
+Message-ID: <CAF=yD-JiRDnYPB=W37T5tF7rVVGD5bACK6YkSWwuGdF2PdOdBQ@mail.gmail.com>
+References: <1483116853-45769-1-git-send-email-sowmini.varadhan@oracle.com>
+ <CAF=yD-+CMjr_9s2wVZOQEPAP5h9jpnMe3vckYGbQ9hnQoGWFEw@mail.gmail.com> <20161230230316.GB31800@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Network Development <netdev@vger.kernel.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Willem de Bruijn <willemb@google.com>,
+        David Miller <davem@davemloft.net>
+To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 23-29-69-116.static.gorillaservers.com ([23.29.69.116]:43291
-        "EHLO mail.jjacky.com" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-        with ESMTP id S1754025AbcL3XIF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 30 Dec 2016 18:08:05 -0500
-Received: by mail.jjacky.com (OpenSMTPD) with ESMTP id 46a0ced9
-        for <netdev@vger.kernel.org>;
-        Fri, 30 Dec 2016 23:01:41 +0000 (UTC)
+Received: from mail-vk0-f67.google.com ([209.85.213.67]:36863 "EHLO
+        mail-vk0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754223AbcL3XkO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 30 Dec 2016 18:40:14 -0500
+Received: by mail-vk0-f67.google.com with SMTP id 19so11528247vko.3
+        for <netdev@vger.kernel.org>; Fri, 30 Dec 2016 15:40:13 -0800 (PST)
+In-Reply-To: <20161230230316.GB31800@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+>> Once we define the interface as equivalent to v2, we cannot redefine it to
+>> support v3-only features later.
+>
+> What v3 only features do we think we want to support?
 
-(Please cc me as I'm not subscribed to the list, thanks.)
+Variable length slots seems like the only one from that list that
+makes sense on Tx.
 
-I'm trying to set things up using some policy routing, and having some
-weird issues I can't really explain. It looks to me like there might be
-a bug somewhere...
+It is already possible to prepare multiple buffers before triggering
+transmit, so the block-based signal moderation is not very relevant.
 
-This is done under Arch Linux 64bits, iproute2 4.9.0 (`ip -V` says ip
-utility, iproute2-ss161212), kernel 4.8.13
+> since then apps that want to use the Rx benefits
+> have to deal with this dual socket feature, where
+> with "one socket for super-fast rx, zero Tx".
+> The zero-tx part sounds like a regression to me.
 
-Basically here's what I could reduce it to:
-- create a new network namespace, create a pair of veth devices: one in
-there, one sent back to the original namespace
-- I'm giving them IPs 10.4.0.1 (original namespace) & 10.4.0.2 (new
-namespace)
-- in that new namespace, I'm trying to add a route to 10.4.0.1, but
-  inside a new table. I also want a default route via 10.4.0.1 on the
-  table main. It seems to work, only not really...
+What is the issue with using separate sockets that you are
+having? I generally end up using that even with V2.
 
-It's not very easy to describe so hopefully this will make things
-clearer:
+> If we want to have something that does block Tx,
+> and we cannot figure out how to retro-fit it to
+> the exisiting APIs, we can always go for TPACKET_V4.
 
-$ sudo unshare -n sh
-sh-4.4# ip rule add table 50 prio 50
-sh-4.4# ip link add test type veth peer name test2
-sh-4.4# ip addr add 10.4.0.2 dev test
-sh-4.4# ip link set dev test up
-sh-4.4# ip link set netns 1 dev test2
-# back in original namespace, we add 10.4.0.1 to test2 and bring it up
+But the semantics for V3 are currenty well defined. Calling something
+V3, but using V2 semantics is a somewhat unintuitive interface to me.
 
-sh-4.4# ip route add 10.4.0.1 dev test table 50
-sh-4.4# ip route add default via 10.4.0.1 dev test
-sh-4.4# ip route flush cache
-sh-4.4# ip rule
-0:	from all lookup local 
-50:	from all lookup 50 
-32766:	from all lookup main 
-32767:	from all lookup default 
-sh-4.4# ip route show table 50
-10.4.0.1 dev test scope link 
-sh-4.4# ip route get 10.4.0.1
-10.4.0.1 via 10.4.0.1 dev test table local src 10.4.0.2 
-    cache 
-# !?? why isn't table 50 used as, I believe, it should. And why
-does adding a rule "fixes" it :
+I don't see a benefit in defining something that does not implement
+any new features. Especially if it blocks adding the expected
+semantics later.
 
-sh-4.4# ip rule add prio 55555
-sh-4.4# ip route get 10.4.0.1
-10.4.0.1 dev test table 50 src 10.4.0.2 
-    cache 
-# deleting the new rule makes no difference. It could even have been
-done right after adding it. It's like it just triggered something
-(reload, cache flushed, ...)
-As seen I did flush cached routes as mentionned in the man page, I don't
-know of anything else that would need done to "refresh" things?
+That said, if there is a workload that benefits from using a
+single socket, and especially if it can be forward compatible with
+support for variable sized slots, then I do not object. I was just
+having a look at that second point, actually.
 
-Any ideas as to why this is happening? Should this work as I expect it,
-or is there anything I'm doing wrong?
-
-Thanks,
+Could you also extend the TX_RING test in
+tools/testing/selftests/net/psock_tpacket.c if there are no other
+blocking issues?
