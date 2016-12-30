@@ -1,44 +1,44 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH][V3] rtlwifi: fix spelling mistake: "encrypiton" -> "encryption"
-Date: Fri, 30 Dec 2016 14:50:27 +0000
-Message-ID: <20161230145027.14090-1-colin.king@canonical.com>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [net-next PATCH 5/6] i40e: Add TX and RX support in switchdev mode.
+Date: Fri, 30 Dec 2016 17:31:55 +0200
+Message-ID: <CAJ3xEMgDAUSE2gVD3dU4UuXFb7k_W-9QgHpg-0c7b5kxRC2=FQ@mail.gmail.com>
+References: <1483078863-22026-1-git-send-email-sridhar.samudrala@intel.com> <1483078863-22026-6-git-send-email-sridhar.samudrala@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org
-To: Larry Finger <Larry.Finger@lwfinger.net>,
-        Chaoming Li <chaoming_li@realsil.com.cn>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+        John Fastabend <john.r.fastabend@intel.com>,
+        Anjali Singhai Jain <anjali.singhai@intel.com>,
+        jakub.kicinski@netronome.com, intel-wired-lan@lists.osuosl.org,
+        Linux Netdev List <netdev@vger.kernel.org>
+To: Sridhar Samudrala <sridhar.samudrala@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:40911 "EHLO
-        youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753953AbcL3OvX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 30 Dec 2016 09:51:23 -0500
+Received: from mail-oi0-f68.google.com ([209.85.218.68]:35698 "EHLO
+        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754024AbcL3Pb5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 30 Dec 2016 10:31:57 -0500
+Received: by mail-oi0-f68.google.com with SMTP id v84so58095268oie.2
+        for <netdev@vger.kernel.org>; Fri, 30 Dec 2016 07:31:56 -0800 (PST)
+In-Reply-To: <1483078863-22026-6-git-send-email-sridhar.samudrala@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king@canonical.com>
+On Fri, Dec 30, 2016 at 8:21 AM, Sridhar Samudrala
+<sridhar.samudrala@intel.com> wrote:
+> In switchdev mode, broadcast filter is not enabled on VFs, The broadcasts and
 
-trivial fix to spelling mistake in RT_TRACE message
+nit ", The broadcast" --> ", the broadcasts" or ". The broadcasts"
 
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- drivers/net/wireless/realtek/rtlwifi/core.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> unknown frames from VFs are received by the PF and passed to corresponding VF
+> port representator netdev.
+> A host based switching entity like a linux bridge or OVS redirects these frames
+> to the right VFs via VFPR netdevs. Any frames sent via VFPR netdevs are sent as
+> directed transmits to the corresponding VFs. To enable directed transmit, skb
+> metadata dst is used to pass the VF id and the frame is requeued to call the PFs
+> transmit routine.
 
-diff --git a/drivers/net/wireless/realtek/rtlwifi/core.c b/drivers/net/wireless/realtek/rtlwifi/core.c
-index ded1493..732de0a 100644
---- a/drivers/net/wireless/realtek/rtlwifi/core.c
-+++ b/drivers/net/wireless/realtek/rtlwifi/core.c
-@@ -1532,7 +1532,7 @@ static int rtl_op_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
- 		key_type = AESCMAC_ENCRYPTION;
- 		RT_TRACE(rtlpriv, COMP_SEC, DBG_DMESG, "alg:CMAC\n");
- 		RT_TRACE(rtlpriv, COMP_SEC, DBG_DMESG,
--			 "HW don't support CMAC encrypiton, use software CMAC encrypiton\n");
-+			 "HW don't support CMAC encryption, use software CMAC encryption\n");
- 		err = -EOPNOTSUPP;
- 		goto out_unlock;
- 	default:
--- 
-2.10.2
+So the representator netdevs do or don't have TX/RX rings of their
+own? if the latter, was there any special locking you had to do for
+that?
+
+Are you exposing switchdev ops for the representators? didn't see that
+or maybe it's in the 4th patch which didn't make it to the list?
