@@ -1,65 +1,64 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 11/21] ixgbe: fix AER error handling
-Date: Fri, 30 Dec 2016 01:33:31 -0800
-Message-ID: <20161230093341.14674-12-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 10/21] ixgbe: test for trust in macvlan adjustments for VF
+Date: Fri, 30 Dec 2016 01:33:30 -0800
+Message-ID: <20161230093341.14674-11-jeffrey.t.kirsher@intel.com>
 References: <20161230093341.14674-1-jeffrey.t.kirsher@intel.com>
-Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
+Cc: Ken Cox <jkc@redhat.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
         guru.anbalagane@oracle.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga06.intel.com ([134.134.136.31]:32169 "EHLO mga06.intel.com"
+Received: from mga06.intel.com ([134.134.136.31]:60629 "EHLO mga06.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752008AbcL3Jdr (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1752275AbcL3Jdr (ORCPT <rfc822;netdev@vger.kernel.org>);
         Fri, 30 Dec 2016 04:33:47 -0500
 In-Reply-To: <20161230093341.14674-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Emil Tantilov <emil.s.tantilov@intel.com>
+From: Ken Cox <jkc@redhat.com>
 
-Make sure that we free the IRQs in ixgbe_io_error_detected() when
-responding to an PCIe AER error and also restore them when the
-interface recovers from it.
+There are two methods for setting mac addresses in a Macvlan, that
+differentiate themselves in the function macvlan_set_mac_Address.
+If the macvlan mode is passthru, then we use the dev_set_mac_address
+method, otherwise we use the dev_uc api via macvlan_sync_addresses.
+The latter method (which would stem from using any non-passthru mode,
+like bridge, or vepa), calls down into the driver in a path that terminates
+in ixgbevf_set_uc_addr_vf, which sends a IXGBE_VF_SET_MACVLAN message,
+which causes the pf to spawn the noted error message.  This occurs because
+it appears that the guest is trying to delete the mac address of the macvlan
+before adding another.
 
-Previously it was possible to trigger BUG_ON() check in free_msix_irqs()
-in the case where we call ixgbe_remove() after a failed recovery from
-AER error because the interrupts were not freed.
+The other path in macvlan_set_mac_address uses dev_set_mac_address, which
+calls into ixgbevf_set_mac which uses the IXGBE_VF_SET_MAC_ADDR to the
+pf to set the macvlan mac address.
 
-Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+The discrepancy here is in the handlers.  The handler function for
+IXGBE_VF_SET_MAC_ADDR (ixgbe_set_vf_mac_addr) has a check for
+the vfinfo[].trusted bit to allow the operation if the vf is trusted.
+In comparison, the IXGBE_VF_SET_MACVLAN message handler
+(ixgbe_set_vf_macvlan_msg) has no such check of the trusted bit.
+
+Signed-off-by: Ken Cox <jkc@redhat.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 476f012..9ca167c 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -10082,7 +10082,7 @@ static pci_ers_result_t ixgbe_io_error_detected(struct pci_dev *pdev,
- 	}
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+index 7e5d985..dd1187c 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+@@ -934,7 +934,8 @@ static int ixgbe_set_vf_macvlan_msg(struct ixgbe_adapter *adapter,
+ 		    IXGBE_VT_MSGINFO_SHIFT;
+ 	int err;
  
- 	if (netif_running(netdev))
--		ixgbe_down(adapter);
-+		ixgbe_close_suspend(adapter);
- 
- 	if (!test_and_set_bit(__IXGBE_DISABLED, &adapter->state))
- 		pci_disable_device(pdev);
-@@ -10152,10 +10152,12 @@ static void ixgbe_io_resume(struct pci_dev *pdev)
- 	}
- 
- #endif
-+	rtnl_lock();
- 	if (netif_running(netdev))
--		ixgbe_up(adapter);
-+		ixgbe_open(netdev);
- 
- 	netif_device_attach(netdev);
-+	rtnl_unlock();
- }
- 
- static const struct pci_error_handlers ixgbe_err_handler = {
+-	if (adapter->vfinfo[vf].pf_set_mac && index > 0) {
++	if (adapter->vfinfo[vf].pf_set_mac && !adapter->vfinfo[vf].trusted &&
++	    index > 0) {
+ 		e_warn(drv,
+ 		       "VF %d requested MACVLAN filter but is administratively denied\n",
+ 		       vf);
 -- 
 2.9.3
