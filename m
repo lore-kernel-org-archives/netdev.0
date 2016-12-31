@@ -1,37 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: socket: don't set sk_uid to garbage value in
- ->setattr()
-Date: Sat, 31 Dec 2016 12:36:35 -0500 (EST)
-Message-ID: <20161231.123635.849464145094515334.davem@davemloft.net>
-References: <20161230234232.4221-1-ebiggers3@gmail.com>
+From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v3] net: ethernet: faraday: To support device tree usage.
+Date: Sat, 31 Dec 2016 10:48:39 -0800
+Message-ID: <351d1ae7-ca51-7962-0e52-38cdc69bcebd@gmail.com>
+References: <1483083470-15779-1-git-send-email-green.hu@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lorenzo@google.com,
-        linux-fsdevel@vger.kernel.org, linux-kernel@vger.kernel.org,
-        ebiggers@google.com
-To: ebiggers3@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161230234232.4221-1-ebiggers3@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+To: Greentime Hu <green.hu-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org, arnd-r2nGTMty4D4@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1483083470-15779-1-git-send-email-green.hu-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Biggers <ebiggers3@gmail.com>
-Date: Fri, 30 Dec 2016 17:42:32 -0600
 
-> From: Eric Biggers <ebiggers@google.com>
-> 
-> ->setattr() was recently implemented for socket files to sync the socket
-> inode's uid to the new 'sk_uid' member of struct sock.  It does this by
-> copying over the ia_uid member of struct iattr.  However, ia_uid is
-> actually only valid when ATTR_UID is set in ia_valid, indicating that
-> the uid is being changed, e.g. by chown.  Other metadata operations such
-> as chmod or utimes leave ia_uid uninitialized.  Therefore, sk_uid could
-> be set to a "garbage" value from the stack.
-> 
-> Fix this by only copying the uid over when ATTR_UID is set.
-> 
-> Fixes: 86741ec25462 ("net: core: Add a UID field to struct sock.")
-> Signed-off-by: Eric Biggers <ebiggers@google.com>
 
-Lorenzo, please review.
+On 12/29/2016 11:37 PM, Greentime Hu wrote:
+> Signed-off-by: Greentime Hu <green.hu-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+
+This is not enough, you need to add a Device Tree binding document under
+Documentation/devicetree/bindings/net/ which documents this compatible
+string, as well as additional properties that may be required to
+describe this hardware block.
+
+-- 
+Florian
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
