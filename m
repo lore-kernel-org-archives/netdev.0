@@ -1,47 +1,43 @@
-From: Eric Biggers <ebiggers3@gmail.com>
-Subject: [PATCH] net: socket: don't set sk_uid to garbage value in ->setattr()
-Date: Fri, 30 Dec 2016 17:42:32 -0600
-Message-ID: <20161230234232.4221-1-ebiggers3@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Lorenzo Colitti <lorenzo@google.com>,
-        linux-fsdevel@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Eric Biggers <ebiggers@google.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-Sender: linux-fsdevel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH net-next rfc 0/6] convert tc_verd to integer bitfields
+Date: Fri, 30 Dec 2016 19:02:04 -0500
+Message-ID: <CAF=yD-KJDmiFt8c+xpEd=WfAN5A=sB9AGo6hjoUwJg4WQ6=-DQ@mail.gmail.com>
+References: <1482952410-50003-1-git-send-email-willemdebruijn.kernel@gmail.com>
+ <20161229.222113.146921294105321953.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Network Development <netdev@vger.kernel.org>,
+        Florian Westphal <fw@strlen.de>, dborkman@iogearbox.net,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Willem de Bruijn <willemb@google.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ua0-f194.google.com ([209.85.217.194]:32792 "EHLO
+        mail-ua0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752361AbcLaACp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 30 Dec 2016 19:02:45 -0500
+Received: by mail-ua0-f194.google.com with SMTP id d5so18805860uag.0
+        for <netdev@vger.kernel.org>; Fri, 30 Dec 2016 16:02:45 -0800 (PST)
+In-Reply-To: <20161229.222113.146921294105321953.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Biggers <ebiggers@google.com>
+On Thu, Dec 29, 2016 at 10:21 PM, David Miller <davem@davemloft.net> wrote:
+> From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+> Date: Wed, 28 Dec 2016 14:13:24 -0500
+>
+>> The skb tc_verd field takes up two bytes but uses far fewer bits.
+>> Convert the remaining use cases to bitfields that fit in existing
+>> holes (depending on config options) and potentially save the two
+>> bytes in struct sk_buff.
+>
+> I like the looks of this, for sure :-)
 
-->setattr() was recently implemented for socket files to sync the socket
-inode's uid to the new 'sk_uid' member of struct sock.  It does this by
-copying over the ia_uid member of struct iattr.  However, ia_uid is
-actually only valid when ATTR_UID is set in ia_valid, indicating that
-the uid is being changed, e.g. by chown.  Other metadata operations such
-as chmod or utimes leave ia_uid uninitialized.  Therefore, sk_uid could
-be set to a "garbage" value from the stack.
+Great, thanks. I sent it as RFC initially, because there were some unresolved
+issues with TC_FROM semantics last time around. bpf_redirect has been
+merged in the meantime, so I suspect that that has been resolved.
 
-Fix this by only copying the uid over when ATTR_UID is set.
-
-Fixes: 86741ec25462 ("net: core: Add a UID field to struct sock.")
-Signed-off-by: Eric Biggers <ebiggers@google.com>
----
- net/socket.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/socket.c b/net/socket.c
-index 8487bf136e5c..a8c2307590b8 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -537,7 +537,7 @@ int sockfs_setattr(struct dentry *dentry, struct iattr *iattr)
- {
- 	int err = simple_setattr(dentry, iattr);
- 
--	if (!err) {
-+	if (!err && (iattr->ia_valid & ATTR_UID)) {
- 		struct socket *sock = SOCKET_I(d_inode(dentry));
- 
- 		sock->sk->sk_uid = iattr->ia_uid;
--- 
-2.11.0
-
+But there is no rush. I will run a few more tests, such as the new mirred
+ingress path, and will hold off resubmitting until people now on holiday
+have a chance to chime in next week.
