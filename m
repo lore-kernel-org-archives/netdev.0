@@ -1,48 +1,54 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net-next V3 3/3] tun: rx batching
-Date: Sat, 31 Dec 2016 13:03:32 -0800
-Message-ID: <20161231130333.347cb8f3@xeon-e3>
-References: <1483075251-6889-1-git-send-email-jasowang@redhat.com>
-	<1483075251-6889-4-git-send-email-jasowang@redhat.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH v1 0/2] bpf: add longest prefix match map
+Date: Sat, 31 Dec 2016 14:31:36 -0800
+Message-ID: <CAADnVQJ63TVkzA+2dUzmdywuMXo5TcwR0WmM0VC++7SShzKrdw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	wexu@redhat.com, kvm@vger.kernel.org, mst@redhat.com
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1483075251-6889-4-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Daniel Mack <daniel@zonque.org>, Alexei Starovoitov <ast@fb.com>,
+        dh.herrmann@gmail.com, Daniel Borkmann <daniel@iogearbox.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f50.google.com ([209.85.215.50]:36339 "EHLO
+        mail-lf0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754815AbcLaWb7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 31 Dec 2016 17:31:59 -0500
+Received: by mail-lf0-f50.google.com with SMTP id t196so254110919lff.3
+        for <netdev@vger.kernel.org>; Sat, 31 Dec 2016 14:31:58 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 30 Dec 2016 13:20:51 +0800
-Jason Wang <jasowang@redhat.com> wrote:
+On Fri, Dec 30, 2016 at 12:25 PM, David Miller <davem@davemloft.net> wrote:
+> From: Daniel Mack <daniel@zonque.org>
+> Date: Thu, 29 Dec 2016 18:28:53 +0100
+>
+>> This patch set adds a longest prefix match algorithm that can be used
+>> to match IP addresses to a stored set of ranges. It is exposed as a
+>> bpf map type.
+>>
+>> Internally, data is stored in an unbalanced tree of nodes that has a
+>> maximum height of n, where n is the prefixlen the trie was created
+>> with.
+>>
+>> Not that this has nothing to do with fib or fib6 and is in no way meant
+>> to replace or share code with it. It's rather a much simpler
+>> implementation that is specifically written with bpf maps in mind.
+>>
+>> Patch 1/2 adds the implementation, and 2/2 an extensive test suite.
+>>
+>> Feedback is much appreciated.
+>
+> I'll give Alexei and Daniel time to provide feedback on this series.
 
-> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> index cd8e02c..a268ed9 100644
-> --- a/drivers/net/tun.c
-> +++ b/drivers/net/tun.c
-> @@ -75,6 +75,10 @@
->  
->  #include <linux/uaccess.h>
->  
-> +static int rx_batched;
-> +module_param(rx_batched, int, 0444);
-> +MODULE_PARM_DESC(rx_batched, "Number of packets batched in rx");
-> +
->  /* Uncomment to enable debugging */
-
-I like the concept or rx batching. But controlling it via a module parameter
-is one of the worst API choices.  Ethtool would be better to use because that is
-how other network devices control batching.
-
-If you do ethtool, you could even extend it to have an number of packets
-and max latency value.
+I did a quick glance over and, in general, I'm very much in favor.
+Will do a proper review Jan 3rd when I'm back from pto.
+Daniel,
+could you provide performance numbers for lookups per second
+for different key lengths with almost empty and almost
+full 100k+ lpm rules?
+And the rate of updates per second?
+I guess your use case is more traditional 32 or 128 bit lpm
+whereas I'd like to use it as 64-bit lpm.
+Would be good to add few tests with non-power of 8 key length
+(it seems to me they should be supported by the algo).
+Thank you for working on it!
