@@ -1,7 +1,7 @@
 From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net-next 22/27] sctp: add rfc6525 section 5.2.4
-Date: Sun,  1 Jan 2017 19:20:39 +0800
-Message-ID: <470b9f2b5248e0c1870c501f262a1887be66509b.1483269426.git.lucien.xin@gmail.com>
+Subject: [PATCH net-next 23/27] sctp: add rfc6525 section 5.2.5
+Date: Sun,  1 Jan 2017 19:20:40 +0800
+Message-ID: <105630d2f9a54de9c3ce49988452d2b111c71b3d.1483269426.git.lucien.xin@gmail.com>
 References: <cover.1483269426.git.lucien.xin@gmail.com>
  <684ad8ddd79f23844883dede4c34360ce744dfc3.1483269426.git.lucien.xin@gmail.com>
  <c752879a5af358c08da949b391416452f1322c43.1483269426.git.lucien.xin@gmail.com>
@@ -24,41 +24,39 @@ References: <cover.1483269426.git.lucien.xin@gmail.com>
  <9be4c65c6bac7df0dbf51328af92727e5606dc5c.1483269426.git.lucien.xin@gmail.com>
  <b5eb3a199dded2efe517b19b5cac6ae498a6c0c8.1483269426.git.lucien.xin@gmail.com>
  <c59df697bb54348de10f8418a23e9d14bce30135.1483269426.git.lucien.xin@gmail.com>
+ <470b9f2b5248e0c1870c501f262a1887be66509b.1483269426.git.lucien.xin@gmail.com>
 Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
         Neil Horman <nhorman@tuxdriver.com>, davem@davemloft.net
 To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:35506 "EHLO
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:35530 "EHLO
         mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932079AbdAALXs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 1 Jan 2017 06:23:48 -0500
-In-Reply-To: <c59df697bb54348de10f8418a23e9d14bce30135.1483269426.git.lucien.xin@gmail.com>
+        with ESMTP id S932079AbdAALX4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 1 Jan 2017 06:23:56 -0500
+In-Reply-To: <470b9f2b5248e0c1870c501f262a1887be66509b.1483269426.git.lucien.xin@gmail.com>
 In-Reply-To: <cover.1483269426.git.lucien.xin@gmail.com>
 References: <cover.1483269426.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch is to implement Receiver-Side Procedures for the SSN/TSN
-Reset Request Parameter described in section 6.2.4.
-
-The process is kinda complicate, it's wonth having comments from
-section 6.2.4 in the codes.
+This patch is to add Receiver-Side Procedures for the Add Outgoing
+Streams Request Parameter described in section 5.2.5.
 
 Signed-off-by: Xin Long <lucien.xin@gmail.com>
 ---
- include/net/sctp/sm.h |  4 +++
- net/sctp/stream.c     | 76 +++++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 80 insertions(+)
+ include/net/sctp/sm.h |  4 ++++
+ net/sctp/stream.c     | 56 +++++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 60 insertions(+)
 
 diff --git a/include/net/sctp/sm.h b/include/net/sctp/sm.h
-index 180d017..e1b2509 100644
+index e1b2509..5624b52 100644
 --- a/include/net/sctp/sm.h
 +++ b/include/net/sctp/sm.h
-@@ -289,6 +289,10 @@ struct sctp_chunk *sctp_process_strreset_inreq(
+@@ -293,6 +293,10 @@ struct sctp_chunk *sctp_process_strreset_tsnreq(
  				struct sctp_association *asoc,
  				union sctp_params param,
  				struct sctp_ulpevent **evp);
-+struct sctp_chunk *sctp_process_strreset_tsnreq(
++struct sctp_chunk *sctp_process_strreset_addstrm_out(
 +				struct sctp_association *asoc,
 +				union sctp_params param,
 +				struct sctp_ulpevent **evp);
@@ -66,25 +64,25 @@ index 180d017..e1b2509 100644
  /* Prototypes for statetable processing. */
  
 diff --git a/net/sctp/stream.c b/net/sctp/stream.c
-index 3053d06..fce4317 100644
+index fce4317..b51a037 100644
 --- a/net/sctp/stream.c
 +++ b/net/sctp/stream.c
-@@ -207,3 +207,79 @@ struct sctp_chunk *sctp_process_strreset_inreq(
- 
- 	return chunk;
+@@ -283,3 +283,59 @@ struct sctp_chunk *sctp_process_strreset_tsnreq(
+ 	return sctp_make_strreset_tsnresp(asoc, result, request_seq,
+ 					  asoc->next_tsn, initial_tsn);
  }
 +
-+struct sctp_chunk *sctp_process_strreset_tsnreq(
++struct sctp_chunk *sctp_process_strreset_addstrm_out(
 +				struct sctp_association *asoc,
 +				union sctp_params param,
 +				struct sctp_ulpevent **evp)
 +{
-+	struct sctp_strreset_tsnreq *tsnreq = param.v;
-+	__u32 request_seq, initial_tsn, max_tsn_seen;
++	struct sctp_strreset_addstrm *addstrm = param.v;
 +	__u32 result = SCTP_STRRESET_DENIED;
-+	__u16 i;
++	__u32 request_seq;
++	__u16 nums;
 +
-+	request_seq = ntohl(tsnreq->request_seq);
++	request_seq = ntohl(addstrm->request_seq);
 +	if (request_seq > asoc->strreset_inseq) {
 +		result = SCTP_STRRESET_ERR_BAD_SEQNO;
 +		goto out;
@@ -92,7 +90,7 @@ index 3053d06..fce4317 100644
 +		asoc->strreset_inseq++;
 +	}
 +
-+	if (!(asoc->strreset_enable & SCTP_ENABLE_RESET_ASSOC_REQ))
++	if (!(asoc->strreset_enable & SCTP_ENABLE_CHANGE_ASSOC_REQ))
 +		goto out;
 +
 +	if (asoc->strreset_outstanding) {
@@ -100,54 +98,34 @@ index 3053d06..fce4317 100644
 +		goto out;
 +	}
 +
-+	/* G3: The same processing as though a SACK chunk with no gap report
-+	 *     and a cumulative TSN ACK of the Sender's Next TSN minus 1 were
-+	 *     received MUST be performed.
-+	 */
-+	max_tsn_seen = sctp_tsnmap_get_max_tsn_seen(&asoc->peer.tsn_map);
-+	sctp_ulpq_reasm_flushtsn(&asoc->ulpq, max_tsn_seen);
-+	sctp_ulpq_abort_pd(&asoc->ulpq, GFP_ATOMIC);
++	nums = ntohs(addstrm->number_of_streams);
++	if (!nums || nums + asoc->streamincnt > SCTP_MAX_STREAM)
++		goto out;
 +
-+	/* G1: Compute an appropriate value for the Receiver's Next TSN -- the
-+	 *     TSN that the peer should use to send the next DATA chunk.  The
-+	 *     value SHOULD be the smallest TSN not acknowledged by the
-+	 *     receiver of the request plus 2^31.
-+	 */
-+	initial_tsn = sctp_tsnmap_get_ctsn(&asoc->peer.tsn_map) + (1 << 31);
-+	sctp_tsnmap_init(&asoc->peer.tsn_map, SCTP_TSN_MAP_INITIAL,
-+			 initial_tsn, GFP_ATOMIC);
++	nums = nums + asoc->streamincnt;
++	if (ksize(asoc->streamin) / sizeof(*asoc->streamin) < nums) {
++		struct sctp_stream_in *streamin;
 +
-+	/* G4: The same processing as though a FWD-TSN chunk (as defined in
-+	 *     [RFC3758]) with all streams affected and a new cumulative TSN
-+	 *     ACK of the Receiver's Next TSN minus 1 were received MUST be
-+	 *     performed.
-+	 */
-+	sctp_outq_free(&asoc->outqueue);
++		streamin = kcalloc(nums, sizeof(*streamin), GFP_ATOMIC);
++		if (!streamin)
++			goto out;
 +
-+	/* G2: Compute an appropriate value for the local endpoint's next TSN,
-+	 *     i.e., the next TSN assigned by the receiver of the SSN/TSN reset
-+	 *     chunk.  The value SHOULD be the highest TSN sent by the receiver
-+	 *     of the request plus 1.
-+	 */
-+	asoc->ctsn_ack_point = asoc->next_tsn - 1;
-+	asoc->adv_peer_ack_point = asoc->ctsn_ack_point;
++		memcpy(streamin, asoc->streamin,
++		       sizeof(*streamin) * asoc->streamincnt);
 +
-+	/* G5:  The next expected and outgoing SSNs MUST be reset to 0 for all
-+	 *      incoming and outgoing streams.
-+	 */
-+	for (i = 0; i < asoc->streamoutcnt; i++)
-+		asoc->streamout[i].ssn = 0;
-+	for (i = 0; i < asoc->streamincnt; i++)
-+		asoc->streamin[i].ssn = 0;
++		kfree(asoc->streamin);
++		asoc->streamin = streamin;
++	}
++
++	asoc->streamincnt = nums;
 +
 +	result = SCTP_STRRESET_PERFORMED;
 +
-+	*evp = sctp_ulpevent_make_assoc_reset_event(asoc,
-+		0, initial_tsn, asoc->next_tsn, GFP_ATOMIC);
++	*evp = sctp_ulpevent_make_stream_change_event(asoc,
++		0, ntohs(addstrm->number_of_streams), 0, GFP_ATOMIC);
 +
 +out:
-+	return sctp_make_strreset_tsnresp(asoc, result, request_seq,
-+					  asoc->next_tsn, initial_tsn);
++	return sctp_make_strreset_resp(asoc, result, request_seq);
 +}
 -- 
 2.1.0
