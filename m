@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH for-next 04/11] net/mlx5: Support new MR features
-Date: Sun,  1 Jan 2017 23:10:20 +0200
-Message-ID: <1483305027-2573-5-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH for-next 06/11] IB/mlx5: Add support for big MRs
+Date: Sun,  1 Jan 2017 23:10:22 +0200
+Message-ID: <1483305027-2573-7-git-send-email-saeedm@mellanox.com>
 References: <1483305027-2573-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
         Leon Romanovsky <leonro@mellanox.com>,
@@ -12,9 +12,9 @@ Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
 To: "David S. Miller" <davem@davemloft.net>,
         Doug Ledford <dledford@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:42844 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:42842 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S932465AbdAAVKu (ORCPT
+        with ESMTP id S932468AbdAAVKu (ORCPT
         <rfc822;netdev@vger.kernel.org>); Sun, 1 Jan 2017 16:10:50 -0500
 In-Reply-To: <1483305027-2573-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
@@ -22,67 +22,70 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Artemy Kovalyov <artemyko@mellanox.com>
 
-This patch adds the following items to IFC file.
-
-1. MLX5_MKC_ACCESS_MODE_KSM enum value for creating KSM memory keys.
-KSM access mode used when indirect MKey associated with fixed memory
-size entries.
-
-2. null_mkey field that is used to indicate non-present KLM/KSM
-entries, where it causes the device to generate page fault event
-when trying to access it.
-
-3. struct mlx5_ifc_cmd_hca_cap_bits capability bits indicating
-related value/field is supported:
-* fixed_buffer_size - MLX5_MKC_ACCESS_MODE_KSM
-* umr_extended_translation_offset - translation_offset_42_16
-    in UMR ctrl segment
-* null_mkey - null_mkey in QUERY_SPECIAL_CONTEXTS
+Make use of extended UMR translation offset.
 
 Signed-off-by: Artemy Kovalyov <artemyko@mellanox.com>
 Signed-off-by: Leon Romanovsky <leon@kernel.org>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- include/linux/mlx5/mlx5_ifc.h | 10 ++++++++--
- 1 file changed, 8 insertions(+), 2 deletions(-)
+ drivers/infiniband/hw/mlx5/mlx5_ib.h | 1 +
+ drivers/infiniband/hw/mlx5/mr.c      | 8 +++++---
+ drivers/infiniband/hw/mlx5/odp.c     | 5 +++++
+ 3 files changed, 11 insertions(+), 3 deletions(-)
 
-diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
-index 4792c85..7c760e5 100644
---- a/include/linux/mlx5/mlx5_ifc.h
-+++ b/include/linux/mlx5/mlx5_ifc.h
-@@ -782,11 +782,12 @@ struct mlx5_ifc_cmd_hca_cap_bits {
- 	u8         log_max_eq[0x4];
+diff --git a/drivers/infiniband/hw/mlx5/mlx5_ib.h b/drivers/infiniband/hw/mlx5/mlx5_ib.h
+index d79580d..73bff77 100644
+--- a/drivers/infiniband/hw/mlx5/mlx5_ib.h
++++ b/drivers/infiniband/hw/mlx5/mlx5_ib.h
+@@ -634,6 +634,7 @@ struct mlx5_ib_dev {
+ 	int				fill_delay;
+ #ifdef CONFIG_INFINIBAND_ON_DEMAND_PAGING
+ 	struct ib_odp_caps	odp_caps;
++	u64			odp_max_size;
+ 	/*
+ 	 * Sleepable RCU that prevents destruction of MRs while they are still
+ 	 * being used by a page fault handler.
+diff --git a/drivers/infiniband/hw/mlx5/mr.c b/drivers/infiniband/hw/mlx5/mr.c
+index 738ba13..271b78e 100644
+--- a/drivers/infiniband/hw/mlx5/mr.c
++++ b/drivers/infiniband/hw/mlx5/mr.c
+@@ -1121,8 +1121,9 @@ static struct mlx5_ib_mr *reg_create(struct ib_mr *ibmr, struct ib_pd *pd,
+ 		goto err_1;
+ 	}
+ 	pas = (__be64 *)MLX5_ADDR_OF(create_mkey_in, in, klm_pas_mtt);
+-	mlx5_ib_populate_pas(dev, umem, page_shift, pas,
+-			     pg_cap ? MLX5_IB_MTT_PRESENT : 0);
++	if (!(access_flags & IB_ACCESS_ON_DEMAND))
++		mlx5_ib_populate_pas(dev, umem, page_shift, pas,
++				     pg_cap ? MLX5_IB_MTT_PRESENT : 0);
  
- 	u8         max_indirection[0x8];
--	u8         reserved_at_108[0x1];
-+	u8         fixed_buffer_size[0x1];
- 	u8         log_max_mrw_sz[0x7];
- 	u8         reserved_at_110[0x2];
- 	u8         log_max_bsf_list_size[0x6];
--	u8         reserved_at_118[0x2];
-+	u8         umr_extended_translation_offset[0x1];
-+	u8         null_mkey[0x1];
- 	u8         log_max_klm_list_size[0x6];
+ 	/* The pg_access bit allows setting the access flags
+ 	 * in the page list submitted with the command. */
+@@ -1210,7 +1211,8 @@ struct ib_mr *mlx5_ib_reg_user_mr(struct ib_pd *pd, u64 start, u64 length,
+ 			mlx5_ib_dbg(dev, "cache empty for order %d", order);
+ 			mr = NULL;
+ 		}
+-	} else if (access_flags & IB_ACCESS_ON_DEMAND) {
++	} else if (access_flags & IB_ACCESS_ON_DEMAND &&
++		   !MLX5_CAP_GEN(dev->mdev, umr_extended_translation_offset)) {
+ 		err = -EINVAL;
+ 		pr_err("Got MR registration for ODP MR > 512MB, not supported for Connect-IB");
+ 		goto error;
+diff --git a/drivers/infiniband/hw/mlx5/odp.c b/drivers/infiniband/hw/mlx5/odp.c
+index 67651ec..1e73c12 100644
+--- a/drivers/infiniband/hw/mlx5/odp.c
++++ b/drivers/infiniband/hw/mlx5/odp.c
+@@ -121,6 +121,11 @@ void mlx5_ib_internal_fill_odp_caps(struct mlx5_ib_dev *dev)
  
- 	u8         reserved_at_120[0xa];
-@@ -2569,6 +2570,7 @@ enum {
- 	MLX5_MKC_ACCESS_MODE_PA    = 0x0,
- 	MLX5_MKC_ACCESS_MODE_MTT   = 0x1,
- 	MLX5_MKC_ACCESS_MODE_KLMS  = 0x2,
-+	MLX5_MKC_ACCESS_MODE_KSM   = 0x3,
- };
+ 	caps->general_caps = IB_ODP_SUPPORT;
  
- struct mlx5_ifc_mkc_bits {
-@@ -3677,6 +3679,10 @@ struct mlx5_ifc_query_special_contexts_out_bits {
- 	u8         dump_fill_mkey[0x20];
- 
- 	u8         resd_lkey[0x20];
++	if (MLX5_CAP_GEN(dev->mdev, umr_extended_translation_offset))
++		dev->odp_max_size = U64_MAX;
++	else
++		dev->odp_max_size = BIT_ULL(MLX5_MAX_UMR_SHIFT + PAGE_SHIFT);
 +
-+	u8         null_mkey[0x20];
-+
-+	u8         reserved_at_a0[0x60];
- };
+ 	if (MLX5_CAP_ODP(dev->mdev, ud_odp_caps.send))
+ 		caps->per_transport_caps.ud_odp_caps |= IB_ODP_SUPPORT_SEND;
  
- struct mlx5_ifc_query_special_contexts_in_bits {
 -- 
 2.7.4
