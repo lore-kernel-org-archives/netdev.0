@@ -1,10 +1,11 @@
 From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH] net: dec: de2104x: use new api ethtool_{get|set}_link_ksettings
-Date: Sun,  1 Jan 2017 19:05:38 +0100
-Message-ID: <1483293938-5227-1-git-send-email-tremyfr@gmail.com>
+Subject: [PATCH] net: dec: uli526x: use new api ethtool_{get|set}_link_ksettings
+Date: Sun,  1 Jan 2017 19:11:06 +0100
+Message-ID: <1483294266-6222-1-git-send-email-tremyfr@gmail.com>
 Cc: netdev@vger.kernel.org, linux-parisc@vger.kernel.org,
         linux-kernel@vger.kernel.org, Philippe Reynes <tremyfr@gmail.com>
-To: davem@davemloft.net, jarod@redhat.com
+To: davem@davemloft.net, mugunthanvnm@ti.com, a@unstable.cc,
+        fw@strlen.de, jarod@redhat.com
 Return-path: <linux-parisc-owner@vger.kernel.org>
 Sender: linux-parisc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
@@ -14,208 +15,107 @@ We move this driver to new api {get|set}_link_ksettings.
 
 Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
 ---
- drivers/net/ethernet/dec/tulip/de2104x.c |   91 +++++++++++++++++-------------
- 1 files changed, 51 insertions(+), 40 deletions(-)
+ drivers/net/ethernet/dec/tulip/uli526x.c |   41 +++++++++++++++++------------
+ 1 files changed, 24 insertions(+), 17 deletions(-)
 
-diff --git a/drivers/net/ethernet/dec/tulip/de2104x.c b/drivers/net/ethernet/dec/tulip/de2104x.c
-index 57c17e7..127ce970 100644
---- a/drivers/net/ethernet/dec/tulip/de2104x.c
-+++ b/drivers/net/ethernet/dec/tulip/de2104x.c
-@@ -1485,95 +1485,104 @@ static void __de_get_regs(struct de_private *de, u8 *buf)
- 	de_rx_missed(de, rbuf[8]);
+diff --git a/drivers/net/ethernet/dec/tulip/uli526x.c b/drivers/net/ethernet/dec/tulip/uli526x.c
+index f82ebe5..8d98b259 100644
+--- a/drivers/net/ethernet/dec/tulip/uli526x.c
++++ b/drivers/net/ethernet/dec/tulip/uli526x.c
+@@ -926,48 +926,53 @@ static void uli526x_set_filter_mode(struct net_device * dev)
  }
  
--static int __de_get_settings(struct de_private *de, struct ethtool_cmd *ecmd)
-+static int __de_get_link_ksettings(struct de_private *de,
-+				   struct ethtool_link_ksettings *cmd)
+ static void
+-ULi_ethtool_gset(struct uli526x_board_info *db, struct ethtool_cmd *ecmd)
++ULi_ethtool_get_link_ksettings(struct uli526x_board_info *db,
++			       struct ethtool_link_ksettings *cmd)
  {
--	ecmd->supported = de->media_supported;
--	ecmd->transceiver = XCVR_INTERNAL;
--	ecmd->phy_address = 0;
--	ecmd->advertising = de->media_advertise;
+-	ecmd->supported = (SUPPORTED_10baseT_Half |
++	u32 supported, advertising;
++
++	supported = (SUPPORTED_10baseT_Half |
+ 	                   SUPPORTED_10baseT_Full |
+ 	                   SUPPORTED_100baseT_Half |
+ 	                   SUPPORTED_100baseT_Full |
+ 	                   SUPPORTED_Autoneg |
+ 	                   SUPPORTED_MII);
+ 
+-	ecmd->advertising = (ADVERTISED_10baseT_Half |
++	advertising = (ADVERTISED_10baseT_Half |
+ 	                   ADVERTISED_10baseT_Full |
+ 	                   ADVERTISED_100baseT_Half |
+ 	                   ADVERTISED_100baseT_Full |
+ 	                   ADVERTISED_Autoneg |
+ 	                   ADVERTISED_MII);
+ 
 +	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.supported,
-+						de->media_supported);
-+	cmd->base.phy_address = 0;
++						supported);
 +	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.advertising,
-+						de->media_advertise);
++						advertising);
  
- 	switch (de->media_type) {
- 	case DE_MEDIA_AUI:
--		ecmd->port = PORT_AUI;
-+		cmd->base.port = PORT_AUI;
- 		break;
- 	case DE_MEDIA_BNC:
--		ecmd->port = PORT_BNC;
-+		cmd->base.port = PORT_BNC;
- 		break;
- 	default:
--		ecmd->port = PORT_TP;
-+		cmd->base.port = PORT_TP;
- 		break;
+-	ecmd->port = PORT_MII;
+-	ecmd->phy_address = db->phy_addr;
+-
+-	ecmd->transceiver = XCVR_EXTERNAL;
++	cmd->base.port = PORT_MII;
++	cmd->base.phy_address = db->phy_addr;
+ 
+-	ethtool_cmd_speed_set(ecmd, SPEED_10);
+-	ecmd->duplex = DUPLEX_HALF;
++	cmd->base.speed = SPEED_10;
++	cmd->base.duplex = DUPLEX_HALF;
+ 
+ 	if(db->op_mode==ULI526X_100MHF || db->op_mode==ULI526X_100MFD)
+ 	{
+-		ethtool_cmd_speed_set(ecmd, SPEED_100);
++		cmd->base.speed = SPEED_100;
  	}
- 
--	ethtool_cmd_speed_set(ecmd, 10);
-+	cmd->base.speed = 10;
- 
- 	if (dr32(MacMode) & FullDuplex)
+ 	if(db->op_mode==ULI526X_10MFD || db->op_mode==ULI526X_100MFD)
+ 	{
 -		ecmd->duplex = DUPLEX_FULL;
 +		cmd->base.duplex = DUPLEX_FULL;
- 	else
--		ecmd->duplex = DUPLEX_HALF;
-+		cmd->base.duplex = DUPLEX_HALF;
+ 	}
+ 	if(db->link_failed)
+ 	{
+-		ethtool_cmd_speed_set(ecmd, SPEED_UNKNOWN);
+-		ecmd->duplex = DUPLEX_UNKNOWN;
++		cmd->base.speed = SPEED_UNKNOWN;
++		cmd->base.duplex = DUPLEX_UNKNOWN;
+ 	}
  
- 	if (de->media_lock)
--		ecmd->autoneg = AUTONEG_DISABLE;
-+		cmd->base.autoneg = AUTONEG_DISABLE;
- 	else
+ 	if (db->media_mode & ULI526X_AUTO)
+ 	{
 -		ecmd->autoneg = AUTONEG_ENABLE;
 +		cmd->base.autoneg = AUTONEG_ENABLE;
+ 	}
+ }
  
- 	/* ignore maxtxpkt, maxrxpkt for now */
+@@ -981,10 +986,12 @@ static void netdev_get_drvinfo(struct net_device *dev,
+ 	strlcpy(info->bus_info, pci_name(np->pdev), sizeof(info->bus_info));
+ }
+ 
+-static int netdev_get_settings(struct net_device *dev, struct ethtool_cmd *cmd) {
++static int netdev_get_link_ksettings(struct net_device *dev,
++				     struct ethtool_link_ksettings *cmd)
++{
+ 	struct uli526x_board_info *np = netdev_priv(dev);
+ 
+-	ULi_ethtool_gset(np, cmd);
++	ULi_ethtool_get_link_ksettings(np, cmd);
  
  	return 0;
  }
+@@ -1006,9 +1013,9 @@ static void uli526x_get_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
  
--static int __de_set_settings(struct de_private *de, struct ethtool_cmd *ecmd)
-+static int __de_set_link_ksettings(struct de_private *de,
-+				   const struct ethtool_link_ksettings *cmd)
- {
- 	u32 new_media;
- 	unsigned int media_lock;
-+	u8 duplex = cmd->base.duplex;
-+	u8 port = cmd->base.port;
-+	u8 autoneg = cmd->base.autoneg;
-+	u32 advertising;
- 
--	if (ethtool_cmd_speed(ecmd) != 10)
--		return -EINVAL;
--	if (ecmd->duplex != DUPLEX_HALF && ecmd->duplex != DUPLEX_FULL)
-+	ethtool_convert_link_mode_to_legacy_u32(&advertising,
-+						cmd->link_modes.advertising);
-+
-+	if (cmd->base.speed != 10)
- 		return -EINVAL;
--	if (ecmd->port != PORT_TP && ecmd->port != PORT_AUI && ecmd->port != PORT_BNC)
-+	if (duplex != DUPLEX_HALF && duplex != DUPLEX_FULL)
- 		return -EINVAL;
--	if (de->de21040 && ecmd->port == PORT_BNC)
-+	if (port != PORT_TP && port != PORT_AUI && port != PORT_BNC)
- 		return -EINVAL;
--	if (ecmd->transceiver != XCVR_INTERNAL)
-+	if (de->de21040 && port == PORT_BNC)
- 		return -EINVAL;
--	if (ecmd->autoneg != AUTONEG_DISABLE && ecmd->autoneg != AUTONEG_ENABLE)
-+	if (autoneg != AUTONEG_DISABLE && autoneg != AUTONEG_ENABLE)
- 		return -EINVAL;
--	if (ecmd->advertising & ~de->media_supported)
-+	if (advertising & ~de->media_supported)
- 		return -EINVAL;
--	if (ecmd->autoneg == AUTONEG_ENABLE &&
--	    (!(ecmd->advertising & ADVERTISED_Autoneg)))
-+	if (autoneg == AUTONEG_ENABLE &&
-+	    (!(advertising & ADVERTISED_Autoneg)))
- 		return -EINVAL;
- 
--	switch (ecmd->port) {
-+	switch (port) {
- 	case PORT_AUI:
- 		new_media = DE_MEDIA_AUI;
--		if (!(ecmd->advertising & ADVERTISED_AUI))
-+		if (!(advertising & ADVERTISED_AUI))
- 			return -EINVAL;
- 		break;
- 	case PORT_BNC:
- 		new_media = DE_MEDIA_BNC;
--		if (!(ecmd->advertising & ADVERTISED_BNC))
-+		if (!(advertising & ADVERTISED_BNC))
- 			return -EINVAL;
- 		break;
- 	default:
--		if (ecmd->autoneg == AUTONEG_ENABLE)
-+		if (autoneg == AUTONEG_ENABLE)
- 			new_media = DE_MEDIA_TP_AUTO;
--		else if (ecmd->duplex == DUPLEX_FULL)
-+		else if (duplex == DUPLEX_FULL)
- 			new_media = DE_MEDIA_TP_FD;
- 		else
- 			new_media = DE_MEDIA_TP;
--		if (!(ecmd->advertising & ADVERTISED_TP))
-+		if (!(advertising & ADVERTISED_TP))
- 			return -EINVAL;
--		if (!(ecmd->advertising & (ADVERTISED_10baseT_Full | ADVERTISED_10baseT_Half)))
-+		if (!(advertising & (ADVERTISED_10baseT_Full |
-+				     ADVERTISED_10baseT_Half)))
- 			return -EINVAL;
- 		break;
- 	}
- 
--	media_lock = (ecmd->autoneg == AUTONEG_ENABLE) ? 0 : 1;
-+	media_lock = (autoneg == AUTONEG_ENABLE) ? 0 : 1;
- 
- 	if ((new_media == de->media_type) &&
- 	    (media_lock == de->media_lock) &&
--	    (ecmd->advertising == de->media_advertise))
-+	    (advertising == de->media_advertise))
- 		return 0; /* nothing to change */
- 
- 	de_link_down(de);
-@@ -1582,7 +1591,7 @@ static int __de_set_settings(struct de_private *de, struct ethtool_cmd *ecmd)
- 
- 	de->media_type = new_media;
- 	de->media_lock = media_lock;
--	de->media_advertise = ecmd->advertising;
-+	de->media_advertise = advertising;
- 	de_set_media(de);
- 	if (netif_running(de->dev))
- 		de_start_rxtx(de);
-@@ -1604,25 +1613,27 @@ static int de_get_regs_len(struct net_device *dev)
- 	return DE_REGS_SIZE;
- }
- 
--static int de_get_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
-+static int de_get_link_ksettings(struct net_device *dev,
-+				 struct ethtool_link_ksettings *cmd)
- {
- 	struct de_private *de = netdev_priv(dev);
- 	int rc;
- 
- 	spin_lock_irq(&de->lock);
--	rc = __de_get_settings(de, ecmd);
-+	rc = __de_get_link_ksettings(de, cmd);
- 	spin_unlock_irq(&de->lock);
- 
- 	return rc;
- }
- 
--static int de_set_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
-+static int de_set_link_ksettings(struct net_device *dev,
-+				 const struct ethtool_link_ksettings *cmd)
- {
- 	struct de_private *de = netdev_priv(dev);
- 	int rc;
- 
- 	spin_lock_irq(&de->lock);
--	rc = __de_set_settings(de, ecmd);
-+	rc = __de_set_link_ksettings(de, cmd);
- 	spin_unlock_irq(&de->lock);
- 
- 	return rc;
-@@ -1690,13 +1701,13 @@ static void de_get_regs(struct net_device *dev, struct ethtool_regs *regs,
- 	.get_link		= ethtool_op_get_link,
- 	.get_drvinfo		= de_get_drvinfo,
- 	.get_regs_len		= de_get_regs_len,
--	.get_settings		= de_get_settings,
--	.set_settings		= de_set_settings,
- 	.get_msglevel		= de_get_msglevel,
- 	.set_msglevel		= de_set_msglevel,
- 	.get_eeprom		= de_get_eeprom,
- 	.nway_reset		= de_nway_reset,
- 	.get_regs		= de_get_regs,
-+	.get_link_ksettings	= de_get_link_ksettings,
-+	.set_link_ksettings	= de_set_link_ksettings,
+ static const struct ethtool_ops netdev_ethtool_ops = {
+ 	.get_drvinfo		= netdev_get_drvinfo,
+-	.get_settings		= netdev_get_settings,
+ 	.get_link		= netdev_get_link,
+ 	.get_wol		= uli526x_get_wol,
++	.get_link_ksettings	= netdev_get_link_ksettings,
  };
  
- static void de21040_get_mac_address(struct de_private *de)
+ /*
 -- 
 1.7.4.4
 
