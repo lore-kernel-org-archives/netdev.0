@@ -1,39 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: socket: don't set sk_uid to garbage value in
- ->setattr()
-Date: Sun, 01 Jan 2017 11:54:06 -0500 (EST)
-Message-ID: <20170101.115406.1884055391565064738.davem@davemloft.net>
-References: <20161230234232.4221-1-ebiggers3@gmail.com>
-        <CAKD1Yr0=dDgD0em4jqXB8Rd+rpVJPOG7OsRcm-=3xCSQOth1gg@mail.gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] net: stmmac: remove unused duplicate property
+ snps,axi_all
+Date: Sun, 01 Jan 2017 11:55:46 -0500 (EST)
+Message-ID: <20170101.115546.156775699826522389.davem@davemloft.net>
+References: <1483102609-21926-1-git-send-email-niklass@axis.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ebiggers3@gmail.com, netdev@vger.kernel.org,
-        linux-fsdevel@vger.kernel.org, linux-kernel@vger.kernel.org,
-        ebiggers@google.com
-To: lorenzo@google.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAKD1Yr0=dDgD0em4jqXB8Rd+rpVJPOG7OsRcm-=3xCSQOth1gg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
+        alexandre.torgue-qxv4g6HH51o@public.gmane.org, niklass-VrBV9hrLPhE@public.gmane.org, eric-op+oiCINJLTt9jDmeYuA0g@public.gmane.org,
+        gabriel.fernandez-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, manabian-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+        vpalatin-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: niklas.cassel-VrBV9hrLPhE@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1483102609-21926-1-git-send-email-niklass-VrBV9hrLPhE@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Lorenzo Colitti <lorenzo@google.com>
-Date: Sun, 1 Jan 2017 16:57:23 +0900
+From: Niklas Cassel <niklas.cassel-VrBV9hrLPhE@public.gmane.org>
+Date: Fri, 30 Dec 2016 13:56:46 +0100
 
-> On Sat, Dec 31, 2016 at 8:42 AM, Eric Biggers <ebiggers3@gmail.com> wrote:
->> ->setattr() was recently implemented for socket files to sync the socket
->> inode's uid to the new 'sk_uid' member of struct sock.  It does this by
->> copying over the ia_uid member of struct iattr.  However, ia_uid is
->> actually only valid when ATTR_UID is set in ia_valid, indicating that
->> the uid is being changed, e.g. by chown.
->> [...]
->> -       if (!err) {
->> +       if (!err && (iattr->ia_valid & ATTR_UID)) {
+> From: Niklas Cassel <niklas.cassel-VrBV9hrLPhE@public.gmane.org>
 > 
-> Oops. Thanks for fixing this. Unit tested in
-> https://android-review.googlesource.com/316594 .
+> For core revision 3.x Address-Aligned Beats is available in two registers.
+> The DT property snps,aal was created for AAL in the DMA bus register,
+> which is a read/write bit.
+> The DT property snps,axi_all was created for AXI_AAL in the AXI bus mode
+> register, which is a read only bit that reflects the value of AAL in the
+> DMA bus register.
 > 
-> Tested-by: Lorenzo Colitti <lorenzo@google.com>
-> Acked-by: Lorenzo Colitti <lorenzo@google.com>
+> Since the value of snps,axi_all is never used in the driver,
+> and since the property was created for a bit that is read only,
+> it should be safe to remove the property.
+> 
+> Acked-by: Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>
+> Signed-off-by: Niklas Cassel <niklas.cassel-VrBV9hrLPhE@public.gmane.org>
 
-Applied, thanks everyone.
+Applied to net-next, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
