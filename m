@@ -1,16 +1,12 @@
 From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH v2 2/2] net: sfc: falcon: use new api ethtool_{get|set}_link_ksettings
-Date: Sun,  1 Jan 2017 19:02:46 +0100
-Message-ID: <1483293766-4581-2-git-send-email-tremyfr@gmail.com>
-References: <1483293766-4581-1-git-send-email-tremyfr@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Philippe Reynes <tremyfr@gmail.com>
-To: linux-net-drivers@solarflare.com, ecree@solarflare.com,
-        bkenward@solarflare.com, davem@davemloft.net, andrew@lunn.ch,
-        f.fainelli@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1483293766-4581-1-git-send-email-tremyfr@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Subject: [PATCH] net: dec: de2104x: use new api ethtool_{get|set}_link_ksettings
+Date: Sun,  1 Jan 2017 19:05:38 +0100
+Message-ID: <1483293938-5227-1-git-send-email-tremyfr@gmail.com>
+Cc: netdev@vger.kernel.org, linux-parisc@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Philippe Reynes <tremyfr@gmail.com>
+To: davem@davemloft.net, jarod@redhat.com
+Return-path: <linux-parisc-owner@vger.kernel.org>
+Sender: linux-parisc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 The ethtool api {get|set}_settings is deprecated.
@@ -18,341 +14,208 @@ We move this driver to new api {get|set}_link_ksettings.
 
 Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
 ---
-Changelog:
-v2:
-- simplify the code of ef4_ethtool_get_link_ksettings
-  (feedback from Bert Kenward)
+ drivers/net/ethernet/dec/tulip/de2104x.c |   91 +++++++++++++++++-------------
+ 1 files changed, 51 insertions(+), 40 deletions(-)
 
- drivers/net/ethernet/sfc/falcon/efx.c          |    2 +-
- drivers/net/ethernet/sfc/falcon/ethtool.c      |   29 +++++++++-------
- drivers/net/ethernet/sfc/falcon/mdio_10g.c     |   44 +++++++++++++++---------
- drivers/net/ethernet/sfc/falcon/mdio_10g.h     |    3 +-
- drivers/net/ethernet/sfc/falcon/net_driver.h   |   12 +++---
- drivers/net/ethernet/sfc/falcon/qt202x_phy.c   |    9 +++--
- drivers/net/ethernet/sfc/falcon/tenxpress.c    |   22 ++++++------
- drivers/net/ethernet/sfc/falcon/txc43128_phy.c |    9 +++--
- 8 files changed, 74 insertions(+), 56 deletions(-)
-
-diff --git a/drivers/net/ethernet/sfc/falcon/efx.c b/drivers/net/ethernet/sfc/falcon/efx.c
-index 5c5cb3c..438ef9e 100644
---- a/drivers/net/ethernet/sfc/falcon/efx.c
-+++ b/drivers/net/ethernet/sfc/falcon/efx.c
-@@ -986,7 +986,7 @@ void ef4_mac_reconfigure(struct ef4_nic *efx)
- 
- /* Push loopback/power/transmit disable settings to the PHY, and reconfigure
-  * the MAC appropriately. All other PHY configuration changes are pushed
-- * through phy_op->set_settings(), and pushed asynchronously to the MAC
-+ * through phy_op->set_link_ksettings(), and pushed asynchronously to the MAC
-  * through ef4_monitor().
-  *
-  * Callers must hold the mac_lock
-diff --git a/drivers/net/ethernet/sfc/falcon/ethtool.c b/drivers/net/ethernet/sfc/falcon/ethtool.c
-index 8e1929b..5604915 100644
---- a/drivers/net/ethernet/sfc/falcon/ethtool.c
-+++ b/drivers/net/ethernet/sfc/falcon/ethtool.c
-@@ -115,44 +115,47 @@ static int ef4_ethtool_phys_id(struct net_device *net_dev,
+diff --git a/drivers/net/ethernet/dec/tulip/de2104x.c b/drivers/net/ethernet/dec/tulip/de2104x.c
+index 57c17e7..127ce970 100644
+--- a/drivers/net/ethernet/dec/tulip/de2104x.c
++++ b/drivers/net/ethernet/dec/tulip/de2104x.c
+@@ -1485,95 +1485,104 @@ static void __de_get_regs(struct de_private *de, u8 *buf)
+ 	de_rx_missed(de, rbuf[8]);
  }
  
- /* This must be called with rtnl_lock held. */
--static int ef4_ethtool_get_settings(struct net_device *net_dev,
--				    struct ethtool_cmd *ecmd)
-+static int
-+ef4_ethtool_get_link_ksettings(struct net_device *net_dev,
-+			       struct ethtool_link_ksettings *cmd)
+-static int __de_get_settings(struct de_private *de, struct ethtool_cmd *ecmd)
++static int __de_get_link_ksettings(struct de_private *de,
++				   struct ethtool_link_ksettings *cmd)
  {
- 	struct ef4_nic *efx = netdev_priv(net_dev);
- 	struct ef4_link_state *link_state = &efx->link_state;
+-	ecmd->supported = de->media_supported;
+-	ecmd->transceiver = XCVR_INTERNAL;
+-	ecmd->phy_address = 0;
+-	ecmd->advertising = de->media_advertise;
++	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.supported,
++						de->media_supported);
++	cmd->base.phy_address = 0;
++	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.advertising,
++						de->media_advertise);
  
- 	mutex_lock(&efx->mac_lock);
--	efx->phy_op->get_settings(efx, ecmd);
-+	efx->phy_op->get_link_ksettings(efx, cmd);
- 	mutex_unlock(&efx->mac_lock);
- 
- 	/* Both MACs support pause frames (bidirectional and respond-only) */
--	ecmd->supported |= SUPPORTED_Pause | SUPPORTED_Asym_Pause;
-+	ethtool_link_ksettings_add_link_mode(cmd, supported, Pause);
-+	ethtool_link_ksettings_add_link_mode(cmd, supported, Asym_Pause);
- 
- 	if (LOOPBACK_INTERNAL(efx)) {
--		ethtool_cmd_speed_set(ecmd, link_state->speed);
--		ecmd->duplex = link_state->fd ? DUPLEX_FULL : DUPLEX_HALF;
-+		cmd->base.speed = link_state->speed;
-+		cmd->base.duplex = link_state->fd ? DUPLEX_FULL : DUPLEX_HALF;
+ 	switch (de->media_type) {
+ 	case DE_MEDIA_AUI:
+-		ecmd->port = PORT_AUI;
++		cmd->base.port = PORT_AUI;
+ 		break;
+ 	case DE_MEDIA_BNC:
+-		ecmd->port = PORT_BNC;
++		cmd->base.port = PORT_BNC;
+ 		break;
+ 	default:
+-		ecmd->port = PORT_TP;
++		cmd->base.port = PORT_TP;
+ 		break;
  	}
+ 
+-	ethtool_cmd_speed_set(ecmd, 10);
++	cmd->base.speed = 10;
+ 
+ 	if (dr32(MacMode) & FullDuplex)
+-		ecmd->duplex = DUPLEX_FULL;
++		cmd->base.duplex = DUPLEX_FULL;
+ 	else
+-		ecmd->duplex = DUPLEX_HALF;
++		cmd->base.duplex = DUPLEX_HALF;
+ 
+ 	if (de->media_lock)
+-		ecmd->autoneg = AUTONEG_DISABLE;
++		cmd->base.autoneg = AUTONEG_DISABLE;
+ 	else
+-		ecmd->autoneg = AUTONEG_ENABLE;
++		cmd->base.autoneg = AUTONEG_ENABLE;
+ 
+ 	/* ignore maxtxpkt, maxrxpkt for now */
  
  	return 0;
  }
  
- /* This must be called with rtnl_lock held. */
--static int ef4_ethtool_set_settings(struct net_device *net_dev,
--				    struct ethtool_cmd *ecmd)
-+static int
-+ef4_ethtool_set_link_ksettings(struct net_device *net_dev,
-+			       const struct ethtool_link_ksettings *cmd)
+-static int __de_set_settings(struct de_private *de, struct ethtool_cmd *ecmd)
++static int __de_set_link_ksettings(struct de_private *de,
++				   const struct ethtool_link_ksettings *cmd)
  {
- 	struct ef4_nic *efx = netdev_priv(net_dev);
- 	int rc;
+ 	u32 new_media;
+ 	unsigned int media_lock;
++	u8 duplex = cmd->base.duplex;
++	u8 port = cmd->base.port;
++	u8 autoneg = cmd->base.autoneg;
++	u32 advertising;
  
- 	/* GMAC does not support 1000Mbps HD */
--	if ((ethtool_cmd_speed(ecmd) == SPEED_1000) &&
--	    (ecmd->duplex != DUPLEX_FULL)) {
-+	if ((cmd->base.speed == SPEED_1000) &&
-+	    (cmd->base.duplex != DUPLEX_FULL)) {
- 		netif_dbg(efx, drv, efx->net_dev,
- 			  "rejecting unsupported 1000Mbps HD setting\n");
- 		return -EINVAL;
- 	}
- 
- 	mutex_lock(&efx->mac_lock);
--	rc = efx->phy_op->set_settings(efx, ecmd);
-+	rc = efx->phy_op->set_link_ksettings(efx, cmd);
- 	mutex_unlock(&efx->mac_lock);
- 	return rc;
- }
-@@ -1310,8 +1313,6 @@ static int ef4_ethtool_get_module_info(struct net_device *net_dev,
- }
- 
- const struct ethtool_ops ef4_ethtool_ops = {
--	.get_settings		= ef4_ethtool_get_settings,
--	.set_settings		= ef4_ethtool_set_settings,
- 	.get_drvinfo		= ef4_ethtool_get_drvinfo,
- 	.get_regs_len		= ef4_ethtool_get_regs_len,
- 	.get_regs		= ef4_ethtool_get_regs,
-@@ -1340,4 +1341,6 @@ static int ef4_ethtool_get_module_info(struct net_device *net_dev,
- 	.set_rxfh		= ef4_ethtool_set_rxfh,
- 	.get_module_info	= ef4_ethtool_get_module_info,
- 	.get_module_eeprom	= ef4_ethtool_get_module_eeprom,
-+	.get_link_ksettings	= ef4_ethtool_get_link_ksettings,
-+	.set_link_ksettings	= ef4_ethtool_set_link_ksettings,
- };
-diff --git a/drivers/net/ethernet/sfc/falcon/mdio_10g.c b/drivers/net/ethernet/sfc/falcon/mdio_10g.c
-index e7d7c09..ee0713f 100644
---- a/drivers/net/ethernet/sfc/falcon/mdio_10g.c
-+++ b/drivers/net/ethernet/sfc/falcon/mdio_10g.c
-@@ -226,33 +226,45 @@ void ef4_mdio_set_mmds_lpower(struct ef4_nic *efx,
- }
- 
- /**
-- * ef4_mdio_set_settings - Set (some of) the PHY settings over MDIO.
-+ * ef4_mdio_set_link_ksettings - Set (some of) the PHY settings over MDIO.
-  * @efx:		Efx NIC
-- * @ecmd:		New settings
-+ * @cmd:		New settings
-  */
--int ef4_mdio_set_settings(struct ef4_nic *efx, struct ethtool_cmd *ecmd)
-+int ef4_mdio_set_link_ksettings(struct ef4_nic *efx,
-+				const struct ethtool_link_ksettings *cmd)
- {
--	struct ethtool_cmd prev = { .cmd = ETHTOOL_GSET };
--
--	efx->phy_op->get_settings(efx, &prev);
--
--	if (ecmd->advertising == prev.advertising &&
--	    ethtool_cmd_speed(ecmd) == ethtool_cmd_speed(&prev) &&
--	    ecmd->duplex == prev.duplex &&
--	    ecmd->port == prev.port &&
--	    ecmd->autoneg == prev.autoneg)
-+	struct ethtool_link_ksettings prev = {
-+		.base.cmd = ETHTOOL_GLINKSETTINGS
-+	};
-+	u32 prev_advertising, advertising;
-+	u32 prev_supported;
-+
-+	efx->phy_op->get_link_ksettings(efx, &prev);
-+
+-	if (ethtool_cmd_speed(ecmd) != 10)
+-		return -EINVAL;
+-	if (ecmd->duplex != DUPLEX_HALF && ecmd->duplex != DUPLEX_FULL)
 +	ethtool_convert_link_mode_to_legacy_u32(&advertising,
 +						cmd->link_modes.advertising);
-+	ethtool_convert_link_mode_to_legacy_u32(&prev_advertising,
-+						prev.link_modes.advertising);
-+	ethtool_convert_link_mode_to_legacy_u32(&prev_supported,
-+						prev.link_modes.supported);
 +
-+	if (advertising == prev_advertising &&
-+	    cmd->base.speed == prev.base.speed &&
-+	    cmd->base.duplex == prev.base.duplex &&
-+	    cmd->base.port == prev.base.port &&
-+	    cmd->base.autoneg == prev.base.autoneg)
- 		return 0;
- 
- 	/* We can only change these settings for -T PHYs */
--	if (prev.port != PORT_TP || ecmd->port != PORT_TP)
-+	if (prev.base.port != PORT_TP || cmd->base.port != PORT_TP)
++	if (cmd->base.speed != 10)
+ 		return -EINVAL;
+-	if (ecmd->port != PORT_TP && ecmd->port != PORT_AUI && ecmd->port != PORT_BNC)
++	if (duplex != DUPLEX_HALF && duplex != DUPLEX_FULL)
+ 		return -EINVAL;
+-	if (de->de21040 && ecmd->port == PORT_BNC)
++	if (port != PORT_TP && port != PORT_AUI && port != PORT_BNC)
+ 		return -EINVAL;
+-	if (ecmd->transceiver != XCVR_INTERNAL)
++	if (de->de21040 && port == PORT_BNC)
+ 		return -EINVAL;
+-	if (ecmd->autoneg != AUTONEG_DISABLE && ecmd->autoneg != AUTONEG_ENABLE)
++	if (autoneg != AUTONEG_DISABLE && autoneg != AUTONEG_ENABLE)
+ 		return -EINVAL;
+-	if (ecmd->advertising & ~de->media_supported)
++	if (advertising & ~de->media_supported)
+ 		return -EINVAL;
+-	if (ecmd->autoneg == AUTONEG_ENABLE &&
+-	    (!(ecmd->advertising & ADVERTISED_Autoneg)))
++	if (autoneg == AUTONEG_ENABLE &&
++	    (!(advertising & ADVERTISED_Autoneg)))
  		return -EINVAL;
  
- 	/* Check that PHY supports these settings */
--	if (!ecmd->autoneg ||
--	    (ecmd->advertising | SUPPORTED_Autoneg) & ~prev.supported)
-+	if (!cmd->base.autoneg ||
-+	    (advertising | SUPPORTED_Autoneg) & ~prev_supported)
- 		return -EINVAL;
+-	switch (ecmd->port) {
++	switch (port) {
+ 	case PORT_AUI:
+ 		new_media = DE_MEDIA_AUI;
+-		if (!(ecmd->advertising & ADVERTISED_AUI))
++		if (!(advertising & ADVERTISED_AUI))
+ 			return -EINVAL;
+ 		break;
+ 	case PORT_BNC:
+ 		new_media = DE_MEDIA_BNC;
+-		if (!(ecmd->advertising & ADVERTISED_BNC))
++		if (!(advertising & ADVERTISED_BNC))
+ 			return -EINVAL;
+ 		break;
+ 	default:
+-		if (ecmd->autoneg == AUTONEG_ENABLE)
++		if (autoneg == AUTONEG_ENABLE)
+ 			new_media = DE_MEDIA_TP_AUTO;
+-		else if (ecmd->duplex == DUPLEX_FULL)
++		else if (duplex == DUPLEX_FULL)
+ 			new_media = DE_MEDIA_TP_FD;
+ 		else
+ 			new_media = DE_MEDIA_TP;
+-		if (!(ecmd->advertising & ADVERTISED_TP))
++		if (!(advertising & ADVERTISED_TP))
+ 			return -EINVAL;
+-		if (!(ecmd->advertising & (ADVERTISED_10baseT_Full | ADVERTISED_10baseT_Half)))
++		if (!(advertising & (ADVERTISED_10baseT_Full |
++				     ADVERTISED_10baseT_Half)))
+ 			return -EINVAL;
+ 		break;
+ 	}
  
--	ef4_link_set_advertising(efx, ecmd->advertising | ADVERTISED_Autoneg);
-+	ef4_link_set_advertising(efx, advertising | ADVERTISED_Autoneg);
- 	ef4_mdio_an_reconfigure(efx);
- 	return 0;
- }
-diff --git a/drivers/net/ethernet/sfc/falcon/mdio_10g.h b/drivers/net/ethernet/sfc/falcon/mdio_10g.h
-index 885cf7a..53cb5cc 100644
---- a/drivers/net/ethernet/sfc/falcon/mdio_10g.h
-+++ b/drivers/net/ethernet/sfc/falcon/mdio_10g.h
-@@ -83,7 +83,8 @@ void ef4_mdio_set_mmds_lpower(struct ef4_nic *efx, int low_power,
- 			      unsigned int mmd_mask);
+-	media_lock = (ecmd->autoneg == AUTONEG_ENABLE) ? 0 : 1;
++	media_lock = (autoneg == AUTONEG_ENABLE) ? 0 : 1;
  
- /* Set (some of) the PHY settings over MDIO */
--int ef4_mdio_set_settings(struct ef4_nic *efx, struct ethtool_cmd *ecmd);
-+int ef4_mdio_set_link_ksettings(struct ef4_nic *efx,
-+				const struct ethtool_link_ksettings *cmd);
+ 	if ((new_media == de->media_type) &&
+ 	    (media_lock == de->media_lock) &&
+-	    (ecmd->advertising == de->media_advertise))
++	    (advertising == de->media_advertise))
+ 		return 0; /* nothing to change */
  
- /* Push advertising flags and restart autonegotiation */
- void ef4_mdio_an_reconfigure(struct ef4_nic *efx);
-diff --git a/drivers/net/ethernet/sfc/falcon/net_driver.h b/drivers/net/ethernet/sfc/falcon/net_driver.h
-index 210b28f..fe59dd6 100644
---- a/drivers/net/ethernet/sfc/falcon/net_driver.h
-+++ b/drivers/net/ethernet/sfc/falcon/net_driver.h
-@@ -684,8 +684,8 @@ static inline bool ef4_link_state_equal(const struct ef4_link_state *left,
-  * @reconfigure: Reconfigure PHY (e.g. for new link parameters)
-  * @poll: Update @link_state and report whether it changed.
-  *	Serialised by the mac_lock.
-- * @get_settings: Get ethtool settings. Serialised by the mac_lock.
-- * @set_settings: Set ethtool settings. Serialised by the mac_lock.
-+ * @get_link_ksettings: Get ethtool settings. Serialised by the mac_lock.
-+ * @set_link_ksettings: Set ethtool settings. Serialised by the mac_lock.
-  * @set_npage_adv: Set abilities advertised in (Extended) Next Page
-  *	(only needed where AN bit is set in mmds)
-  * @test_alive: Test that PHY is 'alive' (online)
-@@ -700,10 +700,10 @@ struct ef4_phy_operations {
- 	void (*remove) (struct ef4_nic *efx);
- 	int (*reconfigure) (struct ef4_nic *efx);
- 	bool (*poll) (struct ef4_nic *efx);
--	void (*get_settings) (struct ef4_nic *efx,
--			      struct ethtool_cmd *ecmd);
--	int (*set_settings) (struct ef4_nic *efx,
--			     struct ethtool_cmd *ecmd);
-+	void (*get_link_ksettings)(struct ef4_nic *efx,
-+				   struct ethtool_link_ksettings *cmd);
-+	int (*set_link_ksettings)(struct ef4_nic *efx,
-+				  const struct ethtool_link_ksettings *cmd);
- 	void (*set_npage_adv) (struct ef4_nic *efx, u32);
- 	int (*test_alive) (struct ef4_nic *efx);
- 	const char *(*test_name) (struct ef4_nic *efx, unsigned int index);
-diff --git a/drivers/net/ethernet/sfc/falcon/qt202x_phy.c b/drivers/net/ethernet/sfc/falcon/qt202x_phy.c
-index d293316..f5e0f18 100644
---- a/drivers/net/ethernet/sfc/falcon/qt202x_phy.c
-+++ b/drivers/net/ethernet/sfc/falcon/qt202x_phy.c
-@@ -437,9 +437,10 @@ static int qt202x_phy_reconfigure(struct ef4_nic *efx)
- 	return 0;
+ 	de_link_down(de);
+@@ -1582,7 +1591,7 @@ static int __de_set_settings(struct de_private *de, struct ethtool_cmd *ecmd)
+ 
+ 	de->media_type = new_media;
+ 	de->media_lock = media_lock;
+-	de->media_advertise = ecmd->advertising;
++	de->media_advertise = advertising;
+ 	de_set_media(de);
+ 	if (netif_running(de->dev))
+ 		de_start_rxtx(de);
+@@ -1604,25 +1613,27 @@ static int de_get_regs_len(struct net_device *dev)
+ 	return DE_REGS_SIZE;
  }
  
--static void qt202x_phy_get_settings(struct ef4_nic *efx, struct ethtool_cmd *ecmd)
-+static void qt202x_phy_get_link_ksettings(struct ef4_nic *efx,
-+					  struct ethtool_link_ksettings *cmd)
+-static int de_get_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
++static int de_get_link_ksettings(struct net_device *dev,
++				 struct ethtool_link_ksettings *cmd)
  {
--	mdio45_ethtool_gset(&efx->mdio, ecmd);
-+	mdio45_ethtool_ksettings_get(&efx->mdio, cmd);
- }
+ 	struct de_private *de = netdev_priv(dev);
+ 	int rc;
  
- static void qt202x_phy_remove(struct ef4_nic *efx)
-@@ -487,8 +488,8 @@ static int qt202x_phy_get_module_eeprom(struct ef4_nic *efx,
- 	.poll		 = qt202x_phy_poll,
- 	.fini		 = ef4_port_dummy_op_void,
- 	.remove		 = qt202x_phy_remove,
--	.get_settings	 = qt202x_phy_get_settings,
--	.set_settings	 = ef4_mdio_set_settings,
-+	.get_link_ksettings = qt202x_phy_get_link_ksettings,
-+	.set_link_ksettings = ef4_mdio_set_link_ksettings,
- 	.test_alive	 = ef4_mdio_test_alive,
- 	.get_module_eeprom = qt202x_phy_get_module_eeprom,
- 	.get_module_info = qt202x_phy_get_module_info,
-diff --git a/drivers/net/ethernet/sfc/falcon/tenxpress.c b/drivers/net/ethernet/sfc/falcon/tenxpress.c
-index acc548a..ff9b4e2 100644
---- a/drivers/net/ethernet/sfc/falcon/tenxpress.c
-+++ b/drivers/net/ethernet/sfc/falcon/tenxpress.c
-@@ -351,9 +351,6 @@ static int tenxpress_phy_reconfigure(struct ef4_nic *efx)
- 	return 0;
- }
+ 	spin_lock_irq(&de->lock);
+-	rc = __de_get_settings(de, ecmd);
++	rc = __de_get_link_ksettings(de, cmd);
+ 	spin_unlock_irq(&de->lock);
  
--static void
--tenxpress_get_settings(struct ef4_nic *efx, struct ethtool_cmd *ecmd);
--
- /* Poll for link state changes */
- static bool tenxpress_phy_poll(struct ef4_nic *efx)
- {
-@@ -443,7 +440,8 @@ void tenxpress_set_id_led(struct ef4_nic *efx, enum ef4_led_mode mode)
- }
- 
- static void
--tenxpress_get_settings(struct ef4_nic *efx, struct ethtool_cmd *ecmd)
-+tenxpress_get_link_ksettings(struct ef4_nic *efx,
-+			     struct ethtool_link_ksettings *cmd)
- {
- 	u32 adv = 0, lpa = 0;
- 	int reg;
-@@ -455,20 +453,22 @@ void tenxpress_set_id_led(struct ef4_nic *efx, enum ef4_led_mode mode)
- 	if (reg & MDIO_AN_10GBT_STAT_LP10G)
- 		lpa |= ADVERTISED_10000baseT_Full;
- 
--	mdio45_ethtool_gset_npage(&efx->mdio, ecmd, adv, lpa);
-+	mdio45_ethtool_ksettings_get_npage(&efx->mdio, cmd, adv, lpa);
- 
- 	/* In loopback, the PHY automatically brings up the correct interface,
- 	 * but doesn't advertise the correct speed. So override it */
- 	if (LOOPBACK_EXTERNAL(efx))
--		ethtool_cmd_speed_set(ecmd, SPEED_10000);
-+		cmd->base.speed = SPEED_10000;
- }
- 
--static int tenxpress_set_settings(struct ef4_nic *efx, struct ethtool_cmd *ecmd)
-+static int
-+tenxpress_set_link_ksettings(struct ef4_nic *efx,
-+			     const struct ethtool_link_ksettings *cmd)
- {
--	if (!ecmd->autoneg)
-+	if (!cmd->base.autoneg)
- 		return -EINVAL;
- 
--	return ef4_mdio_set_settings(efx, ecmd);
-+	return ef4_mdio_set_link_ksettings(efx, cmd);
- }
- 
- static void sfx7101_set_npage_adv(struct ef4_nic *efx, u32 advertising)
-@@ -485,8 +485,8 @@ static void sfx7101_set_npage_adv(struct ef4_nic *efx, u32 advertising)
- 	.poll             = tenxpress_phy_poll,
- 	.fini             = sfx7101_phy_fini,
- 	.remove		  = tenxpress_phy_remove,
--	.get_settings	  = tenxpress_get_settings,
--	.set_settings	  = tenxpress_set_settings,
-+	.get_link_ksettings = tenxpress_get_link_ksettings,
-+	.set_link_ksettings = tenxpress_set_link_ksettings,
- 	.set_npage_adv    = sfx7101_set_npage_adv,
- 	.test_alive	  = ef4_mdio_test_alive,
- 	.test_name	  = sfx7101_test_name,
-diff --git a/drivers/net/ethernet/sfc/falcon/txc43128_phy.c b/drivers/net/ethernet/sfc/falcon/txc43128_phy.c
-index 18421f5..3c55fd2 100644
---- a/drivers/net/ethernet/sfc/falcon/txc43128_phy.c
-+++ b/drivers/net/ethernet/sfc/falcon/txc43128_phy.c
-@@ -540,9 +540,10 @@ static int txc43128_run_tests(struct ef4_nic *efx, int *results, unsigned flags)
  	return rc;
  }
  
--static void txc43128_get_settings(struct ef4_nic *efx, struct ethtool_cmd *ecmd)
-+static void txc43128_get_link_ksettings(struct ef4_nic *efx,
-+					struct ethtool_link_ksettings *cmd)
+-static int de_set_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
++static int de_set_link_ksettings(struct net_device *dev,
++				 const struct ethtool_link_ksettings *cmd)
  {
--	mdio45_ethtool_gset(&efx->mdio, ecmd);
-+	mdio45_ethtool_ksettings_get(&efx->mdio, cmd);
- }
+ 	struct de_private *de = netdev_priv(dev);
+ 	int rc;
  
- const struct ef4_phy_operations falcon_txc_phy_ops = {
-@@ -552,8 +553,8 @@ static void txc43128_get_settings(struct ef4_nic *efx, struct ethtool_cmd *ecmd)
- 	.poll		= txc43128_phy_poll,
- 	.fini		= txc43128_phy_fini,
- 	.remove		= txc43128_phy_remove,
--	.get_settings	= txc43128_get_settings,
--	.set_settings	= ef4_mdio_set_settings,
-+	.get_link_ksettings = txc43128_get_link_ksettings,
-+	.set_link_ksettings = ef4_mdio_set_link_ksettings,
- 	.test_alive	= ef4_mdio_test_alive,
- 	.run_tests	= txc43128_run_tests,
- 	.test_name	= txc43128_test_name,
+ 	spin_lock_irq(&de->lock);
+-	rc = __de_set_settings(de, ecmd);
++	rc = __de_set_link_ksettings(de, cmd);
+ 	spin_unlock_irq(&de->lock);
+ 
+ 	return rc;
+@@ -1690,13 +1701,13 @@ static void de_get_regs(struct net_device *dev, struct ethtool_regs *regs,
+ 	.get_link		= ethtool_op_get_link,
+ 	.get_drvinfo		= de_get_drvinfo,
+ 	.get_regs_len		= de_get_regs_len,
+-	.get_settings		= de_get_settings,
+-	.set_settings		= de_set_settings,
+ 	.get_msglevel		= de_get_msglevel,
+ 	.set_msglevel		= de_set_msglevel,
+ 	.get_eeprom		= de_get_eeprom,
+ 	.nway_reset		= de_nway_reset,
+ 	.get_regs		= de_get_regs,
++	.get_link_ksettings	= de_get_link_ksettings,
++	.set_link_ksettings	= de_set_link_ksettings,
+ };
+ 
+ static void de21040_get_mac_address(struct de_private *de)
 -- 
 1.7.4.4
+
