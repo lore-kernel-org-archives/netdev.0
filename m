@@ -1,1596 +1,87 @@
 From: Yuval Mintz <Yuval.Mintz@cavium.com>
-Subject: [PATCH net-next 01/12] qed*: Update to dual-license
-Date: Sun, 1 Jan 2017 13:57:00 +0200
-Message-ID: <1483271831-25890-2-git-send-email-Yuval.Mintz@cavium.com>
+Subject: [PATCH net-next 03/12] qede: Split filtering logic to its own file
+Date: Sun, 1 Jan 2017 13:57:02 +0200
+Message-ID: <1483271831-25890-4-git-send-email-Yuval.Mintz@cavium.com>
 References: <1483271831-25890-1-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Yuval Mintz <Yuval.Mintz@cavium.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:51425 "EHLO
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:51433 "EHLO
         mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1755047AbdAAL6D (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 1 Jan 2017 06:58:03 -0500
+        by vger.kernel.org with ESMTP id S932119AbdAAL6K (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 1 Jan 2017 06:58:10 -0500
 In-Reply-To: <1483271831-25890-1-git-send-email-Yuval.Mintz@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since the submission of the qedr driver, there's inconsistency
-in the licensing of the various qed/qede files - some are GPLv2
-and some are dual-license.
-Since qedr requires dual-license and it's dependent on both,
-we're updating the licensing of all qed/qede source files.
+This takes the various filtering logic of the driver and
+moves them into their own dedicated file - qede_filter.c.
 
 Signed-off-by: Yuval Mintz <Yuval.Mintz@cavium.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed.h              | 32 ++++++++++++++++---
- drivers/net/ethernet/qlogic/qed/qed_cxt.c          | 32 ++++++++++++++++---
- drivers/net/ethernet/qlogic/qed/qed_cxt.h          | 34 +++++++++++++++++---
- drivers/net/ethernet/qlogic/qed/qed_dcbx.c         | 32 ++++++++++++++++---
- drivers/net/ethernet/qlogic/qed/qed_dcbx.h         | 32 ++++++++++++++++---
- drivers/net/ethernet/qlogic/qed/qed_dev.c          | 32 ++++++++++++++++---
- drivers/net/ethernet/qlogic/qed/qed_dev_api.h      | 34 +++++++++++++++++---
- drivers/net/ethernet/qlogic/qed/qed_hsi.h          | 32 ++++++++++++++++---
- drivers/net/ethernet/qlogic/qed/qed_hw.c           | 32 ++++++++++++++++---
- drivers/net/ethernet/qlogic/qed/qed_hw.h           | 32 ++++++++++++++++---
- .../net/ethernet/qlogic/qed/qed_init_fw_funcs.c    | 32 ++++++++++++++++---
- drivers/net/ethernet/qlogic/qed/qed_init_ops.c     | 32 ++++++++++++++++---
- drivers/net/ethernet/qlogic/qed/qed_init_ops.h     | 34 +++++++++++++++++---
- drivers/net/ethernet/qlogic/qed/qed_int.c          | 32 ++++++++++++++++---
- drivers/net/ethernet/qlogic/qed/qed_int.h          | 34 +++++++++++++++++---
- drivers/net/ethernet/qlogic/qed/qed_iscsi.c        | 32 ++++++++++++++++---
- drivers/net/ethernet/qlogic/qed/qed_iscsi.h        | 32 ++++++++++++++++---
- drivers/net/ethernet/qlogic/qed/qed_l2.c           | 32 ++++++++++++++++---
- drivers/net/ethernet/qlogic/qed/qed_l2.h           | 32 ++++++++++++++++---
- drivers/net/ethernet/qlogic/qed/qed_ll2.c          | 31 +++++++++++++++---
- drivers/net/ethernet/qlogic/qed/qed_ll2.h          | 31 +++++++++++++++---
- drivers/net/ethernet/qlogic/qed/qed_main.c         | 32 ++++++++++++++++---
- drivers/net/ethernet/qlogic/qed/qed_mcp.c          | 32 ++++++++++++++++---
- drivers/net/ethernet/qlogic/qed/qed_mcp.h          | 34 +++++++++++++++++---
- drivers/net/ethernet/qlogic/qed/qed_ooo.c          | 32 ++++++++++++++++---
- drivers/net/ethernet/qlogic/qed/qed_ooo.h          | 32 ++++++++++++++++---
- drivers/net/ethernet/qlogic/qed/qed_reg_addr.h     | 32 ++++++++++++++++---
- drivers/net/ethernet/qlogic/qed/qed_roce.c         |  2 +-
- drivers/net/ethernet/qlogic/qed/qed_roce.h         |  2 +-
- drivers/net/ethernet/qlogic/qed/qed_selftest.c     | 32 +++++++++++++++++++
- drivers/net/ethernet/qlogic/qed/qed_sp.h           | 34 +++++++++++++++++---
- drivers/net/ethernet/qlogic/qed/qed_sp_commands.c  | 32 ++++++++++++++++---
- drivers/net/ethernet/qlogic/qed/qed_spq.c          | 32 ++++++++++++++++---
- drivers/net/ethernet/qlogic/qed/qed_sriov.c        | 32 ++++++++++++++++---
- drivers/net/ethernet/qlogic/qed/qed_sriov.h        | 32 ++++++++++++++++---
- drivers/net/ethernet/qlogic/qed/qed_vf.c           | 32 ++++++++++++++++---
- drivers/net/ethernet/qlogic/qed/qed_vf.h           | 32 ++++++++++++++++---
- drivers/net/ethernet/qlogic/qede/qede.h            | 37 ++++++++++++++++++----
- drivers/net/ethernet/qlogic/qede/qede_ethtool.c    | 37 ++++++++++++++++++----
- drivers/net/ethernet/qlogic/qede/qede_main.c       | 37 ++++++++++++++++++----
- drivers/net/ethernet/qlogic/qede/qede_roce.c       |  2 +-
- include/linux/qed/common_hsi.h                     | 33 ++++++++++++++++---
- include/linux/qed/eth_common.h                     | 32 ++++++++++++++++---
- include/linux/qed/iscsi_common.h                   | 32 ++++++++++++++++---
- include/linux/qed/qed_chain.h                      | 34 +++++++++++++++++---
- include/linux/qed/qed_eth_if.h                     | 32 ++++++++++++++++---
- include/linux/qed/qed_if.h                         | 35 ++++++++++++++++----
- include/linux/qed/qed_iov_if.h                     | 32 ++++++++++++++++---
- include/linux/qed/qed_iscsi_if.h                   | 32 ++++++++++++++++---
- include/linux/qed/qed_ll2_if.h                     | 31 +++++++++++++++---
- include/linux/qed/qed_roce_if.h                    |  2 +-
- include/linux/qed/qede_roce.h                      |  2 +-
- include/linux/qed/rdma_common.h                    | 32 ++++++++++++++++---
- include/linux/qed/roce_common.h                    | 32 ++++++++++++++++---
- include/linux/qed/storage_common.h                 | 32 ++++++++++++++++---
- include/linux/qed/tcp_common.h                     | 32 ++++++++++++++++---
- 56 files changed, 1449 insertions(+), 223 deletions(-)
+ drivers/net/ethernet/qlogic/qede/Makefile      |   2 +-
+ drivers/net/ethernet/qlogic/qede/qede.h        |  22 +
+ drivers/net/ethernet/qlogic/qede/qede_filter.c | 687 +++++++++++++++++++++++++
+ drivers/net/ethernet/qlogic/qede/qede_main.c   | 654 -----------------------
+ 4 files changed, 710 insertions(+), 655 deletions(-)
+ create mode 100644 drivers/net/ethernet/qlogic/qede/qede_filter.c
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed.h b/drivers/net/ethernet/qlogic/qed/qed.h
-index 44c184e..f6e0ff4 100644
---- a/drivers/net/ethernet/qlogic/qed/qed.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed.h
-@@ -1,9 +1,33 @@
- /* QLogic qed NIC Driver
-- * Copyright (c) 2015 QLogic Corporation
-+ * Copyright (c) 2015-2017  QLogic Corporation
-  *
-- * This software is available under the terms of the GNU General Public License
-- * (GPL) Version 2, available from the file COPYING in the main directory of
-- * this source tree.
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and /or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-  */
- 
- #ifndef _QED_H
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_cxt.c b/drivers/net/ethernet/qlogic/qed/qed_cxt.c
-index 0c42c24..dcb8fc1 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_cxt.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_cxt.c
-@@ -1,9 +1,33 @@
- /* QLogic qed NIC Driver
-- * Copyright (c) 2015 QLogic Corporation
-+ * Copyright (c) 2015-2017  QLogic Corporation
-  *
-- * This software is available under the terms of the GNU General Public License
-- * (GPL) Version 2, available from the file COPYING in the main directory of
-- * this source tree.
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and /or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-  */
- 
- #include <linux/types.h>
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_cxt.h b/drivers/net/ethernet/qlogic/qed/qed_cxt.h
-index 2b8bdaa..98f4973 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_cxt.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_cxt.h
-@@ -1,9 +1,33 @@
- /* QLogic qed NIC Driver
-- * Copyright (c) 2015 QLogic Corporation
-- *
-- * This software is available under the terms of the GNU General Public License
-- * (GPL) Version 2, available from the file COPYING in the main directory of
-- * this source tree.
-+ * Copyright (c) 2015-2017  QLogic Corporation
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and /or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-  */
- 
- #ifndef _QED_CXT_H
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_dcbx.c b/drivers/net/ethernet/qlogic/qed/qed_dcbx.c
-index a4789a9..dc0d2c9 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_dcbx.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_dcbx.c
-@@ -1,9 +1,33 @@
- /* QLogic qed NIC Driver
-- * Copyright (c) 2015 QLogic Corporation
-+ * Copyright (c) 2015-2017  QLogic Corporation
-  *
-- * This software is available under the terms of the GNU General Public License
-- * (GPL) Version 2, available from the file COPYING in the main directory of
-- * this source tree.
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and /or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-  */
- 
- #include <linux/types.h>
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_dcbx.h b/drivers/net/ethernet/qlogic/qed/qed_dcbx.h
-index 9ba6816..d70300f 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_dcbx.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_dcbx.h
-@@ -1,9 +1,33 @@
- /* QLogic qed NIC Driver
-- * Copyright (c) 2015 QLogic Corporation
-+ * Copyright (c) 2015-2017  QLogic Corporation
-  *
-- * This software is available under the terms of the GNU General Public License
-- * (GPL) Version 2, available from the file COPYING in the main directory of
-- * this source tree.
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and /or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-  */
- 
- #ifndef _QED_DCBX_H
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_dev.c b/drivers/net/ethernet/qlogic/qed/qed_dev.c
-index 3b22500..33e7201 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_dev.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_dev.c
-@@ -1,9 +1,33 @@
- /* QLogic qed NIC Driver
-- * Copyright (c) 2015 QLogic Corporation
-+ * Copyright (c) 2015-2017  QLogic Corporation
-  *
-- * This software is available under the terms of the GNU General Public License
-- * (GPL) Version 2, available from the file COPYING in the main directory of
-- * this source tree.
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and /or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-  */
- 
- #include <linux/types.h>
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_dev_api.h b/drivers/net/ethernet/qlogic/qed/qed_dev_api.h
-index b6711c1..5d37ba2 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_dev_api.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_dev_api.h
-@@ -1,9 +1,33 @@
- /* QLogic qed NIC Driver
-- * Copyright (c) 2015 QLogic Corporation
-- *
-- * This software is available under the terms of the GNU General Public License
-- * (GPL) Version 2, available from the file COPYING in the main directory of
-- * this source tree.
-+ * Copyright (c) 2015-2017  QLogic Corporation
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and /or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-  */
- 
- #ifndef _QED_DEV_API_H
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_hsi.h b/drivers/net/ethernet/qlogic/qed/qed_hsi.h
-index 785ab03..5d31189 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_hsi.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_hsi.h
-@@ -1,9 +1,33 @@
- /* QLogic qed NIC Driver
-- * Copyright (c) 2015 QLogic Corporation
-+ * Copyright (c) 2015-2017  QLogic Corporation
-  *
-- * This software is available under the terms of the GNU General Public License
-- * (GPL) Version 2, available from the file COPYING in the main directory of
-- * this source tree.
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and /or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-  */
- 
- #ifndef _QED_HSI_H
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_hw.c b/drivers/net/ethernet/qlogic/qed/qed_hw.c
-index 6e4fae9..1f60651 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_hw.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_hw.c
-@@ -1,9 +1,33 @@
- /* QLogic qed NIC Driver
-- * Copyright (c) 2015 QLogic Corporation
-+ * Copyright (c) 2015-2017  QLogic Corporation
-  *
-- * This software is available under the terms of the GNU General Public License
-- * (GPL) Version 2, available from the file COPYING in the main directory of
-- * this source tree.
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and /or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-  */
- 
- #include <linux/types.h>
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_hw.h b/drivers/net/ethernet/qlogic/qed/qed_hw.h
-index d015570..9277264 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_hw.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_hw.h
-@@ -1,9 +1,33 @@
- /* QLogic qed NIC Driver
-- * Copyright (c) 2015 QLogic Corporation
-+ * Copyright (c) 2015-2017  QLogic Corporation
-  *
-- * This software is available under the terms of the GNU General Public License
-- * (GPL) Version 2, available from the file COPYING in the main directory of
-- * this source tree.
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and /or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-  */
- 
- #ifndef _QED_HW_H
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_init_fw_funcs.c b/drivers/net/ethernet/qlogic/qed/qed_init_fw_funcs.c
-index 23e455f..d891a68 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_init_fw_funcs.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_init_fw_funcs.c
-@@ -1,9 +1,33 @@
- /* QLogic qed NIC Driver
-- * Copyright (c) 2015 QLogic Corporation
-+ * Copyright (c) 2015-2017  QLogic Corporation
-  *
-- * This software is available under the terms of the GNU General Public License
-- * (GPL) Version 2, available from the file COPYING in the main directory of
-- * this source tree.
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and /or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-  */
- 
- #include <linux/types.h>
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_init_ops.c b/drivers/net/ethernet/qlogic/qed/qed_init_ops.c
-index d567ba9..243b64e 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_init_ops.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_init_ops.c
-@@ -1,9 +1,33 @@
- /* QLogic qed NIC Driver
-- * Copyright (c) 2015 QLogic Corporation
-+ * Copyright (c) 2015-2017  QLogic Corporation
-  *
-- * This software is available under the terms of the GNU General Public License
-- * (GPL) Version 2, available from the file COPYING in the main directory of
-- * this source tree.
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and /or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-  */
- 
- #include <linux/types.h>
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_init_ops.h b/drivers/net/ethernet/qlogic/qed/qed_init_ops.h
-index 1e83204..555dd08 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_init_ops.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_init_ops.h
-@@ -1,9 +1,33 @@
- /* QLogic qed NIC Driver
-- * Copyright (c) 2015 QLogic Corporation
-- *
-- * This software is available under the terms of the GNU General Public License
-- * (GPL) Version 2, available from the file COPYING in the main directory of
-- * this source tree.
-+ * Copyright (c) 2015-2017  QLogic Corporation
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and /or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-  */
- 
- #ifndef _QED_INIT_OPS_H
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_int.c b/drivers/net/ethernet/qlogic/qed/qed_int.c
-index c68dbf7..84310b6 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_int.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_int.c
-@@ -1,9 +1,33 @@
- /* QLogic qed NIC Driver
-- * Copyright (c) 2015 QLogic Corporation
-+ * Copyright (c) 2015-2017  QLogic Corporation
-  *
-- * This software is available under the terms of the GNU General Public License
-- * (GPL) Version 2, available from the file COPYING in the main directory of
-- * this source tree.
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and /or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-  */
- 
- #include <linux/types.h>
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_int.h b/drivers/net/ethernet/qlogic/qed/qed_int.h
-index 0948be6..0ae0bb4 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_int.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_int.h
-@@ -1,9 +1,33 @@
- /* QLogic qed NIC Driver
-- * Copyright (c) 2015 QLogic Corporation
-- *
-- * This software is available under the terms of the GNU General Public License
-- * (GPL) Version 2, available from the file COPYING in the main directory of
-- * this source tree.
-+ * Copyright (c) 2015-2017  QLogic Corporation
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and /or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-  */
- 
- #ifndef _QED_INT_H
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_iscsi.c b/drivers/net/ethernet/qlogic/qed/qed_iscsi.c
-index 17a7012..3a44d6b 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_iscsi.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_iscsi.c
-@@ -1,9 +1,33 @@
- /* QLogic qed NIC Driver
-- * Copyright (c) 2015 QLogic Corporation
-+ * Copyright (c) 2015-2017  QLogic Corporation
-  *
-- * This software is available under the terms of the GNU General Public License
-- * (GPL) Version 2, available from the file COPYING in the main directory of
-- * this source tree.
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and /or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-  */
- 
- #include <linux/types.h>
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_iscsi.h b/drivers/net/ethernet/qlogic/qed/qed_iscsi.h
-index 67c25f3..20c187f 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_iscsi.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_iscsi.h
-@@ -1,9 +1,33 @@
- /* QLogic qed NIC Driver
-- * Copyright (c) 2015 QLogic Corporation
-+ * Copyright (c) 2015-2017  QLogic Corporation
-  *
-- * This software is available under the terms of the GNU General Public License
-- * (GPL) Version 2, available from the file COPYING in the main directory of
-- * this source tree.
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and /or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-  */
- 
- #ifndef _QED_ISCSI_H
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_l2.c b/drivers/net/ethernet/qlogic/qed/qed_l2.c
-index 6a3727c..fd153d2 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_l2.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_l2.c
-@@ -1,9 +1,33 @@
- /* QLogic qed NIC Driver
-- * Copyright (c) 2015 QLogic Corporation
-+ * Copyright (c) 2015-2017  QLogic Corporation
-  *
-- * This software is available under the terms of the GNU General Public License
-- * (GPL) Version 2, available from the file COPYING in the main directory of
-- * this source tree.
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and /or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-  */
- 
- #include <linux/types.h>
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_l2.h b/drivers/net/ethernet/qlogic/qed/qed_l2.h
-index 48c9bfc..2f03037 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_l2.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_l2.h
-@@ -1,9 +1,33 @@
- /* QLogic qed NIC Driver
-- * Copyright (c) 2015 QLogic Corporation
-+ * Copyright (c) 2015-2017  QLogic Corporation
-  *
-- * This software is available under the terms of the GNU General Public License
-- * (GPL) Version 2, available from the file COPYING in the main directory of
-- * this source tree.
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and /or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-  */
- #ifndef _QED_L2_H
- #define _QED_L2_H
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_ll2.c b/drivers/net/ethernet/qlogic/qed/qed_ll2.c
-index 8e5cb76..05e32f4 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_ll2.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_ll2.c
-@@ -1,10 +1,33 @@
- /* QLogic qed NIC Driver
-+ * Copyright (c) 2015-2017  QLogic Corporation
-  *
-- * Copyright (c) 2015 QLogic Corporation
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-  *
-- * This software is available under the terms of the GNU General Public License
-- * (GPL) Version 2, available from the file COPYING in the main directory of
-- * this source tree.
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and /or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-  */
- 
- #include <linux/types.h>
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_ll2.h b/drivers/net/ethernet/qlogic/qed/qed_ll2.h
-index 6625a3a..c7f2975 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_ll2.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_ll2.h
-@@ -1,10 +1,33 @@
- /* QLogic qed NIC Driver
-+ * Copyright (c) 2015-2017  QLogic Corporation
-  *
-- * Copyright (c) 2015 QLogic Corporation
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-  *
-- * This software is available under the terms of the GNU General Public License
-- * (GPL) Version 2, available from the file COPYING in the main directory of
-- * this source tree.
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and /or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-  */
- 
- #ifndef _QED_LL2_H
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_main.c b/drivers/net/ethernet/qlogic/qed/qed_main.c
-index aeb98d8..e156842 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_main.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_main.c
-@@ -1,9 +1,33 @@
- /* QLogic qed NIC Driver
-- * Copyright (c) 2015 QLogic Corporation
-+ * Copyright (c) 2015-2017  QLogic Corporation
-  *
-- * This software is available under the terms of the GNU General Public License
-- * (GPL) Version 2, available from the file COPYING in the main directory of
-- * this source tree.
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and /or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-  */
- 
- #include <linux/stddef.h>
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_mcp.c b/drivers/net/ethernet/qlogic/qed/qed_mcp.c
-index 6dd3ce4..2566741 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_mcp.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_mcp.c
-@@ -1,9 +1,33 @@
- /* QLogic qed NIC Driver
-- * Copyright (c) 2015 QLogic Corporation
-+ * Copyright (c) 2015-2017  QLogic Corporation
-  *
-- * This software is available under the terms of the GNU General Public License
-- * (GPL) Version 2, available from the file COPYING in the main directory of
-- * this source tree.
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and /or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-  */
- 
- #include <linux/types.h>
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_mcp.h b/drivers/net/ethernet/qlogic/qed/qed_mcp.h
-index 407a2c1..363dce0 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_mcp.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_mcp.h
-@@ -1,9 +1,33 @@
- /* QLogic qed NIC Driver
-- * Copyright (c) 2015 QLogic Corporation
-- *
-- * This software is available under the terms of the GNU General Public License
-- * (GPL) Version 2, available from the file COPYING in the main directory of
-- * this source tree.
-+ * Copyright (c) 2015-2017  QLogic Corporation
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and /or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-  */
- 
- #ifndef _QED_MCP_H
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_ooo.c b/drivers/net/ethernet/qlogic/qed/qed_ooo.c
-index 155abcb..7d731c6 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_ooo.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_ooo.c
-@@ -1,9 +1,33 @@
- /* QLogic qed NIC Driver
-- * Copyright (c) 2015 QLogic Corporation
-+ * Copyright (c) 2015-2017  QLogic Corporation
-  *
-- * This software is available under the terms of the GNU General Public License
-- * (GPL) Version 2, available from the file COPYING in the main directory of
-- * this source tree.
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and /or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-  */
- 
- #include <linux/types.h>
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_ooo.h b/drivers/net/ethernet/qlogic/qed/qed_ooo.h
-index 7a0670a..4f138fb 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_ooo.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_ooo.h
-@@ -1,9 +1,33 @@
- /* QLogic qed NIC Driver
-- * Copyright (c) 2015 QLogic Corporation
-+ * Copyright (c) 2015-2017  QLogic Corporation
-  *
-- * This software is available under the terms of the GNU General Public License
-- * (GPL) Version 2, available from the file COPYING in the main directory of
-- * this source tree.
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and /or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-  */
- 
- #ifndef _QED_OOO_H
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_reg_addr.h b/drivers/net/ethernet/qlogic/qed/qed_reg_addr.h
-index 9754420..b6722c6 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_reg_addr.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_reg_addr.h
-@@ -1,9 +1,33 @@
- /* QLogic qed NIC Driver
-- * Copyright (c) 2015 QLogic Corporation
-+ * Copyright (c) 2015-2017  QLogic Corporation
-  *
-- * This software is available under the terms of the GNU General Public License
-- * (GPL) Version 2, available from the file COPYING in the main directory of
-- * this source tree.
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and /or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-  */
- 
- #ifndef REG_ADDR_H
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_roce.c b/drivers/net/ethernet/qlogic/qed/qed_roce.c
-index 2a16547..bd4cad2 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_roce.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_roce.c
+diff --git a/drivers/net/ethernet/qlogic/qede/Makefile b/drivers/net/ethernet/qlogic/qede/Makefile
+index c54922b..38fbee6 100644
+--- a/drivers/net/ethernet/qlogic/qede/Makefile
++++ b/drivers/net/ethernet/qlogic/qede/Makefile
 @@ -1,5 +1,5 @@
- /* QLogic qed NIC Driver
-- * Copyright (c) 2015-2016  QLogic Corporation
-+ * Copyright (c) 2015-2017  QLogic Corporation
-  *
-  * This software is available to you under a choice of one of two
-  * licenses.  You may choose to be licensed under the terms of the GNU
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_roce.h b/drivers/net/ethernet/qlogic/qed/qed_roce.h
-index 279f342..36cf4b2 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_roce.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_roce.h
-@@ -1,5 +1,5 @@
- /* QLogic qed NIC Driver
-- * Copyright (c) 2015-2016  QLogic Corporation
-+ * Copyright (c) 2015-2017  QLogic Corporation
-  *
-  * This software is available to you under a choice of one of two
-  * licenses.  You may choose to be licensed under the terms of the GNU
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_selftest.c b/drivers/net/ethernet/qlogic/qed/qed_selftest.c
-index 48bfaec..1bafc05 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_selftest.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_selftest.c
-@@ -1,3 +1,35 @@
-+/* QLogic qed NIC Driver
-+ * Copyright (c) 2015-2016  QLogic Corporation
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and /or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+
- #include <linux/crc32.h>
- #include "qed.h"
- #include "qed_dev_api.h"
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_sp.h b/drivers/net/ethernet/qlogic/qed/qed_sp.h
-index 9c897bc..0438829 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_sp.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_sp.h
-@@ -1,9 +1,33 @@
- /* QLogic qed NIC Driver
-- * Copyright (c) 2015 QLogic Corporation
-- *
-- * This software is available under the terms of the GNU General Public License
-- * (GPL) Version 2, available from the file COPYING in the main directory of
-- * this source tree.
-+ * Copyright (c) 2015-2017  QLogic Corporation
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and /or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-  */
+ obj-$(CONFIG_QEDE) := qede.o
  
- #ifndef _QED_SP_H
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_sp_commands.c b/drivers/net/ethernet/qlogic/qed/qed_sp_commands.c
-index a39ef2e..097a729 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_sp_commands.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_sp_commands.c
-@@ -1,9 +1,33 @@
- /* QLogic qed NIC Driver
-- * Copyright (c) 2015 QLogic Corporation
-+ * Copyright (c) 2015-2017  QLogic Corporation
-  *
-- * This software is available under the terms of the GNU General Public License
-- * (GPL) Version 2, available from the file COPYING in the main directory of
-- * this source tree.
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and /or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-  */
- 
- #include <linux/types.h>
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_spq.c b/drivers/net/ethernet/qlogic/qed/qed_spq.c
-index f022469..645328a 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_spq.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_spq.c
-@@ -1,9 +1,33 @@
- /* QLogic qed NIC Driver
-- * Copyright (c) 2015 QLogic Corporation
-+ * Copyright (c) 2015-2017  QLogic Corporation
-  *
-- * This software is available under the terms of the GNU General Public License
-- * (GPL) Version 2, available from the file COPYING in the main directory of
-- * this source tree.
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and /or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-  */
- 
- #include <linux/types.h>
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_sriov.c b/drivers/net/ethernet/qlogic/qed/qed_sriov.c
-index 85b09dd..469e857f5 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_sriov.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_sriov.c
-@@ -1,9 +1,33 @@
- /* QLogic qed NIC Driver
-- * Copyright (c) 2015 QLogic Corporation
-+ * Copyright (c) 2015-2017  QLogic Corporation
-  *
-- * This software is available under the terms of the GNU General Public License
-- * (GPL) Version 2, available from the file COPYING in the main directory of
-- * this source tree.
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and /or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-  */
- 
- #include <linux/etherdevice.h>
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_sriov.h b/drivers/net/ethernet/qlogic/qed/qed_sriov.h
-index 509c02b..1738d5b 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_sriov.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_sriov.h
-@@ -1,9 +1,33 @@
- /* QLogic qed NIC Driver
-- * Copyright (c) 2015 QLogic Corporation
-+ * Copyright (c) 2015-2017  QLogic Corporation
-  *
-- * This software is available under the terms of the GNU General Public License
-- * (GPL) Version 2, available from the file COPYING in the main directory of
-- * this source tree.
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and /or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-  */
- 
- #ifndef _QED_SRIOV_H
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_vf.c b/drivers/net/ethernet/qlogic/qed/qed_vf.c
-index 60b31a8..af0542c 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_vf.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_vf.c
-@@ -1,9 +1,33 @@
- /* QLogic qed NIC Driver
-- * Copyright (c) 2015 QLogic Corporation
-+ * Copyright (c) 2015-2017  QLogic Corporation
-  *
-- * This software is available under the terms of the GNU General Public License
-- * (GPL) Version 2, available from the file COPYING in the main directory of
-- * this source tree.
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and /or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-  */
- 
- #include <linux/crc32.h>
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_vf.h b/drivers/net/ethernet/qlogic/qed/qed_vf.h
-index 11eb385..7da0b16 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_vf.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_vf.h
-@@ -1,9 +1,33 @@
- /* QLogic qed NIC Driver
-- * Copyright (c) 2015 QLogic Corporation
-+ * Copyright (c) 2015-2017  QLogic Corporation
-  *
-- * This software is available under the terms of the GNU General Public License
-- * (GPL) Version 2, available from the file COPYING in the main directory of
-- * this source tree.
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and /or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-  */
- 
- #ifndef _QED_VF_H
+-qede-y := qede_main.o qede_fp.o qede_ethtool.o
++qede-y := qede_main.o qede_fp.o qede_filter.o qede_ethtool.o
+ qede-$(CONFIG_DCB) += qede_dcbnl.o
+ qede-$(CONFIG_QED_RDMA) += qede_roce.o
 diff --git a/drivers/net/ethernet/qlogic/qede/qede.h b/drivers/net/ethernet/qlogic/qede/qede.h
-index c79dc787..b2c6cc9 100644
+index b4e4196..ab49263 100644
 --- a/drivers/net/ethernet/qlogic/qede/qede.h
 +++ b/drivers/net/ethernet/qlogic/qede/qede.h
-@@ -1,11 +1,34 @@
- /* QLogic qede NIC Driver
--* Copyright (c) 2015 QLogic Corporation
--*
--* This software is available under the terms of the GNU General Public License
--* (GPL) Version 2, available from the file COPYING in the main directory of
--* this source tree.
--*/
--
+@@ -419,9 +419,31 @@ int qede_free_tx_pkt(struct qede_dev *edev,
+ 		     struct qede_tx_queue *txq, int *len);
+ int qede_poll(struct napi_struct *napi, int budget);
+ irqreturn_t qede_msix_fp_int(int irq, void *fp_cookie);
++
++/* Filtering function definitions */
++void qede_force_mac(void *dev, u8 *mac, bool forced);
++int qede_set_mac_addr(struct net_device *ndev, void *p);
++
++int qede_vlan_rx_add_vid(struct net_device *dev, __be16 proto, u16 vid);
++int qede_vlan_rx_kill_vid(struct net_device *dev, __be16 proto, u16 vid);
++void qede_vlan_mark_nonconfigured(struct qede_dev *edev);
++int qede_configure_vlan_filters(struct qede_dev *edev);
++
++int qede_set_features(struct net_device *dev, netdev_features_t features);
++void qede_set_rx_mode(struct net_device *ndev);
++void qede_config_rx_mode(struct net_device *ndev);
++void qede_fill_rss_params(struct qede_dev *edev,
++			  struct qed_update_vport_rss_params *rss, u8 *update);
++
++void qede_udp_tunnel_add(struct net_device *dev, struct udp_tunnel_info *ti);
++void qede_udp_tunnel_del(struct net_device *dev, struct udp_tunnel_info *ti);
++
++int qede_xdp(struct net_device *dev, struct netdev_xdp *xdp);
++
+ #ifdef CONFIG_DCB
+ void qede_set_dcbnl_ops(struct net_device *ndev);
+ #endif
++
+ void qede_config_debug(uint debug, u32 *p_dp_module, u8 *p_dp_level);
+ void qede_set_ethtool_ops(struct net_device *netdev);
+ void qede_reload(struct qede_dev *edev,
+diff --git a/drivers/net/ethernet/qlogic/qede/qede_filter.c b/drivers/net/ethernet/qlogic/qede/qede_filter.c
+new file mode 100644
+index 0000000..6161e09
+--- /dev/null
++++ b/drivers/net/ethernet/qlogic/qede/qede_filter.c
+@@ -0,0 +1,687 @@
++/* QLogic qede NIC Driver
 + * Copyright (c) 2015-2017  QLogic Corporation
 + *
 + * This software is available to you under a choice of one of two
@@ -1621,684 +112,1351 @@ index c79dc787..b2c6cc9 100644
 + * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 + * SOFTWARE.
 + */
- #ifndef _QEDE_H_
- #define _QEDE_H_
- #include <linux/compiler.h>
-diff --git a/drivers/net/ethernet/qlogic/qede/qede_ethtool.c b/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
-index 1c48f44..8e971b2 100644
---- a/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
-+++ b/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
-@@ -1,11 +1,34 @@
- /* QLogic qede NIC Driver
--* Copyright (c) 2015 QLogic Corporation
--*
--* This software is available under the terms of the GNU General Public License
--* (GPL) Version 2, available from the file COPYING in the main directory of
--* this source tree.
--*/
--
-+ * Copyright (c) 2015-2017  QLogic Corporation
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and /or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
- #include <linux/version.h>
- #include <linux/types.h>
- #include <linux/netdevice.h>
++#include <linux/netdevice.h>
++#include <linux/etherdevice.h>
++#include <net/udp_tunnel.h>
++#include <linux/bitops.h>
++
++#include <linux/qed/qed_if.h>
++#include "qede.h"
++
++void qede_force_mac(void *dev, u8 *mac, bool forced)
++{
++	struct qede_dev *edev = dev;
++
++	/* MAC hints take effect only if we haven't set one already */
++	if (is_valid_ether_addr(edev->ndev->dev_addr) && !forced)
++		return;
++
++	ether_addr_copy(edev->ndev->dev_addr, mac);
++	ether_addr_copy(edev->primary_mac, mac);
++}
++
++static int qede_set_ucast_rx_mac(struct qede_dev *edev,
++				 enum qed_filter_xcast_params_type opcode,
++				 unsigned char mac[ETH_ALEN])
++{
++	struct qed_filter_params filter_cmd;
++
++	memset(&filter_cmd, 0, sizeof(filter_cmd));
++	filter_cmd.type = QED_FILTER_TYPE_UCAST;
++	filter_cmd.filter.ucast.type = opcode;
++	filter_cmd.filter.ucast.mac_valid = 1;
++	ether_addr_copy(filter_cmd.filter.ucast.mac, mac);
++
++	return edev->ops->filter_config(edev->cdev, &filter_cmd);
++}
++
++static int qede_set_ucast_rx_vlan(struct qede_dev *edev,
++				  enum qed_filter_xcast_params_type opcode,
++				  u16 vid)
++{
++	struct qed_filter_params filter_cmd;
++
++	memset(&filter_cmd, 0, sizeof(filter_cmd));
++	filter_cmd.type = QED_FILTER_TYPE_UCAST;
++	filter_cmd.filter.ucast.type = opcode;
++	filter_cmd.filter.ucast.vlan_valid = 1;
++	filter_cmd.filter.ucast.vlan = vid;
++
++	return edev->ops->filter_config(edev->cdev, &filter_cmd);
++}
++
++static void qede_config_accept_any_vlan(struct qede_dev *edev, bool action)
++{
++	struct qed_update_vport_params params;
++	int rc;
++
++	/* Proceed only if action actually needs to be performed */
++	if (edev->accept_any_vlan == action)
++		return;
++
++	memset(&params, 0, sizeof(params));
++
++	params.vport_id = 0;
++	params.accept_any_vlan = action;
++	params.update_accept_any_vlan_flg = 1;
++
++	rc = edev->ops->vport_update(edev->cdev, &params);
++	if (rc) {
++		DP_ERR(edev, "Failed to %s accept-any-vlan\n",
++		       action ? "enable" : "disable");
++	} else {
++		DP_INFO(edev, "%s accept-any-vlan\n",
++			action ? "enabled" : "disabled");
++		edev->accept_any_vlan = action;
++	}
++}
++
++int qede_vlan_rx_add_vid(struct net_device *dev, __be16 proto, u16 vid)
++{
++	struct qede_dev *edev = netdev_priv(dev);
++	struct qede_vlan *vlan, *tmp;
++	int rc = 0;
++
++	DP_VERBOSE(edev, NETIF_MSG_IFUP, "Adding vlan 0x%04x\n", vid);
++
++	vlan = kzalloc(sizeof(*vlan), GFP_KERNEL);
++	if (!vlan) {
++		DP_INFO(edev, "Failed to allocate struct for vlan\n");
++		return -ENOMEM;
++	}
++	INIT_LIST_HEAD(&vlan->list);
++	vlan->vid = vid;
++	vlan->configured = false;
++
++	/* Verify vlan isn't already configured */
++	list_for_each_entry(tmp, &edev->vlan_list, list) {
++		if (tmp->vid == vlan->vid) {
++			DP_VERBOSE(edev, (NETIF_MSG_IFUP | NETIF_MSG_IFDOWN),
++				   "vlan already configured\n");
++			kfree(vlan);
++			return -EEXIST;
++		}
++	}
++
++	/* If interface is down, cache this VLAN ID and return */
++	__qede_lock(edev);
++	if (edev->state != QEDE_STATE_OPEN) {
++		DP_VERBOSE(edev, NETIF_MSG_IFDOWN,
++			   "Interface is down, VLAN %d will be configured when interface is up\n",
++			   vid);
++		if (vid != 0)
++			edev->non_configured_vlans++;
++		list_add(&vlan->list, &edev->vlan_list);
++		goto out;
++	}
++
++	/* Check for the filter limit.
++	 * Note - vlan0 has a reserved filter and can be added without
++	 * worrying about quota
++	 */
++	if ((edev->configured_vlans < edev->dev_info.num_vlan_filters) ||
++	    (vlan->vid == 0)) {
++		rc = qede_set_ucast_rx_vlan(edev,
++					    QED_FILTER_XCAST_TYPE_ADD,
++					    vlan->vid);
++		if (rc) {
++			DP_ERR(edev, "Failed to configure VLAN %d\n",
++			       vlan->vid);
++			kfree(vlan);
++			goto out;
++		}
++		vlan->configured = true;
++
++		/* vlan0 filter isn't consuming out of our quota */
++		if (vlan->vid != 0)
++			edev->configured_vlans++;
++	} else {
++		/* Out of quota; Activate accept-any-VLAN mode */
++		if (!edev->non_configured_vlans)
++			qede_config_accept_any_vlan(edev, true);
++
++		edev->non_configured_vlans++;
++	}
++
++	list_add(&vlan->list, &edev->vlan_list);
++
++out:
++	__qede_unlock(edev);
++	return rc;
++}
++
++static void qede_del_vlan_from_list(struct qede_dev *edev,
++				    struct qede_vlan *vlan)
++{
++	/* vlan0 filter isn't consuming out of our quota */
++	if (vlan->vid != 0) {
++		if (vlan->configured)
++			edev->configured_vlans--;
++		else
++			edev->non_configured_vlans--;
++	}
++
++	list_del(&vlan->list);
++	kfree(vlan);
++}
++
++int qede_configure_vlan_filters(struct qede_dev *edev)
++{
++	int rc = 0, real_rc = 0, accept_any_vlan = 0;
++	struct qed_dev_eth_info *dev_info;
++	struct qede_vlan *vlan = NULL;
++
++	if (list_empty(&edev->vlan_list))
++		return 0;
++
++	dev_info = &edev->dev_info;
++
++	/* Configure non-configured vlans */
++	list_for_each_entry(vlan, &edev->vlan_list, list) {
++		if (vlan->configured)
++			continue;
++
++		/* We have used all our credits, now enable accept_any_vlan */
++		if ((vlan->vid != 0) &&
++		    (edev->configured_vlans == dev_info->num_vlan_filters)) {
++			accept_any_vlan = 1;
++			continue;
++		}
++
++		DP_VERBOSE(edev, NETIF_MSG_IFUP, "Adding vlan %d\n", vlan->vid);
++
++		rc = qede_set_ucast_rx_vlan(edev, QED_FILTER_XCAST_TYPE_ADD,
++					    vlan->vid);
++		if (rc) {
++			DP_ERR(edev, "Failed to configure VLAN %u\n",
++			       vlan->vid);
++			real_rc = rc;
++			continue;
++		}
++
++		vlan->configured = true;
++		/* vlan0 filter doesn't consume our VLAN filter's quota */
++		if (vlan->vid != 0) {
++			edev->non_configured_vlans--;
++			edev->configured_vlans++;
++		}
++	}
++
++	/* enable accept_any_vlan mode if we have more VLANs than credits,
++	 * or remove accept_any_vlan mode if we've actually removed
++	 * a non-configured vlan, and all remaining vlans are truly configured.
++	 */
++
++	if (accept_any_vlan)
++		qede_config_accept_any_vlan(edev, true);
++	else if (!edev->non_configured_vlans)
++		qede_config_accept_any_vlan(edev, false);
++
++	return real_rc;
++}
++
++int qede_vlan_rx_kill_vid(struct net_device *dev, __be16 proto, u16 vid)
++{
++	struct qede_dev *edev = netdev_priv(dev);
++	struct qede_vlan *vlan = NULL;
++	int rc = 0;
++
++	DP_VERBOSE(edev, NETIF_MSG_IFDOWN, "Removing vlan 0x%04x\n", vid);
++
++	/* Find whether entry exists */
++	__qede_lock(edev);
++	list_for_each_entry(vlan, &edev->vlan_list, list)
++		if (vlan->vid == vid)
++			break;
++
++	if (!vlan || (vlan->vid != vid)) {
++		DP_VERBOSE(edev, (NETIF_MSG_IFUP | NETIF_MSG_IFDOWN),
++			   "Vlan isn't configured\n");
++		goto out;
++	}
++
++	if (edev->state != QEDE_STATE_OPEN) {
++		/* As interface is already down, we don't have a VPORT
++		 * instance to remove vlan filter. So just update vlan list
++		 */
++		DP_VERBOSE(edev, NETIF_MSG_IFDOWN,
++			   "Interface is down, removing VLAN from list only\n");
++		qede_del_vlan_from_list(edev, vlan);
++		goto out;
++	}
++
++	/* Remove vlan */
++	if (vlan->configured) {
++		rc = qede_set_ucast_rx_vlan(edev, QED_FILTER_XCAST_TYPE_DEL,
++					    vid);
++		if (rc) {
++			DP_ERR(edev, "Failed to remove VLAN %d\n", vid);
++			goto out;
++		}
++	}
++
++	qede_del_vlan_from_list(edev, vlan);
++
++	/* We have removed a VLAN - try to see if we can
++	 * configure non-configured VLAN from the list.
++	 */
++	rc = qede_configure_vlan_filters(edev);
++
++out:
++	__qede_unlock(edev);
++	return rc;
++}
++
++void qede_vlan_mark_nonconfigured(struct qede_dev *edev)
++{
++	struct qede_vlan *vlan = NULL;
++
++	if (list_empty(&edev->vlan_list))
++		return;
++
++	list_for_each_entry(vlan, &edev->vlan_list, list) {
++		if (!vlan->configured)
++			continue;
++
++		vlan->configured = false;
++
++		/* vlan0 filter isn't consuming out of our quota */
++		if (vlan->vid != 0) {
++			edev->non_configured_vlans++;
++			edev->configured_vlans--;
++		}
++
++		DP_VERBOSE(edev, NETIF_MSG_IFDOWN,
++			   "marked vlan %d as non-configured\n", vlan->vid);
++	}
++
++	edev->accept_any_vlan = false;
++}
++
++static void qede_set_features_reload(struct qede_dev *edev,
++				     struct qede_reload_args *args)
++{
++	edev->ndev->features = args->u.features;
++}
++
++int qede_set_features(struct net_device *dev, netdev_features_t features)
++{
++	struct qede_dev *edev = netdev_priv(dev);
++	netdev_features_t changes = features ^ dev->features;
++	bool need_reload = false;
++
++	/* No action needed if hardware GRO is disabled during driver load */
++	if (changes & NETIF_F_GRO) {
++		if (dev->features & NETIF_F_GRO)
++			need_reload = !edev->gro_disable;
++		else
++			need_reload = edev->gro_disable;
++	}
++
++	if (need_reload) {
++		struct qede_reload_args args;
++
++		args.u.features = features;
++		args.func = &qede_set_features_reload;
++
++		/* Make sure that we definitely need to reload.
++		 * In case of an eBPF attached program, there will be no FW
++		 * aggregations, so no need to actually reload.
++		 */
++		__qede_lock(edev);
++		if (edev->xdp_prog)
++			args.func(edev, &args);
++		else
++			qede_reload(edev, &args, true);
++		__qede_unlock(edev);
++
++		return 1;
++	}
++
++	return 0;
++}
++
++void qede_udp_tunnel_add(struct net_device *dev, struct udp_tunnel_info *ti)
++{
++	struct qede_dev *edev = netdev_priv(dev);
++	u16 t_port = ntohs(ti->port);
++
++	switch (ti->type) {
++	case UDP_TUNNEL_TYPE_VXLAN:
++		if (edev->vxlan_dst_port)
++			return;
++
++		edev->vxlan_dst_port = t_port;
++
++		DP_VERBOSE(edev, QED_MSG_DEBUG, "Added vxlan port=%d\n",
++			   t_port);
++
++		set_bit(QEDE_SP_VXLAN_PORT_CONFIG, &edev->sp_flags);
++		break;
++	case UDP_TUNNEL_TYPE_GENEVE:
++		if (edev->geneve_dst_port)
++			return;
++
++		edev->geneve_dst_port = t_port;
++
++		DP_VERBOSE(edev, QED_MSG_DEBUG, "Added geneve port=%d\n",
++			   t_port);
++		set_bit(QEDE_SP_GENEVE_PORT_CONFIG, &edev->sp_flags);
++		break;
++	default:
++		return;
++	}
++
++	schedule_delayed_work(&edev->sp_task, 0);
++}
++
++void qede_udp_tunnel_del(struct net_device *dev, struct udp_tunnel_info *ti)
++{
++	struct qede_dev *edev = netdev_priv(dev);
++	u16 t_port = ntohs(ti->port);
++
++	switch (ti->type) {
++	case UDP_TUNNEL_TYPE_VXLAN:
++		if (t_port != edev->vxlan_dst_port)
++			return;
++
++		edev->vxlan_dst_port = 0;
++
++		DP_VERBOSE(edev, QED_MSG_DEBUG, "Deleted vxlan port=%d\n",
++			   t_port);
++
++		set_bit(QEDE_SP_VXLAN_PORT_CONFIG, &edev->sp_flags);
++		break;
++	case UDP_TUNNEL_TYPE_GENEVE:
++		if (t_port != edev->geneve_dst_port)
++			return;
++
++		edev->geneve_dst_port = 0;
++
++		DP_VERBOSE(edev, QED_MSG_DEBUG, "Deleted geneve port=%d\n",
++			   t_port);
++		set_bit(QEDE_SP_GENEVE_PORT_CONFIG, &edev->sp_flags);
++		break;
++	default:
++		return;
++	}
++
++	schedule_delayed_work(&edev->sp_task, 0);
++}
++
++static void qede_xdp_reload_func(struct qede_dev *edev,
++				 struct qede_reload_args *args)
++{
++	struct bpf_prog *old;
++
++	old = xchg(&edev->xdp_prog, args->u.new_prog);
++	if (old)
++		bpf_prog_put(old);
++}
++
++static int qede_xdp_set(struct qede_dev *edev, struct bpf_prog *prog)
++{
++	struct qede_reload_args args;
++
++	if (prog && prog->xdp_adjust_head) {
++		DP_ERR(edev, "Does not support bpf_xdp_adjust_head()\n");
++		return -EOPNOTSUPP;
++	}
++
++	/* If we're called, there was already a bpf reference increment */
++	args.func = &qede_xdp_reload_func;
++	args.u.new_prog = prog;
++	qede_reload(edev, &args, false);
++
++	return 0;
++}
++
++int qede_xdp(struct net_device *dev, struct netdev_xdp *xdp)
++{
++	struct qede_dev *edev = netdev_priv(dev);
++
++	switch (xdp->command) {
++	case XDP_SETUP_PROG:
++		return qede_xdp_set(edev, xdp->prog);
++	case XDP_QUERY_PROG:
++		xdp->prog_attached = !!edev->xdp_prog;
++		return 0;
++	default:
++		return -EINVAL;
++	}
++}
++
++static int qede_set_mcast_rx_mac(struct qede_dev *edev,
++				 enum qed_filter_xcast_params_type opcode,
++				 unsigned char *mac, int num_macs)
++{
++	struct qed_filter_params filter_cmd;
++	int i;
++
++	memset(&filter_cmd, 0, sizeof(filter_cmd));
++	filter_cmd.type = QED_FILTER_TYPE_MCAST;
++	filter_cmd.filter.mcast.type = opcode;
++	filter_cmd.filter.mcast.num = num_macs;
++
++	for (i = 0; i < num_macs; i++, mac += ETH_ALEN)
++		ether_addr_copy(filter_cmd.filter.mcast.mac[i], mac);
++
++	return edev->ops->filter_config(edev->cdev, &filter_cmd);
++}
++
++int qede_set_mac_addr(struct net_device *ndev, void *p)
++{
++	struct qede_dev *edev = netdev_priv(ndev);
++	struct sockaddr *addr = p;
++	int rc;
++
++	ASSERT_RTNL(); /* @@@TBD To be removed */
++
++	DP_INFO(edev, "Set_mac_addr called\n");
++
++	if (!is_valid_ether_addr(addr->sa_data)) {
++		DP_NOTICE(edev, "The MAC address is not valid\n");
++		return -EFAULT;
++	}
++
++	if (!edev->ops->check_mac(edev->cdev, addr->sa_data)) {
++		DP_NOTICE(edev, "qed prevents setting MAC\n");
++		return -EINVAL;
++	}
++
++	ether_addr_copy(ndev->dev_addr, addr->sa_data);
++
++	if (!netif_running(ndev))  {
++		DP_NOTICE(edev, "The device is currently down\n");
++		return 0;
++	}
++
++	/* Remove the previous primary mac */
++	rc = qede_set_ucast_rx_mac(edev, QED_FILTER_XCAST_TYPE_DEL,
++				   edev->primary_mac);
++	if (rc)
++		return rc;
++
++	edev->ops->common->update_mac(edev->cdev, addr->sa_data);
++
++	/* Add MAC filter according to the new unicast HW MAC address */
++	ether_addr_copy(edev->primary_mac, ndev->dev_addr);
++	return qede_set_ucast_rx_mac(edev, QED_FILTER_XCAST_TYPE_ADD,
++				      edev->primary_mac);
++}
++
++static int
++qede_configure_mcast_filtering(struct net_device *ndev,
++			       enum qed_filter_rx_mode_type *accept_flags)
++{
++	struct qede_dev *edev = netdev_priv(ndev);
++	unsigned char *mc_macs, *temp;
++	struct netdev_hw_addr *ha;
++	int rc = 0, mc_count;
++	size_t size;
++
++	size = 64 * ETH_ALEN;
++
++	mc_macs = kzalloc(size, GFP_KERNEL);
++	if (!mc_macs) {
++		DP_NOTICE(edev,
++			  "Failed to allocate memory for multicast MACs\n");
++		rc = -ENOMEM;
++		goto exit;
++	}
++
++	temp = mc_macs;
++
++	/* Remove all previously configured MAC filters */
++	rc = qede_set_mcast_rx_mac(edev, QED_FILTER_XCAST_TYPE_DEL,
++				   mc_macs, 1);
++	if (rc)
++		goto exit;
++
++	netif_addr_lock_bh(ndev);
++
++	mc_count = netdev_mc_count(ndev);
++	if (mc_count < 64) {
++		netdev_for_each_mc_addr(ha, ndev) {
++			ether_addr_copy(temp, ha->addr);
++			temp += ETH_ALEN;
++		}
++	}
++
++	netif_addr_unlock_bh(ndev);
++
++	/* Check for all multicast @@@TBD resource allocation */
++	if ((ndev->flags & IFF_ALLMULTI) || (mc_count > 64)) {
++		if (*accept_flags == QED_FILTER_RX_MODE_TYPE_REGULAR)
++			*accept_flags = QED_FILTER_RX_MODE_TYPE_MULTI_PROMISC;
++	} else {
++		/* Add all multicast MAC filters */
++		rc = qede_set_mcast_rx_mac(edev, QED_FILTER_XCAST_TYPE_ADD,
++					   mc_macs, mc_count);
++	}
++
++exit:
++	kfree(mc_macs);
++	return rc;
++}
++
++void qede_set_rx_mode(struct net_device *ndev)
++{
++	struct qede_dev *edev = netdev_priv(ndev);
++
++	set_bit(QEDE_SP_RX_MODE, &edev->sp_flags);
++	schedule_delayed_work(&edev->sp_task, 0);
++}
++
++/* Must be called with qede_lock held */
++void qede_config_rx_mode(struct net_device *ndev)
++{
++	enum qed_filter_rx_mode_type accept_flags;
++	struct qede_dev *edev = netdev_priv(ndev);
++	struct qed_filter_params rx_mode;
++	unsigned char *uc_macs, *temp;
++	struct netdev_hw_addr *ha;
++	int rc, uc_count;
++	size_t size;
++
++	netif_addr_lock_bh(ndev);
++
++	uc_count = netdev_uc_count(ndev);
++	size = uc_count * ETH_ALEN;
++
++	uc_macs = kzalloc(size, GFP_ATOMIC);
++	if (!uc_macs) {
++		DP_NOTICE(edev, "Failed to allocate memory for unicast MACs\n");
++		netif_addr_unlock_bh(ndev);
++		return;
++	}
++
++	temp = uc_macs;
++	netdev_for_each_uc_addr(ha, ndev) {
++		ether_addr_copy(temp, ha->addr);
++		temp += ETH_ALEN;
++	}
++
++	netif_addr_unlock_bh(ndev);
++
++	/* Configure the struct for the Rx mode */
++	memset(&rx_mode, 0, sizeof(struct qed_filter_params));
++	rx_mode.type = QED_FILTER_TYPE_RX_MODE;
++
++	/* Remove all previous unicast secondary macs and multicast macs
++	 * (configrue / leave the primary mac)
++	 */
++	rc = qede_set_ucast_rx_mac(edev, QED_FILTER_XCAST_TYPE_REPLACE,
++				   edev->primary_mac);
++	if (rc)
++		goto out;
++
++	/* Check for promiscuous */
++	if ((ndev->flags & IFF_PROMISC) ||
++	    (uc_count > edev->dev_info.num_mac_filters - 1)) {
++		accept_flags = QED_FILTER_RX_MODE_TYPE_PROMISC;
++	} else {
++		/* Add MAC filters according to the unicast secondary macs */
++		int i;
++
++		temp = uc_macs;
++		for (i = 0; i < uc_count; i++) {
++			rc = qede_set_ucast_rx_mac(edev,
++						   QED_FILTER_XCAST_TYPE_ADD,
++						   temp);
++			if (rc)
++				goto out;
++
++			temp += ETH_ALEN;
++		}
++
++		rc = qede_configure_mcast_filtering(ndev, &accept_flags);
++		if (rc)
++			goto out;
++	}
++
++	/* take care of VLAN mode */
++	if (ndev->flags & IFF_PROMISC) {
++		qede_config_accept_any_vlan(edev, true);
++	} else if (!edev->non_configured_vlans) {
++		/* It's possible that accept_any_vlan mode is set due to a
++		 * previous setting of IFF_PROMISC. If vlan credits are
++		 * sufficient, disable accept_any_vlan.
++		 */
++		qede_config_accept_any_vlan(edev, false);
++	}
++
++	rx_mode.filter.accept_flags = accept_flags;
++	edev->ops->filter_config(edev->cdev, &rx_mode);
++out:
++	kfree(uc_macs);
++}
 diff --git a/drivers/net/ethernet/qlogic/qede/qede_main.c b/drivers/net/ethernet/qlogic/qede/qede_main.c
-index aecdd1c..0851fe3 100644
+index 1393bf4..334e414 100644
 --- a/drivers/net/ethernet/qlogic/qede/qede_main.c
 +++ b/drivers/net/ethernet/qlogic/qede/qede_main.c
-@@ -1,11 +1,34 @@
- /* QLogic qede NIC Driver
--* Copyright (c) 2015 QLogic Corporation
--*
--* This software is available under the terms of the GNU General Public License
--* (GPL) Version 2, available from the file COPYING in the main directory of
--* this source tree.
--*/
+@@ -210,18 +210,6 @@ static int qede_sriov_configure(struct pci_dev *pdev, int num_vfs_param)
+ #endif
+ };
+ 
+-static void qede_force_mac(void *dev, u8 *mac, bool forced)
+-{
+-	struct qede_dev *edev = dev;
 -
-+ * Copyright (c) 2015-2017  QLogic Corporation
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and /or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
- #include <linux/module.h>
- #include <linux/pci.h>
- #include <linux/version.h>
-diff --git a/drivers/net/ethernet/qlogic/qede/qede_roce.c b/drivers/net/ethernet/qlogic/qede/qede_roce.c
-index 4927271..f00657c 100644
---- a/drivers/net/ethernet/qlogic/qede/qede_roce.c
-+++ b/drivers/net/ethernet/qlogic/qede/qede_roce.c
-@@ -1,5 +1,5 @@
- /* QLogic qedr NIC Driver
-- * Copyright (c) 2015-2016  QLogic Corporation
-+ * Copyright (c) 2015-2017  QLogic Corporation
-  *
-  * This software is available to you under a choice of one of two
-  * licenses.  You may choose to be licensed under the terms of the GNU
-diff --git a/include/linux/qed/common_hsi.h b/include/linux/qed/common_hsi.h
-index 734deb0..c33080b 100644
---- a/include/linux/qed/common_hsi.h
-+++ b/include/linux/qed/common_hsi.h
-@@ -1,10 +1,35 @@
- /* QLogic qed NIC Driver
-- * Copyright (c) 2015 QLogic Corporation
-+ * Copyright (c) 2015-2016  QLogic Corporation
-  *
-- * This software is available under the terms of the GNU General Public License
-- * (GPL) Version 2, available from the file COPYING in the main directory of
-- * this source tree.
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and /or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-  */
-+
- #ifndef _COMMON_HSI_H
- #define _COMMON_HSI_H
- #include <linux/types.h>
-diff --git a/include/linux/qed/eth_common.h b/include/linux/qed/eth_common.h
-index 1aa0727..4b402fb 100644
---- a/include/linux/qed/eth_common.h
-+++ b/include/linux/qed/eth_common.h
-@@ -1,9 +1,33 @@
- /* QLogic qed NIC Driver
-- * Copyright (c) 2015 QLogic Corporation
-+ * Copyright (c) 2015-2017  QLogic Corporation
-  *
-- * This software is available under the terms of the GNU General Public License
-- * (GPL) Version 2, available from the file COPYING in the main directory of
-- * this source tree.
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and /or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-  */
+-	/* MAC hints take effect only if we haven't set one already */
+-	if (is_valid_ether_addr(edev->ndev->dev_addr) && !forced)
+-		return;
+-
+-	ether_addr_copy(edev->ndev->dev_addr, mac);
+-	ether_addr_copy(edev->primary_mac, mac);
+-}
+-
+ static struct qed_eth_cb_ops qede_ll_ops = {
+ 	{
+ 		.link_update = qede_link_update,
+@@ -319,39 +307,6 @@ static void __exit qede_cleanup(void)
  
- #ifndef __ETH_COMMON__
-diff --git a/include/linux/qed/iscsi_common.h b/include/linux/qed/iscsi_common.h
-index 8f64b12..4c5747b 100644
---- a/include/linux/qed/iscsi_common.h
-+++ b/include/linux/qed/iscsi_common.h
-@@ -1,9 +1,33 @@
- /* QLogic qed NIC Driver
-- * Copyright (c) 2015 QLogic Corporation
-+ * Copyright (c) 2015-2017  QLogic Corporation
-  *
-- * This software is available under the terms of the GNU General Public License
-- * (GPL) Version 2, available from the file COPYING in the main directory of
-- * this source tree.
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and /or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-  */
+ static int qede_open(struct net_device *ndev);
+ static int qede_close(struct net_device *ndev);
+-static int qede_set_mac_addr(struct net_device *ndev, void *p);
+-static void qede_set_rx_mode(struct net_device *ndev);
+-static void qede_config_rx_mode(struct net_device *ndev);
+-
+-static int qede_set_ucast_rx_mac(struct qede_dev *edev,
+-				 enum qed_filter_xcast_params_type opcode,
+-				 unsigned char mac[ETH_ALEN])
+-{
+-	struct qed_filter_params filter_cmd;
+-
+-	memset(&filter_cmd, 0, sizeof(filter_cmd));
+-	filter_cmd.type = QED_FILTER_TYPE_UCAST;
+-	filter_cmd.filter.ucast.type = opcode;
+-	filter_cmd.filter.ucast.mac_valid = 1;
+-	ether_addr_copy(filter_cmd.filter.ucast.mac, mac);
+-
+-	return edev->ops->filter_config(edev->cdev, &filter_cmd);
+-}
+-
+-static int qede_set_ucast_rx_vlan(struct qede_dev *edev,
+-				  enum qed_filter_xcast_params_type opcode,
+-				  u16 vid)
+-{
+-	struct qed_filter_params filter_cmd;
+-
+-	memset(&filter_cmd, 0, sizeof(filter_cmd));
+-	filter_cmd.type = QED_FILTER_TYPE_UCAST;
+-	filter_cmd.filter.ucast.type = opcode;
+-	filter_cmd.filter.ucast.vlan_valid = 1;
+-	filter_cmd.filter.ucast.vlan = vid;
+-
+-	return edev->ops->filter_config(edev->cdev, &filter_cmd);
+-}
  
- #ifndef __ISCSI_COMMON__
-diff --git a/include/linux/qed/qed_chain.h b/include/linux/qed/qed_chain.h
-index 37dfba1..5cd7a46 100644
---- a/include/linux/qed/qed_chain.h
-+++ b/include/linux/qed/qed_chain.h
-@@ -1,9 +1,33 @@
- /* QLogic qed NIC Driver
-- * Copyright (c) 2015 QLogic Corporation
-- *
-- * This software is available under the terms of the GNU General Public License
-- * (GPL) Version 2, available from the file COPYING in the main directory of
-- * this source tree.
-+ * Copyright (c) 2015-2017  QLogic Corporation
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and /or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-  */
+ void qede_fill_by_demand_stats(struct qede_dev *edev)
+ {
+@@ -519,409 +474,6 @@ static int qede_set_vf_link_state(struct net_device *dev, int vfidx,
+ }
+ #endif
  
- #ifndef _QED_CHAIN_H
-diff --git a/include/linux/qed/qed_eth_if.h b/include/linux/qed/qed_eth_if.h
-index 7a52f7c..d91651e 100644
---- a/include/linux/qed/qed_eth_if.h
-+++ b/include/linux/qed/qed_eth_if.h
-@@ -1,9 +1,33 @@
- /* QLogic qed NIC Driver
-- * Copyright (c) 2015 QLogic Corporation
-+ * Copyright (c) 2015-2017  QLogic Corporation
-  *
-- * This software is available under the terms of the GNU General Public License
-- * (GPL) Version 2, available from the file COPYING in the main directory of
-- * this source tree.
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and /or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-  */
+-static void qede_config_accept_any_vlan(struct qede_dev *edev, bool action)
+-{
+-	struct qed_update_vport_params params;
+-	int rc;
+-
+-	/* Proceed only if action actually needs to be performed */
+-	if (edev->accept_any_vlan == action)
+-		return;
+-
+-	memset(&params, 0, sizeof(params));
+-
+-	params.vport_id = 0;
+-	params.accept_any_vlan = action;
+-	params.update_accept_any_vlan_flg = 1;
+-
+-	rc = edev->ops->vport_update(edev->cdev, &params);
+-	if (rc) {
+-		DP_ERR(edev, "Failed to %s accept-any-vlan\n",
+-		       action ? "enable" : "disable");
+-	} else {
+-		DP_INFO(edev, "%s accept-any-vlan\n",
+-			action ? "enabled" : "disabled");
+-		edev->accept_any_vlan = action;
+-	}
+-}
+-
+-static int qede_vlan_rx_add_vid(struct net_device *dev, __be16 proto, u16 vid)
+-{
+-	struct qede_dev *edev = netdev_priv(dev);
+-	struct qede_vlan *vlan, *tmp;
+-	int rc = 0;
+-
+-	DP_VERBOSE(edev, NETIF_MSG_IFUP, "Adding vlan 0x%04x\n", vid);
+-
+-	vlan = kzalloc(sizeof(*vlan), GFP_KERNEL);
+-	if (!vlan) {
+-		DP_INFO(edev, "Failed to allocate struct for vlan\n");
+-		return -ENOMEM;
+-	}
+-	INIT_LIST_HEAD(&vlan->list);
+-	vlan->vid = vid;
+-	vlan->configured = false;
+-
+-	/* Verify vlan isn't already configured */
+-	list_for_each_entry(tmp, &edev->vlan_list, list) {
+-		if (tmp->vid == vlan->vid) {
+-			DP_VERBOSE(edev, (NETIF_MSG_IFUP | NETIF_MSG_IFDOWN),
+-				   "vlan already configured\n");
+-			kfree(vlan);
+-			return -EEXIST;
+-		}
+-	}
+-
+-	/* If interface is down, cache this VLAN ID and return */
+-	__qede_lock(edev);
+-	if (edev->state != QEDE_STATE_OPEN) {
+-		DP_VERBOSE(edev, NETIF_MSG_IFDOWN,
+-			   "Interface is down, VLAN %d will be configured when interface is up\n",
+-			   vid);
+-		if (vid != 0)
+-			edev->non_configured_vlans++;
+-		list_add(&vlan->list, &edev->vlan_list);
+-		goto out;
+-	}
+-
+-	/* Check for the filter limit.
+-	 * Note - vlan0 has a reserved filter and can be added without
+-	 * worrying about quota
+-	 */
+-	if ((edev->configured_vlans < edev->dev_info.num_vlan_filters) ||
+-	    (vlan->vid == 0)) {
+-		rc = qede_set_ucast_rx_vlan(edev,
+-					    QED_FILTER_XCAST_TYPE_ADD,
+-					    vlan->vid);
+-		if (rc) {
+-			DP_ERR(edev, "Failed to configure VLAN %d\n",
+-			       vlan->vid);
+-			kfree(vlan);
+-			goto out;
+-		}
+-		vlan->configured = true;
+-
+-		/* vlan0 filter isn't consuming out of our quota */
+-		if (vlan->vid != 0)
+-			edev->configured_vlans++;
+-	} else {
+-		/* Out of quota; Activate accept-any-VLAN mode */
+-		if (!edev->non_configured_vlans)
+-			qede_config_accept_any_vlan(edev, true);
+-
+-		edev->non_configured_vlans++;
+-	}
+-
+-	list_add(&vlan->list, &edev->vlan_list);
+-
+-out:
+-	__qede_unlock(edev);
+-	return rc;
+-}
+-
+-static void qede_del_vlan_from_list(struct qede_dev *edev,
+-				    struct qede_vlan *vlan)
+-{
+-	/* vlan0 filter isn't consuming out of our quota */
+-	if (vlan->vid != 0) {
+-		if (vlan->configured)
+-			edev->configured_vlans--;
+-		else
+-			edev->non_configured_vlans--;
+-	}
+-
+-	list_del(&vlan->list);
+-	kfree(vlan);
+-}
+-
+-static int qede_configure_vlan_filters(struct qede_dev *edev)
+-{
+-	int rc = 0, real_rc = 0, accept_any_vlan = 0;
+-	struct qed_dev_eth_info *dev_info;
+-	struct qede_vlan *vlan = NULL;
+-
+-	if (list_empty(&edev->vlan_list))
+-		return 0;
+-
+-	dev_info = &edev->dev_info;
+-
+-	/* Configure non-configured vlans */
+-	list_for_each_entry(vlan, &edev->vlan_list, list) {
+-		if (vlan->configured)
+-			continue;
+-
+-		/* We have used all our credits, now enable accept_any_vlan */
+-		if ((vlan->vid != 0) &&
+-		    (edev->configured_vlans == dev_info->num_vlan_filters)) {
+-			accept_any_vlan = 1;
+-			continue;
+-		}
+-
+-		DP_VERBOSE(edev, NETIF_MSG_IFUP, "Adding vlan %d\n", vlan->vid);
+-
+-		rc = qede_set_ucast_rx_vlan(edev, QED_FILTER_XCAST_TYPE_ADD,
+-					    vlan->vid);
+-		if (rc) {
+-			DP_ERR(edev, "Failed to configure VLAN %u\n",
+-			       vlan->vid);
+-			real_rc = rc;
+-			continue;
+-		}
+-
+-		vlan->configured = true;
+-		/* vlan0 filter doesn't consume our VLAN filter's quota */
+-		if (vlan->vid != 0) {
+-			edev->non_configured_vlans--;
+-			edev->configured_vlans++;
+-		}
+-	}
+-
+-	/* enable accept_any_vlan mode if we have more VLANs than credits,
+-	 * or remove accept_any_vlan mode if we've actually removed
+-	 * a non-configured vlan, and all remaining vlans are truly configured.
+-	 */
+-
+-	if (accept_any_vlan)
+-		qede_config_accept_any_vlan(edev, true);
+-	else if (!edev->non_configured_vlans)
+-		qede_config_accept_any_vlan(edev, false);
+-
+-	return real_rc;
+-}
+-
+-static int qede_vlan_rx_kill_vid(struct net_device *dev, __be16 proto, u16 vid)
+-{
+-	struct qede_dev *edev = netdev_priv(dev);
+-	struct qede_vlan *vlan = NULL;
+-	int rc = 0;
+-
+-	DP_VERBOSE(edev, NETIF_MSG_IFDOWN, "Removing vlan 0x%04x\n", vid);
+-
+-	/* Find whether entry exists */
+-	__qede_lock(edev);
+-	list_for_each_entry(vlan, &edev->vlan_list, list)
+-		if (vlan->vid == vid)
+-			break;
+-
+-	if (!vlan || (vlan->vid != vid)) {
+-		DP_VERBOSE(edev, (NETIF_MSG_IFUP | NETIF_MSG_IFDOWN),
+-			   "Vlan isn't configured\n");
+-		goto out;
+-	}
+-
+-	if (edev->state != QEDE_STATE_OPEN) {
+-		/* As interface is already down, we don't have a VPORT
+-		 * instance to remove vlan filter. So just update vlan list
+-		 */
+-		DP_VERBOSE(edev, NETIF_MSG_IFDOWN,
+-			   "Interface is down, removing VLAN from list only\n");
+-		qede_del_vlan_from_list(edev, vlan);
+-		goto out;
+-	}
+-
+-	/* Remove vlan */
+-	if (vlan->configured) {
+-		rc = qede_set_ucast_rx_vlan(edev, QED_FILTER_XCAST_TYPE_DEL,
+-					    vid);
+-		if (rc) {
+-			DP_ERR(edev, "Failed to remove VLAN %d\n", vid);
+-			goto out;
+-		}
+-	}
+-
+-	qede_del_vlan_from_list(edev, vlan);
+-
+-	/* We have removed a VLAN - try to see if we can
+-	 * configure non-configured VLAN from the list.
+-	 */
+-	rc = qede_configure_vlan_filters(edev);
+-
+-out:
+-	__qede_unlock(edev);
+-	return rc;
+-}
+-
+-static void qede_vlan_mark_nonconfigured(struct qede_dev *edev)
+-{
+-	struct qede_vlan *vlan = NULL;
+-
+-	if (list_empty(&edev->vlan_list))
+-		return;
+-
+-	list_for_each_entry(vlan, &edev->vlan_list, list) {
+-		if (!vlan->configured)
+-			continue;
+-
+-		vlan->configured = false;
+-
+-		/* vlan0 filter isn't consuming out of our quota */
+-		if (vlan->vid != 0) {
+-			edev->non_configured_vlans++;
+-			edev->configured_vlans--;
+-		}
+-
+-		DP_VERBOSE(edev, NETIF_MSG_IFDOWN,
+-			   "marked vlan %d as non-configured\n", vlan->vid);
+-	}
+-
+-	edev->accept_any_vlan = false;
+-}
+-
+-static void qede_set_features_reload(struct qede_dev *edev,
+-				     struct qede_reload_args *args)
+-{
+-	edev->ndev->features = args->u.features;
+-}
+-
+-int qede_set_features(struct net_device *dev, netdev_features_t features)
+-{
+-	struct qede_dev *edev = netdev_priv(dev);
+-	netdev_features_t changes = features ^ dev->features;
+-	bool need_reload = false;
+-
+-	/* No action needed if hardware GRO is disabled during driver load */
+-	if (changes & NETIF_F_GRO) {
+-		if (dev->features & NETIF_F_GRO)
+-			need_reload = !edev->gro_disable;
+-		else
+-			need_reload = edev->gro_disable;
+-	}
+-
+-	if (need_reload) {
+-		struct qede_reload_args args;
+-
+-		args.u.features = features;
+-		args.func = &qede_set_features_reload;
+-
+-		/* Make sure that we definitely need to reload.
+-		 * In case of an eBPF attached program, there will be no FW
+-		 * aggregations, so no need to actually reload.
+-		 */
+-		__qede_lock(edev);
+-		if (edev->xdp_prog)
+-			args.func(edev, &args);
+-		else
+-			qede_reload(edev, &args, true);
+-		__qede_unlock(edev);
+-
+-		return 1;
+-	}
+-
+-	return 0;
+-}
+-
+-static void qede_udp_tunnel_add(struct net_device *dev,
+-				struct udp_tunnel_info *ti)
+-{
+-	struct qede_dev *edev = netdev_priv(dev);
+-	u16 t_port = ntohs(ti->port);
+-
+-	switch (ti->type) {
+-	case UDP_TUNNEL_TYPE_VXLAN:
+-		if (edev->vxlan_dst_port)
+-			return;
+-
+-		edev->vxlan_dst_port = t_port;
+-
+-		DP_VERBOSE(edev, QED_MSG_DEBUG, "Added vxlan port=%d\n",
+-			   t_port);
+-
+-		set_bit(QEDE_SP_VXLAN_PORT_CONFIG, &edev->sp_flags);
+-		break;
+-	case UDP_TUNNEL_TYPE_GENEVE:
+-		if (edev->geneve_dst_port)
+-			return;
+-
+-		edev->geneve_dst_port = t_port;
+-
+-		DP_VERBOSE(edev, QED_MSG_DEBUG, "Added geneve port=%d\n",
+-			   t_port);
+-		set_bit(QEDE_SP_GENEVE_PORT_CONFIG, &edev->sp_flags);
+-		break;
+-	default:
+-		return;
+-	}
+-
+-	schedule_delayed_work(&edev->sp_task, 0);
+-}
+-
+-static void qede_udp_tunnel_del(struct net_device *dev,
+-				struct udp_tunnel_info *ti)
+-{
+-	struct qede_dev *edev = netdev_priv(dev);
+-	u16 t_port = ntohs(ti->port);
+-
+-	switch (ti->type) {
+-	case UDP_TUNNEL_TYPE_VXLAN:
+-		if (t_port != edev->vxlan_dst_port)
+-			return;
+-
+-		edev->vxlan_dst_port = 0;
+-
+-		DP_VERBOSE(edev, QED_MSG_DEBUG, "Deleted vxlan port=%d\n",
+-			   t_port);
+-
+-		set_bit(QEDE_SP_VXLAN_PORT_CONFIG, &edev->sp_flags);
+-		break;
+-	case UDP_TUNNEL_TYPE_GENEVE:
+-		if (t_port != edev->geneve_dst_port)
+-			return;
+-
+-		edev->geneve_dst_port = 0;
+-
+-		DP_VERBOSE(edev, QED_MSG_DEBUG, "Deleted geneve port=%d\n",
+-			   t_port);
+-		set_bit(QEDE_SP_GENEVE_PORT_CONFIG, &edev->sp_flags);
+-		break;
+-	default:
+-		return;
+-	}
+-
+-	schedule_delayed_work(&edev->sp_task, 0);
+-}
+-
+-static void qede_xdp_reload_func(struct qede_dev *edev,
+-				 struct qede_reload_args *args)
+-{
+-	struct bpf_prog *old;
+-
+-	old = xchg(&edev->xdp_prog, args->u.new_prog);
+-	if (old)
+-		bpf_prog_put(old);
+-}
+-
+-static int qede_xdp_set(struct qede_dev *edev, struct bpf_prog *prog)
+-{
+-	struct qede_reload_args args;
+-
+-	if (prog && prog->xdp_adjust_head) {
+-		DP_ERR(edev, "Does not support bpf_xdp_adjust_head()\n");
+-		return -EOPNOTSUPP;
+-	}
+-
+-	/* If we're called, there was already a bpf reference increment */
+-	args.func = &qede_xdp_reload_func;
+-	args.u.new_prog = prog;
+-	qede_reload(edev, &args, false);
+-
+-	return 0;
+-}
+-
+-static int qede_xdp(struct net_device *dev, struct netdev_xdp *xdp)
+-{
+-	struct qede_dev *edev = netdev_priv(dev);
+-
+-	switch (xdp->command) {
+-	case XDP_SETUP_PROG:
+-		return qede_xdp_set(edev, xdp->prog);
+-	case XDP_QUERY_PROG:
+-		xdp->prog_attached = !!edev->xdp_prog;
+-		return 0;
+-	default:
+-		return -EINVAL;
+-	}
+-}
+-
+ static const struct net_device_ops qede_netdev_ops = {
+ 	.ndo_open = qede_open,
+ 	.ndo_stop = qede_close,
+@@ -2237,23 +1789,6 @@ static int qede_start_queues(struct qede_dev *edev, bool clear_stats)
+ 	return 0;
+ }
  
- #ifndef _QED_ETH_IF_H
-diff --git a/include/linux/qed/qed_if.h b/include/linux/qed/qed_if.h
-index 4b454f4..d1576a2 100644
---- a/include/linux/qed/qed_if.h
-+++ b/include/linux/qed/qed_if.h
-@@ -1,10 +1,33 @@
- /* QLogic qed NIC Driver
-- *
-- * Copyright (c) 2015 QLogic Corporation
-- *
-- * This software is available under the terms of the GNU General Public License
-- * (GPL) Version 2, available from the file COPYING in the main directory of
-- * this source tree.
-+ * Copyright (c) 2015-2017  QLogic Corporation
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and /or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-  */
+-static int qede_set_mcast_rx_mac(struct qede_dev *edev,
+-				 enum qed_filter_xcast_params_type opcode,
+-				 unsigned char *mac, int num_macs)
+-{
+-	struct qed_filter_params filter_cmd;
+-	int i;
+-
+-	memset(&filter_cmd, 0, sizeof(filter_cmd));
+-	filter_cmd.type = QED_FILTER_TYPE_MCAST;
+-	filter_cmd.filter.mcast.type = opcode;
+-	filter_cmd.filter.mcast.num = num_macs;
+-
+-	for (i = 0; i < num_macs; i++, mac += ETH_ALEN)
+-		ether_addr_copy(filter_cmd.filter.mcast.mac[i], mac);
+-
+-	return edev->ops->filter_config(edev->cdev, &filter_cmd);
+-}
  
- #ifndef _QED_IF_H
-diff --git a/include/linux/qed/qed_iov_if.h b/include/linux/qed/qed_iov_if.h
-index 5a4f8d0..b1f9791 100644
---- a/include/linux/qed/qed_iov_if.h
-+++ b/include/linux/qed/qed_iov_if.h
-@@ -1,9 +1,33 @@
- /* QLogic qed NIC Driver
-- * Copyright (c) 2015 QLogic Corporation
-+ * Copyright (c) 2015-2017  QLogic Corporation
-  *
-- * This software is available under the terms of the GNU General Public License
-- * (GPL) Version 2, available from the file COPYING in the main directory of
-- * this source tree.
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and /or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-  */
- 
- #ifndef _QED_IOV_IF_H
-diff --git a/include/linux/qed/qed_iscsi_if.h b/include/linux/qed/qed_iscsi_if.h
-index d279124..f70bb81 100644
---- a/include/linux/qed/qed_iscsi_if.h
-+++ b/include/linux/qed/qed_iscsi_if.h
-@@ -1,9 +1,33 @@
- /* QLogic qed NIC Driver
-- * Copyright (c) 2015 QLogic Corporation
-+ * Copyright (c) 2015-2017  QLogic Corporation
-  *
-- * This software is available under the terms of the GNU General Public License
-- * (GPL) Version 2, available from the file COPYING in the main directory of
-- * this source tree.
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and /or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-  */
- 
- #ifndef _QED_ISCSI_IF_H
-diff --git a/include/linux/qed/qed_ll2_if.h b/include/linux/qed/qed_ll2_if.h
-index fd75c26..4fb4666 100644
---- a/include/linux/qed/qed_ll2_if.h
-+++ b/include/linux/qed/qed_ll2_if.h
-@@ -1,10 +1,33 @@
- /* QLogic qed NIC Driver
-+ * Copyright (c) 2015-2017  QLogic Corporation
-  *
-- * Copyright (c) 2015 QLogic Corporation
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-  *
-- * This software is available under the terms of the GNU General Public License
-- * (GPL) Version 2, available from the file COPYING in the main directory of
-- * this source tree.
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and /or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-  */
- 
- #ifndef _QED_LL2_IF_H
-diff --git a/include/linux/qed/qed_roce_if.h b/include/linux/qed/qed_roce_if.h
-index 53047d3..f742d43 100644
---- a/include/linux/qed/qed_roce_if.h
-+++ b/include/linux/qed/qed_roce_if.h
-@@ -1,5 +1,5 @@
- /* QLogic qed NIC Driver
-- * Copyright (c) 2015-2016  QLogic Corporation
-+ * Copyright (c) 2015-2017  QLogic Corporation
-  *
-  * This software is available to you under a choice of one of two
-  * licenses.  You may choose to be licensed under the terms of the GNU
-diff --git a/include/linux/qed/qede_roce.h b/include/linux/qed/qede_roce.h
-index f48d64b..3b8dd55 100644
---- a/include/linux/qed/qede_roce.h
-+++ b/include/linux/qed/qede_roce.h
-@@ -1,5 +1,5 @@
- /* QLogic qedr NIC Driver
-- * Copyright (c) 2015-2016  QLogic Corporation
-+ * Copyright (c) 2015-2017  QLogic Corporation
-  *
-  * This software is available to you under a choice of one of two
-  * licenses.  You may choose to be licensed under the terms of the GNU
-diff --git a/include/linux/qed/rdma_common.h b/include/linux/qed/rdma_common.h
-index 7663725..f773aa5 100644
---- a/include/linux/qed/rdma_common.h
-+++ b/include/linux/qed/rdma_common.h
-@@ -1,9 +1,33 @@
- /* QLogic qed NIC Driver
-- * Copyright (c) 2015 QLogic Corporation
-+ * Copyright (c) 2015-2017  QLogic Corporation
-  *
-- * This software is available under the terms of the GNU General Public License
-- * (GPL) Version 2, available from the file COPYING in the main directory of
-- * this source tree.
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and /or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-  */
- 
- #ifndef __RDMA_COMMON__
-diff --git a/include/linux/qed/roce_common.h b/include/linux/qed/roce_common.h
-index 2eeaf3d..bad02df 100644
---- a/include/linux/qed/roce_common.h
-+++ b/include/linux/qed/roce_common.h
-@@ -1,9 +1,33 @@
- /* QLogic qed NIC Driver
-- * Copyright (c) 2015 QLogic Corporation
-+ * Copyright (c) 2015-2017  QLogic Corporation
-  *
-- * This software is available under the terms of the GNU General Public License
-- * (GPL) Version 2, available from the file COPYING in the main directory of
-- * this source tree.
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and /or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-  */
- 
- #ifndef __ROCE_COMMON__
-diff --git a/include/linux/qed/storage_common.h b/include/linux/qed/storage_common.h
-index 3b8e1ef..03f3e37 100644
---- a/include/linux/qed/storage_common.h
-+++ b/include/linux/qed/storage_common.h
-@@ -1,9 +1,33 @@
- /* QLogic qed NIC Driver
-- * Copyright (c) 2015 QLogic Corporation
-+ * Copyright (c) 2015-2017  QLogic Corporation
-  *
-- * This software is available under the terms of the GNU General Public License
-- * (GPL) Version 2, available from the file COPYING in the main directory of
-- * this source tree.
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and /or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-  */
- 
- #ifndef __STORAGE_COMMON__
-diff --git a/include/linux/qed/tcp_common.h b/include/linux/qed/tcp_common.h
-index dc3889d..46fe785 100644
---- a/include/linux/qed/tcp_common.h
-+++ b/include/linux/qed/tcp_common.h
-@@ -1,9 +1,33 @@
- /* QLogic qed NIC Driver
-- * Copyright (c) 2015 QLogic Corporation
-+ * Copyright (c) 2015-2017  QLogic Corporation
-  *
-- * This software is available under the terms of the GNU General Public License
-- * (GPL) Version 2, available from the file COPYING in the main directory of
-- * this source tree.
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and /or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-  */
- 
- #ifndef __TCP_COMMON__
+ enum qede_unload_mode {
+ 	QEDE_UNLOAD_NORMAL,
+@@ -2484,192 +2019,3 @@ static void qede_link_update(void *dev, struct qed_link_output *link)
+ 		}
+ 	}
+ }
+-
+-static int qede_set_mac_addr(struct net_device *ndev, void *p)
+-{
+-	struct qede_dev *edev = netdev_priv(ndev);
+-	struct sockaddr *addr = p;
+-	int rc;
+-
+-	ASSERT_RTNL(); /* @@@TBD To be removed */
+-
+-	DP_INFO(edev, "Set_mac_addr called\n");
+-
+-	if (!is_valid_ether_addr(addr->sa_data)) {
+-		DP_NOTICE(edev, "The MAC address is not valid\n");
+-		return -EFAULT;
+-	}
+-
+-	if (!edev->ops->check_mac(edev->cdev, addr->sa_data)) {
+-		DP_NOTICE(edev, "qed prevents setting MAC\n");
+-		return -EINVAL;
+-	}
+-
+-	ether_addr_copy(ndev->dev_addr, addr->sa_data);
+-
+-	if (!netif_running(ndev))  {
+-		DP_NOTICE(edev, "The device is currently down\n");
+-		return 0;
+-	}
+-
+-	/* Remove the previous primary mac */
+-	rc = qede_set_ucast_rx_mac(edev, QED_FILTER_XCAST_TYPE_DEL,
+-				   edev->primary_mac);
+-	if (rc)
+-		return rc;
+-
+-	edev->ops->common->update_mac(edev->cdev, addr->sa_data);
+-
+-	/* Add MAC filter according to the new unicast HW MAC address */
+-	ether_addr_copy(edev->primary_mac, ndev->dev_addr);
+-	return qede_set_ucast_rx_mac(edev, QED_FILTER_XCAST_TYPE_ADD,
+-				      edev->primary_mac);
+-}
+-
+-static int
+-qede_configure_mcast_filtering(struct net_device *ndev,
+-			       enum qed_filter_rx_mode_type *accept_flags)
+-{
+-	struct qede_dev *edev = netdev_priv(ndev);
+-	unsigned char *mc_macs, *temp;
+-	struct netdev_hw_addr *ha;
+-	int rc = 0, mc_count;
+-	size_t size;
+-
+-	size = 64 * ETH_ALEN;
+-
+-	mc_macs = kzalloc(size, GFP_KERNEL);
+-	if (!mc_macs) {
+-		DP_NOTICE(edev,
+-			  "Failed to allocate memory for multicast MACs\n");
+-		rc = -ENOMEM;
+-		goto exit;
+-	}
+-
+-	temp = mc_macs;
+-
+-	/* Remove all previously configured MAC filters */
+-	rc = qede_set_mcast_rx_mac(edev, QED_FILTER_XCAST_TYPE_DEL,
+-				   mc_macs, 1);
+-	if (rc)
+-		goto exit;
+-
+-	netif_addr_lock_bh(ndev);
+-
+-	mc_count = netdev_mc_count(ndev);
+-	if (mc_count < 64) {
+-		netdev_for_each_mc_addr(ha, ndev) {
+-			ether_addr_copy(temp, ha->addr);
+-			temp += ETH_ALEN;
+-		}
+-	}
+-
+-	netif_addr_unlock_bh(ndev);
+-
+-	/* Check for all multicast @@@TBD resource allocation */
+-	if ((ndev->flags & IFF_ALLMULTI) ||
+-	    (mc_count > 64)) {
+-		if (*accept_flags == QED_FILTER_RX_MODE_TYPE_REGULAR)
+-			*accept_flags = QED_FILTER_RX_MODE_TYPE_MULTI_PROMISC;
+-	} else {
+-		/* Add all multicast MAC filters */
+-		rc = qede_set_mcast_rx_mac(edev, QED_FILTER_XCAST_TYPE_ADD,
+-					   mc_macs, mc_count);
+-	}
+-
+-exit:
+-	kfree(mc_macs);
+-	return rc;
+-}
+-
+-static void qede_set_rx_mode(struct net_device *ndev)
+-{
+-	struct qede_dev *edev = netdev_priv(ndev);
+-
+-	set_bit(QEDE_SP_RX_MODE, &edev->sp_flags);
+-	schedule_delayed_work(&edev->sp_task, 0);
+-}
+-
+-/* Must be called with qede_lock held */
+-static void qede_config_rx_mode(struct net_device *ndev)
+-{
+-	enum qed_filter_rx_mode_type accept_flags = QED_FILTER_TYPE_UCAST;
+-	struct qede_dev *edev = netdev_priv(ndev);
+-	struct qed_filter_params rx_mode;
+-	unsigned char *uc_macs, *temp;
+-	struct netdev_hw_addr *ha;
+-	int rc, uc_count;
+-	size_t size;
+-
+-	netif_addr_lock_bh(ndev);
+-
+-	uc_count = netdev_uc_count(ndev);
+-	size = uc_count * ETH_ALEN;
+-
+-	uc_macs = kzalloc(size, GFP_ATOMIC);
+-	if (!uc_macs) {
+-		DP_NOTICE(edev, "Failed to allocate memory for unicast MACs\n");
+-		netif_addr_unlock_bh(ndev);
+-		return;
+-	}
+-
+-	temp = uc_macs;
+-	netdev_for_each_uc_addr(ha, ndev) {
+-		ether_addr_copy(temp, ha->addr);
+-		temp += ETH_ALEN;
+-	}
+-
+-	netif_addr_unlock_bh(ndev);
+-
+-	/* Configure the struct for the Rx mode */
+-	memset(&rx_mode, 0, sizeof(struct qed_filter_params));
+-	rx_mode.type = QED_FILTER_TYPE_RX_MODE;
+-
+-	/* Remove all previous unicast secondary macs and multicast macs
+-	 * (configrue / leave the primary mac)
+-	 */
+-	rc = qede_set_ucast_rx_mac(edev, QED_FILTER_XCAST_TYPE_REPLACE,
+-				   edev->primary_mac);
+-	if (rc)
+-		goto out;
+-
+-	/* Check for promiscuous */
+-	if ((ndev->flags & IFF_PROMISC) ||
+-	    (uc_count > edev->dev_info.num_mac_filters - 1)) {
+-		accept_flags = QED_FILTER_RX_MODE_TYPE_PROMISC;
+-	} else {
+-		/* Add MAC filters according to the unicast secondary macs */
+-		int i;
+-
+-		temp = uc_macs;
+-		for (i = 0; i < uc_count; i++) {
+-			rc = qede_set_ucast_rx_mac(edev,
+-						   QED_FILTER_XCAST_TYPE_ADD,
+-						   temp);
+-			if (rc)
+-				goto out;
+-
+-			temp += ETH_ALEN;
+-		}
+-
+-		rc = qede_configure_mcast_filtering(ndev, &accept_flags);
+-		if (rc)
+-			goto out;
+-	}
+-
+-	/* take care of VLAN mode */
+-	if (ndev->flags & IFF_PROMISC) {
+-		qede_config_accept_any_vlan(edev, true);
+-	} else if (!edev->non_configured_vlans) {
+-		/* It's possible that accept_any_vlan mode is set due to a
+-		 * previous setting of IFF_PROMISC. If vlan credits are
+-		 * sufficient, disable accept_any_vlan.
+-		 */
+-		qede_config_accept_any_vlan(edev, false);
+-	}
+-
+-	rx_mode.filter.accept_flags = accept_flags;
+-	edev->ops->filter_config(edev->cdev, &rx_mode);
+-out:
+-	kfree(uc_macs);
+-}
 -- 
 1.9.3
