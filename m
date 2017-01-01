@@ -1,27 +1,27 @@
 From: kbuild test robot <lkp@intel.com>
-Subject: Re: [PATCH net-next 20/27] sctp: add rfc6525 section 5.2.2
-Date: Sun, 1 Jan 2017 20:02:07 +0800
-Message-ID: <201701011927.G3TLoJx9%fengguang.wu@intel.com>
-References: <b5eb3a199dded2efe517b19b5cac6ae498a6c0c8.1483269426.git.lucien.xin@gmail.com>
+Subject: Re: [PATCH net-next 22/27] sctp: add rfc6525 section 5.2.4
+Date: Sun, 1 Jan 2017 20:14:34 +0800
+Message-ID: <201701012026.kWKIK4Hy%fengguang.wu@intel.com>
+References: <470b9f2b5248e0c1870c501f262a1887be66509b.1483269426.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="XsQoSWH+UP9D9v3l"
+Content-Type: multipart/mixed; boundary="fdj2RfSjLxBAspz7"
 Cc: kbuild-all@01.org, network dev <netdev@vger.kernel.org>,
         linux-sctp@vger.kernel.org,
         Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
         Neil Horman <nhorman@tuxdriver.com>, davem@davemloft.net
 To: Xin Long <lucien.xin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga07.intel.com ([134.134.136.100]:40390 "EHLO mga07.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:64292 "EHLO mga01.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932066AbdAAMCc (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 1 Jan 2017 07:02:32 -0500
+        id S932066AbdAAMPc (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 1 Jan 2017 07:15:32 -0500
 Content-Disposition: inline
-In-Reply-To: <b5eb3a199dded2efe517b19b5cac6ae498a6c0c8.1483269426.git.lucien.xin@gmail.com>
+In-Reply-To: <470b9f2b5248e0c1870c501f262a1887be66509b.1483269426.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---XsQoSWH+UP9D9v3l
+--fdj2RfSjLxBAspz7
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
@@ -42,26 +42,22 @@ http://gcc.gnu.org/wiki/Better_Uninitialized_Warnings
 All warnings (new ones prefixed by >>):
 
    net/sctp/stream.c: In function 'sctp_process_strreset_outreq':
->> net/sctp/stream.c:140:9: warning: 'str_p' may be used uninitialized in this function [-Wmaybe-uninitialized]
+   net/sctp/stream.c:140:9: warning: 'str_p' may be used uninitialized in this function [-Wmaybe-uninitialized]
      *evp = sctp_ulpevent_make_stream_reset_event(asoc,
             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
       flags | SCTP_STREAM_RESET_OUTGOING_SSN, nums, str_p,
       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
       GFP_ATOMIC);
       ~~~~~~~~~~~
+   net/sctp/stream.c: In function 'sctp_process_strreset_tsnreq':
+>> net/sctp/stream.c:283:9: warning: 'initial_tsn' may be used uninitialized in this function [-Wmaybe-uninitialized]
+     return sctp_make_strreset_tsnresp(asoc, result, request_seq,
+            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+           asoc->next_tsn, initial_tsn);
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-vim +/str_p +140 net/sctp/stream.c
+vim +/initial_tsn +283 net/sctp/stream.c
 
-   124				if (str_p[i] >= asoc->streamincnt) {
-   125					result = SCTP_STRRESET_ERR_WRONG_SSN;
-   126					goto out;
-   127				}
-   128			}
-   129	
-   130			str_p = outreq->list_of_streams;
-   131			for (i = 0; i < nums; i++, str_p++)
-   132				asoc->streamin[*str_p].ssn = 0;
-   133		} else {
    134			for (i = 0; i < asoc->streamincnt; i++)
    135				asoc->streamin[i].ssn = 0;
    136		}
@@ -75,17 +71,156 @@ vim +/str_p +140 net/sctp/stream.c
    144	out:
    145		return sctp_make_strreset_resp(asoc, result, request_seq);
    146	}
+   147	
+   148	struct sctp_chunk *sctp_process_strreset_inreq(
+   149					struct sctp_association *asoc,
+   150					union sctp_params param,
+   151					struct sctp_ulpevent **evp)
+   152	{
+   153		struct sctp_strreset_inreq *inreq = param.v;
+   154		__u32 result = SCTP_STRRESET_DENIED;
+   155		struct sctp_chunk *chunk = NULL;
+   156		__u16 i, nums, *str_p;
+   157		__u32 request_seq;
+   158	
+   159		request_seq = ntohl(inreq->request_seq);
+   160		if (request_seq > asoc->strreset_inseq) {
+   161			result = SCTP_STRRESET_ERR_BAD_SEQNO;
+   162			goto out;
+   163		} else if (request_seq == asoc->strreset_inseq) {
+   164			asoc->strreset_inseq++;
+   165		}
+   166	
+   167		if (!(asoc->strreset_enable & SCTP_ENABLE_RESET_STREAM_REQ))
+   168			goto out;
+   169	
+   170		if (asoc->strreset_outstanding) {
+   171			result = SCTP_STRRESET_ERR_IN_PROGRESS;
+   172			goto out;
+   173		}
+   174	
+   175		nums = (ntohs(param.p->length) - sizeof(*inreq)) / 2;
+   176		str_p = inreq->list_of_streams;
+   177		for (i = 0; i < nums; i++) {
+   178			str_p[i] = ntohs(str_p[i]);
+   179			if (str_p[i] >= asoc->streamoutcnt) {
+   180				result = SCTP_STRRESET_ERR_WRONG_SSN;
+   181				goto out;
+   182			}
+   183		}
+   184	
+   185		chunk = sctp_make_strreset_req(asoc, nums, str_p, 1, 0);
+   186		if (!chunk)
+   187			goto out;
+   188	
+   189		if (nums)
+   190			for (i = 0; i < nums; i++)
+   191				asoc->streamout[str_p[i]].state =
+   192							   SCTP_STREAM_CLOSED;
+   193		else
+   194			for (i = 0; i < asoc->streamoutcnt; i++)
+   195				asoc->streamout[i].state = SCTP_STREAM_CLOSED;
+   196	
+   197		asoc->strreset_chunk = chunk;
+   198		asoc->strreset_outstanding = 1;
+   199		sctp_chunk_hold(asoc->strreset_chunk);
+   200	
+   201		*evp = sctp_ulpevent_make_stream_reset_event(asoc,
+   202			SCTP_STREAM_RESET_INCOMING_SSN, nums, str_p, GFP_ATOMIC);
+   203	
+   204	out:
+   205		if (!chunk)
+   206			chunk =  sctp_make_strreset_resp(asoc, result, request_seq);
+   207	
+   208		return chunk;
+   209	}
+   210	
+   211	struct sctp_chunk *sctp_process_strreset_tsnreq(
+   212					struct sctp_association *asoc,
+   213					union sctp_params param,
+   214					struct sctp_ulpevent **evp)
+   215	{
+   216		struct sctp_strreset_tsnreq *tsnreq = param.v;
+   217		__u32 request_seq, initial_tsn, max_tsn_seen;
+   218		__u32 result = SCTP_STRRESET_DENIED;
+   219		__u16 i;
+   220	
+   221		request_seq = ntohl(tsnreq->request_seq);
+   222		if (request_seq > asoc->strreset_inseq) {
+   223			result = SCTP_STRRESET_ERR_BAD_SEQNO;
+   224			goto out;
+   225		} else if (request_seq == asoc->strreset_inseq) {
+   226			asoc->strreset_inseq++;
+   227		}
+   228	
+   229		if (!(asoc->strreset_enable & SCTP_ENABLE_RESET_ASSOC_REQ))
+   230			goto out;
+   231	
+   232		if (asoc->strreset_outstanding) {
+   233			result = SCTP_STRRESET_ERR_IN_PROGRESS;
+   234			goto out;
+   235		}
+   236	
+   237		/* G3: The same processing as though a SACK chunk with no gap report
+   238		 *     and a cumulative TSN ACK of the Sender's Next TSN minus 1 were
+   239		 *     received MUST be performed.
+   240		 */
+   241		max_tsn_seen = sctp_tsnmap_get_max_tsn_seen(&asoc->peer.tsn_map);
+   242		sctp_ulpq_reasm_flushtsn(&asoc->ulpq, max_tsn_seen);
+   243		sctp_ulpq_abort_pd(&asoc->ulpq, GFP_ATOMIC);
+   244	
+   245		/* G1: Compute an appropriate value for the Receiver's Next TSN -- the
+   246		 *     TSN that the peer should use to send the next DATA chunk.  The
+   247		 *     value SHOULD be the smallest TSN not acknowledged by the
+   248		 *     receiver of the request plus 2^31.
+   249		 */
+   250		initial_tsn = sctp_tsnmap_get_ctsn(&asoc->peer.tsn_map) + (1 << 31);
+   251		sctp_tsnmap_init(&asoc->peer.tsn_map, SCTP_TSN_MAP_INITIAL,
+   252				 initial_tsn, GFP_ATOMIC);
+   253	
+   254		/* G4: The same processing as though a FWD-TSN chunk (as defined in
+   255		 *     [RFC3758]) with all streams affected and a new cumulative TSN
+   256		 *     ACK of the Receiver's Next TSN minus 1 were received MUST be
+   257		 *     performed.
+   258		 */
+   259		sctp_outq_free(&asoc->outqueue);
+   260	
+   261		/* G2: Compute an appropriate value for the local endpoint's next TSN,
+   262		 *     i.e., the next TSN assigned by the receiver of the SSN/TSN reset
+   263		 *     chunk.  The value SHOULD be the highest TSN sent by the receiver
+   264		 *     of the request plus 1.
+   265		 */
+   266		asoc->ctsn_ack_point = asoc->next_tsn - 1;
+   267		asoc->adv_peer_ack_point = asoc->ctsn_ack_point;
+   268	
+   269		/* G5:  The next expected and outgoing SSNs MUST be reset to 0 for all
+   270		 *      incoming and outgoing streams.
+   271		 */
+   272		for (i = 0; i < asoc->streamoutcnt; i++)
+   273			asoc->streamout[i].ssn = 0;
+   274		for (i = 0; i < asoc->streamincnt; i++)
+   275			asoc->streamin[i].ssn = 0;
+   276	
+   277		result = SCTP_STRRESET_PERFORMED;
+   278	
+   279		*evp = sctp_ulpevent_make_assoc_reset_event(asoc,
+   280			0, initial_tsn, asoc->next_tsn, GFP_ATOMIC);
+   281	
+   282	out:
+ > 283		return sctp_make_strreset_tsnresp(asoc, result, request_seq,
+   284						  asoc->next_tsn, initial_tsn);
+   285	}
 
 ---
 0-DAY kernel test infrastructure                Open Source Technology Center
 https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
 
---XsQoSWH+UP9D9v3l
+--fdj2RfSjLxBAspz7
 Content-Type: application/gzip
 Content-Disposition: attachment; filename=".config.gz"
 Content-Transfer-Encoding: base64
 
-H4sICBnraFgAAy5jb25maWcAlDzLcuQ2knd/RUV7DzMHd+tluTc2dABBsAoukoABsFTSBSGr
+H4sICODwaFgAAy5jb25maWcAlDzLcuQ2knd/RUV7DzMHd+tluTc2dABBsAoukoABsFTSBSGr
 qz0Kq6UeqeTHfv1mAmQRAMHq2T50iJmJBxP5TrC+/+77BXnbP3+52z/c3z0+/r34bfe0e7nb
 7z4tPj887v5nUYpFK8yCldy8B+L64entrw9/fby0lxeLi/enJ+9Pfni5P12sdy9Pu8cFfX76
 /PDbG0zw8Pz03fffUdFWfAm0BTdXfw+PWzc8eh4feKuN6qjhorUlo6JkakSKzsjO2Eqohpir
@@ -564,4 +699,4 @@ YfdS2zkJjOY0EYb1bsADBR5wmkDyG+z9VtKobln2UHMAEWqd05o6ec5m39U3cAGGs+s0xRis
 7U/W2IIFiW60uixa4kG1kxCH3tFDd12D/jb3E7DU8w88C5YEiRjM/jA60k0GOHDpLFO1LyBr
 EJvQJez5BmIvhJnjoAF/EiLSBxa4OQzegcK/DBzkctXYsoD/AJp4WRMbhwEA
 
---XsQoSWH+UP9D9v3l--
+--fdj2RfSjLxBAspz7--
