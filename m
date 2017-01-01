@@ -1,84 +1,126 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH for-next 08/11] net/mlx5: Update PAGE_FAULT_RESUME layout
-Date: Sun,  1 Jan 2017 23:10:24 +0200
-Message-ID: <1483305027-2573-9-git-send-email-saeedm@mellanox.com>
+From: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: [PATCH for-next 11/11] IB/mlx5: Improve MR check
+Date: Sun,  1 Jan 2017 23:10:27 +0200
+Message-ID: <1483305027-2573-12-git-send-email-saeedm@mellanox.com>
 References: <1483305027-2573-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-        Leon Romanovsky <leonro@mellanox.com>,
-        Ilya Lesokhin <ilyal@mellanox.com>,
-        Artemy Kovalyov <artemyko@mellanox.com>,
-        Leon Romanovsky <leon@kernel.org>,
-        Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>,
-        Doug Ledford <dledford@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:42858 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S932488AbdAAVKu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 1 Jan 2017 16:10:50 -0500
-In-Reply-To: <1483305027-2573-1-git-send-email-saeedm@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Ilya Lesokhin <ilyal-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Artemy Kovalyov <artemyko-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1483305027-2573-1-git-send-email-saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Artemy Kovalyov <artemyko@mellanox.com>
+From: Artemy Kovalyov <artemyko-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 
-Update PAGE_FAULT_RESUME command layout.
+Add "type" field to mlx5_core MKEY struct.
+Check whether page fault happens on MKEY corresponding to MR.
 
-Three bit fields describing page fault: rdma, rdma_write, req_res gave 8
-possible combinations, while only a few were legal. Now they
-are interpreted as three-bit type field, where former legal
-combinations turns into corresponding types and unused were added as new
-types.
-
-Signed-off-by: Artemy Kovalyov <artemyko@mellanox.com>
-Signed-off-by: Leon Romanovsky <leon@kernel.org>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: Artemy Kovalyov <artemyko-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Signed-off-by: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Signed-off-by: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/qp.c | 10 ++--------
- include/linux/mlx5/mlx5_ifc.h                |  9 ++++-----
- 2 files changed, 6 insertions(+), 13 deletions(-)
+ drivers/infiniband/hw/mlx5/mr.c  | 5 +++++
+ drivers/infiniband/hw/mlx5/odp.c | 9 +++++++--
+ include/linux/mlx5/driver.h      | 6 ++++++
+ 3 files changed, 18 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/qp.c b/drivers/net/ethernet/mellanox/mlx5/core/qp.c
-index d0a4005..5378a5f 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/qp.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/qp.c
-@@ -515,14 +515,8 @@ int mlx5_core_page_fault_resume(struct mlx5_core_dev *dev, u32 qpn,
+diff --git a/drivers/infiniband/hw/mlx5/mr.c b/drivers/infiniband/hw/mlx5/mr.c
+index e4333c8..f56b249 100644
+--- a/drivers/infiniband/hw/mlx5/mr.c
++++ b/drivers/infiniband/hw/mlx5/mr.c
+@@ -129,6 +129,7 @@ static void reg_mr_callback(int status, void *context)
+ 		return;
+ 	}
  
- 	MLX5_SET(page_fault_resume_in, in, opcode,
- 		 MLX5_CMD_OP_PAGE_FAULT_RESUME);
--	MLX5_SET(page_fault_resume_in, in, qpn, qpn);
--
--	if (flags & MLX5_PAGE_FAULT_RESUME_REQUESTOR)
--		MLX5_SET(page_fault_resume_in, in, req_res, 1);
--	if (flags & MLX5_PAGE_FAULT_RESUME_WRITE)
--		MLX5_SET(page_fault_resume_in, in, read_write, 1);
--	if (flags & MLX5_PAGE_FAULT_RESUME_RDMA)
--		MLX5_SET(page_fault_resume_in, in, rdma, 1);
-+	MLX5_SET(page_fault_resume_in, in, wq_number, qpn);
-+	MLX5_SET(page_fault_resume_in, in, page_fault_type, flags);
- 	if (error)
- 		MLX5_SET(page_fault_resume_in, in, error, 1);
++	mr->mmkey.type = MLX5_MKEY_MR;
+ 	spin_lock_irqsave(&dev->mdev->priv.mkey_lock, flags);
+ 	key = dev->mdev->priv.mkey_key++;
+ 	spin_unlock_irqrestore(&dev->mdev->priv.mkey_lock, flags);
+@@ -728,6 +729,7 @@ struct ib_mr *mlx5_ib_get_dma_mr(struct ib_pd *pd, int acc)
+ 		goto err_in;
  
-diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
-index 7c760e5..608dc98 100644
---- a/include/linux/mlx5/mlx5_ifc.h
-+++ b/include/linux/mlx5/mlx5_ifc.h
-@@ -4775,12 +4775,11 @@ struct mlx5_ifc_page_fault_resume_in_bits {
+ 	kfree(in);
++	mr->mmkey.type = MLX5_MKEY_MR;
+ 	mr->ibmr.lkey = mr->mmkey.key;
+ 	mr->ibmr.rkey = mr->mmkey.key;
+ 	mr->umem = NULL;
+@@ -1088,6 +1090,7 @@ static struct mlx5_ib_mr *reg_create(struct ib_mr *ibmr, struct ib_pd *pd,
+ 		mlx5_ib_warn(dev, "create mkey failed\n");
+ 		goto err_2;
+ 	}
++	mr->mmkey.type = MLX5_MKEY_MR;
+ 	mr->umem = umem;
+ 	mr->dev = dev;
+ 	mr->live = 1;
+@@ -1533,6 +1536,7 @@ struct ib_mr *mlx5_ib_alloc_mr(struct ib_pd *pd,
+ 	if (err)
+ 		goto err_destroy_psv;
  
- 	u8         error[0x1];
- 	u8         reserved_at_41[0x4];
--	u8         rdma[0x1];
--	u8         read_write[0x1];
--	u8         req_res[0x1];
--	u8         qpn[0x18];
-+	u8         page_fault_type[0x3];
-+	u8         wq_number[0x18];
++	mr->mmkey.type = MLX5_MKEY_MR;
+ 	mr->ibmr.lkey = mr->mmkey.key;
+ 	mr->ibmr.rkey = mr->mmkey.key;
+ 	mr->umem = NULL;
+@@ -1613,6 +1617,7 @@ struct ib_mw *mlx5_ib_alloc_mw(struct ib_pd *pd, enum ib_mw_type type,
+ 	if (err)
+ 		goto free;
  
--	u8         reserved_at_60[0x20];
-+	u8         reserved_at_60[0x8];
-+	u8         token[0x18];
++	mw->mmkey.type = MLX5_MKEY_MW;
+ 	mw->ibmw.rkey = mw->mmkey.key;
+ 
+ 	resp.response_length = min(offsetof(typeof(resp), response_length) +
+diff --git a/drivers/infiniband/hw/mlx5/odp.c b/drivers/infiniband/hw/mlx5/odp.c
+index 971b288..e5bc267 100644
+--- a/drivers/infiniband/hw/mlx5/odp.c
++++ b/drivers/infiniband/hw/mlx5/odp.c
+@@ -155,9 +155,14 @@ static struct mlx5_ib_mr *mlx5_ib_odp_find_mr_lkey(struct mlx5_ib_dev *dev,
+ {
+ 	u32 base_key = mlx5_base_mkey(key);
+ 	struct mlx5_core_mkey *mmkey = __mlx5_mr_lookup(dev->mdev, base_key);
+-	struct mlx5_ib_mr *mr = container_of(mmkey, struct mlx5_ib_mr, mmkey);
++	struct mlx5_ib_mr *mr;
++
++	if (!mmkey || mmkey->key != key || mmkey->type != MLX5_MKEY_MR)
++		return NULL;
++
++	mr = container_of(mmkey, struct mlx5_ib_mr, mmkey);
+ 
+-	if (!mmkey || mmkey->key != key || !mr->live)
++	if (!mr->live)
+ 		return NULL;
+ 
+ 	return container_of(mmkey, struct mlx5_ib_mr, mmkey);
+diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
+index b52d074..cfa49bc 100644
+--- a/include/linux/mlx5/driver.h
++++ b/include/linux/mlx5/driver.h
+@@ -394,11 +394,17 @@ struct mlx5_core_sig_ctx {
+ 	u32			sigerr_count;
  };
  
- struct mlx5_ifc_nop_out_bits {
++enum {
++	MLX5_MKEY_MR = 1,
++	MLX5_MKEY_MW,
++};
++
+ struct mlx5_core_mkey {
+ 	u64			iova;
+ 	u64			size;
+ 	u32			key;
+ 	u32			pd;
++	u32			type;
+ };
+ 
+ #define MLX5_24BIT_MASK		((1 << 24) - 1)
 -- 
 2.7.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
