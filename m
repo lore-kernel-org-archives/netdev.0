@@ -1,252 +1,117 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: Re: [PATCH net-next 00/27] sctp: implement rfc6525 sctp stream reconf
-Date: Sun, 1 Jan 2017 19:32:23 +0800
-Message-ID: <CADvbK_fri1PKVmgXMYprycy81VSq2s+2GODgZ9NUb8g6rfeUCA@mail.gmail.com>
-References: <cover.1483269426.git.lucien.xin@gmail.com>
+From: Yuval Mintz <Yuval.Mintz@cavium.com>
+Subject: [PATCH net-next 00/12] qed*: Driver updates
+Date: Sun, 1 Jan 2017 13:56:59 +0200
+Message-ID: <1483271831-25890-1-git-send-email-Yuval.Mintz@cavium.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=001a114a8bfcf2e6d4054506c92e
-Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        davem <davem@davemloft.net>
-To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
+Content-Type: text/plain
+Cc: Yuval Mintz <Yuval.Mintz@cavium.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f194.google.com ([209.85.220.194]:35787 "EHLO
-        mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755029AbdAALcY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 1 Jan 2017 06:32:24 -0500
-In-Reply-To: <cover.1483269426.git.lucien.xin@gmail.com>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:53869 "EHLO
+        mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1755047AbdAAL6B (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 1 Jan 2017 06:58:01 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---001a114a8bfcf2e6d4054506c92e
-Content-Type: text/plain; charset=UTF-8
+The more interesting changes in this series include:
+  - Restructuring of the qede files - qede_main.c has grown big and this
+    series splits it into 3 parts [patches #2 and #3].
+  - Some significant changes in the API through which RSS indirection
+    table gets configured [#8].
+  - Support for ndo_set_vf_trust() [#9] which would regulate which VFs
+    are allowed to use promisc/multi-promisc mode.
 
-On Sun, Jan 1, 2017 at 7:20 PM, Xin Long <lucien.xin@gmail.com> wrote:
-> This patchset is to implement sctp stream reconf described in rfc6525.
->
-> Patch 1-3   add per stream information in sctp asoc.
-> Patch 4-8   make the chunk with different reconf params. (Section 3-4)
-> Patch 9-12  add reconf timer, primitive and enable option.
-> Patch 13-25 implement the procedures on both sender and receiver sides (Section 5)
->             add sockopts and event for users (Section 6)
-> Patch 26-27 add reconf event, activate the sctp stream reconf process.
->
-Attachments are the scripts I used to do tests for this patchset.
-including the scripts on bsd side when doing some interactivity
-tests with bsd.
+It also contains various minor changes to qed/qede, as well as
+non-functional changes [#1, #12] to complement other changes.
 
-> Xin Long (27):
->   sctp: add stream arrays in asoc
->   sctp: replace ssnmap with asoc stream arrays
->   sctp: remove asoc ssnmap and ssnmap.c
->   sctp: add rfc6525 section 3.1
->   sctp: add rfc6525 section 4.1-4.2
->   sctp: add rfc6525 section 4.3
->   sctp: add rfc6525 section 4.4
->   sctp: add rfc6525 section 4.5-4.6
->   sctp: add stream reconf timer
->   sctp: add stream reconf primitive
->   sctp: add reconf_enable in asoc ep and netns
->   sctp: add get and set sockopt for reconf_enable
->   sctp: add rfc6525 section 6.3.1
->   sctp: add rfc6525 section 5.1.2-5.1.3 and 6.3.2
->   sctp: add rfc6525 section 5.1.4 and 6.3.3
->   sctp: add rfc6525 section 5.1.5-5.1.6 and 6.3.4
->   sctp: add rfc6525 section 6.1.1
->   sctp: add rfc6525 section 6.1.2
->   sctp: add rfc6525 section 6.1.3
->   sctp: add rfc6525 section 5.2.2
->   sctp: add rfc6525 section 5.2.3
->   sctp: add rfc6525 section 5.2.4
->   sctp: add rfc6525 section 5.2.5
->   sctp: add rfc6525 section 5.2.6
->   sctp: add rfc6525 section 5.2.7
->   sctp: add sctp reconf chunk process
->   sctp: add reconf chunk event
->
->  include/linux/sctp.h         |  68 ++++++
->  include/net/netns/sctp.h     |   3 +
->  include/net/sctp/constants.h |   7 +-
->  include/net/sctp/sctp.h      |   3 +-
->  include/net/sctp/sm.h        |  54 ++++-
->  include/net/sctp/structs.h   |  91 ++++---
->  include/net/sctp/ulpevent.h  |  12 +
->  include/uapi/linux/sctp.h    |  93 ++++++-
->  net/sctp/Makefile            |   4 +-
->  net/sctp/associola.c         |  29 ++-
->  net/sctp/endpointola.c       |   1 +
->  net/sctp/objcnt.c            |   2 -
->  net/sctp/outqueue.c          |  33 ++-
->  net/sctp/primitive.c         |   3 +
->  net/sctp/sm_make_chunk.c     | 403 ++++++++++++++++++++++++++++++-
->  net/sctp/sm_sideeffect.c     |  32 +++
->  net/sctp/sm_statefuns.c      | 112 ++++++++-
->  net/sctp/sm_statetable.c     |  70 ++++++
->  net/sctp/socket.c            | 433 +++++++++++++++++++++++++++++++++
->  net/sctp/ssnmap.c            | 125 ----------
->  net/sctp/stream.c            | 563 +++++++++++++++++++++++++++++++++++++++++++
->  net/sctp/sysctl.c            |   7 +
->  net/sctp/transport.c         |  17 +-
->  net/sctp/ulpevent.c          |  86 +++++++
->  net/sctp/ulpqueue.c          |  33 +--
->  25 files changed, 2043 insertions(+), 241 deletions(-)
->  delete mode 100644 net/sctp/ssnmap.c
->  create mode 100644 net/sctp/stream.c
->
-> --
-> 2.1.0
->
+Hi Dave,
 
---001a114a8bfcf2e6d4054506c92e
-Content-Type: application/x-gzip; name="reconf_bsd_v2.tar.gz"
-Content-Disposition: attachment; filename="reconf_bsd_v2.tar.gz"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_ixekp9uu0
+Please consider applying this series to `net-next'.
 
-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
-FsSeD2Cf23N7bmH7P74NQAoAUgAA
---001a114a8bfcf2e6d4054506c92e
-Content-Type: application/x-gzip; name="reconf_linux_v2.tar.gz"
-Content-Disposition: attachment; filename="reconf_linux_v2.tar.gz"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_ixekp9va1
+Thanks,
+Yuval
 
-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
---001a114a8bfcf2e6d4054506c92e--
+Manish Chopra (1):
+  qede - mark SKB as encapsulated
+
+Ram Amrani (1):
+  qed: conserve qed RDMA resources when !QEDR
+
+Yuval Mintz (10):
+  qed*: Update to dual-license
+  qede: Break datapath logic into its own file
+  qede: Split filtering logic to its own file
+  qed*: Change maximal number of queues
+  qede: Postpone reallocation until NAPI end
+  qede: Remove unnecessary datapath dereference
+  qed*: RSS indirection based on queue-handles
+  qed*: Add support for ndo_set_vf_trust
+  qed: Support Multicast on Tx-switching
+  qed*: Advance driver version to 8.10.10.20.
+
+ drivers/net/ethernet/qlogic/qed/qed.h              |   34 +-
+ drivers/net/ethernet/qlogic/qed/qed_cxt.c          |   32 +-
+ drivers/net/ethernet/qlogic/qed/qed_cxt.h          |   34 +-
+ drivers/net/ethernet/qlogic/qed/qed_dcbx.c         |   32 +-
+ drivers/net/ethernet/qlogic/qed/qed_dcbx.h         |   32 +-
+ drivers/net/ethernet/qlogic/qed/qed_dev.c          |   32 +-
+ drivers/net/ethernet/qlogic/qed/qed_dev_api.h      |   34 +-
+ drivers/net/ethernet/qlogic/qed/qed_hsi.h          |   32 +-
+ drivers/net/ethernet/qlogic/qed/qed_hw.c           |   32 +-
+ drivers/net/ethernet/qlogic/qed/qed_hw.h           |   32 +-
+ .../net/ethernet/qlogic/qed/qed_init_fw_funcs.c    |   32 +-
+ drivers/net/ethernet/qlogic/qed/qed_init_ops.c     |   32 +-
+ drivers/net/ethernet/qlogic/qed/qed_init_ops.h     |   34 +-
+ drivers/net/ethernet/qlogic/qed/qed_int.c          |   32 +-
+ drivers/net/ethernet/qlogic/qed/qed_int.h          |   34 +-
+ drivers/net/ethernet/qlogic/qed/qed_iscsi.c        |   32 +-
+ drivers/net/ethernet/qlogic/qed/qed_iscsi.h        |   32 +-
+ drivers/net/ethernet/qlogic/qed/qed_l2.c           |  303 ++-
+ drivers/net/ethernet/qlogic/qed/qed_l2.h           |   60 +-
+ drivers/net/ethernet/qlogic/qed/qed_ll2.c          |   31 +-
+ drivers/net/ethernet/qlogic/qed/qed_ll2.h          |   31 +-
+ drivers/net/ethernet/qlogic/qed/qed_main.c         |   43 +-
+ drivers/net/ethernet/qlogic/qed/qed_mcp.c          |   36 +-
+ drivers/net/ethernet/qlogic/qed/qed_mcp.h          |   34 +-
+ drivers/net/ethernet/qlogic/qed/qed_ooo.c          |   32 +-
+ drivers/net/ethernet/qlogic/qed/qed_ooo.h          |   32 +-
+ drivers/net/ethernet/qlogic/qed/qed_reg_addr.h     |   32 +-
+ drivers/net/ethernet/qlogic/qed/qed_roce.c         |    2 +-
+ drivers/net/ethernet/qlogic/qed/qed_roce.h         |    2 +-
+ drivers/net/ethernet/qlogic/qed/qed_selftest.c     |   32 +
+ drivers/net/ethernet/qlogic/qed/qed_sp.h           |   34 +-
+ drivers/net/ethernet/qlogic/qed/qed_sp_commands.c  |   32 +-
+ drivers/net/ethernet/qlogic/qed/qed_spq.c          |   32 +-
+ drivers/net/ethernet/qlogic/qed/qed_sriov.c        |  242 +-
+ drivers/net/ethernet/qlogic/qed/qed_sriov.h        |   41 +-
+ drivers/net/ethernet/qlogic/qed/qed_vf.c           |   44 +-
+ drivers/net/ethernet/qlogic/qed/qed_vf.h           |   32 +-
+ drivers/net/ethernet/qlogic/qede/Makefile          |    2 +-
+ drivers/net/ethernet/qlogic/qede/qede.h            |   83 +-
+ drivers/net/ethernet/qlogic/qede/qede_ethtool.c    |  114 +-
+ drivers/net/ethernet/qlogic/qede/qede_filter.c     |  759 ++++++
+ drivers/net/ethernet/qlogic/qede/qede_fp.c         | 1691 +++++++++++++
+ drivers/net/ethernet/qlogic/qede/qede_main.c       | 2617 ++------------------
+ drivers/net/ethernet/qlogic/qede/qede_roce.c       |    2 +-
+ include/linux/qed/common_hsi.h                     |   33 +-
+ include/linux/qed/eth_common.h                     |   32 +-
+ include/linux/qed/iscsi_common.h                   |   32 +-
+ include/linux/qed/qed_chain.h                      |   34 +-
+ include/linux/qed/qed_eth_if.h                     |   34 +-
+ include/linux/qed/qed_if.h                         |   35 +-
+ include/linux/qed/qed_iov_if.h                     |   34 +-
+ include/linux/qed/qed_iscsi_if.h                   |   32 +-
+ include/linux/qed/qed_ll2_if.h                     |   31 +-
+ include/linux/qed/qed_roce_if.h                    |    2 +-
+ include/linux/qed/qede_roce.h                      |    2 +-
+ include/linux/qed/rdma_common.h                    |   32 +-
+ include/linux/qed/roce_common.h                    |   32 +-
+ include/linux/qed/storage_common.h                 |   32 +-
+ include/linux/qed/tcp_common.h                     |   32 +-
+ 59 files changed, 4522 insertions(+), 2856 deletions(-)
+ create mode 100644 drivers/net/ethernet/qlogic/qede/qede_filter.c
+ create mode 100644 drivers/net/ethernet/qlogic/qede/qede_fp.c
+
+-- 
+1.9.3
