@@ -1,7 +1,7 @@
 From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net-next 23/27] sctp: add rfc6525 section 5.2.5
-Date: Sun,  1 Jan 2017 19:20:40 +0800
-Message-ID: <105630d2f9a54de9c3ce49988452d2b111c71b3d.1483269426.git.lucien.xin@gmail.com>
+Subject: [PATCH net-next 24/27] sctp: add rfc6525 section 5.2.6
+Date: Sun,  1 Jan 2017 19:20:41 +0800
+Message-ID: <19ee2333d24194c0a4b3e724a1a738873ca27445.1483269426.git.lucien.xin@gmail.com>
 References: <cover.1483269426.git.lucien.xin@gmail.com>
  <684ad8ddd79f23844883dede4c34360ce744dfc3.1483269426.git.lucien.xin@gmail.com>
  <c752879a5af358c08da949b391416452f1322c43.1483269426.git.lucien.xin@gmail.com>
@@ -25,38 +25,39 @@ References: <cover.1483269426.git.lucien.xin@gmail.com>
  <b5eb3a199dded2efe517b19b5cac6ae498a6c0c8.1483269426.git.lucien.xin@gmail.com>
  <c59df697bb54348de10f8418a23e9d14bce30135.1483269426.git.lucien.xin@gmail.com>
  <470b9f2b5248e0c1870c501f262a1887be66509b.1483269426.git.lucien.xin@gmail.com>
+ <105630d2f9a54de9c3ce49988452d2b111c71b3d.1483269426.git.lucien.xin@gmail.com>
 Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
         Neil Horman <nhorman@tuxdriver.com>, davem@davemloft.net
 To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:35530 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932079AbdAALX4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 1 Jan 2017 06:23:56 -0500
-In-Reply-To: <470b9f2b5248e0c1870c501f262a1887be66509b.1483269426.git.lucien.xin@gmail.com>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:35556 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932066AbdAALYE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 1 Jan 2017 06:24:04 -0500
+In-Reply-To: <105630d2f9a54de9c3ce49988452d2b111c71b3d.1483269426.git.lucien.xin@gmail.com>
 In-Reply-To: <cover.1483269426.git.lucien.xin@gmail.com>
 References: <cover.1483269426.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch is to add Receiver-Side Procedures for the Add Outgoing
-Streams Request Parameter described in section 5.2.5.
+This patch is to implement Receiver-Side Procedures for the Add Incoming
+Streams Request Parameter described in section 5.2.6.
 
 Signed-off-by: Xin Long <lucien.xin@gmail.com>
 ---
  include/net/sctp/sm.h |  4 ++++
- net/sctp/stream.c     | 56 +++++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 60 insertions(+)
+ net/sctp/stream.c     | 59 +++++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 63 insertions(+)
 
 diff --git a/include/net/sctp/sm.h b/include/net/sctp/sm.h
-index e1b2509..5624b52 100644
+index 5624b52..b8ca767 100644
 --- a/include/net/sctp/sm.h
 +++ b/include/net/sctp/sm.h
-@@ -293,6 +293,10 @@ struct sctp_chunk *sctp_process_strreset_tsnreq(
+@@ -297,6 +297,10 @@ struct sctp_chunk *sctp_process_strreset_addstrm_out(
  				struct sctp_association *asoc,
  				union sctp_params param,
  				struct sctp_ulpevent **evp);
-+struct sctp_chunk *sctp_process_strreset_addstrm_out(
++struct sctp_chunk *sctp_process_strreset_addstrm_in(
 +				struct sctp_association *asoc,
 +				union sctp_params param,
 +				struct sctp_ulpevent **evp);
@@ -64,15 +65,15 @@ index e1b2509..5624b52 100644
  /* Prototypes for statetable processing. */
  
 diff --git a/net/sctp/stream.c b/net/sctp/stream.c
-index fce4317..b51a037 100644
+index b51a037..a2b248b 100644
 --- a/net/sctp/stream.c
 +++ b/net/sctp/stream.c
-@@ -283,3 +283,59 @@ struct sctp_chunk *sctp_process_strreset_tsnreq(
- 	return sctp_make_strreset_tsnresp(asoc, result, request_seq,
- 					  asoc->next_tsn, initial_tsn);
+@@ -339,3 +339,62 @@ struct sctp_chunk *sctp_process_strreset_addstrm_out(
+ out:
+ 	return sctp_make_strreset_resp(asoc, result, request_seq);
  }
 +
-+struct sctp_chunk *sctp_process_strreset_addstrm_out(
++struct sctp_chunk *sctp_process_strreset_addstrm_in(
 +				struct sctp_association *asoc,
 +				union sctp_params param,
 +				struct sctp_ulpevent **evp)
@@ -80,7 +81,7 @@ index fce4317..b51a037 100644
 +	struct sctp_strreset_addstrm *addstrm = param.v;
 +	__u32 result = SCTP_STRRESET_DENIED;
 +	__u32 request_seq;
-+	__u16 nums;
++	__u16 i, nums;
 +
 +	request_seq = ntohl(addstrm->request_seq);
 +	if (request_seq > asoc->strreset_inseq) {
@@ -99,30 +100,33 @@ index fce4317..b51a037 100644
 +	}
 +
 +	nums = ntohs(addstrm->number_of_streams);
-+	if (!nums || nums + asoc->streamincnt > SCTP_MAX_STREAM)
++	if (!nums || nums + asoc->streamoutcnt > SCTP_MAX_STREAM)
 +		goto out;
 +
-+	nums = nums + asoc->streamincnt;
-+	if (ksize(asoc->streamin) / sizeof(*asoc->streamin) < nums) {
-+		struct sctp_stream_in *streamin;
++	nums = nums + asoc->streamoutcnt;
++	if (ksize(asoc->streamout) / sizeof(*asoc->streamout) < nums) {
++		struct sctp_stream_out *streamout;
 +
-+		streamin = kcalloc(nums, sizeof(*streamin), GFP_ATOMIC);
-+		if (!streamin)
++		streamout = kcalloc(nums, sizeof(*streamout), GFP_ATOMIC);
++		if (!streamout)
 +			goto out;
 +
-+		memcpy(streamin, asoc->streamin,
-+		       sizeof(*streamin) * asoc->streamincnt);
++		memcpy(streamout, asoc->streamout,
++		       sizeof(*streamout) * asoc->streamoutcnt);
 +
-+		kfree(asoc->streamin);
-+		asoc->streamin = streamin;
++		kfree(asoc->streamout);
++		asoc->streamout = streamout;
 +	}
 +
-+	asoc->streamincnt = nums;
++	for (i = asoc->streamoutcnt; i < nums; i++)
++		asoc->streamout[i].state = SCTP_STREAM_OPEN;
++
++	asoc->streamoutcnt = nums;
 +
 +	result = SCTP_STRRESET_PERFORMED;
 +
 +	*evp = sctp_ulpevent_make_stream_change_event(asoc,
-+		0, ntohs(addstrm->number_of_streams), 0, GFP_ATOMIC);
++		0, 0, ntohs(addstrm->number_of_streams), GFP_ATOMIC);
 +
 +out:
 +	return sctp_make_strreset_resp(asoc, result, request_seq);
