@@ -1,71 +1,123 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH] net: dlink: sundance: use new api ethtool_{get|set}_link_ksettings
-Date: Sun,  1 Jan 2017 20:52:12 +0100
-Message-ID: <1483300332-22834-1-git-send-email-tremyfr@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Philippe Reynes <tremyfr@gmail.com>
-To: kda@linux-powerpc.org, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Olivier Brunel <jjk@jjacky.com>
+Subject: Re: Bug w/ (policy) routing
+Date: Sun, 1 Jan 2017 20:52:38 +0100
+Message-ID: <20170101205238.426803f4@jjacky.com>
+References: <20161231000006.17677918@jjacky.com>
+        <3575dc1f-d536-20d2-24b9-a1e95a5c795b@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Ahern <dsa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 23-29-69-116.static.gorillaservers.com ([23.29.69.116]:53685
+        "EHLO mail.jjacky.com" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+        with ESMTP id S932229AbdAATx7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 1 Jan 2017 14:53:59 -0500
+In-Reply-To: <3575dc1f-d536-20d2-24b9-a1e95a5c795b@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The ethtool api {get|set}_settings is deprecated.
-We move this driver to new api {get|set}_link_ksettings.
+On Sat, 31 Dec 2016 13:15:44 -0700
+David Ahern <dsa@cumulusnetworks.com> wrote:
 
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
----
- drivers/net/ethernet/dlink/sundance.c |   14 ++++++++------
- 1 files changed, 8 insertions(+), 6 deletions(-)
+> On 12/30/16 4:00 PM, Olivier Brunel wrote:
+> > Hi,
+> > 
+> > (Please cc me as I'm not subscribed to the list, thanks.)
+> > 
+> > I'm trying to set things up using some policy routing, and having
+> > some weird issues I can't really explain. It looks to me like there
+> > might be a bug somewhere...
+> > 
+> > This is done under Arch Linux 64bits, iproute2 4.9.0 (`ip -V` says
+> > ip utility, iproute2-ss161212), kernel 4.8.13
+> > 
+> > Basically here's what I could reduce it to:
+> > - create a new network namespace, create a pair of veth devices:
+> > one in there, one sent back to the original namespace
+> > - I'm giving them IPs 10.4.0.1 (original namespace) & 10.4.0.2 (new
+> > namespace)
+> > - in that new namespace, I'm trying to add a route to 10.4.0.1, but
+> >   inside a new table. I also want a default route via 10.4.0.1 on
+> > the table main. It seems to work, only not really...
+> > 
+> > It's not very easy to describe so hopefully this will make things
+> > clearer:
+> > 
+> > $ sudo unshare -n sh  
+> 
+> The main and local fib tables start merged into a single fib_table
+> instance.
+> 
+> > sh-4.4# ip rule add table 50 prio 50
+> > sh-4.4# ip link add test type veth peer name test2
+> > sh-4.4# ip addr add 10.4.0.2 dev test
+> > sh-4.4# ip link set dev test up
+> > sh-4.4# ip link set netns 1 dev test2
+> > # back in original namespace, we add 10.4.0.1 to test2 and bring it
+> > up
+> > 
+> > sh-4.4# ip route add 10.4.0.1 dev test table 50
+> > sh-4.4# ip route add default via 10.4.0.1 dev test
+> > sh-4.4# ip route flush cache
+> > sh-4.4# ip rule
+> > 0:	from all lookup local 
+> > 50:	from all lookup 50 
+> > 32766:	from all lookup main 
+> > 32767:	from all lookup default 
+> > sh-4.4# ip route show table 50
+> > 10.4.0.1 dev test scope link 
+> > sh-4.4# ip route get 10.4.0.1
+> > 10.4.0.1 via 10.4.0.1 dev test table local src 10.4.0.2 
+> >     cache 
+> > # !?? why isn't table 50 used as, I believe, it should. And why  
+> 
+> The default rule set has the local table at priority 0 so all lookups
+> hit that table first:
+> 
+> # ip ru ls
+> 0:	from all lookup local
+> 32766:	from all lookup main
+> 32767:	from all lookup default
+> 
+> For some reason it hits a match doing the lookup in the merged
+> local/main fib_table for this ip route get.
+> 
+> > does adding a rule "fixes" it :
+> > 
+> > sh-4.4# ip rule add prio 55555  
+> 
+> Adding this rule causes the local and main tables to be split into
+> actual separate fib tables. Doing so causes the lookup in the local
+> table to fail, so the lookup continues to the next rule -- which is
+> your prio 50 table 50 rule.
+> 
+> I did not look into why the earlier rule addition did not cause the
+> unmerge to happen -- it should have.
 
-diff --git a/drivers/net/ethernet/dlink/sundance.c b/drivers/net/ethernet/dlink/sundance.c
-index 2e5b667..2704bcf 100644
---- a/drivers/net/ethernet/dlink/sundance.c
-+++ b/drivers/net/ethernet/dlink/sundance.c
-@@ -1664,21 +1664,23 @@ static void get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info)
- 	strlcpy(info->bus_info, pci_name(np->pci_dev), sizeof(info->bus_info));
- }
- 
--static int get_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
-+static int get_link_ksettings(struct net_device *dev,
-+			      struct ethtool_link_ksettings *cmd)
- {
- 	struct netdev_private *np = netdev_priv(dev);
- 	spin_lock_irq(&np->lock);
--	mii_ethtool_gset(&np->mii_if, ecmd);
-+	mii_ethtool_get_link_ksettings(&np->mii_if, cmd);
- 	spin_unlock_irq(&np->lock);
- 	return 0;
- }
- 
--static int set_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
-+static int set_link_ksettings(struct net_device *dev,
-+			      const struct ethtool_link_ksettings *cmd)
- {
- 	struct netdev_private *np = netdev_priv(dev);
- 	int res;
- 	spin_lock_irq(&np->lock);
--	res = mii_ethtool_sset(&np->mii_if, ecmd);
-+	res = mii_ethtool_set_link_ksettings(&np->mii_if, cmd);
- 	spin_unlock_irq(&np->lock);
- 	return res;
- }
-@@ -1800,8 +1802,6 @@ static int sundance_set_wol(struct net_device *dev,
- static const struct ethtool_ops ethtool_ops = {
- 	.begin = check_if_running,
- 	.get_drvinfo = get_drvinfo,
--	.get_settings = get_settings,
--	.set_settings = set_settings,
- 	.nway_reset = nway_reset,
- 	.get_link = get_link,
- 	.get_wol = sundance_get_wol,
-@@ -1811,6 +1811,8 @@ static int sundance_set_wol(struct net_device *dev,
- 	.get_strings = get_strings,
- 	.get_sset_count = get_sset_count,
- 	.get_ethtool_stats = get_ethtool_stats,
-+	.get_link_ksettings = get_link_ksettings,
-+	.set_link_ksettings = set_link_ksettings,
- };
- 
- static int netdev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
--- 
-1.7.4.4
+Thanks, (I feel like) I understand what's happening now.
+
+
+> > sh-4.4# ip route get 10.4.0.1
+> > 10.4.0.1 dev test table 50 src 10.4.0.2 
+> >     cache 
+> > # deleting the new rule makes no difference. It could even have been
+> > done right after adding it. It's like it just triggered something
+> > (reload, cache flushed, ...)
+> > As seen I did flush cached routes as mentionned in the man page, I
+> > don't know of anything else that would need done to "refresh"
+> > things?
+> > 
+> > Any ideas as to why this is happening? Should this work as I expect
+> > it, or is there anything I'm doing wrong?  
+> 
+> For your purposes now this should fix the problem for you:
+> 
+> ip ru del from all lookup local
+> ip ru add prio 32765 from all lookup local
+
+Indeed, if I first delete the rule for lookup local and recreate it
+w/ higher prio than my "lookup 50", then no more issue.
+
+Thanks a lot!
