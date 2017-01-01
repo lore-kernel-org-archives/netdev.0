@@ -1,7 +1,7 @@
 From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net-next 09/27] sctp: add stream reconf timer
-Date: Sun,  1 Jan 2017 19:20:26 +0800
-Message-ID: <c4f16844620cd3a2aa76596df9eaadf1505fc8e6.1483269426.git.lucien.xin@gmail.com>
+Subject: [PATCH net-next 10/27] sctp: add stream reconf primitive
+Date: Sun,  1 Jan 2017 19:20:27 +0800
+Message-ID: <1d0b270084289945c4b42ae36d0556648a3f9b64.1483269426.git.lucien.xin@gmail.com>
 References: <cover.1483269426.git.lucien.xin@gmail.com>
  <684ad8ddd79f23844883dede4c34360ce744dfc3.1483269426.git.lucien.xin@gmail.com>
  <c752879a5af358c08da949b391416452f1322c43.1483269426.git.lucien.xin@gmail.com>
@@ -11,293 +11,151 @@ References: <cover.1483269426.git.lucien.xin@gmail.com>
  <31abc54d31ef0714322f137bff43458014d7c276.1483269426.git.lucien.xin@gmail.com>
  <58860816816d6d51b062235fd54dae6540a4797a.1483269426.git.lucien.xin@gmail.com>
  <229608faf7af54c0bf908694ca8349205bbf6eab.1483269426.git.lucien.xin@gmail.com>
+ <c4f16844620cd3a2aa76596df9eaadf1505fc8e6.1483269426.git.lucien.xin@gmail.com>
 Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
         Neil Horman <nhorman@tuxdriver.com>, davem@davemloft.net
 To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:34591 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755131AbdAALWE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 1 Jan 2017 06:22:04 -0500
-In-Reply-To: <229608faf7af54c0bf908694ca8349205bbf6eab.1483269426.git.lucien.xin@gmail.com>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:34617 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932079AbdAALWM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 1 Jan 2017 06:22:12 -0500
+In-Reply-To: <c4f16844620cd3a2aa76596df9eaadf1505fc8e6.1483269426.git.lucien.xin@gmail.com>
 In-Reply-To: <cover.1483269426.git.lucien.xin@gmail.com>
 References: <cover.1483269426.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch is to add a per transport timer based on sctp timer frame
-for stream reconf chunk retransmission. It would start after sending
-a reconf request chunk, and stop after receiving the response chunk.
+This patch is to add a primitive based on sctp primitive frame for
+sending stream reconf request. It works as the other primitives,
+and create a SCTP_CMD_REPLY command to send the request chunk out.
 
-If the timer expires, besides retransmitting the reconf request chunk,
-it would also do the same thing with data RTO timer. like to increase
-the appropriate error counts, and perform threshold management, possibly
-destroying the asoc if sctp retransmission thresholds are exceeded, just
-as section 5.1.1 describes.
-
-This patch is also to add asoc strreset_chunk, it is used to save the
-reconf request chunk, so that it can be retransmitted, and to check if
-the response is really for this request by comparing the information
-inside with the response chunk as well.
+sctp_primitive_RECONF would be the api to send a reconf request
+chunk.
 
 Signed-off-by: Xin Long <lucien.xin@gmail.com>
 ---
- include/net/sctp/constants.h |  1 +
- include/net/sctp/sm.h        |  2 ++
- include/net/sctp/structs.h   |  6 ++++++
- net/sctp/associola.c         |  3 +++
- net/sctp/sm_sideeffect.c     | 32 ++++++++++++++++++++++++++++++++
- net/sctp/sm_statefuns.c      | 28 ++++++++++++++++++++++++++++
+ include/net/sctp/constants.h |  3 ++-
+ include/net/sctp/sctp.h      |  2 ++
+ include/net/sctp/sm.h        |  1 +
+ net/sctp/primitive.c         |  3 +++
+ net/sctp/sm_statefuns.c      | 13 +++++++++++++
  net/sctp/sm_statetable.c     | 20 ++++++++++++++++++++
- net/sctp/transport.c         | 17 +++++++++++++++--
- 8 files changed, 107 insertions(+), 2 deletions(-)
+ 6 files changed, 41 insertions(+), 1 deletion(-)
 
 diff --git a/include/net/sctp/constants.h b/include/net/sctp/constants.h
-index 5b847e4..8307c86 100644
+index 8307c86..3567c97 100644
 --- a/include/net/sctp/constants.h
 +++ b/include/net/sctp/constants.h
-@@ -90,6 +90,7 @@ typedef enum {
- 	SCTP_EVENT_TIMEOUT_T4_RTO,
- 	SCTP_EVENT_TIMEOUT_T5_SHUTDOWN_GUARD,
- 	SCTP_EVENT_TIMEOUT_HEARTBEAT,
-+	SCTP_EVENT_TIMEOUT_RECONF,
- 	SCTP_EVENT_TIMEOUT_SACK,
- 	SCTP_EVENT_TIMEOUT_AUTOCLOSE,
- } sctp_event_timeout_t;
+@@ -114,9 +114,10 @@ typedef enum {
+ 	SCTP_PRIMITIVE_SEND,
+ 	SCTP_PRIMITIVE_REQUESTHEARTBEAT,
+ 	SCTP_PRIMITIVE_ASCONF,
++	SCTP_PRIMITIVE_RECONF,
+ } sctp_event_primitive_t;
+ 
+-#define SCTP_EVENT_PRIMITIVE_MAX	SCTP_PRIMITIVE_ASCONF
++#define SCTP_EVENT_PRIMITIVE_MAX	SCTP_PRIMITIVE_RECONF
+ #define SCTP_NUM_PRIMITIVE_TYPES	(SCTP_EVENT_PRIMITIVE_MAX + 1)
+ 
+ /* We define here a utility type for manipulating subtypes.
+diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
+index 598d938..bc0e049 100644
+--- a/include/net/sctp/sctp.h
++++ b/include/net/sctp/sctp.h
+@@ -141,6 +141,8 @@ int sctp_primitive_ABORT(struct net *, struct sctp_association *, void *arg);
+ int sctp_primitive_SEND(struct net *, struct sctp_association *, void *arg);
+ int sctp_primitive_REQUESTHEARTBEAT(struct net *, struct sctp_association *, void *arg);
+ int sctp_primitive_ASCONF(struct net *, struct sctp_association *, void *arg);
++int sctp_primitive_RECONF(struct net *net, struct sctp_association *asoc,
++			  void *arg);
+ 
+ /*
+  * sctp/input.c
 diff --git a/include/net/sctp/sm.h b/include/net/sctp/sm.h
-index 35986d0..2ab0a8a 100644
+index 2ab0a8a..bcca913 100644
 --- a/include/net/sctp/sm.h
 +++ b/include/net/sctp/sm.h
-@@ -167,6 +167,7 @@ sctp_state_fn_t sctp_sf_cookie_wait_icmp_abort;
+@@ -157,6 +157,7 @@ sctp_state_fn_t sctp_sf_error_shutdown;
+ sctp_state_fn_t sctp_sf_ignore_primitive;
+ sctp_state_fn_t sctp_sf_do_prm_requestheartbeat;
+ sctp_state_fn_t sctp_sf_do_prm_asconf;
++sctp_state_fn_t sctp_sf_do_prm_reconf;
  
- /* Prototypes for timeout event state functions.  */
- sctp_state_fn_t sctp_sf_do_6_3_3_rtx;
-+sctp_state_fn_t sctp_sf_send_reconf;
- sctp_state_fn_t sctp_sf_do_6_2_sack;
- sctp_state_fn_t sctp_sf_autoclose_timer_expire;
+ /* Prototypes for other event state functions.  */
+ sctp_state_fn_t sctp_sf_do_no_pending_tsn;
+diff --git a/net/sctp/primitive.c b/net/sctp/primitive.c
+index ab8d9f9..f0553a0 100644
+--- a/net/sctp/primitive.c
++++ b/net/sctp/primitive.c
+@@ -211,3 +211,6 @@ DECLARE_PRIMITIVE(REQUESTHEARTBEAT);
+ */
  
-@@ -290,6 +291,7 @@ int sctp_do_sm(struct net *net, sctp_event_t event_type, sctp_subtype_t subtype,
- /* 2nd level prototypes */
- void sctp_generate_t3_rtx_event(unsigned long peer);
- void sctp_generate_heartbeat_event(unsigned long peer);
-+void sctp_generate_reconf_event(unsigned long peer);
- void sctp_generate_proto_unreach_event(unsigned long peer);
- 
- void sctp_ootb_pkt_free(struct sctp_packet *);
-diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-index 09616f1..bb18990 100644
---- a/include/net/sctp/structs.h
-+++ b/include/net/sctp/structs.h
-@@ -873,6 +873,9 @@ struct sctp_transport {
- 	/* Timer to handle ICMP proto unreachable envets */
- 	struct timer_list proto_unreach_timer;
- 
-+	/* Timer to handler reconf chunk rtx */
-+	struct timer_list reconf_timer;
+ DECLARE_PRIMITIVE(ASCONF);
 +
- 	/* Since we're using per-destination retransmission timers
- 	 * (see above), we're also using per-destination "transmitted"
- 	 * queues.  This probably ought to be a private struct
-@@ -931,6 +934,7 @@ void sctp_transport_pmtu(struct sctp_transport *, struct sock *sk);
- void sctp_transport_free(struct sctp_transport *);
- void sctp_transport_reset_t3_rtx(struct sctp_transport *);
- void sctp_transport_reset_hb_timer(struct sctp_transport *);
-+void sctp_transport_reset_reconf_timer(struct sctp_transport *transport);
- int sctp_transport_hold(struct sctp_transport *);
- void sctp_transport_put(struct sctp_transport *);
- void sctp_transport_update_rto(struct sctp_transport *, __u32);
-@@ -1860,6 +1864,8 @@ struct sctp_association {
- 	__u32 strreset_outseq; /* Update after receiving response */
- 	__u32 strreset_inseq; /* Update after receiving request */
- 
-+	struct sctp_chunk *strreset_chunk; /* save request chunk */
-+
- 	struct sctp_priv_assoc_stats stats;
- 
- 	int sent_cnt_removable;
-diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-index 74949da..7acfdad 100644
---- a/net/sctp/associola.c
-+++ b/net/sctp/associola.c
-@@ -363,6 +363,9 @@ void sctp_association_free(struct sctp_association *asoc)
- 	kfree(asoc->streamout);
- 	kfree(asoc->streamin);
- 
-+	if (asoc->strreset_chunk)
-+		sctp_chunk_free(asoc->strreset_chunk);
-+
- 	/* Clean up the bound address list. */
- 	sctp_bind_addr_free(&asoc->base.bind_addr);
- 
-diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
-index c345bf1..a455271 100644
---- a/net/sctp/sm_sideeffect.c
-+++ b/net/sctp/sm_sideeffect.c
-@@ -436,6 +436,37 @@ void sctp_generate_proto_unreach_event(unsigned long data)
- 	sctp_association_put(asoc);
- }
- 
-+ /* Handle the timeout of the RE-CONFIG timer. */
-+void sctp_generate_reconf_event(unsigned long data)
-+{
-+	struct sctp_transport *transport = (struct sctp_transport *)data;
-+	struct sctp_association *asoc = transport->asoc;
-+	struct sock *sk = asoc->base.sk;
-+	struct net *net = sock_net(sk);
-+	int error = 0;
-+
-+	bh_lock_sock(sk);
-+	if (sock_owned_by_user(sk)) {
-+		pr_debug("%s: sock is busy\n", __func__);
-+
-+		/* Try again later.  */
-+		if (!mod_timer(&transport->reconf_timer, jiffies + (HZ / 20)))
-+			sctp_transport_hold(transport);
-+		goto out_unlock;
-+	}
-+
-+	error = sctp_do_sm(net, SCTP_EVENT_T_TIMEOUT,
-+			   SCTP_ST_TIMEOUT(SCTP_EVENT_TIMEOUT_RECONF),
-+			   asoc->state, asoc->ep, asoc,
-+			   transport, GFP_ATOMIC);
-+
-+	if (error)
-+		sk->sk_err = -error;
-+
-+out_unlock:
-+	bh_unlock_sock(sk);
-+	sctp_transport_put(transport);
-+}
- 
- /* Inject a SACK Timeout event into the state machine.  */
- static void sctp_generate_sack_event(unsigned long data)
-@@ -453,6 +484,7 @@ sctp_timer_event_t *sctp_timer_events[SCTP_NUM_TIMEOUT_TYPES] = {
- 	sctp_generate_t4_rto_event,
- 	sctp_generate_t5_shutdown_guard_event,
- 	NULL,
-+	NULL,
- 	sctp_generate_sack_event,
- 	sctp_generate_autoclose_event,
- };
++/* RE-CONFIG 5.1 */
++DECLARE_PRIMITIVE(RECONF);
 diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
-index 8a130a7..b6828dc 100644
+index b6828dc..c06b134 100644
 --- a/net/sctp/sm_statefuns.c
 +++ b/net/sctp/sm_statefuns.c
-@@ -1021,6 +1021,34 @@ sctp_disposition_t sctp_sf_sendbeat_8_3(struct net *net,
+@@ -5185,6 +5185,19 @@ sctp_disposition_t sctp_sf_do_prm_asconf(struct net *net,
  	return SCTP_DISPOSITION_CONSUME;
  }
  
-+/* resend asoc strreset_chunk.  */
-+sctp_disposition_t sctp_sf_send_reconf(struct net *net,
-+				       const struct sctp_endpoint *ep,
-+				       const struct sctp_association *asoc,
-+				       const sctp_subtype_t type, void *arg,
-+				       sctp_cmd_seq_t *commands)
++/* RE-CONFIG Section 5.1 RECONF Chunk Procedures */
++sctp_disposition_t sctp_sf_do_prm_reconf(struct net *net,
++					 const struct sctp_endpoint *ep,
++					 const struct sctp_association *asoc,
++					 const sctp_subtype_t type,
++					 void *arg, sctp_cmd_seq_t *commands)
 +{
-+	struct sctp_transport *transport = arg;
++	struct sctp_chunk *chunk = arg;
 +
-+	if (asoc->overall_error_count >= asoc->max_retrans) {
-+		sctp_add_cmd_sf(commands, SCTP_CMD_SET_SK_ERR,
-+				SCTP_ERROR(ETIMEDOUT));
-+		/* CMD_ASSOC_FAILED calls CMD_DELETE_TCB. */
-+		sctp_add_cmd_sf(commands, SCTP_CMD_ASSOC_FAILED,
-+				SCTP_PERR(SCTP_ERROR_NO_ERROR));
-+		SCTP_INC_STATS(net, SCTP_MIB_ABORTEDS);
-+		SCTP_DEC_STATS(net, SCTP_MIB_CURRESTAB);
-+		return SCTP_DISPOSITION_DELETE_TCB;
-+	}
-+
-+	sctp_chunk_hold(asoc->strreset_chunk);
-+	sctp_add_cmd_sf(commands, SCTP_CMD_REPLY,
-+			SCTP_CHUNK(asoc->strreset_chunk));
-+	sctp_add_cmd_sf(commands, SCTP_CMD_STRIKE, SCTP_TRANSPORT(transport));
-+
++	sctp_add_cmd_sf(commands, SCTP_CMD_REPLY, SCTP_CHUNK(chunk));
 +	return SCTP_DISPOSITION_CONSUME;
 +}
 +
  /*
-  * Process an heartbeat request.
+  * Ignore the primitive event
   *
 diff --git a/net/sctp/sm_statetable.c b/net/sctp/sm_statetable.c
-index a987d54..3da521a 100644
+index 3da521a..b5438b4 100644
 --- a/net/sctp/sm_statetable.c
 +++ b/net/sctp/sm_statetable.c
-@@ -888,6 +888,25 @@ static const sctp_sm_table_entry_t other_event_table[SCTP_NUM_OTHER_TYPES][SCTP_
- 	TYPE_SCTP_FUNC(sctp_sf_timer_ignore), \
- }
+@@ -643,6 +643,25 @@ chunk_event_table_unknown[SCTP_STATE_NUM_STATES] = {
+ 	TYPE_SCTP_FUNC(sctp_sf_error_shutdown), \
+ } /* TYPE_SCTP_PRIMITIVE_ASCONF */
  
-+#define TYPE_SCTP_EVENT_TIMEOUT_RECONF { \
++#define TYPE_SCTP_PRIMITIVE_RECONF { \
 +	/* SCTP_STATE_CLOSED */ \
-+	TYPE_SCTP_FUNC(sctp_sf_timer_ignore), \
++	TYPE_SCTP_FUNC(sctp_sf_error_closed), \
 +	/* SCTP_STATE_COOKIE_WAIT */ \
-+	TYPE_SCTP_FUNC(sctp_sf_timer_ignore), \
++	TYPE_SCTP_FUNC(sctp_sf_error_closed), \
 +	/* SCTP_STATE_COOKIE_ECHOED */ \
-+	TYPE_SCTP_FUNC(sctp_sf_timer_ignore), \
++	TYPE_SCTP_FUNC(sctp_sf_error_closed), \
 +	/* SCTP_STATE_ESTABLISHED */ \
-+	TYPE_SCTP_FUNC(sctp_sf_send_reconf), \
++	TYPE_SCTP_FUNC(sctp_sf_do_prm_reconf), \
 +	/* SCTP_STATE_SHUTDOWN_PENDING */ \
-+	TYPE_SCTP_FUNC(sctp_sf_timer_ignore), \
++	TYPE_SCTP_FUNC(sctp_sf_do_prm_reconf), \
 +	/* SCTP_STATE_SHUTDOWN_SENT */ \
-+	TYPE_SCTP_FUNC(sctp_sf_timer_ignore), \
++	TYPE_SCTP_FUNC(sctp_sf_do_prm_reconf), \
 +	/* SCTP_STATE_SHUTDOWN_RECEIVED */ \
-+	TYPE_SCTP_FUNC(sctp_sf_timer_ignore), \
++	TYPE_SCTP_FUNC(sctp_sf_do_prm_reconf), \
 +	/* SCTP_STATE_SHUTDOWN_ACK_SENT */ \
-+	TYPE_SCTP_FUNC(sctp_sf_timer_ignore), \
-+}
++	TYPE_SCTP_FUNC(sctp_sf_error_shutdown), \
++} /* TYPE_SCTP_PRIMITIVE_RECONF */
 +
- static const sctp_sm_table_entry_t timeout_event_table[SCTP_NUM_TIMEOUT_TYPES][SCTP_STATE_NUM_STATES] = {
- 	TYPE_SCTP_EVENT_TIMEOUT_NONE,
- 	TYPE_SCTP_EVENT_TIMEOUT_T1_COOKIE,
-@@ -897,6 +916,7 @@ static const sctp_sm_table_entry_t timeout_event_table[SCTP_NUM_TIMEOUT_TYPES][S
- 	TYPE_SCTP_EVENT_TIMEOUT_T4_RTO,
- 	TYPE_SCTP_EVENT_TIMEOUT_T5_SHUTDOWN_GUARD,
- 	TYPE_SCTP_EVENT_TIMEOUT_HEARTBEAT,
-+	TYPE_SCTP_EVENT_TIMEOUT_RECONF,
- 	TYPE_SCTP_EVENT_TIMEOUT_SACK,
- 	TYPE_SCTP_EVENT_TIMEOUT_AUTOCLOSE,
+ /* The primary index for this table is the primitive type.
+  * The secondary index for this table is the state.
+  */
+@@ -653,6 +672,7 @@ static const sctp_sm_table_entry_t primitive_event_table[SCTP_NUM_PRIMITIVE_TYPE
+ 	TYPE_SCTP_PRIMITIVE_SEND,
+ 	TYPE_SCTP_PRIMITIVE_REQUESTHEARTBEAT,
+ 	TYPE_SCTP_PRIMITIVE_ASCONF,
++	TYPE_SCTP_PRIMITIVE_RECONF,
  };
-diff --git a/net/sctp/transport.c b/net/sctp/transport.c
-index a1652ab..baa1ac0 100644
---- a/net/sctp/transport.c
-+++ b/net/sctp/transport.c
-@@ -88,9 +88,11 @@ static struct sctp_transport *sctp_transport_init(struct net *net,
- 	INIT_LIST_HEAD(&peer->transports);
  
- 	setup_timer(&peer->T3_rtx_timer, sctp_generate_t3_rtx_event,
--			(unsigned long)peer);
-+		    (unsigned long)peer);
- 	setup_timer(&peer->hb_timer, sctp_generate_heartbeat_event,
--			(unsigned long)peer);
-+		    (unsigned long)peer);
-+	setup_timer(&peer->reconf_timer, sctp_generate_reconf_event,
-+		    (unsigned long)peer);
- 	setup_timer(&peer->proto_unreach_timer,
- 		    sctp_generate_proto_unreach_event, (unsigned long)peer);
- 
-@@ -144,6 +146,9 @@ void sctp_transport_free(struct sctp_transport *transport)
- 	if (del_timer(&transport->T3_rtx_timer))
- 		sctp_transport_put(transport);
- 
-+	if (del_timer(&transport->reconf_timer))
-+		sctp_transport_put(transport);
-+
- 	/* Delete the ICMP proto unreachable timer if it's active. */
- 	if (del_timer(&transport->proto_unreach_timer))
- 		sctp_association_put(transport->asoc);
-@@ -211,6 +216,14 @@ void sctp_transport_reset_hb_timer(struct sctp_transport *transport)
- 		sctp_transport_hold(transport);
- }
- 
-+void sctp_transport_reset_reconf_timer(struct sctp_transport *transport)
-+{
-+	if (!timer_pending(&transport->reconf_timer))
-+		if (!mod_timer(&transport->reconf_timer,
-+			       jiffies + transport->rto))
-+			sctp_transport_hold(transport);
-+}
-+
- /* This transport has been assigned to an association.
-  * Initialize fields from the association or from the sock itself.
-  * Register the reference count in the association.
+ #define TYPE_SCTP_OTHER_NO_PENDING_TSN  { \
 -- 
 2.1.0
