@@ -1,119 +1,79 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH for-next V2 00/11] Mellanox mlx5 core and ODP updates 2017-01-01
-Date: Mon,  2 Jan 2017 11:37:37 +0200
-Message-ID: <1483349868-11716-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-        Leon Romanovsky <leonro@mellanox.com>,
-        Ilya Lesokhin <ilyal@mellanox.com>,
-        Artemy Kovalyov <artemyko@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>,
-        Doug Ledford <dledford@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:34398 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S932391AbdABJiT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 2 Jan 2017 04:38:19 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Subject: [PATCH for-next V2 01/11] net/mlx5: Fix offset naming for reserved fields in hca_cap_bits
+Date: Mon,  2 Jan 2017 11:37:38 +0200
+Message-ID: <1483349868-11716-2-git-send-email-saeedm@mellanox.com>
+References: <1483349868-11716-1-git-send-email-saeedm@mellanox.com>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Ilya Lesokhin <ilyal-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Artemy Kovalyov <artemyko-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Max Gurtovoy <maxg-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1483349868-11716-1-git-send-email-saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Dave and Doug,
+From: Max Gurtovoy <maxg-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 
-The following eleven patches mainly come from Artemy Kovalyov
-who expanded mlx5 on-demand-paging (ODP) support. In addition
-there are three cleanup patches which don't change any functionality,
-but are needed to align codebase prior accepting other patches.
+Fix offset for reserved fields.
 
-Memory region (MR) in IB can be huge and ODP (on-demand paging)
-technique allows to use unpinned memory, which can be consumed and
-released on demand. This allows to applications do not pin down
-the underlying physical pages of the address space, and save from them
-need to track the validity of the mappings.
+Fixes: 7486216b3a0b ("{net,IB}/mlx5: mlx5_ifc updates")
+Fixes: b4ff3a36d3e4 ("net/mlx5: Use offset based reserved field names in the IFC header file")
+Fixes: 7d5e14237a55 ("net/mlx5: Update mlx5_ifc hardware features")
+Signed-off-by: Max Gurtovoy <maxg-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Reviewed-by: Artemy Kovalyov <artemyko-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Signed-off-by: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Signed-off-by: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+---
+ include/linux/mlx5/mlx5_ifc.h | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-Rather, the HCA requests the latest translations from the OS when pages
-are not present, and the OS invalidates translations which are no longer
-valid due to either non-present pages or mapping changes.
-
-In existing ODP implementation applications is needed to register
-memory buffers for communication, though registered memory regions
-need not have valid mappings at registration time.
-
-This patch set performs the following steps to expand
-current ODP implementation:
-
-1. It refactors UMR to support large regions, by introducing generic
-   function to perform HCA translation table modifications. This
-   function supports both atomic and process contexts and is not limited
-   by number of modified entries.
-
-   This function allows to enable reallocated memory regions of
-   arbitrary size, so adding MR cache buckets to support up to 16GB MRs.
-
-2. It changes page fault event format and refactor page faults logic
-   together with addition of atomic support.
-
-3. It prepares mlx5 core code to support implicit registration with
-   simplified and relaxed semantics.
-
-   Implicit ODP semantics allows to applications provide special memory
-   key that represents their complete address space. Thus all IO accesses
-   referencing to this key (with proper access rights associated with the key)
-   wouldn't need not register any virtual address range.
-
-Thanks,
-        Artemy, Ilya and Leon
-
-v1->v2:
-  - Don't use 'inline' in .c files
-
-The following changes since commit 7ce7d89f48834cefece7804d38fc5d85382edf77
-    Linux 4.10-rc1
-
-are available in the git repository at:
-    git://git.kernel.org/pub/scm/linux/kernel/git/mellanox/linux.git tags/mlx5-odp-for-4.11
-
-for you to fetch changes up to 4ca4c0713ca3097f1be94355d9a36bd1fc7243a2
-    IB/mlx5: Improve MR check
-
-Regards,
-Saeed.
-
-Artemy Kovalyov (8):
-  net/mlx5: Support new MR features
-  IB/mlx5: Refactor UMR post send format
-  IB/mlx5: Add support for big MRs
-  IB/mlx5: Add MR cache for large UMR regions
-  net/mlx5: Update PAGE_FAULT_RESUME layout
-  {net,IB}/mlx5: Refactor page fault handling
-  IB/mlx5: Add ODP atomics support
-  IB/mlx5: Improve MR check
-
-Binoy Jayan (1):
-  IB/mlx5: Add helper mlx5_ib_post_send_wait
-
-Leon Romanovsky (1):
-  IB/mlx5: Reorder code in query device command
-
-Max Gurtovoy (1):
-  net/mlx5: Fix offset naming for reserved fields in hca_cap_bits
-
- drivers/infiniband/hw/mlx5/main.c                  |  50 +-
- drivers/infiniband/hw/mlx5/mem.c                   |  32 +-
- drivers/infiniband/hw/mlx5/mlx5_ib.h               |  89 ++--
- drivers/infiniband/hw/mlx5/mr.c                    | 518 ++++++++-------------
- drivers/infiniband/hw/mlx5/odp.c                   | 424 ++++++++---------
- drivers/infiniband/hw/mlx5/qp.c                    | 154 ++----
- drivers/net/ethernet/mellanox/mlx5/core/dev.c      |  33 ++
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |   2 +-
- drivers/net/ethernet/mellanox/mlx5/core/eq.c       | 290 ++++++++++--
- drivers/net/ethernet/mellanox/mlx5/core/main.c     |  41 +-
- .../net/ethernet/mellanox/mlx5/core/mlx5_core.h    |   2 +
- drivers/net/ethernet/mellanox/mlx5/core/qp.c       | 114 -----
- include/linux/mlx5/device.h                        |   6 +-
- include/linux/mlx5/driver.h                        | 105 ++++-
- include/linux/mlx5/mlx5_ifc.h                      |  31 +-
- include/linux/mlx5/qp.h                            |  76 ++-
- 16 files changed, 1000 insertions(+), 967 deletions(-)
-
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+index 57bec54..4792c85 100644
+--- a/include/linux/mlx5/mlx5_ifc.h
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -826,9 +826,9 @@ struct mlx5_ifc_cmd_hca_cap_bits {
+ 	u8         reserved_at_1a9[0x2];
+ 	u8         local_ca_ack_delay[0x5];
+ 	u8         port_module_event[0x1];
+-	u8         reserved_at_1b0[0x1];
++	u8         reserved_at_1b1[0x1];
+ 	u8         ports_check[0x1];
+-	u8         reserved_at_1b2[0x1];
++	u8         reserved_at_1b3[0x1];
+ 	u8         disable_link_up[0x1];
+ 	u8         beacon_led[0x1];
+ 	u8         port_type[0x2];
+@@ -858,7 +858,7 @@ struct mlx5_ifc_cmd_hca_cap_bits {
+ 
+ 	u8         compact_address_vector[0x1];
+ 	u8         striding_rq[0x1];
+-	u8         reserved_at_201[0x2];
++	u8         reserved_at_202[0x2];
+ 	u8         ipoib_basic_offloads[0x1];
+ 	u8         reserved_at_205[0xa];
+ 	u8         drain_sigerr[0x1];
+@@ -1009,10 +1009,10 @@ struct mlx5_ifc_cmd_hca_cap_bits {
+ 	u8         rndv_offload_rc[0x1];
+ 	u8         rndv_offload_dc[0x1];
+ 	u8         log_tag_matching_list_sz[0x5];
+-	u8         reserved_at_5e8[0x3];
++	u8         reserved_at_5f8[0x3];
+ 	u8         log_max_xrq[0x5];
+ 
+-	u8         reserved_at_5f0[0x200];
++	u8         reserved_at_600[0x200];
+ };
+ 
+ enum mlx5_flow_destination_type {
 -- 
 2.7.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
