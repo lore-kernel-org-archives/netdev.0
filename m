@@ -1,51 +1,76 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: pull-request: mac80211 2017-01-02
-Date: Mon,  2 Jan 2017 15:39:03 +0100
-Message-ID: <20170102143904.20851-1-johannes@sipsolutions.net>
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:40112 "EHLO sipsolutions.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750815AbdABOjJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 2 Jan 2017 09:39:09 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: Re: [RFC PATCH net-next v4 1/2] macb: Add 1588 support in Cadence
+ GEM.
+Date: Mon, 2 Jan 2017 15:47:07 +0100
+Message-ID: <0717c63b-2e29-9ad1-7f01-39817980933f@atmel.com>
+References: <1481720175-12703-1-git-send-email-andrei.pistirica@microchip.com>
+ <BN3PR07MB2516815EDE69ACDCE27F81A3C96F0@BN3PR07MB2516.namprd07.prod.outlook.com>
+ <20170102113155.GA16373@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 8bit
+Cc: Andrei Pistirica <andrei.pistirica@microchip.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "linux-arm-kernel@lists.infradead.org"
+        <linux-arm-kernel@lists.infradead.org>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "harinikatakamlinux@gmail.com" <harinikatakamlinux@gmail.com>,
+        "harini.katakam@xilinx.com" <harini.katakam@xilinx.com>,
+        "punnaia@xilinx.com" <punnaia@xilinx.com>,
+        "michals@xilinx.com" <michals@xilinx.com>,
+        "anirudh@xilinx.com" <anirudh@xilinx.com>,
+        "boris.brezillon@free-electrons.com"
+        <boris.brezillon@free-electrons.com>,
+        "alexandre.belloni@free-electrons.com"
+        <alexandre.belloni@free-electrons.com>,
+        "tbultel@pixelsurmer.com" <tbultel@pixelsurmer.com>
+To: Richard Cochran <richardcochran@gmail.com>,
+        Rafal Ozieblo <rafalo@cadence.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170102113155.GA16373@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+Le 02/01/2017 à 12:31, Richard Cochran a écrit :
+> On Mon, Jan 02, 2017 at 09:36:10AM +0000, Rafal Ozieblo wrote:
+>> According Cadence Hardware team:
+>> "It is just that some customers prefer to have the time in the descriptors as that is provided per frame.
+>> The registers are simply overwritten when a new event frame is transmitted/received and so software could miss it."
+>> The question is are you sure that you read timestamp for current frame? (not for the next frame).
+> 
+> AFAICT, having the time stamp in the descriptor is not universally
+> supported.  Looking at the Xilinx Zynq 7000 TRM, I can't find any
+> mention of this.
 
-Happy New Year :-)
+This is why I proposed to address options incrementally: without
+timestamp support in descriptor (this patch series), then adding this
+feature in another patch series.
 
-Even though I was out for around two weeks, only a single fix came in,
-I guess everyone else was also out. But if people were out, then they
-won't be sending fixes soon again I suppose, and if they weren't out
-they haven't sent more fixes, so I decided to send this one to you now.
+Rafal, this is why Andrei noted that the case covered by this series is
+not adapted to GEM-GXL and doesn't address the "timestamp in descriptor"
+case.
 
-Please pull and let me know if there's any problem.
+> This Cadence IP core is a complete disaster.
 
-Thanks,
-johannes
+Well, it evolved and propose several options to different SoC
+integrators. This is not something unusual...
+I suspect as well that some other network adapters have the same
+weakness concerning PTP timestamp in single register as the early
+revisions of this IP.
 
+> Unless someone can tell us how this IP works in all of its
+> incarnations, this series is going nowhere.
 
+We're already as v4 (thanks to your fruitful contributions BTW) for this
+series and will try to add features for other IP options & revisions
+incrementally.
+I suspect that Rafal tend to jump too quickly to the latest IP revisions
+and add more options to this series: let's not try to pour too much
+things into this code right now.
 
-The following changes since commit eb7903bb83cc1db31a9124d4cc8a1bddebe26e33:
+FYI, Andrei will be back online next week.
 
-  Merge branch 'l2tp-socket-lookup-fixes' (2017-01-01 22:07:25 -0500)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211.git tags/mac80211-for-davem-2017-01-02
-
-for you to fetch changes up to 35f432a03e41d3bf08c51ede917f94e2288fbe8c:
-
-  mac80211: initialize fast-xmit 'info' later (2017-01-02 11:28:25 +0100)
-
-----------------------------------------------------------------
-A single fix to avoid loading an skb->cb pointer too early.
-
-----------------------------------------------------------------
-Johannes Berg (1):
-      mac80211: initialize fast-xmit 'info' later
-
- net/mac80211/tx.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+Regards,
+-- 
+Nicolas Ferre
