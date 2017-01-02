@@ -1,43 +1,49 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [PATCH for-next V2 00/11] Mellanox mlx5 core and ODP updates 2017-01-01
-Date: Tue, 3 Jan 2017 01:30:16 +0200
-Message-ID: <CALzJLG9ZBRMOVqFsTypCLV6Rrek8a9g43z0spvVKeku6WdWCTA@mail.gmail.com>
-References: <1483349868-11716-1-git-send-email-saeedm@mellanox.com> <20170102.155341.1496970446718890403.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Saeed Mahameed <saeedm@mellanox.com>,
-        Doug Ledford <dledford@redhat.com>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        linux-rdma@vger.kernel.org, Leon Romanovsky <leonro@mellanox.com>,
-        ilyal@mellanox.com, artemyko@mellanox.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f44.google.com ([209.85.215.44]:35859 "EHLO
-        mail-lf0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756808AbdABXaj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 2 Jan 2017 18:30:39 -0500
-Received: by mail-lf0-f44.google.com with SMTP id t196so276959174lff.3
-        for <netdev@vger.kernel.org>; Mon, 02 Jan 2017 15:30:38 -0800 (PST)
-In-Reply-To: <20170102.155341.1496970446718890403.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Reiter Wolfgang <wr0112358@gmail.com>
+Subject: [PATCH] drop_monitor: consider inserted data in genlmsg_end
+Date: Tue,  3 Jan 2017 00:34:10 +0100
+Message-ID: <20170102233410.4070-1-wr0112358@gmail.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Reiter Wolfgang <wr0112358@gmail.com>
+To: nhorman@tuxdriver.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 2, 2017 at 10:53 PM, David Miller <davem@davemloft.net> wrote:
-> From: Saeed Mahameed <saeedm@mellanox.com>
-> Date: Mon,  2 Jan 2017 11:37:37 +0200
->
->> The following eleven patches mainly come from Artemy Kovalyov
->> who expanded mlx5 on-demand-paging (ODP) support. In addition
->> there are three cleanup patches which don't change any functionality,
->> but are needed to align codebase prior accepting other patches.
->
-> Series applied to net-next, thanks.
+Final nlmsg_len field update must reflect inserted net_dm_drop_point
+data.
 
-Whoops,
+This patch depends on previous patch:
+"drop_monitor: add missing call to genlmsg_end"
 
-This series was meant as a pull request, you can blame it on me I
-kinda messed up the V2 title.
-Doug will have to pull same patches later, will this produce a
-conflict on merge window ?
+Signed-off-by: Reiter Wolfgang <wr0112358@gmail.com>
+---
+ net/core/drop_monitor.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
 
-Sorry for the confusion.
+diff --git a/net/core/drop_monitor.c b/net/core/drop_monitor.c
+index f465bad..ccaaf3e 100644
+--- a/net/core/drop_monitor.c
++++ b/net/core/drop_monitor.c
+@@ -102,7 +102,6 @@ static struct sk_buff *reset_per_cpu_data(struct per_cpu_dm_data *data)
+ 	}
+ 	msg = nla_data(nla);
+ 	memset(msg, 0, al);
+-	genlmsg_end(skb, msg_header);
+ 	goto out;
+ 
+ err:
+@@ -112,6 +111,12 @@ static struct sk_buff *reset_per_cpu_data(struct per_cpu_dm_data *data)
+ 	swap(data->skb, skb);
+ 	spin_unlock_irqrestore(&data->lock, flags);
+ 
++	if(skb) {
++		struct nlmsghdr *nlh = (struct nlmsghdr *)skb->data;
++		struct genlmsghdr *gnlh = (struct genlmsghdr *)nlmsg_data(nlh);
++		genlmsg_end(skb, genlmsg_data(gnlh));
++	}
++
+ 	return skb;
+ }
+ 
+-- 
+2.9.3
