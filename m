@@ -1,76 +1,58 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: Re: [RFC PATCH net-next v4 1/2] macb: Add 1588 support in Cadence
- GEM.
-Date: Mon, 2 Jan 2017 15:47:07 +0100
-Message-ID: <0717c63b-2e29-9ad1-7f01-39817980933f@atmel.com>
-References: <1481720175-12703-1-git-send-email-andrei.pistirica@microchip.com>
- <BN3PR07MB2516815EDE69ACDCE27F81A3C96F0@BN3PR07MB2516.namprd07.prod.outlook.com>
- <20170102113155.GA16373@localhost.localdomain>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH 1/2] Documentation: devicetree: Add bindings info for
+ rfkill-regulator
+Date: Mon, 02 Jan 2017 15:57:07 +0100
+Message-ID: <1483369027.21014.11.camel@sipsolutions.net>
+References: <20161101105840.24313-1-paul@crapouillou.net>
+         <20161109182612.i4rnsdxulk5ghemz@rob-hp-laptop>
+         (sfid-20161109_192614_527668_B4DB10FA)
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 8bit
-Cc: Andrei Pistirica <andrei.pistirica@microchip.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "linux-arm-kernel@lists.infradead.org"
-        <linux-arm-kernel@lists.infradead.org>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "harinikatakamlinux@gmail.com" <harinikatakamlinux@gmail.com>,
-        "harini.katakam@xilinx.com" <harini.katakam@xilinx.com>,
-        "punnaia@xilinx.com" <punnaia@xilinx.com>,
-        "michals@xilinx.com" <michals@xilinx.com>,
-        "anirudh@xilinx.com" <anirudh@xilinx.com>,
-        "boris.brezillon@free-electrons.com"
-        <boris.brezillon@free-electrons.com>,
-        "alexandre.belloni@free-electrons.com"
-        <alexandre.belloni@free-electrons.com>,
-        "tbultel@pixelsurmer.com" <tbultel@pixelsurmer.com>
-To: Richard Cochran <richardcochran@gmail.com>,
-        Rafal Ozieblo <rafalo@cadence.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170102113155.GA16373@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "David S . Miller" <davem@davemloft.net>,
+        Mark Rutland <mark.rutland@arm.com>, netdev@vger.kernel.org,
+        devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-wireless@vger.kernel.org,
+        Maarten ter Huurne <maarten@treewalker.org>
+To: Rob Herring <robh@kernel.org>, Paul Cercueil <paul@crapouillou.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.sipsolutions.net ([5.9.151.49]:40274 "EHLO sipsolutions.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1755833AbdABO5Q (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 2 Jan 2017 09:57:16 -0500
+In-Reply-To: <20161109182612.i4rnsdxulk5ghemz@rob-hp-laptop> (sfid-20161109_192614_527668_B4DB10FA)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le 02/01/2017 � 12:31, Richard Cochran a �crit :
-> On Mon, Jan 02, 2017 at 09:36:10AM +0000, Rafal Ozieblo wrote:
->> According Cadence Hardware team:
->> "It is just that some customers prefer to have the time in the descriptors as that is provided per frame.
->> The registers are simply overwritten when a new event frame is transmitted/received and so software could miss it."
->> The question is are you sure that you read timestamp for current frame? (not for the next frame).
-> 
-> AFAICT, having the time stamp in the descriptor is not universally
-> supported.  Looking at the Xilinx Zynq 7000 TRM, I can't find any
-> mention of this.
 
-This is why I proposed to address options incrementally: without
-timestamp support in descriptor (this patch series), then adding this
-feature in another patch series.
+> My understanding is it is generally felt that using the regulator
+> enable GPIO commonly found on WiFi chips for rfkill is an abuse of
+> rfkill as it is more that just an RF disable. From a DT standpoint,
+> this seems like creating a binding for what a Linux driver wants.
+> Instead, I think this should be either a GPIO or GPIO regulator and
+> the driver for the WiFi chip should decide whether or not to register
+> that as an rfkill driver.
 
-Rafal, this is why Andrei noted that the case covered by this series is
-not adapted to GEM-GXL and doesn't address the "timestamp in descriptor"
-case.
+Sadly, there are two ways to use rfkill right now:
 
-> This Cadence IP core is a complete disaster.
+1) the more common, and correct, way of having rfkill be a control tied
+to a specific wireless interface (wifi, BT, FM, GPS, NFC, ...), to both
+report the hardware button state that might be tied to it, and to
+control - centrally - the software state.
 
-Well, it evolved and propose several options to different SoC
-integrators. This is not something unusual...
-I suspect as well that some other network adapters have the same
-weakness concerning PTP timestamp in single register as the early
-revisions of this IP.
+2) the platform way, which some ACPI based platforms do, which register
+an rfkill instance, which often allows controlling in software the
+hardware line that then toggles the hardware rfkill on the WiFi NIC.
 
-> Unless someone can tell us how this IP works in all of its
-> incarnations, this series is going nowhere.
 
-We're already as v4 (thanks to your fruitful contributions BTW) for this
-series and will try to add features for other IP options & revisions
-incrementally.
-I suspect that Rafal tend to jump too quickly to the latest IP revisions
-and add more options to this series: let's not try to pour too much
-things into this code right now.
+It's not clear to me what this patch is trying to achieve. It seems a
+bit like something else entirely, which would be using it to toggle the
+power for a wifi device? I agree that doesn't seem appropriate, and
+instead the driver could bind to the regulator and disable it when wifi
+gets disabled (by rfkill or simply by taking all interfaces down.)
 
-FYI, Andrei will be back online next week.
 
-Regards,
--- 
-Nicolas Ferre
+In fact, given that there are no in-tree users, I'm tempted to remove
+the rfkill-regulator entirely. Thoughts?
+
+johannes
