@@ -1,80 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH - resubmit] igmp: Make igmp group member RFC 3376
- compliant
-Date: Mon, 02 Jan 2017 13:01:36 -0500 (EST)
-Message-ID: <20170102.130136.887466078136443210.davem@davemloft.net>
-References: <20170102133836.GA31184@sparky-lenivo.brq.redhat.com>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: tcp_bbr: Forcing set of BBR congestion control as default
+Date: Mon, 2 Jan 2017 13:17:09 -0500
+Message-ID: <CADVnQy=q88Hvh2aYnGCpCQH_b5PNwTZr_AWfgU0NnuSs6aatVQ@mail.gmail.com>
+References: <CA+icZUXd8fN5BAZuCna=zpgSJcXivSG1S6cV1eMMJMWwL7RrLA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: haliu@redhat.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-        kaber@trash.net, netdev@vger.kernel.org
-To: mtesar@redhat.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>
+To: sedat.dilek@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:39668 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756163AbdABSBi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 2 Jan 2017 13:01:38 -0500
-In-Reply-To: <20170102133836.GA31184@sparky-lenivo.brq.redhat.com>
+Received: from mail-oi0-f44.google.com ([209.85.218.44]:35183 "EHLO
+        mail-oi0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933545AbdABSRk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 2 Jan 2017 13:17:40 -0500
+Received: by mail-oi0-f44.google.com with SMTP id b126so487332897oia.2
+        for <netdev@vger.kernel.org>; Mon, 02 Jan 2017 10:17:40 -0800 (PST)
+In-Reply-To: <CA+icZUXd8fN5BAZuCna=zpgSJcXivSG1S6cV1eMMJMWwL7RrLA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michal Tesar <mtesar@redhat.com>
-Date: Mon, 2 Jan 2017 14:38:36 +0100
+On Mon, Jan 2, 2017 at 12:05 AM, Sedat Dilek <sedat.dilek@gmail.com> wrote:
+>
+> Hi,
+>
+> I am trying to force the set of BBR congestion control as default.
+> My old linux-config uses CUBIC as default.
+> I want both BBR and CUBIC to be built but BBR shall be my default.
+>
+> I tried the below snippet.
+>
+> I refresh my new linux-config like this...
+>
+> $ MAKE="make V=1" ; COMPILER="mycompiler" ; MAKE_OPTS="CC=$COMPILER
+> HOSTCC=$COMPILER" ; yes "" | $MAKE $MAKE_OPTS oldconfig && $MAKE
+> $MAKE_OPTS silentoldconfig < /dev/null
+>
+> What am I doing wrong?
 
-> 5.2. Action on Reception of a Query
-> 
->  When a system receives a Query, it does not respond immediately.
->  Instead, it delays its response by a random amount of time, bounded
->  by the Max Resp Time value derived from the Max Resp Code in the
->  received Query message.  A system may receive a variety of Queries on
->  different interfaces and of different kinds (e.g., General Queries,
->  Group-Specific Queries, and Group-and-Source-Specific Queries), each
->  of which may require its own delayed response.
-> 
->  Before scheduling a response to a Query, the system must first
->  consider previously scheduled pending responses and in many cases
->  schedule a combined response.  Therefore, the system must be able to
->  maintain the following state:
-> 
->  o A timer per interface for scheduling responses to General Queries.
-> 
->  o A per-group and interface timer for scheduling responses to Group-
->    Specific and Group-and-Source-Specific Queries.
-> 
->  o A per-group and interface list of sources to be reported in the
->    response to a Group-and-Source-Specific Query.
-> 
->  When a new Query with the Router-Alert option arrives on an
->  interface, provided the system has state to report, a delay for a
->  response is randomly selected in the range (0, [Max Resp Time]) where
->  Max Resp Time is derived from Max Resp Code in the received Query
->  message.  The following rules are then used to determine if a Report
->  needs to be scheduled and the type of Report to schedule.  The rules
->  are considered in order and only the first matching rule is applied.
-> 
->  1. If there is a pending response to a previous General Query
->     scheduled sooner than the selected delay, no additional response
->     needs to be scheduled.
-> 
->  2. If the received Query is a General Query, the interface timer is
->     used to schedule a response to the General Query after the
->     selected delay.  Any previously pending response to a General
->     Query is canceled.
-> --8<--
-> 
-> Currently the timer is rearmed with new random expiration time for
-> every incoming query regardless of possibly already pending report.
-> Which is not aligned with the above RFE.
-> It also might happen that higher rate of incoming queries can
-> postpone the report after the expiration time of the first query
-> causing group membership loss.
-> 
-> Now the per interface general query timer is rearmed only
-> when there is no pending report already scheduled on that interface or
-> the newly selected expiration time is before the already pending
-> scheduled report.
-> 
-> Signed-off-by: Michal Tesar <mtesar@redhat.com>
+Perhaps your build directory already has an old .config file that sets
+the DEFAULT_TCP_CONG to be "cubic", and your "make oldconfig" and
+"make silentoldconfig" are maintaining those lines from the old
+.config?
 
-Applied and queued up for -stable, thanks.
+If you want to start with your existing .config but then make BBR the
+default, then it might be simplest just to edit your .config directly:
+
+-CONFIG_DEFAULT_TCP_CONG="cubic"
++CONFIG_DEFAULT_TCP_CONG="bbr"
+
+BTW, I presume you have seen the warning in the BBR commit message or
+tcp_bbr.c about ensuring that BBR is used with the "fq" qdisc:
+
+  NOTE: BBR *must* be used with the fq qdisc ("man tc-fq") with pacing
+  enabled, since pacing is integral to the BBR design and
+  implementation. BBR without pacing would not function properly, and
+  may incur unnecessary high packet loss rates.
+
+The BBR quick-start guide has some details about how to build and
+enable BBR and fq:
+
+  https://github.com/google/bbr/blob/master/Documentation/bbr-quick-start.md
+
+Hope that helps,
+neal
