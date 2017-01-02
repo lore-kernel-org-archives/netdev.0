@@ -1,44 +1,37 @@
-From: Peter Senna Tschudin <peter.senna@collabora.com>
-Subject: [PATCH 1/1] igb: Fix hw_dbg logging in igb_update_flash_i210
-Date: Mon,  2 Jan 2017 18:26:06 +0100
-Message-ID: <14a3078ac22994d9c3dcd56c822555acfdb53b91.1483377891.git.peter.senna@collabora.com>
-Cc: Hannu Lounento <hannu.lounento@ge.com>,
-        Peter Senna Tschudin <peter.senna@collabora.com>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        intel-wired-lan@lists.osuosl.org (moderated list:INTEL ETHERNET DRIVERS),
-        netdev@vger.kernel.org (open list:NETWORKING DRIVERS),
-        linux-kernel@vger.kernel.org (open list)
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull-request: mac80211 2017-01-02
+Date: Mon, 02 Jan 2017 12:28:57 -0500 (EST)
+Message-ID: <20170102.122857.1952643371189118471.davem@davemloft.net>
+References: <20170102143904.20851-1-johannes@sipsolutions.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+To: johannes@sipsolutions.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:38790 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751408AbdABR3B (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 2 Jan 2017 12:29:01 -0500
+In-Reply-To: <20170102143904.20851-1-johannes@sipsolutions.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Hannu Lounento <hannu.lounento@ge.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Date: Mon,  2 Jan 2017 15:39:03 +0100
 
-Fix an if statement with hw_dbg lines where the logic was inverted with
-regards to the corresponding return value used in the if statement.
+> Happy New Year :-)
 
-Signed-off-by: Hannu Lounento <hannu.lounento@ge.com>
-Signed-off-by: Peter Senna Tschudin <peter.senna@collabora.com>
----
- drivers/net/ethernet/intel/igb/e1000_i210.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+Same to you :-)
 
-diff --git a/drivers/net/ethernet/intel/igb/e1000_i210.c b/drivers/net/ethernet/intel/igb/e1000_i210.c
-index 8aa7987..07d48f2 100644
---- a/drivers/net/ethernet/intel/igb/e1000_i210.c
-+++ b/drivers/net/ethernet/intel/igb/e1000_i210.c
-@@ -699,9 +699,9 @@ static s32 igb_update_flash_i210(struct e1000_hw *hw)
- 
- 	ret_val = igb_pool_flash_update_done_i210(hw);
- 	if (ret_val)
--		hw_dbg("Flash update complete\n");
--	else
- 		hw_dbg("Flash update time out\n");
-+	else
-+		hw_dbg("Flash update complete\n");
- 
- out:
- 	return ret_val;
--- 
-2.5.5
+> Even though I was out for around two weeks, only a single fix came in,
+> I guess everyone else was also out. But if people were out, then they
+> won't be sending fixes soon again I suppose, and if they weren't out
+> they haven't sent more fixes, so I decided to send this one to you now.
+> 
+> Please pull and let me know if there's any problem.
+
+It certainly was a slow holiday break this year, kind of nice
+actually...
+
+Pulled, thanks Johannes.
