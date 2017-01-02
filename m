@@ -1,48 +1,50 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH v3] rfkill: Add rfkill-any LED trigger
-Date: Mon, 02 Jan 2017 12:12:13 +0100
-Message-ID: <1483355533.4596.11.camel@sipsolutions.net>
-References: <20161221084533.27006-1-kernel@kempniu.pl>
-         (sfid-20161221_094622_545524_B00A9AE7)
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [RFC PATCH net-next v4 1/2] macb: Add 1588 support in Cadence
+ GEM.
+Date: Mon, 2 Jan 2017 12:31:55 +0100
+Message-ID: <20170102113155.GA16373@localhost.localdomain>
+References: <1481720175-12703-1-git-send-email-andrei.pistirica@microchip.com>
+ <BN3PR07MB2516815EDE69ACDCE27F81A3C96F0@BN3PR07MB2516.namprd07.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: =?UTF-8?Q?=D0=9C=D0=B8=D1=85=D0=B0=D0=B8=D0=BB_?=
-         =?UTF-8?Q?=D0=9A=D1=80=D0=B8=D0=BD=D0=BA=D0=B8=D0=BD?=
-        <krinkin.m.u@gmail.com>, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: =?UTF-8?Q?Micha=C5=82_K=C4=99pie=C5=84?= <kernel@kempniu.pl>,
-        "David S . Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrei Pistirica <andrei.pistirica@microchip.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "linux-arm-kernel@lists.infradead.org"
+        <linux-arm-kernel@lists.infradead.org>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "nicolas.ferre@atmel.com" <nicolas.ferre@atmel.com>,
+        "harinikatakamlinux@gmail.com" <harinikatakamlinux@gmail.com>,
+        "harini.katakam@xilinx.com" <harini.katakam@xilinx.com>,
+        "punnaia@xilinx.com" <punnaia@xilinx.com>,
+        "michals@xilinx.com" <michals@xilinx.com>,
+        "anirudh@xilinx.com" <anirudh@xilinx.com>,
+        "boris.brezillon@free-electrons.com"
+        <boris.brezillon@free-electrons.com>,
+        "alexandre.belloni@free-electrons.com"
+        <alexandre.belloni@free-electrons.com>,
+        "tbultel@pixelsurmer
+To: Rafal Ozieblo <rafalo@cadence.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161221084533.27006-1-kernel@kempniu.pl> (sfid-20161221_094622_545524_B00A9AE7)
+Content-Disposition: inline
+In-Reply-To: <BN3PR07MB2516815EDE69ACDCE27F81A3C96F0@BN3PR07MB2516.namprd07.prod.outlook.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Mon, Jan 02, 2017 at 09:36:10AM +0000, Rafal Ozieblo wrote:
+> According Cadence Hardware team:
+> "It is just that some customers prefer to have the time in the descriptors as that is provided per frame.
+> The registers are simply overwritten when a new event frame is transmitted/received and so software could miss it."
+> The question is are you sure that you read timestamp for current frame? (not for the next frame).
 
->   - Handle the global mutex properly when rfkill_set_{hw,sw}_state()
-> or
->     rfkill_set_states() is called from within an rfkill callback.  v2
->     always tried to lock the global mutex in such a case, which led
-> to a
->     deadlock when an rfkill driver called one of the above functions
->     from its query or set_block callback.  This is solved by defining
-> a
->     new bitfield, RFKILL_BLOCK_SW_HASLOCK, which is set before the
-> above
->     callbacks are invoked and cleared afterwards; the functions
-> listed
->     above use this bitfield to tell rfkill_any_led_trigger_event()
->     whether the global mutex is currently held or not.
->     RFKILL_BLOCK_SW_SETCALL cannot be reused for this purpose as
-> setting
->     it before invoking the query callback would cause any calls to
->     rfkill_set_sw_state() made from within that callback to work on
->     RFKILL_BLOCK_SW_PREV instead of RFKILL_BLOCK_SW and thus change
-> the
->     way rfkill_set_block() behaves.
+AFAICT, having the time stamp in the descriptor is not universally
+supported.  Looking at the Xilinx Zynq 7000 TRM, I can't find any
+mention of this.
 
-I'm not super happy with this conditional locking - can't we instead
-defer the necessary work to a workqueue, or so, for purposes of the
-LED?
+This Cadence IP core is a complete disaster.
 
-johannes
+Unless someone can tell us how this IP works in all of its
+incarnations, this series is going nowhere.
+
+Thanks,
+Richard
