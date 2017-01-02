@@ -1,7 +1,7 @@
 From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Subject: [net-next][PATCH v3 15/17] RDS: add stat for socket recv memory usage
-Date: Mon,  2 Jan 2017 14:45:50 -0800
-Message-ID: <1483397152-8307-16-git-send-email-santosh.shilimkar@oracle.com>
+Subject: [net-next][PATCH v3 12/17] RDS: IB: Add vector spreading for cqs
+Date: Mon,  2 Jan 2017 14:45:47 -0800
+Message-ID: <1483397152-8307-13-git-send-email-santosh.shilimkar@oracle.com>
 References: <1483397152-8307-1-git-send-email-santosh.shilimkar@oracle.com>
 Cc: linux-kernel@vger.kernel.org, santosh.shilimkar@oracle.com
 To: netdev@vger.kernel.org, davem@davemloft.net
@@ -10,45 +10,153 @@ In-Reply-To: <1483397152-8307-1-git-send-email-santosh.shilimkar@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
+Based on available device vectors, allocate cqs accordingly to
+get better spread of completion vectors which helps performace
+great deal..
 
-Tracks the receive side memory added to scokets and removed from sockets.
-
-Signed-off-by: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
 Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
 ---
- net/rds/rds.h  | 3 +++
- net/rds/recv.c | 4 ++++
- 2 files changed, 7 insertions(+)
+ net/rds/ib.c    | 11 +++++++++++
+ net/rds/ib.h    |  5 +++++
+ net/rds/ib_cm.c | 40 +++++++++++++++++++++++++++++++++++++---
+ 3 files changed, 53 insertions(+), 3 deletions(-)
 
-diff --git a/net/rds/rds.h b/net/rds/rds.h
-index 0bb8213..8ccd5a9 100644
---- a/net/rds/rds.h
-+++ b/net/rds/rds.h
-@@ -631,6 +631,9 @@ struct rds_statistics {
- 	uint64_t	s_cong_update_received;
- 	uint64_t	s_cong_send_error;
- 	uint64_t	s_cong_send_blocked;
-+	uint64_t	s_recv_bytes_added_to_socket;
-+	uint64_t	s_recv_bytes_removed_from_socket;
+diff --git a/net/rds/ib.c b/net/rds/ib.c
+index 5680d90..8d70884 100644
+--- a/net/rds/ib.c
++++ b/net/rds/ib.c
+@@ -111,6 +111,9 @@ static void rds_ib_dev_free(struct work_struct *work)
+ 		kfree(i_ipaddr);
+ 	}
+ 
++	if (rds_ibdev->vector_load)
++		kfree(rds_ibdev->vector_load);
 +
+ 	kfree(rds_ibdev);
+ }
+ 
+@@ -159,6 +162,14 @@ static void rds_ib_add_one(struct ib_device *device)
+ 	rds_ibdev->max_initiator_depth = device->attrs.max_qp_init_rd_atom;
+ 	rds_ibdev->max_responder_resources = device->attrs.max_qp_rd_atom;
+ 
++	rds_ibdev->vector_load = kzalloc(sizeof(int) * device->num_comp_vectors,
++					 GFP_KERNEL);
++	if (!rds_ibdev->vector_load) {
++		pr_err("RDS/IB: %s failed to allocate vector memory\n",
++			__func__);
++		goto put_dev;
++	}
++
+ 	rds_ibdev->dev = device;
+ 	rds_ibdev->pd = ib_alloc_pd(device, 0);
+ 	if (IS_ERR(rds_ibdev->pd)) {
+diff --git a/net/rds/ib.h b/net/rds/ib.h
+index c62e551..1fe9f79 100644
+--- a/net/rds/ib.h
++++ b/net/rds/ib.h
+@@ -185,6 +185,10 @@ struct rds_ib_connection {
+ 
+ 	/* Endpoint role in connection */
+ 	bool			i_active_side;
++
++	/* Send/Recv vectors */
++	int			i_scq_vector;
++	int			i_rcq_vector;
  };
  
- /* af_rds.c */
-diff --git a/net/rds/recv.c b/net/rds/recv.c
-index 9d0666e..ba19eee 100644
---- a/net/rds/recv.c
-+++ b/net/rds/recv.c
-@@ -94,6 +94,10 @@ static void rds_recv_rcvbuf_delta(struct rds_sock *rs, struct sock *sk,
- 		return;
+ /* This assumes that atomic_t is at least 32 bits */
+@@ -227,6 +231,7 @@ struct rds_ib_device {
+ 	spinlock_t		spinlock;	/* protect the above */
+ 	atomic_t		refcount;
+ 	struct work_struct	free_work;
++	int			*vector_load;
+ };
  
- 	rs->rs_rcv_bytes += delta;
-+	if (delta > 0)
-+		rds_stats_add(s_recv_bytes_added_to_socket, delta);
-+	else
-+		rds_stats_add(s_recv_bytes_removed_from_socket, -delta);
- 	now_congested = rs->rs_rcv_bytes > rds_sk_rcvbuf(rs);
+ #define ibdev_to_node(ibdev) dev_to_node(ibdev->dma_device)
+diff --git a/net/rds/ib_cm.c b/net/rds/ib_cm.c
+index 4d1bf04..33c8584 100644
+--- a/net/rds/ib_cm.c
++++ b/net/rds/ib_cm.c
+@@ -358,6 +358,28 @@ static void rds_ib_cq_comp_handler_send(struct ib_cq *cq, void *context)
+ 	tasklet_schedule(&ic->i_send_tasklet);
+ }
  
- 	rdsdebug("rs %p (%pI4:%u) recv bytes %d buf %d "
++static inline int ibdev_get_unused_vector(struct rds_ib_device *rds_ibdev)
++{
++	int min = rds_ibdev->vector_load[rds_ibdev->dev->num_comp_vectors - 1];
++	int index = rds_ibdev->dev->num_comp_vectors - 1;
++	int i;
++
++	for (i = rds_ibdev->dev->num_comp_vectors - 1; i >= 0; i--) {
++		if (rds_ibdev->vector_load[i] < min) {
++			index = i;
++			min = rds_ibdev->vector_load[i];
++		}
++	}
++
++	rds_ibdev->vector_load[index]++;
++	return index;
++}
++
++static inline void ibdev_put_vector(struct rds_ib_device *rds_ibdev, int index)
++{
++	rds_ibdev->vector_load[index]--;
++}
++
+ /*
+  * This needs to be very careful to not leave IS_ERR pointers around for
+  * cleanup to trip over.
+@@ -399,25 +421,30 @@ static int rds_ib_setup_qp(struct rds_connection *conn)
+ 	/* Protection domain and memory range */
+ 	ic->i_pd = rds_ibdev->pd;
+ 
++	ic->i_scq_vector = ibdev_get_unused_vector(rds_ibdev);
+ 	cq_attr.cqe = ic->i_send_ring.w_nr + fr_queue_space + 1;
+-
++	cq_attr.comp_vector = ic->i_scq_vector;
+ 	ic->i_send_cq = ib_create_cq(dev, rds_ib_cq_comp_handler_send,
+ 				     rds_ib_cq_event_handler, conn,
+ 				     &cq_attr);
+ 	if (IS_ERR(ic->i_send_cq)) {
+ 		ret = PTR_ERR(ic->i_send_cq);
+ 		ic->i_send_cq = NULL;
++		ibdev_put_vector(rds_ibdev, ic->i_scq_vector);
+ 		rdsdebug("ib_create_cq send failed: %d\n", ret);
+ 		goto out;
+ 	}
+ 
++	ic->i_rcq_vector = ibdev_get_unused_vector(rds_ibdev);
+ 	cq_attr.cqe = ic->i_recv_ring.w_nr;
++	cq_attr.comp_vector = ic->i_rcq_vector;
+ 	ic->i_recv_cq = ib_create_cq(dev, rds_ib_cq_comp_handler_recv,
+ 				     rds_ib_cq_event_handler, conn,
+ 				     &cq_attr);
+ 	if (IS_ERR(ic->i_recv_cq)) {
+ 		ret = PTR_ERR(ic->i_recv_cq);
+ 		ic->i_recv_cq = NULL;
++		ibdev_put_vector(rds_ibdev, ic->i_rcq_vector);
+ 		rdsdebug("ib_create_cq recv failed: %d\n", ret);
+ 		goto out;
+ 	}
+@@ -780,10 +807,17 @@ void rds_ib_conn_path_shutdown(struct rds_conn_path *cp)
+ 		/* first destroy the ib state that generates callbacks */
+ 		if (ic->i_cm_id->qp)
+ 			rdma_destroy_qp(ic->i_cm_id);
+-		if (ic->i_send_cq)
++		if (ic->i_send_cq) {
++			if (ic->rds_ibdev)
++				ibdev_put_vector(ic->rds_ibdev, ic->i_scq_vector);
+ 			ib_destroy_cq(ic->i_send_cq);
+-		if (ic->i_recv_cq)
++		}
++
++		if (ic->i_recv_cq) {
++			if (ic->rds_ibdev)
++				ibdev_put_vector(ic->rds_ibdev, ic->i_rcq_vector);
+ 			ib_destroy_cq(ic->i_recv_cq);
++		}
+ 
+ 		/* then free the resources that ib callbacks use */
+ 		if (ic->i_send_hdrs)
 -- 
 1.9.1
