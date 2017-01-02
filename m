@@ -1,117 +1,79 @@
 From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Subject: [net-next][PATCH v3 11/17] RDS: IB: add few useful cache stasts
-Date: Mon,  2 Jan 2017 14:45:46 -0800
-Message-ID: <1483397152-8307-12-git-send-email-santosh.shilimkar@oracle.com>
+Subject: [net-next][PATCH v3 10/17] RDS: IB: track and log active side endpoint in connection
+Date: Mon,  2 Jan 2017 14:45:45 -0800
+Message-ID: <1483397152-8307-11-git-send-email-santosh.shilimkar@oracle.com>
 References: <1483397152-8307-1-git-send-email-santosh.shilimkar@oracle.com>
 Cc: linux-kernel@vger.kernel.org, santosh.shilimkar@oracle.com
 To: netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:50560 "EHLO
-        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756915AbdABWqQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 2 Jan 2017 17:46:16 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1483397152-8307-1-git-send-email-santosh.shilimkar@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Tracks the ib receive cache total, incoming and frag allocations.
+Useful to know the active and passive end points in a
+RDS IB connection.
 
 Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
 ---
- net/rds/ib.h       | 7 +++++++
- net/rds/ib_recv.c  | 6 ++++++
- net/rds/ib_stats.c | 2 ++
- 3 files changed, 15 insertions(+)
+ net/rds/ib.h    |  3 +++
+ net/rds/ib_cm.c | 11 +++++++----
+ 2 files changed, 10 insertions(+), 4 deletions(-)
 
 diff --git a/net/rds/ib.h b/net/rds/ib.h
-index 5f02b4d..c62e551 100644
+index f14c26d..5f02b4d 100644
 --- a/net/rds/ib.h
 +++ b/net/rds/ib.h
-@@ -151,6 +151,7 @@ struct rds_ib_connection {
- 	u64			i_ack_recv;	/* last ACK received */
- 	struct rds_ib_refill_cache i_cache_incs;
- 	struct rds_ib_refill_cache i_cache_frags;
-+	atomic_t		i_cache_allocs;
+@@ -181,6 +181,9 @@ struct rds_ib_connection {
  
- 	/* sending acks */
- 	unsigned long		i_ack_flags;
-@@ -254,6 +255,8 @@ struct rds_ib_statistics {
- 	uint64_t	s_ib_rx_refill_from_cq;
- 	uint64_t	s_ib_rx_refill_from_thread;
- 	uint64_t	s_ib_rx_alloc_limit;
-+	uint64_t	s_ib_rx_total_frags;
-+	uint64_t	s_ib_rx_total_incs;
- 	uint64_t	s_ib_rx_credit_updates;
- 	uint64_t	s_ib_ack_sent;
- 	uint64_t	s_ib_ack_send_failure;
-@@ -276,6 +279,8 @@ struct rds_ib_statistics {
- 	uint64_t	s_ib_rdma_mr_1m_reused;
- 	uint64_t	s_ib_atomic_cswp;
- 	uint64_t	s_ib_atomic_fadd;
-+	uint64_t	s_ib_recv_added_to_cache;
-+	uint64_t	s_ib_recv_removed_from_cache;
+ 	/* Batched completions */
+ 	unsigned int		i_unsignaled_wrs;
++
++	/* Endpoint role in connection */
++	bool			i_active_side;
  };
  
- extern struct workqueue_struct *rds_ib_wq;
-@@ -406,6 +411,8 @@ int rds_ib_send_grab_credits(struct rds_ib_connection *ic, u32 wanted,
- /* ib_stats.c */
- DECLARE_PER_CPU(struct rds_ib_statistics, rds_ib_stats);
- #define rds_ib_stats_inc(member) rds_stats_inc_which(rds_ib_stats, member)
-+#define rds_ib_stats_add(member, count) \
-+		rds_stats_add_which(rds_ib_stats, member, count)
- unsigned int rds_ib_stats_info_copy(struct rds_info_iterator *iter,
- 				    unsigned int avail);
+ /* This assumes that atomic_t is at least 32 bits */
+diff --git a/net/rds/ib_cm.c b/net/rds/ib_cm.c
+index 3002acf..4d1bf04 100644
+--- a/net/rds/ib_cm.c
++++ b/net/rds/ib_cm.c
+@@ -120,16 +120,17 @@ void rds_ib_cm_connect_complete(struct rds_connection *conn, struct rdma_cm_even
+ 		rds_conn_destroy(conn);
+ 		return;
+ 	} else {
+-		pr_notice("RDS/IB: connected <%pI4,%pI4> version %u.%u%s\n",
++		pr_notice("RDS/IB: %s conn connected <%pI4,%pI4> version %u.%u%s\n",
++			  ic->i_active_side ? "Active" : "Passive",
+ 			  &conn->c_laddr, &conn->c_faddr,
+ 			  RDS_PROTOCOL_MAJOR(conn->c_version),
+ 			  RDS_PROTOCOL_MINOR(conn->c_version),
+ 			  ic->i_flowctl ? ", flow control" : "");
+ 	}
  
-diff --git a/net/rds/ib_recv.c b/net/rds/ib_recv.c
-index 6803b75..4b0f126 100644
---- a/net/rds/ib_recv.c
-+++ b/net/rds/ib_recv.c
-@@ -194,6 +194,8 @@ static void rds_ib_frag_free(struct rds_ib_connection *ic,
- 	rdsdebug("frag %p page %p\n", frag, sg_page(&frag->f_sg));
- 
- 	rds_ib_recv_cache_put(&frag->f_cache_entry, &ic->i_cache_frags);
-+	atomic_add(RDS_FRAG_SIZE / SZ_1K, &ic->i_cache_allocs);
-+	rds_ib_stats_add(s_ib_recv_added_to_cache, RDS_FRAG_SIZE);
+-	/*
+-	 * Init rings and fill recv. this needs to wait until protocol negotiation
+-	 * is complete, since ring layout is different from 3.0 to 3.1.
++	/* Init rings and fill recv. this needs to wait until protocol
++	 * negotiation is complete, since ring layout is different
++	 * from 3.1 to 4.1.
+ 	 */
+ 	rds_ib_send_init_ring(ic);
+ 	rds_ib_recv_init_ring(ic);
+@@ -685,6 +686,7 @@ int rds_ib_cm_initiate_connect(struct rdma_cm_id *cm_id)
+ 		if (ic->i_cm_id == cm_id)
+ 			ret = 0;
+ 	}
++	ic->i_active_side = true;
+ 	return ret;
  }
  
- /* Recycle inc after freeing attached frags */
-@@ -261,6 +263,7 @@ static struct rds_ib_incoming *rds_ib_refill_one_inc(struct rds_ib_connection *i
- 			atomic_dec(&rds_ib_allocation);
- 			return NULL;
- 		}
-+		rds_ib_stats_inc(s_ib_rx_total_incs);
- 	}
- 	INIT_LIST_HEAD(&ibinc->ii_frags);
- 	rds_inc_init(&ibinc->ii_inc, ic->conn, ic->conn->c_faddr);
-@@ -278,6 +281,8 @@ static struct rds_page_frag *rds_ib_refill_one_frag(struct rds_ib_connection *ic
- 	cache_item = rds_ib_recv_cache_get(&ic->i_cache_frags);
- 	if (cache_item) {
- 		frag = container_of(cache_item, struct rds_page_frag, f_cache_entry);
-+		atomic_sub(RDS_FRAG_SIZE / SZ_1K, &ic->i_cache_allocs);
-+		rds_ib_stats_add(s_ib_recv_added_to_cache, RDS_FRAG_SIZE);
- 	} else {
- 		frag = kmem_cache_alloc(rds_ib_frag_slab, slab_mask);
- 		if (!frag)
-@@ -290,6 +295,7 @@ static struct rds_page_frag *rds_ib_refill_one_frag(struct rds_ib_connection *ic
- 			kmem_cache_free(rds_ib_frag_slab, frag);
- 			return NULL;
- 		}
-+		rds_ib_stats_inc(s_ib_rx_total_frags);
- 	}
+@@ -859,6 +861,7 @@ void rds_ib_conn_path_shutdown(struct rds_conn_path *cp)
+ 	ic->i_sends = NULL;
+ 	vfree(ic->i_recvs);
+ 	ic->i_recvs = NULL;
++	ic->i_active_side = false;
+ }
  
- 	INIT_LIST_HEAD(&frag->f_item);
-diff --git a/net/rds/ib_stats.c b/net/rds/ib_stats.c
-index 7e78dca..9252ad1 100644
---- a/net/rds/ib_stats.c
-+++ b/net/rds/ib_stats.c
-@@ -55,6 +55,8 @@
- 	"ib_rx_refill_from_cq",
- 	"ib_rx_refill_from_thread",
- 	"ib_rx_alloc_limit",
-+	"ib_rx_total_frags",
-+	"ib_rx_total_incs",
- 	"ib_rx_credit_updates",
- 	"ib_ack_sent",
- 	"ib_ack_send_failure",
+ int rds_ib_conn_alloc(struct rds_connection *conn, gfp_t gfp)
 -- 
 1.9.1
