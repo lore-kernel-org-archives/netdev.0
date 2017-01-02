@@ -1,100 +1,27 @@
-From: Michal Tesar <mtesar@redhat.com>
-Subject: [PATCH - resubmit] igmp: Make igmp group member RFC 3376 compliant
-Date: Mon, 2 Jan 2017 14:38:36 +0100
-Message-ID: <20170102133836.GA31184@sparky-lenivo.brq.redhat.com>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: Re: [PATCH net-next 00/27] sctp: implement rfc6525 sctp stream reconf
+Date: Mon, 2 Jan 2017 21:42:38 +0800
+Message-ID: <CADvbK_fe8v=GqKsM=2oNzN-61xtfKqeX4RB8o+Xv0q4FOb3RPg@mail.gmail.com>
+References: <cover.1483269426.git.lucien.xin@gmail.com> <20170101.113028.1917890848811412528.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: haliu@redhat.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-        kaber@trash.net, netdev@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=UTF-8
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f44.google.com ([74.125.82.44]:35832 "EHLO
-        mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755584AbdABNii (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 2 Jan 2017 08:38:38 -0500
-Received: by mail-wm0-f44.google.com with SMTP id a197so365798354wmd.0
-        for <netdev@vger.kernel.org>; Mon, 02 Jan 2017 05:38:38 -0800 (PST)
-Content-Disposition: inline
+Received: from mail-qk0-f194.google.com ([209.85.220.194]:35202 "EHLO
+        mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756057AbdABNmj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 2 Jan 2017 08:42:39 -0500
+In-Reply-To: <20170101.113028.1917890848811412528.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-5.2. Action on Reception of a Query
-
- When a system receives a Query, it does not respond immediately.
- Instead, it delays its response by a random amount of time, bounded
- by the Max Resp Time value derived from the Max Resp Code in the
- received Query message.  A system may receive a variety of Queries on
- different interfaces and of different kinds (e.g., General Queries,
- Group-Specific Queries, and Group-and-Source-Specific Queries), each
- of which may require its own delayed response.
-
- Before scheduling a response to a Query, the system must first
- consider previously scheduled pending responses and in many cases
- schedule a combined response.  Therefore, the system must be able to
- maintain the following state:
-
- o A timer per interface for scheduling responses to General Queries.
-
- o A per-group and interface timer for scheduling responses to Group-
-   Specific and Group-and-Source-Specific Queries.
-
- o A per-group and interface list of sources to be reported in the
-   response to a Group-and-Source-Specific Query.
-
- When a new Query with the Router-Alert option arrives on an
- interface, provided the system has state to report, a delay for a
- response is randomly selected in the range (0, [Max Resp Time]) where
- Max Resp Time is derived from Max Resp Code in the received Query
- message.  The following rules are then used to determine if a Report
- needs to be scheduled and the type of Report to schedule.  The rules
- are considered in order and only the first matching rule is applied.
-
- 1. If there is a pending response to a previous General Query
-    scheduled sooner than the selected delay, no additional response
-    needs to be scheduled.
-
- 2. If the received Query is a General Query, the interface timer is
-    used to schedule a response to the General Query after the
-    selected delay.  Any previously pending response to a General
-    Query is canceled.
---8<--
-
-Currently the timer is rearmed with new random expiration time for
-every incoming query regardless of possibly already pending report.
-Which is not aligned with the above RFE.
-It also might happen that higher rate of incoming queries can
-postpone the report after the expiration time of the first query
-causing group membership loss.
-
-Now the per interface general query timer is rearmed only
-when there is no pending report already scheduled on that interface or
-the newly selected expiration time is before the already pending
-scheduled report.
-
-Signed-off-by: Michal Tesar <mtesar@redhat.com>
----
- net/ipv4/igmp.c | 7 ++++++-
- 1 file changed, 6 insertions(+), 1 deletion(-)
-
-diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
-index 606cc3e..5fc3fd4 100644
---- a/net/ipv4/igmp.c
-+++ b/net/ipv4/igmp.c
-@@ -219,9 +219,14 @@ static void igmp_start_timer(struct ip_mc_list *im, int max_delay)
- static void igmp_gq_start_timer(struct in_device *in_dev)
- {
- 	int tv = prandom_u32() % in_dev->mr_maxdelay;
-+	unsigned long exp = jiffies + tv + 2;
-+
-+	if (in_dev->mr_gq_running &&
-+	    time_after_eq(exp, (in_dev->mr_gq_timer).expires))
-+		return;
- 
- 	in_dev->mr_gq_running = 1;
--	if (!mod_timer(&in_dev->mr_gq_timer, jiffies+tv+2))
-+	if (!mod_timer(&in_dev->mr_gq_timer, exp))
- 		in_dev_hold(in_dev);
- }
- 
--- 
-2.5.5
+On Mon, Jan 2, 2017 at 12:30 AM, David Miller <davem@davemloft.net> wrote:
+>
+> I'm sorry but this is way too many patches to submit at one time.
+>
+> Split your series into smaller, more reasonably sized, groups
+> of changes.
+okay, will split and repost
