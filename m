@@ -1,84 +1,119 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH iproute2 net-next] tc: flower: support matching flags
-Date: Mon, 2 Jan 2017 19:55:22 +0100
-Message-ID: <20170102195522.7488179b@griffin>
-References: <1482930409-55059-1-git-send-email-paulb@mellanox.com>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: tcp_bbr: Forcing set of BBR congestion control as default
+Date: Mon, 2 Jan 2017 14:12:16 -0500
+Message-ID: <CADVnQymyX1G4=1qaegDYfbq89k15NsG-Acw7mTHRc7jo7=xbQw@mail.gmail.com>
+References: <CA+icZUXd8fN5BAZuCna=zpgSJcXivSG1S6cV1eMMJMWwL7RrLA@mail.gmail.com>
+ <CADVnQy=q88Hvh2aYnGCpCQH_b5PNwTZr_AWfgU0NnuSs6aatVQ@mail.gmail.com> <CA+icZUUxHFDqfEj+DitFFH6P9+P5kOfMLoQpnK1qW+EZ6PmPKQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Hadar Hen Zion <hadarh@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Roi Dayan <roid@mellanox.com>
-To: Paul Blakey <paulb@mellanox.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>
+To: sedat.dilek@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57688 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755683AbdABSz0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 2 Jan 2017 13:55:26 -0500
-In-Reply-To: <1482930409-55059-1-git-send-email-paulb@mellanox.com>
+Received: from mail-oi0-f51.google.com ([209.85.218.51]:35111 "EHLO
+        mail-oi0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756219AbdABTMs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 2 Jan 2017 14:12:48 -0500
+Received: by mail-oi0-f51.google.com with SMTP id b126so488428269oia.2
+        for <netdev@vger.kernel.org>; Mon, 02 Jan 2017 11:12:47 -0800 (PST)
+In-Reply-To: <CA+icZUUxHFDqfEj+DitFFH6P9+P5kOfMLoQpnK1qW+EZ6PmPKQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 28 Dec 2016 15:06:49 +0200, Paul Blakey wrote:
-> Enhance flower to support matching on flags.
-> 
-> The 1st flag allows to match on whether the packet is
-> an IP fragment.
-> 
-> Example:
-> 
-> 	# add a flower filter that will drop fragmented packets
-> 	# (bit 0 of control flags)
-> 	tc filter add dev ens4f0 protocol ip parent ffff: \
-> 		flower \
-> 		src_mac e4:1d:2d:fd:8b:01 \
-> 		dst_mac e4:1d:2d:fd:8b:02 \
-> 		indev ens4f0 \
-> 		matching_flags 0x1/0x1 \
-> 	action drop
+On Mon, Jan 2, 2017 at 1:49 PM, Sedat Dilek <sedat.dilek@gmail.com> wrote:
+> On Mon, Jan 2, 2017 at 7:17 PM, Neal Cardwell <ncardwell@google.com> wrote:
+>> On Mon, Jan 2, 2017 at 12:05 AM, Sedat Dilek <sedat.dilek@gmail.com> wrote:
+>>>
+>>> Hi,
+>>>
+>>> I am trying to force the set of BBR congestion control as default.
+>>> My old linux-config uses CUBIC as default.
+>>> I want both BBR and CUBIC to be built but BBR shall be my default.
+>>>
+>>> I tried the below snippet.
+>>>
+>>> I refresh my new linux-config like this...
+>>>
+>>> $ MAKE="make V=1" ; COMPILER="mycompiler" ; MAKE_OPTS="CC=$COMPILER
+>>> HOSTCC=$COMPILER" ; yes "" | $MAKE $MAKE_OPTS oldconfig && $MAKE
+>>> $MAKE_OPTS silentoldconfig < /dev/null
+>>>
+>>> What am I doing wrong?
+>>
+>> Perhaps your build directory already has an old .config file that sets
+>> the DEFAULT_TCP_CONG to be "cubic", and your "make oldconfig" and
+>> "make silentoldconfig" are maintaining those lines from the old
+>> .config?
+>>
+>> If you want to start with your existing .config but then make BBR the
+>> default, then it might be simplest just to edit your .config directly:
+>>
+>> -CONFIG_DEFAULT_TCP_CONG="cubic"
+>> +CONFIG_DEFAULT_TCP_CONG="bbr"
+>>
+>
+> Just to clarify...
+>
+> I can have both TCP_CONG cubic and bbr built and switch for example via sysctl?
 
-This is very poor API. First, how is the user supposed to know what
-those magic values in "matching_flags" mean? At the very least, it
-should be documented in the man page.
+Yes, you can set the default congestion control using sysctl, eg:
 
-Second, why "matching_flags"? That name suggests that those modify the
-way the matching is done (to illustrate my point, I'd expect things
-like "if the packet is too short, match this rule anyway" to be a
-"matching flag"). But this is not the case. What's wrong with plain
-"flags"? Or, if you want to be more specific, perhaps packet_flags?
+  sysctl net.ipv4.tcp_congestion_control=bbr
 
-Third, all of this looks very wrong anyway. There should be separate
-keywords for individual flags. In this case, there should be an
-"ip_fragment" flag. The tc tool should be responsible for putting the
-flags together and creating the appropriate mask. The example would
-then be:
+And (as mentioned in the quick-start guide) on many Linux systems you
+can make this "sticky" after reboots with something like:
 
-	tc filter add dev ens4f0 protocol ip parent ffff: \
-		flower \
-		src_mac e4:1d:2d:fd:8b:01 \
-		dst_mac e4:1d:2d:fd:8b:02 \
-		indev ens4f0 \
-		ip_fragment yes\
-	action drop
+  sudo bash -c 'echo "net.ipv4.tcp_congestion_control=bbr" >> /etc/sysctl.conf'
 
-I don't care whether it's "ip_fragment yes/no", "ip_fragment 1/0",
-"ip_fragment/noip_fragment" or similar. The important thing is it's a
-boolean flag; if specified, it's set to 0/1 and unmasked, if not
-specified, it's wildcarded.
+> Which tc version is required?
+> Here tc is from iproute (20121211-2~precise).
+> Is that enough?
 
-Stephen, I understand that you already applied this patch but given how
-horrible the proposed API is and that's even undocumented in this
-patch, please reconsider this. If this is released, the API is set in
-stone and, frankly, it's very user unfriendly this way.
+You should not need a particular version of tc to install "fq".
 
-Paul, could you please prepare a patch that would introduce a more sane
-API? I'd strongly prefer what I described under "third" but should you
-strongly disagree, at least implement "second" and document the
-currently known flag values.
+In the BBR quick-start guide we recommend setting fq to be the default qdisc:
 
-Thanks,
+  sudo bash -c 'echo "net.core.default_qdisc=fq" >> /etc/sysctl.conf'
 
- Jiri
+But if that doesn't work in your environment, then I believe you
+should be able to install the fq qdisc with any version of tc, with
+something like:
+
+  tc qdisc replace dev eth0 root fq
+
+You just won't be able to set or view configuration options.
+
+>> BTW, I presume you have seen the warning in the BBR commit message or
+>> tcp_bbr.c about ensuring that BBR is used with the "fq" qdisc:
+>>
+>>   NOTE: BBR *must* be used with the fq qdisc ("man tc-fq") with pacing
+>>   enabled, since pacing is integral to the BBR design and
+>>   implementation. BBR without pacing would not function properly, and
+>>   may incur unnecessary high packet loss rates.
+>>
+>> The BBR quick-start guide has some details about how to build and
+>> enable BBR and fq:
+>>
+>>   https://github.com/google/bbr/blob/master/Documentation/bbr-quick-start.md
+>>
+>
+> Hmmm...
+>
+> From [1] Section "Further reading"...
+>
+> egrep '(CONFIG_TCP_CONG_BBR|CONFIG_NET_SCH_FQ)=' .config
+>
+> then you see exactly the following lines:
+>
+> CONFIG_TCP_CONG_BBR=y
+> CONFIG_NET_SCH_FQ=y
+>
+> Should CONFIG_TCP_CONG_BBR have a "select CONFIG_NET_SCH_FQ" in its Kconfig?
+> That would be safer.
+>
+> [1] https://github.com/google/bbr/blob/master/Documentation/bbr-quick-start.md
+
+That would be a little safer, but not sufficient (since the qdisc
+still has to be configured to be in the transmit path somewhere).
+
+thanks,
+neal
