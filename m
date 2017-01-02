@@ -1,42 +1,49 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] rfkill: remove rfkill-regulator
-Date: Mon, 02 Jan 2017 16:03:56 +0100
-Message-ID: <1483369436.21014.12.camel@sipsolutions.net>
-References: <20170102150157.26745-1-johannes@sipsolutions.net>
-         (sfid-20170102_160217_157310_15217E5D)
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [RFC PATCH net-next v4 1/2] macb: Add 1588 support in Cadence
+ GEM.
+Date: Mon, 2 Jan 2017 17:03:03 +0100
+Message-ID: <20170102160303.GC3609@localhost.localdomain>
+References: <1481720175-12703-1-git-send-email-andrei.pistirica@microchip.com>
+ <BN3PR07MB2516815EDE69ACDCE27F81A3C96F0@BN3PR07MB2516.namprd07.prod.outlook.com>
+ <20170102113155.GA16373@localhost.localdomain>
+ <CAFcVECLg-hXvfgwRW-fxi+N0k=7pTaEMhS5EMXV9_OO+xGRUqA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Guiming Zhuo <gmzhuo@gmail.com>,
-        Antonio Ospite <ospite@studenti.unina.it>,
-        Paul Cercueil <paul@crapouillou.net>,
-        Rob Herring <robh+dt@kernel.org>,
-        Maarten ter Huurne <maarten@treewalker.org>
-To: linux-wireless@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:40404 "EHLO sipsolutions.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933053AbdABPD7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 2 Jan 2017 10:03:59 -0500
-In-Reply-To: <20170102150157.26745-1-johannes@sipsolutions.net> (sfid-20170102_160217_157310_15217E5D)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Rafal Ozieblo <rafalo@cadence.com>,
+        Andrei Pistirica <andrei.pistirica@microchip.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "linux-arm-kernel@lists.infradead.org"
+        <linux-arm-kernel@lists.infradead.org>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "nicolas.ferre@atmel.com" <nicolas.ferre@atmel.com>,
+        "harini.katakam@xilinx.com" <harini.katakam@xilinx.com>,
+        "punnaia@xilinx.com" <punnaia@xilinx.com>,
+        "michals@xilinx.com" <michals@xilinx.com>,
+        "anirudh@xilinx.com" <anirudh@xilinx.com>,
+        "boris.brezillon@free-electrons.com"
+        <boris.brezillon@free-electrons.com>,
+        "alexandre.belloni@free-electrons.com"
+        <alexandre.belloni@free-electrons.com>,
+        "tbultel@pixelsurmer.com" <tbultel@pixelsurmer.
+To: Harini Katakam <harinikatakamlinux@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAFcVECLg-hXvfgwRW-fxi+N0k=7pTaEMhS5EMXV9_OO+xGRUqA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2017-01-02 at 16:01 +0100, Johannes Berg wrote:
-> From: Johannes Berg <johannes.berg@intel.com>
-> 
-> There are no users of this ("vrfkill") in the tree, so it's just
-> dead code - remove it.
-> 
-> This also isn't really how rfkill is supposed to be used - it's
-> intended as a signalling mechanism to/from the device, which the
-> driver (and partially cfg80211) will handle - having a separate
-> rfkill instance for a regulator is confusing, the driver should
-> use the regulator instead to turn off the device when requested.
+On Mon, Jan 02, 2017 at 05:13:34PM +0530, Harini Katakam wrote:
+> From the revision history of Cadence spec, all versions starting
+> r1p02 have ability to include timestamp in descriptors.
 
-OTOH, the rfkill-gpio is essentially the same thing, and it *does* get
-used - by ACPI even, to control a GPS chip. And I'm not even sure that
-there's a clear place to put this since there probably aren't any GPS
-drivers?
+So why not add code to read the version, hm?
 
-johannes
+> For previous versions the event register is the only option.
+
+And is it true that the regsiters do not latch the time stamp?
+
+If so, then the IP core is more than useless.
+
+Thanks,
+Richard
