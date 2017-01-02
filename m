@@ -1,37 +1,41 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [PATCH v2 net-next 1/2] af_packet: TX_RING support for TPACKET_V3
-Date: Mon, 2 Jan 2017 18:07:24 -0500
-Message-ID: <20170102230724.GE31716@oracle.com>
-References: <cover.1483309545.git.sowmini.varadhan@oracle.com>
- <bc66616d08758cfe225a4b02316b72de16e00302.1483309545.git.sowmini.varadhan@oracle.com>
- <CAF=yD-J2Sw0=iTuvPe-sa01Ld0D1U6f=R-99WLRKggap_WKdug@mail.gmail.com>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: tcp_bbr: Forcing set of BBR congestion control as default
+Date: Mon, 2 Jan 2017 18:16:04 -0500
+Message-ID: <CADVnQy=Ofo0CTqTtNRFnnnSPmfAR_rybx=ZLBiUpSiNKT+nARw@mail.gmail.com>
+References: <CA+icZUXd8fN5BAZuCna=zpgSJcXivSG1S6cV1eMMJMWwL7RrLA@mail.gmail.com>
+ <CADVnQy=q88Hvh2aYnGCpCQH_b5PNwTZr_AWfgU0NnuSs6aatVQ@mail.gmail.com>
+ <CA+icZUUxHFDqfEj+DitFFH6P9+P5kOfMLoQpnK1qW+EZ6PmPKQ@mail.gmail.com>
+ <CADVnQymyX1G4=1qaegDYfbq89k15NsG-Acw7mTHRc7jo7=xbQw@mail.gmail.com> <CA+icZUVkui7PaeD7JAfdqJZQY2c9goANwi9foFej3=CsZX+SVA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Network Development <netdev@vger.kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Willem de Bruijn <willemb@google.com>,
-        David Miller <davem@davemloft.net>
-To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>
+To: sedat.dilek@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:18058 "EHLO
-        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933055AbdABXHl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 2 Jan 2017 18:07:41 -0500
-Content-Disposition: inline
-In-Reply-To: <CAF=yD-J2Sw0=iTuvPe-sa01Ld0D1U6f=R-99WLRKggap_WKdug@mail.gmail.com>
+Received: from mail-oi0-f53.google.com ([209.85.218.53]:34249 "EHLO
+        mail-oi0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755374AbdABXQg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 2 Jan 2017 18:16:36 -0500
+Received: by mail-oi0-f53.google.com with SMTP id 3so309762988oih.1
+        for <netdev@vger.kernel.org>; Mon, 02 Jan 2017 15:16:35 -0800 (PST)
+In-Reply-To: <CA+icZUVkui7PaeD7JAfdqJZQY2c9goANwi9foFej3=CsZX+SVA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On (01/02/17 17:57), Willem de Bruijn wrote:
-> One more point. We should validate the tpacket_req3 input and fail if
-> unsupported options are passed. Specifically, fail if any of
-> {tp_retire_blk_tov, tp_sizeof_priv, tp_feature_req_word} is non-zero.
-> 
-> Otherwise looks good to me.
+On Mon, Jan 2, 2017 at 2:30 PM, Sedat Dilek <sedat.dilek@gmail.com> wrote:
+> OK, this looks now good.
 
-Ok, I'll send out v3 tomorrow, with the test case also updated
-to share code with walk_v1_v2_tx as cleanly as possible. 
+Great. Glad to hear it!
 
-Thanks for the review feedback!
+> Does BBR only work with fq-qdisc best?
 
---Sowmini
+Yes. BBR is designed to work with pacing. And so far the "fq" qdisc is
+the only qdisc that offers pacing. So BBR currently needs the "fq"
+qdisc. In the future, other qdiscs (or even other layers of the stack)
+may offer pacing, in which case BBR could use those as well.
+
+> What about fq_codel?
+
+The "fq_codel" qdisc does not implement pacing, so it would not be sufficient.
+
+cheers,
+neal
