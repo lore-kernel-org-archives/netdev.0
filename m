@@ -1,31 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH for-next V2 00/11] Mellanox mlx5 core and ODP updates
- 2017-01-01
-Date: Mon, 02 Jan 2017 15:53:41 -0500 (EST)
-Message-ID: <20170102.155341.1496970446718890403.davem@davemloft.net>
-References: <1483349868-11716-1-git-send-email-saeedm@mellanox.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: [net PATCH] ipv4: Do not allow MAIN to be alias for new LOCAL w/
+ custom rules
+Date: Mon, 02 Jan 2017 13:32:54 -0800
+Message-ID: <20170102213214.13707.86757.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: dledford@redhat.com, netdev@vger.kernel.org,
-        linux-rdma@vger.kernel.org, leonro@mellanox.com,
-        ilyal@mellanox.com, artemyko@mellanox.com
-To: saeedm@mellanox.com
+To: netdev@vger.kernel.org, jjk@jjacky.com, davem@davemloft.net,
+        dsa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44218 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932227AbdABUxn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 2 Jan 2017 15:53:43 -0500
-In-Reply-To: <1483349868-11716-1-git-send-email-saeedm@mellanox.com>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:35511 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755786AbdABVc4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 2 Jan 2017 16:32:56 -0500
+Received: by mail-pg0-f65.google.com with SMTP id i5so31424194pgh.2
+        for <netdev@vger.kernel.org>; Mon, 02 Jan 2017 13:32:55 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Saeed Mahameed <saeedm@mellanox.com>
-Date: Mon,  2 Jan 2017 11:37:37 +0200
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-> The following eleven patches mainly come from Artemy Kovalyov
-> who expanded mlx5 on-demand-paging (ODP) support. In addition
-> there are three cleanup patches which don't change any functionality,
-> but are needed to align codebase prior accepting other patches.
+In the case of custom rules being present we need to handle the case of the
+LOCAL table being intialized after the new rule has been added.  To address
+that I am adding a new check so that we can make certain we don't use an
+alias of MAIN for LOCAL when allocating a new table.
 
-Series applied to net-next, thanks.
+Fixes: 0ddcf43d5d4a ("ipv4: FIB Local/MAIN table collapse")
+Reported-by: Oliver Brunel <jjk@jjacky.com>
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+---
+ net/ipv4/fib_frontend.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+index 3ff8938893ec..eae0332b0e8c 100644
+--- a/net/ipv4/fib_frontend.c
++++ b/net/ipv4/fib_frontend.c
+@@ -85,7 +85,7 @@ struct fib_table *fib_new_table(struct net *net, u32 id)
+ 	if (tb)
+ 		return tb;
+ 
+-	if (id == RT_TABLE_LOCAL)
++	if (id == RT_TABLE_LOCAL && !net->ipv4.fib_has_custom_rules)
+ 		alias = fib_new_table(net, RT_TABLE_MAIN);
+ 
+ 	tb = fib_trie_table(id, alias);
