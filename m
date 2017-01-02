@@ -1,87 +1,66 @@
-From: Ian Kumlien <ian.kumlien@gmail.com>
-Subject: [PATCH] Update pptp handling to avoid null pointer deref. v2
-Date: Mon,  2 Jan 2017 09:18:35 +0100
-Message-ID: <20170102081835.25557-1-ian.kumlien@gmail.com>
-References: <20170101231936.5905-1-ian.kumlien@gmail.com>
-Cc: Ian Kumlien <ian.kumlien@gmail.com>
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        stable@vger.kernel.org
+From: Rafal Ozieblo <rafalo@cadence.com>
+Subject: RE: [RFC PATCH net-next v4 1/2] macb: Add 1588 support in Cadence
+ GEM.
+Date: Mon, 2 Jan 2017 09:36:10 +0000
+Message-ID: <BN3PR07MB2516815EDE69ACDCE27F81A3C96F0@BN3PR07MB2516.namprd07.prod.outlook.com>
+References: <1481720175-12703-1-git-send-email-andrei.pistirica@microchip.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "punnaia@xilinx.com" <punnaia@xilinx.com>,
+        "michals@xilinx.com" <michals@xilinx.com>,
+        "anirudh@xilinx.com" <anirudh@xilinx.com>,
+        "boris.brezillon@free-electrons.com"
+        <boris.brezillon@free-electrons.com>,
+        "alexandre.belloni@free-electrons.com"
+        <alexandre.belloni@free-electrons.com>,
+        "tbultel@pixelsurmer.com" <tbultel@pixelsurmer.com>,
+        "richardcochran@gmail.com" <richardcochran@gmail.com>
+To: Andrei Pistirica <andrei.pistirica@microchip.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "linux-arm-kernel@lists.infradead.org"
+        <linux-arm-kernel@lists.infradead.org>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "nicolas.ferre@atmel.com" <nicolas.ferre@atmel.com>,
+        "harinikatakamlinux@gmail.com" <harinikatakamlinux@gmail.com>,
+        "harini.katakam@xilinx.com" <harini.katakam@xilinx.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170101231936.5905-1-ian.kumlien@gmail.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-__skb_flow_dissect can be called with a skb or a data packet, either
-can be NULL. All calls seems to have been moved to __skb_header_pointer
-except the pptp handling which is still calling skb_header_pointer.
-
-skb_header_pointer will use skb->data and thus:
-[  109.556866] BUG: unable to handle kernel NULL pointer dereference at 0000000000000080
-[  109.557102] IP: [<ffffffff88dc02f8>] __skb_flow_dissect+0xa88/0xce0
-[  109.557263] PGD 0
-[  109.557338]
-[  109.557484] Oops: 0000 [#1] SMP
-[  109.557562] Modules linked in: chaoskey
-[  109.557783] CPU: 2 PID: 0 Comm: swapper/2 Not tainted 4.9.0 #79
-[  109.557867] Hardware name: Supermicro A1SRM-LN7F/LN5F/A1SRM-LN7F-2758, BIOS 1.0c 11/04/2015
-[  109.557957] task: ffff94085c27bc00 task.stack: ffffb745c0068000
-[  109.558041] RIP: 0010:[<ffffffff88dc02f8>]  [<ffffffff88dc02f8>] __skb_flow_dissect+0xa88/0xce0
-[  109.558203] RSP: 0018:ffff94087fc83d40  EFLAGS: 00010206
-[  109.558286] RAX: 0000000000000130 RBX: ffffffff8975bf80 RCX: ffff94084fab6800
-[  109.558373] RDX: 0000000000000010 RSI: 000000000000000c RDI: 0000000000000000
-[  109.558460] RBP: 0000000000000b88 R08: 0000000000000000 R09: 0000000000000022
-[  109.558547] R10: 0000000000000008 R11: ffff94087fc83e04 R12: 0000000000000000
-[  109.558763] R13: ffff94084fab6800 R14: ffff94087fc83e04 R15: 000000000000002f
-[  109.558979] FS:  0000000000000000(0000) GS:ffff94087fc80000(0000) knlGS:0000000000000000
-[  109.559326] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-[  109.559539] CR2: 0000000000000080 CR3: 0000000281809000 CR4: 00000000001026e0
-[  109.559753] Stack:
-[  109.559957]  000000000000000c ffff94084fab6822 0000000000000001 ffff94085c2b5fc0
-[  109.560578]  0000000000000001 0000000000002000 0000000000000000 0000000000000000
-[  109.561200]  0000000000000000 0000000000000000 0000000000000000 0000000000000000
-[  109.561820] Call Trace:
-[  109.562027]  <IRQ>
-[  109.562108]  [<ffffffff88dfb4fa>] ? eth_get_headlen+0x7a/0xf0
-[  109.562522]  [<ffffffff88c5a35a>] ? igb_poll+0x96a/0xe80
-[  109.562737]  [<ffffffff88dc912b>] ? net_rx_action+0x20b/0x350
-[  109.562953]  [<ffffffff88546d68>] ? __do_softirq+0xe8/0x280
-[  109.563169]  [<ffffffff8854704a>] ? irq_exit+0xaa/0xb0
-[  109.563382]  [<ffffffff8847229b>] ? do_IRQ+0x4b/0xc0
-[  109.563597]  [<ffffffff8902d4ff>] ? common_interrupt+0x7f/0x7f
-[  109.563810]  <EOI>
-[  109.563890]  [<ffffffff88d57530>] ? cpuidle_enter_state+0x130/0x2c0
-[  109.564304]  [<ffffffff88d57520>] ? cpuidle_enter_state+0x120/0x2c0
-[  109.564520]  [<ffffffff8857eacf>] ? cpu_startup_entry+0x19f/0x1f0
-[  109.564737]  [<ffffffff8848d55a>] ? start_secondary+0x12a/0x140
-[  109.564950] Code: 83 e2 20 a8 80 0f 84 60 01 00 00 c7 04 24 08 00
-00 00 66 85 d2 0f 84 be fe ff ff e9 69 fe ff ff 8b 34 24 89 f2 83 c2
-04 66 85 c0 <41> 8b 84 24 80 00 00 00 0f 49 d6 41 8d 31 01 d6 41 2b 84
-24 84
-[  109.569959] RIP  [<ffffffff88dc02f8>] __skb_flow_dissect+0xa88/0xce0
-[  109.570245]  RSP <ffff94087fc83d40>
-[  109.570453] CR2: 0000000000000080
-
-Fixes: ab10dccb1160 ("rps: Inspect PPTP encapsulated by GRE to get flow hash")
-Signed-off-by: Ian Kumlien <ian.kumlien@gmail.com>
----
- net/core/flow_dissector.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
-
-diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index c6d8207ffa7e..32e4e0158846 100644
---- a/net/core/flow_dissector.c
-+++ b/net/core/flow_dissector.c
-@@ -445,8 +445,9 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
- 			if (hdr->flags & GRE_ACK)
- 				offset += sizeof(((struct pptp_gre_header *)0)->ack);
- 
--			ppp_hdr = skb_header_pointer(skb, nhoff + offset,
--						     sizeof(_ppp_hdr), _ppp_hdr);
-+			ppp_hdr = __skb_header_pointer(skb, nhoff + offset,
-+						     sizeof(_ppp_hdr),
-+						     data, hlen, _ppp_hdr);
- 			if (!ppp_hdr)
- 				goto out_bad;
- 
--- 
-2.11.0
+> -----Original Message-----
+> From: Rafal Ozieblo=20
+> Sent: 28 grudnia 2016 14:23
+> Subject: RE: [RFC PATCH net-next v4 1/2] macb: Add 1588 support in Cadenc=
+e GEM.
+>=20
+> > +static void gem_ptp_tx_hwtstamp(struct macb *bp, struct sk_buff *skb,
+> > +				int peer_ev)
+> > +{
+> > +	struct skb_shared_hwtstamps *shhwtstamps =3D skb_hwtstamps(skb);
+> > +	struct timespec64 ts;
+> > +	u64 ns;
+> > +
+> > +	/* PTP Peer Event Frame packets */
+> > +	if (peer_ev) {
+> > +		ts.tv_sec =3D gem_readl(bp, PEFTSL);
+> > +		ts.tv_nsec =3D gem_readl(bp, PEFTN);
+> > +
+> > +	/* PTP Event Frame packets */
+> > +	} else {
+> > +		ts.tv_sec =3D gem_readl(bp, EFTSL);
+> > +		ts.tv_nsec =3D gem_readl(bp, EFTN);
+> > +	}
+> I'm wondering what is a difference between timestamp in transmit buffer d=
+escriptor (Word 2 and 3) and PTP Event Frame Transmitted Seconds/Nanosecond=
+s Register (0x1E0, 0x1E4).
+>=20
+According Cadence Hardware team:
+"It is just that some customers prefer to have the time in the descriptors =
+as that is provided per frame.
+The registers are simply overwritten when a new event frame is transmitted/=
+received and so software could miss it."
+The question is are you sure that you read timestamp for current frame? (no=
+t for the next frame).
