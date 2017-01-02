@@ -1,7 +1,7 @@
 From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Subject: [net-next][PATCH v3 14/17] RDS: IB: fix panic due to handlers running post teardown
-Date: Mon,  2 Jan 2017 14:45:49 -0800
-Message-ID: <1483397152-8307-15-git-send-email-santosh.shilimkar@oracle.com>
+Subject: [net-next][PATCH v3 13/17] RDS: RDMA: Fix the composite message user notification
+Date: Mon,  2 Jan 2017 14:45:48 -0800
+Message-ID: <1483397152-8307-14-git-send-email-santosh.shilimkar@oracle.com>
 References: <1483397152-8307-1-git-send-email-santosh.shilimkar@oracle.com>
 Cc: linux-kernel@vger.kernel.org, santosh.shilimkar@oracle.com
 To: netdev@vger.kernel.org, davem@davemloft.net
@@ -10,83 +10,124 @@ In-Reply-To: <1483397152-8307-1-git-send-email-santosh.shilimkar@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Shutdown code reaping loop takes care of emptying the
-CQ's before they being destroyed. And once tasklets are
-killed, the hanlders are not expected to run.
+When application sends an RDS RDMA composite message consist of
+RDMA transfer to be followed up by non RDMA payload, it expect to
+be notified *only* when the full message gets delivered. RDS RDMA
+notification doesn't behave this way though.
 
-But because of core tasklet code issues, tasklet handler could
-still run even after tasklet_kill,
-RDS IB shutdown code already reaps the CQs before freeing
-cq/qp resources so as such the handlers have nothing left
-to do post shutdown.
+Thanks to Venkat for debug and root casuing the issue
+where only first part of the message(RDMA) was
+successfully delivered but remainder payload delivery failed.
+In that case, application should not be notified with
+a false positive of message delivery success.
 
-On other hand any handler running after teardown and trying
-to access already freed qp/cq resources causes issues
-Patch fixes this race by  makes sure that handlers returns
-without any action post teardown.
+Fix this case by making sure the user gets notified only after
+the full message delivery.
 
-Reviewed-by: Wengang <wen.gang.wang@oracle.com>
+Reviewed-by: Venkat Venkatsubra <venkat.x.venkatsubra@oracle.com>
 Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
 ---
- net/rds/ib.h    |  1 +
- net/rds/ib_cm.c | 12 ++++++++++++
- 2 files changed, 13 insertions(+)
+ net/rds/ib_send.c | 25 +++++++++++++++----------
+ net/rds/rdma.c    | 10 ++++++++++
+ net/rds/rds.h     |  1 +
+ net/rds/send.c    |  4 +++-
+ 4 files changed, 29 insertions(+), 11 deletions(-)
 
-diff --git a/net/rds/ib.h b/net/rds/ib.h
-index 1fe9f79..5404589 100644
---- a/net/rds/ib.h
-+++ b/net/rds/ib.h
-@@ -185,6 +185,7 @@ struct rds_ib_connection {
+diff --git a/net/rds/ib_send.c b/net/rds/ib_send.c
+index 19eca5c..5e72de1 100644
+--- a/net/rds/ib_send.c
++++ b/net/rds/ib_send.c
+@@ -69,16 +69,6 @@ static void rds_ib_send_complete(struct rds_message *rm,
+ 	complete(rm, notify_status);
+ }
  
- 	/* Endpoint role in connection */
- 	bool			i_active_side;
-+	atomic_t		i_cq_quiesce;
+-static void rds_ib_send_unmap_data(struct rds_ib_connection *ic,
+-				   struct rm_data_op *op,
+-				   int wc_status)
+-{
+-	if (op->op_nents)
+-		ib_dma_unmap_sg(ic->i_cm_id->device,
+-				op->op_sg, op->op_nents,
+-				DMA_TO_DEVICE);
+-}
+-
+ static void rds_ib_send_unmap_rdma(struct rds_ib_connection *ic,
+ 				   struct rm_rdma_op *op,
+ 				   int wc_status)
+@@ -139,6 +129,21 @@ static void rds_ib_send_unmap_atomic(struct rds_ib_connection *ic,
+ 		rds_ib_stats_inc(s_ib_atomic_fadd);
+ }
  
- 	/* Send/Recv vectors */
- 	int			i_scq_vector;
-diff --git a/net/rds/ib_cm.c b/net/rds/ib_cm.c
-index 33c8584..ce3775a 100644
---- a/net/rds/ib_cm.c
-+++ b/net/rds/ib_cm.c
-@@ -128,6 +128,8 @@ void rds_ib_cm_connect_complete(struct rds_connection *conn, struct rdma_cm_even
- 			  ic->i_flowctl ? ", flow control" : "");
++static void rds_ib_send_unmap_data(struct rds_ib_connection *ic,
++				   struct rm_data_op *op,
++				   int wc_status)
++{
++	struct rds_message *rm = container_of(op, struct rds_message, data);
++
++	if (op->op_nents)
++		ib_dma_unmap_sg(ic->i_cm_id->device,
++				op->op_sg, op->op_nents,
++				DMA_TO_DEVICE);
++
++	if (rm->rdma.op_active && rm->data.op_notify)
++		rds_ib_send_unmap_rdma(ic, &rm->rdma, wc_status);
++}
++
+ /*
+  * Unmap the resources associated with a struct send_work.
+  *
+diff --git a/net/rds/rdma.c b/net/rds/rdma.c
+index 4297f3f..138aef6 100644
+--- a/net/rds/rdma.c
++++ b/net/rds/rdma.c
+@@ -627,6 +627,16 @@ int rds_cmsg_rdma_args(struct rds_sock *rs, struct rds_message *rm,
+ 		}
+ 		op->op_notifier->n_user_token = args->user_token;
+ 		op->op_notifier->n_status = RDS_RDMA_SUCCESS;
++
++		/* Enable rmda notification on data operation for composite
++		 * rds messages and make sure notification is enabled only
++		 * for the data operation which follows it so that application
++		 * gets notified only after full message gets delivered.
++		 */
++		if (rm->data.op_sg) {
++			rm->rdma.op_notify = 0;
++			rm->data.op_notify = !!(args->flags & RDS_RDMA_NOTIFY_ME);
++		}
  	}
  
-+	atomic_set(&ic->i_cq_quiesce, 0);
-+
- 	/* Init rings and fill recv. this needs to wait until protocol
- 	 * negotiation is complete, since ring layout is different
- 	 * from 3.1 to 4.1.
-@@ -267,6 +269,10 @@ static void rds_ib_tasklet_fn_send(unsigned long data)
+ 	/* The cookie contains the R_Key of the remote memory region, and
+diff --git a/net/rds/rds.h b/net/rds/rds.h
+index ebbf909..0bb8213 100644
+--- a/net/rds/rds.h
++++ b/net/rds/rds.h
+@@ -419,6 +419,7 @@ struct rds_message {
+ 		} rdma;
+ 		struct rm_data_op {
+ 			unsigned int		op_active:1;
++			unsigned int		op_notify:1;
+ 			unsigned int		op_nents;
+ 			unsigned int		op_count;
+ 			unsigned int		op_dmasg;
+diff --git a/net/rds/send.c b/net/rds/send.c
+index 0a6f38b..45e025b 100644
+--- a/net/rds/send.c
++++ b/net/rds/send.c
+@@ -476,12 +476,14 @@ void rds_rdma_send_complete(struct rds_message *rm, int status)
+ 	struct rm_rdma_op *ro;
+ 	struct rds_notifier *notifier;
+ 	unsigned long flags;
++	unsigned int notify = 0;
  
- 	rds_ib_stats_inc(s_ib_tasklet_call);
+ 	spin_lock_irqsave(&rm->m_rs_lock, flags);
  
-+	/* if cq has been already reaped, ignore incoming cq event */
-+	if (atomic_read(&ic->i_cq_quiesce))
-+		return;
-+
- 	poll_scq(ic, ic->i_send_cq, ic->i_send_wc);
- 	ib_req_notify_cq(ic->i_send_cq, IB_CQ_NEXT_COMP);
- 	poll_scq(ic, ic->i_send_cq, ic->i_send_wc);
-@@ -308,6 +314,10 @@ static void rds_ib_tasklet_fn_recv(unsigned long data)
- 
- 	rds_ib_stats_inc(s_ib_tasklet_call);
- 
-+	/* if cq has been already reaped, ignore incoming cq event */
-+	if (atomic_read(&ic->i_cq_quiesce))
-+		return;
-+
- 	memset(&state, 0, sizeof(state));
- 	poll_rcq(ic, ic->i_recv_cq, ic->i_recv_wc, &state);
- 	ib_req_notify_cq(ic->i_recv_cq, IB_CQ_SOLICITED);
-@@ -804,6 +814,8 @@ void rds_ib_conn_path_shutdown(struct rds_conn_path *cp)
- 		tasklet_kill(&ic->i_send_tasklet);
- 		tasklet_kill(&ic->i_recv_tasklet);
- 
-+		atomic_set(&ic->i_cq_quiesce, 1);
-+
- 		/* first destroy the ib state that generates callbacks */
- 		if (ic->i_cm_id->qp)
- 			rdma_destroy_qp(ic->i_cm_id);
++	notify =  rm->rdma.op_notify | rm->data.op_notify;
+ 	ro = &rm->rdma;
+ 	if (test_bit(RDS_MSG_ON_SOCK, &rm->m_flags) &&
+-	    ro->op_active && ro->op_notify && ro->op_notifier) {
++	    ro->op_active && notify && ro->op_notifier) {
+ 		notifier = ro->op_notifier;
+ 		rs = rm->m_rs;
+ 		sock_hold(rds_rs_to_sk(rs));
 -- 
 1.9.1
