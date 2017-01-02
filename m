@@ -1,32 +1,127 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH v3] rfkill: Add rfkill-any LED trigger
-Date: Mon, 02 Jan 2017 13:21:45 +0100
-Message-ID: <1483359705.21014.0.camel@sipsolutions.net>
-References: <20161221084533.27006-1-kernel@kempniu.pl>
-         (sfid-20161221_094622_545524_B00A9AE7) <1483355533.4596.11.camel@sipsolutions.net>
-         (sfid-20170102_121239_821112_5D7AEC4A)
+From: Bartosz Folta <bfolta@cadence.com>
+Subject: [PATCH v3] net: macb: Updated resource allocation function calls to
+ new version of API.
+Date: Mon, 2 Jan 2017 12:41:50 +0000
+Message-ID: <SN1PR0701MB1951683572D31AD5678100E9CC6F0@SN1PR0701MB1951.namprd07.prod.outlook.com>
+References: <1483360206-27699-1-git-send-email-bfolta@cadence.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: =?UTF-8?Q?=D0=9C=D0=B8=D1=85=D0=B0=D0=B8=D0=BB_?=
-         =?UTF-8?Q?=D0=9A=D1=80=D0=B8=D0=BD=D0=BA=D0=B8=D0=BD?=
-        <krinkin.m.u@gmail.com>, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: =?UTF-8?Q?Micha=C5=82_K=C4=99pie=C5=84?= <kernel@kempniu.pl>,
-        "David S . Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: Bartosz Folta <bfolta@cadence.com>,
+        Rafal Ozieblo <rafalo@cadence.com>
+To: Nicolas Ferre <nicolas.ferre@atmel.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Niklas Cassel <niklas.cassel@axis.com>,
+        "Alexandre Torgue" <alexandre.torgue@st.com>,
+        Satanand Burla <satananda.burla@caviumnetworks.com>,
+        Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>,
+        Simon Horman <simon.horman@netronome.com>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1483355533.4596.11.camel@sipsolutions.net> (sfid-20170102_121239_821112_5D7AEC4A)
+In-Reply-To: <1483360206-27699-1-git-send-email-bfolta@cadence.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Changed function calls of resource allocation to new API. Changed way
+of setting DMA mask. Removed unnecessary sanity check.
+This patch is sent in regard to recently applied patch
+Commit 83a77e9ec4150ee4acc635638f7dedd9da523a26
+net: macb: Added PCI wrapper for Platform Driver.
 
-> I'm not super happy with this conditional locking - can't we instead
-> defer the necessary work to a workqueue, or so, for purposes of the
-> LED?
+Signed-off-by: Bartosz Folta <bfolta@cadence.com>
+---
+Changed in v3:
+Commit message.
+---
+Changed in v2:
+Size of DMA mask is set based on value held by PCI device.
+---
+ drivers/net/ethernet/cadence/macb_pci.c | 27 ++++++++++-----------------
+ 1 file changed, 10 insertions(+), 17 deletions(-)
 
-Actually, since you can sleep in here, and do various other things like
-scheduling etc. this can't even be correct as is - one thread might be
-in the probe and another might also attempt to do some operations that
-require the lock but now don't take it.
-
-johannes
+diff --git a/drivers/net/ethernet/cadence/macb_pci.c b/drivers/net/ethernet=
+/cadence/macb_pci.c
+index 92be2cd..9906fda 100644
+--- a/drivers/net/ethernet/cadence/macb_pci.c
++++ b/drivers/net/ethernet/cadence/macb_pci.c
+@@ -1,5 +1,5 @@
+ /**
+- * macb_pci.c - Cadence GEM PCI wrapper.
++ * Cadence GEM PCI wrapper.
+  *
+  * Copyright (C) 2016 Cadence Design Systems - http://www.cadence.com
+  *
+@@ -45,32 +45,27 @@ static int macb_probe(struct pci_dev *pdev, const struc=
+t pci_device_id *id)
+ 	struct macb_platform_data plat_data;
+ 	struct resource res[2];
+=20
+-	/* sanity check */
+-	if (!id)
+-		return -EINVAL;
+-
+ 	/* enable pci device */
+-	err =3D pci_enable_device(pdev);
++	err =3D pcim_enable_device(pdev);
+ 	if (err < 0) {
+-		dev_err(&pdev->dev, "Enabling PCI device has failed: 0x%04X",
+-			err);
+-		return -EACCES;
++		dev_err(&pdev->dev, "Enabling PCI device has failed: %d", err);
++		return err;
+ 	}
+=20
+ 	pci_set_master(pdev);
+=20
+ 	/* set up resources */
+ 	memset(res, 0x00, sizeof(struct resource) * ARRAY_SIZE(res));
+-	res[0].start =3D pdev->resource[0].start;
+-	res[0].end =3D pdev->resource[0].end;
++	res[0].start =3D pci_resource_start(pdev, 0);
++	res[0].end =3D pci_resource_end(pdev, 0);
+ 	res[0].name =3D PCI_DRIVER_NAME;
+ 	res[0].flags =3D IORESOURCE_MEM;
+-	res[1].start =3D pdev->irq;
++	res[1].start =3D pci_irq_vector(pdev, 0);
+ 	res[1].name =3D PCI_DRIVER_NAME;
+ 	res[1].flags =3D IORESOURCE_IRQ;
+=20
+-	dev_info(&pdev->dev, "EMAC physical base addr =3D 0x%p\n",
+-		 (void *)(uintptr_t)pci_resource_start(pdev, 0));
++	dev_info(&pdev->dev, "EMAC physical base addr: %pa\n",
++		 &res[0].start);
+=20
+ 	/* set up macb platform data */
+ 	memset(&plat_data, 0, sizeof(plat_data));
+@@ -100,7 +95,7 @@ static int macb_probe(struct pci_dev *pdev, const struct=
+ pci_device_id *id)
+ 	plat_info.num_res =3D ARRAY_SIZE(res);
+ 	plat_info.data =3D &plat_data;
+ 	plat_info.size_data =3D sizeof(plat_data);
+-	plat_info.dma_mask =3D DMA_BIT_MASK(32);
++	plat_info.dma_mask =3D pdev->dma_mask;
+=20
+ 	/* register platform device */
+ 	plat_dev =3D platform_device_register_full(&plat_info);
+@@ -120,7 +115,6 @@ static int macb_probe(struct pci_dev *pdev, const struc=
+t pci_device_id *id)
+ 	clk_unregister(plat_data.pclk);
+=20
+ err_pclk_register:
+-	pci_disable_device(pdev);
+ 	return err;
+ }
+=20
+@@ -130,7 +124,6 @@ static void macb_remove(struct pci_dev *pdev)
+ 	struct macb_platform_data *plat_data =3D dev_get_platdata(&plat_dev->dev)=
+;
+=20
+ 	platform_device_unregister(plat_dev);
+-	pci_disable_device(pdev);
+ 	clk_unregister(plat_data->pclk);
+ 	clk_unregister(plat_data->hclk);
+ }
+--=20
+1.9.1
