@@ -1,108 +1,32 @@
-From: Johan Hovold <johan@kernel.org>
-Subject: [PATCH net 3/3] net: stmmac: dwmac-oxnas: use generic pm implementation
-Date: Mon,  2 Jan 2017 12:56:04 +0100
-Message-ID: <20170102115604.32482-4-johan@kernel.org>
-References: <20170102115604.32482-1-johan@kernel.org>
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>,
-        Neil Armstrong <narmstrong@baylibre.com>,
-        netdev@vger.kernel.org, linux-oxnas@lists.tuxfamily.org,
-        linux-kernel@vger.kernel.org, Johan Hovold <johan@kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f67.google.com ([209.85.215.67]:35527 "EHLO
-        mail-lf0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755538AbdABL4d (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 2 Jan 2017 06:56:33 -0500
-In-Reply-To: <20170102115604.32482-1-johan@kernel.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH v3] rfkill: Add rfkill-any LED trigger
+Date: Mon, 02 Jan 2017 13:21:45 +0100
+Message-ID: <1483359705.21014.0.camel@sipsolutions.net>
+References: <20161221084533.27006-1-kernel@kempniu.pl>
+         (sfid-20161221_094622_545524_B00A9AE7) <1483355533.4596.11.camel@sipsolutions.net>
+         (sfid-20170102_121239_821112_5D7AEC4A)
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: =?UTF-8?Q?=D0=9C=D0=B8=D1=85=D0=B0=D0=B8=D0=BB_?=
+         =?UTF-8?Q?=D0=9A=D1=80=D0=B8=D0=BD=D0=BA=D0=B8=D0=BD?=
+        <krinkin.m.u@gmail.com>, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: =?UTF-8?Q?Micha=C5=82_K=C4=99pie=C5=84?= <kernel@kempniu.pl>,
+        "David S . Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1483355533.4596.11.camel@sipsolutions.net> (sfid-20170102_121239_821112_5D7AEC4A)
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Now that we have an exit callback in place, add init as well and get rid
-of the custom PM callbacks in favour of the generic ones.
 
-Signed-off-by: Johan Hovold <johan@kernel.org>
----
- drivers/net/ethernet/stmicro/stmmac/dwmac-oxnas.c | 38 +++--------------------
- 1 file changed, 5 insertions(+), 33 deletions(-)
+> I'm not super happy with this conditional locking - can't we instead
+> defer the necessary work to a workqueue, or so, for purposes of the
+> LED?
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-oxnas.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-oxnas.c
-index 3efd110613df..3dc7d279f805 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac-oxnas.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-oxnas.c
-@@ -60,8 +60,9 @@ struct oxnas_dwmac {
- 	struct regmap	*regmap;
- };
- 
--static int oxnas_dwmac_init(struct oxnas_dwmac *dwmac)
-+static int oxnas_dwmac_init(struct platform_device *pdev, void *priv)
- {
-+	struct oxnas_dwmac *dwmac = priv;
- 	unsigned int value;
- 	int ret;
- 
-@@ -135,6 +136,7 @@ static int oxnas_dwmac_probe(struct platform_device *pdev)
- 
- 	dwmac->dev = &pdev->dev;
- 	plat_dat->bsp_priv = dwmac;
-+	plat_dat->init = oxnas_dwmac_init;
- 	plat_dat->exit = oxnas_dwmac_exit;
- 
- 	dwmac->regmap = syscon_regmap_lookup_by_phandle(pdev->dev.of_node,
-@@ -151,7 +153,7 @@ static int oxnas_dwmac_probe(struct platform_device *pdev)
- 		goto err_remove_config_dt;
- 	}
- 
--	ret = oxnas_dwmac_init(dwmac);
-+	ret = oxnas_dwmac_init(pdev, plat_dat->bsp_priv);
- 	if (ret)
- 		goto err_remove_config_dt;
- 
-@@ -170,36 +172,6 @@ static int oxnas_dwmac_probe(struct platform_device *pdev)
- 	return ret;
- }
- 
--#ifdef CONFIG_PM_SLEEP
--static int oxnas_dwmac_suspend(struct device *dev)
--{
--	struct oxnas_dwmac *dwmac = get_stmmac_bsp_priv(dev);
--	int ret;
--
--	ret = stmmac_suspend(dev);
--	clk_disable_unprepare(dwmac->clk);
--
--	return ret;
--}
--
--static int oxnas_dwmac_resume(struct device *dev)
--{
--	struct oxnas_dwmac *dwmac = get_stmmac_bsp_priv(dev);
--	int ret;
--
--	ret = oxnas_dwmac_init(dwmac);
--	if (ret)
--		return ret;
--
--	ret = stmmac_resume(dev);
--
--	return ret;
--}
--#endif /* CONFIG_PM_SLEEP */
--
--static SIMPLE_DEV_PM_OPS(oxnas_dwmac_pm_ops,
--	oxnas_dwmac_suspend, oxnas_dwmac_resume);
--
- static const struct of_device_id oxnas_dwmac_match[] = {
- 	{ .compatible = "oxsemi,ox820-dwmac" },
- 	{ }
-@@ -211,7 +183,7 @@ static struct platform_driver oxnas_dwmac_driver = {
- 	.remove = stmmac_pltfr_remove,
- 	.driver = {
- 		.name           = "oxnas-dwmac",
--		.pm		= &oxnas_dwmac_pm_ops,
-+		.pm		= &stmmac_pltfr_pm_ops,
- 		.of_match_table = oxnas_dwmac_match,
- 	},
- };
--- 
-2.10.2
+Actually, since you can sleep in here, and do various other things like
+scheduling etc. this can't even be correct as is - one thread might be
+in the probe and another might also attempt to do some operations that
+require the lock but now don't take it.
+
+johannes
