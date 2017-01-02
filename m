@@ -1,90 +1,102 @@
 From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Subject: [net-next][PATCH v3 03/17] RDS: IB: include faddr in connection log
-Date: Mon,  2 Jan 2017 14:45:38 -0800
-Message-ID: <1483397152-8307-4-git-send-email-santosh.shilimkar@oracle.com>
-References: <1483397152-8307-1-git-send-email-santosh.shilimkar@oracle.com>
+Subject: [net-next][PATCH v3 00/17] net: RDS updates
+Date: Mon,  2 Jan 2017 14:45:35 -0800
+Message-ID: <1483397152-8307-1-git-send-email-santosh.shilimkar@oracle.com>
 Cc: linux-kernel@vger.kernel.org, santosh.shilimkar@oracle.com
 To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:50551 "EHLO
+Received: from userp1040.oracle.com ([156.151.31.81]:50535 "EHLO
         userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756911AbdABWqN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 2 Jan 2017 17:46:13 -0500
-In-Reply-To: <1483397152-8307-1-git-send-email-santosh.shilimkar@oracle.com>
+        with ESMTP id S1756907AbdABWqM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 2 Jan 2017 17:46:12 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Also use pr_* for it.
+v2->v3:
+- Re-based against latest net-next head.
+- Dropped a user visible change after discussing with David Miller.
+  It needs some more work to fully support old/new tools matrix.
+- Addressed Dave's comment about bool usage in patch
+  "RDS: IB: track and log active side..." 
 
-Signed-off-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
----
- net/rds/ib_cm.c   | 19 +++++++++----------
- net/rds/ib_recv.c |  4 ++--
- net/rds/ib_send.c |  4 ++--
- 3 files changed, 13 insertions(+), 14 deletions(-)
+v1->v2:
+Re-aligned indentation in patch 'RDS: mark few internal functions..."
 
-diff --git a/net/rds/ib_cm.c b/net/rds/ib_cm.c
-index 5b2ab95..b9da1e5 100644
---- a/net/rds/ib_cm.c
-+++ b/net/rds/ib_cm.c
-@@ -113,19 +113,18 @@ void rds_ib_cm_connect_complete(struct rds_connection *conn, struct rdma_cm_even
- 	}
- 
- 	if (conn->c_version < RDS_PROTOCOL(3, 1)) {
--		printk(KERN_NOTICE "RDS/IB: Connection to %pI4 version %u.%u failed,"
--		       " no longer supported\n",
--		       &conn->c_faddr,
--		       RDS_PROTOCOL_MAJOR(conn->c_version),
--		       RDS_PROTOCOL_MINOR(conn->c_version));
-+		pr_notice("RDS/IB: Connection <%pI4,%pI4> version %u.%u no longer supported\n",
-+			  &conn->c_laddr, &conn->c_faddr,
-+			  RDS_PROTOCOL_MAJOR(conn->c_version),
-+			  RDS_PROTOCOL_MINOR(conn->c_version));
- 		rds_conn_destroy(conn);
- 		return;
- 	} else {
--		printk(KERN_NOTICE "RDS/IB: connected to %pI4 version %u.%u%s\n",
--		       &conn->c_faddr,
--		       RDS_PROTOCOL_MAJOR(conn->c_version),
--		       RDS_PROTOCOL_MINOR(conn->c_version),
--		       ic->i_flowctl ? ", flow control" : "");
-+		pr_notice("RDS/IB: connected <%pI4,%pI4> version %u.%u%s\n",
-+			  &conn->c_laddr, &conn->c_faddr,
-+			  RDS_PROTOCOL_MAJOR(conn->c_version),
-+			  RDS_PROTOCOL_MINOR(conn->c_version),
-+			  ic->i_flowctl ? ", flow control" : "");
- 	}
- 
- 	/*
-diff --git a/net/rds/ib_recv.c b/net/rds/ib_recv.c
-index 606a11f..6803b75 100644
---- a/net/rds/ib_recv.c
-+++ b/net/rds/ib_recv.c
-@@ -980,8 +980,8 @@ void rds_ib_recv_cqe_handler(struct rds_ib_connection *ic,
- 	} else {
- 		/* We expect errors as the qp is drained during shutdown */
- 		if (rds_conn_up(conn) || rds_conn_connecting(conn))
--			rds_ib_conn_error(conn, "recv completion on %pI4 had status %u (%s), disconnecting and reconnecting\n",
--					  &conn->c_faddr,
-+			rds_ib_conn_error(conn, "recv completion on <%pI4,%pI4> had status %u (%s), disconnecting and reconnecting\n",
-+					  &conn->c_laddr, &conn->c_faddr,
- 					  wc->status,
- 					  ib_wc_status_msg(wc->status));
- 	}
-diff --git a/net/rds/ib_send.c b/net/rds/ib_send.c
-index 84d90c9..19eca5c 100644
---- a/net/rds/ib_send.c
-+++ b/net/rds/ib_send.c
-@@ -300,8 +300,8 @@ void rds_ib_send_cqe_handler(struct rds_ib_connection *ic, struct ib_wc *wc)
- 
- 	/* We expect errors as the qp is drained during shutdown */
- 	if (wc->status != IB_WC_SUCCESS && rds_conn_up(conn)) {
--		rds_ib_conn_error(conn, "send completion on %pI4 had status %u (%s), disconnecting and reconnecting\n",
--				  &conn->c_faddr, wc->status,
-+		rds_ib_conn_error(conn, "send completion on <%pI4,%pI4> had status %u (%s), disconnecting and reconnecting\n",
-+				  &conn->c_laddr, &conn->c_faddr, wc->status,
- 				  ib_wc_status_msg(wc->status));
- 	}
- }
+Series consist of:
+ - RDMA transport fixes for map failure, listen sequence, handler panic and
+   composite message notification.
+ - Couple of sparse fixes.
+ - Message logging improvements for bind failure, use once mr semantics
+   and connection remote address, active end point.
+ - Performance improvement for RDMA transport by reducing the post send
+   pressure on the queue and spreading the CQ vectors.
+ - Useful statistics for socket send/recv usage and receive cache usage.
+ - Additional RDS CMSG used by application to track the RDS message
+   stages for certain type of traffic to find out latency spots.
+   Can be enabled/disabled per socket.
+    
+Series generated against 'net-next'. Full patchset is also available on
+below git tree.
+
+
+The following changes since commit 525dfa2cdce4f5ab76251b5e57ebabf4f2dfc40c:
+
+  Merge branch 'mlx5-odp' (2017-01-02 15:51:21 -0500)
+
+are available in the git repository at:
+
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/ssantosh/linux.git for_4.11/net-next/rds_v3
+
+for you to fetch changes up to 3289025aedc018f8fd9d0e37fb9efa0c6d531ffa:
+
+  RDS: add receive message trace used by application (2017-01-02 14:02:59 -0800)
+
+----------------------------------------------------------------
+Avinash Repaka (1):
+  RDS: make message size limit compliant with spec
+
+Qing Huang (1):
+  RDS: RDMA: start rdma listening after init
+
+Santosh Shilimkar (14):
+  RDS: log the address on bind failure
+  RDS: mark few internal functions static to make sparse build happy
+  RDS: IB: include faddr in connection log
+  RDS: IB: make the transport retry count smallest
+  RDS: RDMA: fix the ib_map_mr_sg_zbva() argument
+  RDS: RDMA: return appropriate error on rdma map failures
+  RDS: IB: split the mr registration and invalidation path
+  RDS: RDMA: silence the use_once mr log flood
+  RDS: IB: track and log active side endpoint in connection
+  RDS: IB: add few useful cache stasts
+  RDS: IB: Add vector spreading for cqs
+  RDS: RDMA: Fix the composite message user notification
+  RDS: IB: fix panic due to handlers running post teardown
+  RDS: add receive message trace used by application
+
+Venkat Venkatsubra (1):
+  RDS: add stat for socket recv memory usage
+
+ include/uapi/linux/rds.h | 33 ++++++++++++++++++
+ net/rds/af_rds.c         | 28 +++++++++++++++
+ net/rds/bind.c           |  4 +--
+ net/rds/connection.c     | 10 +++---
+ net/rds/ib.c             | 11 ++++++
+ net/rds/ib.h             | 22 ++++++++++--
+ net/rds/ib_cm.c          | 89 ++++++++++++++++++++++++++++++++++++++----------
+ net/rds/ib_frmr.c        | 16 +++++----
+ net/rds/ib_recv.c        | 14 ++++++--
+ net/rds/ib_send.c        | 29 +++++++++-------
+ net/rds/ib_stats.c       |  2 ++
+ net/rds/rdma.c           | 22 ++++++++++--
+ net/rds/rdma_transport.c | 11 ++----
+ net/rds/rds.h            | 17 +++++++++
+ net/rds/recv.c           | 36 ++++++++++++++++++--
+ net/rds/send.c           | 50 ++++++++++++++++++++++++---
+ net/rds/tcp_listen.c     |  1 +
+ net/rds/tcp_recv.c       |  5 +++
+ 18 files changed, 335 insertions(+), 65 deletions(-)
+
 -- 
 1.9.1
