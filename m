@@ -1,84 +1,48 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH for-next V2 02/11] IB/mlx5: Reorder code in query device command
-Date: Mon,  2 Jan 2017 11:37:39 +0200
-Message-ID: <1483349868-11716-3-git-send-email-saeedm@mellanox.com>
-References: <1483349868-11716-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-        Leon Romanovsky <leonro@mellanox.com>,
-        Ilya Lesokhin <ilyal@mellanox.com>,
-        Artemy Kovalyov <artemyko@mellanox.com>,
-        Leon Romanovsky <leon@kernel.org>,
-        Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>,
-        Doug Ledford <dledford@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:34471 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S932506AbdABJiX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 2 Jan 2017 04:38:23 -0500
-In-Reply-To: <1483349868-11716-1-git-send-email-saeedm@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH v3] rfkill: Add rfkill-any LED trigger
+Date: Mon, 02 Jan 2017 12:12:13 +0100
+Message-ID: <1483355533.4596.11.camel@sipsolutions.net>
+References: <20161221084533.27006-1-kernel@kempniu.pl>
+         (sfid-20161221_094622_545524_B00A9AE7)
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: =?UTF-8?Q?=D0=9C=D0=B8=D1=85=D0=B0=D0=B8=D0=BB_?=
+         =?UTF-8?Q?=D0=9A=D1=80=D0=B8=D0=BD=D0=BA=D0=B8=D0=BD?=
+        <krinkin.m.u@gmail.com>, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: =?UTF-8?Q?Micha=C5=82_K=C4=99pie=C5=84?= <kernel@kempniu.pl>,
+        "David S . Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20161221084533.27006-1-kernel@kempniu.pl> (sfid-20161221_094622_545524_B00A9AE7)
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Leon Romanovsky <leon@kernel.org>
 
-The order of features exposed by private mlx5-abi.h
-file is CQE zipping, packet pacing and multi-packet WQE.
+>   - Handle the global mutex properly when rfkill_set_{hw,sw}_state()
+> or
+>     rfkill_set_states() is called from within an rfkill callback.  v2
+>     always tried to lock the global mutex in such a case, which led
+> to a
+>     deadlock when an rfkill driver called one of the above functions
+>     from its query or set_block callback.  This is solved by defining
+> a
+>     new bitfield, RFKILL_BLOCK_SW_HASLOCK, which is set before the
+> above
+>     callbacks are invoked and cleared afterwards; the functions
+> listed
+>     above use this bitfield to tell rfkill_any_led_trigger_event()
+>     whether the global mutex is currently held or not.
+>     RFKILL_BLOCK_SW_SETCALL cannot be reused for this purpose as
+> setting
+>     it before invoking the query callback would cause any calls to
+>     rfkill_set_sw_state() made from within that callback to work on
+>     RFKILL_BLOCK_SW_PREV instead of RFKILL_BLOCK_SW and thus change
+> the
+>     way rfkill_set_block() behaves.
 
-The internal order implemented in mlx5_ib_query_device() is
-multi-packet WQE, CQE zipping and packet pacing.
+I'm not super happy with this conditional locking - can't we instead
+defer the necessary work to a workqueue, or so, for purposes of the
+LED?
 
-Such difference hurts code readability, so let's sync,
-while mlx5-abi.h (exposed to userspace) is the primary
-order.
-
-This commit doesn't change any functionality.
-
-Signed-off-by: Leon Romanovsky <leon@kernel.org>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
----
- drivers/infiniband/hw/mlx5/main.c | 22 +++++++++++-----------
- 1 file changed, 11 insertions(+), 11 deletions(-)
-
-diff --git a/drivers/infiniband/hw/mlx5/main.c b/drivers/infiniband/hw/mlx5/main.c
-index d566f67..2ab4e32 100644
---- a/drivers/infiniband/hw/mlx5/main.c
-+++ b/drivers/infiniband/hw/mlx5/main.c
-@@ -672,17 +672,6 @@ static int mlx5_ib_query_device(struct ib_device *ibdev,
- 			1 << MLX5_CAP_GEN(dev->mdev, log_max_rq);
- 	}
- 
--	if (field_avail(typeof(resp), mlx5_ib_support_multi_pkt_send_wqes,
--			uhw->outlen)) {
--		resp.mlx5_ib_support_multi_pkt_send_wqes =
--			MLX5_CAP_ETH(mdev, multi_pkt_send_wqe);
--		resp.response_length +=
--			sizeof(resp.mlx5_ib_support_multi_pkt_send_wqes);
--	}
--
--	if (field_avail(typeof(resp), reserved, uhw->outlen))
--		resp.response_length += sizeof(resp.reserved);
--
- 	if (field_avail(typeof(resp), cqe_comp_caps, uhw->outlen)) {
- 		resp.cqe_comp_caps.max_num =
- 			MLX5_CAP_GEN(dev->mdev, cqe_compression) ?
-@@ -706,6 +695,17 @@ static int mlx5_ib_query_device(struct ib_device *ibdev,
- 		resp.response_length += sizeof(resp.packet_pacing_caps);
- 	}
- 
-+	if (field_avail(typeof(resp), mlx5_ib_support_multi_pkt_send_wqes,
-+			uhw->outlen)) {
-+		resp.mlx5_ib_support_multi_pkt_send_wqes =
-+			MLX5_CAP_ETH(mdev, multi_pkt_send_wqe);
-+		resp.response_length +=
-+			sizeof(resp.mlx5_ib_support_multi_pkt_send_wqes);
-+	}
-+
-+	if (field_avail(typeof(resp), reserved, uhw->outlen))
-+		resp.response_length += sizeof(resp.reserved);
-+
- 	if (uhw->outlen) {
- 		err = ib_copy_to_udata(uhw, &resp, resp.response_length);
- 
--- 
-2.7.4
+johannes
