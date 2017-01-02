@@ -1,77 +1,108 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH] net: fealnx: use new api ethtool_{get|set}_link_ksettings
-Date: Mon,  2 Jan 2017 20:47:27 +0100
-Message-ID: <1483386447-19012-1-git-send-email-tremyfr@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Philippe Reynes <tremyfr@gmail.com>
-To: davem@davemloft.net, mugunthanvnm@ti.com, a@unstable.cc,
-        fw@strlen.de, jarod@redhat.com
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [RFC PATCH] virtio_net: XDP support for adjust_head
+Date: Mon, 2 Jan 2017 11:47:39 -0800
+Message-ID: <586AAE5B.20708@gmail.com>
+References: <20170102194413.9089.39078.stgit@john-Precision-Tower-5810>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org,
+        alexei.starovoitov@gmail.com, daniel@iogearbox.net
+To: jasowang@redhat.com, mst@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wj0-f193.google.com ([209.85.210.193]:35851 "EHLO
-        mail-wj0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753061AbdABTrg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 2 Jan 2017 14:47:36 -0500
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:36497 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755492AbdABTrv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 2 Jan 2017 14:47:51 -0500
+Received: by mail-pg0-f65.google.com with SMTP id n5so31228980pgh.3
+        for <netdev@vger.kernel.org>; Mon, 02 Jan 2017 11:47:51 -0800 (PST)
+In-Reply-To: <20170102194413.9089.39078.stgit@john-Precision-Tower-5810>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The ethtool api {get|set}_settings is deprecated.
-We move this driver to new api {get|set}_link_ksettings.
+On 17-01-02 11:44 AM, John Fastabend wrote:
+> Add support for XDP adjust head by allocating a 256B header region
+> that XDP programs can grow into. This is only enabled when a XDP
+> program is loaded.
+> 
+> In order to ensure that we do not have to unwind queue headroom push
+> queue setup below bpf_prog_add. It reads better to do a prog ref
+> unwind vs another queue setup call.
+> 
+> : There is a problem with this patch as is. When xdp prog is loaded
+>   the old buffers without the 256B headers need to be flushed so that
+>   the bpf prog has the necessary headroom. This patch does this by
+>   calling the virtqueue_detach_unused_buf() and followed by the
+>   virtnet_set_queues() call to reinitialize the buffers. However I
+>   don't believe this is safe per comment in virtio_ring this API
+>   is not valid on an active queue and the only thing we have done
+>   here is napi_disable/napi_enable wrappers which doesn't do anything
+>   to the emulation layer.
+> 
+>   So the RFC is really to find the best solution to this problem.
+>   A couple things come to mind, (a) always allocate the necessary
+>   headroom but this is a bit of a waste (b) add some bit somewhere
+>   to check if the buffer has headroom but this would mean XDP programs
+>   would be broke for a cycle through the ring, (c) figure out how
+>   to deactivate a queue, free the buffers and finally reallocate.
+>   I think (c) is the best choice for now but I'm not seeing the
+>   API to do this so virtio/qemu experts anyone know off-hand
+>   how to make this work? I started looking into the PCI callbacks
+>   reset() and virtio_device_ready() or possibly hitting the right
+>   set of bits with vp_set_status() but my first attempt just hung
+>   the device.
+> 
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> ---
 
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
----
- drivers/net/ethernet/fealnx.c |   14 ++++++++------
- 1 files changed, 8 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/fealnx.c b/drivers/net/ethernet/fealnx.c
-index 9cb436c..766636a 100644
---- a/drivers/net/ethernet/fealnx.c
-+++ b/drivers/net/ethernet/fealnx.c
-@@ -1817,25 +1817,27 @@ static void netdev_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *i
- 	strlcpy(info->bus_info, pci_name(np->pci_dev), sizeof(info->bus_info));
- }
- 
--static int netdev_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
-+static int netdev_get_link_ksettings(struct net_device *dev,
-+				     struct ethtool_link_ksettings *cmd)
- {
- 	struct netdev_private *np = netdev_priv(dev);
- 	int rc;
- 
- 	spin_lock_irq(&np->lock);
--	rc = mii_ethtool_gset(&np->mii, cmd);
-+	rc = mii_ethtool_get_link_ksettings(&np->mii, cmd);
- 	spin_unlock_irq(&np->lock);
- 
- 	return rc;
- }
- 
--static int netdev_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
-+static int netdev_set_link_ksettings(struct net_device *dev,
-+				     const struct ethtool_link_ksettings *cmd)
- {
- 	struct netdev_private *np = netdev_priv(dev);
- 	int rc;
- 
- 	spin_lock_irq(&np->lock);
--	rc = mii_ethtool_sset(&np->mii, cmd);
-+	rc = mii_ethtool_set_link_ksettings(&np->mii, cmd);
- 	spin_unlock_irq(&np->lock);
- 
- 	return rc;
-@@ -1865,12 +1867,12 @@ static void netdev_set_msglevel(struct net_device *dev, u32 value)
- 
- static const struct ethtool_ops netdev_ethtool_ops = {
- 	.get_drvinfo		= netdev_get_drvinfo,
--	.get_settings		= netdev_get_settings,
--	.set_settings		= netdev_set_settings,
- 	.nway_reset		= netdev_nway_reset,
- 	.get_link		= netdev_get_link,
- 	.get_msglevel		= netdev_get_msglevel,
- 	.set_msglevel		= netdev_set_msglevel,
-+	.get_link_ksettings	= netdev_get_link_ksettings,
-+	.set_link_ksettings	= netdev_set_link_ksettings,
- };
- 
- static int mii_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
--- 
-1.7.4.4
+[...]
+
+> +
+> +	/* Changing the headroom in buffers is a disruptive operation because
+> +	 * existing buffers must be flushed and reallocated. This will happen
+> +	 * when a xdp program is initially added or xdp is disabled by removing
+> +	 * the xdp program.
+> +	 */
+> +	if (old_hr != vi->headroom) {
+> +		cancel_delayed_work_sync(&vi->refill);
+> +		if (netif_running(vi->dev)) {
+> +			for (i = 0; i < vi->max_queue_pairs; i++)
+> +				napi_disable(&vi->rq[i].napi);
+> +		}
+> +		for (i = 0; i < vi->max_queue_pairs; i++) {
+> +			struct virtqueue *vq = vi->rq[i].vq;
+> +			void *buf;
+> +
+> +			while ((buf = virtqueue_detach_unused_buf(vq)) != NULL) {
+                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Per API in virtio_ring.c queue must be deactivated to call this.
+
+
+> +				if (vi->mergeable_rx_bufs) {
+> +					unsigned long ctx = (unsigned long)buf;
+> +					void *base = mergeable_ctx_to_buf_address(ctx);
+> +					put_page(virt_to_head_page(base));
+> +				} else if (vi->big_packets) {
+> +					give_pages(&vi->rq[i], buf);
+> +				} else {
+> +					dev_kfree_skb(buf);
+> +				}
+> +			}
+> +		}
+> +		if (netif_running(vi->dev)) {
+> +			for (i = 0; i < vi->max_queue_pairs; i++)
+> +				virtnet_napi_enable(&vi->rq[i]);
+> +		}
+> +	}
+> +
+
+Hi Jason, Michael,
+
+Any hints on how to solve the above kludge to flush the existing ring and
+reallocate with correct headroom? The above doesn't look safe to me per commit
+message.
+
+Thanks!
+John
