@@ -1,45 +1,42 @@
-From: Neil Armstrong <narmstrong@baylibre.com>
-Subject: Re: [PATCH net 0/3] net: stmmac: dwmac-oxnas: fix leaks and simplify
- pm
-Date: Mon, 2 Jan 2017 16:03:45 +0100
-Message-ID: <438b7c44-cf88-823f-80cf-3d017d85cbf2@baylibre.com>
-References: <20170102115604.32482-1-johan@kernel.org>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] rfkill: remove rfkill-regulator
+Date: Mon, 02 Jan 2017 16:03:56 +0100
+Message-ID: <1483369436.21014.12.camel@sipsolutions.net>
+References: <20170102150157.26745-1-johannes@sipsolutions.net>
+         (sfid-20170102_160217_157310_15217E5D)
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>,
-        netdev@vger.kernel.org, linux-oxnas@lists.tuxfamily.org,
-        linux-kernel@vger.kernel.org
-To: Johan Hovold <johan@kernel.org>,
-        "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170102115604.32482-1-johan@kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Guiming Zhuo <gmzhuo@gmail.com>,
+        Antonio Ospite <ospite@studenti.unina.it>,
+        Paul Cercueil <paul@crapouillou.net>,
+        Rob Herring <robh+dt@kernel.org>,
+        Maarten ter Huurne <maarten@treewalker.org>
+To: linux-wireless@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.sipsolutions.net ([5.9.151.49]:40404 "EHLO sipsolutions.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933053AbdABPD7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 2 Jan 2017 10:03:59 -0500
+In-Reply-To: <20170102150157.26745-1-johannes@sipsolutions.net> (sfid-20170102_160217_157310_15217E5D)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/02/2017 12:56 PM, Johan Hovold wrote:
-> These patches fixes of-node and fixed-phydev leaks in the recently added
-> dwmac-oxnas driver, and ultimately switches over to using the generic pm
-> implementation as the required callbacks are now in place.
+On Mon, 2017-01-02 at 16:01 +0100, Johannes Berg wrote:
+> From: Johannes Berg <johannes.berg@intel.com>
 > 
-> Note that this series has only been compile tested.
+> There are no users of this ("vrfkill") in the tree, so it's just
+> dead code - remove it.
 > 
-> Johan
-> 
-> 
-> Johan Hovold (3):
->   net: stmmac: dwmac-oxnas: fix of-node leak
->   net: stmmac: dwmac-oxnas: fix fixed-link-phydev leaks
->   net: stmmac: dwmac-oxnas: use generic pm implementation
-> 
->  drivers/net/ethernet/stmicro/stmmac/dwmac-oxnas.c | 89 +++++++++--------------
->  1 file changed, 33 insertions(+), 56 deletions(-)
-> 
+> This also isn't really how rfkill is supposed to be used - it's
+> intended as a signalling mechanism to/from the device, which the
+> driver (and partially cfg80211) will handle - having a separate
+> rfkill instance for a regulator is confusing, the driver should
+> use the regulator instead to turn off the device when requested.
 
-Hi Johan,
+OTOH, the rfkill-gpio is essentially the same thing, and it *does* get
+used - by ACPI even, to control a GPS chip. And I'm not even sure that
+there's a clear place to put this since there probably aren't any GPS
+drivers?
 
-This series looks good, I will (hopefully) send a Tested-by in the next few days.
-
-Thanks,
-Neil
+johannes
