@@ -1,63 +1,84 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH] net: faraday: ftmac100: use new api ethtool_{get|set}_link_ksettings
-Date: Mon,  2 Jan 2017 19:53:11 +0100
-Message-ID: <1483383191-30477-1-git-send-email-tremyfr@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Philippe Reynes <tremyfr@gmail.com>
-To: davem@davemloft.net, joel@jms.id.au, gwshan@linux.vnet.ibm.com,
-        andrew@lunn.ch, andrew@aj.id.au
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH iproute2 net-next] tc: flower: support matching flags
+Date: Mon, 2 Jan 2017 19:55:22 +0100
+Message-ID: <20170102195522.7488179b@griffin>
+References: <1482930409-55059-1-git-send-email-paulb@mellanox.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Hadar Hen Zion <hadarh@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Roi Dayan <roid@mellanox.com>
+To: Paul Blakey <paulb@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:57688 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1755683AbdABSz0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 2 Jan 2017 13:55:26 -0500
+In-Reply-To: <1482930409-55059-1-git-send-email-paulb@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The ethtool api {get|set}_settings is deprecated.
-We move this driver to new api {get|set}_link_ksettings.
+On Wed, 28 Dec 2016 15:06:49 +0200, Paul Blakey wrote:
+> Enhance flower to support matching on flags.
+> 
+> The 1st flag allows to match on whether the packet is
+> an IP fragment.
+> 
+> Example:
+> 
+> 	# add a flower filter that will drop fragmented packets
+> 	# (bit 0 of control flags)
+> 	tc filter add dev ens4f0 protocol ip parent ffff: \
+> 		flower \
+> 		src_mac e4:1d:2d:fd:8b:01 \
+> 		dst_mac e4:1d:2d:fd:8b:02 \
+> 		indev ens4f0 \
+> 		matching_flags 0x1/0x1 \
+> 	action drop
 
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
----
- drivers/net/ethernet/faraday/ftmac100.c |   14 ++++++++------
- 1 files changed, 8 insertions(+), 6 deletions(-)
+This is very poor API. First, how is the user supposed to know what
+those magic values in "matching_flags" mean? At the very least, it
+should be documented in the man page.
 
-diff --git a/drivers/net/ethernet/faraday/ftmac100.c b/drivers/net/ethernet/faraday/ftmac100.c
-index dce5f7b..c0ddbbe 100644
---- a/drivers/net/ethernet/faraday/ftmac100.c
-+++ b/drivers/net/ethernet/faraday/ftmac100.c
-@@ -825,16 +825,18 @@ static void ftmac100_get_drvinfo(struct net_device *netdev,
- 	strlcpy(info->bus_info, dev_name(&netdev->dev), sizeof(info->bus_info));
- }
- 
--static int ftmac100_get_settings(struct net_device *netdev, struct ethtool_cmd *cmd)
-+static int ftmac100_get_link_ksettings(struct net_device *netdev,
-+				       struct ethtool_link_ksettings *cmd)
- {
- 	struct ftmac100 *priv = netdev_priv(netdev);
--	return mii_ethtool_gset(&priv->mii, cmd);
-+	return mii_ethtool_get_link_ksettings(&priv->mii, cmd);
- }
- 
--static int ftmac100_set_settings(struct net_device *netdev, struct ethtool_cmd *cmd)
-+static int ftmac100_set_link_ksettings(struct net_device *netdev,
-+				       const struct ethtool_link_ksettings *cmd)
- {
- 	struct ftmac100 *priv = netdev_priv(netdev);
--	return mii_ethtool_sset(&priv->mii, cmd);
-+	return mii_ethtool_set_link_ksettings(&priv->mii, cmd);
- }
- 
- static int ftmac100_nway_reset(struct net_device *netdev)
-@@ -850,11 +852,11 @@ static u32 ftmac100_get_link(struct net_device *netdev)
- }
- 
- static const struct ethtool_ops ftmac100_ethtool_ops = {
--	.set_settings		= ftmac100_set_settings,
--	.get_settings		= ftmac100_get_settings,
- 	.get_drvinfo		= ftmac100_get_drvinfo,
- 	.nway_reset		= ftmac100_nway_reset,
- 	.get_link		= ftmac100_get_link,
-+	.get_link_ksettings	= ftmac100_get_link_ksettings,
-+	.set_link_ksettings	= ftmac100_set_link_ksettings,
- };
- 
- /******************************************************************************
--- 
-1.7.4.4
+Second, why "matching_flags"? That name suggests that those modify the
+way the matching is done (to illustrate my point, I'd expect things
+like "if the packet is too short, match this rule anyway" to be a
+"matching flag"). But this is not the case. What's wrong with plain
+"flags"? Or, if you want to be more specific, perhaps packet_flags?
+
+Third, all of this looks very wrong anyway. There should be separate
+keywords for individual flags. In this case, there should be an
+"ip_fragment" flag. The tc tool should be responsible for putting the
+flags together and creating the appropriate mask. The example would
+then be:
+
+	tc filter add dev ens4f0 protocol ip parent ffff: \
+		flower \
+		src_mac e4:1d:2d:fd:8b:01 \
+		dst_mac e4:1d:2d:fd:8b:02 \
+		indev ens4f0 \
+		ip_fragment yes\
+	action drop
+
+I don't care whether it's "ip_fragment yes/no", "ip_fragment 1/0",
+"ip_fragment/noip_fragment" or similar. The important thing is it's a
+boolean flag; if specified, it's set to 0/1 and unmasked, if not
+specified, it's wildcarded.
+
+Stephen, I understand that you already applied this patch but given how
+horrible the proposed API is and that's even undocumented in this
+patch, please reconsider this. If this is released, the API is set in
+stone and, frankly, it's very user unfriendly this way.
+
+Paul, could you please prepare a patch that would introduce a more sane
+API? I'd strongly prefer what I described under "third" but should you
+strongly disagree, at least implement "second" and document the
+currently known flag values.
+
+Thanks,
+
+ Jiri
