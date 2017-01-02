@@ -1,85 +1,64 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH] net: freescale: dpaa: use new api ethtool_{get|set}_link_ksettings
-Date: Mon,  2 Jan 2017 23:49:15 +0100
-Message-ID: <1483397355-18738-1-git-send-email-tremyfr@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Philippe Reynes <tremyfr@gmail.com>
-To: madalin.bucur@nxp.com, davem@davemloft.net
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH v2 net-next 1/2] af_packet: TX_RING support for TPACKET_V3
+Date: Mon, 2 Jan 2017 17:57:10 -0500
+Message-ID: <CAF=yD-J2Sw0=iTuvPe-sa01Ld0D1U6f=R-99WLRKggap_WKdug@mail.gmail.com>
+References: <cover.1483309545.git.sowmini.varadhan@oracle.com> <bc66616d08758cfe225a4b02316b72de16e00302.1483309545.git.sowmini.varadhan@oracle.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Network Development <netdev@vger.kernel.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Willem de Bruijn <willemb@google.com>,
+        David Miller <davem@davemloft.net>
+To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wj0-f195.google.com ([209.85.210.195]:35898 "EHLO
-        mail-wj0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934372AbdABWtb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 2 Jan 2017 17:49:31 -0500
+Received: from mail-ua0-f193.google.com ([209.85.217.193]:33515 "EHLO
+        mail-ua0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755556AbdABW5y (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 2 Jan 2017 17:57:54 -0500
+Received: by mail-ua0-f193.google.com with SMTP id d5so24795987uag.0
+        for <netdev@vger.kernel.org>; Mon, 02 Jan 2017 14:57:53 -0800 (PST)
+In-Reply-To: <bc66616d08758cfe225a4b02316b72de16e00302.1483309545.git.sowmini.varadhan@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The ethtool api {get|set}_settings is deprecated.
-We move this driver to new api {get|set}_link_ksettings.
+On Sun, Jan 1, 2017 at 5:45 PM, Sowmini Varadhan
+<sowmini.varadhan@oracle.com> wrote:
+> Although TPACKET_V3 Rx has some benefits over TPACKET_V2 Rx, *_v3
+> does not currently have TX_RING support. As a result an application
+> that wants the best perf for Tx and Rx (e.g. to handle request/response
+> transacations) ends up needing 2 sockets, one with *_v2 for Tx and
+> another with *_v3 for Rx.
+>
+> This patch enables TPACKET_V2 compatible Tx features in TPACKET_V3
+> so that an application can use a single descriptor to get the benefits
+> of _v3 RX_RING and _v2 TX_RING. An application may do a block-send by
+> first filling up multiple frames in the Tx ring and then triggering a
+> transmit. This patch only support fixed size Tx frames for TPACKET_V3,
+> and requires that tp_next_offset must be zero.
+>
+> Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+> ---
+> v2: sanity checks on tp_next_offset and corresponding Doc updates
+>     as suggested by Willem de Bruijn
+>
+>  Documentation/networking/packet_mmap.txt |    9 +++++++--
+>  net/packet/af_packet.c                   |   27 +++++++++++++++++++--------
+>  2 files changed, 26 insertions(+), 10 deletions(-)
 
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
----
- drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c |   18 +++++++++---------
- 1 files changed, 9 insertions(+), 9 deletions(-)
+> @@ -4180,9 +4193,7 @@ static int packet_set_ring(struct sock *sk, union tpacket_req_u *req_u,
+>                         goto out;
+>                 switch (po->tp_version) {
+>                 case TPACKET_V3:
+> -               /* Transmit path is not supported. We checked
+> -                * it above but just being paranoid
+> -                */
+> +                       /* Block transmit is not supported yet */
+>                         if (!tx_ring)
+>                                 init_prb_bdqc(po, rb, pg_vec, req_u);
 
-diff --git a/drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c b/drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c
-index 27e7044..15571e2 100644
---- a/drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c
-+++ b/drivers/net/ethernet/freescale/dpaa/dpaa_ethtool.c
-@@ -72,8 +72,8 @@
- #define DPAA_STATS_PERCPU_LEN ARRAY_SIZE(dpaa_stats_percpu)
- #define DPAA_STATS_GLOBAL_LEN ARRAY_SIZE(dpaa_stats_global)
- 
--static int dpaa_get_settings(struct net_device *net_dev,
--			     struct ethtool_cmd *et_cmd)
-+static int dpaa_get_link_ksettings(struct net_device *net_dev,
-+				   struct ethtool_link_ksettings *cmd)
- {
- 	int err;
- 
-@@ -82,13 +82,13 @@ static int dpaa_get_settings(struct net_device *net_dev,
- 		return 0;
- 	}
- 
--	err = phy_ethtool_gset(net_dev->phydev, et_cmd);
-+	err = phy_ethtool_ksettings_get(net_dev->phydev, cmd);
- 
- 	return err;
- }
- 
--static int dpaa_set_settings(struct net_device *net_dev,
--			     struct ethtool_cmd *et_cmd)
-+static int dpaa_set_link_ksettings(struct net_device *net_dev,
-+				   const struct ethtool_link_ksettings *cmd)
- {
- 	int err;
- 
-@@ -97,9 +97,9 @@ static int dpaa_set_settings(struct net_device *net_dev,
- 		return -ENODEV;
- 	}
- 
--	err = phy_ethtool_sset(net_dev->phydev, et_cmd);
-+	err = phy_ethtool_ksettings_set(net_dev->phydev, cmd);
- 	if (err < 0)
--		netdev_err(net_dev, "phy_ethtool_sset() = %d\n", err);
-+		netdev_err(net_dev, "phy_ethtool_ksettings_set() = %d\n", err);
- 
- 	return err;
- }
-@@ -402,8 +402,6 @@ static void dpaa_get_strings(struct net_device *net_dev, u32 stringset,
- }
- 
- const struct ethtool_ops dpaa_ethtool_ops = {
--	.get_settings = dpaa_get_settings,
--	.set_settings = dpaa_set_settings,
- 	.get_drvinfo = dpaa_get_drvinfo,
- 	.get_msglevel = dpaa_get_msglevel,
- 	.set_msglevel = dpaa_set_msglevel,
-@@ -414,4 +412,6 @@ static void dpaa_get_strings(struct net_device *net_dev, u32 stringset,
- 	.get_sset_count = dpaa_get_sset_count,
- 	.get_ethtool_stats = dpaa_get_ethtool_stats,
- 	.get_strings = dpaa_get_strings,
-+	.get_link_ksettings = dpaa_get_link_ksettings,
-+	.set_link_ksettings = dpaa_set_link_ksettings,
- };
--- 
-1.7.4.4
+
+One more point. We should validate the tpacket_req3 input and fail if
+unsupported options are passed. Specifically, fail if any of
+{tp_retire_blk_tov, tp_sizeof_priv, tp_feature_req_word} is non-zero.
+
+Otherwise looks good to me.
