@@ -1,58 +1,130 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH 1/2] Documentation: devicetree: Add bindings info for
- rfkill-regulator
-Date: Mon, 02 Jan 2017 15:57:07 +0100
-Message-ID: <1483369027.21014.11.camel@sipsolutions.net>
-References: <20161101105840.24313-1-paul@crapouillou.net>
-         <20161109182612.i4rnsdxulk5ghemz@rob-hp-laptop>
-         (sfid-20161109_192614_527668_B4DB10FA)
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH net-next] net/sched: cls_flower: Add user specified data
+Date: Mon, 2 Jan 2017 09:59:49 -0500
+Message-ID: <14675f63-4212-2f72-da4c-cd24b9d10881@mojatatu.com>
+References: <1483362833-52114-1-git-send-email-paulb@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: "David S . Miller" <davem@davemloft.net>,
-        Mark Rutland <mark.rutland@arm.com>, netdev@vger.kernel.org,
-        devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-wireless@vger.kernel.org,
-        Maarten ter Huurne <maarten@treewalker.org>
-To: Rob Herring <robh@kernel.org>, Paul Cercueil <paul@crapouillou.net>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Pirko <jiri@mellanox.com>,
+        Hadar Hen Zion <hadarh@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Roi Dayan <roid@mellanox.com>, Roman Mashak <mrv@mojatatu.com>
+To: Paul Blakey <paulb@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:40274 "EHLO sipsolutions.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755833AbdABO5Q (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 2 Jan 2017 09:57:16 -0500
-In-Reply-To: <20161109182612.i4rnsdxulk5ghemz@rob-hp-laptop> (sfid-20161109_192614_527668_B4DB10FA)
+Received: from mail-io0-f193.google.com ([209.85.223.193]:35136 "EHLO
+        mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932909AbdABO7w (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 2 Jan 2017 09:59:52 -0500
+Received: by mail-io0-f193.google.com with SMTP id f73so54323652ioe.2
+        for <netdev@vger.kernel.org>; Mon, 02 Jan 2017 06:59:51 -0800 (PST)
+In-Reply-To: <1483362833-52114-1-git-send-email-paulb@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-> My understanding is it is generally felt that using the regulator
-> enable GPIO commonly found on WiFi chips for rfkill is an abuse of
-> rfkill as it is more that just an RF disable. From a DT standpoint,
-> this seems like creating a binding for what a Linux driver wants.
-> Instead, I think this should be either a GPIO or GPIO regulator and
-> the driver for the WiFi chip should decide whether or not to register
-> that as an rfkill driver.
+We have been using a cookie as well for actions (which we have been
+using but have been too lazy to submit so far). I am going to port
+it over to the newer kernels and post it.
+In our case that is intended to be opaque to the kernel i.e kernel
+never inteprets it; in that case it is similar to the kernel
+FIB protocol field.
 
-Sadly, there are two ways to use rfkill right now:
+In your case - could this cookie have been a class/flowid
+(a 32 bit)?
+And would it not make more sense for it the cookie to be
+generic to all classifiers? i.e why is it specific to flower?
 
-1) the more common, and correct, way of having rfkill be a control tied
-to a specific wireless interface (wifi, BT, FM, GPS, NFC, ...), to both
-report the hardware button state that might be tied to it, and to
-control - centrally - the software state.
+cheers,
+jamal
 
-2) the platform way, which some ACPI based platforms do, which register
-an rfkill instance, which often allows controlling in software the
-hardware line that then toggles the hardware rfkill on the WiFi NIC.
-
-
-It's not clear to me what this patch is trying to achieve. It seems a
-bit like something else entirely, which would be using it to toggle the
-power for a wifi device? I agree that doesn't seem appropriate, and
-instead the driver could bind to the regulator and disable it when wifi
-gets disabled (by rfkill or simply by taking all interfaces down.)
-
-
-In fact, given that there are no in-tree users, I'm tempted to remove
-the rfkill-regulator entirely. Thoughts?
-
-johannes
+On 17-01-02 08:13 AM, Paul Blakey wrote:
+> This is to support saving extra data that might be helpful on retrieval.
+> First use case is upcoming openvswitch flow offloads, extra data will
+> include UFID and port mappings for each added flow.
+>
+> Signed-off-by: Paul Blakey <paulb@mellanox.com>
+> Reviewed-by: Roi Dayan <roid@mellanox.com>
+> Acked-by: Jiri Pirko <jiri@mellanox.com>
+> ---
+>  include/uapi/linux/pkt_cls.h |  3 +++
+>  net/sched/cls_flower.c       | 22 +++++++++++++++++++++-
+>  2 files changed, 24 insertions(+), 1 deletion(-)
+>
+> diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
+> index cb4bcdc..ca9bbe3 100644
+> --- a/include/uapi/linux/pkt_cls.h
+> +++ b/include/uapi/linux/pkt_cls.h
+> @@ -471,10 +471,13 @@ enum {
+>  	TCA_FLOWER_KEY_ICMPV6_TYPE,	/* u8 */
+>  	TCA_FLOWER_KEY_ICMPV6_TYPE_MASK,/* u8 */
+>
+> +	TCA_FLOWER_COOKIE,		/* binary */
+> +
+>  	__TCA_FLOWER_MAX,
+>  };
+>
+>  #define TCA_FLOWER_MAX (__TCA_FLOWER_MAX - 1)
+> +#define FLOWER_MAX_COOKIE_SIZE 128
+>
+>  enum {
+>  	TCA_FLOWER_KEY_FLAGS_IS_FRAGMENT = (1 << 0),
+> diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
+> index 333f8e2..e2f5b25 100644
+> --- a/net/sched/cls_flower.c
+> +++ b/net/sched/cls_flower.c
+> @@ -85,6 +85,8 @@ struct cls_fl_filter {
+>  	struct rcu_head	rcu;
+>  	struct tc_to_netdev tc;
+>  	struct net_device *hw_dev;
+> +	size_t cookie_len;
+> +	long cookie[0];
+>  };
+>
+>  static unsigned short int fl_mask_range(const struct fl_flow_mask *mask)
+> @@ -794,6 +796,9 @@ static int fl_change(struct net *net, struct sk_buff *in_skb,
+>  	struct cls_fl_filter *fnew;
+>  	struct nlattr *tb[TCA_FLOWER_MAX + 1];
+>  	struct fl_flow_mask mask = {};
+> +	const struct nlattr *attr;
+> +	size_t cookie_len = 0;
+> +	void *cookie;
+>  	int err;
+>
+>  	if (!tca[TCA_OPTIONS])
+> @@ -806,10 +811,22 @@ static int fl_change(struct net *net, struct sk_buff *in_skb,
+>  	if (fold && handle && fold->handle != handle)
+>  		return -EINVAL;
+>
+> -	fnew = kzalloc(sizeof(*fnew), GFP_KERNEL);
+> +	if (tb[TCA_FLOWER_COOKIE]) {
+> +		attr = tb[TCA_FLOWER_COOKIE];
+> +		cookie_len = nla_len(attr);
+> +		cookie = nla_data(attr);
+> +		if (cookie_len > FLOWER_MAX_COOKIE_SIZE)
+> +			return -EINVAL;
+> +	}
+> +
+> +	fnew = kzalloc(sizeof(*fnew) + cookie_len, GFP_KERNEL);
+>  	if (!fnew)
+>  		return -ENOBUFS;
+>
+> +	fnew->cookie_len = cookie_len;
+> +	if (cookie_len)
+> +		memcpy(fnew->cookie, cookie, cookie_len);
+> +
+>  	err = tcf_exts_init(&fnew->exts, TCA_FLOWER_ACT, 0);
+>  	if (err < 0)
+>  		goto errout;
+> @@ -1151,6 +1168,9 @@ static int fl_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
+>
+>  	nla_put_u32(skb, TCA_FLOWER_FLAGS, f->flags);
+>
+> +	if (f->cookie_len)
+> +		nla_put(skb, TCA_FLOWER_COOKIE, f->cookie_len, f->cookie);
+> +
+>  	if (tcf_exts_dump(skb, &f->exts))
+>  		goto nla_put_failure;
+>
+>
