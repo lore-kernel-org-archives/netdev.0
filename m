@@ -1,138 +1,146 @@
 From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: [PATCH nf-next 0/7] xtables: use dedicated copy_to_user helpers
-Date: Mon,  2 Jan 2017 17:19:39 -0500
-Message-ID: <1483395586-105774-1-git-send-email-willemdebruijn.kernel@gmail.com>
+Subject: [PATCH nf-next 1/7] xtables: add xt_match, xt_target and data copy_to_user functions
+Date: Mon,  2 Jan 2017 17:19:40 -0500
+Message-ID: <1483395586-105774-2-git-send-email-willemdebruijn.kernel@gmail.com>
+References: <1483395586-105774-1-git-send-email-willemdebruijn.kernel@gmail.com>
 Cc: netdev@vger.kernel.org, davem@davemloft.net, fw@strlen.de,
         dborkman@iogearbox.net, pablo@netfilter.org,
         Willem de Bruijn <willemb@google.com>
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f195.google.com ([209.85.216.195]:32998 "EHLO
+Received: from mail-qt0-f195.google.com ([209.85.216.195]:34946 "EHLO
         mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933434AbdABWT4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 2 Jan 2017 17:19:56 -0500
+        with ESMTP id S933490AbdABWT5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 2 Jan 2017 17:19:57 -0500
+In-Reply-To: <1483395586-105774-1-git-send-email-willemdebruijn.kernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Willem de Bruijn <willemb@google.com>
 
-xtables list and save interfaces share xt_match and xt_target state
-with userspace. The kernel and userspace definitions of these structs
-differ. Currently, the structs are copied wholesale, then patched up.
-The match and target structs contain a kernel pointer. Type-specific
-data may contain additional kernel-only state.
+xt_entry_target, xt_entry_match and their private data may contain
+kernel data.
 
-Introduce xt_match_to_user and xt_target_to_user helper functions to
-copy only fields intended to be shared with userspace.
+Introduce helper functions xt_match_to_user, xt_target_to_user and
+xt_data_to_user that copy only the expected fields. These replace
+existing logic that calls copy_to_user on entire structs, then
+overwrites select fields.
 
-Introduce xt_data_to_user to do the same for type-specific state. Add
-a field .usersize to xt_match and xt_target to define the range of
-bytes in .matchsize that should be shared with userspace. All matches
-and targets that define kernel-only data store this at the tail of
-their struct.
+Private data is defined in xt_match and xt_target. All matches and
+targets that maintain kernel data store this at the tail of their
+private structure. Extend xt_match and xt_target with .usersize to
+limit how many bytes of data are copied. The remainder is cleared.
 
-Tested:
+If compatsize is specified, usersize can only safely be used if all
+fields up to usersize use platform-independent types. Otherwise, the
+compat_to_user callback must be defined.
 
-  Ran iptables-test.py from iptables.git, with both a 64-bit and
-  32-bit compat binary. 603/603 tests passed both before and after
-  the patches (out of 705, but some CONFIGs were not enabled).
+This patch does not yet enable the support logic.
 
-  Also ran the following example queries manually, again using 64-bit
-  and 32-bit compat paths:
+Signed-off-by: Willem de Bruijn <willemb@google.com>
+---
+ include/linux/netfilter/x_tables.h |  9 +++++++
+ net/netfilter/x_tables.c           | 54 ++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 63 insertions(+)
 
-  iptables -A INPUT  -m string --algo bm --string 'xxx' -j LOG
-  iptables -L
-  iptables-save
-
-  ip6tables -A INPUT  -m string --algo bm --string 'xxx' -j LOG
-  ip6tables -L
-  ip6tables-save
-
-  ebtables -A INPUT --limit 3 -j ACCEPT
-  ebtables -L
-
-  arptables -A INPUT --source-mac 00:11:22:33:44:55 -j ACCEPT
-  arptables -L
-
-  An instrumented binary that initializes its buffer with 0x66 bytes
-  shows the result of the patchset.
-
-  iptables LOG target in hex before and after. The xt_target struct
-  only has its size, name and revision specified. Trailing bytes in
-  the name field are not zeroed:
-
-    40 00 4c 4f 47 00 00 00
-    40 e1 0a a0 ff ff ff ff
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    04 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-
-    40 00 4c 4f 47 00 66 66
-    66 66 66 66 66 66 66 66
-    66 66 66 66 66 66 66 66
-    66 66 66 66 66 66 66 00
-    04 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-
-  ebtables limit match in hex before and after. Only the avg and burst
-  fields of ebt_limit_info are shared.
-
-    6c 69 6d 69 74 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    20 00 00 00 00 00 00 00
-    05 0d 00 00 05 00 00 00
-    66 de fc ff 00 00 00 00
-    50 d0 00 00 50 d0 00 00
-    a9 29 00 00 00 00 00 00
-
-    6c 69 6d 69 74 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    20 00 00 00 00 00 00 00
-    05 0d 00 00 05 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-
-
-Willem de Bruijn (7):
-  xtables: add xt_match, xt_target and data copy_to_user functions
-  iptables: use match, target and data copy_to_user helpers
-  ip6tables: use match, target and data copy_to_user helpers
-  arptables: use match, target and data copy_to_user helpers
-  ebtables: use match, target and data copy_to_user helpers
-  xtables: use match, target and data copy_to_user helpers in compat
-  xtables: extend matches and targets with .usersize
-
- include/linux/netfilter/x_tables.h |  9 +++++
- net/bridge/netfilter/ebt_limit.c   |  1 +
- net/bridge/netfilter/ebtables.c    | 78 +++++++++++++++++++++++---------------
- net/ipv4/netfilter/arp_tables.c    | 15 +++-----
- net/ipv4/netfilter/ip_tables.c     | 21 +++-------
- net/ipv4/netfilter/ipt_CLUSTERIP.c |  1 +
- net/ipv6/netfilter/ip6_tables.c    | 21 +++-------
- net/ipv6/netfilter/ip6t_NPT.c      |  2 +
- net/netfilter/x_tables.c           | 68 ++++++++++++++++++++++++++++-----
- net/netfilter/xt_CT.c              |  3 ++
- net/netfilter/xt_RATEEST.c         |  1 +
- net/netfilter/xt_TEE.c             |  2 +
- net/netfilter/xt_bpf.c             |  2 +
- net/netfilter/xt_cgroup.c          |  1 +
- net/netfilter/xt_connlimit.c       |  1 +
- net/netfilter/xt_hashlimit.c       |  4 ++
- net/netfilter/xt_limit.c           |  2 +
- net/netfilter/xt_quota.c           |  1 +
- net/netfilter/xt_rateest.c         |  1 +
- net/netfilter/xt_string.c          |  1 +
- 20 files changed, 154 insertions(+), 81 deletions(-)
-
+diff --git a/include/linux/netfilter/x_tables.h b/include/linux/netfilter/x_tables.h
+index 5117e4d..be378cf 100644
+--- a/include/linux/netfilter/x_tables.h
++++ b/include/linux/netfilter/x_tables.h
+@@ -167,6 +167,7 @@ struct xt_match {
+ 
+ 	const char *table;
+ 	unsigned int matchsize;
++	unsigned int usersize;
+ #ifdef CONFIG_COMPAT
+ 	unsigned int compatsize;
+ #endif
+@@ -207,6 +208,7 @@ struct xt_target {
+ 
+ 	const char *table;
+ 	unsigned int targetsize;
++	unsigned int usersize;
+ #ifdef CONFIG_COMPAT
+ 	unsigned int compatsize;
+ #endif
+@@ -287,6 +289,13 @@ int xt_check_match(struct xt_mtchk_param *, unsigned int size, u_int8_t proto,
+ int xt_check_target(struct xt_tgchk_param *, unsigned int size, u_int8_t proto,
+ 		    bool inv_proto);
+ 
++int xt_match_to_user(const struct xt_entry_match *m,
++		     struct xt_entry_match __user *u);
++int xt_target_to_user(const struct xt_entry_target *t,
++		      struct xt_entry_target __user *u);
++int xt_data_to_user(void __user *dst, const void *src,
++		    int usersize, int size);
++
+ void *xt_copy_counters_from_user(const void __user *user, unsigned int len,
+ 				 struct xt_counters_info *info, bool compat);
+ 
+diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
+index 2ff4996..feccf52 100644
+--- a/net/netfilter/x_tables.c
++++ b/net/netfilter/x_tables.c
+@@ -262,6 +262,60 @@ struct xt_target *xt_request_find_target(u8 af, const char *name, u8 revision)
+ }
+ EXPORT_SYMBOL_GPL(xt_request_find_target);
+ 
++
++static int xt_obj_to_user(u16 __user *psize, u16 size,
++			  void __user *pname, const char *name,
++			  u8 __user *prev, u8 rev)
++{
++	if (put_user(size, psize))
++		return -EFAULT;
++	if (copy_to_user(pname, name, strlen(name) + 1))
++		return -EFAULT;
++	if (put_user(rev, prev))
++		return -EFAULT;
++
++	return 0;
++}
++
++#define XT_OBJ_TO_USER(U, K, TYPE, C_SIZE)				\
++	xt_obj_to_user(&U->u.TYPE##_size, C_SIZE ? : K->u.TYPE##_size,	\
++		       U->u.user.name, K->u.kernel.TYPE->name,		\
++		       &U->u.user.revision, K->u.kernel.TYPE->revision)
++
++int xt_data_to_user(void __user *dst, const void *src,
++		    int usersize, int size)
++{
++	usersize = usersize ? : size;
++	if (copy_to_user(dst, src, usersize))
++		return -EFAULT;
++	if (usersize != size && clear_user(dst + usersize, size - usersize))
++		return -EFAULT;
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(xt_data_to_user);
++
++#define XT_DATA_TO_USER(U, K, TYPE, C_SIZE)				\
++	xt_data_to_user(U->data, K->data,				\
++			K->u.kernel.TYPE->usersize,			\
++			C_SIZE ? : K->u.kernel.TYPE->TYPE##size)
++
++int xt_match_to_user(const struct xt_entry_match *m,
++		     struct xt_entry_match __user *u)
++{
++	return XT_OBJ_TO_USER(u, m, match, 0) ||
++	       XT_DATA_TO_USER(u, m, match, 0);
++}
++EXPORT_SYMBOL_GPL(xt_match_to_user);
++
++int xt_target_to_user(const struct xt_entry_target *t,
++		      struct xt_entry_target __user *u)
++{
++	return XT_OBJ_TO_USER(u, t, target, 0) ||
++	       XT_DATA_TO_USER(u, t, target, 0);
++}
++EXPORT_SYMBOL_GPL(xt_target_to_user);
++
+ static int match_revfn(u8 af, const char *name, u8 revision, int *bestp)
+ {
+ 	const struct xt_match *m;
 -- 
 2.8.0.rc3.226.g39d4020
