@@ -1,22 +1,80 @@
-From: "Dr. David White" <"wd."@eagle.ocn.ne.jp>
-Subject: Urgent Please;;
-Date: Tue, 3 Jan 2017 02:42:59 +0900 (JST)
-Message-ID: <288948803.116392719.1483378979506.JavaMail.root__29629.8951296651$1483379833$gmane$org@eagle.ocn.ne.jp>
-Reply-To: "Dr. David White" <david_white34@mynet.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH - resubmit] igmp: Make igmp group member RFC 3376
+ compliant
+Date: Mon, 02 Jan 2017 13:01:36 -0500 (EST)
+Message-ID: <20170102.130136.887466078136443210.davem@davemloft.net>
+References: <20170102133836.GA31184@sparky-lenivo.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: unlisted-recipients:; (no To-header on input)
+Cc: haliu@redhat.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+        kaber@trash.net, netdev@vger.kernel.org
+To: mtesar@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mbkd0127.ocn.ad.jp ([153.149.230.28]:40226 "EHLO
-        mbkd0127.ocn.ad.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933378AbdABR4o (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 2 Jan 2017 12:56:44 -0500
+Received: from shards.monkeyblade.net ([184.105.139.130]:39668 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756163AbdABSBi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 2 Jan 2017 13:01:38 -0500
+In-Reply-To: <20170102133836.GA31184@sparky-lenivo.brq.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear,
-With due respect to your person and much sincerity of purpose. I have a business proposal which I will like to handle with you and $14.5 Million USD is involve. But be rest assured that everything is legal and risk free as I have concluded all the arrangements and the legal papers that will back the transaction up. Kindly indicate your interest as to enable me tell you more detail of the proposal. Waiting for your urgent response.
+From: Michal Tesar <mtesar@redhat.com>
+Date: Mon, 2 Jan 2017 14:38:36 +0100
 
-Yours Faithfully,
-Dr. David White
+> 5.2. Action on Reception of a Query
+> 
+>  When a system receives a Query, it does not respond immediately.
+>  Instead, it delays its response by a random amount of time, bounded
+>  by the Max Resp Time value derived from the Max Resp Code in the
+>  received Query message.  A system may receive a variety of Queries on
+>  different interfaces and of different kinds (e.g., General Queries,
+>  Group-Specific Queries, and Group-and-Source-Specific Queries), each
+>  of which may require its own delayed response.
+> 
+>  Before scheduling a response to a Query, the system must first
+>  consider previously scheduled pending responses and in many cases
+>  schedule a combined response.  Therefore, the system must be able to
+>  maintain the following state:
+> 
+>  o A timer per interface for scheduling responses to General Queries.
+> 
+>  o A per-group and interface timer for scheduling responses to Group-
+>    Specific and Group-and-Source-Specific Queries.
+> 
+>  o A per-group and interface list of sources to be reported in the
+>    response to a Group-and-Source-Specific Query.
+> 
+>  When a new Query with the Router-Alert option arrives on an
+>  interface, provided the system has state to report, a delay for a
+>  response is randomly selected in the range (0, [Max Resp Time]) where
+>  Max Resp Time is derived from Max Resp Code in the received Query
+>  message.  The following rules are then used to determine if a Report
+>  needs to be scheduled and the type of Report to schedule.  The rules
+>  are considered in order and only the first matching rule is applied.
+> 
+>  1. If there is a pending response to a previous General Query
+>     scheduled sooner than the selected delay, no additional response
+>     needs to be scheduled.
+> 
+>  2. If the received Query is a General Query, the interface timer is
+>     used to schedule a response to the General Query after the
+>     selected delay.  Any previously pending response to a General
+>     Query is canceled.
+> --8<--
+> 
+> Currently the timer is rearmed with new random expiration time for
+> every incoming query regardless of possibly already pending report.
+> Which is not aligned with the above RFE.
+> It also might happen that higher rate of incoming queries can
+> postpone the report after the expiration time of the first query
+> causing group membership loss.
+> 
+> Now the per interface general query timer is rearmed only
+> when there is no pending report already scheduled on that interface or
+> the newly selected expiration time is before the already pending
+> scheduled report.
+> 
+> Signed-off-by: Michal Tesar <mtesar@redhat.com>
+
+Applied and queued up for -stable, thanks.
