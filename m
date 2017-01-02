@@ -1,88 +1,44 @@
-From: Ian Kumlien <ian.kumlien@gmail.com>
-Subject: [PATCH] Update pptp handling to avoid null pointer deref.
-Date: Mon,  2 Jan 2017 00:19:36 +0100
-Message-ID: <20170101231936.5905-1-ian.kumlien@gmail.com>
-Cc: Ian Kumlien <ian.kumlien@gmail.com>
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f67.google.com ([209.85.215.67]:36393 "EHLO
-        mail-lf0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755167AbdAAXUV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 1 Jan 2017 18:20:21 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH for-next 03/11] IB/mlx5: Add helper
+ mlx5_ib_post_send_wait
+Date: Sun, 01 Jan 2017 21:10:26 -0500 (EST)
+Message-ID: <20170101.211026.2671529442746711.davem@davemloft.net>
+References: <1483305027-2573-1-git-send-email-saeedm@mellanox.com>
+        <1483305027-2573-4-git-send-email-saeedm@mellanox.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+        ilyal-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, artemyko-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, binoy.jayan-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org,
+        leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+To: saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1483305027-2573-4-git-send-email-saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-__skb_flow_dissect can be called with a skb or a data packet, either
-can be NULL. All calls seems to have been moved to __skb_header_pointer
-except the pptp handling which is still calling skb_header_pointer.
+From: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Date: Sun,  1 Jan 2017 23:10:19 +0200
 
-skb_header_pointer will use skb->data and thus:
-[  109.556866] BUG: unable to handle kernel NULL pointer dereference at 0000000000000080
-[  109.557102] IP: [<ffffffff88dc02f8>] __skb_flow_dissect+0xa88/0xce0
-[  109.557263] PGD 0
-[  109.557338]
-[  109.557484] Oops: 0000 [#1] SMP
-[  109.557562] Modules linked in: chaoskey
-[  109.557783] CPU: 2 PID: 0 Comm: swapper/2 Not tainted 4.9.0 #79
-[  109.557867] Hardware name: Supermicro A1SRM-LN7F/LN5F/A1SRM-LN7F-2758, BIOS 1.0c 11/04/2015
-[  109.557957] task: ffff94085c27bc00 task.stack: ffffb745c0068000
-[  109.558041] RIP: 0010:[<ffffffff88dc02f8>]  [<ffffffff88dc02f8>] __skb_flow_dissect+0xa88/0xce0
-[  109.558203] RSP: 0018:ffff94087fc83d40  EFLAGS: 00010206
-[  109.558286] RAX: 0000000000000130 RBX: ffffffff8975bf80 RCX: ffff94084fab6800
-[  109.558373] RDX: 0000000000000010 RSI: 000000000000000c RDI: 0000000000000000
-[  109.558460] RBP: 0000000000000b88 R08: 0000000000000000 R09: 0000000000000022
-[  109.558547] R10: 0000000000000008 R11: ffff94087fc83e04 R12: 0000000000000000
-[  109.558763] R13: ffff94084fab6800 R14: ffff94087fc83e04 R15: 000000000000002f
-[  109.558979] FS:  0000000000000000(0000) GS:ffff94087fc80000(0000) knlGS:0000000000000000
-[  109.559326] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-[  109.559539] CR2: 0000000000000080 CR3: 0000000281809000 CR4: 00000000001026e0
-[  109.559753] Stack:
-[  109.559957]  000000000000000c ffff94084fab6822 0000000000000001 ffff94085c2b5fc0
-[  109.560578]  0000000000000001 0000000000002000 0000000000000000 0000000000000000
-[  109.561200]  0000000000000000 0000000000000000 0000000000000000 0000000000000000
-[  109.561820] Call Trace:
-[  109.562027]  <IRQ>
-[  109.562108]  [<ffffffff88dfb4fa>] ? eth_get_headlen+0x7a/0xf0
-[  109.562522]  [<ffffffff88c5a35a>] ? igb_poll+0x96a/0xe80
-[  109.562737]  [<ffffffff88dc912b>] ? net_rx_action+0x20b/0x350
-[  109.562953]  [<ffffffff88546d68>] ? __do_softirq+0xe8/0x280
-[  109.563169]  [<ffffffff8854704a>] ? irq_exit+0xaa/0xb0
-[  109.563382]  [<ffffffff8847229b>] ? do_IRQ+0x4b/0xc0
-[  109.563597]  [<ffffffff8902d4ff>] ? common_interrupt+0x7f/0x7f
-[  109.563810]  <EOI>
-[  109.563890]  [<ffffffff88d57530>] ? cpuidle_enter_state+0x130/0x2c0
-[  109.564304]  [<ffffffff88d57520>] ? cpuidle_enter_state+0x120/0x2c0
-[  109.564520]  [<ffffffff8857eacf>] ? cpu_startup_entry+0x19f/0x1f0
-[  109.564737]  [<ffffffff8848d55a>] ? start_secondary+0x12a/0x140
-[  109.564950] Code: 83 e2 20 a8 80 0f 84 60 01 00 00 c7 04 24 08 00
-00 00 66 85 d2 0f 84 be fe ff ff e9 69 fe ff ff 8b 34 24 89 f2 83 c2
-04 66 85 c0 <41> 8b 84 24 80 00 00 00 0f 49 d6 41 8d 31 01 d6 41 2b 84
-24 84
-[  109.569959] RIP  [<ffffffff88dc02f8>] __skb_flow_dissect+0xa88/0xce0
-[  109.570245]  RSP <ffff94087fc83d40>
-[  109.570453] CR2: 0000000000000080
----
+> diff --git a/drivers/infiniband/hw/mlx5/mr.c b/drivers/infiniband/hw/mlx5/mr.c
+> index 8f608deb..afb6dc1 100644
+> --- a/drivers/infiniband/hw/mlx5/mr.c
+> +++ b/drivers/infiniband/hw/mlx5/mr.c
+> @@ -891,16 +891,40 @@ static inline void mlx5_ib_init_umr_context(struct mlx5_ib_umr_context *context)
+>  	init_completion(&context->done);
+>  }
+>  
+> +static inline int mlx5_ib_post_send_wait(struct mlx5_ib_dev *dev,
+> +					 struct mlx5_umr_wr *umrwr)
 
-Signed-off-by: Ian Kumlien <ian.kumlien@gmail.com>
----
- net/core/flow_dissector.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+Please do not use 'inline' in foo.c files, let the compiler decide.
 
-diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index c6d8207ffa7e..32e4e0158846 100644
---- a/net/core/flow_dissector.c
-+++ b/net/core/flow_dissector.c
-@@ -445,8 +445,9 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
- 			if (hdr->flags & GRE_ACK)
- 				offset += sizeof(((struct pptp_gre_header *)0)->ack);
- 
--			ppp_hdr = skb_header_pointer(skb, nhoff + offset,
--						     sizeof(_ppp_hdr), _ppp_hdr);
-+			ppp_hdr = __skb_header_pointer(skb, nhoff + offset,
-+						     sizeof(_ppp_hdr),
-+						     data, hlen, _ppp_hdr);
- 			if (!ppp_hdr)
- 				goto out_bad;
- 
--- 
-2.11.0
+I know this is already happening in this file, but that should be
+continued rather than replicated further.
+
+Thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
