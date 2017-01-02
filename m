@@ -1,26 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: wireless-drivers-next 2017-01-02
-Date: Mon, 02 Jan 2017 15:46:30 -0500 (EST)
-Message-ID: <20170102.154630.299589129937596100.davem@davemloft.net>
-References: <8760lxk37o.fsf@kamboji.qca.qualcomm.com>
+Subject: Re: [PATCH net] Documentation/networking: fix typo in mpls-sysctl
+Date: Mon, 02 Jan 2017 15:49:20 -0500 (EST)
+Message-ID: <20170102.154920.2254009548776933921.davem@davemloft.net>
+References: <20170102175224.8010-1-alexander@alemayhu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: kvalo@codeaurora.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <8760lxk37o.fsf@kamboji.qca.qualcomm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, corbet@lwn.net
+To: alexander@alemayhu.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:44112 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933480AbdABUtW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 2 Jan 2017 15:49:22 -0500
+In-Reply-To: <20170102175224.8010-1-alexander@alemayhu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Kalle Valo <kvalo@codeaurora.org>
-Date: Mon, 02 Jan 2017 15:20:59 +0200
+From: Alexander Alemayhu <alexander@alemayhu.com>
+Date: Mon,  2 Jan 2017 18:52:24 +0100
 
-> first pull request for 4.11. The tree is based on 4.9 but that shouldn't
-> be a problem, at least my test pull to net-next worked ok. I'll fast
-> forward my trees after you have pulled this.
+> s/utliziation/utilization
 > 
-> Please let me know if you have any problems.
+> Signed-off-by: Alexander Alemayhu <alexander@alemayhu.com>
 
-Happy new year, pulled, thanks!
+Applied, thanks.
