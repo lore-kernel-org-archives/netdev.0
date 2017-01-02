@@ -1,36 +1,51 @@
-From: administrador <administrator@ancol.com>
-Subject: =?utf-8?q?ATENCI=C3=93N=3B?=
-Date: Mon, 02 Jan 2017 19:26:56 +0530
-Message-ID: <20170102135937.E696A1CE2E40@mail.surabaya.go.id.local>
-Reply-To: Sistemass_Adminss@mail2world.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: 8BIT
-To: Recipients <administrator@ancol.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: pull-request: mac80211 2017-01-02
+Date: Mon,  2 Jan 2017 15:39:03 +0100
+Message-ID: <20170102143904.20851-1-johannes@sipsolutions.net>
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.surabaya.go.id ([222.124.212.34]:46407 "EHLO
-        mail.surabaya.go.id.local" rhost-flags-OK-FAIL-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1755940AbdABOHp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 2 Jan 2017 09:07:45 -0500
-Content-Description: Mail message body
+Received: from s3.sipsolutions.net ([5.9.151.49]:40112 "EHLO sipsolutions.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750815AbdABOjJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 2 Jan 2017 09:39:09 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ATENCIÓN;
+Hi Dave,
 
-Su buzón ha superado el límite de almacenamiento, que es de 5 GB definidos por el administrador, quien actualmente está ejecutando en 10.9GB, no puede ser capaz de enviar o recibir correo nuevo hasta que vuelva a validar su buzón de correo electrónico. Para revalidar su buzón de correo, envíe la siguiente información a continuación:
+Happy New Year :-)
 
-nombre:
-Nombre de usuario:
-contraseña:
-Confirmar contraseña:
-E-mail:
-teléfono:
-Si usted no puede revalidar su buzón, el buzón se deshabilitará!
+Even though I was out for around two weeks, only a single fix came in,
+I guess everyone else was also out. But if people were out, then they
+won't be sending fixes soon again I suppose, and if they weren't out
+they haven't sent more fixes, so I decided to send this one to you now.
 
-Disculpa las molestias.
-Código de verificación: es: 006524
-Correo Soporte Técnico © 2016
+Please pull and let me know if there's any problem.
 
-¡gracias
-Sistemas administrador
+Thanks,
+johannes
+
+
+
+The following changes since commit eb7903bb83cc1db31a9124d4cc8a1bddebe26e33:
+
+  Merge branch 'l2tp-socket-lookup-fixes' (2017-01-01 22:07:25 -0500)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211.git tags/mac80211-for-davem-2017-01-02
+
+for you to fetch changes up to 35f432a03e41d3bf08c51ede917f94e2288fbe8c:
+
+  mac80211: initialize fast-xmit 'info' later (2017-01-02 11:28:25 +0100)
+
+----------------------------------------------------------------
+A single fix to avoid loading an skb->cb pointer too early.
+
+----------------------------------------------------------------
+Johannes Berg (1):
+      mac80211: initialize fast-xmit 'info' later
+
+ net/mac80211/tx.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
