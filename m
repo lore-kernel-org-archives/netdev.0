@@ -1,11 +1,11 @@
 From: Ian Kumlien <ian.kumlien@gmail.com>
 Subject: [PATCH] Update pptp handling to avoid null pointer deref. v2
-Date: Mon,  2 Jan 2017 09:16:26 +0100
-Message-ID: <20170102081626.25067-1-ian.kumlien@gmail.com>
+Date: Mon,  2 Jan 2017 09:18:35 +0100
+Message-ID: <20170102081835.25557-1-ian.kumlien@gmail.com>
 References: <20170101231936.5905-1-ian.kumlien@gmail.com>
 Cc: Ian Kumlien <ian.kumlien@gmail.com>
-To: linux-kernel@vger.kernel.org, netdev@linux.kernel.org,
-        stable@linux.kernel.org
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        stable@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20170101231936.5905-1-ian.kumlien@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
