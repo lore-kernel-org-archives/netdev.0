@@ -1,63 +1,76 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] drop_monitor: consider inserted data in genlmsg_end
-Date: Tue, 3 Jan 2017 08:09:25 -0500
-Message-ID: <20170103130925.GA11735@hmsreliant.think-freely.org>
-References: <20170103003910.8984-1-wr0112358@gmail.com>
+From: Stefan Hajnoczi <stefanha@gmail.com>
+Subject: Re: [PATCH net-next V2 2/3] vhost_net: tx batching
+Date: Tue, 3 Jan 2017 13:16:30 +0000
+Message-ID: <20170103131630.GB14707@stefanha-x1.localdomain>
+References: <1482912571-3157-1-git-send-email-jasowang@redhat.com>
+	<1482912571-3157-3-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Reiter Wolfgang <wr0112358@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:57459 "EHLO
-        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757248AbdACNKY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2017 08:10:24 -0500
-Content-Disposition: inline
-In-Reply-To: <20170103003910.8984-1-wr0112358@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed; boundary="===============7336991909795372643=="
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, kvm@vger.kernel.org, mst@redhat.com
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1482912571-3157-3-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 03, 2017 at 01:39:10AM +0100, Reiter Wolfgang wrote:
-> Final nlmsg_len field update must reflect inserted net_dm_drop_point
-> data.
-> 
-> This patch depends on previous patch:
-> "drop_monitor: add missing call to genlmsg_end"
-> 
-> Signed-off-by: Reiter Wolfgang <wr0112358@gmail.com>
+
+--===============7336991909795372643==
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="LpQ9ahxlCli8rRTG"
+Content-Disposition: inline
+
+
+--LpQ9ahxlCli8rRTG
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+On Wed, Dec 28, 2016 at 04:09:30PM +0800, Jason Wang wrote:
+> This patch tries to utilize tuntap rx batching by peeking the tx
+> virtqueue during transmission, if there's more available buffers in
+> the virtqueue, set MSG_MORE flag for a hint for backend (e.g tuntap)
+> to batch the packets.
+>=20
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 > ---
->  net/core/drop_monitor.c | 8 +++++++-
->  1 file changed, 7 insertions(+), 1 deletion(-)
-> 
-> diff --git a/net/core/drop_monitor.c b/net/core/drop_monitor.c
-> index f465bad..fb55327 100644
-> --- a/net/core/drop_monitor.c
-> +++ b/net/core/drop_monitor.c
-> @@ -102,7 +102,6 @@ static struct sk_buff *reset_per_cpu_data(struct per_cpu_dm_data *data)
->  	}
->  	msg = nla_data(nla);
->  	memset(msg, 0, al);
-> -	genlmsg_end(skb, msg_header);
->  	goto out;
->  
->  err:
-> @@ -112,6 +111,13 @@ static struct sk_buff *reset_per_cpu_data(struct per_cpu_dm_data *data)
->  	swap(data->skb, skb);
->  	spin_unlock_irqrestore(&data->lock, flags);
->  
-> +	if (skb) {
-> +		struct nlmsghdr *nlh = (struct nlmsghdr *)skb->data;
-> +		struct genlmsghdr *gnlh = (struct genlmsghdr *)nlmsg_data(nlh);
-> +
-> +		genlmsg_end(skb, genlmsg_data(gnlh));
-> +	}
-> +
->  	return skb;
->  }
->  
-> -- 
-> 2.9.3
-> 
-> 
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+>  drivers/vhost/net.c | 23 ++++++++++++++++++++---
+>  1 file changed, 20 insertions(+), 3 deletions(-)
+
+Reviewed-by: Stefan Hajnoczi <stefanha@redhat.com>
+
+--LpQ9ahxlCli8rRTG
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEcBAEBAgAGBQJYa6QuAAoJEJykq7OBq3PItbkH/jo+NKDhV0qrUx7lBvRPBveW
+8ojg5zXdLHyP3ydXi3LDFcwGKoL5VhStwL4BAaqXUYTgiFC5BBwABnIyQ1Iod0Jj
+3BNw3QmuFTpo2s2E4Th4ClBIsgDv4l80ukJTjiy35rdaZg1qtLiFhz7L6e8Bgbsz
+eT6dEzHWvb8iEq+CBFO589KBKxnQE17T0KNUTTzXtgUXKvwIVWZQlE+keDN9W8Kx
+3eTr2QYUhkPCxVZysYjNTpX4EfxzRd1pgRDQQjHEfFdybMIHpym1nFzlKBRPOnoZ
+CecPpfoNwIHO6pST5Q9oyZtuqPKM8IIHQ0v09bFM1yo/OwA+4oW644gqxJXF1ig=
+=O5e4
+-----END PGP SIGNATURE-----
+
+--LpQ9ahxlCli8rRTG--
+
+--===============7336991909795372643==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+Virtualization mailing list
+Virtualization@lists.linux-foundation.org
+https://lists.linuxfoundation.org/mailman/listinfo/virtualization
+--===============7336991909795372643==--
