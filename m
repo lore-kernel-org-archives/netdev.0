@@ -1,54 +1,40 @@
-From: Nicolas Pitre <nicolas.pitre@linaro.org>
-Subject: [PATCH] LiquidIO VF: s/select/imply/ for PTP_1588_CLOCK
-Date: Tue, 3 Jan 2017 13:57:00 -0500 (EST)
-Message-ID: <alpine.LFD.2.20.1701031331450.21662@knanqh.ubzr>
-References: <20170103101105.GA24780@localhost.localdomain>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next 1/3] net: dsa: remove out label in dsa_switch_setup_one
+Date: Tue, 03 Jan 2017 14:18:55 -0500
+Message-ID: <87inpweyu8.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <20170103181538.2593-1-vivien.didelot@savoirfairelinux.com> <20170103181538.2593-2-vivien.didelot@savoirfairelinux.com> <20170103183913.GB30638@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: Richard Cochran <richardcochran@gmail.com>,
-        Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>,
-        "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>, cphealy@gmail.com
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f53.google.com ([209.85.214.53]:38744 "EHLO
-        mail-it0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965460AbdACS5U (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2017 13:57:20 -0500
-Received: by mail-it0-f53.google.com with SMTP id x2so304478733itf.1
-        for <netdev@vger.kernel.org>; Tue, 03 Jan 2017 10:57:20 -0800 (PST)
-In-Reply-To: <20170103101105.GA24780@localhost.localdomain>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:49954 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757934AbdACTTa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2017 14:19:30 -0500
+In-Reply-To: <20170103183913.GB30638@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix a minor fallout from the merge of the timers and the networking 
-trees. The following error may result if the PTP_1588_CLOCK 
-prerequisites are not available:
+Hi Andrew,
 
-drivers/built-in.o: In function `ptp_clock_unregister':
-(.text+0x40e0a5): undefined reference to `pps_unregister_source'
-drivers/built-in.o: In function `ptp_clock_unregister':
-(.text+0x40e0cc): undefined reference to `posix_clock_unregister'
-drivers/built-in.o: In function `ptp_clock_event':
-(.text+0x40e249): undefined reference to `pps_event'
-drivers/built-in.o: In function `ptp_clock_register':
-(.text+0x40e5e1): undefined reference to `pps_register_source'
-drivers/built-in.o: In function `ptp_clock_register':
-(.text+0x40e62c): undefined reference to `posix_clock_register'
-drivers/built-in.o: In function `ptp_clock_register':
-(.text+0x40e68d): undefined reference to `pps_unregister_source'
+Andrew Lunn <andrew@lunn.ch> writes:
 
-Signed-off-by: Nicolas Pitre <nico@linaro.org>
+> On Tue, Jan 03, 2017 at 01:15:36PM -0500, Vivien Didelot wrote:
+>> The "out" label in dsa_switch_setup_one() is useless, thus remove it.
+>
+> Hi Vivien
+>
+> Missing a SOB.
+>
+> This one patch i'm happy with. Assuming we drop the other two, please
+> could you submit this on its own.
+>
+> Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 
-diff --git a/drivers/net/ethernet/cavium/Kconfig b/drivers/net/ethernet/cavium/Kconfig
-index bbc8bd16cb..dcbce6cac6 100644
---- a/drivers/net/ethernet/cavium/Kconfig
-+++ b/drivers/net/ethernet/cavium/Kconfig
-@@ -77,7 +77,7 @@ config OCTEON_MGMT_ETHERNET
- config LIQUIDIO_VF
- 	tristate "Cavium LiquidIO VF support"
- 	depends on 64BIT && PCI_MSI
--	select PTP_1588_CLOCK
-+	imply PTP_1588_CLOCK
- 	---help---
- 	  This driver supports Cavium LiquidIO Intelligent Server Adapter
- 	  based on CN23XX chips.
+You're right, thanks, will do.
+
+       Vivien
