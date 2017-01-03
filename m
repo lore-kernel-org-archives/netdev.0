@@ -1,62 +1,72 @@
 From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [PATCH net-next v2 21/27] net/bpf_jit: PPC: split VLAN_PRESENT bit handling
- from VLAN_TCI
-Date: Tue,  3 Jan 2017 21:52:39 +0100 (CET)
-Message-ID: <9523dd0fbc0856093f31c743781c779355e54918.1483475202.git.mirq-linux@rere.qmqm.pl>
+Subject: [PATCH net-next v2 24/27] bpf_test: prepare for VLAN_TAG_PRESENT removal
+Date: Tue,  3 Jan 2017 21:52:40 +0100 (CET)
+Message-ID: <58e4b5f61786ca36f7bbf96b1d55af24c5013996.1483475202.git.mirq-linux@rere.qmqm.pl>
 References: <cover.1483475202.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-        Paul Mackerras <paulus@samba.org>,
-        Michael Ellerman <mpe@ellerman.id.au>,
-        linuxppc-dev@lists.ozlabs.org
+Cc: Alexei Starovoitov <ast@kernel.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([84.10.57.10]:34716 "EHLO rere.qmqm.pl"
+Received: from rere.qmqm.pl ([84.10.57.10]:34718 "EHLO rere.qmqm.pl"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S935917AbdACUwp (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 3 Jan 2017 15:52:45 -0500
+        id S935925AbdACUwu (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 3 Jan 2017 15:52:50 -0500
 In-Reply-To: <cover.1483475202.git.mirq-linux@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Michał Mirosław <mirq-linux@rere.qmqm.pl>
 ---
- arch/powerpc/net/bpf_jit_comp.c | 17 +++++++++--------
- 1 file changed, 9 insertions(+), 8 deletions(-)
+ lib/test_bpf.c | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
 
-diff --git a/arch/powerpc/net/bpf_jit_comp.c b/arch/powerpc/net/bpf_jit_comp.c
-index 7e706f36e364..22ae63fb9b7d 100644
---- a/arch/powerpc/net/bpf_jit_comp.c
-+++ b/arch/powerpc/net/bpf_jit_comp.c
-@@ -377,18 +377,19 @@ static int bpf_jit_build_body(struct bpf_prog *fp, u32 *image,
- 							  hash));
- 			break;
- 		case BPF_ANC | SKF_AD_VLAN_TAG:
--		case BPF_ANC | SKF_AD_VLAN_TAG_PRESENT:
- 			BUILD_BUG_ON(FIELD_SIZEOF(struct sk_buff, vlan_tci) != 2);
--			BUILD_BUG_ON(VLAN_TAG_PRESENT != 0x1000);
- 
- 			PPC_LHZ_OFFS(r_A, r_skb, offsetof(struct sk_buff,
- 							  vlan_tci));
--			if (code == (BPF_ANC | SKF_AD_VLAN_TAG)) {
--				PPC_ANDI(r_A, r_A, ~VLAN_TAG_PRESENT);
--			} else {
--				PPC_ANDI(r_A, r_A, VLAN_TAG_PRESENT);
--				PPC_SRWI(r_A, r_A, 12);
--			}
+diff --git a/lib/test_bpf.c b/lib/test_bpf.c
+index 0362da0b66c3..00d345006671 100644
+--- a/lib/test_bpf.c
++++ b/lib/test_bpf.c
+@@ -691,8 +691,13 @@ static struct bpf_test tests[] = {
+ 		CLASSIC,
+ 		{ },
+ 		{
 +#ifdef VLAN_TAG_PRESENT
-+			PPC_ANDI(r_A, r_A, ~VLAN_TAG_PRESENT);
+ 			{ 1, SKB_VLAN_TCI & ~VLAN_TAG_PRESENT },
+ 			{ 10, SKB_VLAN_TCI & ~VLAN_TAG_PRESENT }
++#else
++			{ 1, SKB_VLAN_TCI },
++			{ 10, SKB_VLAN_TCI }
 +#endif
-+			break;
-+		case BPF_ANC | SKF_AD_VLAN_TAG_PRESENT:
-+			PPC_LBZ_OFFS(r_A, r_skb, PKT_VLAN_PRESENT_OFFSET());
-+			if (PKT_VLAN_PRESENT_BIT)
-+				PPC_SRWI(r_A, r_A, PKT_VLAN_PRESENT_BIT);
-+			PPC_ANDI(r_A, r_A, 1);
- 			break;
- 		case BPF_ANC | SKF_AD_QUEUE:
- 			BUILD_BUG_ON(FIELD_SIZEOF(struct sk_buff,
+ 		},
+ 	},
+ 	{
+@@ -705,8 +710,13 @@ static struct bpf_test tests[] = {
+ 		CLASSIC,
+ 		{ },
+ 		{
++#ifdef VLAN_TAG_PRESENT
+ 			{ 1, !!(SKB_VLAN_TCI & VLAN_TAG_PRESENT) },
+ 			{ 10, !!(SKB_VLAN_TCI & VLAN_TAG_PRESENT) }
++#else
++			{ 1, SKB_VLAN_PRESENT },
++			{ 10, SKB_VLAN_PRESENT }
++#endif
+ 		},
+ 	},
+ 	{
+@@ -4773,8 +4783,13 @@ static struct bpf_test tests[] = {
+ 		CLASSIC,
+ 		{ },
+ 		{
++#ifdef VLAN_TAG_PRESENT
+ 			{  1, !!(SKB_VLAN_TCI & VLAN_TAG_PRESENT) },
+ 			{ 10, !!(SKB_VLAN_TCI & VLAN_TAG_PRESENT) }
++#else
++			{  1, SKB_VLAN_PRESENT },
++			{ 10, SKB_VLAN_PRESENT }
++#endif
+ 		},
+ 		.fill_helper = bpf_fill_maxinsns6,
+ 	},
 -- 
 2.11.0
