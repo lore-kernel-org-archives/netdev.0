@@ -1,41 +1,46 @@
 From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [PATCH net-next v2 09/27] cxgb4: use __vlan_hwaccel helpers
-Date: Tue,  3 Jan 2017 21:52:35 +0100 (CET)
-Message-ID: <fb8110a06b9e2b2cb3eda1d681d0a03eab32f815.1483475202.git.mirq-linux@rere.qmqm.pl>
+Subject: [PATCH net-next v2 07/27] gianfar: remove use of VLAN_TAG_PRESENT
+Date: Tue,  3 Jan 2017 21:52:34 +0100 (CET)
+Message-ID: <7236b69e9d234bd092a2df4dc38c28fbcde836b1.1483475202.git.mirq-linux@rere.qmqm.pl>
 References: <cover.1483475202.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
-Cc: Steve Wise <swise@chelsio.com>
+Cc: Claudiu Manoil <claudiu.manoil@freescale.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([84.10.57.10]:34718 "EHLO rere.qmqm.pl"
+Received: from rere.qmqm.pl ([84.10.57.10]:34712 "EHLO rere.qmqm.pl"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S935899AbdACUwk (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S934875AbdACUwk (ORCPT <rfc822;netdev@vger.kernel.org>);
         Tue, 3 Jan 2017 15:52:40 -0500
 In-Reply-To: <cover.1483475202.git.mirq-linux@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This also initializes vlan_proto field.
-
+Reviewed-by: Claudiu Manoil <claudiu.manoil@nxp.com>
 Signed-off-by: Michał Mirosław <mirq-linux@rere.qmqm.pl>
 ---
- drivers/infiniband/hw/cxgb4/cm.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/freescale/gianfar_ethtool.c | 8 +++-----
+ 1 file changed, 3 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/infiniband/hw/cxgb4/cm.c b/drivers/infiniband/hw/cxgb4/cm.c
-index f1510cc76d2d..66a3d39b3d54 100644
---- a/drivers/infiniband/hw/cxgb4/cm.c
-+++ b/drivers/infiniband/hw/cxgb4/cm.c
-@@ -3899,7 +3899,7 @@ static int rx_pkt(struct c4iw_dev *dev, struct sk_buff *skb)
- 	} else {
- 		vlan_eh = (struct vlan_ethhdr *)(req + 1);
- 		iph = (struct iphdr *)(vlan_eh + 1);
--		skb->vlan_tci = ntohs(cpl->vlan);
-+		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), ntohs(cpl->vlan));
- 	}
+diff --git a/drivers/net/ethernet/freescale/gianfar_ethtool.c b/drivers/net/ethernet/freescale/gianfar_ethtool.c
+index a93e0199c369..fd5110dd13b6 100644
+--- a/drivers/net/ethernet/freescale/gianfar_ethtool.c
++++ b/drivers/net/ethernet/freescale/gianfar_ethtool.c
+@@ -1155,11 +1155,9 @@ static int gfar_convert_to_filer(struct ethtool_rx_flow_spec *rule,
+ 		prio = vlan_tci_prio(rule);
+ 		prio_mask = vlan_tci_priom(rule);
  
- 	if (iph->version != 0x4)
+-		if (cfi == VLAN_TAG_PRESENT && cfi_mask == VLAN_TAG_PRESENT) {
+-			vlan |= RQFPR_CFI;
+-			vlan_mask |= RQFPR_CFI;
+-		} else if (cfi != VLAN_TAG_PRESENT &&
+-			   cfi_mask == VLAN_TAG_PRESENT) {
++		if (cfi_mask) {
++			if (cfi)
++				vlan |= RQFPR_CFI;
+ 			vlan_mask |= RQFPR_CFI;
+ 		}
+ 	}
 -- 
 2.11.0
