@@ -1,62 +1,90 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net 9/9] virtio-net: XDP support for small buffers
-Date: Tue, 3 Jan 2017 14:16:31 +0800
-Message-ID: <8c896c40-fd25-4b92-fe80-5be18c13dd48@redhat.com>
-References: <1482503852-12438-1-git-send-email-jasowang@redhat.com>
-	<1482503852-12438-10-git-send-email-jasowang@redhat.com>
-	<586AD79B.2070203@gmail.com>
+From: Leon Romanovsky <leon@kernel.org>
+Subject: Re: [PATCH for-next V2 00/11] Mellanox mlx5 core and ODP updates
+ 2017-01-01
+Date: Tue, 3 Jan 2017 09:23:44 +0200
+Message-ID: <20170103072344.GF12077@mtr-leonro.local>
+References: <1483349868-11716-1-git-send-email-saeedm@mellanox.com>
+ <20170102.155341.1496970446718890403.davem@davemloft.net>
+ <CALzJLG9ZBRMOVqFsTypCLV6Rrek8a9g43z0spvVKeku6WdWCTA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: john.r.fastabend@intel.com
-To: John Fastabend <john.fastabend@gmail.com>, mst@redhat.com,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <586AD79B.2070203@gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha256;
+        protocol="application/pgp-signature"; boundary="C+ts3FVlLX8+P6JN"
+Cc: David Miller <davem@davemloft.net>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        linux-rdma@vger.kernel.org, ilyal@mellanox.com,
+        artemyko@mellanox.com
+To: Doug Ledford <dledford@redhat.com>,
+        Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.kernel.org ([198.145.29.136]:47194 "EHLO mail.kernel.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751873AbdACHXk (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 3 Jan 2017 02:23:40 -0500
+Content-Disposition: inline
+In-Reply-To: <CALzJLG9ZBRMOVqFsTypCLV6Rrek8a9g43z0spvVKeku6WdWCTA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-CgpPbiAyMDE35bm0MDHmnIgwM+aXpSAwNjo0MywgSm9obiBGYXN0YWJlbmQgd3JvdGU6Cj4gT24g
-MTYtMTItMjMgMDY6MzcgQU0sIEphc29uIFdhbmcgd3JvdGU6Cj4+IENvbW1pdCBmNjAwYjY5MDUw
-MTUgKCJ2aXJ0aW9fbmV0OiBBZGQgWERQIHN1cHBvcnQiKSBsZWF2ZXMgdGhlIGNhc2Ugb2YKPj4g
-c21hbGwgcmVjZWl2ZSBidWZmZXIgdW50b3VjaGVkLiBUaGlzIHdpbGwgY29uZnVzZSB0aGUgdXNl
-ciB3aG8gd2FudCB0bwo+PiBzZXQgWERQIGJ1dCB1c2Ugc21hbGwgYnVmZmVycy4gT3RoZXIgdGhh
-biBmb3JiaWQgWERQIGluIHNtYWxsIGJ1ZmZlcgo+PiBtb2RlLCBsZXQncyBtYWtlIGl0IHdvcmsu
-IFhEUCB0aGVuIGNhbiBvbmx5IHdvcmsgYXQgc2tiLT5kYXRhIHNpbmNlCj4+IHZpcnRpby1uZXQg
-Y3JlYXRlIHNrYnMgZHVyaW5nIHJlZmlsbCwgdGhpcyBpcyBzdWIgb3B0aW1hbCB3aGljaCBjb3Vs
-ZAo+PiBiZSBvcHRpbWl6ZWQgaW4gdGhlIGZ1dHVyZS4KPj4KPj4gQ2M6IEpvaG4gRmFzdGFiZW5k
-IDxqb2huLnIuZmFzdGFiZW5kQGludGVsLmNvbT4KPj4gU2lnbmVkLW9mZi1ieTogSmFzb24gV2Fu
-ZyA8amFzb3dhbmdAcmVkaGF0LmNvbT4KPj4gLS0tCj4+ICAgZHJpdmVycy9uZXQvdmlydGlvX25l
-dC5jIHwgMTEyICsrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKy0tLS0tLS0tLS0t
-Cj4+ICAgMSBmaWxlIGNoYW5nZWQsIDg3IGluc2VydGlvbnMoKyksIDI1IGRlbGV0aW9ucygtKQo+
-Pgo+IEhpIEphc29uLAo+Cj4gSSB3YXMgZG9pbmcgc29tZSBtb3JlIHRlc3Rpbmcgb24gdGhpcyB3
-aGF0IGRvIHlvdSB0aGluayBhYm91dCBkb2luZyB0aGlzCj4gc28gdGhhdCBmcmVlX3VudXNlZF9i
-dWZzKCkgaGFuZGxlcyB0aGUgYnVmZmVyIGZyZWUgd2l0aCBkZXZfa2ZyZWVfc2tiKCkKPiBpbnN0
-ZWFkIG9mIHB1dF9wYWdlIGluIHNtYWxsIHJlY2VpdmUgbW9kZS4gU2VlbXMgbW9yZSBjb3JyZWN0
-IHRvIG1lLgo+Cj4KPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvdmlydGlvX25ldC5jIGIvZHJp
-dmVycy9uZXQvdmlydGlvX25ldC5jCj4gaW5kZXggNzgzZTg0Mi4uMjdmZjc2YyAxMDA2NDQKPiAt
-LS0gYS9kcml2ZXJzL25ldC92aXJ0aW9fbmV0LmMKPiArKysgYi9kcml2ZXJzL25ldC92aXJ0aW9f
-bmV0LmMKPiBAQCAtMTg5OCw2ICsxODk4LDEwIEBAIHN0YXRpYyB2b2lkIGZyZWVfcmVjZWl2ZV9w
-YWdlX2ZyYWdzKHN0cnVjdCB2aXJ0bmV0X2luZm8gKnZpKQo+Cj4gICBzdGF0aWMgYm9vbCBpc194
-ZHBfcXVldWUoc3RydWN0IHZpcnRuZXRfaW5mbyAqdmksIGludCBxKQo+ICAgewo+ICsgICAgICAg
-LyogRm9yIHNtYWxsIHJlY2VpdmUgbW9kZSBhbHdheXMgdXNlIGtmcmVlX3NrYiB2YXJpYW50cyAq
-Lwo+ICsgICAgICAgaWYgKCF2aS0+bWVyZ2VhYmxlX3J4X2J1ZnMpCj4gKyAgICAgICAgICAgICAg
-IHJldHVybiBmYWxzZTsKPiArCj4gICAgICAgICAgaWYgKHEgPCAodmktPmN1cnJfcXVldWVfcGFp
-cnMgLSB2aS0+eGRwX3F1ZXVlX3BhaXJzKSkKPiAgICAgICAgICAgICAgICAgIHJldHVybiBmYWxz
-ZTsKPiAgICAgICAgICBlbHNlIGlmIChxIDwgdmktPmN1cnJfcXVldWVfcGFpcnMpCj4KPgo+IHBh
-dGNoIGlzIHVudGVzdGVkIGp1c3Qgc3BvdHRlZCBkb2luZyBjb2RlIHJldmlldy4KPgo+IFRoYW5r
-cywKPiBKb2huCgpXZSBwcm9iYWJseSBuZWVkIGEgYmV0dGVyIG5hbWUgZm9yIHRoaXMgZnVuY3Rp
-b24uCgpBY2tlZC1ieTogSmFzb24gV2FuZyA8amFzb3dhbmdAcmVkaGF0LmNvbT4KCl9fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fClZpcnR1YWxpemF0aW9uIG1h
-aWxpbmcgbGlzdApWaXJ0dWFsaXphdGlvbkBsaXN0cy5saW51eC1mb3VuZGF0aW9uLm9yZwpodHRw
-czovL2xpc3RzLmxpbnV4Zm91bmRhdGlvbi5vcmcvbWFpbG1hbi9saXN0aW5mby92aXJ0dWFsaXph
-dGlvbg==
+
+--C+ts3FVlLX8+P6JN
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+On Tue, Jan 03, 2017 at 01:30:16AM +0200, Saeed Mahameed wrote:
+> On Mon, Jan 2, 2017 at 10:53 PM, David Miller <davem@davemloft.net> wrote:
+> > From: Saeed Mahameed <saeedm@mellanox.com>
+> > Date: Mon,  2 Jan 2017 11:37:37 +0200
+> >
+> >> The following eleven patches mainly come from Artemy Kovalyov
+> >> who expanded mlx5 on-demand-paging (ODP) support. In addition
+> >> there are three cleanup patches which don't change any functionality,
+> >> but are needed to align codebase prior accepting other patches.
+> >
+> > Series applied to net-next, thanks.
+>
+> Whoops,
+>
+> This series was meant as a pull request, you can blame it on me I
+> kinda messed up the V2 title.
+> Doug will have to pull same patches later, will this produce a
+> conflict on merge window ?
+
+Yes, but it can be easily avoided.
+
+Doug,
+
+We have another pull request to send and we will base its code on the
+Dave's tree instead of Linus's rc tag. In such way, you will have the
+same commits as Dave and won't have merge failures.
+
+Please don't apply manually this specific patchset.
+
+Sorry for the inconvenience.
+
+Thanks.
+
+>
+> Sorry for the confusion.
+
+--C+ts3FVlLX8+P6JN
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAlhrUYAACgkQ5GN7iDZy
+WKfT3Q/9Hjg3mFd20GFop0r4UxSRny9c00sOYh5e54M7mOimGFP5p1OIFaO9S9dw
+KxJSI7+1ChD5McQddKcWk/iR2QZNXpBoDj0OmVFV+xSLa5RFfXLn6LTfcIA+0kwe
+WVIMmpY3d0oZyHSbrLUqU0Tnl21/RTZJD/I6RuoafSQk5vmk6g3+yskfPk76CVUX
+5EfZ+l7GcE8erZSx9jbsH37eGIvBag9bsiDxaAo92NbZUCEUon85vFxVQzDo3ikh
+ydTJuGuv8s1IoXd6kcDlbyc/bnWZOxCGeXBm7dnZ+ZT8kOUSi+CmR8hVqYB4cUhF
+dv6RyrOwe0pTh2JREfRlXriRYZPAYQoDRt98012pQmjvZZ1tY/V0Rxt24JnV0RoK
+Ki2rN6MncaMsOUYxmgHuCSlmS98Z9g65WlN2YV6yaFQE0otq/MCsRuQmNTPEfLlK
+j4p46RdGKOmoCb+7ar2BAQ9btmHimq03nAwwti8+EMw6M9FDhoDoG9l9Uy+ca4fi
+IDbHeQso0KGwkmgleQmI+tujNcMPheCtRy7OmycbiTiqooh3lwGBY8Jkk4kuCRWs
+xuw6wSedEu7DwfRj1vD27p2S/zdhX1vTjzc5D3EV1FnlcUIXcJEQ1EWoQlU5jFZB
+dbkei2vtVoQlKePoBpO7kXWu5JIIwD/XeyGQMQKOwOTivoCGsF4=
+=PDGL
+-----END PGP SIGNATURE-----
+
+--C+ts3FVlLX8+P6JN--
