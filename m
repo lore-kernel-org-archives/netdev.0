@@ -1,36 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net/sched: cls_matchall: Fix error path
-Date: Tue, 03 Jan 2017 11:08:07 -0500 (EST)
-Message-ID: <20170103.110807.1415814934069793893.davem@davemloft.net>
-References: <1483458422-13607-1-git-send-email-yotamg@mellanox.com>
+Subject: Re: [net-next 0/3] tipc: improve interaction
+	socket-link
+Date: Tue, 03 Jan 2017 11:13:20 -0500 (EST)
+Message-ID: <20170103.111320.1773409609557913599.davem@davemloft.net>
+References: <1483458911-32549-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: jhs@mojatatu.com, eladr@mellanox.com, jiri@mellanox.com,
-        netdev@vger.kernel.org
-To: yotamg@mellanox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:39318 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934911AbdACQIJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2017 11:08:09 -0500
-In-Reply-To: <1483458422-13607-1-git-send-email-yotamg@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net
+To: jon.maloy@ericsson.com
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: <1483458911-32549-1-git-send-email-jon.maloy@ericsson.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-From: Yotam Gigi <yotamg@mellanox.com>
-Date: Tue,  3 Jan 2017 17:47:02 +0200
+From: Jon Maloy <jon.maloy@ericsson.com>
+Date: Tue,  3 Jan 2017 10:55:08 -0500
 
-> Fix several error paths in matchall:
->  - Release reference to actions in case the hardware fails offloading
->    (relevant to skip_sw only)
->  - Fix error path in case tcf_exts initialization fails
-> 
-> Fixes: bf3994d2ed31 ("net/sched: introduce Match-all classifier")
-> Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
+> We fix a very real starvation problem that may occur when a link
+> encounters send buffer congestion. At the same time we make the 
+> interaction between the socket and link layer simpler and more 
+> consistent.
 
-Nothing is checking the tcf_exts_init() return value for errors either,
-and I think you should fix this alongside these release problems at the
-same time.
+Series applied, thanks Jon.
 
-Thanks.
+------------------------------------------------------------------------------
+Check out the vibrant tech community on one of the world's most 
+engaging tech sites, SlashDot.org! http://sdm.link/slashdot
