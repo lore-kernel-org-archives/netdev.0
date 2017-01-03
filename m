@@ -1,9 +1,9 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 16/21] ixgbe: Fix issues with EEPROM access
-Date: Tue,  3 Jan 2017 13:07:52 -0800
-Message-ID: <20170103210757.38847-17-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 21/21] ixgbe: Add PF support for VF promiscuous mode
+Date: Tue,  3 Jan 2017 13:07:57 -0800
+Message-ID: <20170103210757.38847-22-jeffrey.t.kirsher@intel.com>
 References: <20170103210757.38847-1-jeffrey.t.kirsher@intel.com>
-Cc: Mark Rustad <mark.d.rustad@intel.com>, netdev@vger.kernel.org,
+Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
         guru.anbalagane@oracle.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
@@ -11,315 +11,180 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga14.intel.com ([192.55.52.115]:3461 "EHLO mga14.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S966325AbdACVIR (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 3 Jan 2017 16:08:17 -0500
+        id S966339AbdACVIW (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 3 Jan 2017 16:08:22 -0500
 In-Reply-To: <20170103210757.38847-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mark Rustad <mark.d.rustad@intel.com>
+From: Don Skidmore <donald.c.skidmore@intel.com>
 
-There are two problems with EEPROM access. One is that it needs to
-hold the semaphore until the entire response is read or else the
-response can be corrupted by other firmware accesses. The second
-problem is that acquiring and releasing the semaphore is slow, so
-it should be taken and released once when multiple EEPROM accesses
-will be done.
+This patch extends the xcast mailbox message to include support for
+unicast promiscuous mode.  To allow a VF to enter this mode the PF
+must be in promiscuous mode.
 
-Both of these issues can be solved by adding a new function,
-ixgbe_hic_unlocked, to issue firmware commands that will assume
-that the caller has acquired the needed semaphore.
+A later patch will add the support needed in the VF driver (ixgbevf)
 
-Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
-Tested-by: Krishneil Singh <krishneil.k.singh@intel.com>
+Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c | 97 ++++++++++++++++---------
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.h |  1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c   | 75 +++++++------------
- 3 files changed, 91 insertions(+), 82 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h       |  1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h   |  1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 47 ++++++++++++++++++++++----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h  |  2 ++
+ 4 files changed, 45 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-index 5d8f1ae..851f485 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-@@ -3593,43 +3593,29 @@ u8 ixgbe_calculate_checksum(u8 *buffer, u32 length)
- }
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+index 53fb427..aeedc81 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+@@ -159,6 +159,7 @@ enum ixgbevf_xcast_modes {
+ 	IXGBEVF_XCAST_MODE_NONE = 0,
+ 	IXGBEVF_XCAST_MODE_MULTI,
+ 	IXGBEVF_XCAST_MODE_ALLMULTI,
++	IXGBEVF_XCAST_MODE_PROMISC,
+ };
  
- /**
-- *  ixgbe_host_interface_command - Issue command to manageability block
-+ *  ixgbe_hic_unlocked - Issue command to manageability block unlocked
-  *  @hw: pointer to the HW structure
-- *  @buffer: contains the command to write and where the return status will
-- *           be placed
-+ *  @buffer: command to write and where the return status will be placed
-  *  @length: length of buffer, must be multiple of 4 bytes
-  *  @timeout: time in ms to wait for command completion
-- *  @return_data: read and return data from the buffer (true) or not (false)
-- *  Needed because FW structures are big endian and decoding of
-- *  these fields can be 8 bit or 16 bit based on command. Decoding
-- *  is not easily understood without making a table of commands.
-- *  So we will leave this up to the caller to read back the data
-- *  in these cases.
-  *
-- *  Communicates with the manageability block.  On success return 0
-- *  else return IXGBE_ERR_HOST_INTERFACE_COMMAND.
-+ *  Communicates with the manageability block. On success return 0
-+ *  else returns semaphore error when encountering an error acquiring
-+ *  semaphore or IXGBE_ERR_HOST_INTERFACE_COMMAND when command fails.
-+ *
-+ *  This function assumes that the IXGBE_GSSR_SW_MNG_SM semaphore is held
-+ *  by the caller.
-  **/
--s32 ixgbe_host_interface_command(struct ixgbe_hw *hw, void *buffer,
--				 u32 length, u32 timeout,
--				 bool return_data)
-+s32 ixgbe_hic_unlocked(struct ixgbe_hw *hw, u32 *buffer, u32 length,
-+		       u32 timeout)
+ struct vf_macvlans {
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
+index 01c2667..811cb4f 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h
+@@ -74,6 +74,7 @@ enum ixgbe_pfvf_api_rev {
+ 	ixgbe_mbox_api_20,	/* API version 2.0, solaris Phase1 VF driver */
+ 	ixgbe_mbox_api_11,	/* API version 1.1, linux/freebsd VF driver */
+ 	ixgbe_mbox_api_12,	/* API version 1.2, linux/freebsd VF driver */
++	ixgbe_mbox_api_13,	/* API version 1.3, linux/freebsd VF driver */
+ 	/* This value should always be last */
+ 	ixgbe_mbox_api_unknown,	/* indicates that API version is not known */
+ };
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+index dd1187c..044cb44 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+@@ -512,6 +512,7 @@ static s32 ixgbe_set_vf_lpe(struct ixgbe_adapter *adapter, u32 *msgbuf, u32 vf)
+ 		switch (adapter->vfinfo[vf].vf_api) {
+ 		case ixgbe_mbox_api_11:
+ 		case ixgbe_mbox_api_12:
++		case ixgbe_mbox_api_13:
+ 			/*
+ 			 * Version 1.1 supports jumbo frames on VFs if PF has
+ 			 * jumbo frames enabled which means legacy VFs are
+@@ -979,6 +980,7 @@ static int ixgbe_negotiate_vf_api(struct ixgbe_adapter *adapter,
+ 	case ixgbe_mbox_api_10:
+ 	case ixgbe_mbox_api_11:
+ 	case ixgbe_mbox_api_12:
++	case ixgbe_mbox_api_13:
+ 		adapter->vfinfo[vf].vf_api = api;
+ 		return 0;
+ 	default:
+@@ -1003,6 +1005,7 @@ static int ixgbe_get_vf_queues(struct ixgbe_adapter *adapter,
+ 	case ixgbe_mbox_api_20:
+ 	case ixgbe_mbox_api_11:
+ 	case ixgbe_mbox_api_12:
++	case ixgbe_mbox_api_13:
+ 		break;
+ 	default:
+ 		return -1;
+@@ -1042,8 +1045,13 @@ static int ixgbe_get_vf_reta(struct ixgbe_adapter *adapter, u32 *msgbuf, u32 vf)
+ 		return -EPERM;
+ 
+ 	/* verify the PF is supporting the correct API */
+-	if (adapter->vfinfo[vf].vf_api != ixgbe_mbox_api_12)
++	switch (adapter->vfinfo[vf].vf_api) {
++	case ixgbe_mbox_api_13:
++	case ixgbe_mbox_api_12:
++		break;
++	default:
+ 		return -EOPNOTSUPP;
++	}
+ 
+ 	/* This mailbox command is supported (required) only for 82599 and x540
+ 	 * VFs which support up to 4 RSS queues. Therefore we will compress the
+@@ -1069,8 +1077,13 @@ static int ixgbe_get_vf_rss_key(struct ixgbe_adapter *adapter,
+ 		return -EPERM;
+ 
+ 	/* verify the PF is supporting the correct API */
+-	if (adapter->vfinfo[vf].vf_api != ixgbe_mbox_api_12)
++	switch (adapter->vfinfo[vf].vf_api) {
++	case ixgbe_mbox_api_13:
++	case ixgbe_mbox_api_12:
++		break;
++	default:
+ 		return -EOPNOTSUPP;
++	}
+ 
+ 	memcpy(rss_key, adapter->rss_key, sizeof(adapter->rss_key));
+ 
+@@ -1082,11 +1095,16 @@ static int ixgbe_update_vf_xcast_mode(struct ixgbe_adapter *adapter,
  {
--	u32 hdr_size = sizeof(struct ixgbe_hic_hdr);
--	u32 hicr, i, bi, fwsts;
--	u16 buf_len, dword_len;
--	union {
--		struct ixgbe_hic_hdr hdr;
--		u32 u32arr[1];
--	} *bp = buffer;
--	s32 status;
-+	u32 hicr, i, fwsts;
-+	u16 dword_len;
+ 	struct ixgbe_hw *hw = &adapter->hw;
+ 	int xcast_mode = msgbuf[1];
+-	u32 vmolr, disable, enable;
++	u32 vmolr, fctrl, disable, enable;
  
- 	if (!length || length > IXGBE_HI_MAX_BLOCK_BYTE_LENGTH) {
- 		hw_dbg(hw, "Buffer length failure buffersize-%d.\n", length);
- 		return IXGBE_ERR_HOST_INTERFACE_COMMAND;
+ 	/* verify the PF is supporting the correct APIs */
+ 	switch (adapter->vfinfo[vf].vf_api) {
+ 	case ixgbe_mbox_api_12:
++		/* promisc introduced in 1.3 version */
++		if (xcast_mode == IXGBEVF_XCAST_MODE_PROMISC)
++			return -EOPNOTSUPP;
++		/* Fall threw */
++	case ixgbe_mbox_api_13:
+ 		break;
+ 	default:
+ 		return -EOPNOTSUPP;
+@@ -1102,17 +1120,34 @@ static int ixgbe_update_vf_xcast_mode(struct ixgbe_adapter *adapter,
+ 
+ 	switch (xcast_mode) {
+ 	case IXGBEVF_XCAST_MODE_NONE:
+-		disable = IXGBE_VMOLR_BAM | IXGBE_VMOLR_ROMPE | IXGBE_VMOLR_MPE;
++		disable = IXGBE_VMOLR_BAM | IXGBE_VMOLR_ROMPE |
++			  IXGBE_VMOLR_MPE | IXGBE_VMOLR_UPE | IXGBE_VMOLR_VPE;
+ 		enable = 0;
+ 		break;
+ 	case IXGBEVF_XCAST_MODE_MULTI:
+-		disable = IXGBE_VMOLR_MPE;
++		disable = IXGBE_VMOLR_MPE | IXGBE_VMOLR_UPE | IXGBE_VMOLR_VPE;
+ 		enable = IXGBE_VMOLR_BAM | IXGBE_VMOLR_ROMPE;
+ 		break;
+ 	case IXGBEVF_XCAST_MODE_ALLMULTI:
+-		disable = 0;
++		disable = IXGBE_VMOLR_UPE | IXGBE_VMOLR_VPE;
+ 		enable = IXGBE_VMOLR_BAM | IXGBE_VMOLR_ROMPE | IXGBE_VMOLR_MPE;
+ 		break;
++	case IXGBEVF_XCAST_MODE_PROMISC:
++		if (hw->mac.type <= ixgbe_mac_82599EB)
++			return -EOPNOTSUPP;
++
++		fctrl = IXGBE_READ_REG(hw, IXGBE_FCTRL);
++		if (!(fctrl & IXGBE_FCTRL_UPE)) {
++			/* VF promisc requires PF in promisc */
++			e_warn(drv,
++			       "Enabling VF promisc requires PF in promisc\n");
++			return -EPERM;
++		}
++
++		disable = 0;
++		enable = IXGBE_VMOLR_BAM | IXGBE_VMOLR_ROMPE |
++			 IXGBE_VMOLR_MPE | IXGBE_VMOLR_UPE | IXGBE_VMOLR_VPE;
++		break;
+ 	default:
+ 		return -EOPNOTSUPP;
  	}
--	/* Take management host interface semaphore */
--	status = hw->mac.ops.acquire_swfw_sync(hw, IXGBE_GSSR_SW_MNG_SM);
--	if (status)
--		return status;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+index b2cd8d4..1d07f2e 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+@@ -1501,6 +1501,8 @@ enum {
+ #define IXGBE_VT_CTL_POOL_MASK  (0x3F << IXGBE_VT_CTL_POOL_SHIFT)
  
- 	/* Set bit 9 of FWSTS clearing FW reset indication */
- 	fwsts = IXGBE_READ_REG(hw, IXGBE_FWSTS);
-@@ -3639,15 +3625,13 @@ s32 ixgbe_host_interface_command(struct ixgbe_hw *hw, void *buffer,
- 	hicr = IXGBE_READ_REG(hw, IXGBE_HICR);
- 	if (!(hicr & IXGBE_HICR_EN)) {
- 		hw_dbg(hw, "IXGBE_HOST_EN bit disabled.\n");
--		status = IXGBE_ERR_HOST_INTERFACE_COMMAND;
--		goto rel_out;
-+		return IXGBE_ERR_HOST_INTERFACE_COMMAND;
- 	}
- 
- 	/* Calculate length in DWORDs. We must be DWORD aligned */
- 	if (length % sizeof(u32)) {
- 		hw_dbg(hw, "Buffer length failure, not aligned to dword");
--		status = IXGBE_ERR_INVALID_ARGUMENT;
--		goto rel_out;
-+		return IXGBE_ERR_INVALID_ARGUMENT;
- 	}
- 
- 	dword_len = length >> 2;
-@@ -3657,7 +3641,7 @@ s32 ixgbe_host_interface_command(struct ixgbe_hw *hw, void *buffer,
- 	 */
- 	for (i = 0; i < dword_len; i++)
- 		IXGBE_WRITE_REG_ARRAY(hw, IXGBE_FLEX_MNG,
--				      i, cpu_to_le32(bp->u32arr[i]));
-+				      i, cpu_to_le32(buffer[i]));
- 
- 	/* Setting this bit tells the ARC that a new command is pending. */
- 	IXGBE_WRITE_REG(hw, IXGBE_HICR, hicr | IXGBE_HICR_C);
-@@ -3671,11 +3655,54 @@ s32 ixgbe_host_interface_command(struct ixgbe_hw *hw, void *buffer,
- 
- 	/* Check command successful completion. */
- 	if ((timeout && i == timeout) ||
--	    !(IXGBE_READ_REG(hw, IXGBE_HICR) & IXGBE_HICR_SV)) {
--		hw_dbg(hw, "Command has failed with no status valid.\n");
--		status = IXGBE_ERR_HOST_INTERFACE_COMMAND;
--		goto rel_out;
-+	    !(IXGBE_READ_REG(hw, IXGBE_HICR) & IXGBE_HICR_SV))
-+		return IXGBE_ERR_HOST_INTERFACE_COMMAND;
-+
-+	return 0;
-+}
-+
-+/**
-+ *  ixgbe_host_interface_command - Issue command to manageability block
-+ *  @hw: pointer to the HW structure
-+ *  @buffer: contains the command to write and where the return status will
-+ *           be placed
-+ *  @length: length of buffer, must be multiple of 4 bytes
-+ *  @timeout: time in ms to wait for command completion
-+ *  @return_data: read and return data from the buffer (true) or not (false)
-+ *  Needed because FW structures are big endian and decoding of
-+ *  these fields can be 8 bit or 16 bit based on command. Decoding
-+ *  is not easily understood without making a table of commands.
-+ *  So we will leave this up to the caller to read back the data
-+ *  in these cases.
-+ *
-+ *  Communicates with the manageability block.  On success return 0
-+ *  else return IXGBE_ERR_HOST_INTERFACE_COMMAND.
-+ **/
-+s32 ixgbe_host_interface_command(struct ixgbe_hw *hw, void *buffer,
-+				 u32 length, u32 timeout,
-+				 bool return_data)
-+{
-+	u32 hdr_size = sizeof(struct ixgbe_hic_hdr);
-+	union {
-+		struct ixgbe_hic_hdr hdr;
-+		u32 u32arr[1];
-+	} *bp = buffer;
-+	u16 buf_len, dword_len;
-+	s32 status;
-+	u32 bi;
-+
-+	if (!length || length > IXGBE_HI_MAX_BLOCK_BYTE_LENGTH) {
-+		hw_dbg(hw, "Buffer length failure buffersize-%d.\n", length);
-+		return IXGBE_ERR_HOST_INTERFACE_COMMAND;
- 	}
-+	/* Take management host interface semaphore */
-+	status = hw->mac.ops.acquire_swfw_sync(hw, IXGBE_GSSR_SW_MNG_SM);
-+	if (status)
-+		return status;
-+
-+	status = ixgbe_hic_unlocked(hw, buffer, length, timeout);
-+	if (status)
-+		goto rel_out;
- 
- 	if (!return_data)
- 		goto rel_out;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-index 393aeab..671a0cd 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-@@ -115,6 +115,7 @@ s32 ixgbe_set_fw_drv_ver_generic(struct ixgbe_hw *hw, u8 maj, u8 min,
- u8 ixgbe_calculate_checksum(u8 *buffer, u32 length);
- s32 ixgbe_host_interface_command(struct ixgbe_hw *hw, void *, u32 length,
- 				 u32 timeout, bool return_data);
-+s32 ixgbe_hic_unlocked(struct ixgbe_hw *hw, u32 *buffer, u32 len, u32 timeout);
- void ixgbe_clear_tx_pending(struct ixgbe_hw *hw);
- bool ixgbe_mng_present(struct ixgbe_hw *hw);
- bool ixgbe_mng_enabled(struct ixgbe_hw *hw);
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-index e3d14f4..398973e 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-@@ -624,41 +624,6 @@ static s32 ixgbe_read_iosf_sb_reg_x550a(struct ixgbe_hw *hw, u32 reg_addr,
- 	return status;
- }
- 
--/** ixgbe_read_ee_hostif_data_X550 - Read EEPROM word using a host interface
-- *  command assuming that the semaphore is already obtained.
-- *  @hw: pointer to hardware structure
-- *  @offset: offset of  word in the EEPROM to read
-- *  @data: word read from the EEPROM
-- *
-- *  Reads a 16 bit word from the EEPROM using the hostif.
-- **/
--static s32 ixgbe_read_ee_hostif_data_X550(struct ixgbe_hw *hw, u16 offset,
--					  u16 *data)
--{
--	s32 status;
--	struct ixgbe_hic_read_shadow_ram buffer;
--
--	buffer.hdr.req.cmd = FW_READ_SHADOW_RAM_CMD;
--	buffer.hdr.req.buf_lenh = 0;
--	buffer.hdr.req.buf_lenl = FW_READ_SHADOW_RAM_LEN;
--	buffer.hdr.req.checksum = FW_DEFAULT_CHECKSUM;
--
--	/* convert offset from words to bytes */
--	buffer.address = cpu_to_be32(offset * 2);
--	/* one word */
--	buffer.length = cpu_to_be16(sizeof(u16));
--
--	status = ixgbe_host_interface_command(hw, &buffer, sizeof(buffer),
--					      IXGBE_HI_COMMAND_TIMEOUT, false);
--	if (status)
--		return status;
--
--	*data = (u16)IXGBE_READ_REG_ARRAY(hw, IXGBE_FLEX_MNG,
--					  FW_NVM_DATA_OFFSET);
--
--	return 0;
--}
--
- /** ixgbe_read_ee_hostif_buffer_X550- Read EEPROM word(s) using hostif
-  *  @hw: pointer to hardware structure
-  *  @offset: offset of  word in the EEPROM to read
-@@ -670,6 +635,7 @@ static s32 ixgbe_read_ee_hostif_data_X550(struct ixgbe_hw *hw, u16 offset,
- static s32 ixgbe_read_ee_hostif_buffer_X550(struct ixgbe_hw *hw,
- 					    u16 offset, u16 words, u16 *data)
- {
-+	const u32 mask = IXGBE_GSSR_SW_MNG_SM | IXGBE_GSSR_EEP_SM;
- 	struct ixgbe_hic_read_shadow_ram buffer;
- 	u32 current_word = 0;
- 	u16 words_to_read;
-@@ -677,7 +643,7 @@ static s32 ixgbe_read_ee_hostif_buffer_X550(struct ixgbe_hw *hw,
- 	u32 i;
- 
- 	/* Take semaphore for the entire operation. */
--	status = hw->mac.ops.acquire_swfw_sync(hw, IXGBE_GSSR_EEP_SM);
-+	status = hw->mac.ops.acquire_swfw_sync(hw, mask);
- 	if (status) {
- 		hw_dbg(hw, "EEPROM read buffer - semaphore failed\n");
- 		return status;
-@@ -698,10 +664,8 @@ static s32 ixgbe_read_ee_hostif_buffer_X550(struct ixgbe_hw *hw,
- 		buffer.address = cpu_to_be32((offset + current_word) * 2);
- 		buffer.length = cpu_to_be16(words_to_read * 2);
- 
--		status = ixgbe_host_interface_command(hw, &buffer,
--						      sizeof(buffer),
--						      IXGBE_HI_COMMAND_TIMEOUT,
--						      false);
-+		status = ixgbe_hic_unlocked(hw, (u32 *)&buffer, sizeof(buffer),
-+					    IXGBE_HI_COMMAND_TIMEOUT);
- 		if (status) {
- 			hw_dbg(hw, "Host interface command failed\n");
- 			goto out;
-@@ -725,7 +689,7 @@ static s32 ixgbe_read_ee_hostif_buffer_X550(struct ixgbe_hw *hw,
- 	}
- 
- out:
--	hw->mac.ops.release_swfw_sync(hw, IXGBE_GSSR_EEP_SM);
-+	hw->mac.ops.release_swfw_sync(hw, mask);
- 	return status;
- }
- 
-@@ -896,15 +860,32 @@ static s32 ixgbe_calc_eeprom_checksum_X550(struct ixgbe_hw *hw)
-  **/
- static s32 ixgbe_read_ee_hostif_X550(struct ixgbe_hw *hw, u16 offset, u16 *data)
- {
--	s32 status = 0;
-+	const u32 mask = IXGBE_GSSR_SW_MNG_SM | IXGBE_GSSR_EEP_SM;
-+	struct ixgbe_hic_read_shadow_ram buffer;
-+	s32 status;
- 
--	if (hw->mac.ops.acquire_swfw_sync(hw, IXGBE_GSSR_EEP_SM) == 0) {
--		status = ixgbe_read_ee_hostif_data_X550(hw, offset, data);
--		hw->mac.ops.release_swfw_sync(hw, IXGBE_GSSR_EEP_SM);
--	} else {
--		status = IXGBE_ERR_SWFW_SYNC;
-+	buffer.hdr.req.cmd = FW_READ_SHADOW_RAM_CMD;
-+	buffer.hdr.req.buf_lenh = 0;
-+	buffer.hdr.req.buf_lenl = FW_READ_SHADOW_RAM_LEN;
-+	buffer.hdr.req.checksum = FW_DEFAULT_CHECKSUM;
-+
-+	/* convert offset from words to bytes */
-+	buffer.address = cpu_to_be32(offset * 2);
-+	/* one word */
-+	buffer.length = cpu_to_be16(sizeof(u16));
-+
-+	status = hw->mac.ops.acquire_swfw_sync(hw, mask);
-+	if (status)
-+		return status;
-+
-+	status = ixgbe_hic_unlocked(hw, (u32 *)&buffer, sizeof(buffer),
-+				    IXGBE_HI_COMMAND_TIMEOUT);
-+	if (!status) {
-+		*data = (u16)IXGBE_READ_REG_ARRAY(hw, IXGBE_FLEX_MNG,
-+						  FW_NVM_DATA_OFFSET);
- 	}
- 
-+	hw->mac.ops.release_swfw_sync(hw, mask);
- 	return status;
- }
- 
+ /* VMOLR bitmasks */
++#define IXGBE_VMOLR_UPE		0x00400000 /* unicast promiscuous */
++#define IXGBE_VMOLR_VPE		0x00800000 /* VLAN promiscuous */
+ #define IXGBE_VMOLR_AUPE        0x01000000 /* accept untagged packets */
+ #define IXGBE_VMOLR_ROMPE       0x02000000 /* accept packets in MTA tbl */
+ #define IXGBE_VMOLR_ROPE        0x04000000 /* accept packets in UC tbl */
 -- 
 2.9.3
