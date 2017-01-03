@@ -1,41 +1,54 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the rdma-leon tree with the net-next
- tree
-Date: Tue, 3 Jan 2017 12:27:20 +1100
-Message-ID: <20170103122720.26c1b461@canb.auug.org.au>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next V3 3/3] tun: rx batching
+Date: Tue, 3 Jan 2017 11:12:22 +0800
+Message-ID: <47860492-d254-86b5-c36c-29b51b0c00ab@redhat.com>
+References: <1483075251-6889-1-git-send-email-jasowang@redhat.com>
+	<1483075251-6889-4-git-send-email-jasowang@redhat.com>
+	<20161231.123147.1116351209865273335.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Leon Romanovsky <leon@kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	wexu@redhat.com, kvm@vger.kernel.org, mst@redhat.com
+To: David Miller <davem@davemloft.net>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20161231.123147.1116351209865273335.davem@davemloft.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Hi Leon,
-
-Today's linux-next merge of the rdma-leon tree got conflicts in:
-
-  drivers/infiniband/hw/mlx5/main.c
-  drivers/infiniband/hw/mlx5/mlx5_ib.h
-  drivers/infiniband/hw/mlx5/mr.c
-  drivers/infiniband/hw/mlx5/qp.c
-  drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-  drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-  drivers/net/ethernet/mellanox/mlx5/core/en_stats.h
-  drivers/net/ethernet/mellanox/mlx5/core/eq.c
-  drivers/net/ethernet/mellanox/mlx5/core/main.c
-  include/linux/mlx5/device.h
-  include/linux/mlx5/driver.h
-  include/linux/mlx5/mlx5_ifc.h
-
-between commits in the rdma-leon tree and commits (several of whitch
-are the same, or similar, patches) in the net-next tree.
-
-I just dropped the rdma-leon tree for today.  Please clean it up.
-
--- 
-Cheers,
-Stephen Rothwell
+CgpPbiAyMDE35bm0MDHmnIgwMeaXpSAwMTozMSwgRGF2aWQgTWlsbGVyIHdyb3RlOgo+IEZyb206
+IEphc29uIFdhbmcgPGphc293YW5nQHJlZGhhdC5jb20+Cj4gRGF0ZTogRnJpLCAzMCBEZWMgMjAx
+NiAxMzoyMDo1MSArMDgwMAo+Cj4+IEBAIC0xMjgzLDEwICsxMzE0LDE1IEBAIHN0YXRpYyBzc2l6
+ZV90IHR1bl9nZXRfdXNlcihzdHJ1Y3QgdHVuX3N0cnVjdCAqdHVuLCBzdHJ1Y3QgdHVuX2ZpbGUg
+KnRmaWxlLAo+PiAgIAlza2JfcHJvYmVfdHJhbnNwb3J0X2hlYWRlcihza2IsIDApOwo+PiAgIAo+
+PiAgIAlyeGhhc2ggPSBza2JfZ2V0X2hhc2goc2tiKTsKPj4gKwo+PiAgICNpZm5kZWYgQ09ORklH
+XzRLU1RBQ0tTCj4+IC0JbG9jYWxfYmhfZGlzYWJsZSgpOwo+PiAtCW5ldGlmX3JlY2VpdmVfc2ti
+KHNrYik7Cj4+IC0JbG9jYWxfYmhfZW5hYmxlKCk7Cj4+ICsJaWYgKCFyeF9iYXRjaGVkKSB7Cj4+
+ICsJCWxvY2FsX2JoX2Rpc2FibGUoKTsKPj4gKwkJbmV0aWZfcmVjZWl2ZV9za2Ioc2tiKTsKPj4g
+KwkJbG9jYWxfYmhfZW5hYmxlKCk7Cj4+ICsJfSBlbHNlIHsKPj4gKwkJdHVuX3J4X2JhdGNoZWQo
+dGZpbGUsIHNrYiwgbW9yZSk7Cj4+ICsJfQo+PiAgICNlbHNlCj4+ICAgCW5ldGlmX3J4X25pKHNr
+Yik7Cj4+ICAgI2VuZGlmCj4gSWYgcnhfYmF0Y2hlZCBoYXMgYmVlbiBzZXQsIGFuZCB3ZSBhcmUg
+dGFsa2luZyB0byBjbGllbnRzIG5vdCB1c2luZwo+IHRoaXMgbmV3IE1TR19NT1JFIGZhY2lsaXR5
+IChvciBzdWNoIGNsaWVudHMgZG9uJ3QgaGF2ZSBtdWx0aXBsZSBUWAo+IHBhY2tldHMgdG8gc2Vu
+ZCB0byB5b3UsIHRodXMgTVNHX01PUkUgaXMgb2Z0ZW4gY2xlYXIpLCB5b3UgYXJlIGRvaW5nIGEK
+PiBsb3QgbW9yZSB3b3JrIHBlci1wYWNrZXQgdGhhbiB0aGUgZXhpc3RpbmcgY29kZS4KPgo+IFlv
+dSB0YWtlIHRoZSBxdWV1ZSBsb2NrLCB5b3UgdGVzdCBzdGF0ZSwgeW91IHNwbGljZSBpbnRvIGEg
+bG9jYWwgcXVldWUKPiBvbiB0aGUgc3RhY2ssIHRoZW4geW91IHdhbGsgdGhhdCBsb2NhbCBzdGFj
+ayBxdWV1ZSB0byBzdWJtaXQganVzdCBvbmUKPiBTS0IgdG8gbmV0aWZfcmVjZWl2ZV9za2IoKS4K
+Pgo+IEkgdGhpbmsgeW91IHdhbnQgdG8gc3RyZWFtbGluZSB0aGlzIHNlcXVlbmNlIGluIHN1Y2gg
+Y2FzZXMgc28gdGhhdCB0aGUKPiBjb3N0IGJlZm9yZSBhbmQgYWZ0ZXIgaXMgc2ltaWxhciBpZiBu
+b3QgZXF1aXZhbGVudC4KClllcywgc28gSSB3aWxsIGRvIGEgc2tiX3F1ZXVlX2VtcHR5KCkgY2hl
+Y2sgaWYgIU1TR19NT1JFIGFuZCBjYWxsIApuZXRpZl9yZWNlaXZlX3NrYigpIGltbWVkaWF0ZWx5
+IGluIHRoaXMgY2FzZS4gVGhpcyBjYW4gc2F2ZSB0aGUgd2FzdGVkIAplZmZvcnRzLgoKVGhhbmtz
+Cl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fClZpcnR1YWxp
+emF0aW9uIG1haWxpbmcgbGlzdApWaXJ0dWFsaXphdGlvbkBsaXN0cy5saW51eC1mb3VuZGF0aW9u
+Lm9yZwpodHRwczovL2xpc3RzLmxpbnV4Zm91bmRhdGlvbi5vcmcvbWFpbG1hbi9saXN0aW5mby92
+aXJ0dWFsaXphdGlvbg==
