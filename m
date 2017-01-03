@@ -1,7 +1,7 @@
 From: John Fastabend <john.fastabend@gmail.com>
 Subject: Re: [net PATCH] net: virtio: cap mtu when XDP programs are running
-Date: Tue, 3 Jan 2017 08:48:21 -0800
-Message-ID: <586BD5D5.6020100@gmail.com>
+Date: Tue, 3 Jan 2017 08:48:45 -0800
+Message-ID: <586BD5ED.3070204@gmail.com>
 References: <20170102223031.11541.28717.stgit@john-Precision-Tower-5810>
  <402027b4-58c7-aa1b-5079-74e31448f544@redhat.com>
 Mime-Version: 1.0
@@ -11,12 +11,12 @@ Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org,
         alexei.starovoitov@gmail.com, daniel@iogearbox.net
 To: Jason Wang <jasowang@redhat.com>, mst@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:34757 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1759685AbdACQsj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2017 11:48:39 -0500
-Received: by mail-pg0-f65.google.com with SMTP id b1so34030423pgc.1
-        for <netdev@vger.kernel.org>; Tue, 03 Jan 2017 08:48:39 -0800 (PST)
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:36180 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758830AbdACQs7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2017 11:48:59 -0500
+Received: by mail-pg0-f68.google.com with SMTP id n5so34040780pgh.3
+        for <netdev@vger.kernel.org>; Tue, 03 Jan 2017 08:48:59 -0800 (PST)
 In-Reply-To: <402027b4-58c7-aa1b-5079-74e31448f544@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
