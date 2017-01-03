@@ -1,47 +1,68 @@
 From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [PATCH net-next v2 11/27] sky2: use __vlan_hwaccel helpers
-Date: Tue,  3 Jan 2017 21:52:35 +0100 (CET)
-Message-ID: <a0c41a175e1e9c7ccec55afc4de0d477b9629073.1483475202.git.mirq-linux@rere.qmqm.pl>
+Subject: [PATCH net-next v2 20/27] net/bpf_jit: MIPS: split VLAN_PRESENT bit handling
+ from VLAN_TCI
+Date: Tue,  3 Jan 2017 21:52:38 +0100 (CET)
+Message-ID: <949c15c172da3d2f40c42e8eae4d30aacaf09bf9.1483475202.git.mirq-linux@rere.qmqm.pl>
 References: <cover.1483475202.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
-Cc: Mirko Lindner <mlindner@marvell.com>,
-        Stephen Hemminger <stephen@networkplumber.org>
+Cc: Ralf Baechle <ralf@linux-mips.org>, linux-mips@linux-mips.org
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([84.10.57.10]:34732 "EHLO rere.qmqm.pl"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S935903AbdACUwl (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 3 Jan 2017 15:52:41 -0500
+Return-path: <linux-mips-bounce@linux-mips.org>
 In-Reply-To: <cover.1483475202.git.mirq-linux@rere.qmqm.pl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
+List-help: <mailto:ecartis@linux-mips.org?Subject=help>
+List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
+List-software: Ecartis version 1.0.0
+List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
+List-owner: <mailto:ralf@linux-mips.org>
+List-post: <mailto:linux-mips@linux-mips.org>
+List-archive: <http://www.linux-mips.org/archives/linux-mips/>
+List-Id: netdev.vger.kernel.org
 
+Acked-by: Ralf Baechle <ralf@linux-mips.org>
 Signed-off-by: Michał Mirosław <mirq-linux@rere.qmqm.pl>
 ---
- drivers/net/ethernet/marvell/sky2.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+ arch/mips/net/bpf_jit.c | 20 ++++++++++++--------
+ 1 file changed, 12 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethernet/marvell/sky2.c
-index b60ad0e56a9f..bcd20e04caba 100644
---- a/drivers/net/ethernet/marvell/sky2.c
-+++ b/drivers/net/ethernet/marvell/sky2.c
-@@ -2485,13 +2485,11 @@ static struct sk_buff *receive_copy(struct sky2_port *sky2,
- 		skb->ip_summed = re->skb->ip_summed;
- 		skb->csum = re->skb->csum;
- 		skb_copy_hash(skb, re->skb);
--		skb->vlan_proto = re->skb->vlan_proto;
--		skb->vlan_tci = re->skb->vlan_tci;
-+		__vlan_hwaccel_copy_tag(skb, re->skb);
- 
- 		pci_dma_sync_single_for_device(sky2->hw->pdev, re->data_addr,
- 					       length, PCI_DMA_FROMDEVICE);
--		re->skb->vlan_proto = 0;
--		re->skb->vlan_tci = 0;
-+		__vlan_hwaccel_clear_tag(re->skb);
- 		skb_clear_hash(re->skb);
- 		re->skb->ip_summed = CHECKSUM_NONE;
- 		skb_put(skb, length);
+diff --git a/arch/mips/net/bpf_jit.c b/arch/mips/net/bpf_jit.c
+index 49a2e2226fee..4b12b5df47e8 100644
+--- a/arch/mips/net/bpf_jit.c
++++ b/arch/mips/net/bpf_jit.c
+@@ -1138,19 +1138,23 @@ static int build_body(struct jit_ctx *ctx)
+ 			emit_load(r_A, r_skb, off, ctx);
+ 			break;
+ 		case BPF_ANC | SKF_AD_VLAN_TAG:
+-		case BPF_ANC | SKF_AD_VLAN_TAG_PRESENT:
+ 			ctx->flags |= SEEN_SKB | SEEN_A;
+ 			BUILD_BUG_ON(FIELD_SIZEOF(struct sk_buff,
+ 						  vlan_tci) != 2);
+ 			off = offsetof(struct sk_buff, vlan_tci);
+ 			emit_half_load(r_s0, r_skb, off, ctx);
+-			if (code == (BPF_ANC | SKF_AD_VLAN_TAG)) {
+-				emit_andi(r_A, r_s0, (u16)~VLAN_TAG_PRESENT, ctx);
+-			} else {
+-				emit_andi(r_A, r_s0, VLAN_TAG_PRESENT, ctx);
+-				/* return 1 if present */
+-				emit_sltu(r_A, r_zero, r_A, ctx);
+-			}
++#ifdef VLAN_TAG_PRESENT
++			emit_andi(r_A, r_s0, (u16)~VLAN_TAG_PRESENT, ctx);
++#endif
++			break;
++		case BPF_ANC | SKF_AD_VLAN_TAG_PRESENT:
++			ctx->flags |= SEEN_SKB | SEEN_A;
++			emit_load_byte(r_A, r_skb, PKT_VLAN_PRESENT_OFFSET(), ctx);
++			if (PKT_VLAN_PRESENT_BIT)
++				emit_srl(r_A, r_A, PKT_VLAN_PRESENT_BIT, ctx);
++			emit_andi(r_A, r_s0, 1, ctx);
++			/* return 1 if present */
++			emit_sltu(r_A, r_zero, r_A, ctx);
+ 			break;
+ 		case BPF_ANC | SKF_AD_PKTTYPE:
+ 			ctx->flags |= SEEN_SKB;
 -- 
 2.11.0
