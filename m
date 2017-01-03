@@ -1,78 +1,47 @@
-From: Harini Katakam <harinikatakamlinux@gmail.com>
-Subject: Re: [RFC PATCH net-next v4 1/2] macb: Add 1588 support in Cadence GEM.
-Date: Tue, 3 Jan 2017 10:36:11 +0530
-Message-ID: <CAFcVECK1vt7Hu4tgSZ2+kKpMxoT-wpikMDq65HaxRv-EMgobHA@mail.gmail.com>
-References: <1481720175-12703-1-git-send-email-andrei.pistirica@microchip.com>
- <BN3PR07MB2516815EDE69ACDCE27F81A3C96F0@BN3PR07MB2516.namprd07.prod.outlook.com>
- <20170102113155.GA16373@localhost.localdomain> <0717c63b-2e29-9ad1-7f01-39817980933f@atmel.com>
- <20170102161359.GD3609@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Nicolas Ferre <nicolas.ferre@atmel.com>,
-        Rafal Ozieblo <rafalo@cadence.com>,
-        Andrei Pistirica <andrei.pistirica@microchip.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "linux-arm-kernel@lists.infradead.org"
-        <linux-arm-kernel@lists.infradead.org>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "harini.katakam@xilinx.com" <harini.katakam@xilinx.com>,
-        "punnaia@xilinx.com" <punnaia@xilinx.com>,
-        "michals@xilinx.com" <michals@xilinx.com>,
-        "anirudh@xilinx.com" <anirudh@xilinx.com>,
-        "boris.brezillon@free-electrons.com"
-        <boris.brezillon@free-electrons.com>,
-        "alexandre.belloni@free-electrons.com"
-        <alexandre.belloni@free-electrons.com>,
-        "tbultel@pixelsurmer.com" <tbultel@pixelsurmer.com>
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170102161359.GD3609@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCHv2 net-next 0/3] sctp: prepare asoc stream for stream reconf
+Date: Tue,  3 Jan 2017 13:59:45 +0800
+Message-ID: <cover.1483422833.git.lucien.xin@gmail.com>
+Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        Vlad Yasevich <vyasevich@gmail.com>, davem@davemloft.net
+To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:34838 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755610AbdACF7z (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2017 00:59:55 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Richard,
+sctp stream reconf, described in RFC 6525, needs a structure to
+save per stream information in assoc, like stream state.
 
-On Mon, Jan 2, 2017 at 9:43 PM, Richard Cochran
-<richardcochran@gmail.com> wrote:
-> On Mon, Jan 02, 2017 at 03:47:07PM +0100, Nicolas Ferre wrote:
->> Le 02/01/2017 =C3=A0 12:31, Richard Cochran a =C3=A9crit :
->> > This Cadence IP core is a complete disaster.
->>
->> Well, it evolved and propose several options to different SoC
->> integrators. This is not something unusual...
->> I suspect as well that some other network adapters have the same
->> weakness concerning PTP timestamp in single register as the early
->> revisions of this IP.
->
-> It appears that this core can neither latch the time on read or write,
-> or even latch time stamps.  I have worked with many different PTP HW
-> implementations, even early ones like on the ixp4xx, and it is no
-> exaggeration to say that this one is uniquely broken.
->
->> I suspect that Rafal tend to jump too quickly to the latest IP revisions
->> and add more options to this series: let's not try to pour too much
->> things into this code right now.
->
-> Why can't you check the IP version in the driver?
+In the future, sctp stream scheduler also needs it to save some
+stream scheduler params and queues.
 
-There is an IP revision register but it would be probably be better
-to rely on "caps" from the compatibility strings - to cover SoC
-specific implementations. Also, when this extended BD is
-added (with timestamp), additional words will need to be added
-statically which will be consistent with Andrei's CONFIG_
-checks.
+This patchset is to prepare the stream array in assoc for stream
+reconf.
 
->
-> And is it really true that the registers don't latch the time stamps,
-> as Rafal said?  If so, then we cannot accept the non-descriptor driver
-> version, since it cannot possibly work correctly.
->
+v1->v2:
+  put these patches into a smaller group.
 
-AFAIK, the two sets of registers only hold the timestamp till the next
-event (or peer event) packet comes in.
-I understand that it is not accurate - it is an initial version.
+Xin Long (3):
+  sctp: add stream arrays in asoc
+  sctp: replace ssnmap with asoc stream arrays
+  sctp: remove asoc ssnmap and ssnmap.c
 
-Regards,
-Harini
+ include/net/sctp/sctp.h    |   1 -
+ include/net/sctp/structs.h |  70 +++++++++----------------
+ net/sctp/Makefile          |   3 +-
+ net/sctp/associola.c       |  23 ++++++---
+ net/sctp/objcnt.c          |   2 -
+ net/sctp/sm_make_chunk.c   |  24 ++++++---
+ net/sctp/sm_statefuns.c    |   3 +-
+ net/sctp/ssnmap.c          | 125 ---------------------------------------------
+ net/sctp/ulpqueue.c        |  33 ++++--------
+ 9 files changed, 69 insertions(+), 215 deletions(-)
+ delete mode 100644 net/sctp/ssnmap.c
+
+-- 
+2.1.0
