@@ -1,163 +1,127 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 17/21] ixgbe: Remove unused firmware version functions and method
-Date: Tue,  3 Jan 2017 13:07:53 -0800
-Message-ID: <20170103210757.38847-18-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 12/21] ixgbevf: fix AER error handling
+Date: Tue,  3 Jan 2017 13:07:48 -0800
+Message-ID: <20170103210757.38847-13-jeffrey.t.kirsher@intel.com>
 References: <20170103210757.38847-1-jeffrey.t.kirsher@intel.com>
-Cc: Mark Rustad <mark.d.rustad@intel.com>, netdev@vger.kernel.org,
+Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
         guru.anbalagane@oracle.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:25260 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:3461 "EHLO mga14.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S966327AbdACVIR (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 3 Jan 2017 16:08:17 -0500
+        id S966317AbdACVIP (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 3 Jan 2017 16:08:15 -0500
 In-Reply-To: <20170103210757.38847-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mark Rustad <mark.d.rustad@intel.com>
+From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-The firmware version method and functions are not used anywhere, so
-remove them all.
+Make sure that we free the IRQs in ixgbevf_io_error_detected() when
+responding to an PCIe AER error and also restore them when the
+interface recovers from it.
 
-Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
-Tested-by: Krishneil Singh <krishneil.k.singh@intel.com>
+Previously it was possible to trigger BUG_ON() check in free_msix_irqs()
+in the case where we call ixgbevf_remove() after a failed recovery from
+AER error because the interrupts were not freed.
+
+Also moved the down and free functions into ixgbevf_close_suspend()
+same as with ixgbe.
+
+Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c |  2 --
- drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c |  2 --
- drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c   | 34 --------------------------
- drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h   |  4 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h  |  1 -
- drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c  |  1 -
- drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c  |  3 +--
- 7 files changed, 1 insertion(+), 46 deletions(-)
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 43 +++++++++++++----------
+ 1 file changed, 25 insertions(+), 18 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-index 805ab31..523f9d0 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-@@ -139,8 +139,6 @@ static s32 ixgbe_init_phy_ops_82598(struct ixgbe_hw *hw)
- 	case ixgbe_phy_tn:
- 		phy->ops.setup_link = &ixgbe_setup_phy_link_tnx;
- 		phy->ops.check_link = &ixgbe_check_phy_link_tnx;
--		phy->ops.get_firmware_version =
--			     &ixgbe_get_phy_firmware_version_tnx;
- 		break;
- 	case ixgbe_phy_nl:
- 		phy->ops.reset = &ixgbe_reset_phy_nl;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-index e00aaeb..30535e6 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-@@ -331,8 +331,6 @@ static s32 ixgbe_init_phy_ops_82599(struct ixgbe_hw *hw)
- 	case ixgbe_phy_tn:
- 		phy->ops.check_link = &ixgbe_check_phy_link_tnx;
- 		phy->ops.setup_link = &ixgbe_setup_phy_link_tnx;
--		phy->ops.get_firmware_version =
--			     &ixgbe_get_phy_firmware_version_tnx;
- 		break;
- 	default:
- 		break;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-index 019b3c2..67a399b 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-@@ -977,40 +977,6 @@ s32 ixgbe_setup_phy_link_tnx(struct ixgbe_hw *hw)
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+index 8574f21..a78e490 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+@@ -3228,6 +3228,21 @@ int ixgbevf_open(struct net_device *netdev)
  }
  
  /**
-- *  ixgbe_get_phy_firmware_version_tnx - Gets the PHY Firmware Version
-- *  @hw: pointer to hardware structure
-- *  @firmware_version: pointer to the PHY Firmware Version
-- **/
--s32 ixgbe_get_phy_firmware_version_tnx(struct ixgbe_hw *hw,
--				       u16 *firmware_version)
--{
--	s32 status;
--
--	status = hw->phy.ops.read_reg(hw, TNX_FW_REV,
--				      MDIO_MMD_VEND1,
--				      firmware_version);
--
--	return status;
--}
--
--/**
-- *  ixgbe_get_phy_firmware_version_generic - Gets the PHY Firmware Version
-- *  @hw: pointer to hardware structure
-- *  @firmware_version: pointer to the PHY Firmware Version
-- **/
--s32 ixgbe_get_phy_firmware_version_generic(struct ixgbe_hw *hw,
--					   u16 *firmware_version)
--{
--	s32 status;
--
--	status = hw->phy.ops.read_reg(hw, AQ_FW_REV,
--				      MDIO_MMD_VEND1,
--				      firmware_version);
--
--	return status;
--}
--
--/**
-  *  ixgbe_reset_phy_nl - Performs a PHY reset
-  *  @hw: pointer to hardware structure
-  **/
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h
-index ecf05f8..5aa2c3c 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h
-@@ -168,10 +168,6 @@ s32 ixgbe_check_phy_link_tnx(struct ixgbe_hw *hw,
- 			     ixgbe_link_speed *speed,
- 			     bool *link_up);
- s32 ixgbe_setup_phy_link_tnx(struct ixgbe_hw *hw);
--s32 ixgbe_get_phy_firmware_version_tnx(struct ixgbe_hw *hw,
--				       u16 *firmware_version);
--s32 ixgbe_get_phy_firmware_version_generic(struct ixgbe_hw *hw,
--					   u16 *firmware_version);
++ * ixgbevf_close_suspend - actions necessary to both suspend and close flows
++ * @adapter: the private adapter struct
++ *
++ * This function should contain the necessary work common to both suspending
++ * and closing of the device.
++ */
++static void ixgbevf_close_suspend(struct ixgbevf_adapter *adapter)
++{
++	ixgbevf_down(adapter);
++	ixgbevf_free_irq(adapter);
++	ixgbevf_free_all_tx_resources(adapter);
++	ixgbevf_free_all_rx_resources(adapter);
++}
++
++/**
+  * ixgbevf_close - Disables a network interface
+  * @netdev: network interface device structure
+  *
+@@ -3242,14 +3257,8 @@ int ixgbevf_close(struct net_device *netdev)
+ {
+ 	struct ixgbevf_adapter *adapter = netdev_priv(netdev);
  
- s32 ixgbe_reset_phy_nl(struct ixgbe_hw *hw);
- s32 ixgbe_set_copper_phy_power(struct ixgbe_hw *hw, bool on);
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-index 0d85511..5c59b3c 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-@@ -3404,7 +3404,6 @@ struct ixgbe_phy_operations {
- 	s32 (*setup_internal_link)(struct ixgbe_hw *);
- 	s32 (*setup_link_speed)(struct ixgbe_hw *, ixgbe_link_speed, bool);
- 	s32 (*check_link)(struct ixgbe_hw *, ixgbe_link_speed *, bool *);
--	s32 (*get_firmware_version)(struct ixgbe_hw *, u16 *);
- 	s32 (*read_i2c_byte)(struct ixgbe_hw *, u8, u8, u8 *);
- 	s32 (*write_i2c_byte)(struct ixgbe_hw *, u8, u8, u8);
- 	s32 (*read_i2c_sff8472)(struct ixgbe_hw *, u8 , u8 *);
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
-index afc4d16..84a467a 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
-@@ -918,7 +918,6 @@ static const struct ixgbe_phy_operations phy_ops_X540 = {
- 	.write_i2c_eeprom       = &ixgbe_write_i2c_eeprom_generic,
- 	.check_overtemp         = &ixgbe_tn_check_overtemp,
- 	.set_phy_power          = &ixgbe_set_copper_phy_power,
--	.get_firmware_version   = &ixgbe_get_phy_firmware_version_generic,
- };
+-	if (!netif_device_present(netdev))
+-		return 0;
+-
+-	ixgbevf_down(adapter);
+-	ixgbevf_free_irq(adapter);
+-
+-	ixgbevf_free_all_tx_resources(adapter);
+-	ixgbevf_free_all_rx_resources(adapter);
++	if (netif_device_present(netdev))
++		ixgbevf_close_suspend(adapter);
  
- static const u32 ixgbe_mvals_X540[IXGBE_MVALS_IDX_LIMIT] = {
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-index 398973e..5a6c4b7 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-@@ -3419,8 +3419,7 @@ static const struct ixgbe_eeprom_operations eeprom_ops_X550EM_x = {
- 	.write_i2c_eeprom	= &ixgbe_write_i2c_eeprom_generic, \
- 	.setup_link		= &ixgbe_setup_phy_link_generic, \
- 	.set_phy_power		= NULL, \
--	.check_overtemp		= &ixgbe_tn_check_overtemp, \
--	.get_firmware_version	= &ixgbe_get_phy_firmware_version_generic,
-+	.check_overtemp		= &ixgbe_tn_check_overtemp,
+ 	return 0;
+ }
+@@ -3806,13 +3815,10 @@ static int ixgbevf_suspend(struct pci_dev *pdev, pm_message_t state)
+ 	rtnl_lock();
+ 	netif_device_detach(netdev);
  
- static const struct ixgbe_phy_operations phy_ops_X550 = {
- 	X550_COMMON_PHY
+-	if (netif_running(netdev)) {
+-		ixgbevf_down(adapter);
+-		ixgbevf_free_irq(adapter);
+-		ixgbevf_free_all_tx_resources(adapter);
+-		ixgbevf_free_all_rx_resources(adapter);
+-		ixgbevf_clear_interrupt_scheme(adapter);
+-	}
++	if (netif_running(netdev))
++		ixgbevf_close_suspend(adapter);
++
++	ixgbevf_clear_interrupt_scheme(adapter);
+ 	rtnl_unlock();
+ 
+ #ifdef CONFIG_PM
+@@ -4251,7 +4257,7 @@ static pci_ers_result_t ixgbevf_io_error_detected(struct pci_dev *pdev,
+ 	}
+ 
+ 	if (netif_running(netdev))
+-		ixgbevf_down(adapter);
++		ixgbevf_close_suspend(adapter);
+ 
+ 	if (!test_and_set_bit(__IXGBEVF_DISABLED, &adapter->state))
+ 		pci_disable_device(pdev);
+@@ -4299,12 +4305,13 @@ static pci_ers_result_t ixgbevf_io_slot_reset(struct pci_dev *pdev)
+ static void ixgbevf_io_resume(struct pci_dev *pdev)
+ {
+ 	struct net_device *netdev = pci_get_drvdata(pdev);
+-	struct ixgbevf_adapter *adapter = netdev_priv(netdev);
+ 
++	rtnl_lock();
+ 	if (netif_running(netdev))
+-		ixgbevf_up(adapter);
++		ixgbevf_open(netdev);
+ 
+ 	netif_device_attach(netdev);
++	rtnl_unlock();
+ }
+ 
+ /* PCI Error Recovery (ERS) */
 -- 
 2.9.3
