@@ -1,94 +1,52 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 09/21] ixgbevf: handle race between close and suspend on shutdown
-Date: Tue,  3 Jan 2017 13:07:45 -0800
-Message-ID: <20170103210757.38847-10-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 15/21] ixgbe: Configure advertised speeds correctly for KR/KX backplane
+Date: Tue,  3 Jan 2017 13:07:51 -0800
+Message-ID: <20170103210757.38847-16-jeffrey.t.kirsher@intel.com>
 References: <20170103210757.38847-1-jeffrey.t.kirsher@intel.com>
-Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
+Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
         guru.anbalagane@oracle.com,
-        Alexander Duyck <alexander.h.duyck@intel.com>,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga14.intel.com ([192.55.52.115]:25260 "EHLO mga14.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1757520AbdACVIL (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 3 Jan 2017 16:08:11 -0500
+        id S966322AbdACVIR (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 3 Jan 2017 16:08:17 -0500
 In-Reply-To: <20170103210757.38847-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Emil Tantilov <emil.s.tantilov@intel.com>
+From: Don Skidmore <donald.c.skidmore@intel.com>
 
-When an interface is part of a namespace it is possible that
-ixgbevf_close() may be called while ixgbevf_suspend() is running
-which ends up in a double free WARN and/or a BUG in free_msi_irqs()
+This patch ensures that the advertised link speeds are configured
+for X553 KR/KX backplane.  Without this patch the link remains at
+1G when resuming from low power after being downshifted by LPLU.
 
-To handle this situation we extend the rtnl_lock() to protect the
-call to netif_device_detach() and check for !netif_device_present()
-to avoid entering close while in suspend.
-
-Also added rtnl locks to ixgbevf_queue_reset_subtask().
-
-CC: Alexander Duyck <alexander.h.duyck@intel.com>
-Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
+Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 11 +++++++++--
- 1 file changed, 9 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index 6d4bef5..8574f21 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -3242,6 +3242,9 @@ int ixgbevf_close(struct net_device *netdev)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
+index 92f2b5e..e3d14f4 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
+@@ -2187,12 +2187,11 @@ static s32 ixgbe_setup_kx4_x550em(struct ixgbe_hw *hw)
+ /**
+  * ixgbe_setup_kr_x550em - Configure the KR PHY
+  * @hw: pointer to hardware structure
+- *
+- * Configures the integrated KR PHY for X550EM_x.
+  **/
+ static s32 ixgbe_setup_kr_x550em(struct ixgbe_hw *hw)
  {
- 	struct ixgbevf_adapter *adapter = netdev_priv(netdev);
+-	if (hw->mac.type != ixgbe_mac_X550EM_x)
++	/* leave link alone for 2.5G */
++	if (hw->phy.autoneg_advertised & IXGBE_LINK_SPEED_2_5GB_FULL)
+ 		return 0;
  
-+	if (!netif_device_present(netdev))
-+		return 0;
-+
- 	ixgbevf_down(adapter);
- 	ixgbevf_free_irq(adapter);
- 
-@@ -3268,6 +3271,8 @@ static void ixgbevf_queue_reset_subtask(struct ixgbevf_adapter *adapter)
- 	 * match packet buffer alignment. Unfortunately, the
- 	 * hardware is not flexible enough to do this dynamically.
- 	 */
-+	rtnl_lock();
-+
- 	if (netif_running(dev))
- 		ixgbevf_close(dev);
- 
-@@ -3276,6 +3281,8 @@ static void ixgbevf_queue_reset_subtask(struct ixgbevf_adapter *adapter)
- 
- 	if (netif_running(dev))
- 		ixgbevf_open(dev);
-+
-+	rtnl_unlock();
- }
- 
- static void ixgbevf_tx_ctxtdesc(struct ixgbevf_ring *tx_ring,
-@@ -3796,17 +3803,17 @@ static int ixgbevf_suspend(struct pci_dev *pdev, pm_message_t state)
- 	int retval = 0;
- #endif
- 
-+	rtnl_lock();
- 	netif_device_detach(netdev);
- 
- 	if (netif_running(netdev)) {
--		rtnl_lock();
- 		ixgbevf_down(adapter);
- 		ixgbevf_free_irq(adapter);
- 		ixgbevf_free_all_tx_resources(adapter);
- 		ixgbevf_free_all_rx_resources(adapter);
- 		ixgbevf_clear_interrupt_scheme(adapter);
--		rtnl_unlock();
- 	}
-+	rtnl_unlock();
- 
- #ifdef CONFIG_PM
- 	retval = pci_save_state(pdev);
+ 	return ixgbe_setup_kr_speed_x550em(hw, hw->phy.autoneg_advertised);
 -- 
 2.9.3
