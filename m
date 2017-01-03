@@ -1,47 +1,30 @@
-From: Felix Fietkau <nbd@nbd.name>
-Subject: Re: [PATCH net-next] bridge: multicast to unicast
-Date: Tue, 3 Jan 2017 14:15:29 +0100
-Message-ID: <8db3f67d-a767-d61e-b101-9b78c1f59569@nbd.name>
-References: <20170102193214.31723-1-linus.luessing@c0d3.blue>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH v3] net: ethernet: faraday: To support device tree usage.
+Date: Tue, 03 Jan 2017 14:24:35 +0100
+Message-ID: <2299808.LHnPolcyRJ@wuerfel>
+References: <1483083470-15779-1-git-send-email-green.hu@gmail.com> <6434425.l4ZxB6kK6L@wuerfel> <CAEbi=3cJtHr-G+CHzAMgsfoscj6Eb=YUJeXB7=AmmT5DrHOqXg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: "David S . Miller" <davem@davemloft.net>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
-        linux-wireless@vger.kernel.org
-To: =?UTF-8?Q?Linus_L=c3=bcssing?= <linus.luessing@c0d3.blue>,
-        netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8BIT
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        netdev <netdev@vger.kernel.org>, devicetree@vger.kernel.org,
+        Andrew Lunn <andrew@lunn.ch>, linux-kernel@vger.kernel.org,
+        Jiri Pirko <jiri@resnulli.us>
+To: Greentime Hu <green.hu@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170102193214.31723-1-linus.luessing@c0d3.blue>
+In-Reply-To: <CAEbi=3cJtHr-G+CHzAMgsfoscj6Eb=YUJeXB7=AmmT5DrHOqXg@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 2017-01-02 20:32, Linus Lüssing wrote:
-> Implements an optional, per bridge port flag and feature to deliver
-> multicast packets to any host on the according port via unicast
-> individually. This is done by copying the packet per host and
-> changing the multicast destination MAC to a unicast one accordingly.
-> 
-> multicast-to-unicast works on top of the multicast snooping feature of
-> the bridge. Which means unicast copies are only delivered to hosts which
-> are interested in it and signalized this via IGMP/MLD reports
-> previously.
-> 
-> This feature is intended for interface types which have a more reliable
-> and/or efficient way to deliver unicast packets than broadcast ones
-> (e.g. wifi).
-> 
-> However, it should only be enabled on interfaces where no IGMPv2/MLDv1
-> report suppression takes place. This feature is disabled by default.
-> 
-> The initial patch and idea is from Felix Fietkau.
-> 
-> Cc: Felix Fietkau <nbd@nbd.name>
-> Signed-off-by: Linus Lüssing <linus.luessing@c0d3.blue>
-Please add Signed-off-by: Felix Fietkau <nbd@nbd.name>
-in the next version, and maybe also From:
+On Tuesday, January 3, 2017 2:05:47 PM CET Greentime Hu wrote:
+> ​I am not sure if atmac and moxa-art are exactly hardware compatible though
+> they are based on faraday ftmac.
+> It may be better if we use 2 different device tree binding documents to
+> describe for these 2 different drivers to use.
 
-Thanks,
+They are probably slightly different, but close enough to have the same
+binding document, as there is no technical reason to have two separate
+drivers for them. The binding should be about the hardware type, not the
+way that Linux currently implements the drivers.
 
-- Felix
+	Arnd
