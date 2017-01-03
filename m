@@ -1,41 +1,54 @@
-From: Volodymyr Bendiuga <volodymyr.bendiuga@gmail.com>
-Subject: [PATCH net-next] net:mv88e6xxx: use g2 interrupt for 6097 chip
-Date: Tue,  3 Jan 2017 11:13:57 +0100
-Message-ID: <1483438437-19601-1-git-send-email-volodymyr.bendiuga@gmail.com>
-To: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
-        f.fainelli@gmail.com, netdev@vger.kernel.org,
-        volodymyr.bendiuga@westermo.se
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f66.google.com ([209.85.215.66]:33819 "EHLO
-        mail-lf0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757618AbdACKOT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2017 05:14:19 -0500
-Received: by mail-lf0-f66.google.com with SMTP id d16so29750123lfb.1
-        for <netdev@vger.kernel.org>; Tue, 03 Jan 2017 02:14:18 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [RFC PATCH net-next v4 1/2] macb: Add 1588 support in Cadence
+ GEM.
+Date: Tue, 3 Jan 2017 11:20:44 +0100
+Message-ID: <20170103102044.GB24780@localhost.localdomain>
+References: <1481720175-12703-1-git-send-email-andrei.pistirica@microchip.com>
+ <BN3PR07MB2516815EDE69ACDCE27F81A3C96F0@BN3PR07MB2516.namprd07.prod.outlook.com>
+ <20170102113155.GA16373@localhost.localdomain>
+ <0717c63b-2e29-9ad1-7f01-39817980933f@atmel.com>
+ <20170102161359.GD3609@localhost.localdomain>
+ <CAFcVECK1vt7Hu4tgSZ2+kKpMxoT-wpikMDq65HaxRv-EMgobHA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Nicolas Ferre <nicolas.ferre@atmel.com>,
+        Rafal Ozieblo <rafalo@cadence.com>,
+        Andrei Pistirica <andrei.pistirica@microchip.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "linux-arm-kernel@lists.infradead.org"
+        <linux-arm-kernel@lists.infradead.org>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "harini.katakam@xilinx.com" <harini.katakam@xilinx.com>,
+        "punnaia@xilinx.com" <punnaia@xilinx.com>,
+        "michals@xilinx.com" <michals@xilinx.com>,
+        "anirudh@xilinx.com" <anirudh@xilinx.com>,
+        "boris.brezillon@free-electrons.com"
+        <boris.brezillon@free-electrons.com>,
+        "alexandre.belloni@free-electrons.com"
+        <alexandre.belloni@free-electrons.com>,
+        "tbultel@pixelsurmer.com" <tbultel@pixelsurmer.com>
+To: Harini Katakam <harinikatakamlinux@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAFcVECK1vt7Hu4tgSZ2+kKpMxoT-wpikMDq65HaxRv-EMgobHA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Volodymyr Bendiuga <volodymyr.bendiuga@westermo.se>
+On Tue, Jan 03, 2017 at 10:36:11AM +0530, Harini Katakam wrote:
+> I understand that it is not accurate - it is an initial version.
 
-This chip needs MV88E6XXX_FLAG_G2_INT
+No, it is not inaccurate at all, it is WRONG.
 
-Signed-off-by: Volodymyr Bendiuga <volodymyr.bendiuga@westermo.se>
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
----
- drivers/net/dsa/mv88e6xxx/mv88e6xxx.h | 1 +
- 1 file changed, 1 insertion(+)
+This means that time stamps will be randomly associated with PTP
+network packets.  To the application, the protocol will appear to
+work, but the time stamp information (and thus the synchronization)
+will be wrong.
 
-diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-index 13c7cc4..c7206d8 100644
---- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-@@ -575,6 +575,7 @@ enum mv88e6xxx_cap {
- 	(MV88E6XXX_FLAG_G1_ATU_FID |	\
- 	 MV88E6XXX_FLAG_G1_VTU_FID |	\
- 	 MV88E6XXX_FLAG_GLOBAL2 |	\
-+ 	 MV88E6XXX_FLAG_G2_INT |	\
- 	 MV88E6XXX_FLAG_G2_MGMT_EN_2X |	\
- 	 MV88E6XXX_FLAG_G2_MGMT_EN_0X |	\
- 	 MV88E6XXX_FLAG_G2_POT |	\
--- 
-2.7.4
+To me, this is unacceptable, and I will push back on this driver
+getting merged.
+
+[ In contrast, the descriptor based approach would be ok, afaict. ]
+
+Thanks,
+Richard
