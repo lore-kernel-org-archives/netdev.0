@@ -1,272 +1,197 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCHv2 net-next 3/3] sctp: remove asoc ssnmap and ssnmap.c
-Date: Tue,  3 Jan 2017 13:59:48 +0800
-Message-ID: <be8a2770ddc2381266050c9f168add9802b90a49.1483422833.git.lucien.xin@gmail.com>
-References: <cover.1483422833.git.lucien.xin@gmail.com>
- <684ad8ddd79f23844883dede4c34360ce744dfc3.1483422833.git.lucien.xin@gmail.com>
- <c752879a5af358c08da949b391416452f1322c43.1483422833.git.lucien.xin@gmail.com>
-Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        Vlad Yasevich <vyasevich@gmail.com>, davem@davemloft.net
-To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [RFC PATCH] virtio_net: XDP support for adjust_head
+Date: Tue, 3 Jan 2017 14:01:27 +0800
+Message-ID: <73715f7a-eeeb-679f-a7b8-7b1fefe1757e@redhat.com>
+References: <20170102194413.9089.39078.stgit@john-Precision-Tower-5810>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org,
+        alexei.starovoitov@gmail.com, daniel@iogearbox.net
+To: John Fastabend <john.fastabend@gmail.com>, mst@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:35954 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755610AbdACGAU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2017 01:00:20 -0500
-In-Reply-To: <c752879a5af358c08da949b391416452f1322c43.1483422833.git.lucien.xin@gmail.com>
-In-Reply-To: <cover.1483422833.git.lucien.xin@gmail.com>
-References: <cover.1483422833.git.lucien.xin@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:49550 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1755610AbdACGBg (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 3 Jan 2017 01:01:36 -0500
+In-Reply-To: <20170102194413.9089.39078.stgit@john-Precision-Tower-5810>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since asoc stream arrays has replaced ssnmap, ssnmap is not used any
-more, this patch is to remove asoc ssnmap and ssnmap.c.
 
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
----
- include/net/sctp/sctp.h    |   1 -
- include/net/sctp/structs.h |  33 ------------
- net/sctp/Makefile          |   3 +-
- net/sctp/objcnt.c          |   2 -
- net/sctp/ssnmap.c          | 125 ---------------------------------------------
- 5 files changed, 1 insertion(+), 163 deletions(-)
- delete mode 100644 net/sctp/ssnmap.c
 
-diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
-index d8833a8..598d938 100644
---- a/include/net/sctp/sctp.h
-+++ b/include/net/sctp/sctp.h
-@@ -283,7 +283,6 @@ extern atomic_t sctp_dbg_objcnt_chunk;
- extern atomic_t sctp_dbg_objcnt_bind_addr;
- extern atomic_t sctp_dbg_objcnt_bind_bucket;
- extern atomic_t sctp_dbg_objcnt_addr;
--extern atomic_t sctp_dbg_objcnt_ssnmap;
- extern atomic_t sctp_dbg_objcnt_datamsg;
- extern atomic_t sctp_dbg_objcnt_keys;
- 
-diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-index f81c321..9075d61 100644
---- a/include/net/sctp/structs.h
-+++ b/include/net/sctp/structs.h
-@@ -82,7 +82,6 @@ struct sctp_outq;
- struct sctp_bind_addr;
- struct sctp_ulpq;
- struct sctp_ep_common;
--struct sctp_ssnmap;
- struct crypto_shash;
- 
- 
-@@ -377,35 +376,6 @@ typedef struct sctp_sender_hb_info {
- 	__u64 hb_nonce;
- } __packed sctp_sender_hb_info_t;
- 
--/*
-- *  RFC 2960 1.3.2 Sequenced Delivery within Streams
-- *
-- *  The term "stream" is used in SCTP to refer to a sequence of user
-- *  messages that are to be delivered to the upper-layer protocol in
-- *  order with respect to other messages within the same stream.  This is
-- *  in contrast to its usage in TCP, where it refers to a sequence of
-- *  bytes (in this document a byte is assumed to be eight bits).
-- *  ...
-- *
-- *  This is the structure we use to track both our outbound and inbound
-- *  SSN, or Stream Sequence Numbers.
-- */
--
--struct sctp_stream {
--	__u16 *ssn;
--	unsigned int len;
--};
--
--struct sctp_ssnmap {
--	struct sctp_stream in;
--	struct sctp_stream out;
--};
--
--struct sctp_ssnmap *sctp_ssnmap_new(__u16 in, __u16 out,
--				    gfp_t gfp);
--void sctp_ssnmap_free(struct sctp_ssnmap *map);
--void sctp_ssnmap_clear(struct sctp_ssnmap *map);
--
- /* What is the current SSN number for this stream? */
- #define sctp_ssn_peek(asoc, type, sid) \
- 	((asoc)->stream##type[sid].ssn)
-@@ -1751,9 +1721,6 @@ struct sctp_association {
- 	/* Default receive parameters */
- 	__u32 default_rcv_context;
- 
--	/* This tracks outbound ssn for a given stream.	 */
--	struct sctp_ssnmap *ssnmap;
--
- 	/* All outbound chunks go through this structure.  */
- 	struct sctp_outq outqueue;
- 
-diff --git a/net/sctp/Makefile b/net/sctp/Makefile
-index 6c4f749..48bfc74 100644
---- a/net/sctp/Makefile
-+++ b/net/sctp/Makefile
-@@ -11,8 +11,7 @@ sctp-y := sm_statetable.o sm_statefuns.o sm_sideeffect.o \
- 	  transport.o chunk.o sm_make_chunk.o ulpevent.o \
- 	  inqueue.o outqueue.o ulpqueue.o \
- 	  tsnmap.o bind_addr.o socket.o primitive.o \
--	  output.o input.o debug.o ssnmap.o auth.o \
--	  offload.o
-+	  output.o input.o debug.o auth.o offload.o
- 
- sctp_probe-y := probe.o
- 
-diff --git a/net/sctp/objcnt.c b/net/sctp/objcnt.c
-index 40e7fac..105ac33 100644
---- a/net/sctp/objcnt.c
-+++ b/net/sctp/objcnt.c
-@@ -51,7 +51,6 @@ SCTP_DBG_OBJCNT(bind_addr);
- SCTP_DBG_OBJCNT(bind_bucket);
- SCTP_DBG_OBJCNT(chunk);
- SCTP_DBG_OBJCNT(addr);
--SCTP_DBG_OBJCNT(ssnmap);
- SCTP_DBG_OBJCNT(datamsg);
- SCTP_DBG_OBJCNT(keys);
- 
-@@ -67,7 +66,6 @@ static sctp_dbg_objcnt_entry_t sctp_dbg_objcnt[] = {
- 	SCTP_DBG_OBJCNT_ENTRY(bind_addr),
- 	SCTP_DBG_OBJCNT_ENTRY(bind_bucket),
- 	SCTP_DBG_OBJCNT_ENTRY(addr),
--	SCTP_DBG_OBJCNT_ENTRY(ssnmap),
- 	SCTP_DBG_OBJCNT_ENTRY(datamsg),
- 	SCTP_DBG_OBJCNT_ENTRY(keys),
- };
-diff --git a/net/sctp/ssnmap.c b/net/sctp/ssnmap.c
-deleted file mode 100644
-index b9c8521..0000000
---- a/net/sctp/ssnmap.c
-+++ /dev/null
-@@ -1,125 +0,0 @@
--/* SCTP kernel implementation
-- * Copyright (c) 2003 International Business Machines, Corp.
-- *
-- * This file is part of the SCTP kernel implementation
-- *
-- * These functions manipulate sctp SSN tracker.
-- *
-- * This SCTP implementation is free software;
-- * you can redistribute it and/or modify it under the terms of
-- * the GNU General Public License as published by
-- * the Free Software Foundation; either version 2, or (at your option)
-- * any later version.
-- *
-- * This SCTP implementation is distributed in the hope that it
-- * will be useful, but WITHOUT ANY WARRANTY; without even the implied
-- *                 ************************
-- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-- * See the GNU General Public License for more details.
-- *
-- * You should have received a copy of the GNU General Public License
-- * along with GNU CC; see the file COPYING.  If not, see
-- * <http://www.gnu.org/licenses/>.
-- *
-- * Please send any bug reports or fixes you make to the
-- * email address(es):
-- *    lksctp developers <linux-sctp@vger.kernel.org>
-- *
-- * Written or modified by:
-- *    Jon Grimm             <jgrimm@us.ibm.com>
-- */
--
--#include <linux/types.h>
--#include <linux/slab.h>
--#include <net/sctp/sctp.h>
--#include <net/sctp/sm.h>
--
--static struct sctp_ssnmap *sctp_ssnmap_init(struct sctp_ssnmap *map, __u16 in,
--					    __u16 out);
--
--/* Storage size needed for map includes 2 headers and then the
-- * specific needs of in or out streams.
-- */
--static inline size_t sctp_ssnmap_size(__u16 in, __u16 out)
--{
--	return sizeof(struct sctp_ssnmap) + (in + out) * sizeof(__u16);
--}
--
--
--/* Create a new sctp_ssnmap.
-- * Allocate room to store at least 'len' contiguous TSNs.
-- */
--struct sctp_ssnmap *sctp_ssnmap_new(__u16 in, __u16 out,
--				    gfp_t gfp)
--{
--	struct sctp_ssnmap *retval;
--	int size;
--
--	size = sctp_ssnmap_size(in, out);
--	if (size <= KMALLOC_MAX_SIZE)
--		retval = kmalloc(size, gfp);
--	else
--		retval = (struct sctp_ssnmap *)
--			  __get_free_pages(gfp, get_order(size));
--	if (!retval)
--		goto fail;
--
--	if (!sctp_ssnmap_init(retval, in, out))
--		goto fail_map;
--
--	SCTP_DBG_OBJCNT_INC(ssnmap);
--
--	return retval;
--
--fail_map:
--	if (size <= KMALLOC_MAX_SIZE)
--		kfree(retval);
--	else
--		free_pages((unsigned long)retval, get_order(size));
--fail:
--	return NULL;
--}
--
--
--/* Initialize a block of memory as a ssnmap.  */
--static struct sctp_ssnmap *sctp_ssnmap_init(struct sctp_ssnmap *map, __u16 in,
--					    __u16 out)
--{
--	memset(map, 0x00, sctp_ssnmap_size(in, out));
--
--	/* Start 'in' stream just after the map header. */
--	map->in.ssn = (__u16 *)&map[1];
--	map->in.len = in;
--
--	/* Start 'out' stream just after 'in'. */
--	map->out.ssn = &map->in.ssn[in];
--	map->out.len = out;
--
--	return map;
--}
--
--/* Clear out the ssnmap streams.  */
--void sctp_ssnmap_clear(struct sctp_ssnmap *map)
--{
--	size_t size;
--
--	size = (map->in.len + map->out.len) * sizeof(__u16);
--	memset(map->in.ssn, 0x00, size);
--}
--
--/* Dispose of a ssnmap.  */
--void sctp_ssnmap_free(struct sctp_ssnmap *map)
--{
--	int size;
--
--	if (unlikely(!map))
--		return;
--
--	size = sctp_ssnmap_size(map->in.len, map->out.len);
--	if (size <= KMALLOC_MAX_SIZE)
--		kfree(map);
--	else
--		free_pages((unsigned long)map, get_order(size));
--
--	SCTP_DBG_OBJCNT_DEC(ssnmap);
--}
--- 
-2.1.0
+On 2017年01月03日 03:44, John Fastabend wrote:
+> Add support for XDP adjust head by allocating a 256B header region
+> that XDP programs can grow into. This is only enabled when a XDP
+> program is loaded.
+>
+> In order to ensure that we do not have to unwind queue headroom push
+> queue setup below bpf_prog_add. It reads better to do a prog ref
+> unwind vs another queue setup call.
+>
+> : There is a problem with this patch as is. When xdp prog is loaded
+>    the old buffers without the 256B headers need to be flushed so that
+>    the bpf prog has the necessary headroom. This patch does this by
+>    calling the virtqueue_detach_unused_buf() and followed by the
+>    virtnet_set_queues() call to reinitialize the buffers. However I
+>    don't believe this is safe per comment in virtio_ring this API
+>    is not valid on an active queue and the only thing we have done
+>    here is napi_disable/napi_enable wrappers which doesn't do anything
+>    to the emulation layer.
+>
+>    So the RFC is really to find the best solution to this problem.
+>    A couple things come to mind, (a) always allocate the necessary
+>    headroom but this is a bit of a waste (b) add some bit somewhere
+>    to check if the buffer has headroom but this would mean XDP programs
+>    would be broke for a cycle through the ring, (c) figure out how
+>    to deactivate a queue, free the buffers and finally reallocate.
+>    I think (c) is the best choice for now but I'm not seeing the
+>    API to do this so virtio/qemu experts anyone know off-hand
+>    how to make this work? I started looking into the PCI callbacks
+>    reset() and virtio_device_ready() or possibly hitting the right
+>    set of bits with vp_set_status() but my first attempt just hung
+>    the device.
+
+Hi John:
+
+AFAIK, disabling a specific queue was supported only by virtio 1.0 
+through queue_enable field in pci common cfg. But unfortunately, qemu 
+does not emulate this at all and legacy device does not even support 
+this. So the safe way is probably reset the device and redo the 
+initialization here.
+
+>
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> ---
+>   drivers/net/virtio_net.c |  106 +++++++++++++++++++++++++++++++++++-----------
+>   1 file changed, 80 insertions(+), 26 deletions(-)
+>
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index 5deeda6..fcc5bd7 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -159,6 +159,9 @@ struct virtnet_info {
+>   	/* Ethtool settings */
+>   	u8 duplex;
+>   	u32 speed;
+> +
+> +	/* Headroom allocated in RX Queue */
+> +	unsigned int headroom;
+>   };
+>   
+>   struct padded_vnet_hdr {
+> @@ -355,6 +358,7 @@ static void virtnet_xdp_xmit(struct virtnet_info *vi,
+>   	}
+>   
+>   	if (vi->mergeable_rx_bufs) {
+> +		xdp->data -= sizeof(struct virtio_net_hdr_mrg_rxbuf);
+>   		/* Zero header and leave csum up to XDP layers */
+>   		hdr = xdp->data;
+>   		memset(hdr, 0, vi->hdr_len);
+> @@ -371,7 +375,7 @@ static void virtnet_xdp_xmit(struct virtnet_info *vi,
+>   		num_sg = 2;
+>   		sg_init_table(sq->sg, 2);
+>   		sg_set_buf(sq->sg, hdr, vi->hdr_len);
+> -		skb_to_sgvec(skb, sq->sg + 1, 0, skb->len);
+> +		skb_to_sgvec(skb, sq->sg + 1, vi->headroom, xdp->data_end - xdp->data);
+
+vi->headroom look suspicious, should it be xdp->data - xdp->data_hard_start?
+
+>   	}
+>   	err = virtqueue_add_outbuf(sq->vq, sq->sg, num_sg,
+>   				   data, GFP_ATOMIC);
+> @@ -393,34 +397,39 @@ static u32 do_xdp_prog(struct virtnet_info *vi,
+>   		       struct bpf_prog *xdp_prog,
+>   		       void *data, int len)
+>   {
+> -	int hdr_padded_len;
+>   	struct xdp_buff xdp;
+> -	void *buf;
+>   	unsigned int qp;
+>   	u32 act;
+>   
+> +
+>   	if (vi->mergeable_rx_bufs) {
+> -		hdr_padded_len = sizeof(struct virtio_net_hdr_mrg_rxbuf);
+> -		xdp.data = data + hdr_padded_len;
+> +		int desc_room = sizeof(struct virtio_net_hdr_mrg_rxbuf);
+> +
+> +		/* Allow consuming headroom but reserve enough space to push
+> +		 * the descriptor on if we get an XDP_TX return code.
+> +		 */
+> +		xdp.data_hard_start = data - vi->headroom + desc_room;
+> +		xdp.data = data + desc_room;
+>   		xdp.data_end = xdp.data + (len - vi->hdr_len);
+> -		buf = data;
+>   	} else { /* small buffers */
+>   		struct sk_buff *skb = data;
+>   
+> -		xdp.data = skb->data;
+> +		xdp.data_hard_start = skb->data;
+> +		xdp.data = skb->data + vi->headroom;
+>   		xdp.data_end = xdp.data + len;
+> -		buf = skb->data;
+>   	}
+>   
+>   	act = bpf_prog_run_xdp(xdp_prog, &xdp);
+>   	switch (act) {
+>   	case XDP_PASS:
+> +		if (!vi->mergeable_rx_bufs)
+> +			__skb_pull((struct sk_buff *) data,
+> +				   xdp.data - xdp.data_hard_start);
+
+Instead of doing things here and virtnet_xdp_xmit(). How about always 
+making skb->data point to the buffer head like:
+
+1) reserve headroom in add_recvbuf_small()
+2) skb_push(xdp->data - xdp_data_hard_start, skb) if we detect xdp->data 
+was modified afer bpf_prog_run_xdp()
+
+Then there's no special code in either XDP_PASS or XDP_TX?
+
+>   		return XDP_PASS;
+>   	case XDP_TX:
+>   		qp = vi->curr_queue_pairs -
+>   			vi->xdp_queue_pairs +
+>   			smp_processor_id();
+
+[...]
+
+> +#define VIRTIO_XDP_HEADROOM 256
+> +
+>   static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
+>   {
+>   	unsigned long int max_sz = PAGE_SIZE - sizeof(struct padded_vnet_hdr);
+>   	struct virtnet_info *vi = netdev_priv(dev);
+>   	struct bpf_prog *old_prog;
+>   	u16 xdp_qp = 0, curr_qp;
+> +	unsigned int old_hr;
+>   	int i, err;
+>   
+>   	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_TSO4) ||
+> @@ -1736,19 +1751,58 @@ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
+>   		return -ENOMEM;
+>   	}
+>   
+> +	old_hr = vi->headroom;
+> +	if (prog) {
+> +		prog = bpf_prog_add(prog, vi->max_queue_pairs - 1);
+> +		if (IS_ERR(prog))
+> +			return PTR_ERR(prog);
+> +		vi->headroom = VIRTIO_XDP_HEADROOM;
+> +	} else {
+> +		vi->headroom = 0;
+> +	}
+> +
+> +	/* Changing the headroom in buffers is a disruptive operation because
+> +	 * existing buffers must be flushed and reallocated. This will happen
+> +	 * when a xdp program is initially added or xdp is disabled by removing
+> +	 * the xdp program.
+> +	 */
+
+We probably need reset the device here, but maybe Michale has more 
+ideas. And if we do this, another interesting thing to do is to disable 
+EWMA and always use a single page for each packet, this could almost 
+eliminate linearizing.
+
+Thanks
