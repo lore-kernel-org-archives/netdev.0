@@ -1,52 +1,69 @@
-From: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: [for-next 10/10] net/mlx5: Activate support for 4K UARs
-Date: Tue,  3 Jan 2017 23:55:28 +0200
-Message-ID: <1483480528-22622-11-git-send-email-saeedm@mellanox.com>
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [for-next 02/10] IB/mlx5: Fix error handling order in create_kernel_qp
+Date: Tue,  3 Jan 2017 23:55:20 +0200
+Message-ID: <1483480528-22622-3-git-send-email-saeedm@mellanox.com>
 References: <1483480528-22622-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1483480528-22622-1-git-send-email-saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
+        Leon Romanovsky <leonro@mellanox.com>,
+        Eli Cohen <eli@mellanox.com>,
+        Matan Barak <matanb@mellanox.com>,
+        Leon Romanovsky <leon@kernel.org>,
+        Saeed Mahameed <saeedm@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>,
+        Doug Ledford <dledford@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:34201 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S936194AbdACVzl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2017 16:55:41 -0500
+In-Reply-To: <1483480528-22622-1-git-send-email-saeedm@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+From: Eli Cohen <eli@mellanox.com>
 
-Activate 4K UAR support for firmware versions that support it.
+Make sure order of cleanup is exactly the opposite of initialization.
 
-Signed-off-by: Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Reviewed-by: Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Signed-off-by: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Signed-off-by: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Fixes: 9603b61de1ee ('mlx5: Move pci device handling from mlx5_ib to mlx5_core')
+Signed-off-by: Eli Cohen <eli@mellanox.com>
+Reviewed-by: Matan Barak <matanb@mellanox.com>
+Signed-off-by: Leon Romanovsky <leon@kernel.org>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/main.c | 4 ++++
- 1 file changed, 4 insertions(+)
+ drivers/infiniband/hw/mlx5/qp.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-index ff1f144..a16ee16 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-@@ -530,6 +530,10 @@ static int handle_hca_cap(struct mlx5_core_dev *dev)
- 	/* disable cmdif checksum */
- 	MLX5_SET(cmd_hca_cap, set_hca_cap, cmdif_checksum, 0);
+diff --git a/drivers/infiniband/hw/mlx5/qp.c b/drivers/infiniband/hw/mlx5/qp.c
+index 53f4dd3..42d021cd 100644
+--- a/drivers/infiniband/hw/mlx5/qp.c
++++ b/drivers/infiniband/hw/mlx5/qp.c
+@@ -994,12 +994,12 @@ static int create_kernel_qp(struct mlx5_ib_dev *dev,
+ 	return 0;
  
-+	/* If the HCA supports 4K UARs use it */
-+	if (MLX5_CAP_GEN_MAX(dev, uar_4k))
-+		MLX5_SET(cmd_hca_cap, set_hca_cap, uar_4k, 1);
-+
- 	MLX5_SET(cmd_hca_cap, set_hca_cap, log_uar_page_sz, PAGE_SHIFT - 12);
+ err_wrid:
+-	mlx5_db_free(dev->mdev, &qp->db);
+ 	kfree(qp->sq.wqe_head);
+ 	kfree(qp->sq.w_list);
+ 	kfree(qp->sq.wrid);
+ 	kfree(qp->sq.wr_data);
+ 	kfree(qp->rq.wrid);
++	mlx5_db_free(dev->mdev, &qp->db);
  
- 	err = set_caps(dev, set_ctx, set_sz,
+ err_free:
+ 	kvfree(*in);
+@@ -1014,12 +1014,12 @@ static int create_kernel_qp(struct mlx5_ib_dev *dev,
+ 
+ static void destroy_qp_kernel(struct mlx5_ib_dev *dev, struct mlx5_ib_qp *qp)
+ {
+-	mlx5_db_free(dev->mdev, &qp->db);
+ 	kfree(qp->sq.wqe_head);
+ 	kfree(qp->sq.w_list);
+ 	kfree(qp->sq.wrid);
+ 	kfree(qp->sq.wr_data);
+ 	kfree(qp->rq.wrid);
++	mlx5_db_free(dev->mdev, &qp->db);
+ 	mlx5_buf_free(dev->mdev, &qp->buf);
+ 	free_uuar(&dev->mdev->priv.uuari, qp->bf->uuarn);
+ }
 -- 
 2.7.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
