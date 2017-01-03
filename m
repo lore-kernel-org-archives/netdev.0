@@ -1,60 +1,75 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 2/2] isdn: i4l: move active-isdn drivers to staging
-Date: Tue, 03 Jan 2017 22:19:29 +0100
-Message-ID: <3286019.I2UkVCJq41@wuerfel>
-References: <1456945629-1793533-1-git-send-email-arnd@arndb.de> <1456945629-1793533-2-git-send-email-arnd@arndb.de> <20170103152436.GA26156@kroah.com>
+From: Mark Greer <mgreer@animalcreek.com>
+Subject: Re: [PATCH v3 3/3] nfc: trf7970a: Prevent repeated polling from
+ crashing the kernel
+Date: Tue, 3 Jan 2017 14:21:36 -0700
+Message-ID: <20170103212136.GA9899@animalcreek.com>
+References: <1482380314-16440-1-git-send-email-geoff@kuvee.com>
+ <1482380314-16440-3-git-send-email-geoff@kuvee.com>
+ <20161224060141.GA9069@animalcreek.com>
+ <CAO7Z3W+n85jbr8cmj3HJV1c+eL=oRh-XRy+O=iZ+mD=ov2WABA@mail.gmail.com>
+ <20161224172439.GA15103@animalcreek.com>
+ <CAO7Z3WJa0goJ-VXc7dvyz8imZtqby6QsC0QNH+uRAE8LhxqU2w@mail.gmail.com>
+ <20170103163324.GA3184@animalcreek.com>
+ <CAO7Z3WK5pF+q0vAoPPie8wXYQPigpGd7W8uQiGSgN79z4=W9uQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        devel@driverdev.osuosl.org, Karsten Keil <isdn@linux-pingi.de>,
-        linux-doc@vger.kernel.org, netdev@vger.kernel.org,
-        Jonathan Corbet <corbet@lwn.net>, linux-kernel@vger.kernel.org,
-        "David S. Miller" <davem@davemloft.net>
-To: linux-arm-kernel@lists.infradead.org
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <20170103152436.GA26156@kroah.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless <linux-wireless@vger.kernel.org>,
+        Lauro Ramos Venancio <lauro.venancio@openbossa.org>,
+        Aloisio Almeida Jr <aloisio.almeida@openbossa.org>,
+        Samuel Ortiz <sameo@linux.intel.com>, robh+dt@kernel.org,
+        mark.rutland@arm.com, netdev@vger.kernel.org,
+        devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Justin Bronder <justin@kuvee.com>,
+        Jaret Cantu <jaret.cantu@timesys.com>
+To: Geoff Lansberry <geoff@kuvee.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:60666 "EHLO
+        out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1761421AbdACVVj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2017 16:21:39 -0500
+Content-Disposition: inline
+In-Reply-To: <CAO7Z3WK5pF+q0vAoPPie8wXYQPigpGd7W8uQiGSgN79z4=W9uQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday, January 3, 2017 4:24:36 PM CET Greg Kroah-Hartman wrote:
-> On Wed, Mar 02, 2016 at 08:06:46PM +0100, Arnd Bergmann wrote:
-> > The icn, act2000 and pcbit drivers are all for very old hardware,
-> > and it is highly unlikely that anyone is actually still using them
-> > on modern kernels, if at all.
-> > 
-> > All three drivers apparently are for hardware that predates PCI
-> > being the common connector, as they are ISA-only and active
-> > PCI ISDN cards were widely available in the 1990s.
-> > 
-> > Looking through the git logs, it I cannot find any indication of a
-> > patch to any of these drivers that has been tested on real hardware,
-> > only cleanups or global API changes.
-> > 
-> > Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> > Acked-by: Karsten Keil <isdn@linux-pingi.de>
+On Tue, Jan 03, 2017 at 01:35:18PM -0500, Geoff Lansberry wrote:
+> On Tue, Jan 3, 2017 at 11:33 AM, Mark Greer <mgreer@animalcreek.com> wrote:
+> > On Tue, Dec 27, 2016 at 09:18:32AM -0500, Geoff Lansberry wrote:
+
+> >> In the meantime - here is some more info about how we use it.
+> >>
+> >> We do use NFC structures.    I did find an interesting clue in that
+> >> there are certain bottles that cause neard to segfault,  I'm not sure
+> >> what is different about them.  We write a string, like
+> >> "coppola_chardonnay_2015" to the bottles.
+> >
+> > Off the top of my head, it could be the length of the text.
+> > It would be useful to compare the data that works to the data
+> > that doesn't work.  Can you install NXP's 'TagInfo' app on a
+> > smartphone and scan tags with working & non-working data?
+> > You can email the data from the app to yourself, edit out
+> > the cruft, and share here.
 > 
-> This patch got added in the 4.6 kernel release.  As I am now taking
-> patches for 4.11-rc1, I figure it is time to just delete the
-> drivers/staging/i4l/ directory now, given that no one has really done
-> anything with it.  If people show up that wish to maintain it, I'll be
-> glad to revert it, or if someone really screams in the next week.
-> Otherwise it's time to just move on 
+> The data is always the same - and the tags are all the same.  Only
+> difference is that the tag is physically different, and perhaps
+> orientation; distance from antenna to tag is fixed.
 
-Sounds good to me. My original series contained four more patches that
-I did not post again after there was some concern[1] that we did not
-come to a conclusion on:
+Interesting...  They're all type 2 tags, right?
 
-isdn: gigaset: remove i4l code
-isdn: move isdnhdlc out of i4l
-isdn: i4l: move hisax driver to staging
-isdn: move i4l to staging
+> I can't even
+> write the tags at all, so reading them will show blank.   Also a minor
+> but significant detail, is that the tags are embedded in such a way
+> that the phone cannot get close enough to them to connect.
 
-I can post those as well, at least I think the first two are helpful
-for untangling i4l from the rest of ISDN.  I also still think that
-moving hisax and i4l to staging is reasonable given the state of
-that code, even if there are a couple of users today.
+This section had me completely confused for a couple minutes until I realized
+that you mean that you can read & write the tags using the trf7970a with
+an attached antenna but not with your phone.  Is that correct?
 
-	Arnd
+If so, try a tag that isn't embedded in something else and move it around
+the back of the phone.  Try to find where it works best.  The phone
+manufacturers are notorius for paying little attention to the NFC antenna
+they put on their products.  For example, I have a Samsung S5 next to me
+and it seems to work best around the center of the phone.  I've used others
+where I had to use the upper-left or upper-right corner of the phone.
 
-[1] https://lkml.org/lkml/2016/3/4/762
+Mark
