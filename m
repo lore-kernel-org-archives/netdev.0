@@ -1,51 +1,53 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] uapi: use wildcards to list files
-Date: Tue, 03 Jan 2017 22:37:04 +0100
-Message-ID: <2108827.WpE3IvfEdH@wuerfel>
-References: <20161203.192346.1198940437155108508.davem@davemloft.net>
- <1483454144-10519-1-git-send-email-nicolas.dichtel@6wind.com>
+From: Paul Bolle <pebolle@tiscali.nl>
+Subject: Re: [PATCH 2/2] isdn: i4l: move active-isdn drivers to staging
+Date: Tue, 03 Jan 2017 22:54:19 +0100
+Message-ID: <1483480459.10534.8.camel@tiscali.nl>
+References: <1456945629-1793533-1-git-send-email-arnd@arndb.de>
+         <1456945629-1793533-2-git-send-email-arnd@arndb.de>
+         <20170103152436.GA26156@kroah.com> <3286019.I2UkVCJq41@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: linux-arch@vger.kernel.org, David Howells <dhowells@redhat.com>,
- linux-nfs@vger.kernel.org, alsa-devel@alsa-project.org,
- linux-rdma@vger.kernel.org, netdev@vger.kernel.org, linux-mmc@vger.kernel.org,
- linux-kernel@vger.kernel.org, dri-devel@lists.freedesktop.org,
- linux-spi@vger.kernel.org, linux-raid@vger.kernel.org,
- netfilter-devel@vger.kernel.org, linux-fbdev@vger.kernel.org,
- xen-devel@lists.xenproject.org, fcoe-devel@open-fcoe.org,
- linux-mtd@lists.infradead.org, davem@davemloft.net,
- linux-media@vger.kernel.org
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Return-path: <dri-devel-bounces@lists.freedesktop.org>
-In-Reply-To: <1483454144-10519-1-git-send-email-nicolas.dichtel@6wind.com>
-List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/dri-devel>,
- <mailto:dri-devel-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <https://lists.freedesktop.org/archives/dri-devel>
-List-Post: <mailto:dri-devel@lists.freedesktop.org>
-List-Help: <mailto:dri-devel-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/dri-devel>,
- <mailto:dri-devel-request@lists.freedesktop.org?subject=subscribe>
-Errors-To: dri-devel-bounces@lists.freedesktop.org
-Sender: "dri-devel" <dri-devel-bounces@lists.freedesktop.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        devel@driverdev.osuosl.org, Karsten Keil <isdn@linux-pingi.de>,
+        linux-doc@vger.kernel.org, netdev@vger.kernel.org,
+        Jonathan Corbet <corbet@lwn.net>, linux-kernel@vger.kernel.org,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-arm-kernel@lists.infradead.org
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lb2-smtp-cloud3.xs4all.net ([194.109.24.26]:45539 "EHLO
+        lb2-smtp-cloud3.xs4all.net" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S935360AbdACVy0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2017 16:54:26 -0500
+In-Reply-To: <3286019.I2UkVCJq41@wuerfel>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gVHVlc2RheSwgSmFudWFyeSAzLCAyMDE3IDM6MzU6NDQgUE0gQ0VUIE5pY29sYXMgRGljaHRl
-bCB3cm90ZToKPiBSZWd1bGFybHksIHdoZW4gYSBuZXcgaGVhZGVyIGlzIGNyZWF0ZWQgaW4gaW5j
-bHVkZS91YXBpLywgdGhlIGRldmVsb3Blcgo+IGZvcmdldHMgdG8gYWRkIGl0IGluIHRoZSBjb3Jy
-ZXNwb25kaW5nIEtidWlsZCBmaWxlLiBUaGlzIGVycm9yIGlzIHVzdWFsbHkKPiBkZXRlY3RlZCBh
-ZnRlciB0aGUgcmVsZWFzZSBpcyBvdXQuCj4gCj4gSW4gZmFjdCwgYWxsIGhlYWRlcnMgdW5kZXIg
-aW5jbHVkZS91YXBpLyBzaG91bGQgYmUgZXhwb3J0ZWQsIHNvIGxldCdzCj4gdXNlIHdpbGRjYXJk
-cy4KCkkgdGhpbmsgdGhlIGlkZWEgbWFrZXMgYSBsb3Qgb2Ygc2Vuc2U6IGlmIGEgaGVhZGVyIGlz
-IGluIHVhcGksIHdlIHNob3VsZApyZWFsbHkgZXhwb3J0IGl0LiBIb3dldmVyLCB1c2luZyBhIHdp
-bGRjYXJkIGV4cHJlc3Npb24gc2VlbXMgYSBiaXQKYmFja3dhcmRzIGhlcmUsIEkgdGhpbmsgd2Ug
-c2hvdWxkIG1ha2UgdGhpcyBpbXBsaWNpdCBhbmQgbm90IGhhdmUgdGhlCktidWlsZCBmaWxlIGF0
-IGFsbC4KClRoZSAiaGVhZGVyLXkiIHN5bnRheCB3YXMgb3JpZ2luYWxseSBhZGRlZCBiYWNrIHdo
-ZW4gdGhlIHVhcGkgaGVhZGVycwp3ZXJlIG1peGVkIHdpdGggdGhlIGludGVybmFsIGhlYWRlcnMg
-aW4gdGhlIHNhbWUgZGlyZWN0b3J5LiBBZnRlcgpEYXZpZCBIb3dlbGxzIGludHJvZHVjZWQgdGhl
-IHNlcGFyYXRlIGRpcmVjdG9yeSBmb3IgdWFwaSwgaXQgaGFzCmJlY29tZSBhIGJpdCByZWR1bmRh
-bnQuCgpDYW4geW91IHRyeSB0byBtb2RpZnkgc2NyaXB0cy9NYWtlZmlsZS5oZWFkZXJzaW5zdCBp
-bnN0ZWFkIHNvIHdlCmNhbiBzaW1wbHkgcmVtb3ZlIHRoZSBLYnVpbGQgZmlsZXMgZW50aXJlbHk/
-CgoJQXJuZApfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpk
-cmktZGV2ZWwgbWFpbGluZyBsaXN0CmRyaS1kZXZlbEBsaXN0cy5mcmVlZGVza3RvcC5vcmcKaHR0
-cHM6Ly9saXN0cy5mcmVlZGVza3RvcC5vcmcvbWFpbG1hbi9saXN0aW5mby9kcmktZGV2ZWwK
+On Tue, 2017-01-03 at 22:19 +0100, Arnd Bergmann wrote:
+> Sounds good to me. My original series contained four more patches that
+> I did not post again after there was some concern[1] that we did not
+> come to a conclusion on:
+> 
+> isdn: gigaset: remove i4l code
+
+Let me repeat that I'm fine with a patch that does that.
+
+> isdn: move isdnhdlc out of i4l
+> isdn: i4l: move hisax driver to staging
+> isdn: move i4l to staging
+> 
+> I can post those as well, at least I think the first two are helpful
+> for untangling i4l from the rest of ISDN.  I also still think that
+> moving hisax and i4l to staging is reasonable given the state of
+> that code, even if there are a couple of users today.
+
+There are? And even if there are: is there any reason to expect that moving
+the rest of i4l to staging will result in anything other than a stream of
+checkpatch cleanups?
+
+How often did a bunch of drivers re-enter the tree after being sent to
+staging?
+
+
+Paul Bolle
