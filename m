@@ -1,101 +1,138 @@
-From: Paul Blakey <paulb@mellanox.com>
-Subject: Re: [PATCH net-next] net/sched: cls_flower: Add user specified data
-Date: Tue, 3 Jan 2017 14:22:05 +0200
-Message-ID: <606f64cb-1744-d44f-8fd1-a4bdb1ca872f@mellanox.com>
-References: <1483362833-52114-1-git-send-email-paulb@mellanox.com>
- <14675f63-4212-2f72-da4c-cd24b9d10881@mojatatu.com>
- <586A9A9F.4030002@gmail.com>
- <6b671aaf-d35d-70a5-65e0-40308baeb471@mojatatu.com>
- <586ADAFE.1010105@gmail.com>
- <13dfd148-6a5b-cf62-b2b9-1c13e6d31155@mojatatu.com>
- <586B29A4.2060408@gmail.com>
- <92224e21-cd3c-26b0-d8a0-31a07268e553@mojatatu.com>
+From: yuan linyu <cugyly@163.com>
+Subject: [PATCH] scm: remove use CMSG{_COMPAT}_ALIGN(sizeof(struct {compat_}cmsghdr))
+Date: Tue,  3 Jan 2017 20:42:17 +0800
+Message-ID: <1483447337-4976-1-git-send-email-cugyly@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <paulb@mellanox.com>, Jiri Pirko <jiri@mellanox.com>,
-        Hadar Hen Zion <hadarh@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Roi Dayan <roid@mellanox.com>, Roman Mashak <mrv@mojatatu.com>,
-        Simon Horman <simon.horman@netronome.com>
-To: Jamal Hadi Salim <jhs@mojatatu.com>,
-        John Fastabend <john.fastabend@gmail.com>,
-        "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
+Cc: "David S . Miller" <davem@davemloft.net>,
+        yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-eopbgr30076.outbound.protection.outlook.com ([40.107.3.76]:28208
-        "EHLO EUR03-AM5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S932168AbdACMWN (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 3 Jan 2017 07:22:13 -0500
-In-Reply-To: <92224e21-cd3c-26b0-d8a0-31a07268e553@mojatatu.com>
+Received: from m50-132.163.com ([123.125.50.132]:35460 "EHLO m50-132.163.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933078AbdACMnb (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 3 Jan 2017 07:43:31 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
 
+sizeof(struct cmsghdr) and sizeof(struct compat_cmsghdr) already aligned.
+remove use CMSG_ALIGN(sizeof(struct cmsghdr)) and
+CMSG_COMPAT_ALIGN(sizeof(struct compat_cmsghdr)) keep code consistent.
 
-On 03/01/2017 13:44, Jamal Hadi Salim wrote:
-> On 17-01-02 11:33 PM, John Fastabend wrote:
->> On 17-01-02 05:22 PM, Jamal Hadi Salim wrote:
->
-> [..]
->>> Like all cookie semantics it is for storing state. The receiver 
->>> (kernel)
->>> is not just store it and not intepret it. The user when reading it back
->>> simplifies what they have to do for their processing.
->>>
->>>>
->>>> The tuple <ifindex:qdisc:prio:handle> really should be unique why
->>>> not use this for system wide mappings?
->>>>
->>>
->>> I think on a single machine should be enough, however:
->>> typically the user wants to define the value in a manner that
->>> in a distributed system it is unique. It would be trickier to
->>> do so with well defined values such as above.
->>>
->>
->> Just extend the tuple <hostname:ifindex:qdisc:prio:handle> that
->> should be unique in the domain of hostname's, or use some other domain
->> wide machine identifier.
->>
->
-> May work for the case of filter identification. The nice thing for
-> allowing cookies is you can let the user define it define their
-> own scheme.
->
->> Although actions can be shared so the cookie can be shared across
->> filters. Maybe its useful but it doesn't uniquely identify a filter
->> in the shared case but the user would have to specify that case
->> so maybe its not important.
->>
->
-> Note: the action cookies and filter cookies are unrelated/orthogonal.
-> Their basic concept of stashing something in the cookie to help improve
-> what user space does (in our case millions of actions of which some are
-> used for accounting) is similar.
-> I have no objections to the flow cookies; my main concern was it should
-> be applicable to all classifiers not just flower. And the arbitrary size
-> of the cookie that you pointed out is questionable.
->
-> cheers,
-> jamal
+Signed-off-by: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+---
+ include/linux/socket.h |  6 +++---
+ net/compat.c           | 14 ++++++--------
+ net/core/scm.c         |  2 +-
+ net/ipv4/ip_sockglue.c |  2 +-
+ net/rxrpc/sendmsg.c    |  2 +-
+ 5 files changed, 12 insertions(+), 14 deletions(-)
 
-
-Hi all,
-Our use case is replacing OVS rules with TC filters for HW offload, and 
-you're are right the cookie would
-have saved us the mapping from OVS rule ufid to the tc filter 
-handle/prio... that was generated for it.
-It also was going to be used to store other info like which OVS output 
-port corresponds to the ifindex,
-so we need 128+32 for now. It helps us with dumping the the flows back, 
-when we lose data on crash
-or restarting the user space daemon.
-HW hints is another thing that might be helpful.
-Its binary blob because user/app specifc and its usage might change in 
-the future and its and that's why there
-is some headroom with size as well.
-
-
-I don't mind having it on TC level but I didn't want to intervene with 
-all filters/TC.
+diff --git a/include/linux/socket.h b/include/linux/socket.h
+index b5cc5a6..c064380 100644
+--- a/include/linux/socket.h
++++ b/include/linux/socket.h
+@@ -92,9 +92,9 @@ struct cmsghdr {
+ 
+ #define CMSG_ALIGN(len) ( ((len)+sizeof(long)-1) & ~(sizeof(long)-1) )
+ 
+-#define CMSG_DATA(cmsg)	((void *)((char *)(cmsg) + CMSG_ALIGN(sizeof(struct cmsghdr))))
+-#define CMSG_SPACE(len) (CMSG_ALIGN(sizeof(struct cmsghdr)) + CMSG_ALIGN(len))
+-#define CMSG_LEN(len) (CMSG_ALIGN(sizeof(struct cmsghdr)) + (len))
++#define CMSG_DATA(cmsg)	((void *)((char *)(cmsg) + sizeof(struct cmsghdr)))
++#define CMSG_SPACE(len) (sizeof(struct cmsghdr) + CMSG_ALIGN(len))
++#define CMSG_LEN(len) (sizeof(struct cmsghdr) + (len))
+ 
+ #define __CMSG_FIRSTHDR(ctl,len) ((len) >= sizeof(struct cmsghdr) ? \
+ 				  (struct cmsghdr *)(ctl) : \
+diff --git a/net/compat.c b/net/compat.c
+index 96c544b..4e27dd1 100644
+--- a/net/compat.c
++++ b/net/compat.c
+@@ -90,11 +90,11 @@ int get_compat_msghdr(struct msghdr *kmsg,
+ #define CMSG_COMPAT_ALIGN(len)	ALIGN((len), sizeof(s32))
+ 
+ #define CMSG_COMPAT_DATA(cmsg)				\
+-	((void __user *)((char __user *)(cmsg) + CMSG_COMPAT_ALIGN(sizeof(struct compat_cmsghdr))))
++	((void __user *)((char __user *)(cmsg) + sizeof(struct compat_cmsghdr)))
+ #define CMSG_COMPAT_SPACE(len)				\
+-	(CMSG_COMPAT_ALIGN(sizeof(struct compat_cmsghdr)) + CMSG_COMPAT_ALIGN(len))
++	(sizeof(struct compat_cmsghdr) + CMSG_COMPAT_ALIGN(len))
+ #define CMSG_COMPAT_LEN(len)				\
+-	(CMSG_COMPAT_ALIGN(sizeof(struct compat_cmsghdr)) + (len))
++	(sizeof(struct compat_cmsghdr) + (len))
+ 
+ #define CMSG_COMPAT_FIRSTHDR(msg)			\
+ 	(((msg)->msg_controllen) >= sizeof(struct compat_cmsghdr) ?	\
+@@ -141,8 +141,7 @@ int cmsghdr_from_user_compat_to_kern(struct msghdr *kmsg, struct sock *sk,
+ 		if (!CMSG_COMPAT_OK(ucmlen, ucmsg, kmsg))
+ 			return -EINVAL;
+ 
+-		tmp = ((ucmlen - CMSG_COMPAT_ALIGN(sizeof(*ucmsg))) +
+-		       CMSG_ALIGN(sizeof(struct cmsghdr)));
++		tmp = ((ucmlen - sizeof(*ucmsg)) + sizeof(struct cmsghdr));
+ 		tmp = CMSG_ALIGN(tmp);
+ 		kcmlen += tmp;
+ 		ucmsg = cmsg_compat_nxthdr(kmsg, ucmsg, ucmlen);
+@@ -168,8 +167,7 @@ int cmsghdr_from_user_compat_to_kern(struct msghdr *kmsg, struct sock *sk,
+ 			goto Efault;
+ 		if (!CMSG_COMPAT_OK(ucmlen, ucmsg, kmsg))
+ 			goto Einval;
+-		tmp = ((ucmlen - CMSG_COMPAT_ALIGN(sizeof(*ucmsg))) +
+-		       CMSG_ALIGN(sizeof(struct cmsghdr)));
++		tmp = ((ucmlen - sizeof(*ucmsg)) + sizeof(struct cmsghdr));
+ 		if ((char *)kcmsg_base + kcmlen - (char *)kcmsg < CMSG_ALIGN(tmp))
+ 			goto Einval;
+ 		kcmsg->cmsg_len = tmp;
+@@ -178,7 +176,7 @@ int cmsghdr_from_user_compat_to_kern(struct msghdr *kmsg, struct sock *sk,
+ 		    __get_user(kcmsg->cmsg_type, &ucmsg->cmsg_type) ||
+ 		    copy_from_user(CMSG_DATA(kcmsg),
+ 				   CMSG_COMPAT_DATA(ucmsg),
+-				   (ucmlen - CMSG_COMPAT_ALIGN(sizeof(*ucmsg)))))
++				   (ucmlen - sizeof(*ucmsg))))
+ 			goto Efault;
+ 
+ 		/* Advance. */
+diff --git a/net/core/scm.c b/net/core/scm.c
+index d882043..b6d8368 100644
+--- a/net/core/scm.c
++++ b/net/core/scm.c
+@@ -71,7 +71,7 @@ static int scm_fp_copy(struct cmsghdr *cmsg, struct scm_fp_list **fplp)
+ 	struct file **fpp;
+ 	int i, num;
+ 
+-	num = (cmsg->cmsg_len - CMSG_ALIGN(sizeof(struct cmsghdr)))/sizeof(int);
++	num = (cmsg->cmsg_len - sizeof(struct cmsghdr))/sizeof(int);
+ 
+ 	if (num <= 0)
+ 		return 0;
+diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
+index 53ae0c6..c77e65e 100644
+--- a/net/ipv4/ip_sockglue.c
++++ b/net/ipv4/ip_sockglue.c
+@@ -272,7 +272,7 @@ int ip_cmsg_send(struct sock *sk, struct msghdr *msg, struct ipcm_cookie *ipc,
+ 			continue;
+ 		switch (cmsg->cmsg_type) {
+ 		case IP_RETOPTS:
+-			err = cmsg->cmsg_len - CMSG_ALIGN(sizeof(struct cmsghdr));
++			err = cmsg->cmsg_len - sizeof(struct cmsghdr);
+ 
+ 			/* Our caller is responsible for freeing ipc->opt */
+ 			err = ip_options_get(net, &ipc->opt, CMSG_DATA(cmsg),
+diff --git a/net/rxrpc/sendmsg.c b/net/rxrpc/sendmsg.c
+index b214a4d..0a6ef21 100644
+--- a/net/rxrpc/sendmsg.c
++++ b/net/rxrpc/sendmsg.c
+@@ -376,7 +376,7 @@ static int rxrpc_sendmsg_cmsg(struct msghdr *msg,
+ 		if (!CMSG_OK(msg, cmsg))
+ 			return -EINVAL;
+ 
+-		len = cmsg->cmsg_len - CMSG_ALIGN(sizeof(struct cmsghdr));
++		len = cmsg->cmsg_len - sizeof(struct cmsghdr);
+ 		_debug("CMSG %d, %d, %d",
+ 		       cmsg->cmsg_level, cmsg->cmsg_type, len);
+ 
+-- 
+2.7.4
