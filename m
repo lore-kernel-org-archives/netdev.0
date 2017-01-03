@@ -1,51 +1,54 @@
 From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [PATCH net-next v2 19/27] net/bpf_jit: ARM: split VLAN_PRESENT bit
- handling from VLAN_TCI
-Date: Tue,  3 Jan 2017 21:52:38 +0100 (CET)
-Message-ID: <15c9c9a610e892b6639b04dd5cf1523091f6ac1d.1483475202.git.mirq-linux@rere.qmqm.pl>
+Subject: [PATCH net-next v2 22/27] net/bpf_jit: SPARC: split VLAN_PRESENT bit handling
+ from VLAN_TCI
+Date: Tue,  3 Jan 2017 21:52:39 +0100 (CET)
+Message-ID: <c341a65d02001380547aceb0fa3ba33881280646.1483475202.git.mirq-linux@rere.qmqm.pl>
 References: <cover.1483475202.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Russell King <linux@armlinux.org.uk>, linux-arm-kernel@lists.infradead.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: "David S. Miller" <davem@davemloft.net>, sparclinux@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Return-path: <sparclinux-owner@vger.kernel.org>
 In-Reply-To: <cover.1483475202.git.mirq-linux@rere.qmqm.pl>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Sender: sparclinux-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-U2lnbmVkLW9mZi1ieTogTWljaGHFgiBNaXJvc8WCYXcgPG1pcnEtbGludXhAcmVyZS5xbXFtLnBs
-PgotLS0KIGFyY2gvYXJtL25ldC9icGZfaml0XzMyLmMgfCAxNyArKysrKysrKysrLS0tLS0tLQog
-MSBmaWxlIGNoYW5nZWQsIDEwIGluc2VydGlvbnMoKyksIDcgZGVsZXRpb25zKC0pCgpkaWZmIC0t
-Z2l0IGEvYXJjaC9hcm0vbmV0L2JwZl9qaXRfMzIuYyBiL2FyY2gvYXJtL25ldC9icGZfaml0XzMy
-LmMKaW5kZXggOTNkMGI2ZDBiNjNlLi42ZGJjNjAyNDFmOWQgMTAwNjQ0Ci0tLSBhL2FyY2gvYXJt
-L25ldC9icGZfaml0XzMyLmMKKysrIGIvYXJjaC9hcm0vbmV0L2JwZl9qaXRfMzIuYwpAQCAtOTE1
-LDE3ICs5MTUsMjAgQEAgc3RhdGljIGludCBidWlsZF9ib2R5KHN0cnVjdCBqaXRfY3R4ICpjdHgp
-CiAJCQllbWl0KEFSTV9MRFJfSShyX0EsIHJfc2tiLCBvZmYpLCBjdHgpOwogCQkJYnJlYWs7CiAJ
-CWNhc2UgQlBGX0FOQyB8IFNLRl9BRF9WTEFOX1RBRzoKLQkJY2FzZSBCUEZfQU5DIHwgU0tGX0FE
-X1ZMQU5fVEFHX1BSRVNFTlQ6CiAJCQljdHgtPnNlZW4gfD0gU0VFTl9TS0I7CiAJCQlCVUlMRF9C
-VUdfT04oRklFTERfU0laRU9GKHN0cnVjdCBza19idWZmLCB2bGFuX3RjaSkgIT0gMik7CiAJCQlv
-ZmYgPSBvZmZzZXRvZihzdHJ1Y3Qgc2tfYnVmZiwgdmxhbl90Y2kpOwogCQkJZW1pdChBUk1fTERS
-SF9JKHJfQSwgcl9za2IsIG9mZiksIGN0eCk7Ci0JCQlpZiAoY29kZSA9PSAoQlBGX0FOQyB8IFNL
-Rl9BRF9WTEFOX1RBRykpCi0JCQkJT1BfSU1NMyhBUk1fQU5ELCByX0EsIHJfQSwgflZMQU5fVEFH
-X1BSRVNFTlQsIGN0eCk7Ci0JCQllbHNlIHsKLQkJCQlPUF9JTU0zKEFSTV9MU1IsIHJfQSwgcl9B
-LCAxMiwgY3R4KTsKLQkJCQlPUF9JTU0zKEFSTV9BTkQsIHJfQSwgcl9BLCAweDEsIGN0eCk7Ci0J
-CQl9CisjaWZkZWYgVkxBTl9UQUdfUFJFU0VOVAorCQkJT1BfSU1NMyhBUk1fQU5ELCByX0EsIHJf
-QSwgflZMQU5fVEFHX1BSRVNFTlQsIGN0eCk7CisjZW5kaWYKKwkJCWJyZWFrOworCQljYXNlIEJQ
-Rl9BTkMgfCBTS0ZfQURfVkxBTl9UQUdfUFJFU0VOVDoKKwkJCW9mZiA9IFBLVF9WTEFOX1BSRVNF
-TlRfT0ZGU0VUKCk7CisJCQllbWl0KEFSTV9MRFJCX0kocl9BLCByX3NrYiwgb2ZmKSwgY3R4KTsK
-KwkJCWlmIChQS1RfVkxBTl9QUkVTRU5UX0JJVCkKKwkJCQlPUF9JTU0zKEFSTV9MU1IsIHJfQSwg
-cl9BLCBQS1RfVkxBTl9QUkVTRU5UX0JJVCwgY3R4KTsKKwkJCU9QX0lNTTMoQVJNX0FORCwgcl9B
-LCByX0EsIDB4MSwgY3R4KTsKIAkJCWJyZWFrOwogCQljYXNlIEJQRl9BTkMgfCBTS0ZfQURfUEtU
-VFlQRToKIAkJCWN0eC0+c2VlbiB8PSBTRUVOX1NLQjsKLS0gCjIuMTEuMAoKCl9fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmxpbnV4LWFybS1rZXJuZWwgbWFp
-bGluZyBsaXN0CmxpbnV4LWFybS1rZXJuZWxAbGlzdHMuaW5mcmFkZWFkLm9yZwpodHRwOi8vbGlz
-dHMuaW5mcmFkZWFkLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2xpbnV4LWFybS1rZXJuZWwK
+Signed-off-by: Michał Mirosław <mirq-linux@rere.qmqm.pl>
+---
+ arch/sparc/net/bpf_jit_comp.c | 18 ++++++++++--------
+ 1 file changed, 10 insertions(+), 8 deletions(-)
+
+diff --git a/arch/sparc/net/bpf_jit_comp.c b/arch/sparc/net/bpf_jit_comp.c
+index a6d9204a6a0b..61cc15dc86f7 100644
+--- a/arch/sparc/net/bpf_jit_comp.c
++++ b/arch/sparc/net/bpf_jit_comp.c
+@@ -601,15 +601,17 @@ void bpf_jit_compile(struct bpf_prog *fp)
+ 				emit_skb_load32(hash, r_A);
+ 				break;
+ 			case BPF_ANC | SKF_AD_VLAN_TAG:
+-			case BPF_ANC | SKF_AD_VLAN_TAG_PRESENT:
+ 				emit_skb_load16(vlan_tci, r_A);
+-				if (code != (BPF_ANC | SKF_AD_VLAN_TAG)) {
+-					emit_alu_K(SRL, 12);
+-					emit_andi(r_A, 1, r_A);
+-				} else {
+-					emit_loadimm(~VLAN_TAG_PRESENT, r_TMP);
+-					emit_and(r_A, r_TMP, r_A);
+-				}
++#ifdef VLAN_TAG_PRESENT
++				emit_loadimm(~VLAN_TAG_PRESENT, r_TMP);
++				emit_and(r_A, r_TMP, r_A);
++#endif
++				break;
++			case BPF_ANC | SKF_AD_VLAN_TAG_PRESENT:
++				__emit_skb_load8(__pkt_vlan_present_offset, r_A);
++				if (PKT_VLAN_PRESENT_BIT)
++					emit_alu_K(SRL, PKT_VLAN_PRESENT_BIT);
++				emit_andi(r_A, 1, r_A);
+ 				break;
+ 			case BPF_LD | BPF_W | BPF_LEN:
+ 				emit_skb_load32(len, r_A);
+-- 
+2.11.0
+
