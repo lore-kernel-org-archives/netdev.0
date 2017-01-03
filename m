@@ -1,35 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] net/sched: cls_matchall: Fix error path
-Date: Tue, 03 Jan 2017 18:59:01 -0500 (EST)
-Message-ID: <20170103.185901.448467338156956349.davem@davemloft.net>
-References: <1483464024-25745-1-git-send-email-yotamg@mellanox.com>
+Subject: Re: [PATCH net] net: vrf: Add missing Rx counters
+Date: Tue, 03 Jan 2017 18:52:28 -0500 (EST)
+Message-ID: <20170103.185228.569275214749682521.davem@davemloft.net>
+References: <1483465075-15452-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jhs@mojatatu.com, eladr@mellanox.com, jiri@mellanox.com,
-        netdev@vger.kernel.org
-To: yotamg@mellanox.com
+Cc: netdev@vger.kernel.org
+To: dsa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:58704 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:58892 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753308AbdACX7i (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2017 18:59:38 -0500
-In-Reply-To: <1483464024-25745-1-git-send-email-yotamg@mellanox.com>
+        with ESMTP id S1759833AbdADAEY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2017 19:04:24 -0500
+In-Reply-To: <1483465075-15452-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yotam Gigi <yotamg@mellanox.com>
-Date: Tue,  3 Jan 2017 19:20:24 +0200
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Tue,  3 Jan 2017 09:37:55 -0800
 
-> Fix several error paths in matchall:
->  - Release reference to actions in case the hardware fails offloading
->    (relevant to skip_sw only)
->  - Fix error path in case tcf_exts initialization/validation fail
+> The move from rx-handler to L3 receive handler inadvertantly dropped the
+> rx counters. Restore them.
 > 
-> Fixes: bf3994d2ed31 ("net/sched: introduce Match-all classifier")
-> Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
-> ---
-> v1->v2:
->  - Add check for tcf_exts_init return code and fix error path for it too
+> Fixes: 74b20582ac38 ("net: l3mdev: Add hook in ip and ipv6")
+> Reported-by: Dinesh Dutt <ddutt@cumulusnetworks.com>
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 
-Applied, thank you.
+Applied and queued up for -stable.
