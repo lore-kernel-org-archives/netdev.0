@@ -1,34 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 net-next 0/2] TPACKET_V3 TX_RING support
-Date: Tue, 03 Jan 2017 11:01:30 -0500 (EST)
-Message-ID: <20170103.110130.1667423578879473575.davem@davemloft.net>
-References: <cover.1483452545.git.sowmini.varadhan@oracle.com>
+Subject: Re: [PATCH] Ipvlan should return an error when an address is
+ already in use.
+Date: Tue, 03 Jan 2017 10:55:28 -0500 (EST)
+Message-ID: <20170103.105528.1616978923771083764.davem@davemloft.net>
+References: <20161231041058.GC2448@templeofstupid.com>
+        <f7td1g49m8n.fsf@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, daniel@iogearbox.net, willemb@google.com
-To: sowmini.varadhan@oracle.com
+Cc: kjlx@templeofstupid.com, maheshb@google.com, netdev@vger.kernel.org
+To: aconole@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:39116 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:39156 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1759517AbdACQBv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2017 11:01:51 -0500
-In-Reply-To: <cover.1483452545.git.sowmini.varadhan@oracle.com>
+        with ESMTP id S1752862AbdACQEX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2017 11:04:23 -0500
+In-Reply-To: <f7td1g49m8n.fsf@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Date: Tue,  3 Jan 2017 06:31:46 -0800
+From: Aaron Conole <aconole@redhat.com>
+Date: Tue, 03 Jan 2017 10:50:00 -0500
 
-> This patch series allows an application to use a single PF_PACKET
-> descriptor and leverage the best implementations of TX_RING
-> and RX_RING that exist today.
+>> @@ -489,7 +490,12 @@ static int __inet_insert_ifa(struct in_ifaddr *ifa, struct nlmsghdr *nlh,
+>>  	   Notifier will trigger FIB update, so that
+>>  	   listeners of netlink will know about new ifaddr */
+>>  	rtmsg_ifa(RTM_NEWADDR, ifa, nlh, portid);
+>> -	blocking_notifier_call_chain(&inetaddr_chain, NETDEV_UP, ifa);
+>> +	ret = blocking_notifier_call_chain(&inetaddr_chain, NETDEV_UP, ifa);
 > 
-> Patch 1 adds the kernel/Documentation changes for TX_RING
-> support and patch2 adds the associated test case in selftests.
+> Why are you doing this assignment if you aren't using the result?
 > 
-> Changes since v2: additional sanity checks for setsockopt
-> input for TX_RING/TPACKET_V3. Refactored psock_tpacket.c
-> test code to avoid code duplication from V2.
+>> +	ret = notifier_to_errno(ret);
+>> +	if (ret) {
+>> +		__inet_del_ifa(in_dev, ifap, 1, NULL, portid);
+>> +		return ret;
+>> +	}
 
-Series applied, thanks.
+'ret' assignment is being used, via notifier_to_errno().
