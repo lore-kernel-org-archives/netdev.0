@@ -1,203 +1,61 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [RFC PATCH] virtio_net: XDP support for adjust_head
-Date: Wed, 4 Jan 2017 00:16:14 +0200
-Message-ID: <20170104001332-mutt-send-email-mst@kernel.org>
-References: <20170102194413.9089.39078.stgit@john-Precision-Tower-5810>
- <73715f7a-eeeb-679f-a7b8-7b1fefe1757e@redhat.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 2/2] isdn: i4l: move active-isdn drivers to staging
+Date: Tue, 03 Jan 2017 23:25:04 +0100
+Message-ID: <3780968.pTT7cvIH4p@wuerfel>
+References: <1456945629-1793533-1-git-send-email-arnd@arndb.de> <3286019.I2UkVCJq41@wuerfel> <1483480459.10534.8.camel@tiscali.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: John Fastabend <john.fastabend@gmail.com>,
-        john.r.fastabend@intel.com, netdev@vger.kernel.org,
-        alexei.starovoitov@gmail.com, daniel@iogearbox.net
-To: Jason Wang <jasowang@redhat.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        devel@driverdev.osuosl.org, Karsten Keil <isdn@linux-pingi.de>,
+        linux-doc@vger.kernel.org, netdev@vger.kernel.org,
+        Jonathan Corbet <corbet@lwn.net>, linux-kernel@vger.kernel.org,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-arm-kernel@lists.infradead.org
+To: Paul Bolle <pebolle@tiscali.nl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47082 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752900AbdACWQQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 3 Jan 2017 17:16:16 -0500
-Content-Disposition: inline
-In-Reply-To: <73715f7a-eeeb-679f-a7b8-7b1fefe1757e@redhat.com>
+Received: from mout.kundenserver.de ([212.227.17.10]:63665 "EHLO
+        mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S966612AbdACWZo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2017 17:25:44 -0500
+In-Reply-To: <1483480459.10534.8.camel@tiscali.nl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 03, 2017 at 02:01:27PM +0800, Jason Wang wrote:
-> 
-> 
-> On 2017年01月03日 03:44, John Fastabend wrote:
-> > Add support for XDP adjust head by allocating a 256B header region
-> > that XDP programs can grow into. This is only enabled when a XDP
-> > program is loaded.
+On Tuesday, January 3, 2017 10:54:19 PM CET Paul Bolle wrote:
+> On Tue, 2017-01-03 at 22:19 +0100, Arnd Bergmann wrote:
+> > isdn: move isdnhdlc out of i4l
+> > isdn: i4l: move hisax driver to staging
+> > isdn: move i4l to staging
 > > 
-> > In order to ensure that we do not have to unwind queue headroom push
-> > queue setup below bpf_prog_add. It reads better to do a prog ref
-> > unwind vs another queue setup call.
-> > 
-> > : There is a problem with this patch as is. When xdp prog is loaded
-> >    the old buffers without the 256B headers need to be flushed so that
-> >    the bpf prog has the necessary headroom. This patch does this by
-> >    calling the virtqueue_detach_unused_buf() and followed by the
-> >    virtnet_set_queues() call to reinitialize the buffers. However I
-> >    don't believe this is safe per comment in virtio_ring this API
-> >    is not valid on an active queue and the only thing we have done
-> >    here is napi_disable/napi_enable wrappers which doesn't do anything
-> >    to the emulation layer.
-> > 
-> >    So the RFC is really to find the best solution to this problem.
-> >    A couple things come to mind, (a) always allocate the necessary
-> >    headroom but this is a bit of a waste (b) add some bit somewhere
-> >    to check if the buffer has headroom but this would mean XDP programs
-> >    would be broke for a cycle through the ring, (c) figure out how
-> >    to deactivate a queue, free the buffers and finally reallocate.
-> >    I think (c) is the best choice for now but I'm not seeing the
-> >    API to do this so virtio/qemu experts anyone know off-hand
-> >    how to make this work? I started looking into the PCI callbacks
-> >    reset() and virtio_device_ready() or possibly hitting the right
-> >    set of bits with vp_set_status() but my first attempt just hung
-> >    the device.
+> > I can post those as well, at least I think the first two are helpful
+> > for untangling i4l from the rest of ISDN.  I also still think that
+> > moving hisax and i4l to staging is reasonable given the state of
+> > that code, even if there are a couple of users today.
 > 
-> Hi John:
-> 
-> AFAIK, disabling a specific queue was supported only by virtio 1.0 through
-> queue_enable field in pci common cfg.
+> There are? And even if there are: is there any reason to expect that moving
+> the rest of i4l to staging will result in anything other than a stream of
+> checkpatch cleanups?
 
-In fact 1.0 only allows enabling queues selectively.
-We can add disabling by a spec enhancement but
-for now reset is the only way.
+To clarify: Karsten's concern was about the loss of features that are
+present in i4l but not in mISDN. There were active users of those features
+last year, so I assumed that there are still a few this year. However,
+whether any of those users would ever need to move to a 4.11 kernel or
+newer is an entirely different question.
 
+As far as I'm concerned, we are totally fine as long as there exists a
+longterm supported kernel that has i4l in drivers/staging. If we move
+i4l to staging for v4.11 with the intention of removing it after the
+2018 longterm release (i.e. after Deutsche Telekom turns off their
+ISDN network), that gives us at least until 2020. I assume there will
+be at least one older kernel with a longer end-of-support date.
 
-> But unfortunately, qemu does not
-> emulate this at all and legacy device does not even support this. So the
-> safe way is probably reset the device and redo the initialization here.
+> How often did a bunch of drivers re-enter the tree after being sent to
+> staging?
 
-You will also have to re-apply rx filtering if you do this.
-Probably sending notification uplink.
+Greg can probably answer that. I'm sure it's either never or very rare.
+The only case of removed code coming back later is arch/h8300, which
+was removed in 2013 and replaced with a much nicer implementation
+in 2015.
 
-> > 
-> > Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-> > ---
-> >   drivers/net/virtio_net.c |  106 +++++++++++++++++++++++++++++++++++-----------
-> >   1 file changed, 80 insertions(+), 26 deletions(-)
-> > 
-> > diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> > index 5deeda6..fcc5bd7 100644
-> > --- a/drivers/net/virtio_net.c
-> > +++ b/drivers/net/virtio_net.c
-> > @@ -159,6 +159,9 @@ struct virtnet_info {
-> >   	/* Ethtool settings */
-> >   	u8 duplex;
-> >   	u32 speed;
-> > +
-> > +	/* Headroom allocated in RX Queue */
-> > +	unsigned int headroom;
-> >   };
-> >   struct padded_vnet_hdr {
-> > @@ -355,6 +358,7 @@ static void virtnet_xdp_xmit(struct virtnet_info *vi,
-> >   	}
-> >   	if (vi->mergeable_rx_bufs) {
-> > +		xdp->data -= sizeof(struct virtio_net_hdr_mrg_rxbuf);
-> >   		/* Zero header and leave csum up to XDP layers */
-> >   		hdr = xdp->data;
-> >   		memset(hdr, 0, vi->hdr_len);
-> > @@ -371,7 +375,7 @@ static void virtnet_xdp_xmit(struct virtnet_info *vi,
-> >   		num_sg = 2;
-> >   		sg_init_table(sq->sg, 2);
-> >   		sg_set_buf(sq->sg, hdr, vi->hdr_len);
-> > -		skb_to_sgvec(skb, sq->sg + 1, 0, skb->len);
-> > +		skb_to_sgvec(skb, sq->sg + 1, vi->headroom, xdp->data_end - xdp->data);
-> 
-> vi->headroom look suspicious, should it be xdp->data - xdp->data_hard_start?
-> 
-> >   	}
-> >   	err = virtqueue_add_outbuf(sq->vq, sq->sg, num_sg,
-> >   				   data, GFP_ATOMIC);
-> > @@ -393,34 +397,39 @@ static u32 do_xdp_prog(struct virtnet_info *vi,
-> >   		       struct bpf_prog *xdp_prog,
-> >   		       void *data, int len)
-> >   {
-> > -	int hdr_padded_len;
-> >   	struct xdp_buff xdp;
-> > -	void *buf;
-> >   	unsigned int qp;
-> >   	u32 act;
-> > +
-> >   	if (vi->mergeable_rx_bufs) {
-> > -		hdr_padded_len = sizeof(struct virtio_net_hdr_mrg_rxbuf);
-> > -		xdp.data = data + hdr_padded_len;
-> > +		int desc_room = sizeof(struct virtio_net_hdr_mrg_rxbuf);
-> > +
-> > +		/* Allow consuming headroom but reserve enough space to push
-> > +		 * the descriptor on if we get an XDP_TX return code.
-> > +		 */
-> > +		xdp.data_hard_start = data - vi->headroom + desc_room;
-> > +		xdp.data = data + desc_room;
-> >   		xdp.data_end = xdp.data + (len - vi->hdr_len);
-> > -		buf = data;
-> >   	} else { /* small buffers */
-> >   		struct sk_buff *skb = data;
-> > -		xdp.data = skb->data;
-> > +		xdp.data_hard_start = skb->data;
-> > +		xdp.data = skb->data + vi->headroom;
-> >   		xdp.data_end = xdp.data + len;
-> > -		buf = skb->data;
-> >   	}
-> >   	act = bpf_prog_run_xdp(xdp_prog, &xdp);
-> >   	switch (act) {
-> >   	case XDP_PASS:
-> > +		if (!vi->mergeable_rx_bufs)
-> > +			__skb_pull((struct sk_buff *) data,
-> > +				   xdp.data - xdp.data_hard_start);
-> 
-> Instead of doing things here and virtnet_xdp_xmit(). How about always making
-> skb->data point to the buffer head like:
-> 
-> 1) reserve headroom in add_recvbuf_small()
-> 2) skb_push(xdp->data - xdp_data_hard_start, skb) if we detect xdp->data was
-> modified afer bpf_prog_run_xdp()
-> 
-> Then there's no special code in either XDP_PASS or XDP_TX?
-> 
-> >   		return XDP_PASS;
-> >   	case XDP_TX:
-> >   		qp = vi->curr_queue_pairs -
-> >   			vi->xdp_queue_pairs +
-> >   			smp_processor_id();
-> 
-> [...]
-> 
-> > +#define VIRTIO_XDP_HEADROOM 256
-> > +
-> >   static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
-> >   {
-> >   	unsigned long int max_sz = PAGE_SIZE - sizeof(struct padded_vnet_hdr);
-> >   	struct virtnet_info *vi = netdev_priv(dev);
-> >   	struct bpf_prog *old_prog;
-> >   	u16 xdp_qp = 0, curr_qp;
-> > +	unsigned int old_hr;
-> >   	int i, err;
-> >   	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_GUEST_TSO4) ||
-> > @@ -1736,19 +1751,58 @@ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
-> >   		return -ENOMEM;
-> >   	}
-> > +	old_hr = vi->headroom;
-> > +	if (prog) {
-> > +		prog = bpf_prog_add(prog, vi->max_queue_pairs - 1);
-> > +		if (IS_ERR(prog))
-> > +			return PTR_ERR(prog);
-> > +		vi->headroom = VIRTIO_XDP_HEADROOM;
-> > +	} else {
-> > +		vi->headroom = 0;
-> > +	}
-> > +
-> > +	/* Changing the headroom in buffers is a disruptive operation because
-> > +	 * existing buffers must be flushed and reallocated. This will happen
-> > +	 * when a xdp program is initially added or xdp is disabled by removing
-> > +	 * the xdp program.
-> > +	 */
-> 
-> We probably need reset the device here, but maybe Michale has more ideas.
-> And if we do this, another interesting thing to do is to disable EWMA and
-> always use a single page for each packet, this could almost eliminate
-> linearizing.
-> 
-> Thanks
+	Arnd
