@@ -1,77 +1,88 @@
-From: Stefan Hajnoczi <stefanha@gmail.com>
-Subject: Re: [PATCH net-next V2 3/3] tun: rx batching
-Date: Tue, 3 Jan 2017 13:33:03 +0000
-Message-ID: <20170103133303.GC14707@stefanha-x1.localdomain>
-References: <1482912571-3157-1-git-send-email-jasowang@redhat.com>
-	<1482912571-3157-4-git-send-email-jasowang@redhat.com>
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: Re: [RFC PATCH net-next v4 1/2] macb: Add 1588 support in Cadence GEM.
+Date: Tue, 3 Jan 2017 15:22:06 +0100
+Message-ID: <bba29875-cc47-17a6-4104-5e8c46402f7d@atmel.com>
+References: <1481720175-12703-1-git-send-email-andrei.pistirica@microchip.com>
+ <BN3PR07MB2516815EDE69ACDCE27F81A3C96F0@BN3PR07MB2516.namprd07.prod.outlook.com>
+ <20170102113155.GA16373@localhost.localdomain>
+ <0717c63b-2e29-9ad1-7f01-39817980933f@atmel.com>
+ <20170102161359.GD3609@localhost.localdomain>
+ <CAFcVECK1vt7Hu4tgSZ2+kKpMxoT-wpikMDq65HaxRv-EMgobHA@mail.gmail.com>
+ <BN3PR07MB25168573DD82F1681CDC8437C96E0@BN3PR07MB2516.namprd07.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============6580428924105863863=="
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, kvm@vger.kernel.org, mst@redhat.com
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1482912571-3157-4-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "tbultel@pixelsurmer.com" <tbultel@pixelsurmer.com>,
+ "boris.brezillon@free-electrons.com" <boris.brezillon@free-electrons.com>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "alexandre.belloni@free-electrons.com" <alexandre.belloni@free-electrons.com>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ Andrei Pistirica <andrei.pistirica@microchip.com>,
+ "michals@xilinx.com" <michals@xilinx.com>,
+ "anirudh@xilinx.com" <anirudh@xilinx.com>,
+ "punnaia@xilinx.com" <punnaia@xilinx.com>,
+ "harini.katakam@xilinx.com" <harini.katakam@xilinx.com>,
+ "davem@davemloft.net" <davem@davemloft.net>,
+ "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>
+To: Rafal Ozieblo <rafalo@cadence.com>, Harini Katakam
+ <harinikatakamlinux@gmail.com>, Richard Cochran <richardcochran@gmail.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <BN3PR07MB25168573DD82F1681CDC8437C96E0@BN3PR07MB2516.namprd07.prod.outlook.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-
---===============6580428924105863863==
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="DIOMP1UsTsWJauNi"
-Content-Disposition: inline
-
-
---DIOMP1UsTsWJauNi
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-On Wed, Dec 28, 2016 at 04:09:31PM +0800, Jason Wang wrote:
-> +static int tun_rx_batched(struct tun_file *tfile, struct sk_buff *skb,
-> +			  int more)
-> +{
-> +	struct sk_buff_head *queue = &tfile->sk.sk_write_queue;
-> +	struct sk_buff_head process_queue;
-> +	int qlen;
-> +	bool rcv = false;
-> +
-> +	spin_lock(&queue->lock);
-
-Should this be spin_lock_bh()?  Below and in tun_get_user() there are
-explicit local_bh_disable() calls so I guess BHs can interrupt us here
-and this would deadlock.
-
---DIOMP1UsTsWJauNi
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEcBAEBAgAGBQJYa6gPAAoJEJykq7OBq3PIZ2sH/0VYpR4DPRyzYO7z6UMBZwGC
-gbOV4hIqlfKg3e9MWqF4ekaRGek/WuV3goEUOhXBY1gwI2NGWoowb4/wPfjCTQR0
-6r6Vt78rgAsl4McgXJ6fQdH1pGgLVNZQ+/iXINjRjpFN1vYPj+vXFk0GuhDZV5ke
-gNmUFs2kJ2HysCJtLjB2Fuwmspmbd6jhRNmQET5ADsiZsbi9+Lm8jYME/CESkE8h
-gLaW1G3ECOkKDza9TkXx5wlq1GRUllpe0zqw6tGKQEPZLF0wu+PKHTru0vkKddX1
-pmE9ukXVAJqxoP2XwWU8qXfNBjpPyZS9JAMzA3R5HuWJCQ+z3ASpGkIQMqRbs/Q=
-=kLi7
------END PGP SIGNATURE-----
-
---DIOMP1UsTsWJauNi--
-
---===============6580428924105863863==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-Virtualization mailing list
-Virtualization@lists.linux-foundation.org
-https://lists.linuxfoundation.org/mailman/listinfo/virtualization
---===============6580428924105863863==--
+TGUgMDMvMDEvMjAxNyDDoCAxMTo0NywgUmFmYWwgT3ppZWJsbyBhIMOpY3JpdCA6Cj4+IEZyb206
+IEhhcmluaSBLYXRha2FtIFttYWlsdG86aGFyaW5pa2F0YWthbWxpbnV4QGdtYWlsLmNvbV0gCj4+
+IFNlbnQ6IDMgc3R5Y3puaWEgMjAxNyAwNjowNgo+PiBTdWJqZWN0OiBSZTogW1JGQyBQQVRDSCBu
+ZXQtbmV4dCB2NCAxLzJdIG1hY2I6IEFkZCAxNTg4IHN1cHBvcnQgaW4gQ2FkZW5jZSBHRU0uCj4+
+Cj4+IEhpIFJpY2hhcmQsCj4+Cj4+IE9uIE1vbiwgSmFuIDIsIDIwMTcgYXQgOTo0MyBQTSwgUmlj
+aGFyZCBDb2NocmFuIDxyaWNoYXJkY29jaHJhbkBnbWFpbC5jb20+IHdyb3RlOgo+Pj4gT24gTW9u
+LCBKYW4gMDIsIDIwMTcgYXQgMDM6NDc6MDdQTSArMDEwMCwgTmljb2xhcyBGZXJyZSB3cm90ZToK
+Pj4+PiBMZSAwMi8wMS8yMDE3IMOgIDEyOjMxLCBSaWNoYXJkIENvY2hyYW4gYSDDqWNyaXQgOgo+
+Pj4+PiBUaGlzIENhZGVuY2UgSVAgY29yZSBpcyBhIGNvbXBsZXRlIGRpc2FzdGVyLgo+Pj4+Cj4+
+Pj4gV2VsbCwgaXQgZXZvbHZlZCBhbmQgcHJvcG9zZSBzZXZlcmFsIG9wdGlvbnMgdG8gZGlmZmVy
+ZW50IFNvQyAKPj4+PiBpbnRlZ3JhdG9ycy4gVGhpcyBpcyBub3Qgc29tZXRoaW5nIHVudXN1YWwu
+Li4KPj4+PiBJIHN1c3BlY3QgYXMgd2VsbCB0aGF0IHNvbWUgb3RoZXIgbmV0d29yayBhZGFwdGVy
+cyBoYXZlIHRoZSBzYW1lIAo+Pj4+IHdlYWtuZXNzIGNvbmNlcm5pbmcgUFRQIHRpbWVzdGFtcCBp
+biBzaW5nbGUgcmVnaXN0ZXIgYXMgdGhlIGVhcmx5IAo+Pj4+IHJldmlzaW9ucyBvZiB0aGlzIElQ
+Lgo+Pj4KPj4+IEl0IGFwcGVhcnMgdGhhdCB0aGlzIGNvcmUgY2FuIG5laXRoZXIgbGF0Y2ggdGhl
+IHRpbWUgb24gcmVhZCBvciB3cml0ZSwgCj4+PiBvciBldmVuIGxhdGNoIHRpbWUgc3RhbXBzLiAg
+SSBoYXZlIHdvcmtlZCB3aXRoIG1hbnkgZGlmZmVyZW50IFBUUCBIVyAKPj4+IGltcGxlbWVudGF0
+aW9ucywgZXZlbiBlYXJseSBvbmVzIGxpa2Ugb24gdGhlIGl4cDR4eCwgYW5kIGl0IGlzIG5vIAo+
+Pj4gZXhhZ2dlcmF0aW9uIHRvIHNheSB0aGF0IHRoaXMgb25lIGlzIHVuaXF1ZWx5IGJyb2tlbi4K
+Pj4+Cj4+Pj4gSSBzdXNwZWN0IHRoYXQgUmFmYWwgdGVuZCB0byBqdW1wIHRvbyBxdWlja2x5IHRv
+IHRoZSBsYXRlc3QgSVAgCj4+Pj4gcmV2aXNpb25zIGFuZCBhZGQgbW9yZSBvcHRpb25zIHRvIHRo
+aXMgc2VyaWVzOiBsZXQncyBub3QgdHJ5IHRvIHBvdXIgCj4+Pj4gdG9vIG11Y2ggdGhpbmdzIGlu
+dG8gdGhpcyBjb2RlIHJpZ2h0IG5vdy4KPj4+Cj4+PiBXaHkgY2FuJ3QgeW91IGNoZWNrIHRoZSBJ
+UCB2ZXJzaW9uIGluIHRoZSBkcml2ZXI/Cj4+Cj4+IFRoZXJlIGlzIGFuIElQIHJldmlzaW9uIHJl
+Z2lzdGVyIGJ1dCBpdCB3b3VsZCBiZSBwcm9iYWJseSBiZQo+PiBiZXR0ZXIgdG8gcmVseSBvbiAi
+Y2FwcyIgZnJvbSB0aGUgY29tcGF0aWJpbGl0eSBzdHJpbmdzIC0gdG8gY292ZXIgU29DIHNwZWNp
+ZmljCj4+IGltcGxlbWVudGF0aW9ucy4gQWxzbywgd2hlbiB0aGlzIGV4dGVuZGVkIEJEIGlzIGFk
+ZGVkICh3aXRoIHRpbWVzdGFtcCksCj4+IGFkZGl0aW9uYWwgd29yZHMgd2lsbCBuZWVkIHRvIGJl
+IGFkZGVkIHN0YXRpY2FsbHkgd2hpY2ggd2lsbCBiZQo+PiBjb25zaXN0ZW50IHdpdGggQW5kcmVp
+J3MgQ09ORklHXyBjaGVja3MuCj4gV2UgY2FuIGRpc3Rpbmd1aXNoIElQIGNvcmVzIHdpdGggYW5k
+IHdpdGhvdXQgUFRQIHN1cHBvcnQgYnkgcmVhZGluZwo+IERlc2lnbiBDb25maWd1cmF0aW9uIFJl
+Z2lzdGVyLiBCdXQgdG8gZGlzdGluZ3Vpc2ggSVAgY29yZXMgd2l0aAo+IHRpbWVzdGFtcHMgaW4g
+YnVmZmVyIGRlc2NyaXB0b3JzIGFuZCB3aGljaCBzdXBwb3J0IG9ubHkgZXZlbnQKPiByZWdpc3Rl
+cnMsIHdlIGNhbiBvbmx5IGNoZWNrIElQIHZlcnNpb24gYnkgcmVhZGluZyB0aGUgcmV2aXNpb24g
+SUQKPiByZWdpc3RlciBhbmQgYmFzZSBvbiB0aGF0Lgo+IEkgYWdyZWUgd2l0aCBIYXJpbmksIGNv
+bXBhdGliaWxpdHkgc3RyaW5ncyBjb3VsZCBiZSBiZXR0ZXIuIEJ1dCB3ZQo+IG1pZ2h0IGVuZCB1
+cCB3aXRoIG1hbnkgZGlmZmVyZW50IGNvbmZpZ3VyYXRpb24gaW4gdGhlIGZ1dHVyZS4KCkNvbXBh
+dGliaWxpdHkgc3RyaW5ncyBhbmQgYXNzb2NpYXRlZCBjb25maWd1cmF0aW9ucyBhcmUgY2hlYXAu
+IEl0J3Mgbm90CmEgcHJvYmxlbSB0byBoYXZlIG1hbnkgZGlmZmVyZW50IGNvbmZpZ3VyYXRpb25z
+IGFuZCBjbGVhcmVyIGZvciB0aGlzCnBhcnRpY3VsYXIgImNvbXBvc2l0ZSIgZmVhdHVyZS4KCj4g
+V2UgY291bGQgdXNlIG9ubHkgZGVzY3JpcHRvciBhcHByb2FjaCBidXQgdGhlcmUgYXJlIG1hbnkg
+QXRtZWwncwo+IGNvcmVzIG9uIHRoZSBtYXJrZXQgd2hpY2ggc3VwcG9ydCBvbmx5IGV2ZW50IHJl
+Z2lzdGVycy4KClllcyBhbmQgb25jZSBpbiBzaWxpY29uLCBpdCdzIGhhcmQgdG8gbW9kaWZ5IDst
+KQoKUmVnYXJkcywKLS0gCk5pY29sYXMgRmVycmUKCl9fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fCmxpbnV4LWFybS1rZXJuZWwgbWFpbGluZyBsaXN0CmxpbnV4
+LWFybS1rZXJuZWxAbGlzdHMuaW5mcmFkZWFkLm9yZwpodHRwOi8vbGlzdHMuaW5mcmFkZWFkLm9y
+Zy9tYWlsbWFuL2xpc3RpbmZvL2xpbnV4LWFybS1rZXJuZWwK
