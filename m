@@ -1,84 +1,152 @@
-From: Geoff Lansberry <geoff@kuvee.com>
-Subject: Re: [PATCH v3 3/3] nfc: trf7970a: Prevent repeated polling from
- crashing the kernel
-Date: Tue, 3 Jan 2017 13:35:18 -0500
-Message-ID: <CAO7Z3WK5pF+q0vAoPPie8wXYQPigpGd7W8uQiGSgN79z4=W9uQ@mail.gmail.com>
-References: <1482380314-16440-1-git-send-email-geoff@kuvee.com>
- <1482380314-16440-3-git-send-email-geoff@kuvee.com> <20161224060141.GA9069@animalcreek.com>
- <CAO7Z3W+n85jbr8cmj3HJV1c+eL=oRh-XRy+O=iZ+mD=ov2WABA@mail.gmail.com>
- <20161224172439.GA15103@animalcreek.com> <CAO7Z3WJa0goJ-VXc7dvyz8imZtqby6QsC0QNH+uRAE8LhxqU2w@mail.gmail.com>
- <20170103163324.GA3184@animalcreek.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 1/3] net: dsa: remove out label in
+ dsa_switch_setup_one
+Date: Tue, 3 Jan 2017 19:39:13 +0100
+Message-ID: <20170103183913.GB30638@lunn.ch>
+References: <20170103181538.2593-1-vivien.didelot@savoirfairelinux.com>
+ <20170103181538.2593-2-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-wireless <linux-wireless@vger.kernel.org>,
-        Lauro Ramos Venancio <lauro.venancio@openbossa.org>,
-        Aloisio Almeida Jr <aloisio.almeida@openbossa.org>,
-        Samuel Ortiz <sameo@linux.intel.com>, robh+dt@kernel.org,
-        mark.rutland@arm.com, netdev@vger.kernel.org,
-        devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Justin Bronder <justin@kuvee.com>,
-        Jaret Cantu <jaret.cantu@timesys.com>
-To: Mark Greer <mgreer@animalcreek.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170103163324.GA3184@animalcreek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>, cphealy@gmail.com
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:41849 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1759585AbdACSjQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 3 Jan 2017 13:39:16 -0500
+Content-Disposition: inline
+In-Reply-To: <20170103181538.2593-2-vivien.didelot@savoirfairelinux.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 3, 2017 at 11:33 AM, Mark Greer <mgreer@animalcreek.com> wrote:
-> [Please stop top-posting.  Bottom-post only to these lists.]
+On Tue, Jan 03, 2017 at 01:15:36PM -0500, Vivien Didelot wrote:
+> The "out" label in dsa_switch_setup_one() is useless, thus remove it.
 
-Sorry; gmail keeps baiting me to do it...
+Hi Vivien
 
->
-> Hi Geoff & happy new year.
->
-> On Tue, Dec 27, 2016 at 09:18:32AM -0500, Geoff Lansberry wrote:
->> Mark - I will split this off soon.
->
-> OK
+Missing a SOB.
 
-Thanks for the reminder!
+This one patch i'm happy with. Assuming we drop the other two, please
+could you submit this on its own.
 
->
->> In the meantime - here is some more info about how we use it.
->>
->> We do use NFC structures.    I did find an interesting clue in that
->> there are certain bottles that cause neard to segfault,  I'm not sure
->> what is different about them.  We write a string, like
->> "coppola_chardonnay_2015" to the bottles.
->
-> Off the top of my head, it could be the length of the text.
-> It would be useful to compare the data that works to the data
-> that doesn't work.  Can you install NXP's 'TagInfo' app on a
-> smartphone and scan tags with working & non-working data?
-> You can email the data from the app to yourself, edit out
-> the cruft, and share here.
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 
-The data is always the same - and the tags are all the same.  Only
-difference is that the tag is physically different, and perhaps
-orientation; distance from antenna to tag is fixed.  I can't even
-write the tags at all, so reading them will show blank.   Also a minor
-but significant detail, is that the tags are embedded in such a way
-that the phone cannot get close enough to them to connect.
+    Andrew
 
->
->> Come to think of it, I
->> haven't done anything special to make that an ndef record, just
->> assumed that it would happen by default, I'll look into this further.
->
-> If you wrote the data using neard, it will be NDEF formatted.
-> Since it is working this well, it is virtually guaranteed that
-> the data is NDEF formatted.
 
-OK, good.
-
->
->>   Also, I've been running neard with --plugin nfctype2. Just in case
->> the problem was happening due to cycling through other tag types.   It
->> didn't seem to make any difference, but I have not gone back to
->> default.
->
-> Good to know, thanks.
->
-> Mark
-> --
+> ---
+>  net/dsa/dsa.c | 40 +++++++++++++---------------------------
+>  1 file changed, 13 insertions(+), 27 deletions(-)
+> 
+> diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+> index 7899919cd9f0..89e66b623d73 100644
+> --- a/net/dsa/dsa.c
+> +++ b/net/dsa/dsa.c
+> @@ -329,8 +329,7 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
+>  			if (dst->cpu_switch != -1) {
+>  				netdev_err(dst->master_netdev,
+>  					   "multiple cpu ports?!\n");
+> -				ret = -EINVAL;
+> -				goto out;
+> +				return -EINVAL;
+>  			}
+>  			dst->cpu_switch = index;
+>  			dst->cpu_port = i;
+> @@ -343,10 +342,8 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
+>  		valid_name_found = true;
+>  	}
+>  
+> -	if (!valid_name_found && i == DSA_MAX_PORTS) {
+> -		ret = -EINVAL;
+> -		goto out;
+> -	}
+> +	if (!valid_name_found && i == DSA_MAX_PORTS)
+> +		return -EINVAL;
+>  
+>  	/* Make the built-in MII bus mask match the number of ports,
+>  	 * switch drivers can override this later
+> @@ -363,10 +360,8 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
+>  
+>  		tag_protocol = ops->get_tag_protocol(ds);
+>  		dst->tag_ops = dsa_resolve_tag_protocol(tag_protocol);
+> -		if (IS_ERR(dst->tag_ops)) {
+> -			ret = PTR_ERR(dst->tag_ops);
+> -			goto out;
+> -		}
+> +		if (IS_ERR(dst->tag_ops))
+> +			return PTR_ERR(dst->tag_ops);
+>  
+>  		dst->rcv = dst->tag_ops->rcv;
+>  	}
+> @@ -378,25 +373,23 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
+>  	 */
+>  	ret = ops->setup(ds);
+>  	if (ret < 0)
+> -		goto out;
+> +		return ret;
+>  
+>  	if (ops->set_addr) {
+>  		ret = ops->set_addr(ds, dst->master_netdev->dev_addr);
+>  		if (ret < 0)
+> -			goto out;
+> +			return ret;
+>  	}
+>  
+>  	if (!ds->slave_mii_bus && ops->phy_read) {
+>  		ds->slave_mii_bus = devm_mdiobus_alloc(parent);
+> -		if (!ds->slave_mii_bus) {
+> -			ret = -ENOMEM;
+> -			goto out;
+> -		}
+> +		if (!ds->slave_mii_bus)
+> +			return -ENOMEM;
+>  		dsa_slave_mii_bus_init(ds);
+>  
+>  		ret = mdiobus_register(ds->slave_mii_bus);
+>  		if (ret < 0)
+> -			goto out;
+> +			return ret;
+>  	}
+>  
+>  	/*
+> @@ -409,20 +402,16 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
+>  			continue;
+>  
+>  		ret = dsa_slave_create(ds, parent, i, cd->port_names[i]);
+> -		if (ret < 0) {
+> +		if (ret < 0)
+>  			netdev_err(dst->master_netdev, "[%d]: can't create dsa slave device for port %d(%s): %d\n",
+>  				   index, i, cd->port_names[i], ret);
+> -			ret = 0;
+> -		}
+>  	}
+>  
+>  	/* Perform configuration of the CPU and DSA ports */
+>  	ret = dsa_cpu_dsa_setups(ds, parent);
+> -	if (ret < 0) {
+> +	if (ret < 0)
+>  		netdev_err(dst->master_netdev, "[%d] : can't configure CPU and DSA ports\n",
+>  			   index);
+> -		ret = 0;
+> -	}
+>  
+>  	ret = dsa_cpu_port_ethtool_setup(ds);
+>  	if (ret)
+> @@ -453,10 +442,7 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
+>  	}
+>  #endif /* CONFIG_NET_DSA_HWMON */
+>  
+> -	return ret;
+> -
+> -out:
+> -	return ret;
+> +	return 0;
+>  }
+>  
+>  static struct dsa_switch *
+> -- 
+> 2.11.0
+> 
