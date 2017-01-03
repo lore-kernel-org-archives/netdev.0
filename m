@@ -1,47 +1,44 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next 0/3] net: dsa: restore HWMON support in dsa2
-Date: Tue, 03 Jan 2017 14:24:02 -0500
-Message-ID: <87ful0eylp.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-References: <20170103181538.2593-1-vivien.didelot@savoirfairelinux.com> <20170103183352.GA30638@lunn.ch>
+From: Aaron Conole <aconole@redhat.com>
+Subject: Re: [PATCH] Ipvlan should return an error when an address is already in use.
+Date: Tue, 03 Jan 2017 14:24:43 -0500
+Message-ID: <f7ta8b87xqc.fsf@redhat.com>
+References: <20161231041058.GC2448@templeofstupid.com>
+        <f7td1g49m8n.fsf@redhat.com>
+        <20170103.105528.1616978923771083764.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>, cphealy@gmail.com
-To: Andrew Lunn <andrew@lunn.ch>
+Cc: kjlx@templeofstupid.com, maheshb@google.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:50286 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934089AbdACTYU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2017 14:24:20 -0500
-In-Reply-To: <20170103183352.GA30638@lunn.ch>
+Received: from mx1.redhat.com ([209.132.183.28]:44184 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S935609AbdACTYp (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 3 Jan 2017 14:24:45 -0500
+In-Reply-To: <20170103.105528.1616978923771083764.davem@davemloft.net> (David
+        Miller's message of "Tue, 03 Jan 2017 10:55:28 -0500 (EST)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
+David Miller <davem@davemloft.net> writes:
 
-Andrew Lunn <andrew@lunn.ch> writes:
-
-> On Tue, Jan 03, 2017 at 01:15:35PM -0500, Vivien Didelot wrote:
->> The current HWMON support in DSA in embedded in the legacy code.
->> Extract it to its own file and register it in the newer DSA code.
+> From: Aaron Conole <aconole@redhat.com>
+> Date: Tue, 03 Jan 2017 10:50:00 -0500
 >
-> I would really prefer not to do this.
+>>> @@ -489,7 +490,12 @@ static int __inet_insert_ifa(struct in_ifaddr *ifa, struct nlmsghdr *nlh,
+>>>  	   Notifier will trigger FIB update, so that
+>>>  	   listeners of netlink will know about new ifaddr */
+>>>  	rtmsg_ifa(RTM_NEWADDR, ifa, nlh, portid);
+>>> -	blocking_notifier_call_chain(&inetaddr_chain, NETDEV_UP, ifa);
+>>> +	ret = blocking_notifier_call_chain(&inetaddr_chain, NETDEV_UP, ifa);
+>> 
+>> Why are you doing this assignment if you aren't using the result?
+>> 
+>>> +	ret = notifier_to_errno(ret);
+>>> +	if (ret) {
+>>> +		__inet_del_ifa(in_dev, ifap, 1, NULL, portid);
+>>> +		return ret;
+>>> +	}
 >
-> The temperature sensor is in the embedded PHYs of the switch. Many of
-> Marvell discrete PHYs also have the same temperature sensor. The
-> correct thing to do is move this code into drivers/net/phy/marvell.c.
+> 'ret' assignment is being used, via notifier_to_errno().
 
-I agree that the temperature code in the mv88e6xxx driver must be moved
-to the Marvell PHY driver.
-
-However I still think this patchset is still valuable because at least
-it isolates the HWMON code in DSA which is good, and I think some chips
-do have temperature sensors in their cores, not in their PHYs. So the
-new DSA code should benefit from the HWMON support instead of
-considering this a regression for its users.
-
-Thanks,
-
-        Vivien
+d'oh!  should have had more coffee - sorry for the noise.
