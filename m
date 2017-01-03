@@ -1,64 +1,101 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH iproute2 net-next] tc: flower: support matching flags
-Date: Tue, 3 Jan 2017 13:05:13 +0100
-Message-ID: <20170103130513.2d7de31b@griffin>
-References: <1482930409-55059-1-git-send-email-paulb@mellanox.com>
-        <20170102195522.7488179b@griffin>
-        <1ec4f4ca-08e0-84fc-34c6-b3868d756050@mellanox.com>
+From: Paul Blakey <paulb@mellanox.com>
+Subject: Re: [PATCH net-next] net/sched: cls_flower: Add user specified data
+Date: Tue, 3 Jan 2017 14:22:05 +0200
+Message-ID: <606f64cb-1744-d44f-8fd1-a4bdb1ca872f@mellanox.com>
+References: <1483362833-52114-1-git-send-email-paulb@mellanox.com>
+ <14675f63-4212-2f72-da4c-cd24b9d10881@mojatatu.com>
+ <586A9A9F.4030002@gmail.com>
+ <6b671aaf-d35d-70a5-65e0-40308baeb471@mojatatu.com>
+ <586ADAFE.1010105@gmail.com>
+ <13dfd148-6a5b-cf62-b2b9-1c13e6d31155@mojatatu.com>
+ <586B29A4.2060408@gmail.com>
+ <92224e21-cd3c-26b0-d8a0-31a07268e553@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="utf-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        "David S. Miller" <davem@davemloft.net>,
+Cc: <paulb@mellanox.com>, Jiri Pirko <jiri@mellanox.com>,
         Hadar Hen Zion <hadarh@mellanox.com>,
         Or Gerlitz <ogerlitz@mellanox.com>,
-        Roi Dayan <roid@mellanox.com>
-To: Paul Blakey <paulb@mellanox.com>
+        Roi Dayan <roid@mellanox.com>, Roman Mashak <mrv@mojatatu.com>,
+        Simon Horman <simon.horman@netronome.com>
+To: Jamal Hadi Salim <jhs@mojatatu.com>,
+        John Fastabend <john.fastabend@gmail.com>,
+        "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49704 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752592AbdACMFR (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 3 Jan 2017 07:05:17 -0500
-In-Reply-To: <1ec4f4ca-08e0-84fc-34c6-b3868d756050@mellanox.com>
+Received: from mail-eopbgr30076.outbound.protection.outlook.com ([40.107.3.76]:28208
+        "EHLO EUR03-AM5-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S932168AbdACMWN (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 3 Jan 2017 07:22:13 -0500
+In-Reply-To: <92224e21-cd3c-26b0-d8a0-31a07268e553@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 3 Jan 2017 13:54:34 +0200, Paul Blakey wrote:
-> Matching name was from the idea that we are doing is matching.
 
-But we don't have matching_src_mac etc., either, although we're
-matching on those fields.
 
-> And regarding documentation/flag names I didn't want tc tool to be need 
-> of a update each time a new flag is introduced,
+On 03/01/2017 13:44, Jamal Hadi Salim wrote:
+> On 17-01-02 11:33 PM, John Fastabend wrote:
+>> On 17-01-02 05:22 PM, Jamal Hadi Salim wrote:
+>
+> [..]
+>>> Like all cookie semantics it is for storing state. The receiver 
+>>> (kernel)
+>>> is not just store it and not intepret it. The user when reading it back
+>>> simplifies what they have to do for their processing.
+>>>
+>>>>
+>>>> The tuple <ifindex:qdisc:prio:handle> really should be unique why
+>>>> not use this for system wide mappings?
+>>>>
+>>>
+>>> I think on a single machine should be enough, however:
+>>> typically the user wants to define the value in a manner that
+>>> in a distributed system it is unique. It would be trickier to
+>>> do so with well defined values such as above.
+>>>
+>>
+>> Just extend the tuple <hostname:ifindex:qdisc:prio:handle> that
+>> should be unique in the domain of hostname's, or use some other domain
+>> wide machine identifier.
+>>
+>
+> May work for the case of filter identification. The nice thing for
+> allowing cookies is you can let the user define it define their
+> own scheme.
+>
+>> Although actions can be shared so the cookie can be shared across
+>> filters. Maybe its useful but it doesn't uniquely identify a filter
+>> in the shared case but the user would have to specify that case
+>> so maybe its not important.
+>>
+>
+> Note: the action cookies and filter cookies are unrelated/orthogonal.
+> Their basic concept of stashing something in the cookie to help improve
+> what user space does (in our case millions of actions of which some are
+> used for accounting) is similar.
+> I have no objections to the flow cookies; my main concern was it should
+> be applicable to all classifiers not just flower. And the arbitrary size
+> of the cookie that you pointed out is questionable.
+>
+> cheers,
+> jamal
 
-It will be needed anyway because the whole thing would be useless
-without proper documentation. So each time a new flag is added, a new
-patch to the tc tool will be needed, at least with an addition to its
-man page.
 
-Please, let's focus on the *user*. The tc tool is hard to grasp for
-users as it is. It's crystal clear to you but you know the kernel
-internals. I'm very sure that except for the few kernel developers, no
-one would understand what the "flags" field does. And even among the
-kernel developers, very few would remember what the magic numeric
-values mean.
+Hi all,
+Our use case is replacing OVS rules with TC filters for HW offload, and 
+you're are right the cookie would
+have saved us the mapping from OVS rule ufid to the tc filter 
+handle/prio... that was generated for it.
+It also was going to be used to store other info like which OVS output 
+port corresponds to the ifindex,
+so we need 128+32 for now. It helps us with dumping the the flows back, 
+when we lose data on crash
+or restarting the user space daemon.
+HW hints is another thing that might be helpful.
+Its binary blob because user/app specifc and its usage might change in 
+the future and its and that's why there
+is some headroom with size as well.
 
-If we want wider adoption of flower, we should make it as easy to use
-as possible. Even when it means a bit more work for us.
 
-> But I guess I can add two options like with ip_proto where you can 
-> specify known flags by name but can also give a value.
-> What do you think about that?
-> 
-> flags <FLAGS> / <HEX'/'HEX>
-> FLAGS => frag/no_frag/tcp_syn/no_tcp_syn ['|'<FLAGS>]*
-> e.g: flags frag|no_tcp_syn or flags 0x01/0x15
-> and the mask will have a on bits corresponds only to those flags specified.
-
-This works for me, too.
-
-Thanks!
-
- Jiri
+I don't mind having it on TC level but I didn't want to intervene with 
+all filters/TC.
