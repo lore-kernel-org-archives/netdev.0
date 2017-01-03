@@ -1,82 +1,238 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: [PATCH] tcp: provide tx timestamps for partial writes
-Date: Tue, 3 Jan 2017 13:21:34 -0800
-Message-ID: <CAK6E8=c6HmqQ=D0FnXB23ftCKvt08JC8=nRNkzBoi_B-G75NXA@mail.gmail.com>
-References: <1483388457-4041-1-git-send-email-soheil.kdev@gmail.com>
+From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Subject: [PATCH net-next v3 25/27] net: remove VLAN_TAG_PRESENT
+Date: Tue,  3 Jan 2017 22:15:29 +0100 (CET)
+Message-ID: <51bcf5bb0ac4afb2f9c4d805575364c3066a7870.1483477925.git.mirq-linux@rere.qmqm.pl>
+References: <0332eff5a8b691ce0b86a2abe03d62d9d6f63d25.1483475202.git.mirq-linux@rere.qmqm.pl>
+        <cover.1483477925.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Soheil Hassas Yeganeh <soheil@google.com>,
-        Willem de Bruijn <willemb@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Neal Cardwell <ncardwell@google.com>,
-        Martin KaFai Lau <kafai@fb.com>
-To: Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
+Content-Transfer-Encoding: 8bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Patrick McHardy <kaber@trash.net>,
+        Alexei Starovoitov <ast@kernel.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f46.google.com ([209.85.214.46]:38868 "EHLO
-        mail-it0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757176AbdACVWP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2017 16:22:15 -0500
-Received: by mail-it0-f46.google.com with SMTP id x2so307571765itf.1
-        for <netdev@vger.kernel.org>; Tue, 03 Jan 2017 13:22:15 -0800 (PST)
-In-Reply-To: <1483388457-4041-1-git-send-email-soheil.kdev@gmail.com>
+Received: from rere.qmqm.pl ([84.10.57.10]:35222 "EHLO rere.qmqm.pl"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751519AbdACVZQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 3 Jan 2017 16:25:16 -0500
+In-Reply-To: <0332eff5a8b691ce0b86a2abe03d62d9d6f63d25.1483475202.git.mirq-linux@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 2, 2017 at 12:20 PM, Soheil Hassas Yeganeh
-<soheil.kdev@gmail.com> wrote:
->
-> From: Soheil Hassas Yeganeh <soheil@google.com>
->
-> For TCP sockets, tx timestamps are only captured when the user data
-> is successfully and fully written to the socket. In many cases,
-> however, TCP writes can be partial for which no timestamp is
-> collected.
->
-> Collect timestamps when the user data is partially copied into
-> the socket.
->
-> Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
-> Cc: Willem de Bruijn <willemb@google.com>
-> Cc: Yuchung Cheng <ycheng@google.com>
-> Cc: Eric Dumazet <edumazet@google.com>
-> Cc: Neal Cardwell <ncardwell@google.com>
-> Cc: Martin KaFai Lau <kafai@fb.com>
-> ---
-Acked-by: Yuchung Cheng <ycheng@google.com>
+Signed-off-by: Michał Mirosław <mirq-linux@rere.qmqm.pl>
+---
+v3: merged with #24 (test_bpf temporary changes)
 
->  net/ipv4/tcp.c | 8 ++++++--
->  1 file changed, 6 insertions(+), 2 deletions(-)
->
-> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-> index 2e3807d..c207b16 100644
-> --- a/net/ipv4/tcp.c
-> +++ b/net/ipv4/tcp.c
-> @@ -992,8 +992,10 @@ static ssize_t do_tcp_sendpages(struct sock *sk, struct page *page, int offset,
->         return copied;
->
->  do_error:
-> -       if (copied)
-> +       if (copied) {
-> +               tcp_tx_timestamp(sk, sk->sk_tsflags, tcp_write_queue_tail(sk));
->                 goto out;
-> +       }
->  out_err:
->         /* make sure we wake any epoll edge trigger waiter */
->         if (unlikely(skb_queue_len(&sk->sk_write_queue) == 0 &&
-> @@ -1329,8 +1331,10 @@ int tcp_sendmsg(struct sock *sk, struct msghdr *msg, size_t size)
->         }
->
->  do_error:
-> -       if (copied + copied_syn)
-> +       if (copied + copied_syn) {
-> +               tcp_tx_timestamp(sk, sk->sk_tsflags, tcp_write_queue_tail(sk));
->                 goto out;
-> +       }
->  out_err:
->         err = sk_stream_error(sk, flags, err);
->         /* make sure we wake any epoll edge trigger waiter */
-> --
-> 2.8.0.rc3.226.g39d4020
->
+ arch/mips/net/bpf_jit.c         |  3 ---
+ arch/powerpc/net/bpf_jit_comp.c |  3 ---
+ arch/sparc/net/bpf_jit_comp.c   |  4 ----
+ include/linux/if_vlan.h         | 11 ++++++-----
+ include/linux/skbuff.h          | 16 +++++++++-------
+ lib/test_bpf.c                  | 14 ++++++++------
+ net/core/filter.c               |  3 ---
+ 7 files changed, 23 insertions(+), 31 deletions(-)
+
+diff --git a/arch/mips/net/bpf_jit.c b/arch/mips/net/bpf_jit.c
+index 4b12b5df47e8..fb6d23415d16 100644
+--- a/arch/mips/net/bpf_jit.c
++++ b/arch/mips/net/bpf_jit.c
+@@ -1143,9 +1143,6 @@ static int build_body(struct jit_ctx *ctx)
+ 						  vlan_tci) != 2);
+ 			off = offsetof(struct sk_buff, vlan_tci);
+ 			emit_half_load(r_s0, r_skb, off, ctx);
+-#ifdef VLAN_TAG_PRESENT
+-			emit_andi(r_A, r_s0, (u16)~VLAN_TAG_PRESENT, ctx);
+-#endif
+ 			break;
+ 		case BPF_ANC | SKF_AD_VLAN_TAG_PRESENT:
+ 			ctx->flags |= SEEN_SKB | SEEN_A;
+diff --git a/arch/powerpc/net/bpf_jit_comp.c b/arch/powerpc/net/bpf_jit_comp.c
+index 22ae63fb9b7d..fb3892763fff 100644
+--- a/arch/powerpc/net/bpf_jit_comp.c
++++ b/arch/powerpc/net/bpf_jit_comp.c
+@@ -381,9 +381,6 @@ static int bpf_jit_build_body(struct bpf_prog *fp, u32 *image,
+ 
+ 			PPC_LHZ_OFFS(r_A, r_skb, offsetof(struct sk_buff,
+ 							  vlan_tci));
+-#ifdef VLAN_TAG_PRESENT
+-			PPC_ANDI(r_A, r_A, ~VLAN_TAG_PRESENT);
+-#endif
+ 			break;
+ 		case BPF_ANC | SKF_AD_VLAN_TAG_PRESENT:
+ 			PPC_LBZ_OFFS(r_A, r_skb, PKT_VLAN_PRESENT_OFFSET());
+diff --git a/arch/sparc/net/bpf_jit_comp.c b/arch/sparc/net/bpf_jit_comp.c
+index 61cc15dc86f7..d499b391393e 100644
+--- a/arch/sparc/net/bpf_jit_comp.c
++++ b/arch/sparc/net/bpf_jit_comp.c
+@@ -602,10 +602,6 @@ void bpf_jit_compile(struct bpf_prog *fp)
+ 				break;
+ 			case BPF_ANC | SKF_AD_VLAN_TAG:
+ 				emit_skb_load16(vlan_tci, r_A);
+-#ifdef VLAN_TAG_PRESENT
+-				emit_loadimm(~VLAN_TAG_PRESENT, r_TMP);
+-				emit_and(r_A, r_TMP, r_A);
+-#endif
+ 				break;
+ 			case BPF_ANC | SKF_AD_VLAN_TAG_PRESENT:
+ 				__emit_skb_load8(__pkt_vlan_present_offset, r_A);
+diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
+index 75e839b84a63..8ff2f0ed4c27 100644
+--- a/include/linux/if_vlan.h
++++ b/include/linux/if_vlan.h
+@@ -66,7 +66,6 @@ static inline struct vlan_ethhdr *vlan_eth_hdr(const struct sk_buff *skb)
+ #define VLAN_PRIO_MASK		0xe000 /* Priority Code Point */
+ #define VLAN_PRIO_SHIFT		13
+ #define VLAN_CFI_MASK		0x1000 /* Canonical Format Indicator */
+-#define VLAN_TAG_PRESENT	VLAN_CFI_MASK
+ #define VLAN_VID_MASK		0x0fff /* VLAN Identifier */
+ #define VLAN_N_VID		4096
+ 
+@@ -78,8 +77,8 @@ static inline bool is_vlan_dev(const struct net_device *dev)
+         return dev->priv_flags & IFF_802_1Q_VLAN;
+ }
+ 
+-#define skb_vlan_tag_present(__skb)	((__skb)->vlan_tci & VLAN_TAG_PRESENT)
+-#define skb_vlan_tag_get(__skb)		((__skb)->vlan_tci & ~VLAN_TAG_PRESENT)
++#define skb_vlan_tag_present(__skb)	((__skb)->vlan_present)
++#define skb_vlan_tag_get(__skb)		((__skb)->vlan_tci)
+ #define skb_vlan_tag_get_id(__skb)	((__skb)->vlan_tci & VLAN_VID_MASK)
+ #define skb_vlan_tag_get_prio(__skb)	((__skb)->vlan_tci & VLAN_PRIO_MASK)
+ 
+@@ -390,7 +389,7 @@ static inline struct sk_buff *vlan_insert_tag_set_proto(struct sk_buff *skb,
+  */
+ static inline void __vlan_hwaccel_clear_tag(struct sk_buff *skb)
+ {
+-	skb->vlan_tci = 0;
++	skb->vlan_present = 0;
+ }
+ 
+ /**
+@@ -402,6 +401,7 @@ static inline void __vlan_hwaccel_clear_tag(struct sk_buff *skb)
+  */
+ static inline void __vlan_hwaccel_copy_tag(struct sk_buff *dst, const struct sk_buff *src)
+ {
++	dst->vlan_present = src->vlan_present;
+ 	dst->vlan_proto = src->vlan_proto;
+ 	dst->vlan_tci = src->vlan_tci;
+ }
+@@ -436,7 +436,8 @@ static inline void __vlan_hwaccel_put_tag(struct sk_buff *skb,
+ 					  __be16 vlan_proto, u16 vlan_tci)
+ {
+ 	skb->vlan_proto = vlan_proto;
+-	skb->vlan_tci = VLAN_TAG_PRESENT | vlan_tci;
++	skb->vlan_tci = vlan_tci;
++	skb->vlan_present = 1;
+ }
+ 
+ /**
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 168c3e486bd4..c37d8d76fe34 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -740,6 +740,14 @@ struct sk_buff {
+ 	__u8			csum_level:2;
+ 	__u8			csum_bad:1;
+ 
++#ifdef __BIG_ENDIAN_BITFIELD
++#define PKT_VLAN_PRESENT_BIT	7
++#else
++#define PKT_VLAN_PRESENT_BIT	0
++#endif
++#define PKT_VLAN_PRESENT_OFFSET()	offsetof(struct sk_buff, __pkt_vlan_present_offset)
++	__u8			__pkt_vlan_present_offset[0];
++	__u8			vlan_present:1;
+ #ifdef CONFIG_IPV6_NDISC_NODETYPE
+ 	__u8			ndisc_nodetype:2;
+ #endif
+@@ -749,7 +757,7 @@ struct sk_buff {
+ #ifdef CONFIG_NET_SWITCHDEV
+ 	__u8			offload_fwd_mark:1;
+ #endif
+-	/* 2, 4 or 5 bit hole */
++	/* 1-4 bit hole */
+ 
+ #ifdef CONFIG_NET_SCHED
+ 	__u16			tc_index;	/* traffic control index */
+@@ -768,12 +776,6 @@ struct sk_buff {
+ 	__u32			priority;
+ 	int			skb_iif;
+ 	__u32			hash;
+-#define PKT_VLAN_PRESENT_BIT	4	// CFI (12-th bit) in TCI
+-#ifdef __BIG_ENDIAN
+-#define PKT_VLAN_PRESENT_OFFSET()	offsetof(struct sk_buff, vlan_tci)
+-#else
+-#define PKT_VLAN_PRESENT_OFFSET()	(offsetof(struct sk_buff, vlan_tci) + 1)
+-#endif
+ 	__be16			vlan_proto;
+ 	__u16			vlan_tci;
+ #if defined(CONFIG_NET_RX_BUSY_POLL) || defined(CONFIG_XPS)
+diff --git a/lib/test_bpf.c b/lib/test_bpf.c
+index 0362da0b66c3..9cb21a20e2f8 100644
+--- a/lib/test_bpf.c
++++ b/lib/test_bpf.c
+@@ -38,6 +38,7 @@
+ #define SKB_HASH	0x1234aaab
+ #define SKB_QUEUE_MAP	123
+ #define SKB_VLAN_TCI	0xffff
++#define SKB_VLAN_PRESENT	1
+ #define SKB_DEV_IFINDEX	577
+ #define SKB_DEV_TYPE	588
+ 
+@@ -691,8 +692,8 @@ static struct bpf_test tests[] = {
+ 		CLASSIC,
+ 		{ },
+ 		{
+-			{ 1, SKB_VLAN_TCI & ~VLAN_TAG_PRESENT },
+-			{ 10, SKB_VLAN_TCI & ~VLAN_TAG_PRESENT }
++			{ 1, SKB_VLAN_TCI },
++			{ 10, SKB_VLAN_TCI }
+ 		},
+ 	},
+ 	{
+@@ -705,8 +706,8 @@ static struct bpf_test tests[] = {
+ 		CLASSIC,
+ 		{ },
+ 		{
+-			{ 1, !!(SKB_VLAN_TCI & VLAN_TAG_PRESENT) },
+-			{ 10, !!(SKB_VLAN_TCI & VLAN_TAG_PRESENT) }
++			{ 1, SKB_VLAN_PRESENT },
++			{ 10, SKB_VLAN_PRESENT }
+ 		},
+ 	},
+ 	{
+@@ -4773,8 +4774,8 @@ static struct bpf_test tests[] = {
+ 		CLASSIC,
+ 		{ },
+ 		{
+-			{  1, !!(SKB_VLAN_TCI & VLAN_TAG_PRESENT) },
+-			{ 10, !!(SKB_VLAN_TCI & VLAN_TAG_PRESENT) }
++			{  1, SKB_VLAN_PRESENT },
++			{ 10, SKB_VLAN_PRESENT }
+ 		},
+ 		.fill_helper = bpf_fill_maxinsns6,
+ 	},
+@@ -5486,6 +5487,7 @@ static struct sk_buff *populate_skb(char *buf, int size)
+ 	skb->queue_mapping = SKB_QUEUE_MAP;
+ 	skb->vlan_tci = SKB_VLAN_TCI;
+ 	skb->vlan_proto = htons(ETH_P_IP);
++	skb->vlan_present = SKB_VLAN_PRESENT;
+ 	skb->dev = &dev;
+ 	skb->dev->ifindex = SKB_DEV_IFINDEX;
+ 	skb->dev->type = SKB_DEV_TYPE;
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 5209c5f5ac4a..f75011928a7a 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -193,9 +193,6 @@ static u32 convert_skb_access(int skb_field, int dst_reg, int src_reg,
+ 		/* dst_reg = *(u16 *) (src_reg + offsetof(vlan_tci)) */
+ 		*insn++ = BPF_LDX_MEM(BPF_H, dst_reg, src_reg,
+ 				      offsetof(struct sk_buff, vlan_tci));
+-#ifdef VLAN_TAG_PRESENT
+-		*insn++ = BPF_ALU32_IMM(BPF_AND, dst_reg, ~VLAN_TAG_PRESENT);
+-#endif
+ 		break;
+ 	case SKF_AD_VLAN_TAG_PRESENT:
+ 		*insn++ = BPF_LDX_MEM(BPF_B, dst_reg, src_reg, PKT_VLAN_PRESENT_OFFSET());
+-- 
+2.11.0
