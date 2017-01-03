@@ -1,8 +1,9 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [net-next 0/3] tipc: improve interaction
-	socket-link
-Date: Tue,  3 Jan 2017 10:55:08 -0500
-Message-ID: <1483458911-32549-1-git-send-email-jon.maloy@ericsson.com>
+Subject: [net-next 2/3] tipc: modify struct tipc_plist to
+	be more versatile
+Date: Tue,  3 Jan 2017 10:55:10 -0500
+Message-ID: <1483458911-32549-3-git-send-email-jon.maloy@ericsson.com>
+References: <1483458911-32549-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -10,6 +11,7 @@ Cc: Jon Maloy <jon.maloy@ericsson.com>, netdev@vger.kernel.org,
 	tipc-discussion@lists.sourceforge.net
 To: davem@davemloft.net
 Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: <1483458911-32549-1-git-send-email-jon.maloy@ericsson.com>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
@@ -20,26 +22,227 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-We fix a very real starvation problem that may occur when a link
-encounters send buffer congestion. At the same time we make the 
-interaction between the socket and link layer simpler and more 
-consistent.
+During multicast reception we currently use a simple linked list with
+push/pop semantics to store port numbers.
 
-Jon Maloy (3):
-  tipc: unify tipc_wait_for_sndpkt() and tipc_wait_for_sndmsg()
-    functions
-  tipc: modify struct tipc_plist to be more versatile
-  tipc: reduce risk of user starvation during link congestion
+We now see a need for a more generic list for storing values of type
+u32. We therefore make some modifications to this list, while replacing
+the prefix 'tipc_plist_' with 'u32_'. We also add a couple of new
+functions which will come to use in the next commits.
 
- net/tipc/bcast.c      |   6 +-
- net/tipc/link.c       |  75 ++++-----
- net/tipc/msg.h        |   2 -
- net/tipc/name_table.c | 100 +++++++----
- net/tipc/name_table.h |  21 +--
- net/tipc/node.c       |  15 +-
- net/tipc/socket.c     | 449 ++++++++++++++++++++++----------------------------
- 7 files changed, 319 insertions(+), 349 deletions(-)
+Acked-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
+Acked-by: Ying Xue <ying.xue@windriver.com>
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+---
+ net/tipc/name_table.c | 100 ++++++++++++++++++++++++++++++++++++--------------
+ net/tipc/name_table.h |  21 ++++-------
+ net/tipc/socket.c     |   8 ++--
+ 3 files changed, 83 insertions(+), 46 deletions(-)
 
+diff --git a/net/tipc/name_table.c b/net/tipc/name_table.c
+index e190460..5a86df1 100644
+--- a/net/tipc/name_table.c
++++ b/net/tipc/name_table.c
+@@ -608,7 +608,7 @@ u32 tipc_nametbl_translate(struct net *net, u32 type, u32 instance,
+  * Returns non-zero if any off-node ports overlap
+  */
+ int tipc_nametbl_mc_translate(struct net *net, u32 type, u32 lower, u32 upper,
+-			      u32 limit, struct tipc_plist *dports)
++			      u32 limit, struct list_head *dports)
+ {
+ 	struct name_seq *seq;
+ 	struct sub_seq *sseq;
+@@ -633,7 +633,7 @@ int tipc_nametbl_mc_translate(struct net *net, u32 type, u32 lower, u32 upper,
+ 		info = sseq->info;
+ 		list_for_each_entry(publ, &info->node_list, node_list) {
+ 			if (publ->scope <= limit)
+-				tipc_plist_push(dports, publ->ref);
++				u32_push(dports, publ->ref);
+ 		}
+ 
+ 		if (info->cluster_list_size != info->node_list_size)
+@@ -1022,40 +1022,84 @@ int tipc_nl_name_table_dump(struct sk_buff *skb, struct netlink_callback *cb)
+ 	return skb->len;
+ }
+ 
+-void tipc_plist_push(struct tipc_plist *pl, u32 port)
++struct u32_item {
++	struct list_head list;
++	u32 value;
++};
++
++bool u32_find(struct list_head *l, u32 value)
+ {
+-	struct tipc_plist *nl;
++	struct u32_item *item;
+ 
+-	if (likely(!pl->port)) {
+-		pl->port = port;
+-		return;
++	list_for_each_entry(item, l, list) {
++		if (item->value == value)
++			return true;
+ 	}
+-	if (pl->port == port)
+-		return;
+-	list_for_each_entry(nl, &pl->list, list) {
+-		if (nl->port == port)
+-			return;
++	return false;
++}
++
++bool u32_push(struct list_head *l, u32 value)
++{
++	struct u32_item *item;
++
++	list_for_each_entry(item, l, list) {
++		if (item->value == value)
++			return false;
++	}
++	item = kmalloc(sizeof(*item), GFP_ATOMIC);
++	if (unlikely(!item))
++		return false;
++
++	item->value = value;
++	list_add(&item->list, l);
++	return true;
++}
++
++u32 u32_pop(struct list_head *l)
++{
++	struct u32_item *item;
++	u32 value = 0;
++
++	if (list_empty(l))
++		return 0;
++	item = list_first_entry(l, typeof(*item), list);
++	value = item->value;
++	list_del(&item->list);
++	kfree(item);
++	return value;
++}
++
++bool u32_del(struct list_head *l, u32 value)
++{
++	struct u32_item *item, *tmp;
++
++	list_for_each_entry_safe(item, tmp, l, list) {
++		if (item->value != value)
++			continue;
++		list_del(&item->list);
++		kfree(item);
++		return true;
+ 	}
+-	nl = kmalloc(sizeof(*nl), GFP_ATOMIC);
+-	if (nl) {
+-		nl->port = port;
+-		list_add(&nl->list, &pl->list);
++	return false;
++}
++
++void u32_list_purge(struct list_head *l)
++{
++	struct u32_item *item, *tmp;
++
++	list_for_each_entry_safe(item, tmp, l, list) {
++		list_del(&item->list);
++		kfree(item);
+ 	}
+ }
+ 
+-u32 tipc_plist_pop(struct tipc_plist *pl)
++int u32_list_len(struct list_head *l)
+ {
+-	struct tipc_plist *nl;
+-	u32 port = 0;
++	struct u32_item *item;
++	int i = 0;
+ 
+-	if (likely(list_empty(&pl->list))) {
+-		port = pl->port;
+-		pl->port = 0;
+-		return port;
++	list_for_each_entry(item, l, list) {
++		i++;
+ 	}
+-	nl = list_first_entry(&pl->list, typeof(*nl), list);
+-	port = nl->port;
+-	list_del(&nl->list);
+-	kfree(nl);
+-	return port;
++	return i;
+ }
+diff --git a/net/tipc/name_table.h b/net/tipc/name_table.h
+index 1524a73..c89bb3f 100644
+--- a/net/tipc/name_table.h
++++ b/net/tipc/name_table.h
+@@ -99,7 +99,7 @@ int tipc_nl_name_table_dump(struct sk_buff *skb, struct netlink_callback *cb);
+ 
+ u32 tipc_nametbl_translate(struct net *net, u32 type, u32 instance, u32 *node);
+ int tipc_nametbl_mc_translate(struct net *net, u32 type, u32 lower, u32 upper,
+-			      u32 limit, struct tipc_plist *dports);
++			      u32 limit, struct list_head *dports);
+ struct publication *tipc_nametbl_publish(struct net *net, u32 type, u32 lower,
+ 					 u32 upper, u32 scope, u32 port_ref,
+ 					 u32 key);
+@@ -116,18 +116,11 @@ void tipc_nametbl_unsubscribe(struct tipc_subscription *s);
+ int tipc_nametbl_init(struct net *net);
+ void tipc_nametbl_stop(struct net *net);
+ 
+-struct tipc_plist {
+-	struct list_head list;
+-	u32 port;
+-};
+-
+-static inline void tipc_plist_init(struct tipc_plist *pl)
+-{
+-	INIT_LIST_HEAD(&pl->list);
+-	pl->port = 0;
+-}
+-
+-void tipc_plist_push(struct tipc_plist *pl, u32 port);
+-u32 tipc_plist_pop(struct tipc_plist *pl);
++bool u32_push(struct list_head *l, u32 value);
++u32 u32_pop(struct list_head *l);
++bool u32_find(struct list_head *l, u32 value);
++bool u32_del(struct list_head *l, u32 value);
++void u32_list_purge(struct list_head *l);
++int u32_list_len(struct list_head *l);
+ 
+ #endif
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index f27462e..fae6a55 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -788,7 +788,7 @@ void tipc_sk_mcast_rcv(struct net *net, struct sk_buff_head *arrvq,
+ 		       struct sk_buff_head *inputq)
+ {
+ 	struct tipc_msg *msg;
+-	struct tipc_plist dports;
++	struct list_head dports;
+ 	u32 portid;
+ 	u32 scope = TIPC_CLUSTER_SCOPE;
+ 	struct sk_buff_head tmpq;
+@@ -796,7 +796,7 @@ void tipc_sk_mcast_rcv(struct net *net, struct sk_buff_head *arrvq,
+ 	struct sk_buff *skb, *_skb;
+ 
+ 	__skb_queue_head_init(&tmpq);
+-	tipc_plist_init(&dports);
++	INIT_LIST_HEAD(&dports);
+ 
+ 	skb = tipc_skb_peek(arrvq, &inputq->lock);
+ 	for (; skb; skb = tipc_skb_peek(arrvq, &inputq->lock)) {
+@@ -810,8 +810,8 @@ void tipc_sk_mcast_rcv(struct net *net, struct sk_buff_head *arrvq,
+ 		tipc_nametbl_mc_translate(net,
+ 					  msg_nametype(msg), msg_namelower(msg),
+ 					  msg_nameupper(msg), scope, &dports);
+-		portid = tipc_plist_pop(&dports);
+-		for (; portid; portid = tipc_plist_pop(&dports)) {
++		portid = u32_pop(&dports);
++		for (; portid; portid = u32_pop(&dports)) {
+ 			_skb = __pskb_copy(skb, hsz, GFP_ATOMIC);
+ 			if (_skb) {
+ 				msg_set_destport(buf_msg(_skb), portid);
 -- 
 2.7.4
 
