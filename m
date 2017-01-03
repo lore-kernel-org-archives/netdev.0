@@ -1,61 +1,60 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 05/21] ixgbe: Add bounds check for x540 LED functions
-Date: Tue,  3 Jan 2017 13:07:41 -0800
-Message-ID: <20170103210757.38847-6-jeffrey.t.kirsher@intel.com>
-References: <20170103210757.38847-1-jeffrey.t.kirsher@intel.com>
-Cc: Tony Nguyen <anthony.l.nguyen@intel.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        guru.anbalagane@oracle.com,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:25260 "EHLO mga14.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S935985AbdACVIE (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 3 Jan 2017 16:08:04 -0500
-In-Reply-To: <20170103210757.38847-1-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 2/2] isdn: i4l: move active-isdn drivers to staging
+Date: Tue, 03 Jan 2017 22:19:29 +0100
+Message-ID: <3286019.I2UkVCJq41@wuerfel>
+References: <1456945629-1793533-1-git-send-email-arnd@arndb.de> <1456945629-1793533-2-git-send-email-arnd@arndb.de> <20170103152436.GA26156@kroah.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        devel@driverdev.osuosl.org, Karsten Keil <isdn@linux-pingi.de>,
+        linux-doc@vger.kernel.org, netdev@vger.kernel.org,
+        Jonathan Corbet <corbet@lwn.net>, linux-kernel@vger.kernel.org,
+        "David S. Miller" <davem@davemloft.net>
+To: linux-arm-kernel@lists.infradead.org
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <20170103152436.GA26156@kroah.com>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tony Nguyen <anthony.l.nguyen@intel.com>
+On Tuesday, January 3, 2017 4:24:36 PM CET Greg Kroah-Hartman wrote:
+> On Wed, Mar 02, 2016 at 08:06:46PM +0100, Arnd Bergmann wrote:
+> > The icn, act2000 and pcbit drivers are all for very old hardware,
+> > and it is highly unlikely that anyone is actually still using them
+> > on modern kernels, if at all.
+> > 
+> > All three drivers apparently are for hardware that predates PCI
+> > being the common connector, as they are ISA-only and active
+> > PCI ISDN cards were widely available in the 1990s.
+> > 
+> > Looking through the git logs, it I cannot find any indication of a
+> > patch to any of these drivers that has been tested on real hardware,
+> > only cleanups or global API changes.
+> > 
+> > Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> > Acked-by: Karsten Keil <isdn@linux-pingi.de>
+> 
+> This patch got added in the 4.6 kernel release.  As I am now taking
+> patches for 4.11-rc1, I figure it is time to just delete the
+> drivers/staging/i4l/ directory now, given that no one has really done
+> anything with it.  If people show up that wish to maintain it, I'll be
+> glad to revert it, or if someone really screams in the next week.
+> Otherwise it's time to just move on 
 
-This is an extension of commit 003287e0f087 ("ixgbevf: Correct parameter
-sent to LED function"); add bounds checking to x540 functions to ensure the
-index is valid.
+Sounds good to me. My original series contained four more patches that
+I did not post again after there was some concern[1] that we did not
+come to a conclusion on:
 
-Signed-off-by: Tony Nguyen <anthony.l.nguyen@intel.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c | 9 +++++++--
- 1 file changed, 7 insertions(+), 2 deletions(-)
+isdn: gigaset: remove i4l code
+isdn: move isdnhdlc out of i4l
+isdn: i4l: move hisax driver to staging
+isdn: move i4l to staging
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
-index e2ff823..afc4d16 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
-@@ -780,8 +780,10 @@ s32 ixgbe_blink_led_start_X540(struct ixgbe_hw *hw, u32 index)
- 	ixgbe_link_speed speed;
- 	bool link_up;
- 
--	/*
--	 * Link should be up in order for the blink bit in the LED control
-+	if (index > 3)
-+		return IXGBE_ERR_PARAM;
-+
-+	/* Link should be up in order for the blink bit in the LED control
- 	 * register to work. Force link and speed in the MAC if link is down.
- 	 * This will be reversed when we stop the blinking.
- 	 */
-@@ -814,6 +816,9 @@ s32 ixgbe_blink_led_stop_X540(struct ixgbe_hw *hw, u32 index)
- 	u32 macc_reg;
- 	u32 ledctl_reg;
- 
-+	if (index > 3)
-+		return IXGBE_ERR_PARAM;
-+
- 	/* Restore the LED to its default value. */
- 	ledctl_reg = IXGBE_READ_REG(hw, IXGBE_LEDCTL);
- 	ledctl_reg &= ~IXGBE_LED_MODE_MASK(index);
--- 
-2.9.3
+I can post those as well, at least I think the first two are helpful
+for untangling i4l from the rest of ISDN.  I also still think that
+moving hisax and i4l to staging is reasonable given the state of
+that code, even if there are a couple of users today.
+
+	Arnd
+
+[1] https://lkml.org/lkml/2016/3/4/762
