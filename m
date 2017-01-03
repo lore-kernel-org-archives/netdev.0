@@ -1,75 +1,64 @@
-From: David Michael <david.michael@coreos.com>
-Subject: [PATCH] tc: make tc linking depend on libtc.a
-Date: Tue, 03 Jan 2017 15:32:46 -0800
-Message-ID: <87wpebu3c1.fsf@coreos.com>
+From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
+Subject: Re: [PATCH net-next v2 00/27] Allow passing of VLAN CFI bit through
+ network stack
+Date: Wed, 4 Jan 2017 00:36:04 +0100
+Message-ID: <20170103233604.emtqvyb7zj22cvgg@rere.qmqm.pl>
+References: <cover.1481586602.git.mirq-linux@rere.qmqm.pl>
+ <cover.1483475202.git.mirq-linux@rere.qmqm.pl>
+ <20170103.163217.697324652959765171.davem@davemloft.net>
+ <20170103232151.hq65poblr4bfvc4z@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f51.google.com ([74.125.83.51]:33141 "EHLO
-        mail-pg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1761984AbdACXct (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2017 18:32:49 -0500
-Received: by mail-pg0-f51.google.com with SMTP id g1so180620730pgn.0
-        for <netdev@vger.kernel.org>; Tue, 03 Jan 2017 15:32:49 -0800 (PST)
-Received: from callisto ([2603:3024:1c06:3af3:bfa5:a6ff:8ac8:141d])
-        by smtp.gmail.com with ESMTPSA id t25sm143864821pgo.9.2017.01.03.15.32.48
-        for <netdev@vger.kernel.org>
-        (version=TLS1_2 cipher=ECDHE-RSA-CHACHA20-POLY1305 bits=256/256);
-        Tue, 03 Jan 2017 15:32:48 -0800 (PST)
+Received: from rere.qmqm.pl ([84.10.57.10]:36820 "EHLO rere.qmqm.pl"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1759814AbdACXgI (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 3 Jan 2017 18:36:08 -0500
+Content-Disposition: inline
+In-Reply-To: <20170103232151.hq65poblr4bfvc4z@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There was a race condition where the command to link the tc binary
-could (rarely) run before the libtc.a archive existed.
----
+On Wed, Jan 04, 2017 at 12:21:51AM +0100, Micha³ Miros³aw wrote:
+> On Tue, Jan 03, 2017 at 04:32:17PM -0500, David Miller wrote:
+> > From: Micha³ Miros³aw <mirq-linux@rere.qmqm.pl>
+> > Date: Tue,  3 Jan 2017 21:52:33 +0100 (CET)
+> > 
+> > > Dear NetDevs
+> > > 
+> > > This series removes an abuse of VLAN CFI bit in Linux networking stack.
+> > > Currently Linux always clears the bit on outgoing traffic and presents
+> > > it cleared to userspace (even via AF_PACKET/tcpdump when hw-accelerated).
+> > > 
+> > > This uses a new vlan_present bit in struct skbuff, and removes an assumption
+> > > that vlan_proto != 0 when VLAN tag is present.
+> > > 
+> > > As I can't test most of the driver changes, please look at them carefully.
+> > > 
+> > > The series is supposed to be bisect-friendly and that requires temporary
+> > > insertion of #define VLAN_TAG_PRESENT in BPF code to be able to split
+> > > JIT changes per architecture.
+> > > 
+> > > Best Regards,
+> > > Micha³ Miros³aw
+> > > 
+> > > v2: rebase onto net-next
+> > 
+> > This patch series is really way too large.
+> > 
+> > You're going to have to find a way to combine related changes, or submit
+> > this as a series of logical sets, one at a time.
+> 
+> The dependency graph is really sparse: main patch 25 depends on all previous,
+> 19-23 all depend only on 18 and 26 depends on 25.
+> 
+> That's it. So the question is: how would it be easier for you to manage?
 
-Hi,
+Ah, I forgot about patches 1-2 that most depend on... So if you get those two
+early, then most others can be split.
 
-I've hit a random failure during parallel builds:
-
-    ld: cannot find -ltc
-
-The issue seems to be that both tc and libtc.a are permitted to build in
-parallel, when tc actually depends on libtc.a.  This patch adjusts the
-Make prerequisites accordingly.  Can something like this be applied?
-
-Thanks.
-
-David
-
- tc/Makefile | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
-
-diff --git a/tc/Makefile b/tc/Makefile
-index bb90114..7fd0c4a 100644
---- a/tc/Makefile
-+++ b/tc/Makefile
-@@ -96,7 +96,7 @@ ifneq ($(TC_CONFIG_NO_XT),y)
- endif
- 
- TCOBJ += $(TCMODULES)
--LDLIBS += -L. -ltc -lm
-+LDLIBS += -L. -lm
- 
- ifeq ($(SHARED_LIBS),y)
- LDLIBS += -ldl
-@@ -124,13 +124,13 @@ MODDESTDIR := $(DESTDIR)$(LIBDIR)/tc
- 	$(QUIET_CC)$(CC) $(CFLAGS) $(LDFLAGS) -shared -fpic $< -o $@
- 
- 
--all: libtc.a tc $(TCSO)
-+all: tc $(TCSO)
- 
--tc: $(TCOBJ) $(TCLIB)
-+tc: $(TCOBJ) libtc.a
- 	$(QUIET_LINK)$(CC) $^ $(LDFLAGS) $(LDLIBS) -o $@
- 
- libtc.a: $(TCLIB)
--	$(QUIET_AR)$(AR) rcs $@ $(TCLIB)
-+	$(QUIET_AR)$(AR) rcs $@ $^
- 
- install: all
- 	mkdir -p $(MODDESTDIR)
--- 
-2.7.4
+Best Regards,
+Micha³ Miros³aw
