@@ -1,66 +1,46 @@
-From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [PATCH net-next v2 05/27] i40iw: remove use of VLAN_TAG_PRESENT
-Date: Tue,  3 Jan 2017 21:52:34 +0100 (CET)
-Message-ID: <119487a6fe9c0cfa563f49fc437ec7b2048c7d92.1483475202.git.mirq-linux@rere.qmqm.pl>
-References: <cover.1483475202.git.mirq-linux@rere.qmqm.pl>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: Faisal Latif <faisal.latif@intel.com>
-To: netdev@vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 01/21] ixgbe: do not disable FEC from the driver
+Date: Tue,  3 Jan 2017 13:07:37 -0800
+Message-ID: <20170103210757.38847-2-jeffrey.t.kirsher@intel.com>
+References: <20170103210757.38847-1-jeffrey.t.kirsher@intel.com>
+Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        guru.anbalagane@oracle.com,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([84.10.57.10]:34708 "EHLO rere.qmqm.pl"
+Received: from mga14.intel.com ([192.55.52.115]:25260 "EHLO mga14.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S935894AbdACUwj (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 3 Jan 2017 15:52:39 -0500
-In-Reply-To: <cover.1483475202.git.mirq-linux@rere.qmqm.pl>
+        id S933112AbdACVIA (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 3 Jan 2017 16:08:00 -0500
+In-Reply-To: <20170103210757.38847-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Michał Mirosław <mirq-linux@rere.qmqm.pl>
----
- drivers/infiniband/hw/i40iw/i40iw_cm.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-diff --git a/drivers/infiniband/hw/i40iw/i40iw_cm.c b/drivers/infiniband/hw/i40iw/i40iw_cm.c
-index 95a0586a4da8..125c66bf6107 100644
---- a/drivers/infiniband/hw/i40iw/i40iw_cm.c
-+++ b/drivers/infiniband/hw/i40iw/i40iw_cm.c
-@@ -405,7 +405,7 @@ static struct i40iw_puda_buf *i40iw_form_cm_frame(struct i40iw_cm_node *cm_node,
- 	if (pdata)
- 		pd_len = pdata->size;
+FEC is configured by the NVM and the driver should not be
+overriding it.
+
+Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+Tested-by: Krishneil Singh <krishneil.k.singh@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
+index 11fb433..f06b0e1 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
+@@ -2108,8 +2108,6 @@ static s32 ixgbe_setup_kr_speed_x550em(struct ixgbe_hw *hw,
+ 		return status;
  
--	if (cm_node->vlan_id < VLAN_TAG_PRESENT)
-+	if (cm_node->vlan_id <= VLAN_VID_MASK)
- 		eth_hlen += 4;
+ 	reg_val |= IXGBE_KRM_LINK_CTRL_1_TETH_AN_ENABLE;
+-	reg_val &= ~(IXGBE_KRM_LINK_CTRL_1_TETH_AN_FEC_REQ |
+-		     IXGBE_KRM_LINK_CTRL_1_TETH_AN_CAP_FEC);
+ 	reg_val &= ~(IXGBE_KRM_LINK_CTRL_1_TETH_AN_CAP_KR |
+ 		     IXGBE_KRM_LINK_CTRL_1_TETH_AN_CAP_KX);
  
- 	if (cm_node->ipv4)
-@@ -434,7 +434,7 @@ static struct i40iw_puda_buf *i40iw_form_cm_frame(struct i40iw_cm_node *cm_node,
- 
- 		ether_addr_copy(ethh->h_dest, cm_node->rem_mac);
- 		ether_addr_copy(ethh->h_source, cm_node->loc_mac);
--		if (cm_node->vlan_id < VLAN_TAG_PRESENT) {
-+		if (cm_node->vlan_id <= VLAN_VID_MASK) {
- 			((struct vlan_ethhdr *)ethh)->h_vlan_proto = htons(ETH_P_8021Q);
- 			vtag = (cm_node->user_pri << VLAN_PRIO_SHIFT) | cm_node->vlan_id;
- 			((struct vlan_ethhdr *)ethh)->h_vlan_TCI = htons(vtag);
-@@ -464,7 +464,7 @@ static struct i40iw_puda_buf *i40iw_form_cm_frame(struct i40iw_cm_node *cm_node,
- 
- 		ether_addr_copy(ethh->h_dest, cm_node->rem_mac);
- 		ether_addr_copy(ethh->h_source, cm_node->loc_mac);
--		if (cm_node->vlan_id < VLAN_TAG_PRESENT) {
-+		if (cm_node->vlan_id <= VLAN_VID_MASK) {
- 			((struct vlan_ethhdr *)ethh)->h_vlan_proto = htons(ETH_P_8021Q);
- 			vtag = (cm_node->user_pri << VLAN_PRIO_SHIFT) | cm_node->vlan_id;
- 			((struct vlan_ethhdr *)ethh)->h_vlan_TCI = htons(vtag);
-@@ -3260,7 +3260,7 @@ static void i40iw_init_tcp_ctx(struct i40iw_cm_node *cm_node,
- 
- 	tcp_info->flow_label = 0;
- 	tcp_info->snd_mss = cpu_to_le32(((u32)cm_node->tcp_cntxt.mss));
--	if (cm_node->vlan_id < VLAN_TAG_PRESENT) {
-+	if (cm_node->vlan_id <= VLAN_VID_MASK) {
- 		tcp_info->insert_vlan_tag = true;
- 		tcp_info->vlan_tag = cpu_to_le16(cm_node->vlan_id);
- 	}
 -- 
-2.11.0
+2.9.3
