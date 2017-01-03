@@ -1,53 +1,102 @@
-From: Paul Bolle <pebolle@tiscali.nl>
-Subject: Re: [PATCH 2/2] isdn: i4l: move active-isdn drivers to staging
-Date: Tue, 03 Jan 2017 22:54:19 +0100
-Message-ID: <1483480459.10534.8.camel@tiscali.nl>
-References: <1456945629-1793533-1-git-send-email-arnd@arndb.de>
-         <1456945629-1793533-2-git-send-email-arnd@arndb.de>
-         <20170103152436.GA26156@kroah.com> <3286019.I2UkVCJq41@wuerfel>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        devel@driverdev.osuosl.org, Karsten Keil <isdn@linux-pingi.de>,
-        linux-doc@vger.kernel.org, netdev@vger.kernel.org,
-        Jonathan Corbet <corbet@lwn.net>, linux-kernel@vger.kernel.org,
-        "David S. Miller" <davem@davemloft.net>,
-        linux-arm-kernel@lists.infradead.org
-To: Arnd Bergmann <arnd@arndb.de>
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [for-next 04/10] IB/mlx5: Fix retrieval of index to first hi class bfreg
+Date: Tue,  3 Jan 2017 23:55:22 +0200
+Message-ID: <1483480528-22622-5-git-send-email-saeedm@mellanox.com>
+References: <1483480528-22622-1-git-send-email-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
+        Leon Romanovsky <leonro@mellanox.com>,
+        Eli Cohen <eli@mellanox.com>,
+        Matan Barak <matanb@mellanox.com>,
+        Leon Romanovsky <leon@kernel.org>,
+        Saeed Mahameed <saeedm@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>,
+        Doug Ledford <dledford@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lb2-smtp-cloud3.xs4all.net ([194.109.24.26]:45539 "EHLO
-        lb2-smtp-cloud3.xs4all.net" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S935360AbdACVy0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2017 16:54:26 -0500
-In-Reply-To: <3286019.I2UkVCJq41@wuerfel>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:34185 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S936201AbdACVzm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2017 16:55:42 -0500
+In-Reply-To: <1483480528-22622-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2017-01-03 at 22:19 +0100, Arnd Bergmann wrote:
-> Sounds good to me. My original series contained four more patches that
-> I did not post again after there was some concern[1] that we did not
-> come to a conclusion on:
-> 
-> isdn: gigaset: remove i4l code
+From: Eli Cohen <eli@mellanox.com>
 
-Let me repeat that I'm fine with a patch that does that.
+First the function retrieving the index of the first hi latency class
+blue flame register. High latency class bfregs are located right above
+medium latency class bfregs.
 
-> isdn: move isdnhdlc out of i4l
-> isdn: i4l: move hisax driver to staging
-> isdn: move i4l to staging
-> 
-> I can post those as well, at least I think the first two are helpful
-> for untangling i4l from the rest of ISDN.  I also still think that
-> moving hisax and i4l to staging is reasonable given the state of
-> that code, even if there are a couple of users today.
+Fixes: c1be5232d21d ('IB/mlx5: Fix micro UAR allocator')
+Signed-off-by: Eli Cohen <eli@mellanox.com>
+Reviewed-by: Matan Barak <matanb@mellanox.com>
+Signed-off-by: Leon Romanovsky <leon@kernel.org>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+---
+ drivers/infiniband/hw/mlx5/qp.c | 24 ++++++++++++++----------
+ 1 file changed, 14 insertions(+), 10 deletions(-)
 
-There are? And even if there are: is there any reason to expect that moving
-the rest of i4l to staging will result in anything other than a stream of
-checkpatch cleanups?
-
-How often did a bunch of drivers re-enter the tree after being sent to
-staging?
-
-
-Paul Bolle
+diff --git a/drivers/infiniband/hw/mlx5/qp.c b/drivers/infiniband/hw/mlx5/qp.c
+index fbea9bd..240fbb0 100644
+--- a/drivers/infiniband/hw/mlx5/qp.c
++++ b/drivers/infiniband/hw/mlx5/qp.c
+@@ -490,12 +490,21 @@ static int next_bfreg(int n)
+ 	return n;
+ }
+ 
++enum {
++	/* this is the first blue flame register in the array of bfregs assigned
++	 * to a processes. Since we do not use it for blue flame but rather
++	 * regular 64 bit doorbells, we do not need a lock for maintaiing
++	 * "odd/even" order
++	 */
++	NUM_NON_BLUE_FLAME_BFREGS = 1,
++};
++
+ static int num_med_bfreg(struct mlx5_bfreg_info *bfregi)
+ {
+ 	int n;
+ 
+ 	n = bfregi->num_uars * MLX5_NON_FP_BFREGS_PER_UAR -
+-		bfregi->num_low_latency_bfregs - 1;
++		bfregi->num_low_latency_bfregs - NUM_NON_BLUE_FLAME_BFREGS;
+ 
+ 	return n >= 0 ? n : 0;
+ }
+@@ -508,17 +517,9 @@ static int max_bfregi(struct mlx5_bfreg_info *bfregi)
+ static int first_hi_bfreg(struct mlx5_bfreg_info *bfregi)
+ {
+ 	int med;
+-	int i;
+-	int t;
+ 
+ 	med = num_med_bfreg(bfregi);
+-	for (t = 0, i = first_med_bfreg();; i = next_bfreg(i)) {
+-		t++;
+-		if (t == med)
+-			return next_bfreg(i);
+-	}
+-
+-	return 0;
++	return next_bfreg(med);
+ }
+ 
+ static int alloc_high_class_bfreg(struct mlx5_bfreg_info *bfregi)
+@@ -544,6 +545,8 @@ static int alloc_med_class_bfreg(struct mlx5_bfreg_info *bfregi)
+ 	for (i = first_med_bfreg(); i < first_hi_bfreg(bfregi); i = next_bfreg(i)) {
+ 		if (bfregi->count[i] < bfregi->count[minidx])
+ 			minidx = i;
++		if (!bfregi->count[minidx])
++			break;
+ 	}
+ 
+ 	bfregi->count[minidx]++;
+@@ -558,6 +561,7 @@ static int alloc_bfreg(struct mlx5_bfreg_info *bfregi,
+ 	mutex_lock(&bfregi->lock);
+ 	switch (lat) {
+ 	case MLX5_IB_LATENCY_CLASS_LOW:
++		BUILD_BUG_ON(NUM_NON_BLUE_FLAME_BFREGS != 1);
+ 		bfregn = 0;
+ 		bfregi->count[bfregn]++;
+ 		break;
+-- 
+2.7.4
