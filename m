@@ -1,9 +1,8 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] dsa:mv88e6xxx: allow address 0x1 in
- smi_init
-Date: Tue, 03 Jan 2017 10:02:21 -0500 (EST)
-Message-ID: <20170103.100221.2200900537461778187.davem@davemloft.net>
-References: <1483436949-4527-1-git-send-email-volodymyr.bendiuga@gmail.com>
+Subject: Re: [PATCH net-next] net:mv88e6xxx: use g2 interrupt for 6097 chip
+Date: Tue, 03 Jan 2017 10:03:13 -0500 (EST)
+Message-ID: <20170103.100313.177421213847433744.davem@davemloft.net>
+References: <1483438437-19601-1-git-send-email-volodymyr.bendiuga@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -12,24 +11,22 @@ Cc: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
         volodymyr.bendiuga@westermo.se
 To: volodymyr.bendiuga@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:37358 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:37380 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S935399AbdACPCX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2017 10:02:23 -0500
-In-Reply-To: <1483436949-4527-1-git-send-email-volodymyr.bendiuga@gmail.com>
+        with ESMTP id S1752755AbdACPDP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2017 10:03:15 -0500
+In-Reply-To: <1483438437-19601-1-git-send-email-volodymyr.bendiuga@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Volodymyr Bendiuga <volodymyr.bendiuga@gmail.com>
-Date: Tue,  3 Jan 2017 10:49:09 +0100
+Date: Tue,  3 Jan 2017 11:13:57 +0100
 
-> From: Volodymyr Bendiuga <volodymyr.bendiuga@westermo.se>
-> 
-> Some devices, such as the mv88e6097 do have ADDR[0] external and so it
-> is possible to configure the device to use SMI address 0x1. Remove the
-> restriction, as there are boards using this address.
-> 
-> Signed-off-by: Volodymyr Bendiuga <volodymyr.bendiuga@westermo.se>
-> Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+> @@ -575,6 +575,7 @@ enum mv88e6xxx_cap {
+>  	(MV88E6XXX_FLAG_G1_ATU_FID |	\
+>  	 MV88E6XXX_FLAG_G1_VTU_FID |	\
+>  	 MV88E6XXX_FLAG_GLOBAL2 |	\
+> + 	 MV88E6XXX_FLAG_G2_INT |	\
 
-Applied, thanks.
+There is a space character before the TAB in this new line you
+are adding, please remove it.
