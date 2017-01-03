@@ -1,46 +1,105 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next V3 3/3] tun: rx batching
-Date: Tue, 3 Jan 2017 11:18:17 +0800
-Message-ID: <52dd7224-d26e-7684-214e-0d8289392ff3@redhat.com>
-References: <1483075251-6889-1-git-send-email-jasowang@redhat.com>
-	<1483075251-6889-4-git-send-email-jasowang@redhat.com>
-	<20161231130333.347cb8f3@xeon-e3>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [PATCH net-next] net/sched: cls_flower: Add user specified data
+Date: Mon, 2 Jan 2017 20:33:40 -0800
+Message-ID: <586B29A4.2060408@gmail.com>
+References: <1483362833-52114-1-git-send-email-paulb@mellanox.com>
+ <14675f63-4212-2f72-da4c-cd24b9d10881@mojatatu.com>
+ <586A9A9F.4030002@gmail.com>
+ <6b671aaf-d35d-70a5-65e0-40308baeb471@mojatatu.com>
+ <586ADAFE.1010105@gmail.com>
+ <13dfd148-6a5b-cf62-b2b9-1c13e6d31155@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	wexu@redhat.com, kvm@vger.kernel.org, mst@redhat.com
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20161231130333.347cb8f3@xeon-e3>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Pirko <jiri@mellanox.com>,
+        Hadar Hen Zion <hadarh@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Roi Dayan <roid@mellanox.com>, Roman Mashak <mrv@mojatatu.com>,
+        Simon Horman <simon.horman@netronome.com>
+To: Jamal Hadi Salim <jhs@mojatatu.com>,
+        Paul Blakey <paulb@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:35896 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933857AbdACEfW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 2 Jan 2017 23:35:22 -0500
+Received: by mail-pg0-f65.google.com with SMTP id n5so32283828pgh.3
+        for <netdev@vger.kernel.org>; Mon, 02 Jan 2017 20:35:22 -0800 (PST)
+In-Reply-To: <13dfd148-6a5b-cf62-b2b9-1c13e6d31155@mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-CgpPbiAyMDE35bm0MDHmnIgwMeaXpSAwNTowMywgU3RlcGhlbiBIZW1taW5nZXIgd3JvdGU6Cj4g
-T24gRnJpLCAzMCBEZWMgMjAxNiAxMzoyMDo1MSArMDgwMAo+IEphc29uIFdhbmcgPGphc293YW5n
-QHJlZGhhdC5jb20+IHdyb3RlOgo+Cj4+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC90dW4uYyBi
-L2RyaXZlcnMvbmV0L3R1bi5jCj4+IGluZGV4IGNkOGUwMmMuLmEyNjhlZDkgMTAwNjQ0Cj4+IC0t
-LSBhL2RyaXZlcnMvbmV0L3R1bi5jCj4+ICsrKyBiL2RyaXZlcnMvbmV0L3R1bi5jCj4+IEBAIC03
-NSw2ICs3NSwxMCBAQAo+PiAgIAo+PiAgICNpbmNsdWRlIDxsaW51eC91YWNjZXNzLmg+Cj4+ICAg
-Cj4+ICtzdGF0aWMgaW50IHJ4X2JhdGNoZWQ7Cj4+ICttb2R1bGVfcGFyYW0ocnhfYmF0Y2hlZCwg
-aW50LCAwNDQ0KTsKPj4gK01PRFVMRV9QQVJNX0RFU0MocnhfYmF0Y2hlZCwgIk51bWJlciBvZiBw
-YWNrZXRzIGJhdGNoZWQgaW4gcngiKTsKPj4gKwo+PiAgIC8qIFVuY29tbWVudCB0byBlbmFibGUg
-ZGVidWdnaW5nICovCj4gSSBsaWtlIHRoZSBjb25jZXB0IG9yIHJ4IGJhdGNoaW5nLiBCdXQgY29u
-dHJvbGxpbmcgaXQgdmlhIGEgbW9kdWxlIHBhcmFtZXRlcgo+IGlzIG9uZSBvZiB0aGUgd29yc3Qg
-QVBJIGNob2ljZXMuICBFdGh0b29sIHdvdWxkIGJlIGJldHRlciB0byB1c2UgYmVjYXVzZSB0aGF0
-IGlzCj4gaG93IG90aGVyIG5ldHdvcmsgZGV2aWNlcyBjb250cm9sIGJhdGNoaW5nLgo+Cj4gSWYg
-eW91IGRvIGV0aHRvb2wsIHlvdSBjb3VsZCBldmVuIGV4dGVuZCBpdCB0byBoYXZlIGFuIG51bWJl
-ciBvZiBwYWNrZXRzCj4gYW5kIG1heCBsYXRlbmN5IHZhbHVlLgoKUmlnaHQsIHRoaXMgaXMgYmV0
-dGVyIChJIGJlbGlldmUgeW91IG1lYW4gcngtZnJhbWVzKS4gRm9yIHJ4LXVzZWNzLCB3ZSAKY291
-bGQgZG8gaXQgb24gdG9wIGluIHRoZSBmdXR1cmUuCgpUaGFua3MKX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX18KVmlydHVhbGl6YXRpb24gbWFpbGluZyBsaXN0
-ClZpcnR1YWxpemF0aW9uQGxpc3RzLmxpbnV4LWZvdW5kYXRpb24ub3JnCmh0dHBzOi8vbGlzdHMu
-bGludXhmb3VuZGF0aW9uLm9yZy9tYWlsbWFuL2xpc3RpbmZvL3ZpcnR1YWxpemF0aW9u
+On 17-01-02 05:22 PM, Jamal Hadi Salim wrote:
+> On 17-01-02 05:58 PM, John Fastabend wrote:
+>> On 17-01-02 02:21 PM, Jamal Hadi Salim wrote:
+> 
+> 
+>> Well having the length value avoids ending up with cookie1, cookie2, ...
+>> values as folks push more and more data into the cookie.
+>>
+> 
+> Unless there is good reason I dont see why it shouldnt be a fixed length
+> value. u64/128 should be plenty.
+> 
+>> I don't see any use in the kernel interpreting it. It has no use
+>> for it as far as I can see. It doesn't appear to be metadata which
+>> we use skb->mark for at the moment.
+>>
+> 
+> Like all cookie semantics it is for storing state. The receiver (kernel)
+> is not just store it and not intepret it. The user when reading it back
+> simplifies what they have to do for their processing.
+> 
+>>
+>> The tuple <ifindex:qdisc:prio:handle> really should be unique why
+>> not use this for system wide mappings?
+>>
+> 
+> I think on a single machine should be enough, however:
+> typically the user wants to define the value in a manner that
+> in a distributed system it is unique. It would be trickier to
+> do so with well defined values such as above.
+> 
+
+Just extend the tuple <hostname:ifindex:qdisc:prio:handle> that
+should be unique in the domain of hostname's, or use some other domain
+wide machine identifier.
+
+> 
+>> The only thing I can think to do with this that I can't do with
+>> the above tuple and a simple userspace lookup is stick hardware specific
+>> "hints" in the cookie for the firmware to consume. Which would be
+>> very helpful for what its worth.
+>>
+> 
+> Ok, very different from our use case with actions.
+> We just use those values to map to stats info without needing to
+> know what flow or action (graph) it is associated with.
+> 
+
+Sure.
+
+>> Its a bit strange to push it as an action when its not really an
+>> action in the traditional datapath.
+>>
+> 
+> The action is part of a graph pointed to by a filter.
+
+Although actions can be shared so the cookie can be shared across
+filters. Maybe its useful but it doesn't uniquely identify a filter
+in the shared case but the user would have to specify that case
+so maybe its not important.
+
+> 
+>> I suspect the OVS usage is a simple 1:1 lookup from OVS id to TC id to
+>> avoid a userspace map lookup.
+> 
+> Not that i care about OVS but it sounds like a good use case (even for
+> tc), no?
+
+I'm not opposed to it. Just pushing on the use case a bit to understand.
+
+> 
+> cheers,
+> jamal
