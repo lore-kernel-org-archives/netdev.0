@@ -1,68 +1,79 @@
-From: Mark Greer <mgreer@animalcreek.com>
-Subject: Re: [PATCH v3 3/3] nfc: trf7970a: Prevent repeated polling from
- crashing the kernel
-Date: Tue, 3 Jan 2017 09:33:24 -0700
-Message-ID: <20170103163324.GA3184@animalcreek.com>
-References: <1482380314-16440-1-git-send-email-geoff@kuvee.com>
- <1482380314-16440-3-git-send-email-geoff@kuvee.com>
- <20161224060141.GA9069@animalcreek.com>
- <CAO7Z3W+n85jbr8cmj3HJV1c+eL=oRh-XRy+O=iZ+mD=ov2WABA@mail.gmail.com>
- <20161224172439.GA15103@animalcreek.com>
- <CAO7Z3WJa0goJ-VXc7dvyz8imZtqby6QsC0QNH+uRAE8LhxqU2w@mail.gmail.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [net PATCH] net: virtio: cap mtu when XDP programs are running
+Date: Tue, 3 Jan 2017 08:48:21 -0800
+Message-ID: <586BD5D5.6020100@gmail.com>
+References: <20170102223031.11541.28717.stgit@john-Precision-Tower-5810>
+ <402027b4-58c7-aa1b-5079-74e31448f544@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless <linux-wireless@vger.kernel.org>,
-        Lauro Ramos Venancio <lauro.venancio@openbossa.org>,
-        Aloisio Almeida Jr <aloisio.almeida@openbossa.org>,
-        Samuel Ortiz <sameo@linux.intel.com>, robh+dt@kernel.org,
-        mark.rutland@arm.com, netdev@vger.kernel.org,
-        devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Justin Bronder <justin@kuvee.com>,
-        Jaret Cantu <jaret.cantu@timesys.com>
-To: Geoff Lansberry <geoff@kuvee.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAO7Z3WJa0goJ-VXc7dvyz8imZtqby6QsC0QNH+uRAE8LhxqU2w@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org,
+        alexei.starovoitov@gmail.com, daniel@iogearbox.net
+To: Jason Wang <jasowang@redhat.com>, mst@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:34757 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1759685AbdACQsj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2017 11:48:39 -0500
+Received: by mail-pg0-f65.google.com with SMTP id b1so34030423pgc.1
+        for <netdev@vger.kernel.org>; Tue, 03 Jan 2017 08:48:39 -0800 (PST)
+In-Reply-To: <402027b4-58c7-aa1b-5079-74e31448f544@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-[Please stop top-posting.  Bottom-post only to these lists.]
-
-Hi Geoff & happy new year.
-
-On Tue, Dec 27, 2016 at 09:18:32AM -0500, Geoff Lansberry wrote:
-> Mark - I will split this off soon.
-
-OK
-
-> In the meantime - here is some more info about how we use it.
+On 17-01-02 10:14 PM, Jason Wang wrote:
 > 
-> We do use NFC structures.    I did find an interesting clue in that
-> there are certain bottles that cause neard to segfault,  I'm not sure
-> what is different about them.  We write a string, like
-> "coppola_chardonnay_2015" to the bottles.
+> 
+> On 2017年01月03日 06:30, John Fastabend wrote:
+>> XDP programs can not consume multiple pages so we cap the MTU to
+>> avoid this case. Virtio-net however only checks the MTU at XDP
+>> program load and does not block MTU changes after the program
+>> has loaded.
+>>
+>> This patch sets/clears the max_mtu value at XDP load/unload time.
+>>
+>> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+>> ---
+>>   drivers/net/virtio_net.c |    9 ++++++---
+>>   1 file changed, 6 insertions(+), 3 deletions(-)
+>>
+>> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+>> index 5deeda6..783e842 100644
+>> --- a/drivers/net/virtio_net.c
+>> +++ b/drivers/net/virtio_net.c
+>> @@ -1699,6 +1699,9 @@ static void virtnet_init_settings(struct net_device *dev)
+>>       .set_settings = virtnet_set_settings,
+>>   };
+>>   +#define MIN_MTU ETH_MIN_MTU
+>> +#define MAX_MTU ETH_MAX_MTU
+>> +
+>>   static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
+>>   {
+>>       unsigned long int max_sz = PAGE_SIZE - sizeof(struct padded_vnet_hdr);
+>> @@ -1748,6 +1751,9 @@ static int virtnet_xdp_set(struct net_device *dev,
+>> struct bpf_prog *prog)
+>>               virtnet_set_queues(vi, curr_qp);
+>>               return PTR_ERR(prog);
+>>           }
+>> +        dev->max_mtu = max_sz;
+>> +    } else {
+>> +        dev->max_mtu = ETH_MAX_MTU;
+> 
+> Or use ETH_DATA_LEN here consider we only allocate a size of GOOD_PACKET_LEN for
+> each small buffer?
+> 
+> Thanks
 
-Off the top of my head, it could be the length of the text.
-It would be useful to compare the data that works to the data
-that doesn't work.  Can you install NXP's 'TagInfo' app on a
-smartphone and scan tags with working & non-working data?
-You can email the data from the app to yourself, edit out
-the cruft, and share here.
+OK so this logic is a bit too simply. When it resets the max_mtu I guess it
+needs to read the mtu via
 
-> Come to think of it, I
-> haven't done anything special to make that an ndef record, just
-> assumed that it would happen by default, I'll look into this further.
+   virtio_cread16(vdev, ...)
 
-If you wrote the data using neard, it will be NDEF formatted.
-Since it is working this well, it is virtually guaranteed that
-the data is NDEF formatted.
+or we may break the negotiated mtu.
 
->   Also, I've been running neard with --plugin nfctype2. Just in case
-> the problem was happening due to cycling through other tag types.   It
-> didn't seem to make any difference, but I have not gone back to
-> default.
+As for capping it at GOOD_PACKET_LEN this has the nice benefit of avoiding any
+underestimates in EWMA predictions because it appears min estimates are capped
+at GOOD_PACKET_LEN via get_mergeable_buf_len().
 
-Good to know, thanks.
-
-Mark
---
+Thanks,
+John
