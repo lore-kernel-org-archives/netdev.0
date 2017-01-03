@@ -1,52 +1,77 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [RFC PATCH net-next v4 1/2] macb: Add 1588 support in Cadence
- GEM.
-Date: Tue, 3 Jan 2017 12:14:47 +0100
-Message-ID: <20170103111447.GA26488@localhost.localdomain>
-References: <1481720175-12703-1-git-send-email-andrei.pistirica@microchip.com>
- <BN3PR07MB2516815EDE69ACDCE27F81A3C96F0@BN3PR07MB2516.namprd07.prod.outlook.com>
- <20170102113155.GA16373@localhost.localdomain>
- <0717c63b-2e29-9ad1-7f01-39817980933f@atmel.com>
- <20170102161359.GD3609@localhost.localdomain>
- <CAFcVECK1vt7Hu4tgSZ2+kKpMxoT-wpikMDq65HaxRv-EMgobHA@mail.gmail.com>
- <BN3PR07MB25168573DD82F1681CDC8437C96E0@BN3PR07MB2516.namprd07.prod.outlook.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH net-next] net/sched: cls_flower: Add user specified data
+Date: Tue, 3 Jan 2017 06:44:16 -0500
+Message-ID: <92224e21-cd3c-26b0-d8a0-31a07268e553@mojatatu.com>
+References: <1483362833-52114-1-git-send-email-paulb@mellanox.com>
+ <14675f63-4212-2f72-da4c-cd24b9d10881@mojatatu.com>
+ <586A9A9F.4030002@gmail.com>
+ <6b671aaf-d35d-70a5-65e0-40308baeb471@mojatatu.com>
+ <586ADAFE.1010105@gmail.com>
+ <13dfd148-6a5b-cf62-b2b9-1c13e6d31155@mojatatu.com>
+ <586B29A4.2060408@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Harini Katakam <harinikatakamlinux@gmail.com>,
-        Nicolas Ferre <nicolas.ferre@atmel.com>,
-        Andrei Pistirica <andrei.pistirica@microchip.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "linux-arm-kernel@lists.infradead.org"
-        <linux-arm-kernel@lists.infradead.org>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "harini.katakam@xilinx.com" <harini.katakam@xilinx.com>,
-        "punnaia@xilinx.com" <punnaia@xilinx.com>,
-        "michals@xilinx.com" <michals@xilinx.com>,
-        "anirudh@xilinx.com" <anirudh@xilinx.com>,
-        "boris.brezillon@free-electrons.com"
-        <boris.brezillon@free-electrons.com>,
-        "alexandre.belloni@free-electrons.com"
-        <alexandre.belloni@free-electrons.com>,
-        "tbultel@pixelsurmer.com" <tbultel@pixelsurmer.c
-To: Rafal Ozieblo <rafalo@cadence.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Pirko <jiri@mellanox.com>,
+        Hadar Hen Zion <hadarh@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Roi Dayan <roid@mellanox.com>, Roman Mashak <mrv@mojatatu.com>,
+        Simon Horman <simon.horman@netronome.com>
+To: John Fastabend <john.fastabend@gmail.com>,
+        Paul Blakey <paulb@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wj0-f195.google.com ([209.85.210.195]:34149 "EHLO
-        mail-wj0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934045AbdACLOx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2017 06:14:53 -0500
-Content-Disposition: inline
-In-Reply-To: <BN3PR07MB25168573DD82F1681CDC8437C96E0@BN3PR07MB2516.namprd07.prod.outlook.com>
+Received: from mail-it0-f67.google.com ([209.85.214.67]:33559 "EHLO
+        mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934483AbdACLoT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2017 06:44:19 -0500
+Received: by mail-it0-f67.google.com with SMTP id c20so50239733itb.0
+        for <netdev@vger.kernel.org>; Tue, 03 Jan 2017 03:44:19 -0800 (PST)
+In-Reply-To: <586B29A4.2060408@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 03, 2017 at 10:47:56AM +0000, Rafal Ozieblo wrote:
-> We could use only descriptor approach but there are many Atmel's cores on the market which support only event registers.
+On 17-01-02 11:33 PM, John Fastabend wrote:
+> On 17-01-02 05:22 PM, Jamal Hadi Salim wrote:
 
-As I said in my other reply in this thread, the Atmel cores cannot
-possibly be made to work correctly.
+[..]
+>> Like all cookie semantics it is for storing state. The receiver (kernel)
+>> is not just store it and not intepret it. The user when reading it back
+>> simplifies what they have to do for their processing.
+>>
+>>>
+>>> The tuple <ifindex:qdisc:prio:handle> really should be unique why
+>>> not use this for system wide mappings?
+>>>
+>>
+>> I think on a single machine should be enough, however:
+>> typically the user wants to define the value in a manner that
+>> in a distributed system it is unique. It would be trickier to
+>> do so with well defined values such as above.
+>>
+>
+> Just extend the tuple <hostname:ifindex:qdisc:prio:handle> that
+> should be unique in the domain of hostname's, or use some other domain
+> wide machine identifier.
+>
 
-Sad, but true.
+May work for the case of filter identification. The nice thing for
+allowing cookies is you can let the user define it define their
+own scheme.
 
-Thanks,
-Richard
+> Although actions can be shared so the cookie can be shared across
+> filters. Maybe its useful but it doesn't uniquely identify a filter
+> in the shared case but the user would have to specify that case
+> so maybe its not important.
+>
+
+Note: the action cookies and filter cookies are unrelated/orthogonal.
+Their basic concept of stashing something in the cookie to help improve
+what user space does (in our case millions of actions of which some are
+used for accounting) is similar.
+I have no objections to the flow cookies; my main concern was it should
+be applicable to all classifiers not just flower. And the arbitrary size
+of the cookie that you pointed out is questionable.
+
+cheers,
+jamal
