@@ -1,55 +1,36 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH] staging: octeon: Call SET_NETDEV_DEV()
-Date: Tue, 3 Jan 2017 17:11:08 +0100
-Message-ID: <20170103161108.GA6372@kroah.com>
-References: <20161215011326.8852-1-f.fainelli@gmail.com>
- <d5cd5832-4402-2468-9d64-0a8d6e62d965@gmail.com>
- <20161220.222020.1448709395205678279.davem@davemloft.net>
- <748b758b-7a9c-d58e-2fa5-52b6fa031ae3@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net/sched: cls_matchall: Fix error path
+Date: Tue, 03 Jan 2017 11:08:07 -0500 (EST)
+Message-ID: <20170103.110807.1415814934069793893.davem@davemloft.net>
+References: <1483458422-13607-1-git-send-email-yotamg@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, asbjorn@asbjorn.st, aaro.koskinen@iki.fi,
- netdev@vger.kernel.org, nevola@gmail.com, linux-kernel@vger.kernel.org,
- jarod@redhat.com, bhaktipriya96@gmail.com, David Miller <davem@davemloft.net>,
- tremyfr@gmail.com
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-Content-Disposition: inline
-In-Reply-To: <748b758b-7a9c-d58e-2fa5-52b6fa031ae3@gmail.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: jhs@mojatatu.com, eladr@mellanox.com, jiri@mellanox.com,
+        netdev@vger.kernel.org
+To: yotamg@mellanox.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:39318 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934911AbdACQIJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2017 11:08:09 -0500
+In-Reply-To: <1483458422-13607-1-git-send-email-yotamg@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 27, 2016 at 02:15:57PM -0800, Florian Fainelli wrote:
-> On 12/20/2016 07:20 PM, David Miller wrote:
-> > From: Florian Fainelli <f.fainelli@gmail.com>
-> > Date: Tue, 20 Dec 2016 17:02:37 -0800
-> > 
-> >> On 12/14/2016 05:13 PM, Florian Fainelli wrote:
-> >>> The Octeon driver calls into PHYLIB which now checks for
-> >>> net_device->dev.parent, so make sure we do set it before calling into
-> >>> any MDIO/PHYLIB related function.
-> >>>
-> >>> Fixes: ec988ad78ed6 ("phy: Don't increment MDIO bus refcount unless it's a different owner")
-> >>> Reported-by: Aaro Koskinen <aaro.koskinen@iki.fi>
-> >>> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
-> >>
-> >> Greg, David, since this is a fix for a regression introduced in the net
-> >> tree, it may make sense that David take it via his tree.
-> > 
-> > Since the change in question is in Linus's tree, it's equally valid
-> > for Greg to take it as well.
+From: Yotam Gigi <yotamg@mellanox.com>
+Date: Tue,  3 Jan 2017 17:47:02 +0200
+
+> Fix several error paths in matchall:
+>  - Release reference to actions in case the hardware fails offloading
+>    (relevant to skip_sw only)
+>  - Fix error path in case tcf_exts initialization fails
 > 
-> Sure, Greg, can you take this change? Thank you!
+> Fixes: bf3994d2ed31 ("net/sched: introduce Match-all classifier")
+> Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
 
-Will do so now, thanks,
+Nothing is checking the tcf_exts_init() return value for errors either,
+and I think you should fix this alongside these release problems at the
+same time.
 
-greg k-h
+Thanks.
