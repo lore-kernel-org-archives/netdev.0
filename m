@@ -1,58 +1,99 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH net-next rfc 0/6] convert tc_verd to integer bitfields
-Date: Tue, 3 Jan 2017 12:05:07 -0500
-Message-ID: <CAF=yD-Lt7yOObrphvqo7PsEDaLCz=P5ku20g8GViNT-d+Bi0og@mail.gmail.com>
-References: <1482952410-50003-1-git-send-email-willemdebruijn.kernel@gmail.com>
- <c32d7b7c-3dd3-2d75-5f9a-e356f1fc7732@mojatatu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Network Development <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Florian Westphal <fw@strlen.de>, dborkman@iogearbox.net,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Willem de Bruijn <willemb@google.com>,
-        Roman Mashak <mrv@mojatatu.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Shmulik Ladkani <shmulik.ladkani@gmail.com>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+From: Yotam Gigi <yotamg@mellanox.com>
+Subject: [PATCH net-next v2] net/sched: cls_matchall: Fix error path
+Date: Tue,  3 Jan 2017 19:20:24 +0200
+Message-ID: <1483464024-25745-1-git-send-email-yotamg@mellanox.com>
+Cc: Yotam Gigi <yotamg@mellanox.com>
+To: jhs@mojatatu.com, davem@davemloft.net, eladr@mellanox.com,
+        jiri@mellanox.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f193.google.com ([209.85.217.193]:36461 "EHLO
-        mail-ua0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1759730AbdACRFt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2017 12:05:49 -0500
-Received: by mail-ua0-f193.google.com with SMTP id v2so18137021uac.3
-        for <netdev@vger.kernel.org>; Tue, 03 Jan 2017 09:05:48 -0800 (PST)
-In-Reply-To: <c32d7b7c-3dd3-2d75-5f9a-e356f1fc7732@mojatatu.com>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:55846 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1759925AbdACRSN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2017 12:18:13 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> No objections to new year resolution of slimming the skb.
-> But: i am still concerned about the recursion that getting rid of
-> some of these bits could embolden. i.e my suggestion was infact to
-> restore some of those bits taken away by Florian after the ingress
-> redirect patches from Shmulik.
->
-> The possibilities are: egress->egress, egress->ingress,
-> ingress->egress, ingress->ingress. The suggestion was
-> xmit_recursion with some skb magic would suffice.
-> Hannes promised around last netdevconf that he has a scheme to solve
-> it without using any extra skb state.
+Fix several error paths in matchall:
+ - Release reference to actions in case the hardware fails offloading
+   (relevant to skip_sw only)
+ - Fix error path in case tcf_exts initialization/validation fail
 
-Are you referring to
+Fixes: bf3994d2ed31 ("net/sched: introduce Match-all classifier")
+Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
+---
+v1->v2:
+ - Add check for tcf_exts_init return code and fix error path for it too
+---
+ net/sched/cls_matchall.c | 22 ++++++++++++++++------
+ 1 file changed, 16 insertions(+), 6 deletions(-)
 
-"
-Personally, I would only try to fix and warn against the easy to detect
-cases. It is easy enough to just create a loop with your local attached
-L2 which brings your box into a endless loop processing the same packet
-again and again. Because it is out of control of the kernel you cannot
-do anything at all.
-
-I would just care that we sometimes reschedule and don't do everything
-in one stack so we don't corrupt the machine and an admin has still a
-chance to solve the problem.
-"
-https://www.spinics.net/lists/netdev/msg397498.html
-
-That can be solved by extending act_mirred in the same way as
-Daniel did for bpf_redirect in a70b506efe89 ("bpf: enforce recursion
-limit on redirects").
+diff --git a/net/sched/cls_matchall.c b/net/sched/cls_matchall.c
+index f935429..fcecf5a 100644
+--- a/net/sched/cls_matchall.c
++++ b/net/sched/cls_matchall.c
+@@ -141,10 +141,12 @@ static int mall_set_parms(struct net *net, struct tcf_proto *tp,
+ 	struct tcf_exts e;
+ 	int err;
+ 
+-	tcf_exts_init(&e, TCA_MATCHALL_ACT, 0);
++	err = tcf_exts_init(&e, TCA_MATCHALL_ACT, 0);
++	if (err)
++		return err;
+ 	err = tcf_exts_validate(net, tp, tb, est, &e, ovr);
+ 	if (err < 0)
+-		return err;
++		goto errout;
+ 
+ 	if (tb[TCA_MATCHALL_CLASSID]) {
+ 		f->res.classid = nla_get_u32(tb[TCA_MATCHALL_CLASSID]);
+@@ -154,6 +156,9 @@ static int mall_set_parms(struct net *net, struct tcf_proto *tp,
+ 	tcf_exts_change(tp, &f->exts, &e);
+ 
+ 	return 0;
++errout:
++	tcf_exts_destroy(&e);
++	return err;
+ }
+ 
+ static int mall_change(struct net *net, struct sk_buff *in_skb,
+@@ -193,7 +198,9 @@ static int mall_change(struct net *net, struct sk_buff *in_skb,
+ 	if (!f)
+ 		return -ENOBUFS;
+ 
+-	tcf_exts_init(&f->exts, TCA_MATCHALL_ACT, 0);
++	err = tcf_exts_init(&f->exts, TCA_MATCHALL_ACT, 0);
++	if (err)
++		goto err_exts_init;
+ 
+ 	if (!handle)
+ 		handle = 1;
+@@ -202,13 +209,13 @@ static int mall_change(struct net *net, struct sk_buff *in_skb,
+ 
+ 	err = mall_set_parms(net, tp, f, base, tb, tca[TCA_RATE], ovr);
+ 	if (err)
+-		goto errout;
++		goto err_set_parms;
+ 
+ 	if (tc_should_offload(dev, tp, flags)) {
+ 		err = mall_replace_hw_filter(tp, f, (unsigned long) f);
+ 		if (err) {
+ 			if (tc_skip_sw(flags))
+-				goto errout;
++				goto err_replace_hw_filter;
+ 			else
+ 				err = 0;
+ 		}
+@@ -219,7 +226,10 @@ static int mall_change(struct net *net, struct sk_buff *in_skb,
+ 
+ 	return 0;
+ 
+-errout:
++err_replace_hw_filter:
++err_set_parms:
++	tcf_exts_destroy(&f->exts);
++err_exts_init:
+ 	kfree(f);
+ 	return err;
+ }
+-- 
+2.4.11
