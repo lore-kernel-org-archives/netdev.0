@@ -1,59 +1,66 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v2 net-next] net:mv88e6xxx: use g2 interrupt for 6097 chip
-Date: Tue, 3 Jan 2017 17:28:15 +0100
-Message-ID: <20170103162815.GC32450@lunn.ch>
-References: <1483456720-9929-1-git-send-email-volodymyr.bendiuga@gmail.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [PATCH net 9/9] virtio-net: XDP support for small buffers
+Date: Tue, 3 Jan 2017 08:40:40 -0800
+Message-ID: <586BD408.9030009@gmail.com>
+References: <1482503852-12438-1-git-send-email-jasowang@redhat.com>
+	<1482503852-12438-10-git-send-email-jasowang@redhat.com>
+	<586AD79B.2070203@gmail.com>
+	<8c896c40-fd25-4b92-fe80-5be18c13dd48@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
-        netdev@vger.kernel.org, volodymyr.bendiuga@westermo.se
-To: Volodymyr Bendiuga <volodymyr.bendiuga@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:41695 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S964969AbdACQ2S (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 3 Jan 2017 11:28:18 -0500
-Content-Disposition: inline
-In-Reply-To: <1483456720-9929-1-git-send-email-volodymyr.bendiuga@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: john.r.fastabend@intel.com
+To: Jason Wang <jasowang@redhat.com>, mst@redhat.com,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <8c896c40-fd25-4b92-fe80-5be18c13dd48@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 03, 2017 at 04:18:40PM +0100, Volodymyr Bendiuga wrote:
-> From: Volodymyr Bendiuga <volodymyr.bendiuga@westermo.se>
-> 
-> This chip needs MV88E6XXX_FLAG_G2_INT
-> 
-> Signed-off-by: Volodymyr Bendiuga <volodymyr.bendiuga@westermo.se>
-> Reviewed-by: Andrew Lunn <andrew@lunn.ch>
-> ---
->  drivers/net/dsa/mv88e6xxx/mv88e6xxx.h | 1 +
->  1 file changed, 1 insertion(+)
-> 
-> diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-> index af54bae..431e954 100644
-> --- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-> +++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-> @@ -566,6 +566,7 @@ enum mv88e6xxx_cap {
->  	(MV88E6XXX_FLAG_G1_ATU_FID |	\
->  	 MV88E6XXX_FLAG_G1_VTU_FID |	\
->  	 MV88E6XXX_FLAG_GLOBAL2 |	\
-> + 	 MV88E6XXX_FLAG_G2_INT |	\
-
-checkpatch is your friend:
-
-$ ./scripts/checkpatch.pl volodymyr.bendiuga 
-ERROR: code indent should use tabs where possible
-#76: FILE: drivers/net/dsa/mv88e6xxx/mv88e6xxx.h:569:
-+ ^I MV88E6XXX_FLAG_G2_INT |^I\$
-
-WARNING: please, no space before tabs
-#76: FILE: drivers/net/dsa/mv88e6xxx/mv88e6xxx.h:569:
-+ ^I MV88E6XXX_FLAG_G2_INT |^I\$
-
-WARNING: please, no spaces at the start of a line
-#76: FILE: drivers/net/dsa/mv88e6xxx/mv88e6xxx.h:569:
-+ ^I MV88E6XXX_FLAG_G2_INT |^I\$
-
-total: 1 errors, 2 warnings, 0 checks, 7 lines checked
-
-       Andrew
+T24gMTctMDEtMDIgMTA6MTYgUE0sIEphc29uIFdhbmcgd3JvdGU6Cj4gCj4gCj4gT24gMjAxN+W5
+tDAx5pyIMDPml6UgMDY6NDMsIEpvaG4gRmFzdGFiZW5kIHdyb3RlOgo+PiBPbiAxNi0xMi0yMyAw
+NjozNyBBTSwgSmFzb24gV2FuZyB3cm90ZToKPj4+IENvbW1pdCBmNjAwYjY5MDUwMTUgKCJ2aXJ0
+aW9fbmV0OiBBZGQgWERQIHN1cHBvcnQiKSBsZWF2ZXMgdGhlIGNhc2Ugb2YKPj4+IHNtYWxsIHJl
+Y2VpdmUgYnVmZmVyIHVudG91Y2hlZC4gVGhpcyB3aWxsIGNvbmZ1c2UgdGhlIHVzZXIgd2hvIHdh
+bnQgdG8KPj4+IHNldCBYRFAgYnV0IHVzZSBzbWFsbCBidWZmZXJzLiBPdGhlciB0aGFuIGZvcmJp
+ZCBYRFAgaW4gc21hbGwgYnVmZmVyCj4+PiBtb2RlLCBsZXQncyBtYWtlIGl0IHdvcmsuIFhEUCB0
+aGVuIGNhbiBvbmx5IHdvcmsgYXQgc2tiLT5kYXRhIHNpbmNlCj4+PiB2aXJ0aW8tbmV0IGNyZWF0
+ZSBza2JzIGR1cmluZyByZWZpbGwsIHRoaXMgaXMgc3ViIG9wdGltYWwgd2hpY2ggY291bGQKPj4+
+IGJlIG9wdGltaXplZCBpbiB0aGUgZnV0dXJlLgo+Pj4KPj4+IENjOiBKb2huIEZhc3RhYmVuZCA8
+am9obi5yLmZhc3RhYmVuZEBpbnRlbC5jb20+Cj4+PiBTaWduZWQtb2ZmLWJ5OiBKYXNvbiBXYW5n
+IDxqYXNvd2FuZ0ByZWRoYXQuY29tPgo+Pj4gLS0tCj4+PiAgIGRyaXZlcnMvbmV0L3ZpcnRpb19u
+ZXQuYyB8IDExMiArKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKystLS0tLS0tLS0t
+LQo+Pj4gICAxIGZpbGUgY2hhbmdlZCwgODcgaW5zZXJ0aW9ucygrKSwgMjUgZGVsZXRpb25zKC0p
+Cj4+Pgo+PiBIaSBKYXNvbiwKPj4KPj4gSSB3YXMgZG9pbmcgc29tZSBtb3JlIHRlc3Rpbmcgb24g
+dGhpcyB3aGF0IGRvIHlvdSB0aGluayBhYm91dCBkb2luZyB0aGlzCj4+IHNvIHRoYXQgZnJlZV91
+bnVzZWRfYnVmcygpIGhhbmRsZXMgdGhlIGJ1ZmZlciBmcmVlIHdpdGggZGV2X2tmcmVlX3NrYigp
+Cj4+IGluc3RlYWQgb2YgcHV0X3BhZ2UgaW4gc21hbGwgcmVjZWl2ZSBtb2RlLiBTZWVtcyBtb3Jl
+IGNvcnJlY3QgdG8gbWUuCj4+Cj4+Cj4+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC92aXJ0aW9f
+bmV0LmMgYi9kcml2ZXJzL25ldC92aXJ0aW9fbmV0LmMKPj4gaW5kZXggNzgzZTg0Mi4uMjdmZjc2
+YyAxMDA2NDQKPj4gLS0tIGEvZHJpdmVycy9uZXQvdmlydGlvX25ldC5jCj4+ICsrKyBiL2RyaXZl
+cnMvbmV0L3ZpcnRpb19uZXQuYwo+PiBAQCAtMTg5OCw2ICsxODk4LDEwIEBAIHN0YXRpYyB2b2lk
+IGZyZWVfcmVjZWl2ZV9wYWdlX2ZyYWdzKHN0cnVjdCB2aXJ0bmV0X2luZm8KPj4gKnZpKQo+Pgo+
+PiAgIHN0YXRpYyBib29sIGlzX3hkcF9xdWV1ZShzdHJ1Y3QgdmlydG5ldF9pbmZvICp2aSwgaW50
+IHEpCj4+ICAgewo+PiArICAgICAgIC8qIEZvciBzbWFsbCByZWNlaXZlIG1vZGUgYWx3YXlzIHVz
+ZSBrZnJlZV9za2IgdmFyaWFudHMgKi8KPj4gKyAgICAgICBpZiAoIXZpLT5tZXJnZWFibGVfcnhf
+YnVmcykKPj4gKyAgICAgICAgICAgICAgIHJldHVybiBmYWxzZTsKPj4gKwo+PiAgICAgICAgICBp
+ZiAocSA8ICh2aS0+Y3Vycl9xdWV1ZV9wYWlycyAtIHZpLT54ZHBfcXVldWVfcGFpcnMpKQo+PiAg
+ICAgICAgICAgICAgICAgIHJldHVybiBmYWxzZTsKPj4gICAgICAgICAgZWxzZSBpZiAocSA8IHZp
+LT5jdXJyX3F1ZXVlX3BhaXJzKQo+Pgo+Pgo+PiBwYXRjaCBpcyB1bnRlc3RlZCBqdXN0IHNwb3R0
+ZWQgZG9pbmcgY29kZSByZXZpZXcuCj4+Cj4+IFRoYW5rcywKPj4gSm9obgo+IAo+IFdlIHByb2Jh
+Ymx5IG5lZWQgYSBiZXR0ZXIgbmFtZSBmb3IgdGhpcyBmdW5jdGlvbi4KPiAKPiBBY2tlZC1ieTog
+SmFzb24gV2FuZyA8amFzb3dhbmdAcmVkaGF0LmNvbT4KPiAKCkhvdyBhYm91dCBpc194ZHBfcmF3
+X2J1ZmZlcl9xdWV1ZSgpPwoKSSdsbCBzdWJtaXQgYSBwcm9wZXIgcGF0Y2ggdG9kYXkuCl9fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fClZpcnR1YWxpemF0aW9u
+IG1haWxpbmcgbGlzdApWaXJ0dWFsaXphdGlvbkBsaXN0cy5saW51eC1mb3VuZGF0aW9uLm9yZwpo
+dHRwczovL2xpc3RzLmxpbnV4Zm91bmRhdGlvbi5vcmcvbWFpbG1hbi9saXN0aW5mby92aXJ0dWFs
+aXphdGlvbg==
