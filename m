@@ -1,54 +1,61 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH 2/2] isdn: i4l: move active-isdn drivers to staging
-Date: Tue, 3 Jan 2017 16:24:36 +0100
-Message-ID: <20170103152436.GA26156@kroah.com>
-References: <1456945629-1793533-1-git-send-email-arnd@arndb.de>
- <1456945629-1793533-2-git-send-email-arnd@arndb.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, Karsten Keil <isdn@linux-pingi.de>,
- linux-doc@vger.kernel.org, netdev@vger.kernel.org,
- Jonathan Corbet <corbet@lwn.net>, linux-kernel@vger.kernel.org,
- "David S. Miller" <davem@davemloft.net>, linux-arm-kernel@lists.infradead.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-Content-Disposition: inline
-In-Reply-To: <1456945629-1793533-2-git-send-email-arnd@arndb.de>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+From: Sabrina Dubroca <sd@queasysnail.net>
+Subject: [PATCH net] benet: stricter vxlan offloading check in be_features_check
+Date: Tue,  3 Jan 2017 16:26:04 +0100
+Message-ID: <59e720bde70fb5226313c62d89b62cbbef25b3e2.1483455910.git.sd@queasysnail.net>
+Cc: Sabrina Dubroca <sd@queasysnail.net>,
+        Sathya Perla <sathya.perla@broadcom.com>,
+        Ajit Khaparde <ajit.khaparde@broadcom.com>,
+        Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>,
+        Somnath Kotur <somnath.kotur@broadcom.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:55650 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1759036AbdACP0N (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 3 Jan 2017 10:26:13 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 02, 2016 at 08:06:46PM +0100, Arnd Bergmann wrote:
-> The icn, act2000 and pcbit drivers are all for very old hardware,
-> and it is highly unlikely that anyone is actually still using them
-> on modern kernels, if at all.
-> 
-> All three drivers apparently are for hardware that predates PCI
-> being the common connector, as they are ISA-only and active
-> PCI ISDN cards were widely available in the 1990s.
-> 
-> Looking through the git logs, it I cannot find any indication of a
-> patch to any of these drivers that has been tested on real hardware,
-> only cleanups or global API changes.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> Acked-by: Karsten Keil <isdn@linux-pingi.de>
+When VXLAN offloading is enabled, be_features_check() tries to check if
+an encapsulated packet is indeed a VXLAN packet. The check is not strict
+enough, and considers any UDP-encapsulated ethernet frame with a 8-byte
+tunnel header as being VXLAN. Unfortunately, both GENEVE and VXLAN-GPE
+have a 8-byte header, so they get through this check.
 
-This patch got added in the 4.6 kernel release.  As I am now taking
-patches for 4.11-rc1, I figure it is time to just delete the
-drivers/staging/i4l/ directory now, given that no one has really done
-anything with it.  If people show up that wish to maintain it, I'll be
-glad to revert it, or if someone really screams in the next week.
-Otherwise it's time to just move on :)
+Force the UDP destination port to be the one that has been offloaded to
+hardware.
 
-thanks,
+Without this, GENEVE-encapsulated packets can end up having an incorrect
+checksum when both a GENEVE and a VXLAN (offloaded) tunnel are
+configured.
 
-greg k-h
+This is similar to commit a547224dceed ("mlx4e: Do not attempt to
+offload VXLAN ports that are unrecognized").
+
+Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+---
+mlx4/5 already do something similar, but nfp/bnx2x/qlcnic don't.
+
+This check was introduced in commit 16dde0d6ac15, but only made invalid
+when GENEVE was introduced in 2d07dc79fe04.
+
+ drivers/net/ethernet/emulex/benet/be_main.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 7e1633bf5a22..225e9a4877d7 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -5155,7 +5155,9 @@ static netdev_features_t be_features_check(struct sk_buff *skb,
+ 	    skb->inner_protocol_type != ENCAP_TYPE_ETHER ||
+ 	    skb->inner_protocol != htons(ETH_P_TEB) ||
+ 	    skb_inner_mac_header(skb) - skb_transport_header(skb) !=
+-	    sizeof(struct udphdr) + sizeof(struct vxlanhdr))
++		sizeof(struct udphdr) + sizeof(struct vxlanhdr) ||
++	    !adapter->vxlan_port ||
++	    udp_hdr(skb)->dest != adapter->vxlan_port)
+ 		return features & ~(NETIF_F_CSUM_MASK | NETIF_F_GSO_MASK);
+ 
+ 	return features;
+-- 
+2.11.0
