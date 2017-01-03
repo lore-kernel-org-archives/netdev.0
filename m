@@ -1,47 +1,107 @@
 From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [PATCH net-next v2 26/27] net/hyperv: enable passing of VLAN.CFI bit
-Date: Tue,  3 Jan 2017 21:52:41 +0100 (CET)
-Message-ID: <1efb093375d5436df23ecc3cbe485a88a0ebe270.1483475202.git.mirq-linux@rere.qmqm.pl>
+Subject: [PATCH net-next v2 13/27] bridge: use __vlan_hwaccel
+	helpers
+Date: Tue,  3 Jan 2017 21:52:36 +0100 (CET)
+Message-ID: <968f5e13eec35e176d0076ea8f89de63caef1a79.1483475202.git.mirq-linux@rere.qmqm.pl>
 References: <cover.1483475202.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: devel@linuxdriverproject.org, Haiyang Zhang <haiyangz@microsoft.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: bridge@lists.linux-foundation.org, netfilter-devel@vger.kernel.org,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	Patrick McHardy <kaber@trash.net>, Pablo Neira Ayuso <pablo@netfilter.org>
 To: netdev@vger.kernel.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
 In-Reply-To: <cover.1483475202.git.mirq-linux@rere.qmqm.pl>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-U2lnbmVkLW9mZi1ieTogTWljaGHFgiBNaXJvc8WCYXcgPG1pcnEtbGludXhAcmVyZS5xbXFtLnBs
-PgotLS0KIGRyaXZlcnMvbmV0L2h5cGVydi9uZXR2c2NfZHJ2LmMgICB8IDEgKwogZHJpdmVycy9u
-ZXQvaHlwZXJ2L3JuZGlzX2ZpbHRlci5jIHwgMSArCiAyIGZpbGVzIGNoYW5nZWQsIDIgaW5zZXJ0
-aW9ucygrKQoKZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2h5cGVydi9uZXR2c2NfZHJ2LmMgYi9k
-cml2ZXJzL25ldC9oeXBlcnYvbmV0dnNjX2Rydi5jCmluZGV4IDY1OTdkNzkwMTkyOS4uNGUyMGY0
-YzI0N2ZhIDEwMDY0NAotLS0gYS9kcml2ZXJzL25ldC9oeXBlcnYvbmV0dnNjX2Rydi5jCisrKyBi
-L2RyaXZlcnMvbmV0L2h5cGVydi9uZXR2c2NfZHJ2LmMKQEAgLTQ0MSw2ICs0NDEsNyBAQCBzdGF0
-aWMgaW50IG5ldHZzY19zdGFydF94bWl0KHN0cnVjdCBza19idWZmICpza2IsIHN0cnVjdCBuZXRf
-ZGV2aWNlICpuZXQpCiAJCXZsYW4gPSAoc3RydWN0IG5kaXNfcGt0XzgwMjFxX2luZm8gKikoKHZv
-aWQgKilwcGkgKwogCQkJCQkJcHBpLT5wcGlfb2Zmc2V0KTsKIAkJdmxhbi0+dmxhbmlkID0gc2ti
-LT52bGFuX3RjaSAmIFZMQU5fVklEX01BU0s7CisJCXZsYW4tPmNmaSA9ICEhKHNrYi0+dmxhbl90
-Y2kgJiBWTEFOX0NGSV9NQVNLKTsKIAkJdmxhbi0+cHJpID0gKHNrYi0+dmxhbl90Y2kgJiBWTEFO
-X1BSSU9fTUFTSykgPj4KIAkJCQlWTEFOX1BSSU9fU0hJRlQ7CiAJfQpkaWZmIC0tZ2l0IGEvZHJp
-dmVycy9uZXQvaHlwZXJ2L3JuZGlzX2ZpbHRlci5jIGIvZHJpdmVycy9uZXQvaHlwZXJ2L3JuZGlz
-X2ZpbHRlci5jCmluZGV4IDdmN2I0MTBhNDFjMi4uOTc1OWQ3MzgwMDM3IDEwMDY0NAotLS0gYS9k
-cml2ZXJzL25ldC9oeXBlcnYvcm5kaXNfZmlsdGVyLmMKKysrIGIvZHJpdmVycy9uZXQvaHlwZXJ2
-L3JuZGlzX2ZpbHRlci5jCkBAIC0zODIsNiArMzgyLDcgQEAgc3RhdGljIGludCBybmRpc19maWx0
-ZXJfcmVjZWl2ZV9kYXRhKHN0cnVjdCBybmRpc19kZXZpY2UgKmRldiwKIAl2bGFuID0gcm5kaXNf
-Z2V0X3BwaShybmRpc19wa3QsIElFRUVfODAyMVFfSU5GTyk7CiAJaWYgKHZsYW4pIHsKIAkJdmxh
-bl90Y2kgPSB2bGFuLT52bGFuaWQgfAorCQkJKHZsYW4tPmNmaSA/IFZMQU5fQ0ZJX01BU0sgOiAw
-KSB8CiAJCQkodmxhbi0+cHJpIDw8IFZMQU5fUFJJT19TSElGVCk7CiAJfQogCi0tIAoyLjExLjAK
-Cl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldmVsIG1h
-aWxpbmcgbGlzdApkZXZlbEBsaW51eGRyaXZlcnByb2plY3Qub3JnCmh0dHA6Ly9kcml2ZXJkZXYu
-bGludXhkcml2ZXJwcm9qZWN0Lm9yZy9tYWlsbWFuL2xpc3RpbmZvL2RyaXZlcmRldi1kZXZlbAo=
+This removes assumption than vlan_tci != 0 when tag is present.
+
+Signed-off-by: Michał Mirosław <mirq-linux@rere.qmqm.pl>
+---
+ net/bridge/br_netfilter_hooks.c | 15 +++++++++------
+ net/bridge/br_private.h         |  2 +-
+ net/bridge/br_vlan.c            |  6 +++---
+ 3 files changed, 13 insertions(+), 10 deletions(-)
+
+diff --git a/net/bridge/br_netfilter_hooks.c b/net/bridge/br_netfilter_hooks.c
+index 8ca6a929bf12..b62177a980e1 100644
+--- a/net/bridge/br_netfilter_hooks.c
++++ b/net/bridge/br_netfilter_hooks.c
+@@ -682,10 +682,8 @@ static int br_nf_push_frag_xmit(struct net *net, struct sock *sk, struct sk_buff
+ 		return 0;
+ 	}
+ 
+-	if (data->vlan_tci) {
+-		skb->vlan_tci = data->vlan_tci;
+-		skb->vlan_proto = data->vlan_proto;
+-	}
++	if (data->vlan_proto)
++		__vlan_hwaccel_put_tag(skb, data->vlan_proto, data->vlan_tci);
+ 
+ 	skb_copy_to_linear_data_offset(skb, -data->size, data->mac, data->size);
+ 	__skb_push(skb, data->encap_size);
+@@ -749,8 +747,13 @@ static int br_nf_dev_queue_xmit(struct net *net, struct sock *sk, struct sk_buff
+ 
+ 		data = this_cpu_ptr(&brnf_frag_data_storage);
+ 
+-		data->vlan_tci = skb->vlan_tci;
+-		data->vlan_proto = skb->vlan_proto;
++		if (skb_vlan_tag_present(skb)) {
++			data->vlan_tci = skb->vlan_tci;
++			data->vlan_proto = skb->vlan_proto;
++		} else {
++			data->vlan_proto = 0;
++		}
++
+ 		data->encap_size = nf_bridge_encap_header_len(skb);
+ 		data->size = ETH_HLEN + data->encap_size;
+ 
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index 8ce621e8345c..2efbdaf9ae1b 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -819,7 +819,7 @@ static inline int br_vlan_get_tag(const struct sk_buff *skb, u16 *vid)
+ 	int err = 0;
+ 
+ 	if (skb_vlan_tag_present(skb)) {
+-		*vid = skb_vlan_tag_get(skb) & VLAN_VID_MASK;
++		*vid = skb_vlan_tag_get_id(skb);
+ 	} else {
+ 		*vid = 0;
+ 		err = -EINVAL;
+diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
+index b6de4f457161..d25a5b34dc76 100644
+--- a/net/bridge/br_vlan.c
++++ b/net/bridge/br_vlan.c
+@@ -377,7 +377,7 @@ struct sk_buff *br_handle_vlan(struct net_bridge *br,
+ 	}
+ 
+ 	if (v->flags & BRIDGE_VLAN_INFO_UNTAGGED)
+-		skb->vlan_tci = 0;
++		__vlan_hwaccel_clear_tag(skb);
+ out:
+ 	return skb;
+ }
+@@ -444,8 +444,8 @@ static bool __allowed_ingress(const struct net_bridge *br,
+ 			__vlan_hwaccel_put_tag(skb, br->vlan_proto, pvid);
+ 		else
+ 			/* Priority-tagged Frame.
+-			 * At this point, We know that skb->vlan_tci had
+-			 * VLAN_TAG_PRESENT bit and its VID field was 0x000.
++			 * At this point, we know that skb->vlan_tci VID
++			 * field was 0.
+ 			 * We update only VID field and preserve PCP field.
+ 			 */
+ 			skb->vlan_tci |= pvid;
+-- 
+2.11.0
