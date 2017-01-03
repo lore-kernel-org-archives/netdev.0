@@ -1,76 +1,62 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [net PATCH] net: virtio: cap mtu when XDP programs are running
-Date: Tue, 3 Jan 2017 14:14:47 +0800
-Message-ID: <402027b4-58c7-aa1b-5079-74e31448f544@redhat.com>
-References: <20170102223031.11541.28717.stgit@john-Precision-Tower-5810>
+Subject: Re: [PATCH net 9/9] virtio-net: XDP support for small buffers
+Date: Tue, 3 Jan 2017 14:16:31 +0800
+Message-ID: <8c896c40-fd25-4b92-fe80-5be18c13dd48@redhat.com>
+References: <1482503852-12438-1-git-send-email-jasowang@redhat.com>
+	<1482503852-12438-10-git-send-email-jasowang@redhat.com>
+	<586AD79B.2070203@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org,
-        alexei.starovoitov@gmail.com, daniel@iogearbox.net
-To: John Fastabend <john.fastabend@gmail.com>, mst@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57286 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932857AbdACGOz (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 3 Jan 2017 01:14:55 -0500
-In-Reply-To: <20170102223031.11541.28717.stgit@john-Precision-Tower-5810>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: john.r.fastabend@intel.com
+To: John Fastabend <john.fastabend@gmail.com>, mst@redhat.com,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <586AD79B.2070203@gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-
-
-On 2017年01月03日 06:30, John Fastabend wrote:
-> XDP programs can not consume multiple pages so we cap the MTU to
-> avoid this case. Virtio-net however only checks the MTU at XDP
-> program load and does not block MTU changes after the program
-> has loaded.
->
-> This patch sets/clears the max_mtu value at XDP load/unload time.
->
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-> ---
->   drivers/net/virtio_net.c |    9 ++++++---
->   1 file changed, 6 insertions(+), 3 deletions(-)
->
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index 5deeda6..783e842 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -1699,6 +1699,9 @@ static void virtnet_init_settings(struct net_device *dev)
->   	.set_settings = virtnet_set_settings,
->   };
->   
-> +#define MIN_MTU ETH_MIN_MTU
-> +#define MAX_MTU ETH_MAX_MTU
-> +
->   static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
->   {
->   	unsigned long int max_sz = PAGE_SIZE - sizeof(struct padded_vnet_hdr);
-> @@ -1748,6 +1751,9 @@ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
->   			virtnet_set_queues(vi, curr_qp);
->   			return PTR_ERR(prog);
->   		}
-> +		dev->max_mtu = max_sz;
-> +	} else {
-> +		dev->max_mtu = ETH_MAX_MTU;
-
-Or use ETH_DATA_LEN here consider we only allocate a size of 
-GOOD_PACKET_LEN for each small buffer?
-
-Thanks
-
->   	}
->   
->   	vi->xdp_queue_pairs = xdp_qp;
-> @@ -2133,9 +2139,6 @@ static bool virtnet_validate_features(struct virtio_device *vdev)
->   	return true;
->   }
->   
-> -#define MIN_MTU ETH_MIN_MTU
-> -#define MAX_MTU ETH_MAX_MTU
-> -
->   static int virtnet_probe(struct virtio_device *vdev)
->   {
->   	int i, err;
->
+CgpPbiAyMDE35bm0MDHmnIgwM+aXpSAwNjo0MywgSm9obiBGYXN0YWJlbmQgd3JvdGU6Cj4gT24g
+MTYtMTItMjMgMDY6MzcgQU0sIEphc29uIFdhbmcgd3JvdGU6Cj4+IENvbW1pdCBmNjAwYjY5MDUw
+MTUgKCJ2aXJ0aW9fbmV0OiBBZGQgWERQIHN1cHBvcnQiKSBsZWF2ZXMgdGhlIGNhc2Ugb2YKPj4g
+c21hbGwgcmVjZWl2ZSBidWZmZXIgdW50b3VjaGVkLiBUaGlzIHdpbGwgY29uZnVzZSB0aGUgdXNl
+ciB3aG8gd2FudCB0bwo+PiBzZXQgWERQIGJ1dCB1c2Ugc21hbGwgYnVmZmVycy4gT3RoZXIgdGhh
+biBmb3JiaWQgWERQIGluIHNtYWxsIGJ1ZmZlcgo+PiBtb2RlLCBsZXQncyBtYWtlIGl0IHdvcmsu
+IFhEUCB0aGVuIGNhbiBvbmx5IHdvcmsgYXQgc2tiLT5kYXRhIHNpbmNlCj4+IHZpcnRpby1uZXQg
+Y3JlYXRlIHNrYnMgZHVyaW5nIHJlZmlsbCwgdGhpcyBpcyBzdWIgb3B0aW1hbCB3aGljaCBjb3Vs
+ZAo+PiBiZSBvcHRpbWl6ZWQgaW4gdGhlIGZ1dHVyZS4KPj4KPj4gQ2M6IEpvaG4gRmFzdGFiZW5k
+IDxqb2huLnIuZmFzdGFiZW5kQGludGVsLmNvbT4KPj4gU2lnbmVkLW9mZi1ieTogSmFzb24gV2Fu
+ZyA8amFzb3dhbmdAcmVkaGF0LmNvbT4KPj4gLS0tCj4+ICAgZHJpdmVycy9uZXQvdmlydGlvX25l
+dC5jIHwgMTEyICsrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKy0tLS0tLS0tLS0t
+Cj4+ICAgMSBmaWxlIGNoYW5nZWQsIDg3IGluc2VydGlvbnMoKyksIDI1IGRlbGV0aW9ucygtKQo+
+Pgo+IEhpIEphc29uLAo+Cj4gSSB3YXMgZG9pbmcgc29tZSBtb3JlIHRlc3Rpbmcgb24gdGhpcyB3
+aGF0IGRvIHlvdSB0aGluayBhYm91dCBkb2luZyB0aGlzCj4gc28gdGhhdCBmcmVlX3VudXNlZF9i
+dWZzKCkgaGFuZGxlcyB0aGUgYnVmZmVyIGZyZWUgd2l0aCBkZXZfa2ZyZWVfc2tiKCkKPiBpbnN0
+ZWFkIG9mIHB1dF9wYWdlIGluIHNtYWxsIHJlY2VpdmUgbW9kZS4gU2VlbXMgbW9yZSBjb3JyZWN0
+IHRvIG1lLgo+Cj4KPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvdmlydGlvX25ldC5jIGIvZHJp
+dmVycy9uZXQvdmlydGlvX25ldC5jCj4gaW5kZXggNzgzZTg0Mi4uMjdmZjc2YyAxMDA2NDQKPiAt
+LS0gYS9kcml2ZXJzL25ldC92aXJ0aW9fbmV0LmMKPiArKysgYi9kcml2ZXJzL25ldC92aXJ0aW9f
+bmV0LmMKPiBAQCAtMTg5OCw2ICsxODk4LDEwIEBAIHN0YXRpYyB2b2lkIGZyZWVfcmVjZWl2ZV9w
+YWdlX2ZyYWdzKHN0cnVjdCB2aXJ0bmV0X2luZm8gKnZpKQo+Cj4gICBzdGF0aWMgYm9vbCBpc194
+ZHBfcXVldWUoc3RydWN0IHZpcnRuZXRfaW5mbyAqdmksIGludCBxKQo+ICAgewo+ICsgICAgICAg
+LyogRm9yIHNtYWxsIHJlY2VpdmUgbW9kZSBhbHdheXMgdXNlIGtmcmVlX3NrYiB2YXJpYW50cyAq
+Lwo+ICsgICAgICAgaWYgKCF2aS0+bWVyZ2VhYmxlX3J4X2J1ZnMpCj4gKyAgICAgICAgICAgICAg
+IHJldHVybiBmYWxzZTsKPiArCj4gICAgICAgICAgaWYgKHEgPCAodmktPmN1cnJfcXVldWVfcGFp
+cnMgLSB2aS0+eGRwX3F1ZXVlX3BhaXJzKSkKPiAgICAgICAgICAgICAgICAgIHJldHVybiBmYWxz
+ZTsKPiAgICAgICAgICBlbHNlIGlmIChxIDwgdmktPmN1cnJfcXVldWVfcGFpcnMpCj4KPgo+IHBh
+dGNoIGlzIHVudGVzdGVkIGp1c3Qgc3BvdHRlZCBkb2luZyBjb2RlIHJldmlldy4KPgo+IFRoYW5r
+cywKPiBKb2huCgpXZSBwcm9iYWJseSBuZWVkIGEgYmV0dGVyIG5hbWUgZm9yIHRoaXMgZnVuY3Rp
+b24uCgpBY2tlZC1ieTogSmFzb24gV2FuZyA8amFzb3dhbmdAcmVkaGF0LmNvbT4KCl9fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fClZpcnR1YWxpemF0aW9uIG1h
+aWxpbmcgbGlzdApWaXJ0dWFsaXphdGlvbkBsaXN0cy5saW51eC1mb3VuZGF0aW9uLm9yZwpodHRw
+czovL2xpc3RzLmxpbnV4Zm91bmRhdGlvbi5vcmcvbWFpbG1hbi9saXN0aW5mby92aXJ0dWFsaXph
+dGlvbg==
