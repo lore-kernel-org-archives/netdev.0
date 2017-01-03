@@ -1,99 +1,49 @@
-From: Yotam Gigi <yotamg@mellanox.com>
-Subject: [PATCH net-next v2] net/sched: cls_matchall: Fix error path
-Date: Tue,  3 Jan 2017 19:20:24 +0200
-Message-ID: <1483464024-25745-1-git-send-email-yotamg@mellanox.com>
-Cc: Yotam Gigi <yotamg@mellanox.com>
-To: jhs@mojatatu.com, davem@davemloft.net, eladr@mellanox.com,
-        jiri@mellanox.com, netdev@vger.kernel.org
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH net] net: vrf: Add missing Rx counters
+Date: Tue,  3 Jan 2017 09:37:55 -0800
+Message-ID: <1483465075-15452-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:55846 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1759925AbdACRSN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2017 12:18:13 -0500
+Received: from mail-pf0-f180.google.com ([209.85.192.180]:35476 "EHLO
+        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S935525AbdACRjN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2017 12:39:13 -0500
+Received: by mail-pf0-f180.google.com with SMTP id i88so77576387pfk.2
+        for <netdev@vger.kernel.org>; Tue, 03 Jan 2017 09:38:32 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix several error paths in matchall:
- - Release reference to actions in case the hardware fails offloading
-   (relevant to skip_sw only)
- - Fix error path in case tcf_exts initialization/validation fail
+The move from rx-handler to L3 receive handler inadvertantly dropped the
+rx counters. Restore them.
 
-Fixes: bf3994d2ed31 ("net/sched: introduce Match-all classifier")
-Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
+Fixes: 74b20582ac38 ("net: l3mdev: Add hook in ip and ipv6")
+Reported-by: Dinesh Dutt <ddutt@cumulusnetworks.com>
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
-v1->v2:
- - Add check for tcf_exts_init return code and fix error path for it too
----
- net/sched/cls_matchall.c | 22 ++++++++++++++++------
- 1 file changed, 16 insertions(+), 6 deletions(-)
+ drivers/net/vrf.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-diff --git a/net/sched/cls_matchall.c b/net/sched/cls_matchall.c
-index f935429..fcecf5a 100644
---- a/net/sched/cls_matchall.c
-+++ b/net/sched/cls_matchall.c
-@@ -141,10 +141,12 @@ static int mall_set_parms(struct net *net, struct tcf_proto *tp,
- 	struct tcf_exts e;
- 	int err;
+diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
+index 7532646c3b7b..23dfb0eac098 100644
+--- a/drivers/net/vrf.c
++++ b/drivers/net/vrf.c
+@@ -967,6 +967,7 @@ static struct sk_buff *vrf_ip6_rcv(struct net_device *vrf_dev,
+ 	 */
+ 	need_strict = rt6_need_strict(&ipv6_hdr(skb)->daddr);
+ 	if (!ipv6_ndisc_frame(skb) && !need_strict) {
++		vrf_rx_stats(vrf_dev, skb->len);
+ 		skb->dev = vrf_dev;
+ 		skb->skb_iif = vrf_dev->ifindex;
  
--	tcf_exts_init(&e, TCA_MATCHALL_ACT, 0);
-+	err = tcf_exts_init(&e, TCA_MATCHALL_ACT, 0);
-+	if (err)
-+		return err;
- 	err = tcf_exts_validate(net, tp, tb, est, &e, ovr);
- 	if (err < 0)
--		return err;
-+		goto errout;
+@@ -1011,6 +1012,8 @@ static struct sk_buff *vrf_ip_rcv(struct net_device *vrf_dev,
+ 		goto out;
+ 	}
  
- 	if (tb[TCA_MATCHALL_CLASSID]) {
- 		f->res.classid = nla_get_u32(tb[TCA_MATCHALL_CLASSID]);
-@@ -154,6 +156,9 @@ static int mall_set_parms(struct net *net, struct tcf_proto *tp,
- 	tcf_exts_change(tp, &f->exts, &e);
- 
- 	return 0;
-+errout:
-+	tcf_exts_destroy(&e);
-+	return err;
- }
- 
- static int mall_change(struct net *net, struct sk_buff *in_skb,
-@@ -193,7 +198,9 @@ static int mall_change(struct net *net, struct sk_buff *in_skb,
- 	if (!f)
- 		return -ENOBUFS;
- 
--	tcf_exts_init(&f->exts, TCA_MATCHALL_ACT, 0);
-+	err = tcf_exts_init(&f->exts, TCA_MATCHALL_ACT, 0);
-+	if (err)
-+		goto err_exts_init;
- 
- 	if (!handle)
- 		handle = 1;
-@@ -202,13 +209,13 @@ static int mall_change(struct net *net, struct sk_buff *in_skb,
- 
- 	err = mall_set_parms(net, tp, f, base, tb, tca[TCA_RATE], ovr);
- 	if (err)
--		goto errout;
-+		goto err_set_parms;
- 
- 	if (tc_should_offload(dev, tp, flags)) {
- 		err = mall_replace_hw_filter(tp, f, (unsigned long) f);
- 		if (err) {
- 			if (tc_skip_sw(flags))
--				goto errout;
-+				goto err_replace_hw_filter;
- 			else
- 				err = 0;
- 		}
-@@ -219,7 +226,10 @@ static int mall_change(struct net *net, struct sk_buff *in_skb,
- 
- 	return 0;
- 
--errout:
-+err_replace_hw_filter:
-+err_set_parms:
-+	tcf_exts_destroy(&f->exts);
-+err_exts_init:
- 	kfree(f);
- 	return err;
- }
++	vrf_rx_stats(vrf_dev, skb->len);
++
+ 	skb_push(skb, skb->mac_len);
+ 	dev_queue_xmit_nit(skb, vrf_dev);
+ 	skb_pull(skb, skb->mac_len);
 -- 
-2.4.11
+2.1.4
