@@ -1,40 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] drop_monitor: consider inserted data in genlmsg_end
-Date: Tue, 03 Jan 2017 09:54:19 -0500 (EST)
-Message-ID: <20170103.095419.261470619535526723.davem@davemloft.net>
-References: <20170103003910.8984-1-wr0112358@gmail.com>
+Subject: Re: [PATCH v2 net-next] dsa:mv88e6xxx: allow address 0x1 in
+ smi_init
+Date: Tue, 03 Jan 2017 10:02:21 -0500 (EST)
+Message-ID: <20170103.100221.2200900537461778187.davem@davemloft.net>
+References: <1483436949-4527-1-git-send-email-volodymyr.bendiuga@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nhorman@tuxdriver.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: wr0112358@gmail.com
+Cc: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
+        f.fainelli@gmail.com, netdev@vger.kernel.org,
+        volodymyr.bendiuga@westermo.se
+To: volodymyr.bendiuga@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:37054 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:37358 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757212AbdACOyV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2017 09:54:21 -0500
-In-Reply-To: <20170103003910.8984-1-wr0112358@gmail.com>
+        with ESMTP id S935399AbdACPCX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2017 10:02:23 -0500
+In-Reply-To: <1483436949-4527-1-git-send-email-volodymyr.bendiuga@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Reiter Wolfgang <wr0112358@gmail.com>
-Date: Tue,  3 Jan 2017 01:39:10 +0100
+From: Volodymyr Bendiuga <volodymyr.bendiuga@gmail.com>
+Date: Tue,  3 Jan 2017 10:49:09 +0100
 
-> Final nlmsg_len field update must reflect inserted net_dm_drop_point
-> data.
+> From: Volodymyr Bendiuga <volodymyr.bendiuga@westermo.se>
 > 
-> This patch depends on previous patch:
-> "drop_monitor: add missing call to genlmsg_end"
+> Some devices, such as the mv88e6097 do have ADDR[0] external and so it
+> is possible to configure the device to use SMI address 0x1. Remove the
+> restriction, as there are boards using this address.
 > 
-> Signed-off-by: Reiter Wolfgang <wr0112358@gmail.com>
+> Signed-off-by: Volodymyr Bendiuga <volodymyr.bendiuga@westermo.se>
+> Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 
-I don't understand why the current code doesn't work properly.
-
-All over the tree, the pattern is:
-
-	x = genlmsg_put(skb, ...);
-	...
-	genlmsg_end(skb, x);
-
-And that is exactly what the code is doing right now.
+Applied, thanks.
