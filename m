@@ -1,32 +1,49 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: [PATCH net-next] sfc: declare module version (same as ethtool drvinfo
- version)
-Date: Tue, 3 Jan 2017 15:46:00 +0000
-Message-ID: <3453b0f7-a522-e332-590a-e04d4d4b50a5@solarflare.com>
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: [net-next 0/3] tipc: improve interaction
+	socket-link
+Date: Tue,  3 Jan 2017 10:55:08 -0500
+Message-ID: <1483458911-32549-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: <bkenward@solarflare.com>, <netdev@vger.kernel.org>
-To: <linux-net-drivers@solarflare.com>, <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo03.seg.att.com ([209.65.160.84]:5308 "EHLO
-        nbfkord-smmo03.seg.att.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1758785AbdACPuV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2017 10:50:21 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jon Maloy <jon.maloy@ericsson.com>, netdev@vger.kernel.org,
+	tipc-discussion@lists.sourceforge.net
+To: davem@davemloft.net
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Edward Cree <ecree@solarflare.com>
----
- drivers/net/ethernet/sfc/efx.c | 1 +
- 1 file changed, 1 insertion(+)
+We fix a very real starvation problem that may occur when a link
+encounters send buffer congestion. At the same time we make the 
+interaction between the socket and link layer simpler and more 
+consistent.
 
-diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
-index 5a5dcad..bbbed2e 100644
---- a/drivers/net/ethernet/sfc/efx.c
-+++ b/drivers/net/ethernet/sfc/efx.c
-@@ -3585,3 +3585,4 @@ MODULE_AUTHOR("Solarflare Communications and "
- MODULE_DESCRIPTION("Solarflare network driver");
- MODULE_LICENSE("GPL");
- MODULE_DEVICE_TABLE(pci, efx_pci_table);
-+MODULE_VERSION(EFX_DRIVER_VERSION);
+Jon Maloy (3):
+  tipc: unify tipc_wait_for_sndpkt() and tipc_wait_for_sndmsg()
+    functions
+  tipc: modify struct tipc_plist to be more versatile
+  tipc: reduce risk of user starvation during link congestion
+
+ net/tipc/bcast.c      |   6 +-
+ net/tipc/link.c       |  75 ++++-----
+ net/tipc/msg.h        |   2 -
+ net/tipc/name_table.c | 100 +++++++----
+ net/tipc/name_table.h |  21 +--
+ net/tipc/node.c       |  15 +-
+ net/tipc/socket.c     | 449 ++++++++++++++++++++++----------------------------
+ 7 files changed, 319 insertions(+), 349 deletions(-)
+
+-- 
+2.7.4
+
+
+------------------------------------------------------------------------------
+Check out the vibrant tech community on one of the world's most 
+engaging tech sites, SlashDot.org! http://sdm.link/slashdot
