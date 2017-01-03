@@ -1,54 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] drop_monitor: consider inserted data in genlmsg_end
-Date: Tue, 03 Jan 2017 11:10:28 -0500 (EST)
-Message-ID: <20170103.111028.1485189939139437925.davem@davemloft.net>
-References: <20170103003910.8984-1-wr0112358@gmail.com>
-        <20170103.095419.261470619535526723.davem@davemloft.net>
-        <20170103160443.GC11735@hmsreliant.think-freely.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: wr0112358@gmail.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: nhorman@tuxdriver.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170103160443.GC11735@hmsreliant.think-freely.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Volodymyr Bendiuga <volodymyr.bendiuga@gmail.com>
+Subject: [PATCH v2 net-next] net:mv88e6xxx: use g2 interrupt for 6097 chip
+Date: Tue,  3 Jan 2017 16:18:40 +0100
+Message-ID: <1483456720-9929-1-git-send-email-volodymyr.bendiuga@gmail.com>
+To: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
+        f.fainelli@gmail.com, netdev@vger.kernel.org,
+        volodymyr.bendiuga@westermo.se
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f68.google.com ([209.85.215.68]:36718 "EHLO
+        mail-lf0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1759370AbdACQQ2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2017 11:16:28 -0500
+Received: by mail-lf0-f68.google.com with SMTP id t196so26163219lff.3
+        for <netdev@vger.kernel.org>; Tue, 03 Jan 2017 08:15:25 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Neil Horman <nhorman@tuxdriver.com>
-Date: Tue, 3 Jan 2017 11:04:43 -0500
+From: Volodymyr Bendiuga <volodymyr.bendiuga@westermo.se>
 
-> On Tue, Jan 03, 2017 at 09:54:19AM -0500, David Miller wrote:
->> From: Reiter Wolfgang <wr0112358@gmail.com>
->> Date: Tue,  3 Jan 2017 01:39:10 +0100
->> 
->> > Final nlmsg_len field update must reflect inserted net_dm_drop_point
->> > data.
->> > 
->> > This patch depends on previous patch:
->> > "drop_monitor: add missing call to genlmsg_end"
->> > 
->> > Signed-off-by: Reiter Wolfgang <wr0112358@gmail.com>
->> 
->> I don't understand why the current code doesn't work properly.
->> 
->> All over the tree, the pattern is:
->> 
->> 	x = genlmsg_put(skb, ...);
->> 	...
->> 	genlmsg_end(skb, x);
->> 
->> And that is exactly what the code is doing right now.
->> 
-> 
-> Because reset_per_cpu_data should close the use of of the established skb
-> that was being written to.  Without this patch we add the END tlv to the skb
-> that is just getting started for use in the drop monitor, rather than for the
-> skb that is getting returned for use in sending up to user space listeners.
-> 
-> Or am I missing something?
+This chip needs MV88E6XXX_FLAG_G2_INT
 
-That's the critical part I didn't see, thanks for explaining.
+Signed-off-by: Volodymyr Bendiuga <volodymyr.bendiuga@westermo.se>
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+---
+ drivers/net/dsa/mv88e6xxx/mv88e6xxx.h | 1 +
+ 1 file changed, 1 insertion(+)
 
-Applied and queued up for -stabel, thanks.
+diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
+index af54bae..431e954 100644
+--- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
+@@ -566,6 +566,7 @@ enum mv88e6xxx_cap {
+ 	(MV88E6XXX_FLAG_G1_ATU_FID |	\
+ 	 MV88E6XXX_FLAG_G1_VTU_FID |	\
+ 	 MV88E6XXX_FLAG_GLOBAL2 |	\
++ 	 MV88E6XXX_FLAG_G2_INT |	\
+ 	 MV88E6XXX_FLAG_G2_MGMT_EN_2X |	\
+ 	 MV88E6XXX_FLAG_G2_MGMT_EN_0X |	\
+ 	 MV88E6XXX_FLAG_G2_POT |	\
+-- 
+2.7.4
