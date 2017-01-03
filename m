@@ -1,32 +1,34 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH v3 net-next 2/2] tools: test case for TPACKET_V3/TX_RING support
-Date: Tue, 3 Jan 2017 10:57:39 -0500
-Message-ID: <CAF=yD-K7FD6-57j9P_r-Hht=xhXKGNLhi7jjU5YyfQVW5KCPfg@mail.gmail.com>
-References: <cover.1483452545.git.sowmini.varadhan@oracle.com> <dcf7fe19d3248b4f523b7f7d22937c61d92a152f.1483452545.git.sowmini.varadhan@oracle.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3 net-next 0/2] TPACKET_V3 TX_RING support
+Date: Tue, 03 Jan 2017 11:01:30 -0500 (EST)
+Message-ID: <20170103.110130.1667423578879473575.davem@davemloft.net>
+References: <cover.1483452545.git.sowmini.varadhan@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Network Development <netdev@vger.kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Willem de Bruijn <willemb@google.com>,
-        David Miller <davem@davemloft.net>
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, daniel@iogearbox.net, willemb@google.com
+To: sowmini.varadhan@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f196.google.com ([209.85.217.196]:34149 "EHLO
-        mail-ua0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1759089AbdACP6V (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2017 10:58:21 -0500
-Received: by mail-ua0-f196.google.com with SMTP id i68so34059933uad.1
-        for <netdev@vger.kernel.org>; Tue, 03 Jan 2017 07:58:20 -0800 (PST)
-In-Reply-To: <dcf7fe19d3248b4f523b7f7d22937c61d92a152f.1483452545.git.sowmini.varadhan@oracle.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:39116 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1759517AbdACQBv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2017 11:01:51 -0500
+In-Reply-To: <cover.1483452545.git.sowmini.varadhan@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 3, 2017 at 9:31 AM, Sowmini Varadhan
-<sowmini.varadhan@oracle.com> wrote:
-> Add a test case and sample code for (TPACKET_V3, PACKET_TX_RING)
->
-> Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Date: Tue,  3 Jan 2017 06:31:46 -0800
 
-Acked-by: Willem de Bruijn <willemb@google.com>
+> This patch series allows an application to use a single PF_PACKET
+> descriptor and leverage the best implementations of TX_RING
+> and RX_RING that exist today.
+> 
+> Patch 1 adds the kernel/Documentation changes for TX_RING
+> support and patch2 adds the associated test case in selftests.
+> 
+> Changes since v2: additional sanity checks for setsockopt
+> input for TX_RING/TPACKET_V3. Refactored psock_tpacket.c
+> test code to avoid code duplication from V2.
 
-Thanks!
+Series applied, thanks.
