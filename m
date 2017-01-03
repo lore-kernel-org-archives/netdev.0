@@ -1,60 +1,84 @@
 From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [PATCH net-next v2 04/27] qlcnic: remove assumption that vlan_tci != 0
-Date: Tue,  3 Jan 2017 21:52:34 +0100 (CET)
-Message-ID: <7ccac9ab645244db2797490cad10a42979d78a32.1483475202.git.mirq-linux@rere.qmqm.pl>
+Subject: [PATCH net-next v2 08/27] net/hyperv: remove use of VLAN_TAG_PRESENT
+Date: Tue,  3 Jan 2017 21:52:35 +0100 (CET)
+Message-ID: <5d2e51e5eae9a64406ba6ca23edc048acb4f1075.1483475202.git.mirq-linux@rere.qmqm.pl>
 References: <cover.1483475202.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: Harish Patil <harish.patil@cavium.com>,
-        Manish Chopra <manish.chopra@cavium.com>,
-        Dept-GELinuxNICDev@cavium.com
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: devel@linuxdriverproject.org, Haiyang Zhang <haiyangz@microsoft.com>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([84.10.57.10]:34672 "EHLO rere.qmqm.pl"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S935888AbdACUwh (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 3 Jan 2017 15:52:37 -0500
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
 In-Reply-To: <cover.1483475202.git.mirq-linux@rere.qmqm.pl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Michał Mirosław <mirq-linux@rere.qmqm.pl>
----
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c | 8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
-index fedd7366713c..c3cc707cc265 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
-@@ -459,7 +459,7 @@ static int qlcnic_tx_pkt(struct qlcnic_adapter *adapter,
- 			 struct cmd_desc_type0 *first_desc, struct sk_buff *skb,
- 			 struct qlcnic_host_tx_ring *tx_ring)
- {
--	u8 l4proto, opcode = 0, hdr_len = 0;
-+	u8 l4proto, opcode = 0, hdr_len = 0, tag_vlan = 0;
- 	u16 flags = 0, vlan_tci = 0;
- 	int copied, offset, copy_len, size;
- 	struct cmd_desc_type0 *hwdesc;
-@@ -472,14 +472,16 @@ static int qlcnic_tx_pkt(struct qlcnic_adapter *adapter,
- 		flags = QLCNIC_FLAGS_VLAN_TAGGED;
- 		vlan_tci = ntohs(vh->h_vlan_TCI);
- 		protocol = ntohs(vh->h_vlan_encapsulated_proto);
-+		tag_vlan = 1;
- 	} else if (skb_vlan_tag_present(skb)) {
- 		flags = QLCNIC_FLAGS_VLAN_OOB;
- 		vlan_tci = skb_vlan_tag_get(skb);
-+		tag_vlan = 1;
- 	}
- 	if (unlikely(adapter->tx_pvid)) {
--		if (vlan_tci && !(adapter->flags & QLCNIC_TAGGING_ENABLED))
-+		if (tag_vlan && !(adapter->flags & QLCNIC_TAGGING_ENABLED))
- 			return -EIO;
--		if (vlan_tci && (adapter->flags & QLCNIC_TAGGING_ENABLED))
-+		if (tag_vlan && (adapter->flags & QLCNIC_TAGGING_ENABLED))
- 			goto set_flags;
- 
- 		flags = QLCNIC_FLAGS_VLAN_OOB;
--- 
-2.11.0
+U2lnbmVkLW9mZi1ieTogTWljaGHFgiBNaXJvc8WCYXcgPG1pcnEtbGludXhAcmVyZS5xbXFtLnBs
+PgotLS0KIGRyaXZlcnMvbmV0L2h5cGVydi9oeXBlcnZfbmV0LmggICB8ICAyICstCiBkcml2ZXJz
+L25ldC9oeXBlcnYvbmV0dnNjX2Rydi5jICAgfCAxMyArKysrKystLS0tLS0tCiBkcml2ZXJzL25l
+dC9oeXBlcnYvcm5kaXNfZmlsdGVyLmMgfCAgNCArKy0tCiAzIGZpbGVzIGNoYW5nZWQsIDkgaW5z
+ZXJ0aW9ucygrKSwgMTAgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvaHlw
+ZXJ2L2h5cGVydl9uZXQuaCBiL2RyaXZlcnMvbmV0L2h5cGVydi9oeXBlcnZfbmV0LmgKaW5kZXgg
+Mzk1OGFkYWRlN2ViLi5iNTM3MjllODVhNzkgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0L2h5cGVy
+di9oeXBlcnZfbmV0LmgKKysrIGIvZHJpdmVycy9uZXQvaHlwZXJ2L2h5cGVydl9uZXQuaApAQCAt
+MTg2LDcgKzE4Niw3IEBAIGludCBuZXR2c2NfcmVjdl9jYWxsYmFjayhzdHJ1Y3QgaHZfZGV2aWNl
+ICpkZXZpY2Vfb2JqLAogCQkJdm9pZCAqKmRhdGEsCiAJCQlzdHJ1Y3QgbmRpc190Y3BfaXBfY2hl
+Y2tzdW1faW5mbyAqY3N1bV9pbmZvLAogCQkJc3RydWN0IHZtYnVzX2NoYW5uZWwgKmNoYW5uZWws
+Ci0JCQl1MTYgdmxhbl90Y2kpOworCQkJdTE2IHZsYW5fdGNpLCBib29sIHZsYW5fcHJlc2VudCk7
+CiB2b2lkIG5ldHZzY19jaGFubmVsX2NiKHZvaWQgKmNvbnRleHQpOwogaW50IHJuZGlzX2ZpbHRl
+cl9vcGVuKHN0cnVjdCBuZXR2c2NfZGV2aWNlICpudmRldik7CiBpbnQgcm5kaXNfZmlsdGVyX2Ns
+b3NlKHN0cnVjdCBuZXR2c2NfZGV2aWNlICpudmRldik7CmRpZmYgLS1naXQgYS9kcml2ZXJzL25l
+dC9oeXBlcnYvbmV0dnNjX2Rydi5jIGIvZHJpdmVycy9uZXQvaHlwZXJ2L25ldHZzY19kcnYuYwpp
+bmRleCBjOTQxNGMwNTQ4NTIuLjY1OTdkNzkwMTkyOSAxMDA2NDQKLS0tIGEvZHJpdmVycy9uZXQv
+aHlwZXJ2L25ldHZzY19kcnYuYworKysgYi9kcml2ZXJzL25ldC9oeXBlcnYvbmV0dnNjX2Rydi5j
+CkBAIC01OTUsNyArNTk1LDcgQEAgdm9pZCBuZXR2c2NfbGlua3N0YXR1c19jYWxsYmFjayhzdHJ1
+Y3QgaHZfZGV2aWNlICpkZXZpY2Vfb2JqLAogc3RhdGljIHN0cnVjdCBza19idWZmICpuZXR2c2Nf
+YWxsb2NfcmVjdl9za2Ioc3RydWN0IG5ldF9kZXZpY2UgKm5ldCwKIAkJCQlzdHJ1Y3QgaHZfbmV0
+dnNjX3BhY2tldCAqcGFja2V0LAogCQkJCXN0cnVjdCBuZGlzX3RjcF9pcF9jaGVja3N1bV9pbmZv
+ICpjc3VtX2luZm8sCi0JCQkJdm9pZCAqZGF0YSwgdTE2IHZsYW5fdGNpKQorCQkJCXZvaWQgKmRh
+dGEpCiB7CiAJc3RydWN0IHNrX2J1ZmYgKnNrYjsKIApAQCAtNjI1LDEwICs2MjUsNiBAQCBzdGF0
+aWMgc3RydWN0IHNrX2J1ZmYgKm5ldHZzY19hbGxvY19yZWN2X3NrYihzdHJ1Y3QgbmV0X2Rldmlj
+ZSAqbmV0LAogCQkJc2tiLT5pcF9zdW1tZWQgPSBDSEVDS1NVTV9VTk5FQ0VTU0FSWTsKIAl9CiAK
+LQlpZiAodmxhbl90Y2kgJiBWTEFOX1RBR19QUkVTRU5UKQotCQlfX3ZsYW5faHdhY2NlbF9wdXRf
+dGFnKHNrYiwgaHRvbnMoRVRIX1BfODAyMVEpLAotCQkJCSAgICAgICB2bGFuX3RjaSk7Ci0KIAly
+ZXR1cm4gc2tiOwogfQogCkBAIC02NDEsNyArNjM3LDcgQEAgaW50IG5ldHZzY19yZWN2X2NhbGxi
+YWNrKHN0cnVjdCBodl9kZXZpY2UgKmRldmljZV9vYmosCiAJCQkJdm9pZCAqKmRhdGEsCiAJCQkJ
+c3RydWN0IG5kaXNfdGNwX2lwX2NoZWNrc3VtX2luZm8gKmNzdW1faW5mbywKIAkJCQlzdHJ1Y3Qg
+dm1idXNfY2hhbm5lbCAqY2hhbm5lbCwKLQkJCQl1MTYgdmxhbl90Y2kpCisJCQkJdTE2IHZsYW5f
+dGNpLCBib29sIHZsYW5fcHJlc2VudCkKIHsKIAlzdHJ1Y3QgbmV0X2RldmljZSAqbmV0ID0gaHZf
+Z2V0X2RydmRhdGEoZGV2aWNlX29iaik7CiAJc3RydWN0IG5ldF9kZXZpY2VfY29udGV4dCAqbmV0
+X2RldmljZV9jdHggPSBuZXRkZXZfcHJpdihuZXQpOwpAQCAtNjY0LDEyICs2NjAsMTUgQEAgaW50
+IG5ldHZzY19yZWN2X2NhbGxiYWNrKHN0cnVjdCBodl9kZXZpY2UgKmRldmljZV9vYmosCiAJCW5l
+dCA9IHZmX25ldGRldjsKIAogCS8qIEFsbG9jYXRlIGEgc2tiIC0gVE9ETyBkaXJlY3QgSS9PIHRv
+IHBhZ2VzPyAqLwotCXNrYiA9IG5ldHZzY19hbGxvY19yZWN2X3NrYihuZXQsIHBhY2tldCwgY3N1
+bV9pbmZvLCAqZGF0YSwgdmxhbl90Y2kpOworCXNrYiA9IG5ldHZzY19hbGxvY19yZWN2X3NrYihu
+ZXQsIHBhY2tldCwgY3N1bV9pbmZvLCAqZGF0YSk7CiAJaWYgKHVubGlrZWx5KCFza2IpKSB7CiAJ
+CSsrbmV0LT5zdGF0cy5yeF9kcm9wcGVkOwogCQlyZXR1cm4gTlZTUF9TVEFUX0ZBSUw7CiAJfQog
+CisJaWYgKHZsYW5fcHJlc2VudCkKKwkJX192bGFuX2h3YWNjZWxfcHV0X3RhZyhza2IsIGh0b25z
+KEVUSF9QXzgwMjFRKSwgdmxhbl90Y2kpOworCiAJaWYgKG5ldCAhPSB2Zl9uZXRkZXYpCiAJCXNr
+Yl9yZWNvcmRfcnhfcXVldWUoc2tiLAogCQkJCSAgICBjaGFubmVsLT5vZmZlcm1zZy5vZmZlci5z
+dWJfY2hhbm5lbF9pbmRleCk7CmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9oeXBlcnYvcm5kaXNf
+ZmlsdGVyLmMgYi9kcml2ZXJzL25ldC9oeXBlcnYvcm5kaXNfZmlsdGVyLmMKaW5kZXggOGQ5MDkw
+NGUwZTQ5Li43ZjdiNDEwYTQxYzIgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0L2h5cGVydi9ybmRp
+c19maWx0ZXIuYworKysgYi9kcml2ZXJzL25ldC9oeXBlcnYvcm5kaXNfZmlsdGVyLmMKQEAgLTM4
+MSwxMyArMzgxLDEzIEBAIHN0YXRpYyBpbnQgcm5kaXNfZmlsdGVyX3JlY2VpdmVfZGF0YShzdHJ1
+Y3Qgcm5kaXNfZGV2aWNlICpkZXYsCiAKIAl2bGFuID0gcm5kaXNfZ2V0X3BwaShybmRpc19wa3Qs
+IElFRUVfODAyMVFfSU5GTyk7CiAJaWYgKHZsYW4pIHsKLQkJdmxhbl90Y2kgPSBWTEFOX1RBR19Q
+UkVTRU5UIHwgdmxhbi0+dmxhbmlkIHwKKwkJdmxhbl90Y2kgPSB2bGFuLT52bGFuaWQgfAogCQkJ
+KHZsYW4tPnByaSA8PCBWTEFOX1BSSU9fU0hJRlQpOwogCX0KIAogCWNzdW1faW5mbyA9IHJuZGlz
+X2dldF9wcGkocm5kaXNfcGt0LCBUQ1BJUF9DSEtTVU1fUEtUSU5GTyk7CiAJcmV0dXJuIG5ldHZz
+Y19yZWN2X2NhbGxiYWNrKG5ldF9kZXZpY2VfY3R4LT5kZXZpY2VfY3R4LCBwa3QsIGRhdGEsCi0J
+CQkJICAgIGNzdW1faW5mbywgY2hhbm5lbCwgdmxhbl90Y2kpOworCQkJCSAgICBjc3VtX2luZm8s
+IGNoYW5uZWwsIHZsYW5fdGNpLCB2bGFuKTsKIH0KIAogaW50IHJuZGlzX2ZpbHRlcl9yZWNlaXZl
+KHN0cnVjdCBodl9kZXZpY2UgKmRldiwKLS0gCjIuMTEuMAoKX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2ZWwgbWFpbGluZyBsaXN0CmRldmVsQGxpbnV4
+ZHJpdmVycHJvamVjdC5vcmcKaHR0cDovL2RyaXZlcmRldi5saW51eGRyaXZlcnByb2plY3Qub3Jn
+L21haWxtYW4vbGlzdGluZm8vZHJpdmVyZGV2LWRldmVsCg==
