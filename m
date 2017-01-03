@@ -1,127 +1,97 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 12/21] ixgbevf: fix AER error handling
-Date: Tue,  3 Jan 2017 13:07:48 -0800
-Message-ID: <20170103210757.38847-13-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 13/21] ixgbe: Fix incorrect bitwise operations of PTP Rx timestamp flags
+Date: Tue,  3 Jan 2017 13:07:49 -0800
+Message-ID: <20170103210757.38847-14-jeffrey.t.kirsher@intel.com>
 References: <20170103210757.38847-1-jeffrey.t.kirsher@intel.com>
-Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
+Cc: Yusuke Suzuki <yus-suzuki@uf.jp.nec.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
         guru.anbalagane@oracle.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:3461 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:25260 "EHLO mga14.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S966317AbdACVIP (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 3 Jan 2017 16:08:15 -0500
+        id S966319AbdACVIQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 3 Jan 2017 16:08:16 -0500
 In-Reply-To: <20170103210757.38847-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Emil Tantilov <emil.s.tantilov@intel.com>
+From: Yusuke Suzuki <yus-suzuki@uf.jp.nec.com>
 
-Make sure that we free the IRQs in ixgbevf_io_error_detected() when
-responding to an PCIe AER error and also restore them when the
-interface recovers from it.
+Rx timestamp does not work on 82599 and X540 because bitwise operation
+of RX_HWTSTAMP flags is incorrect and ixgbe_ptp_rx_hwtstamp() is never
+called. This patch fixes it to enable Rx timestamp on 82599 and X540.
 
-Previously it was possible to trigger BUG_ON() check in free_msix_irqs()
-in the case where we call ixgbevf_remove() after a failed recovery from
-AER error because the interrupts were not freed.
+Without this fix:
+ptp4l[278.730]: selected /dev/ptp8 as PTP clock
+ptp4l[278.733]: port 1: INITIALIZING to LISTENING on INITIALIZE
+ptp4l[278.733]: port 0: INITIALIZING to LISTENING on INITIALIZE
+ptp4l[278.834]: port 1: received SYNC without timestamp
+ptp4l[278.835]: port 1: new foreign master 1c3947.fffe.60f9cc-1
+ptp4l[279.834]: port 1: received SYNC without timestamp
+ptp4l[280.834]: port 1: received SYNC without timestamp
+ptp4l[281.834]: port 1: received SYNC without timestamp
+ptp4l[282.834]: port 1: received SYNC without timestamp
+ptp4l[282.835]: selected best master clock 1c3947.fffe.60f9cc
+ptp4l[282.835]: port 1: LISTENING to UNCALIBRATED on RS_SLAVE
+ptp4l[283.834]: port 1: received SYNC without timestamp
 
-Also moved the down and free functions into ixgbevf_close_suspend()
-same as with ixgbe.
+With this fix:
+ptp4l[239.154]: selected /dev/ptp8 as PTP clock
+ptp4l[239.157]: port 1: INITIALIZING to LISTENING on INITIALIZE
+ptp4l[239.157]: port 0: INITIALIZING to LISTENING on INITIALIZE
+ptp4l[240.989]: port 1: new foreign master 1c3947.fffe.60f9cc-1
+ptp4l[244.989]: selected best master clock 1c3947.fffe.60f9cc
+ptp4l[244.989]: port 1: LISTENING to UNCALIBRATED on RS_SLAVE
+ptp4l[246.977]: master offset -899583339542096 s0 freq      +0 path delay     16222
+ptp4l[247.977]: master offset -899583339617265 s1 freq  -75169 path delay     16177
+ptp4l[248.977]: master offset       -130 s2 freq  -75299 path delay     16177
+ptp4l[248.977]: port 1: UNCALIBRATED to SLAVE on MASTER_CLOCK_SELECTED
+ptp4l[249.977]: master offset         -9 s2 freq  -75217 path delay     16177
+ptp4l[250.977]: master offset         88 s2 freq  -75123 path delay     16132
 
-Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+Fixes: a9763f3cb54c ("ixgbe: Update PTP to support X550EM_x devices")
+Signed-off-by: Yusuke Suzuki <yus-suzuki@uf.jp.nec.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 43 +++++++++++++----------
- 1 file changed, 25 insertions(+), 18 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-index 8574f21..a78e490 100644
---- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
-@@ -3228,6 +3228,21 @@ int ixgbevf_open(struct net_device *netdev)
- }
- 
- /**
-+ * ixgbevf_close_suspend - actions necessary to both suspend and close flows
-+ * @adapter: the private adapter struct
-+ *
-+ * This function should contain the necessary work common to both suspending
-+ * and closing of the device.
-+ */
-+static void ixgbevf_close_suspend(struct ixgbevf_adapter *adapter)
-+{
-+	ixgbevf_down(adapter);
-+	ixgbevf_free_irq(adapter);
-+	ixgbevf_free_all_tx_resources(adapter);
-+	ixgbevf_free_all_rx_resources(adapter);
-+}
-+
-+/**
-  * ixgbevf_close - Disables a network interface
-  * @netdev: network interface device structure
-  *
-@@ -3242,14 +3257,8 @@ int ixgbevf_close(struct net_device *netdev)
- {
- 	struct ixgbevf_adapter *adapter = netdev_priv(netdev);
- 
--	if (!netif_device_present(netdev))
--		return 0;
--
--	ixgbevf_down(adapter);
--	ixgbevf_free_irq(adapter);
--
--	ixgbevf_free_all_tx_resources(adapter);
--	ixgbevf_free_all_rx_resources(adapter);
-+	if (netif_device_present(netdev))
-+		ixgbevf_close_suspend(adapter);
- 
- 	return 0;
- }
-@@ -3806,13 +3815,10 @@ static int ixgbevf_suspend(struct pci_dev *pdev, pm_message_t state)
- 	rtnl_lock();
- 	netif_device_detach(netdev);
- 
--	if (netif_running(netdev)) {
--		ixgbevf_down(adapter);
--		ixgbevf_free_irq(adapter);
--		ixgbevf_free_all_tx_resources(adapter);
--		ixgbevf_free_all_rx_resources(adapter);
--		ixgbevf_clear_interrupt_scheme(adapter);
--	}
-+	if (netif_running(netdev))
-+		ixgbevf_close_suspend(adapter);
-+
-+	ixgbevf_clear_interrupt_scheme(adapter);
- 	rtnl_unlock();
- 
- #ifdef CONFIG_PM
-@@ -4251,7 +4257,7 @@ static pci_ers_result_t ixgbevf_io_error_detected(struct pci_dev *pdev,
- 	}
- 
- 	if (netif_running(netdev))
--		ixgbevf_down(adapter);
-+		ixgbevf_close_suspend(adapter);
- 
- 	if (!test_and_set_bit(__IXGBEVF_DISABLED, &adapter->state))
- 		pci_disable_device(pdev);
-@@ -4299,12 +4305,13 @@ static pci_ers_result_t ixgbevf_io_slot_reset(struct pci_dev *pdev)
- static void ixgbevf_io_resume(struct pci_dev *pdev)
- {
- 	struct net_device *netdev = pci_get_drvdata(pdev);
--	struct ixgbevf_adapter *adapter = netdev_priv(netdev);
- 
-+	rtnl_lock();
- 	if (netif_running(netdev))
--		ixgbevf_up(adapter);
-+		ixgbevf_open(netdev);
- 
- 	netif_device_attach(netdev);
-+	rtnl_unlock();
- }
- 
- /* PCI Error Recovery (ERS) */
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
+index 1efb404..ef0635e 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
+@@ -858,14 +858,14 @@ static int ixgbe_ptp_set_timestamp_mode(struct ixgbe_adapter *adapter,
+ 	case HWTSTAMP_FILTER_PTP_V1_L4_SYNC:
+ 		tsync_rx_ctl |= IXGBE_TSYNCRXCTL_TYPE_L4_V1;
+ 		tsync_rx_mtrl |= IXGBE_RXMTRL_V1_SYNC_MSG;
+-		adapter->flags &= ~(IXGBE_FLAG_RX_HWTSTAMP_ENABLED |
+-				    IXGBE_FLAG_RX_HWTSTAMP_IN_REGISTER);
++		adapter->flags |= (IXGBE_FLAG_RX_HWTSTAMP_ENABLED |
++				   IXGBE_FLAG_RX_HWTSTAMP_IN_REGISTER);
+ 		break;
+ 	case HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ:
+ 		tsync_rx_ctl |= IXGBE_TSYNCRXCTL_TYPE_L4_V1;
+ 		tsync_rx_mtrl |= IXGBE_RXMTRL_V1_DELAY_REQ_MSG;
+-		adapter->flags &= ~(IXGBE_FLAG_RX_HWTSTAMP_ENABLED |
+-				    IXGBE_FLAG_RX_HWTSTAMP_IN_REGISTER);
++		adapter->flags |= (IXGBE_FLAG_RX_HWTSTAMP_ENABLED |
++				   IXGBE_FLAG_RX_HWTSTAMP_IN_REGISTER);
+ 		break;
+ 	case HWTSTAMP_FILTER_PTP_V2_EVENT:
+ 	case HWTSTAMP_FILTER_PTP_V2_L2_EVENT:
+@@ -879,8 +879,8 @@ static int ixgbe_ptp_set_timestamp_mode(struct ixgbe_adapter *adapter,
+ 		tsync_rx_ctl |= IXGBE_TSYNCRXCTL_TYPE_EVENT_V2;
+ 		is_l2 = true;
+ 		config->rx_filter = HWTSTAMP_FILTER_PTP_V2_EVENT;
+-		adapter->flags &= ~(IXGBE_FLAG_RX_HWTSTAMP_ENABLED |
+-				    IXGBE_FLAG_RX_HWTSTAMP_IN_REGISTER);
++		adapter->flags |= (IXGBE_FLAG_RX_HWTSTAMP_ENABLED |
++				   IXGBE_FLAG_RX_HWTSTAMP_IN_REGISTER);
+ 		break;
+ 	case HWTSTAMP_FILTER_PTP_V1_L4_EVENT:
+ 	case HWTSTAMP_FILTER_ALL:
 -- 
 2.9.3
