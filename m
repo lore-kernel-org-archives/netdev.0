@@ -1,187 +1,165 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 18/21] ixgbe: Implement firmware interface to access some PHYs
-Date: Tue,  3 Jan 2017 13:07:54 -0800
-Message-ID: <20170103210757.38847-19-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 20/21] ixgbevf: Add support for VF promiscuous mode
+Date: Tue,  3 Jan 2017 13:07:56 -0800
+Message-ID: <20170103210757.38847-21-jeffrey.t.kirsher@intel.com>
 References: <20170103210757.38847-1-jeffrey.t.kirsher@intel.com>
-Cc: Mark Rustad <mark.d.rustad@intel.com>, netdev@vger.kernel.org,
+Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
         nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
         guru.anbalagane@oracle.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:3461 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:25260 "EHLO mga14.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S966332AbdACVIU (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 3 Jan 2017 16:08:20 -0500
+        id S966334AbdACVIV (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 3 Jan 2017 16:08:21 -0500
 In-Reply-To: <20170103210757.38847-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mark Rustad <mark.d.rustad@intel.com>
+From: Don Skidmore <donald.c.skidmore@intel.com>
 
-Implement new interface for firmware commands to access some PHYs.
+This patch extends the mailbox message to allow for VF promiscuous
+mode support.
 
-Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
-Tested-by: Krishneil Singh <krishneil.k.singh@intel.com>
+Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.h |  2 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h   | 66 +++++++++++++++++++++++++
- drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c   | 45 +++++++++++++++++
- 3 files changed, 113 insertions(+)
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |  1 +
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 15 +++++++++++++-
+ drivers/net/ethernet/intel/ixgbevf/mbx.h          |  1 +
+ drivers/net/ethernet/intel/ixgbevf/vf.c           | 24 +++++++++++++++++++----
+ 4 files changed, 36 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-index 671a0cd..e083732 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.h
-@@ -116,6 +116,8 @@ u8 ixgbe_calculate_checksum(u8 *buffer, u32 length);
- s32 ixgbe_host_interface_command(struct ixgbe_hw *hw, void *, u32 length,
- 				 u32 timeout, bool return_data);
- s32 ixgbe_hic_unlocked(struct ixgbe_hw *hw, u32 *buffer, u32 len, u32 timeout);
-+s32 ixgbe_fw_phy_activity(struct ixgbe_hw *hw, u16 activity,
-+			  u32 (*data)[FW_PHY_ACT_DATA_COUNT]);
- void ixgbe_clear_tx_pending(struct ixgbe_hw *hw);
- bool ixgbe_mng_present(struct ixgbe_hw *hw);
- bool ixgbe_mng_enabled(struct ixgbe_hw *hw);
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-index 5c59b3c..a8f2d70 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-@@ -2645,6 +2645,59 @@ enum ixgbe_fdir_pballoc_type {
- #define FW_INT_PHY_REQ_LEN		10
- #define FW_INT_PHY_REQ_READ		0
- #define FW_INT_PHY_REQ_WRITE		1
-+#define FW_PHY_ACT_REQ_CMD		5
-+#define FW_PHY_ACT_DATA_COUNT		4
-+#define FW_PHY_ACT_REQ_LEN		(4 + 4 * FW_PHY_ACT_DATA_COUNT)
-+#define FW_PHY_ACT_INIT_PHY		1
-+#define FW_PHY_ACT_SETUP_LINK		2
-+#define FW_PHY_ACT_LINK_SPEED_10	BIT(0)
-+#define FW_PHY_ACT_LINK_SPEED_100	BIT(1)
-+#define FW_PHY_ACT_LINK_SPEED_1G	BIT(2)
-+#define FW_PHY_ACT_LINK_SPEED_2_5G	BIT(3)
-+#define FW_PHY_ACT_LINK_SPEED_5G	BIT(4)
-+#define FW_PHY_ACT_LINK_SPEED_10G	BIT(5)
-+#define FW_PHY_ACT_LINK_SPEED_20G	BIT(6)
-+#define FW_PHY_ACT_LINK_SPEED_25G	BIT(7)
-+#define FW_PHY_ACT_LINK_SPEED_40G	BIT(8)
-+#define FW_PHY_ACT_LINK_SPEED_50G	BIT(9)
-+#define FW_PHY_ACT_LINK_SPEED_100G	BIT(10)
-+#define FW_PHY_ACT_SETUP_LINK_PAUSE_SHIFT 16
-+#define FW_PHY_ACT_SETUP_LINK_PAUSE_MASK (3 << \
-+					  HW_PHY_ACT_SETUP_LINK_PAUSE_SHIFT)
-+#define FW_PHY_ACT_SETUP_LINK_PAUSE_NONE 0u
-+#define FW_PHY_ACT_SETUP_LINK_PAUSE_TX	1u
-+#define FW_PHY_ACT_SETUP_LINK_PAUSE_RX	2u
-+#define FW_PHY_ACT_SETUP_LINK_PAUSE_RXTX 3u
-+#define FW_PHY_ACT_SETUP_LINK_LP	BIT(18)
-+#define FW_PHY_ACT_SETUP_LINK_HP	BIT(19)
-+#define FW_PHY_ACT_SETUP_LINK_EEE	BIT(20)
-+#define FW_PHY_ACT_SETUP_LINK_AN	BIT(22)
-+#define FW_PHY_ACT_SETUP_LINK_RSP_DOWN	BIT(0)
-+#define FW_PHY_ACT_GET_LINK_INFO	3
-+#define FW_PHY_ACT_GET_LINK_INFO_EEE	BIT(19)
-+#define FW_PHY_ACT_GET_LINK_INFO_FC_TX	BIT(20)
-+#define FW_PHY_ACT_GET_LINK_INFO_FC_RX	BIT(21)
-+#define FW_PHY_ACT_GET_LINK_INFO_POWER	BIT(22)
-+#define FW_PHY_ACT_GET_LINK_INFO_AN_COMPLETE	BIT(24)
-+#define FW_PHY_ACT_GET_LINK_INFO_TEMP	BIT(25)
-+#define FW_PHY_ACT_GET_LINK_INFO_LP_FC_TX	BIT(28)
-+#define FW_PHY_ACT_GET_LINK_INFO_LP_FC_RX	BIT(29)
-+#define FW_PHY_ACT_FORCE_LINK_DOWN	4
-+#define FW_PHY_ACT_FORCE_LINK_DOWN_OFF	BIT(0)
-+#define FW_PHY_ACT_PHY_SW_RESET		5
-+#define FW_PHY_ACT_PHY_HW_RESET		6
-+#define FW_PHY_ACT_GET_PHY_INFO		7
-+#define FW_PHY_ACT_UD_2			0x1002
-+#define FW_PHY_ACT_UD_2_10G_KR_EEE	BIT(6)
-+#define FW_PHY_ACT_UD_2_10G_KX4_EEE	BIT(5)
-+#define FW_PHY_ACT_UD_2_1G_KX_EEE	BIT(4)
-+#define FW_PHY_ACT_UD_2_10G_T_EEE	BIT(3)
-+#define FW_PHY_ACT_UD_2_1G_T_EEE	BIT(2)
-+#define FW_PHY_ACT_UD_2_100M_TX_EEE	BIT(1)
-+#define FW_PHY_ACT_RETRIES		50
-+#define FW_PHY_INFO_SPEED_MASK		0xFFFu
-+#define FW_PHY_INFO_ID_HI_MASK		0xFFFF0000u
-+#define FW_PHY_INFO_ID_LO_MASK		0x0000FFFFu
- 
- /* Host Interface Command Structures */
- struct ixgbe_hic_hdr {
-@@ -2745,6 +2798,19 @@ struct ixgbe_hic_internal_phy_resp {
- 	__be32 read_data;
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+index 5639fbe..3fe6504 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+@@ -464,6 +464,7 @@ enum ixgbevf_xcast_modes {
+ 	IXGBEVF_XCAST_MODE_NONE = 0,
+ 	IXGBEVF_XCAST_MODE_MULTI,
+ 	IXGBEVF_XCAST_MODE_ALLMULTI,
++	IXGBEVF_XCAST_MODE_PROMISC,
  };
  
-+struct ixgbe_hic_phy_activity_req {
-+	struct ixgbe_hic_hdr hdr;
-+	u8 port_number;
-+	u8 pad;
-+	__le16 activity_id;
-+	__be32 data[FW_PHY_ACT_DATA_COUNT];
-+};
-+
-+struct ixgbe_hic_phy_activity_resp {
-+	struct ixgbe_hic_hdr hdr;
-+	__be32 data[FW_PHY_ACT_DATA_COUNT];
-+};
-+
- /* Transmit Descriptor - Advanced */
- union ixgbe_adv_tx_desc {
- 	struct {
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-index 5a6c4b7..9dc6079 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x550.c
-@@ -402,6 +402,51 @@ ixgbe_write_i2c_combined_generic_unlocked(struct ixgbe_hw *hw,
- 	return ixgbe_write_i2c_combined_generic_int(hw, addr, reg, val, false);
- }
+ extern const struct ixgbevf_info ixgbevf_82599_vf_info;
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+index dc23f56..1a28349 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+@@ -1930,6 +1930,16 @@ static void ixgbevf_set_rx_mode(struct net_device *netdev)
+ 		     (flags & (IFF_BROADCAST | IFF_MULTICAST)) ?
+ 		     IXGBEVF_XCAST_MODE_MULTI : IXGBEVF_XCAST_MODE_NONE;
  
-+/**
-+ * ixgbe_fw_phy_activity - Perform an activity on a PHY
-+ * @hw: pointer to hardware structure
-+ * @activity: activity to perform
-+ * @data: Pointer to 4 32-bit words of data
-+ */
-+s32 ixgbe_fw_phy_activity(struct ixgbe_hw *hw, u16 activity,
-+			  u32 (*data)[FW_PHY_ACT_DATA_COUNT])
-+{
-+	union {
-+		struct ixgbe_hic_phy_activity_req cmd;
-+		struct ixgbe_hic_phy_activity_resp rsp;
-+	} hic;
-+	u16 retries = FW_PHY_ACT_RETRIES;
-+	s32 rc;
-+	u32 i;
++	/* request the most inclusive mode we need */
++	if (flags & IFF_PROMISC)
++		xcast_mode = IXGBEVF_XCAST_MODE_PROMISC;
++	else if (flags & IFF_ALLMULTI)
++		xcast_mode = IXGBEVF_XCAST_MODE_ALLMULTI;
++	else if (flags & (IFF_BROADCAST | IFF_MULTICAST))
++		xcast_mode = IXGBEVF_XCAST_MODE_MULTI;
++	else
++		xcast_mode = IXGBEVF_XCAST_MODE_NONE;
 +
-+	do {
-+		memset(&hic, 0, sizeof(hic));
-+		hic.cmd.hdr.cmd = FW_PHY_ACT_REQ_CMD;
-+		hic.cmd.hdr.buf_len = FW_PHY_ACT_REQ_LEN;
-+		hic.cmd.hdr.checksum = FW_DEFAULT_CHECKSUM;
-+		hic.cmd.port_number = hw->bus.lan_id;
-+		hic.cmd.activity_id = cpu_to_le16(activity);
-+		for (i = 0; i < ARRAY_SIZE(hic.cmd.data); ++i)
-+			hic.cmd.data[i] = cpu_to_be32((*data)[i]);
-+
-+		rc = ixgbe_host_interface_command(hw, &hic.cmd, sizeof(hic.cmd),
-+						  IXGBE_HI_COMMAND_TIMEOUT,
-+						  true);
-+		if (rc)
-+			return rc;
-+		if (hic.rsp.hdr.cmd_or_resp.ret_status ==
-+		    FW_CEM_RESP_STATUS_SUCCESS) {
-+			for (i = 0; i < FW_PHY_ACT_DATA_COUNT; ++i)
-+				(*data)[i] = be32_to_cpu(hic.rsp.data[i]);
-+			return 0;
-+		}
-+		usleep_range(20, 30);
-+		--retries;
-+	} while (retries > 0);
-+
-+	return IXGBE_ERR_HOST_INTERFACE_COMMAND;
-+}
-+
- /** ixgbe_init_eeprom_params_X550 - Initialize EEPROM params
-  *  @hw: pointer to hardware structure
-  *
+ 	spin_lock_bh(&adapter->mbx_lock);
+ 
+ 	hw->mac.ops.update_xcast_mode(hw, xcast_mode);
+@@ -2071,7 +2081,8 @@ static void ixgbevf_init_last_counter_stats(struct ixgbevf_adapter *adapter)
+ static void ixgbevf_negotiate_api(struct ixgbevf_adapter *adapter)
+ {
+ 	struct ixgbe_hw *hw = &adapter->hw;
+-	int api[] = { ixgbe_mbox_api_12,
++	int api[] = { ixgbe_mbox_api_13,
++		      ixgbe_mbox_api_12,
+ 		      ixgbe_mbox_api_11,
+ 		      ixgbe_mbox_api_10,
+ 		      ixgbe_mbox_api_unknown };
+@@ -2373,6 +2384,7 @@ static void ixgbevf_set_num_queues(struct ixgbevf_adapter *adapter)
+ 		switch (hw->api_version) {
+ 		case ixgbe_mbox_api_11:
+ 		case ixgbe_mbox_api_12:
++		case ixgbe_mbox_api_13:
+ 			adapter->num_rx_queues = rss;
+ 			adapter->num_tx_queues = rss;
+ 		default:
+@@ -4117,6 +4129,7 @@ static int ixgbevf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	switch (adapter->hw.api_version) {
+ 	case ixgbe_mbox_api_11:
+ 	case ixgbe_mbox_api_12:
++	case ixgbe_mbox_api_13:
+ 		netdev->max_mtu = IXGBE_MAX_JUMBO_FRAME_SIZE -
+ 				  (ETH_HLEN + ETH_FCS_LEN);
+ 		break;
+diff --git a/drivers/net/ethernet/intel/ixgbevf/mbx.h b/drivers/net/ethernet/intel/ixgbevf/mbx.h
+index 340cdd4..bc0442a 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/mbx.h
++++ b/drivers/net/ethernet/intel/ixgbevf/mbx.h
+@@ -84,6 +84,7 @@ enum ixgbe_pfvf_api_rev {
+ 	ixgbe_mbox_api_20,	/* API version 2.0, solaris Phase1 VF driver */
+ 	ixgbe_mbox_api_11,	/* API version 1.1, linux/freebsd VF driver */
+ 	ixgbe_mbox_api_12,	/* API version 1.2, linux/freebsd VF driver */
++	ixgbe_mbox_api_13,	/* API version 1.3, linux/freebsd VF driver */
+ 	/* This value should always be last */
+ 	ixgbe_mbox_api_unknown,	/* indicates that API version is not known */
+ };
+diff --git a/drivers/net/ethernet/intel/ixgbevf/vf.c b/drivers/net/ethernet/intel/ixgbevf/vf.c
+index d46ba1d..8a5db9d 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/vf.c
++++ b/drivers/net/ethernet/intel/ixgbevf/vf.c
+@@ -330,9 +330,14 @@ int ixgbevf_get_reta_locked(struct ixgbe_hw *hw, u32 *reta, int num_rx_queues)
+ 	 * Thus return an error if API doesn't support RETA querying or querying
+ 	 * is not supported for this device type.
+ 	 */
+-	if (hw->api_version != ixgbe_mbox_api_12 ||
+-	    hw->mac.type >= ixgbe_mac_X550_vf)
++	switch (hw->api_version) {
++	case ixgbe_mbox_api_13:
++	case ixgbe_mbox_api_12:
++		if (hw->mac.type >= ixgbe_mac_X550_vf)
++			break;
++	default:
+ 		return -EOPNOTSUPP;
++	}
+ 
+ 	msgbuf[0] = IXGBE_VF_GET_RETA;
+ 
+@@ -391,9 +396,14 @@ int ixgbevf_get_rss_key_locked(struct ixgbe_hw *hw, u8 *rss_key)
+ 	 * Thus return an error if API doesn't support RSS Random Key retrieval
+ 	 * or if the operation is not supported for this device type.
+ 	 */
+-	if (hw->api_version != ixgbe_mbox_api_12 ||
+-	    hw->mac.type >= ixgbe_mac_X550_vf)
++	switch (hw->api_version) {
++	case ixgbe_mbox_api_13:
++	case ixgbe_mbox_api_12:
++		if (hw->mac.type >= ixgbe_mac_X550_vf)
++			break;
++	default:
+ 		return -EOPNOTSUPP;
++	}
+ 
+ 	msgbuf[0] = IXGBE_VF_GET_RSS_KEY;
+ 	err = hw->mbx.ops.write_posted(hw, msgbuf, 1);
+@@ -545,6 +555,11 @@ static s32 ixgbevf_update_xcast_mode(struct ixgbe_hw *hw, int xcast_mode)
+ 
+ 	switch (hw->api_version) {
+ 	case ixgbe_mbox_api_12:
++		/* promisc introduced in 1.3 version */
++		if (xcast_mode == IXGBEVF_XCAST_MODE_PROMISC)
++			return -EOPNOTSUPP;
++		/* Fall threw */
++	case ixgbe_mbox_api_13:
+ 		break;
+ 	default:
+ 		return -EOPNOTSUPP;
+@@ -884,6 +899,7 @@ int ixgbevf_get_queues(struct ixgbe_hw *hw, unsigned int *num_tcs,
+ 	switch (hw->api_version) {
+ 	case ixgbe_mbox_api_11:
+ 	case ixgbe_mbox_api_12:
++	case ixgbe_mbox_api_13:
+ 		break;
+ 	default:
+ 		return 0;
 -- 
 2.9.3
