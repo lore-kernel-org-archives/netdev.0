@@ -1,64 +1,57 @@
-From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
-Subject: Re: [PATCH net-next v2 00/27] Allow passing of VLAN CFI bit through
- network stack
-Date: Wed, 4 Jan 2017 00:36:04 +0100
-Message-ID: <20170103233604.emtqvyb7zj22cvgg@rere.qmqm.pl>
-References: <cover.1481586602.git.mirq-linux@rere.qmqm.pl>
- <cover.1483475202.git.mirq-linux@rere.qmqm.pl>
- <20170103.163217.697324652959765171.davem@davemloft.net>
- <20170103232151.hq65poblr4bfvc4z@rere.qmqm.pl>
+From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Subject: [PATCH net-next 1/3] net/vlan: introduce __vlan_hwaccel_clear_tag()
+ helper
+Date: Wed,  4 Jan 2017 00:53:50 +0100 (CET)
+Message-ID: <deadd7b0b65b538196f74876384f7b9bd12a0804.1483487429.git.mirq-linux@rere.qmqm.pl>
+References: <cover.1483487429.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([84.10.57.10]:36820 "EHLO rere.qmqm.pl"
+Received: from rere.qmqm.pl ([84.10.57.10]:37052 "EHLO rere.qmqm.pl"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1759814AbdACXgI (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 3 Jan 2017 18:36:08 -0500
-Content-Disposition: inline
-In-Reply-To: <20170103232151.hq65poblr4bfvc4z@rere.qmqm.pl>
+        id S965138AbdACXxx (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 3 Jan 2017 18:53:53 -0500
+In-Reply-To: <cover.1483487429.git.mirq-linux@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 04, 2017 at 12:21:51AM +0100, Micha≥ Miros≥aw wrote:
-> On Tue, Jan 03, 2017 at 04:32:17PM -0500, David Miller wrote:
-> > From: Micha≥ Miros≥aw <mirq-linux@rere.qmqm.pl>
-> > Date: Tue,  3 Jan 2017 21:52:33 +0100 (CET)
-> > 
-> > > Dear NetDevs
-> > > 
-> > > This series removes an abuse of VLAN CFI bit in Linux networking stack.
-> > > Currently Linux always clears the bit on outgoing traffic and presents
-> > > it cleared to userspace (even via AF_PACKET/tcpdump when hw-accelerated).
-> > > 
-> > > This uses a new vlan_present bit in struct skbuff, and removes an assumption
-> > > that vlan_proto != 0 when VLAN tag is present.
-> > > 
-> > > As I can't test most of the driver changes, please look at them carefully.
-> > > 
-> > > The series is supposed to be bisect-friendly and that requires temporary
-> > > insertion of #define VLAN_TAG_PRESENT in BPF code to be able to split
-> > > JIT changes per architecture.
-> > > 
-> > > Best Regards,
-> > > Micha≥ Miros≥aw
-> > > 
-> > > v2: rebase onto net-next
-> > 
-> > This patch series is really way too large.
-> > 
-> > You're going to have to find a way to combine related changes, or submit
-> > this as a series of logical sets, one at a time.
-> 
-> The dependency graph is really sparse: main patch 25 depends on all previous,
-> 19-23 all depend only on 18 and 26 depends on 25.
-> 
-> That's it. So the question is: how would it be easier for you to manage?
+Signed-off-by: Micha≈Ç Miros≈Çaw <mirq-linux@rere.qmqm.pl>
+---
+ include/linux/if_vlan.h | 13 ++++++++++++-
+ 1 file changed, 12 insertions(+), 1 deletion(-)
 
-Ah, I forgot about patches 1-2 that most depend on... So if you get those two
-early, then most others can be split.
-
-Best Regards,
-Micha≥†Miros≥aw
+diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
+index 8d5fcd6284ce..38be9041cde4 100644
+--- a/include/linux/if_vlan.h
++++ b/include/linux/if_vlan.h
+@@ -382,6 +382,17 @@ static inline struct sk_buff *vlan_insert_tag_set_proto(struct sk_buff *skb,
+ 	return skb;
+ }
+ 
++/**
++ * __vlan_hwaccel_clear_tag - clear hardware accelerated VLAN info
++ * @skb: skbuff to clear
++ *
++ * Clears the VLAN information from @skb
++ */
++static inline void __vlan_hwaccel_clear_tag(struct sk_buff *skb)
++{
++	skb->vlan_tci = 0;
++}
++
+ /*
+  * __vlan_hwaccel_push_inside - pushes vlan tag to the payload
+  * @skb: skbuff to tag
+@@ -396,7 +407,7 @@ static inline struct sk_buff *__vlan_hwaccel_push_inside(struct sk_buff *skb)
+ 	skb = vlan_insert_tag_set_proto(skb, skb->vlan_proto,
+ 					skb_vlan_tag_get(skb));
+ 	if (likely(skb))
+-		skb->vlan_tci = 0;
++		__vlan_hwaccel_clear_tag(skb);
+ 	return skb;
+ }
+ 
+-- 
+2.11.0
