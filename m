@@ -1,40 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Ipvlan should return an error when an address is
- already in use.
-Date: Tue, 03 Jan 2017 10:55:28 -0500 (EST)
-Message-ID: <20170103.105528.1616978923771083764.davem@davemloft.net>
-References: <20161231041058.GC2448@templeofstupid.com>
-        <f7td1g49m8n.fsf@redhat.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] drop_monitor: consider inserted data in genlmsg_end
+Date: Tue, 3 Jan 2017 11:04:43 -0500
+Message-ID: <20170103160443.GC11735@hmsreliant.think-freely.org>
+References: <20170103003910.8984-1-wr0112358@gmail.com>
+ <20170103.095419.261470619535526723.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kjlx@templeofstupid.com, maheshb@google.com, netdev@vger.kernel.org
-To: aconole@redhat.com
+Content-Type: text/plain; charset=us-ascii
+Cc: wr0112358@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:39156 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752862AbdACQEX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2017 11:04:23 -0500
-In-Reply-To: <f7td1g49m8n.fsf@redhat.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:60012 "EHLO
+        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S935355AbdACQFk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2017 11:05:40 -0500
+Content-Disposition: inline
+In-Reply-To: <20170103.095419.261470619535526723.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Aaron Conole <aconole@redhat.com>
-Date: Tue, 03 Jan 2017 10:50:00 -0500
-
->> @@ -489,7 +490,12 @@ static int __inet_insert_ifa(struct in_ifaddr *ifa, struct nlmsghdr *nlh,
->>  	   Notifier will trigger FIB update, so that
->>  	   listeners of netlink will know about new ifaddr */
->>  	rtmsg_ifa(RTM_NEWADDR, ifa, nlh, portid);
->> -	blocking_notifier_call_chain(&inetaddr_chain, NETDEV_UP, ifa);
->> +	ret = blocking_notifier_call_chain(&inetaddr_chain, NETDEV_UP, ifa);
+On Tue, Jan 03, 2017 at 09:54:19AM -0500, David Miller wrote:
+> From: Reiter Wolfgang <wr0112358@gmail.com>
+> Date: Tue,  3 Jan 2017 01:39:10 +0100
 > 
-> Why are you doing this assignment if you aren't using the result?
+> > Final nlmsg_len field update must reflect inserted net_dm_drop_point
+> > data.
+> > 
+> > This patch depends on previous patch:
+> > "drop_monitor: add missing call to genlmsg_end"
+> > 
+> > Signed-off-by: Reiter Wolfgang <wr0112358@gmail.com>
 > 
->> +	ret = notifier_to_errno(ret);
->> +	if (ret) {
->> +		__inet_del_ifa(in_dev, ifap, 1, NULL, portid);
->> +		return ret;
->> +	}
+> I don't understand why the current code doesn't work properly.
+> 
+> All over the tree, the pattern is:
+> 
+> 	x = genlmsg_put(skb, ...);
+> 	...
+> 	genlmsg_end(skb, x);
+> 
+> And that is exactly what the code is doing right now.
+> 
 
-'ret' assignment is being used, via notifier_to_errno().
+Because reset_per_cpu_data should close the use of of the established skb
+that was being written to.  Without this patch we add the END tlv to the skb
+that is just getting started for use in the drop monitor, rather than for the
+skb that is getting returned for use in sending up to user space listeners.
+
+Or am I missing something?
