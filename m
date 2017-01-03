@@ -1,18 +1,19 @@
 From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [PATCH net-next v2 03/27] ibmvnic: fix accelerated VLAN handling
-Date: Tue,  3 Jan 2017 21:52:33 +0100 (CET)
-Message-ID: <bc67b93104161cfb873ebcbe4918b4bdd715cb41.1483475202.git.mirq-linux@rere.qmqm.pl>
+Subject: [PATCH net-next v2 04/27] qlcnic: remove assumption that vlan_tci != 0
+Date: Tue,  3 Jan 2017 21:52:34 +0100 (CET)
+Message-ID: <7ccac9ab645244db2797490cad10a42979d78a32.1483475202.git.mirq-linux@rere.qmqm.pl>
 References: <cover.1483475202.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
-Cc: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>,
-        John Allen <jallen@linux.vnet.ibm.com>
+Cc: Harish Patil <harish.patil@cavium.com>,
+        Manish Chopra <manish.chopra@cavium.com>,
+        Dept-GELinuxNICDev@cavium.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([84.10.57.10]:34674 "EHLO rere.qmqm.pl"
+Received: from rere.qmqm.pl ([84.10.57.10]:34672 "EHLO rere.qmqm.pl"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S934875AbdACUwh (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S935888AbdACUwh (ORCPT <rfc822;netdev@vger.kernel.org>);
         Tue, 3 Jan 2017 15:52:37 -0500
 In-Reply-To: <cover.1483475202.git.mirq-linux@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
@@ -20,31 +21,40 @@ List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Michał Mirosław <mirq-linux@rere.qmqm.pl>
 ---
- drivers/net/ethernet/ibm/ibmvnic.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
-index c12596676bbb..c7664db9019c 100644
---- a/drivers/net/ethernet/ibm/ibmvnic.c
-+++ b/drivers/net/ethernet/ibm/ibmvnic.c
-@@ -765,7 +765,7 @@ static int ibmvnic_xmit(struct sk_buff *skb, struct net_device *netdev)
- 	tx_crq.v1.sge_len = cpu_to_be32(skb->len);
- 	tx_crq.v1.ioba = cpu_to_be64(data_dma_addr);
- 
--	if (adapter->vlan_header_insertion) {
-+	if (adapter->vlan_header_insertion && skb_vlan_tag_present(skb)) {
- 		tx_crq.v1.flags2 |= IBMVNIC_TX_VLAN_INSERT;
- 		tx_crq.v1.vlan_id = cpu_to_be16(skb->vlan_tci);
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
+index fedd7366713c..c3cc707cc265 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
+@@ -459,7 +459,7 @@ static int qlcnic_tx_pkt(struct qlcnic_adapter *adapter,
+ 			 struct cmd_desc_type0 *first_desc, struct sk_buff *skb,
+ 			 struct qlcnic_host_tx_ring *tx_ring)
+ {
+-	u8 l4proto, opcode = 0, hdr_len = 0;
++	u8 l4proto, opcode = 0, hdr_len = 0, tag_vlan = 0;
+ 	u16 flags = 0, vlan_tci = 0;
+ 	int copied, offset, copy_len, size;
+ 	struct cmd_desc_type0 *hwdesc;
+@@ -472,14 +472,16 @@ static int qlcnic_tx_pkt(struct qlcnic_adapter *adapter,
+ 		flags = QLCNIC_FLAGS_VLAN_TAGGED;
+ 		vlan_tci = ntohs(vh->h_vlan_TCI);
+ 		protocol = ntohs(vh->h_vlan_encapsulated_proto);
++		tag_vlan = 1;
+ 	} else if (skb_vlan_tag_present(skb)) {
+ 		flags = QLCNIC_FLAGS_VLAN_OOB;
+ 		vlan_tci = skb_vlan_tag_get(skb);
++		tag_vlan = 1;
  	}
-@@ -964,7 +964,8 @@ static int ibmvnic_poll(struct napi_struct *napi, int budget)
- 		skb = rx_buff->skb;
- 		skb_copy_to_linear_data(skb, rx_buff->data + offset,
- 					length);
--		skb->vlan_tci = be16_to_cpu(next->rx_comp.vlan_tci);
-+		if (flags & IBMVNIC_VLAN_STRIPPED)
-+			__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), be16_to_cpu(next->rx_comp.vlan_tci));
- 		/* free the entry */
- 		next->rx_comp.first = 0;
- 		remove_buff_from_pool(adapter, rx_buff);
+ 	if (unlikely(adapter->tx_pvid)) {
+-		if (vlan_tci && !(adapter->flags & QLCNIC_TAGGING_ENABLED))
++		if (tag_vlan && !(adapter->flags & QLCNIC_TAGGING_ENABLED))
+ 			return -EIO;
+-		if (vlan_tci && (adapter->flags & QLCNIC_TAGGING_ENABLED))
++		if (tag_vlan && (adapter->flags & QLCNIC_TAGGING_ENABLED))
+ 			goto set_flags;
+ 
+ 		flags = QLCNIC_FLAGS_VLAN_OOB;
 -- 
 2.11.0
