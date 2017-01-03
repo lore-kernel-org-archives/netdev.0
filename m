@@ -1,61 +1,89 @@
-From: Sabrina Dubroca <sd@queasysnail.net>
-Subject: [PATCH net] benet: stricter vxlan offloading check in be_features_check
-Date: Tue,  3 Jan 2017 16:26:04 +0100
-Message-ID: <59e720bde70fb5226313c62d89b62cbbef25b3e2.1483455910.git.sd@queasysnail.net>
-Cc: Sabrina Dubroca <sd@queasysnail.net>,
-        Sathya Perla <sathya.perla@broadcom.com>,
-        Ajit Khaparde <ajit.khaparde@broadcom.com>,
-        Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>,
-        Somnath Kotur <somnath.kotur@broadcom.com>
-To: netdev@vger.kernel.org
+From: Soheil Hassas Yeganeh <soheil@google.com>
+Subject: Re: [PATCH] tcp: provide tx timestamps for partial writes
+Date: Tue, 3 Jan 2017 10:22:20 -0500
+Message-ID: <CACSApvYN48nRSdV5OQmrS+6BqJBMRocZ1LypziOj9jk4aTc7Pg@mail.gmail.com>
+References: <1483388457-4041-1-git-send-email-soheil.kdev@gmail.com> <CACSApvbYBv4GTGDKFT9jg3p9_w=3WD6aQZh7qwB2HbgCCTFxog@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Willem de Bruijn <willemb@google.com>,
+        Yuchung Cheng <ycheng@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Neal Cardwell <ncardwell@google.com>,
+        Martin KaFai Lau <kafai@fb.com>
+To: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55650 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1759036AbdACP0N (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 3 Jan 2017 10:26:13 -0500
+Received: from mail-yw0-f178.google.com ([209.85.161.178]:33476 "EHLO
+        mail-yw0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755930AbdACPYO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2017 10:24:14 -0500
+Received: by mail-yw0-f178.google.com with SMTP id r204so290985474ywb.0
+        for <netdev@vger.kernel.org>; Tue, 03 Jan 2017 07:23:01 -0800 (PST)
+In-Reply-To: <CACSApvbYBv4GTGDKFT9jg3p9_w=3WD6aQZh7qwB2HbgCCTFxog@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When VXLAN offloading is enabled, be_features_check() tries to check if
-an encapsulated packet is indeed a VXLAN packet. The check is not strict
-enough, and considers any UDP-encapsulated ethernet frame with a 8-byte
-tunnel header as being VXLAN. Unfortunately, both GENEVE and VXLAN-GPE
-have a 8-byte header, so they get through this check.
+On Mon, Jan 2, 2017 at 3:23 PM, Soheil Hassas Yeganeh <soheil@google.com> wrote:
+> On Mon, Jan 2, 2017 at 3:20 PM, Soheil Hassas Yeganeh
+> <soheil.kdev@gmail.com> wrote:
+>> From: Soheil Hassas Yeganeh <soheil@google.com>
+>>
+>> For TCP sockets, tx timestamps are only captured when the user data
+>> is successfully and fully written to the socket. In many cases,
+>> however, TCP writes can be partial for which no timestamp is
+>> collected.
+>>
+>> Collect timestamps when the user data is partially copied into
+>> the socket.
+>>
+>> Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
+>> Cc: Willem de Bruijn <willemb@google.com>
+>> Cc: Yuchung Cheng <ycheng@google.com>
+>> Cc: Eric Dumazet <edumazet@google.com>
+>> Cc: Neal Cardwell <ncardwell@google.com>
+>> Cc: Martin KaFai Lau <kafai@fb.com>
+>> ---
+>>  net/ipv4/tcp.c | 8 ++++++--
+>>  1 file changed, 6 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+>> index 2e3807d..c207b16 100644
+>> --- a/net/ipv4/tcp.c
+>> +++ b/net/ipv4/tcp.c
+>> @@ -992,8 +992,10 @@ static ssize_t do_tcp_sendpages(struct sock *sk, struct page *page, int offset,
+>>         return copied;
+>>
+>>  do_error:
+>> -       if (copied)
+>> +       if (copied) {
+>> +               tcp_tx_timestamp(sk, sk->sk_tsflags, tcp_write_queue_tail(sk));
+>>                 goto out;
+>> +       }
+>>  out_err:
+>>         /* make sure we wake any epoll edge trigger waiter */
+>>         if (unlikely(skb_queue_len(&sk->sk_write_queue) == 0 &&
+>> @@ -1329,8 +1331,10 @@ int tcp_sendmsg(struct sock *sk, struct msghdr *msg, size_t size)
+>>         }
+>>
+>>  do_error:
+>> -       if (copied + copied_syn)
+>> +       if (copied + copied_syn) {
+>> +               tcp_tx_timestamp(sk, sk->sk_tsflags, tcp_write_queue_tail(sk));
 
-Force the UDP destination port to be the one that has been offloaded to
-hardware.
+Thanks to Willem for noting that this should be sockc.tsflags and not
+sk->sk_tsflags. I'll send V2 to fix.
 
-Without this, GENEVE-encapsulated packets can end up having an incorrect
-checksum when both a GENEVE and a VXLAN (offloaded) tunnel are
-configured.
+Soheil
 
-This is similar to commit a547224dceed ("mlx4e: Do not attempt to
-offload VXLAN ports that are unrecognized").
-
-Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
----
-mlx4/5 already do something similar, but nfp/bnx2x/qlcnic don't.
-
-This check was introduced in commit 16dde0d6ac15, but only made invalid
-when GENEVE was introduced in 2d07dc79fe04.
-
- drivers/net/ethernet/emulex/benet/be_main.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 7e1633bf5a22..225e9a4877d7 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -5155,7 +5155,9 @@ static netdev_features_t be_features_check(struct sk_buff *skb,
- 	    skb->inner_protocol_type != ENCAP_TYPE_ETHER ||
- 	    skb->inner_protocol != htons(ETH_P_TEB) ||
- 	    skb_inner_mac_header(skb) - skb_transport_header(skb) !=
--	    sizeof(struct udphdr) + sizeof(struct vxlanhdr))
-+		sizeof(struct udphdr) + sizeof(struct vxlanhdr) ||
-+	    !adapter->vxlan_port ||
-+	    udp_hdr(skb)->dest != adapter->vxlan_port)
- 		return features & ~(NETIF_F_CSUM_MASK | NETIF_F_GSO_MASK);
- 
- 	return features;
--- 
-2.11.0
+>>                 goto out;
+>> +       }
+>>  out_err:
+>>         err = sk_stream_error(sk, flags, err);
+>>         /* make sure we wake any epoll edge trigger waiter */
+>> --
+>> 2.8.0.rc3.226.g39d4020
+>>
+>
+> I'm sorry for the incomplete annotation. This is for [net-next].
+>
+> Thanks,
+> Soheil
