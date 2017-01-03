@@ -1,109 +1,332 @@
-From: "Luis R. Rodriguez" <mcgrof@kernel.org>
-Subject: Re: [PATCH 2/6] wl1251: Use request_firmware_prefer_user() for
- loading NVS calibration data
-Date: Tue, 3 Jan 2017 18:59:24 +0100
-Message-ID: <20170103175924.GC13946@wotan.suse.de>
-References: <1482598381-16513-1-git-send-email-pali.rohar@gmail.com>
- <1482598381-16513-3-git-send-email-pali.rohar@gmail.com>
- <e728586e-80bf-c9e0-0063-71da4c4aba85@broadcom.com>
- <20161226163559.GB27087@amd>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Arend Van Spriel <arend.vanspriel@broadcom.com>,
-        Pali =?iso-8859-1?Q?Roh=E1r?= <pali.rohar@gmail.com>,
-        Ming Lei <ming.lei@canonical.com>,
-        "Luis R. Rodriguez" <mcgrof@kernel.org>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        David Gnedt <david.gnedt@davizone.at>,
-        Michal Kazior <michal.kazior@tieto.com>,
-        Daniel Wagner <wagi@monom.org>,
-        Tony Lindgren <tony@atomide.com>,
-        Sebastian Reichel <sre@kernel.org>,
-        Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
-        Aaro Koskinen <aaro.koskinen@iki.fi>,
-        Takashi Iwai <tiwai@suse.de>,
-        David Woodhouse <dwmw2@infradead.org>,
-        Bjorn Andersson <bjorn.andersson@linaro.org>,
-        Grazvydas Ignotas <notasas@gmail.com>,
-        linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-        netdev
-To: Pavel Machek <pavel@ucw.cz>, Daniel Wagner <wagi@monom.org>,
-        Tom Gundersen <teg@jklm.no>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20161226163559.GB27087@amd>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sridhar Samudrala <sridhar.samudrala@intel.com>
+Subject: [net-next PATCH v2 6/6] i40e: Add support for exposing VF port statistics via VFPR netdev on the host.
+Date: Tue,  3 Jan 2017 10:07:54 -0800
+Message-ID: <1483466874-2962-7-git-send-email-sridhar.samudrala@intel.com>
+References: <1483466874-2962-1-git-send-email-sridhar.samudrala@intel.com>
+To: alexander.h.duyck@intel.com, john.r.fastabend@intel.com,
+        anjali.singhai@intel.com, jakub.kicinski@netronome.com,
+        davem@davemloft.net, intel-wired-lan@lists.osuosl.org,
+        netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:54901 "EHLO mga01.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1760159AbdACSLH (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 3 Jan 2017 13:11:07 -0500
+In-Reply-To: <1483466874-2962-1-git-send-email-sridhar.samudrala@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 26, 2016 at 05:35:59PM +0100, Pavel Machek wrote:
-> 
-> Right question is "should we solve it without user-space help"?
-> 
-> Answer is no, too. Way too complex. Yes, it would be nice if hardware
-> was designed in such a way that getting calibration data from kernel
-> is easy, and if you design hardware, please design it like that. But
-> N900 is not designed like that and getting the calibration through
-> userspace looks like only reasonable solution.
+By default stats counted by HW are returned via the original ndo_get_stats64()
+api. Stats counted in SW are returned via ndo_get_offload_stats() api.
 
-Arend seems to have a better alternative in mind possible for other
-devices which *can* probably pull of doing this easily and nicely,
-given the nasty history of the usermode helper crap we should not
-in any way discourage such efforts.
+Small script to demonstrate vfpr stats in switchdev mode.
+PF: enp5s0f0, VFs: enp5s2,enp5s2f1 VFPRs:enp5s0f0-vf0, enp5s0f0-vf1
 
-Arend -- please look at the firmware cache, it not a hash but a hash
-table for an O(1) lookups would be a welcomed change, then it could
-be repurposed for what you describe, I think the only difference is
-you'd perhaps want a custom driver hook to fetch the calibration data
-so the driver does whatever it needs.
+# rmmod i40e; modprobe i40e
+# devlink dev eswitch set pci/0000:05:00.0 mode switchdev
+# echo 2 > /sys/class/net/enp5s0f0/device/sriov_numvfs
+# ip link set enp5s0f0 vf 0 mac 00:11:22:33:44:55
+# ip link set enp5s0f0 vf 1 mac 00:11:22:33:44:56
+# rmmod i40evf; modprobe i40evf
 
-> Now... how exactly to do that is other question. (But this is looks
-> very reasonable. Maybe I'd add request_firmware_with_flags(, ...int
-> flags), but.. that's a tiny detail.). But userspace needs to be
-> involved.
+/* Create 2 namespaces and move the VFs to the corresponding ns */
+# ip netns add ns0
+# ip link set enp5s2 netns ns0
+# ip netns exec ns0 ip addr add 192.168.1.10/24 dev enp5s2
+# ip netns exec ns0 ip link set enp5s2 up
+# ip netns add ns1
+# ip link set enp5s2f1 netns ns1
+# ip netns exec ns1 ip addr add 192.168.1.11/24 dev enp5s2f1
+# ip netns exec ns1 ip link set enp5s2f1 up
 
-No, no, we keep adding yet-another-exported symbol for requesting firmware,
-instead of just adding a set of parameters possible and easily extending
-functionality. Please review the patches posted on my last set which adds
-a flexible API with only 2 calls, sync and async, and lets us customize
-our requests using a parameter:
+/* bring up pf and vfpr netdevs */
+# ip link set enp5s0f0 up
+# ip link set enp5s0f0-vf0 up
+# ip link set enp5s0f0-vf1 up
 
-https://git.kernel.org/cgit/linux/kernel/git/mcgrof/linux-next.git/log/?h=20161216-drvdata-v3-try3
+/* Create a linux bridge and add vfpr netdevs to it. */
+# ip link add vfpr-br type bridge
+# ip link set enp5s0f0-vf0 master vfpr-br
+# ip link set enp5s0f0-vf1 master vfpr-br
+# ip addr add 192.168.1.1/24 dev vfpr-br
+# ip link set vfpr-br up
 
-This also documents the "usermode helper" properly and explains some of
-the issues and limitations you will need to consider if you use it, its
-one reason I'd highly encourage to consider an alternative as what Arend
-is considering. *Iff* you insist on using the (now using the proper term,
-as per the documentation update I am providing) "custom fallback mechanism"
-I welcome such a change but I ask we *really* think this through well so
-we avoid the stupid issues which have historically made the custom fallback
-mechanism more of a nuisance for Linux distributions, users and developers.
-To this end -- I ask you check out Daniel Wagner and Tom Gundersen's firmwared
-work [0] which I referred you to in December. Although the drvdata API does
-not yet use a custom fallback mechanism, after and its merged the goal here
-would be to *only* support a clean custom fallback mechanism which aligns
-itself *well* with firmwared or solutions like it. Your patch set then could
-just become a patch set to add the custom fallback mechaism support to drvdata
-API with the new options/prefernce you are looking for to be specified in
-the new parameters, not a new exported symbol.
+# ip netns exec ns0 ping -c3 192.168.1.11
+# ip netns exec ns1 ping -c3 192.168.1.10
 
-One of the cruxes we should consider addressing before the drvdata API gets a
-custom fallback mechanism support added is that the usermode helper lock should
-be replaced with a generic solution for the races it was intended to address:
-use of the API on suspend/resume and implicitly later avoid a race on init. To
-this end we should consider the same race for *other* real kernel "user mode
-helpers", I've documented this on a wiki [1] which documents the *real*
-kernel usermode helpers users, one of which was the kobject uevent which is
-one of the fallback mechanisms.
+# ip netns exec ns0 ip -s l show enp5s2
+56: enp5s2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP mode DEFAULT group default qlen 1000
+    link/ether 00:11:22:33:44:55 brd ff:ff:ff:ff:ff:ff
+    RX: bytes  packets  errors  dropped overrun mcast
+    1468       18       0       0       0       0
+    TX: bytes  packets  errors  dropped carrier collsns
+    1398       17       0       0       0       0
+# ip -s l show enp5s0f0-vf0
+52: enp5s0f0-vf0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel master vfpr-br state UP mode DEFAULT group default qlen 1000
+    link/ether 68:05:ca:2e:72:68 brd ff:ff:ff:ff:ff:ff
+    RX: bytes  packets  errors  dropped overrun mcast
+    1398       17       0       0       0       0
+    TX: bytes  packets  errors  dropped carrier collsns
+    1468       18       0       0       0       0
+# ip netns exec ns1 ip -s l show enp5s2f1
+57: enp5s2f1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP mode DEFAULT group default qlen 1000
+    link/ether 00:11:22:33:44:56 brd ff:ff:ff:ff:ff:ff
+    RX: bytes  packets  errors  dropped overrun mcast
+    1486       18       0       0       0       0
+    TX: bytes  packets  errors  dropped carrier collsns
+    1538       19       0       0       0       0
+# ip -s l show enp5s0f0-vf1
+53: enp5s0f0-vf1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel master vfpr-br state UP mode DEFAULT group default qlen 1000
+    link/ether 68:05:ca:2e:72:68 brd ff:ff:ff:ff:ff:ff
+    RX: bytes  packets  errors  dropped overrun mcast
+    1538       19       0       0       0       0
+    TX: bytes  packets  errors  dropped carrier collsns
+    1486       18       0       0       0       0
 
-I should also note that the idea of fallback mechanism using kobject uevents
-should really suffice, in review with Johannes Berg at least, he seemed
-convinced just letting either the upstream firmwared, a custom firmwared or
-a custom userspace solution should be able to just monitor for uevents for
-drvdata and do the right thing, this whole "custom fallback mechanism"
-in retrospect seems not really needed as far as I can tell.
+Signed-off-by: Sridhar Samudrala <sridhar.samudrala@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c        |  44 +++++++-
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 111 +++++++++++++++++++++
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h |  10 ++
+ 3 files changed, 163 insertions(+), 2 deletions(-)
 
-[0] https://github.com/teg/firmwared
-[1] https://kernelnewbies.org/KernelProjects/usermode-helper-enhancements
-
-  Luis
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index b46ddaa..9f04337 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -1172,6 +1172,32 @@ static bool i40e_alloc_mapped_page(struct i40e_ring *rx_ring,
+ }
+ 
+ /**
++ * i40e_vfpr_receive_skb
++ * @vf: pointer to VF
++ * @skb: packet to send up
++ *
++ * Update skb dev to vfpr netdev and rx stats.
++ **/
++static void i40e_vfpr_receive_skb(struct i40e_vf *vf, struct sk_buff *skb)
++{
++	struct i40e_vfpr_netdev_priv *priv;
++	struct vfpr_pcpu_stats *vfpr_stats;
++
++	if (!vf->vfpr_netdev)
++		return;
++
++	skb->dev = vf->vfpr_netdev;
++
++	priv = netdev_priv(vf->vfpr_netdev);
++	vfpr_stats = this_cpu_ptr(priv->vfpr_stats);
++
++	u64_stats_update_begin(&vfpr_stats->syncp);
++	vfpr_stats->rx_packets++;
++	vfpr_stats->rx_bytes += skb->len;
++	u64_stats_update_end(&vfpr_stats->syncp);
++}
++
++/**
+  * i40e_receive_skb - Send a completed packet up the stack
+  * @rx_ring:  rx ring in play
+  * @skb: packet to send up
+@@ -1201,7 +1227,7 @@ static void i40e_receive_skb(struct i40e_ring *rx_ring,
+ 	for (vf_id = 0; vf_id < pf->num_alloc_vfs; vf_id++) {
+ 		vf = &pf->vf[vf_id];
+ 		if (ether_addr_equal(eth->h_source, vf->default_lan_addr.addr)) {
+-			skb->dev = vf->vfpr_netdev;
++			i40e_vfpr_receive_skb(vf, skb);
+ 			break;
+ 		}
+ 	}
+@@ -3072,11 +3098,25 @@ netdev_tx_t i40e_vfpr_netdev_start_xmit(struct sk_buff *skb,
+ 	struct i40e_vf *vf = priv->vf;
+ 	struct i40e_pf *pf = vf->pf;
+ 	struct i40e_vsi *vsi = pf->vsi[pf->lan_vsi];
++	int ret;
+ 
+ 	skb_dst_drop(skb);
+ 	dst_hold(&priv->vfpr_dst->dst);
+ 	skb_dst_set(skb, &priv->vfpr_dst->dst);
+ 	skb->dev = vsi->netdev;
+ 
+-	return dev_queue_xmit(skb);
++	ret = dev_queue_xmit(skb);
++
++	if (likely(ret == NET_XMIT_SUCCESS || ret == NET_XMIT_CN)) {
++		struct vfpr_pcpu_stats *vfpr_stats = this_cpu_ptr(priv->vfpr_stats);
++
++		u64_stats_update_begin(&vfpr_stats->syncp);
++		vfpr_stats->tx_packets++;
++		vfpr_stats->tx_bytes += skb->len;
++		u64_stats_update_end(&vfpr_stats->syncp);
++	} else {
++		this_cpu_inc(priv->vfpr_stats->tx_drops);
++	}
++
++	return ret;
+ }
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index f0860ef..7801082 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -1059,10 +1059,113 @@ static int i40e_vfpr_netdev_stop(struct net_device *dev)
+ 	return 0;
+ }
+ 
++/**
++ * i40e_vfpr_netdev_get_stats64
++ * @dev: network interface device structure
++ * @stats: netlink stats structure
++ *
++ * Returns the hw statistics from the VSI corresponding to the associated VFPR
++ **/
++static struct rtnl_link_stats64 *
++i40e_vfpr_netdev_get_stats64(struct net_device *netdev,
++			     struct rtnl_link_stats64 *stats)
++{
++	struct i40e_vfpr_netdev_priv *priv = netdev_priv(netdev);
++	struct i40e_vf *vf = priv->vf;
++	struct i40e_pf *pf = vf->pf;
++	struct i40e_vsi *vsi;
++	struct i40e_eth_stats *estats;
++
++	vsi = pf->vsi[vf->lan_vsi_idx];
++	i40e_update_stats(vsi);
++
++	estats = &vsi->eth_stats;
++
++	/* TX and RX stats are flipped as we are returning the stats as seen
++	 * at the switch port correspoding to the VF.
++	 */
++	stats->rx_packets = estats->tx_unicast + estats->tx_multicast +
++			    estats->tx_broadcast;
++	stats->tx_packets = estats->rx_unicast + estats->rx_multicast +
++			    estats->rx_broadcast;
++	stats->rx_bytes = estats->tx_bytes;
++	stats->tx_bytes = estats->rx_bytes;
++	stats->rx_dropped = estats->tx_discards;
++	stats->tx_dropped = estats->rx_discards;
++
++	return stats;
++}
++
++
++/**
++ * i40e_vfpr_get_cpu_hit_stats64
++ * @dev: network interface device structure
++ * @stats: netlink stats structure
++ *
++ * stats are filled from the priv structure. correspond to the packets
++ * that are seen by the cpu and sent/received via vfpr netdev.
++ **/
++static int
++i40e_vfpr_get_cpu_hit_stats64(const struct net_device *dev,
++			      struct rtnl_link_stats64 *stats)
++{
++	struct i40e_vfpr_netdev_priv *priv = netdev_priv(dev);
++	int i;
++
++	for_each_possible_cpu(i) {
++		struct vfpr_pcpu_stats *vfpr_stats;
++		u64 tbytes, tpkts, tdrops, rbytes, rpkts;
++		unsigned int start;
++
++		vfpr_stats = per_cpu_ptr(priv->vfpr_stats, i);
++		do {
++			start = u64_stats_fetch_begin_irq(&vfpr_stats->syncp);
++			tbytes = vfpr_stats->tx_bytes;
++			tpkts = vfpr_stats->tx_packets;
++			tdrops = vfpr_stats->tx_drops;
++			rbytes = vfpr_stats->rx_bytes;
++			rpkts = vfpr_stats->rx_packets;
++		} while (u64_stats_fetch_retry_irq(&vfpr_stats->syncp, start));
++		stats->tx_bytes += tbytes;
++		stats->tx_packets += tpkts;
++		stats->tx_dropped += tdrops;
++		stats->rx_bytes += rbytes;
++		stats->rx_packets += rpkts;
++	}
++
++	return 0;
++}
++
++static bool
++i40e_vfpr_netdev_has_offload_stats(const struct net_device *dev, int attr_id)
++{
++	switch (attr_id) {
++	case IFLA_OFFLOAD_XSTATS_CPU_HIT:
++		return true;
++	}
++
++	return false;
++}
++
++static int
++i40e_vfpr_netdev_get_offload_stats(int attr_id, const struct net_device *dev,
++				   void *sp)
++{
++	switch (attr_id) {
++	case IFLA_OFFLOAD_XSTATS_CPU_HIT:
++		return i40e_vfpr_get_cpu_hit_stats64(dev, sp);
++	}
++
++	return -EINVAL;
++}
++
+ static const struct net_device_ops i40e_vfpr_netdev_ops = {
+ 	.ndo_open       	= i40e_vfpr_netdev_open,
+ 	.ndo_stop       	= i40e_vfpr_netdev_stop,
+ 	.ndo_start_xmit		= i40e_vfpr_netdev_start_xmit,
++	.ndo_get_stats64	= i40e_vfpr_netdev_get_stats64,
++	.ndo_has_offload_stats	= i40e_vfpr_netdev_has_offload_stats,
++	.ndo_get_offload_stats	= i40e_vfpr_netdev_get_offload_stats,
+ };
+ 
+ /**
+@@ -1121,6 +1224,13 @@ int i40e_alloc_vfpr_netdev(struct i40e_vf *vf, u16 vf_num)
+ 	pf->vf[vf_num].vfpr_netdev = vfpr_netdev;
+ 
+ 	priv = netdev_priv(vfpr_netdev);
++	priv->vfpr_stats = netdev_alloc_pcpu_stats(struct vfpr_pcpu_stats);
++	if (!priv->vfpr_stats) {
++		dev_err(&pf->pdev->dev, "alloc_pcpu_stats failed for vf:%d\n",
++			vf_num);
++		free_netdev(vfpr_netdev);
++		return -ENOMEM;
++	}
+ 	priv->vf = &(pf->vf[vf_num]);
+ 	priv->vfpr_dst = metadata_dst_alloc(0, METADATA_HW_PORT_MUX, GFP_KERNEL);
+ 	priv->vfpr_dst->u.port_info.lower_dev = vsi->netdev;
+@@ -1178,6 +1288,7 @@ void i40e_free_vfpr_netdev(struct i40e_vf *vf)
+ 		 vf->vfpr_netdev->name);
+ 
+ 	dst_release((struct dst_entry *)priv->vfpr_dst);
++	free_percpu(priv->vfpr_stats);
+ 	unregister_netdev(vf->vfpr_netdev);
+ 	free_netdev(vf->vfpr_netdev);
+ 
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h
+index 3dea207..7025c7a 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h
+@@ -72,10 +72,20 @@ enum i40e_vf_capabilities {
+ 	I40E_VIRTCHNL_VF_CAP_IWARP,
+ };
+ 
++struct vfpr_pcpu_stats {
++	u64			tx_packets;
++	u64			tx_bytes;
++	u64			tx_drops;
++	u64			rx_packets;
++	u64 			rx_bytes;
++	struct u64_stats_sync	syncp;
++};
++
+ /* VF Port representator netdev private structure */
+ struct i40e_vfpr_netdev_priv {
+ 	struct metadata_dst *vfpr_dst;
+ 	struct i40e_vf *vf;
++	struct vfpr_pcpu_stats *vfpr_stats;
+ };
+ 
+ /* VF information structure */
+-- 
+2.5.5
