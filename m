@@ -1,54 +1,73 @@
-From: Wolfgang Reiter <wr0112358@gmail.com>
-Subject: Re: [PATCH] drop_monitor: consider inserted data in genlmsg_end
-Date: Wed, 04 Jan 2017 00:09:45 +0100
-Message-ID: <8737gzd9l2.fsf@lautreamont.i-did-not-set--mail-host-address--so-tickle-me>
-References: <20170103003910.8984-1-wr0112358@gmail.com> <20170103.095419.261470619535526723.davem@davemloft.net> <20170103160443.GC11735@hmsreliant.think-freely.org>
+From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Subject: [PATCH net-next v3 10/27] benet: use __vlan_hwaccel helpers
+Date: Wed,  4 Jan 2017 00:11:08 +0100 (CET)
+Message-ID: <8a9f0d12b69ee4e25fefc4872575d5cf31441bb8.1483484748.git.mirq-linux@rere.qmqm.pl>
+References: <cover.1483484748.git.mirq-linux@rere.qmqm.pl> <49348df8468691f6065a7a3c8c10dd076612d587.1483475202.git.mirq-linux@rere.qmqm.pl>
+        <CACZ4nhsUxWYvM5HoASHb7-m2uZtnk3DN6cQigp+cObyLqPJXdA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>,
-        David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170103160443.GC11735@hmsreliant.think-freely.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: Ajit Khaparde <ajit.khaparde@broadcom.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rere.qmqm.pl ([84.10.57.10]:36512 "EHLO rere.qmqm.pl"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1761776AbdACXLK (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 3 Jan 2017 18:11:10 -0500
+In-Reply-To: <CACZ4nhsUxWYvM5HoASHb7-m2uZtnk3DN6cQigp+cObyLqPJXdA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Signed-off-by: Michał Mirosław <mirq-linux@rere.qmqm.pl>
+---
+v3: fix adapter->pvid handling
 
-Yes, genlmsg_end changes nlmsg_len field dependent on skb->tail.
-After allocation in reset_per_cpu_data skb->tail is modified in
-trace_drop_common via __nla_reserve_nohdr.
+ drivers/net/ethernet/emulex/benet/be_main.c | 13 +++++++++----
+ 1 file changed, 9 insertions(+), 4 deletions(-)
 
-Best place for setting nlmsg_len to its final value is after being
-swapped out in reset_per_cpu_data.
-
-Neil Horman <nhorman@tuxdriver.com> writes:
-
-> On Tue, Jan 03, 2017 at 09:54:19AM -0500, David Miller wrote:
->> From: Reiter Wolfgang <wr0112358@gmail.com>
->> Date: Tue,  3 Jan 2017 01:39:10 +0100
->> 
->> > Final nlmsg_len field update must reflect inserted net_dm_drop_point
->> > data.
->> > 
->> > This patch depends on previous patch:
->> > "drop_monitor: add missing call to genlmsg_end"
->> > 
->> > Signed-off-by: Reiter Wolfgang <wr0112358@gmail.com>
->> 
->> I don't understand why the current code doesn't work properly.
->> 
->> All over the tree, the pattern is:
->> 
->> 	x = genlmsg_put(skb, ...);
->> 	...
->> 	genlmsg_end(skb, x);
->> 
->> And that is exactly what the code is doing right now.
->> 
->
-> Because reset_per_cpu_data should close the use of of the established skb
-> that was being written to.  Without this patch we add the END tlv to the skb
-> that is just getting started for use in the drop monitor, rather than for the
-> skb that is getting returned for use in sending up to user space listeners.
->
-> Or am I missing something?
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 7e1633bf5a22..cd12c9a7664b 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -1035,30 +1035,35 @@ static struct sk_buff *be_insert_vlan_in_pkt(struct be_adapter *adapter,
+ 					     struct be_wrb_params
+ 					     *wrb_params)
+ {
++	bool insert_vlan = false;
+ 	u16 vlan_tag = 0;
+ 
+ 	skb = skb_share_check(skb, GFP_ATOMIC);
+ 	if (unlikely(!skb))
+ 		return skb;
+ 
+-	if (skb_vlan_tag_present(skb))
++	if (skb_vlan_tag_present(skb)) {
+ 		vlan_tag = be_get_tx_vlan_tag(adapter, skb);
++		insert_vlan = true;
++	}
+ 
+ 	if (qnq_async_evt_rcvd(adapter) && adapter->pvid) {
+-		if (!vlan_tag)
++		if (!insert_vlan) {
+ 			vlan_tag = adapter->pvid;
++			insert_vlan = true;
++		}
+ 		/* f/w workaround to set skip_hw_vlan = 1, informs the F/W to
+ 		 * skip VLAN insertion
+ 		 */
+ 		BE_WRB_F_SET(wrb_params->features, VLAN_SKIP_HW, 1);
+ 	}
+ 
+-	if (vlan_tag) {
++	if (insert_vlan) {
+ 		skb = vlan_insert_tag_set_proto(skb, htons(ETH_P_8021Q),
+ 						vlan_tag);
+ 		if (unlikely(!skb))
+ 			return skb;
+-		skb->vlan_tci = 0;
++		__vlan_hwaccel_clear_tag(skb);
+ 	}
+ 
+ 	/* Insert the outer VLAN, if any */
+-- 
+2.11.0
