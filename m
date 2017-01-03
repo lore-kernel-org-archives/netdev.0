@@ -1,35 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net PATCH] ipv4: Do not allow MAIN to be alias for new LOCAL
- w/ custom rules
-Date: Tue, 03 Jan 2017 09:39:09 -0500 (EST)
-Message-ID: <20170103.093909.109725475584427798.davem@davemloft.net>
-References: <20170102213214.13707.86757.stgit@localhost.localdomain>
+Subject: Re: [PATCH v3] net: macb: Updated resource allocation function
+ calls to new version of API.
+Date: Tue, 03 Jan 2017 09:36:06 -0500 (EST)
+Message-ID: <20170103.093606.1137374125355882400.davem@davemloft.net>
+References: <1483360206-27699-1-git-send-email-bfolta@cadence.com>
+        <SN1PR0701MB1951683572D31AD5678100E9CC6F0@SN1PR0701MB1951.namprd07.prod.outlook.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jjk@jjacky.com, dsa@cumulusnetworks.com
-To: alexander.duyck@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36690 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752680AbdACOjL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2017 09:39:11 -0500
-In-Reply-To: <20170102213214.13707.86757.stgit@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: nicolas.ferre@atmel.com, niklas.cassel@axis.com,
+        alexandre.torgue@st.com, satananda.burla@caviumnetworks.com,
+        rvatsavayi@caviumnetworks.com, simon.horman@netronome.com,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        rafalo@cadence.com
+To: bfolta@cadence.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <SN1PR0701MB1951683572D31AD5678100E9CC6F0@SN1PR0701MB1951.namprd07.prod.outlook.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Date: Mon, 02 Jan 2017 13:32:54 -0800
+From: Bartosz Folta <bfolta@cadence.com>
+Date: Mon, 2 Jan 2017 12:41:50 +0000
 
-> From: Alexander Duyck <alexander.h.duyck@intel.com>
+> Changed function calls of resource allocation to new API. Changed way
+> of setting DMA mask. Removed unnecessary sanity check.
+> This patch is sent in regard to recently applied patch
+> Commit 83a77e9ec4150ee4acc635638f7dedd9da523a26
+> net: macb: Added PCI wrapper for Platform Driver.
 > 
-> In the case of custom rules being present we need to handle the case of the
-> LOCAL table being intialized after the new rule has been added.  To address
-> that I am adding a new check so that we can make certain we don't use an
-> alias of MAIN for LOCAL when allocating a new table.
-> 
-> Fixes: 0ddcf43d5d4a ("ipv4: FIB Local/MAIN table collapse")
-> Reported-by: Oliver Brunel <jjk@jjacky.com>
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> Signed-off-by: Bartosz Folta <bfolta@cadence.com>
 
-Applied and queued up for -stable, thanks Alex.
+Applied.
