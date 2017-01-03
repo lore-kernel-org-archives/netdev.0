@@ -1,62 +1,78 @@
-From: Harini Katakam <harinikatakamlinux@gmail.com>
-Subject: Re: [RFC PATCH net-next v4 1/2] macb: Add 1588 support in Cadence GEM.
-Date: Tue, 3 Jan 2017 16:18:58 +0530
-Message-ID: <CAFcVECLqnOx9cJay_2j1QPwUpE5PrLYf28Sh43D-Otz_Z35Q3w@mail.gmail.com>
-References: <1481720175-12703-1-git-send-email-andrei.pistirica@microchip.com>
- <BN3PR07MB2516815EDE69ACDCE27F81A3C96F0@BN3PR07MB2516.namprd07.prod.outlook.com>
- <20170102113155.GA16373@localhost.localdomain>
- <0717c63b-2e29-9ad1-7f01-39817980933f@atmel.com>
- <20170102161359.GD3609@localhost.localdomain>
- <CAFcVECK1vt7Hu4tgSZ2+kKpMxoT-wpikMDq65HaxRv-EMgobHA@mail.gmail.com>
- <20170103102958.GC24780@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "tbultel@pixelsurmer.com" <tbultel@pixelsurmer.com>,
- Rafal Ozieblo <rafalo@cadence.com>,
- "boris.brezillon@free-electrons.com" <boris.brezillon@free-electrons.com>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "alexandre.belloni@free-electrons.com" <alexandre.belloni@free-electrons.com>,
- Nicolas Ferre <nicolas.ferre@atmel.com>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- Andrei Pistirica <andrei.pistirica@microchip.com>,
- "michals@xilinx.com" <michals@xilinx.com>,
- "anirudh@xilinx.com" <anirudh@xilinx.com>,
- "punnaia@xilinx.com" <punnaia@xilinx.com>,
- "harini.katakam@xilinx.com" <harini.katakam@xilinx.com>,
- "davem@davemloft.net" <davem@davemloft.net>,
- "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20170103102958.GC24780@localhost.localdomain>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: [PATCH net-next] ipmr, ip6mr: add RTNH_F_UNRESOLVED flag to unresolved cache entries
+Date: Tue,  3 Jan 2017 12:13:39 +0100
+Message-ID: <1483442019-20917-1-git-send-email-nikolay@cumulusnetworks.com>
+Cc: roopa@cumulusnetworks.com, davem@davemloft.net,
+        Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wj0-f176.google.com ([209.85.210.176]:34160 "EHLO
+        mail-wj0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934045AbdACLOG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2017 06:14:06 -0500
+Received: by mail-wj0-f176.google.com with SMTP id sd9so257479834wjb.1
+        for <netdev@vger.kernel.org>; Tue, 03 Jan 2017 03:14:05 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Richard,
+While working with ipmr, we noticed that it is impossible to determine
+if an entry is actually unresolved or its IIF interface has disappeared
+(e.g. virtual interface got deleted). These entries look almost
+identical to user-space when dumping or receiving notifications. So in
+order to recognize them add a new RTNH_F_UNRESOLVED flag which is set when
+sending an unresolved cache entry to user-space.
 
-On Tue, Jan 3, 2017 at 3:59 PM, Richard Cochran
-<richardcochran@gmail.com> wrote:
-> On Tue, Jan 03, 2017 at 10:36:11AM +0530, Harini Katakam wrote:
->> I understand that it is not accurate - it is an initial version.
->
-> Why do you say, "it is an initial version?"
->
-> The Atmel device has this IP core burned in.  The core is hopelessly
-> broken, and it cannot be fixed in SW either, so what is your point?
->
+Suggested-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+---
+ include/uapi/linux/rtnetlink.h | 1 +
+ net/ipv4/ipmr.c                | 4 +++-
+ net/ipv6/ip6mr.c               | 4 +++-
+ 3 files changed, 7 insertions(+), 2 deletions(-)
 
-I'm sorry - I just meant that this was before many necessary
-enhancements and fixes.
-Newer SoCs including ZynqMP (for which the original series was sent)
-have the descriptor based approach which is reliable.
-
-Regards,
-Harini
+diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
+index e14377f2ec27..8c93ad1ef9ab 100644
+--- a/include/uapi/linux/rtnetlink.h
++++ b/include/uapi/linux/rtnetlink.h
+@@ -350,6 +350,7 @@ struct rtnexthop {
+ #define RTNH_F_ONLINK		4	/* Gateway is forced on link	*/
+ #define RTNH_F_OFFLOAD		8	/* offloaded route */
+ #define RTNH_F_LINKDOWN		16	/* carrier-down on nexthop */
++#define RTNH_F_UNRESOLVED	32	/* The entry is unresolved (ipmr) */
+ 
+ #define RTNH_COMPARE_MASK	(RTNH_F_DEAD | RTNH_F_LINKDOWN | RTNH_F_OFFLOAD)
+ 
+diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+index efc1e76d4977..b35dda57586b 100644
+--- a/net/ipv4/ipmr.c
++++ b/net/ipv4/ipmr.c
+@@ -2091,8 +2091,10 @@ static int __ipmr_fill_mroute(struct mr_table *mrt, struct sk_buff *skb,
+ 	int ct;
+ 
+ 	/* If cache is unresolved, don't try to parse IIF and OIF */
+-	if (c->mfc_parent >= MAXVIFS)
++	if (c->mfc_parent >= MAXVIFS) {
++		rtm->rtm_flags |= RTNH_F_UNRESOLVED;
+ 		return -ENOENT;
++	}
+ 
+ 	if (VIF_EXISTS(mrt, c->mfc_parent) &&
+ 	    nla_put_u32(skb, RTA_IIF, mrt->vif_table[c->mfc_parent].dev->ifindex) < 0)
+diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
+index 604d8953c775..e275077e8af2 100644
+--- a/net/ipv6/ip6mr.c
++++ b/net/ipv6/ip6mr.c
+@@ -2243,8 +2243,10 @@ static int __ip6mr_fill_mroute(struct mr6_table *mrt, struct sk_buff *skb,
+ 	int ct;
+ 
+ 	/* If cache is unresolved, don't try to parse IIF and OIF */
+-	if (c->mf6c_parent >= MAXMIFS)
++	if (c->mf6c_parent >= MAXMIFS) {
++		rtm->rtm_flags |= RTNH_F_UNRESOLVED;
+ 		return -ENOENT;
++	}
+ 
+ 	if (MIF_EXISTS(mrt, c->mf6c_parent) &&
+ 	    nla_put_u32(skb, RTA_IIF, mrt->vif6_table[c->mf6c_parent].dev->ifindex) < 0)
+-- 
+2.1.4
