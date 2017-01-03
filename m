@@ -1,46 +1,47 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH] LiquidIO VF: s/select/imply/ for PTP_1588_CLOCK
-Date: Tue, 3 Jan 2017 20:24:12 +0100
-Message-ID: <20170103192412.GA23297@netboy>
-References: <20170103101105.GA24780@localhost.localdomain>
- <alpine.LFD.2.20.1701031331450.21662@knanqh.ubzr>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next 0/3] net: dsa: restore HWMON support in dsa2
+Date: Tue, 03 Jan 2017 14:24:02 -0500
+Message-ID: <87ful0eylp.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <20170103181538.2593-1-vivien.didelot@savoirfairelinux.com> <20170103183352.GA30638@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Nicolas Pitre <nicolas.pitre@linaro.org>
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>, cphealy@gmail.com
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wj0-f196.google.com ([209.85.210.196]:34200 "EHLO
-        mail-wj0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934089AbdACTYR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2017 14:24:17 -0500
-Received: by mail-wj0-f196.google.com with SMTP id qs7so35377791wjc.1
-        for <netdev@vger.kernel.org>; Tue, 03 Jan 2017 11:24:17 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <alpine.LFD.2.20.1701031331450.21662@knanqh.ubzr>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:50286 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934089AbdACTYU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2017 14:24:20 -0500
+In-Reply-To: <20170103183352.GA30638@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 03, 2017 at 01:57:00PM -0500, Nicolas Pitre wrote:
-> Fix a minor fallout from the merge of the timers and the networking 
-> trees. The following error may result if the PTP_1588_CLOCK 
-> prerequisites are not available:
-> 
-> drivers/built-in.o: In function `ptp_clock_unregister':
-> (.text+0x40e0a5): undefined reference to `pps_unregister_source'
-> drivers/built-in.o: In function `ptp_clock_unregister':
-> (.text+0x40e0cc): undefined reference to `posix_clock_unregister'
-> drivers/built-in.o: In function `ptp_clock_event':
-> (.text+0x40e249): undefined reference to `pps_event'
-> drivers/built-in.o: In function `ptp_clock_register':
-> (.text+0x40e5e1): undefined reference to `pps_register_source'
-> drivers/built-in.o: In function `ptp_clock_register':
-> (.text+0x40e62c): undefined reference to `posix_clock_register'
-> drivers/built-in.o: In function `ptp_clock_register':
-> (.text+0x40e68d): undefined reference to `pps_unregister_source'
-> 
-> Signed-off-by: Nicolas Pitre <nico@linaro.org>
+Hi Andrew,
 
-Thanks for following up on this.
+Andrew Lunn <andrew@lunn.ch> writes:
 
-Acked-by: Richard Cochran <richardcochran@gmail.com>
+> On Tue, Jan 03, 2017 at 01:15:35PM -0500, Vivien Didelot wrote:
+>> The current HWMON support in DSA in embedded in the legacy code.
+>> Extract it to its own file and register it in the newer DSA code.
+>
+> I would really prefer not to do this.
+>
+> The temperature sensor is in the embedded PHYs of the switch. Many of
+> Marvell discrete PHYs also have the same temperature sensor. The
+> correct thing to do is move this code into drivers/net/phy/marvell.c.
+
+I agree that the temperature code in the mv88e6xxx driver must be moved
+to the Marvell PHY driver.
+
+However I still think this patchset is still valuable because at least
+it isolates the HWMON code in DSA which is good, and I think some chips
+do have temperature sensors in their cores, not in their PHYs. So the
+new DSA code should benefit from the HWMON support instead of
+considering this a regression for its users.
+
+Thanks,
+
+        Vivien
