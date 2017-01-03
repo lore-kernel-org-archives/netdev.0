@@ -1,118 +1,75 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: [PATCH net-next 2/2] tools: psock_tpacket: verify that packet was received on lo before counting it
-Date: Tue,  3 Jan 2017 15:27:39 -0800
-Message-ID: <3451a2008d953f33d6576a35eaefecad883eaeb5.1483482971.git.sowmini.varadhan@oracle.com>
-References: <cover.1483482971.git.sowmini.varadhan@oracle.com>
-Cc: daniel@iogearbox.net, willemb@google.com, davem@davemloft.net,
-        shuah@kernel.org
-To: linux-kselftest@vger.kernel.org, netdev@vger.kernel.org,
-        sowmini.varadhan@oracle.com
+From: David Michael <david.michael@coreos.com>
+Subject: [PATCH] tc: make tc linking depend on libtc.a
+Date: Tue, 03 Jan 2017 15:32:46 -0800
+Message-ID: <87wpebu3c1.fsf@coreos.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:32592 "EHLO
-        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1761954AbdACX2M (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2017 18:28:12 -0500
-In-Reply-To: <cover.1483482971.git.sowmini.varadhan@oracle.com>
-In-Reply-To: <cover.1483482971.git.sowmini.varadhan@oracle.com>
-References: <cover.1483482971.git.sowmini.varadhan@oracle.com>
+Received: from mail-pg0-f51.google.com ([74.125.83.51]:33141 "EHLO
+        mail-pg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1761984AbdACXct (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2017 18:32:49 -0500
+Received: by mail-pg0-f51.google.com with SMTP id g1so180620730pgn.0
+        for <netdev@vger.kernel.org>; Tue, 03 Jan 2017 15:32:49 -0800 (PST)
+Received: from callisto ([2603:3024:1c06:3af3:bfa5:a6ff:8ac8:141d])
+        by smtp.gmail.com with ESMTPSA id t25sm143864821pgo.9.2017.01.03.15.32.48
+        for <netdev@vger.kernel.org>
+        (version=TLS1_2 cipher=ECDHE-RSA-CHACHA20-POLY1305 bits=256/256);
+        Tue, 03 Jan 2017 15:32:48 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Packets from any/all interfaces may be queued up on the PF_PACKET socket
-before it is bound to the loopback interface by psock_tpacket, and
-when these are passed up by the kernel, they should not be counted
-toward the conditions needed to pass/fail the Rx tests.
-
-psock_tpacket discards these packets by examining the sll_ifindex sent
-up in each frame and ensuring that this is the same as the ifindex
-that was used in bind_ring()
-
-Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+There was a race condition where the command to link the tc binary
+could (rarely) run before the libtc.a archive existed.
 ---
- tools/testing/selftests/net/psock_tpacket.c |   25 ++++++++++++++++++++-----
- 1 files changed, 20 insertions(+), 5 deletions(-)
 
-diff --git a/tools/testing/selftests/net/psock_tpacket.c b/tools/testing/selftests/net/psock_tpacket.c
-index 4a1bc64..3c3f1aa 100644
---- a/tools/testing/selftests/net/psock_tpacket.c
-+++ b/tools/testing/selftests/net/psock_tpacket.c
-@@ -235,6 +235,7 @@ static void walk_v1_v2_rx(int sock, struct ring *ring)
- 	int udp_sock[2];
- 	union frame_map ppd;
- 	unsigned int frame_num = 0;
-+	int ifindex = ring->ll.sll_ifindex;
+Hi,
+
+I've hit a random failure during parallel builds:
+
+    ld: cannot find -ltc
+
+The issue seems to be that both tc and libtc.a are permitted to build in
+parallel, when tc actually depends on libtc.a.  This patch adjusts the
+Make prerequisites accordingly.  Can something like this be applied?
+
+Thanks.
+
+David
+
+ tc/Makefile | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/tc/Makefile b/tc/Makefile
+index bb90114..7fd0c4a 100644
+--- a/tc/Makefile
++++ b/tc/Makefile
+@@ -96,7 +96,7 @@ ifneq ($(TC_CONFIG_NO_XT),y)
+ endif
  
- 	bug_on(ring->type != PACKET_RX_RING);
+ TCOBJ += $(TCMODULES)
+-LDLIBS += -L. -ltc -lm
++LDLIBS += -L. -lm
  
-@@ -255,12 +256,18 @@ static void walk_v1_v2_rx(int sock, struct ring *ring)
+ ifeq ($(SHARED_LIBS),y)
+ LDLIBS += -ldl
+@@ -124,13 +124,13 @@ MODDESTDIR := $(DESTDIR)$(LIBDIR)/tc
+ 	$(QUIET_CC)$(CC) $(CFLAGS) $(LDFLAGS) -shared -fpic $< -o $@
  
- 			switch (ring->version) {
- 			case TPACKET_V1:
-+				if (ppd.v1->s_ll.sll_ifindex != ifindex)
-+					goto skip;
-+
- 				test_payload((uint8_t *) ppd.raw + ppd.v1->tp_h.tp_mac,
- 					     ppd.v1->tp_h.tp_snaplen);
- 				total_bytes += ppd.v1->tp_h.tp_snaplen;
- 				break;
  
- 			case TPACKET_V2:
-+				if (ppd.v2->s_ll.sll_ifindex != ifindex)
-+					goto skip;
-+
- 				test_payload((uint8_t *) ppd.raw + ppd.v2->tp_h.tp_mac,
- 					     ppd.v2->tp_h.tp_snaplen);
- 				total_bytes += ppd.v2->tp_h.tp_snaplen;
-@@ -270,6 +277,7 @@ static void walk_v1_v2_rx(int sock, struct ring *ring)
- 			status_bar_update();
- 			total_packets++;
+-all: libtc.a tc $(TCSO)
++all: tc $(TCSO)
  
-+skip:
- 			__v1_v2_rx_user_ready(ppd.raw, ring->version);
+-tc: $(TCOBJ) $(TCLIB)
++tc: $(TCOBJ) libtc.a
+ 	$(QUIET_LINK)$(CC) $^ $(LDFLAGS) $(LDLIBS) -o $@
  
- 			frame_num = (frame_num + 1) % ring->rd_num;
-@@ -553,11 +561,13 @@ static void __v3_test_block_header(struct block_desc *pbd, const int block_num)
- 	__v3_test_block_seq_num(pbd);
- }
+ libtc.a: $(TCLIB)
+-	$(QUIET_AR)$(AR) rcs $@ $(TCLIB)
++	$(QUIET_AR)$(AR) rcs $@ $^
  
--static void __v3_walk_block(struct block_desc *pbd, const int block_num)
-+static void __v3_walk_block(struct block_desc *pbd, const int block_num,
-+			    int ifindex)
- {
- 	int num_pkts = pbd->h1.num_pkts, i;
- 	unsigned long bytes = 0, bytes_with_padding = ALIGN_8(sizeof(*pbd));
- 	struct tpacket3_hdr *ppd;
-+	struct sockaddr_ll *s_ll;
- 
- 	__v3_test_block_header(pbd, block_num);
- 
-@@ -572,10 +582,15 @@ static void __v3_walk_block(struct block_desc *pbd, const int block_num)
- 		else
- 			bytes_with_padding += ALIGN_8(ppd->tp_snaplen + ppd->tp_mac);
- 
--		test_payload((uint8_t *) ppd + ppd->tp_mac, ppd->tp_snaplen);
-+		s_ll = (struct sockaddr_ll *)&ppd[1];
- 
--		status_bar_update();
--		total_packets++;
-+		if (ifindex == s_ll->sll_ifindex) {
-+			test_payload((uint8_t *) ppd + ppd->tp_mac,
-+				     ppd->tp_snaplen);
-+
-+			status_bar_update();
-+			total_packets++;
-+		}
- 
- 		ppd = (struct tpacket3_hdr *) ((uint8_t *) ppd + ppd->tp_next_offset);
- 		__sync_synchronize();
-@@ -616,7 +631,7 @@ static void walk_v3_rx(int sock, struct ring *ring)
- 		while ((pbd->h1.block_status & TP_STATUS_USER) == 0)
- 			poll(&pfd, 1, 1);
- 
--		__v3_walk_block(pbd, block_num);
-+		__v3_walk_block(pbd, block_num, ring->ll.sll_ifindex);
- 		__v3_flush_block(pbd);
- 
- 		block_num = (block_num + 1) % ring->rd_num;
+ install: all
+ 	mkdir -p $(MODDESTDIR)
 -- 
-1.7.1
+2.7.4
