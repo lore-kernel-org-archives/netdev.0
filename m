@@ -1,40 +1,42 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [net-next PATCH 5/6] i40e: Add TX and RX support in switchdev mode.
-Date: Wed, 4 Jan 2017 01:03:54 +0200
-Message-ID: <CAJ3xEMjGuKKge+_hqZPOg2fp3f50TdxGtbKFXwnCZ70rPxmuyw@mail.gmail.com>
-References: <1483078863-22026-1-git-send-email-sridhar.samudrala@intel.com>
- <1483078863-22026-6-git-send-email-sridhar.samudrala@intel.com>
- <CAJ3xEMgDAUSE2gVD3dU4UuXFb7k_W-9QgHpg-0c7b5kxRC2=FQ@mail.gmail.com> <586693A6.5090105@intel.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 2/2] isdn: i4l: move active-isdn drivers to staging
+Date: Wed, 04 Jan 2017 00:03:52 +0100
+Message-ID: <10507790.a4n3csIkKa@wuerfel>
+References: <1456945629-1793533-1-git-send-email-arnd@arndb.de>
+ <3780968.pTT7cvIH4p@wuerfel> <1483484256.13649.13.camel@tiscali.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-        John Fastabend <john.r.fastabend@intel.com>,
-        Anjali Singhai Jain <anjali.singhai@intel.com>,
-        jakub.kicinski@netronome.com, intel-wired-lan@lists.osuosl.org,
-        Linux Netdev List <netdev@vger.kernel.org>
-To: "Samudrala, Sridhar" <sridhar.samudrala@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f66.google.com ([209.85.218.66]:36218 "EHLO
-        mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753331AbdACXEa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2017 18:04:30 -0500
-Received: by mail-oi0-f66.google.com with SMTP id u15so72307540oie.3
-        for <netdev@vger.kernel.org>; Tue, 03 Jan 2017 15:03:55 -0800 (PST)
-In-Reply-To: <586693A6.5090105@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devel@driverdev.osuosl.org, Karsten Keil <isdn@linux-pingi.de>,
+ Jonathan Corbet <corbet@lwn.net>,
+ Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-doc@vger.kernel.org,
+ linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+ "David S. Miller" <davem@davemloft.net>, linux-arm-kernel@lists.infradead.org
+To: Paul Bolle <pebolle@tiscali.nl>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1483484256.13649.13.camel@tiscali.nl>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-On Fri, Dec 30, 2016 at 7:04 PM, Samudrala, Sridhar
-<sridhar.samudrala@intel.com> wrote:
-> On 12/30/2016 7:31 AM, Or Gerlitz wrote:
+On Tuesday, January 3, 2017 11:57:36 PM CET Paul Bolle wrote:
+> On Tue, 2017-01-03 at 23:25 +0100, Arnd Bergmann wrote:
+> > As far as I'm concerned, we are totally fine as long as there exists a
+> > longterm supported kernel that has i4l in drivers/staging.
+> 
+> Or in drivers/isdn, right?
 
->> Are you exposing switchdev ops for the representators? didn't see that
->> or maybe it's in the 4th patch which didn't make it to the list?
+Right, I was assuming that we would first move it to staging and then
+delete it, both at future points in time that we can debate. With the
+existing longterm kernels that have i4l in drivers/isdn, the few remaining
+users still have access to a supported kernel release until at least
+2020.
 
-> Not at this time. In the future patches when we offload fdb/vlan
-> functionality, we could use switchdev ops.
-
-but wait, this is the switchdev mode... even before doing any
-offloading, you want (need) your representor netdevices to have the
-same HW ID marking they are all ports of the same ASIC, this you can
-do with the switchdev parent ID attribute.
+	Arnd
