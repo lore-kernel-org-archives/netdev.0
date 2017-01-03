@@ -1,63 +1,58 @@
-From: Felix Manlunas <felix.manlunas@cavium.com>
-Subject: [PATCH net-next] liquidio: remove PTP support in 23XX adapters
-Date: Tue, 3 Jan 2017 11:27:33 -0800
-Message-ID: <20170103192733.GA4979@felix.cavium.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next 0/3] net: dsa: restore HWMON support in dsa2
+Date: Tue, 3 Jan 2017 11:29:48 -0800
+Message-ID: <0a504cad-2f2c-fc6a-9965-5ae87be9dac4@gmail.com>
+References: <20170103181538.2593-1-vivien.didelot@savoirfairelinux.com>
+ <20170103183352.GA30638@lunn.ch>
+ <87ful0eylp.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, <raghu.vatsavayi@cavium.com>,
-        <derek.chickles@cavium.com>, <satananda.burla@cavium.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>, cphealy@gmail.com
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam03on0060.outbound.protection.outlook.com ([104.47.42.60]:57506
-        "EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1757384AbdACT2a (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 3 Jan 2017 14:28:30 -0500
-Content-Disposition: inline
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:36350 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752653AbdACT3v (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2017 14:29:51 -0500
+In-Reply-To: <87ful0eylp.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Prasad Kanneganti <prasad.kanneganti@cavium.com>
+On 01/03/2017 11:24 AM, Vivien Didelot wrote:
+> Hi Andrew,
+> 
+> Andrew Lunn <andrew@lunn.ch> writes:
+> 
+>> On Tue, Jan 03, 2017 at 01:15:35PM -0500, Vivien Didelot wrote:
+>>> The current HWMON support in DSA in embedded in the legacy code.
+>>> Extract it to its own file and register it in the newer DSA code.
+>>
+>> I would really prefer not to do this.
+>>
+>> The temperature sensor is in the embedded PHYs of the switch. Many of
+>> Marvell discrete PHYs also have the same temperature sensor. The
+>> correct thing to do is move this code into drivers/net/phy/marvell.c.
+> 
+> I agree that the temperature code in the mv88e6xxx driver must be moved
+> to the Marvell PHY driver.
+> 
+> However I still think this patchset is still valuable because at least
+> it isolates the HWMON code in DSA which is good, and I think some chips
+> do have temperature sensors in their cores, not in their PHYs. So the
+> new DSA code should benefit from the HWMON support instead of
+> considering this a regression for its users.
 
-liquidio driver incorrectly indicates that PTP is supported in 23XX
-adapters; this patch fixes that.  PTP is supported in 66XX and 68XX
-adapters, and the driver correctly indicates that.
+Well, I agree with the regression part, but an argument could
+definitively be made that HWMON did not belong in the DSA layer in the
+first place, unless we were able to find some commonality between
+devices which AFAICT, we could not yet.
 
-Signed-off-by: Prasad Kanneganti <prasad.kanneganti@cavium.com>
-Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
-Signed-off-by: Derek Chickles <derek.chickles@cavium.com>
-Signed-off-by: Satanand Burla <satananda.burla@cavium.com>
----
- drivers/net/ethernet/cavium/liquidio/lio_main.c | 10 ++++++++--
- 1 file changed, 8 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-index 39a9665..6443bc1 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-@@ -2629,7 +2629,9 @@ static int liquidio_open(struct net_device *netdev)
- 			oct->droq[0]->ops.poll_mode = 1;
- 	}
- 
--	oct_ptp_open(netdev);
-+	if ((oct->chip_id == OCTEON_CN66XX || oct->chip_id == OCTEON_CN68XX) &&
-+	    ptp_enable)
-+		oct_ptp_open(netdev);
- 
- 	ifstate_set(lio, LIO_IFSTATE_RUNNING);
- 
-@@ -2973,9 +2975,13 @@ static int hwtstamp_ioctl(struct net_device *netdev, struct ifreq *ifr)
-  */
- static int liquidio_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
- {
-+	struct lio *lio = GET_LIO(netdev);
-+
- 	switch (cmd) {
- 	case SIOCSHWTSTAMP:
--		return hwtstamp_ioctl(netdev, ifr);
-+		if ((lio->oct_dev->chip_id == OCTEON_CN66XX ||
-+		     lio->oct_dev->chip_id == OCTEON_CN68XX) && ptp_enable)
-+			return hwtstamp_ioctl(netdev, ifr);
- 	default:
- 		return -EOPNOTSUPP;
- 	}
+I don't have a strong preference, but it seems like the HWMON
+functionality should have been part of the switch and/or PHY driver all
+along.
+-- 
+Florian
