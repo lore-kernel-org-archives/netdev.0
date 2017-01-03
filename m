@@ -1,59 +1,82 @@
-From: Yotam Gigi <yotamg@mellanox.com>
-Subject: [PATCH net-next] net/sched: cls_matchall: Fix error path
-Date: Tue,  3 Jan 2017 17:47:02 +0200
-Message-ID: <1483458422-13607-1-git-send-email-yotamg@mellanox.com>
-Cc: Yotam Gigi <yotamg@mellanox.com>
-To: jhs@mojatatu.com, davem@davemloft.net, eladr@mellanox.com,
-        jiri@mellanox.com, netdev@vger.kernel.org
+From: Aaron Conole <aconole@redhat.com>
+Subject: Re: [PATCH] Ipvlan should return an error when an address is already in use.
+Date: Tue, 03 Jan 2017 10:50:00 -0500
+Message-ID: <f7td1g49m8n.fsf@redhat.com>
+References: <20161231041058.GC2448@templeofstupid.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Mahesh Bandewar <maheshb@google.com>, netdev@vger.kernel.org
+To: Krister Johansen <kjlx@templeofstupid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:40802 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1752763AbdACPpl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2017 10:45:41 -0500
+Received: from mx1.redhat.com ([209.132.183.28]:34346 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1759455AbdACPuH (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 3 Jan 2017 10:50:07 -0500
+In-Reply-To: <20161231041058.GC2448@templeofstupid.com> (Krister Johansen's
+        message of "Fri, 30 Dec 2016 20:10:58 -0800")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix several error paths in matchall:
- - Release reference to actions in case the hardware fails offloading
-   (relevant to skip_sw only)
- - Fix error path in case tcf_exts initialization fails
+Hi Krister,
 
-Fixes: bf3994d2ed31 ("net/sched: introduce Match-all classifier")
-Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
----
- net/sched/cls_matchall.c | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
+Krister Johansen <kjlx@templeofstupid.com> writes:
 
-diff --git a/net/sched/cls_matchall.c b/net/sched/cls_matchall.c
-index f935429..ce7d28b 100644
---- a/net/sched/cls_matchall.c
-+++ b/net/sched/cls_matchall.c
-@@ -144,7 +144,7 @@ static int mall_set_parms(struct net *net, struct tcf_proto *tp,
- 	tcf_exts_init(&e, TCA_MATCHALL_ACT, 0);
- 	err = tcf_exts_validate(net, tp, tb, est, &e, ovr);
- 	if (err < 0)
--		return err;
-+		goto errout;
- 
- 	if (tb[TCA_MATCHALL_CLASSID]) {
- 		f->res.classid = nla_get_u32(tb[TCA_MATCHALL_CLASSID]);
-@@ -154,6 +154,9 @@ static int mall_set_parms(struct net *net, struct tcf_proto *tp,
- 	tcf_exts_change(tp, &f->exts, &e);
- 
- 	return 0;
-+errout:
-+	tcf_exts_destroy(&e);
-+	return err;
- }
- 
- static int mall_change(struct net *net, struct sk_buff *in_skb,
-@@ -220,6 +223,7 @@ static int mall_change(struct net *net, struct sk_buff *in_skb,
- 	return 0;
- 
- errout:
-+	tcf_exts_destroy(&f->exts);
- 	kfree(f);
- 	return err;
- }
--- 
-2.4.11
+> The ipvlan code already knows how to detect when a duplicate address is
+> about to be assigned to an ipvlan device.  However, that failure is not
+> propogated outward and leads to a silent failure.  This teaches the ip
+> address addition functions how to report this error to the user
+> applications so that a notifier chain failure during ip address addition
+> will not appear to succeed when it actually has not.
+>
+> This can be especially useful if it is necessary to provision many
+> ipvlans in containers.  The provisioning software (or operator) can use
+> this to detect situations where an ip address is unexpectedly in use.
+>
+> Signed-off-by: Krister Johansen <kjlx@templeofstupid.com>
+> ---
+
+...
+
+> @@ -489,7 +490,12 @@ static int __inet_insert_ifa(struct in_ifaddr *ifa, struct nlmsghdr *nlh,
+>  	   Notifier will trigger FIB update, so that
+>  	   listeners of netlink will know about new ifaddr */
+>  	rtmsg_ifa(RTM_NEWADDR, ifa, nlh, portid);
+> -	blocking_notifier_call_chain(&inetaddr_chain, NETDEV_UP, ifa);
+> +	ret = blocking_notifier_call_chain(&inetaddr_chain, NETDEV_UP, ifa);
+
+Why are you doing this assignment if you aren't using the result?
+
+> +	ret = notifier_to_errno(ret);
+> +	if (ret) {
+> +		__inet_del_ifa(in_dev, ifap, 1, NULL, portid);
+> +		return ret;
+> +	}
+>  
+>  	return 0;
+>  }
+
+<<snip>>
+
+> @@ -1031,9 +1032,15 @@ ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr,
+>  out2:
+>  	rcu_read_unlock_bh();
+>  
+> -	if (likely(err == 0))
+> -		inet6addr_notifier_call_chain(NETDEV_UP, ifa);
+> -	else {
+> +	if (likely(err == 0)) {
+> +		err = inet6addr_notifier_call_chain(NETDEV_UP, ifa);
+
+Same here...
+
+> +		err = notifier_to_errno(err);
+> +		if (err) {
+> +			__ipv6_del_addr(ifa, false);
+> +			ifa = ERR_PTR(err);
+> +			return ifa;
+> +		}
+> +	} else {
+>  		kfree(ifa);
+>  		ifa = ERR_PTR(err);
+>  	}
