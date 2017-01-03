@@ -1,88 +1,34 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: Re: [RFC PATCH net-next v4 1/2] macb: Add 1588 support in Cadence GEM.
-Date: Tue, 3 Jan 2017 15:22:06 +0100
-Message-ID: <bba29875-cc47-17a6-4104-5e8c46402f7d@atmel.com>
-References: <1481720175-12703-1-git-send-email-andrei.pistirica@microchip.com>
- <BN3PR07MB2516815EDE69ACDCE27F81A3C96F0@BN3PR07MB2516.namprd07.prod.outlook.com>
- <20170102113155.GA16373@localhost.localdomain>
- <0717c63b-2e29-9ad1-7f01-39817980933f@atmel.com>
- <20170102161359.GD3609@localhost.localdomain>
- <CAFcVECK1vt7Hu4tgSZ2+kKpMxoT-wpikMDq65HaxRv-EMgobHA@mail.gmail.com>
- <BN3PR07MB25168573DD82F1681CDC8437C96E0@BN3PR07MB2516.namprd07.prod.outlook.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "tbultel@pixelsurmer.com" <tbultel@pixelsurmer.com>,
- "boris.brezillon@free-electrons.com" <boris.brezillon@free-electrons.com>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "alexandre.belloni@free-electrons.com" <alexandre.belloni@free-electrons.com>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- Andrei Pistirica <andrei.pistirica@microchip.com>,
- "michals@xilinx.com" <michals@xilinx.com>,
- "anirudh@xilinx.com" <anirudh@xilinx.com>,
- "punnaia@xilinx.com" <punnaia@xilinx.com>,
- "harini.katakam@xilinx.com" <harini.katakam@xilinx.com>,
- "davem@davemloft.net" <davem@davemloft.net>,
- "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>
-To: Rafal Ozieblo <rafalo@cadence.com>, Harini Katakam
- <harinikatakamlinux@gmail.com>, Richard Cochran <richardcochran@gmail.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <BN3PR07MB25168573DD82F1681CDC8437C96E0@BN3PR07MB2516.namprd07.prod.outlook.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: [PATCH v3 net-next 0/2] TPACKET_V3 TX_RING support
+Date: Tue,  3 Jan 2017 06:31:46 -0800
+Message-ID: <cover.1483452545.git.sowmini.varadhan@oracle.com>
+Cc: daniel@iogearbox.net, willemb@google.com, davem@davemloft.net
+To: netdev@vger.kernel.org, sowmini.varadhan@oracle.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:33364 "EHLO
+        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750980AbdACOcW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2017 09:32:22 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-TGUgMDMvMDEvMjAxNyDDoCAxMTo0NywgUmFmYWwgT3ppZWJsbyBhIMOpY3JpdCA6Cj4+IEZyb206
-IEhhcmluaSBLYXRha2FtIFttYWlsdG86aGFyaW5pa2F0YWthbWxpbnV4QGdtYWlsLmNvbV0gCj4+
-IFNlbnQ6IDMgc3R5Y3puaWEgMjAxNyAwNjowNgo+PiBTdWJqZWN0OiBSZTogW1JGQyBQQVRDSCBu
-ZXQtbmV4dCB2NCAxLzJdIG1hY2I6IEFkZCAxNTg4IHN1cHBvcnQgaW4gQ2FkZW5jZSBHRU0uCj4+
-Cj4+IEhpIFJpY2hhcmQsCj4+Cj4+IE9uIE1vbiwgSmFuIDIsIDIwMTcgYXQgOTo0MyBQTSwgUmlj
-aGFyZCBDb2NocmFuIDxyaWNoYXJkY29jaHJhbkBnbWFpbC5jb20+IHdyb3RlOgo+Pj4gT24gTW9u
-LCBKYW4gMDIsIDIwMTcgYXQgMDM6NDc6MDdQTSArMDEwMCwgTmljb2xhcyBGZXJyZSB3cm90ZToK
-Pj4+PiBMZSAwMi8wMS8yMDE3IMOgIDEyOjMxLCBSaWNoYXJkIENvY2hyYW4gYSDDqWNyaXQgOgo+
-Pj4+PiBUaGlzIENhZGVuY2UgSVAgY29yZSBpcyBhIGNvbXBsZXRlIGRpc2FzdGVyLgo+Pj4+Cj4+
-Pj4gV2VsbCwgaXQgZXZvbHZlZCBhbmQgcHJvcG9zZSBzZXZlcmFsIG9wdGlvbnMgdG8gZGlmZmVy
-ZW50IFNvQyAKPj4+PiBpbnRlZ3JhdG9ycy4gVGhpcyBpcyBub3Qgc29tZXRoaW5nIHVudXN1YWwu
-Li4KPj4+PiBJIHN1c3BlY3QgYXMgd2VsbCB0aGF0IHNvbWUgb3RoZXIgbmV0d29yayBhZGFwdGVy
-cyBoYXZlIHRoZSBzYW1lIAo+Pj4+IHdlYWtuZXNzIGNvbmNlcm5pbmcgUFRQIHRpbWVzdGFtcCBp
-biBzaW5nbGUgcmVnaXN0ZXIgYXMgdGhlIGVhcmx5IAo+Pj4+IHJldmlzaW9ucyBvZiB0aGlzIElQ
-Lgo+Pj4KPj4+IEl0IGFwcGVhcnMgdGhhdCB0aGlzIGNvcmUgY2FuIG5laXRoZXIgbGF0Y2ggdGhl
-IHRpbWUgb24gcmVhZCBvciB3cml0ZSwgCj4+PiBvciBldmVuIGxhdGNoIHRpbWUgc3RhbXBzLiAg
-SSBoYXZlIHdvcmtlZCB3aXRoIG1hbnkgZGlmZmVyZW50IFBUUCBIVyAKPj4+IGltcGxlbWVudGF0
-aW9ucywgZXZlbiBlYXJseSBvbmVzIGxpa2Ugb24gdGhlIGl4cDR4eCwgYW5kIGl0IGlzIG5vIAo+
-Pj4gZXhhZ2dlcmF0aW9uIHRvIHNheSB0aGF0IHRoaXMgb25lIGlzIHVuaXF1ZWx5IGJyb2tlbi4K
-Pj4+Cj4+Pj4gSSBzdXNwZWN0IHRoYXQgUmFmYWwgdGVuZCB0byBqdW1wIHRvbyBxdWlja2x5IHRv
-IHRoZSBsYXRlc3QgSVAgCj4+Pj4gcmV2aXNpb25zIGFuZCBhZGQgbW9yZSBvcHRpb25zIHRvIHRo
-aXMgc2VyaWVzOiBsZXQncyBub3QgdHJ5IHRvIHBvdXIgCj4+Pj4gdG9vIG11Y2ggdGhpbmdzIGlu
-dG8gdGhpcyBjb2RlIHJpZ2h0IG5vdy4KPj4+Cj4+PiBXaHkgY2FuJ3QgeW91IGNoZWNrIHRoZSBJ
-UCB2ZXJzaW9uIGluIHRoZSBkcml2ZXI/Cj4+Cj4+IFRoZXJlIGlzIGFuIElQIHJldmlzaW9uIHJl
-Z2lzdGVyIGJ1dCBpdCB3b3VsZCBiZSBwcm9iYWJseSBiZQo+PiBiZXR0ZXIgdG8gcmVseSBvbiAi
-Y2FwcyIgZnJvbSB0aGUgY29tcGF0aWJpbGl0eSBzdHJpbmdzIC0gdG8gY292ZXIgU29DIHNwZWNp
-ZmljCj4+IGltcGxlbWVudGF0aW9ucy4gQWxzbywgd2hlbiB0aGlzIGV4dGVuZGVkIEJEIGlzIGFk
-ZGVkICh3aXRoIHRpbWVzdGFtcCksCj4+IGFkZGl0aW9uYWwgd29yZHMgd2lsbCBuZWVkIHRvIGJl
-IGFkZGVkIHN0YXRpY2FsbHkgd2hpY2ggd2lsbCBiZQo+PiBjb25zaXN0ZW50IHdpdGggQW5kcmVp
-J3MgQ09ORklHXyBjaGVja3MuCj4gV2UgY2FuIGRpc3Rpbmd1aXNoIElQIGNvcmVzIHdpdGggYW5k
-IHdpdGhvdXQgUFRQIHN1cHBvcnQgYnkgcmVhZGluZwo+IERlc2lnbiBDb25maWd1cmF0aW9uIFJl
-Z2lzdGVyLiBCdXQgdG8gZGlzdGluZ3Vpc2ggSVAgY29yZXMgd2l0aAo+IHRpbWVzdGFtcHMgaW4g
-YnVmZmVyIGRlc2NyaXB0b3JzIGFuZCB3aGljaCBzdXBwb3J0IG9ubHkgZXZlbnQKPiByZWdpc3Rl
-cnMsIHdlIGNhbiBvbmx5IGNoZWNrIElQIHZlcnNpb24gYnkgcmVhZGluZyB0aGUgcmV2aXNpb24g
-SUQKPiByZWdpc3RlciBhbmQgYmFzZSBvbiB0aGF0Lgo+IEkgYWdyZWUgd2l0aCBIYXJpbmksIGNv
-bXBhdGliaWxpdHkgc3RyaW5ncyBjb3VsZCBiZSBiZXR0ZXIuIEJ1dCB3ZQo+IG1pZ2h0IGVuZCB1
-cCB3aXRoIG1hbnkgZGlmZmVyZW50IGNvbmZpZ3VyYXRpb24gaW4gdGhlIGZ1dHVyZS4KCkNvbXBh
-dGliaWxpdHkgc3RyaW5ncyBhbmQgYXNzb2NpYXRlZCBjb25maWd1cmF0aW9ucyBhcmUgY2hlYXAu
-IEl0J3Mgbm90CmEgcHJvYmxlbSB0byBoYXZlIG1hbnkgZGlmZmVyZW50IGNvbmZpZ3VyYXRpb25z
-IGFuZCBjbGVhcmVyIGZvciB0aGlzCnBhcnRpY3VsYXIgImNvbXBvc2l0ZSIgZmVhdHVyZS4KCj4g
-V2UgY291bGQgdXNlIG9ubHkgZGVzY3JpcHRvciBhcHByb2FjaCBidXQgdGhlcmUgYXJlIG1hbnkg
-QXRtZWwncwo+IGNvcmVzIG9uIHRoZSBtYXJrZXQgd2hpY2ggc3VwcG9ydCBvbmx5IGV2ZW50IHJl
-Z2lzdGVycy4KClllcyBhbmQgb25jZSBpbiBzaWxpY29uLCBpdCdzIGhhcmQgdG8gbW9kaWZ5IDst
-KQoKUmVnYXJkcywKLS0gCk5pY29sYXMgRmVycmUKCl9fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fCmxpbnV4LWFybS1rZXJuZWwgbWFpbGluZyBsaXN0CmxpbnV4
-LWFybS1rZXJuZWxAbGlzdHMuaW5mcmFkZWFkLm9yZwpodHRwOi8vbGlzdHMuaW5mcmFkZWFkLm9y
-Zy9tYWlsbWFuL2xpc3RpbmZvL2xpbnV4LWFybS1rZXJuZWwK
+This patch series allows an application to use a single PF_PACKET
+descriptor and leverage the best implementations of TX_RING
+and RX_RING that exist today.
+
+Patch 1 adds the kernel/Documentation changes for TX_RING
+support and patch2 adds the associated test case in selftests.
+
+Changes since v2: additional sanity checks for setsockopt
+input for TX_RING/TPACKET_V3. Refactored psock_tpacket.c
+test code to avoid code duplication from V2.
+
+
+Sowmini Varadhan (2):
+  af_packet: TX_RING support for TPACKET_V3
+  tools: test case for TPACKET_V3/TX_RING support
+
+ Documentation/networking/packet_mmap.txt    |    9 ++-
+ net/packet/af_packet.c                      |   39 +++++++++---
+ tools/testing/selftests/net/psock_tpacket.c |   91 ++++++++++++++++++++++-----
+ 3 files changed, 111 insertions(+), 28 deletions(-)
