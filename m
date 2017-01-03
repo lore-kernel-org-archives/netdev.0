@@ -1,54 +1,68 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [RFC PATCH net-next v4 1/2] macb: Add 1588 support in Cadence
- GEM.
-Date: Tue, 3 Jan 2017 11:20:44 +0100
-Message-ID: <20170103102044.GB24780@localhost.localdomain>
-References: <1481720175-12703-1-git-send-email-andrei.pistirica@microchip.com>
- <BN3PR07MB2516815EDE69ACDCE27F81A3C96F0@BN3PR07MB2516.namprd07.prod.outlook.com>
- <20170102113155.GA16373@localhost.localdomain>
- <0717c63b-2e29-9ad1-7f01-39817980933f@atmel.com>
- <20170102161359.GD3609@localhost.localdomain>
- <CAFcVECK1vt7Hu4tgSZ2+kKpMxoT-wpikMDq65HaxRv-EMgobHA@mail.gmail.com>
+From: Michal Hocko <mhocko-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: Potential issues (security and otherwise) with the current
+ cgroup-bpf API
+Date: Tue, 3 Jan 2017 11:25:59 +0100
+Message-ID: <20170103102559.GA30129@dhcp22.suse.cz>
+References: <CALCETrV81oFwq2AgeRsN54HA1jR=b5cOZfAgve8H8zhx83DTyA@mail.gmail.com>
+ <20161219205631.GA31242@ast-mbp.thefacebook.com>
+ <CALCETrWr5XMkexdGp7HdkiLkQV=P9ycj+sNO7xWSRoCVxihVZA@mail.gmail.com>
+ <20161220000254.GA58895@ast-mbp.thefacebook.com>
+ <CALCETrU1_bDVLfokQ7zasHVmeq7S-R+603GEw59V_wuj4eE1hw@mail.gmail.com>
+ <2dbec775-6304-e44c-19c5-fbf07877e7b1@gmail.com>
+ <CALCETrUW2jEYmjSsOrPj+MAjkDGGUCw_rdxQh+5Er0r4ReGLnA@mail.gmail.com>
+ <20161220091150.GJ3124@twins.programming.kicks-ass.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Nicolas Ferre <nicolas.ferre@atmel.com>,
-        Rafal Ozieblo <rafalo@cadence.com>,
-        Andrei Pistirica <andrei.pistirica@microchip.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "linux-arm-kernel@lists.infradead.org"
-        <linux-arm-kernel@lists.infradead.org>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "harini.katakam@xilinx.com" <harini.katakam@xilinx.com>,
-        "punnaia@xilinx.com" <punnaia@xilinx.com>,
-        "michals@xilinx.com" <michals@xilinx.com>,
-        "anirudh@xilinx.com" <anirudh@xilinx.com>,
-        "boris.brezillon@free-electrons.com"
-        <boris.brezillon@free-electrons.com>,
-        "alexandre.belloni@free-electrons.com"
-        <alexandre.belloni@free-electrons.com>,
-        "tbultel@pixelsurmer.com" <tbultel@pixelsurmer.com>
-To: Harini Katakam <harinikatakamlinux@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
+        David Ahern <dsahern-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Andy Lutomirski <luto-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Daniel Mack <daniel-cYrQPVfZoowdnm+yROfE0A@public.gmane.org>,
+        =?iso-8859-1?Q?Micka=EBl_Sala=FCn?= <mic-WFhQfpSGs3bR7s880joybQ@public.gmane.org>,
+        Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, Jann Horn <jann-XZ1E9jl8jIdeoWH0uzbU5w@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>,
+        Michael Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <CAFcVECK1vt7Hu4tgSZ2+kKpMxoT-wpikMDq65HaxRv-EMgobHA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20161220091150.GJ3124-ndre7Fmf5hadTX5a5knrm8zTDFooKrT+cvkQGrU6aU0@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 03, 2017 at 10:36:11AM +0530, Harini Katakam wrote:
-> I understand that it is not accurate - it is an initial version.
+On Tue 20-12-16 10:11:50, Peter Zijlstra wrote:
+> On Mon, Dec 19, 2016 at 05:56:24PM -0800, Andy Lutomirski wrote:
+> > >> Huh?  My example in the original email attaches a program in a
+> > >> sub-hierarchy.  Are you saying that 4.11 could make that example stop
+> > >> working?
+> > >
+> > > Are you suggesting sub-cgroups should not be allowed to override the filter of a parent cgroup?
+> > 
+> > Yes, exactly.  I think there are two sensible behaviors:
+> > 
+> > a) sub-cgroups cannot have a filter at all of the parent has a filter.
+> > (This is the "punt" approach -- it lets different semantics be
+> > assigned later without breaking userspace.)
+> > 
+> > b) sub-cgroups can have a filter if a parent does, too.  The semantics
+> > are that the sub-cgroup filter runs first and all side-effects occur.
+> > If that filter says "reject" then ancestor filters are skipped.  If
+> > that filter says "accept", then the ancestor filter is run and its
+> > side-effects happen as well.  (And so on, all the way up to the root.)
+> 
+> So from what I understand the proposed cgroup is not in fact
+> hierarchical at all.
+> 
+> @TJ, I thought you were enforcing all new cgroups to be properly
+> hierarchical, that would very much include this one.
 
-No, it is not inaccurate at all, it is WRONG.
-
-This means that time stamps will be randomly associated with PTP
-network packets.  To the application, the protocol will appear to
-work, but the time stamp information (and thus the synchronization)
-will be wrong.
-
-To me, this is unacceptable, and I will push back on this driver
-getting merged.
-
-[ In contrast, the descriptor based approach would be ok, afaict. ]
-
-Thanks,
-Richard
+I would be interested in that as well. We have made that mistake in
+memcg v1 where hierarchy could be disabled for performance reasons and
+that turned out to be major PITA in the end. Why do we want to repeat
+the same mistake here?
+-- 
+Michal Hocko
+SUSE Labs
