@@ -1,152 +1,54 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 1/3] net: dsa: remove out label in
- dsa_switch_setup_one
-Date: Tue, 3 Jan 2017 19:39:13 +0100
-Message-ID: <20170103183913.GB30638@lunn.ch>
-References: <20170103181538.2593-1-vivien.didelot@savoirfairelinux.com>
- <20170103181538.2593-2-vivien.didelot@savoirfairelinux.com>
+From: Nicolas Pitre <nicolas.pitre@linaro.org>
+Subject: [PATCH] LiquidIO VF: s/select/imply/ for PTP_1588_CLOCK
+Date: Tue, 3 Jan 2017 13:57:00 -0500 (EST)
+Message-ID: <alpine.LFD.2.20.1701031331450.21662@knanqh.ubzr>
+References: <20170103101105.GA24780@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>, cphealy@gmail.com
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Content-Type: text/plain; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: Richard Cochran <richardcochran@gmail.com>,
+        Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:41849 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1759585AbdACSjQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 3 Jan 2017 13:39:16 -0500
-Content-Disposition: inline
-In-Reply-To: <20170103181538.2593-2-vivien.didelot@savoirfairelinux.com>
+Received: from mail-it0-f53.google.com ([209.85.214.53]:38744 "EHLO
+        mail-it0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S965460AbdACS5U (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2017 13:57:20 -0500
+Received: by mail-it0-f53.google.com with SMTP id x2so304478733itf.1
+        for <netdev@vger.kernel.org>; Tue, 03 Jan 2017 10:57:20 -0800 (PST)
+In-Reply-To: <20170103101105.GA24780@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 03, 2017 at 01:15:36PM -0500, Vivien Didelot wrote:
-> The "out" label in dsa_switch_setup_one() is useless, thus remove it.
+Fix a minor fallout from the merge of the timers and the networking 
+trees. The following error may result if the PTP_1588_CLOCK 
+prerequisites are not available:
 
-Hi Vivien
+drivers/built-in.o: In function `ptp_clock_unregister':
+(.text+0x40e0a5): undefined reference to `pps_unregister_source'
+drivers/built-in.o: In function `ptp_clock_unregister':
+(.text+0x40e0cc): undefined reference to `posix_clock_unregister'
+drivers/built-in.o: In function `ptp_clock_event':
+(.text+0x40e249): undefined reference to `pps_event'
+drivers/built-in.o: In function `ptp_clock_register':
+(.text+0x40e5e1): undefined reference to `pps_register_source'
+drivers/built-in.o: In function `ptp_clock_register':
+(.text+0x40e62c): undefined reference to `posix_clock_register'
+drivers/built-in.o: In function `ptp_clock_register':
+(.text+0x40e68d): undefined reference to `pps_unregister_source'
 
-Missing a SOB.
+Signed-off-by: Nicolas Pitre <nico@linaro.org>
 
-This one patch i'm happy with. Assuming we drop the other two, please
-could you submit this on its own.
-
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
-
-    Andrew
-
-
-> ---
->  net/dsa/dsa.c | 40 +++++++++++++---------------------------
->  1 file changed, 13 insertions(+), 27 deletions(-)
-> 
-> diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-> index 7899919cd9f0..89e66b623d73 100644
-> --- a/net/dsa/dsa.c
-> +++ b/net/dsa/dsa.c
-> @@ -329,8 +329,7 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
->  			if (dst->cpu_switch != -1) {
->  				netdev_err(dst->master_netdev,
->  					   "multiple cpu ports?!\n");
-> -				ret = -EINVAL;
-> -				goto out;
-> +				return -EINVAL;
->  			}
->  			dst->cpu_switch = index;
->  			dst->cpu_port = i;
-> @@ -343,10 +342,8 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
->  		valid_name_found = true;
->  	}
->  
-> -	if (!valid_name_found && i == DSA_MAX_PORTS) {
-> -		ret = -EINVAL;
-> -		goto out;
-> -	}
-> +	if (!valid_name_found && i == DSA_MAX_PORTS)
-> +		return -EINVAL;
->  
->  	/* Make the built-in MII bus mask match the number of ports,
->  	 * switch drivers can override this later
-> @@ -363,10 +360,8 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
->  
->  		tag_protocol = ops->get_tag_protocol(ds);
->  		dst->tag_ops = dsa_resolve_tag_protocol(tag_protocol);
-> -		if (IS_ERR(dst->tag_ops)) {
-> -			ret = PTR_ERR(dst->tag_ops);
-> -			goto out;
-> -		}
-> +		if (IS_ERR(dst->tag_ops))
-> +			return PTR_ERR(dst->tag_ops);
->  
->  		dst->rcv = dst->tag_ops->rcv;
->  	}
-> @@ -378,25 +373,23 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
->  	 */
->  	ret = ops->setup(ds);
->  	if (ret < 0)
-> -		goto out;
-> +		return ret;
->  
->  	if (ops->set_addr) {
->  		ret = ops->set_addr(ds, dst->master_netdev->dev_addr);
->  		if (ret < 0)
-> -			goto out;
-> +			return ret;
->  	}
->  
->  	if (!ds->slave_mii_bus && ops->phy_read) {
->  		ds->slave_mii_bus = devm_mdiobus_alloc(parent);
-> -		if (!ds->slave_mii_bus) {
-> -			ret = -ENOMEM;
-> -			goto out;
-> -		}
-> +		if (!ds->slave_mii_bus)
-> +			return -ENOMEM;
->  		dsa_slave_mii_bus_init(ds);
->  
->  		ret = mdiobus_register(ds->slave_mii_bus);
->  		if (ret < 0)
-> -			goto out;
-> +			return ret;
->  	}
->  
->  	/*
-> @@ -409,20 +402,16 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
->  			continue;
->  
->  		ret = dsa_slave_create(ds, parent, i, cd->port_names[i]);
-> -		if (ret < 0) {
-> +		if (ret < 0)
->  			netdev_err(dst->master_netdev, "[%d]: can't create dsa slave device for port %d(%s): %d\n",
->  				   index, i, cd->port_names[i], ret);
-> -			ret = 0;
-> -		}
->  	}
->  
->  	/* Perform configuration of the CPU and DSA ports */
->  	ret = dsa_cpu_dsa_setups(ds, parent);
-> -	if (ret < 0) {
-> +	if (ret < 0)
->  		netdev_err(dst->master_netdev, "[%d] : can't configure CPU and DSA ports\n",
->  			   index);
-> -		ret = 0;
-> -	}
->  
->  	ret = dsa_cpu_port_ethtool_setup(ds);
->  	if (ret)
-> @@ -453,10 +442,7 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
->  	}
->  #endif /* CONFIG_NET_DSA_HWMON */
->  
-> -	return ret;
-> -
-> -out:
-> -	return ret;
-> +	return 0;
->  }
->  
->  static struct dsa_switch *
-> -- 
-> 2.11.0
-> 
+diff --git a/drivers/net/ethernet/cavium/Kconfig b/drivers/net/ethernet/cavium/Kconfig
+index bbc8bd16cb..dcbce6cac6 100644
+--- a/drivers/net/ethernet/cavium/Kconfig
++++ b/drivers/net/ethernet/cavium/Kconfig
+@@ -77,7 +77,7 @@ config OCTEON_MGMT_ETHERNET
+ config LIQUIDIO_VF
+ 	tristate "Cavium LiquidIO VF support"
+ 	depends on 64BIT && PCI_MSI
+-	select PTP_1588_CLOCK
++	imply PTP_1588_CLOCK
+ 	---help---
+ 	  This driver supports Cavium LiquidIO Intelligent Server Adapter
+ 	  based on CN23XX chips.
