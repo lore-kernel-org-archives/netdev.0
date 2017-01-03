@@ -1,213 +1,242 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [net-next 1/3] tipc: unify tipc_wait_for_sndpkt()
-	and tipc_wait_for_sndmsg() functions
-Date: Tue,  3 Jan 2017 10:26:46 -0500
-Message-ID: <1483457208-29033-2-git-send-email-jon.maloy@ericsson.com>
+Subject: [net-next 2/3] tipc: modify struct tipc_plist to be more versatile
+Date: Tue,  3 Jan 2017 10:26:47 -0500
+Message-ID: <1483457208-29033-3-git-send-email-jon.maloy@ericsson.com>
 References: <1483457208-29033-1-git-send-email-jon.maloy@ericsson.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Jon Maloy <jon.maloy@ericsson.com>, netdev@vger.kernel.org,
-	tipc-discussion@lists.sourceforge.net, Al Viro <viro@zeniv.linux.org.uk>
+Cc: netdev@vger.kernel.org, Al Viro <viro@zeniv.linux.org.uk>,
+        parthasarathy.bhuvaragan@ericsson.com, ying.xue@windriver.com,
+        maloy@donjonn.com, tipc-discussion@lists.sourceforge.net,
+        Jon Maloy <jon.maloy@ericsson.com>
 To: davem@davemloft.net
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp107.biz.mail.bf1.yahoo.com ([98.139.244.55]:26500 "EHLO
+        smtp107.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1750818AbdANIYx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 14 Jan 2017 03:24:53 -0500
 In-Reply-To: <1483457208-29033-1-git-send-email-jon.maloy@ericsson.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The functions tipc_wait_for_sndpkt() and tipc_wait_for_sndmsg() are very
-similar. The latter function is also called from two locations, and
-there will be more in the coming commits, which will all need to test on
-different conditions.
+During multicast reception we currently use a simple linked list with
+push/pop semantics to store port numbers.
 
-Instead of making yet another duplicates of the function, we now
-introduce a new macro tipc_wait_for_cond() where the wakeup condition
-can be stated as an argument to the call. This macro replaces all
-current and future uses of the two functions, which can now be
-eliminated.
+We now see a need for a more generic list for storing values of type
+u32. We therefore make some modifications to this list, while replacing
+the prefix 'tipc_plist_' with 'u32_'. We also add a couple of new
+functions which will come to use in the next commits.
 
 Acked-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
 Acked-by: Ying Xue <ying.xue@windriver.com>
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 ---
- net/tipc/socket.c | 108 +++++++++++++++++++++++++-----------------------------
- 1 file changed, 49 insertions(+), 59 deletions(-)
+ net/tipc/name_table.c | 100 ++++++++++++++++++++++++++++++++++++--------------
+ net/tipc/name_table.h |  21 ++++-------
+ net/tipc/socket.c     |   8 ++--
+ 3 files changed, 83 insertions(+), 46 deletions(-)
 
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index 800caaa..f27462e 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -110,7 +110,6 @@ static void tipc_write_space(struct sock *sk);
- static void tipc_sock_destruct(struct sock *sk);
- static int tipc_release(struct socket *sock);
- static int tipc_accept(struct socket *sock, struct socket *new_sock, int flags);
--static int tipc_wait_for_sndmsg(struct socket *sock, long *timeo_p);
- static void tipc_sk_timeout(unsigned long data);
- static int tipc_sk_publish(struct tipc_sock *tsk, uint scope,
- 			   struct tipc_name_seq const *seq);
-@@ -334,6 +333,49 @@ static int tipc_set_sk_state(struct sock *sk, int state)
- 	return res;
+diff --git a/net/tipc/name_table.c b/net/tipc/name_table.c
+index e190460..5a86df1 100644
+--- a/net/tipc/name_table.c
++++ b/net/tipc/name_table.c
+@@ -608,7 +608,7 @@ u32 tipc_nametbl_translate(struct net *net, u32 type, u32 instance,
+  * Returns non-zero if any off-node ports overlap
+  */
+ int tipc_nametbl_mc_translate(struct net *net, u32 type, u32 lower, u32 upper,
+-			      u32 limit, struct tipc_plist *dports)
++			      u32 limit, struct list_head *dports)
+ {
+ 	struct name_seq *seq;
+ 	struct sub_seq *sseq;
+@@ -633,7 +633,7 @@ int tipc_nametbl_mc_translate(struct net *net, u32 type, u32 lower, u32 upper,
+ 		info = sseq->info;
+ 		list_for_each_entry(publ, &info->node_list, node_list) {
+ 			if (publ->scope <= limit)
+-				tipc_plist_push(dports, publ->ref);
++				u32_push(dports, publ->ref);
+ 		}
+ 
+ 		if (info->cluster_list_size != info->node_list_size)
+@@ -1022,40 +1022,84 @@ int tipc_nl_name_table_dump(struct sk_buff *skb, struct netlink_callback *cb)
+ 	return skb->len;
  }
  
-+static int tipc_sk_sock_err(struct socket *sock, long *timeout)
-+{
-+	struct sock *sk = sock->sk;
-+	int err = sock_error(sk);
-+	int typ = sock->type;
+-void tipc_plist_push(struct tipc_plist *pl, u32 port)
++struct u32_item {
++	struct list_head list;
++	u32 value;
++};
 +
-+	if (err)
-+		return err;
-+	if (typ == SOCK_STREAM || typ == SOCK_SEQPACKET) {
-+		if (sk->sk_state == TIPC_DISCONNECTING)
-+			return -EPIPE;
-+		else if (!tipc_sk_connected(sk))
-+			return -ENOTCONN;
-+	}
-+	if (!*timeout)
-+		return -EAGAIN;
-+	if (signal_pending(current))
-+		return sock_intr_errno(*timeout);
-+
-+	return 0;
++bool u32_find(struct list_head *l, u32 value)
+ {
+-	struct tipc_plist *nl;
++	struct u32_item *item;
+ 
+-	if (likely(!pl->port)) {
+-		pl->port = port;
+-		return;
++	list_for_each_entry(item, l, list) {
++		if (item->value == value)
++			return true;
+ 	}
+-	if (pl->port == port)
+-		return;
+-	list_for_each_entry(nl, &pl->list, list) {
+-		if (nl->port == port)
+-			return;
++	return false;
 +}
 +
-+#define tipc_wait_for_cond(sock_, timeout_, condition_)			\
-+({								        \
-+	int rc_ = 0;							\
-+	int done_ = 0;							\
-+									\
-+	while (!(condition_) && !done_) {				\
-+		struct sock *sk_ = sock->sk;				\
-+		DEFINE_WAIT_FUNC(wait_, woken_wake_function);		\
-+									\
-+		rc_ = tipc_sk_sock_err(sock_, timeout_);		\
-+		if (rc_)						\
-+			break;						\
-+		prepare_to_wait(sk_sleep(sk_), &wait_,			\
-+				TASK_INTERRUPTIBLE);			\
-+		done_ = sk_wait_event(sk_, timeout_,			\
-+				      (condition_), &wait_);		\
-+		remove_wait_queue(sk_sleep(sk_), &wait_);		\
-+	}								\
-+	rc_;								\
-+})
++bool u32_push(struct list_head *l, u32 value)
++{
++	struct u32_item *item;
 +
- /**
-  * tipc_sk_create - create a TIPC socket
-  * @net: network namespace (must be default network)
-@@ -721,7 +763,7 @@ static int tipc_sendmcast(struct  socket *sock, struct tipc_name_seq *seq,
- 
- 		if (rc == -ELINKCONG) {
- 			tsk->link_cong = 1;
--			rc = tipc_wait_for_sndmsg(sock, &timeo);
-+			rc = tipc_wait_for_cond(sock, &timeo, !tsk->link_cong);
- 			if (!rc)
- 				continue;
- 		}
-@@ -830,31 +872,6 @@ static void tipc_sk_proto_rcv(struct tipc_sock *tsk, struct sk_buff *skb,
- 	kfree_skb(skb);
++	list_for_each_entry(item, l, list) {
++		if (item->value == value)
++			return false;
++	}
++	item = kmalloc(sizeof(*item), GFP_ATOMIC);
++	if (unlikely(!item))
++		return false;
++
++	item->value = value;
++	list_add(&item->list, l);
++	return true;
++}
++
++u32 u32_pop(struct list_head *l)
++{
++	struct u32_item *item;
++	u32 value = 0;
++
++	if (list_empty(l))
++		return 0;
++	item = list_first_entry(l, typeof(*item), list);
++	value = item->value;
++	list_del(&item->list);
++	kfree(item);
++	return value;
++}
++
++bool u32_del(struct list_head *l, u32 value)
++{
++	struct u32_item *item, *tmp;
++
++	list_for_each_entry_safe(item, tmp, l, list) {
++		if (item->value != value)
++			continue;
++		list_del(&item->list);
++		kfree(item);
++		return true;
+ 	}
+-	nl = kmalloc(sizeof(*nl), GFP_ATOMIC);
+-	if (nl) {
+-		nl->port = port;
+-		list_add(&nl->list, &pl->list);
++	return false;
++}
++
++void u32_list_purge(struct list_head *l)
++{
++	struct u32_item *item, *tmp;
++
++	list_for_each_entry_safe(item, tmp, l, list) {
++		list_del(&item->list);
++		kfree(item);
+ 	}
  }
  
--static int tipc_wait_for_sndmsg(struct socket *sock, long *timeo_p)
--{
--	DEFINE_WAIT_FUNC(wait, woken_wake_function);
--	struct sock *sk = sock->sk;
--	struct tipc_sock *tsk = tipc_sk(sk);
--	int done;
--
--	do {
--		int err = sock_error(sk);
--		if (err)
--			return err;
--		if (sk->sk_shutdown & SEND_SHUTDOWN)
--			return -EPIPE;
--		if (!*timeo_p)
--			return -EAGAIN;
--		if (signal_pending(current))
--			return sock_intr_errno(*timeo_p);
--
--		add_wait_queue(sk_sleep(sk), &wait);
--		done = sk_wait_event(sk, timeo_p, !tsk->link_cong, &wait);
--		remove_wait_queue(sk_sleep(sk), &wait);
--	} while (!done);
--	return 0;
--}
--
- /**
-  * tipc_sendmsg - send message in connectionless manner
-  * @sock: socket structure
-@@ -970,7 +987,7 @@ static int __tipc_sendmsg(struct socket *sock, struct msghdr *m, size_t dsz)
- 		}
- 		if (rc == -ELINKCONG) {
- 			tsk->link_cong = 1;
--			rc = tipc_wait_for_sndmsg(sock, &timeo);
-+			rc = tipc_wait_for_cond(sock, &timeo, !tsk->link_cong);
- 			if (!rc)
- 				continue;
- 		}
-@@ -985,36 +1002,6 @@ static int __tipc_sendmsg(struct socket *sock, struct msghdr *m, size_t dsz)
- 	return rc;
+-u32 tipc_plist_pop(struct tipc_plist *pl)
++int u32_list_len(struct list_head *l)
+ {
+-	struct tipc_plist *nl;
+-	u32 port = 0;
++	struct u32_item *item;
++	int i = 0;
+ 
+-	if (likely(list_empty(&pl->list))) {
+-		port = pl->port;
+-		pl->port = 0;
+-		return port;
++	list_for_each_entry(item, l, list) {
++		i++;
+ 	}
+-	nl = list_first_entry(&pl->list, typeof(*nl), list);
+-	port = nl->port;
+-	list_del(&nl->list);
+-	kfree(nl);
+-	return port;
++	return i;
  }
+diff --git a/net/tipc/name_table.h b/net/tipc/name_table.h
+index 1524a73..c89bb3f 100644
+--- a/net/tipc/name_table.h
++++ b/net/tipc/name_table.h
+@@ -99,7 +99,7 @@ int tipc_nl_name_table_dump(struct sk_buff *skb, struct netlink_callback *cb);
  
--static int tipc_wait_for_sndpkt(struct socket *sock, long *timeo_p)
+ u32 tipc_nametbl_translate(struct net *net, u32 type, u32 instance, u32 *node);
+ int tipc_nametbl_mc_translate(struct net *net, u32 type, u32 lower, u32 upper,
+-			      u32 limit, struct tipc_plist *dports);
++			      u32 limit, struct list_head *dports);
+ struct publication *tipc_nametbl_publish(struct net *net, u32 type, u32 lower,
+ 					 u32 upper, u32 scope, u32 port_ref,
+ 					 u32 key);
+@@ -116,18 +116,11 @@ void tipc_nametbl_unsubscribe(struct tipc_subscription *s);
+ int tipc_nametbl_init(struct net *net);
+ void tipc_nametbl_stop(struct net *net);
+ 
+-struct tipc_plist {
+-	struct list_head list;
+-	u32 port;
+-};
+-
+-static inline void tipc_plist_init(struct tipc_plist *pl)
 -{
--	DEFINE_WAIT_FUNC(wait, woken_wake_function);
--	struct sock *sk = sock->sk;
--	struct tipc_sock *tsk = tipc_sk(sk);
--	int done;
--
--	do {
--		int err = sock_error(sk);
--		if (err)
--			return err;
--		if (sk->sk_state == TIPC_DISCONNECTING)
--			return -EPIPE;
--		else if (!tipc_sk_connected(sk))
--			return -ENOTCONN;
--		if (!*timeo_p)
--			return -EAGAIN;
--		if (signal_pending(current))
--			return sock_intr_errno(*timeo_p);
--
--		add_wait_queue(sk_sleep(sk), &wait);
--		done = sk_wait_event(sk, timeo_p,
--				     (!tsk->link_cong &&
--				      !tsk_conn_cong(tsk)) ||
--				      !tipc_sk_connected(sk), &wait);
--		remove_wait_queue(sk_sleep(sk), &wait);
--	} while (!done);
--	return 0;
+-	INIT_LIST_HEAD(&pl->list);
+-	pl->port = 0;
 -}
 -
- /**
-  * tipc_send_stream - send stream-oriented data
-  * @sock: socket structure
-@@ -1109,7 +1096,10 @@ static int __tipc_send_stream(struct socket *sock, struct msghdr *m, size_t dsz)
+-void tipc_plist_push(struct tipc_plist *pl, u32 port);
+-u32 tipc_plist_pop(struct tipc_plist *pl);
++bool u32_push(struct list_head *l, u32 value);
++u32 u32_pop(struct list_head *l);
++bool u32_find(struct list_head *l, u32 value);
++bool u32_del(struct list_head *l, u32 value);
++void u32_list_purge(struct list_head *l);
++int u32_list_len(struct list_head *l);
  
- 			tsk->link_cong = 1;
- 		}
--		rc = tipc_wait_for_sndpkt(sock, &timeo);
-+		rc = tipc_wait_for_cond(sock, &timeo,
-+					(!tsk->link_cong &&
-+					 !tsk_conn_cong(tsk) &&
-+					 tipc_sk_connected(sk)));
- 	} while (!rc);
+ #endif
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index f27462e..fae6a55 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -788,7 +788,7 @@ void tipc_sk_mcast_rcv(struct net *net, struct sk_buff_head *arrvq,
+ 		       struct sk_buff_head *inputq)
+ {
+ 	struct tipc_msg *msg;
+-	struct tipc_plist dports;
++	struct list_head dports;
+ 	u32 portid;
+ 	u32 scope = TIPC_CLUSTER_SCOPE;
+ 	struct sk_buff_head tmpq;
+@@ -796,7 +796,7 @@ void tipc_sk_mcast_rcv(struct net *net, struct sk_buff_head *arrvq,
+ 	struct sk_buff *skb, *_skb;
  
- 	__skb_queue_purge(&pktchain);
+ 	__skb_queue_head_init(&tmpq);
+-	tipc_plist_init(&dports);
++	INIT_LIST_HEAD(&dports);
+ 
+ 	skb = tipc_skb_peek(arrvq, &inputq->lock);
+ 	for (; skb; skb = tipc_skb_peek(arrvq, &inputq->lock)) {
+@@ -810,8 +810,8 @@ void tipc_sk_mcast_rcv(struct net *net, struct sk_buff_head *arrvq,
+ 		tipc_nametbl_mc_translate(net,
+ 					  msg_nametype(msg), msg_namelower(msg),
+ 					  msg_nameupper(msg), scope, &dports);
+-		portid = tipc_plist_pop(&dports);
+-		for (; portid; portid = tipc_plist_pop(&dports)) {
++		portid = u32_pop(&dports);
++		for (; portid; portid = u32_pop(&dports)) {
+ 			_skb = __pskb_copy(skb, hsz, GFP_ATOMIC);
+ 			if (_skb) {
+ 				msg_set_destport(buf_msg(_skb), portid);
 -- 
 2.7.4
-
-
-------------------------------------------------------------------------------
-Developer Access Program for Intel Xeon Phi Processors
-Access to Intel Xeon Phi processor-based developer platforms.
-With one year of Intel Parallel Studio XE.
-Training and support from Colfax.
-Order your platform today. http://sdm.link/xeonphi
