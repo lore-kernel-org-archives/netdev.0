@@ -1,10 +1,10 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [net PATCH] net: virtio: cap mtu when XDP programs are running
-Date: Wed, 4 Jan 2017 11:16:07 +0800
-Message-ID: <1caf1ffc-0f46-067e-0f0d-a93b408b4ffd@redhat.com>
-References: <20170102223031.11541.28717.stgit@john-Precision-Tower-5810>
- <402027b4-58c7-aa1b-5079-74e31448f544@redhat.com>
- <586BD5D5.6020100@gmail.com>
+Subject: Re: [RFC PATCH] virtio_net: XDP support for adjust_head
+Date: Wed, 4 Jan 2017 11:21:18 +0800
+Message-ID: <ec43c1a6-daf1-392a-8776-3f6597bea88e@redhat.com>
+References: <20170102194413.9089.39078.stgit@john-Precision-Tower-5810>
+ <73715f7a-eeeb-679f-a7b8-7b1fefe1757e@redhat.com>
+ <586BD734.7020105@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 8bit
@@ -12,80 +12,32 @@ Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org,
         alexei.starovoitov@gmail.com, daniel@iogearbox.net
 To: John Fastabend <john.fastabend@gmail.com>, mst@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35222 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:53614 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1762672AbdADDQX (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 3 Jan 2017 22:16:23 -0500
-In-Reply-To: <586BD5D5.6020100@gmail.com>
+        id S1756640AbdADD3L (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 3 Jan 2017 22:29:11 -0500
+In-Reply-To: <586BD734.7020105@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  case.
 
 
+On 2017年01月04日 00:54, John Fastabend wrote:
+>>> +    /* Changing the headroom in buffers is a disruptive operation because
+>>> +     * existing buffers must be flushed and reallocated. This will happen
+>>> +     * when a xdp program is initially added or xdp is disabled by removing
+>>> +     * the xdp program.
+>>> +     */
+>> We probably need reset the device here, but maybe Michale has more ideas. And if
+>> we do this, another interesting thing to do is to disable EWMA and always use a
+>> single page for each packet, this could almost eliminate linearizing.
+> Well with normal MTU 1500 size we should not hit the linearizing case right?
 
-On 2017年01月04日 00:48, John Fastabend wrote:
-> On 17-01-02 10:14 PM, Jason Wang wrote:
->>
->> On 2017年01月03日 06:30, John Fastabend wrote:
->>> XDP programs can not consume multiple pages so we cap the MTU to
->>> avoid this case. Virtio-net however only checks the MTU at XDP
->>> program load and does not block MTU changes after the program
->>> has loaded.
->>>
->>> This patch sets/clears the max_mtu value at XDP load/unload time.
->>>
->>> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
->>> ---
->>>    drivers/net/virtio_net.c |    9 ++++++---
->>>    1 file changed, 6 insertions(+), 3 deletions(-)
->>>
->>> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
->>> index 5deeda6..783e842 100644
->>> --- a/drivers/net/virtio_net.c
->>> +++ b/drivers/net/virtio_net.c
->>> @@ -1699,6 +1699,9 @@ static void virtnet_init_settings(struct net_device *dev)
->>>        .set_settings = virtnet_set_settings,
->>>    };
->>>    +#define MIN_MTU ETH_MIN_MTU
->>> +#define MAX_MTU ETH_MAX_MTU
->>> +
->>>    static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
->>>    {
->>>        unsigned long int max_sz = PAGE_SIZE - sizeof(struct padded_vnet_hdr);
->>> @@ -1748,6 +1751,9 @@ static int virtnet_xdp_set(struct net_device *dev,
->>> struct bpf_prog *prog)
->>>                virtnet_set_queues(vi, curr_qp);
->>>                return PTR_ERR(prog);
->>>            }
->>> +        dev->max_mtu = max_sz;
->>> +    } else {
->>> +        dev->max_mtu = ETH_MAX_MTU;
->> Or use ETH_DATA_LEN here consider we only allocate a size of GOOD_PACKET_LEN for
->> each small buffer?
->>
->> Thanks
-> OK so this logic is a bit too simply. When it resets the max_mtu I guess it
-> needs to read the mtu via
->
->     virtio_cread16(vdev, ...)
->
-> or we may break the negotiated mtu.
-
-Yes, this is a problem (even use ETH_MAX_MTU). We may need a method to 
-notify the device about the mtu in this case which is not supported by 
-virtio now.
->
-> As for capping it at GOOD_PACKET_LEN this has the nice benefit of avoiding any
-> underestimates in EWMA predictions because it appears min estimates are capped
-> at GOOD_PACKET_LEN via get_mergeable_buf_len().
-
-This seems something misunderstanding here, I meant only use 
-GOOD_PACKET_LEN for small buffer (which does not use EWMA).
+My reply may be not clear, for 1500 I mean for small buffer only.
 
 Thanks
 
->
-> Thanks,
-> John
+>   The
+> question is should we cap the MTU at GOOD_PACKET_LEN vs the current cap of
+> (PAGE_SIZE - overhead).
 >
