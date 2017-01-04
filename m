@@ -1,76 +1,37 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] phy state machine: failsafe leave invalid RUNNING state
-Date: Wed, 4 Jan 2017 07:13:23 -0800
-Message-ID: <6845805d-4dae-0a3a-c56c-6feb86f4b553@gmail.com>
-References: <1483542298-9747-1-git-send-email-zefir.kurtisi@neratec.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [RFC 3/4] net-next: dsa: Add support for multiple cpu ports.
+Date: Wed, 4 Jan 2017 16:22:19 +0100
+Message-ID: <20170104152219.GD5517@lunn.ch>
+References: <1483515484-21793-1-git-send-email-john@phrozen.org>
+ <1483515484-21793-4-git-send-email-john@phrozen.org>
+ <20170104140105.GL10768@lunn.ch>
+ <5a5c86c6-7a19-8720-7772-3d2d5b2633c5@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch
-To: Zefir Kurtisi <zefir.kurtisi@neratec.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: John Crispin <john@phrozen.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        netdev@vger.kernel.org
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f68.google.com ([209.85.218.68]:35655 "EHLO
-        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S968330AbdADPNv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2017 10:13:51 -0500
-Received: by mail-oi0-f68.google.com with SMTP id v84so74696130oie.2
-        for <netdev@vger.kernel.org>; Wed, 04 Jan 2017 07:13:25 -0800 (PST)
-In-Reply-To: <1483542298-9747-1-git-send-email-zefir.kurtisi@neratec.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:42961 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751505AbdADPXE (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 4 Jan 2017 10:23:04 -0500
+Content-Disposition: inline
+In-Reply-To: <5a5c86c6-7a19-8720-7772-3d2d5b2633c5@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+> I am actually in the process of cleaning up my patches that add
+> platform_data support to net/dsa/dsa2.c this time with an user, and
+> hopefully a couple more after that, but that maintains the existing
+> struct dsa_chip_data as-is, no new additions are required, and this
+> would be purely for non-DT enabled platforms anyway.
 
+Hi Florian
 
-On 01/04/2017 07:04 AM, Zefir Kurtisi wrote:
-> While in RUNNING state, phy_state_machine() checks for link changes by
-> comparing phydev->link before and after calling phy_read_status().
-> This works as long as it is guaranteed that phydev->link is never
-> changed outside the phy_state_machine().
-> 
-> If in some setups this happens, it causes the state machine to miss
-> a link loss and remain RUNNING despite phydev->link being 0.
-> 
-> This has been observed running a dsa setup with a process continuously
-> polling the link states over ethtool each second (SNMPD RFC-1213
-> agent). Disconnecting the link on a phy followed by a ETHTOOL_GSET
-> causes dsa_slave_get_settings() / dsa_slave_get_link_ksettings() to
-> call phy_read_status() and with that modify the link status - and
-> with that bricking the phy state machine.
+I was hoping we could avoid this complexity. But if there is a real
+need, the platform cannot be converted to device tree, we can add it.
 
-That's the interesting part of the analysis, how does this brick the PHY
-state machine? Is the PHY driver changing the link status in the
-read_status callback that it implements?
-
-> 
-> This patch adds a fail-safe check while in RUNNING, which causes to
-> move to CHANGELINK when the link is gone and we are still RUNNING.
-> 
-> Signed-off-by: Zefir Kurtisi <zefir.kurtisi@neratec.com>
-> ---
->  drivers/net/phy/phy.c | 9 +++++++++
->  1 file changed, 9 insertions(+)
-> 
-> diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-> index 28548af..0f9a61e 100644
-> --- a/drivers/net/phy/phy.c
-> +++ b/drivers/net/phy/phy.c
-> @@ -966,6 +966,15 @@ void phy_state_machine(struct work_struct *work)
->  			if (old_link != phydev->link)
->  				phydev->state = PHY_CHANGELINK;
->  		}
-> +		/*
-> +		 * Failsafe: check that nobody set phydev->link=0 between two
-> +		 * poll cycles, otherwise we won't leave RUNNING state as long
-> +		 * as link remains down.
-> +		 */
-> +		if (!phydev->link && phydev->state == PHY_RUNNING) {
-> +			phydev->state = PHY_CHANGELINK;
-> +			dev_warn(&phydev->dev, "no link in PHY_RUNNING\n");
-> +		}
->  		break;
->  	case PHY_CHANGELINK:
->  		err = phy_read_status(phydev);
-> 
-
--- 
-Florian
+	Andrew
