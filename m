@@ -1,42 +1,141 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH net-next 2/2] tools: psock_tpacket: verify that packet was
- received on lo before counting it
-Date: Wed, 4 Jan 2017 10:03:43 -0500
-Message-ID: <CAF=yD-KUw8M+RGnN2eXLVgv836F6mxd4+b0h=2CP6X7mv+ScWg@mail.gmail.com>
-References: <cover.1483482971.git.sowmini.varadhan@oracle.com>
- <3451a2008d953f33d6576a35eaefecad883eaeb5.1483482971.git.sowmini.varadhan@oracle.com>
- <CAF=yD-+d-cgE1dxCcrfNZfgVk4_wjYMHHoQ=BN7bnJ-txbM-+Q@mail.gmail.com> <20170104144424.GD9641@oracle.com>
+From: Soheil Hassas Yeganeh <soheil@google.com>
+Subject: Re: [PATCH] tcp: provide tx timestamps for partial writes
+Date: Wed, 4 Jan 2017 10:04:50 -0500
+Message-ID: <CACSApvYE-DQ_B0=82+V0XtNV926mobAUJ5rNEg4nv7q9CPDTWA@mail.gmail.com>
+References: <1483388457-4041-1-git-send-email-soheil.kdev@gmail.com>
+ <CACSApvbYBv4GTGDKFT9jg3p9_w=3WD6aQZh7qwB2HbgCCTFxog@mail.gmail.com>
+ <CACSApvYN48nRSdV5OQmrS+6BqJBMRocZ1LypziOj9jk4aTc7Pg@mail.gmail.com> <1483534533.4337.19.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: linux-kselftest@vger.kernel.org,
-        Network Development <netdev@vger.kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
+Cc: David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
         Willem de Bruijn <willemb@google.com>,
-        David Miller <davem@davemloft.net>, shuah@kernel.org
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+        Yuchung Cheng <ycheng@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Neal Cardwell <ncardwell@google.com>,
+        Martin KaFai Lau <kafai@fb.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f196.google.com ([209.85.217.196]:33970 "EHLO
-        mail-ua0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754065AbdADPEY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2017 10:04:24 -0500
-In-Reply-To: <20170104144424.GD9641@oracle.com>
+Received: from mail-yw0-f181.google.com ([209.85.161.181]:34227 "EHLO
+        mail-yw0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S968170AbdADPFb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2017 10:05:31 -0500
+Received: by mail-yw0-f181.google.com with SMTP id t125so316450003ywc.1
+        for <netdev@vger.kernel.org>; Wed, 04 Jan 2017 07:05:31 -0800 (PST)
+In-Reply-To: <1483534533.4337.19.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 4, 2017 at 9:44 AM, Sowmini Varadhan
-<sowmini.varadhan@oracle.com> wrote:
-> On (01/04/17 09:30), Willem de Bruijn wrote:
->>
->> The common and simpler solution to this problem is to open the socket
->> with protocol 0 to reject all packets, add the BPF filter and only then bind
->> with sll_ifindex set to lo. That way no false positives can arrive.
+On Wed, Jan 4, 2017 at 7:55 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
 >
-> Yes, I thought of that too (and I've seen that done in one commercial
-> implementation), but given that tpacket nicely returns the incoming
-> interface, I figured, why not use the test prog to use this (thus
-> verifying it, and also showing how to use it)
+> On Tue, 2017-01-03 at 10:22 -0500, Soheil Hassas Yeganeh wrote:
+> > On Mon, Jan 2, 2017 at 3:23 PM, Soheil Hassas Yeganeh <soheil@google.com> wrote:
+> > > On Mon, Jan 2, 2017 at 3:20 PM, Soheil Hassas Yeganeh
+> > > <soheil.kdev@gmail.com> wrote:
+> > >> From: Soheil Hassas Yeganeh <soheil@google.com>
+> > >>
+> > >> For TCP sockets, tx timestamps are only captured when the user data
+> > >> is successfully and fully written to the socket. In many cases,
+> > >> however, TCP writes can be partial for which no timestamp is
+> > >> collected.
+> > >>
+> > >> Collect timestamps when the user data is partially copied into
+> > >> the socket.
+> > >>
+> > >> Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
+> > >> Cc: Willem de Bruijn <willemb@google.com>
+> > >> Cc: Yuchung Cheng <ycheng@google.com>
+> > >> Cc: Eric Dumazet <edumazet@google.com>
+> > >> Cc: Neal Cardwell <ncardwell@google.com>
+> > >> Cc: Martin KaFai Lau <kafai@fb.com>
+> > >> ---
+> > >>  net/ipv4/tcp.c | 8 ++++++--
+> > >>  1 file changed, 6 insertions(+), 2 deletions(-)
+> > >>
+> > >> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+> > >> index 2e3807d..c207b16 100644
+> > >> --- a/net/ipv4/tcp.c
+> > >> +++ b/net/ipv4/tcp.c
+> > >> @@ -992,8 +992,10 @@ static ssize_t do_tcp_sendpages(struct sock *sk, struct page *page, int offset,
+> > >>         return copied;
+> > >>
+> > >>  do_error:
+> > >> -       if (copied)
+> > >> +       if (copied) {
+> > >> +               tcp_tx_timestamp(sk, sk->sk_tsflags, tcp_write_queue_tail(sk));
+> > >>                 goto out;
+> > >> +       }
+> > >>  out_err:
+> > >>         /* make sure we wake any epoll edge trigger waiter */
+> > >>         if (unlikely(skb_queue_len(&sk->sk_write_queue) == 0 &&
+> > >> @@ -1329,8 +1331,10 @@ int tcp_sendmsg(struct sock *sk, struct msghdr *msg, size_t size)
+> > >>         }
+> > >>
+> > >>  do_error:
+> > >> -       if (copied + copied_syn)
+> > >> +       if (copied + copied_syn) {
+> > >> +               tcp_tx_timestamp(sk, sk->sk_tsflags, tcp_write_queue_tail(sk));
+> >
+> > Thanks to Willem for noting that this should be sockc.tsflags and not
+> > sk->sk_tsflags. I'll send V2 to fix.
+>
+> Also, why not factorizing a bit and have a single point calling
+> tcp_tx_timestamp() ?
+>
+> This would ease code review quite a bit.
 
-This approach is less restrictive. It still allows incorrect packets
-to be enqueued in the time between the socket call and attaching the
-bpf filter. Also, if packets are restricted to a single packet, using
-bind with sll_ifindex is simpler.
+Thanks Eric! will do in V2.
+
+> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+> index 4a044964da6670829e5c47fef52d2cd76360b59f..11357f3bd1f82fa29129dd3ecf4d270feb4a6b1d 100644
+> --- a/net/ipv4/tcp.c
+> +++ b/net/ipv4/tcp.c
+> @@ -958,10 +958,8 @@ static ssize_t do_tcp_sendpages(struct sock *sk, struct page *page, int offset,
+>                 copied += copy;
+>                 offset += copy;
+>                 size -= copy;
+> -               if (!size) {
+> -                       tcp_tx_timestamp(sk, sk->sk_tsflags, skb);
+> +               if (!size)
+>                         goto out;
+> -               }
+>
+>                 if (skb->len < size_goal || (flags & MSG_OOB))
+>                         continue;
+> @@ -987,8 +985,11 @@ static ssize_t do_tcp_sendpages(struct sock *sk, struct page *page, int offset,
+>         }
+>
+>  out:
+> -       if (copied && !(flags & MSG_SENDPAGE_NOTLAST))
+> -               tcp_push(sk, flags, mss_now, tp->nonagle, size_goal);
+> +       if (copied) {
+> +               tcp_tx_timestamp(sk, sk->sk_tsflags, tcp_write_queue_tail(sk));
+> +               if (!(flags & MSG_SENDPAGE_NOTLAST))
+> +                       tcp_push(sk, flags, mss_now, tp->nonagle, size_goal);
+> +       }
+>         return copied;
+>
+>  do_error:
+> @@ -1281,7 +1282,6 @@ int tcp_sendmsg(struct sock *sk, struct msghdr *msg, size_t size)
+>
+>                 copied += copy;
+>                 if (!msg_data_left(msg)) {
+> -                       tcp_tx_timestamp(sk, sockc.tsflags, skb);
+>                         if (unlikely(flags & MSG_EOR))
+>                                 TCP_SKB_CB(skb)->eor = 1;
+>                         goto out;
+> @@ -1312,8 +1312,10 @@ int tcp_sendmsg(struct sock *sk, struct msghdr *msg, size_t size)
+>         }
+>
+>  out:
+> -       if (copied)
+> +       if (copied) {
+> +               tcp_tx_timestamp(sk, sockc.tsflags, tcp_write_queue_tail(sk));
+>                 tcp_push(sk, flags, mss_now, tp->nonagle, size_goal);
+> +       }
+>  out_nopush:
+>         release_sock(sk);
+>         return copied + copied_syn;
+>
+>
+>
