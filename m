@@ -1,59 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RESEND net-next PATCH v5] net: dummy: Introduce dummy virtual
- functions
-Date: Wed, 04 Jan 2017 14:09:14 -0500 (EST)
-Message-ID: <20170104.140914.1059886799372716512.davem@davemloft.net>
-References: <20170104134406.2720-1-phil@nwl.cc>
+Subject: Re: [PATCH] stmmac: Enable Clause 45 PHYs in GAMC4
+Date: Wed, 04 Jan 2017 14:11:41 -0500 (EST)
+Message-ID: <20170104.141141.514392926320888488.davem@davemloft.net>
+References: <14201d58c172f7a65b03510d36d55170f4d16cd5.1483540094.git.jpinto@synopsys.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sd@queasysnail.net
-To: phil@nwl.cc
+Cc: hock.leong.kweh@intel.com, netdev@vger.kernel.org
+To: Joao.Pinto@synopsys.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60332 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:60404 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751067AbdADTJQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2017 14:09:16 -0500
-In-Reply-To: <20170104134406.2720-1-phil@nwl.cc>
+        with ESMTP id S1750746AbdADTLn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2017 14:11:43 -0500
+In-Reply-To: <14201d58c172f7a65b03510d36d55170f4d16cd5.1483540094.git.jpinto@synopsys.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Phil Sutter <phil@nwl.cc>
-Date: Wed,  4 Jan 2017 14:44:06 +0100
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Date: Wed,  4 Jan 2017 14:35:26 +0000
 
-> The idea for this was born when testing VF support in iproute2 which was
-> impeded by hardware requirements. In fact, not every VF-capable hardware
-> driver implements all netdev ops, so testing the interface is still hard
-> to do even with a well-sorted hardware shelf.
+> The eQOS IP Core (best known in stmmac as gmac4) has a register that must be
+> set if using a Clause 45 PHY. If this register is not set, the PHY won't work.
+> This patch will have no impact in setups using Clause 22 PHYs.
 > 
-> To overcome this and allow for testing the user-kernel interface, this
-> patch allows to turn dummy into a PF with a configurable amount of VFs.
-> 
-> Due to the assumption that all PFs are PCI devices, this implementation
-> is not completely straightforward: In order to allow for
-> rtnl_fill_ifinfo() to see the dummy VFs, a fake PCI parent device is
-> attached to the dummy netdev. This has to happen at the right spot so
-> register_netdevice() does not get confused. This patch abuses
-> ndo_fix_features callback for that. In ndo_uninit callback, the fake
-> parent is removed again for the same purpose.
-> 
-> Joint work with Sabrina Dubroca.
-> 
-> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
-> Signed-off-by: Phil Sutter <phil@nwl.cc>
+> Signed-off-by: Joao Pinto <jpinto@synopsys.com>
 
-First of all I really applaud any effort to make the kernel interfaces
-more testable, and less dependent upon having specific pieces of hardware.
+Why don't you set this bit for MDIO reads as well?
 
-That being said, all of this seems to be fighting the problem from the
-wrong direction.
+If it isn't necessary for reads, you have to explain this in your commit
+message otherwise people will wonder the same thing I did when they see
+that only writes are handled.
 
-The device layer is really kidding itself by having what seems like a
-generic method in the form of dev_num_vf(), which actually just tests
-the bus type and calls a bus specific function on a match.
-
-There is no reason in the world that this cannot be done via proper
-device method call, that any bus type or whatever can implement.
-
-Then you don't need any of this stuff, you just hook up the proper
-device method to the dummy device and you're good.
+Thanks.
