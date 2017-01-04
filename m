@@ -1,189 +1,62 @@
-From: maowenan <maowenan@huawei.com>
-Subject: RE: [PATCH] ethtool: add one ethtool option to set relax ordering
- mode
-Date: Wed, 4 Jan 2017 09:02:09 +0000
-Message-ID: <F95AC9340317A84688A5F0DF0246F3F2015240E0@szxeml504-mbs.china.huawei.com>
-References: <1481179898-10668-1-git-send-email-maowenan@huawei.com>
- <1481179898-10668-2-git-send-email-maowenan@huawei.com>
- <20161221172759.1bc0d0dd@xeon-e3>
- <F95AC9340317A84688A5F0DF0246F3F20151F189@szxeml504-mbs.china.huawei.com>
- <CAKgT0Uc2ztu_iDn79zdNtsAdb-Ftu65V6YHV-sqXb6vTCTiGCQ@mail.gmail.com>
- <F95AC9340317A84688A5F0DF0246F3F20151FD1C@szxeml504-mbs.china.huawei.com>
- <1482455203.2481.31.camel@intel.com>
- <F95AC9340317A84688A5F0DF0246F3F20151FE86@szxeml504-mbs.china.huawei.com>
- <CAKgT0Ud0=fQpADLHPnZBLrG8xLGHUB20TZt1mi+GBNYJQngDCA@mail.gmail.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH] uapi: use wildcards to list files
+Date: Wed, 4 Jan 2017 10:03:50 +0100
+Message-ID: <bf83da6b-01ef-bf44-b3e1-ca6fc5636818@6wind.com>
+References: <20161203.192346.1198940437155108508.davem@davemloft.net>
+ <1483454144-10519-1-git-send-email-nicolas.dichtel@6wind.com>
+ <2108827.WpE3IvfEdH@wuerfel>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "weiyongjun (A)" <weiyongjun1@huawei.com>,
-        Dingtianhong <dingtianhong@huawei.com>,
-        "Wangzhou (B)" <wangzhou1@hisilicon.com>
-To: maowenan <maowenan@huawei.com>,
-        Alexander Duyck <alexander.duyck@gmail.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
-        Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8bit
+Cc: linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org,
+        dri-devel@lists.freedesktop.org, netdev@vger.kernel.org,
+        linux-media@vger.kernel.org, linux-mmc@vger.kernel.org,
+        netfilter-devel@vger.kernel.org, linux-nfs@vger.kernel.org,
+        linux-raid@vger.kernel.org, linux-spi@vger.kernel.org,
+        linux-mtd@lists.infradead.org, linux-rdma@vger.kernel.org,
+        fcoe-devel@open-fcoe.org, alsa-devel@alsa-project.org,
+        linux-fbdev@vger.kernel.org, xen-devel@lists.xenproject.org,
+        davem@davemloft.net, airlied@linux.ie,
+        David Howells <dhowells@redhat.com>
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:36644 "EHLO
-        szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753004AbdADJCa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2017 04:02:30 -0500
-Content-Language: zh-CN
+Received: from mail-wm0-f47.google.com ([74.125.82.47]:36852 "EHLO
+        mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S966223AbdADJDa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2017 04:03:30 -0500
+Received: by mail-wm0-f47.google.com with SMTP id c85so217644346wmi.1
+        for <netdev@vger.kernel.org>; Wed, 04 Jan 2017 01:03:30 -0800 (PST)
+In-Reply-To: <2108827.WpE3IvfEdH@wuerfel>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogbWFvd2VuYW4NCj4gU2Vu
-dDogTW9uZGF5LCBEZWNlbWJlciAyNiwgMjAxNiA0OjMzIFBNDQo+IFRvOiBtYW93ZW5hbjsgJ0Fs
-ZXhhbmRlciBEdXljaycNCj4gQ2M6ICdKZWZmIEtpcnNoZXInOyAnU3RlcGhlbiBIZW1taW5nZXIn
-OyAnbmV0ZGV2QHZnZXIua2VybmVsLm9yZyc7IHdlaXlvbmdqdW4NCj4gKEEpOyBEaW5ndGlhbmhv
-bmc7IFdhbmd6aG91IChCKQ0KPiBTdWJqZWN0OiBSRTogW1BBVENIXSBldGh0b29sOiBhZGQgb25l
-IGV0aHRvb2wgb3B0aW9uIHRvIHNldCByZWxheCBvcmRlcmluZyBtb2RlDQo+IA0KPiANCj4gDQo+
-ID4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gPiBGcm9tOiBtYW93ZW5hbg0KPiA+IFNl
-bnQ6IFNhdHVyZGF5LCBEZWNlbWJlciAyNCwgMjAxNiA0OjMwIFBNDQo+ID4gVG86ICdBbGV4YW5k
-ZXIgRHV5Y2snDQo+ID4gQ2M6IEplZmYgS2lyc2hlcjsgU3RlcGhlbiBIZW1taW5nZXI7IG5ldGRl
-dkB2Z2VyLmtlcm5lbC5vcmc7DQo+ID4gd2VpeW9uZ2p1biAoQSk7IERpbmd0aWFuaG9uZzsgV2Fu
-Z3pob3UgKEIpDQo+ID4gU3ViamVjdDogUkU6IFtQQVRDSF0gZXRodG9vbDogYWRkIG9uZSBldGh0
-b29sIG9wdGlvbiB0byBzZXQgcmVsYXgNCj4gPiBvcmRlcmluZyBtb2RlDQo+ID4NCj4gPg0KPiA+
-DQo+ID4gPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiA+ID4gRnJvbTogQWxleGFuZGVy
-IER1eWNrIFttYWlsdG86YWxleGFuZGVyLmR1eWNrQGdtYWlsLmNvbV0NCj4gPiA+IFNlbnQ6IEZy
-aWRheSwgRGVjZW1iZXIgMjMsIDIwMTYgMTE6NDMgUE0NCj4gPiA+IFRvOiBtYW93ZW5hbg0KPiA+
-ID4gQ2M6IEplZmYgS2lyc2hlcjsgU3RlcGhlbiBIZW1taW5nZXI7IG5ldGRldkB2Z2VyLmtlcm5l
-bC5vcmc7DQo+ID4gPiB3ZWl5b25nanVuIChBKTsgRGluZ3RpYW5ob25nDQo+ID4gPiBTdWJqZWN0
-OiBSZTogW1BBVENIXSBldGh0b29sOiBhZGQgb25lIGV0aHRvb2wgb3B0aW9uIHRvIHNldCByZWxh
-eA0KPiA+ID4gb3JkZXJpbmcgbW9kZQ0KPiA+ID4NCj4gPiA+IE9uIFRodSwgRGVjIDIyLCAyMDE2
-IGF0IDEwOjE0IFBNLCBtYW93ZW5hbiA8bWFvd2VuYW5AaHVhd2VpLmNvbT4NCj4gPiA+IHdyb3Rl
-Og0KPiA+ID4gPg0KPiA+ID4gPg0KPiA+ID4gPj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0N
-Cj4gPiA+ID4+IEZyb206IEplZmYgS2lyc2hlciBbbWFpbHRvOmplZmZyZXkudC5raXJzaGVyQGlu
-dGVsLmNvbV0NCj4gPiA+ID4+IFNlbnQ6IEZyaWRheSwgRGVjZW1iZXIgMjMsIDIwMTYgOTowNyBB
-TQ0KPiA+ID4gPj4gVG86IG1hb3dlbmFuOyBBbGV4YW5kZXIgRHV5Y2sNCj4gPiA+ID4+IENjOiBT
-dGVwaGVuIEhlbW1pbmdlcjsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgd2VpeW9uZ2p1biAoQSk7
-DQo+ID4gPiA+PiBEaW5ndGlhbmhvbmcNCj4gPiA+ID4+IFN1YmplY3Q6IFJlOiBbUEFUQ0hdIGV0
-aHRvb2w6IGFkZCBvbmUgZXRodG9vbCBvcHRpb24gdG8gc2V0IHJlbGF4DQo+ID4gPiA+PiBvcmRl
-cmluZyBtb2RlDQo+ID4gPiA+Pg0KPiA+ID4gPj4gT24gRnJpLCAyMDE2LTEyLTIzIGF0IDAwOjQw
-ICswMDAwLCBtYW93ZW5hbiB3cm90ZToNCj4gPiA+ID4+ID4gPiAtLS0tLU9yaWdpbmFsIE1lc3Nh
-Z2UtLS0tLQ0KPiA+ID4gPj4gPiA+IEZyb206IEFsZXhhbmRlciBEdXljayBbbWFpbHRvOmFsZXhh
-bmRlci5kdXlja0BnbWFpbC5jb21dDQo+ID4gPiA+PiA+ID4gU2VudDogVGh1cnNkYXksIERlY2Vt
-YmVyIDIyLCAyMDE2IDExOjU0IFBNDQo+ID4gPiA+PiA+ID4gVG86IG1hb3dlbmFuDQo+ID4gPiA+
-PiA+ID4gQ2M6IFN0ZXBoZW4gSGVtbWluZ2VyOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOw0KPiA+
-ID4gamVmZnJleS50LmtpcnNoZXJAaW50ZWwuDQo+ID4gPiA+PiA+ID4gY29tOw0KPiA+ID4gPj4g
-PiA+IHdlaXlvbmdqdW4gKEEpOyBEaW5ndGlhbmhvbmcNCj4gPiA+ID4+ID4gPiBTdWJqZWN0OiBS
-ZTogW1BBVENIXSBldGh0b29sOiBhZGQgb25lIGV0aHRvb2wgb3B0aW9uIHRvIHNldA0KPiA+ID4g
-Pj4gPiA+IHJlbGF4IG9yZGVyaW5nIG1vZGUNCj4gPiA+ID4+ID4gPg0KPiA+ID4gPj4gPiA+IE9u
-IFdlZCwgRGVjIDIxLCAyMDE2IGF0IDU6MzkgUE0sIG1hb3dlbmFuDQo+ID4gPiA8bWFvd2VuYW5A
-aHVhd2VpLmNvbT4NCj4gPiA+ID4+ID4gPiB3cm90ZToNCj4gPiA+ID4+ID4gPiA+DQo+ID4gPiA+
-PiA+ID4gPg0KPiA+ID4gPj4gPiA+ID4gPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiA+
-ID4gPj4gPiA+ID4gPiBGcm9tOiBTdGVwaGVuIEhlbW1pbmdlcg0KPiA+ID4gPj4gPiA+ID4gPiBb
-bWFpbHRvOnN0ZXBoZW5AbmV0d29ya3BsdW1iZXIub3JnXQ0KPiA+ID4gPj4gPiA+ID4gPiBTZW50
-OiBUaHVyc2RheSwgRGVjZW1iZXIgMjIsIDIwMTYgOToyOCBBTQ0KPiA+ID4gPj4gPiA+ID4gPiBU
-bzogbWFvd2VuYW4NCj4gPiA+ID4+ID4gPiA+ID4gQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7
-IGplZmZyZXkudC5raXJzaGVyQGludGVsLmNvbQ0KPiA+ID4gPj4gPiA+ID4gPiBTdWJqZWN0OiBS
-ZTogW1BBVENIXSBldGh0b29sOiBhZGQgb25lIGV0aHRvb2wgb3B0aW9uIHRvDQo+ID4gPiA+PiA+
-ID4gPiA+IHNldCByZWxheCBvcmRlcmluZyBtb2RlDQo+ID4gPiA+PiA+ID4gPiA+DQo+ID4gPiA+
-PiA+ID4gPiA+IE9uIFRodSwgOCBEZWMgMjAxNiAxNDo1MTozOCArMDgwMCBNYW8gV2VuYW4NCj4g
-PiA+ID4+ID4gPiA+ID4gPG1hb3dlbmFuQGh1YXdlaS5jb20+IHdyb3RlOg0KPiA+ID4gPj4gPiA+
-ID4gPg0KPiA+ID4gPj4gPiA+ID4gPiA+IFRoaXMgcGF0Y2ggcHJvdmlkZXMgb25lIHdheSB0byBz
-ZXQvdW5zZXQgSVhHQkUgTklDIFRYDQo+ID4gPiA+PiA+ID4gPiA+ID4gYW5kIFJYIHJlbGF4IG9y
-ZGVyaW5nIG1vZGUsIHdoaWNoIGNhbiBiZSBzZXQgYnkgZXRodG9vbC4NCj4gPiA+ID4+ID4gPiA+
-ID4gPiBSZWxheCBvcmRlcmluZyBpcyBvbmUgbW9kZSBvZiA4MjU5OSBOSUMsIHRvIGVuYWJsZSB0
-aGlzDQo+ID4gPiA+PiA+ID4gPiA+ID4gbW9kZSBjYW4gZW5oYW5jZSB0aGUgcGVyZm9ybWFuY2Ug
-Zm9yIHNvbWUgY3B1IGFyY2hpdGVjdXJlLg0KPiA+ID4gPj4gPiA+ID4gPg0KPiA+ID4gPj4gPiA+
-ID4gPiBUaGVuIGl0IHNob3VsZCBiZSBkb25lIGJ5IENQVSBhcmNoaXRlY3R1cmUgc3BlY2lmaWMN
-Cj4gPiA+ID4+ID4gPiA+ID4gcXVpcmtzIChwcmVmZXJhYmx5IGluIFBDSQ0KPiA+ID4gPj4gPiA+
-ID4gPiBsYXllcikgc28gdGhhdCBhbGwgdXNlcnMgZ2V0IHRoZSBvcHRpb24gd2l0aG91dCBoYXZp
-bmcgdG8NCj4gPiA+ID4+ID4gPiA+ID4gZG8gbWFudWFsDQo+ID4gPiA+PiA+ID4NCj4gPiA+ID4+
-ID4gPiBpbnRlcnZlbnRpb24uDQo+ID4gPiA+PiA+ID4gPiA+DQo+ID4gPiA+PiA+ID4gPiA+ID4g
-ZXhhbXBsZToNCj4gPiA+ID4+ID4gPiA+ID4gPiBldGh0b29sIC1zIGVucDFzMGYwIHJlbGF4b3Jk
-ZXIgb2ZmIGV0aHRvb2wgLXMgZW5wMXMwZjANCj4gPiA+ID4+ID4gPiA+ID4gPiByZWxheG9yZGVy
-IG9uDQo+ID4gPiA+PiA+ID4gPiA+DQo+ID4gPiA+PiA+ID4gPiA+IERvaW5nIGl0IHZpYSBldGh0
-b29sIGlzIGEgZGV2ZWxvcGVyIEFQSSAoZm9yIHRlc3RpbmcpIG5vdA0KPiA+ID4gPj4gPiA+ID4g
-PiBzb21ldGhpbmcgdGhhdCBtYWtlcyBzZW5zZSBpbiBwcm9kdWN0aW9uLg0KPiA+ID4gPj4gPiA+
-ID4NCj4gPiA+ID4+ID4gPiA+DQo+ID4gPiA+PiA+ID4gPiBUaGlzIGZlYXR1cmUgaXMgbm90IG1h
-bmRhdG9yeSBmb3IgYWxsIHVzZXJzLCBhY3R1cmFsbHkNCj4gPiA+ID4+ID4gPiA+IHJlbGF4IG9y
-ZGVyaW5nIGRlZmF1bHQgY29uZmlndXJhdGlvbiBvZiA4MjU5OSBpcyAnZGlzYWJsZScsDQo+ID4g
-PiA+PiA+ID4gPiBTbyB0aGlzIHBhdGNoIGdpdmVzIG9uZSB3YXkgdG8NCj4gPiA+ID4+ID4gPg0K
-PiA+ID4gPj4gPiA+IGVuYWJsZSByZWxheCBvcmRlcmluZyB0byBiZSBzZWxlY3RlZCBpbiBzb21l
-IHBlcmZvcm1hbmNlIGNvbmRpdGlvbi4NCj4gPiA+ID4+ID4gPg0KPiA+ID4gPj4gPiA+IFRoYXQg
-aXNuJ3QgcXVpdGUgdHJ1ZS4gIFRoZSBkZWZhdWx0IGZvciBTcGFyYyBzeXN0ZW1zIGlzIHRvDQo+
-ID4gPiA+PiA+ID4gaGF2ZSBpdCBlbmFibGVkLg0KPiA+ID4gPj4gPiA+DQo+ID4gPiA+PiA+ID4g
-UmVhbGx5IHRoaXMgaXMgc29tZXRoaW5nIHRoYXQgaXMgcGxhdGZvcm0gc3BlY2lmaWMuICBJIGFn
-cmVlDQo+ID4gPiA+PiA+ID4gd2l0aCBTdGVwaGVuIHRoYXQgaXQgd291bGQgd29yayBiZXR0ZXIg
-aWYgdGhpcyB3YXMgaGFuZGxlZCBhcw0KPiA+ID4gPj4gPiA+IGEgc2VyaWVzIG9mIHBsYXRmb3Jt
-IHNwZWNpZmljIHF1aXJrcyBoYW5kbGVkIGF0IHNvbWV0aGluZw0KPiA+ID4gPj4gPiA+IGxpa2Ug
-dGhlIFBDSSBsYXllciByYXRoZXIgdGhhbiBiZSBhIHN3aXRjaCB0aGUgdXNlciBjYW4gdG9nZ2xl
-IG9uIGFuZA0KPiBvZmYuDQo+ID4gPiA+PiA+ID4NCj4gPiA+ID4+ID4gPiBXaXRoIHRoYXQgYmVp
-bmcgc2FpZCB0aGVyZSBhcmUgY2hhbmdlcyBiZWluZyBtYWRlIHRoYXQgc2hvdWxkDQo+ID4gPiA+
-PiA+ID4gaGVscCB0byBpbXByb3ZlIHRoZSBzaXR1YXRpb24uICBTcGVjaWZpY2FsbHkgSSBhbSBs
-b29raW5nIGF0DQo+ID4gPiA+PiA+ID4gYWRkaW5nIHN1cHBvcnQgZm9yIHRoZSBETUFfQVRUUl9X
-RUFLX09SREVSSU5HIHdoaWNoIG1heQ0KPiBhbHNvDQo+ID4gPiA+PiA+ID4gYWxsb3cgdXMgdG8g
-aWRlbnRpZnkgY2FzZXMgd2hlcmUgeW91IG1pZ2h0IGJlIGFibGUgdG8gc3BlY2lmeQ0KPiA+ID4g
-Pj4gPiA+IHRoZSBETUEgYmVoYXZpb3IgdmlhIHRoZSBETUEgbWFwcGluZyBpbnN0ZWFkIG9mIGhh
-dmluZyB0bw0KPiA+ID4gPj4gPiA+IG1ha2UgdGhlIGZpbmFsIGRlY2lzaW9uIGluIHRoZSBkZXZp
-Y2UgaXRzZWxmLg0KPiA+ID4gPj4gPiA+DQo+ID4gPiA+PiA+ID4gLSBBbGV4DQo+ID4gPiA+PiA+
-DQo+ID4gPiA+PiA+IFllcywgU3BhcmMgaXMgYSBzcGVjaWFsIGNhc2UuIEZyb20gdGhlIE5JQyBk
-cml2ZXIgcG9pbnQgb2YNCj4gPiA+ID4+ID4gdmlldywgSXQgaXMgbm8gbmVlZCBmb3Igc29tZSBB
-UkNIcyB0byBkbyBwYXJ0aWN1bGFyIG9wZXJhdGlvbg0KPiA+ID4gPj4gPiBhbmQgY29tcGlsaW5n
-IGJyYW5jaCwgZXRodG9vbCBpcyBhIGZsZXhpYmxlIG1ldGhvZCBmb3IgdXNlciB0bw0KPiA+ID4g
-Pj4gPiBtYWtlIGRlY2lzaW9uIHdoZXRoZXINCj4gPiA+ID4+ID4gb258b2ZmIHRoaXMgZmVhdHVy
-ZS4NCj4gPiA+ID4+ID4gSSB0aGluayBKZWZmIGFzIG1haW50YWluZXIgb2YgODI1OTkgaGFzIHNv
-bWUgY29tbWVudHMgYWJvdXQgdGhpcy4NCj4gPiA+ID4+DQo+ID4gPiA+PiBNeSBvcmlnaW5hbCBj
-b21tZW50L29iamVjdGlvbiB3YXMgdGhhdCB5b3UgYXR0ZW1wdGVkIHRvIGRvIHRoaXMNCj4gPiA+
-ID4+IGNoYW5nZSBhcyBhIG1vZHVsZSBwYXJhbWV0ZXIgdG8gdGhlIGl4Z2JlIGRyaXZlciwgd2hl
-cmUgSQ0KPiA+ID4gPj4gZGlyZWN0ZWQgeW91IHRvIHVzZSBldGh0b29sIHNvIHRoYXQgb3RoZXIg
-ZHJpdmVycyBjb3VsZCBiZW5lZml0DQo+ID4gPiA+PiBmcm9tIHRoZSBhYmlsaXR5IHRvIGVuYWJs
-ZS9kaXNhYmxlIHJlbGF4ZWQgb3JkZXJpbmcuICBBcyBmYXIgYXMNCj4gPiA+ID4+IGhvdyBpdCBn
-ZXRzIGltcGxlbWVudGVkIGluIGV0aHRvb2wgb3IgUENJIGxheWVyLCBtYWtlcyBsaXR0bGUNCj4g
-PiA+ID4+IGRpZmZlcmVuY2UgdG8gbWUsIEkgb25seSBoYWQgaXNzdWVzIHdpdGggdGhlIGRyaXZl
-ciBzcGVjaWZpYw0KPiA+ID4gPj4gbW9kdWxlIHBhcmFtZXRlciBpbXBsZW1lbnRhdGlvbiwNCj4g
-PiA+IHdoaWNoIGlzIG5vdCBhY2NlcHRhYmxlLg0KPiA+ID4gPg0KPiA+ID4gPg0KPiA+ID4gPiBU
-aGFuayB5b3UgSmVmZiBhbmQgQWxleC4NCj4gPiA+ID4gQW5kIHRoZW4gSSBoYXZlIGdvbmUgdGhy
-b3VnaCBtYWlsIHRocmVhZCBhYm91dCAiaTQwZTogZW5hYmxlIFBDSWUNCj4gPiA+ID4gcmVsYXgg
-b3JkZXJpbmcgZm9yIFNQQVJDIiwgSXQgb25seSB3b3JrcyBmb3IgU1BBUkMsIGFueSBvdGhlciBB
-UkNIDQo+ID4gPiA+IHdobyB3YW50cyB0byBlbmFibGUgRE1BX0FUVFJfV0VBS19PUkRFUklORyBm
-ZWF0dXJlLCBzaG91bGQNCj4gZGVmaW5lDQo+ID4gPiA+IHRoZQ0KPiA+ID4gbmV3IG1hY3JvLCBy
-ZWNvbXBpbGUgdGhlIGRyaXZlciBtb2R1bGUuDQo+ID4gPiA+DQo+ID4gPiA+IEJlY2F1c2Ugb2Yg
-dGhlIGFib3ZlIHJlYXNvbnMsIHdlIGltcGxlbWVudCBpbiBldGh0b29sIHRvIGdpdmUgdGhlDQo+
-ID4gPiA+IGZpbmFsIHVzZXIgYSBjb252ZW5pZW50IHdheSB0byBvbnxvZmYgc3BlY2lhbCBmZWF0
-dXJlLCBubyBuZWVkDQo+ID4gPiA+IGRlZmluZSBuZXcgbWFjcm8sIGVhc3kgdG8gZXh0ZW5kIHRo
-ZSBuZXcgZmVhdHVyZXMsIGFuZCBhbHNvIGdvb2QNCj4gPiA+ID4gYmVuZWZpdCBmb3Igb3RoZXIN
-Cj4gPiA+IGRyaXZlciBhcyBKZWZmIHJlZmVycmVkLg0KPiA+ID4gPg0KPiA+ID4NCj4gPiA+IEkg
-dGhpbmsgdGhlIHBvaW50IGlzIHdlIHNob3VsZG4ndCBiYXNlIHRoZSBkZWNpc2lvbiBvbiB1c2Vy
-IGlucHV0Lg0KPiA+ID4gVGhlIGZhY3QgaXMgdGhlIFBDSWUgZGV2aWNlIGNvbnRyb2wgcmVnaXN0
-ZXIgc2hvdWxkIGhhdmUgYSBiaXQgdGhhdA0KPiA+ID4gaW5kaWNhdGVzIGlmIHRoZSBkZXZpY2Ug
-aXMgYWxsb3dlZCB0byBlbmFibGUgcmVsYXhlZCBvcmRlcmluZyBvciBub3QuDQo+ID4gPiBJZiB3
-ZSBjYW4gZ3VhcmFudGVlIHRoYXQgdGhlIGJpdCBpcyBzZXQgaW4gYWxsIHRoZSBjYXNlcyB3aGVy
-ZSBpdA0KPiA+ID4gc2hvdWxkIGJlIHNldCwgYW5kIGNsZWFyZWQgaW4gYWxsIHRoZSBjYXNlcyB3
-aGVyZSBpdCBzaG91bGQgbm90IHRoZW4NCj4gPiA+IHdlIGNvdWxkIHVzZSBzb21ldGhpbmcgbGlr
-ZSB0aGF0IHRvIGRldGVybWluZSBpZiB0aGUgZGV2aWNlIGlzDQo+ID4gPiBzdXBwb3NlZCB0byBl
-bmFibGUgcmVsYXhlZCBvcmRlcmluZyBpbnN0ZWFkIG9mIHRyeWluZyB0byBtYWtlIHRoZQ0KPiA+
-ID4gZGVjaXNpb24NCj4gPiBvdXJzZWx2ZXMuDQo+ID4gPg0KPiA+ID4gLSBBbGV4DQo+ID4NCj4g
-PiBvay4gV2UgYXJlIGZvY3VzaW5nIG9uIHRoZSByZWdpc3Rlci4NCj4gPiBBbmQgeWVzLCB0byBl
-bmFibGUgcmVsYXggb3JkZXJpbmcgZm9yIDgyNTk5IHNob3VsZCBiZSBzZXQgYnkgb25lIG9yDQo+
-ID4gbW9yZSBiaXRzIG9mIFJ4L1RYIERDQSBDb250cm9sIFJlZ2lzdGVyLCB0aGVzZSBiaXRzIHNo
-b3VsZCBiZSBzZXQgaW4NCj4gPiBtYW55IGNwdSBhcmNoaXRlY3R1cmVzLCBzdWNoIGFzIGFybTY0
-LCBzcGFyYywgYW5kIHNvIG9uLCBhbmQgc2hvdWxkIGJlDQo+IGNsZWFyZWQgaW4gb3RoZXIgQVJD
-SHMuDQo+ID4gQnkgdGhlIHdheSwgaG93IGRvIHlvdSBlbmFibGUgU1BBUkMgbWFjcm8sIGhvdyBh
-bmQgd2hlcmUgdG8gZGVmaW5lDQo+ID4gdGhpcyBjb21waWxpbmcgbWFjcm8gd2hlbiB1c2VyIG9u
-ZSB0byBlbmFibGUgcmVsYXggb3JkZXJpbmcgdW5kZXIgU1BBUkMNCj4gc3lzdGVtPw0KPiA+ICNp
-Zm5kZWYgQ09ORklHX1NQQVJDDQo+ID4NCj4gPg0KPiANCj4gDQo+IEhpLCBBbGV4LA0KPiBIYXZl
-IHlvdSBhbHJlYWR5IHNlbnQgb3V0IHRoZSBwYXRjaGVzIGFib3V0IERNQV9BVFRSX1dFQUtfT1JE
-RVJJTkc/DQo+IFdlIHdhbnQgdG8gZ2V0IHlvdSBob3cgdG8gZW5hYmxlIERNQV9BVFRSX1dFQUtf
-T1JERVJJTkcgYnkgUENJZSBsYXllciwNCj4gYW5kIHdlIGNhbiByZWZlciB0byB0aGF0Lg0KDQpJ
-IGhhdmUgdmVyaWZpZWQgRE1BX0FUVFJfV0VBS19PUkRFUklORyBpcyBub3QgdXNhYmxlIGZvciBv
-dXIgc3lzdGVtKGFybTY0IGFuZCA4MjU5OSksDQpXZSBzaG91bGQgZW5hYmxlIHJlbGF4IG9yZGVy
-aW5nIGluIDgyNTk5IERDQSBjb250cm9sIHJlZ2lzdGVyIHRvIGltcHJvdmUgcGVyZm9ybWFuY2Uu
-IA0KQXMgU3RlcGhlbiBIZW1taW5nZXIgZG8gbm90IHN1Z2dlc3QgdXNlIGV0aHRvb2wgdG8gc2V0
-IHJlbGF4IG9yZGVyaW5nIGZlYXR1cmUsIA0KQEplZmYsIGRvIHlvdSBhZ3JlZSB3aXRoIHVzaW5n
-IGVycmF0dW0gY29uZmlnIHRvIGVuYWJsZSBSTyBtb2RlIGluIDgyNTk5LiAgDQpDb2RlcyBsaWtl
-IGJlbG93Og0KSW4gS2NvbmZpZzoNCitjb25maWcgSElfRVJSQVRVTV94eHh4DQoNCkluIGl4Z2Jl
-XzgyNTk5LmMNCiNpZiAhZGVmaW5lZCAoQ09ORklHX1NQQVJDKSB8fCAhZGVmaW5lZChISV9FUlJB
-VFVNX3h4eHgpDQoJLyogRGlzYWJsZSByZWxheGVkIG9yZGVyaW5nICovDQoJZm9yIChpID0gMDsg
-KChpIDwgaHctPm1hYy5tYXhfdHhfcXVldWVzKSAmJg0KCSAgICAgKGkgPCBJWEdCRV9EQ0FfTUFY
-X1FVRVVFU184MjU5OCkpOyBpKyspIHsNCgkJcmVndmFsID0gSVhHQkVfUkVBRF9SRUcoaHcsIElY
-R0JFX0RDQV9UWENUUkwoaSkpOw0KCQlyZWd2YWwgJj0gfklYR0JFX0RDQV9UWENUUkxfREVTQ19X
-Uk9fRU47DQoJCUlYR0JFX1dSSVRFX1JFRyhodywgSVhHQkVfRENBX1RYQ1RSTChpKSwgcmVndmFs
-KTsNCgl9DQoNCglmb3IgKGkgPSAwOyAoKGkgPCBody0+bWFjLm1heF9yeF9xdWV1ZXMpICYmDQoJ
-ICAgICAoaSA8IElYR0JFX0RDQV9NQVhfUVVFVUVTXzgyNTk4KSk7IGkrKykgew0KCQlyZWd2YWwg
-PSBJWEdCRV9SRUFEX1JFRyhodywgSVhHQkVfRENBX1JYQ1RSTChpKSk7DQoJCXJlZ3ZhbCAmPSB+
-KElYR0JFX0RDQV9SWENUUkxfREFUQV9XUk9fRU4gfA0KCQkJICAgIElYR0JFX0RDQV9SWENUUkxf
-SEVBRF9XUk9fRU4pOw0KCQlJWEdCRV9XUklURV9SRUcoaHcsIElYR0JFX0RDQV9SWENUUkwoaSks
-IHJlZ3ZhbCk7DQoJfQ0KI2VuZGlmDQoNCg0KDQoNCg0KDQoNCg0K
+Le 03/01/2017 à 22:37, Arnd Bergmann a écrit :
+> On Tuesday, January 3, 2017 3:35:44 PM CET Nicolas Dichtel wrote:
+>> Regularly, when a new header is created in include/uapi/, the developer
+>> forgets to add it in the corresponding Kbuild file. This error is usually
+>> detected after the release is out.
+>>
+>> In fact, all headers under include/uapi/ should be exported, so let's
+>> use wildcards.
+> 
+> I think the idea makes a lot of sense: if a header is in uapi, we should
+> really export it. However, using a wildcard expression seems a bit
+> backwards here, I think we should make this implicit and not have the
+> Kbuild file at all.
+> 
+> The "header-y" syntax was originally added back when the uapi headers
+> were mixed with the internal headers in the same directory. After
+> David Howells introduced the separate directory for uapi, it has
+> become a bit redundant.
+Ok, thank you for the explanation, I was wondering why those Kbuild files were
+needed.
+
+> 
+> Can you try to modify scripts/Makefile.headersinst instead so we
+> can simply remove the Kbuild files entirely?
+I will try something.
+
+
+Regards,
+Nicolas
