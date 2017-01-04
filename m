@@ -1,37 +1,51 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net] openvswitch: upcall: Fix vlan handling.
-Date: Wed, 4 Jan 2017 18:39:36 +0100
-Message-ID: <20170104183936.641518f7@griffin>
-References: <1482769887-8022-1-git-send-email-pshelar@ovn.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jarno Rajahalme <jarno@ovn.org>
-To: Pravin B Shelar <pshelar@ovn.org>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: [PATCH v2 net-next 0/2] tools: psock_tpacket bug fixes
+Date: Wed,  4 Jan 2017 09:33:02 -0800
+Message-ID: <cover.1483549208.git.sowmini.varadhan@oracle.com>
+Cc: daniel@iogearbox.net, willemb@google.com, davem@davemloft.net,
+        shuah@kernel.org
+To: linux-kselftest@vger.kernel.org, netdev@vger.kernel.org,
+        sowmini.varadhan@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50846 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S968678AbdADRjj (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 4 Jan 2017 12:39:39 -0500
-In-Reply-To: <1482769887-8022-1-git-send-email-pshelar@ovn.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:18229 "EHLO
+        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751997AbdADRfY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2017 12:35:24 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 26 Dec 2016 08:31:27 -0800, Pravin B Shelar wrote:
-> Networking stack accelerate vlan tag handling by
-> keeping topmost vlan header in skb. This works as
-> long as packet remains in OVS datapath. But during
-> OVS upcall vlan header is pushed on to the packet.
-> When such packet is sent back to OVS datapath, core
-> networking stack might not handle it correctly. Following
-> patch avoids this issue by accelerating the vlan tag
-> during flow key extract. This simplifies datapath by
-> bringing uniform packet processing for packets from
-> all code paths.
+This patchset includes fixes to psock_tpacket for false-negatives
+sporadically reported by the test when it was run concurrently with
+other heavy network traffic (e.g., over an ssh session, as opposed
+to running the test from the console of the test machine). The
+test sometimes failed with errors reporting more recvd packets than 
+expected (e.g., "walk_v0_rx: received 201 out of 100 pkts") or
+the reception of non-IP packets (e.g., ARP packets).
 
-Sorry for the late review, I was off at the end of December. Just
-wanted to say that the patch looks great.
+There are 2 sources of network interference that can disrupt the test:
 
-Thanks!
+1. set_sockfilter() can use some hardening (currently passes up packets
+   based on ip length field, and payload signature but this may potentially
+   match other network traffic on the test machine) 
 
- Jiri
+2. There is a race-window between packet_create() and packet_do_bind()
+   in which packets from any interface (e.g., eth0) will get queued
+   for Rx on the test socket.
+
+Patch 1 fixes the first issue by cleaing up set_sockfilter() and
+hardening it to make sure that it only permits UDP/IPv4 packets.
+
+Patch 2 fixes the second issue by making sure we open the PF_PACKET
+socket with protocol 0 to reject all packets, and make sure the
+BPF filter is set up before binding the socket to ETH_P_ALL and lo.
+
+Changes from v2: patch 2 reworked based on review comments.
+
+Sowmini Varadhan (2):
+  tools: tighten conditions checked in sock_setfilter
+  tools: psock_tpacket: block Rx until socket filter has been added and
+    socket has been bound to loopback.
+
+ tools/testing/selftests/net/psock_lib.h     |   28 ++++++++++++++++++++------
+ tools/testing/selftests/net/psock_tpacket.c |    6 ++--
+ 2 files changed, 24 insertions(+), 10 deletions(-)
