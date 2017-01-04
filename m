@@ -1,107 +1,92 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH RFC ipsec-next 4/5] net: Prepare for IPsec GRO
-Date: Wed, 04 Jan 2017 04:34:15 -0800
-Message-ID: <1483533255.4337.16.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1483518230-6777-1-git-send-email-steffen.klassert@secunet.com>
-         <1483518230-6777-5-git-send-email-steffen.klassert@secunet.com>
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Subject: Re: [PATCH net-next] net/hyperv: remove use of VLAN_TAG_PRESENT
+Date: Wed, 04 Jan 2017 13:48:22 +0100
+Message-ID: <87fukzousp.fsf@vitty.brq.redhat.com>
+References: <85c211f16e696607c9f61f96b8234684a2a2385b.1483487888.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-        Sowmini Varadhan <sowmini.varadhan@oracle.com>,
-        Ilan Tayari <ilant@mellanox.com>
-To: Steffen Klassert <steffen.klassert@secunet.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:35527 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753396AbdADMeU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2017 07:34:20 -0500
-Received: by mail-pg0-f67.google.com with SMTP id i5so37078058pgh.2
-        for <netdev@vger.kernel.org>; Wed, 04 Jan 2017 04:34:19 -0800 (PST)
-In-Reply-To: <1483518230-6777-5-git-send-email-steffen.klassert@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, Haiyang Zhang <haiyangz@microsoft.com>,
+ devel@linuxdriverproject.org
+To: =?utf-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <85c211f16e696607c9f61f96b8234684a2a2385b.1483487888.git.mirq-linux@rere.qmqm.pl>
+ (=?utf-8?Q?=22Micha=C5=82_Miros=C5=82aw=22's?= message of "Wed, 4 Jan 2017
+ 01:07:58 +0100 (CET)")
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2017-01-04 at 09:23 +0100, Steffen Klassert wrote:
-> This patch prepares the generic codepath for IPsec GRO.
-> We introduce a new GRO_CONSUMED notifier to reflect that
-> IPsec can return asynchronous. On IPsec GRO we grab the
-> packet and reinject it back to layer 2 after IPsec
-> processing. We also use one xfrm_gro bit on the sk_buff
-> that will be set from IPsec to notify about GRO. If this
-> bit is set, we call napi_gro_receive for the backlog device
-> instead of __netif_receive_skb.
-> 
-> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
-> ---
->  include/linux/netdevice.h |  1 +
->  include/linux/skbuff.h    | 14 +++++++++++++-
->  net/core/dev.c            | 17 ++++++++++++++++-
->  net/xfrm/Kconfig          |  4 ++++
->  4 files changed, 34 insertions(+), 2 deletions(-)
-> 
-> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> index ecd78b3..89bad76 100644
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -352,6 +352,7 @@ enum gro_result {
->  	GRO_HELD,
->  	GRO_NORMAL,
->  	GRO_DROP,
-> +	GRO_CONSUMED,
->  };
->  typedef enum gro_result gro_result_t;
->  
-> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> index b53c0cf..a78cd90 100644
-> --- a/include/linux/skbuff.h
-> +++ b/include/linux/skbuff.h
-> @@ -749,7 +749,10 @@ struct sk_buff {
->  #ifdef CONFIG_NET_SWITCHDEV
->  	__u8			offload_fwd_mark:1;
->  #endif
-> -	/* 2, 4 or 5 bit hole */
-> +#ifdef CONFIG_XFRM_OFFLOAD
-> +	__u8			xfrm_gro:1;
-
-
-
-Arg, yet another skb bit.
-
-> +#endif
-> +	/* 1 to 5 bits hole */
->  
->  #ifdef CONFIG_NET_SCHED
->  	__u16			tc_index;	/* traffic control index */
-> @@ -3698,6 +3701,15 @@ static inline struct sec_path *skb_sec_path(struct sk_buff *skb)
->  #endif
->  }
->  
-
->  
-> @@ -4843,7 +4853,12 @@ static int process_backlog(struct napi_struct *napi, int quota)
->  
->  		while ((skb = __skb_dequeue(&sd->process_queue))) {
->  			rcu_read_lock();
-> -			__netif_receive_skb(skb);
-> +
-> +			if (skb_xfrm_gro(skb))
-> +				napi_gro_receive(napi, skb);
-> +			else
-> +				__netif_receive_skb(skb);
-> +
-
-
-But napi here is device independent. It is a fake NAPI, per cpu.
-
-I am not sure of the various implications of using it at this point,
-this looks quite dangerous/invasive to me, compared to the gro_cells
-infra which was designed to have no impact on core code paths.
-
-To me, the caller should call napi_gro_receive() skb, instead of letting
-core networking stack add this extra skb bit and extra conditional.
-
-( Also I am not sure device dismantle will be properly managed by your
-changes. It is really tricky to get it right. )
-
-Thanks.
+TWljaGHFgiBNaXJvc8WCYXcgPG1pcnEtbGludXhAcmVyZS5xbXFtLnBsPiB3cml0ZXM6Cgo+IFNp
+Z25lZC1vZmYtYnk6IE1pY2hhxYIgTWlyb3PFgmF3IDxtaXJxLWxpbnV4QHJlcmUucW1xbS5wbD4K
+CkNhbiB3ZSBoYXZlIGEgbm9uLWVtcHR5IGRlc2NyaXB0aW9uIHBsZWFzZT8KCj4gLS0tCj4gIGRy
+aXZlcnMvbmV0L2h5cGVydi9oeXBlcnZfbmV0LmggICB8ICAyICstCj4gIGRyaXZlcnMvbmV0L2h5
+cGVydi9uZXR2c2NfZHJ2LmMgICB8IDEzICsrKysrKy0tLS0tLS0KPiAgZHJpdmVycy9uZXQvaHlw
+ZXJ2L3JuZGlzX2ZpbHRlci5jIHwgIDQgKystLQo+ICAzIGZpbGVzIGNoYW5nZWQsIDkgaW5zZXJ0
+aW9ucygrKSwgMTAgZGVsZXRpb25zKC0pCj4KPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvaHlw
+ZXJ2L2h5cGVydl9uZXQuaCBiL2RyaXZlcnMvbmV0L2h5cGVydi9oeXBlcnZfbmV0LmgKPiBpbmRl
+eCAzOTU4YWRhZGU3ZWIuLmI1MzcyOWU4NWE3OSAxMDA2NDQKPiAtLS0gYS9kcml2ZXJzL25ldC9o
+eXBlcnYvaHlwZXJ2X25ldC5oCj4gKysrIGIvZHJpdmVycy9uZXQvaHlwZXJ2L2h5cGVydl9uZXQu
+aAo+IEBAIC0xODYsNyArMTg2LDcgQEAgaW50IG5ldHZzY19yZWN2X2NhbGxiYWNrKHN0cnVjdCBo
+dl9kZXZpY2UgKmRldmljZV9vYmosCj4gIAkJCXZvaWQgKipkYXRhLAo+ICAJCQlzdHJ1Y3QgbmRp
+c190Y3BfaXBfY2hlY2tzdW1faW5mbyAqY3N1bV9pbmZvLAo+ICAJCQlzdHJ1Y3Qgdm1idXNfY2hh
+bm5lbCAqY2hhbm5lbCwKPiAtCQkJdTE2IHZsYW5fdGNpKTsKPiArCQkJdTE2IHZsYW5fdGNpLCBi
+b29sIHZsYW5fcHJlc2VudCk7Cj4gIHZvaWQgbmV0dnNjX2NoYW5uZWxfY2Iodm9pZCAqY29udGV4
+dCk7Cj4gIGludCBybmRpc19maWx0ZXJfb3BlbihzdHJ1Y3QgbmV0dnNjX2RldmljZSAqbnZkZXYp
+Owo+ICBpbnQgcm5kaXNfZmlsdGVyX2Nsb3NlKHN0cnVjdCBuZXR2c2NfZGV2aWNlICpudmRldik7
+Cj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2h5cGVydi9uZXR2c2NfZHJ2LmMgYi9kcml2ZXJz
+L25ldC9oeXBlcnYvbmV0dnNjX2Rydi5jCj4gaW5kZXggYzk0MTRjMDU0ODUyLi42NTk3ZDc5MDE5
+MjkgMTAwNjQ0Cj4gLS0tIGEvZHJpdmVycy9uZXQvaHlwZXJ2L25ldHZzY19kcnYuYwo+ICsrKyBi
+L2RyaXZlcnMvbmV0L2h5cGVydi9uZXR2c2NfZHJ2LmMKPiBAQCAtNTk1LDcgKzU5NSw3IEBAIHZv
+aWQgbmV0dnNjX2xpbmtzdGF0dXNfY2FsbGJhY2soc3RydWN0IGh2X2RldmljZSAqZGV2aWNlX29i
+aiwKPiAgc3RhdGljIHN0cnVjdCBza19idWZmICpuZXR2c2NfYWxsb2NfcmVjdl9za2Ioc3RydWN0
+IG5ldF9kZXZpY2UgKm5ldCwKPiAgCQkJCXN0cnVjdCBodl9uZXR2c2NfcGFja2V0ICpwYWNrZXQs
+Cj4gIAkJCQlzdHJ1Y3QgbmRpc190Y3BfaXBfY2hlY2tzdW1faW5mbyAqY3N1bV9pbmZvLAo+IC0J
+CQkJdm9pZCAqZGF0YSwgdTE2IHZsYW5fdGNpKQo+ICsJCQkJdm9pZCAqZGF0YSkKPiAgewo+ICAJ
+c3RydWN0IHNrX2J1ZmYgKnNrYjsKPgo+IEBAIC02MjUsMTAgKzYyNSw2IEBAIHN0YXRpYyBzdHJ1
+Y3Qgc2tfYnVmZiAqbmV0dnNjX2FsbG9jX3JlY3Zfc2tiKHN0cnVjdCBuZXRfZGV2aWNlICpuZXQs
+Cj4gIAkJCXNrYi0+aXBfc3VtbWVkID0gQ0hFQ0tTVU1fVU5ORUNFU1NBUlk7Cj4gIAl9Cj4KPiAt
+CWlmICh2bGFuX3RjaSAmIFZMQU5fVEFHX1BSRVNFTlQpCj4gLQkJX192bGFuX2h3YWNjZWxfcHV0
+X3RhZyhza2IsIGh0b25zKEVUSF9QXzgwMjFRKSwKPiAtCQkJCSAgICAgICB2bGFuX3RjaSk7Cj4g
+LQo+ICAJcmV0dXJuIHNrYjsKPiAgfQo+Cj4gQEAgLTY0MSw3ICs2MzcsNyBAQCBpbnQgbmV0dnNj
+X3JlY3ZfY2FsbGJhY2soc3RydWN0IGh2X2RldmljZSAqZGV2aWNlX29iaiwKPiAgCQkJCXZvaWQg
+KipkYXRhLAo+ICAJCQkJc3RydWN0IG5kaXNfdGNwX2lwX2NoZWNrc3VtX2luZm8gKmNzdW1faW5m
+bywKPiAgCQkJCXN0cnVjdCB2bWJ1c19jaGFubmVsICpjaGFubmVsLAo+IC0JCQkJdTE2IHZsYW5f
+dGNpKQo+ICsJCQkJdTE2IHZsYW5fdGNpLCBib29sIHZsYW5fcHJlc2VudCkKPiAgewo+ICAJc3Ry
+dWN0IG5ldF9kZXZpY2UgKm5ldCA9IGh2X2dldF9kcnZkYXRhKGRldmljZV9vYmopOwo+ICAJc3Ry
+dWN0IG5ldF9kZXZpY2VfY29udGV4dCAqbmV0X2RldmljZV9jdHggPSBuZXRkZXZfcHJpdihuZXQp
+Owo+IEBAIC02NjQsMTIgKzY2MCwxNSBAQCBpbnQgbmV0dnNjX3JlY3ZfY2FsbGJhY2soc3RydWN0
+IGh2X2RldmljZSAqZGV2aWNlX29iaiwKPiAgCQluZXQgPSB2Zl9uZXRkZXY7Cj4KPiAgCS8qIEFs
+bG9jYXRlIGEgc2tiIC0gVE9ETyBkaXJlY3QgSS9PIHRvIHBhZ2VzPyAqLwo+IC0Jc2tiID0gbmV0
+dnNjX2FsbG9jX3JlY3Zfc2tiKG5ldCwgcGFja2V0LCBjc3VtX2luZm8sICpkYXRhLCB2bGFuX3Rj
+aSk7Cj4gKwlza2IgPSBuZXR2c2NfYWxsb2NfcmVjdl9za2IobmV0LCBwYWNrZXQsIGNzdW1faW5m
+bywgKmRhdGEpOwo+ICAJaWYgKHVubGlrZWx5KCFza2IpKSB7Cj4gIAkJKytuZXQtPnN0YXRzLnJ4
+X2Ryb3BwZWQ7Cj4gIAkJcmV0dXJuIE5WU1BfU1RBVF9GQUlMOwo+ICAJfQo+Cj4gKwlpZiAodmxh
+bl9wcmVzZW50KQo+ICsJCV9fdmxhbl9od2FjY2VsX3B1dF90YWcoc2tiLCBodG9ucyhFVEhfUF84
+MDIxUSksIHZsYW5fdGNpKTsKPiArCj4gIAlpZiAobmV0ICE9IHZmX25ldGRldikKPiAgCQlza2Jf
+cmVjb3JkX3J4X3F1ZXVlKHNrYiwKPiAgCQkJCSAgICBjaGFubmVsLT5vZmZlcm1zZy5vZmZlci5z
+dWJfY2hhbm5lbF9pbmRleCk7Cj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2h5cGVydi9ybmRp
+c19maWx0ZXIuYyBiL2RyaXZlcnMvbmV0L2h5cGVydi9ybmRpc19maWx0ZXIuYwo+IGluZGV4IDhk
+OTA5MDRlMGU0OS4uN2Y3YjQxMGE0MWMyIDEwMDY0NAo+IC0tLSBhL2RyaXZlcnMvbmV0L2h5cGVy
+di9ybmRpc19maWx0ZXIuYwo+ICsrKyBiL2RyaXZlcnMvbmV0L2h5cGVydi9ybmRpc19maWx0ZXIu
+Ywo+IEBAIC0zODEsMTMgKzM4MSwxMyBAQCBzdGF0aWMgaW50IHJuZGlzX2ZpbHRlcl9yZWNlaXZl
+X2RhdGEoc3RydWN0IHJuZGlzX2RldmljZSAqZGV2LAo+Cj4gIAl2bGFuID0gcm5kaXNfZ2V0X3Bw
+aShybmRpc19wa3QsIElFRUVfODAyMVFfSU5GTyk7Cj4gIAlpZiAodmxhbikgewo+IC0JCXZsYW5f
+dGNpID0gVkxBTl9UQUdfUFJFU0VOVCB8IHZsYW4tPnZsYW5pZCB8Cj4gKwkJdmxhbl90Y2kgPSB2
+bGFuLT52bGFuaWQgfAo+ICAJCQkodmxhbi0+cHJpIDw8IFZMQU5fUFJJT19TSElGVCk7Cj4gIAl9
+Cj4KPiAgCWNzdW1faW5mbyA9IHJuZGlzX2dldF9wcGkocm5kaXNfcGt0LCBUQ1BJUF9DSEtTVU1f
+UEtUSU5GTyk7Cj4gIAlyZXR1cm4gbmV0dnNjX3JlY3ZfY2FsbGJhY2sobmV0X2RldmljZV9jdHgt
+PmRldmljZV9jdHgsIHBrdCwgZGF0YSwKPiAtCQkJCSAgICBjc3VtX2luZm8sIGNoYW5uZWwsIHZs
+YW5fdGNpKTsKPiArCQkJCSAgICBjc3VtX2luZm8sIGNoYW5uZWwsIHZsYW5fdGNpLCB2bGFuKTsK
+PiAgfQo+Cj4gIGludCBybmRpc19maWx0ZXJfcmVjZWl2ZShzdHJ1Y3QgaHZfZGV2aWNlICpkZXYs
+CgotLSAKICBWaXRhbHkKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX18KZGV2ZWwgbWFpbGluZyBsaXN0CmRldmVsQGxpbnV4ZHJpdmVycHJvamVjdC5vcmcKaHR0
+cDovL2RyaXZlcmRldi5saW51eGRyaXZlcnByb2plY3Qub3JnL21haWxtYW4vbGlzdGluZm8vZHJp
+dmVyZGV2LWRldmVsCg==
