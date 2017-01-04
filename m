@@ -1,58 +1,230 @@
-From: Mahesh Bandewar <mahesh@bandewar.net>
-Subject: [RFC PATCH next] ipv6: do not send RTM_DELADDR for tentative addresses
-Date: Wed,  4 Jan 2017 15:01:01 -0800
-Message-ID: <20170104230101.17470-1-mahesh@bandewar.net>
-Cc: netdev <netdev@vger.kernel.org>,
-        Mahesh Bandewar <mahesh@bandewar.net>,
-        Mahesh Bandewar <maheshb@google.com>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: David Miller <davem@davemloft.net>
+From: Gavin Shan <gwshan@linux.vnet.ibm.com>
+Subject: Re: [PATCH 2/2] PCI: lock each enable/disable num_vfs operation in
+ sysfs
+Date: Thu, 5 Jan 2017 10:11:39 +1100
+Message-ID: <20170104231139.GA3726@gwshan>
+References: <20170104004826.17866.77074.stgit@localhost6.localdomain6>
+ <20170104004831.17866.11537.stgit@localhost6.localdomain6>
+ <20170104021531.GA567@gwshan>
+ <87618083B2453E4A8714035B62D67992507430EB@FMSMSX105.amr.corp.intel.com>
+Reply-To: Gavin Shan <gwshan@linux.vnet.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Gavin Shan <gwshan@linux.vnet.ibm.com>,
+        "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+        "Duyck, Alexander H" <alexander.h.duyck@intel.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:33856 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751998AbdADXIZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2017 18:08:25 -0500
-Received: by mail-pg0-f68.google.com with SMTP id b1so38545466pgc.1
-        for <netdev@vger.kernel.org>; Wed, 04 Jan 2017 15:08:24 -0800 (PST)
+Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:50765 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S967574AbdADXLq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2017 18:11:46 -0500
+Received: from pps.filterd (m0098399.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id v04N9AuE105665
+        for <netdev@vger.kernel.org>; Wed, 4 Jan 2017 18:11:46 -0500
+Received: from e23smtp01.au.ibm.com (e23smtp01.au.ibm.com [202.81.31.143])
+        by mx0a-001b2d01.pphosted.com with ESMTP id 27s3d59bfu-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Wed, 04 Jan 2017 18:11:46 -0500
+Received: from localhost
+        by e23smtp01.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <gwshan@linux.vnet.ibm.com>;
+        Thu, 5 Jan 2017 09:11:43 +1000
+Content-Disposition: inline
+In-Reply-To: <87618083B2453E4A8714035B62D67992507430EB@FMSMSX105.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mahesh Bandewar <maheshb@google.com>
+On Wed, Jan 04, 2017 at 04:00:20PM +0000, Tantilov, Emil S wrote:
+>>On Tue, Jan 03, 2017 at 04:48:31PM -0800, Emil Tantilov wrote:
+>>>Enabling/disabling SRIOV via sysfs by echo-ing multiple values
+>>>simultaneously:
+>>>
+>>>echo 63 > /sys/class/net/ethX/device/sriov_numvfs&
+>>>echo 63 > /sys/class/net/ethX/device/sriov_numvfs
+>>>
+>>>sleep 5
+>>>
+>>>echo 0 > /sys/class/net/ethX/device/sriov_numvfs&
+>>>echo 0 > /sys/class/net/ethX/device/sriov_numvfs
+>>>
+>>>Results in the following bug:
+>>>
+>>>kernel BUG at drivers/pci/iov.c:495!
+>>>invalid opcode: 0000 [#1] SMP
+>>>CPU: 1 PID: 8050 Comm: bash Tainted: G   W   4.9.0-rc7-net-next #2092
+>>>RIP: 0010:[<ffffffff813b1647>]
+>>>	  [<ffffffff813b1647>] pci_iov_release+0x57/0x60
+>>>
+>>>Call Trace:
+>>> [<ffffffff81391726>] pci_release_dev+0x26/0x70
+>>> [<ffffffff8155be6e>] device_release+0x3e/0xb0
+>>> [<ffffffff81365ee7>] kobject_cleanup+0x67/0x180
+>>> [<ffffffff81365d9d>] kobject_put+0x2d/0x60
+>>> [<ffffffff8155bc27>] put_device+0x17/0x20
+>>> [<ffffffff8139c08a>] pci_dev_put+0x1a/0x20
+>>> [<ffffffff8139cb6b>] pci_get_dev_by_id+0x5b/0x90
+>>> [<ffffffff8139cca5>] pci_get_subsys+0x35/0x40
+>>> [<ffffffff8139ccc8>] pci_get_device+0x18/0x20
+>>> [<ffffffff8139ccfb>] pci_get_domain_bus_and_slot+0x2b/0x60
+>>> [<ffffffff813b09e7>] pci_iov_remove_virtfn+0x57/0x180
+>>> [<ffffffff813b0b95>] pci_disable_sriov+0x65/0x140
+>>> [<ffffffffa00a1af7>] ixgbe_disable_sriov+0xc7/0x1d0 [ixgbe]
+>>> [<ffffffffa00a1e9d>] ixgbe_pci_sriov_configure+0x3d/0x170 [ixgbe]
+>>> [<ffffffff8139d28c>] sriov_numvfs_store+0xdc/0x130
+>>>...
+>>>RIP  [<ffffffff813b1647>] pci_iov_release+0x57/0x60
+>>>
+>>>Use the existing mutex lock to protect each enable/disable operation.
+>>>
+>>>CC: Alexander Duyck <alexander.h.duyck@intel.com>
+>>>Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+>>
+>>Emil, It's going to change semantics of pci_enable_sriov() and pci_disable_sriov().
+>>They can be invoked when writing to the sysfs entry, or loading PF's
+>>driver. With the change applied, the lock (pf->sriov->lock) isn't acquired and released
+>>in the PF's driver loading path.
+>
+>The enablement of SRIOV on driver load is done via deprecated module parameter.
+>Perhaps we can just remove it, although there are probably still people that use it
+>and may not be happy if we get rid of it. 
+>
 
-RTM_NEWADDR notification is sent when IFA_F_TENTATIVE is cleared from
-the address. So if the address is added and deleted before DAD probes
-completes, the RTM_DELADDR will be sent for which there was no
-RTM_NEWADDR causing asymmetry in notification. However if the same
-logic is used while sending RTM_DELADDR notification, this asymmetry
-can be avoided.
+Yeah, some drivers are still using the interface. So we cannot affect it until
+it can be droped.
 
-Signed-off-by: Mahesh Bandewar <maheshb@google.com>
-CC: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-CC: Patrick McHardy <kaber@trash.net>
-CC: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- net/ipv6/addrconf.c | 7 +++++++
- 1 file changed, 7 insertions(+)
+>>I think the reasonable way would be adding a flag in "struct sriov", to
+>>indicate someone is accessing the IOV capability through sysfs file. With this, the
+>>code returns with "-EBUSY" immediately for contenders. With it, nothing is going
+>>to be changed in PF's driver loading path.
+>
+>Flag is what I initially had in mind, but did not want to add extra locking if we 
+>can make use of the existing.
+>
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index c1e124bc8e1e..ac9bd5620f81 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -4888,6 +4888,13 @@ static void inet6_ifa_notify(int event, struct inet6_ifaddr *ifa)
- 	struct net *net = dev_net(ifa->idev->dev);
- 	int err = -ENOBUFS;
- 
-+	/* Don't send DELADDR notification for TENTATIVE address,
-+	 * since NEWADDR notification is sent only after removing
-+	 * TENTATIVE flag.
-+	 */
-+	if (ifa->flags & IFA_F_TENTATIVE && event == RTM_DELADDR)
-+		return;
-+
- 	skb = nlmsg_new(inet6_ifaddr_msgsize(), GFP_ATOMIC);
- 	if (!skb)
- 		goto errout;
--- 
-2.11.0.390.gc69c2f50cf-goog
+The problem is sriov->lock wasn't introduced to protect the whole IOV capability.
+Instead, it protects the allocation of virtual bus (if needed). In your patch,
+it will be used to protect the whole IOV capability, ensure accessing the IOV
+capability exclusively. So the usage of this lock is changed. 
+
+     code extracted from pci.h:
+
+     struct pci_sriov {
+            :
+            struct mutex lock;      /* lock for VF bus */
+            :
+     }
+
+The lock was introduced by commit d1b054da8 ("PCI: initialize and release SR-IOV
+capability"). If I'm correct enough, I don't think this lock is needed when
+pci_enable_sriov() or pci_disable_sriov() are called in driver because of module
+parameters. I don't see the usage case calling pci_disable_sriov() while previous
+pci_enable_sriov() isn't finished yet. Also, it's not needed in EEH subsystem.
+So I think the lock can be dropped, then it can be used to protect sysfs path. 
+
+>>Also, there are some minor comments as below and I guess most of them won't
+>>be applied if you take my suggestion eventually. However, I'm trying to make
+>>the comments complete.
+>
+>Thanks a lot for reviewing!
+>
+>>
+>>>---
+>>> drivers/pci/pci-sysfs.c |   24 +++++++++++++++++-------
+>>> 1 file changed, 17 insertions(+), 7 deletions(-)
+>>>
+>>>diff --git a/drivers/pci/pci-sysfs.c b/drivers/pci/pci-sysfs.c
+>>>index 0666287..5b54cf5 100644
+>>>--- a/drivers/pci/pci-sysfs.c
+>>>+++ b/drivers/pci/pci-sysfs.c
+>>>@@ -472,7 +472,9 @@ static ssize_t sriov_numvfs_store(struct device *dev,
+>>> 				  const char *buf, size_t count)
+>>> {
+>>> 	struct pci_dev *pdev = to_pci_dev(dev);
+>>>+	struct pci_sriov *iov = pdev->sriov;
+>>> 	int ret;
+>>>+
+>>
+>>Unnecessary change.
+>>
+>>> 	u16 num_vfs;
+>>>
+>>> 	ret = kstrtou16(buf, 0, &num_vfs);
+>>>@@ -482,38 +484,46 @@ static ssize_t sriov_numvfs_store(struct device
+>>*dev,
+>>> 	if (num_vfs > pci_sriov_get_totalvfs(pdev))
+>>> 		return -ERANGE;
+>>>
+>>>+	mutex_lock(&iov->dev->sriov->lock);
+>>>+
+>>> 	if (num_vfs == pdev->sriov->num_VFs)
+>>>-		return count;		/* no change */
+>>>+		goto exit;
+>>>
+>>> 	/* is PF driver loaded w/callback */
+>>> 	if (!pdev->driver || !pdev->driver->sriov_configure) {
+>>> 		dev_info(&pdev->dev, "Driver doesn't support SRIOV
+>>configuration via sysfs\n");
+>>>-		return -ENOSYS;
+>>>+		ret = -EINVAL;
+>>>+		goto exit;
+>>
+>>Why we need change the error code here?
+>
+>checkpatch was complaining about the use of the ENOSYS error code being specific
+>and even though it was not my patch introducing it I had to change it to shut it up.
+>
+
+Right, it's reserved for attempt to call nonexisting syscall, but I think ENOENT
+might be more indicative than EINVAL in this specific case?
+
+>>> 	}
+>>>
+>>> 	if (num_vfs == 0) {
+>>> 		/* disable VFs */
+>>> 		ret = pdev->driver->sriov_configure(pdev, 0);
+>>>-		if (ret < 0)
+>>>-			return ret;
+>>>-		return count;
+>>>+		goto exit;
+>>> 	}
+>>>
+>>> 	/* enable VFs */
+>>> 	if (pdev->sriov->num_VFs) {
+>>> 		dev_warn(&pdev->dev, "%d VFs already enabled. Disable before enabling %d VFs\n",
+>>> 			 pdev->sriov->num_VFs, num_vfs);
+>>>-		return -EBUSY;
+>>>+		ret = -EBUSY;
+>>>+		goto exit;
+>>> 	}
+>>>
+>>> 	ret = pdev->driver->sriov_configure(pdev, num_vfs);
+>>> 	if (ret < 0)
+>>>-		return ret;
+>>>+		goto exit;
+>>>
+>>> 	if (ret != num_vfs)
+>>> 		dev_warn(&pdev->dev, "%d VFs requested; only %d enabled\n",
+>>> 			 num_vfs, ret);
+>>>
+>>>+exit:
+>>>+	mutex_unlock(&iov->dev->sriov->lock);
+>>>+
+>>>+	if (ret < 0)
+>>>+		return ret;
+>>>+
+>>> 	return count;
+>>
+>>The code might be clearer if @ret is returned here. In that case, We need
+>>set it properly in error paths.
+>
+>I played with different ways to handle this and this seemed the least intrusive.
+>
+
+Ok, both should be fine.
+
+Thanks,
+Gavin
