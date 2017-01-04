@@ -1,7 +1,7 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH RFC ipsec-next 1/5] esp4: Avoid skb_cow_data whenever possible
-Date: Wed, 4 Jan 2017 09:23:46 +0100
-Message-ID: <1483518230-6777-2-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH RFC ipsec-next 2/5] esp6: Avoid skb_cow_data whenever possible
+Date: Wed, 4 Jan 2017 09:23:47 +0100
+Message-ID: <1483518230-6777-3-git-send-email-steffen.klassert@secunet.com>
 References: <1483518230-6777-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,15 +10,15 @@ Cc: Steffen Klassert <steffen.klassert@secunet.com>,
         Ilan Tayari <ilant@mellanox.com>
 To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:52384 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([62.96.220.36]:52390 "EHLO a.mx.secunet.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1758359AbdADIuJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1758350AbdADIuJ (ORCPT <rfc822;netdev@vger.kernel.org>);
         Wed, 4 Jan 2017 03:50:09 -0500
 In-Reply-To: <1483518230-6777-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch tries to avoid skb_cow_data on esp4.
+This patch tries to avoid skb_cow_data on esp6.
 
 On the encrypt side we add the IPsec tailbits
 to the linear part of the buffer if there is
@@ -40,54 +40,40 @@ Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
 Signed-off-by: Ilan Tayari <ilant@mellanox.com>
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- include/net/xfrm.h |   2 +
- net/ipv4/esp4.c    | 338 +++++++++++++++++++++++++++++++++++++++++------------
- 2 files changed, 266 insertions(+), 74 deletions(-)
+ net/ipv6/esp6.c | 302 +++++++++++++++++++++++++++++++++++++++++++++-----------
+ 1 file changed, 246 insertions(+), 56 deletions(-)
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 31947b9..ce53cfe 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -213,6 +213,8 @@ struct xfrm_state {
- 	/* Last used time */
- 	unsigned long		lastused;
- 
-+	struct page_frag xfrag;
-+
- 	/* Reference to data common to all the instances of this
- 	 * transformer. */
- 	const struct xfrm_type	*type;
-diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
-index 20fb25e..9e8d971 100644
---- a/net/ipv4/esp4.c
-+++ b/net/ipv4/esp4.c
-@@ -18,6 +18,8 @@
+diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
+index cbcdd5d..a428ac6 100644
+--- a/net/ipv6/esp6.c
++++ b/net/ipv6/esp6.c
+@@ -44,6 +44,8 @@
  #include <net/protocol.h>
- #include <net/udp.h>
+ #include <linux/icmpv6.h>
  
 +#include <linux/highmem.h>
 +
  struct esp_skb_cb {
  	struct xfrm_skb_cb xfrm;
  	void *tmp;
-@@ -92,11 +94,40 @@ static inline struct scatterlist *esp_req_sg(struct crypto_aead *aead,
+@@ -114,11 +116,40 @@ static inline struct scatterlist *esp_req_sg(struct crypto_aead *aead,
  			     __alignof__(struct scatterlist));
  }
  
 +static void esp_ssg_unref(struct xfrm_state *x, void *tmp)
 +{
-+	struct esp_output_extra *extra = esp_tmp_extra(tmp);
++	__be32 *seqhi;
 +	struct crypto_aead *aead = x->data;
-+	int extralen = 0;
++	int seqhilen = 0;
 +	u8 *iv;
 +	struct aead_request *req;
 +	struct scatterlist *sg;
 +
 +	if (x->props.flags & XFRM_STATE_ESN)
-+		extralen += sizeof(*extra);
++		seqhilen += sizeof(__be32);
 +
-+	extra = esp_tmp_extra(tmp);
-+	iv = esp_tmp_iv(aead, tmp, extralen);
++	seqhi = esp_tmp_seqhi(tmp);
++	iv = esp_tmp_iv(aead, tmp, seqhilen);
 +	req = esp_tmp_req(aead, iv);
 +
 +	/* Unref skb_frag_pages in the src scatterlist if necessary.
@@ -112,13 +98,13 @@ index 20fb25e..9e8d971 100644
  	xfrm_output_resume(skb, err);
  }
  
-@@ -120,6 +151,29 @@ static void esp_output_restore_header(struct sk_buff *skb)
- 				sizeof(__be32));
+@@ -138,6 +169,27 @@ static void esp_output_restore_header(struct sk_buff *skb)
+ 	esp_restore_header(skb, skb_transport_offset(skb) - sizeof(__be32));
  }
  
-+static struct ip_esp_hdr *esp_output_set_extra(struct sk_buff *skb,
-+					       struct ip_esp_hdr *esph,
-+					       struct esp_output_extra *extra)
++static struct ip_esp_hdr *esp_output_set_esn(struct sk_buff *skb,
++					     struct ip_esp_hdr *esph,
++					     __be32 *seqhi)
 +{
 +	struct xfrm_state *x = skb_dst(skb)->xfrm;
 +
@@ -127,10 +113,8 @@ index 20fb25e..9e8d971 100644
 +	 * encryption.
 +	 */
 +	if ((x->props.flags & XFRM_STATE_ESN)) {
-+		extra->esphoff = (unsigned char *)esph -
-+				 skb_transport_header(skb);
-+		esph = (struct ip_esp_hdr *)((unsigned char *)esph - 4);
-+		extra->seqhi = esph->spi;
++		esph = (void *)(skb_transport_header(skb) - sizeof(__be32));
++		*seqhi = esph->spi;
 +		esph->seq_no = htonl(XFRM_SKB_CB(skb)->seq.output.hi);
 +	}
 +
@@ -142,13 +126,7 @@ index 20fb25e..9e8d971 100644
  static void esp_output_done_esn(struct crypto_async_request *base, int err)
  {
  	struct sk_buff *skb = base->data;
-@@ -130,16 +184,18 @@ static void esp_output_done_esn(struct crypto_async_request *base, int err)
- 
- static int esp_output(struct xfrm_state *x, struct sk_buff *skb)
- {
--	int err;
- 	struct esp_output_extra *extra;
-+	int err = -ENOMEM;
+@@ -152,8 +204,9 @@ static int esp6_output(struct xfrm_state *x, struct sk_buff *skb)
  	struct ip_esp_hdr *esph;
  	struct crypto_aead *aead;
  	struct aead_request *req;
@@ -157,23 +135,23 @@ index 20fb25e..9e8d971 100644
  	struct sk_buff *trailer;
 +	struct page *page;
  	void *tmp;
+ 	int blksize;
+ 	int clen;
+@@ -164,10 +217,13 @@ static int esp6_output(struct xfrm_state *x, struct sk_buff *skb)
+ 	int nfrags;
+ 	int assoclen;
+ 	int seqhilen;
++	int tailen;
  	u8 *iv;
  	u8 *tail;
 +	u8 *vaddr;
- 	int blksize;
- 	int clen;
- 	int alen;
-@@ -149,7 +205,9 @@ static int esp_output(struct xfrm_state *x, struct sk_buff *skb)
- 	int nfrags;
- 	int assoclen;
- 	int extralen;
-+	int tailen;
+ 	__be32 *seqhi;
  	__be64 seqno;
 +	__u8 proto = *skb_mac_header(skb);
  
  	/* skb is pure payload to encrypt */
- 
-@@ -169,12 +227,7 @@ static int esp_output(struct xfrm_state *x, struct sk_buff *skb)
+ 	aead = x->data;
+@@ -186,11 +242,7 @@ static int esp6_output(struct xfrm_state *x, struct sk_buff *skb)
  	blksize = ALIGN(crypto_aead_blocksize(aead), 4);
  	clen = ALIGN(skb->len + 2 + tfclen, blksize);
  	plen = clen - skb->len - tfclen;
@@ -182,88 +160,34 @@ index 20fb25e..9e8d971 100644
 -	if (err < 0)
 -		goto error;
 -	nfrags = err;
--
 +	tailen = tfclen + plen + alen;
- 	assoclen = sizeof(*esph);
- 	extralen = 0;
  
-@@ -183,35 +236,8 @@ static int esp_output(struct xfrm_state *x, struct sk_buff *skb)
- 		assoclen += sizeof(__be32);
+ 	assoclen = sizeof(*esph);
+ 	seqhilen = 0;
+@@ -200,19 +252,130 @@ static int esp6_output(struct xfrm_state *x, struct sk_buff *skb)
+ 		assoclen += seqhilen;
  	}
  
--	tmp = esp_alloc_tmp(aead, nfrags, extralen);
+-	tmp = esp_alloc_tmp(aead, nfrags, seqhilen);
 -	if (!tmp) {
 -		err = -ENOMEM;
 -		goto error;
--	}
--
--	extra = esp_tmp_extra(tmp);
--	iv = esp_tmp_iv(aead, tmp, extralen);
--	req = esp_tmp_req(aead, iv);
--	sg = esp_req_sg(aead, req);
--
--	/* Fill padding... */
--	tail = skb_tail_pointer(trailer);
--	if (tfclen) {
--		memset(tail, 0, tfclen);
--		tail += tfclen;
--	}
--	do {
--		int i;
--		for (i = 0; i < plen - 2; i++)
--			tail[i] = i + 1;
--	} while (0);
--	tail[plen - 2] = plen - 2;
--	tail[plen - 1] = *skb_mac_header(skb);
--	pskb_put(skb, trailer, clen - skb->len + alen);
--
--	skb_push(skb, -skb_network_offset(skb));
--	esph = ip_esp_hdr(skb);
- 	*skb_mac_header(skb) = IPPROTO_ESP;
++	*skb_mac_header(skb) = IPPROTO_ESP;
 +	esph = ip_esp_hdr(skb);
- 
- 	/* this is non-NULL only with UDP Encapsulation */
- 	if (x->encap) {
-@@ -230,7 +256,8 @@ static int esp_output(struct xfrm_state *x, struct sk_buff *skb)
- 		uh = (struct udphdr *)esph;
- 		uh->source = sport;
- 		uh->dest = dport;
--		uh->len = htons(skb->len - skb_transport_offset(skb));
-+		uh->len = htons(skb->len + tailen
-+				- skb_transport_offset(skb));
- 		uh->check = 0;
- 
- 		switch (encap_type) {
-@@ -248,31 +275,170 @@ static int esp_output(struct xfrm_state *x, struct sk_buff *skb)
- 		*skb_mac_header(skb) = IPPROTO_UDP;
- 	}
- 
--	esph->seq_no = htonl(XFRM_SKB_CB(skb)->seq.output.low);
++
 +	if (!skb_cloned(skb)) {
 +		if (tailen <= skb_availroom(skb)) {
 +			nfrags = 1;
 +			trailer = skb;
 +			tail = skb_tail_pointer(trailer);
- 
--	aead_request_set_callback(req, 0, esp_output_done, skb);
++
 +			goto skip_cow;
 +		} else if ((skb_shinfo(skb)->nr_frags < MAX_SKB_FRAGS)
 +			   && !skb_has_frag_list(skb)) {
 +			int allocsize;
 +			struct sock *sk = skb->sk;
 +			struct page_frag *pfrag = &x->xfrag;
- 
--	/* For ESN we move the header forward by 4 bytes to
--	 * accomodate the high bits.  We will move it back after
--	 * encryption.
--	 */
--	if ((x->props.flags & XFRM_STATE_ESN)) {
--		extra->esphoff = (unsigned char *)esph -
--				 skb_transport_header(skb);
--		esph = (struct ip_esp_hdr *)((unsigned char *)esph - 4);
--		extra->seqhi = esph->spi;
--		esph->seq_no = htonl(XFRM_SKB_CB(skb)->seq.output.hi);
--		aead_request_set_callback(req, 0, esp_output_done_esn, skb);
++
 +			allocsize = ALIGN(tailen, L1_CACHE_BYTES);
 +
 +			spin_lock_bh(&x->lock);
@@ -315,20 +239,19 @@ index 20fb25e..9e8d971 100644
 +			esph->seq_no = htonl(XFRM_SKB_CB(skb)->seq.output.low);
 +			esph->spi = x->id.spi;
 +
-+			tmp = esp_alloc_tmp(aead, nfrags + 2, extralen);
++			tmp = esp_alloc_tmp(aead, nfrags + 2, seqhilen);
 +			if (!tmp) {
 +				spin_unlock_bh(&x->lock);
 +				err = -ENOMEM;
 +				goto error;
 +			}
-+
-+			extra = esp_tmp_extra(tmp);
-+			iv = esp_tmp_iv(aead, tmp, extralen);
++			seqhi = esp_tmp_seqhi(tmp);
++			iv = esp_tmp_iv(aead, tmp, seqhilen);
 +			req = esp_tmp_req(aead, iv);
 +			sg = esp_req_sg(aead, req);
 +			dsg = &sg[nfrags];
 +
-+			esph = esp_output_set_extra(skb, esph, extra);
++			esph = esp_output_set_esn(skb, esph, seqhi);
 +
 +			sg_init_table(sg, nfrags);
 +			skb_to_sgvec(skb, sg,
@@ -362,47 +285,66 @@ index 20fb25e..9e8d971 100644
 +		}
  	}
  
+-	seqhi = esp_tmp_seqhi(tmp);
+-	iv = esp_tmp_iv(aead, tmp, seqhilen);
+-	req = esp_tmp_req(aead, iv);
+-	sg = esp_req_sg(aead, req);
 +cow:
 +	err = skb_cow_data(skb, tailen, &trailer);
 +	if (err < 0)
 +		goto error;
 +	nfrags = err;
-+	tail = skb_tail_pointer(trailer);
+ 
+-	/* Fill padding... */
+ 	tail = skb_tail_pointer(trailer);
 +	esph = ip_esp_hdr(skb);
 +
 +skip_cow:
 +	/* Fill padding... */
-+	if (tfclen) {
-+		memset(tail, 0, tfclen);
-+		tail += tfclen;
-+	}
-+	do {
-+		int i;
-+		for (i = 0; i < plen - 2; i++)
-+			tail[i] = i + 1;
-+	} while (0);
-+	tail[plen - 2] = plen - 2;
+ 	if (tfclen) {
+ 		memset(tail, 0, tfclen);
+ 		tail += tfclen;
+@@ -223,36 +386,40 @@ static int esp6_output(struct xfrm_state *x, struct sk_buff *skb)
+ 			tail[i] = i + 1;
+ 	} while (0);
+ 	tail[plen - 2] = plen - 2;
+-	tail[plen - 1] = *skb_mac_header(skb);
 +	tail[plen - 1] = proto;
-+	pskb_put(skb, trailer, clen - skb->len + alen);
-+
-+	skb_push(skb, -skb_network_offset(skb));
-+	esph->seq_no = htonl(XFRM_SKB_CB(skb)->seq.output.low);
- 	esph->spi = x->id.spi;
+ 	pskb_put(skb, trailer, clen - skb->len + alen);
  
-+	tmp = esp_alloc_tmp(aead, nfrags, extralen);
+ 	skb_push(skb, -skb_network_offset(skb));
+-	esph = ip_esp_hdr(skb);
+-	*skb_mac_header(skb) = IPPROTO_ESP;
+ 
+ 	esph->seq_no = htonl(XFRM_SKB_CB(skb)->seq.output.low);
++	esph->spi = x->id.spi;
+ 
+-	aead_request_set_callback(req, 0, esp_output_done, skb);
+-
+-	/* For ESN we move the header forward by 4 bytes to
+-	 * accomodate the high bits.  We will move it back after
+-	 * encryption.
+-	 */
+-	if ((x->props.flags & XFRM_STATE_ESN)) {
+-		esph = (void *)(skb_transport_header(skb) - sizeof(__be32));
+-		*seqhi = esph->spi;
+-		esph->seq_no = htonl(XFRM_SKB_CB(skb)->seq.output.hi);
+-		aead_request_set_callback(req, 0, esp_output_done_esn, skb);
++	tmp = esp_alloc_tmp(aead, nfrags, seqhilen);
 +	if (!tmp) {
 +		err = -ENOMEM;
 +		goto error;
-+	}
-+
-+	extra = esp_tmp_extra(tmp);
-+	iv = esp_tmp_iv(aead, tmp, extralen);
+ 	}
+ 
+-	esph->spi = x->id.spi;
++	seqhi = esp_tmp_seqhi(tmp);
++	iv = esp_tmp_iv(aead, tmp, seqhilen);
 +	req = esp_tmp_req(aead, iv);
 +	sg = esp_req_sg(aead, req);
 +	dsg = sg;
 +
-+	esph = esp_output_set_extra(skb, esph, extra);
-+
++	esph = esp_output_set_esn(skb, esph, seqhi);
+ 
  	sg_init_table(sg, nfrags);
  	skb_to_sgvec(skb, sg,
  		     (unsigned char *)esph - skb->data,
@@ -419,7 +361,7 @@ index 20fb25e..9e8d971 100644
  	aead_request_set_ad(req, assoclen);
  
  	seqno = cpu_to_be64(XFRM_SKB_CB(skb)->seq.output.low +
-@@ -298,6 +464,8 @@ static int esp_output(struct xfrm_state *x, struct sk_buff *skb)
+@@ -278,6 +445,8 @@ static int esp6_output(struct xfrm_state *x, struct sk_buff *skb)
  			esp_output_restore_header(skb);
  	}
  
@@ -428,7 +370,7 @@ index 20fb25e..9e8d971 100644
  	kfree(tmp);
  
  error:
-@@ -401,6 +569,23 @@ static void esp_input_restore_header(struct sk_buff *skb)
+@@ -343,6 +512,23 @@ static void esp_input_restore_header(struct sk_buff *skb)
  	__skb_pull(skb, 4);
  }
  
@@ -452,20 +394,22 @@ index 20fb25e..9e8d971 100644
  static void esp_input_done_esn(struct crypto_async_request *base, int err)
  {
  	struct sk_buff *skb = base->data;
-@@ -437,12 +622,6 @@ static int esp_input(struct xfrm_state *x, struct sk_buff *skb)
- 	if (elen <= 0)
+@@ -378,14 +564,6 @@ static int esp6_input(struct xfrm_state *x, struct sk_buff *skb)
  		goto out;
+ 	}
  
--	err = skb_cow_data(skb, 0, &trailer);
--	if (err < 0)
+-	nfrags = skb_cow_data(skb, 0, &trailer);
+-	if (nfrags < 0) {
+-		ret = -EINVAL;
 -		goto out;
+-	}
 -
--	nfrags = err;
+-	ret = -ENOMEM;
 -
  	assoclen = sizeof(*esph);
  	seqhilen = 0;
  
-@@ -451,6 +630,26 @@ static int esp_input(struct xfrm_state *x, struct sk_buff *skb)
+@@ -394,6 +572,27 @@ static int esp6_input(struct xfrm_state *x, struct sk_buff *skb)
  		assoclen += seqhilen;
  	}
  
@@ -482,17 +426,18 @@ index 20fb25e..9e8d971 100644
 +		}
 +	}
 +
-+	err = skb_cow_data(skb, 0, &trailer);
-+	if (err < 0)
++	nfrags = skb_cow_data(skb, 0, &trailer);
++	if (nfrags < 0) {
++		ret = -EINVAL;
 +		goto out;
-+
-+	nfrags = err;
++	}
 +
 +skip_cow:
- 	err = -ENOMEM;
++	ret = -ENOMEM;
  	tmp = esp_alloc_tmp(aead, nfrags, seqhilen);
  	if (!tmp)
-@@ -462,26 +661,17 @@ static int esp_input(struct xfrm_state *x, struct sk_buff *skb)
+ 		goto out;
+@@ -404,26 +603,17 @@ static int esp6_input(struct xfrm_state *x, struct sk_buff *skb)
  	req = esp_tmp_req(aead, iv);
  	sg = esp_req_sg(aead, req);
  
