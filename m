@@ -1,86 +1,59 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v2] cpsw: ethtool: add support for getting/setting EEE
- registers
-Date: Wed, 4 Jan 2017 06:33:03 -0800
-Message-ID: <eb4a3c77-6bf4-8749-85a3-b614bff69cf2@gmail.com>
-References: <1479911913-1761-1-git-send-email-yegorslists@googlemail.com>
- <93e0bd06-3171-e12b-b763-1e2895a463f8@gmail.com>
- <CAGm1_ksC_6afhzK39uVTSk2PoC9CrR4Fow89YCZfihS2f6wzOw@mail.gmail.com>
- <c91dcd74-3983-3ab6-91f6-3657b1e601af@gmail.com>
- <CAGm1_ktuAbt0pr_NJu2GLDOavFV_bvMBmH5RvDxr5AyXvfwB3A@mail.gmail.com>
- <20161124153809.GA20455@lunn.ch>
- <11549d93-4b51-25c8-e693-509048475bef@gmail.com>
- <2b4912e6-c380-b2bd-762a-d1da2b0a7d82@st.com>
- <5809df57-997b-3531-838f-8c5a61605fe5@gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [RFC 4/4] net-next: dsa: qca8k: add support for multiple cpu
+ ports
+Date: Wed, 4 Jan 2017 15:12:31 +0100
+Message-ID: <20170104141231.GM10768@lunn.ch>
+References: <1483515484-21793-1-git-send-email-john@phrozen.org>
+ <1483515484-21793-5-git-send-email-john@phrozen.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-        "linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>,
-        Grygorii Strashko <grygorii.strashko@ti.com>,
-        "N, Mugunthan V" <mugunthanvnm@ti.com>,
-        Rami Rosen <roszenrami@gmail.com>,
-        Fabrice GASNIER <fabrice.gasnier@st.com>
-To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Yegor Yefremov <yegorslists@googlemail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        netdev@vger.kernel.org
+To: John Crispin <john@phrozen.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f66.google.com ([209.85.218.66]:33898 "EHLO
-        mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S936390AbdADOdn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2017 09:33:43 -0500
-In-Reply-To: <5809df57-997b-3531-838f-8c5a61605fe5@gmail.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:42934 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S935333AbdADOkQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 4 Jan 2017 09:40:16 -0500
+Content-Disposition: inline
+In-Reply-To: <1483515484-21793-5-git-send-email-john@phrozen.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/02/2016 09:48 AM, Florian Fainelli wrote:
->>> Peppe, any thoughts on this?
->>
->> I share what you say.
->>
->> In sum, the EEE management inside the stmmac is:
->>
->> - the driver looks at own HW cap register if EEE is supported
->>
->>     (indeed the user could keep disable EEE if bugged on some HW
->>      + Alex, Fabrice: we had some patches for this to propose where we
->>              called the phy_ethtool_set_eee to disable feature at phy
->>              level
->>
->> - then the stmmac asks PHY layer to understand if transceiver and
->>   partners are EEE capable.
->>
->> - If all matches the EEE is actually initialized.
->>
->> the logic above should be respected when use ethtool, hmm, I will
->> check the stmmac_ethtool_op_set_eee asap.
->>
->> Hoping this is useful
-> 
-> This is definitively useful, the only part that I am struggling to
-> understand in phy_init_eee() is this:
-> 
->                 eee_adv = phy_read_mmd_indirect(phydev, MDIO_AN_EEE_ADV,
->                                                 MDIO_MMD_AN);
->                 if (eee_adv <= 0)
->                         goto eee_exit_err;
-> 
-> if we are not already advertising EEE in the PHY's MMIO_MMD_AN page, by
-> the time we call phy_init_eee(), then we cannot complete the EEE
-> configuration at the PHY level, and presumably we should abort the EEE
-> configuration at the MAC level.
-> 
-> While this condition makes sense if e.g: you are re-negotiating the link
-> with your partner for instance and if EEE was already advertised, the
-> very first time this function is called, it seems to be like we should
-> skip the check, because phy_init_eee() should actually tell us if, as a
-> result of a successful check, we should be setting EEE as something we
-> advertise?
-> 
-> Do you remember what was the logic behind this check when you added it?
+> +	/* Setup the cpu ports */
+> +	for (i = 0; i < DSA_MAX_PORTS; i++) {
+> +		struct net_device *netdev;
+> +		int phy_mode = -1;
+> +
+> +		if (!dsa_is_cpu_port(ds, i))
+> +			continue;
+> +
+> +		netdev = ds->dst->pd->chip->port_ethernet[i];
+> +		if (!netdev) {
+> +			pr_err("Can't find netdev for port%d\n", i);
+> +			return -ENODEV;
+> +		}
+> +
+> +		/* Initialize CPU port pad mode (xMII type, delays...) */
+> +		phy_mode = of_get_phy_mode(netdev->dev.parent->of_node);
+> +		if (phy_mode < 0) {
+> +			pr_err("Can't find phy-mode for port:%d\n", i);
+> +			return phy_mode;
+> +		}
 
-Peppe, can you remember why phy_init_eee() was written in a way that you
-need to have already locally advertised EEE for the function to
-successfully return? Thank you!
--- 
-Florian
+Hi John
+
+We try to avoid having the switch drivers parse the DSA device
+tree. There is code in the DSA core to do what you want here.
+
+dsa.c: dsa_cpu_dsa_setup() will parse the phy-mode property, if you
+have a fixed-phy node in the "cpu" or "dsa" node. It will then call
+the drivers adjust_list_() function, which can then set the xMII type
+etc.
+
+The problem might be how to make use of this without breaking
+backwards compatibility with older device tree blobs.
+
+	  Andrew
