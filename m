@@ -1,60 +1,41 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH net-next rfc 5/6] net-tc: convert tc_at to tc_at_ingress
-Date: Wed, 4 Jan 2017 14:26:15 -0500
-Message-ID: <CAF=yD-+x7zP2Z5Ctsn9-_uYz7sfdZMf4n414CE1-bzVQcN3nBA@mail.gmail.com>
-References: <1482952410-50003-1-git-send-email-willemdebruijn.kernel@gmail.com>
- <1482952410-50003-6-git-send-email-willemdebruijn.kernel@gmail.com> <586D4A6F.7020009@iogearbox.net>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] sh_eth: fix EESIPR values for SH77{34|63}
+Date: Wed, 4 Jan 2017 22:27:02 +0300
+Message-ID: <c2525f66-c5e7-0e2e-92de-d22d82d81920@cogentembedded.com>
+References: <1819012.0ROIJmx7mp@wasted.cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Network Development <netdev@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Florian Westphal <fw@strlen.de>, dborkman@iogearbox.net,
-        Jamal Hadi Salim <jhs@mojatatu.com>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Willem de Bruijn <willemb@google.com>
-To: Daniel Borkmann <daniel@iogearbox.net>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f194.google.com ([209.85.217.194]:33171 "EHLO
-        mail-ua0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1759103AbdADT1b (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2017 14:27:31 -0500
-Received: by mail-ua0-f194.google.com with SMTP id d5so30384470uag.0
-        for <netdev@vger.kernel.org>; Wed, 04 Jan 2017 11:26:56 -0800 (PST)
-In-Reply-To: <586D4A6F.7020009@iogearbox.net>
+Received: from mail-lf0-f47.google.com ([209.85.215.47]:36700 "EHLO
+        mail-lf0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1761809AbdADT1c (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2017 14:27:32 -0500
+Received: by mail-lf0-f47.google.com with SMTP id x140so13682244lfa.3
+        for <netdev@vger.kernel.org>; Wed, 04 Jan 2017 11:27:07 -0800 (PST)
+In-Reply-To: <1819012.0ROIJmx7mp@wasted.cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->> diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
->> index ef53ede..be4e18d 100644
->> --- a/net/sched/sch_api.c
->> +++ b/net/sched/sch_api.c
->> @@ -1865,6 +1865,7 @@ int tc_classify(struct sk_buff *skb, const struct
->> tcf_proto *tp,
->>         const struct tcf_proto *old_tp = tp;
->>         int limit = 0;
->>
->> +       skb->tc_at_ingress = !!(tp && tp->q->flags & TCQ_F_INGRESS);
+On 01/04/2017 10:18 PM, Sergei Shtylyov wrote:
+
+> As the SH77{34|63} manuals are freely available,  I've checked the EESIPR
+> values written against the manuals, and they appeared to set the reserved
+> bits 11-15 (which should be 0 on write). Fix those EESIPR values.
 >
->
-> I'd prefer if skb->tc_at_ingress is set directly to 0/1 in
-> sch_handle_ingress()
-> and __dev_queue_xmit() as we do right now, this would avoid above tests in
-> fast
-> path and it would also avoid to set the same thing in tc_classify() multiple
-> times f.e. on egress path walking through multiple qdiscs. I don't see
-> anything
-> in layers above tc that would read it and expect an AT_STACK-like
-> equivalent.
-> skb_reset_tc() could thus still remain as you have above in fast-path like
-> __netif_receive_skb_core().
+> Fixes: 380af9e390ec ("net: sh_eth: CPU dependency code collect to "struct sh_eth_cpu_data"")
 
-I had been thinking about that. After submitting this I noticed that Florian's
-patchset had an elegant solution to avoid the branch: set tc_at_ingress in
-handle_ing before tc_classify and clear it on the return path.
+    For SH7763 the bug is older than this commit but the code was common for 
+all SH SoCs supported back then and so couldn't be fixed w/o affecting other 
+SoCs. However, I suspect that the mask was incorrect even for the other SoCs...
 
-Then we only set + clear it once on ingress regardless of the depth
-of classifiers and do not touch it at all in other code.
+> Fixes: f5d12767c8fd ("sh_eth: get SH77{34|63} support out of #ifdef")
 
-https://patchwork.ozlabs.org/patch/472698/
+    That's the point where SH7734/63 data were split...
 
-What do you think of that approach?
+> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+
+[...]
+
+MBR, Sergei
