@@ -1,44 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] LiquidIO VF: s/select/imply/ for PTP_1588_CLOCK
-Date: Wed, 04 Jan 2017 13:27:40 -0500 (EST)
-Message-ID: <20170104.132740.2188422711538684674.davem@davemloft.net>
-References: <20170103101105.GA24780@localhost.localdomain>
-        <alpine.LFD.2.20.1701031331450.21662@knanqh.ubzr>
+Subject: Re: [PATCH net-next v2] net: dsa: remove out label in
+ dsa_switch_setup_one
+Date: Wed, 04 Jan 2017 13:29:53 -0500 (EST)
+Message-ID: <20170104.132953.1354421131278048143.davem@davemloft.net>
+References: <20170103193149.4169-1-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: richardcochran@gmail.com, rvatsavayi@caviumnetworks.com,
-        netdev@vger.kernel.org
-To: nicolas.pitre@linaro.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59002 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S936806AbdADS1m (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2017 13:27:42 -0500
-In-Reply-To: <alpine.LFD.2.20.1701031331450.21662@knanqh.ubzr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com, f.fainelli@gmail.com, andrew@lunn.ch
+To: vivien.didelot@savoirfairelinux.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170103193149.4169-1-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Nicolas Pitre <nicolas.pitre@linaro.org>
-Date: Tue, 3 Jan 2017 13:57:00 -0500 (EST)
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Date: Tue,  3 Jan 2017 14:31:49 -0500
 
-> Fix a minor fallout from the merge of the timers and the networking 
-> trees. The following error may result if the PTP_1588_CLOCK 
-> prerequisites are not available:
+> The "out" label in dsa_switch_setup_one() is useless, thus remove it.
 > 
-> drivers/built-in.o: In function `ptp_clock_unregister':
-> (.text+0x40e0a5): undefined reference to `pps_unregister_source'
-> drivers/built-in.o: In function `ptp_clock_unregister':
-> (.text+0x40e0cc): undefined reference to `posix_clock_unregister'
-> drivers/built-in.o: In function `ptp_clock_event':
-> (.text+0x40e249): undefined reference to `pps_event'
-> drivers/built-in.o: In function `ptp_clock_register':
-> (.text+0x40e5e1): undefined reference to `pps_register_source'
-> drivers/built-in.o: In function `ptp_clock_register':
-> (.text+0x40e62c): undefined reference to `posix_clock_register'
-> drivers/built-in.o: In function `ptp_clock_register':
-> (.text+0x40e68d): undefined reference to `pps_unregister_source'
-> 
-> Signed-off-by: Nicolas Pitre <nico@linaro.org>
+> Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
-Applied, thanks.
+Applied.
