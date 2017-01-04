@@ -1,34 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH next v1] ipvlan: assign unique dev-id for each slave
- device.
-Date: Wed, 04 Jan 2017 13:30:53 -0500 (EST)
-Message-ID: <20170104.133053.1438331328167852153.davem@davemloft.net>
-References: <20170103204716.9436-1-mahesh@bandewar.net>
+Subject: Re: [PATCH net-next] net: phy: add extension of phy-mode for XLGMII
+Date: Wed, 04 Jan 2017 13:42:07 -0500 (EST)
+Message-ID: <20170104.134207.1106369954702793597.davem@davemloft.net>
+References: <b5378ab79043fe46027756546c17e0a54df4a9f0.1483505550.git.jiedeng@synopsys.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: edumazet@google.com, netdev@vger.kernel.org, maheshb@google.com
-To: mahesh@bandewar.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59126 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1758806AbdADScb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2017 13:32:31 -0500
-In-Reply-To: <20170103204716.9436-1-mahesh@bandewar.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Jie.Deng1@synopsys.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <b5378ab79043fe46027756546c17e0a54df4a9f0.1483505550.git.jiedeng@synopsys.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Mahesh Bandewar <mahesh@bandewar.net>
-Date: Tue,  3 Jan 2017 12:47:16 -0800
+From: Jie Deng <Jie.Deng1@synopsys.com>
+Date: Wed, 4 Jan 2017 13:04:04 +0800
 
-> From: Mahesh Bandewar <maheshb@google.com>
+> The Synopsys DWC_xlgmac core provides a multiplexed 40-Gigabit
+> Media-Independent Interface (XLGMII, an IEEE 802.3 Clause 81
+> compliant reconciliation sub-layer) for communication with
+> the 100/50/40/25-Gigabit PHY and 10-Gigabit Media-Independent
+> Interface (XGMII, an IEEE 802.3 Clause 46 compliant reconciliation
+> sub-layer) for communication with the 10-Gigabit PHY.
 > 
-> IPvlan setup uses one mac-address (of master). The IPv6 link-local
-> addresses are derived using the mac-address on the link. Lack of
-> dev-ids makes these link-local addresses same for all slaves including
-> that of master device. dev-ids are necessary to add differentiation
-> when L2 address is shared.
+> Currently, There are only interface mode definitions for "xgmii".
+> This patch adds the definitions for the PHY layer to recognize
+> "xlgmii" as a valid PHY interface.
 > 
-> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+> Signed-off-by: Jie Deng <jiedeng@synopsys.com>
 
-Applied, thanks.
+It makes no sense to add these definitions unless you also submit
+uses of them alongside at the same time.
+
+Thanks.
