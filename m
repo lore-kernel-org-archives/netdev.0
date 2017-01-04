@@ -1,52 +1,57 @@
 From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [PATCH net-next 2/6] net/bpf_jit: ARM: split VLAN_PRESENT bit
+Subject: [PATCH net-next 5/6] net/bpf_jit: SPARC: split VLAN_PRESENT bit
  handling from VLAN_TCI
-Date: Wed,  4 Jan 2017 02:18:26 +0100 (CET)
-Message-ID: <83e17cf9afe848670ef908da458754e589592bf5.1483492355.git.mirq-linux@rere.qmqm.pl>
+Date: Wed,  4 Jan 2017 02:18:27 +0100 (CET)
+Message-ID: <b4e1dcbeed867f958e90551263865d4eb046ae25.1483492355.git.mirq-linux@rere.qmqm.pl>
 References: <cover.1483492355.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Russell King <linux@armlinux.org.uk>, linux-arm-kernel@lists.infradead.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: "David S. Miller" <davem@davemloft.net>, sparclinux@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rere.qmqm.pl ([84.10.57.10]:38224 "EHLO rere.qmqm.pl"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1760270AbdADBTc (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 3 Jan 2017 20:19:32 -0500
 In-Reply-To: <cover.1483492355.git.mirq-linux@rere.qmqm.pl>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-U2lnbmVkLW9mZi1ieTogTWljaGHFgiBNaXJvc8WCYXcgPG1pcnEtbGludXhAcmVyZS5xbXFtLnBs
-PgotLS0KdjI6IHJlbW92ZSBvbmUgaW5zbiBmb3IgYmlnLWVuZGlhbnMKCiBhcmNoL2FybS9uZXQv
-YnBmX2ppdF8zMi5jIHwgMTYgKysrKysrKysrKy0tLS0tLQogMSBmaWxlIGNoYW5nZWQsIDEwIGlu
-c2VydGlvbnMoKyksIDYgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvYXJjaC9hcm0vbmV0L2Jw
-Zl9qaXRfMzIuYyBiL2FyY2gvYXJtL25ldC9icGZfaml0XzMyLmMKaW5kZXggOTNkMGI2ZDBiNjNl
-Li4wNzAwY2JiZTRmMTQgMTAwNjQ0Ci0tLSBhL2FyY2gvYXJtL25ldC9icGZfaml0XzMyLmMKKysr
-IGIvYXJjaC9hcm0vbmV0L2JwZl9qaXRfMzIuYwpAQCAtOTE1LDE3ICs5MTUsMjEgQEAgc3RhdGlj
-IGludCBidWlsZF9ib2R5KHN0cnVjdCBqaXRfY3R4ICpjdHgpCiAJCQllbWl0KEFSTV9MRFJfSShy
-X0EsIHJfc2tiLCBvZmYpLCBjdHgpOwogCQkJYnJlYWs7CiAJCWNhc2UgQlBGX0FOQyB8IFNLRl9B
-RF9WTEFOX1RBRzoKLQkJY2FzZSBCUEZfQU5DIHwgU0tGX0FEX1ZMQU5fVEFHX1BSRVNFTlQ6CiAJ
-CQljdHgtPnNlZW4gfD0gU0VFTl9TS0I7CiAJCQlCVUlMRF9CVUdfT04oRklFTERfU0laRU9GKHN0
-cnVjdCBza19idWZmLCB2bGFuX3RjaSkgIT0gMik7CiAJCQlvZmYgPSBvZmZzZXRvZihzdHJ1Y3Qg
-c2tfYnVmZiwgdmxhbl90Y2kpOwogCQkJZW1pdChBUk1fTERSSF9JKHJfQSwgcl9za2IsIG9mZiks
-IGN0eCk7Ci0JCQlpZiAoY29kZSA9PSAoQlBGX0FOQyB8IFNLRl9BRF9WTEFOX1RBRykpCi0JCQkJ
-T1BfSU1NMyhBUk1fQU5ELCByX0EsIHJfQSwgflZMQU5fVEFHX1BSRVNFTlQsIGN0eCk7Ci0JCQll
-bHNlIHsKLQkJCQlPUF9JTU0zKEFSTV9MU1IsIHJfQSwgcl9BLCAxMiwgY3R4KTsKKyNpZmRlZiBW
-TEFOX1RBR19QUkVTRU5UCisJCQlPUF9JTU0zKEFSTV9BTkQsIHJfQSwgcl9BLCB+VkxBTl9UQUdf
-UFJFU0VOVCwgY3R4KTsKKyNlbmRpZgorCQkJYnJlYWs7CisJCWNhc2UgQlBGX0FOQyB8IFNLRl9B
-RF9WTEFOX1RBR19QUkVTRU5UOgorCQkJb2ZmID0gUEtUX1ZMQU5fUFJFU0VOVF9PRkZTRVQoKTsK
-KwkJCWVtaXQoQVJNX0xEUkJfSShyX0EsIHJfc2tiLCBvZmYpLCBjdHgpOworCQkJaWYgKFBLVF9W
-TEFOX1BSRVNFTlRfQklUKQorCQkJCU9QX0lNTTMoQVJNX0xTUiwgcl9BLCByX0EsIFBLVF9WTEFO
-X1BSRVNFTlRfQklULCBjdHgpOworCQkJaWYgKFBLVF9WTEFOX1BSRVNFTlRfQklUIDwgNykKIAkJ
-CQlPUF9JTU0zKEFSTV9BTkQsIHJfQSwgcl9BLCAweDEsIGN0eCk7Ci0JCQl9CiAJCQlicmVhazsK
-IAkJY2FzZSBCUEZfQU5DIHwgU0tGX0FEX1BLVFRZUEU6CiAJCQljdHgtPnNlZW4gfD0gU0VFTl9T
-S0I7Ci0tIAoyLjExLjAKCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fXwpsaW51eC1hcm0ta2VybmVsIG1haWxpbmcgbGlzdApsaW51eC1hcm0ta2VybmVsQGxp
-c3RzLmluZnJhZGVhZC5vcmcKaHR0cDovL2xpc3RzLmluZnJhZGVhZC5vcmcvbWFpbG1hbi9saXN0
-aW5mby9saW51eC1hcm0ta2VybmVsCg==
+Signed-off-by: Michał Mirosław <mirq-linux@rere.qmqm.pl>
+---
+ arch/sparc/net/bpf_jit_comp.c | 18 ++++++++++--------
+ 1 file changed, 10 insertions(+), 8 deletions(-)
+
+diff --git a/arch/sparc/net/bpf_jit_comp.c b/arch/sparc/net/bpf_jit_comp.c
+index a6d9204a6a0b..61cc15dc86f7 100644
+--- a/arch/sparc/net/bpf_jit_comp.c
++++ b/arch/sparc/net/bpf_jit_comp.c
+@@ -601,15 +601,17 @@ void bpf_jit_compile(struct bpf_prog *fp)
+ 				emit_skb_load32(hash, r_A);
+ 				break;
+ 			case BPF_ANC | SKF_AD_VLAN_TAG:
+-			case BPF_ANC | SKF_AD_VLAN_TAG_PRESENT:
+ 				emit_skb_load16(vlan_tci, r_A);
+-				if (code != (BPF_ANC | SKF_AD_VLAN_TAG)) {
+-					emit_alu_K(SRL, 12);
+-					emit_andi(r_A, 1, r_A);
+-				} else {
+-					emit_loadimm(~VLAN_TAG_PRESENT, r_TMP);
+-					emit_and(r_A, r_TMP, r_A);
+-				}
++#ifdef VLAN_TAG_PRESENT
++				emit_loadimm(~VLAN_TAG_PRESENT, r_TMP);
++				emit_and(r_A, r_TMP, r_A);
++#endif
++				break;
++			case BPF_ANC | SKF_AD_VLAN_TAG_PRESENT:
++				__emit_skb_load8(__pkt_vlan_present_offset, r_A);
++				if (PKT_VLAN_PRESENT_BIT)
++					emit_alu_K(SRL, PKT_VLAN_PRESENT_BIT);
++				emit_andi(r_A, 1, r_A);
+ 				break;
+ 			case BPF_LD | BPF_W | BPF_LEN:
+ 				emit_skb_load32(len, r_A);
+-- 
+2.11.0
