@@ -1,162 +1,149 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [RFC PATCH 2/4] page_pool: basic implementation of page_pool
-Date: Wed, 4 Jan 2017 12:00:55 +0100
-Message-ID: <20170104120055.7b277609@redhat.com>
-References: <20161220132444.18788.50875.stgit@firesoul>
-	<20161220132817.18788.64726.stgit@firesoul>
-	<52478d40-8c34-4354-c9d8-286020eb26a6@suse.cz>
+From: Yotam Gigi <yotamg@mellanox.com>
+Subject: RE: [patch net-next v2 5/8] Introduce sample tc action
+Date: Wed, 4 Jan 2017 11:01:46 +0000
+Message-ID: <DB3PR05MB0764CDAD9E240CCD3438EE8BAC610@DB3PR05MB0764.eurprd05.prod.outlook.com>
+References: <1479135638-3580-1-git-send-email-jiri@resnulli.us>
+ <1479135638-3580-6-git-send-email-jiri@resnulli.us>
+ <582C861B.8010709@cumulusnetworks.com>
+ <DB3PR05MB0764183033BE8FFDAC8B6896ACBE0@DB3PR05MB0764.eurprd05.prod.outlook.com>
+ <20170104104251.GB30008@penelope.horms.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-mm@kvack.org, Alexander Duyck <alexander.duyck@gmail.com>,
-        willemdebruijn.kernel@gmail.com, netdev@vger.kernel.org,
-        john.fastabend@gmail.com, Saeed Mahameed <saeedm@mellanox.com>,
-        bjorn.topel@intel.com,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Tariq Toukan <tariqt@mellanox.com>, brouer@redhat.com,
-        Mel Gorman
- <mgorman@techsingularity.net>
-To: Vlastimil Babka <vbabka@suse.cz>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <52478d40-8c34-4354-c9d8-286020eb26a6@suse.cz>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: Roopa Prabhu <roopa@cumulusnetworks.com>,
+        Jiri Pirko <jiri@resnulli.us>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        Ido Schimmel <idosch@mellanox.com>,
+        Elad Raz <eladr@mellanox.com>,
+        Nogah Frankel <nogahf@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        "jhs@mojatatu.com" <jhs@mojatatu.com>,
+        "geert+renesas@glider.be" <geert+renesas@glider.be>,
+        "stephen@networkplumber.org" <stephen@networkplumber.org>,
+        "xiyou.wangcong@gmail.com" <xiyou.wangcong@gmail.com>,
+        "linux@roeck-us.net" <linux@roeck-us.net>,
+        "john.fastabend@gmail.com" <john.fastabend@gmail.com>
+To: Simon Horman <simon.horman@netronome.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-he1eur01on0060.outbound.protection.outlook.com ([104.47.0.60]:24000
+        "EHLO EUR01-HE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S964806AbdADLCP (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 4 Jan 2017 06:02:15 -0500
+In-Reply-To: <20170104104251.GB30008@penelope.horms.nl>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+>-----Original Message-----
+>From: Simon Horman [mailto:simon.horman@netronome.com]
+>Sent: Wednesday, January 04, 2017 12:43 PM
+>To: Yotam Gigi <yotamg@mellanox.com>
+>Cc: Roopa Prabhu <roopa@cumulusnetworks.com>; Jiri Pirko <jiri@resnulli.us=
+>;
+>netdev@vger.kernel.org; davem@davemloft.net; Ido Schimmel
+><idosch@mellanox.com>; Elad Raz <eladr@mellanox.com>; Nogah Frankel
+><nogahf@mellanox.com>; Or Gerlitz <orlitz@mellanox.com>;
+>jhs@mojatatu.com; geert+renesas@glider.be; stephen@networkplumber.org;
+>xiyou.wangcong@gmail.com; linux@roeck-us.net; john.fastabend@gmail.com
+>Subject: Re: [patch net-next v2 5/8] Introduce sample tc action
+>
+>On Wed, Nov 16, 2016 at 04:26:44PM +0000, Yotam Gigi wrote:
+>> >-----Original Message-----
+>> >From: Roopa Prabhu [mailto:roopa@cumulusnetworks.com]
+>> >Sent: Wednesday, November 16, 2016 6:15 PM
+>> >To: Jiri Pirko <jiri@resnulli.us>
+>> >Cc: netdev@vger.kernel.org; davem@davemloft.net; Yotam Gigi
+>> ><yotamg@mellanox.com>; Ido Schimmel <idosch@mellanox.com>; Elad Raz
+>> ><eladr@mellanox.com>; Nogah Frankel <nogahf@mellanox.com>; Or Gerlitz
+>> ><ogerlitz@mellanox.com>; jhs@mojatatu.com; geert+renesas@glider.be;
+>> >stephen@networkplumber.org; xiyou.wangcong@gmail.com; linux@roeck-
+>us.net;
+>> >john.fastabend@gmail.com; simon.horman@netronome.com
+>> >Subject: Re: [patch net-next v2 5/8] Introduce sample tc action
+>> >
+>> >On 11/14/16, 7:00 AM, Jiri Pirko wrote:
+>> >> From: Yotam Gigi <yotamg@mellanox.com>
+>> >>
+>> >> This action allow the user to sample traffic matched by tc classifier=
+.
+>> >> The sampling consists of choosing packets randomly, truncating them,
+>> >> adding some informative metadata regarding the interface and the orig=
+inal
+>> >> packet size and mark them with specific mark, to allow further tc rul=
+es to
+>> >> match and process. The marked sample packets are then injected into t=
+he
+>> >> device ingress qdisc using netif_receive_skb.
+>> >>
+>> >> The packets metadata is packed using the ife encapsulation protocol, =
+and
+>> >> the outer packet's ethernet dest, source and eth_type, along with the
+>> >> rate, mark and the optional truncation size can be configured from
+>> >> userspace.
+>> >>
+>> >> Example:
+>> >> To sample ingress traffic from interface eth1, and redirect the sampl=
+ed
+>> >> the sampled packets to interface dummy0, one may use the commands:
+>> >>
+>> >> tc qdisc add dev eth1 handle ffff: ingress
+>> >>
+>> >> tc filter add dev eth1 parent ffff: \
+>> >> 	   matchall action sample rate 12 mark 17
+>> >
+>> >Yotham, I am guessing in the future if one does not want to use mark,
+>> >the sample api is extensible to allow for other actions to be added.
+>> >This is from the general concern we had on using mark: some may not wan=
+t to
+>use
+>> >mark.
+>> >As long as the api is extensible to allow an alternate way in the futur=
+e,
+>> > we should be good. (We would prefer to not go down the path of having =
+to
+>> >introduce
+>> >a new  'action sample' if this limits us in some way).
+>>
+>> The code is extensible  - if one does want to add another action to samp=
+le, he
+>> totally can :)
+>>
+>> By the way, one of the reasons we removed the patches for now is that we
+>> consider adding mirroring functionality to it instead of heaving two tc-=
+rules.
+>
+>Hi Yotham,
+>
+>I see that this action combines several discrete sub-actions, some of whic=
+h
+>duplicate functionality present in existing actions:
+>
+>* sample
+>* truncate
+>* IFE encapsulation with metadata
+>* mark
+>* output (proposed)
+>
+>I wonder if it would make sense to provided a mechanism whereby sampled
+>packets can be passed on to other actions. Something similar to the
+>existing pipe mechanism but allowing for the sampled and the original pack=
+ets
+>to continue to be processed separately.
+>
+>If so, it may be worth white-listing actions for which sampled packets are
+>known to work well to limit the scope for unforseen side effects.
 
-On Tue, 3 Jan 2017 17:07:49 +0100 Vlastimil Babka <vbabka@suse.cz> wrote:
+Hi Simon,
 
-> On 12/20/2016 02:28 PM, Jesper Dangaard Brouer wrote:
-> > The focus in this patch is getting the API around page_pool figured out.
-> >
-> > The internal data structures for returning page_pool pages is not optimal.
-> > This implementation use ptr_ring for recycling, which is known not to scale
-> > in case of multiple remote CPUs releasing/returning pages.  
-> 
-> Just few very quick impressions...
-> 
-> > A bulking interface into the page allocator is also left for later. (This
-> > requires cooperation will Mel Gorman, who just send me some PoC patches for this).
-> > ---
-[...]
-> > diff --git a/include/linux/mm.h b/include/linux/mm.h
-> > index 4424784ac374..11b4d8fb280b 100644
-> > --- a/include/linux/mm.h
-> > +++ b/include/linux/mm.h
-[...]
-> > @@ -765,6 +766,11 @@ static inline void put_page(struct page *page)
-> >  {
-> >  	page = compound_head(page);
-> >
-> > +	if (PagePool(page)) {
-> > +		page_pool_put_page(page);
-> > +		return;
-> > +	}  
-> 
-> Can't say I'm thrilled about a new page flag and a test in put_page(). 
+The patches were removed and we intend to propose a different implementatio=
+n for
+that, using a dedicated sampling netlink channel, thus removing the need to
+mark, mirror and IFE-pack the packets.
 
-In patch 4/4, I'm scaling this back.  Avoiding to modify the inlined
-put_page(), by letting refcnt reach zero and catching pages belonging to
-a page_pool in __free_pages_ok() and free_hot_cold_page(). (Result
-in being more dependent on page-refcnt and loosing some performance).
+We intend to send in the next few weeks, so I guess you can comment on the =
+new
+version.
 
-Still needing a new page flag, or some other method of identifying when
-a page belongs to a page_pool.
-
-
-> I don't know the full life cycle here, but isn't it that these pages
-> will be specifically allocated and used in page pool aware drivers,
-> so maybe they can be also specifically freed there without hooking to
-> the generic page refcount mechanism?
-
-Drivers are already manipulating refcnt, to "splitup" the page (to
-save memory) for storing more RX frames per page.  Which is something
-the page_pool still need to support. (XDP can request one page per
-packet and gain the direct recycle optimization and instead waste mem).
-
-Notice, a page_pool aware driver doesn't handle the "free-side".  Free
-happens when the packet/page is being consumed, spliced or transmitted
-out another non-page_pool-aware NIC driver.  An interresting case is
-packet-page waiting for DMA TX completion (on another NIC), thus need
-to async-store info on page_pool and DMA-addr.
-
-Could extend the SKB (with a page_pool pointer)... BUT it defeats the
-purpose of avoiding to allocate the SKB.  E.g. in the cases where XDP
-takes the route-decision and transmit/forward the "raw"-page (out
-another NIC or into a "raw" socket), then we don't have a meta-data
-structure to store this info in. Thus, this info is stored in struct
-page.
-
-
-More arguing why a tight MM integration is prefered here[1]
- [1] http://prototype-kernel.readthedocs.io/en/latest/vm/page_pool/design/design.html#memory-model
-besides in makes it easier to convert drivers to use a page_pool.
- 
-> > +
-> >  	if (put_page_testzero(page))
-> >  		__put_page(page);
-> >
-> > diff --git a/include/linux/mm_types.h b/include/linux/mm_types.h
-> > index 08d947fc4c59..c74dea967f99 100644
-> > --- a/include/linux/mm_types.h
-> > +++ b/include/linux/mm_types.h
-> > @@ -47,6 +47,12 @@ struct page {
-> >  	unsigned long flags;		/* Atomic flags, some possibly
-> >  					 * updated asynchronously */
-> >  	union {
-> > +		/* DISCUSS: Considered moving page_pool pointer here,
-> > +		 * but I'm unsure if 'mapping' is needed for userspace
-> > +		 * mapping the page, as this is a use-case the
-> > +		 * page_pool need to support in the future. (Basically
-> > +		 * mapping a NIC RX ring into userspace).  
-> 
-> I think so, but might be wrong here. In any case mapping usually goes with 
-> index, and you put dma_addr in union with index below...
-
-Good point, thanks.
-
-> > +		 */
-> >  		struct address_space *mapping;	/* If low bit clear, points to
-> >  						 * inode address_space, or NULL.
-> >  						 * If page mapped as anonymous
-> > @@ -63,6 +69,7 @@ struct page {
-> >  	union {
-> >  		pgoff_t index;		/* Our offset within mapping. */
-> >  		void *freelist;		/* sl[aou]b first free object */
-> > +		dma_addr_t dma_addr;    /* used by page_pool */
-> >  		/* page_deferred_list().prev	-- second tail page */
-> >  	};
-> >
-> > @@ -117,6 +124,8 @@ struct page {
-> >  	 * avoid collision and false-positive PageTail().
-> >  	 */
-> >  	union {
-> > +		/* XXX: Idea reuse lru list, in page_pool to align with PCP */
-> > +
-> >  		struct list_head lru;	/* Pageout list, eg. active_list
-> >  					 * protected by zone_lru_lock !
-> >  					 * Can be used as a generic list
-
-Guess, I can move it here, as the page cannot be on the LRU-list, while
-being used (or VMA mapped). Right?
-
-> > @@ -189,6 +198,8 @@ struct page {
-> >  #endif
-> >  #endif
-> >  		struct kmem_cache *slab_cache;	/* SL[AU]B: Pointer to slab */
-> > +		/* XXX: Sure page_pool will have no users of "private"? */
-> > +		struct page_pool *pool;
-> >  	};
-> >
-> >  #ifdef CONFIG_MEMCG  
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Thanks!
