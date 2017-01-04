@@ -1,86 +1,69 @@
 From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [RFC PATCH] virtio_net: XDP support for adjust_head
-Date: Wed, 4 Jan 2017 10:58:39 -0800
-Message-ID: <586D45DF.401@gmail.com>
-References: <20170102194413.9089.39078.stgit@john-Precision-Tower-5810>
- <73715f7a-eeeb-679f-a7b8-7b1fefe1757e@redhat.com>
+Subject: Re: [net PATCH] net: virtio: cap mtu when XDP programs are running
+Date: Wed, 4 Jan 2017 10:57:19 -0800
+Message-ID: <586D458F.5050705@gmail.com>
+References: <20170102223031.11541.28717.stgit@john-Precision-Tower-5810>
+ <402027b4-58c7-aa1b-5079-74e31448f544@redhat.com>
+ <586BD5D5.6020100@gmail.com>
+ <1caf1ffc-0f46-067e-0f0d-a93b408b4ffd@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
+Content-Transfer-Encoding: 8bit
 Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org,
         alexei.starovoitov@gmail.com, daniel@iogearbox.net
 To: Jason Wang <jasowang@redhat.com>, mst@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:32896 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934137AbdADS6z (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2017 13:58:55 -0500
-Received: by mail-pf0-f194.google.com with SMTP id 127so17411790pfg.0
-        for <netdev@vger.kernel.org>; Wed, 04 Jan 2017 10:58:54 -0800 (PST)
-In-Reply-To: <73715f7a-eeeb-679f-a7b8-7b1fefe1757e@redhat.com>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:35078 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934112AbdADS6E (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2017 13:58:04 -0500
+Received: by mail-pg0-f66.google.com with SMTP id i5so38024537pgh.2
+        for <netdev@vger.kernel.org>; Wed, 04 Jan 2017 10:57:32 -0800 (PST)
+In-Reply-To: <1caf1ffc-0f46-067e-0f0d-a93b408b4ffd@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 [...]
 
->> @@ -393,34 +397,39 @@ static u32 do_xdp_prog(struct virtnet_info *vi,
->>                  struct bpf_prog *xdp_prog,
->>                  void *data, int len)
->>   {
->> -    int hdr_padded_len;
->>       struct xdp_buff xdp;
->> -    void *buf;
->>       unsigned int qp;
->>       u32 act;
->>   +
->>       if (vi->mergeable_rx_bufs) {
->> -        hdr_padded_len = sizeof(struct virtio_net_hdr_mrg_rxbuf);
->> -        xdp.data = data + hdr_padded_len;
->> +        int desc_room = sizeof(struct virtio_net_hdr_mrg_rxbuf);
->> +
->> +        /* Allow consuming headroom but reserve enough space to push
->> +         * the descriptor on if we get an XDP_TX return code.
->> +         */
->> +        xdp.data_hard_start = data - vi->headroom + desc_room;
->> +        xdp.data = data + desc_room;
->>           xdp.data_end = xdp.data + (len - vi->hdr_len);
->> -        buf = data;
->>       } else { /* small buffers */
->>           struct sk_buff *skb = data;
->>   -        xdp.data = skb->data;
->> +        xdp.data_hard_start = skb->data;
->> +        xdp.data = skb->data + vi->headroom;
->>           xdp.data_end = xdp.data + len;
->> -        buf = skb->data;
->>       }
->>         act = bpf_prog_run_xdp(xdp_prog, &xdp);
->>       switch (act) {
->>       case XDP_PASS:
->> +        if (!vi->mergeable_rx_bufs)
->> +            __skb_pull((struct sk_buff *) data,
->> +                   xdp.data - xdp.data_hard_start);
+> On 2017年01月04日 00:48, John Fastabend wrote:
+>> On 17-01-02 10:14 PM, Jason Wang wrote:
+>>>
+>>> On 2017年01月03日 06:30, John Fastabend wrote:
+>>>> XDP programs can not consume multiple pages so we cap the MTU to
+>>>> avoid this case. Virtio-net however only checks the MTU at XDP
+>>>> program load and does not block MTU changes after the program
+>>>> has loaded.
+>>>>
+>>>> This patch sets/clears the max_mtu value at XDP load/unload time.
+>>>>
+>>>> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+>>>> ---
+
+[...]
+
+>> OK so this logic is a bit too simply. When it resets the max_mtu I guess it
+>> needs to read the mtu via
+>>
+>>     virtio_cread16(vdev, ...)
+>>
+>> or we may break the negotiated mtu.
 > 
-> Instead of doing things here and virtnet_xdp_xmit(). How about always making
-> skb->data point to the buffer head like:
+> Yes, this is a problem (even use ETH_MAX_MTU). We may need a method to notify
+> the device about the mtu in this case which is not supported by virtio now.
+
+Note this is not really a XDP specific problem. The guest can change the MTU
+after init time even without XDP which I assume should ideally result in a
+notification if the MTU is negotiated.
+
+>>
+>> As for capping it at GOOD_PACKET_LEN this has the nice benefit of avoiding any
+>> underestimates in EWMA predictions because it appears min estimates are capped
+>> at GOOD_PACKET_LEN via get_mergeable_buf_len().
 > 
-> 1) reserve headroom in add_recvbuf_small()
-> 2) skb_push(xdp->data - xdp_data_hard_start, skb) if we detect xdp->data was
-> modified afer bpf_prog_run_xdp()
-> 
-> Then there's no special code in either XDP_PASS or XDP_TX?
+> This seems something misunderstanding here, I meant only use GOOD_PACKET_LEN for
+> small buffer (which does not use EWMA).
 > 
 
-Alternatively moving the pull into the receive_small XDP handler also
-removes the special case. I'll submit a patch shortly let me know what
-you think.
+Yep I think its all cleared up now.
 
->>           return XDP_PASS;
->>       case XDP_TX:
->>           qp = vi->curr_queue_pairs -
->>               vi->xdp_queue_pairs +
->>               smp_processor_id();
-> 
-> [...]
-> 
-
-.John
+Thanks.
