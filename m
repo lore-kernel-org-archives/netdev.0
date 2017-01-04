@@ -1,54 +1,33 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH] sh_eth: fix EESIPR values for SH77{34|63}
-Date: Wed, 04 Jan 2017 22:18:24 +0300
-Message-ID: <1819012.0ROIJmx7mp@wasted.cogentembedded.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] sfc: don't report RX hash keys to ethtool when RSS
+ wasn't enabled
+Date: Wed, 04 Jan 2017 14:18:31 -0500 (EST)
+Message-ID: <20170104.141831.1785899010781855952.davem@davemloft.net>
+References: <5a4ac10d-3b4b-bf48-e4ca-c435eed29dc3@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-To: netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-net-drivers@solarflare.com, bkenward@solarflare.com,
+        netdev@vger.kernel.org
+To: ecree@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f43.google.com ([209.85.215.43]:35577 "EHLO
-        mail-lf0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S967484AbdADTS2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2017 14:18:28 -0500
-Received: by mail-lf0-f43.google.com with SMTP id b14so310608267lfg.2
-        for <netdev@vger.kernel.org>; Wed, 04 Jan 2017 11:18:28 -0800 (PST)
+Received: from shards.monkeyblade.net ([184.105.139.130]:60626 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S968914AbdADTSd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2017 14:18:33 -0500
+In-Reply-To: <5a4ac10d-3b4b-bf48-e4ca-c435eed29dc3@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As the SH77{34|63} manuals are freely available,  I've checked the EESIPR
-values written against the manuals, and they appeared to set the reserved
-bits 11-15 (which should be 0 on write). Fix those EESIPR values.
+From: Edward Cree <ecree@solarflare.com>
+Date: Wed, 4 Jan 2017 15:10:56 +0000
 
-Fixes: 380af9e390ec ("net: sh_eth: CPU dependency code collect to "struct sh_eth_cpu_data"")
-Fixes: f5d12767c8fd ("sh_eth: get SH77{34|63} support out of #ifdef")
-Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> If we failed to set up RSS on EF10 (e.g. because firmware declared
+>  RX_RSS_LIMITED), ethtool --show-nfc $dev rx-flow-hash ... should report
+>  no fields, rather than confusingly reporting what fields we _would_ be
+>  hashing on if RSS was working.
+> 
+> Fixes: dcb4123cbec0 ("sfc: disable RSS when unsupported")
+> Signed-off-by: Edward Cree <ecree@solarflare.com>
 
----
-This patch is against DaveM's 'net.git' repo.
-
- drivers/net/ethernet/renesas/sh_eth.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-Index: net/drivers/net/ethernet/renesas/sh_eth.c
-===================================================================
---- net.orig/drivers/net/ethernet/renesas/sh_eth.c
-+++ net/drivers/net/ethernet/renesas/sh_eth.c
-@@ -802,7 +802,7 @@ static struct sh_eth_cpu_data sh7734_dat
- 
- 	.ecsr_value	= ECSR_ICD | ECSR_MPD,
- 	.ecsipr_value	= ECSIPR_LCHNGIP | ECSIPR_ICDIP | ECSIPR_MPDIP,
--	.eesipr_value	= DMAC_M_RFRMER | DMAC_M_ECI | 0x003fffff,
-+	.eesipr_value	= DMAC_M_RFRMER | DMAC_M_ECI | 0x003f07ff,
- 
- 	.tx_check	= EESR_TC1 | EESR_FTC,
- 	.eesr_err_check	= EESR_TWB1 | EESR_TWB | EESR_TABT | EESR_RABT |
-@@ -831,7 +831,7 @@ static struct sh_eth_cpu_data sh7763_dat
- 
- 	.ecsr_value	= ECSR_ICD | ECSR_MPD,
- 	.ecsipr_value	= ECSIPR_LCHNGIP | ECSIPR_ICDIP | ECSIPR_MPDIP,
--	.eesipr_value	= DMAC_M_RFRMER | DMAC_M_ECI | 0x003fffff,
-+	.eesipr_value	= DMAC_M_RFRMER | DMAC_M_ECI | 0x003f07ff,
- 
- 	.tx_check	= EESR_TC1 | EESR_FTC,
- 	.eesr_err_check	= EESR_TWB1 | EESR_TWB | EESR_TABT | EESR_RABT |
+Applied.
