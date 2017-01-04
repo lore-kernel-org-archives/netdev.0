@@ -1,66 +1,52 @@
 From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [PATCH net-next 3/6] net/bpf_jit: MIPS: split VLAN_PRESENT bit
+Subject: [PATCH net-next 2/6] net/bpf_jit: ARM: split VLAN_PRESENT bit
  handling from VLAN_TCI
-Date: Wed,  4 Jan 2017 02:18:27 +0100 (CET)
-Message-ID: <8343904296ba73da321ba43df2cdba2f7ed1b045.1483492355.git.mirq-linux@rere.qmqm.pl>
+Date: Wed,  4 Jan 2017 02:18:26 +0100 (CET)
+Message-ID: <83e17cf9afe848670ef908da458754e589592bf5.1483492355.git.mirq-linux@rere.qmqm.pl>
 References: <cover.1483492355.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: Ralf Baechle <ralf@linux-mips.org>, linux-mips@linux-mips.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Russell King <linux@armlinux.org.uk>, linux-arm-kernel@lists.infradead.org
 To: netdev@vger.kernel.org
-Return-path: <linux-mips-bounce@linux-mips.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 In-Reply-To: <cover.1483492355.git.mirq-linux@rere.qmqm.pl>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-help: <mailto:ecartis@linux-mips.org?Subject=help>
-List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
-List-software: Ecartis version 1.0.0
-List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
-List-owner: <mailto:ralf@linux-mips.org>
-List-post: <mailto:linux-mips@linux-mips.org>
-List-archive: <http://www.linux-mips.org/archives/linux-mips/>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-Acked-by: Ralf Baechle <ralf@linux-mips.org>
-Signed-off-by: Michał Mirosław <mirq-linux@rere.qmqm.pl>
----
- arch/mips/net/bpf_jit.c | 18 ++++++++++--------
- 1 file changed, 10 insertions(+), 8 deletions(-)
-
-diff --git a/arch/mips/net/bpf_jit.c b/arch/mips/net/bpf_jit.c
-index 49a2e2226fee..d06722294ede 100644
---- a/arch/mips/net/bpf_jit.c
-+++ b/arch/mips/net/bpf_jit.c
-@@ -1138,19 +1138,21 @@ static int build_body(struct jit_ctx *ctx)
- 			emit_load(r_A, r_skb, off, ctx);
- 			break;
- 		case BPF_ANC | SKF_AD_VLAN_TAG:
--		case BPF_ANC | SKF_AD_VLAN_TAG_PRESENT:
- 			ctx->flags |= SEEN_SKB | SEEN_A;
- 			BUILD_BUG_ON(FIELD_SIZEOF(struct sk_buff,
- 						  vlan_tci) != 2);
- 			off = offsetof(struct sk_buff, vlan_tci);
- 			emit_half_load(r_s0, r_skb, off, ctx);
--			if (code == (BPF_ANC | SKF_AD_VLAN_TAG)) {
--				emit_andi(r_A, r_s0, (u16)~VLAN_TAG_PRESENT, ctx);
--			} else {
--				emit_andi(r_A, r_s0, VLAN_TAG_PRESENT, ctx);
--				/* return 1 if present */
--				emit_sltu(r_A, r_zero, r_A, ctx);
--			}
-+#ifdef VLAN_TAG_PRESENT
-+			emit_andi(r_A, r_s0, (u16)~VLAN_TAG_PRESENT, ctx);
-+#endif
-+			break;
-+		case BPF_ANC | SKF_AD_VLAN_TAG_PRESENT:
-+			ctx->flags |= SEEN_SKB | SEEN_A;
-+			emit_load_byte(r_A, r_skb, PKT_VLAN_PRESENT_OFFSET(), ctx);
-+			if (PKT_VLAN_PRESENT_BIT)
-+				emit_srl(r_A, r_A, PKT_VLAN_PRESENT_BIT, ctx);
-+			emit_andi(r_A, r_s0, 1, ctx);
- 			break;
- 		case BPF_ANC | SKF_AD_PKTTYPE:
- 			ctx->flags |= SEEN_SKB;
--- 
-2.11.0
+U2lnbmVkLW9mZi1ieTogTWljaGHFgiBNaXJvc8WCYXcgPG1pcnEtbGludXhAcmVyZS5xbXFtLnBs
+PgotLS0KdjI6IHJlbW92ZSBvbmUgaW5zbiBmb3IgYmlnLWVuZGlhbnMKCiBhcmNoL2FybS9uZXQv
+YnBmX2ppdF8zMi5jIHwgMTYgKysrKysrKysrKy0tLS0tLQogMSBmaWxlIGNoYW5nZWQsIDEwIGlu
+c2VydGlvbnMoKyksIDYgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvYXJjaC9hcm0vbmV0L2Jw
+Zl9qaXRfMzIuYyBiL2FyY2gvYXJtL25ldC9icGZfaml0XzMyLmMKaW5kZXggOTNkMGI2ZDBiNjNl
+Li4wNzAwY2JiZTRmMTQgMTAwNjQ0Ci0tLSBhL2FyY2gvYXJtL25ldC9icGZfaml0XzMyLmMKKysr
+IGIvYXJjaC9hcm0vbmV0L2JwZl9qaXRfMzIuYwpAQCAtOTE1LDE3ICs5MTUsMjEgQEAgc3RhdGlj
+IGludCBidWlsZF9ib2R5KHN0cnVjdCBqaXRfY3R4ICpjdHgpCiAJCQllbWl0KEFSTV9MRFJfSShy
+X0EsIHJfc2tiLCBvZmYpLCBjdHgpOwogCQkJYnJlYWs7CiAJCWNhc2UgQlBGX0FOQyB8IFNLRl9B
+RF9WTEFOX1RBRzoKLQkJY2FzZSBCUEZfQU5DIHwgU0tGX0FEX1ZMQU5fVEFHX1BSRVNFTlQ6CiAJ
+CQljdHgtPnNlZW4gfD0gU0VFTl9TS0I7CiAJCQlCVUlMRF9CVUdfT04oRklFTERfU0laRU9GKHN0
+cnVjdCBza19idWZmLCB2bGFuX3RjaSkgIT0gMik7CiAJCQlvZmYgPSBvZmZzZXRvZihzdHJ1Y3Qg
+c2tfYnVmZiwgdmxhbl90Y2kpOwogCQkJZW1pdChBUk1fTERSSF9JKHJfQSwgcl9za2IsIG9mZiks
+IGN0eCk7Ci0JCQlpZiAoY29kZSA9PSAoQlBGX0FOQyB8IFNLRl9BRF9WTEFOX1RBRykpCi0JCQkJ
+T1BfSU1NMyhBUk1fQU5ELCByX0EsIHJfQSwgflZMQU5fVEFHX1BSRVNFTlQsIGN0eCk7Ci0JCQll
+bHNlIHsKLQkJCQlPUF9JTU0zKEFSTV9MU1IsIHJfQSwgcl9BLCAxMiwgY3R4KTsKKyNpZmRlZiBW
+TEFOX1RBR19QUkVTRU5UCisJCQlPUF9JTU0zKEFSTV9BTkQsIHJfQSwgcl9BLCB+VkxBTl9UQUdf
+UFJFU0VOVCwgY3R4KTsKKyNlbmRpZgorCQkJYnJlYWs7CisJCWNhc2UgQlBGX0FOQyB8IFNLRl9B
+RF9WTEFOX1RBR19QUkVTRU5UOgorCQkJb2ZmID0gUEtUX1ZMQU5fUFJFU0VOVF9PRkZTRVQoKTsK
+KwkJCWVtaXQoQVJNX0xEUkJfSShyX0EsIHJfc2tiLCBvZmYpLCBjdHgpOworCQkJaWYgKFBLVF9W
+TEFOX1BSRVNFTlRfQklUKQorCQkJCU9QX0lNTTMoQVJNX0xTUiwgcl9BLCByX0EsIFBLVF9WTEFO
+X1BSRVNFTlRfQklULCBjdHgpOworCQkJaWYgKFBLVF9WTEFOX1BSRVNFTlRfQklUIDwgNykKIAkJ
+CQlPUF9JTU0zKEFSTV9BTkQsIHJfQSwgcl9BLCAweDEsIGN0eCk7Ci0JCQl9CiAJCQlicmVhazsK
+IAkJY2FzZSBCUEZfQU5DIHwgU0tGX0FEX1BLVFRZUEU6CiAJCQljdHgtPnNlZW4gfD0gU0VFTl9T
+S0I7Ci0tIAoyLjExLjAKCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fXwpsaW51eC1hcm0ta2VybmVsIG1haWxpbmcgbGlzdApsaW51eC1hcm0ta2VybmVsQGxp
+c3RzLmluZnJhZGVhZC5vcmcKaHR0cDovL2xpc3RzLmluZnJhZGVhZC5vcmcvbWFpbG1hbi9saXN0
+aW5mby9saW51eC1hcm0ta2VybmVsCg==
