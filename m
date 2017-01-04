@@ -1,18 +1,17 @@
 From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [PATCH net-next 3/8] sky2: use __vlan_hwaccel helpers
+Subject: [PATCH net-next 1/8] benet: use __vlan_hwaccel helpers
 Date: Wed,  4 Jan 2017 01:24:25 +0100 (CET)
-Message-ID: <f029905dc283a5f66ecd54873fd854acc95bafec.1483488960.git.mirq-linux@rere.qmqm.pl>
+Message-ID: <fd2c368fc6e885420d3b104fd8666c8e57143fe8.1483488960.git.mirq-linux@rere.qmqm.pl>
 References: <cover.1483488960.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
-Cc: Mirko Lindner <mlindner@marvell.com>,
-        Stephen Hemminger <stephen@networkplumber.org>
+Cc: Ajit Khaparde <ajit.khaparde@broadcom.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([84.10.57.10]:37470 "EHLO rere.qmqm.pl"
+Received: from rere.qmqm.pl ([84.10.57.10]:37472 "EHLO rere.qmqm.pl"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S966970AbdADAY2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S966971AbdADAY2 (ORCPT <rfc822;netdev@vger.kernel.org>);
         Tue, 3 Jan 2017 19:24:28 -0500
 In-Reply-To: <cover.1483488960.git.mirq-linux@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
@@ -20,28 +19,54 @@ List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Michał Mirosław <mirq-linux@rere.qmqm.pl>
 ---
- drivers/net/ethernet/marvell/sky2.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+v3: fix adapter->pvid handling
 
-diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethernet/marvell/sky2.c
-index b60ad0e56a9f..bcd20e04caba 100644
---- a/drivers/net/ethernet/marvell/sky2.c
-+++ b/drivers/net/ethernet/marvell/sky2.c
-@@ -2485,13 +2485,11 @@ static struct sk_buff *receive_copy(struct sky2_port *sky2,
- 		skb->ip_summed = re->skb->ip_summed;
- 		skb->csum = re->skb->csum;
- 		skb_copy_hash(skb, re->skb);
--		skb->vlan_proto = re->skb->vlan_proto;
--		skb->vlan_tci = re->skb->vlan_tci;
-+		__vlan_hwaccel_copy_tag(skb, re->skb);
+ drivers/net/ethernet/emulex/benet/be_main.c | 13 +++++++++----
+ 1 file changed, 9 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 7e1633bf5a22..cd12c9a7664b 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -1035,30 +1035,35 @@ static struct sk_buff *be_insert_vlan_in_pkt(struct be_adapter *adapter,
+ 					     struct be_wrb_params
+ 					     *wrb_params)
+ {
++	bool insert_vlan = false;
+ 	u16 vlan_tag = 0;
  
- 		pci_dma_sync_single_for_device(sky2->hw->pdev, re->data_addr,
- 					       length, PCI_DMA_FROMDEVICE);
--		re->skb->vlan_proto = 0;
--		re->skb->vlan_tci = 0;
-+		__vlan_hwaccel_clear_tag(re->skb);
- 		skb_clear_hash(re->skb);
- 		re->skb->ip_summed = CHECKSUM_NONE;
- 		skb_put(skb, length);
+ 	skb = skb_share_check(skb, GFP_ATOMIC);
+ 	if (unlikely(!skb))
+ 		return skb;
+ 
+-	if (skb_vlan_tag_present(skb))
++	if (skb_vlan_tag_present(skb)) {
+ 		vlan_tag = be_get_tx_vlan_tag(adapter, skb);
++		insert_vlan = true;
++	}
+ 
+ 	if (qnq_async_evt_rcvd(adapter) && adapter->pvid) {
+-		if (!vlan_tag)
++		if (!insert_vlan) {
+ 			vlan_tag = adapter->pvid;
++			insert_vlan = true;
++		}
+ 		/* f/w workaround to set skip_hw_vlan = 1, informs the F/W to
+ 		 * skip VLAN insertion
+ 		 */
+ 		BE_WRB_F_SET(wrb_params->features, VLAN_SKIP_HW, 1);
+ 	}
+ 
+-	if (vlan_tag) {
++	if (insert_vlan) {
+ 		skb = vlan_insert_tag_set_proto(skb, htons(ETH_P_8021Q),
+ 						vlan_tag);
+ 		if (unlikely(!skb))
+ 			return skb;
+-		skb->vlan_tci = 0;
++		__vlan_hwaccel_clear_tag(skb);
+ 	}
+ 
+ 	/* Insert the outer VLAN, if any */
 -- 
 2.11.0
