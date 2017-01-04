@@ -1,43 +1,76 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [PATCH net-next 2/2] tools: psock_tpacket: verify that packet
- was received on lo before counting it
-Date: Wed, 4 Jan 2017 10:13:46 -0500
-Message-ID: <20170104151346.GE9641@oracle.com>
-References: <cover.1483482971.git.sowmini.varadhan@oracle.com>
- <3451a2008d953f33d6576a35eaefecad883eaeb5.1483482971.git.sowmini.varadhan@oracle.com>
- <CAF=yD-+d-cgE1dxCcrfNZfgVk4_wjYMHHoQ=BN7bnJ-txbM-+Q@mail.gmail.com>
- <20170104144424.GD9641@oracle.com>
- <CAF=yD-KUw8M+RGnN2eXLVgv836F6mxd4+b0h=2CP6X7mv+ScWg@mail.gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] phy state machine: failsafe leave invalid RUNNING state
+Date: Wed, 4 Jan 2017 07:13:23 -0800
+Message-ID: <6845805d-4dae-0a3a-c56c-6feb86f4b553@gmail.com>
+References: <1483542298-9747-1-git-send-email-zefir.kurtisi@neratec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kselftest@vger.kernel.org,
-        Network Development <netdev@vger.kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Willem de Bruijn <willemb@google.com>,
-        David Miller <davem@davemloft.net>, shuah@kernel.org
-To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: andrew@lunn.ch
+To: Zefir Kurtisi <zefir.kurtisi@neratec.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:30291 "EHLO
-        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S967039AbdADPOG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2017 10:14:06 -0500
-Content-Disposition: inline
-In-Reply-To: <CAF=yD-KUw8M+RGnN2eXLVgv836F6mxd4+b0h=2CP6X7mv+ScWg@mail.gmail.com>
+Received: from mail-oi0-f68.google.com ([209.85.218.68]:35655 "EHLO
+        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S968330AbdADPNv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2017 10:13:51 -0500
+Received: by mail-oi0-f68.google.com with SMTP id v84so74696130oie.2
+        for <netdev@vger.kernel.org>; Wed, 04 Jan 2017 07:13:25 -0800 (PST)
+In-Reply-To: <1483542298-9747-1-git-send-email-zefir.kurtisi@neratec.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On (01/04/17 10:03), Willem de Bruijn wrote:
+
+
+On 01/04/2017 07:04 AM, Zefir Kurtisi wrote:
+> While in RUNNING state, phy_state_machine() checks for link changes by
+> comparing phydev->link before and after calling phy_read_status().
+> This works as long as it is guaranteed that phydev->link is never
+> changed outside the phy_state_machine().
 > 
-> This approach is less restrictive. It still allows incorrect packets
-> to be enqueued in the time between the socket call and attaching the
-> bpf filter. Also, if packets are restricted to a single packet, using
-> bind with sll_ifindex is simpler.
+> If in some setups this happens, it causes the state machine to miss
+> a link loss and remain RUNNING despite phydev->link being 0.
+> 
+> This has been observed running a dsa setup with a process continuously
+> polling the link states over ethtool each second (SNMPD RFC-1213
+> agent). Disconnecting the link on a phy followed by a ETHTOOL_GSET
+> causes dsa_slave_get_settings() / dsa_slave_get_link_ksettings() to
+> call phy_read_status() and with that modify the link status - and
+> with that bricking the phy state machine.
 
-Do you want me to change this to first set up pfsocket() with
-proto 0, then set up filter, and then bind_ring() to the desired
-ifindex with ETH_P_ALL?
+That's the interesting part of the analysis, how does this brick the PHY
+state machine? Is the PHY driver changing the link status in the
+read_status callback that it implements?
 
-I can spin out v2 (and if I have to that, I can also fix the
-comments) if you feel strongly about it.
+> 
+> This patch adds a fail-safe check while in RUNNING, which causes to
+> move to CHANGELINK when the link is gone and we are still RUNNING.
+> 
+> Signed-off-by: Zefir Kurtisi <zefir.kurtisi@neratec.com>
+> ---
+>  drivers/net/phy/phy.c | 9 +++++++++
+>  1 file changed, 9 insertions(+)
+> 
+> diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+> index 28548af..0f9a61e 100644
+> --- a/drivers/net/phy/phy.c
+> +++ b/drivers/net/phy/phy.c
+> @@ -966,6 +966,15 @@ void phy_state_machine(struct work_struct *work)
+>  			if (old_link != phydev->link)
+>  				phydev->state = PHY_CHANGELINK;
+>  		}
+> +		/*
+> +		 * Failsafe: check that nobody set phydev->link=0 between two
+> +		 * poll cycles, otherwise we won't leave RUNNING state as long
+> +		 * as link remains down.
+> +		 */
+> +		if (!phydev->link && phydev->state == PHY_RUNNING) {
+> +			phydev->state = PHY_CHANGELINK;
+> +			dev_warn(&phydev->dev, "no link in PHY_RUNNING\n");
+> +		}
+>  		break;
+>  	case PHY_CHANGELINK:
+>  		err = phy_read_status(phydev);
+> 
 
---Sowmini
+-- 
+Florian
