@@ -1,98 +1,61 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH v3 net-next 1/2] tools: psock_lib: tighten conditions
- checked in sock_setfilter
-Date: Wed, 04 Jan 2017 23:16:23 +0100
-Message-ID: <586D7437.1050708@iogearbox.net>
-References: <cover.1483555162.git.sowmini.varadhan@oracle.com> <3aa068fa482f7cf5381957e9a3ea58550822d1d1.1483555162.git.sowmini.varadhan@oracle.com>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH net-next v2] tcp: provide timestamps for partial writes
+Date: Wed, 4 Jan 2017 17:22:26 -0500
+Message-ID: <CAF=yD-KD2KVOdbMCVE3D6xwi+D5AC-YTOai521tLMymx8q=OPQ@mail.gmail.com>
+References: <20170104161934.26849-1-soheil.kdev@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: willemb@google.com, davem@davemloft.net, shuah@kernel.org
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>,
-        linux-kselftest@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        Network Development <netdev@vger.kernel.org>,
+        Soheil Hassas Yeganeh <soheil@google.com>,
+        Willem de Bruijn <willemb@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Neal Cardwell <ncardwell@google.com>,
+        Martin KaFai Lau <kafai@fb.com>
+To: Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:43690 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1759625AbdADWQ1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2017 17:16:27 -0500
-In-Reply-To: <3aa068fa482f7cf5381957e9a3ea58550822d1d1.1483555162.git.sowmini.varadhan@oracle.com>
+Received: from mail-ua0-f193.google.com ([209.85.217.193]:33167 "EHLO
+        mail-ua0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934222AbdADWYu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2017 17:24:50 -0500
+Received: by mail-ua0-f193.google.com with SMTP id d5so30796543uag.0
+        for <netdev@vger.kernel.org>; Wed, 04 Jan 2017 14:23:07 -0800 (PST)
+In-Reply-To: <20170104161934.26849-1-soheil.kdev@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/04/2017 07:45 PM, Sowmini Varadhan wrote:
-> The bpf_prog used in sock_setfilter() only attempts to check for
-> ip pktlen, and verifies that the contents of the 80'th packet in
-> the ethernet frame is 'a' or 'b'.  Thus many non-udp packets
-> could incorrectly pass through this filter and cause incorrect
-> test results.
+On Wed, Jan 4, 2017 at 11:19 AM, Soheil Hassas Yeganeh
+<soheil.kdev@gmail.com> wrote:
+> From: Soheil Hassas Yeganeh <soheil@google.com>
 >
-> This commit hardens the conditions checked by the filter so
-> that only UDP/IPv4 packets with the matching length and test-character
-> will be permitted by the filter. The filter has been cleaned up
-> to explicitly use the BPF macros to make it more readable.
+> For TCP sockets, TX timestamps are only captured when the user data
+> is successfully and fully written to the socket. In many cases,
+> however, TCP writes can be partial for which no timestamp is
+> collected.
 >
-> Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-> Acked-by: Willem de Bruijn <willemb@google.com>
-> ---
-> v2: commit comment edited based on Willem de Bruijn review
-> v3: Shuah Khan nit.
+> Collect timestamps whenever any user data is (fully or partially)
+> copied into the socket. Pass tcp_write_queue_tail to tcp_tx_timestamp
+> instead of the local skb pointer since it can be set to NULL on
+> the error path.
 >
->   tools/testing/selftests/net/psock_lib.h |   29 ++++++++++++++++++++++-------
->   1 files changed, 22 insertions(+), 7 deletions(-)
+> Note that tcp_write_queue_tail can be NULL, even if bytes have been
+> copied to the socket. This is because acknowledgements are being
+> processed in tcp_sendmsg(), and by the time tcp_tx_timestamp is
+> called tcp_write_queue_tail can be NULL. For such cases, this patch
+> does not collect any timestamps (i.e., it is best-effort).
 >
-> diff --git a/tools/testing/selftests/net/psock_lib.h b/tools/testing/selftests/net/psock_lib.h
-> index 24bc7ec..9e5553a 100644
-> --- a/tools/testing/selftests/net/psock_lib.h
-> +++ b/tools/testing/selftests/net/psock_lib.h
-> @@ -27,6 +27,7 @@
->   #include <string.h>
->   #include <arpa/inet.h>
->   #include <unistd.h>
-> +#include <netinet/udp.h>
+> This patch is written with suggestions from Willem de Bruijn and
+> Eric Dumazet.
 >
->   #define DATA_LEN			100
->   #define DATA_CHAR			'a'
-> @@ -40,14 +41,28 @@
+> Change-log V1 -> V2:
+>         - Use sockc.tsflags instead of sk->sk_tsflags.
+>         - Use the same code path for normal writes and errors.
 >
->   static __maybe_unused void sock_setfilter(int fd, int lvl, int optnum)
->   {
-> +	uint16_t ip_len = DATA_LEN +
-> +			  sizeof(struct iphdr) +
-> +			  sizeof(struct udphdr);
-> +	/* the filter below checks for all of the following conditions that
-> +	 * are based on the contents of create_payload()
-> +	 *  ether type 0x800 and
-> +	 *  ip proto udp     and
-> +	 *  ip len == ip_len and
-> +	 *  udp[38] == 'a' or udp[38] == 'b'
-> +	 */
->   	struct sock_filter bpf_filter[] = {
-> -		{ 0x80, 0, 0, 0x00000000 },  /* LD  pktlen		      */
-> -		{ 0x35, 0, 4, DATA_LEN   },  /* JGE DATA_LEN  [f goto nomatch]*/
-> -		{ 0x30, 0, 0, 0x00000050 },  /* LD  ip[80]		      */
-> -		{ 0x15, 1, 0, DATA_CHAR  },  /* JEQ DATA_CHAR   [t goto match]*/
-> -		{ 0x15, 0, 1, DATA_CHAR_1},  /* JEQ DATA_CHAR_1 [t goto match]*/
-> -		{ 0x06, 0, 0, 0x00000060 },  /* RET match	              */
-> -		{ 0x06, 0, 0, 0x00000000 },  /* RET no match		      */
-> +		BPF_STMT(BPF_LD | BPF_H | BPF_ABS, 12),	/* LD ethertype */
-> +		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, ETH_P_IP, 0, 8),
-> +		BPF_STMT(BPF_LD|BPF_B|BPF_ABS, 23),	/* LD ip_proto */
-> +		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, IPPROTO_UDP, 0, 6),
-> +		BPF_STMT(BPF_LD|BPF_H|BPF_ABS, 16),	/* LD ip_len */
-> +		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, ip_len, 0, 4),
-> +		BPF_STMT(BPF_LD|BPF_B|BPF_ABS, 80),	/* LD udp[38] */
-> +		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, DATA_CHAR, 1, 0),
-> +		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, DATA_CHAR_1, 0, 1),
-> +		BPF_STMT(BPF_RET | BPF_K, ~0),		/* match */
-> +		BPF_STMT(BPF_RET | BPF_K, 0)		/* no match */
+> Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
+> Acked-by: Yuchung Cheng <ycheng@google.com>
+> Cc: Willem de Bruijn <willemb@google.com>
+> Cc: Eric Dumazet <edumazet@google.com>
+> Cc: Neal Cardwell <ncardwell@google.com>
+> Cc: Martin KaFai Lau <kafai@fb.com>
 
-Just reading up on the thread, sorry to jump in late. Can't you just
-use the generated code from bpf_asm (tools/net/) and add the asm program
-as a comment above? Something like we do in net/core/ptp_classifier.c +13.
-As it stands it makes it a bit harder to parse / less readable with macros
-actually. Rest seems fine, thanks.
-
->   	};
->   	struct sock_fprog bpf_prog;
->
->
+Acked-by: Willem de Bruijn <willemb@google.com>
