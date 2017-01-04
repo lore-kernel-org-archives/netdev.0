@@ -1,70 +1,26 @@
-From: "Chopra, Manish" <Manish.Chopra@cavium.com>
-Subject: RE: [PATCH net-next v2 04/27] qlcnic: remove assumption that vlan_tci
- != 0
-Date: Wed, 4 Jan 2017 11:29:05 +0000
-Message-ID: <SN1PR07MB24478F4FF7ACFE9A5DA6D85B89610@SN1PR07MB2447.namprd07.prod.outlook.com>
-References: <cover.1483475202.git.mirq-linux@rere.qmqm.pl>
- <7ccac9ab645244db2797490cad10a42979d78a32.1483475202.git.mirq-linux@rere.qmqm.pl>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH ipsec] xfrm: trivial typos
+Date: Wed, 4 Jan 2017 12:40:15 +0100
+Message-ID: <20170104114015.GY3541@gauss.secunet.com>
+References: <20170103161320.1372-1-alexander@alemayhu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Patil, Harish" <Harish.Patil@cavium.com>,
-        Dept-GE Linux NIC Dev <Dept-GELinuxNICDev@cavium.com>
-To: =?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>
+To: Alexander Alemayhu <alexander@alemayhu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn3nam01on0047.outbound.protection.outlook.com ([104.47.33.47]:28009
-        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753304AbdADL3s (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 4 Jan 2017 06:29:48 -0500
-In-Reply-To: <7ccac9ab645244db2797490cad10a42979d78a32.1483475202.git.mirq-linux@rere.qmqm.pl>
-Content-Language: en-US
+Received: from a.mx.secunet.com ([62.96.220.36]:59094 "EHLO a.mx.secunet.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750819AbdADLkm (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 4 Jan 2017 06:40:42 -0500
+Content-Disposition: inline
+In-Reply-To: <20170103161320.1372-1-alexander@alemayhu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBNaWNoYcWCIE1pcm9zxYJhdyBb
-bWFpbHRvOm1pcnEtbGludXhAcmVyZS5xbXFtLnBsXQ0KPiBTZW50OiBXZWRuZXNkYXksIEphbnVh
-cnkgMDQsIDIwMTcgMjoyMyBBTQ0KPiBUbzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZw0KPiBDYzog
-UGF0aWwsIEhhcmlzaCA8SGFyaXNoLlBhdGlsQGNhdml1bS5jb20+OyBDaG9wcmEsIE1hbmlzaA0K
-PiA8TWFuaXNoLkNob3ByYUBjYXZpdW0uY29tPjsgRGVwdC1HRSBMaW51eCBOSUMgRGV2IDxEZXB0
-LQ0KPiBHRUxpbnV4TklDRGV2QGNhdml1bS5jb20+DQo+IFN1YmplY3Q6IFtQQVRDSCBuZXQtbmV4
-dCB2MiAwNC8yN10gcWxjbmljOiByZW1vdmUgYXNzdW1wdGlvbiB0aGF0IHZsYW5fdGNpICE9IDAN
-Cj4gDQo+IFNpZ25lZC1vZmYtYnk6IE1pY2hhxYIgTWlyb3PFgmF3IDxtaXJxLWxpbnV4QHJlcmUu
-cW1xbS5wbD4NCj4gLS0tDQo+ICBkcml2ZXJzL25ldC9ldGhlcm5ldC9xbG9naWMvcWxjbmljL3Fs
-Y25pY19pby5jIHwgOCArKysrKy0tLQ0KPiAgMSBmaWxlIGNoYW5nZWQsIDUgaW5zZXJ0aW9ucygr
-KSwgMyBkZWxldGlvbnMoLSkNCj4gDQo+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9ldGhlcm5l
-dC9xbG9naWMvcWxjbmljL3FsY25pY19pby5jDQo+IGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvcWxv
-Z2ljL3FsY25pYy9xbGNuaWNfaW8uYw0KPiBpbmRleCBmZWRkNzM2NjcxM2MuLmMzY2M3MDdjYzI2
-NSAxMDA2NDQNCj4gLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvcWxvZ2ljL3FsY25pYy9xbGNu
-aWNfaW8uYw0KPiArKysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9xbG9naWMvcWxjbmljL3FsY25p
-Y19pby5jDQo+IEBAIC00NTksNyArNDU5LDcgQEAgc3RhdGljIGludCBxbGNuaWNfdHhfcGt0KHN0
-cnVjdCBxbGNuaWNfYWRhcHRlciAqYWRhcHRlciwNCj4gIAkJCSBzdHJ1Y3QgY21kX2Rlc2NfdHlw
-ZTAgKmZpcnN0X2Rlc2MsIHN0cnVjdCBza19idWZmICpza2IsDQo+ICAJCQkgc3RydWN0IHFsY25p
-Y19ob3N0X3R4X3JpbmcgKnR4X3JpbmcpDQo+ICB7DQo+IC0JdTggbDRwcm90bywgb3Bjb2RlID0g
-MCwgaGRyX2xlbiA9IDA7DQo+ICsJdTggbDRwcm90bywgb3Bjb2RlID0gMCwgaGRyX2xlbiA9IDAs
-IHRhZ192bGFuID0gMDsNCj4gIAl1MTYgZmxhZ3MgPSAwLCB2bGFuX3RjaSA9IDA7DQo+ICAJaW50
-IGNvcGllZCwgb2Zmc2V0LCBjb3B5X2xlbiwgc2l6ZTsNCj4gIAlzdHJ1Y3QgY21kX2Rlc2NfdHlw
-ZTAgKmh3ZGVzYzsNCj4gQEAgLTQ3MiwxNCArNDcyLDE2IEBAIHN0YXRpYyBpbnQgcWxjbmljX3R4
-X3BrdChzdHJ1Y3QgcWxjbmljX2FkYXB0ZXINCj4gKmFkYXB0ZXIsDQo+ICAJCWZsYWdzID0gUUxD
-TklDX0ZMQUdTX1ZMQU5fVEFHR0VEOw0KPiAgCQl2bGFuX3RjaSA9IG50b2hzKHZoLT5oX3ZsYW5f
-VENJKTsNCj4gIAkJcHJvdG9jb2wgPSBudG9ocyh2aC0+aF92bGFuX2VuY2Fwc3VsYXRlZF9wcm90
-byk7DQo+ICsJCXRhZ192bGFuID0gMTsNCj4gIAl9IGVsc2UgaWYgKHNrYl92bGFuX3RhZ19wcmVz
-ZW50KHNrYikpIHsNCj4gIAkJZmxhZ3MgPSBRTENOSUNfRkxBR1NfVkxBTl9PT0I7DQo+ICAJCXZs
-YW5fdGNpID0gc2tiX3ZsYW5fdGFnX2dldChza2IpOw0KPiArCQl0YWdfdmxhbiA9IDE7DQo+ICAJ
-fQ0KPiAgCWlmICh1bmxpa2VseShhZGFwdGVyLT50eF9wdmlkKSkgew0KPiAtCQlpZiAodmxhbl90
-Y2kgJiYgIShhZGFwdGVyLT5mbGFncyAmDQo+IFFMQ05JQ19UQUdHSU5HX0VOQUJMRUQpKQ0KPiAr
-CQlpZiAodGFnX3ZsYW4gJiYgIShhZGFwdGVyLT5mbGFncyAmDQo+IFFMQ05JQ19UQUdHSU5HX0VO
-QUJMRUQpKQ0KPiAgCQkJcmV0dXJuIC1FSU87DQo+IC0JCWlmICh2bGFuX3RjaSAmJiAoYWRhcHRl
-ci0+ZmxhZ3MgJiBRTENOSUNfVEFHR0lOR19FTkFCTEVEKSkNCj4gKwkJaWYgKHRhZ192bGFuICYm
-IChhZGFwdGVyLT5mbGFncyAmDQo+IFFMQ05JQ19UQUdHSU5HX0VOQUJMRUQpKQ0KPiAgCQkJZ290
-byBzZXRfZmxhZ3M7DQo+IA0KPiAgCQlmbGFncyA9IFFMQ05JQ19GTEFHU19WTEFOX09PQjsNCj4g
-LS0NCj4gMi4xMS4wDQo+IA0KDQpJdCdzIHBvc3NpYmxlIHRoYXQgZWFybGllciBkcml2ZXIgdHgg
-ZmxvdyBmb3IgemVybyB2bGFuX3RjaSBpcyBoYW5kbGVkIGRpZmZlcmVudGx5IGJ5IHRoZSBkcml2
-ZXIgYW5kIGhlbmNlIGhhcmR3YXJlLg0KRG9pbmcgdGhpcyBjaGFuZ2Ugd291bGQgY2F1c2UgY2hh
-bmdpbmcgdGhlIGRyaXZlciBUWCBmbG93IGZvciB6ZXJvIHZsYW5fdGNpIFtzcGVjaWFsbHkgc2V0
-dGluZyB0aGUgdGhpbmdzIGluIHRoZSBUWCBkZXNjcmlwdG9ycyB3b3VsZCBiZSBjaGFuZ2VkIG5v
-dyBmb3IgemVybyB2bGFuX3RjaV0uDQpJcyBpdCByZWFsbHkgbmVjZXNzYXJ5IHRvIGNoYW5nZSB0
-aGUgZHJpdmVyIGJlaGF2aW9yIGZvciBzdWNoIGNoYW5nZSB1bnRpbCB1bmxlc3MgdGhlcmUgaXMg
-ZnVuY3Rpb25hbCBwcm9ibGVtIHdpdGggdGhlIGRyaXZlciBvciBoYXJkd2FyZSBpbiBoYW5kbGlu
-ZyB6ZXJvIHZsYW5fdGNpID8NCg0KVGhhbmtzLg0KDQoNCg==
+On Tue, Jan 03, 2017 at 05:13:20PM +0100, Alexander Alemayhu wrote:
+> o s/descentant/descendant
+> o s/workarbound/workaround
+> 
+> Signed-off-by: Alexander Alemayhu <alexander@alemayhu.com>
+
+Patch applied to ipsec-next, thanks!
