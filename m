@@ -1,138 +1,86 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH repost net-next] dsa: mv88e6xxx: Optimise atu_get
-Date: Wed,  4 Jan 2017 19:56:24 +0100
-Message-ID: <1483556184-4176-1-git-send-email-andrew@lunn.ch>
-Cc: volodymyr.bendiuga@gmail.com,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        netdev <netdev@vger.kernel.org>, Andrew Lunn <andrew@lunn.ch>
-To: David Miller <davem@davemloft.net>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [RFC PATCH] virtio_net: XDP support for adjust_head
+Date: Wed, 4 Jan 2017 10:58:39 -0800
+Message-ID: <586D45DF.401@gmail.com>
+References: <20170102194413.9089.39078.stgit@john-Precision-Tower-5810>
+ <73715f7a-eeeb-679f-a7b8-7b1fefe1757e@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org,
+        alexei.starovoitov@gmail.com, daniel@iogearbox.net
+To: Jason Wang <jasowang@redhat.com>, mst@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:43278 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S934937AbdADS46 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 4 Jan 2017 13:56:58 -0500
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:32896 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934137AbdADS6z (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2017 13:58:55 -0500
+Received: by mail-pf0-f194.google.com with SMTP id 127so17411790pfg.0
+        for <netdev@vger.kernel.org>; Wed, 04 Jan 2017 10:58:54 -0800 (PST)
+In-Reply-To: <73715f7a-eeeb-679f-a7b8-7b1fefe1757e@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Lookup in the ATU can be performed starting from a given MAC
-address. This is faster than starting with the first possible MAC
-address and iterating all entries.
+[...]
 
-Entries are returned in numeric order. So if the MAC address returned
-is bigger than what we are searching for, we know it is not in the
-ATU.
+>> @@ -393,34 +397,39 @@ static u32 do_xdp_prog(struct virtnet_info *vi,
+>>                  struct bpf_prog *xdp_prog,
+>>                  void *data, int len)
+>>   {
+>> -    int hdr_padded_len;
+>>       struct xdp_buff xdp;
+>> -    void *buf;
+>>       unsigned int qp;
+>>       u32 act;
+>>   +
+>>       if (vi->mergeable_rx_bufs) {
+>> -        hdr_padded_len = sizeof(struct virtio_net_hdr_mrg_rxbuf);
+>> -        xdp.data = data + hdr_padded_len;
+>> +        int desc_room = sizeof(struct virtio_net_hdr_mrg_rxbuf);
+>> +
+>> +        /* Allow consuming headroom but reserve enough space to push
+>> +         * the descriptor on if we get an XDP_TX return code.
+>> +         */
+>> +        xdp.data_hard_start = data - vi->headroom + desc_room;
+>> +        xdp.data = data + desc_room;
+>>           xdp.data_end = xdp.data + (len - vi->hdr_len);
+>> -        buf = data;
+>>       } else { /* small buffers */
+>>           struct sk_buff *skb = data;
+>>   -        xdp.data = skb->data;
+>> +        xdp.data_hard_start = skb->data;
+>> +        xdp.data = skb->data + vi->headroom;
+>>           xdp.data_end = xdp.data + len;
+>> -        buf = skb->data;
+>>       }
+>>         act = bpf_prog_run_xdp(xdp_prog, &xdp);
+>>       switch (act) {
+>>       case XDP_PASS:
+>> +        if (!vi->mergeable_rx_bufs)
+>> +            __skb_pull((struct sk_buff *) data,
+>> +                   xdp.data - xdp.data_hard_start);
+> 
+> Instead of doing things here and virtnet_xdp_xmit(). How about always making
+> skb->data point to the buffer head like:
+> 
+> 1) reserve headroom in add_recvbuf_small()
+> 2) skb_push(xdp->data - xdp_data_hard_start, skb) if we detect xdp->data was
+> modified afer bpf_prog_run_xdp()
+> 
+> Then there's no special code in either XDP_PASS or XDP_TX?
+> 
 
-Using the benchmark provided by Volodymyr Bendiuga
-<volodymyr.bendiuga@gmail.com>,
+Alternatively moving the pull into the receive_small XDP handler also
+removes the special case. I'll submit a patch shortly let me know what
+you think.
 
-https://www.spinics.net/lists/netdev/msg411550.html
+>>           return XDP_PASS;
+>>       case XDP_TX:
+>>           qp = vi->curr_queue_pairs -
+>>               vi->xdp_queue_pairs +
+>>               smp_processor_id();
+> 
+> [...]
+> 
 
-on an Marvell Armada 370 RD, the test to add a number of static fdb
-entries went from 1.616531 seconds to 0.312052 seconds.
-
-Signed-off-by: Andrew Lunn <andrew@lunn.ch>
----
-
-Cc: netdev this time.
-
- drivers/net/dsa/mv88e6xxx/chip.c |  5 ++--
- include/linux/etherdevice.h      | 60 ++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 63 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index f7222dc6581d..4cdb0f09788b 100644
---- a/drivers/net/dsa/mv88e6xxx/chip.c
-+++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -2023,7 +2023,8 @@ static int mv88e6xxx_atu_get(struct mv88e6xxx_chip *chip, int fid,
- 	struct mv88e6xxx_atu_entry next;
- 	int err;
- 
--	eth_broadcast_addr(next.mac);
-+	memcpy(next.mac, addr, ETH_ALEN);
-+	eth_addr_dec(next.mac);
- 
- 	err = _mv88e6xxx_atu_mac_write(chip, next.mac);
- 	if (err)
-@@ -2041,7 +2042,7 @@ static int mv88e6xxx_atu_get(struct mv88e6xxx_chip *chip, int fid,
- 			*entry = next;
- 			return 0;
- 		}
--	} while (!is_broadcast_ether_addr(next.mac));
-+	} while (ether_addr_greater(addr, next.mac));
- 
- 	memset(entry, 0, sizeof(*entry));
- 	entry->fid = fid;
-diff --git a/include/linux/etherdevice.h b/include/linux/etherdevice.h
-index 6fec9e81bd70..42add77ae47d 100644
---- a/include/linux/etherdevice.h
-+++ b/include/linux/etherdevice.h
-@@ -397,6 +397,66 @@ static inline bool ether_addr_equal_masked(const u8 *addr1, const u8 *addr2,
- }
- 
- /**
-+ * ether_addr_to_u64 - Convert an Ethernet address into a u64 value.
-+ * @addr: Pointer to a six-byte array containing the Ethernet address
-+ *
-+ * Return a u64 value of the address
-+ */
-+static inline u64 ether_addr_to_u64(const u8 *addr)
-+{
-+	u64 u = 0;
-+	int i;
-+
-+	for (i = 0; i < ETH_ALEN; i++)
-+		u = u << 8 | addr[i];
-+
-+	return u;
-+}
-+
-+/**
-+ * u64_to_ether_addr - Convert a u64 to an Ethernet address.
-+ * @u: u64 to convert to an Ethernet MAC address
-+ * @addr: Pointer to a six-byte array to contain the Ethernet address
-+ */
-+static inline void u64_to_ether_addr(u64 u, u8 *addr)
-+{
-+	int i;
-+
-+	for (i = ETH_ALEN - 1; i >= 0; i--) {
-+		addr[i] = u & 0xff;
-+		u = u >> 8;
-+	}
-+}
-+
-+/**
-+ * eth_addr_dec - Decrement the given MAC address
-+ *
-+ * @addr: Pointer to a six-byte array containing Ethernet address to decrement
-+ */
-+static inline void eth_addr_dec(u8 *addr)
-+{
-+	u64 u = ether_addr_to_u64(addr);
-+
-+	u--;
-+	u64_to_ether_addr(u, addr);
-+}
-+
-+/**
-+ * ether_addr_greater - Compare two Ethernet addresses
-+ * @addr1: Pointer to a six-byte array containing the Ethernet address
-+ * @addr2: Pointer other six-byte array containing the Ethernet address
-+ *
-+ * Compare two Ethernet addresses, returns true addr1 is greater than addr2
-+ */
-+static inline bool ether_addr_greater(const u8 *addr1, const u8 *addr2)
-+{
-+	u64 u1 = ether_addr_to_u64(addr1);
-+	u64 u2 = ether_addr_to_u64(addr2);
-+
-+	return u1 > u2;
-+}
-+
-+/**
-  * is_etherdev_addr - Tell if given Ethernet address belongs to the device.
-  * @dev: Pointer to a device structure
-  * @addr: Pointer to a six-byte array containing the Ethernet address
--- 
-2.11.0
+.John
