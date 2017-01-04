@@ -1,56 +1,107 @@
-From: Krister Johansen <kjlx@templeofstupid.com>
-Subject: Re: [PATCH] Introduce a sysctl that modifies the value of PROT_SOCK.
-Date: Wed, 4 Jan 2017 02:19:27 -0800
-Message-ID: <20170104101927.GG3009@templeofstupid.com>
-References: <20161231041111.GD2448@templeofstupid.com>
- <20161231125505.7f0c7dff@xeon-e3>
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: [patch net-next v2 5/8] Introduce sample tc action
+Date: Wed, 4 Jan 2017 11:42:54 +0100
+Message-ID: <20170104104251.GB30008@penelope.horms.nl>
+References: <1479135638-3580-1-git-send-email-jiri@resnulli.us>
+ <1479135638-3580-6-git-send-email-jiri@resnulli.us>
+ <582C861B.8010709@cumulusnetworks.com>
+ <DB3PR05MB0764183033BE8FFDAC8B6896ACBE0@DB3PR05MB0764.eurprd05.prod.outlook.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Krister Johansen <kjlx@templeofstupid.com>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Cc: Roopa Prabhu <roopa@cumulusnetworks.com>,
+        Jiri Pirko <jiri@resnulli.us>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        Ido Schimmel <idosch@mellanox.com>,
+        Elad Raz <eladr@mellanox.com>,
+        Nogah Frankel <nogahf@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        "jhs@mojatatu.com" <jhs@mojatatu.com>,
+        "geert+renesas@glider.be" <geert+renesas@glider.be>,
+        "stephen@networkplumber.org" <stephen@networkplumber.org>,
+        "xiyou.wangcong@gmail.com" <xiyou.wangcong@gmail.com>,
+        "linux@roeck-us.net" <linux@roeck-us.net>,
+        "john.fastabend@gmail.com" <john.fastabend@gmail.com>
+To: Yotam Gigi <yotamg@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sub5.mail.dreamhost.com ([208.113.200.129]:48129 "EHLO
-        homiemail-a124.g.dreamhost.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S965474AbdADKk2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2017 05:40:28 -0500
-Received: from homiemail-a124.g.dreamhost.com (localhost [127.0.0.1])
-        by homiemail-a124.g.dreamhost.com (Postfix) with ESMTP id B8C6260000D07
-        for <netdev@vger.kernel.org>; Wed,  4 Jan 2017 02:40:27 -0800 (PST)
-Received: from kmjvbox (c-73-70-90-212.hsd1.ca.comcast.net [73.70.90.212])
-        (using TLSv1 with cipher ECDHE-RSA-AES256-SHA (256/256 bits))
-        (No client certificate requested)
-        (Authenticated sender: kjlx@templeofstupid.com)
-        by homiemail-a124.g.dreamhost.com (Postfix) with ESMTPSA id A08BC60000D01
-        for <netdev@vger.kernel.org>; Wed,  4 Jan 2017 02:40:27 -0800 (PST)
+Received: from mail-wm0-f51.google.com ([74.125.82.51]:36417 "EHLO
+        mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752215AbdADKnM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2017 05:43:12 -0500
+Received: by mail-wm0-f51.google.com with SMTP id c85so219487518wmi.1
+        for <netdev@vger.kernel.org>; Wed, 04 Jan 2017 02:43:11 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <20161231125505.7f0c7dff@xeon-e3>
+In-Reply-To: <DB3PR05MB0764183033BE8FFDAC8B6896ACBE0@DB3PR05MB0764.eurprd05.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Dec 31, 2016 at 12:55:05PM -0800, Stephen Hemminger wrote:
-> On Fri, 30 Dec 2016 20:11:11 -0800
-> Krister Johansen <kjlx@templeofstupid.com> wrote:
+On Wed, Nov 16, 2016 at 04:26:44PM +0000, Yotam Gigi wrote:
+> >-----Original Message-----
+> >From: Roopa Prabhu [mailto:roopa@cumulusnetworks.com]
+> >Sent: Wednesday, November 16, 2016 6:15 PM
+> >To: Jiri Pirko <jiri@resnulli.us>
+> >Cc: netdev@vger.kernel.org; davem@davemloft.net; Yotam Gigi
+> ><yotamg@mellanox.com>; Ido Schimmel <idosch@mellanox.com>; Elad Raz
+> ><eladr@mellanox.com>; Nogah Frankel <nogahf@mellanox.com>; Or Gerlitz
+> ><ogerlitz@mellanox.com>; jhs@mojatatu.com; geert+renesas@glider.be;
+> >stephen@networkplumber.org; xiyou.wangcong@gmail.com; linux@roeck-us.net;
+> >john.fastabend@gmail.com; simon.horman@netronome.com
+> >Subject: Re: [patch net-next v2 5/8] Introduce sample tc action
+> >
+> >On 11/14/16, 7:00 AM, Jiri Pirko wrote:
+> >> From: Yotam Gigi <yotamg@mellanox.com>
+> >>
+> >> This action allow the user to sample traffic matched by tc classifier.
+> >> The sampling consists of choosing packets randomly, truncating them,
+> >> adding some informative metadata regarding the interface and the original
+> >> packet size and mark them with specific mark, to allow further tc rules to
+> >> match and process. The marked sample packets are then injected into the
+> >> device ingress qdisc using netif_receive_skb.
+> >>
+> >> The packets metadata is packed using the ife encapsulation protocol, and
+> >> the outer packet's ethernet dest, source and eth_type, along with the
+> >> rate, mark and the optional truncation size can be configured from
+> >> userspace.
+> >>
+> >> Example:
+> >> To sample ingress traffic from interface eth1, and redirect the sampled
+> >> the sampled packets to interface dummy0, one may use the commands:
+> >>
+> >> tc qdisc add dev eth1 handle ffff: ingress
+> >>
+> >> tc filter add dev eth1 parent ffff: \
+> >> 	   matchall action sample rate 12 mark 17
+> >
+> >Yotham, I am guessing in the future if one does not want to use mark,
+> >the sample api is extensible to allow for other actions to be added.
+> >This is from the general concern we had on using mark: some may not want to use
+> >mark.
+> >As long as the api is extensible to allow an alternate way in the future,
+> > we should be good. (We would prefer to not go down the path of having to
+> >introduce
+> >a new  'action sample' if this limits us in some way).
 > 
-> >  
-> > +config LOWPORT_SYSCTL
-> > +	bool "Adjust reserved port range via sysctl"
-> > +	depends on SYSCTL
-> > +	help
-> > +	  This allows the administrator to adjust the reserved port range
-> > +	  using a sysctl.
+> The code is extensible  - if one does want to add another action to sample, he 
+> totally can :)
 > 
-> This looks like a good idea, and makes a lot of sense.
-> 
-> Please don't introduce yet another config option. All distro's will enable it anyway.
-> Having more config options doesn't help reliability or testability.
-> 
-> Do or do not, please no new config options.
+> By the way, one of the reasons we removed the patches for now is that we 
+> consider adding mirroring functionality to it instead of heaving two tc-rules.
 
-I'd be happy to take it out.  It simplifies things for me.  I had
-anticipated that there would be objections to permitting software to get
-around the current priviliged port restrictions, and thought that
-perhaps as a compromise having it be compile time option would ease some
-of those concerns.
+Hi Yotham,
 
--K
+I see that this action combines several discrete sub-actions, some of which
+duplicate functionality present in existing actions:
+
+* sample
+* truncate
+* IFE encapsulation with metadata
+* mark
+* output (proposed)
+
+I wonder if it would make sense to provided a mechanism whereby sampled
+packets can be passed on to other actions. Something similar to the
+existing pipe mechanism but allowing for the sampled and the original packets
+to continue to be processed separately.
+
+If so, it may be worth white-listing actions for which sampled packets are
+known to work well to limit the scope for unforseen side effects.
