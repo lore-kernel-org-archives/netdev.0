@@ -1,69 +1,91 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net 9/9] virtio-net: XDP support for small buffers
-Date: Wed, 4 Jan 2017 11:05:48 +0800
-Message-ID: <52a3a959-ff39-8d97-4d68-937dbcb2e5a7@redhat.com>
-References: <1482503852-12438-1-git-send-email-jasowang@redhat.com>
-	<1482503852-12438-10-git-send-email-jasowang@redhat.com>
-	<586AD79B.2070203@gmail.com>
-	<8c896c40-fd25-4b92-fe80-5be18c13dd48@redhat.com>
-	<586BD408.9030009@gmail.com>
+Subject: Re: [net PATCH] net: virtio: cap mtu when XDP programs are running
+Date: Wed, 4 Jan 2017 11:16:07 +0800
+Message-ID: <1caf1ffc-0f46-067e-0f0d-a93b408b4ffd@redhat.com>
+References: <20170102223031.11541.28717.stgit@john-Precision-Tower-5810>
+ <402027b4-58c7-aa1b-5079-74e31448f544@redhat.com>
+ <586BD5D5.6020100@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: john.r.fastabend@intel.com
-To: John Fastabend <john.fastabend@gmail.com>, mst@redhat.com,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <586BD408.9030009@gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org,
+        alexei.starovoitov@gmail.com, daniel@iogearbox.net
+To: John Fastabend <john.fastabend@gmail.com>, mst@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:35222 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1762672AbdADDQX (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 3 Jan 2017 22:16:23 -0500
+In-Reply-To: <586BD5D5.6020100@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-CgpPbiAyMDE35bm0MDHmnIgwNOaXpSAwMDo0MCwgSm9obiBGYXN0YWJlbmQgd3JvdGU6Cj4gT24g
-MTctMDEtMDIgMTA6MTYgUE0sIEphc29uIFdhbmcgd3JvdGU6Cj4+Cj4+IE9uIDIwMTflubQwMeac
-iDAz5pelIDA2OjQzLCBKb2huIEZhc3RhYmVuZCB3cm90ZToKPj4+IE9uIDE2LTEyLTIzIDA2OjM3
-IEFNLCBKYXNvbiBXYW5nIHdyb3RlOgo+Pj4+IENvbW1pdCBmNjAwYjY5MDUwMTUgKCJ2aXJ0aW9f
-bmV0OiBBZGQgWERQIHN1cHBvcnQiKSBsZWF2ZXMgdGhlIGNhc2Ugb2YKPj4+PiBzbWFsbCByZWNl
-aXZlIGJ1ZmZlciB1bnRvdWNoZWQuIFRoaXMgd2lsbCBjb25mdXNlIHRoZSB1c2VyIHdobyB3YW50
-IHRvCj4+Pj4gc2V0IFhEUCBidXQgdXNlIHNtYWxsIGJ1ZmZlcnMuIE90aGVyIHRoYW4gZm9yYmlk
-IFhEUCBpbiBzbWFsbCBidWZmZXIKPj4+PiBtb2RlLCBsZXQncyBtYWtlIGl0IHdvcmsuIFhEUCB0
-aGVuIGNhbiBvbmx5IHdvcmsgYXQgc2tiLT5kYXRhIHNpbmNlCj4+Pj4gdmlydGlvLW5ldCBjcmVh
-dGUgc2ticyBkdXJpbmcgcmVmaWxsLCB0aGlzIGlzIHN1YiBvcHRpbWFsIHdoaWNoIGNvdWxkCj4+
-Pj4gYmUgb3B0aW1pemVkIGluIHRoZSBmdXR1cmUuCj4+Pj4KPj4+PiBDYzogSm9obiBGYXN0YWJl
-bmQgPGpvaG4uci5mYXN0YWJlbmRAaW50ZWwuY29tPgo+Pj4+IFNpZ25lZC1vZmYtYnk6IEphc29u
-IFdhbmcgPGphc293YW5nQHJlZGhhdC5jb20+Cj4+Pj4gLS0tCj4+Pj4gICAgZHJpdmVycy9uZXQv
-dmlydGlvX25ldC5jIHwgMTEyICsrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKy0t
-LS0tLS0tLS0tCj4+Pj4gICAgMSBmaWxlIGNoYW5nZWQsIDg3IGluc2VydGlvbnMoKyksIDI1IGRl
-bGV0aW9ucygtKQo+Pj4+Cj4+PiBIaSBKYXNvbiwKPj4+Cj4+PiBJIHdhcyBkb2luZyBzb21lIG1v
-cmUgdGVzdGluZyBvbiB0aGlzIHdoYXQgZG8geW91IHRoaW5rIGFib3V0IGRvaW5nIHRoaXMKPj4+
-IHNvIHRoYXQgZnJlZV91bnVzZWRfYnVmcygpIGhhbmRsZXMgdGhlIGJ1ZmZlciBmcmVlIHdpdGgg
-ZGV2X2tmcmVlX3NrYigpCj4+PiBpbnN0ZWFkIG9mIHB1dF9wYWdlIGluIHNtYWxsIHJlY2VpdmUg
-bW9kZS4gU2VlbXMgbW9yZSBjb3JyZWN0IHRvIG1lLgo+Pj4KPj4+Cj4+PiBkaWZmIC0tZ2l0IGEv
-ZHJpdmVycy9uZXQvdmlydGlvX25ldC5jIGIvZHJpdmVycy9uZXQvdmlydGlvX25ldC5jCj4+PiBp
-bmRleCA3ODNlODQyLi4yN2ZmNzZjIDEwMDY0NAo+Pj4gLS0tIGEvZHJpdmVycy9uZXQvdmlydGlv
-X25ldC5jCj4+PiArKysgYi9kcml2ZXJzL25ldC92aXJ0aW9fbmV0LmMKPj4+IEBAIC0xODk4LDYg
-KzE4OTgsMTAgQEAgc3RhdGljIHZvaWQgZnJlZV9yZWNlaXZlX3BhZ2VfZnJhZ3Moc3RydWN0IHZp
-cnRuZXRfaW5mbwo+Pj4gKnZpKQo+Pj4KPj4+ICAgIHN0YXRpYyBib29sIGlzX3hkcF9xdWV1ZShz
-dHJ1Y3QgdmlydG5ldF9pbmZvICp2aSwgaW50IHEpCj4+PiAgICB7Cj4+PiArICAgICAgIC8qIEZv
-ciBzbWFsbCByZWNlaXZlIG1vZGUgYWx3YXlzIHVzZSBrZnJlZV9za2IgdmFyaWFudHMgKi8KPj4+
-ICsgICAgICAgaWYgKCF2aS0+bWVyZ2VhYmxlX3J4X2J1ZnMpCj4+PiArICAgICAgICAgICAgICAg
-cmV0dXJuIGZhbHNlOwo+Pj4gKwo+Pj4gICAgICAgICAgIGlmIChxIDwgKHZpLT5jdXJyX3F1ZXVl
-X3BhaXJzIC0gdmktPnhkcF9xdWV1ZV9wYWlycykpCj4+PiAgICAgICAgICAgICAgICAgICByZXR1
-cm4gZmFsc2U7Cj4+PiAgICAgICAgICAgZWxzZSBpZiAocSA8IHZpLT5jdXJyX3F1ZXVlX3BhaXJz
-KQo+Pj4KPj4+Cj4+PiBwYXRjaCBpcyB1bnRlc3RlZCBqdXN0IHNwb3R0ZWQgZG9pbmcgY29kZSBy
-ZXZpZXcuCj4+Pgo+Pj4gVGhhbmtzLAo+Pj4gSm9obgo+PiBXZSBwcm9iYWJseSBuZWVkIGEgYmV0
-dGVyIG5hbWUgZm9yIHRoaXMgZnVuY3Rpb24uCj4+Cj4+IEFja2VkLWJ5OiBKYXNvbiBXYW5nIDxq
-YXNvd2FuZ0ByZWRoYXQuY29tPgo+Pgo+IEhvdyBhYm91dCBpc194ZHBfcmF3X2J1ZmZlcl9xdWV1
-ZSgpPwo+Cj4gSSdsbCBzdWJtaXQgYSBwcm9wZXIgcGF0Y2ggdG9kYXkuCgpTb3VuZHMgZ29vZCwg
-dGhhbmtzLgoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18K
-VmlydHVhbGl6YXRpb24gbWFpbGluZyBsaXN0ClZpcnR1YWxpemF0aW9uQGxpc3RzLmxpbnV4LWZv
-dW5kYXRpb24ub3JnCmh0dHBzOi8vbGlzdHMubGludXhmb3VuZGF0aW9uLm9yZy9tYWlsbWFuL2xp
-c3RpbmZvL3ZpcnR1YWxpemF0aW9u
+  case.
+
+
+
+On 2017年01月04日 00:48, John Fastabend wrote:
+> On 17-01-02 10:14 PM, Jason Wang wrote:
+>>
+>> On 2017年01月03日 06:30, John Fastabend wrote:
+>>> XDP programs can not consume multiple pages so we cap the MTU to
+>>> avoid this case. Virtio-net however only checks the MTU at XDP
+>>> program load and does not block MTU changes after the program
+>>> has loaded.
+>>>
+>>> This patch sets/clears the max_mtu value at XDP load/unload time.
+>>>
+>>> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+>>> ---
+>>>    drivers/net/virtio_net.c |    9 ++++++---
+>>>    1 file changed, 6 insertions(+), 3 deletions(-)
+>>>
+>>> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+>>> index 5deeda6..783e842 100644
+>>> --- a/drivers/net/virtio_net.c
+>>> +++ b/drivers/net/virtio_net.c
+>>> @@ -1699,6 +1699,9 @@ static void virtnet_init_settings(struct net_device *dev)
+>>>        .set_settings = virtnet_set_settings,
+>>>    };
+>>>    +#define MIN_MTU ETH_MIN_MTU
+>>> +#define MAX_MTU ETH_MAX_MTU
+>>> +
+>>>    static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
+>>>    {
+>>>        unsigned long int max_sz = PAGE_SIZE - sizeof(struct padded_vnet_hdr);
+>>> @@ -1748,6 +1751,9 @@ static int virtnet_xdp_set(struct net_device *dev,
+>>> struct bpf_prog *prog)
+>>>                virtnet_set_queues(vi, curr_qp);
+>>>                return PTR_ERR(prog);
+>>>            }
+>>> +        dev->max_mtu = max_sz;
+>>> +    } else {
+>>> +        dev->max_mtu = ETH_MAX_MTU;
+>> Or use ETH_DATA_LEN here consider we only allocate a size of GOOD_PACKET_LEN for
+>> each small buffer?
+>>
+>> Thanks
+> OK so this logic is a bit too simply. When it resets the max_mtu I guess it
+> needs to read the mtu via
+>
+>     virtio_cread16(vdev, ...)
+>
+> or we may break the negotiated mtu.
+
+Yes, this is a problem (even use ETH_MAX_MTU). We may need a method to 
+notify the device about the mtu in this case which is not supported by 
+virtio now.
+>
+> As for capping it at GOOD_PACKET_LEN this has the nice benefit of avoiding any
+> underestimates in EWMA predictions because it appears min estimates are capped
+> at GOOD_PACKET_LEN via get_mergeable_buf_len().
+
+This seems something misunderstanding here, I meant only use 
+GOOD_PACKET_LEN for small buffer (which does not use EWMA).
+
+Thanks
+
+>
+> Thanks,
+> John
+>
