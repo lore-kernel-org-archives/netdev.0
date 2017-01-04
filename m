@@ -1,106 +1,143 @@
-From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [PATCH net-next 5/8] bridge: use __vlan_hwaccel helpers
+From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux-CoA6ZxLDdyEEUmgCuDUIdw@public.gmane.org>
+Subject: [PATCH net-next 8/8] OVS: remove use of VLAN_TAG_PRESENT
 Date: Wed,  4 Jan 2017 01:24:26 +0100 (CET)
-Message-ID: <7e98c3999f4ad1a80a96234b955e8d41791e2ba4.1483488960.git.mirq-linux@rere.qmqm.pl>
+Message-ID: <082c0f169dbd7cad85c5b4a934015000a036ecf4.1483488960.git.mirq-linux@rere.qmqm.pl>
 References: <cover.1483488960.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: bridge@lists.linux-foundation.org, netfilter-devel@vger.kernel.org,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	Patrick McHardy <kaber@trash.net>, Pablo Neira Ayuso <pablo@netfilter.org>
-To: netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <cover.1483488960.git.mirq-linux@rere.qmqm.pl>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <cover.1483488960.git.mirq-linux-CoA6ZxLDdyEEUmgCuDUIdw@public.gmane.org>
+List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
+List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
+	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This removes assumption than vlan_tci != 0 when tag is present.
-
-Signed-off-by: Michał Mirosław <mirq-linux@rere.qmqm.pl>
----
- net/bridge/br_netfilter_hooks.c | 15 +++++++++------
- net/bridge/br_private.h         |  2 +-
- net/bridge/br_vlan.c            |  6 +++---
- 3 files changed, 13 insertions(+), 10 deletions(-)
-
-diff --git a/net/bridge/br_netfilter_hooks.c b/net/bridge/br_netfilter_hooks.c
-index 8ca6a929bf12..b62177a980e1 100644
---- a/net/bridge/br_netfilter_hooks.c
-+++ b/net/bridge/br_netfilter_hooks.c
-@@ -682,10 +682,8 @@ static int br_nf_push_frag_xmit(struct net *net, struct sock *sk, struct sk_buff
- 		return 0;
- 	}
- 
--	if (data->vlan_tci) {
--		skb->vlan_tci = data->vlan_tci;
--		skb->vlan_proto = data->vlan_proto;
--	}
-+	if (data->vlan_proto)
-+		__vlan_hwaccel_put_tag(skb, data->vlan_proto, data->vlan_tci);
- 
- 	skb_copy_to_linear_data_offset(skb, -data->size, data->mac, data->size);
- 	__skb_push(skb, data->encap_size);
-@@ -749,8 +747,13 @@ static int br_nf_dev_queue_xmit(struct net *net, struct sock *sk, struct sk_buff
- 
- 		data = this_cpu_ptr(&brnf_frag_data_storage);
- 
--		data->vlan_tci = skb->vlan_tci;
--		data->vlan_proto = skb->vlan_proto;
-+		if (skb_vlan_tag_present(skb)) {
-+			data->vlan_tci = skb->vlan_tci;
-+			data->vlan_proto = skb->vlan_proto;
-+		} else {
-+			data->vlan_proto = 0;
-+		}
-+
- 		data->encap_size = nf_bridge_encap_header_len(skb);
- 		data->size = ETH_HLEN + data->encap_size;
- 
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index 8ce621e8345c..2efbdaf9ae1b 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -819,7 +819,7 @@ static inline int br_vlan_get_tag(const struct sk_buff *skb, u16 *vid)
- 	int err = 0;
- 
- 	if (skb_vlan_tag_present(skb)) {
--		*vid = skb_vlan_tag_get(skb) & VLAN_VID_MASK;
-+		*vid = skb_vlan_tag_get_id(skb);
- 	} else {
- 		*vid = 0;
- 		err = -EINVAL;
-diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
-index b6de4f457161..d25a5b34dc76 100644
---- a/net/bridge/br_vlan.c
-+++ b/net/bridge/br_vlan.c
-@@ -377,7 +377,7 @@ struct sk_buff *br_handle_vlan(struct net_bridge *br,
- 	}
- 
- 	if (v->flags & BRIDGE_VLAN_INFO_UNTAGGED)
--		skb->vlan_tci = 0;
-+		__vlan_hwaccel_clear_tag(skb);
- out:
- 	return skb;
- }
-@@ -444,8 +444,8 @@ static bool __allowed_ingress(const struct net_bridge *br,
- 			__vlan_hwaccel_put_tag(skb, br->vlan_proto, pvid);
- 		else
- 			/* Priority-tagged Frame.
--			 * At this point, We know that skb->vlan_tci had
--			 * VLAN_TAG_PRESENT bit and its VID field was 0x000.
-+			 * At this point, we know that skb->vlan_tci VID
-+			 * field was 0.
- 			 * We update only VID field and preserve PCP field.
- 			 */
- 			skb->vlan_tci |= pvid;
--- 
-2.11.0
+VGhpcyBpcyBhIG1pbmltYWwgY2hhbmdlIHRvIGFsbG93IHJlbW92aW5nIG9mIFZMQU5fVEFHX1BS
+RVNFTlQuCkl0IGxlYXZlcyBPVlMgdW5hYmxlIHRvIHVzZSBDRkkgYml0LCBhcyBmaXhpbmcgdGhp
+cyB3b3VsZCBuZWVkCmEgZGVlcGVyIHN1cmdlcnkgaW52b2x2aW5nIHVzZXJzcGFjZSBpbnRlcmZh
+Y2UuCgpTaWduZWQtb2ZmLWJ5OiBNaWNoYcWCIE1pcm9zxYJhdyA8bWlycS1saW51eEByZXJlLnFt
+cW0ucGw+Ci0tLQp2MjogcmVtb3ZlZCB1c2Vyc3BhY2UtZmFjaW5nIGNoYW5nZXMKCiBuZXQvb3Bl
+bnZzd2l0Y2gvYWN0aW9ucy5jICAgICAgfCAxMyArKysrKysrKystLS0tCiBuZXQvb3BlbnZzd2l0
+Y2gvZmxvdy5jICAgICAgICAgfCAgNCArKy0tCiBuZXQvb3BlbnZzd2l0Y2gvZmxvdy5oICAgICAg
+ICAgfCAgMiArLQogbmV0L29wZW52c3dpdGNoL2Zsb3dfbmV0bGluay5jIHwgMjIgKysrKysrKysr
+KystLS0tLS0tLS0tLQogNCBmaWxlcyBjaGFuZ2VkLCAyMyBpbnNlcnRpb25zKCspLCAxOCBkZWxl
+dGlvbnMoLSkKCmRpZmYgLS1naXQgYS9uZXQvb3BlbnZzd2l0Y2gvYWN0aW9ucy5jIGIvbmV0L29w
+ZW52c3dpdGNoL2FjdGlvbnMuYwppbmRleCA1MTRmN2JjZjdjNjMuLmZiNDE4MzM0MjNlYSAxMDA2
+NDQKLS0tIGEvbmV0L29wZW52c3dpdGNoL2FjdGlvbnMuYworKysgYi9uZXQvb3BlbnZzd2l0Y2gv
+YWN0aW9ucy5jCkBAIC0yNzgsNyArMjc4LDcgQEAgc3RhdGljIGludCBwdXNoX3ZsYW4oc3RydWN0
+IHNrX2J1ZmYgKnNrYiwgc3RydWN0IHN3X2Zsb3dfa2V5ICprZXksCiAJCWtleS0+ZXRoLnZsYW4u
+dHBpZCA9IHZsYW4tPnZsYW5fdHBpZDsKIAl9CiAJcmV0dXJuIHNrYl92bGFuX3B1c2goc2tiLCB2
+bGFuLT52bGFuX3RwaWQsCi0JCQkgICAgIG50b2hzKHZsYW4tPnZsYW5fdGNpKSAmIH5WTEFOX1RB
+R19QUkVTRU5UKTsKKwkJCSAgICAgbnRvaHModmxhbi0+dmxhbl90Y2kpICYgflZMQU5fQ0ZJX01B
+U0spOwogfQogCiAvKiAnc3JjJyBpcyBhbHJlYWR5IHByb3Blcmx5IG1hc2tlZC4gKi8KQEAgLTcw
+NCw4ICs3MDQsMTAgQEAgc3RhdGljIGludCBvdnNfdnBvcnRfb3V0cHV0KHN0cnVjdCBuZXQgKm5l
+dCwgc3RydWN0IHNvY2sgKnNrLCBzdHJ1Y3Qgc2tfYnVmZiAqc2sKIAlfX3NrYl9kc3RfY29weShz
+a2IsIGRhdGEtPmRzdCk7CiAJKk9WU19DQihza2IpID0gZGF0YS0+Y2I7CiAJc2tiLT5pbm5lcl9w
+cm90b2NvbCA9IGRhdGEtPmlubmVyX3Byb3RvY29sOwotCXNrYi0+dmxhbl90Y2kgPSBkYXRhLT52
+bGFuX3RjaTsKLQlza2ItPnZsYW5fcHJvdG8gPSBkYXRhLT52bGFuX3Byb3RvOworCWlmIChkYXRh
+LT52bGFuX3RjaSAmIFZMQU5fQ0ZJX01BU0spCisJCV9fdmxhbl9od2FjY2VsX3B1dF90YWcoc2ti
+LCBkYXRhLT52bGFuX3Byb3RvLCBkYXRhLT52bGFuX3RjaSAmIH5WTEFOX0NGSV9NQVNLKTsKKwll
+bHNlCisJCV9fdmxhbl9od2FjY2VsX2NsZWFyX3RhZyhza2IpOwogCiAJLyogUmVjb25zdHJ1Y3Qg
+dGhlIE1BQyBoZWFkZXIuICAqLwogCXNrYl9wdXNoKHNrYiwgZGF0YS0+bDJfbGVuKTsKQEAgLTc0
+OSw3ICs3NTEsMTAgQEAgc3RhdGljIHZvaWQgcHJlcGFyZV9mcmFnKHN0cnVjdCB2cG9ydCAqdnBv
+cnQsIHN0cnVjdCBza19idWZmICpza2IsCiAJZGF0YS0+Y2IgPSAqT1ZTX0NCKHNrYik7CiAJZGF0
+YS0+aW5uZXJfcHJvdG9jb2wgPSBza2ItPmlubmVyX3Byb3RvY29sOwogCWRhdGEtPm5ldHdvcmtf
+b2Zmc2V0ID0gb3JpZ19uZXR3b3JrX29mZnNldDsKLQlkYXRhLT52bGFuX3RjaSA9IHNrYi0+dmxh
+bl90Y2k7CisJaWYgKHNrYl92bGFuX3RhZ19wcmVzZW50KHNrYikpCisJCWRhdGEtPnZsYW5fdGNp
+ID0gc2tiX3ZsYW5fdGFnX2dldChza2IpIHwgVkxBTl9DRklfTUFTSzsKKwllbHNlCisJCWRhdGEt
+PnZsYW5fdGNpID0gMDsKIAlkYXRhLT52bGFuX3Byb3RvID0gc2tiLT52bGFuX3Byb3RvOwogCWRh
+dGEtPm1hY19wcm90byA9IG1hY19wcm90bzsKIAlkYXRhLT5sMl9sZW4gPSBobGVuOwpkaWZmIC0t
+Z2l0IGEvbmV0L29wZW52c3dpdGNoL2Zsb3cuYyBiL25ldC9vcGVudnN3aXRjaC9mbG93LmMKaW5k
+ZXggMmMwYTAwZjdmMWI3Li5lNjMyZGU2MDMwODEgMTAwNjQ0Ci0tLSBhL25ldC9vcGVudnN3aXRj
+aC9mbG93LmMKKysrIGIvbmV0L29wZW52c3dpdGNoL2Zsb3cuYwpAQCAtMzI4LDcgKzMyOCw3IEBA
+IHN0YXRpYyBpbnQgcGFyc2Vfdmxhbl90YWcoc3RydWN0IHNrX2J1ZmYgKnNrYiwgc3RydWN0IHZs
+YW5faGVhZCAqa2V5X3ZoLAogCQlyZXR1cm4gLUVOT01FTTsKIAogCXZoID0gKHN0cnVjdCB2bGFu
+X2hlYWQgKilza2ItPmRhdGE7Ci0Ja2V5X3ZoLT50Y2kgPSB2aC0+dGNpIHwgaHRvbnMoVkxBTl9U
+QUdfUFJFU0VOVCk7CisJa2V5X3ZoLT50Y2kgPSB2aC0+dGNpIHwgaHRvbnMoVkxBTl9DRklfTUFT
+Syk7CiAJa2V5X3ZoLT50cGlkID0gdmgtPnRwaWQ7CiAKIAlpZiAodW5saWtlbHkodW50YWdfdmxh
+bikpIHsKQEAgLTM2MSw3ICszNjEsNyBAQCBzdGF0aWMgaW50IHBhcnNlX3ZsYW4oc3RydWN0IHNr
+X2J1ZmYgKnNrYiwgc3RydWN0IHN3X2Zsb3dfa2V5ICprZXkpCiAJaW50IHJlczsKIAogCWlmIChz
+a2Jfdmxhbl90YWdfcHJlc2VudChza2IpKSB7Ci0JCWtleS0+ZXRoLnZsYW4udGNpID0gaHRvbnMo
+c2tiLT52bGFuX3RjaSk7CisJCWtleS0+ZXRoLnZsYW4udGNpID0gaHRvbnMoc2tiLT52bGFuX3Rj
+aSkgfCBodG9ucyhWTEFOX0NGSV9NQVNLKTsKIAkJa2V5LT5ldGgudmxhbi50cGlkID0gc2tiLT52
+bGFuX3Byb3RvOwogCX0gZWxzZSB7CiAJCS8qIFBhcnNlIG91dGVyIHZsYW4gdGFnIGluIHRoZSBu
+b24tYWNjZWxlcmF0ZWQgY2FzZS4gKi8KZGlmZiAtLWdpdCBhL25ldC9vcGVudnN3aXRjaC9mbG93
+LmggYi9uZXQvb3BlbnZzd2l0Y2gvZmxvdy5oCmluZGV4IGY2MWNhZTdmOTAzMC4uYzg3MjRjYTJl
+NGMzIDEwMDY0NAotLS0gYS9uZXQvb3BlbnZzd2l0Y2gvZmxvdy5oCisrKyBiL25ldC9vcGVudnN3
+aXRjaC9mbG93LmgKQEAgLTU4LDcgKzU4LDcgQEAgc3RydWN0IG92c190dW5uZWxfaW5mbyB7CiAK
+IHN0cnVjdCB2bGFuX2hlYWQgewogCV9fYmUxNiB0cGlkOyAvKiBWbGFuIHR5cGUuIEdlbmVyYWxs
+eSA4MDIuMXEgb3IgODAyLjFhZC4qLwotCV9fYmUxNiB0Y2k7ICAvKiAwIGlmIG5vIFZMQU4sIFZM
+QU5fVEFHX1BSRVNFTlQgc2V0IG90aGVyd2lzZS4gKi8KKwlfX2JlMTYgdGNpOyAgLyogMCBpZiBu
+byBWTEFOLCBWTEFOX0NGSV9NQVNLIHNldCBvdGhlcndpc2UuICovCiB9OwogCiAjZGVmaW5lIE9W
+U19TV19GTE9XX0tFWV9NRVRBREFUQV9TSVpFCQkJXApkaWZmIC0tZ2l0IGEvbmV0L29wZW52c3dp
+dGNoL2Zsb3dfbmV0bGluay5jIGIvbmV0L29wZW52c3dpdGNoL2Zsb3dfbmV0bGluay5jCmluZGV4
+IGM4N2QzNTliOWIzNy4uMDVhMzE5NTBmNjljIDEwMDY0NAotLS0gYS9uZXQvb3BlbnZzd2l0Y2gv
+Zmxvd19uZXRsaW5rLmMKKysrIGIvbmV0L29wZW52c3dpdGNoL2Zsb3dfbmV0bGluay5jCkBAIC04
+NTMsOSArODUzLDkgQEAgc3RhdGljIGludCB2YWxpZGF0ZV92bGFuX2Zyb21fbmxhdHRycyhjb25z
+dCBzdHJ1Y3Qgc3dfZmxvd19tYXRjaCAqbWF0Y2gsCiAJaWYgKGFbT1ZTX0tFWV9BVFRSX1ZMQU5d
+KQogCQl0Y2kgPSBubGFfZ2V0X2JlMTYoYVtPVlNfS0VZX0FUVFJfVkxBTl0pOwogCi0JaWYgKCEo
+dGNpICYgaHRvbnMoVkxBTl9UQUdfUFJFU0VOVCkpKSB7CisJaWYgKCEodGNpICYgaHRvbnMoVkxB
+Tl9DRklfTUFTSykpKSB7CiAJCWlmICh0Y2kpIHsKLQkJCU9WU19OTEVSUihsb2csICIlcyBUQ0kg
+ZG9lcyBub3QgaGF2ZSBWTEFOX1RBR19QUkVTRU5UIGJpdCBzZXQuIiwKKwkJCU9WU19OTEVSUihs
+b2csICIlcyBUQ0kgZG9lcyBub3QgaGF2ZSBWTEFOX0NGSV9NQVNLIGJpdCBzZXQuIiwKIAkJCQkg
+IChpbm5lcikgPyAiQy1WTEFOIiA6ICJWTEFOIik7CiAJCQlyZXR1cm4gLUVJTlZBTDsKIAkJfSBl
+bHNlIGlmIChubGFfbGVuKGFbT1ZTX0tFWV9BVFRSX0VOQ0FQXSkpIHsKQEAgLTg3Niw5ICs4NzYs
+OSBAQCBzdGF0aWMgaW50IHZhbGlkYXRlX3ZsYW5fbWFza19mcm9tX25sYXR0cnMoY29uc3Qgc3Ry
+dWN0IHN3X2Zsb3dfbWF0Y2ggKm1hdGNoLAogCV9fYmUxNiB0Y2kgPSAwOwogCV9fYmUxNiB0cGlk
+ID0gMDsKIAlib29sIGVuY2FwX3ZhbGlkID0gISEobWF0Y2gtPmtleS0+ZXRoLnZsYW4udGNpICYK
+LQkJCSAgICAgIGh0b25zKFZMQU5fVEFHX1BSRVNFTlQpKTsKKwkJCSAgICAgIGh0b25zKFZMQU5f
+Q0ZJX01BU0spKTsKIAlib29sIGlfZW5jYXBfdmFsaWQgPSAhIShtYXRjaC0+a2V5LT5ldGguY3Zs
+YW4udGNpICYKLQkJCQlodG9ucyhWTEFOX1RBR19QUkVTRU5UKSk7CisJCQkJaHRvbnMoVkxBTl9D
+RklfTUFTSykpOwogCiAJaWYgKCEoa2V5X2F0dHJzICYgKDEgPDwgT1ZTX0tFWV9BVFRSX0VOQ0FQ
+KSkpIHsKIAkJLyogTm90IGEgVkxBTi4gKi8KQEAgLTkwMiw4ICs5MDIsOCBAQCBzdGF0aWMgaW50
+IHZhbGlkYXRlX3ZsYW5fbWFza19mcm9tX25sYXR0cnMoY29uc3Qgc3RydWN0IHN3X2Zsb3dfbWF0
+Y2ggKm1hdGNoLAogCQkJICAoaW5uZXIpID8gIkMtVkxBTiIgOiAiVkxBTiIsIG50b2hzKHRwaWQp
+KTsKIAkJcmV0dXJuIC1FSU5WQUw7CiAJfQotCWlmICghKHRjaSAmIGh0b25zKFZMQU5fVEFHX1BS
+RVNFTlQpKSkgewotCQlPVlNfTkxFUlIobG9nLCAiJXMgVENJIG1hc2sgZG9lcyBub3QgaGF2ZSBl
+eGFjdCBtYXRjaCBmb3IgVkxBTl9UQUdfUFJFU0VOVCBiaXQuIiwKKwlpZiAoISh0Y2kgJiBodG9u
+cyhWTEFOX0NGSV9NQVNLKSkpIHsKKwkJT1ZTX05MRVJSKGxvZywgIiVzIFRDSSBtYXNrIGRvZXMg
+bm90IGhhdmUgZXhhY3QgbWF0Y2ggZm9yIFZMQU5fQ0ZJX01BU0sgYml0LiIsCiAJCQkgIChpbm5l
+cikgPyAiQy1WTEFOIiA6ICJWTEFOIik7CiAJCXJldHVybiAtRUlOVkFMOwogCX0KQEAgLTk1OCw3
+ICs5NTgsNyBAQCBzdGF0aWMgaW50IHBhcnNlX3ZsYW5fZnJvbV9ubGF0dHJzKHN0cnVjdCBzd19m
+bG93X21hdGNoICptYXRjaCwKIAlpZiAoZXJyKQogCQlyZXR1cm4gZXJyOwogCi0JZW5jYXBfdmFs
+aWQgPSAhIShtYXRjaC0+a2V5LT5ldGgudmxhbi50Y2kgJiBodG9ucyhWTEFOX1RBR19QUkVTRU5U
+KSk7CisJZW5jYXBfdmFsaWQgPSAhIShtYXRjaC0+a2V5LT5ldGgudmxhbi50Y2kgJiBodG9ucyhW
+TEFOX0NGSV9NQVNLKSk7CiAJaWYgKGVuY2FwX3ZhbGlkKSB7CiAJCWVyciA9IF9fcGFyc2Vfdmxh
+bl9mcm9tX25sYXR0cnMobWF0Y2gsIGtleV9hdHRycywgdHJ1ZSwgYSwKIAkJCQkJCWlzX21hc2ss
+IGxvZyk7CkBAIC0yNDQ1LDcgKzI0NDUsNyBAQCBzdGF0aWMgaW50IF9fb3ZzX25sYV9jb3B5X2Fj
+dGlvbnMoc3RydWN0IG5ldCAqbmV0LCBjb25zdCBzdHJ1Y3QgbmxhdHRyICphdHRyLAogCQkJdmxh
+biA9IG5sYV9kYXRhKGEpOwogCQkJaWYgKCFldGhfdHlwZV92bGFuKHZsYW4tPnZsYW5fdHBpZCkp
+CiAJCQkJcmV0dXJuIC1FSU5WQUw7Ci0JCQlpZiAoISh2bGFuLT52bGFuX3RjaSAmIGh0b25zKFZM
+QU5fVEFHX1BSRVNFTlQpKSkKKwkJCWlmICghKHZsYW4tPnZsYW5fdGNpICYgaHRvbnMoVkxBTl9D
+RklfTUFTSykpKQogCQkJCXJldHVybiAtRUlOVkFMOwogCQkJdmxhbl90Y2kgPSB2bGFuLT52bGFu
+X3RjaTsKIAkJCWJyZWFrOwpAQCAtMjQ2MSw3ICsyNDYxLDcgQEAgc3RhdGljIGludCBfX292c19u
+bGFfY29weV9hY3Rpb25zKHN0cnVjdCBuZXQgKm5ldCwgY29uc3Qgc3RydWN0IG5sYXR0ciAqYXR0
+ciwKIAkJCS8qIFByb2hpYml0IHB1c2ggTVBMUyBvdGhlciB0aGFuIHRvIGEgd2hpdGUgbGlzdAog
+CQkJICogZm9yIHBhY2tldHMgdGhhdCBoYXZlIGEga25vd24gdGFnIG9yZGVyLgogCQkJICovCi0J
+CQlpZiAodmxhbl90Y2kgJiBodG9ucyhWTEFOX1RBR19QUkVTRU5UKSB8fAorCQkJaWYgKHZsYW5f
+dGNpICYgaHRvbnMoVkxBTl9DRklfTUFTSykgfHwKIAkJCSAgICAoZXRoX3R5cGUgIT0gaHRvbnMo
+RVRIX1BfSVApICYmCiAJCQkgICAgIGV0aF90eXBlICE9IGh0b25zKEVUSF9QX0lQVjYpICYmCiAJ
+CQkgICAgIGV0aF90eXBlICE9IGh0b25zKEVUSF9QX0FSUCkgJiYKQEAgLTI0NzMsNyArMjQ3Myw3
+IEBAIHN0YXRpYyBpbnQgX19vdnNfbmxhX2NvcHlfYWN0aW9ucyhzdHJ1Y3QgbmV0ICpuZXQsIGNv
+bnN0IHN0cnVjdCBubGF0dHIgKmF0dHIsCiAJCX0KIAogCQljYXNlIE9WU19BQ1RJT05fQVRUUl9Q
+T1BfTVBMUzoKLQkJCWlmICh2bGFuX3RjaSAmIGh0b25zKFZMQU5fVEFHX1BSRVNFTlQpIHx8CisJ
+CQlpZiAodmxhbl90Y2kgJiBodG9ucyhWTEFOX0NGSV9NQVNLKSB8fAogCQkJICAgICFldGhfcF9t
+cGxzKGV0aF90eXBlKSkKIAkJCQlyZXR1cm4gLUVJTlZBTDsKIApAQCAtMjUzMSw3ICsyNTMxLDcg
+QEAgc3RhdGljIGludCBfX292c19ubGFfY29weV9hY3Rpb25zKHN0cnVjdCBuZXQgKm5ldCwgY29u
+c3Qgc3RydWN0IG5sYXR0ciAqYXR0ciwKIAkJY2FzZSBPVlNfQUNUSU9OX0FUVFJfUE9QX0VUSDoK
+IAkJCWlmIChtYWNfcHJvdG8gIT0gTUFDX1BST1RPX0VUSEVSTkVUKQogCQkJCXJldHVybiAtRUlO
+VkFMOwotCQkJaWYgKHZsYW5fdGNpICYgaHRvbnMoVkxBTl9UQUdfUFJFU0VOVCkpCisJCQlpZiAo
+dmxhbl90Y2kgJiBodG9ucyhWTEFOX0NGSV9NQVNLKSkKIAkJCQlyZXR1cm4gLUVJTlZBTDsKIAkJ
+CW1hY19wcm90byA9IE1BQ19QUk9UT19FVEhFUk5FVDsKIAkJCWJyZWFrOwotLSAKMi4xMS4wCgpf
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGlu
+ZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cHM6Ly9tYWlsLm9wZW52c3dpdGNoLm9yZy9t
+YWlsbWFuL2xpc3RpbmZvL292cy1kZXYK
