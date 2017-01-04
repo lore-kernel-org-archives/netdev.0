@@ -1,33 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] Preparation for VLAN_TAG_PRESENT cleanup
-Date: Tue, 03 Jan 2017 22:23:32 -0500 (EST)
-Message-ID: <20170103.222332.1319598673818705870.davem@davemloft.net>
-References: <cover.1483487429.git.mirq-linux@rere.qmqm.pl>
+From: Jie Deng <Jie.Deng1@synopsys.com>
+Subject: [PATCH net-next] net: phy: add extension of phy-mode for XLGMII
+Date: Wed, 4 Jan 2017 13:04:04 +0800
+Message-ID: <b5378ab79043fe46027756546c17e0a54df4a9f0.1483505550.git.jiedeng@synopsys.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: mirq-linux@rere.qmqm.pl
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36884 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S935135AbdADDeX (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2017 22:34:23 -0500
-In-Reply-To: <cover.1483487429.git.mirq-linux@rere.qmqm.pl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        Jie Deng <Jie.Deng1@synopsys.com>
+To: <f.fainelli@gmail.com>, <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+The Synopsys DWC_xlgmac core provides a multiplexed 40-Gigabit
+Media-Independent Interface (XLGMII, an IEEE 802.3 Clause 81
+compliant reconciliation sub-layer) for communication with
+the 100/50/40/25-Gigabit PHY and 10-Gigabit Media-Independent
+Interface (XGMII, an IEEE 802.3 Clause 46 compliant reconciliation
+sub-layer) for communication with the 10-Gigabit PHY.
 
-By submitted these in sections, but all at once, you are subverting
-my requirement to submit only small self contained patch series.
+Currently, There are only interface mode definitions for "xgmii".
+This patch adds the definitions for the PHY layer to recognize
+"xlgmii" as a valid PHY interface.
 
-Please do not do this.
+Signed-off-by: Jie Deng <jiedeng@synopsys.com>
+---
+ include/linux/phy.h | 3 +++
+ 1 file changed, 3 insertions(+)
 
-The whole point is to not have a lot of patches in flight for one
-thing for people to review at one time.  Contributors can review
-more easily small, easily digestable, pieces.
-
-Start over, and only submit small numbers of patches at one time.  Do
-not submit new patches until the first series has been processed.
-
-Thank you.
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index f7d95f6..7b6bfb3 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -82,6 +82,7 @@
+ 	PHY_INTERFACE_MODE_MOCA,
+ 	PHY_INTERFACE_MODE_QSGMII,
+ 	PHY_INTERFACE_MODE_TRGMII,
++	PHY_INTERFACE_MODE_XLGMII,
+ 	PHY_INTERFACE_MODE_MAX,
+ } phy_interface_t;
+ 
+@@ -142,6 +143,8 @@ static inline const char *phy_modes(phy_interface_t interface)
+ 		return "qsgmii";
+ 	case PHY_INTERFACE_MODE_TRGMII:
+ 		return "trgmii";
++	case PHY_INTERFACE_MODE_XLGMII:
++		return "xlgmii";
+ 	default:
+ 		return "unknown";
+ 	}
+-- 
+1.9.1
