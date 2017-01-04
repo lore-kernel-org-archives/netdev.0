@@ -1,47 +1,42 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 1/2] net:dsa: fix dsa_dst_del_ds()
-Date: Wed, 4 Jan 2017 03:45:53 +0100
-Message-ID: <20170104024553.GC10768@lunn.ch>
-References: <1481129585-9084-1-git-send-email-volodymyr.bendiuga@westermo.se>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next V2 3/3] tun: rx batching
+Date: Wed, 4 Jan 2017 11:03:32 +0800
+Message-ID: <73da2ef8-2454-5614-d637-0ce7c5287433@redhat.com>
+References: <1482912571-3157-1-git-send-email-jasowang@redhat.com>
+	<1482912571-3157-4-git-send-email-jasowang@redhat.com>
+	<20170103133303.GC14707@stefanha-x1.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
-        davem@davemloft.net, netdev@vger.kernel.org,
-        volodymyr.bendiuga@gmail.com
-To: Volodymyr Bendiuga <volodymyr.bendiuga@westermo.se>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:42588 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1758805AbdADCqa (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 3 Jan 2017 21:46:30 -0500
-Content-Disposition: inline
-In-Reply-To: <1481129585-9084-1-git-send-email-volodymyr.bendiuga@westermo.se>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, kvm@vger.kernel.org, mst@redhat.com
+To: Stefan Hajnoczi <stefanha@gmail.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20170103133303.GC14707@stefanha-x1.localdomain>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 07, 2016 at 05:53:05PM +0100, Volodymyr Bendiuga wrote:
-> When dsa_dst_del_ds() is called, do not free the whole list,
-> instead, only decrement refcount for the switch tree. The list
-> will be deleted in dsa_put_dst() if refcount is 0. Nothing
-> really needs to be freed for dsa switch, therefore dsa_free_ds()
-> is empty. kref_put() will print warning if dsa_free_ds() is not
-> passed as a parameter to it.
-
-This does not look correct. I would expect there to be some symmetry.
-
-The dst gets allocated in _dsa_register_switch(), so it should be
-freed somewhere in or under _dsa_unregister_switch(). As you say, it
-can be freed from dsa_free_dst(), but that is not called from
-_dsa_unregister_switch().
-
-dsa_dst_add_ds() and dsa_dst_del_ds() currently look symmetric.  Add
-increments the ref count for the tree, del decrements it. When it
-reaches zero, the tree is freed. 
-
-dsa_dst_del_ds() is called from _dsa_unregister_switch(), which gives
-us the symmetry with _dsa_register_switch().
-
-What problem are you actually seeing? A double free? A use after free?
-
-Thanks
-	Andrew
+CgpPbiAyMDE35bm0MDHmnIgwM+aXpSAyMTozMywgU3RlZmFuIEhham5vY3ppIHdyb3RlOgo+IE9u
+IFdlZCwgRGVjIDI4LCAyMDE2IGF0IDA0OjA5OjMxUE0gKzA4MDAsIEphc29uIFdhbmcgd3JvdGU6
+Cj4+ICtzdGF0aWMgaW50IHR1bl9yeF9iYXRjaGVkKHN0cnVjdCB0dW5fZmlsZSAqdGZpbGUsIHN0
+cnVjdCBza19idWZmICpza2IsCj4+ICsJCQkgIGludCBtb3JlKQo+PiArewo+PiArCXN0cnVjdCBz
+a19idWZmX2hlYWQgKnF1ZXVlID0gJnRmaWxlLT5zay5za193cml0ZV9xdWV1ZTsKPj4gKwlzdHJ1
+Y3Qgc2tfYnVmZl9oZWFkIHByb2Nlc3NfcXVldWU7Cj4+ICsJaW50IHFsZW47Cj4+ICsJYm9vbCBy
+Y3YgPSBmYWxzZTsKPj4gKwo+PiArCXNwaW5fbG9jaygmcXVldWUtPmxvY2spOwo+IFNob3VsZCB0
+aGlzIGJlIHNwaW5fbG9ja19iaCgpPyAgQmVsb3cgYW5kIGluIHR1bl9nZXRfdXNlcigpIHRoZXJl
+IGFyZQo+IGV4cGxpY2l0IGxvY2FsX2JoX2Rpc2FibGUoKSBjYWxscyBzbyBJIGd1ZXNzIEJIcyBj
+YW4gaW50ZXJydXB0IHVzIGhlcmUKPiBhbmQgdGhpcyB3b3VsZCBkZWFkbG9jay4KCnNrX3dyaXRl
+X3F1ZXVlIHdlcmUgYWNjZXNzZWQgb25seSBpbiB0aGlzIGZ1bmN0aW9uIHdoaWNoIHJ1bnMgdW5k
+ZXIgCnByb2Nlc3MgY29udGV4dCwgc28gbm8gbmVlZCBmb3Igc3Bpbl9sb2NrX2JoKCkgaGVyZS4K
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KVmlydHVhbGl6
+YXRpb24gbWFpbGluZyBsaXN0ClZpcnR1YWxpemF0aW9uQGxpc3RzLmxpbnV4LWZvdW5kYXRpb24u
+b3JnCmh0dHBzOi8vbGlzdHMubGludXhmb3VuZGF0aW9uLm9yZy9tYWlsbWFuL2xpc3RpbmZvL3Zp
+cnR1YWxpemF0aW9u
