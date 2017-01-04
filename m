@@ -1,54 +1,64 @@
 From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [PATCH net-next 1/6] net/skbuff: add macros for VLAN_PRESENT bit
-Date: Wed,  4 Jan 2017 02:18:26 +0100 (CET)
-Message-ID: <1ff3cba5536ca5a07f6496b9c80c646738956a8f.1483492355.git.mirq-linux@rere.qmqm.pl>
+Subject: [PATCH net-next 4/6] net/bpf_jit: PPC: split VLAN_PRESENT bit
+ handling from VLAN_TCI
+Date: Wed,  4 Jan 2017 02:18:27 +0100 (CET)
+Message-ID: <e15c116d1c4ffeeab51dd611f64404cd6556cde1.1483492355.git.mirq-linux@rere.qmqm.pl>
 References: <cover.1483492355.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
-Cc: Russell King <linux@armlinux.org.uk>,
-        Ralf Baechle <ralf@linux-mips.org>,
-        Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-        Paul Mackerras <paulus@samba.org>,
-        Michael Ellerman <mpe@ellerman.id.au>,
-        "David S. Miller" <davem@davemloft.net>,
-        linux-arm-kernel@lists.infradead.org, linux-mips@linux-mips.org,
-        linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org
+Cc: Paul Mackerras <paulus@samba.org>, linuxppc-dev@lists.ozlabs.org
 To: netdev@vger.kernel.org
-Return-path: <linux-mips-bounce@linux-mips.org>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 In-Reply-To: <cover.1483492355.git.mirq-linux@rere.qmqm.pl>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-help: <mailto:ecartis@linux-mips.org?Subject=help>
-List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
-List-software: Ecartis version 1.0.0
-List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
-List-owner: <mailto:ralf@linux-mips.org>
-List-post: <mailto:linux-mips@linux-mips.org>
-List-archive: <http://www.linux-mips.org/archives/linux-mips/>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Michał Mirosław <mirq-linux@rere.qmqm.pl>
 ---
- include/linux/skbuff.h | 6 ++++++
- 1 file changed, 6 insertions(+)
+ arch/powerpc/net/bpf_jit_comp.c | 17 +++++++++--------
+ 1 file changed, 9 insertions(+), 8 deletions(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index b53c0cfd417e..168c3e486bd4 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -768,6 +768,12 @@ struct sk_buff {
- 	__u32			priority;
- 	int			skb_iif;
- 	__u32			hash;
-+#define PKT_VLAN_PRESENT_BIT	4	// CFI (12-th bit) in TCI
-+#ifdef __BIG_ENDIAN
-+#define PKT_VLAN_PRESENT_OFFSET()	offsetof(struct sk_buff, vlan_tci)
-+#else
-+#define PKT_VLAN_PRESENT_OFFSET()	(offsetof(struct sk_buff, vlan_tci) + 1)
+diff --git a/arch/powerpc/net/bpf_jit_comp.c b/arch/powerpc/net/bpf_jit_comp.c
+index 7e706f36e364..22ae63fb9b7d 100644
+--- a/arch/powerpc/net/bpf_jit_comp.c
++++ b/arch/powerpc/net/bpf_jit_comp.c
+@@ -377,18 +377,19 @@ static int bpf_jit_build_body(struct bpf_prog *fp, u32 *image,
+ 							  hash));
+ 			break;
+ 		case BPF_ANC | SKF_AD_VLAN_TAG:
+-		case BPF_ANC | SKF_AD_VLAN_TAG_PRESENT:
+ 			BUILD_BUG_ON(FIELD_SIZEOF(struct sk_buff, vlan_tci) != 2);
+-			BUILD_BUG_ON(VLAN_TAG_PRESENT != 0x1000);
+ 
+ 			PPC_LHZ_OFFS(r_A, r_skb, offsetof(struct sk_buff,
+ 							  vlan_tci));
+-			if (code == (BPF_ANC | SKF_AD_VLAN_TAG)) {
+-				PPC_ANDI(r_A, r_A, ~VLAN_TAG_PRESENT);
+-			} else {
+-				PPC_ANDI(r_A, r_A, VLAN_TAG_PRESENT);
+-				PPC_SRWI(r_A, r_A, 12);
+-			}
++#ifdef VLAN_TAG_PRESENT
++			PPC_ANDI(r_A, r_A, ~VLAN_TAG_PRESENT);
 +#endif
- 	__be16			vlan_proto;
- 	__u16			vlan_tci;
- #if defined(CONFIG_NET_RX_BUSY_POLL) || defined(CONFIG_XPS)
++			break;
++		case BPF_ANC | SKF_AD_VLAN_TAG_PRESENT:
++			PPC_LBZ_OFFS(r_A, r_skb, PKT_VLAN_PRESENT_OFFSET());
++			if (PKT_VLAN_PRESENT_BIT)
++				PPC_SRWI(r_A, r_A, PKT_VLAN_PRESENT_BIT);
++			PPC_ANDI(r_A, r_A, 1);
+ 			break;
+ 		case BPF_ANC | SKF_AD_QUEUE:
+ 			BUILD_BUG_ON(FIELD_SIZEOF(struct sk_buff,
 -- 
 2.11.0
