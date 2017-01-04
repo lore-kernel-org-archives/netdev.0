@@ -1,30 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: vrf: Add missing Rx counters
-Date: Tue, 03 Jan 2017 18:52:28 -0500 (EST)
-Message-ID: <20170103.185228.569275214749682521.davem@davemloft.net>
-References: <1483465075-15452-1-git-send-email-dsa@cumulusnetworks.com>
+From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Subject: [PATCH net-next] cnic: remove use of VLAN_TAG_PRESENT
+Date: Wed,  4 Jan 2017 01:07:58 +0100 (CET)
+Message-ID: <7bbf1043674601196c45183038cb4300291920bd.1483487887.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dsa@cumulusnetworks.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:58892 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1759833AbdADAEY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 3 Jan 2017 19:04:24 -0500
-In-Reply-To: <1483465075-15452-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from rere.qmqm.pl ([84.10.57.10]:37236 "EHLO rere.qmqm.pl"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1759856AbdADAIC (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 3 Jan 2017 19:08:02 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Ahern <dsa@cumulusnetworks.com>
-Date: Tue,  3 Jan 2017 09:37:55 -0800
+Signed-off-by: Michał Mirosław <mirq-linux@rere.qmqm.pl>
+---
+ drivers/net/ethernet/broadcom/cnic.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-> The move from rx-handler to L3 receive handler inadvertantly dropped the
-> rx counters. Restore them.
-> 
-> Fixes: 74b20582ac38 ("net: l3mdev: Add hook in ip and ipv6")
-> Reported-by: Dinesh Dutt <ddutt@cumulusnetworks.com>
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
-
-Applied and queued up for -stable.
+diff --git a/drivers/net/ethernet/broadcom/cnic.c b/drivers/net/ethernet/broadcom/cnic.c
+index b1d2ac818710..6e3c61081338 100644
+--- a/drivers/net/ethernet/broadcom/cnic.c
++++ b/drivers/net/ethernet/broadcom/cnic.c
+@@ -5734,7 +5734,7 @@ static int cnic_netdev_event(struct notifier_block *this, unsigned long event,
+ 		if (realdev) {
+ 			dev = cnic_from_netdev(realdev);
+ 			if (dev) {
+-				vid |= VLAN_TAG_PRESENT;
++				vid |= VLAN_CFI_MASK;	/* make non-zero */
+ 				cnic_rcv_netevent(dev->cnic_priv, event, vid);
+ 				cnic_put(dev);
+ 			}
+-- 
+2.11.0
