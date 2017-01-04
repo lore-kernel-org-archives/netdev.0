@@ -1,33 +1,47 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: Re: [PATCH net-next 2/2] tools: psock_tpacket: verify that packet was
- received on lo before counting it
-Date: Wed, 4 Jan 2017 09:30:08 -0500
-Message-ID: <CAF=yD-+d-cgE1dxCcrfNZfgVk4_wjYMHHoQ=BN7bnJ-txbM-+Q@mail.gmail.com>
-References: <cover.1483482971.git.sowmini.varadhan@oracle.com> <3451a2008d953f33d6576a35eaefecad883eaeb5.1483482971.git.sowmini.varadhan@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-kselftest@vger.kernel.org,
-        Network Development <netdev@vger.kernel.org>,
-        Daniel Borkmann <daniel@iogearbox.net>,
-        Willem de Bruijn <willemb@google.com>,
-        David Miller <davem@davemloft.net>, shuah@kernel.org
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Subject: [PATCH] stmmac: Enable Clause 45 PHYs in GAMC4
+Date: Wed,  4 Jan 2017 14:35:26 +0000
+Message-ID: <14201d58c172f7a65b03510d36d55170f4d16cd5.1483540094.git.jpinto@synopsys.com>
+Cc: hock.leong.kweh@intel.com, netdev@vger.kernel.org,
+        Joao Pinto <Joao.Pinto@synopsys.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f65.google.com ([209.85.213.65]:34110 "EHLO
-        mail-vk0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S936381AbdADObL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2017 09:31:11 -0500
-In-Reply-To: <3451a2008d953f33d6576a35eaefecad883eaeb5.1483482971.git.sowmini.varadhan@oracle.com>
+Received: from smtprelay.synopsys.com ([198.182.47.9]:60040 "EHLO
+        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1031063AbdADOfc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2017 09:35:32 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 3, 2017 at 6:27 PM, Sowmini Varadhan
-<sowmini.varadhan@oracle.com> wrote:
-> Packets from any/all interfaces may be queued up on the PF_PACKET socket
-> before it is bound to the loopback interface by psock_tpacket, and
-> when these are passed up by the kernel, they should not be counted
-> toward the conditions needed to pass/fail the Rx tests.
+The eQOS IP Core (best known in stmmac as gmac4) has a register that must be
+set if using a Clause 45 PHY. If this register is not set, the PHY won't work.
+This patch will have no impact in setups using Clause 22 PHYs.
 
-The common and simpler solution to this problem is to open the socket
-with protocol 0 to reject all packets, add the BPF filter and only then bind
-with sll_ifindex set to lo. That way no false positives can arrive.
+Signed-off-by: Joao Pinto <jpinto@synopsys.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+index b0344c2..676ae3c 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+@@ -41,6 +41,7 @@
+ #define MII_GMAC4_GOC_SHIFT		2
+ #define MII_GMAC4_WRITE			(1 << MII_GMAC4_GOC_SHIFT)
+ #define MII_GMAC4_READ			(3 << MII_GMAC4_GOC_SHIFT)
++#define MII_CLAUSE45_PHY		(1 << 1)
+ 
+ static int stmmac_mdio_busy_wait(void __iomem *ioaddr, unsigned int mii_addr)
+ {
+@@ -125,7 +126,7 @@ static int stmmac_mdio_write(struct mii_bus *bus, int phyaddr, int phyreg,
+ 	value |= (priv->clk_csr << priv->hw->mii.clk_csr_shift)
+ 		& priv->hw->mii.clk_csr_mask;
+ 	if (priv->plat->has_gmac4)
+-		value |= MII_GMAC4_WRITE;
++		value |= MII_GMAC4_WRITE | MII_CLAUSE45_PHY;
+ 	else
+ 		value |= MII_WRITE;
+ 
+-- 
+2.9.3
