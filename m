@@ -1,30 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/2] net: systemport: Fix padding vs. TSB insertion
-Date: Wed, 04 Jan 2017 13:34:24 -0500 (EST)
-Message-ID: <20170104.133424.901675864062162115.davem@davemloft.net>
-References: <20170104003449.27078-1-f.fainelli@gmail.com>
+Subject: Re: [PATCH next v1] ipvlan: assign unique dev-id for each slave
+ device.
+Date: Wed, 04 Jan 2017 13:30:53 -0500 (EST)
+Message-ID: <20170104.133053.1438331328167852153.davem@davemloft.net>
+References: <20170103204716.9436-1-mahesh@bandewar.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: f.fainelli@gmail.com
+Cc: edumazet@google.com, netdev@vger.kernel.org, maheshb@google.com
+To: mahesh@bandewar.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59370 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:59126 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1761710AbdADSew (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2017 13:34:52 -0500
-In-Reply-To: <20170104003449.27078-1-f.fainelli@gmail.com>
+        with ESMTP id S1758806AbdADScb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2017 13:32:31 -0500
+In-Reply-To: <20170103204716.9436-1-mahesh@bandewar.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Tue,  3 Jan 2017 16:34:47 -0800
+From: Mahesh Bandewar <mahesh@bandewar.net>
+Date: Tue,  3 Jan 2017 12:47:16 -0800
 
-> This patch series fixes how we pad the packets submitted to the SYSTEMPORT
-> adapter, and how the transmit status block (prepended 8 bytes) fits in the
-> picture. The first patch is not technically a bug fix, but is required for the
-> second path to be applied and to greatly simplify the skb length calculation.
+> From: Mahesh Bandewar <maheshb@google.com>
+> 
+> IPvlan setup uses one mac-address (of master). The IPv6 link-local
+> addresses are derived using the mac-address on the link. Lack of
+> dev-ids makes these link-local addresses same for all slaves including
+> that of master device. dev-ids are necessary to add differentiation
+> when L2 address is shared.
+> 
+> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
 
-Series applied with the typo in the commit message of patch #2 fixed.
-
-Happy new year.
+Applied, thanks.
