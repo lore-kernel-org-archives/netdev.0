@@ -1,62 +1,226 @@
-From: Zefir Kurtisi <zefir.kurtisi@neratec.com>
-Subject: Re: [PATCH] phy state machine: failsafe leave invalid RUNNING state
-Date: Wed, 4 Jan 2017 16:27:36 +0100
-Message-ID: <82ffbb43-9345-c47d-596c-73c175ac7e7f@neratec.com>
-References: <1483542298-9747-1-git-send-email-zefir.kurtisi@neratec.com>
- <6845805d-4dae-0a3a-c56c-6feb86f4b553@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch
-To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH nf-next 1/4] netfilter: conntrack: no need to pass ctinfo to error handler
+Date: Wed,  4 Jan 2017 16:35:47 +0100
+Message-ID: <1483544150-10686-2-git-send-email-fw@strlen.de>
+References: <1483544150-10686-1-git-send-email-fw@strlen.de>
+Cc: netdev@vger.kernel.org, Florian Westphal <fw@strlen.de>
+To: <netfilter-devel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.neratec.com ([46.140.151.2]:55938 "EHLO mail.neratec.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S966814AbdADPhJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 4 Jan 2017 10:37:09 -0500
-In-Reply-To: <6845805d-4dae-0a3a-c56c-6feb86f4b553@gmail.com>
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:43744 "EHLO
+        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S966814AbdADPhC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2017 10:37:02 -0500
+In-Reply-To: <1483544150-10686-1-git-send-email-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/04/2017 04:13 PM, Florian Fainelli wrote:
-> 
-> 
-> On 01/04/2017 07:04 AM, Zefir Kurtisi wrote:
->> While in RUNNING state, phy_state_machine() checks for link changes by
->> comparing phydev->link before and after calling phy_read_status().
->> This works as long as it is guaranteed that phydev->link is never
->> changed outside the phy_state_machine().
->>
->> If in some setups this happens, it causes the state machine to miss
->> a link loss and remain RUNNING despite phydev->link being 0.
->>
->> This has been observed running a dsa setup with a process continuously
->> polling the link states over ethtool each second (SNMPD RFC-1213
->> agent). Disconnecting the link on a phy followed by a ETHTOOL_GSET
->> causes dsa_slave_get_settings() / dsa_slave_get_link_ksettings() to
->> call phy_read_status() and with that modify the link status - and
->> with that bricking the phy state machine.
-> 
-> That's the interesting part of the analysis, how does this brick the PHY
-> state machine? Is the PHY driver changing the link status in the
-> read_status callback that it implements?
-> 
-phydev->read_status points to genphy_read_status(), where the first call goes to
-genphy_update_link() which updates the link status.
+It is never accessed for reading and the only places that write to it
+are the icmp(6) handlers, which also set skb->nfct (and skb->nfctinfo).
 
-Thereafter phy_state_machine():RUNNING won't be able to detect the link loss
-anymore unless the link state changes again.
+The conntrack core specifically checks for attached skb->nfct after
+->error() invocation and returns early in this case.
 
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+ include/net/netfilter/nf_conntrack_l4proto.h   |  2 +-
+ net/ipv4/netfilter/nf_conntrack_proto_icmp.c   | 12 ++++++------
+ net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c | 12 ++++++------
+ net/netfilter/nf_conntrack_core.c              |  3 +--
+ net/netfilter/nf_conntrack_proto_dccp.c        |  1 -
+ net/netfilter/nf_conntrack_proto_tcp.c         |  1 -
+ net/netfilter/nf_conntrack_proto_udp.c         |  3 +--
+ 7 files changed, 15 insertions(+), 19 deletions(-)
 
-I was trying to figure out if there is a rule that forbids changing phydev->link
-from outside the state machine, but found several places where it happens (either
-directly, or over genphy_read_status() or over genphy_update_link()).
-
-Curious how this did not show up before, since within the dsa setup it is very
-easy to trigger:
-a) physically disconnect link
-b) within one second run ethtool ethX
-
-
-Cheers,
-Zefir
+diff --git a/include/net/netfilter/nf_conntrack_l4proto.h b/include/net/netfilter/nf_conntrack_l4proto.h
+index e7b836590f0b..85e993e278d5 100644
+--- a/include/net/netfilter/nf_conntrack_l4proto.h
++++ b/include/net/netfilter/nf_conntrack_l4proto.h
+@@ -55,7 +55,7 @@ struct nf_conntrack_l4proto {
+ 	void (*destroy)(struct nf_conn *ct);
+ 
+ 	int (*error)(struct net *net, struct nf_conn *tmpl, struct sk_buff *skb,
+-		     unsigned int dataoff, enum ip_conntrack_info *ctinfo,
++		     unsigned int dataoff,
+ 		     u_int8_t pf, unsigned int hooknum);
+ 
+ 	/* Print out the per-protocol part of the tuple. Return like seq_* */
+diff --git a/net/ipv4/netfilter/nf_conntrack_proto_icmp.c b/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
+index d075b3cf2400..2e95ece3b257 100644
+--- a/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
++++ b/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
+@@ -128,13 +128,13 @@ static bool icmp_new(struct nf_conn *ct, const struct sk_buff *skb,
+ /* Returns conntrack if it dealt with ICMP, and filled in skb fields */
+ static int
+ icmp_error_message(struct net *net, struct nf_conn *tmpl, struct sk_buff *skb,
+-		 enum ip_conntrack_info *ctinfo,
+ 		 unsigned int hooknum)
+ {
+ 	struct nf_conntrack_tuple innertuple, origtuple;
+ 	const struct nf_conntrack_l4proto *innerproto;
+ 	const struct nf_conntrack_tuple_hash *h;
+ 	const struct nf_conntrack_zone *zone;
++	enum ip_conntrack_info ctinfo;
+ 	struct nf_conntrack_zone tmp;
+ 
+ 	NF_CT_ASSERT(skb->nfct == NULL);
+@@ -160,7 +160,7 @@ icmp_error_message(struct net *net, struct nf_conn *tmpl, struct sk_buff *skb,
+ 		return -NF_ACCEPT;
+ 	}
+ 
+-	*ctinfo = IP_CT_RELATED;
++	ctinfo = IP_CT_RELATED;
+ 
+ 	h = nf_conntrack_find_get(net, zone, &innertuple);
+ 	if (!h) {
+@@ -169,11 +169,11 @@ icmp_error_message(struct net *net, struct nf_conn *tmpl, struct sk_buff *skb,
+ 	}
+ 
+ 	if (NF_CT_DIRECTION(h) == IP_CT_DIR_REPLY)
+-		*ctinfo += IP_CT_IS_REPLY;
++		ctinfo += IP_CT_IS_REPLY;
+ 
+ 	/* Update skb to refer to this connection */
+ 	skb->nfct = &nf_ct_tuplehash_to_ctrack(h)->ct_general;
+-	skb->nfctinfo = *ctinfo;
++	skb->nfctinfo = ctinfo;
+ 	return NF_ACCEPT;
+ }
+ 
+@@ -181,7 +181,7 @@ icmp_error_message(struct net *net, struct nf_conn *tmpl, struct sk_buff *skb,
+ static int
+ icmp_error(struct net *net, struct nf_conn *tmpl,
+ 	   struct sk_buff *skb, unsigned int dataoff,
+-	   enum ip_conntrack_info *ctinfo, u_int8_t pf, unsigned int hooknum)
++	   u_int8_t pf, unsigned int hooknum)
+ {
+ 	const struct icmphdr *icmph;
+ 	struct icmphdr _ih;
+@@ -225,7 +225,7 @@ icmp_error(struct net *net, struct nf_conn *tmpl,
+ 	    icmph->type != ICMP_REDIRECT)
+ 		return NF_ACCEPT;
+ 
+-	return icmp_error_message(net, tmpl, skb, ctinfo, hooknum);
++	return icmp_error_message(net, tmpl, skb, hooknum);
+ }
+ 
+ #if IS_ENABLED(CONFIG_NF_CT_NETLINK)
+diff --git a/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c b/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
+index f5a61bc3ec2b..56f4eebb5efe 100644
+--- a/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
++++ b/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
+@@ -145,12 +145,12 @@ static int
+ icmpv6_error_message(struct net *net, struct nf_conn *tmpl,
+ 		     struct sk_buff *skb,
+ 		     unsigned int icmp6off,
+-		     enum ip_conntrack_info *ctinfo,
+ 		     unsigned int hooknum)
+ {
+ 	struct nf_conntrack_tuple intuple, origtuple;
+ 	const struct nf_conntrack_tuple_hash *h;
+ 	const struct nf_conntrack_l4proto *inproto;
++	enum ip_conntrack_info ctinfo;
+ 	struct nf_conntrack_zone tmp;
+ 
+ 	NF_CT_ASSERT(skb->nfct == NULL);
+@@ -176,7 +176,7 @@ icmpv6_error_message(struct net *net, struct nf_conn *tmpl,
+ 		return -NF_ACCEPT;
+ 	}
+ 
+-	*ctinfo = IP_CT_RELATED;
++	ctinfo = IP_CT_RELATED;
+ 
+ 	h = nf_conntrack_find_get(net, nf_ct_zone_tmpl(tmpl, skb, &tmp),
+ 				  &intuple);
+@@ -185,19 +185,19 @@ icmpv6_error_message(struct net *net, struct nf_conn *tmpl,
+ 		return -NF_ACCEPT;
+ 	} else {
+ 		if (NF_CT_DIRECTION(h) == IP_CT_DIR_REPLY)
+-			*ctinfo += IP_CT_IS_REPLY;
++			ctinfo += IP_CT_IS_REPLY;
+ 	}
+ 
+ 	/* Update skb to refer to this connection */
+ 	skb->nfct = &nf_ct_tuplehash_to_ctrack(h)->ct_general;
+-	skb->nfctinfo = *ctinfo;
++	skb->nfctinfo = ctinfo;
+ 	return NF_ACCEPT;
+ }
+ 
+ static int
+ icmpv6_error(struct net *net, struct nf_conn *tmpl,
+ 	     struct sk_buff *skb, unsigned int dataoff,
+-	     enum ip_conntrack_info *ctinfo, u_int8_t pf, unsigned int hooknum)
++	     u_int8_t pf, unsigned int hooknum)
+ {
+ 	const struct icmp6hdr *icmp6h;
+ 	struct icmp6hdr _ih;
+@@ -232,7 +232,7 @@ icmpv6_error(struct net *net, struct nf_conn *tmpl,
+ 	if (icmp6h->icmp6_type >= 128)
+ 		return NF_ACCEPT;
+ 
+-	return icmpv6_error_message(net, tmpl, skb, dataoff, ctinfo, hooknum);
++	return icmpv6_error_message(net, tmpl, skb, dataoff, hooknum);
+ }
+ 
+ #if IS_ENABLED(CONFIG_NF_CT_NETLINK)
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index 3a073cd9fcf4..86186a2e2715 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -1326,8 +1326,7 @@ nf_conntrack_in(struct net *net, u_int8_t pf, unsigned int hooknum,
+ 	 * inverse of the return code tells to the netfilter
+ 	 * core what to do with the packet. */
+ 	if (l4proto->error != NULL) {
+-		ret = l4proto->error(net, tmpl, skb, dataoff, &ctinfo,
+-				     pf, hooknum);
++		ret = l4proto->error(net, tmpl, skb, dataoff, pf, hooknum);
+ 		if (ret <= 0) {
+ 			NF_CT_STAT_INC_ATOMIC(net, error);
+ 			NF_CT_STAT_INC_ATOMIC(net, invalid);
+diff --git a/net/netfilter/nf_conntrack_proto_dccp.c b/net/netfilter/nf_conntrack_proto_dccp.c
+index b68ce6ac13b3..93dd1c5b7bff 100644
+--- a/net/netfilter/nf_conntrack_proto_dccp.c
++++ b/net/netfilter/nf_conntrack_proto_dccp.c
+@@ -561,7 +561,6 @@ static int dccp_packet(struct nf_conn *ct, const struct sk_buff *skb,
+ 
+ static int dccp_error(struct net *net, struct nf_conn *tmpl,
+ 		      struct sk_buff *skb, unsigned int dataoff,
+-		      enum ip_conntrack_info *ctinfo,
+ 		      u_int8_t pf, unsigned int hooknum)
+ {
+ 	struct dccp_hdr _dh, *dh;
+diff --git a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack_proto_tcp.c
+index 69f687740c76..b122e9dacfed 100644
+--- a/net/netfilter/nf_conntrack_proto_tcp.c
++++ b/net/netfilter/nf_conntrack_proto_tcp.c
+@@ -750,7 +750,6 @@ static const u8 tcp_valid_flags[(TCPHDR_FIN|TCPHDR_SYN|TCPHDR_RST|TCPHDR_ACK|
+ static int tcp_error(struct net *net, struct nf_conn *tmpl,
+ 		     struct sk_buff *skb,
+ 		     unsigned int dataoff,
+-		     enum ip_conntrack_info *ctinfo,
+ 		     u_int8_t pf,
+ 		     unsigned int hooknum)
+ {
+diff --git a/net/netfilter/nf_conntrack_proto_udp.c b/net/netfilter/nf_conntrack_proto_udp.c
+index ae63944c9dc4..f6ebce6178ca 100644
+--- a/net/netfilter/nf_conntrack_proto_udp.c
++++ b/net/netfilter/nf_conntrack_proto_udp.c
+@@ -112,7 +112,6 @@ static bool udp_new(struct nf_conn *ct, const struct sk_buff *skb,
+ static int udplite_error(struct net *net, struct nf_conn *tmpl,
+ 			 struct sk_buff *skb,
+ 			 unsigned int dataoff,
+-			 enum ip_conntrack_info *ctinfo,
+ 			 u8 pf, unsigned int hooknum)
+ {
+ 	unsigned int udplen = skb->len - dataoff;
+@@ -162,7 +161,7 @@ static int udplite_error(struct net *net, struct nf_conn *tmpl,
+ #endif
+ 
+ static int udp_error(struct net *net, struct nf_conn *tmpl, struct sk_buff *skb,
+-		     unsigned int dataoff, enum ip_conntrack_info *ctinfo,
++		     unsigned int dataoff,
+ 		     u_int8_t pf,
+ 		     unsigned int hooknum)
+ {
+-- 
+2.7.3
