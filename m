@@ -1,70 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH repost net-next] dsa: mv88e6xxx: Optimise atu_get
-Date: Wed, 04 Jan 2017 16:27:18 -0500 (EST)
-Message-ID: <20170104.162718.86114638722981428.davem@davemloft.net>
-References: <1483556184-4176-1-git-send-email-andrew@lunn.ch>
-        <20170104.161103.175830630875484681.davem@davemloft.net>
-        <20170104211957.GD4229@lunn.ch>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: [PATCH] sh_eth: R8A7740 supports packet shecksumming
+Date: Thu, 05 Jan 2017 00:29:32 +0300
+Message-ID: <1871204.P0zXJRoIfd@wasted.cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: volodymyr.bendiuga@gmail.com, vivien.didelot@savoirfairelinux.com,
-        f.fainelli@gmail.com, netdev@vger.kernel.org
-To: andrew@lunn.ch
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+To: netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:36042 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1761098AbdADV1U (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2017 16:27:20 -0500
-In-Reply-To: <20170104211957.GD4229@lunn.ch>
+Received: from mail-lf0-f42.google.com ([209.85.215.42]:35080 "EHLO
+        mail-lf0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1759961AbdADV3g (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2017 16:29:36 -0500
+Received: by mail-lf0-f42.google.com with SMTP id m78so1863800lfg.2
+        for <netdev@vger.kernel.org>; Wed, 04 Jan 2017 13:29:35 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Lunn <andrew@lunn.ch>
-Date: Wed, 4 Jan 2017 22:19:57 +0100
+The R8A7740 GEther controller supports the packet checksum offloading
+but the 'hw_crc' (bad name, I'll fix it) flag isn't set in the R8A7740
+data,  thus CSMR isn't cleared...
 
-> On Wed, Jan 04, 2017 at 04:11:03PM -0500, David Miller wrote:
->> From: Andrew Lunn <andrew@lunn.ch>
->> Date: Wed,  4 Jan 2017 19:56:24 +0100
->> 
->> > +static inline u64 ether_addr_to_u64(const u8 *addr)
->> > +{
->> > +	u64 u = 0;
->> > +	int i;
->> > +
->> > +	for (i = 0; i < ETH_ALEN; i++)
->> > +		u = u << 8 | addr[i];
->> > +
->> > +	return u;
->> > +}
->>  ...
->> > +static inline void u64_to_ether_addr(u64 u, u8 *addr)
->> > +{
->> > +	int i;
->> > +
->> > +	for (i = ETH_ALEN - 1; i >= 0; i--) {
->> > +		addr[i] = u & 0xff;
->> > +		u = u >> 8;
->> > +	}
->> > +}
->> 
->> I think these two routines behave differently on big vs little
->> endian.  And I doubt this was your intention.
-> 
-> I don't have a big endian system to test on.
-> 
-> I tried to avoid the usual pitfalls. I don't cast a collection of
-> bytes to a u64, which i know has no chance of working. Accessing a MAC
-> address as a byte array should be endian safe. The shift operation
-> should also be endian safe.
-> 
-> What exactly do you think will behave differently?
+Fixes: 73a0d907301e ("net: sh_eth: add support R8A7740")
+Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
-Maybe I over-reacted.
+---
+This patch is against DaveM's 'net.git' repo plus the fixes sent recently...
 
-I just ran some test programs in userspace on both little and big
-endian and they checked out.
+ drivers/net/ethernet/renesas/sh_eth.c |    1 +
+ 1 file changed, 1 insertion(+)
 
-Sorry for the false alarm.
-
-I'll apply this, thanks.
+Index: net/drivers/net/ethernet/renesas/sh_eth.c
+===================================================================
+--- net.orig/drivers/net/ethernet/renesas/sh_eth.c
++++ net/drivers/net/ethernet/renesas/sh_eth.c
+@@ -574,6 +574,7 @@ static struct sh_eth_cpu_data r8a7740_da
+ 	.rpadir_value   = 2 << 16,
+ 	.no_trimd	= 1,
+ 	.no_ade		= 1,
++	.hw_crc		= 1,
+ 	.tsu		= 1,
+ 	.select_mii	= 1,
+ 	.shift_rd0	= 1,
