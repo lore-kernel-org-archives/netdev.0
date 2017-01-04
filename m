@@ -1,49 +1,46 @@
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net] amd-xgbe: Fix IRQ processing when running in single IRQ
- mode
-Date: Wed, 4 Jan 2017 15:07:16 -0600
-Message-ID: <20170104210716.8401.99717.stgit@tlendack-t1.amdoffice.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH repost net-next] dsa: mv88e6xxx: Optimise atu_get
+Date: Wed, 04 Jan 2017 16:11:03 -0500 (EST)
+Message-ID: <20170104.161103.175830630875484681.davem@davemloft.net>
+References: <1483556184-4176-1-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
+Cc: volodymyr.bendiuga@gmail.com, vivien.didelot@savoirfairelinux.com,
+        f.fainelli@gmail.com, netdev@vger.kernel.org
+To: andrew@lunn.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam01on0083.outbound.protection.outlook.com ([104.47.34.83]:52145
-        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S937254AbdADVHm (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 4 Jan 2017 16:07:42 -0500
+Received: from shards.monkeyblade.net ([184.105.139.130]:35428 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1031288AbdADVLP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2017 16:11:15 -0500
+In-Reply-To: <1483556184-4176-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When running in single IRQ mode, the additional IRQ routines were being
-skipped because only the XGMAC interrupt status was being checked.
-Update the code so that the additional IRQ routines are checked whenever
-an interrupt is received.
+From: Andrew Lunn <andrew@lunn.ch>
+Date: Wed,  4 Jan 2017 19:56:24 +0100
 
-Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
----
- drivers/net/ethernet/amd/xgbe/xgbe-drv.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> +static inline u64 ether_addr_to_u64(const u8 *addr)
+> +{
+> +	u64 u = 0;
+> +	int i;
+> +
+> +	for (i = 0; i < ETH_ALEN; i++)
+> +		u = u << 8 | addr[i];
+> +
+> +	return u;
+> +}
+ ...
+> +static inline void u64_to_ether_addr(u64 u, u8 *addr)
+> +{
+> +	int i;
+> +
+> +	for (i = ETH_ALEN - 1; i >= 0; i--) {
+> +		addr[i] = u & 0xff;
+> +		u = u >> 8;
+> +	}
+> +}
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-index 155190d..9943629 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-drv.c
-@@ -539,6 +539,7 @@ static irqreturn_t xgbe_isr(int irq, void *data)
- 		}
- 	}
- 
-+isr_done:
- 	/* If there is not a separate AN irq, handle it here */
- 	if (pdata->dev_irq == pdata->an_irq)
- 		pdata->phy_if.an_isr(irq, pdata);
-@@ -551,7 +552,6 @@ static irqreturn_t xgbe_isr(int irq, void *data)
- 	if (pdata->vdata->i2c_support && (pdata->dev_irq == pdata->i2c_irq))
- 		pdata->i2c_if.i2c_isr(irq, pdata);
- 
--isr_done:
- 	return IRQ_HANDLED;
- }
- 
+I think these two routines behave differently on big vs little
+endian.  And I doubt this was your intention.
