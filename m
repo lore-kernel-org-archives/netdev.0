@@ -1,39 +1,48 @@
 From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [PATCH net-next 2/8] benet: use skb_vlan_tag_get_prio()
+Subject: [PATCH net-next 0/8] Preparation for VLAN_TAG_PRESENT cleanup, drivers part
 Date: Wed,  4 Jan 2017 01:24:25 +0100 (CET)
-Message-ID: <bfbbd585f6972360ee1cd15d65a80d0b8c654385.1483488960.git.mirq-linux@rere.qmqm.pl>
-References: <cover.1483488960.git.mirq-linux@rere.qmqm.pl>
+Message-ID: <cover.1483488960.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
-Cc: Ajit Khaparde <ajit.khaparde@broadcom.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([84.10.57.10]:37468 "EHLO rere.qmqm.pl"
+Received: from rere.qmqm.pl ([84.10.57.10]:37466 "EHLO rere.qmqm.pl"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S965335AbdADAY2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S966926AbdADAY2 (ORCPT <rfc822;netdev@vger.kernel.org>);
         Tue, 3 Jan 2017 19:24:28 -0500
-In-Reply-To: <cover.1483488960.git.mirq-linux@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Michał Mirosław <mirq-linux@rere.qmqm.pl>
----
- drivers/net/ethernet/emulex/benet/be_main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Cleanups needed before enabling passing of VLAN.CFI.
+Those patches depend on '*** SUBJECT HERE ***' patchset, but
+are otherwise independent of each other.
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index cd12c9a7664b..7e50c6c224c4 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -781,7 +781,7 @@ static inline u16 be_get_tx_vlan_tag(struct be_adapter *adapter,
- 	u16 vlan_tag;
- 
- 	vlan_tag = skb_vlan_tag_get(skb);
--	vlan_prio = (vlan_tag & VLAN_PRIO_MASK) >> VLAN_PRIO_SHIFT;
-+	vlan_prio = skb_vlan_tag_get_prio(skb);
- 	/* If vlan priority provided by OS is NOT in available bmap */
- 	if (!(adapter->vlan_prio_bmap & (1 << vlan_prio)))
- 		vlan_tag = (vlan_tag & ~VLAN_PRIO_MASK) |
+Michał Mirosław (8):
+  benet: use __vlan_hwaccel helpers
+  benet: use skb_vlan_tag_get_prio()
+  sky2: use __vlan_hwaccel helpers
+  net/core: use __vlan_hwaccel helpers
+  bridge: use __vlan_hwaccel helpers
+  8021q: use __vlan_hwaccel helpers
+  ipv4/tunnel: use __vlan_hwaccel helpers
+  OVS: remove use of VLAN_TAG_PRESENT
+
+ drivers/net/ethernet/emulex/benet/be_main.c | 15 ++++++++++-----
+ drivers/net/ethernet/marvell/sky2.c         |  6 ++----
+ net/8021q/vlan_core.c                       |  2 +-
+ net/bridge/br_netfilter_hooks.c             | 15 +++++++++------
+ net/bridge/br_private.h                     |  2 +-
+ net/bridge/br_vlan.c                        |  6 +++---
+ net/core/dev.c                              |  8 +++++---
+ net/core/skbuff.c                           |  2 +-
+ net/ipv4/ip_tunnel_core.c                   |  2 +-
+ net/openvswitch/actions.c                   | 13 +++++++++----
+ net/openvswitch/flow.c                      |  4 ++--
+ net/openvswitch/flow.h                      |  2 +-
+ net/openvswitch/flow_netlink.c              | 22 +++++++++++-----------
+ net/sched/act_vlan.c                        |  2 +-
+ 14 files changed, 57 insertions(+), 44 deletions(-)
+
 -- 
 2.11.0
