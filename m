@@ -1,475 +1,189 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH RFC ipsec-next 2/5] esp6: Avoid skb_cow_data whenever possible
-Date: Wed, 4 Jan 2017 09:23:47 +0100
-Message-ID: <1483518230-6777-3-git-send-email-steffen.klassert@secunet.com>
-References: <1483518230-6777-1-git-send-email-steffen.klassert@secunet.com>
+From: maowenan <maowenan@huawei.com>
+Subject: RE: [PATCH] ethtool: add one ethtool option to set relax ordering
+ mode
+Date: Wed, 4 Jan 2017 09:02:09 +0000
+Message-ID: <F95AC9340317A84688A5F0DF0246F3F2015240E0@szxeml504-mbs.china.huawei.com>
+References: <1481179898-10668-1-git-send-email-maowenan@huawei.com>
+ <1481179898-10668-2-git-send-email-maowenan@huawei.com>
+ <20161221172759.1bc0d0dd@xeon-e3>
+ <F95AC9340317A84688A5F0DF0246F3F20151F189@szxeml504-mbs.china.huawei.com>
+ <CAKgT0Uc2ztu_iDn79zdNtsAdb-Ftu65V6YHV-sqXb6vTCTiGCQ@mail.gmail.com>
+ <F95AC9340317A84688A5F0DF0246F3F20151FD1C@szxeml504-mbs.china.huawei.com>
+ <1482455203.2481.31.camel@intel.com>
+ <F95AC9340317A84688A5F0DF0246F3F20151FE86@szxeml504-mbs.china.huawei.com>
+ <CAKgT0Ud0=fQpADLHPnZBLrG8xLGHUB20TZt1mi+GBNYJQngDCA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Steffen Klassert <steffen.klassert@secunet.com>,
-        Sowmini Varadhan <sowmini.varadhan@oracle.com>,
-        Ilan Tayari <ilant@mellanox.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "weiyongjun (A)" <weiyongjun1@huawei.com>,
+        Dingtianhong <dingtianhong@huawei.com>,
+        "Wangzhou (B)" <wangzhou1@hisilicon.com>
+To: maowenan <maowenan@huawei.com>,
+        Alexander Duyck <alexander.duyck@gmail.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
+        Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:52390 "EHLO a.mx.secunet.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1758350AbdADIuJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 4 Jan 2017 03:50:09 -0500
-In-Reply-To: <1483518230-6777-1-git-send-email-steffen.klassert@secunet.com>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:36644 "EHLO
+        szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753004AbdADJCa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2017 04:02:30 -0500
+Content-Language: zh-CN
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch tries to avoid skb_cow_data on esp6.
-
-On the encrypt side we add the IPsec tailbits
-to the linear part of the buffer if there is
-space on it. If there is no space on the linear
-part, we add a page fragment with the tailbits to
-the buffer and use separate src and dst scatterlists.
-
-On the decrypt side, we leave the buffer as it is
-if it is not cloned.
-
-With this, we can avoid a linearization of the buffer
-in most of the cases.
-
-Joint work with:
-Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Ilan Tayari <ilant@mellanox.com>
-
-Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Signed-off-by: Ilan Tayari <ilant@mellanox.com>
-Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
----
- net/ipv6/esp6.c | 302 +++++++++++++++++++++++++++++++++++++++++++++-----------
- 1 file changed, 246 insertions(+), 56 deletions(-)
-
-diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
-index cbcdd5d..a428ac6 100644
---- a/net/ipv6/esp6.c
-+++ b/net/ipv6/esp6.c
-@@ -44,6 +44,8 @@
- #include <net/protocol.h>
- #include <linux/icmpv6.h>
- 
-+#include <linux/highmem.h>
-+
- struct esp_skb_cb {
- 	struct xfrm_skb_cb xfrm;
- 	void *tmp;
-@@ -114,11 +116,40 @@ static inline struct scatterlist *esp_req_sg(struct crypto_aead *aead,
- 			     __alignof__(struct scatterlist));
- }
- 
-+static void esp_ssg_unref(struct xfrm_state *x, void *tmp)
-+{
-+	__be32 *seqhi;
-+	struct crypto_aead *aead = x->data;
-+	int seqhilen = 0;
-+	u8 *iv;
-+	struct aead_request *req;
-+	struct scatterlist *sg;
-+
-+	if (x->props.flags & XFRM_STATE_ESN)
-+		seqhilen += sizeof(__be32);
-+
-+	seqhi = esp_tmp_seqhi(tmp);
-+	iv = esp_tmp_iv(aead, tmp, seqhilen);
-+	req = esp_tmp_req(aead, iv);
-+
-+	/* Unref skb_frag_pages in the src scatterlist if necessary.
-+	 * Skip the first sg which comes from skb->data.
-+	 */
-+	if (req->src != req->dst)
-+		for (sg = sg_next(req->src); sg; sg = sg_next(sg))
-+			put_page(sg_page(sg));
-+}
-+
- static void esp_output_done(struct crypto_async_request *base, int err)
- {
- 	struct sk_buff *skb = base->data;
-+	void *tmp;
-+	struct dst_entry *dst = skb_dst(skb);
-+	struct xfrm_state *x = dst->xfrm;
- 
--	kfree(ESP_SKB_CB(skb)->tmp);
-+	tmp = ESP_SKB_CB(skb)->tmp;
-+	esp_ssg_unref(x, tmp);
-+	kfree(tmp);
- 	xfrm_output_resume(skb, err);
- }
- 
-@@ -138,6 +169,27 @@ static void esp_output_restore_header(struct sk_buff *skb)
- 	esp_restore_header(skb, skb_transport_offset(skb) - sizeof(__be32));
- }
- 
-+static struct ip_esp_hdr *esp_output_set_esn(struct sk_buff *skb,
-+					     struct ip_esp_hdr *esph,
-+					     __be32 *seqhi)
-+{
-+	struct xfrm_state *x = skb_dst(skb)->xfrm;
-+
-+	/* For ESN we move the header forward by 4 bytes to
-+	 * accomodate the high bits.  We will move it back after
-+	 * encryption.
-+	 */
-+	if ((x->props.flags & XFRM_STATE_ESN)) {
-+		esph = (void *)(skb_transport_header(skb) - sizeof(__be32));
-+		*seqhi = esph->spi;
-+		esph->seq_no = htonl(XFRM_SKB_CB(skb)->seq.output.hi);
-+	}
-+
-+	esph->spi = x->id.spi;
-+
-+	return esph;
-+}
-+
- static void esp_output_done_esn(struct crypto_async_request *base, int err)
- {
- 	struct sk_buff *skb = base->data;
-@@ -152,8 +204,9 @@ static int esp6_output(struct xfrm_state *x, struct sk_buff *skb)
- 	struct ip_esp_hdr *esph;
- 	struct crypto_aead *aead;
- 	struct aead_request *req;
--	struct scatterlist *sg;
-+	struct scatterlist *sg, *dsg;
- 	struct sk_buff *trailer;
-+	struct page *page;
- 	void *tmp;
- 	int blksize;
- 	int clen;
-@@ -164,10 +217,13 @@ static int esp6_output(struct xfrm_state *x, struct sk_buff *skb)
- 	int nfrags;
- 	int assoclen;
- 	int seqhilen;
-+	int tailen;
- 	u8 *iv;
- 	u8 *tail;
-+	u8 *vaddr;
- 	__be32 *seqhi;
- 	__be64 seqno;
-+	__u8 proto = *skb_mac_header(skb);
- 
- 	/* skb is pure payload to encrypt */
- 	aead = x->data;
-@@ -186,11 +242,7 @@ static int esp6_output(struct xfrm_state *x, struct sk_buff *skb)
- 	blksize = ALIGN(crypto_aead_blocksize(aead), 4);
- 	clen = ALIGN(skb->len + 2 + tfclen, blksize);
- 	plen = clen - skb->len - tfclen;
--
--	err = skb_cow_data(skb, tfclen + plen + alen, &trailer);
--	if (err < 0)
--		goto error;
--	nfrags = err;
-+	tailen = tfclen + plen + alen;
- 
- 	assoclen = sizeof(*esph);
- 	seqhilen = 0;
-@@ -200,19 +252,130 @@ static int esp6_output(struct xfrm_state *x, struct sk_buff *skb)
- 		assoclen += seqhilen;
- 	}
- 
--	tmp = esp_alloc_tmp(aead, nfrags, seqhilen);
--	if (!tmp) {
--		err = -ENOMEM;
--		goto error;
-+	*skb_mac_header(skb) = IPPROTO_ESP;
-+	esph = ip_esp_hdr(skb);
-+
-+	if (!skb_cloned(skb)) {
-+		if (tailen <= skb_availroom(skb)) {
-+			nfrags = 1;
-+			trailer = skb;
-+			tail = skb_tail_pointer(trailer);
-+
-+			goto skip_cow;
-+		} else if ((skb_shinfo(skb)->nr_frags < MAX_SKB_FRAGS)
-+			   && !skb_has_frag_list(skb)) {
-+			int allocsize;
-+			struct sock *sk = skb->sk;
-+			struct page_frag *pfrag = &x->xfrag;
-+
-+			allocsize = ALIGN(tailen, L1_CACHE_BYTES);
-+
-+			spin_lock_bh(&x->lock);
-+
-+			if (unlikely(!skb_page_frag_refill(allocsize, pfrag, GFP_ATOMIC))) {
-+				spin_unlock_bh(&x->lock);
-+				goto cow;
-+			}
-+
-+			page = pfrag->page;
-+			get_page(page);
-+
-+			vaddr = kmap_atomic(page);
-+
-+			tail = vaddr + pfrag->offset;
-+
-+			/* Fill padding... */
-+			if (tfclen) {
-+				memset(tail, 0, tfclen);
-+				tail += tfclen;
-+			}
-+			do {
-+				int i;
-+				for (i = 0; i < plen - 2; i++)
-+					tail[i] = i + 1;
-+			} while (0);
-+			tail[plen - 2] = plen - 2;
-+			tail[plen - 1] = proto;
-+
-+			kunmap_atomic(vaddr);
-+
-+			nfrags = skb_shinfo(skb)->nr_frags;
-+
-+			__skb_fill_page_desc(skb, nfrags, page, pfrag->offset,
-+					     tailen);
-+			skb_shinfo(skb)->nr_frags = ++nfrags;
-+
-+			pfrag->offset = pfrag->offset + allocsize;
-+			nfrags++;
-+
-+			skb->len += tailen;
-+			skb->data_len += tailen;
-+			skb->truesize += tailen;
-+			if (sk)
-+				atomic_add(tailen, &sk->sk_wmem_alloc);
-+
-+			skb_push(skb, -skb_network_offset(skb));
-+
-+			esph->seq_no = htonl(XFRM_SKB_CB(skb)->seq.output.low);
-+			esph->spi = x->id.spi;
-+
-+			tmp = esp_alloc_tmp(aead, nfrags + 2, seqhilen);
-+			if (!tmp) {
-+				spin_unlock_bh(&x->lock);
-+				err = -ENOMEM;
-+				goto error;
-+			}
-+			seqhi = esp_tmp_seqhi(tmp);
-+			iv = esp_tmp_iv(aead, tmp, seqhilen);
-+			req = esp_tmp_req(aead, iv);
-+			sg = esp_req_sg(aead, req);
-+			dsg = &sg[nfrags];
-+
-+			esph = esp_output_set_esn(skb, esph, seqhi);
-+
-+			sg_init_table(sg, nfrags);
-+			skb_to_sgvec(skb, sg,
-+				     (unsigned char *)esph - skb->data,
-+				     assoclen + ivlen + clen + alen);
-+
-+			allocsize = ALIGN(skb->data_len, L1_CACHE_BYTES);
-+
-+			if (unlikely(!skb_page_frag_refill(allocsize, pfrag, GFP_ATOMIC))) {
-+				spin_unlock_bh(&x->lock);
-+				err = -ENOMEM;
-+				goto error;
-+			}
-+
-+			skb_shinfo(skb)->nr_frags = 1;
-+
-+			page = pfrag->page;
-+			get_page(page);
-+			/* replace page frags in skb with new page */
-+			__skb_fill_page_desc(skb, 0, page, pfrag->offset, skb->data_len);
-+			pfrag->offset = pfrag->offset + allocsize;
-+
-+			sg_init_table(dsg, skb_shinfo(skb)->nr_frags + 1);
-+			skb_to_sgvec(skb, dsg,
-+				     (unsigned char *)esph - skb->data,
-+				     assoclen + ivlen + clen + alen);
-+
-+			spin_unlock_bh(&x->lock);
-+
-+			goto skip_cow2;
-+		}
- 	}
- 
--	seqhi = esp_tmp_seqhi(tmp);
--	iv = esp_tmp_iv(aead, tmp, seqhilen);
--	req = esp_tmp_req(aead, iv);
--	sg = esp_req_sg(aead, req);
-+cow:
-+	err = skb_cow_data(skb, tailen, &trailer);
-+	if (err < 0)
-+		goto error;
-+	nfrags = err;
- 
--	/* Fill padding... */
- 	tail = skb_tail_pointer(trailer);
-+	esph = ip_esp_hdr(skb);
-+
-+skip_cow:
-+	/* Fill padding... */
- 	if (tfclen) {
- 		memset(tail, 0, tfclen);
- 		tail += tfclen;
-@@ -223,36 +386,40 @@ static int esp6_output(struct xfrm_state *x, struct sk_buff *skb)
- 			tail[i] = i + 1;
- 	} while (0);
- 	tail[plen - 2] = plen - 2;
--	tail[plen - 1] = *skb_mac_header(skb);
-+	tail[plen - 1] = proto;
- 	pskb_put(skb, trailer, clen - skb->len + alen);
- 
- 	skb_push(skb, -skb_network_offset(skb));
--	esph = ip_esp_hdr(skb);
--	*skb_mac_header(skb) = IPPROTO_ESP;
- 
- 	esph->seq_no = htonl(XFRM_SKB_CB(skb)->seq.output.low);
-+	esph->spi = x->id.spi;
- 
--	aead_request_set_callback(req, 0, esp_output_done, skb);
--
--	/* For ESN we move the header forward by 4 bytes to
--	 * accomodate the high bits.  We will move it back after
--	 * encryption.
--	 */
--	if ((x->props.flags & XFRM_STATE_ESN)) {
--		esph = (void *)(skb_transport_header(skb) - sizeof(__be32));
--		*seqhi = esph->spi;
--		esph->seq_no = htonl(XFRM_SKB_CB(skb)->seq.output.hi);
--		aead_request_set_callback(req, 0, esp_output_done_esn, skb);
-+	tmp = esp_alloc_tmp(aead, nfrags, seqhilen);
-+	if (!tmp) {
-+		err = -ENOMEM;
-+		goto error;
- 	}
- 
--	esph->spi = x->id.spi;
-+	seqhi = esp_tmp_seqhi(tmp);
-+	iv = esp_tmp_iv(aead, tmp, seqhilen);
-+	req = esp_tmp_req(aead, iv);
-+	sg = esp_req_sg(aead, req);
-+	dsg = sg;
-+
-+	esph = esp_output_set_esn(skb, esph, seqhi);
- 
- 	sg_init_table(sg, nfrags);
- 	skb_to_sgvec(skb, sg,
- 		     (unsigned char *)esph - skb->data,
- 		     assoclen + ivlen + clen + alen);
- 
--	aead_request_set_crypt(req, sg, sg, ivlen + clen, iv);
-+skip_cow2:
-+	if ((x->props.flags & XFRM_STATE_ESN))
-+		aead_request_set_callback(req, 0, esp_output_done_esn, skb);
-+	else
-+		aead_request_set_callback(req, 0, esp_output_done, skb);
-+
-+	aead_request_set_crypt(req, sg, dsg, ivlen + clen, iv);
- 	aead_request_set_ad(req, assoclen);
- 
- 	seqno = cpu_to_be64(XFRM_SKB_CB(skb)->seq.output.low +
-@@ -278,6 +445,8 @@ static int esp6_output(struct xfrm_state *x, struct sk_buff *skb)
- 			esp_output_restore_header(skb);
- 	}
- 
-+	if (sg != dsg)
-+		esp_ssg_unref(x, tmp);
- 	kfree(tmp);
- 
- error:
-@@ -343,6 +512,23 @@ static void esp_input_restore_header(struct sk_buff *skb)
- 	__skb_pull(skb, 4);
- }
- 
-+static void esp_input_set_header(struct sk_buff *skb, __be32 *seqhi)
-+{
-+	struct xfrm_state *x = xfrm_input_state(skb);
-+	struct ip_esp_hdr *esph = (struct ip_esp_hdr *)skb->data;
-+
-+	/* For ESN we move the header forward by 4 bytes to
-+	 * accomodate the high bits.  We will move it back after
-+	 * decryption.
-+	 */
-+	if ((x->props.flags & XFRM_STATE_ESN)) {
-+		esph = (void *)skb_push(skb, 4);
-+		*seqhi = esph->spi;
-+		esph->spi = esph->seq_no;
-+		esph->seq_no = XFRM_SKB_CB(skb)->seq.input.hi;
-+	}
-+}
-+
- static void esp_input_done_esn(struct crypto_async_request *base, int err)
- {
- 	struct sk_buff *skb = base->data;
-@@ -378,14 +564,6 @@ static int esp6_input(struct xfrm_state *x, struct sk_buff *skb)
- 		goto out;
- 	}
- 
--	nfrags = skb_cow_data(skb, 0, &trailer);
--	if (nfrags < 0) {
--		ret = -EINVAL;
--		goto out;
--	}
--
--	ret = -ENOMEM;
--
- 	assoclen = sizeof(*esph);
- 	seqhilen = 0;
- 
-@@ -394,6 +572,27 @@ static int esp6_input(struct xfrm_state *x, struct sk_buff *skb)
- 		assoclen += seqhilen;
- 	}
- 
-+	if (!skb_cloned(skb)) {
-+		if (!skb_is_nonlinear(skb)) {
-+			nfrags = 1;
-+
-+			goto skip_cow;
-+		} else if (!skb_has_frag_list(skb)) {
-+			nfrags = skb_shinfo(skb)->nr_frags;
-+			nfrags++;
-+
-+			goto skip_cow;
-+		}
-+	}
-+
-+	nfrags = skb_cow_data(skb, 0, &trailer);
-+	if (nfrags < 0) {
-+		ret = -EINVAL;
-+		goto out;
-+	}
-+
-+skip_cow:
-+	ret = -ENOMEM;
- 	tmp = esp_alloc_tmp(aead, nfrags, seqhilen);
- 	if (!tmp)
- 		goto out;
-@@ -404,26 +603,17 @@ static int esp6_input(struct xfrm_state *x, struct sk_buff *skb)
- 	req = esp_tmp_req(aead, iv);
- 	sg = esp_req_sg(aead, req);
- 
--	skb->ip_summed = CHECKSUM_NONE;
-+	esp_input_set_header(skb, seqhi);
- 
--	esph = (struct ip_esp_hdr *)skb->data;
-+	sg_init_table(sg, nfrags);
-+	skb_to_sgvec(skb, sg, 0, skb->len);
- 
--	aead_request_set_callback(req, 0, esp_input_done, skb);
-+	skb->ip_summed = CHECKSUM_NONE;
- 
--	/* For ESN we move the header forward by 4 bytes to
--	 * accomodate the high bits.  We will move it back after
--	 * decryption.
--	 */
--	if ((x->props.flags & XFRM_STATE_ESN)) {
--		esph = (void *)skb_push(skb, 4);
--		*seqhi = esph->spi;
--		esph->spi = esph->seq_no;
--		esph->seq_no = XFRM_SKB_CB(skb)->seq.input.hi;
-+	if ((x->props.flags & XFRM_STATE_ESN))
- 		aead_request_set_callback(req, 0, esp_input_done_esn, skb);
--	}
--
--	sg_init_table(sg, nfrags);
--	skb_to_sgvec(skb, sg, 0, skb->len);
-+	else
-+		aead_request_set_callback(req, 0, esp_input_done, skb);
- 
- 	aead_request_set_crypt(req, sg, sg, elen + ivlen, iv);
- 	aead_request_set_ad(req, assoclen);
--- 
-1.9.1
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogbWFvd2VuYW4NCj4gU2Vu
+dDogTW9uZGF5LCBEZWNlbWJlciAyNiwgMjAxNiA0OjMzIFBNDQo+IFRvOiBtYW93ZW5hbjsgJ0Fs
+ZXhhbmRlciBEdXljaycNCj4gQ2M6ICdKZWZmIEtpcnNoZXInOyAnU3RlcGhlbiBIZW1taW5nZXIn
+OyAnbmV0ZGV2QHZnZXIua2VybmVsLm9yZyc7IHdlaXlvbmdqdW4NCj4gKEEpOyBEaW5ndGlhbmhv
+bmc7IFdhbmd6aG91IChCKQ0KPiBTdWJqZWN0OiBSRTogW1BBVENIXSBldGh0b29sOiBhZGQgb25l
+IGV0aHRvb2wgb3B0aW9uIHRvIHNldCByZWxheCBvcmRlcmluZyBtb2RlDQo+IA0KPiANCj4gDQo+
+ID4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gPiBGcm9tOiBtYW93ZW5hbg0KPiA+IFNl
+bnQ6IFNhdHVyZGF5LCBEZWNlbWJlciAyNCwgMjAxNiA0OjMwIFBNDQo+ID4gVG86ICdBbGV4YW5k
+ZXIgRHV5Y2snDQo+ID4gQ2M6IEplZmYgS2lyc2hlcjsgU3RlcGhlbiBIZW1taW5nZXI7IG5ldGRl
+dkB2Z2VyLmtlcm5lbC5vcmc7DQo+ID4gd2VpeW9uZ2p1biAoQSk7IERpbmd0aWFuaG9uZzsgV2Fu
+Z3pob3UgKEIpDQo+ID4gU3ViamVjdDogUkU6IFtQQVRDSF0gZXRodG9vbDogYWRkIG9uZSBldGh0
+b29sIG9wdGlvbiB0byBzZXQgcmVsYXgNCj4gPiBvcmRlcmluZyBtb2RlDQo+ID4NCj4gPg0KPiA+
+DQo+ID4gPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiA+ID4gRnJvbTogQWxleGFuZGVy
+IER1eWNrIFttYWlsdG86YWxleGFuZGVyLmR1eWNrQGdtYWlsLmNvbV0NCj4gPiA+IFNlbnQ6IEZy
+aWRheSwgRGVjZW1iZXIgMjMsIDIwMTYgMTE6NDMgUE0NCj4gPiA+IFRvOiBtYW93ZW5hbg0KPiA+
+ID4gQ2M6IEplZmYgS2lyc2hlcjsgU3RlcGhlbiBIZW1taW5nZXI7IG5ldGRldkB2Z2VyLmtlcm5l
+bC5vcmc7DQo+ID4gPiB3ZWl5b25nanVuIChBKTsgRGluZ3RpYW5ob25nDQo+ID4gPiBTdWJqZWN0
+OiBSZTogW1BBVENIXSBldGh0b29sOiBhZGQgb25lIGV0aHRvb2wgb3B0aW9uIHRvIHNldCByZWxh
+eA0KPiA+ID4gb3JkZXJpbmcgbW9kZQ0KPiA+ID4NCj4gPiA+IE9uIFRodSwgRGVjIDIyLCAyMDE2
+IGF0IDEwOjE0IFBNLCBtYW93ZW5hbiA8bWFvd2VuYW5AaHVhd2VpLmNvbT4NCj4gPiA+IHdyb3Rl
+Og0KPiA+ID4gPg0KPiA+ID4gPg0KPiA+ID4gPj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0N
+Cj4gPiA+ID4+IEZyb206IEplZmYgS2lyc2hlciBbbWFpbHRvOmplZmZyZXkudC5raXJzaGVyQGlu
+dGVsLmNvbV0NCj4gPiA+ID4+IFNlbnQ6IEZyaWRheSwgRGVjZW1iZXIgMjMsIDIwMTYgOTowNyBB
+TQ0KPiA+ID4gPj4gVG86IG1hb3dlbmFuOyBBbGV4YW5kZXIgRHV5Y2sNCj4gPiA+ID4+IENjOiBT
+dGVwaGVuIEhlbW1pbmdlcjsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgd2VpeW9uZ2p1biAoQSk7
+DQo+ID4gPiA+PiBEaW5ndGlhbmhvbmcNCj4gPiA+ID4+IFN1YmplY3Q6IFJlOiBbUEFUQ0hdIGV0
+aHRvb2w6IGFkZCBvbmUgZXRodG9vbCBvcHRpb24gdG8gc2V0IHJlbGF4DQo+ID4gPiA+PiBvcmRl
+cmluZyBtb2RlDQo+ID4gPiA+Pg0KPiA+ID4gPj4gT24gRnJpLCAyMDE2LTEyLTIzIGF0IDAwOjQw
+ICswMDAwLCBtYW93ZW5hbiB3cm90ZToNCj4gPiA+ID4+ID4gPiAtLS0tLU9yaWdpbmFsIE1lc3Nh
+Z2UtLS0tLQ0KPiA+ID4gPj4gPiA+IEZyb206IEFsZXhhbmRlciBEdXljayBbbWFpbHRvOmFsZXhh
+bmRlci5kdXlja0BnbWFpbC5jb21dDQo+ID4gPiA+PiA+ID4gU2VudDogVGh1cnNkYXksIERlY2Vt
+YmVyIDIyLCAyMDE2IDExOjU0IFBNDQo+ID4gPiA+PiA+ID4gVG86IG1hb3dlbmFuDQo+ID4gPiA+
+PiA+ID4gQ2M6IFN0ZXBoZW4gSGVtbWluZ2VyOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOw0KPiA+
+ID4gamVmZnJleS50LmtpcnNoZXJAaW50ZWwuDQo+ID4gPiA+PiA+ID4gY29tOw0KPiA+ID4gPj4g
+PiA+IHdlaXlvbmdqdW4gKEEpOyBEaW5ndGlhbmhvbmcNCj4gPiA+ID4+ID4gPiBTdWJqZWN0OiBS
+ZTogW1BBVENIXSBldGh0b29sOiBhZGQgb25lIGV0aHRvb2wgb3B0aW9uIHRvIHNldA0KPiA+ID4g
+Pj4gPiA+IHJlbGF4IG9yZGVyaW5nIG1vZGUNCj4gPiA+ID4+ID4gPg0KPiA+ID4gPj4gPiA+IE9u
+IFdlZCwgRGVjIDIxLCAyMDE2IGF0IDU6MzkgUE0sIG1hb3dlbmFuDQo+ID4gPiA8bWFvd2VuYW5A
+aHVhd2VpLmNvbT4NCj4gPiA+ID4+ID4gPiB3cm90ZToNCj4gPiA+ID4+ID4gPiA+DQo+ID4gPiA+
+PiA+ID4gPg0KPiA+ID4gPj4gPiA+ID4gPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiA+
+ID4gPj4gPiA+ID4gPiBGcm9tOiBTdGVwaGVuIEhlbW1pbmdlcg0KPiA+ID4gPj4gPiA+ID4gPiBb
+bWFpbHRvOnN0ZXBoZW5AbmV0d29ya3BsdW1iZXIub3JnXQ0KPiA+ID4gPj4gPiA+ID4gPiBTZW50
+OiBUaHVyc2RheSwgRGVjZW1iZXIgMjIsIDIwMTYgOToyOCBBTQ0KPiA+ID4gPj4gPiA+ID4gPiBU
+bzogbWFvd2VuYW4NCj4gPiA+ID4+ID4gPiA+ID4gQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7
+IGplZmZyZXkudC5raXJzaGVyQGludGVsLmNvbQ0KPiA+ID4gPj4gPiA+ID4gPiBTdWJqZWN0OiBS
+ZTogW1BBVENIXSBldGh0b29sOiBhZGQgb25lIGV0aHRvb2wgb3B0aW9uIHRvDQo+ID4gPiA+PiA+
+ID4gPiA+IHNldCByZWxheCBvcmRlcmluZyBtb2RlDQo+ID4gPiA+PiA+ID4gPiA+DQo+ID4gPiA+
+PiA+ID4gPiA+IE9uIFRodSwgOCBEZWMgMjAxNiAxNDo1MTozOCArMDgwMCBNYW8gV2VuYW4NCj4g
+PiA+ID4+ID4gPiA+ID4gPG1hb3dlbmFuQGh1YXdlaS5jb20+IHdyb3RlOg0KPiA+ID4gPj4gPiA+
+ID4gPg0KPiA+ID4gPj4gPiA+ID4gPiA+IFRoaXMgcGF0Y2ggcHJvdmlkZXMgb25lIHdheSB0byBz
+ZXQvdW5zZXQgSVhHQkUgTklDIFRYDQo+ID4gPiA+PiA+ID4gPiA+ID4gYW5kIFJYIHJlbGF4IG9y
+ZGVyaW5nIG1vZGUsIHdoaWNoIGNhbiBiZSBzZXQgYnkgZXRodG9vbC4NCj4gPiA+ID4+ID4gPiA+
+ID4gPiBSZWxheCBvcmRlcmluZyBpcyBvbmUgbW9kZSBvZiA4MjU5OSBOSUMsIHRvIGVuYWJsZSB0
+aGlzDQo+ID4gPiA+PiA+ID4gPiA+ID4gbW9kZSBjYW4gZW5oYW5jZSB0aGUgcGVyZm9ybWFuY2Ug
+Zm9yIHNvbWUgY3B1IGFyY2hpdGVjdXJlLg0KPiA+ID4gPj4gPiA+ID4gPg0KPiA+ID4gPj4gPiA+
+ID4gPiBUaGVuIGl0IHNob3VsZCBiZSBkb25lIGJ5IENQVSBhcmNoaXRlY3R1cmUgc3BlY2lmaWMN
+Cj4gPiA+ID4+ID4gPiA+ID4gcXVpcmtzIChwcmVmZXJhYmx5IGluIFBDSQ0KPiA+ID4gPj4gPiA+
+ID4gPiBsYXllcikgc28gdGhhdCBhbGwgdXNlcnMgZ2V0IHRoZSBvcHRpb24gd2l0aG91dCBoYXZp
+bmcgdG8NCj4gPiA+ID4+ID4gPiA+ID4gZG8gbWFudWFsDQo+ID4gPiA+PiA+ID4NCj4gPiA+ID4+
+ID4gPiBpbnRlcnZlbnRpb24uDQo+ID4gPiA+PiA+ID4gPiA+DQo+ID4gPiA+PiA+ID4gPiA+ID4g
+ZXhhbXBsZToNCj4gPiA+ID4+ID4gPiA+ID4gPiBldGh0b29sIC1zIGVucDFzMGYwIHJlbGF4b3Jk
+ZXIgb2ZmIGV0aHRvb2wgLXMgZW5wMXMwZjANCj4gPiA+ID4+ID4gPiA+ID4gPiByZWxheG9yZGVy
+IG9uDQo+ID4gPiA+PiA+ID4gPiA+DQo+ID4gPiA+PiA+ID4gPiA+IERvaW5nIGl0IHZpYSBldGh0
+b29sIGlzIGEgZGV2ZWxvcGVyIEFQSSAoZm9yIHRlc3RpbmcpIG5vdA0KPiA+ID4gPj4gPiA+ID4g
+PiBzb21ldGhpbmcgdGhhdCBtYWtlcyBzZW5zZSBpbiBwcm9kdWN0aW9uLg0KPiA+ID4gPj4gPiA+
+ID4NCj4gPiA+ID4+ID4gPiA+DQo+ID4gPiA+PiA+ID4gPiBUaGlzIGZlYXR1cmUgaXMgbm90IG1h
+bmRhdG9yeSBmb3IgYWxsIHVzZXJzLCBhY3R1cmFsbHkNCj4gPiA+ID4+ID4gPiA+IHJlbGF4IG9y
+ZGVyaW5nIGRlZmF1bHQgY29uZmlndXJhdGlvbiBvZiA4MjU5OSBpcyAnZGlzYWJsZScsDQo+ID4g
+PiA+PiA+ID4gPiBTbyB0aGlzIHBhdGNoIGdpdmVzIG9uZSB3YXkgdG8NCj4gPiA+ID4+ID4gPg0K
+PiA+ID4gPj4gPiA+IGVuYWJsZSByZWxheCBvcmRlcmluZyB0byBiZSBzZWxlY3RlZCBpbiBzb21l
+IHBlcmZvcm1hbmNlIGNvbmRpdGlvbi4NCj4gPiA+ID4+ID4gPg0KPiA+ID4gPj4gPiA+IFRoYXQg
+aXNuJ3QgcXVpdGUgdHJ1ZS4gIFRoZSBkZWZhdWx0IGZvciBTcGFyYyBzeXN0ZW1zIGlzIHRvDQo+
+ID4gPiA+PiA+ID4gaGF2ZSBpdCBlbmFibGVkLg0KPiA+ID4gPj4gPiA+DQo+ID4gPiA+PiA+ID4g
+UmVhbGx5IHRoaXMgaXMgc29tZXRoaW5nIHRoYXQgaXMgcGxhdGZvcm0gc3BlY2lmaWMuICBJIGFn
+cmVlDQo+ID4gPiA+PiA+ID4gd2l0aCBTdGVwaGVuIHRoYXQgaXQgd291bGQgd29yayBiZXR0ZXIg
+aWYgdGhpcyB3YXMgaGFuZGxlZCBhcw0KPiA+ID4gPj4gPiA+IGEgc2VyaWVzIG9mIHBsYXRmb3Jt
+IHNwZWNpZmljIHF1aXJrcyBoYW5kbGVkIGF0IHNvbWV0aGluZw0KPiA+ID4gPj4gPiA+IGxpa2Ug
+dGhlIFBDSSBsYXllciByYXRoZXIgdGhhbiBiZSBhIHN3aXRjaCB0aGUgdXNlciBjYW4gdG9nZ2xl
+IG9uIGFuZA0KPiBvZmYuDQo+ID4gPiA+PiA+ID4NCj4gPiA+ID4+ID4gPiBXaXRoIHRoYXQgYmVp
+bmcgc2FpZCB0aGVyZSBhcmUgY2hhbmdlcyBiZWluZyBtYWRlIHRoYXQgc2hvdWxkDQo+ID4gPiA+
+PiA+ID4gaGVscCB0byBpbXByb3ZlIHRoZSBzaXR1YXRpb24uICBTcGVjaWZpY2FsbHkgSSBhbSBs
+b29raW5nIGF0DQo+ID4gPiA+PiA+ID4gYWRkaW5nIHN1cHBvcnQgZm9yIHRoZSBETUFfQVRUUl9X
+RUFLX09SREVSSU5HIHdoaWNoIG1heQ0KPiBhbHNvDQo+ID4gPiA+PiA+ID4gYWxsb3cgdXMgdG8g
+aWRlbnRpZnkgY2FzZXMgd2hlcmUgeW91IG1pZ2h0IGJlIGFibGUgdG8gc3BlY2lmeQ0KPiA+ID4g
+Pj4gPiA+IHRoZSBETUEgYmVoYXZpb3IgdmlhIHRoZSBETUEgbWFwcGluZyBpbnN0ZWFkIG9mIGhh
+dmluZyB0bw0KPiA+ID4gPj4gPiA+IG1ha2UgdGhlIGZpbmFsIGRlY2lzaW9uIGluIHRoZSBkZXZp
+Y2UgaXRzZWxmLg0KPiA+ID4gPj4gPiA+DQo+ID4gPiA+PiA+ID4gLSBBbGV4DQo+ID4gPiA+PiA+
+DQo+ID4gPiA+PiA+IFllcywgU3BhcmMgaXMgYSBzcGVjaWFsIGNhc2UuIEZyb20gdGhlIE5JQyBk
+cml2ZXIgcG9pbnQgb2YNCj4gPiA+ID4+ID4gdmlldywgSXQgaXMgbm8gbmVlZCBmb3Igc29tZSBB
+UkNIcyB0byBkbyBwYXJ0aWN1bGFyIG9wZXJhdGlvbg0KPiA+ID4gPj4gPiBhbmQgY29tcGlsaW5n
+IGJyYW5jaCwgZXRodG9vbCBpcyBhIGZsZXhpYmxlIG1ldGhvZCBmb3IgdXNlciB0bw0KPiA+ID4g
+Pj4gPiBtYWtlIGRlY2lzaW9uIHdoZXRoZXINCj4gPiA+ID4+ID4gb258b2ZmIHRoaXMgZmVhdHVy
+ZS4NCj4gPiA+ID4+ID4gSSB0aGluayBKZWZmIGFzIG1haW50YWluZXIgb2YgODI1OTkgaGFzIHNv
+bWUgY29tbWVudHMgYWJvdXQgdGhpcy4NCj4gPiA+ID4+DQo+ID4gPiA+PiBNeSBvcmlnaW5hbCBj
+b21tZW50L29iamVjdGlvbiB3YXMgdGhhdCB5b3UgYXR0ZW1wdGVkIHRvIGRvIHRoaXMNCj4gPiA+
+ID4+IGNoYW5nZSBhcyBhIG1vZHVsZSBwYXJhbWV0ZXIgdG8gdGhlIGl4Z2JlIGRyaXZlciwgd2hl
+cmUgSQ0KPiA+ID4gPj4gZGlyZWN0ZWQgeW91IHRvIHVzZSBldGh0b29sIHNvIHRoYXQgb3RoZXIg
+ZHJpdmVycyBjb3VsZCBiZW5lZml0DQo+ID4gPiA+PiBmcm9tIHRoZSBhYmlsaXR5IHRvIGVuYWJs
+ZS9kaXNhYmxlIHJlbGF4ZWQgb3JkZXJpbmcuICBBcyBmYXIgYXMNCj4gPiA+ID4+IGhvdyBpdCBn
+ZXRzIGltcGxlbWVudGVkIGluIGV0aHRvb2wgb3IgUENJIGxheWVyLCBtYWtlcyBsaXR0bGUNCj4g
+PiA+ID4+IGRpZmZlcmVuY2UgdG8gbWUsIEkgb25seSBoYWQgaXNzdWVzIHdpdGggdGhlIGRyaXZl
+ciBzcGVjaWZpYw0KPiA+ID4gPj4gbW9kdWxlIHBhcmFtZXRlciBpbXBsZW1lbnRhdGlvbiwNCj4g
+PiA+IHdoaWNoIGlzIG5vdCBhY2NlcHRhYmxlLg0KPiA+ID4gPg0KPiA+ID4gPg0KPiA+ID4gPiBU
+aGFuayB5b3UgSmVmZiBhbmQgQWxleC4NCj4gPiA+ID4gQW5kIHRoZW4gSSBoYXZlIGdvbmUgdGhy
+b3VnaCBtYWlsIHRocmVhZCBhYm91dCAiaTQwZTogZW5hYmxlIFBDSWUNCj4gPiA+ID4gcmVsYXgg
+b3JkZXJpbmcgZm9yIFNQQVJDIiwgSXQgb25seSB3b3JrcyBmb3IgU1BBUkMsIGFueSBvdGhlciBB
+UkNIDQo+ID4gPiA+IHdobyB3YW50cyB0byBlbmFibGUgRE1BX0FUVFJfV0VBS19PUkRFUklORyBm
+ZWF0dXJlLCBzaG91bGQNCj4gZGVmaW5lDQo+ID4gPiA+IHRoZQ0KPiA+ID4gbmV3IG1hY3JvLCBy
+ZWNvbXBpbGUgdGhlIGRyaXZlciBtb2R1bGUuDQo+ID4gPiA+DQo+ID4gPiA+IEJlY2F1c2Ugb2Yg
+dGhlIGFib3ZlIHJlYXNvbnMsIHdlIGltcGxlbWVudCBpbiBldGh0b29sIHRvIGdpdmUgdGhlDQo+
+ID4gPiA+IGZpbmFsIHVzZXIgYSBjb252ZW5pZW50IHdheSB0byBvbnxvZmYgc3BlY2lhbCBmZWF0
+dXJlLCBubyBuZWVkDQo+ID4gPiA+IGRlZmluZSBuZXcgbWFjcm8sIGVhc3kgdG8gZXh0ZW5kIHRo
+ZSBuZXcgZmVhdHVyZXMsIGFuZCBhbHNvIGdvb2QNCj4gPiA+ID4gYmVuZWZpdCBmb3Igb3RoZXIN
+Cj4gPiA+IGRyaXZlciBhcyBKZWZmIHJlZmVycmVkLg0KPiA+ID4gPg0KPiA+ID4NCj4gPiA+IEkg
+dGhpbmsgdGhlIHBvaW50IGlzIHdlIHNob3VsZG4ndCBiYXNlIHRoZSBkZWNpc2lvbiBvbiB1c2Vy
+IGlucHV0Lg0KPiA+ID4gVGhlIGZhY3QgaXMgdGhlIFBDSWUgZGV2aWNlIGNvbnRyb2wgcmVnaXN0
+ZXIgc2hvdWxkIGhhdmUgYSBiaXQgdGhhdA0KPiA+ID4gaW5kaWNhdGVzIGlmIHRoZSBkZXZpY2Ug
+aXMgYWxsb3dlZCB0byBlbmFibGUgcmVsYXhlZCBvcmRlcmluZyBvciBub3QuDQo+ID4gPiBJZiB3
+ZSBjYW4gZ3VhcmFudGVlIHRoYXQgdGhlIGJpdCBpcyBzZXQgaW4gYWxsIHRoZSBjYXNlcyB3aGVy
+ZSBpdA0KPiA+ID4gc2hvdWxkIGJlIHNldCwgYW5kIGNsZWFyZWQgaW4gYWxsIHRoZSBjYXNlcyB3
+aGVyZSBpdCBzaG91bGQgbm90IHRoZW4NCj4gPiA+IHdlIGNvdWxkIHVzZSBzb21ldGhpbmcgbGlr
+ZSB0aGF0IHRvIGRldGVybWluZSBpZiB0aGUgZGV2aWNlIGlzDQo+ID4gPiBzdXBwb3NlZCB0byBl
+bmFibGUgcmVsYXhlZCBvcmRlcmluZyBpbnN0ZWFkIG9mIHRyeWluZyB0byBtYWtlIHRoZQ0KPiA+
+ID4gZGVjaXNpb24NCj4gPiBvdXJzZWx2ZXMuDQo+ID4gPg0KPiA+ID4gLSBBbGV4DQo+ID4NCj4g
+PiBvay4gV2UgYXJlIGZvY3VzaW5nIG9uIHRoZSByZWdpc3Rlci4NCj4gPiBBbmQgeWVzLCB0byBl
+bmFibGUgcmVsYXggb3JkZXJpbmcgZm9yIDgyNTk5IHNob3VsZCBiZSBzZXQgYnkgb25lIG9yDQo+
+ID4gbW9yZSBiaXRzIG9mIFJ4L1RYIERDQSBDb250cm9sIFJlZ2lzdGVyLCB0aGVzZSBiaXRzIHNo
+b3VsZCBiZSBzZXQgaW4NCj4gPiBtYW55IGNwdSBhcmNoaXRlY3R1cmVzLCBzdWNoIGFzIGFybTY0
+LCBzcGFyYywgYW5kIHNvIG9uLCBhbmQgc2hvdWxkIGJlDQo+IGNsZWFyZWQgaW4gb3RoZXIgQVJD
+SHMuDQo+ID4gQnkgdGhlIHdheSwgaG93IGRvIHlvdSBlbmFibGUgU1BBUkMgbWFjcm8sIGhvdyBh
+bmQgd2hlcmUgdG8gZGVmaW5lDQo+ID4gdGhpcyBjb21waWxpbmcgbWFjcm8gd2hlbiB1c2VyIG9u
+ZSB0byBlbmFibGUgcmVsYXggb3JkZXJpbmcgdW5kZXIgU1BBUkMNCj4gc3lzdGVtPw0KPiA+ICNp
+Zm5kZWYgQ09ORklHX1NQQVJDDQo+ID4NCj4gPg0KPiANCj4gDQo+IEhpLCBBbGV4LA0KPiBIYXZl
+IHlvdSBhbHJlYWR5IHNlbnQgb3V0IHRoZSBwYXRjaGVzIGFib3V0IERNQV9BVFRSX1dFQUtfT1JE
+RVJJTkc/DQo+IFdlIHdhbnQgdG8gZ2V0IHlvdSBob3cgdG8gZW5hYmxlIERNQV9BVFRSX1dFQUtf
+T1JERVJJTkcgYnkgUENJZSBsYXllciwNCj4gYW5kIHdlIGNhbiByZWZlciB0byB0aGF0Lg0KDQpJ
+IGhhdmUgdmVyaWZpZWQgRE1BX0FUVFJfV0VBS19PUkRFUklORyBpcyBub3QgdXNhYmxlIGZvciBv
+dXIgc3lzdGVtKGFybTY0IGFuZCA4MjU5OSksDQpXZSBzaG91bGQgZW5hYmxlIHJlbGF4IG9yZGVy
+aW5nIGluIDgyNTk5IERDQSBjb250cm9sIHJlZ2lzdGVyIHRvIGltcHJvdmUgcGVyZm9ybWFuY2Uu
+IA0KQXMgU3RlcGhlbiBIZW1taW5nZXIgZG8gbm90IHN1Z2dlc3QgdXNlIGV0aHRvb2wgdG8gc2V0
+IHJlbGF4IG9yZGVyaW5nIGZlYXR1cmUsIA0KQEplZmYsIGRvIHlvdSBhZ3JlZSB3aXRoIHVzaW5n
+IGVycmF0dW0gY29uZmlnIHRvIGVuYWJsZSBSTyBtb2RlIGluIDgyNTk5LiAgDQpDb2RlcyBsaWtl
+IGJlbG93Og0KSW4gS2NvbmZpZzoNCitjb25maWcgSElfRVJSQVRVTV94eHh4DQoNCkluIGl4Z2Jl
+XzgyNTk5LmMNCiNpZiAhZGVmaW5lZCAoQ09ORklHX1NQQVJDKSB8fCAhZGVmaW5lZChISV9FUlJB
+VFVNX3h4eHgpDQoJLyogRGlzYWJsZSByZWxheGVkIG9yZGVyaW5nICovDQoJZm9yIChpID0gMDsg
+KChpIDwgaHctPm1hYy5tYXhfdHhfcXVldWVzKSAmJg0KCSAgICAgKGkgPCBJWEdCRV9EQ0FfTUFY
+X1FVRVVFU184MjU5OCkpOyBpKyspIHsNCgkJcmVndmFsID0gSVhHQkVfUkVBRF9SRUcoaHcsIElY
+R0JFX0RDQV9UWENUUkwoaSkpOw0KCQlyZWd2YWwgJj0gfklYR0JFX0RDQV9UWENUUkxfREVTQ19X
+Uk9fRU47DQoJCUlYR0JFX1dSSVRFX1JFRyhodywgSVhHQkVfRENBX1RYQ1RSTChpKSwgcmVndmFs
+KTsNCgl9DQoNCglmb3IgKGkgPSAwOyAoKGkgPCBody0+bWFjLm1heF9yeF9xdWV1ZXMpICYmDQoJ
+ICAgICAoaSA8IElYR0JFX0RDQV9NQVhfUVVFVUVTXzgyNTk4KSk7IGkrKykgew0KCQlyZWd2YWwg
+PSBJWEdCRV9SRUFEX1JFRyhodywgSVhHQkVfRENBX1JYQ1RSTChpKSk7DQoJCXJlZ3ZhbCAmPSB+
+KElYR0JFX0RDQV9SWENUUkxfREFUQV9XUk9fRU4gfA0KCQkJICAgIElYR0JFX0RDQV9SWENUUkxf
+SEVBRF9XUk9fRU4pOw0KCQlJWEdCRV9XUklURV9SRUcoaHcsIElYR0JFX0RDQV9SWENUUkwoaSks
+IHJlZ3ZhbCk7DQoJfQ0KI2VuZGlmDQoNCg0KDQoNCg0KDQoNCg0K
