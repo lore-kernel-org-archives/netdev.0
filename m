@@ -1,7 +1,7 @@
 From: John Crispin <john@phrozen.org>
-Subject: [RFC 4/4] net-next: dsa: qca8k: add support for multiple cpu ports
-Date: Wed,  4 Jan 2017 08:38:04 +0100
-Message-ID: <1483515484-21793-5-git-send-email-john@phrozen.org>
+Subject: [RFC 3/4] net-next: dsa: Add support for multiple cpu ports.
+Date: Wed,  4 Jan 2017 08:38:03 +0100
+Message-ID: <1483515484-21793-4-git-send-email-john@phrozen.org>
 References: <1483515484-21793-1-git-send-email-john@phrozen.org>
 Cc: netdev@vger.kernel.org, John Crispin <john@phrozen.org>
 To: Andrew Lunn <andrew@lunn.ch>,
@@ -9,232 +9,275 @@ To: Andrew Lunn <andrew@lunn.ch>,
         Florian Fainelli <f.fainelli@gmail.com>,
         Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbd.name ([46.4.11.11]:60156 "EHLO nbd.name"
+Received: from nbd.name ([46.4.11.11]:60158 "EHLO nbd.name"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S934328AbdADHiR (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S934379AbdADHiR (ORCPT <rfc822;netdev@vger.kernel.org>);
         Wed, 4 Jan 2017 02:38:17 -0500
 In-Reply-To: <1483515484-21793-1-git-send-email-john@phrozen.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-With the subsystem now supporting multiple cpu ports, we need to make some
-changes to the driver as it currently has the cpu port hardcoded as port0.
-The patch moves the setup logic for the cpu port into one loop which
-iterates over all cpu ports and sets them up. Additionally the bridge
-join/leave logic needs a small fix to work with having a cpu port other
-than 0.
+From: Andrew Lunn <andrew@lunn.ch>
+
+Some boards have two CPU interfaces connected to the switch, e.g. WiFi
+access points, with 1 port labeled WAN, 4 ports labeled lan1-lan4, and
+two port connected to the SoC.
+
+This patch extends DSA to allows both CPU ports to be used. The "cpu"
+node in the DSA tree can now have a phandle to the host interface it
+connects to. Each user port can have a phandle to a cpu port which
+should be used for traffic between the port and the CPU. Thus simple
+load sharing over the two CPU ports can be achieved.
 
 Signed-off-by: John Crispin <john@phrozen.org>
+Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 ---
- drivers/net/dsa/qca8k.c |  135 +++++++++++++++++++++++++++--------------------
- drivers/net/dsa/qca8k.h |    2 -
- 2 files changed, 78 insertions(+), 59 deletions(-)
+ include/net/dsa.h  |   21 ++++++++++++++++++++-
+ net/dsa/dsa2.c     |   36 ++++++++++++++++++++++++++++++------
+ net/dsa/dsa_priv.h |    5 +++++
+ net/dsa/slave.c    |   27 ++++++++++++++++-----------
+ 4 files changed, 71 insertions(+), 18 deletions(-)
 
-diff --git a/drivers/net/dsa/qca8k.c b/drivers/net/dsa/qca8k.c
-index b3df70d..1693388 100644
---- a/drivers/net/dsa/qca8k.c
-+++ b/drivers/net/dsa/qca8k.c
-@@ -486,11 +486,25 @@
- 		qca8k_reg_clear(priv, QCA8K_REG_PORT_STATUS(port), mask);
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index b122196..f68180b 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -60,6 +60,8 @@ struct dsa_chip_data {
+ 	 */
+ 	char		*port_names[DSA_MAX_PORTS];
+ 	struct device_node *port_dn[DSA_MAX_PORTS];
++	struct net_device *port_ethernet[DSA_MAX_PORTS];
++	int		port_cpu[DSA_MAX_PORTS];
+ 
+ 	/*
+ 	 * An array of which element [a] indicates which port on this
+@@ -204,7 +206,7 @@ struct dsa_switch {
+ 
+ static inline bool dsa_is_cpu_port(struct dsa_switch *ds, int p)
+ {
+-	return !!(ds->index == ds->dst->cpu_switch && p == ds->dst->cpu_port);
++	return !!(ds->cpu_port_mask & (1 << p));
  }
  
-+static void
-+qca8k_setup_flooding(struct qca8k_priv *priv, int port_mask, int enable)
+ static inline bool dsa_is_dsa_port(struct dsa_switch *ds, int p)
+@@ -217,6 +219,11 @@ static inline bool dsa_is_port_initialized(struct dsa_switch *ds, int p)
+ 	return ds->enabled_port_mask & (1 << p) && ds->ports[p].netdev;
+ }
+ 
++static inline bool dsa_is_upstream_port(struct dsa_switch *ds, int p)
 +{
-+	u32 mask = (port_mask << QCA8K_GLOBAL_FW_CTRL1_IGMP_DP_S) |
-+		   (port_mask << QCA8K_GLOBAL_FW_CTRL1_BC_DP_S) |
-+		   (port_mask << QCA8K_GLOBAL_FW_CTRL1_MC_DP_S) |
-+		   (port_mask << QCA8K_GLOBAL_FW_CTRL1_UC_DP_S);
-+
-+	if (enable)
-+		qca8k_reg_set(priv, QCA8K_REG_GLOBAL_FW_CTRL1, mask);
-+	else
-+		qca8k_reg_clear(priv, QCA8K_REG_GLOBAL_FW_CTRL1, mask);
++	return dsa_is_cpu_port(ds, p) || dsa_is_dsa_port(ds, p);
 +}
 +
- static int
- qca8k_setup(struct dsa_switch *ds)
+ static inline u8 dsa_upstream_port(struct dsa_switch *ds)
  {
- 	struct qca8k_priv *priv = (struct qca8k_priv *)ds->priv;
--	int ret, i, phy_mode = -1;
-+	int ret, i;
+ 	struct dsa_switch_tree *dst = ds->dst;
+@@ -233,6 +240,18 @@ static inline u8 dsa_upstream_port(struct dsa_switch *ds)
+ 		return ds->rtable[dst->cpu_switch];
+ }
  
- 	/* Make sure that port 0 is the cpu port */
- 	if (!dsa_is_cpu_port(ds, 0)) {
-@@ -506,29 +520,49 @@
- 	if (IS_ERR(priv->regmap))
- 		pr_warn("regmap initialization failed");
- 
--	/* Initialize CPU port pad mode (xMII type, delays...) */
--	phy_mode = of_get_phy_mode(ds->ports[ds->dst->cpu_port].dn);
--	if (phy_mode < 0) {
--		pr_err("Can't find phy-mode for master device\n");
--		return phy_mode;
--	}
--	ret = qca8k_set_pad_ctrl(priv, QCA8K_CPU_PORT, phy_mode);
--	if (ret < 0)
--		return ret;
++static inline u8 dsa_port_upstream_port(struct dsa_switch *ds, int port)
++{
++	/*
++	 * If this port has a specific upstream cpu port, use it,
++	 * otherwise use the switch default.
++	 */
++	if (ds->cd->port_cpu[port])
++		return ds->cd->port_cpu[port];
++	else
++		return dsa_upstream_port(ds);
++}
++
+ struct switchdev_trans;
+ struct switchdev_obj;
+ struct switchdev_obj_port_fdb;
+diff --git a/net/dsa/dsa2.c b/net/dsa/dsa2.c
+index 5fff951..1763cd4 100644
+--- a/net/dsa/dsa2.c
++++ b/net/dsa/dsa2.c
+@@ -258,7 +258,7 @@ static void dsa_cpu_port_unapply(struct device_node *port, u32 index,
+ {
+ 	dsa_cpu_dsa_destroy(port);
+ 	ds->cpu_port_mask &= ~BIT(index);
 -
--	/* Enable CPU Port */
-+	/* Tell the switch that port0 is a cpu port */
- 	qca8k_reg_set(priv, QCA8K_REG_GLOBAL_FW_CTRL0,
- 		      QCA8K_GLOBAL_FW_CTRL0_CPU_PORT_EN);
--	qca8k_port_set_status(priv, QCA8K_CPU_PORT, 1);
--	priv->port_sts[QCA8K_CPU_PORT].enabled = 1;
++	dev_put(ds->cd->port_ethernet[index]);
+ }
  
- 	/* Enable MIB counters */
- 	qca8k_mib_init(priv);
+ static int dsa_user_port_apply(struct device_node *port, u32 index,
+@@ -475,6 +475,28 @@ static int dsa_cpu_parse(struct device_node *port, u32 index,
  
--	/* Enable QCA header mode on the cpu port */
--	qca8k_write(priv, QCA8K_REG_PORT_HDR_CTRL(QCA8K_CPU_PORT),
--		    QCA8K_PORT_HDR_CTRL_ALL << QCA8K_PORT_HDR_CTRL_TX_S |
--		    QCA8K_PORT_HDR_CTRL_ALL << QCA8K_PORT_HDR_CTRL_RX_S);
-+	/* Setup the cpu ports */
-+	for (i = 0; i < DSA_MAX_PORTS; i++) {
-+		struct net_device *netdev;
-+		int phy_mode = -1;
+ 	dst->rcv = dst->tag_ops->rcv;
+ 
++	dev_hold(ethernet_dev);
++	ds->cd->port_ethernet[index] = ethernet_dev;
 +
-+		if (!dsa_is_cpu_port(ds, i))
-+			continue;
++	return 0;
++}
 +
-+		netdev = ds->dst->pd->chip->port_ethernet[i];
-+		if (!netdev) {
-+			pr_err("Can't find netdev for port%d\n", i);
-+			return -ENODEV;
-+		}
++static int dsa_user_parse(struct device_node *port, u32 index,
++			  struct dsa_switch *ds)
++{
++	struct device_node *cpu_port;
++	const unsigned int *cpu_port_reg;
++	int cpu_port_index;
 +
-+		/* Initialize CPU port pad mode (xMII type, delays...) */
-+		phy_mode = of_get_phy_mode(netdev->dev.parent->of_node);
-+		if (phy_mode < 0) {
-+			pr_err("Can't find phy-mode for port:%d\n", i);
-+			return phy_mode;
-+		}
-+		ret = qca8k_set_pad_ctrl(priv, i, phy_mode);
-+		if (ret < 0)
-+			return ret;
-+
-+		/* Enable QCA header mode on the cpu port */
-+		qca8k_write(priv,
-+			    QCA8K_REG_PORT_HDR_CTRL(i),
-+			    QCA8K_PORT_HDR_CTRL_ALL << QCA8K_PORT_HDR_CTRL_TX_S |
-+			    QCA8K_PORT_HDR_CTRL_ALL << QCA8K_PORT_HDR_CTRL_RX_S);
-+
-+		qca8k_port_set_status(priv, i, 1);
-+		priv->port_sts[i].enabled = 1;
-+
-+		/* Forward all unknown frames to CPU port for Linux processing */
-+		qca8k_setup_flooding(priv, BIT(i), 1);
++	cpu_port = of_parse_phandle(port, "cpu", 0);
++	if (cpu_port) {
++		cpu_port_reg = of_get_property(cpu_port, "reg", NULL);
++		if (!cpu_port_reg)
++			return -EINVAL;
++		cpu_port_index = be32_to_cpup(cpu_port_reg);
++		ds->cd->port_cpu[index] = cpu_port_index;
 +	}
- 
- 	/* Disable forwarding by default on all ports */
- 	for (i = 0; i < QCA8K_NUM_PORTS; i++)
-@@ -540,43 +574,30 @@
- 		if (ds->enabled_port_mask & BIT(i))
- 			qca8k_port_set_status(priv, i, 0);
- 
--	/* Forward all unknown frames to CPU port for Linux processing */
--	qca8k_write(priv, QCA8K_REG_GLOBAL_FW_CTRL1,
--		    BIT(0) << QCA8K_GLOBAL_FW_CTRL1_IGMP_DP_S |
--		    BIT(0) << QCA8K_GLOBAL_FW_CTRL1_BC_DP_S |
--		    BIT(0) << QCA8K_GLOBAL_FW_CTRL1_MC_DP_S |
--		    BIT(0) << QCA8K_GLOBAL_FW_CTRL1_UC_DP_S);
--
--	/* Setup connection between CPU port & user ports */
-+	/* Setup user ports and connections to CPU ports */
- 	for (i = 0; i < DSA_MAX_PORTS; i++) {
--		/* CPU port gets connected to all user ports of the switch */
--		if (dsa_is_cpu_port(ds, i)) {
--			qca8k_rmw(priv, QCA8K_PORT_LOOKUP_CTRL(QCA8K_CPU_PORT),
--				  QCA8K_PORT_LOOKUP_MEMBER,
--				  ds->enabled_port_mask);
--		}
-+		int shift = 16 * (i % 2);
-+		int cpu_port;
- 
--		/* Invividual user ports get connected to CPU port only */
--		if (ds->enabled_port_mask & BIT(i)) {
--			int shift = 16 * (i % 2);
--
--			qca8k_rmw(priv, QCA8K_PORT_LOOKUP_CTRL(i),
--				  QCA8K_PORT_LOOKUP_MEMBER,
--				  BIT(QCA8K_CPU_PORT));
--
--			/* Enable ARP Auto-learning by default */
--			qca8k_reg_set(priv, QCA8K_PORT_LOOKUP_CTRL(i),
--				      QCA8K_PORT_LOOKUP_LEARN);
--
--			/* For port based vlans to work we need to set the
--			 * default egress vid
--			 */
--			qca8k_rmw(priv, QCA8K_EGRESS_VLAN(i),
--				  0xffff << shift, 1 << shift);
--			qca8k_write(priv, QCA8K_REG_PORT_VLAN_CTRL0(i),
--				    QCA8K_PORT_VLAN_CVID(1) |
--				    QCA8K_PORT_VLAN_SVID(1));
--		}
-+		if (!(ds->enabled_port_mask & BIT(i)))
-+			continue;
 +
-+		cpu_port = dsa_port_upstream_port(ds, i);
-+		qca8k_reg_set(priv, QCA8K_PORT_LOOKUP_CTRL(i), BIT(cpu_port));
-+		qca8k_reg_set(priv, QCA8K_PORT_LOOKUP_CTRL(cpu_port), BIT(i));
-+
-+		/* Enable ARP Auto-learning by default */
-+		qca8k_reg_set(priv, QCA8K_PORT_LOOKUP_CTRL(i),
-+			      QCA8K_PORT_LOOKUP_LEARN);
-+
-+		/* For port based vlans to work we need to set the
-+		 * default egress vid
-+		 */
-+		qca8k_rmw(priv, QCA8K_EGRESS_VLAN(i),
-+			  0xffff << shift, 1 << shift);
-+		qca8k_write(priv, QCA8K_REG_PORT_VLAN_CTRL0(i),
-+			    QCA8K_PORT_VLAN_CVID(1) |
-+			    QCA8K_PORT_VLAN_SVID(1));
- 	}
- 
- 	/* Flush the FDB table */
-@@ -750,7 +771,7 @@
- 		       struct net_device *bridge)
- {
- 	struct qca8k_priv *priv = (struct qca8k_priv *)ds->priv;
--	int port_mask = BIT(QCA8K_CPU_PORT);
-+	int port_mask = 0;
- 	int i;
- 
- 	priv->port_sts[port].bridge_dev = bridge;
-@@ -768,8 +789,7 @@
- 			port_mask |= BIT(i);
- 	}
- 	/* Add all other ports to this ports portvlan mask */
--	qca8k_rmw(priv, QCA8K_PORT_LOOKUP_CTRL(port),
--		  QCA8K_PORT_LOOKUP_MEMBER, port_mask);
-+	qca8k_reg_set(priv, QCA8K_PORT_LOOKUP_CTRL(port), port_mask);
- 
  	return 0;
  }
-@@ -796,7 +816,8 @@
- 	 * this port
- 	 */
- 	qca8k_rmw(priv, QCA8K_PORT_LOOKUP_CTRL(port),
--		  QCA8K_PORT_LOOKUP_MEMBER, BIT(QCA8K_CPU_PORT));
-+		  QCA8K_PORT_LOOKUP_MEMBER,
-+		  BIT(dsa_port_upstream_port(ds, i)));
+ 
+@@ -482,18 +504,20 @@ static int dsa_ds_parse(struct dsa_switch_tree *dst, struct dsa_switch *ds)
+ {
+ 	struct device_node *port;
+ 	u32 index;
+-	int err;
++	int err = 0;
+ 
+ 	for (index = 0; index < DSA_MAX_PORTS; index++) {
+ 		port = ds->ports[index].dn;
+ 		if (!port)
+ 			continue;
+ 
+-		if (dsa_port_is_cpu(port)) {
++		if (dsa_port_is_cpu(port))
+ 			err = dsa_cpu_parse(port, index, dst, ds);
+-			if (err)
+-				return err;
+-		}
++		else if (!dsa_port_is_dsa(port))
++			err = dsa_user_parse(port, index,  ds);
++
++		if (err)
++			return err;
+ 	}
+ 
+ 	pr_info("DSA: switch %d %d parsed\n", dst->tree, ds->index);
+diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
+index 6cfd738..7e1e62c 100644
+--- a/net/dsa/dsa_priv.h
++++ b/net/dsa/dsa_priv.h
+@@ -24,6 +24,11 @@ struct dsa_device_ops {
+ struct dsa_slave_priv {
+ 	struct sk_buff *	(*xmit)(struct sk_buff *skb,
+ 					struct net_device *dev);
++	/*
++	 * Which host device do we used to send packets to the switch
++	 * for this port.
++	 */
++	struct net_device	*master;
+ 
+ 	/*
+ 	 * Which switch this port is a part of, and the port index
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index ffd91969..260d4a9 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -61,7 +61,7 @@ static int dsa_slave_get_iflink(const struct net_device *dev)
+ {
+ 	struct dsa_slave_priv *p = netdev_priv(dev);
+ 
+-	return p->parent->dst->master_netdev->ifindex;
++	return p->master->ifindex;
  }
  
- static int
-diff --git a/drivers/net/dsa/qca8k.h b/drivers/net/dsa/qca8k.h
-index 2014647..aca6abb 100644
---- a/drivers/net/dsa/qca8k.h
-+++ b/drivers/net/dsa/qca8k.h
-@@ -26,8 +26,6 @@
+ static inline bool dsa_port_is_bridged(struct dsa_slave_priv *p)
+@@ -96,7 +96,7 @@ static void dsa_port_set_stp_state(struct dsa_switch *ds, int port, u8 state)
+ static int dsa_slave_open(struct net_device *dev)
+ {
+ 	struct dsa_slave_priv *p = netdev_priv(dev);
+-	struct net_device *master = p->parent->dst->master_netdev;
++	struct net_device *master = p->master;
+ 	struct dsa_switch *ds = p->parent;
+ 	u8 stp_state = dsa_port_is_bridged(p) ?
+ 			BR_STATE_BLOCKING : BR_STATE_FORWARDING;
+@@ -151,7 +151,7 @@ static int dsa_slave_open(struct net_device *dev)
+ static int dsa_slave_close(struct net_device *dev)
+ {
+ 	struct dsa_slave_priv *p = netdev_priv(dev);
+-	struct net_device *master = p->parent->dst->master_netdev;
++	struct net_device *master = p->master;
+ 	struct dsa_switch *ds = p->parent;
  
- #define QCA8K_NUM_FDB_RECORDS				2048
+ 	if (p->phy)
+@@ -178,7 +178,7 @@ static int dsa_slave_close(struct net_device *dev)
+ static void dsa_slave_change_rx_flags(struct net_device *dev, int change)
+ {
+ 	struct dsa_slave_priv *p = netdev_priv(dev);
+-	struct net_device *master = p->parent->dst->master_netdev;
++	struct net_device *master = p->master;
  
--#define QCA8K_CPU_PORT					0
+ 	if (change & IFF_ALLMULTI)
+ 		dev_set_allmulti(master, dev->flags & IFF_ALLMULTI ? 1 : -1);
+@@ -189,7 +189,7 @@ static void dsa_slave_change_rx_flags(struct net_device *dev, int change)
+ static void dsa_slave_set_rx_mode(struct net_device *dev)
+ {
+ 	struct dsa_slave_priv *p = netdev_priv(dev);
+-	struct net_device *master = p->parent->dst->master_netdev;
++	struct net_device *master = p->master;
+ 
+ 	dev_mc_sync(master, dev);
+ 	dev_uc_sync(master, dev);
+@@ -198,7 +198,7 @@ static void dsa_slave_set_rx_mode(struct net_device *dev)
+ static int dsa_slave_set_mac_address(struct net_device *dev, void *a)
+ {
+ 	struct dsa_slave_priv *p = netdev_priv(dev);
+-	struct net_device *master = p->parent->dst->master_netdev;
++	struct net_device *master = p->master;
+ 	struct sockaddr *addr = a;
+ 	int err;
+ 
+@@ -633,7 +633,7 @@ static netdev_tx_t dsa_slave_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	/* Queue the SKB for transmission on the parent interface, but
+ 	 * do not modify its EtherType
+ 	 */
+-	nskb->dev = p->parent->dst->master_netdev;
++	nskb->dev = p->master;
+ 	dev_queue_xmit(nskb);
+ 
+ 	return NETDEV_TX_OK;
+@@ -947,7 +947,7 @@ static int dsa_slave_netpoll_setup(struct net_device *dev,
+ {
+ 	struct dsa_slave_priv *p = netdev_priv(dev);
+ 	struct dsa_switch *ds = p->parent;
+-	struct net_device *master = ds->dst->master_netdev;
++	struct net_device *master = p->master;
+ 	struct netpoll *netpoll;
+ 	int err = 0;
+ 
+@@ -1247,12 +1247,16 @@ int dsa_slave_create(struct dsa_switch *ds, struct device *parent,
+ 	struct net_device *master;
+ 	struct net_device *slave_dev;
+ 	struct dsa_slave_priv *p;
++	int port_cpu = ds->cd->port_cpu[port];
+ 	int ret;
+ 
+-	master = ds->dst->master_netdev;
+-	if (ds->master_netdev)
++	if (port_cpu && ds->cd->port_ethernet[port_cpu])
++		master = ds->cd->port_ethernet[port_cpu];
++	else if (ds->master_netdev)
+ 		master = ds->master_netdev;
 -
- /* Global control registers */
- #define QCA8K_REG_MASK_CTRL				0x000
- #define   QCA8K_MASK_CTRL_ID_M				0xff
++	else
++		master = ds->dst->master_netdev;
++	master->dsa_ptr = (void *)ds->dst;
+ 	slave_dev = alloc_netdev(sizeof(struct dsa_slave_priv), name,
+ 				 NET_NAME_UNKNOWN, ether_setup);
+ 	if (slave_dev == NULL)
+@@ -1279,6 +1283,7 @@ int dsa_slave_create(struct dsa_switch *ds, struct device *parent,
+ 	p->parent = ds;
+ 	p->port = port;
+ 	p->xmit = dst->tag_ops->xmit;
++	p->master = master;
+ 
+ 	p->old_pause = -1;
+ 	p->old_link = -1;
 -- 
 1.7.10.4
