@@ -1,89 +1,35 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next] net: dsa: b53: Utilize common helpers for u64/MAC
-Date: Wed,  4 Jan 2017 13:53:20 -0800
-Message-ID: <20170104215320.19293-1-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com, volodymyr.bendiuga@gmail.com,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next] net: dsa: b53: Utilize common helpers for
+ u64/MAC
+Date: Wed, 4 Jan 2017 23:07:22 +0100
+Message-ID: <20170104220722.GH4229@lunn.ch>
+References: <20170104215320.19293-1-f.fainelli@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+        vivien.didelot@savoirfairelinux.com, volodymyr.bendiuga@gmail.com
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:36374 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S935483AbdADVxm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2017 16:53:42 -0500
-Received: by mail-pg0-f67.google.com with SMTP id 75so164652pgf.3
-        for <netdev@vger.kernel.org>; Wed, 04 Jan 2017 13:53:42 -0800 (PST)
+Received: from vps0.lunn.ch ([178.209.37.122]:44307 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1031655AbdADWHa (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 4 Jan 2017 17:07:30 -0500
+Content-Disposition: inline
+In-Reply-To: <20170104215320.19293-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Utilize the two functions recently introduced: u64_to_ether() and
-ether_to_u64() instead of our own versions.
+On Wed, Jan 04, 2017 at 01:53:20PM -0800, Florian Fainelli wrote:
+> Utilize the two functions recently introduced: u64_to_ether() and
+> ether_to_u64() instead of our own versions.
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/dsa/b53/b53_common.c |  2 +-
- drivers/net/dsa/b53/b53_priv.h   | 23 ++---------------------
- 2 files changed, 3 insertions(+), 22 deletions(-)
+:-)
 
-diff --git a/drivers/net/dsa/b53/b53_common.c b/drivers/net/dsa/b53/b53_common.c
-index 947adda3397d..d5370c227043 100644
---- a/drivers/net/dsa/b53/b53_common.c
-+++ b/drivers/net/dsa/b53/b53_common.c
-@@ -1137,7 +1137,7 @@ static int b53_arl_op(struct b53_device *dev, int op, int port,
- 	int ret;
- 
- 	/* Convert the array into a 64-bit MAC */
--	mac = b53_mac_to_u64(addr);
-+	mac = ether_addr_to_u64(addr);
- 
- 	/* Perform a read for the given MAC and VID */
- 	b53_write48(dev, B53_ARLIO_PAGE, B53_MAC_ADDR_IDX, mac);
-diff --git a/drivers/net/dsa/b53/b53_priv.h b/drivers/net/dsa/b53/b53_priv.h
-index f192a673caba..d9833540fe26 100644
---- a/drivers/net/dsa/b53/b53_priv.h
-+++ b/drivers/net/dsa/b53/b53_priv.h
-@@ -325,25 +325,6 @@ struct b53_arl_entry {
- 	u8 is_static:1;
- };
- 
--static inline void b53_mac_from_u64(u64 src, u8 *dst)
--{
--	unsigned int i;
--
--	for (i = 0; i < ETH_ALEN; i++)
--		dst[ETH_ALEN - 1 - i] = (src >> (8 * i)) & 0xff;
--}
--
--static inline u64 b53_mac_to_u64(const u8 *src)
--{
--	unsigned int i;
--	u64 dst = 0;
--
--	for (i = 0; i < ETH_ALEN; i++)
--		dst |= (u64)src[ETH_ALEN - 1 - i] << (8 * i);
--
--	return dst;
--}
--
- static inline void b53_arl_to_entry(struct b53_arl_entry *ent,
- 				    u64 mac_vid, u32 fwd_entry)
- {
-@@ -352,14 +333,14 @@ static inline void b53_arl_to_entry(struct b53_arl_entry *ent,
- 	ent->is_valid = !!(fwd_entry & ARLTBL_VALID);
- 	ent->is_age = !!(fwd_entry & ARLTBL_AGE);
- 	ent->is_static = !!(fwd_entry & ARLTBL_STATIC);
--	b53_mac_from_u64(mac_vid, ent->mac);
-+	u64_to_ether_addr(mac_vid, ent->mac);
- 	ent->vid = mac_vid >> ARLTBL_VID_S;
- }
- 
- static inline void b53_arl_from_entry(u64 *mac_vid, u32 *fwd_entry,
- 				      const struct b53_arl_entry *ent)
- {
--	*mac_vid = b53_mac_to_u64(ent->mac);
-+	*mac_vid = ether_addr_to_u64(ent->mac);
- 	*mac_vid |= (u64)(ent->vid & ARLTBL_VID_MASK) << ARLTBL_VID_S;
- 	*fwd_entry = ent->port & ARLTBL_DATA_PORT_ID_MASK;
- 	if (ent->is_valid)
--- 
-2.9.3
+And i expect these have been tested on big endian systems. I never
+thought to look if one of the other drivers already had them.
+
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+
+    Andrew
