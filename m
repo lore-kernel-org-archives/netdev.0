@@ -1,7 +1,7 @@
 From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: [PATCH v3 2/3] stmmac: move stmmac_clk, pclk, clk_ptp_ref and stmmac_rst to platform structure
-Date: Wed, 4 Jan 2017 16:22:16 +0000
-Message-ID: <b0931ebcc8ef437674e426c4aaa208ef1d55f369.1483546363.git.jpinto@synopsys.com>
+Subject: [PATCH v3 3/3] stmmac: adding new glue driver dwmac-dwc-qos-eth
+Date: Wed, 4 Jan 2017 16:22:17 +0000
+Message-ID: <f72953efa2d6a42975b553a6b517c63480f4650b.1483546363.git.jpinto@synopsys.com>
 References: <cover.1483546363.git.jpinto@synopsys.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,332 +10,311 @@ Cc: <lars.persson@axis.com>, <niklass@axis.com>, <swarren@nvidia.com>,
         Joao Pinto <Joao.Pinto@synopsys.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay.synopsys.com ([198.182.60.111]:56032 "EHLO
+Received: from us01smtprelay-2.synopsys.com ([198.182.47.9]:33641 "EHLO
         smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1031492AbdADQWc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2017 11:22:32 -0500
+        with ESMTP id S1031499AbdADQWg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2017 11:22:36 -0500
 In-Reply-To: <cover.1483546363.git.jpinto@synopsys.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch moves stmmac_clk, pclk, clk_ptp_ref and stmmac_rst to the
-plat_stmmacenet_data structure. It also moves these platform variables
-initialization to stmmac_platform. This was done for two reasons:
-
-a) If PCI is used, platform related code is being executed in stmmac_main
-resulting in warnings that have no sense and conceptually was not right
-
-b) stmmac as a synopsys reference ethernet driver stack will be hosting
-more and more drivers to its structure like synopsys/dwc_eth_qos.c.
-These drivers have their own DT bindings that are not compatible with
-stmmac's. One of the most important are the clock names, and so they need
-to be parsed in the glue logic and initialized there, and that is the main
-reason why the clocks were passed to the platform structure.
+This patch adds a new glue driver called dwmac-dwc-qos-eth which
+was based in the dwc_eth_qos as is. To assure retro-compatibility a slight
+tweak was also added to stmmac_platform.
 
 Signed-off-by: Joao Pinto <jpinto@synopsys.com>
 ---
 changes v2 -> v3:
-- dwmac-socfpga glue driver was also using stmmac_rst from priv struct and
-was causing a build error caught by kbuild robot
-changes v1 -> v2:
 - Nothing changed, just to keep up patch set version
+changes v1 -> v2:
+- WOL was not declared in the new glue driver
+- clocks were switched and now fixed (apb_pclk and phy_ref_clk)
 
- .../net/ethernet/stmicro/stmmac/dwmac-socfpga.c    |  2 +-
- drivers/net/ethernet/stmicro/stmmac/stmmac.h       |  5 --
- .../net/ethernet/stmicro/stmmac/stmmac_ethtool.c   |  4 +-
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  | 82 ++++------------------
- .../net/ethernet/stmicro/stmmac/stmmac_platform.c  | 47 +++++++++++++
- include/linux/stmmac.h                             |  5 ++
- 6 files changed, 70 insertions(+), 75 deletions(-)
+ .../bindings/net/snps,dwc-qos-ethernet.txt         |   3 +
+ drivers/net/ethernet/stmicro/stmmac/Kconfig        |   9 +
+ drivers/net/ethernet/stmicro/stmmac/Makefile       |   1 +
+ .../ethernet/stmicro/stmmac/dwmac-dwc-qos-eth.c    | 200 +++++++++++++++++++++
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |  15 +-
+ 5 files changed, 225 insertions(+), 3 deletions(-)
+ create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac-dwc-qos-eth.c
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-index 1f99702..17d4bba 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
-@@ -341,7 +341,7 @@ static int socfpga_dwmac_probe(struct platform_device *pdev)
- 	 * mode. Create a copy of the core reset handle so it can be used by
- 	 * the driver later.
- 	 */
--	dwmac->stmmac_rst = stpriv->stmmac_rst;
-+	dwmac->stmmac_rst = stpriv->plat->stmmac_rst;
+diff --git a/Documentation/devicetree/bindings/net/snps,dwc-qos-ethernet.txt b/Documentation/devicetree/bindings/net/snps,dwc-qos-ethernet.txt
+index d93f71c..21d27aa 100644
+--- a/Documentation/devicetree/bindings/net/snps,dwc-qos-ethernet.txt
++++ b/Documentation/devicetree/bindings/net/snps,dwc-qos-ethernet.txt
+@@ -1,5 +1,8 @@
+ * Synopsys DWC Ethernet QoS IP version 4.10 driver (GMAC)
  
- 	ret = socfpga_dwmac_set_phy_mode(dwmac);
- 	if (ret)
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-index eab04ae..bf8a83e 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
-@@ -106,9 +106,6 @@ struct stmmac_priv {
- 	u32 msg_enable;
- 	int wolopts;
- 	int wol_irq;
--	struct clk *stmmac_clk;
--	struct clk *pclk;
--	struct reset_control *stmmac_rst;
- 	int clk_csr;
- 	struct timer_list eee_ctrl_timer;
- 	int lpi_irq;
-@@ -120,8 +117,6 @@ struct stmmac_priv {
- 	struct ptp_clock *ptp_clock;
- 	struct ptp_clock_info ptp_clock_ops;
- 	unsigned int default_addend;
--	struct clk *clk_ptp_ref;
--	unsigned int clk_ptp_rate;
- 	u32 adv_ts;
- 	int use_riwt;
- 	int irq_wake;
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-index 699ee1d..322e5c6 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-@@ -712,7 +712,7 @@ static int stmmac_ethtool_op_set_eee(struct net_device *dev,
++This binding is deprecated, but it continues to be supported, but new
++features should be preferably added to the stmmac binding document.
++
+ This binding supports the Synopsys Designware Ethernet QoS (Quality Of Service)
+ IP block. The IP supports multiple options for bus type, clocking and reset
+ structure, and feature list. Consequently, a number of properties and list
+diff --git a/drivers/net/ethernet/stmicro/stmmac/Kconfig b/drivers/net/ethernet/stmicro/stmmac/Kconfig
+index ab66248..99594e3 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/Kconfig
++++ b/drivers/net/ethernet/stmicro/stmmac/Kconfig
+@@ -29,6 +29,15 @@ config STMMAC_PLATFORM
  
- static u32 stmmac_usec2riwt(u32 usec, struct stmmac_priv *priv)
- {
--	unsigned long clk = clk_get_rate(priv->stmmac_clk);
-+	unsigned long clk = clk_get_rate(priv->plat->stmmac_clk);
+ if STMMAC_PLATFORM
  
- 	if (!clk)
- 		return 0;
-@@ -722,7 +722,7 @@ static u32 stmmac_usec2riwt(u32 usec, struct stmmac_priv *priv)
- 
- static u32 stmmac_riwt2usec(u32 riwt, struct stmmac_priv *priv)
- {
--	unsigned long clk = clk_get_rate(priv->stmmac_clk);
-+	unsigned long clk = clk_get_rate(priv->plat->stmmac_clk);
- 
- 	if (!clk)
- 		return 0;
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index f1a0afc..6e6e9dc 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -158,7 +158,7 @@ static void stmmac_clk_csr_set(struct stmmac_priv *priv)
- {
- 	u32 clk_rate;
- 
--	clk_rate = clk_get_rate(priv->stmmac_clk);
-+	clk_rate = clk_get_rate(priv->plat->stmmac_clk);
- 
- 	/* Platform provided default clk_csr would be assumed valid
- 	 * for all other cases except for the below mentioned ones.
-@@ -607,7 +607,7 @@ static int stmmac_hwtstamp_ioctl(struct net_device *dev, struct ifreq *ifr)
- 
- 		/* program Sub Second Increment reg */
- 		sec_inc = priv->hw->ptp->config_sub_second_increment(
--			priv->ptpaddr, priv->clk_ptp_rate,
-+			priv->ptpaddr, priv->plat->clk_ptp_rate,
- 			priv->plat->has_gmac4);
- 		temp = div_u64(1000000000ULL, sec_inc);
- 
-@@ -617,7 +617,7 @@ static int stmmac_hwtstamp_ioctl(struct net_device *dev, struct ifreq *ifr)
- 		 * where, freq_div_ratio = 1e9ns/sec_inc
- 		 */
- 		temp = (u64)(temp << 32);
--		priv->default_addend = div_u64(temp, priv->clk_ptp_rate);
-+		priv->default_addend = div_u64(temp, priv->plat->clk_ptp_rate);
- 		priv->hw->ptp->config_addend(priv->ptpaddr,
- 					     priv->default_addend);
- 
-@@ -645,18 +645,6 @@ static int stmmac_init_ptp(struct stmmac_priv *priv)
- 	if (!(priv->dma_cap.time_stamp || priv->dma_cap.atime_stamp))
- 		return -EOPNOTSUPP;
- 
--	/* Fall-back to main clock in case of no PTP ref is passed */
--	priv->clk_ptp_ref = devm_clk_get(priv->device, "clk_ptp_ref");
--	if (IS_ERR(priv->clk_ptp_ref)) {
--		priv->clk_ptp_rate = clk_get_rate(priv->stmmac_clk);
--		priv->clk_ptp_ref = NULL;
--		netdev_dbg(priv->dev, "PTP uses main clock\n");
--	} else {
--		clk_prepare_enable(priv->clk_ptp_ref);
--		priv->clk_ptp_rate = clk_get_rate(priv->clk_ptp_ref);
--		netdev_dbg(priv->dev, "PTP rate %d\n", priv->clk_ptp_rate);
--	}
--
- 	priv->adv_ts = 0;
- 	/* Check if adv_ts can be enabled for dwmac 4.x core */
- 	if (priv->plat->has_gmac4 && priv->dma_cap.atime_stamp)
-@@ -683,8 +671,8 @@ static int stmmac_init_ptp(struct stmmac_priv *priv)
- 
- static void stmmac_release_ptp(struct stmmac_priv *priv)
- {
--	if (priv->clk_ptp_ref)
--		clk_disable_unprepare(priv->clk_ptp_ref);
-+	if (priv->plat->clk_ptp_ref)
-+		clk_disable_unprepare(priv->plat->clk_ptp_ref);
- 	stmmac_ptp_unregister(priv);
- }
- 
-@@ -3278,44 +3266,8 @@ int stmmac_dvr_probe(struct device *device,
- 	if ((phyaddr >= 0) && (phyaddr <= 31))
- 		priv->plat->phy_addr = phyaddr;
- 
--	priv->stmmac_clk = devm_clk_get(priv->device, STMMAC_RESOURCE_NAME);
--	if (IS_ERR(priv->stmmac_clk)) {
--		netdev_warn(priv->dev, "%s: warning: cannot get CSR clock\n",
--			    __func__);
--		/* If failed to obtain stmmac_clk and specific clk_csr value
--		 * is NOT passed from the platform, probe fail.
--		 */
--		if (!priv->plat->clk_csr) {
--			ret = PTR_ERR(priv->stmmac_clk);
--			goto error_clk_get;
--		} else {
--			priv->stmmac_clk = NULL;
--		}
--	}
--	clk_prepare_enable(priv->stmmac_clk);
--
--	priv->pclk = devm_clk_get(priv->device, "pclk");
--	if (IS_ERR(priv->pclk)) {
--		if (PTR_ERR(priv->pclk) == -EPROBE_DEFER) {
--			ret = -EPROBE_DEFER;
--			goto error_pclk_get;
--		}
--		priv->pclk = NULL;
--	}
--	clk_prepare_enable(priv->pclk);
--
--	priv->stmmac_rst = devm_reset_control_get(priv->device,
--						  STMMAC_RESOURCE_NAME);
--	if (IS_ERR(priv->stmmac_rst)) {
--		if (PTR_ERR(priv->stmmac_rst) == -EPROBE_DEFER) {
--			ret = -EPROBE_DEFER;
--			goto error_hw_init;
--		}
--		dev_info(priv->device, "no reset control found\n");
--		priv->stmmac_rst = NULL;
--	}
--	if (priv->stmmac_rst)
--		reset_control_deassert(priv->stmmac_rst);
-+	if (priv->plat->stmmac_rst)
-+		reset_control_deassert(priv->plat->stmmac_rst);
- 
- 	/* Init MAC and get the capabilities */
- 	ret = stmmac_hw_init(priv);
-@@ -3406,10 +3358,6 @@ int stmmac_dvr_probe(struct device *device,
- error_netdev_register:
- 	netif_napi_del(&priv->napi);
- error_hw_init:
--	clk_disable_unprepare(priv->pclk);
--error_pclk_get:
--	clk_disable_unprepare(priv->stmmac_clk);
--error_clk_get:
- 	free_netdev(ndev);
- 
- 	return ret;
-@@ -3435,10 +3383,10 @@ int stmmac_dvr_remove(struct device *dev)
- 	stmmac_set_mac(priv->ioaddr, false);
- 	netif_carrier_off(ndev);
- 	unregister_netdev(ndev);
--	if (priv->stmmac_rst)
--		reset_control_assert(priv->stmmac_rst);
--	clk_disable_unprepare(priv->pclk);
--	clk_disable_unprepare(priv->stmmac_clk);
-+	if (priv->plat->stmmac_rst)
-+		reset_control_assert(priv->plat->stmmac_rst);
-+	clk_disable_unprepare(priv->plat->pclk);
-+	clk_disable_unprepare(priv->plat->stmmac_clk);
- 	if (priv->hw->pcs != STMMAC_PCS_RGMII &&
- 	    priv->hw->pcs != STMMAC_PCS_TBI &&
- 	    priv->hw->pcs != STMMAC_PCS_RTBI)
-@@ -3487,8 +3435,8 @@ int stmmac_suspend(struct device *dev)
- 		stmmac_set_mac(priv->ioaddr, false);
- 		pinctrl_pm_select_sleep_state(priv->device);
- 		/* Disable clock in case of PWM is off */
--		clk_disable(priv->pclk);
--		clk_disable(priv->stmmac_clk);
-+		clk_disable(priv->plat->pclk);
-+		clk_disable(priv->plat->stmmac_clk);
- 	}
- 	spin_unlock_irqrestore(&priv->lock, flags);
- 
-@@ -3528,8 +3476,8 @@ int stmmac_resume(struct device *dev)
- 	} else {
- 		pinctrl_pm_select_default_state(priv->device);
- 		/* enable the clk prevously disabled */
--		clk_enable(priv->stmmac_clk);
--		clk_enable(priv->pclk);
-+		clk_enable(priv->plat->stmmac_clk);
-+		clk_enable(priv->plat->pclk);
- 		/* reset the phy so that it's ready */
- 		if (priv->mii)
- 			stmmac_mdio_reset(priv->mii);
++config DWMAC_DWC_QOS_ETH
++	tristate "Support for snps,dwc-qos-ethernet.txt DT binding."
++	select PHYLIB
++	select CRC32
++	select MII
++	depends on OF && HAS_DMA
++	help
++	  Support for chips using the snps,dwc-qos-ethernet.txt DT binding.
++
+ config DWMAC_GENERIC
+ 	tristate "Generic driver for DWMAC"
+ 	default STMMAC_PLATFORM
+diff --git a/drivers/net/ethernet/stmicro/stmmac/Makefile b/drivers/net/ethernet/stmicro/stmmac/Makefile
+index 8f83a86..700c603 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/Makefile
++++ b/drivers/net/ethernet/stmicro/stmmac/Makefile
+@@ -16,6 +16,7 @@ obj-$(CONFIG_DWMAC_SOCFPGA)	+= dwmac-altr-socfpga.o
+ obj-$(CONFIG_DWMAC_STI)		+= dwmac-sti.o
+ obj-$(CONFIG_DWMAC_STM32)	+= dwmac-stm32.o
+ obj-$(CONFIG_DWMAC_SUNXI)	+= dwmac-sunxi.o
++obj-$(CONFIG_DWMAC_DWC_QOS_ETH)	+= dwmac-dwc-qos-eth.o
+ obj-$(CONFIG_DWMAC_GENERIC)	+= dwmac-generic.o
+ stmmac-platform-objs:= stmmac_platform.o
+ dwmac-altr-socfpga-objs := altr_tse_pcs.o dwmac-socfpga.o
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-dwc-qos-eth.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-dwc-qos-eth.c
+new file mode 100644
+index 0000000..4532a7c
+--- /dev/null
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-dwc-qos-eth.c
+@@ -0,0 +1,200 @@
++/*
++ * Synopsys DWC Ethernet Quality-of-Service v4.10a linux driver
++ *
++ * Copyright (C) 2016 Joao Pinto <jpinto@synopsys.com>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program. If not, see <http://www.gnu.org/licenses/>.
++ */
++
++#include <linux/clk.h>
++#include <linux/clk-provider.h>
++#include <linux/device.h>
++#include <linux/ethtool.h>
++#include <linux/io.h>
++#include <linux/ioport.h>
++#include <linux/module.h>
++#include <linux/of_net.h>
++#include <linux/mfd/syscon.h>
++#include <linux/platform_device.h>
++#include <linux/stmmac.h>
++
++#include "stmmac_platform.h"
++
++static int dwc_eth_dwmac_config_dt(struct platform_device *pdev,
++				   struct plat_stmmacenet_data *plat_dat)
++{
++	struct device_node *np = pdev->dev.of_node;
++	u32 burst_map = 0;
++	u32 bit_index = 0;
++	u32 a_index = 0;
++
++	if (!plat_dat->axi) {
++		plat_dat->axi = kzalloc(sizeof(struct stmmac_axi), GFP_KERNEL);
++
++		if (!plat_dat->axi)
++			return -ENOMEM;
++	}
++
++	plat_dat->axi->axi_lpi_en = of_property_read_bool(np, "snps,en-lpi");
++	if (of_property_read_u32(np, "snps,write-requests",
++				 &plat_dat->axi->axi_wr_osr_lmt)) {
++		/**
++		 * Since the register has a reset value of 1, if property
++		 * is missing, default to 1.
++		 */
++		plat_dat->axi->axi_wr_osr_lmt = 1;
++	} else {
++		/**
++		 * If property exists, to keep the behavior from dwc_eth_qos,
++		 * subtract one after parsing.
++		 */
++		plat_dat->axi->axi_wr_osr_lmt--;
++	}
++
++	if (of_property_read_u32(np, "read,read-requests",
++				 &plat_dat->axi->axi_rd_osr_lmt)) {
++		/**
++		 * Since the register has a reset value of 1, if property
++		 * is missing, default to 1.
++		 */
++		plat_dat->axi->axi_rd_osr_lmt = 1;
++	} else {
++		/**
++		 * If property exists, to keep the behavior from dwc_eth_qos,
++		 * subtract one after parsing.
++		 */
++		plat_dat->axi->axi_rd_osr_lmt--;
++	}
++	of_property_read_u32(np, "snps,burst-map", &burst_map);
++
++	/* converts burst-map bitmask to burst array */
++	for (bit_index = 0; bit_index < 7; bit_index++) {
++		if (burst_map & (1 << bit_index)) {
++			switch (bit_index) {
++			case 0:
++			plat_dat->axi->axi_blen[a_index] = 4; break;
++			case 1:
++			plat_dat->axi->axi_blen[a_index] = 8; break;
++			case 2:
++			plat_dat->axi->axi_blen[a_index] = 16; break;
++			case 3:
++			plat_dat->axi->axi_blen[a_index] = 32; break;
++			case 4:
++			plat_dat->axi->axi_blen[a_index] = 64; break;
++			case 5:
++			plat_dat->axi->axi_blen[a_index] = 128; break;
++			case 6:
++			plat_dat->axi->axi_blen[a_index] = 256; break;
++			default:
++			break;
++			}
++			a_index++;
++		}
++	}
++
++	/* dwc-qos needs GMAC4, AAL, TSO and PMT */
++	plat_dat->has_gmac4 = 1;
++	plat_dat->dma_cfg->aal = 1;
++	plat_dat->tso_en = 1;
++	plat_dat->pmt = 1;
++
++	return 0;
++}
++
++static int dwc_eth_dwmac_probe(struct platform_device *pdev)
++{
++	struct plat_stmmacenet_data *plat_dat;
++	struct stmmac_resources stmmac_res;
++	struct resource *res;
++	int ret;
++
++	/**
++	 * Since stmmac_platform supports name IRQ only, basic platform
++	 * resource initialization is done in the glue logic.
++	 */
++	stmmac_res.irq = platform_get_irq(pdev, 0);
++	if (stmmac_res.irq < 0) {
++		if (stmmac_res.irq != -EPROBE_DEFER) {
++			dev_err(&pdev->dev,
++				"IRQ configuration information not found\n");
++		}
++		return stmmac_res.irq;
++	}
++	stmmac_res.wol_irq = stmmac_res.irq;
++
++	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
++	stmmac_res.addr = devm_ioremap_resource(&pdev->dev, res);
++	if (IS_ERR(stmmac_res.addr))
++		return PTR_ERR(stmmac_res.addr);
++
++	plat_dat = stmmac_probe_config_dt(pdev, &stmmac_res.mac);
++	if (IS_ERR(plat_dat))
++		return PTR_ERR(plat_dat);
++
++	plat_dat->stmmac_clk = devm_clk_get(&pdev->dev, "apb_pclk");
++	if (IS_ERR(plat_dat->stmmac_clk)) {
++		dev_err(&pdev->dev, "apb_pclk clock not found.\n");
++		ret = PTR_ERR(plat_dat->stmmac_clk);
++		plat_dat->stmmac_clk = NULL;
++		goto err_remove_config_dt;
++	}
++	clk_prepare_enable(plat_dat->stmmac_clk);
++
++	plat_dat->pclk = devm_clk_get(&pdev->dev, "phy_ref_clk");
++	if (IS_ERR(plat_dat->pclk)) {
++		dev_err(&pdev->dev, "phy_ref_clk clock not found.\n");
++		ret = PTR_ERR(plat_dat->pclk);
++		plat_dat->pclk = NULL;
++		goto err_out_clk_dis_phy;
++	}
++	clk_prepare_enable(plat_dat->pclk);
++
++	ret = dwc_eth_dwmac_config_dt(pdev, plat_dat);
++	if (ret)
++		goto err_out_clk_dis_aper;
++
++	ret = stmmac_dvr_probe(&pdev->dev, plat_dat, &stmmac_res);
++	if (ret)
++		goto err_out_clk_dis_aper;
++
++	return 0;
++
++err_out_clk_dis_aper:
++	clk_disable_unprepare(plat_dat->pclk);
++err_out_clk_dis_phy:
++	clk_disable_unprepare(plat_dat->stmmac_clk);
++err_remove_config_dt:
++	stmmac_remove_config_dt(pdev, plat_dat);
++
++	return ret;
++}
++
++static int dwc_eth_dwmac_remove(struct platform_device *pdev)
++{
++	return stmmac_pltfr_remove(pdev);
++}
++
++static const struct of_device_id dwc_eth_dwmac_match[] = {
++	{ .compatible = "snps,dwc-qos-ethernet-4.10", },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, dwc_eth_dwmac_match);
++
++static struct platform_driver dwc_eth_dwmac_driver = {
++	.probe  = dwc_eth_dwmac_probe,
++	.remove = dwc_eth_dwmac_remove,
++	.driver = {
++		.name           = "dwc-eth-dwmac",
++		.of_match_table = dwc_eth_dwmac_match,
++	},
++};
++module_platform_driver(dwc_eth_dwmac_driver);
++
++MODULE_AUTHOR("Joao Pinto <jpinto@synopsys.com>");
++MODULE_DESCRIPTION("Synopsys DWC Ethernet Quality-of-Service v4.10a driver");
++MODULE_LICENSE("GPL v2");
 diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index 6064fcc..4e44f9c 100644
+index 4e44f9c..00c0f8d 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
 +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -336,7 +336,54 @@ stmmac_probe_config_dt(struct platform_device *pdev, const char **mac)
+@@ -181,10 +181,19 @@ static int stmmac_dt_phy(struct plat_stmmacenet_data *plat,
+ 		mdio = false;
+ 	}
  
- 	plat->axi = stmmac_axi_setup(pdev);
- 
-+	/* clock setup */
-+	plat->stmmac_clk = devm_clk_get(&pdev->dev,
-+					STMMAC_RESOURCE_NAME);
-+	if (IS_ERR(plat->stmmac_clk)) {
-+		dev_warn(&pdev->dev, "Cannot get CSR clock\n");
-+		plat->stmmac_clk = NULL;
-+	}
-+	clk_prepare_enable(plat->stmmac_clk);
-+
-+	plat->pclk = devm_clk_get(&pdev->dev, "pclk");
-+	if (IS_ERR(plat->pclk)) {
-+		if (PTR_ERR(plat->pclk) == -EPROBE_DEFER)
-+			goto error_pclk_get;
-+
-+		plat->pclk = NULL;
-+	}
-+	clk_prepare_enable(plat->pclk);
-+
-+	/* Fall-back to main clock in case of no PTP ref is passed */
-+	plat->clk_ptp_ref = devm_clk_get(&pdev->dev, "clk_ptp_ref");
-+	if (IS_ERR(plat->clk_ptp_ref)) {
-+		plat->clk_ptp_rate = clk_get_rate(plat->stmmac_clk);
-+		plat->clk_ptp_ref = NULL;
-+		dev_warn(&pdev->dev, "PTP uses main clock\n");
+-	/* If snps,dwmac-mdio is passed from DT, always register the MDIO */
+-	for_each_child_of_node(np, plat->mdio_node) {
+-		if (of_device_is_compatible(plat->mdio_node, "snps,dwmac-mdio"))
++	/* exception for dwmac-dwc-qos-eth glue logic */
++	if (of_device_is_compatible(np, "snps,dwc-qos-ethernet-4.10")) {
++		plat->mdio_node = of_get_child_by_name(np, "mdio");
 +	} else {
-+		clk_prepare_enable(plat->clk_ptp_ref);
-+		plat->clk_ptp_rate = clk_get_rate(plat->clk_ptp_ref);
-+		dev_info(&pdev->dev, "No reset control found\n");
-+	}
-+
-+	plat->stmmac_rst = devm_reset_control_get(&pdev->dev,
-+						  STMMAC_RESOURCE_NAME);
-+	if (IS_ERR(plat->stmmac_rst)) {
-+		if (PTR_ERR(plat->stmmac_rst) == -EPROBE_DEFER)
-+			goto error_hw_init;
-+
-+		dev_info(&pdev->dev, "no reset control found\n");
-+		plat->stmmac_rst = NULL;
-+	}
-+
- 	return plat;
-+
-+error_hw_init:
-+	clk_disable_unprepare(plat->pclk);
-+error_pclk_get:
-+	clk_disable_unprepare(plat->stmmac_clk);
-+
-+	return ERR_PTR(-EPROBE_DEFER);
- }
++		/**
++		 * If snps,dwmac-mdio is passed from DT, always register
++		 * the MDIO
++		 */
++		for_each_child_of_node(np, plat->mdio_node) {
++			if (of_device_is_compatible(plat->mdio_node,
++						    "snps,dwmac-mdio"))
+ 			break;
++		}
+ 	}
  
- /**
-diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
-index 90fefde..e29e7b8 100644
---- a/include/linux/stmmac.h
-+++ b/include/linux/stmmac.h
-@@ -139,6 +139,11 @@ struct plat_stmmacenet_data {
- 	int (*init)(struct platform_device *pdev, void *priv);
- 	void (*exit)(struct platform_device *pdev, void *priv);
- 	void *bsp_priv;
-+	struct clk *stmmac_clk;
-+	struct clk *pclk;
-+	struct clk *clk_ptp_ref;
-+	unsigned int clk_ptp_rate;
-+	struct reset_control *stmmac_rst;
- 	struct stmmac_axi *axi;
- 	int has_gmac4;
- 	bool tso_en;
+ 	if (plat->mdio_node) {
 -- 
 2.9.3
