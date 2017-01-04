@@ -1,55 +1,70 @@
-From: Paul Blakey <paulb@mellanox.com>
-Subject: Re: [PATCH iproute2 net-next] tc: flower: support matching flags
-Date: Wed, 4 Jan 2017 13:51:13 +0200
-Message-ID: <82df989f-09a7-a89a-a675-c45d190b049e@mellanox.com>
-References: <1482930409-55059-1-git-send-email-paulb@mellanox.com>
- <20170102195522.7488179b@griffin>
- <1ec4f4ca-08e0-84fc-34c6-b3868d756050@mellanox.com>
- <20170104103301.GA30008@penelope.horms.nl>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] phy state machine: failsafe leave invalid RUNNING state
+Date: Wed, 4 Jan 2017 07:30:04 -0800
+Message-ID: <16a741c1-7005-b1df-f2e6-afdbe9d086c8@gmail.com>
+References: <1483542298-9747-1-git-send-email-zefir.kurtisi@neratec.com>
+ <6845805d-4dae-0a3a-c56c-6feb86f4b553@gmail.com>
+ <82ffbb43-9345-c47d-596c-73c175ac7e7f@neratec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: <paulb@mellanox.com>, Jiri Benc <jbenc@redhat.com>,
-        <netdev@vger.kernel.org>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Hadar Hen Zion <hadarh@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Roi Dayan <roid@mellanox.com>
-To: Simon Horman <simon.horman@netronome.com>
+Cc: andrew@lunn.ch
+To: Zefir Kurtisi <zefir.kurtisi@neratec.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0046.outbound.protection.outlook.com ([104.47.2.46]:53600
-        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1758031AbdADLwB (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 4 Jan 2017 06:52:01 -0500
-In-Reply-To: <20170104103301.GA30008@penelope.horms.nl>
+Received: from mail-oi0-f68.google.com ([209.85.218.68]:34183 "EHLO
+        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754431AbdADPah (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2017 10:30:37 -0500
+Received: by mail-oi0-f68.google.com with SMTP id 3so46219025oih.1
+        for <netdev@vger.kernel.org>; Wed, 04 Jan 2017 07:30:07 -0800 (PST)
+In-Reply-To: <82ffbb43-9345-c47d-596c-73c175ac7e7f@neratec.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
 
-On 04/01/2017 12:33, Simon Horman wrote:
-> On Tue, Jan 03, 2017 at 01:54:34PM +0200, Paul Blakey wrote:
->
-> ...
->
-> Hi Paul,
->
->> Matching name was from the idea that we are doing is matching.
->> And regarding documentation/flag names I didn't want tc tool to be need of a
->> update each time a new flag is introduced,
->> But I guess I can add two options like with ip_proto where you can specify
->> known flags by name but can also give a value.
->> What do you think about that?
+On 01/04/2017 07:27 AM, Zefir Kurtisi wrote:
+> On 01/04/2017 04:13 PM, Florian Fainelli wrote:
 >>
->> flags <FLAGS> / <HEX'/'HEX>
->> FLAGS => frag/no_frag/tcp_syn/no_tcp_syn ['|'<FLAGS>]*
->> e.g: flags frag|no_tcp_syn or flags 0x01/0x15
->> and the mask will have a on bits corresponds only to those flags specified.
-> I suppose a flag is a flag and bitwise masking allows arbitrary matching
-> on one or more flags. But I wonder if, as per your example above,
-> it makes sense to mix IP (frag) and TCP flags in the same field of the
-> classifier.
-It mimics the kernel packing of flags, I have no problem either way 
-(flags, or ip_flags/tcp_flags pairs), what do you think jiri?
+>>
+>> On 01/04/2017 07:04 AM, Zefir Kurtisi wrote:
+>>> While in RUNNING state, phy_state_machine() checks for link changes by
+>>> comparing phydev->link before and after calling phy_read_status().
+>>> This works as long as it is guaranteed that phydev->link is never
+>>> changed outside the phy_state_machine().
+>>>
+>>> If in some setups this happens, it causes the state machine to miss
+>>> a link loss and remain RUNNING despite phydev->link being 0.
+>>>
+>>> This has been observed running a dsa setup with a process continuously
+>>> polling the link states over ethtool each second (SNMPD RFC-1213
+>>> agent). Disconnecting the link on a phy followed by a ETHTOOL_GSET
+>>> causes dsa_slave_get_settings() / dsa_slave_get_link_ksettings() to
+>>> call phy_read_status() and with that modify the link status - and
+>>> with that bricking the phy state machine.
+>>
+>> That's the interesting part of the analysis, how does this brick the PHY
+>> state machine? Is the PHY driver changing the link status in the
+>> read_status callback that it implements?
+>>
+> phydev->read_status points to genphy_read_status(), where the first call goes to
+> genphy_update_link() which updates the link status.
+> 
+> Thereafter phy_state_machine():RUNNING won't be able to detect the link loss
+> anymore unless the link state changes again.
+> 
+> 
+> I was trying to figure out if there is a rule that forbids changing phydev->link
+> from outside the state machine, but found several places where it happens (either
+> directly, or over genphy_read_status() or over genphy_update_link()).
+> 
+> Curious how this did not show up before, since within the dsa setup it is very
+> easy to trigger:
+> a) physically disconnect link
+> b) within one second run ethtool ethX
+
+You need to be more specific here about what "the dsa setup" is, drivers
+involved, which ports of the switch you are seeing this with (user
+facing, CPU port, DSA port?) etc.
+-- 
+Florian
