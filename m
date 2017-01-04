@@ -1,52 +1,35 @@
-From: Jie Deng <Jie.Deng1@synopsys.com>
-Subject: [PATCH net-next] net: phy: add extension of phy-mode for XLGMII
-Date: Wed, 4 Jan 2017 13:04:04 +0800
-Message-ID: <b5378ab79043fe46027756546c17e0a54df4a9f0.1483505550.git.jiedeng@synopsys.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net-next v2] net/sched: cls_matchall: Fix error path
+Date: Tue, 3 Jan 2017 22:33:44 -0800
+Message-ID: <CAM_iQpXR6GvuFRtF05d6LPigP5fZHP8X=JwOE84+Cc1M=R=1gA@mail.gmail.com>
+References: <1483464024-25745-1-git-send-email-yotamg@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        Jie Deng <Jie.Deng1@synopsys.com>
-To: <f.fainelli@gmail.com>, <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+        David Miller <davem@davemloft.net>, eladr@mellanox.com,
+        Jiri Pirko <jiri@mellanox.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Yotam Gigi <yotamg@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qt0-f196.google.com ([209.85.216.196]:34951 "EHLO
+        mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S965512AbdADGeF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2017 01:34:05 -0500
+Received: by mail-qt0-f196.google.com with SMTP id 3so38670781qtr.2
+        for <netdev@vger.kernel.org>; Tue, 03 Jan 2017 22:34:05 -0800 (PST)
+In-Reply-To: <1483464024-25745-1-git-send-email-yotamg@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The Synopsys DWC_xlgmac core provides a multiplexed 40-Gigabit
-Media-Independent Interface (XLGMII, an IEEE 802.3 Clause 81
-compliant reconciliation sub-layer) for communication with
-the 100/50/40/25-Gigabit PHY and 10-Gigabit Media-Independent
-Interface (XGMII, an IEEE 802.3 Clause 46 compliant reconciliation
-sub-layer) for communication with the 10-Gigabit PHY.
+On Tue, Jan 3, 2017 at 9:20 AM, Yotam Gigi <yotamg@mellanox.com> wrote:
+> Fix several error paths in matchall:
+>  - Release reference to actions in case the hardware fails offloading
+>    (relevant to skip_sw only)
+>  - Fix error path in case tcf_exts initialization/validation fail
+>
+> Fixes: bf3994d2ed31 ("net/sched: introduce Match-all classifier")
+> Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
 
-Currently, There are only interface mode definitions for "xgmii".
-This patch adds the definitions for the PHY layer to recognize
-"xlgmii" as a valid PHY interface.
+Looks good,
 
-Signed-off-by: Jie Deng <jiedeng@synopsys.com>
----
- include/linux/phy.h | 3 +++
- 1 file changed, 3 insertions(+)
-
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index f7d95f6..7b6bfb3 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -82,6 +82,7 @@
- 	PHY_INTERFACE_MODE_MOCA,
- 	PHY_INTERFACE_MODE_QSGMII,
- 	PHY_INTERFACE_MODE_TRGMII,
-+	PHY_INTERFACE_MODE_XLGMII,
- 	PHY_INTERFACE_MODE_MAX,
- } phy_interface_t;
- 
-@@ -142,6 +143,8 @@ static inline const char *phy_modes(phy_interface_t interface)
- 		return "qsgmii";
- 	case PHY_INTERFACE_MODE_TRGMII:
- 		return "trgmii";
-+	case PHY_INTERFACE_MODE_XLGMII:
-+		return "xlgmii";
- 	default:
- 		return "unknown";
- 	}
--- 
-1.9.1
+Acked-by: Cong Wang <xiyou.wangcong@gmail.com>
