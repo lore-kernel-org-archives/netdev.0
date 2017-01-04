@@ -1,372 +1,162 @@
-From: Niklas Cassel <niklas.cassel@axis.com>
-Subject: Re: [PATCH 3/3] stmmac: adding new glue driver dwmac-dwc-qos-eth
-Date: Wed, 4 Jan 2017 11:59:26 +0100
-Message-ID: <9bd69052-c5bb-731c-c01e-de42d1968718@axis.com>
-References: <cover.1483372523.git.jpinto@synopsys.com>
- <b8d09f96a128107ac64f65d1d27b7693e7ddbb3e.1483372523.git.jpinto@synopsys.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [RFC PATCH 2/4] page_pool: basic implementation of page_pool
+Date: Wed, 4 Jan 2017 12:00:55 +0100
+Message-ID: <20170104120055.7b277609@redhat.com>
+References: <20161220132444.18788.50875.stgit@firesoul>
+	<20161220132817.18788.64726.stgit@firesoul>
+	<52478d40-8c34-4354-c9d8-286020eb26a6@suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <larper@axis.com>, <swarren@nvidia.com>, <treding@nvidia.com>,
-        <netdev@vger.kernel.org>
-To: Joao Pinto <Joao.Pinto@synopsys.com>, <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bastet.se.axis.com ([195.60.68.11]:47310 "EHLO
-        bastet.se.axis.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752933AbdADK7b (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2017 05:59:31 -0500
-In-Reply-To: <b8d09f96a128107ac64f65d1d27b7693e7ddbb3e.1483372523.git.jpinto@synopsys.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-Hello Joao
-
-I just tested this series using the dwc_eth_qos DT bindings.
-Good work!
-
-Unfortunately I get the following error:
-
-<3>[   12.032463] dwc-eth-dwmac f8010000.ethernet eth0: stmmac_open: ERROR: allocating the WoL IRQ -1098801248 (-22)
+Cc: linux-mm@kvack.org, Alexander Duyck <alexander.duyck@gmail.com>,
+        willemdebruijn.kernel@gmail.com, netdev@vger.kernel.org,
+        john.fastabend@gmail.com, Saeed Mahameed <saeedm@mellanox.com>,
+        bjorn.topel@intel.com,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Tariq Toukan <tariqt@mellanox.com>, brouer@redhat.com,
+        Mel Gorman
+ <mgorman@techsingularity.net>
+To: Vlastimil Babka <vbabka@suse.cz>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <52478d40-8c34-4354-c9d8-286020eb26a6@suse.cz>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
 
-This appears to be because of a corner case in stmmac_platform.c
-where wol_irq can differ from the normal irq.
+On Tue, 3 Jan 2017 17:07:49 +0100 Vlastimil Babka <vbabka@suse.cz> wrote:
 
-Adding the following one liner fixes the problem:
+> On 12/20/2016 02:28 PM, Jesper Dangaard Brouer wrote:
+> > The focus in this patch is getting the API around page_pool figured out.
+> >
+> > The internal data structures for returning page_pool pages is not optimal.
+> > This implementation use ptr_ring for recycling, which is known not to scale
+> > in case of multiple remote CPUs releasing/returning pages.  
+> 
+> Just few very quick impressions...
+> 
+> > A bulking interface into the page allocator is also left for later. (This
+> > requires cooperation will Mel Gorman, who just send me some PoC patches for this).
+> > ---
+[...]
+> > diff --git a/include/linux/mm.h b/include/linux/mm.h
+> > index 4424784ac374..11b4d8fb280b 100644
+> > --- a/include/linux/mm.h
+> > +++ b/include/linux/mm.h
+[...]
+> > @@ -765,6 +766,11 @@ static inline void put_page(struct page *page)
+> >  {
+> >  	page = compound_head(page);
+> >
+> > +	if (PagePool(page)) {
+> > +		page_pool_put_page(page);
+> > +		return;
+> > +	}  
+> 
+> Can't say I'm thrilled about a new page flag and a test in put_page(). 
+
+In patch 4/4, I'm scaling this back.  Avoiding to modify the inlined
+put_page(), by letting refcnt reach zero and catching pages belonging to
+a page_pool in __free_pages_ok() and free_hot_cold_page(). (Result
+in being more dependent on page-refcnt and loosing some performance).
+
+Still needing a new page flag, or some other method of identifying when
+a page belongs to a page_pool.
 
 
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac-dwc-qos-eth.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-dwc-qos-eth.c
-@@ -125,6 +125,7 @@ static int dwc_eth_dwmac_probe(struct platform_device *pdev)
-                }
-                return stmmac_res.irq;
-        }
-+       stmmac_res.wol_irq = stmmac_res.irq;
+> I don't know the full life cycle here, but isn't it that these pages
+> will be specifically allocated and used in page pool aware drivers,
+> so maybe they can be also specifically freed there without hooking to
+> the generic page refcount mechanism?
+
+Drivers are already manipulating refcnt, to "splitup" the page (to
+save memory) for storing more RX frames per page.  Which is something
+the page_pool still need to support. (XDP can request one page per
+packet and gain the direct recycle optimization and instead waste mem).
+
+Notice, a page_pool aware driver doesn't handle the "free-side".  Free
+happens when the packet/page is being consumed, spliced or transmitted
+out another non-page_pool-aware NIC driver.  An interresting case is
+packet-page waiting for DMA TX completion (on another NIC), thus need
+to async-store info on page_pool and DMA-addr.
+
+Could extend the SKB (with a page_pool pointer)... BUT it defeats the
+purpose of avoiding to allocate the SKB.  E.g. in the cases where XDP
+takes the route-decision and transmit/forward the "raw"-page (out
+another NIC or into a "raw" socket), then we don't have a meta-data
+structure to store this info in. Thus, this info is stored in struct
+page.
+
+
+More arguing why a tight MM integration is prefered here[1]
+ [1] http://prototype-kernel.readthedocs.io/en/latest/vm/page_pool/design/design.html#memory-model
+besides in makes it easier to convert drivers to use a page_pool.
  
-        res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-        stmmac_res.addr = devm_ioremap_resource(&pdev->dev, res);
+> > +
+> >  	if (put_page_testzero(page))
+> >  		__put_page(page);
+> >
+> > diff --git a/include/linux/mm_types.h b/include/linux/mm_types.h
+> > index 08d947fc4c59..c74dea967f99 100644
+> > --- a/include/linux/mm_types.h
+> > +++ b/include/linux/mm_types.h
+> > @@ -47,6 +47,12 @@ struct page {
+> >  	unsigned long flags;		/* Atomic flags, some possibly
+> >  					 * updated asynchronously */
+> >  	union {
+> > +		/* DISCUSS: Considered moving page_pool pointer here,
+> > +		 * but I'm unsure if 'mapping' is needed for userspace
+> > +		 * mapping the page, as this is a use-case the
+> > +		 * page_pool need to support in the future. (Basically
+> > +		 * mapping a NIC RX ring into userspace).  
+> 
+> I think so, but might be wrong here. In any case mapping usually goes with 
+> index, and you put dma_addr in union with index below...
 
+Good point, thanks.
 
+> > +		 */
+> >  		struct address_space *mapping;	/* If low bit clear, points to
+> >  						 * inode address_space, or NULL.
+> >  						 * If page mapped as anonymous
+> > @@ -63,6 +69,7 @@ struct page {
+> >  	union {
+> >  		pgoff_t index;		/* Our offset within mapping. */
+> >  		void *freelist;		/* sl[aou]b first free object */
+> > +		dma_addr_t dma_addr;    /* used by page_pool */
+> >  		/* page_deferred_list().prev	-- second tail page */
+> >  	};
+> >
+> > @@ -117,6 +124,8 @@ struct page {
+> >  	 * avoid collision and false-positive PageTail().
+> >  	 */
+> >  	union {
+> > +		/* XXX: Idea reuse lru list, in page_pool to align with PCP */
+> > +
+> >  		struct list_head lru;	/* Pageout list, eg. active_list
+> >  					 * protected by zone_lru_lock !
+> >  					 * Can be used as a generic list
 
+Guess, I can move it here, as the page cannot be on the LRU-list, while
+being used (or VMA mapped). Right?
 
-I have one comment about clocks interleaved as well
+> > @@ -189,6 +198,8 @@ struct page {
+> >  #endif
+> >  #endif
+> >  		struct kmem_cache *slab_cache;	/* SL[AU]B: Pointer to slab */
+> > +		/* XXX: Sure page_pool will have no users of "private"? */
+> > +		struct page_pool *pool;
+> >  	};
+> >
+> >  #ifdef CONFIG_MEMCG  
 
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
 
-
-On 01/04/2017 10:44 AM, Joao Pinto wrote:
-> This patch adds a new glue driver called dwmac-dwc-qos-eth which
-> was based in the dwc_eth_qos as is. To assure retro-compatibility a slight
-> tweak was also added to stmmac_platform.
->
-> Signed-off-by: Joao Pinto <jpinto@synopsys.com>
-> Reviewed-by: Lars Persson <larper@axis.com>
-> ---
->  .../bindings/net/snps,dwc-qos-ethernet.txt         |   3 +
->  drivers/net/ethernet/stmicro/stmmac/Kconfig        |   9 +
->  drivers/net/ethernet/stmicro/stmmac/Makefile       |   1 +
->  .../ethernet/stmicro/stmmac/dwmac-dwc-qos-eth.c    | 199 +++++++++++++++++++++
->  .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |  15 +-
->  5 files changed, 224 insertions(+), 3 deletions(-)
->  create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac-dwc-qos-eth.c
->
-> diff --git a/Documentation/devicetree/bindings/net/snps,dwc-qos-ethernet.txt b/Documentation/devicetree/bindings/net/snps,dwc-qos-ethernet.txt
-> index d93f71c..21d27aa 100644
-> --- a/Documentation/devicetree/bindings/net/snps,dwc-qos-ethernet.txt
-> +++ b/Documentation/devicetree/bindings/net/snps,dwc-qos-ethernet.txt
-> @@ -1,5 +1,8 @@
->  * Synopsys DWC Ethernet QoS IP version 4.10 driver (GMAC)
->  
-> +This binding is deprecated, but it continues to be supported, but new
-> +features should be preferably added to the stmmac binding document.
-> +
->  This binding supports the Synopsys Designware Ethernet QoS (Quality Of Service)
->  IP block. The IP supports multiple options for bus type, clocking and reset
->  structure, and feature list. Consequently, a number of properties and list
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/Kconfig b/drivers/net/ethernet/stmicro/stmmac/Kconfig
-> index ab66248..99594e3 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/Kconfig
-> +++ b/drivers/net/ethernet/stmicro/stmmac/Kconfig
-> @@ -29,6 +29,15 @@ config STMMAC_PLATFORM
->  
->  if STMMAC_PLATFORM
->  
-> +config DWMAC_DWC_QOS_ETH
-> +	tristate "Support for snps,dwc-qos-ethernet.txt DT binding."
-> +	select PHYLIB
-> +	select CRC32
-> +	select MII
-> +	depends on OF && HAS_DMA
-> +	help
-> +	  Support for chips using the snps,dwc-qos-ethernet.txt DT binding.
-> +
->  config DWMAC_GENERIC
->  	tristate "Generic driver for DWMAC"
->  	default STMMAC_PLATFORM
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/Makefile b/drivers/net/ethernet/stmicro/stmmac/Makefile
-> index 8f83a86..700c603 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/Makefile
-> +++ b/drivers/net/ethernet/stmicro/stmmac/Makefile
-> @@ -16,6 +16,7 @@ obj-$(CONFIG_DWMAC_SOCFPGA)	+= dwmac-altr-socfpga.o
->  obj-$(CONFIG_DWMAC_STI)		+= dwmac-sti.o
->  obj-$(CONFIG_DWMAC_STM32)	+= dwmac-stm32.o
->  obj-$(CONFIG_DWMAC_SUNXI)	+= dwmac-sunxi.o
-> +obj-$(CONFIG_DWMAC_DWC_QOS_ETH)	+= dwmac-dwc-qos-eth.o
->  obj-$(CONFIG_DWMAC_GENERIC)	+= dwmac-generic.o
->  stmmac-platform-objs:= stmmac_platform.o
->  dwmac-altr-socfpga-objs := altr_tse_pcs.o dwmac-socfpga.o
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-dwc-qos-eth.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-dwc-qos-eth.c
-> new file mode 100644
-> index 0000000..8a6ac06
-> --- /dev/null
-> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-dwc-qos-eth.c
-> @@ -0,0 +1,199 @@
-> +/*
-> + * Synopsys DWC Ethernet Quality-of-Service v4.10a linux driver
-> + *
-> + * Copyright (C) 2016 Joao Pinto <jpinto@synopsys.com>
-> + *
-> + * This program is free software; you can redistribute it and/or modify
-> + * it under the terms of the GNU General Public License version 2 as
-> + * published by the Free Software Foundation.
-> + *
-> + * You should have received a copy of the GNU General Public License
-> + * along with this program. If not, see <http://www.gnu.org/licenses/>.
-> + */
-> +
-> +#include <linux/clk.h>
-> +#include <linux/clk-provider.h>
-> +#include <linux/device.h>
-> +#include <linux/ethtool.h>
-> +#include <linux/io.h>
-> +#include <linux/ioport.h>
-> +#include <linux/module.h>
-> +#include <linux/of_net.h>
-> +#include <linux/mfd/syscon.h>
-> +#include <linux/platform_device.h>
-> +#include <linux/stmmac.h>
-> +
-> +#include "stmmac_platform.h"
-> +
-> +static int dwc_eth_dwmac_config_dt(struct platform_device *pdev,
-> +				   struct plat_stmmacenet_data *plat_dat)
-> +{
-> +	struct device_node *np = pdev->dev.of_node;
-> +	u32 burst_map = 0;
-> +	u32 bit_index = 0;
-> +	u32 a_index = 0;
-> +
-> +	if (!plat_dat->axi) {
-> +		plat_dat->axi = kzalloc(sizeof(struct stmmac_axi), GFP_KERNEL);
-> +
-> +		if (!plat_dat->axi)
-> +			return -ENOMEM;
-> +	}
-> +
-> +	plat_dat->axi->axi_lpi_en = of_property_read_bool(np, "snps,en-lpi");
-> +	if (of_property_read_u32(np, "snps,write-requests",
-> +				 &plat_dat->axi->axi_wr_osr_lmt)) {
-> +		/**
-> +		 * Since the register has a reset value of 1, if property
-> +		 * is missing, default to 1.
-> +		 */
-> +		plat_dat->axi->axi_wr_osr_lmt = 1;
-> +	} else {
-> +		/**
-> +		 * If property exists, to keep the behavior from dwc_eth_qos,
-> +		 * subtract one after parsing.
-> +		 */
-> +		plat_dat->axi->axi_wr_osr_lmt--;
-> +	}
-> +
-> +	if (of_property_read_u32(np, "read,read-requests",
-> +				 &plat_dat->axi->axi_rd_osr_lmt)) {
-> +		/**
-> +		 * Since the register has a reset value of 1, if property
-> +		 * is missing, default to 1.
-> +		 */
-> +		plat_dat->axi->axi_rd_osr_lmt = 1;
-> +	} else {
-> +		/**
-> +		 * If property exists, to keep the behavior from dwc_eth_qos,
-> +		 * subtract one after parsing.
-> +		 */
-> +		plat_dat->axi->axi_rd_osr_lmt--;
-> +	}
-> +	of_property_read_u32(np, "snps,burst-map", &burst_map);
-> +
-> +	/* converts burst-map bitmask to burst array */
-> +	for (bit_index = 0; bit_index < 7; bit_index++) {
-> +		if (burst_map & (1 << bit_index)) {
-> +			switch (bit_index) {
-> +			case 0:
-> +			plat_dat->axi->axi_blen[a_index] = 4; break;
-> +			case 1:
-> +			plat_dat->axi->axi_blen[a_index] = 8; break;
-> +			case 2:
-> +			plat_dat->axi->axi_blen[a_index] = 16; break;
-> +			case 3:
-> +			plat_dat->axi->axi_blen[a_index] = 32; break;
-> +			case 4:
-> +			plat_dat->axi->axi_blen[a_index] = 64; break;
-> +			case 5:
-> +			plat_dat->axi->axi_blen[a_index] = 128; break;
-> +			case 6:
-> +			plat_dat->axi->axi_blen[a_index] = 256; break;
-> +			default:
-> +			break;
-> +			}
-> +			a_index++;
-> +		}
-> +	}
-> +
-> +	/* dwc-qos needs GMAC4, AAL, TSO and PMT */
-> +	plat_dat->has_gmac4 = 1;
-> +	plat_dat->dma_cfg->aal = 1;
-> +	plat_dat->tso_en = 1;
-> +	plat_dat->pmt = 1;
-> +
-> +	return 0;
-> +}
-> +
-> +static int dwc_eth_dwmac_probe(struct platform_device *pdev)
-> +{
-> +	struct plat_stmmacenet_data *plat_dat;
-> +	struct stmmac_resources stmmac_res;
-> +	struct resource *res;
-> +	int ret;
-> +
-> +	/**
-> +	 * Since stmmac_platform supports name IRQ only, basic platform
-> +	 * resource initialization is done in the glue logic.
-> +	 */
-> +	stmmac_res.irq = platform_get_irq(pdev, 0);
-> +	if (stmmac_res.irq < 0) {
-> +		if (stmmac_res.irq != -EPROBE_DEFER) {
-> +			dev_err(&pdev->dev,
-> +				"IRQ configuration information not found\n");
-> +		}
-> +		return stmmac_res.irq;
-> +	}
-> +
-> +	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-> +	stmmac_res.addr = devm_ioremap_resource(&pdev->dev, res);
-> +	if (IS_ERR(stmmac_res.addr))
-> +		return PTR_ERR(stmmac_res.addr);
-> +
-> +	plat_dat = stmmac_probe_config_dt(pdev, &stmmac_res.mac);
-> +	if (IS_ERR(plat_dat))
-> +		return PTR_ERR(plat_dat);
-> +
-> +	plat_dat->stmmac_clk = devm_clk_get(&pdev->dev, "phy_ref_clk");
-> +	if (IS_ERR(plat_dat->stmmac_clk)) {
-> +		dev_err(&pdev->dev, "apb_pclk clock not found.\n");
-
-Error message does not match the devm_clk_get.
-
-Looking at synopsys/dwc_eth_qos.c
-phy_ref_clk is just a dummy, used for verbosity.
-apb_pclk is the clock which is actually used for setting csr etc.
-
-So it should be
-
-plat_dat->stmmac_clk = devm_clk_get(&pdev->dev, "apb_pclk");
-
-
-So that way the warning is already correct :)
-
-
-
-> +		ret = PTR_ERR(plat_dat->stmmac_clk);
-> +		plat_dat->stmmac_clk = NULL;
-> +		goto err_remove_config_dt;
-> +	}
-> +	clk_prepare_enable(plat_dat->stmmac_clk);
-> +
-> +	plat_dat->pclk = devm_clk_get(&pdev->dev, "apb_pclk");
-> +	if (IS_ERR(plat_dat->pclk)) {
-> +		dev_err(&pdev->dev, "phy_ref_clk clock not found.\n");
-
-Error message does not match the devm_clk_get,
-however, since this should be
-
-plat_dat->pclk = devm_clk_get(&pdev->dev, "phy_ref_clk");
-
-the warning is correct :)
-
-> +		ret = PTR_ERR(plat_dat->pclk);
-> +		plat_dat->pclk = NULL;
-> +		goto err_out_clk_dis_phy;
-> +	}
-> +	clk_prepare_enable(plat_dat->pclk);
-> +
-> +	ret = dwc_eth_dwmac_config_dt(pdev, plat_dat);
-> +	if (ret)
-> +		goto err_out_clk_dis_aper;
-> +
-> +	ret = stmmac_dvr_probe(&pdev->dev, plat_dat, &stmmac_res);
-> +	if (ret)
-> +		goto err_out_clk_dis_aper;
-> +
-> +	return 0;
-> +
-> +err_out_clk_dis_aper:
-> +	clk_disable_unprepare(plat_dat->pclk);
-> +err_out_clk_dis_phy:
-> +	clk_disable_unprepare(plat_dat->stmmac_clk);
-> +err_remove_config_dt:
-> +	stmmac_remove_config_dt(pdev, plat_dat);
-> +
-> +	return ret;
-> +}
-> +
-> +static int dwc_eth_dwmac_remove(struct platform_device *pdev)
-> +{
-> +	return stmmac_pltfr_remove(pdev);
-> +}
-> +
-> +static const struct of_device_id dwc_eth_dwmac_match[] = {
-> +	{ .compatible = "snps,dwc-qos-ethernet-4.10", },
-> +	{ }
-> +};
-> +MODULE_DEVICE_TABLE(of, dwc_eth_dwmac_match);
-> +
-> +static struct platform_driver dwc_eth_dwmac_driver = {
-> +	.probe  = dwc_eth_dwmac_probe,
-> +	.remove = dwc_eth_dwmac_remove,
-> +	.driver = {
-> +		.name           = "dwc-eth-dwmac",
-> +		.of_match_table = dwc_eth_dwmac_match,
-> +	},
-> +};
-> +module_platform_driver(dwc_eth_dwmac_driver);
-> +
-> +MODULE_AUTHOR("Joao Pinto <jpinto@synopsys.com>");
-> +MODULE_DESCRIPTION("Synopsys DWC Ethernet Quality-of-Service v4.10a driver");
-> +MODULE_LICENSE("GPL v2");
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> index 4e44f9c..00c0f8d 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> @@ -181,10 +181,19 @@ static int stmmac_dt_phy(struct plat_stmmacenet_data *plat,
->  		mdio = false;
->  	}
->  
-> -	/* If snps,dwmac-mdio is passed from DT, always register the MDIO */
-> -	for_each_child_of_node(np, plat->mdio_node) {
-> -		if (of_device_is_compatible(plat->mdio_node, "snps,dwmac-mdio"))
-> +	/* exception for dwmac-dwc-qos-eth glue logic */
-> +	if (of_device_is_compatible(np, "snps,dwc-qos-ethernet-4.10")) {
-> +		plat->mdio_node = of_get_child_by_name(np, "mdio");
-> +	} else {
-> +		/**
-> +		 * If snps,dwmac-mdio is passed from DT, always register
-> +		 * the MDIO
-> +		 */
-> +		for_each_child_of_node(np, plat->mdio_node) {
-> +			if (of_device_is_compatible(plat->mdio_node,
-> +						    "snps,dwmac-mdio"))
->  			break;
-> +		}
->  	}
->  
->  	if (plat->mdio_node) {
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
