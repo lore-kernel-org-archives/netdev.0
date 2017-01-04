@@ -1,55 +1,106 @@
-From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
-Subject: Re: [PATCH net-next v2 00/27] Allow passing of VLAN CFI bit through
- network stack
-Date: Wed, 4 Jan 2017 01:13:33 +0100
-Message-ID: <20170104001333.45bu4ezurq63pjwb@rere.qmqm.pl>
-References: <cover.1481586602.git.mirq-linux@rere.qmqm.pl>
- <cover.1483475202.git.mirq-linux@rere.qmqm.pl>
- <20170103.163217.697324652959765171.davem@davemloft.net>
+From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Subject: [PATCH net-next 5/8] bridge: use __vlan_hwaccel helpers
+Date: Wed,  4 Jan 2017 01:24:26 +0100 (CET)
+Message-ID: <7e98c3999f4ad1a80a96234b955e8d41791e2ba4.1483488960.git.mirq-linux@rere.qmqm.pl>
+References: <cover.1483488960.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([84.10.57.10]:37332 "EHLO rere.qmqm.pl"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1759499AbdADAON (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 3 Jan 2017 19:14:13 -0500
-Content-Disposition: inline
-In-Reply-To: <20170103.163217.697324652959765171.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: bridge@lists.linux-foundation.org, netfilter-devel@vger.kernel.org,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	Patrick McHardy <kaber@trash.net>, Pablo Neira Ayuso <pablo@netfilter.org>
+To: netdev@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <cover.1483488960.git.mirq-linux@rere.qmqm.pl>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 03, 2017 at 04:32:17PM -0500, David Miller wrote:
-> From: Micha≥ Miros≥aw <mirq-linux@rere.qmqm.pl>
-> Date: Tue,  3 Jan 2017 21:52:33 +0100 (CET)
-> 
-> > Dear NetDevs
-> > 
-> > This series removes an abuse of VLAN CFI bit in Linux networking stack.
-> > Currently Linux always clears the bit on outgoing traffic and presents
-> > it cleared to userspace (even via AF_PACKET/tcpdump when hw-accelerated).
-> > 
-> > This uses a new vlan_present bit in struct skbuff, and removes an assumption
-> > that vlan_proto != 0 when VLAN tag is present.
-> > 
-> > As I can't test most of the driver changes, please look at them carefully.
-> > 
-> > The series is supposed to be bisect-friendly and that requires temporary
-> > insertion of #define VLAN_TAG_PRESENT in BPF code to be able to split
-> > JIT changes per architecture.
-> > 
-> > Best Regards,
-> > Micha≥ Miros≥aw
+This removes assumption than vlan_tci != 0 when tag is present.
+
+Signed-off-by: Micha≈Ç Miros≈Çaw <mirq-linux@rere.qmqm.pl>
+---
+ net/bridge/br_netfilter_hooks.c | 15 +++++++++------
+ net/bridge/br_private.h         |  2 +-
+ net/bridge/br_vlan.c            |  6 +++---
+ 3 files changed, 13 insertions(+), 10 deletions(-)
+
+diff --git a/net/bridge/br_netfilter_hooks.c b/net/bridge/br_netfilter_hooks.c
+index 8ca6a929bf12..b62177a980e1 100644
+--- a/net/bridge/br_netfilter_hooks.c
++++ b/net/bridge/br_netfilter_hooks.c
+@@ -682,10 +682,8 @@ static int br_nf_push_frag_xmit(struct net *net, struct sock *sk, struct sk_buff
+ 		return 0;
+ 	}
  
-> This patch series is really way too large.
-> 
-> You're going to have to find a way to combine related changes, or submit
-> this as a series of logical sets, one at a time.
-
-I have sent all the cleanups that don't depend on each other.
-Please consider for applying.
-
-Best Regards,
-Micha≥†Miros≥aw
+-	if (data->vlan_tci) {
+-		skb->vlan_tci = data->vlan_tci;
+-		skb->vlan_proto = data->vlan_proto;
+-	}
++	if (data->vlan_proto)
++		__vlan_hwaccel_put_tag(skb, data->vlan_proto, data->vlan_tci);
+ 
+ 	skb_copy_to_linear_data_offset(skb, -data->size, data->mac, data->size);
+ 	__skb_push(skb, data->encap_size);
+@@ -749,8 +747,13 @@ static int br_nf_dev_queue_xmit(struct net *net, struct sock *sk, struct sk_buff
+ 
+ 		data = this_cpu_ptr(&brnf_frag_data_storage);
+ 
+-		data->vlan_tci = skb->vlan_tci;
+-		data->vlan_proto = skb->vlan_proto;
++		if (skb_vlan_tag_present(skb)) {
++			data->vlan_tci = skb->vlan_tci;
++			data->vlan_proto = skb->vlan_proto;
++		} else {
++			data->vlan_proto = 0;
++		}
++
+ 		data->encap_size = nf_bridge_encap_header_len(skb);
+ 		data->size = ETH_HLEN + data->encap_size;
+ 
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index 8ce621e8345c..2efbdaf9ae1b 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -819,7 +819,7 @@ static inline int br_vlan_get_tag(const struct sk_buff *skb, u16 *vid)
+ 	int err = 0;
+ 
+ 	if (skb_vlan_tag_present(skb)) {
+-		*vid = skb_vlan_tag_get(skb) & VLAN_VID_MASK;
++		*vid = skb_vlan_tag_get_id(skb);
+ 	} else {
+ 		*vid = 0;
+ 		err = -EINVAL;
+diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
+index b6de4f457161..d25a5b34dc76 100644
+--- a/net/bridge/br_vlan.c
++++ b/net/bridge/br_vlan.c
+@@ -377,7 +377,7 @@ struct sk_buff *br_handle_vlan(struct net_bridge *br,
+ 	}
+ 
+ 	if (v->flags & BRIDGE_VLAN_INFO_UNTAGGED)
+-		skb->vlan_tci = 0;
++		__vlan_hwaccel_clear_tag(skb);
+ out:
+ 	return skb;
+ }
+@@ -444,8 +444,8 @@ static bool __allowed_ingress(const struct net_bridge *br,
+ 			__vlan_hwaccel_put_tag(skb, br->vlan_proto, pvid);
+ 		else
+ 			/* Priority-tagged Frame.
+-			 * At this point, We know that skb->vlan_tci had
+-			 * VLAN_TAG_PRESENT bit and its VID field was 0x000.
++			 * At this point, we know that skb->vlan_tci VID
++			 * field was 0.
+ 			 * We update only VID field and preserve PCP field.
+ 			 */
+ 			skb->vlan_tci |= pvid;
+-- 
+2.11.0
