@@ -1,74 +1,86 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [RESEND net-next PATCH v5] net: dummy: Introduce dummy virtual
- functions
-Date: Wed, 4 Jan 2017 21:14:46 +0100
-Message-ID: <20170104201446.GA23330@orbyte.nwl.cc>
-References: <20170104134406.2720-1-phil@nwl.cc>
- <20170104.140914.1059886799372716512.davem@davemloft.net>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH net-next rfc 5/6] net-tc: convert tc_at to tc_at_ingress
+Date: Wed, 4 Jan 2017 15:20:07 -0500
+Message-ID: <CAF=yD-K8ZhM6kROmb8ps00Th3=P_DFAy_mMDNC=F9D8PMdZGAw@mail.gmail.com>
+References: <1482952410-50003-1-git-send-email-willemdebruijn.kernel@gmail.com>
+ <1482952410-50003-6-git-send-email-willemdebruijn.kernel@gmail.com>
+ <586D4A6F.7020009@iogearbox.net> <CAF=yD-+x7zP2Z5Ctsn9-_uYz7sfdZMf4n414CE1-bzVQcN3nBA@mail.gmail.com>
+ <586D5231.5080706@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, sd@queasysnail.net
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Network Development <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Florian Westphal <fw@strlen.de>, dborkman@iogearbox.net,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Willem de Bruijn <willemb@google.com>
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:51315 "EHLO mail.nwl.cc"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1032151AbdADUOs (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 4 Jan 2017 15:14:48 -0500
-Content-Disposition: inline
-In-Reply-To: <20170104.140914.1059886799372716512.davem@davemloft.net>
+Received: from mail-ua0-f195.google.com ([209.85.217.195]:36207 "EHLO
+        mail-ua0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S969252AbdADUVD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2017 15:21:03 -0500
+Received: by mail-ua0-f195.google.com with SMTP id 2so3262165uax.3
+        for <netdev@vger.kernel.org>; Wed, 04 Jan 2017 12:20:49 -0800 (PST)
+In-Reply-To: <586D5231.5080706@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 04, 2017 at 02:09:14PM -0500, David Miller wrote:
-> From: Phil Sutter <phil@nwl.cc>
-> Date: Wed,  4 Jan 2017 14:44:06 +0100
-> 
-> > The idea for this was born when testing VF support in iproute2 which was
-> > impeded by hardware requirements. In fact, not every VF-capable hardware
-> > driver implements all netdev ops, so testing the interface is still hard
-> > to do even with a well-sorted hardware shelf.
-> > 
-> > To overcome this and allow for testing the user-kernel interface, this
-> > patch allows to turn dummy into a PF with a configurable amount of VFs.
-> > 
-> > Due to the assumption that all PFs are PCI devices, this implementation
-> > is not completely straightforward: In order to allow for
-> > rtnl_fill_ifinfo() to see the dummy VFs, a fake PCI parent device is
-> > attached to the dummy netdev. This has to happen at the right spot so
-> > register_netdevice() does not get confused. This patch abuses
-> > ndo_fix_features callback for that. In ndo_uninit callback, the fake
-> > parent is removed again for the same purpose.
-> > 
-> > Joint work with Sabrina Dubroca.
-> > 
-> > Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
-> > Signed-off-by: Phil Sutter <phil@nwl.cc>
-> 
-> First of all I really applaud any effort to make the kernel interfaces
-> more testable, and less dependent upon having specific pieces of hardware.
-> 
-> That being said, all of this seems to be fighting the problem from the
-> wrong direction.
-> 
-> The device layer is really kidding itself by having what seems like a
-> generic method in the form of dev_num_vf(), which actually just tests
-> the bus type and calls a bus specific function on a match.
-> 
-> There is no reason in the world that this cannot be done via proper
-> device method call, that any bus type or whatever can implement.
+On Wed, Jan 4, 2017 at 2:51 PM, Daniel Borkmann <daniel@iogearbox.net> wrote:
+> On 01/04/2017 08:26 PM, Willem de Bruijn wrote:
+>>>>
+>>>> diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+>>>> index ef53ede..be4e18d 100644
+>>>> --- a/net/sched/sch_api.c
+>>>> +++ b/net/sched/sch_api.c
+>>>> @@ -1865,6 +1865,7 @@ int tc_classify(struct sk_buff *skb, const struct
+>>>> tcf_proto *tp,
+>>>>          const struct tcf_proto *old_tp = tp;
+>>>>          int limit = 0;
+>>>>
+>>>> +       skb->tc_at_ingress = !!(tp && tp->q->flags & TCQ_F_INGRESS);
+>>>
+>>>
+>>> I'd prefer if skb->tc_at_ingress is set directly to 0/1 in
+>>> sch_handle_ingress()
+>>> and __dev_queue_xmit() as we do right now, this would avoid above tests
+>>> in
+>>> fast
+>>> path and it would also avoid to set the same thing in tc_classify()
+>>> multiple
+>>> times f.e. on egress path walking through multiple qdiscs. I don't see
+>>> anything
+>>> in layers above tc that would read it and expect an AT_STACK-like
+>>> equivalent.
+>>> skb_reset_tc() could thus still remain as you have above in fast-path
+>>> like
+>>> __netif_receive_skb_core().
+>>
+>>
+>> I had been thinking about that. After submitting this I noticed that
+>> Florian's
+>> patchset had an elegant solution to avoid the branch: set tc_at_ingress in
+>> handle_ing before tc_classify and clear it on the return path.
+>>
+>> Then we only set + clear it once on ingress regardless of the depth
+>> of classifiers and do not touch it at all in other code.
+>>
+>> https://patchwork.ozlabs.org/patch/472698/
+>>
+>> What do you think of that approach?
+>
+>
+> I think this approach might not work, it would certainly change semantics
+> since right now *before* going into tc_classify() we always update
+> skb->tc_verd's
+> "at" location. After the patch we'd set TC_AT_INGRESS in ingress and could
+> redirect within tc_classify() [and we'd skip that skb->tc_verd = 0 we have
+> in
+> __netif_receive_skb_core() for these] to xmit from there where next call
+> into
+> classifier from __dev_queue_xmit() call-site misses that we're not at
+> ingress
+> anymore but already at egress, so it would do wrong pull/push of headers in
+> some cls, for example.
 
-Yes, this is certainly the proper way to do this. Thanks for your
-confirmation!
-
-> Then you don't need any of this stuff, you just hook up the proper
-> device method to the dummy device and you're good.
-
-My goal with this (admittedly fugly) hack was to be least intrusive as
-possible, allowing people to use the module solely for testing purposes
-in case the patch was rejected for other reasons.
-
-I'm glad to see you're not against this practically useless enhancement
-of dummy.c per se and so will try to come up with a proper fix for
-dev_num_vf() paving the way for a hack-free version of it.
-
-Thanks, Phil
+Oh, yes, of course. Okay, I will follow the existing code in v1. Thanks, Daniel.
