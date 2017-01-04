@@ -1,57 +1,69 @@
 From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [PATCH net-next 5/6] net/bpf_jit: SPARC: split VLAN_PRESENT bit
- handling from VLAN_TCI
+Subject: [PATCH net-next 6/6] net/bpf: split VLAN_PRESENT bit handling from
+ VLAN_TCI
 Date: Wed,  4 Jan 2017 02:18:27 +0100 (CET)
-Message-ID: <b4e1dcbeed867f958e90551263865d4eb046ae25.1483492355.git.mirq-linux@rere.qmqm.pl>
+Message-ID: <c7085e3873520f23eefa4d38622a66b6f4294ae7.1483492355.git.mirq-linux@rere.qmqm.pl>
 References: <cover.1483492355.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
-Cc: "David S. Miller" <davem@davemloft.net>, sparclinux@vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Alexei Starovoitov <ast@fb.com>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Thomas Graf <tgraf@suug.ch>, Martin KaFai Lau <kafai@fb.com>,
+        Craig Gallek <kraig@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([84.10.57.10]:38224 "EHLO rere.qmqm.pl"
+Received: from rere.qmqm.pl ([84.10.57.10]:38222 "EHLO rere.qmqm.pl"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1760270AbdADBTc (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S1760253AbdADBTc (ORCPT <rfc822;netdev@vger.kernel.org>);
         Tue, 3 Jan 2017 20:19:32 -0500
 In-Reply-To: <cover.1483492355.git.mirq-linux@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Michał Mirosław <mirq-linux@rere.qmqm.pl>
+Signed-off-by: Michał Mirosław <mirq-linux@rere.qmqm.pl>
 ---
- arch/sparc/net/bpf_jit_comp.c | 18 ++++++++++--------
- 1 file changed, 10 insertions(+), 8 deletions(-)
+v2: save an insn on big-endiands
 
-diff --git a/arch/sparc/net/bpf_jit_comp.c b/arch/sparc/net/bpf_jit_comp.c
-index a6d9204a6a0b..61cc15dc86f7 100644
---- a/arch/sparc/net/bpf_jit_comp.c
-+++ b/arch/sparc/net/bpf_jit_comp.c
-@@ -601,15 +601,17 @@ void bpf_jit_compile(struct bpf_prog *fp)
- 				emit_skb_load32(hash, r_A);
- 				break;
- 			case BPF_ANC | SKF_AD_VLAN_TAG:
--			case BPF_ANC | SKF_AD_VLAN_TAG_PRESENT:
- 				emit_skb_load16(vlan_tci, r_A);
--				if (code != (BPF_ANC | SKF_AD_VLAN_TAG)) {
--					emit_alu_K(SRL, 12);
--					emit_andi(r_A, 1, r_A);
--				} else {
--					emit_loadimm(~VLAN_TAG_PRESENT, r_TMP);
--					emit_and(r_A, r_TMP, r_A);
--				}
+ net/core/filter.c | 19 +++++++++----------
+ 1 file changed, 9 insertions(+), 10 deletions(-)
+
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 1969b3f118c1..7caf0bbbd092 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -188,22 +188,21 @@ static u32 convert_skb_access(int skb_field, int dst_reg, int src_reg,
+ 		break;
+ 
+ 	case SKF_AD_VLAN_TAG:
+-	case SKF_AD_VLAN_TAG_PRESENT:
+ 		BUILD_BUG_ON(FIELD_SIZEOF(struct sk_buff, vlan_tci) != 2);
+-		BUILD_BUG_ON(VLAN_TAG_PRESENT != 0x1000);
+ 
+ 		/* dst_reg = *(u16 *) (src_reg + offsetof(vlan_tci)) */
+ 		*insn++ = BPF_LDX_MEM(BPF_H, dst_reg, src_reg,
+ 				      offsetof(struct sk_buff, vlan_tci));
+-		if (skb_field == SKF_AD_VLAN_TAG) {
+-			*insn++ = BPF_ALU32_IMM(BPF_AND, dst_reg,
+-						~VLAN_TAG_PRESENT);
+-		} else {
+-			/* dst_reg >>= 12 */
+-			*insn++ = BPF_ALU32_IMM(BPF_RSH, dst_reg, 12);
+-			/* dst_reg &= 1 */
 +#ifdef VLAN_TAG_PRESENT
-+				emit_loadimm(~VLAN_TAG_PRESENT, r_TMP);
-+				emit_and(r_A, r_TMP, r_A);
++		*insn++ = BPF_ALU32_IMM(BPF_AND, dst_reg, ~VLAN_TAG_PRESENT);
 +#endif
-+				break;
-+			case BPF_ANC | SKF_AD_VLAN_TAG_PRESENT:
-+				__emit_skb_load8(__pkt_vlan_present_offset, r_A);
-+				if (PKT_VLAN_PRESENT_BIT)
-+					emit_alu_K(SRL, PKT_VLAN_PRESENT_BIT);
-+				emit_andi(r_A, 1, r_A);
- 				break;
- 			case BPF_LD | BPF_W | BPF_LEN:
- 				emit_skb_load32(len, r_A);
++		break;
++	case SKF_AD_VLAN_TAG_PRESENT:
++		*insn++ = BPF_LDX_MEM(BPF_B, dst_reg, src_reg, PKT_VLAN_PRESENT_OFFSET());
++		if (PKT_VLAN_PRESENT_BIT)
++			*insn++ = BPF_ALU32_IMM(BPF_RSH, dst_reg, PKT_VLAN_PRESENT_BIT);
++		if (PKT_VLAN_PRESENT_BIT < 7)
+ 			*insn++ = BPF_ALU32_IMM(BPF_AND, dst_reg, 1);
+-		}
+ 		break;
+ 	}
+ 
 -- 
 2.11.0
