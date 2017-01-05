@@ -1,121 +1,90 @@
-From: Zefir Kurtisi <zefir.kurtisi@neratec.com>
-Subject: Re: [PATCH] phy state machine: failsafe leave invalid RUNNING state
-Date: Thu, 5 Jan 2017 10:23:45 +0100
-Message-ID: <327be2cf-8b89-3823-2951-b31a44697a2f@neratec.com>
-References: <1483542298-9747-1-git-send-email-zefir.kurtisi@neratec.com>
- <6845805d-4dae-0a3a-c56c-6feb86f4b553@gmail.com>
- <82ffbb43-9345-c47d-596c-73c175ac7e7f@neratec.com>
- <16a741c1-7005-b1df-f2e6-afdbe9d086c8@gmail.com>
- <8521b51f-04f7-aeef-f862-bb150257cfa4@neratec.com>
- <b482e869-cc00-8b19-f18d-eb0a2d2ba67d@gmail.com>
+From: Stefan Hajnoczi <stefanha@gmail.com>
+Subject: Re: [PATCH net-next V2 3/3] tun: rx batching
+Date: Thu, 5 Jan 2017 09:27:50 +0000
+Message-ID: <20170105092750.GA25138@stefanha-x1.localdomain>
+References: <1482912571-3157-1-git-send-email-jasowang@redhat.com>
+	<1482912571-3157-4-git-send-email-jasowang@redhat.com>
+	<20170103133303.GC14707@stefanha-x1.localdomain>
+	<73da2ef8-2454-5614-d637-0ce7c5287433@redhat.com>
 Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary="===============4147202618657407161=="
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, kvm@vger.kernel.org, mst@redhat.com
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <73da2ef8-2454-5614-d637-0ce7c5287433@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
+
+
+--===============4147202618657407161==
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="bg08WKrSYDhXBjb5"
+Content-Disposition: inline
+
+
+--bg08WKrSYDhXBjb5
 Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+On Wed, Jan 04, 2017 at 11:03:32AM +0800, Jason Wang wrote:
+> On 2017=E5=B9=B401=E6=9C=8803=E6=97=A5 21:33, Stefan Hajnoczi wrote:
+> > On Wed, Dec 28, 2016 at 04:09:31PM +0800, Jason Wang wrote:
+> > > +static int tun_rx_batched(struct tun_file *tfile, struct sk_buff *sk=
+b,
+> > > +			  int more)
+> > > +{
+> > > +	struct sk_buff_head *queue =3D &tfile->sk.sk_write_queue;
+> > > +	struct sk_buff_head process_queue;
+> > > +	int qlen;
+> > > +	bool rcv =3D false;
+> > > +
+> > > +	spin_lock(&queue->lock);
+> > Should this be spin_lock_bh()?  Below and in tun_get_user() there are
+> > explicit local_bh_disable() calls so I guess BHs can interrupt us here
+> > and this would deadlock.
+>=20
+> sk_write_queue were accessed only in this function which runs under proce=
+ss
+> context, so no need for spin_lock_bh() here.
+
+I see, thanks!
+
+Stefan
+
+--bg08WKrSYDhXBjb5
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEcBAEBAgAGBQJYbhGWAAoJEJykq7OBq3PIhG0IALW5Lv51eiq1ln6fZD/4/SAF
+hjH/I8yCmJeWTEFcjRqWnUr/UwQx2m6+3xk5kH2Uh6PeTEHtdtB5igaUoJ0CTvgt
+q2RILeiPbLg4/WNIb7vECRsCteeGlYKteirQ9Ftz2Mls8/GHdCW1QlK8+YB3rUln
+8s72z5R9S2QnYcSqRu+DzhihB3iCpeLVaJbTtCdT/C155NH0qDqvEfPUUbaap5oS
+TruYfTNX8sYOdvJ1vRfLOvhwZg98W44cN+Co9kY7/97RH2qhZutQXtu8TG+val+K
+eC5jTgPcmIAn2Q6ruF8Fbd2FP7NWBXk01+QyWmRoYnuYTCr7VxvtT/7t7fE3Jvg=
+=W9PW
+-----END PGP SIGNATURE-----
+
+--bg08WKrSYDhXBjb5--
+
+--===============4147202618657407161==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
 Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch
-To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.neratec.com ([46.140.151.2]:5519 "EHLO mail.neratec.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S970319AbdAEJXs (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 5 Jan 2017 04:23:48 -0500
-In-Reply-To: <b482e869-cc00-8b19-f18d-eb0a2d2ba67d@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Disposition: inline
 
-On 01/04/2017 10:44 PM, Florian Fainelli wrote:
-> On 01/04/2017 08:10 AM, Zefir Kurtisi wrote:
->> On 01/04/2017 04:30 PM, Florian Fainelli wrote:
->>>
->>>
->>> On 01/04/2017 07:27 AM, Zefir Kurtisi wrote:
->>>> On 01/04/2017 04:13 PM, Florian Fainelli wrote:
->>>>>
->>>>>
->>>>> On 01/04/2017 07:04 AM, Zefir Kurtisi wrote:
->>>>>> While in RUNNING state, phy_state_machine() checks for link changes by
->>>>>> comparing phydev->link before and after calling phy_read_status().
->>>>>> This works as long as it is guaranteed that phydev->link is never
->>>>>> changed outside the phy_state_machine().
->>>>>>
->>>>>> If in some setups this happens, it causes the state machine to miss
->>>>>> a link loss and remain RUNNING despite phydev->link being 0.
->>>>>>
->>>>>> This has been observed running a dsa setup with a process continuously
->>>>>> polling the link states over ethtool each second (SNMPD RFC-1213
->>>>>> agent). Disconnecting the link on a phy followed by a ETHTOOL_GSET
->>>>>> causes dsa_slave_get_settings() / dsa_slave_get_link_ksettings() to
->>>>>> call phy_read_status() and with that modify the link status - and
->>>>>> with that bricking the phy state machine.
->>>>>
->>>>> That's the interesting part of the analysis, how does this brick the PHY
->>>>> state machine? Is the PHY driver changing the link status in the
->>>>> read_status callback that it implements?
->>>>>
->>>> phydev->read_status points to genphy_read_status(), where the first call goes to
->>>> genphy_update_link() which updates the link status.
->>>>
->>>> Thereafter phy_state_machine():RUNNING won't be able to detect the link loss
->>>> anymore unless the link state changes again.
->>>>
->>>>
->>>> I was trying to figure out if there is a rule that forbids changing phydev->link
->>>> from outside the state machine, but found several places where it happens (either
->>>> directly, or over genphy_read_status() or over genphy_update_link()).
->>>>
->>>> Curious how this did not show up before, since within the dsa setup it is very
->>>> easy to trigger:
->>>> a) physically disconnect link
->>>> b) within one second run ethtool ethX
->>>
->>> You need to be more specific here about what "the dsa setup" is, drivers
->>> involved, which ports of the switch you are seeing this with (user
->>> facing, CPU port, DSA port?) etc.
->>>
->> I am working on top of LEDE and with that at kernel 4.4.21 - alas I checked the
->> related source files and believe the effect should be reproducible with HEAD.
->>
->> The setup is as follows:
->> mv88e6321:
->> * ports 0+1 connected to fibre-optics transceivers at fixed 100 Mbps
->> * port 4 is CPU port
->> * custom phy driver (replacement for marvell.ko) only populated with
->>   * .config_init to
->>     * set fixed speed for ports 0+1 (when in FO mode)
->>     * run genphy_config_init() for all other modes (here: CPU port)
->>   * .config_aneg=genphy_config_aneg, .read_status=genphy_read_status
->>
->>
->> To my understanding, the exact setup is irrelevant - to reproduce the issue it is
->> enough to have a means of running genphy_update_link() (as done in e.g.
->> mediatek/mtk_eth_soc.c, dsa/slave.c), or genphy_read_status() (as done in e.g.
->> hisilicon/hns/hns_enet.c) or phy_read_status() (as done in e.g.
->> ethernet/ti/netcp_ethss.c, ethernet/aeroflex/greth.c, etc.). In the observed
->> drivers it is mostly implemented in the ETHTOOL_GSET execution path.
->>
->> Once you get the link state updated outside the phy state machine, it remains in
->> invalid RUNNING. To prevent that invalid state, to my understanding upper layer
->> drivers (Ethernet, dsa) must not modify link-states in any case (including calling
->> the functions noted above), or we need the proposed fail-safe mechanism to prevent
->> getting stuck.
-> 
-> OK, I see the code path involved now, sorry -ENOCOFFEE when I initially
-> responded. Yes, clearly, we should not be mangling the PHY device's link
-> by calling genphy_read_status(). At first glance, none of the users
-> below should be doing what they are doing, but let's kick a separate
-> patch series to collect feedback from the driver writes.
-> 
-> Thanks!
-> 
-Ok, thanks for taking time.
-
-The kbuild test robot error is due to 'struct device dev' been removed from
-phy_device struct since 4.4.21. Does it make sense to provide a v2 fixing that, or
-do you expect that this fail-safe mechanism is not needed once all Ethernet/dsa
-drivers are fixed?
-
-I think it won't hurt to add the check simply to ensure that it got fixed and the
-issue is not popping up thereafter.
-
-
-Cheers,
-Zefir
+_______________________________________________
+Virtualization mailing list
+Virtualization@lists.linux-foundation.org
+https://lists.linuxfoundation.org/mailman/listinfo/virtualization
+--===============4147202618657407161==--
