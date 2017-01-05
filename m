@@ -1,61 +1,37 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH 2/2] isdn: i4l: move active-isdn drivers to staging
-Date: Thu, 5 Jan 2017 22:19:47 +0100
-Message-ID: <20170105211947.GA18143@kroah.com>
-References: <1456945629-1793533-1-git-send-email-arnd@arndb.de>
- <1456945629-1793533-2-git-send-email-arnd@arndb.de>
- <20170103152436.GA26156@kroah.com> <3286019.I2UkVCJq41@wuerfel>
+From: "Jonathan T. Leighton" <jtleight@udel.edu>
+Subject: TCP using IPv4-mapped IPv6 address as source
+Date: Thu, 5 Jan 2017 16:25:26 -0500
+Message-ID: <87f4e2ec-22bf-2401-8401-57205f893289@udel.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, Karsten Keil <isdn@linux-pingi.de>,
- linux-doc@vger.kernel.org, netdev@vger.kernel.org,
- Jonathan Corbet <corbet@lwn.net>, linux-kernel@vger.kernel.org,
- "David S. Miller" <davem@davemloft.net>, linux-arm-kernel@lists.infradead.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-Content-Disposition: inline
-In-Reply-To: <3286019.I2UkVCJq41@wuerfel>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qt0-f169.google.com ([209.85.216.169]:36056 "EHLO
+        mail-qt0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753313AbdAEVZ2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2017 16:25:28 -0500
+Received: by mail-qt0-f169.google.com with SMTP id k15so292531212qtg.3
+        for <netdev@vger.kernel.org>; Thu, 05 Jan 2017 13:25:28 -0800 (PST)
+Received: from iMac-27.local ([2601:183:4102:810d:ad2f:5483:cbde:c0b])
+        by smtp.gmail.com with ESMTPSA id x17sm35081650qka.34.2017.01.05.13.25.27
+        for <netdev@vger.kernel.org>
+        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Thu, 05 Jan 2017 13:25:27 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 03, 2017 at 10:19:29PM +0100, Arnd Bergmann wrote:
-> On Tuesday, January 3, 2017 4:24:36 PM CET Greg Kroah-Hartman wrote:
-> > On Wed, Mar 02, 2016 at 08:06:46PM +0100, Arnd Bergmann wrote:
-> > > The icn, act2000 and pcbit drivers are all for very old hardware,
-> > > and it is highly unlikely that anyone is actually still using them
-> > > on modern kernels, if at all.
-> > > 
-> > > All three drivers apparently are for hardware that predates PCI
-> > > being the common connector, as they are ISA-only and active
-> > > PCI ISDN cards were widely available in the 1990s.
-> > > 
-> > > Looking through the git logs, it I cannot find any indication of a
-> > > patch to any of these drivers that has been tested on real hardware,
-> > > only cleanups or global API changes.
-> > > 
-> > > Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> > > Acked-by: Karsten Keil <isdn@linux-pingi.de>
-> > 
-> > This patch got added in the 4.6 kernel release.  As I am now taking
-> > patches for 4.11-rc1, I figure it is time to just delete the
-> > drivers/staging/i4l/ directory now, given that no one has really done
-> > anything with it.  If people show up that wish to maintain it, I'll be
-> > glad to revert it, or if someone really screams in the next week.
-> > Otherwise it's time to just move on 
-> 
-> Sounds good to me.
+I've observed TCP using an IPv4-mapped IPv6 address as the source 
+address, which I believe contradicts 
+https://tools.ietf.org/html/rfc6890#page-14 (BCP 153). This occurs when 
+an IPv6 TCP socket, bound to a local IPv4-mapped IPv6 address, attempts 
+to connect to a remote IPv6 address. Presumable connect() should return 
+EAFNOSUPPORT in this case. Please advise me if this is not to 
+appropriate list to report this.
 
-Ok, now deleted!
+$ uname -a
+Linux ubuntu 4.4.0-57-generic #78-Ubuntu SMP Fri Dec 9 23:50:32 UTC 2016 
+x86_64 x86_64 x86_64 GNU/Linux
 
-thanks,
-
-greg k-h
+Best regards,
+Jon
