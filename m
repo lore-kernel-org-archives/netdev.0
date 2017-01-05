@@ -1,59 +1,92 @@
-From: Amir Vadai <amir@vadai.me>
-Subject: Re: [PATCH net-next V2 0/3] net/sched: act_pedit: Use offset
- relative to conventional network headers
-Date: Thu, 5 Jan 2017 14:34:58 +0200
-Message-ID: <20170105123458.GA2361@office.localdomain>
-References: <20170105095454.32644-1-amir@vadai.me>
- <20170105125414.5640b1b8@griffin>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [net-next PATCH v2 2/6] i40e: Introduce VF Port
+ Representator(VFPR) netdevs.
+Date: Thu, 5 Jan 2017 13:44:25 +0100
+Message-ID: <20170105124425.GA2211@nanopsycho>
+References: <1483466874-2962-1-git-send-email-sridhar.samudrala@intel.com>
+ <1483466874-2962-3-git-send-email-sridhar.samudrala@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Jiri Pirko <jiri@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Hadar Har-Zion <hadarh@mellanox.com>
-To: Jiri Benc <jbenc@redhat.com>
+Cc: alexander.h.duyck@intel.com, john.r.fastabend@intel.com,
+        anjali.singhai@intel.com, jakub.kicinski@netronome.com,
+        davem@davemloft.net, intel-wired-lan@lists.osuosl.org,
+        netdev@vger.kernel.org
+To: Sridhar Samudrala <sridhar.samudrala@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wj0-f193.google.com ([209.85.210.193]:34048 "EHLO
-        mail-wj0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965826AbdAEMff (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2017 07:35:35 -0500
-Received: by mail-wj0-f193.google.com with SMTP id qs7so41386324wjc.1
-        for <netdev@vger.kernel.org>; Thu, 05 Jan 2017 04:35:02 -0800 (PST)
+Received: from mail-wj0-f195.google.com ([209.85.210.195]:33336 "EHLO
+        mail-wj0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751650AbdAEMoc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2017 07:44:32 -0500
+Received: by mail-wj0-f195.google.com with SMTP id kp2so79017877wjc.0
+        for <netdev@vger.kernel.org>; Thu, 05 Jan 2017 04:44:31 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <20170105125414.5640b1b8@griffin>
+In-Reply-To: <1483466874-2962-3-git-send-email-sridhar.samudrala@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 05, 2017 at 12:54:14PM +0100, Jiri Benc wrote:
-> On Thu,  5 Jan 2017 11:54:51 +0200, Amir Vadai wrote:
-> > You asked me [1] why did I use specific header names instead of layers (L2, L3...),
-> > and I explained that it is on purpose, this extra information is planned to be used
-> > by hardware drivers to offload the action.
-> > 
-> > Some FW/HW parser APIs are such that they need to get the specific header type (e.g
-> > IPV4 or IPV6, TCP or UDP) and not only the networking level (e.g network or transport).
+Tue, Jan 03, 2017 at 07:07:50PM CET, sridhar.samudrala@intel.com wrote:
+>VF Port Representator netdevs are created for each VF if the switch mode
+>is set to 'switchdev'. These netdevs can be used to control and configure
+>VFs from PFs namespace. They enable exposing VF statistics, configure and
+>monitor link state, mtu, filters, fdb/vlan entries etc. of VFs.
+>Broadcast filters are not enabled in switchdev mode.
+>
+>Sample script to create VF port representors
+># rmmod i40e; modprobe i40e
+># devlink dev eswitch set pci/0000:05:00.0 mode switchdev
+># echo 2 > /sys/class/net/enp5s0f0/device/sriov_numvfs
+># ip l show
+>297: enp5s0f0: <BROADCAST,MULTICAST> mtu 1500 qdisc noop portid 6805ca2e7268 state DOWN mode DEFAULT group default qlen 1000
+>     link/ether 68:05:ca:2e:72:68 brd ff:ff:ff:ff:ff:ff
+>     vf 0 MAC 00:00:00:00:00:00, spoof checking on, link-state auto, trust off
+>     vf 1 MAC 00:00:00:00:00:00, spoof checking on, link-state auto, trust off
+>299: enp5s0f0-vf0: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+>     link/ether 00:00:00:00:00:00 brd ff:ff:ff:ff:ff:ff
+>300: enp5s0f0-vf1: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+>     link/ether 00:00:00:00:00:00 brd ff:ff:ff:ff:ff:ff
+>
+>Signed-off-by: Sridhar Samudrala <sridhar.samudrala@intel.com>
+>---
+> drivers/net/ethernet/intel/i40e/i40e_main.c        |  21 ++-
+> drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 154 ++++++++++++++++++++-
+> drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h |  14 ++
+> 3 files changed, 182 insertions(+), 7 deletions(-)
+>
+>diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+>index c01a620..17428f0 100644
+>--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
+>+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+>@@ -10938,15 +10938,34 @@ static int i40e_devlink_eswitch_mode_get(struct devlink *devlink, u16 *mode)
+> static int i40e_devlink_eswitch_mode_set(struct devlink *devlink, u16 mode)
+> {
+> 	struct i40e_pf *pf = devlink_priv(devlink);
+>-	int err = 0;
+>+	struct i40e_vf *vf;
+>+	int i, j, err = 0;
 > 
-> Don't we need better API specification (and enforcement) then, though?
-> See below.
+> 	if (mode == pf->eswitch_mode)
+> 		goto done;
 > 
-> > Usage example:
-> > $ tc filter add dev enp0s9 protocol ip parent ffff: \
-> >    flower \
-> >      ip_proto tcp \
-> >     dst_port 80 \
-> >    action \
-> >        pedit munge ip ttl add 0xff \
-> >        pedit munge tcp dport set 8080 \
-> >      pipe action mirred egress redirect dev veth0
-> 
-> What happens when one does:
-> 
-> tc filter add ... flower ip_proto udp action pedit munge tcp ...
-> 
-> ?
-This is a simple action. It is not fool proof - it prevents the user
-from getting out of packet bounds, but it is the user responsibility to
-provide valid rules.
+> 	switch (mode) {
+> 	case DEVLINK_ESWITCH_MODE_LEGACY:
+>+		for (i = 0; i < pf->num_alloc_vfs; i++) {
+>+			vf = &(pf->vf[i]);
+>+			i40e_free_vfpr_netdev(vf);
+>+		}
+> 		pf->eswitch_mode = mode;
+> 		break;
+>+	case DEVLINK_ESWITCH_MODE_SWITCHDEV:
+>+		for (i = 0; i < pf->num_alloc_vfs; i++) {
+>+			vf = &(pf->vf[i]);
+>+			err = i40e_alloc_vfpr_netdev(vf, i);
+>+			if (err) {
+>+				for (j = 0; j < i; j++) {
+>+					vf = &(pf->vf[j]);
+>+					i40e_free_vfpr_netdev(vf);
+>+				}
+>+				goto done;
+>+			}
+>+		}
+>+                pf->eswitch_mode = mode;
 
-> 
->  Jiri
+ ^^^^^^^^^^^^^^^^ wrong indent
