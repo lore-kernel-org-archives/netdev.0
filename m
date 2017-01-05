@@ -1,123 +1,102 @@
-From: Jason Baron <jbaron@akamai.com>
-Subject: [RFC PATCH] tcp: accept RST for rcv_nxt - 1 after receiving a FIN
-Date: Thu,  5 Jan 2017 16:33:28 -0500
-Message-ID: <1483652008-20255-1-git-send-email-jbaron@akamai.com>
-To: netdev@vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [Intel-wired-lan] [net-next PATCH v2 2/6] i40e: Introduce VF
+ Port Representator(VFPR) netdevs.
+Date: Thu, 05 Jan 2017 13:46:11 -0800
+Message-ID: <1483652771.25700.41.camel@intel.com>
+References: <1483466874-2962-1-git-send-email-sridhar.samudrala@intel.com>
+         <1483466874-2962-3-git-send-email-sridhar.samudrala@intel.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha512";
+        protocol="application/pgp-signature"; boundary="=-4Ntf1jCaY1RR2a9Ep89c"
+To: Sridhar Samudrala <sridhar.samudrala@intel.com>,
+        alexander.h.duyck@intel.com, john.r.fastabend@intel.com,
+        anjali.singhai@intel.com, jakub.kicinski@netronome.com,
+        davem@davemloft.net, intel-wired-lan@lists.osuosl.org,
+        netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from prod-mail-xrelay05.akamai.com ([23.79.238.179]:17741 "EHLO
-        prod-mail-xrelay05.akamai.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751417AbdAEVpC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2017 16:45:02 -0500
-Received: from prod-mail-xrelay05.akamai.com (localhost.localdomain [127.0.0.1])
-        by postfix.imss70 (Postfix) with ESMTP id 75CB8433407
-        for <netdev@vger.kernel.org>; Thu,  5 Jan 2017 21:33:41 +0000 (GMT)
-Received: from prod-mail-relay11.akamai.com (prod-mail-relay11.akamai.com [172.27.118.250])
-        by prod-mail-xrelay05.akamai.com (Postfix) with ESMTP id 55E66433401
-        for <netdev@vger.kernel.org>; Thu,  5 Jan 2017 21:33:41 +0000 (GMT)
-Received: from bos-lpjec.kendall.corp.akamai.com (bos-lpjec.kendall.corp.akamai.com [172.28.12.167])
-        by prod-mail-relay11.akamai.com (Postfix) with ESMTP id 373401FC88
-        for <netdev@vger.kernel.org>; Thu,  5 Jan 2017 21:33:41 +0000 (GMT)
+Received: from mga09.intel.com ([134.134.136.24]:22240 "EHLO mga09.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752228AbdAEVqq (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 5 Jan 2017 16:46:46 -0500
+In-Reply-To: <1483466874-2962-3-git-send-email-sridhar.samudrala@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Using a Mac OSX box as a client connecting to a Linux server, we have found
-that when certain applications (such as 'ab'), are abruptly terminated
-(via ^C), a FIN is sent followed by a RST packet on tcp connections. The
-FIN is accepted by the Linux stack but the RST is sent with the same
-sequence number as the FIN, and Linux responds with a challenge ACK per
-RFC 5961. The OSX client then does not reply with any RST as would be
-expected on a closed socket.
 
-This results in sockets accumulating on the Linux server left mostly in
-the CLOSE_WAIT state, although LAST_ACK and CLOSING are also possible.
-This sequence of events can tie up a lot of resources on the Linux server
-since there may be a lot of data in write buffers at the time of the RST.
-Accepting a RST equal to rcv_nxt - 1, after we have already successfully
-processed a FIN, has made a significant difference for us in practice, by
-freeing up unneeded resources in a more expedient fashion.
+--=-4Ntf1jCaY1RR2a9Ep89c
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-I also found a posting that the iOS client behaves in a similar manner here
-(it will send a FIN followed by a RST for rcv_nxt - 1):
-https://www.snellman.net/blog/archive/2016-02-01-tcp-rst/
+On Tue, 2017-01-03 at 10:07 -0800, Sridhar Samudrala wrote:
+> VF Port Representator netdevs are created for each VF if the switch mode
+> is set to 'switchdev'. These netdevs can be used to control and configure
+> VFs from PFs namespace. They enable exposing VF statistics, configure and
+> monitor link state, mtu, filters, fdb/vlan entries etc. of VFs.
+> Broadcast filters are not enabled in switchdev mode.
+>=20
+> Sample script to create VF port representors
+> # rmmod i40e; modprobe i40e
+> # devlink dev eswitch set pci/0000:05:00.0 mode switchdev
+> # echo 2 > /sys/class/net/enp5s0f0/device/sriov_numvfs
+> # ip l show
+> 297: enp5s0f0: <BROADCAST,MULTICAST> mtu 1500 qdisc noop portid
+> 6805ca2e7268 state DOWN mode DEFAULT group default qlen 1000
+> =C2=A0=C2=A0=C2=A0=C2=A0 link/ether 68:05:ca:2e:72:68 brd ff:ff:ff:ff:ff:=
+ff
+> =C2=A0=C2=A0=C2=A0=C2=A0 vf 0 MAC 00:00:00:00:00:00, spoof checking on, l=
+ink-state auto,
+> trust off
+> =C2=A0=C2=A0=C2=A0=C2=A0 vf 1 MAC 00:00:00:00:00:00, spoof checking on, l=
+ink-state auto,
+> trust off
+> 299: enp5s0f0-vf0: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN
+> mode DEFAULT group default qlen 1000
+> =C2=A0=C2=A0=C2=A0=C2=A0 link/ether 00:00:00:00:00:00 brd ff:ff:ff:ff:ff:=
+ff
+> 300: enp5s0f0-vf1: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN
+> mode DEFAULT group default qlen 1000
+> =C2=A0=C2=A0=C2=A0=C2=A0 link/ether 00:00:00:00:00:00 brd ff:ff:ff:ff:ff:=
+ff
+>=20
+> Signed-off-by: Sridhar Samudrala <sridhar.samudrala@intel.com>
+> ---
+> =C2=A0drivers/net/ethernet/intel/i40e/i40e_main.c=C2=A0=C2=A0=C2=A0=C2=A0=
+=C2=A0=C2=A0=C2=A0 |=C2=A0 21 ++-
+> =C2=A0drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 154
+> ++++++++++++++++++++-
+> =C2=A0drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h |=C2=A0 14 ++
+> =C2=A03 files changed, 182 insertions(+), 7 deletions(-)
 
-A packetdrill test demonstrating the behavior.
+This does not apply cleanly because it is based on an older version of
+i40e_virtchnl_pf.c file.  It appears that i40e has been updated to use
+"i40e_add_filter()" yet your patch still uses "i40e_add_mac_filter()".
 
-// testing mac osx rst behavior
+We need to clarify what the "right way" is to add filters and use the
+correct function.
 
-// Establish a connection
-0.000 socket(..., SOCK_STREAM, IPPROTO_TCP) = 3
-0.000 setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
-0.000 bind(3, ..., ...) = 0
-0.000 listen(3, 1) = 0
+Dropping this series and will await v3, please address the other feedback
+from Or Gerlitz and Jiri Pirko as well in your updated series.
+--=-4Ntf1jCaY1RR2a9Ep89c
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
-0.100 < S 0:0(0) win 32768 <mss 1460,nop,wscale 10>
-0.100 > S. 0:0(0) ack 1 <mss 1460,nop,wscale 5>
-0.200 < . 1:1(0) ack 1 win 32768
-0.200 accept(3, ..., ...) = 4
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
 
-// Client closes the connection
-0.300 < F. 1:1(0) ack 1 win 32768
+iQIcBAABCgAGBQJYbr6jAAoJEOVv75VaS+3O36UQAJYtJRJIPNtXaTwtjw3yQa3z
+wwVC5i12lOL88/R2UuSfYV0wN61la8vQwhafY1PmFnhzeUHI4Lz81K2du0R09CDY
+uph8s1VxQ1OkrfXsqnW33htflYk8vULabOQu0PXNeFEo7BHOmbR71uFMqK4PVjLy
+PTEmXZWIuqcAkJZ6sZgy0Sq/d+yDg9rjd7ChXeI43ailYcTpxkRCwVSrvmoo1RhL
+yyMt0QUxQlGqIhyO2kPyx18EGyJHK88a3JXDpa+6AWzGTfUDttJI3ULiV5srJONG
+pJhlvMvLwCkVR+d+vFPMRyG2zHZaEPY28o0SGEd/oegqBpyIbF4Ws7aSxKdQmyLw
+3UMt6hXtlr8tNrXoEIAm+IYuuf32+ec9Z0g7XJjim2yOTBZVxYThE6U7bkChpJNk
+0cPKafHtqmm05+2FnKDXlbT97fTLNRmShHz9260PU9Pd+U7XYIzSHYRJDYhOw9qS
+XF48U50+l8H/kQQ2QfwEZWSQtBmfbStsCR/tyvVGfcMy1r+fpdXwNn6uFndJg8+R
+J9B63fCkcfX7sPbVD/GVkp1F10IAVeId94yfIfqIsSOw/J26/k73aAeFNk88wngx
+k8xAXAg29Py87L6KUPnrEIH8D/xDwzySqdejgCn0l5lg3pRD8K3imAdPhgjsuPfm
+6ZxdRCbWb78snDZH1oNg
+=LhbQ
+-----END PGP SIGNATURE-----
 
-// now send rst with same sequence
-0.300 < R. 1:1(0) ack 1 win 32768
-
-// make sure we are in TCP_CLOSE
-0.400 %{
-assert tcpi_state == 7
-}%
-
-Signed-off-by: Jason Baron <jbaron@akamai.com>
----
- net/ipv4/tcp_input.c | 23 ++++++++++++++++++++++-
- 1 file changed, 22 insertions(+), 1 deletion(-)
-
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index ec6d84363024..373bea05c93b 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -5249,6 +5249,24 @@ static int tcp_copy_to_iovec(struct sock *sk, struct sk_buff *skb, int hlen)
- 	return err;
- }
- 
-+/* Accept RST for rcv_nxt - 1 after a FIN.
-+ * When tcp connections are abruptly terminated from Mac OSX (via ^C), a
-+ * FIN is sent followed by a RST packet. The RST is sent with the same
-+ * sequence number as the FIN, and thus according to RFC 5961 a challenge
-+ * ACK should be sent. However, Mac OSX does not reply to the challenge ACK
-+ * with a RST on the closed socket, hence accept this class of RSTs.
-+ */
-+static bool tcp_reset_check(struct sock *sk, struct sk_buff *skb)
-+{
-+	struct tcp_sock *tp = tcp_sk(sk);
-+
-+	return unlikely((TCP_SKB_CB(skb)->seq == (tp->rcv_nxt - 1)) &&
-+			(TCP_SKB_CB(skb)->end_seq == (tp->rcv_nxt - 1))	&&
-+			(sk->sk_state == TCP_CLOSE_WAIT ||
-+			 sk->sk_state == TCP_LAST_ACK ||
-+			 sk->sk_state == TCP_CLOSING));
-+}
-+
- /* Does PAWS and seqno based validation of an incoming segment, flags will
-  * play significant role here.
-  */
-@@ -5287,6 +5305,8 @@ static bool tcp_validate_incoming(struct sock *sk, struct sk_buff *skb,
- 						  LINUX_MIB_TCPACKSKIPPEDSEQ,
- 						  &tp->last_oow_ack_time))
- 				tcp_send_dupack(sk, skb);
-+		} else if (tcp_reset_check(sk, skb)) {
-+			tcp_reset(sk);
- 		}
- 		goto discard;
- 	}
-@@ -5300,7 +5320,8 @@ static bool tcp_validate_incoming(struct sock *sk, struct sk_buff *skb,
- 		 * else
- 		 *     Send a challenge ACK
- 		 */
--		if (TCP_SKB_CB(skb)->seq == tp->rcv_nxt) {
-+		if (TCP_SKB_CB(skb)->seq == tp->rcv_nxt ||
-+		    tcp_reset_check(sk, skb)) {
- 			rst_seq_match = true;
- 		} else if (tcp_is_sack(tp) && tp->rx_opt.num_sacks > 0) {
- 			struct tcp_sack_block *sp = &tp->selective_acks[0];
--- 
-2.6.1
+--=-4Ntf1jCaY1RR2a9Ep89c--
