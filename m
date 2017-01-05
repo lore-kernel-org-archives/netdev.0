@@ -1,32 +1,44 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH net] hyper-v: Add myself as additional MAINTAINER
-Date: Thu, 5 Jan 2017 18:43:24 +0100
-Message-ID: <20170105174324.GA7504@kroah.com>
+From: KY Srinivasan <kys@microsoft.com>
+Subject: RE: [PATCH net] hyper-v: Add myself as additional MAINTAINER
+Date: Thu, 5 Jan 2017 17:43:04 +0000
+Message-ID: <DM5PR03MB24904C998F63FDF80C4CBB16A0600@DM5PR03MB2490.namprd03.prod.outlook.com>
 References: <20170105173626.4657-1-sthemmin@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, kys@microsoft.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
         Stephen Hemminger <sthemmin@microsoft.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.linuxfoundation.org ([140.211.169.12]:55856 "EHLO
-        mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754051AbdAERnE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2017 12:43:04 -0500
-Content-Disposition: inline
+To: Stephen Hemminger <stephen@networkplumber.org>,
+        "davem@davemloft.net" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20170105173626.4657-1-sthemmin@microsoft.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 05, 2017 at 09:36:26AM -0800, Stephen Hemminger wrote:
+
+
+> -----Original Message-----
+> From: Stephen Hemminger [mailto:stephen@networkplumber.org]
+> Sent: Thursday, January 5, 2017 9:36 AM
+> To: davem@davemloft.net; KY Srinivasan <kys@microsoft.com>
+> Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org;
+> gregkh@linuxfoundation.org; Stephen Hemminger
+> <sthemmin@microsoft.com>
+> Subject: [PATCH net] hyper-v: Add myself as additional MAINTAINER
+>=20
 > Update the Hyper-V MAINTAINERS to include myself.
-> 
+>=20
 > Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+
+Acked-by: K. Y. Srinivasan <kys@microsoft.com>
+
 > ---
 >  MAINTAINERS | 1 +
 >  1 file changed, 1 insertion(+)
-> 
+>=20
 > diff --git a/MAINTAINERS b/MAINTAINERS
 > index ea11bb03f550..7542341d8155 100644
 > --- a/MAINTAINERS
@@ -36,12 +48,8 @@ On Thu, Jan 05, 2017 at 09:36:26AM -0800, Stephen Hemminger wrote:
 >  M:	"K. Y. Srinivasan" <kys@microsoft.com>
 >  M:	Haiyang Zhang <haiyangz@microsoft.com>
 > +M:	Stephen Hemminger <sthemmin@microsoft.com>
-
-No objection from me, they need all the help they can get :)
-
-But I would like an ack from the current maintainers that this is ok
-first.
-
-thanks,
-
-greg k-h
+>  L:	devel@linuxdriverproject.org
+>  S:	Maintained
+>  F:	arch/x86/include/asm/mshyperv.h
+> --
+> 2.11.0
