@@ -1,43 +1,76 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tg3: Avoid NULL pointer dereference in tg3_get_nstats()
-Date: Thu, 05 Jan 2017 15:17:05 -0500 (EST)
-Message-ID: <20170105.151705.2187713228201334532.davem@davemloft.net>
-References: <1483625601-10552-1-git-send-email-wangyufen@huawei.com>
-        <20170105.123337.2237827308340782208.davem@davemloft.net>
-        <CACKFLimPkD6hxECA+ZhH+7BVmVSoJ1GfAMZyJ7S50CbhiuC0mA@mail.gmail.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH v1 1/2] bpf: add a longest prefix match trie map implementation
+Date: Thu, 05 Jan 2017 21:20:22 +0100
+Message-ID: <586EAA86.6030608@iogearbox.net>
+References: <20161229172855.14910-1-daniel@zonque.org> <20161229172855.14910-2-daniel@zonque.org> <586E7366.1010708@iogearbox.net> <91fbf150-4e97-7400-90cf-dbe7ea3e6597@zonque.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: wangyufen@huawei.com, siva.kallam@broadcom.com,
-        prashant@broadcom.com, mchan@broadcom.com, netdev@vger.kernel.org
-To: michael.chan@broadcom.com
+Cc: dh.herrmann@gmail.com, netdev@vger.kernel.org, davem@davemloft.net
+To: Daniel Mack <daniel@zonque.org>, ast@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:49406 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753722AbdAEURI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2017 15:17:08 -0500
-In-Reply-To: <CACKFLimPkD6hxECA+ZhH+7BVmVSoJ1GfAMZyJ7S50CbhiuC0mA@mail.gmail.com>
+Received: from www62.your-server.de ([213.133.104.62]:56819 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934022AbdAEUU1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2017 15:20:27 -0500
+In-Reply-To: <91fbf150-4e97-7400-90cf-dbe7ea3e6597@zonque.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michael Chan <michael.chan@broadcom.com>
-Date: Thu, 5 Jan 2017 12:04:13 -0800
+Hi Daniel,
 
-> But it looks like ndo_get_stats() can be called without rtnl lock from
-> net-procfs.c.  So it is possible that we'll read tp->hw_stats after it
-> has been freed.  For example, if we are reading /proc/net/dev and
-> closing tg3 at the same time.  David, is not taking rtnl_lock in
-> net-procfs.c by design?
+On 01/05/2017 09:04 PM, Daniel Mack wrote:
+> On 01/05/2017 05:25 PM, Daniel Borkmann wrote:
+>> On 12/29/2016 06:28 PM, Daniel Mack wrote:
+>
+>>> diff --git a/kernel/bpf/lpm_trie.c b/kernel/bpf/lpm_trie.c
+>>> new file mode 100644
+>>> index 0000000..8b6a61d
+>>> --- /dev/null
+>>> +++ b/kernel/bpf/lpm_trie.c
+>
+> [..]
+>
+>>> +static struct bpf_map *trie_alloc(union bpf_attr *attr)
+>>> +{
+>>> +	struct lpm_trie *trie;
+>>> +
+>>> +	/* check sanity of attributes */
+>>> +	if (attr->max_entries == 0 || attr->map_flags ||
+>>> +	    attr->key_size < sizeof(struct bpf_lpm_trie_key) + 1   ||
+>>> +	    attr->key_size > sizeof(struct bpf_lpm_trie_key) + 256 ||
+>>> +	    attr->value_size != sizeof(u64))
+>>> +		return ERR_PTR(-EINVAL);
+>>
+>> The correct attr->map_flags test here would need to be ...
+>>
+>>     attr->map_flags != BPF_F_NO_PREALLOC
+>>
+>> ... since in this case we don't have any prealloc pool, and
+>> should that come one day that test could be relaxed again.
+>>
+>>> +	trie = kzalloc(sizeof(*trie), GFP_USER | __GFP_NOWARN);
+>>> +	if (!trie)
+>>> +		return NULL;
+>>> +
+>>> +	/* copy mandatory map attributes */
+>>> +	trie->map.map_type = attr->map_type;
+>>> +	trie->map.key_size = attr->key_size;
+>>> +	trie->map.value_size = attr->value_size;
+>>> +	trie->map.max_entries = attr->max_entries;
+>>
+>> You also need to fill in trie->map.pages as that is eventually
+>> used to charge memory against in bpf_map_charge_memlock(), right
+>> now that would remain as 0 meaning the map is not accounted for.
+>
+> Hmm, okay. The nodes are, however, allocated dynamically at runtime in
+> this case. That means that we have trie->map.pages on each allocation,
+> right?
 
-Probably not, that dev_get_stats() call probably should be surrounded
-by RTNL protection.
+The current scheme (f.e. htab_map_alloc() has some details, although
+probably not too obvious) that was done charges worst-case cost up front,
+so it would be in trie_alloc() where you fill map.pages and map_create()
+will later account for them.
 
-Doing a quick grep on dev_get_stats() shows other call sites, most of
-which are using it to fetch slave device statistics from the get stats
-method of the parent.  Which should be ok.
-
-It appears that the vlan procfs code in net/8021q/vlanproc.c has a
-similar bug as net/core/net-procfs.c
-
-Maybe net/core/net-sysfs.c has the same issue as well, and perhaps also
-net/openvswitch/vport.c:ovs_vport_get_stats().
+Thanks,
+Daniel
