@@ -1,30 +1,69 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [for-next 07/10] IB/mlx5: Use blue flame register allocator in
- mlx5_ib
-Date: Thu, 05 Jan 2017 15:07:31 -0500 (EST)
-Message-ID: <20170105.150731.2097384465565543422.davem@davemloft.net>
-References: <1483480528-22622-8-git-send-email-saeedm@mellanox.com>
-        <20170105.145157.1792441048386916850.davem@davemloft.net>
-        <CAL3tnx4H2HsGMH=caiobivvvs0AU9yrzCmVONOdUQ_j_JMfufA@mail.gmail.com>
+From: "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH net] hyper-v: Add myself as additional MAINTAINER
+Date: Thu, 5 Jan 2017 21:09:11 +0100
+Message-ID: <20170105200911.GA6579@kroah.com>
+References: <20170105173626.4657-1-sthemmin@microsoft.com>
+ <DM5PR03MB24904C998F63FDF80C4CBB16A0600@DM5PR03MB2490.namprd03.prod.outlook.com>
+ <20170105182911.GA16146@kroah.com>
+ <DM5PR03MB24902386946C55BCE617941CA0600@DM5PR03MB2490.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-        matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
-To: eli-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAL3tnx4H2HsGMH=caiobivvvs0AU9yrzCmVONOdUQ_j_JMfufA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        Stephen Hemminger <sthemmin@microsoft.com>
+To: KY Srinivasan <kys@microsoft.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.linuxfoundation.org ([140.211.169.12]:39266 "EHLO
+        mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1032737AbdAEUJ2 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2017 15:09:28 -0500
+Content-Disposition: inline
+In-Reply-To: <DM5PR03MB24902386946C55BCE617941CA0600@DM5PR03MB2490.namprd03.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eli Cohen <eli-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
-Date: Thu, 5 Jan 2017 14:03:18 -0600
+On Thu, Jan 05, 2017 at 07:08:23PM +0000, KY Srinivasan wrote:
+> 
+> 
+> > -----Original Message-----
+> > From: gregkh@linuxfoundation.org [mailto:gregkh@linuxfoundation.org]
+> > Sent: Thursday, January 5, 2017 10:29 AM
+> > To: KY Srinivasan <kys@microsoft.com>
+> > Cc: Stephen Hemminger <stephen@networkplumber.org>;
+> > davem@davemloft.net; netdev@vger.kernel.org; linux-
+> > kernel@vger.kernel.org; Stephen Hemminger <sthemmin@microsoft.com>
+> > Subject: Re: [PATCH net] hyper-v: Add myself as additional MAINTAINER
+> > 
+> > On Thu, Jan 05, 2017 at 05:43:04PM +0000, KY Srinivasan wrote:
+> > >
+> > >
+> > > > -----Original Message-----
+> > > > From: Stephen Hemminger [mailto:stephen@networkplumber.org]
+> > > > Sent: Thursday, January 5, 2017 9:36 AM
+> > > > To: davem@davemloft.net; KY Srinivasan <kys@microsoft.com>
+> > > > Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org;
+> > > > gregkh@linuxfoundation.org; Stephen Hemminger
+> > > > <sthemmin@microsoft.com>
+> > > > Subject: [PATCH net] hyper-v: Add myself as additional MAINTAINER
+> > > >
+> > > > Update the Hyper-V MAINTAINERS to include myself.
+> > > >
+> > > > Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+> > >
+> > > Acked-by: K. Y. Srinivasan <kys@microsoft.com>
+> > 
+> > Thanks, will go queue this up now.
+> 
+> Thanks Greg. On a different note, there are a bunch of Hyper-V specific
+> patches that have been submitted over the last month or so that have not
+> been committed. Should I resend them.
 
-> If necessary I can make sure it builds on 32 bits as well.
+Nope, they are still in my mbox, I'm just going through stuff that has
+to be in 4.10-final at the moment, give me another week or so to catch
+up on all the new stuff for 4.11-rc1.
 
-Please do.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+thanks,
+
+greg k-h
