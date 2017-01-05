@@ -1,54 +1,56 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 3/6] netfilter: nf_tables: fix oob access
-Date: Thu,  5 Jan 2017 12:19:50 +0100
-Message-ID: <1483615193-2931-4-git-send-email-pablo@netfilter.org>
-References: <1483615193-2931-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:49672 "EHLO mail.us.es"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1761880AbdAELUJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 5 Jan 2017 06:20:09 -0500
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id 0601F5231C
-        for <netdev@vger.kernel.org>; Thu,  5 Jan 2017 12:20:05 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id E5120A7E9A
-        for <netdev@vger.kernel.org>; Thu,  5 Jan 2017 12:20:04 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id B49F5A7DB8
-        for <netdev@vger.kernel.org>; Thu,  5 Jan 2017 12:20:02 +0100 (CET)
-In-Reply-To: <1483615193-2931-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: SIOCSIWFREQ while in NL80211_IFTYPE_STATION
+Date: Thu, 05 Jan 2017 12:38:21 +0100
+Message-ID: <1483616301.4394.6.camel@sipsolutions.net>
+References: <685811c3-6247-77fd-8c70-617951886451@linaro.org>
+         (sfid-20170105_120230_642426_9BEC69AB)
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Jorge Ramirez <jorge.ramirez-ortiz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Daniel Lezcano <daniel.lezcano-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <685811c3-6247-77fd-8c70-617951886451-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org> (sfid-20170105_120230_642426_9BEC69AB)
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Westphal <fw@strlen.de>
++linux-wireless, where this should've gone
 
-BUG: KASAN: slab-out-of-bounds in nf_tables_rule_destroy+0xf1/0x130 at addr ffff88006a4c35c8
-Read of size 8 by task nft/1607
+> I am running a single wlan0 interface in managed mode (no aliases,
+> no  other wireless interfaces).
+> The association with the AP still hasn't happened.
+> 
+> I noticed that if trying to change the frequency to one of the valid 
+> values, the driver returns EBUSY.
+> 
+> The call stack is
+> cfg80211_wext_siwfreq
+> -->cfg80211_mgd_wext_siwfreq
+> --->cfg80211_set_monitor_channel (notice call to set 'monitor'
+> channel 
+> in managed mode)
+> ----> fails with EBUSY
+> 
+> Is therefore the expected behavior to fail under the above
+> circumstances 
+> (managed mode && single wlan0 interface && no association)?
+> And if it is, please could you clarify when would it be valid to
+> change the frequency in managed mode?
 
-When we've destroyed last valid expr, nft_expr_next() returns an invalid expr.
-We must not dereference it unless it passes != nft_expr_last() check.
+Frankly, I don't remember - all of this is plastered all over with
+backward compatibility hooks etc.
 
-Signed-off-by: Florian Westphal <fw@strlen.de>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/netfilter/nf_tables_api.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+How are you running into this? Why are you even trying to do this? You
+really shouldn't use wireless extensions any more.
 
-diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
-index a019a87e58ee..0db5f9782265 100644
---- a/net/netfilter/nf_tables_api.c
-+++ b/net/netfilter/nf_tables_api.c
-@@ -2115,7 +2115,7 @@ static void nf_tables_rule_destroy(const struct nft_ctx *ctx,
- 	 * is called on error from nf_tables_newrule().
- 	 */
- 	expr = nft_expr_first(rule);
--	while (expr->ops && expr != nft_expr_last(rule)) {
-+	while (expr != nft_expr_last(rule) && expr->ops) {
- 		nf_tables_expr_destroy(ctx, expr);
- 		expr = nft_expr_next(expr);
- 	}
--- 
-2.1.4
+Also, there shouldn't be much reason to be setting the channel anyway,
+unless you want to trigger a connection specifically on that channel,
+but then when you use nl80211 you get that included in the CONNECT
+command there.
+
+Finally, I suspect that this particular backward compatibility hook
+can't really work anyway and could be removed, but I'm not sure that
+would have the effect you want either.
+
+johannes
