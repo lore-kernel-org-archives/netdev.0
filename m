@@ -1,79 +1,94 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [RFC PATCH] virtio_net: XDP support for adjust_head
-Date: Thu, 5 Jan 2017 11:10:05 +0800
-Message-ID: <3c95cc86-1c42-3fda-9458-0040987b4039@redhat.com>
-References: <20170102194413.9089.39078.stgit@john-Precision-Tower-5810>
- <73715f7a-eeeb-679f-a7b8-7b1fefe1757e@redhat.com> <586D45DF.401@gmail.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: [net PATCH 1/2] virtio_net: cap mtu when XDP programs are running
+Date: Wed, 04 Jan 2017 19:11:18 -0800
+Message-ID: <20170105031118.2636.82374.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
 Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org,
-        alexei.starovoitov@gmail.com, daniel@iogearbox.net
-To: John Fastabend <john.fastabend@gmail.com>, mst@redhat.com
+        john.fastabend@gmail.com
+To: jasowang@redhat.com, mst@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50992 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933069AbdAEDKN (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 4 Jan 2017 22:10:13 -0500
-In-Reply-To: <586D45DF.401@gmail.com>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:34150 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932115AbdAEDLz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2017 22:11:55 -0500
+Received: by mail-pg0-f66.google.com with SMTP id b1so39121334pgc.1
+        for <netdev@vger.kernel.org>; Wed, 04 Jan 2017 19:11:36 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+XDP programs can not consume multiple pages so we cap the MTU to
+avoid this case. Virtio-net however only checks the MTU at XDP
+program load and does not block MTU changes after the program
+has loaded.
 
+This patch sets/clears the max_mtu value at XDP load/unload time.
 
-On 2017年01月05日 02:58, John Fastabend wrote:
-> [...]
->
->>> @@ -393,34 +397,39 @@ static u32 do_xdp_prog(struct virtnet_info *vi,
->>>                   struct bpf_prog *xdp_prog,
->>>                   void *data, int len)
->>>    {
->>> -    int hdr_padded_len;
->>>        struct xdp_buff xdp;
->>> -    void *buf;
->>>        unsigned int qp;
->>>        u32 act;
->>>    +
->>>        if (vi->mergeable_rx_bufs) {
->>> -        hdr_padded_len = sizeof(struct virtio_net_hdr_mrg_rxbuf);
->>> -        xdp.data = data + hdr_padded_len;
->>> +        int desc_room = sizeof(struct virtio_net_hdr_mrg_rxbuf);
->>> +
->>> +        /* Allow consuming headroom but reserve enough space to push
->>> +         * the descriptor on if we get an XDP_TX return code.
->>> +         */
->>> +        xdp.data_hard_start = data - vi->headroom + desc_room;
->>> +        xdp.data = data + desc_room;
->>>            xdp.data_end = xdp.data + (len - vi->hdr_len);
->>> -        buf = data;
->>>        } else { /* small buffers */
->>>            struct sk_buff *skb = data;
->>>    -        xdp.data = skb->data;
->>> +        xdp.data_hard_start = skb->data;
->>> +        xdp.data = skb->data + vi->headroom;
->>>            xdp.data_end = xdp.data + len;
->>> -        buf = skb->data;
->>>        }
->>>          act = bpf_prog_run_xdp(xdp_prog, &xdp);
->>>        switch (act) {
->>>        case XDP_PASS:
->>> +        if (!vi->mergeable_rx_bufs)
->>> +            __skb_pull((struct sk_buff *) data,
->>> +                   xdp.data - xdp.data_hard_start);
->> Instead of doing things here and virtnet_xdp_xmit(). How about always making
->> skb->data point to the buffer head like:
->>
->> 1) reserve headroom in add_recvbuf_small()
->> 2) skb_push(xdp->data - xdp_data_hard_start, skb) if we detect xdp->data was
->> modified afer bpf_prog_run_xdp()
->>
->> Then there's no special code in either XDP_PASS or XDP_TX?
->>
-> Alternatively moving the pull into the receive_small XDP handler also
-> removes the special case. I'll submit a patch shortly let me know what
-> you think.
->
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+---
+ drivers/net/virtio_net.c |   26 ++++++++++++++++++++++----
+ 1 file changed, 22 insertions(+), 4 deletions(-)
 
-I'm ok with this.
-
-Thanks
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 4a10500..261103d9 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -1699,11 +1699,28 @@ static void virtnet_init_settings(struct net_device *dev)
+ 	.set_settings = virtnet_set_settings,
+ };
+ 
++#define MIN_MTU ETH_MIN_MTU
++#define MAX_MTU ETH_MAX_MTU
++
++static unsigned long int virtnet_xdp_mtu(struct bpf_prog *prog,
++					 struct virtnet_info *vi)
++{
++	if (!prog && virtio_has_feature(vi->vdev, VIRTIO_NET_F_MTU))
++		return virtio_cread16(vi->vdev,
++				      offsetof(struct virtio_net_config, mtu));
++	else if (!prog)
++		return ETH_MAX_MTU;
++	else if (vi->mergeable_rx_bufs)
++		return PAGE_SIZE - sizeof(struct padded_vnet_hdr);
++	else
++		return GOOD_PACKET_LEN;
++}
++
+ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
+ {
+-	unsigned long int max_sz = PAGE_SIZE - sizeof(struct padded_vnet_hdr);
+ 	struct virtnet_info *vi = netdev_priv(dev);
+ 	struct bpf_prog *old_prog;
++	unsigned long int max_sz;
+ 	u16 xdp_qp = 0, curr_qp;
+ 	int i, err;
+ 
+@@ -1720,6 +1737,7 @@ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
+ 		return -EINVAL;
+ 	}
+ 
++	max_sz = virtnet_xdp_mtu(prog, vi);
+ 	if (dev->mtu > max_sz) {
+ 		netdev_warn(dev, "XDP requires MTU less than %lu\n", max_sz);
+ 		return -EINVAL;
+@@ -1748,6 +1766,9 @@ static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
+ 			virtnet_set_queues(vi, curr_qp);
+ 			return PTR_ERR(prog);
+ 		}
++		dev->max_mtu = max_sz;
++	} else {
++		dev->max_mtu = ETH_MAX_MTU;
+ 	}
+ 
+ 	vi->xdp_queue_pairs = xdp_qp;
+@@ -2133,9 +2154,6 @@ static bool virtnet_validate_features(struct virtio_device *vdev)
+ 	return true;
+ }
+ 
+-#define MIN_MTU ETH_MIN_MTU
+-#define MAX_MTU ETH_MAX_MTU
+-
+ static int virtnet_probe(struct virtio_device *vdev)
+ {
+ 	int i, err;
