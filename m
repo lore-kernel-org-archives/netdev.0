@@ -1,40 +1,47 @@
-From: Volodymyr Bendiuga <volodymyr.bendiuga@gmail.com>
-Subject: [PATCH v3 net-next] net:mv88e6xxx: use g2 interrupt for 6097 chip
-Date: Thu,  5 Jan 2017 10:44:18 +0100
-Message-ID: <1483609458-24645-1-git-send-email-volodymyr.bendiuga@gmail.com>
-Cc: Volodymyr Bendiuga <volodymyr.bendiuga@gmail.com>
-To: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
-        f.fainelli@gmail.com, netdev@vger.kernel.org,
-        volodymyr.bendiuga@westermo.se
+From: Amir Vadai <amir@vadai.me>
+Subject: [PATCH net-next V2 1/3] net/skbuff: Introduce skb_mac_offset()
+Date: Thu,  5 Jan 2017 11:54:52 +0200
+Message-ID: <20170105095454.32644-2-amir@vadai.me>
+References: <20170105095454.32644-1-amir@vadai.me>
+Cc: netdev@vger.kernel.org, Jiri Pirko <jiri@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Hadar Har-Zion <hadarh@mellanox.com>,
+        Amir Vadai <amir@vadai.me>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f65.google.com ([209.85.215.65]:33888 "EHLO
-        mail-lf0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S938283AbdAEJov (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2017 04:44:51 -0500
-Received: by mail-lf0-f65.google.com with SMTP id d16so34783541lfb.1
-        for <netdev@vger.kernel.org>; Thu, 05 Jan 2017 01:44:36 -0800 (PST)
+Received: from mail-wj0-f193.google.com ([209.85.210.193]:35739 "EHLO
+        mail-wj0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754451AbdAEJzV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2017 04:55:21 -0500
+Received: by mail-wj0-f193.google.com with SMTP id hb5so45339338wjc.2
+        for <netdev@vger.kernel.org>; Thu, 05 Jan 2017 01:55:12 -0800 (PST)
+In-Reply-To: <20170105095454.32644-1-amir@vadai.me>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This chip needs MV88E6XXX_FLAG_G2_INT
+Introduce skb_mac_offset() that could be used to get mac header offset.
 
-Signed-off-by: Volodymyr Bendiuga <volodymyr.bendiuga@gmail.com>
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+Signed-off-by: Amir Vadai <amir@vadai.me>
+Reviewed-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/dsa/mv88e6xxx/mv88e6xxx.h | 1 +
- 1 file changed, 1 insertion(+)
+ include/linux/skbuff.h | 5 +++++
+ 1 file changed, 5 insertions(+)
 
-diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-index dcb1b81..474e715 100644
---- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-@@ -568,6 +568,7 @@ enum mv88e6xxx_cap {
- 	(MV88E6XXX_FLAG_G1_ATU_FID |	\
- 	 MV88E6XXX_FLAG_G1_VTU_FID |	\
- 	 MV88E6XXX_FLAG_GLOBAL2 |	\
-+	 MV88E6XXX_FLAG_G2_INT |        \
- 	 MV88E6XXX_FLAG_G2_MGMT_EN_2X |	\
- 	 MV88E6XXX_FLAG_G2_MGMT_EN_0X |	\
- 	 MV88E6XXX_FLAG_G2_POT |	\
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index b53c0cfd417e..3d8f81f39c2b 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -2178,6 +2178,11 @@ static inline unsigned char *skb_mac_header(const struct sk_buff *skb)
+ 	return skb->head + skb->mac_header;
+ }
+ 
++static inline int skb_mac_offset(const struct sk_buff *skb)
++{
++	return skb_mac_header(skb) - skb->data;
++}
++
+ static inline int skb_mac_header_was_set(const struct sk_buff *skb)
+ {
+ 	return skb->mac_header != (typeof(skb->mac_header))~0U;
 -- 
-2.7.4
+2.11.0
