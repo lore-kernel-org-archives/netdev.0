@@ -1,76 +1,84 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH v1 1/2] bpf: add a longest prefix match trie map implementation
-Date: Thu, 05 Jan 2017 21:20:22 +0100
-Message-ID: <586EAA86.6030608@iogearbox.net>
-References: <20161229172855.14910-1-daniel@zonque.org> <20161229172855.14910-2-daniel@zonque.org> <586E7366.1010708@iogearbox.net> <91fbf150-4e97-7400-90cf-dbe7ea3e6597@zonque.org>
+From: KY Srinivasan <kys@microsoft.com>
+Subject: RE: [PATCH net] hyper-v: Add myself as additional MAINTAINER
+Date: Thu, 5 Jan 2017 20:34:50 +0000
+Message-ID: <DM5PR03MB24909EAA861BAFD64BC167E0A0600@DM5PR03MB2490.namprd03.prod.outlook.com>
+References: <20170105173626.4657-1-sthemmin@microsoft.com>
+ <DM5PR03MB24904C998F63FDF80C4CBB16A0600@DM5PR03MB2490.namprd03.prod.outlook.com>
+ <20170105182911.GA16146@kroah.com>
+ <DM5PR03MB24902386946C55BCE617941CA0600@DM5PR03MB2490.namprd03.prod.outlook.com>
+ <20170105200911.GA6579@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: dh.herrmann@gmail.com, netdev@vger.kernel.org, davem@davemloft.net
-To: Daniel Mack <daniel@zonque.org>, ast@fb.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:56819 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934022AbdAEUU1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2017 15:20:27 -0500
-In-Reply-To: <91fbf150-4e97-7400-90cf-dbe7ea3e6597@zonque.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+        "davem@davemloft.net" <davem@davemloft.net>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "Stephen Hemminger" <sthemmin@microsoft.com>
+To: "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170105200911.GA6579@kroah.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Daniel,
 
-On 01/05/2017 09:04 PM, Daniel Mack wrote:
-> On 01/05/2017 05:25 PM, Daniel Borkmann wrote:
->> On 12/29/2016 06:28 PM, Daniel Mack wrote:
->
->>> diff --git a/kernel/bpf/lpm_trie.c b/kernel/bpf/lpm_trie.c
->>> new file mode 100644
->>> index 0000000..8b6a61d
->>> --- /dev/null
->>> +++ b/kernel/bpf/lpm_trie.c
->
-> [..]
->
->>> +static struct bpf_map *trie_alloc(union bpf_attr *attr)
->>> +{
->>> +	struct lpm_trie *trie;
->>> +
->>> +	/* check sanity of attributes */
->>> +	if (attr->max_entries == 0 || attr->map_flags ||
->>> +	    attr->key_size < sizeof(struct bpf_lpm_trie_key) + 1   ||
->>> +	    attr->key_size > sizeof(struct bpf_lpm_trie_key) + 256 ||
->>> +	    attr->value_size != sizeof(u64))
->>> +		return ERR_PTR(-EINVAL);
->>
->> The correct attr->map_flags test here would need to be ...
->>
->>     attr->map_flags != BPF_F_NO_PREALLOC
->>
->> ... since in this case we don't have any prealloc pool, and
->> should that come one day that test could be relaxed again.
->>
->>> +	trie = kzalloc(sizeof(*trie), GFP_USER | __GFP_NOWARN);
->>> +	if (!trie)
->>> +		return NULL;
->>> +
->>> +	/* copy mandatory map attributes */
->>> +	trie->map.map_type = attr->map_type;
->>> +	trie->map.key_size = attr->key_size;
->>> +	trie->map.value_size = attr->value_size;
->>> +	trie->map.max_entries = attr->max_entries;
->>
->> You also need to fill in trie->map.pages as that is eventually
->> used to charge memory against in bpf_map_charge_memlock(), right
->> now that would remain as 0 meaning the map is not accounted for.
->
-> Hmm, okay. The nodes are, however, allocated dynamically at runtime in
-> this case. That means that we have trie->map.pages on each allocation,
-> right?
 
-The current scheme (f.e. htab_map_alloc() has some details, although
-probably not too obvious) that was done charges worst-case cost up front,
-so it would be in trie_alloc() where you fill map.pages and map_create()
-will later account for them.
+> -----Original Message-----
+> From: gregkh@linuxfoundation.org [mailto:gregkh@linuxfoundation.org]
+> Sent: Thursday, January 5, 2017 12:09 PM
+> To: KY Srinivasan <kys@microsoft.com>
+> Cc: Stephen Hemminger <stephen@networkplumber.org>;
+> davem@davemloft.net; netdev@vger.kernel.org; linux-
+> kernel@vger.kernel.org; Stephen Hemminger <sthemmin@microsoft.com>
+> Subject: Re: [PATCH net] hyper-v: Add myself as additional MAINTAINER
+>=20
+> On Thu, Jan 05, 2017 at 07:08:23PM +0000, KY Srinivasan wrote:
+> >
+> >
+> > > -----Original Message-----
+> > > From: gregkh@linuxfoundation.org [mailto:gregkh@linuxfoundation.org]
+> > > Sent: Thursday, January 5, 2017 10:29 AM
+> > > To: KY Srinivasan <kys@microsoft.com>
+> > > Cc: Stephen Hemminger <stephen@networkplumber.org>;
+> > > davem@davemloft.net; netdev@vger.kernel.org; linux-
+> > > kernel@vger.kernel.org; Stephen Hemminger
+> <sthemmin@microsoft.com>
+> > > Subject: Re: [PATCH net] hyper-v: Add myself as additional MAINTAINER
+> > >
+> > > On Thu, Jan 05, 2017 at 05:43:04PM +0000, KY Srinivasan wrote:
+> > > >
+> > > >
+> > > > > -----Original Message-----
+> > > > > From: Stephen Hemminger [mailto:stephen@networkplumber.org]
+> > > > > Sent: Thursday, January 5, 2017 9:36 AM
+> > > > > To: davem@davemloft.net; KY Srinivasan <kys@microsoft.com>
+> > > > > Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org;
+> > > > > gregkh@linuxfoundation.org; Stephen Hemminger
+> > > > > <sthemmin@microsoft.com>
+> > > > > Subject: [PATCH net] hyper-v: Add myself as additional MAINTAINER
+> > > > >
+> > > > > Update the Hyper-V MAINTAINERS to include myself.
+> > > > >
+> > > > > Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+> > > >
+> > > > Acked-by: K. Y. Srinivasan <kys@microsoft.com>
+> > >
+> > > Thanks, will go queue this up now.
+> >
+> > Thanks Greg. On a different note, there are a bunch of Hyper-V specific
+> > patches that have been submitted over the last month or so that have no=
+t
+> > been committed. Should I resend them.
+>=20
+> Nope, they are still in my mbox, I'm just going through stuff that has
+> to be in 4.10-final at the moment, give me another week or so to catch
+> up on all the new stuff for 4.11-rc1.
 
-Thanks,
-Daniel
+Thanks Greg.
+
+K. Y
+>=20
+> thanks,
+>=20
+> greg k-h
