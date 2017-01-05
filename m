@@ -1,71 +1,51 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [net-next PATCH 5/6] i40e: Add TX and RX support in switchdev mode.
-Date: Thu, 5 Jan 2017 13:50:27 +0200
-Message-ID: <CAJ3xEMgAaXNbvaP0=GcuTsVOOGwPHuSMQf-SeLKpxB8WrbEvng@mail.gmail.com>
-References: <1483078863-22026-1-git-send-email-sridhar.samudrala@intel.com>
- <1483078863-22026-6-git-send-email-sridhar.samudrala@intel.com>
- <CAJ3xEMgDAUSE2gVD3dU4UuXFb7k_W-9QgHpg-0c7b5kxRC2=FQ@mail.gmail.com>
- <586693A6.5090105@intel.com> <CAJ3xEMjGuKKge+_hqZPOg2fp3f50TdxGtbKFXwnCZ70rPxmuyw@mail.gmail.com>
- <586D7B4E.2010308@intel.com>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH net-next V2 0/3] net/sched: act_pedit: Use offset
+ relative to conventional network headers
+Date: Thu, 5 Jan 2017 12:54:14 +0100
+Message-ID: <20170105125414.5640b1b8@griffin>
+References: <20170105095454.32644-1-amir@vadai.me>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-        John Fastabend <john.r.fastabend@intel.com>,
-        Anjali Singhai Jain <anjali.singhai@intel.com>,
-        jakub.kicinski@netronome.com, intel-wired-lan@lists.osuosl.org,
-        Linux Netdev List <netdev@vger.kernel.org>
-To: "Samudrala, Sridhar" <sridhar.samudrala@intel.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        Jiri Pirko <jiri@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Hadar Har-Zion <hadarh@mellanox.com>
+To: Amir Vadai <amir@vadai.me>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f67.google.com ([209.85.218.67]:36737 "EHLO
-        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S970579AbdAELu2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2017 06:50:28 -0500
-Received: by mail-oi0-f67.google.com with SMTP id u143so1326041oif.3
-        for <netdev@vger.kernel.org>; Thu, 05 Jan 2017 03:50:28 -0800 (PST)
-In-Reply-To: <586D7B4E.2010308@intel.com>
+Received: from mx1.redhat.com ([209.132.183.28]:56780 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1753625AbdAELyS (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 5 Jan 2017 06:54:18 -0500
+In-Reply-To: <20170105095454.32644-1-amir@vadai.me>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 5, 2017 at 12:46 AM, Samudrala, Sridhar
-<sridhar.samudrala@intel.com> wrote:
->
->
-> On 1/3/2017 3:03 PM, Or Gerlitz wrote:
->>
->> On Fri, Dec 30, 2016 at 7:04 PM, Samudrala, Sridhar
->> <sridhar.samudrala@intel.com> wrote:
->>>
->>> On 12/30/2016 7:31 AM, Or Gerlitz wrote:
->>>>
->>>> Are you exposing switchdev ops for the representators? didn't see that
->>>> or maybe it's in the 4th patch which didn't make it to the list?
->>>
->>> Not at this time. In the future patches when we offload fdb/vlan
->>> functionality, we could use switchdev ops.
->>
->> but wait, this is the switchdev mode... even before doing any
->> offloading, you want (need) your representor netdevices to have the
->> same HW ID marking they are all ports of the same ASIC, this you can
->> do with the switchdev parent ID attribute.
->
-> OK. I will add switchdev_port_attr_get() with PORT_PARENT_ID support in v3.
+On Thu,  5 Jan 2017 11:54:51 +0200, Amir Vadai wrote:
+> You asked me [1] why did I use specific header names instead of layers (L2, L3...),
+> and I explained that it is on purpose, this extra information is planned to be used
+> by hardware drivers to offload the action.
+> 
+> Some FW/HW parser APIs are such that they need to get the specific header type (e.g
+> IPV4 or IPV6, TCP or UDP) and not only the networking level (e.g network or transport).
 
-Good, I made this comment, b/c we want to create a well defined user-experience
-to be taken into account also by upper virtualization layers.
+Don't we need better API specification (and enforcement) then, though?
+See below.
 
-Another piece there to add is have your VF reps implement the
-get_phys_port_name ndo,
-where as we explain in commit cb67b832921cfa20ad79bafdc51f1745339d0557 is used
-as follows:
+> Usage example:
+> $ tc filter add dev enp0s9 protocol ip parent ffff: \
+>    flower \
+>      ip_proto tcp \
+>     dst_port 80 \
+>    action \
+>        pedit munge ip ttl add 0xff \
+>        pedit munge tcp dport set 8080 \
+>      pipe action mirred egress redirect dev veth0
 
-    Port phys name (ndo_get_phys_port_name) is implemented to allow exporting
-    to user-space the VF vport number and along with the switchdev port parent
-    id (phys_switch_id) enable a udev base consistent naming scheme:
+What happens when one does:
 
-    SUBSYSTEM=="net", ACTION=="add", ATTR{phys_switch_id}=="<phys_switch_id>", \
-            ATTR{phys_port_name}!="", NAME="$PF_NIC$attr{phys_port_name}"
+tc filter add ... flower ip_proto udp action pedit munge tcp ...
 
-    where phys_switch_id is exposed by the PF (and VF reps) and $PF_NIC is
-    the name of the PF netdevice.
+?
 
-Or.
+ Jiri
