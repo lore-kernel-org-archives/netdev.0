@@ -1,66 +1,49 @@
-From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 3/3] rxrpc: Show a call's hard-ACK cursors in
- /proc/net/rxrpc_calls
-Date: Thu, 05 Jan 2017 14:32:12 +0000
-Message-ID: <148362673252.31085.12593422029171316514.stgit@warthog.procyon.org.uk>
-References: <148362671062.31085.13249164388796003311.stgit@warthog.procyon.org.uk>
+From: =?utf-8?B?TWljaGHFgiBLxJlwaWXFhA==?= <kernel@kempniu.pl>
+Subject: Re: [PATCH v3] rfkill: Add rfkill-any LED trigger
+Date: Thu, 5 Jan 2017 15:36:54 +0100
+Message-ID: <20170105143654.GA21040@ozzy.nask.waw.pl>
+References: <20161221084533.27006-1-kernel@kempniu.pl>
+ <1483355533.4596.11.camel@sipsolutions.net>
+ <1483359705.21014.0.camel@sipsolutions.net>
+ <1483361523.21014.1.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
-        linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: "David S . Miller" <davem@davemloft.net>,
+        =?utf-8?B?0JzQuNGF0LDQuNC7INCa0YDQuNC90LrQuNC9?=
+        <krinkin.m.u@gmail.com>, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37518 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1161608AbdAEOcO (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 5 Jan 2017 09:32:14 -0500
-In-Reply-To: <148362671062.31085.13249164388796003311.stgit@warthog.procyon.org.uk>
+Received: from mail-lf0-f68.google.com ([209.85.215.68]:35564 "EHLO
+        mail-lf0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1759834AbdAEOhF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2017 09:37:05 -0500
+Received: by mail-lf0-f68.google.com with SMTP id x140so33337792lfa.2
+        for <netdev@vger.kernel.org>; Thu, 05 Jan 2017 06:36:58 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1483361523.21014.1.camel@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Show a call's hard-ACK cursors in /proc/net/rxrpc_calls so that a call's
-progress can be more easily monitored.
+> On Mon, 2017-01-02 at 13:21 +0100, Johannes Berg wrote:
+> > > I'm not super happy with this conditional locking - can't we
+> > > instead
+> > > defer the necessary work to a workqueue, or so, for purposes of the
+> > > LED?
+> > 
+> > Actually, since you can sleep in here, and do various other things
+> > like scheduling etc. this can't even be correct as is - one thread
+> > might be in the probe and another might also attempt to do some
+> > operations that require the lock but now don't take it.
+> 
+> Additionally, this doesn't address the "can be called in any context"
+> part, only the "even from within rfkill callbacks" part. It's clearly
+> still not safe to call this from any context that is not allowed to
+> sleep, for example.
 
-Signed-off-by: David Howells <dhowells@redhat.com>
----
+Thanks for reviewing.  I will attempt a workqueue-based approach in v4.
 
- net/rxrpc/proc.c |    9 +++++++--
- 1 file changed, 7 insertions(+), 2 deletions(-)
-
-diff --git a/net/rxrpc/proc.c b/net/rxrpc/proc.c
-index 65cd980767fa..b9bcfbfb095c 100644
---- a/net/rxrpc/proc.c
-+++ b/net/rxrpc/proc.c
-@@ -52,6 +52,7 @@ static int rxrpc_call_seq_show(struct seq_file *seq, void *v)
- 	struct rxrpc_sock *rx;
- 	struct rxrpc_peer *peer;
- 	struct rxrpc_call *call;
-+	rxrpc_seq_t tx_hard_ack, rx_hard_ack;
- 	char lbuff[50], rbuff[50];
- 
- 	if (v == &rxrpc_calls) {
-@@ -82,9 +83,11 @@ static int rxrpc_call_seq_show(struct seq_file *seq, void *v)
- 	else
- 		strcpy(rbuff, "no_connection");
- 
-+	tx_hard_ack = READ_ONCE(call->tx_hard_ack);
-+	rx_hard_ack = READ_ONCE(call->rx_hard_ack);
- 	seq_printf(seq,
- 		   "UDP   %-47.47s %-47.47s %4x %08x %08x %s %3u"
--		   " %-8.8s %08x %lx\n",
-+		   " %-8.8s %08x %lx %08x %02x %08x %02x\n",
- 		   lbuff,
- 		   rbuff,
- 		   call->service_id,
-@@ -94,7 +97,9 @@ static int rxrpc_call_seq_show(struct seq_file *seq, void *v)
- 		   atomic_read(&call->usage),
- 		   rxrpc_call_states[call->state],
- 		   call->abort_code,
--		   call->user_call_ID);
-+		   call->user_call_ID,
-+		   tx_hard_ack, READ_ONCE(call->tx_top) - tx_hard_ack,
-+		   rx_hard_ack, READ_ONCE(call->rx_top) - rx_hard_ack);
- 
- 	return 0;
- }
+-- 
+Best regards,
+Michał Kępień
