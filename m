@@ -1,41 +1,36 @@
-From: yanjun.zhu@oracle.com
-Subject: [PATCHv2 1/1] r8169: fix the typo in the comment
-Date: Thu,  5 Jan 2017 02:54:27 -0500
-Message-ID: <1483602867-382-1-git-send-email-yanjun.zhu@oracle.com>
-Cc: Zhu Yanjun <yanjun.zhu@oracle.com>
-To: nic_swsd@realtek.com, netdev@vger.kernel.org
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [net PATCH 1/2] virtio_net: cap mtu when XDP programs are running
+Date: Thu, 5 Jan 2017 17:34:05 +0800
+Message-ID: <9aa07031-8c09-dbeb-c7ed-41daf5866be2@redhat.com>
+References: <20170105031118.2636.82374.stgit@john-Precision-Tower-5810>
+ <20170105051641-mutt-send-email-mst@kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>,
+        John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:43887 "EHLO
-        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750819AbdAEIIF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2017 03:08:05 -0500
+Received: from mx1.redhat.com ([209.132.183.28]:35724 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S970379AbdAEJe3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 5 Jan 2017 04:34:29 -0500
+In-Reply-To: <20170105051641-mutt-send-email-mst@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Zhu Yanjun <yanjun.zhu@oracle.com>
 
->From the realtek data sheet, the PID0 should be bit 0.
 
-Signed-off-by: Zhu Yanjun <yanjun.zhu@oracle.com>
----
-Change from v1 to v2:
- change the commit header. 
+On 2017年01月05日 11:18, Michael S. Tsirkin wrote:
+> On Wed, Jan 04, 2017 at 07:11:18PM -0800, John Fastabend wrote:
+>> XDP programs can not consume multiple pages so we cap the MTU to
+>> avoid this case. Virtio-net however only checks the MTU at XDP
+>> program load and does not block MTU changes after the program
+>> has loaded.
+> Do drivers really have to tweak max mtu all the time?
+> Seems strange, I would say drivers just report device caps
+> and net core enforces rules.
+> Can't net core do these checks?
 
- drivers/net/ethernet/realtek/r8169.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 44389c9..8f1623b 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -696,7 +696,7 @@ enum rtl_tx_desc_bit_1 {
- enum rtl_rx_desc_bit {
- 	/* Rx private */
- 	PID1		= (1 << 18), /* Protocol ID bit 1/2 */
--	PID0		= (1 << 17), /* Protocol ID bit 2/2 */
-+	PID0		= (1 << 17), /* Protocol ID bit 0/2 */
- 
- #define RxProtoUDP	(PID1)
- #define RxProtoTCP	(PID0)
--- 
-2.7.4
+I think this needs host co-operation, at least this patch prevents user 
+from misconfiguring mtu in guest.
