@@ -1,105 +1,54 @@
-From: Amir Vadai <amir@vadai.me>
-Subject: [PATCH net-next V2 3/3] net/act_pedit: Introduce 'add' operation
-Date: Thu,  5 Jan 2017 11:54:54 +0200
-Message-ID: <20170105095454.32644-4-amir@vadai.me>
-References: <20170105095454.32644-1-amir@vadai.me>
-Cc: netdev@vger.kernel.org, Jiri Pirko <jiri@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Hadar Har-Zion <hadarh@mellanox.com>,
-        Amir Vadai <amir@vadai.me>
-To: "David S. Miller" <davem@davemloft.net>
+From: Volodymyr Bendiuga <volodymyr.bendiuga@gmail.com>
+Subject: [PATCH v2 net-next] net:dsa: check for EPROBE_DEFER from dsa_dst_parse()
+Date: Thu,  5 Jan 2017 11:10:13 +0100
+Message-ID: <1483611013-15013-1-git-send-email-volodymyr.bendiuga@gmail.com>
+Cc: Volodymyr Bendiuga <volodymyr.bendiuga@gmail.com>
+To: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
+        f.fainelli@gmail.com, davem@davemloft.net, netdev@vger.kernel.org,
+        volodymyr.bendiuga@westermo.se
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:33217 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1760523AbdAEJzV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2017 04:55:21 -0500
-Received: by mail-wm0-f65.google.com with SMTP id u144so95568945wmu.0
-        for <netdev@vger.kernel.org>; Thu, 05 Jan 2017 01:55:17 -0800 (PST)
-In-Reply-To: <20170105095454.32644-1-amir@vadai.me>
+Received: from mail-lf0-f65.google.com ([209.85.215.65]:35514 "EHLO
+        mail-lf0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934922AbdAEKLc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2017 05:11:32 -0500
+Received: by mail-lf0-f65.google.com with SMTP id x140so32777787lfa.2
+        for <netdev@vger.kernel.org>; Thu, 05 Jan 2017 02:10:40 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This command could be useful to inc/dec fields.
-Command type is embedded inside the existing shift field in an unused
-bits, therefore UAPI backward compatibility is being kept.
+Since there can be multiple dsa switches stacked together but
+not all of devicetree nodes available at the time of calling
+dsa_dst_parse(), EPROBE_DEFER can be returned by it. When this
+happens, only the last dsa switch has to be deleted by
+dsa_dst_del_ds(), but not the whole list, because next time linux
+cames back to this function it will try to add only the last dsa
+switch which returned EPROBE_DEFER.
 
-For example, to forward any TCP packet and decrease its TTL:
-$ tc filter add dev enp0s9 protocol ip parent ffff: \
-    flower ip_proto tcp \
-    action pedit munge ip ttl add 0xff pipe \
-    action mirred egress redirect dev veth0
-
-In the example above, adding 0xff to this u8 field is actually
-decreasing it by one, since the operation is masked.
-
-Signed-off-by: Amir Vadai <amir@vadai.me>
-Reviewed-by: Or Gerlitz <ogerlitz@mellanox.com>
+Signed-off-by: Volodymyr Bendiuga <volodymyr.bendiuga@gmail.com>
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 ---
- include/uapi/linux/tc_act/tc_pedit.h | 10 ++++++++++
- net/sched/act_pedit.c                | 16 +++++++++++++++-
- 2 files changed, 25 insertions(+), 1 deletion(-)
+ net/dsa/dsa2.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
 
-diff --git a/include/uapi/linux/tc_act/tc_pedit.h b/include/uapi/linux/tc_act/tc_pedit.h
-index 604e6729ad38..80028cd0bb1b 100644
---- a/include/uapi/linux/tc_act/tc_pedit.h
-+++ b/include/uapi/linux/tc_act/tc_pedit.h
-@@ -35,8 +35,13 @@ struct tc_pedit_sel {
- #define PEDIT_TYPE_SHIFT 24
- #define PEDIT_TYPE_MASK 0xff
+diff --git a/net/dsa/dsa2.c b/net/dsa/dsa2.c
+index 7924c92..a799718 100644
+--- a/net/dsa/dsa2.c
++++ b/net/dsa/dsa2.c
+@@ -673,8 +673,14 @@ static int _dsa_register_switch(struct dsa_switch *ds, struct device_node *np)
+ 	}
  
-+#define PEDIT_CMD_SHIFT 16
-+#define PEDIT_CMD_MASK 0xff
+ 	err = dsa_dst_parse(dst);
+-	if (err)
++	if (err) {
++		if (err == -EPROBE_DEFER) {
++			dsa_dst_del_ds(dst, ds, ds->index);
++			return err;
++		}
 +
- #define PEDIT_TYPE_GET(_val) \
- 	(((_val) >> PEDIT_TYPE_SHIFT) & PEDIT_TYPE_MASK)
-+#define PEDIT_CMD_GET(_val) \
-+	(((_val) >> PEDIT_CMD_SHIFT) & PEDIT_CMD_MASK)
- #define PEDIT_SHIFT_GET(_val) ((_val) & 0xff)
+ 		goto out_del_dst;
++	}
  
- enum pedit_header_type {
-@@ -49,4 +54,9 @@ enum pedit_header_type {
- 	PEDIT_HDR_TYPE_UDP = 5,
- };
- 
-+enum pedit_cmd {
-+	PEDIT_CMD_SET = 0,
-+	PEDIT_CMD_ADD = 1,
-+};
-+
- #endif
-diff --git a/net/sched/act_pedit.c b/net/sched/act_pedit.c
-index 4b9c7184c752..aa137d51bf7f 100644
---- a/net/sched/act_pedit.c
-+++ b/net/sched/act_pedit.c
-@@ -169,6 +169,7 @@ static int tcf_pedit(struct sk_buff *skb, const struct tc_action *a,
- 			u32 *ptr, _data;
- 			int offset = tkey->off;
- 			int hoffset;
-+			u32 val;
- 			int rc;
- 			enum pedit_header_type htype =
- 				PEDIT_TYPE_GET(tkey->shift);
-@@ -214,7 +215,20 @@ static int tcf_pedit(struct sk_buff *skb, const struct tc_action *a,
- 			if (!ptr)
- 				goto bad;
- 			/* just do it, baby */
--			*ptr = ((*ptr & tkey->mask) ^ tkey->val);
-+			switch (PEDIT_CMD_GET(tkey->shift)) {
-+			case PEDIT_CMD_SET:
-+				val = tkey->val;
-+				break;
-+			case PEDIT_CMD_ADD:
-+				val = (*ptr + tkey->val) & ~tkey->mask;
-+				break;
-+			default:
-+				pr_info("tc filter pedit bad command (%d)\n",
-+					PEDIT_CMD_GET(tkey->shift));
-+				goto bad;
-+			}
-+
-+			*ptr = ((*ptr & tkey->mask) ^ val);
- 			if (ptr == &_data)
- 				skb_store_bits(skb, hoffset + offset, ptr, 4);
- 		}
+ 	err = dsa_dst_apply(dst);
+ 	if (err) {
 -- 
-2.11.0
+2.7.4
