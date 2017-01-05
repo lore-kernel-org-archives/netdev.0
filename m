@@ -1,134 +1,113 @@
-From: Murali Karicheri <m-karicheri2@ti.com>
-Subject: Re: [PATCH net-next 01/10] net: netcp: ethss: add support of
- subsystem register region regmap
-Date: Thu, 5 Jan 2017 17:08:54 -0500
-Message-ID: <586EC3F6.4010109@ti.com>
-References: <1482271793-7671-1-git-send-email-m-karicheri2@ti.com>
- <1482271793-7671-2-git-send-email-m-karicheri2@ti.com>
- <20161222212409.arhurpl4bpqf2yw6@rob-hp-laptop> <586EAFBE.1000500@ti.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [RFC PATCH] virtio_net: XDP support for adjust_head
+Date: Thu, 5 Jan 2017 14:57:23 -0800
+Message-ID: <586ECF53.1070700@gmail.com>
+References: <20170102194413.9089.39078.stgit@john-Precision-Tower-5810>
+ <73715f7a-eeeb-679f-a7b8-7b1fefe1757e@redhat.com>
+ <20170104001332-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-omap@vger.kernel.org>,
-        <grygorii.strashko@ti.com>, <mugunthanvnm@ti.com>,
-        <linux-kernel@vger.kernel.org>, <arnd@arndb.de>,
-        <davem@davemloft.net>, <devicetree@vger.kernel.org>,
-        <mark.rutland@arm.com>
-To: Rob Herring <robh@kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org,
+        alexei.starovoitov@gmail.com, daniel@iogearbox.net
+To: "Michael S. Tsirkin" <mst@redhat.com>,
+        Jason Wang <jasowang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lelnx194.ext.ti.com ([198.47.27.80]:63513 "EHLO
-        lelnx194.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S936716AbdAEWJG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2017 17:09:06 -0500
-In-Reply-To: <586EAFBE.1000500@ti.com>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:33712 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S939073AbdAEXEh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2017 18:04:37 -0500
+Received: by mail-pf0-f194.google.com with SMTP id 127so18968950pfg.0
+        for <netdev@vger.kernel.org>; Thu, 05 Jan 2017 15:04:36 -0800 (PST)
+In-Reply-To: <20170104001332-mutt-send-email-mst@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/05/2017 03:42 PM, Murali Karicheri wrote:
-> Rob,
-> 
-> On 12/22/2016 04:24 PM, Rob Herring wrote:
->> On Tue, Dec 20, 2016 at 05:09:44PM -0500, Murali Karicheri wrote:
->>> From: WingMan Kwok <w-kwok2@ti.com>
->>>
->>> 10gbe phy driver needs to access the 10gbe subsystem control
->>> register during phy initialization. To facilitate the shared
->>> access of the subsystem register region between the 10gbe Ethernet
->>> driver and the phy driver, this patch adds support of the
->>> subsystem register region defined by a syscon node in the dts.
->>>
->>> Although there is no shared access to the gbe subsystem register
->>> region, using syscon for that is for the sake of consistency.
->>>
->>> This change is backward compatible with previously released gbe
->>> devicetree bindings.
->>>
->>> Signed-off-by: WingMan Kwok <w-kwok2@ti.com>
->>> Signed-off-by: Murali Karicheri <m-karicheri2@ti.com>
->>> Signed-off-by: Sekhar Nori <nsekhar@ti.com>
->>> ---
->>>  .../devicetree/bindings/net/keystone-netcp.txt     |  16 ++-
->>>  drivers/net/ethernet/ti/netcp_ethss.c              | 140 +++++++++++++++++----
->>>  2 files changed, 127 insertions(+), 29 deletions(-)
->>>
->>> diff --git a/Documentation/devicetree/bindings/net/keystone-netcp.txt b/Documentation/devicetree/bindings/net/keystone-netcp.txt
->>> index 04ba1dc..0854a73 100644
->>> --- a/Documentation/devicetree/bindings/net/keystone-netcp.txt
->>> +++ b/Documentation/devicetree/bindings/net/keystone-netcp.txt
->>> @@ -72,20 +72,24 @@ Required properties:
->>>  		"ti,netcp-gbe-2" for 1GbE N NetCP 1.5 (N=2)
->>>  		"ti,netcp-xgbe" for 10 GbE
->>>  
->>> +- syscon-subsys:	phandle to syscon node of the switch
->>> +			subsystem registers.
->>> +
->>>  - reg:		register location and the size for the following register
->>>  		regions in the specified order.
->>>  		- switch subsystem registers
->>> +		- sgmii module registers
+On 17-01-03 02:16 PM, Michael S. Tsirkin wrote:
+> On Tue, Jan 03, 2017 at 02:01:27PM +0800, Jason Wang wrote:
 >>
->> This needs to go on the end of the list. Otherwise, it is not backwards 
->> compatible.
-> 
-> Thanks for your review! I assumed backward compatibility means new kernel
-> should work with old DTB. The driver code is adjusted to work with both
-> DTBs. Isn't that enough?
-Rob,
-
-I will pull out 1/10 and 2/10 from the series as it needs more work and
-re-submit rest of the patches in my v1 spin. However please reply to my
-above backward compatibility question.
-
-Thanks and Regards,
-
-Murali
-> 
-> Murali
-> 
 >>
->>>  		- sgmii port3/4 module registers (only for NetCP 1.4)
->>>  		- switch module registers
->>>  		- serdes registers (only for 10G)
->>>  
->>>  		NetCP 1.4 ethss, here is the order
->>> -			index #0 - switch subsystem registers
->>> +			index #0 - sgmii module registers
->>>  			index #1 - sgmii port3/4 module registers
->>>  			index #2 - switch module registers
->>>  
->>>  		NetCP 1.5 ethss 9 port, 5 port and 2 port
->>> -			index #0 - switch subsystem registers
->>> +			index #0 - sgmii module registers
->>>  			index #1 - switch module registers
->>>  			index #2 - serdes registers
->>>  
->>> @@ -145,6 +149,11 @@ Optional properties:
->>>  
->>>  Example binding:
->>>  
->>> +gbe_subsys: subsys@2090000 {
->>> +	compatible = "syscon";
->>> +	reg = <0x02090000 0x100>;
->>> +};
->>> +
->>>  netcp: netcp@2000000 {
->>>  	reg = <0x2620110 0x8>;
->>>  	reg-names = "efuse";
->>> @@ -163,7 +172,8 @@ netcp: netcp@2000000 {
->>>  		ranges;
->>>  		gbe@90000 {
->>>  			label = "netcp-gbe";
->>> -			reg = <0x90000 0x300>, <0x90400 0x400>, <0x90800 0x700>;
->>> +			syscon-subsys = <&gbe_subsys>;
->>> +			reg = <0x90100 0x200>, <0x90400 0x200>, <0x90800 0x700>;
->>>  			/* enable-ale; */
->>>  			tx-queue = <648>;
->>>  			tx-channel = <8>;
+>> On 2017年01月03日 03:44, John Fastabend wrote:
+>>> Add support for XDP adjust head by allocating a 256B header region
+>>> that XDP programs can grow into. This is only enabled when a XDP
+>>> program is loaded.
+>>>
+>>> In order to ensure that we do not have to unwind queue headroom push
+>>> queue setup below bpf_prog_add. It reads better to do a prog ref
+>>> unwind vs another queue setup call.
+>>>
+>>> : There is a problem with this patch as is. When xdp prog is loaded
+>>>    the old buffers without the 256B headers need to be flushed so that
+>>>    the bpf prog has the necessary headroom. This patch does this by
+>>>    calling the virtqueue_detach_unused_buf() and followed by the
+>>>    virtnet_set_queues() call to reinitialize the buffers. However I
+>>>    don't believe this is safe per comment in virtio_ring this API
+>>>    is not valid on an active queue and the only thing we have done
+>>>    here is napi_disable/napi_enable wrappers which doesn't do anything
+>>>    to the emulation layer.
+>>>
+>>>    So the RFC is really to find the best solution to this problem.
+>>>    A couple things come to mind, (a) always allocate the necessary
+>>>    headroom but this is a bit of a waste (b) add some bit somewhere
+>>>    to check if the buffer has headroom but this would mean XDP programs
+>>>    would be broke for a cycle through the ring, (c) figure out how
+>>>    to deactivate a queue, free the buffers and finally reallocate.
+>>>    I think (c) is the best choice for now but I'm not seeing the
+>>>    API to do this so virtio/qemu experts anyone know off-hand
+>>>    how to make this work? I started looking into the PCI callbacks
+>>>    reset() and virtio_device_ready() or possibly hitting the right
+>>>    set of bits with vp_set_status() but my first attempt just hung
+>>>    the device.
 >>
+>> Hi John:
+>>
+>> AFAIK, disabling a specific queue was supported only by virtio 1.0 through
+>> queue_enable field in pci common cfg.
+> 
+> In fact 1.0 only allows enabling queues selectively.
+> We can add disabling by a spec enhancement but
+> for now reset is the only way.
 > 
 > 
+>> But unfortunately, qemu does not
+>> emulate this at all and legacy device does not even support this. So the
+>> safe way is probably reset the device and redo the initialization here.
+> 
+> You will also have to re-apply rx filtering if you do this.
+> Probably sending notification uplink.
+> 
 
+The following seems to hang the device on the next virtnet_send_command()
+I expected this to meet the reset requirements from the spec because I
+believe its the same flow coming out of restore(). For a real patch we
+don't actually need to kfree all the structs and reallocate them but
+I was expecting the below to work. Any ideas/hints?
 
--- 
-Murali Karicheri
-Linux Kernel, Keystone
+static int virtnet_xdp_reset(struct virtnet_info *vi)
+{
+        int i, ret;
+
+        netif_device_detach(vi->dev);
+        cancel_delayed_work_sync(&vi->refill);
+        if (netif_running(vi->dev)) {
+                for (i = 0; i < vi->max_queue_pairs; i++)
+                        napi_disable(&vi->rq[i].napi);
+        }
+
+        remove_vq_common(vi, false);
+        ret = init_vqs(vi);
+        if (ret)
+                return ret;
+        virtio_device_ready(vi->vdev);
+
+        if (netif_running(vi->dev)) {
+                for (i = 0; i < vi->curr_queue_pairs; i++)
+                        if (!try_fill_recv(vi, &vi->rq[i], GFP_KERNEL))
+                                schedule_delayed_work(&vi->refill, 0);
+
+                for (i = 0; i < vi->max_queue_pairs; i++)
+                        virtnet_napi_enable(&vi->rq[i]);
+        }
+        netif_device_attach(vi->dev);
+        return 0;
+}
