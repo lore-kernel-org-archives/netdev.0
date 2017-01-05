@@ -1,94 +1,60 @@
-From: YUAN Linyu <Linyu.Yuan@alcatel-sbell.com.cn>
-Subject: RE: [PATCH] scm: remove use CMSG{_COMPAT}_ALIGN(sizeof(struct
- {compat_}cmsghdr))
-Date: Wed, 4 Jan 2017 23:45:30 +0000
-Message-ID: <8729016553E3654398EA69218DA29EEF15A52EB0@cnshjmbx04>
-References: <1483447337-4976-1-git-send-email-cugyly@163.com>
- <20170104.132452.646592152519338774.davem@davemloft.net>
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Subject: [PATCH net-next] liquidio: fix wrong information about channels
+ reported to ethtool
+Date: Wed, 4 Jan 2017 16:18:50 -0800
+Message-ID: <20170105001850.GA20747@felix.cavium.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>,
-        "cugyly@163.com" <cugyly@163.com>
+Cc: <netdev@vger.kernel.org>, <raghu.vatsavayi@cavium.com>,
+        <derek.chickles@cavium.com>, <satananda.burla@cavium.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cnshjsmin03.alcatel-sbell.com.cn ([116.246.26.71]:58796 "EHLO
-        cnshjsmin03.alcatel-sbell.com.cn" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751247AbdADXp4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 4 Jan 2017 18:45:56 -0500
-In-Reply-To: <20170104.132452.646592152519338774.davem@davemloft.net>
-Content-Language: en-US
+Received: from mail-by2nam01on0060.outbound.protection.outlook.com ([104.47.34.60]:63586
+        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1754521AbdAEAVF (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 4 Jan 2017 19:21:05 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks
+From: Weilin Chang <weilin.chang@cavium.com>
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Thursday, January 05, 2017 2:25 AM
-> To: cugyly@163.com
-> Cc: netdev@vger.kernel.org; YUAN Linyu
-> Subject: Re: [PATCH] scm: remove use CMSG{_COMPAT}_ALIGN(sizeof(struct
-> {compat_}cmsghdr))
-> 
-> From: yuan linyu <cugyly@163.com>
-> Date: Tue,  3 Jan 2017 20:42:17 +0800
-> 
-> > From: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
-> >
-> > sizeof(struct cmsghdr) and sizeof(struct compat_cmsghdr) already aligned.
-> > remove use CMSG_ALIGN(sizeof(struct cmsghdr)) and
-> > CMSG_COMPAT_ALIGN(sizeof(struct compat_cmsghdr)) keep code
-> consistent.
-> >
-> > Signed-off-by: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
-> 
-> Applied, and I added the following commit which will make sure our
-> analysis is accurate.
-> 
-> ====================
-> [PATCH] net: Assert at build time the assumptions we make about the CMSG
-> header.
-> 
-> It must always be the case that CMSG_ALIGN(sizeof(hdr)) == sizeof(hdr).
-> 
-> Otherwise there are missing adjustments in the various calculations
-> that parse and build these things.
-> 
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-> ---
->  net/compat.c | 3 +++
->  net/socket.c | 2 ++
->  2 files changed, 5 insertions(+)
-> 
-> diff --git a/net/compat.c b/net/compat.c
-> index 4e27dd1..ba3ac72 100644
-> --- a/net/compat.c
-> +++ b/net/compat.c
-> @@ -130,6 +130,9 @@ int cmsghdr_from_user_compat_to_kern(struct
-> msghdr *kmsg, struct sock *sk,
->  	__kernel_size_t kcmlen, tmp;
->  	int err = -EFAULT;
-> 
-> +	BUILD_BUG_ON(sizeof(struct compat_cmsghdr) !=
-> +		     CMSG_COMPAT_ALIGN(sizeof(struct compat_cmsghdr)));
-> +
->  	kcmlen = 0;
->  	kcmsg_base = kcmsg = (struct cmsghdr *)stackbuf;
->  	ucmsg = CMSG_COMPAT_FIRSTHDR(kmsg);
-> diff --git a/net/socket.c b/net/socket.c
-> index 8487bf1..5f3b5a2 100644
-> --- a/net/socket.c
-> +++ b/net/socket.c
-> @@ -1948,6 +1948,8 @@ static int ___sys_sendmsg(struct socket *sock,
-> struct user_msghdr __user *msg,
->  		ctl_buf = msg_sys->msg_control;
->  		ctl_len = msg_sys->msg_controllen;
->  	} else if (ctl_len) {
-> +		BUILD_BUG_ON(sizeof(struct cmsghdr) !=
-> +			     CMSG_ALIGN(sizeof(struct cmsghdr)));
->  		if (ctl_len > sizeof(ctl)) {
->  			ctl_buf = sock_kmalloc(sock->sk, ctl_len, GFP_KERNEL);
->  			if (ctl_buf == NULL)
-> --
-> 2.4.11
+Information reported to ethtool about channels is sometimes wrong for PF,
+and always wrong for VF.  Fix them by getting the information from the
+right fields from the right structs.
+
+Signed-off-by: Weilin Chang <weilin.chang@cavium.com>
+Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
+Signed-off-by: Derek Chickles <derek.chickles@cavium.com>
+Signed-off-by: Satanand Burla <satananda.burla@cavium.com>
+---
+ drivers/net/ethernet/cavium/liquidio/lio_ethtool.c | 14 +++++++++-----
+ 1 file changed, 9 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c b/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
+index b00c300..50384ce 100644
+--- a/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
++++ b/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
+@@ -296,12 +296,16 @@ lio_ethtool_get_channels(struct net_device *dev,
+ 		rx_count = CFG_GET_NUM_RXQS_NIC_IF(conf6x, lio->ifidx);
+ 		tx_count = CFG_GET_NUM_TXQS_NIC_IF(conf6x, lio->ifidx);
+ 	} else if (OCTEON_CN23XX_PF(oct)) {
+-		struct octeon_config *conf23 = CHIP_CONF(oct, cn23xx_pf);
+ 
+-		max_rx = CFG_GET_OQ_MAX_Q(conf23);
+-		max_tx = CFG_GET_IQ_MAX_Q(conf23);
+-		rx_count = CFG_GET_NUM_RXQS_NIC_IF(conf23, lio->ifidx);
+-		tx_count = CFG_GET_NUM_TXQS_NIC_IF(conf23, lio->ifidx);
++		max_rx = oct->sriov_info.num_pf_rings;
++		max_tx = oct->sriov_info.num_pf_rings;
++		rx_count = lio->linfo.num_rxpciq;
++		tx_count = lio->linfo.num_txpciq;
++	} else if (OCTEON_CN23XX_VF(oct)) {
++		max_tx = oct->sriov_info.rings_per_vf;
++		max_rx = oct->sriov_info.rings_per_vf;
++		rx_count = lio->linfo.num_rxpciq;
++		tx_count = lio->linfo.num_txpciq;
+ 	}
+ 
+ 	channel->max_rx = max_rx;
