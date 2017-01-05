@@ -1,87 +1,47 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 1/6] netfilter: nft_quota: reset quota after dump
-Date: Thu,  5 Jan 2017 12:19:48 +0100
-Message-ID: <1483615193-2931-2-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 2/6] netfilter: nft_queue: use raw_smp_processor_id()
+Date: Thu,  5 Jan 2017 12:19:49 +0100
+Message-ID: <1483615193-2931-3-git-send-email-pablo@netfilter.org>
 References: <1483615193-2931-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:49642 "EHLO mail.us.es"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754071AbdAELUH (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 5 Jan 2017 06:20:07 -0500
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-        by mail.us.es (Postfix) with ESMTP id 1DA3B52307
-        for <netdev@vger.kernel.org>; Thu,  5 Jan 2017 12:20:03 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id 105C89EBB9
-        for <netdev@vger.kernel.org>; Thu,  5 Jan 2017 12:20:03 +0100 (CET)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-        by antivirus1-rhel7.int (Postfix) with ESMTP id DBF7147E
-        for <netdev@vger.kernel.org>; Thu,  5 Jan 2017 12:20:00 +0100 (CET)
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1483615193-2931-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dumping of netlink attributes may fail due to insufficient room in the
-skbuff, so let's reset consumed quota if we succeed to put netlink
-attributes into the skbuff.
+Using smp_processor_id() causes splats with PREEMPT_RCU:
 
-Fixes: 43da04a593d8 ("netfilter: nf_tables: atomic dump and reset for stateful objects")
-Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
+[19379.552780] BUG: using smp_processor_id() in preemptible [00000000] code: ping/32389
+[19379.552793] caller is debug_smp_processor_id+0x17/0x19
+[...]
+[19379.552823] Call Trace:
+[19379.552832]  [<ffffffff81274e9e>] dump_stack+0x67/0x90
+[19379.552837]  [<ffffffff8129a4d4>] check_preemption_disabled+0xe5/0xf5
+[19379.552842]  [<ffffffff8129a4fb>] debug_smp_processor_id+0x17/0x19
+[19379.552849]  [<ffffffffa07c42dd>] nft_queue_eval+0x35/0x20c [nft_queue]
+
+No need to disable preemption since we only fetch the numeric value, so
+let's use raw_smp_processor_id() instead.
+
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nft_quota.c | 26 ++++++++++++++------------
- 1 file changed, 14 insertions(+), 12 deletions(-)
+ net/netfilter/nft_queue.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/netfilter/nft_quota.c b/net/netfilter/nft_quota.c
-index bd6efc53f26d..2d6fe3559912 100644
---- a/net/netfilter/nft_quota.c
-+++ b/net/netfilter/nft_quota.c
-@@ -110,30 +110,32 @@ static int nft_quota_obj_init(const struct nlattr * const tb[],
- static int nft_quota_do_dump(struct sk_buff *skb, struct nft_quota *priv,
- 			     bool reset)
- {
-+	u64 consumed, consumed_cap;
- 	u32 flags = priv->flags;
--	u64 consumed;
--
--	if (reset) {
--		consumed = atomic64_xchg(&priv->consumed, 0);
--		if (test_and_clear_bit(NFT_QUOTA_DEPLETED_BIT, &priv->flags))
--			flags |= NFT_QUOTA_F_DEPLETED;
--	} else {
--		consumed = atomic64_read(&priv->consumed);
--	}
+diff --git a/net/netfilter/nft_queue.c b/net/netfilter/nft_queue.c
+index 3e19fa1230dc..dbb6aaff67ec 100644
+--- a/net/netfilter/nft_queue.c
++++ b/net/netfilter/nft_queue.c
+@@ -38,7 +38,7 @@ static void nft_queue_eval(const struct nft_expr *expr,
  
- 	/* Since we inconditionally increment consumed quota for each packet
- 	 * that we see, don't go over the quota boundary in what we send to
- 	 * userspace.
- 	 */
--	if (consumed > priv->quota)
--		consumed = priv->quota;
-+	consumed = atomic64_read(&priv->consumed);
-+	if (consumed >= priv->quota) {
-+		consumed_cap = priv->quota;
-+		flags |= NFT_QUOTA_F_DEPLETED;
-+	} else {
-+		consumed_cap = consumed;
-+	}
+ 	if (priv->queues_total > 1) {
+ 		if (priv->flags & NFT_QUEUE_FLAG_CPU_FANOUT) {
+-			int cpu = smp_processor_id();
++			int cpu = raw_smp_processor_id();
  
- 	if (nla_put_be64(skb, NFTA_QUOTA_BYTES, cpu_to_be64(priv->quota),
- 			 NFTA_QUOTA_PAD) ||
--	    nla_put_be64(skb, NFTA_QUOTA_CONSUMED, cpu_to_be64(consumed),
-+	    nla_put_be64(skb, NFTA_QUOTA_CONSUMED, cpu_to_be64(consumed_cap),
- 			 NFTA_QUOTA_PAD) ||
- 	    nla_put_be32(skb, NFTA_QUOTA_FLAGS, htonl(flags)))
- 		goto nla_put_failure;
-+
-+	if (reset) {
-+		atomic64_sub(consumed, &priv->consumed);
-+		clear_bit(NFT_QUOTA_DEPLETED_BIT, &priv->flags);
-+	}
- 	return 0;
- 
- nla_put_failure:
+ 			queue = priv->queuenum + cpu % priv->queues_total;
+ 		} else {
 -- 
 2.1.4
+
