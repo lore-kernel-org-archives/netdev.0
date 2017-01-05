@@ -1,31 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: xilinx: emaclite: Remove xemaclite_remove_ndev()
-Date: Thu, 05 Jan 2017 11:29:49 -0500 (EST)
-Message-ID: <20170105.112949.1359328171589263709.davem@davemloft.net>
-References: <20170105094136.16989-1-tklauser@distanz.ch>
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: Re: [net-next PATCH v2 5/6] i40e: Add TX and RX support in switchdev mode.
+Date: Thu, 5 Jan 2017 16:33:48 +0000
+Message-ID: <CAJpBn1xsj+bdbZT_br=JEGEKfY2p5vM2EC9Prt6Oi8EApBeeTw@mail.gmail.com>
+References: <1483466874-2962-1-git-send-email-sridhar.samudrala@intel.com>
+ <1483466874-2962-6-git-send-email-sridhar.samudrala@intel.com> <CAJ3xEMiSt2a9rQYpjtu=o8YBA2YjPD=6nSwBnh5gfuseQwXCcQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, michal.simek@xilinx.com,
-        soren.brinkmann@xilinx.com
-To: tklauser@distanz.ch
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38146 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1761071AbdAEQaF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2017 11:30:05 -0500
-In-Reply-To: <20170105094136.16989-1-tklauser@distanz.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Sridhar Samudrala <sridhar.samudrala@intel.com>,
+        John Fastabend <john.r.fastabend@intel.com>,
+        Jiri Pirko <jiri@mellanox.com>,
+        Alexander Duyck <alexander.h.duyck@intel.com>,
+        Anjali Singhai Jain <anjali.singhai@intel.com>,
+        David Miller <davem@davemloft.net>,
+        intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+        Linux Netdev List <netdev@vger.kernel.org>
+To: Or Gerlitz <gerlitz.or@gmail.com>,
+        LKML <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAJ3xEMiSt2a9rQYpjtu=o8YBA2YjPD=6nSwBnh5gfuseQwXCcQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tobias Klauser <tklauser@distanz.ch>
-Date: Thu,  5 Jan 2017 10:41:36 +0100
+On Thu, Jan 5, 2017 at 12:08 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+> On Tue, Jan 3, 2017 at 8:07 PM, Sridhar Samudrala
+> <sridhar.samudrala@intel.com> wrote:
+>> A host based switching entity like a linux bridge or OVS redirects these frames
+>> to the right VFs via VFPR netdevs. Any frames sent via VFPR netdevs are sent as
+>> directed transmits to the corresponding VFs. To enable directed transmit, skb
+>> metadata dst is used to pass the VF id and the frame is requeued to call the PFs
+>> transmit routine.
+>
+> Jakub/John, patch #4 which didn't appear in the list had a long discussion [1]
+> ending  with "lets talk on it @ netdev", did we?
 
-> xemaclite_remove_ndev() is a simple wrapper around free_netdev()
-> checking for NULL before the call. All possible paths calling
-> it are guaranteed to pass a non-NULL argument, so rather call
-> free_netdev() directly.
-> 
-> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+I spoke to a few people, but nobody had much to say about it back then :(
 
-Applied.
+Noob question: can we somehow "debug" why a patch is not appearing on
+a vger list?
