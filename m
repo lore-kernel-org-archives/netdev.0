@@ -1,44 +1,52 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [for-next 07/10] IB/mlx5: Use blue flame register allocator in
- mlx5_ib
-Date: Thu, 05 Jan 2017 14:51:57 -0500 (EST)
-Message-ID: <20170105.145157.1792441048386916850.davem@davemloft.net>
-References: <1483480528-22622-1-git-send-email-saeedm@mellanox.com>
-        <1483480528-22622-8-git-send-email-saeedm@mellanox.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2] tcp: provide timestamps for partial writes
+Date: Thu, 05 Jan 2017 14:56:40 -0500 (EST)
+Message-ID: <20170105.145640.1963005404677444663.davem@davemloft.net>
+References: <20170104161934.26849-1-soheil.kdev@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-        matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
-To: saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1483480528-22622-8-git-send-email-saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, soheil@google.com, willemb@google.com,
+        edumazet@google.com, ncardwell@google.com, kafai@fb.com
+To: soheil.kdev@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:48466 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S935446AbdAET4m (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2017 14:56:42 -0500
+In-Reply-To: <20170104161934.26849-1-soheil.kdev@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Date: Tue,  3 Jan 2017 23:55:25 +0200
+From: Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
+Date: Wed,  4 Jan 2017 11:19:34 -0500
 
-> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/Kconfig b/drivers/net/ethernet/mellanox/mlx5/core/Kconfig
-> index ddb4ca4..39505ac 100644
-> --- a/drivers/net/ethernet/mellanox/mlx5/core/Kconfig
-> +++ b/drivers/net/ethernet/mellanox/mlx5/core/Kconfig
-> @@ -5,7 +5,7 @@
->  config MLX5_CORE
->  	tristate "Mellanox Technologies ConnectX-4 and Connect-IB core driver"
->  	depends on MAY_USE_DEVLINK
-> -	depends on PCI
-> +	depends on PCI && 64BIT
->  	default n
->  	---help---
->  	  Core driver for low level functionality of the ConnectX-4 and
+> From: Soheil Hassas Yeganeh <soheil@google.com>
+> 
+> For TCP sockets, TX timestamps are only captured when the user data
+> is successfully and fully written to the socket. In many cases,
+> however, TCP writes can be partial for which no timestamp is
+> collected.
+> 
+> Collect timestamps whenever any user data is (fully or partially)
+> copied into the socket. Pass tcp_write_queue_tail to tcp_tx_timestamp
+> instead of the local skb pointer since it can be set to NULL on
+> the error path.
+> 
+> Note that tcp_write_queue_tail can be NULL, even if bytes have been
+> copied to the socket. This is because acknowledgements are being
+> processed in tcp_sendmsg(), and by the time tcp_tx_timestamp is
+> called tcp_write_queue_tail can be NULL. For such cases, this patch
+> does not collect any timestamps (i.e., it is best-effort).
+> 
+> This patch is written with suggestions from Willem de Bruijn and
+> Eric Dumazet.
+> 
+> Change-log V1 -> V2:
+> 	- Use sockc.tsflags instead of sk->sk_tsflags.
+> 	- Use the same code path for normal writes and errors.
+> 
+> Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
+> Acked-by: Yuchung Cheng <ycheng@google.com>
 
-This is a regression, I'm not applying this.
-
-I don't care how hard it is, you have to keep the driver building properly
-in non-64bit builds.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied, thanks.
