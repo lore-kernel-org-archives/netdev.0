@@ -1,46 +1,80 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net-next] net: make ndo_get_stats64 a void
-	function
-Date: Thu, 05 Jan 2017 13:18:45 -0500 (EST)
-Message-ID: <20170105.131845.1605952043383659916.davem@davemloft.net>
-References: <20170105173136.2817-1-sthemmin@microsoft.com>
+From: Niklas Cassel <niklas.cassel@axis.com>
+Subject: Re: Re: [PATCH] MIPS: NI 169445 board support
+Date: Thu, 5 Jan 2017 19:28:24 +0100
+Message-ID: <5d5a087f-68ec-e633-0232-0248edf11ee0@axis.com>
+References: <1480693329-22265-1-git-send-email-nathan.sullivan@ni.com>
+ <20161220163434.GA15962@linux-mips.org>
+ <20170104163836.GA18069@nathan3500-linux-VM>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-7"
-Content-Transfer-Encoding: base64
-Cc: devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org, dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, sthemmin-0li6OtcxBFHby3iVrkZq2A@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	virtualization-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	oss-drivers-wFxRvT7yatFl57MIdRCFDg@public.gmane.org, linux-ppp-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	devel-tBiZLqfeLfOHmIFyCCdPziST3g8Odh+X@public.gmane.org
-To: stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org
-Return-path: <ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20170105173136.2817-1-sthemmin-0li6OtcxBFHby3iVrkZq2A@public.gmane.org>
-List-Unsubscribe: <https://mail.openvswitch.org/mailman/options/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://mail.openvswitch.org/pipermail/ovs-dev/>
-List-Post: <mailto:ovs-dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <https://mail.openvswitch.org/mailman/listinfo/ovs-dev>,
-	<mailto:ovs-dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: ovs-dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>, Lars Persson <larper@axis.com>,
+        Joao Pinto <Joao.Pinto@synopsys.com>
+To: Nathan Sullivan <nathan.sullivan@ni.com>,
+        Ralf Baechle <ralf@linux-mips.org>, <linux-mips@linux-mips.org>
+Return-path: <linux-mips-bounce@linux-mips.org>
+In-Reply-To: <20170104163836.GA18069@nathan3500-linux-VM>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
+List-help: <mailto:ecartis@linux-mips.org?Subject=help>
+List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
+List-software: Ecartis version 1.0.0
+List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
+List-owner: <mailto:ralf@linux-mips.org>
+List-post: <mailto:linux-mips@linux-mips.org>
+List-archive: <http://www.linux-mips.org/archives/linux-mips/>
 List-Id: netdev.vger.kernel.org
 
-RnJvbTogU3RlcGhlbiBIZW1taW5nZXIgPHN0ZXBoZW5AbmV0d29ya3BsdW1iZXIub3JnPg0KRGF0
-ZTogVGh1LCAgNSBKYW4gMjAxNyAwOTozMTozNiAtMDgwMA0KDQo+IFRoZSBuZXR3b3JrIGRldmlj
-ZSBvcGVyYXRpb24gZm9yIHJlYWRpbmcgc3RhdGlzdGljcyBpcyBvbmx5IGNhbGxlZA0KPiBpbiBv
-bmUgcGxhY2UsIGFuZCBpdCBpZ25vcmVzIHRoZSByZXR1cm4gdmFsdWUuIEhhdmluZyBhIHN0cnVj
-dHVyZQ0KPiByZXR1cm4gdmFsdWUgaXMgcG90ZW50aWFsbHkgY29uZnVzaW5nIGJlY2F1c2Ugc29t
-ZSBmdXR1cmUgZHJpdmVyIGNvdWxkDQo+IGluY29ycmVjdGx5IGFzc3VtZSB0aGF0IHRoZSByZXR1
-cm4gdmFsdWUgd2FzIHVzZWQuDQo+IA0KPiBGaXggYWxsIGRyaXZlcnMgd2l0aCBuZG9fZ2V0X3N0
-YXRzNjQgdG8gaGF2ZSBhIHZvaWQgZnVuY3Rpb24uDQo+IA0KPiBTaWduZWQtb2ZmLWJ5OiBTdGVw
-aGVuIEhlbW1pbmdlciA8c3RoZW1taW5AbWljcm9zb2Z0LmNvbT4NCg0KWW91IG1pc3NlZCBhdCBs
-ZWFzdCBvbmUgbmV3IHdhcm5pbmcsIHBsZWFzZSBkbyBhIGZyZXNoIGFsbG1vZGNvbmZpZyBidWls
-ZA0KYW5kIHdhdGNoIHRoZSBsb2dzLg0KDQpkcml2ZXJzL25ldC9ldGhlcm5ldC9icm9hZGNvbS9i
-bngyLmM6IEluIGZ1bmN0aW9uIKFibngyX2dldF9zdGF0czY0ojoNCmRyaXZlcnMvbmV0L2V0aGVy
-bmV0L2Jyb2FkY29tL2JueDIuYzo2ODMwOjEwOiB3YXJuaW5nOiChcmV0dXJuoiB3aXRoIGEgdmFs
-dWUsIGluIGZ1bmN0aW9uIHJldHVybmluZyB2b2lkDQoNClRoYW5rcy4NCl9fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9w
-ZW52c3dpdGNoLm9yZwpodHRwczovL21haWwub3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGlu
-Zm8vb3ZzLWRldgo=
+On 01/04/2017 05:38 PM, Nathan Sullivan wrote:
+> On Tue, Dec 20, 2016 at 05:34:34PM +0100, Ralf Baechle wrote:
+>> On Fri, Dec 02, 2016 at 09:42:09AM -0600, Nathan Sullivan wrote:
+>>> Date:   Fri, 2 Dec 2016 09:42:09 -0600
+>>> From: Nathan Sullivan <nathan.sullivan@ni.com>
+>>> To: ralf@linux-mips.org, mark.rutland@arm.com, robh+dt@kernel.org
+>>> CC: linux-mips@linux-mips.org, devicetree@vger.kernel.org,
+>>>  linux-kernel@vger.kernel.org, Nathan Sullivan <nathan.sullivan@ni.com>
+>>> Subject: [PATCH] MIPS: NI 169445 board support
+>>> Content-Type: text/plain
+>>>
+>>> Support the National Instruments 169445 board.
+>> Nathan,
+>>
+>> I assume you're going to repost the changes Rob asked for in
+>> https://patchwork.linux-mips.org/patch/14641/#26924 and resubmit?
+>>
+>> Thanks,
+>>
+>>   Ralf
+> Hmm, I found the issue with the generic MIPS config and dwc_eth_qos.  The NIC
+> driver attempts to cache align a descriptor ring using the ___cacheline_aligned
+> attribute on the descriptor struct, in combination with a "skip" feature in
+> hardware.  However, the skip feature only has a three bit field, and the generic
+> MIPS config selects MIPS_L1_CACHE_SHIFT_7.  So, the line size is 128, and with a
+> 64-bit bus, that means the NIC descriptor skip field would need to be set to
+> 14 to align the 16-byte descriptors...
+>
+> I guess it makes sense for a generic MIPS kernel to align everything for 128 byte
+> cache lines, and for me to fix the dwc_eth_qos driver to handle cases where the
+> line size is too big for the hardware skip feature, right?
+
+I don't know if you've been following the discussion regarding
+dwc_eth_qos on netdev, but Joao Pinto from Synopsys is
+planning on removing the driver (since the stmmac driver
+now supports the same version of the IP, together with older
+versions of the IP).
+
+Since device tree bindings are treated as an ABI,
+Joao has implemented a glue layer for stmmac that parses
+the dwc_eth_qos binding, but uses stmmac under the hood.
+
+You can use any of the bindings, but since the dwc_eth_qos
+binding will be marked as deprecated, you might want to
+consider moving to the stmmac binding.
+
+>
+> Thanks,
+>
+>    Nathan
+>
+>
