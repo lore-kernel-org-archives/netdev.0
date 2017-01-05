@@ -1,113 +1,59 @@
-From: Jorge Ramirez <jorge.ramirez-ortiz@linaro.org>
-Subject: Re: SIOCSIWFREQ while in NL80211_IFTYPE_STATION
-Date: Thu, 5 Jan 2017 15:38:29 +0100
-Message-ID: <f8e8b557-3e7b-cc1a-c31a-91f9d754e683@linaro.org>
-References: <685811c3-6247-77fd-8c70-617951886451@linaro.org>
- <1483616301.4394.6.camel@sipsolutions.net>
- <92e60cb2-8bb4-df03-3434-4a055f575df0@linaro.org>
- <1483625204.4394.23.camel@sipsolutions.net>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next v4 0/2] Add support for the ethernet switch on
+ the ESPRESSObin
+Date: Thu, 5 Jan 2017 15:52:25 +0100
+Message-ID: <20170105145225.GI4229@lunn.ch>
+References: <20161221125734.1034-1-romain.perier@free-electrons.com>
+ <87tw9dbn2m.fsf@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless <linux-wireless@vger.kernel.org>
-To: Johannes Berg <johannes@sipsolutions.net>, netdev@vger.kernel.org,
-        Daniel Lezcano <daniel.lezcano@linaro.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wj0-f179.google.com ([209.85.210.179]:36667 "EHLO
-        mail-wj0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753617AbdAEOid (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2017 09:38:33 -0500
-Received: by mail-wj0-f179.google.com with SMTP id ew7so22741589wjc.3
-        for <netdev@vger.kernel.org>; Thu, 05 Jan 2017 06:38:32 -0800 (PST)
-In-Reply-To: <1483625204.4394.23.camel@sipsolutions.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: Mark Rutland <mark.rutland@arm.com>, devicetree@vger.kernel.org,
+ Florian Fainelli <f.fainelli@gmail.com>,
+ Romain Perier <romain.perier@free-electrons.com>,
+ Jason Cooper <jason@lakedaemon.net>, Pawel Moll <pawel.moll@arm.com>,
+ Vivien Didelot <vivien.didelot@savoirfairelinux.com>, netdev@vger.kernel.org,
+ Ian Campbell <ijc+devicetree@hellion.org.uk>,
+ Nadav Haklai <nadavh@marvell.com>, Rob Herring <robh+dt@kernel.org>,
+ Kumar Gala <galak@codeaurora.org>, David Miller <davem@redhat.com>,
+ Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+ linux-arm-kernel@lists.infradead.org,
+ Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Disposition: inline
+In-Reply-To: <87tw9dbn2m.fsf@free-electrons.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On 01/05/2017 03:06 PM, Johannes Berg wrote:
->> I am not sure it matters - if I understood your reply, there is no
->> valid use case to change the frequency in that mode (and all that
->> code should be removed);
-> All of wext *is* being removed - slowly :)
-> It's not longer default in the kernel configuration now.
+On Thu, Jan 05, 2017 at 03:25:53PM +0100, Gregory CLEMENT wrote:
+> Hi David,
+>  =
 
-ah thanks for the info. I should have checked!
+>  On mer., d=E9c. 21 2016, Romain Perier <romain.perier@free-electrons.com=
+> wrote:
+> =
 
->
-> IIRC, there actually was a valid use case here - to set the frequency
-> before you set the SSID - to be able to force a connection on that
-> channel with wext.
+> > This set of patches adds support for the Marvell ethernet switch 88E634=
+1.
+> > It also add the devicetree definition of this switch to the DT board.
+> =
 
-ok, yes I thought this would make sense.
+> The forth version of this series had been sent while the net-next merge
+> window was closed so I think it was missed.
 
->
->> it seems to me that it is also your view that userspace (iwconfig)
->> should be fixed accordingly to not call the extensions?
-> iwconfig should just be deleted and iw be used :-)
+Having done a bit more research, i'm pretty sure the second patch is
+wrong. The 88E6341 is not compatible with the 6352, it is a different
+family. It might be more like the 6390. So supporting it will need a
+side-by-side comparison of the datasheet against the 6352 and the
+6390, and the correct selection of the ops.
 
-understood.
-
->
->> I am just trying to understand how the current code is supposed to
->> work  by exercising widely available user-space tools while debugging
->> the kernel.
-> Heh, ok.
->
->> Actually the frequency gets programmed without errors when reverting
->> your commit http://tinyurl.com/ho4urp8 (which comes as a surprise as
->> well).
-> Well, it's not my commit, but that makes sense. I suppose we should
-> treat this as a regression, but reverting that doesn't seem like the
-> right fix. Actually, I'm not convinced we should do monitor channel
-> change anyway when you set the frequency with wext, so we can probably
-> just remove that call there - want to send a patch to that effect?
-
-do you mean this?
-
-[jramirez@igloo ~ (debian-qcom-dragonboard410c-16.09-local $)]$ git diff
-diff --git a/net/wireless/wext-sme.c b/net/wireless/wext-sme.c
-index a4e8af3..c56bac5 100644
---- a/net/wireless/wext-sme.c
-+++ b/net/wireless/wext-sme.c
-@@ -106,30 +106,7 @@ int cfg80211_mgd_wext_siwfreq(struct net_device *dev,
-                         goto out;
-         }
-
--
-         wdev->wext.connect.channel = chan;
--
--   /*
--    * SSID is not set, we just want to switch monitor channel,
--    * this is really just backward compatibility, if the SSID
--    * is set then we use the channel to select the BSS to use
--    * to connect to instead. If we were connected on another
--    * channel we disconnected above and reconnect below.
--    */
--   if (chan && !wdev->wext.connect.ssid_len) {
--           struct cfg80211_chan_def chandef = {
--                   .width = NL80211_CHAN_WIDTH_20_NOHT,
--                   .center_freq1 = freq,
--           };
--
--           chandef.chan = ieee80211_get_channel(&rdev->wiphy, freq);
--           if (chandef.chan)
--                   err = cfg80211_set_monitor_channel(rdev, &chandef);
--           else
--                   err = -EINVAL;
--           goto out;
--   }
--
-         err = cfg80211_mgd_wext_connect(rdev, wdev);
-   out:
-         wdev_unlock(wdev);
-
-
-
-I tested the change above: we can now modify the channel/frequency when 
-the SSID is not set in managed mode.
-When the SSID is set however iwconfig does not report any error but 
-channel/frequency doesn't change.
-
-if you think this is acceptable I can submit a patch
-
-
-> johannes
+      Andrew
