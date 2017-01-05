@@ -1,29 +1,33 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next] net: dsa: remove version string
-Date: Thu, 5 Jan 2017 09:35:19 -0800
-Message-ID: <c86f5ab4-772d-61b4-cad3-794b2f3000fd@gmail.com>
-References: <20170105172841.16221-1-vivien.didelot@savoirfairelinux.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Andrew Lunn <andrew@lunn.ch>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        netdev@vger.kernel.org
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [PATCH net] hyper-v: Add myself as additional MAINTAINER
+Date: Thu,  5 Jan 2017 09:36:26 -0800
+Message-ID: <20170105173626.4657-1-sthemmin@microsoft.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        gregkh@linuxfoundation.org,
+        Stephen Hemminger <sthemmin@microsoft.com>
+To: davem@davemloft.net, kys@microsoft.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170105172841.16221-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 01/05/2017 09:28 AM, Vivien Didelot wrote:
-> The dsa_driver_version string is irrelevant and has not been bumped
-> since its introduction about 9 years ago. Kill it.
-> 
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Update the Hyper-V MAINTAINERS to include myself.
 
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+---
+ MAINTAINERS | 1 +
+ 1 file changed, 1 insertion(+)
 
-Good riddance ;)
+diff --git a/MAINTAINERS b/MAINTAINERS
+index ea11bb03f550..7542341d8155 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -5963,6 +5963,7 @@ F:	drivers/media/platform/sti/hva
+ Hyper-V CORE AND DRIVERS
+ M:	"K. Y. Srinivasan" <kys@microsoft.com>
+ M:	Haiyang Zhang <haiyangz@microsoft.com>
++M:	Stephen Hemminger <sthemmin@microsoft.com>
+ L:	devel@linuxdriverproject.org
+ S:	Maintained
+ F:	arch/x86/include/asm/mshyperv.h
 -- 
-Florian
+2.11.0
