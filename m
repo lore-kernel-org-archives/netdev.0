@@ -1,112 +1,62 @@
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: Re: [PATCH] MIPS: NI 169445 board support
-Date: Thu, 5 Jan 2017 18:45:26 +0000
-Message-ID: <b9aafb16-a678-831d-8088-12f237e23bb8@synopsys.com>
-References: <1480693329-22265-1-git-send-email-nathan.sullivan@ni.com>
- <20161220163434.GA15962@linux-mips.org>
- <20170104163836.GA18069@nathan3500-linux-VM>
- <5d5a087f-68ec-e633-0232-0248edf11ee0@axis.com>
- <8fd70ecb-36fc-7cc7-7795-cd4dccabf8b9@synopsys.com>
- <20170105184442.GA9424@nathan3500-linux-VM>
+From: Shuah Khan <shuah@kernel.org>
+Subject: Re: [PATCH v3 net-next 1/2] tools: psock_lib: tighten conditions
+ checked in sock_setfilter
+Date: Thu, 5 Jan 2017 11:46:32 -0700
+Message-ID: <d7735d57-ef28-cdc2-2f05-fa1a764c35f8@kernel.org>
+References: <cover.1483555162.git.sowmini.varadhan@oracle.com>
+ <3aa068fa482f7cf5381957e9a3ea58550822d1d1.1483555162.git.sowmini.varadhan@oracle.com>
+ <d3e75147-475a-823c-3530-5150dd24a63d@kernel.org>
+ <20170104225554.GD31756@oracle.com>
+ <3be167c0-b7cb-1ab4-6afe-e2e84a3404f5@kernel.org>
+ <20170105155407.GH16822@oracle.com>
+Reply-To: shuah@kernel.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 8bit
-Cc: Niklas Cassel <niklas.cassel@axis.com>,
-        Ralf Baechle <ralf@linux-mips.org>,
-        <linux-mips@linux-mips.org>, <davem@davemloft.net>,
-        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        Lars Persson <larper@axis.com>
-To: Nathan Sullivan <nathan.sullivan@ni.com>,
-        Joao Pinto <Joao.Pinto@synopsys.com>
-Return-path: <linux-mips-bounce@linux-mips.org>
-In-Reply-To: <20170105184442.GA9424@nathan3500-linux-VM>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-help: <mailto:ecartis@linux-mips.org?Subject=help>
-List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
-List-software: Ecartis version 1.0.0
-List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
-List-owner: <mailto:ralf@linux-mips.org>
-List-post: <mailto:linux-mips@linux-mips.org>
-List-archive: <http://www.linux-mips.org/archives/linux-mips/>
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, daniel@iogearbox.net, willemb@google.com,
+        davem@davemloft.net, Shuah Khan <shuah@kernel.org>
+To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from resqmta-po-04v.sys.comcast.net ([96.114.154.163]:50020 "EHLO
+        resqmta-po-04v.sys.comcast.net" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S937597AbdAESrF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2017 13:47:05 -0500
+In-Reply-To: <20170105155407.GH16822@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Às 6:44 PM de 1/5/2017, Nathan Sullivan escreveu:
-> On Thu, Jan 05, 2017 at 06:33:53PM +0000, Joao Pinto wrote:
->> Hi,
+On 01/05/2017 08:54 AM, Sowmini Varadhan wrote:
+> On (01/04/17 16:26), Shuah Khan wrote:
 >>
->> Às 6:28 PM de 1/5/2017, Niklas Cassel escreveu:
->>> On 01/04/2017 05:38 PM, Nathan Sullivan wrote:
->>>> On Tue, Dec 20, 2016 at 05:34:34PM +0100, Ralf Baechle wrote:
->>>>> On Fri, Dec 02, 2016 at 09:42:09AM -0600, Nathan Sullivan wrote:
->>>>>> Date:   Fri, 2 Dec 2016 09:42:09 -0600
->>>>>> From: Nathan Sullivan <nathan.sullivan@ni.com>
->>>>>> To: ralf@linux-mips.org, mark.rutland@arm.com, robh+dt@kernel.org
->>>>>> CC: linux-mips@linux-mips.org, devicetree@vger.kernel.org,
->>>>>>  linux-kernel@vger.kernel.org, Nathan Sullivan <nathan.sullivan@ni.com>
->>>>>> Subject: [PATCH] MIPS: NI 169445 board support
->>>>>> Content-Type: text/plain
->>>>>>
->>>>>> Support the National Instruments 169445 board.
->>>>> Nathan,
->>>>>
->>>>> I assume you're going to repost the changes Rob asked for in
->>>>> https://urldefense.proofpoint.com/v2/url?u=https-3A__patchwork.linux-2Dmips.org_patch_14641_-2326924&d=DgICaQ&c=DPL6_X_6JkXFx7AXWqB0tg&r=s2fO0hii0OGNOv9qQy_HRXy-xAJUD1NNoEcc3io_kx0&m=5p7f9dIkvVVK4UFHimMpezq5NwIJfUpd08c-Zk4_c6c&s=_JwSwe4VFYtxV1tcYt6Z8r4hJX0xfoGhCixygUxlg5s&e=  and resubmit?
->>>>>
->>>>> Thanks,
->>>>>
->>>>>   Ralf
->>>> Hmm, I found the issue with the generic MIPS config and dwc_eth_qos.  The NIC
->>>> driver attempts to cache align a descriptor ring using the ___cacheline_aligned
->>>> attribute on the descriptor struct, in combination with a "skip" feature in
->>>> hardware.  However, the skip feature only has a three bit field, and the generic
->>>> MIPS config selects MIPS_L1_CACHE_SHIFT_7.  So, the line size is 128, and with a
->>>> 64-bit bus, that means the NIC descriptor skip field would need to be set to
->>>> 14 to align the 16-byte descriptors...
->>>>
->>>> I guess it makes sense for a generic MIPS kernel to align everything for 128 byte
->>>> cache lines, and for me to fix the dwc_eth_qos driver to handle cases where the
->>>> line size is too big for the hardware skip feature, right?
->>>
->>> I don't know if you've been following the discussion regarding
->>> dwc_eth_qos on netdev, but Joao Pinto from Synopsys is
->>> planning on removing the driver (since the stmmac driver
->>> now supports the same version of the IP, together with older
->>> versions of the IP).
->>>
->>> Since device tree bindings are treated as an ABI,
->>> Joao has implemented a glue layer for stmmac that parses
->>> the dwc_eth_qos binding, but uses stmmac under the hood.
->>>
->>> You can use any of the bindings, but since the dwc_eth_qos
->>> binding will be marked as deprecated, you might want to
->>> consider moving to the stmmac binding.
+>> Could you please split this patch into two. Hardening part in one and
+>> the cleanup in a separate patch. This way I can get the hardening fix
+>> into 4.10 in my next Kselftest update. Cleanup patch can go in later.
 >>
->> A patch set to port dwc_eth_qos to stmmac is at this moment under review:
->>
->> https://urldefense.proofpoint.com/v2/url?u=http-3A__patchwork.ozlabs.org_patch_711428_&d=DgIDAw&c=DPL6_X_6JkXFx7AXWqB0tg&r=s2fO0hii0OGNOv9qQy_HRXy-xAJUD1NNoEcc3io_kx0&m=E0wkLvWGNBx49Zdq7Jw5toxfcwI9r7MBBbcTea28AL0&s=P71GK8K8tyGjenB4tDVyKfCuZF9cZiFBBpdeX8PQtEM&e= 
->> https://urldefense.proofpoint.com/v2/url?u=http-3A__patchwork.ozlabs.org_patch_711438_&d=DgIDAw&c=DPL6_X_6JkXFx7AXWqB0tg&r=s2fO0hii0OGNOv9qQy_HRXy-xAJUD1NNoEcc3io_kx0&m=E0wkLvWGNBx49Zdq7Jw5toxfcwI9r7MBBbcTea28AL0&s=fj787JEefx7cddQAe7g604tMtvDlVzYj3kQKy80Gym0&e= 
->> https://urldefense.proofpoint.com/v2/url?u=http-3A__patchwork.ozlabs.org_patch_711439_&d=DgIDAw&c=DPL6_X_6JkXFx7AXWqB0tg&r=s2fO0hii0OGNOv9qQy_HRXy-xAJUD1NNoEcc3io_kx0&m=E0wkLvWGNBx49Zdq7Jw5toxfcwI9r7MBBbcTea28AL0&s=Cyy9ySM6LNgkQ07OsIYE8KnD1h1DruhCKLxH6W3_1VY&e= 
->>
->> Niklas has tested it and it works well, so after the patches are upstreamed the
->> dwc_eth_qos will be removed as agreed with Lars.
->>
->> Thanks.
->>
+>> thanks,
+>> -- Shuah
 > 
-> Thanks for the heads up, I'll wait, adjust my bindings and retest then.
+> I'm a little confused by the comments above.
+> 
+> Dan's suggestion was that I could have used some other
+> tool to generate the code, rather than hand-crafting it as I did.
+> In his last message, he suggests that it may be ok to leave
+> the hand-crafted version as is (for now), as well.
+> 
+> To make it clear:
+> the current v3 version *is* the "hardening" part. Dan's suggestion is
+> that the hand-crafted version can be replaced by bpf_asm generated code
+> later. That would be the "cleanup" part, which I was going to do in a
+> later commit.
+> 
+> Does that help?
+> 
+> --Sowmini
+> 
 
-Great! Thanks!
+Let's try this again. I want to see a separate patch for the
+filter cleanup. I don't want that included in the non-udp packet
+check. Please address the readability review comments from me and
+Daniel when you send your next version.
 
-> 
->    Nathan
-> 
->>>
->>>>
->>>> Thanks,
->>>>
->>>>    Nathan
->>>>
->>>>
->>>
->>
+thanks,
+-- Shuah
