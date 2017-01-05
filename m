@@ -1,199 +1,339 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [net-next PATCH v2 5/6] i40e: Add TX and RX support in switchdev
- mode.
-Date: Thu, 5 Jan 2017 13:56:56 +0100
-Message-ID: <20170105125656.GB2211@nanopsycho>
-References: <1483466874-2962-1-git-send-email-sridhar.samudrala@intel.com>
- <1483466874-2962-6-git-send-email-sridhar.samudrala@intel.com>
+From: Lars Persson <lars.persson@axis.com>
+Subject: Re: [PATCH v3 3/3] stmmac: adding new glue driver dwmac-dwc-qos-eth
+Date: Thu, 5 Jan 2017 13:11:54 +0000
+Message-ID: <6A85EDB6-21CC-49D5-9752-C08537E7C9D9@axis.com>
+References: <cover.1483546363.git.jpinto@synopsys.com>
+ <f72953efa2d6a42975b553a6b517c63480f4650b.1483546363.git.jpinto@synopsys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: alexander.h.duyck@intel.com, john.r.fastabend@intel.com,
-        anjali.singhai@intel.com, jakub.kicinski@netronome.com,
-        davem@davemloft.net, intel-wired-lan@lists.osuosl.org,
-        netdev@vger.kernel.org
-To: Sridhar Samudrala <sridhar.samudrala@intel.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+        Niklas Cassel <niklass@axis.com>,
+        "swarren@nvidia.com" <swarren@nvidia.com>,
+        "treding@nvidia.com" <treding@nvidia.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Joao Pinto <Joao.Pinto@synopsys.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:34460 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754060AbdAEM5A (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2017 07:57:00 -0500
-Received: by mail-wm0-f67.google.com with SMTP id c85so58046123wmi.1
-        for <netdev@vger.kernel.org>; Thu, 05 Jan 2017 04:56:59 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1483466874-2962-6-git-send-email-sridhar.samudrala@intel.com>
+Received: from bastet.se.axis.com ([195.60.68.11]:38977 "EHLO
+        bastet.se.axis.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S936984AbdAENMU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2017 08:12:20 -0500
+In-Reply-To: <f72953efa2d6a42975b553a6b517c63480f4650b.1483546363.git.jpinto@synopsys.com>
+Content-Language: en-US
+Content-ID: <1A45C6D4CAD6794F8294163907B75CA0@exhub.se.axis.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Jan 03, 2017 at 07:07:53PM CET, sridhar.samudrala@intel.com wrote:
->In switchdev mode, broadcast filter is not enabled on VFs. The broadcasts and
->unknown frames from VFs are received by the PF and passed to corresponding VF
->port representator netdev.
->A host based switching entity like a linux bridge or OVS redirects these frames
->to the right VFs via VFPR netdevs. Any frames sent via VFPR netdevs are sent as
->directed transmits to the corresponding VFs. To enable directed transmit, skb
->metadata dst is used to pass the VF id and the frame is requeued to call the PFs
->transmit routine.
->
->Small script to demonstrate inter VF pings in switchdev mode.
->PF: enp5s0f0, VFs: enp5s2,enp5s2f1 VFPRs:enp5s0f0-vf0, enp5s0f0-vf1
->
-># rmmod i40e; modprobe i40e
-># devlink dev eswitch set pci/0000:05:00.0 mode switchdev
-># echo 2 > /sys/class/net/enp5s0f0/device/sriov_numvfs
-># ip link set enp5s0f0 vf 0 mac 00:11:22:33:44:55
-># ip link set enp5s0f0 vf 1 mac 00:11:22:33:44:56
-># rmmod i40evf; modprobe i40evf
->
->/* Create 2 namespaces and move the VFs to the corresponding ns. */
-># ip netns add ns0
-># ip link set enp5s2 netns ns0
-># ip netns exec ns0 ip addr add 192.168.1.10/24 dev enp5s2
-># ip netns exec ns0 ip link set enp5s2 up
-># ip netns add ns1
-># ip link set enp5s2f1 netns ns1
-># ip netns exec ns1 ip addr add 192.168.1.11/24 dev enp5s2f1
-># ip netns exec ns1 ip link set enp5s2f1 up
->
->/* bring up pf and vfpr netdevs */
-># ip link set enp5s0f0 up
-># ip link set enp5s0f0-vf0 up
-># ip link set enp5s0f0-vf1 up
->
->/* Create a linux bridge and add vfpr netdevs to it. */
-># ip link add vfpr-br type bridge
-># ip link set enp5s0f0-vf0 master vfpr-br
-># ip link set enp5s0f0-vf1 master vfpr-br
-># ip addr add 192.168.1.1/24 dev vfpr-br
-># ip link set vfpr-br up
->
-># ip netns exec ns0 ping -c3 192.168.1.11
-># ip netns exec ns1 ping -c3 192.168.1.10
->
->Signed-off-by: Sridhar Samudrala <sridhar.samudrala@intel.com>
 
-[...]
-
->diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
->index 352cf7c..b46ddaa 100644
->--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
->+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
->@@ -1176,16 +1176,37 @@ static bool i40e_alloc_mapped_page(struct i40e_ring *rx_ring,
->  * @rx_ring:  rx ring in play
->  * @skb: packet to send up
->  * @vlan_tag: vlan tag for packet
->+ * @lpbk: is it a loopback frame?
->  **/
-> static void i40e_receive_skb(struct i40e_ring *rx_ring,
->-			     struct sk_buff *skb, u16 vlan_tag)
->+			     struct sk_buff *skb, u16 vlan_tag, bool lpbk)
-> {
-> 	struct i40e_q_vector *q_vector = rx_ring->q_vector;
->+	struct i40e_pf *pf = rx_ring->vsi->back;
->+	struct i40e_vf *vf;
->+	struct ethhdr *eth;
->+	int vf_id;
+> On 04 Jan 2017, at 17:22 , Joao Pinto <Joao.Pinto@synopsys.com> wrote:
 > 
-> 	if ((rx_ring->netdev->features & NETIF_F_HW_VLAN_CTAG_RX) &&
-> 	    (vlan_tag & VLAN_VID_MASK))
-> 		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), vlan_tag);
+> This patch adds a new glue driver called dwmac-dwc-qos-eth which
+> was based in the dwc_eth_qos as is. To assure retro-compatibility a slight
+> tweak was also added to stmmac_platform.
 > 
->+	if ((pf->eswitch_mode == DEVLINK_ESWITCH_MODE_LEGACY) || !lpbk)
->+		goto gro_receive;
->+
->+	/* If a loopback packet is received from a VF in switchdev mode, pass the
->+	 * frame to the corresponding VFPR netdev based on the source MAC in the frame.
->+	 */
->+	eth = (struct ethhdr *)skb_mac_header(skb);
->+	for (vf_id = 0; vf_id < pf->num_alloc_vfs; vf_id++) {
->+		vf = &pf->vf[vf_id];
->+		if (ether_addr_equal(eth->h_source, vf->default_lan_addr.addr)) {
->+			skb->dev = vf->vfpr_netdev;
+> Signed-off-by: Joao Pinto <jpinto@synopsys.com>
+> ---
+> changes v2 -> v3:
+> - Nothing changed, just to keep up patch set version
+> changes v1 -> v2:
+> - WOL was not declared in the new glue driver
+> - clocks were switched and now fixed (apb_pclk and phy_ref_clk)
+> 
+> .../bindings/net/snps,dwc-qos-ethernet.txt         |   3 +
+> drivers/net/ethernet/stmicro/stmmac/Kconfig        |   9 +
+> drivers/net/ethernet/stmicro/stmmac/Makefile       |   1 +
+> .../ethernet/stmicro/stmmac/dwmac-dwc-qos-eth.c    | 200 +++++++++++++++++++++
+> .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |  15 +-
+> 5 files changed, 225 insertions(+), 3 deletions(-)
+> create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac-dwc-qos-eth.c
+> 
+> diff --git a/Documentation/devicetree/bindings/net/snps,dwc-qos-ethernet.txt b/Documentation/devicetree/bindings/net/snps,dwc-qos-ethernet.txt
+> index d93f71c..21d27aa 100644
+> --- a/Documentation/devicetree/bindings/net/snps,dwc-qos-ethernet.txt
+> +++ b/Documentation/devicetree/bindings/net/snps,dwc-qos-ethernet.txt
+> @@ -1,5 +1,8 @@
+> * Synopsys DWC Ethernet QoS IP version 4.10 driver (GMAC)
+> 
+> +This binding is deprecated, but it continues to be supported, but new
+> +features should be preferably added to the stmmac binding document.
+> +
+> This binding supports the Synopsys Designware Ethernet QoS (Quality Of Service)
+> IP block. The IP supports multiple options for bus type, clocking and reset
+> structure, and feature list. Consequently, a number of properties and list
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/Kconfig b/drivers/net/ethernet/stmicro/stmmac/Kconfig
+> index ab66248..99594e3 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/Kconfig
+> +++ b/drivers/net/ethernet/stmicro/stmmac/Kconfig
+> @@ -29,6 +29,15 @@ config STMMAC_PLATFORM
+> 
+> if STMMAC_PLATFORM
+> 
+> +config DWMAC_DWC_QOS_ETH
+> +	tristate "Support for snps,dwc-qos-ethernet.txt DT binding."
+> +	select PHYLIB
+> +	select CRC32
+> +	select MII
+> +	depends on OF && HAS_DMA
+> +	help
+> +	  Support for chips using the snps,dwc-qos-ethernet.txt DT binding.
+> +
+> config DWMAC_GENERIC
+> 	tristate "Generic driver for DWMAC"
+> 	default STMMAC_PLATFORM
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/Makefile b/drivers/net/ethernet/stmicro/stmmac/Makefile
+> index 8f83a86..700c603 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/Makefile
+> +++ b/drivers/net/ethernet/stmicro/stmmac/Makefile
+> @@ -16,6 +16,7 @@ obj-$(CONFIG_DWMAC_SOCFPGA)	+= dwmac-altr-socfpga.o
+> obj-$(CONFIG_DWMAC_STI)		+= dwmac-sti.o
+> obj-$(CONFIG_DWMAC_STM32)	+= dwmac-stm32.o
+> obj-$(CONFIG_DWMAC_SUNXI)	+= dwmac-sunxi.o
+> +obj-$(CONFIG_DWMAC_DWC_QOS_ETH)	+= dwmac-dwc-qos-eth.o
+> obj-$(CONFIG_DWMAC_GENERIC)	+= dwmac-generic.o
+> stmmac-platform-objs:= stmmac_platform.o
+> dwmac-altr-socfpga-objs := altr_tse_pcs.o dwmac-socfpga.o
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-dwc-qos-eth.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-dwc-qos-eth.c
+> new file mode 100644
+> index 0000000..4532a7c
+> --- /dev/null
+> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-dwc-qos-eth.c
+> @@ -0,0 +1,200 @@
+> +/*
+> + * Synopsys DWC Ethernet Quality-of-Service v4.10a linux driver
+> + *
+> + * Copyright (C) 2016 Joao Pinto <jpinto@synopsys.com>
+> + *
+> + * This program is free software; you can redistribute it and/or modify
+> + * it under the terms of the GNU General Public License version 2 as
+> + * published by the Free Software Foundation.
+> + *
+> + * You should have received a copy of the GNU General Public License
+> + * along with this program. If not, see <http://www.gnu.org/licenses/>.
+> + */
+> +
+> +#include <linux/clk.h>
+> +#include <linux/clk-provider.h>
+> +#include <linux/device.h>
+> +#include <linux/ethtool.h>
+> +#include <linux/io.h>
+> +#include <linux/ioport.h>
+> +#include <linux/module.h>
+> +#include <linux/of_net.h>
+> +#include <linux/mfd/syscon.h>
+> +#include <linux/platform_device.h>
+> +#include <linux/stmmac.h>
+> +
+> +#include "stmmac_platform.h"
+> +
+> +static int dwc_eth_dwmac_config_dt(struct platform_device *pdev,
+> +				   struct plat_stmmacenet_data *plat_dat)
+> +{
+> +	struct device_node *np = pdev->dev.of_node;
+> +	u32 burst_map = 0;
+> +	u32 bit_index = 0;
+> +	u32 a_index = 0;
+> +
+> +	if (!plat_dat->axi) {
+> +		plat_dat->axi = kzalloc(sizeof(struct stmmac_axi), GFP_KERNEL);
+> +
+> +		if (!plat_dat->axi)
+> +			return -ENOMEM;
+> +	}
+> +
+> +	plat_dat->axi->axi_lpi_en = of_property_read_bool(np, "snps,en-lpi");
+> +	if (of_property_read_u32(np, "snps,write-requests",
+> +				 &plat_dat->axi->axi_wr_osr_lmt)) {
+> +		/**
+> +		 * Since the register has a reset value of 1, if property
+> +		 * is missing, default to 1.
+> +		 */
+> +		plat_dat->axi->axi_wr_osr_lmt = 1;
+> +	} else {
+> +		/**
+> +		 * If property exists, to keep the behavior from dwc_eth_qos,
+> +		 * subtract one after parsing.
+> +		 */
+> +		plat_dat->axi->axi_wr_osr_lmt--;
+> +	}
+> +
+> +	if (of_property_read_u32(np, "read,read-requests",
+> +				 &plat_dat->axi->axi_rd_osr_lmt)) {
+> +		/**
+> +		 * Since the register has a reset value of 1, if property
+> +		 * is missing, default to 1.
+> +		 */
+> +		plat_dat->axi->axi_rd_osr_lmt = 1;
+> +	} else {
+> +		/**
+> +		 * If property exists, to keep the behavior from dwc_eth_qos,
+> +		 * subtract one after parsing.
+> +		 */
+> +		plat_dat->axi->axi_rd_osr_lmt--;
+> +	}
+> +	of_property_read_u32(np, "snps,burst-map", &burst_map);
+> +
+> +	/* converts burst-map bitmask to burst array */
+> +	for (bit_index = 0; bit_index < 7; bit_index++) {
+> +		if (burst_map & (1 << bit_index)) {
+> +			switch (bit_index) {
+> +			case 0:
+> +			plat_dat->axi->axi_blen[a_index] = 4; break;
+> +			case 1:
+> +			plat_dat->axi->axi_blen[a_index] = 8; break;
+> +			case 2:
+> +			plat_dat->axi->axi_blen[a_index] = 16; break;
+> +			case 3:
+> +			plat_dat->axi->axi_blen[a_index] = 32; break;
+> +			case 4:
+> +			plat_dat->axi->axi_blen[a_index] = 64; break;
+> +			case 5:
+> +			plat_dat->axi->axi_blen[a_index] = 128; break;
+> +			case 6:
+> +			plat_dat->axi->axi_blen[a_index] = 256; break;
+> +			default:
+> +			break;
+> +			}
+> +			a_index++;
+> +		}
+> +	}
+> +
+> +	/* dwc-qos needs GMAC4, AAL, TSO and PMT */
+> +	plat_dat->has_gmac4 = 1;
+> +	plat_dat->dma_cfg->aal = 1;
+> +	plat_dat->tso_en = 1;
+> +	plat_dat->pmt = 1;
+> +
+> +	return 0;
+> +}
+> +
+> +static int dwc_eth_dwmac_probe(struct platform_device *pdev)
+> +{
+> +	struct plat_stmmacenet_data *plat_dat;
+> +	struct stmmac_resources stmmac_res;
 
-This sucks :( Is't there any identification coming from rx ring that
-would tell you what vf this is? To match vrpr according to a single MAC
-address seems a bit awkward. What if there is a macvlan configured
-on the VF?
+We should initialise the entire stmmac_res with zeros. Right now we leave lpi_irq with an undefined value.
 
-
-
->+			break;
->+		}
->+	}
->+
->+gro_receive:
-> 	napi_gro_receive(&q_vector->napi, skb);
-> }
+> +	struct resource *res;
+> +	int ret;
+> +
+> +	/**
+> +	 * Since stmmac_platform supports name IRQ only, basic platform
+> +	 * resource initialization is done in the glue logic.
+> +	 */
+> +	stmmac_res.irq = platform_get_irq(pdev, 0);
+> +	if (stmmac_res.irq < 0) {
+> +		if (stmmac_res.irq != -EPROBE_DEFER) {
+> +			dev_err(&pdev->dev,
+> +				"IRQ configuration information not found\n");
+> +		}
+> +		return stmmac_res.irq;
+> +	}
+> +	stmmac_res.wol_irq = stmmac_res.irq;
+> +
+> +	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+> +	stmmac_res.addr = devm_ioremap_resource(&pdev->dev, res);
+> +	if (IS_ERR(stmmac_res.addr))
+> +		return PTR_ERR(stmmac_res.addr);
+> +
+> +	plat_dat = stmmac_probe_config_dt(pdev, &stmmac_res.mac);
+> +	if (IS_ERR(plat_dat))
+> +		return PTR_ERR(plat_dat);
+> +
+> +	plat_dat->stmmac_clk = devm_clk_get(&pdev->dev, "apb_pclk");
+> +	if (IS_ERR(plat_dat->stmmac_clk)) {
+> +		dev_err(&pdev->dev, "apb_pclk clock not found.\n");
+> +		ret = PTR_ERR(plat_dat->stmmac_clk);
+> +		plat_dat->stmmac_clk = NULL;
+> +		goto err_remove_config_dt;
+> +	}
+> +	clk_prepare_enable(plat_dat->stmmac_clk);
+> +
+> +	plat_dat->pclk = devm_clk_get(&pdev->dev, "phy_ref_clk");
+> +	if (IS_ERR(plat_dat->pclk)) {
+> +		dev_err(&pdev->dev, "phy_ref_clk clock not found.\n");
+> +		ret = PTR_ERR(plat_dat->pclk);
+> +		plat_dat->pclk = NULL;
+> +		goto err_out_clk_dis_phy;
+> +	}
+> +	clk_prepare_enable(plat_dat->pclk);
+> +
+> +	ret = dwc_eth_dwmac_config_dt(pdev, plat_dat);
+> +	if (ret)
+> +		goto err_out_clk_dis_aper;
+> +
+> +	ret = stmmac_dvr_probe(&pdev->dev, plat_dat, &stmmac_res);
+> +	if (ret)
+> +		goto err_out_clk_dis_aper;
+> +
+> +	return 0;
+> +
+> +err_out_clk_dis_aper:
+> +	clk_disable_unprepare(plat_dat->pclk);
+> +err_out_clk_dis_phy:
+> +	clk_disable_unprepare(plat_dat->stmmac_clk);
+> +err_remove_config_dt:
+> +	stmmac_remove_config_dt(pdev, plat_dat);
+> +
+> +	return ret;
+> +}
+> +
+> +static int dwc_eth_dwmac_remove(struct platform_device *pdev)
+> +{
+> +	return stmmac_pltfr_remove(pdev);
+> +}
+> +
+> +static const struct of_device_id dwc_eth_dwmac_match[] = {
+> +	{ .compatible = "snps,dwc-qos-ethernet-4.10", },
+> +	{ }
+> +};
+> +MODULE_DEVICE_TABLE(of, dwc_eth_dwmac_match);
+> +
+> +static struct platform_driver dwc_eth_dwmac_driver = {
+> +	.probe  = dwc_eth_dwmac_probe,
+> +	.remove = dwc_eth_dwmac_remove,
+> +	.driver = {
+> +		.name           = "dwc-eth-dwmac",
+> +		.of_match_table = dwc_eth_dwmac_match,
+> +	},
+> +};
+> +module_platform_driver(dwc_eth_dwmac_driver);
+> +
+> +MODULE_AUTHOR("Joao Pinto <jpinto@synopsys.com>");
+> +MODULE_DESCRIPTION("Synopsys DWC Ethernet Quality-of-Service v4.10a driver");
+> +MODULE_LICENSE("GPL v2");
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> index 4e44f9c..00c0f8d 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+> @@ -181,10 +181,19 @@ static int stmmac_dt_phy(struct plat_stmmacenet_data *plat,
+> 		mdio = false;
+> 	}
+> 
+> -	/* If snps,dwmac-mdio is passed from DT, always register the MDIO */
+> -	for_each_child_of_node(np, plat->mdio_node) {
+> -		if (of_device_is_compatible(plat->mdio_node, "snps,dwmac-mdio"))
+> +	/* exception for dwmac-dwc-qos-eth glue logic */
+> +	if (of_device_is_compatible(np, "snps,dwc-qos-ethernet-4.10")) {
+> +		plat->mdio_node = of_get_child_by_name(np, "mdio");
+> +	} else {
+> +		/**
+> +		 * If snps,dwmac-mdio is passed from DT, always register
+> +		 * the MDIO
+> +		 */
+> +		for_each_child_of_node(np, plat->mdio_node) {
+> +			if (of_device_is_compatible(plat->mdio_node,
+> +						    "snps,dwmac-mdio"))
+> 			break;
+> +		}
+> 	}
+> 
+> 	if (plat->mdio_node) {
+> -- 
+> 2.9.3
 > 
 
-[...]
+Hi Joao
 
->@@ -2998,3 +3064,19 @@ netdev_tx_t i40e_lan_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
-> 
-> 	return i40e_xmit_frame_ring(skb, tx_ring);
-> }
->+
->+netdev_tx_t i40e_vfpr_netdev_start_xmit(struct sk_buff *skb,
->+				        struct net_device *dev)
->+{
->+	struct i40e_vfpr_netdev_priv *priv = netdev_priv(dev);
->+	struct i40e_vf *vf = priv->vf;
->+	struct i40e_pf *pf = vf->pf;
->+	struct i40e_vsi *vsi = pf->vsi[pf->lan_vsi];
->+
->+	skb_dst_drop(skb);
->+	dst_hold(&priv->vfpr_dst->dst);
->+	skb_dst_set(skb, &priv->vfpr_dst->dst);
->+	skb->dev = vsi->netdev;
+See one comment inline in the patch.
 
-This dst dance seems a bit odd to me. Why don't you just call
-i40e_xmit_frame_ring with an extra arg holding the needed metadata?
-
-
->+
->+	return dev_queue_xmit(skb);
->+}
->diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.h b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
->index e065321..850723f 100644
->--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.h
->+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
->@@ -366,6 +366,7 @@ struct i40e_ring_container {
-> 
-> bool i40e_alloc_rx_buffers(struct i40e_ring *rxr, u16 cleaned_count);
-> netdev_tx_t i40e_lan_xmit_frame(struct sk_buff *skb, struct net_device *netdev);
->+netdev_tx_t i40e_vfpr_netdev_start_xmit(struct sk_buff *skb, struct net_device *netdev);
-> void i40e_clean_tx_ring(struct i40e_ring *tx_ring);
-> void i40e_clean_rx_ring(struct i40e_ring *rx_ring);
-> int i40e_setup_tx_descriptors(struct i40e_ring *tx_ring);
->diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
->index edc0abd..c136cc9 100644
->--- a/drivers/net/ethernet/intel/i40e/i40e_type.h
->+++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
->@@ -728,6 +728,9 @@ enum i40e_rx_desc_status_bits {
-> #define I40E_RXD_QW1_STATUS_TSYNVALID_SHIFT  I40E_RX_DESC_STATUS_TSYNVALID_SHIFT
-> #define I40E_RXD_QW1_STATUS_TSYNVALID_MASK \
-> 				    BIT_ULL(I40E_RXD_QW1_STATUS_TSYNVALID_SHIFT)
->+#define I40E_RXD_QW1_STATUS_LPBK_SHIFT  I40E_RX_DESC_STATUS_LPBK_SHIFT
->+#define I40E_RXD_QW1_STATUS_LPBK_MASK \
->+				BIT_ULL(I40E_RXD_QW1_STATUS_LPBK_SHIFT)
-> 
-> enum i40e_rx_desc_fltstat_values {
-> 	I40E_RX_DESC_FLTSTAT_NO_DATA	= 0,
->diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
->index 0c8687d..f0860ef 100644
->--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
->+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
->@@ -1062,6 +1062,7 @@ static int i40e_vfpr_netdev_stop(struct net_device *dev)
-> static const struct net_device_ops i40e_vfpr_netdev_ops = {
-> 	.ndo_open       	= i40e_vfpr_netdev_open,
-> 	.ndo_stop       	= i40e_vfpr_netdev_stop,
->+	.ndo_start_xmit		= i40e_vfpr_netdev_start_xmit,
-> };
-> 
-> /**
->@@ -1121,16 +1122,22 @@ int i40e_alloc_vfpr_netdev(struct i40e_vf *vf, u16 vf_num)
-> 
-> 	priv = netdev_priv(vfpr_netdev);
-> 	priv->vf = &(pf->vf[vf_num]);
->+	priv->vfpr_dst = metadata_dst_alloc(0, METADATA_HW_PORT_MUX, GFP_KERNEL);
-
-I'm missing a patch here. In net-next, metadata_dst_alloc has 2 args.
+- Lars
