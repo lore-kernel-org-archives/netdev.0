@@ -1,57 +1,43 @@
-From: Daniel Mack <daniel@zonque.org>
-Subject: Re: [PATCH v1 1/2] bpf: add a longest prefix match trie map
- implementation
-Date: Thu, 5 Jan 2017 21:14:42 +0100
-Message-ID: <2edd2b2b-a89e-0df0-c1dc-fdaee2315597@zonque.org>
-References: <20161229172855.14910-1-daniel@zonque.org>
- <20161229172855.14910-2-daniel@zonque.org> <586E7366.1010708@iogearbox.net>
- <586EA627.6020404@iogearbox.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] tg3: Avoid NULL pointer dereference in tg3_get_nstats()
+Date: Thu, 05 Jan 2017 15:17:05 -0500 (EST)
+Message-ID: <20170105.151705.2187713228201334532.davem@davemloft.net>
+References: <1483625601-10552-1-git-send-email-wangyufen@huawei.com>
+        <20170105.123337.2237827308340782208.davem@davemloft.net>
+        <CACKFLimPkD6hxECA+ZhH+7BVmVSoJ1GfAMZyJ7S50CbhiuC0mA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: dh.herrmann@gmail.com, netdev@vger.kernel.org, davem@davemloft.net
-To: Daniel Borkmann <daniel@iogearbox.net>, ast@fb.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: wangyufen@huawei.com, siva.kallam@broadcom.com,
+        prashant@broadcom.com, mchan@broadcom.com, netdev@vger.kernel.org
+To: michael.chan@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from svenfoo.org ([82.94.215.22]:34990 "EHLO mail.zonque.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1033332AbdAEUOp (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 5 Jan 2017 15:14:45 -0500
-In-Reply-To: <586EA627.6020404@iogearbox.net>
+Received: from shards.monkeyblade.net ([184.105.139.130]:49406 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753722AbdAEURI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2017 15:17:08 -0500
+In-Reply-To: <CACKFLimPkD6hxECA+ZhH+7BVmVSoJ1GfAMZyJ7S50CbhiuC0mA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Michael Chan <michael.chan@broadcom.com>
+Date: Thu, 5 Jan 2017 12:04:13 -0800
 
-On 01/05/2017 09:01 PM, Daniel Borkmann wrote:
-> On 01/05/2017 05:25 PM, Daniel Borkmann wrote:
->> On 12/29/2016 06:28 PM, Daniel Mack wrote:
+> But it looks like ndo_get_stats() can be called without rtnl lock from
+> net-procfs.c.  So it is possible that we'll read tp->hw_stats after it
+> has been freed.  For example, if we are reading /proc/net/dev and
+> closing tg3 at the same time.  David, is not taking rtnl_lock in
+> net-procfs.c by design?
 
-> [...]
->>> +static struct bpf_map *trie_alloc(union bpf_attr *attr)
->>> +{
->>> +    struct lpm_trie *trie;
->>> +
->>> +    /* check sanity of attributes */
->>> +    if (attr->max_entries == 0 || attr->map_flags ||
->>> +        attr->key_size < sizeof(struct bpf_lpm_trie_key) + 1   ||
->>> +        attr->key_size > sizeof(struct bpf_lpm_trie_key) + 256 ||
->>> +        attr->value_size != sizeof(u64))
->>> +        return ERR_PTR(-EINVAL);
-> 
-> One more question on this regarding value size as u64 (perhaps I
-> missed it along the way): reason this was chosen was because for
-> keeping stats? Why not making user choose a size as in other maps,
-> so also custom structs could be stored there?
+Probably not, that dev_get_stats() call probably should be surrounded
+by RTNL protection.
 
-In my use case, the actual value of a node is in fact ignored, all that
-matters is whether a node exists in a trie or not. The test code uses
-u64 for its tests.
+Doing a quick grep on dev_get_stats() shows other call sites, most of
+which are using it to fetch slave device statistics from the get stats
+method of the parent.  Which should be ok.
 
-I can change it around so that the value size can be defined by
-userspace, but ideally it would also support 0-byte lengths then. The
-bpf map syscall handler should handle the latter just fine if I read the
-code correctly?
+It appears that the vlan procfs code in net/8021q/vlanproc.c has a
+similar bug as net/core/net-procfs.c
 
-
-Thanks,
-Daniel
+Maybe net/core/net-sysfs.c has the same issue as well, and perhaps also
+net/openvswitch/vport.c:ovs_vport_get_stats().
