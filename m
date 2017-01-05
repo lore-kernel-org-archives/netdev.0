@@ -1,72 +1,107 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] packet: fix panic in __packet_set_timestamp on
- tpacket_v3 in tx mode
-Date: Thu, 05 Jan 2017 10:27:52 -0800
-Message-ID: <1483640872.9712.1.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1483580068-13854-1-git-send-email-daniel@iogearbox.net>
+From: Nathan Sullivan <nathan.sullivan@ni.com>
+Subject: Re: [PATCH] MIPS: NI 169445 board support
+Date: Thu, 5 Jan 2017 12:44:42 -0600
+Message-ID: <20170105184442.GA9424@nathan3500-linux-VM>
+References: <1480693329-22265-1-git-send-email-nathan.sullivan@ni.com>
+ <20161220163434.GA15962@linux-mips.org>
+ <20170104163836.GA18069@nathan3500-linux-VM>
+ <5d5a087f-68ec-e633-0232-0248edf11ee0@axis.com>
+ <8fd70ecb-36fc-7cc7-7795-cd4dccabf8b9@synopsys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, sowmini.varadhan@oracle.com,
-        willemb@google.com, netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:34946 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750770AbdAEShk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2017 13:37:40 -0500
-Received: by mail-pg0-f67.google.com with SMTP id i5so41460948pgh.2
-        for <netdev@vger.kernel.org>; Thu, 05 Jan 2017 10:36:58 -0800 (PST)
-In-Reply-To: <1483580068-13854-1-git-send-email-daniel@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8bit
+Cc: Niklas Cassel <niklas.cassel@axis.com>,
+        Ralf Baechle <ralf@linux-mips.org>,
+        <linux-mips@linux-mips.org>, <davem@davemloft.net>,
+        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        Lars Persson <larper@axis.com>
+To: Joao Pinto <Joao.Pinto@synopsys.com>
+Return-path: <linux-mips-bounce@linux-mips.org>
+Content-Disposition: inline
+In-Reply-To: <8fd70ecb-36fc-7cc7-7795-cd4dccabf8b9@synopsys.com>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
+List-help: <mailto:ecartis@linux-mips.org?Subject=help>
+List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
+List-software: Ecartis version 1.0.0
+List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
+List-owner: <mailto:ralf@linux-mips.org>
+List-post: <mailto:linux-mips@linux-mips.org>
+List-archive: <http://www.linux-mips.org/archives/linux-mips/>
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2017-01-05 at 02:34 +0100, Daniel Borkmann wrote:
-> When TX timestamping is in use with TPACKET_V3's TX ring, then we'll
-> hit the BUG() in __packet_set_timestamp() when ring buffer slot is
-> returned to user space via tpacket_destruct_skb(). This is due to v3
-> being assumed as unreachable here, but since 7f953ab2ba46 ("af_packet:
-> TX_RING support for TPACKET_V3") it's not anymore. Fix it by filling
-> the timestamp back into the ring slot.
+On Thu, Jan 05, 2017 at 06:33:53PM +0000, Joao Pinto wrote:
+> Hi,
 > 
-> Fixes: 7f953ab2ba46 ("af_packet: TX_RING support for TPACKET_V3")
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-> ---
->  net/packet/af_packet.c | 3 +++
->  1 file changed, 3 insertions(+)
+> Às 6:28 PM de 1/5/2017, Niklas Cassel escreveu:
+> > On 01/04/2017 05:38 PM, Nathan Sullivan wrote:
+> >> On Tue, Dec 20, 2016 at 05:34:34PM +0100, Ralf Baechle wrote:
+> >>> On Fri, Dec 02, 2016 at 09:42:09AM -0600, Nathan Sullivan wrote:
+> >>>> Date:   Fri, 2 Dec 2016 09:42:09 -0600
+> >>>> From: Nathan Sullivan <nathan.sullivan@ni.com>
+> >>>> To: ralf@linux-mips.org, mark.rutland@arm.com, robh+dt@kernel.org
+> >>>> CC: linux-mips@linux-mips.org, devicetree@vger.kernel.org,
+> >>>>  linux-kernel@vger.kernel.org, Nathan Sullivan <nathan.sullivan@ni.com>
+> >>>> Subject: [PATCH] MIPS: NI 169445 board support
+> >>>> Content-Type: text/plain
+> >>>>
+> >>>> Support the National Instruments 169445 board.
+> >>> Nathan,
+> >>>
+> >>> I assume you're going to repost the changes Rob asked for in
+> >>> https://urldefense.proofpoint.com/v2/url?u=https-3A__patchwork.linux-2Dmips.org_patch_14641_-2326924&d=DgICaQ&c=DPL6_X_6JkXFx7AXWqB0tg&r=s2fO0hii0OGNOv9qQy_HRXy-xAJUD1NNoEcc3io_kx0&m=5p7f9dIkvVVK4UFHimMpezq5NwIJfUpd08c-Zk4_c6c&s=_JwSwe4VFYtxV1tcYt6Z8r4hJX0xfoGhCixygUxlg5s&e=  and resubmit?
+> >>>
+> >>> Thanks,
+> >>>
+> >>>   Ralf
+> >> Hmm, I found the issue with the generic MIPS config and dwc_eth_qos.  The NIC
+> >> driver attempts to cache align a descriptor ring using the ___cacheline_aligned
+> >> attribute on the descriptor struct, in combination with a "skip" feature in
+> >> hardware.  However, the skip feature only has a three bit field, and the generic
+> >> MIPS config selects MIPS_L1_CACHE_SHIFT_7.  So, the line size is 128, and with a
+> >> 64-bit bus, that means the NIC descriptor skip field would need to be set to
+> >> 14 to align the 16-byte descriptors...
+> >>
+> >> I guess it makes sense for a generic MIPS kernel to align everything for 128 byte
+> >> cache lines, and for me to fix the dwc_eth_qos driver to handle cases where the
+> >> line size is too big for the hardware skip feature, right?
+> > 
+> > I don't know if you've been following the discussion regarding
+> > dwc_eth_qos on netdev, but Joao Pinto from Synopsys is
+> > planning on removing the driver (since the stmmac driver
+> > now supports the same version of the IP, together with older
+> > versions of the IP).
+> > 
+> > Since device tree bindings are treated as an ABI,
+> > Joao has implemented a glue layer for stmmac that parses
+> > the dwc_eth_qos binding, but uses stmmac under the hood.
+> > 
+> > You can use any of the bindings, but since the dwc_eth_qos
+> > binding will be marked as deprecated, you might want to
+> > consider moving to the stmmac binding.
 > 
-> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-> index 7e39087..ddbda25 100644
-> --- a/net/packet/af_packet.c
-> +++ b/net/packet/af_packet.c
-> @@ -481,6 +481,9 @@ static __u32 __packet_set_timestamp(struct packet_sock *po, void *frame,
->  		h.h2->tp_nsec = ts.tv_nsec;
->  		break;
->  	case TPACKET_V3:
-> +		h.h3->tp_sec = ts.tv_sec;
-> +		h.h3->tp_nsec = ts.tv_nsec;
-> +		break;
->  	default:
->  		WARN(1, "TPACKET version not supported.\n");
->  		BUG();
+> A patch set to port dwc_eth_qos to stmmac is at this moment under review:
+> 
+> http://patchwork.ozlabs.org/patch/711428/
+> http://patchwork.ozlabs.org/patch/711438/
+> http://patchwork.ozlabs.org/patch/711439/
+> 
+> Niklas has tested it and it works well, so after the patches are upstreamed the
+> dwc_eth_qos will be removed as agreed with Lars.
+> 
+> Thanks.
+>
 
-Gosh. Can we also replace this BUG() into something less aggressive ?
+Thanks for the heads up, I'll wait, adjust my bindings and retest then.
 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index b9e1a13b4ba36a0bc7edf6a8c2c116c7d48c970c..0c0d268544787dcbef6601c5014e7d3836d16f96 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -476,9 +476,11 @@ static __u32 __packet_set_timestamp(struct packet_sock *po, void *frame,
- 		h.h2->tp_nsec = ts.tv_nsec;
- 		break;
- 	case TPACKET_V3:
-+		h.h3->tp_sec = ts.tv_sec;
-+		h.h3->tp_nsec = ts.tv_nsec;
-+		break;
- 	default:
--		WARN(1, "TPACKET version not supported.\n");
--		BUG();
-+		pr_err_once("TPACKET version %u not supported.\n", po->tp_version);
- 	}
- 
- 	/* one flush is safe, as both fields always lie on the same cacheline */
+   Nathan
+
+> > 
+> >>
+> >> Thanks,
+> >>
+> >>    Nathan
+> >>
+> >>
+> > 
+> 
