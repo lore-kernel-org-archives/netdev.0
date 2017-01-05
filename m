@@ -1,59 +1,55 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next v4 0/2] Add support for the ethernet switch on
- the ESPRESSObin
-Date: Thu, 5 Jan 2017 15:52:25 +0100
-Message-ID: <20170105145225.GI4229@lunn.ch>
-References: <20161221125734.1034-1-romain.perier@free-electrons.com>
- <87tw9dbn2m.fsf@free-electrons.com>
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Subject: [PATCH v4 0/3] adding new glue driver dwmac-dwc-qos-eth
+Date: Thu, 5 Jan 2017 14:43:38 +0000
+Message-ID: <cover.1483626480.git.jpinto@synopsys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: Mark Rutland <mark.rutland@arm.com>, devicetree@vger.kernel.org,
- Florian Fainelli <f.fainelli@gmail.com>,
- Romain Perier <romain.perier@free-electrons.com>,
- Jason Cooper <jason@lakedaemon.net>, Pawel Moll <pawel.moll@arm.com>,
- Vivien Didelot <vivien.didelot@savoirfairelinux.com>, netdev@vger.kernel.org,
- Ian Campbell <ijc+devicetree@hellion.org.uk>,
- Nadav Haklai <nadavh@marvell.com>, Rob Herring <robh+dt@kernel.org>,
- Kumar Gala <galak@codeaurora.org>, David Miller <davem@redhat.com>,
- Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
- linux-arm-kernel@lists.infradead.org,
- Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-Content-Disposition: inline
-In-Reply-To: <87tw9dbn2m.fsf@free-electrons.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <lars.persson@axis.com>, <niklass@axis.com>, <swarren@nvidia.com>,
+        <treding@nvidia.com>, <netdev@vger.kernel.org>,
+        Joao Pinto <Joao.Pinto@synopsys.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay.synopsys.com ([198.182.60.111]:49256 "EHLO
+        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1759105AbdAEOyW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2017 09:54:22 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 05, 2017 at 03:25:53PM +0100, Gregory CLEMENT wrote:
-> Hi David,
->  =
+This patch set contains the porting of the synopsys/dwc_eth_qos.c driver
+to the stmmac structure. This operation resulted in the creation of a new
+platform glue driver called dwmac-dwc-qos-eth which was based in the
+dwc_eth_qos as is.
 
->  On mer., d=E9c. 21 2016, Romain Perier <romain.perier@free-electrons.com=
-> wrote:
-> =
+dwmac-dwc-qos-eth inherited dwc_eth_qos DT bindings, to assure that current
+and old users can continue to use it as before. We can see this driver as
+being deprecated, since all new development will be done in stmmac.
 
-> > This set of patches adds support for the Marvell ethernet switch 88E634=
-1.
-> > It also add the devicetree definition of this switch to the DT board.
-> =
+Please check each patch for implementation details.
 
-> The forth version of this series had been sent while the net-next merge
-> window was closed so I think it was missed.
+Joao Pinto (3):
+  stmmac: adding DT parameter for LPI tx clock gating
+  stmmac: move stmmac_clk, pclk, clk_ptp_ref and stmmac_rst to platform
+    structure
+  stmmac: adding new glue driver dwmac-dwc-qos-eth
 
-Having done a bit more research, i'm pretty sure the second patch is
-wrong. The 88E6341 is not compatible with the 6352, it is a different
-family. It might be more like the 6390. So supporting it will need a
-side-by-side comparison of the datasheet against the 6352 and the
-6390, and the correct selection of the ops.
+ .../bindings/net/snps,dwc-qos-ethernet.txt         |   3 +
+ Documentation/devicetree/bindings/net/stmmac.txt   |   2 +
+ drivers/net/ethernet/stmicro/stmmac/Kconfig        |   9 +
+ drivers/net/ethernet/stmicro/stmmac/Makefile       |   1 +
+ drivers/net/ethernet/stmicro/stmmac/common.h       |   3 +-
+ .../ethernet/stmicro/stmmac/dwmac-dwc-qos-eth.c    | 202 +++++++++++++++++++++
+ .../net/ethernet/stmicro/stmmac/dwmac-socfpga.c    |   2 +-
+ .../net/ethernet/stmicro/stmmac/dwmac1000_core.c   |   5 +-
+ drivers/net/ethernet/stmicro/stmmac/dwmac4.h       |   1 +
+ drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c  |   6 +-
+ drivers/net/ethernet/stmicro/stmmac/stmmac.h       |   5 -
+ .../net/ethernet/stmicro/stmmac/stmmac_ethtool.c   |   4 +-
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |  85 ++-------
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |  65 ++++++-
+ include/linux/stmmac.h                             |   6 +
+ 15 files changed, 317 insertions(+), 82 deletions(-)
+ create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac-dwc-qos-eth.c
 
-      Andrew
+-- 
+2.9.3
