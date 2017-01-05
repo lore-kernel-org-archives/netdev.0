@@ -1,51 +1,41 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH net-next V2 0/3] net/sched: act_pedit: Use offset
- relative to conventional network headers
-Date: Thu, 5 Jan 2017 12:54:14 +0100
-Message-ID: <20170105125414.5640b1b8@griffin>
-References: <20170105095454.32644-1-amir@vadai.me>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [net-next PATCH v2 5/6] i40e: Add TX and RX support in switchdev mode.
+Date: Thu, 5 Jan 2017 14:08:54 +0200
+Message-ID: <CAJ3xEMiSt2a9rQYpjtu=o8YBA2YjPD=6nSwBnh5gfuseQwXCcQ@mail.gmail.com>
+References: <1483466874-2962-1-git-send-email-sridhar.samudrala@intel.com> <1483466874-2962-6-git-send-email-sridhar.samudrala@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Jiri Pirko <jiri@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Hadar Har-Zion <hadarh@mellanox.com>
-To: Amir Vadai <amir@vadai.me>
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+        Anjali Singhai Jain <anjali.singhai@intel.com>,
+        David Miller <davem@davemloft.net>,
+        intel-wired-lan@lists.osuosl.org,
+        Linux Netdev List <netdev@vger.kernel.org>
+To: Sridhar Samudrala <sridhar.samudrala@intel.com>,
+        jakub.kicinski@netronome.com,
+        John Fastabend <john.r.fastabend@intel.com>,
+        Jiri Pirko <jiri@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56780 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753625AbdAELyS (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 5 Jan 2017 06:54:18 -0500
-In-Reply-To: <20170105095454.32644-1-amir@vadai.me>
+Received: from mail-oi0-f66.google.com ([209.85.218.66]:34318 "EHLO
+        mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S970675AbdAEMI4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2017 07:08:56 -0500
+Received: by mail-oi0-f66.google.com with SMTP id 3so49874325oih.1
+        for <netdev@vger.kernel.org>; Thu, 05 Jan 2017 04:08:55 -0800 (PST)
+In-Reply-To: <1483466874-2962-6-git-send-email-sridhar.samudrala@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu,  5 Jan 2017 11:54:51 +0200, Amir Vadai wrote:
-> You asked me [1] why did I use specific header names instead of layers (L2, L3...),
-> and I explained that it is on purpose, this extra information is planned to be used
-> by hardware drivers to offload the action.
-> 
-> Some FW/HW parser APIs are such that they need to get the specific header type (e.g
-> IPV4 or IPV6, TCP or UDP) and not only the networking level (e.g network or transport).
+On Tue, Jan 3, 2017 at 8:07 PM, Sridhar Samudrala
+<sridhar.samudrala@intel.com> wrote:
+> A host based switching entity like a linux bridge or OVS redirects these frames
+> to the right VFs via VFPR netdevs. Any frames sent via VFPR netdevs are sent as
+> directed transmits to the corresponding VFs. To enable directed transmit, skb
+> metadata dst is used to pass the VF id and the frame is requeued to call the PFs
+> transmit routine.
 
-Don't we need better API specification (and enforcement) then, though?
-See below.
+Jakub/John, patch #4 which didn't appear in the list had a long discussion [1]
+ending  with "lets talk on it @ netdev", did we?
 
-> Usage example:
-> $ tc filter add dev enp0s9 protocol ip parent ffff: \
->    flower \
->      ip_proto tcp \
->     dst_port 80 \
->    action \
->        pedit munge ip ttl add 0xff \
->        pedit munge tcp dport set 8080 \
->      pipe action mirred egress redirect dev veth0
+Or.
 
-What happens when one does:
-
-tc filter add ... flower ip_proto udp action pedit munge tcp ...
-
-?
-
- Jiri
+[1] http://marc.info/?t=147457252900002&r=1&w=2
