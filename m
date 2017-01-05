@@ -1,73 +1,134 @@
-From: "Samudrala, Sridhar" <sridhar.samudrala@intel.com>
-Subject: Re: [net-next PATCH 5/6] i40e: Add TX and RX support in switchdev
- mode.
-Date: Thu, 05 Jan 2017 14:32:54 -0800
-Message-ID: <586EC996.9080205@intel.com>
-References: <1483078863-22026-1-git-send-email-sridhar.samudrala@intel.com> <1483078863-22026-6-git-send-email-sridhar.samudrala@intel.com> <CAJ3xEMgDAUSE2gVD3dU4UuXFb7k_W-9QgHpg-0c7b5kxRC2=FQ@mail.gmail.com> <586693A6.5090105@intel.com> <CAJ3xEMjGuKKge+_hqZPOg2fp3f50TdxGtbKFXwnCZ70rPxmuyw@mail.gmail.com> <586D7B4E.2010308@intel.com> <CAJ3xEMgAaXNbvaP0=GcuTsVOOGwPHuSMQf-SeLKpxB8WrbEvng@mail.gmail.com>
+From: Murali Karicheri <m-karicheri2@ti.com>
+Subject: Re: [PATCH net-next 01/10] net: netcp: ethss: add support of
+ subsystem register region regmap
+Date: Thu, 5 Jan 2017 17:08:54 -0500
+Message-ID: <586EC3F6.4010109@ti.com>
+References: <1482271793-7671-1-git-send-email-m-karicheri2@ti.com>
+ <1482271793-7671-2-git-send-email-m-karicheri2@ti.com>
+ <20161222212409.arhurpl4bpqf2yw6@rob-hp-laptop> <586EAFBE.1000500@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-        John Fastabend <john.r.fastabend@intel.com>,
-        Anjali Singhai Jain <anjali.singhai@intel.com>,
-        jakub.kicinski@netronome.com, intel-wired-lan@lists.osuosl.org,
-        Linux Netdev List <netdev@vger.kernel.org>
-To: Or Gerlitz <gerlitz.or@gmail.com>
+Cc: <netdev@vger.kernel.org>, <linux-omap@vger.kernel.org>,
+        <grygorii.strashko@ti.com>, <mugunthanvnm@ti.com>,
+        <linux-kernel@vger.kernel.org>, <arnd@arndb.de>,
+        <davem@davemloft.net>, <devicetree@vger.kernel.org>,
+        <mark.rutland@arm.com>
+To: Rob Herring <robh@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:59210 "EHLO mga11.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751091AbdAEWc4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 5 Jan 2017 17:32:56 -0500
-In-Reply-To: <CAJ3xEMgAaXNbvaP0=GcuTsVOOGwPHuSMQf-SeLKpxB8WrbEvng@mail.gmail.com>
+Received: from lelnx194.ext.ti.com ([198.47.27.80]:63513 "EHLO
+        lelnx194.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S936716AbdAEWJG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2017 17:09:06 -0500
+In-Reply-To: <586EAFBE.1000500@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-On 1/5/2017 3:50 AM, Or Gerlitz wrote:
-> On Thu, Jan 5, 2017 at 12:46 AM, Samudrala, Sridhar
-> <sridhar.samudrala@intel.com> wrote:
+On 01/05/2017 03:42 PM, Murali Karicheri wrote:
+> Rob,
+> 
+> On 12/22/2016 04:24 PM, Rob Herring wrote:
+>> On Tue, Dec 20, 2016 at 05:09:44PM -0500, Murali Karicheri wrote:
+>>> From: WingMan Kwok <w-kwok2@ti.com>
+>>>
+>>> 10gbe phy driver needs to access the 10gbe subsystem control
+>>> register during phy initialization. To facilitate the shared
+>>> access of the subsystem register region between the 10gbe Ethernet
+>>> driver and the phy driver, this patch adds support of the
+>>> subsystem register region defined by a syscon node in the dts.
+>>>
+>>> Although there is no shared access to the gbe subsystem register
+>>> region, using syscon for that is for the sake of consistency.
+>>>
+>>> This change is backward compatible with previously released gbe
+>>> devicetree bindings.
+>>>
+>>> Signed-off-by: WingMan Kwok <w-kwok2@ti.com>
+>>> Signed-off-by: Murali Karicheri <m-karicheri2@ti.com>
+>>> Signed-off-by: Sekhar Nori <nsekhar@ti.com>
+>>> ---
+>>>  .../devicetree/bindings/net/keystone-netcp.txt     |  16 ++-
+>>>  drivers/net/ethernet/ti/netcp_ethss.c              | 140 +++++++++++++++++----
+>>>  2 files changed, 127 insertions(+), 29 deletions(-)
+>>>
+>>> diff --git a/Documentation/devicetree/bindings/net/keystone-netcp.txt b/Documentation/devicetree/bindings/net/keystone-netcp.txt
+>>> index 04ba1dc..0854a73 100644
+>>> --- a/Documentation/devicetree/bindings/net/keystone-netcp.txt
+>>> +++ b/Documentation/devicetree/bindings/net/keystone-netcp.txt
+>>> @@ -72,20 +72,24 @@ Required properties:
+>>>  		"ti,netcp-gbe-2" for 1GbE N NetCP 1.5 (N=2)
+>>>  		"ti,netcp-xgbe" for 10 GbE
+>>>  
+>>> +- syscon-subsys:	phandle to syscon node of the switch
+>>> +			subsystem registers.
+>>> +
+>>>  - reg:		register location and the size for the following register
+>>>  		regions in the specified order.
+>>>  		- switch subsystem registers
+>>> +		- sgmii module registers
 >>
->> On 1/3/2017 3:03 PM, Or Gerlitz wrote:
->>> On Fri, Dec 30, 2016 at 7:04 PM, Samudrala, Sridhar
->>> <sridhar.samudrala@intel.com> wrote:
->>>> On 12/30/2016 7:31 AM, Or Gerlitz wrote:
->>>>> Are you exposing switchdev ops for the representators? didn't see that
->>>>> or maybe it's in the 4th patch which didn't make it to the list?
->>>> Not at this time. In the future patches when we offload fdb/vlan
->>>> functionality, we could use switchdev ops.
->>> but wait, this is the switchdev mode... even before doing any
->>> offloading, you want (need) your representor netdevices to have the
->>> same HW ID marking they are all ports of the same ASIC, this you can
->>> do with the switchdev parent ID attribute.
->> OK. I will add switchdev_port_attr_get() with PORT_PARENT_ID support in v3.
-> Good, I made this comment, b/c we want to create a well defined user-experience
-> to be taken into account also by upper virtualization layers.
->
-> Another piece there to add is have your VF reps implement the
-> get_phys_port_name ndo,
+>> This needs to go on the end of the list. Otherwise, it is not backwards 
+>> compatible.
+> 
+> Thanks for your review! I assumed backward compatibility means new kernel
+> should work with old DTB. The driver code is adjusted to work with both
+> DTBs. Isn't that enough?
+Rob,
 
-It looks like you are returning the VF port number as phys_port_name() 
-for a VF rep in en_rep.c.
-Is this correct?
+I will pull out 1/10 and 2/10 from the series as it needs more work and
+re-submit rest of the patches in my v1 spin. However please reply to my
+above backward compatibility question.
 
-By default i am creating VFPR netdev with name as <pf_name>_VF<vf_num>
-For ex; if enp5s0f0 is the pf name, VFPR netdev for VF0 will be enp5s0f0_vf0
+Thanks and Regards,
 
-If we want udev to follow this syntax should i return '_vf0'  as 
-get_phys_port_name() for VF rep 0?
+Murali
+> 
+> Murali
+> 
+>>
+>>>  		- sgmii port3/4 module registers (only for NetCP 1.4)
+>>>  		- switch module registers
+>>>  		- serdes registers (only for 10G)
+>>>  
+>>>  		NetCP 1.4 ethss, here is the order
+>>> -			index #0 - switch subsystem registers
+>>> +			index #0 - sgmii module registers
+>>>  			index #1 - sgmii port3/4 module registers
+>>>  			index #2 - switch module registers
+>>>  
+>>>  		NetCP 1.5 ethss 9 port, 5 port and 2 port
+>>> -			index #0 - switch subsystem registers
+>>> +			index #0 - sgmii module registers
+>>>  			index #1 - switch module registers
+>>>  			index #2 - serdes registers
+>>>  
+>>> @@ -145,6 +149,11 @@ Optional properties:
+>>>  
+>>>  Example binding:
+>>>  
+>>> +gbe_subsys: subsys@2090000 {
+>>> +	compatible = "syscon";
+>>> +	reg = <0x02090000 0x100>;
+>>> +};
+>>> +
+>>>  netcp: netcp@2000000 {
+>>>  	reg = <0x2620110 0x8>;
+>>>  	reg-names = "efuse";
+>>> @@ -163,7 +172,8 @@ netcp: netcp@2000000 {
+>>>  		ranges;
+>>>  		gbe@90000 {
+>>>  			label = "netcp-gbe";
+>>> -			reg = <0x90000 0x300>, <0x90400 0x400>, <0x90800 0x700>;
+>>> +			syscon-subsys = <&gbe_subsys>;
+>>> +			reg = <0x90100 0x200>, <0x90400 0x200>, <0x90800 0x700>;
+>>>  			/* enable-ale; */
+>>>  			tx-queue = <648>;
+>>>  			tx-channel = <8>;
+>>
+> 
+> 
 
-> where as we explain in commit cb67b832921cfa20ad79bafdc51f1745339d0557 is used
-> as follows:
->
->      Port phys name (ndo_get_phys_port_name) is implemented to allow exporting
->      to user-space the VF vport number and along with the switchdev port parent
->      id (phys_switch_id) enable a udev base consistent naming scheme:
->
->      SUBSYSTEM=="net", ACTION=="add", ATTR{phys_switch_id}=="<phys_switch_id>", \
->              ATTR{phys_port_name}!="", NAME="$PF_NIC$attr{phys_port_name}"
->
->      where phys_switch_id is exposed by the PF (and VF reps) and $PF_NIC is
->      the name of the PF netdevice.
->
-> Or.
+
+-- 
+Murali Karicheri
+Linux Kernel, Keystone
