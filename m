@@ -1,81 +1,165 @@
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: Re: [PATCH] stmmac: Enable Clause 45 PHYs in GMAC4 (eQOS)
-Date: Thu, 5 Jan 2017 10:15:40 +0000
-Message-ID: <10566e92-d7d3-c947-2e2d-c9c9f5b08d89@synopsys.com>
-References: <14201d58c172f7a65b03510d36d55170f4d16cd5.1483540094.git.jpinto@synopsys.com>
- <F54AEECA5E2B9541821D670476DAE19C5A91819D@PGSMSX102.gar.corp.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 8bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>,
-        Joao Pinto <Joao.Pinto@synopsys.com>,
-        "davem@davemloft.net" <davem@davemloft.net>
+From: Simon Horman <horms+renesas@verge.net.au>
+Subject: [PATCH/RFC v2 net-next] ravb: unmap descriptors when freeing rings
+Date: Thu,  5 Jan 2017 11:43:20 +0100
+Message-ID: <1483613000-537-1-git-send-email-horms+renesas@verge.net.au>
+Cc: Magnus Damm <magnus.damm@gmail.com>, netdev@vger.kernel.org,
+        linux-renesas-soc@vger.kernel.org
+To: David Miller <davem@davemloft.net>,
+        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay2.synopsys.com ([198.182.60.111]:45604 "EHLO
-        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S938356AbdAEKPp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2017 05:15:45 -0500
-In-Reply-To: <F54AEECA5E2B9541821D670476DAE19C5A91819D@PGSMSX102.gar.corp.intel.com>
+Received: from kirsty.vergenet.net ([202.4.237.240]:56091 "EHLO
+        kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1762039AbdAEKnr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2017 05:43:47 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Às 1:37 AM de 1/5/2017, Kweh, Hock Leong escreveu:
->> -----Original Message-----
->> From: Joao Pinto [mailto:Joao.Pinto@synopsys.com]
->> Sent: Wednesday, January 04, 2017 10:36 PM
->> To: davem@davemloft.net
->> Cc: Kweh, Hock Leong <hock.leong.kweh@intel.com>; netdev@vger.kernel.org;
->> Joao Pinto <Joao.Pinto@synopsys.com>
->> Subject: [PATCH] stmmac: Enable Clause 45 PHYs in GMAC4 (eQOS)
->>
->> The eQOS IP Core (best known in stmmac as gmac4) has a register that must be
->> set if using a Clause 45 PHY. If this register is not set, the PHY won't work.
->> This patch will have no impact in setups using Clause 22 PHYs.
->>
->> Signed-off-by: Joao Pinto <jpinto@synopsys.com>
-> 
-> Hi Joao,
-> 
-> This is not working on our environment. We are using the 4-ETH-4-MGB-101 plugin card.
-> 
-> Regards,
-> Wilson
+From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
 
-Hi Wilson and David,
-I am using a different PHY and I only get it detecting the link with that bit
-set. Thanks for your feedback, going to dig a bit more!
+"swiotlb buffer is full" errors occur after repeated initialisation of a
+device - f.e. suspend/resume or ip link set up/down. This is because memory
+mapped using dma_map_single() in ravb_ring_format() and ravb_start_xmit()
+is not released.  Resolve this problem by unmapping descriptors when
+freeing rings.
 
-Joao
+Note, ravb_tx_free() is moved but not otherwise modified by this patch.
 
+Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+[simon: reworked]
+Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
+--
+v1 [Kazuya Mizuguchi]
 
-> 
->> ---
->>  drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c | 3 ++-
->>  1 file changed, 2 insertions(+), 1 deletion(-)
->>
->> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
->> b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
->> index b0344c2..676ae3c 100644
->> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
->> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
->> @@ -41,6 +41,7 @@
->>  #define MII_GMAC4_GOC_SHIFT		2
->>  #define MII_GMAC4_WRITE			(1 << MII_GMAC4_GOC_SHIFT)
->>  #define MII_GMAC4_READ			(3 << MII_GMAC4_GOC_SHIFT)
->> +#define MII_CLAUSE45_PHY		(1 << 1)
->>
->>  static int stmmac_mdio_busy_wait(void __iomem *ioaddr, unsigned int
->> mii_addr)  { @@ -125,7 +126,7 @@ static int stmmac_mdio_write(struct
->> mii_bus *bus, int phyaddr, int phyreg,
->>  	value |= (priv->clk_csr << priv->hw->mii.clk_csr_shift)
->>  		& priv->hw->mii.clk_csr_mask;
->>  	if (priv->plat->has_gmac4)
->> -		value |= MII_GMAC4_WRITE;
->> +		value |= MII_GMAC4_WRITE | MII_CLAUSE45_PHY;
->>  	else
->>  		value |= MII_WRITE;
->>
->> --
->> 2.9.3
-> 
+v2 [Simon Horman]
+* As suggested by Sergei Shtylyov
+  - Use dma_mapping_error() and rx_desc->ds_cc when unmapping RX descriptors;
+    this is consistent with the way that they are mapped
+  - Use ravb_tx_free() to clear TX descriptors
+* Reduce scope of new local variable
+---
+ drivers/net/ethernet/renesas/ravb_main.c | 89 ++++++++++++++++++--------------
+ 1 file changed, 51 insertions(+), 38 deletions(-)
+
+diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
+index 92d7692c840d..1797c48e3176 100644
+--- a/drivers/net/ethernet/renesas/ravb_main.c
++++ b/drivers/net/ethernet/renesas/ravb_main.c
+@@ -179,6 +179,44 @@ static struct mdiobb_ops bb_ops = {
+ 	.get_mdio_data = ravb_get_mdio_data,
+ };
+ 
++/* Free TX skb function for AVB-IP */
++static int ravb_tx_free(struct net_device *ndev, int q)
++{
++	struct ravb_private *priv = netdev_priv(ndev);
++	struct net_device_stats *stats = &priv->stats[q];
++	struct ravb_tx_desc *desc;
++	int free_num = 0;
++	int entry;
++	u32 size;
++
++	for (; priv->cur_tx[q] - priv->dirty_tx[q] > 0; priv->dirty_tx[q]++) {
++		entry = priv->dirty_tx[q] % (priv->num_tx_ring[q] *
++					     NUM_TX_DESC);
++		desc = &priv->tx_ring[q][entry];
++		if (desc->die_dt != DT_FEMPTY)
++			break;
++		/* Descriptor type must be checked before all other reads */
++		dma_rmb();
++		size = le16_to_cpu(desc->ds_tagl) & TX_DS;
++		/* Free the original skb. */
++		if (priv->tx_skb[q][entry / NUM_TX_DESC]) {
++			dma_unmap_single(ndev->dev.parent, le32_to_cpu(desc->dptr),
++					 size, DMA_TO_DEVICE);
++			/* Last packet descriptor? */
++			if (entry % NUM_TX_DESC == NUM_TX_DESC - 1) {
++				entry /= NUM_TX_DESC;
++				dev_kfree_skb_any(priv->tx_skb[q][entry]);
++				priv->tx_skb[q][entry] = NULL;
++				stats->tx_packets++;
++			}
++			free_num++;
++		}
++		stats->tx_bytes += size;
++		desc->die_dt = DT_EEMPTY;
++	}
++	return free_num;
++}
++
+ /* Free skb's and DMA buffers for Ethernet AVB */
+ static void ravb_ring_free(struct net_device *ndev, int q)
+ {
+@@ -207,6 +245,18 @@ static void ravb_ring_free(struct net_device *ndev, int q)
+ 	priv->tx_align[q] = NULL;
+ 
+ 	if (priv->rx_ring[q]) {
++		for (i = 0; i < priv->num_rx_ring[q]; i++) {
++			struct ravb_ex_rx_desc *rx_desc = &priv->rx_ring[q][i];
++
++			if (!dma_mapping_error(ndev->dev.parent,
++					       rx_desc->dptr)) {
++				dma_unmap_single(ndev->dev.parent,
++						 le32_to_cpu(rx_desc->dptr),
++						 PKT_BUF_SZ,
++						 DMA_FROM_DEVICE);
++				rx_desc->ds_cc = cpu_to_le16(0);
++			}
++		}
+ 		ring_size = sizeof(struct ravb_ex_rx_desc) *
+ 			    (priv->num_rx_ring[q] + 1);
+ 		dma_free_coherent(ndev->dev.parent, ring_size, priv->rx_ring[q],
+@@ -215,6 +265,7 @@ static void ravb_ring_free(struct net_device *ndev, int q)
+ 	}
+ 
+ 	if (priv->tx_ring[q]) {
++		ravb_tx_free(ndev, q);
+ 		ring_size = sizeof(struct ravb_tx_desc) *
+ 			    (priv->num_tx_ring[q] * NUM_TX_DESC + 1);
+ 		dma_free_coherent(ndev->dev.parent, ring_size, priv->tx_ring[q],
+@@ -431,44 +482,6 @@ static int ravb_dmac_init(struct net_device *ndev)
+ 	return 0;
+ }
+ 
+-/* Free TX skb function for AVB-IP */
+-static int ravb_tx_free(struct net_device *ndev, int q)
+-{
+-	struct ravb_private *priv = netdev_priv(ndev);
+-	struct net_device_stats *stats = &priv->stats[q];
+-	struct ravb_tx_desc *desc;
+-	int free_num = 0;
+-	int entry;
+-	u32 size;
+-
+-	for (; priv->cur_tx[q] - priv->dirty_tx[q] > 0; priv->dirty_tx[q]++) {
+-		entry = priv->dirty_tx[q] % (priv->num_tx_ring[q] *
+-					     NUM_TX_DESC);
+-		desc = &priv->tx_ring[q][entry];
+-		if (desc->die_dt != DT_FEMPTY)
+-			break;
+-		/* Descriptor type must be checked before all other reads */
+-		dma_rmb();
+-		size = le16_to_cpu(desc->ds_tagl) & TX_DS;
+-		/* Free the original skb. */
+-		if (priv->tx_skb[q][entry / NUM_TX_DESC]) {
+-			dma_unmap_single(ndev->dev.parent, le32_to_cpu(desc->dptr),
+-					 size, DMA_TO_DEVICE);
+-			/* Last packet descriptor? */
+-			if (entry % NUM_TX_DESC == NUM_TX_DESC - 1) {
+-				entry /= NUM_TX_DESC;
+-				dev_kfree_skb_any(priv->tx_skb[q][entry]);
+-				priv->tx_skb[q][entry] = NULL;
+-				stats->tx_packets++;
+-			}
+-			free_num++;
+-		}
+-		stats->tx_bytes += size;
+-		desc->die_dt = DT_EEMPTY;
+-	}
+-	return free_num;
+-}
+-
+ static void ravb_get_tx_tstamp(struct net_device *ndev)
+ {
+ 	struct ravb_private *priv = netdev_priv(ndev);
+-- 
+2.7.0.rc3.207.g0ac5344
