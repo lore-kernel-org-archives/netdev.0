@@ -1,81 +1,194 @@
 From: Amir Vadai <amir@vadai.me>
-Subject: [PATCH net-next V2 0/3] net/sched: act_pedit: Use offset relative to conventional network headers
-Date: Thu,  5 Jan 2017 11:54:51 +0200
-Message-ID: <20170105095454.32644-1-amir@vadai.me>
+Subject: [PATCH net-next V2 2/3] net/act_pedit: Support using offset relative to the conventional network headers
+Date: Thu,  5 Jan 2017 11:54:53 +0200
+Message-ID: <20170105095454.32644-3-amir@vadai.me>
+References: <20170105095454.32644-1-amir@vadai.me>
 Cc: netdev@vger.kernel.org, Jiri Pirko <jiri@mellanox.com>,
         Or Gerlitz <ogerlitz@mellanox.com>,
         Hadar Har-Zion <hadarh@mellanox.com>,
         Amir Vadai <amir@vadai.me>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:33131 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754326AbdAEJzV (ORCPT
+Received: from mail-wj0-f196.google.com ([209.85.210.196]:36008 "EHLO
+        mail-wj0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1760457AbdAEJzV (ORCPT
         <rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2017 04:55:21 -0500
-Received: by mail-wm0-f68.google.com with SMTP id u144so95568427wmu.0
-        for <netdev@vger.kernel.org>; Thu, 05 Jan 2017 01:55:10 -0800 (PST)
+Received: by mail-wj0-f196.google.com with SMTP id j10so78640387wjb.3
+        for <netdev@vger.kernel.org>; Thu, 05 Jan 2017 01:55:15 -0800 (PST)
+In-Reply-To: <20170105095454.32644-1-amir@vadai.me>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+Extend pedit to enable the user setting offset relative to network
+headers. This change would enable to work with more complex header
+schemes (vs the simple IPv4 case) where setting a fixed offset relative
+to the network header is not enough. It is also forward looking to
+enable hardware offloading of pedit.
 
-This is a respin of the patchset. V1 was sent and didn't make it for 4.10.
-
-You asked me [1] why did I use specific header names instead of layers (L2, L3...),
-and I explained that it is on purpose, this extra information is planned to be used
-by hardware drivers to offload the action.
-
-Some FW/HW parser APIs are such that they need to get the specific header type (e.g
-IPV4 or IPV6, TCP or UDP) and not only the networking level (e.g network or transport).
-
-Enhancing the UAPI to allow for specifying that would allow the same flows to be
-set into both SW and HW.
-
-This patchset also makes pedit more robust. Currently fields offset is specified
-by offset relative to the ip header, while using negative offsets for 
-MAC layer fields.
-
-This series enables the user to set offset relative to the relevant header.
-
-This patch is reusing existing fields in a way where backward UAPI 
-compatibility is being kept.
+The header type is embedded in the 8 MSB of the u32 key->shift which
+were never used till now. Therefore backward compatibility is being
+kept.
 
 Usage example:
 $ tc filter add dev enp0s9 protocol ip parent ffff: \
-   flower \
-     ip_proto tcp \
+  flower \
+    ip_proto tcp \
     dst_port 80 \
-   action \
-       pedit munge ip ttl add 0xff \
-       pedit munge tcp dport set 8080 \
-     pipe action mirred egress redirect dev veth0
+  action pedit munge tcp dport set 8080 pipe \
+  action mirred egress redirect dev veth0
 
-Will forward traffic destined to tcp dport 80, while modifying the
-destination port to 8080, and decreasing the ttl by one.
+Will forward tcp port whose original dest port is 80, while modifying
+the destination port to 8080.
 
-I've uploaded a draft for the userspace [2] to make it easier to review and
-test the patchset.
+Signed-off-by: Amir Vadai <amir@vadai.me>
+Reviewed-by: Or Gerlitz <ogerlitz@mellanox.com>
+---
+ include/uapi/linux/tc_act/tc_pedit.h | 17 ++++++++++
+ net/sched/act_pedit.c                | 65 +++++++++++++++++++++++++++++-------
+ 2 files changed, 70 insertions(+), 12 deletions(-)
 
-[1] - http://patchwork.ozlabs.org/patch/700909/
-[2] - git: https://bitbucket.org/av42/iproute2.git
-      branch: pedit
-
-Patchset was tested and applied on top of upstream commit 57ea884b0dcf
-("packet: fix panic in __packet_set_timestamp on tpacket_v3 in tx mode")
-
-Thanks,
-Amir
-
-Amir Vadai (3):
-  net/skbuff: Introduce skb_mac_offset()
-  net/act_pedit: Support using offset relative to the conventional
-    network headers
-  net/act_pedit: Introduce 'add' operation
-
- include/linux/skbuff.h               |  5 +++
- include/uapi/linux/tc_act/tc_pedit.h | 27 ++++++++++++
- net/sched/act_pedit.c                | 81 ++++++++++++++++++++++++++++++------
- 3 files changed, 100 insertions(+), 13 deletions(-)
-
+diff --git a/include/uapi/linux/tc_act/tc_pedit.h b/include/uapi/linux/tc_act/tc_pedit.h
+index 6389959a5157..604e6729ad38 100644
+--- a/include/uapi/linux/tc_act/tc_pedit.h
++++ b/include/uapi/linux/tc_act/tc_pedit.h
+@@ -32,4 +32,21 @@ struct tc_pedit_sel {
+ };
+ #define tc_pedit tc_pedit_sel
+ 
++#define PEDIT_TYPE_SHIFT 24
++#define PEDIT_TYPE_MASK 0xff
++
++#define PEDIT_TYPE_GET(_val) \
++	(((_val) >> PEDIT_TYPE_SHIFT) & PEDIT_TYPE_MASK)
++#define PEDIT_SHIFT_GET(_val) ((_val) & 0xff)
++
++enum pedit_header_type {
++	PEDIT_HDR_TYPE_RAW = 0,
++
++	PEDIT_HDR_TYPE_ETH = 1,
++	PEDIT_HDR_TYPE_IP4 = 2,
++	PEDIT_HDR_TYPE_IP6 = 3,
++	PEDIT_HDR_TYPE_TCP = 4,
++	PEDIT_HDR_TYPE_UDP = 5,
++};
++
+ #endif
+diff --git a/net/sched/act_pedit.c b/net/sched/act_pedit.c
+index b27c4daec88f..4b9c7184c752 100644
+--- a/net/sched/act_pedit.c
++++ b/net/sched/act_pedit.c
+@@ -119,18 +119,45 @@ static bool offset_valid(struct sk_buff *skb, int offset)
+ 	return true;
+ }
+ 
++static int pedit_skb_hdr_offset(struct sk_buff *skb,
++				enum pedit_header_type htype, int *hoffset)
++{
++	int ret = -1;
++
++	switch (htype) {
++	case PEDIT_HDR_TYPE_ETH:
++		if (skb_mac_header_was_set(skb)) {
++			*hoffset = skb_mac_offset(skb);
++			ret = 0;
++		}
++		break;
++	case PEDIT_HDR_TYPE_RAW:
++	case PEDIT_HDR_TYPE_IP4:
++	case PEDIT_HDR_TYPE_IP6:
++		*hoffset = skb_network_offset(skb);
++		ret = 0;
++		break;
++	case PEDIT_HDR_TYPE_TCP:
++	case PEDIT_HDR_TYPE_UDP:
++		if (skb_transport_header_was_set(skb)) {
++			*hoffset = skb_transport_offset(skb);
++			ret = 0;
++		}
++		break;
++	};
++
++	return ret;
++}
++
+ static int tcf_pedit(struct sk_buff *skb, const struct tc_action *a,
+ 		     struct tcf_result *res)
+ {
+ 	struct tcf_pedit *p = to_pedit(a);
+ 	int i;
+-	unsigned int off;
+ 
+ 	if (skb_unclone(skb, GFP_ATOMIC))
+ 		return p->tcf_action;
+ 
+-	off = skb_network_offset(skb);
+-
+ 	spin_lock(&p->tcf_lock);
+ 
+ 	tcf_lastuse_update(&p->tcf_tm);
+@@ -141,20 +168,32 @@ static int tcf_pedit(struct sk_buff *skb, const struct tc_action *a,
+ 		for (i = p->tcfp_nkeys; i > 0; i--, tkey++) {
+ 			u32 *ptr, _data;
+ 			int offset = tkey->off;
++			int hoffset;
++			int rc;
++			enum pedit_header_type htype =
++				PEDIT_TYPE_GET(tkey->shift);
++
++			rc = pedit_skb_hdr_offset(skb, htype, &hoffset);
++			if (rc) {
++				pr_info("tc filter pedit bad header type specified (0x%x)\n",
++					htype);
++				goto bad;
++			}
+ 
+ 			if (tkey->offmask) {
+ 				char *d, _d;
+ 
+-				if (!offset_valid(skb, off + tkey->at)) {
++				if (!offset_valid(skb, hoffset + tkey->at)) {
+ 					pr_info("tc filter pedit 'at' offset %d out of bounds\n",
+-						off + tkey->at);
++						hoffset + tkey->at);
+ 					goto bad;
+ 				}
+-				d = skb_header_pointer(skb, off + tkey->at, 1,
+-						       &_d);
++				d = skb_header_pointer(skb,
++						       hoffset + tkey->at,
++						       1, &_d);
+ 				if (!d)
+ 					goto bad;
+-				offset += (*d & tkey->offmask) >> tkey->shift;
++				offset += (*d & tkey->offmask) >> PEDIT_SHIFT_GET(tkey->shift);
+ 			}
+ 
+ 			if (offset % 4) {
+@@ -163,19 +202,21 @@ static int tcf_pedit(struct sk_buff *skb, const struct tc_action *a,
+ 				goto bad;
+ 			}
+ 
+-			if (!offset_valid(skb, off + offset)) {
++			if (!offset_valid(skb, hoffset + offset)) {
+ 				pr_info("tc filter pedit offset %d out of bounds\n",
+-					offset);
++					hoffset + offset);
+ 				goto bad;
+ 			}
+ 
+-			ptr = skb_header_pointer(skb, off + offset, 4, &_data);
++			ptr = skb_header_pointer(skb,
++						 hoffset + offset,
++						 4, &_data);
+ 			if (!ptr)
+ 				goto bad;
+ 			/* just do it, baby */
+ 			*ptr = ((*ptr & tkey->mask) ^ tkey->val);
+ 			if (ptr == &_data)
+-				skb_store_bits(skb, off + offset, ptr, 4);
++				skb_store_bits(skb, hoffset + offset, ptr, 4);
+ 		}
+ 
+ 		goto done;
 -- 
 2.11.0
