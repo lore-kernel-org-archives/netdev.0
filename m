@@ -1,106 +1,42 @@
-From: Daniel Mack <daniel@zonque.org>
-Subject: Re: [PATCH v1 1/2] bpf: add a longest prefix match trie map
- implementation
-Date: Thu, 5 Jan 2017 21:04:16 +0100
-Message-ID: <91fbf150-4e97-7400-90cf-dbe7ea3e6597@zonque.org>
-References: <20161229172855.14910-1-daniel@zonque.org>
- <20161229172855.14910-2-daniel@zonque.org> <586E7366.1010708@iogearbox.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v4 net-next] tools: psock_tpacket: block Rx until
+ socket filter has been added and socket has been bound to loopback.
+Date: Thu, 05 Jan 2017 15:04:30 -0500 (EST)
+Message-ID: <20170105.150430.839990438445567255.davem@davemloft.net>
+References: <cover.1483642577.git.sowmini.varadhan@oracle.com>
+        <6b77972e99e49096676e04854067a44226e926aa.1483642577.git.sowmini.varadhan@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: dh.herrmann@gmail.com, netdev@vger.kernel.org, davem@davemloft.net
-To: Daniel Borkmann <daniel@iogearbox.net>, ast@fb.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, daniel@iogearbox.net, willemb@google.com
+To: sowmini.varadhan@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from svenfoo.org ([82.94.215.22]:34906 "EHLO mail.zonque.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1033131AbdAEUET (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 5 Jan 2017 15:04:19 -0500
-In-Reply-To: <586E7366.1010708@iogearbox.net>
+Received: from shards.monkeyblade.net ([184.105.139.130]:48704 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934554AbdAEUEc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2017 15:04:32 -0500
+In-Reply-To: <6b77972e99e49096676e04854067a44226e926aa.1483642577.git.sowmini.varadhan@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Daniel,
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Date: Thu,  5 Jan 2017 11:06:22 -0800
 
-Thanks for your feedback! I agree on all points. Two questions below.
-
-On 01/05/2017 05:25 PM, Daniel Borkmann wrote:
-> On 12/29/2016 06:28 PM, Daniel Mack wrote:
-
->> diff --git a/kernel/bpf/lpm_trie.c b/kernel/bpf/lpm_trie.c
->> new file mode 100644
->> index 0000000..8b6a61d
->> --- /dev/null
->> +++ b/kernel/bpf/lpm_trie.c
-
-[..]
-
->> +static struct bpf_map *trie_alloc(union bpf_attr *attr)
->> +{
->> +	struct lpm_trie *trie;
->> +
->> +	/* check sanity of attributes */
->> +	if (attr->max_entries == 0 || attr->map_flags ||
->> +	    attr->key_size < sizeof(struct bpf_lpm_trie_key) + 1   ||
->> +	    attr->key_size > sizeof(struct bpf_lpm_trie_key) + 256 ||
->> +	    attr->value_size != sizeof(u64))
->> +		return ERR_PTR(-EINVAL);
+> Packets from any/all interfaces may be queued up on the PF_PACKET socket
+> before it is bound to the loopback interface by psock_tpacket, and
+> when these are passed up by the kernel, they could interfere
+> with the Rx tests.
 > 
-> The correct attr->map_flags test here would need to be ...
+> Avoid interference from spurious packet by blocking Rx until the
+> socket filter has been set up, and the packet has been bound to the
+> desired (lo) interface. The effective sequence is
+> 	socket(PF_PACKET, SOCK_RAW, 0);
+> 	set up ring
+> 	Invoke SO_ATTACH_FILTER
+> 	bind to sll_protocol set to ETH_P_ALL, sll_ifindex for lo
+> After this sequence, the only packets that will be passed up are
+> those received on loopback that pass the attached filter.
 > 
->    attr->map_flags != BPF_F_NO_PREALLOC
-> 
-> ... since in this case we don't have any prealloc pool, and
-> should that come one day that test could be relaxed again.
-> 
->> +	trie = kzalloc(sizeof(*trie), GFP_USER | __GFP_NOWARN);
->> +	if (!trie)
->> +		return NULL;
->> +
->> +	/* copy mandatory map attributes */
->> +	trie->map.map_type = attr->map_type;
->> +	trie->map.key_size = attr->key_size;
->> +	trie->map.value_size = attr->value_size;
->> +	trie->map.max_entries = attr->max_entries;
-> 
-> You also need to fill in trie->map.pages as that is eventually
-> used to charge memory against in bpf_map_charge_memlock(), right
-> now that would remain as 0 meaning the map is not accounted for.
+> Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
 
-Hmm, okay. The nodes are, however, allocated dynamically at runtime in
-this case. That means that we have trie->map.pages on each allocation,
-right?
-
->> +static void trie_free(struct bpf_map *map)
->> +{
->> +	struct lpm_trie_node __rcu **slot;
->> +	struct lpm_trie_node *node;
->> +	struct lpm_trie *trie =
->> +		container_of(map, struct lpm_trie, map);
->> +
->> +	spin_lock(&trie->lock);
->> +
->> +	/*
->> +	 * Always start at the root and walk down to a node that has no
->> +	 * children. Then free that node, nullify its pointer in the parent,
->> +	 * then start over.
->> +	 */
->> +
->> +	for (;;) {
->> +		slot = &trie->root;
->> +
->> +		for (;;) {
->> +			node = rcu_dereference_protected(*slot,
->> +					lockdep_is_held(&trie->lock));
->> +			if (!node)
->> +				goto out;
->> +
->> +			if (node->child[0]) {
-> 
-> rcu_access_pointer(node->child[0]) (at least to keep sparse happy?)
-
-Done, but sparse does not actually complain here.
-
-
-
-Thanks,
-Daniel
+Applied, thanks.
