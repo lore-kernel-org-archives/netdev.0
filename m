@@ -1,46 +1,59 @@
-From: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>
-Subject: [PATCH] net: stmmac: fix maxmtu assignment to be within valid range
-Date: Thu,  5 Jan 2017 18:47:57 +0800
-Message-ID: <1483613277-6005-1-git-send-email-hock.leong.kweh@intel.com>
-Cc: Alexandre TORGUE <alexandre.torgue@gmail.com>,
-        Joachim Eastwood <manabian@gmail.com>,
-        Niklas Cassel <niklas.cassel@axis.com>,
-        Johan Hovold <johan@kernel.org>, pavel@ucw.cz,
-        "Kweh, Hock Leong" <hock.leong.kweh@intel.com>,
-        lars.persson@axis.com, netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>,
-        Joao Pinto <Joao.Pinto@synopsys.com>,
-        Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
-        seraphin.bonnaffe@st.com, Jarod Wilson <jarod@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [net PATCH] net: virtio: cap mtu when XDP programs are running
+Date: Thu, 5 Jan 2017 11:09:14 +0800
+Message-ID: <068f0116-b37e-eb44-8c60-1781a9d5255e@redhat.com>
+References: <20170102223031.11541.28717.stgit@john-Precision-Tower-5810>
+ <402027b4-58c7-aa1b-5079-74e31448f544@redhat.com>
+ <586BD5D5.6020100@gmail.com>
+ <1caf1ffc-0f46-067e-0f0d-a93b408b4ffd@redhat.com>
+ <586D458F.5050705@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org,
+        alexei.starovoitov@gmail.com, daniel@iogearbox.net
+To: John Fastabend <john.fastabend@gmail.com>, mst@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:53526 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751946AbdAEDJW (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 4 Jan 2017 22:09:22 -0500
+In-Reply-To: <586D458F.5050705@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>
 
-There is no checking valid value of maxmtu when getting it from devicetree.
-This resolution added the checking condition to ensure the assignment is
-made within a valid range.
 
-Signed-off-by: Kweh, Hock Leong <hock.leong.kweh@intel.com>
----
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+On 2017年01月05日 02:57, John Fastabend wrote:
+> [...]
+>
+>> On 2017年01月04日 00:48, John Fastabend wrote:
+>>> On 17-01-02 10:14 PM, Jason Wang wrote:
+>>>> On 2017年01月03日 06:30, John Fastabend wrote:
+>>>>> XDP programs can not consume multiple pages so we cap the MTU to
+>>>>> avoid this case. Virtio-net however only checks the MTU at XDP
+>>>>> program load and does not block MTU changes after the program
+>>>>> has loaded.
+>>>>>
+>>>>> This patch sets/clears the max_mtu value at XDP load/unload time.
+>>>>>
+>>>>> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+>>>>> ---
+> [...]
+>
+>>> OK so this logic is a bit too simply. When it resets the max_mtu I guess it
+>>> needs to read the mtu via
+>>>
+>>>      virtio_cread16(vdev, ...)
+>>>
+>>> or we may break the negotiated mtu.
+>> Yes, this is a problem (even use ETH_MAX_MTU). We may need a method to notify
+>> the device about the mtu in this case which is not supported by virtio now.
+> Note this is not really a XDP specific problem. The guest can change the MTU
+> after init time even without XDP which I assume should ideally result in a
+> notification if the MTU is negotiated.
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 39eb7a6..683d59f 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -3319,7 +3319,8 @@ int stmmac_dvr_probe(struct device *device,
- 		ndev->max_mtu = JUMBO_LEN;
- 	else
- 		ndev->max_mtu = SKB_MAX_HEAD(NET_SKB_PAD + NET_IP_ALIGN);
--	if (priv->plat->maxmtu < ndev->max_mtu)
-+	if ((priv->plat->maxmtu < ndev->max_mtu) &&
-+	    (priv->plat->maxmtu >= ndev->min_mtu))
- 		ndev->max_mtu = priv->plat->maxmtu;
- 
- 	if (flow_ctrl)
--- 
-1.7.9.5
+Yes, Michael, do you think we need add some mechanism to notify host 
+about MTU change in this case?
+
+Thanks
