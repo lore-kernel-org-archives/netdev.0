@@ -1,70 +1,40 @@
-From: Tobias Klauser <tklauser@distanz.ch>
-Subject: [PATCH] net: xilinx: emaclite: Remove xemaclite_remove_ndev()
-Date: Thu,  5 Jan 2017 10:41:36 +0100
-Message-ID: <20170105094136.16989-1-tklauser@distanz.ch>
-Cc: michal.simek@xilinx.com, soren.brinkmann@xilinx.com,
-        davem@davemloft.net
-To: netdev@vger.kernel.org
+From: Volodymyr Bendiuga <volodymyr.bendiuga@gmail.com>
+Subject: [PATCH v3 net-next] net:mv88e6xxx: use g2 interrupt for 6097 chip
+Date: Thu,  5 Jan 2017 10:44:18 +0100
+Message-ID: <1483609458-24645-1-git-send-email-volodymyr.bendiuga@gmail.com>
+Cc: Volodymyr Bendiuga <volodymyr.bendiuga@gmail.com>
+To: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
+        f.fainelli@gmail.com, netdev@vger.kernel.org,
+        volodymyr.bendiuga@westermo.se
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.zhinst.com ([212.126.164.98]:35262 "EHLO mail.zhinst.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1762466AbdAEJlk (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 5 Jan 2017 04:41:40 -0500
+Received: from mail-lf0-f65.google.com ([209.85.215.65]:33888 "EHLO
+        mail-lf0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S938283AbdAEJov (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2017 04:44:51 -0500
+Received: by mail-lf0-f65.google.com with SMTP id d16so34783541lfb.1
+        for <netdev@vger.kernel.org>; Thu, 05 Jan 2017 01:44:36 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-xemaclite_remove_ndev() is a simple wrapper around free_netdev()
-checking for NULL before the call. All possible paths calling
-it are guaranteed to pass a non-NULL argument, so rather call
-free_netdev() directly.
+This chip needs MV88E6XXX_FLAG_G2_INT
 
-Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+Signed-off-by: Volodymyr Bendiuga <volodymyr.bendiuga@gmail.com>
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 ---
- drivers/net/ethernet/xilinx/xilinx_emaclite.c | 18 ++----------------
- 1 file changed, 2 insertions(+), 16 deletions(-)
+ drivers/net/dsa/mv88e6xxx/mv88e6xxx.h | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/ethernet/xilinx/xilinx_emaclite.c b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
-index 93dc10b10c09..97dcc0bd5a85 100644
---- a/drivers/net/ethernet/xilinx/xilinx_emaclite.c
-+++ b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
-@@ -1029,20 +1029,6 @@ static int xemaclite_send(struct sk_buff *orig_skb, struct net_device *dev)
- }
- 
- /**
-- * xemaclite_remove_ndev - Free the network device
-- * @ndev:	Pointer to the network device to be freed
-- *
-- * This function un maps the IO region of the Emaclite device and frees the net
-- * device.
-- */
--static void xemaclite_remove_ndev(struct net_device *ndev)
--{
--	if (ndev) {
--		free_netdev(ndev);
--	}
--}
--
--/**
-  * get_bool - Get a parameter from the OF device
-  * @ofdev:	Pointer to OF device structure
-  * @s:		Property to be retrieved
-@@ -1172,7 +1158,7 @@ static int xemaclite_of_probe(struct platform_device *ofdev)
- 	return 0;
- 
- error:
--	xemaclite_remove_ndev(ndev);
-+	free_netdev(ndev);
- 	return rc;
- }
- 
-@@ -1204,7 +1190,7 @@ static int xemaclite_of_remove(struct platform_device *of_dev)
- 	of_node_put(lp->phy_node);
- 	lp->phy_node = NULL;
- 
--	xemaclite_remove_ndev(ndev);
-+	free_netdev(ndev);
- 
- 	return 0;
- }
+diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
+index dcb1b81..474e715 100644
+--- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
+@@ -568,6 +568,7 @@ enum mv88e6xxx_cap {
+ 	(MV88E6XXX_FLAG_G1_ATU_FID |	\
+ 	 MV88E6XXX_FLAG_G1_VTU_FID |	\
+ 	 MV88E6XXX_FLAG_GLOBAL2 |	\
++	 MV88E6XXX_FLAG_G2_INT |        \
+ 	 MV88E6XXX_FLAG_G2_MGMT_EN_2X |	\
+ 	 MV88E6XXX_FLAG_G2_MGMT_EN_0X |	\
+ 	 MV88E6XXX_FLAG_G2_POT |	\
 -- 
-2.11.0
+2.7.4
