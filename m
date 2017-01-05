@@ -1,47 +1,138 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 6/6] bridge: netfilter: Fix dropping packets that moving through bridge interface
-Date: Thu,  5 Jan 2017 12:19:53 +0100
-Message-ID: <1483615193-2931-7-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 5/6] netfilter: ipt_CLUSTERIP: check duplicate config when initializing
+Date: Thu,  5 Jan 2017 12:19:52 +0100
+Message-ID: <1483615193-2931-6-git-send-email-pablo@netfilter.org>
 References: <1483615193-2931-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:49678 "EHLO mail.us.es"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S938504AbdAELUM (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 5 Jan 2017 06:20:12 -0500
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+        by mail.us.es (Postfix) with ESMTP id AEE335230B
+        for <netdev@vger.kernel.org>; Thu,  5 Jan 2017 12:20:11 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 93C22D191F
+        for <netdev@vger.kernel.org>; Thu,  5 Jan 2017 12:20:11 +0100 (CET)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+        by antivirus1-rhel7.int (Postfix) with ESMTP id 453709EBD7
+        for <netdev@vger.kernel.org>; Thu,  5 Jan 2017 12:20:06 +0100 (CET)
 In-Reply-To: <1483615193-2931-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Artur Molchanov <arturmolchanov@gmail.com>
+From: Xin Long <lucien.xin@gmail.com>
 
-Problem:
-br_nf_pre_routing_finish() calls itself instead of
-br_nf_pre_routing_finish_bridge(). Due to this bug reverse path filter drops
-packets that go through bridge interface.
+Now when adding an ipt_CLUSTERIP rule, it only checks duplicate config in
+clusterip_config_find_get(). But after that, there may be still another
+thread to insert a config with the same ip, then it leaves proc_create_data
+to do duplicate check.
 
-User impact:
-Local docker containers with bridge network can not communicate with each
-other.
+It's more reasonable to check duplicate config by ipt_CLUSTERIP itself,
+instead of checking it by proc fs duplicate file check. Before, when proc
+fs allowed duplicate name files in a directory, It could even crash kernel
+because of use-after-free.
 
-Fixes: c5136b15ea36 ("netfilter: bridge: add and use br_nf_hook_thresh")
-Signed-off-by: Artur Molchanov <artur.molchanov@synesis.ru>
-Acked-by: Florian Westphal <fw@strlen.de>
+This patch is to check duplicate config under the protection of clusterip
+net lock when initializing a new config and correct the return err.
+
+Note that it also moves proc file node creation after adding new config, as
+proc_create_data may sleep, it couldn't be called under the clusterip_net
+lock. clusterip_config_find_get returns NULL if c->pde is null to make sure
+it can't be used until the proc file node creation is done.
+
+Suggested-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/bridge/br_netfilter_hooks.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/ipv4/netfilter/ipt_CLUSTERIP.c | 34 +++++++++++++++++++++++-----------
+ 1 file changed, 23 insertions(+), 11 deletions(-)
 
-diff --git a/net/bridge/br_netfilter_hooks.c b/net/bridge/br_netfilter_hooks.c
-index b12501a77f18..135cc8ab813c 100644
---- a/net/bridge/br_netfilter_hooks.c
-+++ b/net/bridge/br_netfilter_hooks.c
-@@ -399,7 +399,7 @@ static int br_nf_pre_routing_finish(struct net *net, struct sock *sk, struct sk_
- 				br_nf_hook_thresh(NF_BR_PRE_ROUTING,
- 						  net, sk, skb, skb->dev,
- 						  NULL,
--						  br_nf_pre_routing_finish);
-+						  br_nf_pre_routing_finish_bridge);
- 				return 0;
+diff --git a/net/ipv4/netfilter/ipt_CLUSTERIP.c b/net/ipv4/netfilter/ipt_CLUSTERIP.c
+index 21db00d0362b..a6b8c1a4102b 100644
+--- a/net/ipv4/netfilter/ipt_CLUSTERIP.c
++++ b/net/ipv4/netfilter/ipt_CLUSTERIP.c
+@@ -144,7 +144,7 @@ clusterip_config_find_get(struct net *net, __be32 clusterip, int entry)
+ 	rcu_read_lock_bh();
+ 	c = __clusterip_config_find(net, clusterip);
+ 	if (c) {
+-		if (unlikely(!atomic_inc_not_zero(&c->refcount)))
++		if (!c->pde || unlikely(!atomic_inc_not_zero(&c->refcount)))
+ 			c = NULL;
+ 		else if (entry)
+ 			atomic_inc(&c->entries);
+@@ -166,14 +166,15 @@ clusterip_config_init_nodelist(struct clusterip_config *c,
+ 
+ static struct clusterip_config *
+ clusterip_config_init(const struct ipt_clusterip_tgt_info *i, __be32 ip,
+-			struct net_device *dev)
++		      struct net_device *dev)
+ {
++	struct net *net = dev_net(dev);
+ 	struct clusterip_config *c;
+-	struct clusterip_net *cn = net_generic(dev_net(dev), clusterip_net_id);
++	struct clusterip_net *cn = net_generic(net, clusterip_net_id);
+ 
+ 	c = kzalloc(sizeof(*c), GFP_ATOMIC);
+ 	if (!c)
+-		return NULL;
++		return ERR_PTR(-ENOMEM);
+ 
+ 	c->dev = dev;
+ 	c->clusterip = ip;
+@@ -185,6 +186,17 @@ clusterip_config_init(const struct ipt_clusterip_tgt_info *i, __be32 ip,
+ 	atomic_set(&c->refcount, 1);
+ 	atomic_set(&c->entries, 1);
+ 
++	spin_lock_bh(&cn->lock);
++	if (__clusterip_config_find(net, ip)) {
++		spin_unlock_bh(&cn->lock);
++		kfree(c);
++
++		return ERR_PTR(-EBUSY);
++	}
++
++	list_add_rcu(&c->list, &cn->configs);
++	spin_unlock_bh(&cn->lock);
++
+ #ifdef CONFIG_PROC_FS
+ 	{
+ 		char buffer[16];
+@@ -195,16 +207,16 @@ clusterip_config_init(const struct ipt_clusterip_tgt_info *i, __be32 ip,
+ 					  cn->procdir,
+ 					  &clusterip_proc_fops, c);
+ 		if (!c->pde) {
++			spin_lock_bh(&cn->lock);
++			list_del_rcu(&c->list);
++			spin_unlock_bh(&cn->lock);
+ 			kfree(c);
+-			return NULL;
++
++			return ERR_PTR(-ENOMEM);
+ 		}
+ 	}
+ #endif
+ 
+-	spin_lock_bh(&cn->lock);
+-	list_add_rcu(&c->list, &cn->configs);
+-	spin_unlock_bh(&cn->lock);
+-
+ 	return c;
+ }
+ 
+@@ -410,9 +422,9 @@ static int clusterip_tg_check(const struct xt_tgchk_param *par)
+ 
+ 			config = clusterip_config_init(cipinfo,
+ 							e->ip.dst.s_addr, dev);
+-			if (!config) {
++			if (IS_ERR(config)) {
+ 				dev_put(dev);
+-				return -ENOMEM;
++				return PTR_ERR(config);
  			}
- 			ether_addr_copy(eth_hdr(skb)->h_dest, dev->dev_addr);
+ 			dev_mc_add(config->dev, config->clustermac);
+ 		}
 -- 
 2.1.4
-
