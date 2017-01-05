@@ -1,67 +1,106 @@
-From: Michael Chan <michael.chan@broadcom.com>
-Subject: Re: [PATCH] tg3: Avoid NULL pointer dereference in tg3_get_nstats()
-Date: Thu, 5 Jan 2017 12:04:13 -0800
-Message-ID: <CACKFLimPkD6hxECA+ZhH+7BVmVSoJ1GfAMZyJ7S50CbhiuC0mA@mail.gmail.com>
-References: <1483625601-10552-1-git-send-email-wangyufen@huawei.com> <20170105.123337.2237827308340782208.davem@davemloft.net>
+From: Daniel Mack <daniel@zonque.org>
+Subject: Re: [PATCH v1 1/2] bpf: add a longest prefix match trie map
+ implementation
+Date: Thu, 5 Jan 2017 21:04:16 +0100
+Message-ID: <91fbf150-4e97-7400-90cf-dbe7ea3e6597@zonque.org>
+References: <20161229172855.14910-1-daniel@zonque.org>
+ <20161229172855.14910-2-daniel@zonque.org> <586E7366.1010708@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: wangyufen@huawei.com, Siva Reddy Kallam <siva.kallam@broadcom.com>,
-        "prashant.sreedharan@broadcom.com" <prashant@broadcom.com>,
-        "michael.chan@broadcom.com" <mchan@broadcom.com>,
-        Netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: dh.herrmann@gmail.com, netdev@vger.kernel.org, davem@davemloft.net
+To: Daniel Borkmann <daniel@iogearbox.net>, ast@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f52.google.com ([209.85.218.52]:33237 "EHLO
-        mail-oi0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1033131AbdAEUEO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2017 15:04:14 -0500
-Received: by mail-oi0-f52.google.com with SMTP id 128so398166319oig.0
-        for <netdev@vger.kernel.org>; Thu, 05 Jan 2017 12:04:14 -0800 (PST)
-In-Reply-To: <20170105.123337.2237827308340782208.davem@davemloft.net>
+Received: from svenfoo.org ([82.94.215.22]:34906 "EHLO mail.zonque.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1033131AbdAEUET (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 5 Jan 2017 15:04:19 -0500
+In-Reply-To: <586E7366.1010708@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 5, 2017 at 9:33 AM, David Miller <davem@davemloft.net> wrote:
-> From: Wang Yufen <wangyufen@huawei.com>
-> Date: Thu, 5 Jan 2017 22:13:21 +0800
->
->> From: Yufen Wang <wangyufen@huawei.com>
->>
->> A possible NULL pointer dereference in tg3_get_stats64 while doing
->> tg3_free_consistent.
->  ...
->> This patch avoids the NULL pointer dereference by using !tg3_flag(tp, INIT_COMPLETE)
->> instate of !tp->hw_stats.
->>
->> Signed-off-by: Yufen Wang <wangyufen@huawei.com>
->> ---
->>  drivers/net/ethernet/broadcom/tg3.c | 2 +-
->>  1 file changed, 1 insertion(+), 1 deletion(-)
->>
->> diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
->> index 185e9e0..012f18d 100644
->> --- a/drivers/net/ethernet/broadcom/tg3.c
->> +++ b/drivers/net/ethernet/broadcom/tg3.c
->> @@ -14148,7 +14148,7 @@ static struct rtnl_link_stats64 *tg3_get_stats64(struct net_device *dev,
->>       struct tg3 *tp = netdev_priv(dev);
->>
->>       spin_lock_bh(&tp->lock);
->> -     if (!tp->hw_stats) {
->> +     if (!tg3_flag(tp, INIT_COMPLETE)) {
->
-> The real issue is the manner and order in which the driver performs
-> initialization actions relative to netif_device_{attach,detach}().
->
-> That is what needs to be fixed here, instead of adding more and more
-> ad-hoc tests to the various methods which can be invoked once the
-> netif_device_attach() occurs.
+Hi Daniel,
 
-Normally, ndo_get_stats64() should be under rtnl lock in the netlink
-code path and we should be safe. We only free tp->hw_stats under rtnl
-lock in the close path or ethtool path.
+Thanks for your feedback! I agree on all points. Two questions below.
 
-But it looks like ndo_get_stats() can be called without rtnl lock from
-net-procfs.c.  So it is possible that we'll read tp->hw_stats after it
-has been freed.  For example, if we are reading /proc/net/dev and
-closing tg3 at the same time.  David, is not taking rtnl_lock in
-net-procfs.c by design?
+On 01/05/2017 05:25 PM, Daniel Borkmann wrote:
+> On 12/29/2016 06:28 PM, Daniel Mack wrote:
+
+>> diff --git a/kernel/bpf/lpm_trie.c b/kernel/bpf/lpm_trie.c
+>> new file mode 100644
+>> index 0000000..8b6a61d
+>> --- /dev/null
+>> +++ b/kernel/bpf/lpm_trie.c
+
+[..]
+
+>> +static struct bpf_map *trie_alloc(union bpf_attr *attr)
+>> +{
+>> +	struct lpm_trie *trie;
+>> +
+>> +	/* check sanity of attributes */
+>> +	if (attr->max_entries == 0 || attr->map_flags ||
+>> +	    attr->key_size < sizeof(struct bpf_lpm_trie_key) + 1   ||
+>> +	    attr->key_size > sizeof(struct bpf_lpm_trie_key) + 256 ||
+>> +	    attr->value_size != sizeof(u64))
+>> +		return ERR_PTR(-EINVAL);
+> 
+> The correct attr->map_flags test here would need to be ...
+> 
+>    attr->map_flags != BPF_F_NO_PREALLOC
+> 
+> ... since in this case we don't have any prealloc pool, and
+> should that come one day that test could be relaxed again.
+> 
+>> +	trie = kzalloc(sizeof(*trie), GFP_USER | __GFP_NOWARN);
+>> +	if (!trie)
+>> +		return NULL;
+>> +
+>> +	/* copy mandatory map attributes */
+>> +	trie->map.map_type = attr->map_type;
+>> +	trie->map.key_size = attr->key_size;
+>> +	trie->map.value_size = attr->value_size;
+>> +	trie->map.max_entries = attr->max_entries;
+> 
+> You also need to fill in trie->map.pages as that is eventually
+> used to charge memory against in bpf_map_charge_memlock(), right
+> now that would remain as 0 meaning the map is not accounted for.
+
+Hmm, okay. The nodes are, however, allocated dynamically at runtime in
+this case. That means that we have trie->map.pages on each allocation,
+right?
+
+>> +static void trie_free(struct bpf_map *map)
+>> +{
+>> +	struct lpm_trie_node __rcu **slot;
+>> +	struct lpm_trie_node *node;
+>> +	struct lpm_trie *trie =
+>> +		container_of(map, struct lpm_trie, map);
+>> +
+>> +	spin_lock(&trie->lock);
+>> +
+>> +	/*
+>> +	 * Always start at the root and walk down to a node that has no
+>> +	 * children. Then free that node, nullify its pointer in the parent,
+>> +	 * then start over.
+>> +	 */
+>> +
+>> +	for (;;) {
+>> +		slot = &trie->root;
+>> +
+>> +		for (;;) {
+>> +			node = rcu_dereference_protected(*slot,
+>> +					lockdep_is_held(&trie->lock));
+>> +			if (!node)
+>> +				goto out;
+>> +
+>> +			if (node->child[0]) {
+> 
+> rcu_access_pointer(node->child[0]) (at least to keep sparse happy?)
+
+Done, but sparse does not actually complain here.
+
+
+
+Thanks,
+Daniel
