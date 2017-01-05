@@ -1,50 +1,37 @@
-From: Michael Chan <michael.chan@broadcom.com>
-Subject: Re: [PATCH] tg3: Avoid NULL pointer dereference in tg3_get_nstats()
-Date: Thu, 5 Jan 2017 13:53:05 -0800
-Message-ID: <CACKFLi=KN6Fd6Wv7-vLPAAi3c6SyWdzg5BsFL+7WN_s-udQwaA@mail.gmail.com>
-References: <1483625601-10552-1-git-send-email-wangyufen@huawei.com>
- <20170105.123337.2237827308340782208.davem@davemloft.net> <CACKFLimPkD6hxECA+ZhH+7BVmVSoJ1GfAMZyJ7S50CbhiuC0mA@mail.gmail.com>
- <20170105.151705.2187713228201334532.davem@davemloft.net>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH v4] net: ethernet: faraday: To support device tree usage.
+Date: Thu, 05 Jan 2017 22:55:10 +0100
+Message-ID: <2495085.ah3UxQXxeO@wuerfel>
+References: <20170105102345.GA25774@app09>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: wangyufen@huawei.com, Siva Reddy Kallam <siva.kallam@broadcom.com>,
-        "prashant.sreedharan@broadcom.com" <prashant@broadcom.com>,
-        "michael.chan@broadcom.com" <mchan@broadcom.com>,
-        Netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
+        devicetree@vger.kernel.org, andrew@lunn.ch,
+        linux-kernel@vger.kernel.org, jiri@resnulli.us,
+        jonas.jensen@gmail.com, davem@davemloft.net
+To: Greentime Hu <green.hu@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f53.google.com ([209.85.218.53]:35753 "EHLO
-        mail-oi0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1760807AbdAEVxG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2017 16:53:06 -0500
-Received: by mail-oi0-f53.google.com with SMTP id b126so596436720oia.2
-        for <netdev@vger.kernel.org>; Thu, 05 Jan 2017 13:53:06 -0800 (PST)
-In-Reply-To: <20170105.151705.2187713228201334532.davem@davemloft.net>
+Received: from mout.kundenserver.de ([212.227.17.24]:50659 "EHLO
+        mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933035AbdAEVzf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2017 16:55:35 -0500
+In-Reply-To: <20170105102345.GA25774@app09>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 5, 2017 at 12:17 PM, David Miller <davem@davemloft.net> wrote:
-> From: Michael Chan <michael.chan@broadcom.com>
-> Date: Thu, 5 Jan 2017 12:04:13 -0800
->
->> But it looks like ndo_get_stats() can be called without rtnl lock from
->> net-procfs.c.  So it is possible that we'll read tp->hw_stats after it
->> has been freed.  For example, if we are reading /proc/net/dev and
->> closing tg3 at the same time.  David, is not taking rtnl_lock in
->> net-procfs.c by design?
->
-> Probably not, that dev_get_stats() call probably should be surrounded
-> by RTNL protection.
->
-> Doing a quick grep on dev_get_stats() shows other call sites, most of
-> which are using it to fetch slave device statistics from the get stats
-> method of the parent.  Which should be ok.
->
-> It appears that the vlan procfs code in net/8021q/vlanproc.c has a
-> similar bug as net/core/net-procfs.c
->
-> Maybe net/core/net-sysfs.c has the same issue as well, and perhaps also
-> net/openvswitch/vport.c:ovs_vport_get_stats().
->
+On Thursday, January 5, 2017 6:23:53 PM CET Greentime Hu wrote:
+> Signed-off-by: Greentime Hu <green.hu@gmail.com>
+> ---
+> Changes in v4:
+>   - Use the same binding document to describe the same faraday ethernet controller and add faraday to vendor-prefixes.txt.
+> Changes in v3:
+>   - Nothing changed in this patch but I have committed andestech to vendor-prefixes.txt.
+> Changes in v2:
+>   - Change atmac100_of_ids to ftmac100_of_ids
+> 
 
-OK.  I will send a patch later today to add rtnl_lock to these callers.
+The patch looks good to me now, but please add a proper commit log
+before your Signed-off-by tag.
+
+	Arnd
