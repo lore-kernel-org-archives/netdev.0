@@ -1,165 +1,93 @@
-From: Simon Horman <horms+renesas@verge.net.au>
-Subject: [PATCH/RFC v2 net-next] ravb: unmap descriptors when freeing rings
-Date: Thu,  5 Jan 2017 11:43:20 +0100
-Message-ID: <1483613000-537-1-git-send-email-horms+renesas@verge.net.au>
-Cc: Magnus Damm <magnus.damm@gmail.com>, netdev@vger.kernel.org,
-        linux-renesas-soc@vger.kernel.org
-To: David Miller <davem@davemloft.net>,
-        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:56091 "EHLO
-        kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1762039AbdAEKnr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2017 05:43:47 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Greentime Hu <green.hu@gmail.com>
+Subject: [PATCH v4] net: ethernet: faraday: To support device tree usage.
+Date: Thu, 5 Jan 2017 18:23:53 +0800
+Message-ID: <20170105102345.GA25774@app09>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+To: f.fainelli@gmail.com, netdev@vger.kernel.org,
+        devicetree@vger.kernel.org, andrew@lunn.ch,
+        linux-kernel@vger.kernel.org, jiri@resnulli.us,
+        jonas.jensen@gmail.com, davem@davemloft.net, arnd@arndb.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
-
-"swiotlb buffer is full" errors occur after repeated initialisation of a
-device - f.e. suspend/resume or ip link set up/down. This is because memory
-mapped using dma_map_single() in ravb_ring_format() and ravb_start_xmit()
-is not released.  Resolve this problem by unmapping descriptors when
-freeing rings.
-
-Note, ravb_tx_free() is moved but not otherwise modified by this patch.
-
-Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
-[simon: reworked]
-Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
---
-v1 [Kazuya Mizuguchi]
-
-v2 [Simon Horman]
-* As suggested by Sergei Shtylyov
-  - Use dma_mapping_error() and rx_desc->ds_cc when unmapping RX descriptors;
-    this is consistent with the way that they are mapped
-  - Use ravb_tx_free() to clear TX descriptors
-* Reduce scope of new local variable
+Signed-off-by: Greentime Hu <green.hu@gmail.com>
 ---
- drivers/net/ethernet/renesas/ravb_main.c | 89 ++++++++++++++++++--------------
- 1 file changed, 51 insertions(+), 38 deletions(-)
+Changes in v4:
+  - Use the same binding document to describe the same faraday ethernet controller and add faraday to vendor-prefixes.txt.
+Changes in v3:
+  - Nothing changed in this patch but I have committed andestech to vendor-prefixes.txt.
+Changes in v2:
+  - Change atmac100_of_ids to ftmac100_of_ids
+      
+---
+ .../net/{moxa,moxart-mac.txt => faraday,ftmac.txt} |    7 +++++--
+ .../devicetree/bindings/vendor-prefixes.txt        |    1 +
+ drivers/net/ethernet/faraday/ftmac100.c            |    7 +++++++
+ 3 files changed, 13 insertions(+), 2 deletions(-)
+ rename Documentation/devicetree/bindings/net/{moxa,moxart-mac.txt => faraday,ftmac.txt} (68%)
 
-diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
-index 92d7692c840d..1797c48e3176 100644
---- a/drivers/net/ethernet/renesas/ravb_main.c
-+++ b/drivers/net/ethernet/renesas/ravb_main.c
-@@ -179,6 +179,44 @@ static struct mdiobb_ops bb_ops = {
- 	.get_mdio_data = ravb_get_mdio_data,
- };
+diff --git a/Documentation/devicetree/bindings/net/moxa,moxart-mac.txt b/Documentation/devicetree/bindings/net/faraday,ftmac.txt
+similarity index 68%
+rename from Documentation/devicetree/bindings/net/moxa,moxart-mac.txt
+rename to Documentation/devicetree/bindings/net/faraday,ftmac.txt
+index 583418b..be4f55e 100644
+--- a/Documentation/devicetree/bindings/net/moxa,moxart-mac.txt
++++ b/Documentation/devicetree/bindings/net/faraday,ftmac.txt
+@@ -1,8 +1,11 @@
+-MOXA ART Ethernet Controller
++Faraday Ethernet Controller
  
-+/* Free TX skb function for AVB-IP */
-+static int ravb_tx_free(struct net_device *ndev, int q)
-+{
-+	struct ravb_private *priv = netdev_priv(ndev);
-+	struct net_device_stats *stats = &priv->stats[q];
-+	struct ravb_tx_desc *desc;
-+	int free_num = 0;
-+	int entry;
-+	u32 size;
-+
-+	for (; priv->cur_tx[q] - priv->dirty_tx[q] > 0; priv->dirty_tx[q]++) {
-+		entry = priv->dirty_tx[q] % (priv->num_tx_ring[q] *
-+					     NUM_TX_DESC);
-+		desc = &priv->tx_ring[q][entry];
-+		if (desc->die_dt != DT_FEMPTY)
-+			break;
-+		/* Descriptor type must be checked before all other reads */
-+		dma_rmb();
-+		size = le16_to_cpu(desc->ds_tagl) & TX_DS;
-+		/* Free the original skb. */
-+		if (priv->tx_skb[q][entry / NUM_TX_DESC]) {
-+			dma_unmap_single(ndev->dev.parent, le32_to_cpu(desc->dptr),
-+					 size, DMA_TO_DEVICE);
-+			/* Last packet descriptor? */
-+			if (entry % NUM_TX_DESC == NUM_TX_DESC - 1) {
-+				entry /= NUM_TX_DESC;
-+				dev_kfree_skb_any(priv->tx_skb[q][entry]);
-+				priv->tx_skb[q][entry] = NULL;
-+				stats->tx_packets++;
-+			}
-+			free_num++;
-+		}
-+		stats->tx_bytes += size;
-+		desc->die_dt = DT_EEMPTY;
-+	}
-+	return free_num;
-+}
-+
- /* Free skb's and DMA buffers for Ethernet AVB */
- static void ravb_ring_free(struct net_device *ndev, int q)
- {
-@@ -207,6 +245,18 @@ static void ravb_ring_free(struct net_device *ndev, int q)
- 	priv->tx_align[q] = NULL;
+ Required properties:
  
- 	if (priv->rx_ring[q]) {
-+		for (i = 0; i < priv->num_rx_ring[q]; i++) {
-+			struct ravb_ex_rx_desc *rx_desc = &priv->rx_ring[q][i];
-+
-+			if (!dma_mapping_error(ndev->dev.parent,
-+					       rx_desc->dptr)) {
-+				dma_unmap_single(ndev->dev.parent,
-+						 le32_to_cpu(rx_desc->dptr),
-+						 PKT_BUF_SZ,
-+						 DMA_FROM_DEVICE);
-+				rx_desc->ds_cc = cpu_to_le16(0);
-+			}
-+		}
- 		ring_size = sizeof(struct ravb_ex_rx_desc) *
- 			    (priv->num_rx_ring[q] + 1);
- 		dma_free_coherent(ndev->dev.parent, ring_size, priv->rx_ring[q],
-@@ -215,6 +265,7 @@ static void ravb_ring_free(struct net_device *ndev, int q)
- 	}
+-- compatible : Must be "moxa,moxart-mac"
++- compatible : Must contain "faraday,ftmac", as well as one of
++		the SoC specific identifiers:
++		"andestech,atmac100"
++		"moxa,moxart-mac"
+ - reg : Should contain register location and length
+ - interrupts : Should contain the mac interrupt number
  
- 	if (priv->tx_ring[q]) {
-+		ravb_tx_free(ndev, q);
- 		ring_size = sizeof(struct ravb_tx_desc) *
- 			    (priv->num_tx_ring[q] * NUM_TX_DESC + 1);
- 		dma_free_coherent(ndev->dev.parent, ring_size, priv->tx_ring[q],
-@@ -431,44 +482,6 @@ static int ravb_dmac_init(struct net_device *ndev)
+diff --git a/Documentation/devicetree/bindings/vendor-prefixes.txt b/Documentation/devicetree/bindings/vendor-prefixes.txt
+index 16d3b5e..489c336 100644
+--- a/Documentation/devicetree/bindings/vendor-prefixes.txt
++++ b/Documentation/devicetree/bindings/vendor-prefixes.txt
+@@ -102,6 +102,7 @@ everest	Everest Semiconductor Co. Ltd.
+ everspin	Everspin Technologies, Inc.
+ excito	Excito
+ ezchip	EZchip Semiconductor
++faraday	Faraday Technology Corporation
+ fcs	Fairchild Semiconductor
+ firefly	Firefly
+ focaltech	FocalTech Systems Co.,Ltd
+diff --git a/drivers/net/ethernet/faraday/ftmac100.c b/drivers/net/ethernet/faraday/ftmac100.c
+index dce5f7b..5d70ee9 100644
+--- a/drivers/net/ethernet/faraday/ftmac100.c
++++ b/drivers/net/ethernet/faraday/ftmac100.c
+@@ -1172,11 +1172,17 @@ static int __exit ftmac100_remove(struct platform_device *pdev)
  	return 0;
  }
  
--/* Free TX skb function for AVB-IP */
--static int ravb_tx_free(struct net_device *ndev, int q)
--{
--	struct ravb_private *priv = netdev_priv(ndev);
--	struct net_device_stats *stats = &priv->stats[q];
--	struct ravb_tx_desc *desc;
--	int free_num = 0;
--	int entry;
--	u32 size;
--
--	for (; priv->cur_tx[q] - priv->dirty_tx[q] > 0; priv->dirty_tx[q]++) {
--		entry = priv->dirty_tx[q] % (priv->num_tx_ring[q] *
--					     NUM_TX_DESC);
--		desc = &priv->tx_ring[q][entry];
--		if (desc->die_dt != DT_FEMPTY)
--			break;
--		/* Descriptor type must be checked before all other reads */
--		dma_rmb();
--		size = le16_to_cpu(desc->ds_tagl) & TX_DS;
--		/* Free the original skb. */
--		if (priv->tx_skb[q][entry / NUM_TX_DESC]) {
--			dma_unmap_single(ndev->dev.parent, le32_to_cpu(desc->dptr),
--					 size, DMA_TO_DEVICE);
--			/* Last packet descriptor? */
--			if (entry % NUM_TX_DESC == NUM_TX_DESC - 1) {
--				entry /= NUM_TX_DESC;
--				dev_kfree_skb_any(priv->tx_skb[q][entry]);
--				priv->tx_skb[q][entry] = NULL;
--				stats->tx_packets++;
--			}
--			free_num++;
--		}
--		stats->tx_bytes += size;
--		desc->die_dt = DT_EEMPTY;
--	}
--	return free_num;
--}
--
- static void ravb_get_tx_tstamp(struct net_device *ndev)
- {
- 	struct ravb_private *priv = netdev_priv(ndev);
++static const struct of_device_id ftmac100_of_ids[] = {
++	{ .compatible = "andestech,atmac100" },
++	{ }
++};
++
+ static struct platform_driver ftmac100_driver = {
+ 	.probe		= ftmac100_probe,
+ 	.remove		= __exit_p(ftmac100_remove),
+ 	.driver		= {
+ 		.name	= DRV_NAME,
++		.of_match_table = ftmac100_of_ids
+ 	},
+ };
+ 
+@@ -1200,3 +1206,4 @@ static void __exit ftmac100_exit(void)
+ MODULE_AUTHOR("Po-Yu Chuang <ratbert@faraday-tech.com>");
+ MODULE_DESCRIPTION("FTMAC100 driver");
+ MODULE_LICENSE("GPL");
++MODULE_DEVICE_TABLE(of, ftmac100_of_ids);
 -- 
-2.7.0.rc3.207.g0ac5344
+1.7.9.5
