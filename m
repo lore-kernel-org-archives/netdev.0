@@ -1,31 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] amd-xgbe: Fix IRQ processing when running in
- single IRQ mode
-Date: Fri, 06 Jan 2017 15:34:26 -0500 (EST)
-Message-ID: <20170106.153426.727385787329515187.davem@davemloft.net>
-References: <20170104210716.8401.99717.stgit@tlendack-t1.amdoffice.net>
+Subject: Re: [PATCH] sh_eth: fix EESIPR values for SH77{34|63}
+Date: Fri, 06 Jan 2017 15:35:05 -0500 (EST)
+Message-ID: <20170106.153505.2297570621984593459.davem@davemloft.net>
+References: <1819012.0ROIJmx7mp@wasted.cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: thomas.lendacky@amd.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:40356 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S938097AbdAFUe1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 6 Jan 2017 15:34:27 -0500
-In-Reply-To: <20170104210716.8401.99717.stgit@tlendack-t1.amdoffice.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org
+To: sergei.shtylyov@cogentembedded.com
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <1819012.0ROIJmx7mp@wasted.cogentembedded.com>
+Sender: linux-renesas-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Date: Wed, 4 Jan 2017 15:07:16 -0600
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Date: Wed, 04 Jan 2017 22:18:24 +0300
 
-> When running in single IRQ mode, the additional IRQ routines were being
-> skipped because only the XGMAC interrupt status was being checked.
-> Update the code so that the additional IRQ routines are checked whenever
-> an interrupt is received.
+> As the SH77{34|63} manuals are freely available,  I've checked the EESIPR
+> values written against the manuals, and they appeared to set the reserved
+> bits 11-15 (which should be 0 on write). Fix those EESIPR values.
 > 
-> Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
+> Fixes: 380af9e390ec ("net: sh_eth: CPU dependency code collect to "struct sh_eth_cpu_data"")
+> Fixes: f5d12767c8fd ("sh_eth: get SH77{34|63} support out of #ifdef")
+> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
 Applied.
