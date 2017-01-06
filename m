@@ -1,7 +1,7 @@
 From: Sainath Grandhi <sainath.grandhi@intel.com>
-Subject: [PATCHv1 4/7] TAP: Abstract type of virtual interface from tap implementation
-Date: Fri,  6 Jan 2017 14:33:26 -0800
-Message-ID: <1483742009-19184-5-git-send-email-sainath.grandhi@intel.com>
+Subject: [PATCHv1 7/7] IPVTAP: IP-VLAN based tap driver
+Date: Fri,  6 Jan 2017 14:33:29 -0800
+Message-ID: <1483742009-19184-8-git-send-email-sainath.grandhi@intel.com>
 References: <1483742009-19184-1-git-send-email-sainath.grandhi@intel.com>
 Cc: davem@davemloft.net, mahesh@bandewar.net,
         linux-kernel@vger.kernel.org,
@@ -12,891 +12,456 @@ In-Reply-To: <1483742009-19184-1-git-send-email-sainath.grandhi@intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-macvlan object is re-structured to hold tap related elements in a separate
-entity, tap_dev. Upon NETDEV_REGISTER device_event, tap_dev is registered with
-idr and fetched again on tap_open. Few of the tap functions are modified to
-accepted tap_dev as argument. tap_dev object includes callbacks to be used by
-underlying virtual interface to take care of tx and rx accounting.
+This patch adds a tap character device driver that is based on the
+IP-VLAN network interface, called ipvtap. An ipvtap device can be created
+in the same way as an ipvlan device, using 'type ipvtap', and then accessed
+using the tap user space interface.
 
 Signed-off-by: Sainath Grandhi <sainath.grandhi@intel.com>
 Tested-by: Sainath Grandhi <sainath.grandhi@intel.com>
 ---
- drivers/net/macvlan.c      |   2 +-
- drivers/net/macvtap_main.c |  68 +++++++++---
- drivers/net/tap.c          | 264 ++++++++++++++++++++-------------------------
- include/linux/if_tap.h     |  59 +++++++++-
- 4 files changed, 227 insertions(+), 166 deletions(-)
+ drivers/net/Kconfig              |  12 ++
+ drivers/net/Makefile             |   1 +
+ drivers/net/ipvlan/Makefile      |   1 +
+ drivers/net/ipvlan/ipvlan.h      |   7 ++
+ drivers/net/ipvlan/ipvlan_core.c |   5 +-
+ drivers/net/ipvlan/ipvlan_main.c |  37 +++---
+ drivers/net/ipvlan/ipvtap.c      | 238 +++++++++++++++++++++++++++++++++++++++
+ 7 files changed, 282 insertions(+), 19 deletions(-)
+ create mode 100644 drivers/net/ipvlan/ipvtap.c
 
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index 20b3fdf2..79383f9 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -1526,7 +1526,6 @@ static const struct nla_policy macvlan_policy[IFLA_MACVLAN_MAX + 1] = {
- int macvlan_link_register(struct rtnl_link_ops *ops)
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index 280380d..ddfb30a 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -165,6 +165,18 @@ config IPVLAN
+       To compile this driver as a module, choose M here: the module
+       will be called ipvlan.
+ 
++config IPVTAP
++        tristate "IP-VLAN based tap driver"
++        depends on IPVLAN
++        depends on INET
++        help
++          This adds a specialized tap character device driver that is based
++          on the IP-VLAN network interface, called ipvtap. An ipvtap device
++          can be added in the same way as a ipvlan device, using 'type
++          ipvtap', and then be accessed through the tap user space interface.
++
++          To compile this driver as a module, choose M here: the module
++          will be called macvtap.
+ 
+ config VXLAN
+        tristate "Virtual eXtensible Local Area Network (VXLAN)"
+diff --git a/drivers/net/Makefile b/drivers/net/Makefile
+index 7dd86ca..98ed4d9 100644
+--- a/drivers/net/Makefile
++++ b/drivers/net/Makefile
+@@ -7,6 +7,7 @@
+ #
+ obj-$(CONFIG_BONDING) += bonding/
+ obj-$(CONFIG_IPVLAN) += ipvlan/
++obj-$(CONFIG_IPVTAP) += ipvlan/
+ obj-$(CONFIG_DUMMY) += dummy.o
+ obj-$(CONFIG_EQUALIZER) += eql.o
+ obj-$(CONFIG_IFB) += ifb.o
+diff --git a/drivers/net/ipvlan/Makefile b/drivers/net/ipvlan/Makefile
+index df79910..8a2c64d 100644
+--- a/drivers/net/ipvlan/Makefile
++++ b/drivers/net/ipvlan/Makefile
+@@ -3,5 +3,6 @@
+ #
+ 
+ obj-$(CONFIG_IPVLAN) += ipvlan.o
++obj-$(CONFIG_IPVTAP) += ipvtap.o
+ 
+ ipvlan-objs := ipvlan_core.o ipvlan_main.o
+diff --git a/drivers/net/ipvlan/ipvlan.h b/drivers/net/ipvlan/ipvlan.h
+index dbfbb33..4362d88 100644
+--- a/drivers/net/ipvlan/ipvlan.h
++++ b/drivers/net/ipvlan/ipvlan.h
+@@ -133,4 +133,11 @@ struct sk_buff *ipvlan_l3_rcv(struct net_device *dev, struct sk_buff *skb,
+ 			      u16 proto);
+ unsigned int ipvlan_nf_input(void *priv, struct sk_buff *skb,
+ 			     const struct nf_hook_state *state);
++void ipvlan_count_rx(const struct ipvl_dev *ipvlan,
++		     unsigned int len, bool success, bool mcast);
++int ipvlan_link_new(struct net *src_net, struct net_device *dev,
++		    struct nlattr *tb[], struct nlattr *data[]);
++void ipvlan_link_delete(struct net_device *dev, struct list_head *head);
++void ipvlan_link_setup(struct net_device *dev);
++int ipvlan_link_register(struct rtnl_link_ops *ops);
+ #endif /* __IPVLAN_H */
+diff --git a/drivers/net/ipvlan/ipvlan_core.c b/drivers/net/ipvlan/ipvlan_core.c
+index 83ce74a..9af16ab 100644
+--- a/drivers/net/ipvlan/ipvlan_core.c
++++ b/drivers/net/ipvlan/ipvlan_core.c
+@@ -16,8 +16,8 @@ void ipvlan_init_secret(void)
+ 	net_get_random_once(&ipvlan_jhash_secret, sizeof(ipvlan_jhash_secret));
+ }
+ 
+-static void ipvlan_count_rx(const struct ipvl_dev *ipvlan,
+-			    unsigned int len, bool success, bool mcast)
++void ipvlan_count_rx(const struct ipvl_dev *ipvlan,
++		     unsigned int len, bool success, bool mcast)
  {
- 	/* common fields */
--	ops->priv_size		= sizeof(struct macvlan_dev);
- 	ops->validate		= macvlan_validate;
- 	ops->maxtype		= IFLA_MACVLAN_MAX;
- 	ops->policy		= macvlan_policy;
-@@ -1549,6 +1548,7 @@ static struct rtnl_link_ops macvlan_link_ops = {
- 	.newlink	= macvlan_newlink,
- 	.dellink	= macvlan_dellink,
- 	.get_link_net	= macvlan_get_link_net,
-+	.priv_size      = sizeof(struct macvlan_dev),
+ 	if (!ipvlan)
+ 		return;
+@@ -36,6 +36,7 @@ static void ipvlan_count_rx(const struct ipvl_dev *ipvlan,
+ 		this_cpu_inc(ipvlan->pcpu_stats->rx_errs);
+ 	}
+ }
++EXPORT_SYMBOL_GPL(ipvlan_count_rx);
+ 
+ static u8 ipvlan_get_v6_hash(const void *iaddr)
+ {
+diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
+index 8b0f993..666a05d 100644
+--- a/drivers/net/ipvlan/ipvlan_main.c
++++ b/drivers/net/ipvlan/ipvlan_main.c
+@@ -13,14 +13,14 @@ static u32 ipvl_nf_hook_refcnt = 0;
+ 
+ static struct nf_hook_ops ipvl_nfops[] __read_mostly = {
+ 	{
+-		.hook     = ipvlan_nf_input,
+-		.pf       = NFPROTO_IPV4,
++		.hook	  = ipvlan_nf_input,
++		.pf	  = NFPROTO_IPV4,
+ 		.hooknum  = NF_INET_LOCAL_IN,
+ 		.priority = INT_MAX,
+ 	},
+ 	{
+-		.hook     = ipvlan_nf_input,
+-		.pf       = NFPROTO_IPV6,
++		.hook	  = ipvlan_nf_input,
++		.pf	  = NFPROTO_IPV6,
+ 		.hooknum  = NF_INET_LOCAL_IN,
+ 		.priority = INT_MAX,
+ 	},
+@@ -398,7 +398,7 @@ static int ipvlan_hard_header(struct sk_buff *skb, struct net_device *dev,
+ }
+ 
+ static const struct header_ops ipvlan_header_ops = {
+-	.create  	= ipvlan_hard_header,
++	.create		= ipvlan_hard_header,
+ 	.parse		= eth_header_parse,
+ 	.cache		= eth_header_cache,
+ 	.cache_update	= eth_header_cache_update,
+@@ -494,8 +494,8 @@ static int ipvlan_nl_fillinfo(struct sk_buff *skb,
+ 	return ret;
+ }
+ 
+-static int ipvlan_link_new(struct net *src_net, struct net_device *dev,
+-			   struct nlattr *tb[], struct nlattr *data[])
++int ipvlan_link_new(struct net *src_net, struct net_device *dev,
++		    struct nlattr *tb[], struct nlattr *data[])
+ {
+ 	struct ipvl_dev *ipvlan = netdev_priv(dev);
+ 	struct ipvl_port *port;
+@@ -567,8 +567,9 @@ static int ipvlan_link_new(struct net *src_net, struct net_device *dev,
+ 		ipvlan_port_destroy(phy_dev);
+ 	return err;
+ }
++EXPORT_SYMBOL_GPL(ipvlan_link_new);
+ 
+-static void ipvlan_link_delete(struct net_device *dev, struct list_head *head)
++void ipvlan_link_delete(struct net_device *dev, struct list_head *head)
+ {
+ 	struct ipvl_dev *ipvlan = netdev_priv(dev);
+ 	struct ipvl_addr *addr, *next;
+@@ -583,8 +584,9 @@ static void ipvlan_link_delete(struct net_device *dev, struct list_head *head)
+ 	unregister_netdevice_queue(dev, head);
+ 	netdev_upper_dev_unlink(ipvlan->phy_dev, dev);
+ }
++EXPORT_SYMBOL_GPL(ipvlan_link_delete);
+ 
+-static void ipvlan_link_setup(struct net_device *dev)
++void ipvlan_link_setup(struct net_device *dev)
+ {
+ 	ether_setup(dev);
+ 
+@@ -595,6 +597,7 @@ static void ipvlan_link_setup(struct net_device *dev)
+ 	dev->header_ops = &ipvlan_header_ops;
+ 	dev->ethtool_ops = &ipvlan_ethtool_ops;
+ }
++EXPORT_SYMBOL_GPL(ipvlan_link_setup);
+ 
+ static const struct nla_policy ipvlan_nl_policy[IFLA_IPVLAN_MAX + 1] =
+ {
+@@ -605,22 +608,22 @@ static struct rtnl_link_ops ipvlan_link_ops = {
+ 	.kind		= "ipvlan",
+ 	.priv_size	= sizeof(struct ipvl_dev),
+ 
+-	.get_size	= ipvlan_nl_getsize,
+-	.policy		= ipvlan_nl_policy,
+-	.validate	= ipvlan_nl_validate,
+-	.fill_info	= ipvlan_nl_fillinfo,
+-	.changelink	= ipvlan_nl_changelink,
+-	.maxtype	= IFLA_IPVLAN_MAX,
+-
+ 	.setup		= ipvlan_link_setup,
+ 	.newlink	= ipvlan_link_new,
+ 	.dellink	= ipvlan_link_delete,
  };
  
- static int macvlan_device_event(struct notifier_block *unused,
-diff --git a/drivers/net/macvtap_main.c b/drivers/net/macvtap_main.c
-index 32ad560..6326a82 100644
---- a/drivers/net/macvtap_main.c
-+++ b/drivers/net/macvtap_main.c
-@@ -24,6 +24,11 @@
- #include <linux/virtio_net.h>
- #include <linux/skb_array.h>
+-static int ipvlan_link_register(struct rtnl_link_ops *ops)
++int ipvlan_link_register(struct rtnl_link_ops *ops)
+ {
++	ops->get_size	= ipvlan_nl_getsize;
++	ops->policy	= ipvlan_nl_policy;
++	ops->validate	= ipvlan_nl_validate;
++	ops->fill_info	= ipvlan_nl_fillinfo;
++	ops->changelink = ipvlan_nl_changelink;
++	ops->maxtype	= IFLA_IPVLAN_MAX;
+ 	return rtnl_link_register(ops);
+ }
++EXPORT_SYMBOL_GPL(ipvlan_link_register);
  
-+struct macvtap_dev {
-+	struct macvlan_dev vlan;
-+	struct tap_dev    tap;
+ static int ipvlan_device_event(struct notifier_block *unused,
+ 			       unsigned long event, void *ptr)
+diff --git a/drivers/net/ipvlan/ipvtap.c b/drivers/net/ipvlan/ipvtap.c
+new file mode 100644
+index 0000000..0422cdf
+--- /dev/null
++++ b/drivers/net/ipvlan/ipvtap.c
+@@ -0,0 +1,238 @@
++#include <linux/etherdevice.h>
++#include "ipvlan.h"
++#include <linux/if_vlan.h>
++#include <linux/if_tap.h>
++#include <linux/interrupt.h>
++#include <linux/nsproxy.h>
++#include <linux/compat.h>
++#include <linux/if_tun.h>
++#include <linux/module.h>
++#include <linux/skbuff.h>
++#include <linux/cache.h>
++#include <linux/sched.h>
++#include <linux/types.h>
++#include <linux/slab.h>
++#include <linux/wait.h>
++#include <linux/cdev.h>
++#include <linux/idr.h>
++#include <linux/fs.h>
++#include <linux/uio.h>
++
++#include <net/net_namespace.h>
++#include <net/rtnetlink.h>
++#include <net/sock.h>
++#include <linux/virtio_net.h>
++
++#define TUN_OFFLOADS (NETIF_F_HW_CSUM | NETIF_F_TSO_ECN | NETIF_F_TSO | \
++		      NETIF_F_TSO6 | NETIF_F_UFO)
++
++static dev_t ipvtap_major;
++static struct cdev ipvtap_cdev;
++
++static const void *ipvtap_net_namespace(struct device *d)
++{
++	struct net_device *dev = to_net_dev(d->parent);
++	return dev_net(dev);
++}
++
++static struct class ipvtap_class = {
++	 .name = "ipvtap",
++	 .owner = THIS_MODULE,
++	 .ns_type = &net_ns_type_operations,
++	 .namespace = ipvtap_net_namespace,
 +};
 +
- /*
-  * Variables for dealing with macvtaps device numbers.
-  */
-@@ -46,22 +51,52 @@ static struct cdev macvtap_cdev;
- #define TUN_OFFLOADS (NETIF_F_HW_CSUM | NETIF_F_TSO_ECN | NETIF_F_TSO | \
- 		      NETIF_F_TSO6 | NETIF_F_UFO)
- 
-+static void macvtap_count_tx_dropped(struct tap_dev *tap)
-+{
-+	struct macvlan_dev *vlan = (struct macvlan_dev *)container_of(tap, struct macvtap_dev, tap);
++struct ipvtap_dev {
++	struct ipvl_dev vlan;
++	struct tap_dev	  tap;
++};
 +
-+	this_cpu_inc(vlan->pcpu_stats->tx_dropped);
++static void ipvtap_count_tx_dropped(struct tap_dev *tap)
++{
++	struct ipvl_dev *vlan = (struct ipvl_dev *)container_of(tap, struct ipvtap_dev, tap);
++
++	this_cpu_inc(vlan->pcpu_stats->tx_drps);
 +}
 +
-+static void macvtap_count_rx_dropped(struct tap_dev *tap)
++static void ipvtap_count_rx_dropped(struct tap_dev *tap)
 +{
-+	struct macvlan_dev *vlan = (struct macvlan_dev *)container_of(tap, struct macvtap_dev, tap);
++	struct ipvl_dev *vlan = (struct ipvl_dev *)container_of(tap, struct ipvtap_dev, tap);
 +
-+	macvlan_count_rx(vlan, 0, 0, 0);
++	ipvlan_count_rx(vlan, 0, 0, 0);
 +}
 +
-+static void macvtap_update_features(struct tap_dev *tap,
-+				    netdev_features_t features)
++static void ipvtap_update_features(struct tap_dev *tap,
++				   netdev_features_t features)
 +{
-+	struct macvlan_dev *vlan = (struct macvlan_dev *)container_of(tap, struct macvtap_dev, tap);
++	struct ipvl_dev *vlan = (struct ipvl_dev *)container_of(tap, struct ipvtap_dev, tap);
 +
-+	vlan->set_features = features;
++	vlan->sfeatures = features;
 +	netdev_update_features(vlan->dev);
 +}
 +
- static int macvtap_newlink(struct net *src_net,
- 			   struct net_device *dev,
- 			   struct nlattr *tb[],
- 			   struct nlattr *data[])
- {
--	struct macvlan_dev *vlan = netdev_priv(dev);
-+	struct macvtap_dev *vlantap = netdev_priv(dev);
- 	int err;
- 
--	INIT_LIST_HEAD(&vlan->queue_list);
++static int ipvtap_newlink(struct net *src_net,
++			  struct net_device *dev,
++			  struct nlattr *tb[],
++			  struct nlattr *data[])
++{
++	struct ipvtap_dev *vlantap = netdev_priv(dev);
++	int err;
++
 +	INIT_LIST_HEAD(&vlantap->tap.queue_list);
- 
- 	/* Since macvlan supports all offloads by default, make
- 	 * tap support all offloads also.
- 	 */
--	vlan->tap_features = TUN_OFFLOADS;
-+	vlantap->tap.tap_features = TUN_OFFLOADS;
- 
--	err = netdev_rx_handler_register(dev, tap_handle_frame, vlan);
-+	/* Register callbacks for rx/tx drops accounting and updating
-+	 * net_device features
++
++	/* Since macvlan supports all offloads by default, make
++	 * tap support all offloads also.
 +	 */
-+	vlantap->tap.count_tx_dropped = macvtap_count_tx_dropped;
-+	vlantap->tap.count_rx_dropped = macvtap_count_rx_dropped;
-+	vlantap->tap.update_features  = macvtap_update_features;
++	vlantap->tap.tap_features = TUN_OFFLOADS;
++	vlantap->tap.count_tx_dropped = ipvtap_count_tx_dropped;
++	vlantap->tap.update_features =	ipvtap_update_features;
++	vlantap->tap.count_rx_dropped = ipvtap_count_rx_dropped;
 +
 +	err = netdev_rx_handler_register(dev, tap_handle_frame, &vlantap->tap);
- 	if (err)
- 		return err;
- 
-@@ -74,14 +109,18 @@ static int macvtap_newlink(struct net *src_net,
- 		return err;
- 	}
- 
++	if (err)
++		return err;
++
++	/* Don't put anything that may fail after macvlan_common_newlink
++	 * because we can't undo what it does.
++	 */
++	err =  ipvlan_link_new(src_net, dev, tb, data);
++	if (err) {
++		netdev_rx_handler_unregister(dev);
++		return err;
++	}
++
 +	vlantap->tap.dev = vlantap->vlan.dev;
 +
- 	return 0;
- }
- 
- static void macvtap_dellink(struct net_device *dev,
- 			    struct list_head *head)
- {
-+	struct macvtap_dev *vlantap = netdev_priv(dev);
++	return err;
++}
 +
- 	netdev_rx_handler_unregister(dev);
--	tap_del_queues(dev);
-+	tap_del_queues(&vlantap->tap);
- 	macvlan_dellink(dev, head);
- }
- 
-@@ -96,13 +135,14 @@ static struct rtnl_link_ops macvtap_link_ops __read_mostly = {
- 	.setup		= macvtap_setup,
- 	.newlink	= macvtap_newlink,
- 	.dellink	= macvtap_dellink,
-+	.priv_size      = sizeof(struct macvtap_dev),
- };
- 
- static int macvtap_device_event(struct notifier_block *unused,
- 				unsigned long event, void *ptr)
- {
- 	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
--	struct macvlan_dev *vlan;
-+	struct macvtap_dev *vlantap;
- 	struct device *classdev;
- 	dev_t devt;
- 	int err;
-@@ -112,7 +152,7 @@ static int macvtap_device_event(struct notifier_block *unused,
- 		return NOTIFY_DONE;
- 
- 	snprintf(tap_name, IFNAMSIZ, "tap%d", dev->ifindex);
--	vlan = netdev_priv(dev);
++static void ipvtap_dellink(struct net_device *dev,
++			   struct list_head *head)
++{
++	struct ipvtap_dev *vlan = netdev_priv(dev);
++
++	netdev_rx_handler_unregister(dev);
++	tap_del_queues(&vlan->tap);
++	ipvlan_link_delete(dev, head);
++}
++
++static void ipvtap_setup(struct net_device *dev)
++{
++	ipvlan_link_setup(dev);
++	dev->tx_queue_len = TUN_READQ_SIZE;
++	dev->priv_flags &= ~IFF_NO_QUEUE;
++}
++
++static struct rtnl_link_ops ipvtap_link_ops __read_mostly = {
++	.kind		= "ipvtap",
++	.setup		= ipvtap_setup,
++	.newlink	= ipvtap_newlink,
++	.dellink	= ipvtap_dellink,
++	.priv_size	= sizeof(struct ipvtap_dev),
++};
++
++static int ipvtap_device_event(struct notifier_block *unused,
++			       unsigned long event, void *ptr)
++{
++	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
++	struct ipvtap_dev *vlantap;
++	struct device *classdev;
++	dev_t devt;
++	int err;
++	char tap_name[IFNAMSIZ];
++
++	if (dev->rtnl_link_ops != &ipvtap_link_ops)
++		return NOTIFY_DONE;
++
++	snprintf(tap_name, IFNAMSIZ, "tap%d", dev->ifindex);
 +	vlantap = netdev_priv(dev);
- 
- 	switch (event) {
- 	case NETDEV_REGISTER:
-@@ -120,15 +160,15 @@ static int macvtap_device_event(struct notifier_block *unused,
- 		 * been registered but before register_netdevice has
- 		 * finished running.
- 		 */
--		err = tap_get_minor(vlan);
-+		err = tap_get_minor(&vlantap->tap);
- 		if (err)
- 			return notifier_from_errno(err);
- 
--		devt = MKDEV(MAJOR(macvtap_major), vlan->minor);
-+		devt = MKDEV(MAJOR(macvtap_major), vlantap->tap.minor);
- 		classdev = device_create(&macvtap_class, &dev->dev, devt,
- 					 dev, tap_name);
- 		if (IS_ERR(classdev)) {
--			tap_free_minor(vlan);
-+			tap_free_minor(&vlantap->tap);
- 			return notifier_from_errno(PTR_ERR(classdev));
- 		}
- 		err = sysfs_create_link(&dev->dev.kobj, &classdev->kobj,
-@@ -138,15 +178,15 @@ static int macvtap_device_event(struct notifier_block *unused,
- 		break;
- 	case NETDEV_UNREGISTER:
- 		/* vlan->minor == 0 if NETDEV_REGISTER above failed */
--		if (vlan->minor == 0)
++
++	switch (event) {
++	case NETDEV_REGISTER:
++		/* Create the device node here after the network device has
++		 * been registered but before register_netdevice has
++		 * finished running.
++		 */
++		err = tap_get_minor(ipvtap_major, &vlantap->tap);
++		if (err)
++			return notifier_from_errno(err);
++
++		devt = MKDEV(MAJOR(ipvtap_major), vlantap->tap.minor);
++		classdev = device_create(&ipvtap_class, &dev->dev, devt,
++					 dev, tap_name);
++		if (IS_ERR(classdev)) {
++			tap_free_minor(ipvtap_major, &vlantap->tap);
++			return notifier_from_errno(PTR_ERR(classdev));
++		}
++		err = sysfs_create_link(&dev->dev.kobj, &classdev->kobj,
++					tap_name);
++		if (err)
++			return notifier_from_errno(err);
++		break;
++	case NETDEV_UNREGISTER:
++		/* vlan->minor == 0 if NETDEV_REGISTER above failed */
 +		if (vlantap->tap.minor == 0)
- 			break;
- 		sysfs_remove_link(&dev->dev.kobj, tap_name);
--		devt = MKDEV(MAJOR(macvtap_major), vlan->minor);
-+		devt = MKDEV(MAJOR(macvtap_major), vlantap->tap.minor);
- 		device_destroy(&macvtap_class, devt);
--		tap_free_minor(vlan);
-+		tap_free_minor(&vlantap->tap);
- 		break;
- 	case NETDEV_CHANGE_TX_QUEUE_LEN:
--		if (tap_queue_resize(vlan))
++			break;
++		sysfs_remove_link(&dev->dev.kobj, tap_name);
++		devt = MKDEV(MAJOR(ipvtap_major), vlantap->tap.minor);
++		device_destroy(&ipvtap_class, devt);
++		tap_free_minor(ipvtap_major, &vlantap->tap);
++		break;
++	case NETDEV_CHANGE_TX_QUEUE_LEN:
 +		if (tap_queue_resize(&vlantap->tap))
- 			return NOTIFY_BAD;
- 		break;
- 	}
-diff --git a/drivers/net/tap.c b/drivers/net/tap.c
-index 52692d2..6306ab9 100644
---- a/drivers/net/tap.c
-+++ b/drivers/net/tap.c
-@@ -1,5 +1,5 @@
- #include <linux/etherdevice.h>
--#include <linux/if_macvlan.h>
-+#include <linux/if_tap.h>
- #include <linux/if_vlan.h>
- #include <linux/interrupt.h>
- #include <linux/nsproxy.h>
-@@ -23,30 +23,6 @@
- #include <linux/virtio_net.h>
- #include <linux/skb_array.h>
- 
--/*
-- * A tap queue is the central object of this driver, it connects
-- * an open character device to a macvlan interface. There can be
-- * multiple queues on one interface, which map back to queues
-- * implemented in hardware on the underlying device.
-- *
-- * tap_proto is used to allocate queues through the sock allocation
-- * mechanism.
-- *
-- */
--struct tap_queue {
--	struct sock sk;
--	struct socket sock;
--	struct socket_wq wq;
--	int vnet_hdr_sz;
--	struct macvlan_dev __rcu *vlan;
--	struct file *file;
--	unsigned int flags;
--	u16 queue_index;
--	bool enabled;
--	struct list_head next;
--	struct skb_array skb_array;
--};
--
- #define TAP_IFFEATURES (IFF_VNET_HDR | IFF_MULTI_QUEUE)
- 
- #define TAP_VNET_LE 0x80000000
-@@ -137,7 +113,7 @@ static const struct proto_ops tap_socket_ops;
- #define RX_OFFLOADS (NETIF_F_GRO | NETIF_F_LRO)
- #define TAP_FEATURES (NETIF_F_GSO | NETIF_F_SG | NETIF_F_FRAGLIST)
- 
--static struct macvlan_dev *tap_get_vlan_rcu(const struct net_device *dev)
-+static struct tap_dev *tap_dev_get_rcu(const struct net_device *dev)
- {
- 	return rcu_dereference(dev->rx_handler_data);
- }
-@@ -159,10 +135,9 @@ static struct macvlan_dev *tap_get_vlan_rcu(const struct net_device *dev)
-  * when both our references and any pending SKBs are gone.
-  */
- 
--static int tap_enable_queue(struct net_device *dev, struct file *file,
-+static int tap_enable_queue(struct tap_dev *tap, struct file *file,
- 			    struct tap_queue *q)
- {
--	struct macvlan_dev *vlan = netdev_priv(dev);
- 	int err = -EINVAL;
- 
- 	ASSERT_RTNL();
-@@ -171,62 +146,60 @@ static int tap_enable_queue(struct net_device *dev, struct file *file,
- 		goto out;
- 
- 	err = 0;
--	rcu_assign_pointer(vlan->taps[vlan->numvtaps], q);
--	q->queue_index = vlan->numvtaps;
-+	rcu_assign_pointer(tap->taps[tap->numvtaps], q);
-+	q->queue_index = tap->numvtaps;
- 	q->enabled = true;
- 
--	vlan->numvtaps++;
-+	tap->numvtaps++;
- out:
- 	return err;
- }
- 
- /* Requires RTNL */
--static int tap_set_queue(struct net_device *dev, struct file *file,
-+static int tap_set_queue(struct tap_dev *tap, struct file *file,
- 			 struct tap_queue *q)
- {
--	struct macvlan_dev *vlan = netdev_priv(dev);
--
--	if (vlan->numqueues == MAX_TAP_QUEUES)
-+	if (tap->numqueues == MAX_TAP_QUEUES)
- 		return -EBUSY;
- 
--	rcu_assign_pointer(q->vlan, vlan);
--	rcu_assign_pointer(vlan->taps[vlan->numvtaps], q);
-+	rcu_assign_pointer(q->tap, tap);
-+	rcu_assign_pointer(tap->taps[tap->numvtaps], q);
- 	sock_hold(&q->sk);
- 
- 	q->file = file;
--	q->queue_index = vlan->numvtaps;
-+	q->queue_index = tap->numvtaps;
- 	q->enabled = true;
- 	file->private_data = q;
--	list_add_tail(&q->next, &vlan->queue_list);
-+	list_add_tail(&q->next, &tap->queue_list);
- 
--	vlan->numvtaps++;
--	vlan->numqueues++;
-+	tap->numvtaps++;
-+	tap->numqueues++;
- 
- 	return 0;
- }
- 
- static int tap_disable_queue(struct tap_queue *q)
- {
--	struct macvlan_dev *vlan;
-+	struct tap_dev *tap;
- 	struct tap_queue *nq;
- 
- 	ASSERT_RTNL();
- 	if (!q->enabled)
- 		return -EINVAL;
- 
--	vlan = rtnl_dereference(q->vlan);
-+	tap = rtnl_dereference(q->tap);
- 
--	if (vlan) {
-+	if (tap) {
- 		int index = q->queue_index;
--		BUG_ON(index >= vlan->numvtaps);
--		nq = rtnl_dereference(vlan->taps[vlan->numvtaps - 1]);
-+		BUG_ON(index >= tap->numvtaps);
-+		nq = rtnl_dereference(tap->taps[tap->numvtaps - 1]);
- 		nq->queue_index = index;
- 
--		rcu_assign_pointer(vlan->taps[index], nq);
--		RCU_INIT_POINTER(vlan->taps[vlan->numvtaps - 1], NULL);
-+		rcu_assign_pointer(tap->taps[index], nq);
-+		RCU_INIT_POINTER(tap->taps[tap->numvtaps - 1], NULL);
- 		q->enabled = false;
- 
--		vlan->numvtaps--;
-+		tap->numvtaps--;
- 	}
- 
- 	return 0;
-@@ -242,17 +215,17 @@ static int tap_disable_queue(struct tap_queue *q)
-  */
- static void tap_put_queue(struct tap_queue *q)
- {
--	struct macvlan_dev *vlan;
-+	struct tap_dev *tap;
- 
- 	rtnl_lock();
--	vlan = rtnl_dereference(q->vlan);
-+	tap = rtnl_dereference(q->tap);
- 
--	if (vlan) {
-+	if (tap) {
- 		if (q->enabled)
- 			BUG_ON(tap_disable_queue(q));
- 
--		vlan->numqueues--;
--		RCU_INIT_POINTER(q->vlan, NULL);
-+		tap->numqueues--;
-+		RCU_INIT_POINTER(q->tap, NULL);
- 		sock_put(&q->sk);
- 		list_del_init(&q->next);
- 	}
-@@ -270,17 +243,16 @@ static void tap_put_queue(struct tap_queue *q)
-  * Cache vlan->numvtaps since it can become zero during the execution
-  * of this function.
-  */
--static struct tap_queue *tap_get_queue(struct net_device *dev,
-+static struct tap_queue *tap_get_queue(struct tap_dev *tap,
- 				       struct sk_buff *skb)
- {
--	struct macvlan_dev *vlan = netdev_priv(dev);
--	struct tap_queue *tap = NULL;
-+	struct tap_queue *queue = NULL;
- 	/* Access to taps array is protected by rcu, but access to numvtaps
- 	 * isn't. Below we use it to lookup a queue, but treat it as a hint
- 	 * and validate that the result isn't NULL - in case we are
- 	 * racing against queue removal.
- 	 */
--	int numvtaps = ACCESS_ONCE(vlan->numvtaps);
-+	int numvtaps = ACCESS_ONCE(tap->numvtaps);
- 	__u32 rxq;
- 
- 	if (!numvtaps)
-@@ -292,7 +264,7 @@ static struct tap_queue *tap_get_queue(struct net_device *dev,
- 	/* Check if we can use flow to select a queue */
- 	rxq = skb_get_hash(skb);
- 	if (rxq) {
--		tap = rcu_dereference(vlan->taps[rxq % numvtaps]);
-+		queue = rcu_dereference(tap->taps[rxq % numvtaps]);
- 		goto out;
- 	}
- 
-@@ -302,14 +274,14 @@ static struct tap_queue *tap_get_queue(struct net_device *dev,
- 		while (unlikely(rxq >= numvtaps))
- 			rxq -= numvtaps;
- 
--		tap = rcu_dereference(vlan->taps[rxq]);
-+		queue = rcu_dereference(tap->taps[rxq]);
- 		goto out;
- 	}
- 
- single:
--	tap = rcu_dereference(vlan->taps[0]);
-+	queue = rcu_dereference(tap->taps[0]);
- out:
--	return tap;
-+	return queue;
- }
- 
- /*
-@@ -317,39 +289,38 @@ static struct tap_queue *tap_get_queue(struct net_device *dev,
-  * that it holds on all queues and safely set the pointer
-  * from the queues to NULL.
-  */
--void tap_del_queues(struct net_device *dev)
-+void tap_del_queues(struct tap_dev *tap)
- {
--	struct macvlan_dev *vlan = netdev_priv(dev);
- 	struct tap_queue *q, *tmp;
- 
- 	ASSERT_RTNL();
--	list_for_each_entry_safe(q, tmp, &vlan->queue_list, next) {
-+	list_for_each_entry_safe(q, tmp, &tap->queue_list, next) {
- 		list_del_init(&q->next);
--		RCU_INIT_POINTER(q->vlan, NULL);
-+		RCU_INIT_POINTER(q->tap, NULL);
- 		if (q->enabled)
--			vlan->numvtaps--;
--		vlan->numqueues--;
-+			tap->numvtaps--;
-+		tap->numqueues--;
- 		sock_put(&q->sk);
- 	}
--	BUG_ON(vlan->numvtaps);
--	BUG_ON(vlan->numqueues);
-+	BUG_ON(tap->numvtaps);
-+	BUG_ON(tap->numqueues);
- 	/* guarantee that any future tap_set_queue will fail */
--	vlan->numvtaps = MAX_TAP_QUEUES;
-+	tap->numvtaps = MAX_TAP_QUEUES;
- }
- 
- rx_handler_result_t tap_handle_frame(struct sk_buff **pskb)
- {
- 	struct sk_buff *skb = *pskb;
- 	struct net_device *dev = skb->dev;
--	struct macvlan_dev *vlan;
-+	struct tap_dev *tap;
- 	struct tap_queue *q;
- 	netdev_features_t features = TAP_FEATURES;
- 
--	vlan = tap_get_vlan_rcu(dev);
--	if (!vlan)
-+	tap = tap_dev_get_rcu(dev);
-+	if (!tap)
- 		return RX_HANDLER_PASS;
- 
--	q = tap_get_queue(dev, skb);
-+	q = tap_get_queue(tap, skb);
- 	if (!q)
- 		return RX_HANDLER_PASS;
- 
-@@ -363,7 +334,7 @@ rx_handler_result_t tap_handle_frame(struct sk_buff **pskb)
- 	 * enabled.
- 	 */
- 	if (q->flags & IFF_VNET_HDR)
--		features |= vlan->tap_features;
-+		features |= tap->tap_features;
- 	if (netif_needs_gso(skb, features)) {
- 		struct sk_buff *segs = __skb_gso_segment(skb, features, false);
- 
-@@ -408,50 +379,51 @@ rx_handler_result_t tap_handle_frame(struct sk_buff **pskb)
- 
- drop:
- 	/* Count errors/drops only here, thus don't care about args. */
--	macvlan_count_rx(vlan, 0, 0, 0);
-+	if (tap->count_rx_dropped)
-+		tap->count_rx_dropped(tap);
- 	kfree_skb(skb);
- 	return RX_HANDLER_CONSUMED;
- }
- 
--int tap_get_minor(struct macvlan_dev *vlan)
-+int tap_get_minor(struct tap_dev *tap)
- {
- 	int retval = -ENOMEM;
- 
- 	mutex_lock(&macvtap_major.minor_lock);
--	retval = idr_alloc(&macvtap_major.minor_idr, vlan, 1, TAP_NUM_DEVS, GFP_KERNEL);
-+	retval = idr_alloc(&macvtap_major.minor_idr, tap, 1, TAP_NUM_DEVS, GFP_KERNEL);
- 	if (retval >= 0) {
--		vlan->minor = retval;
-+		tap->minor = retval;
- 	} else if (retval == -ENOSPC) {
--		netdev_err(vlan->dev, "Too many tap devices\n");
-+		netdev_err(tap->dev, "Too many tap devices\n");
- 		retval = -EINVAL;
- 	}
- 	mutex_unlock(&macvtap_major.minor_lock);
- 	return retval < 0 ? retval : 0;
- }
- 
--void tap_free_minor(struct macvlan_dev *vlan)
-+void tap_free_minor(struct tap_dev *tap)
- {
- 	mutex_lock(&macvtap_major.minor_lock);
--	if (vlan->minor) {
--		idr_remove(&macvtap_major.minor_idr, vlan->minor);
--		vlan->minor = 0;
-+	if (tap->minor) {
-+		idr_remove(&macvtap_major.minor_idr, tap->minor);
-+		tap->minor = 0;
- 	}
- 	mutex_unlock(&macvtap_major.minor_lock);
- }
- 
--static struct net_device *dev_get_by_tap_minor(int minor)
-+static struct tap_dev *dev_get_by_tap_minor(int minor)
- {
- 	struct net_device *dev = NULL;
--	struct macvlan_dev *vlan;
-+	struct tap_dev *tap;
- 
- 	mutex_lock(&macvtap_major.minor_lock);
--	vlan = idr_find(&macvtap_major.minor_idr, minor);
--	if (vlan) {
--		dev = vlan->dev;
-+	tap = idr_find(&macvtap_major.minor_idr, minor);
-+	if (tap) {
-+		dev = tap->dev;
- 		dev_hold(dev);
- 	}
- 	mutex_unlock(&macvtap_major.minor_lock);
--	return dev;
-+	return tap;
- }
- 
- static void tap_sock_write_space(struct sock *sk)
-@@ -477,13 +449,13 @@ static void tap_sock_destruct(struct sock *sk)
- static int tap_open(struct inode *inode, struct file *file)
- {
- 	struct net *net = current->nsproxy->net_ns;
--	struct net_device *dev;
-+	struct tap_dev *tap;
- 	struct tap_queue *q;
- 	int err = -ENODEV;
- 
- 	rtnl_lock();
--	dev = dev_get_by_tap_minor(iminor(inode));
--	if (!dev)
-+	tap = dev_get_by_tap_minor(iminor(inode));
-+	if (!tap)
- 		goto err;
- 
- 	err = -ENOMEM;
-@@ -511,18 +483,18 @@ static int tap_open(struct inode *inode, struct file *file)
- 	 * The macvlan supports zerocopy iff the lower device supports zero
- 	 * copy so we don't have to look at the lower device directly.
- 	 */
--	if ((dev->features & NETIF_F_HIGHDMA) && (dev->features & NETIF_F_SG))
-+	if ((tap->dev->features & NETIF_F_HIGHDMA) && (tap->dev->features & NETIF_F_SG))
- 		sock_set_flag(&q->sk, SOCK_ZEROCOPY);
- 
- 	err = -ENOMEM;
--	if (skb_array_init(&q->skb_array, dev->tx_queue_len, GFP_KERNEL))
-+	if (skb_array_init(&q->skb_array, tap->dev->tx_queue_len, GFP_KERNEL))
- 		goto err_array;
- 
--	err = tap_set_queue(dev, file, q);
-+	err = tap_set_queue(tap, file, q);
- 	if (err)
- 		goto err_queue;
- 
--	dev_put(dev);
-+	dev_put(tap->dev);
- 
- 	rtnl_unlock();
- 	return err;
-@@ -532,8 +504,8 @@ static int tap_open(struct inode *inode, struct file *file)
- err_array:
- 	sock_put(&q->sk);
- err:
--	if (dev)
--		dev_put(dev);
-+	if (tap)
-+		dev_put(tap->dev);
- 
- 	rtnl_unlock();
- 	return err;
-@@ -601,7 +573,7 @@ static ssize_t tap_get_user(struct tap_queue *q, struct msghdr *m,
- {
- 	int good_linear = SKB_MAX_HEAD(TAP_RESERVE);
- 	struct sk_buff *skb;
--	struct macvlan_dev *vlan;
-+	struct tap_dev *tap;
- 	unsigned long total_len = iov_iter_count(from);
- 	unsigned long len = total_len;
- 	int err;
-@@ -698,7 +670,7 @@ static ssize_t tap_get_user(struct tap_queue *q, struct msghdr *m,
- 		skb_set_network_header(skb, depth);
- 
- 	rcu_read_lock();
--	vlan = rcu_dereference(q->vlan);
-+	tap = rcu_dereference(q->tap);
- 	/* copy skb_ubuf_info for callback when skb has no error */
- 	if (zerocopy) {
- 		skb_shinfo(skb)->destructor_arg = m->msg_control;
-@@ -709,8 +681,8 @@ static ssize_t tap_get_user(struct tap_queue *q, struct msghdr *m,
- 		uarg->callback(uarg, false);
- 	}
- 
--	if (vlan) {
--		skb->dev = vlan->dev;
-+	if (tap) {
-+		skb->dev = tap->dev;
- 		dev_queue_xmit(skb);
- 	} else {
- 		kfree_skb(skb);
-@@ -724,9 +696,9 @@ static ssize_t tap_get_user(struct tap_queue *q, struct msghdr *m,
- 
- err:
- 	rcu_read_lock();
--	vlan = rcu_dereference(q->vlan);
--	if (vlan)
--		this_cpu_inc(vlan->pcpu_stats->tx_dropped);
-+	tap = rcu_dereference(q->tap);
-+	if (tap && tap->count_tx_dropped)
-+		tap->count_tx_dropped(tap);
- 	rcu_read_unlock();
- 
- 	return err;
-@@ -853,55 +825,55 @@ static ssize_t tap_read_iter(struct kiocb *iocb, struct iov_iter *to)
- 	return ret;
- }
- 
--static struct macvlan_dev *tap_get_vlan(struct tap_queue *q)
-+static struct tap_dev *tap_get_tap_dev(struct tap_queue *q)
- {
--	struct macvlan_dev *vlan;
-+	struct tap_dev *tap;
- 
- 	ASSERT_RTNL();
--	vlan = rtnl_dereference(q->vlan);
--	if (vlan)
--		dev_hold(vlan->dev);
-+	tap = rtnl_dereference(q->tap);
-+	if (tap)
-+		dev_hold(tap->dev);
- 
--	return vlan;
-+	return tap;
- }
- 
--static void tap_put_vlan(struct macvlan_dev *vlan)
-+static void tap_put_tap_dev(struct tap_dev *tap)
- {
--	dev_put(vlan->dev);
-+	dev_put(tap->dev);
- }
- 
- static int tap_ioctl_set_queue(struct file *file, unsigned int flags)
- {
- 	struct tap_queue *q = file->private_data;
--	struct macvlan_dev *vlan;
-+	struct tap_dev *tap;
- 	int ret;
- 
--	vlan = tap_get_vlan(q);
--	if (!vlan)
-+	tap = tap_get_tap_dev(q);
-+	if (!tap)
- 		return -EINVAL;
- 
- 	if (flags & IFF_ATTACH_QUEUE)
--		ret = tap_enable_queue(vlan->dev, file, q);
-+		ret = tap_enable_queue(tap, file, q);
- 	else if (flags & IFF_DETACH_QUEUE)
- 		ret = tap_disable_queue(q);
- 	else
- 		ret = -EINVAL;
- 
--	tap_put_vlan(vlan);
-+	tap_put_tap_dev(tap);
- 	return ret;
- }
- 
- static int set_offload(struct tap_queue *q, unsigned long arg)
- {
--	struct macvlan_dev *vlan;
-+	struct tap_dev *tap;
- 	netdev_features_t features;
- 	netdev_features_t feature_mask = 0;
- 
--	vlan = rtnl_dereference(q->vlan);
--	if (!vlan)
-+	tap = rtnl_dereference(q->tap);
-+	if (!tap)
- 		return -ENOLINK;
- 
--	features = vlan->dev->features;
-+	features = tap->dev->features;
- 
- 	if (arg & TUN_F_CSUM) {
- 		feature_mask = NETIF_F_HW_CSUM;
-@@ -935,9 +907,9 @@ static int set_offload(struct tap_queue *q, unsigned long arg)
- 	/* tap_features are the same as features on tun/tap and
- 	 * reflect user expectations.
- 	 */
--	vlan->tap_features = feature_mask;
--	vlan->set_features = features;
--	netdev_update_features(vlan->dev);
-+	tap->tap_features = feature_mask;
-+	if (tap->update_features)
-+		tap->update_features(tap, features);
- 
- 	return 0;
- }
-@@ -949,7 +921,7 @@ static long tap_ioctl(struct file *file, unsigned int cmd,
- 		      unsigned long arg)
- {
- 	struct tap_queue *q = file->private_data;
--	struct macvlan_dev *vlan;
-+	struct tap_dev *tap;
- 	void __user *argp = (void __user *)arg;
- 	struct ifreq __user *ifr = argp;
- 	unsigned int __user *up = argp;
-@@ -975,18 +947,18 @@ static long tap_ioctl(struct file *file, unsigned int cmd,
- 
- 	case TUNGETIFF:
- 		rtnl_lock();
--		vlan = tap_get_vlan(q);
--		if (!vlan) {
-+		tap = tap_get_tap_dev(q);
-+		if (!tap) {
- 			rtnl_unlock();
- 			return -ENOLINK;
- 		}
- 
- 		ret = 0;
- 		u = q->flags;
--		if (copy_to_user(&ifr->ifr_name, vlan->dev->name, IFNAMSIZ) ||
-+		if (copy_to_user(&ifr->ifr_name, tap->dev->name, IFNAMSIZ) ||
- 		    put_user(u, &ifr->ifr_flags))
- 			ret = -EFAULT;
--		tap_put_vlan(vlan);
-+		tap_put_tap_dev(tap);
- 		rtnl_unlock();
- 		return ret;
- 
-@@ -1059,18 +1031,18 @@ static long tap_ioctl(struct file *file, unsigned int cmd,
- 
- 	case SIOCGIFHWADDR:
- 		rtnl_lock();
--		vlan = tap_get_vlan(q);
--		if (!vlan) {
-+		tap = tap_get_tap_dev(q);
-+		if (!tap) {
- 			rtnl_unlock();
- 			return -ENOLINK;
- 		}
- 		ret = 0;
--		u = vlan->dev->type;
--		if (copy_to_user(&ifr->ifr_name, vlan->dev->name, IFNAMSIZ) ||
--		    copy_to_user(&ifr->ifr_hwaddr.sa_data, vlan->dev->dev_addr, ETH_ALEN) ||
-+		u = tap->dev->type;
-+		if (copy_to_user(&ifr->ifr_name, tap->dev->name, IFNAMSIZ) ||
-+		    copy_to_user(&ifr->ifr_hwaddr.sa_data, tap->dev->dev_addr, ETH_ALEN) ||
- 		    put_user(u, &ifr->ifr_hwaddr.sa_family))
- 			ret = -EFAULT;
--		tap_put_vlan(vlan);
-+		tap_put_tap_dev(tap);
- 		rtnl_unlock();
- 		return ret;
- 
-@@ -1078,13 +1050,13 @@ static long tap_ioctl(struct file *file, unsigned int cmd,
- 		if (copy_from_user(&sa, &ifr->ifr_hwaddr, sizeof(sa)))
- 			return -EFAULT;
- 		rtnl_lock();
--		vlan = tap_get_vlan(q);
--		if (!vlan) {
-+		tap = tap_get_tap_dev(q);
-+		if (!tap) {
- 			rtnl_unlock();
- 			return -ENOLINK;
- 		}
--		ret = dev_set_mac_address(vlan->dev, &sa);
--		tap_put_vlan(vlan);
-+		ret = dev_set_mac_address(tap->dev, &sa);
-+		tap_put_tap_dev(tap);
- 		rtnl_unlock();
- 		return ret;
- 
-@@ -1167,19 +1139,19 @@ struct socket *tap_get_socket(struct file *file)
- }
- EXPORT_SYMBOL_GPL(tap_get_socket);
- 
--int tap_queue_resize(struct macvlan_dev *vlan)
-+int tap_queue_resize(struct tap_dev *tap)
- {
--	struct net_device *dev = vlan->dev;
-+	struct net_device *dev = tap->dev;
- 	struct tap_queue *q;
- 	struct skb_array **arrays;
--	int n = vlan->numqueues;
-+	int n = tap->numqueues;
- 	int ret, i = 0;
- 
- 	arrays = kmalloc(sizeof *arrays * n, GFP_KERNEL);
- 	if (!arrays)
- 		return -ENOMEM;
- 
--	list_for_each_entry(q, &vlan->queue_list, next)
-+	list_for_each_entry(q, &tap->queue_list, next)
- 		arrays[i++] = &q->skb_array;
- 
- 	ret = skb_array_resize_multiple(arrays, n,
-diff --git a/include/linux/if_tap.h b/include/linux/if_tap.h
-index 89bcd42..e6b2a88 100644
---- a/include/linux/if_tap.h
-+++ b/include/linux/if_tap.h
-@@ -1,13 +1,62 @@
- #ifndef _LINUX_IF_TAP_H_
- #define _LINUX_IF_TAP_H_
- 
-+#include <net/sock.h>
-+#include <linux/skb_array.h>
++			return NOTIFY_BAD;
++		break;
++	}
 +
-+#define MAX_TAP_QUEUES 256
++	return NOTIFY_DONE;
++}
 +
-+struct tap_queue;
-+
-+struct tap_dev {
-+	struct net_device	*dev;
-+	u16			flags;
-+	/* This array tracks active taps. */
-+	struct tap_queue    __rcu *taps[MAX_TAP_QUEUES];
-+	/* This list tracks all taps (both enabled and disabled) */
-+	struct list_head	queue_list;
-+	int			numvtaps;
-+	int			numqueues;
-+	netdev_features_t	tap_features;
-+	int			minor;
-+
-+	void (*update_features)(struct tap_dev *tap, netdev_features_t features);
-+	void (*count_tx_dropped)(struct tap_dev *tap);
-+	void (*count_rx_dropped)(struct tap_dev *tap);
++static struct notifier_block ipvtap_notifier_block __read_mostly = {
++	.notifier_call	= ipvtap_device_event,
 +};
 +
-+/*
-+ * A tap queue is the central object of tap module, it connects
-+ * an open character device to virtual interface. There can be
-+ * multiple queues on one interface, which map back to queues
-+ * implemented in hardware on the underlying device.
-+ *
-+ * tap_proto is used to allocate queues through the sock allocation
-+ * mechanism.
-+ *
-+ */
++static int ipvtap_init(void)
++{
++	int err;
 +
-+struct tap_queue {
-+	struct sock sk;
-+	struct socket sock;
-+	struct socket_wq wq;
-+	int vnet_hdr_sz;
-+	struct tap_dev __rcu *tap;
-+	struct file *file;
-+	unsigned int flags;
-+	u16 queue_index;
-+	bool enabled;
-+	struct list_head next;
-+	struct skb_array skb_array;
-+};
++	err = tap_create_cdev(&ipvtap_cdev, &ipvtap_major, "ipvtap");
 +
- rx_handler_result_t tap_handle_frame(struct sk_buff **pskb);
--void tap_del_queues(struct net_device *dev);
--int tap_get_minor(struct macvlan_dev *vlan);
--void tap_free_minor(struct macvlan_dev *vlan);
--int tap_queue_resize(struct macvlan_dev *vlan);
-+void tap_del_queues(struct tap_dev *tap);
-+int tap_get_minor(struct tap_dev *tap);
-+void tap_free_minor(struct tap_dev *tap);
-+int tap_queue_resize(struct tap_dev *tap);
- int tap_create_cdev(struct cdev *tap_cdev,
--		     dev_t *tap_major, const char *device_name);
-+		    dev_t *tap_major, const char *device_name);
- void tap_destroy_cdev(dev_t major, struct cdev *tap_cdev);
- struct socket *tap_get_socket(struct file *file);
- 
++	if (err)
++		goto out1;
++
++	err = class_register(&ipvtap_class);
++	if (err)
++		goto out2;
++
++	err = register_netdevice_notifier(&ipvtap_notifier_block);
++	if (err)
++		goto out3;
++
++	err = ipvlan_link_register(&ipvtap_link_ops);
++	if (err)
++		goto out4;
++
++	return 0;
++
++out4:
++	unregister_netdevice_notifier(&ipvtap_notifier_block);
++out3:
++	class_unregister(&ipvtap_class);
++out2:
++	cdev_del(&ipvtap_cdev);
++out1:
++	return err;
++}
++module_init(ipvtap_init);
++
++static void ipvtap_exit(void)
++{
++	rtnl_link_unregister(&ipvtap_link_ops);
++	unregister_netdevice_notifier(&ipvtap_notifier_block);
++	class_unregister(&ipvtap_class);
++	tap_destroy_cdev(ipvtap_major, &ipvtap_cdev);
++}
++module_exit(ipvtap_exit);
++MODULE_ALIAS_RTNL_LINK("ipvtap");
++MODULE_AUTHOR("Arnd Bergmann <arnd@arndb.de>");
++MODULE_LICENSE("GPL");
 -- 
 2.7.4
