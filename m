@@ -1,52 +1,64 @@
 From: Johannes Berg <johannes@sipsolutions.net>
-Subject: pull-request: mac80211 2017-01-06
-Date: Fri,  6 Jan 2017 13:37:20 +0100
-Message-ID: <20170106123721.10970-1-johannes@sipsolutions.net>
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:59746 "EHLO sipsolutions.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S967077AbdAFMiN (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 6 Jan 2017 07:38:13 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Subject: Re: [PATCH net-next] bridge: multicast to unicast
+Date: Fri, 06 Jan 2017 13:47:52 +0100
+Message-ID: <1483706872.4089.8.camel@sipsolutions.net>
+References: <20170102193214.31723-1-linus.luessing@c0d3.blue>
+	(sfid-20170102_204412_831542_1DC6188A)
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: bridge@lists.linux-foundation.org, linux-wireless@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Michael Braun <michael-dev@fami-braun.de>,
+	"David S . Miller" <davem@davemloft.net>, Felix Fietkau <nbd@nbd.name>
+To: Linus =?ISO-8859-1?Q?L=FCssing?= <linus.luessing@c0d3.blue>,
+	netdev@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20170102193214.31723-1-linus.luessing@c0d3.blue>
+	(sfid-20170102_204412_831542_1DC6188A)
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+On Mon, 2017-01-02 at 20:32 +0100, Linus Lüssing wrote:
+> Implements an optional, per bridge port flag and feature to deliver
+> multicast packets to any host on the according port via unicast
+> individually. This is done by copying the packet per host and
+> changing the multicast destination MAC to a unicast one accordingly.
 
-Here's another fix for something I noticed while reviewing the code in
-a new suggested patch that added another netlink socket destroy path.
+How does this compare and/or relate to the multicast-to-unicast feature
+we were going to add to the wifi stack, particularly mac80211? Do we
+perhaps not need that feature at all, if bridging will have it?
 
-Since the new patch would otherwise cause conflicts, it might be good
-to pull net or Linus's next RC containing it into net-next, if you can.
+I suppose that the feature there could apply also to locally generated
+traffic when the AP interface isn't in a bridge, but I think I could
+live with requiring the AP to be put into a bridge to achieve a similar
+configuration?
 
-Please pull and let me know if there's any problem.
+Additionally, on an unrelated note, this seems to apply generically to
+all kinds of frames, losing information by replacing the address.
+Shouldn't it have similar limitations as the wifi stack feature has
+then, like only applying to ARP, IPv4, IPv6 and not general protocols?
 
-Thanks,
+Also, it should probably come with the same caveat as we documented for
+the wifi feature:
+
+    Note that this may break certain expectations of the receiver,
+    such as the ability to drop unicast IP packets received within
+    multicast L2 frames, or the ability to not send ICMP destination
+    unreachable messages for packets received in L2 multicast (which
+    is required, but the receiver can't tell the difference if this
+    new option is enabled.)
+
+
+I'll hold off sending my tree in until we see that we really need both
+features, or decide that we want the wifi feature *instead* of the
+bridge feature.
+
 johannes
-
-
-
-The following changes since commit 35f432a03e41d3bf08c51ede917f94e2288fbe8c:
-
-  mac80211: initialize fast-xmit 'info' later (2017-01-02 11:28:25 +0100)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211.git tags/mac80211-for-davem-2017-01-06
-
-for you to fetch changes up to 753aacfd2e95df6a0caf23c03dc309020765bea9:
-
-  nl80211: fix sched scan netlink socket owner destruction (2017-01-05 10:59:53 +0100)
-
-----------------------------------------------------------------
-Another single fix, to correctly handle destruction of a
-single netlink socket having ownership of multiple objects
-(scheduled scan requests and interfaces.)
-
-----------------------------------------------------------------
-Johannes Berg (1):
-      nl80211: fix sched scan netlink socket owner destruction
-
- net/wireless/nl80211.c | 16 +++++++---------
- 1 file changed, 7 insertions(+), 9 deletions(-)
