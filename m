@@ -1,14 +1,13 @@
 From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: [PATCH v2 7/7] Documentation: DT: net: cpsw: remove no_bd_ram property
-Date: Fri, 6 Jan 2017 14:07:35 -0600
-Message-ID: <20170106200735.4210-8-grygorii.strashko@ti.com>
+Subject: [PATCH v2 2/7] net: ethernet: ti: cpdma: fix desc re-queuing
+Date: Fri, 6 Jan 2017 14:07:30 -0600
+Message-ID: <20170106200735.4210-3-grygorii.strashko@ti.com>
 References: <20170106200735.4210-1-grygorii.strashko@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Sekhar Nori <nsekhar@ti.com>, <linux-kernel@vger.kernel.org>,
         <linux-omap@vger.kernel.org>,
-        Grygorii Strashko <grygorii.strashko@ti.com>,
-        "'Rob Herring '" <robh+dt@kernel.org>
+        Grygorii Strashko <grygorii.strashko@ti.com>
 To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
         Mugunthan V N <mugunthanvnm@ti.com>,
         Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
@@ -17,95 +16,33 @@ In-Reply-To: <20170106200735.4210-1-grygorii.strashko@ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Even if no_bd_ram property is described in TI CPSW bindings the support for
-it has never been introduced in CPSW driver, so there are no real users of
-it. Hence, remove no_bd_ram property from documentation and DT files.
+The currently processing cpdma descriptor with EOQ flag set may
+contain two values in Next Descriptor Pointer field:
+- valid pointer: means CPDMA missed addition of new desc in queue;
+- null: no more descriptors in queue.
+In the later case, it's not required to write to HDP register, but now
+CPDMA does it.
 
-Cc: 'Rob Herring <robh+dt@kernel.org>'
+Hence, add additional check for Next Descriptor Pointer != null in
+cpdma_chan_process() function before writing in HDP register.
+
 Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
 ---
- Documentation/devicetree/bindings/net/cpsw.txt | 3 ---
- arch/arm/boot/dts/am33xx.dtsi                  | 1 -
- arch/arm/boot/dts/am4372.dtsi                  | 1 -
- arch/arm/boot/dts/dm814x.dtsi                  | 1 -
- arch/arm/boot/dts/dra7.dtsi                    | 1 -
- 5 files changed, 7 deletions(-)
+ drivers/net/ethernet/ti/davinci_cpdma.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/Documentation/devicetree/bindings/net/cpsw.txt b/Documentation/devicetree/bindings/net/cpsw.txt
-index ebda7c9..7cc15c9 100644
---- a/Documentation/devicetree/bindings/net/cpsw.txt
-+++ b/Documentation/devicetree/bindings/net/cpsw.txt
-@@ -23,7 +23,6 @@ Required properties:
+diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c b/drivers/net/ethernet/ti/davinci_cpdma.c
+index d6f0ded..a53b384 100644
+--- a/drivers/net/ethernet/ti/davinci_cpdma.c
++++ b/drivers/net/ethernet/ti/davinci_cpdma.c
+@@ -1159,7 +1159,7 @@ static int __cpdma_chan_process(struct cpdma_chan *chan)
+ 	chan->count--;
+ 	chan->stats.good_dequeue++;
  
- Optional properties:
- - ti,hwmods		: Must be "cpgmac0"
--- no_bd_ram		: Must be 0 or 1
- - dual_emac		: Specifies Switch to act as Dual EMAC
- - syscon		: Phandle to the system control device node, which is
- 			  the control module device of the am33x
-@@ -70,7 +69,6 @@ Examples:
- 		cpdma_channels = <8>;
- 		ale_entries = <1024>;
- 		bd_ram_size = <0x2000>;
--		no_bd_ram = <0>;
- 		rx_descs = <64>;
- 		mac_control = <0x20>;
- 		slaves = <2>;
-@@ -99,7 +97,6 @@ Examples:
- 		cpdma_channels = <8>;
- 		ale_entries = <1024>;
- 		bd_ram_size = <0x2000>;
--		no_bd_ram = <0>;
- 		rx_descs = <64>;
- 		mac_control = <0x20>;
- 		slaves = <2>;
-diff --git a/arch/arm/boot/dts/am33xx.dtsi b/arch/arm/boot/dts/am33xx.dtsi
-index 64c8aa9..d458ceb 100644
---- a/arch/arm/boot/dts/am33xx.dtsi
-+++ b/arch/arm/boot/dts/am33xx.dtsi
-@@ -781,7 +781,6 @@
- 			cpdma_channels = <8>;
- 			ale_entries = <1024>;
- 			bd_ram_size = <0x2000>;
--			no_bd_ram = <0>;
- 			mac_control = <0x20>;
- 			slaves = <2>;
- 			active_slave = <0>;
-diff --git a/arch/arm/boot/dts/am4372.dtsi b/arch/arm/boot/dts/am4372.dtsi
-index ac55f93..837aff1 100644
---- a/arch/arm/boot/dts/am4372.dtsi
-+++ b/arch/arm/boot/dts/am4372.dtsi
-@@ -669,7 +669,6 @@
- 			cpdma_channels = <8>;
- 			ale_entries = <1024>;
- 			bd_ram_size = <0x2000>;
--			no_bd_ram = <0>;
- 			mac_control = <0x20>;
- 			slaves = <2>;
- 			active_slave = <0>;
-diff --git a/arch/arm/boot/dts/dm814x.dtsi b/arch/arm/boot/dts/dm814x.dtsi
-index 1facc5f..4cbeb5c 100644
---- a/arch/arm/boot/dts/dm814x.dtsi
-+++ b/arch/arm/boot/dts/dm814x.dtsi
-@@ -509,7 +509,6 @@
- 			cpdma_channels = <8>;
- 			ale_entries = <1024>;
- 			bd_ram_size = <0x2000>;
--			no_bd_ram = <0>;
- 			mac_control = <0x20>;
- 			slaves = <2>;
- 			active_slave = <0>;
-diff --git a/arch/arm/boot/dts/dra7.dtsi b/arch/arm/boot/dts/dra7.dtsi
-index addb753..b69df91 100644
---- a/arch/arm/boot/dts/dra7.dtsi
-+++ b/arch/arm/boot/dts/dra7.dtsi
-@@ -1707,7 +1707,6 @@
- 			cpdma_channels = <8>;
- 			ale_entries = <1024>;
- 			bd_ram_size = <0x2000>;
--			no_bd_ram = <0>;
- 			mac_control = <0x20>;
- 			slaves = <2>;
- 			active_slave = <0>;
+-	if (status & CPDMA_DESC_EOQ) {
++	if ((status & CPDMA_DESC_EOQ) && chan->head) {
+ 		chan->stats.requeue++;
+ 		chan_write(chan, hdp, desc_phys(pool, chan->head));
+ 	}
 -- 
 2.10.1.dirty
