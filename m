@@ -1,101 +1,120 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [lkp-developer] [page_pool]  50a8fe7622:
- kernel_BUG_at_mm/slub.c
-Date: Fri, 6 Jan 2017 08:27:51 +0100
-Message-ID: <20170106082751.3dae47e3@redhat.com>
-References: <20161220132817.18788.64726.stgit@firesoul>
-	<20170106050827.GC690@yexl-desktop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-mm@kvack.org, Alexander Duyck <alexander.duyck@gmail.com>,
-        willemdebruijn.kernel@gmail.com, netdev@vger.kernel.org,
-        john.fastabend@gmail.com, Saeed Mahameed <saeedm@mellanox.com>,
-        bjorn.topel@intel.com,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Tariq Toukan <tariqt@mellanox.com>, lkp@01.org, brouer@redhat.com
-To: kernel test robot <xiaolong.ye@intel.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20170106050827.GC690@yexl-desktop>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+From: Alexander Loktionov <Alexander.Loktionov@aquantia.com>
+Subject: [PATCH v2 00/12] net: ethernet: aquantia: Add AQtion 2.5/5 GB NIC driver
+Date: Fri,  6 Jan 2017 00:06:01 -0800
+Message-ID: <cover.1483689029.git.vomlehn@texas.net>
+Cc: Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
+        Alexander Loktionov <Alexander.Loktionov@aquantia.com>,
+        Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>,
+        Pavel Belous <Pavel.Belous@aquantia.com>
+To: netdev@vger.kernel.org, David VomLehn <vomlehn@texas.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from barracuda4.aus1.datafoundry.com ([209.99.124.135]:60190 "EHLO
+        milter.aus.datafoundry.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751936AbdAFIGk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 6 Jan 2017 03:06:40 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: David VomLehn <vomlehn@texas.net>
 
-On Fri, 6 Jan 2017 13:08:27 +0800 kernel test robot <xiaolong.ye@intel.com> wrote:
+This series introduced the AQtion NIC driver for the aQuantia
+AQC107/AQC108 network devices.
 
-> FYI, we noticed the following commit:
-> 
-> commit: 50a8fe7622e6c45af778d91f83c11491f0afaaf3 ("page_pool: basic implementation of page_pool")
-> url: https://github.com/0day-ci/linux/commits/Jesper-Dangaard-Brouer/page_pool-proof-of-concept-early-code/20161221-014200
-> base: git://git.cmpxchg.org/linux-mmotm.git master
-> 
-> in testcase: trinity
-> with following parameters:
-> 
-> 	runtime: 300s
-> 
-> test-description: Trinity is a linux system call fuzz tester.
-> test-url: http://codemonkey.org.uk/projects/trinity/
-> 
-> 
-> on test machine: qemu-system-i386 -enable-kvm -smp 2 -m 320M
+v1: Initial version
+v2: o Make necessary drivers/net/ethernet changes to integrate software
+    o Drop intermediate atlantic directory
+    o Remove Makefile things only appropriate to out of tree module builidng
 
-This is because this RFC patch does not support 32-bit, as I'm using a
-page flag that is only avail on 64-bit, see[1].
+David VomLehn (12):
+  net: ethernet: aquantia: Make and configuration files.
+  net: ethernet: aquantia: Common functions and definitions
+  net: ethernet: aquantia: Add ring support code
+  net: ethernet: aquantia: Low-level hardware interfaces
+  net: ethernet: aquantia: Support for NIC-specific code
+  net: ethernet: aquantia: Atlantic A0 and B0 specific functions.
+  net: ethernet: aquantia: Vector operations
+  net: ethernet: aquantia: PCI operations
+  net: ethernet: aquantia: Atlantic hardware abstraction layer
+  net: ethernet: aquantia: Hardware interface and utility functions
+  net: ethernet: aquantia: Ethtool support
+  net: ethernet: aquantia: Receive side scaling
 
-I though this kind of page-flags violation would be caught compile-time?
+ drivers/net/ethernet/Kconfig                       |    1 +
+ drivers/net/ethernet/Makefile                      |    1 +
+ drivers/net/ethernet/aquantia/Kconfig              |   24 +
+ drivers/net/ethernet/aquantia/Makefile             |   43 +
+ drivers/net/ethernet/aquantia/aq_cfg.h             |   81 +
+ drivers/net/ethernet/aquantia/aq_common.h          |   22 +
+ drivers/net/ethernet/aquantia/aq_ethtool.c         |  250 +++
+ drivers/net/ethernet/aquantia/aq_ethtool.h         |   19 +
+ drivers/net/ethernet/aquantia/aq_hw.h              |  169 ++
+ drivers/net/ethernet/aquantia/aq_hw_utils.c        |   68 +
+ drivers/net/ethernet/aquantia/aq_hw_utils.h        |   47 +
+ drivers/net/ethernet/aquantia/aq_main.c            |  298 +++
+ drivers/net/ethernet/aquantia/aq_main.h            |   17 +
+ drivers/net/ethernet/aquantia/aq_nic.c             |  964 ++++++++
+ drivers/net/ethernet/aquantia/aq_nic.h             |  108 +
+ drivers/net/ethernet/aquantia/aq_nic_internal.h    |   46 +
+ drivers/net/ethernet/aquantia/aq_pci_func.c        |  354 +++
+ drivers/net/ethernet/aquantia/aq_pci_func.h        |   34 +
+ drivers/net/ethernet/aquantia/aq_ring.c            |  380 ++++
+ drivers/net/ethernet/aquantia/aq_ring.h            |  147 ++
+ drivers/net/ethernet/aquantia/aq_rss.h             |   26 +
+ drivers/net/ethernet/aquantia/aq_utils.h           |   53 +
+ drivers/net/ethernet/aquantia/aq_vec.c             |  373 +++
+ drivers/net/ethernet/aquantia/aq_vec.h             |   37 +
+ drivers/net/ethernet/aquantia/hw_atl/hw_atl_a0.c   |  909 ++++++++
+ drivers/net/ethernet/aquantia/hw_atl/hw_atl_a0.h   |   34 +
+ .../ethernet/aquantia/hw_atl/hw_atl_a0_internal.h  |  153 ++
+ drivers/net/ethernet/aquantia/hw_atl/hw_atl_b0.c   |  967 ++++++++
+ drivers/net/ethernet/aquantia/hw_atl/hw_atl_b0.h   |   34 +
+ .../ethernet/aquantia/hw_atl/hw_atl_b0_internal.h  |  206 ++
+ drivers/net/ethernet/aquantia/hw_atl/hw_atl_llh.c  | 1395 ++++++++++++
+ drivers/net/ethernet/aquantia/hw_atl/hw_atl_llh.h  |  677 ++++++
+ .../ethernet/aquantia/hw_atl/hw_atl_llh_internal.h | 2375 ++++++++++++++++++++
+ .../net/ethernet/aquantia/hw_atl/hw_atl_utils.c    |  544 +++++
+ .../net/ethernet/aquantia/hw_atl/hw_atl_utils.h    |  210 ++
+ drivers/net/ethernet/aquantia/ver.h                |   18 +
+ 36 files changed, 11084 insertions(+)
+ create mode 100644 drivers/net/ethernet/aquantia/Kconfig
+ create mode 100644 drivers/net/ethernet/aquantia/Makefile
+ create mode 100644 drivers/net/ethernet/aquantia/aq_cfg.h
+ create mode 100644 drivers/net/ethernet/aquantia/aq_common.h
+ create mode 100644 drivers/net/ethernet/aquantia/aq_ethtool.c
+ create mode 100644 drivers/net/ethernet/aquantia/aq_ethtool.h
+ create mode 100644 drivers/net/ethernet/aquantia/aq_hw.h
+ create mode 100644 drivers/net/ethernet/aquantia/aq_hw_utils.c
+ create mode 100644 drivers/net/ethernet/aquantia/aq_hw_utils.h
+ create mode 100644 drivers/net/ethernet/aquantia/aq_main.c
+ create mode 100644 drivers/net/ethernet/aquantia/aq_main.h
+ create mode 100644 drivers/net/ethernet/aquantia/aq_nic.c
+ create mode 100644 drivers/net/ethernet/aquantia/aq_nic.h
+ create mode 100644 drivers/net/ethernet/aquantia/aq_nic_internal.h
+ create mode 100644 drivers/net/ethernet/aquantia/aq_pci_func.c
+ create mode 100644 drivers/net/ethernet/aquantia/aq_pci_func.h
+ create mode 100644 drivers/net/ethernet/aquantia/aq_ring.c
+ create mode 100644 drivers/net/ethernet/aquantia/aq_ring.h
+ create mode 100644 drivers/net/ethernet/aquantia/aq_rss.h
+ create mode 100644 drivers/net/ethernet/aquantia/aq_utils.h
+ create mode 100644 drivers/net/ethernet/aquantia/aq_vec.c
+ create mode 100644 drivers/net/ethernet/aquantia/aq_vec.h
+ create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_a0.c
+ create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_a0.h
+ create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_a0_internal.h
+ create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_b0.c
+ create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_b0.h
+ create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_b0_internal.h
+ create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_llh.c
+ create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_llh.h
+ create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_llh_internal.h
+ create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_utils.c
+ create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_utils.h
+ create mode 100644 drivers/net/ethernet/aquantia/ver.h
 
-[1] https://github.com/0day-ci/linux/commit/50a8fe7622e6c45af778d91f83c11491f0afaaf3#diff-c684e72d6c55b89ae592b66e9ce818ee
- 
-> caused below changes:
-> 
-> 
-> +------------------------------------------+------------+------------+
-> |                                          | 03fc8354e2 | 50a8fe7622 |
-> +------------------------------------------+------------+------------+
-> | boot_successes                           | 6          | 0          |
-> | boot_failures                            | 0          | 4          |
-> | kernel_BUG_at_mm/slub.c                  | 0          | 4          |
-> | invalid_opcode:#[##]SMP_DEBUG_PAGEALLOC  | 0          | 4          |
-> | Kernel_panic-not_syncing:Fatal_exception | 0          | 4          |
-> +------------------------------------------+------------+------------+
-> 
-> 
-> 
-> [    0.000000]       .text : 0xc1000000 - 0xc188d0b7   (8756 kB)
-> [    0.000000] Checking if this processor honours the WP bit even in supervisor mode...Ok.
-> [    0.000000] ------------[ cut here ]------------
-> [    0.000000] kernel BUG at mm/slub.c:349!
-> [    0.000000] invalid opcode: 0000 [#1] SMP DEBUG_PAGEALLOC
-> [    0.000000] Modules linked in:
-> [    0.000000] CPU: 0 PID: 0 Comm: swapper Not tainted 4.9.0-mm1-00096-g50a8fe7 #1
-> [    0.000000] task: c1d4ea80 task.stack: c1d46000
-> [    0.000000] EIP: get_partial_node+0x148/0x330
-> [    0.000000] EFLAGS: 00210046 CPU: 0
-> [    0.000000] EAX: 00200082 EBX: d2d38000 ECX: 00000000 EDX: d2400010
-> [    0.000000] ESI: c1e3ef80 EDI: d2400000 EBP: c1d47e50 ESP: c1d47dc0
-> [    0.000000]  DS: 007b ES: 007b FS: 00d8 GS: 0000 SS: 0068
-> [    0.000000] CR0: 80050033 CR2: ffbff000 CR3: 01e76000 CR4: 000006b0
-> [    0.000000] Call Trace:
-> [    0.000000]  ? add_lock_to_list+0x7e/0xa7
-> [    0.000000]  ? __lock_acquire+0x103a/0x1326
-> [    0.000000]  ___slab_alloc+0x238/0x378
-> 
-> 
-> To reproduce:
-> 
->         git clone git://git.kernel.org/pub/scm/linux/kernel/git/wfg/lkp-tests.git
->         cd lkp-tests
->         bin/lkp qemu -k <bzImage> job-script  # job-script is attached in this email
+Signed-off-by: Alexander Loktionov <Alexander.Loktionov@aquantia.com>
+Signed-off-by: Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>
+Signed-off-by: Pavel Belous <Pavel.Belous@aquantia.com>
+Signed-off-by: David M. VomLehn <vomlehn@texas.net>
 
 -- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  LinkedIn: http://www.linkedin.com/in/brouer
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+2.7.4
