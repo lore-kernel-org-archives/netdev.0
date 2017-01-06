@@ -1,61 +1,49 @@
-From: David VomLehn <vomlehn@texas.net>
-Subject: Re: [PATCH v2 00/12] net: ethernet: aquantia: Add AQtion 2.5/5 GB NIC
- driver
-Date: Fri, 6 Jan 2017 14:23:02 -0800
-Message-ID: <608957b1-0459-f582-d4f0-ccddda79062b@texas.net>
-References: <cover.1483689029.git.vomlehn@texas.net>
- <20170106.160206.1149383357421277805.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Simon.Edelhaus@aquantia.com,
-        Dmitrii.Tarakanov@aquantia.com, Pavel.Belous@aquantia.com
-To: David Miller <davem@davemloft.net>,
-        Alexander.Loktionov@aquantia.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from barracuda4.aus1.datafoundry.com ([209.99.124.135]:53762 "EHLO
-        milter.aus.datafoundry.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S940135AbdAFWYQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 6 Jan 2017 17:24:16 -0500
-In-Reply-To: <20170106.160206.1149383357421277805.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sainath Grandhi <sainath.grandhi@intel.com>
+Subject: [PATCHv1 0/7] Refactor macvtap to re-use tap functionality by other virtual intefaces
+Date: Fri,  6 Jan 2017 14:33:22 -0800
+Message-ID: <1483742009-19184-1-git-send-email-sainath.grandhi@intel.com>
+Cc: davem@davemloft.net, mahesh@bandewar.net,
+        linux-kernel@vger.kernel.org,
+        Sainath Grandhi <sainath.grandhi@intel.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 01/06/2017 01:02 PM, David Miller wrote:
-> From: Alexander Loktionov <Alexander.Loktionov@aquantia.com>
-> Date: Fri,  6 Jan 2017 00:06:01 -0800
->
->> This series introduced the AQtion NIC driver for the aQuantia
->> AQC107/AQC108 network devices.
->>
->> v1: Initial version
->> v2: o Make necessary drivers/net/ethernet changes to integrate software
->>      o Drop intermediate atlantic directory
->>      o Remove Makefile things only appropriate to out of tree module builidng
-> Every patch series must be fully bisectable, this means that at each step
-> of the series, the kernel tree must fully build and work properly.
->
-> You break that already at the first patch, which makes the Kconfig options
-> available, which if enabled will cause a build failure.
->
-> make[4]: *** No rule to make target 'drivers/net/ethernet/aquantia/aq_main.o', needed by 'drivers/net/ethernet/aquantia/atlantic.o'.  Stop.
-> make[4]: *** Waiting for unfinished jobs....
-> scripts/Makefile.build:551: recipe for target 'drivers/net/ethernet/aquantia' failed
-> make[3]: *** [drivers/net/ethernet/aquantia] Error 2
-> make[3]: *** Waiting for unfinished jobs....
-> scripts/Makefile.build:551: recipe for target 'drivers/net/ethernet' failed
-> make[2]: *** [drivers/net/ethernet] Error 2
-> scripts/Makefile.build:551: recipe for target 'drivers/net' failed
-> make[1]: *** [drivers/net] Error 2
-> make[1]: *** Waiting for unfinished jobs....
-> Makefile:988: recipe for target 'drivers' failed
-> make: *** [drivers] Error 2
->
-> The way to do this, is to add the pieces of source code infrastrucutre,
-> one piece at a time.  And then at the very very end, enable the code
-> into the build.
+Tap character devices can be implemented on other virtual interfaces like
+ipvlan, similar to macvtap. Source code for tap functionality in macvtap 
+can be re-used for this purpose.
 
-Thanks, will fix shortly.
+This patch series splits macvtap source into two modules, macvtap and tap.
+This patch series also includes a patch for implementing tap character 
+device driver based on the IP-VLAN network interface, called ipvtap.
+
+Sainath Grandhi (7):
+  TAP: Refactoring macvtap.c
+  TAP: Renaming tap related APIs, data structures,  macros
+  TAP: Tap character device creation/destroy API
+  TAP: Abstract type of virtual interface from tap implementation
+  TAP: Extending tap device create/destroy APIs
+  TAP: tap as an independent module
+  IPVTAP: IP-VLAN based tap driver
+
+ drivers/net/Kconfig              |   26 +
+ drivers/net/Makefile             |    2 +
+ drivers/net/ipvlan/Makefile      |    1 +
+ drivers/net/ipvlan/ipvlan.h      |    7 +
+ drivers/net/ipvlan/ipvlan_core.c |    5 +-
+ drivers/net/ipvlan/ipvlan_main.c |   37 +-
+ drivers/net/ipvlan/ipvtap.c      |  238 +++++++
+ drivers/net/macvlan.c            |    2 +-
+ drivers/net/macvtap.c            | 1227 ++----------------------------------
+ drivers/net/tap.c                | 1276 ++++++++++++++++++++++++++++++++++++++
+ drivers/vhost/net.c              |    3 +-
+ include/linux/if_macvlan.h       |    4 +-
+ include/linux/if_tap.h           |   63 ++
+ 13 files changed, 1691 insertions(+), 1200 deletions(-)
+ create mode 100644 drivers/net/ipvlan/ipvtap.c
+ create mode 100644 drivers/net/tap.c
+ create mode 100644 include/linux/if_tap.h
 
 -- 
-David VL
+2.7.4
