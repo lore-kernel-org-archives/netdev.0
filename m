@@ -1,381 +1,345 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next] net: dsa: move HWMON support to its own file
-Date: Fri,  6 Jan 2017 16:42:00 -0500
-Message-ID: <20170106214200.15633-1-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
+From: Timur Tabi <timur@codeaurora.org>
+Subject: [PATCH] [v2] net: qcom/emac: add ethtool support
+Date: Fri,  6 Jan 2017 15:43:01 -0600
+Message-ID: <1483738981-31019-1-git-send-email-timur@codeaurora.org>
+To: David Miller <davem@davemloft.net>,
         Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
+        netdev@vger.kernel.org, Alok Chauhan <alokc@codeaurora.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:46488 "EHLO
-        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751162AbdAFVmW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 6 Jan 2017 16:42:22 -0500
+Received: from smtp.codeaurora.org ([198.145.29.96]:38814 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756431AbdAFVnJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 6 Jan 2017 16:43:09 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Isolate the HWMON support in DSA in its own file. Currently only the
-legacy DSA code is concerned.
+Add support for some ethtool methods: get/set link settings, get/set
+message level, get statistics, get link status, get ring params, get
+pause params, and restart autonegotiation.
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+The code to collect the hardware statistics is moved into its own
+function so that it can be used by "get statistics" method.
+
+Signed-off-by: Timur Tabi <timur@codeaurora.org>
 ---
- net/dsa/Makefile   |   1 +
- net/dsa/dsa.c      | 131 +----------------------------------------------
- net/dsa/dsa_priv.h |   9 ++++
- net/dsa/hwmon.c    | 147 +++++++++++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 159 insertions(+), 129 deletions(-)
- create mode 100644 net/dsa/hwmon.c
 
-diff --git a/net/dsa/Makefile b/net/dsa/Makefile
-index a3380ed0e0be..560b6747c276 100644
---- a/net/dsa/Makefile
-+++ b/net/dsa/Makefile
-@@ -1,6 +1,7 @@
- # the core
- obj-$(CONFIG_NET_DSA) += dsa_core.o
- dsa_core-y += dsa.o slave.o dsa2.o
-+dsa_core-$(CONFIG_NET_DSA_HWMON) += hwmon.o
+Notes:
+    I don't trust my implementation of emac_get_pauseparam.  I feel like
+    I'm missing something.
+    
+    v2: added emac_get_pauseparam and emac_get_ringparam
+
+ drivers/net/ethernet/qualcomm/emac/Makefile       |   2 +-
+ drivers/net/ethernet/qualcomm/emac/emac-ethtool.c | 185 ++++++++++++++++++++++
+ drivers/net/ethernet/qualcomm/emac/emac.c         |  51 +++---
+ drivers/net/ethernet/qualcomm/emac/emac.h         |   3 +
+ 4 files changed, 220 insertions(+), 21 deletions(-)
+ create mode 100644 drivers/net/ethernet/qualcomm/emac/emac-ethtool.c
+
+diff --git a/drivers/net/ethernet/qualcomm/emac/Makefile b/drivers/net/ethernet/qualcomm/emac/Makefile
+index 7a66879..fc57ced 100644
+--- a/drivers/net/ethernet/qualcomm/emac/Makefile
++++ b/drivers/net/ethernet/qualcomm/emac/Makefile
+@@ -4,6 +4,6 @@
  
- # tagging formats
- dsa_core-$(CONFIG_NET_DSA_TAG_BRCM) += tag_brcm.o
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index 3f85be0aae34..cda787ebad15 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -9,9 +9,7 @@
-  * (at your option) any later version.
-  */
+ obj-$(CONFIG_QCOM_EMAC) += qcom-emac.o
  
--#include <linux/ctype.h>
- #include <linux/device.h>
--#include <linux/hwmon.h>
- #include <linux/list.h>
- #include <linux/platform_device.h>
- #include <linux/slab.h>
-@@ -108,105 +106,6 @@ dsa_switch_probe(struct device *parent, struct device *host_dev, int sw_addr,
- 	return ret;
- }
- 
--/* hwmon support ************************************************************/
--
--#ifdef CONFIG_NET_DSA_HWMON
--
--static ssize_t temp1_input_show(struct device *dev,
--				struct device_attribute *attr, char *buf)
--{
--	struct dsa_switch *ds = dev_get_drvdata(dev);
--	int temp, ret;
--
--	ret = ds->ops->get_temp(ds, &temp);
--	if (ret < 0)
--		return ret;
--
--	return sprintf(buf, "%d\n", temp * 1000);
--}
--static DEVICE_ATTR_RO(temp1_input);
--
--static ssize_t temp1_max_show(struct device *dev,
--			      struct device_attribute *attr, char *buf)
--{
--	struct dsa_switch *ds = dev_get_drvdata(dev);
--	int temp, ret;
--
--	ret = ds->ops->get_temp_limit(ds, &temp);
--	if (ret < 0)
--		return ret;
--
--	return sprintf(buf, "%d\n", temp * 1000);
--}
--
--static ssize_t temp1_max_store(struct device *dev,
--			       struct device_attribute *attr, const char *buf,
--			       size_t count)
--{
--	struct dsa_switch *ds = dev_get_drvdata(dev);
--	int temp, ret;
--
--	ret = kstrtoint(buf, 0, &temp);
--	if (ret < 0)
--		return ret;
--
--	ret = ds->ops->set_temp_limit(ds, DIV_ROUND_CLOSEST(temp, 1000));
--	if (ret < 0)
--		return ret;
--
--	return count;
--}
--static DEVICE_ATTR_RW(temp1_max);
--
--static ssize_t temp1_max_alarm_show(struct device *dev,
--				    struct device_attribute *attr, char *buf)
--{
--	struct dsa_switch *ds = dev_get_drvdata(dev);
--	bool alarm;
--	int ret;
--
--	ret = ds->ops->get_temp_alarm(ds, &alarm);
--	if (ret < 0)
--		return ret;
--
--	return sprintf(buf, "%d\n", alarm);
--}
--static DEVICE_ATTR_RO(temp1_max_alarm);
--
--static struct attribute *dsa_hwmon_attrs[] = {
--	&dev_attr_temp1_input.attr,	/* 0 */
--	&dev_attr_temp1_max.attr,	/* 1 */
--	&dev_attr_temp1_max_alarm.attr,	/* 2 */
--	NULL
--};
--
--static umode_t dsa_hwmon_attrs_visible(struct kobject *kobj,
--				       struct attribute *attr, int index)
--{
--	struct device *dev = container_of(kobj, struct device, kobj);
--	struct dsa_switch *ds = dev_get_drvdata(dev);
--	struct dsa_switch_ops *ops = ds->ops;
--	umode_t mode = attr->mode;
--
--	if (index == 1) {
--		if (!ops->get_temp_limit)
--			mode = 0;
--		else if (!ops->set_temp_limit)
--			mode &= ~S_IWUSR;
--	} else if (index == 2 && !ops->get_temp_alarm) {
--		mode = 0;
--	}
--	return mode;
--}
--
--static const struct attribute_group dsa_hwmon_group = {
--	.attrs = dsa_hwmon_attrs,
--	.is_visible = dsa_hwmon_attrs_visible,
--};
--__ATTRIBUTE_GROUPS(dsa_hwmon);
--
--#endif /* CONFIG_NET_DSA_HWMON */
--
- /* basic switch operations **************************************************/
- int dsa_cpu_dsa_setup(struct dsa_switch *ds, struct device *dev,
- 		      struct device_node *port_dn, int port)
-@@ -415,30 +314,7 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
- 	if (ret)
- 		return ret;
- 
--#ifdef CONFIG_NET_DSA_HWMON
--	/* If the switch provides a temperature sensor,
--	 * register with hardware monitoring subsystem.
--	 * Treat registration error as non-fatal and ignore it.
--	 */
--	if (ops->get_temp) {
--		const char *netname = netdev_name(dst->master_netdev);
--		char hname[IFNAMSIZ + 1];
--		int i, j;
--
--		/* Create valid hwmon 'name' attribute */
--		for (i = j = 0; i < IFNAMSIZ && netname[i]; i++) {
--			if (isalnum(netname[i]))
--				hname[j++] = netname[i];
--		}
--		hname[j] = '\0';
--		scnprintf(ds->hwmon_name, sizeof(ds->hwmon_name), "%s_dsa%d",
--			  hname, index);
--		ds->hwmon_dev = hwmon_device_register_with_groups(NULL,
--					ds->hwmon_name, ds, dsa_hwmon_groups);
--		if (IS_ERR(ds->hwmon_dev))
--			ds->hwmon_dev = NULL;
--	}
--#endif /* CONFIG_NET_DSA_HWMON */
-+	dsa_hwmon_register(ds);
- 
- 	return 0;
- }
-@@ -498,10 +374,7 @@ static void dsa_switch_destroy(struct dsa_switch *ds)
- {
- 	int port;
- 
--#ifdef CONFIG_NET_DSA_HWMON
--	if (ds->hwmon_dev)
--		hwmon_device_unregister(ds->hwmon_dev);
--#endif
-+	dsa_hwmon_unregister(ds);
- 
- 	/* Destroy network devices for physical switch ports. */
- 	for (port = 0; port < DSA_MAX_PORTS; port++) {
-diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
-index 63ae1484abae..7e3385ec73f4 100644
---- a/net/dsa/dsa_priv.h
-+++ b/net/dsa/dsa_priv.h
-@@ -56,6 +56,15 @@ const struct dsa_device_ops *dsa_resolve_tag_protocol(int tag_protocol);
- int dsa_cpu_port_ethtool_setup(struct dsa_switch *ds);
- void dsa_cpu_port_ethtool_restore(struct dsa_switch *ds);
- 
-+/* hwmon.c */
-+#ifdef CONFIG_NET_DSA_HWMON
-+void dsa_hwmon_register(struct dsa_switch *ds);
-+void dsa_hwmon_unregister(struct dsa_switch *ds);
-+#else
-+static inline void dsa_hwmon_register(struct dsa_switch *ds) { }
-+static inline void dsa_hwmon_unregister(struct dsa_switch *ds) { }
-+#endif
-+
- /* slave.c */
- extern const struct dsa_device_ops notag_netdev_ops;
- void dsa_slave_mii_bus_init(struct dsa_switch *ds);
-diff --git a/net/dsa/hwmon.c b/net/dsa/hwmon.c
+-qcom-emac-objs := emac.o emac-mac.o emac-phy.o emac-sgmii.o \
++qcom-emac-objs := emac.o emac-mac.o emac-phy.o emac-sgmii.o emac-ethtool.o \
+ 		  emac-sgmii-fsm9900.o emac-sgmii-qdf2432.o \
+ 		  emac-sgmii-qdf2400.o
+diff --git a/drivers/net/ethernet/qualcomm/emac/emac-ethtool.c b/drivers/net/ethernet/qualcomm/emac/emac-ethtool.c
 new file mode 100644
-index 000000000000..3a9cdf0b22b8
+index 0000000..cfc57d2
 --- /dev/null
-+++ b/net/dsa/hwmon.c
-@@ -0,0 +1,147 @@
-+/*
-+ * net/dsa/hwmon.c - HWMON subsystem support
++++ b/drivers/net/ethernet/qualcomm/emac/emac-ethtool.c
+@@ -0,0 +1,185 @@
++/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
 + *
 + * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
++ * it under the terms of the GNU General Public License version 2 and
++ * only version 2 as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
 + */
 +
-+#include <linux/ctype.h>
-+#include <linux/hwmon.h>
-+#include <net/dsa.h>
++#include <linux/ethtool.h>
++#include <linux/phy.h>
 +
-+#include "dsa_priv.h"
++#include "emac.h"
 +
-+static ssize_t temp1_input_show(struct device *dev,
-+				struct device_attribute *attr, char *buf)
-+{
-+	struct dsa_switch *ds = dev_get_drvdata(dev);
-+	int temp, ret;
-+
-+	ret = ds->ops->get_temp(ds, &temp);
-+	if (ret < 0)
-+		return ret;
-+
-+	return sprintf(buf, "%d\n", temp * 1000);
-+}
-+static DEVICE_ATTR_RO(temp1_input);
-+
-+static ssize_t temp1_max_show(struct device *dev,
-+			      struct device_attribute *attr, char *buf)
-+{
-+	struct dsa_switch *ds = dev_get_drvdata(dev);
-+	int temp, ret;
-+
-+	ret = ds->ops->get_temp_limit(ds, &temp);
-+	if (ret < 0)
-+		return ret;
-+
-+	return sprintf(buf, "%d\n", temp * 1000);
-+}
-+
-+static ssize_t temp1_max_store(struct device *dev,
-+			       struct device_attribute *attr, const char *buf,
-+			       size_t count)
-+{
-+	struct dsa_switch *ds = dev_get_drvdata(dev);
-+	int temp, ret;
-+
-+	ret = kstrtoint(buf, 0, &temp);
-+	if (ret < 0)
-+		return ret;
-+
-+	ret = ds->ops->set_temp_limit(ds, DIV_ROUND_CLOSEST(temp, 1000));
-+	if (ret < 0)
-+		return ret;
-+
-+	return count;
-+}
-+static DEVICE_ATTR_RW(temp1_max);
-+
-+static ssize_t temp1_max_alarm_show(struct device *dev,
-+				    struct device_attribute *attr, char *buf)
-+{
-+	struct dsa_switch *ds = dev_get_drvdata(dev);
-+	bool alarm;
-+	int ret;
-+
-+	ret = ds->ops->get_temp_alarm(ds, &alarm);
-+	if (ret < 0)
-+		return ret;
-+
-+	return sprintf(buf, "%d\n", alarm);
-+}
-+static DEVICE_ATTR_RO(temp1_max_alarm);
-+
-+static struct attribute *dsa_hwmon_attrs[] = {
-+	&dev_attr_temp1_input.attr,	/* 0 */
-+	&dev_attr_temp1_max.attr,	/* 1 */
-+	&dev_attr_temp1_max_alarm.attr,	/* 2 */
-+	NULL
++static const char * const emac_ethtool_stat_strings[] = {
++	"rx_ok",
++	"rx_bcast",
++	"rx_mcast",
++	"rx_pause",
++	"rx_ctrl",
++	"rx_fcs_err",
++	"rx_len_err",
++	"rx_byte_cnt",
++	"rx_runt",
++	"rx_frag",
++	"rx_sz_64",
++	"rx_sz_65_127",
++	"rx_sz_128_255",
++	"rx_sz_256_511",
++	"rx_sz_512_1023",
++	"rx_sz_1024_1518",
++	"rx_sz_1519_max",
++	"rx_sz_ov",
++	"rx_rxf_ov",
++	"rx_align_err",
++	"rx_bcast_byte_cnt",
++	"rx_mcast_byte_cnt",
++	"rx_err_addr",
++	"rx_crc_align",
++	"rx_jabbers",
++	"tx_ok",
++	"tx_bcast",
++	"tx_mcast",
++	"tx_pause",
++	"tx_exc_defer",
++	"tx_ctrl",
++	"tx_defer",
++	"tx_byte_cnt",
++	"tx_sz_64",
++	"tx_sz_65_127",
++	"tx_sz_128_255",
++	"tx_sz_256_511",
++	"tx_sz_512_1023",
++	"tx_sz_1024_1518",
++	"tx_sz_1519_max",
++	"tx_1_col",
++	"tx_2_col",
++	"tx_late_col",
++	"tx_abort_col",
++	"tx_underrun",
++	"tx_rd_eop",
++	"tx_len_err",
++	"tx_trunc",
++	"tx_bcast_byte",
++	"tx_mcast_byte",
++	"tx_col",
 +};
 +
-+static umode_t dsa_hwmon_attrs_visible(struct kobject *kobj,
-+				       struct attribute *attr, int index)
-+{
-+	struct device *dev = container_of(kobj, struct device, kobj);
-+	struct dsa_switch *ds = dev_get_drvdata(dev);
-+	struct dsa_switch_ops *ops = ds->ops;
-+	umode_t mode = attr->mode;
++#define EMAC_STATS_LEN	ARRAY_SIZE(emac_ethtool_stat_strings)
 +
-+	if (index == 1) {
-+		if (!ops->get_temp_limit)
-+			mode = 0;
-+		else if (!ops->set_temp_limit)
-+			mode &= ~S_IWUSR;
-+	} else if (index == 2 && !ops->get_temp_alarm) {
-+		mode = 0;
-+	}
-+	return mode;
++static u32 emac_get_msglevel(struct net_device *netdev)
++{
++	struct emac_adapter *adpt = netdev_priv(netdev);
++
++	return adpt->msg_enable;
 +}
 +
-+static const struct attribute_group dsa_hwmon_group = {
-+	.attrs = dsa_hwmon_attrs,
-+	.is_visible = dsa_hwmon_attrs_visible,
++static void emac_set_msglevel(struct net_device *netdev, u32 data)
++{
++	struct emac_adapter *adpt = netdev_priv(netdev);
++
++	adpt->msg_enable = data;
++}
++
++static int emac_get_sset_count(struct net_device *netdev, int sset)
++{
++	switch (sset) {
++	case ETH_SS_STATS:
++		return EMAC_STATS_LEN;
++	default:
++		return -EOPNOTSUPP;
++	}
++}
++
++static void emac_get_strings(struct net_device *netdev, u32 stringset, u8 *data)
++{
++	unsigned int i;
++
++	switch (stringset) {
++	case ETH_SS_STATS:
++		for (i = 0; i < EMAC_STATS_LEN; i++) {
++			strlcpy(data, emac_ethtool_stat_strings[i],
++				ETH_GSTRING_LEN);
++			data += ETH_GSTRING_LEN;
++		}
++		break;
++	}
++}
++
++static void emac_get_ethtool_stats(struct net_device *netdev,
++				   struct ethtool_stats *stats,
++				   u64 *data)
++{
++	struct emac_adapter *adpt = netdev_priv(netdev);
++
++	spin_lock(&adpt->stats.lock);
++
++	emac_update_hw_stats(adpt);
++	memcpy(data, &adpt->stats, EMAC_STATS_LEN * sizeof(u64));
++
++	spin_unlock(&adpt->stats.lock);
++}
++
++static int emac_nway_reset(struct net_device *netdev)
++{
++	struct phy_device *phydev = netdev->phydev;
++
++	if (!phydev)
++		return -ENODEV;
++
++	return genphy_restart_aneg(phydev);
++}
++
++static void emac_get_ringparam(struct net_device *netdev,
++			       struct ethtool_ringparam *ring)
++{
++	struct emac_adapter *adpt = netdev_priv(netdev);
++
++	ring->rx_max_pending = EMAC_MAX_RX_DESCS;
++	ring->tx_max_pending = EMAC_MAX_TX_DESCS;
++	ring->rx_pending = adpt->rx_desc_cnt;
++	ring->tx_pending = adpt->tx_desc_cnt;
++}
++
++static void emac_get_pauseparam(struct net_device *netdev,
++				struct ethtool_pauseparam *pause)
++{
++	struct phy_device *phydev = netdev->phydev;
++
++	if (phydev) {
++		if (phydev->autoneg)
++			pause->autoneg = 1;
++		if (phydev->pause)
++			pause->rx_pause = 1;
++		if (phydev->pause != phydev->asym_pause)
++			pause->tx_pause = 1;
++	}
++}
++
++static const struct ethtool_ops emac_ethtool_ops = {
++	.get_link_ksettings = phy_ethtool_get_link_ksettings,
++	.set_link_ksettings = phy_ethtool_set_link_ksettings,
++
++	.get_msglevel    = emac_get_msglevel,
++	.set_msglevel    = emac_set_msglevel,
++
++	.get_sset_count  = emac_get_sset_count,
++	.get_strings = emac_get_strings,
++	.get_ethtool_stats = emac_get_ethtool_stats,
++
++	.get_ringparam = emac_get_ringparam,
++	.get_pauseparam = emac_get_pauseparam,
++
++	.nway_reset = emac_nway_reset,
++
++	.get_link = ethtool_op_get_link,
 +};
-+__ATTRIBUTE_GROUPS(dsa_hwmon);
 +
-+void dsa_hwmon_register(struct dsa_switch *ds)
++void emac_set_ethtool_ops(struct net_device *netdev)
 +{
-+	const char *netname = netdev_name(ds->dst->master_netdev);
-+	char hname[IFNAMSIZ + 1];
-+	int i, j;
-+
-+	/* If the switch provides temperature accessors, register with hardware
-+	 * monitoring subsystem. Treat registration error as non-fatal.
-+	 */
-+	if (!ds->ops->get_temp)
-+		return;
-+
-+	/* Create valid hwmon 'name' attribute */
-+	for (i = j = 0; i < IFNAMSIZ && netname[i]; i++) {
-+		if (isalnum(netname[i]))
-+			hname[j++] = netname[i];
-+	}
-+	hname[j] = '\0';
-+	scnprintf(ds->hwmon_name, sizeof(ds->hwmon_name), "%s_dsa%d", hname,
-+		  ds->index);
-+	ds->hwmon_dev = hwmon_device_register_with_groups(NULL, ds->hwmon_name,
-+							  ds, dsa_hwmon_groups);
-+	if (IS_ERR(ds->hwmon_dev)) {
-+		pr_warn("DSA: failed to register HWMON subsystem for switch %d\n",
-+			ds->index);
-+		ds->hwmon_dev = NULL;
-+	} else {
-+		pr_info("DSA: registered HWMON subsystem for switch %d\n",
-+			ds->index);
-+	}
++	netdev->ethtool_ops = &emac_ethtool_ops;
++}
+diff --git a/drivers/net/ethernet/qualcomm/emac/emac.c b/drivers/net/ethernet/qualcomm/emac/emac.c
+index 422289c..1ab4478 100644
+--- a/drivers/net/ethernet/qualcomm/emac/emac.c
++++ b/drivers/net/ethernet/qualcomm/emac/emac.c
+@@ -311,45 +311,55 @@ static int emac_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
+ 	return phy_mii_ioctl(netdev->phydev, ifr, cmd);
+ }
+ 
+-/* Provide network statistics info for the interface */
+-static struct rtnl_link_stats64 *emac_get_stats64(struct net_device *netdev,
+-						  struct rtnl_link_stats64 *net_stats)
++/**
++ * emac_update_hw_stats - read the EMAC stat registers
++ *
++ * Reads the stats registers and write the values to adpt->stats.
++ *
++ * adpt->stats.lock must be held while calling this function.
++ */
++void emac_update_hw_stats(struct emac_adapter *adpt)
+ {
+-	struct emac_adapter *adpt = netdev_priv(netdev);
+-	unsigned int addr = REG_MAC_RX_STATUS_BIN;
+ 	struct emac_stats *stats = &adpt->stats;
+ 	u64 *stats_itr = &adpt->stats.rx_ok;
+-	u32 val;
+-
+-	spin_lock(&stats->lock);
++	void __iomem *base = adpt->base;
++	unsigned int addr;
+ 
++	addr = REG_MAC_RX_STATUS_BIN;
+ 	while (addr <= REG_MAC_RX_STATUS_END) {
+-		val = readl_relaxed(adpt->base + addr);
+-		*stats_itr += val;
++		*stats_itr += readl_relaxed(base + addr);
+ 		stats_itr++;
+ 		addr += sizeof(u32);
+ 	}
+ 
+ 	/* additional rx status */
+-	val = readl_relaxed(adpt->base + EMAC_RXMAC_STATC_REG23);
+-	adpt->stats.rx_crc_align += val;
+-	val = readl_relaxed(adpt->base + EMAC_RXMAC_STATC_REG24);
+-	adpt->stats.rx_jabbers += val;
++	stats->rx_crc_align += readl_relaxed(base + EMAC_RXMAC_STATC_REG23);
++	stats->rx_jabbers += readl_relaxed(base + EMAC_RXMAC_STATC_REG24);
+ 
+ 	/* update tx status */
+ 	addr = REG_MAC_TX_STATUS_BIN;
+-	stats_itr = &adpt->stats.tx_ok;
++	stats_itr = &stats->tx_ok;
+ 
+ 	while (addr <= REG_MAC_TX_STATUS_END) {
+-		val = readl_relaxed(adpt->base + addr);
+-		*stats_itr += val;
+-		++stats_itr;
++		*stats_itr += readl_relaxed(base + addr);
++		stats_itr++;
+ 		addr += sizeof(u32);
+ 	}
+ 
+ 	/* additional tx status */
+-	val = readl_relaxed(adpt->base + EMAC_TXMAC_STATC_REG25);
+-	adpt->stats.tx_col += val;
++	stats->tx_col += readl_relaxed(base + EMAC_TXMAC_STATC_REG25);
 +}
 +
-+void dsa_hwmon_unregister(struct dsa_switch *ds)
++/* Provide network statistics info for the interface */
++static struct rtnl_link_stats64 *
++emac_get_stats64(struct net_device *netdev, struct rtnl_link_stats64 *net_stats)
 +{
-+	if (ds->hwmon_dev) {
-+		hwmon_device_unregister(ds->hwmon_dev);
-+		ds->hwmon_dev = NULL;
-+	}
-+}
++	struct emac_adapter *adpt = netdev_priv(netdev);
++	struct emac_stats *stats = &adpt->stats;
++
++	spin_lock(&stats->lock);
++
++	emac_update_hw_stats(adpt);
+ 
+ 	/* return parsed statistics */
+ 	net_stats->rx_packets = stats->rx_ok;
+@@ -620,6 +630,7 @@ static int emac_probe(struct platform_device *pdev)
+ 
+ 	dev_set_drvdata(&pdev->dev, netdev);
+ 	SET_NETDEV_DEV(netdev, &pdev->dev);
++	emac_set_ethtool_ops(netdev);
+ 
+ 	adpt = netdev_priv(netdev);
+ 	adpt->netdev = netdev;
+diff --git a/drivers/net/ethernet/qualcomm/emac/emac.h b/drivers/net/ethernet/qualcomm/emac/emac.h
+index 0c76e6c..4b8483c 100644
+--- a/drivers/net/ethernet/qualcomm/emac/emac.h
++++ b/drivers/net/ethernet/qualcomm/emac/emac.h
+@@ -332,4 +332,7 @@ struct emac_adapter {
+ void emac_reg_update32(void __iomem *addr, u32 mask, u32 val);
+ irqreturn_t emac_isr(int irq, void *data);
+ 
++void emac_set_ethtool_ops(struct net_device *netdev);
++void emac_update_hw_stats(struct emac_adapter *adpt);
++
+ #endif /* _EMAC_H_ */
 -- 
-2.11.0
+Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
+Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
+Code Aurora Forum, a Linux Foundation Collaborative Project.
