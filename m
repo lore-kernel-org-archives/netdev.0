@@ -1,317 +1,282 @@
-From: Juergen Gross <jgross@suse.com>
-Subject: [PATCH 2/3] xen: modify xenstore watch event interface
-Date: Fri,  6 Jan 2017 16:05:43 +0100
-Message-ID: <20170106150544.10836-3-jgross@suse.com>
-References: <20170106150544.10836-1-jgross@suse.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Juergen Gross <jgross@suse.com>, wei.liu2@citrix.com,
- netdev@vger.kernel.org, paul.durrant@citrix.com, boris.ostrovsky@oracle.com,
- roger.pau@citrix.com
-To: linux-kernel@vger.kernel.org,
-	xen-devel@lists.xenproject.org
-Return-path: <xen-devel-bounces@lists.xen.org>
-In-Reply-To: <20170106150544.10836-1-jgross@suse.com>
-List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Errors-To: xen-devel-bounces@lists.xen.org
-Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
-List-Id: netdev.vger.kernel.org
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: [PATCH net-next] net: ipv6: put autoconf routes into per-interface tables
+Date: Sat,  7 Jan 2017 00:30:26 +0900
+Message-ID: <20170106153026.24785-1-lorenzo@google.com>
+Cc: zenczykowski@gmail.com, hannes@stressinduktion.org, ek@google.com,
+        hideaki.yoshifuji@miraclelinux.com, davem@davemloft.net,
+        dsa@cumulusnetworks.com, drosen@google.com,
+        Lorenzo Colitti <lorenzo@google.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f54.google.com ([74.125.83.54]:32774 "EHLO
+        mail-pg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S965181AbdAFPae (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 6 Jan 2017 10:30:34 -0500
+Received: by mail-pg0-f54.google.com with SMTP id g1so214037714pgn.0
+        for <netdev@vger.kernel.org>; Fri, 06 Jan 2017 07:30:34 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-VG9kYXkgYSBYZW5zdG9yZSB3YXRjaCBldmVudCBpcyBkZWxpdmVyZWQgdmlhIGEgY2FsbGJhY2sg
-ZnVuY3Rpb24KZGVjbGFyZWQgYXM6Cgp2b2lkICgqY2FsbGJhY2spKHN0cnVjdCB4ZW5idXNfd2F0
-Y2ggKiwKICAgICAgICAgICAgICAgICBjb25zdCBjaGFyICoqdmVjLCB1bnNpZ25lZCBpbnQgbGVu
-KTsKCkFzIGFsbCB3YXRjaCBldmVudHMgb25seSBldmVyIGNvbWUgd2l0aCB0d28gcGFyYW1ldGVy
-cyAocGF0aCBhbmQgdG9rZW4pCmNoYW5naW5nIHRoZSBwcm90b3R5cGUgdG86Cgp2b2lkICgqY2Fs
-bGJhY2spKHN0cnVjdCB4ZW5idXNfd2F0Y2ggKiwKICAgICAgICAgICAgICAgICBjb25zdCBjaGFy
-ICpwYXRoLCBjb25zdCBjaGFyICp0b2tlbik7CgppcyB0aGUgbmF0dXJhbCB0aGluZyB0byBkby4K
-CkFwcGx5IHRoaXMgY2hhbmdlIGFuZCBhZGFwdCBhbGwgdXNlcnMuCgpDYzoga29ucmFkLndpbGtA
-b3JhY2xlLmNvbQpDYzogcm9nZXIucGF1QGNpdHJpeC5jb20KQ2M6IHdlaS5saXUyQGNpdHJpeC5j
-b20KQ2M6IHBhdWwuZHVycmFudEBjaXRyaXguY29tCkNjOiBuZXRkZXZAdmdlci5rZXJuZWwub3Jn
-CgpTaWduZWQtb2ZmLWJ5OiBKdWVyZ2VuIEdyb3NzIDxqZ3Jvc3NAc3VzZS5jb20+Ci0tLQogZHJp
-dmVycy9ibG9jay94ZW4tYmxrYmFjay94ZW5idXMuYyAgICAgICAgIHwgIDYgKysrLS0tCiBkcml2
-ZXJzL25ldC94ZW4tbmV0YmFjay94ZW5idXMuYyAgICAgICAgICAgfCAgOCArKysrLS0tLQogZHJp
-dmVycy94ZW4vY3B1X2hvdHBsdWcuYyAgICAgICAgICAgICAgICAgIHwgIDUgKystLS0KIGRyaXZl
-cnMveGVuL21hbmFnZS5jICAgICAgICAgICAgICAgICAgICAgICB8ICA2ICsrKy0tLQogZHJpdmVy
-cy94ZW4veGVuLWJhbGxvb24uYyAgICAgICAgICAgICAgICAgIHwgIDIgKy0KIGRyaXZlcnMveGVu
-L3hlbi1wY2liYWNrL3hlbmJ1cy5jICAgICAgICAgICB8ICAyICstCiBkcml2ZXJzL3hlbi94ZW5i
-dXMveGVuYnVzLmggICAgICAgICAgICAgICAgfCAgNiArKystLS0KIGRyaXZlcnMveGVuL3hlbmJ1
-cy94ZW5idXNfY2xpZW50LmMgICAgICAgICB8ICA0ICsrLS0KIGRyaXZlcnMveGVuL3hlbmJ1cy94
-ZW5idXNfZGV2X2Zyb250ZW5kLmMgICB8IDIxICsrKysrKysrLS0tLS0tLS0tLS0tLQogZHJpdmVy
-cy94ZW4veGVuYnVzL3hlbmJ1c19wcm9iZS5jICAgICAgICAgIHwgMTEgKysrKy0tLS0tLS0KIGRy
-aXZlcnMveGVuL3hlbmJ1cy94ZW5idXNfcHJvYmVfYmFja2VuZC5jICB8ICA4ICsrKystLS0tCiBk
-cml2ZXJzL3hlbi94ZW5idXMveGVuYnVzX3Byb2JlX2Zyb250ZW5kLmMgfCAxNCArKysrKysrLS0t
-LS0tLQogZHJpdmVycy94ZW4veGVuYnVzL3hlbmJ1c194cy5jICAgICAgICAgICAgIHwgMjkgKysr
-KysrKysrKysrKystLS0tLS0tLS0tLS0tLS0KIGluY2x1ZGUveGVuL3hlbmJ1cy5oICAgICAgICAg
-ICAgICAgICAgICAgICB8ICA2ICsrKy0tLQogMTQgZmlsZXMgY2hhbmdlZCwgNTkgaW5zZXJ0aW9u
-cygrKSwgNjkgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9ibG9jay94ZW4tYmxr
-YmFjay94ZW5idXMuYyBiL2RyaXZlcnMvYmxvY2sveGVuLWJsa2JhY2sveGVuYnVzLmMKaW5kZXgg
-NDE1ZTc5Yi4uOGZlNjFiNSAxMDA2NDQKLS0tIGEvZHJpdmVycy9ibG9jay94ZW4tYmxrYmFjay94
-ZW5idXMuYworKysgYi9kcml2ZXJzL2Jsb2NrL3hlbi1ibGtiYWNrL3hlbmJ1cy5jCkBAIC0zOCw4
-ICszOCw4IEBAIHN0cnVjdCBiYWNrZW5kX2luZm8gewogc3RhdGljIHN0cnVjdCBrbWVtX2NhY2hl
-ICp4ZW5fYmxraWZfY2FjaGVwOwogc3RhdGljIHZvaWQgY29ubmVjdChzdHJ1Y3QgYmFja2VuZF9p
-bmZvICopOwogc3RhdGljIGludCBjb25uZWN0X3Jpbmcoc3RydWN0IGJhY2tlbmRfaW5mbyAqKTsK
-LXN0YXRpYyB2b2lkIGJhY2tlbmRfY2hhbmdlZChzdHJ1Y3QgeGVuYnVzX3dhdGNoICosIGNvbnN0
-IGNoYXIgKiosCi0JCQkgICAgdW5zaWduZWQgaW50KTsKK3N0YXRpYyB2b2lkIGJhY2tlbmRfY2hh
-bmdlZChzdHJ1Y3QgeGVuYnVzX3dhdGNoICosIGNvbnN0IGNoYXIgKiwKKwkJCSAgICBjb25zdCBj
-aGFyICopOwogc3RhdGljIHZvaWQgeGVuX2Jsa2lmX2ZyZWUoc3RydWN0IHhlbl9ibGtpZiAqYmxr
-aWYpOwogc3RhdGljIHZvaWQgeGVuX3ZiZF9mcmVlKHN0cnVjdCB4ZW5fdmJkICp2YmQpOwogCkBA
-IC02NjEsNyArNjYxLDcgQEAgc3RhdGljIGludCB4ZW5fYmxrYmtfcHJvYmUoc3RydWN0IHhlbmJ1
-c19kZXZpY2UgKmRldiwKICAqIHJlYWR5LCBjb25uZWN0LgogICovCiBzdGF0aWMgdm9pZCBiYWNr
-ZW5kX2NoYW5nZWQoc3RydWN0IHhlbmJ1c193YXRjaCAqd2F0Y2gsCi0JCQkgICAgY29uc3QgY2hh
-ciAqKnZlYywgdW5zaWduZWQgaW50IGxlbikKKwkJCSAgICBjb25zdCBjaGFyICpwYXRoLCBjb25z
-dCBjaGFyICp0b2tlbikKIHsKIAlpbnQgZXJyOwogCXVuc2lnbmVkIG1ham9yOwpkaWZmIC0tZ2l0
-IGEvZHJpdmVycy9uZXQveGVuLW5ldGJhY2sveGVuYnVzLmMgYi9kcml2ZXJzL25ldC94ZW4tbmV0
-YmFjay94ZW5idXMuYwppbmRleCAzMTI0ZWFlLi5kOGE0MGZhIDEwMDY0NAotLS0gYS9kcml2ZXJz
-L25ldC94ZW4tbmV0YmFjay94ZW5idXMuYworKysgYi9kcml2ZXJzL25ldC94ZW4tbmV0YmFjay94
-ZW5idXMuYwpAQCAtNzIzLDcgKzcyMyw3IEBAIHN0YXRpYyBpbnQgeGVuX25ldF9yZWFkX21hYyhz
-dHJ1Y3QgeGVuYnVzX2RldmljZSAqZGV2LCB1OCBtYWNbXSkKIH0KIAogc3RhdGljIHZvaWQgeGVu
-X25ldF9yYXRlX2NoYW5nZWQoc3RydWN0IHhlbmJ1c193YXRjaCAqd2F0Y2gsCi0JCQkJY29uc3Qg
-Y2hhciAqKnZlYywgdW5zaWduZWQgaW50IGxlbikKKwkJCQkgY29uc3QgY2hhciAqcGF0aCwgY29u
-c3QgY2hhciAqdG9rZW4pCiB7CiAJc3RydWN0IHhlbnZpZiAqdmlmID0gY29udGFpbmVyX29mKHdh
-dGNoLCBzdHJ1Y3QgeGVudmlmLCBjcmVkaXRfd2F0Y2gpOwogCXN0cnVjdCB4ZW5idXNfZGV2aWNl
-ICpkZXYgPSB4ZW52aWZfdG9feGVuYnVzX2RldmljZSh2aWYpOwpAQCAtNzgwLDcgKzc4MCw3IEBA
-IHN0YXRpYyB2b2lkIHhlbl91bnJlZ2lzdGVyX2NyZWRpdF93YXRjaChzdHJ1Y3QgeGVudmlmICp2
-aWYpCiB9CiAKIHN0YXRpYyB2b2lkIHhlbl9tY2FzdF9jdHJsX2NoYW5nZWQoc3RydWN0IHhlbmJ1
-c193YXRjaCAqd2F0Y2gsCi0JCQkJICAgY29uc3QgY2hhciAqKnZlYywgdW5zaWduZWQgaW50IGxl
-bikKKwkJCQkgICBjb25zdCBjaGFyICpwYXRoLCBjb25zdCBjaGFyICp0b2tlbikKIHsKIAlzdHJ1
-Y3QgeGVudmlmICp2aWYgPSBjb250YWluZXJfb2Yod2F0Y2gsIHN0cnVjdCB4ZW52aWYsCiAJCQkJ
-CSAgbWNhc3RfY3RybF93YXRjaCk7CkBAIC04NTUsOCArODU1LDggQEAgc3RhdGljIHZvaWQgdW5y
-ZWdpc3Rlcl9ob3RwbHVnX3N0YXR1c193YXRjaChzdHJ1Y3QgYmFja2VuZF9pbmZvICpiZSkKIH0K
-IAogc3RhdGljIHZvaWQgaG90cGx1Z19zdGF0dXNfY2hhbmdlZChzdHJ1Y3QgeGVuYnVzX3dhdGNo
-ICp3YXRjaCwKLQkJCQkgICBjb25zdCBjaGFyICoqdmVjLAotCQkJCSAgIHVuc2lnbmVkIGludCB2
-ZWNfc2l6ZSkKKwkJCQkgICBjb25zdCBjaGFyICpwYXRoLAorCQkJCSAgIGNvbnN0IGNoYXIgKnRv
-a2VuKQogewogCXN0cnVjdCBiYWNrZW5kX2luZm8gKmJlID0gY29udGFpbmVyX29mKHdhdGNoLAog
-CQkJCQkgICAgICAgc3RydWN0IGJhY2tlbmRfaW5mbywKZGlmZiAtLWdpdCBhL2RyaXZlcnMveGVu
-L2NwdV9ob3RwbHVnLmMgYi9kcml2ZXJzL3hlbi9jcHVfaG90cGx1Zy5jCmluZGV4IDU2NzZhZWYu
-LjdhNGRhYTIgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMveGVuL2NwdV9ob3RwbHVnLmMKKysrIGIvZHJp
-dmVycy94ZW4vY3B1X2hvdHBsdWcuYwpAQCAtNjgsMTMgKzY4LDEyIEBAIHN0YXRpYyB2b2lkIHZj
-cHVfaG90cGx1Zyh1bnNpZ25lZCBpbnQgY3B1KQogfQogCiBzdGF0aWMgdm9pZCBoYW5kbGVfdmNw
-dV9ob3RwbHVnX2V2ZW50KHN0cnVjdCB4ZW5idXNfd2F0Y2ggKndhdGNoLAotCQkJCQljb25zdCBj
-aGFyICoqdmVjLCB1bnNpZ25lZCBpbnQgbGVuKQorCQkJCSAgICAgIGNvbnN0IGNoYXIgKnBhdGgs
-IGNvbnN0IGNoYXIgKnRva2VuKQogewogCXVuc2lnbmVkIGludCBjcHU7CiAJY2hhciAqY3B1c3Ry
-OwotCWNvbnN0IGNoYXIgKm5vZGUgPSB2ZWNbWFNfV0FUQ0hfUEFUSF07CiAKLQljcHVzdHIgPSBz
-dHJzdHIobm9kZSwgImNwdS8iKTsKKwljcHVzdHIgPSBzdHJzdHIocGF0aCwgImNwdS8iKTsKIAlp
-ZiAoY3B1c3RyICE9IE5VTEwpIHsKIAkJc3NjYW5mKGNwdXN0ciwgImNwdS8ldSIsICZjcHUpOwog
-CQl2Y3B1X2hvdHBsdWcoY3B1KTsKZGlmZiAtLWdpdCBhL2RyaXZlcnMveGVuL21hbmFnZS5jIGIv
-ZHJpdmVycy94ZW4vbWFuYWdlLmMKaW5kZXggMjZlNWU4NS4uY2E2MmMwOSAxMDA2NDQKLS0tIGEv
-ZHJpdmVycy94ZW4vbWFuYWdlLmMKKysrIGIvZHJpdmVycy94ZW4vbWFuYWdlLmMKQEAgLTIxOCw3
-ICsyMTgsNyBAQCBzdGF0aWMgc3RydWN0IHNodXRkb3duX2hhbmRsZXIgc2h1dGRvd25faGFuZGxl
-cnNbXSA9IHsKIH07CiAKIHN0YXRpYyB2b2lkIHNodXRkb3duX2hhbmRsZXIoc3RydWN0IHhlbmJ1
-c193YXRjaCAqd2F0Y2gsCi0JCQkgICAgIGNvbnN0IGNoYXIgKip2ZWMsIHVuc2lnbmVkIGludCBs
-ZW4pCisJCQkgICAgIGNvbnN0IGNoYXIgKnBhdGgsIGNvbnN0IGNoYXIgKnRva2VuKQogewogCWNo
-YXIgKnN0cjsKIAlzdHJ1Y3QgeGVuYnVzX3RyYW5zYWN0aW9uIHhidDsKQEAgLTI2Niw4ICsyNjYs
-OCBAQCBzdGF0aWMgdm9pZCBzaHV0ZG93bl9oYW5kbGVyKHN0cnVjdCB4ZW5idXNfd2F0Y2ggKndh
-dGNoLAogfQogCiAjaWZkZWYgQ09ORklHX01BR0lDX1NZU1JRCi1zdGF0aWMgdm9pZCBzeXNycV9o
-YW5kbGVyKHN0cnVjdCB4ZW5idXNfd2F0Y2ggKndhdGNoLCBjb25zdCBjaGFyICoqdmVjLAotCQkJ
-ICB1bnNpZ25lZCBpbnQgbGVuKQorc3RhdGljIHZvaWQgc3lzcnFfaGFuZGxlcihzdHJ1Y3QgeGVu
-YnVzX3dhdGNoICp3YXRjaCwgY29uc3QgY2hhciAqcGF0aCwKKwkJCSAgY29uc3QgY2hhciAqdG9r
-ZW4pCiB7CiAJY2hhciBzeXNycV9rZXkgPSAnXDAnOwogCXN0cnVjdCB4ZW5idXNfdHJhbnNhY3Rp
-b24geGJ0OwpkaWZmIC0tZ2l0IGEvZHJpdmVycy94ZW4veGVuLWJhbGxvb24uYyBiL2RyaXZlcnMv
-eGVuL3hlbi1iYWxsb29uLmMKaW5kZXggNzk4NjViOC4uZTc3MTVjYiAxMDA2NDQKLS0tIGEvZHJp
-dmVycy94ZW4veGVuLWJhbGxvb24uYworKysgYi9kcml2ZXJzL3hlbi94ZW4tYmFsbG9vbi5jCkBA
-IC01NSw3ICs1NSw3IEBAIHN0YXRpYyBpbnQgcmVnaXN0ZXJfYmFsbG9vbihzdHJ1Y3QgZGV2aWNl
-ICpkZXYpOwogCiAvKiBSZWFjdCB0byBhIGNoYW5nZSBpbiB0aGUgdGFyZ2V0IGtleSAqLwogc3Rh
-dGljIHZvaWQgd2F0Y2hfdGFyZ2V0KHN0cnVjdCB4ZW5idXNfd2F0Y2ggKndhdGNoLAotCQkJIGNv
-bnN0IGNoYXIgKip2ZWMsIHVuc2lnbmVkIGludCBsZW4pCisJCQkgY29uc3QgY2hhciAqcGF0aCwg
-Y29uc3QgY2hhciAqdG9rZW4pCiB7CiAJdW5zaWduZWQgbG9uZyBsb25nIG5ld190YXJnZXQ7CiAJ
-aW50IGVycjsKZGlmZiAtLWdpdCBhL2RyaXZlcnMveGVuL3hlbi1wY2liYWNrL3hlbmJ1cy5jIGIv
-ZHJpdmVycy94ZW4veGVuLXBjaWJhY2sveGVuYnVzLmMKaW5kZXggM2YwYWVlMC4uMzgxNGI0NCAx
-MDA2NDQKLS0tIGEvZHJpdmVycy94ZW4veGVuLXBjaWJhY2sveGVuYnVzLmMKKysrIGIvZHJpdmVy
-cy94ZW4veGVuLXBjaWJhY2sveGVuYnVzLmMKQEAgLTY1Miw3ICs2NTIsNyBAQCBzdGF0aWMgaW50
-IHhlbl9wY2lia19zZXR1cF9iYWNrZW5kKHN0cnVjdCB4ZW5fcGNpYmtfZGV2aWNlICpwZGV2KQog
-fQogCiBzdGF0aWMgdm9pZCB4ZW5fcGNpYmtfYmVfd2F0Y2goc3RydWN0IHhlbmJ1c193YXRjaCAq
-d2F0Y2gsCi0JCQkgICAgIGNvbnN0IGNoYXIgKip2ZWMsIHVuc2lnbmVkIGludCBsZW4pCisJCQkg
-ICAgICAgY29uc3QgY2hhciAqcGF0aCwgY29uc3QgY2hhciAqdG9rZW4pCiB7CiAJc3RydWN0IHhl
-bl9wY2lia19kZXZpY2UgKnBkZXYgPQogCSAgICBjb250YWluZXJfb2Yod2F0Y2gsIHN0cnVjdCB4
-ZW5fcGNpYmtfZGV2aWNlLCBiZV93YXRjaCk7CmRpZmYgLS1naXQgYS9kcml2ZXJzL3hlbi94ZW5i
-dXMveGVuYnVzLmggYi9kcml2ZXJzL3hlbi94ZW5idXMveGVuYnVzLmgKaW5kZXggNmE4MGMxZS4u
-YmQ5NWMyMSAxMDA2NDQKLS0tIGEvZHJpdmVycy94ZW4veGVuYnVzL3hlbmJ1cy5oCisrKyBiL2Ry
-aXZlcnMveGVuL3hlbmJ1cy94ZW5idXMuaApAQCAtMzksOCArMzksOCBAQCBzdHJ1Y3QgeGVuX2J1
-c190eXBlIHsKIAlpbnQgKCpnZXRfYnVzX2lkKShjaGFyIGJ1c19pZFtYRU5fQlVTX0lEX1NJWkVd
-LCBjb25zdCBjaGFyICpub2RlbmFtZSk7CiAJaW50ICgqcHJvYmUpKHN0cnVjdCB4ZW5fYnVzX3R5
-cGUgKmJ1cywgY29uc3QgY2hhciAqdHlwZSwKIAkJICAgICBjb25zdCBjaGFyICpkaXIpOwotCXZv
-aWQgKCpvdGhlcmVuZF9jaGFuZ2VkKShzdHJ1Y3QgeGVuYnVzX3dhdGNoICp3YXRjaCwgY29uc3Qg
-Y2hhciAqKnZlYywKLQkJCQkgdW5zaWduZWQgaW50IGxlbik7CisJdm9pZCAoKm90aGVyZW5kX2No
-YW5nZWQpKHN0cnVjdCB4ZW5idXNfd2F0Y2ggKndhdGNoLCBjb25zdCBjaGFyICpwYXRoLAorCQkJ
-CSBjb25zdCBjaGFyICp0b2tlbik7CiAJc3RydWN0IGJ1c190eXBlIGJ1czsKIH07CiAKQEAgLTgz
-LDcgKzgzLDcgQEAgaW50IHhlbmJ1c19kZXZfcmVzdW1lKHN0cnVjdCBkZXZpY2UgKmRldik7CiBp
-bnQgeGVuYnVzX2Rldl9jYW5jZWwoc3RydWN0IGRldmljZSAqZGV2KTsKIAogdm9pZCB4ZW5idXNf
-b3RoZXJlbmRfY2hhbmdlZChzdHJ1Y3QgeGVuYnVzX3dhdGNoICp3YXRjaCwKLQkJCSAgICAgY29u
-c3QgY2hhciAqKnZlYywgdW5zaWduZWQgaW50IGxlbiwKKwkJCSAgICAgY29uc3QgY2hhciAqcGF0
-aCwgY29uc3QgY2hhciAqdG9rZW4sCiAJCQkgICAgIGludCBpZ25vcmVfb25fc2h1dGRvd24pOwog
-CiBpbnQgeGVuYnVzX3JlYWRfb3RoZXJlbmRfZGV0YWlscyhzdHJ1Y3QgeGVuYnVzX2RldmljZSAq
-eGVuZGV2LApkaWZmIC0tZ2l0IGEvZHJpdmVycy94ZW4veGVuYnVzL3hlbmJ1c19jbGllbnQuYyBi
-L2RyaXZlcnMveGVuL3hlbmJ1cy94ZW5idXNfY2xpZW50LmMKaW5kZXggMjNlZGY1My4uOTU4NmMy
-NCAxMDA2NDQKLS0tIGEvZHJpdmVycy94ZW4veGVuYnVzL3hlbmJ1c19jbGllbnQuYworKysgYi9k
-cml2ZXJzL3hlbi94ZW5idXMveGVuYnVzX2NsaWVudC5jCkBAIC0xMTUsNyArMTE1LDcgQEAgRVhQ
-T1JUX1NZTUJPTF9HUEwoeGVuYnVzX3N0cnN0YXRlKTsKIGludCB4ZW5idXNfd2F0Y2hfcGF0aChz
-dHJ1Y3QgeGVuYnVzX2RldmljZSAqZGV2LCBjb25zdCBjaGFyICpwYXRoLAogCQkgICAgICBzdHJ1
-Y3QgeGVuYnVzX3dhdGNoICp3YXRjaCwKIAkJICAgICAgdm9pZCAoKmNhbGxiYWNrKShzdHJ1Y3Qg
-eGVuYnVzX3dhdGNoICosCi0JCQkJICAgICAgIGNvbnN0IGNoYXIgKiosIHVuc2lnbmVkIGludCkp
-CisJCQkJICAgICAgIGNvbnN0IGNoYXIgKiwgY29uc3QgY2hhciAqKSkKIHsKIAlpbnQgZXJyOwog
-CkBAIC0xNTMsNyArMTUzLDcgQEAgRVhQT1JUX1NZTUJPTF9HUEwoeGVuYnVzX3dhdGNoX3BhdGgp
-OwogaW50IHhlbmJ1c193YXRjaF9wYXRoZm10KHN0cnVjdCB4ZW5idXNfZGV2aWNlICpkZXYsCiAJ
-CQkgc3RydWN0IHhlbmJ1c193YXRjaCAqd2F0Y2gsCiAJCQkgdm9pZCAoKmNhbGxiYWNrKShzdHJ1
-Y3QgeGVuYnVzX3dhdGNoICosCi0JCQkJCWNvbnN0IGNoYXIgKiosIHVuc2lnbmVkIGludCksCisJ
-CQkJCSAgY29uc3QgY2hhciAqLCBjb25zdCBjaGFyICopLAogCQkJIGNvbnN0IGNoYXIgKnBhdGhm
-bXQsIC4uLikKIHsKIAlpbnQgZXJyOwpkaWZmIC0tZ2l0IGEvZHJpdmVycy94ZW4veGVuYnVzL3hl
-bmJ1c19kZXZfZnJvbnRlbmQuYyBiL2RyaXZlcnMveGVuL3hlbmJ1cy94ZW5idXNfZGV2X2Zyb250
-ZW5kLmMKaW5kZXggZTJiYzliMy4uZTRiOTg0NyAxMDA2NDQKLS0tIGEvZHJpdmVycy94ZW4veGVu
-YnVzL3hlbmJ1c19kZXZfZnJvbnRlbmQuYworKysgYi9kcml2ZXJzL3hlbi94ZW5idXMveGVuYnVz
-X2Rldl9mcm9udGVuZC5jCkBAIC0yNTgsMjYgKzI1OCwyMyBAQCBzdGF0aWMgc3RydWN0IHdhdGNo
-X2FkYXB0ZXIgKmFsbG9jX3dhdGNoX2FkYXB0ZXIoY29uc3QgY2hhciAqcGF0aCwKIH0KIAogc3Rh
-dGljIHZvaWQgd2F0Y2hfZmlyZWQoc3RydWN0IHhlbmJ1c193YXRjaCAqd2F0Y2gsCi0JCQljb25z
-dCBjaGFyICoqdmVjLAotCQkJdW5zaWduZWQgaW50IGxlbikKKwkJCWNvbnN0IGNoYXIgKnBhdGgs
-CisJCQljb25zdCBjaGFyICp0b2tlbikKIHsKIAlzdHJ1Y3Qgd2F0Y2hfYWRhcHRlciAqYWRhcDsK
-IAlzdHJ1Y3QgeHNkX3NvY2ttc2cgaGRyOwotCWNvbnN0IGNoYXIgKnBhdGgsICp0b2tlbjsKLQlp
-bnQgcGF0aF9sZW4sIHRva19sZW4sIGJvZHlfbGVuLCBkYXRhX2xlbiA9IDA7CisJY29uc3QgY2hh
-ciAqdG9rZW5fY2FsbGVyOworCWludCBwYXRoX2xlbiwgdG9rX2xlbiwgYm9keV9sZW47CiAJaW50
-IHJldDsKIAlMSVNUX0hFQUQoc3RhZ2luZ19xKTsKIAogCWFkYXAgPSBjb250YWluZXJfb2Yod2F0
-Y2gsIHN0cnVjdCB3YXRjaF9hZGFwdGVyLCB3YXRjaCk7CiAKLQlwYXRoID0gdmVjW1hTX1dBVENI
-X1BBVEhdOwotCXRva2VuID0gYWRhcC0+dG9rZW47CisJdG9rZW5fY2FsbGVyID0gYWRhcC0+dG9r
-ZW47CiAKIAlwYXRoX2xlbiA9IHN0cmxlbihwYXRoKSArIDE7Ci0JdG9rX2xlbiA9IHN0cmxlbih0
-b2tlbikgKyAxOwotCWlmIChsZW4gPiAyKQotCQlkYXRhX2xlbiA9IHZlY1tsZW5dIC0gdmVjWzJd
-ICsgMTsKLQlib2R5X2xlbiA9IHBhdGhfbGVuICsgdG9rX2xlbiArIGRhdGFfbGVuOworCXRva19s
-ZW4gPSBzdHJsZW4odG9rZW5fY2FsbGVyKSArIDE7CisJYm9keV9sZW4gPSBwYXRoX2xlbiArIHRv
-a19sZW47CiAKIAloZHIudHlwZSA9IFhTX1dBVENIX0VWRU5UOwogCWhkci5sZW4gPSBib2R5X2xl
-bjsKQEAgLTI4OCw5ICsyODUsNyBAQCBzdGF0aWMgdm9pZCB3YXRjaF9maXJlZChzdHJ1Y3QgeGVu
-YnVzX3dhdGNoICp3YXRjaCwKIAlpZiAoIXJldCkKIAkJcmV0ID0gcXVldWVfcmVwbHkoJnN0YWdp
-bmdfcSwgcGF0aCwgcGF0aF9sZW4pOwogCWlmICghcmV0KQotCQlyZXQgPSBxdWV1ZV9yZXBseSgm
-c3RhZ2luZ19xLCB0b2tlbiwgdG9rX2xlbik7Ci0JaWYgKCFyZXQgJiYgbGVuID4gMikKLQkJcmV0
-ID0gcXVldWVfcmVwbHkoJnN0YWdpbmdfcSwgdmVjWzJdLCBkYXRhX2xlbik7CisJCXJldCA9IHF1
-ZXVlX3JlcGx5KCZzdGFnaW5nX3EsIHRva2VuX2NhbGxlciwgdG9rX2xlbik7CiAKIAlpZiAoIXJl
-dCkgewogCQkvKiBzdWNjZXNzOiBwYXNzIHJlcGx5IGxpc3Qgb250byB3YXRjaGVyICovCmRpZmYg
-LS1naXQgYS9kcml2ZXJzL3hlbi94ZW5idXMveGVuYnVzX3Byb2JlLmMgYi9kcml2ZXJzL3hlbi94
-ZW5idXMveGVuYnVzX3Byb2JlLmMKaW5kZXggNmJhZmZiYi4uNzQ4ODhjYSAxMDA2NDQKLS0tIGEv
-ZHJpdmVycy94ZW4veGVuYnVzL3hlbmJ1c19wcm9iZS5jCisrKyBiL2RyaXZlcnMveGVuL3hlbmJ1
-cy94ZW5idXNfcHJvYmUuYwpAQCAtMTY5LDcgKzE2OSw3IEBAIGludCB4ZW5idXNfcmVhZF9vdGhl
-cmVuZF9kZXRhaWxzKHN0cnVjdCB4ZW5idXNfZGV2aWNlICp4ZW5kZXYsCiBFWFBPUlRfU1lNQk9M
-X0dQTCh4ZW5idXNfcmVhZF9vdGhlcmVuZF9kZXRhaWxzKTsKIAogdm9pZCB4ZW5idXNfb3RoZXJl
-bmRfY2hhbmdlZChzdHJ1Y3QgeGVuYnVzX3dhdGNoICp3YXRjaCwKLQkJCSAgICAgY29uc3QgY2hh
-ciAqKnZlYywgdW5zaWduZWQgaW50IGxlbiwKKwkJCSAgICAgY29uc3QgY2hhciAqcGF0aCwgY29u
-c3QgY2hhciAqdG9rZW4sCiAJCQkgICAgIGludCBpZ25vcmVfb25fc2h1dGRvd24pCiB7CiAJc3Ry
-dWN0IHhlbmJ1c19kZXZpY2UgKmRldiA9CkBAIC0xODAsMTggKzE4MCwxNSBAQCB2b2lkIHhlbmJ1
-c19vdGhlcmVuZF9jaGFuZ2VkKHN0cnVjdCB4ZW5idXNfd2F0Y2ggKndhdGNoLAogCS8qIFByb3Rl
-Y3QgdXMgYWdhaW5zdCB3YXRjaGVzIGZpcmluZyBvbiBvbGQgZGV0YWlscyB3aGVuIHRoZSBvdGhl
-cmVuZAogCSAgIGRldGFpbHMgY2hhbmdlLCBzYXkgaW1tZWRpYXRlbHkgYWZ0ZXIgYSByZXN1bWUu
-ICovCiAJaWYgKCFkZXYtPm90aGVyZW5kIHx8Ci0JICAgIHN0cm5jbXAoZGV2LT5vdGhlcmVuZCwg
-dmVjW1hTX1dBVENIX1BBVEhdLAotCQkgICAgc3RybGVuKGRldi0+b3RoZXJlbmQpKSkgewotCQlk
-ZXZfZGJnKCZkZXYtPmRldiwgIklnbm9yaW5nIHdhdGNoIGF0ICVzXG4iLAotCQkJdmVjW1hTX1dB
-VENIX1BBVEhdKTsKKwkgICAgc3RybmNtcChkZXYtPm90aGVyZW5kLCBwYXRoLCBzdHJsZW4oZGV2
-LT5vdGhlcmVuZCkpKSB7CisJCWRldl9kYmcoJmRldi0+ZGV2LCAiSWdub3Jpbmcgd2F0Y2ggYXQg
-JXNcbiIsIHBhdGgpOwogCQlyZXR1cm47CiAJfQogCiAJc3RhdGUgPSB4ZW5idXNfcmVhZF9kcml2
-ZXJfc3RhdGUoZGV2LT5vdGhlcmVuZCk7CiAKIAlkZXZfZGJnKCZkZXYtPmRldiwgInN0YXRlIGlz
-ICVkLCAoJXMpLCAlcywgJXNcbiIsCi0JCXN0YXRlLCB4ZW5idXNfc3Ryc3RhdGUoc3RhdGUpLCBk
-ZXYtPm90aGVyZW5kX3dhdGNoLm5vZGUsCi0JCXZlY1tYU19XQVRDSF9QQVRIXSk7CisJCXN0YXRl
-LCB4ZW5idXNfc3Ryc3RhdGUoc3RhdGUpLCBkZXYtPm90aGVyZW5kX3dhdGNoLm5vZGUsIHBhdGgp
-OwogCiAJLyoKIAkgKiBJZ25vcmUgeGVuYnVzIHRyYW5zaXRpb25zIGR1cmluZyBzaHV0ZG93bi4g
-VGhpcyBwcmV2ZW50cyB1cyBkb2luZwpkaWZmIC0tZ2l0IGEvZHJpdmVycy94ZW4veGVuYnVzL3hl
-bmJ1c19wcm9iZV9iYWNrZW5kLmMgYi9kcml2ZXJzL3hlbi94ZW5idXMveGVuYnVzX3Byb2JlX2Jh
-Y2tlbmQuYwppbmRleCBmNDZiNGRjLi5iMGJlZDRmIDEwMDY0NAotLS0gYS9kcml2ZXJzL3hlbi94
-ZW5idXMveGVuYnVzX3Byb2JlX2JhY2tlbmQuYworKysgYi9kcml2ZXJzL3hlbi94ZW5idXMveGVu
-YnVzX3Byb2JlX2JhY2tlbmQuYwpAQCAtMTgxLDkgKzE4MSw5IEBAIHN0YXRpYyBpbnQgeGVuYnVz
-X3Byb2JlX2JhY2tlbmQoc3RydWN0IHhlbl9idXNfdHlwZSAqYnVzLCBjb25zdCBjaGFyICp0eXBl
-LAogfQogCiBzdGF0aWMgdm9pZCBmcm9udGVuZF9jaGFuZ2VkKHN0cnVjdCB4ZW5idXNfd2F0Y2gg
-KndhdGNoLAotCQkJICAgIGNvbnN0IGNoYXIgKip2ZWMsIHVuc2lnbmVkIGludCBsZW4pCisJCQkg
-ICAgIGNvbnN0IGNoYXIgKnBhdGgsIGNvbnN0IGNoYXIgKnRva2VuKQogewotCXhlbmJ1c19vdGhl
-cmVuZF9jaGFuZ2VkKHdhdGNoLCB2ZWMsIGxlbiwgMCk7CisJeGVuYnVzX290aGVyZW5kX2NoYW5n
-ZWQod2F0Y2gsIHBhdGgsIHRva2VuLCAwKTsKIH0KIAogc3RhdGljIHN0cnVjdCB4ZW5fYnVzX3R5
-cGUgeGVuYnVzX2JhY2tlbmQgPSB7CkBAIC0yMDQsMTEgKzIwNCwxMSBAQCBzdGF0aWMgc3RydWN0
-IHhlbl9idXNfdHlwZSB4ZW5idXNfYmFja2VuZCA9IHsKIH07CiAKIHN0YXRpYyB2b2lkIGJhY2tl
-bmRfY2hhbmdlZChzdHJ1Y3QgeGVuYnVzX3dhdGNoICp3YXRjaCwKLQkJCSAgICBjb25zdCBjaGFy
-ICoqdmVjLCB1bnNpZ25lZCBpbnQgbGVuKQorCQkJICAgIGNvbnN0IGNoYXIgKnBhdGgsIGNvbnN0
-IGNoYXIgKnRva2VuKQogewogCURQUklOVEsoIiIpOwogCi0JeGVuYnVzX2Rldl9jaGFuZ2VkKHZl
-Y1tYU19XQVRDSF9QQVRIXSwgJnhlbmJ1c19iYWNrZW5kKTsKKwl4ZW5idXNfZGV2X2NoYW5nZWQo
-cGF0aCwgJnhlbmJ1c19iYWNrZW5kKTsKIH0KIAogc3RhdGljIHN0cnVjdCB4ZW5idXNfd2F0Y2gg
-YmVfd2F0Y2ggPSB7CmRpZmYgLS1naXQgYS9kcml2ZXJzL3hlbi94ZW5idXMveGVuYnVzX3Byb2Jl
-X2Zyb250ZW5kLmMgYi9kcml2ZXJzL3hlbi94ZW5idXMveGVuYnVzX3Byb2JlX2Zyb250ZW5kLmMK
-aW5kZXggZDdiNzdhNi4uMTllNDVjZSAxMDA2NDQKLS0tIGEvZHJpdmVycy94ZW4veGVuYnVzL3hl
-bmJ1c19wcm9iZV9mcm9udGVuZC5jCisrKyBiL2RyaXZlcnMveGVuL3hlbmJ1cy94ZW5idXNfcHJv
-YmVfZnJvbnRlbmQuYwpAQCAtODYsOSArODYsOSBAQCBzdGF0aWMgaW50IHhlbmJ1c191ZXZlbnRf
-ZnJvbnRlbmQoc3RydWN0IGRldmljZSAqX2RldiwKIAogCiBzdGF0aWMgdm9pZCBiYWNrZW5kX2No
-YW5nZWQoc3RydWN0IHhlbmJ1c193YXRjaCAqd2F0Y2gsCi0JCQkgICAgY29uc3QgY2hhciAqKnZl
-YywgdW5zaWduZWQgaW50IGxlbikKKwkJCSAgICBjb25zdCBjaGFyICpwYXRoLCBjb25zdCBjaGFy
-ICp0b2tlbikKIHsKLQl4ZW5idXNfb3RoZXJlbmRfY2hhbmdlZCh3YXRjaCwgdmVjLCBsZW4sIDEp
-OworCXhlbmJ1c19vdGhlcmVuZF9jaGFuZ2VkKHdhdGNoLCBwYXRoLCB0b2tlbiwgMSk7CiB9CiAK
-IHN0YXRpYyB2b2lkIHhlbmJ1c19mcm9udGVuZF9kZWxheWVkX3Jlc3VtZShzdHJ1Y3Qgd29ya19z
-dHJ1Y3QgKncpCkBAIC0xNTMsMTEgKzE1MywxMSBAQCBzdGF0aWMgc3RydWN0IHhlbl9idXNfdHlw
-ZSB4ZW5idXNfZnJvbnRlbmQgPSB7CiB9OwogCiBzdGF0aWMgdm9pZCBmcm9udGVuZF9jaGFuZ2Vk
-KHN0cnVjdCB4ZW5idXNfd2F0Y2ggKndhdGNoLAotCQkJICAgICBjb25zdCBjaGFyICoqdmVjLCB1
-bnNpZ25lZCBpbnQgbGVuKQorCQkJICAgICBjb25zdCBjaGFyICpwYXRoLCBjb25zdCBjaGFyICp0
-b2tlbikKIHsKIAlEUFJJTlRLKCIiKTsKIAotCXhlbmJ1c19kZXZfY2hhbmdlZCh2ZWNbWFNfV0FU
-Q0hfUEFUSF0sICZ4ZW5idXNfZnJvbnRlbmQpOworCXhlbmJ1c19kZXZfY2hhbmdlZChwYXRoLCAm
-eGVuYnVzX2Zyb250ZW5kKTsKIH0KIAogCkBAIC0zMzIsMTMgKzMzMiwxMyBAQCBzdGF0aWMgREVD
-TEFSRV9XQUlUX1FVRVVFX0hFQUQoYmFja2VuZF9zdGF0ZV93cSk7CiBzdGF0aWMgaW50IGJhY2tl
-bmRfc3RhdGU7CiAKIHN0YXRpYyB2b2lkIHhlbmJ1c19yZXNldF9iYWNrZW5kX3N0YXRlX2NoYW5n
-ZWQoc3RydWN0IHhlbmJ1c193YXRjaCAqdywKLQkJCQkJY29uc3QgY2hhciAqKnYsIHVuc2lnbmVk
-IGludCBsKQorCQkJCQljb25zdCBjaGFyICpwYXRoLCBjb25zdCBjaGFyICp0b2tlbikKIHsKLQlp
-ZiAoeGVuYnVzX3NjYW5mKFhCVF9OSUwsIHZbWFNfV0FUQ0hfUEFUSF0sICIiLCAiJWkiLAorCWlm
-ICh4ZW5idXNfc2NhbmYoWEJUX05JTCwgcGF0aCwgIiIsICIlaSIsCiAJCQkgJmJhY2tlbmRfc3Rh
-dGUpICE9IDEpCiAJCWJhY2tlbmRfc3RhdGUgPSBYZW5idXNTdGF0ZVVua25vd247CiAJcHJpbnRr
-KEtFUk5fREVCVUcgIlhFTkJVUzogYmFja2VuZCAlcyAlc1xuIiwKLQkJCXZbWFNfV0FUQ0hfUEFU
-SF0sIHhlbmJ1c19zdHJzdGF0ZShiYWNrZW5kX3N0YXRlKSk7CisJICAgICAgIHBhdGgsIHhlbmJ1
-c19zdHJzdGF0ZShiYWNrZW5kX3N0YXRlKSk7CiAJd2FrZV91cCgmYmFja2VuZF9zdGF0ZV93cSk7
-CiB9CiAKZGlmZiAtLWdpdCBhL2RyaXZlcnMveGVuL3hlbmJ1cy94ZW5idXNfeHMuYyBiL2RyaXZl
-cnMveGVuL3hlbmJ1cy94ZW5idXNfeHMuYwppbmRleCA0YzQ5ZDg3Li5lYmM3NjhmIDEwMDY0NAot
-LS0gYS9kcml2ZXJzL3hlbi94ZW5idXMveGVuYnVzX3hzLmMKKysrIGIvZHJpdmVycy94ZW4veGVu
-YnVzL3hlbmJ1c194cy5jCkBAIC02NCw4ICs2NCw4IEBAIHN0cnVjdCB4c19zdG9yZWRfbXNnIHsK
-IAkJLyogUXVldWVkIHdhdGNoIGV2ZW50cy4gKi8KIAkJc3RydWN0IHsKIAkJCXN0cnVjdCB4ZW5i
-dXNfd2F0Y2ggKmhhbmRsZTsKLQkJCWNoYXIgKip2ZWM7Ci0JCQl1bnNpZ25lZCBpbnQgdmVjX3Np
-emU7CisJCQljb25zdCBjaGFyICpwYXRoOworCQkJY29uc3QgY2hhciAqdG9rZW47CiAJCX0gd2F0
-Y2g7CiAJfSB1OwogfTsKQEAgLTc2NSw3ICs3NjUsNyBAQCB2b2lkIHVucmVnaXN0ZXJfeGVuYnVz
-X3dhdGNoKHN0cnVjdCB4ZW5idXNfd2F0Y2ggKndhdGNoKQogCQlpZiAobXNnLT51LndhdGNoLmhh
-bmRsZSAhPSB3YXRjaCkKIAkJCWNvbnRpbnVlOwogCQlsaXN0X2RlbCgmbXNnLT5saXN0KTsKLQkJ
-a2ZyZWUobXNnLT51LndhdGNoLnZlYyk7CisJCWtmcmVlKG1zZy0+dS53YXRjaC5wYXRoKTsKIAkJ
-a2ZyZWUobXNnKTsKIAl9CiAJc3Bpbl91bmxvY2soJndhdGNoX2V2ZW50c19sb2NrKTsKQEAgLTgz
-MywxMSArODMzLDEwIEBAIHN0YXRpYyBpbnQgeGVud2F0Y2hfdGhyZWFkKHZvaWQgKnVudXNlZCkK
-IAogCQlpZiAoZW50ICE9ICZ3YXRjaF9ldmVudHMpIHsKIAkJCW1zZyA9IGxpc3RfZW50cnkoZW50
-LCBzdHJ1Y3QgeHNfc3RvcmVkX21zZywgbGlzdCk7Ci0JCQltc2ctPnUud2F0Y2guaGFuZGxlLT5j
-YWxsYmFjaygKLQkJCQltc2ctPnUud2F0Y2guaGFuZGxlLAotCQkJCShjb25zdCBjaGFyICoqKW1z
-Zy0+dS53YXRjaC52ZWMsCi0JCQkJbXNnLT51LndhdGNoLnZlY19zaXplKTsKLQkJCWtmcmVlKG1z
-Zy0+dS53YXRjaC52ZWMpOworCQkJbXNnLT51LndhdGNoLmhhbmRsZS0+Y2FsbGJhY2sobXNnLT51
-LndhdGNoLmhhbmRsZSwKKwkJCQkJCSAgICAgIG1zZy0+dS53YXRjaC5wYXRoLAorCQkJCQkJICAg
-ICAgbXNnLT51LndhdGNoLnRva2VuKTsKKwkJCWtmcmVlKG1zZy0+dS53YXRjaC5wYXRoKTsKIAkJ
-CWtmcmVlKG1zZyk7CiAJCX0KIApAQCAtOTAzLDI0ICs5MDIsMjQgQEAgc3RhdGljIGludCBwcm9j
-ZXNzX21zZyh2b2lkKQogCWJvZHlbbXNnLT5oZHIubGVuXSA9ICdcMCc7CiAKIAlpZiAobXNnLT5o
-ZHIudHlwZSA9PSBYU19XQVRDSF9FVkVOVCkgewotCQltc2ctPnUud2F0Y2gudmVjID0gc3BsaXQo
-Ym9keSwgbXNnLT5oZHIubGVuLAotCQkJCQkgJm1zZy0+dS53YXRjaC52ZWNfc2l6ZSk7Ci0JCWlm
-IChJU19FUlIobXNnLT51LndhdGNoLnZlYykpIHsKLQkJCWVyciA9IFBUUl9FUlIobXNnLT51Lndh
-dGNoLnZlYyk7CisJCWlmIChjb3VudF9zdHJpbmdzKGJvZHksIG1zZy0+aGRyLmxlbikgIT0gMikg
-eworCQkJZXJyID0gLUVJTlZBTDsKIAkJCWtmcmVlKG1zZyk7CisJCQlrZnJlZShib2R5KTsKIAkJ
-CWdvdG8gb3V0OwogCQl9CisJCW1zZy0+dS53YXRjaC5wYXRoID0gKGNvbnN0IGNoYXIgKilib2R5
-OworCQltc2ctPnUud2F0Y2gudG9rZW4gPSAoY29uc3QgY2hhciAqKXN0cmNocihib2R5LCAnXDAn
-KSArIDE7CiAKIAkJc3Bpbl9sb2NrKCZ3YXRjaGVzX2xvY2spOwotCQltc2ctPnUud2F0Y2guaGFu
-ZGxlID0gZmluZF93YXRjaCgKLQkJCW1zZy0+dS53YXRjaC52ZWNbWFNfV0FUQ0hfVE9LRU5dKTsK
-KwkJbXNnLT51LndhdGNoLmhhbmRsZSA9IGZpbmRfd2F0Y2gobXNnLT51LndhdGNoLnRva2VuKTsK
-IAkJaWYgKG1zZy0+dS53YXRjaC5oYW5kbGUgIT0gTlVMTCkgewogCQkJc3Bpbl9sb2NrKCZ3YXRj
-aF9ldmVudHNfbG9jayk7CiAJCQlsaXN0X2FkZF90YWlsKCZtc2ctPmxpc3QsICZ3YXRjaF9ldmVu
-dHMpOwogCQkJd2FrZV91cCgmd2F0Y2hfZXZlbnRzX3dhaXRxKTsKIAkJCXNwaW5fdW5sb2NrKCZ3
-YXRjaF9ldmVudHNfbG9jayk7CiAJCX0gZWxzZSB7Ci0JCQlrZnJlZShtc2ctPnUud2F0Y2gudmVj
-KTsKKwkJCWtmcmVlKGJvZHkpOwogCQkJa2ZyZWUobXNnKTsKIAkJfQogCQlzcGluX3VubG9jaygm
-d2F0Y2hlc19sb2NrKTsKZGlmZiAtLWdpdCBhL2luY2x1ZGUveGVuL3hlbmJ1cy5oIGIvaW5jbHVk
-ZS94ZW4veGVuYnVzLmgKaW5kZXggOThmNzNhMi4uODY5YzgxNiAxMDA2NDQKLS0tIGEvaW5jbHVk
-ZS94ZW4veGVuYnVzLmgKKysrIGIvaW5jbHVkZS94ZW4veGVuYnVzLmgKQEAgLTYxLDcgKzYxLDcg
-QEAgc3RydWN0IHhlbmJ1c193YXRjaAogCiAJLyogQ2FsbGJhY2sgKGV4ZWN1dGVkIGluIGEgcHJv
-Y2VzcyBjb250ZXh0IHdpdGggbm8gbG9ja3MgaGVsZCkuICovCiAJdm9pZCAoKmNhbGxiYWNrKShz
-dHJ1Y3QgeGVuYnVzX3dhdGNoICosCi0JCQkgY29uc3QgY2hhciAqKnZlYywgdW5zaWduZWQgaW50
-IGxlbik7CisJCQkgY29uc3QgY2hhciAqcGF0aCwgY29uc3QgY2hhciAqdG9rZW4pOwogfTsKIAog
-CkBAIC0xOTMsMTEgKzE5MywxMSBAQCB2b2lkIHhlbmJ1c19wcm9iZShzdHJ1Y3Qgd29ya19zdHJ1
-Y3QgKik7CiBpbnQgeGVuYnVzX3dhdGNoX3BhdGgoc3RydWN0IHhlbmJ1c19kZXZpY2UgKmRldiwg
-Y29uc3QgY2hhciAqcGF0aCwKIAkJICAgICAgc3RydWN0IHhlbmJ1c193YXRjaCAqd2F0Y2gsCiAJ
-CSAgICAgIHZvaWQgKCpjYWxsYmFjaykoc3RydWN0IHhlbmJ1c193YXRjaCAqLAotCQkJCSAgICAg
-ICBjb25zdCBjaGFyICoqLCB1bnNpZ25lZCBpbnQpKTsKKwkJCQkgICAgICAgY29uc3QgY2hhciAq
-LCBjb25zdCBjaGFyICopKTsKIF9fcHJpbnRmKDQsIDUpCiBpbnQgeGVuYnVzX3dhdGNoX3BhdGhm
-bXQoc3RydWN0IHhlbmJ1c19kZXZpY2UgKmRldiwgc3RydWN0IHhlbmJ1c193YXRjaCAqd2F0Y2gs
-CiAJCQkgdm9pZCAoKmNhbGxiYWNrKShzdHJ1Y3QgeGVuYnVzX3dhdGNoICosCi0JCQkJCSAgY29u
-c3QgY2hhciAqKiwgdW5zaWduZWQgaW50KSwKKwkJCQkJICBjb25zdCBjaGFyICosIGNvbnN0IGNo
-YXIgKiksCiAJCQkgY29uc3QgY2hhciAqcGF0aGZtdCwgLi4uKTsKIAogaW50IHhlbmJ1c19zd2l0
-Y2hfc3RhdGUoc3RydWN0IHhlbmJ1c19kZXZpY2UgKmRldiwgZW51bSB4ZW5idXNfc3RhdGUgbmV3
-X3N0YXRlKTsKLS0gCjIuMTAuMgoKCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fClhlbi1kZXZlbCBtYWlsaW5nIGxpc3QKWGVuLWRldmVsQGxpc3RzLnhlbi5v
-cmcKaHR0cHM6Ly9saXN0cy54ZW4ub3JnL3hlbi1kZXZlbAo=
+Currently, IPv6 router discovery always puts routes into
+RT6_TABLE_MAIN. This makes it difficult to maintain and switch
+between multiple simultaneous network connections (e.g., wifi
+and wired).
+
+To work around this connection managers typically either move
+autoconfiguration to userspace entirely (e.g., dhcpcd) or take
+the routes they want and re-add them to the main table as static
+routes with low metrics (e.g., NetworkManager). This puts the
+burden on the connection manager to watch netlink or listen to
+RAs to see if the routes have changed, delete the routes when
+their lifetime expires, etc. This is complex and often not
+implemented correctly.
+
+This patch adds a per-interface sysctl to have the kernel put
+autoconf routes into different tables. This allows each interface
+to have its own routing table if desired.  Choosing the default
+interface, or using different interfaces at the same time on a
+per-socket or per-packet basis) can be done using policy routing
+mechanisms that use as SO_BINDTODEVICE / IPV6_PKTINFO, mark-based
+routing, or UID-based routing to select specific routing tables.
+
+The sysctl behaves as follows:
+
+- = 0: default. Put routes into RT6_TABLE_MAIN if the interface
+       is not in a VRF, or into the VRF table if it is.
+- > 0: manual. Put routes into the specified table.
+- < 0: automatic. Add the absolute value of the sysctl to the
+       device's ifindex, and use that table.
+
+The automatic mode is most useful in conjunction with
+net.ipv6.conf.default.accept_ra_rt_table. A connection manager
+or distribution can set this to, say, -1000 on boot, and
+thereafter know that routes received on every interface will
+always be in that interface's routing table, and that the mapping
+between interfaces and routing tables is deterministic. It also
+ensures that if an interface is created and immediately receives
+an RA, the route will go into the correct routing table without
+needing any intervention from userspace.
+
+The automatic mode (with conf.default.accept_ra_rt_table = -1000)
+has been used in Android since 5.0.
+
+Tested: compiles allnoconfig, allyesconfig, allmodconfig
+Tested: passes existing Android kernel unit tests
+Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
+---
+ Documentation/networking/ip-sysctl.txt | 13 +++++++++++
+ include/linux/ipv6.h                   |  1 +
+ include/net/addrconf.h                 |  2 ++
+ include/uapi/linux/ipv6.h              |  1 +
+ net/ipv6/addrconf.c                    | 40 +++++++++++++++++++++++++++++++---
+ net/ipv6/route.c                       | 11 +++++-----
+ 6 files changed, 59 insertions(+), 9 deletions(-)
+
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index 7dd65c9cf7..d1311d8f33 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -1471,6 +1471,19 @@ accept_ra_rt_info_max_plen - INTEGER
+ 	Functional default: 0 if accept_ra_rtr_pref is enabled.
+ 			    -1 if accept_ra_rtr_pref is disabled.
+ 
++accept_ra_rt_table - INTEGER
++	Which table to put routes created by Router Advertisements into.
++
++	= 0: Use the main table if the device is not in a VRF, and the
++	     VRF table if it is.
++	> 0: Use the specified table.
++	< 0: Add the absolute value to the receiving interface index,
++	     and use that table. For example, if set to -1000, an RA
++	     received on interface index 4 will create routes in
++	     table 1004.
++
++	Default: 0
++
+ accept_ra_rtr_pref - BOOLEAN
+ 	Accept Router Preference in RA.
+ 
+diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+index 671d014e64..55d75074aa 100644
+--- a/include/linux/ipv6.h
++++ b/include/linux/ipv6.h
+@@ -69,6 +69,7 @@ struct ipv6_devconf {
+ 	__s32		seg6_require_hmac;
+ #endif
+ 	__u32		enhanced_dad;
++	__s32		accept_ra_rt_table;
+ 
+ 	struct ctl_table_header *sysctl_header;
+ };
+diff --git a/include/net/addrconf.h b/include/net/addrconf.h
+index 8f998afc13..e1bd2bc027 100644
+--- a/include/net/addrconf.h
++++ b/include/net/addrconf.h
+@@ -242,6 +242,8 @@ static inline bool ipv6_is_mld(struct sk_buff *skb, int nexthdr, int offset)
+ void addrconf_prefix_rcv(struct net_device *dev,
+ 			 u8 *opt, int len, bool sllao);
+ 
++u32 addrconf_rt_table(const struct net_device *dev, u32 default_table);
++
+ /*
+  *	anycast prototypes (anycast.c)
+  */
+diff --git a/include/uapi/linux/ipv6.h b/include/uapi/linux/ipv6.h
+index eaf65dc82e..95c3553242 100644
+--- a/include/uapi/linux/ipv6.h
++++ b/include/uapi/linux/ipv6.h
+@@ -182,6 +182,7 @@ enum {
+ 	DEVCONF_SEG6_ENABLED,
+ 	DEVCONF_SEG6_REQUIRE_HMAC,
+ 	DEVCONF_ENHANCED_DAD,
++	DEVCONF_ACCEPT_RA_RT_TABLE,
+ 	DEVCONF_MAX
+ };
+ 
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index c1e124bc8e..d4a6b877f8 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -243,6 +243,7 @@ static struct ipv6_devconf ipv6_devconf __read_mostly = {
+ 	.seg6_require_hmac	= 0,
+ #endif
+ 	.enhanced_dad           = 1,
++	.accept_ra_rt_table	= 0,
+ };
+ 
+ static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
+@@ -294,6 +295,7 @@ static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
+ 	.seg6_require_hmac	= 0,
+ #endif
+ 	.enhanced_dad           = 1,
++	.accept_ra_rt_table	= 0,
+ };
+ 
+ /* Check if a valid qdisc is available */
+@@ -2210,6 +2212,30 @@ static void  ipv6_try_regen_rndid(struct inet6_dev *idev, struct in6_addr *tmpad
+ 		ipv6_regen_rndid(idev);
+ }
+ 
++#ifdef CONFIG_IPV6_MULTIPLE_TABLES
++u32 addrconf_rt_table(const struct net_device *dev, u32 default_table)
++{
++	struct inet6_dev *idev = in6_dev_get(dev);
++	u32 table;
++	int sysctl = idev->cnf.accept_ra_rt_table;
++
++	if (sysctl == 0)
++		table = l3mdev_fib_table(dev) ? : default_table;
++	else if (sysctl > 0)
++		table = (u32)sysctl;
++	else
++		table = (unsigned int)dev->ifindex + (-sysctl);
++
++	in6_dev_put(idev);
++	return table;
++}
++#else
++u32 addrconf_rt_table(const struct net_device *dev, u32 default_table)
++{
++	return RT6_TABLE_DFLT;
++}
++#endif
++
+ /*
+  *	Add prefix route.
+  */
+@@ -2219,7 +2245,7 @@ addrconf_prefix_route(struct in6_addr *pfx, int plen, struct net_device *dev,
+ 		      unsigned long expires, u32 flags)
+ {
+ 	struct fib6_config cfg = {
+-		.fc_table = l3mdev_fib_table(dev) ? : RT6_TABLE_PREFIX,
++		.fc_table = addrconf_rt_table(dev, RT6_TABLE_PREFIX),
+ 		.fc_metric = IP6_RT_PRIO_ADDRCONF,
+ 		.fc_ifindex = dev->ifindex,
+ 		.fc_expires = expires,
+@@ -2252,9 +2278,9 @@ static struct rt6_info *addrconf_get_prefix_route(const struct in6_addr *pfx,
+ 	struct fib6_node *fn;
+ 	struct rt6_info *rt = NULL;
+ 	struct fib6_table *table;
+-	u32 tb_id = l3mdev_fib_table(dev) ? : RT6_TABLE_PREFIX;
+ 
+-	table = fib6_get_table(dev_net(dev), tb_id);
++	table = fib6_get_table(dev_net(dev),
++			       addrconf_rt_table(dev, RT6_TABLE_PREFIX));
+ 	if (!table)
+ 		return NULL;
+ 
+@@ -4975,6 +5001,7 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
+ 	array[DEVCONF_SEG6_REQUIRE_HMAC] = cnf->seg6_require_hmac;
+ #endif
+ 	array[DEVCONF_ENHANCED_DAD] = cnf->enhanced_dad;
++	array[DEVCONF_ACCEPT_RA_RT_TABLE] = cnf->accept_ra_rt_table;
+ }
+ 
+ static inline size_t inet6_ifla6_size(void)
+@@ -6090,6 +6117,13 @@ static const struct ctl_table addrconf_sysctl[] = {
+ 		.proc_handler   = proc_dointvec,
+ 	},
+ 	{
++		.procname	= "accept_ra_rt_table",
++		.data		= &ipv6_devconf.accept_ra_rt_table,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec,
++	},
++	{
+ 		/* sentinel */
+ 	}
+ };
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 8417c41d8e..86469ec27f 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -2345,13 +2345,12 @@ static struct rt6_info *rt6_get_route_info(struct net *net,
+ 					   const struct in6_addr *gwaddr,
+ 					   struct net_device *dev)
+ {
+-	u32 tb_id = l3mdev_fib_table(dev) ? : RT6_TABLE_INFO;
+ 	int ifindex = dev->ifindex;
+ 	struct fib6_node *fn;
+ 	struct rt6_info *rt = NULL;
+ 	struct fib6_table *table;
+ 
+-	table = fib6_get_table(net, tb_id);
++	table = fib6_get_table(net, addrconf_rt_table(dev, RT6_TABLE_INFO));
+ 	if (!table)
+ 		return NULL;
+ 
+@@ -2392,7 +2391,7 @@ static struct rt6_info *rt6_add_route_info(struct net *net,
+ 		.fc_nlinfo.nl_net = net,
+ 	};
+ 
+-	cfg.fc_table = l3mdev_fib_table(dev) ? : RT6_TABLE_INFO,
++	cfg.fc_table = addrconf_rt_table(dev, RT6_TABLE_INFO);
+ 	cfg.fc_dst = *prefix;
+ 	cfg.fc_gateway = *gwaddr;
+ 
+@@ -2408,11 +2407,11 @@ static struct rt6_info *rt6_add_route_info(struct net *net,
+ 
+ struct rt6_info *rt6_get_dflt_router(const struct in6_addr *addr, struct net_device *dev)
+ {
+-	u32 tb_id = l3mdev_fib_table(dev) ? : RT6_TABLE_DFLT;
+ 	struct rt6_info *rt;
+ 	struct fib6_table *table;
+ 
+-	table = fib6_get_table(dev_net(dev), tb_id);
++	table = fib6_get_table(dev_net(dev),
++			       addrconf_rt_table(dev, RT6_TABLE_DFLT));
+ 	if (!table)
+ 		return NULL;
+ 
+@@ -2434,7 +2433,7 @@ struct rt6_info *rt6_add_dflt_router(const struct in6_addr *gwaddr,
+ 				     unsigned int pref)
+ {
+ 	struct fib6_config cfg = {
+-		.fc_table	= l3mdev_fib_table(dev) ? : RT6_TABLE_DFLT,
++		.fc_table	= addrconf_rt_table(dev, RT6_TABLE_DFLT),
+ 		.fc_metric	= IP6_RT_PRIO_USER,
+ 		.fc_ifindex	= dev->ifindex,
+ 		.fc_flags	= RTF_GATEWAY | RTF_ADDRCONF | RTF_DEFAULT |
+-- 
+2.11.0.390.gc69c2f50cf-goog
