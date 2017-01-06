@@ -1,77 +1,57 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH iproute2 2/3] ip vrf: Improve cgroup2 error messages
-Date: Fri, 6 Jan 2017 12:45:20 +0300
-Message-ID: <f9858cd0-277b-02cd-35dc-ffc24862f736@cogentembedded.com>
-References: <1483662143-15242-1-git-send-email-dsa@cumulusnetworks.com>
- <1483662143-15242-3-git-send-email-dsa@cumulusnetworks.com>
+From: Mao Wenan <maowenan@huawei.com>
+Subject: [PATCH net-next] net:add one common config ARCH_WANT_RELAX_ORDER to support relax ordering.
+Date: Fri, 6 Jan 2017 17:52:44 +0800
+Message-ID: <1483696364-8680-1-git-send-email-maowenan@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: David Ahern <dsa@cumulusnetworks.com>, netdev@vger.kernel.org,
-        stephen@networkplumber.org
+Content-Type: text/plain
+To: <netdev@vger.kernel.org>, <jeffrey.t.kirsher@intel.com>,
+        <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f48.google.com ([209.85.215.48]:33557 "EHLO
-        mail-lf0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1034961AbdAFJp2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 6 Jan 2017 04:45:28 -0500
-Received: by mail-lf0-f48.google.com with SMTP id k86so51298032lfi.0
-        for <netdev@vger.kernel.org>; Fri, 06 Jan 2017 01:45:28 -0800 (PST)
-In-Reply-To: <1483662143-15242-3-git-send-email-dsa@cumulusnetworks.com>
+Received: from szxga01-in.huawei.com ([58.251.152.64]:57282 "EHLO
+        szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S969982AbdAFJzs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 6 Jan 2017 04:55:48 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello!
+Relax ordering(RO) is one feature of 82599 NIC, to enable this feature can
+enhance the performance for some cpu architecure, such as SPARC and so on.
+Currently it only supports one special cpu architecture(SPARC) in 82599
+driver to enable RO feature, this is not very common for other cpu architecture
+which really needs RO feature.
+This patch add one common config CONFIG_ARCH_WANT_RELAX_ORDER to set RO feature,
+and should define CONFIG_ARCH_WANT_RELAX_ORDER in sparc Kconfig firstly.
 
-On 1/6/2017 3:22 AM, David Ahern wrote:
+Signed-off-by: Mao Wenan <maowenan@huawei.com>
+---
+ arch/sparc/Kconfig                              | 1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_common.c | 2 +-
+ 2 files changed, 2 insertions(+), 1 deletion(-)
 
-> Currently, if a non-root user attempts to run ip vrf exec a non-helpful
-> error is returned:
->
-> $ ip vrf exec mgmt bash
-> Failed to mount cgroup2. Are CGROUPS enabled in your kernel?
->
-> Only show the CGROUPS kernel hint for the ENODEV error and for the
-> rest show the strerror for the errno. So now:
->
-> $ ip/ip vrf exec mgmt bash
-> Failed to mount cgroup2: Operation not permitted
->
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
-> ---
->  lib/fs.c | 14 +++++++++++---
->  1 file changed, 11 insertions(+), 3 deletions(-)
->
-> diff --git a/lib/fs.c b/lib/fs.c
-> index 644bb486ae8e..12a4657a0bc9 100644
-> --- a/lib/fs.c
-> +++ b/lib/fs.c
-> @@ -80,13 +80,21 @@ char *find_cgroup2_mount(void)
->
->  	if (mount("none", mnt, CGROUP2_FS_NAME, 0, NULL)) {
->  		/* EBUSY means already mounted */
-> -		if (errno != EBUSY) {
-> +		if (errno == EBUSY)
-> +			goto out;
-> +
-> +		if (errno == ENODEV) {
->  			fprintf(stderr,
->  				"Failed to mount cgroup2. Are CGROUPS enabled in your kernel?\n");
-> -			free(mnt);
-> -			return NULL;
-> +		} else {
-> +			fprintf(stderr,
-> +				"Failed to mount cgroup2: %s\n",
-> +				strerror(errno));
->  		}
-
-    How about a *switch* instead?
-
-> +		free(mnt);
-> +		return NULL;
->  	}
-> +out:
->  	return mnt;
->  }
->
-
-MBR, Sergei
+diff --git a/arch/sparc/Kconfig b/arch/sparc/Kconfig
+index cf4034c..68ac5c7 100644
+--- a/arch/sparc/Kconfig
++++ b/arch/sparc/Kconfig
+@@ -44,6 +44,7 @@ config SPARC
+ 	select CPU_NO_EFFICIENT_FFS
+ 	select HAVE_ARCH_HARDENED_USERCOPY
+ 	select PROVE_LOCKING_SMALL if PROVE_LOCKING
++	select ARCH_WANT_RELAX_ORDER
+ 
+ config SPARC32
+ 	def_bool !64BIT
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+index 094e1d6..c38d50c 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+@@ -350,7 +350,7 @@ s32 ixgbe_start_hw_gen2(struct ixgbe_hw *hw)
+ 	}
+ 	IXGBE_WRITE_FLUSH(hw);
+ 
+-#ifndef CONFIG_SPARC
++#ifndef CONFIG_ARCH_WANT_RELAX_ORDER
+ 	/* Disable relaxed ordering */
+ 	for (i = 0; i < hw->mac.max_tx_queues; i++) {
+ 		u32 regval;
+-- 
+2.7.0
