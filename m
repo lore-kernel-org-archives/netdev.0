@@ -1,57 +1,100 @@
-From: Mao Wenan <maowenan@huawei.com>
-Subject: [PATCH net-next] net:add one common config ARCH_WANT_RELAX_ORDER to support relax ordering.
-Date: Fri, 6 Jan 2017 17:52:44 +0800
-Message-ID: <1483696364-8680-1-git-send-email-maowenan@huawei.com>
+From: Jerome Brunet <jbrunet@baylibre.com>
+Subject: Re: [PATCH net-next v4 0/4] Fix OdroidC2 Gigabit Tx link issue
+Date: Fri, 06 Jan 2017 11:11:36 +0100
+Message-ID: <1483697496.28003.40.camel@baylibre.com>
+References: <1480348229-25672-1-git-send-email-jbrunet@baylibre.com>
+ <049b1efc-3bad-92e0-45ef-0563dc5d81de@gmail.com>
+ <20170105232508.GU14217@n2100.armlinux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: <netdev@vger.kernel.org>, <jeffrey.t.kirsher@intel.com>,
-        <alexander.duyck@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([58.251.152.64]:57282 "EHLO
-        szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S969982AbdAFJzs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 6 Jan 2017 04:55:48 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Andrew Lunn <andrew@lunn.ch>, Alexandre TORGUE <alexandre.torgue@st.com>,
+ Neil Armstrong <narmstrong@baylibre.com>,
+ Martin Blumenstingl <martin.blumenstingl@googlemail.com>,
+ netdev@vger.kernel.org, Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+ linux-kernel@vger.kernel.org, Yegor Yefremov <yegorslists@googlemail.com>,
+ Julia Lawall <julia.lawall@lip6.fr>, devicetree@vger.kernel.org,
+ Andre Roth <neolynx@gmail.com>, Kevin Hilman <khilman@baylibre.com>,
+ Carlo Caione <carlo@caione.org>, linux-amlogic@lists.infradead.org,
+ Andreas =?ISO-8859-1?Q?F=E4rber?= <afaerber@suse.de>,
+ linux-arm-kernel@lists.infradead.org
+To: Russell King - ARM Linux <linux@armlinux.org.uk>, Florian Fainelli
+ <f.fainelli@gmail.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <20170105232508.GU14217@n2100.armlinux.org.uk>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-Relax ordering(RO) is one feature of 82599 NIC, to enable this feature can
-enhance the performance for some cpu architecure, such as SPARC and so on.
-Currently it only supports one special cpu architecture(SPARC) in 82599
-driver to enable RO feature, this is not very common for other cpu architecture
-which really needs RO feature.
-This patch add one common config CONFIG_ARCH_WANT_RELAX_ORDER to set RO feature,
-and should define CONFIG_ARCH_WANT_RELAX_ORDER in sparc Kconfig firstly.
-
-Signed-off-by: Mao Wenan <maowenan@huawei.com>
----
- arch/sparc/Kconfig                              | 1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c | 2 +-
- 2 files changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/arch/sparc/Kconfig b/arch/sparc/Kconfig
-index cf4034c..68ac5c7 100644
---- a/arch/sparc/Kconfig
-+++ b/arch/sparc/Kconfig
-@@ -44,6 +44,7 @@ config SPARC
- 	select CPU_NO_EFFICIENT_FFS
- 	select HAVE_ARCH_HARDENED_USERCOPY
- 	select PROVE_LOCKING_SMALL if PROVE_LOCKING
-+	select ARCH_WANT_RELAX_ORDER
- 
- config SPARC32
- 	def_bool !64BIT
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-index 094e1d6..c38d50c 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
-@@ -350,7 +350,7 @@ s32 ixgbe_start_hw_gen2(struct ixgbe_hw *hw)
- 	}
- 	IXGBE_WRITE_FLUSH(hw);
- 
--#ifndef CONFIG_SPARC
-+#ifndef CONFIG_ARCH_WANT_RELAX_ORDER
- 	/* Disable relaxed ordering */
- 	for (i = 0; i < hw->mac.max_tx_queues; i++) {
- 		u32 regval;
--- 
-2.7.0
+T24gVGh1LCAyMDE3LTAxLTA1IGF0IDIzOjI1ICswMDAwLCBSdXNzZWxsIEtpbmcgLSBBUk0gTGlu
+dXggd3JvdGU6Cj4gT24gTW9uLCBOb3YgMjgsIDIwMTYgYXQgMDk6NTQ6MjhBTSAtMDgwMCwgRmxv
+cmlhbiBGYWluZWxsaSB3cm90ZToKPiA+IAo+ID4gSWYgd2Ugc3RhcnQgc3VwcG9ydGluZyBnZW5l
+cmljICJlbmFibGUiLCAiZGlzYWJsZSIgdHlwZSBvZgo+ID4gcHJvcGVydGllcwo+ID4gd2l0aCB2
+YWx1ZXMgdGhhdCBtYXAgZGlyZWN0bHkgdG8gcmVnaXN0ZXIgZGVmaW5pdGlvbnMgb2YgdGhlIEhX
+LCB3ZQo+ID4gbGVhdmUgdG9vIG11Y2ggcm9vbSBmb3IgdGhlc2UgcHJvcGVydGllcyB0byBiZSB1
+dGlsaXplZCB0bwo+ID4gaW1wbGVtZW50IGEKPiA+IHNwZWNpZmljIHBvbGljeSwgYW5kIHRoaXMg
+aXMgbm90IGFjY2VwdGFibGUuCj4gCj4gQW5vdGhlciBjb25jZXJuIHdpdGggdGhpcyBwYXRjaCBp
+cyB0aGF0IHRoZSBleGlzdGluZyBwaHlsaWIgInNldF9lZWUiCj4gY29kZSBpcyBob3JyaWJseSBi
+dWdneSAtIGl0IGp1c3QgdHJhbnNsYXRlcyB0aGUgbW9kZXMgZnJvbSB1c2Vyc3BhY2UKPiBpbnRv
+IHRoZSByZWdpc3RlciB2YWx1ZSBhbmQgd3JpdGVzIHRoZW0gZGlyZWN0bHkgdG8gdGhlIHJlZ2lz
+dGVyIHdpdGgKPiBubyB2YWxpZGF0aW9uLsKgwqBTbyBpdCdzIHBvc3NpYmxlIHRvIHNldCBtb2Rl
+cyBpbiB0aGUgcmVnaXN0ZXIgdGhhdAo+IHRoZQo+IGhhcmR3YXJlIGRvZXNuJ3Qgc3VwcG9ydCwg
+YW5kIGhhdmUgdGhlbSBhZHZlcnRpc2VkIHRvIHRoZSBsaW5rCj4gcGFydG5lci4KCkhpIFJ1c3Nl
+bGwsCgpUaGUgcHVycG9zZSBvZiB0aGlzIHBhdGNoIGlzIHRvIHByb3ZpZGUgYSB3YXkgdG8gbWFy
+ayBhcyBicm9rZW4gYQpwYXJ0aWN1bGFyIGVlZSBtb2RlLiBBdCBmaXJzdCwgaXQgaGFkIG5vdGhp
+bmcgdG8gZG8gd2l0aCAic2V0X2VlZSIgYnV0LAphcyBGbG9yaWFuIHJpZ2h0bHkgcG9pbnRlZCBv
+dXQsIHVzZXJzIHNob3VsZG4ndCBiZSBhYmxlIHRvIHJlLWVuYWJsZSBhCmJyb2tlbiBtb2RlLgoK
+QXQgZmlyc3QsIEkgd2FzIHRoaW5raW5nIGFib3V0IHJldHVybmluZyAtRU5PU1VQIGlmIGEgYnJv
+a2VuIG1vZGUgd2FzCnJlcXVlc3RlZC4gVGhlbiBJIG5vdGljZWQgdGhlIGJlaGF2aW9yIHlvdSBq
+dXN0IGRlc2NyaWJlZDogQSB1c2VyIGNhbgpyZXF1ZXN0IGFueXRoaW5nIG9mICJzZXRfZWVlIiwg
+aGUgd29uJ3QgbmVjZXNzYXJpbHkgZ2V0IHdoYXQgaGUgYXNrZWQKYnV0IHdvbid0IGdldCBhbiBl
+cnJvciBlaXRoZXIuCgpUbyBhdm9pZCBtaXhpbmcgZGlmZmVyZW50IHRvcGljIGluIGEgc2luZ2xl
+IHBhdGNoLCBJIGtlcHQgdGhlIHNhbWUKYmVoYXZpb3IsIG5vdCByZXR1cm5pbmcgYW4gZXJyb3Is
+IGp1c3Qgc2lsZW50bHkgZGlzY2FyZGluZyBicm9rZW4gbW9kZXMKCkkgYWdyZWUgd2l0aCB5b3Us
+IHdlIHNob3VsZCBwcm9iYWJseSB2YWxpZGF0ZSBhIGJpdCBtb3JlIHdoYXQgd2UgYXNrZWQKb2Yg
+dGhlIGhhcmR3YXJlIGluIHNldF9lZWUuCgpJIHdvbmRlciBpZiB3ZSBzaG91bGQgcmV0dXJuIGFu
+IGVycm9yIHRob3VnaC4gV2l0aCB0aGUgY3VycmVudAppbXBsZW1lbnRhdGlvbiwgdXNlciBzcGFj
+ZSBhcHBsaWNhdGlvbiBjb3VsZCBzaW1wbHkgYXNrIHRvIGFjdGl2YXRlCmV2ZXJ5dGhpbmcsIGV4
+Y2VwdGluZyB0aGUga2VybmVsIHRvIHNvcnQgaXQgb3V0IGFuZCByZXR1cm4gYW4gZXJyb3IKb25s
+eSBpZiBzb21ldGhpbmcgaG9ycmlibHkgd3JvbmcgaGFwcGVuZWQuIElmIHdlIHN0YXJ0IHJldHVy
+bmluZyBhbgplcnJvciBmb3IgdW5zdXBwb3J0ZWQgbW9kZXMsIHdlIGNvdWxkIGJyZWFrIHRoaW5n
+cy4gSSBndWVzcyB3ZSBzaG91bGQKanVzdCBzaWxlbnRseSBmaWx0ZXIgdGhlIHJlcXVlc3RlZCBt
+b2Rlcy4KCj4gCj4gSSBoYXZlIGEgcGF0Y2ggd2hpY2ggZml4ZXMgdGhhdCwgcmVzdHJpY3Rpbmcg
+KGFzIHdlIGRvIGVsc2V3aGVyZSkgdGhlCj4gYWR2ZXJ0IGFjY29yZGluZyB0byB0aGUgRUVFIHN1
+cHBvcnRlZCBjYXBhYmlsaXRpZXMgcmV0cmlldmVkIGZyb20gdGhlCj4gUENTCgpDb3VsZCBiZSBp
+bnRlcmVzdGluZyA6KQoKPiAgLSBtYXliZSB0aGUgcHJvYmxlbSBoZXJlIGlzIHRoYXQgdGhlIFBD
+UyBkb2Vzbid0IHN1cHBvcnQgc3VwcG9ydAo+IEVFRSBpbiAxMDAwYmFzZVQgbW9kZT8KCgpJdCBk
+b2VzLCBhbmQgdGhhdCdzIGtpbmQgb2YgdGhlIHByb2JsZW0uIEVFRSBpbiBPTiBmb3IgMTAwVHgg
+YW5kIDEwMDBUCmJ5IGRlZmF1bHQgd2l0aCB0aGlzIFBIWS4gSSBoYXZlIHNldmVyYWwgcGxhdGZv
+cm0gd2l0aCB0aGUgc2FtZSBNQUMtUEhZIApjb21iaW5hdGlvbi4gT25seSB0aGUgT2Ryb2lkQzIg
+c2hvd3MgdGhpcyBwYXJ0aWN1bGFyIGlzc3VlIHdpdGggMTAwMFQtCkVFRQoKQXMgZXhwbGFpbmVk
+IGluIG90aGVyIG1haWxzIGluIHRoaXMgdGhyZWFkLiBUaGUgcHJvYmxlbSBkb2VzIG5vdCBjb21l
+CmZyb20gdGhlIE1BQyBlbnRlcmluZyBMUEkuIEl0IGFjdHVhbGx5IGNvbWVzIGZyb20gdGhlIGxp
+bmsgcGFydG5lcgplbnRlcmluZyBMUEkgb24gdGhlIFJ4IHBhdGggdW5kZXIgc2lnbmlmaWNhbnQg
+VHggdHJhbnNmZXIuIEZvciBzb21lCnJlYXNvbiwgdGhpcyBjb21wbGV0ZWx5IG1lc3MgdXAgb3Vy
+IFBIWS4KCj4gCj4gT3V0IG9mIGludGVyZXN0LCB3aGljaCBQSFkgaXMgdXNlZCBvbiB0aGlzIHBs
+YXRmb3JtPwoKVGhlIFBIWSBpcyB0aGUgUmVhbHRlayBSVEw4MjExRgoKPiAKPiBPbiB0aGUgU29s
+aWRSdW4gYm9hcmRzLCB0aGV5J3JlIHVzaW5nIEFSODAzNSwgYW5kIGhhdmUgc3VmZmVyZWQgdGhp
+cwo+IG9jY2FzaW9uYWwgbGluayBkcm9wIHByb2JsZW0uwqDCoFdoYXQgaGFzIGJlZW4gZm91bmQg
+aXMgdGhhdCBpdCBzZWVtcwo+IHRvCj4gYmUgdG8gZG8gd2l0aCB0aGUgdGltaW5nIHBhcmFtZXRl
+cnMsIGFuZCBpdCBzZWVtZWQgdG8gb25seSBiZSAxMDAwYlQKPiB0aGF0IHdhcyBhZmZlY3RlZC7C
+oMKgSSBkb24ndCByZW1lbWJlciBvZmYgaGFuZCBleGFjdGx5IHdoaWNoIG9yIHdoYXQKPiB0aGUg
+Y2hhbmdlIHdhcyB0aGV5IG1hZGUgdG8gc3RhYmlsaXNlIGl0IHRob3VnaCwgYnV0IEkgY2FuIHBy
+b2JhYmlseQo+IGZpbmQgb3V0IHRvbW9ycm93Lgo+IAoKU2luY2UgdGhlIHNhbWUgY29tYmluYXRp
+b24gb2YgTUFDLVBIWSB3b3JrcyB3ZWxsIG9uIG90aGVyIGRlc2lnbnMsIGl0CmlzIGFsc28gbXkg
+ZmVlbGluZyB0aGF0IGlzIGhhcyBzb21ldGhpbmcgdG8gZG8gd2l0aCBzb21lIHRpbWluZwpwYXJh
+bWV0ZXIsIG1heWJlIHJlbGF0ZWQgdG8gdGhpcyBwYXJ0aWN1bGFyIFBDQi4KCldoaWxlIGRlYnVn
+Z2luZyB0aGlzIGlzc3VlLCB3ZSB0cmllZCB0byBwbGF5IHdpdGggYWxsIHRoZSBwYXJhbWV0ZXJz
+IHdlCmNvdWxkIHRoaW5rIG9mIGJ1dCBuZXZlciBmb3VuZCBhbnl0aGluZyB3b3J0aCBtZW50aW9u
+aW5nLgoKSWYgeW91IGhhdmUgYW55IGlkZWFzLCBJJ2QgYmUgaGFwcHkgdG8gdHJ5LgoKSmVyb21l
+CgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpsaW51eC1h
+cm0ta2VybmVsIG1haWxpbmcgbGlzdApsaW51eC1hcm0ta2VybmVsQGxpc3RzLmluZnJhZGVhZC5v
+cmcKaHR0cDovL2xpc3RzLmluZnJhZGVhZC5vcmcvbWFpbG1hbi9saXN0aW5mby9saW51eC1hcm0t
+a2VybmVsCg==
