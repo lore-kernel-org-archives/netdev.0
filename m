@@ -1,12 +1,13 @@
 From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH v2 3/7] nios2: put setup.h in uapi
-Date: Fri,  6 Jan 2017 10:43:55 +0100
-Message-ID: <1483695839-18660-4-git-send-email-nicolas.dichtel@6wind.com>
+Subject: [PATCH v2 6/7] Makefile.headersinst: remove
+	destination-y option
+Date: Fri,  6 Jan 2017 10:43:58 +0100
+Message-ID: <1483695839-18660-7-git-send-email-nicolas.dichtel@6wind.com>
 References: <bf83da6b-01ef-bf44-b3e1-ca6fc5636818@6wind.com>
  <1483695839-18660-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: linux-mips@linux-mips.org, alsa-devel@alsa-project.org,
  linux-ia64@vger.kernel.org, linux-doc@vger.kernel.org, airlied@linux.ie,
  linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org,
@@ -22,52 +23,63 @@ Cc: linux-mips@linux-mips.org, alsa-devel@alsa-project.org,
  linux-m68k@lists.linux-m68k.org, openrisc@lists.librecores.org,
  Nicolas Dichtel <nicolas.dichtel@6wind.com>, linux-me
 To: arnd@arndb.de
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Return-path: <xen-devel-bounces@lists.xen.org>
 In-Reply-To: <1483695839-18660-1-git-send-email-nicolas.dichtel@6wind.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Errors-To: xen-devel-bounces@lists.xen.org
+Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
 List-Id: netdev.vger.kernel.org
 
-This header file is exported, thus move it to uapi.
-
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- arch/nios2/include/asm/setup.h      | 2 +-
- arch/nios2/include/uapi/asm/setup.h | 6 ++++++
- 2 files changed, 7 insertions(+), 1 deletion(-)
- create mode 100644 arch/nios2/include/uapi/asm/setup.h
-
-diff --git a/arch/nios2/include/asm/setup.h b/arch/nios2/include/asm/setup.h
-index dcbf8cf1a344..d49e9e91bf55 100644
---- a/arch/nios2/include/asm/setup.h
-+++ b/arch/nios2/include/asm/setup.h
-@@ -19,7 +19,7 @@
- #ifndef _ASM_NIOS2_SETUP_H
- #define _ASM_NIOS2_SETUP_H
- 
--#include <asm-generic/setup.h>
-+#include <uapi/asm/setup.h>
- 
- #ifndef __ASSEMBLY__
- #ifdef __KERNEL__
-diff --git a/arch/nios2/include/uapi/asm/setup.h b/arch/nios2/include/uapi/asm/setup.h
-new file mode 100644
-index 000000000000..8d8285997ba8
---- /dev/null
-+++ b/arch/nios2/include/uapi/asm/setup.h
-@@ -0,0 +1,6 @@
-+#ifndef _UAPI_ASM_NIOS2_SETUP_H
-+#define _UAPI_ASM_NIOS2_SETUP_H
-+
-+#include <asm-generic/setup.h>
-+
-+#endif /* _UAPI_ASM_NIOS2_SETUP_H */
--- 
-2.8.1
+VGhpcyBvcHRpb24gd2FzIGFkZGVkIGluIGNvbW1pdCBjN2JiMzQ5ZTdjMjUgKCJrYnVpbGQ6IGlu
+dHJvZHVjZSBkZXN0aW5hdGlvbi15CmZvciBleHBvcnRlZCBoZWFkZXJzIikgYnV0IG5ldmVyIHVz
+ZWQgaW4tdHJlZS4KClNpZ25lZC1vZmYtYnk6IE5pY29sYXMgRGljaHRlbCA8bmljb2xhcy5kaWNo
+dGVsQDZ3aW5kLmNvbT4KLS0tCiBEb2N1bWVudGF0aW9uL2tidWlsZC9tYWtlZmlsZXMudHh0IHwg
+MjMgKysrKy0tLS0tLS0tLS0tLS0tLS0tLS0KIHNjcmlwdHMvTWFrZWZpbGUuaGVhZGVyc2luc3Qg
+ICAgICAgfCAgMiArLQogMiBmaWxlcyBjaGFuZ2VkLCA1IGluc2VydGlvbnMoKyksIDIwIGRlbGV0
+aW9ucygtKQoKZGlmZiAtLWdpdCBhL0RvY3VtZW50YXRpb24va2J1aWxkL21ha2VmaWxlcy50eHQg
+Yi9Eb2N1bWVudGF0aW9uL2tidWlsZC9tYWtlZmlsZXMudHh0CmluZGV4IDliOWM0Nzk3ZmM1NS4u
+MzdiNTI1ZDMyOWFlIDEwMDY0NAotLS0gYS9Eb2N1bWVudGF0aW9uL2tidWlsZC9tYWtlZmlsZXMu
+dHh0CisrKyBiL0RvY3VtZW50YXRpb24va2J1aWxkL21ha2VmaWxlcy50eHQKQEAgLTQ2LDkgKzQ2
+LDggQEAgVGhpcyBkb2N1bWVudCBkZXNjcmliZXMgdGhlIExpbnV4IGtlcm5lbCBNYWtlZmlsZXMu
+CiAJPT09IDcgS2J1aWxkIHN5bnRheCBmb3IgZXhwb3J0ZWQgaGVhZGVycwogCQktLS0gNy4xIGhl
+YWRlci15CiAJCS0tLSA3LjIgZ2VuaGRyLXkKLQkJLS0tIDcuMyBkZXN0aW5hdGlvbi15Ci0JCS0t
+LSA3LjQgZ2VuZXJpYy15Ci0JCS0tLSA3LjUgZ2VuZXJhdGVkLXkKKwkJLS0tIDcuMyBnZW5lcmlj
+LXkKKwkJLS0tIDcuNCBnZW5lcmF0ZWQteQogCiAJPT09IDggS2J1aWxkIFZhcmlhYmxlcwogCT09
+PSA5IE1ha2VmaWxlIGxhbmd1YWdlCkBAIC0xMjk1LDIxICsxMjk0LDcgQEAgU2VlIHN1YnNlcXVl
+bnQgY2hhcHRlciBmb3IgdGhlIHN5bnRheCBvZiB0aGUgS2J1aWxkIGZpbGUuCiAJCQkjaW5jbHVk
+ZS9saW51eC9LYnVpbGQKIAkJCWdlbmhkci15ICs9IHZlcnNpb24uaAogCi0JLS0tIDcuMyBkZXN0
+aW5hdGlvbi15Ci0KLQlXaGVuIGFuIGFyY2hpdGVjdHVyZSBoYXMgYSBzZXQgb2YgZXhwb3J0ZWQg
+aGVhZGVycyB0aGF0IG5lZWRzIHRvIGJlCi0JZXhwb3J0ZWQgdG8gYSBkaWZmZXJlbnQgZGlyZWN0
+b3J5IGRlc3RpbmF0aW9uLXkgaXMgdXNlZC4KLQlkZXN0aW5hdGlvbi15IHNwZWNpZmllcyB0aGUg
+ZGVzdGluYXRpb24gZGlyZWN0b3J5IGZvciBhbGwgZXhwb3J0ZWQKLQloZWFkZXJzIGluIHRoZSBm
+aWxlIHdoZXJlIGl0IGlzIHByZXNlbnQuCi0KLQkJRXhhbXBsZToKLQkJCSNhcmNoL3h0ZW5zYS9w
+bGF0Zm9ybXMvczYxMDUvaW5jbHVkZS9wbGF0Zm9ybS9LYnVpbGQKLQkJCWRlc3RpbmF0aW9uLXkg
+Oj0gaW5jbHVkZS9saW51eAotCi0JSW4gdGhlIGV4YW1wbGUgYWJvdmUgYWxsIGV4cG9ydGVkIGhl
+YWRlcnMgaW4gdGhlIEtidWlsZCBmaWxlCi0Jd2lsbCBiZSBsb2NhdGVkIGluIHRoZSBkaXJlY3Rv
+cnkgImluY2x1ZGUvbGludXgiIHdoZW4gZXhwb3J0ZWQuCi0KLQktLS0gNy40IGdlbmVyaWMteQor
+CS0tLSA3LjMgZ2VuZXJpYy15CiAKIAlJZiBhbiBhcmNoaXRlY3R1cmUgdXNlcyBhIHZlcmJhdGlt
+IGNvcHkgb2YgYSBoZWFkZXIgZnJvbQogCWluY2x1ZGUvYXNtLWdlbmVyaWMgdGhlbiB0aGlzIGlz
+IGxpc3RlZCBpbiB0aGUgZmlsZQpAQCAtMTMzNiw3ICsxMzIxLDcgQEAgU2VlIHN1YnNlcXVlbnQg
+Y2hhcHRlciBmb3IgdGhlIHN5bnRheCBvZiB0aGUgS2J1aWxkIGZpbGUuCiAJCUV4YW1wbGU6IHRl
+cm1pb3MuaAogCQkJI2luY2x1ZGUgPGFzbS1nZW5lcmljL3Rlcm1pb3MuaD4KIAotCS0tLSA3LjUg
+Z2VuZXJhdGVkLXkKKwktLS0gNy40IGdlbmVyYXRlZC15CiAKIAlJZiBhbiBhcmNoaXRlY3R1cmUg
+Z2VuZXJhdGVzIG90aGVyIGhlYWRlciBmaWxlcyBhbG9uZ3NpZGUgZ2VuZXJpYy15CiAJd3JhcHBl
+cnMsIGFuZCBub3QgaW5jbHVkZWQgaW4gZ2VuaGRyLXksIHRoZW4gZ2VuZXJhdGVkLXkgc3BlY2lm
+aWVzCmRpZmYgLS1naXQgYS9zY3JpcHRzL01ha2VmaWxlLmhlYWRlcnNpbnN0IGIvc2NyaXB0cy9N
+YWtlZmlsZS5oZWFkZXJzaW5zdAppbmRleCAzZTIwZDAzNDMyZDIuLjg3NmI0MmNmZWRlNCAxMDA2
+NDQKLS0tIGEvc2NyaXB0cy9NYWtlZmlsZS5oZWFkZXJzaW5zdAorKysgYi9zY3JpcHRzL01ha2Vm
+aWxlLmhlYWRlcnNpbnN0CkBAIC0xNCw3ICsxNCw3IEBAIGtidWlsZC1maWxlIDo9ICQoc3JjdHJl
+ZSkvJChvYmopL0tidWlsZAogaW5jbHVkZSAkKGtidWlsZC1maWxlKQogCiAjIGNhbGxlZCBtYXkg
+c2V0IGRlc3RpbmF0aW9uIGRpciAod2hlbiBpbnN0YWxsaW5nIHRvIGFzbS8pCi1fZHN0IDo9ICQo
+aWYgJChkZXN0aW5hdGlvbi15KSwkKGRlc3RpbmF0aW9uLXkpLCQoaWYgJChkc3QpLCQoZHN0KSwk
+KG9iaikpKQorX2RzdCA6PSAkKGlmICQoZHN0KSwkKGRzdCksJChvYmopKQogCiBvbGQta2J1aWxk
+LWZpbGUgOj0gJChzcmN0cmVlKS8kKHN1YnN0IHVhcGkvLCwkKG9iaikpL0tidWlsZAogaWZuZXEg
+KCQod2lsZGNhcmQgJChvbGQta2J1aWxkLWZpbGUpKSwpCi0tIAoyLjguMQoKCl9fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fClhlbi1kZXZlbCBtYWlsaW5nIGxp
+c3QKWGVuLWRldmVsQGxpc3RzLnhlbi5vcmcKaHR0cHM6Ly9saXN0cy54ZW4ub3JnL3hlbi1kZXZl
+bAo=
