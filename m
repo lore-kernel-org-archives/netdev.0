@@ -1,57 +1,66 @@
-From: Michael Chan <michael.chan@broadcom.com>
-Subject: Re: [PATCH net] net: Fix inconsistent rtnl_lock usage on dev_get_stats().
-Date: Fri, 6 Jan 2017 11:30:09 -0800
-Message-ID: <CACKFLimE1BafzurRje1no6kcNR1-7OnQevyYahdpYiUko_uRiA@mail.gmail.com>
-References: <1483676478-14228-1-git-send-email-michael.chan@broadcom.com>
- <1483723976.9712.19.camel@edumazet-glaptop3.roam.corp.google.com> <20170106.130134.50153126758574257.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        Netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+From: Ivan Vecera <cera@cera.cz>
+Subject: [PATCH net] be2net: fix accesses to unicast list
+Date: Fri,  6 Jan 2017 20:30:02 +0100
+Message-ID: <20170106193002.32727-1-cera@cera.cz>
+Cc: Sathya Perla <sathya.perla@broadcom.com>,
+        Ajit Khaparde <ajit.khaparde@broadcom.com>,
+        Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>,
+        Somnath Kotur <somnath.kotur@broadcom.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f48.google.com ([209.85.218.48]:34676 "EHLO
-        mail-oi0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1032848AbdAFTaL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 6 Jan 2017 14:30:11 -0500
-Received: by mail-oi0-f48.google.com with SMTP id 3so443397369oih.1
-        for <netdev@vger.kernel.org>; Fri, 06 Jan 2017 11:30:10 -0800 (PST)
-In-Reply-To: <20170106.130134.50153126758574257.davem@davemloft.net>
+Received: from mx1.redhat.com ([209.132.183.28]:47838 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1033286AbdAFTaM (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 6 Jan 2017 14:30:12 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 6, 2017 at 10:01 AM, David Miller <davem@davemloft.net> wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Fri, 06 Jan 2017 09:32:56 -0800
->
->> This makes no sense to me.
->>
->> RTNL is absolutely not needed to get device stats.
->>
->> We try to not add RTNL, especially when not required.
->>
->> Sure, RTNETLINK dumps currently hold RTNL, but we had various attempts
->> in the past to get rid of this behavior.
->>
->> If a device driver expects RTNL being locked, it is clearly a bug that
->> needs a fix anyway.
->
-> This is extremely problematic when the driver has to synchronize some
-> piece of state between the get stats method and open/close.  It is
-> exactly the case we are trying to solve in tg3, and lots of drivers
-> end up hitting the same exact issue.
->
-> If open/close can happen asynchronously to get stats, it is very hard
-> to make dynamically allocated data structures or DMA buffers usable
-> from the stats call.
->
-> Drivers in this situation will just add a mutex specifically for this
-> situation if we don't consistently apply RTNL locking here.
+Commit 988d44b "be2net: Avoid redundant addition of mac address in HW"
+introduced be_dev_mac_add & be_uc_mac_add helpers that incorrectly
+access adapter->uc_list as an array of bytes instead of an array of
+be_eth_addr. Consequently NIC is not filled with valid data so unicast
+filtering is broken.
 
-The patch doesn't work anyway in the net-procfs code path upon closer
-examination.  Because we are using seq_ops and taking the RCU lock at
-the beginning of the sequence, we cannot take RTNL.  That means
-drivers cannot use mutex as well.
+Cc: Sathya Perla <sathya.perla@broadcom.com>
+Cc: Ajit Khaparde <ajit.khaparde@broadcom.com>
+Cc: Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
+Cc: Somnath Kotur <somnath.kotur@broadcom.com>
+Fixes: 988d44b be2net: Avoid redundant addition of mac address in HW
+Signed-off-by: Ivan Vecera <cera@cera.cz>
+---
+ drivers/net/ethernet/emulex/benet/be_main.c | 9 +++------
+ 1 file changed, 3 insertions(+), 6 deletions(-)
 
-For tg3, I think I will just use tp->lock spinlock to protect
-get_stats64 and the freeing of the stats memory.
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 225e9a4..3510352 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -275,8 +275,7 @@ static int be_dev_mac_add(struct be_adapter *adapter, u8 *mac)
+ 
+ 	/* Check if mac has already been added as part of uc-list */
+ 	for (i = 0; i < adapter->uc_macs; i++) {
+-		if (ether_addr_equal((u8 *)&adapter->uc_list[i * ETH_ALEN],
+-				     mac)) {
++		if (ether_addr_equal(adapter->uc_list[i].mac, mac)) {
+ 			/* mac already added, skip addition */
+ 			adapter->pmac_id[0] = adapter->pmac_id[i + 1];
+ 			return 0;
+@@ -1655,14 +1654,12 @@ static void be_clear_mc_list(struct be_adapter *adapter)
+ 
+ static int be_uc_mac_add(struct be_adapter *adapter, int uc_idx)
+ {
+-	if (ether_addr_equal((u8 *)&adapter->uc_list[uc_idx * ETH_ALEN],
+-			     adapter->dev_mac)) {
++	if (ether_addr_equal(adapter->uc_list[uc_idx].mac, adapter->dev_mac)) {
+ 		adapter->pmac_id[uc_idx + 1] = adapter->pmac_id[0];
+ 		return 0;
+ 	}
+ 
+-	return be_cmd_pmac_add(adapter,
+-			       (u8 *)&adapter->uc_list[uc_idx * ETH_ALEN],
++	return be_cmd_pmac_add(adapter, adapter->uc_list[uc_idx].mac,
+ 			       adapter->if_handle,
+ 			       &adapter->pmac_id[uc_idx + 1], 0);
+ }
+-- 
+2.10.2
