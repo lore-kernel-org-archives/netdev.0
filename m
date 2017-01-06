@@ -1,63 +1,45 @@
-From: Juergen Gross <jgross@suse.com>
-Subject: [PATCH 0/3] xen: optimize xenbus performance
-Date: Fri,  6 Jan 2017 16:05:41 +0100
-Message-ID: <20170106150544.10836-1-jgross@suse.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH iproute2 2/3] ip vrf: Improve cgroup2 error messages
+Date: Fri, 6 Jan 2017 08:05:57 -0700
+Message-ID: <2cf5a45c-35ed-fe78-1e2b-18e93706b75e@cumulusnetworks.com>
+References: <1483662143-15242-1-git-send-email-dsa@cumulusnetworks.com>
+ <1483662143-15242-3-git-send-email-dsa@cumulusnetworks.com>
+ <f9858cd0-277b-02cd-35dc-ffc24862f736@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Juergen Gross <jgross@suse.com>, wei.liu2@citrix.com,
- netdev@vger.kernel.org, paul.durrant@citrix.com, boris.ostrovsky@oracle.com,
- roger.pau@citrix.com
-To: linux-kernel@vger.kernel.org,
-	xen-devel@lists.xenproject.org
-Return-path: <xen-devel-bounces@lists.xen.org>
-List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Errors-To: xen-devel-bounces@lists.xen.org
-Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        netdev@vger.kernel.org, stephen@networkplumber.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f43.google.com ([74.125.83.43]:34100 "EHLO
+        mail-pg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752571AbdAFPHL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 6 Jan 2017 10:07:11 -0500
+Received: by mail-pg0-f43.google.com with SMTP id 14so8090846pgg.1
+        for <netdev@vger.kernel.org>; Fri, 06 Jan 2017 07:05:59 -0800 (PST)
+In-Reply-To: <f9858cd0-277b-02cd-35dc-ffc24862f736@cogentembedded.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-VGhlIHhlbmJ1cyBkcml2ZXIgdXNlZCBmb3IgY29tbXVuaWNhdGlvbiB3aXRoIFhlbnN0b3JlIChh
-bGwga2VybmVsCmFjY2Vzc2VzIHRvIFhlbnN0b3JlIGFuZCBpbiBjYXNlIG9mIFhlbnN0b3JlIGxp
-dmluZyBpbiBhbm90aGVyIGRvbWFpbgphbGwgYWNjZXNzZXMgb2YgdGhlIGxvY2FsIGRvbWFpbiB0
-byBYZW5zdG9yZSkgaXMgcmF0aGVyIHNpbXBsZQplc3BlY2lhbGx5IHJlZ2FyZGluZyBtdWx0aXBs
-ZSBjb25jdXJyZW50IGFjY2Vzc2VzOiB0aGV5IGFyZSBqdXN0IGJlaW5nCnNlcmlhbGl6ZWQgaW4g
-c3BpdGUgb2YgWGVuc3RvcmUgYmVpbmcgY2FwYWJsZSB0byBoYW5kbGUgbXVsdGlwbGUKcGFyYWxs
-ZWwgYWNjZXNzZXMuCgpDbGVhbiB1cCB0aGUgZXh0ZXJuYWwgaW50ZXJmYWNlKHMpIG9mIHhlbmJ1
-cyBhbmQgb3B0aW1pemUgaXRzCnBlcmZvcm1hbmNlIGJ5IGFsbG93aW5nIG11bHRpcGxlIGNvbmN1
-cnJlbnQgYWNjZXNzZXMgdG8gWGVuc3RvcmUuCgpKdWVyZ2VuIEdyb3NzICgzKToKICB4ZW46IGNs
-ZWFuIHVwIHhlbmJ1cyBpbnRlcm5hbCBoZWFkZXJzCiAgeGVuOiBtb2RpZnkgeGVuc3RvcmUgd2F0
-Y2ggZXZlbnQgaW50ZXJmYWNlCiAgeGVuOiBvcHRpbWl6ZSB4ZW5idXMgZHJpdmVyIGZvciBtdWx0
-aXBsZSBjb25jdXJyZW50IHhlbnN0b3JlIGFjY2Vzc2VzCgogZHJpdmVycy9ibG9jay94ZW4tYmxr
-YmFjay94ZW5idXMuYyAgICAgICAgIHwgICA2ICstCiBkcml2ZXJzL25ldC94ZW4tbmV0YmFjay94
-ZW5idXMuYyAgICAgICAgICAgfCAgIDggKy0KIGRyaXZlcnMveGVuL2NwdV9ob3RwbHVnLmMgICAg
-ICAgICAgICAgICAgICB8ICAgNSArLQogZHJpdmVycy94ZW4vbWFuYWdlLmMgICAgICAgICAgICAg
-ICAgICAgICAgIHwgICA2ICstCiBkcml2ZXJzL3hlbi94ZW4tYmFsbG9vbi5jICAgICAgICAgICAg
-ICAgICAgfCAgIDIgKy0KIGRyaXZlcnMveGVuL3hlbi1wY2liYWNrL3hlbmJ1cy5jICAgICAgICAg
-ICB8ICAgMiArLQogZHJpdmVycy94ZW4veGVuYnVzL3hlbmJ1cy5oICAgICAgICAgICAgICAgIHwg
-MTM0ICsrKysrKysrCiBkcml2ZXJzL3hlbi94ZW5idXMveGVuYnVzX2NsaWVudC5jICAgICAgICAg
-fCAgIDYgKy0KIGRyaXZlcnMveGVuL3hlbmJ1cy94ZW5idXNfY29tbXMuYyAgICAgICAgICB8IDMx
-OSArKysrKysrKysrKysrKystLQogZHJpdmVycy94ZW4veGVuYnVzL3hlbmJ1c19jb21tcy5oICAg
-ICAgICAgIHwgIDUxIC0tLQogZHJpdmVycy94ZW4veGVuYnVzL3hlbmJ1c19kZXZfYmFja2VuZC5j
-ICAgIHwgICAyICstCiBkcml2ZXJzL3hlbi94ZW5idXMveGVuYnVzX2Rldl9mcm9udGVuZC5jICAg
-fCAyMTMgKysrKysrKy0tLS0tCiBkcml2ZXJzL3hlbi94ZW5idXMveGVuYnVzX3Byb2JlLmMgICAg
-ICAgICAgfCAgMTQgKy0KIGRyaXZlcnMveGVuL3hlbmJ1cy94ZW5idXNfcHJvYmUuaCAgICAgICAg
-ICB8ICA4OCAtLS0tLQogZHJpdmVycy94ZW4veGVuYnVzL3hlbmJ1c19wcm9iZV9iYWNrZW5kLmMg
-IHwgIDExICstCiBkcml2ZXJzL3hlbi94ZW5idXMveGVuYnVzX3Byb2JlX2Zyb250ZW5kLmMgfCAg
-MTcgKy0KIGRyaXZlcnMveGVuL3hlbmJ1cy94ZW5idXNfeHMuYyAgICAgICAgICAgICB8IDUzNSAr
-KysrKysrKysrKysrLS0tLS0tLS0tLS0tLS0tLQogZHJpdmVycy94ZW4veGVuZnMvc3VwZXIuYyAg
-ICAgICAgICAgICAgICAgIHwgICAyICstCiBkcml2ZXJzL3hlbi94ZW5mcy94ZW5zdG9yZWQuYyAg
-ICAgICAgICAgICAgfCAgIDIgKy0KIGluY2x1ZGUveGVuL3hlbmJ1cy5oICAgICAgICAgICAgICAg
-ICAgICAgICB8ICAxOCArLQogMjAgZmlsZXMgY2hhbmdlZCwgODMwIGluc2VydGlvbnMoKyksIDYx
-MSBkZWxldGlvbnMoLSkKIGNyZWF0ZSBtb2RlIDEwMDY0NCBkcml2ZXJzL3hlbi94ZW5idXMveGVu
-YnVzLmgKIGRlbGV0ZSBtb2RlIDEwMDY0NCBkcml2ZXJzL3hlbi94ZW5idXMveGVuYnVzX2NvbW1z
-LmgKIGRlbGV0ZSBtb2RlIDEwMDY0NCBkcml2ZXJzL3hlbi94ZW5idXMveGVuYnVzX3Byb2JlLmgK
-CkNjOiBrb25yYWQud2lsa0BvcmFjbGUuY29tCkNjOiByb2dlci5wYXVAY2l0cml4LmNvbQpDYzog
-d2VpLmxpdTJAY2l0cml4LmNvbQpDYzogcGF1bC5kdXJyYW50QGNpdHJpeC5jb20KQ2M6IG5ldGRl
-dkB2Z2VyLmtlcm5lbC5vcmcKCi0tIAoyLjEwLjIKCgpfX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fXwpYZW4tZGV2ZWwgbWFpbGluZyBsaXN0Clhlbi1kZXZlbEBs
-aXN0cy54ZW4ub3JnCmh0dHBzOi8vbGlzdHMueGVuLm9yZy94ZW4tZGV2ZWwK
+>> @@ -80,13 +80,21 @@ char *find_cgroup2_mount(void)
+>>
+>>      if (mount("none", mnt, CGROUP2_FS_NAME, 0, NULL)) {
+>>          /* EBUSY means already mounted */
+>> -        if (errno != EBUSY) {
+>> +        if (errno == EBUSY)
+>> +            goto out;
+>> +
+>> +        if (errno == ENODEV) {
+>>              fprintf(stderr,
+>>                  "Failed to mount cgroup2. Are CGROUPS enabled in your kernel?\n");
+>> -            free(mnt);
+>> -            return NULL;
+>> +        } else {
+>> +            fprintf(stderr,
+>> +                "Failed to mount cgroup2: %s\n",
+>> +                strerror(errno));
+>>          }
+> 
+>    How about a *switch* instead?
+
+I did consider it. Did not make the code simpler or easier to read.
