@@ -1,393 +1,185 @@
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: Re: [PATCH v3 3/3] stmmac: adding new glue driver dwmac-dwc-qos-eth
-Date: Fri, 6 Jan 2017 13:30:48 +0000
-Message-ID: <65b86b4f-d512-b603-a170-84e132ec0e51@synopsys.com>
-References: <cover.1483546363.git.jpinto@synopsys.com>
- <f72953efa2d6a42975b553a6b517c63480f4650b.1483546363.git.jpinto@synopsys.com>
- <fb610383-8898-3505-dbca-8f8dbd62dfdb@st.com>
- <f4ce118b-6966-528d-bda9-3aa8c3a43435@synopsys.com>
- <8c146599-fdc6-2555-c785-2c7dff841371@st.com>
+From: Jerome Brunet <jbrunet@baylibre.com>
+Subject: Re: [PATCH net-next v4 0/4] Fix OdroidC2 Gigabit Tx link issue
+Date: Fri, 06 Jan 2017 14:50:21 +0100
+Message-ID: <1483710621.28003.74.camel@baylibre.com>
+References: <1480348229-25672-1-git-send-email-jbrunet@baylibre.com>
+ <049b1efc-3bad-92e0-45ef-0563dc5d81de@gmail.com>
+ <20170105232508.GU14217@n2100.armlinux.org.uk>
+ <1483697496.28003.40.camel@baylibre.com>
+ <20170106114226.GX14217@n2100.armlinux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 8bit
-Cc: "lars.persson@axis.com" <lars.persson@axis.com>,
-        "niklass@axis.com" <niklass@axis.com>,
-        "swarren@nvidia.com" <swarren@nvidia.com>,
-        "treding@nvidia.com" <treding@nvidia.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Alexandre Torgue <alexandre.torgue@st.com>,
-        Joao Pinto <Joao.Pinto@synopsys.com>,
-        "davem@davemloft.net" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from us01smtprelay-2.synopsys.com ([198.182.47.9]:48412 "EHLO
-        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1163031AbdAFNbA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 6 Jan 2017 08:31:00 -0500
-In-Reply-To: <8c146599-fdc6-2555-c785-2c7dff841371@st.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Andrew Lunn <andrew@lunn.ch>, Florian Fainelli <f.fainelli@gmail.com>,
+ Alexandre TORGUE <alexandre.torgue@st.com>,
+ Neil Armstrong <narmstrong@baylibre.com>,
+ Martin Blumenstingl <martin.blumenstingl@googlemail.com>,
+ netdev@vger.kernel.org, Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+ linux-kernel@vger.kernel.org, Yegor Yefremov <yegorslists@googlemail.com>,
+ Julia Lawall <julia.lawall@lip6.fr>, devicetree@vger.kernel.org,
+ Andre Roth <neolynx@gmail.com>, Kevin Hilman <khilman@baylibre.com>,
+ Carlo Caione <carlo@caione.org>, linux-amlogic@lists.infradead.org,
+ Andreas =?ISO-8859-1?Q?F=E4rber?= <afaerber@suse.de>,
+ linux-arm-kernel@lists.infradead.org
+To: Russell King - ARM Linux <linux@armlinux.org.uk>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <20170106114226.GX14217@n2100.armlinux.org.uk>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-Às 1:27 PM de 1/6/2017, Alexandre Torgue escreveu:
-> Hi Joao,
-> 
-> On 01/05/2017 06:49 PM, Joao Pinto wrote:
->> Hi Alex,
->>
->> Às 5:19 PM de 1/5/2017, Alexandre Torgue escreveu:
->>> Hi Joao,
->>>
->>> On 01/04/2017 05:22 PM, Joao Pinto wrote:
->>>> This patch adds a new glue driver called dwmac-dwc-qos-eth which
->>>> was based in the dwc_eth_qos as is. To assure retro-compatibility a slight
->>>> tweak was also added to stmmac_platform.
->>>
->>> Sorry to come late in the review. I have a basic question. Why do you create a
->>> glue driver for that ?
->>> dwmac-glues are currently vendor specific, so why create one for IP ? Why not
->>> continue to use stmmac_platform.c ?
->>> (It is very basic, I assume I miss something)
->>>
->>
->> If you check in the kernel tree there is a synopsys qos driver under
->> net/ethernet/synopsys/*.qos.c. At this moment Synopsys has the goal to support
->> QoS in the mainline kernel and so a discussion took place a month ago, about
->> what would be the best solution. At the time we (mailing-list folks) decided to
->> port the net/ethernet/synopsys/*.qos.c driver to stmmac and remove it. This way
->> we can have stmmac has a single synopsys ethernet software package.
-> 
-> Yes I saw a thread about that and also discussed with Peppe. It is a very good
-> thing to do that ! so thanks for that.
-
-No problem! Glad to help!
-
-Joao
-
-> 
->> For us to achieve this we agreed that stmmac would have
->>
->> Lars the current synopsys/*.qos.c maintainer requested that stmmac be compatible
->> with the devicetree bindings that axis' customers were using in the driver. So
->> if you check the new glue driver, you will see it parses the legacy drivers DT
->> bindings and initiates stmmac. So you can see it like a legacy compatible glue
->> for the stmmac.
-> 
-> Ok if it is to keep compatibility to existing DT.
-> 
-> Acked-by: Alexandre TORGUE <alexandre.torgue@st.com>
-> 
->>
->> Thanks,
->> Joao
->>
->>> thanks
->>> Alex
->>>
->>>
->>>
->>>>
->>>> Signed-off-by: Joao Pinto <jpinto@synopsys.com>
->>>> ---
->>>> changes v2 -> v3:
->>>> - Nothing changed, just to keep up patch set version
->>>> changes v1 -> v2:
->>>> - WOL was not declared in the new glue driver
->>>> - clocks were switched and now fixed (apb_pclk and phy_ref_clk)
->>>>
->>>>  .../bindings/net/snps,dwc-qos-ethernet.txt         |   3 +
->>>>  drivers/net/ethernet/stmicro/stmmac/Kconfig        |   9 +
->>>>  drivers/net/ethernet/stmicro/stmmac/Makefile       |   1 +
->>>>  .../ethernet/stmicro/stmmac/dwmac-dwc-qos-eth.c    | 200 +++++++++++++++++++++
->>>>  .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |  15 +-
->>>>  5 files changed, 225 insertions(+), 3 deletions(-)
->>>>  create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac-dwc-qos-eth.c
->>>>
->>>> diff --git a/Documentation/devicetree/bindings/net/snps,dwc-qos-ethernet.txt
->>>> b/Documentation/devicetree/bindings/net/snps,dwc-qos-ethernet.txt
->>>> index d93f71c..21d27aa 100644
->>>> --- a/Documentation/devicetree/bindings/net/snps,dwc-qos-ethernet.txt
->>>> +++ b/Documentation/devicetree/bindings/net/snps,dwc-qos-ethernet.txt
->>>> @@ -1,5 +1,8 @@
->>>>  * Synopsys DWC Ethernet QoS IP version 4.10 driver (GMAC)
->>>>
->>>> +This binding is deprecated, but it continues to be supported, but new
->>>> +features should be preferably added to the stmmac binding document.
->>>> +
->>>>  This binding supports the Synopsys Designware Ethernet QoS (Quality Of
->>>> Service)
->>>>  IP block. The IP supports multiple options for bus type, clocking and reset
->>>>  structure, and feature list. Consequently, a number of properties and list
->>>> diff --git a/drivers/net/ethernet/stmicro/stmmac/Kconfig
->>>> b/drivers/net/ethernet/stmicro/stmmac/Kconfig
->>>> index ab66248..99594e3 100644
->>>> --- a/drivers/net/ethernet/stmicro/stmmac/Kconfig
->>>> +++ b/drivers/net/ethernet/stmicro/stmmac/Kconfig
->>>> @@ -29,6 +29,15 @@ config STMMAC_PLATFORM
->>>>
->>>>  if STMMAC_PLATFORM
->>>>
->>>> +config DWMAC_DWC_QOS_ETH
->>>> +    tristate "Support for snps,dwc-qos-ethernet.txt DT binding."
->>>> +    select PHYLIB
->>>> +    select CRC32
->>>> +    select MII
->>>> +    depends on OF && HAS_DMA
->>>> +    help
->>>> +      Support for chips using the snps,dwc-qos-ethernet.txt DT binding.
->>>> +
->>>>  config DWMAC_GENERIC
->>>>      tristate "Generic driver for DWMAC"
->>>>      default STMMAC_PLATFORM
->>>> diff --git a/drivers/net/ethernet/stmicro/stmmac/Makefile
->>>> b/drivers/net/ethernet/stmicro/stmmac/Makefile
->>>> index 8f83a86..700c603 100644
->>>> --- a/drivers/net/ethernet/stmicro/stmmac/Makefile
->>>> +++ b/drivers/net/ethernet/stmicro/stmmac/Makefile
->>>> @@ -16,6 +16,7 @@ obj-$(CONFIG_DWMAC_SOCFPGA)    += dwmac-altr-socfpga.o
->>>>  obj-$(CONFIG_DWMAC_STI)        += dwmac-sti.o
->>>>  obj-$(CONFIG_DWMAC_STM32)    += dwmac-stm32.o
->>>>  obj-$(CONFIG_DWMAC_SUNXI)    += dwmac-sunxi.o
->>>> +obj-$(CONFIG_DWMAC_DWC_QOS_ETH)    += dwmac-dwc-qos-eth.o
->>>>  obj-$(CONFIG_DWMAC_GENERIC)    += dwmac-generic.o
->>>>  stmmac-platform-objs:= stmmac_platform.o
->>>>  dwmac-altr-socfpga-objs := altr_tse_pcs.o dwmac-socfpga.o
->>>> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-dwc-qos-eth.c
->>>> b/drivers/net/ethernet/stmicro/stmmac/dwmac-dwc-qos-eth.c
->>>> new file mode 100644
->>>> index 0000000..4532a7c
->>>> --- /dev/null
->>>> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-dwc-qos-eth.c
->>>> @@ -0,0 +1,200 @@
->>>> +/*
->>>> + * Synopsys DWC Ethernet Quality-of-Service v4.10a linux driver
->>>> + *
->>>> + * Copyright (C) 2016 Joao Pinto <jpinto@synopsys.com>
->>>> + *
->>>> + * This program is free software; you can redistribute it and/or modify
->>>> + * it under the terms of the GNU General Public License version 2 as
->>>> + * published by the Free Software Foundation.
->>>> + *
->>>> + * You should have received a copy of the GNU General Public License
->>>> + * along with this program. If not, see
->>>> <https://urldefense.proofpoint.com/v2/url?u=http-3A__www.gnu.org_licenses_&d=DgIC-g&c=DPL6_X_6JkXFx7AXWqB0tg&r=s2fO0hii0OGNOv9qQy_HRXy-xAJUD1NNoEcc3io_kx0&m=WxdcavXD85uZcK9qUC9QsAnK7mu8d7BeoV_d5swO3GI&s=AibQEfk8wEmP3dWHGtq3DBJ2zsceESdTEooLDJV68Zo&e=
->>>>
->>>>> .
->>>> + */
->>>> +
->>>> +#include <linux/clk.h>
->>>> +#include <linux/clk-provider.h>
->>>> +#include <linux/device.h>
->>>> +#include <linux/ethtool.h>
->>>> +#include <linux/io.h>
->>>> +#include <linux/ioport.h>
->>>> +#include <linux/module.h>
->>>> +#include <linux/of_net.h>
->>>> +#include <linux/mfd/syscon.h>
->>>> +#include <linux/platform_device.h>
->>>> +#include <linux/stmmac.h>
->>>> +
->>>> +#include "stmmac_platform.h"
->>>> +
->>>> +static int dwc_eth_dwmac_config_dt(struct platform_device *pdev,
->>>> +                   struct plat_stmmacenet_data *plat_dat)
->>>> +{
->>>> +    struct device_node *np = pdev->dev.of_node;
->>>> +    u32 burst_map = 0;
->>>> +    u32 bit_index = 0;
->>>> +    u32 a_index = 0;
->>>> +
->>>> +    if (!plat_dat->axi) {
->>>> +        plat_dat->axi = kzalloc(sizeof(struct stmmac_axi), GFP_KERNEL);
->>>> +
->>>> +        if (!plat_dat->axi)
->>>> +            return -ENOMEM;
->>>> +    }
->>>> +
->>>> +    plat_dat->axi->axi_lpi_en = of_property_read_bool(np, "snps,en-lpi");
->>>> +    if (of_property_read_u32(np, "snps,write-requests",
->>>> +                 &plat_dat->axi->axi_wr_osr_lmt)) {
->>>> +        /**
->>>> +         * Since the register has a reset value of 1, if property
->>>> +         * is missing, default to 1.
->>>> +         */
->>>> +        plat_dat->axi->axi_wr_osr_lmt = 1;
->>>> +    } else {
->>>> +        /**
->>>> +         * If property exists, to keep the behavior from dwc_eth_qos,
->>>> +         * subtract one after parsing.
->>>> +         */
->>>> +        plat_dat->axi->axi_wr_osr_lmt--;
->>>> +    }
->>>> +
->>>> +    if (of_property_read_u32(np, "read,read-requests",
->>>> +                 &plat_dat->axi->axi_rd_osr_lmt)) {
->>>> +        /**
->>>> +         * Since the register has a reset value of 1, if property
->>>> +         * is missing, default to 1.
->>>> +         */
->>>> +        plat_dat->axi->axi_rd_osr_lmt = 1;
->>>> +    } else {
->>>> +        /**
->>>> +         * If property exists, to keep the behavior from dwc_eth_qos,
->>>> +         * subtract one after parsing.
->>>> +         */
->>>> +        plat_dat->axi->axi_rd_osr_lmt--;
->>>> +    }
->>>> +    of_property_read_u32(np, "snps,burst-map", &burst_map);
->>>> +
->>>> +    /* converts burst-map bitmask to burst array */
->>>> +    for (bit_index = 0; bit_index < 7; bit_index++) {
->>>> +        if (burst_map & (1 << bit_index)) {
->>>> +            switch (bit_index) {
->>>> +            case 0:
->>>> +            plat_dat->axi->axi_blen[a_index] = 4; break;
->>>> +            case 1:
->>>> +            plat_dat->axi->axi_blen[a_index] = 8; break;
->>>> +            case 2:
->>>> +            plat_dat->axi->axi_blen[a_index] = 16; break;
->>>> +            case 3:
->>>> +            plat_dat->axi->axi_blen[a_index] = 32; break;
->>>> +            case 4:
->>>> +            plat_dat->axi->axi_blen[a_index] = 64; break;
->>>> +            case 5:
->>>> +            plat_dat->axi->axi_blen[a_index] = 128; break;
->>>> +            case 6:
->>>> +            plat_dat->axi->axi_blen[a_index] = 256; break;
->>>> +            default:
->>>> +            break;
->>>> +            }
->>>> +            a_index++;
->>>> +        }
->>>> +    }
->>>> +
->>>> +    /* dwc-qos needs GMAC4, AAL, TSO and PMT */
->>>> +    plat_dat->has_gmac4 = 1;
->>>> +    plat_dat->dma_cfg->aal = 1;
->>>> +    plat_dat->tso_en = 1;
->>>> +    plat_dat->pmt = 1;
->>>> +
->>>> +    return 0;
->>>> +}
->>>> +
->>>> +static int dwc_eth_dwmac_probe(struct platform_device *pdev)
->>>> +{
->>>> +    struct plat_stmmacenet_data *plat_dat;
->>>> +    struct stmmac_resources stmmac_res;
->>>> +    struct resource *res;
->>>> +    int ret;
->>>> +
->>>> +    /**
->>>> +     * Since stmmac_platform supports name IRQ only, basic platform
->>>> +     * resource initialization is done in the glue logic.
->>>> +     */
->>>> +    stmmac_res.irq = platform_get_irq(pdev, 0);
->>>> +    if (stmmac_res.irq < 0) {
->>>> +        if (stmmac_res.irq != -EPROBE_DEFER) {
->>>> +            dev_err(&pdev->dev,
->>>> +                "IRQ configuration information not found\n");
->>>> +        }
->>>> +        return stmmac_res.irq;
->>>> +    }
->>>> +    stmmac_res.wol_irq = stmmac_res.irq;
->>>> +
->>>> +    res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
->>>> +    stmmac_res.addr = devm_ioremap_resource(&pdev->dev, res);
->>>> +    if (IS_ERR(stmmac_res.addr))
->>>> +        return PTR_ERR(stmmac_res.addr);
->>>> +
->>>> +    plat_dat = stmmac_probe_config_dt(pdev, &stmmac_res.mac);
->>>> +    if (IS_ERR(plat_dat))
->>>> +        return PTR_ERR(plat_dat);
->>>> +
->>>> +    plat_dat->stmmac_clk = devm_clk_get(&pdev->dev, "apb_pclk");
->>>> +    if (IS_ERR(plat_dat->stmmac_clk)) {
->>>> +        dev_err(&pdev->dev, "apb_pclk clock not found.\n");
->>>> +        ret = PTR_ERR(plat_dat->stmmac_clk);
->>>> +        plat_dat->stmmac_clk = NULL;
->>>> +        goto err_remove_config_dt;
->>>> +    }
->>>> +    clk_prepare_enable(plat_dat->stmmac_clk);
->>>> +
->>>> +    plat_dat->pclk = devm_clk_get(&pdev->dev, "phy_ref_clk");
->>>> +    if (IS_ERR(plat_dat->pclk)) {
->>>> +        dev_err(&pdev->dev, "phy_ref_clk clock not found.\n");
->>>> +        ret = PTR_ERR(plat_dat->pclk);
->>>> +        plat_dat->pclk = NULL;
->>>> +        goto err_out_clk_dis_phy;
->>>> +    }
->>>> +    clk_prepare_enable(plat_dat->pclk);
->>>> +
->>>> +    ret = dwc_eth_dwmac_config_dt(pdev, plat_dat);
->>>> +    if (ret)
->>>> +        goto err_out_clk_dis_aper;
->>>> +
->>>> +    ret = stmmac_dvr_probe(&pdev->dev, plat_dat, &stmmac_res);
->>>> +    if (ret)
->>>> +        goto err_out_clk_dis_aper;
->>>> +
->>>> +    return 0;
->>>> +
->>>> +err_out_clk_dis_aper:
->>>> +    clk_disable_unprepare(plat_dat->pclk);
->>>> +err_out_clk_dis_phy:
->>>> +    clk_disable_unprepare(plat_dat->stmmac_clk);
->>>> +err_remove_config_dt:
->>>> +    stmmac_remove_config_dt(pdev, plat_dat);
->>>> +
->>>> +    return ret;
->>>> +}
->>>> +
->>>> +static int dwc_eth_dwmac_remove(struct platform_device *pdev)
->>>> +{
->>>> +    return stmmac_pltfr_remove(pdev);
->>>> +}
->>>> +
->>>> +static const struct of_device_id dwc_eth_dwmac_match[] = {
->>>> +    { .compatible = "snps,dwc-qos-ethernet-4.10", },
->>>> +    { }
->>>> +};
->>>> +MODULE_DEVICE_TABLE(of, dwc_eth_dwmac_match);
->>>> +
->>>> +static struct platform_driver dwc_eth_dwmac_driver = {
->>>> +    .probe  = dwc_eth_dwmac_probe,
->>>> +    .remove = dwc_eth_dwmac_remove,
->>>> +    .driver = {
->>>> +        .name           = "dwc-eth-dwmac",
->>>> +        .of_match_table = dwc_eth_dwmac_match,
->>>> +    },
->>>> +};
->>>> +module_platform_driver(dwc_eth_dwmac_driver);
->>>> +
->>>> +MODULE_AUTHOR("Joao Pinto <jpinto@synopsys.com>");
->>>> +MODULE_DESCRIPTION("Synopsys DWC Ethernet Quality-of-Service v4.10a driver");
->>>> +MODULE_LICENSE("GPL v2");
->>>> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
->>>> b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
->>>> index 4e44f9c..00c0f8d 100644
->>>> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
->>>> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
->>>> @@ -181,10 +181,19 @@ static int stmmac_dt_phy(struct plat_stmmacenet_data
->>>> *plat,
->>>>          mdio = false;
->>>>      }
->>>>
->>>> -    /* If snps,dwmac-mdio is passed from DT, always register the MDIO */
->>>> -    for_each_child_of_node(np, plat->mdio_node) {
->>>> -        if (of_device_is_compatible(plat->mdio_node, "snps,dwmac-mdio"))
->>>> +    /* exception for dwmac-dwc-qos-eth glue logic */
->>>> +    if (of_device_is_compatible(np, "snps,dwc-qos-ethernet-4.10")) {
->>>> +        plat->mdio_node = of_get_child_by_name(np, "mdio");
->>>> +    } else {
->>>> +        /**
->>>> +         * If snps,dwmac-mdio is passed from DT, always register
->>>> +         * the MDIO
->>>> +         */
->>>> +        for_each_child_of_node(np, plat->mdio_node) {
->>>> +            if (of_device_is_compatible(plat->mdio_node,
->>>> +                            "snps,dwmac-mdio"))
->>>>              break;
->>>> +        }
->>>>      }
->>>>
->>>>      if (plat->mdio_node) {
->>>>
->>
+T24gRnJpLCAyMDE3LTAxLTA2IGF0IDExOjQyICswMDAwLCBSdXNzZWxsIEtpbmcgLSBBUk0gTGlu
+dXggd3JvdGU6Cj4gT24gRnJpLCBKYW4gMDYsIDIwMTcgYXQgMTE6MTE6MzZBTSArMDEwMCwgSmVy
+b21lIEJydW5ldCB3cm90ZToKPiA+IAo+ID4gVGhlIHB1cnBvc2Ugb2YgdGhpcyBwYXRjaCBpcyB0
+byBwcm92aWRlIGEgd2F5IHRvIG1hcmsgYXMgYnJva2VuIGEKPiA+IHBhcnRpY3VsYXIgZWVlIG1v
+ZGUuIEF0IGZpcnN0LCBpdCBoYWQgbm90aGluZyB0byBkbyB3aXRoICJzZXRfZWVlIgo+ID4gYnV0
+LAo+ID4gYXMgRmxvcmlhbiByaWdodGx5IHBvaW50ZWQgb3V0LCB1c2VycyBzaG91bGRuJ3QgYmUg
+YWJsZSB0byByZS0KPiA+IGVuYWJsZSBhCj4gPiBicm9rZW4gbW9kZS4KPiAKPiBJIHRoaW5rIHNv
+bWV0aGluZyBlbHNlIGhhcyBiZWVuIG1pc3NlZCAtIEkgZG9uJ3Qgc2VlIG11Y2ggcG9pbnQgdG8K
+PiB0ZWxsaW5nIHVzZXJzcGFjZSB0aGF0IChlZykgMTAwMGJhc2VUIEVFRSBpcyBzdXBwb3J0ZWQg
+YW5kIHRoZW4KPiBpZ25vcmUgYXR0ZW1wdHMgdG8gYWR2ZXJ0aXNlIGl0Lgo+IAo+IElmIGl0J3Mg
+YnJva2VuLCB0aGVuIGFyZ3VhYmx5IHRoZSBoYXJkd2FyZSBkb2Vzbid0IHN1cHBvcnQgdGhlIG1v
+ZGUsCj4gc28gd2Ugc2hvdWxkIHJlYWxseSBiZSBtYXNraW5nIHRob3NlIGJpdHMgZnJvbSB0aGUg
+RUVFIHN1cHBvcnRlZCBtYXNrCj4gYXMgd2VsbC4KCmluZGVlZC4KCj4gCj4gPiAKWy4uLl0KPiAK
+PiA+IAo+ID4gPiAKPiA+ID4gwqAtIG1heWJlIHRoZSBwcm9ibGVtIGhlcmUgaXMgdGhhdCB0aGUg
+UENTIGRvZXNuJ3Qgc3VwcG9ydCBzdXBwb3J0Cj4gPiA+IEVFRSBpbiAxMDAwYmFzZVQgbW9kZT8K
+PiA+IAo+ID4gCj4gPiBJdCBkb2VzLCBhbmQgdGhhdCdzIGtpbmQgb2YgdGhlIHByb2JsZW0uIEVF
+RSBpbiBPTiBmb3IgMTAwVHggYW5kCj4gPiAxMDAwVAo+ID4gYnkgZGVmYXVsdCB3aXRoIHRoaXMg
+UEhZLiBJIGhhdmUgc2V2ZXJhbCBwbGF0Zm9ybSB3aXRoIHRoZSBzYW1lCj4gPiBNQUMtUEhZwqAK
+PiA+IGNvbWJpbmF0aW9uLiBPbmx5IHRoZSBPZHJvaWRDMiBzaG93cyB0aGlzIHBhcnRpY3VsYXIg
+aXNzdWUgd2l0aAo+ID4gMTAwMFQtCj4gPiBFRUUKPiA+IAo+ID4gQXMgZXhwbGFpbmVkIGluIG90
+aGVyIG1haWxzIGluIHRoaXMgdGhyZWFkLiBUaGUgcHJvYmxlbSBkb2VzIG5vdAo+ID4gY29tZQo+
+ID4gZnJvbSB0aGUgTUFDIGVudGVyaW5nIExQSS4gSXQgYWN0dWFsbHkgY29tZXMgZnJvbSB0aGUg
+bGluayBwYXJ0bmVyCj4gPiBlbnRlcmluZyBMUEkgb24gdGhlIFJ4IHBhdGggdW5kZXIgc2lnbmlm
+aWNhbnQgVHggdHJhbnNmZXIuIEZvciBzb21lCj4gPiByZWFzb24sIHRoaXMgY29tcGxldGVseSBt
+ZXNzIHVwIG91ciBQSFkuCj4gCj4gRm9yIGEgMTAwMGJhc2VUIGxpbmsgdG8gZW50ZXIgbG93IHBv
+d2VyLCBib3RoIGVuZHMgaGF2ZSB0byBlbnRlciBMUEkKPiAoc2VlIDgwMi4zIDc4LjEuMy4zLjEp
+IC0gdGhlIFR4IGFuZCBSeCBwYXRocyBjYW4ndCBpbmRlcGVuZGVudGx5Cj4gZW50ZXIKPiBMUEku
+Cj4gCj4gU28sIGlmIHlvdSBoYXZlIGEgYnVzeSBUeCBsaW5rLCB0aGUgbGluayBpdHNlbGYgY2Fu
+J3QgYmUgZW50ZXJpbmcKPiBMUEkuCj4gWW91ciBsaW5rIHBhcnRuZXIgbWF5IGJlIHNlbmRpbmcg
+YSByZXF1ZXN0IHRvIGVudGVyIExQSSBkdWUgdG8gaXRzCj4gb3duCj4gVHggcGF0aCBiZWluZyBp
+ZGxlLCB3aGljaCBzaG91bGQgdGhlbiBiZSBmb3J3YXJkZWQgdG8geW91ciBNQUMuCj4gCj4gSXQn
+cyBwcmV0dHkgaGFyZCB0byBzZWUgd2hhdCBjb3VsZCBiZSBtZXNzZWQgdXAgd2l0aCB0aGF0IC0g
+SSdkIGhhdmUKPiBleHBlY3RlZCB0aGUgcHJvYmxlbXMgdG8gb2NjdXIgd2hlbiBib3RoIGVuZHMg
+d2VyZSBpZGxlIGFuZCB0aGUgbGluawo+IGhhZCBlbnRlcmVkIGxvdyBwb3dlciBtb2RlLgoKV2Vs
+bCwgbWF5YmUgSSdtIG5vdCBleHBsYWluaW5nIHRoZSBpc3N1ZSB2ZXJ5IHdlbGwuIEhlcmUgdGhl
+IHRlc3QgZG9uZQp3aGljaCBsZWQgbWUgdG8gdGhpcyBjb25jbHVzaW9uOgoKVGhlwqB0ZXN0wqBh
+cmXCoGRvbmXCoHVzaW5nwqBpcGVyZi4gUmVjZWl2aW5nIGRhdGEgd29ya3Mgd2VsbCwgd2l0aCB0
+aGUKZXhwZWN0ZWQgcGVyZm9ybWFuY2UuIFNlbmRpbmcgZGF0YSBpcyB0aGUgcHJvYmxlbSwgYW5k
+IG9ubHkgdW5kZXIgaGlnaApsb2FkOgoKSGVyZSBhcmUgdGhlIGxwaSBzdGF0cyBiZWZvcmUgc3Rh
+cnRpbmcgdGhlIHRlc3Q6CsKgIMKgIMKgaXJxX3R4X3BhdGhfaW5fbHBpX21vZGVfbjogNgrCoMKg
+wqDCoMKgaXJxX3R4X3BhdGhfZXhpdF9scGlfbW9kZV9uOiA1CsKgwqDCoMKgwqBpcnFfcnhfcGF0
+aF9pbl9scGlfbW9kZV9uOiA3NgrCoMKgwqDCoMKgaXJxX3J4X3BhdGhfZXhpdF9scGlfbW9kZV9u
+OiA3NQrCoMKgwqDCoMKgcGh5X2VlZV93YWtldXBfZXJyb3JfbjogMAoKU2VuZGluZyBkYXRhIHdp
+dGggaXBlcmYgdXN1YWxseSB3b3JrcyBmb3IgbGl0dGxlIHdoaWxlIChiZXR3ZWVuIDAgYW5kCjEw
+cykKCiMgaXBlcmYzIC1jIDE5Mi4xNjguMS4xNzAgLXAxMjM0NQpDb25uZWN0aW5nIHRvIGhvc3Qg
+MTkyLjE2OC4xLjE3MCwgcG9ydCAxMjM0NQpsb2NhbCAxOTIuMTY4LjEuMzAgcG9ydCA1NDQ1MCBj
+b25uZWN0ZWQgdG8gMTkyLjE2OC4xLjE3MCBwb3J0IDEyMzQ1CkludGVydmFswqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoFRyYW5zZmVywqDCoMKgwqDCoEJhbmR3aWR0aMKgwqDCoMKgwqDCoMKgUmV0csKg
+wqBDd25kCjAuMDAtMS4wMMKgwqDCoHNlY8KgwqDCoDExMiBNQnl0ZXPCoMKgwqA5MzggTWJpdHMv
+c2VjwqDCoMKgwqAwwqDCoMKgwqA0MDkgS0J5dGVzwqDCoMKgwqDCoMKgwqAKMS4wMC0yLjAwwqDC
+oMKgc2VjwqDCoMKgMTEyIE1CeXRlc8KgwqDCoDk0MCBNYml0cy9zZWPCoMKgwqDCoDDCoMKgwqDC
+oDQyNiBLQnl0ZXPCoMKgwqDCoMKgwqDCoAoyLjAwLTMuMDDCoMKgwqBzZWPCoMKgwqAxMTIgTUJ5
+dGVzwqDCoMKgOTM5IE1iaXRzL3NlY8KgwqDCoMKgMMKgwqDCoMKgNDI2IEtCeXRlc8KgwqDCoMKg
+wqDCoMKgCjMuMDAtNC4wMMKgwqDCoHNlY8KgwqDCoDExMiBNQnl0ZXPCoMKgwqA5NDAgTWJpdHMv
+c2VjwqDCoMKgwqAwwqDCoMKgwqA0MjYgS0J5dGVzwqDCoMKgwqDCoMKgwqAKNC4wMC01LjAwwqDC
+oMKgc2VjwqDCoMKgMTEyIE1CeXRlc8KgwqDCoDk0MCBNYml0cy9zZWPCoMKgwqDCoDDCoMKgwqDC
+oDQyNiBLQnl0ZXPCoMKgwqDCoMKgwqDCoAo1LjAwLTYuMDDCoMKgwqBzZWPCoMKgwqAxMTIgTUJ5
+dGVzwqDCoMKgOTM5IE1iaXRzL3NlY8KgwqDCoMKgMMKgwqDCoMKgNDI2IEtCeXRlc8KgwqDCoMKg
+wqDCoMKgCjYuMDAtNy4wMMKgwqDCoHNlY8KgwqA5LjI2IE1CeXRlc8KgwqA3Ny42IE1iaXRzL3Nl
+Y8KgwqDCoMKgMsKgwqDCoDEuNDEgS0J5dGVzIDw9SXNzdWUKwqAgwqAKNy4wMC04LjAwwqDCoMKg
+c2VjwqDCoDAuMDAgQnl0ZXPCoMKgMC4wMCBiaXRzL3NlY8KgwqDCoMKgMcKgwqDCoDEuNDEgS0J5
+dGVzwqDCoMKgwqDCoMKgwqAKOC4wMC05LjAwwqDCoMKgc2VjwqDCoDAuMDAgQnl0ZXPCoMKgMC4w
+MCBiaXRzL3NlY8KgwqDCoMKgMMKgwqDCoDEuNDEgS0J5dGVzwqDCoMKgwqDCoMKgwqAKXkMxMC4w
+MC0xMy41OMKgwqBzZWPCoMKgMC4wMCBCeXRlc8KgwqAwLjAwIGJpdHMvc2VjwqDCoMKgwqAxwqDC
+oMKgMS40MSBLQnl0ZXPCoMKgwqDCoMKgwqDCoAotIC0gLSAtIC0gLSAtIC0gLSAtIC0gLSAtIC0g
+LSAtIC0gLSAtIC0gLSAtIC0gLSAtCkludGVydmFswqDCoMKgwqDCoMKgwqDCoMKgwqDCoFRyYW5z
+ZmVywqDCoMKgwqDCoEJhbmR3aWR0aMKgwqDCoMKgwqDCoMKgUmV0cgowLjAwLTEzLjU4wqDCoHNl
+Y8KgwqDCoDY4MSBNQnl0ZXPCoMKgwqA0MjEgTWJpdHMvc2VjwqDCoMKgwqA0wqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqBzZW5kZXIKMC4wMC0xMy41OMKgwqBzZWPCoMKgMC4wMCBCeXRlc8KgwqAw
+LjAwIGJpdHMvc2VjwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgcmVjZWl2ZXIK
+aXBlcmYzOiBpbnRlcnJ1cHQgLSB0aGUgY2xpZW50IGhhcyB0ZXJtaW5hdGVkCgppcGVyZjMgZG9l
+cyBub3QgZXhpdCBhbnQgdGhlIGxpbmsgc2VlbXMgY29tcGxldGVseSBicm9rZW4uIFdlIGNhbm5v
+dApzZW5kIG9yIHJlY2VpdmUgdW50aWwgdGhlIGludGVyZmFjZSBpcyBicm91Z2h0IGRvd24gdGhl
+biB1cCBhZ2Fpbi4KCkhlcmUgYXJlIHRoZSBMUEkgcmVsYXRlZCBzdGF0cyBhZnRlciB0aGUgdGVz
+dDoKwqDCoMKgwqDCoGlycV90eF9wYXRoX2luX2xwaV9tb2RlX246IDQ4CsKgwqDCoMKgwqBpcnFf
+dHhfcGF0aF9leGl0X2xwaV9tb2RlX246IDQ4CsKgwqDCoMKgwqBpcnFfcnhfcGF0aF9pbl9scGlf
+bW9kZV9uOiAzMjUKwqDCoMKgwqDCoGlycV9yeF9wYXRoX2V4aXRfbHBpX21vZGVfbjogMzI1CsKg
+wqDCoMKgwqBwaHlfZWVlX3dha2V1cF9lcnJvcl9uOiAwCgoKVGhpcyBoYXBwZW5zIHdpdGggOgox
+KSBEZWZhdWx0IGNvbmZpZ3VyYXRpb246IEVFRSBlbmFibGVkIG9uIHRoZSBNQUMsIFBIWSB3aXRo
+IHJlc2V0CnNldHRpbmdzIChFRUUgYWR2ZXJ0aXNlZCkKMikgRUVFIGRpc2FibGVkIG9uIHRoZSBN
+QUMsIFBIWSBzdGlsbCB3aXRoIHJlc2V0IHNldHRpbmdzIChFRUUKYWR2ZXJ0aXNlZCkuIEluIHN1
+Y2ggY2FzZSB0aGVyZSBpcyBubyBpcnFfdHhfcGF0aF8qX2xwaV9tb2RlIGludGVycnVwdHMKYXQg
+YWxsIGJ1dCBzdGlsbCBhIGxvdCBvZiBpcnFfcnhfcGF0aF8qX2xwaV9tb2RlIGludGVycnVwdHMu
+IFNvIGV2ZW4gaWYKdGhlIG1hYyBkb2VzIG5vdCBkcml2ZSBhbnl0aGluZyBFRUUgcmVsYXRlZCwg
+dGhlcmUgaXMgc3RpbGwgc29tZXRoaW5nCmhhcHBlbmluZyBiZXR3ZWVuIHRoZSBQSFkgYW5kIHRo
+ZSBsaW5rIHBhcnRuZXIgcmVnYXJkaW5nIEVFRS4KCjMpIERpc2FibGluZyBFRUUgYWR2ZXJ0aXNl
+bWVudCBmb3IgMTAwMHQ6IG5vIGlycV8qX2xwaV9tb2RlIGF0IGFsbC4gVGhlCmZlYXR1cmUgaXMg
+bm90IG5lZ290aWF0ZWQgYW5kIHRoZSBUeCB3b3JrcyB3ZWxsLgoKQnkgdGhlIHdheSwgRUVFIHdv
+cmsgd2VsbCBmb3IgdGhlIDEwMHR4IG9uIHRoZSBzYW1lIEhXLgoKPiAKPiA+IAo+ID4gPiAKPiA+
+ID4gT24gdGhlIFNvbGlkUnVuIGJvYXJkcywgdGhleSdyZSB1c2luZyBBUjgwMzUsIGFuZCBoYXZl
+IHN1ZmZlcmVkCj4gPiA+IHRoaXMKPiA+ID4gb2NjYXNpb25hbCBsaW5rIGRyb3AgcHJvYmxlbS7C
+oMKgV2hhdCBoYXMgYmVlbiBmb3VuZCBpcyB0aGF0IGl0Cj4gPiA+IHNlZW1zCj4gPiA+IHRvCj4g
+PiA+IGJlIHRvIGRvIHdpdGggdGhlIHRpbWluZyBwYXJhbWV0ZXJzLCBhbmQgaXQgc2VlbWVkIHRv
+IG9ubHkgYmUKPiA+ID4gMTAwMGJUCj4gPiA+IHRoYXQgd2FzIGFmZmVjdGVkLsKgwqBJIGRvbid0
+IHJlbWVtYmVyIG9mZiBoYW5kIGV4YWN0bHkgd2hpY2ggb3IKPiA+ID4gd2hhdAo+ID4gPiB0aGUg
+Y2hhbmdlIHdhcyB0aGV5IG1hZGUgdG8gc3RhYmlsaXNlIGl0IHRob3VnaCwgYnV0IEkgY2FuCj4g
+PiA+IHByb2JhYmlseQo+ID4gPiBmaW5kIG91dCB0b21vcnJvdy4KPiA+ID4gCj4gPiAKPiA+IFNp
+bmNlIHRoZSBzYW1lIGNvbWJpbmF0aW9uIG9mIE1BQy1QSFkgd29ya3Mgd2VsbCBvbiBvdGhlciBk
+ZXNpZ25zLAo+ID4gaXQKPiA+IGlzIGFsc28gbXkgZmVlbGluZyB0aGF0IGlzIGhhcyBzb21ldGhp
+bmcgdG8gZG8gd2l0aCBzb21lIHRpbWluZwo+ID4gcGFyYW1ldGVyLCBtYXliZSByZWxhdGVkIHRv
+IHRoaXMgcGFydGljdWxhciBQQ0IuCj4gCj4gTWF5YmUgYSBkaWZmZXJlbnQgUEhZIGludGVyZmFj
+ZT/CoMKgTWVzb24gc2VlbXMgdG8gdXNlIFJHTUlJLCBtYXliZQo+IG90aGVycyB1c2UgU0dNSUkg
+LSBidXQgdGhlbiBJJ2QgZXhwZWN0IDEwMGJhc2UtVHggdG8gYWxzbyBiZSBicm9rZW4uCj4gU28g
+bm90IHJlYWxseSBzdXJlLgoKTm9wZSwgc2FtZSBpbnRlcmZhY2UgKFJHTUlJKSwgc2FtZSBTb0Mu
+IE9ubHkgdGhlIFBDQiBsYXlvdXQgYW5kCmV4dGVybmFsIGNvbXBvbmVudHMgbWlnaHQgYmUgZGlm
+ZmVyZW50LgoKPiAKPiBJIHdhcyB0YWxraW5nIHRvIEZsb3JpYW4gYWJvdXQgdGhhdCBsYXN0IG5p
+Z2h0LCBiZWNhdXNlIHRoZSBtaXMtbmFtZWQKPiBwaHlfaW5pdF9lZWUoKSB0ZXN0cyBmb3IgdmFy
+aW91cyBwaHkgaW50ZXJmYWNlIG1vZGVzIGJlZm9yZQo+IHByb2NlZWRpbmcsCj4gd2hpY2ggc2Vl
+bXMgdG8gYmUgZmFpcmx5IHJ1YmJpc2ggYXMgdGhlIGxpc3Qgb2YgaW50ZXJmYWNlIG1vZGVzIGlz
+Cj4gZ3JhZHVhbGx5IGluY3JlYXNpbmcgc2luY2UgaXQgd2FzIGludHJvZHVjZWQgKGFuZCBJIG5l
+ZWQgdG8gYWRkIFNHTUlJCj4gdG8gaXQuKcKgwqBUaGUgY29uY2x1c2lvbiBJJ3ZlIGNvbWUgdG8g
+dGhlcmUgaXMgdGhhdCB0aGUgdGVzdCBzaG91bGQKPiBuZXZlciBoYXZlIGJlZW4gcGFydCBvZiBw
+aHlsaWIsIGJlY2F1c2UgaWYgdGhlcmUgYXJlIHJlc3RyaWN0aW9ucyBvbgo+IHdoaWNoIHBoeSBp
+bnRlcmZhY2UgbW9kZXMgYXJlIGFsbG93YWJsZSBmb3IgRUVFLCB0aGV5J3JlIGxpa2VseSB0byBi
+ZQo+IGVpdGhlciBQSFkgb3IgTUFDIHNwZWNpZmljLgo+IAo+IFRoZSBvdGhlciBwcm9ibGVtIHRo
+YXQgaGF2aW5nIHRoZSB0ZXN0IHRoZXJlIGNhdXNlcyBpcyB0aGF0IGlmIHRoZQo+IGV4aXN0aW5n
+IHVzZXJzIGNhbid0IGhhbmRsZSBFRUUgb3ZlciBTR01JSSwgdGhlbiB3aGVuIEkgYWRkIFNHTUlJ
+IHRvCj4gc3VwcG9ydCBteSBoYXJkd2FyZSwgdGhleSBlbmQgdXAgYnJlYWtpbmcgLSBmYXIgZnJv
+bSBkZXNpcmFibGUuCj4gVGhlcmUncyBubyBpbmZvcm1hdGlvbiBvbiB3aHkgdGhlIHRlc3QgaXMg
+dGhlcmUsIG9yIGV2ZW4gd2hpY2ggUEhZcwo+IG9yIE1BQ3MgaXQncyBhcHBsaWNhYmxlIHRvLCB3
+aGljaCBtYWtlcyB0aGlzIHVubmVjZXNzYXJpbHkgbW9yZQo+IGRpZmZpY3VsdCB0byBub3cgcmVz
+b2x2ZS4KPiAKPiBNeSBmZWVsaW5nIGlzIHRoYXQgdGhlIGludGVncmF0aW9uIG9mIEVFRSBpbnRv
+IHBoeWxpYiBpcyBmYWlybHkgcG9vcgo+IGF0IHRoZSBtb21lbnQsIGFuZCB3ZSBuZWVkIHRvIGJl
+IGEgbG90IHNtYXJ0ZXIgYWJvdXQgaXQuCgpZb3Uga25vdyBhIGxvdCBtb3JlIHRoYW4gSSBkbyBv
+biB0aGlzIHRvcGljIG9idmlvdXNseS4gSSdtIGp1c3QgdHJ5aW5nCnRvIG1ha2UgR2JFIHdvcmsg
+KGFzIGNsZWFubHkgYXMgcG9zc2libGUpIG9uIHRoYXQgYm9hcmQgdG8gYmUgaG9uZXN0LgoKU28g
+SSdtIG5vdCBzdXJlIEkgdW5kZXJzdGFuZCwgYXJlIHlvdSBhZ2FpbnN0IEVFRSBpbnRlZ3JhdGlv
+biBpbiBwaHlsaWIKZW50aXJlbHksIG9yIHNwZWNpZmljYWxseSBhZ2FpbnN0IHRoZSB0ZXN0IEkg
+YWRkZWQgaW4gc2V0X2VlZSB0byBmaWx0ZXIKb3V0IGJyb2tlbiBtb2RlcyA/CgpTaW5jZSBzZXRf
+ZWVlIGRpcmVjdGx5IHNldCB0aGUgcmVnaXN0ZXIsIEkgZG9uJ3Qgc2VlIHdoZXJlIGVsc2UgSSBj
+b3VsZApoYXZlIHB1dCB0aGlzIHRlc3QgdG8gcHJldmVudCBFRUUgYnJva2VuIG1vZGVzIGZyb20g
+YmVpbmcgcmUtZW5hYmxlZC4KCj4gCj4gQlRXLCBvbmUgb2YgdGhlIHByb2JsZW1zIChub3QgY2F1
+c2VkIGJ5IHlvdXIgcGF0Y2gpIGlzIHRoYXQgY2hhbmdpbmcKPiB0aGUgRUVFIGFkdmVydGlzbWVu
+dCBkb2VzIG5vdCAob24gYWxsIFBIWSBkcml2ZXJzKSBjYXVzZSB0aGUgbGluayB0bwo+IGJlIHJl
+bmVnb3RpYXRlZCAtIHRoZXJlJ3Mgbm8gY2FsbCB0byBwaHlfc3RhcnRfYW5lZygpIHdoZW4gdGhl
+IGFkdmVydAo+IGNoYW5nZXMsIGFuZCBldmVuIGlmIHRoZXJlIHdhcywgdGhlcmUncyBubyBndWFy
+YW50ZWUgdGhhdAo+IHBoeV9zdGFydF9hbmVnKCkgd2lsbCBldmVuIHNldCB0aGUgQU4gcmVzdGFy
+dCBiaXQgaW4gdGhlIGNvbnRyb2wKPiByZWdpc3Rlci4KPiAKPiBIb3dldmVyLCBnaXZlbiB0aGF0
+IHlvdSdyZSBob29raW5nIGludG8gdGhlIHNldF9lZWUgZnVuY3Rpb24sIEknbSBub3QKPiBzdXJl
+IHdoeSB5b3UgcGxhY2VkIHlvdXIgRUVFIGFkdmVydGlzbWVudCB0aGluZyBpbnRvIGNvbmZpZ19h
+bmVnKCkgLQo+IGlzbid0IGl0IG1vcmUgYW4gaW5pdGlhbGlzYXRpb24gdGhpbmcgKHNvIHNob3Vs
+ZCBiZSBpbgo+IGNvbmZpZ19pbml0KCk/KQoKV2hhdCBJIGNoYW5nZSBpcyB3aGF0IHRoZSBQSFkg
+YWR2ZXJ0aXNlLCBzbyBpdCBzZWVtcyBsb2dpY2FsIHRvIGRvIGl0CndoZXJlICJnZW5waHlfY29u
+ZmlnX2FkdmVydCIgd2FzIGNhbGxlZC4gSnVzdCB0YWtpbmcgdGhlIGV4aXN0aW5nIGNvZGUKYXMg
+YW4gZXhhbXBsZQoKPiAKCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fCmxpbnV4LWFybS1rZXJuZWwgbWFpbGluZyBsaXN0CmxpbnV4LWFybS1rZXJuZWxAbGlz
+dHMuaW5mcmFkZWFkLm9yZwpodHRwOi8vbGlzdHMuaW5mcmFkZWFkLm9yZy9tYWlsbWFuL2xpc3Rp
+bmZvL2xpbnV4LWFybS1rZXJuZWwK
