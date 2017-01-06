@@ -1,136 +1,81 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [RFC PATCH] virtio_net: XDP support for adjust_head
-Date: Thu, 5 Jan 2017 19:28:23 -0800
-Message-ID: <586F0ED7.7060508@gmail.com>
-References: <20170102194413.9089.39078.stgit@john-Precision-Tower-5810>
- <73715f7a-eeeb-679f-a7b8-7b1fefe1757e@redhat.com>
- <20170104001332-mutt-send-email-mst@kernel.org> <586ECF53.1070700@gmail.com>
- <20170106023825-mutt-send-email-mst@kernel.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Jason Wang <jasowang@redhat.com>, john.r.fastabend@intel.com,
-        netdev@vger.kernel.org, alexei.starovoitov@gmail.com,
-        daniel@iogearbox.net
-To: "Michael S. Tsirkin" <mst@redhat.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH 1/2] net: ipv4: Simplify rt_fill_info
+Date: Thu,  5 Jan 2017 19:32:46 -0800
+Message-ID: <1483673566-14311-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:32959 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752858AbdAFD2f (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2017 22:28:35 -0500
-Received: by mail-pg0-f66.google.com with SMTP id g1so42594845pgn.0
-        for <netdev@vger.kernel.org>; Thu, 05 Jan 2017 19:28:35 -0800 (PST)
-In-Reply-To: <20170106023825-mutt-send-email-mst@kernel.org>
+Received: from mail-pf0-f177.google.com ([209.85.192.177]:33867 "EHLO
+        mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S937594AbdAFDcx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2017 22:32:53 -0500
+Received: by mail-pf0-f177.google.com with SMTP id 127so11099810pfg.1
+        for <netdev@vger.kernel.org>; Thu, 05 Jan 2017 19:32:52 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17-01-05 04:39 PM, Michael S. Tsirkin wrote:
-> On Thu, Jan 05, 2017 at 02:57:23PM -0800, John Fastabend wrote:
->> On 17-01-03 02:16 PM, Michael S. Tsirkin wrote:
->>> On Tue, Jan 03, 2017 at 02:01:27PM +0800, Jason Wang wrote:
->>>>
->>>>
->>>> On 2017年01月03日 03:44, John Fastabend wrote:
->>>>> Add support for XDP adjust head by allocating a 256B header region
->>>>> that XDP programs can grow into. This is only enabled when a XDP
->>>>> program is loaded.
->>>>>
->>>>> In order to ensure that we do not have to unwind queue headroom push
->>>>> queue setup below bpf_prog_add. It reads better to do a prog ref
->>>>> unwind vs another queue setup call.
->>>>>
->>>>> : There is a problem with this patch as is. When xdp prog is loaded
->>>>>    the old buffers without the 256B headers need to be flushed so that
->>>>>    the bpf prog has the necessary headroom. This patch does this by
->>>>>    calling the virtqueue_detach_unused_buf() and followed by the
->>>>>    virtnet_set_queues() call to reinitialize the buffers. However I
->>>>>    don't believe this is safe per comment in virtio_ring this API
->>>>>    is not valid on an active queue and the only thing we have done
->>>>>    here is napi_disable/napi_enable wrappers which doesn't do anything
->>>>>    to the emulation layer.
->>>>>
->>>>>    So the RFC is really to find the best solution to this problem.
->>>>>    A couple things come to mind, (a) always allocate the necessary
->>>>>    headroom but this is a bit of a waste (b) add some bit somewhere
->>>>>    to check if the buffer has headroom but this would mean XDP programs
->>>>>    would be broke for a cycle through the ring, (c) figure out how
->>>>>    to deactivate a queue, free the buffers and finally reallocate.
->>>>>    I think (c) is the best choice for now but I'm not seeing the
->>>>>    API to do this so virtio/qemu experts anyone know off-hand
->>>>>    how to make this work? I started looking into the PCI callbacks
->>>>>    reset() and virtio_device_ready() or possibly hitting the right
->>>>>    set of bits with vp_set_status() but my first attempt just hung
->>>>>    the device.
->>>>
->>>> Hi John:
->>>>
->>>> AFAIK, disabling a specific queue was supported only by virtio 1.0 through
->>>> queue_enable field in pci common cfg.
->>>
->>> In fact 1.0 only allows enabling queues selectively.
->>> We can add disabling by a spec enhancement but
->>> for now reset is the only way.
->>>
->>>
->>>> But unfortunately, qemu does not
->>>> emulate this at all and legacy device does not even support this. So the
->>>> safe way is probably reset the device and redo the initialization here.
->>>
->>> You will also have to re-apply rx filtering if you do this.
->>> Probably sending notification uplink.
->>>
->>
->> The following seems to hang the device on the next virtnet_send_command()
->> I expected this to meet the reset requirements from the spec because I
->> believe its the same flow coming out of restore(). For a real patch we
->> don't actually need to kfree all the structs and reallocate them but
->> I was expecting the below to work. Any ideas/hints?
-> 
-> Restore assumes device was previously reset.
-> You want to combine freeze+restore.
+rt_fill_info has only 1 caller and both of the last 2 args -- nowait
+and flags -- are hardcoded to 0. Given that remove them as input arguments
+and simplify rt_fill_info accordingly.
 
-Yep the below is actually freeze+restore I just omitted the freeze portion
-from the description.
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+ net/ipv4/route.c | 20 +++++++-------------
+ 1 file changed, 7 insertions(+), 13 deletions(-)
 
-> 
->> static int virtnet_xdp_reset(struct virtnet_info *vi)
->> {
->>         int i, ret;
->>
-
-//  insert flush_work here doesn't seem to help hang.
-
->>         netif_device_detach(vi->dev);
->>         cancel_delayed_work_sync(&vi->refill);
->>         if (netif_running(vi->dev)) {
->>                 for (i = 0; i < vi->max_queue_pairs; i++)
->>                         napi_disable(&vi->rq[i].napi);
->>         }
->>
->>         remove_vq_common(vi, false);
-
-// everything above is freeze sans flush_work and virtnet_cpu_notif_remove
-// the rest below is restore where I call virtnet_set_queues later outside
-// the reset function.
-
->>         ret = init_vqs(vi);
->>         if (ret)
->>                 return ret;
->>         virtio_device_ready(vi->vdev);
->>
->>         if (netif_running(vi->dev)) {
->>                 for (i = 0; i < vi->curr_queue_pairs; i++)
->>                         if (!try_fill_recv(vi, &vi->rq[i], GFP_KERNEL))
->>                                 schedule_delayed_work(&vi->refill, 0);
->>
->>                 for (i = 0; i < vi->max_queue_pairs; i++)
->>                         virtnet_napi_enable(&vi->rq[i]);
->>         }
->>         netif_device_attach(vi->dev);
->>         return 0;
->> }
-
-Could be a locking problem I'm missing so I'll look at it a bit more but
-good to know we expect freeze/restore to reset the device.
-
-.John
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 0fcac8e7a2b2..7b52ac20145b 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -2454,7 +2454,7 @@ EXPORT_SYMBOL_GPL(ip_route_output_flow);
+ 
+ static int rt_fill_info(struct net *net,  __be32 dst, __be32 src, u32 table_id,
+ 			struct flowi4 *fl4, struct sk_buff *skb, u32 portid,
+-			u32 seq, int event, int nowait, unsigned int flags)
++			u32 seq, int event)
+ {
+ 	struct rtable *rt = skb_rtable(skb);
+ 	struct rtmsg *r;
+@@ -2463,7 +2463,7 @@ static int rt_fill_info(struct net *net,  __be32 dst, __be32 src, u32 table_id,
+ 	u32 error;
+ 	u32 metrics[RTAX_MAX];
+ 
+-	nlh = nlmsg_put(skb, portid, seq, event, sizeof(*r), flags);
++	nlh = nlmsg_put(skb, portid, seq, event, sizeof(*r), 0);
+ 	if (!nlh)
+ 		return -EMSGSIZE;
+ 
+@@ -2541,18 +2541,12 @@ static int rt_fill_info(struct net *net,  __be32 dst, __be32 src, u32 table_id,
+ 		    IPV4_DEVCONF_ALL(net, MC_FORWARDING)) {
+ 			int err = ipmr_get_route(net, skb,
+ 						 fl4->saddr, fl4->daddr,
+-						 r, nowait, portid);
++						 r, 0, portid);
+ 
+ 			if (err <= 0) {
+-				if (!nowait) {
+-					if (err == 0)
+-						return 0;
+-					goto nla_put_failure;
+-				} else {
+-					if (err == -EMSGSIZE)
+-						goto nla_put_failure;
+-					error = err;
+-				}
++				if (err == 0)
++					return 0;
++				goto nla_put_failure;
+ 			}
+ 		} else
+ #endif
+@@ -2665,7 +2659,7 @@ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh)
+ 
+ 	err = rt_fill_info(net, dst, src, table_id, &fl4, skb,
+ 			   NETLINK_CB(in_skb).portid, nlh->nlmsg_seq,
+-			   RTM_NEWROUTE, 0, 0);
++			   RTM_NEWROUTE);
+ 	if (err < 0)
+ 		goto errout_free;
+ 
+-- 
+2.1.4
