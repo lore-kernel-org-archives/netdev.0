@@ -1,74 +1,101 @@
-From: Leon Romanovsky <leonro@mellanox.com>
-Subject: Re: [for-next 07/10] IB/mlx5: Use blue flame register allocator in
- mlx5_ib
-Date: Fri, 6 Jan 2017 08:06:09 +0200
-Message-ID: <20170106060608.GG15685@mtr-leonro.local>
-References: <1483480528-22622-8-git-send-email-saeedm@mellanox.com>
- <20170105.145157.1792441048386916850.davem@davemloft.net>
- <CAL3tnx4H2HsGMH=caiobivvvs0AU9yrzCmVONOdUQ_j_JMfufA@mail.gmail.com>
- <20170105.150731.2097384465565543422.davem@davemloft.net>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [lkp-developer] [page_pool]  50a8fe7622:
+ kernel_BUG_at_mm/slub.c
+Date: Fri, 6 Jan 2017 08:27:51 +0100
+Message-ID: <20170106082751.3dae47e3@redhat.com>
+References: <20161220132817.18788.64726.stgit@firesoul>
+	<20170106050827.GC690@yexl-desktop>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="0z5c7mBtSy1wdr4F"
-Cc: <eli@dev.mellanox.co.il>, <saeedm@mellanox.com>,
-        <dledford@redhat.com>, <netdev@vger.kernel.org>,
-        <linux-rdma@vger.kernel.org>, <eli@mellanox.com>,
-        <matanb@mellanox.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-eopbgr20072.outbound.protection.outlook.com ([40.107.2.72]:47812
-        "EHLO EUR02-VE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S938042AbdAFGmG (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 6 Jan 2017 01:42:06 -0500
-Content-Disposition: inline
-In-Reply-To: <20170105.150731.2097384465565543422.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-mm@kvack.org, Alexander Duyck <alexander.duyck@gmail.com>,
+        willemdebruijn.kernel@gmail.com, netdev@vger.kernel.org,
+        john.fastabend@gmail.com, Saeed Mahameed <saeedm@mellanox.com>,
+        bjorn.topel@intel.com,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Tariq Toukan <tariqt@mellanox.com>, lkp@01.org, brouer@redhat.com
+To: kernel test robot <xiaolong.ye@intel.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20170106050827.GC690@yexl-desktop>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
---0z5c7mBtSy1wdr4F
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
 
-On Thu, Jan 05, 2017 at 03:07:31PM -0500, David Miller wrote:
-> From: Eli Cohen <eli@dev.mellanox.co.il>
-> Date: Thu, 5 Jan 2017 14:03:18 -0600
->
-> > If necessary I can make sure it builds on 32 bits as well.
->
-> Please do.
+On Fri, 6 Jan 2017 13:08:27 +0800 kernel test robot <xiaolong.ye@intel.com> wrote:
 
-Dave,
+> FYI, we noticed the following commit:
+> 
+> commit: 50a8fe7622e6c45af778d91f83c11491f0afaaf3 ("page_pool: basic implementation of page_pool")
+> url: https://github.com/0day-ci/linux/commits/Jesper-Dangaard-Brouer/page_pool-proof-of-concept-early-code/20161221-014200
+> base: git://git.cmpxchg.org/linux-mmotm.git master
+> 
+> in testcase: trinity
+> with following parameters:
+> 
+> 	runtime: 300s
+> 
+> test-description: Trinity is a linux system call fuzz tester.
+> test-url: http://codemonkey.org.uk/projects/trinity/
+> 
+> 
+> on test machine: qemu-system-i386 -enable-kvm -smp 2 -m 320M
 
-I'm failing to understand the benefits of building mlx5 on 32 bits, and
-see only disadvantages:
- * It is actual dead code without test coverage.
- * It misleads reviewers/customers by seeing code for 32 bits.
- * It adds compilation time for 32 bits platforms and "punishes" them
-   for not relevant for them driver.
+This is because this RFC patch does not support 32-bit, as I'm using a
+page flag that is only avail on 64-bit, see[1].
 
-Why do you call removing all that as a "regression"?
+I though this kind of page-flags violation would be caught compile-time?
 
- Thanks.
+[1] https://github.com/0day-ci/linux/commit/50a8fe7622e6c45af778d91f83c11491f0afaaf3#diff-c684e72d6c55b89ae592b66e9ce818ee
+ 
+> caused below changes:
+> 
+> 
+> +------------------------------------------+------------+------------+
+> |                                          | 03fc8354e2 | 50a8fe7622 |
+> +------------------------------------------+------------+------------+
+> | boot_successes                           | 6          | 0          |
+> | boot_failures                            | 0          | 4          |
+> | kernel_BUG_at_mm/slub.c                  | 0          | 4          |
+> | invalid_opcode:#[##]SMP_DEBUG_PAGEALLOC  | 0          | 4          |
+> | Kernel_panic-not_syncing:Fatal_exception | 0          | 4          |
+> +------------------------------------------+------------+------------+
+> 
+> 
+> 
+> [    0.000000]       .text : 0xc1000000 - 0xc188d0b7   (8756 kB)
+> [    0.000000] Checking if this processor honours the WP bit even in supervisor mode...Ok.
+> [    0.000000] ------------[ cut here ]------------
+> [    0.000000] kernel BUG at mm/slub.c:349!
+> [    0.000000] invalid opcode: 0000 [#1] SMP DEBUG_PAGEALLOC
+> [    0.000000] Modules linked in:
+> [    0.000000] CPU: 0 PID: 0 Comm: swapper Not tainted 4.9.0-mm1-00096-g50a8fe7 #1
+> [    0.000000] task: c1d4ea80 task.stack: c1d46000
+> [    0.000000] EIP: get_partial_node+0x148/0x330
+> [    0.000000] EFLAGS: 00210046 CPU: 0
+> [    0.000000] EAX: 00200082 EBX: d2d38000 ECX: 00000000 EDX: d2400010
+> [    0.000000] ESI: c1e3ef80 EDI: d2400000 EBP: c1d47e50 ESP: c1d47dc0
+> [    0.000000]  DS: 007b ES: 007b FS: 00d8 GS: 0000 SS: 0068
+> [    0.000000] CR0: 80050033 CR2: ffbff000 CR3: 01e76000 CR4: 000006b0
+> [    0.000000] Call Trace:
+> [    0.000000]  ? add_lock_to_list+0x7e/0xa7
+> [    0.000000]  ? __lock_acquire+0x103a/0x1326
+> [    0.000000]  ___slab_alloc+0x238/0x378
+> 
+> 
+> To reproduce:
+> 
+>         git clone git://git.kernel.org/pub/scm/linux/kernel/git/wfg/lkp-tests.git
+>         cd lkp-tests
+>         bin/lkp qemu -k <bzImage> job-script  # job-script is attached in this email
 
---0z5c7mBtSy1wdr4F
-Content-Type: application/pgp-signature; name="signature.asc"
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
 
------BEGIN PGP SIGNATURE-----
-
-iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAlhvM9AACgkQ5GN7iDZy
-WKfSNw/6Ak2edP6u4kV0fPceCPUOzxmz8810K+3saY061bSgfIa3J09LTCZHmp38
-Ni0Fx80Z8t91CzEsdhEuWg6das1yJSAN/ubjAynO9gIGaTLe66LyrwCFzSz4Wju/
-2xgwg8gyUKcKZ5Iawda86gMN9f26Ks+YOfzeWmXJ48/bSHQHjtei6R6YHlTGHB7p
-68glLd8yD7MOWYq7nRE6SQT2FFX/yD+/hYBMFaVo54/zFH7P2F94p2kExIQS6Xy0
-9F8FtoY54l2X8NTO+E1f13oWYaJbcC8KDn3PSwR/n3bfsJhq5JIhza4qnr302niU
-cEpWHzaArszi6s6vd+5vvb7ICgYx/n8xhwPQvEhOiEeBfBRK7CsIO0s+M3th3Kgx
-ixJP/6RTIqQ3BkBsEA3N7WzQ9VOO6/tNpM1b7Vk6k9aY7CS9nSs+mc6eo2Cvf7it
-zG/m72GwJrtG+T1OfdKhoeezfjfeABaGvBvg3dPHEcAkiV9PBZpdssknYA3267uu
-p4bxThryoTyXXOyX+ycUB3YZ2xq+AxxBiDHDjTmzDFSPzZ9tZ8RwXUh0W2X3xzUe
-UK4ZfPGEKJXKSGkklAtWxaHsO9CnjA0t7RVRby/jXYev1ih3IOfjaQNHW+3KFd25
-5d0CTDVxwynDPntu8wkPAUkQvyylvMXPRvzbcveomUxeLnmFBK0=
-=wKJM
------END PGP SIGNATURE-----
-
---0z5c7mBtSy1wdr4F--
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
