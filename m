@@ -1,46 +1,64 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 1/2] net: dsa: make "label" property optional for
- dsa2
-Date: Fri, 6 Jan 2017 14:47:38 -0800
-Message-ID: <0dbf9730-2409-30f9-e9e4-946fe7fec413@gmail.com>
-References: <20170106220043.21280-1-vivien.didelot@savoirfairelinux.com>
- <20170106220043.21280-2-vivien.didelot@savoirfairelinux.com>
- <20170106222008.GC10626@lunn.ch>
+From: Tony Lindgren <tony@atomide.com>
+Subject: Re: [PATCH 2/2] ARM: dts: dra72-evm-revc: enable irqs for dp83867
+ eth phys
+Date: Fri, 6 Jan 2017 13:54:52 -0800
+Message-ID: <20170106215451.GI2630@atomide.com>
+References: <20170106205543.4748-1-grygorii.strashko@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        =?UTF-8?Q?Uwe_Kleine-K=c3=b6nig?= <uwe@kleine-koenig.org>
-To: Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Mugunthan V N <mugunthanvnm@ti.com>, linux-omap@vger.kernel.org,
+        Sekhar Nori <nsekhar@ti.com>, netdev@vger.kernel.org
+To: Grygorii Strashko <grygorii.strashko@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:32938 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S939962AbdAFWrl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 6 Jan 2017 17:47:41 -0500
-In-Reply-To: <20170106222008.GC10626@lunn.ch>
+Received: from muru.com ([72.249.23.125]:55448 "EHLO muru.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S966269AbdAFVy4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 6 Jan 2017 16:54:56 -0500
+Content-Disposition: inline
+In-Reply-To: <20170106205543.4748-1-grygorii.strashko@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/06/2017 02:20 PM, Andrew Lunn wrote:
->> If one wants to rename an interface, udev rules can be used as usual.
-> 
-> Hi Vivien
-> 
-> Do you have some examples?
-> 
-> A quick look at udevadm info suggests we can use
-> 
-> ATTR{phys_port_id} and ATTR{phys_switch_id}
-> 
-> Humm, it would be nice to know why the second switch has a
-> phys_switch_id of 01000000.
+* Grygorii Strashko <grygorii.strashko@ti.com> [170106 12:56]:
+> TI DRA72-EVM Rev C has two DP83867 ethernet phys which support IRQ
+> generation in case of phy/link status changes. The INT/PWDN lines from both
+> DP83867 phys are wired to DRA7 gpio6.16, so reflect the same in DT.
 
-Well, that's a combination of being on a little endian system and using
-%*phN as a printk formatter, and the type being 32-bit long (int). I
-agree this does not feel natural, but since this is sysfs (so ABI in a
-way), it's going to be though to change now.
--- 
-Florian
+Hmm not seeing the patch 1/2 here.. Can this one be queued separately?
+Is it for v4.11 or a fix?
+
+Regards,
+
+Tony
+
+> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
+> ---
+>  arch/arm/boot/dts/dra72-evm-revc.dts | 6 +++++-
+>  1 file changed, 5 insertions(+), 1 deletion(-)
+> 
+> diff --git a/arch/arm/boot/dts/dra72-evm-revc.dts b/arch/arm/boot/dts/dra72-evm-revc.dts
+> index c3d939c..3ecac56 100644
+> --- a/arch/arm/boot/dts/dra72-evm-revc.dts
+> +++ b/arch/arm/boot/dts/dra72-evm-revc.dts
+> @@ -68,6 +68,8 @@
+>  		ti,tx-internal-delay = <DP83867_RGMIIDCTL_250_PS>;
+>  		ti,fifo-depth = <DP83867_PHYCR_FIFO_DEPTH_8_B_NIB>;
+>  		ti,min-output-impedance;
+> +		interrupt-parent = <&gpio6>;
+> +		interrupts = <16 IRQ_TYPE_EDGE_FALLING>;
+>  	};
+>  
+>  	dp83867_1: ethernet-phy@3 {
+> @@ -75,6 +77,8 @@
+>  		ti,rx-internal-delay = <DP83867_RGMIIDCTL_2_25_NS>;
+>  		ti,tx-internal-delay = <DP83867_RGMIIDCTL_250_PS>;
+>  		ti,fifo-depth = <DP83867_PHYCR_FIFO_DEPTH_8_B_NIB>;
+> -		ti,min-output-imepdance;
+> +		ti,min-output-impedance;
+> +		interrupt-parent = <&gpio6>;
+> +		interrupts = <16 IRQ_TYPE_EDGE_FALLING>;
+>  	};
+>  };
+> -- 
+> 2.10.1.dirty
+> 
