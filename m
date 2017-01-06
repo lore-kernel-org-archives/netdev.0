@@ -1,78 +1,130 @@
-From: Peng Tao <bergwolf@gmail.com>
-Subject: Re: [PATCH v4 0/4] vsock: cancel connect packets when failing to
-	connect
-Date: Fri, 6 Jan 2017 10:22:56 +0800
-Message-ID: <CA+a=Yy7d940_OfNL=b_qZjnpRVL5pywKFpubtS_h6OtB7c2Dmg@mail.gmail.com>
-References: <1481545269-18104-1-git-send-email-bergwolf@gmail.com>
-	<20161213095010.GA3103@stefanha-x1.localdomain>
+From: maowenan <maowenan@huawei.com>
+Subject: RE: [PATCH] net:phy fix driver reference count error when attach
+ and detach phy device
+Date: Fri, 6 Jan 2017 02:29:52 +0000
+Message-ID: <F95AC9340317A84688A5F0DF0246F3F201524E04@szxeml504-mbs.china.huawei.com>
+References: <1480501378-10172-1-git-send-email-maowenan@huawei.com>
+ <063D6719AE5E284EB5DD2968C1650D6DB0232613@AcuExch.aculab.com>
+ <0cef0798-7b0d-734d-17a3-bebffe6206c7@huawei.com>
+ <7902ba31-de5d-27cf-f631-4a88a78b246f@huawei.com>
+ <c4fce3bf-4105-c7f2-fc67-be4316a2004a@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>, kvm@vger.kernel.org,
-	Jorgen Hansen <jhansen@vmware.com>, Stefan Hajnoczi <stefanha@redhat.com>,
-	virtualization@lists.linux-foundation.org
-To: Stefan Hajnoczi <stefanha@gmail.com>, David Miller <davem@davemloft.net>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20161213095010.GA3103@stefanha-x1.localdomain>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: Florian Fainelli <f.fainelli@gmail.com>,
+        David Laight <David.Laight@ACULAB.COM>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Dingtianhong <dingtianhong@huawei.com>,
+        "weiyongjun (A)" <weiyongjun1@huawei.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga01-in.huawei.com ([58.251.152.64]:63404 "EHLO
+        szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753256AbdAFCaq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2017 21:30:46 -0500
+In-Reply-To: <c4fce3bf-4105-c7f2-fc67-be4316a2004a@gmail.com>
+Content-Language: zh-CN
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 13, 2016 at 5:50 PM, Stefan Hajnoczi <stefanha@gmail.com> wrote:
-> On Mon, Dec 12, 2016 at 08:21:05PM +0800, Peng Tao wrote:
->> Currently, if a connect call fails on a signal or timeout (e.g., guest is still
->> in the process of starting up), we'll just return to caller and leave the connect
->> packet queued and they are sent even though the connection is considered a failure,
->> which can confuse applications with unwanted false connect attempt.
->>
->> The patchset enables vsock (both host and guest) to cancel queued packets when
->> a connect attempt is considered to fail.
->>
->> v4 changelog:
->>   - drop two unnecessary void * cast
->>   - update new callback commnet
->> v3 changelog:
->>   - define cancel_pkt callback in struct vsock_transport rather than struct virtio_transport
->>   - rename virtio_vsock_pkt->vsk to virtio_vsock_pkt->cancel_token
->> v2 changelog:
->>   - fix queued_replies counting and resume tx/rx when necessary
->>
->> Cheers,
->> Tao
->>
->> Peng Tao (4):
->>   vsock: track pkt owner vsock
->>   vhost-vsock: add pkt cancel capability
->>   vsock: add pkt cancel capability
->>   vsock: cancel packets when failing to connect
->>
->>  drivers/vhost/vsock.c                   | 41 ++++++++++++++++++++++++++++++++
->>  include/linux/virtio_vsock.h            |  2 ++
->>  include/net/af_vsock.h                  |  3 +++
->>  net/vmw_vsock/af_vsock.c                | 14 +++++++++++
->>  net/vmw_vsock/virtio_transport.c        | 42 +++++++++++++++++++++++++++++++++
->>  net/vmw_vsock/virtio_transport_common.c |  7 ++++++
->>  6 files changed, 109 insertions(+)
->>
->> --
->> 2.7.4
->>
->> _______________________________________________
->> Virtualization mailing list
->> Virtualization@lists.linux-foundation.org
->> https://lists.linuxfoundation.org/mailman/listinfo/virtualization
->
-> Reviewed-by: Stefan Hajnoczi <stefanha@redhat.com>
-ping~
-
-It looks like the patchsets are reviewed but not merged. Is there any blocker?
-
-Cheers,
-Tao
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogRmxvcmlhbiBGYWluZWxs
+aSBbbWFpbHRvOmYuZmFpbmVsbGlAZ21haWwuY29tXQ0KPiBTZW50OiBUdWVzZGF5LCBEZWNlbWJl
+ciAxMywgMjAxNiAxMjozMyBBTQ0KPiBUbzogbWFvd2VuYW47IERhdmlkIExhaWdodDsgbmV0ZGV2
+QHZnZXIua2VybmVsLm9yZzsgRGluZ3RpYW5ob25nOw0KPiB3ZWl5b25nanVuIChBKQ0KPiBTdWJq
+ZWN0OiBSZTogW1BBVENIXSBuZXQ6cGh5IGZpeCBkcml2ZXIgcmVmZXJlbmNlIGNvdW50IGVycm9y
+IHdoZW4gYXR0YWNoIGFuZA0KPiBkZXRhY2ggcGh5IGRldmljZQ0KPiANCj4gT24gMTIvMTIvMjAx
+NiAxMjo0OSBBTSwgbWFvd2VuYW4gd3JvdGU6DQo+ID4NCj4gPg0KPiA+IE9uIDIwMTYvMTIvNSAx
+Njo0NywgbWFvd2VuYW4gd3JvdGU6DQo+ID4+DQo+ID4+DQo+ID4+IE9uIDIwMTYvMTIvMiAxNzo0
+NSwgRGF2aWQgTGFpZ2h0IHdyb3RlOg0KPiA+Pj4gRnJvbTogTWFvIFdlbmFuDQo+ID4+Pj4gU2Vu
+dDogMzAgTm92ZW1iZXIgMjAxNiAxMDoyMw0KPiA+Pj4+IFRoZSBuaWMgaW4gbXkgYm9hcmQgdXNl
+IHRoZSBwaHkgZGV2IGZyb20gbWFydmVsbCwgYW5kIHRoZSBzeXN0ZW0NCj4gPj4+PiB3aWxsIGxv
+YWQgdGhlIG1hcnZlbGwgcGh5IGRyaXZlciBhdXRvbWF0aWNhbGx5LCBidXQgd2hlbiBJIHJlbW92
+ZQ0KPiA+Pj4+IHRoZSBwaHkgZHJpdmVycywgdGhlIHN5c3RlbSBpbW1lZGlhdGVseSBwYW5pYzoN
+Cj4gPj4+PiBDYWxsIHRyYWNlOg0KPiA+Pj4+IFsgMjU4Mi44MzQ0OTNdIFs8ZmZmZjgwMDAwMDcx
+NTM4ND5dIHBoeV9zdGF0ZV9tYWNoaW5lKzB4M2MvMHg0MzggWw0KPiA+Pj4+IDI1ODIuODUxNzU0
+XSBbPGZmZmY4MDAwMDAwZGIzYjg+XSBwcm9jZXNzX29uZV93b3JrKzB4MTUwLzB4NDI4IFsNCj4g
+Pj4+PiAyNTgyLjg2ODE4OF0gWzxmZmZmODAwMDAwMGRiN2Q0Pl0gd29ya2VyX3RocmVhZCsweDE0
+NC8weDRiMCBbDQo+ID4+Pj4gMjU4Mi44ODM4ODJdIFs8ZmZmZjgwMDAwMDBlMWQwYz5dIGt0aHJl
+YWQrMHhmYy8weDExMA0KPiA+Pj4+DQo+ID4+Pj4gdGhlcmUgc2hvdWxkIGJlIHByb3BlciByZWZl
+cmVuY2UgY291bnRpbmcgaW4gcGxhY2UgdG8gYXZvaWQgdGhhdC4NCj4gPj4+PiBJIGZvdW5kIHRo
+YXQgcGh5X2F0dGFjaF9kaXJlY3QoKSBmb3JnZXRzIHRvIGFkZCBwaHkgZGV2aWNlIGRyaXZlcg0K
+PiA+Pj4+IHJlZmVyZW5jZSBjb3VudCwgYW5kIHBoeV9kZXRhY2goKSBmb3JnZXRzIHRvIHN1YnRy
+YWN0IHJlZmVyZW5jZSBjb3VudC4NCj4gPj4+PiBUaGlzIHBhdGNoIGlzIHRvIGZpeCB0aGlzIGJ1
+ZywgYWZ0ZXIgdGhhdCBwYW5pYyBpcyBkaXNhcHBlYXJlZCB3aGVuDQo+ID4+Pj4gcmVtb3ZlIG1h
+cnZlbGwua28NCj4gPj4+Pg0KPiA+Pj4+IFNpZ25lZC1vZmYtYnk6IE1hbyBXZW5hbiA8bWFvd2Vu
+YW5AaHVhd2VpLmNvbT4NCj4gPj4+PiAtLS0NCj4gPj4+PiAgZHJpdmVycy9uZXQvcGh5L3BoeV9k
+ZXZpY2UuYyB8IDcgKysrKysrKw0KPiA+Pj4+ICAxIGZpbGUgY2hhbmdlZCwgNyBpbnNlcnRpb25z
+KCspDQo+ID4+Pj4NCj4gPj4+PiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvcGh5L3BoeV9kZXZp
+Y2UuYw0KPiA+Pj4+IGIvZHJpdmVycy9uZXQvcGh5L3BoeV9kZXZpY2UuYyBpbmRleCAxYTRiZjhh
+Li5hN2VjN2MyIDEwMDY0NA0KPiA+Pj4+IC0tLSBhL2RyaXZlcnMvbmV0L3BoeS9waHlfZGV2aWNl
+LmMNCj4gPj4+PiArKysgYi9kcml2ZXJzL25ldC9waHkvcGh5X2RldmljZS5jDQo+ID4+Pj4gQEAg
+LTg2Niw2ICs4NjYsMTEgQEAgaW50IHBoeV9hdHRhY2hfZGlyZWN0KHN0cnVjdCBuZXRfZGV2aWNl
+ICpkZXYsDQo+IHN0cnVjdCBwaHlfZGV2aWNlICpwaHlkZXYsDQo+ID4+Pj4gIAkJcmV0dXJuIC1F
+SU87DQo+ID4+Pj4gIAl9DQo+ID4+Pj4NCj4gPj4+PiArCWlmICghdHJ5X21vZHVsZV9nZXQoZC0+
+ZHJpdmVyLT5vd25lcikpIHsNCj4gPj4+PiArCQlkZXZfZXJyKCZkZXYtPmRldiwgImZhaWxlZCB0
+byBnZXQgdGhlIGRldmljZSBkcml2ZXIgbW9kdWxlXG4iKTsNCj4gPj4+PiArCQlyZXR1cm4gLUVJ
+TzsNCj4gPj4+PiArCX0NCj4gPj4+DQo+ID4+PiBJZiB0aGlzIGlzIHRoZSBwaHkgY29kZSwgd2hh
+dCBzdG9wcyB0aGUgcGh5IGRyaXZlciBiZWluZyB1bmxvYWRlZA0KPiA+Pj4gYmVmb3JlIHRoZSB0
+cnlfbW9kdWxlX2dldCgpIG9idGFpbnMgYSByZWZlcmVuY2UuDQo+ID4+PiBJZiBpdCBpc24ndCB0
+aGUgcGh5IGRyaXZlciB0aGVuIHRoZXJlIG91Z2h0IHRvIGJlIGEgcmVmZXJlbmNlIGNvdW50DQo+
+ID4+PiBvYnRhaW5lZCB3aGVuIHRoZSBwaHkgZHJpdmVyIGlzIGxvY2F0ZWQgKGJ5IHdoYXRldmVy
+IGRlY2lkZXMgd2hpY2ggcGh5DQo+IGRyaXZlciB0byB1c2UpLg0KPiA+Pj4gRXZlbiBpZiB0aGF0
+IGNvZGUgbGF0ZXIgcmVsZWFzZXMgaXRzIHJlZmVyZW5jZSAoaXQgcHJvYmFibHkNCj4gPj4+IHNo
+b3VsZG4ndCBvbiBzdWNjZXNzKSB0aGVuIHlvdSBjYW4ndCBmYWlsIHRvIGdldCBhbiBleHRyYSBy
+ZWZlcmVuY2UgaGVyZS4NCj4gPj4NCj4gPj4gW01hbyBXZW5hbl1ZZXMsIHRoaXMgaXMgcGh5IGNv
+ZGUsIGluIGZ1bmN0aW9uIHBoeV9hdHRhY2hfZGlyZWN0KCksDQo+IGRyaXZlcnMvbmV0L3BoeS9w
+aHlfZGV2aWNlLmMuDQo+ID4+IHdoZW4gb25lIE5JQyBkcml2ZXIgdG8gZG8gcHJvYmUgYmVoYXZp
+b3IsIGl0IHdpbGwgYXR0YWNoIG9uZSBtYXRjaGVkDQo+ID4+IHBoeSBkcml2ZXIuIHBoeV9hdHRh
+Y2hfZGlyZWN0KCkgaXMgdG8gb2J0YWluIHBoeSBkcml2ZXIgcmVmZXJlbmNlIGFuZA0KPiA+PiBi
+aW5kIHBoeSBkcml2ZXIsIGlmIHRyeV9tb2R1bGVfZ2V0KCkgZXhlY3V0ZSBvbiBzdWNjZXNzLCB0
+aGUNCj4gPj4gcmVmZXJlbmNlIGNvdW50IGlzIGFkZGVkOyBpZiBmYWlsZWQsIHRoZSBkcml2ZXIg
+Y2FuJ3QgYmUgYXR0YWNoZWQgdG8gdGhpcyBOSUMsDQo+IGFuZCBpdCBjYW4ndCBhZGRlZCB0aGUg
+cGh5IGRyaXZlciByZWZlcmVuY2UgY291bnQuIFNvIGJlZm9yZSB0cnlfbW9kdWxlX2dldA0KPiBv
+YnRhaW5zIGEgcmVmZXJlbmNlLCBwaHkgZHJpdmVyIGNhbid0IGNhbid0IGJlIGJvdW5kIHRvIHRo
+aXMgTklDLg0KPiA+PiB3aGVuIHRoZSBwaHkgZHJpdmVyIGlzIGF0dGFjaGVkIHRvIE5JQywgdGhl
+IHJlZmVyZW5jZSBjb3VudCBpcyBhZGRlZCwNCj4gPj4gaWYgc29tZW9uZSByZW1vdmUgcGh5IGRy
+aXZlciBkaXJlY3RseSwgaXQgd2lsbCBiZSBmYWlsZWQgYmVjYXVzZSByZWZlcmVuY2UNCj4gY291
+bnQgaXMgbm90IGVxdWFsIHRvIDAuDQo+ID4+DQo+ID4+IEFuIGV4YW1wbGUgb2YgY2FsbCB0cmFj
+ZSB3aGVuIHRoZXJlIGlzIE5JQyBkcml2ZXIgdG8gYXR0Y2ggb25lIHBoeSBkcml2ZXI6DQo+ID4+
+IGhuc19uaWNfZGV2X3Byb2JlLT5obnNfbmljX3RyeV9nZXRfYWUtPmhuc19uaWNfaW5pdF9waHkt
+Pm9mX3BoeV9jb25uZQ0KPiA+PiBjdC0+cGh5X2Nvbm5lY3RfZGlyZWN0LT5waHlfYXR0YWNoX2Rp
+cmVjdA0KPiA+Pg0KPiA+PiBDb25zaWRlciB0aGUgc3RlcHMgb2YgcGh5IGRyaXZlcihtYXJ2ZWxs
+LmtvKSBhZGRlZCBhbmQgcmVtb3ZlZCwgYW5kIE5JQw0KPiBkcml2ZXIoaG5zX2VuZXRfZHJ2Lmtv
+KSBhZGRlZCBhbmQgcmVtb3ZlZDoNCj4gPj4gMSlpbnNtb2QgbWFydmVsbCAgICAgICByZWY9MA0K
+PiA+PiAyKWluc21vZCBobnNfZW5ldF9kcnYgIHJlZj0xDQo+ID4+IDMpcm1tb2QgbWFydmVsbCAg
+ICAgICAgKHNob3VsZCBub3Qgb24gc3VjY2VzcywgcmVmPTEpDQo+ID4+IDQpcm1tb2QgaG5zX2Vu
+ZXRfZHJ2ICAgcmVmPTANCj4gPj4gNSlybW1vZCBtYXJ2ZWxsICAgICAgICAoc2hvdWxkIG9uIHN1
+Y2Nlc3MsIGJlY2F1c2UgcmVmPTApDQo+ID4+DQo+ID4+IGlmIHdlIGRvbid0IGFkZCB0aGUgcmVm
+ZXJlbmNlIGNvdW50IGluIHBoeV9hdHRhY2hfZGlyZWN0KHRoZSBzZWNvbmQNCj4gPj4gc3RlcCBy
+ZWY9MCksIHNvIHRoZSB0aGlyZCBzdGVwIHJtbW9kIG1hcnZlbGwgd2lsbCBiZSBwYW5pYywgYmVj
+YXVzZSB0aGVyZSBpcw0KPiBvbmUgdXNlciByZW1haW4gdXNlIG1hcnZlbGwgZHJpdmVyIGFuZCBw
+aHlfc3RhdF9tYWNoaW5lIHVzZSB0aGUgTlVMTCBkcnYNCj4gcG9pbnRlci4NCj4gPj4NCj4gPj4+
+DQo+ID4+Pj4gKw0KPiA+Pj4+ICAJZ2V0X2RldmljZShkKTsNCj4gPj4+Pg0KPiA+Pj4+ICAJLyog
+QXNzdW1lIHRoYXQgaWYgdGhlcmUgaXMgbm8gZHJpdmVyLCB0aGF0IGl0IGRvZXNuJ3QgQEAgLTky
+MSw2DQo+ID4+Pj4gKzkyNiw3IEBAIGludCBwaHlfYXR0YWNoX2RpcmVjdChzdHJ1Y3QgbmV0X2Rl
+dmljZSAqZGV2LCBzdHJ1Y3QNCj4gPj4+PiBwaHlfZGV2aWNlICpwaHlkZXYsDQo+ID4+Pj4NCj4g
+Pj4+PiAgZXJyb3I6DQo+ID4+Pj4gIAlwdXRfZGV2aWNlKGQpOw0KPiA+Pj4+ICsJbW9kdWxlX3B1
+dChkLT5kcml2ZXItPm93bmVyKTsNCj4gPj4+DQo+ID4+PiBBcmUgdGhvc2UgdHdvIGluIHRoZSB3
+cm9uZyBvcmRlciA/DQo+ID4+Pg0KPiA+Pj4+ICAJbW9kdWxlX3B1dChidXMtPm93bmVyKTsNCj4g
+Pj4+PiAgCXJldHVybiBlcnI7DQo+ID4+Pj4gIH0NCj4gPj4+PiBAQCAtOTk4LDYgKzEwMDQsNyBA
+QCB2b2lkIHBoeV9kZXRhY2goc3RydWN0IHBoeV9kZXZpY2UgKnBoeWRldikNCj4gPj4+PiAgCWJ1
+cyA9IHBoeWRldi0+bWRpby5idXM7DQo+ID4+Pj4NCj4gPj4+PiAgCXB1dF9kZXZpY2UoJnBoeWRl
+di0+bWRpby5kZXYpOw0KPiA+Pj4+ICsJbW9kdWxlX3B1dChwaHlkZXYtPm1kaW8uZGV2LmRyaXZl
+ci0+b3duZXIpOw0KPiA+Pj4+ICAJbW9kdWxlX3B1dChidXMtPm93bmVyKTsNCj4gPj4+DQo+ID4+
+PiBXaGVyZSBpcyB0aGlzIGNvZGUgY2FsbGVkIGZyb20/DQo+ID4+PiBZb3UgY2FuJ3QgY2FsbCBp
+dCBmcm9tIHRoZSBwaHkgZHJpdmVyIGJlY2F1c2UgdGhlIGRyaXZlciBjYW4gYmUNCj4gPj4+IHVu
+bG9hZGVkIGFzIHNvb24gYXMgdGhlIGxhc3QgcmVmZXJlbmNlIGlzIHJlbW92ZWQuDQo+ID4+PiBB
+dCB0aGF0IHBvaW50IHRoZSBjb2RlIG1lbW9yeSBpcyBmcmVlZC4NCj4gPj4NCj4gPj4gW01hbyBX
+ZW5hbl0gaXQgaXMgY2FsbGVkIGJ5IE5JQyB3aGVuIGl0IGlzIHJlbW92ZWQsIHdoaWNoIGFpbXMg
+dG8NCj4gPj4gZGlzY29ubmVjdCBvbmUgYm91bmQgcGh5IGRyaXZlci4gSWYgdGhpcyBwaHkgZHJp
+dmVyIGlzIG5vdCB1c2VkIGZvciB0aGlzIE5JQywNCj4gcmVmZXJlbmNlIGNvdW50IHNob3VsZCBi
+ZSBzdWJ0cmFjdGVkLCBhbmQgcGh5IGRyaXZlciBjYW4gYmUgcmVtb3ZlZCBpZiB0aGVyZSBpcw0K
+PiBubyB1c2VyLg0KPiA+PiBobnNfbmljX2Rldl9yZW1vdmUtPnBoeV9kaXNjb25uZWN0LT5waHlf
+ZGV0YWNoDQo+ID4+DQo+ID4+DQo+ID4+DQo+ID4+Pg0KPiA+Pj4+ICB9DQo+ID4+Pj4gIEVYUE9S
+VF9TWU1CT0wocGh5X2RldGFjaCk7DQo+ID4+Pj4gLS0NCj4gPj4+PiAyLjcuMA0KPiA+Pj4+DQo+
+ID4+Pg0KPiA+Pj4NCj4gPj4+IC4NCj4gPj4+DQo+ID4NCj4gPiBARmxvcmlhbiBGYWluZWxsaSwg
+d2hhdCdzIHlvdXIgY29tbWVudHMgYWJvdXQgdGhpcyBwYXRjaD8NCj4gDQo+IEkgYW0gdHJ5aW5n
+IHRvIHJlcHJvZHVjZSB3aGF0IHlvdSBhcmUgc2VlaW5nLCBidXQgYXQgZmlyc3QgZ2xhbmNlIGlz
+IGxvb2tzIGxpa2UgYW4NCj4gYXBwcm9wcmlhdGUgc29sdXRpb24gdG8gbWUuIERvIHlvdSBtaW5k
+IGdpdmluZyBtZSBhIGNvdXBsZSBtb3JlIGRheXM/DQo+IA0KPiBUaGFua3MhDQo+IC0tDQo+IEZs
+b3JpYW4NCg0KSGkgRmxvcmlhbiwgDQogIERvIHlvdSBoYXZlIGFueSB1cGRhdGUgYWJvdXQgdGhp
+cyBwYXRjaD8NCiAgVGhhbmsgeW91IQ0KICANCg0KDQoNCg0KDQoNCg0KDQo=
