@@ -1,45 +1,50 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH iproute2 1/3] ip vrf: Fix run-on error message on mkdir failure
-Date: Thu,  5 Jan 2017 16:22:21 -0800
-Message-ID: <1483662143-15242-2-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH iproute2 3/3] ip vrf: Improve bpf error messages
+Date: Thu,  5 Jan 2017 16:22:23 -0800
+Message-ID: <1483662143-15242-4-git-send-email-dsa@cumulusnetworks.com>
 References: <1483662143-15242-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org, stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f45.google.com ([74.125.83.45]:36746 "EHLO
-        mail-pg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751688AbdAFA2k (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2017 19:28:40 -0500
-Received: by mail-pg0-f45.google.com with SMTP id f188so245604192pgc.3
-        for <netdev@vger.kernel.org>; Thu, 05 Jan 2017 16:28:40 -0800 (PST)
+Received: from mail-pg0-f52.google.com ([74.125.83.52]:32864 "EHLO
+        mail-pg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1031866AbdAFA2w (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2017 19:28:52 -0500
+Received: by mail-pg0-f52.google.com with SMTP id g1so206652607pgn.0
+        for <netdev@vger.kernel.org>; Thu, 05 Jan 2017 16:28:51 -0800 (PST)
 In-Reply-To: <1483662143-15242-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andy reported a missing newline if a non-root user attempts to run
-'ip vrf exec':
+Next up a non-root user gets various bpf related error messages:
 
-$ ./ip/ip vrf exec default /bin/echo asdf
-mkdir failed for /var/run/cgroup2: Permission deniedFailed to setup vrf cgroup2 directory
+$ ip vrf exec mgmt bash
+Failed to load BPF prog: 'Operation not permitted'
+Kernel compiled with CGROUP_BPF enabled?
 
-Reported-by: Andy Lutomirski <luto@kernel.org>
+Catch the EPERM error and do not show the kernel config option.
+
 Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- lib/fs.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ ip/ipvrf.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
-diff --git a/lib/fs.c b/lib/fs.c
-index 39cc96dccca9..644bb486ae8e 100644
---- a/lib/fs.c
-+++ b/lib/fs.c
-@@ -121,7 +121,7 @@ int make_path(const char *path, mode_t mode)
+diff --git a/ip/ipvrf.c b/ip/ipvrf.c
+index dc8364a43a57..8bd99d6251f2 100644
+--- a/ip/ipvrf.c
++++ b/ip/ipvrf.c
+@@ -181,7 +181,11 @@ static int vrf_configure_cgroup(const char *path, int ifindex)
+ 	if (prog_fd < 0) {
+ 		fprintf(stderr, "Failed to load BPF prog: '%s'\n",
+ 			strerror(errno));
+-		fprintf(stderr, "Kernel compiled with CGROUP_BPF enabled?\n");
++
++		if (errno != EPERM) {
++			fprintf(stderr,
++				"Kernel compiled with CGROUP_BPF enabled?\n");
++		}
+ 		goto out;
+ 	}
  
- 			if (mkdir(dir, mode) != 0) {
- 				fprintf(stderr,
--					"mkdir failed for %s: %s",
-+					"mkdir failed for %s: %s\n",
- 					dir, strerror(errno));
- 				goto out;
- 			}
 -- 
 2.1.4
