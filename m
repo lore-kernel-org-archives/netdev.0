@@ -1,86 +1,41 @@
-From: Eric Garver <e@erig.me>
-Subject: [PATCH net] udp: inuse checks can quit early for reuseport
-Date: Thu,  5 Jan 2017 20:22:36 -0500
-Message-ID: <20170106012236.20078-1-e@erig.me>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+From: "Martin K. Petersen" <martin.petersen@oracle.com>
+Subject: Re: [PATCH v2] scsi: bfa: Increase requested firmware version to 3.2.5.1
+Date: Thu, 05 Jan 2017 20:48:33 -0500
+Message-ID: <yq1o9zlhsb2.fsf@oracle.com>
+References: <BLUPR0701MB15724638DA0BB8FB5CB9B3CF9F940@BLUPR0701MB1572.namprd07.prod.outlook.com>
+        <20161224044019.13797-1-bpoirier@suse.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: "Martin K. Petersen" <martin.petersen@oracle.com>,
+        Tim Ehlers <tehlers@gwdg.de>,
+        Rasesh Mody <rasesh.mody@cavium.com>,
+        Anil Gurumurthy <anil.gurumurthy@qlogic.com>,
+        Sudarsana Kalluru <sudarsana.kalluru@qlogic.com>,
+        "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
+        linux-scsi@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Benjamin Poirier <bpoirier@suse.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57132 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751431AbdAFBcX (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 5 Jan 2017 20:32:23 -0500
+Received: from userp1040.oracle.com ([156.151.31.81]:37366 "EHLO
+        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752851AbdAFBtA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2017 20:49:00 -0500
+In-Reply-To: <20161224044019.13797-1-bpoirier@suse.com> (Benjamin Poirier's
+        message of "Fri, 23 Dec 2016 20:40:19 -0800")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-UDP lib inuse checks will walk the entire hash bucket to check if the
-portaddr is in use. In the case of reuseport we can stop searching when
-we find a matching reuseport.
+>>>>> "Benjamin" == Benjamin Poirier <bpoirier@suse.com> writes:
 
-On a 16-core VM a test program that spawns 16 threads that each bind to
-1024 sockets (one per 10ms) takes 1m45s. With this change it takes 11s.
+Benjamin> bna & bfa firmware version 3.2.5.1 was submitted to
+Benjamin> linux-firmware on Feb 17 19:10:20 2015 -0500 in 0ab54ff1dc
+Benjamin> ("linux-firmware: Add QLogic BR Series Adapter Firmware").
 
-Also add a cond_resched() when the port is not specified.
+Benjamin> Increase bfa's requested firmware version. Also increase the
+Benjamin> driver version.  I only tested that all of the devices probe
+Benjamin> without error.
 
-Signed-off-by: Eric Garver <e@erig.me>
----
- net/ipv4/udp.c | 29 +++++++++++++++++++----------
- 1 file changed, 19 insertions(+), 10 deletions(-)
+Applied to 4.10/scsi-fixes.
 
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 1307a7c2e544..4318d72e0248 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -153,13 +153,18 @@ static int udp_lib_lport_inuse(struct net *net, __u16 num,
- 		    (!sk2->sk_reuse || !sk->sk_reuse) &&
- 		    (!sk2->sk_bound_dev_if || !sk->sk_bound_dev_if ||
- 		     sk2->sk_bound_dev_if == sk->sk_bound_dev_if) &&
--		    (!sk2->sk_reuseport || !sk->sk_reuseport ||
--		     rcu_access_pointer(sk->sk_reuseport_cb) ||
--		     !uid_eq(uid, sock_i_uid(sk2))) &&
- 		    saddr_comp(sk, sk2, true)) {
--			if (!bitmap)
--				return 1;
--			__set_bit(udp_sk(sk2)->udp_port_hash >> log, bitmap);
-+			if (sk2->sk_reuseport && sk->sk_reuseport &&
-+			    !rcu_access_pointer(sk->sk_reuseport_cb) &&
-+			    uid_eq(uid, sock_i_uid(sk2))) {
-+				if (!bitmap)
-+					return 0;
-+			} else {
-+				if (!bitmap)
-+					return 1;
-+				__set_bit(udp_sk(sk2)->udp_port_hash >> log,
-+					  bitmap);
-+			}
- 		}
- 	}
- 	return 0;
-@@ -188,11 +193,14 @@ static int udp_lib_lport_inuse2(struct net *net, __u16 num,
- 		    (!sk2->sk_reuse || !sk->sk_reuse) &&
- 		    (!sk2->sk_bound_dev_if || !sk->sk_bound_dev_if ||
- 		     sk2->sk_bound_dev_if == sk->sk_bound_dev_if) &&
--		    (!sk2->sk_reuseport || !sk->sk_reuseport ||
--		     rcu_access_pointer(sk->sk_reuseport_cb) ||
--		     !uid_eq(uid, sock_i_uid(sk2))) &&
- 		    saddr_comp(sk, sk2, true)) {
--			res = 1;
-+			if (sk2->sk_reuseport && sk->sk_reuseport &&
-+			    !rcu_access_pointer(sk->sk_reuseport_cb) &&
-+			    uid_eq(uid, sock_i_uid(sk2))) {
-+				res = 0;
-+			} else {
-+				res = 1;
-+			}
- 			break;
- 		}
- 	}
-@@ -285,6 +293,7 @@ int udp_lib_get_port(struct sock *sk, unsigned short snum,
- 				snum += rand;
- 			} while (snum != first);
- 			spin_unlock_bh(&hslot->lock);
-+			cond_resched();
- 		} while (++first != last);
- 		goto fail;
- 	} else {
 -- 
-2.10.0
+Martin K. Petersen	Oracle Linux Engineering
