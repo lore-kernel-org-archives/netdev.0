@@ -1,50 +1,53 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] net:phy fix driver reference count error when attach and
- detach phy device
-Date: Thu, 5 Jan 2017 19:21:33 -0800
-Message-ID: <70502429-5edf-924f-6e48-89340620ae6f@gmail.com>
-References: <1480501378-10172-1-git-send-email-maowenan@huawei.com>
- <063D6719AE5E284EB5DD2968C1650D6DB0232613@AcuExch.aculab.com>
- <0cef0798-7b0d-734d-17a3-bebffe6206c7@huawei.com>
- <7902ba31-de5d-27cf-f631-4a88a78b246f@huawei.com>
- <c4fce3bf-4105-c7f2-fc67-be4316a2004a@gmail.com>
- <F95AC9340317A84688A5F0DF0246F3F201524E04@szxeml504-mbs.china.huawei.com>
+From: Hariprasad S <hariprasad@chelsio.com>
+Subject: Re: [PATCH net-next] cxgb4: Synchronize access to mailbox
+Date: Fri, 6 Jan 2017 03:08:25 +0000
+Message-ID: <D457A6F6-246F-4FAF-82BE-E736DA4B3328@chelsio.com>
+References: <1483595590-12932-1-git-send-email-hariprasad@chelsio.com>,<20170105.110532.154981132261843828.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-To: maowenan <maowenan@huawei.com>,
-        David Laight <David.Laight@ACULAB.COM>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Dingtianhong <dingtianhong@huawei.com>,
-        "weiyongjun (A)" <weiyongjun1@huawei.com>,
-        Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Casey Leedom <leedom@chelsio.com>,
+        Nirranjan Kirubaharan <nirranjan@chelsio.com>,
+        "Ganesh GR" <ganeshgr@chelsio.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f66.google.com ([209.85.218.66]:34310 "EHLO
-        mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754196AbdAFDWe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2017 22:22:34 -0500
-Received: by mail-oi0-f66.google.com with SMTP id 3so52878401oih.1
-        for <netdev@vger.kernel.org>; Thu, 05 Jan 2017 19:21:35 -0800 (PST)
-In-Reply-To: <F95AC9340317A84688A5F0DF0246F3F201524E04@szxeml504-mbs.china.huawei.com>
+Received: from mail-dm3nam03on0135.outbound.protection.outlook.com ([104.47.41.135]:16097
+        "EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1754330AbdAFDX5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 5 Jan 2017 22:23:57 -0500
+In-Reply-To: <20170105.110532.154981132261843828.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-+Andrew,
 
-Le 01/05/17 à 18:29, maowenan a écrit :
->>> @Florian Fainelli, what's your comments about this patch?
->>
->> I am trying to reproduce what you are seeing, but at first glance is looks like an
->> appropriate solution to me. Do you mind giving me a couple more days?
->>
->> Thanks!
->> --
->> Florian
-> 
-> Hi Florian, 
->   Do you have any update about this patch?
 
-Your patch is not complete, there are now MDIO device (which PHY devices
-are a superset of) that would also need a similar fix.
--- 
-Florian
+
+> On 05-Jan-2017, at 9:35 PM, David Miller <davem@davemloft.net> wrote:
+>=20
+> From: Hariprasad Shenai <hariprasad@chelsio.com>
+> Date: Thu,  5 Jan 2017 11:23:10 +0530
+>=20
+>> @@ -844,6 +848,10 @@ struct adapter {
+>>    struct work_struct db_drop_task;
+>>    bool tid_release_task_busy;
+>>=20
+>> +    /* lock for mailbox cmd list */
+>> +    spinlock_t mbox_lock;
+>> +    struct mbox_list mlist;
+>> +
+> ...
+>> @@ -4707,6 +4707,9 @@ static int init_one(struct pci_dev *pdev, const st=
+ruct pci_device_id *ent)
+>>    spin_lock_init(&adapter->stats_lock);
+>>    spin_lock_init(&adapter->tid_release_lock);
+>>    spin_lock_init(&adapter->win0_lock);
+>> +    spin_lock_init(&adapter->mbox_lock);
+>> +
+>> +    INIT_LIST_HEAD(&adapter->mbox_list.list);
+>=20
+> It is absolutely impossible that you even compiled this code.
+
+My bad. Looks like I sent wrong patch. I will send V2 for the same.=
