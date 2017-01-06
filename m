@@ -1,48 +1,109 @@
-From: Madalin-Cristian Bucur <madalin.bucur@nxp.com>
-Subject: Fixed link for 10G
-Date: Fri, 6 Jan 2017 12:01:06 +0000
-Message-ID: <AM2PR04MB11228A96940B1E409CEC6E04EC630@AM2PR04MB1122.eurprd04.prod.outlook.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>
+From: Ganesh Goudar <ganeshgr@chelsio.com>
+Subject: [PATCH net-next] cxgb4/cxgb4vf: Display 25G and 100G link speed
+Date: Fri,  6 Jan 2017 16:51:46 +0530
+Message-ID: <1483701706-11882-1-git-send-email-ganeshgr@chelsio.com>
+Cc: nirranjan@chelsio.com, hariprasad@chelsio.com,
+        Ganesh Goudar <ganeshgr@chelsio.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve1eur01on0078.outbound.protection.outlook.com ([104.47.1.78]:35264
-        "EHLO EUR01-VE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1162912AbdAFMBJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 6 Jan 2017 07:01:09 -0500
-Content-Language: en-US
+Received: from stargate.chelsio.com ([12.32.117.8]:29054 "EHLO
+        stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754687AbdAFME7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 6 Jan 2017 07:04:59 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Florian,
+Add support to report 25G and 100G links, which was missed
+as part of commit "eb97ad99f9ed".
 
-I'm trying to add a fixed-link property that declares 10G speed
-for a XGMII PHY and I'm encountering some issues as the fixed
-link infrastructure does not seem to support this speed.
+Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c     | 20 +++++++++++++-------
+ drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c | 21 ++++++++++++---------
+ 2 files changed, 25 insertions(+), 16 deletions(-)
 
-I'm using this device tree snippet (using the legacy format, but it
-should not matter):
-
-        ethernet@f2000 { /* 10GEC2 */
-                fixed-link =3D <0 1 10000 0 0>;
-                phy-connection-type =3D "xgmii";
-        };
-
-and I get this error:
-
-	[    0.464238] swphy: unknown speed
-	[    0.467464] fsl_mac: probe of 1af2000.ethernet failed with error -22
-
-Looking at the code, fixed_phy_register() seems to check for speeds up
-to 1G and swphy only caters 1G and lower speeds, the swphy_decode_speed()
-returning -EINVAL for 10G, triggering the error printed above in
-swphy_validate_state().
-
-What would be the proper way to add support for the 10G fixed link speed?
-
-Thank you,
-Madalin
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 6f95187..db436ae 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -188,18 +188,24 @@ static void link_report(struct net_device *dev)
+ 		const struct port_info *p = netdev_priv(dev);
+ 
+ 		switch (p->link_cfg.speed) {
+-		case 10000:
+-			s = "10Gbps";
++		case 100:
++			s = "100Mbps";
+ 			break;
+ 		case 1000:
+-			s = "1000Mbps";
++			s = "1Gbps";
+ 			break;
+-		case 100:
+-			s = "100Mbps";
++		case 10000:
++			s = "10Gbps";
++			break;
++		case 25000:
++			s = "25Gbps";
+ 			break;
+ 		case 40000:
+ 			s = "40Gbps";
+ 			break;
++		case 100000:
++			s = "100Gbps";
++			break;
+ 		default:
+ 			pr_info("%s: unsupported speed: %d\n",
+ 				dev->name, p->link_cfg.speed);
+@@ -4397,9 +4403,9 @@ static void print_port_info(const struct net_device *dev)
+ 		spd = " 8 GT/s";
+ 
+ 	if (pi->link_cfg.supported & FW_PORT_CAP_SPEED_100M)
+-		bufp += sprintf(bufp, "100/");
++		bufp += sprintf(bufp, "100M/");
+ 	if (pi->link_cfg.supported & FW_PORT_CAP_SPEED_1G)
+-		bufp += sprintf(bufp, "1000/");
++		bufp += sprintf(bufp, "1G/");
+ 	if (pi->link_cfg.supported & FW_PORT_CAP_SPEED_10G)
+ 		bufp += sprintf(bufp, "10G/");
+ 	if (pi->link_cfg.supported & FW_PORT_CAP_SPEED_25G)
+diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
+index 0d1a134..ac7a150 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
+@@ -158,20 +158,23 @@ void t4vf_os_link_changed(struct adapter *adapter, int pidx, int link_ok)
+ 		netif_carrier_on(dev);
+ 
+ 		switch (pi->link_cfg.speed) {
+-		case 40000:
+-			s = "40Gbps";
++		case 100:
++			s = "100Mbps";
++			break;
++		case 1000:
++			s = "1Gbps";
+ 			break;
+-
+ 		case 10000:
+ 			s = "10Gbps";
+ 			break;
+-
+-		case 1000:
+-			s = "1000Mbps";
++		case 25000:
++			s = "25Gbps";
+ 			break;
+-
+-		case 100:
+-			s = "100Mbps";
++		case 40000:
++			s = "40Gbps";
++			break;
++		case 100000:
++			s = "100Gbps";
+ 			break;
+ 
+ 		default:
+-- 
+2.1.0
