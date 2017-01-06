@@ -1,57 +1,72 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH net-next] net:add one common config ARCH_WANT_RELAX_ORDER
- to support relax ordering.
-Date: Fri, 6 Jan 2017 07:41:14 -0800
-Message-ID: <CAKgT0Uencn48k69UYt24B75O--5GL9pC-haYh4do4rxeN4pYgA@mail.gmail.com>
-References: <1483696364-8680-1-git-send-email-maowenan@huawei.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCHv3 net-next] sctp: prepare asoc stream for stream reconf
+Date: Fri, 6 Jan 2017 15:50:36 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB025926D@AcuExch.aculab.com>
+References: <efd6462731ca0b18a3039f9537dda61e0ed72430.1483712313.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: Mao Wenan <maowenan@huawei.com>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        Vlad Yasevich <vyasevich@gmail.com>,
+        "davem@davemloft.net" <davem@davemloft.net>
+To: 'Xin Long' <lucien.xin@gmail.com>,
+        network dev <netdev@vger.kernel.org>,
+        "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f68.google.com ([209.85.214.68]:34098 "EHLO
-        mail-it0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965303AbdAFPlP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 6 Jan 2017 10:41:15 -0500
-Received: by mail-it0-f68.google.com with SMTP id q186so2418122itb.1
-        for <netdev@vger.kernel.org>; Fri, 06 Jan 2017 07:41:15 -0800 (PST)
-In-Reply-To: <1483696364-8680-1-git-send-email-maowenan@huawei.com>
+Received: from smtp-out4.electric.net ([192.162.216.193]:54913 "EHLO
+        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934137AbdAFPuo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 6 Jan 2017 10:50:44 -0500
+In-Reply-To: <efd6462731ca0b18a3039f9537dda61e0ed72430.1483712313.git.lucien.xin@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 6, 2017 at 1:52 AM, Mao Wenan <maowenan@huawei.com> wrote:
-> Relax ordering(RO) is one feature of 82599 NIC, to enable this feature can
-> enhance the performance for some cpu architecure, such as SPARC and so on.
-> Currently it only supports one special cpu architecture(SPARC) in 82599
-> driver to enable RO feature, this is not very common for other cpu architecture
-> which really needs RO feature.
-> This patch add one common config CONFIG_ARCH_WANT_RELAX_ORDER to set RO feature,
-> and should define CONFIG_ARCH_WANT_RELAX_ORDER in sparc Kconfig firstly.
->
-> Signed-off-by: Mao Wenan <maowenan@huawei.com>
-> ---
->  arch/sparc/Kconfig                              | 1 +
->  drivers/net/ethernet/intel/ixgbe/ixgbe_common.c | 2 +-
->  2 files changed, 2 insertions(+), 1 deletion(-)
->
-> diff --git a/arch/sparc/Kconfig b/arch/sparc/Kconfig
-> index cf4034c..68ac5c7 100644
-> --- a/arch/sparc/Kconfig
-> +++ b/arch/sparc/Kconfig
-> @@ -44,6 +44,7 @@ config SPARC
->         select CPU_NO_EFFICIENT_FFS
->         select HAVE_ARCH_HARDENED_USERCOPY
->         select PROVE_LOCKING_SMALL if PROVE_LOCKING
-> +       select ARCH_WANT_RELAX_ORDER
->
->  config SPARC32
->         def_bool !64BIT
+From: Xin Long
+> Sent: 06 January 2017 14:19
+> sctp stream reconf, described in RFC 6525, needs a structure to
+> save per stream information in assoc, like stream state.
+> 
+> In the future, sctp stream scheduler also needs it to save some
+> stream scheduler params and queues.
+> 
+> This patchset is to prepare the stream array in assoc for stream
+> reconf. It defines sctp_stream that includes stream arrays inside
+> to replace ssnmap.
+> 
+> Note that we use different structures for IN and OUT streams, as
+> the members in per OUT stream will get more and more different
+> from per IN stream.
+...
+>  /* What is the current SSN number for this stream? */
+> -static inline __u16 sctp_ssn_peek(struct sctp_stream *stream, __u16 id)
+> -{
+> -	return stream->ssn[id];
+> -}
+> +#define sctp_ssn_peek(stream, type, sid) \
+> +	((stream)->type[sid].ssn)
+> 
+>  /* Return the next SSN number for this stream.	*/
+> -static inline __u16 sctp_ssn_next(struct sctp_stream *stream, __u16 id)
+> -{
+> -	return stream->ssn[id]++;
+> -}
+> +#define sctp_ssn_next(stream, type, sid) \
+> +	((stream)->type[sid].ssn++)
+> 
+>  /* Skip over this ssn and all below. */
+> -static inline void sctp_ssn_skip(struct sctp_stream *stream, __u16 id,
+> -				 __u16 ssn)
+> -{
+> -	stream->ssn[id] = ssn+1;
+> -}
+> -
+> +#define sctp_ssn_skip(stream, type, sid, ssn) \
+> +	((stream)->type[sid].ssn = ssn + 1)
+...
 
+Is there any reason to convert these from inline functions to #defines?
+Inline functions give better type checking and are usually preferred.
 
-I'm pretty sure this is incomplete.  I think you need to add a couple
-lines to arch/Kconfig so that the config option itself is listed
-somewhere.  You might look at using something like HAVE_CMPXCHG_DOUBLE
-as an example.
-
-- Alex
+	David
