@@ -1,259 +1,150 @@
 From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: [PATCH net-next 3/4] secure_seq: use SipHash in place of MD5
-Date: Fri,  6 Jan 2017 21:10:54 +0100
-Message-ID: <20170106201055.13765-4-Jason@zx2c4.com>
+Subject: [PATCH net-next 4/4] syncookies: use SipHash in place of SHA1
+Date: Fri,  6 Jan 2017 21:10:55 +0100
+Message-ID: <20170106201055.13765-5-Jason@zx2c4.com>
 References: <20170106.145737.1436197697379516563.davem@davemloft.net>
  <20170106201055.13765-1-Jason@zx2c4.com>
 Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>,
-        Andi Kleen <ak@linux.intel.com>,
-        David Laight <David.Laight@aculab.com>,
-        Tom Herbert <tom@herbertland.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
         Eric Dumazet <eric.dumazet@gmail.com>
 To: davem@davemloft.net, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from frisell.zx2c4.com ([192.95.5.64]:43109 "EHLO frisell.zx2c4.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1755068AbdAFULU (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 6 Jan 2017 15:11:20 -0500
 In-Reply-To: <20170106201055.13765-1-Jason@zx2c4.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This gives a clear speed and security improvement. Siphash is both
-faster and is more solid crypto than the aging MD5.
+SHA1 is slower and less secure than SipHash, and so replacing syncookie
+generation with SipHash makes natural sense. Some BSDs have been doing
+this for several years in fact.
 
-Rather than manually filling MD5 buffers, for IPv6, we simply create
-a layout by a simple anonymous struct, for which gcc generates
-rather efficient code. For IPv4, we pass the values directly to the
-short input convenience functions.
-
-64-bit x86_64:
-[    1.683628] secure_tcpv6_sequence_number_md5# cycles: 99563527
-[    1.717350] secure_tcp_sequence_number_md5# cycles: 92890502
-[    1.741968] secure_tcpv6_sequence_number_siphash# cycles: 67825362
-[    1.762048] secure_tcp_sequence_number_siphash# cycles: 67485526
-
-32-bit x86:
-[    1.600012] secure_tcpv6_sequence_number_md5# cycles: 103227892
-[    1.634219] secure_tcp_sequence_number_md5# cycles: 94732544
-[    1.669102] secure_tcpv6_sequence_number_siphash# cycles: 96299384
-[    1.700165] secure_tcp_sequence_number_siphash# cycles: 86015473
+The speedup should be similar -- and even more impressive -- to the
+speedup from the sequence number fix in this series.
 
 Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
-Cc: Andi Kleen <ak@linux.intel.com>
-Cc: David Miller <davem@davemloft.net>
-Cc: David Laight <David.Laight@aculab.com>
-Cc: Tom Herbert <tom@herbertland.com>
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: David Miller <davem@davemloft.net>
 ---
- net/core/secure_seq.c | 135 ++++++++++++++++++++------------------------------
- 1 file changed, 54 insertions(+), 81 deletions(-)
+ net/ipv4/syncookies.c | 20 ++++----------------
+ net/ipv6/syncookies.c | 37 ++++++++++++++++---------------------
+ 2 files changed, 20 insertions(+), 37 deletions(-)
 
-diff --git a/net/core/secure_seq.c b/net/core/secure_seq.c
-index 88a8e429fc3e..3dc2689bcc64 100644
---- a/net/core/secure_seq.c
-+++ b/net/core/secure_seq.c
-@@ -1,3 +1,5 @@
-+/* Copyright (C) 2016 Jason A. Donenfeld <Jason@zx2c4.com>. All Rights Reserved. */
-+
- #include <linux/kernel.h>
- #include <linux/init.h>
- #include <linux/cryptohash.h>
-@@ -8,14 +10,14 @@
- #include <linux/ktime.h>
- #include <linux/string.h>
- #include <linux/net.h>
--
+diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
+index 3e88467d70ee..03bb068f8888 100644
+--- a/net/ipv4/syncookies.c
++++ b/net/ipv4/syncookies.c
+@@ -13,13 +13,13 @@
+ #include <linux/tcp.h>
+ #include <linux/slab.h>
+ #include <linux/random.h>
+-#include <linux/cryptohash.h>
 +#include <linux/siphash.h>
- #include <net/secure_seq.h>
- 
- #if IS_ENABLED(CONFIG_IPV6) || IS_ENABLED(CONFIG_INET)
-+#include <linux/in6.h>
+ #include <linux/kernel.h>
+ #include <linux/export.h>
  #include <net/tcp.h>
--#define NET_SECRET_SIZE (MD5_MESSAGE_BYTES / 4)
+ #include <net/route.h>
  
--static u32 net_secret[NET_SECRET_SIZE] ____cacheline_aligned;
-+static siphash_key_t net_secret;
+-static u32 syncookie_secret[2][16-4+SHA_DIGEST_WORDS] __read_mostly;
++static siphash_key_t syncookie_secret[2] __read_mostly;
  
- static __always_inline void net_secret_init(void)
- {
-@@ -44,80 +46,65 @@ static u32 seq_scale(u32 seq)
- u32 secure_tcpv6_sequence_number(const __be32 *saddr, const __be32 *daddr,
- 				 __be16 sport, __be16 dport, u32 *tsoff)
- {
--	u32 secret[MD5_MESSAGE_BYTES / 4];
--	u32 hash[MD5_DIGEST_WORDS];
--	u32 i;
+ #define COOKIEBITS 24	/* Upper bits store count */
+ #define COOKIEMASK (((__u32)1 << COOKIEBITS) - 1)
+@@ -48,24 +48,12 @@ static u32 syncookie_secret[2][16-4+SHA_DIGEST_WORDS] __read_mostly;
+ #define TSBITS	6
+ #define TSMASK	(((__u32)1 << TSBITS) - 1)
+ 
+-static DEFINE_PER_CPU(__u32 [16 + 5 + SHA_WORKSPACE_WORDS], ipv4_cookie_scratch);
 -
+ static u32 cookie_hash(__be32 saddr, __be32 daddr, __be16 sport, __be16 dport,
+ 		       u32 count, int c)
+ {
+-	__u32 *tmp;
+-
+ 	net_get_random_once(syncookie_secret, sizeof(syncookie_secret));
+-
+-	tmp  = this_cpu_ptr(ipv4_cookie_scratch);
+-	memcpy(tmp + 4, syncookie_secret[c], sizeof(syncookie_secret[c]));
+-	tmp[0] = (__force u32)saddr;
+-	tmp[1] = (__force u32)daddr;
+-	tmp[2] = ((__force u32)sport << 16) + (__force u32)dport;
+-	tmp[3] = count;
+-	sha_transform(tmp + 16, (__u8 *)tmp, tmp + 16 + 5);
+-
+-	return tmp[17];
++	return siphash_4u32(saddr, daddr, (u32)sport << 16 | dport, count,
++			    syncookie_secret[c]);
+ }
+ 
+ 
+diff --git a/net/ipv6/syncookies.c b/net/ipv6/syncookies.c
+index a4d49760bf43..be51fc0d99ad 100644
+--- a/net/ipv6/syncookies.c
++++ b/net/ipv6/syncookies.c
+@@ -16,7 +16,7 @@
+ 
+ #include <linux/tcp.h>
+ #include <linux/random.h>
+-#include <linux/cryptohash.h>
++#include <linux/siphash.h>
+ #include <linux/kernel.h>
+ #include <net/ipv6.h>
+ #include <net/tcp.h>
+@@ -24,7 +24,7 @@
+ #define COOKIEBITS 24	/* Upper bits store count */
+ #define COOKIEMASK (((__u32)1 << COOKIEBITS) - 1)
+ 
+-static u32 syncookie6_secret[2][16-4+SHA_DIGEST_WORDS] __read_mostly;
++static siphash_key_t syncookie6_secret[2] __read_mostly;
+ 
+ /* RFC 2460, Section 8.3:
+  * [ipv6 tcp] MSS must be computed as the maximum packet size minus 60 [..]
+@@ -41,30 +41,25 @@ static __u16 const msstab[] = {
+ 	9000 - 60,
+ };
+ 
+-static DEFINE_PER_CPU(__u32 [16 + 5 + SHA_WORKSPACE_WORDS], ipv6_cookie_scratch);
+-
+ static u32 cookie_hash(const struct in6_addr *saddr, const struct in6_addr *daddr,
+ 		       __be16 sport, __be16 dport, u32 count, int c)
+ {
+-	__u32 *tmp;
 +	const struct {
 +		struct in6_addr saddr;
 +		struct in6_addr daddr;
-+		__be16 sport;
-+		__be16 dport;
++		u32 count;
++		u16 sport;
++		u16 dport;
 +	} __aligned(SIPHASH_ALIGNMENT) combined = {
-+		.saddr = *(struct in6_addr *)saddr,
-+		.daddr = *(struct in6_addr *)daddr,
++		.saddr = *saddr,
++		.daddr = *daddr,
++		.count = count,
 +		.sport = sport,
 +		.dport = dport
 +	};
-+	u64 hash;
- 	net_secret_init();
--	memcpy(hash, saddr, 16);
--	for (i = 0; i < 4; i++)
--		secret[i] = net_secret[i] + (__force u32)daddr[i];
--	secret[4] = net_secret[4] +
--		(((__force u16)sport << 16) + (__force u16)dport);
--	for (i = 5; i < MD5_MESSAGE_BYTES / 4; i++)
--		secret[i] = net_secret[i];
--
--	md5_transform(hash, secret);
--
--	*tsoff = sysctl_tcp_timestamps == 1 ? hash[1] : 0;
--	return seq_scale(hash[0]);
-+	hash = siphash(&combined, offsetofend(typeof(combined), dport), net_secret);
-+	*tsoff = sysctl_tcp_timestamps == 1 ? (hash >> 32) : 0;
-+	return seq_scale(hash);
- }
- EXPORT_SYMBOL(secure_tcpv6_sequence_number);
  
- u32 secure_ipv6_port_ephemeral(const __be32 *saddr, const __be32 *daddr,
- 			       __be16 dport)
- {
--	u32 secret[MD5_MESSAGE_BYTES / 4];
--	u32 hash[MD5_DIGEST_WORDS];
--	u32 i;
+ 	net_get_random_once(syncookie6_secret, sizeof(syncookie6_secret));
 -
-+	const struct {
-+		struct in6_addr saddr;
-+		struct in6_addr daddr;
-+		__be16 dport;
-+	} __aligned(SIPHASH_ALIGNMENT) combined = {
-+		.saddr = *(struct in6_addr *)saddr,
-+		.daddr = *(struct in6_addr *)daddr,
-+		.dport = dport
-+	};
- 	net_secret_init();
--	memcpy(hash, saddr, 16);
--	for (i = 0; i < 4; i++)
--		secret[i] = net_secret[i] + (__force u32) daddr[i];
--	secret[4] = net_secret[4] + (__force u32)dport;
--	for (i = 5; i < MD5_MESSAGE_BYTES / 4; i++)
--		secret[i] = net_secret[i];
+-	tmp  = this_cpu_ptr(ipv6_cookie_scratch);
 -
--	md5_transform(hash, secret);
+-	/*
+-	 * we have 320 bits of information to hash, copy in the remaining
+-	 * 192 bits required for sha_transform, from the syncookie6_secret
+-	 * and overwrite the digest with the secret
+-	 */
+-	memcpy(tmp + 10, syncookie6_secret[c], 44);
+-	memcpy(tmp, saddr, 16);
+-	memcpy(tmp + 4, daddr, 16);
+-	tmp[8] = ((__force u32)sport << 16) + (__force u32)dport;
+-	tmp[9] = count;
+-	sha_transform(tmp + 16, (__u8 *)tmp, tmp + 16 + 5);
 -
--	return hash[0];
-+	return siphash(&combined, offsetofend(typeof(combined), dport), net_secret);
- }
- EXPORT_SYMBOL(secure_ipv6_port_ephemeral);
- #endif
- 
- #ifdef CONFIG_INET
- 
-+/* secure_tcp_sequence_number(a, b, 0, d) == secure_ipv4_port_ephemeral(a, b, d),
-+ * but fortunately, `sport' cannot be 0 in any circumstances. If this changes,
-+ * it would be easy enough to have the former function use siphash_4u32, passing
-+ * the arguments as separate u32.
-+ */
-+
- u32 secure_tcp_sequence_number(__be32 saddr, __be32 daddr,
- 			       __be16 sport, __be16 dport, u32 *tsoff)
- {
--	u32 hash[MD5_DIGEST_WORDS];
--
-+	u64 hash;
- 	net_secret_init();
--	hash[0] = (__force u32)saddr;
--	hash[1] = (__force u32)daddr;
--	hash[2] = ((__force u16)sport << 16) + (__force u16)dport;
--	hash[3] = net_secret[15];
--
--	md5_transform(hash, net_secret);
--
--	*tsoff = sysctl_tcp_timestamps == 1 ? hash[1] : 0;
--	return seq_scale(hash[0]);
-+	hash = siphash_3u32(saddr, daddr, (u32)sport << 16 | dport, net_secret);
-+	*tsoff = sysctl_tcp_timestamps == 1 ? (hash >> 32) : 0;
-+	return seq_scale(hash);
+-	return tmp[17];
++	return siphash(&combined, offsetofend(typeof(combined), dport), syncookie6_secret[c]);
  }
  
- u32 secure_ipv4_port_ephemeral(__be32 saddr, __be32 daddr, __be16 dport)
- {
--	u32 hash[MD5_DIGEST_WORDS];
--
- 	net_secret_init();
--	hash[0] = (__force u32)saddr;
--	hash[1] = (__force u32)daddr;
--	hash[2] = (__force u32)dport ^ net_secret[14];
--	hash[3] = net_secret[15];
--
--	md5_transform(hash, net_secret);
--
--	return hash[0];
-+	return siphash_3u32(saddr, daddr, dport, net_secret);
- }
- EXPORT_SYMBOL_GPL(secure_ipv4_port_ephemeral);
- #endif
-@@ -126,21 +113,11 @@ EXPORT_SYMBOL_GPL(secure_ipv4_port_ephemeral);
- u64 secure_dccp_sequence_number(__be32 saddr, __be32 daddr,
- 				__be16 sport, __be16 dport)
- {
--	u32 hash[MD5_DIGEST_WORDS];
- 	u64 seq;
--
- 	net_secret_init();
--	hash[0] = (__force u32)saddr;
--	hash[1] = (__force u32)daddr;
--	hash[2] = ((__force u16)sport << 16) + (__force u16)dport;
--	hash[3] = net_secret[15];
--
--	md5_transform(hash, net_secret);
--
--	seq = hash[0] | (((u64)hash[1]) << 32);
-+	seq = siphash_3u32(saddr, daddr, (u32)sport << 16 | dport, net_secret);
- 	seq += ktime_get_real_ns();
- 	seq &= (1ull << 48) - 1;
--
- 	return seq;
- }
- EXPORT_SYMBOL(secure_dccp_sequence_number);
-@@ -149,26 +126,22 @@ EXPORT_SYMBOL(secure_dccp_sequence_number);
- u64 secure_dccpv6_sequence_number(__be32 *saddr, __be32 *daddr,
- 				  __be16 sport, __be16 dport)
- {
--	u32 secret[MD5_MESSAGE_BYTES / 4];
--	u32 hash[MD5_DIGEST_WORDS];
-+	const struct {
-+		struct in6_addr saddr;
-+		struct in6_addr daddr;
-+		__be16 sport;
-+		__be16 dport;
-+	} __aligned(SIPHASH_ALIGNMENT) combined = {
-+		.saddr = *(struct in6_addr *)saddr,
-+		.daddr = *(struct in6_addr *)daddr,
-+		.sport = sport,
-+		.dport = dport
-+	};
- 	u64 seq;
--	u32 i;
--
- 	net_secret_init();
--	memcpy(hash, saddr, 16);
--	for (i = 0; i < 4; i++)
--		secret[i] = net_secret[i] + (__force u32)daddr[i];
--	secret[4] = net_secret[4] +
--		(((__force u16)sport << 16) + (__force u16)dport);
--	for (i = 5; i < MD5_MESSAGE_BYTES / 4; i++)
--		secret[i] = net_secret[i];
--
--	md5_transform(hash, secret);
--
--	seq = hash[0] | (((u64)hash[1]) << 32);
-+	seq = siphash(&combined, offsetofend(typeof(combined), dport), net_secret);
- 	seq += ktime_get_real_ns();
- 	seq &= (1ull << 48) - 1;
--
- 	return seq;
- }
- EXPORT_SYMBOL(secure_dccpv6_sequence_number);
+ static __u32 secure_tcp_syn_cookie(const struct in6_addr *saddr,
 -- 
 2.11.0
