@@ -1,42 +1,38 @@
-From: Andy Shevchenko <andy.shevchenko@gmail.com>
-Subject: Re: [PATCHv1 1/7] TAP: Refactoring macvtap.c
-Date: Sat, 7 Jan 2017 01:12:38 +0200
-Message-ID: <CAHp75VeXGW6MC7_ATwiXvHpO1qPkYEOrVZdbRy0K1HxM1_tTEw@mail.gmail.com>
-References: <1483742009-19184-1-git-send-email-sainath.grandhi@intel.com> <1483742009-19184-2-git-send-email-sainath.grandhi@intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCHv1 7/7] IPVTAP: IP-VLAN based tap driver
+Date: Fri, 06 Jan 2017 15:14:03 -0800
+Message-ID: <1483744443.9712.45.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1483742009-19184-1-git-send-email-sainath.grandhi@intel.com>
+         <1483742009-19184-8-git-send-email-sainath.grandhi@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>, mahesh@bandewar.net,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, mahesh@bandewar.net,
+        linux-kernel@vger.kernel.org
 To: Sainath Grandhi <sainath.grandhi@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1483742009-19184-2-git-send-email-sainath.grandhi@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:32781 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755753AbdAFXOF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 6 Jan 2017 18:14:05 -0500
+In-Reply-To: <1483742009-19184-8-git-send-email-sainath.grandhi@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 7, 2017 at 12:33 AM, Sainath Grandhi
-<sainath.grandhi@intel.com> wrote:
-> macvtap module has code for tap/queue management and link management. This patch splits
-> the code into macvtap_main.c for link management and tap.c for tap/queue management.
-> Functionality in tap.c can be re-used for implementing tap on other virtual interfaces.
->
+On Fri, 2017-01-06 at 14:33 -0800, Sainath Grandhi wrote:
+> This patch adds a tap character device driver that is based on the
+> IP-VLAN network interface, called ipvtap. An ipvtap device can be created
+> in the same way as an ipvlan device, using 'type ipvtap', and then accessed
+> using the tap user space interface.
+> 
 > Signed-off-by: Sainath Grandhi <sainath.grandhi@intel.com>
 > Tested-by: Sainath Grandhi <sainath.grandhi@intel.com>
 > ---
->  drivers/net/Makefile       |    2 +
->  drivers/net/macvtap.c      | 1374 --------------------------------------------
->  drivers/net/macvtap_main.c |  218 +++++++
->  drivers/net/tap.c          | 1186 ++++++++++++++++++++++++++++++++++++++
->  include/linux/if_macvtap.h |   10 +
->  5 files changed, 1416 insertions(+), 1374 deletions(-)
->  delete mode 100644 drivers/net/macvtap.c
->  create mode 100644 drivers/net/macvtap_main.c
->  create mode 100644 drivers/net/tap.c
->  create mode 100644 include/linux/if_macvtap.h
-
-Can you use -M -C for better view of this change? It's really hard to review.
 
 
--- 
-With Best Regards,
-Andy Shevchenko
+> +module_exit(ipvtap_exit);
+> +MODULE_ALIAS_RTNL_LINK("ipvtap");
+> +MODULE_AUTHOR("Arnd Bergmann <arnd@arndb.de>");
+> +MODULE_LICENSE("GPL");
+
+Who wrote this driver exactly ???
