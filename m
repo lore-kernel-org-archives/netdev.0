@@ -1,185 +1,66 @@
-From: Jerome Brunet <jbrunet@baylibre.com>
-Subject: Re: [PATCH net-next v4 0/4] Fix OdroidC2 Gigabit Tx link issue
-Date: Fri, 06 Jan 2017 14:50:21 +0100
-Message-ID: <1483710621.28003.74.camel@baylibre.com>
-References: <1480348229-25672-1-git-send-email-jbrunet@baylibre.com>
- <049b1efc-3bad-92e0-45ef-0563dc5d81de@gmail.com>
- <20170105232508.GU14217@n2100.armlinux.org.uk>
- <1483697496.28003.40.camel@baylibre.com>
- <20170106114226.GX14217@n2100.armlinux.org.uk>
+From: Felix Fietkau <nbd@nbd.name>
+Subject: Re: [PATCH net-next] bridge: multicast to unicast
+Date: Fri, 6 Jan 2017 14:52:47 +0100
+Message-ID: <8836daaa-9638-4502-d079-fd428595f822@nbd.name>
+References: <20170102193214.31723-1-linus.luessing@c0d3.blue>
+ <1483706872.4089.8.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Andrew Lunn <andrew@lunn.ch>, Florian Fainelli <f.fainelli@gmail.com>,
- Alexandre TORGUE <alexandre.torgue@st.com>,
- Neil Armstrong <narmstrong@baylibre.com>,
- Martin Blumenstingl <martin.blumenstingl@googlemail.com>,
- netdev@vger.kernel.org, Giuseppe Cavallaro <peppe.cavallaro@st.com>,
- linux-kernel@vger.kernel.org, Yegor Yefremov <yegorslists@googlemail.com>,
- Julia Lawall <julia.lawall@lip6.fr>, devicetree@vger.kernel.org,
- Andre Roth <neolynx@gmail.com>, Kevin Hilman <khilman@baylibre.com>,
- Carlo Caione <carlo@caione.org>, linux-amlogic@lists.infradead.org,
- Andreas =?ISO-8859-1?Q?F=E4rber?= <afaerber@suse.de>,
- linux-arm-kernel@lists.infradead.org
-To: Russell King - ARM Linux <linux@armlinux.org.uk>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20170106114226.GX14217@n2100.armlinux.org.uk>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: "David S . Miller" <davem@davemloft.net>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
+        linux-wireless@vger.kernel.org,
+        Michael Braun <michael-dev@fami-braun.de>
+To: Johannes Berg <johannes@sipsolutions.net>,
+        =?UTF-8?Q?Linus_L=c3=bcssing?= <linus.luessing@c0d3.blue>,
+        netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nbd.name ([46.4.11.11]:33623 "EHLO nbd.name"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751428AbdAFNww (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 6 Jan 2017 08:52:52 -0500
+In-Reply-To: <1483706872.4089.8.camel@sipsolutions.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gRnJpLCAyMDE3LTAxLTA2IGF0IDExOjQyICswMDAwLCBSdXNzZWxsIEtpbmcgLSBBUk0gTGlu
-dXggd3JvdGU6Cj4gT24gRnJpLCBKYW4gMDYsIDIwMTcgYXQgMTE6MTE6MzZBTSArMDEwMCwgSmVy
-b21lIEJydW5ldCB3cm90ZToKPiA+IAo+ID4gVGhlIHB1cnBvc2Ugb2YgdGhpcyBwYXRjaCBpcyB0
-byBwcm92aWRlIGEgd2F5IHRvIG1hcmsgYXMgYnJva2VuIGEKPiA+IHBhcnRpY3VsYXIgZWVlIG1v
-ZGUuIEF0IGZpcnN0LCBpdCBoYWQgbm90aGluZyB0byBkbyB3aXRoICJzZXRfZWVlIgo+ID4gYnV0
-LAo+ID4gYXMgRmxvcmlhbiByaWdodGx5IHBvaW50ZWQgb3V0LCB1c2VycyBzaG91bGRuJ3QgYmUg
-YWJsZSB0byByZS0KPiA+IGVuYWJsZSBhCj4gPiBicm9rZW4gbW9kZS4KPiAKPiBJIHRoaW5rIHNv
-bWV0aGluZyBlbHNlIGhhcyBiZWVuIG1pc3NlZCAtIEkgZG9uJ3Qgc2VlIG11Y2ggcG9pbnQgdG8K
-PiB0ZWxsaW5nIHVzZXJzcGFjZSB0aGF0IChlZykgMTAwMGJhc2VUIEVFRSBpcyBzdXBwb3J0ZWQg
-YW5kIHRoZW4KPiBpZ25vcmUgYXR0ZW1wdHMgdG8gYWR2ZXJ0aXNlIGl0Lgo+IAo+IElmIGl0J3Mg
-YnJva2VuLCB0aGVuIGFyZ3VhYmx5IHRoZSBoYXJkd2FyZSBkb2Vzbid0IHN1cHBvcnQgdGhlIG1v
-ZGUsCj4gc28gd2Ugc2hvdWxkIHJlYWxseSBiZSBtYXNraW5nIHRob3NlIGJpdHMgZnJvbSB0aGUg
-RUVFIHN1cHBvcnRlZCBtYXNrCj4gYXMgd2VsbC4KCmluZGVlZC4KCj4gCj4gPiAKWy4uLl0KPiAK
-PiA+IAo+ID4gPiAKPiA+ID4gwqAtIG1heWJlIHRoZSBwcm9ibGVtIGhlcmUgaXMgdGhhdCB0aGUg
-UENTIGRvZXNuJ3Qgc3VwcG9ydCBzdXBwb3J0Cj4gPiA+IEVFRSBpbiAxMDAwYmFzZVQgbW9kZT8K
-PiA+IAo+ID4gCj4gPiBJdCBkb2VzLCBhbmQgdGhhdCdzIGtpbmQgb2YgdGhlIHByb2JsZW0uIEVF
-RSBpbiBPTiBmb3IgMTAwVHggYW5kCj4gPiAxMDAwVAo+ID4gYnkgZGVmYXVsdCB3aXRoIHRoaXMg
-UEhZLiBJIGhhdmUgc2V2ZXJhbCBwbGF0Zm9ybSB3aXRoIHRoZSBzYW1lCj4gPiBNQUMtUEhZwqAK
-PiA+IGNvbWJpbmF0aW9uLiBPbmx5IHRoZSBPZHJvaWRDMiBzaG93cyB0aGlzIHBhcnRpY3VsYXIg
-aXNzdWUgd2l0aAo+ID4gMTAwMFQtCj4gPiBFRUUKPiA+IAo+ID4gQXMgZXhwbGFpbmVkIGluIG90
-aGVyIG1haWxzIGluIHRoaXMgdGhyZWFkLiBUaGUgcHJvYmxlbSBkb2VzIG5vdAo+ID4gY29tZQo+
-ID4gZnJvbSB0aGUgTUFDIGVudGVyaW5nIExQSS4gSXQgYWN0dWFsbHkgY29tZXMgZnJvbSB0aGUg
-bGluayBwYXJ0bmVyCj4gPiBlbnRlcmluZyBMUEkgb24gdGhlIFJ4IHBhdGggdW5kZXIgc2lnbmlm
-aWNhbnQgVHggdHJhbnNmZXIuIEZvciBzb21lCj4gPiByZWFzb24sIHRoaXMgY29tcGxldGVseSBt
-ZXNzIHVwIG91ciBQSFkuCj4gCj4gRm9yIGEgMTAwMGJhc2VUIGxpbmsgdG8gZW50ZXIgbG93IHBv
-d2VyLCBib3RoIGVuZHMgaGF2ZSB0byBlbnRlciBMUEkKPiAoc2VlIDgwMi4zIDc4LjEuMy4zLjEp
-IC0gdGhlIFR4IGFuZCBSeCBwYXRocyBjYW4ndCBpbmRlcGVuZGVudGx5Cj4gZW50ZXIKPiBMUEku
-Cj4gCj4gU28sIGlmIHlvdSBoYXZlIGEgYnVzeSBUeCBsaW5rLCB0aGUgbGluayBpdHNlbGYgY2Fu
-J3QgYmUgZW50ZXJpbmcKPiBMUEkuCj4gWW91ciBsaW5rIHBhcnRuZXIgbWF5IGJlIHNlbmRpbmcg
-YSByZXF1ZXN0IHRvIGVudGVyIExQSSBkdWUgdG8gaXRzCj4gb3duCj4gVHggcGF0aCBiZWluZyBp
-ZGxlLCB3aGljaCBzaG91bGQgdGhlbiBiZSBmb3J3YXJkZWQgdG8geW91ciBNQUMuCj4gCj4gSXQn
-cyBwcmV0dHkgaGFyZCB0byBzZWUgd2hhdCBjb3VsZCBiZSBtZXNzZWQgdXAgd2l0aCB0aGF0IC0g
-SSdkIGhhdmUKPiBleHBlY3RlZCB0aGUgcHJvYmxlbXMgdG8gb2NjdXIgd2hlbiBib3RoIGVuZHMg
-d2VyZSBpZGxlIGFuZCB0aGUgbGluawo+IGhhZCBlbnRlcmVkIGxvdyBwb3dlciBtb2RlLgoKV2Vs
-bCwgbWF5YmUgSSdtIG5vdCBleHBsYWluaW5nIHRoZSBpc3N1ZSB2ZXJ5IHdlbGwuIEhlcmUgdGhl
-IHRlc3QgZG9uZQp3aGljaCBsZWQgbWUgdG8gdGhpcyBjb25jbHVzaW9uOgoKVGhlwqB0ZXN0wqBh
-cmXCoGRvbmXCoHVzaW5nwqBpcGVyZi4gUmVjZWl2aW5nIGRhdGEgd29ya3Mgd2VsbCwgd2l0aCB0
-aGUKZXhwZWN0ZWQgcGVyZm9ybWFuY2UuIFNlbmRpbmcgZGF0YSBpcyB0aGUgcHJvYmxlbSwgYW5k
-IG9ubHkgdW5kZXIgaGlnaApsb2FkOgoKSGVyZSBhcmUgdGhlIGxwaSBzdGF0cyBiZWZvcmUgc3Rh
-cnRpbmcgdGhlIHRlc3Q6CsKgIMKgIMKgaXJxX3R4X3BhdGhfaW5fbHBpX21vZGVfbjogNgrCoMKg
-wqDCoMKgaXJxX3R4X3BhdGhfZXhpdF9scGlfbW9kZV9uOiA1CsKgwqDCoMKgwqBpcnFfcnhfcGF0
-aF9pbl9scGlfbW9kZV9uOiA3NgrCoMKgwqDCoMKgaXJxX3J4X3BhdGhfZXhpdF9scGlfbW9kZV9u
-OiA3NQrCoMKgwqDCoMKgcGh5X2VlZV93YWtldXBfZXJyb3JfbjogMAoKU2VuZGluZyBkYXRhIHdp
-dGggaXBlcmYgdXN1YWxseSB3b3JrcyBmb3IgbGl0dGxlIHdoaWxlIChiZXR3ZWVuIDAgYW5kCjEw
-cykKCiMgaXBlcmYzIC1jIDE5Mi4xNjguMS4xNzAgLXAxMjM0NQpDb25uZWN0aW5nIHRvIGhvc3Qg
-MTkyLjE2OC4xLjE3MCwgcG9ydCAxMjM0NQpsb2NhbCAxOTIuMTY4LjEuMzAgcG9ydCA1NDQ1MCBj
-b25uZWN0ZWQgdG8gMTkyLjE2OC4xLjE3MCBwb3J0IDEyMzQ1CkludGVydmFswqDCoMKgwqDCoMKg
-wqDCoMKgwqDCoFRyYW5zZmVywqDCoMKgwqDCoEJhbmR3aWR0aMKgwqDCoMKgwqDCoMKgUmV0csKg
-wqBDd25kCjAuMDAtMS4wMMKgwqDCoHNlY8KgwqDCoDExMiBNQnl0ZXPCoMKgwqA5MzggTWJpdHMv
-c2VjwqDCoMKgwqAwwqDCoMKgwqA0MDkgS0J5dGVzwqDCoMKgwqDCoMKgwqAKMS4wMC0yLjAwwqDC
-oMKgc2VjwqDCoMKgMTEyIE1CeXRlc8KgwqDCoDk0MCBNYml0cy9zZWPCoMKgwqDCoDDCoMKgwqDC
-oDQyNiBLQnl0ZXPCoMKgwqDCoMKgwqDCoAoyLjAwLTMuMDDCoMKgwqBzZWPCoMKgwqAxMTIgTUJ5
-dGVzwqDCoMKgOTM5IE1iaXRzL3NlY8KgwqDCoMKgMMKgwqDCoMKgNDI2IEtCeXRlc8KgwqDCoMKg
-wqDCoMKgCjMuMDAtNC4wMMKgwqDCoHNlY8KgwqDCoDExMiBNQnl0ZXPCoMKgwqA5NDAgTWJpdHMv
-c2VjwqDCoMKgwqAwwqDCoMKgwqA0MjYgS0J5dGVzwqDCoMKgwqDCoMKgwqAKNC4wMC01LjAwwqDC
-oMKgc2VjwqDCoMKgMTEyIE1CeXRlc8KgwqDCoDk0MCBNYml0cy9zZWPCoMKgwqDCoDDCoMKgwqDC
-oDQyNiBLQnl0ZXPCoMKgwqDCoMKgwqDCoAo1LjAwLTYuMDDCoMKgwqBzZWPCoMKgwqAxMTIgTUJ5
-dGVzwqDCoMKgOTM5IE1iaXRzL3NlY8KgwqDCoMKgMMKgwqDCoMKgNDI2IEtCeXRlc8KgwqDCoMKg
-wqDCoMKgCjYuMDAtNy4wMMKgwqDCoHNlY8KgwqA5LjI2IE1CeXRlc8KgwqA3Ny42IE1iaXRzL3Nl
-Y8KgwqDCoMKgMsKgwqDCoDEuNDEgS0J5dGVzIDw9SXNzdWUKwqAgwqAKNy4wMC04LjAwwqDCoMKg
-c2VjwqDCoDAuMDAgQnl0ZXPCoMKgMC4wMCBiaXRzL3NlY8KgwqDCoMKgMcKgwqDCoDEuNDEgS0J5
-dGVzwqDCoMKgwqDCoMKgwqAKOC4wMC05LjAwwqDCoMKgc2VjwqDCoDAuMDAgQnl0ZXPCoMKgMC4w
-MCBiaXRzL3NlY8KgwqDCoMKgMMKgwqDCoDEuNDEgS0J5dGVzwqDCoMKgwqDCoMKgwqAKXkMxMC4w
-MC0xMy41OMKgwqBzZWPCoMKgMC4wMCBCeXRlc8KgwqAwLjAwIGJpdHMvc2VjwqDCoMKgwqAxwqDC
-oMKgMS40MSBLQnl0ZXPCoMKgwqDCoMKgwqDCoAotIC0gLSAtIC0gLSAtIC0gLSAtIC0gLSAtIC0g
-LSAtIC0gLSAtIC0gLSAtIC0gLSAtCkludGVydmFswqDCoMKgwqDCoMKgwqDCoMKgwqDCoFRyYW5z
-ZmVywqDCoMKgwqDCoEJhbmR3aWR0aMKgwqDCoMKgwqDCoMKgUmV0cgowLjAwLTEzLjU4wqDCoHNl
-Y8KgwqDCoDY4MSBNQnl0ZXPCoMKgwqA0MjEgTWJpdHMvc2VjwqDCoMKgwqA0wqDCoMKgwqDCoMKg
-wqDCoMKgwqDCoMKgwqBzZW5kZXIKMC4wMC0xMy41OMKgwqBzZWPCoMKgMC4wMCBCeXRlc8KgwqAw
-LjAwIGJpdHMvc2VjwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgcmVjZWl2ZXIK
-aXBlcmYzOiBpbnRlcnJ1cHQgLSB0aGUgY2xpZW50IGhhcyB0ZXJtaW5hdGVkCgppcGVyZjMgZG9l
-cyBub3QgZXhpdCBhbnQgdGhlIGxpbmsgc2VlbXMgY29tcGxldGVseSBicm9rZW4uIFdlIGNhbm5v
-dApzZW5kIG9yIHJlY2VpdmUgdW50aWwgdGhlIGludGVyZmFjZSBpcyBicm91Z2h0IGRvd24gdGhl
-biB1cCBhZ2Fpbi4KCkhlcmUgYXJlIHRoZSBMUEkgcmVsYXRlZCBzdGF0cyBhZnRlciB0aGUgdGVz
-dDoKwqDCoMKgwqDCoGlycV90eF9wYXRoX2luX2xwaV9tb2RlX246IDQ4CsKgwqDCoMKgwqBpcnFf
-dHhfcGF0aF9leGl0X2xwaV9tb2RlX246IDQ4CsKgwqDCoMKgwqBpcnFfcnhfcGF0aF9pbl9scGlf
-bW9kZV9uOiAzMjUKwqDCoMKgwqDCoGlycV9yeF9wYXRoX2V4aXRfbHBpX21vZGVfbjogMzI1CsKg
-wqDCoMKgwqBwaHlfZWVlX3dha2V1cF9lcnJvcl9uOiAwCgoKVGhpcyBoYXBwZW5zIHdpdGggOgox
-KSBEZWZhdWx0IGNvbmZpZ3VyYXRpb246IEVFRSBlbmFibGVkIG9uIHRoZSBNQUMsIFBIWSB3aXRo
-IHJlc2V0CnNldHRpbmdzIChFRUUgYWR2ZXJ0aXNlZCkKMikgRUVFIGRpc2FibGVkIG9uIHRoZSBN
-QUMsIFBIWSBzdGlsbCB3aXRoIHJlc2V0IHNldHRpbmdzIChFRUUKYWR2ZXJ0aXNlZCkuIEluIHN1
-Y2ggY2FzZSB0aGVyZSBpcyBubyBpcnFfdHhfcGF0aF8qX2xwaV9tb2RlIGludGVycnVwdHMKYXQg
-YWxsIGJ1dCBzdGlsbCBhIGxvdCBvZiBpcnFfcnhfcGF0aF8qX2xwaV9tb2RlIGludGVycnVwdHMu
-IFNvIGV2ZW4gaWYKdGhlIG1hYyBkb2VzIG5vdCBkcml2ZSBhbnl0aGluZyBFRUUgcmVsYXRlZCwg
-dGhlcmUgaXMgc3RpbGwgc29tZXRoaW5nCmhhcHBlbmluZyBiZXR3ZWVuIHRoZSBQSFkgYW5kIHRo
-ZSBsaW5rIHBhcnRuZXIgcmVnYXJkaW5nIEVFRS4KCjMpIERpc2FibGluZyBFRUUgYWR2ZXJ0aXNl
-bWVudCBmb3IgMTAwMHQ6IG5vIGlycV8qX2xwaV9tb2RlIGF0IGFsbC4gVGhlCmZlYXR1cmUgaXMg
-bm90IG5lZ290aWF0ZWQgYW5kIHRoZSBUeCB3b3JrcyB3ZWxsLgoKQnkgdGhlIHdheSwgRUVFIHdv
-cmsgd2VsbCBmb3IgdGhlIDEwMHR4IG9uIHRoZSBzYW1lIEhXLgoKPiAKPiA+IAo+ID4gPiAKPiA+
-ID4gT24gdGhlIFNvbGlkUnVuIGJvYXJkcywgdGhleSdyZSB1c2luZyBBUjgwMzUsIGFuZCBoYXZl
-IHN1ZmZlcmVkCj4gPiA+IHRoaXMKPiA+ID4gb2NjYXNpb25hbCBsaW5rIGRyb3AgcHJvYmxlbS7C
-oMKgV2hhdCBoYXMgYmVlbiBmb3VuZCBpcyB0aGF0IGl0Cj4gPiA+IHNlZW1zCj4gPiA+IHRvCj4g
-PiA+IGJlIHRvIGRvIHdpdGggdGhlIHRpbWluZyBwYXJhbWV0ZXJzLCBhbmQgaXQgc2VlbWVkIHRv
-IG9ubHkgYmUKPiA+ID4gMTAwMGJUCj4gPiA+IHRoYXQgd2FzIGFmZmVjdGVkLsKgwqBJIGRvbid0
-IHJlbWVtYmVyIG9mZiBoYW5kIGV4YWN0bHkgd2hpY2ggb3IKPiA+ID4gd2hhdAo+ID4gPiB0aGUg
-Y2hhbmdlIHdhcyB0aGV5IG1hZGUgdG8gc3RhYmlsaXNlIGl0IHRob3VnaCwgYnV0IEkgY2FuCj4g
-PiA+IHByb2JhYmlseQo+ID4gPiBmaW5kIG91dCB0b21vcnJvdy4KPiA+ID4gCj4gPiAKPiA+IFNp
-bmNlIHRoZSBzYW1lIGNvbWJpbmF0aW9uIG9mIE1BQy1QSFkgd29ya3Mgd2VsbCBvbiBvdGhlciBk
-ZXNpZ25zLAo+ID4gaXQKPiA+IGlzIGFsc28gbXkgZmVlbGluZyB0aGF0IGlzIGhhcyBzb21ldGhp
-bmcgdG8gZG8gd2l0aCBzb21lIHRpbWluZwo+ID4gcGFyYW1ldGVyLCBtYXliZSByZWxhdGVkIHRv
-IHRoaXMgcGFydGljdWxhciBQQ0IuCj4gCj4gTWF5YmUgYSBkaWZmZXJlbnQgUEhZIGludGVyZmFj
-ZT/CoMKgTWVzb24gc2VlbXMgdG8gdXNlIFJHTUlJLCBtYXliZQo+IG90aGVycyB1c2UgU0dNSUkg
-LSBidXQgdGhlbiBJJ2QgZXhwZWN0IDEwMGJhc2UtVHggdG8gYWxzbyBiZSBicm9rZW4uCj4gU28g
-bm90IHJlYWxseSBzdXJlLgoKTm9wZSwgc2FtZSBpbnRlcmZhY2UgKFJHTUlJKSwgc2FtZSBTb0Mu
-IE9ubHkgdGhlIFBDQiBsYXlvdXQgYW5kCmV4dGVybmFsIGNvbXBvbmVudHMgbWlnaHQgYmUgZGlm
-ZmVyZW50LgoKPiAKPiBJIHdhcyB0YWxraW5nIHRvIEZsb3JpYW4gYWJvdXQgdGhhdCBsYXN0IG5p
-Z2h0LCBiZWNhdXNlIHRoZSBtaXMtbmFtZWQKPiBwaHlfaW5pdF9lZWUoKSB0ZXN0cyBmb3IgdmFy
-aW91cyBwaHkgaW50ZXJmYWNlIG1vZGVzIGJlZm9yZQo+IHByb2NlZWRpbmcsCj4gd2hpY2ggc2Vl
-bXMgdG8gYmUgZmFpcmx5IHJ1YmJpc2ggYXMgdGhlIGxpc3Qgb2YgaW50ZXJmYWNlIG1vZGVzIGlz
-Cj4gZ3JhZHVhbGx5IGluY3JlYXNpbmcgc2luY2UgaXQgd2FzIGludHJvZHVjZWQgKGFuZCBJIG5l
-ZWQgdG8gYWRkIFNHTUlJCj4gdG8gaXQuKcKgwqBUaGUgY29uY2x1c2lvbiBJJ3ZlIGNvbWUgdG8g
-dGhlcmUgaXMgdGhhdCB0aGUgdGVzdCBzaG91bGQKPiBuZXZlciBoYXZlIGJlZW4gcGFydCBvZiBw
-aHlsaWIsIGJlY2F1c2UgaWYgdGhlcmUgYXJlIHJlc3RyaWN0aW9ucyBvbgo+IHdoaWNoIHBoeSBp
-bnRlcmZhY2UgbW9kZXMgYXJlIGFsbG93YWJsZSBmb3IgRUVFLCB0aGV5J3JlIGxpa2VseSB0byBi
-ZQo+IGVpdGhlciBQSFkgb3IgTUFDIHNwZWNpZmljLgo+IAo+IFRoZSBvdGhlciBwcm9ibGVtIHRo
-YXQgaGF2aW5nIHRoZSB0ZXN0IHRoZXJlIGNhdXNlcyBpcyB0aGF0IGlmIHRoZQo+IGV4aXN0aW5n
-IHVzZXJzIGNhbid0IGhhbmRsZSBFRUUgb3ZlciBTR01JSSwgdGhlbiB3aGVuIEkgYWRkIFNHTUlJ
-IHRvCj4gc3VwcG9ydCBteSBoYXJkd2FyZSwgdGhleSBlbmQgdXAgYnJlYWtpbmcgLSBmYXIgZnJv
-bSBkZXNpcmFibGUuCj4gVGhlcmUncyBubyBpbmZvcm1hdGlvbiBvbiB3aHkgdGhlIHRlc3QgaXMg
-dGhlcmUsIG9yIGV2ZW4gd2hpY2ggUEhZcwo+IG9yIE1BQ3MgaXQncyBhcHBsaWNhYmxlIHRvLCB3
-aGljaCBtYWtlcyB0aGlzIHVubmVjZXNzYXJpbHkgbW9yZQo+IGRpZmZpY3VsdCB0byBub3cgcmVz
-b2x2ZS4KPiAKPiBNeSBmZWVsaW5nIGlzIHRoYXQgdGhlIGludGVncmF0aW9uIG9mIEVFRSBpbnRv
-IHBoeWxpYiBpcyBmYWlybHkgcG9vcgo+IGF0IHRoZSBtb21lbnQsIGFuZCB3ZSBuZWVkIHRvIGJl
-IGEgbG90IHNtYXJ0ZXIgYWJvdXQgaXQuCgpZb3Uga25vdyBhIGxvdCBtb3JlIHRoYW4gSSBkbyBv
-biB0aGlzIHRvcGljIG9idmlvdXNseS4gSSdtIGp1c3QgdHJ5aW5nCnRvIG1ha2UgR2JFIHdvcmsg
-KGFzIGNsZWFubHkgYXMgcG9zc2libGUpIG9uIHRoYXQgYm9hcmQgdG8gYmUgaG9uZXN0LgoKU28g
-SSdtIG5vdCBzdXJlIEkgdW5kZXJzdGFuZCwgYXJlIHlvdSBhZ2FpbnN0IEVFRSBpbnRlZ3JhdGlv
-biBpbiBwaHlsaWIKZW50aXJlbHksIG9yIHNwZWNpZmljYWxseSBhZ2FpbnN0IHRoZSB0ZXN0IEkg
-YWRkZWQgaW4gc2V0X2VlZSB0byBmaWx0ZXIKb3V0IGJyb2tlbiBtb2RlcyA/CgpTaW5jZSBzZXRf
-ZWVlIGRpcmVjdGx5IHNldCB0aGUgcmVnaXN0ZXIsIEkgZG9uJ3Qgc2VlIHdoZXJlIGVsc2UgSSBj
-b3VsZApoYXZlIHB1dCB0aGlzIHRlc3QgdG8gcHJldmVudCBFRUUgYnJva2VuIG1vZGVzIGZyb20g
-YmVpbmcgcmUtZW5hYmxlZC4KCj4gCj4gQlRXLCBvbmUgb2YgdGhlIHByb2JsZW1zIChub3QgY2F1
-c2VkIGJ5IHlvdXIgcGF0Y2gpIGlzIHRoYXQgY2hhbmdpbmcKPiB0aGUgRUVFIGFkdmVydGlzbWVu
-dCBkb2VzIG5vdCAob24gYWxsIFBIWSBkcml2ZXJzKSBjYXVzZSB0aGUgbGluayB0bwo+IGJlIHJl
-bmVnb3RpYXRlZCAtIHRoZXJlJ3Mgbm8gY2FsbCB0byBwaHlfc3RhcnRfYW5lZygpIHdoZW4gdGhl
-IGFkdmVydAo+IGNoYW5nZXMsIGFuZCBldmVuIGlmIHRoZXJlIHdhcywgdGhlcmUncyBubyBndWFy
-YW50ZWUgdGhhdAo+IHBoeV9zdGFydF9hbmVnKCkgd2lsbCBldmVuIHNldCB0aGUgQU4gcmVzdGFy
-dCBiaXQgaW4gdGhlIGNvbnRyb2wKPiByZWdpc3Rlci4KPiAKPiBIb3dldmVyLCBnaXZlbiB0aGF0
-IHlvdSdyZSBob29raW5nIGludG8gdGhlIHNldF9lZWUgZnVuY3Rpb24sIEknbSBub3QKPiBzdXJl
-IHdoeSB5b3UgcGxhY2VkIHlvdXIgRUVFIGFkdmVydGlzbWVudCB0aGluZyBpbnRvIGNvbmZpZ19h
-bmVnKCkgLQo+IGlzbid0IGl0IG1vcmUgYW4gaW5pdGlhbGlzYXRpb24gdGhpbmcgKHNvIHNob3Vs
-ZCBiZSBpbgo+IGNvbmZpZ19pbml0KCk/KQoKV2hhdCBJIGNoYW5nZSBpcyB3aGF0IHRoZSBQSFkg
-YWR2ZXJ0aXNlLCBzbyBpdCBzZWVtcyBsb2dpY2FsIHRvIGRvIGl0CndoZXJlICJnZW5waHlfY29u
-ZmlnX2FkdmVydCIgd2FzIGNhbGxlZC4gSnVzdCB0YWtpbmcgdGhlIGV4aXN0aW5nIGNvZGUKYXMg
-YW4gZXhhbXBsZQoKPiAKCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fCmxpbnV4LWFybS1rZXJuZWwgbWFpbGluZyBsaXN0CmxpbnV4LWFybS1rZXJuZWxAbGlz
-dHMuaW5mcmFkZWFkLm9yZwpodHRwOi8vbGlzdHMuaW5mcmFkZWFkLm9yZy9tYWlsbWFuL2xpc3Rp
-bmZvL2xpbnV4LWFybS1rZXJuZWwK
+On 2017-01-06 13:47, Johannes Berg wrote:
+> On Mon, 2017-01-02 at 20:32 +0100, Linus Lüssing wrote:
+>> Implements an optional, per bridge port flag and feature to deliver
+>> multicast packets to any host on the according port via unicast
+>> individually. This is done by copying the packet per host and
+>> changing the multicast destination MAC to a unicast one accordingly.
+> 
+> How does this compare and/or relate to the multicast-to-unicast feature
+> we were going to add to the wifi stack, particularly mac80211? Do we
+> perhaps not need that feature at all, if bridging will have it?
+> 
+> I suppose that the feature there could apply also to locally generated
+> traffic when the AP interface isn't in a bridge, but I think I could
+> live with requiring the AP to be put into a bridge to achieve a similar
+> configuration?
+> 
+> Additionally, on an unrelated note, this seems to apply generically to
+> all kinds of frames, losing information by replacing the address.
+> Shouldn't it have similar limitations as the wifi stack feature has
+> then, like only applying to ARP, IPv4, IPv6 and not general protocols?
+> 
+> Also, it should probably come with the same caveat as we documented for
+> the wifi feature:
+> 
+>     Note that this may break certain expectations of the receiver,
+>     such as the ability to drop unicast IP packets received within
+>     multicast L2 frames, or the ability to not send ICMP destination
+>     unreachable messages for packets received in L2 multicast (which
+>     is required, but the receiver can't tell the difference if this
+>     new option is enabled.)
+> 
+> 
+> I'll hold off sending my tree in until we see that we really need both
+> features, or decide that we want the wifi feature *instead* of the
+> bridge feature.
+The bridge layer can use IGMP snooping to ensure that the multicast
+stream is only transmitted to clients that are actually a member of the
+group. Can the mac80211 feature do the same?
+
+- Felix
