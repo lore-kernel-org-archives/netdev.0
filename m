@@ -1,10 +1,10 @@
 From: Russell King - ARM Linux <linux@armlinux.org.uk>
-Subject: Re: [PATCHv2 net-next 05/16] net: mvpp2: introduce PPv2.2 HW
- descriptors and adapt accessors
-Date: Fri, 6 Jan 2017 14:29:02 +0000
-Message-ID: <20170106142901.GC14217@n2100.armlinux.org.uk>
+Subject: Re: [PATCHv2 net-next 06/16] net: mvpp2: adjust the allocation/free
+ of BM pools for PPv2.2
+Date: Fri, 6 Jan 2017 14:32:06 +0000
+Message-ID: <20170106143206.GD14217@n2100.armlinux.org.uk>
 References: <1482943592-12556-1-git-send-email-thomas.petazzoni@free-electrons.com>
- <1482943592-12556-6-git-send-email-thomas.petazzoni@free-electrons.com>
+ <1482943592-12556-7-git-send-email-thomas.petazzoni@free-electrons.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -21,7 +21,7 @@ Cc: Mark Rutland <mark.rutland@arm.com>, devicetree@vger.kernel.org,
 To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 Content-Disposition: inline
-In-Reply-To: <1482943592-12556-6-git-send-email-thomas.petazzoni@free-electrons.com>
+In-Reply-To: <1482943592-12556-7-git-send-email-thomas.petazzoni@free-electrons.com>
 List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
  <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
 List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
@@ -33,48 +33,69 @@ Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 28, 2016 at 05:46:21PM +0100, Thomas Petazzoni wrote:
-> This commit adds the definition of the PPv2.2 HW descriptors, adjusts
-> the mvpp2_tx_desc and mvpp2_rx_desc structures accordingly, and adapts
-> the accessors to work on both PPv2.1 and PPv2.2.
-> 
-> Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-...
-> +		/* On PPv2.2, the situation is more complicated,
-> +		 * because there is only 40 bits to store the virtual
-> +		 * address, which is not sufficient. So on 64 bits
-> +		 * systems, we use phys_to_virt() to get the virtual
-> +		 * address from the physical address, which is fine
-> +		 * because the kernel linear mapping includes the
-> +		 * entire 40 bits physical address space. On 32 bits
-> +		 * systems however, we can't use phys_to_virt(), but
-> +		 * since virtual addresses are 32 bits only, there is
-> +		 * enough space in the RX descriptor for the full
-> +		 * virtual address.
-> +		 */
+On Wed, Dec 28, 2016 at 05:46:22PM +0100, Thomas Petazzoni wrote:
 > +#ifdef CONFIG_ARCH_DMA_ADDR_T_64BIT
-> +		dma_addr_t dma_addr =
-> +			rx_desc->pp22.buf_phys_addr_key_hash & DMA_BIT_MASK(40);
-> +		phys_addr_t phys_addr =
-> +			dma_to_phys(port->dev->dev.parent, dma_addr);
+> +	if (priv->hw_version == MVPP22) {
+
+Maybe
+	if (sizeof(dma_addr_t) > sizeof(u32) && priv->hw_version == MVPP22) {
+
+to get better compile coverage?
+
+> +		u32 val;
+> +		u32 paddr_highbits;
 > +
-> +		return (unsigned long)phys_to_virt(phys_addr);
-> +#else
-> +		return rx_desc->pp22.buf_cookie_misc & DMA_BIT_MASK(40);
+> +		val = mvpp2_read(priv, MVPP2_BM_ADDR_HIGH_ALLOC);
+> +		paddr_highbits = (val & MVPP2_BM_ADDR_HIGH_PHYS_MASK);
+> +
+> +		*paddr |= (dma_addr_t)paddr_highbits << 32;
+> +		*vaddr = (unsigned long)phys_to_virt(dma_to_phys(dev, *paddr));
+> +	}
+> +#endif
+> +}
+> +
+>  /* Free all buffers from the pool */
+>  static void mvpp2_bm_bufs_free(struct device *dev, struct mvpp2 *priv,
+>  			       struct mvpp2_bm_pool *bm_pool)
+> @@ -3616,10 +3671,8 @@ static void mvpp2_bm_bufs_free(struct device *dev, struct mvpp2 *priv,
+>  		dma_addr_t buf_phys_addr;
+>  		unsigned long vaddr;
+>  
+> -		/* Get buffer virtual address (indirect access) */
+> -		buf_phys_addr = mvpp2_read(priv,
+> -					   MVPP2_BM_PHY_ALLOC_REG(bm_pool->id));
+> -		vaddr = mvpp2_read(priv, MVPP2_BM_VIRT_ALLOC_REG);
+> +		mvpp2_bm_bufs_get_addrs(dev, priv, bm_pool,
+> +					&buf_phys_addr, &vaddr);
+>  
+>  		dma_unmap_single(dev, buf_phys_addr,
+>  				 bm_pool->buf_size, DMA_FROM_DEVICE);
+> @@ -3651,7 +3704,7 @@ static int mvpp2_bm_pool_destroy(struct platform_device *pdev,
+>  	val |= MVPP2_BM_STOP_MASK;
+>  	mvpp2_write(priv, MVPP2_BM_POOL_CTRL_REG(bm_pool->id), val);
+>  
+> -	dma_free_coherent(&pdev->dev, sizeof(u32) * bm_pool->size,
+> +	dma_free_coherent(&pdev->dev, bm_pool->size_bytes,
+>  			  bm_pool->virt_addr,
+>  			  bm_pool->phys_addr);
+>  	return 0;
+> @@ -3787,8 +3840,19 @@ static inline void mvpp2_bm_pool_put(struct mvpp2_port *port, int pool,
+>  				     dma_addr_t buf_phys_addr,
+>  				     unsigned long buf_virt_addr)
+>  {
+> -	mvpp2_write(port->priv, MVPP2_BM_VIRT_RLS_REG, buf_virt_addr);
+> -	mvpp2_write(port->priv, MVPP2_BM_PHY_RLS_REG(pool), buf_phys_addr);
+> +#if defined(CONFIG_ARCH_DMA_ADDR_T_64BIT)
+> +	u32 val;
+> +
+> +	val = upper_32_bits(buf_phys_addr) & MVPP22_BM_ADDR_HIGH_PHYS_RLS_MASK;
+> +	val |= (upper_32_bits(buf_virt_addr) &
+> +		MVPP22_BM_ADDR_HIGH_VIRT_RLS_MASK)
+> +		<< MVPP22_BM_ADDR_HIGH_VIRT_RLS_SHIFT;
+> +	mvpp2_write(port->priv, MVPP22_BM_ADDR_HIGH_RLS_REG, val);
 > +#endif
 
-I'm not sure that's the best way of selecting the difference.  It seems
-that the issue here is the size of the virtual address, so why not test
-the size of a virtual address pointer?
-
-		if (8 * sizeof(rx_desc) > 40) {
-			/* do phys addr dance */
-		} else {
-			return rx_desc->pp22.buf_cookie_misc & DMA_BIT_MASK(40);
-		}
-
-It also means that we get compile coverage over both sides of the
-conditional.
+Similar compile-time conditional?
 
 -- 
 RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
