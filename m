@@ -1,585 +1,195 @@
-From: Chris Packham <chris.packham@alliedtelesis.co.nz>
-Subject: [PATCHv3 4/5] arm: mvebu: Add device tree for 98DX3236 SoCs
-Date: Fri,  6 Jan 2017 17:15:01 +1300
-Message-ID: <20170106041517.9589-5-chris.packham@alliedtelesis.co.nz>
-References: <20170105033641.6212-1-chris.packham@alliedtelesis.co.nz>
- <20170106041517.9589-1-chris.packham@alliedtelesis.co.nz>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Mark Rutland <mark.rutland@arm.com>, Andrew Lunn <andrew@lunn.ch>,
- Jason Cooper <jason@lakedaemon.net>, devicetree@vger.kernel.org,
- netdev@vger.kernel.org, Russell King <linux@armlinux.org.uk>,
- Rob Herring <robh+dt@kernel.org>, linux-kernel@vger.kernel.org,
- Chris Packham <chris.packham@alliedtelesis.co.nz>,
- Gregory Clement <gregory.clement@free-electrons.com>,
- Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: linux-arm-kernel@lists.infradead.org
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20170106041517.9589-1-chris.packham@alliedtelesis.co.nz>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+From: Michael Chan <michael.chan@broadcom.com>
+Subject: [PATCH net] net: Fix inconsistent rtnl_lock usage on dev_get_stats().
+Date: Thu,  5 Jan 2017 23:21:18 -0500
+Message-ID: <1483676478-14228-1-git-send-email-michael.chan@broadcom.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f41.google.com ([74.125.83.41]:33747 "EHLO
+        mail-pg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753483AbdAFEWe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 5 Jan 2017 23:22:34 -0500
+Received: by mail-pg0-f41.google.com with SMTP id g1so208568051pgn.0
+        for <netdev@vger.kernel.org>; Thu, 05 Jan 2017 20:21:41 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The Marvell 98DX3236, 98DX3336, 98DX4521 and variants are switch ASICs
-with integrated CPUs. They are similar to the Armada XP SoCs but have
-different I/O interfaces.
+Some callers take rtnl_lock() before calling dev_get_stats() and some
+don't.  Most network drivers expect the ndo_get_stats64() to be called
+under rtnl_lock() to avoid race conditions with device close or ethtool
+reconfigurations.  Fix it so that all callers take rtnl_lock().
 
-Signed-off-by: Chris Packham <chris.packham@alliedtelesis.co.nz>
+Rename the original dev_get_stats() as __dev_get_stats() and add a new
+dev_get_stats() that takes rtnl_lock() before calling __dev_get_stats().
+Modify all callers that already take rtnl_lock() to call __dev_get_stats().
+
+Signed-off-by: Michael Chan <michael.chan@broadcom.com>
 ---
-    Changes in v2:
-    - Update devicetree binding documentation to reflect that 98DX3336 and
-      984251 are supersets of 98DX3236.
-    - disable crypto block
-    - disable sdio for 98DX3236, enable for 98DX4251
-    Changes in v3:
-    - fix typo 4521 -> 4251
-    - document prestera bindings
-    - rework corediv-clock binding
-    - add label to packet processor node
-    - add new compativle string for DFX server
+ drivers/net/bonding/bond_main.c                      |  4 ++--
+ drivers/net/ethernet/hisilicon/hns/hns_ethtool.c     |  2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c     |  2 +-
+ drivers/net/ethernet/intel/ixgbevf/ethtool.c         |  2 +-
+ drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c |  2 +-
+ include/linux/netdevice.h                            |  2 ++
+ net/core/dev.c                                       | 19 ++++++++++++++++---
+ net/core/rtnetlink.c                                 |  4 ++--
+ 8 files changed, 26 insertions(+), 11 deletions(-)
 
- .../devicetree/bindings/arm/marvell/98dx3236.txt   |  23 ++
- .../devicetree/bindings/net/marvell,prestera.txt   |  50 ++++
- arch/arm/boot/dts/armada-xp-98dx3236.dtsi          | 254 +++++++++++++++++++++
- arch/arm/boot/dts/armada-xp-98dx3336.dtsi          |  76 ++++++
- arch/arm/boot/dts/armada-xp-98dx4251.dtsi          |  90 ++++++++
- 5 files changed, 493 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/arm/marvell/98dx3236.txt
- create mode 100644 Documentation/devicetree/bindings/net/marvell,prestera.txt
- create mode 100644 arch/arm/boot/dts/armada-xp-98dx3236.dtsi
- create mode 100644 arch/arm/boot/dts/armada-xp-98dx3336.dtsi
- create mode 100644 arch/arm/boot/dts/armada-xp-98dx4251.dtsi
-
-diff --git a/Documentation/devicetree/bindings/arm/marvell/98dx3236.txt b/Documentation/devicetree/bindings/arm/marvell/98dx3236.txt
-new file mode 100644
-index 000000000000..64e8c73fc5ab
---- /dev/null
-+++ b/Documentation/devicetree/bindings/arm/marvell/98dx3236.txt
-@@ -0,0 +1,23 @@
-+Marvell 98DX3236, 98DX3336 and 98DX4251 Platforms Device Tree Bindings
-+----------------------------------------------------------------------
-+
-+Boards with a SoC of the Marvell 98DX3236, 98DX3336 and 98DX4251 families
-+shall have the following property:
-+
-+Required root node property:
-+
-+compatible: must contain "marvell,armadaxp-98dx3236"
-+
-+In addition, boards using the Marvell 98DX3336 SoC shall have the
-+following property:
-+
-+Required root node property:
-+
-+compatible: must contain "marvell,armadaxp-98dx3336"
-+
-+In addition, boards using the Marvell 98DX4251 SoC shall have the
-+following property:
-+
-+Required root node property:
-+
-+compatible: must contain "marvell,armadaxp-98dx4251"
-diff --git a/Documentation/devicetree/bindings/net/marvell,prestera.txt b/Documentation/devicetree/bindings/net/marvell,prestera.txt
-new file mode 100644
-index 000000000000..5fbab29718e8
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/marvell,prestera.txt
-@@ -0,0 +1,50 @@
-+Marvell Prestera Switch Chip bindings
-+-------------------------------------
-+
-+Required properties:
-+- compatible: one of the following
-+	"marvell,prestera-98dx3236",
-+	"marvell,prestera-98dx3336",
-+	"marvell,prestera-98dx4251",
-+- reg: address and length of the register set for the device.
-+- interrupts: interrupt for the device
-+
-+Optional properties:
-+- dfx: phandle reference to the "DFX Server" node
-+
-+Example:
-+
-+switch {
-+	compatible = "simple-bus";
-+	#address-cells = <1>;
-+	#size-cells = <1>;
-+	ranges = <0 MBUS_ID(0x03, 0x00) 0 0x100000>;
-+
-+	packet-processor@0 {
-+		compatible = "marvell,prestera-98dx3236";
-+		reg = <0 0x4000000>;
-+		interrupts = <33>, <34>, <35>;
-+		dfx = <&dfx>;
-+	};
-+};
-+
-+DFX Server bindings
-+-------------------
-+
-+Required properties:
-+- compatible: must be "marvell,dfx-server"
-+- reg: address and length of the register set for the device.
-+
-+Example:
-+
-+dfx-registers {
-+	compatible = "simple-bus";
-+	#address-cells = <1>;
-+	#size-cells = <1>;
-+	ranges = <0 MBUS_ID(0x08, 0x00) 0 0x100000>;
-+
-+	dfx: dfx@0 {
-+		compatible = "marvell,dfx-server";
-+		reg = <0 0x100000>;
-+	};
-+};
-diff --git a/arch/arm/boot/dts/armada-xp-98dx3236.dtsi b/arch/arm/boot/dts/armada-xp-98dx3236.dtsi
-new file mode 100644
-index 000000000000..4b7b2fe3b682
---- /dev/null
-+++ b/arch/arm/boot/dts/armada-xp-98dx3236.dtsi
-@@ -0,0 +1,254 @@
-+/*
-+ * Device Tree Include file for Marvell 98dx3236 family SoC
-+ *
-+ * Copyright (C) 2016 Allied Telesis Labs
-+ *
-+ * This file is dual-licensed: you can use it either under the terms
-+ * of the GPL or the X11 license, at your option. Note that this dual
-+ * licensing only applies to this file, and not this project as a
-+ * whole.
-+ *
-+ *  a) This file is free software; you can redistribute it and/or
-+ *     modify it under the terms of the GNU General Public License as
-+ *     published by the Free Software Foundation; either version 2 of the
-+ *     License, or (at your option) any later version.
-+ *
-+ *     This file is distributed in the hope that it will be useful
-+ *     but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ *     GNU General Public License for more details.
-+ *
-+ * Or, alternatively
-+ *
-+ *  b) Permission is hereby granted, free of charge, to any person
-+ *     obtaining a copy of this software and associated documentation
-+ *     files (the "Software"), to deal in the Software without
-+ *     restriction, including without limitation the rights to use
-+ *     copy, modify, merge, publish, distribute, sublicense, and/or
-+ *     sell copies of the Software, and to permit persons to whom the
-+ *     Software is furnished to do so, subject to the following
-+ *     conditions:
-+ *
-+ *     The above copyright notice and this permission notice shall be
-+ *     included in all copies or substantial portions of the Software.
-+ *
-+ *     THE SOFTWARE IS PROVIDED , WITHOUT WARRANTY OF ANY KIND
-+ *     EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
-+ *     OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ *     NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
-+ *     HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY
-+ *     WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-+ *     FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
-+ *     OTHER DEALINGS IN THE SOFTWARE.
-+ *
-+ * Contains definitions specific to the 98dx3236 SoC that are not
-+ * common to all Armada XP SoCs.
-+ */
-+
-+#include "armada-xp.dtsi"
-+
-+/ {
-+	model = "Marvell 98DX3236 SoC";
-+	compatible = "marvell,armadaxp-98dx3236", "marvell,armadaxp", "marvell,armada-370-xp";
-+
-+	aliases {
-+		gpio0 = &gpio0;
-+		gpio1 = &gpio1;
-+		gpio2 = &gpio2;
-+	};
-+
-+	cpus {
-+		#address-cells = <1>;
-+		#size-cells = <0>;
-+		enable-method = "marvell,98dx3236-smp";
-+
-+		cpu@0 {
-+			device_type = "cpu";
-+			compatible = "marvell,sheeva-v7";
-+			reg = <0>;
-+			clocks = <&cpuclk 0>;
-+			clock-latency = <1000000>;
-+		};
-+	};
-+
-+	soc {
-+		ranges = <MBUS_ID(0xf0, 0x01) 0 0 0xf1000000 0x100000
-+			  MBUS_ID(0x01, 0x1d) 0 0 0xfff00000 0x100000
-+			  MBUS_ID(0x01, 0x2f) 0 0 0xf0000000 0x1000000
-+			  MBUS_ID(0x03, 0x00) 0 0 0xa8000000 0x4000000
-+			  MBUS_ID(0x08, 0x00) 0 0 0xac000000 0x100000>;
-+
-+		/*
-+		 * 98DX3236 has 1 x1 PCIe unit Gen2.0: One unit can be
-+		 */
-+		pcie-controller {
-+			compatible = "marvell,armada-xp-pcie";
-+			status = "disabled";
-+			device_type = "pci";
-+
-+			#address-cells = <3>;
-+			#size-cells = <2>;
-+
-+			msi-parent = <&mpic>;
-+			bus-range = <0x00 0xff>;
-+
-+			ranges =
-+			       <0x82000000 0 0x40000 MBUS_ID(0xf0, 0x01) 0x40000 0 0x00002000   /* Port 0.0 registers */
-+				0x82000000 0x1 0       MBUS_ID(0x04, 0xe8) 0 1 0 /* Port 0.0 MEM */
-+				0x81000000 0x1 0       MBUS_ID(0x04, 0xe0) 0 1 0 /* Port 0.0 IO  */
-+				0x82000000 0x2 0       MBUS_ID(0x04, 0xd8) 0 1 0 /* Port 0.1 MEM */>;
-+
-+			pcie@1,0 {
-+				device_type = "pci";
-+				assigned-addresses = <0x82000800 0 0x40000 0 0x2000>;
-+				reg = <0x0800 0 0 0 0>;
-+				#address-cells = <3>;
-+				#size-cells = <2>;
-+				#interrupt-cells = <1>;
-+				ranges = <0x82000000 0 0 0x82000000 0x1 0 1 0
-+					  0x81000000 0 0 0x81000000 0x1 0 1 0>;
-+				interrupt-map-mask = <0 0 0 0>;
-+				interrupt-map = <0 0 0 0 &mpic 58>;
-+				marvell,pcie-port = <0>;
-+				marvell,pcie-lane = <0>;
-+				clocks = <&gateclk 5>;
-+				status = "disabled";
-+			};
-+		};
-+
-+		internal-regs {
-+			coreclk: mvebu-sar@18230 {
-+				compatible = "marvell,mv98dx3236-core-clock";
-+			};
-+
-+			cpuclk: clock-complex@18700 {
-+				compatible = "marvell,mv98dx3236-cpu-clock";
-+			};
-+
-+			corediv-clock@18740 {
-+				status = "disabled";
-+			};
-+
-+			xor@60900 {
-+				status = "disabled";
-+			};
-+
-+			crypto@90000 {
-+				status = "disabled";
-+			};
-+
-+			xor@f0900 {
-+				status = "disabled";
-+			};
-+
-+			xor@f0800 {
-+				compatible = "marvell,orion-xor";
-+				reg = <0xf0800 0x100
-+				       0xf0a00 0x100>;
-+				clocks = <&gateclk 22>;
-+				status = "okay";
-+
-+				xor10 {
-+					interrupts = <51>;
-+					dmacap,memcpy;
-+					dmacap,xor;
-+				};
-+				xor11 {
-+					interrupts = <52>;
-+					dmacap,memcpy;
-+					dmacap,xor;
-+					dmacap,memset;
-+				};
-+			};
-+
-+			gpio0: gpio@18100 {
-+				compatible = "marvell,orion-gpio";
-+				reg = <0x18100 0x40>;
-+				ngpios = <32>;
-+				gpio-controller;
-+				#gpio-cells = <2>;
-+				interrupt-controller;
-+				#interrupt-cells = <2>;
-+				interrupts = <82>, <83>, <84>, <85>;
-+			};
-+
-+			/* does not exist */
-+			gpio1: gpio@18140 {
-+				compatible = "marvell,orion-gpio";
-+				reg = <0x18140 0x40>;
-+				status = "disabled";
-+			};
-+
-+			gpio2: gpio@18180 { /* rework some properties */
-+				compatible = "marvell,orion-gpio";
-+				reg = <0x18180 0x40>;
-+				ngpios = <1>; /* only gpio #32 */
-+				gpio-controller;
-+				#gpio-cells = <2>;
-+				interrupt-controller;
-+				#interrupt-cells = <2>;
-+				interrupts = <87>;
-+			};
-+
-+			nand: nand@d0000 {
-+				clocks = <&dfx_coredivclk 0>;
-+			};
-+		};
-+
-+		dfx-registers {
-+			compatible = "simple-bus";
-+			#address-cells = <1>;
-+			#size-cells = <1>;
-+			ranges = <0 MBUS_ID(0x08, 0x00) 0 0x100000>;
-+
-+                        dfx_coredivclk: corediv-clock@f8268 {
-+                                compatible = "marvell,mv98dx3236-corediv-clock";
-+                                reg = <0xf8268 0xc>;
-+                                #clock-cells = <1>;
-+                                clocks = <&mainpll>;
-+                                clock-output-names = "nand";
-+                        };
-+
-+			dfx: dfx@0 {
-+				compatible = "marvell,dfx-server";
-+				reg = <0 0x100000>;
-+			};
-+		};
-+
-+		switch {
-+			compatible = "simple-bus";
-+			#address-cells = <1>;
-+			#size-cells = <1>;
-+			ranges = <0 MBUS_ID(0x03, 0x00) 0 0x100000>;
-+
-+			pp0: packet-processor@0 {
-+				compatible = "marvell,prestera-98dx3236";
-+				reg = <0 0x4000000>;
-+				interrupts = <33>, <34>, <35>;
-+				dfx = <&dfx>;
-+			};
-+		};
-+	};
-+};
-+
-+&pinctrl {
-+	compatible = "marvell,98dx3236-pinctrl";
-+
-+	spi0_pins: spi0-pins {
-+		marvell,pins = "mpp0", "mpp1",
-+			       "mpp2", "mpp3";
-+		marvell,function = "spi0";
-+	};
-+};
-+
-+&sdio {
-+	status = "disabled";
-+};
-+
-+&crypto_sram0 {
-+	status = "disabled";
-+};
-+
-+&crypto_sram1 {
-+	status = "disabled";
-+};
-diff --git a/arch/arm/boot/dts/armada-xp-98dx3336.dtsi b/arch/arm/boot/dts/armada-xp-98dx3336.dtsi
-new file mode 100644
-index 000000000000..a9b0f47f8df9
---- /dev/null
-+++ b/arch/arm/boot/dts/armada-xp-98dx3336.dtsi
-@@ -0,0 +1,76 @@
-+/*
-+ * Device Tree Include file for Marvell 98dx3336 family SoC
-+ *
-+ * Copyright (C) 2016 Allied Telesis Labs
-+ *
-+ * This file is dual-licensed: you can use it either under the terms
-+ * of the GPL or the X11 license, at your option. Note that this dual
-+ * licensing only applies to this file, and not this project as a
-+ * whole.
-+ *
-+ *  a) This file is free software; you can redistribute it and/or
-+ *     modify it under the terms of the GNU General Public License as
-+ *     published by the Free Software Foundation; either version 2 of the
-+ *     License, or (at your option) any later version.
-+ *
-+ *     This file is distributed in the hope that it will be useful
-+ *     but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ *     GNU General Public License for more details.
-+ *
-+ * Or, alternatively
-+ *
-+ *  b) Permission is hereby granted, free of charge, to any person
-+ *     obtaining a copy of this software and associated documentation
-+ *     files (the "Software"), to deal in the Software without
-+ *     restriction, including without limitation the rights to use
-+ *     copy, modify, merge, publish, distribute, sublicense, and/or
-+ *     sell copies of the Software, and to permit persons to whom the
-+ *     Software is furnished to do so, subject to the following
-+ *     conditions:
-+ *
-+ *     The above copyright notice and this permission notice shall be
-+ *     included in all copies or substantial portions of the Software.
-+ *
-+ *     THE SOFTWARE IS PROVIDED , WITHOUT WARRANTY OF ANY KIND
-+ *     EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
-+ *     OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ *     NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
-+ *     HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY
-+ *     WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-+ *     FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
-+ *     OTHER DEALINGS IN THE SOFTWARE.
-+ *
-+ * Contains definitions specific to the 98dx3336 SoC that are not
-+ * common to all Armada XP SoCs.
-+ */
-+
-+#include "armada-xp-98dx3236.dtsi"
-+
-+/ {
-+	model = "Marvell 98DX3336 SoC";
-+	compatible = "marvell,armadaxp-98dx3336", "marvell,armadaxp-98dx3236", "marvell,armadaxp", "marvell,armada-370-xp";
-+
-+	cpus {
-+		cpu@1 {
-+			device_type = "cpu";
-+			compatible = "marvell,sheeva-v7";
-+			reg = <1>;
-+			clocks = <&cpuclk 1>;
-+			clock-latency = <1000000>;
-+		};
-+	};
-+
-+	soc {
-+		internal-regs {
-+			resume@20980 {
-+				compatible = "marvell,98dx3336-resume-ctrl";
-+				reg = <0x20980 0x10>;
-+			};
-+		};
-+	};
-+};
-+
-+&pp0 {
-+	compatible = "marvell,prestera-98dx3336";
-+};
-diff --git a/arch/arm/boot/dts/armada-xp-98dx4251.dtsi b/arch/arm/boot/dts/armada-xp-98dx4251.dtsi
-new file mode 100644
-index 000000000000..446e6e65ec59
---- /dev/null
-+++ b/arch/arm/boot/dts/armada-xp-98dx4251.dtsi
-@@ -0,0 +1,90 @@
-+/*
-+ * Device Tree Include file for Marvell 98dx4521 family SoC
-+ *
-+ * Copyright (C) 2016 Allied Telesis Labs
-+ *
-+ * This file is dual-licensed: you can use it either under the terms
-+ * of the GPL or the X11 license, at your option. Note that this dual
-+ * licensing only applies to this file, and not this project as a
-+ * whole.
-+ *
-+ *  a) This file is free software; you can redistribute it and/or
-+ *     modify it under the terms of the GNU General Public License as
-+ *     published by the Free Software Foundation; either version 2 of the
-+ *     License, or (at your option) any later version.
-+ *
-+ *     This file is distributed in the hope that it will be useful
-+ *     but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ *     GNU General Public License for more details.
-+ *
-+ * Or, alternatively
-+ *
-+ *  b) Permission is hereby granted, free of charge, to any person
-+ *     obtaining a copy of this software and associated documentation
-+ *     files (the "Software"), to deal in the Software without
-+ *     restriction, including without limitation the rights to use
-+ *     copy, modify, merge, publish, distribute, sublicense, and/or
-+ *     sell copies of the Software, and to permit persons to whom the
-+ *     Software is furnished to do so, subject to the following
-+ *     conditions:
-+ *
-+ *     The above copyright notice and this permission notice shall be
-+ *     included in all copies or substantial portions of the Software.
-+ *
-+ *     THE SOFTWARE IS PROVIDED , WITHOUT WARRANTY OF ANY KIND
-+ *     EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
-+ *     OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ *     NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
-+ *     HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY
-+ *     WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-+ *     FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
-+ *     OTHER DEALINGS IN THE SOFTWARE.
-+ *
-+ * Contains definitions specific to the 98dx4521 SoC that are not
-+ * common to all Armada XP SoCs.
-+ */
-+
-+#include "armada-xp-98dx3236.dtsi"
-+
-+/ {
-+	model = "Marvell 98DX4251 SoC";
-+	compatible = "marvell,armadaxp-98dx4521", "marvell,armadaxp-98dx3236", "marvell,armadaxp", "marvell,armada-370-xp";
-+
-+	cpus {
-+		cpu@1 {
-+			device_type = "cpu";
-+			compatible = "marvell,sheeva-v7";
-+			reg = <1>;
-+			clocks = <&cpuclk 1>;
-+			clock-latency = <1000000>;
-+		};
-+	};
-+
-+	soc {
-+		internal-regs {
-+			resume@20980 {
-+				compatible = "marvell,98dx3336-resume-ctrl";
-+				reg = <0x20980 0x10>;
-+			};
-+		};
-+	};
-+};
-+
-+&sdio {
-+	status = "okay";
-+};
-+
-+&pinctrl {
-+	compatible = "marvell,98dx4251-pinctrl";
-+
-+	sdio_pins: sdio-pins {
-+		marvell,pins = "mpp5", "mpp6", "mpp7",
-+			       "mpp8", "mpp9", "mpp10";
-+		marvell,function = "sd0";
-+	};
-+};
-+
-+&pp0 {
-+	compatible = "marvell,prestera-98dx4251";
-+};
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 8029dd4..9a2fbea 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1509,7 +1509,7 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 
+ 	slave_dev->priv_flags |= IFF_BONDING;
+ 	/* initialize slave stats */
+-	dev_get_stats(new_slave->dev, &new_slave->slave_stats);
++	__dev_get_stats(new_slave->dev, &new_slave->slave_stats);
+ 
+ 	if (bond_is_lb(bond)) {
+ 		/* bond_alb_init_slave() must be called before all other stages since
+@@ -3351,7 +3351,7 @@ static struct rtnl_link_stats64 *bond_get_stats(struct net_device *bond_dev,
+ 	rcu_read_lock();
+ 	bond_for_each_slave_rcu(bond, slave, iter) {
+ 		const struct rtnl_link_stats64 *new =
+-			dev_get_stats(slave->dev, &temp);
++			__dev_get_stats(slave->dev, &temp);
+ 
+ 		bond_fold_stats(stats, new, &slave->slave_stats);
+ 
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
+index 3ac2183..8396336 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
+@@ -865,7 +865,7 @@ void hns_get_ethtool_stats(struct net_device *netdev,
+ 
+ 	h->dev->ops->update_stats(h, &netdev->stats);
+ 
+-	net_stats = dev_get_stats(netdev, &temp);
++	net_stats = __dev_get_stats(netdev, &temp);
+ 
+ 	/* get netdev statistics */
+ 	p[0] = net_stats->rx_packets;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+index fd192bf..f8097c4 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+@@ -1145,7 +1145,7 @@ static void ixgbe_get_ethtool_stats(struct net_device *netdev,
+ 	char *p = NULL;
+ 
+ 	ixgbe_update_stats(adapter);
+-	net_stats = dev_get_stats(netdev, &temp);
++	net_stats = __dev_get_stats(netdev, &temp);
+ 	for (i = 0; i < IXGBE_GLOBAL_STATS_LEN; i++) {
+ 		switch (ixgbe_gstrings_stats[i].type) {
+ 		case NETDEV_STATS:
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ethtool.c b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
+index 508e72c..622ccad 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ethtool.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ethtool.c
+@@ -406,7 +406,7 @@ static void ixgbevf_get_ethtool_stats(struct net_device *netdev,
+ 	char *p;
+ 
+ 	ixgbevf_update_stats(adapter);
+-	net_stats = dev_get_stats(netdev, &temp);
++	net_stats = __dev_get_stats(netdev, &temp);
+ 	for (i = 0; i < IXGBEVF_GLOBAL_STATS_LEN; i++) {
+ 		switch (ixgbevf_gstrings_stats[i].type) {
+ 		case NETDEV_STATS:
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c b/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
+index 1b26e96..ea77de0 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net_ethtool.c
+@@ -270,7 +270,7 @@ static void nfp_net_get_stats(struct net_device *netdev,
+ 	int i, j, k;
+ 	u8 *p;
+ 
+-	netdev_stats = dev_get_stats(netdev, &temp);
++	netdev_stats = __dev_get_stats(netdev, &temp);
+ 
+ 	for (i = 0; i < NN_ET_GLOBAL_STATS_LEN; i++) {
+ 		switch (nfp_net_et_stats[i].type) {
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 994f742..76bc92f 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -3787,6 +3787,8 @@ static inline void __dev_mc_unsync(struct net_device *dev,
+ void netdev_features_change(struct net_device *dev);
+ /* Load a device via the kmod */
+ void dev_load(struct net *net, const char *name);
++struct rtnl_link_stats64 *__dev_get_stats(struct net_device *dev,
++					  struct rtnl_link_stats64 *storage);
+ struct rtnl_link_stats64 *dev_get_stats(struct net_device *dev,
+ 					struct rtnl_link_stats64 *storage);
+ void netdev_stats_to_stats64(struct rtnl_link_stats64 *stats64,
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 8db5a0b..ecd1eee 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -7578,7 +7578,7 @@ void netdev_stats_to_stats64(struct rtnl_link_stats64 *stats64,
+ EXPORT_SYMBOL(netdev_stats_to_stats64);
+ 
+ /**
+- *	dev_get_stats	- get network device statistics
++ *	__dev_get_stats	- get network device statistics
+  *	@dev: device to get statistics from
+  *	@storage: place to store stats
+  *
+@@ -7587,11 +7587,12 @@ void netdev_stats_to_stats64(struct rtnl_link_stats64 *stats64,
+  *	dev->netdev_ops->get_stats64 or dev->netdev_ops->get_stats;
+  *	otherwise the internal statistics structure is used.
+  */
+-struct rtnl_link_stats64 *dev_get_stats(struct net_device *dev,
+-					struct rtnl_link_stats64 *storage)
++struct rtnl_link_stats64 *__dev_get_stats(struct net_device *dev,
++					  struct rtnl_link_stats64 *storage)
+ {
+ 	const struct net_device_ops *ops = dev->netdev_ops;
+ 
++	ASSERT_RTNL();
+ 	if (ops->ndo_get_stats64) {
+ 		memset(storage, 0, sizeof(*storage));
+ 		ops->ndo_get_stats64(dev, storage);
+@@ -7605,6 +7606,18 @@ struct rtnl_link_stats64 *dev_get_stats(struct net_device *dev,
+ 	storage->rx_nohandler += atomic_long_read(&dev->rx_nohandler);
+ 	return storage;
+ }
++EXPORT_SYMBOL(__dev_get_stats);
++
++struct rtnl_link_stats64 *dev_get_stats(struct net_device *dev,
++					struct rtnl_link_stats64 *storage)
++{
++	struct rtnl_link_stats64 *stats;
++
++	rtnl_lock();
++	stats = __dev_get_stats(dev, storage);
++	rtnl_unlock();
++	return stats;
++}
+ EXPORT_SYMBOL(dev_get_stats);
+ 
+ struct netdev_queue *dev_ingress_queue_create(struct net_device *dev)
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 75e3ea7..37c9ccd 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -1100,7 +1100,7 @@ static noinline_for_stack int rtnl_fill_stats(struct sk_buff *skb,
+ 		return -EMSGSIZE;
+ 
+ 	sp = nla_data(attr);
+-	dev_get_stats(dev, sp);
++	__dev_get_stats(dev, sp);
+ 
+ 	attr = nla_reserve(skb, IFLA_STATS,
+ 			   sizeof(struct rtnl_link_stats));
+@@ -3767,7 +3767,7 @@ static int rtnl_fill_statsinfo(struct sk_buff *skb, struct net_device *dev,
+ 			goto nla_put_failure;
+ 
+ 		sp = nla_data(attr);
+-		dev_get_stats(dev, sp);
++		__dev_get_stats(dev, sp);
+ 	}
+ 
+ 	if (stats_attr_valid(filter_mask, IFLA_STATS_LINK_XSTATS, *idxattr)) {
 -- 
-2.11.0.24.ge6920cf
+1.8.3.1
