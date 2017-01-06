@@ -1,56 +1,55 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 02/10] e1000e: driver trying to free already-free irq
-Date: Fri,  6 Jan 2017 02:48:44 -0800
-Message-ID: <20170106104852.10363-3-jeffrey.t.kirsher@intel.com>
-References: <20170106104852.10363-1-jeffrey.t.kirsher@intel.com>
-Cc: khalidm <khalidm@cisco.com>, netdev@vger.kernel.org,
-        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-        guru.anbalagane@oracle.com, xe-kernel@external.cisco.com,
-        David Singleton <davsingl@cisco.com>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Subject: [PATCH v5 0/3] adding new glue driver dwmac-dwc-qos-eth
+Date: Fri, 6 Jan 2017 10:48:30 +0000
+Message-ID: <cover.1483697766.git.jpinto@synopsys.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <lars.persson@axis.com>, <niklass@axis.com>, <swarren@nvidia.com>,
+        <treding@nvidia.com>, <netdev@vger.kernel.org>,
+        <nathan.sullivan@ni.com>, Joao Pinto <Joao.Pinto@synopsys.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga06.intel.com ([134.134.136.31]:26908 "EHLO mga06.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S935045AbdAFKtX (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 6 Jan 2017 05:49:23 -0500
-In-Reply-To: <20170106104852.10363-1-jeffrey.t.kirsher@intel.com>
+Received: from smtprelay.synopsys.com ([198.182.47.9]:46562 "EHLO
+        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S936736AbdAFKtS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 6 Jan 2017 05:49:18 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: khalidm <khalidm@cisco.com>
+This patch set contains the porting of the synopsys/dwc_eth_qos.c driver
+to the stmmac structure. This operation resulted in the creation of a new
+platform glue driver called dwmac-dwc-qos-eth which was based in the
+dwc_eth_qos as is.
 
-During systemd reboot sequence network driver interface is shutdown
-by e1000_close. The PCI driver interface is shut by e1000_shutdown.
-The e1000_shutdown checks for netif_running status, if still up it
-brings down driver. But it disables msi outside of this if statement,
-regardless of netif status. All this is OK when e1000_close happens
-after shutdown. However, by default, everything in systemd is done
-in parallel. This creates a conditions where e1000_shutdown is called
-after e1000_close, therefore hitting BUG_ON assert in free_msi_irqs.
+dwmac-dwc-qos-eth inherited dwc_eth_qos DT bindings, to assure that current
+and old users can continue to use it as before. We can see this driver as
+being deprecated, since all new development will be done in stmmac.
 
-CC: xe-kernel@external.cisco.com
-Signed-off-by: khalidm <khalidm@cisco.com>
-Signed-off-by: David Singleton <davsingl@cisco.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/e1000e/netdev.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Please check each patch for implementation details.
 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index eccf1da..af39608 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -6276,8 +6276,8 @@ static int e1000e_pm_freeze(struct device *dev)
- 		/* Quiesce the device without resetting the hardware */
- 		e1000e_down(adapter, false);
- 		e1000_free_irq(adapter);
-+		e1000e_reset_interrupt_capability(adapter);
- 	}
--	e1000e_reset_interrupt_capability(adapter);
- 
- 	/* Allow time for pending master requests to run */
- 	e1000e_disable_pcie_master(&adapter->hw);
+Joao Pinto (3):
+  stmmac: adding DT parameter for LPI tx clock gating
+  stmmac: move stmmac_clk, pclk, clk_ptp_ref and stmmac_rst to platform
+    structure
+  stmmac: adding new glue driver dwmac-dwc-qos-eth
+
+ .../bindings/net/snps,dwc-qos-ethernet.txt         |   3 +
+ Documentation/devicetree/bindings/net/stmmac.txt   |   2 +
+ drivers/net/ethernet/stmicro/stmmac/Kconfig        |   9 +
+ drivers/net/ethernet/stmicro/stmmac/Makefile       |   1 +
+ drivers/net/ethernet/stmicro/stmmac/common.h       |   3 +-
+ .../ethernet/stmicro/stmmac/dwmac-dwc-qos-eth.c    | 202 +++++++++++++++++++++
+ .../net/ethernet/stmicro/stmmac/dwmac-socfpga.c    |   2 +-
+ .../net/ethernet/stmicro/stmmac/dwmac1000_core.c   |   5 +-
+ drivers/net/ethernet/stmicro/stmmac/dwmac4.h       |   1 +
+ drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c  |   6 +-
+ drivers/net/ethernet/stmicro/stmmac/stmmac.h       |   5 -
+ .../net/ethernet/stmicro/stmmac/stmmac_ethtool.c   |   4 +-
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |  85 ++-------
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |  65 ++++++-
+ include/linux/stmmac.h                             |   6 +
+ 15 files changed, 317 insertions(+), 82 deletions(-)
+ create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac-dwc-qos-eth.c
+
 -- 
 2.9.3
