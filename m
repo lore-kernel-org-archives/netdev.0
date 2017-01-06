@@ -1,64 +1,83 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 07/10] igb: re-assign hw address pointer on reset after PCI error
-Date: Fri,  6 Jan 2017 02:48:49 -0800
-Message-ID: <20170106104852.10363-8-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 05/10] igb: use igb_adapter->io_addr instead of e1000_hw->hw_addr
+Date: Fri,  6 Jan 2017 02:48:47 -0800
+Message-ID: <20170106104852.10363-6-jeffrey.t.kirsher@intel.com>
 References: <20170106104852.10363-1-jeffrey.t.kirsher@intel.com>
-Cc: Guilherme G Piccoli <gpiccoli@linux.vnet.ibm.com>,
-        netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-        jogreene@redhat.com, guru.anbalagane@oracle.com,
+Cc: Cao jin <caoj.fnst@cn.fujitsu.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        guru.anbalagane@oracle.com,
         Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga06.intel.com ([134.134.136.31]:51441 "EHLO mga06.intel.com"
+Received: from mga06.intel.com ([134.134.136.31]:26908 "EHLO mga06.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S965747AbdAFKtY (ORCPT <rfc822;netdev@vger.kernel.org>);
+        id S965548AbdAFKtY (ORCPT <rfc822;netdev@vger.kernel.org>);
         Fri, 6 Jan 2017 05:49:24 -0500
 In-Reply-To: <20170106104852.10363-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Guilherme G Piccoli <gpiccoli@linux.vnet.ibm.com>
+From: Cao jin <caoj.fnst@cn.fujitsu.com>
 
-Whenever the igb driver detects the result of a read operation returns
-a value composed only by F's (like 0xFFFFFFFF), it will detach the
-net_device, clear the hw_addr pointer and warn to the user that adapter's
-link is lost - those steps happen on igb_rd32().
+When running as guest, under certain condition, it will oops as following.
+writel() in igb_configure_tx_ring() results in oops, because hw->hw_addr
+is NULL. While other register access won't oops kernel because they use
+wr32/rd32 which have a defense against NULL pointer.
 
-In case a PCI error happens on Power architecture, there's a recovery
-mechanism called EEH, that will reset the PCI slot and call driver's
-handlers to reset the adapter and network functionality as well.
+    [  141.225449] pcieport 0000:00:1c.0: AER: Multiple Uncorrected (Fatal)
+    error received: id=0101
+    [  141.225523] igb 0000:01:00.1: PCIe Bus Error:
+    severity=Uncorrected (Fatal), type=Unaccessible,
+    id=0101(Unregistered Agent ID)
+    [  141.299442] igb 0000:01:00.1: broadcast error_detected message
+    [  141.300539] igb 0000:01:00.0 enp1s0f0: PCIe link lost, device now
+    detached
+    [  141.351019] igb 0000:01:00.1 enp1s0f1: PCIe link lost, device now
+    detached
+    [  143.465904] pcieport 0000:00:1c.0: Root Port link has been reset
+    [  143.465994] igb 0000:01:00.1: broadcast slot_reset message
+    [  143.466039] igb 0000:01:00.0: enabling device (0000 -> 0002)
+    [  144.389078] igb 0000:01:00.1: enabling device (0000 -> 0002)
+    [  145.312078] igb 0000:01:00.1: broadcast resume message
+    [  145.322211] BUG: unable to handle kernel paging request at
+    0000000000003818
+    [  145.361275] IP: [<ffffffffa02fd38d>]
+    igb_configure_tx_ring+0x14d/0x280 [igb]
+    [  145.400048] PGD 0
+    [  145.438007] Oops: 0002 [#1] SMP
 
-We observed that once hw_addr is NULL after the error is detected on
-igb_rd32(), it's never assigned back, so in the process of resetting
-the network functionality we got a NULL pointer dereference in both
-igb_configure_tx_ring() and igb_configure_rx_ring(). In order to avoid
-such bug, this patch re-assigns the hw_addr value in the slot_reset
-handler.
+A similar issue & solution could be found at:
+    http://patchwork.ozlabs.org/patch/689592/
 
-Reported-by: Anthony H Thai <ahthai@us.ibm.com>
-Reported-by: Harsha Thyagaraja <hathyaga@in.ibm.com>
-Signed-off-by: Guilherme G Piccoli <gpiccoli@linux.vnet.ibm.com>
+Signed-off-by: Cao jin <caoj.fnst@cn.fujitsu.com>
+Acked-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb_main.c | 5 +++++
- 1 file changed, 5 insertions(+)
+ drivers/net/ethernet/intel/igb/igb_main.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 1e4bd84..82069bc 100644
+index a761001..1e4bd84 100644
 --- a/drivers/net/ethernet/intel/igb/igb_main.c
 +++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -7898,6 +7898,11 @@ static pci_ers_result_t igb_io_slot_reset(struct pci_dev *pdev)
- 		pci_enable_wake(pdev, PCI_D3hot, 0);
- 		pci_enable_wake(pdev, PCI_D3cold, 0);
+@@ -3394,7 +3394,7 @@ void igb_configure_tx_ring(struct igb_adapter *adapter,
+ 	     tdba & 0x00000000ffffffffULL);
+ 	wr32(E1000_TDBAH(reg_idx), tdba >> 32);
  
-+		/* In case of PCI error, adapter lose its HW address
-+		 * so we should re-assign it here.
-+		 */
-+		hw->hw_addr = adapter->io_addr;
-+
- 		igb_reset(adapter);
- 		wr32(E1000_WUS, ~0);
- 		result = PCI_ERS_RESULT_RECOVERED;
+-	ring->tail = hw->hw_addr + E1000_TDT(reg_idx);
++	ring->tail = adapter->io_addr + E1000_TDT(reg_idx);
+ 	wr32(E1000_TDH(reg_idx), 0);
+ 	writel(0, ring->tail);
+ 
+@@ -3733,7 +3733,7 @@ void igb_configure_rx_ring(struct igb_adapter *adapter,
+ 	     ring->count * sizeof(union e1000_adv_rx_desc));
+ 
+ 	/* initialize head and tail */
+-	ring->tail = hw->hw_addr + E1000_RDT(reg_idx);
++	ring->tail = adapter->io_addr + E1000_RDT(reg_idx);
+ 	wr32(E1000_RDH(reg_idx), 0);
+ 	writel(0, ring->tail);
+ 
 -- 
 2.9.3
