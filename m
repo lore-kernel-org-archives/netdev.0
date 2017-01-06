@@ -1,27 +1,32 @@
 From: Russell King - ARM Linux <linux@armlinux.org.uk>
-Subject: Re: [PATCHv2 net-next 10/16] net: mvpp2: handle register mapping and
- access for PPv2.2
-Date: Fri, 6 Jan 2017 14:46:48 +0000
-Message-ID: <20170106144648.GE14217@n2100.armlinux.org.uk>
-References: <1482943592-12556-1-git-send-email-thomas.petazzoni@free-electrons.com>
- <1482943592-12556-11-git-send-email-thomas.petazzoni@free-electrons.com>
+Subject: Re: [PATCH net-next v4 0/4] Fix OdroidC2 Gigabit Tx link issue
+Date: Fri, 6 Jan 2017 15:05:35 +0000
+Message-ID: <20170106150534.GF14217@n2100.armlinux.org.uk>
+References: <1480348229-25672-1-git-send-email-jbrunet@baylibre.com>
+ <049b1efc-3bad-92e0-45ef-0563dc5d81de@gmail.com>
+ <20170105232508.GU14217@n2100.armlinux.org.uk>
+ <1483697496.28003.40.camel@baylibre.com>
+ <20170106114226.GX14217@n2100.armlinux.org.uk>
+ <1483710621.28003.74.camel@baylibre.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Mark Rutland <mark.rutland@arm.com>, devicetree@vger.kernel.org,
- Yehuda Yitschak <yehuday@marvell.com>, Jason Cooper <jason@lakedaemon.net>,
- Pawel Moll <pawel.moll@arm.com>, Ian Campbell <ijc+devicetree@hellion.org.uk>,
- netdev@vger.kernel.org, Hanna Hawa <hannah@marvell.com>,
- Nadav Haklai <nadavh@marvell.com>, Rob Herring <robh+dt@kernel.org>,
- Andrew Lunn <andrew@lunn.ch>, Kumar Gala <galak@codeaurora.org>,
- Gregory Clement <gregory.clement@free-electrons.com>,
- Stefan Chulski <stefanc@marvell.com>, Marcin Wojtas <mw@semihalf.com>,
- "David S. Miller" <davem@davemloft.net>, linux-arm-kernel@lists.infradead.org,
- Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Cc: Andrew Lunn <andrew@lunn.ch>, Florian Fainelli <f.fainelli@gmail.com>,
+ Alexandre TORGUE <alexandre.torgue@st.com>,
+ Neil Armstrong <narmstrong@baylibre.com>,
+ Martin Blumenstingl <martin.blumenstingl@googlemail.com>,
+ netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+ Yegor Yefremov <yegorslists@googlemail.com>,
+ Julia Lawall <julia.lawall@lip6.fr>, devicetree@vger.kernel.org,
+ Andre Roth <neolynx@gmail.com>, Kevin Hilman <khilman@baylibre.com>,
+ Carlo Caione <carlo@caione.org>, Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+ linux-amlogic@lists.infradead.org,
+ Andreas =?iso-8859-1?Q?F=E4rber?= <afaerber@suse.de>,
+ linux-arm-kernel@lists.infradead.org
+To: Jerome Brunet <jbrunet@baylibre.com>
 Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 Content-Disposition: inline
-In-Reply-To: <1482943592-12556-11-git-send-email-thomas.petazzoni@free-electrons.com>
+In-Reply-To: <1483710621.28003.74.camel@baylibre.com>
 List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
  <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
 List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
@@ -33,53 +38,52 @@ Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 28, 2016 at 05:46:26PM +0100, Thomas Petazzoni wrote:
-> This commit adjusts the mvpp2 driver register mapping and access logic
-> to support PPv2.2, to handle a number of differences.
+(quick reply...)
+
+On Fri, Jan 06, 2017 at 02:50:21PM +0100, Jerome Brunet wrote:
+> So I'm not sure I understand, are you against EEE integration in phylib
+> entirely, or specifically against the test I added in set_eee to filter
+> out broken modes ?
+
+I'm happy to see EEE integrated into phylib, but I think the current
+implementation is very buggy and needs a rewrite.
+
+> > BTW, one of the problems (not caused by your patch) is that changing
+> > the EEE advertisment does not (on all PHY drivers) cause the link to
+> > be renegotiated - there's no call to phy_start_aneg() when the advert
+> > changes, and even if there was, there's no guarantee that
+> > phy_start_aneg() will even set the AN restart bit in the control
+> > register.
+> > 
+> > However, given that you're hooking into the set_eee function, I'm not
+> > sure why you placed your EEE advertisment thing into config_aneg() -
+> > isn't it more an initialisation thing (so should be in
+> > config_init()?)
 > 
-> Due to how the registers are laid out in memory, the Device Tree binding
-> for the "reg" property is different:
-> 
->  - On PPv2.1, we had a first area for the common registers, and then one
->    area per port.
-> 
->  - On PPv2.2, we have a first area for the common registers, and a
->    second area for all the per-ports registers.
-> 
-> In addition, on PPv2.2, the area for the common registers is split into
-> so-called "address spaces" of 64 KB each. They allow to access the same
-> registers, but from different CPUs. Hence the introduction of cpu_base[]
-> in 'struct mvpp2', and the modification of the mvpp2_write() and
-> mvpp2_read() register accessors. For PPv2.1, the compatibility is
-> preserved by using an "address space" size of 0.
+> What I change is what the PHY advertise, so it seems logical to do it
+> where "genphy_config_advert" was called. Just taking the existing code
+> as an example
 
-I'm not entirely sure this is the best solution - every register access
-will be wrapped with a preempt_disable() and preempt_enable().  At
-every site, when preempt is enabled, we will end up with code to:
+You need to adjust the adverisment in two places:
 
-- get the thread info
-- increment the preempt count
-- access the register
-- decrement the preempt count
-- test resulting preempt count and branch to __preempt_schedule()
+1. On initialisation, when you need to change the default value.
+2. Whenever the user requests a different EEE advertisment.
 
-If tracing is enabled, it gets much worse, because the increment and
-decrement happen out of line, and are even more expensive.
+You don't need to do it each time config_aneg() is called - nothing's
+going to change the EEE advertisment in that path.  Hence, to check
+it each and every time seems like a waste of CPU cycles.
 
-If a function is going to make several register accesses, it's going
-to be much more efficient to do:
+However, there's another path that needs to be considered, which the
+current EEE code fails to do, and that is the resume path.  Nothing
+at present saves and restores the EEE settings, they are completely
+lost if the PHY is powered down.  This is just another symptom of the
+current poor quality EEE implementation in phylib, and another reason
+why I say above that the EEE code is in need of a rewrite... which is
+something I will be looking at.
 
-	void __iomem *base = priv->cpu_base[get_cpu()];
-
-	...
-
-	put_cpu();
-
-which means we don't end up with multiple instances of the preempt code
-consecutive accesses.
-
-I think this is an example where having driver-private accessors for
-readl()/writel() is far from a good idea.
+If the EEE settings are properly saved and restored over suspend/
+resume, then the previously programmed EEE advertisment would also
+be restored.
 
 -- 
 RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
