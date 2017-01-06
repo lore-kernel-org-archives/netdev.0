@@ -1,49 +1,36 @@
-From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net] tg3: Fix race condition in tg3_get_stats64().
-Date: Fri,  6 Jan 2017 16:18:53 -0500
-Message-ID: <1483737533-25059-1-git-send-email-michael.chan@broadcom.com>
-Cc: netdev@vger.kernel.org, wangyufen@huawei.com
-To: davem@davemloft.net
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull-request: mac80211 2017-01-06
+Date: Fri, 06 Jan 2017 16:27:25 -0500 (EST)
+Message-ID: <20170106.162725.481874783893198568.davem@davemloft.net>
+References: <20170106123721.10970-1-johannes@sipsolutions.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+To: johannes@sipsolutions.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f181.google.com ([209.85.192.181]:35515 "EHLO
-        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751061AbdAFV0X (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 6 Jan 2017 16:26:23 -0500
-Received: by mail-pf0-f181.google.com with SMTP id f144so6544653pfa.2
-        for <netdev@vger.kernel.org>; Fri, 06 Jan 2017 13:26:23 -0800 (PST)
+Received: from shards.monkeyblade.net ([184.105.139.130]:42062 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932358AbdAFV11 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 6 Jan 2017 16:27:27 -0500
+In-Reply-To: <20170106123721.10970-1-johannes@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The driver's ndo_get_stats64() method is not always called under RTNL.
-So it can race with driver close or ethtool reconfigurations.  Fix the
-race condition by taking tp->lock spinlock in tg3_free_consistent()
-when freeing the tp->hw_stats memory block.  tg3_get_stats64() is
-already taking tp->lock.
+From: Johannes Berg <johannes@sipsolutions.net>
+Date: Fri,  6 Jan 2017 13:37:20 +0100
 
-Reported-by: Wang Yufen <wangyufen@huawei.com>
-Signed-off-by: Michael Chan <michael.chan@broadcom.com>
----
- drivers/net/ethernet/broadcom/tg3.c | 3 +++
- 1 file changed, 3 insertions(+)
+> Here's another fix for something I noticed while reviewing the code in
+> a new suggested patch that added another netlink socket destroy path.
+> 
+> Since the new patch would otherwise cause conflicts, it might be good
+> to pull net or Linus's next RC containing it into net-next, if you can.
+> 
+> Please pull and let me know if there's any problem.
 
-diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index 185e9e0..ae42de4 100644
---- a/drivers/net/ethernet/broadcom/tg3.c
-+++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -8720,11 +8720,14 @@ static void tg3_free_consistent(struct tg3 *tp)
- 	tg3_mem_rx_release(tp);
- 	tg3_mem_tx_release(tp);
- 
-+	/* Protect tg3_get_stats64() from reading freed tp->hw_stats. */
-+	tg3_full_lock(tp, 0);
- 	if (tp->hw_stats) {
- 		dma_free_coherent(&tp->pdev->dev, sizeof(struct tg3_hw_stats),
- 				  tp->hw_stats, tp->stats_mapping);
- 		tp->hw_stats = NULL;
- 	}
-+	tg3_full_unlock(tp);
- }
- 
- /*
--- 
-1.8.3.1
+Pulled, I'll try to get this moving into net-next over the weekend.
+
+Remind me about this early next week if that ends up slipping through
+the cracks.
+
+Thanks.
