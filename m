@@ -1,11 +1,10 @@
-From: Robin Murphy <robin.murphy@arm.com>
-Subject: Re: [PATCHv2 net-next 05/16] net: mvpp2: introduce PPv2.2 HW
- descriptors and adapt accessors
-Date: Fri, 6 Jan 2017 14:44:56 +0000
-Message-ID: <113811b6-79a4-9c66-d302-add9fb0c5b1a@arm.com>
+From: Russell King - ARM Linux <linux@armlinux.org.uk>
+Subject: Re: [PATCHv2 net-next 10/16] net: mvpp2: handle register mapping and
+ access for PPv2.2
+Date: Fri, 6 Jan 2017 14:46:48 +0000
+Message-ID: <20170106144648.GE14217@n2100.armlinux.org.uk>
 References: <1482943592-12556-1-git-send-email-thomas.petazzoni@free-electrons.com>
- <1482943592-12556-6-git-send-email-thomas.petazzoni@free-electrons.com>
- <20170106142901.GC14217@n2100.armlinux.org.uk>
+ <1482943592-12556-11-git-send-email-thomas.petazzoni@free-electrons.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -13,7 +12,6 @@ Cc: Mark Rutland <mark.rutland@arm.com>, devicetree@vger.kernel.org,
  Yehuda Yitschak <yehuday@marvell.com>, Jason Cooper <jason@lakedaemon.net>,
  Pawel Moll <pawel.moll@arm.com>, Ian Campbell <ijc+devicetree@hellion.org.uk>,
  netdev@vger.kernel.org, Hanna Hawa <hannah@marvell.com>,
- Russell King - ARM Linux <linux@armlinux.org.uk>,
  Nadav Haklai <nadavh@marvell.com>, Rob Herring <robh+dt@kernel.org>,
  Andrew Lunn <andrew@lunn.ch>, Kumar Gala <galak@codeaurora.org>,
  Gregory Clement <gregory.clement@free-electrons.com>,
@@ -22,7 +20,8 @@ Cc: Mark Rutland <mark.rutland@arm.com>, devicetree@vger.kernel.org,
  Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
 To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20170106142901.GC14217@n2100.armlinux.org.uk>
+Content-Disposition: inline
+In-Reply-To: <1482943592-12556-11-git-send-email-thomas.petazzoni@free-electrons.com>
 List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
  <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
 List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
@@ -34,63 +33,55 @@ Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-On 06/01/17 14:29, Russell King - ARM Linux wrote:
-> On Wed, Dec 28, 2016 at 05:46:21PM +0100, Thomas Petazzoni wrote:
->> This commit adds the definition of the PPv2.2 HW descriptors, adjusts
->> the mvpp2_tx_desc and mvpp2_rx_desc structures accordingly, and adapts
->> the accessors to work on both PPv2.1 and PPv2.2.
->>
->> Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-> ...
->> +		/* On PPv2.2, the situation is more complicated,
->> +		 * because there is only 40 bits to store the virtual
->> +		 * address, which is not sufficient. So on 64 bits
->> +		 * systems, we use phys_to_virt() to get the virtual
->> +		 * address from the physical address, which is fine
->> +		 * because the kernel linear mapping includes the
->> +		 * entire 40 bits physical address space. On 32 bits
->> +		 * systems however, we can't use phys_to_virt(), but
->> +		 * since virtual addresses are 32 bits only, there is
->> +		 * enough space in the RX descriptor for the full
->> +		 * virtual address.
->> +		 */
->> +#ifdef CONFIG_ARCH_DMA_ADDR_T_64BIT
->> +		dma_addr_t dma_addr =
->> +			rx_desc->pp22.buf_phys_addr_key_hash & DMA_BIT_MASK(40);
->> +		phys_addr_t phys_addr =
->> +			dma_to_phys(port->dev->dev.parent, dma_addr);
-
-Ugh, this looks bogus. dma_to_phys(), in the arm64 case at least, is
-essentially a SWIOTLB internal helper function which has to be
-implemented in architecture code because reasons. Calling it from a
-driver is almost certainly wrong (it doesn't even exist on most
-architectures). Besides, if this is really a genuine dma_addr_t obtained
-from a DMA API call, you cannot infer it to be related to a CPU physical
-address, or convertible to one at all.
-
->> +
->> +		return (unsigned long)phys_to_virt(phys_addr);
->> +#else
->> +		return rx_desc->pp22.buf_cookie_misc & DMA_BIT_MASK(40);
->> +#endif
+On Wed, Dec 28, 2016 at 05:46:26PM +0100, Thomas Petazzoni wrote:
+> This commit adjusts the mvpp2 driver register mapping and access logic
+> to support PPv2.2, to handle a number of differences.
 > 
-> I'm not sure that's the best way of selecting the difference.
-
-Given that CONFIG_ARCH_DMA_ADDR_T_64BIT could be enabled on 32-bit LPAE
-systems, indeed it definitely isn't.
-
-Robin.
-
->  It seems
-> that the issue here is the size of the virtual address, so why not test
-> the size of a virtual address pointer?
+> Due to how the registers are laid out in memory, the Device Tree binding
+> for the "reg" property is different:
 > 
-> 		if (8 * sizeof(rx_desc) > 40) {
-> 			/* do phys addr dance */
-> 		} else {
-> 			return rx_desc->pp22.buf_cookie_misc & DMA_BIT_MASK(40);
-> 		}
+>  - On PPv2.1, we had a first area for the common registers, and then one
+>    area per port.
 > 
-> It also means that we get compile coverage over both sides of the
-> conditional.
+>  - On PPv2.2, we have a first area for the common registers, and a
+>    second area for all the per-ports registers.
 > 
+> In addition, on PPv2.2, the area for the common registers is split into
+> so-called "address spaces" of 64 KB each. They allow to access the same
+> registers, but from different CPUs. Hence the introduction of cpu_base[]
+> in 'struct mvpp2', and the modification of the mvpp2_write() and
+> mvpp2_read() register accessors. For PPv2.1, the compatibility is
+> preserved by using an "address space" size of 0.
+
+I'm not entirely sure this is the best solution - every register access
+will be wrapped with a preempt_disable() and preempt_enable().  At
+every site, when preempt is enabled, we will end up with code to:
+
+- get the thread info
+- increment the preempt count
+- access the register
+- decrement the preempt count
+- test resulting preempt count and branch to __preempt_schedule()
+
+If tracing is enabled, it gets much worse, because the increment and
+decrement happen out of line, and are even more expensive.
+
+If a function is going to make several register accesses, it's going
+to be much more efficient to do:
+
+	void __iomem *base = priv->cpu_base[get_cpu()];
+
+	...
+
+	put_cpu();
+
+which means we don't end up with multiple instances of the preempt code
+consecutive accesses.
+
+I think this is an example where having driver-private accessors for
+readl()/writel() is far from a good idea.
+
+-- 
+RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
+FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
+according to speedtest.net.
