@@ -1,55 +1,47 @@
-From: =?utf-8?B?TWljaGHFgiBLxJlwaWXFhA==?= <kernel-ePNcKBjznIDVItvQsEIGlw@public.gmane.org>
-Subject: Re: [PATCH v4] rfkill: Add rfkill-any LED trigger
-Date: Fri, 6 Jan 2017 20:20:27 +0100
-Message-ID: <20170106192027.GA756@kmp-mobile.hq.kempniu.pl>
-References: <20170106060747.6162-1-kernel@kempniu.pl>
- <1483705333.4089.6.camel@sipsolutions.net>
+From: Paul Moore <pmoore@redhat.com>
+Subject: [PATCH] netlabel: add CALIPSO to the list of built-in protocols
+Date: Fri, 06 Jan 2017 14:26:54 -0500
+Message-ID: <148373081425.18818.6670627192248645738.stgit@sifl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        =?utf-8?B?0JzQuNGF0LDQuNC7INCa0YDQuNC90LrQuNC9?=
-        <krinkin.m.u-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1483705333.4089.6.camel-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:60474 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S965836AbdAFT0z (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 6 Jan 2017 14:26:55 -0500
+Received: from int-mx11.intmail.prod.int.phx2.redhat.com (int-mx11.intmail.prod.int.phx2.redhat.com [10.5.11.24])
+        (using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+        (No client certificate requested)
+        by mx1.redhat.com (Postfix) with ESMTPS id 465E53B709
+        for <netdev@vger.kernel.org>; Fri,  6 Jan 2017 19:26:56 +0000 (UTC)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> On Fri, 2017-01-06 at 07:07 +0100, Michał Kępień wrote:
-> > Add a new "global" (i.e. not per-rfkill device) LED trigger, rfkill-
-> > any,
-> > which may be useful on laptops with a single "radio LED" and multiple
-> > radio transmitters.  The trigger is meant to turn a LED on whenever
-> > there is at least one radio transmitter active and turn it off
-> > otherwise.
-> > 
-> > Signed-off-by: Michał Kępień <kernel-ePNcKBjznIDVItvQsEIGlw@public.gmane.org>
-> > ---
-> > Changes from v3:
-> > 
-> >   - Revert introducing a new bitfield and instead defer LED event
-> > firing
-> >     to a work queue to prevent conditional locking and ensure the
-> >     trigger can really be used from any context.  This also voids the
-> >     need to take rfkill_global_mutex before calling
-> > rfkill_set_block()
-> >     in rfkill_resume().
-> 
-> Looks better, but
-> 
-> > +static struct work_struct rfkill_any_work;
-> 
-> At least on module exit you need to cancel this work.
+From: Paul Moore <paul@paul-moore.com>
 
-It is cancelled in rfkill_any_led_trigger_unregister().  It seemed
-fitting to do it this way as rfkill_any_work is initialized in
-rfkill_any_led_trigger_register().  And if CONFIG_RFKILL_LEDS=n,
-rfkill_any_work is neither initialized nor scheduled, so we should be
-good as well.  Am I missing something?
+When we added CALIPSO support in Linux v4.8 we forgot to add it to the
+list of supported protocols with display at boot.
 
--- 
-Best regards,
-Michał Kępień
+Signed-off-by: Paul Moore <paul@paul-moore.com>
+---
+ net/netlabel/netlabel_kapi.c |    5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
+
+diff --git a/net/netlabel/netlabel_kapi.c b/net/netlabel/netlabel_kapi.c
+index 28c56b95fb7f..ea7c67050792 100644
+--- a/net/netlabel/netlabel_kapi.c
++++ b/net/netlabel/netlabel_kapi.c
+@@ -1502,10 +1502,7 @@ static int __init netlbl_init(void)
+ 	printk(KERN_INFO "NetLabel: Initializing\n");
+ 	printk(KERN_INFO "NetLabel:  domain hash size = %u\n",
+ 	       (1 << NETLBL_DOMHSH_BITSIZE));
+-	printk(KERN_INFO "NetLabel:  protocols ="
+-	       " UNLABELED"
+-	       " CIPSOv4"
+-	       "\n");
++	printk(KERN_INFO "NetLabel:  protocols = UNLABELED CIPSOv4 CALIPSO\n");
+ 
+ 	ret_val = netlbl_domhsh_init(NETLBL_DOMHSH_BITSIZE);
+ 	if (ret_val != 0)
