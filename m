@@ -1,47 +1,52 @@
 From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH v4] rfkill: Add rfkill-any LED trigger
-Date: Fri, 06 Jan 2017 13:22:13 +0100
-Message-ID: <1483705333.4089.6.camel@sipsolutions.net>
-References: <20170106060747.6162-1-kernel@kempniu.pl>
-         (sfid-20170106_070815_740015_7BAF878D)
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: =?UTF-8?Q?=D0=9C=D0=B8=D1=85=D0=B0=D0=B8=D0=BB_?=
-         =?UTF-8?Q?=D0=9A=D1=80=D0=B8=D0=BD=D0=BA=D0=B8=D0=BD?=
-        <krinkin.m.u@gmail.com>, linux-wireless@vger.kernel.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: =?UTF-8?Q?Micha=C5=82_K=C4=99pie=C5=84?= <kernel@kempniu.pl>,
-        "David S . Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170106060747.6162-1-kernel@kempniu.pl> (sfid-20170106_070815_740015_7BAF878D)
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Subject: pull-request: mac80211 2017-01-06
+Date: Fri,  6 Jan 2017 13:37:20 +0100
+Message-ID: <20170106123721.10970-1-johannes@sipsolutions.net>
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.sipsolutions.net ([5.9.151.49]:59746 "EHLO sipsolutions.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S967077AbdAFMiN (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 6 Jan 2017 07:38:13 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2017-01-06 at 07:07 +0100, Michał Kępień wrote:
-> Add a new "global" (i.e. not per-rfkill device) LED trigger, rfkill-
-> any,
-> which may be useful on laptops with a single "radio LED" and multiple
-> radio transmitters.  The trigger is meant to turn a LED on whenever
-> there is at least one radio transmitter active and turn it off
-> otherwise.
-> 
-> Signed-off-by: Michał Kępień <kernel@kempniu.pl>
-> ---
-> Changes from v3:
-> 
->   - Revert introducing a new bitfield and instead defer LED event
-> firing
->     to a work queue to prevent conditional locking and ensure the
->     trigger can really be used from any context.  This also voids the
->     need to take rfkill_global_mutex before calling
-> rfkill_set_block()
->     in rfkill_resume().
+Hi Dave,
 
-Looks better, but
+Here's another fix for something I noticed while reviewing the code in
+a new suggested patch that added another netlink socket destroy path.
 
-> +static struct work_struct rfkill_any_work;
+Since the new patch would otherwise cause conflicts, it might be good
+to pull net or Linus's next RC containing it into net-next, if you can.
 
-At least on module exit you need to cancel this work.
+Please pull and let me know if there's any problem.
 
+Thanks,
 johannes
+
+
+
+The following changes since commit 35f432a03e41d3bf08c51ede917f94e2288fbe8c:
+
+  mac80211: initialize fast-xmit 'info' later (2017-01-02 11:28:25 +0100)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211.git tags/mac80211-for-davem-2017-01-06
+
+for you to fetch changes up to 753aacfd2e95df6a0caf23c03dc309020765bea9:
+
+  nl80211: fix sched scan netlink socket owner destruction (2017-01-05 10:59:53 +0100)
+
+----------------------------------------------------------------
+Another single fix, to correctly handle destruction of a
+single netlink socket having ownership of multiple objects
+(scheduled scan requests and interfaces.)
+
+----------------------------------------------------------------
+Johannes Berg (1):
+      nl80211: fix sched scan netlink socket owner destruction
+
+ net/wireless/nl80211.c | 16 +++++++---------
+ 1 file changed, 7 insertions(+), 9 deletions(-)
