@@ -1,47 +1,57 @@
-From: Paul Moore <pmoore@redhat.com>
-Subject: [PATCH] netlabel: add CALIPSO to the list of built-in protocols
-Date: Fri, 06 Jan 2017 14:26:54 -0500
-Message-ID: <148373081425.18818.6670627192248645738.stgit@sifl>
+From: Michael Chan <michael.chan@broadcom.com>
+Subject: Re: [PATCH net] net: Fix inconsistent rtnl_lock usage on dev_get_stats().
+Date: Fri, 6 Jan 2017 11:30:09 -0800
+Message-ID: <CACKFLimE1BafzurRje1no6kcNR1-7OnQevyYahdpYiUko_uRiA@mail.gmail.com>
+References: <1483676478-14228-1-git-send-email-michael.chan@broadcom.com>
+ <1483723976.9712.19.camel@edumazet-glaptop3.roam.corp.google.com> <20170106.130134.50153126758574257.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        Netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60474 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S965836AbdAFT0z (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 6 Jan 2017 14:26:55 -0500
-Received: from int-mx11.intmail.prod.int.phx2.redhat.com (int-mx11.intmail.prod.int.phx2.redhat.com [10.5.11.24])
-        (using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
-        (No client certificate requested)
-        by mx1.redhat.com (Postfix) with ESMTPS id 465E53B709
-        for <netdev@vger.kernel.org>; Fri,  6 Jan 2017 19:26:56 +0000 (UTC)
+Received: from mail-oi0-f48.google.com ([209.85.218.48]:34676 "EHLO
+        mail-oi0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1032848AbdAFTaL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 6 Jan 2017 14:30:11 -0500
+Received: by mail-oi0-f48.google.com with SMTP id 3so443397369oih.1
+        for <netdev@vger.kernel.org>; Fri, 06 Jan 2017 11:30:10 -0800 (PST)
+In-Reply-To: <20170106.130134.50153126758574257.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul Moore <paul@paul-moore.com>
+On Fri, Jan 6, 2017 at 10:01 AM, David Miller <davem@davemloft.net> wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Fri, 06 Jan 2017 09:32:56 -0800
+>
+>> This makes no sense to me.
+>>
+>> RTNL is absolutely not needed to get device stats.
+>>
+>> We try to not add RTNL, especially when not required.
+>>
+>> Sure, RTNETLINK dumps currently hold RTNL, but we had various attempts
+>> in the past to get rid of this behavior.
+>>
+>> If a device driver expects RTNL being locked, it is clearly a bug that
+>> needs a fix anyway.
+>
+> This is extremely problematic when the driver has to synchronize some
+> piece of state between the get stats method and open/close.  It is
+> exactly the case we are trying to solve in tg3, and lots of drivers
+> end up hitting the same exact issue.
+>
+> If open/close can happen asynchronously to get stats, it is very hard
+> to make dynamically allocated data structures or DMA buffers usable
+> from the stats call.
+>
+> Drivers in this situation will just add a mutex specifically for this
+> situation if we don't consistently apply RTNL locking here.
 
-When we added CALIPSO support in Linux v4.8 we forgot to add it to the
-list of supported protocols with display at boot.
+The patch doesn't work anyway in the net-procfs code path upon closer
+examination.  Because we are using seq_ops and taking the RCU lock at
+the beginning of the sequence, we cannot take RTNL.  That means
+drivers cannot use mutex as well.
 
-Signed-off-by: Paul Moore <paul@paul-moore.com>
----
- net/netlabel/netlabel_kapi.c |    5 +----
- 1 file changed, 1 insertion(+), 4 deletions(-)
-
-diff --git a/net/netlabel/netlabel_kapi.c b/net/netlabel/netlabel_kapi.c
-index 28c56b95fb7f..ea7c67050792 100644
---- a/net/netlabel/netlabel_kapi.c
-+++ b/net/netlabel/netlabel_kapi.c
-@@ -1502,10 +1502,7 @@ static int __init netlbl_init(void)
- 	printk(KERN_INFO "NetLabel: Initializing\n");
- 	printk(KERN_INFO "NetLabel:  domain hash size = %u\n",
- 	       (1 << NETLBL_DOMHSH_BITSIZE));
--	printk(KERN_INFO "NetLabel:  protocols ="
--	       " UNLABELED"
--	       " CIPSOv4"
--	       "\n");
-+	printk(KERN_INFO "NetLabel:  protocols = UNLABELED CIPSOv4 CALIPSO\n");
- 
- 	ret_val = netlbl_domhsh_init(NETLBL_DOMHSH_BITSIZE);
- 	if (ret_val != 0)
+For tg3, I think I will just use tp->lock spinlock to protect
+get_stats64 and the freeing of the stats memory.
