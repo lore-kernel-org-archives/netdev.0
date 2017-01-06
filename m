@@ -1,41 +1,98 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH v1 1/2] bpf: add a longest prefix match trie map implementation
-Date: Fri, 06 Jan 2017 11:43:21 +0100
-Message-ID: <586F74C9.3020305@iogearbox.net>
-References: <20161229172855.14910-1-daniel@zonque.org> <20161229172855.14910-2-daniel@zonque.org> <586E7366.1010708@iogearbox.net> <586EA627.6020404@iogearbox.net> <2edd2b2b-a89e-0df0-c1dc-fdaee2315597@zonque.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: dh.herrmann@gmail.com, netdev@vger.kernel.org, davem@davemloft.net
-To: Daniel Mack <daniel@zonque.org>, ast@fb.com
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 08/10] igb: close/suspend race in netif_device_detach
+Date: Fri,  6 Jan 2017 02:48:50 -0800
+Message-ID: <20170106104852.10363-9-jeffrey.t.kirsher@intel.com>
+References: <20170106104852.10363-1-jeffrey.t.kirsher@intel.com>
+Cc: Todd Fujinaka <todd.fujinaka@intel.com>, netdev@vger.kernel.org,
+        nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+        guru.anbalagane@oracle.com,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:37249 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933277AbdAFKn1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 6 Jan 2017 05:43:27 -0500
-In-Reply-To: <2edd2b2b-a89e-0df0-c1dc-fdaee2315597@zonque.org>
+Received: from mga06.intel.com ([134.134.136.31]:26908 "EHLO mga06.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S966301AbdAFKtY (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 6 Jan 2017 05:49:24 -0500
+In-Reply-To: <20170106104852.10363-1-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/05/2017 09:14 PM, Daniel Mack wrote:
-[...]
-> In my use case, the actual value of a node is in fact ignored, all that
-> matters is whether a node exists in a trie or not. The test code uses
-> u64 for its tests.
->
-> I can change it around so that the value size can be defined by
-> userspace, but ideally it would also support 0-byte lengths then. The
-> bpf map syscall handler should handle the latter just fine if I read the
-> code correctly?
+From: Todd Fujinaka <todd.fujinaka@intel.com>
 
-Right now no map is allowed to have value size of 0, but since kmalloc()
-would return ZERO_SIZE_PTR in such case, it looks like it should
-work^tm, although I haven't checked whether it's guaranteed that all
-the copy_{from,to}_user() implementations work with 0 size as well
-and whether ubsan would complain on the ZERO_SIZE_PTR for memcpy() etc.
-Perhaps better to reject value size of 0 initially and later on follow
-up with making the syscall code more robust for such cases (afaik, for
-the htab this was also on todo.)?
+Similar to ixgbe, when an interface is part of a namespace it is
+possible that igb_close() may be called while __igb_shutdown() is
+running which ends up in a double free WARN and/or a BUG in
+free_msi_irqs().
 
-Thanks,
-Daniel
+Extend the rtnl_lock() to protect the call to netif_device_detach() and
+igb_clear_interrupt_scheme() in __igb_shutdown() and check for
+netif_device_present() to avoid calling igb_clear_interrupt_scheme() a
+second time in igb_close().
+
+Also extend the rtnl lock in igb_resume() to netif_device_attach().
+
+Signed-off-by: Todd Fujinaka <todd.fujinaka@intel.com>
+Acked-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/igb/igb_main.c | 21 ++++++++++++---------
+ 1 file changed, 12 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index 82069bc..594604e 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -3275,7 +3275,9 @@ static int __igb_close(struct net_device *netdev, bool suspending)
+ 
+ int igb_close(struct net_device *netdev)
+ {
+-	return __igb_close(netdev, false);
++	if (netif_device_present(netdev))
++		return __igb_close(netdev, false);
++	return 0;
+ }
+ 
+ /**
+@@ -7564,6 +7566,7 @@ static int __igb_shutdown(struct pci_dev *pdev, bool *enable_wake,
+ 	int retval = 0;
+ #endif
+ 
++	rtnl_lock();
+ 	netif_device_detach(netdev);
+ 
+ 	if (netif_running(netdev))
+@@ -7572,6 +7575,7 @@ static int __igb_shutdown(struct pci_dev *pdev, bool *enable_wake,
+ 	igb_ptp_suspend(adapter);
+ 
+ 	igb_clear_interrupt_scheme(adapter);
++	rtnl_unlock();
+ 
+ #ifdef CONFIG_PM
+ 	retval = pci_save_state(pdev);
+@@ -7690,16 +7694,15 @@ static int igb_resume(struct device *dev)
+ 
+ 	wr32(E1000_WUS, ~0);
+ 
+-	if (netdev->flags & IFF_UP) {
+-		rtnl_lock();
++	rtnl_lock();
++	if (!err && netif_running(netdev))
+ 		err = __igb_open(netdev, true);
+-		rtnl_unlock();
+-		if (err)
+-			return err;
+-	}
+ 
+-	netif_device_attach(netdev);
+-	return 0;
++	if (!err)
++		netif_device_attach(netdev);
++	rtnl_unlock();
++
++	return err;
+ }
+ 
+ static int igb_runtime_idle(struct device *dev)
+-- 
+2.9.3
