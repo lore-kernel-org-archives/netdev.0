@@ -1,91 +1,63 @@
-From: Russell King - ARM Linux <linux@armlinux.org.uk>
-Subject: Re: [PATCH net-next v4 0/4] Fix OdroidC2 Gigabit Tx link issue
-Date: Fri, 6 Jan 2017 15:05:35 +0000
-Message-ID: <20170106150534.GF14217@n2100.armlinux.org.uk>
-References: <1480348229-25672-1-git-send-email-jbrunet@baylibre.com>
- <049b1efc-3bad-92e0-45ef-0563dc5d81de@gmail.com>
- <20170105232508.GU14217@n2100.armlinux.org.uk>
- <1483697496.28003.40.camel@baylibre.com>
- <20170106114226.GX14217@n2100.armlinux.org.uk>
- <1483710621.28003.74.camel@baylibre.com>
+From: Juergen Gross <jgross@suse.com>
+Subject: [PATCH 0/3] xen: optimize xenbus performance
+Date: Fri,  6 Jan 2017 16:05:41 +0100
+Message-ID: <20170106150544.10836-1-jgross@suse.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Lunn <andrew@lunn.ch>, Florian Fainelli <f.fainelli@gmail.com>,
- Alexandre TORGUE <alexandre.torgue@st.com>,
- Neil Armstrong <narmstrong@baylibre.com>,
- Martin Blumenstingl <martin.blumenstingl@googlemail.com>,
- netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
- Yegor Yefremov <yegorslists@googlemail.com>,
- Julia Lawall <julia.lawall@lip6.fr>, devicetree@vger.kernel.org,
- Andre Roth <neolynx@gmail.com>, Kevin Hilman <khilman@baylibre.com>,
- Carlo Caione <carlo@caione.org>, Giuseppe Cavallaro <peppe.cavallaro@st.com>,
- linux-amlogic@lists.infradead.org,
- Andreas =?iso-8859-1?Q?F=E4rber?= <afaerber@suse.de>,
- linux-arm-kernel@lists.infradead.org
-To: Jerome Brunet <jbrunet@baylibre.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-Content-Disposition: inline
-In-Reply-To: <1483710621.28003.74.camel@baylibre.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Juergen Gross <jgross@suse.com>, wei.liu2@citrix.com,
+ netdev@vger.kernel.org, paul.durrant@citrix.com, boris.ostrovsky@oracle.com,
+ roger.pau@citrix.com
+To: linux-kernel@vger.kernel.org,
+	xen-devel@lists.xenproject.org
+Return-path: <xen-devel-bounces@lists.xen.org>
+List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Errors-To: xen-devel-bounces@lists.xen.org
+Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
 List-Id: netdev.vger.kernel.org
 
-(quick reply...)
-
-On Fri, Jan 06, 2017 at 02:50:21PM +0100, Jerome Brunet wrote:
-> So I'm not sure I understand, are you against EEE integration in phylib
-> entirely, or specifically against the test I added in set_eee to filter
-> out broken modes ?
-
-I'm happy to see EEE integrated into phylib, but I think the current
-implementation is very buggy and needs a rewrite.
-
-> > BTW, one of the problems (not caused by your patch) is that changing
-> > the EEE advertisment does not (on all PHY drivers) cause the link to
-> > be renegotiated - there's no call to phy_start_aneg() when the advert
-> > changes, and even if there was, there's no guarantee that
-> > phy_start_aneg() will even set the AN restart bit in the control
-> > register.
-> > 
-> > However, given that you're hooking into the set_eee function, I'm not
-> > sure why you placed your EEE advertisment thing into config_aneg() -
-> > isn't it more an initialisation thing (so should be in
-> > config_init()?)
-> 
-> What I change is what the PHY advertise, so it seems logical to do it
-> where "genphy_config_advert" was called. Just taking the existing code
-> as an example
-
-You need to adjust the adverisment in two places:
-
-1. On initialisation, when you need to change the default value.
-2. Whenever the user requests a different EEE advertisment.
-
-You don't need to do it each time config_aneg() is called - nothing's
-going to change the EEE advertisment in that path.  Hence, to check
-it each and every time seems like a waste of CPU cycles.
-
-However, there's another path that needs to be considered, which the
-current EEE code fails to do, and that is the resume path.  Nothing
-at present saves and restores the EEE settings, they are completely
-lost if the PHY is powered down.  This is just another symptom of the
-current poor quality EEE implementation in phylib, and another reason
-why I say above that the EEE code is in need of a rewrite... which is
-something I will be looking at.
-
-If the EEE settings are properly saved and restored over suspend/
-resume, then the previously programmed EEE advertisment would also
-be restored.
-
--- 
-RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
-FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
-according to speedtest.net.
+VGhlIHhlbmJ1cyBkcml2ZXIgdXNlZCBmb3IgY29tbXVuaWNhdGlvbiB3aXRoIFhlbnN0b3JlIChh
+bGwga2VybmVsCmFjY2Vzc2VzIHRvIFhlbnN0b3JlIGFuZCBpbiBjYXNlIG9mIFhlbnN0b3JlIGxp
+dmluZyBpbiBhbm90aGVyIGRvbWFpbgphbGwgYWNjZXNzZXMgb2YgdGhlIGxvY2FsIGRvbWFpbiB0
+byBYZW5zdG9yZSkgaXMgcmF0aGVyIHNpbXBsZQplc3BlY2lhbGx5IHJlZ2FyZGluZyBtdWx0aXBs
+ZSBjb25jdXJyZW50IGFjY2Vzc2VzOiB0aGV5IGFyZSBqdXN0IGJlaW5nCnNlcmlhbGl6ZWQgaW4g
+c3BpdGUgb2YgWGVuc3RvcmUgYmVpbmcgY2FwYWJsZSB0byBoYW5kbGUgbXVsdGlwbGUKcGFyYWxs
+ZWwgYWNjZXNzZXMuCgpDbGVhbiB1cCB0aGUgZXh0ZXJuYWwgaW50ZXJmYWNlKHMpIG9mIHhlbmJ1
+cyBhbmQgb3B0aW1pemUgaXRzCnBlcmZvcm1hbmNlIGJ5IGFsbG93aW5nIG11bHRpcGxlIGNvbmN1
+cnJlbnQgYWNjZXNzZXMgdG8gWGVuc3RvcmUuCgpKdWVyZ2VuIEdyb3NzICgzKToKICB4ZW46IGNs
+ZWFuIHVwIHhlbmJ1cyBpbnRlcm5hbCBoZWFkZXJzCiAgeGVuOiBtb2RpZnkgeGVuc3RvcmUgd2F0
+Y2ggZXZlbnQgaW50ZXJmYWNlCiAgeGVuOiBvcHRpbWl6ZSB4ZW5idXMgZHJpdmVyIGZvciBtdWx0
+aXBsZSBjb25jdXJyZW50IHhlbnN0b3JlIGFjY2Vzc2VzCgogZHJpdmVycy9ibG9jay94ZW4tYmxr
+YmFjay94ZW5idXMuYyAgICAgICAgIHwgICA2ICstCiBkcml2ZXJzL25ldC94ZW4tbmV0YmFjay94
+ZW5idXMuYyAgICAgICAgICAgfCAgIDggKy0KIGRyaXZlcnMveGVuL2NwdV9ob3RwbHVnLmMgICAg
+ICAgICAgICAgICAgICB8ICAgNSArLQogZHJpdmVycy94ZW4vbWFuYWdlLmMgICAgICAgICAgICAg
+ICAgICAgICAgIHwgICA2ICstCiBkcml2ZXJzL3hlbi94ZW4tYmFsbG9vbi5jICAgICAgICAgICAg
+ICAgICAgfCAgIDIgKy0KIGRyaXZlcnMveGVuL3hlbi1wY2liYWNrL3hlbmJ1cy5jICAgICAgICAg
+ICB8ICAgMiArLQogZHJpdmVycy94ZW4veGVuYnVzL3hlbmJ1cy5oICAgICAgICAgICAgICAgIHwg
+MTM0ICsrKysrKysrCiBkcml2ZXJzL3hlbi94ZW5idXMveGVuYnVzX2NsaWVudC5jICAgICAgICAg
+fCAgIDYgKy0KIGRyaXZlcnMveGVuL3hlbmJ1cy94ZW5idXNfY29tbXMuYyAgICAgICAgICB8IDMx
+OSArKysrKysrKysrKysrKystLQogZHJpdmVycy94ZW4veGVuYnVzL3hlbmJ1c19jb21tcy5oICAg
+ICAgICAgIHwgIDUxIC0tLQogZHJpdmVycy94ZW4veGVuYnVzL3hlbmJ1c19kZXZfYmFja2VuZC5j
+ICAgIHwgICAyICstCiBkcml2ZXJzL3hlbi94ZW5idXMveGVuYnVzX2Rldl9mcm9udGVuZC5jICAg
+fCAyMTMgKysrKysrKy0tLS0tCiBkcml2ZXJzL3hlbi94ZW5idXMveGVuYnVzX3Byb2JlLmMgICAg
+ICAgICAgfCAgMTQgKy0KIGRyaXZlcnMveGVuL3hlbmJ1cy94ZW5idXNfcHJvYmUuaCAgICAgICAg
+ICB8ICA4OCAtLS0tLQogZHJpdmVycy94ZW4veGVuYnVzL3hlbmJ1c19wcm9iZV9iYWNrZW5kLmMg
+IHwgIDExICstCiBkcml2ZXJzL3hlbi94ZW5idXMveGVuYnVzX3Byb2JlX2Zyb250ZW5kLmMgfCAg
+MTcgKy0KIGRyaXZlcnMveGVuL3hlbmJ1cy94ZW5idXNfeHMuYyAgICAgICAgICAgICB8IDUzNSAr
+KysrKysrKysrKysrLS0tLS0tLS0tLS0tLS0tLQogZHJpdmVycy94ZW4veGVuZnMvc3VwZXIuYyAg
+ICAgICAgICAgICAgICAgIHwgICAyICstCiBkcml2ZXJzL3hlbi94ZW5mcy94ZW5zdG9yZWQuYyAg
+ICAgICAgICAgICAgfCAgIDIgKy0KIGluY2x1ZGUveGVuL3hlbmJ1cy5oICAgICAgICAgICAgICAg
+ICAgICAgICB8ICAxOCArLQogMjAgZmlsZXMgY2hhbmdlZCwgODMwIGluc2VydGlvbnMoKyksIDYx
+MSBkZWxldGlvbnMoLSkKIGNyZWF0ZSBtb2RlIDEwMDY0NCBkcml2ZXJzL3hlbi94ZW5idXMveGVu
+YnVzLmgKIGRlbGV0ZSBtb2RlIDEwMDY0NCBkcml2ZXJzL3hlbi94ZW5idXMveGVuYnVzX2NvbW1z
+LmgKIGRlbGV0ZSBtb2RlIDEwMDY0NCBkcml2ZXJzL3hlbi94ZW5idXMveGVuYnVzX3Byb2JlLmgK
+CkNjOiBrb25yYWQud2lsa0BvcmFjbGUuY29tCkNjOiByb2dlci5wYXVAY2l0cml4LmNvbQpDYzog
+d2VpLmxpdTJAY2l0cml4LmNvbQpDYzogcGF1bC5kdXJyYW50QGNpdHJpeC5jb20KQ2M6IG5ldGRl
+dkB2Z2VyLmtlcm5lbC5vcmcKCi0tIAoyLjEwLjIKCgpfX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fXwpYZW4tZGV2ZWwgbWFpbGluZyBsaXN0Clhlbi1kZXZlbEBs
+aXN0cy54ZW4ub3JnCmh0dHBzOi8vbGlzdHMueGVuLm9yZy94ZW4tZGV2ZWwK
