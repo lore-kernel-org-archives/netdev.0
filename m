@@ -1,15 +1,15 @@
 From: Harsh Jain <harsh@chelsio.com>
-Subject: [PATCH v1 4/8] crypto:chcr- Use cipher instead of Block Cipher in gcm setkey
-Date: Fri,  6 Jan 2017 14:01:35 +0530
-Message-ID: <58bcdff06b7746292cd28b4b7d1018059e97b9df.1483599449.git.harsh@chelsio.com>
+Subject: [PATCH v1 7/8] crypto:chcr- Check device is allocated before use
+Date: Fri,  6 Jan 2017 14:01:38 +0530
+Message-ID: <8e0086b56d8fb61637d179c32a09a1bca03c4186.1483599449.git.harsh@chelsio.com>
 References: <cover.1483599449.git.harsh@chelsio.com>
-Cc: Harsh Jain <harsh@chelsio.com>
+Cc: Harsh Jain <harsh@chelsio.com>, Atul Gupta <atul.gupta@chelsio.com>
 To: hariprasad@chelsio.com, netdev@vger.kernel.org,
         herbert@gondor.apana.org.au, linux-crypto@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:32478 "EHLO
+Received: from stargate.chelsio.com ([12.32.117.8]:38825 "EHLO
         stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S939662AbdAFIc1 (ORCPT
+        with ESMTP id S939665AbdAFIc1 (ORCPT
         <rfc822;netdev@vger.kernel.org>); Fri, 6 Jan 2017 03:32:27 -0500
 In-Reply-To: <cover.1483599449.git.harsh@chelsio.com>
 In-Reply-To: <cover.1483599449.git.harsh@chelsio.com>
@@ -17,63 +17,59 @@ References: <cover.1483599449.git.harsh@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-1 Block of encrption can be done with aes-generic. no need of
-cbc(aes). This patch replaces cbc(aes-generic) with aes-generic.
+Ensure dev is allocated for crypto uld context before using the device
+for crypto operations.
 
-Signed-off-by: Harsh Jain <harsh@chelsio.com>
+Signed-off-by: Atul Gupta <atul.gupta@chelsio.com>
 ---
- drivers/crypto/chelsio/chcr_algo.c | 20 +++++++++-----------
- 1 file changed, 9 insertions(+), 11 deletions(-)
+ drivers/crypto/chelsio/chcr_core.c | 18 ++++++++----------
+ 1 file changed, 8 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/crypto/chelsio/chcr_algo.c b/drivers/crypto/chelsio/chcr_algo.c
-index 6c2dea3..d335943 100644
---- a/drivers/crypto/chelsio/chcr_algo.c
-+++ b/drivers/crypto/chelsio/chcr_algo.c
-@@ -2189,8 +2189,7 @@ static int chcr_gcm_setkey(struct crypto_aead *aead, const u8 *key,
- 	struct chcr_context *ctx = crypto_aead_ctx(aead);
- 	struct chcr_aead_ctx *aeadctx = AEAD_CTX(ctx);
- 	struct chcr_gcm_ctx *gctx = GCM_CTX(aeadctx);
--	struct blkcipher_desc h_desc;
--	struct scatterlist src[1];
-+	struct crypto_cipher *cipher;
- 	unsigned int ck_size;
- 	int ret = 0, key_ctx_size = 0;
+diff --git a/drivers/crypto/chelsio/chcr_core.c b/drivers/crypto/chelsio/chcr_core.c
+index 918da8e..1c65f07 100644
+--- a/drivers/crypto/chelsio/chcr_core.c
++++ b/drivers/crypto/chelsio/chcr_core.c
+@@ -52,6 +52,7 @@
+ int assign_chcr_device(struct chcr_dev **dev)
+ {
+ 	struct uld_ctx *u_ctx;
++	int ret = -ENXIO;
  
-@@ -2223,27 +2222,26 @@ static int chcr_gcm_setkey(struct crypto_aead *aead, const u8 *key,
- 						CHCR_KEYCTX_MAC_KEY_SIZE_128,
- 						0, 0,
- 						key_ctx_size >> 4);
--	/* Calculate the H = CIPH(K, 0 repeated 16 times) using sync aes
--	 * blkcipher It will go on key context
-+	/* Calculate the H = CIPH(K, 0 repeated 16 times).
-+	 * It will go in key context
+ 	/*
+ 	 * Which device to use if multiple devices are available TODO
+@@ -59,15 +60,14 @@ int assign_chcr_device(struct chcr_dev **dev)
+ 	 * must go to the same device to maintain the ordering.
  	 */
--	h_desc.tfm = crypto_alloc_blkcipher("cbc(aes-generic)", 0, 0);
--	if (IS_ERR(h_desc.tfm)) {
-+	cipher = crypto_alloc_cipher("aes-generic", 0, 0);
-+	if (IS_ERR(cipher)) {
- 		aeadctx->enckey_len = 0;
- 		ret = -ENOMEM;
- 		goto out;
+ 	mutex_lock(&dev_mutex); /* TODO ? */
+-	u_ctx = list_first_entry(&uld_ctx_list, struct uld_ctx, entry);
+-	if (!u_ctx) {
+-		mutex_unlock(&dev_mutex);
+-		return -ENXIO;
++	list_for_each_entry(u_ctx, &uld_ctx_list, entry)
++		if (u_ctx && u_ctx->dev) {
++			*dev = u_ctx->dev;
++			ret = 0;
++			break;
  	}
--	h_desc.flags = 0;
--	ret = crypto_blkcipher_setkey(h_desc.tfm, key, keylen);
-+
-+	ret = crypto_cipher_setkey(cipher, key, keylen);
- 	if (ret) {
- 		aeadctx->enckey_len = 0;
- 		goto out1;
- 	}
- 	memset(gctx->ghash_h, 0, AEAD_H_SIZE);
--	sg_init_one(&src[0], gctx->ghash_h, AEAD_H_SIZE);
--	ret = crypto_blkcipher_encrypt(&h_desc, &src[0], &src[0], AEAD_H_SIZE);
-+	crypto_cipher_encrypt_one(cipher, gctx->ghash_h, gctx->ghash_h);
+-
+-	*dev = u_ctx->dev;
+ 	mutex_unlock(&dev_mutex);
+-	return 0;
++	return ret;
+ }
  
- out1:
--	crypto_free_blkcipher(h_desc.tfm);
-+	crypto_free_cipher(cipher);
- out:
- 	return ret;
+ static int chcr_dev_add(struct uld_ctx *u_ctx)
+@@ -202,10 +202,8 @@ static int chcr_uld_state_change(void *handle, enum cxgb4_state state)
+ 
+ static int __init chcr_crypto_init(void)
+ {
+-	if (cxgb4_register_uld(CXGB4_ULD_CRYPTO, &chcr_uld_info)) {
++	if (cxgb4_register_uld(CXGB4_ULD_CRYPTO, &chcr_uld_info))
+ 		pr_err("ULD register fail: No chcr crypto support in cxgb4");
+-		return -1;
+-	}
+ 
+ 	return 0;
  }
 -- 
 1.8.2.3
