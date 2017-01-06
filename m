@@ -1,54 +1,70 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [net-next PATCH 5/6] i40e: Add TX and RX support in switchdev mode.
-Date: Fri, 6 Jan 2017 11:24:45 +0200
-Message-ID: <CAJ3xEMh7hjPQX1xm9+CRKYjCRp0XzqjA9+YML9+aC2iZ5FhL2A@mail.gmail.com>
-References: <1483078863-22026-1-git-send-email-sridhar.samudrala@intel.com>
- <1483078863-22026-6-git-send-email-sridhar.samudrala@intel.com>
- <CAJ3xEMgDAUSE2gVD3dU4UuXFb7k_W-9QgHpg-0c7b5kxRC2=FQ@mail.gmail.com>
- <586693A6.5090105@intel.com> <CAJ3xEMjGuKKge+_hqZPOg2fp3f50TdxGtbKFXwnCZ70rPxmuyw@mail.gmail.com>
- <586D7B4E.2010308@intel.com> <CAJ3xEMgAaXNbvaP0=GcuTsVOOGwPHuSMQf-SeLKpxB8WrbEvng@mail.gmail.com>
- <586EC996.9080205@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-        John Fastabend <john.r.fastabend@intel.com>,
-        Anjali Singhai Jain <anjali.singhai@intel.com>,
-        jakub.kicinski@netronome.com, intel-wired-lan@lists.osuosl.org,
-        Linux Netdev List <netdev@vger.kernel.org>
-To: "Samudrala, Sridhar" <sridhar.samudrala@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f68.google.com ([209.85.218.68]:34191 "EHLO
-        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S936792AbdAFJYq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 6 Jan 2017 04:24:46 -0500
-Received: by mail-oi0-f68.google.com with SMTP id 3so53743972oih.1
-        for <netdev@vger.kernel.org>; Fri, 06 Jan 2017 01:24:46 -0800 (PST)
-In-Reply-To: <586EC996.9080205@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH v2 0/7] uapi: export all headers under uapi directories
+Date: Fri,  6 Jan 2017 10:43:52 +0100
+Message-ID: <1483695839-18660-1-git-send-email-nicolas.dichtel@6wind.com>
+References: <bf83da6b-01ef-bf44-b3e1-ca6fc5636818@6wind.com>
+Cc: mmarek@suse.com, linux-kbuild@vger.kernel.org,
+        linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org,
+        linux-arm-kernel@lists.infradead.org,
+        adi-buildroot-devel@lists.sourceforge.net,
+        linux-c6x-dev@linux-c6x.org, linux-cris-kernel@axis.com,
+        uclinux-h8-devel@lists.sourceforge.jp,
+        linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org,
+        linux-m68k@lists.linux-m68k.org, linux-metag@vger.kernel.org,
+        linux-mips@linux-mips.org, linux-am33-list@redhat.com,
+        nios2-dev@lists.rocketboards.org, openrisc@lists.librecores.org,
+        linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+        linux-s390@vger.kernel.org, linux-sh@vger.kernel.org,
+        sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org,
+        linux-arch@vger.kernel.
+To: arnd@arndb.de
+Return-path: <linux-mips-bounce@linux-mips.org>
+In-Reply-To: <bf83da6b-01ef-bf44-b3e1-ca6fc5636818@6wind.com>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
+List-help: <mailto:ecartis@linux-mips.org?Subject=help>
+List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
+List-software: Ecartis version 1.0.0
+List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
+List-owner: <mailto:ralf@linux-mips.org>
+List-post: <mailto:linux-mips@linux-mips.org>
+List-archive: <http://www.linux-mips.org/archives/linux-mips/>
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 6, 2017 at 12:32 AM, Samudrala, Sridhar
-<sridhar.samudrala@intel.com> wrote:
-> On 1/5/2017 3:50 AM, Or Gerlitz wrote:
 
-> It looks like you are returning the VF port number as phys_port_name() for a
-> VF rep in en_rep.c. Is this correct?
+Here is the v2 of this series. The first 5 patches are just cleanup: some
+exported headers were still under a non-uapi directory.
+The patch 6 was spotted by code review: there is no in-tree user of this
+functionality.
+The last patch remove the use of header-y. Now all files under an uapi
+directory are exported.
 
-yeah, correct, what we all call the VF rep actually represents the
-eswitch vport the VF is connected to. The most flexible input for user
-space would be just to get this port number along with the switchdev
-ID which tells them to which switch this port belongs.
+asm is a bit special, most of architectures export asm/<arch>/include/uapi/asm
+only, but there is two exceptions:
+ - cris which exports arch/cris/include/uapi/arch-v[10|32];
+ - tile which exports arch/tile/include/uapi/arch.
+Because I don't know if the output of 'make headers_install_all' can be changed,
+I introduce subdir-y in Kbuild file. The headers_install_all target copies all
+asm/<arch>/include/uapi/asm to usr/include/asm-<arch> but
+arch/cris/include/uapi/arch-v[10|32] and arch/tile/include/uapi/arch are not
+prefixed (they are put asis in usr/include/). If it's acceptable to modify the
+output of 'make headers_install_all' to export asm headers in
+usr/include/asm-<arch>/asm, then I could remove this new subdir-y and exports
+everything under arch/<arch>/include/uapi/.
 
-> By default i am creating VFPR netdev with name as <pf_name>_VF<vf_num>
-> For ex; if enp5s0f0 is the pf name, VFPR netdev for VF0 will be enp5s0f0_vf0
->
-> If we want udev to follow this syntax should i return '_vf0'  as
-> get_phys_port_name() for VF rep 0?
+Note also that exported files for asm are a mix of files listed by:
+ - include/uapi/asm-generic/Kbuild.asm;
+ - arch/x86/include/uapi/asm/Kbuild;
+ - arch/x86/include/asm/Kbuild.
+This complicates a lot the processing (arch/x86/include/asm/Kbuild is also
+used by scripts/Makefile.asm-generic).
 
-just return a number. Typically the PF is vport #0, so for vf0 you
-would return 1, this is aligned with the kernel switchdev
-documentation [1]
+This series has been tested with a 'make headers_install' on x86 and a
+'make headers_install_all'. I've checked the result of both commands.
 
-Or.
+This patch is built against linus tree. I don't know if it should be
+made against antoher tree.
 
-[1] http://lxr.free-electrons.com/source/Documentation/networking/switchdev.txt#L104
+Comments are welcomed,
+Nicolas
