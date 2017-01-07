@@ -1,58 +1,82 @@
-From: Russell King <rmk+kernel@armlinux.org.uk>
-Subject: [PATCH RFC 2/4] net: mvmdio: fix interrupt disable in remove path
-Date: Sat, 07 Jan 2017 11:28:25 +0000
-Message-ID: <E1cPpAf-0005uC-P0@rmk-PC.armlinux.org.uk>
+From: Russell King <rmk+kernel-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>
+Subject: [PATCH RFC 3/4] dt-bindings: correct marvell orion MDIO binding
+ document
+Date: Sat, 07 Jan 2017 11:28:30 +0000
+Message-ID: <E1cPpAk-0005uJ-TM@rmk-PC.armlinux.org.uk>
 References: <20170107112656.GL14217@n2100.armlinux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 8bit
-Cc: linux-arm-kernel@lists.infradead.org,
-        Marcin Wojtas <mw@semihalf.com>,
-        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-        netdev@vger.kernel.org
-To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Jason Cooper <jason@lakedaemon.net>,
-        Gregory Clement <gregory.clement@free-electrons.com>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Rob Herring <robh+dt@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.armlinux.org.uk ([78.32.30.218]:59808 "EHLO
-        pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751462AbdAGL25 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 7 Jan 2017 06:28:57 -0500
-In-Reply-To: <20170107112656.GL14217@n2100.armlinux.org.uk>
+Cc: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+        Marcin Wojtas <mw-nYOzD4b6Jr9Wk0Htik3J/w@public.gmane.org>,
+        Sebastian Hesselbarth <sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+        Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
+        Jason Cooper <jason-NLaQJdtUoK4Be96aLqz0jA@public.gmane.org>,
+        Gregory Clement <gregory.clement-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170107112656.GL14217-l+eeeJia6m9URfEZ8mYm6t73F7V6hmMc@public.gmane.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-The pre-existing write to disable interrupts on the remove path happens
-whether we have an interrupt or not.  While this may seem to be a good
-idea, this driver is re-used in many different implementations, some
-where the binding only specifies four bytes of register space.  This
-access causes us to access registers outside of the binding.
+Correct the Marvell Orion MDIO binding document to properly reflect the
+cases where an interrupt is present.  Augment the examples to show this.
 
-Make it conditional on the interrupt being present, which is the same
-condition used when enabling the interrupt in the first place.
-
-Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
+Signed-off-by: Russell King <rmk+kernel-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>
 ---
- drivers/net/ethernet/marvell/mvmdio.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ .../devicetree/bindings/net/marvell-orion-mdio.txt      | 17 +++++++++++++++--
+ 1 file changed, 15 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/marvell/mvmdio.c b/drivers/net/ethernet/marvell/mvmdio.c
-index 7aea0beca56e..6ea5caddca62 100644
---- a/drivers/net/ethernet/marvell/mvmdio.c
-+++ b/drivers/net/ethernet/marvell/mvmdio.c
-@@ -263,7 +263,8 @@ static int orion_mdio_remove(struct platform_device *pdev)
- 	struct mii_bus *bus = platform_get_drvdata(pdev);
- 	struct orion_mdio_dev *dev = bus->priv;
+diff --git a/Documentation/devicetree/bindings/net/marvell-orion-mdio.txt b/Documentation/devicetree/bindings/net/marvell-orion-mdio.txt
+index 9417e54c26c0..ca733ff68ab9 100644
+--- a/Documentation/devicetree/bindings/net/marvell-orion-mdio.txt
++++ b/Documentation/devicetree/bindings/net/marvell-orion-mdio.txt
+@@ -7,7 +7,10 @@ interface.
  
--	writel(0, dev->regs + MVMDIO_ERR_INT_MASK);
-+	if (dev->err_interrupt > 0)
-+		writel(0, dev->regs + MVMDIO_ERR_INT_MASK);
- 	mdiobus_unregister(bus);
- 	if (!IS_ERR(dev->clk))
- 		clk_disable_unprepare(dev->clk);
+ Required properties:
+ - compatible: "marvell,orion-mdio"
+-- reg: address and length of the SMI register
++- reg: address and length of the MDIO registers.  When an interrupt is
++  not present, the length is the size of the SMI register (4 bytes)
++  otherwise it must be 0x84 bytes to cover the interrupt control
++  registers.
+ 
+ Optional properties:
+ - interrupts: interrupt line number for the SMI error/done interrupt
+@@ -17,7 +20,7 @@ The child nodes of the MDIO driver are the individual PHY devices
+ connected to this MDIO bus. They must have a "reg" property given the
+ PHY address on the MDIO bus.
+ 
+-Example at the SoC level:
++Example at the SoC level without an interrupt property:
+ 
+ mdio {
+ 	#address-cells = <1>;
+@@ -26,6 +29,16 @@ mdio {
+ 	reg = <0xd0072004 0x4>;
+ };
+ 
++Example with an interrupt property:
++
++mdio {
++	#address-cells = <1>;
++	#size-cells = <0>;
++	compatible = "marvell,orion-mdio";
++	reg = <0xd0072004 0x84>;
++	interrupts = <30>;
++};
++
+ And at the board level:
+ 
+ mdio {
 -- 
 2.7.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
