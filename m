@@ -1,112 +1,130 @@
-From: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>
-Subject: RE: [PATCH v3] net: stmmac: fix maxmtu assignment to be within
- valid range
-Date: Sat, 7 Jan 2017 00:54:29 +0000
-Message-ID: <F54AEECA5E2B9541821D670476DAE19C5A918CE1@PGSMSX102.gar.corp.intel.com>
-References: <1483750143-11966-1-git-send-email-hock.leong.kweh@intel.com>
- <CAHp75VdkGcQM_fW6LLuQ1JC67p4vGNWKcyxPs5Sc-4tFi2MGLg@mail.gmail.com>
- <F54AEECA5E2B9541821D670476DAE19C5A918C87@PGSMSX102.gar.corp.intel.com>
- <CAHp75VeWs8LXS+zaCht8reLMLRtz+583K91QvoPquuUxC-rwWg@mail.gmail.com>
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Subject: [PATCH net-next] liquidio: store the L4 hash of rx packets in skb
+Date: Fri, 6 Jan 2017 16:55:42 -0800
+Message-ID: <20170107005542.GA16278@felix.cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Joao Pinto <Joao.Pinto@synopsys.com>,
-        Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
-        "seraphin.bonnaffe@st.com" <seraphin.bonnaffe@st.com>,
-        Jarod Wilson <jarod@redhat.com>,
-        Alexandre TORGUE <alexandre.torgue@gmail.com>,
-        "Joachim Eastwood" <manabian@gmail.com>,
-        Niklas Cassel <niklas.cassel@axis.com>,
-        "Johan Hovold" <johan@kernel.org>, Pavel Machek <pavel@ucw.cz>,
-        "lars.persson@axis.com" <lars.persson@axis.com>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>
-To: Andy Shevchenko <andy.shevchenko@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAHp75VeWs8LXS+zaCht8reLMLRtz+583K91QvoPquuUxC-rwWg@mail.gmail.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, <raghu.vatsavayi@cavium.com>,
+        <derek.chickles@cavium.com>, <satananda.burla@cavium.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-sn1nam01on0044.outbound.protection.outlook.com ([104.47.32.44]:55952
+        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1034654AbdAGA4l (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 6 Jan 2017 19:56:41 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBBbmR5IFNoZXZjaGVua28gW21h
-aWx0bzphbmR5LnNoZXZjaGVua29AZ21haWwuY29tXQ0KPiBTZW50OiBTYXR1cmRheSwgSmFudWFy
-eSAwNywgMjAxNyA4OjA3IEFNDQo+IFRvOiBLd2VoLCBIb2NrIExlb25nIDxob2NrLmxlb25nLmt3
-ZWhAaW50ZWwuY29tPg0KPiBDYzogRGF2aWQgUy4gTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0
-PjsgSm9hbyBQaW50bw0KPiA8Sm9hby5QaW50b0BzeW5vcHN5cy5jb20+OyBHaXVzZXBwZSBDQVZB
-TExBUk8gPHBlcHBlLmNhdmFsbGFyb0BzdC5jb20+Ow0KPiBzZXJhcGhpbi5ib25uYWZmZUBzdC5j
-b207IEphcm9kIFdpbHNvbiA8amFyb2RAcmVkaGF0LmNvbT47IEFsZXhhbmRyZQ0KPiBUT1JHVUUg
-PGFsZXhhbmRyZS50b3JndWVAZ21haWwuY29tPjsgSm9hY2hpbSBFYXN0d29vZA0KPiA8bWFuYWJp
-YW5AZ21haWwuY29tPjsgTmlrbGFzIENhc3NlbCA8bmlrbGFzLmNhc3NlbEBheGlzLmNvbT47IEpv
-aGFuIEhvdm9sZA0KPiA8am9oYW5Aa2VybmVsLm9yZz47IFBhdmVsIE1hY2hlayA8cGF2ZWxAdWN3
-LmN6PjsgbGFycy5wZXJzc29uQGF4aXMuY29tOw0KPiBuZXRkZXYgPG5ldGRldkB2Z2VyLmtlcm5l
-bC5vcmc+OyBMS01MIDxsaW51eC1rZXJuZWxAdmdlci5rZXJuZWwub3JnPg0KPiBTdWJqZWN0OiBS
-ZTogW1BBVENIIHYzXSBuZXQ6IHN0bW1hYzogZml4IG1heG10dSBhc3NpZ25tZW50IHRvIGJlIHdp
-dGhpbiB2YWxpZA0KPiByYW5nZQ0KPiANCj4gT24gU2F0LCBKYW4gNywgMjAxNyBhdCAxOjQ3IEFN
-LCBLd2VoLCBIb2NrIExlb25nDQo+IDxob2NrLmxlb25nLmt3ZWhAaW50ZWwuY29tPiB3cm90ZToN
-Cj4gDQo+ID4+ID4gLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvc3RtaWNyby9zdG1tYWMvc3Rt
-bWFjX21haW4uYw0KPiA+PiA+ICsrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L3N0bWljcm8vc3Rt
-bWFjL3N0bW1hY19tYWluLmMNCj4gPj4gPiBAQCAtMzM0NSw4ICszMzQ1LDE0IEBAIGludCBzdG1t
-YWNfZHZyX3Byb2JlKHN0cnVjdCBkZXZpY2UgKmRldmljZSwNCj4gPj4gPiAgICAgICAgICAgICAg
-ICAgbmRldi0+bWF4X210dSA9IEpVTUJPX0xFTjsNCj4gPj4gPiAgICAgICAgIGVsc2UNCj4gPj4g
-PiAgICAgICAgICAgICAgICAgbmRldi0+bWF4X210dSA9IFNLQl9NQVhfSEVBRChORVRfU0tCX1BB
-RCArDQo+IE5FVF9JUF9BTElHTik7DQo+ID4+ID4gLSAgICAgICBpZiAocHJpdi0+cGxhdC0+bWF4
-bXR1IDwgbmRldi0+bWF4X210dSkNCj4gPj4NCj4gPj4gPiArICAgICAgIGlmICgocHJpdi0+cGxh
-dC0+bWF4bXR1IDwgbmRldi0+bWF4X210dSkgJiYNCj4gPj4gPiArICAgICAgICAgICAocHJpdi0+
-cGxhdC0+bWF4bXR1ID49IG5kZXYtPm1pbl9tdHUpKQ0KPiA+Pg0KPiA+PiA+ICAgICAgICAgICAg
-ICAgICBuZGV2LT5tYXhfbXR1ID0gcHJpdi0+cGxhdC0+bWF4bXR1Ow0KPiA+Pg0KPiA+PiA+ICsg
-ICAgICAgZWxzZSBpZiAocHJpdi0+cGxhdC0+bWF4bXR1IDwgbmRldi0+bWluX210dSkNCj4gPj4N
-Cj4gPj4gQW5kIGlmIGl0ID4gbmRldi0+bWF4X210dT8uLg0KPiA+Pg0KPiA+DQo+ID4gQmFzZSBv
-biBteSB1bmRlcnN0YW5kaW5nIHRvIHRoZSBvcmlnaW5hbCBjb2RlLCB0aGUgIm1heG10dSA+PSBu
-ZGV2LQ0KPiA+bWF4X210dSINCj4gPiBpcyBtZWFudCBmb3IgcHJvZHVjdHMgdGhhdCB3b3VsZCB3
-YW50IHRvIHVzZSB0aGUgdmFsdWUgZnJvbSBsb2dpYyB3aGljaCBpcyBqdXN0DQo+IGFib3ZlDQo+
-ID4gdGhpcyBzdGF0ZW1lbnQgd2hlcmUgeW91IGp1c3QgYXNrIG1lIG5vdCB0byBhZGQgbmV3IGxp
-bmUuIFRoYXQgdGhlIHJlYXNvbiB0aGUNCj4gPiBzdG1tYWNfcGxhdGZvcm0uYyBwdXQgaW4gInBs
-YXQtPm1heG10dSA9IEpVTUJPX0xFTjsiIGFzIGdlbmVyaWMgYW5kIEkNCj4gYWxzbw0KPiA+IGZv
-bGxvdyBpdCBpbiBzdG1tYWNfcGNpLmMuDQo+ID4NCj4gPiBPciBkbyB5b3UgbWVhbiBvbmx5IHRh
-a2UgbWF4bXR1ID0gSlVNQk9fTEVOIGZvciB0aGUgb3B0aW9uIHRvIHVzZSBkcml2ZXINCj4gaXRz
-ZWxmDQo+ID4gYXNzaWdubWVudCBzdGF0ZW1lbnQgYWJvdmUgYW5kIGFsbCB0aGUgPiBtYXhfbXR1
-IGNvbnNpZGVyIGludmFsaWQ/DQo+IA0KPiBTbywganVzdCBhbnN3ZXIgdG8gdGhlIHNpbXBsZSBx
-dWVzdGlvbjogaXMgaXQgYSB2YWxpZCBjYXNlIHRvIGhhdmUNCj4gcGxhdC0+bWF4bXR1ID4gbmRl
-di0+bWF4X210dT8gSWYgaXQgc28sIGhvdyBpcyBpdCB1c2VkPw0KPiBPdGhlcndpc2Ugd2UgbmVl
-ZCBhIHdhcm5pbmcgaW4gc3VjaCBjYXNlLiBXaGF0IGRpZCBJIG1pc3M/DQo+IA0KDQppdCBpcyBh
-IHZhbGlkIGNhc2UgZm9yIHByaXYtPnBsYXQtPm1heG10dSA+IG5kZXYtPm1heF9tdHUgaWYgcmVm
-ZXJyaW5nDQp0byB0aGUgc3RhdGVtZW50IGFib3ZlIGl0Og0KDQoJLyogTVRVIHJhbmdlOiA0NiAt
-IGh3LXNwZWNpZmljIG1heCAqLw0KCW5kZXYtPm1pbl9tdHUgPSBFVEhfWkxFTiAtIEVUSF9ITEVO
-Ow0KCWlmICgocHJpdi0+cGxhdC0+ZW5oX2Rlc2MpIHx8IChwcml2LT5zeW5vcHN5c19pZCA+PSBE
-V01BQ19DT1JFXzRfMDApKQ0KCQluZGV2LT5tYXhfbXR1ID0gSlVNQk9fTEVOOw0KCWVsc2UNCgkJ
-bmRldi0+bWF4X210dSA9IFNLQl9NQVhfSEVBRChORVRfU0tCX1BBRCArIE5FVF9JUF9BTElHTik7
-DQoNCldoZW4gdGhlIG5kZXYtPm1heF9tdHUgZ28gaW50byB0aGUgZWxzZSBzdGF0ZW1lbnQsIHRo
-ZW4gdGhlIGFzc2lnbm1lbnQgaW4NCnN0bW1hY19wbGF0Zm9ybS5jICYgc3RhbW1hY19wY2kuYyBw
-bGF0LT5tYXhtdHUgPSBKVU1CT19MRU4gaXMgYWN0dWFsbHkgDQpncmVhdGVyIHRoYW4gbmRldi0+
-bWF4X210dS4gVGhhdCBpcyB3aGF0IEkgdW5kZXJzdGFuZGluZyB0aGF0IG1heG10dSA+IG1heF9t
-dHUNCmlzIGFuIG9wdGlvbiB0cmljayB0byBhbGxvdyBkcml2ZXIgYXNzaWduIHZhbHVlIHRocm91
-Z2ggdGhlIGxvZ2ljIGFib3ZlIGluc3RlYWQgb2YgZ2V0dGluZw0KaXQgZnJvbSBvZl9wcm9wZXJ0
-eV9yZWFkX3UzMihucCwgIm1heC1mcmFtZS1zaXplIiwgJnBsYXQtPm1heG10dSk7IG9yICpfZGVm
-YXVsdF9kYXRhKCkuDQoNCkkgbmVlZCB0byByZXZlcnQgYmFjayB0aGUgVjQgYW5kIHN1Ym1pdCBW
-NS4NCg0KPiA+DQo+ID4+ID4gKyAgICAgICAgICAgICAgIG5ldGRldl93YXJuKHByaXYtPmRldiwN
-Cj4gPj4gPiArICAgICAgICAgICAgICAgICAgICAgICAgICAgIiVzOiB3YXJuaW5nOiBtYXhtdHUg
-aGF2aW5nIGludmFsaWQgdmFsdWUgKCVkKVxuIiwNCj4gPj4gPiArICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgX19mdW5jX18sIHByaXYtPnBsYXQtPm1heG10dSk7DQo+IA0KPiANCj4gPj4gPiAr
-ICAgICAgIC8qIFNldCB0aGUgbWF4bXR1IHRvIGEgZGVmYXVsdCBvZiBKVU1CT19MRU4gaW4gY2Fz
-ZSB0aGUNCj4gPj4gPiArICAgICAgICAqIHBhcmFtZXRlciBpcyBub3QgZGVmaW5lZCBmb3IgdGhl
-IGRldmljZS4NCj4gPj4gPiArICAgICAgICAqLw0KPiA+PiA+ICsgICAgICAgcGxhdC0+bWF4bXR1
-ID0gSlVNQk9fTEVOOw0KPiA+Pg0KPiA+PiBQbGVhc2UsIHVzZSAqX2RlZmF1bHRfZGF0YSgpIGhv
-b2tzIGZvciB0aGF0Lg0KPiA+Pg0KPiA+PiBBdCBzb21lIHBvaW50IGl0IG1pZ2h0IG1ha2Ugc2Vu
-c2UgdG8gZXh0cmFjdA0KPiA+PiBzdGF0aWMgaW50IGNvbW1vbl9kZWZhdWx0X2RhdGEoKSB7Li4u
-fQ0KPiA+PiBhbmQgY2FsbCBpdCBhdCB0aGUgYmVnaW5uaW5nIG9mIHRoZSByZXN0IG9mICpfZGVm
-YXV0bF9kYXRhKCkgaG9va3MuDQo+ID4+DQo+ID4NCj4gPiBKdXN0IHRyeSB0byB1bmRlcnN0YW5k
-LCBhcmUgeW91IHJlZmVycmluZyBjaGFuZ2luZyB0aGUgY29kZSBzb21ldGhpbmcNCj4gPiBsaWtl
-IHRoaXM6DQo+ID4NCj4gPiAgICAgICAgIHN0bW1hY19kZWZhdWx0X2RhdGEocGxhdCk7DQo+ID4g
-ICAgICAgICBpZiAoaW5mbykgew0KPiA+ICAgICAgICAgICAgICAgICBpbmZvLT5wZGV2ID0gcGRl
-djsNCj4gPiAgICAgICAgICAgICAgICAgaWYgKGluZm8tPnNldHVwKSB7DQo+ID4gICAgICAgICAg
-ICAgICAgICAgICAgICAgcmV0ID0gaW5mby0+c2V0dXAocGxhdCwgaW5mbyk7DQo+ID4gICAgICAg
-ICAgICAgICAgICAgICAgICAgaWYgKHJldCkNCj4gPiAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgIHJldHVybiByZXQ7DQo+ID4gICAgICAgICAgICAgICAgIH0NCj4gPiAgICAgICAgIH0N
-Cj4gPg0KPiA+IFdoZXJlIGFsbCB0aGUgY29tbW9uIGNvZGUgaXMgaW5zaWRlIHRoZSBzdG1tYWNf
-ZGVmYXVsdF9kYXRhKCk/DQo+IA0KPiBOby4NCj4gDQo+IGNvbW1vbl9kZWZhdWx0X2RhdGEoKQ0K
-PiB7DQo+ICAuLi4gY29tbW9uIGRlZmF1bHRzIGFtb25nICpfZGVmYXVsdF9kYXRhKCkgLi4uDQo+
-IH0NCj4gDQo+ICpfZGVmYXVsdF9kYXRhKCkNCj4gew0KPiAuLi4NCj4gIGNvbW1vbl9kZWZhdWx0
-X2RhdGEoKTsNCj4gIC4uLg0KPiB9DQo+IA0KDQpPayBub3RlZC4gV2lsbCBiZSBhIHNlcGFyYXRl
-IHBhdGNoLiBUaGFua3MuDQoNClJlZ2FyZHMsDQpXaWxzb24NCg0KPiAtLQ0KPiBXaXRoIEJlc3Qg
-UmVnYXJkcywNCj4gQW5keSBTaGV2Y2hlbmtvDQo=
+From: Prasad Kanneganti <prasad.kanneganti@cavium.com>
+
+Store the L4 hash of received packets in the skb; the hash is computed in
+the NIC firmware.
+
+Signed-off-by: Prasad Kanneganti <prasad.kanneganti@cavium.com>
+Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
+Signed-off-by: Derek Chickles <derek.chickles@cavium.com>
+Signed-off-by: Satanand Burla <satananda.burla@cavium.com>
+---
+ drivers/net/ethernet/cavium/liquidio/lio_main.c        | 17 +++++++++++++++--
+ drivers/net/ethernet/cavium/liquidio/lio_vf_main.c     | 15 ++++++++++++++-
+ drivers/net/ethernet/cavium/liquidio/liquidio_common.h |  2 ++
+ 3 files changed, 31 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+index 39a9665..adae858 100644
+--- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
++++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+@@ -2263,6 +2263,7 @@ liquidio_push_packet(u32 octeon_id __attribute__((unused)),
+ 	struct skb_shared_hwtstamps *shhwtstamps;
+ 	u64 ns;
+ 	u16 vtag = 0;
++	u32 r_dh_off;
+ 	struct net_device *netdev = (struct net_device *)arg;
+ 	struct octeon_droq *droq = container_of(param, struct octeon_droq,
+ 						napi);
+@@ -2308,6 +2309,8 @@ liquidio_push_packet(u32 octeon_id __attribute__((unused)),
+ 			put_page(pg_info->page);
+ 		}
+ 
++		r_dh_off = (rh->r_dh.len - 1) * BYTES_PER_DHLEN_UNIT;
++
+ 		if (((oct->chip_id == OCTEON_CN66XX) ||
+ 		     (oct->chip_id == OCTEON_CN68XX)) &&
+ 		    ptp_enable) {
+@@ -2320,16 +2323,26 @@ liquidio_push_packet(u32 octeon_id __attribute__((unused)),
+ 					/* Nanoseconds are in the first 64-bits
+ 					 * of the packet.
+ 					 */
+-					memcpy(&ns, (skb->data), sizeof(ns));
++					memcpy(&ns, (skb->data + r_dh_off),
++					       sizeof(ns));
++					r_dh_off -= BYTES_PER_DHLEN_UNIT;
+ 					shhwtstamps = skb_hwtstamps(skb);
+ 					shhwtstamps->hwtstamp =
+ 						ns_to_ktime(ns +
+ 							    lio->ptp_adjust);
+ 				}
+-				skb_pull(skb, sizeof(ns));
+ 			}
+ 		}
+ 
++		if (rh->r_dh.has_hash) {
++			u32 hash = be32_to_cpu(*(u32 *)(skb->data + r_dh_off));
++
++			skb_set_hash(skb, hash, PKT_HASH_TYPE_L4);
++			r_dh_off -= BYTES_PER_DHLEN_UNIT;
++		}
++
++		skb_pull(skb, rh->r_dh.len * BYTES_PER_DHLEN_UNIT);
++
+ 		skb->protocol = eth_type_trans(skb, skb->dev);
+ 		if ((netdev->features & NETIF_F_RXCSUM) &&
+ 		    (((rh->r_dh.encap_on) &&
+diff --git a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
+index 70d96c1..c0ee746 100644
+--- a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
++++ b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
+@@ -1497,6 +1497,7 @@ liquidio_push_packet(u32 octeon_id __attribute__((unused)),
+ 	struct net_device *netdev = (struct net_device *)arg;
+ 	struct sk_buff *skb = (struct sk_buff *)skbuff;
+ 	u16 vtag = 0;
++	u32 r_dh_off;
+ 
+ 	if (netdev) {
+ 		struct lio *lio = GET_LIO(netdev);
+@@ -1540,7 +1541,19 @@ liquidio_push_packet(u32 octeon_id __attribute__((unused)),
+ 			put_page(pg_info->page);
+ 		}
+ 
+-		skb_pull(skb, rh->r_dh.len * 8);
++		r_dh_off = (rh->r_dh.len - 1) * BYTES_PER_DHLEN_UNIT;
++
++		if (rh->r_dh.has_hwtstamp)
++			r_dh_off -= BYTES_PER_DHLEN_UNIT;
++
++		if (rh->r_dh.has_hash) {
++			u32 hash = be32_to_cpu(*(u32 *)(skb->data + r_dh_off));
++
++			skb_set_hash(skb, hash, PKT_HASH_TYPE_L4);
++			r_dh_off -= BYTES_PER_DHLEN_UNIT;
++		}
++
++		skb_pull(skb, rh->r_dh.len * BYTES_PER_DHLEN_UNIT);
+ 		skb->protocol = eth_type_trans(skb, skb->dev);
+ 
+ 		if ((netdev->features & NETIF_F_RXCSUM) &&
+diff --git a/drivers/net/ethernet/cavium/liquidio/liquidio_common.h b/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
+index ba329f6..bc0af8a 100644
+--- a/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
++++ b/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
+@@ -98,6 +98,8 @@ enum octeon_tag_type {
+ #define CVM_DRV_INVALID_APP         (CVM_DRV_APP_START + 0x2)
+ #define CVM_DRV_APP_END             (CVM_DRV_INVALID_APP - 1)
+ 
++#define BYTES_PER_DHLEN_UNIT        8
++
+ static inline u32 incr_index(u32 index, u32 count, u32 max)
+ {
+ 	if ((index + count) >= max)
