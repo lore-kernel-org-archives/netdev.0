@@ -1,40 +1,77 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH v6 0/3] net: dummy: Introduce dummy virtual
- functions
-Date: Fri, 06 Jan 2017 20:38:04 -0500 (EST)
-Message-ID: <20170106.203804.2023763441703979123.davem@davemloft.net>
-References: <20170105190913.29986-1-phil@nwl.cc>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: phil@nwl.cc
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH net-next] net: ipmr: Remove nowait arg to ipmr_get_route
+Date: Fri,  6 Jan 2017 17:39:06 -0800
+Message-ID: <1483753146-16168-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:49232 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755425AbdAGBiJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 6 Jan 2017 20:38:09 -0500
-In-Reply-To: <20170105190913.29986-1-phil@nwl.cc>
+Received: from mail-pg0-f47.google.com ([74.125.83.47]:34964 "EHLO
+        mail-pg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1759483AbdAGBjL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 6 Jan 2017 20:39:11 -0500
+Received: by mail-pg0-f47.google.com with SMTP id i5so192232691pgh.2
+        for <netdev@vger.kernel.org>; Fri, 06 Jan 2017 17:39:11 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Phil Sutter <phil@nwl.cc>
-Date: Thu,  5 Jan 2017 20:09:10 +0100
+ipmr_get_route has 1 caller and the nowait arg is 0. Remove the arg and
+simplify ipmr_get_route accordingly.
 
-> This series adds VF support to dummy device driver after adding the
-> necessary infrastructure changes:
-> 
-> Patch 1 adds a netdevice callback for device-specific VF count
-> retrieval. Patch 2 then changes dev_num_vf() implementation to make use
-> of that new callback (if implemented), falling back to the old
-> behaviour. Patch 3 then implements VF support in dummy, without the fake
-> PCI parent device hack from v5.
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+ include/linux/mroute.h | 2 +-
+ net/ipv4/ipmr.c        | 7 +------
+ net/ipv4/route.c       | 2 +-
+ 3 files changed, 3 insertions(+), 8 deletions(-)
 
-Please don't make this a netdev specific method and interface.
-
-Put the method in "struct bus_device", thereby making it a generic
-"device" layer thing.
-
-So the pci BUS type will implement pci_bus_type.num_vf().  And you'll
-make a bus type for the dummy device to attach to which will implement
-it's own.
+diff --git a/include/linux/mroute.h b/include/linux/mroute.h
+index e5fb81376e92..f019b62f27b5 100644
+--- a/include/linux/mroute.h
++++ b/include/linux/mroute.h
+@@ -120,5 +120,5 @@ struct mfc_cache {
+ struct rtmsg;
+ int ipmr_get_route(struct net *net, struct sk_buff *skb,
+ 		   __be32 saddr, __be32 daddr,
+-		   struct rtmsg *rtm, int nowait, u32 portid);
++		   struct rtmsg *rtm, u32 portid);
+ #endif
+diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+index b35dda57586b..824c4fdf21eb 100644
+--- a/net/ipv4/ipmr.c
++++ b/net/ipv4/ipmr.c
+@@ -2136,7 +2136,7 @@ static int __ipmr_fill_mroute(struct mr_table *mrt, struct sk_buff *skb,
+ 
+ int ipmr_get_route(struct net *net, struct sk_buff *skb,
+ 		   __be32 saddr, __be32 daddr,
+-		   struct rtmsg *rtm, int nowait, u32 portid)
++		   struct rtmsg *rtm, u32 portid)
+ {
+ 	struct mfc_cache *cache;
+ 	struct mr_table *mrt;
+@@ -2160,11 +2160,6 @@ int ipmr_get_route(struct net *net, struct sk_buff *skb,
+ 		struct net_device *dev;
+ 		int vif = -1;
+ 
+-		if (nowait) {
+-			rcu_read_unlock();
+-			return -EAGAIN;
+-		}
+-
+ 		dev = skb->dev;
+ 		read_lock(&mrt_lock);
+ 		if (dev)
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index b9bff78274bf..f51823dc998b 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -2540,7 +2540,7 @@ static int rt_fill_info(struct net *net,  __be32 dst, __be32 src, u32 table_id,
+ 		    IPV4_DEVCONF_ALL(net, MC_FORWARDING)) {
+ 			int err = ipmr_get_route(net, skb,
+ 						 fl4->saddr, fl4->daddr,
+-						 r, 0, portid);
++						 r, portid);
+ 
+ 			if (err <= 0) {
+ 				if (err == 0)
+-- 
+2.1.4
