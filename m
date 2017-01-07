@@ -1,46 +1,36 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next] net: ipv4: Remove flow arg from ip_mkroute_input
-Date: Fri,  6 Jan 2017 17:39:58 -0800
-Message-ID: <1483753198-16222-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next V2 0/3] net/sched: act_pedit: Use offset
+ relative to conventional network headers
+Date: Fri, 06 Jan 2017 20:51:09 -0500 (EST)
+Message-ID: <20170106.205109.917848391545129035.davem@davemloft.net>
+References: <20170105095454.32644-1-amir@vadai.me>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jiri@mellanox.com, ogerlitz@mellanox.com,
+        hadarh@mellanox.com
+To: amir@vadai.me
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f54.google.com ([74.125.83.54]:35034 "EHLO
-        mail-pg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S940540AbdAGBkE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 6 Jan 2017 20:40:04 -0500
-Received: by mail-pg0-f54.google.com with SMTP id i5so192237749pgh.2
-        for <netdev@vger.kernel.org>; Fri, 06 Jan 2017 17:40:04 -0800 (PST)
+Received: from shards.monkeyblade.net ([184.105.139.130]:49568 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1162590AbdAGBvU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 6 Jan 2017 20:51:20 -0500
+In-Reply-To: <20170105095454.32644-1-amir@vadai.me>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-fl4 arg is not used; remove it.
+From: Amir Vadai <amir@vadai.me>
+Date: Thu,  5 Jan 2017 11:54:51 +0200
 
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
- net/ipv4/route.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+> Enhancing the UAPI to allow for specifying that would allow the same
+> flows to be set into both SW and HW.
 
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 7b52ac20145b..b9bff78274bf 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -1758,7 +1758,6 @@ static int ip_multipath_icmp_hash(struct sk_buff *skb)
- 
- static int ip_mkroute_input(struct sk_buff *skb,
- 			    struct fib_result *res,
--			    const struct flowi4 *fl4,
- 			    struct in_device *in_dev,
- 			    __be32 daddr, __be32 saddr, u32 tos)
- {
-@@ -1883,7 +1882,7 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
- 	if (res.type != RTN_UNICAST)
- 		goto martian_destination;
- 
--	err = ip_mkroute_input(skb, &res, &fl4, in_dev, daddr, saddr, tos);
-+	err = ip_mkroute_input(skb, &res, in_dev, daddr, saddr, tos);
- out:	return err;
- 
- brd_input:
--- 
-2.1.4
+This is actually not backward compatible.
+
+When pedit rules are dumped, older tools will not know about the
+type field and therefore will completely misinterpret the rule.
+
+You must extend this the proper way, which is to add a new attribute
+or something along those lines.  The presense of a new attribute
+is an explicit communication to older tools that somethng they
+might not support and understand is going on.
