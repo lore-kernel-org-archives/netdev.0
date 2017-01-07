@@ -1,12 +1,11 @@
 From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH] net: ibm: emac: use new api ethtool_{get|set}_link_ksettings
-Date: Sat,  7 Jan 2017 22:32:27 +0100
-Message-ID: <1483824747-6405-1-git-send-email-tremyfr@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Philippe Reynes <tremyfr@gmail.com>
-To: davem@davemloft.net, ivan@de.ibm.com, jarod@redhat.com,
-        mugunthanvnm@ti.com, felipe.balbi@linux.intel.com, fw@strlen.de,
-        mpe@ellerman.id.au
+Subject: [PATCH] net: ibm: ibmveth: use new api ethtool_{get|set}_link_ksettings
+Date: Sat,  7 Jan 2017 22:35:13 +0100
+Message-ID: <1483824913-6989-1-git-send-email-tremyfr@gmail.com>
+Cc: linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, Philippe Reynes <tremyfr@gmail.com>
+To: benh@kernel.crashing.org, paulus@samba.org, mpe@ellerman.id.au,
+        tlfalcon@linux.vnet.ibm.com, davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
@@ -16,45 +15,43 @@ We move this driver to new api {get|set}_link_ksettings.
 
 Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
 ---
- drivers/net/ethernet/ibm/emac/core.c |   70 +++++++++++++++++++--------------
- 1 files changed, 40 insertions(+), 30 deletions(-)
+ drivers/net/ethernet/ibm/ibmveth.c |   30 ++++++++++++++++++------------
+ 1 files changed, 18 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/ethernet/ibm/emac/core.c b/drivers/net/ethernet/ibm/emac/core.c
-index 5909615..6ead233 100644
---- a/drivers/net/ethernet/ibm/emac/core.c
-+++ b/drivers/net/ethernet/ibm/emac/core.c
-@@ -1991,69 +1991,79 @@ static irqreturn_t emac_irq(int irq, void *dev_instance)
- };
+diff --git a/drivers/net/ethernet/ibm/ibmveth.c b/drivers/net/ethernet/ibm/ibmveth.c
+index a831f94..c6ba75c 100644
+--- a/drivers/net/ethernet/ibm/ibmveth.c
++++ b/drivers/net/ethernet/ibm/ibmveth.c
+@@ -729,20 +729,26 @@ static int ibmveth_close(struct net_device *netdev)
+ 	return 0;
+ }
  
- /* Ethtool support */
--static int emac_ethtool_get_settings(struct net_device *ndev,
--				     struct ethtool_cmd *cmd)
-+static int emac_ethtool_get_link_ksettings(struct net_device *ndev,
-+					   struct ethtool_link_ksettings *cmd)
+-static int netdev_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
++static int netdev_get_link_ksettings(struct net_device *dev,
++				     struct ethtool_link_ksettings *cmd)
  {
- 	struct emac_instance *dev = netdev_priv(ndev);
+-	cmd->supported = (SUPPORTED_1000baseT_Full | SUPPORTED_Autoneg |
 +	u32 supported, advertising;
- 
--	cmd->supported = dev->phy.features;
--	cmd->port = PORT_MII;
--	cmd->phy_address = dev->phy.address;
--	cmd->transceiver =
--	    dev->phy.address >= 0 ? XCVR_EXTERNAL : XCVR_INTERNAL;
-+	supported = dev->phy.features;
-+	cmd->base.port = PORT_MII;
-+	cmd->base.phy_address = dev->phy.address;
- 
- 	mutex_lock(&dev->link_lock);
--	cmd->advertising = dev->phy.advertising;
--	cmd->autoneg = dev->phy.autoneg;
--	cmd->speed = dev->phy.speed;
--	cmd->duplex = dev->phy.duplex;
-+	advertising = dev->phy.advertising;
-+	cmd->base.autoneg = dev->phy.autoneg;
-+	cmd->base.speed = dev->phy.speed;
-+	cmd->base.duplex = dev->phy.duplex;
- 	mutex_unlock(&dev->link_lock);
- 
++
++	supported = (SUPPORTED_1000baseT_Full | SUPPORTED_Autoneg |
+ 				SUPPORTED_FIBRE);
+-	cmd->advertising = (ADVERTISED_1000baseT_Full | ADVERTISED_Autoneg |
++	advertising = (ADVERTISED_1000baseT_Full | ADVERTISED_Autoneg |
+ 				ADVERTISED_FIBRE);
+-	ethtool_cmd_speed_set(cmd, SPEED_1000);
+-	cmd->duplex = DUPLEX_FULL;
+-	cmd->port = PORT_FIBRE;
+-	cmd->phy_address = 0;
+-	cmd->transceiver = XCVR_INTERNAL;
+-	cmd->autoneg = AUTONEG_ENABLE;
+-	cmd->maxtxpkt = 0;
+-	cmd->maxrxpkt = 1;
++	cmd->base.speed = SPEED_1000;
++	cmd->base.duplex = DUPLEX_FULL;
++	cmd->base.port = PORT_FIBRE;
++	cmd->base.phy_address = 0;
++	cmd->base.autoneg = AUTONEG_ENABLE;
++
 +	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.supported,
 +						supported);
 +	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.advertising,
@@ -63,108 +60,18 @@ index 5909615..6ead233 100644
  	return 0;
  }
  
--static int emac_ethtool_set_settings(struct net_device *ndev,
--				     struct ethtool_cmd *cmd)
-+static int
-+emac_ethtool_set_link_ksettings(struct net_device *ndev,
-+				const struct ethtool_link_ksettings *cmd)
- {
- 	struct emac_instance *dev = netdev_priv(ndev);
- 	u32 f = dev->phy.features;
-+	u32 advertising;
-+
-+	ethtool_convert_link_mode_to_legacy_u32(&advertising,
-+						cmd->link_modes.advertising);
+@@ -978,11 +984,11 @@ static void ibmveth_get_ethtool_stats(struct net_device *dev,
  
- 	DBG(dev, "set_settings(%d, %d, %d, 0x%08x)" NL,
--	    cmd->autoneg, cmd->speed, cmd->duplex, cmd->advertising);
-+	    cmd->base.autoneg, cmd->base.speed, cmd->base.duplex, advertising);
- 
- 	/* Basic sanity checks */
- 	if (dev->phy.address < 0)
- 		return -EOPNOTSUPP;
--	if (cmd->autoneg != AUTONEG_ENABLE && cmd->autoneg != AUTONEG_DISABLE)
-+	if (cmd->base.autoneg != AUTONEG_ENABLE &&
-+	    cmd->base.autoneg != AUTONEG_DISABLE)
- 		return -EINVAL;
--	if (cmd->autoneg == AUTONEG_ENABLE && cmd->advertising == 0)
-+	if (cmd->base.autoneg == AUTONEG_ENABLE && advertising == 0)
- 		return -EINVAL;
--	if (cmd->duplex != DUPLEX_HALF && cmd->duplex != DUPLEX_FULL)
-+	if (cmd->base.duplex != DUPLEX_HALF && cmd->base.duplex != DUPLEX_FULL)
- 		return -EINVAL;
- 
--	if (cmd->autoneg == AUTONEG_DISABLE) {
--		switch (cmd->speed) {
-+	if (cmd->base.autoneg == AUTONEG_DISABLE) {
-+		switch (cmd->base.speed) {
- 		case SPEED_10:
--			if (cmd->duplex == DUPLEX_HALF &&
-+			if (cmd->base.duplex == DUPLEX_HALF &&
- 			    !(f & SUPPORTED_10baseT_Half))
- 				return -EINVAL;
--			if (cmd->duplex == DUPLEX_FULL &&
-+			if (cmd->base.duplex == DUPLEX_FULL &&
- 			    !(f & SUPPORTED_10baseT_Full))
- 				return -EINVAL;
- 			break;
- 		case SPEED_100:
--			if (cmd->duplex == DUPLEX_HALF &&
-+			if (cmd->base.duplex == DUPLEX_HALF &&
- 			    !(f & SUPPORTED_100baseT_Half))
- 				return -EINVAL;
--			if (cmd->duplex == DUPLEX_FULL &&
-+			if (cmd->base.duplex == DUPLEX_FULL &&
- 			    !(f & SUPPORTED_100baseT_Full))
- 				return -EINVAL;
- 			break;
- 		case SPEED_1000:
--			if (cmd->duplex == DUPLEX_HALF &&
-+			if (cmd->base.duplex == DUPLEX_HALF &&
- 			    !(f & SUPPORTED_1000baseT_Half))
- 				return -EINVAL;
--			if (cmd->duplex == DUPLEX_FULL &&
-+			if (cmd->base.duplex == DUPLEX_FULL &&
- 			    !(f & SUPPORTED_1000baseT_Full))
- 				return -EINVAL;
- 			break;
-@@ -2062,8 +2072,8 @@ static int emac_ethtool_set_settings(struct net_device *ndev,
- 		}
- 
- 		mutex_lock(&dev->link_lock);
--		dev->phy.def->ops->setup_forced(&dev->phy, cmd->speed,
--						cmd->duplex);
-+		dev->phy.def->ops->setup_forced(&dev->phy, cmd->base.speed,
-+						cmd->base.duplex);
- 		mutex_unlock(&dev->link_lock);
- 
- 	} else {
-@@ -2072,7 +2082,7 @@ static int emac_ethtool_set_settings(struct net_device *ndev,
- 
- 		mutex_lock(&dev->link_lock);
- 		dev->phy.def->ops->setup_aneg(&dev->phy,
--					      (cmd->advertising & f) |
-+					      (advertising & f) |
- 					      (dev->phy.advertising &
- 					       (ADVERTISED_Pause |
- 						ADVERTISED_Asym_Pause)));
-@@ -2234,8 +2244,6 @@ static void emac_ethtool_get_drvinfo(struct net_device *ndev,
- }
- 
- static const struct ethtool_ops emac_ethtool_ops = {
--	.get_settings = emac_ethtool_get_settings,
--	.set_settings = emac_ethtool_set_settings,
- 	.get_drvinfo = emac_ethtool_get_drvinfo,
- 
- 	.get_regs_len = emac_ethtool_get_regs_len,
-@@ -2251,6 +2259,8 @@ static void emac_ethtool_get_drvinfo(struct net_device *ndev,
- 	.get_ethtool_stats = emac_ethtool_get_ethtool_stats,
- 
- 	.get_link = ethtool_op_get_link,
-+	.get_link_ksettings = emac_ethtool_get_link_ksettings,
-+	.set_link_ksettings = emac_ethtool_set_link_ksettings,
+ static const struct ethtool_ops netdev_ethtool_ops = {
+ 	.get_drvinfo		= netdev_get_drvinfo,
+-	.get_settings		= netdev_get_settings,
+ 	.get_link		= ethtool_op_get_link,
+ 	.get_strings		= ibmveth_get_strings,
+ 	.get_sset_count		= ibmveth_get_sset_count,
+ 	.get_ethtool_stats	= ibmveth_get_ethtool_stats,
++	.get_link_ksettings	= netdev_get_link_ksettings,
  };
  
- static int emac_ioctl(struct net_device *ndev, struct ifreq *rq, int cmd)
+ static int ibmveth_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 -- 
 1.7.4.4
