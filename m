@@ -1,180 +1,192 @@
 From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: [PATCH net-next 6/6] net-tc: convert tc_from to tc_from_ingress and tc_redirected
-Date: Sat,  7 Jan 2017 17:06:38 -0500
-Message-ID: <20170107220638.61314-7-willemdebruijn.kernel@gmail.com>
+Subject: [PATCH net-next 3/6] net-tc: extract skip classify bit from tc_verd
+Date: Sat,  7 Jan 2017 17:06:35 -0500
+Message-ID: <20170107220638.61314-4-willemdebruijn.kernel@gmail.com>
 References: <20170107220638.61314-1-willemdebruijn.kernel@gmail.com>
 Cc: davem@davemloft.net, fw@strlen.de, dborkman@iogearbox.net,
         jhs@mojatatu.com, alexei.starovoitov@gmail.com,
         eric.dumazet@gmail.com, Willem de Bruijn <willemb@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f193.google.com ([209.85.220.193]:35646 "EHLO
-        mail-qk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932839AbdAGWGx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 7 Jan 2017 17:06:53 -0500
-Received: by mail-qk0-f193.google.com with SMTP id u25so66744003qki.2
-        for <netdev@vger.kernel.org>; Sat, 07 Jan 2017 14:06:48 -0800 (PST)
+Received: from mail-qt0-f193.google.com ([209.85.216.193]:35212 "EHLO
+        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932794AbdAGWGp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 7 Jan 2017 17:06:45 -0500
+Received: by mail-qt0-f193.google.com with SMTP id f4so6982220qte.2
+        for <netdev@vger.kernel.org>; Sat, 07 Jan 2017 14:06:45 -0800 (PST)
 In-Reply-To: <20170107220638.61314-1-willemdebruijn.kernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Willem de Bruijn <willemb@google.com>
 
-The tc_from field fulfills two roles. It encodes whether a packet was
-redirected by an act_mirred device and, if so, whether act_mirred was
-called on ingress or egress. Split it into separate fields.
+Packets sent by the IFB device skip subsequent tc classification.
+A single bit governs this state. Move it out of tc_verd in
+anticipation of removing that __u16 completely.
 
-The information is needed by the special IFB loop, where packets are
-taken out of the normal path by act_mirred, forwarded to IFB, then
-reinjected at their original location (ingress or egress) by IFB.
+The new bitfield tc_skip_classify temporarily uses one bit of a
+hole, until tc_verd is removed completely in a follow-up patch.
 
-The IFB device cannot use skb->tc_at_ingress, because that may have
-been overwritten as the packet travels from act_mirred to ifb_xmit,
-when it passes through tc_classify on the IFB egress path. Cache this
-value in skb->tc_from_ingress.
+Remove the bit hole comment. It could be 2, 3, 4 or 5 bits long.
+With that many options, little value in documenting it.
 
-That field is valid only if a packet arriving at ifb_xmit came from
-act_mirred. Other packets can be crafted to reach ifb_xmit. These
-must be dropped. Set tc_redirected on redirection and drop all packets
-that do not have this bit set.
+Introduce a helper function to deduplicate the logic in the two
+sites that check this bit.
 
-Both fields are set only on cloned skbs in tc actions, so original
-packet sources do not have to clear the bit when reusing packets
-(notably, pktgen and octeon).
+The field tc_skip_classify is set only in IFB on skbs cloned in
+act_mirred, so original packet sources do not have to clear the
+bit when reusing packets (notably, pktgen and octeon).
 
 Signed-off-by: Willem de Bruijn <willemb@google.com>
 ---
- drivers/net/ifb.c            | 13 +++++--------
+ drivers/net/ifb.c            |  2 +-
  include/linux/skbuff.h       |  5 ++++-
- include/net/sch_generic.h    |  2 +-
+ include/net/sch_generic.h    | 11 +++++++++++
  include/uapi/linux/pkt_cls.h |  6 ------
- net/sched/act_mirred.c       |  6 ++++--
- net/sched/sch_netem.c        |  2 +-
- 6 files changed, 15 insertions(+), 19 deletions(-)
+ net/core/dev.c               | 10 +++-------
+ net/sched/act_api.c          | 11 ++++-------
+ 6 files changed, 23 insertions(+), 22 deletions(-)
 
 diff --git a/drivers/net/ifb.c b/drivers/net/ifb.c
-index 90ad8791bc99..193af7483bb0 100644
+index 66c0eeafcb5d..4299ac163376 100644
 --- a/drivers/net/ifb.c
 +++ b/drivers/net/ifb.c
-@@ -78,9 +78,7 @@ static void ifb_ri_tasklet(unsigned long _txp)
- 	}
+@@ -81,7 +81,7 @@ static void ifb_ri_tasklet(unsigned long _txp)
+ 		u32 from = G_TC_FROM(skb->tc_verd);
  
- 	while ((skb = __skb_dequeue(&txp->tq)) != NULL) {
--		u32 from = skb->tc_from;
--
--		skb_reset_tc(skb);
-+		skb->tc_redirected = 0;
- 		skb->tc_skip_classify = 1;
+ 		skb->tc_verd = 0;
+-		skb->tc_verd = SET_TC_NCLS(skb->tc_verd);
++		skb->tc_skip_classify = 1;
  
  		u64_stats_update_begin(&txp->tsync);
-@@ -101,13 +99,12 @@ static void ifb_ri_tasklet(unsigned long _txp)
- 		rcu_read_unlock();
- 		skb->skb_iif = txp->dev->ifindex;
- 
--		if (from & AT_EGRESS) {
-+		if (!skb->tc_from_ingress) {
- 			dev_queue_xmit(skb);
--		} else if (from & AT_INGRESS) {
-+		} else {
- 			skb_pull(skb, skb->mac_len);
- 			netif_receive_skb(skb);
--		} else
--			BUG();
-+		}
- 	}
- 
- 	if (__netif_tx_trylock(txq)) {
-@@ -248,7 +245,7 @@ static netdev_tx_t ifb_xmit(struct sk_buff *skb, struct net_device *dev)
- 	txp->rx_bytes += skb->len;
- 	u64_stats_update_end(&txp->rsync);
- 
--	if (skb->tc_from == AT_STACK || !skb->skb_iif) {
-+	if (!skb->tc_redirected || !skb->skb_iif) {
- 		dev_kfree_skb(skb);
- 		dev->stats.rx_dropped++;
- 		return NETDEV_TX_OK;
+ 		txp->tx_packets++;
 diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index fab3f87e9bd1..3149a88de548 100644
+index b53c0cfd417e..570f60ec6cb4 100644
 --- a/include/linux/skbuff.h
 +++ b/include/linux/skbuff.h
-@@ -591,6 +591,8 @@ static inline bool skb_mstamp_after(const struct skb_mstamp *t1,
+@@ -589,6 +589,7 @@ static inline bool skb_mstamp_after(const struct skb_mstamp *t1,
+  *	@pkt_type: Packet class
+  *	@fclone: skbuff clone status
   *	@ipvs_property: skbuff is owned by ipvs
-  *	@tc_skip_classify: do not classify packet. set by IFB device
-  *	@tc_at_ingress: used within tc_classify to distinguish in/egress
-+ *	@tc_redirected: packet was redirected by a tc action
-+ *	@tc_from_ingress: if tc_redirected, tc_at_ingress at time of redirect
++ *	@tc_skip_classify: do not classify packet. set by IFB device
   *	@peeked: this packet has been seen already, so stats have been
   *		done for it, don't do them again
   *	@nf_trace: netfilter packet trace flag
-@@ -753,7 +755,8 @@ struct sk_buff {
- #ifdef CONFIG_NET_CLS_ACT
- 	__u8			tc_skip_classify:1;
- 	__u8			tc_at_ingress:1;
--	__u8			tc_from:2;
-+	__u8			tc_redirected:1;
-+	__u8			tc_from_ingress:1;
+@@ -749,7 +750,9 @@ struct sk_buff {
+ #ifdef CONFIG_NET_SWITCHDEV
+ 	__u8			offload_fwd_mark:1;
  #endif
+-	/* 2, 4 or 5 bit hole */
++#ifdef CONFIG_NET_CLS_ACT
++	__u8			tc_skip_classify:1;
++#endif
  
  #ifdef CONFIG_NET_SCHED
+ 	__u16			tc_index;	/* traffic control index */
 diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index 4bd6d5387209..e2f426f6d62f 100644
+index 498f81b229a4..857356f2d74b 100644
 --- a/include/net/sch_generic.h
 +++ b/include/net/sch_generic.h
-@@ -412,7 +412,7 @@ int skb_do_redirect(struct sk_buff *);
- static inline void skb_reset_tc(struct sk_buff *skb)
- {
- #ifdef CONFIG_NET_CLS_ACT
--	skb->tc_from = 0;
-+	skb->tc_redirected = 0;
+@@ -418,6 +418,17 @@ static inline bool skb_at_tc_ingress(const struct sk_buff *skb)
  #endif
  }
  
++static inline bool skb_skip_tc_classify(struct sk_buff *skb)
++{
++#ifdef CONFIG_NET_CLS_ACT
++	if (skb->tc_skip_classify) {
++		skb->tc_skip_classify = 0;
++		return true;
++	}
++#endif
++	return false;
++}
++
+ /* Reset all TX qdiscs greater then index of a device.  */
+ static inline void qdisc_reset_all_tx_gt(struct net_device *dev, unsigned int i)
+ {
 diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
-index cee753a7a40c..a081efbd61a2 100644
+index bba23dbb3ab6..1eed5d7509bc 100644
 --- a/include/uapi/linux/pkt_cls.h
 +++ b/include/uapi/linux/pkt_cls.h
-@@ -4,12 +4,6 @@
- #include <linux/types.h>
- #include <linux/pkt_sched.h>
+@@ -22,8 +22,6 @@ bit 6,7: Where this packet was last seen
+ 1: on the Ingress
+ 2: on the Egress
  
--#ifdef __KERNEL__
--#define AT_STACK	0x0
--#define AT_INGRESS	0x1
--#define AT_EGRESS	0x2
--#endif
+-bit 8: when set --> Request not to classify on ingress. 
 -
- /* Action attributes */
- enum {
- 	TCA_ACT_UNSPEC,
-diff --git a/net/sched/act_mirred.c b/net/sched/act_mirred.c
-index e832c62fd705..84682f02b611 100644
---- a/net/sched/act_mirred.c
-+++ b/net/sched/act_mirred.c
-@@ -211,8 +211,10 @@ static int tcf_mirred(struct sk_buff *skb, const struct tc_action *a,
+  *
+  * */
+ 
+@@ -36,10 +34,6 @@ bit 8: when set --> Request not to classify on ingress.
+ #define AT_INGRESS	0x1
+ #define AT_EGRESS	0x2
+ 
+-#define TC_NCLS          _TC_MAKEMASK1(8)
+-#define SET_TC_NCLS(v)   ( TC_NCLS | (v & ~TC_NCLS))
+-#define CLR_TC_NCLS(v)   ( v & ~TC_NCLS)
+-
+ #define S_TC_AT          _TC_MAKE32(12)
+ #define M_TC_AT          _TC_MAKEMASK(2,S_TC_AT)
+ #define G_TC_AT(x)       _TC_GETVALUE(x,S_TC_AT,M_TC_AT)
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 56818f7eab2b..e39e35d2e082 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4093,12 +4093,8 @@ static int __netif_receive_skb_core(struct sk_buff *skb, bool pfmemalloc)
+ 			goto out;
  	}
  
- 	/* mirror is always swallowed */
--	if (tcf_mirred_is_act_redirect(m_eaction))
--		skb2->tc_from = skb_at_tc_ingress(skb) ? AT_INGRESS : AT_EGRESS;
-+	if (tcf_mirred_is_act_redirect(m_eaction)) {
-+		skb2->tc_redirected = 1;
-+		skb2->tc_from_ingress = skb2->tc_at_ingress;
-+	}
+-#ifdef CONFIG_NET_CLS_ACT
+-	if (skb->tc_verd & TC_NCLS) {
+-		skb->tc_verd = CLR_TC_NCLS(skb->tc_verd);
+-		goto ncls;
+-	}
+-#endif
++	if (skb_skip_tc_classify(skb))
++		goto skip_classify;
  
- 	skb2->skb_iif = skb->dev->ifindex;
- 	skb2->dev = dev;
-diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
-index bb5c638b6852..c8bb62a1e744 100644
---- a/net/sched/sch_netem.c
-+++ b/net/sched/sch_netem.c
-@@ -626,7 +626,7 @@ static struct sk_buff *netem_dequeue(struct Qdisc *sch)
- 			 * If it's at ingress let's pretend the delay is
- 			 * from the network (tstamp will be updated).
- 			 */
--			if (skb->tc_from & AT_INGRESS)
-+			if (skb->tc_redirected && skb->tc_from_ingress)
- 				skb->tstamp = 0;
+ 	if (pfmemalloc)
+ 		goto skip_taps;
+@@ -4128,8 +4124,8 @@ static int __netif_receive_skb_core(struct sk_buff *skb, bool pfmemalloc)
  #endif
+ #ifdef CONFIG_NET_CLS_ACT
+ 	skb->tc_verd = 0;
+-ncls:
+ #endif
++skip_classify:
+ 	if (pfmemalloc && !skb_pfmemalloc_protocol(skb))
+ 		goto drop;
  
+diff --git a/net/sched/act_api.c b/net/sched/act_api.c
+index 2095c83ce773..f04715a57300 100644
+--- a/net/sched/act_api.c
++++ b/net/sched/act_api.c
+@@ -426,11 +426,9 @@ int tcf_action_exec(struct sk_buff *skb, struct tc_action **actions,
+ {
+ 	int ret = -1, i;
+ 
+-	if (skb->tc_verd & TC_NCLS) {
+-		skb->tc_verd = CLR_TC_NCLS(skb->tc_verd);
+-		ret = TC_ACT_OK;
+-		goto exec_done;
+-	}
++	if (skb_skip_tc_classify(skb))
++		return TC_ACT_OK;
++
+ 	for (i = 0; i < nr_actions; i++) {
+ 		const struct tc_action *a = actions[i];
+ 
+@@ -439,9 +437,8 @@ int tcf_action_exec(struct sk_buff *skb, struct tc_action **actions,
+ 		if (ret == TC_ACT_REPEAT)
+ 			goto repeat;	/* we need a ttl - JHS */
+ 		if (ret != TC_ACT_PIPE)
+-			goto exec_done;
++			break;
+ 	}
+-exec_done:
+ 	return ret;
+ }
+ EXPORT_SYMBOL(tcf_action_exec);
 -- 
 2.11.0.390.gc69c2f50cf-goog
