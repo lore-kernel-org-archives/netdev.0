@@ -1,49 +1,66 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv3 net-next] sctp: prepare asoc stream for stream reconf
-Date: Fri, 06 Jan 2017 21:07:41 -0500 (EST)
-Message-ID: <20170106.210741.1161324031407112453.davem@davemloft.net>
-References: <efd6462731ca0b18a3039f9537dda61e0ed72430.1483712313.git.lucien.xin@gmail.com>
+Subject: Re: [PATCH next v1] ipvlan: don't use IDR for generating dev_id
+Date: Fri, 06 Jan 2017 21:18:36 -0500 (EST)
+Message-ID: <20170106.211836.1613373165796630636.davem@davemloft.net>
+References: <20170107003311.22940-1-mahesh@bandewar.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-        marcelo.leitner@gmail.com, nhorman@tuxdriver.com,
-        vyasevich@gmail.com
-To: lucien.xin@gmail.com
+Cc: netdev@vger.kernel.org, maheshb@google.com, edumazet@google.com
+To: mahesh@bandewar.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:49996 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:50204 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932082AbdAGCHn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 6 Jan 2017 21:07:43 -0500
-In-Reply-To: <efd6462731ca0b18a3039f9537dda61e0ed72430.1483712313.git.lucien.xin@gmail.com>
+        with ESMTP id S940620AbdAGCSj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 6 Jan 2017 21:18:39 -0500
+In-Reply-To: <20170107003311.22940-1-mahesh@bandewar.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Xin Long <lucien.xin@gmail.com>
-Date: Fri,  6 Jan 2017 22:18:33 +0800
+From: Mahesh Bandewar <mahesh@bandewar.net>
+Date: Fri,  6 Jan 2017 16:33:11 -0800
 
-> sctp stream reconf, described in RFC 6525, needs a structure to
-> save per stream information in assoc, like stream state.
+> From: Mahesh Bandewar <maheshb@google.com>
 > 
-> In the future, sctp stream scheduler also needs it to save some
-> stream scheduler params and queues.
+> The patch 009146d117b ("ipvlan: assign unique dev-id for each slave
+> device.") used ida_simple_get() to generate dev_ids assigned to the
+> slave devices. However (Eric has pointed out that) there is a shortcoming
+> with that approach as it always uses the first available ID. This
+> becomes a problem when a slave gets deleted and a new slave gets added.
+> The ID gets reassigned causing the new slave to get the same link-local
+> address. This side-effect is undesirable.
 > 
-> This patchset is to prepare the stream array in assoc for stream
-> reconf. It defines sctp_stream that includes stream arrays inside
-> to replace ssnmap.
+> This patch replaces IDR logic with a simple per-port variable that keeps
+> incrementing and wraps around when the MAX (0xFFFE) is reached. The
+> only downside is that this is an inefficient (n^2) search if there are
+> 64k (or close to 64k) slaves in the system, the dev-id search takes time.
+> However having these many devices in the system has it's own challenges.
 > 
-> Note that we use different structures for IN and OUT streams, as
-> the members in per OUT stream will get more and more different
-> from per IN stream.
-> 
-> v1->v2:
->   - put these patches into a smaller group.
-> v2->v3:
->   - define sctp_stream to contain stream arrays, and create stream.c
->     to put stream-related functions.
->   - merge 3 patches into 1, as new sctp_stream has the same name
->     with before.
-> 
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> Fixes: 009146d117b ("ipvlan: assign unique dev-id for each slave device.")
+> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
 
-Applied, thanks.
+I kind of cringe when I see yet another implementation of an integer ID
+allocator.
+
+I think it's much simpler to keep using ida_simple_alloc(), but alongside
+it have start point you maintain based upon previous allocations.  Put it
+in the ipvl_port, just like dev_id_base, but call it "dev_id_start".
+
+Then your ID allocation sequence becomes:
+
+	err = ida_simple_get(&port->ida, port->dev_id_start, 0xFFFE, GFP_KERNEL);
+	if (err < 0)
+		err = ida_simple_get(&port->ida, 0, port->dev_id_start, GFP_KERNEL);
+	if (err < 0)
+		goto destroy_ipvlan_port;
+
+	dev->dev_id = err;
+
+	port->dev_id_start = err;
+	if (port->dev_id_start = 0FFFE)
+		port->dev_id_start = 0;
+
+Something like that.
+
+Alternatively, IDR/IDA can be extended to have this kind of functionality
+too.
