@@ -1,102 +1,98 @@
 From: =?UTF-8?Q?Uwe_Kleine-K=c3=b6nig?= <uwe@kleine-koenig.org>
 Subject: Re: [PATCH net-next 1/2] net: dsa: make "label" property optional for
  dsa2
-Date: Sat, 7 Jan 2017 21:28:30 +0100
-Message-ID: <81c94b88-e2a5-a11d-63d0-c84a7f0e77b5@kleine-koenig.org>
+Date: Sat, 7 Jan 2017 21:31:09 +0100
+Message-ID: <0d1c2cf0-805f-cb88-c19d-9faadfcab33e@kleine-koenig.org>
 References: <20170106220043.21280-1-vivien.didelot@savoirfairelinux.com>
  <20170106220043.21280-2-vivien.didelot@savoirfairelinux.com>
- <20170106222008.GC10626@lunn.ch>
- <0dbf9730-2409-30f9-e9e4-946fe7fec413@gmail.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha512;
  protocol="application/pgp-signature";
- boundary="7TMnCFn7onxSE9LDXiNhkCFN5o0aVXH26"
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <0dbf9730-2409-30f9-e9e4-946fe7fec413@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+ boundary="bWORpIEATj1VQgn3RsHPwLcng6qDxPl7O"
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from arcturus.kleine-koenig.org ([78.47.169.190]:56666 "EHLO
+        arcturus.kleine-koenig.org" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1761530AbdAGUke (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 7 Jan 2017 15:40:34 -0500
+In-Reply-To: <20170106220043.21280-2-vivien.didelot@savoirfairelinux.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---7TMnCFn7onxSE9LDXiNhkCFN5o0aVXH26
-Content-Type: multipart/mixed; boundary="22brLTkaMBGIWUXl43P6Apgh0fmsq0k9e";
+--bWORpIEATj1VQgn3RsHPwLcng6qDxPl7O
+Content-Type: multipart/mixed; boundary="TkedTEx99LaUde5j23qeat4kqQdIFw7NG";
  protected-headers="v1"
 From: =?UTF-8?Q?Uwe_Kleine-K=c3=b6nig?= <uwe@kleine-koenig.org>
-To: Florian Fainelli <f.fainelli@gmail.com>, Andrew Lunn <andrew@lunn.ch>,
- Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
- kernel@savoirfairelinux.com, "David S. Miller" <davem@davemloft.net>
-Message-ID: <81c94b88-e2a5-a11d-63d0-c84a7f0e77b5@kleine-koenig.org>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+ netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+ "David S. Miller" <davem@davemloft.net>,
+ Florian Fainelli <f.fainelli@gmail.com>, Andrew Lunn <andrew@lunn.ch>
+Message-ID: <0d1c2cf0-805f-cb88-c19d-9faadfcab33e@kleine-koenig.org>
 Subject: Re: [PATCH net-next 1/2] net: dsa: make "label" property optional for
  dsa2
 References: <20170106220043.21280-1-vivien.didelot@savoirfairelinux.com>
  <20170106220043.21280-2-vivien.didelot@savoirfairelinux.com>
- <20170106222008.GC10626@lunn.ch>
- <0dbf9730-2409-30f9-e9e4-946fe7fec413@gmail.com>
-In-Reply-To: <0dbf9730-2409-30f9-e9e4-946fe7fec413@gmail.com>
+In-Reply-To: <20170106220043.21280-2-vivien.didelot@savoirfairelinux.com>
 
---22brLTkaMBGIWUXl43P6Apgh0fmsq0k9e
-Content-Type: text/plain; charset=utf-8
+--TkedTEx99LaUde5j23qeat4kqQdIFw7NG
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: quoted-printable
 
 Hello,
 
-On 01/06/2017 11:47 PM, Florian Fainelli wrote:
-> On 01/06/2017 02:20 PM, Andrew Lunn wrote:
->>> If one wants to rename an interface, udev rules can be used as usual.=
-
->>
->> Hi Vivien
->>
->> Do you have some examples?
->>
->> A quick look at udevadm info suggests we can use
->>
->> ATTR{phys_port_id} and ATTR{phys_switch_id}
->>
->> Humm, it would be nice to know why the second switch has a
->> phys_switch_id of 01000000.
+On 01/06/2017 11:00 PM, Vivien Didelot wrote:
+> In the new DTS bindings for DSA (dsa2), the "ethernet" and "link"
+> phandles are respectively mandatory and exclusive to CPU port and DSA
+> link device tree nodes.
 >=20
-> Well, that's a combination of being on a little endian system and using=
+> Simplify dsa2.c a bit by checking the presence of such phandle instead
+> of checking the redundant "label" property.
+>=20
+> Then the Linux philosophy for Ethernet switch ports is to expose them t=
+o
+> userspace as standard NICs by default. Thus use the standard enumerated=
 
-> %*phN as a printk formatter, and the type being 32-bit long (int). I
-> agree this does not feel natural, but since this is sysfs (so ABI in a
-> way), it's going to be though to change now.
+> "eth%d" device name if no "label" property is provided for a user port.=
 
-for most subsystems I know the internally used (and more or less
-automatically determined) numbers are not to be considered stable.
-For example the GPIO made it possible to let userspace work with GPIOs
-without knowing (or having to determine) the gpio numbers.
+> This allows to save DTS files from subjective net device names.
+>=20
+> If one wants to rename an interface, udev rules can be used as usual.
+> The sysfs phys_port_id and phys_switch_id also provide physical data.
+>=20
+> Of course the current behavior is unchanged, and the optional "label"
+> property for user ports has precedence over the enumerated name.
+>=20
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Acked-by: Uwe Kleine-K=F6nig <uwe@kleine-koenig.org>
 
-I don't know if/how this applies here.
-
-Best regards
+Thanks
 Uwe
 
 
+--TkedTEx99LaUde5j23qeat4kqQdIFw7NG--
 
---22brLTkaMBGIWUXl43P6Apgh0fmsq0k9e--
-
---7TMnCFn7onxSE9LDXiNhkCFN5o0aVXH26
+--bWORpIEATj1VQgn3RsHPwLcng6qDxPl7O
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: OpenPGP digital signature
 Content-Disposition: attachment; filename="signature.asc"
 
 -----BEGIN PGP SIGNATURE-----
 
-iQEzBAEBCgAdFiEEfnIqFpAYrP8+dKQLwfwUeK3K7AkFAlhxT3EACgkQwfwUeK3K
-7AkRNAf/UHIQTxlqMRRZkhQ89B6vvs1bYR77jT0xaNHGatkKsWFYQEvT8X5bIiY3
-gZWJ2+E9vjb3exqtEzFLFn6zL5QZts0qLBzYM3Nw30kYZXAHPj92sd49KjRCo/Jw
-IezllbL4BEEckBVK9+yLzR36+mPx0Q6Or8cGUTtXeMm2boYS3xOzjRFb2Od7/aGV
-6MjhKOjma3223xwxqBOS9Jmceerbz6BaysSCAHCaV0y46giNEatHNA+NPuMCQ9kX
-7DrWhUgWdHAgconLIgcyK0OpNZxN5FN4+U/FtG83DCU9AUr2OvO1G32EzeqzT0SX
-V2uKgXEclGxabLtzZ9piJ1cnAMstUw==
-=CmIY
+iQEzBAEBCgAdFiEEfnIqFpAYrP8+dKQLwfwUeK3K7AkFAlhxUA4ACgkQwfwUeK3K
+7AnBGAf/fvFNdqQezEYZod6ad9K+YkRO8nyaIHARyiQsI56AGikCxKR5QAu8CU2j
+Nd3jiv3m8C3SZ8Ph88FLFlmMbc2U3RV7gvdkVBMaaZIfvJA3kOPPLcL/9g7zjXh5
+8HKMNu2OMG7wjn+4pbh9Tnwsl0SwGbUGPLro+iH9OeIrsDYQZkxWPHJWT04WPgYl
+XiaZ8sgw32bS8kiP6bUXR02X4V9/+z22ResO/oDPp9jMQbFtXhQCZWhOcIU37q+4
+oE8wW/KMxLZWL7Hy0s30Un7BALZSEiJ1Pxi/UuFeBlP4VbTsRpGno0COavs+W3+L
+LxOtvxvFlFgh93LO42L2Ik+/56obUA==
+=kVlv
 -----END PGP SIGNATURE-----
 
---7TMnCFn7onxSE9LDXiNhkCFN5o0aVXH26--
+--bWORpIEATj1VQgn3RsHPwLcng6qDxPl7O--
