@@ -1,78 +1,102 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: More info about lockless qdisc patch
-Date: Sat, 7 Jan 2017 12:11:27 -0800
-Message-ID: <58714B6F.5000301@gmail.com>
-References: <D1B824B6-91C1-4049-8231-048FD900D160@gmail.com>
+From: =?UTF-8?Q?Uwe_Kleine-K=c3=b6nig?= <uwe@kleine-koenig.org>
+Subject: Re: [PATCH net-next 1/2] net: dsa: make "label" property optional for
+ dsa2
+Date: Sat, 7 Jan 2017 21:28:30 +0100
+Message-ID: <81c94b88-e2a5-a11d-63d0-c84a7f0e77b5@kleine-koenig.org>
+References: <20170106220043.21280-1-vivien.didelot@savoirfairelinux.com>
+ <20170106220043.21280-2-vivien.didelot@savoirfairelinux.com>
+ <20170106222008.GC10626@lunn.ch>
+ <0dbf9730-2409-30f9-e9e4-946fe7fec413@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=gbk
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org
-To: Xingjun Liu <yterrencelau@gmail.com>, john.r.fastabend@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:36056 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S936901AbdAGULp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 7 Jan 2017 15:11:45 -0500
-Received: by mail-pg0-f68.google.com with SMTP id 75so9210271pgf.3
-        for <netdev@vger.kernel.org>; Sat, 07 Jan 2017 12:11:44 -0800 (PST)
-In-Reply-To: <D1B824B6-91C1-4049-8231-048FD900D160@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="7TMnCFn7onxSE9LDXiNhkCFN5o0aVXH26"
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <0dbf9730-2409-30f9-e9e4-946fe7fec413@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 16-12-30 04:48 AM, Xingjun Liu wrote:
-> Hi John,
-> 
-> I note you have a patch request last august about "support lockless qdisc¡±,
-> 
-> see: https://www.mail-archive.com/netdev@vger.kernel.org/msg124489.html
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--7TMnCFn7onxSE9LDXiNhkCFN5o0aVXH26
+Content-Type: multipart/mixed; boundary="22brLTkaMBGIWUXl43P6Apgh0fmsq0k9e";
+ protected-headers="v1"
+From: =?UTF-8?Q?Uwe_Kleine-K=c3=b6nig?= <uwe@kleine-koenig.org>
+To: Florian Fainelli <f.fainelli@gmail.com>, Andrew Lunn <andrew@lunn.ch>,
+ Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+ kernel@savoirfairelinux.com, "David S. Miller" <davem@davemloft.net>
+Message-ID: <81c94b88-e2a5-a11d-63d0-c84a7f0e77b5@kleine-koenig.org>
+Subject: Re: [PATCH net-next 1/2] net: dsa: make "label" property optional for
+ dsa2
+References: <20170106220043.21280-1-vivien.didelot@savoirfairelinux.com>
+ <20170106220043.21280-2-vivien.didelot@savoirfairelinux.com>
+ <20170106222008.GC10626@lunn.ch>
+ <0dbf9730-2409-30f9-e9e4-946fe7fec413@gmail.com>
+In-Reply-To: <0dbf9730-2409-30f9-e9e4-946fe7fec413@gmail.com>
 
-I have another set of patches that fixes a few bugs from the above.
+--22brLTkaMBGIWUXl43P6Apgh0fmsq0k9e
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-> 
-> We take an interest in it. Do you have any info/plan on this patch?
-> 
+Hello,
 
-The current state of the patches (the latest I have on my private tree) is
-currently
-I an issue with re-starting the driver when multiple cores do a dequeue but the
-driver overruns the hardware descriptor ring so we push back into the qdisc. When
-this happens the patches push the skb onto the gso_skb per cpu list.
+On 01/06/2017 11:47 PM, Florian Fainelli wrote:
+> On 01/06/2017 02:20 PM, Andrew Lunn wrote:
+>>> If one wants to rename an interface, udev rules can be used as usual.=
 
-Now the problem is how do we wake the correct gso_skb per cpu list up? The driver
-will restart the qdisc at some future point but not necessarily from the same
-cpu that
-the per cpu enqueue happened on. So I tried to fix this by removing the driver
-restart
-logic and having the qdisc layer poll the driver. This sort of/kind of works
-except its not
-a very satisfying solution. Tom noted at one point with BQL the above case
-should not
-happen very much but it is still possible unfortunately under certain
-conditions. And the
-corner cases get ugly.
+>>
+>> Hi Vivien
+>>
+>> Do you have some examples?
+>>
+>> A quick look at udevadm info suggests we can use
+>>
+>> ATTR{phys_port_id} and ATTR{phys_switch_id}
+>>
+>> Humm, it would be nice to know why the second switch has a
+>> phys_switch_id of 01000000.
+>=20
+> Well, that's a combination of being on a little endian system and using=
 
-I've been kicking around another idea lately. To get rid of the gso_skb entirely
-which
-would certainly clean up the code and get rid of one of the uglier pieces of
-qdisc struct
-in my opinion. To make this work I want to add a tx_prep() ndo call the qdisc
-could call
-into the driver with to reserve "slots" in the driver. Once we have some # of
-slots reserved
-we can dequeue from the qdisc ring and send to driver "knowing" that the driver has
-agreed to consume the packets. The trick here is sk_buffs do not map 1:1 with
-descriptors
-in the hardware always so a bit of driver magic needs to occur to get
-calculations correct.
+> %*phN as a printk formatter, and the type being 32-bit long (int). I
+> agree this does not feel natural, but since this is sysfs (so ABI in a
+> way), it's going to be though to change now.
 
-I'll try to rebase the current set of patches I have on net-next and post it
-just so its
-available. I can probably get to the above in a month or so. Maybe have something by
-March.
+for most subsystems I know the internally used (and more or less
+automatically determined) numbers are not to be considered stable.
+For example the GPIO made it possible to let userspace work with GPIOs
+without knowing (or having to determine) the gpio numbers.
 
-Thanks,
-John
+I don't know if/how this applies here.
 
-> Thanks
-> Xingjun
-> 
+Best regards
+Uwe
+
+
+
+--22brLTkaMBGIWUXl43P6Apgh0fmsq0k9e--
+
+--7TMnCFn7onxSE9LDXiNhkCFN5o0aVXH26
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEzBAEBCgAdFiEEfnIqFpAYrP8+dKQLwfwUeK3K7AkFAlhxT3EACgkQwfwUeK3K
+7AkRNAf/UHIQTxlqMRRZkhQ89B6vvs1bYR77jT0xaNHGatkKsWFYQEvT8X5bIiY3
+gZWJ2+E9vjb3exqtEzFLFn6zL5QZts0qLBzYM3Nw30kYZXAHPj92sd49KjRCo/Jw
+IezllbL4BEEckBVK9+yLzR36+mPx0Q6Or8cGUTtXeMm2boYS3xOzjRFb2Od7/aGV
+6MjhKOjma3223xwxqBOS9Jmceerbz6BaysSCAHCaV0y46giNEatHNA+NPuMCQ9kX
+7DrWhUgWdHAgconLIgcyK0OpNZxN5FN4+U/FtG83DCU9AUr2OvO1G32EzeqzT0SX
+V2uKgXEclGxabLtzZ9piJ1cnAMstUw==
+=CmIY
+-----END PGP SIGNATURE-----
+
+--7TMnCFn7onxSE9LDXiNhkCFN5o0aVXH26--
