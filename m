@@ -1,60 +1,30 @@
-From: Linus =?utf-8?Q?L=C3=BCssing?= <linus.luessing@c0d3.blue>
-Subject: Re: [PATCH net-next] bridge: multicast to unicast
-Date: Sat, 7 Jan 2017 16:15:30 +0100
-Message-ID: <20170107151530.GG3134@otheros>
-References: <20170102193214.31723-1-linus.luessing@c0d3.blue>
-	<1483706872.4089.8.camel@sipsolutions.net>
+From: peter green <plugwash@p10link.net>
+Subject: bad interaction between privacy extensions, prefix lifetimes and
+ protocols that maintain long-term connections.
+Date: Sat, 7 Jan 2017 15:16:06 +0000
+Message-ID: <9769f6b7-946c-1279-110f-15de8ec40022@p10link.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Michael Braun <michael-dev@fami-braun.de>,
-	"David S . Miller" <davem@davemloft.net>, Felix Fietkau <nbd@nbd.name>
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1483706872.4089.8.camel@sipsolutions.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: debian-ipv6@lists.debian.org, netdev@vger.kernel.org
+Return-path: <bounce-debian-ipv6=debian-ipv6=m.gmane.org@lists.debian.org>
+Resent-Message-ID: <hiGf3JOVuQM.A.0nF.CgQcYB@bendel>
+List-URL: <https://lists.debian.org/debian-ipv6/>
+List-Post: <mailto:debian-ipv6@lists.debian.org>
+List-Help: <mailto:debian-ipv6-request@lists.debian.org?subject=help>
+List-Subscribe: <mailto:debian-ipv6-request@lists.debian.org?subject=subscribe>
+List-Unsubscribe: <mailto:debian-ipv6-request@lists.debian.org?subject=unsubscribe>
+List-Archive: https://lists.debian.org/msgid-search/9769f6b7-946c-1279-110f-15de8ec40022@p10link.net
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 06, 2017 at 01:47:52PM +0100, Johannes Berg wrote:
-> How does this compare and/or relate to the multicast-to-unicast feature
-> we were going to add to the wifi stack, particularly mac80211? Do we
-> perhaps not need that feature at all, if bridging will have it?
-> 
-> I suppose that the feature there could apply also to locally generated
-> traffic when the AP interface isn't in a bridge, but I think I could
-> live with requiring the AP to be put into a bridge to achieve a similar
-> configuration?
-> 
-> Additionally, on an unrelated note, this seems to apply generically to
-> all kinds of frames, losing information by replacing the address.
-> Shouldn't it have similar limitations as the wifi stack feature has
-> then, like only applying to ARP, IPv4, IPv6 and not general protocols?
+I just switched my main machine to a new one. After doing so I noticed my connections to IRC were dropping about once per hour.
 
-(should all three be answered with Michael's and my reply to
-Michael's mail, I think)
+The old machine had been running a mixed mess of Debian versions while the new machine is running Debian stretch. A critical difference between the old and new machines is that the old machine had privacy extensions disabled while the new machine had them enabled.
 
-> 
-> Also, it should probably come with the same caveat as we documented for
-> the wifi feature:
-> 
->     Note that this may break certain expectations of the receiver,
->     such as the ability to drop unicast IP packets received within
->     multicast L2 frames, or the ability to not send ICMP destination
->     unreachable messages for packets received in L2 multicast (which
->     is required, but the receiver can't tell the difference if this
->     new option is enabled.)
+Disabling privacy extensions solved the issue but obviously reveals the MAC address of my new machine to the world which is undesirable.
 
-Actually, I do not quite understand that remark in the mac80211
-multicast-to-unicast patch. IP should not care about the ethernet
-header?
+My ISP (a major provider in the UK) router sets a relatively short valid_lft of about 1 hour. Presumably so any changes to the ISP-allocated address will be picked up quickly by clients.
+
+For the main MAC-based address the valid_lft is always short but it is updated by new RAs so the address remains valid.
+
+However privacy addresses inherit their valid_lft from the main MAC-based address and unlike the main address it is not updated causing the addresses to time out. I believe that the timeout of these privacy addresses is what is causing my repeated disconnections from IRC.
