@@ -1,94 +1,114 @@
-From: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>
-Subject: [PATCH v4] net: stmmac: fix maxmtu assignment to be within valid range
-Date: Sat,  7 Jan 2017 16:10:34 +0800
-Message-ID: <1483776634-13095-1-git-send-email-hock.leong.kweh@intel.com>
-Cc: Alexandre TORGUE <alexandre.torgue@gmail.com>,
-        Joachim Eastwood <manabian@gmail.com>,
-        Niklas Cassel <niklas.cassel@axis.com>,
-        Johan Hovold <johan@kernel.org>, pavel@ucw.cz,
-        "Kweh, Hock Leong" <hock.leong.kweh@intel.com>,
-        lars.persson@axis.com, netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>,
+From: Andy Shevchenko <andy.shevchenko@gmail.com>
+Subject: Re: [PATCH v3] net: stmmac: fix maxmtu assignment to be within valid range
+Date: Sat, 7 Jan 2017 02:07:14 +0200
+Message-ID: <CAHp75VeWs8LXS+zaCht8reLMLRtz+583K91QvoPquuUxC-rwWg@mail.gmail.com>
+References: <1483750143-11966-1-git-send-email-hock.leong.kweh@intel.com>
+ <CAHp75VdkGcQM_fW6LLuQ1JC67p4vGNWKcyxPs5Sc-4tFi2MGLg@mail.gmail.com> <F54AEECA5E2B9541821D670476DAE19C5A918C87@PGSMSX102.gar.corp.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
         Joao Pinto <Joao.Pinto@synopsys.com>,
         Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
-        seraphin.bonnaffe@st.com, Jarod Wilson <jarod@redhat.com>,
-        Andy Shevchenko <andy.shevchenko@gmail.com>
+        "seraphin.bonnaffe@st.com" <seraphin.bonnaffe@st.com>,
+        Jarod Wilson <jarod@redhat.com>,
+        Alexandre TORGUE <alexandre.torgue@gmail.com>,
+        Joachim Eastwood <manabian@gmail.com>,
+        Niklas Cassel <niklas.cassel@axis.com>,
+        Johan Hovold <johan@kernel.org>, Pavel Machek <pavel@ucw.cz>,
+        "lars.persson@axis.com" <lars.persson@axis.com>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>
+To: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga07.intel.com ([134.134.136.100]:47540 "EHLO mga07.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755219AbdAGAFq (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 6 Jan 2017 19:05:46 -0500
+Received: from mail-qk0-f193.google.com ([209.85.220.193]:36479 "EHLO
+        mail-qk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750790AbdAGAHQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 6 Jan 2017 19:07:16 -0500
+In-Reply-To: <F54AEECA5E2B9541821D670476DAE19C5A918C87@PGSMSX102.gar.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>
+On Sat, Jan 7, 2017 at 1:47 AM, Kweh, Hock Leong
+<hock.leong.kweh@intel.com> wrote:
 
-There is no checking valid value of maxmtu when getting it from device tree.
-This resolution added the checking condition to ensure the assignment is
-made within a valid range.
+>> > --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+>> > +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+>> > @@ -3345,8 +3345,14 @@ int stmmac_dvr_probe(struct device *device,
+>> >                 ndev->max_mtu = JUMBO_LEN;
+>> >         else
+>> >                 ndev->max_mtu = SKB_MAX_HEAD(NET_SKB_PAD + NET_IP_ALIGN);
+>> > -       if (priv->plat->maxmtu < ndev->max_mtu)
+>>
+>> > +       if ((priv->plat->maxmtu < ndev->max_mtu) &&
+>> > +           (priv->plat->maxmtu >= ndev->min_mtu))
+>>
+>> >                 ndev->max_mtu = priv->plat->maxmtu;
+>>
+>> > +       else if (priv->plat->maxmtu < ndev->min_mtu)
+>>
+>> And if it > ndev->max_mtu?..
+>>
+>
+> Base on my understanding to the original code, the "maxmtu >= ndev->max_mtu"
+> is meant for products that would want to use the value from logic which is just above
+> this statement where you just ask me not to add new line. That the reason the
+> stmmac_platform.c put in "plat->maxmtu = JUMBO_LEN;" as generic and I also
+> follow it in stmmac_pci.c.
+>
+> Or do you mean only take maxmtu = JUMBO_LEN for the option to use driver itself
+> assignment statement above and all the > max_mtu consider invalid?
 
-Signed-off-by: Kweh, Hock Leong <hock.leong.kweh@intel.com>
----
-changelog v4:
-* add print warning message when maxmtu > max_mtu as well
-* add maxmtu = JUMBO_LEN into each *_default_data() at stmmac_pci.c
+So, just answer to the simple question: is it a valid case to have
+plat->maxmtu > ndev->max_mtu? If it so, how is it used?
+Otherwise we need a warning in such case. What did I miss?
 
-changelog v3:
-* print the warning message only if maxmtu < min_mtu
-* add maxmtu = JUMBO_LEN at stmmac_pci.c to follow stmmac_platform.c
+>
+>> > +               netdev_warn(priv->dev,
+>> > +                           "%s: warning: maxmtu having invalid value (%d)\n",
+>> > +                           __func__, priv->plat->maxmtu);
 
-changelog v2:
-* correction of "devicetree" to "device tree" reported by Andy
-* print warning message while maxmtu is not in valid range
 
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |    8 +++++++-
- drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c  |    6 ++++++
- 2 files changed, 13 insertions(+), 1 deletion(-)
+>> > +       /* Set the maxmtu to a default of JUMBO_LEN in case the
+>> > +        * parameter is not defined for the device.
+>> > +        */
+>> > +       plat->maxmtu = JUMBO_LEN;
+>>
+>> Please, use *_default_data() hooks for that.
+>>
+>> At some point it might make sense to extract
+>> static int common_default_data() {...}
+>> and call it at the beginning of the rest of *_defautl_data() hooks.
+>>
+>
+> Just try to understand, are you referring changing the code something
+> like this:
+>
+>         stmmac_default_data(plat);
+>         if (info) {
+>                 info->pdev = pdev;
+>                 if (info->setup) {
+>                         ret = info->setup(plat, info);
+>                         if (ret)
+>                                 return ret;
+>                 }
+>         }
+>
+> Where all the common code is inside the stmmac_default_data()?
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 92ac006..f2a352f 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -3345,8 +3345,14 @@ int stmmac_dvr_probe(struct device *device,
- 		ndev->max_mtu = JUMBO_LEN;
- 	else
- 		ndev->max_mtu = SKB_MAX_HEAD(NET_SKB_PAD + NET_IP_ALIGN);
--	if (priv->plat->maxmtu < ndev->max_mtu)
-+	if ((priv->plat->maxmtu < ndev->max_mtu) &&
-+	    (priv->plat->maxmtu >= ndev->min_mtu))
- 		ndev->max_mtu = priv->plat->maxmtu;
-+	else if ((priv->plat->maxmtu < ndev->min_mtu) ||
-+		 (priv->plat->maxmtu > ndev->max_mtu))
-+		netdev_warn(priv->dev,
-+			    "%s: warning: maxmtu having invalid value (%d)\n",
-+			    __func__, priv->plat->maxmtu);
- 
- 	if (flow_ctrl)
- 		priv->flow_ctrl = FLOW_AUTO;	/* RX/TX pause on */
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
-index a283177..3da4737 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
-@@ -89,6 +89,9 @@ static void stmmac_default_data(struct plat_stmmacenet_data *plat)
- 
- 	/* Set default value for unicast filter entries */
- 	plat->unicast_filter_entries = 1;
-+
-+	/* Set the maxmtu to a default of JUMBO_LEN */
-+	plat->maxmtu = JUMBO_LEN;
- }
- 
- static int quark_default_data(struct plat_stmmacenet_data *plat,
-@@ -126,6 +129,9 @@ static int quark_default_data(struct plat_stmmacenet_data *plat,
- 	/* Set default value for unicast filter entries */
- 	plat->unicast_filter_entries = 1;
- 
-+	/* Set the maxmtu to a default of JUMBO_LEN */
-+	plat->maxmtu = JUMBO_LEN;
-+
- 	return 0;
- }
- 
+No.
+
+common_default_data()
+{
+ ... common defaults among *_default_data() ...
+}
+
+*_default_data()
+{
+...
+ common_default_data();
+ ...
+}
+
 -- 
-1.7.9.5
+With Best Regards,
+Andy Shevchenko
