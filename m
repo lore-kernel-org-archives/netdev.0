@@ -1,59 +1,42 @@
-From: Russell King - ARM Linux <linux@armlinux.org.uk>
-Subject: Re: [PATCHv2 net-next 11/16] net: mvpp2: handle misc PPv2.1/PPv2.2
- differences
-Date: Sat, 7 Jan 2017 09:38:34 +0000
-Message-ID: <20170107093834.GJ14217@n2100.armlinux.org.uk>
-References: <1482943592-12556-1-git-send-email-thomas.petazzoni@free-electrons.com>
- <1482943592-12556-12-git-send-email-thomas.petazzoni@free-electrons.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Mark Rutland <mark.rutland@arm.com>, devicetree@vger.kernel.org,
- Yehuda Yitschak <yehuday@marvell.com>, Jason Cooper <jason@lakedaemon.net>,
- Pawel Moll <pawel.moll@arm.com>, Ian Campbell <ijc+devicetree@hellion.org.uk>,
- netdev@vger.kernel.org, Hanna Hawa <hannah@marvell.com>,
- Nadav Haklai <nadavh@marvell.com>, Rob Herring <robh+dt@kernel.org>,
- Andrew Lunn <andrew@lunn.ch>, Kumar Gala <galak@codeaurora.org>,
- Gregory Clement <gregory.clement@free-electrons.com>,
- Stefan Chulski <stefanc@marvell.com>, Marcin Wojtas <mw@semihalf.com>,
- "David S. Miller" <davem@davemloft.net>, linux-arm-kernel@lists.infradead.org,
- Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-Content-Disposition: inline
-In-Reply-To: <1482943592-12556-12-git-send-email-thomas.petazzoni@free-electrons.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCHv2 net-next 0/5] sctp: add support for generating stream reconf chunks
+Date: Sat,  7 Jan 2017 17:42:57 +0800
+Message-ID: <cover.1483781759.git.lucien.xin@gmail.com>
+Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        Vlad Yasevich <vyasevich@gmail.com>, davem@davemloft.net
+To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:35108 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934680AbdAGJnK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 7 Jan 2017 04:43:10 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 28, 2016 at 05:46:27PM +0100, Thomas Petazzoni wrote:
-> @@ -6511,7 +6515,9 @@ static int mvpp2_port_probe(struct platform_device *pdev,
->  		dev_err(&pdev->dev, "failed to init port %d\n", id);
->  		goto err_free_stats;
->  	}
-> -	mvpp2_port_power_up(port);
-> +
-> +	if (priv->hw_version == MVPP21)
-> +		mvpp21_port_power_up(port);
+This patchset is to add some functions to generate stream reconf chunks,
+described in RFC6525 Section 3 and Section 4.
 
-This has the side effect that nothing clears the port reset bit in the
-GMAC, which means there's no hope of the interface working - with the
-reset bit set, the port is well and truely held in "link down" state.
+v1->v2:
+  - put these into a smaller group.
+  - rename some temporary variables in the codes.
+  - rename the titles of the commits and improve some changelogs.
 
-In any case, the GMAC part is much the same as mvneta, and I think
-that code should be shared rather than writing new versions of it.
-There are some subtle differences between neta, pp2.1 and pp2.2, but
-it's entirely doable (I have an implementation here as I wasn't going
-to duplicate this code for my phylink conversion.)
+Xin Long (5):
+  sctp: add a common helper function to generate stream reconf chunk
+  sctp: add support for generating stream reconf ssn reset request chunk
+  sctp: add support for generating stream reconf ssn/tsn reset request
+    chunk
+  sctp: add support for generating stream reconf response chunk
+  sctp: add support for generating stream reconf add streams request
+    chunk
+
+ include/linux/sctp.h       |  68 ++++++++++++
+ include/net/sctp/sm.h      |  17 ++-
+ include/net/sctp/structs.h |   3 +
+ net/sctp/associola.c       |   1 +
+ net/sctp/sm_make_chunk.c   | 270 +++++++++++++++++++++++++++++++++++++++++++++
+ 5 files changed, 358 insertions(+), 1 deletion(-)
 
 -- 
-RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
-FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
-according to speedtest.net.
+2.1.0
