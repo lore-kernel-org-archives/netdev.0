@@ -1,130 +1,207 @@
-From: Felix Manlunas <felix.manlunas@cavium.com>
-Subject: [PATCH net-next] liquidio: store the L4 hash of rx packets in skb
-Date: Fri, 6 Jan 2017 16:55:42 -0800
-Message-ID: <20170107005542.GA16278@felix.cavium.com>
+From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+Subject: Re: [PATCH v2 03/12] net: ethernet: aquantia: Add ring support code
+Date: Sat, 7 Jan 2017 02:05:29 +0100
+Message-ID: <710cc306-7957-18ea-7a59-442f7e80a37e@gmx.de>
+References: <cover.1483689029.git.vomlehn@texas.net>
+ <7d0b8bdb9c3ec1d2cbfb136796dbfc66e0ab535d.1483689029.git.vomlehn@texas.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, <raghu.vatsavayi@cavium.com>,
-        <derek.chickles@cavium.com>, <satananda.burla@cavium.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
+        Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>,
+        Pavel Belous <Pavel.Belous@aquantia.com>
+To: Alexander Loktionov <Alexander.Loktionov@aquantia.com>,
+        netdev@vger.kernel.org, David VomLehn <vomlehn@texas.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam01on0044.outbound.protection.outlook.com ([104.47.32.44]:55952
-        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1034654AbdAGA4l (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 6 Jan 2017 19:56:41 -0500
-Content-Disposition: inline
+Received: from mout.gmx.net ([212.227.17.22]:53483 "EHLO mout.gmx.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S934554AbdAGBFm (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 6 Jan 2017 20:05:42 -0500
+In-Reply-To: <7d0b8bdb9c3ec1d2cbfb136796dbfc66e0ab535d.1483689029.git.vomlehn@texas.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Prasad Kanneganti <prasad.kanneganti@cavium.com>
 
-Store the L4 hash of received packets in the skb; the hash is computed in
-the NIC firmware.
 
-Signed-off-by: Prasad Kanneganti <prasad.kanneganti@cavium.com>
-Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
-Signed-off-by: Derek Chickles <derek.chickles@cavium.com>
-Signed-off-by: Satanand Burla <satananda.burla@cavium.com>
----
- drivers/net/ethernet/cavium/liquidio/lio_main.c        | 17 +++++++++++++++--
- drivers/net/ethernet/cavium/liquidio/lio_vf_main.c     | 15 ++++++++++++++-
- drivers/net/ethernet/cavium/liquidio/liquidio_common.h |  2 ++
- 3 files changed, 31 insertions(+), 3 deletions(-)
+On 06.01.2017 09:06, Alexander Loktionov wrote:
+> From: David VomLehn <vomlehn@texas.net>
+>
+> Add code to support the transmit and receive ring buffers.
+>
+> Signed-off-by: Alexander Loktionov <Alexander.Loktionov@aquantia.com>
+> Signed-off-by: Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>
+> Signed-off-by: Pavel Belous <Pavel.Belous@aquantia.com>
+> Signed-off-by: David M. VomLehn <vomlehn@texas.net>
+> ---
+>   drivers/net/ethernet/aquantia/aq_ring.c | 380 ++++++++++++++++++++++++++++++++
+>   drivers/net/ethernet/aquantia/aq_ring.h | 147 ++++++++++++
+>   2 files changed, 527 insertions(+)
+>   create mode 100644 drivers/net/ethernet/aquantia/aq_ring.c
+>   create mode 100644 drivers/net/ethernet/aquantia/aq_ring.h
+>
+> diff --git a/drivers/net/ethernet/aquantia/aq_ring.c b/drivers/net/ethernet/aquantia/aq_ring.c
+> new file mode 100644
+> index 0000000..a7ef6aa
+> --- /dev/null
+> +++ b/drivers/net/ethernet/aquantia/aq_ring.c
+> @@ -0,0 +1,380 @@
+> +/*
+> + * aQuantia Corporation Network Driver
+> + * Copyright (C) 2014-2016 aQuantia Corporation. All rights reserved
+> + *
+> + * This program is free software; you can redistribute it and/or modify it
+> + * under the terms and conditions of the GNU General Public License,
+> + * version 2, as published by the Free Software Foundation.
+> + */
+> +
+> +/* File aq_pci_ring.c: Definition of functions for Rx/Tx rings. */
+> +
+> +#include "aq_ring.h"
+> +#include "aq_nic.h"
+> +#include "aq_hw.h"
+> +
+> +#include <linux/netdevice.h>
+> +#include <linux/etherdevice.h>
+> +
+> +static struct aq_ring_s *aq_ring_alloc(struct aq_ring_s *self,
+> +				       struct aq_nic_s *aq_nic,
+> +				       struct aq_nic_cfg_s *aq_nic_cfg)
+> +{
+> +	int err = 0;
+> +
+> +	if (!self) {
+> +		err = -ENOMEM;
+> +		goto err_exit;
+> +	}
 
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-index 39a9665..adae858 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-@@ -2263,6 +2263,7 @@ liquidio_push_packet(u32 octeon_id __attribute__((unused)),
- 	struct skb_shared_hwtstamps *shhwtstamps;
- 	u64 ns;
- 	u16 vtag = 0;
-+	u32 r_dh_off;
- 	struct net_device *netdev = (struct net_device *)arg;
- 	struct octeon_droq *droq = container_of(param, struct octeon_droq,
- 						napi);
-@@ -2308,6 +2309,8 @@ liquidio_push_packet(u32 octeon_id __attribute__((unused)),
- 			put_page(pg_info->page);
- 		}
- 
-+		r_dh_off = (rh->r_dh.len - 1) * BYTES_PER_DHLEN_UNIT;
-+
- 		if (((oct->chip_id == OCTEON_CN66XX) ||
- 		     (oct->chip_id == OCTEON_CN68XX)) &&
- 		    ptp_enable) {
-@@ -2320,16 +2323,26 @@ liquidio_push_packet(u32 octeon_id __attribute__((unused)),
- 					/* Nanoseconds are in the first 64-bits
- 					 * of the packet.
- 					 */
--					memcpy(&ns, (skb->data), sizeof(ns));
-+					memcpy(&ns, (skb->data + r_dh_off),
-+					       sizeof(ns));
-+					r_dh_off -= BYTES_PER_DHLEN_UNIT;
- 					shhwtstamps = skb_hwtstamps(skb);
- 					shhwtstamps->hwtstamp =
- 						ns_to_ktime(ns +
- 							    lio->ptp_adjust);
- 				}
--				skb_pull(skb, sizeof(ns));
- 			}
- 		}
- 
-+		if (rh->r_dh.has_hash) {
-+			u32 hash = be32_to_cpu(*(u32 *)(skb->data + r_dh_off));
-+
-+			skb_set_hash(skb, hash, PKT_HASH_TYPE_L4);
-+			r_dh_off -= BYTES_PER_DHLEN_UNIT;
-+		}
-+
-+		skb_pull(skb, rh->r_dh.len * BYTES_PER_DHLEN_UNIT);
-+
- 		skb->protocol = eth_type_trans(skb, skb->dev);
- 		if ((netdev->features & NETIF_F_RXCSUM) &&
- 		    (((rh->r_dh.encap_on) &&
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-index 70d96c1..c0ee746 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-@@ -1497,6 +1497,7 @@ liquidio_push_packet(u32 octeon_id __attribute__((unused)),
- 	struct net_device *netdev = (struct net_device *)arg;
- 	struct sk_buff *skb = (struct sk_buff *)skbuff;
- 	u16 vtag = 0;
-+	u32 r_dh_off;
- 
- 	if (netdev) {
- 		struct lio *lio = GET_LIO(netdev);
-@@ -1540,7 +1541,19 @@ liquidio_push_packet(u32 octeon_id __attribute__((unused)),
- 			put_page(pg_info->page);
- 		}
- 
--		skb_pull(skb, rh->r_dh.len * 8);
-+		r_dh_off = (rh->r_dh.len - 1) * BYTES_PER_DHLEN_UNIT;
-+
-+		if (rh->r_dh.has_hwtstamp)
-+			r_dh_off -= BYTES_PER_DHLEN_UNIT;
-+
-+		if (rh->r_dh.has_hash) {
-+			u32 hash = be32_to_cpu(*(u32 *)(skb->data + r_dh_off));
-+
-+			skb_set_hash(skb, hash, PKT_HASH_TYPE_L4);
-+			r_dh_off -= BYTES_PER_DHLEN_UNIT;
-+		}
-+
-+		skb_pull(skb, rh->r_dh.len * BYTES_PER_DHLEN_UNIT);
- 		skb->protocol = eth_type_trans(skb, skb->dev);
- 
- 		if ((netdev->features & NETIF_F_RXCSUM) &&
-diff --git a/drivers/net/ethernet/cavium/liquidio/liquidio_common.h b/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
-index ba329f6..bc0af8a 100644
---- a/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
-+++ b/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
-@@ -98,6 +98,8 @@ enum octeon_tag_type {
- #define CVM_DRV_INVALID_APP         (CVM_DRV_APP_START + 0x2)
- #define CVM_DRV_APP_END             (CVM_DRV_INVALID_APP - 1)
- 
-+#define BYTES_PER_DHLEN_UNIT        8
-+
- static inline u32 incr_index(u32 index, u32 count, u32 max)
- {
- 	if ((index + count) >= max)
+Why do you check this parameter but not the others?
+Beside this since the function is static the only caller is your own 
+code, so why is a check
+needed at all? Can self ever be NULL? Same pattern occurs in several 
+other functions.
+> +
+> +struct aq_ring_s *aq_ring_tx_alloc(struct aq_ring_s *self,
+> +				   struct aq_nic_s *aq_nic,
+> +				   unsigned int idx,
+> +				   struct aq_nic_cfg_s *aq_nic_cfg)
+>
+> +
+> +struct aq_ring_s *aq_ring_rx_alloc(struct aq_ring_s *self,
+> +				   struct aq_nic_s *aq_nic,
+> +				   unsigned int idx,
+> +				   struct aq_nic_cfg_s *aq_nic_cfg)
+> +{
+> +	int err = 0;
+> +
+> +	if (!self) {
+> +		err = -ENOMEM;
+> +		goto err_exit;
+>
+> +
+> +void aq_ring_free(struct aq_ring_s *self)
+> +{
+> +	if (!self)
+> +		goto err_exit;
+> +
+> +	kfree(self->buff_ring);
+> +
+> +	if (self->dx_ring)
+> +		dma_free_coherent(aq_nic_get_dev(self->aq_nic),
+> +				  self->size * self->dx_size, self->dx_ring,
+> +				  self->dx_ring_pa);
+> +
+> +err_exit:;
+> +}
+
+This does not make sense. Just return immediately if "self" is NULL (and 
+if you really have to make
+  this check).
+> +
+> +int aq_ring_rx_clean(struct aq_ring_s *self, int *work_done, int budget)
+> +{
+> +	struct net_device *ndev = aq_nic_get_ndev(self->aq_nic);
+> +	int err = 0;
+> +	bool is_rsc_completed = true;
+> +
+> +	for (; (self->sw_head != self->hw_head) && budget;
+> +		self->sw_head = aq_ring_next_dx(self, self->sw_head),
+> +		--budget, ++(*work_done)) {
+> +		struct aq_ring_buff_s *buff = &self->buff_ring[self->sw_head];
+> +		struct sk_buff *skb = NULL;
+> +		unsigned int next_ = 0U;
+> +		unsigned int i = 0U;
+> +		struct aq_ring_buff_s *buff_ = NULL;
+> +
+> +		if (buff->is_error) {
+> +			__free_pages(buff->page, 0);
+> +			continue;
+> +		}
+> +
+> +		if (buff->is_cleaned)
+> +			continue;
+> +
+> +		++self->stats.rx_packets;
+> +		++ndev->stats.rx_packets;
+> +		ndev->stats.rx_bytes += buff->len;
+> +
+> +		if (!buff->is_eop) {
+> +			for (next_ = buff->next,
+> +			     buff_ = &self->buff_ring[next_]; true;
+> +			     next_ = buff_->next,
+> +			     buff_ = &self->buff_ring[next_]) {
+> +				is_rsc_completed =
+> +					aq_ring_dx_in_range(self->sw_head,
+> +							    next_,
+> +							    self->hw_head);
+> +
+> +				if (unlikely(!is_rsc_completed)) {
+> +					is_rsc_completed = false;
+> +					break;
+> +				}
+> +
+> +				if (buff_->is_eop)
+> +					break;
+> +			}
+> +
+> +			if (!is_rsc_completed) {
+> +				err = 0;
+> +				goto err_exit;
+> +			}
+> +		}
+> +
+> +		skb = netdev_alloc_skb(ndev, ETH_HLEN + AQ_CFG_IP_ALIGN);
+> +
+> +		skb_reserve(skb, AQ_CFG_IP_ALIGN);
+
+netdev_alloc_skb_ip_align() will do the proper alignment for you (BTW. 
+AQ_CFG_IP_ALIGN is defined as 0 in aq_cfg.h.
+Is this on purpose?)
+
+> +		skb_put(skb, ETH_HLEN);
+> +		memcpy(skb->data, page_address(buff->page), ETH_HLEN);
+> +
+> +		skb_add_rx_frag(skb, 0, buff->page, ETH_HLEN,
+> +				buff->len - ETH_HLEN,
+> +				SKB_TRUESIZE(buff->len - ETH_HLEN));
+> +		if (!buff->is_eop) {
+> +			for (i = 1U, next_ = buff->next,
+> +			     buff_ = &self->buff_ring[next_]; true;
+> +			     next_ = buff_->next,
+> +			     buff_ = &self->buff_ring[next_], ++i) {
+> +				skb_add_rx_frag(skb, i, buff_->page, 0,
+> +						buff_->len,
+> +						SKB_TRUESIZE(buff->len -
+> +						ETH_HLEN));
+> +				buff_->is_cleaned = 1;
+> +
+> +				if (buff_->is_eop)
+> +					break;
+> +			}
+> +		}
+> +
+> +		skb->dev = ndev;
+   This is unnecessary. The following call of eth_type_trans() will do 
+this already.
+
+Regards,
+Lino
