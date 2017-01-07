@@ -1,150 +1,101 @@
-From: Felix Manlunas <felix.manlunas@cavium.com>
-Subject: [PATCH net-next] liquidio: simplify octeon_flush_iq()
-Date: Fri, 6 Jan 2017 17:16:12 -0800
-Message-ID: <20170107011612.GA16333@felix.cavium.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, <raghu.vatsavayi@cavium.com>,
-        <derek.chickles@cavium.com>, <satananda.burla@cavium.com>
-To: <davem@davemloft.net>
+From: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>
+Subject: [PATCH v5] net: stmmac: fix maxmtu assignment to be within valid range
+Date: Sat,  7 Jan 2017 17:32:03 +0800
+Message-ID: <1483781523-14334-1-git-send-email-hock.leong.kweh@intel.com>
+Cc: Alexandre TORGUE <alexandre.torgue@gmail.com>,
+        Joachim Eastwood <manabian@gmail.com>,
+        Niklas Cassel <niklas.cassel@axis.com>,
+        Johan Hovold <johan@kernel.org>, pavel@ucw.cz,
+        "Kweh, Hock Leong" <hock.leong.kweh@intel.com>,
+        lars.persson@axis.com, netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>,
+        Joao Pinto <Joao.Pinto@synopsys.com>,
+        Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
+        seraphin.bonnaffe@st.com, Jarod Wilson <jarod@redhat.com>,
+        Andy Shevchenko <andy.shevchenko@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-co1nam03on0054.outbound.protection.outlook.com ([104.47.40.54]:22848
-        "EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S933632AbdAGBRN (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 6 Jan 2017 20:17:13 -0500
-Content-Disposition: inline
+Received: from mga11.intel.com ([192.55.52.93]:60070 "EHLO mga11.intel.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S935304AbdAGB05 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 6 Jan 2017 20:26:57 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Derek Chickles <derek.chickles@cavium.com>
+From: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>
 
-Because every call to octeon_flush_iq() has a hardcoded 1 for the
-pending_thresh argument, simplify that function by removing that argument.
-This avoids one atomic read as well.
+There is no checking valid value of maxmtu when getting it from
+device tree. This resolution added the checking condition to
+ensure the assignment is made within a valid range.
 
-Signed-off-by: Derek Chickles <derek.chickles@cavium.com>
-Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
-Signed-off-by: Satanand Burla <satananda.burla@cavium.com>
+Signed-off-by: Kweh, Hock Leong <hock.leong.kweh@intel.com>
 ---
- drivers/net/ethernet/cavium/liquidio/lio_main.c    |  2 +-
- drivers/net/ethernet/cavium/liquidio/lio_vf_main.c |  2 +-
- drivers/net/ethernet/cavium/liquidio/octeon_iq.h   |  2 +-
- .../net/ethernet/cavium/liquidio/request_manager.c | 49 +++++++++++-----------
- 4 files changed, 27 insertions(+), 28 deletions(-)
+changelog v5:
+* revert back that plat->maxmtu > ndev->max_mtu is a valid case
+  when ndev->max_mtu assignment is entering to the else statement
+* add comment to enchance clarification
 
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-index 6443bc1..13f67a3 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-@@ -2441,7 +2441,7 @@ static int liquidio_napi_poll(struct napi_struct *napi, int budget)
- 	iq = oct->instr_queue[iq_no];
- 	if (iq) {
- 		/* Process iq buffers with in the budget limits */
--		tx_done = octeon_flush_iq(oct, iq, 1, budget);
-+		tx_done = octeon_flush_iq(oct, iq, budget);
- 		/* Update iq read-index rather than waiting for next interrupt.
- 		 * Return back if tx_done is false.
- 		 */
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-index 70d96c1..55846f2 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-@@ -1627,7 +1627,7 @@ static int liquidio_napi_poll(struct napi_struct *napi, int budget)
- 	iq = oct->instr_queue[iq_no];
- 	if (iq) {
- 		/* Process iq buffers with in the budget limits */
--		tx_done = octeon_flush_iq(oct, iq, 1, budget);
-+		tx_done = octeon_flush_iq(oct, iq, budget);
- 		/* Update iq read-index rather than waiting for next interrupt.
- 		 * Return back if tx_done is false.
- 		 */
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_iq.h b/drivers/net/ethernet/cavium/liquidio/octeon_iq.h
-index e04ca8f..4608a5a 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_iq.h
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_iq.h
-@@ -369,5 +369,5 @@ int octeon_setup_iq(struct octeon_device *oct, int ifidx,
- 		    void *app_ctx);
- int
- octeon_flush_iq(struct octeon_device *oct, struct octeon_instr_queue *iq,
--		u32 pending_thresh, u32 napi_budget);
-+		u32 napi_budget);
- #endif				/* __OCTEON_IQ_H__ */
-diff --git a/drivers/net/ethernet/cavium/liquidio/request_manager.c b/drivers/net/ethernet/cavium/liquidio/request_manager.c
-index 3ce6675..707bc15 100644
---- a/drivers/net/ethernet/cavium/liquidio/request_manager.c
-+++ b/drivers/net/ethernet/cavium/liquidio/request_manager.c
-@@ -455,7 +455,7 @@ lio_process_iq_request_list(struct octeon_device *oct,
- /* Can only be called from process context */
- int
- octeon_flush_iq(struct octeon_device *oct, struct octeon_instr_queue *iq,
--		u32 pending_thresh, u32 napi_budget)
-+		u32 napi_budget)
- {
- 	u32 inst_processed = 0;
- 	u32 tot_inst_processed = 0;
-@@ -468,33 +468,32 @@ octeon_flush_iq(struct octeon_device *oct, struct octeon_instr_queue *iq,
+changelog v4:
+* add print warning message when maxmtu > max_mtu as well
+* add maxmtu = JUMBO_LEN into each *_default_data() at stmmac_pci.c
+
+changelog v3:
+* print the warning message only if maxmtu < min_mtu
+* add maxmtu = JUMBO_LEN at stmmac_pci.c to follow stmmac_platform.c
+
+changelog v2:
+* correction of "devicetree" to "device tree" reported by Andy
+* print warning message while maxmtu is not in valid range
+
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |   10 +++++++++-
+ drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c  |    6 ++++++
+ 2 files changed, 15 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 92ac006..8e56dc4 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -3345,8 +3345,16 @@ int stmmac_dvr_probe(struct device *device,
+ 		ndev->max_mtu = JUMBO_LEN;
+ 	else
+ 		ndev->max_mtu = SKB_MAX_HEAD(NET_SKB_PAD + NET_IP_ALIGN);
+-	if (priv->plat->maxmtu < ndev->max_mtu)
++	/* Will not overwrite ndev->max_mtu if plat->maxmtu > ndev->max_mtu
++	 * as well as plat->maxmtu < ndev->min_mtu which is a invalid range.
++	 */
++	if ((priv->plat->maxmtu < ndev->max_mtu) &&
++	    (priv->plat->maxmtu >= ndev->min_mtu))
+ 		ndev->max_mtu = priv->plat->maxmtu;
++	else if (priv->plat->maxmtu < ndev->min_mtu)
++		netdev_warn(priv->dev,
++			    "%s: warning: maxmtu having invalid value (%d)\n",
++			    __func__, priv->plat->maxmtu);
  
- 	iq->octeon_read_index = oct->fn_list.update_iq_read_idx(iq);
+ 	if (flow_ctrl)
+ 		priv->flow_ctrl = FLOW_AUTO;	/* RX/TX pause on */
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
+index a283177..3da4737 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
+@@ -89,6 +89,9 @@ static void stmmac_default_data(struct plat_stmmacenet_data *plat)
  
--	if (atomic_read(&iq->instr_pending) >= (s32)pending_thresh) {
--		do {
--			/* Process any outstanding IQ packets. */
--			if (iq->flush_index == iq->octeon_read_index)
--				break;
--
--			if (napi_budget)
--				inst_processed = lio_process_iq_request_list
--					(oct, iq,
--					 napi_budget - tot_inst_processed);
--			else
--				inst_processed =
--					lio_process_iq_request_list(oct, iq, 0);
-+	do {
-+		/* Process any outstanding IQ packets. */
-+		if (iq->flush_index == iq->octeon_read_index)
-+			break;
- 
--			if (inst_processed) {
--				atomic_sub(inst_processed, &iq->instr_pending);
--				iq->stats.instr_processed += inst_processed;
--			}
-+		if (napi_budget)
-+			inst_processed =
-+				lio_process_iq_request_list(oct, iq,
-+							    napi_budget -
-+							    tot_inst_processed);
-+		else
-+			inst_processed =
-+				lio_process_iq_request_list(oct, iq, 0);
+ 	/* Set default value for unicast filter entries */
+ 	plat->unicast_filter_entries = 1;
 +
-+		if (inst_processed) {
-+			atomic_sub(inst_processed, &iq->instr_pending);
-+			iq->stats.instr_processed += inst_processed;
-+		}
- 
--			tot_inst_processed += inst_processed;
--			inst_processed = 0;
-+		tot_inst_processed += inst_processed;
-+		inst_processed = 0;
- 
--		} while (tot_inst_processed < napi_budget);
-+	} while (tot_inst_processed < napi_budget);
- 
--		if (napi_budget && (tot_inst_processed >= napi_budget))
--			tx_done = 0;
--	}
-+	if (napi_budget && (tot_inst_processed >= napi_budget))
-+		tx_done = 0;
- 
- 	iq->last_db_time = jiffies;
- 
-@@ -530,7 +529,7 @@ static void __check_db_timeout(struct octeon_device *oct, u64 iq_no)
- 	iq->last_db_time = jiffies;
- 
- 	/* Flush the instruction queue */
--	octeon_flush_iq(oct, iq, 1, 0);
-+	octeon_flush_iq(oct, iq, 0);
- 
- 	lio_enable_irq(NULL, iq);
++	/* Set the maxmtu to a default of JUMBO_LEN */
++	plat->maxmtu = JUMBO_LEN;
  }
+ 
+ static int quark_default_data(struct plat_stmmacenet_data *plat,
+@@ -126,6 +129,9 @@ static int quark_default_data(struct plat_stmmacenet_data *plat,
+ 	/* Set default value for unicast filter entries */
+ 	plat->unicast_filter_entries = 1;
+ 
++	/* Set the maxmtu to a default of JUMBO_LEN */
++	plat->maxmtu = JUMBO_LEN;
++
+ 	return 0;
+ }
+ 
+-- 
+1.7.9.5
