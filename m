@@ -1,70 +1,45 @@
-From: Andy Shevchenko <andy.shevchenko@gmail.com>
-Subject: Re: [PATCH v4] net: stmmac: fix maxmtu assignment to be within valid range
-Date: Sat, 7 Jan 2017 02:12:23 +0200
-Message-ID: <CAHp75VeBJsTR9OrdYQqs7fCb40KzyByehX97VdKm8CerDUwVqg@mail.gmail.com>
-References: <1483776634-13095-1-git-send-email-hock.leong.kweh@intel.com>
+From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
+Subject: Re: [PATCH v2 02/12] net: ethernet: aquantia: Common functions and
+ definitions
+Date: Sat, 7 Jan 2017 01:29:50 +0100
+Message-ID: <9d914d2b-359f-aa9a-6d8a-e1bf8e54f290@gmx.de>
+References: <cover.1483689029.git.vomlehn@texas.net>
+ <41e24066f2a87cad644a902658846e109a6b406f.1483689029.git.vomlehn@texas.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Joao Pinto <Joao.Pinto@synopsys.com>,
-        Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
-        seraphin.bonnaffe@st.com, Jarod Wilson <jarod@redhat.com>,
-        Alexandre TORGUE <alexandre.torgue@gmail.com>,
-        Joachim Eastwood <manabian@gmail.com>,
-        Niklas Cassel <niklas.cassel@axis.com>,
-        Johan Hovold <johan@kernel.org>, Pavel Machek <pavel@ucw.cz>,
-        lars.persson@axis.com, netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>
-To: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
+        Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>,
+        Pavel Belous <Pavel.Belous@aquantia.com>
+To: Alexander Loktionov <Alexander.Loktionov@aquantia.com>,
+        netdev@vger.kernel.org, David VomLehn <vomlehn@texas.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f195.google.com ([209.85.220.195]:36707 "EHLO
-        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750853AbdAGAMZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 6 Jan 2017 19:12:25 -0500
-In-Reply-To: <1483776634-13095-1-git-send-email-hock.leong.kweh@intel.com>
+Received: from mout.gmx.net ([212.227.15.19]:64055 "EHLO mout.gmx.net"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S934131AbdAGAaC (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 6 Jan 2017 19:30:02 -0500
+In-Reply-To: <41e24066f2a87cad644a902658846e109a6b406f.1483689029.git.vomlehn@texas.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 7, 2017 at 10:10 AM, Kweh, Hock Leong
-<hock.leong.kweh@intel.com> wrote:
-> From: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>
->
-> There is no checking valid value of maxmtu when getting it from device tree.
-> This resolution added the checking condition to ensure the assignment is
-> made within a valid range.
+Hi,
 
-> changelog v4:
-> * add print warning message when maxmtu > max_mtu as well
+On 06.01.2017 09:06, Alexander Loktionov wrote:
+> +
+> +#define TXT(_T_) #_T_
+> +#define TXTTXT(_T_) TXT(_T_)
 
-Yep.
+do you really need these (IMHO ugly) macros? AFAICS you only use them to 
+build the driver
+version string.
+> +
+> +#define AQ_CFG_DRV_AUTHOR      "aQuantia"
+> +#define AQ_CFG_DRV_DESC        "aQuantia Corporation(R) Network Driver"
+> +#define AQ_CFG_DRV_NAME        "aquantia"
+> +#define AQ_CFG_DRV_VERSION	TXTTXT(NIC_MAJOR_DRIVER_VERSION)"."\
+> +				TXTTXT(NIC_MINOR_DRIVER_VERSION)"."\
+> +				TXTTXT(NIC_BUILD_DRIVER_VERSION)"."\
+> +				TXTTXT(NIC_REVISION_DRIVER_VERSION)
 
-> * add maxmtu = JUMBO_LEN into each *_default_data() at stmmac_pci.c
-
-Yep.
-
-But see comment below.
-
-P.S. And perhaps next time send into our internal mailing list first for review.
-
-> @@ -3345,8 +3345,14 @@ int stmmac_dvr_probe(struct device *device,
->                 ndev->max_mtu = JUMBO_LEN;
->         else
->                 ndev->max_mtu = SKB_MAX_HEAD(NET_SKB_PAD + NET_IP_ALIGN);
-> -       if (priv->plat->maxmtu < ndev->max_mtu)
-> +       if ((priv->plat->maxmtu < ndev->max_mtu) &&
-> +           (priv->plat->maxmtu >= ndev->min_mtu))
->                 ndev->max_mtu = priv->plat->maxmtu;
-
-> +       else if ((priv->plat->maxmtu < ndev->min_mtu) ||
-> +                (priv->plat->maxmtu > ndev->max_mtu))
-> +               netdev_warn(priv->dev,
-
-What is the difference to just 'else'? (Returning back to my initial
-proposal, I don't remember telling anything about 'else if' concept)
-
-> +                           "%s: warning: maxmtu having invalid value (%d)\n",
-> +                           __func__, priv->plat->maxmtu);
-
--- 
-With Best Regards,
-Andy Shevchenko
+Regards,
+Lino
