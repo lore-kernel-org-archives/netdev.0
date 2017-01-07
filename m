@@ -1,19 +1,20 @@
 From: Linus =?utf-8?Q?L=C3=BCssing?= <linus.luessing@c0d3.blue>
 Subject: Re: [PATCH net-next] bridge: multicast to unicast
-Date: Sat, 7 Jan 2017 16:06:34 +0100
-Message-ID: <20170107150634.GF3134@otheros>
+Date: Sat, 7 Jan 2017 16:15:30 +0100
+Message-ID: <20170107151530.GG3134@otheros>
 References: <20170102193214.31723-1-linus.luessing@c0d3.blue>
-	<20170106191356.43740a26@xeon-e3>
+	<1483706872.4089.8.camel@sipsolutions.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 8bit
 Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
 	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Michael Braun <michael-dev@fami-braun.de>,
 	"David S . Miller" <davem@davemloft.net>, Felix Fietkau <nbd@nbd.name>
-To: Stephen Hemminger <stephen@networkplumber.org>
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <bridge-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <20170106191356.43740a26@xeon-e3>
+In-Reply-To: <1483706872.4089.8.camel@sipsolutions.net>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
 	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
@@ -25,33 +26,35 @@ Sender: bridge-bounces@lists.linux-foundation.org
 Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 06, 2017 at 07:13:56PM -0800, Stephen Hemminger wrote:
-> On Mon,  2 Jan 2017 20:32:14 +0100
-> Linus Lüssing <linus.luessing@c0d3.blue> wrote:
+On Fri, Jan 06, 2017 at 01:47:52PM +0100, Johannes Berg wrote:
+> How does this compare and/or relate to the multicast-to-unicast feature
+> we were going to add to the wifi stack, particularly mac80211? Do we
+> perhaps not need that feature at all, if bridging will have it?
 > 
-> > This feature is intended for interface types which have a more reliable
-> > and/or efficient way to deliver unicast packets than broadcast ones
-> > (e.g. wifi).
+> I suppose that the feature there could apply also to locally generated
+> traffic when the AP interface isn't in a bridge, but I think I could
+> live with requiring the AP to be put into a bridge to achieve a similar
+> configuration?
 > 
+> Additionally, on an unrelated note, this seems to apply generically to
+> all kinds of frames, losing information by replacing the address.
+> Shouldn't it have similar limitations as the wifi stack feature has
+> then, like only applying to ARP, IPv4, IPv6 and not general protocols?
+
+(should all three be answered with Michael's and my reply to
+Michael's mail, I think)
+
 > 
-> Why is this not done in MAC80211 rather than  bridge?
+> Also, it should probably come with the same caveat as we documented for
+> the wifi feature:
+> 
+>     Note that this may break certain expectations of the receiver,
+>     such as the ability to drop unicast IP packets received within
+>     multicast L2 frames, or the ability to not send ICMP destination
+>     unreachable messages for packets received in L2 multicast (which
+>     is required, but the receiver can't tell the difference if this
+>     new option is enabled.)
 
-Because mac80211 does not have the IGMP/MLD snooping code as
-the bridge has?
-
-Reimplementing the snooping in mac80211 does not make sense
-because of duplicating code. Moving the snooping code from the
-bridge to mac80211 does not make sense either, because we want
-multicast snooping, software based, (virtually) wired switches,
-too.
-
-The "best way" (TM) would probably be to migrate the IGMP/MLD
-snooping from the bridge code to the net device code on the long
-run to make such a database usable for any kind of device, without
-needing this bridge hack.
-
-But such a migration would also need a way more invasive patchset.
-
-While Felix's idea might look a little "ugly" due it's hacky
-nature, I think it is also quite beautiful thanks to it's
-simplicity.
+Actually, I do not quite understand that remark in the mac80211
+multicast-to-unicast patch. IP should not care about the ethernet
+header?
