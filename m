@@ -1,53 +1,59 @@
-From: Russell King - ARM Linux <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>
-Subject: Re: [PATCHv2 net-next 01/16] dt-bindings: net: update Marvell PPv2
- binding for PPv2.2 support
-Date: Sat, 7 Jan 2017 09:32:28 +0000
-Message-ID: <20170107093228.GI14217@n2100.armlinux.org.uk>
+From: Russell King - ARM Linux <linux@armlinux.org.uk>
+Subject: Re: [PATCHv2 net-next 11/16] net: mvpp2: handle misc PPv2.1/PPv2.2
+ differences
+Date: Sat, 7 Jan 2017 09:38:34 +0000
+Message-ID: <20170107093834.GJ14217@n2100.armlinux.org.uk>
 References: <1482943592-12556-1-git-send-email-thomas.petazzoni@free-electrons.com>
- <1482943592-12556-2-git-send-email-thomas.petazzoni@free-electrons.com>
+ <1482943592-12556-12-git-send-email-thomas.petazzoni@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
-        Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-        Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
-        Yehuda Yitschak <yehuday-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
-        Jason Cooper <jason-NLaQJdtUoK4Be96aLqz0jA@public.gmane.org>,
-        Hanna Hawa <hannah-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
-        Nadav Haklai <nadavh-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
-        Gregory Clement <gregory.clement-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-        Stefan Chulski <stefanc-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
-        Marcin Wojtas <mw-nYOzD4b6Jr9Wk0Htik3J/w@public.gmane.org>,
-        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-        Sebastian Hesselbarth <sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Mark Rutland <mark.rutland@arm.com>, devicetree@vger.kernel.org,
+ Yehuda Yitschak <yehuday@marvell.com>, Jason Cooper <jason@lakedaemon.net>,
+ Pawel Moll <pawel.moll@arm.com>, Ian Campbell <ijc+devicetree@hellion.org.uk>,
+ netdev@vger.kernel.org, Hanna Hawa <hannah@marvell.com>,
+ Nadav Haklai <nadavh@marvell.com>, Rob Herring <robh+dt@kernel.org>,
+ Andrew Lunn <andrew@lunn.ch>, Kumar Gala <galak@codeaurora.org>,
+ Gregory Clement <gregory.clement@free-electrons.com>,
+ Stefan Chulski <stefanc@marvell.com>, Marcin Wojtas <mw@semihalf.com>,
+ "David S. Miller" <davem@davemloft.net>, linux-arm-kernel@lists.infradead.org,
+ Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 Content-Disposition: inline
-In-Reply-To: <1482943592-12556-2-git-send-email-thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <1482943592-12556-12-git-send-email-thomas.petazzoni@free-electrons.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 28, 2016 at 05:46:17PM +0100, Thomas Petazzoni wrote:
-> @@ -31,7 +43,7 @@ Optional properties (port):
->    then fixed link is assumed, and the 'fixed-link' property is
->    mandatory.
+On Wed, Dec 28, 2016 at 05:46:27PM +0100, Thomas Petazzoni wrote:
+> @@ -6511,7 +6515,9 @@ static int mvpp2_port_probe(struct platform_device *pdev,
+>  		dev_err(&pdev->dev, "failed to init port %d\n", id);
+>  		goto err_free_stats;
+>  	}
+> -	mvpp2_port_power_up(port);
+> +
+> +	if (priv->hw_version == MVPP21)
+> +		mvpp21_port_power_up(port);
 
-Not directly related to this patch, but this context is wrong.  The
-PP2 driver _requires_ a PHY.  It doesn't support fixed-link in its
-current form.  I think the DT binding describes an expectation of
-a future driver.
+This has the side effect that nothing clears the port reset bit in the
+GMAC, which means there's no hope of the interface working - with the
+reset bit set, the port is well and truely held in "link down" state.
 
-The side effect is that if trying to use a fixed-link on any port,
-the ethernet driver fails to probe.
+In any case, the GMAC part is much the same as mvneta, and I think
+that code should be shared rather than writing new versions of it.
+There are some subtle differences between neta, pp2.1 and pp2.2, but
+it's entirely doable (I have an implementation here as I wasn't going
+to duplicate this code for my phylink conversion.)
 
 -- 
 RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
 FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
 according to speedtest.net.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
