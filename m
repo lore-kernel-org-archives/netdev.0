@@ -1,207 +1,68 @@
-From: Lino Sanfilippo <LinoSanfilippo@gmx.de>
-Subject: Re: [PATCH v2 03/12] net: ethernet: aquantia: Add ring support code
-Date: Sat, 7 Jan 2017 02:05:29 +0100
-Message-ID: <710cc306-7957-18ea-7a59-442f7e80a37e@gmx.de>
-References: <cover.1483689029.git.vomlehn@texas.net>
- <7d0b8bdb9c3ec1d2cbfb136796dbfc66e0ab535d.1483689029.git.vomlehn@texas.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [next PATCH 00/11] ixgbe: Add support for writable pages and
+ build_skb
+Date: Fri, 06 Jan 2017 17:12:04 -0800
+Message-ID: <1483751524.25700.86.camel@intel.com>
+References: <20170106155448.1501.31298.stgit@localhost.localdomain>
+         <20170106.164116.1871412141301427533.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
-        Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>,
-        Pavel Belous <Pavel.Belous@aquantia.com>
-To: Alexander Loktionov <Alexander.Loktionov@aquantia.com>,
-        netdev@vger.kernel.org, David VomLehn <vomlehn@texas.net>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+        protocol="application/pgp-signature"; boundary="=-wM1FGzNGpNJjthu8fonK"
+Cc: intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, alexander.duyck@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.17.22]:53483 "EHLO mout.gmx.net"
+Received: from mga06.intel.com ([134.134.136.31]:51424 "EHLO mga06.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S934554AbdAGBFm (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 6 Jan 2017 20:05:42 -0500
-In-Reply-To: <7d0b8bdb9c3ec1d2cbfb136796dbfc66e0ab535d.1483689029.git.vomlehn@texas.net>
+        id S936656AbdAGBMF (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 6 Jan 2017 20:12:05 -0500
+In-Reply-To: <20170106.164116.1871412141301427533.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
+--=-wM1FGzNGpNJjthu8fonK
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-On 06.01.2017 09:06, Alexander Loktionov wrote:
-> From: David VomLehn <vomlehn@texas.net>
->
-> Add code to support the transmit and receive ring buffers.
->
-> Signed-off-by: Alexander Loktionov <Alexander.Loktionov@aquantia.com>
-> Signed-off-by: Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>
-> Signed-off-by: Pavel Belous <Pavel.Belous@aquantia.com>
-> Signed-off-by: David M. VomLehn <vomlehn@texas.net>
-> ---
->   drivers/net/ethernet/aquantia/aq_ring.c | 380 ++++++++++++++++++++++++++++++++
->   drivers/net/ethernet/aquantia/aq_ring.h | 147 ++++++++++++
->   2 files changed, 527 insertions(+)
->   create mode 100644 drivers/net/ethernet/aquantia/aq_ring.c
->   create mode 100644 drivers/net/ethernet/aquantia/aq_ring.h
->
-> diff --git a/drivers/net/ethernet/aquantia/aq_ring.c b/drivers/net/ethernet/aquantia/aq_ring.c
-> new file mode 100644
-> index 0000000..a7ef6aa
-> --- /dev/null
-> +++ b/drivers/net/ethernet/aquantia/aq_ring.c
-> @@ -0,0 +1,380 @@
-> +/*
-> + * aQuantia Corporation Network Driver
-> + * Copyright (C) 2014-2016 aQuantia Corporation. All rights reserved
-> + *
-> + * This program is free software; you can redistribute it and/or modify it
-> + * under the terms and conditions of the GNU General Public License,
-> + * version 2, as published by the Free Software Foundation.
-> + */
-> +
-> +/* File aq_pci_ring.c: Definition of functions for Rx/Tx rings. */
-> +
-> +#include "aq_ring.h"
-> +#include "aq_nic.h"
-> +#include "aq_hw.h"
-> +
-> +#include <linux/netdevice.h>
-> +#include <linux/etherdevice.h>
-> +
-> +static struct aq_ring_s *aq_ring_alloc(struct aq_ring_s *self,
-> +				       struct aq_nic_s *aq_nic,
-> +				       struct aq_nic_cfg_s *aq_nic_cfg)
-> +{
-> +	int err = 0;
-> +
-> +	if (!self) {
-> +		err = -ENOMEM;
-> +		goto err_exit;
-> +	}
+On Fri, 2017-01-06 at 16:41 -0500, David Miller wrote:
+> From: Alexander Duyck <alexander.duyck@gmail.com>
+> Date: Fri, 06 Jan 2017 08:06:16 -0800
+>=20
+> > The testing matrix for all of these patches is going to be pretty
+> > extensive.=C2=A0 Basically we want to test these patches on as many
+> > platforms
+> > and architectures as possible with as many features being toggled as
+> > possible including RSC, FCoE, SR-IOV, and Jumbo Frames all while
+> > receiving
+> > traffic.
+>=20
+> Overall looks very nice to me.
+>=20
+> I am assuming that I will get a formal submission once the necessary
+> amount of testing is performed.
 
-Why do you check this parameter but not the others?
-Beside this since the function is static the only caller is your own 
-code, so why is a check
-needed at all? Can self ever be NULL? Same pattern occurs in several 
-other functions.
-> +
-> +struct aq_ring_s *aq_ring_tx_alloc(struct aq_ring_s *self,
-> +				   struct aq_nic_s *aq_nic,
-> +				   unsigned int idx,
-> +				   struct aq_nic_cfg_s *aq_nic_cfg)
->
-> +
-> +struct aq_ring_s *aq_ring_rx_alloc(struct aq_ring_s *self,
-> +				   struct aq_nic_s *aq_nic,
-> +				   unsigned int idx,
-> +				   struct aq_nic_cfg_s *aq_nic_cfg)
-> +{
-> +	int err = 0;
-> +
-> +	if (!self) {
-> +		err = -ENOMEM;
-> +		goto err_exit;
->
-> +
-> +void aq_ring_free(struct aq_ring_s *self)
-> +{
-> +	if (!self)
-> +		goto err_exit;
-> +
-> +	kfree(self->buff_ring);
-> +
-> +	if (self->dx_ring)
-> +		dma_free_coherent(aq_nic_get_dev(self->aq_nic),
-> +				  self->size * self->dx_size, self->dx_ring,
-> +				  self->dx_ring_pa);
-> +
-> +err_exit:;
-> +}
+Yes, your assumption is correct. :-)
+--=-wM1FGzNGpNJjthu8fonK
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
-This does not make sense. Just return immediately if "self" is NULL (and 
-if you really have to make
-  this check).
-> +
-> +int aq_ring_rx_clean(struct aq_ring_s *self, int *work_done, int budget)
-> +{
-> +	struct net_device *ndev = aq_nic_get_ndev(self->aq_nic);
-> +	int err = 0;
-> +	bool is_rsc_completed = true;
-> +
-> +	for (; (self->sw_head != self->hw_head) && budget;
-> +		self->sw_head = aq_ring_next_dx(self, self->sw_head),
-> +		--budget, ++(*work_done)) {
-> +		struct aq_ring_buff_s *buff = &self->buff_ring[self->sw_head];
-> +		struct sk_buff *skb = NULL;
-> +		unsigned int next_ = 0U;
-> +		unsigned int i = 0U;
-> +		struct aq_ring_buff_s *buff_ = NULL;
-> +
-> +		if (buff->is_error) {
-> +			__free_pages(buff->page, 0);
-> +			continue;
-> +		}
-> +
-> +		if (buff->is_cleaned)
-> +			continue;
-> +
-> +		++self->stats.rx_packets;
-> +		++ndev->stats.rx_packets;
-> +		ndev->stats.rx_bytes += buff->len;
-> +
-> +		if (!buff->is_eop) {
-> +			for (next_ = buff->next,
-> +			     buff_ = &self->buff_ring[next_]; true;
-> +			     next_ = buff_->next,
-> +			     buff_ = &self->buff_ring[next_]) {
-> +				is_rsc_completed =
-> +					aq_ring_dx_in_range(self->sw_head,
-> +							    next_,
-> +							    self->hw_head);
-> +
-> +				if (unlikely(!is_rsc_completed)) {
-> +					is_rsc_completed = false;
-> +					break;
-> +				}
-> +
-> +				if (buff_->is_eop)
-> +					break;
-> +			}
-> +
-> +			if (!is_rsc_completed) {
-> +				err = 0;
-> +				goto err_exit;
-> +			}
-> +		}
-> +
-> +		skb = netdev_alloc_skb(ndev, ETH_HLEN + AQ_CFG_IP_ALIGN);
-> +
-> +		skb_reserve(skb, AQ_CFG_IP_ALIGN);
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
 
-netdev_alloc_skb_ip_align() will do the proper alignment for you (BTW. 
-AQ_CFG_IP_ALIGN is defined as 0 in aq_cfg.h.
-Is this on purpose?)
+iQIcBAABCgAGBQJYcEBkAAoJEOVv75VaS+3OuW0P/2rR0zPPlyPlw7wKPxEGsNS5
+zg8gvb453vase7mZxzsVzluAqx893AvYVSinlI3eiA4qrqQwBdhaleLIf76fIu/G
++XlK7RuSarCiIA1hw3TJpfkmQlh564bwwuGXRog7J208/bs7nw0ellx5ouGunQKT
+jSRRXdwcMfF7t+WlKEPldaxDgJzyjVEwvDVRWJzow17TYmPde3NNWCmEimnbVBq5
+ta7atY8CPTxOOlrEhepaOwTbnb2HpJgNFlDkD2zzZjlUnGuGe8YWGjWlZtj5X+yf
+e4JGKG9IlAzag0tkL05yHKhq4p2ioEsxiq8UFxSvWpc7JNvEfxzWJncVHVgph6OT
+YAMYDifFQMVKrSuVqR29/RQsHBrKUGd6McgkTlWbWy8Ru/VJtOOovBWGkTUwUUvh
+7hBzNQNGuV+SjSPAN3ue2DEixqRm0VnQIHYlMR/6+BjJw9ZssFb6UY+BhyhMJD1l
+O/J3Spuk36GDzMoZttuxVlmA1BENbrVQOjqeiffswHWG7d2zQapr3VJki+hkOsm8
+JvwdNw48DKw3+9VyK16U3gz3JRkCWWBZ/Iisdio0ZCLPGerDC2n3bR3tS6f6EnfD
+C6DTbMvY+1ENsfvLbAhbON+NlJUQNoKyNdJ5oCEr1xILKuxNgRTog5E2YkbvLttN
+BD3S8pgJT00p0Mwagn0R
+=Kn44
+-----END PGP SIGNATURE-----
 
-> +		skb_put(skb, ETH_HLEN);
-> +		memcpy(skb->data, page_address(buff->page), ETH_HLEN);
-> +
-> +		skb_add_rx_frag(skb, 0, buff->page, ETH_HLEN,
-> +				buff->len - ETH_HLEN,
-> +				SKB_TRUESIZE(buff->len - ETH_HLEN));
-> +		if (!buff->is_eop) {
-> +			for (i = 1U, next_ = buff->next,
-> +			     buff_ = &self->buff_ring[next_]; true;
-> +			     next_ = buff_->next,
-> +			     buff_ = &self->buff_ring[next_], ++i) {
-> +				skb_add_rx_frag(skb, i, buff_->page, 0,
-> +						buff_->len,
-> +						SKB_TRUESIZE(buff->len -
-> +						ETH_HLEN));
-> +				buff_->is_cleaned = 1;
-> +
-> +				if (buff_->is_eop)
-> +					break;
-> +			}
-> +		}
-> +
-> +		skb->dev = ndev;
-   This is unnecessary. The following call of eth_type_trans() will do 
-this already.
-
-Regards,
-Lino
+--=-wM1FGzNGpNJjthu8fonK--
