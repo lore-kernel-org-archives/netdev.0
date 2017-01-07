@@ -1,11 +1,11 @@
 From: kbuild test robot <lkp@intel.com>
-Subject: Re: [PATCH v2 05/12] net: ethernet: aquantia: Support for
- NIC-specific code
-Date: Sat, 7 Jan 2017 16:12:55 +0800
-Message-ID: <201701071612.4nqoENKw%fengguang.wu@intel.com>
-References: <2c7a399a225633bb8cda2177a4581fb5cf154e2e.1483689029.git.vomlehn@texas.net>
+Subject: Re: [PATCH v2 06/12] net: ethernet: aquantia: Atlantic A0 and B0
+ specific functions.
+Date: Sat, 7 Jan 2017 16:31:07 +0800
+Message-ID: <201701071613.AXwBJYPO%fengguang.wu@intel.com>
+References: <dddb5f605411f83ca50b86537ed32bf4171d3159.1483689029.git.vomlehn@texas.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="rwEMma7ioTxnRzrJ"
+Content-Type: multipart/mixed; boundary="vtzGhvizbBRQ85DL"
 Cc: kbuild-all@01.org, netdev@vger.kernel.org,
         David VomLehn <vomlehn@texas.net>,
         Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
@@ -14,17 +14,17 @@ Cc: kbuild-all@01.org, netdev@vger.kernel.org,
         Pavel Belous <Pavel.Belous@aquantia.com>
 To: Alexander Loktionov <Alexander.Loktionov@aquantia.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga06.intel.com ([134.134.136.31]:6598 "EHLO mga06.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:61018 "EHLO mga02.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752892AbdAGIFm (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 7 Jan 2017 03:05:42 -0500
+        id S932081AbdAGIXk (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 7 Jan 2017 03:23:40 -0500
 Content-Disposition: inline
-In-Reply-To: <2c7a399a225633bb8cda2177a4581fb5cf154e2e.1483689029.git.vomlehn@texas.net>
+In-Reply-To: <dddb5f605411f83ca50b86537ed32bf4171d3159.1483689029.git.vomlehn@texas.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---rwEMma7ioTxnRzrJ
+--vtzGhvizbBRQ85DL
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
@@ -48,37 +48,39 @@ Note: the linux-review/Alexander-Loktionov/net-ethernet-aquantia-Add-AQtion-2-5-
 
 All errors (new ones prefixed by >>):
 
-   In file included from drivers/net/ethernet/aquantia/aq_common.h:18:0,
-                    from drivers/net/ethernet/aquantia/aq_main.h:15,
-                    from drivers/net/ethernet/aquantia/aq_main.c:12:
->> drivers/net/ethernet/aquantia/aq_nic.h:16:20: fatal error: aq_rss.h: No such file or directory
-    #include "aq_rss.h"
-                       ^
+>> drivers/net/ethernet/aquantia/hw_atl/hw_atl_a0.c:12:22: fatal error: ../aq_hw.h: No such file or directory
+    #include "../aq_hw.h"
+                         ^
+   compilation terminated.
+--
+>> drivers/net/ethernet/aquantia/hw_atl/hw_atl_b0.c:12:22: fatal error: ../aq_hw.h: No such file or directory
+    #include "../aq_hw.h"
+                         ^
    compilation terminated.
 
-vim +16 drivers/net/ethernet/aquantia/aq_nic.h
+vim +12 drivers/net/ethernet/aquantia/hw_atl/hw_atl_a0.c
 
-    10	/* File aq_nic.h: Declaration of common code for NIC. */
+     6	 * under the terms and conditions of the GNU General Public License,
+     7	 * version 2, as published by the Free Software Foundation.
+     8	 */
+     9	
+    10	/* File hw_atl_a0.c: Definition of Atlantic hardware specific functions. */
     11	
-    12	#ifndef AQ_NIC_H
-    13	#define AQ_NIC_H
-    14	
-    15	#include "aq_common.h"
-  > 16	#include "aq_rss.h"
-    17	
-    18	struct aq_ring_s;
-    19	struct aq_pci_func_s;
+  > 12	#include "../aq_hw.h"
+    13	#include "../aq_hw_utils.h"
+    14	#include "../aq_ring.h"
+    15	#include "hw_atl_a0.h"
 
 ---
 0-DAY kernel test infrastructure                Open Source Technology Center
 https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
 
---rwEMma7ioTxnRzrJ
+--vtzGhvizbBRQ85DL
 Content-Type: application/gzip
 Content-Disposition: attachment; filename=".config.gz"
 Content-Transfer-Encoding: base64
 
-H4sICGaYcFgAAy5jb25maWcAjDzbktu2ku/5CpWzD0nVJp6LM3F2ax5AEhRxRBI0AGouLyx5
+H4sICEmmcFgAAy5jb25maWcAjDzbktu2ku/5CpWzD0nVJp6LM3F2ax5AEhRxRBI0AGouLyx5
 LDtTmZF8NJrkeL9+u8EbbqT8Yg+7Gw2g0XeQ+vGHHxfk9bh/3hwfHzZPT98WX7a77WFz3H5a
 fH582v7vIuGLkqsFTZj6FYjzx93rf94+bq7eLd79en7269kvh4fzxWp72G2fFvF+9/nxyysM
 f9zvfvjxh5iXKVs21VKRKKdNTtc0l9eXPTyhafdXzqS6fvP26fHj2+f9p9en7cvb/6pLUtBG
@@ -929,4 +931,4 @@ z2r/nh6ilcN0/H7sIXwAEnT0zu97EfT9fX7gQBhUMhEKVNA0mYDjRez24F142Z73JZlQK0Dn
 i/fFwoHne+9z9qoKz80lfG++wiiS/FBV50eukEI7QXzphsEV6SLnz3fnQMbepeyv5ngJoP8H
 ynr8Zd3FAgA=
 
---rwEMma7ioTxnRzrJ--
+--vtzGhvizbBRQ85DL--
