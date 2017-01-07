@@ -1,9 +1,14 @@
 From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: [PATCH v2 net-next 2/4] siphash: implement HalfSipHash1-3 for hash tables
-Date: Sat,  7 Jan 2017 15:40:55 +0100
-Message-ID: <20170107144057.15432-3-Jason@zx2c4.com>
+Subject: [PATCH v2 net-next 3/4] secure_seq: use SipHash in place of MD5
+Date: Sat,  7 Jan 2017 15:40:56 +0100
+Message-ID: <20170107144057.15432-4-Jason@zx2c4.com>
 References: <20170107144057.15432-1-Jason@zx2c4.com>
-Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>,
+        Andi Kleen <ak@linux.intel.com>,
+        David Laight <David.Laight@aculab.com>,
+        Tom Herbert <tom@herbertland.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Eric Dumazet <eric.dumazet@gmail.com>
 To: davem@davemloft.net, ebiggers3@gmail.com,
         jeanphilippe.aumasson@gmail.com, gregkh@linuxfoundation.org,
         netdev@vger.kernel.org, linux-kernel@vger.kernel.org
@@ -12,677 +17,256 @@ In-Reply-To: <20170107144057.15432-1-Jason@zx2c4.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-HalfSipHash, or hsiphash, is a shortened version of SipHash, which
-generates 32-bit outputs using a weaker 64-bit key. It has *much* lower
-security margins, and shouldn't be used for anything too sensitive, but
-it could be used as a hashtable key function replacement, if the output
-is never exposed, and if the security requirement is not too high.
+This gives a clear speed and security improvement. Siphash is both
+faster and is more solid crypto than the aging MD5.
 
-The goal is to make this something that performance-critical jhash users
-would be willing to use.
-
-On 64-bit machines, HalfSipHash1-3 is slower than SipHash1-3, so we alias
-SipHash1-3 to HalfSipHash1-3 on those systems.
+Rather than manually filling MD5 buffers, for IPv6, we simply create
+a layout by a simple anonymous struct, for which gcc generates
+rather efficient code. For IPv4, we pass the values directly to the
+short input convenience functions.
 
 64-bit x86_64:
-[    0.509409] test_siphash:     SipHash2-4 cycles: 4049181
-[    0.510650] test_siphash:     SipHash1-3 cycles: 2512884
-[    0.512205] test_siphash: HalfSipHash1-3 cycles: 3429920
-[    0.512904] test_siphash:    JenkinsHash cycles:  978267
-So, we map hsiphash() -> SipHash1-3
+[    1.683628] secure_tcpv6_sequence_number_md5# cycles: 99563527
+[    1.717350] secure_tcp_sequence_number_md5# cycles: 92890502
+[    1.741968] secure_tcpv6_sequence_number_siphash# cycles: 67825362
+[    1.762048] secure_tcp_sequence_number_siphash# cycles: 67485526
 
 32-bit x86:
-[    0.509868] test_siphash:     SipHash2-4 cycles: 14812892
-[    0.513601] test_siphash:     SipHash1-3 cycles:  9510710
-[    0.515263] test_siphash: HalfSipHash1-3 cycles:  3856157
-[    0.515952] test_siphash:    JenkinsHash cycles:  1148567
-So, we map hsiphash() -> HalfSipHash1-3
-
-hsiphash() is roughly 3 times slower than jhash(), but comes with a
-considerable security improvement.
+[    1.600012] secure_tcpv6_sequence_number_md5# cycles: 103227892
+[    1.634219] secure_tcp_sequence_number_md5# cycles: 94732544
+[    1.669102] secure_tcpv6_sequence_number_siphash# cycles: 96299384
+[    1.700165] secure_tcp_sequence_number_siphash# cycles: 86015473
 
 Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
-Reviewed-by: Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>
+Cc: Andi Kleen <ak@linux.intel.com>
+Cc: David Miller <davem@davemloft.net>
+Cc: David Laight <David.Laight@aculab.com>
+Cc: Tom Herbert <tom@herbertland.com>
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
 ---
- Documentation/siphash.txt |  75 +++++++++++
- include/linux/siphash.h   |  62 ++++++++-
- lib/siphash.c             | 321 +++++++++++++++++++++++++++++++++++++++++++++-
- lib/test_siphash.c        |  98 +++++++++++++-
- 4 files changed, 551 insertions(+), 5 deletions(-)
+ net/core/secure_seq.c | 145 ++++++++++++++++++++++----------------------------
+ 1 file changed, 63 insertions(+), 82 deletions(-)
 
-diff --git a/Documentation/siphash.txt b/Documentation/siphash.txt
-index e540ab14eb8f..4a229a1f53e5 100644
---- a/Documentation/siphash.txt
-+++ b/Documentation/siphash.txt
-@@ -77,3 +77,78 @@ Linux implements the "2-4" variant of SipHash.
+diff --git a/net/core/secure_seq.c b/net/core/secure_seq.c
+index 88a8e429fc3e..119e3ebe2f30 100644
+--- a/net/core/secure_seq.c
++++ b/net/core/secure_seq.c
+@@ -1,3 +1,7 @@
++/*
++ * Copyright (C) 2016 Jason A. Donenfeld <Jason@zx2c4.com>. All Rights Reserved.
++ */
++
+ #include <linux/kernel.h>
+ #include <linux/init.h>
+ #include <linux/cryptohash.h>
+@@ -8,18 +12,18 @@
+ #include <linux/ktime.h>
+ #include <linux/string.h>
+ #include <linux/net.h>
+-
++#include <linux/siphash.h>
+ #include <net/secure_seq.h>
  
- Read the SipHash paper if you're interested in learning more:
- https://131002.net/siphash/siphash.pdf
-+
-+
-+~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~
-+
-+HalfSipHash - SipHash's insecure younger cousin
-+-----------------------------------------------
-+Written by Jason A. Donenfeld <jason@zx2c4.com>
-+
-+On the off-chance that SipHash is not fast enough for your needs, you might be
-+able to justify using HalfSipHash, a terrifying but potentially useful
-+possibility. HalfSipHash cuts SipHash's rounds down from "2-4" to "1-3" and,
-+even scarier, uses an easily brute-forcable 64-bit key (with a 32-bit output)
-+instead of SipHash's 128-bit key. However, this may appeal to some
-+high-performance `jhash` users.
-+
-+Danger!
-+
-+Do not ever use HalfSipHash except for as a hashtable key function, and only
-+then when you can be absolutely certain that the outputs will never be
-+transmitted out of the kernel. This is only remotely useful over `jhash` as a
-+means of mitigating hashtable flooding denial of service attacks.
-+
-+1. Generating a key
-+
-+Keys should always be generated from a cryptographically secure source of
-+random numbers, either using get_random_bytes or get_random_once:
-+
-+hsiphash_key_t key;
-+get_random_bytes(&key, sizeof(key));
-+
-+If you're not deriving your key from here, you're doing it wrong.
-+
-+2. Using the functions
-+
-+There are two variants of the function, one that takes a list of integers, and
-+one that takes a buffer:
-+
-+u32 hsiphash(const void *data, size_t len, const siphash_key_t *key);
-+
-+And:
-+
-+u32 hsiphash_1u32(u32, const hsiphash_key_t *key);
-+u32 hsiphash_2u32(u32, u32, const hsiphash_key_t *key);
-+u32 hsiphash_3u32(u32, u32, u32, const hsiphash_key_t *key);
-+u32 hsiphash_4u32(u32, u32, u32, u32, const hsiphash_key_t *key);
-+
-+If you pass the generic hsiphash function something of a constant length, it
-+will constant fold at compile-time and automatically choose one of the
-+optimized functions.
-+
-+3. Hashtable key function usage:
-+
-+struct some_hashtable {
-+	DECLARE_HASHTABLE(hashtable, 8);
-+	hsiphash_key_t key;
-+};
-+
-+void init_hashtable(struct some_hashtable *table)
-+{
-+	get_random_bytes(&table->key, sizeof(table->key));
-+}
-+
-+static inline hlist_head *some_hashtable_bucket(struct some_hashtable *table, struct interesting_input *input)
-+{
-+	return &table->hashtable[hsiphash(input, sizeof(*input), &table->key) & (HASH_SIZE(table->hashtable) - 1)];
-+}
-+
-+You may then iterate like usual over the returned hash bucket.
-+
-+4. Performance
-+
-+HalfSipHash is roughly 3 times slower than JenkinsHash. For many replacements,
-+this will not be a problem, as the hashtable lookup isn't the bottleneck. And
-+in general, this is probably a good sacrifice to make for the security and DoS
-+resistance of HalfSipHash.
-diff --git a/include/linux/siphash.h b/include/linux/siphash.h
-index feeb29cd113e..59dccdaff4f5 100644
---- a/include/linux/siphash.h
-+++ b/include/linux/siphash.h
-@@ -5,7 +5,9 @@
-  * SipHash: a fast short-input PRF
-  * https://131002.net/siphash/
-  *
-- * This implementation is specifically for SipHash2-4.
-+ * This implementation is specifically for SipHash2-4 for a secure PRF
-+ * and HalfSipHash1-3/SipHash1-3 for an insecure PRF only suitable for
-+ * hashtables.
-  */
+ #if IS_ENABLED(CONFIG_IPV6) || IS_ENABLED(CONFIG_INET)
++#include <linux/in6.h>
+ #include <net/tcp.h>
+-#define NET_SECRET_SIZE (MD5_MESSAGE_BYTES / 4)
  
- #ifndef _LINUX_SIPHASH_H
-@@ -82,4 +84,62 @@ static inline u64 siphash(const void *data, size_t len,
- 	return ___siphash_aligned(data, len, key);
- }
+-static u32 net_secret[NET_SECRET_SIZE] ____cacheline_aligned;
++static siphash_key_t net_secret;
  
-+#if BITS_PER_LONG == 64
-+typedef siphash_key_t hsiphash_key_t;
-+#define HSIPHASH_ALIGNMENT SIPHASH_ALIGNMENT
-+#else
-+typedef struct {
-+	u32 key[2];
-+} hsiphash_key_t;
-+#define HSIPHASH_ALIGNMENT __alignof__(u32)
-+#endif
-+
-+u32 __hsiphash_aligned(const void *data, size_t len,
-+		       const hsiphash_key_t *key);
-+#ifndef CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS
-+u32 __hsiphash_unaligned(const void *data, size_t len,
-+			 const hsiphash_key_t *key);
-+#endif
-+
-+u32 hsiphash_1u32(const u32 a, const hsiphash_key_t *key);
-+u32 hsiphash_2u32(const u32 a, const u32 b, const hsiphash_key_t *key);
-+u32 hsiphash_3u32(const u32 a, const u32 b, const u32 c,
-+		  const hsiphash_key_t *key);
-+u32 hsiphash_4u32(const u32 a, const u32 b, const u32 c, const u32 d,
-+		  const hsiphash_key_t *key);
-+
-+static inline u32 ___hsiphash_aligned(const __le32 *data, size_t len,
-+				      const hsiphash_key_t *key)
-+{
-+	if (__builtin_constant_p(len) && len == 4)
-+		return hsiphash_1u32(le32_to_cpu(data[0]), key);
-+	if (__builtin_constant_p(len) && len == 8)
-+		return hsiphash_2u32(le32_to_cpu(data[0]), le32_to_cpu(data[1]),
-+				     key);
-+	if (__builtin_constant_p(len) && len == 12)
-+		return hsiphash_3u32(le32_to_cpu(data[0]), le32_to_cpu(data[1]),
-+				     le32_to_cpu(data[2]), key);
-+	if (__builtin_constant_p(len) && len == 16)
-+		return hsiphash_4u32(le32_to_cpu(data[0]), le32_to_cpu(data[1]),
-+				     le32_to_cpu(data[2]), le32_to_cpu(data[3]),
-+				     key);
-+	return __hsiphash_aligned(data, len, key);
-+}
-+
-+/**
-+ * hsiphash - compute 32-bit hsiphash PRF value
-+ * @data: buffer to hash
-+ * @size: size of @data
-+ * @key: the hsiphash key
-+ */
-+static inline u32 hsiphash(const void *data, size_t len,
-+			   const hsiphash_key_t *key)
-+{
-+#ifndef CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS
-+	if (!IS_ALIGNED((unsigned long)data, HSIPHASH_ALIGNMENT))
-+		return __hsiphash_unaligned(data, len, key);
-+#endif
-+	return ___hsiphash_aligned(data, len, key);
-+}
-+
- #endif /* _LINUX_SIPHASH_H */
-diff --git a/lib/siphash.c b/lib/siphash.c
-index c43cf406e71b..3ae58b4edad6 100644
---- a/lib/siphash.c
-+++ b/lib/siphash.c
-@@ -5,7 +5,9 @@
-  * SipHash: a fast short-input PRF
-  * https://131002.net/siphash/
-  *
-- * This implementation is specifically for SipHash2-4.
-+ * This implementation is specifically for SipHash2-4 for a secure PRF
-+ * and HalfSipHash1-3/SipHash1-3 for an insecure PRF only suitable for
-+ * hashtables.
-  */
- 
- #include <linux/siphash.h>
-@@ -230,3 +232,320 @@ u64 siphash_3u32(const u32 first, const u32 second, const u32 third,
- 	POSTAMBLE
- }
- EXPORT_SYMBOL(siphash_3u32);
-+
-+#if BITS_PER_LONG == 64
-+/* Note that on 64-bit, we make HalfSipHash1-3 actually be SipHash1-3, for
-+ * performance reasons. On 32-bit, below, we actually implement HalfSipHash1-3.
-+ */
-+
-+#define HSIPROUND SIPROUND
-+#define HPREAMBLE(len) PREAMBLE(len)
-+#define HPOSTAMBLE \
-+	v3 ^= b; \
-+	HSIPROUND; \
-+	v0 ^= b; \
-+	v2 ^= 0xff; \
-+	HSIPROUND; \
-+	HSIPROUND; \
-+	HSIPROUND; \
-+	return (v0 ^ v1) ^ (v2 ^ v3);
-+
-+u32 __hsiphash_aligned(const void *data, size_t len, const hsiphash_key_t *key)
-+{
-+	const u8 *end = data + len - (len % sizeof(u64));
-+	const u8 left = len & (sizeof(u64) - 1);
-+	u64 m;
-+	HPREAMBLE(len)
-+	for (; data != end; data += sizeof(u64)) {
-+		m = le64_to_cpup(data);
-+		v3 ^= m;
-+		HSIPROUND;
-+		v0 ^= m;
-+	}
-+#if defined(CONFIG_DCACHE_WORD_ACCESS) && BITS_PER_LONG == 64
-+	if (left)
-+		b |= le64_to_cpu((__force __le64)(load_unaligned_zeropad(data) &
-+						  bytemask_from_count(left)));
-+#else
-+	switch (left) {
-+	case 7: b |= ((u64)end[6]) << 48;
-+	case 6: b |= ((u64)end[5]) << 40;
-+	case 5: b |= ((u64)end[4]) << 32;
-+	case 4: b |= le32_to_cpup(data); break;
-+	case 3: b |= ((u64)end[2]) << 16;
-+	case 2: b |= le16_to_cpup(data); break;
-+	case 1: b |= end[0];
-+	}
-+#endif
-+	HPOSTAMBLE
-+}
-+EXPORT_SYMBOL(__hsiphash_aligned);
-+
-+#ifndef CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS
-+u32 __hsiphash_unaligned(const void *data, size_t len,
-+			 const hsiphash_key_t *key)
-+{
-+	const u8 *end = data + len - (len % sizeof(u64));
-+	const u8 left = len & (sizeof(u64) - 1);
-+	u64 m;
-+	HPREAMBLE(len)
-+	for (; data != end; data += sizeof(u64)) {
-+		m = get_unaligned_le64(data);
-+		v3 ^= m;
-+		HSIPROUND;
-+		v0 ^= m;
-+	}
-+#if defined(CONFIG_DCACHE_WORD_ACCESS) && BITS_PER_LONG == 64
-+	if (left)
-+		b |= le64_to_cpu((__force __le64)(load_unaligned_zeropad(data) &
-+						  bytemask_from_count(left)));
-+#else
-+	switch (left) {
-+	case 7: b |= ((u64)end[6]) << 48;
-+	case 6: b |= ((u64)end[5]) << 40;
-+	case 5: b |= ((u64)end[4]) << 32;
-+	case 4: b |= get_unaligned_le32(end); break;
-+	case 3: b |= ((u64)end[2]) << 16;
-+	case 2: b |= get_unaligned_le16(end); break;
-+	case 1: b |= end[0];
-+	}
-+#endif
-+	HPOSTAMBLE
-+}
-+EXPORT_SYMBOL(__hsiphash_unaligned);
-+#endif
-+
-+/**
-+ * hsiphash_1u32 - compute 64-bit hsiphash PRF value of a u32
-+ * @first: first u32
-+ * @key: the hsiphash key
-+ */
-+u32 hsiphash_1u32(const u32 first, const hsiphash_key_t *key)
-+{
-+	HPREAMBLE(4)
-+	b |= first;
-+	HPOSTAMBLE
-+}
-+EXPORT_SYMBOL(hsiphash_1u32);
-+
-+/**
-+ * hsiphash_2u32 - compute 32-bit hsiphash PRF value of 2 u32
-+ * @first: first u32
-+ * @second: second u32
-+ * @key: the hsiphash key
-+ */
-+u32 hsiphash_2u32(const u32 first, const u32 second, const hsiphash_key_t *key)
-+{
-+	u64 combined = (u64)second << 32 | first;
-+	HPREAMBLE(8)
-+	v3 ^= combined;
-+	HSIPROUND;
-+	v0 ^= combined;
-+	HPOSTAMBLE
-+}
-+EXPORT_SYMBOL(hsiphash_2u32);
-+
-+/**
-+ * hsiphash_3u32 - compute 32-bit hsiphash PRF value of 3 u32
-+ * @first: first u32
-+ * @second: second u32
-+ * @third: third u32
-+ * @key: the hsiphash key
-+ */
-+u32 hsiphash_3u32(const u32 first, const u32 second, const u32 third,
-+		  const hsiphash_key_t *key)
-+{
-+	u64 combined = (u64)second << 32 | first;
-+	HPREAMBLE(12)
-+	v3 ^= combined;
-+	HSIPROUND;
-+	v0 ^= combined;
-+	b |= third;
-+	HPOSTAMBLE
-+}
-+EXPORT_SYMBOL(hsiphash_3u32);
-+
-+/**
-+ * hsiphash_4u32 - compute 32-bit hsiphash PRF value of 4 u32
-+ * @first: first u32
-+ * @second: second u32
-+ * @third: third u32
-+ * @forth: forth u32
-+ * @key: the hsiphash key
-+ */
-+u32 hsiphash_4u32(const u32 first, const u32 second, const u32 third,
-+		  const u32 forth, const hsiphash_key_t *key)
-+{
-+	u64 combined = (u64)second << 32 | first;
-+	HPREAMBLE(16)
-+	v3 ^= combined;
-+	HSIPROUND;
-+	v0 ^= combined;
-+	combined = (u64)forth << 32 | third;
-+	v3 ^= combined;
-+	HSIPROUND;
-+	v0 ^= combined;
-+	HPOSTAMBLE
-+}
-+EXPORT_SYMBOL(hsiphash_4u32);
-+#else
-+#define HSIPROUND \
-+	do { \
-+	v0 += v1; v1 = rol32(v1, 5); v1 ^= v0; v0 = rol32(v0, 16); \
-+	v2 += v3; v3 = rol32(v3, 8); v3 ^= v2; \
-+	v0 += v3; v3 = rol32(v3, 7); v3 ^= v0; \
-+	v2 += v1; v1 = rol32(v1, 13); v1 ^= v2; v2 = rol32(v2, 16); \
-+	} while (0)
-+
-+#define HPREAMBLE(len) \
-+	u32 v0 = 0; \
-+	u32 v1 = 0; \
-+	u32 v2 = 0x6c796765U; \
-+	u32 v3 = 0x74656462U; \
-+	u32 b = ((u32)(len)) << 24; \
-+	v3 ^= key->key[1]; \
-+	v2 ^= key->key[0]; \
-+	v1 ^= key->key[1]; \
-+	v0 ^= key->key[0];
-+
-+#define HPOSTAMBLE \
-+	v3 ^= b; \
-+	HSIPROUND; \
-+	v0 ^= b; \
-+	v2 ^= 0xff; \
-+	HSIPROUND; \
-+	HSIPROUND; \
-+	HSIPROUND; \
-+	return v1 ^ v3;
-+
-+u32 __hsiphash_aligned(const void *data, size_t len, const hsiphash_key_t *key)
-+{
-+	const u8 *end = data + len - (len % sizeof(u32));
-+	const u8 left = len & (sizeof(u32) - 1);
-+	u32 m;
-+	HPREAMBLE(len)
-+	for (; data != end; data += sizeof(u32)) {
-+		m = le32_to_cpup(data);
-+		v3 ^= m;
-+		HSIPROUND;
-+		v0 ^= m;
-+	}
-+	switch (left) {
-+	case 3: b |= ((u32)end[2]) << 16;
-+	case 2: b |= le16_to_cpup(data); break;
-+	case 1: b |= end[0];
-+	}
-+	HPOSTAMBLE
-+}
-+EXPORT_SYMBOL(__hsiphash_aligned);
-+
-+#ifndef CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS
-+u32 __hsiphash_unaligned(const void *data, size_t len,
-+			 const hsiphash_key_t *key)
-+{
-+	const u8 *end = data + len - (len % sizeof(u32));
-+	const u8 left = len & (sizeof(u32) - 1);
-+	u32 m;
-+	HPREAMBLE(len)
-+	for (; data != end; data += sizeof(u32)) {
-+		m = get_unaligned_le32(data);
-+		v3 ^= m;
-+		HSIPROUND;
-+		v0 ^= m;
-+	}
-+	switch (left) {
-+	case 3: b |= ((u32)end[2]) << 16;
-+	case 2: b |= get_unaligned_le16(end); break;
-+	case 1: b |= end[0];
-+	}
-+	HPOSTAMBLE
-+}
-+EXPORT_SYMBOL(__hsiphash_unaligned);
-+#endif
-+
-+/**
-+ * hsiphash_1u32 - compute 32-bit hsiphash PRF value of a u32
-+ * @first: first u32
-+ * @key: the hsiphash key
-+ */
-+u32 hsiphash_1u32(const u32 first, const hsiphash_key_t *key)
-+{
-+	HPREAMBLE(4)
-+	v3 ^= first;
-+	HSIPROUND;
-+	v0 ^= first;
-+	HPOSTAMBLE
-+}
-+EXPORT_SYMBOL(hsiphash_1u32);
-+
-+/**
-+ * hsiphash_2u32 - compute 32-bit hsiphash PRF value of 2 u32
-+ * @first: first u32
-+ * @second: second u32
-+ * @key: the hsiphash key
-+ */
-+u32 hsiphash_2u32(const u32 first, const u32 second, const hsiphash_key_t *key)
-+{
-+	HPREAMBLE(8)
-+	v3 ^= first;
-+	HSIPROUND;
-+	v0 ^= first;
-+	v3 ^= second;
-+	HSIPROUND;
-+	v0 ^= second;
-+	HPOSTAMBLE
-+}
-+EXPORT_SYMBOL(hsiphash_2u32);
-+
-+/**
-+ * hsiphash_3u32 - compute 32-bit hsiphash PRF value of 3 u32
-+ * @first: first u32
-+ * @second: second u32
-+ * @third: third u32
-+ * @key: the hsiphash key
-+ */
-+u32 hsiphash_3u32(const u32 first, const u32 second, const u32 third,
-+		  const hsiphash_key_t *key)
-+{
-+	HPREAMBLE(12)
-+	v3 ^= first;
-+	HSIPROUND;
-+	v0 ^= first;
-+	v3 ^= second;
-+	HSIPROUND;
-+	v0 ^= second;
-+	v3 ^= third;
-+	HSIPROUND;
-+	v0 ^= third;
-+	HPOSTAMBLE
-+}
-+EXPORT_SYMBOL(hsiphash_3u32);
-+
-+/**
-+ * hsiphash_4u32 - compute 32-bit hsiphash PRF value of 4 u32
-+ * @first: first u32
-+ * @second: second u32
-+ * @third: third u32
-+ * @forth: forth u32
-+ * @key: the hsiphash key
-+ */
-+u32 hsiphash_4u32(const u32 first, const u32 second, const u32 third,
-+		  const u32 forth, const hsiphash_key_t *key)
-+{
-+	HPREAMBLE(16)
-+	v3 ^= first;
-+	HSIPROUND;
-+	v0 ^= first;
-+	v3 ^= second;
-+	HSIPROUND;
-+	v0 ^= second;
-+	v3 ^= third;
-+	HSIPROUND;
-+	v0 ^= third;
-+	v3 ^= forth;
-+	HSIPROUND;
-+	v0 ^= forth;
-+	HPOSTAMBLE
-+}
-+EXPORT_SYMBOL(hsiphash_4u32);
-+#endif
-diff --git a/lib/test_siphash.c b/lib/test_siphash.c
-index d972acfc15e4..a6d854d933bf 100644
---- a/lib/test_siphash.c
-+++ b/lib/test_siphash.c
-@@ -7,7 +7,9 @@
-  * SipHash: a fast short-input PRF
-  * https://131002.net/siphash/
-  *
-- * This implementation is specifically for SipHash2-4.
-+ * This implementation is specifically for SipHash2-4 for a secure PRF
-+ * and HalfSipHash1-3/SipHash1-3 for an insecure PRF only suitable for
-+ * hashtables.
-  */
- 
- #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-@@ -18,8 +20,8 @@
- #include <linux/errno.h>
- #include <linux/module.h>
- 
--/* Test vectors taken from official reference source available at:
-- *     https://131002.net/siphash/siphash24.c
-+/* Test vectors taken from reference source available at:
-+ *     https://github.com/veorq/SipHash
-  */
- 
- static const siphash_key_t test_key_siphash =
-@@ -50,6 +52,64 @@ static const u64 test_vectors_siphash[64] = {
- 	0x958a324ceb064572ULL
- };
- 
-+#if BITS_PER_LONG == 64
-+static const hsiphash_key_t test_key_hsiphash =
-+	{{ 0x0706050403020100ULL, 0x0f0e0d0c0b0a0908ULL }};
-+
-+static const u32 test_vectors_hsiphash[64] = {
-+	0x050fc4dcU, 0x7d57ca93U, 0x4dc7d44dU,
-+	0xe7ddf7fbU, 0x88d38328U, 0x49533b67U,
-+	0xc59f22a7U, 0x9bb11140U, 0x8d299a8eU,
-+	0x6c063de4U, 0x92ff097fU, 0xf94dc352U,
-+	0x57b4d9a2U, 0x1229ffa7U, 0xc0f95d34U,
-+	0x2a519956U, 0x7d908b66U, 0x63dbd80cU,
-+	0xb473e63eU, 0x8d297d1cU, 0xa6cce040U,
-+	0x2b45f844U, 0xa320872eU, 0xdae6c123U,
-+	0x67349c8cU, 0x705b0979U, 0xca9913a5U,
-+	0x4ade3b35U, 0xef6cd00dU, 0x4ab1e1f4U,
-+	0x43c5e663U, 0x8c21d1bcU, 0x16a7b60dU,
-+	0x7a8ff9bfU, 0x1f2a753eU, 0xbf186b91U,
-+	0xada26206U, 0xa3c33057U, 0xae3a36a1U,
-+	0x7b108392U, 0x99e41531U, 0x3f1ad944U,
-+	0xc8138825U, 0xc28949a6U, 0xfaf8876bU,
-+	0x9f042196U, 0x68b1d623U, 0x8b5114fdU,
-+	0xdf074c46U, 0x12cc86b3U, 0x0a52098fU,
-+	0x9d292f9aU, 0xa2f41f12U, 0x43a71ed0U,
-+	0x73f0bce6U, 0x70a7e980U, 0x243c6d75U,
-+	0xfdb71513U, 0xa67d8a08U, 0xb7e8f148U,
-+	0xf7a644eeU, 0x0f1837f2U, 0x4b6694e0U,
-+	0xb7bbb3a8U
-+};
-+#else
-+static const hsiphash_key_t test_key_hsiphash =
-+	{{ 0x03020100U, 0x07060504U }};
-+
-+static const u32 test_vectors_hsiphash[64] = {
-+	0x5814c896U, 0xe7e864caU, 0xbc4b0e30U,
-+	0x01539939U, 0x7e059ea6U, 0x88e3d89bU,
-+	0xa0080b65U, 0x9d38d9d6U, 0x577999b1U,
-+	0xc839caedU, 0xe4fa32cfU, 0x959246eeU,
-+	0x6b28096cU, 0x66dd9cd6U, 0x16658a7cU,
-+	0xd0257b04U, 0x8b31d501U, 0x2b1cd04bU,
-+	0x06712339U, 0x522aca67U, 0x911bb605U,
-+	0x90a65f0eU, 0xf826ef7bU, 0x62512debU,
-+	0x57150ad7U, 0x5d473507U, 0x1ec47442U,
-+	0xab64afd3U, 0x0a4100d0U, 0x6d2ce652U,
-+	0x2331b6a3U, 0x08d8791aU, 0xbc6dda8dU,
-+	0xe0f6c934U, 0xb0652033U, 0x9b9851ccU,
-+	0x7c46fb7fU, 0x732ba8cbU, 0xf142997aU,
-+	0xfcc9aa1bU, 0x05327eb2U, 0xe110131cU,
-+	0xf9e5e7c0U, 0xa7d708a6U, 0x11795ab1U,
-+	0x65671619U, 0x9f5fff91U, 0xd89c5267U,
-+	0x007783ebU, 0x95766243U, 0xab639262U,
-+	0x9c7e1390U, 0xc368dda6U, 0x38ddc455U,
-+	0xfa13d379U, 0x979ea4e8U, 0x53ecd77eU,
-+	0x2ee80657U, 0x33dbb66aU, 0xae3f0577U,
-+	0x88b4c4ccU, 0x3e7f480bU, 0x74c1ebf8U,
-+	0x87178304U
-+};
-+#endif
-+
- static int __init siphash_test_init(void)
+ static __always_inline void net_secret_init(void)
  {
- 	u8 in[64] __aligned(SIPHASH_ALIGNMENT);
-@@ -70,6 +130,16 @@ static int __init siphash_test_init(void)
- 			pr_info("siphash self-test unaligned %u: FAIL\n", i + 1);
- 			ret = -EINVAL;
- 		}
-+		if (hsiphash(in, i, &test_key_hsiphash) !=
-+						test_vectors_hsiphash[i]) {
-+			pr_info("hsiphash self-test aligned %u: FAIL\n", i + 1);
-+			ret = -EINVAL;
-+		}
-+		if (hsiphash(in_unaligned + 1, i, &test_key_hsiphash) !=
-+						test_vectors_hsiphash[i]) {
-+			pr_info("hsiphash self-test unaligned %u: FAIL\n", i + 1);
-+			ret = -EINVAL;
-+		}
- 	}
- 	if (siphash_1u64(0x0706050403020100ULL, &test_key_siphash) !=
- 						test_vectors_siphash[8]) {
-@@ -115,6 +185,28 @@ static int __init siphash_test_init(void)
- 		pr_info("siphash self-test 4u32: FAIL\n");
- 		ret = -EINVAL;
- 	}
-+	if (hsiphash_1u32(0x03020100U, &test_key_hsiphash) !=
-+						test_vectors_hsiphash[4]) {
-+		pr_info("hsiphash self-test 1u32: FAIL\n");
-+		ret = -EINVAL;
-+	}
-+	if (hsiphash_2u32(0x03020100U, 0x07060504U, &test_key_hsiphash) !=
-+						test_vectors_hsiphash[8]) {
-+		pr_info("hsiphash self-test 2u32: FAIL\n");
-+		ret = -EINVAL;
-+	}
-+	if (hsiphash_3u32(0x03020100U, 0x07060504U,
-+			  0x0b0a0908U, &test_key_hsiphash) !=
-+						test_vectors_hsiphash[12]) {
-+		pr_info("hsiphash self-test 3u32: FAIL\n");
-+		ret = -EINVAL;
-+	}
-+	if (hsiphash_4u32(0x03020100U, 0x07060504U,
-+			  0x0b0a0908U, 0x0f0e0d0cU, &test_key_hsiphash) !=
-+						test_vectors_hsiphash[16]) {
-+		pr_info("hsiphash self-test 4u32: FAIL\n");
-+		ret = -EINVAL;
-+	}
- 	if (!ret)
- 		pr_info("self-tests: pass\n");
- 	return ret;
+-	net_get_random_once(net_secret, sizeof(net_secret));
++	net_get_random_once(&net_secret, sizeof(net_secret));
+ }
+ #endif
+ 
+@@ -44,80 +48,70 @@ static u32 seq_scale(u32 seq)
+ u32 secure_tcpv6_sequence_number(const __be32 *saddr, const __be32 *daddr,
+ 				 __be16 sport, __be16 dport, u32 *tsoff)
+ {
+-	u32 secret[MD5_MESSAGE_BYTES / 4];
+-	u32 hash[MD5_DIGEST_WORDS];
+-	u32 i;
+-
++	const struct {
++		struct in6_addr saddr;
++		struct in6_addr daddr;
++		__be16 sport;
++		__be16 dport;
++	} __aligned(SIPHASH_ALIGNMENT) combined = {
++		.saddr = *(struct in6_addr *)saddr,
++		.daddr = *(struct in6_addr *)daddr,
++		.sport = sport,
++		.dport = dport
++	};
++	u64 hash;
+ 	net_secret_init();
+-	memcpy(hash, saddr, 16);
+-	for (i = 0; i < 4; i++)
+-		secret[i] = net_secret[i] + (__force u32)daddr[i];
+-	secret[4] = net_secret[4] +
+-		(((__force u16)sport << 16) + (__force u16)dport);
+-	for (i = 5; i < MD5_MESSAGE_BYTES / 4; i++)
+-		secret[i] = net_secret[i];
+-
+-	md5_transform(hash, secret);
+-
+-	*tsoff = sysctl_tcp_timestamps == 1 ? hash[1] : 0;
+-	return seq_scale(hash[0]);
++	hash = siphash(&combined, offsetofend(typeof(combined), dport),
++		       &net_secret);
++	*tsoff = sysctl_tcp_timestamps == 1 ? (hash >> 32) : 0;
++	return seq_scale(hash);
+ }
+ EXPORT_SYMBOL(secure_tcpv6_sequence_number);
+ 
+ u32 secure_ipv6_port_ephemeral(const __be32 *saddr, const __be32 *daddr,
+ 			       __be16 dport)
+ {
+-	u32 secret[MD5_MESSAGE_BYTES / 4];
+-	u32 hash[MD5_DIGEST_WORDS];
+-	u32 i;
+-
++	const struct {
++		struct in6_addr saddr;
++		struct in6_addr daddr;
++		__be16 dport;
++	} __aligned(SIPHASH_ALIGNMENT) combined = {
++		.saddr = *(struct in6_addr *)saddr,
++		.daddr = *(struct in6_addr *)daddr,
++		.dport = dport
++	};
+ 	net_secret_init();
+-	memcpy(hash, saddr, 16);
+-	for (i = 0; i < 4; i++)
+-		secret[i] = net_secret[i] + (__force u32) daddr[i];
+-	secret[4] = net_secret[4] + (__force u32)dport;
+-	for (i = 5; i < MD5_MESSAGE_BYTES / 4; i++)
+-		secret[i] = net_secret[i];
+-
+-	md5_transform(hash, secret);
+-
+-	return hash[0];
++	return siphash(&combined, offsetofend(typeof(combined), dport),
++		       &net_secret);
+ }
+ EXPORT_SYMBOL(secure_ipv6_port_ephemeral);
+ #endif
+ 
+ #ifdef CONFIG_INET
+ 
++/* secure_tcp_sequence_number(a, b, 0, d) == secure_ipv4_port_ephemeral(a, b, d),
++ * but fortunately, `sport' cannot be 0 in any circumstances. If this changes,
++ * it would be easy enough to have the former function use siphash_4u32, passing
++ * the arguments as separate u32.
++ */
++
+ u32 secure_tcp_sequence_number(__be32 saddr, __be32 daddr,
+ 			       __be16 sport, __be16 dport, u32 *tsoff)
+ {
+-	u32 hash[MD5_DIGEST_WORDS];
+-
++	u64 hash;
+ 	net_secret_init();
+-	hash[0] = (__force u32)saddr;
+-	hash[1] = (__force u32)daddr;
+-	hash[2] = ((__force u16)sport << 16) + (__force u16)dport;
+-	hash[3] = net_secret[15];
+-
+-	md5_transform(hash, net_secret);
+-
+-	*tsoff = sysctl_tcp_timestamps == 1 ? hash[1] : 0;
+-	return seq_scale(hash[0]);
++	hash = siphash_3u32((__force u32)saddr, (__force u32)daddr,
++			    (__force u32)sport << 16 | (__force u32)dport,
++			    &net_secret);
++	*tsoff = sysctl_tcp_timestamps == 1 ? (hash >> 32) : 0;
++	return seq_scale(hash);
+ }
+ 
+ u32 secure_ipv4_port_ephemeral(__be32 saddr, __be32 daddr, __be16 dport)
+ {
+-	u32 hash[MD5_DIGEST_WORDS];
+-
+ 	net_secret_init();
+-	hash[0] = (__force u32)saddr;
+-	hash[1] = (__force u32)daddr;
+-	hash[2] = (__force u32)dport ^ net_secret[14];
+-	hash[3] = net_secret[15];
+-
+-	md5_transform(hash, net_secret);
+-
+-	return hash[0];
++	return siphash_3u32((__force u32)saddr, (__force u32)daddr,
++			    (__force u16)dport, &net_secret);
+ }
+ EXPORT_SYMBOL_GPL(secure_ipv4_port_ephemeral);
+ #endif
+@@ -126,21 +120,11 @@ EXPORT_SYMBOL_GPL(secure_ipv4_port_ephemeral);
+ u64 secure_dccp_sequence_number(__be32 saddr, __be32 daddr,
+ 				__be16 sport, __be16 dport)
+ {
+-	u32 hash[MD5_DIGEST_WORDS];
+ 	u64 seq;
+-
+ 	net_secret_init();
+-	hash[0] = (__force u32)saddr;
+-	hash[1] = (__force u32)daddr;
+-	hash[2] = ((__force u16)sport << 16) + (__force u16)dport;
+-	hash[3] = net_secret[15];
+-
+-	md5_transform(hash, net_secret);
+-
+-	seq = hash[0] | (((u64)hash[1]) << 32);
++	seq = siphash_3u32(saddr, daddr, (u32)sport << 16 | dport, &net_secret);
+ 	seq += ktime_get_real_ns();
+ 	seq &= (1ull << 48) - 1;
+-
+ 	return seq;
+ }
+ EXPORT_SYMBOL(secure_dccp_sequence_number);
+@@ -149,26 +133,23 @@ EXPORT_SYMBOL(secure_dccp_sequence_number);
+ u64 secure_dccpv6_sequence_number(__be32 *saddr, __be32 *daddr,
+ 				  __be16 sport, __be16 dport)
+ {
+-	u32 secret[MD5_MESSAGE_BYTES / 4];
+-	u32 hash[MD5_DIGEST_WORDS];
++	const struct {
++		struct in6_addr saddr;
++		struct in6_addr daddr;
++		__be16 sport;
++		__be16 dport;
++	} __aligned(SIPHASH_ALIGNMENT) combined = {
++		.saddr = *(struct in6_addr *)saddr,
++		.daddr = *(struct in6_addr *)daddr,
++		.sport = sport,
++		.dport = dport
++	};
+ 	u64 seq;
+-	u32 i;
+-
+ 	net_secret_init();
+-	memcpy(hash, saddr, 16);
+-	for (i = 0; i < 4; i++)
+-		secret[i] = net_secret[i] + (__force u32)daddr[i];
+-	secret[4] = net_secret[4] +
+-		(((__force u16)sport << 16) + (__force u16)dport);
+-	for (i = 5; i < MD5_MESSAGE_BYTES / 4; i++)
+-		secret[i] = net_secret[i];
+-
+-	md5_transform(hash, secret);
+-
+-	seq = hash[0] | (((u64)hash[1]) << 32);
++	seq = siphash(&combined, offsetofend(typeof(combined), dport),
++		      &net_secret);
+ 	seq += ktime_get_real_ns();
+ 	seq &= (1ull << 48) - 1;
+-
+ 	return seq;
+ }
+ EXPORT_SYMBOL(secure_dccpv6_sequence_number);
 -- 
 2.11.0
