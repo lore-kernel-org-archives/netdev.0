@@ -1,124 +1,78 @@
-From: Russell King - ARM Linux <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>
-Subject: Re: [PATCHv2 net-next 11/16] net: mvpp2: handle misc PPv2.1/PPv2.2
- differences
-Date: Sat, 7 Jan 2017 20:10:57 +0000
-Message-ID: <20170107201057.GQ14217@n2100.armlinux.org.uk>
-References: <1482943592-12556-1-git-send-email-thomas.petazzoni@free-electrons.com>
- <1482943592-12556-12-git-send-email-thomas.petazzoni@free-electrons.com>
- <20170107093834.GJ14217@n2100.armlinux.org.uk>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: More info about lockless qdisc patch
+Date: Sat, 7 Jan 2017 12:11:27 -0800
+Message-ID: <58714B6F.5000301@gmail.com>
+References: <D1B824B6-91C1-4049-8231-048FD900D160@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Yehuda Yitschak <yehuday-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
-        Jason Cooper <jason-NLaQJdtUoK4Be96aLqz0jA@public.gmane.org>,
-        Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
-        Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Hanna Hawa <hannah-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
-        Nadav Haklai <nadavh-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
-        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
-        Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-        Gregory Clement <gregory.clement-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-        Stefan Chulski <stefanc-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
-        Marcin Wojtas <mw-nYOzD4b6Jr9Wk0Htik3J/w@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-        Sebastian Hesselbarth <sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20170107093834.GJ14217-l+eeeJia6m9URfEZ8mYm6t73F7V6hmMc@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=gbk
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org
+To: Xingjun Liu <yterrencelau@gmail.com>, john.r.fastabend@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:36056 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S936901AbdAGULp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 7 Jan 2017 15:11:45 -0500
+Received: by mail-pg0-f68.google.com with SMTP id 75so9210271pgf.3
+        for <netdev@vger.kernel.org>; Sat, 07 Jan 2017 12:11:44 -0800 (PST)
+In-Reply-To: <D1B824B6-91C1-4049-8231-048FD900D160@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 07, 2017 at 09:38:34AM +0000, Russell King - ARM Linux wrote:
-> On Wed, Dec 28, 2016 at 05:46:27PM +0100, Thomas Petazzoni wrote:
-> > @@ -6511,7 +6515,9 @@ static int mvpp2_port_probe(struct platform_device *pdev,
-> >  		dev_err(&pdev->dev, "failed to init port %d\n", id);
-> >  		goto err_free_stats;
-> >  	}
-> > -	mvpp2_port_power_up(port);
-> > +
-> > +	if (priv->hw_version == MVPP21)
-> > +		mvpp21_port_power_up(port);
+On 16-12-30 04:48 AM, Xingjun Liu wrote:
+> Hi John,
 > 
-> This has the side effect that nothing clears the port reset bit in the
-> GMAC, which means there's no hope of the interface working - with the
-> reset bit set, the port is well and truely held in "link down" state.
+> I note you have a patch request last august about "support lockless qdisc¡±,
 > 
-> In any case, the GMAC part is much the same as mvneta, and I think
-> that code should be shared rather than writing new versions of it.
-> There are some subtle differences between neta, pp2.1 and pp2.2, but
-> it's entirely doable (I have an implementation here as I wasn't going
-> to duplicate this code for my phylink conversion.)
+> see: https://www.mail-archive.com/netdev@vger.kernel.org/msg124489.html
 
-In addition to comphy configuration and the above, I also need the
-following to have working SGMII.  The change of MACMODE is needed
-because uboot has configured the port for 10Gbase-R mode (it has a
-10G PHY on it, but the PHY switches to SGMII in <10G modes.)  The
-GMAC control register 4 is needed to properly configure for SGMII
-mode.  I also included RGMII mode as well in there, as I expect you'd
-need it to have GMAC properly configured for RGMII.
+I have another set of patches that fixes a few bugs from the above.
 
-With this in place (and the other bits mentioned above), I can ping
-the clearfog switch on the other end of eth0's cable:
+> 
+> We take an interest in it. Do you have any info/plan on this patch?
+> 
 
-# ping6 -I eth0 fe80::250:43ff:fe02:302
-PING fe80::250:43ff:fe02:302(fe80::250:43ff:fe02:302) from fe80::200:ff:fe00:1 eth0: 56 data bytes
-64 bytes from fe80::250:43ff:fe02:302: icmp_seq=1 ttl=64 time=0.297 ms
+The current state of the patches (the latest I have on my private tree) is
+currently
+I an issue with re-starting the driver when multiple cores do a dequeue but the
+driver overruns the hardware descriptor ring so we push back into the qdisc. When
+this happens the patches push the skb onto the gso_skb per cpu list.
 
-diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index bc97eebf7eee..4b6ec6213e9c 100644
---- a/drivers/net/ethernet/marvell/mvpp2.c
-+++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -345,7 +345,17 @@
- #define      MVPP2_GMAC_TX_FIFO_MIN_TH_ALL_MASK	0x1fc0
- #define      MVPP2_GMAC_TX_FIFO_MIN_TH_MASK(v)	(((v) << 6) & \
- 					MVPP2_GMAC_TX_FIFO_MIN_TH_ALL_MASK)
-+#define MVPP22_GMAC_CTRL_4_REG			0x90
-+#define      MVPP22_CTRL4_EXT_PIN_GMII_SEL	BIT(0)
-+#define      MVPP22_CTRL4_DP_CLK_SEL		BIT(5)
-+#define      MVPP22_CTRL4_SYNC_BYPASS		BIT(6)
-+#define      MVPP22_CTRL4_QSGMII_BYPASS_ACTIVE	BIT(7)
-+
-+#define MVPP22_XLG_CTRL3_REG			0x11c
-+#define      MVPP22_XLG_CTRL3_MACMODESELECT_MASK	(7 << 13)
-+#define      MVPP22_XLG_CTRL3_MACMODESELECT_GMAC	(0 << 13)
- 
-+/* offsets from iface_base */
- #define MVPP22_SMI_MISC_CFG_REG			0x2a204
- #define      MVPP22_SMI_POLLING_EN		BIT(10)
- 
-@@ -4171,6 +4181,23 @@ static void mvpp2_port_mii_set(struct mvpp2_port *port)
- {
- 	u32 val;
- 
-+	if (port->priv->hw_version == MVPP22) {
-+		val = readl(port->base + MVPP22_XLG_CTRL3_REG);
-+		val &= ~MVPP22_XLG_CTRL3_MACMODESELECT_MASK;
-+		val |= MVPP22_XLG_CTRL3_MACMODESELECT_GMAC;
-+		writel(val, port->base + MVPP22_XLG_CTRL3_REG);
-+
-+		val = readl(port->base + MVPP22_GMAC_CTRL_4_REG);
-+		if (port->phy_interface == PHY_INTERFACE_MODE_RGMII)
-+			val |= MVPP22_CTRL4_EXT_PIN_GMII_SEL;
-+		else
-+			val &= ~MVPP22_CTRL4_EXT_PIN_GMII_SEL;
-+		val &= ~MVPP22_CTRL4_DP_CLK_SEL;
-+		val |= MVPP22_CTRL4_SYNC_BYPASS;
-+		val |= MVPP22_CTRL4_QSGMII_BYPASS_ACTIVE;
-+		writel(val, port->base + MVPP22_GMAC_CTRL_4_REG);
-+	}
-+
- 	val = readl(port->base + MVPP2_GMAC_CTRL_2_REG);
- 
- 	switch (port->phy_interface) {
+Now the problem is how do we wake the correct gso_skb per cpu list up? The driver
+will restart the qdisc at some future point but not necessarily from the same
+cpu that
+the per cpu enqueue happened on. So I tried to fix this by removing the driver
+restart
+logic and having the qdisc layer poll the driver. This sort of/kind of works
+except its not
+a very satisfying solution. Tom noted at one point with BQL the above case
+should not
+happen very much but it is still possible unfortunately under certain
+conditions. And the
+corner cases get ugly.
 
+I've been kicking around another idea lately. To get rid of the gso_skb entirely
+which
+would certainly clean up the code and get rid of one of the uglier pieces of
+qdisc struct
+in my opinion. To make this work I want to add a tx_prep() ndo call the qdisc
+could call
+into the driver with to reserve "slots" in the driver. Once we have some # of
+slots reserved
+we can dequeue from the qdisc ring and send to driver "knowing" that the driver has
+agreed to consume the packets. The trick here is sk_buffs do not map 1:1 with
+descriptors
+in the hardware always so a bit of driver magic needs to occur to get
+calculations correct.
 
--- 
-RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
-FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
-according to speedtest.net.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I'll try to rebase the current set of patches I have on net-next and post it
+just so its
+available. I can probably get to the above in a month or so. Maybe have something by
+March.
+
+Thanks,
+John
+
+> Thanks
+> Xingjun
+> 
