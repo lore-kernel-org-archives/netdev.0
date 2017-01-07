@@ -1,70 +1,154 @@
 From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: [PATCH v2 net-next 0/4] Introduce The SipHash PRF
-Date: Sat,  7 Jan 2017 15:40:53 +0100
-Message-ID: <20170107144057.15432-1-Jason@zx2c4.com>
-Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: [PATCH v2 net-next 4/4] syncookies: use SipHash in place of SHA1
+Date: Sat,  7 Jan 2017 15:40:57 +0100
+Message-ID: <20170107144057.15432-5-Jason@zx2c4.com>
+References: <20170107144057.15432-1-Jason@zx2c4.com>
+Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>
 To: davem@davemloft.net, ebiggers3@gmail.com,
         jeanphilippe.aumasson@gmail.com, gregkh@linuxfoundation.org,
         netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from frisell.zx2c4.com ([192.95.5.64]:52694 "EHLO frisell.zx2c4.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1755486AbdAGOlO (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 7 Jan 2017 09:41:14 -0500
+        id S933020AbdAGOla (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 7 Jan 2017 09:41:30 -0500
+In-Reply-To: <20170107144057.15432-1-Jason@zx2c4.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch series introduces SipHash into the kernel. SipHash is a
-cryptographically secure PRF, which serves a variety of functions, and is
-introduced in patch #1. The following patch #2 introduces HalfSipHash,
-an optimization suitable for hash tables only. Finally, the last two patches
-in this series show two usages of the introduced siphash function family.
-It is expected that after this initial introductin, other usages will follow.
+SHA1 is slower and less secure than SipHash, and so replacing syncookie
+generation with SipHash makes natural sense. Some BSDs have been doing
+this for several years in fact.
 
-Please read the extensive descriptions in patch #1 and patch #2 of what these
-functions do and the various levels of assurances. They're products of intense
-cryptographic research, and I believe they're suitable for the uses outlined
-herein.
+The speedup should be similar -- and even more impressive -- to the
+speedup from the sequence number fix in this series.
 
-The use of SipHash is not limited to the networking subsystem -- indeed I
-would like to use it in other places too in the kernel. But after discussing
-with a few on this list and at Linus' suggestion, the initial import of these
-functions is coming through the networking tree. After these are merged, it
-will then be easier to expand use elsewhere.
+Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: David Miller <davem@davemloft.net>
+---
+ net/ipv4/syncookies.c | 21 +++++----------------
+ net/ipv6/syncookies.c | 41 +++++++++++++++++++----------------------
+ 2 files changed, 24 insertions(+), 38 deletions(-)
 
-Changes v1->v2:
-  - len in the macro is now (len).
-  - siphash_key_t is now a struct, so that passing by reference is more
-    obvious and clear. This required changing all the call sites.
-  - Rather than calling le32_to_cpu(data[0]), where data is a u64, we now
-    do the safer thing and call le32_to_cpup((const __le32 *)data).
-  - The alignment in the tests is now more explicit.
-  - Sparse no longer complains, after fixing up a few endian casts.
-  - White space fixups.
-  - Word wrapping fixes.
-  - The valid suggestions from checkpatch.
-
-Jason A. Donenfeld (4):
-  siphash: add cryptographically secure PRF
-  siphash: implement HalfSipHash1-3 for hash tables
-  secure_seq: use SipHash in place of MD5
-  syncookies: use SipHash in place of SHA1
-
- Documentation/siphash.txt | 154 +++++++++++++
- MAINTAINERS               |   7 +
- include/linux/siphash.h   | 145 ++++++++++++
- lib/Kconfig.debug         |   6 +-
- lib/Makefile              |   5 +-
- lib/siphash.c             | 551 ++++++++++++++++++++++++++++++++++++++++++++++
- lib/test_siphash.c        | 223 +++++++++++++++++++
- net/core/secure_seq.c     | 145 ++++++------
- net/ipv4/syncookies.c     |  21 +-
- net/ipv6/syncookies.c     |  41 ++--
- 10 files changed, 1173 insertions(+), 125 deletions(-)
- create mode 100644 Documentation/siphash.txt
- create mode 100644 include/linux/siphash.h
- create mode 100644 lib/siphash.c
- create mode 100644 lib/test_siphash.c
-
+diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
+index 3e88467d70ee..496b97e17aaf 100644
+--- a/net/ipv4/syncookies.c
++++ b/net/ipv4/syncookies.c
+@@ -13,13 +13,13 @@
+ #include <linux/tcp.h>
+ #include <linux/slab.h>
+ #include <linux/random.h>
+-#include <linux/cryptohash.h>
++#include <linux/siphash.h>
+ #include <linux/kernel.h>
+ #include <linux/export.h>
+ #include <net/tcp.h>
+ #include <net/route.h>
+ 
+-static u32 syncookie_secret[2][16-4+SHA_DIGEST_WORDS] __read_mostly;
++static siphash_key_t syncookie_secret[2] __read_mostly;
+ 
+ #define COOKIEBITS 24	/* Upper bits store count */
+ #define COOKIEMASK (((__u32)1 << COOKIEBITS) - 1)
+@@ -48,24 +48,13 @@ static u32 syncookie_secret[2][16-4+SHA_DIGEST_WORDS] __read_mostly;
+ #define TSBITS	6
+ #define TSMASK	(((__u32)1 << TSBITS) - 1)
+ 
+-static DEFINE_PER_CPU(__u32 [16 + 5 + SHA_WORKSPACE_WORDS], ipv4_cookie_scratch);
+-
+ static u32 cookie_hash(__be32 saddr, __be32 daddr, __be16 sport, __be16 dport,
+ 		       u32 count, int c)
+ {
+-	__u32 *tmp;
+-
+ 	net_get_random_once(syncookie_secret, sizeof(syncookie_secret));
+-
+-	tmp  = this_cpu_ptr(ipv4_cookie_scratch);
+-	memcpy(tmp + 4, syncookie_secret[c], sizeof(syncookie_secret[c]));
+-	tmp[0] = (__force u32)saddr;
+-	tmp[1] = (__force u32)daddr;
+-	tmp[2] = ((__force u32)sport << 16) + (__force u32)dport;
+-	tmp[3] = count;
+-	sha_transform(tmp + 16, (__u8 *)tmp, tmp + 16 + 5);
+-
+-	return tmp[17];
++	return siphash_4u32((__force u32)saddr, (__force u32)daddr,
++			    (__force u32)sport << 16 | (__force u32)dport,
++			    count, &syncookie_secret[c]);
+ }
+ 
+ 
+diff --git a/net/ipv6/syncookies.c b/net/ipv6/syncookies.c
+index a4d49760bf43..895ff650db43 100644
+--- a/net/ipv6/syncookies.c
++++ b/net/ipv6/syncookies.c
+@@ -16,7 +16,7 @@
+ 
+ #include <linux/tcp.h>
+ #include <linux/random.h>
+-#include <linux/cryptohash.h>
++#include <linux/siphash.h>
+ #include <linux/kernel.h>
+ #include <net/ipv6.h>
+ #include <net/tcp.h>
+@@ -24,7 +24,7 @@
+ #define COOKIEBITS 24	/* Upper bits store count */
+ #define COOKIEMASK (((__u32)1 << COOKIEBITS) - 1)
+ 
+-static u32 syncookie6_secret[2][16-4+SHA_DIGEST_WORDS] __read_mostly;
++static siphash_key_t syncookie6_secret[2] __read_mostly;
+ 
+ /* RFC 2460, Section 8.3:
+  * [ipv6 tcp] MSS must be computed as the maximum packet size minus 60 [..]
+@@ -41,30 +41,27 @@ static __u16 const msstab[] = {
+ 	9000 - 60,
+ };
+ 
+-static DEFINE_PER_CPU(__u32 [16 + 5 + SHA_WORKSPACE_WORDS], ipv6_cookie_scratch);
+-
+-static u32 cookie_hash(const struct in6_addr *saddr, const struct in6_addr *daddr,
++static u32 cookie_hash(const struct in6_addr *saddr,
++		       const struct in6_addr *daddr,
+ 		       __be16 sport, __be16 dport, u32 count, int c)
+ {
+-	__u32 *tmp;
++	const struct {
++		struct in6_addr saddr;
++		struct in6_addr daddr;
++		u32 count;
++		__be16 sport;
++		__be16 dport;
++	} __aligned(SIPHASH_ALIGNMENT) combined = {
++		.saddr = *saddr,
++		.daddr = *daddr,
++		.count = count,
++		.sport = sport,
++		.dport = dport
++	};
+ 
+ 	net_get_random_once(syncookie6_secret, sizeof(syncookie6_secret));
+-
+-	tmp  = this_cpu_ptr(ipv6_cookie_scratch);
+-
+-	/*
+-	 * we have 320 bits of information to hash, copy in the remaining
+-	 * 192 bits required for sha_transform, from the syncookie6_secret
+-	 * and overwrite the digest with the secret
+-	 */
+-	memcpy(tmp + 10, syncookie6_secret[c], 44);
+-	memcpy(tmp, saddr, 16);
+-	memcpy(tmp + 4, daddr, 16);
+-	tmp[8] = ((__force u32)sport << 16) + (__force u32)dport;
+-	tmp[9] = count;
+-	sha_transform(tmp + 16, (__u8 *)tmp, tmp + 16 + 5);
+-
+-	return tmp[17];
++	return siphash(&combined, offsetofend(typeof(combined), dport),
++		       &syncookie6_secret[c]);
+ }
+ 
+ static __u32 secure_tcp_syn_cookie(const struct in6_addr *saddr,
 -- 
 2.11.0
