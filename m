@@ -1,43 +1,53 @@
-From: Russell King - ARM Linux <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>
-Subject: [PATCH RFC 0/4] Fix orion-mdio resource/interrupt issues indentified
- while reviewing mvpp2
-Date: Sat, 7 Jan 2017 11:26:56 +0000
-Message-ID: <20170107112656.GL14217@n2100.armlinux.org.uk>
+From: Russell King <rmk+kernel@armlinux.org.uk>
+Subject: [PATCH RFC 1/4] net: mvmdio: disable interrupts in driver failure
+ path
+Date: Sat, 07 Jan 2017 11:28:20 +0000
+Message-ID: <E1cPpAa-0005u5-LW@rmk-PC.armlinux.org.uk>
+References: <20170107112656.GL14217@n2100.armlinux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-        Marcin Wojtas <mw-nYOzD4b6Jr9Wk0Htik3J/w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Sebastian Hesselbarth <sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-        Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
-        Jason Cooper <jason-NLaQJdtUoK4Be96aLqz0jA@public.gmane.org>,
-        Gregory Clement <gregory.clement-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: linux-arm-kernel@lists.infradead.org,
+        Marcin Wojtas <mw@semihalf.com>,
+        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+        netdev@vger.kernel.org
+To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Jason Cooper <jason@lakedaemon.net>,
+        Gregory Clement <gregory.clement@free-electrons.com>,
+        Mark Rutland <mark.rutland@arm.com>,
+        Rob Herring <robh+dt@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from pandora.armlinux.org.uk ([78.32.30.218]:59772 "EHLO
+        pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751462AbdAGL2i (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 7 Jan 2017 06:28:38 -0500
+In-Reply-To: <20170107112656.GL14217@n2100.armlinux.org.uk>
 Content-Disposition: inline
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch series fixes some issues identified while reviewing the
-mvpp2 driver changes recently posted by Thomas.  I've left the clock
-issue, and the question over whether this should be separate out of
-this series, concentrating on the resource size / interrupt issue.
+When the mvmdio driver has an interrupt, it enables the "done" interrupt
+after requesting its interrupt handler.  However, probe failure results
+in the interrupt being left enabled.  Disable it on the failure path.
 
-This series updates the binding to reflect reality, and ensures that
-the driver will not try to access registers outside its binding.  It
-also ensures that it doesn't leave the interrupt enabled in hardware
-on probe failure.
+Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
+---
+ drivers/net/ethernet/marvell/mvmdio.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
- .../devicetree/bindings/net/marvell-orion-mdio.txt      | 17 +++++++++++++++--
- drivers/net/ethernet/marvell/mvmdio.c                   | 11 ++++++++++-
- 2 files changed, 25 insertions(+), 3 deletions(-)
-
+diff --git a/drivers/net/ethernet/marvell/mvmdio.c b/drivers/net/ethernet/marvell/mvmdio.c
+index a0d1b084ecec..7aea0beca56e 100644
+--- a/drivers/net/ethernet/marvell/mvmdio.c
++++ b/drivers/net/ethernet/marvell/mvmdio.c
+@@ -251,6 +251,8 @@ static int orion_mdio_probe(struct platform_device *pdev)
+ 	return 0;
+ 
+ out_mdio:
++	if (dev->err_interrupt > 0)
++		writel(0, dev->regs + MVMDIO_ERR_INT_MASK);
+ 	if (!IS_ERR(dev->clk))
+ 		clk_disable_unprepare(dev->clk);
+ 	return ret;
 -- 
-RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
-FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
-according to speedtest.net.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+2.7.4
