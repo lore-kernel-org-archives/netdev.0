@@ -1,272 +1,75 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: [PATCH v2 net-next 3/4] secure_seq: use SipHash in place of MD5
-Date: Sat,  7 Jan 2017 15:40:56 +0100
-Message-ID: <20170107144057.15432-4-Jason@zx2c4.com>
-References: <20170107144057.15432-1-Jason@zx2c4.com>
-Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>,
-        Andi Kleen <ak@linux.intel.com>,
-        David Laight <David.Laight@aculab.com>,
-        Tom Herbert <tom@herbertland.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-To: davem@davemloft.net, ebiggers3@gmail.com,
-        jeanphilippe.aumasson@gmail.com, gregkh@linuxfoundation.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170107144057.15432-1-Jason@zx2c4.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Linus =?utf-8?Q?L=C3=BCssing?= <linus.luessing@c0d3.blue>
+Subject: Re: [PATCH net-next] bridge: multicast to unicast
+Date: Sat, 7 Jan 2017 15:55:16 +0100
+Message-ID: <20170107145516.GE3134@otheros>
+References: <20170102193214.31723-1-linus.luessing@c0d3.blue>
+	<1483706872.4089.8.camel@sipsolutions.net>
+	<8836daaa-9638-4502-d079-fd428595f822@nbd.name>
+	<1483710841.12677.1.camel@sipsolutions.net>
+	<22fad045-57c6-7789-d19f-f47bd0faf441@fami-braun.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Johannes Berg <johannes@sipsolutions.net>,
+	"David S . Miller" <davem@davemloft.net>, Felix Fietkau <nbd@nbd.name>
+To: "M. Braun" <michael-dev@fami-braun.de>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <22fad045-57c6-7789-d19f-f47bd0faf441@fami-braun.de>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-This gives a clear speed and security improvement. Siphash is both
-faster and is more solid crypto than the aging MD5.
+On Sat, Jan 07, 2017 at 11:32:57AM +0100, M. Braun wrote:
+> Am 06.01.2017 um 14:54 schrieb Johannes Berg:
+> > 
+> >> The bridge layer can use IGMP snooping to ensure that the multicast
+> >> stream is only transmitted to clients that are actually a member of
+> >> the group. Can the mac80211 feature do the same?
+> > 
+> > No, it'll convert the packet for all clients that are behind that
+> > netdev. But that's an argument for dropping the mac80211 feature, which
+> > hasn't been merged upstream yet, no?
+> 
+> But there is multicast/broadcast traffic like e.g. ARP and some IP
+> multicast groups that are not covered by IGMP snooping. The mac80211
+> patch converts this to unicast as well, which the bridge cannot do.
+> 
+> That way, these features both complement and overlap each other.
 
-Rather than manually filling MD5 buffers, for IPv6, we simply create
-a layout by a simple anonymous struct, for which gcc generates
-rather efficient code. For IPv4, we pass the values directly to the
-short input convenience functions.
+Right, I'd agree with that.
 
-64-bit x86_64:
-[    1.683628] secure_tcpv6_sequence_number_md5# cycles: 99563527
-[    1.717350] secure_tcp_sequence_number_md5# cycles: 92890502
-[    1.741968] secure_tcpv6_sequence_number_siphash# cycles: 67825362
-[    1.762048] secure_tcp_sequence_number_siphash# cycles: 67485526
+I didn't write it explicitly in the commit message, but yes, the
+like anything concerning bridge multicast snooping, bridge
+multicast-to-unicast can only affect packets as noted in
+RFC4541 ("Considerations for Internet Group Management Protocol (IGMP)
+and Multicast Listener Discovery (MLD) Snooping Switches"), too.
 
-32-bit x86:
-[    1.600012] secure_tcpv6_sequence_number_md5# cycles: 103227892
-[    1.634219] secure_tcp_sequence_number_md5# cycles: 94732544
-[    1.669102] secure_tcpv6_sequence_number_siphash# cycles: 96299384
-[    1.700165] secure_tcp_sequence_number_siphash# cycles: 86015473
+So it is only working for IPv4 multicast, excluding link-local
+(224.0.0.0/24), and IPv6 multicast, excluding all-host-multicast
+(ff02::1).
 
-Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
-Cc: Andi Kleen <ak@linux.intel.com>
-Cc: David Miller <davem@davemloft.net>
-Cc: David Laight <David.Laight@aculab.com>
-Cc: Tom Herbert <tom@herbertland.com>
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/core/secure_seq.c | 145 ++++++++++++++++++++++----------------------------
- 1 file changed, 63 insertions(+), 82 deletions(-)
+And does not concern ARP in any way.
 
-diff --git a/net/core/secure_seq.c b/net/core/secure_seq.c
-index 88a8e429fc3e..119e3ebe2f30 100644
---- a/net/core/secure_seq.c
-+++ b/net/core/secure_seq.c
-@@ -1,3 +1,7 @@
-+/*
-+ * Copyright (C) 2016 Jason A. Donenfeld <Jason@zx2c4.com>. All Rights Reserved.
-+ */
-+
- #include <linux/kernel.h>
- #include <linux/init.h>
- #include <linux/cryptohash.h>
-@@ -8,18 +12,18 @@
- #include <linux/ktime.h>
- #include <linux/string.h>
- #include <linux/net.h>
--
-+#include <linux/siphash.h>
- #include <net/secure_seq.h>
- 
- #if IS_ENABLED(CONFIG_IPV6) || IS_ENABLED(CONFIG_INET)
-+#include <linux/in6.h>
- #include <net/tcp.h>
--#define NET_SECRET_SIZE (MD5_MESSAGE_BYTES / 4)
- 
--static u32 net_secret[NET_SECRET_SIZE] ____cacheline_aligned;
-+static siphash_key_t net_secret;
- 
- static __always_inline void net_secret_init(void)
- {
--	net_get_random_once(net_secret, sizeof(net_secret));
-+	net_get_random_once(&net_secret, sizeof(net_secret));
- }
- #endif
- 
-@@ -44,80 +48,70 @@ static u32 seq_scale(u32 seq)
- u32 secure_tcpv6_sequence_number(const __be32 *saddr, const __be32 *daddr,
- 				 __be16 sport, __be16 dport, u32 *tsoff)
- {
--	u32 secret[MD5_MESSAGE_BYTES / 4];
--	u32 hash[MD5_DIGEST_WORDS];
--	u32 i;
--
-+	const struct {
-+		struct in6_addr saddr;
-+		struct in6_addr daddr;
-+		__be16 sport;
-+		__be16 dport;
-+	} __aligned(SIPHASH_ALIGNMENT) combined = {
-+		.saddr = *(struct in6_addr *)saddr,
-+		.daddr = *(struct in6_addr *)daddr,
-+		.sport = sport,
-+		.dport = dport
-+	};
-+	u64 hash;
- 	net_secret_init();
--	memcpy(hash, saddr, 16);
--	for (i = 0; i < 4; i++)
--		secret[i] = net_secret[i] + (__force u32)daddr[i];
--	secret[4] = net_secret[4] +
--		(((__force u16)sport << 16) + (__force u16)dport);
--	for (i = 5; i < MD5_MESSAGE_BYTES / 4; i++)
--		secret[i] = net_secret[i];
--
--	md5_transform(hash, secret);
--
--	*tsoff = sysctl_tcp_timestamps == 1 ? hash[1] : 0;
--	return seq_scale(hash[0]);
-+	hash = siphash(&combined, offsetofend(typeof(combined), dport),
-+		       &net_secret);
-+	*tsoff = sysctl_tcp_timestamps == 1 ? (hash >> 32) : 0;
-+	return seq_scale(hash);
- }
- EXPORT_SYMBOL(secure_tcpv6_sequence_number);
- 
- u32 secure_ipv6_port_ephemeral(const __be32 *saddr, const __be32 *daddr,
- 			       __be16 dport)
- {
--	u32 secret[MD5_MESSAGE_BYTES / 4];
--	u32 hash[MD5_DIGEST_WORDS];
--	u32 i;
--
-+	const struct {
-+		struct in6_addr saddr;
-+		struct in6_addr daddr;
-+		__be16 dport;
-+	} __aligned(SIPHASH_ALIGNMENT) combined = {
-+		.saddr = *(struct in6_addr *)saddr,
-+		.daddr = *(struct in6_addr *)daddr,
-+		.dport = dport
-+	};
- 	net_secret_init();
--	memcpy(hash, saddr, 16);
--	for (i = 0; i < 4; i++)
--		secret[i] = net_secret[i] + (__force u32) daddr[i];
--	secret[4] = net_secret[4] + (__force u32)dport;
--	for (i = 5; i < MD5_MESSAGE_BYTES / 4; i++)
--		secret[i] = net_secret[i];
--
--	md5_transform(hash, secret);
--
--	return hash[0];
-+	return siphash(&combined, offsetofend(typeof(combined), dport),
-+		       &net_secret);
- }
- EXPORT_SYMBOL(secure_ipv6_port_ephemeral);
- #endif
- 
- #ifdef CONFIG_INET
- 
-+/* secure_tcp_sequence_number(a, b, 0, d) == secure_ipv4_port_ephemeral(a, b, d),
-+ * but fortunately, `sport' cannot be 0 in any circumstances. If this changes,
-+ * it would be easy enough to have the former function use siphash_4u32, passing
-+ * the arguments as separate u32.
-+ */
-+
- u32 secure_tcp_sequence_number(__be32 saddr, __be32 daddr,
- 			       __be16 sport, __be16 dport, u32 *tsoff)
- {
--	u32 hash[MD5_DIGEST_WORDS];
--
-+	u64 hash;
- 	net_secret_init();
--	hash[0] = (__force u32)saddr;
--	hash[1] = (__force u32)daddr;
--	hash[2] = ((__force u16)sport << 16) + (__force u16)dport;
--	hash[3] = net_secret[15];
--
--	md5_transform(hash, net_secret);
--
--	*tsoff = sysctl_tcp_timestamps == 1 ? hash[1] : 0;
--	return seq_scale(hash[0]);
-+	hash = siphash_3u32((__force u32)saddr, (__force u32)daddr,
-+			    (__force u32)sport << 16 | (__force u32)dport,
-+			    &net_secret);
-+	*tsoff = sysctl_tcp_timestamps == 1 ? (hash >> 32) : 0;
-+	return seq_scale(hash);
- }
- 
- u32 secure_ipv4_port_ephemeral(__be32 saddr, __be32 daddr, __be16 dport)
- {
--	u32 hash[MD5_DIGEST_WORDS];
--
- 	net_secret_init();
--	hash[0] = (__force u32)saddr;
--	hash[1] = (__force u32)daddr;
--	hash[2] = (__force u32)dport ^ net_secret[14];
--	hash[3] = net_secret[15];
--
--	md5_transform(hash, net_secret);
--
--	return hash[0];
-+	return siphash_3u32((__force u32)saddr, (__force u32)daddr,
-+			    (__force u16)dport, &net_secret);
- }
- EXPORT_SYMBOL_GPL(secure_ipv4_port_ephemeral);
- #endif
-@@ -126,21 +120,11 @@ EXPORT_SYMBOL_GPL(secure_ipv4_port_ephemeral);
- u64 secure_dccp_sequence_number(__be32 saddr, __be32 daddr,
- 				__be16 sport, __be16 dport)
- {
--	u32 hash[MD5_DIGEST_WORDS];
- 	u64 seq;
--
- 	net_secret_init();
--	hash[0] = (__force u32)saddr;
--	hash[1] = (__force u32)daddr;
--	hash[2] = ((__force u16)sport << 16) + (__force u16)dport;
--	hash[3] = net_secret[15];
--
--	md5_transform(hash, net_secret);
--
--	seq = hash[0] | (((u64)hash[1]) << 32);
-+	seq = siphash_3u32(saddr, daddr, (u32)sport << 16 | dport, &net_secret);
- 	seq += ktime_get_real_ns();
- 	seq &= (1ull << 48) - 1;
--
- 	return seq;
- }
- EXPORT_SYMBOL(secure_dccp_sequence_number);
-@@ -149,26 +133,23 @@ EXPORT_SYMBOL(secure_dccp_sequence_number);
- u64 secure_dccpv6_sequence_number(__be32 *saddr, __be32 *daddr,
- 				  __be16 sport, __be16 dport)
- {
--	u32 secret[MD5_MESSAGE_BYTES / 4];
--	u32 hash[MD5_DIGEST_WORDS];
-+	const struct {
-+		struct in6_addr saddr;
-+		struct in6_addr daddr;
-+		__be16 sport;
-+		__be16 dport;
-+	} __aligned(SIPHASH_ALIGNMENT) combined = {
-+		.saddr = *(struct in6_addr *)saddr,
-+		.daddr = *(struct in6_addr *)daddr,
-+		.sport = sport,
-+		.dport = dport
-+	};
- 	u64 seq;
--	u32 i;
--
- 	net_secret_init();
--	memcpy(hash, saddr, 16);
--	for (i = 0; i < 4; i++)
--		secret[i] = net_secret[i] + (__force u32)daddr[i];
--	secret[4] = net_secret[4] +
--		(((__force u16)sport << 16) + (__force u16)dport);
--	for (i = 5; i < MD5_MESSAGE_BYTES / 4; i++)
--		secret[i] = net_secret[i];
--
--	md5_transform(hash, secret);
--
--	seq = hash[0] | (((u64)hash[1]) << 32);
-+	seq = siphash(&combined, offsetofend(typeof(combined), dport),
-+		      &net_secret);
- 	seq += ktime_get_real_ns();
- 	seq &= (1ull << 48) - 1;
--
- 	return seq;
- }
- EXPORT_SYMBOL(secure_dccpv6_sequence_number);
--- 
-2.11.0
+
+The nice complementary effect is, that the bridge can first sieve
+out those IP packets thanks to IGMP/MLD snooping knowledge and for
+anything else, like ARP, 224.0.0.x or ff02::1, the mac80211
+multicast-to-unicast could do its job.
+
+
+For APs with a small number of STAs (like your private home AP),
+you might want to enable both bridge multicast-to-unicast and
+mac80211 multicast-to-unicast for this complementary effect. While
+on public APs with 30 to 50 STAs with varying distances and bitrates,
+you might only one to enable the bridge one, because sending an ARP
+packet 50x might actually reduce performance and airtime
+significantly.
