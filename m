@@ -1,85 +1,112 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: Re: [PATCH net-next 1/4] siphash: add cryptographically secure PRF
-Date: Sat, 7 Jan 2017 14:11:23 +0100
-Message-ID: <CAHmME9rfpA_yZ6Es--O04jbzANbGvUP21xH6pux+dWA5tv1QnA@mail.gmail.com>
-References: <20170106.145737.1436197697379516563.davem@davemloft.net>
- <20170106201055.13765-1-Jason@zx2c4.com> <20170106201055.13765-2-Jason@zx2c4.com>
- <20170107040459.GA575@zzz>
+From: Russell King - ARM Linux <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>
+Subject: Re: [PATCHv2 net-next 11/16] net: mvpp2: handle misc PPv2.1/PPv2.2
+ differences
+Date: Sat, 7 Jan 2017 13:50:20 +0000
+Message-ID: <20170107135019.GM14217@n2100.armlinux.org.uk>
+References: <1482943592-12556-1-git-send-email-thomas.petazzoni@free-electrons.com>
+ <1482943592-12556-12-git-send-email-thomas.petazzoni@free-electrons.com>
+ <20170107110351.GK14217@n2100.armlinux.org.uk>
+ <CAPv3WKeQ=fj2cKPyJ2NqCaAv55cOyWodujKwj3-v5iCrDYNcmA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        Netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>,
-        Linus Torvalds <torvalds@linux-foundation.org>,
-        David Laight <David.Laight@aculab.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-To: Eric Biggers <ebiggers3@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from frisell.zx2c4.com ([192.95.5.64]:40286 "EHLO frisell.zx2c4.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S937916AbdAGNL3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 7 Jan 2017 08:11:29 -0500
-In-Reply-To: <20170107040459.GA575@zzz>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        "devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
+        Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
+        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+        Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+        Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
+        Yehuda Yitschak <yehuday-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
+        Jason Cooper <jason-NLaQJdtUoK4Be96aLqz0jA@public.gmane.org>,
+        Hanna Hawa <hannah-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
+        Nadav Haklai <nadavh-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
+        Gregory Clement <gregory.clement-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+        Stefan Chulski <stefanc-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
+        "linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
+        <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+        Sebastian Hesselbarth <sebastian.hesselbarth@gmai
+To: Marcin Wojtas <mw-nYOzD4b6Jr9Wk0Htik3J/w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CAPv3WKeQ=fj2cKPyJ2NqCaAv55cOyWodujKwj3-v5iCrDYNcmA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Eric,
+On Sat, Jan 07, 2017 at 01:12:35PM +0100, Marcin Wojtas wrote:
+> In fact there is common SMI bus, but each port has its own register
+> set to control it (it's true at least for Neta and PP2). There is also
+> an option to use HW polling - every 1s hardware checks PHY over SMI
+> and updates MAC registers of each port independently. I was able to
+> use those successfully in other implementations.
+> 
+> However we are supposed to use libphy in Linux and I'm afraid we have
+> to use single instance that controls single SMI bus - I think current
+> implementation is a compromise between HW and libphy demands.
 
-Thanks for the review. I wish we had gotten to this much earlier
-before the merge, when there were quite a few revisions and
-refinements, but better late than never, and I'm quite pleased to have
-your feedback for making this patchset perfect. Comments are inline
-below.
+One of the "DT rules" is that DT only describes the hardware in an
+implementation independent way.  It should not describe a particular
+implementation's view of the hardware.
 
-On Sat, Jan 7, 2017 at 5:04 AM, Eric Biggers <ebiggers3@gmail.com> wrote:
-> I was confused by all the functions passing siphash_key_t "by value" until I saw
-> that it's actually typedefed to u64[2].  Have you considered making it a struct
-> instead, something like this?
->
-> typedef struct {
->         u64 v[2];
-> } siphash_key_t;
+"libphy demands" sounds very much like an implementation dictating
+the DT description, which sounds to me very wrong and against the
+goals and purposes of DT.
 
-That's a good idea. I'll make this change.
+Anyway, I don't think it's too bad - a possible solution here would
+be to have the existing MDIO driver as a library, which can be
+instantiated by the Neta and PP2 drivers.  This could be done in
+DT (taking dove as an example) as:
 
->
->> +static inline u64 ___siphash_aligned(const __le64 *data, size_t len, const siphash_key_t key)
->> +{
->> +     if (__builtin_constant_p(len) && len == 4)
->> +             return siphash_1u32(le32_to_cpu(data[0]), key);
->
-> Small bug here: data[0] is not valid if len is 4.  This can be fixed by casting
-> to a le32 pointer:
->
->                 return siphash_1u32(le32_to_cpup((const __le32 *)data), key);
+                        eth: ethernet-ctrl@72000 {
+                                compatible = "marvell,orion-eth";
+				reg = <0x72000 0x4000>;
+				ranges = <0 0x72000 0 0x4000>;
+				...
+				mdio: mdio@4 {
+					compatible = "marvell,orion-mdio";
+					reg = <4>;
+					...
+					... phys ...
+				};
+			};
 
-Since data[0] is then passed to a function that takes a u32, gcc
-actually does the right thing here and doesn't generate an out of
-bounds read. But of course this isn't good behavior to rely on. I'll
-fix this up. Thanks for catching it.
+I don't think that would require that big a change - and it could be
+done in a way that compatibility with the existing DT descriptions is
+maintained very cheaply.
 
->
->> +static int __init siphash_test_init(void)
->> +{
->> +     u8 in[64] __aligned(SIPHASH_ALIGNMENT);
->> +     u8 in_unaligned[65];
->
-> It seems that in_unaligned+1 is meant to be misaligned, but that's not
-> guaranteed because in_unaligned has no alignment restriction, so it could
-> theoretically be misaligned in a way that makes in_unaligned+1 aligned.  So it
-> should be 'in_unaligned[65] __aligned(SIPHASH_ALIGNMENT)'.
+Now, I'm not suggesting that mdio@4 should be created by a platform
+device via marking ethernet-ctrl@72000 with "simple-bus", but it's
+something that should be created by the ethernet driver if present.
+The compatible string is there so we can identify that this is a
+mdio node, and which type of mdio it is (the Armada 8k has this type
+and a separate clause-45 xmdio implementation, and we need to
+distinguish those.)
 
-Thanks, will do.
+What that means is that we no longer have to worry about clocks and
+overlapping register regions and the like, and can deal with the
+ethernet driver wanting to access the SMI registers as well.
 
->
-> There are also a lot of checkpatch warnings produced by this patch.  It looks
-> like many of them can be ignored, but there may be some that should be
-> addressed.
+We would need the ethernet driver to be capable of instantiation even
+with no ports enabled, so cases where the MDIO interface is used with
+other ethernet controllers continues to be supportable (eg, the
+Armada 8040 case where the slave CP110 ethernet controller is used
+with PHYs connected to the master CP110 ethernet controller's MDIO
+buses - which afaik aren't shared between the two CP110 dies.)
 
-Will have a look and address for v2.
+However, I'd like to see libphy become more flexible and support
+hardware polled mode of operation, since libphy provides a nice
+library of functions for accessing various phy features (like setting
+the advertisment, EEE modes, flow control, etc.)  Even with hardware
+polling, we should still describe the PHY in DT, because PHY is part
+of the hardware description, and we need to know where it is in order
+to program these phy features.
 
-Thanks again for your review!
-
-Regards,
-Jason
+-- 
+RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
+FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
+according to speedtest.net.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
