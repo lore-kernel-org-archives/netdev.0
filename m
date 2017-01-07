@@ -1,102 +1,94 @@
 From: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>
-Subject: RE: [PATCH v3] net: stmmac: fix maxmtu assignment to be within
- valid range
-Date: Fri, 6 Jan 2017 23:47:18 +0000
-Message-ID: <F54AEECA5E2B9541821D670476DAE19C5A918C87@PGSMSX102.gar.corp.intel.com>
-References: <1483750143-11966-1-git-send-email-hock.leong.kweh@intel.com>
- <CAHp75VdkGcQM_fW6LLuQ1JC67p4vGNWKcyxPs5Sc-4tFi2MGLg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "David S. Miller" <davem@davemloft.net>,
+Subject: [PATCH v4] net: stmmac: fix maxmtu assignment to be within valid range
+Date: Sat,  7 Jan 2017 16:10:34 +0800
+Message-ID: <1483776634-13095-1-git-send-email-hock.leong.kweh@intel.com>
+Cc: Alexandre TORGUE <alexandre.torgue@gmail.com>,
+        Joachim Eastwood <manabian@gmail.com>,
+        Niklas Cassel <niklas.cassel@axis.com>,
+        Johan Hovold <johan@kernel.org>, pavel@ucw.cz,
+        "Kweh, Hock Leong" <hock.leong.kweh@intel.com>,
+        lars.persson@axis.com, netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>,
         Joao Pinto <Joao.Pinto@synopsys.com>,
         Giuseppe CAVALLARO <peppe.cavallaro@st.com>,
-        "seraphin.bonnaffe@st.com" <seraphin.bonnaffe@st.com>,
-        Jarod Wilson <jarod@redhat.com>,
-        Alexandre TORGUE <alexandre.torgue@gmail.com>,
-        "Joachim Eastwood" <manabian@gmail.com>,
-        Niklas Cassel <niklas.cassel@axis.com>,
-        "Johan Hovold" <johan@kernel.org>, Pavel Machek <pavel@ucw.cz>,
-        "lars.persson@axis.com" <lars.persson@axis.com>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>
-To: Andy Shevchenko <andy.shevchenko@gmail.com>
+        seraphin.bonnaffe@st.com, Jarod Wilson <jarod@redhat.com>,
+        Andy Shevchenko <andy.shevchenko@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:38083 "EHLO mga09.intel.com"
+Received: from mga07.intel.com ([134.134.136.100]:47540 "EHLO mga07.intel.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S967398AbdAFXrZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 6 Jan 2017 18:47:25 -0500
-In-Reply-To: <CAHp75VdkGcQM_fW6LLuQ1JC67p4vGNWKcyxPs5Sc-4tFi2MGLg@mail.gmail.com>
-Content-Language: en-US
+        id S1755219AbdAGAFq (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 6 Jan 2017 19:05:46 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBBbmR5IFNoZXZjaGVua28gW21h
-aWx0bzphbmR5LnNoZXZjaGVua29AZ21haWwuY29tXQ0KPiBTZW50OiBTYXR1cmRheSwgSmFudWFy
-eSAwNywgMjAxNyAxOjA3IEFNDQo+IFRvOiBLd2VoLCBIb2NrIExlb25nIDxob2NrLmxlb25nLmt3
-ZWhAaW50ZWwuY29tPg0KPiBDYzogRGF2aWQgUy4gTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0
-PjsgSm9hbyBQaW50bw0KPiA8Sm9hby5QaW50b0BzeW5vcHN5cy5jb20+OyBHaXVzZXBwZSBDQVZB
-TExBUk8gPHBlcHBlLmNhdmFsbGFyb0BzdC5jb20+Ow0KPiBzZXJhcGhpbi5ib25uYWZmZUBzdC5j
-b207IEphcm9kIFdpbHNvbiA8amFyb2RAcmVkaGF0LmNvbT47IEFsZXhhbmRyZQ0KPiBUT1JHVUUg
-PGFsZXhhbmRyZS50b3JndWVAZ21haWwuY29tPjsgSm9hY2hpbSBFYXN0d29vZA0KPiA8bWFuYWJp
-YW5AZ21haWwuY29tPjsgTmlrbGFzIENhc3NlbCA8bmlrbGFzLmNhc3NlbEBheGlzLmNvbT47IEpv
-aGFuIEhvdm9sZA0KPiA8am9oYW5Aa2VybmVsLm9yZz47IFBhdmVsIE1hY2hlayA8cGF2ZWxAdWN3
-LmN6PjsgbGFycy5wZXJzc29uQGF4aXMuY29tOw0KPiBuZXRkZXYgPG5ldGRldkB2Z2VyLmtlcm5l
-bC5vcmc+OyBMS01MIDxsaW51eC1rZXJuZWxAdmdlci5rZXJuZWwub3JnPg0KPiBTdWJqZWN0OiBS
-ZTogW1BBVENIIHYzXSBuZXQ6IHN0bW1hYzogZml4IG1heG10dSBhc3NpZ25tZW50IHRvIGJlIHdp
-dGhpbiB2YWxpZA0KPiByYW5nZQ0KPiANCj4gT24gU2F0LCBKYW4gNywgMjAxNyBhdCAyOjQ5IEFN
-LCBLd2VoLCBIb2NrIExlb25nDQo+IDxob2NrLmxlb25nLmt3ZWhAaW50ZWwuY29tPiB3cm90ZToN
-Cj4gPiBGcm9tOiAiS3dlaCwgSG9jayBMZW9uZyIgPGhvY2subGVvbmcua3dlaEBpbnRlbC5jb20+
-DQo+ID4NCj4gPiBUaGVyZSBpcyBubyBjaGVja2luZyB2YWxpZCB2YWx1ZSBvZiBtYXhtdHUgd2hl
-biBnZXR0aW5nIGl0IGZyb20gZGV2aWNlIHRyZWUuDQo+ID4gVGhpcyByZXNvbHV0aW9uIGFkZGVk
-IHRoZSBjaGVja2luZyBjb25kaXRpb24gdG8gZW5zdXJlIHRoZSBhc3NpZ25tZW50IGlzDQo+ID4g
-bWFkZSB3aXRoaW4gYSB2YWxpZCByYW5nZS4NCj4gDQo+ID4gLS0tIGEvZHJpdmVycy9uZXQvZXRo
-ZXJuZXQvc3RtaWNyby9zdG1tYWMvc3RtbWFjX21haW4uYw0KPiA+ICsrKyBiL2RyaXZlcnMvbmV0
-L2V0aGVybmV0L3N0bWljcm8vc3RtbWFjL3N0bW1hY19tYWluLmMNCj4gPiBAQCAtMzM0NSw4ICsz
-MzQ1LDE0IEBAIGludCBzdG1tYWNfZHZyX3Byb2JlKHN0cnVjdCBkZXZpY2UgKmRldmljZSwNCj4g
-PiAgICAgICAgICAgICAgICAgbmRldi0+bWF4X210dSA9IEpVTUJPX0xFTjsNCj4gPiAgICAgICAg
-IGVsc2UNCj4gPiAgICAgICAgICAgICAgICAgbmRldi0+bWF4X210dSA9IFNLQl9NQVhfSEVBRChO
-RVRfU0tCX1BBRCArIE5FVF9JUF9BTElHTik7DQo+ID4gLSAgICAgICBpZiAocHJpdi0+cGxhdC0+
-bWF4bXR1IDwgbmRldi0+bWF4X210dSkNCj4gDQo+ID4gKw0KPiANCj4gVGhlIGxpbmVzIGFyZSBs
-b2dpY2FsbHkgZ3JvdXBlZCBoZXJlLiBObyBuZWVkIHRvIHNwbGl0IGl0LiBUaHVzLA0KPiByZW1v
-dmUgdGhpcyBleHRyYSBsaW5lLg0KPiANCg0KT2sgbm90ZWQuDQoNCj4gPiArICAgICAgIGlmICgo
-cHJpdi0+cGxhdC0+bWF4bXR1IDwgbmRldi0+bWF4X210dSkgJiYNCj4gPiArICAgICAgICAgICAo
-cHJpdi0+cGxhdC0+bWF4bXR1ID49IG5kZXYtPm1pbl9tdHUpKQ0KPiANCj4gPiAgICAgICAgICAg
-ICAgICAgbmRldi0+bWF4X210dSA9IHByaXYtPnBsYXQtPm1heG10dTsNCj4gDQo+ID4gKyAgICAg
-ICBlbHNlIGlmIChwcml2LT5wbGF0LT5tYXhtdHUgPCBuZGV2LT5taW5fbXR1KQ0KPiANCj4gQW5k
-IGlmIGl0ID4gbmRldi0+bWF4X210dT8uLg0KPiANCg0KQmFzZSBvbiBteSB1bmRlcnN0YW5kaW5n
-IHRvIHRoZSBvcmlnaW5hbCBjb2RlLCB0aGUgIm1heG10dSA+PSBuZGV2LT5tYXhfbXR1Ig0KaXMg
-bWVhbnQgZm9yIHByb2R1Y3RzIHRoYXQgd291bGQgd2FudCB0byB1c2UgdGhlIHZhbHVlIGZyb20g
-bG9naWMgd2hpY2ggaXMganVzdCBhYm92ZQ0KdGhpcyBzdGF0ZW1lbnQgd2hlcmUgeW91IGp1c3Qg
-YXNrIG1lIG5vdCB0byBhZGQgbmV3IGxpbmUuIFRoYXQgdGhlIHJlYXNvbiB0aGUNCnN0bW1hY19w
-bGF0Zm9ybS5jIHB1dCBpbiAicGxhdC0+bWF4bXR1ID0gSlVNQk9fTEVOOyIgYXMgZ2VuZXJpYyBh
-bmQgSSBhbHNvDQpmb2xsb3cgaXQgaW4gc3RtbWFjX3BjaS5jLg0KDQpPciBkbyB5b3UgbWVhbiBv
-bmx5IHRha2UgbWF4bXR1ID0gSlVNQk9fTEVOIGZvciB0aGUgb3B0aW9uIHRvIHVzZSBkcml2ZXIg
-aXRzZWxmDQphc3NpZ25tZW50IHN0YXRlbWVudCBhYm92ZSBhbmQgYWxsIHRoZSA+IG1heF9tdHUg
-Y29uc2lkZXIgaW52YWxpZD8NCg0KPiA+ICsgICAgICAgICAgICAgICBuZXRkZXZfd2Fybihwcml2
-LT5kZXYsDQo+ID4gKyAgICAgICAgICAgICAgICAgICAgICAgICAgICIlczogd2FybmluZzogbWF4
-bXR1IGhhdmluZyBpbnZhbGlkIHZhbHVlICglZClcbiIsDQo+ID4gKyAgICAgICAgICAgICAgICAg
-ICAgICAgICAgIF9fZnVuY19fLCBwcml2LT5wbGF0LT5tYXhtdHUpOw0KPiANCj4gDQo+ID4gLS0t
-IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvc3RtaWNyby9zdG1tYWMvc3RtbWFjX3BjaS5jDQo+ID4g
-KysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvc3RtaWNyby9zdG1tYWMvc3RtbWFjX3BjaS5jDQo+
-ID4gQEAgLTIwNCw2ICsyMDQsMTAgQEAgc3RhdGljIGludCBzdG1tYWNfcGNpX3Byb2JlKHN0cnVj
-dCBwY2lfZGV2ICpwZGV2LA0KPiA+DQo+ID4gICAgICAgICBwY2lfc2V0X21hc3RlcihwZGV2KTsN
-Cj4gPg0KPiA+ICsgICAgICAgLyogU2V0IHRoZSBtYXhtdHUgdG8gYSBkZWZhdWx0IG9mIEpVTUJP
-X0xFTiBpbiBjYXNlIHRoZQ0KPiA+ICsgICAgICAgICogcGFyYW1ldGVyIGlzIG5vdCBkZWZpbmVk
-IGZvciB0aGUgZGV2aWNlLg0KPiA+ICsgICAgICAgICovDQo+ID4gKyAgICAgICBwbGF0LT5tYXht
-dHUgPSBKVU1CT19MRU47DQo+IA0KPiBQbGVhc2UsIHVzZSAqX2RlZmF1bHRfZGF0YSgpIGhvb2tz
-IGZvciB0aGF0Lg0KPiANCj4gQXQgc29tZSBwb2ludCBpdCBtaWdodCBtYWtlIHNlbnNlIHRvIGV4
-dHJhY3QNCj4gc3RhdGljIGludCBjb21tb25fZGVmYXVsdF9kYXRhKCkgey4uLn0NCj4gYW5kIGNh
-bGwgaXQgYXQgdGhlIGJlZ2lubmluZyBvZiB0aGUgcmVzdCBvZiAqX2RlZmF1dGxfZGF0YSgpIGhv
-b2tzLg0KPiANCg0KSnVzdCB0cnkgdG8gdW5kZXJzdGFuZCwgYXJlIHlvdSByZWZlcnJpbmcgY2hh
-bmdpbmcgdGhlIGNvZGUgc29tZXRoaW5nDQpsaWtlIHRoaXM6DQoNCglzdG1tYWNfZGVmYXVsdF9k
-YXRhKHBsYXQpOw0KCWlmIChpbmZvKSB7DQoJCWluZm8tPnBkZXYgPSBwZGV2Ow0KCQlpZiAoaW5m
-by0+c2V0dXApIHsNCgkJCXJldCA9IGluZm8tPnNldHVwKHBsYXQsIGluZm8pOw0KCQkJaWYgKHJl
-dCkNCgkJCQlyZXR1cm4gcmV0Ow0KCQl9DQoJfQ0KDQpXaGVyZSBhbGwgdGhlIGNvbW1vbiBjb2Rl
-IGlzIGluc2lkZSB0aGUgc3RtbWFjX2RlZmF1bHRfZGF0YSgpPw0KDQpBbnl3YXksIHRoaXMgcGF0
-Y2ggaXMgZm9jdXMgZm9yIGZpeGluZyB0aGUgbWF4bXR1IGFzc2lnbm1lbnQgaW4gdmFsaWQgcmFu
-Z2UuDQpJIHdpbGwgc3VibWl0IFY0IHRvIHB1dCAicGxhdC0+bWF4bXR1ID0gSlVNQk9fTEVOOyIg
-aW50byBlYWNoICpfZGVmYXVsdF9kYXRhKCkuDQpSZWdhcmRpbmcgdGhlIGNvbW1vbl9kZWZhdWx0
-X2RhdGEoKSB3b3VsZCBiZSBhIG5ldyBwYXRjaCBmb3IgYmV0dGVyIGNvZGUNCnN0cnVjdHVyaW5n
-LiBUaGFua3MuDQoNCj4gLS0NCj4gV2l0aCBCZXN0IFJlZ2FyZHMsDQo+IEFuZHkgU2hldmNoZW5r
-bw0K
+From: "Kweh, Hock Leong" <hock.leong.kweh@intel.com>
+
+There is no checking valid value of maxmtu when getting it from device tree.
+This resolution added the checking condition to ensure the assignment is
+made within a valid range.
+
+Signed-off-by: Kweh, Hock Leong <hock.leong.kweh@intel.com>
+---
+changelog v4:
+* add print warning message when maxmtu > max_mtu as well
+* add maxmtu = JUMBO_LEN into each *_default_data() at stmmac_pci.c
+
+changelog v3:
+* print the warning message only if maxmtu < min_mtu
+* add maxmtu = JUMBO_LEN at stmmac_pci.c to follow stmmac_platform.c
+
+changelog v2:
+* correction of "devicetree" to "device tree" reported by Andy
+* print warning message while maxmtu is not in valid range
+
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |    8 +++++++-
+ drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c  |    6 ++++++
+ 2 files changed, 13 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 92ac006..f2a352f 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -3345,8 +3345,14 @@ int stmmac_dvr_probe(struct device *device,
+ 		ndev->max_mtu = JUMBO_LEN;
+ 	else
+ 		ndev->max_mtu = SKB_MAX_HEAD(NET_SKB_PAD + NET_IP_ALIGN);
+-	if (priv->plat->maxmtu < ndev->max_mtu)
++	if ((priv->plat->maxmtu < ndev->max_mtu) &&
++	    (priv->plat->maxmtu >= ndev->min_mtu))
+ 		ndev->max_mtu = priv->plat->maxmtu;
++	else if ((priv->plat->maxmtu < ndev->min_mtu) ||
++		 (priv->plat->maxmtu > ndev->max_mtu))
++		netdev_warn(priv->dev,
++			    "%s: warning: maxmtu having invalid value (%d)\n",
++			    __func__, priv->plat->maxmtu);
+ 
+ 	if (flow_ctrl)
+ 		priv->flow_ctrl = FLOW_AUTO;	/* RX/TX pause on */
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
+index a283177..3da4737 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_pci.c
+@@ -89,6 +89,9 @@ static void stmmac_default_data(struct plat_stmmacenet_data *plat)
+ 
+ 	/* Set default value for unicast filter entries */
+ 	plat->unicast_filter_entries = 1;
++
++	/* Set the maxmtu to a default of JUMBO_LEN */
++	plat->maxmtu = JUMBO_LEN;
+ }
+ 
+ static int quark_default_data(struct plat_stmmacenet_data *plat,
+@@ -126,6 +129,9 @@ static int quark_default_data(struct plat_stmmacenet_data *plat,
+ 	/* Set default value for unicast filter entries */
+ 	plat->unicast_filter_entries = 1;
+ 
++	/* Set the maxmtu to a default of JUMBO_LEN */
++	plat->maxmtu = JUMBO_LEN;
++
+ 	return 0;
+ }
+ 
+-- 
+1.7.9.5
