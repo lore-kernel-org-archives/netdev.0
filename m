@@ -1,31 +1,29 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bpf: change back to orig prog on too many passes
-Date: Sun, 08 Jan 2017 17:00:49 -0500 (EST)
-Message-ID: <20170108.170049.185525468870291040.davem@davemloft.net>
-References: <ce21b137ee688d48859b8337b2b2aebb2c404b93.1483744629.git.daniel@iogearbox.net>
+From: Bronek Kozicki <brok@spamcop.net>
+Subject: patch 4.8 "net: handle no dst on skb in icmp6_send"
+Date: Sun, 8 Jan 2017 21:46:18 +0000
+Message-ID: <02a7e2d2-cc1d-1c64-ac9b-7daf8a834b56@spamcop.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org
-To: daniel@iogearbox.net
+Cc: David Ahern <dsa@cumulusnetworks.com>,
+        "David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:42540 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S968666AbdAHWAz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 8 Jan 2017 17:00:55 -0500
-In-Reply-To: <ce21b137ee688d48859b8337b2b2aebb2c404b93.1483744629.git.daniel@iogearbox.net>
+Received: from b-painless.mh.aa.net.uk ([81.187.30.52]:47429 "EHLO
+        b-painless.mh.aa.net.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933408AbdAHWEx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 8 Jan 2017 17:04:53 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Sat,  7 Jan 2017 00:26:33 +0100
+Hello,
 
-> If after too many passes still no image could be emitted, then
-> swap back to the original program as we do in all other cases
-> and don't use the one with blinding.
-> 
-> Fixes: 959a75791603 ("bpf, x86: add support for constant blinding")
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-> Acked-by: Alexei Starovoitov <ast@kernel.org>
+any particular reason why this fix 
+https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=79dc7e3f1cd323be4c81aa1a94faa1b3ed987fb2 
+was missed from stable 4.8 line? Apparently the bug being fixed has its 
+own https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2016-9919
 
-Applied and queued up for -stable, thanks Daniel.
+Thank you for your hard work and best regards
+
+
+B.
