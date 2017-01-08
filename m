@@ -1,32 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] tg3: Fix race condition in tg3_get_stats64().
-Date: Sat, 07 Jan 2017 21:35:19 -0500 (EST)
-Message-ID: <20170107.213519.1508383680566185628.davem@davemloft.net>
-References: <1483737533-25059-1-git-send-email-michael.chan@broadcom.com>
+Subject: Re: [PATCH net-next] net: dsa: move HWMON support to its own file
+Date: Sat, 07 Jan 2017 22:42:27 -0500 (EST)
+Message-ID: <20170107.224227.1527412731313171593.davem@davemloft.net>
+References: <20170106214200.15633-1-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, wangyufen@huawei.com
-To: michael.chan@broadcom.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com, f.fainelli@gmail.com, andrew@lunn.ch
+To: vivien.didelot@savoirfairelinux.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:51272 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:52296 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752528AbdAHCfV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 7 Jan 2017 21:35:21 -0500
-In-Reply-To: <1483737533-25059-1-git-send-email-michael.chan@broadcom.com>
+        with ESMTP id S1752528AbdAHDmd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 7 Jan 2017 22:42:33 -0500
+In-Reply-To: <20170106214200.15633-1-vivien.didelot@savoirfairelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michael Chan <michael.chan@broadcom.com>
-Date: Fri,  6 Jan 2017 16:18:53 -0500
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Date: Fri,  6 Jan 2017 16:42:00 -0500
 
-> The driver's ndo_get_stats64() method is not always called under RTNL.
-> So it can race with driver close or ethtool reconfigurations.  Fix the
-> race condition by taking tp->lock spinlock in tg3_free_consistent()
-> when freeing the tp->hw_stats memory block.  tg3_get_stats64() is
-> already taking tp->lock.
+> Isolate the HWMON support in DSA in its own file. Currently only the
+> legacy DSA code is concerned.
 > 
-> Reported-by: Wang Yufen <wangyufen@huawei.com>
-> Signed-off-by: Michael Chan <michael.chan@broadcom.com>
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
-Applied, thanks Michael.
+Applied.
