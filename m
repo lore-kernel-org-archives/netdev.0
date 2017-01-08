@@ -1,91 +1,69 @@
 From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: Re: [PATCH v2 net-next 0/4] Introduce The SipHash PRF
-Date: Sun, 8 Jan 2017 13:41:46 +0100
-Message-ID: <CAHmME9rsff+tKAiM3PZ+21YDHM53qZzLMV79+KgFBk8bO-1yTQ@mail.gmail.com>
-References: <20170107144057.15432-1-Jason@zx2c4.com> <20170107195422.GA8327@zzz>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        Netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>
-To: Eric Biggers <ebiggers3@gmail.com>
+Subject: [PATCH v3 net-next 0/4] Introduce The SipHash PRF
+Date: Sun,  8 Jan 2017 13:53:59 +0100
+Message-ID: <20170108125403.16355-1-Jason@zx2c4.com>
+Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>
+To: davem@davemloft.net, ebiggers3@gmail.com,
+        jeanphilippe.aumasson@gmail.com, gregkh@linuxfoundation.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from frisell.zx2c4.com ([192.95.5.64]:39723 "EHLO frisell.zx2c4.com"
+Received: from frisell.zx2c4.com ([192.95.5.64]:42545 "EHLO frisell.zx2c4.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S967128AbdAHMlu (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 8 Jan 2017 07:41:50 -0500
-In-Reply-To: <20170107195422.GA8327@zzz>
+        id S1754866AbdAHMyP (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 8 Jan 2017 07:54:15 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Eric,
+This patch series introduces SipHash into the kernel. SipHash is a
+cryptographically secure PRF, which serves a variety of functions, and is
+introduced in patch #1. The following patch #2 introduces HalfSipHash,
+an optimization suitable for hash tables only. Finally, the last two patches
+in this series show two usages of the introduced siphash function family.
+It is expected that after this initial introduction, other usages will follow.
 
-Thanks for round two. I'll address these. Comments are inline below.
+Please read the extensive descriptions in patch #1 and patch #2 of what these
+functions do and the various levels of assurances. They're products of intense
+cryptographic research, and I believe they're suitable for the uses outlined
+herein.
 
-On Sat, Jan 7, 2017 at 8:54 PM, Eric Biggers <ebiggers3@gmail.com> wrote:
-> Hi Jason, thanks for doing this!  Yes, I had gotten a little lost in the earlier
-> discussions about the 'random' driver and other potential users of SipHash.  I
-> agree with the approach to just introduce the two uses in net/ to start with,
-> and introduce more users later.  The changes from v1 to v2 look good too.
+The use of SipHash is not limited to the networking subsystem -- indeed I
+would like to use it in other places too in the kernel. But after discussing
+with a few on this list and at Linus' suggestion, the initial import of these
+functions is coming through the networking tree. After these are merged, it
+will then be easier to expand use elsewhere.
 
-Indeed the initial patchset was _insane_ and the discussion became
-sprawling and impossible. Everybody suggested I do baby steps, so
-voila, there's this more manageable patchset now.
+Changes v2->v3:
+  - hsiphash keys now simply use an unsigned long, in order to avoid
+    a cluttered ifdef and make it a bit more clear what's happening.
+  - A typo in the documentation has been fixed.
+  - The documentation has been augmented with an example relating to struct
+    packing and passing.
+  - The net_secret variable is now __read_mostly.
 
-> Now that the HalfSipHash patch is Cc'ed to me too I do have one other small
-> suggestion which is that this:
->
->         #if BITS_PER_LONG == 64
->         typedef siphash_key_t hsiphash_key_t;
->         #define HSIPHASH_ALIGNMENT SIPHASH_ALIGNMENT
->         #else
->         typedef struct {
->                 u32 key[2];
->         } hsiphash_key_t;
->         #define HSIPHASH_ALIGNMENT __alignof__(u32)
->         #endif
->
-> could cause confusion if someone accidentally uses 'siphash_key_t' instead of
-> 'hsiphash_key_t', as their code would compile fine on a 64-bit platform but
-> would fail to compile on a 32-bit platform.  I think there should just always be
-> a hsiphash_key_t struct defined, and it can use unsigned long (no need for an
-> #ifdef):
->
->         #define HSIPHASH_ALIGNMENT __alignof__(unsigned long)
->         typedef struct {
->                 unsigned long key[2];
->         } hsiphash_key_t;
+Hopefully this is the last of the required revisions, and v3 can be merged
+into net-next.
 
-Good idea. Will adjust. That makes things a lot simpler.
+Jason A. Donenfeld (4):
+  siphash: add cryptographically secure PRF
+  siphash: implement HalfSipHash1-3 for hash tables
+  secure_seq: use SipHash in place of MD5
+  syncookies: use SipHash in place of SHA1
 
-> There's also a small error in Documentation/siphash.txt: hsiphash() is shown as
-> taking siphash_key_t instead of hsiphash_key_t.
+ Documentation/siphash.txt | 175 +++++++++++++++
+ MAINTAINERS               |   7 +
+ include/linux/siphash.h   | 140 ++++++++++++
+ lib/Kconfig.debug         |   6 +-
+ lib/Makefile              |   5 +-
+ lib/siphash.c             | 551 ++++++++++++++++++++++++++++++++++++++++++++++
+ lib/test_siphash.c        | 223 +++++++++++++++++++
+ net/core/secure_seq.c     | 145 ++++++------
+ net/ipv4/syncookies.c     |  21 +-
+ net/ipv6/syncookies.c     |  41 ++--
+ 10 files changed, 1189 insertions(+), 125 deletions(-)
+ create mode 100644 Documentation/siphash.txt
+ create mode 100644 include/linux/siphash.h
+ create mode 100644 lib/siphash.c
+ create mode 100644 lib/test_siphash.c
 
-Arg, nice catch, fixing.
-
-> The uses in net look good too.  Something to watch out for is accidentally
-> defining the structs in a way that leaves internal padding bytes, which could
-> theoretically take on any value and cause the same input to produce different
-> hashes.  But AFAICS, in the proposed patch all the structs are laid out
-> properly, so that won't happen.
-
-Indeed that's something closely examined. In fact, originally, just to
-be careful, I was using __packed, but David pointed out that using
-__packed makes gcc resort to byte-by-byte assignment, even if the
-alignment would otherwise be natural. So, instead I just made sure to
-list the members in descending order of size, and made sure to use
-offsetendof instead of sizeof. I'll be sure to document this
-precaution in the Documentation/siphash.txt file for the next version,
-alongside a simple example.
-
-> 'net_secret' could also be marked as __read_mostly, like the keys in
-> syncookies.c, I suppose; it may not matter much.
-
-Good point. Fixing.
-
-New version coming your way soon.
-
-Thanks again,
-Jason
+-- 
+2.11.0
