@@ -1,41 +1,47 @@
-From: yuan linyu <cugyly@163.com>
-Subject: [PATCH] net: fix accept4() flags not work
-Date: Sun,  8 Jan 2017 18:47:30 +0800
-Message-ID: <1483872450-2706-1-git-send-email-cugyly@163.com>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: Re: [PATCH net-next 4/7] devlink: Add E-Switch inline mode control
+Date: Sun, 8 Jan 2017 12:49:20 +0200
+Message-ID: <90f3f9f5-beec-be9d-7c92-e6f41f3fd55e@mellanox.com>
+References: <1479733561-26601-1-git-send-email-saeedm@mellanox.com>
+ <1479733561-26601-5-git-send-email-saeedm@mellanox.com>
+ <20170108102902.GB1971@nanopsycho>
 Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S . Miller" <davem@davemloft.net>,
-        yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
-To: netdev@vger.kernel.org
+Cc: Saeed Mahameed <saeedm@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+        Roi Dayan <roid@mellanox.com>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from m50-134.163.com ([123.125.50.134]:36228 "EHLO m50-134.163.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750879AbdAHKrs (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 8 Jan 2017 05:47:48 -0500
+Received: from mail-db5eur01on0069.outbound.protection.outlook.com ([104.47.2.69]:40512
+        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1033438AbdAHKt3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 8 Jan 2017 05:49:29 -0500
+In-Reply-To: <20170108102902.GB1971@nanopsycho>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+On 1/8/2017 12:29 PM, Jiri Pirko wrote:
+> Mon, Nov 21, 2016 at 02:05:58PM CET, saeedm@mellanox.com wrote:
+>> From: Roi Dayan <roid@mellanox.com>
+>>
+>> Some HWs need the VF driver to put part of the packet headers on the
+>> TX descriptor so the e-switch can do proper matching and steering.
+> Could you please elaborate a bit about possible use-cases for different
+> modes? Thanks.
 
-user input flags store to newsock which should be used.
+As written in the change log, some HW models have this requirement that 
+the header set you want eswitch matching on (e.g L2/L3) is present as MD 
+on the xmit DMA descriptor.
 
-Signed-off-by: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
----
- net/socket.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+To address these requirements, following the admin devlink directive the 
+FW advertizes that
+to the VF, they are doing so in their xmit logic and the host driver 
+enforces that the VF has the proper inline mode before we are willing to 
+offload eswitch matching rules. If the VF doesn't obey to the 
+requirement the packets are dropped by HW.
 
-diff --git a/net/socket.c b/net/socket.c
-index a8c2307..415f988 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -1508,7 +1508,7 @@ SYSCALL_DEFINE4(accept4, int, fd, struct sockaddr __user *, upeer_sockaddr,
- 	if (err)
- 		goto out_fd;
- 
--	err = sock->ops->accept(sock, newsock, sock->file->f_flags);
-+	err = sock->ops->accept(sock, newsock, newsock->file->f_flags);
- 	if (err < 0)
- 		goto out_fd;
- 
--- 
-2.7.4
+Or.
+
+Or.
