@@ -1,42 +1,38 @@
-From: Amir Vadai <amir@vadai.me>
-Subject: Re: [PATCH net-next V2 0/3] net/sched: act_pedit: Use offset
- relative to conventional network headers
-Date: Sun, 8 Jan 2017 10:46:24 +0200
-Message-ID: <20170108084624.GA26775@office.localdomain>
-References: <20170105095454.32644-1-amir@vadai.me>
- <20170106.205109.917848391545129035.davem@davemloft.net>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next 6/7] net/mlx5: E-Switch, Add control for inline
+ mode
+Date: Sun, 8 Jan 2017 10:56:30 +0100
+Message-ID: <20170108095630.GA1971@nanopsycho>
+References: <1479733561-26601-1-git-send-email-saeedm@mellanox.com>
+ <1479733561-26601-7-git-send-email-saeedm@mellanox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jiri@mellanox.com, ogerlitz@mellanox.com,
-        hadarh@mellanox.com
-To: David Miller <davem@davemloft.net>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Roi Dayan <roid@mellanox.com>
+To: Saeed Mahameed <saeedm@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wj0-f194.google.com ([209.85.210.194]:33322 "EHLO
-        mail-wj0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751197AbdAHIq2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 8 Jan 2017 03:46:28 -0500
-Received: by mail-wj0-f194.google.com with SMTP id kp2so82488109wjc.0
-        for <netdev@vger.kernel.org>; Sun, 08 Jan 2017 00:46:27 -0800 (PST)
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:36084 "EHLO
+        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S937208AbdAHJ4f (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 8 Jan 2017 04:56:35 -0500
+Received: by mail-wm0-f68.google.com with SMTP id m203so14904546wma.3
+        for <netdev@vger.kernel.org>; Sun, 08 Jan 2017 01:56:35 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <20170106.205109.917848391545129035.davem@davemloft.net>
+In-Reply-To: <1479733561-26601-7-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 06, 2017 at 08:51:09PM -0500, David Miller wrote:
-> From: Amir Vadai <amir@vadai.me>
-> Date: Thu,  5 Jan 2017 11:54:51 +0200
-> 
-> > Enhancing the UAPI to allow for specifying that would allow the same
-> > flows to be set into both SW and HW.
-> 
-> This is actually not backward compatible.
-> 
-> When pedit rules are dumped, older tools will not know about the
-> type field and therefore will completely misinterpret the rule.
-> 
-> You must extend this the proper way, which is to add a new attribute
-> or something along those lines.  The presense of a new attribute
-> is an explicit communication to older tools that somethng they
-> might not support and understand is going on.
+Mon, Nov 21, 2016 at 02:06:00PM CET, saeedm@mellanox.com wrote:
+>From: Roi Dayan <roid@mellanox.com>
+>
+>Implement devlink show and set of HW inline-mode.
+>The supported modes: none, link, network, transport.
+>We currently support one mode for all vports so set is done on all vports.
+>When eswitch is first initialized the inline-mode is queried from the FW.
+>
+>Signed-off-by: Roi Dayan <roid@mellanox.com>
+>Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 
-Sorry, I missed this scenario. Going back to the drawing board.
+Saeed, could you please use get_maintainer script and cc those people
+for you submissions? Thanks!
