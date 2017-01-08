@@ -1,264 +1,148 @@
-From: Yuval Shaia <yuval.shaia@oracle.com>
-Subject: Re: [for-next V2 06/10] net/mlx5: Add interface to get reference to
- a UAR
-Date: Sun, 8 Jan 2017 19:05:40 +0200
-Message-ID: <20170108170539.GA6323@yuval-lap.uk.oracle.com>
-References: <1483890891-8767-1-git-send-email-saeedm@mellanox.com>
- <1483890891-8767-7-git-send-email-saeedm@mellanox.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next] net/sched: cls_flower: Add user specified data
+Date: Sun, 8 Jan 2017 18:12:51 +0100
+Message-ID: <20170108171251.GF1971@nanopsycho>
+References: <1483362833-52114-1-git-send-email-paulb@mellanox.com>
+ <14675f63-4212-2f72-da4c-cd24b9d10881@mojatatu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Doug Ledford <dledford@redhat.com>, netdev@vger.kernel.org,
-        linux-rdma@vger.kernel.org, Leon Romanovsky <leonro@mellanox.com>,
-        Eli Cohen <eli@mellanox.com>,
-        Matan Barak <matanb@mellanox.com>,
-        Leon Romanovsky <leon@kernel.org>
-To: Saeed Mahameed <saeedm@mellanox.com>
+Cc: Paul Blakey <paulb@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        Jiri Pirko <jiri@mellanox.com>,
+        Hadar Hen Zion <hadarh@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Roi Dayan <roid@mellanox.com>, Roman Mashak <mrv@mojatatu.com>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:26121 "EHLO
-        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S935490AbdAHRGC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 8 Jan 2017 12:06:02 -0500
+Received: from mail-wj0-f193.google.com ([209.85.210.193]:34089 "EHLO
+        mail-wj0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753765AbdAHRMz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 8 Jan 2017 12:12:55 -0500
+Received: by mail-wj0-f193.google.com with SMTP id qs7so45443618wjc.1
+        for <netdev@vger.kernel.org>; Sun, 08 Jan 2017 09:12:54 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <1483890891-8767-7-git-send-email-saeedm@mellanox.com>
+In-Reply-To: <14675f63-4212-2f72-da4c-cd24b9d10881@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jan 08, 2017 at 05:54:47PM +0200, Saeed Mahameed wrote:
-> From: Eli Cohen <eli@mellanox.com>
-> 
-> A reference to a UAR is required to generate CQ or EQ doorbells. Since
-> CQ or EQ doorbells can all be generated using the same UAR area without
-> any effect on performance, we are just getting a reference to any
-> available UAR, If one is not available we allocate it but we don't waste
-> the blue flame registers it can provide and we will use them for
-> subsequent allocations.
-> We get a reference to such UAR and put in mlx5_priv so any kernel
-> consumer can make use of it.
-> 
-> Signed-off-by: Eli Cohen <eli@mellanox.com>
-> Reviewed-by: Matan Barak <matanb@mellanox.com>
-> Signed-off-by: Leon Romanovsky <leon@kernel.org>
-> Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
-> ---
->  drivers/net/ethernet/mellanox/mlx5/core/eq.c   | 14 ++++-------
->  drivers/net/ethernet/mellanox/mlx5/core/main.c | 22 ++++++++++++++----
->  drivers/net/ethernet/mellanox/mlx5/core/uar.c  | 32 ++++++++++++++++++++++++++
->  include/linux/mlx5/driver.h                    |  5 +++-
->  4 files changed, 59 insertions(+), 14 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eq.c b/drivers/net/ethernet/mellanox/mlx5/core/eq.c
-> index 11a8d63..9849ee9 100644
-> --- a/drivers/net/ethernet/mellanox/mlx5/core/eq.c
-> +++ b/drivers/net/ethernet/mellanox/mlx5/core/eq.c
-> @@ -512,7 +512,7 @@ static void init_eq_buf(struct mlx5_eq *eq)
->  
->  int mlx5_create_map_eq(struct mlx5_core_dev *dev, struct mlx5_eq *eq, u8 vecidx,
->  		       int nent, u64 mask, const char *name,
-> -		       struct mlx5_uar *uar, enum mlx5_eq_type type)
-> +		       enum mlx5_eq_type type)
->  {
->  	u32 out[MLX5_ST_SZ_DW(create_eq_out)] = {0};
->  	struct mlx5_priv *priv = &dev->priv;
-> @@ -556,7 +556,7 @@ int mlx5_create_map_eq(struct mlx5_core_dev *dev, struct mlx5_eq *eq, u8 vecidx,
->  
->  	eqc = MLX5_ADDR_OF(create_eq_in, in, eq_context_entry);
->  	MLX5_SET(eqc, eqc, log_eq_size, ilog2(eq->nent));
-> -	MLX5_SET(eqc, eqc, uar_page, uar->index);
-> +	MLX5_SET(eqc, eqc, uar_page, priv->uar->index);
->  	MLX5_SET(eqc, eqc, intr, vecidx);
->  	MLX5_SET(eqc, eqc, log_page_size,
->  		 eq->buf.page_shift - MLX5_ADAPTER_PAGE_SHIFT);
-> @@ -571,7 +571,7 @@ int mlx5_create_map_eq(struct mlx5_core_dev *dev, struct mlx5_eq *eq, u8 vecidx,
->  	eq->eqn = MLX5_GET(create_eq_out, out, eq_number);
->  	eq->irqn = priv->msix_arr[vecidx].vector;
->  	eq->dev = dev;
-> -	eq->doorbell = uar->map + MLX5_EQ_DOORBEL_OFFSET;
-> +	eq->doorbell = priv->uar->map + MLX5_EQ_DOORBEL_OFFSET;
->  	err = request_irq(eq->irqn, handler, 0,
->  			  priv->irq_info[vecidx].name, eq);
->  	if (err)
-> @@ -686,8 +686,7 @@ int mlx5_start_eqs(struct mlx5_core_dev *dev)
->  
->  	err = mlx5_create_map_eq(dev, &table->cmd_eq, MLX5_EQ_VEC_CMD,
->  				 MLX5_NUM_CMD_EQE, 1ull << MLX5_EVENT_TYPE_CMD,
-> -				 "mlx5_cmd_eq", &dev->priv.bfregi.uars[0],
-> -				 MLX5_EQ_TYPE_ASYNC);
-> +				 "mlx5_cmd_eq",  MLX5_EQ_TYPE_ASYNC);
+Mon, Jan 02, 2017 at 03:59:49PM CET, jhs@mojatatu.com wrote:
+>
+>We have been using a cookie as well for actions (which we have been
+>using but have been too lazy to submit so far). I am going to port
+>it over to the newer kernels and post it.
 
-Remove extra space
+Hard to deal with something we can't look at :)
 
->  	if (err) {
->  		mlx5_core_warn(dev, "failed to create cmd EQ %d\n", err);
->  		return err;
-> @@ -697,8 +696,7 @@ int mlx5_start_eqs(struct mlx5_core_dev *dev)
->  
->  	err = mlx5_create_map_eq(dev, &table->async_eq, MLX5_EQ_VEC_ASYNC,
->  				 MLX5_NUM_ASYNC_EQE, async_event_mask,
-> -				 "mlx5_async_eq", &dev->priv.bfregi.uars[0],
-> -				 MLX5_EQ_TYPE_ASYNC);
-> +				 "mlx5_async_eq", MLX5_EQ_TYPE_ASYNC);
->  	if (err) {
->  		mlx5_core_warn(dev, "failed to create async EQ %d\n", err);
->  		goto err1;
-> @@ -708,7 +706,6 @@ int mlx5_start_eqs(struct mlx5_core_dev *dev)
->  				 MLX5_EQ_VEC_PAGES,
->  				 /* TODO: sriov max_vf + */ 1,
->  				 1 << MLX5_EVENT_TYPE_PAGE_REQUEST, "mlx5_pages_eq",
-> -				 &dev->priv.bfregi.uars[0],
->  				 MLX5_EQ_TYPE_ASYNC);
->  	if (err) {
->  		mlx5_core_warn(dev, "failed to create pages EQ %d\n", err);
-> @@ -722,7 +719,6 @@ int mlx5_start_eqs(struct mlx5_core_dev *dev)
->  					 MLX5_NUM_ASYNC_EQE,
->  					 1 << MLX5_EVENT_TYPE_PAGE_FAULT,
->  					 "mlx5_page_fault_eq",
-> -					 &dev->priv.bfregi.uars[0],
->  					 MLX5_EQ_TYPE_PF);
->  		if (err) {
->  			mlx5_core_warn(dev, "failed to create page fault EQ %d\n",
-> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-> index 634e96a..2882d04 100644
-> --- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
-> +++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-> @@ -753,8 +753,7 @@ static int alloc_comp_eqs(struct mlx5_core_dev *dev)
->  		snprintf(name, MLX5_MAX_IRQ_NAME, "mlx5_comp%d", i);
->  		err = mlx5_create_map_eq(dev, eq,
->  					 i + MLX5_EQ_VEC_COMP_BASE, nent, 0,
-> -					 name, &dev->priv.bfregi.uars[0],
-> -					 MLX5_EQ_TYPE_COMP);
-> +					 name, MLX5_EQ_TYPE_COMP);
->  		if (err) {
->  			kfree(eq);
->  			goto clean;
-> @@ -1094,12 +1093,18 @@ static int mlx5_load_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv,
->  		goto err_cleanup_once;
->  	}
->  
-> -	err = mlx5_alloc_bfregs(dev, &priv->bfregi);
-> -	if (err) {
-> +	dev->priv.uar = mlx5_get_uars_page(dev);
-> +	if (!dev->priv.uar) {
->  		dev_err(&pdev->dev, "Failed allocating uar, aborting\n");
->  		goto err_disable_msix;
->  	}
->  
-> +	err = mlx5_alloc_bfregs(dev, &priv->bfregi);
-> +	if (err) {
-> +		dev_err(&pdev->dev, "Failed allocating uuars, aborting\n");
-> +		goto err_uar_cleanup;
-> +	}
-> +
->  	err = mlx5_start_eqs(dev);
->  	if (err) {
->  		dev_err(&pdev->dev, "Failed to start pages and async EQs\n");
-> @@ -1172,6 +1177,9 @@ static int mlx5_load_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv,
->  err_free_uar:
->  	mlx5_free_bfregs(dev, &priv->bfregi);
->  
-> +err_uar_cleanup:
-> +	mlx5_put_uars_page(dev, priv->uar);
-> +
->  err_disable_msix:
->  	mlx5_disable_msix(dev);
->  
-> @@ -1231,6 +1239,7 @@ static int mlx5_unload_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv,
->  	free_comp_eqs(dev);
->  	mlx5_stop_eqs(dev);
->  	mlx5_free_bfregs(dev, &priv->bfregi);
-> +	mlx5_put_uars_page(dev, priv->uar);
->  	mlx5_disable_msix(dev);
->  	if (cleanup)
->  		mlx5_cleanup_once(dev);
-> @@ -1305,6 +1314,11 @@ static int init_one(struct pci_dev *pdev,
->  		goto clean_dev;
->  	}
->  #endif
-> +	mutex_init(&priv->bfregs.reg_head.lock);
-> +	mutex_init(&priv->bfregs.wc_head.lock);
-> +	INIT_LIST_HEAD(&priv->bfregs.reg_head.list);
-> +	INIT_LIST_HEAD(&priv->bfregs.wc_head.list);
-> +
->  	err = mlx5_pci_init(dev, priv);
->  	if (err) {
->  		dev_err(&pdev->dev, "mlx5_pci_init failed with error code %d\n", err);
-> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/uar.c b/drivers/net/ethernet/mellanox/mlx5/core/uar.c
-> index 6a081a8..fcc0270 100644
-> --- a/drivers/net/ethernet/mellanox/mlx5/core/uar.c
-> +++ b/drivers/net/ethernet/mellanox/mlx5/core/uar.c
-> @@ -332,6 +332,38 @@ static struct mlx5_uars_page *alloc_uars_page(struct mlx5_core_dev *mdev,
->  	return ERR_PTR(err);
->  }
->  
-> +struct mlx5_uars_page *mlx5_get_uars_page(struct mlx5_core_dev *mdev)
-> +{
-> +	struct mlx5_uars_page *ret;
-> +
-> +	mutex_lock(&mdev->priv.bfregs.reg_head.lock);
-> +	if (list_empty(&mdev->priv.bfregs.reg_head.list)) {
-> +		ret = alloc_uars_page(mdev, false);
-> +		if (IS_ERR(ret)) {
-> +			ret = NULL;
-> +			goto out;
-> +		}
-> +		list_add(&ret->list, &mdev->priv.bfregs.reg_head.list);
-> +	} else {
-> +		ret = list_first_entry(&mdev->priv.bfregs.reg_head.list,
-> +				       struct mlx5_uars_page, list);
-> +		kref_get(&ret->ref_count);
-> +	}
-> +out:
-> +	mutex_unlock(&mdev->priv.bfregs.reg_head.lock);
-> +
-> +	return ret;
-> +}
-> +EXPORT_SYMBOL(mlx5_get_uars_page);
-> +
-> +void mlx5_put_uars_page(struct mlx5_core_dev *mdev, struct mlx5_uars_page *up)
-> +{
-> +	mutex_lock(&mdev->priv.bfregs.reg_head.lock);
-> +	kref_put(&up->ref_count, up_rel_func);
-> +	mutex_unlock(&mdev->priv.bfregs.reg_head.lock);
-> +}
-> +EXPORT_SYMBOL(mlx5_put_uars_page);
-> +
->  static unsigned long map_offset(struct mlx5_core_dev *mdev, int dbi)
->  {
->  	/* return the offset in bytes from the start of the page to the
-> diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
-> index 969aa1f..9a3a095 100644
-> --- a/include/linux/mlx5/driver.h
-> +++ b/include/linux/mlx5/driver.h
-> @@ -679,6 +679,7 @@ struct mlx5_priv {
->  	struct srcu_struct      pfault_srcu;
->  #endif
->  	struct mlx5_bfreg_data		bfregs;
-> +	struct mlx5_uars_page	       *uar;
->  };
->  
->  enum mlx5_device_state {
-> @@ -1007,7 +1008,7 @@ void mlx5_cmd_comp_handler(struct mlx5_core_dev *dev, u64 vec);
->  void mlx5_cq_event(struct mlx5_core_dev *dev, u32 cqn, int event_type);
->  int mlx5_create_map_eq(struct mlx5_core_dev *dev, struct mlx5_eq *eq, u8 vecidx,
->  		       int nent, u64 mask, const char *name,
-> -		       struct mlx5_uar *uar, enum mlx5_eq_type type);
-> +		       enum mlx5_eq_type type);
->  int mlx5_destroy_unmap_eq(struct mlx5_core_dev *dev, struct mlx5_eq *eq);
->  int mlx5_start_eqs(struct mlx5_core_dev *dev);
->  int mlx5_stop_eqs(struct mlx5_core_dev *dev);
-> @@ -1118,6 +1119,8 @@ int mlx5_cmd_create_vport_lag(struct mlx5_core_dev *dev);
->  int mlx5_cmd_destroy_vport_lag(struct mlx5_core_dev *dev);
->  bool mlx5_lag_is_active(struct mlx5_core_dev *dev);
->  struct net_device *mlx5_lag_get_roce_netdev(struct mlx5_core_dev *dev);
-> +struct mlx5_uars_page *mlx5_get_uars_page(struct mlx5_core_dev *mdev);
-> +void mlx5_put_uars_page(struct mlx5_core_dev *mdev, struct mlx5_uars_page *up);
->  
->  struct mlx5_profile {
->  	u64	mask;
-> -- 
-> 2.7.4
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+>In our case that is intended to be opaque to the kernel i.e kernel
+>never inteprets it; in that case it is similar to the kernel
+>FIB protocol field.
+
+In case of this patch, kernel also never interprets it. What makes you
+think otherwise. Bot kernel, it is always a binary blob.
+
+
+>
+>In your case - could this cookie have been a class/flowid
+>(a 32 bit)?
+>And would it not make more sense for it the cookie to be
+>generic to all classifiers? i.e why is it specific to flower?
+
+Correct, makes sense to have it generic for all cls and perhaps also
+acts.
+
+
+>
+>cheers,
+>jamal
+>
+>On 17-01-02 08:13 AM, Paul Blakey wrote:
+>> This is to support saving extra data that might be helpful on retrieval.
+>> First use case is upcoming openvswitch flow offloads, extra data will
+>> include UFID and port mappings for each added flow.
+>> 
+>> Signed-off-by: Paul Blakey <paulb@mellanox.com>
+>> Reviewed-by: Roi Dayan <roid@mellanox.com>
+>> Acked-by: Jiri Pirko <jiri@mellanox.com>
+>> ---
+>>  include/uapi/linux/pkt_cls.h |  3 +++
+>>  net/sched/cls_flower.c       | 22 +++++++++++++++++++++-
+>>  2 files changed, 24 insertions(+), 1 deletion(-)
+>> 
+>> diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
+>> index cb4bcdc..ca9bbe3 100644
+>> --- a/include/uapi/linux/pkt_cls.h
+>> +++ b/include/uapi/linux/pkt_cls.h
+>> @@ -471,10 +471,13 @@ enum {
+>>  	TCA_FLOWER_KEY_ICMPV6_TYPE,	/* u8 */
+>>  	TCA_FLOWER_KEY_ICMPV6_TYPE_MASK,/* u8 */
+>> 
+>> +	TCA_FLOWER_COOKIE,		/* binary */
+>> +
+>>  	__TCA_FLOWER_MAX,
+>>  };
+>> 
+>>  #define TCA_FLOWER_MAX (__TCA_FLOWER_MAX - 1)
+>> +#define FLOWER_MAX_COOKIE_SIZE 128
+>> 
+>>  enum {
+>>  	TCA_FLOWER_KEY_FLAGS_IS_FRAGMENT = (1 << 0),
+>> diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
+>> index 333f8e2..e2f5b25 100644
+>> --- a/net/sched/cls_flower.c
+>> +++ b/net/sched/cls_flower.c
+>> @@ -85,6 +85,8 @@ struct cls_fl_filter {
+>>  	struct rcu_head	rcu;
+>>  	struct tc_to_netdev tc;
+>>  	struct net_device *hw_dev;
+>> +	size_t cookie_len;
+>> +	long cookie[0];
+>>  };
+>> 
+>>  static unsigned short int fl_mask_range(const struct fl_flow_mask *mask)
+>> @@ -794,6 +796,9 @@ static int fl_change(struct net *net, struct sk_buff *in_skb,
+>>  	struct cls_fl_filter *fnew;
+>>  	struct nlattr *tb[TCA_FLOWER_MAX + 1];
+>>  	struct fl_flow_mask mask = {};
+>> +	const struct nlattr *attr;
+>> +	size_t cookie_len = 0;
+>> +	void *cookie;
+>>  	int err;
+>> 
+>>  	if (!tca[TCA_OPTIONS])
+>> @@ -806,10 +811,22 @@ static int fl_change(struct net *net, struct sk_buff *in_skb,
+>>  	if (fold && handle && fold->handle != handle)
+>>  		return -EINVAL;
+>> 
+>> -	fnew = kzalloc(sizeof(*fnew), GFP_KERNEL);
+>> +	if (tb[TCA_FLOWER_COOKIE]) {
+>> +		attr = tb[TCA_FLOWER_COOKIE];
+>> +		cookie_len = nla_len(attr);
+>> +		cookie = nla_data(attr);
+>> +		if (cookie_len > FLOWER_MAX_COOKIE_SIZE)
+>> +			return -EINVAL;
+>> +	}
+>> +
+>> +	fnew = kzalloc(sizeof(*fnew) + cookie_len, GFP_KERNEL);
+>>  	if (!fnew)
+>>  		return -ENOBUFS;
+>> 
+>> +	fnew->cookie_len = cookie_len;
+>> +	if (cookie_len)
+>> +		memcpy(fnew->cookie, cookie, cookie_len);
+>> +
+>>  	err = tcf_exts_init(&fnew->exts, TCA_FLOWER_ACT, 0);
+>>  	if (err < 0)
+>>  		goto errout;
+>> @@ -1151,6 +1168,9 @@ static int fl_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
+>> 
+>>  	nla_put_u32(skb, TCA_FLOWER_FLAGS, f->flags);
+>> 
+>> +	if (f->cookie_len)
+>> +		nla_put(skb, TCA_FLOWER_COOKIE, f->cookie_len, f->cookie);
+>> +
+>>  	if (tcf_exts_dump(skb, &f->exts))
+>>  		goto nla_put_failure;
+>> 
+>> 
+>
