@@ -1,30 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 2/2] net: remove useless memset's in drivers
- get_stats64
-Date: Sun, 08 Jan 2017 18:14:09 -0500 (EST)
-Message-ID: <20170108.181409.566688574792215066.davem@davemloft.net>
-References: <20170107031253.2739-1-sthemmin@microsoft.com>
-        <20170107031253.2739-2-sthemmin@microsoft.com>
+Subject: Re: [PATCH net-next] mdio: Demote print from info to debug in
+ mdio_device_register
+Date: Sun, 08 Jan 2017 18:15:03 -0500 (EST)
+Message-ID: <20170108.181503.1655247282531291254.davem@davemloft.net>
+References: <20170107062759.32015-1-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sthemmin@microsoft.com
-To: stephen@networkplumber.org
+Cc: netdev@vger.kernel.org, andrew@lunn.ch
+To: f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:44212 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:44226 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751578AbdAHXOL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 8 Jan 2017 18:14:11 -0500
-In-Reply-To: <20170107031253.2739-2-sthemmin@microsoft.com>
+        with ESMTP id S1751578AbdAHXPF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 8 Jan 2017 18:15:05 -0500
+In-Reply-To: <20170107062759.32015-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Fri,  6 Jan 2017 19:12:53 -0800
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Fri,  6 Jan 2017 22:27:59 -0800
 
-> In dev_get_stats() the statistic structure storage has already been
-> zeroed. Therefore network drivers do not need to call memset() again.
+> While it is useful to know which MDIO device is being registered, demote
+> the dev_info() to a dev_dbg().
 > 
-> Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 
 Applied.
