@@ -1,95 +1,92 @@
 From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-Subject: [PATCH 4/4] net: ethernet: ti: cpsw: don't duplicate common res in rx handler
-Date: Sun,  8 Jan 2017 18:41:03 +0200
-Message-ID: <1483893663-15673-5-git-send-email-ivan.khoronzhuk@linaro.org>
+Subject: [PATCH 3/4] net: ethernet: ti: cpsw: don't duplicate ndev_running
+Date: Sun,  8 Jan 2017 18:41:02 +0200
+Message-ID: <1483893663-15673-4-git-send-email-ivan.khoronzhuk@linaro.org>
 References: <1483893663-15673-1-git-send-email-ivan.khoronzhuk@linaro.org>
 Cc: linux-omap@vger.kernel.org, grygorii.strashko@ti.com,
         linux-kernel@vger.kernel.org,
         Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
 To: netdev@vger.kernel.org, mugunthanvnm@ti.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f54.google.com ([209.85.215.54]:33770 "EHLO
-        mail-lf0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754004AbdAHQlN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 8 Jan 2017 11:41:13 -0500
-Received: by mail-lf0-f54.google.com with SMTP id k86so81784706lfi.0
-        for <netdev@vger.kernel.org>; Sun, 08 Jan 2017 08:41:13 -0800 (PST)
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1483893663-15673-1-git-send-email-ivan.khoronzhuk@linaro.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-No need to duplicate the same function in rx handler to get info
-if any interface is running.
+No need to create additional vars to identify if interface is running.
+So simplify code by removing redundant var and checking usage counter
+instead.
 
 Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
 ---
- drivers/net/ethernet/ti/cpsw.c | 40 ++++++++++++++++------------------------
- 1 file changed, 16 insertions(+), 24 deletions(-)
+ drivers/net/ethernet/ti/cpsw.c | 14 ++++----------
+ 1 file changed, 4 insertions(+), 10 deletions(-)
 
 diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index daae87f..458298d 100644
+index 40d7fc9..daae87f 100644
 --- a/drivers/net/ethernet/ti/cpsw.c
 +++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -671,6 +671,18 @@ static void cpsw_intr_disable(struct cpsw_common *cpsw)
- 	return;
- }
+@@ -357,7 +357,6 @@ struct cpsw_slave {
+ 	struct phy_device		*phy;
+ 	struct net_device		*ndev;
+ 	u32				port_vlan;
+-	u32				open_stat;
+ };
  
-+static int cpsw_common_res_usage_state(struct cpsw_common *cpsw)
-+{
-+	u32 i;
-+	u32 usage_count = 0;
-+
-+	for (i = 0; i < cpsw->data.slaves; i++)
+ static inline u32 slave_read(struct cpsw_slave *slave, u32 offset)
+@@ -1241,7 +1240,7 @@ static int cpsw_common_res_usage_state(struct cpsw_common *cpsw)
+ 	u32 usage_count = 0;
+ 
+ 	for (i = 0; i < cpsw->data.slaves; i++)
+-		if (cpsw->slaves[i].open_stat)
 +		if (netif_running(cpsw->slaves[i].ndev))
-+			usage_count++;
-+
-+	return usage_count;
-+}
-+
- static void cpsw_tx_handler(void *token, int len, int status)
- {
- 	struct netdev_queue	*txq;
-@@ -703,18 +715,10 @@ static void cpsw_rx_handler(void *token, int len, int status)
- 	cpsw_dual_emac_src_port_detect(cpsw, status, ndev, skb);
+ 			usage_count++;
  
- 	if (unlikely(status < 0) || unlikely(!netif_running(ndev))) {
--		bool ndev_status = false;
--		struct cpsw_slave *slave = cpsw->slaves;
--		int n;
+ 	return usage_count;
+@@ -1502,7 +1501,7 @@ static int cpsw_ndo_open(struct net_device *ndev)
+ 		 CPSW_RTL_VERSION(reg));
+ 
+ 	/* initialize host and slave ports */
+-	if (!cpsw_common_res_usage_state(cpsw))
++	if (cpsw_common_res_usage_state(cpsw) < 2)
+ 		cpsw_init_host_port(priv);
+ 	for_each_slave(priv, cpsw_slave_open, priv);
+ 
+@@ -1513,7 +1512,7 @@ static int cpsw_ndo_open(struct net_device *ndev)
+ 		cpsw_ale_add_vlan(cpsw->ale, cpsw->data.default_vlan,
+ 				  ALE_ALL_PORTS, ALE_ALL_PORTS, 0, 0);
+ 
+-	if (!cpsw_common_res_usage_state(cpsw)) {
++	if (cpsw_common_res_usage_state(cpsw) < 2) {
+ 		/* disable priority elevation */
+ 		__raw_writel(0, &cpsw->regs->ptype);
+ 
+@@ -1556,9 +1555,6 @@ static int cpsw_ndo_open(struct net_device *ndev)
+ 	cpdma_ctlr_start(cpsw->dma);
+ 	cpsw_intr_enable(cpsw);
+ 
+-	if (cpsw->data.dual_emac)
+-		cpsw->slaves[priv->emac_port].open_stat = true;
 -
--		if (cpsw->data.dual_emac) {
--			/* In dual emac mode check for all interfaces */
--			for (n = cpsw->data.slaves; n; n--, slave++)
--				if (netif_running(slave->ndev))
--					ndev_status = true;
--		}
--
--		if (ndev_status && (status >= 0)) {
-+		/* In dual emac mode check for all interfaces */
-+		if (cpsw->data.dual_emac &&
-+		    cpsw_common_res_usage_state(cpsw) &&
-+		    (status >= 0)) {
- 			/* The packet received is for the interface which
- 			 * is already down and the other interface is up
- 			 * and running, instead of freeing which results
-@@ -1234,18 +1238,6 @@ static void cpsw_get_ethtool_stats(struct net_device *ndev,
- 	}
+ 	return 0;
+ 
+ err_cleanup:
+@@ -1578,7 +1574,7 @@ static int cpsw_ndo_stop(struct net_device *ndev)
+ 	netif_tx_stop_all_queues(priv->ndev);
+ 	netif_carrier_off(priv->ndev);
+ 
+-	if (cpsw_common_res_usage_state(cpsw) <= 1) {
++	if (!cpsw_common_res_usage_state(cpsw)) {
+ 		napi_disable(&cpsw->napi_rx);
+ 		napi_disable(&cpsw->napi_tx);
+ 		cpts_unregister(cpsw->cpts);
+@@ -1592,8 +1588,6 @@ static int cpsw_ndo_stop(struct net_device *ndev)
+ 		cpsw_split_res(ndev);
+ 
+ 	pm_runtime_put_sync(cpsw->dev);
+-	if (cpsw->data.dual_emac)
+-		cpsw->slaves[priv->emac_port].open_stat = false;
+ 	return 0;
  }
  
--static int cpsw_common_res_usage_state(struct cpsw_common *cpsw)
--{
--	u32 i;
--	u32 usage_count = 0;
--
--	for (i = 0; i < cpsw->data.slaves; i++)
--		if (netif_running(cpsw->slaves[i].ndev))
--			usage_count++;
--
--	return usage_count;
--}
--
- static inline int cpsw_tx_packet_submit(struct cpsw_priv *priv,
- 					struct sk_buff *skb,
- 					struct cpdma_chan *txch)
 -- 
 2.7.4
