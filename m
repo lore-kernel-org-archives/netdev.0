@@ -1,81 +1,41 @@
-From: Davide Caratti <dcaratti@redhat.com>
-Subject: Re: [PATCH net-next 2/2] net/sched: act_csum: compute crc32c on
- SCTP packets
-Date: Sun, 08 Jan 2017 17:43:43 +0100
-Message-ID: <1483893823.2552.34.camel@redhat.com>
-References: <cover.1483630849.git.dcaratti@redhat.com>
-         <c9ee721fd7816b9d30939f23783f50f9aeb00d66.1483630849.git.dcaratti@redhat.com>
-         <b4e2b22a-5a06-3c31-a312-3c6de1ef14e5@6wind.com>
+From: Alexandru Moise <00moses.alexander00@gmail.com>
+Subject: [PATCH] cls_u32: don't bother explicitly initializing ->divisor to
+ zero
+Date: Sun, 8 Jan 2017 18:49:46 +0200
+Message-ID: <20170108164946.GA10605@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org
-To: nicolas.dichtel@6wind.com, Jamal Hadi Salim <jhs@mojatatu.com>,
-        "David S . Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: jhs@mojatatu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51546 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1756729AbdAHQnt (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 8 Jan 2017 11:43:49 -0500
-In-Reply-To: <b4e2b22a-5a06-3c31-a312-3c6de1ef14e5@6wind.com>
+Received: from mail-wj0-f194.google.com ([209.85.210.194]:36301 "EHLO
+        mail-wj0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752974AbdAHQtz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 8 Jan 2017 11:49:55 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2017-01-06 at 10:23 +0100, Nicolas Dichtel wrote:
-> Le 05/01/2017 à 17:59, Davide Caratti a écrit :
-> > @@ -21,7 +21,8 @@ enum {
-> >  	TCA_CSUM_UPDATE_FLAG_IGMP    = 4,
-> >  	TCA_CSUM_UPDATE_FLAG_TCP     = 8,
-> >  	TCA_CSUM_UPDATE_FLAG_UDP     = 16,
-> > -	TCA_CSUM_UPDATE_FLAG_UDPLITE = 32
-> > +	TCA_CSUM_UPDATE_FLAG_UDPLITE = 32,
-> > +	TCA_CSUM_UPDATE_FLAG_SCTP    = 64
-> nit: please put a comma after the '64' so that the next person who adds
-> a flag
-> will not have to touch that line.
-> 
+This struct member is already initialized to zero upon root_ht's
+allocation via kzalloc().
 
-ok,
+Signed-off-by: Alexandru Moise <00moses.alexander00@gmail.com>
+---
+ net/sched/cls_u32.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-> > @@ -365,6 +385,12 @@ static int tcf_csum_ipv4(struct sk_buff *skb, u32
-> > update_flags)
-> >  					       ntohs(iph->tot_len),
-> > 1))
-> >  				goto fail;
-> >  		break;
-> > +	case IPPROTO_SCTP:
-> > +		if (update_flags & TCA_CSUM_UPDATE_FLAG_SCTP)
-> > +			if (!tcf_csum_sctp(skb, iph->ihl * 4,
-> > +					   ntohs(iph->tot_len)))
-> nit: one 'if' only?
-> 		if (update_flags & TCA_CSUM_UPDATE_FLAG_SCTP &&
-> 		    !tcf_csum_sctp(skb, iph->ihl * 4, ntohs(iph->tot_len))
-> 
-
-ok,
-
-> > @@ -481,6 +507,12 @@ static int tcf_csum_ipv6(struct sk_buff *skb, u32
-> > update_flags)
-> >  						       pl +
-> > sizeof(*ip6h), 1))
-> >  					goto fail;
-> >  			goto done;
-> > +		case IPPROTO_SCTP:
-> > +			if (update_flags & TCA_CSUM_UPDATE_FLAG_SCTP)
-> > +				if (!tcf_csum_sctp(skb, hl,
-> > +						   pl +
-> > sizeof(*ip6h)))
-> Same here.
-> 
-
-ok,
-
-> 
-> Regards,
-> Nicolas
-
-hello Nicolas,
-thank you for the attention! I will apply the changes you suggested and
-repost a v2.
-
-regards,
+diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
+index ae83c3ae..a6ec3e4b 100644
+--- a/net/sched/cls_u32.c
++++ b/net/sched/cls_u32.c
+@@ -334,7 +334,6 @@ static int u32_init(struct tcf_proto *tp)
+ 	if (root_ht == NULL)
+ 		return -ENOBUFS;
+ 
+-	root_ht->divisor = 0;
+ 	root_ht->refcnt++;
+ 	root_ht->handle = tp_c ? gen_new_htid(tp_c) : 0x80000000;
+ 	root_ht->prio = tp->prio;
+-- 
+2.1.4
