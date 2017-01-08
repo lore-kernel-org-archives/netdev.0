@@ -1,182 +1,101 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 4/4] net: dsa: Make dsa_switch_ops const
-Date: Sun,  8 Jan 2017 14:52:08 -0800
-Message-ID: <20170108225208.15431-5-f.fainelli@gmail.com>
+Subject: [PATCH net-next 2/4] net: dsa: bcm_sf2: Declare our own dsa_switch_ops
+Date: Sun,  8 Jan 2017 14:52:06 -0800
+Message-ID: <20170108225208.15431-3-f.fainelli@gmail.com>
 References: <20170108225208.15431-1-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, andrew@lunn.ch,
         vivien.didelot@savoirfairelinux.com,
         Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:36548 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1033712AbdAHW5r (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 8 Jan 2017 17:57:47 -0500
-Received: by mail-pf0-f195.google.com with SMTP id b22so6837751pfd.3
-        for <netdev@vger.kernel.org>; Sun, 08 Jan 2017 14:57:47 -0800 (PST)
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:36173 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1033717AbdAHW6B (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 8 Jan 2017 17:58:01 -0500
+Received: by mail-pg0-f65.google.com with SMTP id 75so11596281pgf.3
+        for <netdev@vger.kernel.org>; Sun, 08 Jan 2017 14:58:01 -0800 (PST)
 In-Reply-To: <20170108225208.15431-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now that we have properly encapsulated and made drivers utilize exported
-functions, we can switch dsa_switch_ops to be a annotated with const.
+Utilize the b53 exported functions to fill our bcm_sf2_ops structure,
+also making it clear what we utilize and what we specifically override.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/dsa/b53/b53_common.c |  2 +-
- drivers/net/dsa/bcm_sf2.c        |  2 +-
- drivers/net/dsa/mv88e6060.c      |  2 +-
- drivers/net/dsa/mv88e6xxx/chip.c |  2 +-
- drivers/net/dsa/qca8k.c          |  2 +-
- include/net/dsa.h                |  4 ++--
- net/dsa/dsa.c                    | 10 +++++-----
- net/dsa/hwmon.c                  |  2 +-
- 8 files changed, 13 insertions(+), 13 deletions(-)
+ drivers/net/dsa/bcm_sf2.c | 53 +++++++++++++++++++++++++++++------------------
+ 1 file changed, 33 insertions(+), 20 deletions(-)
 
-diff --git a/drivers/net/dsa/b53/b53_common.c b/drivers/net/dsa/b53/b53_common.c
-index a448661b55c6..5102a3701a1a 100644
---- a/drivers/net/dsa/b53/b53_common.c
-+++ b/drivers/net/dsa/b53/b53_common.c
-@@ -1453,7 +1453,7 @@ static enum dsa_tag_protocol b53_get_tag_protocol(struct dsa_switch *ds)
- 	return DSA_TAG_PROTO_NONE;
- }
- 
--static struct dsa_switch_ops b53_switch_ops = {
-+static const struct dsa_switch_ops b53_switch_ops = {
- 	.get_tag_protocol	= b53_get_tag_protocol,
- 	.setup			= b53_setup,
- 	.get_strings		= b53_get_strings,
 diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
-index fcfc2cb5f3cd..4e7581788465 100644
+index 9ec33b51a0ed..fcfc2cb5f3cd 100644
 --- a/drivers/net/dsa/bcm_sf2.c
 +++ b/drivers/net/dsa/bcm_sf2.c
-@@ -977,7 +977,7 @@ static struct b53_io_ops bcm_sf2_io_ops = {
+@@ -977,6 +977,38 @@ static struct b53_io_ops bcm_sf2_io_ops = {
  	.write64 = bcm_sf2_core_write64,
  };
  
--static struct dsa_switch_ops bcm_sf2_ops = {
-+static const struct dsa_switch_ops bcm_sf2_ops = {
- 	.get_tag_protocol	= bcm_sf2_sw_get_tag_protocol,
- 	.setup			= bcm_sf2_sw_setup,
- 	.get_strings		= b53_get_strings,
-diff --git a/drivers/net/dsa/mv88e6060.c b/drivers/net/dsa/mv88e6060.c
-index bcbd6dcbd8e8..5934b7a4c448 100644
---- a/drivers/net/dsa/mv88e6060.c
-+++ b/drivers/net/dsa/mv88e6060.c
-@@ -252,7 +252,7 @@ mv88e6060_phy_write(struct dsa_switch *ds, int port, int regnum, u16 val)
- 	return reg_write(ds, addr, regnum, val);
- }
- 
--static struct dsa_switch_ops mv88e6060_switch_ops = {
-+static const struct dsa_switch_ops mv88e6060_switch_ops = {
- 	.get_tag_protocol = mv88e6060_get_tag_protocol,
- 	.probe		= mv88e6060_drv_probe,
- 	.setup		= mv88e6060_setup,
-diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index d43d12c281b3..eea8e0176e33 100644
---- a/drivers/net/dsa/mv88e6xxx/chip.c
-+++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -4361,7 +4361,7 @@ static int mv88e6xxx_port_mdb_dump(struct dsa_switch *ds, int port,
- 	return err;
- }
- 
--static struct dsa_switch_ops mv88e6xxx_switch_ops = {
-+static const struct dsa_switch_ops mv88e6xxx_switch_ops = {
- 	.probe			= mv88e6xxx_drv_probe,
- 	.get_tag_protocol	= mv88e6xxx_get_tag_protocol,
- 	.setup			= mv88e6xxx_setup,
-diff --git a/drivers/net/dsa/qca8k.c b/drivers/net/dsa/qca8k.c
-index b3df70d07ff6..54d270d59eb0 100644
---- a/drivers/net/dsa/qca8k.c
-+++ b/drivers/net/dsa/qca8k.c
-@@ -911,7 +911,7 @@ qca8k_get_tag_protocol(struct dsa_switch *ds)
- 	return DSA_TAG_PROTO_QCA;
- }
- 
--static struct dsa_switch_ops qca8k_switch_ops = {
-+static const struct dsa_switch_ops qca8k_switch_ops = {
- 	.get_tag_protocol	= qca8k_get_tag_protocol,
- 	.setup			= qca8k_setup,
- 	.get_strings		= qca8k_get_strings,
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index edfa9b130953..b94d1f2ef912 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -169,7 +169,7 @@ struct dsa_switch {
- 	/*
- 	 * The switch operations.
- 	 */
--	struct dsa_switch_ops	*ops;
-+	const struct dsa_switch_ops	*ops;
- 
- 	/*
- 	 * An array of which element [a] indicates which port on this
-@@ -390,7 +390,7 @@ struct dsa_switch_ops {
- 
- struct dsa_switch_driver {
- 	struct list_head	list;
--	struct dsa_switch_ops	*ops;
-+	const struct dsa_switch_ops *ops;
- };
- 
- void register_switch_driver(struct dsa_switch_driver *type);
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index 4e7bc57cdae5..fd532487dfdf 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -76,11 +76,11 @@ void unregister_switch_driver(struct dsa_switch_driver *drv)
- }
- EXPORT_SYMBOL_GPL(unregister_switch_driver);
- 
--static struct dsa_switch_ops *
-+static const struct dsa_switch_ops *
- dsa_switch_probe(struct device *parent, struct device *host_dev, int sw_addr,
- 		 const char **_name, void **priv)
++static struct dsa_switch_ops bcm_sf2_ops = {
++	.get_tag_protocol	= bcm_sf2_sw_get_tag_protocol,
++	.setup			= bcm_sf2_sw_setup,
++	.get_strings		= b53_get_strings,
++	.get_ethtool_stats	= b53_get_ethtool_stats,
++	.get_sset_count		= b53_get_sset_count,
++	.get_phy_flags		= bcm_sf2_sw_get_phy_flags,
++	.adjust_link		= bcm_sf2_sw_adjust_link,
++	.fixed_link_update	= bcm_sf2_sw_fixed_link_update,
++	.suspend		= bcm_sf2_sw_suspend,
++	.resume			= bcm_sf2_sw_resume,
++	.get_wol		= bcm_sf2_sw_get_wol,
++	.set_wol		= bcm_sf2_sw_set_wol,
++	.port_enable		= bcm_sf2_port_setup,
++	.port_disable		= bcm_sf2_port_disable,
++	.get_eee		= bcm_sf2_sw_get_eee,
++	.set_eee		= bcm_sf2_sw_set_eee,
++	.port_bridge_join	= b53_br_join,
++	.port_bridge_leave	= b53_br_leave,
++	.port_stp_state_set	= b53_br_set_stp_state,
++	.port_fast_age		= b53_br_fast_age,
++	.port_vlan_filtering	= b53_vlan_filtering,
++	.port_vlan_prepare	= b53_vlan_prepare,
++	.port_vlan_add		= b53_vlan_add,
++	.port_vlan_del		= b53_vlan_del,
++	.port_vlan_dump		= b53_vlan_dump,
++	.port_fdb_prepare	= b53_fdb_prepare,
++	.port_fdb_dump		= b53_fdb_dump,
++	.port_fdb_add		= b53_fdb_add,
++	.port_fdb_del		= b53_fdb_del,
++};
++
+ static int bcm_sf2_sw_probe(struct platform_device *pdev)
  {
--	struct dsa_switch_ops *ret;
-+	const struct dsa_switch_ops *ret;
- 	struct list_head *list;
- 	const char *name;
+ 	const char *reg_names[BCM_SF2_REGS_NUM] = BCM_SF2_REGS_NAME;
+@@ -1012,26 +1044,7 @@ static int bcm_sf2_sw_probe(struct platform_device *pdev)
  
-@@ -89,7 +89,7 @@ dsa_switch_probe(struct device *parent, struct device *host_dev, int sw_addr,
+ 	priv->dev = dev;
+ 	ds = dev->ds;
+-
+-	/* Override the parts that are non-standard wrt. normal b53 devices */
+-	ds->ops->get_tag_protocol = bcm_sf2_sw_get_tag_protocol;
+-	ds->ops->setup = bcm_sf2_sw_setup;
+-	ds->ops->get_phy_flags = bcm_sf2_sw_get_phy_flags;
+-	ds->ops->adjust_link = bcm_sf2_sw_adjust_link;
+-	ds->ops->fixed_link_update = bcm_sf2_sw_fixed_link_update;
+-	ds->ops->suspend = bcm_sf2_sw_suspend;
+-	ds->ops->resume = bcm_sf2_sw_resume;
+-	ds->ops->get_wol = bcm_sf2_sw_get_wol;
+-	ds->ops->set_wol = bcm_sf2_sw_set_wol;
+-	ds->ops->port_enable = bcm_sf2_port_setup;
+-	ds->ops->port_disable = bcm_sf2_port_disable;
+-	ds->ops->get_eee = bcm_sf2_sw_get_eee;
+-	ds->ops->set_eee = bcm_sf2_sw_set_eee;
+-
+-	/* Avoid having DSA free our slave MDIO bus (checking for
+-	 * ds->slave_mii_bus and ds->ops->phy_read being non-NULL)
+-	 */
+-	ds->ops->phy_read = NULL;
++	ds->ops = &bcm_sf2_ops;
  
- 	mutex_lock(&dsa_switch_drivers_mutex);
- 	list_for_each(list, &dsa_switch_drivers) {
--		struct dsa_switch_ops *ops;
-+		const struct dsa_switch_ops *ops;
- 		struct dsa_switch_driver *drv;
+ 	dev_set_drvdata(&pdev->dev, priv);
  
- 		drv = list_entry(list, struct dsa_switch_driver, list);
-@@ -207,7 +207,7 @@ void dsa_cpu_port_ethtool_restore(struct dsa_switch *ds)
- 
- static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
- {
--	struct dsa_switch_ops *ops = ds->ops;
-+	const struct dsa_switch_ops *ops = ds->ops;
- 	struct dsa_switch_tree *dst = ds->dst;
- 	struct dsa_chip_data *cd = ds->cd;
- 	bool valid_name_found = false;
-@@ -326,7 +326,7 @@ dsa_switch_setup(struct dsa_switch_tree *dst, int index,
- 		 struct device *parent, struct device *host_dev)
- {
- 	struct dsa_chip_data *cd = dst->pd->chip + index;
--	struct dsa_switch_ops *ops;
-+	const struct dsa_switch_ops *ops;
- 	struct dsa_switch *ds;
- 	int ret;
- 	const char *name;
-diff --git a/net/dsa/hwmon.c b/net/dsa/hwmon.c
-index 3a9cdf0b22b8..08831a811278 100644
---- a/net/dsa/hwmon.c
-+++ b/net/dsa/hwmon.c
-@@ -86,7 +86,7 @@ static umode_t dsa_hwmon_attrs_visible(struct kobject *kobj,
- {
- 	struct device *dev = container_of(kobj, struct device, kobj);
- 	struct dsa_switch *ds = dev_get_drvdata(dev);
--	struct dsa_switch_ops *ops = ds->ops;
-+	const struct dsa_switch_ops *ops = ds->ops;
- 	umode_t mode = attr->mode;
- 
- 	if (index == 1) {
 -- 
 2.9.3
