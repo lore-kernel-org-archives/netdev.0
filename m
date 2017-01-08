@@ -1,42 +1,33 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 0/4] net: dsa: Make dsa_switch_ops const
-Date: Sun,  8 Jan 2017 14:52:04 -0800
-Message-ID: <20170108225208.15431-1-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 1/2] net: make ndo_get_stats64 a void
+ function
+Date: Sun, 08 Jan 2017 18:14:04 -0500 (EST)
+Message-ID: <20170108.181404.448354698697910280.davem@davemloft.net>
+References: <20170107031253.2739-1-sthemmin@microsoft.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, sthemmin@microsoft.com
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:33863 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933172AbdAHW7p (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 8 Jan 2017 17:59:45 -0500
-Received: by mail-pg0-f67.google.com with SMTP id b1so49807337pgc.1
-        for <netdev@vger.kernel.org>; Sun, 08 Jan 2017 14:59:45 -0800 (PST)
+Received: from shards.monkeyblade.net ([184.105.139.130]:44206 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933989AbdAHXOJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 8 Jan 2017 18:14:09 -0500
+In-Reply-To: <20170107031253.2739-1-sthemmin@microsoft.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Fri,  6 Jan 2017 19:12:52 -0800
 
-This patch series allows us to annotate dsa_switch_ops with a const
-qualifier.
+> The network device operation for reading statistics is only called
+> in one place, and it ignores the return value. Having a structure
+> return value is potentially confusing because some future driver could
+> incorrectly assume that the return value was used.
+> 
+> Fix all drivers with ndo_get_stats64 to have a void function.
+> 
+> Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 
-Florian Fainelli (4):
-  net: dsa: b53: Export most operations to other drivers
-  net: dsa: bcm_sf2: Declare our own dsa_switch_ops
-  net: dsa: Encapsulate legacy switch drivers into dsa_switch_driver
-  net: dsa: Make dsa_switch_ops const
-
- drivers/net/dsa/b53/b53_common.c | 81 +++++++++++++++++++++++-----------------
- drivers/net/dsa/b53/b53_priv.h   | 33 ++++++++++++++++
- drivers/net/dsa/bcm_sf2.c        | 53 ++++++++++++++++----------
- drivers/net/dsa/mv88e6060.c      | 10 +++--
- drivers/net/dsa/mv88e6xxx/chip.c | 10 +++--
- drivers/net/dsa/qca8k.c          |  2 +-
- include/net/dsa.h                | 13 ++++---
- net/dsa/dsa.c                    | 22 ++++++-----
- net/dsa/hwmon.c                  |  2 +-
- 9 files changed, 149 insertions(+), 77 deletions(-)
-
--- 
-2.9.3
+Applied.
