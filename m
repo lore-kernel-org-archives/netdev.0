@@ -1,78 +1,91 @@
 From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: Re: [PATCH v2 net-next 3/4] secure_seq: use SipHash in place of MD5
-Date: Sun, 8 Jan 2017 13:23:52 +0100
-Message-ID: <CAHmME9rJQTD8taAvcL8+ffsz1nQTLy9z8+1AzV_WVTGgwwQWZA@mail.gmail.com>
-References: <20170107144057.15432-1-Jason@zx2c4.com> <20170107144057.15432-4-Jason@zx2c4.com>
- <20170107.163736.2224609477435674963.davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next 0/4] Introduce The SipHash PRF
+Date: Sun, 8 Jan 2017 13:41:46 +0100
+Message-ID: <CAHmME9rsff+tKAiM3PZ+21YDHM53qZzLMV79+KgFBk8bO-1yTQ@mail.gmail.com>
+References: <20170107144057.15432-1-Jason@zx2c4.com> <20170107195422.GA8327@zzz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Eric Biggers <ebiggers3@gmail.com>,
+Cc: David Miller <davem@davemloft.net>,
         Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>,
         Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
         Netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Andi Kleen <ak@linux.intel.com>,
-        David Laight <David.Laight@aculab.com>,
-        Tom Herbert <tom@herbertland.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-To: David Miller <davem@davemloft.net>
+        LKML <linux-kernel@vger.kernel.org>
+To: Eric Biggers <ebiggers3@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from frisell.zx2c4.com ([192.95.5.64]:35597 "EHLO frisell.zx2c4.com"
+Received: from frisell.zx2c4.com ([192.95.5.64]:39723 "EHLO frisell.zx2c4.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S933111AbdAHMX6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 8 Jan 2017 07:23:58 -0500
-In-Reply-To: <20170107.163736.2224609477435674963.davem@davemloft.net>
+        id S967128AbdAHMlu (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 8 Jan 2017 07:41:50 -0500
+In-Reply-To: <20170107195422.GA8327@zzz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+Hi Eric,
 
-On Sat, Jan 7, 2017 at 10:37 PM, David Miller <davem@davemloft.net> wrote:
-> This and the next patch are a real shame, performance wise, on cpus
-> that have single-instruction SHA1 and MD5 implementations.  Sparc64
-> has both, and I believe x86_64 can do SHA1 these days.
+Thanks for round two. I'll address these. Comments are inline below.
+
+On Sat, Jan 7, 2017 at 8:54 PM, Eric Biggers <ebiggers3@gmail.com> wrote:
+> Hi Jason, thanks for doing this!  Yes, I had gotten a little lost in the earlier
+> discussions about the 'random' driver and other potential users of SipHash.  I
+> agree with the approach to just introduce the two uses in net/ to start with,
+> and introduce more users later.  The changes from v1 to v2 look good too.
+
+Indeed the initial patchset was _insane_ and the discussion became
+sprawling and impossible. Everybody suggested I do baby steps, so
+voila, there's this more manageable patchset now.
+
+> Now that the HalfSipHash patch is Cc'ed to me too I do have one other small
+> suggestion which is that this:
 >
-> It took so long to get those instructions into real silicon, and then
-> have software implemented to make use of them as well.
+>         #if BITS_PER_LONG == 64
+>         typedef siphash_key_t hsiphash_key_t;
+>         #define HSIPHASH_ALIGNMENT SIPHASH_ALIGNMENT
+>         #else
+>         typedef struct {
+>                 u32 key[2];
+>         } hsiphash_key_t;
+>         #define HSIPHASH_ALIGNMENT __alignof__(u32)
+>         #endif
+>
+> could cause confusion if someone accidentally uses 'siphash_key_t' instead of
+> 'hsiphash_key_t', as their code would compile fine on a 64-bit platform but
+> would fail to compile on a 32-bit platform.  I think there should just always be
+> a hsiphash_key_t struct defined, and it can use unsigned long (no need for an
+> #ifdef):
+>
+>         #define HSIPHASH_ALIGNMENT __alignof__(unsigned long)
+>         typedef struct {
+>                 unsigned long key[2];
+>         } hsiphash_key_t;
 
-Actually, from a performance perspective, these patches are strictly
-better than what was already there, since nothing actually used the
-special instructions. They're also better security wise, because the
-prior use of these functions was quite dubious. On x86, using the FPU
-isn't really an option in these situations, as you well know. On
-Sparc64, sure, I guess it's a bummer that silicon is lagging
-cryptography. If after merging these improvements, you want to start
-thinking about a special construction just for Sparc64 that would be
-faster and have a matching security level, this would of course be
-great. But so far, nobody even bothered to do this for the old
-insecure slow code that this is replacing.
+Good idea. Will adjust. That makes things a lot simpler.
 
-> Who knows when we'll see SipHash widely deployed in any instruction
-> set, if at all, right?  And by that time we'll possibly find out that
-> "Oh shit, this SipHash thing has flaws!" and we'll need
-> DIPPY_DO_DA_HASH and thus be forced back to a software implementation
-> again.
+> There's also a small error in Documentation/siphash.txt: hsiphash() is shown as
+> taking siphash_key_t instead of hsiphash_key_t.
 
-The literature and cryptanalyses on SipHash have been quite positive.
-And as I mentioned earlier in patchset messages, SipHash is really
-_not_ some newfangled hipster thing, but rather something that's been
-around a while, pretty extensively studied, and considered quite
-venerable. I think if you're going to bet on something SipHash is one
-of the more safe bets to be made.
+Arg, nice catch, fixing.
 
-> I understand the reasons why these patches are being proposed, I just
-> thought I'd mention the issue of cpus that implement secure hash
-> algorithm instructions.
+> The uses in net look good too.  Something to watch out for is accidentally
+> defining the structs in a way that leaves internal padding bytes, which could
+> theoretically take on any value and cause the same input to produce different
+> hashes.  But AFAICS, in the proposed patch all the structs are laid out
+> properly, so that won't happen.
 
-Yea, agreed, it's a bummer. Hopefully silicon will catch up someday,
-and we'll all be happy. In the meantime, at least these patches
-improve the situation on Linux.
+Indeed that's something closely examined. In fact, originally, just to
+be careful, I was using __packed, but David pointed out that using
+__packed makes gcc resort to byte-by-byte assignment, even if the
+alignment would otherwise be natural. So, instead I just made sure to
+list the members in descending order of size, and made sure to use
+offsetendof instead of sizeof. I'll be sure to document this
+precaution in the Documentation/siphash.txt file for the next version,
+alongside a simple example.
 
-I interpret your letter's omission of any substantive comments on the
-code itself to be an indication that things are mostly sane. I'll
-follow up with Eric's suggestions to produce a v3, and then hopefully
-we can get this merged.
+> 'net_secret' could also be marked as __read_mostly, like the keys in
+> syncookies.c, I suppose; it may not matter much.
 
-Regards,
+Good point. Fixing.
+
+New version coming your way soon.
+
+Thanks again,
 Jason
