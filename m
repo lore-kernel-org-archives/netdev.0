@@ -1,29 +1,30 @@
-From: Bronek Kozicki <brok@spamcop.net>
-Subject: patch 4.8 "net: handle no dst on skb in icmp6_send"
-Date: Sun, 8 Jan 2017 21:46:18 +0000
-Message-ID: <02a7e2d2-cc1d-1c64-ac9b-7daf8a834b56@spamcop.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] liquidio: store the L4 hash of rx packets in
+ skb
+Date: Sun, 08 Jan 2017 17:09:41 -0500 (EST)
+Message-ID: <20170108.170941.1437038681712014840.davem@davemloft.net>
+References: <20170107005542.GA16278@felix.cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Ahern <dsa@cumulusnetworks.com>,
-        "David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
+        derek.chickles@cavium.com, satananda.burla@cavium.com
+To: felix.manlunas@cavium.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from b-painless.mh.aa.net.uk ([81.187.30.52]:47429 "EHLO
-        b-painless.mh.aa.net.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933408AbdAHWEx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 8 Jan 2017 17:04:53 -0500
+Received: from shards.monkeyblade.net ([184.105.139.130]:42746 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S968703AbdAHWJn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 8 Jan 2017 17:09:43 -0500
+In-Reply-To: <20170107005542.GA16278@felix.cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Date: Fri, 6 Jan 2017 16:55:42 -0800
 
-any particular reason why this fix 
-https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=79dc7e3f1cd323be4c81aa1a94faa1b3ed987fb2 
-was missed from stable 4.8 line? Apparently the bug being fixed has its 
-own https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2016-9919
+>  
+> +		if (rh->r_dh.has_hash) {
+> +			u32 hash = be32_to_cpu(*(u32 *)(skb->data + r_dh_off));
 
-Thank you for your hard work and best regards
-
-
-B.
+Is the checksum defined to be in the first 4-bytes of the 8-byte DHLEN unit,
+or the second 4-bytes?  Is the answer to this question endian-dependent?
