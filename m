@@ -1,154 +1,25 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: [PATCH v3 net-next 4/4] syncookies: use SipHash in place of SHA1
-Date: Sun,  8 Jan 2017 13:54:03 +0100
-Message-ID: <20170108125403.16355-5-Jason@zx2c4.com>
-References: <20170108125403.16355-1-Jason@zx2c4.com>
-Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-To: davem@davemloft.net, ebiggers3@gmail.com,
-        jeanphilippe.aumasson@gmail.com, gregkh@linuxfoundation.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+From: THANDI ROBERT <wbhjj4@gmail.com>
+Subject: GREETINGS
+Date: Sun, 8 Jan 2017 13:01:44 +0000 (UTC)
+Message-ID: <1132480439.796036.1483880504062@mail.yahoo.com>
+References: <1464097911.5378851.1483358605573.ref@mail.yahoo.com> <1464097911.5378851.1483358605573@mail.yahoo.com> <242994141.6415012.1483455279888@mail.yahoo.com> <22753450.7497484.1483532714770@mail.yahoo.com> <782749576.504856.1483611973769@mail.yahoo.com> <1902577668.555222.1483625311477@mail.yahoo.com> <701417412.220811.1483792161572@mail.yahoo.com>
+Reply-To: THANDI ROBERT <robert.thandi@yandex.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from frisell.zx2c4.com ([192.95.5.64]:45243 "EHLO frisell.zx2c4.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754866AbdAHMym (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 8 Jan 2017 07:54:42 -0500
-In-Reply-To: <20170108125403.16355-1-Jason@zx2c4.com>
+Received: from nm48-vm9.bullet.mail.gq1.yahoo.com ([67.195.87.229]:40710 "EHLO
+        nm48-vm9.bullet.mail.gq1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1752644AbdAHNHd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 8 Jan 2017 08:07:33 -0500
+In-Reply-To: <701417412.220811.1483792161572@mail.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SHA1 is slower and less secure than SipHash, and so replacing syncookie
-generation with SipHash makes natural sense. Some BSDs have been doing
-this for several years in fact.
 
-The speedup should be similar -- and even more impressive -- to the
-speedup from the sequence number fix in this series.
 
-Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: David Miller <davem@davemloft.net>
----
- net/ipv4/syncookies.c | 21 +++++----------------
- net/ipv6/syncookies.c | 41 +++++++++++++++++++----------------------
- 2 files changed, 24 insertions(+), 38 deletions(-)
+Hello my name is Ms. Thandi Robert, from Ivory Coast. My parents were brutally mulled by the former president Laurent Gbagbo because of political crisis as the only survival of my family. I got your email while searching for a reliable personality in my private study on the internet. I am in need of your help and stand as my guardian in the management of my family inherited sum of $22.5M USD.  Please get back to me with your private telephone number with sincerity. 
 
-diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
-index 3e88467d70ee..496b97e17aaf 100644
---- a/net/ipv4/syncookies.c
-+++ b/net/ipv4/syncookies.c
-@@ -13,13 +13,13 @@
- #include <linux/tcp.h>
- #include <linux/slab.h>
- #include <linux/random.h>
--#include <linux/cryptohash.h>
-+#include <linux/siphash.h>
- #include <linux/kernel.h>
- #include <linux/export.h>
- #include <net/tcp.h>
- #include <net/route.h>
- 
--static u32 syncookie_secret[2][16-4+SHA_DIGEST_WORDS] __read_mostly;
-+static siphash_key_t syncookie_secret[2] __read_mostly;
- 
- #define COOKIEBITS 24	/* Upper bits store count */
- #define COOKIEMASK (((__u32)1 << COOKIEBITS) - 1)
-@@ -48,24 +48,13 @@ static u32 syncookie_secret[2][16-4+SHA_DIGEST_WORDS] __read_mostly;
- #define TSBITS	6
- #define TSMASK	(((__u32)1 << TSBITS) - 1)
- 
--static DEFINE_PER_CPU(__u32 [16 + 5 + SHA_WORKSPACE_WORDS], ipv4_cookie_scratch);
--
- static u32 cookie_hash(__be32 saddr, __be32 daddr, __be16 sport, __be16 dport,
- 		       u32 count, int c)
- {
--	__u32 *tmp;
--
- 	net_get_random_once(syncookie_secret, sizeof(syncookie_secret));
--
--	tmp  = this_cpu_ptr(ipv4_cookie_scratch);
--	memcpy(tmp + 4, syncookie_secret[c], sizeof(syncookie_secret[c]));
--	tmp[0] = (__force u32)saddr;
--	tmp[1] = (__force u32)daddr;
--	tmp[2] = ((__force u32)sport << 16) + (__force u32)dport;
--	tmp[3] = count;
--	sha_transform(tmp + 16, (__u8 *)tmp, tmp + 16 + 5);
--
--	return tmp[17];
-+	return siphash_4u32((__force u32)saddr, (__force u32)daddr,
-+			    (__force u32)sport << 16 | (__force u32)dport,
-+			    count, &syncookie_secret[c]);
- }
- 
- 
-diff --git a/net/ipv6/syncookies.c b/net/ipv6/syncookies.c
-index a4d49760bf43..895ff650db43 100644
---- a/net/ipv6/syncookies.c
-+++ b/net/ipv6/syncookies.c
-@@ -16,7 +16,7 @@
- 
- #include <linux/tcp.h>
- #include <linux/random.h>
--#include <linux/cryptohash.h>
-+#include <linux/siphash.h>
- #include <linux/kernel.h>
- #include <net/ipv6.h>
- #include <net/tcp.h>
-@@ -24,7 +24,7 @@
- #define COOKIEBITS 24	/* Upper bits store count */
- #define COOKIEMASK (((__u32)1 << COOKIEBITS) - 1)
- 
--static u32 syncookie6_secret[2][16-4+SHA_DIGEST_WORDS] __read_mostly;
-+static siphash_key_t syncookie6_secret[2] __read_mostly;
- 
- /* RFC 2460, Section 8.3:
-  * [ipv6 tcp] MSS must be computed as the maximum packet size minus 60 [..]
-@@ -41,30 +41,27 @@ static __u16 const msstab[] = {
- 	9000 - 60,
- };
- 
--static DEFINE_PER_CPU(__u32 [16 + 5 + SHA_WORKSPACE_WORDS], ipv6_cookie_scratch);
--
--static u32 cookie_hash(const struct in6_addr *saddr, const struct in6_addr *daddr,
-+static u32 cookie_hash(const struct in6_addr *saddr,
-+		       const struct in6_addr *daddr,
- 		       __be16 sport, __be16 dport, u32 count, int c)
- {
--	__u32 *tmp;
-+	const struct {
-+		struct in6_addr saddr;
-+		struct in6_addr daddr;
-+		u32 count;
-+		__be16 sport;
-+		__be16 dport;
-+	} __aligned(SIPHASH_ALIGNMENT) combined = {
-+		.saddr = *saddr,
-+		.daddr = *daddr,
-+		.count = count,
-+		.sport = sport,
-+		.dport = dport
-+	};
- 
- 	net_get_random_once(syncookie6_secret, sizeof(syncookie6_secret));
--
--	tmp  = this_cpu_ptr(ipv6_cookie_scratch);
--
--	/*
--	 * we have 320 bits of information to hash, copy in the remaining
--	 * 192 bits required for sha_transform, from the syncookie6_secret
--	 * and overwrite the digest with the secret
--	 */
--	memcpy(tmp + 10, syncookie6_secret[c], 44);
--	memcpy(tmp, saddr, 16);
--	memcpy(tmp + 4, daddr, 16);
--	tmp[8] = ((__force u32)sport << 16) + (__force u32)dport;
--	tmp[9] = count;
--	sha_transform(tmp + 16, (__u8 *)tmp, tmp + 16 + 5);
--
--	return tmp[17];
-+	return siphash(&combined, offsetofend(typeof(combined), dport),
-+		       &syncookie6_secret[c]);
- }
- 
- static __u32 secure_tcp_syn_cookie(const struct in6_addr *saddr,
--- 
-2.11.0
+Sincerely Yours, 
+Ms. Thandi Robert
