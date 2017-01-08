@@ -1,67 +1,58 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net 1/2] net: dsa: bcm_sf2: Do not clobber b53_switch_ops
-Date: Sun, 8 Jan 2017 11:31:05 -0800
-Message-ID: <37a65faf-93f1-067a-cd85-55d96b0631cc@gmail.com>
-References: <20170108050157.16302-1-f.fainelli@gmail.com>
- <20170108050157.16302-2-f.fainelli@gmail.com>
- <20170108174105.GA21101@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-        vivien.didelot@savoirfairelinux.com
-To: Andrew Lunn <andrew@lunn.ch>
+From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+Subject: [PATCH] net: ethernet: ti: cpsw: extend limits for cpsw_get/set_ringparam
+Date: Sun,  8 Jan 2017 22:12:27 +0200
+Message-ID: <1483906347-7567-1-git-send-email-ivan.khoronzhuk@linaro.org>
+Cc: linux-omap@vger.kernel.org, grygorii.strashko@ti.com,
+        linux-kernel@vger.kernel.org,
+        Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+To: netdev@vger.kernel.org, mugunthanvnm@ti.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f68.google.com ([209.85.218.68]:34953 "EHLO
-        mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750891AbdAHTbI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 8 Jan 2017 14:31:08 -0500
-Received: by mail-oi0-f68.google.com with SMTP id x84so10359363oix.2
-        for <netdev@vger.kernel.org>; Sun, 08 Jan 2017 11:31:08 -0800 (PST)
-In-Reply-To: <20170108174105.GA21101@lunn.ch>
+Received: from mail-lf0-f48.google.com ([209.85.215.48]:34904 "EHLO
+        mail-lf0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750892AbdAHUMd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 8 Jan 2017 15:12:33 -0500
+Received: by mail-lf0-f48.google.com with SMTP id m78so62041973lfg.2
+        for <netdev@vger.kernel.org>; Sun, 08 Jan 2017 12:12:32 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 01/08/17 à 09:41, Andrew Lunn a écrit :
-> On Sat, Jan 07, 2017 at 09:01:56PM -0800, Florian Fainelli wrote:
->> We make the bcm_sf2 driver override ds->ops which points to
->> b53_switch_ops since b53_switch_alloc() did the assignent. This is all
->> well and good until a second b53 switch comes in, and ends up using the
->> bcm_sf2 operations. Make a proper local copy, substitute the ds->ops
->> pointer and then override the operations.
->>
->> Fixes: f458995b9ad8 ("net: dsa: bcm_sf2: Utilize core B53 driver when possible")
->> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
-> 
-> Hi Florian
+Allow to set number of descs close to possible values. In case of
+minimum limit it's equal to number of channels to be able to set
+at least one desc per channel. For maximum limit leave enough descs
+number for tx channels.
 
-Hi Andrew,
+Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+---
 
-> 
-> There is a general trend of making ops structures const. It closes off
-> kernel exploits. This coping and then modifying prevents us making
-> ds->ops a pointer to a const.
+Based on net-next/master
 
-Agreed, and this was my initial approach, but I also wanted a minimal
-fix for David to pull into "net" while we can properly resolve this for
-"net-next" see below.
+ drivers/net/ethernet/ti/cpsw.c | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
 
-> 
-> You are already using b53_common.c as a library. Could you go further
-> with the concept, and export the ops you need for SF2, and have SF2
-> define its own ops structure? We can then swap to const ops dsa wide.
-
-Making the ops const was my initial approach but there are several
-challenges to making it possible right now which I will address against
-net-next:
-
-- register/unregister_switch_driver actually do modify dsa_switch_ops
-while updating the list pointer, so we need to encapsulate
-dsa_switch_ops into a dsa_switch_driver plus a list member
-
-- as you pointed out, b53 needs to export the operations to other
-drivers that are going to make use of them
-
-Thanks for your comments!
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index 458298d..09e0ed6 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -2474,8 +2474,7 @@ static void cpsw_get_ringparam(struct net_device *ndev,
+ 	/* not supported */
+ 	ering->tx_max_pending = 0;
+ 	ering->tx_pending = cpdma_get_num_tx_descs(cpsw->dma);
+-	/* Max 90% RX buffers */
+-	ering->rx_max_pending = (descs_pool_size * 9) / 10;
++	ering->rx_max_pending = descs_pool_size - CPSW_MAX_QUEUES;
+ 	ering->rx_pending = cpdma_get_num_rx_descs(cpsw->dma);
+ }
+ 
+@@ -2490,8 +2489,8 @@ static int cpsw_set_ringparam(struct net_device *ndev,
+ 	/* ignore ering->tx_pending - only rx_pending adjustment is supported */
+ 
+ 	if (ering->rx_mini_pending || ering->rx_jumbo_pending ||
+-	    ering->rx_pending < (descs_pool_size / 10) ||
+-	    ering->rx_pending > ((descs_pool_size * 9) / 10))
++	    ering->rx_pending < CPSW_MAX_QUEUES ||
++	    ering->rx_pending > (descs_pool_size - CPSW_MAX_QUEUES))
+ 		return -EINVAL;
+ 
+ 	if (ering->rx_pending == cpdma_get_num_rx_descs(cpsw->dma))
 -- 
-Florian
+2.7.4
