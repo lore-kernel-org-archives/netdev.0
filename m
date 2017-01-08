@@ -1,48 +1,81 @@
-From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-Subject: [PATCH 1/4] net: ethernet: ti: cpsw: remove dual check from common res usage function
-Date: Sun,  8 Jan 2017 18:41:00 +0200
-Message-ID: <1483893663-15673-2-git-send-email-ivan.khoronzhuk@linaro.org>
-References: <1483893663-15673-1-git-send-email-ivan.khoronzhuk@linaro.org>
-Cc: linux-omap@vger.kernel.org, grygorii.strashko@ti.com,
-        linux-kernel@vger.kernel.org,
-        Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-To: netdev@vger.kernel.org, mugunthanvnm@ti.com
+From: Davide Caratti <dcaratti@redhat.com>
+Subject: Re: [PATCH net-next 2/2] net/sched: act_csum: compute crc32c on
+ SCTP packets
+Date: Sun, 08 Jan 2017 17:43:43 +0100
+Message-ID: <1483893823.2552.34.camel@redhat.com>
+References: <cover.1483630849.git.dcaratti@redhat.com>
+         <c9ee721fd7816b9d30939f23783f50f9aeb00d66.1483630849.git.dcaratti@redhat.com>
+         <b4e2b22a-5a06-3c31-a312-3c6de1ef14e5@6wind.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org
+To: nicolas.dichtel@6wind.com, Jamal Hadi Salim <jhs@mojatatu.com>,
+        "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f42.google.com ([209.85.215.42]:33759 "EHLO
-        mail-lf0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753863AbdAHQlJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 8 Jan 2017 11:41:09 -0500
-Received: by mail-lf0-f42.google.com with SMTP id k86so81784150lfi.0
-        for <netdev@vger.kernel.org>; Sun, 08 Jan 2017 08:41:09 -0800 (PST)
-In-Reply-To: <1483893663-15673-1-git-send-email-ivan.khoronzhuk@linaro.org>
+Received: from mx1.redhat.com ([209.132.183.28]:51546 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1756729AbdAHQnt (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 8 Jan 2017 11:43:49 -0500
+In-Reply-To: <b4e2b22a-5a06-3c31-a312-3c6de1ef14e5@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Common res usage is possible only in case an interface is
-running. In case of not dual emac here can be only one interface,
-so while ndo_open and switch mode, only one interface can be opened,
-thus if open is called no any interface is running ... and no common
-res are used. So remove check on dual emac, it will simplify
-code/understanding and will match the name it's called.
+On Fri, 2017-01-06 at 10:23 +0100, Nicolas Dichtel wrote:
+> Le 05/01/2017 à 17:59, Davide Caratti a écrit :
+> > @@ -21,7 +21,8 @@ enum {
+> >  	TCA_CSUM_UPDATE_FLAG_IGMP    = 4,
+> >  	TCA_CSUM_UPDATE_FLAG_TCP     = 8,
+> >  	TCA_CSUM_UPDATE_FLAG_UDP     = 16,
+> > -	TCA_CSUM_UPDATE_FLAG_UDPLITE = 32
+> > +	TCA_CSUM_UPDATE_FLAG_UDPLITE = 32,
+> > +	TCA_CSUM_UPDATE_FLAG_SCTP    = 64
+> nit: please put a comma after the '64' so that the next person who adds
+> a flag
+> will not have to touch that line.
+> 
 
-Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
----
- drivers/net/ethernet/ti/cpsw.c | 3 ---
- 1 file changed, 3 deletions(-)
+ok,
 
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index f339268..d261024 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -1240,9 +1240,6 @@ static int cpsw_common_res_usage_state(struct cpsw_common *cpsw)
- 	u32 i;
- 	u32 usage_count = 0;
- 
--	if (!cpsw->data.dual_emac)
--		return 0;
--
- 	for (i = 0; i < cpsw->data.slaves; i++)
- 		if (cpsw->slaves[i].open_stat)
- 			usage_count++;
--- 
-2.7.4
+> > @@ -365,6 +385,12 @@ static int tcf_csum_ipv4(struct sk_buff *skb, u32
+> > update_flags)
+> >  					       ntohs(iph->tot_len),
+> > 1))
+> >  				goto fail;
+> >  		break;
+> > +	case IPPROTO_SCTP:
+> > +		if (update_flags & TCA_CSUM_UPDATE_FLAG_SCTP)
+> > +			if (!tcf_csum_sctp(skb, iph->ihl * 4,
+> > +					   ntohs(iph->tot_len)))
+> nit: one 'if' only?
+> 		if (update_flags & TCA_CSUM_UPDATE_FLAG_SCTP &&
+> 		    !tcf_csum_sctp(skb, iph->ihl * 4, ntohs(iph->tot_len))
+> 
+
+ok,
+
+> > @@ -481,6 +507,12 @@ static int tcf_csum_ipv6(struct sk_buff *skb, u32
+> > update_flags)
+> >  						       pl +
+> > sizeof(*ip6h), 1))
+> >  					goto fail;
+> >  			goto done;
+> > +		case IPPROTO_SCTP:
+> > +			if (update_flags & TCA_CSUM_UPDATE_FLAG_SCTP)
+> > +				if (!tcf_csum_sctp(skb, hl,
+> > +						   pl +
+> > sizeof(*ip6h)))
+> Same here.
+> 
+
+ok,
+
+> 
+> Regards,
+> Nicolas
+
+hello Nicolas,
+thank you for the attention! I will apply the changes you suggested and
+repost a v2.
+
+regards,
