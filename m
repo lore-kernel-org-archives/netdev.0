@@ -1,67 +1,93 @@
-From: Russell King - ARM Linux <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>
-Subject: Re: [PATCH v2 7/7] uapi: export all headers under uapi directories
-Date: Mon, 9 Jan 2017 12:01:08 +0000
-Message-ID: <20170109120107.GW14217@n2100.armlinux.org.uk>
-References: <bf83da6b-01ef-bf44-b3e1-ca6fc5636818@6wind.com>
- <1483695839-18660-1-git-send-email-nicolas.dichtel@6wind.com>
- <1483695839-18660-8-git-send-email-nicolas.dichtel@6wind.com>
+From: maowenan <maowenan@huawei.com>
+Subject: RE: [PATCH v2 net-next] net:add one common config
+ ARCH_WANT_RELAX_ORDER to support relax ordering.
+Date: Mon, 9 Jan 2017 12:07:03 +0000
+Message-ID: <F95AC9340317A84688A5F0DF0246F3F201EC4E06@szxemi502-mbx.china.huawei.com>
+References: <1483939954-9864-1-git-send-email-maowenan@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: arnd-r2nGTMty4D4@public.gmane.org, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org,
-        alsa-devel-K7yf7f+aM1XWsZ/bQMPhNw@public.gmane.org, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, airlied-cv59FeDIM0c@public.gmane.org,
-        linux-fbdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org,
-        linux-mtd-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, sparclinux-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-arch-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-am33-list-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-c6x-dev-jPsnJVOj+W6hPH1hqNUYSQ@public.gmane.org,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-hexagon-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, coreteam-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org,
-        fcoe-devel-s9riP+hp16TNLxjTenLetw@public.gmane.org, xen-devel-GuqFBffKawtpuQazS67q72D2FQJk+8+b@public.gmane.org,
-        linux-snps-arc-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        uclinux-h8-devel-5NWGOfrQmneRv+LV9MX5uooqe+aC9MnS@public.gmane.org,
-        linux-xtensa-PjhNF2WwrV/0Sa2dR60CXw@public.gmane.org, linux-kbuild-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        adi-buildroot-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
-        linux-raid-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, lin
-To: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-metag-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1483695839-18660-8-git-send-email-nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
-Sender: linux-metag-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Dingtianhong <dingtianhong@huawei.com>,
+        "weiyongjun (A)" <weiyongjun1@huawei.com>
+To: maowenan <maowenan@huawei.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>,
+        "alexander.duyck@gmail.com" <alexander.duyck@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:45054 "EHLO
+        szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1760025AbdAIMHP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 07:07:15 -0500
+In-Reply-To: <1483939954-9864-1-git-send-email-maowenan@huawei.com>
+Content-Language: zh-CN
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 06, 2017 at 10:43:59AM +0100, Nicolas Dichtel wrote:
-> diff --git a/arch/arm/include/uapi/asm/Kbuild b/arch/arm/include/uapi/asm/Kbuild
-> index 46a76cd6acb6..607f702c2d62 100644
-> --- a/arch/arm/include/uapi/asm/Kbuild
-> +++ b/arch/arm/include/uapi/asm/Kbuild
-> @@ -1,23 +1,6 @@
->  # UAPI Header export list
->  include include/uapi/asm-generic/Kbuild.asm
->  
-> -header-y += auxvec.h
-> -header-y += byteorder.h
-> -header-y += fcntl.h
-> -header-y += hwcap.h
-> -header-y += ioctls.h
-> -header-y += kvm_para.h
-> -header-y += mman.h
-> -header-y += perf_regs.h
-> -header-y += posix_types.h
-> -header-y += ptrace.h
-> -header-y += setup.h
-> -header-y += sigcontext.h
-> -header-y += signal.h
-> -header-y += stat.h
-> -header-y += statfs.h
-> -header-y += swab.h
-> -header-y += unistd.h
->  genhdr-y += unistd-common.h
->  genhdr-y += unistd-oabi.h
->  genhdr-y += unistd-eabi.h
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
+> On Behalf Of Mao Wenan
+> Sent: Monday, January 09, 2017 1:33 PM
+> To: netdev@vger.kernel.org; jeffrey.t.kirsher@intel.com;
+> alexander.duyck@gmail.com
+> Subject: [PATCH v2 net-next] net:add one common config
+> ARCH_WANT_RELAX_ORDER to support relax ordering.
+> 
+> Relax ordering(RO) is one feature of 82599 NIC, to enable this feature can
+> enhance the performance for some cpu architecure, such as SPARC and so on.
+> Currently it only supports one special cpu architecture(SPARC) in 82599 driver
+> to enable RO feature, this is not very common for other cpu architecture which
+> really needs RO feature.
+> This patch add one common config CONFIG_ARCH_WANT_RELAX_ORDER to
+> set RO feature, and should define CONFIG_ARCH_WANT_RELAX_ORDER in
+> sparc Kconfig firstly.
+> 
+> Signed-off-by: Mao Wenan <maowenan@huawei.com>
+> ---
+>  arch/Kconfig                                    | 3 +++
+>  arch/sparc/Kconfig                              | 1 +
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_common.c | 2 +-
+>  3 files changed, 5 insertions(+), 1 deletion(-)
+> 
+> diff --git a/arch/Kconfig b/arch/Kconfig index 99839c2..bd04eac 100644
+> --- a/arch/Kconfig
+> +++ b/arch/Kconfig
+> @@ -781,4 +781,7 @@ config VMAP_STACK
+>  	  the stack to map directly to the KASAN shadow map using a formula
+>  	  that is incorrect if the stack is in vmalloc space.
+> 
+> +config ARCH_WANT_RELAX_ORDER
+> +	bool
+> +
+>  source "kernel/gcov/Kconfig"
+> diff --git a/arch/sparc/Kconfig b/arch/sparc/Kconfig index cf4034c..68ac5c7
+> 100644
+> --- a/arch/sparc/Kconfig
+> +++ b/arch/sparc/Kconfig
+> @@ -44,6 +44,7 @@ config SPARC
+>  	select CPU_NO_EFFICIENT_FFS
+>  	select HAVE_ARCH_HARDENED_USERCOPY
+>  	select PROVE_LOCKING_SMALL if PROVE_LOCKING
+> +	select ARCH_WANT_RELAX_ORDER
+> 
+>  config SPARC32
+>  	def_bool !64BIT
+> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+> b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+> index 094e1d6..c38d50c 100644
+> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_common.c
+> @@ -350,7 +350,7 @@ s32 ixgbe_start_hw_gen2(struct ixgbe_hw *hw)
+>  	}
+>  	IXGBE_WRITE_FLUSH(hw);
+> 
+> -#ifndef CONFIG_SPARC
+> +#ifndef CONFIG_ARCH_WANT_RELAX_ORDER
+>  	/* Disable relaxed ordering */
+>  	for (i = 0; i < hw->mac.max_tx_queues; i++) {
+>  		u32 regval;
+> --
+> 2.7.0
+> 
 
-Acked-by: Russell King <rmk+kernel-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>
-
--- 
-RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
-FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
-according to speedtest.net.
+Hi Alex, Is there any improvement for this patch?
+@Jeff, do you have any comments about this patch?
