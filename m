@@ -1,7 +1,7 @@
 From: Alexander Loktionov <Alexander.Loktionov@aquantia.com>
-Subject: [PATCH v2 10/13] net: ethernet: aquantia: Hardware interface and utility functions
-Date: Mon,  9 Jan 2017 14:16:08 -0800
-Message-ID: <7bc5005bb4345003d27e67df218fd4689aca0050.1483999588.git.vomlehn@texas.net>
+Subject: [PATCH v2 03/13] net: ethernet: aquantia: Add ring support code
+Date: Mon,  9 Jan 2017 14:16:01 -0800
+Message-ID: <6dfadde2e1fe39b46d814c83fb7460566e860095.1483999588.git.vomlehn@texas.net>
 References: <cover.1483999588.git.vomlehn@texas.net>
 Cc: Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
         Alexander Loktionov <Alexander.Loktionov@aquantia.com>,
@@ -9,39 +9,37 @@ Cc: Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
         Pavel Belous <Pavel.Belous@aquantia.com>
 To: netdev@vger.kernel.org, David VomLehn <vomlehn@texas.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from barracuda5.aus1.datafoundry.com ([209.99.124.136]:42609 "EHLO
+Received: from barracuda5.aus1.datafoundry.com ([209.99.124.136]:42510 "EHLO
         barracuda.datafoundry.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S933067AbdAIWRT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 17:17:19 -0500
+        by vger.kernel.org with ESMTP id S932080AbdAIWQw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 17:16:52 -0500
 In-Reply-To: <cover.1483999588.git.vomlehn@texas.net>
-In-Reply-To: <c2d259cedda86684baf77e04c83ea675ee040bda.1483999588.git.vomlehn@texas.net>
-References: <cover.1483999588.git.vomlehn@texas.net> <0b0d8974bdbfa66ab3bc4460f32f7916dd54b85a.1483999588.git.vomlehn@texas.net> <6d32f594bb99a6f56f82f13f6aa54885a06b1e22.1483999588.git.vomlehn@texas.net> <6dfadde2e1fe39b46d814c83fb7460566e860095.1483999588.git.vomlehn@texas.net> <a24ccb1c19a30c6fd4492b54d32663225d0f6534.1483999588.git.vomlehn@texas.net> <8b8385cb2a8e856da001922d65009a4fcfc26295.1483999588.git.vomlehn@texas.net> <1ea4ddc9bb144b5809aec4e441d553ff3fe9c263.1483999588.git.vomlehn@texas.net> <5cf2494bfdb3e327dec2fdc7c50ae56fdac83a2f.1483999588.git.vomlehn@texas.net> <68bda8ddca6d16001ea990a5197cdcdaa4efa107.1483999588.git.vomlehn@texas.net> <c2d259cedda86684baf77e04c83ea675ee040bda.1483999588.git.vomlehn@texas.net>
+In-Reply-To: <6d32f594bb99a6f56f82f13f6aa54885a06b1e22.1483999588.git.vomlehn@texas.net>
+References: <cover.1483999588.git.vomlehn@texas.net> <0b0d8974bdbfa66ab3bc4460f32f7916dd54b85a.1483999588.git.vomlehn@texas.net> <6d32f594bb99a6f56f82f13f6aa54885a06b1e22.1483999588.git.vomlehn@texas.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: David VomLehn <vomlehn@texas.net>
 
-Add functions to interface with the hardware and some utility functions.
+Add code to support the transmit and receive ring buffers.
 
 Signed-off-by: Alexander Loktionov <Alexander.Loktionov@aquantia.com>
 Signed-off-by: Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>
 Signed-off-by: Pavel Belous <Pavel.Belous@aquantia.com>
 Signed-off-by: David M. VomLehn <vomlehn@texas.net>
 ---
- drivers/net/ethernet/aquantia/aq_hw.h       | 170 ++++++++++++++++++++++++++++
- drivers/net/ethernet/aquantia/aq_hw_utils.c |  69 +++++++++++
- drivers/net/ethernet/aquantia/aq_hw_utils.h |  48 ++++++++
- 3 files changed, 287 insertions(+)
- create mode 100644 drivers/net/ethernet/aquantia/aq_hw.h
- create mode 100644 drivers/net/ethernet/aquantia/aq_hw_utils.c
- create mode 100644 drivers/net/ethernet/aquantia/aq_hw_utils.h
+ drivers/net/ethernet/aquantia/aq_ring.c | 344 ++++++++++++++++++++++++++++++++
+ drivers/net/ethernet/aquantia/aq_ring.h | 147 ++++++++++++++
+ 2 files changed, 491 insertions(+)
+ create mode 100644 drivers/net/ethernet/aquantia/aq_ring.c
+ create mode 100644 drivers/net/ethernet/aquantia/aq_ring.h
 
-diff --git a/drivers/net/ethernet/aquantia/aq_hw.h b/drivers/net/ethernet/aquantia/aq_hw.h
+diff --git a/drivers/net/ethernet/aquantia/aq_ring.c b/drivers/net/ethernet/aquantia/aq_ring.c
 new file mode 100644
-index 0000000..e9ac912
+index 0000000..3aeedb6
 --- /dev/null
-+++ b/drivers/net/ethernet/aquantia/aq_hw.h
-@@ -0,0 +1,170 @@
++++ b/drivers/net/ethernet/aquantia/aq_ring.c
+@@ -0,0 +1,344 @@
 +/*
 + * aQuantia Corporation Network Driver
 + * Copyright (C) 2014-2017 aQuantia Corporation. All rights reserved
@@ -51,248 +49,347 @@ index 0000000..e9ac912
 + * version 2, as published by the Free Software Foundation.
 + */
 +
-+/* File aq_hw.h: Declaraion of abstract interface for NIC hardware specific
-+ * functions.
-+ */
++/* File aq_ring.c: Definition of functions for Rx/Tx rings. */
 +
-+#ifndef AQ_HW_H
-+#define AQ_HW_H
-+
-+#include "aq_common.h"
-+
-+/* NIC H/W capabilities */
-+struct aq_hw_caps_s {
-+	u64 hw_features;
-+	u64 link_speed_msk;
-+	unsigned int hw_priv_flags;
-+	u32 rxds;
-+	u32 txds;
-+	u32 txhwb_alignment;
-+	u32 irq_mask;
-+	u32 vecs;
-+	u32 mtu;
-+	u32 mac_regs_count;
-+	u8 ports;
-+	u8 msix_irqs;
-+	u8 tcs;
-+	u8 rxd_alignment;
-+	u8 rxd_size;
-+	u8 txd_alignment;
-+	u8 txd_size;
-+	u8 tx_rings;
-+	u8 rx_rings;
-+	bool flow_control;
-+	bool is_64_dma;
-+};
-+
-+struct aq_hw_link_status_s {
-+	u64 bps;
-+};
-+
-+#define AQ_HW_POWER_STATE_D0   0U
-+#define AQ_HW_POWER_STATE_D3   3U
-+
-+#define AQ_HW_FLAG_STARTED     0x00000004U
-+#define AQ_HW_FLAG_STOPPING    0x00000008U
-+#define AQ_HW_FLAG_RESETTING   0x00000010U
-+#define AQ_HW_FLAG_CLOSING     0x00000020U
-+#define AQ_HW_LINK_DOWN        0x04000000U
-+#define AQ_HW_FLAG_ERR_UNPLUG  0x40000000U
-+#define AQ_HW_FLAG_ERR_HW      0x80000000U
-+
-+#define AQ_HW_FLAG_ERRORS      (AQ_HW_FLAG_ERR_HW | AQ_HW_FLAG_ERR_UNPLUG)
-+
-+struct aq_hw_s {
-+	AQ_OBJ_HEADER;
-+	struct aq_nic_cfg_s *aq_nic_cfg;
-+	struct aq_pci_func_s *aq_pci_func;
-+	void __iomem *mmio;
-+	unsigned int not_ff_addr;
-+	struct aq_hw_link_status_s aq_link_status;
-+};
-+
-+struct aq_ring_s;
-+struct aq_ring_param_s;
-+struct aq_nic_cfg_s;
-+struct sk_buff;
-+
-+struct aq_hw_ops {
-+	struct aq_hw_s *(*create)(struct aq_pci_func_s *aq_pci_func,
-+				  unsigned int port, struct aq_hw_ops *ops);
-+
-+	void (*destroy)(struct aq_hw_s *self);
-+
-+	int (*get_hw_caps)(struct aq_hw_s *self,
-+			   struct aq_hw_caps_s *aq_hw_caps);
-+
-+	int (*hw_ring_tx_xmit)(struct aq_hw_s *self, struct aq_ring_s *aq_ring,
-+			       unsigned int frags);
-+
-+	int (*hw_ring_rx_receive)(struct aq_hw_s *self,
-+				  struct aq_ring_s *aq_ring);
-+
-+	int (*hw_ring_rx_fill)(struct aq_hw_s *self, struct aq_ring_s *aq_ring,
-+			       unsigned int sw_tail_old);
-+
-+	int (*hw_ring_tx_head_update)(struct aq_hw_s *self,
-+				      struct aq_ring_s *aq_ring);
-+
-+	int (*hw_get_mac_permanent)(struct aq_hw_s *self, u8 *mac);
-+
-+	int (*hw_set_mac_address)(struct aq_hw_s *self, u8 *mac_addr);
-+
-+	int (*hw_get_link_status)(struct aq_hw_s *self,
-+				  struct aq_hw_link_status_s *link_status);
-+
-+	int (*hw_set_link_speed)(struct aq_hw_s *self, u32 speed);
-+
-+	int (*hw_reset)(struct aq_hw_s *self);
-+
-+	int (*hw_init)(struct aq_hw_s *self, struct aq_nic_cfg_s *aq_nic_cfg,
-+		       u8 *mac_addr);
-+
-+	int (*hw_start)(struct aq_hw_s *self);
-+
-+	int (*hw_stop)(struct aq_hw_s *self);
-+
-+	int (*hw_ring_tx_init)(struct aq_hw_s *self, struct aq_ring_s *aq_ring,
-+			       struct aq_ring_param_s *aq_ring_param);
-+
-+	int (*hw_ring_tx_start)(struct aq_hw_s *self,
-+				struct aq_ring_s *aq_ring);
-+
-+	int (*hw_ring_tx_stop)(struct aq_hw_s *self,
-+			       struct aq_ring_s *aq_ring);
-+
-+	int (*hw_ring_rx_init)(struct aq_hw_s *self,
-+			       struct aq_ring_s *aq_ring,
-+			       struct aq_ring_param_s *aq_ring_param);
-+
-+	int (*hw_ring_rx_start)(struct aq_hw_s *self,
-+				struct aq_ring_s *aq_ring);
-+
-+	int (*hw_ring_rx_stop)(struct aq_hw_s *self,
-+			       struct aq_ring_s *aq_ring);
-+
-+	int (*hw_irq_enable)(struct aq_hw_s *self, u64 mask);
-+
-+	int (*hw_irq_disable)(struct aq_hw_s *self, u64 mask);
-+
-+	int (*hw_irq_read)(struct aq_hw_s *self, u64 *mask);
-+
-+	int (*hw_packet_filter_set)(struct aq_hw_s *self,
-+				    unsigned int packet_filter);
-+
-+	int (*hw_multicast_list_set)(struct aq_hw_s *self,
-+				     u8 ar_mac[AQ_CFG_MULTICAST_ADDRESS_MAX]
-+				     [ETH_ALEN],
-+				     u32 count);
-+
-+	int (*hw_interrupt_moderation_set)(struct aq_hw_s *self,
-+					   bool itr_enabled);
-+
-+	int (*hw_rss_set)(struct aq_hw_s *self,
-+			  struct aq_rss_parameters *rss_params);
-+
-+	int (*hw_rss_hash_set)(struct aq_hw_s *self,
-+			       struct aq_rss_parameters *rss_params);
-+
-+	int (*hw_get_regs)(struct aq_hw_s *self,
-+			   struct aq_hw_caps_s *aq_hw_caps, u32 *regs_buff);
-+
-+	int (*hw_get_hw_stats)(struct aq_hw_s *self, u64 *data,
-+			       unsigned int *p_count);
-+
-+	int (*hw_get_fw_version)(struct aq_hw_s *self, u32 *fw_version);
-+
-+	int (*hw_deinit)(struct aq_hw_s *self);
-+
-+	int (*hw_set_power)(struct aq_hw_s *self, unsigned int power_state);
-+};
-+
-+#endif /* AQ_HW_H */
-+
-diff --git a/drivers/net/ethernet/aquantia/aq_hw_utils.c b/drivers/net/ethernet/aquantia/aq_hw_utils.c
-new file mode 100644
-index 0000000..cc64d58
---- /dev/null
-+++ b/drivers/net/ethernet/aquantia/aq_hw_utils.c
-@@ -0,0 +1,69 @@
-+/*
-+ * aQuantia Corporation Network Driver
-+ * Copyright (C) 2014-2017 aQuantia Corporation. All rights reserved
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ */
-+
-+/* File aq_hw_utils.c: Definitions of helper functions used across
-+ * hardware layer.
-+ */
-+
-+#include "aq_hw_utils.h"
++#include "aq_ring.h"
++#include "aq_nic.h"
 +#include "aq_hw.h"
 +
-+void aq_hw_write_reg_bit(struct aq_hw_s *aq_hw, u32 addr, u32 msk,
-+			 u32 shift, u32 val)
-+{
-+	if (msk ^ ~0) {
-+		u32 reg_old, reg_new;
++#include <linux/netdevice.h>
++#include <linux/etherdevice.h>
 +
-+		reg_old = aq_hw_read_reg(aq_hw, addr);
-+		reg_new = (reg_old & (~msk)) | (val << shift);
-+
-+		if (reg_old != reg_new)
-+			aq_hw_write_reg(aq_hw, addr, reg_new);
-+	} else {
-+		aq_hw_write_reg(aq_hw, addr, val);
-+	}
-+}
-+
-+u32 aq_hw_read_reg_bit(struct aq_hw_s *aq_hw, u32 addr, u32 msk, u32 shift)
-+{
-+	return ((aq_hw_read_reg(aq_hw, addr) & msk) >> shift);
-+}
-+
-+u32 aq_hw_read_reg(struct aq_hw_s *hw, u32 reg)
-+{
-+	u32 value = readl(hw->mmio + reg);
-+
-+	if ((~0U) == value && (~0U) == readl(hw->mmio + hw->not_ff_addr))
-+		AQ_OBJ_SET(hw, AQ_HW_FLAG_ERR_UNPLUG);
-+
-+	return value;
-+}
-+
-+inline void aq_hw_write_reg(struct aq_hw_s *hw, u32 reg, u32 value)
-+{
-+	writel(value, hw->mmio + reg);
-+}
-+
-+int aq_hw_err_from_flags(struct aq_hw_s *hw)
++static struct aq_ring_s *aq_ring_alloc(struct aq_ring_s *self,
++				       struct aq_nic_s *aq_nic)
 +{
 +	int err = 0;
 +
-+	if (AQ_OBJ_TST(hw, AQ_HW_FLAG_ERR_UNPLUG)) {
-+		err = -ENXIO;
++	self->buff_ring = (struct aq_ring_buff_s *)
++		kzalloc(sizeof(struct aq_ring_buff_s) * self->size, GFP_KERNEL);
++
++	if (!self->buff_ring) {
++		err = -ENOMEM;
 +		goto err_exit;
 +	}
-+	if (AQ_OBJ_TST(hw, AQ_HW_FLAG_ERR_HW)) {
-+		err = -EIO;
++	self->dx_ring = dma_alloc_coherent(aq_nic_get_dev(aq_nic),
++						self->size * self->dx_size,
++						&self->dx_ring_pa, GFP_KERNEL);
++	if (!self->dx_ring) {
++		err = -ENOMEM;
 +		goto err_exit;
 +	}
 +
 +err_exit:
++	if (err < 0) {
++		aq_ring_free(self);
++		self = NULL;
++	}
++	return self;
++}
++
++struct aq_ring_s *aq_ring_tx_alloc(struct aq_ring_s *self,
++				   struct aq_nic_s *aq_nic,
++				   unsigned int idx,
++				   struct aq_nic_cfg_s *aq_nic_cfg)
++{
++	int err = 0;
++
++	self->aq_nic = aq_nic;
++	self->idx = idx;
++	self->size = aq_nic_cfg->txds;
++	self->dx_size = aq_nic_cfg->aq_hw_caps->txd_size;
++
++	self = aq_ring_alloc(self, aq_nic);
++	if (!self) {
++		err = -ENOMEM;
++		goto err_exit;
++	}
++
++err_exit:
++	if (err < 0) {
++		aq_ring_free(self);
++		self = NULL;
++	}
++	return self;
++}
++
++struct aq_ring_s *aq_ring_rx_alloc(struct aq_ring_s *self,
++				   struct aq_nic_s *aq_nic,
++				   unsigned int idx,
++				   struct aq_nic_cfg_s *aq_nic_cfg)
++{
++	int err = 0;
++
++	self->aq_nic = aq_nic;
++	self->idx = idx;
++	self->size = aq_nic_cfg->rxds;
++	self->dx_size = aq_nic_cfg->aq_hw_caps->rxd_size;
++
++	self = aq_ring_alloc(self, aq_nic);
++	if (!self) {
++		err = -ENOMEM;
++		goto err_exit;
++	}
++
++err_exit:
++	if (err < 0) {
++		aq_ring_free(self);
++		self = NULL;
++	}
++	return self;
++}
++
++void aq_ring_init(struct aq_ring_s *self)
++{
++	self->hw_head = 0;
++	self->sw_head = 0;
++	self->sw_tail = 0;
++}
++
++void aq_ring_free(struct aq_ring_s *self)
++{
++	if (!self)
++		return;
++
++	kfree(self->buff_ring);
++
++	if (self->dx_ring)
++		dma_free_coherent(aq_nic_get_dev(self->aq_nic),
++				  self->size * self->dx_size, self->dx_ring,
++				  self->dx_ring_pa);
++}
++
++void aq_ring_tx_append_buffs(struct aq_ring_s *self,
++			     struct aq_ring_buff_s *buffer,
++			     unsigned int buffers)
++{
++	if (likely(self->sw_tail + buffers < self->size)) {
++		memcpy(&self->buff_ring[self->sw_tail], buffer,
++		       sizeof(buffer[0]) * buffers);
++	} else {
++		unsigned int first_part = self->size - self->sw_tail;
++		unsigned int second_part = buffers - first_part;
++
++		memcpy(&self->buff_ring[self->sw_tail], buffer,
++		       sizeof(buffer[0]) * first_part);
++
++		memcpy(&self->buff_ring[0], &buffer[first_part],
++		       sizeof(buffer[0]) * second_part);
++	}
++}
++
++void aq_ring_tx_clean(struct aq_ring_s *self)
++{
++	struct device *dev = aq_nic_get_dev(self->aq_nic);
++	struct net_device *ndev = aq_nic_get_ndev(self->aq_nic);
++
++	for (; self->sw_head != self->hw_head;
++		self->sw_head = aq_ring_next_dx(self, self->sw_head)) {
++		struct aq_ring_buff_s *buff = &self->buff_ring[self->sw_head];
++
++		++self->stats.tx_packets;
++		++ndev->stats.tx_packets;
++		ndev->stats.tx_bytes += buff->len;
++
++		if (likely(buff->is_mapped)) {
++			if (unlikely(buff->is_sop))
++				dma_unmap_single(dev, buff->pa, buff->len,
++						 DMA_TO_DEVICE);
++			else
++				dma_unmap_page(dev, buff->pa, buff->len,
++					       DMA_TO_DEVICE);
++		}
++
++		if (unlikely(buff->is_eop))
++			dev_kfree_skb_any(buff->skb);
++	}
++
++	if (aq_ring_avail_dx(self) > AQ_CFG_SKB_FRAGS_MAX)
++		aq_nic_ndev_queue_start(self->aq_nic, self->idx);
++}
++
++static inline unsigned int aq_ring_dx_in_range(unsigned int h, unsigned int i,
++					       unsigned int t)
++{
++	return (h < t) ? ((h < i) && (i < t)) : ((h < i) || (i < t));
++}
++
++void aq_ring_rx_clean(struct aq_ring_s *self, int *work_done, int budget)
++{
++	struct net_device *ndev = aq_nic_get_ndev(self->aq_nic);
++	bool is_rsc_completed = true;
++
++	for (; (self->sw_head != self->hw_head) && budget;
++		self->sw_head = aq_ring_next_dx(self, self->sw_head),
++		--budget, ++(*work_done)) {
++		struct aq_ring_buff_s *buff = &self->buff_ring[self->sw_head];
++		struct sk_buff *skb = NULL;
++		unsigned int next_ = 0U;
++		unsigned int i = 0U;
++		struct aq_ring_buff_s *buff_ = NULL;
++
++		if (buff->is_error) {
++			__free_pages(buff->page, 0);
++			continue;
++		}
++
++		if (buff->is_cleaned)
++			continue;
++
++		++self->stats.rx_packets;
++		++ndev->stats.rx_packets;
++		ndev->stats.rx_bytes += buff->len;
++
++		if (!buff->is_eop) {
++			for (next_ = buff->next,
++			     buff_ = &self->buff_ring[next_]; true;
++			     next_ = buff_->next,
++			     buff_ = &self->buff_ring[next_]) {
++				is_rsc_completed =
++					aq_ring_dx_in_range(self->sw_head,
++							    next_,
++							    self->hw_head);
++
++				if (unlikely(!is_rsc_completed)) {
++					is_rsc_completed = false;
++					break;
++				}
++
++				if (buff_->is_eop)
++					break;
++			}
++
++			if (!is_rsc_completed)
++				return;
++		}
++
++		skb = netdev_alloc_skb(ndev, ETH_HLEN);
++		skb_put(skb, ETH_HLEN);
++		memcpy(skb->data, page_address(buff->page), ETH_HLEN);
++
++		skb_add_rx_frag(skb, 0, buff->page, ETH_HLEN,
++				buff->len - ETH_HLEN,
++				SKB_TRUESIZE(buff->len - ETH_HLEN));
++		if (!buff->is_eop) {
++			for (i = 1U, next_ = buff->next,
++			     buff_ = &self->buff_ring[next_]; true;
++			     next_ = buff_->next,
++			     buff_ = &self->buff_ring[next_], ++i) {
++				skb_add_rx_frag(skb, i, buff_->page, 0,
++						buff_->len,
++						SKB_TRUESIZE(buff->len -
++						ETH_HLEN));
++				buff_->is_cleaned = 1;
++
++				if (buff_->is_eop)
++					break;
++			}
++		}
++
++		skb->protocol = eth_type_trans(skb, ndev);
++		if (unlikely(buff->is_cso_err)) {
++			++self->stats.rx_errors;
++			__skb_mark_checksum_bad(skb);
++		} else {
++			if (buff->is_ip_cso) {
++				__skb_incr_checksum_unnecessary(skb);
++				if (buff->is_udp_cso || buff->is_tcp_cso)
++					__skb_incr_checksum_unnecessary(skb);
++			} else {
++				skb->ip_summed = CHECKSUM_NONE;
++			}
++		}
++
++		skb_set_hash(skb, buff->rss_hash,
++			     buff->is_hash_l4 ? PKT_HASH_TYPE_L4 :
++			     PKT_HASH_TYPE_NONE);
++
++		skb_record_rx_queue(skb, self->idx);
++
++		netif_receive_skb(skb);
++	}
++}
++
++void aq_ring_tx_drop(struct aq_ring_s *self)
++{
++	for (; self->sw_head != self->sw_tail;
++		self->sw_head = aq_ring_next_dx(self, self->sw_head)) {
++		struct aq_ring_buff_s *buff = &self->buff_ring[self->sw_head];
++		struct device *ndev = aq_nic_get_dev(self->aq_nic);
++
++		if (likely(buff->is_mapped)) {
++			if (unlikely(buff->is_sop))
++				dma_unmap_single(ndev, buff->pa, buff->len,
++						 DMA_TO_DEVICE);
++			else
++				dma_unmap_page(ndev, buff->pa, buff->len,
++					       DMA_TO_DEVICE);
++		}
++
++		if (unlikely(buff->is_eop))
++			dev_kfree_skb_any(buff->skb);
++	}
++}
++
++void aq_ring_rx_drop(struct aq_ring_s *self)
++{
++	for (; self->sw_head != self->sw_tail;
++		self->sw_head = aq_ring_next_dx(self, self->sw_head)) {
++		struct aq_ring_buff_s *buff = &self->buff_ring[self->sw_head];
++
++		dma_unmap_page(aq_nic_get_dev(self->aq_nic), buff->pa,
++			       AQ_CFG_RX_FRAME_MAX, DMA_FROM_DEVICE);
++
++		__free_pages(buff->page, 0);
++	}
++}
++
++int aq_ring_rx_fill(struct aq_ring_s *self)
++{
++	struct aq_ring_buff_s *buff = NULL;
++	int err = 0;
++	int i = 0;
++
++	for (i = aq_ring_avail_dx(self); i--;
++		self->sw_tail = aq_ring_next_dx(self, self->sw_tail)) {
++		buff = &self->buff_ring[self->sw_tail];
++
++		buff->flags = 0U;
++		buff->len = AQ_CFG_RX_FRAME_MAX;
++
++		buff->page = alloc_pages(GFP_ATOMIC | __GFP_COLD |
++					 __GFP_COMP, 0);
++		if (!buff->page) {
++			err = -ENOMEM;
++			goto err_exit;
++		}
++
++		buff->pa = dma_map_page(aq_nic_get_dev(self->aq_nic),
++					buff->page, 0,
++					AQ_CFG_RX_FRAME_MAX, DMA_FROM_DEVICE);
++
++		err = dma_mapping_error(aq_nic_get_dev(self->aq_nic), buff->pa);
++		if (err < 0)
++			goto err_exit;
++
++		buff = NULL;
++	}
++	if (err < 0)
++		goto err_exit;
++
++err_exit:
++	if (err < 0)
++		if (buff && buff->page)
++			__free_pages(buff->page, 0);
++
 +	return err;
 +}
 +
-diff --git a/drivers/net/ethernet/aquantia/aq_hw_utils.h b/drivers/net/ethernet/aquantia/aq_hw_utils.h
+diff --git a/drivers/net/ethernet/aquantia/aq_ring.h b/drivers/net/ethernet/aquantia/aq_ring.h
 new file mode 100644
-index 0000000..8a16707
+index 0000000..3749c9b
 --- /dev/null
-+++ b/drivers/net/ethernet/aquantia/aq_hw_utils.h
-@@ -0,0 +1,48 @@
++++ b/drivers/net/ethernet/aquantia/aq_ring.h
+@@ -0,0 +1,147 @@
 +/*
 + * aQuantia Corporation Network Driver
 + * Copyright (C) 2014-2017 aQuantia Corporation. All rights reserved
@@ -302,44 +399,143 @@ index 0000000..8a16707
 + * version 2, as published by the Free Software Foundation.
 + */
 +
-+/* File aq_hw_utils.h: Declaration of helper functions used across hardware
-+ * layer.
-+ */
++/* File aq_ring.h: Declaration of functions for Rx/Tx rings. */
 +
-+#ifndef AQ_HW_UTILS_H
-+#define AQ_HW_UTILS_H
++#ifndef AQ_RING_H
++#define AQ_RING_H
 +
 +#include "aq_common.h"
 +
-+#ifndef HIDWORD
-+#define LODWORD(_qw)    ((u32)(_qw))
-+#define HIDWORD(_qw)    ((u32)(((_qw) >> 32) & 0xffffffff))
-+#endif
++struct page;
 +
-+#define AQ_HW_SLEEP(_US_) mdelay(_US_)
++/*           TxC       SOP        DX         EOP
++ *         +----------+----------+----------+-----------
++ *   8bytes|len l3,l4 | pa       | pa       | pa
++ *         +----------+----------+----------+-----------
++ * 4/8bytes|len pkt   |len pkt   |          | skb
++ *         +----------+----------+----------+-----------
++ * 4/8bytes|is_txc    |len,flags |len       |len,is_eop
++ *         +----------+----------+----------+-----------
++ *
++ *  This aq_ring_buff_s doesn't have endianness dependency.
++ *  It is __packed for cache line optimizations.
++ */
++struct __packed aq_ring_buff_s {
++	union {
++		/* RX */
++		struct {
++			u32 rss_hash;
++			u16 next;
++			u8 is_hash_l4;
++			u8 rsvd1;
++			struct page *page;
++		};
++		/* EOP */
++		struct {
++			dma_addr_t pa_eop;
++			struct sk_buff *skb;
++		};
++		/* DX */
++		struct {
++			dma_addr_t pa;
++		};
++		/* SOP */
++		struct {
++			dma_addr_t pa_sop;
++			u32 len_pkt_sop;
++		};
++		/* TxC */
++		struct {
++			u32 mss;
++			u8 len_l2;
++			u8 len_l3;
++			u8 len_l4;
++			u8 rsvd2;
++			u32 len_pkt;
++		};
++	};
++	union {
++		struct {
++			u32 len:16;
++			u32 is_ip_cso:1;
++			u32 is_udp_cso:1;
++			u32 is_tcp_cso:1;
++			u32 is_cso_err:1;
++			u32 is_sop:1;
++			u32 is_eop:1;
++			u32 is_txc:1;
++			u32 is_mapped:1;
++			u32 is_cleaned:1;
++			u32 is_error:1;
++			u32 rsvd3:6;
++		};
++		u32 flags;
++	};
++};
 +
-+#define AQ_HW_WAIT_FOR(_B_, _US_, _N_) \
-+do { \
-+	unsigned int AQ_HW_WAIT_FOR_i; \
-+	for (AQ_HW_WAIT_FOR_i = _N_; (!(_B_)) && (AQ_HW_WAIT_FOR_i);\
-+	--AQ_HW_WAIT_FOR_i) {\
-+		udelay(_US_); \
-+	} \
-+	if (!AQ_HW_WAIT_FOR_i) {\
-+		err = ETIME; \
-+	} \
-+} while (0)
++struct aq_ring_stats_s {
++	u64 rx_packets;
++	u64 tx_packets;
++	u64 lro_packets;
++	u64 jumbo_packets;
++	u64 rx_errors;
++};
 +
-+struct aq_hw_s;
++struct aq_ring_s {
++	AQ_OBJ_HEADER;
++	struct aq_ring_buff_s *buff_ring;
++	u8 *dx_ring;		/* descriptors ring, dma shared mem */
++	struct aq_nic_s *aq_nic;
++	unsigned int idx;	/* for HW layer registers operations */
++	unsigned int hw_head;
++	unsigned int sw_head;
++	unsigned int sw_tail;
++	unsigned int size;	/* descriptors number */
++	unsigned int dx_size;	/* TX or RX descriptor size,  */
++				/* stored here for fater math */
++	struct aq_ring_stats_s stats;
++	dma_addr_t dx_ring_pa;
++};
 +
-+void aq_hw_write_reg_bit(struct aq_hw_s *aq_hw, u32 addr, u32 msk,
-+			 u32 shift, u32 val);
-+u32 aq_hw_read_reg_bit(struct aq_hw_s *aq_hw, u32 addr, u32 msk, u32 shift);
-+u32 aq_hw_read_reg(struct aq_hw_s *hw, u32 reg);
-+void aq_hw_write_reg(struct aq_hw_s *hw, u32 reg, u32 value);
-+int aq_hw_err_from_flags(struct aq_hw_s *hw);
++struct aq_ring_param_s {
++	unsigned int vec_idx;
++	unsigned int cpu;
++	cpumask_t affinity_mask;
++};
 +
-+#endif /* AQ_HW_UTILS_H */
++static inline unsigned int aq_ring_next_dx(struct aq_ring_s *self,
++					   unsigned int dx)
++{
++	return (++dx >= self->size) ? 0U : dx;
++}
++
++static inline unsigned int aq_ring_avail_dx(struct aq_ring_s *self)
++{
++	return (((self->sw_tail >= self->sw_head)) ?
++		(self->size - 1) - self->sw_tail + self->sw_head :
++		self->sw_head - self->sw_tail - 1);
++}
++
++struct aq_ring_s *aq_ring_tx_alloc(struct aq_ring_s *self,
++				   struct aq_nic_s *aq_nic,
++				   unsigned int idx,
++				   struct aq_nic_cfg_s *aq_nic_cfg);
++struct aq_ring_s *aq_ring_rx_alloc(struct aq_ring_s *self,
++				   struct aq_nic_s *aq_nic,
++				   unsigned int idx,
++				   struct aq_nic_cfg_s *aq_nic_cfg);
++void aq_ring_init(struct aq_ring_s *self);
++void aq_ring_free(struct aq_ring_s *self);
++void aq_ring_tx_append_buffs(struct aq_ring_s *ring,
++			     struct aq_ring_buff_s *buffer,
++			     unsigned int buffers);
++void aq_ring_tx_clean(struct aq_ring_s *self);
++void aq_ring_rx_clean(struct aq_ring_s *self, int *work_done, int budget);
++void aq_ring_tx_drop(struct aq_ring_s *self);
++void aq_ring_rx_drop(struct aq_ring_s *self);
++int aq_ring_rx_fill(struct aq_ring_s *self);
++
++#endif /* AQ_RING_H */
 +
 -- 
 2.7.4
