@@ -1,44 +1,35 @@
-From: Matthew Hall <mhall@mhcomputing.net>
-Subject: Re: bad interaction between privacy extensions, prefix lifetimes and
- protocols that maintain long-term connections.
-Date: Mon, 9 Jan 2017 13:41:42 -0800
-Message-ID: <20170109214142.GA6465@mhcomputing.net>
-References: <9769f6b7-946c-1279-110f-15de8ec40022@p10link.net>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCHv3 0/6] sh_eth: add wake-on-lan support via magic packet
+Date: Tue, 10 Jan 2017 00:48:28 +0300
+Message-ID: <a957f04f-0784-fa39-b7b0-8b8bd68c2a30@cogentembedded.com>
+References: <20170109153409.13956-1-niklas.soderlund+renesas@ragnatech.se>
+ <20170109.155542.1563572267512721426.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: debian-ipv6@lists.debian.org, netdev@vger.kernel.org
-To: peter green <plugwash@p10link.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from master.mhcomputing.net ([74.208.228.170]:46528 "EHLO
-        mail.mhcomputing.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752155AbdAIVrr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 16:47:47 -0500
-Content-Disposition: inline
-In-Reply-To: <9769f6b7-946c-1279-110f-15de8ec40022@p10link.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: horms+renesas@verge.net.au, netdev@vger.kernel.org,
+        linux-renesas-soc@vger.kernel.org, geert@linux-m68k.org,
+        linux-pm@vger.kernel.org
+To: David Miller <davem@redhat.com>,
+        niklas.soderlund+renesas@ragnatech.se
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <20170109.155542.1563572267512721426.davem@redhat.com>
+Sender: linux-renesas-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Jan 07, 2017 at 03:16:06PM +0000, peter green wrote:
-> For the main MAC-based address the valid_lft is always short but it is 
-> updated by new RAs so the address remains valid.
-> 
-> However privacy addresses inherit their valid_lft from the main MAC-based 
-> address and unlike the main address it is not updated causing the addresses 
-> to time out. I believe that the timeout of these privacy addresses is what 
-> is causing my repeated disconnections from IRC.
+On 01/09/2017 11:55 PM, David Miller wrote:
 
-Privacy addresses generally cause me nothing but absolute misery.
+>> This series adds support for Wake-on-Lan using Magic Packet for a few
+>> models of the sh_eth driver. Patch 1/6 fix a naming error, patch 2/6
+>> adds generic support to control and support WoL while patches 3/6 - 6/6
+>> enable different models.
+>>
+>> Based ontop of net-next master.
+>  ...
+>
+> Series applied, thanks.
 
-Despite the MAC address problem I usually end up disabling them just to be 
-able to survive without losing my sanity due to issues like this one.
+    That was too quick for me... I hadn't even started looking into the main 
+patch yet. :-/
 
-I have had all kinds of applications not work reliably because of them. 
-Including Google Chrome / Chromium etc. IRC also seems like a likely victim, 
-but I wouldn't have noticed because I use it from a system with a static 
-address.
-
-Perhaps a workaround would be using the MAC address override ability in the 
-interfaces file pre-up script with "ip link set eth0 address 02:01:02:03:04:08".
-Randomly generate one fake MAC per boot.
-
-Matthew.
+MBR, Sergei
