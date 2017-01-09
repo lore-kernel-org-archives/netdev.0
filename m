@@ -1,31 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 net-next 0/5] sctp: add support for generating stream
- reconf chunks
-Date: Mon, 09 Jan 2017 13:53:39 -0500 (EST)
-Message-ID: <20170109.135339.178893015974621816.davem@davemloft.net>
-References: <20170109124325.GB20973@hmswarspite.think-freely.org>
-        <20170109.105301.469495957021068521.davem@davemloft.net>
-        <CADvbK_dE74bAoTNo9gLczLuj71w3WMcPJ56tCFGJ=XjTMtTgRw@mail.gmail.com>
+Subject: Re: [PATCH net-next] net: ipv4: remove disable of bottom half in
+ inet_rtm_getroute
+Date: Mon, 09 Jan 2017 13:55:37 -0500 (EST)
+Message-ID: <20170109.135537.139485824392742134.davem@davemloft.net>
+References: <1483848263-17031-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nhorman@tuxdriver.com, netdev@vger.kernel.org,
-        linux-sctp@vger.kernel.org, marcelo.leitner@gmail.com,
-        vyasevich@gmail.com
-To: lucien.xin@gmail.com
+Cc: netdev@vger.kernel.org
+To: dsa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:46986 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:47040 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1164007AbdAISxm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 13:53:42 -0500
-In-Reply-To: <CADvbK_dE74bAoTNo9gLczLuj71w3WMcPJ56tCFGJ=XjTMtTgRw@mail.gmail.com>
+        with ESMTP id S1163358AbdAISzi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 13:55:38 -0500
+In-Reply-To: <1483848263-17031-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Xin Long <lucien.xin@gmail.com>
-Date: Tue, 10 Jan 2017 02:27:09 +0800
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Sat,  7 Jan 2017 20:04:23 -0800
 
-> I was trying to keep the same order with rfc, but it seems not a good
-> idea, will resplit, thanks.
+> Nothing about the route lookup requires bottom half to be disabled.
+> Remove the local_bh_disable ... local_bh_enable around ip_route_input.
+> This appears to be a vestige of days gone by as it has been there
+> since the beginning of git time.
+> 
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 
-Thank you.
+Agreed, this shouldn't be necessary.
+
+The key with input route lookups is that the skb->dst reference cannot
+escape the packet receive path, unless we force the dst, which
+ip_route_input() does under RCU protection.
+
+So this should all be ok.
+
+Applied, thanks.
