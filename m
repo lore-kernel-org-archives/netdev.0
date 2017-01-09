@@ -1,42 +1,63 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next PATCH 0/3] net: optimize ICMP-reply code path
-Date: Mon, 09 Jan 2017 09:56:50 -0800
-Message-ID: <1483984610.5846.12.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20170109150246.30215.63371.stgit@firesoul>
-         <CAM_iQpWVokaBs=mvG+PKArVx_t3xVg5n9SWjj69Uu=m-ywyH+w@mail.gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next v2] net: dsa: make "label" property optional for
+ dsa2
+Date: Mon, 9 Jan 2017 18:58:42 +0100
+Message-ID: <20170109175842.GH1862@nanopsycho>
+References: <20170108231552.26995-1-vivien.didelot@savoirfairelinux.com>
+ <20170109073236.GA1862@nanopsycho>
+ <877f6446lp.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+ <20170109151131.GC1862@nanopsycho>
+ <87y3yk2q5e.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+ <20170109160632.GD1862@nanopsycho>
+ <89492624-84f2-ca73-75dd-7fa10819ad09@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:33767 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1422779AbdAIR4w (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 12:56:52 -0500
-Received: by mail-pg0-f68.google.com with SMTP id 194so7782121pgd.0
-        for <netdev@vger.kernel.org>; Mon, 09 Jan 2017 09:56:52 -0800 (PST)
-In-Reply-To: <CAM_iQpWVokaBs=mvG+PKArVx_t3xVg5n9SWjj69Uu=m-ywyH+w@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Uwe =?iso-8859-1?Q?Kleine-K=F6nig?= <uwe@kleine-koenig.org>,
+        Andrey Smirnov <andrew.smirnov@gmail.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <89492624-84f2-ca73-75dd-7fa10819ad09@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2017-01-09 at 09:43 -0800, Cong Wang wrote:
-> On Mon, Jan 9, 2017 at 7:03 AM, Jesper Dangaard Brouer
-> <brouer@redhat.com> wrote:
-> >
-> > Use-case: The specific case I experienced this being a bottleneck is,
-> > sending UDP packets to a port with no listener, which obviously result
-> > in kernel replying with ICMP Destination Unreachable (type:3), Port
-> > Unreachable (code:3), which cause the bottleneck.
-> 
-> Why this is a case we should care about for performance?
+Mon, Jan 09, 2017 at 06:42:07PM CET, f.fainelli@gmail.com wrote:
+>On 01/09/2017 08:06 AM, Jiri Pirko wrote:
+>> Mon, Jan 09, 2017 at 04:45:33PM CET, vivien.didelot@savoirfairelinux.com wrote:
+>>> Hi Jiri,
+>>>
+>>> Jiri Pirko <jiri@resnulli.us> writes:
+>>>
+>>>>> Extra question: shouldn't phys_port_{id,name} be switchdev attributes in
+>>>>
+>>>> Again, phys_port_id has nothing to do with switches. Should be removed
+>>>> from dsa because its use there is incorrect.
+>>>
+>>> Florian, since 3a543ef just got in, can it be reverted?
+>> 
+>> Yes, please revert it. It is only in net-next.
+>
+>Maybe the use case can be understood before reverting the change. How do
+>we actually the physical port number of an Ethernet switch per-port
+>network device? The name is not enough, because there are plenty of
+>cases where we need to manipulate a physical port number (be it just for
+>informational purposes).
 
-This is called provisioning.
+Like what?
 
-If you have a server farm that was qualified to handle 100 Mpps,
-you want to absorb these 100 Mpps, even if the UDP server is restarted
-in a clean or catastrophic mode.
+Why the name is not enough? This is something propagated to userspace
+and never used internally in kernel.
 
-The catastrophic mode would be the case that Jesper described : No UDP
-socket is bound and ready to receive packets.
+Btw, ndo_get_phys_port_id does not give you number, but arbitrary binary.
+
+
+>
+>Should we just amend the existing description of ndo_get_phys_port_id()?
+>Should we introduce another ndo for that?
+>-- 
+>Florian
