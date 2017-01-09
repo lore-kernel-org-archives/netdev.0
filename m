@@ -1,582 +1,513 @@
 From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Subject: [PATCH V4 net-next 15/15] smc: netlink interface for SMC sockets
-Date: Mon,  9 Jan 2017 16:55:26 +0100
-Message-ID: <20170109155526.10961-16-ubraun@linux.vnet.ibm.com>
+Subject: [PATCH V4 net-next 10/15] smc: link layer control (LLC)
+Date: Mon,  9 Jan 2017 16:55:21 +0100
+Message-ID: <20170109155526.10961-11-ubraun@linux.vnet.ibm.com>
 References: <20170109155526.10961-1-ubraun@linux.vnet.ibm.com>
 Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
         schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
         utz.bacher@de.ibm.com, ubraun@linux.vnet.ibm.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:40086 "EHLO
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:33240 "EHLO
         mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S970071AbdAIPz4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 10:55:56 -0500
-Received: from pps.filterd (m0098417.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id v09FsUpj012368
-        for <netdev@vger.kernel.org>; Mon, 9 Jan 2017 10:55:55 -0500
-Received: from e06smtp14.uk.ibm.com (e06smtp14.uk.ibm.com [195.75.94.110])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 27vden0e8n-1
+        by vger.kernel.org with ESMTP id S970056AbdAIPzt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 10:55:49 -0500
+Received: from pps.filterd (m0098413.ppops.net [127.0.0.1])
+        by mx0b-001b2d01.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id v09FsXaI088840
+        for <netdev@vger.kernel.org>; Mon, 9 Jan 2017 10:55:49 -0500
+Received: from e06smtp05.uk.ibm.com (e06smtp05.uk.ibm.com [195.75.94.101])
+        by mx0b-001b2d01.pphosted.com with ESMTP id 27vd62969s-1
         (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Mon, 09 Jan 2017 10:55:55 -0500
+        for <netdev@vger.kernel.org>; Mon, 09 Jan 2017 10:55:48 -0500
 Received: from localhost
-        by e06smtp14.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        by e06smtp05.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
         for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
-        Mon, 9 Jan 2017 15:55:52 -0000
+        Mon, 9 Jan 2017 15:55:47 -0000
 In-Reply-To: <20170109155526.10961-1-ubraun@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Support for SMC socket monitoring via netlink sockets of protocol
-NETLINK_SOCK_DIAG.
+send and receive LLC messages CONFIRM_LINK (via IB message send and CQE)
 
 Signed-off-by: Ursula Braun <ubraun@linux.vnet.ibm.com>
 ---
- include/net/smc.h             |  20 ++++
- include/net/sock.h            |   3 +
- include/uapi/linux/netlink.h  |   1 +
- include/uapi/linux/smc_diag.h |  85 +++++++++++++++++
- net/smc/Kconfig               |   9 ++
- net/smc/Makefile              |   1 +
- net/smc/af_smc.c              |  43 ++++++++-
- net/smc/smc.h                 |   2 +
- net/smc/smc_close.c           |   1 +
- net/smc/smc_diag.c            | 215 ++++++++++++++++++++++++++++++++++++++++++
- 10 files changed, 379 insertions(+), 1 deletion(-)
- create mode 100644 include/net/smc.h
- create mode 100644 include/uapi/linux/smc_diag.h
- create mode 100644 net/smc/smc_diag.c
+ net/smc/Makefile   |   2 +-
+ net/smc/af_smc.c   |  94 ++++++++++++++++++++++++++++++-
+ net/smc/smc_clc.h  |   2 +
+ net/smc/smc_core.c |   8 +++
+ net/smc/smc_core.h |   6 ++
+ net/smc/smc_llc.c  | 158 +++++++++++++++++++++++++++++++++++++++++++++++++++++
+ net/smc/smc_llc.h  |  63 +++++++++++++++++++++
+ 7 files changed, 330 insertions(+), 3 deletions(-)
+ create mode 100644 net/smc/smc_llc.c
+ create mode 100644 net/smc/smc_llc.h
 
-diff --git a/include/net/smc.h b/include/net/smc.h
-new file mode 100644
-index 0000000..12d2635
---- /dev/null
-+++ b/include/net/smc.h
-@@ -0,0 +1,20 @@
-+/*
-+ *  Shared Memory Communications over RDMA (SMC-R) and RoCE
-+ *
-+ *  Definitions for the SMC module (socket related)
-+ *
-+ *  Copyright IBM Corp. 2016
-+ *
-+ *  Author(s):  Ursula Braun <ubraun@linux.vnet.ibm.com>
-+ */
-+#ifndef _SMC_H
-+#define _SMC_H
-+
-+struct smc_hashinfo {
-+	rwlock_t lock;
-+	struct hlist_head ht;
-+};
-+
-+int smc_hash_sk(struct sock *sk);
-+void smc_unhash_sk(struct sock *sk);
-+#endif	/* _SMC_H */
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 99deda6..389a0a6 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -70,6 +70,7 @@
- #include <net/checksum.h>
- #include <net/tcp_states.h>
- #include <linux/net_tstamp.h>
-+#include <net/smc.h>
- 
- /*
-  * This structure really needs to be cleaned up.
-@@ -986,6 +987,7 @@ struct request_sock_ops;
- struct timewait_sock_ops;
- struct inet_hashinfo;
- struct raw_hashinfo;
-+struct smc_hashinfo;
- struct module;
- 
- /*
-@@ -1094,6 +1096,7 @@ struct proto {
- 		struct inet_hashinfo	*hashinfo;
- 		struct udp_table	*udp_table;
- 		struct raw_hashinfo	*raw_hash;
-+		struct smc_hashinfo	*smc_hash;
- 	} h;
- 
- 	struct module		*owner;
-diff --git a/include/uapi/linux/netlink.h b/include/uapi/linux/netlink.h
-index 0dba4e4..f3946a2 100644
---- a/include/uapi/linux/netlink.h
-+++ b/include/uapi/linux/netlink.h
-@@ -27,6 +27,7 @@
- #define NETLINK_ECRYPTFS	19
- #define NETLINK_RDMA		20
- #define NETLINK_CRYPTO		21	/* Crypto layer */
-+#define NETLINK_SMC		22	/* SMC monitoring */
- 
- #define NETLINK_INET_DIAG	NETLINK_SOCK_DIAG
- 
-diff --git a/include/uapi/linux/smc_diag.h b/include/uapi/linux/smc_diag.h
-new file mode 100644
-index 0000000..0063919
---- /dev/null
-+++ b/include/uapi/linux/smc_diag.h
-@@ -0,0 +1,85 @@
-+#ifndef _UAPI_SMC_DIAG_H_
-+#define _UAPI_SMC_DIAG_H_
-+
-+#include <linux/types.h>
-+#include <linux/inet_diag.h>
-+#include <rdma/ib_verbs.h>
-+
-+/* Request structure */
-+struct smc_diag_req {
-+	__u8	diag_family;
-+	__u8	pad[2];
-+	__u8	diag_ext;		/* Query extended information */
-+	struct inet_diag_sockid	id;
-+};
-+
-+/* Base info structure. It contains socket identity (addrs/ports/cookie) based
-+ * on the internal clcsock, and more SMC-related socket data
-+ */
-+struct smc_diag_msg {
-+	__u8	diag_family;
-+	__u8	diag_state;
-+	__u8	diag_fallback;
-+	__u8	diag_shutdown;
-+	struct inet_diag_sockid id;
-+
-+	__u32	diag_uid;
-+	__u64	diag_inode;
-+};
-+
-+/* Extensions */
-+
-+enum {
-+	SMC_DIAG_NONE,
-+	SMC_DIAG_CONNINFO,
-+	SMC_DIAG_LGRINFO,
-+	SMC_DIAG_SHUTDOWN,
-+	__SMC_DIAG_MAX,
-+};
-+
-+#define SMC_DIAG_MAX (__SMC_DIAG_MAX - 1)
-+
-+/* SMC_DIAG_CONNINFO */
-+
-+struct smc_diag_cursor {
-+	__u16	reserved;
-+	__u16	wrap;
-+	__u32	count;
-+};
-+
-+struct smc_diag_conninfo {
-+	__u32			token;		/* unique connection id */
-+	__u32			sndbuf_size;	/* size of send buffer */
-+	__u32			rmbe_size;	/* size of RMB element */
-+	__u32			peer_rmbe_size;	/* size of peer RMB element */
-+	/* local RMB element cursors */
-+	struct smc_diag_cursor	rx_prod;	/* received producer cursor */
-+	struct smc_diag_cursor	rx_cons;	/* received consumer cursor */
-+	/* peer RMB element cursors */
-+	struct smc_diag_cursor	tx_prod;	/* sent producer cursor */
-+	struct smc_diag_cursor	tx_cons;	/* sent consumer cursor */
-+	__u8			rx_prod_flags;	/* received producer flags */
-+	__u8			rx_conn_state_flags; /* recvd connection flags*/
-+	__u8			tx_prod_flags;	/* sent producer flags */
-+	__u8			tx_conn_state_flags; /* sent connection flags*/
-+	/* send buffer cursors */
-+	struct smc_diag_cursor	tx_prep;	/* prepared to be sent cursor */
-+	struct smc_diag_cursor	tx_sent;	/* sent cursor */
-+	struct smc_diag_cursor	tx_fin;		/* confirmed sent cursor */
-+};
-+
-+/* SMC_DIAG_LINKINFO */
-+
-+struct smc_diag_linkinfo {
-+	__u8 link_id;			/* link identifier */
-+	__u8 ibname[IB_DEVICE_NAME_MAX]; /* name of the RDMA device */
-+	__u8 ibport;			/* RDMA device port number */
-+	__u8 gid[40];			/* local GID */
-+	__u8 peer_gid[40];		/* peer GID */
-+};
-+
-+struct smc_diag_lgrinfo {
-+	struct smc_diag_linkinfo	lnk[1];
-+	__u8				role;
-+};
-+#endif /* _UAPI_SMC_DIAG_H_ */
-diff --git a/net/smc/Kconfig b/net/smc/Kconfig
-index bc02980..c717ef0 100644
---- a/net/smc/Kconfig
-+++ b/net/smc/Kconfig
-@@ -9,3 +9,12 @@ config SMC
- 	  a separate socket family SMC.
- 
- 	  Select this option if you want to run SMC socket applications
-+
-+config SMC_DIAG
-+	tristate "SMC: socket monitoring interface"
-+	depends on SMC
-+	---help---
-+	  Support for SMC socket monitoring interface used by tools such as
-+	  smcss.
-+
-+	  if unsure, say Y.
 diff --git a/net/smc/Makefile b/net/smc/Makefile
-index 5cf0caf..1881046 100644
+index b19120e..73320bf 100644
 --- a/net/smc/Makefile
 +++ b/net/smc/Makefile
-@@ -1,3 +1,4 @@
+@@ -1,2 +1,2 @@
  obj-$(CONFIG_SMC)	+= smc.o
-+obj-$(CONFIG_SMC_DIAG)	+= smc_diag.o
- smc-y := af_smc.o smc_pnet.o smc_ib.o smc_clc.o smc_core.o smc_wr.o smc_llc.o
- smc-y += smc_cdc.o smc_tx.o smc_rx.o smc_close.o
+-smc-y := af_smc.o smc_pnet.o smc_ib.o smc_clc.o smc_core.o smc_wr.o
++smc-y := af_smc.o smc_pnet.o smc_ib.o smc_clc.o smc_core.o smc_wr.o smc_llc.o
 diff --git a/net/smc/af_smc.c b/net/smc/af_smc.c
-index 3f543d5..5d4208a 100644
+index 1026fad..1ae986d 100644
 --- a/net/smc/af_smc.c
 +++ b/net/smc/af_smc.c
-@@ -29,6 +29,7 @@
- #include <linux/in.h>
- #include <net/sock.h>
- #include <net/tcp.h>
-+#include <net/smc.h>
+@@ -31,6 +31,7 @@
  
  #include "smc.h"
  #include "smc_clc.h"
-@@ -59,13 +60,48 @@ static void smc_set_keepalive(struct sock *sk, int val)
- 	smc->clcsock->sk->sk_prot->keepalive(smc->clcsock->sk, val);
++#include "smc_llc.h"
+ #include "smc_core.h"
+ #include "smc_ib.h"
+ #include "smc_pnet.h"
+@@ -245,6 +246,41 @@ int smc_netinfo_by_tcpsk(struct socket *clcsock,
+ 	return rc;
  }
  
--static struct proto smc_proto = {
-+static struct smc_hashinfo smc_v4_hashinfo = {
-+	.lock = __RW_LOCK_UNLOCKED(smc_v4_hashinfo.lock),
-+};
-+
-+int smc_hash_sk(struct sock *sk)
++static int smc_clnt_conf_first_link(struct smc_sock *smc, union ib_gid *gid)
 +{
-+	struct smc_hashinfo *h = sk->sk_prot->h.smc_hash;
-+	struct hlist_head *head;
++	struct smc_link_group *lgr = smc->conn.lgr;
++	struct smc_link *link;
++	int rest;
++	int rc;
 +
-+	head = &h->ht;
++	link = &lgr->lnk[SMC_SINGLE_LINK];
++	/* receive CONFIRM LINK request from server over RoCE fabric */
++	rest = wait_for_completion_interruptible_timeout(
++		&link->llc_confirm,
++		SMC_LLC_WAIT_FIRST_TIME);
++	if (rest <= 0) {
++		struct smc_clc_msg_decline dclc;
 +
-+	write_lock_bh(&h->lock);
-+	sk_add_node(sk, head);
-+	sock_prot_inuse_add(sock_net(sk), sk->sk_prot, 1);
-+	write_unlock_bh(&h->lock);
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(smc_hash_sk);
-+
-+void smc_unhash_sk(struct sock *sk)
-+{
-+	struct smc_hashinfo *h = sk->sk_prot->h.smc_hash;
-+
-+	write_lock_bh(&h->lock);
-+	if (sk_del_node_init(sk))
-+		sock_prot_inuse_add(sock_net(sk), sk->sk_prot, -1);
-+	write_unlock_bh(&h->lock);
-+}
-+EXPORT_SYMBOL_GPL(smc_unhash_sk);
-+
-+struct proto smc_proto = {
- 	.name		= "SMC",
- 	.owner		= THIS_MODULE,
- 	.keepalive	= smc_set_keepalive,
-+	.hash		= smc_hash_sk,
-+	.unhash		= smc_unhash_sk,
- 	.obj_size	= sizeof(struct smc_sock),
-+	.h.smc_hash	= &smc_v4_hashinfo,
- 	.slab_flags	= SLAB_DESTROY_BY_RCU,
- };
-+EXPORT_SYMBOL_GPL(smc_proto);
- 
- static int smc_release(struct socket *sock)
- {
-@@ -109,6 +145,7 @@ static int smc_release(struct socket *sock)
- 		schedule_delayed_work(&smc->sock_put_work,
- 				      SMC_CLOSE_SOCK_PUT_DELAY);
- 	}
-+	sk->sk_prot->unhash(sk);
- 	release_sock(sk);
- 
- 	sock_put(sk);
-@@ -144,6 +181,7 @@ static struct sock *smc_sock_alloc(struct net *net, struct socket *sock)
- 	INIT_LIST_HEAD(&smc->accept_q);
- 	spin_lock_init(&smc->accept_q_lock);
- 	INIT_DELAYED_WORK(&smc->sock_put_work, smc_close_sock_put_work);
-+	sk->sk_prot->hash(sk);
- 	sk_refcnt_debug_inc(sk);
- 
- 	return sk;
-@@ -536,6 +574,7 @@ static int smc_clcsock_accept(struct smc_sock *lsmc, struct smc_sock **new_smc)
- 		lsmc->sk.sk_err = -rc;
- 		new_sk->sk_state = SMC_CLOSED;
- 		sock_set_flag(new_sk, SOCK_DEAD);
-+		sk->sk_prot->unhash(new_sk);
- 		sock_put(new_sk);
- 		*new_smc = NULL;
- 		goto out;
-@@ -545,6 +584,7 @@ static int smc_clcsock_accept(struct smc_sock *lsmc, struct smc_sock **new_smc)
- 			sock_release(new_clcsock);
- 		new_sk->sk_state = SMC_CLOSED;
- 		sock_set_flag(new_sk, SOCK_DEAD);
-+		sk->sk_prot->unhash(new_sk);
- 		sock_put(new_sk);
- 		*new_smc = NULL;
- 		goto out;
-@@ -1320,6 +1360,7 @@ static int __init smc_init(void)
- 		pr_err("%s: sock_register fails with %d\n", __func__, rc);
- 		goto out_proto;
- 	}
-+	INIT_HLIST_HEAD(&smc_v4_hashinfo.ht);
- 
- 	rc = smc_ib_register_client();
- 	if (rc) {
-diff --git a/net/smc/smc.h b/net/smc/smc.h
-index 959a5d2..ee5fbea 100644
---- a/net/smc/smc.h
-+++ b/net/smc/smc.h
-@@ -21,6 +21,8 @@
- 
- #define SMC_MAX_PORTS		2	/* Max # of ports */
- 
-+extern struct proto smc_proto;
-+
- #ifdef ATOMIC64_INIT
- #define KERNEL_HAS_ATOMIC64
- #endif
-diff --git a/net/smc/smc_close.c b/net/smc/smc_close.c
-index d70c05b..03dfcc6 100644
---- a/net/smc/smc_close.c
-+++ b/net/smc/smc_close.c
-@@ -384,6 +384,7 @@ void smc_close_sock_put_work(struct work_struct *work)
- 					    struct smc_sock,
- 					    sock_put_work);
- 
-+	smc->sk.sk_prot->unhash(&smc->sk);
- 	sock_put(&smc->sk);
- }
- 
-diff --git a/net/smc/smc_diag.c b/net/smc/smc_diag.c
-new file mode 100644
-index 0000000..d2d01cf
---- /dev/null
-+++ b/net/smc/smc_diag.c
-@@ -0,0 +1,215 @@
-+/*
-+ * Shared Memory Communications over RDMA (SMC-R) and RoCE
-+ *
-+ * Monitoring SMC transport protocol sockets
-+ *
-+ * Copyright IBM Corp. 2016
-+ *
-+ * Author(s):  Ursula Braun <ubraun@linux.vnet.ibm.com>
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/module.h>
-+#include <linux/types.h>
-+#include <linux/init.h>
-+#include <linux/sock_diag.h>
-+#include <linux/inet_diag.h>
-+#include <linux/smc_diag.h>
-+#include <net/netlink.h>
-+#include <net/smc.h>
-+
-+#include "smc.h"
-+#include "smc_core.h"
-+
-+static void smc_gid_be16_convert(__u8 *buf, u8 *gid_raw)
-+{
-+	sprintf(buf, "%04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x",
-+		be16_to_cpu(((__be16 *)gid_raw)[0]),
-+		be16_to_cpu(((__be16 *)gid_raw)[1]),
-+		be16_to_cpu(((__be16 *)gid_raw)[2]),
-+		be16_to_cpu(((__be16 *)gid_raw)[3]),
-+		be16_to_cpu(((__be16 *)gid_raw)[4]),
-+		be16_to_cpu(((__be16 *)gid_raw)[5]),
-+		be16_to_cpu(((__be16 *)gid_raw)[6]),
-+		be16_to_cpu(((__be16 *)gid_raw)[7]));
-+}
-+
-+static void smc_diag_msg_common_fill(struct smc_diag_msg *r, struct sock *sk)
-+{
-+	struct smc_sock *smc = smc_sk(sk);
-+
-+	r->diag_family = sk->sk_family;
-+	if (!smc->clcsock)
-+		return;
-+	r->id.idiag_sport = htons(smc->clcsock->sk->sk_num);
-+	r->id.idiag_dport = smc->clcsock->sk->sk_dport;
-+	r->id.idiag_if = smc->clcsock->sk->sk_bound_dev_if;
-+	sock_diag_save_cookie(sk, r->id.idiag_cookie);
-+	memset(&r->id.idiag_src, 0, sizeof(r->id.idiag_src));
-+	memset(&r->id.idiag_dst, 0, sizeof(r->id.idiag_dst));
-+	r->id.idiag_src[0] = smc->clcsock->sk->sk_rcv_saddr;
-+	r->id.idiag_dst[0] = smc->clcsock->sk->sk_daddr;
-+}
-+
-+static int smc_diag_msg_attrs_fill(struct sock *sk, struct sk_buff *skb,
-+				   struct smc_diag_msg *r,
-+				   struct user_namespace *user_ns)
-+{
-+	if (nla_put_u8(skb, SMC_DIAG_SHUTDOWN, sk->sk_shutdown))
-+		return 1;
-+
-+	r->diag_uid = from_kuid_munged(user_ns, sock_i_uid(sk));
-+	r->diag_inode = sock_i_ino(sk);
-+	return 0;
-+}
-+
-+static int __smc_diag_dump(struct sock *sk, struct sk_buff *skb,
-+			   struct netlink_callback *cb,
-+			   const struct smc_diag_req *req,
-+			   struct nlattr *bc)
-+{
-+	struct smc_sock *smc = smc_sk(sk);
-+	struct user_namespace *user_ns;
-+	struct smc_diag_msg *r;
-+	struct nlmsghdr *nlh;
-+
-+	nlh = nlmsg_put(skb, NETLINK_CB(cb->skb).portid, cb->nlh->nlmsg_seq,
-+			cb->nlh->nlmsg_type, sizeof(*r), NLM_F_MULTI);
-+	if (!nlh)
-+		return -EMSGSIZE;
-+
-+	r = nlmsg_data(nlh);
-+	smc_diag_msg_common_fill(r, sk);
-+	r->diag_state = sk->sk_state;
-+	r->diag_fallback = smc->use_fallback;
-+	user_ns = sk_user_ns(NETLINK_CB(cb->skb).sk);
-+	if (smc_diag_msg_attrs_fill(sk, skb, r, user_ns))
-+		goto errout;
-+
-+	if ((req->diag_ext & (1 << (SMC_DIAG_CONNINFO - 1))) && smc->conn.lgr) {
-+		struct smc_connection *conn = &smc->conn;
-+		struct smc_diag_conninfo cinfo = {
-+			.token = conn->alert_token_local,
-+			.sndbuf_size = conn->sndbuf_size,
-+			.rmbe_size = conn->rmbe_size,
-+			.peer_rmbe_size = conn->peer_rmbe_size,
-+
-+			.rx_prod.wrap = conn->local_rx_ctrl.prod.wrap,
-+			.rx_prod.count = conn->local_rx_ctrl.prod.count,
-+			.rx_cons.wrap = conn->local_rx_ctrl.cons.wrap,
-+			.rx_cons.count = conn->local_rx_ctrl.cons.count,
-+
-+			.tx_prod.wrap = conn->local_tx_ctrl.prod.wrap,
-+			.tx_prod.count = conn->local_tx_ctrl.prod.count,
-+			.tx_cons.wrap = conn->local_tx_ctrl.cons.wrap,
-+			.tx_cons.count = conn->local_tx_ctrl.cons.count,
-+
-+			.tx_prod_flags =
-+				*(u8 *)&conn->local_tx_ctrl.prod_flags,
-+			.tx_conn_state_flags =
-+				*(u8 *)&conn->local_tx_ctrl.conn_state_flags,
-+			.rx_prod_flags = *(u8 *)&conn->local_rx_ctrl.prod_flags,
-+			.rx_conn_state_flags =
-+				*(u8 *)&conn->local_rx_ctrl.conn_state_flags,
-+
-+			.tx_prep.wrap = conn->tx_curs_prep.wrap,
-+			.tx_prep.count = conn->tx_curs_prep.count,
-+			.tx_sent.wrap = conn->tx_curs_sent.wrap,
-+			.tx_sent.count = conn->tx_curs_sent.count,
-+			.tx_fin.wrap = conn->tx_curs_fin.wrap,
-+			.tx_fin.count = conn->tx_curs_fin.count,
-+		};
-+
-+		if (nla_put(skb, SMC_DIAG_CONNINFO, sizeof(cinfo), &cinfo) < 0)
-+			goto errout;
++		rc = smc_clc_wait_msg(smc, &dclc, sizeof(dclc),
++				      SMC_CLC_DECLINE);
++		return rc;
 +	}
 +
-+	if ((req->diag_ext & (1 << (SMC_DIAG_LGRINFO - 1))) && smc->conn.lgr) {
-+		struct smc_diag_lgrinfo linfo = {
-+			.role = smc->conn.lgr->role,
-+			.lnk[0].ibport = smc->conn.lgr->lnk[0].ibport,
-+			.lnk[0].link_id = smc->conn.lgr->lnk[0].link_id,
-+		};
++	rc = smc_ib_modify_qp_rts(link);
++	if (rc)
++		return SMC_CLC_DECL_INTERR;
 +
-+		memcpy(linfo.lnk[0].ibname,
-+		       smc->conn.lgr->lnk[0].smcibdev->ibdev->name,
-+		       sizeof(smc->conn.lgr->lnk[0].smcibdev->ibdev->name));
-+		smc_gid_be16_convert(linfo.lnk[0].gid,
-+				     smc->conn.lgr->lnk[0].gid.raw);
-+		smc_gid_be16_convert(linfo.lnk[0].peer_gid,
-+				     smc->conn.lgr->lnk[0].peer_gid);
++	smc_wr_remember_qp_attr(link);
++	/* send CONFIRM LINK response over RoCE fabric */
++	rc = smc_llc_send_confirm_link(link,
++				       link->smcibdev->mac[link->ibport - 1],
++				       gid, SMC_LLC_RESP);
++	if (rc < 0)
++		return SMC_CLC_DECL_TCL;
 +
-+		if (nla_put(skb, SMC_DIAG_LGRINFO, sizeof(linfo), &linfo) < 0)
-+			goto errout;
-+	}
-+
-+	nlmsg_end(skb, nlh);
-+	return 0;
-+
-+errout:
-+	nlmsg_cancel(skb, nlh);
-+	return -EMSGSIZE;
-+}
-+
-+static int smc_diag_dump(struct sk_buff *skb, struct netlink_callback *cb)
-+{
-+	struct net *net = sock_net(skb->sk);
-+	struct nlattr *bc = NULL;
-+	struct hlist_head *head;
-+	struct sock *sk;
-+	int rc = 0;
-+
-+	read_lock(&smc_proto.h.smc_hash->lock);
-+	head = &smc_proto.h.smc_hash->ht;
-+	if (hlist_empty(head))
-+		goto out;
-+
-+	sk_for_each(sk, head) {
-+		if (!net_eq(sock_net(sk), net))
-+			continue;
-+		rc = __smc_diag_dump(sk, skb, cb, nlmsg_data(cb->nlh), bc);
-+		if (rc)
-+			break;
-+	}
-+
-+out:
-+	read_unlock(&smc_proto.h.smc_hash->lock);
 +	return rc;
 +}
 +
-+static int smc_diag_handler_dump(struct sk_buff *skb, struct nlmsghdr *h)
-+{
-+	struct net *net = sock_net(skb->sk);
-+
-+	if (h->nlmsg_type == SOCK_DIAG_BY_FAMILY &&
-+	    h->nlmsg_flags & NLM_F_DUMP) {
-+		{
-+			struct netlink_dump_control c = {
-+				.dump = smc_diag_dump,
-+				.min_dump_alloc = SKB_WITH_OVERHEAD(32768),
-+			};
-+			return netlink_dump_start(net->diag_nlsk, skb, h, &c);
+ static void smc_conn_save_peer_info(struct smc_sock *smc,
+ 				    struct smc_clc_msg_accept_confirm *clc)
+ {
+@@ -358,7 +394,17 @@ static int smc_connect_rdma(struct smc_sock *smc)
+ 	if (rc)
+ 		goto out_err_unlock;
+ 
+-	/* tbd in follow-on patch: llc_confirm */
++	if (local_contact == SMC_FIRST_CONTACT) {
++		/* QP confirmation over RoCE fabric */
++		reason_code = smc_clnt_conf_first_link(
++			smc, &smcibdev->gid[ibport - 1]);
++		if (reason_code < 0) {
++			rc = reason_code;
++			goto out_err_unlock;
 +		}
++		if (reason_code > 0)
++			goto decline_rdma_unlock;
 +	}
+ 
+ 	mutex_unlock(&smc_create_lgr_pending);
+ out_connected:
+@@ -543,6 +589,36 @@ static void smc_close_non_accepted(struct sock *sk)
+ 	sock_put(sk);
+ }
+ 
++static int smc_serv_conf_first_link(struct smc_sock *smc)
++{
++	struct smc_link_group *lgr = smc->conn.lgr;
++	struct smc_link *link;
++	int rest;
++	int rc;
++
++	link = &lgr->lnk[SMC_SINGLE_LINK];
++	/* send CONFIRM LINK request to client over the RoCE fabric */
++	rc = smc_llc_send_confirm_link(link,
++				       link->smcibdev->mac[link->ibport - 1],
++				       &link->smcibdev->gid[link->ibport - 1],
++				       SMC_LLC_REQ);
++	if (rc < 0)
++		return SMC_CLC_DECL_TCL;
++
++	/* receive CONFIRM LINK response from client over the RoCE fabric */
++	rest = wait_for_completion_interruptible_timeout(
++		&link->llc_confirm_resp,
++		SMC_LLC_WAIT_FIRST_TIME);
++	if (rest <= 0) {
++		struct smc_clc_msg_decline dclc;
++
++		rc = smc_clc_wait_msg(smc, &dclc, sizeof(dclc),
++				      SMC_CLC_DECLINE);
++	}
++
++	return rc;
++}
++
+ /* setup for RDMA connection of server */
+ static void smc_listen_work(struct work_struct *work)
+ {
+@@ -655,13 +731,21 @@ static void smc_listen_work(struct work_struct *work)
+ 		goto decline_rdma;
+ 	}
+ 
+-	/* tbd in follow-on patch: modify_qp, llc_confirm */
+ 	if (local_contact == SMC_FIRST_CONTACT) {
+ 		rc = smc_ib_ready_link(link);
+ 		if (rc) {
+ 			reason_code = SMC_CLC_DECL_INTERR;
+ 			goto decline_rdma;
+ 		}
++		/* QP confirmation over RoCE fabric */
++		reason_code = smc_serv_conf_first_link(new_smc);
++		if (reason_code < 0) {
++			/* peer is not aware of a problem */
++			rc = reason_code;
++			goto out_err;
++		}
++		if (reason_code > 0)
++			goto decline_rdma;
+ 	}
+ 
+ out_connected:
+@@ -1111,6 +1195,12 @@ static int __init smc_init(void)
+ 	if (rc)
+ 		return rc;
+ 
++	rc = smc_llc_init();
++	if (rc) {
++		pr_err("%s: smc_llc_init fails with %d\n", __func__, rc);
++		goto out_pnet;
++	}
++
+ 	rc = proto_register(&smc_proto, 1);
+ 	if (rc) {
+ 		pr_err("%s: proto_register fails with %d\n", __func__, rc);
+diff --git a/net/smc/smc_clc.h b/net/smc/smc_clc.h
+index 5924d99..13db8ce 100644
+--- a/net/smc/smc_clc.h
++++ b/net/smc/smc_clc.h
+@@ -33,6 +33,8 @@ static const char SMC_EYECATCHER[4] = {'\xe2', '\xd4', '\xc3', '\xd9'};
+ #define SMC_CLC_DECL_SYNCERR	0x04000000  /* synchronization error          */
+ #define SMC_CLC_DECL_REPLY	0x06000000  /* reply to a received decline    */
+ #define SMC_CLC_DECL_INTERR	0x99990000  /* internal error                 */
++#define SMC_CLC_DECL_TCL	0x02040000  /* timeout w4 QP confirm          */
++#define SMC_CLC_DECL_SEND	0x07000000  /* sending problem                */
+ 
+ struct smc_clc_msg_hdr {	/* header1 of clc messages */
+ 	u8 eyecatcher[4];	/* eye catcher */
+diff --git a/net/smc/smc_core.c b/net/smc/smc_core.c
+index 0e9adbd..906d88c 100644
+--- a/net/smc/smc_core.c
++++ b/net/smc/smc_core.c
+@@ -21,9 +21,13 @@
+ #include "smc_core.h"
+ #include "smc_ib.h"
+ #include "smc_wr.h"
++#include "smc_llc.h"
+ 
++#define SMC_LGR_NUM_INCR	256
+ #define SMC_LGR_FREE_DELAY	(600 * HZ)
+ 
++static u32 smc_lgr_num;			/* unique link group number */
++
+ /* Register connection's alert token in our lookup structure.
+  * To use rbtrees we have to implement our own insert core.
+  * Requires @conns_lock
+@@ -152,6 +156,8 @@ static int smc_lgr_create(struct smc_sock *smc, __be32 peer_in_addr,
+ 		INIT_LIST_HEAD(&lgr->sndbufs[i]);
+ 		INIT_LIST_HEAD(&lgr->rmbs[i]);
+ 	}
++	smc_lgr_num += SMC_LGR_NUM_INCR;
++	memcpy(&lgr->id, (u8 *)&smc_lgr_num, SMC_LGR_ID_SIZE);
+ 	INIT_DELAYED_WORK(&lgr->free_work, smc_lgr_free_work);
+ 	lgr->conns_all = RB_ROOT;
+ 
+@@ -177,6 +183,8 @@ static int smc_lgr_create(struct smc_sock *smc, __be32 peer_in_addr,
+ 	rc = smc_wr_create_link(lnk);
+ 	if (rc)
+ 		goto destroy_qp;
++	init_completion(&lnk->llc_confirm);
++	init_completion(&lnk->llc_confirm_resp);
+ 
+ 	smc->conn.lgr = lgr;
+ 	rwlock_init(&lgr->conns_lock);
+diff --git a/net/smc/smc_core.h b/net/smc/smc_core.h
+index f5ea520..27eb3805 100644
+--- a/net/smc/smc_core.h
++++ b/net/smc/smc_core.h
+@@ -73,6 +73,9 @@ struct smc_link {
+ 	u32			peer_psn;	/* QP rx initial packet seqno */
+ 	u8			peer_mac[ETH_ALEN];	/* = gid[8:10||13:15] */
+ 	u8			peer_gid[sizeof(union ib_gid)];	/* gid of peer*/
++	u8			link_id;	/* unique # within link group */
++	struct completion	llc_confirm;	/* wait for rx of conf link */
++	struct completion	llc_confirm_resp; /* wait 4 rx of cnf lnk rsp */
+ };
+ 
+ /* For now we just allow one parallel link per link group. The SMC protocol
+@@ -102,6 +105,8 @@ struct smc_rtoken {				/* address/key of remote RMB */
+ 	u32			rkey;
+ };
+ 
++#define SMC_LGR_ID_SIZE		4
++
+ struct smc_link_group {
+ 	struct list_head	list;
+ 	enum smc_lgr_role	role;		/* client or server */
+@@ -125,6 +130,7 @@ struct smc_link_group {
+ 							SMC_RMBS_PER_LGR_MAX)];
+ 						/* used rtoken elements */
+ 
++	u8			id[SMC_LGR_ID_SIZE];	/* unique lgr id */
+ 	struct delayed_work	free_work;	/* delayed freeing of an lgr */
+ 	bool			sync_err;	/* lgr no longer fits to peer */
+ };
+diff --git a/net/smc/smc_llc.c b/net/smc/smc_llc.c
+new file mode 100644
+index 0000000..c2f9165
+--- /dev/null
++++ b/net/smc/smc_llc.c
+@@ -0,0 +1,158 @@
++/*
++ *  Shared Memory Communications over RDMA (SMC-R) and RoCE
++ *
++ *  Link Layer Control (LLC)
++ *
++ *  For now, we only support the necessary "confirm link" functionality
++ *  which happens for the first RoCE link after successful CLC handshake.
++ *
++ *  Copyright IBM Corp. 2016
++ *
++ *  Author(s):  Klaus Wacker <Klaus.Wacker@de.ibm.com>
++ *              Ursula Braun <ubraun@linux.vnet.ibm.com>
++ */
++
++#include <net/tcp.h>
++#include <rdma/ib_verbs.h>
++
++#include "smc.h"
++#include "smc_core.h"
++#include "smc_clc.h"
++#include "smc_llc.h"
++
++/********************************** send *************************************/
++
++struct smc_llc_tx_pend {
++};
++
++/* handler for send/transmission completion of an LLC msg */
++static void smc_llc_tx_handler(struct smc_wr_tx_pend_priv *pend,
++			       struct smc_link *link,
++			       enum ib_wc_status wc_status)
++{
++	/* future work: handle wc_status error for recovery and failover */
++}
++
++/**
++ * smc_llc_add_pending_send() - add LLC control message to pending WQE transmits
++ * @link: Pointer to SMC link used for sending LLC control message.
++ * @wr_buf: Out variable returning pointer to work request payload buffer.
++ * @pend: Out variable returning pointer to private pending WR tracking.
++ *	  It's the context the transmit complete handler will get.
++ *
++ * Reserves and pre-fills an entry for a pending work request send/tx.
++ * Used by mid-level smc_llc_send_msg() to prepare for later actual send/tx.
++ * Can sleep due to smc_get_ctrl_buf (if not in softirq context).
++ *
++ * Return: 0 on success, otherwise an error value.
++ */
++static int smc_llc_add_pending_send(struct smc_link *link,
++				    struct smc_wr_buf **wr_buf,
++				    struct smc_wr_tx_pend_priv **pend)
++{
++	int rc;
++
++	rc = smc_wr_tx_get_free_slot(link, smc_llc_tx_handler, wr_buf, pend);
++	if (rc < 0)
++		return rc;
++	BUILD_BUG_ON_MSG(
++		sizeof(union smc_llc_msg) > SMC_WR_BUF_SIZE,
++		"must increase SMC_WR_BUF_SIZE to at least sizeof(struct smc_llc_msg)");
++	BUILD_BUG_ON_MSG(
++		sizeof(union smc_llc_msg) != SMC_WR_TX_SIZE,
++		"must adapt SMC_WR_TX_SIZE to sizeof(struct smc_llc_msg); if not all smc_wr upper layer protocols use the same message size any more, must start to set link->wr_tx_sges[i].length on each individual smc_wr_tx_send()");
++	BUILD_BUG_ON_MSG(
++		sizeof(struct smc_llc_tx_pend) > SMC_WR_TX_PEND_PRIV_SIZE,
++		"must increase SMC_WR_TX_PEND_PRIV_SIZE to at least sizeof(struct smc_llc_tx_pend)");
 +	return 0;
 +}
 +
-+static const struct sock_diag_handler smc_diag_handler = {
-+	.family = AF_SMC,
-+	.dump = smc_diag_handler_dump,
++/* high-level API to send LLC confirm link */
++int smc_llc_send_confirm_link(struct smc_link *link, u8 mac[],
++			      union ib_gid *gid,
++			      enum smc_llc_reqresp reqresp)
++{
++	struct smc_link_group *lgr = container_of(link, struct smc_link_group,
++						  lnk[SMC_SINGLE_LINK]);
++	struct smc_llc_msg_confirm_link *confllc;
++	struct smc_wr_tx_pend_priv *pend;
++	struct smc_wr_buf *wr_buf;
++	int rc;
++
++	rc = smc_llc_add_pending_send(link, &wr_buf, &pend);
++	if (rc)
++		return rc;
++	confllc = (struct smc_llc_msg_confirm_link *)wr_buf;
++	memset(confllc, 0, sizeof(*confllc));
++	confllc->hd.common.type = SMC_LLC_CONFIRM_LINK;
++	confllc->hd.length = sizeof(struct smc_llc_msg_confirm_link);
++	if (reqresp == SMC_LLC_RESP)
++		confllc->hd.flags |= SMC_LLC_FLAG_RESP;
++	memcpy(confllc->sender_mac, mac, ETH_ALEN);
++	memcpy(confllc->sender_gid, gid, SMC_GID_SIZE);
++	hton24(confllc->sender_qp_num, link->roce_qp->qp_num);
++	/* confllc->link_num = SMC_SINGLE_LINK; already done by memset above */
++	memcpy(confllc->link_uid, lgr->id, SMC_LGR_ID_SIZE);
++	confllc->max_links = SMC_LINKS_PER_LGR_MAX;
++	/* send llc message */
++	rc = smc_wr_tx_send(link, pend);
++	return rc;
++}
++
++/********************************* receive ***********************************/
++
++static void smc_llc_rx_confirm_link(struct smc_link *link,
++				    struct smc_llc_msg_confirm_link *llc)
++{
++	struct smc_link_group *lgr;
++
++	lgr = container_of(link, struct smc_link_group, lnk[SMC_SINGLE_LINK]);
++	if (llc->hd.flags & SMC_LLC_FLAG_RESP) {
++		if (lgr->role == SMC_SERV)
++			complete(&link->llc_confirm_resp);
++	} else {
++		if (lgr->role == SMC_CLNT) {
++			link->link_id = llc->link_num;
++			complete(&link->llc_confirm);
++		}
++	}
++}
++
++static void smc_llc_rx_handler(struct ib_wc *wc, void *buf)
++{
++	struct smc_link *link = (struct smc_link *)wc->qp->qp_context;
++	union smc_llc_msg *llc = buf;
++
++	if (wc->byte_len < sizeof(*llc))
++		return; /* short message */
++	if (llc->raw.hdr.length != sizeof(*llc))
++		return; /* invalid message */
++	if (llc->raw.hdr.common.type == SMC_LLC_CONFIRM_LINK)
++		smc_llc_rx_confirm_link(link, &llc->confirm_link);
++}
++
++/***************************** init, exit, misc ******************************/
++
++static struct smc_wr_rx_handler smc_llc_rx_handlers[] = {
++	{
++		.handler	= smc_llc_rx_handler,
++		.type		= SMC_LLC_CONFIRM_LINK
++	},
++	{
++		.handler	= NULL,
++	}
 +};
 +
-+static int __init smc_diag_init(void)
++int __init smc_llc_init(void)
 +{
-+	return sock_diag_register(&smc_diag_handler);
-+}
++	struct smc_wr_rx_handler *handler;
++	int rc = 0;
 +
-+static void __exit smc_diag_exit(void)
-+{
-+	sock_diag_unregister(&smc_diag_handler);
++	for (handler = smc_llc_rx_handlers; handler->handler; handler++) {
++		INIT_HLIST_NODE(&handler->list);
++		rc = smc_wr_rx_register_handler(handler);
++		if (rc)
++			break;
++	}
++	return rc;
 +}
+diff --git a/net/smc/smc_llc.h b/net/smc/smc_llc.h
+new file mode 100644
+index 0000000..b472f85
+--- /dev/null
++++ b/net/smc/smc_llc.h
+@@ -0,0 +1,63 @@
++/*
++ *  Shared Memory Communications over RDMA (SMC-R) and RoCE
++ *
++ *  Definitions for LLC (link layer control) message handling
++ *
++ *  Copyright IBM Corp. 2016
++ *
++ *  Author(s):  Klaus Wacker <Klaus.Wacker@de.ibm.com>
++ *              Ursula Braun <ubraun@linux.vnet.ibm.com>
++ */
 +
-+module_init(smc_diag_init);
-+module_exit(smc_diag_exit);
-+MODULE_LICENSE("GPL");
-+MODULE_ALIAS_NET_PF_PROTO_TYPE(PF_NETLINK, NETLINK_SOCK_DIAG, 43 /* AF_SMC */);
++#ifndef SMC_LLC_H
++#define SMC_LLC_H
++
++#include "smc_wr.h"
++
++#define SMC_LLC_FLAG_RESP		0x80
++
++#define SMC_LLC_WAIT_FIRST_TIME		(5 * HZ)
++
++enum smc_llc_reqresp {
++	SMC_LLC_REQ,
++	SMC_LLC_RESP
++};
++
++enum smc_llc_msg_type {
++	SMC_LLC_CONFIRM_LINK		= 0x01,
++};
++
++#define SMC_LLC_DATA_LEN		40
++
++struct smc_llc_hdr {
++	struct smc_wr_rx_hdr common;
++	u8 length;	/* 44 */
++	u8 reserved;
++	u8 flags;
++};
++
++struct smc_llc_msg_confirm_link {	/* type 0x01 */
++	struct smc_llc_hdr hd;
++	u8 sender_mac[ETH_ALEN];
++	u8 sender_gid[SMC_GID_SIZE];
++	u8 sender_qp_num[3];
++	u8 link_num;
++	u8 link_uid[SMC_LGR_ID_SIZE];
++	u8 max_links;
++	u8 reserved[9];
++};
++
++union smc_llc_msg {
++	struct smc_llc_msg_confirm_link confirm_link;
++	struct {
++		struct smc_llc_hdr hdr;
++		u8 data[SMC_LLC_DATA_LEN];
++	} raw;
++};
++
++/* transmit */
++int smc_llc_send_confirm_link(struct smc_link *lnk, u8 mac[], union ib_gid *gid,
++			      enum smc_llc_reqresp reqresp);
++int smc_llc_init(void) __init;
++
++#endif /* SMC_LLC_H */
 -- 
 2.8.4
