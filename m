@@ -1,57 +1,81 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH V4 net-next 3/3] tun: rx batching
-Date: Tue, 10 Jan 2017 01:12:36 +0200
-Message-ID: <20170110011058-mutt-send-email-mst@kernel.org>
-References: <1483668797-24112-1-git-send-email-jasowang@redhat.com>
-	<1483668797-24112-4-git-send-email-jasowang@redhat.com>
-	<20170106214323-mutt-send-email-mst@kernel.org>
-	<bff99f2f-8293-0dda-1db1-881e555f3623@redhat.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [net PATCH] net: virtio: cap mtu when XDP programs are running
+Date: Mon, 9 Jan 2017 15:13:15 -0800
+Message-ID: <5874190B.9050505@gmail.com>
+References: <20170102223031.11541.28717.stgit@john-Precision-Tower-5810>
+ <402027b4-58c7-aa1b-5079-74e31448f544@redhat.com>
+ <586BD5D5.6020100@gmail.com>
+ <1caf1ffc-0f46-067e-0f0d-a93b408b4ffd@redhat.com>
+ <586D458F.5050705@gmail.com>
+ <068f0116-b37e-eb44-8c60-1781a9d5255e@redhat.com>
+ <20170110010531-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: kvm@vger.kernel.org, netdev@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, wexu@redhat.com,
-	stefanha@redhat.com
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <bff99f2f-8293-0dda-1db1-881e555f3623@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org,
+        alexei.starovoitov@gmail.com, daniel@iogearbox.net
+To: "Michael S. Tsirkin" <mst@redhat.com>,
+        Jason Wang <jasowang@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:33621 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S937435AbdAIXNh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 18:13:37 -0500
+Received: by mail-pf0-f193.google.com with SMTP id 127so25673750pfg.0
+        for <netdev@vger.kernel.org>; Mon, 09 Jan 2017 15:13:37 -0800 (PST)
+In-Reply-To: <20170110010531-mutt-send-email-mst@kernel.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gTW9uLCBKYW4gMDksIDIwMTcgYXQgMTA6Mzk6NTVBTSArMDgwMCwgSmFzb24gV2FuZyB3cm90
-ZToKPiAKPiAKPiBPbiAyMDE35bm0MDHmnIgwN+aXpSAwMzo0NywgTWljaGFlbCBTLiBUc2lya2lu
-IHdyb3RlOgo+ID4gPiArc3RhdGljIGludCB0dW5fZ2V0X2NvYWxlc2NlKHN0cnVjdCBuZXRfZGV2
-aWNlICpkZXYsCj4gPiA+ICsJCQkgICAgc3RydWN0IGV0aHRvb2xfY29hbGVzY2UgKmVjKQo+ID4g
-PiArewo+ID4gPiArCXN0cnVjdCB0dW5fc3RydWN0ICp0dW4gPSBuZXRkZXZfcHJpdihkZXYpOwo+
-ID4gPiArCj4gPiA+ICsJZWMtPnJ4X21heF9jb2FsZXNjZWRfZnJhbWVzID0gdHVuLT5yeF9iYXRj
-aGVkOwo+ID4gPiArCj4gPiA+ICsJcmV0dXJuIDA7Cj4gPiA+ICt9Cj4gPiA+ICsKPiA+ID4gK3N0
-YXRpYyBpbnQgdHVuX3NldF9jb2FsZXNjZShzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LAo+ID4gPiAr
-CQkJICAgIHN0cnVjdCBldGh0b29sX2NvYWxlc2NlICplYykKPiA+ID4gK3sKPiA+ID4gKwlzdHJ1
-Y3QgdHVuX3N0cnVjdCAqdHVuID0gbmV0ZGV2X3ByaXYoZGV2KTsKPiA+ID4gKwo+ID4gPiArCWlm
-IChlYy0+cnhfbWF4X2NvYWxlc2NlZF9mcmFtZXMgPiBOQVBJX1BPTExfV0VJR0hUKQo+ID4gPiAr
-CQlyZXR1cm4gLUVJTlZBTDsKPiA+IFNvIHdoYXQgc2hvdWxkIHVzZXJzcGFjZSBkbz8gS2VlcCB0
-cnlpbmcgdW50aWwgaXQgc3VjY2VlZHM/Cj4gPiBJIHRoaW5rIGl0J3MgYmV0dGVyIHRvIGp1c3Qg
-dXNlIE5BUElfUE9MTF9XRUlHSFQgaW5zdGVhZCBhbmQgRFRSVCBoZXJlLgo+ID4gCj4gCj4gV2Vs
-bCwgbG9va2luZyBhdCBob3cgc2V0X2NvYWxlc2NlIGlzIGltcGxlbWVudGVkIGluIG90aGVyIGRy
-aXZlcnMsIC1FSU5WQUwKPiBpcyB1c3VhbGx5IHVzZWQgd2hlbiB1c2VyIGdpdmUgYSB2YWx1ZSB0
-aGF0IGV4Y2VlZHMgdGhlIGxpbWl0YXRpb24uIEZvcgo+IHR1bnRhcCwgd2hhdCBtaXNzZWQgaGVy
-ZSBpcyBwcm9iYWJseSBqdXN0IGEgZG9jdW1lbnRhdGlvbiBmb3IgY29hbGVzY2luZyBpbgo+IHR1
-bnRhcC50eHQuIChPciBleHRlbmQgZXRodG9vbCB0byByZXR1cm4gdGhlIG1heCB2YWx1ZSkuIFRo
-aXMgc2VlbXMgbXVjaAo+IGJldHRlciB0aGFuIHNpbGVudGx5IHJlZHVjZSB0aGUgdmFsdWUgdG8g
-dGhlIGxpbWl0YXRpb24uCj4gCj4gVGhhbmtzCgoKSSBkb24ndCB0aGluayBpdCdzIGJldHRlciwg
-aXQncyBtb3N0bHkgdGhhdAoxLiB0aGVyZSdzIGEgaGFyZHdhcmUgbGltaXQgc28gaXQgZG9lcyBu
-b3QgY2hhbmdlIG11Y2gKMi4gZGVmYXVsdCBpcyBlbmFibGVkIGFuZCBubyBvbmUgYm90aGVycyBj
-aGFuZ2luZwoKSSBkb24ndCBzZWUgaG93IHdpbGwgdHVudGFwLnR4dCBoZWxwIGlmIHdlIHdhbnQg
-dG8gY2hhbmdlIGl0CmluIHRoZSBmdXR1cmUuCgotLSAKTVNUCl9fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fClZpcnR1YWxpemF0aW9uIG1haWxpbmcgbGlzdApW
-aXJ0dWFsaXphdGlvbkBsaXN0cy5saW51eC1mb3VuZGF0aW9uLm9yZwpodHRwczovL2xpc3RzLmxp
-bnV4Zm91bmRhdGlvbi5vcmcvbWFpbG1hbi9saXN0aW5mby92aXJ0dWFsaXphdGlvbg==
+On 17-01-09 03:05 PM, Michael S. Tsirkin wrote:
+> On Thu, Jan 05, 2017 at 11:09:14AM +0800, Jason Wang wrote:
+>>
+>>
+>> On 2017年01月05日 02:57, John Fastabend wrote:
+>>> [...]
+>>>
+>>>> On 2017年01月04日 00:48, John Fastabend wrote:
+>>>>> On 17-01-02 10:14 PM, Jason Wang wrote:
+>>>>>> On 2017年01月03日 06:30, John Fastabend wrote:
+>>>>>>> XDP programs can not consume multiple pages so we cap the MTU to
+>>>>>>> avoid this case. Virtio-net however only checks the MTU at XDP
+>>>>>>> program load and does not block MTU changes after the program
+>>>>>>> has loaded.
+>>>>>>>
+>>>>>>> This patch sets/clears the max_mtu value at XDP load/unload time.
+>>>>>>>
+>>>>>>> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+>>>>>>> ---
+>>> [...]
+>>>
+>>>>> OK so this logic is a bit too simply. When it resets the max_mtu I guess it
+>>>>> needs to read the mtu via
+>>>>>
+>>>>>      virtio_cread16(vdev, ...)
+>>>>>
+>>>>> or we may break the negotiated mtu.
+>>>> Yes, this is a problem (even use ETH_MAX_MTU). We may need a method to notify
+>>>> the device about the mtu in this case which is not supported by virtio now.
+>>> Note this is not really a XDP specific problem. The guest can change the MTU
+>>> after init time even without XDP which I assume should ideally result in a
+>>> notification if the MTU is negotiated.
+>>
+>> Yes, Michael, do you think we need add some mechanism to notify host about
+>> MTU change in this case?
+>>
+>> Thanks
+> 
+> Why does host care?
+> 
+
+Well the guest will drop packets after mtu has been reduced. Although the guest
+by reducing its MTU in some sense must expect this. Likewise if the host were
+to change MTU after virtio_net probe time the guest would not learn about it.
+
+I think at best negotiating the mtu is just a hint? If system _really_ cares
+we could use lldp or some other out of band mechanism to learn/set/adjust MTU
+on both systems and it would be more robust. I'm not actually convinced this
+is a problem in bare metal systems we have the same issue with physical
+switches and solve it out of band via configuration, protocols, etc.
+
+.John
