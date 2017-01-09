@@ -1,42 +1,44 @@
-From: Saeed Mahameed <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
-Subject: Re: [for-next V2 06/10] net/mlx5: Add interface to get reference to a UAR
-Date: Mon, 9 Jan 2017 10:31:36 +0200
-Message-ID: <CALzJLG-yiZfa6J0WciFPowfF2LWrXAqCKc4ETu4x=ZJdn+CfDA@mail.gmail.com>
-References: <1483890891-8767-1-git-send-email-saeedm@mellanox.com>
- <1483890891-8767-7-git-send-email-saeedm@mellanox.com> <20170108170539.GA6323@yuval-lap.uk.oracle.com>
+From: "Jean-Pierre Tosoni" <jp.tosoni-eYuUwLwYA0BQFI55V6+gNQ@public.gmane.org>
+Subject: RE: [PATCH net-next] bridge: multicast to unicast
+Date: Mon, 9 Jan 2017 09:36:55 +0100
+Message-ID: <002f01d26a53$88c8da60$9a5a8f20$@acksys.fr>
+References: <20170102193214.31723-1-linus.luessing@c0d3.blue> <20170106191356.43740a26@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-To: Yuval Shaia <yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170108170539.GA6323-Hxa29pjIrETlQW142y8m19+IiqhCXseY@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain;
+        charset="UTF-8"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "'David S . Miller'" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        <bridge-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+        <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "'Felix Fietkau'" <nbd-Vt+b4OUoWG0@public.gmane.org>
+To: "'Stephen Hemminger'" <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
+        "=?UTF-8?Q?'Linus_L=C3=BCssing'?=" <linus.luessing-djzkFPsfvsizQB+pC5nmwQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170106191356.43740a26@xeon-e3>
+Content-Language: fr
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Jan 8, 2017 at 7:05 PM, Yuval Shaia <yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org> wrote:
-> On Sun, Jan 08, 2017 at 05:54:47PM +0200, Saeed Mahameed wrote:
->> From: Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
->>
->>       err = mlx5_create_map_eq(dev, &table->cmd_eq, MLX5_EQ_VEC_CMD,
->>                                MLX5_NUM_CMD_EQE, 1ull << MLX5_EVENT_TYPE_CMD,
->> -                              "mlx5_cmd_eq", &dev->priv.bfregi.uars[0],
->> -                              MLX5_EQ_TYPE_ASYNC);
->> +                              "mlx5_cmd_eq",  MLX5_EQ_TYPE_ASYNC);
->
-> Remove extra space
->
+> -----Message d'origine-----
+> De : linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org [mailto:linux-wireless-
+> owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org] De la part de Stephen Hemminger
+> Envoyé : samedi 7 janvier 2017 04:14
+> À : Linus Lüssing
+> Cc : netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; David S . Miller; bridge-cunTk1MwBs/ROKNJybVBZg@public.gmane.org
+> foundation.org; linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-
+> wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; Felix Fietkau
+> Objet : Re: [PATCH net-next] bridge: multicast to unicast
+> 
+> On Mon,  2 Jan 2017 20:32:14 +0100
+> Linus Lüssing <linus.luessing-djzkFPsfvsizQB+pC5nmwQ@public.gmane.org> wrote:
+> 
+> > This feature is intended for interface types which have a more
+> > reliable and/or efficient way to deliver unicast packets than
+> > broadcast ones (e.g. wifi).
+> 
+> 
+> Why is this not done in MAC80211 rather than  bridge?
 
-Hi Yuval, thanks for the review,
-We will submit an incremental patch for this, as checkpatch doesn't
-complain about such minor things.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+OTOH mac80211 has more information to decide whether it is more economic to send one multicast or several unicast.
+It depends on the bitrate of each station, number of stations and the (not necessarily slower) bitrate of multicasts.
