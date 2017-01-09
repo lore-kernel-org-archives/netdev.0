@@ -1,41 +1,51 @@
-From: Vlad Tsyrklevich <vlad@tsyrklevich.net>
-Subject: [PATCH] net/appletalk: Fix kernel memory disclosure
-Date: Mon,  9 Jan 2017 20:57:48 +0700
-Message-ID: <1483970268-6145-1-git-send-email-vlad@tsyrklevich.net>
-Cc: netdev@vger.kernel.org, Vlad Tsyrklevich <vlad@tsyrklevich.net>
-To: acme@ghostprotocols.net
+From: Jean Delvare <jdelvare@suse.de>
+Subject: [PATCH] net: phy: Add Meson GXL PHY hardware dependency
+Date: Mon, 9 Jan 2017 15:17:27 +0100
+Message-ID: <20170109151727.6571f566@endymion>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Neil Armstrong <narmstrong@baylibre.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        "David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:33333 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S942422AbdAIN7I (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 08:59:08 -0500
-Received: by mail-pg0-f67.google.com with SMTP id 194so7316275pgd.0
-        for <netdev@vger.kernel.org>; Mon, 09 Jan 2017 05:59:07 -0800 (PST)
+Received: from mx2.suse.de ([195.135.220.15]:52112 "EHLO mx2.suse.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754447AbdAIORc (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 9 Jan 2017 09:17:32 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ipddp_route structs contain alignment padding so kernel heap memory
-is leaked when they are copied to user space in
-ipddp_ioctl(SIOCFINDIPDDPRT). Change kmalloc() to kzalloc() to clear
-that memory.
+As I understand it the Meson GXL PHY driver is only useful on one
+architecture so only make it visible on that architecture.
 
-Signed-off-by: Vlad Tsyrklevich <vlad@tsyrklevich.net>
+Signed-off-by: Jean Delvare <jdelvare@suse.de>
+Fixes: 7334b3e47aee ("net: phy: Add Meson GXL Internal PHY driver")
+Cc: Neil Armstrong <narmstrong@baylibre.com>
+Cc: Florian Fainelli <f.fainelli@gmail.com>
+Cc: Andrew Lunn <andrew@lunn.ch>
+Cc: David S. Miller <davem@davemloft.net>
 ---
- drivers/net/appletalk/ipddp.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+If I got it wrong, please let me know the proper dependencies and
+I'll resubmit.
 
-diff --git a/drivers/net/appletalk/ipddp.c b/drivers/net/appletalk/ipddp.c
-index b8c2933..a306de4 100644
---- a/drivers/net/appletalk/ipddp.c
-+++ b/drivers/net/appletalk/ipddp.c
-@@ -190,7 +190,7 @@ static netdev_tx_t ipddp_xmit(struct sk_buff *skb, struct net_device *dev)
-  */
- static int ipddp_create(struct ipddp_route *new_rt)
- {
--        struct ipddp_route *rt = kmalloc(sizeof(*rt), GFP_KERNEL);
-+        struct ipddp_route *rt = kzalloc(sizeof(*rt), GFP_KERNEL);
+ drivers/net/phy/Kconfig |    1 +
+ 1 file changed, 1 insertion(+)
+
+--- linux-4.10-rc2.orig/drivers/net/phy/Kconfig	2017-01-01 23:31:53.000000000 +0100
++++ linux-4.10-rc2/drivers/net/phy/Kconfig	2017-01-09 15:15:12.782142790 +0100
+@@ -279,6 +279,7 @@ config MARVELL_PHY
  
-         if (rt == NULL)
-                 return -ENOMEM;
+ config MESON_GXL_PHY
+ 	tristate "Amlogic Meson GXL Internal PHY"
++	depends on ARCH_MESON || COMPILE_TEST
+ 	---help---
+ 	  Currently has a driver for the Amlogic Meson GXL Internal PHY
+ 
+
+
 -- 
-2.7.0
+Jean Delvare
+SUSE L3 Support
