@@ -1,41 +1,30 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATH net] tcp: do not export tcp_peer_is_proven()
-Date: Mon, 09 Jan 2017 08:51:32 -0800
-Message-ID: <1483980692.5846.2.camel@edumazet-glaptop3.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: change init_inodecache() return void
+Date: Mon, 09 Jan 2017 12:05:42 -0500 (EST)
+Message-ID: <20170109.120542.325075389222820162.davem@davemloft.net>
+References: <1483780711-5759-1-git-send-email-cugyly@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, Linyu.Yuan@alcatel-sbell.com.cn
+To: cugyly@163.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:33900 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S967079AbdAIQvf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 11:51:35 -0500
-Received: by mail-pf0-f195.google.com with SMTP id y143so3790832pfb.1
-        for <netdev@vger.kernel.org>; Mon, 09 Jan 2017 08:51:34 -0800 (PST)
+Received: from shards.monkeyblade.net ([184.105.139.130]:42644 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1763025AbdAIRFu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 12:05:50 -0500
+In-Reply-To: <1483780711-5759-1-git-send-email-cugyly@163.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+From: yuan linyu <cugyly@163.com>
+Date: Sat,  7 Jan 2017 17:18:31 +0800
 
-After commit 1fb6f159fd21 ("tcp: add tcp_conn_request"),
-tcp_peer_is_proven() no longer needs to be exported.
+> From: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+> 
+> sock_init() call it but not check it's return value,
+> so change it to void return and add an internal BUG_ON() check.
+> 
+> Signed-off-by: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/ipv4/tcp_metrics.c |    1 -
- 1 file changed, 1 deletion(-)
-
-diff --git a/net/ipv4/tcp_metrics.c b/net/ipv4/tcp_metrics.c
-index d46f4d5b1c62edf95791e9d47d966c3bc61e1888..ba8f02d0f283c6eaaf14ed89103adea135093353 100644
---- a/net/ipv4/tcp_metrics.c
-+++ b/net/ipv4/tcp_metrics.c
-@@ -606,7 +606,6 @@ bool tcp_peer_is_proven(struct request_sock *req, struct dst_entry *dst,
- 
- 	return ret;
- }
--EXPORT_SYMBOL_GPL(tcp_peer_is_proven);
- 
- void tcp_fetch_timewait_stamp(struct sock *sk, struct dst_entry *dst)
- {
+Applied.
