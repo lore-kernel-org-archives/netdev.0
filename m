@@ -1,42 +1,35 @@
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: Re: [PATCH 0/4] net: ethernet: ti: cpsw: correct common res usage
-Date: Mon, 9 Jan 2017 11:11:04 -0600
-Message-ID: <b1190d93-ae4a-b10b-d780-0a5f0328e13b@ti.com>
-References: <1483893663-15673-1-git-send-email-ivan.khoronzhuk@linaro.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: ibm: ibmveth: use new api
+ ethtool_{get|set}_link_ksettings
+Date: Mon, 09 Jan 2017 12:10:46 -0500 (EST)
+Message-ID: <20170109.121046.399740143771423691.davem@davemloft.net>
+References: <1483824913-6989-1-git-send-email-tremyfr@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <linux-omap@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>,
-        <netdev@vger.kernel.org>, <mugunthanvnm@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1483893663-15673-1-git-send-email-ivan.khoronzhuk@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: tlfalcon@linux.vnet.ibm.com, linux-kernel@vger.kernel.org, paulus@samba.org,
+ netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
+To: tremyfr@gmail.com
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <1483824913-6989-1-git-send-email-tremyfr@gmail.com>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 List-Id: netdev.vger.kernel.org
 
-Hi Ivan,
+From: Philippe Reynes <tremyfr@gmail.com>
+Date: Sat,  7 Jan 2017 22:35:13 +0100
 
-On 01/08/2017 10:40 AM, Ivan Khoronzhuk wrote:
-> This series is intended to remove unneeded redundancies connected with
-> common resource usage function.
->
-> Based on net-next/master
-> Tested on am572x idk
->
-> Ivan Khoronzhuk (4):
->   net: ethernet: ti: cpsw: remove dual check from common res usage
->     function
->   net: ethernet: ti: cpsw: don't disable interrupts in ndo_open
->   net: ethernet: ti: cpsw: don't duplicate ndev_running
->   net: ethernet: ti: cpsw: don't duplicate common res in rx handler
->
+> The ethtool api {get|set}_settings is deprecated.
+> We move this driver to new api {get|set}_link_ksettings.
+> 
+> Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
 
-thanks for the patches - I'll need some time to review them.
-
->  drivers/net/ethernet/ti/cpsw.c | 57 ++++++++++++++----------------------------
->  1 file changed, 19 insertions(+), 38 deletions(-)
->
-
--- 
-regards,
--grygorii
+Applied.
