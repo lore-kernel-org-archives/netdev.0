@@ -1,58 +1,58 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 0/4] net: switchdev: Avoid sleep in atomic with
- DSA
-Date: Mon, 9 Jan 2017 12:56:48 -0800
-Message-ID: <e28f29c8-04ed-1d71-7b13-27a5d58d111c@gmail.com>
-References: <20170109194503.10713-1-f.fainelli@gmail.com>
- <20170109204849.GA28310@splinter>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net] net: dsa: Ensure validity of dst->ds[0]
+Date: Mon, 9 Jan 2017 22:01:37 +0100
+Message-ID: <20170109210137.GD13949@lunn.ch>
+References: <20170109195834.11697-1-f.fainelli@gmail.com>
+ <8737gsc5zm.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-        vivien.didelot@savoirfairelinux.com, andrew@lunn.ch,
-        jiri@resnulli.us
-To: Ido Schimmel <idosch@idosch.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
+        davem@davemloft.net
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:34506 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933218AbdAIU4u (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 15:56:50 -0500
-Received: by mail-pf0-f196.google.com with SMTP id y143so4170341pfb.1
-        for <netdev@vger.kernel.org>; Mon, 09 Jan 2017 12:56:50 -0800 (PST)
-In-Reply-To: <20170109204849.GA28310@splinter>
+Received: from vps0.lunn.ch ([178.209.37.122]:53463 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S932946AbdAIVBk (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 9 Jan 2017 16:01:40 -0500
+Content-Disposition: inline
+In-Reply-To: <8737gsc5zm.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/09/2017 12:48 PM, Ido Schimmel wrote:
+On Mon, Jan 09, 2017 at 03:50:53PM -0500, Vivien Didelot wrote:
 > Hi Florian,
 > 
-> On Mon, Jan 09, 2017 at 11:44:59AM -0800, Florian Fainelli wrote:
->> Hi all,
->>
->> This patch series is to resolve a sleeping function called in atomic context
->> debug splat that we observe with DSA.
->>
->> Let me know what you think, I was also wondering if we should just always
->> make switchdev_port_vlan_fill() set SWITCHDEV_F_DEFER, but was afraid this
->> could cause invalid contexts to be used for rocker, mlxsw, i40e etc.
+> Florian Fainelli <f.fainelli@gmail.com> writes:
 > 
-> Isn't this a bit of overkill? All the drivers you mention fill the VLAN
-> dump from their cache and don't require sleeping. Even b53 that you
-> mention in the last patch does that, but reads the PVID from the device,
-> which entails taking a mutex.
-
-Correct.
+> > It is perfectly possible to have non zero indexed switches being present
+> > in a DSA switch tree, in such a case, we will be deferencing a NULL
+> > pointer while dsa_cpu_port_ethtool_{setup,restore}. Be more defensive
+> > and ensure that dst->ds[0] is valid before doing anything with it.
+> >
+> > Fixes: 0c73c523cf73 ("net: dsa: Initialize CPU port ethtool ops per tree")
+> > Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> 
+> Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> 
+> The patch is correct since we are already using dst->ds[0] here.
+> 
+> But we should stop using that and use dst->cpu_switch instead, because
+> the switch with ID 0 won't necessary be the CPU switch. Now that the
+> Ethernet switch chips are true Linux devices, they are registered in
+> order depending on their bus/address. So in a setup like this:
+> 
+>        ,--MDIO--@4--------@2--
+>       |         |         |
+>     [CPU] <-> [swA] <-> [swB]
 
 > 
-> Can't you just cache the PVID as well? I think this will solve your
-> problem. Didn't look too much into the b53 code, so maybe I'm missing
-> something. Seems that mv88e6xxx has a similar problem.
+> swB will have index 0 and swA will have index 1. Please correct me if
+> I'm wrong.
 
-I suppose we could indeed cache the PVID for b53, but for mv88e6xxx it
-seems like we need to perform a bunch of VTU operations, and those
-access HW registers, Andrew, Vivien, how do you want to solve that, do
-we want to introduce a general VLAN cache somewhere in switchdev/DSA/driver?
+Correct, which DS has the CPU port is arbitrary.
 
-Thanks Ido!
--- 
-Florian
+It also gets messier when Johns finishes reworking my PoC patchset for
+multiple CPU ports. You ideally want the correct CPU port for this
+host interface.
+
+     Andrew
