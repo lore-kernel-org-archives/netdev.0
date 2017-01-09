@@ -1,58 +1,41 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [RFC PATCH] intel: Use upper_32_bits and lower_32_bits
-Date: Mon, 09 Jan 2017 05:33:10 -0800
-Message-ID: <1483968790.2106.10.camel@perches.com>
-References: <7a5cfe63cad3ef4badc30cbc2185a5bfb9250fd8.1483813334.git.joe@perches.com>
-         <063D6719AE5E284EB5DD2968C1650D6DB025AC14@AcuExch.aculab.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Julia Lawall <julia.lawall@lip6.fr>,
-        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB025AC14@AcuExch.aculab.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Vlad Tsyrklevich <vlad@tsyrklevich.net>
+Subject: [PATCH] net/appletalk: Fix kernel memory disclosure
+Date: Mon,  9 Jan 2017 20:57:48 +0700
+Message-ID: <1483970268-6145-1-git-send-email-vlad@tsyrklevich.net>
+Cc: netdev@vger.kernel.org, Vlad Tsyrklevich <vlad@tsyrklevich.net>
+To: acme@ghostprotocols.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:33333 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S942422AbdAIN7I (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 08:59:08 -0500
+Received: by mail-pg0-f67.google.com with SMTP id 194so7316275pgd.0
+        for <netdev@vger.kernel.org>; Mon, 09 Jan 2017 05:59:07 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2017-01-09 at 12:55 +0000, David Laight wrote:
-> From: Joe Perches
-> > Sent: 07 January 2017 18:33
-> > Shifting and masking various types can be made a bit
-> > simpler to read by using the available kernel macros.
-> 
-> ...
-> > -		ew32(TDBAH, (tdba >> 32));
-> > -		ew32(TDBAL, (tdba & 0x00000000ffffffffULL));
-> > +		ew32(TDBAH, upper_32_bits(tdba));
-> > +		ew32(TDBAL, lower_32_bits(tdba));
-> 
-> Personally I find the original code easier to understand
-> since I don't have to look up another silly macro.
+ipddp_route structs contain alignment padding so kernel heap memory
+is leaked when they are copied to user space in
+ipddp_ioctl(SIOCFINDIPDDPRT). Change kmalloc() to kzalloc() to clear
+that memory.
 
-It's already a pretty common usage and I believe
-the naming is fairly obvious.  Also you don't have
-to count the "f" characters to see how many bits
-are being used.  After about 6 consecutive chars,
-it can be error prone.
+Signed-off-by: Vlad Tsyrklevich <vlad@tsyrklevich.net>
+---
+ drivers/net/appletalk/ipddp.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-The leading zeros?  ugh.  The ULL too.
-
-$ git grep -w -E "upper_32_bits|lower_32_bits" | wc -l
-1569
-
-> I'd normally not even explicitly mask the low bits
-> relying on the implicit truncation of the assignment.
-
-Relying on implicit behaviors can be noisy when
-compilers complain about implicit conversions and
-truncations.
-
-> At least modern compilers aren't stupid enough to add two
-> 'mask with 0xff' instructions for:
-> 	*uchar_ptr = (unsigned char)(foo & 0xff);
-
-I agree it's visual noise.
+diff --git a/drivers/net/appletalk/ipddp.c b/drivers/net/appletalk/ipddp.c
+index b8c2933..a306de4 100644
+--- a/drivers/net/appletalk/ipddp.c
++++ b/drivers/net/appletalk/ipddp.c
+@@ -190,7 +190,7 @@ static netdev_tx_t ipddp_xmit(struct sk_buff *skb, struct net_device *dev)
+  */
+ static int ipddp_create(struct ipddp_route *new_rt)
+ {
+-        struct ipddp_route *rt = kmalloc(sizeof(*rt), GFP_KERNEL);
++        struct ipddp_route *rt = kzalloc(sizeof(*rt), GFP_KERNEL);
+ 
+         if (rt == NULL)
+                 return -ENOMEM;
+-- 
+2.7.0
