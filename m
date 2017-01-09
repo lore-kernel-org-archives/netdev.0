@@ -1,75 +1,41 @@
-From: Chad Dupuis <chad.dupuis@cavium.com>
-Subject: Re: [Open-FCoE] [PATCH RFC 5/5] qedf: Add FIP request handling
-Date: Mon, 9 Jan 2017 11:47:23 -0500
-Message-ID: <alpine.OSX.2.00.1701091147040.1044@administrators-macbook-pro.local>
-References: <1482520628-24207-1-git-send-email-chad.dupuis@cavium.com> <1482520628-24207-6-git-send-email-chad.dupuis@cavium.com> <a076b54b-966b-d652-7a0f-6b84aacb0ded@suse.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATH net] tcp: do not export tcp_peer_is_proven()
+Date: Mon, 09 Jan 2017 08:51:32 -0800
+Message-ID: <1483980692.5846.2.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: <martin.petersen@oracle.com>, <fcoe-devel@open-fcoe.org>,
-        <netdev@vger.kernel.org>, <QLogic-Storage-Upstream@cavium.com>,
-        <linux-scsi@vger.kernel.org>, <yuval.mintz@cavium.com>
-To: Hannes Reinecke <hare@suse.de>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <a076b54b-966b-d652-7a0f-6b84aacb0ded@suse.de>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:33900 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S967079AbdAIQvf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 11:51:35 -0500
+Received: by mail-pf0-f195.google.com with SMTP id y143so3790832pfb.1
+        for <netdev@vger.kernel.org>; Mon, 09 Jan 2017 08:51:34 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Eric Dumazet <edumazet@google.com>
 
-On Wed, 28 Dec 2016, 9:11am -0000, Hannes Reinecke wrote:
+After commit 1fb6f159fd21 ("tcp: add tcp_conn_request"),
+tcp_peer_is_proven() no longer needs to be exported.
 
-> On 12/23/2016 08:17 PM, Dupuis, Chad wrote:
-> > From: "Dupuis, Chad" <chad.dupuis@cavium.com>
-> > 
-> > This patch adds handling for FIP requests and responses that are handled by
-> > the driver itself and not by libfcoe.
-> > 
-> > Signed-off-by: Nilesh Javali <nilesh.javali@cavium.com>
-> > Signed-off-by: Manish Rangankar <manish.rangankar@cavium.com>
-> > Signed-off-by: Saurav Kashyap <saurav.kashyap@cavium.com>
-> > Signed-off-by: Chad Dupuis <chad.dupuis@cavium.com>
-> > ---
-> >  drivers/scsi/qedf/qedf_fip.c | 267 +++++++++++++++++++++++++++++++++++++++++++
-> >  1 file changed, 267 insertions(+)
-> >  create mode 100644 drivers/scsi/qedf/qedf_fip.c
-> > 
-> > diff --git a/drivers/scsi/qedf/qedf_fip.c b/drivers/scsi/qedf/qedf_fip.c
-> > new file mode 100644
-> > index 0000000..4f185c6
-> > --- /dev/null
-> > +++ b/drivers/scsi/qedf/qedf_fip.c
-> > @@ -0,0 +1,267 @@
-> > +/*
-> > + *  QLogic FCoE Offload Driver
-> > + *  Copyright (c) 2016 Cavium Inc.
-> > + *
-> > + *  This software is available under the terms of the GNU General Public License
-> > + *  (GPL) Version 2, available from the file COPYING in the main directory of
-> > + *  this source tree.
-> > + */
-> > +#include <linux/if_ether.h>
-> > +#include <linux/if_vlan.h>
-> > +#include "qedf.h"
-> > +
-> > +extern const struct qed_fcoe_ops *qed_ops;
-> > +/*
-> > + * FIP VLAN functions that will eventually move to libfcoe.
-> > + */
-> > +
-> > +void qedf_fcoe_send_vlan_req(struct qedf_ctx *qedf)
-> > +{
-> > +	struct sk_buff *skb;
-> > +	char *eth_fr;
-> > +	int fr_len;
-> > +	struct fip_vlan *vlan;
-> > +#define MY_FIP_ALL_FCF_MACS        ((__u8[6]) { 1, 0x10, 0x18, 1, 0, 2 })
-> > +	static u8 my_fcoe_all_fcfs[ETH_ALEN] = MY_FIP_ALL_FCF_MACS;
-> 
-> Do you support VN2VN, too?
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/ipv4/tcp_metrics.c |    1 -
+ 1 file changed, 1 deletion(-)
 
-Not currently, no.
-
-> 
-> Cheers,
-> 
-> Hannes
-> 
+diff --git a/net/ipv4/tcp_metrics.c b/net/ipv4/tcp_metrics.c
+index d46f4d5b1c62edf95791e9d47d966c3bc61e1888..ba8f02d0f283c6eaaf14ed89103adea135093353 100644
+--- a/net/ipv4/tcp_metrics.c
++++ b/net/ipv4/tcp_metrics.c
+@@ -606,7 +606,6 @@ bool tcp_peer_is_proven(struct request_sock *req, struct dst_entry *dst,
+ 
+ 	return ret;
+ }
+-EXPORT_SYMBOL_GPL(tcp_peer_is_proven);
+ 
+ void tcp_fetch_timewait_stamp(struct sock *sk, struct dst_entry *dst)
+ {
