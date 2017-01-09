@@ -1,36 +1,32 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 0/4] net: switchdev: Avoid sleep in atomic with
- DSA
-Date: Mon, 9 Jan 2017 22:23:20 +0100
-Message-ID: <20170109212320.GB20958@lunn.ch>
-References: <20170109194503.10713-1-f.fainelli@gmail.com>
- <20170109204849.GA28310@splinter>
- <e28f29c8-04ed-1d71-7b13-27a5d58d111c@gmail.com>
- <20170109211436.GB28310@splinter>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH V4 net-next 00/15] net/smc: Shared Memory
+ Communications - RDMA
+Date: Mon, 09 Jan 2017 16:23:30 -0500 (EST)
+Message-ID: <20170109.162330.756630479255257312.davem@davemloft.net>
+References: <20170109155526.10961-1-ubraun@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
-        davem@davemloft.net, vivien.didelot@savoirfairelinux.com,
-        jiri@resnulli.us
-To: Ido Schimmel <idosch@idosch.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+        schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
+        utz.bacher@de.ibm.com
+To: ubraun@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:53485 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1031130AbdAIVXX (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 9 Jan 2017 16:23:23 -0500
-Content-Disposition: inline
-In-Reply-To: <20170109211436.GB28310@splinter>
+Received: from shards.monkeyblade.net ([184.105.139.130]:51410 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1030994AbdAIVXf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 16:23:35 -0500
+In-Reply-To: <20170109155526.10961-1-ubraun@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Truth be told, I don't quite understand why switchdev infra even tries
-> to dump the VLANs from the device. Like, in which situations is this
-> going to be different from what the software bridge reports?
+From: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Date: Mon,  9 Jan 2017 16:55:11 +0100
 
-What happens when the hardware is out of resources and says sorry,
-cannot do that. There has been a few discussions about what to do in
-that situation. Fall back to software, i.e. the software bridge does
-it, or totally fail the operation. If you are failing back to
-software, the states can be different.
+> here is now V4 of the SMC-R patches having processed your feedback from end
+> of November. The most important change is the replacement of sysfs by a
+> generic netlink solution in patch 04. And I tried to get rid of the __packed
+> attributes. There are still a few usages left due to SMC-R protocol defined
+> structures.
 
-    Andrew
+Series applied.
