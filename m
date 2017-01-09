@@ -1,95 +1,82 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [net PATCH] net: virtio: cap mtu when XDP programs are running
-Date: Tue, 10 Jan 2017 01:24:45 +0200
-Message-ID: <20170110012044-mutt-send-email-mst@kernel.org>
-References: <20170102223031.11541.28717.stgit@john-Precision-Tower-5810>
- <402027b4-58c7-aa1b-5079-74e31448f544@redhat.com>
- <586BD5D5.6020100@gmail.com>
- <1caf1ffc-0f46-067e-0f0d-a93b408b4ffd@redhat.com>
- <586D458F.5050705@gmail.com>
- <068f0116-b37e-eb44-8c60-1781a9d5255e@redhat.com>
- <20170110010531-mutt-send-email-mst@kernel.org>
- <5874190B.9050505@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Jason Wang <jasowang@redhat.com>, john.r.fastabend@intel.com,
-        netdev@vger.kernel.org, alexei.starovoitov@gmail.com,
-        daniel@iogearbox.net
-To: John Fastabend <john.fastabend@gmail.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH iproute2] Add support for rt_protos.d
+Date: Mon,  9 Jan 2017 15:43:09 -0800
+Message-ID: <1484005389-29381-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org, stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35318 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753839AbdAIXYr (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 9 Jan 2017 18:24:47 -0500
-Content-Disposition: inline
-In-Reply-To: <5874190B.9050505@gmail.com>
+Received: from mail-pf0-f176.google.com ([209.85.192.176]:34050 "EHLO
+        mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1031819AbdAIXnP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 18:43:15 -0500
+Received: by mail-pf0-f176.google.com with SMTP id 127so35558631pfg.1
+        for <netdev@vger.kernel.org>; Mon, 09 Jan 2017 15:43:15 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 09, 2017 at 03:13:15PM -0800, John Fastabend wrote:
-> On 17-01-09 03:05 PM, Michael S. Tsirkin wrote:
-> > On Thu, Jan 05, 2017 at 11:09:14AM +0800, Jason Wang wrote:
-> >>
-> >>
-> >> On 2017年01月05日 02:57, John Fastabend wrote:
-> >>> [...]
-> >>>
-> >>>> On 2017年01月04日 00:48, John Fastabend wrote:
-> >>>>> On 17-01-02 10:14 PM, Jason Wang wrote:
-> >>>>>> On 2017年01月03日 06:30, John Fastabend wrote:
-> >>>>>>> XDP programs can not consume multiple pages so we cap the MTU to
-> >>>>>>> avoid this case. Virtio-net however only checks the MTU at XDP
-> >>>>>>> program load and does not block MTU changes after the program
-> >>>>>>> has loaded.
-> >>>>>>>
-> >>>>>>> This patch sets/clears the max_mtu value at XDP load/unload time.
-> >>>>>>>
-> >>>>>>> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-> >>>>>>> ---
-> >>> [...]
-> >>>
-> >>>>> OK so this logic is a bit too simply. When it resets the max_mtu I guess it
-> >>>>> needs to read the mtu via
-> >>>>>
-> >>>>>      virtio_cread16(vdev, ...)
-> >>>>>
-> >>>>> or we may break the negotiated mtu.
-> >>>> Yes, this is a problem (even use ETH_MAX_MTU). We may need a method to notify
-> >>>> the device about the mtu in this case which is not supported by virtio now.
-> >>> Note this is not really a XDP specific problem. The guest can change the MTU
-> >>> after init time even without XDP which I assume should ideally result in a
-> >>> notification if the MTU is negotiated.
-> >>
-> >> Yes, Michael, do you think we need add some mechanism to notify host about
-> >> MTU change in this case?
-> >>
-> >> Thanks
-> > 
-> > Why does host care?
-> > 
-> 
-> Well the guest will drop packets after mtu has been reduced.
+Add support for reading proto id/name mappings from rt_protos.d
+directory. Allows users to have custom protocol values converted
+to human friendly names.
 
-I didn't know. What place in code does this?
+Each file under rt_protos.d has the 'id name' format used by
+rt_protos. Only .conf files are read and parsed.
 
-> Although the guest
-> by reducing its MTU in some sense must expect this. Likewise if the host were
-> to change MTU after virtio_net probe time the guest would not learn about it.
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+ etc/iproute2/rt_protos.d/README |  3 +++
+ lib/rt_names.c                  | 27 +++++++++++++++++++++++++++
+ 2 files changed, 30 insertions(+)
+ create mode 100644 etc/iproute2/rt_protos.d/README
 
-The spec explicitly disallows this last one.
-
-> I think at best negotiating the mtu is just a hint? If system _really_ cares
-> we could use lldp or some other out of band mechanism to learn/set/adjust MTU
-> on both systems and it would be more robust. I'm not actually convinced this
-> is a problem in bare metal systems we have the same issue with physical
-> switches and solve it out of band via configuration, protocols, etc.
-> 
-> .John
-
-ATM we don't have negotiation in virtio, just a max mtu limit.
-This doesn't free guest from configuring mtu correctly,
-just helps it avoid doing something clearly bogus.
-
+diff --git a/etc/iproute2/rt_protos.d/README b/etc/iproute2/rt_protos.d/README
+new file mode 100644
+index 000000000000..723509ce56b6
+--- /dev/null
++++ b/etc/iproute2/rt_protos.d/README
+@@ -0,0 +1,3 @@
++Each file in this directory is an rt_protos configuration file. iproute2
++commands scan this directory processing all files that end in '.conf'.
++
+diff --git a/lib/rt_names.c b/lib/rt_names.c
+index c66cb1e439e3..7553288eeb18 100644
+--- a/lib/rt_names.c
++++ b/lib/rt_names.c
+@@ -142,9 +142,36 @@ static int rtnl_rtprot_init;
+ 
+ static void rtnl_rtprot_initialize(void)
+ {
++	struct dirent *de;
++	DIR *d;
++
+ 	rtnl_rtprot_init = 1;
+ 	rtnl_tab_initialize(CONFDIR "/rt_protos",
+ 			    rtnl_rtprot_tab, 256);
++
++	d = opendir(CONFDIR "/rt_protos.d");
++	if (!d)
++		return;
++
++	while ((de = readdir(d)) != NULL) {
++		char path[PATH_MAX];
++		size_t len;
++
++		if (*de->d_name == '.')
++			continue;
++
++		/* only consider filenames ending in '.conf' */
++		len = strlen(de->d_name);
++		if (len <= 5)
++			continue;
++		if (strcmp(de->d_name + len - 5, ".conf"))
++			continue;
++
++		snprintf(path, sizeof(path), CONFDIR "/rt_protos.d/%s",
++			 de->d_name);
++		rtnl_tab_initialize(path, rtnl_rtprot_tab, 256);
++	}
++	closedir(d);
+ }
+ 
+ const char *rtnl_rtprot_n2a(int id, char *buf, int len)
 -- 
-MST
+2.1.4
