@@ -1,82 +1,53 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH iproute2] Add support for rt_protos.d
-Date: Mon,  9 Jan 2017 15:43:09 -0800
-Message-ID: <1484005389-29381-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org, stephen@networkplumber.org
+From: "Kwok, WingMan" <w-kwok2@ti.com>
+Subject: RE: Marvell Phy (1510) issue since v4.7 kernel
+Date: Mon, 9 Jan 2017 23:48:18 +0000
+Message-ID: <230CBA6E4B6B6B418E8730AC28E6FC7E153545A3@DFLE11.ent.ti.com>
+References: <587410EF.5090607@ti.com> <20170109225641.GB22820@lunn.ch>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>,
+        "Karicheri, Muralidharan" <m-karicheri2@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f176.google.com ([209.85.192.176]:34050 "EHLO
-        mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1031819AbdAIXnP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 18:43:15 -0500
-Received: by mail-pf0-f176.google.com with SMTP id 127so35558631pfg.1
-        for <netdev@vger.kernel.org>; Mon, 09 Jan 2017 15:43:15 -0800 (PST)
+Received: from fllnx209.ext.ti.com ([198.47.19.16]:49057 "EHLO
+        fllnx209.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752236AbdAIXss (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 18:48:48 -0500
+In-Reply-To: <20170109225641.GB22820@lunn.ch>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support for reading proto id/name mappings from rt_protos.d
-directory. Allows users to have custom protocol values converted
-to human friendly names.
-
-Each file under rt_protos.d has the 'id name' format used by
-rt_protos. Only .conf files are read and parsed.
-
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
- etc/iproute2/rt_protos.d/README |  3 +++
- lib/rt_names.c                  | 27 +++++++++++++++++++++++++++
- 2 files changed, 30 insertions(+)
- create mode 100644 etc/iproute2/rt_protos.d/README
-
-diff --git a/etc/iproute2/rt_protos.d/README b/etc/iproute2/rt_protos.d/README
-new file mode 100644
-index 000000000000..723509ce56b6
---- /dev/null
-+++ b/etc/iproute2/rt_protos.d/README
-@@ -0,0 +1,3 @@
-+Each file in this directory is an rt_protos configuration file. iproute2
-+commands scan this directory processing all files that end in '.conf'.
-+
-diff --git a/lib/rt_names.c b/lib/rt_names.c
-index c66cb1e439e3..7553288eeb18 100644
---- a/lib/rt_names.c
-+++ b/lib/rt_names.c
-@@ -142,9 +142,36 @@ static int rtnl_rtprot_init;
- 
- static void rtnl_rtprot_initialize(void)
- {
-+	struct dirent *de;
-+	DIR *d;
-+
- 	rtnl_rtprot_init = 1;
- 	rtnl_tab_initialize(CONFDIR "/rt_protos",
- 			    rtnl_rtprot_tab, 256);
-+
-+	d = opendir(CONFDIR "/rt_protos.d");
-+	if (!d)
-+		return;
-+
-+	while ((de = readdir(d)) != NULL) {
-+		char path[PATH_MAX];
-+		size_t len;
-+
-+		if (*de->d_name == '.')
-+			continue;
-+
-+		/* only consider filenames ending in '.conf' */
-+		len = strlen(de->d_name);
-+		if (len <= 5)
-+			continue;
-+		if (strcmp(de->d_name + len - 5, ".conf"))
-+			continue;
-+
-+		snprintf(path, sizeof(path), CONFDIR "/rt_protos.d/%s",
-+			 de->d_name);
-+		rtnl_tab_initialize(path, rtnl_rtprot_tab, 256);
-+	}
-+	closedir(d);
- }
- 
- const char *rtnl_rtprot_n2a(int id, char *buf, int len)
--- 
-2.1.4
+DQpIaSBBbmRyZXcsDQoNCg0KPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBB
+bmRyZXcgTHVubiBbbWFpbHRvOmFuZHJld0BsdW5uLmNoXQ0KPiBTZW50OiBNb25kYXksIEphbnVh
+cnkgMDksIDIwMTcgNTo1NyBQTQ0KPiBUbzogS2FyaWNoZXJpLCBNdXJhbGlkaGFyYW4NCj4gQ2M6
+IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IEt3b2ssIFdpbmdNYW4NCj4gU3ViamVjdDogUmU6IE1h
+cnZlbGwgUGh5ICgxNTEwKSBpc3N1ZSBzaW5jZSB2NC43IGtlcm5lbA0KPiANCj4gT24gTW9uLCBK
+YW4gMDksIDIwMTcgYXQgMDU6Mzg6MzlQTSAtMDUwMCwgTXVyYWxpIEthcmljaGVyaSB3cm90ZToN
+Cj4gPiBIZWxsbyBDaGFybGVzLUFudG9pbmUsIEFuZHJldywNCj4gPg0KPiA+IFdlIGhhdmUgcmVj
+ZW50bHkgdXBncmFkZWQgb3VyIGtlcm5lbCB0byB2NC45IGFuZCBzdGFydGVkIHNlZWluZyBhbg0K
+PiBpc3N1ZQ0KPiA+IG9uIG91ciBLZXlzdG9uZSBFVk1zIChLMkUvTCkgdGhhdCB1c2VzIE1hcnZl
+bCBQaHkgMTUxMC4gVGhlIGlzc3VlIGlzDQo+IHRoYXQNCj4gPiB3aGVuIHdlIGRvIGEgcmVib290
+IGNvbW1hbmQgZnJvbSB0aGUgTGludXggY29uc29sZSBvciBkbyBhIFNvQw0KPiByZXNldCwNCj4g
+PiB0aGUgREhDUCB0aW1lcyBvdXQgYXQgVS1Cb290IGR1ZSB0byBQaHkgYXV0byBuZWdvdGlhdGlv
+biBmYWlsdXJlLg0KPiBUaGlzIHdvcmtzDQo+ID4gZmluZSB3aGVuIHRoZSBib2FyZCBpcyBwb3dl
+ciBjeWNsZWQuDQo+IA0KPiBJJ3ZlIHNlZW4gc2ltaWxhciBiZWZvcmUuIFdoYXQgdmVyc2lvbiBv
+ZiBrZXJuZWwgYXJlIHlvdSB1cGdyYWRpbmcNCj4gZnJvbT8NCj4gDQo+IFRoZSBwcm9ibGVtIGkn
+dmUgaGFkIGlzIHRoYXQgb24gc2h1dGRvd24vcmVib290LCBsaW51eCBwb3dlcnMgdGhlIFBIWXMN
+Cj4gb2ZmLiBUaGUgdWJvb3QgaSBoYXZlIGRvZXMgbm90IHBvd2VyIHRoZW0gb24gYWdhaW4uIENs
+ZWFybHkgYSB1Ym9vdA0KPiBpc3N1ZSwgaXQgc2hvdWxkIG5vdCBhc3N1bWUgdGhlIFBIWXMgYXJl
+IHBvd2VyZWQgb24uDQo+IA0KPiBJIHdvcmsgYXJvdW5kIHRoaXMgd2l0aCBhIHVib290IGNvbW1h
+bmQ6DQo+IA0KPiBtaWkgd3JpdGUgMSAwIDB4MzEwMA0KPiANCj4gd2hlcmUgdGhlIFBIWSBpcyBh
+dCBhZGRyZXNzIDEgb24gdGhlIGJ1cy4gVGhpcyB3cml0ZXMgdG8gcmVnaXN0ZXIgMCwNCj4gYW5k
+IHRoZSBpbXBvcnQgYml0IHdoaWNoIG5lZWRzIHNldHRpbmcgdG8gMCBpcyBiaXQgMTEuDQo+IA0K
+PiBJZiBtaWkgcmVhZCBzaG93cyBiaXQgMTEgaXMgc2V0LCB5b3Uga25vdyB0aGVyZSB1Ym9vdCBk
+aWQgbm90IHBvd2VyIHVwDQo+IHRoZSBQSFkuDQo+IA0KPiAgICAgQW5kcmV3DQoNClRoYW5rcyBm
+b3IgdGhlIHN1Z2dlc3Rpb24uDQoNCkJ1dCB3aGVuIGtlcm5lbCBpcyByZWJvb3QgaW50byB1LWJv
+b3QsICJtaWkgcmVhZCAwIDAiIHNob3dzDQoweDEwMDAsIGllLiBiaXQgMTEgaXMgMCwgYW5kIHN0
+aWxsIHRoZSBwaHkgYXV0by1uZWdvIHRpbWVzIG91dC4NCg0KVGhlICJtaWkgcmVhZCAwIDAiIHNo
+b3dzIHRoZSBzYW1lIHZhbHVlIDB4MTAwMCBpZiB3ZSBwb3dlciBjeWNsZQ0KYm9hcmQgYW5kIHRo
+ZSBwaHkgYXV0by1uZWdvIHdvcmtzIGZpbmUuDQoNCkNvdWxkIHRoZXJlIGJlIHNvbWUgb3RoZXIg
+cmVnaXN0ZXJzIHRoYXQgbmVlZCB0byBiZSByZS1jb25maWd1cmVkPw0KDQpXZSBhcmUgdXBncmFk
+aW5nIGZyb20ga2VybmVsIHY0LjQgdG8gdjQuOS4gQW5kIHRoZSB1LWJvb3QgaXMgMjAxNi4wNS4N
+Cg0KUmVnYXJkcywNCldpbmdNYW4NCg==
