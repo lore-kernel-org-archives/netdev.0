@@ -1,35 +1,43 @@
-From: "Andrey Jr. Melnikov" <temnota.am@gmail.com>
-Subject: Re: [PATCH net-next] net: ipv6: put autoconf routes into per-interface tables
-Date: Tue, 10 Jan 2017 00:53:46 +0300
-Message-ID: <8cddkd-etc.ln1@banana.localnet>
-References: <20170106153026.24785-1-lorenzo@google.com> <37df3b18-d17b-5875-7b44-db40be7b459c@cumulusnetworks.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [195.159.176.226] ([195.159.176.226]:50192 "EHLO
-        blaine.gmane.org" rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org
-        with ESMTP id S1751786AbdAIWUS (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 17:20:18 -0500
-Received: from list by blaine.gmane.org with local (Exim 4.84_2)
-        (envelope-from <linux-netdev-2@m.gmane.org>)
-        id 1cQiIO-0004PV-3x
-        for netdev@vger.kernel.org; Mon, 09 Jan 2017 23:20:04 +0100
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: William Breathitt Gray <vilhelm.gray@gmail.com>
+Subject: [PATCH] netfilter: Fix typo in NF_CONNTRACK Kconfig option
+ description
+Date: Mon, 9 Jan 2017 17:24:18 -0500
+Message-ID: <20170109222417.GA18253@sophia>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>,
+        Patrick McHardy <kaber@trash.net>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-David Ahern <dsa@cumulusnetworks.com> wrote:
-> On 1/6/17 8:30 AM, Lorenzo Colitti wrote:
-> > This patch adds a per-interface sysctl to have the kernel put
-> > autoconf routes into different tables. This allows each interface
-> > to have its own routing table if desired.  Choosing the default
-> > interface, or using different interfaces at the same time on a
-> > per-socket or per-packet basis) can be done using policy routing
-> > mechanisms that use as SO_BINDTODEVICE / IPV6_PKTINFO, mark-based
-> > routing, or UID-based routing to select specific routing tables.
+The NF_CONNTRACK Kconfig option description makes an incorrect reference
+to the "meta" expression where the "ct" expression would be correct.This
+patch fixes the respective typographical error.
 
-> Why not use the VRF capability then? create a VRF and assign the interface to it. 
-> End result is the same -- separate tables and the need to use a bind-to-device API to hit those routes.
+Fixes: d497c6352736 ("netfilter: add help information to new nf_tables Kconfig options")
+Signed-off-by: William Breathitt Gray <vilhelm.gray@gmail.com>
+---
+ net/netfilter/Kconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Show *really working* config with VRF & IPv6?
-
-In my tests - kernel unable to accept DAD, fill logs with "ICMPv6: RA: ndisc_router_discovery failed to add default route"
-and nothing work. VRF interface don't contains IPv6 address.
+diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+index 63729b489c2c..bbc45f8a7b2d 100644
+--- a/net/netfilter/Kconfig
++++ b/net/netfilter/Kconfig
+@@ -494,7 +494,7 @@ config NFT_CT
+ 	depends on NF_CONNTRACK
+ 	tristate "Netfilter nf_tables conntrack module"
+ 	help
+-	  This option adds the "meta" expression that you can use to match
++	  This option adds the "ct" expression that you can use to match
+ 	  connection tracking information such as the flow state.
+ 
+ config NFT_SET_RBTREE
+-- 
+2.11.0
