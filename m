@@ -1,44 +1,46 @@
-From: Ido Schimmel <idosch@idosch.org>
-Subject: Re: [PATCH net-next 0/4] net: switchdev: Avoid sleep in atomic with
- DSA
-Date: Mon, 9 Jan 2017 22:48:49 +0200
-Message-ID: <20170109204849.GA28310@splinter>
-References: <20170109194503.10713-1-f.fainelli@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next PATCH 0/3] net: optimize ICMP-reply code path
+Date: Mon, 09 Jan 2017 15:49:30 -0500 (EST)
+Message-ID: <20170109.154930.276298040600798208.davem@davemloft.net>
+References: <20170109150246.30215.63371.stgit@firesoul>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-        vivien.didelot@savoirfairelinux.com, andrew@lunn.ch,
-        jiri@resnulli.us
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
+        xiyou.wangcong@gmail.com
+To: brouer@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:42357 "EHLO
-        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751249AbdAIUtQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 15:49:16 -0500
-Content-Disposition: inline
-In-Reply-To: <20170109194503.10713-1-f.fainelli@gmail.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:50454 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932130AbdAIUtc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 15:49:32 -0500
+In-Reply-To: <20170109150246.30215.63371.stgit@firesoul>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Florian,
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Date: Mon, 09 Jan 2017 16:03:59 +0100
 
-On Mon, Jan 09, 2017 at 11:44:59AM -0800, Florian Fainelli wrote:
-> Hi all,
+> This patchset is optimizing the ICMP-reply code path, for ICMP packets
+> that gets rate limited. A remote party can easily trigger this code
+> path by sending packets to port number with no listening service.
 > 
-> This patch series is to resolve a sleeping function called in atomic context
-> debug splat that we observe with DSA.
+> Generally the patchset moves the sysctl_icmp_msgs_per_sec ratelimit
+> checking to earlier in the code path and removes an allocation.
 > 
-> Let me know what you think, I was also wondering if we should just always
-> make switchdev_port_vlan_fill() set SWITCHDEV_F_DEFER, but was afraid this
-> could cause invalid contexts to be used for rocker, mlxsw, i40e etc.
+> 
+> Use-case: The specific case I experienced this being a bottleneck is,
+> sending UDP packets to a port with no listener, which obviously result
+> in kernel replying with ICMP Destination Unreachable (type:3), Port
+> Unreachable (code:3), which cause the bottleneck.
+> 
+>  After Eric and Paolo optimized the UDP socket code, the kernels PPS
+> processing capabilities is lower for no-listen ports, than normal UDP
+> sockets.  This is bad for capacity planning when restarting a service.
+> 
+> UDP no-listen benchmark 8xCPUs using pktgen_sample04_many_flows.sh:
+>  Baseline: 6.6 Mpps
+>  Patch:   14.7 Mpps
+> Driver mlx5 at 50Gbit/s.
 
-Isn't this a bit of overkill? All the drivers you mention fill the VLAN
-dump from their cache and don't require sleeping. Even b53 that you
-mention in the last patch does that, but reads the PVID from the device,
-which entails taking a mutex.
-
-Can't you just cache the PVID as well? I think this will solve your
-problem. Didn't look too much into the b53 code, so maybe I'm missing
-something. Seems that mv88e6xxx has a similar problem.
-
-Thanks!
+Series applied, thanks Jesper!
