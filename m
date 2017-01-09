@@ -1,127 +1,45 @@
 From: Alexander Loktionov <Alexander.Loktionov@aquantia.com>
-Subject: [PATCH v2 01/13] net: ethernet: aquantia: Make and configuration files.
-Date: Mon,  9 Jan 2017 14:15:59 -0800
-Message-ID: <0b0d8974bdbfa66ab3bc4460f32f7916dd54b85a.1483999588.git.vomlehn@texas.net>
+Subject: [PATCH v2 07/13] net: ethernet: aquantia: Vector operations
+Date: Mon,  9 Jan 2017 14:16:05 -0800
+Message-ID: <5cf2494bfdb3e327dec2fdc7c50ae56fdac83a2f.1483999588.git.vomlehn@texas.net>
 References: <cover.1483999588.git.vomlehn@texas.net>
 Cc: Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
         Alexander Loktionov <Alexander.Loktionov@aquantia.com>,
         Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>,
-        Pavel Belous <Pavel.Belous@aquantia.com>
+        "Pavel . Belous" <Pavel.Belous@aquantia.com>
 To: netdev@vger.kernel.org, David VomLehn <vomlehn@texas.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from barracuda5.aus1.datafoundry.com ([209.99.124.136]:42484 "EHLO
+Received: from barracuda5.aus1.datafoundry.com ([209.99.124.136]:42570 "EHLO
         barracuda.datafoundry.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S932876AbdAIWQy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 17:16:54 -0500
+        by vger.kernel.org with ESMTP id S932862AbdAIWRL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 17:17:11 -0500
 In-Reply-To: <cover.1483999588.git.vomlehn@texas.net>
-In-Reply-To: <cover.1483999588.git.vomlehn@texas.net>
-References: <cover.1483999588.git.vomlehn@texas.net>
+In-Reply-To: <1ea4ddc9bb144b5809aec4e441d553ff3fe9c263.1483999588.git.vomlehn@texas.net>
+References: <cover.1483999588.git.vomlehn@texas.net> <0b0d8974bdbfa66ab3bc4460f32f7916dd54b85a.1483999588.git.vomlehn@texas.net> <6d32f594bb99a6f56f82f13f6aa54885a06b1e22.1483999588.git.vomlehn@texas.net> <6dfadde2e1fe39b46d814c83fb7460566e860095.1483999588.git.vomlehn@texas.net> <a24ccb1c19a30c6fd4492b54d32663225d0f6534.1483999588.git.vomlehn@texas.net> <8b8385cb2a8e856da001922d65009a4fcfc26295.1483999588.git.vomlehn@texas.net> <1ea4ddc9bb144b5809aec4e441d553ff3fe9c263.1483999588.git.vomlehn@texas.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: David VomLehn <vomlehn@texas.net>
 
-Patches to create the make and configuration files.
+Add functions to manululate the vector of receive and transmit rings.
 
 Signed-off-by: Alexander Loktionov <Alexander.Loktionov@aquantia.com>
 Signed-off-by: Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>
-Signed-off-by: Pavel Belous <Pavel.Belous@aquantia.com>
+Signed-off-by: Pavel.Belous <Pavel.Belous@aquantia.com>
 Signed-off-by: David M. VomLehn <vomlehn@texas.net>
 ---
- drivers/net/ethernet/aquantia/Kconfig  | 24 +++++++++++++++++++
- drivers/net/ethernet/aquantia/Makefile | 44 ++++++++++++++++++++++++++++++++++
- drivers/net/ethernet/aquantia/ver.h    | 19 +++++++++++++++
- 3 files changed, 87 insertions(+)
- create mode 100644 drivers/net/ethernet/aquantia/Kconfig
- create mode 100644 drivers/net/ethernet/aquantia/Makefile
- create mode 100644 drivers/net/ethernet/aquantia/ver.h
+ drivers/net/ethernet/aquantia/aq_vec.c | 359 +++++++++++++++++++++++++++++++++
+ drivers/net/ethernet/aquantia/aq_vec.h |  38 ++++
+ 2 files changed, 397 insertions(+)
+ create mode 100644 drivers/net/ethernet/aquantia/aq_vec.c
+ create mode 100644 drivers/net/ethernet/aquantia/aq_vec.h
 
-diff --git a/drivers/net/ethernet/aquantia/Kconfig b/drivers/net/ethernet/aquantia/Kconfig
+diff --git a/drivers/net/ethernet/aquantia/aq_vec.c b/drivers/net/ethernet/aquantia/aq_vec.c
 new file mode 100644
-index 0000000..a74a4c0
+index 0000000..138de3c
 --- /dev/null
-+++ b/drivers/net/ethernet/aquantia/Kconfig
-@@ -0,0 +1,24 @@
-+#
-+# aQuantia device configuration
-+#
-+
-+config NET_VENDOR_AQUANTIA
-+	bool "aQuantia devices"
-+	default y
-+	---help---
-+	  Set this to y if you have an Ethernet network cards that uses the aQuantia
-+	  chipset.
-+
-+	  This option does not build any drivers; it casues the aQuantia
-+	  drivers that can be built to appear in the list of Ethernet drivers.
-+
-+
-+if NET_VENDOR_AQUANTIA
-+
-+config AQTION
-+	tristate "aQuantia AQtion Support"
-+	depends on PCI
-+	---help---
-+	  This enables the support for the aQuantia AQtion Ethernet card.
-+
-+endif # NET_VENDOR_AQUANTIA
-diff --git a/drivers/net/ethernet/aquantia/Makefile b/drivers/net/ethernet/aquantia/Makefile
-new file mode 100644
-index 0000000..c0efff8
---- /dev/null
-+++ b/drivers/net/ethernet/aquantia/Makefile
-@@ -0,0 +1,44 @@
-+################################################################################
-+#
-+# aQuantia Ethernet Controller AQtion Linux Driver
-+# Copyright(c) 2014-2017 aQuantia Corporation.
-+#
-+# This program is free software; you can redistribute it and/or modify it
-+# under the terms and conditions of the GNU General Public License,
-+# version 2, as published by the Free Software Foundation.
-+#
-+# This program is distributed in the hope it will be useful, but WITHOUT
-+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+# FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+# more details.
-+#
-+# You should have received a copy of the GNU General Public License along
-+# with this program. If not, see <http://www.gnu.org/licenses/>.
-+#
-+# The full GNU General Public License is included in this distribution in
-+# the file called "COPYING".
-+#
-+# Contact Information: <rdc-drv@aquantia.com>
-+# aQuantia Corporation, 105 E. Tasman Dr. San Jose, CA 95134, USA
-+#
-+################################################################################
-+
-+#
-+# Makefile for the AQtion(tm) Ethernet driver
-+#
-+
-+obj-$(CONFIG_AQTION) += atlantic.o
-+
-+atlantic-objs := aq_main.o \
-+	aq_nic.o \
-+	aq_pci_func.o \
-+	aq_nic.o \
-+	aq_vec.o \
-+	aq_ring.o \
-+	aq_hw_utils.o \
-+	aq_ethtool.o \
-+	hw_atl/hw_atl_a0.o \
-+	hw_atl/hw_atl_b0.o \
-+	hw_atl/hw_atl_utils.o \
-+	hw_atl/hw_atl_llh.o
-+
-diff --git a/drivers/net/ethernet/aquantia/ver.h b/drivers/net/ethernet/aquantia/ver.h
-new file mode 100644
-index 0000000..46046c3
---- /dev/null
-+++ b/drivers/net/ethernet/aquantia/ver.h
-@@ -0,0 +1,19 @@
++++ b/drivers/net/ethernet/aquantia/aq_vec.c
+@@ -0,0 +1,359 @@
 +/*
 + * aQuantia Corporation Network Driver
 + * Copyright (C) 2014-2017 aQuantia Corporation. All rights reserved
@@ -131,15 +49,399 @@ index 0000000..46046c3
 + * version 2, as published by the Free Software Foundation.
 + */
 +
-+#ifndef VER_H
-+#define VER_H
++/* File aq_vec.c: Definition of common structure for vector of Rx and Tx rings.
++ * Definition of functions for Rx and Tx rings. Friendly module for aq_nic.
++ */
 +
-+#define NIC_MAJOR_DRIVER_VERSION           1
-+#define NIC_MINOR_DRIVER_VERSION           5
-+#define NIC_BUILD_DRIVER_VERSION           335
-+#define NIC_REVISION_DRIVER_VERSION        0
++#include "aq_vec.h"
++#include "aq_nic.h"
++#include "aq_ring.h"
++#include "aq_hw.h"
 +
-+#endif /* VER_H */
++#include <linux/netdevice.h>
++
++struct aq_vec_s {
++	AQ_OBJ_HEADER;
++	struct aq_hw_ops *aq_hw_ops;
++	struct aq_hw_s *aq_hw;
++	struct aq_nic_s *aq_nic;
++	unsigned int tx_rings;
++	unsigned int rx_rings;
++	struct aq_ring_param_s aq_ring_param;
++	struct napi_struct napi;
++	struct aq_ring_s ring[AQ_CFG_TCS_MAX][2];
++};
++
++#define AQ_VEC_TX_ID 0
++#define AQ_VEC_RX_ID 1
++
++static int aq_vec_poll(struct napi_struct *napi, int budget)
++__releases(&self->lock)
++__acquires(&self->lock)
++{
++	struct aq_vec_s *self = container_of(napi, struct aq_vec_s, napi);
++	struct aq_ring_s *ring = NULL;
++	int work_done = 0;
++	int err = 0;
++	unsigned int i = 0U;
++	unsigned int sw_tail_old = 0U;
++	bool was_tx_cleaned = false;
++	bool is_locked = false;
++
++	if (!self)
++		return 0;
++
++	if (spin_trylock(&self->lock)) {
++		is_locked = true;
++
++		for (i = 0U, ring = self->ring[0];
++			self->tx_rings > i; ++i, ring = self->ring[i]) {
++			if (self->aq_hw_ops->hw_ring_tx_head_update) {
++				err = self->aq_hw_ops->hw_ring_tx_head_update(
++							self->aq_hw,
++							&ring[AQ_VEC_TX_ID]);
++				if (err < 0)
++					goto err_exit;
++			}
++
++			if (ring[AQ_VEC_TX_ID].sw_head !=
++				ring[AQ_VEC_TX_ID].hw_head) {
++				aq_ring_tx_clean(&ring[AQ_VEC_TX_ID]);
++				was_tx_cleaned = true;
++			}
++
++			err = self->aq_hw_ops->hw_ring_rx_receive(self->aq_hw,
++					    &ring[AQ_VEC_RX_ID]);
++			if (err < 0)
++				goto err_exit;
++
++			if (ring[AQ_VEC_RX_ID].sw_head !=
++				ring[AQ_VEC_RX_ID].hw_head) {
++				aq_ring_rx_clean(&ring[AQ_VEC_RX_ID],
++						 &work_done,
++						 budget - work_done);
++
++				sw_tail_old = ring[AQ_VEC_RX_ID].sw_tail;
++
++				err = aq_ring_rx_fill(&ring[AQ_VEC_RX_ID]);
++				if (err < 0)
++					goto err_exit;
++
++				err = self->aq_hw_ops->hw_ring_rx_fill(
++					self->aq_hw,
++					&ring[AQ_VEC_RX_ID], sw_tail_old);
++				if (err < 0)
++					goto err_exit;
++			}
++		}
++
++		if (was_tx_cleaned)
++			work_done = budget;
++
++		if (work_done < budget) {
++			napi_complete(napi);
++			self->aq_hw_ops->hw_irq_enable(self->aq_hw,
++				      1U << self->aq_ring_param.vec_idx);
++		}
++
++err_exit:
++		if (is_locked)
++			spin_unlock(&self->lock);
++	}
++
++	return work_done;
++}
++
++struct aq_vec_s *aq_vec_alloc(struct aq_nic_s *aq_nic, unsigned int idx,
++			      struct aq_nic_cfg_s *aq_nic_cfg)
++{
++	struct aq_vec_s *self = NULL;
++	struct aq_ring_s *ring = NULL;
++	unsigned int i = 0U;
++	int err = 0;
++
++	self = kzalloc(sizeof(*self), GFP_KERNEL);
++	if (!self) {
++		err = -ENOMEM;
++		goto err_exit;
++	}
++
++	self->aq_nic = aq_nic;
++	self->aq_ring_param.vec_idx = idx;
++	self->aq_ring_param.cpu =
++		idx + aq_nic_cfg->aq_rss.base_cpu_number;
++
++	cpumask_set_cpu(self->aq_ring_param.cpu,
++			&self->aq_ring_param.affinity_mask);
++
++	self->tx_rings = 0;
++	self->rx_rings = 0;
++
++	netif_napi_add(aq_nic_get_ndev(aq_nic), &self->napi,
++		       aq_vec_poll, AQ_CFG_NAPI_WEIGHT);
++
++	for (i = 0; i < aq_nic_cfg->tcs; ++i) {
++		unsigned int idx_ring = AQ_NIC_TCVEC2RING(self->nic,
++						self->tx_rings,
++						self->aq_ring_param.vec_idx);
++
++		ring = aq_ring_tx_alloc(&self->ring[i][AQ_VEC_TX_ID], aq_nic,
++					idx_ring, aq_nic_cfg);
++		if (!ring) {
++			err = -ENOMEM;
++			goto err_exit;
++		}
++
++		++self->tx_rings;
++
++		aq_nic_set_tx_ring(aq_nic, idx_ring, ring);
++
++		ring = aq_ring_rx_alloc(&self->ring[i][AQ_VEC_RX_ID], aq_nic,
++					idx_ring, aq_nic_cfg);
++		if (!ring) {
++			err = -ENOMEM;
++			goto err_exit;
++		}
++
++		++self->rx_rings;
++	}
++
++err_exit:
++	if (err < 0) {
++		aq_vec_free(self);
++		self = NULL;
++	}
++	return self;
++}
++
++int aq_vec_init(struct aq_vec_s *self, struct aq_hw_ops *aq_hw_ops,
++		struct aq_hw_s *aq_hw)
++{
++	struct aq_ring_s *ring = NULL;
++	unsigned int i = 0U;
++	int err = 0;
++
++	self->aq_hw_ops = aq_hw_ops;
++	self->aq_hw = aq_hw;
++
++	spin_lock_init(&self->lock);
++
++	for (i = 0U, ring = self->ring[0];
++		self->tx_rings > i; ++i, ring = self->ring[i]) {
++		aq_ring_init(&ring[AQ_VEC_TX_ID]);
++
++		err = self->aq_hw_ops->hw_ring_tx_init(self->aq_hw,
++						       &ring[AQ_VEC_TX_ID],
++						       &self->aq_ring_param);
++		if (err < 0)
++			goto err_exit;
++
++		aq_ring_init(&ring[AQ_VEC_RX_ID]);
++
++		err = self->aq_hw_ops->hw_ring_rx_init(self->aq_hw,
++						       &ring[AQ_VEC_RX_ID],
++						       &self->aq_ring_param);
++		if (err < 0)
++			goto err_exit;
++
++		err = aq_ring_rx_fill(&ring[AQ_VEC_RX_ID]);
++		if (err < 0)
++			goto err_exit;
++
++		err = self->aq_hw_ops->hw_ring_rx_fill(self->aq_hw,
++						       &ring[AQ_VEC_RX_ID], 0U);
++		if (err < 0)
++			goto err_exit;
++	}
++
++err_exit:
++	return err;
++}
++
++int aq_vec_start(struct aq_vec_s *self)
++{
++	struct aq_ring_s *ring = NULL;
++	unsigned int i = 0U;
++	int err = 0;
++
++	for (i = 0U, ring = self->ring[0];
++		self->tx_rings > i; ++i, ring = self->ring[i]) {
++		err = self->aq_hw_ops->hw_ring_tx_start(self->aq_hw,
++							&ring[AQ_VEC_TX_ID]);
++		if (err < 0)
++			goto err_exit;
++
++		err = self->aq_hw_ops->hw_ring_rx_start(self->aq_hw,
++							&ring[AQ_VEC_RX_ID]);
++		if (err < 0)
++			goto err_exit;
++	}
++
++	napi_enable(&self->napi);
++
++err_exit:
++	return err;
++}
++
++int aq_vec_stop(struct aq_vec_s *self)
++{
++	struct aq_ring_s *ring = NULL;
++	unsigned int i = 0U;
++
++	for (i = 0U, ring = self->ring[0];
++		self->tx_rings > i; ++i, ring = self->ring[i]) {
++		self->aq_hw_ops->hw_ring_tx_stop(self->aq_hw,
++						 &ring[AQ_VEC_TX_ID]);
++
++		self->aq_hw_ops->hw_ring_rx_stop(self->aq_hw,
++						 &ring[AQ_VEC_RX_ID]);
++	}
++
++	napi_disable(&self->napi);
++	return 0;
++}
++
++int aq_vec_deinit(struct aq_vec_s *self)
++{
++	struct aq_ring_s *ring = NULL;
++	unsigned int i = 0U;
++
++	for (i = 0U, ring = self->ring[0];
++		self->tx_rings > i; ++i, ring = self->ring[i]) {
++		aq_ring_tx_drop(&ring[AQ_VEC_TX_ID]);
++		aq_ring_rx_drop(&ring[AQ_VEC_RX_ID]);
++	}
++	return 0;
++}
++
++void aq_vec_free(struct aq_vec_s *self)
++{
++	struct aq_ring_s *ring = NULL;
++	unsigned int i = 0U;
++
++	if (!self)
++		return;
++
++	for (i = 0U, ring = self->ring[0];
++		self->tx_rings > i; ++i, ring = self->ring[i]) {
++		aq_ring_free(&ring[AQ_VEC_TX_ID]);
++		aq_ring_free(&ring[AQ_VEC_RX_ID]);
++	}
++
++	netif_napi_del(&self->napi);
++
++	kfree(self);
++}
++
++irqreturn_t aq_vec_isr(int irq, void *private)
++{
++	struct aq_vec_s *self = (struct aq_vec_s *)private;
++	int err = 0;
++
++	if (!self) {
++		err = -EINVAL;
++		goto err_exit;
++	}
++	napi_schedule(&self->napi);
++
++err_exit:
++	return err >= 0 ? IRQ_HANDLED : IRQ_NONE;
++}
++
++irqreturn_t aq_vec_isr_legacy(int irq, void *private)
++{
++	struct aq_vec_s *self = (struct aq_vec_s *)private;
++	u64 irq_mask = 0U;
++	irqreturn_t err = 0;
++
++	if (!self) {
++		err = -EINVAL;
++		goto err_exit;
++	}
++	err = self->aq_hw_ops->hw_irq_read(self->aq_hw, &irq_mask);
++
++	if (irq_mask) {
++		self->aq_hw_ops->hw_irq_disable(self->aq_hw,
++			      1U << self->aq_ring_param.vec_idx);
++		napi_schedule(&self->napi);
++	} else {
++		self->aq_hw_ops->hw_irq_enable(self->aq_hw, 1U);
++		err = IRQ_NONE;
++	}
++
++err_exit:
++	return err >= 0 ? IRQ_HANDLED : IRQ_NONE;
++}
++
++cpumask_t *aq_vec_get_affinity_mask(struct aq_vec_s *self)
++{
++	return &self->aq_ring_param.affinity_mask;
++}
++
++int aq_vec_get_sw_stats(struct aq_vec_s *self, u64 *data, unsigned int *p_count)
++{
++	struct aq_ring_s *ring = NULL;
++	unsigned int count = 0U;
++	unsigned int r = 0U;
++
++	for (r = 0U, ring = self->ring[0];
++		self->tx_rings > r; ++r, ring = self->ring[r]) {
++		data[count] += ring[AQ_VEC_RX_ID].stats.rx_packets;
++		data[++count] += ring[AQ_VEC_TX_ID].stats.tx_packets;
++		data[++count] += ring[AQ_VEC_RX_ID].stats.jumbo_packets;
++		data[++count] += ring[AQ_VEC_RX_ID].stats.lro_packets;
++		data[++count] += ring[AQ_VEC_RX_ID].stats.rx_errors;
++	}
++
++	if (p_count)
++		*p_count = ++count;
++
++	return 0;
++}
++
+diff --git a/drivers/net/ethernet/aquantia/aq_vec.h b/drivers/net/ethernet/aquantia/aq_vec.h
+new file mode 100644
+index 0000000..89eb27a
+--- /dev/null
++++ b/drivers/net/ethernet/aquantia/aq_vec.h
+@@ -0,0 +1,38 @@
++/*
++ * aQuantia Corporation Network Driver
++ * Copyright (C) 2014-2017 aQuantia Corporation. All rights reserved
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ */
++
++/* File aq_vec.h: Definition of common structures for vector of Rx and Tx rings.
++ * Declaration of functions for Rx and Tx rings.
++ */
++
++#ifndef AQ_VEC_H
++#define AQ_VEC_H
++
++#include "aq_common.h"
++#include <linux/irqreturn.h>
++
++struct aq_hw_s;
++struct aq_hw_ops;
++
++irqreturn_t aq_vec_isr(int irq, void *private);
++irqreturn_t aq_vec_isr_legacy(int irq, void *private);
++struct aq_vec_s *aq_vec_alloc(struct aq_nic_s *aq_nic, unsigned int idx,
++			      struct aq_nic_cfg_s *aq_nic_cfg);
++int aq_vec_init(struct aq_vec_s *self, struct aq_hw_ops *aq_hw_ops,
++		struct aq_hw_s *aq_hw);
++int aq_vec_deinit(struct aq_vec_s *self);
++void aq_vec_free(struct aq_vec_s *self);
++int aq_vec_start(struct aq_vec_s *self);
++int aq_vec_stop(struct aq_vec_s *self);
++cpumask_t *aq_vec_get_affinity_mask(struct aq_vec_s *self);
++int aq_vec_get_sw_stats(struct aq_vec_s *self, u64 *data,
++			unsigned int *p_count);
++
++#endif /* AQ_VEC_H */
 +
 -- 
 2.7.4
