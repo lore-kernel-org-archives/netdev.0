@@ -1,42 +1,42 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 0/4] net: switchdev: Avoid sleep in atomic with DSA
-Date: Mon,  9 Jan 2017 11:44:59 -0800
-Message-ID: <20170109194503.10713-1-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, vivien.didelot@savoirfairelinux.com,
-        andrew@lunn.ch, jiri@resnulli.us,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:36367 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1763759AbdAITpM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 14:45:12 -0500
-Received: by mail-pf0-f195.google.com with SMTP id b22so8740885pfd.3
-        for <netdev@vger.kernel.org>; Mon, 09 Jan 2017 11:45:12 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Timur Tabi <timur@codeaurora.org>
+Subject: Re: [PATCH net v2 5/5] net: qcom/emac: fix of_node and phydev leaks
+Date: Mon, 9 Jan 2017 13:49:53 -0600
+Message-ID: <650c00e9-cf02-1764-5065-86f6c06817f3@codeaurora.org>
+References: <1480011691-13278-1-git-send-email-johan@kernel.org>
+ <1480011691-13278-6-git-send-email-johan@kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        Madalin Bucur <madalin.bucur@nxp.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Johan Hovold <johan@kernel.org>,
+        "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1480011691-13278-6-git-send-email-johan@kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi all,
+On 11/24/2016 12:21 PM, Johan Hovold wrote:
+> +	if (!has_acpi_companion(&pdev->dev))
+> +		put_device(&adpt->phydev->mdio.dev);
 
-This patch series is to resolve a sleeping function called in atomic context
-debug splat that we observe with DSA.
+I was wondering if, instead of calling put_device() only on non-ACPI systems, 
+would it be better if on an ACPI system I called get_device() manually?  That 
+is, some thing like this:
 
-Let me know what you think, I was also wondering if we should just always
-make switchdev_port_vlan_fill() set SWITCHDEV_F_DEFER, but was afraid this
-could cause invalid contexts to be used for rocker, mlxsw, i40e etc.
-
-Thanks!
-
-Florian Fainelli (4):
-  net: switchdev: Prepare for deferred functions modifying objects
-  net: switchdev: Add object dump deferred operation
-  net: switchdev: Add switchdev_port_bridge_getlink_deferred
-  net: dsa: Utilize switchdev_port_bridge_getlink_deferred()
-
- include/net/switchdev.h   |   3 +
- net/dsa/slave.c           |   2 +-
- net/switchdev/switchdev.c | 171 +++++++++++++++++++++++++++++++++++++---------
- 3 files changed, 141 insertions(+), 35 deletions(-)
+int emac_phy_config(struct platform_device *pdev, struct emac_adapter *adpt)
+{
+...
+	if (has_acpi_companion(&pdev->dev)) {
+...
+		get_device(&mii_bus->dev);
+	} else {
+...
 
 -- 
-2.9.3
+Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
+Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
+Code Aurora Forum, a Linux Foundation Collaborative Project.
