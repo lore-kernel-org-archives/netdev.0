@@ -1,50 +1,42 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next v2] net: dsa: select NET_SWITCHDEV
-Date: Mon,  9 Jan 2017 16:49:26 -0500
-Message-ID: <20170109214926.20985-1-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>, Jiri Pirko <jiri@resnulli.us>,
-        Randy Dunlap <rdunlap@infradead.org>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHv3 0/6] sh_eth: add wake-on-lan support via magic packet
+Date: Mon, 09 Jan 2017 16:55:39 -0500 (EST)
+Message-ID: <20170109.165539.1736465829807903795.davem@davemloft.net>
+References: <20170109153409.13956-1-niklas.soderlund+renesas@ragnatech.se>
+        <20170109.155542.1563572267512721426.davem@redhat.com>
+        <a957f04f-0784-fa39-b7b0-8b8bd68c2a30@cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: niklas.soderlund+renesas@ragnatech.se, horms+renesas@verge.net.au,
+        netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org,
+        geert@linux-m68k.org, linux-pm@vger.kernel.org
+To: sergei.shtylyov@cogentembedded.com
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <a957f04f-0784-fa39-b7b0-8b8bd68c2a30@cogentembedded.com>
+Sender: linux-renesas-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The support for DSA Ethernet switch chips depends on TCP/IP networking,
-thus explicit that HAVE_NET_DSA depends on INET.
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Date: Tue, 10 Jan 2017 00:48:28 +0300
 
-DSA uses SWITCHDEV, thus select it instead of depending on it.
+> On 01/09/2017 11:55 PM, David Miller wrote:
+> 
+>>> This series adds support for Wake-on-Lan using Magic Packet for a few
+>>> models of the sh_eth driver. Patch 1/6 fix a naming error, patch 2/6
+>>> adds generic support to control and support WoL while patches 3/6 -
+>>> 6/6
+>>> enable different models.
+>>>
+>>> Based ontop of net-next master.
+>>  ...
+>>
+>> Series applied, thanks.
+> 
+>    That was too quick for me... I hadn't even started looking into the
+>    main patch yet. :-/
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
-Tested-by: Randy Dunlap <rdunlap@infradead.org>
----
- net/dsa/Kconfig | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+Sorry, today a lot of stuff got submitted and I do not want to have such
+a huge backlog at the end of the day.
 
-diff --git a/net/dsa/Kconfig b/net/dsa/Kconfig
-index 96e47c539bee..39bb5b3a82f2 100644
---- a/net/dsa/Kconfig
-+++ b/net/dsa/Kconfig
-@@ -1,12 +1,13 @@
- config HAVE_NET_DSA
- 	def_bool y
--	depends on NETDEVICES && !S390
-+	depends on INET && NETDEVICES && !S390
- 
- # Drivers must select NET_DSA and the appropriate tagging format
- 
- config NET_DSA
- 	tristate "Distributed Switch Architecture"
--	depends on HAVE_NET_DSA && NET_SWITCHDEV
-+	depends on HAVE_NET_DSA
-+	select NET_SWITCHDEV
- 	select PHYLIB
- 	---help---
- 	  Say Y if you want to enable support for the hardware switches supported
--- 
-2.11.0
+I can revert the entire series if you want me to.
