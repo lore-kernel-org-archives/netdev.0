@@ -1,159 +1,127 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 3/4] net: switchdev: Add switchdev_port_bridge_getlink_deferred
-Date: Mon,  9 Jan 2017 11:45:02 -0800
-Message-ID: <20170109194503.10713-4-f.fainelli@gmail.com>
+Subject: [PATCH net-next 2/4] net: switchdev: Add object dump deferred operation
+Date: Mon,  9 Jan 2017 11:45:01 -0800
+Message-ID: <20170109194503.10713-3-f.fainelli@gmail.com>
 References: <20170109194503.10713-1-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, vivien.didelot@savoirfairelinux.com,
         andrew@lunn.ch, jiri@resnulli.us,
         Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:33503 "EHLO
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:34297 "EHLO
         mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1763770AbdAITpO (ORCPT
+        with ESMTP id S1763765AbdAITpO (ORCPT
         <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 14:45:14 -0500
-Received: by mail-pf0-f194.google.com with SMTP id 127so25132004pfg.0
-        for <netdev@vger.kernel.org>; Mon, 09 Jan 2017 11:45:14 -0800 (PST)
+Received: by mail-pf0-f194.google.com with SMTP id y143so4012761pfb.1
+        for <netdev@vger.kernel.org>; Mon, 09 Jan 2017 11:45:13 -0800 (PST)
 In-Reply-To: <20170109194503.10713-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add switchdev_port_bridge_getlink_deferred() which does a deferred
-object dump operation, this is required for e.g: DSA switches which
-typically have sleeping I/O operations which is incompatible with being
-in atomic context obviously.
+Add plumbing required to perform dump operations in a deferred context,
+this mostly wraps the existing switchdev_obj_port_dump() function into a
+switchdev_obj_port_dump_now() and adds two wrappers (normal and
+deferred) around.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- include/net/switchdev.h   |  3 ++
- net/switchdev/switchdev.c | 79 ++++++++++++++++++++++++++++++++++++++---------
- 2 files changed, 67 insertions(+), 15 deletions(-)
+ net/switchdev/switchdev.c | 71 +++++++++++++++++++++++++++++++++++++----------
+ 1 file changed, 57 insertions(+), 14 deletions(-)
 
-diff --git a/include/net/switchdev.h b/include/net/switchdev.h
-index eba80c4fc56f..087761b0df49 100644
---- a/include/net/switchdev.h
-+++ b/include/net/switchdev.h
-@@ -189,6 +189,9 @@ int call_switchdev_notifiers(unsigned long val, struct net_device *dev,
- int switchdev_port_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
- 				  struct net_device *dev, u32 filter_mask,
- 				  int nlflags);
-+int switchdev_port_bridge_getlink_deferred(struct sk_buff *skb, u32 pid,
-+					   u32 seq, struct net_device *dev,
-+					   u32 filter_mask, int nlflags);
- int switchdev_port_bridge_setlink(struct net_device *dev,
- 				  struct nlmsghdr *nlh, u16 flags);
- int switchdev_port_bridge_dellink(struct net_device *dev,
 diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
-index 4fa9972d72d2..ab614a9dd872 100644
+index 3d70ad02c617..4fa9972d72d2 100644
 --- a/net/switchdev/switchdev.c
 +++ b/net/switchdev/switchdev.c
-@@ -776,12 +776,14 @@ static int switchdev_port_vlan_dump_cb(struct switchdev_obj *obj)
- 	return err;
+@@ -545,26 +545,15 @@ int switchdev_port_obj_del(struct net_device *dev,
  }
- 
--static int switchdev_port_vlan_fill(struct sk_buff *skb, struct net_device *dev,
--				    u32 filter_mask)
-+static int __switchdev_port_vlan_fill(struct sk_buff *skb,
-+				      struct net_device *dev,
-+				      u32 filter_mask, u32 obj_flags)
- {
- 	struct switchdev_vlan_dump dump = {
- 		.vlan.obj.orig_dev = dev,
- 		.vlan.obj.id = SWITCHDEV_OBJ_ID_PORT_VLAN,
-+		.vlan.obj.flags = obj_flags,
- 		.skb = skb,
- 		.filter_mask = filter_mask,
- 	};
-@@ -802,17 +804,27 @@ static int switchdev_port_vlan_fill(struct sk_buff *skb, struct net_device *dev,
- 	return err == -EOPNOTSUPP ? 0 : err;
- }
+ EXPORT_SYMBOL_GPL(switchdev_port_obj_del);
  
 -/**
-- *	switchdev_port_bridge_getlink - Get bridge port attributes
+- *	switchdev_port_obj_dump - Dump port objects
 - *
 - *	@dev: port device
+- *	@id: object ID
+- *	@obj: object to dump
+- *	@cb: function to call with a filled object
 - *
-- *	Called for SELF on rtnl_bridge_getlink to get bridge port
-- *	attributes.
+- *	rtnl_lock must be held.
 - */
--int switchdev_port_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
--				  struct net_device *dev, u32 filter_mask,
--				  int nlflags)
-+static int switchdev_port_vlan_fill_deferred(struct sk_buff *skb,
-+					     struct net_device *dev,
-+					     u32 filter_mask)
-+{
-+	return __switchdev_port_vlan_fill(skb, dev, filter_mask,
-+					  SWITCHDEV_F_DEFER);
-+}
-+
-+static int switchdev_port_vlan_fill(struct sk_buff *skb,
-+				    struct net_device *dev,
-+				    u32 filter_mask)
-+{
-+	return __switchdev_port_vlan_fill(skb, dev, filter_mask, 0);
-+}
-+
-+static int __switchdev_port_bridge_getlink(struct sk_buff *skb, u32 pid,
-+					   u32 seq, struct net_device *dev,
-+					   u32 filter_mask, int nlflags,
-+					   int (*fill_cb)(struct sk_buff *skb,
-+							  struct net_device *d,
-+							  u32 filter_mask))
+-int switchdev_port_obj_dump(struct net_device *dev, struct switchdev_obj *obj,
+-			    switchdev_obj_dump_cb_t *cb)
++static int switchdev_port_obj_dump_now(struct net_device *dev,
++				       struct switchdev_obj *obj,
++				       switchdev_obj_dump_cb_t *cb)
  {
- 	struct switchdev_attr attr = {
- 		.orig_dev = dev,
-@@ -829,12 +841,49 @@ int switchdev_port_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
- 	if (err && err != -EOPNOTSUPP)
- 		return err;
+ 	const struct switchdev_ops *ops = dev->switchdev_ops;
+ 	struct net_device *lower_dev;
+ 	struct list_head *iter;
+ 	int err = -EOPNOTSUPP;
  
--	return ndo_dflt_bridge_getlink(skb, pid, seq, dev, mode,
-+	return ndo_dflt_bridge_getlink(skb, pid, seq, d, mode,
- 				       attr.u.brport_flags, mask, nlflags,
--				       filter_mask, switchdev_port_vlan_fill);
-+				       filter_mask, fill_cb);
-+}
-+
-+/**
-+ *	switchdev_port_bridge_getlink - Get bridge port attributes
-+ *
-+ *	@dev: port device
-+ *
-+ *	Called for SELF on rtnl_bridge_getlink to get bridge port
-+ *	attributes.
-+ */
-+int switchdev_port_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
-+				  struct net_device *dev, u32 filter_mask,
-+				  int nlflags)
-+{
-+	return __switchdev_port_bridge_getlink(skb, pid, seq, dev, filter_mask,
-+					       nlflags,
-+					       switchdev_port_vlan_fill);
+-	ASSERT_RTNL();
+-
+ 	if (ops && ops->switchdev_port_obj_dump)
+ 		return ops->switchdev_port_obj_dump(dev, obj, cb);
+ 
+@@ -580,6 +569,60 @@ int switchdev_port_obj_dump(struct net_device *dev, struct switchdev_obj *obj,
+ 
+ 	return err;
  }
- EXPORT_SYMBOL_GPL(switchdev_port_bridge_getlink);
- 
++
++struct switchdev_obj_dump_deferred_item {
++	struct switchdev_obj obj;
++	switchdev_obj_dump_cb_t *cb;
++};
++
++static void switchdev_port_obj_dump_deferred(struct net_device *dev,
++					     void *data)
++{
++	struct switchdev_obj_dump_deferred_item *i = data;
++	struct switchdev_obj *obj = &i->obj;
++	int err;
++
++	err = switchdev_port_obj_dump_now(dev, obj, i->cb);
++	if (err && err != -EOPNOTSUPP)
++		netdev_err(dev, "failed (err=%d) to dump object (id=%d)\n",
++			   err, obj->id);
++	if (obj->complete)
++		obj->complete(dev, err, obj->complete_priv);
++}
++
++static int switchdev_port_obj_dump_defer(struct net_device *dev,
++					 struct switchdev_obj *obj,
++					 switchdev_obj_dump_cb_t *cb)
++{
++	struct switchdev_obj_dump_deferred_item item;
++
++	memcpy(&item.obj, obj, switchdev_obj_size(obj));
++	item.cb = cb;
++
++	return switchdev_deferred_enqueue(dev, &item, sizeof(item),
++					  NULL,
++					  switchdev_port_obj_dump_deferred);
++}
++
 +/**
-+ *	switchdev_port_bridge_getlink_deferred - Get bridge port attributes
-+ *	(deferred variant)
++ *	switchdev_port_obj_dump - Dump port objects
 + *
 + *	@dev: port device
++ *	@id: object ID
++ *	@obj: object to dump
++ *	@cb: function to call with a filled object
 + *
-+ *	Called for SELF on rtnl_bridge_getlink to get bridge port
-+ *	attributes.
++ *	rtnl_lock must be held and must not be in atomic section,
++ *	in case SWITCHDEV_F_DEFER flag is not set.
 + */
-+int switchdev_port_bridge_getlink_deferred(struct sk_buff *skb, u32 pid,
-+					   u32 seq, struct net_device *dev,
-+					   u32 filter_mask,
-+					   int nlflags)
++int switchdev_port_obj_dump(struct net_device *dev, struct switchdev_obj *obj,
++			    switchdev_obj_dump_cb_t *cb)
 +{
-+	return __switchdev_port_bridge_getlink(skb, pid, seq, dev, filter_mask,
-+					       nlflags,
-+					       switchdev_port_vlan_fill_deferred);
++	if (obj->flags & SWITCHDEV_F_DEFER)
++		return switchdev_port_obj_dump_defer(dev, obj, cb);
++	ASSERT_RTNL();
++	return switchdev_port_obj_dump_now(dev, obj, cb);
 +}
-+EXPORT_SYMBOL_GPL(switchdev_port_bridge_getlink_deferred);
-+
- static int switchdev_port_br_setflag(struct net_device *dev,
- 				     struct nlattr *nlattr,
- 				     unsigned long brport_flag)
+ EXPORT_SYMBOL_GPL(switchdev_port_obj_dump);
+ 
+ static RAW_NOTIFIER_HEAD(switchdev_notif_chain);
 -- 
 2.9.3
