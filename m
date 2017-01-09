@@ -1,71 +1,31 @@
-From: Joe Stringer <joe@ovn.org>
-Subject: Re: [PATCH stable 4.1] openvswitch: gre: filter gre packets
-Date: Mon, 9 Jan 2017 10:48:36 -0800
-Message-ID: <CAPWQB7FwA-GSL9XmN82HvyZ9SEY0AF9yGUbSkjxXPc6tvFAStQ@mail.gmail.com>
-References: <1483884867-7264-1-git-send-email-pshelar@ovn.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next PATCH 1/3] Revert "icmp: avoid allocating large
+ struct on stack"
+Date: Mon, 09 Jan 2017 13:47:56 -0500 (EST)
+Message-ID: <20170109.134756.1725241961347437207.davem@davemloft.net>
+References: <CAM_iQpUNmaBx6L4CcrXkh6aFj-fEXdoGTBJt+33W3Xg-=7yhWA@mail.gmail.com>
+        <1483984208.5846.9.camel@edumazet-glaptop3.roam.corp.google.com>
+        <CAM_iQpV6YQ6nh_Y0f3BDgMheOic3bPiqQ1oNHR+saxxE7nBuoA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>, Uri Foox <uri@zoey.com>
-To: Pravin B Shelar <pshelar@ovn.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, brouer@redhat.com, netdev@vger.kernel.org
+To: xiyou.wangcong@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay3-d.mail.gandi.net ([217.70.183.195]:41323 "EHLO
-        relay3-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932422AbdAIStA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 13:49:00 -0500
-Received: from mfilter2-d.gandi.net (mfilter2-d.gandi.net [217.70.178.140])
-        by relay3-d.mail.gandi.net (Postfix) with ESMTP id 29127A80C8
-        for <netdev@vger.kernel.org>; Mon,  9 Jan 2017 19:48:59 +0100 (CET)
-Received: from relay3-d.mail.gandi.net ([IPv6:::ffff:217.70.183.195])
-        by mfilter2-d.gandi.net (mfilter2-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
-        with ESMTP id HJimzMLgNLH7 for <netdev@vger.kernel.org>;
-        Mon,  9 Jan 2017 19:48:57 +0100 (CET)
-Received: from mail-qk0-f179.google.com (mail-qk0-f179.google.com [209.85.220.179])
-        (Authenticated sender: joe@ovn.org)
-        by relay3-d.mail.gandi.net (Postfix) with ESMTPSA id 7C393A80BE
-        for <netdev@vger.kernel.org>; Mon,  9 Jan 2017 19:48:57 +0100 (CET)
-Received: by mail-qk0-f179.google.com with SMTP id u25so534543900qki.2
-        for <netdev@vger.kernel.org>; Mon, 09 Jan 2017 10:48:57 -0800 (PST)
-In-Reply-To: <1483884867-7264-1-git-send-email-pshelar@ovn.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:46810 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1164259AbdAIStu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 13:49:50 -0500
+In-Reply-To: <CAM_iQpV6YQ6nh_Y0f3BDgMheOic3bPiqQ1oNHR+saxxE7nBuoA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 8 January 2017 at 06:14, Pravin B Shelar <pshelar@ovn.org> wrote:
-> OVS can only process L2 packets. But OVS GRE receive handler
-> can accept IP-GRE packets. When such packet is processed by
-> OVS datapath it can trigger following assert failure due
-> to insufficient linear data in skb. Following patch filters
-> received packets to avoid this issue.
->
-> [68240.441681] ------------[ cut here ]------------
-> [68240.496918] kernel BUG at /build/linux-lts-trusty-D60X6T/linux-lts-trusty-3.13.0/include/linux/skbuff.h:1486!
-> [68240.615520] invalid opcode: 0000 [#1] SMP
-> [68241.953939] RIP: [<ffffffffa052b4fe>] __skb_pull.part.7+0x4/0x6 [openvswitch]
-> [68243.099945] Call Trace:
-> [68243.129188]  <IRQ>
-> [68243.152204]  [<ffffffffa0524e64>] ovs_flow_extract+0x664/0x720 [openvswitch]
-> [68243.314912]  [<ffffffffa0523a80>] ovs_dp_process_received_packet+0x60/0x130 [openvswitch]
-> [68243.481559]  [<ffffffffa0529e3a>] ovs_vport_receive+0x2a/0x30 [openvswitch]
-> [68243.564884]  [<ffffffffa052b374>] gre_rcv+0xa4/0xb8 [openvswitch]
-> [68243.637802]  [<ffffffffa03e2795>] gre_cisco_rcv+0x75/0xbc [gre]
-> [68243.708621]  [<ffffffffa03e22f5>] gre_rcv+0x65/0x90 [gre]
-> [68243.773214]  [<ffffffff816941d8>] ip_local_deliver_finish+0xa8/0x220
-> [68243.849244]  [<ffffffff816944db>] ip_local_deliver+0x4b/0x90
-> [68243.916951]  [<ffffffff81693ed1>] ip_rcv_finish+0x121/0x380
-> [68243.983627]  [<ffffffff816947a6>] ip_rcv+0x286/0x380
-> [68244.043023]  [<ffffffff8165b80a>] __netif_receive_skb_core+0x61a/0x760
-> [68244.121122]  [<ffffffff8165b971>] __netif_receive_skb+0x21/0x70
-> [68244.191942]  [<ffffffff8165c131>] process_backlog+0xb1/0x190
-> [68244.259642]  [<ffffffff8165ca09>] net_rx_action+0x139/0x280
-> [68244.326305]  [<ffffffff8107367d>] __do_softirq+0xed/0x360
-> [68244.390887]  [<ffffffff81073c8e>] irq_exit+0x11e/0x140
-> [68244.452358]  [<ffffffff8177d873>] do_IRQ+0x63/0xe0
-> [68244.509674]  [<ffffffff817728ad>] common_interrupt+0x6d/0x6d
-> [68245.392237] RIP  [<ffffffffa052b4fe>] __skb_pull.part.7+0x4/0x6 [openvswitch]
-> [68245.520082] ---[ end trace 383bac9f3e676970 ]---
->
-> Fixes: aa310701e7 ("openvswitch: Add gre tunnel support.")
-> Reported-by: Uri Foox <uri@zoey.com>
-> CC: Joe Stringer <joe@ovn.org>
-> Signed-off-by: Pravin B Shelar <pshelar@ovn.org>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Mon, 9 Jan 2017 09:59:34 -0800
 
-Acked-by: Joe Stringer <joe@ovn.org>
+> Facepalm...
+
+This is completely unnecessary.  Discuss facts and real issues, rather
+than make emotional retorts.
+
+Thank you.
