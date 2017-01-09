@@ -1,41 +1,27 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: net/ipv6: use-after-free in sock_wfree
-Date: Mon, 9 Jan 2017 11:08:34 -0800
-Message-ID: <CANn89i+XuBC0OnN_sHX0LS_Wu-EHNrXVKdpXmPXFCmMujeiO3g@mail.gmail.com>
-References: <CAAeHK+yfNdNTkgCbUGbdRBM9bB=2DhGv1ZPCWm44CGL7zD=TLg@mail.gmail.com>
- <CAAeHK+yiziBBxw3JMqec3c7aLXjk6ddL2Xh1xufA3sp5ja=_TA@mail.gmail.com>
- <CANn89iLX+GPK6WWcz76T_z4_hMv4aNy8nREVqGKP-q+UqQNOxA@mail.gmail.com> <CAAeHK+y3W7O3Uanr3=2rnew+unabjt6+SCAMebq1RVKsJ0QkDw@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3 net-next 0/4] Introduce The SipHash PRF
+Date: Mon, 09 Jan 2017 14:08:44 -0500 (EST)
+Message-ID: <20170109.140844.2300003012302036689.davem@davemloft.net>
+References: <20170108125403.16355-1-Jason@zx2c4.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Andrey Konovalov <andreyknvl@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAAeHK+y3W7O3Uanr3=2rnew+unabjt6+SCAMebq1RVKsJ0QkDw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ebiggers3@gmail.com, jeanphilippe.aumasson@gmail.com,
+        gregkh@linuxfoundation.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Jason@zx2c4.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:47500 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1423019AbdAITIv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 14:08:51 -0500
+In-Reply-To: <20170108125403.16355-1-Jason@zx2c4.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 9, 2017 at 11:06 AM, Andrey Konovalov <andreyknvl@google.com> wrote:
->
-> Hi Eric,
->
-> This patch fixes the issue.
->
-> Thanks!
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Date: Sun,  8 Jan 2017 13:53:59 +0100
 
-Thanks Andrey.
+> This patch series introduces SipHash into the kernel.
 
-Could you please post your .config for next KASAN reports ?
-
-I am asking this because I could not reproduce the issue with my own
-builds, so I had to guess but could not test the fix myself.
-
-Thanks !
+Series applied, thanks Jason.
