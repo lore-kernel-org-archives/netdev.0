@@ -1,7 +1,7 @@
 From: Alexander Loktionov <Alexander.Loktionov@aquantia.com>
-Subject: [PATCH v2 03/13] net: ethernet: aquantia: Add ring support code
-Date: Mon,  9 Jan 2017 14:16:01 -0800
-Message-ID: <6dfadde2e1fe39b46d814c83fb7460566e860095.1483999588.git.vomlehn@texas.net>
+Subject: [PATCH v2 09/13] net: ethernet: aquantia: Atlantic hardware abstraction layer
+Date: Mon,  9 Jan 2017 14:16:07 -0800
+Message-ID: <c2d259cedda86684baf77e04c83ea675ee040bda.1483999588.git.vomlehn@texas.net>
 References: <cover.1483999588.git.vomlehn@texas.net>
 Cc: Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
         Alexander Loktionov <Alexander.Loktionov@aquantia.com>,
@@ -9,37 +9,37 @@ Cc: Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
         Pavel Belous <Pavel.Belous@aquantia.com>
 To: netdev@vger.kernel.org, David VomLehn <vomlehn@texas.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from barracuda5.aus1.datafoundry.com ([209.99.124.136]:42510 "EHLO
+Received: from barracuda5.aus1.datafoundry.com ([209.99.124.136]:42598 "EHLO
         barracuda.datafoundry.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S932080AbdAIWQw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 17:16:52 -0500
+        by vger.kernel.org with ESMTP id S932969AbdAIWRS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 17:17:18 -0500
 In-Reply-To: <cover.1483999588.git.vomlehn@texas.net>
-In-Reply-To: <6d32f594bb99a6f56f82f13f6aa54885a06b1e22.1483999588.git.vomlehn@texas.net>
-References: <cover.1483999588.git.vomlehn@texas.net> <0b0d8974bdbfa66ab3bc4460f32f7916dd54b85a.1483999588.git.vomlehn@texas.net> <6d32f594bb99a6f56f82f13f6aa54885a06b1e22.1483999588.git.vomlehn@texas.net>
+In-Reply-To: <68bda8ddca6d16001ea990a5197cdcdaa4efa107.1483999588.git.vomlehn@texas.net>
+References: <cover.1483999588.git.vomlehn@texas.net> <0b0d8974bdbfa66ab3bc4460f32f7916dd54b85a.1483999588.git.vomlehn@texas.net> <6d32f594bb99a6f56f82f13f6aa54885a06b1e22.1483999588.git.vomlehn@texas.net> <6dfadde2e1fe39b46d814c83fb7460566e860095.1483999588.git.vomlehn@texas.net> <a24ccb1c19a30c6fd4492b54d32663225d0f6534.1483999588.git.vomlehn@texas.net> <8b8385cb2a8e856da001922d65009a4fcfc26295.1483999588.git.vomlehn@texas.net> <1ea4ddc9bb144b5809aec4e441d553ff3fe9c263.1483999588.git.vomlehn@texas.net> <5cf2494bfdb3e327dec2fdc7c50ae56fdac83a2f.1483999588.git.vomlehn@texas.net> <68bda8ddca6d16001ea990a5197cdcdaa4efa107.1483999588.git.vomlehn@texas.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: David VomLehn <vomlehn@texas.net>
 
-Add code to support the transmit and receive ring buffers.
+Add common functions for Atlantic hardware abstraction layer.
 
 Signed-off-by: Alexander Loktionov <Alexander.Loktionov@aquantia.com>
 Signed-off-by: Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>
 Signed-off-by: Pavel Belous <Pavel.Belous@aquantia.com>
 Signed-off-by: David M. VomLehn <vomlehn@texas.net>
 ---
- drivers/net/ethernet/aquantia/aq_ring.c | 344 ++++++++++++++++++++++++++++++++
- drivers/net/ethernet/aquantia/aq_ring.h | 147 ++++++++++++++
- 2 files changed, 491 insertions(+)
- create mode 100644 drivers/net/ethernet/aquantia/aq_ring.c
- create mode 100644 drivers/net/ethernet/aquantia/aq_ring.h
+ .../net/ethernet/aquantia/hw_atl/hw_atl_utils.c    | 548 +++++++++++++++++++++
+ .../net/ethernet/aquantia/hw_atl/hw_atl_utils.h    | 211 ++++++++
+ 2 files changed, 759 insertions(+)
+ create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_utils.c
+ create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_utils.h
 
-diff --git a/drivers/net/ethernet/aquantia/aq_ring.c b/drivers/net/ethernet/aquantia/aq_ring.c
+diff --git a/drivers/net/ethernet/aquantia/hw_atl/hw_atl_utils.c b/drivers/net/ethernet/aquantia/hw_atl/hw_atl_utils.c
 new file mode 100644
-index 0000000..3aeedb6
+index 0000000..122cd25
 --- /dev/null
-+++ b/drivers/net/ethernet/aquantia/aq_ring.c
-@@ -0,0 +1,344 @@
++++ b/drivers/net/ethernet/aquantia/hw_atl/hw_atl_utils.c
+@@ -0,0 +1,548 @@
 +/*
 + * aQuantia Corporation Network Driver
 + * Copyright (C) 2014-2017 aQuantia Corporation. All rights reserved
@@ -49,347 +49,551 @@ index 0000000..3aeedb6
 + * version 2, as published by the Free Software Foundation.
 + */
 +
-+/* File aq_ring.c: Definition of functions for Rx/Tx rings. */
++/* File hw_atl_utils.c: Definition of common functions for Atlantic hardware
++ * abstraction layer.
++ */
 +
-+#include "aq_ring.h"
-+#include "aq_nic.h"
-+#include "aq_hw.h"
++#include "../aq_hw.h"
++#include "../aq_hw_utils.h"
++#include "../aq_pci_func.h"
++#include "../aq_ring.h"
++#include "../aq_vec.h"
++#include "hw_atl_utils.h"
++#include "hw_atl_llh.h"
 +
-+#include <linux/netdevice.h>
-+#include <linux/etherdevice.h>
++#include <linux/random.h>
 +
-+static struct aq_ring_s *aq_ring_alloc(struct aq_ring_s *self,
-+				       struct aq_nic_s *aq_nic)
++#define HW_ATL_UCP_0X370_REG    0x0370U
++
++#define HW_ATL_FW_SM_RAM        0x2U
++#define HW_ATL_MPI_CONTROL_ADR  0x0368U
++#define HW_ATL_MPI_STATE_ADR    0x036CU
++
++#define HW_ATL_MPI_STATE_MSK    0x00FFU
++#define HW_ATL_MPI_STATE_SHIFT  0U
++#define HW_ATL_MPI_SPEED_MSK    0xFFFFU
++#define HW_ATL_MPI_SPEED_SHIFT  16U
++
++static int hw_atl_utils_fw_downld_dwords(struct aq_hw_s *self, u32 a,
++					 u32 *p, u32 cnt)
 +{
 +	int err = 0;
 +
-+	self->buff_ring = (struct aq_ring_buff_s *)
-+		kzalloc(sizeof(struct aq_ring_buff_s) * self->size, GFP_KERNEL);
++	AQ_HW_WAIT_FOR(reg_glb_cpu_sem_get(self,
++					   HW_ATL_FW_SM_RAM) == 1U, 1U, 1000U);
 +
-+	if (!self->buff_ring) {
-+		err = -ENOMEM;
-+		goto err_exit;
-+	}
-+	self->dx_ring = dma_alloc_coherent(aq_nic_get_dev(aq_nic),
-+						self->size * self->dx_size,
-+						&self->dx_ring_pa, GFP_KERNEL);
-+	if (!self->dx_ring) {
-+		err = -ENOMEM;
-+		goto err_exit;
-+	}
-+
-+err_exit:
 +	if (err < 0) {
-+		aq_ring_free(self);
-+		self = NULL;
-+	}
-+	return self;
-+}
++		bool is_locked;
 +
-+struct aq_ring_s *aq_ring_tx_alloc(struct aq_ring_s *self,
-+				   struct aq_nic_s *aq_nic,
-+				   unsigned int idx,
-+				   struct aq_nic_cfg_s *aq_nic_cfg)
-+{
-+	int err = 0;
-+
-+	self->aq_nic = aq_nic;
-+	self->idx = idx;
-+	self->size = aq_nic_cfg->txds;
-+	self->dx_size = aq_nic_cfg->aq_hw_caps->txd_size;
-+
-+	self = aq_ring_alloc(self, aq_nic);
-+	if (!self) {
-+		err = -ENOMEM;
-+		goto err_exit;
-+	}
-+
-+err_exit:
-+	if (err < 0) {
-+		aq_ring_free(self);
-+		self = NULL;
-+	}
-+	return self;
-+}
-+
-+struct aq_ring_s *aq_ring_rx_alloc(struct aq_ring_s *self,
-+				   struct aq_nic_s *aq_nic,
-+				   unsigned int idx,
-+				   struct aq_nic_cfg_s *aq_nic_cfg)
-+{
-+	int err = 0;
-+
-+	self->aq_nic = aq_nic;
-+	self->idx = idx;
-+	self->size = aq_nic_cfg->rxds;
-+	self->dx_size = aq_nic_cfg->aq_hw_caps->rxd_size;
-+
-+	self = aq_ring_alloc(self, aq_nic);
-+	if (!self) {
-+		err = -ENOMEM;
-+		goto err_exit;
-+	}
-+
-+err_exit:
-+	if (err < 0) {
-+		aq_ring_free(self);
-+		self = NULL;
-+	}
-+	return self;
-+}
-+
-+void aq_ring_init(struct aq_ring_s *self)
-+{
-+	self->hw_head = 0;
-+	self->sw_head = 0;
-+	self->sw_tail = 0;
-+}
-+
-+void aq_ring_free(struct aq_ring_s *self)
-+{
-+	if (!self)
-+		return;
-+
-+	kfree(self->buff_ring);
-+
-+	if (self->dx_ring)
-+		dma_free_coherent(aq_nic_get_dev(self->aq_nic),
-+				  self->size * self->dx_size, self->dx_ring,
-+				  self->dx_ring_pa);
-+}
-+
-+void aq_ring_tx_append_buffs(struct aq_ring_s *self,
-+			     struct aq_ring_buff_s *buffer,
-+			     unsigned int buffers)
-+{
-+	if (likely(self->sw_tail + buffers < self->size)) {
-+		memcpy(&self->buff_ring[self->sw_tail], buffer,
-+		       sizeof(buffer[0]) * buffers);
-+	} else {
-+		unsigned int first_part = self->size - self->sw_tail;
-+		unsigned int second_part = buffers - first_part;
-+
-+		memcpy(&self->buff_ring[self->sw_tail], buffer,
-+		       sizeof(buffer[0]) * first_part);
-+
-+		memcpy(&self->buff_ring[0], &buffer[first_part],
-+		       sizeof(buffer[0]) * second_part);
-+	}
-+}
-+
-+void aq_ring_tx_clean(struct aq_ring_s *self)
-+{
-+	struct device *dev = aq_nic_get_dev(self->aq_nic);
-+	struct net_device *ndev = aq_nic_get_ndev(self->aq_nic);
-+
-+	for (; self->sw_head != self->hw_head;
-+		self->sw_head = aq_ring_next_dx(self, self->sw_head)) {
-+		struct aq_ring_buff_s *buff = &self->buff_ring[self->sw_head];
-+
-+		++self->stats.tx_packets;
-+		++ndev->stats.tx_packets;
-+		ndev->stats.tx_bytes += buff->len;
-+
-+		if (likely(buff->is_mapped)) {
-+			if (unlikely(buff->is_sop))
-+				dma_unmap_single(dev, buff->pa, buff->len,
-+						 DMA_TO_DEVICE);
-+			else
-+				dma_unmap_page(dev, buff->pa, buff->len,
-+					       DMA_TO_DEVICE);
-+		}
-+
-+		if (unlikely(buff->is_eop))
-+			dev_kfree_skb_any(buff->skb);
-+	}
-+
-+	if (aq_ring_avail_dx(self) > AQ_CFG_SKB_FRAGS_MAX)
-+		aq_nic_ndev_queue_start(self->aq_nic, self->idx);
-+}
-+
-+static inline unsigned int aq_ring_dx_in_range(unsigned int h, unsigned int i,
-+					       unsigned int t)
-+{
-+	return (h < t) ? ((h < i) && (i < t)) : ((h < i) || (i < t));
-+}
-+
-+void aq_ring_rx_clean(struct aq_ring_s *self, int *work_done, int budget)
-+{
-+	struct net_device *ndev = aq_nic_get_ndev(self->aq_nic);
-+	bool is_rsc_completed = true;
-+
-+	for (; (self->sw_head != self->hw_head) && budget;
-+		self->sw_head = aq_ring_next_dx(self, self->sw_head),
-+		--budget, ++(*work_done)) {
-+		struct aq_ring_buff_s *buff = &self->buff_ring[self->sw_head];
-+		struct sk_buff *skb = NULL;
-+		unsigned int next_ = 0U;
-+		unsigned int i = 0U;
-+		struct aq_ring_buff_s *buff_ = NULL;
-+
-+		if (buff->is_error) {
-+			__free_pages(buff->page, 0);
-+			continue;
-+		}
-+
-+		if (buff->is_cleaned)
-+			continue;
-+
-+		++self->stats.rx_packets;
-+		++ndev->stats.rx_packets;
-+		ndev->stats.rx_bytes += buff->len;
-+
-+		if (!buff->is_eop) {
-+			for (next_ = buff->next,
-+			     buff_ = &self->buff_ring[next_]; true;
-+			     next_ = buff_->next,
-+			     buff_ = &self->buff_ring[next_]) {
-+				is_rsc_completed =
-+					aq_ring_dx_in_range(self->sw_head,
-+							    next_,
-+							    self->hw_head);
-+
-+				if (unlikely(!is_rsc_completed)) {
-+					is_rsc_completed = false;
-+					break;
-+				}
-+
-+				if (buff_->is_eop)
-+					break;
-+			}
-+
-+			if (!is_rsc_completed)
-+				return;
-+		}
-+
-+		skb = netdev_alloc_skb(ndev, ETH_HLEN);
-+		skb_put(skb, ETH_HLEN);
-+		memcpy(skb->data, page_address(buff->page), ETH_HLEN);
-+
-+		skb_add_rx_frag(skb, 0, buff->page, ETH_HLEN,
-+				buff->len - ETH_HLEN,
-+				SKB_TRUESIZE(buff->len - ETH_HLEN));
-+		if (!buff->is_eop) {
-+			for (i = 1U, next_ = buff->next,
-+			     buff_ = &self->buff_ring[next_]; true;
-+			     next_ = buff_->next,
-+			     buff_ = &self->buff_ring[next_], ++i) {
-+				skb_add_rx_frag(skb, i, buff_->page, 0,
-+						buff_->len,
-+						SKB_TRUESIZE(buff->len -
-+						ETH_HLEN));
-+				buff_->is_cleaned = 1;
-+
-+				if (buff_->is_eop)
-+					break;
-+			}
-+		}
-+
-+		skb->protocol = eth_type_trans(skb, ndev);
-+		if (unlikely(buff->is_cso_err)) {
-+			++self->stats.rx_errors;
-+			__skb_mark_checksum_bad(skb);
-+		} else {
-+			if (buff->is_ip_cso) {
-+				__skb_incr_checksum_unnecessary(skb);
-+				if (buff->is_udp_cso || buff->is_tcp_cso)
-+					__skb_incr_checksum_unnecessary(skb);
-+			} else {
-+				skb->ip_summed = CHECKSUM_NONE;
-+			}
-+		}
-+
-+		skb_set_hash(skb, buff->rss_hash,
-+			     buff->is_hash_l4 ? PKT_HASH_TYPE_L4 :
-+			     PKT_HASH_TYPE_NONE);
-+
-+		skb_record_rx_queue(skb, self->idx);
-+
-+		netif_receive_skb(skb);
-+	}
-+}
-+
-+void aq_ring_tx_drop(struct aq_ring_s *self)
-+{
-+	for (; self->sw_head != self->sw_tail;
-+		self->sw_head = aq_ring_next_dx(self, self->sw_head)) {
-+		struct aq_ring_buff_s *buff = &self->buff_ring[self->sw_head];
-+		struct device *ndev = aq_nic_get_dev(self->aq_nic);
-+
-+		if (likely(buff->is_mapped)) {
-+			if (unlikely(buff->is_sop))
-+				dma_unmap_single(ndev, buff->pa, buff->len,
-+						 DMA_TO_DEVICE);
-+			else
-+				dma_unmap_page(ndev, buff->pa, buff->len,
-+					       DMA_TO_DEVICE);
-+		}
-+
-+		if (unlikely(buff->is_eop))
-+			dev_kfree_skb_any(buff->skb);
-+	}
-+}
-+
-+void aq_ring_rx_drop(struct aq_ring_s *self)
-+{
-+	for (; self->sw_head != self->sw_tail;
-+		self->sw_head = aq_ring_next_dx(self, self->sw_head)) {
-+		struct aq_ring_buff_s *buff = &self->buff_ring[self->sw_head];
-+
-+		dma_unmap_page(aq_nic_get_dev(self->aq_nic), buff->pa,
-+			       AQ_CFG_RX_FRAME_MAX, DMA_FROM_DEVICE);
-+
-+		__free_pages(buff->page, 0);
-+	}
-+}
-+
-+int aq_ring_rx_fill(struct aq_ring_s *self)
-+{
-+	struct aq_ring_buff_s *buff = NULL;
-+	int err = 0;
-+	int i = 0;
-+
-+	for (i = aq_ring_avail_dx(self); i--;
-+		self->sw_tail = aq_ring_next_dx(self, self->sw_tail)) {
-+		buff = &self->buff_ring[self->sw_tail];
-+
-+		buff->flags = 0U;
-+		buff->len = AQ_CFG_RX_FRAME_MAX;
-+
-+		buff->page = alloc_pages(GFP_ATOMIC | __GFP_COLD |
-+					 __GFP_COMP, 0);
-+		if (!buff->page) {
-+			err = -ENOMEM;
++		reg_glb_cpu_sem_set(self, 1U, HW_ATL_FW_SM_RAM);
++		is_locked = reg_glb_cpu_sem_get(self, HW_ATL_FW_SM_RAM);
++		if (!is_locked) {
++			err = ETIME;
 +			goto err_exit;
 +		}
-+
-+		buff->pa = dma_map_page(aq_nic_get_dev(self->aq_nic),
-+					buff->page, 0,
-+					AQ_CFG_RX_FRAME_MAX, DMA_FROM_DEVICE);
-+
-+		err = dma_mapping_error(aq_nic_get_dev(self->aq_nic), buff->pa);
-+		if (err < 0)
-+			goto err_exit;
-+
-+		buff = NULL;
 +	}
-+	if (err < 0)
-+		goto err_exit;
++
++	aq_hw_write_reg(self, 0x00000208U, a);
++
++	for (++cnt; --cnt;) {
++		u32 i = 0U;
++
++		aq_hw_write_reg(self, 0x00000200U, 0x00008000U);
++
++		for (i = 1024U;
++			(0x100U & aq_hw_read_reg(self, 0x00000200U)) && --i;) {
++		}
++
++		*(p++) = aq_hw_read_reg(self, 0x0000020CU);
++	}
++
++	reg_glb_cpu_sem_set(self, 1U, HW_ATL_FW_SM_RAM);
 +
 +err_exit:
-+	if (err < 0)
-+		if (buff && buff->page)
-+			__free_pages(buff->page, 0);
++	return err;
++}
++
++static void hw_atl_utils_fw_upload_dwords(struct aq_hw_s *self, u32 a, u32 *p,
++					  u32 cnt)
++{
++	int err = 0;
++	bool is_locked;
++
++	is_locked = reg_glb_cpu_sem_get(self, HW_ATL_FW_SM_RAM);
++	if (!is_locked) {
++		err = ETIME;
++		goto err_exit;
++	}
++
++	aq_hw_write_reg(self, 0x00000208U, a);
++
++	for (++cnt; --cnt;) {
++		u32 i = 0U;
++
++		aq_hw_write_reg(self, 0x0000020CU, *(p++));
++		aq_hw_write_reg(self, 0x00000200U, 0xC000U);
++
++		for (i = 1024U;
++			(0x100U & aq_hw_read_reg(self, 0x00000200U)) && --i;) {
++		}
++	}
++
++	reg_glb_cpu_sem_set(self, 1U, HW_ATL_FW_SM_RAM);
++
++err_exit:;
++	(void)err;
++}
++
++static int hw_atl_utils_init_ucp(struct aq_hw_s *self)
++{
++	int err = 0;
++
++	if (!aq_hw_read_reg(self, 0x370U)) {
++		unsigned int rnd = 0U;
++		unsigned int ucp_0x370 = 0U;
++
++		get_random_bytes(&rnd, sizeof(unsigned int));
++
++		ucp_0x370 = 0x02020202U | (0xFEFEFEFEU & rnd);
++		aq_hw_write_reg(self, HW_ATL_UCP_0X370_REG, ucp_0x370);
++	}
++
++	reg_glb_cpu_scratch_scp_set(self, 0x00000000U, 25U);
++
++	/* check 10 times by 1ms */
++	AQ_HW_WAIT_FOR(0U != (PHAL_ATLANTIC_A0->mbox_addr =
++			aq_hw_read_reg(self, 0x360U)), 1000U, 10U);
 +
 +	return err;
 +}
 +
-diff --git a/drivers/net/ethernet/aquantia/aq_ring.h b/drivers/net/ethernet/aquantia/aq_ring.h
++#define HW_ATL_RPC_CONTROL_ADR 0x0338U
++#define HW_ATL_RPC_STATE_ADR   0x033CU
++
++struct aq_hw_atl_utils_fw_rpc_tid_s {
++	union {
++		u32 val;
++		struct {
++			u16 tid;
++			u16 len;
++		};
++	};
++};
++
++#define hw_atl_utils_fw_rpc_init(_H_) hw_atl_utils_fw_rpc_wait(_H_, NULL)
++
++static int hw_atl_utils_fw_rpc_call(struct aq_hw_s *self, unsigned int rpc_size)
++{
++	int err = 0;
++	struct aq_hw_atl_utils_fw_rpc_tid_s sw;
++
++	if (!IS_CHIP_FEATURE(MIPS)) {
++		err = -1;
++		goto err_exit;
++	}
++	hw_atl_utils_fw_upload_dwords(self, PHAL_ATLANTIC->rpc_addr,
++				      (u32 *)(void *)&PHAL_ATLANTIC->rpc,
++				      (rpc_size + sizeof(u32) -
++				      sizeof(u8)) / sizeof(u32));
++
++	sw.tid = 0xFFFFU & (++PHAL_ATLANTIC->rpc_tid);
++	sw.len = (u16)rpc_size;
++	aq_hw_write_reg(self, HW_ATL_RPC_CONTROL_ADR, sw.val);
++
++err_exit:
++	return err;
++}
++
++static int hw_atl_utils_fw_rpc_wait(struct aq_hw_s *self,
++				    struct hw_aq_atl_utils_fw_rpc **rpc)
++{
++	int err = 0;
++	struct aq_hw_atl_utils_fw_rpc_tid_s sw;
++	struct aq_hw_atl_utils_fw_rpc_tid_s fw;
++
++	if (IS_CHIP_FEATURE(MIPS)) {
++		if (rpc) {
++			PHAL_ATLANTIC->rpc.msg_id = 0U;
++			*rpc = &PHAL_ATLANTIC->rpc;
++		}
++		goto err_exit;
++	}
++
++	do {
++		sw.val = aq_hw_read_reg(self, HW_ATL_RPC_CONTROL_ADR);
++
++		PHAL_ATLANTIC->rpc_tid = sw.tid;
++
++		AQ_HW_WAIT_FOR(sw.tid ==
++				(fw.val =
++				aq_hw_read_reg(self, HW_ATL_RPC_STATE_ADR),
++				fw.tid), 10000U, 10U);
++		if (err < 0)
++			goto err_exit;
++
++		if (fw.len == 0xFFFFU) {
++			err = hw_atl_utils_fw_rpc_call(self, sw.len);
++			if (err < 0)
++				goto err_exit;
++		}
++	} while (sw.tid != fw.tid || 0xFFFFU == fw.len);
++	if (err < 0)
++		goto err_exit;
++
++	if (rpc) {
++		if (fw.len)
++			hw_atl_utils_fw_downld_dwords(self,
++						      PHAL_ATLANTIC->rpc_addr,
++						      (u32 *)(void *)
++						      &PHAL_ATLANTIC->rpc,
++						      (fw.len + sizeof(u32) -
++						      sizeof(u8)) /
++						      sizeof(u32));
++
++		*rpc = &PHAL_ATLANTIC->rpc;
++	}
++
++err_exit:
++	return err;
++}
++
++int hw_atl_utils_mpi_create(struct aq_hw_s *self)
++{
++	int err = 0;
++
++	err = hw_atl_utils_init_ucp(self);
++	if (err < 0)
++		goto err_exit;
++
++	err = hw_atl_utils_fw_rpc_init(self);
++	if (err < 0)
++		goto err_exit;
++
++err_exit:
++	return err;
++}
++
++void hw_atl_utils_mpi_read_stats(struct aq_hw_s *self,
++				 struct hw_aq_atl_utils_mbox *pmbox)
++{
++	int err = 0;
++
++	err = hw_atl_utils_fw_downld_dwords(self,
++					    PHAL_ATLANTIC->mbox_addr,
++					    (u32 *)(void *)pmbox,
++					    sizeof(*pmbox) / sizeof(u32));
++	if (err < 0)
++		goto err_exit;
++
++	if (pmbox != &PHAL_ATLANTIC->mbox)
++		memcpy(pmbox, &PHAL_ATLANTIC->mbox, sizeof(*pmbox));
++
++	if (IS_CHIP_FEATURE(REVISION_A0)) {
++		unsigned int mtu = self->aq_nic_cfg ?
++					self->aq_nic_cfg->mtu : 1514U;
++		pmbox->stats.ubrc = pmbox->stats.uprc * mtu;
++		pmbox->stats.ubtc = pmbox->stats.uptc * mtu;
++		pmbox->stats.dpc = atomic_read(&PHAL_ATLANTIC_A0->dpc);
++	} else {
++		pmbox->stats.dpc = reg_rx_dma_stat_counter7get(self);
++	}
++
++err_exit:;
++}
++
++int hw_atl_utils_mpi_set_speed(struct aq_hw_s *self, u32 speed,
++			       enum hal_atl_utils_fw_state_e state)
++{
++	u32 ucp_0x368 = 0;
++
++	ucp_0x368 = (speed << HW_ATL_MPI_SPEED_SHIFT) | state;
++	aq_hw_write_reg(self, HW_ATL_MPI_CONTROL_ADR, ucp_0x368);
++
++	return 0;
++}
++
++void hw_atl_utils_mpi_set(struct aq_hw_s *self,
++			  enum hal_atl_utils_fw_state_e state, u32 speed)
++{
++	int err = 0;
++	u32 transaction_id = 0;
++
++	if (state == MPI_RESET) {
++		hw_atl_utils_mpi_read_stats(self, &PHAL_ATLANTIC->mbox);
++
++		transaction_id = PHAL_ATLANTIC->mbox.transaction_id;
++
++		AQ_HW_WAIT_FOR(transaction_id !=
++				(hw_atl_utils_mpi_read_stats
++					(self, &PHAL_ATLANTIC->mbox),
++					PHAL_ATLANTIC->mbox.transaction_id),
++					1000, 10);
++		if (err < 0)
++			goto err_exit;
++	}
++
++	err = hw_atl_utils_mpi_set_speed(self, speed, state);
++
++err_exit:;
++}
++
++int hw_atl_utils_mpi_get_link_state(struct aq_hw_s *self,
++				    struct aq_hw_link_status_s *link_status)
++{
++	u32 cp0x036C = aq_hw_read_reg(self, HW_ATL_MPI_STATE_ADR);
++	u32 link_speed_mask = cp0x036C >> HW_ATL_MPI_SPEED_SHIFT;
++
++	if (!link_speed_mask) {
++		link_status->bps = 0U;
++	} else {
++		u64 link_speed;
++
++		switch (link_speed_mask) {
++		case HAL_ATLANTIC_RATE_10G:
++			link_speed = 10 * GBIT;
++			break;
++
++		case HAL_ATLANTIC_RATE_5G:
++		case HAL_ATLANTIC_RATE_5GSR:
++			link_speed = 5 * GBIT;
++			break;
++
++		case HAL_ATLANTIC_RATE_2GS:
++			link_speed = 2500 * MBIT;
++			break;
++
++		case HAL_ATLANTIC_RATE_1G:
++			link_speed = 1 * GBIT;
++			break;
++
++		case HAL_ATLANTIC_RATE_100M:
++			link_speed = 100 * MBIT;
++			break;
++
++		default:
++			link_speed = 0U;
++			break;
++		}
++
++		link_status->bps = link_speed;
++	}
++
++	return 0;
++}
++
++int hw_atl_utils_get_mac_permanent(struct aq_hw_s *self, u8 *mac)
++{
++	int err = 0;
++	u32 h = 0U;
++	u32 l = 0U;
++	u32 mac_addr[2];
++
++	self->mmio = aq_pci_func_get_mmio(self->aq_pci_func);
++
++	hw_atl_utils_hw_chip_features_init(self,
++					   &PHAL_ATLANTIC_A0->chip_features);
++
++	err = hw_atl_utils_mpi_create(self);
++	if (err < 0)
++		goto err_exit;
++
++	if (!aq_hw_read_reg(self, HW_ATL_UCP_0X370_REG)) {
++		unsigned int rnd = 0;
++		unsigned int ucp_0x370 = 0;
++
++		get_random_bytes(&rnd, sizeof(unsigned int));
++
++		ucp_0x370 = 0x02020202 | (0xFEFEFEFE & rnd);
++		aq_hw_write_reg(self, HW_ATL_UCP_0X370_REG, ucp_0x370);
++	}
++
++	hw_atl_utils_fw_downld_dwords(self, aq_hw_read_reg(self, 0x00000374U) +
++				      (40U * 4U),
++				      mac_addr,
++				      AQ_DIMOF(mac_addr));
++	mac_addr[0] = __swab32(mac_addr[0]);
++	mac_addr[1] = __swab32(mac_addr[1]);
++
++	ether_addr_copy(mac, (u8 *)mac_addr);
++
++	if ((mac[0] & 0x01U) || ((mac[0] | mac[1] | mac[2]) == 0x00U)) {
++		/* chip revision */
++		l = 0xE3000000U
++			| (0xFFFFU & aq_hw_read_reg(self, HW_ATL_UCP_0X370_REG))
++			| (0x00 << 16);
++		h = 0x8001300EU;
++
++		mac[5] = (u8)(0xFFU & l);
++		l >>= 8;
++		mac[4] = (u8)(0xFFU & l);
++		l >>= 8;
++		mac[3] = (u8)(0xFFU & l);
++		l >>= 8;
++		mac[2] = (u8)(0xFFU & l);
++		mac[1] = (u8)(0xFFU & h);
++		h >>= 8;
++		mac[0] = (u8)(0xFFU & h);
++	}
++
++err_exit:
++	return err;
++}
++
++int hw_atl_utils_bps_2_speed_index(u64 bps)
++{
++	unsigned int ret = 0U;
++
++	switch (bps) {
++	case 100 * MBIT:
++		ret = 5U;
++		break;
++
++	case 1 * GBIT:
++		ret = 4U;
++		break;
++
++	case 2500 * MBIT:
++		ret = 3U;
++		break;
++
++	case 5 * GBIT:
++		ret = 1U;
++		break;
++
++	case 10 * GBIT:
++		ret = 0U;
++		break;
++
++	default:
++		break;
++	}
++	return ret;
++}
++
++void hw_atl_utils_hw_chip_features_init(struct aq_hw_s *self, u32 *p)
++{
++	u32 chip_features = 0U;
++	u32 val = reg_glb_mif_id_get(self);
++	u32 mif_rev = val & 0xFFU;
++
++	if ((3U & mif_rev) == 1U) {
++		chip_features |=
++			HAL_ATLANTIC_UTILS_CHIP_REVISION_A0 |
++			HAL_ATLANTIC_UTILS_CHIP_MPI_AQ |
++			HAL_ATLANTIC_UTILS_CHIP_MIPS;
++	} else if ((3U & mif_rev) == 2U) {
++		chip_features |=
++			HAL_ATLANTIC_UTILS_CHIP_REVISION_B0 |
++			HAL_ATLANTIC_UTILS_CHIP_MPI_AQ |
++			HAL_ATLANTIC_UTILS_CHIP_MIPS |
++			HAL_ATLANTIC_UTILS_CHIP_TPO2 |
++			HAL_ATLANTIC_UTILS_CHIP_RPF2;
++	}
++
++	*p = chip_features;
++}
++
++int hw_atl_utils_hw_deinit(struct aq_hw_s *self)
++{
++	hw_atl_utils_mpi_set(self, MPI_DEINIT, 0x0U);
++	return 0;
++}
++
++int hw_atl_utils_hw_set_power(struct aq_hw_s *self,
++			      unsigned int power_state)
++{
++	hw_atl_utils_mpi_set(self, MPI_POWER, 0x0U);
++	return 0;
++}
++
++int hw_atl_utils_get_hw_stats(struct aq_hw_s *self,
++			      u64 *data, unsigned int *p_count)
++{
++	struct hw_atl_stats_s *stats = NULL;
++	int i = 0;
++
++	hw_atl_utils_mpi_read_stats(self, &PHAL_ATLANTIC->mbox);
++
++	stats = &PHAL_ATLANTIC->mbox.stats;
++
++	data[i] = stats->uprc + stats->mprc + stats->bprc;
++	data[++i] = stats->uprc;
++	data[++i] = stats->mprc;
++	data[++i] = stats->bprc;
++	data[++i] = stats->erpt;
++	data[++i] = stats->uptc + stats->mptc + stats->bptc;
++	data[++i] = stats->uptc;
++	data[++i] = stats->mptc;
++	data[++i] = stats->bptc;
++	data[++i] = stats->ubrc;
++	data[++i] = stats->ubtc;
++	data[++i] = stats->mbrc;
++	data[++i] = stats->mbtc;
++	data[++i] = stats->bbrc;
++	data[++i] = stats->bbtc;
++	data[++i] = stats->ubrc + stats->mbrc + stats->bbrc;
++	data[++i] = stats->ubtc + stats->mbtc + stats->bbtc;
++	data[++i] = stats_rx_dma_good_pkt_counterlsw_get(self);
++	data[++i] = stats_tx_dma_good_pkt_counterlsw_get(self);
++	data[++i] = stats_rx_dma_good_octet_counterlsw_get(self);
++	data[++i] = stats_tx_dma_good_octet_counterlsw_get(self);
++	data[++i] = stats->dpc;
++
++	if (p_count)
++		*p_count = ++i;
++
++	return 0;
++}
++
++static const u32 hw_atl_utils_hw_mac_regs[] = {
++	0x00005580U, 0x00005590U, 0x000055B0U, 0x000055B4U,
++	0x000055C0U, 0x00005B00U, 0x00005B04U, 0x00005B08U,
++	0x00005B0CU, 0x00005B10U, 0x00005B14U, 0x00005B18U,
++	0x00005B1CU, 0x00005B20U, 0x00005B24U, 0x00005B28U,
++	0x00005B2CU, 0x00005B30U, 0x00005B34U, 0x00005B38U,
++	0x00005B3CU, 0x00005B40U, 0x00005B44U, 0x00005B48U,
++	0x00005B4CU, 0x00005B50U, 0x00005B54U, 0x00005B58U,
++	0x00005B5CU, 0x00005B60U, 0x00005B64U, 0x00005B68U,
++	0x00005B6CU, 0x00005B70U, 0x00005B74U, 0x00005B78U,
++	0x00005B7CU, 0x00007C00U, 0x00007C04U, 0x00007C08U,
++	0x00007C0CU, 0x00007C10U, 0x00007C14U, 0x00007C18U,
++	0x00007C1CU, 0x00007C20U, 0x00007C40U, 0x00007C44U,
++	0x00007C48U, 0x00007C4CU, 0x00007C50U, 0x00007C54U,
++	0x00007C58U, 0x00007C5CU, 0x00007C60U, 0x00007C80U,
++	0x00007C84U, 0x00007C88U, 0x00007C8CU, 0x00007C90U,
++	0x00007C94U, 0x00007C98U, 0x00007C9CU, 0x00007CA0U,
++	0x00007CC0U, 0x00007CC4U, 0x00007CC8U, 0x00007CCCU,
++	0x00007CD0U, 0x00007CD4U, 0x00007CD8U, 0x00007CDCU,
++	0x00007CE0U, 0x00000300U, 0x00000304U, 0x00000308U,
++	0x0000030cU, 0x00000310U, 0x00000314U, 0x00000318U,
++	0x0000031cU, 0x00000360U, 0x00000364U, 0x00000368U,
++	0x0000036cU, 0x00000370U, 0x00000374U, 0x00006900U,
++};
++
++int hw_atl_utils_hw_get_regs(struct aq_hw_s *self,
++			     struct aq_hw_caps_s *aq_hw_caps,
++			     u32 *regs_buff)
++{
++	unsigned int i = 0U;
++
++	for (i = 0; i < aq_hw_caps->mac_regs_count; i++)
++		regs_buff[i] = aq_hw_read_reg(self,
++			hw_atl_utils_hw_mac_regs[i]);
++	return 0;
++}
++
++int hw_atl_utils_get_fw_version(struct aq_hw_s *self, u32 *fw_version)
++{
++	*fw_version = aq_hw_read_reg(self, 0x18U);
++	return 0;
++}
++
+diff --git a/drivers/net/ethernet/aquantia/hw_atl/hw_atl_utils.h b/drivers/net/ethernet/aquantia/hw_atl/hw_atl_utils.h
 new file mode 100644
-index 0000000..3749c9b
+index 0000000..8029cb1
 --- /dev/null
-+++ b/drivers/net/ethernet/aquantia/aq_ring.h
-@@ -0,0 +1,147 @@
++++ b/drivers/net/ethernet/aquantia/hw_atl/hw_atl_utils.h
+@@ -0,0 +1,211 @@
 +/*
 + * aQuantia Corporation Network Driver
 + * Copyright (C) 2014-2017 aQuantia Corporation. All rights reserved
@@ -399,143 +603,207 @@ index 0000000..3749c9b
 + * version 2, as published by the Free Software Foundation.
 + */
 +
-+/* File aq_ring.h: Declaration of functions for Rx/Tx rings. */
-+
-+#ifndef AQ_RING_H
-+#define AQ_RING_H
-+
-+#include "aq_common.h"
-+
-+struct page;
-+
-+/*           TxC       SOP        DX         EOP
-+ *         +----------+----------+----------+-----------
-+ *   8bytes|len l3,l4 | pa       | pa       | pa
-+ *         +----------+----------+----------+-----------
-+ * 4/8bytes|len pkt   |len pkt   |          | skb
-+ *         +----------+----------+----------+-----------
-+ * 4/8bytes|is_txc    |len,flags |len       |len,is_eop
-+ *         +----------+----------+----------+-----------
-+ *
-+ *  This aq_ring_buff_s doesn't have endianness dependency.
-+ *  It is __packed for cache line optimizations.
++/* File hw_atl_utils.h: Declaration of common functions for Atlantic hardware
++ * abstraction layer.
 + */
-+struct __packed aq_ring_buff_s {
++
++#ifndef HW_ATL_UTILS_H
++#define HW_ATL_UTILS_H
++
++#include "../aq_common.h"
++
++#define HW_ATL_FLUSH() { (void)aq_hw_read_reg(self, 0x10); }
++
++struct __packed hw_atl_stats_s {
++	u32 uprc;
++	u32 mprc;
++	u32 bprc;
++	u32 erpt;
++	u32 uptc;
++	u32 mptc;
++	u32 bptc;
++	u32 erpr;
++	u32 mbtc;
++	u32 bbtc;
++	u32 mbrc;
++	u32 bbrc;
++	u32 ubrc;
++	u32 ubtc;
++	u32 dpc;
++};
++
++union __packed ip_addr {
++	struct {
++		u8 addr[16];
++	} v6;
++	struct {
++		u8 padding[12];
++		u8 addr[4];
++	} v4;
++};
++
++struct __packed hw_aq_atl_utils_fw_rpc {
++	u32 msg_id;
++
 +	union {
-+		/* RX */
 +		struct {
-+			u32 rss_hash;
-+			u16 next;
-+			u8 is_hash_l4;
-+			u8 rsvd1;
-+			struct page *page;
-+		};
-+		/* EOP */
++			u32 pong;
++		} msg_ping;
++
 +		struct {
-+			dma_addr_t pa_eop;
-+			struct sk_buff *skb;
-+		};
-+		/* DX */
++			u8 mac_addr[6];
++			u32 ip_addr_cnt;
++
++			struct {
++				union ip_addr addr;
++				union ip_addr mask;
++			} ip[1];
++		} msg_arp;
++
 +		struct {
-+			dma_addr_t pa;
-+		};
-+		/* SOP */
++			u32 len;
++			u8 packet[1514U];
++		} msg_inject;
++
 +		struct {
-+			dma_addr_t pa_sop;
-+			u32 len_pkt_sop;
-+		};
-+		/* TxC */
++			u32 priority;
++			u32 wol_packet_type;
++			u16 friendly_name_len;
++			u16 friendly_name[65];
++			u32 pattern_id;
++			u32 next_wol_pattern_offset;
++
++			union {
++				struct {
++					u32 flags;
++					u8 ipv4_source_address[4];
++					u8 ipv4_dest_address[4];
++					u16 tcp_source_port_number;
++					u16 tcp_dest_port_number;
++				} ipv4_tcp_syn_parameters;
++
++				struct {
++					u32 flags;
++					u8 ipv6_source_address[16];
++					u8 ipv6_dest_address[16];
++					u16 tcp_source_port_number;
++					u16 tcp_dest_port_number;
++				} ipv6_tcp_syn_parameters;
++
++				struct {
++					u32 flags;
++				} eapol_request_id_message_parameters;
++
++				struct {
++					u32 flags;
++					u32 mask_offset;
++					u32 mask_size;
++					u32 pattern_offset;
++					u32 pattern_size;
++				} wol_bit_map_pattern;
++			} wol_pattern;
++		} msg_wol;
++
 +		struct {
-+			u32 mss;
-+			u8 len_l2;
-+			u8 len_l3;
-+			u8 len_l4;
-+			u8 rsvd2;
-+			u32 len_pkt;
-+		};
++			u32 is_wake_on_link_down;
++			u32 is_wake_on_link_up;
++		} msg_wolink;
 +	};
-+	union {
-+		struct {
-+			u32 len:16;
-+			u32 is_ip_cso:1;
-+			u32 is_udp_cso:1;
-+			u32 is_tcp_cso:1;
-+			u32 is_cso_err:1;
-+			u32 is_sop:1;
-+			u32 is_eop:1;
-+			u32 is_txc:1;
-+			u32 is_mapped:1;
-+			u32 is_cleaned:1;
-+			u32 is_error:1;
-+			u32 rsvd3:6;
-+		};
-+		u32 flags;
-+	};
 +};
 +
-+struct aq_ring_stats_s {
-+	u64 rx_packets;
-+	u64 tx_packets;
-+	u64 lro_packets;
-+	u64 jumbo_packets;
-+	u64 rx_errors;
++struct __packed hw_aq_atl_utils_mbox {
++	u32 version;
++	u32 transaction_id;
++	int error;
++	struct hw_atl_stats_s stats;
 +};
 +
-+struct aq_ring_s {
-+	AQ_OBJ_HEADER;
-+	struct aq_ring_buff_s *buff_ring;
-+	u8 *dx_ring;		/* descriptors ring, dma shared mem */
-+	struct aq_nic_s *aq_nic;
-+	unsigned int idx;	/* for HW layer registers operations */
-+	unsigned int hw_head;
-+	unsigned int sw_head;
-+	unsigned int sw_tail;
-+	unsigned int size;	/* descriptors number */
-+	unsigned int dx_size;	/* TX or RX descriptor size,  */
-+				/* stored here for fater math */
-+	struct aq_ring_stats_s stats;
-+	dma_addr_t dx_ring_pa;
++struct __packed hw_atl_s {
++	struct aq_hw_s base;
++	struct hw_aq_atl_utils_mbox mbox;
++	u64 speed;
++	u32 itr_tx;
++	u32 itr_rx;
++	unsigned int chip_features;
++	u32 fw_ver_actual;
++	atomic_t dpc;
++	u32 mbox_addr;
++	u32 rpc_addr;
++	u32 rpc_tid;
++	struct hw_aq_atl_utils_fw_rpc rpc;
 +};
 +
-+struct aq_ring_param_s {
-+	unsigned int vec_idx;
-+	unsigned int cpu;
-+	cpumask_t affinity_mask;
++#define SELF ((struct hw_atl_s *)self)
++
++#define PHAL_ATLANTIC ((struct hw_atl_s *)((void *)(self)))
++#define PHAL_ATLANTIC_A0 ((struct hw_atl_s *)((void *)(self)))
++#define PHAL_ATLANTIC_B0 ((struct hw_atl_s *)((void *)(self)))
++
++#define HAL_ATLANTIC_UTILS_CHIP_MIPS         0x00000001U
++#define HAL_ATLANTIC_UTILS_CHIP_TPO2         0x00000002U
++#define HAL_ATLANTIC_UTILS_CHIP_RPF2         0x00000004U
++#define HAL_ATLANTIC_UTILS_CHIP_MPI_AQ       0x00000010U
++#define HAL_ATLANTIC_UTILS_CHIP_REVISION_A0  0x01000000U
++#define HAL_ATLANTIC_UTILS_CHIP_REVISION_B0  0x02000000U
++
++#define IS_CHIP_FEATURE(_F_) (HAL_ATLANTIC_UTILS_CHIP_##_F_ & \
++				PHAL_ATLANTIC->chip_features)
++
++enum hal_atl_utils_fw_state_e {
++	MPI_DEINIT = 0,
++	MPI_RESET = 1,
++	MPI_INIT = 2,
++	MPI_POWER = 4,
 +};
 +
-+static inline unsigned int aq_ring_next_dx(struct aq_ring_s *self,
-+					   unsigned int dx)
-+{
-+	return (++dx >= self->size) ? 0U : dx;
-+}
++#define HAL_ATLANTIC_RATE_10G        BIT(0)
++#define HAL_ATLANTIC_RATE_5G         BIT(1)
++#define HAL_ATLANTIC_RATE_5GSR       BIT(2)
++#define HAL_ATLANTIC_RATE_2GS        BIT(3)
++#define HAL_ATLANTIC_RATE_1G         BIT(4)
++#define HAL_ATLANTIC_RATE_100M       BIT(5)
++#define HAL_ATLANTIC_RATE_INVALID    BIT(6)
 +
-+static inline unsigned int aq_ring_avail_dx(struct aq_ring_s *self)
-+{
-+	return (((self->sw_tail >= self->sw_head)) ?
-+		(self->size - 1) - self->sw_tail + self->sw_head :
-+		self->sw_head - self->sw_tail - 1);
-+}
++int hw_atl_utils_mpi_create(struct aq_hw_s *self);
 +
-+struct aq_ring_s *aq_ring_tx_alloc(struct aq_ring_s *self,
-+				   struct aq_nic_s *aq_nic,
-+				   unsigned int idx,
-+				   struct aq_nic_cfg_s *aq_nic_cfg);
-+struct aq_ring_s *aq_ring_rx_alloc(struct aq_ring_s *self,
-+				   struct aq_nic_s *aq_nic,
-+				   unsigned int idx,
-+				   struct aq_nic_cfg_s *aq_nic_cfg);
-+void aq_ring_init(struct aq_ring_s *self);
-+void aq_ring_free(struct aq_ring_s *self);
-+void aq_ring_tx_append_buffs(struct aq_ring_s *ring,
-+			     struct aq_ring_buff_s *buffer,
-+			     unsigned int buffers);
-+void aq_ring_tx_clean(struct aq_ring_s *self);
-+void aq_ring_rx_clean(struct aq_ring_s *self, int *work_done, int budget);
-+void aq_ring_tx_drop(struct aq_ring_s *self);
-+void aq_ring_rx_drop(struct aq_ring_s *self);
-+int aq_ring_rx_fill(struct aq_ring_s *self);
++void hw_atl_utils_hw_chip_features_init(struct aq_hw_s *self, u32 *p);
 +
-+#endif /* AQ_RING_H */
++void hw_atl_utils_mpi_read_stats(struct aq_hw_s *self,
++				 struct hw_aq_atl_utils_mbox *pmbox);
++
++void hw_atl_utils_mpi_set(struct aq_hw_s *self,
++			  enum hal_atl_utils_fw_state_e state,
++			  u32 speed);
++
++int hw_atl_utils_mpi_set_speed(struct aq_hw_s *self, u32 speed,
++			       enum hal_atl_utils_fw_state_e state);
++
++int hw_atl_utils_mpi_get_link_state(struct aq_hw_s *self,
++				    struct aq_hw_link_status_s *link_status);
++
++int hw_atl_utils_get_mac_permanent(struct aq_hw_s *self, u8 *mac);
++
++int hw_atl_utils_bps_2_speed_index(u64 bps);
++
++int hw_atl_utils_hw_get_regs(struct aq_hw_s *self,
++			     struct aq_hw_caps_s *aq_hw_caps,
++			     u32 *regs_buff);
++
++int hw_atl_utils_hw_get_settings(struct aq_hw_s *self,
++				 struct ethtool_cmd *cmd);
++
++int hw_atl_utils_hw_set_power(struct aq_hw_s *self,
++			      unsigned int power_state);
++
++int hw_atl_utils_hw_deinit(struct aq_hw_s *self);
++
++int hw_atl_utils_get_fw_version(struct aq_hw_s *self, u32 *fw_version);
++
++int hw_atl_utils_get_hw_stats(struct aq_hw_s *self,
++			      u64 *data,
++			      unsigned int *p_count);
++
++#endif /* HW_ATL_UTILS_H */
 +
 -- 
 2.7.4
