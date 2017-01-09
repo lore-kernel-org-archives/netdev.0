@@ -1,75 +1,72 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 2/5] mlxsw: cmd: Fix API name comments for event-queues
-Date: Mon,  9 Jan 2017 11:25:45 +0100
-Message-ID: <1483957548-3531-3-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 5/5] mlxsw: spectrum: Change ENOTSUPP to EOPNOTSUPP
+Date: Mon,  9 Jan 2017 11:25:48 +0100
+Message-ID: <1483957548-3531-6-git-send-email-jiri@resnulli.us>
 References: <1483957548-3531-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
         yotamg@mellanox.com, nogahf@mellanox.com, arkadis@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:33101 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1758593AbdAIKZx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 05:25:53 -0500
-Received: by mail-wm0-f68.google.com with SMTP id r144so12136904wme.0
-        for <netdev@vger.kernel.org>; Mon, 09 Jan 2017 02:25:52 -0800 (PST)
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:34964 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758630AbdAIKZ5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 05:25:57 -0500
+Received: by mail-wm0-f65.google.com with SMTP id l2so21007107wml.2
+        for <netdev@vger.kernel.org>; Mon, 09 Jan 2017 02:25:56 -0800 (PST)
 In-Reply-To: <1483957548-3531-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Elad Raz <eladr@mellanox.com>
+From: Yotam Gigi <yotamg@mellanox.com>
 
-Probably some copy-paste error from "int_msix" that caused "int_" prefix to
-appear in the comments for all "eq_" APIs.
+As ENOTSUPP is specific to NFS, change the return error value to
+EOPNOTSUPP in various places in the mlxsw driver.
 
-Signed-off-by: Elad Raz <eladr@mellanox.com>
-Acked-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/cmd.h | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/cmd.h b/drivers/net/ethernet/mellanox/mlxsw/cmd.h
-index 56e19b0..a1b4842 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/cmd.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/cmd.h
-@@ -1132,12 +1132,12 @@ static inline int mlxsw_cmd_sw2hw_eq(struct mlxsw_core *mlxsw_core,
-  */
- MLXSW_ITEM32(cmd_mbox, sw2hw_eq, int_msix, 0x00, 24, 1);
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index 1f4fdce..d0e803f 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -1193,7 +1193,7 @@ mlxsw_sp_port_add_cls_matchall_mirror(struct mlxsw_sp_port *mlxsw_sp_port,
  
--/* cmd_mbox_sw2hw_eq_int_oi
-+/* cmd_mbox_sw2hw_eq_oi
-  * When set, overrun ignore is enabled.
-  */
- MLXSW_ITEM32(cmd_mbox, sw2hw_eq, oi, 0x00, 12, 1);
+ 	if (!mlxsw_sp_port_dev_check(to_dev)) {
+ 		netdev_err(mlxsw_sp_port->dev, "Cannot mirror to a non-spectrum port");
+-		return -ENOTSUPP;
++		return -EOPNOTSUPP;
+ 	}
+ 	to_port = netdev_priv(to_dev);
  
--/* cmd_mbox_sw2hw_eq_int_st
-+/* cmd_mbox_sw2hw_eq_st
-  * Event delivery state machine
-  * 0x0 - FIRED
-  * 0x1 - ARMED (Request for Notification)
-@@ -1146,19 +1146,19 @@ MLXSW_ITEM32(cmd_mbox, sw2hw_eq, oi, 0x00, 12, 1);
-  */
- MLXSW_ITEM32(cmd_mbox, sw2hw_eq, st, 0x00, 8, 2);
+@@ -1229,7 +1229,7 @@ static int mlxsw_sp_port_add_cls_matchall(struct mlxsw_sp_port *mlxsw_sp_port,
  
--/* cmd_mbox_sw2hw_eq_int_log_eq_size
-+/* cmd_mbox_sw2hw_eq_log_eq_size
-  * Log (base 2) of the EQ size (in entries).
-  */
- MLXSW_ITEM32(cmd_mbox, sw2hw_eq, log_eq_size, 0x00, 0, 4);
+ 	if (!tc_single_action(cls->exts)) {
+ 		netdev_err(mlxsw_sp_port->dev, "only singular actions are supported\n");
+-		return -ENOTSUPP;
++		return -EOPNOTSUPP;
+ 	}
  
--/* cmd_mbox_sw2hw_eq_int_producer_counter
-+/* cmd_mbox_sw2hw_eq_producer_counter
-  * Producer Counter. The counter is incremented for each EQE that is written
-  * by the HW to the EQ.
-  * Maintained by HW (valid for the QUERY_EQ command only)
-  */
- MLXSW_ITEM32(cmd_mbox, sw2hw_eq, producer_counter, 0x04, 0, 16);
+ 	mall_tc_entry = kzalloc(sizeof(*mall_tc_entry), GFP_KERNEL);
+@@ -1309,7 +1309,7 @@ static int mlxsw_sp_setup_tc(struct net_device *dev, u32 handle,
+ 		}
+ 	}
  
--/* cmd_mbox_sw2hw_eq_int_pa
-+/* cmd_mbox_sw2hw_eq_pa
-  * Physical Address.
-  */
- MLXSW_ITEM64_INDEXED(cmd_mbox, sw2hw_eq, pa, 0x10, 11, 53, 0x08, 0x00, true);
+-	return -ENOTSUPP;
++	return -EOPNOTSUPP;
+ }
+ 
+ static const struct net_device_ops mlxsw_sp_port_netdev_ops = {
+@@ -1652,7 +1652,7 @@ mlxsw_sp_get_hw_stats_by_group(struct mlxsw_sp_port_hw_stats **p_hw_stats,
+ 		break;
+ 	default:
+ 		WARN_ON(1);
+-		return -ENOTSUPP;
++		return -EOPNOTSUPP;
+ 	}
+ 	return 0;
+ }
 -- 
 2.7.4
