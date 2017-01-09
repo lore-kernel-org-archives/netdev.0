@@ -1,85 +1,35 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next v2] net: dsa: make "label" property optional for
- dsa2
-Date: Mon, 9 Jan 2017 17:06:32 +0100
-Message-ID: <20170109160632.GD1862@nanopsycho>
-References: <20170108231552.26995-1-vivien.didelot@savoirfairelinux.com>
- <20170109073236.GA1862@nanopsycho>
- <877f6446lp.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
- <20170109151131.GC1862@nanopsycho>
- <87y3yk2q5e.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [for-next V2 06/10] net/mlx5: Add interface to get reference
+ to a UAR
+Date: Mon, 09 Jan 2017 11:06:59 -0500 (EST)
+Message-ID: <20170109.110659.716571071495768364.davem@davemloft.net>
+References: <CALzJLG-yiZfa6J0WciFPowfF2LWrXAqCKc4ETu4x=ZJdn+CfDA@mail.gmail.com>
+        <20170109.104722.2246652236667186272.davem@davemloft.net>
+        <CALzJLG92QPFG8BmQU3DAvqZ7zrqurkBEDPy4O-jZSMeH0jNPFQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Uwe =?iso-8859-1?Q?Kleine-K=F6nig?= <uwe@kleine-koenig.org>,
-        Andrey Smirnov <andrew.smirnov@gmail.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: yuval.shaia@oracle.com, saeedm@mellanox.com, dledford@redhat.com,
+        netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
+        leonro@mellanox.com, eli@mellanox.com, matanb@mellanox.com,
+        leon@kernel.org
+To: saeedm@dev.mellanox.co.il
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wj0-f193.google.com ([209.85.210.193]:35086 "EHLO
-        mail-wj0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965285AbdAIQGf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 11:06:35 -0500
-Received: by mail-wj0-f193.google.com with SMTP id ey1so5948159wjd.2
-        for <netdev@vger.kernel.org>; Mon, 09 Jan 2017 08:06:35 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <87y3yk2q5e.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+Received: from shards.monkeyblade.net ([184.105.139.130]:40402 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S968460AbdAIQHB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 11:07:01 -0500
+In-Reply-To: <CALzJLG92QPFG8BmQU3DAvqZ7zrqurkBEDPy4O-jZSMeH0jNPFQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mon, Jan 09, 2017 at 04:45:33PM CET, vivien.didelot@savoirfairelinux.com wrote:
->Hi Jiri,
->
->Jiri Pirko <jiri@resnulli.us> writes:
->
->>>Extra question: shouldn't phys_port_{id,name} be switchdev attributes in
->>
->> Again, phys_port_id has nothing to do with switches. Should be removed
->> from dsa because its use there is incorrect.
->
->Florian, since 3a543ef just got in, can it be reverted?
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Date: Mon, 9 Jan 2017 18:05:16 +0200
 
-Yes, please revert it. It is only in net-next.
+> I just thought that this pull request is sitting in the mailing list
+> for too long and we need to move on.
 
+Nobody reviewed it for any element of it's substance, and we had an
+intervening weekend.
 
->
->>>> I guess that it should be enough for you to implement
->>>> ndo_get_phys_port_name.
->>>
->>>Well, if this name must be unique on a system, it's not likely to happen
->>>until we agree that we use an ugly tXsYpZ template where X is a tree ID,
->>>or we assign system-wide unique IDs to switches, which requires a bit of
->>>changes.
->>
->> No. That should be unique within one switch. In mlxsw we name it "p1",
->> "p2", ...
->>
->> The final netdev names are:
->> enp3s0np1, enp3s0np2, ...
->
->OK perfect then, "p%d" sounds good. You seems to avoid "p0" in mlxsw, is
->there a reason for that?
-
-We name these according to the front panel name. There's no "port 0"
-on the front panel :)
-
-
->
->>>But again, this is not related to this patch ;-)
->>
->> It is! You are using phys_port_id, which is completely wrong. You should
->> not use it.
->
->I can resend this patch without the udev examples in the commit message
->if that can be less confusing.
-
-Yes please.
-
-
->
->Thanks,
->
->        Vivien
+It did not sit for too long but any measure whatsoever.
