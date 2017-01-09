@@ -1,190 +1,141 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: net/ipv6: use-after-free in sock_wfree
-Date: Mon, 9 Jan 2017 09:21:46 -0800
-Message-ID: <CANn89iLX+GPK6WWcz76T_z4_hMv4aNy8nREVqGKP-q+UqQNOxA@mail.gmail.com>
-References: <CAAeHK+yfNdNTkgCbUGbdRBM9bB=2DhGv1ZPCWm44CGL7zD=TLg@mail.gmail.com>
- <CAAeHK+yiziBBxw3JMqec3c7aLXjk6ddL2Xh1xufA3sp5ja=_TA@mail.gmail.com>
+From: Grygorii Strashko <grygorii.strashko@ti.com>
+Subject: Re: [PATCH 3/4] net: ethernet: ti: cpsw: don't duplicate ndev_running
+Date: Mon, 9 Jan 2017 11:25:38 -0600
+Message-ID: <c6dfedc3-d346-b9a4-f398-96ac7e57d0b8@ti.com>
+References: <1483893663-15673-1-git-send-email-ivan.khoronzhuk@linaro.org>
+ <1483893663-15673-4-git-send-email-ivan.khoronzhuk@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Andrey Konovalov <andreyknvl@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAAeHK+yiziBBxw3JMqec3c7aLXjk6ddL2Xh1xufA3sp5ja=_TA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <linux-omap@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>,
+        <netdev@vger.kernel.org>, <mugunthanvnm@ti.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lelnx194.ext.ti.com ([198.47.27.80]:44911 "EHLO
+        lelnx194.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1035128AbdAIRZk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 12:25:40 -0500
+In-Reply-To: <1483893663-15673-4-git-send-email-ivan.khoronzhuk@linaro.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 9, 2017 at 9:11 AM, Andrey Konovalov <andreyknvl@google.com> wrote:
-> On Mon, Jan 9, 2017 at 6:08 PM, Andrey Konovalov <andreyknvl@google.com> wrote:
->> Hi!
->>
->> I've got the following error report while running the syzkaller fuzzer.
->>
->> On commit a121103c922847ba5010819a3f250f1f7fc84ab8 (4.10-rc3).
->>
->> A reproducer is attached.
->>
->> ==================================================================
->> BUG: KASAN: use-after-free in sock_wfree+0x118/0x120
->> Read of size 8 at addr ffff880062da0060 by task a.out/4140
->>
->> page:ffffea00018b6800 count:1 mapcount:0 mapping:          (null)
->> index:0x0 compound_mapcount: 0
->> flags: 0x100000000008100(slab|head)
->> raw: 0100000000008100 0000000000000000 0000000000000000 0000000180130013
->> raw: dead000000000100 dead000000000200 ffff88006741f140 0000000000000000
->> page dumped because: kasan: bad access detected
->>
->> CPU: 0 PID: 4140 Comm: a.out Not tainted 4.10.0-rc3+ #59
->> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
->> Call Trace:
->>  __dump_stack lib/dump_stack.c:15
->>  dump_stack+0x292/0x398 lib/dump_stack.c:51
->>  describe_address mm/kasan/report.c:262
->>  kasan_report_error+0x121/0x560 mm/kasan/report.c:370
->>  kasan_report mm/kasan/report.c:392
->>  __asan_report_load8_noabort+0x3e/0x40 mm/kasan/report.c:413
->>  sock_flag ./arch/x86/include/asm/bitops.h:324
->>  sock_wfree+0x118/0x120 net/core/sock.c:1631
->>  skb_release_head_state+0xfc/0x250 net/core/skbuff.c:655
->>  skb_release_all+0x15/0x60 net/core/skbuff.c:668
->>  __kfree_skb+0x15/0x20 net/core/skbuff.c:684
->>  kfree_skb+0x16e/0x4e0 net/core/skbuff.c:705
->>  inet_frag_destroy+0x121/0x290 net/ipv4/inet_fragment.c:304
->>  inet_frag_put ./include/net/inet_frag.h:133
->>  nf_ct_frag6_gather+0x1125/0x38b0 net/ipv6/netfilter/nf_conntrack_reasm.c:617
->>  ipv6_defrag+0x21b/0x350 net/ipv6/netfilter/nf_defrag_ipv6_hooks.c:68
->>  nf_hook_entry_hookfn ./include/linux/netfilter.h:102
->>  nf_hook_slow+0xc3/0x290 net/netfilter/core.c:310
->>  nf_hook ./include/linux/netfilter.h:212
->>  __ip6_local_out+0x52c/0xaf0 net/ipv6/output_core.c:160
->>  ip6_local_out+0x2d/0x170 net/ipv6/output_core.c:170
->>  ip6_send_skb+0xa1/0x340 net/ipv6/ip6_output.c:1722
->>  ip6_push_pending_frames+0xb3/0xe0 net/ipv6/ip6_output.c:1742
->>  rawv6_push_pending_frames net/ipv6/raw.c:613
->>  rawv6_sendmsg+0x2cff/0x4130 net/ipv6/raw.c:927
->>  inet_sendmsg+0x164/0x5b0 net/ipv4/af_inet.c:744
->>  sock_sendmsg_nosec net/socket.c:635
->>  sock_sendmsg+0xca/0x110 net/socket.c:645
->>  sock_write_iter+0x326/0x620 net/socket.c:848
->>  new_sync_write fs/read_write.c:499
->>  __vfs_write+0x483/0x760 fs/read_write.c:512
->>  vfs_write+0x187/0x530 fs/read_write.c:560
->>  SYSC_write fs/read_write.c:607
->>  SyS_write+0xfb/0x230 fs/read_write.c:599
->>  entry_SYSCALL_64_fastpath+0x1f/0xc2 arch/x86/entry/entry_64.S:203
->> RIP: 0033:0x7ff26e6f5b79
->> RSP: 002b:00007ff268e0ed98 EFLAGS: 00000206 ORIG_RAX: 0000000000000001
->> RAX: ffffffffffffffda RBX: 00007ff268e0f9c0 RCX: 00007ff26e6f5b79
->> RDX: 0000000000000010 RSI: 0000000020f50fe1 RDI: 0000000000000003
->> RBP: 00007ff26ebc1220 R08: 0000000000000000 R09: 0000000000000000
->> R10: 0000000000000000 R11: 0000000000000206 R12: 0000000000000000
->> R13: 00007ff268e0f9c0 R14: 00007ff26efec040 R15: 0000000000000003
->>
->> The buggy address belongs to the object at ffff880062da0000
->>  which belongs to the cache RAWv6 of size 1504
->> The buggy address ffff880062da0060 is located 96 bytes inside
->>  of 1504-byte region [ffff880062da0000, ffff880062da05e0)
->>
->> Freed by task 4113:
->>  save_stack_trace+0x16/0x20 arch/x86/kernel/stacktrace.c:57
->>  save_stack+0x43/0xd0 mm/kasan/kasan.c:502
->>  set_track mm/kasan/kasan.c:514
->>  kasan_slab_free+0x73/0xc0 mm/kasan/kasan.c:578
->>  slab_free_hook mm/slub.c:1352
->>  slab_free_freelist_hook mm/slub.c:1374
->>  slab_free mm/slub.c:2951
->>  kmem_cache_free+0xb2/0x2c0 mm/slub.c:2973
->>  sk_prot_free net/core/sock.c:1377
->>  __sk_destruct+0x49c/0x6e0 net/core/sock.c:1452
->>  sk_destruct+0x47/0x80 net/core/sock.c:1460
->>  __sk_free+0x57/0x230 net/core/sock.c:1468
->>  sk_free+0x23/0x30 net/core/sock.c:1479
->>  sock_put ./include/net/sock.h:1638
->>  sk_common_release+0x31e/0x4e0 net/core/sock.c:2782
->>  rawv6_close+0x54/0x80 net/ipv6/raw.c:1214
->>  inet_release+0xed/0x1c0 net/ipv4/af_inet.c:425
->>  inet6_release+0x50/0x70 net/ipv6/af_inet6.c:431
->>  sock_release+0x8d/0x1e0 net/socket.c:599
->>  sock_close+0x16/0x20 net/socket.c:1063
->>  __fput+0x332/0x7f0 fs/file_table.c:208
->>  ____fput+0x15/0x20 fs/file_table.c:244
->>  task_work_run+0x19b/0x270 kernel/task_work.c:116
->>  exit_task_work ./include/linux/task_work.h:21
->>  do_exit+0x186b/0x2800 kernel/exit.c:839
->>  do_group_exit+0x149/0x420 kernel/exit.c:943
->>  SYSC_exit_group kernel/exit.c:954
->>  SyS_exit_group+0x1d/0x20 kernel/exit.c:952
->>  entry_SYSCALL_64_fastpath+0x1f/0xc2 arch/x86/entry/entry_64.S:203
->>
->> Allocated by task 4115:
->>  save_stack_trace+0x16/0x20 arch/x86/kernel/stacktrace.c:57
->>  save_stack+0x43/0xd0 mm/kasan/kasan.c:502
->>  set_track mm/kasan/kasan.c:514
->>  kasan_kmalloc+0xad/0xe0 mm/kasan/kasan.c:605
->>  kasan_slab_alloc+0x12/0x20 mm/kasan/kasan.c:544
->>  slab_post_alloc_hook mm/slab.h:432
->>  slab_alloc_node mm/slub.c:2708
->>  slab_alloc mm/slub.c:2716
->>  kmem_cache_alloc+0x1af/0x250 mm/slub.c:2721
->>  sk_prot_alloc+0x65/0x2a0 net/core/sock.c:1334
->>  sk_alloc+0x105/0x1010 net/core/sock.c:1396
->>  inet6_create+0x44d/0x1150 net/ipv6/af_inet6.c:183
->>  __sock_create+0x4f6/0x880 net/socket.c:1199
->>  sock_create net/socket.c:1239
->>  SYSC_socket net/socket.c:1269
->>  SyS_socket+0xf9/0x230 net/socket.c:1249
->>  entry_SYSCALL_64_fastpath+0x1f/0xc2 arch/x86/entry/entry_64.S:203
->>
->> Memory state around the buggy address:
->>  ffff880062d9ff00: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
->>  ffff880062d9ff80: fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc fc
->>>ffff880062da0000: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
->>                                                        ^
->>  ffff880062da0080: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
->>  ffff880062da0100: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
->> ==================================================================
->
-> Sometimes this reproducer leads to another report:
 
-Looks very similar to issue fixed in 8282f27449bf15548cb82c77b6e04ee0ab827bdc
 
-Could you try :
+On 01/08/2017 10:41 AM, Ivan Khoronzhuk wrote:
+> No need to create additional vars to identify if interface is running.
+> So simplify code by removing redundant var and checking usage counter
+> instead.
+> 
+> Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+> ---
+>  drivers/net/ethernet/ti/cpsw.c | 14 ++++----------
+>  1 file changed, 4 insertions(+), 10 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+> index 40d7fc9..daae87f 100644
+> --- a/drivers/net/ethernet/ti/cpsw.c
+> +++ b/drivers/net/ethernet/ti/cpsw.c
+> @@ -357,7 +357,6 @@ struct cpsw_slave {
+>  	struct phy_device		*phy;
+>  	struct net_device		*ndev;
+>  	u32				port_vlan;
+> -	u32				open_stat;
+>  };
+>  
+>  static inline u32 slave_read(struct cpsw_slave *slave, u32 offset)
+> @@ -1241,7 +1240,7 @@ static int cpsw_common_res_usage_state(struct cpsw_common *cpsw)
+>  	u32 usage_count = 0;
+>  
+>  	for (i = 0; i < cpsw->data.slaves; i++)
+> -		if (cpsw->slaves[i].open_stat)
+> +		if (netif_running(cpsw->slaves[i].ndev))
+>  			usage_count++;
 
-diff --git a/net/ipv6/netfilter/nf_conntrack_reasm.c
-b/net/ipv6/netfilter/nf_conntrack_reasm.c
-index 9948b5ce52dad3a823edede517f17069bd7226dc..986d4ca38832b17703b09e50209ec133885c7276
-100644
---- a/net/ipv6/netfilter/nf_conntrack_reasm.c
-+++ b/net/ipv6/netfilter/nf_conntrack_reasm.c
-@@ -589,6 +589,7 @@ int nf_ct_frag6_gather(struct net *net, struct
-sk_buff *skb, u32 user)
-        hdr = ipv6_hdr(skb);
-        fhdr = (struct frag_hdr *)skb_transport_header(skb);
+Not sure this will work as you expected, but may be I've missed smth :(
 
-+       skb_orphan(skb);
-        fq = fq_find(net, fhdr->identification, user, &hdr->saddr, &hdr->daddr,
-                     skb->dev ? skb->dev->ifindex : 0, ip6_frag_ecn(hdr));
-        if (fq == NULL) {
-diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
-index 6b78bab27755b2758f3c8ecd5b9c6d61615af4b6..fdec2a4cc559ab956c58d26535bdf010c0a8964a
-100644
---- a/net/openvswitch/conntrack.c
-+++ b/net/openvswitch/conntrack.c
-@@ -367,7 +367,6 @@ static int handle_fragments(struct net *net,
-struct sw_flow_key *key,
-        } else if (key->eth.type == htons(ETH_P_IPV6)) {
-                enum ip6_defrag_users user = IP6_DEFRAG_CONNTRACK_IN + zone;
+code in static int __dev_open(struct net_device *dev)
+..
+	set_bit(__LINK_STATE_START, &dev->state);
 
--               skb_orphan(skb);
-                memset(IP6CB(skb), 0, sizeof(struct inet6_skb_parm));
-                err = nf_ct_frag6_gather(net, skb, user);
-                if (err) {
+	if (ops->ndo_validate_addr)
+		ret = ops->ndo_validate_addr(dev);
+
+	if (!ret && ops->ndo_open)
+		ret = ops->ndo_open(dev);
+
+	netpoll_poll_enable(dev);
+
+	if (ret)
+		clear_bit(__LINK_STATE_START, &dev->state);
+..
+
+so, netif_running(ndev) will start returning true before calling ops->ndo_open(dev);
+
+>  
+>  	return usage_count;
+> @@ -1502,7 +1501,7 @@ static int cpsw_ndo_open(struct net_device *ndev)
+>  		 CPSW_RTL_VERSION(reg));
+>  
+>  	/* initialize host and slave ports */
+> -	if (!cpsw_common_res_usage_state(cpsw))
+> +	if (cpsw_common_res_usage_state(cpsw) < 2)
+
+Ah. You've changed the condition here.
+
+I think it might be reasonable to hide this inside cpsw_common_res_usage_state()
+and seems it can be renamed to smth like cpsw_is_running().
+
+
+>  		cpsw_init_host_port(priv);
+>  	for_each_slave(priv, cpsw_slave_open, priv);
+>  
+> @@ -1513,7 +1512,7 @@ static int cpsw_ndo_open(struct net_device *ndev)
+>  		cpsw_ale_add_vlan(cpsw->ale, cpsw->data.default_vlan,
+>  				  ALE_ALL_PORTS, ALE_ALL_PORTS, 0, 0);
+>  
+> -	if (!cpsw_common_res_usage_state(cpsw)) {
+> +	if (cpsw_common_res_usage_state(cpsw) < 2) {
+>  		/* disable priority elevation */
+>  		__raw_writel(0, &cpsw->regs->ptype);
+>  
+> @@ -1556,9 +1555,6 @@ static int cpsw_ndo_open(struct net_device *ndev)
+>  	cpdma_ctlr_start(cpsw->dma);
+>  	cpsw_intr_enable(cpsw);
+>  
+> -	if (cpsw->data.dual_emac)
+> -		cpsw->slaves[priv->emac_port].open_stat = true;
+> -
+>  	return 0;
+>  
+>  err_cleanup:
+> @@ -1578,7 +1574,7 @@ static int cpsw_ndo_stop(struct net_device *ndev)
+>  	netif_tx_stop_all_queues(priv->ndev);
+>  	netif_carrier_off(priv->ndev);
+>  
+> -	if (cpsw_common_res_usage_state(cpsw) <= 1) {
+> +	if (!cpsw_common_res_usage_state(cpsw)) {
+
+and here __LINK_STATE_START will be cleared before calling ops->ndo_stop(dev);
+So, from one side netif_running(ndev) usage will simplify cpsw_common_res_usage_state() internals,
+but from another side - it will make places where it's used even more entangled :( as for me,
+because when cpsw_common_res_usage_state() will return 1 in cpsw_ndo_open() it will mean
+"no interfaces is really running yet", but the same value 1 in cpsw_ndo_stop()
+will mean "there are still one is running".
+
+>  		napi_disable(&cpsw->napi_rx);
+>  		napi_disable(&cpsw->napi_tx);
+>  		cpts_unregister(cpsw->cpts);
+> @@ -1592,8 +1588,6 @@ static int cpsw_ndo_stop(struct net_device *ndev)
+>  		cpsw_split_res(ndev);
+>  
+>  	pm_runtime_put_sync(cpsw->dev);
+> -	if (cpsw->data.dual_emac)
+> -		cpsw->slaves[priv->emac_port].open_stat = false;
+>  	return 0;
+>  }
+>  
+> 
+
+-- 
+regards,
+-grygorii
