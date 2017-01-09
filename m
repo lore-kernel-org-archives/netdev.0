@@ -1,40 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] ipv4: make tcp_notsent_lowat sysctl knob behave as
- true unsigned int
-Date: Mon, 09 Jan 2017 16:38:41 -0500 (EST)
-Message-ID: <20170109.163841.473518915535228188.davem@davemloft.net>
-References: <20161230.152325.1460360247883491150.davem@davemloft.net>
-        <20170109074549.12220-1-ptikhomirov@virtuozzo.com>
+Subject: Re: [PATCH] net: phy: Add Meson GXL PHY hardware dependency
+Date: Mon, 09 Jan 2017 16:38:58 -0500 (EST)
+Message-ID: <20170109.163858.228878756915473380.davem@davemloft.net>
+References: <20170109151727.6571f566@endymion>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: edumazet@google.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-        yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, khorenko@virtuozzo.com
-To: ptikhomirov@virtuozzo.com
+Cc: netdev@vger.kernel.org, narmstrong@baylibre.com,
+        f.fainelli@gmail.com, andrew@lunn.ch
+To: jdelvare@suse.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:51756 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:51778 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933772AbdAIVio (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 16:38:44 -0500
-In-Reply-To: <20170109074549.12220-1-ptikhomirov@virtuozzo.com>
+        with ESMTP id S936547AbdAIVjB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 16:39:01 -0500
+In-Reply-To: <20170109151727.6571f566@endymion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pavel Tikhomirov <ptikhomirov@virtuozzo.com>
-Date: Mon,  9 Jan 2017 10:45:49 +0300
+From: Jean Delvare <jdelvare@suse.de>
+Date: Mon, 9 Jan 2017 15:17:27 +0100
 
->> cat /proc/sys/net/ipv4/tcp_notsent_lowat
-> -1
->> echo 4294967295 > /proc/sys/net/ipv4/tcp_notsent_lowat
-> -bash: echo: write error: Invalid argument
->> echo -2147483648 > /proc/sys/net/ipv4/tcp_notsent_lowat
->> cat /proc/sys/net/ipv4/tcp_notsent_lowat
-> -2147483648
+> As I understand it the Meson GXL PHY driver is only useful on one
+> architecture so only make it visible on that architecture.
 > 
-> but in documentation we have "tcp_notsent_lowat - UNSIGNED INTEGER"
-> 
-> v2: simplify to just proc_douintvec
-> Signed-off-by: Pavel Tikhomirov <ptikhomirov@virtuozzo.com>
+> Signed-off-by: Jean Delvare <jdelvare@suse.de>
+> Fixes: 7334b3e47aee ("net: phy: Add Meson GXL Internal PHY driver")
 
 Applied.
