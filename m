@@ -1,46 +1,58 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v2 net-next 3/4] secure_seq: use SipHash in place of MD5
-Date: Mon, 9 Jan 2017 13:18:09 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB025AC4D@AcuExch.aculab.com>
-References: <20170107144057.15432-1-Jason@zx2c4.com>
- <20170107144057.15432-4-Jason@zx2c4.com>
- <20170107.163736.2224609477435674963.davem@davemloft.net>
- <20170107220911.GB8327@zzz>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [RFC PATCH] intel: Use upper_32_bits and lower_32_bits
+Date: Mon, 09 Jan 2017 05:33:10 -0800
+Message-ID: <1483968790.2106.10.camel@perches.com>
+References: <7a5cfe63cad3ef4badc30cbc2185a5bfb9250fd8.1483813334.git.joe@perches.com>
+         <063D6719AE5E284EB5DD2968C1650D6DB025AC14@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "Jason@zx2c4.com" <Jason@zx2c4.com>,
-        "jeanphilippe.aumasson@gmail.com" <jeanphilippe.aumasson@gmail.com>,
-        "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Julia Lawall <julia.lawall@lip6.fr>,
+        "intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
         "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "ak@linux.intel.com" <ak@linux.intel.com>,
-        "tom@herbertland.com" <tom@herbertland.com>,
-        "hannes@stressinduktion.org" <hannes@stressinduktion.org>,
-        "eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-        "luto@kernel.org" <luto@kernel.org>
-To: 'Eric Biggers' <ebiggers3@gmail.com>,
-        David Miller <davem@davemloft.net>
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170107220911.GB8327@zzz>
-Content-Language: en-US
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB025AC14@AcuExch.aculab.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Biggers
-> Sent: 07 January 2017 22:09
-..
-> Out of curiosity, is this actually a solvable problem, e.g. by making the code
-> using the XMM registers responsible for saving and restoring the ones clobbered,
-> or by optimizing kernel_fpu_begin()/kernel_fpu_end()?  Or does it in fact remain
-> impractical for such instructions to be used for applications like this one?
+On Mon, 2017-01-09 at 12:55 +0000, David Laight wrote:
+> From: Joe Perches
+> > Sent: 07 January 2017 18:33
+> > Shifting and masking various types can be made a bit
+> > simpler to read by using the available kernel macros.
+> 
+> ...
+> > -		ew32(TDBAH, (tdba >> 32));
+> > -		ew32(TDBAL, (tdba & 0x00000000ffffffffULL));
+> > +		ew32(TDBAH, upper_32_bits(tdba));
+> > +		ew32(TDBAL, lower_32_bits(tdba));
+> 
+> Personally I find the original code easier to understand
+> since I don't have to look up another silly macro.
 
-I think it should be possible to fast-save a couple of FP registers
-by telling the IPI save code where to save them from (to load
-into a different cpu).
-But there might be issues with other parts of the FP state.
-This might be ok provided the kernel doesn't actually use FP instructions.
+It's already a pretty common usage and I believe
+the naming is fairly obvious.  Also you don't have
+to count the "f" characters to see how many bits
+are being used.  After about 6 consecutive chars,
+it can be error prone.
 
-(I thought about this when adding AVX support to NetBSD.)
+The leading zeros?  ugh.  The ULL too.
 
-	David
+$ git grep -w -E "upper_32_bits|lower_32_bits" | wc -l
+1569
+
+> I'd normally not even explicitly mask the low bits
+> relying on the implicit truncation of the assignment.
+
+Relying on implicit behaviors can be noisy when
+compilers complain about implicit conversions and
+truncations.
+
+> At least modern compilers aren't stupid enough to add two
+> 'mask with 0xff' instructions for:
+> 	*uchar_ptr = (unsigned char)(foo & 0xff);
+
+I agree it's visual noise.
