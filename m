@@ -1,8 +1,8 @@
 From: =?UTF-8?q?Niklas=20S=C3=B6derlund?=
         <niklas.soderlund+renesas@ragnatech.se>
-Subject: [PATCHv3 1/6] sh_eth: use correct name for ECMR_MPDE bit
-Date: Mon,  9 Jan 2017 16:34:04 +0100
-Message-ID: <20170109153409.13956-2-niklas.soderlund+renesas@ragnatech.se>
+Subject: [PATCHv3 4/6] sh_eth: enable wake-on-lan for r8a7740/armadillo
+Date: Mon,  9 Jan 2017 16:34:07 +0100
+Message-ID: <20170109153409.13956-5-niklas.soderlund+renesas@ragnatech.se>
 References: <20170109153409.13956-1-niklas.soderlund+renesas@ragnatech.se>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -14,33 +14,34 @@ Cc: Geert Uytterhoeven <geert@linux-m68k.org>,
 To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
         Simon Horman <horms+renesas@verge.net.au>,
         netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org
-Return-path: <linux-pm-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-4.sys.kth.se ([130.237.48.193]:52269 "EHLO
+        smtp-4.sys.kth.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S938034AbdAIPfN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 10:35:13 -0500
 In-Reply-To: <20170109153409.13956-1-niklas.soderlund+renesas@ragnatech.se>
-Sender: linux-pm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This bit was wrongly named due to a typo, Sergei checked the SH7734/63
-manuals and this bit should be named MPDE.
+Geert Uytterhoeven reported WoL worked on his Armadillo board.
 
-Suggested-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Signed-off-by: Niklas Söderlund <niklas.soderlund+renesas@ragnatech.se>
+Tested-by: Geert Uytterhoeven <geert+renesas@glider.be>
 ---
- drivers/net/ethernet/renesas/sh_eth.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/renesas/sh_eth.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/ethernet/renesas/sh_eth.h b/drivers/net/ethernet/renesas/sh_eth.h
-index 9eec1e185adf..11798d5c4a1d 100644
---- a/drivers/net/ethernet/renesas/sh_eth.h
-+++ b/drivers/net/ethernet/renesas/sh_eth.h
-@@ -339,7 +339,7 @@ enum FELIC_MODE_BIT {
- 	ECMR_DPAD = 0x00200000, ECMR_RZPF = 0x00100000,
- 	ECMR_ZPF = 0x00080000, ECMR_PFR = 0x00040000, ECMR_RXF = 0x00020000,
- 	ECMR_TXF = 0x00010000, ECMR_MCT = 0x00002000, ECMR_PRCEF = 0x00001000,
--	ECMR_PMDE = 0x00000200, ECMR_RE = 0x00000040, ECMR_TE = 0x00000020,
-+	ECMR_MPDE = 0x00000200, ECMR_RE = 0x00000040, ECMR_TE = 0x00000020,
- 	ECMR_RTM = 0x00000010, ECMR_ILB = 0x00000008, ECMR_ELB = 0x00000004,
- 	ECMR_DM = 0x00000002, ECMR_PRM = 0x00000001,
+diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+index afaf8785ed72..67cb6b3793ca 100644
+--- a/drivers/net/ethernet/renesas/sh_eth.c
++++ b/drivers/net/ethernet/renesas/sh_eth.c
+@@ -577,6 +577,7 @@ static struct sh_eth_cpu_data r8a7740_data = {
+ 	.tsu		= 1,
+ 	.select_mii	= 1,
+ 	.shift_rd0	= 1,
++	.magic		= 1,
  };
+ 
+ /* There is CPU dependent code */
 -- 
 2.11.0
-
