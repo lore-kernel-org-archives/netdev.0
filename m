@@ -1,44 +1,53 @@
-From: =?UTF-8?q?Niklas=20S=C3=B6derlund?=
-        <niklas.soderlund+renesas@ragnatech.se>
-Subject: [PATCHv3 6/6] sh_eth: enable wake-on-lan for sh7763
-Date: Mon,  9 Jan 2017 16:34:09 +0100
-Message-ID: <20170109153409.13956-7-niklas.soderlund+renesas@ragnatech.se>
-References: <20170109153409.13956-1-niklas.soderlund+renesas@ragnatech.se>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH net-next] bridge: multicast to unicast
+Date: Mon, 09 Jan 2017 16:47:01 +0100
+Message-ID: <1483976821.20579.0.camel@sipsolutions.net>
+References: <20170102193214.31723-1-linus.luessing@c0d3.blue>
+	<1483706872.4089.8.camel@sipsolutions.net>
+	<8836daaa-9638-4502-d079-fd428595f822@nbd.name>
+	<1483710841.12677.1.camel@sipsolutions.net>
+	<22fad045-57c6-7789-d19f-f47bd0faf441@fami-braun.de>
+	<20170107145516.GE3134@otheros>
+	<1483949336.17582.3.camel@sipsolutions.net>
+	<6f5ec9f1-800a-2bc4-2f41-9d803343bb22@fami-braun.de>
+	<1483964159.17582.34.camel@sipsolutions.net>
+	<ebc5050e12c04273fa518e35d7f0b8bc@fami-braun.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 8bit
-Cc: Geert Uytterhoeven <geert@linux-m68k.org>,
-        linux-pm@vger.kernel.org,
-        =?UTF-8?q?Niklas=20S=C3=B6derlund?=
-        <niklas.soderlund+renesas@ragnatech.se>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-        Simon Horman <horms+renesas@verge.net.au>,
-        netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org
-Return-path: <linux-pm-owner@vger.kernel.org>
-In-Reply-To: <20170109153409.13956-1-niklas.soderlund+renesas@ragnatech.se>
-Sender: linux-pm-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"David S . Miller" <davem@davemloft.net>, Felix Fietkau <nbd@nbd.name>
+To: michael-dev <michael-dev@fami-braun.de>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <ebc5050e12c04273fa518e35d7f0b8bc@fami-braun.de>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-This is based on public datasheet for sh7763 which shows it has the
-same behavior and registers for WoL as other versions of sh_eth.
+On Mon, 2017-01-09 at 16:25 +0100, michael-dev wrote:
+> Am 09.01.2017 13:15, schrieb Johannes Berg:
+> > > That is bridge fdb entries (need to) expire so the bridge might
+> > > "forget" a still-connected station not sending but only consuming
+> > > broadcast traffic.
+> > 
+> > Ok, that I don't know. Somehow if you address a unicast packet
+> > there
+> > the bridge has to make a decision - so it really should know?
+> 
+> If the bridge has not learned the unicast destination mac address on
+> any port, it will flood the packet on all ports except the port it
+> received the packet on.
 
-Signed-off-by: Niklas Söderlund <niklas.soderlund+renesas@ragnatech.se>
----
- drivers/net/ethernet/renesas/sh_eth.c | 1 +
- 1 file changed, 1 insertion(+)
+Ok, so this really needs to be done in mac80211.
 
-diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index 5292022fe6b1..ecf0f7997a72 100644
---- a/drivers/net/ethernet/renesas/sh_eth.c
-+++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -847,6 +847,7 @@ static struct sh_eth_cpu_data sh7763_data = {
- 	.no_ade		= 1,
- 	.tsu		= 1,
- 	.irq_flags	= IRQF_SHARED,
-+	.magic		= 1,
- };
- 
- static struct sh_eth_cpu_data sh7619_data = {
--- 
-2.11.0
+I'll send out the pull request soon then.
 
+johannes
