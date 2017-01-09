@@ -1,51 +1,53 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [for-next V3 10/10] net/mlx5: Activate support for 4K UARs
-Date: Mon,  9 Jan 2017 21:00:53 +0200
-Message-ID: <1483988453-28551-11-git-send-email-saeedm@mellanox.com>
-References: <1483988453-28551-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-        Leon Romanovsky <leonro@mellanox.com>,
-        Eli Cohen <eli@mellanox.com>,
-        Matan Barak <matanb@mellanox.com>,
-        Leon Romanovsky <leon@kernel.org>,
-        Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>,
-        Doug Ledford <dledford@redhat.com>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCHv2 net-next 0/5] sctp: add support for generating stream
+ reconf chunks
+Date: Mon, 9 Jan 2017 17:04:24 -0200
+Message-ID: <20170109190424.GE3781@localhost.localdomain>
+References: <cover.1483781759.git.lucien.xin@gmail.com>
+ <20170109124325.GB20973@hmswarspite.think-freely.org>
+ <20170109.105301.469495957021068521.davem@davemloft.net>
+ <CADvbK_dE74bAoTNo9gLczLuj71w3WMcPJ56tCFGJ=XjTMtTgRw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        network dev <netdev@vger.kernel.org>,
+        linux-sctp@vger.kernel.org, Vlad Yasevich <vyasevich@gmail.com>
+To: Xin Long <lucien.xin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:51966 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1762661AbdAITBH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 14:01:07 -0500
-In-Reply-To: <1483988453-28551-1-git-send-email-saeedm@mellanox.com>
+Received: from mx1.redhat.com ([209.132.183.28]:34378 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1758119AbdAITE2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 9 Jan 2017 14:04:28 -0500
+Content-Disposition: inline
+In-Reply-To: <CADvbK_dE74bAoTNo9gLczLuj71w3WMcPJ56tCFGJ=XjTMtTgRw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eli Cohen <eli@mellanox.com>
+On Tue, Jan 10, 2017 at 02:27:09AM +0800, Xin Long wrote:
+> On Mon, Jan 9, 2017 at 11:53 PM, David Miller <davem@davemloft.net> wrote:
+> > From: Neil Horman <nhorman@tuxdriver.com>
+> > Date: Mon, 9 Jan 2017 07:43:25 -0500
+> >
+> >> These all look reasonably good, but it seems before we accept them,
+> >> there should be an additional patch that actually makes use of the code.
+> >> I presume that is forthcomming?
+> >
+> > This all comes from my asking that the original huge set of patches be
+> > split up.
+> >
+> > People always just rush this kind of work and never think about laying
+> > out the resubmission properly.
+> >
+> > One should always only submit new interfaces along with an actual use
+> > because only with a use can we properly review whether the new
+> > interface is good or not.
+> 
+> I was trying to keep the same order with rfc, but it seems not a good
+> idea, will resplit, thanks.
 
-Activate 4K UAR support for firmware versions that support it.
+Not sure how much it can help but one idea it to split it into requester
+and requested sides. Do the first patches/patchsets to make Linux able
+to accept/handle requests, and then to issue requests.
 
-Signed-off-by: Eli Cohen <eli@mellanox.com>
-Reviewed-by: Matan Barak <matanb@mellanox.com>
-Signed-off-by: Leon Romanovsky <leon@kernel.org>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx5/core/main.c | 4 ++++
- 1 file changed, 4 insertions(+)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-index ff1f144..a16ee16 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-@@ -530,6 +530,10 @@ static int handle_hca_cap(struct mlx5_core_dev *dev)
- 	/* disable cmdif checksum */
- 	MLX5_SET(cmd_hca_cap, set_hca_cap, cmdif_checksum, 0);
- 
-+	/* If the HCA supports 4K UARs use it */
-+	if (MLX5_CAP_GEN_MAX(dev, uar_4k))
-+		MLX5_SET(cmd_hca_cap, set_hca_cap, uar_4k, 1);
-+
- 	MLX5_SET(cmd_hca_cap, set_hca_cap, log_uar_page_sz, PAGE_SHIFT - 12);
- 
- 	err = set_caps(dev, set_ctx, set_sz,
--- 
-2.7.4
+  Marcelo
