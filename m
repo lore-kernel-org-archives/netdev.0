@@ -1,38 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] liquidio: store the L4 hash of rx packets in
- skb
-Date: Mon, 09 Jan 2017 10:51:06 -0800
-Message-ID: <1483987866.21472.12.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20170107005542.GA16278@felix.cavium.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next PATCH 1/3] Revert "icmp: avoid allocating large
+ struct on stack"
+Date: Mon, 09 Jan 2017 13:52:59 -0500 (EST)
+Message-ID: <20170109.135259.988711786570465428.davem@davemloft.net>
+References: <1483984208.5846.9.camel@edumazet-glaptop3.roam.corp.google.com>
+        <CAM_iQpV6YQ6nh_Y0f3BDgMheOic3bPiqQ1oNHR+saxxE7nBuoA@mail.gmail.com>
+        <1483985224.21472.3.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-        raghu.vatsavayi@cavium.com, derek.chickles@cavium.com,
-        satananda.burla@cavium.com
-To: Felix Manlunas <felix.manlunas@cavium.com>
+Cc: xiyou.wangcong@gmail.com, brouer@redhat.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:33707 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1423108AbdAISvI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 13:51:08 -0500
-Received: by mail-pg0-f66.google.com with SMTP id 194so7882199pgd.0
-        for <netdev@vger.kernel.org>; Mon, 09 Jan 2017 10:51:08 -0800 (PST)
-In-Reply-To: <20170107005542.GA16278@felix.cavium.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:46968 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1423108AbdAISxG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 13:53:06 -0500
+In-Reply-To: <1483985224.21472.3.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2017-01-06 at 16:55 -0800, Felix Manlunas wrote:
-> From: Prasad Kanneganti <prasad.kanneganti@cavium.com>
-> 
-> Store the L4 hash of received packets in the skb; the hash is computed in
-> the NIC firmware.
-...
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 09 Jan 2017 10:07:04 -0800
 
->  
-> +		if (rh->r_dh.has_hash) {
-> +			u32 hash = be32_to_cpu(*(u32 *)(skb->data + r_dh_off));
+> You really should come to netdev conferences so that you understand
+> goals and efforts, instead of living in your cave.
 
-sparse should complain on this line, right ?
+I completely agree with Eric.
 
-make C=2 CF=-D__CHECK_ENDIAN__ M=drivers/net/ethernet/cavium
+Cong we have a very serious problem with you exactly because you make
+quite vicious emotional statements targetted at other developers
+merely when they say something you disagree with.
+
+This is completely unacceptable behavior, and you must stop doing
+this, now.
+
+And I am absolutely positive that if you had met us all in person at
+netdev you would not be treating us like this.
+
+So please do us a _HUGE_ favor, and leave your cave, and come to
+an upcoming netdev.
+
+Thank you.
