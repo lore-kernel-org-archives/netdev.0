@@ -1,74 +1,57 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] tcp: make TCP_INFO more consistent
-Date: Mon, 09 Jan 2017 10:29:27 -0800
-Message-ID: <1483986567.21472.10.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Rob Herring <robh@kernel.org>
+Subject: Re: [PATCHv3 4/5] arm: mvebu: Add device tree for 98DX3236 SoCs
+Date: Mon, 9 Jan 2017 12:44:33 -0600
+Message-ID: <20170109184433.h3xcot3ybftk7tz3@rob-hp-laptop>
+References: <20170105033641.6212-1-chris.packham@alliedtelesis.co.nz>
+ <20170106041517.9589-1-chris.packham@alliedtelesis.co.nz>
+ <20170106041517.9589-5-chris.packham@alliedtelesis.co.nz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Yuchung Cheng <ycheng@google.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:35715 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S939559AbdAIS3a (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 13:29:30 -0500
-Received: by mail-pf0-f193.google.com with SMTP id f144so6090248pfa.2
-        for <netdev@vger.kernel.org>; Mon, 09 Jan 2017 10:29:29 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-arm-kernel@lists.infradead.org,
+        Mark Rutland <mark.rutland@arm.com>,
+        Jason Cooper <jason@lakedaemon.net>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Gregory Clement <gregory.clement@free-electrons.com>,
+        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+        Russell King <linux@armlinux.org.uk>,
+        devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org
+To: Chris Packham <chris.packham@alliedtelesis.co.nz>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170106041517.9589-5-chris.packham@alliedtelesis.co.nz>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+On Fri, Jan 06, 2017 at 05:15:01PM +1300, Chris Packham wrote:
+> The Marvell 98DX3236, 98DX3336, 98DX4521 and variants are switch ASICs
+> with integrated CPUs. They are similar to the Armada XP SoCs but have
+> different I/O interfaces.
+> 
+> Signed-off-by: Chris Packham <chris.packham@alliedtelesis.co.nz>
+> ---
+>     Changes in v2:
+>     - Update devicetree binding documentation to reflect that 98DX3336 and
+>       984251 are supersets of 98DX3236.
+>     - disable crypto block
+>     - disable sdio for 98DX3236, enable for 98DX4251
+>     Changes in v3:
+>     - fix typo 4521 -> 4251
+>     - document prestera bindings
+>     - rework corediv-clock binding
+>     - add label to packet processor node
+>     - add new compativle string for DFX server
+> 
+>  .../devicetree/bindings/arm/marvell/98dx3236.txt   |  23 ++
+>  .../devicetree/bindings/net/marvell,prestera.txt   |  50 ++++
+>  arch/arm/boot/dts/armada-xp-98dx3236.dtsi          | 254 +++++++++++++++++++++
+>  arch/arm/boot/dts/armada-xp-98dx3336.dtsi          |  76 ++++++
+>  arch/arm/boot/dts/armada-xp-98dx4251.dtsi          |  90 ++++++++
+>  5 files changed, 493 insertions(+)
+>  create mode 100644 Documentation/devicetree/bindings/arm/marvell/98dx3236.txt
+>  create mode 100644 Documentation/devicetree/bindings/net/marvell,prestera.txt
+>  create mode 100644 arch/arm/boot/dts/armada-xp-98dx3236.dtsi
+>  create mode 100644 arch/arm/boot/dts/armada-xp-98dx3336.dtsi
+>  create mode 100644 arch/arm/boot/dts/armada-xp-98dx4251.dtsi
 
-tcp_get_info() has to lock the socket, so lets lock it
-for an extended critical section, so that various fields
-have consistent values.
-
-This solves an annoying issue that some applications
-reported when multiple counters are updated during one
-particular rx/rx event, and TCP_INFO was called from
-another cpu.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Yuchung Cheng <ycheng@google.com>
----
- net/ipv4/tcp.c |    8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
-
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index ec97e4b4a62f44decdcb559991500a737c7d6379..c8d46c140b4a47ee7c954317977393664e295abf 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -2766,6 +2766,9 @@ void tcp_get_info(struct sock *sk, struct tcp_info *info)
- 		info->tcpi_sacked = sk->sk_max_ack_backlog;
- 		return;
- 	}
-+
-+	slow = lock_sock_fast(sk);
-+
- 	info->tcpi_ca_state = icsk->icsk_ca_state;
- 	info->tcpi_retransmits = icsk->icsk_retransmits;
- 	info->tcpi_probes = icsk->icsk_probes_out;
-@@ -2816,15 +2819,11 @@ void tcp_get_info(struct sock *sk, struct tcp_info *info)
- 
- 	info->tcpi_total_retrans = tp->total_retrans;
- 
--	slow = lock_sock_fast(sk);
--
- 	info->tcpi_bytes_acked = tp->bytes_acked;
- 	info->tcpi_bytes_received = tp->bytes_received;
- 	info->tcpi_notsent_bytes = max_t(int, 0, tp->write_seq - tp->snd_nxt);
- 	tcp_get_info_chrono_stats(tp, info);
- 
--	unlock_sock_fast(sk, slow);
--
- 	info->tcpi_segs_out = tp->segs_out;
- 	info->tcpi_segs_in = tp->segs_in;
- 
-@@ -2840,6 +2839,7 @@ void tcp_get_info(struct sock *sk, struct tcp_info *info)
- 		do_div(rate64, intv);
- 		info->tcpi_delivery_rate = rate64;
- 	}
-+	unlock_sock_fast(sk, slow);
- }
- EXPORT_SYMBOL_GPL(tcp_get_info);
- 
+Acked-by: Rob Herring <robh@kernel.org>
