@@ -1,51 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT] Networking
-Date: Mon, 09 Jan 2017 15:24:37 -0500 (EST)
-Message-ID: <20170109.152437.40458564953109123.davem@davemloft.net>
-References: <20170108.223847.1035900535306187665.davem@davemloft.net>
-        <CA+55aFzjL6Tf7JazeZtbi9UARhqofWU8xzYm0rbdAeCsD+nMPw@mail.gmail.com>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH net-next 3/4] net: switchdev: Add
+ switchdev_port_bridge_getlink_deferred
+Date: Mon, 9 Jan 2017 18:28:17 -0200
+Message-ID: <20170109202817.GF3771@localhost.localdomain>
+References: <20170109194503.10713-1-f.fainelli@gmail.com>
+ <20170109194503.10713-4-f.fainelli@gmail.com>
+ <20170109201135.GE3771@localhost.localdomain>
+ <78bba92c-aa8e-ee1e-4b7a-3625d6f6309a@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kvalo@codeaurora.org, Larry.Finger@lwfinger.net,
-        akpm@linux-foundation.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+55aFzjL6Tf7JazeZtbi9UARhqofWU8xzYm0rbdAeCsD+nMPw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+        vivien.didelot@savoirfairelinux.com, andrew@lunn.ch,
+        jiri@resnulli.us
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:46812 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1764189AbdAIU2U (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 9 Jan 2017 15:28:20 -0500
+Content-Disposition: inline
+In-Reply-To: <78bba92c-aa8e-ee1e-4b7a-3625d6f6309a@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Date: Mon, 9 Jan 2017 12:08:02 -0800
-
-> On Sun, Jan 8, 2017 at 7:38 PM, David Miller <davem@davemloft.net> wrote:
->>
->>   git://git.kernel.org/pub/scm/linux/kernel/git/davem/net
+On Mon, Jan 09, 2017 at 12:13:19PM -0800, Florian Fainelli wrote:
+> On 01/09/2017 12:11 PM, Marcelo Ricardo Leitner wrote:
+> > On Mon, Jan 09, 2017 at 11:45:02AM -0800, Florian Fainelli wrote:
+> >> Add switchdev_port_bridge_getlink_deferred() which does a deferred
+> >> object dump operation, this is required for e.g: DSA switches which
+> >> typically have sleeping I/O operations which is incompatible with being
+> >> in atomic context obviously.
+> >>
+> >> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> >> ---
 > 
-> Hmm. This still doesn't contain the rtlwifi oops fix that was posted
-> back before christmas.
+> >>  	struct switchdev_attr attr = {
+> >>  		.orig_dev = dev,
+> >> @@ -829,12 +841,49 @@ int switchdev_port_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
+> >>  	if (err && err != -EOPNOTSUPP)
+> >>  		return err;
+> >>  
+> >> -	return ndo_dflt_bridge_getlink(skb, pid, seq, dev, mode,
+> >> +	return ndo_dflt_bridge_getlink(skb, pid, seq, d, mode,
+> > 
+> > Was this s/dev/d/ by mistake?
 > 
-> Kalle said it was applied to the wireless-drivers tree as commit
-> 60f59ce02785 in his tree, but it's never gotten to me.
-> 
-> What's up? It's three weeks later, and people are hitting the bug.
+> No, it's not a mistake, it was made so that the function signature could
+> be within 80 columns.
 
-I haven't received a bug fix pull from Kalle since Dec 22nd:
+Right, but the change on the signature is on the chunk prior to this
+one. Yet this one is not on the prototype and leads to:
 
-	http://patchwork.ozlabs.org/patch/708247/
+.../linux/net/switchdev/switchdev.c: In function ‘__switchdev_port_bridge_getlink’:
+.../linux/net/switchdev/switchdev.c:844:48: error: ‘d’ undeclared (first use in this function)
+  return ndo_dflt_bridge_getlink(skb, pid, seq, d, mode,
+                                                ^
+.../linux/net/switchdev/switchdev.c:844:48: note: each undeclared identifier is reported only once for each function it appears in
+.../linux/net/switchdev/switchdev.c:847:1: warning: control reaches end of non-void function [-Wreturn-type]
+ }
 
-That one has:
-
-      rtlwifi: Fix kernel oops introduced with commit e49656147359
-
-Is that what you're talking about?
-
-In the thread I said I pulled it but indeed I don't have that commit
-in my tree either, weird.
-
-I just tried to pull that git URL right now and I get nothing:
-
-	git://git.kernel.org/pub/scm/linux/kernel/git/kvalo/wireless-drivers.git tags/wireless-drivers-for-davem-2016-12-22
-
-It looks like the rtlwifi fix is in his "pending" branch.
+  Marcelo
