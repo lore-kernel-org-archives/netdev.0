@@ -1,72 +1,56 @@
-From: Leon Romanovsky <leon@kernel.org>
-Subject: Re: [RFC v2 00/10] HFI Virtual Network Interface Controller (VNIC)
-Date: Mon, 9 Jan 2017 09:51:04 +0200
-Message-ID: <20170109075104.GV15685@mtr-leonro.local>
-References: <1481788782-89964-1-git-send-email-niranjana.vishwanathapura@intel.com>
- <20161215091226.GC811@mtr-leonro.local>
- <20161215145212.GA29116@phlsvsds.ph.intel.com>
- <380b05bf-a18e-1f20-7e8e-10b61f77dec7@redhat.com>
+From: Bronek Kozicki <brok@spamcop.net>
+Subject: Re: patch 4.8 "net: handle no dst on skb in icmp6_send"
+Date: Mon, 9 Jan 2017 07:53:49 +0000
+Message-ID: <520a2f27-9198-f40e-3c17-06a37d497c9c@spamcop.net>
+References: <02a7e2d2-cc1d-1c64-ac9b-7daf8a834b56@spamcop.net>
+ <20170108.175008.1125416899482175990.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="GPT5DIEyVHz5yXBV"
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        "Vishwanathapura, Niranjana" <niranjana.vishwanathapura@intel.com>,
-        linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
-        dennis.dalessandro@intel.com
-To: Doug Ledford <dledford@redhat.com>,
-        "ira.weiny" <ira.weiny@intel.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, dsa@cumulusnetworks.com,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        stable@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:36742 "EHLO mail.kernel.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750718AbdAIHvB (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 9 Jan 2017 02:51:01 -0500
-Content-Disposition: inline
-In-Reply-To: <380b05bf-a18e-1f20-7e8e-10b61f77dec7@redhat.com>
+Received: from a-painless.mh.aa.net.uk ([81.187.30.51]:40121 "EHLO
+        a-painless.mh.aa.net.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751290AbdAIHx6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 02:53:58 -0500
+In-Reply-To: <20170108.175008.1125416899482175990.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
---GPT5DIEyVHz5yXBV
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-On Thu, Dec 15, 2016 at 11:28:06AM -0500, Doug Ledford wrote:
-> On 12/15/2016 9:52 AM, ira.weiny wrote:
+On 08/01/2017 22:50, David Miller wrote:
+> From: Bronek Kozicki <brok@spamcop.net>
+> Date: Sun, 8 Jan 2017 21:46:18 +0000
 >
-> 2) With more than 60% of the code being MAD related, and another
-> significant chunk being hfi related, and only a minor bit (20% maybe?)
-> being net related,
+>> Hello,
+>>
+>> any particular reason why this fix
+>> https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=79dc7e3f1cd323be4c81aa1a94faa1b3ed987fb2
+>> was missed from stable 4.8 line? Apparently the bug being fixed has
+>> its own https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2016-9919
+>>
+>> Thank you for your hard work and best regards
+>
+> You should always check the networking -stable queue before asking
+> such questions:
+>
+> 	http://patchwork.ozlabs.org/bundle/davem/stable/?submitter=&state=*&q=&archive=
+>
+> Every patch sitting there is queued up and will be submitted to -stable
+> at some time in the next week or two, or whenever I get around to vetting
+> and submitting -stable changes.
+>
+> The patch you are asking about it in fact in there, and will be attended
+> to at an appropriate time.
 
-Hi Doug and Ira,
 
-I may admit that I didn't read the code very deep, but from brief
-overview, I didn't find support for the claim the "60% code is MAD related".
-It looks like the opposite thing will be more accurate.
+Thank you David for prompt reply. I guess perhaps you are not aware that 
+patches to stable line 4.8 might not be accepted after Sun Jan 8th 
+(yesterday), and it will be considered EOL by version 4.8.17 ?
 
-Can you help me to understand this claim? How did you come to this
-conclusion?
+Best regards
 
-Thanks
 
---GPT5DIEyVHz5yXBV
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAlhzQOgACgkQ5GN7iDZy
-WKdYwQ//QMRH+k9PhmFeH98e/De69+UbulxhMg6J6JmvJc9UNK8dPxtrYdpPh2Ba
-n/RmVZNcoK7rPknCe6VKmMrlcKrSZPZrifqjpP0fCiF+jNvJ5KoMPBYOVagN9/xa
-Hm3oaH7p5b24l+pk6KdzNErB6BS+f5O+4pLxxH1yIfh/7n2GTdm6rauJx+Udao6A
-QKhqX6QIRhdGgimDdsDLRYg9xS7tJwacVT7jzbhR7FuA8MLcMSjGxPAfnYGFX/YH
-85cGJXNUh+k0xzdRvHmnx4jl37+Y+mh6n9yd7f+4tp8PS3+R4d8Oh4njA5ZmEcTE
-dyenyUV2PZG41ZfDskShjmVrTNPmXLH+pjQY/LxIP08+AHbepXGUwEPQMf7h8/cC
-vMbTPnUiHPR+hgSRE+vtmL795jYBdRz1539i97T5k49oVsaFZZgl76nQ5nd4yf3Q
-ALRTihPNGsSbQuBjBEzW1aMuh1evsqIvzSrpz/i5w7vbammyhnwP4cc3L9jGBugp
-kc5H+gsdhmQD4ut6lNq9FsXRZP+dob1BCD2PsV7l6S1PPaAO8cRrud2qjzijc2js
-olFxPoH/tMfZ/2As9FKPFJN0D8+BczpjkB9euRc+iqDcLi2vph8PsU8mxev+DqXU
-RsF4cdBmjePhRTZ1JF8/5H/O+yl7i8xyiCdHrVuy0uTJs1/lIXg=
-=SlX4
------END PGP SIGNATURE-----
-
---GPT5DIEyVHz5yXBV--
+B.
