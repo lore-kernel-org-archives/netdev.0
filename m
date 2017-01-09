@@ -1,513 +1,579 @@
 From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Subject: [PATCH V4 net-next 10/15] smc: link layer control (LLC)
-Date: Mon,  9 Jan 2017 16:55:21 +0100
-Message-ID: <20170109155526.10961-11-ubraun@linux.vnet.ibm.com>
+Subject: [PATCH V4 net-next 07/15] smc: remote memory buffers (RMBs)
+Date: Mon,  9 Jan 2017 16:55:18 +0100
+Message-ID: <20170109155526.10961-8-ubraun@linux.vnet.ibm.com>
 References: <20170109155526.10961-1-ubraun@linux.vnet.ibm.com>
 Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
         schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
         utz.bacher@de.ibm.com, ubraun@linux.vnet.ibm.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:33240 "EHLO
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:39130 "EHLO
         mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S970056AbdAIPzt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 10:55:49 -0500
-Received: from pps.filterd (m0098413.ppops.net [127.0.0.1])
-        by mx0b-001b2d01.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id v09FsXaI088840
-        for <netdev@vger.kernel.org>; Mon, 9 Jan 2017 10:55:49 -0500
+        by vger.kernel.org with ESMTP id S968463AbdAIPzp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 10:55:45 -0500
+Received: from pps.filterd (m0098416.ppops.net [127.0.0.1])
+        by mx0b-001b2d01.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id v09FtiRr044233
+        for <netdev@vger.kernel.org>; Mon, 9 Jan 2017 10:55:44 -0500
 Received: from e06smtp05.uk.ibm.com (e06smtp05.uk.ibm.com [195.75.94.101])
-        by mx0b-001b2d01.pphosted.com with ESMTP id 27vd62969s-1
+        by mx0b-001b2d01.pphosted.com with ESMTP id 27vcdmkfmd-1
         (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Mon, 09 Jan 2017 10:55:48 -0500
+        for <netdev@vger.kernel.org>; Mon, 09 Jan 2017 10:55:44 -0500
 Received: from localhost
         by e06smtp05.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
         for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
-        Mon, 9 Jan 2017 15:55:47 -0000
+        Mon, 9 Jan 2017 15:55:42 -0000
 In-Reply-To: <20170109155526.10961-1-ubraun@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-send and receive LLC messages CONFIRM_LINK (via IB message send and CQE)
+* allocate data RMB memory for sending and receiving
+* size depends on the maximum socket send and receive buffers
+* allocated RMBs are kept during life time of the owning link group
+* map the allocated RMBs to DMA
 
 Signed-off-by: Ursula Braun <ubraun@linux.vnet.ibm.com>
 ---
- net/smc/Makefile   |   2 +-
- net/smc/af_smc.c   |  94 ++++++++++++++++++++++++++++++-
- net/smc/smc_clc.h  |   2 +
- net/smc/smc_core.c |   8 +++
- net/smc/smc_core.h |   6 ++
- net/smc/smc_llc.c  | 158 +++++++++++++++++++++++++++++++++++++++++++++++++++++
- net/smc/smc_llc.h  |  63 +++++++++++++++++++++
- 7 files changed, 330 insertions(+), 3 deletions(-)
- create mode 100644 net/smc/smc_llc.c
- create mode 100644 net/smc/smc_llc.h
+ net/smc/af_smc.c   |  29 ++++++-
+ net/smc/smc.h      |  45 +++++++++++
+ net/smc/smc_clc.c  |   6 +-
+ net/smc/smc_core.c | 224 ++++++++++++++++++++++++++++++++++++++++++++++++++++-
+ net/smc/smc_core.h |  21 +++++
+ net/smc/smc_ib.c   |  19 +++++
+ net/smc/smc_ib.h   |   5 ++
+ 7 files changed, 342 insertions(+), 7 deletions(-)
 
-diff --git a/net/smc/Makefile b/net/smc/Makefile
-index b19120e..73320bf 100644
---- a/net/smc/Makefile
-+++ b/net/smc/Makefile
-@@ -1,2 +1,2 @@
- obj-$(CONFIG_SMC)	+= smc.o
--smc-y := af_smc.o smc_pnet.o smc_ib.o smc_clc.o smc_core.o smc_wr.o
-+smc-y := af_smc.o smc_pnet.o smc_ib.o smc_clc.o smc_core.o smc_wr.o smc_llc.o
 diff --git a/net/smc/af_smc.c b/net/smc/af_smc.c
-index 1026fad..1ae986d 100644
+index 5fda37d..a38f470 100644
 --- a/net/smc/af_smc.c
 +++ b/net/smc/af_smc.c
-@@ -31,6 +31,7 @@
- 
- #include "smc.h"
- #include "smc_clc.h"
-+#include "smc_llc.h"
- #include "smc_core.h"
- #include "smc_ib.h"
- #include "smc_pnet.h"
-@@ -245,6 +246,41 @@ int smc_netinfo_by_tcpsk(struct socket *clcsock,
- 	return rc;
- }
- 
-+static int smc_clnt_conf_first_link(struct smc_sock *smc, union ib_gid *gid)
-+{
-+	struct smc_link_group *lgr = smc->conn.lgr;
-+	struct smc_link *link;
-+	int rest;
-+	int rc;
-+
-+	link = &lgr->lnk[SMC_SINGLE_LINK];
-+	/* receive CONFIRM LINK request from server over RoCE fabric */
-+	rest = wait_for_completion_interruptible_timeout(
-+		&link->llc_confirm,
-+		SMC_LLC_WAIT_FIRST_TIME);
-+	if (rest <= 0) {
-+		struct smc_clc_msg_decline dclc;
-+
-+		rc = smc_clc_wait_msg(smc, &dclc, sizeof(dclc),
-+				      SMC_CLC_DECLINE);
-+		return rc;
-+	}
-+
-+	rc = smc_ib_modify_qp_rts(link);
-+	if (rc)
-+		return SMC_CLC_DECL_INTERR;
-+
-+	smc_wr_remember_qp_attr(link);
-+	/* send CONFIRM LINK response over RoCE fabric */
-+	rc = smc_llc_send_confirm_link(link,
-+				       link->smcibdev->mac[link->ibport - 1],
-+				       gid, SMC_LLC_RESP);
-+	if (rc < 0)
-+		return SMC_CLC_DECL_TCL;
-+
-+	return rc;
-+}
-+
- static void smc_conn_save_peer_info(struct smc_sock *smc,
+@@ -249,6 +249,8 @@ static void smc_conn_save_peer_info(struct smc_sock *smc,
  				    struct smc_clc_msg_accept_confirm *clc)
  {
-@@ -358,7 +394,17 @@ static int smc_connect_rdma(struct smc_sock *smc)
- 	if (rc)
- 		goto out_err_unlock;
- 
--	/* tbd in follow-on patch: llc_confirm */
-+	if (local_contact == SMC_FIRST_CONTACT) {
-+		/* QP confirmation over RoCE fabric */
-+		reason_code = smc_clnt_conf_first_link(
-+			smc, &smcibdev->gid[ibport - 1]);
-+		if (reason_code < 0) {
-+			rc = reason_code;
-+			goto out_err_unlock;
-+		}
-+		if (reason_code > 0)
-+			goto decline_rdma_unlock;
-+	}
- 
- 	mutex_unlock(&smc_create_lgr_pending);
- out_connected:
-@@ -543,6 +589,36 @@ static void smc_close_non_accepted(struct sock *sk)
- 	sock_put(sk);
+ 	smc->conn.peer_conn_idx = clc->conn_idx;
++	smc->conn.peer_rmbe_size = smc_uncompress_bufsize(clc->rmbe_size);
++	atomic_set(&smc->conn.peer_rmbe_space, smc->conn.peer_rmbe_size);
  }
  
-+static int smc_serv_conf_first_link(struct smc_sock *smc)
-+{
-+	struct smc_link_group *lgr = smc->conn.lgr;
-+	struct smc_link *link;
-+	int rest;
-+	int rc;
+ static void smc_link_save_peer_info(struct smc_link *link,
+@@ -323,6 +325,18 @@ static int smc_connect_rdma(struct smc_sock *smc)
+ 	link = &smc->conn.lgr->lnk[SMC_SINGLE_LINK];
+ 
+ 	smc_conn_save_peer_info(smc, &aclc);
 +
-+	link = &lgr->lnk[SMC_SINGLE_LINK];
-+	/* send CONFIRM LINK request to client over the RoCE fabric */
-+	rc = smc_llc_send_confirm_link(link,
-+				       link->smcibdev->mac[link->ibport - 1],
-+				       &link->smcibdev->gid[link->ibport - 1],
-+				       SMC_LLC_REQ);
-+	if (rc < 0)
-+		return SMC_CLC_DECL_TCL;
-+
-+	/* receive CONFIRM LINK response from client over the RoCE fabric */
-+	rest = wait_for_completion_interruptible_timeout(
-+		&link->llc_confirm_resp,
-+		SMC_LLC_WAIT_FIRST_TIME);
-+	if (rest <= 0) {
-+		struct smc_clc_msg_decline dclc;
-+
-+		rc = smc_clc_wait_msg(smc, &dclc, sizeof(dclc),
-+				      SMC_CLC_DECLINE);
++	rc = smc_sndbuf_create(smc);
++	if (rc) {
++		reason_code = SMC_CLC_DECL_MEM;
++		goto decline_rdma_unlock;
++	}
++	rc = smc_rmb_create(smc);
++	if (rc) {
++		reason_code = SMC_CLC_DECL_MEM;
++		goto decline_rdma_unlock;
 +	}
 +
-+	return rc;
+ 	if (local_contact == SMC_FIRST_CONTACT)
+ 		smc_link_save_peer_info(link, &aclc);
+ 	/* tbd in follow-on patch: more steps to setup RDMA communcication,
+@@ -598,9 +612,16 @@ static void smc_listen_work(struct work_struct *work)
+ 	}
+ 	link = &new_smc->conn.lgr->lnk[SMC_SINGLE_LINK];
+ 
+-	/* tbd in follow-on patch: more steps to setup RDMA communcication,
+-	 * create rmbs, map rmbs
+-	 */
++	rc = smc_sndbuf_create(new_smc);
++	if (rc) {
++		reason_code = SMC_CLC_DECL_MEM;
++		goto decline_rdma;
++	}
++	rc = smc_rmb_create(new_smc);
++	if (rc) {
++		reason_code = SMC_CLC_DECL_MEM;
++		goto decline_rdma;
++	}
+ 
+ 	rc = smc_clc_send_accept(new_smc, local_contact);
+ 	if (rc)
+@@ -1047,6 +1068,8 @@ static int smc_create(struct net *net, struct socket *sock, int protocol,
+ 			      IPPROTO_TCP, &smc->clcsock);
+ 	if (rc)
+ 		sk_common_release(sk);
++	smc->sk.sk_sndbuf = max(smc->clcsock->sk->sk_sndbuf, SMC_BUF_MIN_SIZE);
++	smc->sk.sk_rcvbuf = max(smc->clcsock->sk->sk_rcvbuf, SMC_BUF_MIN_SIZE);
+ 
+ out:
+ 	return rc;
+diff --git a/net/smc/smc.h b/net/smc/smc.h
+index 11265bd..2bf5044 100644
+--- a/net/smc/smc.h
++++ b/net/smc/smc.h
+@@ -34,6 +34,16 @@ struct smc_connection {
+ 	struct smc_link_group	*lgr;		/* link group of connection */
+ 	u32			alert_token_local; /* unique conn. id */
+ 	u8			peer_conn_idx;	/* from tcp handshake */
++	int			peer_rmbe_size;	/* size of peer rx buffer */
++	atomic_t		peer_rmbe_space;/* remaining free bytes in peer
++						 * rmbe
++						 */
++
++	struct smc_buf_desc	*sndbuf_desc;	/* send buffer descriptor */
++	int			sndbuf_size;	/* sndbuf size <== sock wmem */
++	struct smc_buf_desc	*rmb_desc;	/* RMBE descriptor */
++	int			rmbe_size;	/* RMBE size <== sock rmem */
++	int			rmbe_size_short;/* compressed notation */
+ };
+ 
+ struct smc_sock {				/* smc sock container */
+@@ -76,6 +86,41 @@ static inline u32 ntoh24(u8 *net)
+ 	return be32_to_cpu(t);
+ }
+ 
++#define SMC_BUF_MIN_SIZE 16384		/* minimum size of an RMB */
++
++#define SMC_RMBE_SIZES	16	/* number of distinct sizes for an RMBE */
++/* theoretically, the RFC states that largest size would be 512K,
++ * i.e. compressed 5 and thus 6 sizes (0..5), despite
++ * struct smc_clc_msg_accept_confirm.rmbe_size being a 4 bit value (0..15)
++ */
++
++/* convert the RMB size into the compressed notation - minimum 16K.
++ * In contrast to plain ilog2, this rounds towards the next power of 2,
++ * so the socket application gets at least its desired sndbuf / rcvbuf size.
++ */
++static inline u8 smc_compress_bufsize(int size)
++{
++	u8 compressed;
++
++	if (size <= SMC_BUF_MIN_SIZE)
++		return 0;
++
++	size = (size - 1) >> 14;
++	compressed = ilog2(size) + 1;
++	if (compressed >= SMC_RMBE_SIZES)
++		compressed = SMC_RMBE_SIZES - 1;
++	return compressed;
 +}
 +
- /* setup for RDMA connection of server */
- static void smc_listen_work(struct work_struct *work)
- {
-@@ -655,13 +731,21 @@ static void smc_listen_work(struct work_struct *work)
- 		goto decline_rdma;
- 	}
- 
--	/* tbd in follow-on patch: modify_qp, llc_confirm */
- 	if (local_contact == SMC_FIRST_CONTACT) {
- 		rc = smc_ib_ready_link(link);
- 		if (rc) {
- 			reason_code = SMC_CLC_DECL_INTERR;
- 			goto decline_rdma;
- 		}
-+		/* QP confirmation over RoCE fabric */
-+		reason_code = smc_serv_conf_first_link(new_smc);
-+		if (reason_code < 0) {
-+			/* peer is not aware of a problem */
-+			rc = reason_code;
-+			goto out_err;
-+		}
-+		if (reason_code > 0)
-+			goto decline_rdma;
- 	}
- 
- out_connected:
-@@ -1111,6 +1195,12 @@ static int __init smc_init(void)
- 	if (rc)
- 		return rc;
- 
-+	rc = smc_llc_init();
-+	if (rc) {
-+		pr_err("%s: smc_llc_init fails with %d\n", __func__, rc);
-+		goto out_pnet;
-+	}
++/* convert the RMB size from compressed notation into integer */
++static inline int smc_uncompress_bufsize(u8 compressed)
++{
++	u32 size;
 +
- 	rc = proto_register(&smc_proto, 1);
- 	if (rc) {
- 		pr_err("%s: proto_register fails with %d\n", __func__, rc);
-diff --git a/net/smc/smc_clc.h b/net/smc/smc_clc.h
-index 5924d99..13db8ce 100644
---- a/net/smc/smc_clc.h
-+++ b/net/smc/smc_clc.h
-@@ -33,6 +33,8 @@ static const char SMC_EYECATCHER[4] = {'\xe2', '\xd4', '\xc3', '\xd9'};
- #define SMC_CLC_DECL_SYNCERR	0x04000000  /* synchronization error          */
- #define SMC_CLC_DECL_REPLY	0x06000000  /* reply to a received decline    */
- #define SMC_CLC_DECL_INTERR	0x99990000  /* internal error                 */
-+#define SMC_CLC_DECL_TCL	0x02040000  /* timeout w4 QP confirm          */
-+#define SMC_CLC_DECL_SEND	0x07000000  /* sending problem                */
++	size = 0x00000001 << (((int)compressed) + 14);
++	return (int)size;
++}
++
+ #ifdef CONFIG_XFRM
+ static inline bool using_ipsec(struct smc_sock *smc)
+ {
+diff --git a/net/smc/smc_clc.c b/net/smc/smc_clc.c
+index f8e47c0..4b475dd 100644
+--- a/net/smc/smc_clc.c
++++ b/net/smc/smc_clc.c
+@@ -252,13 +252,13 @@ int smc_clc_send_accept(struct smc_sock *new_smc, int srv_first_contact)
+ 	       SMC_GID_SIZE);
+ 	memcpy(&aclc.lcl.mac, link->smcibdev->mac[link->ibport - 1],
+ 	       sizeof(link->smcibdev->mac[link->ibport - 1]));
+-
+-	/* tbd in follow-on patch: fill in rmb-related values */
+-
+ 	hton24(aclc.qpn, link->roce_qp->qp_num);
+ 	aclc.conn_idx = 1;			/* as long as 1 RMB = 1 RMBE */
+ 	aclc.rmbe_alert_token = htonl(conn->alert_token_local);
+ 	aclc.qp_mtu = link->path_mtu;
++	aclc.rmbe_size = conn->rmbe_size_short,
++	aclc.rmb_dma_addr =
++		cpu_to_be64((u64)conn->rmb_desc->dma_addr[SMC_SINGLE_LINK]);
+ 	hton24(aclc.psn, link->psn_initial);
+ 	memcpy(aclc.trl.eyecatcher, SMC_EYECATCHER, sizeof(SMC_EYECATCHER));
  
- struct smc_clc_msg_hdr {	/* header1 of clc messages */
- 	u8 eyecatcher[4];	/* eye catcher */
 diff --git a/net/smc/smc_core.c b/net/smc/smc_core.c
-index 0e9adbd..906d88c 100644
+index b88a829..e1b9572 100644
 --- a/net/smc/smc_core.c
 +++ b/net/smc/smc_core.c
-@@ -21,9 +21,13 @@
- #include "smc_core.h"
- #include "smc_ib.h"
- #include "smc_wr.h"
-+#include "smc_llc.h"
+@@ -133,6 +133,7 @@ static int smc_lgr_create(struct smc_sock *smc, __be32 peer_in_addr,
+ 	struct smc_link *lnk;
+ 	u8 rndvec[3];
+ 	int rc = 0;
++	int i;
  
-+#define SMC_LGR_NUM_INCR	256
- #define SMC_LGR_FREE_DELAY	(600 * HZ)
- 
-+static u32 smc_lgr_num;			/* unique link group number */
-+
- /* Register connection's alert token in our lookup structure.
-  * To use rbtrees we have to implement our own insert core.
-  * Requires @conns_lock
-@@ -152,6 +156,8 @@ static int smc_lgr_create(struct smc_sock *smc, __be32 peer_in_addr,
- 		INIT_LIST_HEAD(&lgr->sndbufs[i]);
- 		INIT_LIST_HEAD(&lgr->rmbs[i]);
- 	}
-+	smc_lgr_num += SMC_LGR_NUM_INCR;
-+	memcpy(&lgr->id, (u8 *)&smc_lgr_num, SMC_LGR_ID_SIZE);
+ 	lgr = kzalloc(sizeof(*lgr), GFP_KERNEL);
+ 	if (!lgr) {
+@@ -144,6 +145,12 @@ static int smc_lgr_create(struct smc_sock *smc, __be32 peer_in_addr,
+ 	lgr->daddr = peer_in_addr;
+ 	memcpy(lgr->peer_systemid, peer_systemid, SMC_SYSTEMID_LEN);
+ 	lgr->vlan_id = vlan_id;
++	rwlock_init(&lgr->sndbufs_lock);
++	rwlock_init(&lgr->rmbs_lock);
++	for (i = 0; i < SMC_RMBE_SIZES; i++) {
++		INIT_LIST_HEAD(&lgr->sndbufs[i]);
++		INIT_LIST_HEAD(&lgr->rmbs[i]);
++	}
  	INIT_DELAYED_WORK(&lgr->free_work, smc_lgr_free_work);
  	lgr->conns_all = RB_ROOT;
  
-@@ -177,6 +183,8 @@ static int smc_lgr_create(struct smc_sock *smc, __be32 peer_in_addr,
- 	rc = smc_wr_create_link(lnk);
- 	if (rc)
- 		goto destroy_qp;
-+	init_completion(&lnk->llc_confirm);
-+	init_completion(&lnk->llc_confirm_resp);
+@@ -164,6 +171,22 @@ static int smc_lgr_create(struct smc_sock *smc, __be32 peer_in_addr,
+ 	return rc;
+ }
  
- 	smc->conn.lgr = lgr;
- 	rwlock_init(&lgr->conns_lock);
++static void smc_sndbuf_unuse(struct smc_connection *conn)
++{
++	if (conn->sndbuf_desc) {
++		conn->sndbuf_desc->used = 0;
++		conn->sndbuf_size = 0;
++	}
++}
++
++static void smc_rmb_unuse(struct smc_connection *conn)
++{
++	if (conn->rmb_desc) {
++		conn->rmb_desc->used = 0;
++		conn->rmbe_size = 0;
++	}
++}
++
+ /* remove a finished connection from its link group */
+ void smc_conn_free(struct smc_connection *conn)
+ {
+@@ -172,6 +195,8 @@ void smc_conn_free(struct smc_connection *conn)
+ 	if (!lgr)
+ 		return;
+ 	smc_lgr_unregister_conn(conn);
++	smc_rmb_unuse(conn);
++	smc_sndbuf_unuse(conn);
+ }
+ 
+ static void smc_link_clear(struct smc_link *lnk)
+@@ -179,9 +204,39 @@ static void smc_link_clear(struct smc_link *lnk)
+ 	lnk->peer_qpn = 0;
+ }
+ 
++static void smc_lgr_free_sndbufs(struct smc_link_group *lgr)
++{
++	struct smc_buf_desc *sndbuf_desc, *bf_desc;
++	int i;
++
++	for (i = 0; i < SMC_RMBE_SIZES; i++) {
++		list_for_each_entry_safe(sndbuf_desc, bf_desc, &lgr->sndbufs[i],
++					 list) {
++			kfree(sndbuf_desc->cpu_addr);
++			kfree(sndbuf_desc);
++		}
++	}
++}
++
++static void smc_lgr_free_rmbs(struct smc_link_group *lgr)
++{
++	struct smc_buf_desc *rmb_desc, *bf_desc;
++	int i;
++
++	for (i = 0; i < SMC_RMBE_SIZES; i++) {
++		list_for_each_entry_safe(rmb_desc, bf_desc, &lgr->rmbs[i],
++					 list) {
++			kfree(rmb_desc->cpu_addr);
++			kfree(rmb_desc);
++		}
++	}
++}
++
+ /* remove a link group */
+ void smc_lgr_free(struct smc_link_group *lgr)
+ {
++	smc_lgr_free_rmbs(lgr);
++	smc_lgr_free_sndbufs(lgr);
+ 	smc_link_clear(&lgr->lnk[SMC_SINGLE_LINK]);
+ 	kfree(lgr);
+ }
+@@ -300,7 +355,9 @@ int smc_conn_create(struct smc_sock *smc, __be32 peer_in_addr,
+ 			    sizeof(lcl->mac)) &&
+ 		    !lgr->sync_err &&
+ 		    (lgr->role == role) &&
+-		    (lgr->vlan_id == vlan_id)) {
++		    (lgr->vlan_id == vlan_id) &&
++		    ((role == SMC_CLNT) ||
++		     (lgr->conns_num < SMC_RMBS_PER_LGR_MAX))) {
+ 			/* link group found */
+ 			local_contact = SMC_REUSE_CONTACT;
+ 			conn->lgr = lgr;
+@@ -334,3 +391,168 @@ int smc_conn_create(struct smc_sock *smc, __be32 peer_in_addr,
+ out:
+ 	return rc ? rc : local_contact;
+ }
++
++/* try to reuse a sndbuf description slot of the sndbufs list for a certain
++ * buf_size; if not available, return NULL
++ */
++static inline
++struct smc_buf_desc *smc_sndbuf_get_slot(struct smc_link_group *lgr,
++					 int compressed_bufsize)
++{
++	struct smc_buf_desc *sndbuf_slot;
++
++	read_lock_bh(&lgr->sndbufs_lock);
++	list_for_each_entry(sndbuf_slot, &lgr->sndbufs[compressed_bufsize],
++			    list) {
++		if (cmpxchg(&sndbuf_slot->used, 0, 1) == 0) {
++			read_unlock_bh(&lgr->sndbufs_lock);
++			return sndbuf_slot;
++		}
++	}
++	read_unlock_bh(&lgr->sndbufs_lock);
++	return NULL;
++}
++
++/* try to reuse an rmb description slot of the rmbs list for a certain
++ * rmbe_size; if not available, return NULL
++ */
++static inline
++struct smc_buf_desc *smc_rmb_get_slot(struct smc_link_group *lgr,
++				      int compressed_bufsize)
++{
++	struct smc_buf_desc *rmb_slot;
++
++	read_lock_bh(&lgr->rmbs_lock);
++	list_for_each_entry(rmb_slot, &lgr->rmbs[compressed_bufsize],
++			    list) {
++		if (cmpxchg(&rmb_slot->used, 0, 1) == 0) {
++			read_unlock_bh(&lgr->rmbs_lock);
++			return rmb_slot;
++		}
++	}
++	read_unlock_bh(&lgr->rmbs_lock);
++	return NULL;
++}
++
++/* create the tx buffer for an SMC socket */
++int smc_sndbuf_create(struct smc_sock *smc)
++{
++	struct smc_connection *conn = &smc->conn;
++	struct smc_link_group *lgr = conn->lgr;
++	int tmp_bufsize, tmp_bufsize_short;
++	struct smc_buf_desc *sndbuf_desc;
++	int rc;
++
++	/* use socket send buffer size (w/o overhead) as start value */
++	for (tmp_bufsize_short = smc_compress_bufsize(smc->sk.sk_sndbuf / 2);
++	     tmp_bufsize_short >= 0; tmp_bufsize_short--) {
++		tmp_bufsize = smc_uncompress_bufsize(tmp_bufsize_short);
++		/* check for reusable sndbuf_slot in the link group */
++		sndbuf_desc = smc_sndbuf_get_slot(lgr, tmp_bufsize_short);
++		if (sndbuf_desc) {
++			memset(sndbuf_desc->cpu_addr, 0, tmp_bufsize);
++			break; /* found reusable slot */
++		}
++		/* try to alloc a new send buffer */
++		sndbuf_desc = kzalloc(sizeof(*sndbuf_desc), GFP_KERNEL);
++		if (!sndbuf_desc)
++			break; /* give up with -ENOMEM */
++		sndbuf_desc->cpu_addr = kzalloc(tmp_bufsize,
++						GFP_KERNEL | __GFP_NOWARN |
++						__GFP_NOMEMALLOC |
++						__GFP_NORETRY);
++		if (!sndbuf_desc->cpu_addr) {
++			kfree(sndbuf_desc);
++			/* if send buffer allocation has failed,
++			 * try a smaller one
++			 */
++			continue;
++		}
++		rc = smc_ib_buf_map(lgr->lnk[SMC_SINGLE_LINK].smcibdev,
++				    tmp_bufsize, sndbuf_desc,
++				    DMA_TO_DEVICE);
++		if (rc) {
++			kfree(sndbuf_desc->cpu_addr);
++			kfree(sndbuf_desc);
++			continue; /* if mapping failed, try smaller one */
++		}
++		sndbuf_desc->used = 1;
++		write_lock_bh(&lgr->sndbufs_lock);
++		list_add(&sndbuf_desc->list,
++			 &lgr->sndbufs[tmp_bufsize_short]);
++		write_unlock_bh(&lgr->sndbufs_lock);
++		break;
++	}
++	if (sndbuf_desc && sndbuf_desc->cpu_addr) {
++		conn->sndbuf_desc = sndbuf_desc;
++		conn->sndbuf_size = tmp_bufsize;
++		smc->sk.sk_sndbuf = tmp_bufsize * 2;
++		return 0;
++	} else {
++		return -ENOMEM;
++	}
++}
++
++/* create the RMB for an SMC socket (even though the SMC protocol
++ * allows more than one RMB-element per RMB, the Linux implementation
++ * uses just one RMB-element per RMB, i.e. uses an extra RMB for every
++ * connection in a link group
++ */
++int smc_rmb_create(struct smc_sock *smc)
++{
++	struct smc_connection *conn = &smc->conn;
++	struct smc_link_group *lgr = conn->lgr;
++	int tmp_bufsize, tmp_bufsize_short;
++	struct smc_buf_desc *rmb_desc;
++	int rc;
++
++	/* use socket recv buffer size (w/o overhead) as start value */
++	for (tmp_bufsize_short = smc_compress_bufsize(smc->sk.sk_rcvbuf / 2);
++	     tmp_bufsize_short >= 0; tmp_bufsize_short--) {
++		tmp_bufsize = smc_uncompress_bufsize(tmp_bufsize_short);
++		/* check for reusable rmb_slot in the link group */
++		rmb_desc = smc_rmb_get_slot(lgr, tmp_bufsize_short);
++		if (rmb_desc) {
++			memset(rmb_desc->cpu_addr, 0, tmp_bufsize);
++			break; /* found reusable slot */
++		}
++		/* try to alloc a new RMB */
++		rmb_desc = kzalloc(sizeof(*rmb_desc), GFP_KERNEL);
++		if (!rmb_desc)
++			break; /* give up with -ENOMEM */
++		rmb_desc->cpu_addr = kzalloc(tmp_bufsize,
++					     GFP_KERNEL | __GFP_NOWARN |
++					     __GFP_NOMEMALLOC |
++					     __GFP_NORETRY);
++		if (!rmb_desc->cpu_addr) {
++			kfree(rmb_desc);
++			/* if RMB allocation has failed,
++			 * try a smaller one
++			 */
++			continue;
++		}
++		rc = smc_ib_buf_map(lgr->lnk[SMC_SINGLE_LINK].smcibdev,
++				    tmp_bufsize, rmb_desc,
++				    DMA_FROM_DEVICE);
++		if (rc) {
++			kfree(rmb_desc->cpu_addr);
++			kfree(rmb_desc);
++			continue; /* if mapping failed, try smaller one */
++		}
++		rmb_desc->used = 1;
++		write_lock_bh(&lgr->rmbs_lock);
++		list_add(&rmb_desc->list,
++			 &lgr->rmbs[tmp_bufsize_short]);
++		write_unlock_bh(&lgr->rmbs_lock);
++		break;
++	}
++	if (rmb_desc && rmb_desc->cpu_addr) {
++		conn->rmb_desc = rmb_desc;
++		conn->rmbe_size = tmp_bufsize;
++		conn->rmbe_size_short = tmp_bufsize_short;
++		smc->sk.sk_rcvbuf = tmp_bufsize * 2;
++		return 0;
++	} else {
++		return -ENOMEM;
++	}
++}
 diff --git a/net/smc/smc_core.h b/net/smc/smc_core.h
-index f5ea520..27eb3805 100644
+index 14b787a..bf0026d 100644
 --- a/net/smc/smc_core.h
 +++ b/net/smc/smc_core.h
-@@ -73,6 +73,9 @@ struct smc_link {
- 	u32			peer_psn;	/* QP rx initial packet seqno */
- 	u8			peer_mac[ETH_ALEN];	/* = gid[8:10||13:15] */
- 	u8			peer_gid[sizeof(union ib_gid)];	/* gid of peer*/
-+	u8			link_id;	/* unique # within link group */
-+	struct completion	llc_confirm;	/* wait for rx of conf link */
-+	struct completion	llc_confirm_resp; /* wait 4 rx of cnf lnk rsp */
- };
+@@ -16,6 +16,8 @@
+ #include "smc.h"
+ #include "smc_ib.h"
  
- /* For now we just allow one parallel link per link group. The SMC protocol
-@@ -102,6 +105,8 @@ struct smc_rtoken {				/* address/key of remote RMB */
- 	u32			rkey;
- };
++#define SMC_RMBS_PER_LGR_MAX	255	/* max. # of RMBs per link group */
++
+ struct smc_lgr_list {			/* list of link group definition */
+ 	struct list_head	list;
+ 	spinlock_t		lock;	/* protects list of link groups */
+@@ -52,6 +54,15 @@ struct smc_link {
+ #define SMC_FIRST_CONTACT	1		/* first contact to a peer */
+ #define SMC_REUSE_CONTACT	0		/* follow-on contact to a peer*/
  
-+#define SMC_LGR_ID_SIZE		4
++/* tx/rx buffer list element for sndbufs list and rmbs list of a lgr */
++struct smc_buf_desc {
++	struct list_head	list;
++	u64			dma_addr[SMC_LINKS_PER_LGR_MAX];
++						/* mapped address of buffer */
++	void			*cpu_addr;	/* virtual address of buffer */
++	u32			used;		/* currently used / unused */
++};
 +
  struct smc_link_group {
  	struct list_head	list;
  	enum smc_lgr_role	role;		/* client or server */
-@@ -125,6 +130,7 @@ struct smc_link_group {
- 							SMC_RMBS_PER_LGR_MAX)];
- 						/* used rtoken elements */
- 
-+	u8			id[SMC_LGR_ID_SIZE];	/* unique lgr id */
+@@ -63,6 +74,11 @@ struct smc_link_group {
+ 	rwlock_t		conns_lock;	/* protects conns_all */
+ 	unsigned int		conns_num;	/* current # of connections */
+ 	unsigned short		vlan_id;	/* vlan id of link group */
++
++	struct list_head	sndbufs[SMC_RMBE_SIZES];/* tx buffers */
++	rwlock_t		sndbufs_lock;	/* protects tx buffers */
++	struct list_head	rmbs[SMC_RMBE_SIZES];	/* rx buffers */
++	rwlock_t		rmbs_lock;	/* protects rx buffers */
  	struct delayed_work	free_work;	/* delayed freeing of an lgr */
  	bool			sync_err;	/* lgr no longer fits to peer */
  };
-diff --git a/net/smc/smc_llc.c b/net/smc/smc_llc.c
-new file mode 100644
-index 0000000..c2f9165
---- /dev/null
-+++ b/net/smc/smc_llc.c
-@@ -0,0 +1,158 @@
-+/*
-+ *  Shared Memory Communications over RDMA (SMC-R) and RoCE
-+ *
-+ *  Link Layer Control (LLC)
-+ *
-+ *  For now, we only support the necessary "confirm link" functionality
-+ *  which happens for the first RoCE link after successful CLC handshake.
-+ *
-+ *  Copyright IBM Corp. 2016
-+ *
-+ *  Author(s):  Klaus Wacker <Klaus.Wacker@de.ibm.com>
-+ *              Ursula Braun <ubraun@linux.vnet.ibm.com>
-+ */
+@@ -100,7 +116,12 @@ static inline struct smc_connection *smc_lgr_find_conn(
+ 	return res;
+ }
+ 
++struct smc_sock;
++struct smc_clc_msg_accept_confirm;
 +
-+#include <net/tcp.h>
-+#include <rdma/ib_verbs.h>
-+
-+#include "smc.h"
+ void smc_lgr_free(struct smc_link_group *lgr);
+ void smc_lgr_terminate(struct smc_link_group *lgr);
++int smc_sndbuf_create(struct smc_sock *smc);
++int smc_rmb_create(struct smc_sock *smc);
+ 
+ #endif
+diff --git a/net/smc/smc_ib.c b/net/smc/smc_ib.c
+index 5b037f4..762b7e1 100644
+--- a/net/smc/smc_ib.c
++++ b/net/smc/smc_ib.c
+@@ -16,6 +16,7 @@
+ 
+ #include "smc_pnet.h"
+ #include "smc_ib.h"
 +#include "smc_core.h"
-+#include "smc_clc.h"
-+#include "smc_llc.h"
-+
-+/********************************** send *************************************/
-+
-+struct smc_llc_tx_pend {
-+};
-+
-+/* handler for send/transmission completion of an LLC msg */
-+static void smc_llc_tx_handler(struct smc_wr_tx_pend_priv *pend,
-+			       struct smc_link *link,
-+			       enum ib_wc_status wc_status)
+ #include "smc.h"
+ 
+ struct smc_ib_devices smc_ib_devices = {	/* smc-registered ib devices */
+@@ -29,6 +30,24 @@ u8 local_systemid[SMC_SYSTEMID_LEN] = SMC_LOCAL_SYSTEMID_RESET;	/* unique system
+ 								 * identifier
+ 								 */
+ 
++/* map a new TX or RX buffer to DMA */
++int smc_ib_buf_map(struct smc_ib_device *smcibdev, int buf_size,
++		   struct smc_buf_desc *buf_slot,
++		   enum dma_data_direction data_direction)
 +{
-+	/* future work: handle wc_status error for recovery and failover */
-+}
-+
-+/**
-+ * smc_llc_add_pending_send() - add LLC control message to pending WQE transmits
-+ * @link: Pointer to SMC link used for sending LLC control message.
-+ * @wr_buf: Out variable returning pointer to work request payload buffer.
-+ * @pend: Out variable returning pointer to private pending WR tracking.
-+ *	  It's the context the transmit complete handler will get.
-+ *
-+ * Reserves and pre-fills an entry for a pending work request send/tx.
-+ * Used by mid-level smc_llc_send_msg() to prepare for later actual send/tx.
-+ * Can sleep due to smc_get_ctrl_buf (if not in softirq context).
-+ *
-+ * Return: 0 on success, otherwise an error value.
-+ */
-+static int smc_llc_add_pending_send(struct smc_link *link,
-+				    struct smc_wr_buf **wr_buf,
-+				    struct smc_wr_tx_pend_priv **pend)
-+{
-+	int rc;
-+
-+	rc = smc_wr_tx_get_free_slot(link, smc_llc_tx_handler, wr_buf, pend);
-+	if (rc < 0)
-+		return rc;
-+	BUILD_BUG_ON_MSG(
-+		sizeof(union smc_llc_msg) > SMC_WR_BUF_SIZE,
-+		"must increase SMC_WR_BUF_SIZE to at least sizeof(struct smc_llc_msg)");
-+	BUILD_BUG_ON_MSG(
-+		sizeof(union smc_llc_msg) != SMC_WR_TX_SIZE,
-+		"must adapt SMC_WR_TX_SIZE to sizeof(struct smc_llc_msg); if not all smc_wr upper layer protocols use the same message size any more, must start to set link->wr_tx_sges[i].length on each individual smc_wr_tx_send()");
-+	BUILD_BUG_ON_MSG(
-+		sizeof(struct smc_llc_tx_pend) > SMC_WR_TX_PEND_PRIV_SIZE,
-+		"must increase SMC_WR_TX_PEND_PRIV_SIZE to at least sizeof(struct smc_llc_tx_pend)");
-+	return 0;
-+}
-+
-+/* high-level API to send LLC confirm link */
-+int smc_llc_send_confirm_link(struct smc_link *link, u8 mac[],
-+			      union ib_gid *gid,
-+			      enum smc_llc_reqresp reqresp)
-+{
-+	struct smc_link_group *lgr = container_of(link, struct smc_link_group,
-+						  lnk[SMC_SINGLE_LINK]);
-+	struct smc_llc_msg_confirm_link *confllc;
-+	struct smc_wr_tx_pend_priv *pend;
-+	struct smc_wr_buf *wr_buf;
-+	int rc;
-+
-+	rc = smc_llc_add_pending_send(link, &wr_buf, &pend);
-+	if (rc)
-+		return rc;
-+	confllc = (struct smc_llc_msg_confirm_link *)wr_buf;
-+	memset(confllc, 0, sizeof(*confllc));
-+	confllc->hd.common.type = SMC_LLC_CONFIRM_LINK;
-+	confllc->hd.length = sizeof(struct smc_llc_msg_confirm_link);
-+	if (reqresp == SMC_LLC_RESP)
-+		confllc->hd.flags |= SMC_LLC_FLAG_RESP;
-+	memcpy(confllc->sender_mac, mac, ETH_ALEN);
-+	memcpy(confllc->sender_gid, gid, SMC_GID_SIZE);
-+	hton24(confllc->sender_qp_num, link->roce_qp->qp_num);
-+	/* confllc->link_num = SMC_SINGLE_LINK; already done by memset above */
-+	memcpy(confllc->link_uid, lgr->id, SMC_LGR_ID_SIZE);
-+	confllc->max_links = SMC_LINKS_PER_LGR_MAX;
-+	/* send llc message */
-+	rc = smc_wr_tx_send(link, pend);
-+	return rc;
-+}
-+
-+/********************************* receive ***********************************/
-+
-+static void smc_llc_rx_confirm_link(struct smc_link *link,
-+				    struct smc_llc_msg_confirm_link *llc)
-+{
-+	struct smc_link_group *lgr;
-+
-+	lgr = container_of(link, struct smc_link_group, lnk[SMC_SINGLE_LINK]);
-+	if (llc->hd.flags & SMC_LLC_FLAG_RESP) {
-+		if (lgr->role == SMC_SERV)
-+			complete(&link->llc_confirm_resp);
-+	} else {
-+		if (lgr->role == SMC_CLNT) {
-+			link->link_id = llc->link_num;
-+			complete(&link->llc_confirm);
-+		}
-+	}
-+}
-+
-+static void smc_llc_rx_handler(struct ib_wc *wc, void *buf)
-+{
-+	struct smc_link *link = (struct smc_link *)wc->qp->qp_context;
-+	union smc_llc_msg *llc = buf;
-+
-+	if (wc->byte_len < sizeof(*llc))
-+		return; /* short message */
-+	if (llc->raw.hdr.length != sizeof(*llc))
-+		return; /* invalid message */
-+	if (llc->raw.hdr.common.type == SMC_LLC_CONFIRM_LINK)
-+		smc_llc_rx_confirm_link(link, &llc->confirm_link);
-+}
-+
-+/***************************** init, exit, misc ******************************/
-+
-+static struct smc_wr_rx_handler smc_llc_rx_handlers[] = {
-+	{
-+		.handler	= smc_llc_rx_handler,
-+		.type		= SMC_LLC_CONFIRM_LINK
-+	},
-+	{
-+		.handler	= NULL,
-+	}
-+};
-+
-+int __init smc_llc_init(void)
-+{
-+	struct smc_wr_rx_handler *handler;
 +	int rc = 0;
 +
-+	for (handler = smc_llc_rx_handlers; handler->handler; handler++) {
-+		INIT_HLIST_NODE(&handler->list);
-+		rc = smc_wr_rx_register_handler(handler);
-+		if (rc)
-+			break;
-+	}
++	if (buf_slot->dma_addr[SMC_SINGLE_LINK])
++		return rc; /* already mapped */
++	buf_slot->dma_addr[SMC_SINGLE_LINK] =
++		ib_dma_map_single(smcibdev->ibdev, buf_slot->cpu_addr,
++				  buf_size, data_direction);
++	if (ib_dma_mapping_error(smcibdev->ibdev,
++				 buf_slot->dma_addr[SMC_SINGLE_LINK]))
++		rc = -EIO;
 +	return rc;
 +}
-diff --git a/net/smc/smc_llc.h b/net/smc/smc_llc.h
-new file mode 100644
-index 0000000..b472f85
---- /dev/null
-+++ b/net/smc/smc_llc.h
-@@ -0,0 +1,63 @@
-+/*
-+ *  Shared Memory Communications over RDMA (SMC-R) and RoCE
-+ *
-+ *  Definitions for LLC (link layer control) message handling
-+ *
-+ *  Copyright IBM Corp. 2016
-+ *
-+ *  Author(s):  Klaus Wacker <Klaus.Wacker@de.ibm.com>
-+ *              Ursula Braun <ubraun@linux.vnet.ibm.com>
-+ */
 +
-+#ifndef SMC_LLC_H
-+#define SMC_LLC_H
+ static int smc_ib_fill_gid_and_mac(struct smc_ib_device *smcibdev, u8 ibport)
+ {
+ 	struct net_device *ndev;
+diff --git a/net/smc/smc_ib.h b/net/smc/smc_ib.h
+index 63613e7..c3b6172 100644
+--- a/net/smc/smc_ib.h
++++ b/net/smc/smc_ib.h
+@@ -32,9 +32,14 @@ struct smc_ib_device {				/* ib-device infos for smc */
+ 	u8			initialized : 1; /* ib dev CQ, evthdl done */
+ };
+ 
++struct smc_buf_desc;
 +
-+#include "smc_wr.h"
-+
-+#define SMC_LLC_FLAG_RESP		0x80
-+
-+#define SMC_LLC_WAIT_FIRST_TIME		(5 * HZ)
-+
-+enum smc_llc_reqresp {
-+	SMC_LLC_REQ,
-+	SMC_LLC_RESP
-+};
-+
-+enum smc_llc_msg_type {
-+	SMC_LLC_CONFIRM_LINK		= 0x01,
-+};
-+
-+#define SMC_LLC_DATA_LEN		40
-+
-+struct smc_llc_hdr {
-+	struct smc_wr_rx_hdr common;
-+	u8 length;	/* 44 */
-+	u8 reserved;
-+	u8 flags;
-+};
-+
-+struct smc_llc_msg_confirm_link {	/* type 0x01 */
-+	struct smc_llc_hdr hd;
-+	u8 sender_mac[ETH_ALEN];
-+	u8 sender_gid[SMC_GID_SIZE];
-+	u8 sender_qp_num[3];
-+	u8 link_num;
-+	u8 link_uid[SMC_LGR_ID_SIZE];
-+	u8 max_links;
-+	u8 reserved[9];
-+};
-+
-+union smc_llc_msg {
-+	struct smc_llc_msg_confirm_link confirm_link;
-+	struct {
-+		struct smc_llc_hdr hdr;
-+		u8 data[SMC_LLC_DATA_LEN];
-+	} raw;
-+};
-+
-+/* transmit */
-+int smc_llc_send_confirm_link(struct smc_link *lnk, u8 mac[], union ib_gid *gid,
-+			      enum smc_llc_reqresp reqresp);
-+int smc_llc_init(void) __init;
-+
-+#endif /* SMC_LLC_H */
+ int smc_ib_register_client(void) __init;
+ void smc_ib_unregister_client(void);
+ bool smc_ib_port_active(struct smc_ib_device *smcibdev, u8 ibport);
+ int smc_ib_remember_port_attr(struct smc_ib_device *smcibdev, u8 ibport);
++int smc_ib_buf_map(struct smc_ib_device *smcibdev, int buf_size,
++		   struct smc_buf_desc *buf_slot,
++		   enum dma_data_direction data_direction);
+ 
+ #endif
 -- 
 2.8.4
