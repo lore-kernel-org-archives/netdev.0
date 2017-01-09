@@ -1,40 +1,31 @@
-From: Randy Dunlap <rdunlap@infradead.org>
-Subject: Re: [PATCH net-next] net: dsa: select NET_SWITCHDEV
-Date: Sun, 8 Jan 2017 17:32:00 -0800
-Message-ID: <336a46c0-705a-9cf0-1a0d-447af28893bb@infradead.org>
-References: <20170108231724.27398-1-vivien.didelot@savoirfairelinux.com>
- <ae5c2999-98a3-1b88-dd1d-970d958f6d7a@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/6] convert tc_verd to integer bitfields
+Date: Sun, 08 Jan 2017 21:10:21 -0500 (EST)
+Message-ID: <20170108.211021.745218643834342813.davem@davemloft.net>
+References: <20170107220638.61314-1-willemdebruijn.kernel@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Andrew Lunn <andrew@lunn.ch>, Jiri Pirko <jiri@resnulli.us>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, fw@strlen.de, dborkman@iogearbox.net,
+        jhs@mojatatu.com, alexei.starovoitov@gmail.com,
+        eric.dumazet@gmail.com, willemb@google.com
+To: willemdebruijn.kernel@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([198.137.202.9]:43144 "EHLO
-        bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965459AbdAIBcH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 8 Jan 2017 20:32:07 -0500
-In-Reply-To: <ae5c2999-98a3-1b88-dd1d-970d958f6d7a@gmail.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:47276 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1031392AbdAICK1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 8 Jan 2017 21:10:27 -0500
+In-Reply-To: <20170107220638.61314-1-willemdebruijn.kernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/08/17 17:18, Florian Fainelli wrote:
-> On 01/08/2017 03:17 PM, Vivien Didelot wrote:
->> DSA wraps SWITCHDEV, thus select it instead of depending on it.
->>
->> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-> 
-> Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
-> 
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Date: Sat,  7 Jan 2017 17:06:32 -0500
 
-but when CONFIG_INET is not enabled, the patch causes this warning:
+> The skb tc_verd field takes up two bytes but uses far fewer bits.
+> Convert the remaining use cases to bitfields that fit in existing
+> holes (depending on config options) and potentially save the two
+> bytes in struct sk_buff.
+ ...
 
-warning: (NET_DSA) selects NET_SWITCHDEV which has unmet direct dependencies (NET && INET)
-
-
--- 
-~Randy
+Series applied, thanks!
