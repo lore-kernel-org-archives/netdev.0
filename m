@@ -1,513 +1,1107 @@
 From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Subject: [PATCH V4 net-next 00/15] net/smc: Shared Memory Communications - RDMA
-Date: Mon,  9 Jan 2017 16:55:11 +0100
-Message-ID: <20170109155526.10961-1-ubraun@linux.vnet.ibm.com>
+Subject: [PATCH V4 net-next 14/15] smc: socket closing and linkgroup cleanup
+Date: Mon,  9 Jan 2017 16:55:25 +0100
+Message-ID: <20170109155526.10961-15-ubraun@linux.vnet.ibm.com>
+References: <20170109155526.10961-1-ubraun@linux.vnet.ibm.com>
 Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
         schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
         utz.bacher@de.ibm.com, ubraun@linux.vnet.ibm.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:45646 "EHLO
+Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:37704 "EHLO
         mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S965090AbdAIPzg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 10:55:36 -0500
-Received: from pps.filterd (m0098399.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id v09FrvJo031452
-        for <netdev@vger.kernel.org>; Mon, 9 Jan 2017 10:55:36 -0500
+        by vger.kernel.org with ESMTP id S970067AbdAIPzy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 10:55:54 -0500
+Received: from pps.filterd (m0098394.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id v09FsvtW065277
+        for <netdev@vger.kernel.org>; Mon, 9 Jan 2017 10:55:54 -0500
 Received: from e06smtp14.uk.ibm.com (e06smtp14.uk.ibm.com [195.75.94.110])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 27vd6rh66c-1
+        by mx0a-001b2d01.pphosted.com with ESMTP id 27vd7714pc-1
         (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Mon, 09 Jan 2017 10:55:36 -0500
+        for <netdev@vger.kernel.org>; Mon, 09 Jan 2017 10:55:54 -0500
 Received: from localhost
         by e06smtp14.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
         for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
-        Mon, 9 Jan 2017 15:55:33 -0000
+        Mon, 9 Jan 2017 15:55:50 -0000
+In-Reply-To: <20170109155526.10961-1-ubraun@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+smc_shutdown() and smc_release() handling
+delayed linkgroup cleanup for linkgroups without connections
 
-Dave,
-
-here is now V4 of the SMC-R patches having processed your feedback from end
-of November. The most important change is the replacement of sysfs by a
-generic netlink solution in patch 04. And I tried to get rid of the __packed
-attributes. There are still a few usages left due to SMC-R protocol defined
-structures.
-
-V4 changes:
-The order of patches 03 and 04 for pnet table management and SMC IB-client
-establishing has been exchanged, since pnet table management is now built on
-top of smc_ib_devices.
-Patch 01: Use EXPORT_SYMBOL_GPL().
-Patch 02: Define "use_fallback" as bool.
-          Get rid of useless smc_sock fields clearing in smc_sock_alloc(),
-          since sk_alloc() clears out the memory.
-Patch 03: Postpone smc_ib_remember_port_attr() call till ib_device is
-          mentioned in the pnet table.
-Patch 04: Replace sysfs-usage by a generic netlink approach for pnet table
-          configuration.
-          Change layout of pnet table entries to reference net_device and
-          ib_device instead of dealing with names of net_devices and
-          ib_devices.
-Patch 05: Adapt "use_fallback" usages to new type bool.
-          Get rid of useless smc_sock fields clearing in smc_sock_alloc()
-          Avoid __packed where possible.
-          Check if clc responses are not too big.
-Patch 09: Postpone smc_setup_per_ibdev till the first connection with this
-          ib_device is really created.
-Patch 11: Get rid of __packed usage.
-
-V3 changes:
-Patch 05: Remove unneeded DEFINE_WAIT
-Patch 06: Improve synchronization of link group creation
-Patch 07: Rename peer_rmbe_len into peer_rmbe_size to be more consistent
-Patch 09: Avoid calls of ib_get_memory_region with IB_ACCESS_LOCAL_WRITE,
-          use new default local_dma_lkey from protection domain as lkey
-          instead.
-          Remove no longer needed function smc_ib_dereg_memory_region().
-Patch 14: Switch to state ACTIVE only if still in state INIT.
-          Return 0 for recvmsg invoked in a socket closing state.
-          Allow getname call in state APPCLOSEWAIT1
-          Do not trigger destruction of a socket-in-error queued in accept
-          queue.
-          During cleanup of accept queue, make sure sockets are destructed,
-          and sockets in fallback mode are handled appropriately.
-          When freeing sndbufs/rmbs, remove them from their list and free
-          the entry.
-          Use add_wait_queue() and remove_wait_queue() in close wait
-          functions.
-          If actively closing a socket in state for PEERFINCLOSEWAIT, keep
-          this state.
-          If passively closing a socket while bytes are to be received, move
-          to state APPCLOSEWAIT1.
-          If actively aborting a socket, skip sending the close_abort flag,
-          since RDMA communication is no longer possible.
-          When terminating a link group, do not schedule link group freeing a
-          2nd time, since already done when unregistering the last remaining
-          connection.
-Patch 15: Introduce smc_diag module for monitoring SMC protocol sockets.
-          This replaces the old patch 0015 dealing with procfs.
-
-V2 changes:
-Patch 0002: Add SMC versions for family key strings in net/core/sock.c.
-Patch 0006: initialize rb_tree.
-Patch 0007: Get rid of unneeded use of xchg() in smc_sndbuf_unuse() and
-            smc_rmb_unuse().
-Patch 0008: Correct error checking logic for ib_function calls.
-            Define struct smc_link field wr_tx_id as atomic_long_t.
-            Use "do_div" instead of "%" to be architecture-independent.
-Patch 0009: Correct error checking logic for ib_function calls.
-Patch 0011: Remove xchg() calls in cursor handling. Use atomic64_t for cursor
-            overlays on 64-bit architectures. If not available, use plain u64
-            and add locking for cursor reading and writing.
-            Implement smc_curs_add() without modulo operator "%".
-Patch 0012: Remove xchg() calls in cursor handling.
-            Implement smc_tx_rdma_writes() without module operator "%".
-Patch 0013: Remove xchg() calls in cursor handling.
-Patch 0014: Return type bool in smc_wr_tx_has_pending().
-            Remove unneeded semicolon in smc_close_shutdown_write().
-            Call smc_close_active() in non-fallback case only.
-            Get rid of duplicate schedule of sock_put_work().
-            Take nested sock_lock in smc_listen_work().
-            Start close stream_wait in case of prepared sends only.
-Patch 0015: Remove unneeded socket ref_count in smc_proc_seq_show().
-            Take lock before list_empty check in smc_proc_sock_list_del().
-
-These patches are the initial part of the implementation of the
-"Shared Memory Communications-RDMA" (SMC-R) protocol as defined in
-RFC7609 [1]. While SMC-R does not aim to replace TCP,
-it taps a wealth of existing data center TCP socket applications
-to become more efficient without the need for rewriting them.
-SMC-R uses RDMA over Converged Ethernet (RoCE) to save CPU consumption.
-For instance, when running 10 parallel connections with uperf, we measured
-a decrease of 60% in CPU consumption with SMC-R compared to TCP/IP
-(with throughput and latency comparable;
-measured on x86_64 with the same RoCE card and port).
-
-SMC-R does not require an RDMA communication manager (RDMA CM).
-
-SMC-R inherits TCP qualities such as reliable connections, host-based
-firewall packet filtering (on connection establishment) and unmodified
-application of communication encryption such as TLS (transport layer
-security) or SSL (secure sockets layer). Since original TCP is used to
-establish SMC-R connections, load balancers and packet inspection based
-on TCP/IP connection establishment continue to work for SMC-R.
-
-On the other hand, using SMC-R implies:
-- either involving a preload library when invoking the unchanged TCP-application
-  or slightly modifying the source by simply changing the socket family in
-  the socket() call
-- accepting extra overhead and latency in connection establishment due to
-  SMC Connection Layer Control (CLC) handshake
-- explicit coupling of RoCE ports with Ethernet ports
-- not routable as currently built on RoCE V1
-- bypassing of packet-based networking features
-    - filtering (netfilter)
-    - sniffing (libpcap, packet sockets, (E)BPF)
-    - traffic control (scheduling, shaping)
-- bypassing of IP-header based socket options
-- bypassing of memory buffer (pressure) management
-- unusable together with IPsec
-
-
-Overview of the SMC-R Protocol described in informational RFC 7609
-
-SMC-R is an open protocol that provides RDMA capabilities over RoCE
-transparently for applications exploiting TCP sockets.
-A new socket protocol family PF_SMC is introduced.
-There are no changes required to applications using the sockets API for TCP
-stream sockets other than the specification of the new socket family AF_SMC.
-Unmodified applications can be used by means of a dynamic preload shared
-library which rewrites the socket API call
-socket(AF_INET, SOCK_STREAM, IPPROTO_TCP) into
-socket(AF_SMC,  SOCK_STREAM, IPPROTO_TCP).
-SMC-R re-uses the address family AF_INET for all addressing purposes around
-struct sockaddr.
-
-
-SMC-R system architecture layers:
-
-+=============================================================================+
-|                                      | unmodified TCP application           |
-| native SMC application               +--------------------------------------+
-|                                      | dynamic preload shared library       |
-+=============================================================================+
-|                                 SMC socket                                  |
-+-----------------------------------------------------------------------------+
-|                    | TCP socket (for connection establishment and fallback) |
-| IB verbs           +--------------------------------------------------------+
-|                    | IP                                                     |
-+--------------------+--------------------------------------------------------+
-| RoCE device driver | some network device driver                             |
-+=============================================================================+
-
-
-Terms:
-
-A link group is determined by an ordered peer pair of TCP client and TCP server
-(IP addresses and subnet). Reversed client server roles cause an own link group.
-A link is a logical point-to-point connection based on an
-infiniband reliable connected queue pair (RC-QP) between two RoCE ports
-(MACs and GIDs) of a peer pair.
-A link group can have 1..8 links for failover and load balancing.
-This initial Linux implementation always has 1 link per link group.
-Each link group on a peer can have 1..255 remote memory buffers (RMBs).
-If more RMBs are needed, a peer can open another link group
-(this initial Linux implementation) or fall back to TCP.
-Each RMB has its own particular size and its own (R)DMA mapping and credentials
-(rtoken consisting of rkey and RDMA "virtual address").
-This initial Linux implementation uses physically contiguous memory for RMBs
-but we are working towards scattered memory because of memory fragmentation.
-Each RMB has 1..255 RMB elements (RMBEs) of equal size
-to provide multiplexing of connections within an RMB.
-An RMBE is the RDMA Write destination organized as wrapping ring buffer
-for data transmit of a particular connection in one direction
-(duplex by means of mirror symmetry as with TCP).
-This initial Linux implementation always has 1 RMBE per RMB
-and thus an individual RMB for each connection.
-
-
-SMC-R connection establishment with subsequent data transfer:
-
-   CLIENT                                                   SERVER
-
-TCP three-way handshake:
-                         regular TCP SYN
-      -------------------------------------------------------->
-                       regular TCP SYN ACK
-      <--------------------------------------------------------
-                         regular TCP ACK
-      -------------------------------------------------------->
-
-SMC Connection Layer Control (CLC) handshake
-exchanges RDMA credentials between peers:
-             via above TCP connection: SMC CLC Proposal
-      -------------------------------------------------------->
-              via above TCP connection: SMC CLC Accept
-      <--------------------------------------------------------
-             via above TCP connection: SMC CLC Confirm
-      -------------------------------------------------------->
-
-SMC Link Layer Control (LLC) (only once per link, i.e. 1st conn. of link group):
-                 RoCE RC-QP: SMC LLC Confirm Link
-      <========================================================
-             RoCE RC-QP: SMC LLC Confirm Link response
-      ========================================================>
-
-SMC data transmission (incl. SMC Connection Data Control (CDC) message):
-                       RoCE RC-QP: RDMA Write
-      ========================================================>
-             RoCE RC-QP: SMC CDC message (flow control)
-      ========================================================>
-                          ...
-
-                       RoCE RC-QP: RDMA Write
-      <========================================================
-             RoCE RC-QP: SMC CDC message (flow control)
-      <========================================================
-                          ...
-
-
-Data flow within an established connection:
-
-+----------------------------------------------------------------------------
-|            SENDER
-| sendmsg()
-|    |
-|    | produces into sndbuf [sender's process context]
-|    v
-| +--------+
-| | sndbuf | [ring buffer]
-| +--------+
-|    |
-|    | consumes from sndbuf and produces into receiver's RMBE [any context]
-|    | by sending RDMA Write followed by SMC CDC message over RoCE RC-QP
-|    |
-+----|-----------------------------------------------------------------------
-     |
-+----|-----------------------------------------------------------------------
-|    v       RECEIVER
-| +------+
-| | RMBE | [ring buffer, can have size different from sender's sndbuf]
-| |      | [RMBE represents rcvbuf, no further de-coupling as on sender side]
-| +------+
-|    |
-|    | consumes from RMBE [receiver's process context]
-|    v
-| recvmsg()
-+----------------------------------------------------------------------------
-
-
-Flow control ("cursor" updates) by means of SMC CDC messages:
-
-               SENDER                            RECEIVER
-
-        sends updates via CDC-------------+   sends updates via CDC
-        on consuming from sndbuf          |   on consuming from RMBE
-        and producing into RMBE           |   by means of recvmsg()
-                                          |            |
-                                          |            |
-      +-----------------------------------|------------+
-      |                                   |
-   +--v-------------------------+      +--v-----------------------+
-   | receiver's consumer cursor |      | sender's producer cursor----+
-   +----------------|-----------+      +--------------------------+  |
-                    |                                                |
-                    |                        receiver's RMBE         |
-                    |                  +--------------------------+  |
-                    |                  |                          |  |
-                    +--------------------------------+            |  |
-                                       |             |            |  |
-                                       |             v            |  |
-                                       |             +------------|  |
-                                       |-------------+////////////|  |
-                                       |//RDMA data written by////|  |
-                                       |////sender that is////////|  |
-                                       |/available to be consumed/|  |
-                                       |///////// +---------------|  |
-                                       |----------+^              |  |
-                                       |           |              |  |
-                                       |           +-----------------+
-                                       |                          |
-                                       +--------------------------+
-
-Sending updates of the producer cursor is immediate for low latency;
-something like Nagle's algorithm (absence of TCP_NODELAY) is optional and
-currently not part of this initial Linux implementation.
-Sending updates of the consumer cursor is conditional to avoid the
-silly window syndrome.
-
-
-Normal connection termination:
-
-Normal connection termination starts transitioning from socket state
-ACTIVE via either "Active Close" or "Passive Close".
-
-shutdown rdwr               +-----------------+
-or close,   +-------------->|  INIT / CLOSED  |<-------------+
-send PeerCon|nClosed        +-----------------+              | PeerConnClosed
-            |                       |                        | received
-            |            connection | established            |
-            |                       V                        |
-    +----------------+     +-----------------+     +----------------+
-    |AppFinCloseWait |     |     ACTIVE      |     |PeerFinCloseWait|
-    +----------------+     +-----------------+     +----------------+
-            |                   |         |                   |
-            |     Active Close: |         |Passive Close:     |
-            |     close or      |         |PeerConnClosed or  |
-            |     shutdown wr or|         |PeerDoneWriting    |
-            |     shutdown rdwr |         |received           |
-        
-    |                   V         V                   |
- PeerConnClo|sed    +--------------+   +-------------+        | close or
- received   +--<----|PeerCloseWait1|   |AppCloseWait1|--->----+ shutdown rdwr,
-            |       +--------------+   +-------------+        | send
-            |  PeerDoneWri|ting                | shutdown wr, | PeerConnClosed
-            |  received   |            send Pee|rDoneWriting  |
-            |             V                    V              |
-            |       +--------------+   +-------------+        |
-            +--<----|PeerCloseWait2|   |AppCloseWait2|--->----+
-                    +--------------+   +-------------+
-
-In state CLOSED, the socket can be destructed only, once the application has
-issued a close().
-
-Abnormal connection termination:
-
-                            +-----------------+
-            +-------------->|  INIT / CLOSED  |<-------------+
-            |               +-----------------+              |
-            |                                                |
-            |           +-----------------------+            |
-            |           |     Any state         |            |
- PeerConnAbo|rt         | (before setting       |            | send
- received   |           |  PeerConnClosed       |            | PeerConnAbort
-            |           |  indicator in         |            |
-            |           |  peer's RMBE)         |            |
-            |           +-----------------------+            |
-            |                   |         |                  |
-            |     Active Abort: |         | Passive Abort:   |
-            |     problem,      |         | PeerConnAbort    |
-            |     send          |         | received,        |
-            |     PeerConnAbort,|         | ECONNRESET       |
-            |     ECONNABORTED  |         |                  |
-            |                   V         V                  |
-            |       +--------------+   +--------------+      |
-            +-------|PeerAbortWait |   | ProcessAbort |------+
-                    +--------------+   +--------------+
-
-
-Implementation notes beyond RFC 7609:
-
-A PNET table in sysfs provides the mapping between network device names and
-RoCE Infiniband device names for the transparent switch of data communication.
-A PNET table can contain an arbitrary number of PNETIDs.
-Each PNETID contains exactly one (Ethernet) network device name
-and one or more RoCE Infiniband device names.
-Each device name can only exist in at most one PNETID (no overlapping).
-This initial Linux implementation allows at most one RoCE Infiniband device
-name per PNETID.
-After a new TCP connection is established, the network device name
-used for egress traffic with the TCP connection's local source IP address
-is used as key to lookup the unique PNETID, and the RoCE Infiniband device
-of this PNETID is used to switch data communication from TCP to RDMA
-during SMC CLC handshake.
-
-
-Problem determination:
-
-A protocol dissector is available with upstream wireshark for formatting
-SMC-R related RoCE LAN traffic.
-[https://code.wireshark.org/review/gitweb?p=wireshark.git;a=blob;f=epan/dissectors/packet-smcr.c]
-
-
-We are working on enhancing the Linux implementation to cover:
-
-- Improve default socket closing asynchronicity
-- Address corner cases with many parallel connections
-- Tracing
-- Integrated load balancing and fail-over within a link group
-- Splice and sendpage support
-- IPv6 addressing support
-- Keepalive, Cork
-- Namespaces support
-- Urgent data
-- More socket options
-- Diagnostics
-- Statistics support
-- SNMP support
-
-
-References:
-
-[1] SMC-R Informational RFC: http://www.rfc-editor.org/info/rfc7609
-
-Thomas Richter (1):
-  smc: establish pnet table management
-
-Ursula Braun (14):
-  net: introduce keepalive function in struct proto
-  smc: establish new socket family
-  smc: introduce SMC as an IB-client
-  smc: CLC handshake (incl. preparation steps)
-  smc: connection and link group creation
-  smc: remote memory buffers (RMBs)
-  smc: work request (WR) base for use by LLC and CDC
-  smc: initialize IB transport incl. PD, MR, QP, CQ, event, WR
-  smc: link layer control (LLC)
-  smc: connection data control (CDC)
-  smc: send data (through RDMA)
-  smc: receive data from RMBE
-  smc: socket closing and linkgroup cleanup
-  smc: netlink interface for SMC sockets
-
- MAINTAINERS                   |    7 +
- include/linux/socket.h        |    7 +-
- include/net/smc.h             |   20 +
- include/net/sock.h            |    4 +
- include/uapi/linux/netlink.h  |    1 +
- include/uapi/linux/smc.h      |   35 +
- include/uapi/linux/smc_diag.h |   85 +++
- net/Kconfig                   |    1 +
- net/Makefile                  |    1 +
- net/core/sock.c               |   13 +-
- net/ipv4/tcp_ipv4.c           |    1 +
- net/ipv4/tcp_timer.c          |    1 +
- net/ipv6/tcp_ipv6.c           |    1 +
- net/smc/Kconfig               |   20 +
- net/smc/Makefile              |    4 +
- net/smc/af_smc.c              | 1407 +++++++++++++++++++++++++++++++++++++++++
- net/smc/smc.h                 |  274 ++++++++
- net/smc/smc_cdc.c             |  304 +++++++++
- net/smc/smc_cdc.h             |  218 +++++++
- net/smc/smc_clc.c             |  282 +++++++++
- net/smc/smc_clc.h             |  116 ++++
- net/smc/smc_close.c           |  442 +++++++++++++
- net/smc/smc_close.h           |   28 +
- net/smc/smc_core.c            |  677 ++++++++++++++++++++
- net/smc/smc_core.h            |  181 ++++++
- net/smc/smc_diag.c            |  215 +++++++
- net/smc/smc_ib.c              |  466 ++++++++++++++
- net/smc/smc_ib.h              |   69 ++
- net/smc/smc_llc.c             |  158 +++++
- net/smc/smc_llc.h             |   63 ++
- net/smc/smc_pnet.c            |  534 ++++++++++++++++
- net/smc/smc_pnet.h            |   23 +
- net/smc/smc_rx.c              |  217 +++++++
- net/smc/smc_rx.h              |   23 +
- net/smc/smc_tx.c              |  483 ++++++++++++++
- net/smc/smc_tx.h              |   35 +
- net/smc/smc_wr.c              |  614 ++++++++++++++++++
- net/smc/smc_wr.h              |  106 ++++
- 38 files changed, 7127 insertions(+), 9 deletions(-)
- create mode 100644 include/net/smc.h
- create mode 100644 include/uapi/linux/smc.h
- create mode 100644 include/uapi/linux/smc_diag.h
- create mode 100644 net/smc/Kconfig
- create mode 100644 net/smc/Makefile
- create mode 100644 net/smc/af_smc.c
- create mode 100644 net/smc/smc.h
- create mode 100644 net/smc/smc_cdc.c
- create mode 100644 net/smc/smc_cdc.h
- create mode 100644 net/smc/smc_clc.c
- create mode 100644 net/smc/smc_clc.h
+Signed-off-by: Ursula Braun <ubraun@linux.vnet.ibm.com>
+---
+ net/smc/Makefile    |   2 +-
+ net/smc/af_smc.c    | 127 ++++++++++++---
+ net/smc/smc.h       |  18 +++
+ net/smc/smc_cdc.c   |  23 ++-
+ net/smc/smc_cdc.h   |   1 +
+ net/smc/smc_close.c | 441 ++++++++++++++++++++++++++++++++++++++++++++++++++++
+ net/smc/smc_close.h |  28 ++++
+ net/smc/smc_core.c  |   7 +-
+ net/smc/smc_tx.c    |   8 +
+ net/smc/smc_wr.c    |  47 ++++--
+ net/smc/smc_wr.h    |   2 +
+ 11 files changed, 668 insertions(+), 36 deletions(-)
  create mode 100644 net/smc/smc_close.c
  create mode 100644 net/smc/smc_close.h
- create mode 100644 net/smc/smc_core.c
- create mode 100644 net/smc/smc_core.h
- create mode 100644 net/smc/smc_diag.c
- create mode 100644 net/smc/smc_ib.c
- create mode 100644 net/smc/smc_ib.h
- create mode 100644 net/smc/smc_llc.c
- create mode 100644 net/smc/smc_llc.h
- create mode 100644 net/smc/smc_pnet.c
- create mode 100644 net/smc/smc_pnet.h
- create mode 100644 net/smc/smc_rx.c
- create mode 100644 net/smc/smc_rx.h
- create mode 100644 net/smc/smc_tx.c
- create mode 100644 net/smc/smc_tx.h
- create mode 100644 net/smc/smc_wr.c
- create mode 100644 net/smc/smc_wr.h
 
+diff --git a/net/smc/Makefile b/net/smc/Makefile
+index 6255e29..5cf0caf 100644
+--- a/net/smc/Makefile
++++ b/net/smc/Makefile
+@@ -1,3 +1,3 @@
+ obj-$(CONFIG_SMC)	+= smc.o
+ smc-y := af_smc.o smc_pnet.o smc_ib.o smc_clc.o smc_core.o smc_wr.o smc_llc.o
+-smc-y += smc_cdc.o smc_tx.o smc_rx.o
++smc-y += smc_cdc.o smc_tx.o smc_rx.o smc_close.o
+diff --git a/net/smc/af_smc.c b/net/smc/af_smc.c
+index fc9c51c..3f543d5 100644
+--- a/net/smc/af_smc.c
++++ b/net/smc/af_smc.c
+@@ -39,6 +39,7 @@
+ #include "smc_pnet.h"
+ #include "smc_tx.h"
+ #include "smc_rx.h"
++#include "smc_close.h"
+ 
+ static DEFINE_MUTEX(smc_create_lgr_pending);	/* serialize link group
+ 						 * creation
+@@ -70,14 +71,29 @@ static int smc_release(struct socket *sock)
+ {
+ 	struct sock *sk = sock->sk;
+ 	struct smc_sock *smc;
++	int rc = 0;
+ 
+ 	if (!sk)
+ 		goto out;
+ 
+ 	smc = smc_sk(sk);
+-	lock_sock(sk);
++	sock_hold(sk);
++	if (sk->sk_state == SMC_LISTEN)
++		/* smc_close_non_accepted() is called and acquires
++		 * sock lock for child sockets again
++		 */
++		lock_sock_nested(sk, SINGLE_DEPTH_NESTING);
++	else
++		lock_sock(sk);
+ 
+-	sk->sk_state = SMC_CLOSED;
++	if (smc->use_fallback) {
++		sk->sk_state = SMC_CLOSED;
++		sk->sk_state_change(sk);
++	} else {
++		rc = smc_close_active(smc);
++		sock_set_flag(sk, SOCK_DEAD);
++		sk->sk_shutdown |= SHUTDOWN_MASK;
++	}
+ 	if (smc->clcsock) {
+ 		sock_release(smc->clcsock);
+ 		smc->clcsock = NULL;
+@@ -86,11 +102,18 @@ static int smc_release(struct socket *sock)
+ 	/* detach socket */
+ 	sock_orphan(sk);
+ 	sock->sk = NULL;
++	if (smc->use_fallback) {
++		schedule_delayed_work(&smc->sock_put_work, TCP_TIMEWAIT_LEN);
++	} else if (sk->sk_state == SMC_CLOSED) {
++		smc_conn_free(&smc->conn);
++		schedule_delayed_work(&smc->sock_put_work,
++				      SMC_CLOSE_SOCK_PUT_DELAY);
++	}
+ 	release_sock(sk);
+ 
+ 	sock_put(sk);
+ out:
+-	return 0;
++	return rc;
+ }
+ 
+ static void smc_destruct(struct sock *sk)
+@@ -120,6 +143,7 @@ static struct sock *smc_sock_alloc(struct net *net, struct socket *sock)
+ 	INIT_WORK(&smc->tcp_listen_work, smc_tcp_listen_work);
+ 	INIT_LIST_HEAD(&smc->accept_q);
+ 	spin_lock_init(&smc->accept_q_lock);
++	INIT_DELAYED_WORK(&smc->sock_put_work, smc_close_sock_put_work);
+ 	sk_refcnt_debug_inc(sk);
+ 
+ 	return sk;
+@@ -417,7 +441,8 @@ static int smc_connect_rdma(struct smc_sock *smc)
+ 
+ out_connected:
+ 	smc_copy_sock_settings_to_clc(smc);
+-	smc->sk.sk_state = SMC_ACTIVE;
++	if (smc->sk.sk_state == SMC_INIT)
++		smc->sk.sk_state = SMC_ACTIVE;
+ 
+ 	return rc ? rc : local_contact;
+ 
+@@ -559,8 +584,8 @@ static void smc_accept_unlink(struct sock *sk)
+ /* remove a sock from the accept queue to bind it to a new socket created
+  * for a socket accept call from user space
+  */
+-static struct sock *smc_accept_dequeue(struct sock *parent,
+-				       struct socket *new_sock)
++struct sock *smc_accept_dequeue(struct sock *parent,
++				struct socket *new_sock)
+ {
+ 	struct smc_sock *isk, *n;
+ 	struct sock *new_sk;
+@@ -581,11 +606,17 @@ static struct sock *smc_accept_dequeue(struct sock *parent,
+ }
+ 
+ /* clean up for a created but never accepted sock */
+-static void smc_close_non_accepted(struct sock *sk)
++void smc_close_non_accepted(struct sock *sk)
+ {
+ 	struct smc_sock *smc = smc_sk(sk);
+ 
+ 	sock_hold(sk);
++	lock_sock(sk);
++	if (!sk->sk_lingertime)
++		/* wait for peer closing */
++		sk->sk_lingertime = SMC_MAX_STREAM_WAIT_TIMEOUT;
++	if (!smc->use_fallback)
++		smc_close_active(smc);
+ 	if (smc->clcsock) {
+ 		struct socket *tcp;
+ 
+@@ -593,7 +624,16 @@ static void smc_close_non_accepted(struct sock *sk)
+ 		smc->clcsock = NULL;
+ 		sock_release(tcp);
+ 	}
+-	/* more closing stuff to be added with socket closing patch */
++	sock_set_flag(sk, SOCK_DEAD);
++	sk->sk_shutdown |= SHUTDOWN_MASK;
++	if (smc->use_fallback) {
++		schedule_delayed_work(&smc->sock_put_work, TCP_TIMEWAIT_LEN);
++	} else {
++		smc_conn_free(&smc->conn);
++		schedule_delayed_work(&smc->sock_put_work,
++				      SMC_CLOSE_SOCK_PUT_DELAY);
++	}
++	release_sock(sk);
+ 	sock_put(sk);
+ }
+ 
+@@ -761,11 +801,12 @@ static void smc_listen_work(struct work_struct *work)
+ 
+ out_connected:
+ 	sk_refcnt_debug_inc(newsmcsk);
+-	newsmcsk->sk_state = SMC_ACTIVE;
++	if (newsmcsk->sk_state == SMC_INIT)
++		newsmcsk->sk_state = SMC_ACTIVE;
+ enqueue:
+ 	if (local_contact == SMC_FIRST_CONTACT)
+ 		mutex_unlock(&smc_create_lgr_pending);
+-	lock_sock(&lsmc->sk);
++	lock_sock_nested(&lsmc->sk, SINGLE_DEPTH_NESTING);
+ 	if (lsmc->sk.sk_state == SMC_LISTEN) {
+ 		smc_accept_enqueue(&lsmc->sk, newsmcsk);
+ 	} else { /* no longer listening */
+@@ -791,6 +832,7 @@ static void smc_listen_work(struct work_struct *work)
+ 
+ out_err:
+ 	newsmcsk->sk_state = SMC_CLOSED;
++	smc_conn_free(&new_smc->conn);
+ 	goto enqueue; /* queue new sock with sk_err set */
+ }
+ 
+@@ -911,7 +953,8 @@ static int smc_getname(struct socket *sock, struct sockaddr *addr,
+ {
+ 	struct smc_sock *smc;
+ 
+-	if (peer && (sock->sk->sk_state != SMC_ACTIVE))
++	if (peer && (sock->sk->sk_state != SMC_ACTIVE) &&
++	    (sock->sk->sk_state != SMC_APPCLOSEWAIT1))
+ 		return -ENOTCONN;
+ 
+ 	smc = smc_sk(sock->sk);
+@@ -927,7 +970,9 @@ static int smc_sendmsg(struct socket *sock, struct msghdr *msg, size_t len)
+ 
+ 	smc = smc_sk(sk);
+ 	lock_sock(sk);
+-	if (sk->sk_state != SMC_ACTIVE)
++	if ((sk->sk_state != SMC_ACTIVE) &&
++	    (sk->sk_state != SMC_APPCLOSEWAIT1) &&
++	    (sk->sk_state != SMC_INIT))
+ 		goto out;
+ 	if (smc->use_fallback)
+ 		rc = smc->clcsock->ops->sendmsg(smc->clcsock, msg, len);
+@@ -947,13 +992,21 @@ static int smc_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
+ 
+ 	smc = smc_sk(sk);
+ 	lock_sock(sk);
+-	if ((sk->sk_state != SMC_ACTIVE) && (sk->sk_state != SMC_CLOSED))
++	if ((sk->sk_state == SMC_INIT) ||
++	    (sk->sk_state == SMC_LISTEN) ||
++	    (sk->sk_state == SMC_CLOSED))
++		goto out;
++
++	if (sk->sk_state == SMC_PEERFINCLOSEWAIT) {
++		rc = 0;
+ 		goto out;
++	}
+ 
+ 	if (smc->use_fallback)
+ 		rc = smc->clcsock->ops->recvmsg(smc->clcsock, msg, len, flags);
+ 	else
+ 		rc = smc_rx_recvmsg(smc, msg, len, flags);
++
+ out:
+ 	release_sock(sk);
+ 	return rc;
+@@ -1013,7 +1066,8 @@ static unsigned int smc_poll(struct file *file, struct socket *sock,
+ 			mask |= smc_accept_poll(sk);
+ 		if (sk->sk_err)
+ 			mask |= POLLERR;
+-		if (atomic_read(&smc->conn.sndbuf_space)) {
++		if (atomic_read(&smc->conn.sndbuf_space) ||
++		    (sk->sk_shutdown & SEND_SHUTDOWN)) {
+ 			mask |= POLLOUT | POLLWRNORM;
+ 		} else {
+ 			sk_set_bit(SOCKWQ_ASYNC_NOSPACE, sk);
+@@ -1021,7 +1075,14 @@ static unsigned int smc_poll(struct file *file, struct socket *sock,
+ 		}
+ 		if (atomic_read(&smc->conn.bytes_to_rcv))
+ 			mask |= POLLIN | POLLRDNORM;
+-		/* for now - to be enhanced in follow-on patch */
++		if ((sk->sk_shutdown == SHUTDOWN_MASK) ||
++		    (sk->sk_state == SMC_CLOSED))
++			mask |= POLLHUP;
++		if (sk->sk_shutdown & RCV_SHUTDOWN)
++			mask |= POLLIN | POLLRDNORM | POLLRDHUP;
++		if (sk->sk_state == SMC_APPCLOSEWAIT1)
++			mask |= POLLIN;
++
+ 	}
+ 
+ 	return mask;
+@@ -1032,31 +1093,53 @@ static int smc_shutdown(struct socket *sock, int how)
+ 	struct sock *sk = sock->sk;
+ 	struct smc_sock *smc;
+ 	int rc = -EINVAL;
++	int rc1 = 0;
+ 
+ 	smc = smc_sk(sk);
+ 
+ 	if ((how < SHUT_RD) || (how > SHUT_RDWR))
+-		goto out_err;
++		return rc;
+ 
+ 	lock_sock(sk);
+ 
+ 	rc = -ENOTCONN;
+-	if (sk->sk_state == SMC_CLOSED)
++	if ((sk->sk_state != SMC_LISTEN) &&
++	    (sk->sk_state != SMC_ACTIVE) &&
++	    (sk->sk_state != SMC_PEERCLOSEWAIT1) &&
++	    (sk->sk_state != SMC_PEERCLOSEWAIT2) &&
++	    (sk->sk_state != SMC_APPCLOSEWAIT1) &&
++	    (sk->sk_state != SMC_APPCLOSEWAIT2) &&
++	    (sk->sk_state != SMC_APPFINCLOSEWAIT))
+ 		goto out;
+ 	if (smc->use_fallback) {
+ 		rc = kernel_sock_shutdown(smc->clcsock, how);
+ 		sk->sk_shutdown = smc->clcsock->sk->sk_shutdown;
+ 		if (sk->sk_shutdown == SHUTDOWN_MASK)
+ 			sk->sk_state = SMC_CLOSED;
+-	} else {
+-		rc = sock_no_shutdown(sock, how);
++		goto out;
++	}
++	switch (how) {
++	case SHUT_RDWR:		/* shutdown in both directions */
++		rc = smc_close_active(smc);
++		break;
++	case SHUT_WR:
++		rc = smc_close_shutdown_write(smc);
++		break;
++	case SHUT_RD:
++		if (sk->sk_state == SMC_LISTEN)
++			rc = smc_close_active(smc);
++		else
++			rc = 0;
++			/* nothing more to do because peer is not involved */
++		break;
+ 	}
++	rc1 = kernel_sock_shutdown(smc->clcsock, how);
++	/* map sock_shutdown_cmd constants to sk_shutdown value range */
++	sk->sk_shutdown |= how + 1;
+ 
+ out:
+ 	release_sock(sk);
+-
+-out_err:
+-	return rc;
++	return rc ? rc : rc1;
+ }
+ 
+ static int smc_setsockopt(struct socket *sock, int level, int optname,
+diff --git a/net/smc/smc.h b/net/smc/smc.h
+index 2bb1540..959a5d2 100644
+--- a/net/smc/smc.h
++++ b/net/smc/smc.h
+@@ -30,6 +30,16 @@ enum smc_state {		/* possible states of an SMC socket */
+ 	SMC_INIT	= 2,
+ 	SMC_CLOSED	= 7,
+ 	SMC_LISTEN	= 10,
++	/* normal close */
++	SMC_PEERCLOSEWAIT1	= 20,
++	SMC_PEERCLOSEWAIT2	= 21,
++	SMC_APPFINCLOSEWAIT	= 24,
++	SMC_APPCLOSEWAIT1	= 22,
++	SMC_APPCLOSEWAIT2	= 23,
++	SMC_PEERFINCLOSEWAIT	= 25,
++	/* abnormal close */
++	SMC_PEERABORTWAIT	= 26,
++	SMC_PROCESSABORT	= 27,
+ };
+ 
+ struct smc_link_group;
+@@ -164,7 +174,13 @@ struct smc_sock {				/* smc sock container */
+ 	struct work_struct	smc_listen_work;/* prepare new accept socket */
+ 	struct list_head	accept_q;	/* sockets to be accepted */
+ 	spinlock_t		accept_q_lock;	/* protects accept_q */
++	struct delayed_work	sock_put_work;	/* final socket freeing */
+ 	bool			use_fallback;	/* fallback to tcp */
++	u8			wait_close_tx_prepared : 1;
++						/* shutdown wr or close
++						 * started, waiting for unsent
++						 * data to be sent
++						 */
+ };
+ 
+ static inline struct smc_sock *smc_sk(const struct sock *sk)
+@@ -250,5 +266,7 @@ void smc_conn_free(struct smc_connection *conn);
+ int smc_conn_create(struct smc_sock *smc, __be32 peer_in_addr,
+ 		    struct smc_ib_device *smcibdev, u8 ibport,
+ 		    struct smc_clc_msg_local *lcl, int srv_first_contact);
++struct sock *smc_accept_dequeue(struct sock *parent, struct socket *new_sock);
++void smc_close_non_accepted(struct sock *sk);
+ 
+ #endif	/* __SMC_H */
+diff --git a/net/smc/smc_cdc.c b/net/smc/smc_cdc.c
+index c0a6930..5a33949 100644
+--- a/net/smc/smc_cdc.c
++++ b/net/smc/smc_cdc.c
+@@ -16,6 +16,7 @@
+ #include "smc_cdc.h"
+ #include "smc_tx.h"
+ #include "smc_rx.h"
++#include "smc_close.h"
+ 
+ /********************************** send *************************************/
+ 
+@@ -55,6 +56,9 @@ static void smc_cdc_tx_handler(struct smc_wr_tx_pend_priv *pnd_snd,
+ 			       cdcpend->conn);
+ 	}
+ 	smc_tx_sndbuf_nonfull(smc);
++	if (smc->sk.sk_state != SMC_ACTIVE)
++		/* wake up smc_close_wait_tx_pends() */
++		smc->sk.sk_state_change(&smc->sk);
+ 	bh_unlock_sock(&smc->sk);
+ }
+ 
+@@ -149,6 +153,14 @@ void smc_cdc_tx_dismiss_slots(struct smc_connection *conn)
+ 				(unsigned long)conn);
+ }
+ 
++bool smc_cdc_tx_has_pending(struct smc_connection *conn)
++{
++	struct smc_link *link = &conn->lgr->lnk[SMC_SINGLE_LINK];
++
++	return smc_wr_tx_has_pending(link, SMC_CDC_MSG_TYPE,
++				     smc_cdc_tx_filter, (unsigned long)conn);
++}
++
+ /********************************* receive ***********************************/
+ 
+ static inline bool smc_cdc_before(u16 seq1, u16 seq2)
+@@ -201,15 +213,20 @@ static void smc_cdc_msg_recv_action(struct smc_sock *smc,
+ 		smc->sk.sk_data_ready(&smc->sk);
+ 	}
+ 
+-	if (conn->local_rx_ctrl.conn_state_flags.peer_conn_abort)
++	if (conn->local_rx_ctrl.conn_state_flags.peer_conn_abort) {
+ 		smc->sk.sk_err = ECONNRESET;
++		conn->local_tx_ctrl.conn_state_flags.peer_conn_abort = 1;
++	}
+ 	if (smc_cdc_rxed_any_close_or_senddone(conn))
+-		/* subsequent patch: terminate connection */
++		smc_close_passive_received(smc);
+ 
+ 	/* piggy backed tx info */
+ 	/* trigger sndbuf consumer: RDMA write into peer RMBE and CDC */
+-	if (diff_cons && smc_tx_prepared_sends(conn))
++	if (diff_cons && smc_tx_prepared_sends(conn)) {
+ 		smc_tx_sndbuf_nonempty(conn);
++		/* trigger socket release if connection closed */
++		smc_close_wake_tx_prepared(smc);
++	}
+ 
+ 	/* subsequent patch: trigger socket release if connection closed */
+ 
+diff --git a/net/smc/smc_cdc.h b/net/smc/smc_cdc.h
+index 135f613..8e1d76f 100644
+--- a/net/smc/smc_cdc.h
++++ b/net/smc/smc_cdc.h
+@@ -212,6 +212,7 @@ void smc_cdc_tx_dismiss_slots(struct smc_connection *conn);
+ int smc_cdc_msg_send(struct smc_connection *conn, struct smc_wr_buf *wr_buf,
+ 		     struct smc_cdc_tx_pend *pend);
+ int smc_cdc_get_slot_and_msg_send(struct smc_connection *conn);
++bool smc_cdc_tx_has_pending(struct smc_connection *conn);
+ int smc_cdc_init(void) __init;
+ 
+ #endif /* SMC_CDC_H */
+diff --git a/net/smc/smc_close.c b/net/smc/smc_close.c
+new file mode 100644
+index 0000000..d70c05b
+--- /dev/null
++++ b/net/smc/smc_close.c
+@@ -0,0 +1,441 @@
++/*
++ *  Shared Memory Communications over RDMA (SMC-R) and RoCE
++ *
++ *  Socket Closing - normal and abnormal
++ *
++ *  Copyright IBM Corp. 2016
++ *
++ *  Author(s):  Ursula Braun <ubraun@linux.vnet.ibm.com>
++ */
++
++#include <linux/workqueue.h>
++#include <net/sock.h>
++
++#include "smc.h"
++#include "smc_tx.h"
++#include "smc_cdc.h"
++#include "smc_close.h"
++
++#define SMC_CLOSE_WAIT_TX_PENDS_TIME		(5 * HZ)
++
++static void smc_close_cleanup_listen(struct sock *parent)
++{
++	struct sock *sk;
++
++	/* Close non-accepted connections */
++	while ((sk = smc_accept_dequeue(parent, NULL)))
++		smc_close_non_accepted(sk);
++}
++
++static void smc_close_wait_tx_pends(struct smc_sock *smc)
++{
++	DEFINE_WAIT_FUNC(wait, woken_wake_function);
++	struct sock *sk = &smc->sk;
++	signed long timeout;
++
++	timeout = SMC_CLOSE_WAIT_TX_PENDS_TIME;
++	add_wait_queue(sk_sleep(sk), &wait);
++	while (!signal_pending(current) && timeout) {
++		int rc;
++
++		rc = sk_wait_event(sk, &timeout,
++				   !smc_cdc_tx_has_pending(&smc->conn),
++				   &wait);
++		if (rc)
++			break;
++	}
++	remove_wait_queue(sk_sleep(sk), &wait);
++}
++
++/* wait for sndbuf data being transmitted */
++static void smc_close_stream_wait(struct smc_sock *smc, long timeout)
++{
++	DEFINE_WAIT_FUNC(wait, woken_wake_function);
++	struct sock *sk = &smc->sk;
++
++	if (!timeout)
++		return;
++
++	if (!smc_tx_prepared_sends(&smc->conn))
++		return;
++
++	smc->wait_close_tx_prepared = 1;
++	add_wait_queue(sk_sleep(sk), &wait);
++	while (!signal_pending(current) && timeout) {
++		int rc;
++
++		rc = sk_wait_event(sk, &timeout,
++				   !smc_tx_prepared_sends(&smc->conn) ||
++				   (sk->sk_err == ECONNABORTED) ||
++				   (sk->sk_err == ECONNRESET),
++				   &wait);
++		if (rc)
++			break;
++	}
++	remove_wait_queue(sk_sleep(sk), &wait);
++	smc->wait_close_tx_prepared = 0;
++}
++
++void smc_close_wake_tx_prepared(struct smc_sock *smc)
++{
++	if (smc->wait_close_tx_prepared)
++		/* wake up socket closing */
++		smc->sk.sk_state_change(&smc->sk);
++}
++
++static int smc_close_wr(struct smc_connection *conn)
++{
++	conn->local_tx_ctrl.conn_state_flags.peer_done_writing = 1;
++
++	return smc_cdc_get_slot_and_msg_send(conn);
++}
++
++static int smc_close_final(struct smc_connection *conn)
++{
++	if (atomic_read(&conn->bytes_to_rcv))
++		conn->local_tx_ctrl.conn_state_flags.peer_conn_abort = 1;
++	else
++		conn->local_tx_ctrl.conn_state_flags.peer_conn_closed = 1;
++
++	return smc_cdc_get_slot_and_msg_send(conn);
++}
++
++static int smc_close_abort(struct smc_connection *conn)
++{
++	conn->local_tx_ctrl.conn_state_flags.peer_conn_abort = 1;
++
++	return smc_cdc_get_slot_and_msg_send(conn);
++}
++
++/* terminate smc socket abnormally - active abort
++ * RDMA communication no longer possible
++ */
++void smc_close_active_abort(struct smc_sock *smc)
++{
++	struct smc_cdc_conn_state_flags *txflags =
++		&smc->conn.local_tx_ctrl.conn_state_flags;
++
++	bh_lock_sock(&smc->sk);
++	smc->sk.sk_err = ECONNABORTED;
++	if (smc->clcsock && smc->clcsock->sk) {
++		smc->clcsock->sk->sk_err = ECONNABORTED;
++		smc->clcsock->sk->sk_state_change(smc->clcsock->sk);
++	}
++	switch (smc->sk.sk_state) {
++	case SMC_INIT:
++		smc->sk.sk_state = SMC_PEERABORTWAIT;
++		break;
++	case SMC_APPCLOSEWAIT1:
++	case SMC_APPCLOSEWAIT2:
++		txflags->peer_conn_abort = 1;
++		sock_release(smc->clcsock);
++		if (!smc_cdc_rxed_any_close(&smc->conn))
++			smc->sk.sk_state = SMC_PEERABORTWAIT;
++		else
++			smc->sk.sk_state = SMC_CLOSED;
++		break;
++	case SMC_PEERCLOSEWAIT1:
++	case SMC_PEERCLOSEWAIT2:
++		if (!txflags->peer_conn_closed) {
++			smc->sk.sk_state = SMC_PEERABORTWAIT;
++			txflags->peer_conn_abort = 1;
++			sock_release(smc->clcsock);
++		} else {
++			smc->sk.sk_state = SMC_CLOSED;
++		}
++		break;
++	case SMC_PROCESSABORT:
++	case SMC_APPFINCLOSEWAIT:
++		if (!txflags->peer_conn_closed) {
++			txflags->peer_conn_abort = 1;
++			sock_release(smc->clcsock);
++		}
++		smc->sk.sk_state = SMC_CLOSED;
++		break;
++	case SMC_PEERFINCLOSEWAIT:
++	case SMC_PEERABORTWAIT:
++	case SMC_CLOSED:
++		break;
++	}
++
++	sock_set_flag(&smc->sk, SOCK_DEAD);
++	bh_unlock_sock(&smc->sk);
++	smc->sk.sk_state_change(&smc->sk);
++}
++
++int smc_close_active(struct smc_sock *smc)
++{
++	struct smc_cdc_conn_state_flags *txflags =
++		&smc->conn.local_tx_ctrl.conn_state_flags;
++	long timeout = SMC_MAX_STREAM_WAIT_TIMEOUT;
++	struct smc_connection *conn = &smc->conn;
++	struct sock *sk = &smc->sk;
++	int old_state;
++	int rc = 0;
++
++	if (sock_flag(sk, SOCK_LINGER) &&
++	    !(current->flags & PF_EXITING))
++		timeout = sk->sk_lingertime;
++
++again:
++	old_state = sk->sk_state;
++	switch (old_state) {
++	case SMC_INIT:
++		sk->sk_state = SMC_CLOSED;
++		if (smc->smc_listen_work.func)
++			flush_work(&smc->smc_listen_work);
++		sock_put(sk);
++		break;
++	case SMC_LISTEN:
++		sk->sk_state = SMC_CLOSED;
++		sk->sk_state_change(sk); /* wake up accept */
++		if (smc->clcsock && smc->clcsock->sk) {
++			rc = kernel_sock_shutdown(smc->clcsock, SHUT_RDWR);
++			/* wake up kernel_accept of smc_tcp_listen_worker */
++			smc->clcsock->sk->sk_data_ready(smc->clcsock->sk);
++		}
++		release_sock(sk);
++		smc_close_cleanup_listen(sk);
++		flush_work(&smc->tcp_listen_work);
++		lock_sock(sk);
++		break;
++	case SMC_ACTIVE:
++		smc_close_stream_wait(smc, timeout);
++		release_sock(sk);
++		cancel_work_sync(&conn->tx_work);
++		lock_sock(sk);
++		if (sk->sk_state == SMC_ACTIVE) {
++			/* send close request */
++			rc = smc_close_final(conn);
++			sk->sk_state = SMC_PEERCLOSEWAIT1;
++		} else {
++			/* peer event has changed the state */
++			goto again;
++		}
++		break;
++	case SMC_APPFINCLOSEWAIT:
++		/* socket already shutdown wr or both (active close) */
++		if (txflags->peer_done_writing &&
++		    !txflags->peer_conn_closed) {
++			/* just shutdown wr done, send close request */
++			rc = smc_close_final(conn);
++		}
++		sk->sk_state = SMC_CLOSED;
++		smc_close_wait_tx_pends(smc);
++		break;
++	case SMC_APPCLOSEWAIT1:
++	case SMC_APPCLOSEWAIT2:
++		if (!smc_cdc_rxed_any_close(conn))
++			smc_close_stream_wait(smc, timeout);
++		release_sock(sk);
++		cancel_work_sync(&conn->tx_work);
++		lock_sock(sk);
++		if (sk->sk_err != ECONNABORTED) {
++			/* confirm close from peer */
++			rc = smc_close_final(conn);
++			if (rc)
++				break;
++		}
++		if (smc_cdc_rxed_any_close(conn))
++			/* peer has closed the socket already */
++			sk->sk_state = SMC_CLOSED;
++		else
++			/* peer has just issued a shutdown write */
++			sk->sk_state = SMC_PEERFINCLOSEWAIT;
++		smc_close_wait_tx_pends(smc);
++		break;
++	case SMC_PEERCLOSEWAIT1:
++	case SMC_PEERCLOSEWAIT2:
++	case SMC_PEERFINCLOSEWAIT:
++		/* peer sending PeerConnectionClosed will cause transition */
++		break;
++	case SMC_PROCESSABORT:
++		cancel_work_sync(&conn->tx_work);
++		smc_close_abort(conn);
++		sk->sk_state = SMC_CLOSED;
++		smc_close_wait_tx_pends(smc);
++		break;
++	case SMC_PEERABORTWAIT:
++	case SMC_CLOSED:
++		/* nothing to do, add tracing in future patch */
++		break;
++	}
++
++	if (old_state != sk->sk_state)
++		sk->sk_state_change(&smc->sk);
++	return rc;
++}
++
++static void smc_close_passive_abort_received(struct smc_sock *smc)
++{
++	struct smc_cdc_conn_state_flags *txflags =
++		&smc->conn.local_tx_ctrl.conn_state_flags;
++	struct sock *sk = &smc->sk;
++
++	switch (sk->sk_state) {
++	case SMC_ACTIVE:
++	case SMC_APPFINCLOSEWAIT:
++	case SMC_APPCLOSEWAIT1:
++	case SMC_APPCLOSEWAIT2:
++		smc_close_abort(&smc->conn);
++		sk->sk_state = SMC_PROCESSABORT;
++		break;
++	case SMC_PEERCLOSEWAIT1:
++	case SMC_PEERCLOSEWAIT2:
++		if (txflags->peer_done_writing &&
++		    !txflags->peer_conn_closed) {
++			/* just shutdown, but not yet closed locally */
++			smc_close_abort(&smc->conn);
++			sk->sk_state = SMC_PROCESSABORT;
++		} else {
++			sk->sk_state = SMC_CLOSED;
++		}
++		break;
++	case SMC_PEERFINCLOSEWAIT:
++	case SMC_PEERABORTWAIT:
++		sk->sk_state = SMC_CLOSED;
++		break;
++	case SMC_INIT:
++	case SMC_PROCESSABORT:
++	/* nothing to do, add tracing in future patch */
++		break;
++	}
++}
++
++/* Some kind of closing has been received: peer_conn_closed, peer_conn_abort,
++ * or peer_done_writing.
++ * Called under tasklet context.
++ */
++void smc_close_passive_received(struct smc_sock *smc)
++{
++	struct smc_cdc_conn_state_flags *rxflags =
++		&smc->conn.local_rx_ctrl.conn_state_flags;
++	struct sock *sk = &smc->sk;
++	int old_state;
++
++	sk->sk_shutdown |= RCV_SHUTDOWN;
++	if (smc->clcsock && smc->clcsock->sk)
++		smc->clcsock->sk->sk_shutdown |= RCV_SHUTDOWN;
++	sock_set_flag(&smc->sk, SOCK_DONE);
++
++	old_state = sk->sk_state;
++
++	if (rxflags->peer_conn_abort) {
++		smc_close_passive_abort_received(smc);
++		goto wakeup;
++	}
++
++	switch (sk->sk_state) {
++	case SMC_INIT:
++		if (atomic_read(&smc->conn.bytes_to_rcv) ||
++		    (rxflags->peer_done_writing &&
++		     !rxflags->peer_conn_closed))
++			sk->sk_state = SMC_APPCLOSEWAIT1;
++		else
++			sk->sk_state = SMC_CLOSED;
++		break;
++	case SMC_ACTIVE:
++		sk->sk_state = SMC_APPCLOSEWAIT1;
++		break;
++	case SMC_PEERCLOSEWAIT1:
++		if (rxflags->peer_done_writing)
++			sk->sk_state = SMC_PEERCLOSEWAIT2;
++		/* fall through to check for closing */
++	case SMC_PEERCLOSEWAIT2:
++	case SMC_PEERFINCLOSEWAIT:
++		if (!smc_cdc_rxed_any_close(&smc->conn))
++			break;
++		if (sock_flag(sk, SOCK_DEAD) &&
++		    (sk->sk_shutdown == SHUTDOWN_MASK)) {
++			/* smc_release has already been called locally */
++			sk->sk_state = SMC_CLOSED;
++		} else {
++			/* just shutdown, but not yet closed locally */
++			sk->sk_state = SMC_APPFINCLOSEWAIT;
++		}
++		break;
++	case SMC_APPCLOSEWAIT1:
++	case SMC_APPCLOSEWAIT2:
++	case SMC_APPFINCLOSEWAIT:
++	case SMC_PEERABORTWAIT:
++	case SMC_PROCESSABORT:
++	case SMC_CLOSED:
++		/* nothing to do, add tracing in future patch */
++		break;
++	}
++
++wakeup:
++	if (old_state != sk->sk_state)
++		sk->sk_state_change(sk);
++	sk->sk_data_ready(sk); /* wakeup blocked rcvbuf consumers */
++	sk->sk_write_space(sk); /* wakeup blocked sndbuf producers */
++
++	if ((sk->sk_state == SMC_CLOSED) &&
++	    (sock_flag(sk, SOCK_DEAD) || (old_state == SMC_INIT))) {
++		smc_conn_free(&smc->conn);
++		schedule_delayed_work(&smc->sock_put_work,
++				      SMC_CLOSE_SOCK_PUT_DELAY);
++	}
++}
++
++void smc_close_sock_put_work(struct work_struct *work)
++{
++	struct smc_sock *smc = container_of(to_delayed_work(work),
++					    struct smc_sock,
++					    sock_put_work);
++
++	sock_put(&smc->sk);
++}
++
++int smc_close_shutdown_write(struct smc_sock *smc)
++{
++	struct smc_connection *conn = &smc->conn;
++	long timeout = SMC_MAX_STREAM_WAIT_TIMEOUT;
++	struct sock *sk = &smc->sk;
++	int old_state;
++	int rc = 0;
++
++	if (sock_flag(sk, SOCK_LINGER))
++		timeout = sk->sk_lingertime;
++
++again:
++	old_state = sk->sk_state;
++	switch (old_state) {
++	case SMC_ACTIVE:
++		smc_close_stream_wait(smc, timeout);
++		release_sock(sk);
++		cancel_work_sync(&conn->tx_work);
++		lock_sock(sk);
++		/* send close wr request */
++		rc = smc_close_wr(conn);
++		if (sk->sk_state == SMC_ACTIVE)
++			sk->sk_state = SMC_PEERCLOSEWAIT1;
++		else
++			goto again;
++		break;
++	case SMC_APPCLOSEWAIT1:
++		/* passive close */
++		if (!smc_cdc_rxed_any_close(conn))
++			smc_close_stream_wait(smc, timeout);
++		release_sock(sk);
++		cancel_work_sync(&conn->tx_work);
++		lock_sock(sk);
++		/* confirm close from peer */
++		rc = smc_close_wr(conn);
++		sk->sk_state = SMC_APPCLOSEWAIT2;
++		break;
++	case SMC_APPCLOSEWAIT2:
++	case SMC_PEERFINCLOSEWAIT:
++	case SMC_PEERCLOSEWAIT1:
++	case SMC_PEERCLOSEWAIT2:
++	case SMC_APPFINCLOSEWAIT:
++	case SMC_PROCESSABORT:
++	case SMC_PEERABORTWAIT:
++		/* nothing to do, add tracing in future patch */
++		break;
++	}
++
++	if (old_state != sk->sk_state)
++		sk->sk_state_change(&smc->sk);
++	return rc;
++}
+diff --git a/net/smc/smc_close.h b/net/smc/smc_close.h
+new file mode 100644
+index 0000000..bc9a2df
+--- /dev/null
++++ b/net/smc/smc_close.h
+@@ -0,0 +1,28 @@
++/*
++ * Shared Memory Communications over RDMA (SMC-R) and RoCE
++ *
++ * Socket Closing
++ *
++ * Copyright IBM Corp. 2016
++ *
++ * Author(s):  Ursula Braun <ubraun@linux.vnet.ibm.com>
++ */
++
++#ifndef SMC_CLOSE_H
++#define SMC_CLOSE_H
++
++#include <linux/workqueue.h>
++
++#include "smc.h"
++
++#define SMC_MAX_STREAM_WAIT_TIMEOUT		(2 * HZ)
++#define SMC_CLOSE_SOCK_PUT_DELAY		HZ
++
++void smc_close_wake_tx_prepared(struct smc_sock *smc);
++void smc_close_active_abort(struct smc_sock *smc);
++int smc_close_active(struct smc_sock *smc);
++void smc_close_passive_received(struct smc_sock *smc);
++void smc_close_sock_put_work(struct work_struct *work);
++int smc_close_shutdown_write(struct smc_sock *smc);
++
++#endif /* SMC_CLOSE_H */
+diff --git a/net/smc/smc_core.c b/net/smc/smc_core.c
+index e5c6395..8b1d343 100644
+--- a/net/smc/smc_core.c
++++ b/net/smc/smc_core.c
+@@ -23,6 +23,7 @@
+ #include "smc_wr.h"
+ #include "smc_llc.h"
+ #include "smc_cdc.h"
++#include "smc_close.h"
+ 
+ #define SMC_LGR_NUM_INCR	256
+ #define SMC_LGR_FREE_DELAY	(600 * HZ)
+@@ -295,6 +296,7 @@ void smc_lgr_free(struct smc_link_group *lgr)
+ void smc_lgr_terminate(struct smc_link_group *lgr)
+ {
+ 	struct smc_connection *conn;
++	struct smc_sock *smc;
+ 	struct rb_node *node;
+ 
+ 	spin_lock_bh(&smc_lgr_list.lock);
+@@ -311,11 +313,14 @@ void smc_lgr_terminate(struct smc_link_group *lgr)
+ 	node = rb_first(&lgr->conns_all);
+ 	while (node) {
+ 		conn = rb_entry(node, struct smc_connection, alert_node);
++		smc = container_of(conn, struct smc_sock, conn);
++		sock_hold(&smc->sk);
+ 		__smc_lgr_unregister_conn(conn);
++		smc_close_active_abort(smc);
++		sock_put(&smc->sk);
+ 		node = rb_first(&lgr->conns_all);
+ 	}
+ 	write_unlock_bh(&lgr->conns_lock);
+-	schedule_delayed_work(&lgr->free_work, SMC_LGR_FREE_DELAY);
+ }
+ 
+ /* Determine vlan of internal TCP socket.
+diff --git a/net/smc/smc_tx.c b/net/smc/smc_tx.c
+index 7e8799f..6e73b28 100644
+--- a/net/smc/smc_tx.c
++++ b/net/smc/smc_tx.c
+@@ -139,6 +139,7 @@ int smc_tx_sendmsg(struct smc_sock *smc, struct msghdr *msg, size_t len)
+ 		if (sk->sk_state == SMC_INIT)
+ 			return -ENOTCONN;
+ 		if (smc->sk.sk_shutdown & SEND_SHUTDOWN ||
++		    (smc->sk.sk_err == ECONNABORTED) ||
+ 		    conn->local_tx_ctrl.conn_state_flags.peer_conn_abort)
+ 			return -EPIPE;
+ 		if (smc_cdc_rxed_any_close(conn))
+@@ -392,6 +393,13 @@ int smc_tx_sndbuf_nonempty(struct smc_connection *conn)
+ 				   &pend);
+ 	if (rc < 0) {
+ 		if (rc == -EBUSY) {
++			struct smc_sock *smc =
++				container_of(conn, struct smc_sock, conn);
++
++			if (smc->sk.sk_err == ECONNABORTED) {
++				rc = sock_error(&smc->sk);
++				goto out_unlock;
++			}
+ 			rc = 0;
+ 			schedule_work(&conn->tx_work);
+ 		}
+diff --git a/net/smc/smc_wr.c b/net/smc/smc_wr.c
+index 14f3f3f..eadf157 100644
+--- a/net/smc/smc_wr.c
++++ b/net/smc/smc_wr.c
+@@ -81,6 +81,8 @@ static inline void smc_wr_tx_process_cqe(struct ib_wc *wc)
+ 	if (!test_and_clear_bit(pnd_snd_idx, link->wr_tx_mask))
+ 		return;
+ 	if (wc->status) {
++		struct smc_link_group *lgr;
++
+ 		for_each_set_bit(i, link->wr_tx_mask, link->wr_tx_cnt) {
+ 			/* clear full struct smc_wr_tx_pend including .priv */
+ 			memset(&link->wr_tx_pends[i], 0,
+@@ -89,9 +91,10 @@ static inline void smc_wr_tx_process_cqe(struct ib_wc *wc)
+ 			       sizeof(link->wr_tx_bufs[i]));
+ 			clear_bit(i, link->wr_tx_mask);
+ 		}
+-		/* tbd in future patch: terminate connections of this link
+-		 * group abnormally
+-		 */
++		/* terminate connections of this link group abnormally */
++		lgr = container_of(link, struct smc_link_group,
++				   lnk[SMC_SINGLE_LINK]);
++		smc_lgr_terminate(lgr);
+ 	}
+ 	if (pnd_snd.handler)
+ 		pnd_snd.handler(&pnd_snd.priv, link, wc->status);
+@@ -176,9 +179,12 @@ int smc_wr_tx_get_free_slot(struct smc_link *link,
+ 			(smc_wr_tx_get_free_slot_index(link, &idx) != -EBUSY),
+ 			SMC_WR_TX_WAIT_FREE_SLOT_TIME);
+ 		if (!rc) {
+-			/* tbd in future patch: timeout - terminate connections
+-			 * of this link group abnormally
+-			 */
++			/* timeout - terminate connections */
++			struct smc_link_group *lgr;
++
++			lgr = container_of(link, struct smc_link_group,
++					   lnk[SMC_SINGLE_LINK]);
++			smc_lgr_terminate(lgr);
+ 			return -EPIPE;
+ 		}
+ 		if (rc == -ERESTARTSYS)
+@@ -256,6 +262,24 @@ void smc_wr_tx_dismiss_slots(struct smc_link *link, u8 wr_rx_hdr_type,
+ 	}
+ }
+ 
++bool smc_wr_tx_has_pending(struct smc_link *link, u8 wr_rx_hdr_type,
++			   smc_wr_tx_filter filter, unsigned long data)
++{
++	struct smc_wr_tx_pend_priv *tx_pend;
++	struct smc_wr_rx_hdr *wr_rx;
++	int i;
++
++	for_each_set_bit(i, link->wr_tx_mask, link->wr_tx_cnt) {
++		wr_rx = (struct smc_wr_rx_hdr *)&link->wr_rx_bufs[i];
++		if (wr_rx->type != wr_rx_hdr_type)
++			continue;
++		tx_pend = &link->wr_tx_pends[i].priv;
++		if (filter(tx_pend, data))
++			return true;
++	}
++	return false;
++}
++
+ /****************************** receive queue ********************************/
+ 
+ int smc_wr_rx_register_handler(struct smc_wr_rx_handler *handler)
+@@ -310,14 +334,19 @@ static inline void smc_wr_rx_process_cqes(struct ib_wc wc[], int num)
+ 			smc_wr_rx_demultiplex(&wc[i]);
+ 			smc_wr_rx_post(link); /* refill WR RX */
+ 		} else {
++			struct smc_link_group *lgr;
++
+ 			/* handle status errors */
+ 			switch (wc[i].status) {
+ 			case IB_WC_RETRY_EXC_ERR:
+ 			case IB_WC_RNR_RETRY_EXC_ERR:
+ 			case IB_WC_WR_FLUSH_ERR:
+-			/* tbd in future patch: terminate connections of this
+-			 * link group abnormally
+-			 */
++				/* terminate connections of this link group
++				 * abnormally
++				 */
++				lgr = container_of(link, struct smc_link_group,
++						   lnk[SMC_SINGLE_LINK]);
++				smc_lgr_terminate(lgr);
+ 				break;
+ 			default:
+ 				smc_wr_rx_post(link); /* refill WR RX */
+diff --git a/net/smc/smc_wr.h b/net/smc/smc_wr.h
+index 124f857..0b9beed 100644
+--- a/net/smc/smc_wr.h
++++ b/net/smc/smc_wr.h
+@@ -92,6 +92,8 @@ int smc_wr_tx_put_slot(struct smc_link *link,
+ int smc_wr_tx_send(struct smc_link *link,
+ 		   struct smc_wr_tx_pend_priv *wr_pend_priv);
+ void smc_wr_tx_cq_handler(struct ib_cq *ib_cq, void *cq_context);
++bool smc_wr_tx_has_pending(struct smc_link *link, u8 wr_rx_hdr_type,
++			   smc_wr_tx_filter filter, unsigned long data);
+ void smc_wr_tx_dismiss_slots(struct smc_link *lnk, u8 wr_rx_hdr_type,
+ 			     smc_wr_tx_filter filter,
+ 			     smc_wr_tx_dismisser dismisser,
 -- 
 2.8.4
