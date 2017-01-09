@@ -1,48 +1,64 @@
-From: Felix Manlunas <felix.manlunas@cavium.com>
-Subject: Re: [PATCH net-next] liquidio: store the L4 hash of rx packets in skb
-Date: Mon, 9 Jan 2017 10:59:34 -0800
-Message-ID: <20170109185934.GA8823@felix.cavium.com>
-References: <20170107005542.GA16278@felix.cavium.com>
- <20170108.170941.1437038681712014840.davem@davemloft.net>
- <20170109184505.GA8756@felix.cavium.com>
- <20170109.135621.1633543054179916746.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, <raghu.vatsavayi@cavium.com>,
-        <derek.chickles@cavium.com>, <satananda.burla@cavium.com>,
-        <eric.dumazet@gmail.com>
-To: David Miller <davem@davemloft.net>
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [for-next V3 01/10] IB/mlx5: Fix kernel to user leak prevention logic
+Date: Mon,  9 Jan 2017 21:00:44 +0200
+Message-ID: <1483988453-28551-2-git-send-email-saeedm@mellanox.com>
+References: <1483988453-28551-1-git-send-email-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
+        Leon Romanovsky <leonro@mellanox.com>,
+        Eli Cohen <eli@mellanox.com>,
+        Matan Barak <matanb@mellanox.com>,
+        Leon Romanovsky <leon@kernel.org>,
+        Saeed Mahameed <saeedm@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>,
+        Doug Ledford <dledford@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2nam02on0067.outbound.protection.outlook.com ([104.47.38.67]:2625
-        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1753590AbdAITAh (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 9 Jan 2017 14:00:37 -0500
-Content-Disposition: inline
-In-Reply-To: <20170109.135621.1633543054179916746.davem@davemloft.net>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:51975 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1761751AbdAITBH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 14:01:07 -0500
+In-Reply-To: <1483988453-28551-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> wrote on Mon [2017-Jan-09 13:56:21 -0500]:
-> From: Felix Manlunas <felix.manlunas@cavium.com>
-> Date: Mon, 9 Jan 2017 10:45:05 -0800
-> 
-> > David Miller <davem@davemloft.net> wrote on Sun [2017-Jan-08 17:09:41 -0500]:
-> >> From: Felix Manlunas <felix.manlunas@cavium.com>
-> >> Date: Fri, 6 Jan 2017 16:55:42 -0800
-> >> 
-> >> >  
-> >> > +		if (rh->r_dh.has_hash) {
-> >> > +			u32 hash = be32_to_cpu(*(u32 *)(skb->data + r_dh_off));
-> >> 
-> >> Is the checksum defined to be in the first 4-bytes of the 8-byte DHLEN unit,
-> >> or the second 4-bytes?  Is the answer to this question endian-dependent?
-> > 
-> > The hash is always in the first 4-bytes.  The location of the hash is endian
-> > independent.  The hash itself (in its original form) is big endian.
-> 
-> Thanks for explaining.
-> 
-> Please fix the SPARSE issue Eric Dumazet mentioned.
+From: Eli Cohen <eli@mellanox.com>
 
-Will do.  Thanks.
+The logic was broken as it failed to update the response length for
+architectures with PAGE_SIZE larger than 4kB. As a result further
+extension of the ucontext response struct would fail.
+
+Fixes: d69e3bcf7976 ('IB/mlx5: Mmap the HCA's core clock register to user-space')
+Signed-off-by: Eli Cohen <eli@mellanox.com>
+Reviewed-by: Matan Barak <matanb@mellanox.com>
+Signed-off-by: Leon Romanovsky <leon@kernel.org>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+---
+ drivers/infiniband/hw/mlx5/main.c | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/infiniband/hw/mlx5/main.c b/drivers/infiniband/hw/mlx5/main.c
+index 86c61e7..852b5b7 100644
+--- a/drivers/infiniband/hw/mlx5/main.c
++++ b/drivers/infiniband/hw/mlx5/main.c
+@@ -1148,13 +1148,13 @@ static struct ib_ucontext *mlx5_ib_alloc_ucontext(struct ib_device *ibdev,
+ 	 * pretend we don't support reading the HCA's core clock. This is also
+ 	 * forced by mmap function.
+ 	 */
+-	if (PAGE_SIZE <= 4096 &&
+-	    field_avail(typeof(resp), hca_core_clock_offset, udata->outlen)) {
+-		resp.comp_mask |=
+-			MLX5_IB_ALLOC_UCONTEXT_RESP_MASK_CORE_CLOCK_OFFSET;
+-		resp.hca_core_clock_offset =
+-			offsetof(struct mlx5_init_seg, internal_timer_h) %
+-			PAGE_SIZE;
++	if (field_avail(typeof(resp), hca_core_clock_offset, udata->outlen)) {
++		if (PAGE_SIZE <= 4096) {
++			resp.comp_mask |=
++				MLX5_IB_ALLOC_UCONTEXT_RESP_MASK_CORE_CLOCK_OFFSET;
++			resp.hca_core_clock_offset =
++				offsetof(struct mlx5_init_seg, internal_timer_h) % PAGE_SIZE;
++		}
+ 		resp.response_length += sizeof(resp.hca_core_clock_offset) +
+ 					sizeof(resp.reserved2);
+ 	}
+-- 
+2.7.4
