@@ -1,55 +1,51 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: Re: patch 4.8 "net: handle no dst on skb in icmp6_send"
-Date: Mon, 9 Jan 2017 08:58:47 +0100
-Message-ID: <20170109075847.GA11978@kroah.com>
-References: <02a7e2d2-cc1d-1c64-ac9b-7daf8a834b56@spamcop.net>
- <20170108.175008.1125416899482175990.davem@davemloft.net>
- <520a2f27-9198-f40e-3c17-06a37d497c9c@spamcop.net>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: RE: [PATCH net 1/2] r8152: fix the sw rx checksum is unavailable
+Date: Mon, 9 Jan 2017 07:58:02 +0000
+Message-ID: <0835B3720019904CB8F7AA43166CEEB20106C4D6@RTITMBSV03.realtek.com.tw>
+References: <ed0c9790-57be-8bca-cdd6-3a54ca24f0bd@pobox.com>
+ <20161125095350.GA20653@kroah.com>
+ <1816ec7e-2733-f4ba-5d30-29dbabd20aad@pobox.com>
+ <20161125.115827.2014848246966159357.davem@davemloft.net>
+ <0835B3720019904CB8F7AA43166CEEB201057793@RTITMBSV03.realtek.com.tw>
+ <CAA=3Oqn5_5w+vrg9_7UtZ-5BEbZ9Pm=qdX3WoVZKaAkxcMXYXA@mail.gmail.com>
+ <CAA=3Oqn1i0cFDw1yi=vWJuU=w-N+8T7i3+xx9qQtrQCatAi+8Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-        dsa@cumulusnetworks.com, stable@vger.kernel.org
-To: Bronek Kozicki <brok@spamcop.net>
-Return-path: <stable-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <520a2f27-9198-f40e-3c17-06a37d497c9c@spamcop.net>
-Sender: stable-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: David Miller <davem@davemloft.net>,
+        "mlord@pobox.com" <mlord@pobox.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        nic_swsd <nic_swsd@realtek.com>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        "linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+        Ansis Atteka <aatteka@ovn.org>
+To: Ansis Atteka <aatteka@nicira.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAA=3Oqn1i0cFDw1yi=vWJuU=w-N+8T7i3+xx9qQtrQCatAi+8Q@mail.gmail.com>
+Content-Language: zh-TW
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 09, 2017 at 07:53:49AM +0000, Bronek Kozicki wrote:
-> On 08/01/2017 22:50, David Miller wrote:
-> > From: Bronek Kozicki <brok@spamcop.net>
-> > Date: Sun, 8 Jan 2017 21:46:18 +0000
-> > 
-> > > Hello,
-> > > 
-> > > any particular reason why this fix
-> > > https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=79dc7e3f1cd323be4c81aa1a94faa1b3ed987fb2
-> > > was missed from stable 4.8 line? Apparently the bug being fixed has
-> > > its own https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2016-9919
-> > > 
-> > > Thank you for your hard work and best regards
-> > 
-> > You should always check the networking -stable queue before asking
-> > such questions:
-> > 
-> > 	http://patchwork.ozlabs.org/bundle/davem/stable/?submitter=&state=*&q=&archive=
-> > 
-> > Every patch sitting there is queued up and will be submitted to -stable
-> > at some time in the next week or two, or whenever I get around to vetting
-> > and submitting -stable changes.
-> > 
-> > The patch you are asking about it in fact in there, and will be attended
-> > to at an appropriate time.
-> 
-> 
-> Thank you David for prompt reply. I guess perhaps you are not aware that
-> patches to stable line 4.8 might not be accepted after Sun Jan 8th
-> (yesterday), and it will be considered EOL by version 4.8.17 ?
-
-It's ok, no one should be using 4.8 anymore now, and if this is fixed in
-4.9, all is good :)
-
-thanks,
-
-greg k-h
+QW5zaXMgQXR0ZWthIFttYWlsdG86YWF0dGVrYUBuaWNpcmEuY29tXQ0KPiBTZW50OiBUdWVzZGF5
+LCBKYW51YXJ5IDAzLCAyMDE3IDg6NDEgQU0NClsuLi5dDQo+IEhheWVzLCBpbiB5b3VyIGlwZXJm
+IHJlcHJvZHVjdGlvbiBlbnZpcm9ubWVudCBkaWQgeW91DQo+IDEpIGNvbm5lY3Qgc2VuZGVyIGFu
+ZCByZWNlaXZlciBkaXJlY3RseSB3aXRoIGFuIEV0aGVybmV0IGNhYmxlPw0KPiAyKSB1c2UgaXBl
+cmYncyBUQ1AgbW9kZSBpbnN0ZWFkIG9mIFVEUCBtb2RlLCBiZWNhdXNlIEkgYmVsaWV2ZSB0aGF0
+DQo+IHdpdGggVURQIG1vZGUgcGFja2V0cyBhcmUgbW9yZSBsaWtlbHkgdG8gYmUgc3BhcnNlbHkg
+ZGlzdHJpYnV0ZWQ/DQo+IEFsc28sIHRoaXMgYnVnIGlzIHdheSBlYXNpZXIgdG8gcmVwcm9kdWNl
+IHdoZW4gSVAgZnJhZ21lbnRhdGlvbiBraWNrcw0KPiBpbiBiZWNhdXNlIElQIGZyYWdtZW50cyBh
+cmUgdHlwaWNhbGx5IHNlbnQgb3V0IHZlcnkgY2xvc2UgdG8gZWFjaA0KPiBvdGhlci4NCj4gMykg
+d2VyZSB5b3UgcGx1Z2dpbmcgeW91ciBVU0IgRXRoZXJuZXQgZG9uZ2xlIGluIFVTQiAzLjAgcG9y
+dCBvcg0KPiB3aGF0ZXZlciBNYXJrIHdhcyB1c2luZz8gSXQgc2VlbXMgdGhhdCBlYWNoIFVTQiBt
+b2RlIGhhcyBkaWZmZXJlbnQNCj4gY29hbGVzY2UgcGFyYW1ldGVycyBhbmQgeW91cnMgbWlnaHQg
+aGF2ZSB3b3JrICJvdXQgb2YgYm94Ij8NCg0KWWVzLiBJIGNvbm5lY3QgdGhlbSBkaXJlY3RseSBh
+bmQgdXNlIGlwZXJmJ3MgVENQIG1vZGUuIEhvd2V2ZXIsDQpJIHRlc3QgdGhlIFJUTDgxNTIgd2hp
+Y2ggb25seSBzdXBwb3J0IFVTQiAyLjAuIFRoZXJlZm9yZSwgSSBkb24ndA0KdGhpbmsgaXQgb2Nj
+dXJzIHdpdGggZGlmZmVyZW50IGNvYWxlc2NlIHBhcmFtZXRlcnMuDQoNCj4gV2hpbGUgSSB3b3Vs
+ZCBub3QgY2FsbCB0aGlzIGEgcHJvcGVyIGZpeCwgYmVjYXVzZSBpdCBzaW1wbHkgcmVkdWNlcw0K
+PiBjb2FsZXNjaW5nIHRpbWVvdXRzIGJ5IG9yZGVyIG9mIDEwWCBhbmQgbW9zdCBsaWtlbHkgZG9l
+cyBub3QgZWxpbWluYXRlDQo+IHNlY3VyaXR5IGFzcGVjdHMgb2YgdGhlIGJ1ZywgaXQgYXQgbGVh
+c3QgbWFkZSBteSBzeXN0ZW0gZnVuY3Rpb25hbGx5DQo+IHN0YWJsZSBhbmQgSSBkb24ndCBzZWUg
+ZWl0aGVyIG9mIHRob3NlIHR3byBidWdzIGluIG15IHNldHVwIGFueW1vcmU6DQoNCkRvIHlvdSB0
+cnkgY29tbWl0IGE1OWU2ZDgxNTIyNiAoInI4MTUyOiBjb3JyZWN0IHRoZSByeCBlYXJseSBzaXpl
+IiksDQpvciB5b3UgaGF2ZSB1c2VkIGl0Pw0KDQpCZXN0IFJlZ2FyZHMsDQpIYXllcw0KDQo=
