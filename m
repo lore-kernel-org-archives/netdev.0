@@ -1,49 +1,40 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v2] phy state machine: failsafe leave invalid RUNNING
- state
-Date: Sun, 8 Jan 2017 17:24:54 -0800
-Message-ID: <5d0f7208-eec2-3b36-d946-e412ec051947@gmail.com>
-References: <1483542298-9747-1-git-send-email-zefir.kurtisi@neratec.com>
- <1483701288-14019-1-git-send-email-zefir.kurtisi@neratec.com>
+From: Randy Dunlap <rdunlap@infradead.org>
+Subject: Re: [PATCH net-next] net: dsa: select NET_SWITCHDEV
+Date: Sun, 8 Jan 2017 17:32:00 -0800
+Message-ID: <336a46c0-705a-9cf0-1a0d-447af28893bb@infradead.org>
+References: <20170108231724.27398-1-vivien.didelot@savoirfairelinux.com>
+ <ae5c2999-98a3-1b88-dd1d-970d958f6d7a@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch
-To: Zefir Kurtisi <zefir.kurtisi@neratec.com>, netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Andrew Lunn <andrew@lunn.ch>, Jiri Pirko <jiri@resnulli.us>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f175.google.com ([209.85.216.175]:36265 "EHLO
-        mail-qt0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965017AbdAIBZA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 8 Jan 2017 20:25:00 -0500
-Received: by mail-qt0-f175.google.com with SMTP id k15so353864850qtg.3
-        for <netdev@vger.kernel.org>; Sun, 08 Jan 2017 17:25:00 -0800 (PST)
-In-Reply-To: <1483701288-14019-1-git-send-email-zefir.kurtisi@neratec.com>
+Received: from bombadil.infradead.org ([198.137.202.9]:43144 "EHLO
+        bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S965459AbdAIBcH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 8 Jan 2017 20:32:07 -0500
+In-Reply-To: <ae5c2999-98a3-1b88-dd1d-970d958f6d7a@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 01/08/17 17:18, Florian Fainelli wrote:
+> On 01/08/2017 03:17 PM, Vivien Didelot wrote:
+>> DSA wraps SWITCHDEV, thus select it instead of depending on it.
+>>
+>> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> 
+> Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+> 
+
+but when CONFIG_INET is not enabled, the patch causes this warning:
+
+warning: (NET_DSA) selects NET_SWITCHDEV which has unmet direct dependencies (NET && INET)
 
 
-On 01/06/2017 03:14 AM, Zefir Kurtisi wrote:
-> While in RUNNING state, phy_state_machine() checks for link changes by
-> comparing phydev->link before and after calling phy_read_status().
-> This works as long as it is guaranteed that phydev->link is never
-> changed outside the phy_state_machine().
-> 
-> If in some setups this happens, it causes the state machine to miss
-> a link loss and remain RUNNING despite phydev->link being 0.
-> 
-> This has been observed running a dsa setup with a process continuously
-> polling the link states over ethtool each second (SNMPD RFC-1213
-> agent). Disconnecting the link on a phy followed by a ETHTOOL_GSET
-> causes dsa_slave_get_settings() / dsa_slave_get_link_ksettings() to
-> call phy_read_status() and with that modify the link status - and
-> with that bricking the phy state machine.
-> 
-> This patch adds a fail-safe check while in RUNNING, which causes to
-> move to CHANGELINK when the link is gone and we are still RUNNING.
-> 
-> Signed-off-by: Zefir Kurtisi <zefir.kurtisi@neratec.com>
-
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 -- 
-Florian
+~Randy
