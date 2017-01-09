@@ -1,53 +1,89 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [net-next PATCH 1/3] Revert "icmp: avoid allocating large struct
- on stack"
-Date: Mon, 9 Jan 2017 09:59:34 -0800
-Message-ID: <CAM_iQpV6YQ6nh_Y0f3BDgMheOic3bPiqQ1oNHR+saxxE7nBuoA@mail.gmail.com>
-References: <20170109150246.30215.63371.stgit@firesoul> <20170109150404.30215.44512.stgit@firesoul>
- <CAM_iQpUNmaBx6L4CcrXkh6aFj-fEXdoGTBJt+33W3Xg-=7yhWA@mail.gmail.com> <1483984208.5846.9.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next v2] net: dsa: make "label" property optional for
+ dsa2
+Date: Mon, 9 Jan 2017 10:06:39 -0800
+Message-ID: <3897e83d-83a6-7bb1-311d-ae228390f757@gmail.com>
+References: <20170108231552.26995-1-vivien.didelot@savoirfairelinux.com>
+ <20170109073236.GA1862@nanopsycho>
+ <877f6446lp.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+ <20170109151131.GC1862@nanopsycho>
+ <87y3yk2q5e.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+ <20170109160632.GD1862@nanopsycho>
+ <89492624-84f2-ca73-75dd-7fa10819ad09@gmail.com>
+ <20170109175842.GH1862@nanopsycho>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f195.google.com ([209.85.220.195]:34300 "EHLO
-        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1033515AbdAIR75 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 12:59:57 -0500
-Received: by mail-qk0-f195.google.com with SMTP id e1so17155497qkh.1
-        for <netdev@vger.kernel.org>; Mon, 09 Jan 2017 09:59:57 -0800 (PST)
-In-Reply-To: <1483984208.5846.9.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Andrew Lunn <andrew@lunn.ch>,
+        =?UTF-8?Q?Uwe_Kleine-K=c3=b6nig?= <uwe@kleine-koenig.org>,
+        Andrey Smirnov <andrew.smirnov@gmail.com>
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170109175842.GH1862@nanopsycho>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 9, 2017 at 9:50 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Mon, 2017-01-09 at 09:42 -0800, Cong Wang wrote:
->> On Mon, Jan 9, 2017 at 7:04 AM, Jesper Dangaard Brouer
->> <brouer@redhat.com> wrote:
->> > This reverts commit 9a99d4a50cb8 ("icmp: avoid allocating large struct
->> > on stack"), because struct icmp_bxm no really a large struct, and
->> > allocating and free of this small 112 bytes hurts performance.
+On 01/09/2017 09:58 AM, Jiri Pirko wrote:
+> Mon, Jan 09, 2017 at 06:42:07PM CET, f.fainelli@gmail.com wrote:
+>> On 01/09/2017 08:06 AM, Jiri Pirko wrote:
+>>> Mon, Jan 09, 2017 at 04:45:33PM CET, vivien.didelot@savoirfairelinux.com wrote:
+>>>> Hi Jiri,
+>>>>
+>>>> Jiri Pirko <jiri@resnulli.us> writes:
+>>>>
+>>>>>> Extra question: shouldn't phys_port_{id,name} be switchdev attributes in
+>>>>>
+>>>>> Again, phys_port_id has nothing to do with switches. Should be removed
+>>>>> from dsa because its use there is incorrect.
+>>>>
+>>>> Florian, since 3a543ef just got in, can it be reverted?
+>>>
+>>> Yes, please revert it. It is only in net-next.
 >>
->> The original commit fixes a warning for large stack usage, icmp_send()
->> is deep in the call stack.
->>
->> Your optimization for a slow path makes no sense to me.
->
-> Do you have the stack trace of this event ?
->
-> Even Linus allowed vmalloc() kernel stacks, while it certainly was an
-> heresy 10 years ago.
->
-> I doubt it makes a difference trying to save 104 bytes of kernel stack.
+>> Maybe the use case can be understood before reverting the change. How do
+>> we actually the physical port number of an Ethernet switch per-port
+>> network device? The name is not enough, because there are plenty of
+>> cases where we need to manipulate a physical port number (be it just for
+>> informational purposes).
+> 
+> Like what?
 
-I think you should have known this, quote from Eric Dumazet
-(hopefully the same one):
+Specifying the physical port number (and derive a queue number
+eventually) for some ethtool (e.g: rxnfc)/tc (queue mapping) operations
+where there is an action/queue/port destination argument that gets
+programmed into the hardware.
 
-    On Fri, 2013-05-31 at 22:22 -0700, Eric Dumazet wrote:
+You already have the originating port number from the interface you call
+the method against, but you also need the destination port number since
+that is what the HW understands.
 
-    Strange, I posted a patch like that some days ago.
+Aside from that, it is useful for allowing interface naming in user
+space if you don't want to use labels.
 
-which is from: https://patchwork.ozlabs.org/patch/248051/
+> 
+> Why the name is not enough? This is something propagated to userspace
+> and never used internally in kernel.
 
-Facepalm...
+Because the name is not reflective of the port number in some switches.
+In my case for instance, we have 5 ports that are named after the
+entities they connect to (an integrated Gigabit PHY, two RGMII pads, one
+MoCA interface, and the CPU)
+
+0 -> gphy
+1 -> rgmii_1
+2 -> rgmii_2
+7 -> moca
+8 -> cpu
+
+> 
+> Btw, ndo_get_phys_port_id does not give you number, but arbitrary binary.
+
+It's not entirely arbitrary for DSA switches since the port number is
+stored in an u8 whose value is the port number in hexadecimal (as shown
+by sysfs at least).
+-- 
+Florian
