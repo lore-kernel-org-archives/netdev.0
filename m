@@ -1,57 +1,76 @@
-From: Stephen Boyd <sboyd@codeaurora.org>
-Subject: [PATCH] net: qrtr: Mark 'buf' as little endian
-Date: Mon,  9 Jan 2017 14:31:58 -0800
-Message-ID: <20170109223158.29255-1-sboyd@codeaurora.org>
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        Bjorn Andersson <bjorn.andersson@linaro.org>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Murali Karicheri <m-karicheri2@ti.com>
+Subject: Marvell Phy (1510) issue since v4.7 kernel
+Date: Mon, 9 Jan 2017 17:38:39 -0500
+Message-ID: <587410EF.5090607@ti.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: "Kwok, WingMan" <w-kwok2@ti.com>
+To: Andrew Lunn <andrew@lunn.ch>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fllnx209.ext.ti.com ([198.47.19.16]:47604 "EHLO
+        fllnx209.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S933050AbdAIWjM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 17:39:12 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Failure to mark this pointer as __le32 causes checkers like
-sparse to complain:
+Hello Charles-Antoine, Andrew,
 
-net/qrtr/qrtr.c:274:16: warning: incorrect type in assignment (different base types)
-net/qrtr/qrtr.c:274:16:    expected unsigned int [unsigned] [usertype] <noident>
-net/qrtr/qrtr.c:274:16:    got restricted __le32 [usertype] <noident>
-net/qrtr/qrtr.c:275:16: warning: incorrect type in assignment (different base types)
-net/qrtr/qrtr.c:275:16:    expected unsigned int [unsigned] [usertype] <noident>
-net/qrtr/qrtr.c:275:16:    got restricted __le32 [usertype] <noident>
-net/qrtr/qrtr.c:276:16: warning: incorrect type in assignment (different base types)
-net/qrtr/qrtr.c:276:16:    expected unsigned int [unsigned] [usertype] <noident>
-net/qrtr/qrtr.c:276:16:    got restricted __le32 [usertype] <noident>
+We have recently upgraded our kernel to v4.9 and started seeing an issue
+on our Keystone EVMs (K2E/L) that uses Marvel Phy 1510. The issue is that
+when we do a reboot command from the Linux console or do a SoC reset,
+the DHCP times out at U-Boot due to Phy auto negotiation failure. This works
+fine when the board is power cycled.
 
-Silence it.
+This is traced back to v4.7 where following commits were introduced:-
 
-Cc: Bjorn Andersson <bjorn.andersson@linaro.org>
-Signed-off-by: Stephen Boyd <sboyd@codeaurora.org>
----
- net/qrtr/qrtr.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+3758be3dc162b56ea Marvell phy: add functions to suspend and resume both interfaces: fiber and copper links.
+78301ebe9b5a2645d Marvell phy: add configuration of autonegociation for fiber link.
+2170fef78a400ca3c Marvell phy: add field to get errors from fiber link.
+6cfb3bcc064110995 Marvell phy: check link status in case of fiber link 
 
-diff --git a/net/qrtr/qrtr.c b/net/qrtr/qrtr.c
-index c985ecbe9bd6..ae5ac175b2be 100644
---- a/net/qrtr/qrtr.c
-+++ b/net/qrtr/qrtr.c
-@@ -252,7 +252,7 @@ static struct sk_buff *qrtr_alloc_resume_tx(u32 src_node,
- 	const int pkt_len = 20;
- 	struct qrtr_hdr *hdr;
- 	struct sk_buff *skb;
--	u32 *buf;
-+	__le32 *buf;
+Specifically the commit 6cfb3bcc0641109951a124019cd2e0623107d18d which changed
+the marvell_read_status() behavior
+
+Once we add the below HACK, this works fine.
+
+commit e5bd8bfe7f544df03772c094331bb27e1a5a5600
+Author: Murali Karicheri <m-karicheri2@ti.com>
+Date:   Fri Jan 6 12:22:13 2017 -0500
+
+    TEMP: work around in marvel Phy driver for u-boot dhcp timeout
+    
+    Signed-off-by: Murali Karicheri <m-karicheri2@ti.com>
+
+diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
+index c2dcf02..e91bdd3 100644
+--- a/drivers/net/phy/marvell.c
++++ b/drivers/net/phy/marvell.c
+@@ -1194,7 +1194,7 @@ static int marvell_read_status(struct phy_device *phydev)
+        int err;
  
- 	skb = alloc_skb(QRTR_HDR_SIZE + pkt_len, GFP_KERNEL);
- 	if (!skb)
-@@ -269,7 +269,7 @@ static struct sk_buff *qrtr_alloc_resume_tx(u32 src_node,
- 	hdr->dst_node_id = cpu_to_le32(dst_node);
- 	hdr->dst_port_id = cpu_to_le32(QRTR_PORT_CTRL);
- 
--	buf = (u32 *)skb_put(skb, pkt_len);
-+	buf = (__le32 *)skb_put(skb, pkt_len);
- 	memset(buf, 0, pkt_len);
- 	buf[0] = cpu_to_le32(QRTR_TYPE_RESUME_TX);
- 	buf[1] = cpu_to_le32(src_node);
+        /* Check the fiber mode first */
+-       if (phydev->supported & SUPPORTED_FIBRE) {
++       if (!(phydev->supported & SUPPORTED_FIBRE)) {
+                err = phy_write(phydev, MII_MARVELL_PHY_PAGE, MII_M1111_FIBER);
+                if (err < 0)
+                        goto error;
+
+
+Also we see comments/logic in the code that contradicts with each other
+
+For example in marvell_read_status(), it says "Check the fiber mode first and
+uses the logic 
+     if (phydev->supported & SUPPORTED_FIBRE)
+
+Where as in  marvell_resume() comment says 'Resume the fiber mode first' and
+uses the logic 
+
+     if (!(phydev->supported & SUPPORTED_FIBRE))
+
+Both are not symmetrical. Could you please explain?
+
 -- 
-The Qualcomm Innovation Center, Inc. is a member of the Code Aurora Forum,
-a Linux Foundation Collaborative Project
+Murali Karicheri
+Linux Kernel, Keystone
