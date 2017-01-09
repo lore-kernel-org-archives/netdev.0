@@ -1,113 +1,74 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [net PATCH] net: virtio: cap mtu when XDP programs are running
-Date: Mon, 9 Jan 2017 15:49:27 -0800
-Message-ID: <58742187.8050505@gmail.com>
-References: <20170102223031.11541.28717.stgit@john-Precision-Tower-5810>
- <402027b4-58c7-aa1b-5079-74e31448f544@redhat.com>
- <586BD5D5.6020100@gmail.com>
- <1caf1ffc-0f46-067e-0f0d-a93b408b4ffd@redhat.com>
- <586D458F.5050705@gmail.com>
- <068f0116-b37e-eb44-8c60-1781a9d5255e@redhat.com>
- <20170110010531-mutt-send-email-mst@kernel.org> <5874190B.9050505@gmail.com>
- <20170110012044-mutt-send-email-mst@kernel.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Jason Wang <jasowang@redhat.com>, john.r.fastabend@intel.com,
-        netdev@vger.kernel.org, alexei.starovoitov@gmail.com,
-        daniel@iogearbox.net
-To: "Michael S. Tsirkin" <mst@redhat.com>
+From: Timur Tabi <timur@codeaurora.org>
+Subject: [PATCH] net: qcom/emac: grab a reference to the phydev on ACPI systems
+Date: Mon,  9 Jan 2017 17:52:06 -0600
+Message-ID: <1484005926-26673-1-git-send-email-timur@codeaurora.org>
+To: David Miller <davem@davemloft.net>, johan@kernel.org,
+        netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:33045 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756422AbdAIXtu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 18:49:50 -0500
-Received: by mail-pf0-f193.google.com with SMTP id 127so25776473pfg.0
-        for <netdev@vger.kernel.org>; Mon, 09 Jan 2017 15:49:50 -0800 (PST)
-In-Reply-To: <20170110012044-mutt-send-email-mst@kernel.org>
+Received: from smtp.codeaurora.org ([198.145.29.96]:55418 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752468AbdAIXwK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 18:52:10 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17-01-09 03:24 PM, Michael S. Tsirkin wrote:
-> On Mon, Jan 09, 2017 at 03:13:15PM -0800, John Fastabend wrote:
->> On 17-01-09 03:05 PM, Michael S. Tsirkin wrote:
->>> On Thu, Jan 05, 2017 at 11:09:14AM +0800, Jason Wang wrote:
->>>>
->>>>
->>>> On 2017年01月05日 02:57, John Fastabend wrote:
->>>>> [...]
->>>>>
->>>>>> On 2017年01月04日 00:48, John Fastabend wrote:
->>>>>>> On 17-01-02 10:14 PM, Jason Wang wrote:
->>>>>>>> On 2017年01月03日 06:30, John Fastabend wrote:
->>>>>>>>> XDP programs can not consume multiple pages so we cap the MTU to
->>>>>>>>> avoid this case. Virtio-net however only checks the MTU at XDP
->>>>>>>>> program load and does not block MTU changes after the program
->>>>>>>>> has loaded.
->>>>>>>>>
->>>>>>>>> This patch sets/clears the max_mtu value at XDP load/unload time.
->>>>>>>>>
->>>>>>>>> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
->>>>>>>>> ---
->>>>> [...]
->>>>>
->>>>>>> OK so this logic is a bit too simply. When it resets the max_mtu I guess it
->>>>>>> needs to read the mtu via
->>>>>>>
->>>>>>>      virtio_cread16(vdev, ...)
->>>>>>>
->>>>>>> or we may break the negotiated mtu.
->>>>>> Yes, this is a problem (even use ETH_MAX_MTU). We may need a method to notify
->>>>>> the device about the mtu in this case which is not supported by virtio now.
->>>>> Note this is not really a XDP specific problem. The guest can change the MTU
->>>>> after init time even without XDP which I assume should ideally result in a
->>>>> notification if the MTU is negotiated.
->>>>
->>>> Yes, Michael, do you think we need add some mechanism to notify host about
->>>> MTU change in this case?
->>>>
->>>> Thanks
->>>
->>> Why does host care?
->>>
->>
->> Well the guest will drop packets after mtu has been reduced.
-> 
-> I didn't know. What place in code does this?
-> 
+Commit 6ffe1c4cd0a7 ("net: qcom/emac: fix of_node and phydev leaks")
+fixed the problem with reference leaks on phydev, but the fix is
+device-tree specific.  When the driver unloads, the reference is
+dropped only on DT systems.
 
-hmm in many of the drivers it is convention to use the mtu to set the rx
-buffer sizes and a receive side max length filter. For example in the Intel
-drivers if a packet with length greater than MTU + some headroom is received we
-drop it. I guess in the networking stack RX path though nothing forces this and
-virtio doesn't have any code to drop packets on rx size.
+Instead, it's cleaner if up grab an reference on ACPI systems.
+When the driver unloads, we can drop the reference without having
+to check whether we're on a DT system.
 
-In virtio I don't see any existing case currently. In the XDP case though we
-need to ensure packets fit in a page for the time being which is why I was
-looking at this code and generated this patch.
+Signed-off-by: Timur Tabi <timur@codeaurora.org>
+---
+ drivers/net/ethernet/qualcomm/emac/emac-phy.c | 6 ++++++
+ drivers/net/ethernet/qualcomm/emac/emac.c     | 6 ++----
+ 2 files changed, 8 insertions(+), 4 deletions(-)
 
->> Although the guest
->> by reducing its MTU in some sense must expect this. Likewise if the host were
->> to change MTU after virtio_net probe time the guest would not learn about it.
-> 
-> The spec explicitly disallows this last one.
-
-OK. By the way were do I get the latest source I see the published virtio1.0 at
-the oasis-open.org site but it doesn't mention the MTU logic.
-
-> 
->> I think at best negotiating the mtu is just a hint? If system _really_ cares
->> we could use lldp or some other out of band mechanism to learn/set/adjust MTU
->> on both systems and it would be more robust. I'm not actually convinced this
->> is a problem in bare metal systems we have the same issue with physical
->> switches and solve it out of band via configuration, protocols, etc.
->>
->> .John
-> 
-> ATM we don't have negotiation in virtio, just a max mtu limit.
-> This doesn't free guest from configuring mtu correctly,
-> just helps it avoid doing something clearly bogus.
-> 
-
-Yep. I'm fine with calling it a misconfiguration if the guest reduces the MTU
-and the host continues to send packets @ advertised MTU.
+diff --git a/drivers/net/ethernet/qualcomm/emac/emac-phy.c b/drivers/net/ethernet/qualcomm/emac/emac-phy.c
+index 99a14df..af485f1 100644
+--- a/drivers/net/ethernet/qualcomm/emac/emac-phy.c
++++ b/drivers/net/ethernet/qualcomm/emac/emac-phy.c
+@@ -201,6 +201,12 @@ int emac_phy_config(struct platform_device *pdev, struct emac_adapter *adpt)
+ 		else
+ 			adpt->phydev = mdiobus_get_phy(mii_bus, phy_addr);
+ 
++		/* of_phy_find_device() claims a reference to the phydev,
++		 * so we do that here manually as well. When the driver
++		 * unloads, it can unilaterally drops the reference
++		 * without worrying about ACPI vs DT.
++		 */
++		get_device(&adpt->phydev->mdio.dev);
+ 	} else {
+ 		struct device_node *phy_np;
+ 
+diff --git a/drivers/net/ethernet/qualcomm/emac/emac.c b/drivers/net/ethernet/qualcomm/emac/emac.c
+index 6ffe192..0aac0de 100644
+--- a/drivers/net/ethernet/qualcomm/emac/emac.c
++++ b/drivers/net/ethernet/qualcomm/emac/emac.c
+@@ -729,8 +729,7 @@ static int emac_probe(struct platform_device *pdev)
+ err_undo_napi:
+ 	netif_napi_del(&adpt->rx_q.napi);
+ err_undo_mdiobus:
+-	if (!has_acpi_companion(&pdev->dev))
+-		put_device(&adpt->phydev->mdio.dev);
++	put_device(&adpt->phydev->mdio.dev);
+ 	mdiobus_unregister(adpt->mii_bus);
+ err_undo_clocks:
+ 	emac_clks_teardown(adpt);
+@@ -750,8 +749,7 @@ static int emac_remove(struct platform_device *pdev)
+ 
+ 	emac_clks_teardown(adpt);
+ 
+-	if (!has_acpi_companion(&pdev->dev))
+-		put_device(&adpt->phydev->mdio.dev);
++	put_device(&adpt->phydev->mdio.dev);
+ 	mdiobus_unregister(adpt->mii_bus);
+ 	free_netdev(netdev);
+ 
+-- 
+Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
+Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
+Code Aurora Forum, a Linux Foundation Collaborative Project.
