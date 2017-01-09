@@ -1,54 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/4] afs: Refcount afs_call struct
-Date: Mon, 09 Jan 2017 15:48:09 -0500 (EST)
-Message-ID: <20170109.154809.833546470488398315.davem@davemloft.net>
-References: <148397356909.20445.15077871371099721338.stgit@warthog.procyon.org.uk>
+From: Ido Schimmel <idosch@idosch.org>
+Subject: Re: [PATCH net-next 0/4] net: switchdev: Avoid sleep in atomic with
+ DSA
+Date: Mon, 9 Jan 2017 22:48:49 +0200
+Message-ID: <20170109204849.GA28310@splinter>
+References: <20170109194503.10713-1-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-afs@lists.infradead.org,
-        linux-kernel@vger.kernel.org
-To: dhowells@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <148397356909.20445.15077871371099721338.stgit@warthog.procyon.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+        vivien.didelot@savoirfairelinux.com, andrew@lunn.ch,
+        jiri@resnulli.us
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:42357 "EHLO
+        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751249AbdAIUtQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 15:49:16 -0500
+Content-Disposition: inline
+In-Reply-To: <20170109194503.10713-1-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Howells <dhowells@redhat.com>
-Date: Mon, 09 Jan 2017 14:52:49 +0000
+Hi Florian,
 
+On Mon, Jan 09, 2017 at 11:44:59AM -0800, Florian Fainelli wrote:
+> Hi all,
 > 
-> These patches provide some tracepoints for AFS and fix a potential leak by
-> adding refcounting to the afs_call struct.
+> This patch series is to resolve a sleeping function called in atomic context
+> debug splat that we observe with DSA.
 > 
-> The patches are:
-> 
->  (1) Add some tracepoints for logging incoming calls and monitoring
->      notifications from AF_RXRPC and data reception.
-> 
->  (2) Get rid of afs_wait_mode as it didn't turn out to be as useful as
->      initially expected.  It can be brought back later if needed.  This
->      clears some stuff out that I don't then need to fix up in (4).
-> 
->  (3) Allow listen(..., 0) to be used to disable listening.  This makes
->      shutting down the AFS cache manager server in the kernel much easier
->      and the accounting simpler as we can then be sure that (a) all
->      preallocated afs_call structs are relesed and (b) no new incoming
->      calls are going to be started.
-> 
->      For the moment, listening cannot be reenabled.
-> 
->  (4) Add refcounting to the afs_call struct to fix a potential multiple
->      release detected by static checking and add a tracepoint to follow the
->      lifecycle of afs_call objects.
-> 
-> The patches can be found here also:
-> 
-> 	http://git.kernel.org/cgit/linux/kernel/git/dhowells/linux-fs.git/log/?h=rxrpc-rewrite
-> 
-> Tagged thusly:
-> 
-> 	git://git.kernel.org/pub/scm/linux/kernel/git/dhowells/linux-fs.git
-> 	rxrpc-rewrite-20170109
+> Let me know what you think, I was also wondering if we should just always
+> make switchdev_port_vlan_fill() set SWITCHDEV_F_DEFER, but was afraid this
+> could cause invalid contexts to be used for rocker, mlxsw, i40e etc.
 
-Pulled, thanks David.
+Isn't this a bit of overkill? All the drivers you mention fill the VLAN
+dump from their cache and don't require sleeping. Even b53 that you
+mention in the last patch does that, but reads the PVID from the device,
+which entails taking a mutex.
+
+Can't you just cache the PVID as well? I think this will solve your
+problem. Didn't look too much into the b53 code, so maybe I'm missing
+something. Seems that mv88e6xxx has a similar problem.
+
+Thanks!
