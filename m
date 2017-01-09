@@ -1,42 +1,32 @@
-From: Timur Tabi <timur@codeaurora.org>
-Subject: Re: [PATCH net v2 5/5] net: qcom/emac: fix of_node and phydev leaks
-Date: Mon, 9 Jan 2017 13:49:53 -0600
-Message-ID: <650c00e9-cf02-1764-5065-86f6c06817f3@codeaurora.org>
-References: <1480011691-13278-1-git-send-email-johan@kernel.org>
- <1480011691-13278-6-git-send-email-johan@kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] alx: add feature flag for rx checksumming
+Date: Mon, 09 Jan 2017 14:53:05 -0500 (EST)
+Message-ID: <20170109.145305.529742417822882925.davem@davemloft.net>
+References: <20170109121555.4592-1-tobias.regnery@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        Madalin Bucur <madalin.bucur@nxp.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Johan Hovold <johan@kernel.org>,
-        "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1480011691-13278-6-git-send-email-johan@kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, jcliburn@gmail.com, chris.snook@gmail.com
+To: tobias.regnery@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:49150 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S965412AbdAITxH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 14:53:07 -0500
+In-Reply-To: <20170109121555.4592-1-tobias.regnery@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/24/2016 12:21 PM, Johan Hovold wrote:
-> +	if (!has_acpi_companion(&pdev->dev))
-> +		put_device(&adpt->phydev->mdio.dev);
+From: Tobias Regnery <tobias.regnery@gmail.com>
+Date: Mon,  9 Jan 2017 13:15:55 +0100
 
-I was wondering if, instead of calling put_device() only on non-ACPI systems, 
-would it be better if on an ACPI system I called get_device() manually?  That 
-is, some thing like this:
+> The code to handle rx checksumming was in the driver since its introduction
+> but for reasons unknown the feature flag was left out. Now it is possible
+> to enable this feature with ethtool.
+> 
+> Tested on my AR8161 ethernet card, there are no regressions observed in
+> netperf if this feature is enabled.
+> 
+> Signed-off-by: Tobias Regnery <tobias.regnery@gmail.com>
 
-int emac_phy_config(struct platform_device *pdev, struct emac_adapter *adpt)
-{
-...
-	if (has_acpi_companion(&pdev->dev)) {
-...
-		get_device(&mii_bus->dev);
-	} else {
-...
-
--- 
-Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
-Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
-Code Aurora Forum, a Linux Foundation Collaborative Project.
+Applied, thanks.
