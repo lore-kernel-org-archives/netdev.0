@@ -1,29 +1,84 @@
 From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH ipsec-next 0/6] xfrm: remove xfrm_state_get_afinfo conditional rcu locking
-Date: Mon,  9 Jan 2017 14:20:44 +0100
-Message-ID: <1483968050-788-1-git-send-email-fw@strlen.de>
+Subject: [PATCH ipsec-next 5/6] xfrm: state: simplify rcu_read_unlock handling in two spots
+Date: Mon,  9 Jan 2017 14:20:49 +0100
+Message-ID: <1483968050-788-6-git-send-email-fw@strlen.de>
+References: <1483968050-788-1-git-send-email-fw@strlen.de>
+Cc: Florian Westphal <fw@strlen.de>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:48762 "EHLO
+Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:48776 "EHLO
         Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1760625AbdAINUc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 08:20:32 -0500
+        by vger.kernel.org with ESMTP id S1761579AbdAINUs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 08:20:48 -0500
+In-Reply-To: <1483968050-788-1-git-send-email-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-xfrm_state_get_afinfo still uses a conditional locking scheme
-dating back to when this still used an rwlock:
+Instead of:
+  if (foo) {
+      unlock();
+      return bar();
+   }
+   unlock();
+do:
+   unlock();
+   if (foo)
+       return bar();
 
-If return value is NULL, no lock (rcu readlock) was taken,
-otherwise, rcu_read_unlock has to be called.
+This is ok because rcu protected structure is only dereferenced before
+the conditional.
 
-This series moves rcu read lock/unlock responsibility to the callers.
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+ net/xfrm/xfrm_state.c | 13 +++++++------
+ 1 file changed, 7 insertions(+), 6 deletions(-)
 
-xfrm_state_put_afinfo is removed (it is equivalent
-to rcu_read_unlock so thats what will be used instead).
-
-xfrm_state_get_afinfo is renamed to xfrm_state_afinfo_get_rcu()
-and is only a rcu dereference wrapper.
-
-In one case, rcu read/unlock can be avoided as we're always
-called with rcu read lock held.
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index ee1309e2b8b5..0245df063bd7 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -231,17 +231,18 @@ static const struct xfrm_type *xfrm_get_type(u8 proto, unsigned short family)
+ 		return NULL;
+ 	typemap = afinfo->type_map;
+ 
+-	type = typemap[proto];
++	type = READ_ONCE(typemap[proto]);
+ 	if (unlikely(type && !try_module_get(type->owner)))
+ 		type = NULL;
++
++	rcu_read_unlock();
++
+ 	if (!type && !modload_attempted) {
+-		rcu_read_unlock();
+ 		request_module("xfrm-type-%d-%d", family, proto);
+ 		modload_attempted = 1;
+ 		goto retry;
+ 	}
+ 
+-	rcu_read_unlock();
+ 	return type;
+ }
+ 
+@@ -327,17 +328,17 @@ static struct xfrm_mode *xfrm_get_mode(unsigned int encap, int family)
+ 	if (unlikely(afinfo == NULL))
+ 		return NULL;
+ 
+-	mode = afinfo->mode_map[encap];
++	mode = READ_ONCE(afinfo->mode_map[encap]);
+ 	if (unlikely(mode && !try_module_get(mode->owner)))
+ 		mode = NULL;
++
++	rcu_read_unlock();
+ 	if (!mode && !modload_attempted) {
+-		rcu_read_unlock();
+ 		request_module("xfrm-mode-%d-%d", family, encap);
+ 		modload_attempted = 1;
+ 		goto retry;
+ 	}
+ 
+-	rcu_read_unlock();
+ 	return mode;
+ }
+ 
+-- 
+2.7.3
