@@ -1,138 +1,52 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next 3/7] net: ipv4: Convert inet_rtm_getroute to rcu versions of route lookup
-Date: Mon,  9 Jan 2017 13:32:47 -0800
-Message-ID: <1483997571-3964-4-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH net-next 5/7] net: ipv4: Save trie prefix to fib lookup result
+Date: Mon,  9 Jan 2017 13:32:49 -0800
+Message-ID: <1483997571-3964-6-git-send-email-dsa@cumulusnetworks.com>
 References: <1483997571-3964-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f172.google.com ([209.85.192.172]:33419 "EHLO
+Received: from mail-pf0-f172.google.com ([209.85.192.172]:35399 "EHLO
         mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S941331AbdAIVc7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 16:32:59 -0500
-Received: by mail-pf0-f172.google.com with SMTP id y143so13067219pfb.0
-        for <netdev@vger.kernel.org>; Mon, 09 Jan 2017 13:32:59 -0800 (PST)
+        with ESMTP id S941409AbdAIVdB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 16:33:01 -0500
+Received: by mail-pf0-f172.google.com with SMTP id f144so24368435pfa.2
+        for <netdev@vger.kernel.org>; Mon, 09 Jan 2017 13:33:00 -0800 (PST)
 In-Reply-To: <1483997571-3964-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Convert inet_rtm_getroute to use ip_route_input_rcu and
-ip_route_output_key_hash_rcu passing the fib_result arg to both.
-The rcu lock is held through the creation of the response, so the
-rtable/dst does not need to be attached to the skb and is passed
-to rt_fill_info directly.
-
-In converting from ip_route_output_key to ip_route_output_key_hash_rcu
-the xfrm_lookup_route in ip_route_output_flow is dropped since
-flowi4_proto is not set for a route get request. Also, the flow struct
-adjustments from __ip_route_output_key_hash are added to make sure
-the route request logic is not altered by the conversion.
+Prefix is needed for returning matching route spec on get route request.
 
 Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- net/ipv4/route.c | 27 +++++++++++++++++++--------
- 1 file changed, 19 insertions(+), 8 deletions(-)
+ include/net/ip_fib.h | 1 +
+ net/ipv4/fib_trie.c  | 1 +
+ 2 files changed, 2 insertions(+)
 
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 3142cd802e79..03ddc03c185a 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -2467,11 +2467,11 @@ struct rtable *ip_route_output_flow(struct net *net, struct flowi4 *flp4,
- }
- EXPORT_SYMBOL_GPL(ip_route_output_flow);
+diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
+index 57c2a863d0b2..f2cc345852d7 100644
+--- a/include/net/ip_fib.h
++++ b/include/net/ip_fib.h
+@@ -136,6 +136,7 @@ struct fib_rule;
  
-+/* called with rcu_read_lock held */
- static int rt_fill_info(struct net *net,  __be32 dst, __be32 src, u32 table_id,
- 			struct flowi4 *fl4, struct sk_buff *skb, u32 portid,
--			u32 seq, int event)
-+			u32 seq, int event, struct rtable *rt)
- {
--	struct rtable *rt = skb_rtable(skb);
- 	struct rtmsg *r;
- 	struct nlmsghdr *nlh;
- 	unsigned long expires = 0;
-@@ -2585,10 +2585,12 @@ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh)
- 	struct net *net = sock_net(in_skb->sk);
- 	struct rtmsg *rtm;
- 	struct nlattr *tb[RTA_MAX+1];
-+	struct fib_result res = {};
- 	struct rtable *rt = NULL;
- 	struct flowi4 fl4;
- 	__be32 dst = 0;
- 	__be32 src = 0;
-+	__u8 tos;
- 	u32 iif;
- 	int err;
- 	int mark;
-@@ -2630,15 +2632,20 @@ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh)
- 	memset(&fl4, 0, sizeof(fl4));
- 	fl4.daddr = dst;
- 	fl4.saddr = src;
--	fl4.flowi4_tos = rtm->rtm_tos;
-+	tos = rtm->rtm_tos & (IPTOS_RT_MASK | RTO_ONLINK);
-+	fl4.flowi4_tos = tos & IPTOS_RT_MASK;
-+	fl4.flowi4_scope = ((tos & RTO_ONLINK) ?
-+				RT_SCOPE_LINK : RT_SCOPE_UNIVERSE);
- 	fl4.flowi4_oif = tb[RTA_OIF] ? nla_get_u32(tb[RTA_OIF]) : 0;
- 	fl4.flowi4_mark = mark;
- 	fl4.flowi4_uid = uid;
+ struct fib_table;
+ struct fib_result {
++	__be32		prefix;
+ 	unsigned char	prefixlen;
+ 	unsigned char	nh_sel;
+ 	unsigned char	type;
+diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+index 2919d1a10cfd..2fc5793cce36 100644
+--- a/net/ipv4/fib_trie.c
++++ b/net/ipv4/fib_trie.c
+@@ -1544,6 +1544,7 @@ int fib_table_lookup(struct fib_table *tb, const struct flowi4 *flp,
+ 			if (!(fib_flags & FIB_LOOKUP_NOREF))
+ 				atomic_inc(&fi->fib_clntref);
  
-+	rcu_read_lock();
-+
- 	if (iif) {
- 		struct net_device *dev;
- 
--		dev = __dev_get_by_index(net, iif);
-+		dev = dev_get_by_index_rcu(net, iif);
- 		if (!dev) {
- 			err = -ENODEV;
- 			goto errout_free;
-@@ -2647,14 +2654,16 @@ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh)
- 		skb->protocol	= htons(ETH_P_IP);
- 		skb->dev	= dev;
- 		skb->mark	= mark;
--		err = ip_route_input(skb, dst, src, rtm->rtm_tos, dev);
-+		err = ip_route_input_rcu(skb, dst, src, rtm->rtm_tos,
-+					 dev, &res);
- 
- 		rt = skb_rtable(skb);
- 		if (err == 0 && rt->dst.error)
- 			err = -rt->dst.error;
- 	} else {
--		rt = ip_route_output_key(net, &fl4);
-+		fl4.flowi4_iif = LOOPBACK_IFINDEX;
- 
-+		rt = ip_route_output_key_hash_rcu(net, &fl4, &res, -1);
- 		err = 0;
- 		if (IS_ERR(rt))
- 			err = PTR_ERR(rt);
-@@ -2663,7 +2672,6 @@ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh)
- 	if (err)
- 		goto errout_free;
- 
--	skb_dst_set(skb, &rt->dst);
- 	if (rtm->rtm_flags & RTM_F_NOTIFY)
- 		rt->rt_flags |= RTCF_NOTIFY;
- 
-@@ -2672,15 +2680,18 @@ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh)
- 
- 	err = rt_fill_info(net, dst, src, table_id, &fl4, skb,
- 			   NETLINK_CB(in_skb).portid, nlh->nlmsg_seq,
--			   RTM_NEWROUTE);
-+			   RTM_NEWROUTE, rt);
- 	if (err < 0)
- 		goto errout_free;
- 
-+	rcu_read_unlock();
-+
- 	err = rtnl_unicast(skb, net, NETLINK_CB(in_skb).portid);
- errout:
- 	return err;
- 
- errout_free:
-+	rcu_read_unlock();
- 	kfree_skb(skb);
- 	goto errout;
- }
++			res->prefix = htonl(n->key);
+ 			res->prefixlen = KEYLENGTH - fa->fa_slen;
+ 			res->nh_sel = nhsel;
+ 			res->type = fa->fa_type;
 -- 
 2.1.4
