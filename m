@@ -1,142 +1,46 @@
-From: Felix Manlunas <felix.manlunas@cavium.com>
-Subject: [PATCH v2 net-next] liquidio: store the L4 hash of rx packets in skb
-Date: Mon, 9 Jan 2017 14:42:40 -0800
-Message-ID: <20170109224240.GA10166@felix.cavium.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: Marvell Phy (1510) issue since v4.7 kernel
+Date: Mon, 9 Jan 2017 23:56:41 +0100
+Message-ID: <20170109225641.GB22820@lunn.ch>
+References: <587410EF.5090607@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, <raghu.vatsavayi@cavium.com>,
-        <derek.chickles@cavium.com>, <satananda.burla@cavium.com>,
-        <eric.dumazet@gmail.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "Kwok, WingMan" <w-kwok2@ti.com>
+To: Murali Karicheri <m-karicheri2@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam01on0042.outbound.protection.outlook.com ([104.47.32.42]:64691
-        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1755829AbdAIWnl (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 9 Jan 2017 17:43:41 -0500
+Received: from vps0.lunn.ch ([178.209.37.122]:53579 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1764260AbdAIW4n (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 9 Jan 2017 17:56:43 -0500
 Content-Disposition: inline
+In-Reply-To: <587410EF.5090607@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Prasad Kanneganti <prasad.kanneganti@cavium.com>
+On Mon, Jan 09, 2017 at 05:38:39PM -0500, Murali Karicheri wrote:
+> Hello Charles-Antoine, Andrew,
+> 
+> We have recently upgraded our kernel to v4.9 and started seeing an issue
+> on our Keystone EVMs (K2E/L) that uses Marvel Phy 1510. The issue is that
+> when we do a reboot command from the Linux console or do a SoC reset,
+> the DHCP times out at U-Boot due to Phy auto negotiation failure. This works
+> fine when the board is power cycled.
 
-Store the L4 hash of received packets in the skb; the hash is computed in
-the NIC firmware.
+I've seen similar before. What version of kernel are you upgrading
+from?
 
-Signed-off-by: Prasad Kanneganti <prasad.kanneganti@cavium.com>
-Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
-Signed-off-by: Derek Chickles <derek.chickles@cavium.com>
-Signed-off-by: Satanand Burla <satananda.burla@cavium.com>
----
-Note: The location of the L4 hash within the 8-byte DHLEN unit is the first
-      4 bytes; also that location is endian-independent.  The raw L4 hash
-      (in its original form) is big endian.
+The problem i've had is that on shutdown/reboot, linux powers the PHYs
+off. The uboot i have does not power them on again. Clearly a uboot
+issue, it should not assume the PHYs are powered on.
 
-Patch Changelog:
- v2: Fix two instances of sparse "warning: cast to restricted __be32":  one
-     in lio_main.c and one in lio_vf_main.c.  The fix is to replace the
-     cast to (u32 *) with a cast to (__be32 *).
+I work around this with a uboot command:
 
- drivers/net/ethernet/cavium/liquidio/lio_main.c        | 18 ++++++++++++++++--
- drivers/net/ethernet/cavium/liquidio/lio_vf_main.c     | 16 +++++++++++++++-
- drivers/net/ethernet/cavium/liquidio/liquidio_common.h |  2 ++
- 3 files changed, 33 insertions(+), 3 deletions(-)
+mii write 1 0 0x3100
 
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-index 13f67a3..b8b579d 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-@@ -2263,6 +2263,7 @@ liquidio_push_packet(u32 octeon_id __attribute__((unused)),
- 	struct skb_shared_hwtstamps *shhwtstamps;
- 	u64 ns;
- 	u16 vtag = 0;
-+	u32 r_dh_off;
- 	struct net_device *netdev = (struct net_device *)arg;
- 	struct octeon_droq *droq = container_of(param, struct octeon_droq,
- 						napi);
-@@ -2308,6 +2309,8 @@ liquidio_push_packet(u32 octeon_id __attribute__((unused)),
- 			put_page(pg_info->page);
- 		}
- 
-+		r_dh_off = (rh->r_dh.len - 1) * BYTES_PER_DHLEN_UNIT;
-+
- 		if (((oct->chip_id == OCTEON_CN66XX) ||
- 		     (oct->chip_id == OCTEON_CN68XX)) &&
- 		    ptp_enable) {
-@@ -2320,16 +2323,27 @@ liquidio_push_packet(u32 octeon_id __attribute__((unused)),
- 					/* Nanoseconds are in the first 64-bits
- 					 * of the packet.
- 					 */
--					memcpy(&ns, (skb->data), sizeof(ns));
-+					memcpy(&ns, (skb->data + r_dh_off),
-+					       sizeof(ns));
-+					r_dh_off -= BYTES_PER_DHLEN_UNIT;
- 					shhwtstamps = skb_hwtstamps(skb);
- 					shhwtstamps->hwtstamp =
- 						ns_to_ktime(ns +
- 							    lio->ptp_adjust);
- 				}
--				skb_pull(skb, sizeof(ns));
- 			}
- 		}
- 
-+		if (rh->r_dh.has_hash) {
-+			__be32 *hash_be = (__be32 *)(skb->data + r_dh_off);
-+			u32 hash = be32_to_cpu(*hash_be);
-+
-+			skb_set_hash(skb, hash, PKT_HASH_TYPE_L4);
-+			r_dh_off -= BYTES_PER_DHLEN_UNIT;
-+		}
-+
-+		skb_pull(skb, rh->r_dh.len * BYTES_PER_DHLEN_UNIT);
-+
- 		skb->protocol = eth_type_trans(skb, skb->dev);
- 		if ((netdev->features & NETIF_F_RXCSUM) &&
- 		    (((rh->r_dh.encap_on) &&
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-index 55846f2..ad2e72d 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-@@ -1497,6 +1497,7 @@ liquidio_push_packet(u32 octeon_id __attribute__((unused)),
- 	struct net_device *netdev = (struct net_device *)arg;
- 	struct sk_buff *skb = (struct sk_buff *)skbuff;
- 	u16 vtag = 0;
-+	u32 r_dh_off;
- 
- 	if (netdev) {
- 		struct lio *lio = GET_LIO(netdev);
-@@ -1540,7 +1541,20 @@ liquidio_push_packet(u32 octeon_id __attribute__((unused)),
- 			put_page(pg_info->page);
- 		}
- 
--		skb_pull(skb, rh->r_dh.len * 8);
-+		r_dh_off = (rh->r_dh.len - 1) * BYTES_PER_DHLEN_UNIT;
-+
-+		if (rh->r_dh.has_hwtstamp)
-+			r_dh_off -= BYTES_PER_DHLEN_UNIT;
-+
-+		if (rh->r_dh.has_hash) {
-+			__be32 *hash_be = (__be32 *)(skb->data + r_dh_off);
-+			u32 hash = be32_to_cpu(*hash_be);
-+
-+			skb_set_hash(skb, hash, PKT_HASH_TYPE_L4);
-+			r_dh_off -= BYTES_PER_DHLEN_UNIT;
-+		}
-+
-+		skb_pull(skb, rh->r_dh.len * BYTES_PER_DHLEN_UNIT);
- 		skb->protocol = eth_type_trans(skb, skb->dev);
- 
- 		if ((netdev->features & NETIF_F_RXCSUM) &&
-diff --git a/drivers/net/ethernet/cavium/liquidio/liquidio_common.h b/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
-index ba329f6..bc0af8a 100644
---- a/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
-+++ b/drivers/net/ethernet/cavium/liquidio/liquidio_common.h
-@@ -98,6 +98,8 @@ enum octeon_tag_type {
- #define CVM_DRV_INVALID_APP         (CVM_DRV_APP_START + 0x2)
- #define CVM_DRV_APP_END             (CVM_DRV_INVALID_APP - 1)
- 
-+#define BYTES_PER_DHLEN_UNIT        8
-+
- static inline u32 incr_index(u32 index, u32 count, u32 max)
- {
- 	if ((index + count) >= max)
+where the PHY is at address 1 on the bus. This writes to register 0,
+and the import bit which needs setting to 0 is bit 11.
+
+If mii read shows bit 11 is set, you know there uboot did not power up
+the PHY.
+
+    Andrew
