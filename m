@@ -1,30 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] cls_u32: don't bother explicitly initializing
- ->divisor to zero
-Date: Mon, 09 Jan 2017 14:27:42 -0500 (EST)
-Message-ID: <20170109.142742.2143034709434341382.davem@davemloft.net>
-References: <20170108164946.GA10605@gmail.com>
+Subject: Re: [PATCH] net: ethernet: ti: cpsw: extend limits for
+ cpsw_get/set_ringparam
+Date: Mon, 09 Jan 2017 14:29:20 -0500 (EST)
+Message-ID: <20170109.142920.729854911308845027.davem@davemloft.net>
+References: <1483906347-7567-1-git-send-email-ivan.khoronzhuk@linaro.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jhs@mojatatu.com, netdev@vger.kernel.org,
+Cc: netdev@vger.kernel.org, mugunthanvnm@ti.com,
+        linux-omap@vger.kernel.org, grygorii.strashko@ti.com,
         linux-kernel@vger.kernel.org
-To: 00moses.alexander00@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:48202 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751038AbdAIT1n (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 14:27:43 -0500
-In-Reply-To: <20170108164946.GA10605@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: ivan.khoronzhuk@linaro.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1483906347-7567-1-git-send-email-ivan.khoronzhuk@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexandru Moise <00moses.alexander00@gmail.com>
-Date: Sun, 8 Jan 2017 18:49:46 +0200
+From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+Date: Sun,  8 Jan 2017 22:12:27 +0200
 
-> This struct member is already initialized to zero upon root_ht's
-> allocation via kzalloc().
+> Allow to set number of descs close to possible values. In case of
+> minimum limit it's equal to number of channels to be able to set
+> at least one desc per channel. For maximum limit leave enough descs
+> number for tx channels.
 > 
-> Signed-off-by: Alexandru Moise <00moses.alexander00@gmail.com>
+> Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
 
-Applied, thanks.
+Applied, thank you.
