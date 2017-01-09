@@ -1,37 +1,134 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [for-next V3 00/10][pull request] Mellanox 100G mlx5 4K UAR
- support
-Date: Mon, 09 Jan 2017 17:16:36 -0500 (EST)
-Message-ID: <20170109.171636.1347842948110740752.davem@davemloft.net>
-References: <1483988453-28551-1-git-send-email-saeedm@mellanox.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dledford@redhat.com, netdev@vger.kernel.org,
-        linux-rdma@vger.kernel.org, leonro@mellanox.com, eli@mellanox.com,
-        matanb@mellanox.com
-To: saeedm@mellanox.com
+From: Alexander Loktionov <Alexander.Loktionov@aquantia.com>
+Subject: [PATCH v2 00/13] net: ethernet: aquantia: Add AQtion 2.5/5 GB NIC driver
+Date: Mon,  9 Jan 2017 14:15:58 -0800
+Message-ID: <cover.1483999588.git.vomlehn@texas.net>
+Cc: Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
+        Alexander Loktionov <Alexander.Loktionov@aquantia.com>,
+        Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>,
+        Pavel Belous <Pavel.Belous@aquantia.com>
+To: netdev@vger.kernel.org, David VomLehn <vomlehn@texas.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:52712 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750877AbdAIWQi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 17:16:38 -0500
-In-Reply-To: <1483988453-28551-1-git-send-email-saeedm@mellanox.com>
+Received: from barracuda5.aus1.datafoundry.com ([209.99.124.136]:42470 "EHLO
+        barracuda.datafoundry.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S932080AbdAIWQs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 17:16:48 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Saeed Mahameed <saeedm@mellanox.com>
-Date: Mon,  9 Jan 2017 21:00:43 +0200
+From: David VomLehn <vomlehn@texas.net>
 
-> Following the mlx5-odp submission, you can find here the 2nd mlx5
-> submission for 4.11 as a pull-request including mlx5 4K UAR support from
-> Eli Cohen (details below).  For you Doug, this pull request will provide
-> you with both mlx5 odp and mlx5 4k UAR since it is based on Dave's
-> net-next mlx5-odp merge commit.
-> 
-> v1->v2:
->   - Removed 64BIT arch dependency.
-> v2->v3:
->   - Removed extra space.
+This series introduces the AQtion NIC driver for the aQuantia
+AQC107/AQC108 network devices.
 
-Pulled into net-next, thanks.
+v1: Initial version
+v2: o Make necessary drivers/net/ethernet changes to integrate software
+    o Drop intermediate atlantic directory
+    o Remove Makefile things only appropriate to out of tree module
+      building
+v3: o Move changes to drivers/net/ethernet/{Kconfig,Makefile} to the last
+      patch to ensure clean bisection.
+    o Removed inline attribute aq_hw_write_req() as it was defined in
+      only one .c file.
+    o #included pci.h in aq_common.h to get struct pci definition.
+    o Modified code to unlock based on execution flow rather than using
+      a flag.
+    o Made a number of functions that were only used in a single file
+      static.
+    o Cleaned up error and return code handling in various places.
+    o Use netdev_alloc_skb_ip_align() instead of aligning with skb_reserve().
+    o Other minor code clean up.
+
+Signed-off-by: Alexander Loktionov <Alexander.Loktionov@aquantia.com>
+Signed-off-by: Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>
+Signed-off-by: Pavel Belous <Pavel.Belous@aquantia.com>
+Signed-off-by: David M. VomLehn <vomlehn@texas.net>
+
+David VomLehn (13):
+  net: ethernet: aquantia: Make and configuration files.
+  net: ethernet: aquantia: Common functions and definitions
+  net: ethernet: aquantia: Add ring support code
+  net: ethernet: aquantia: Low-level hardware interfaces
+  net: ethernet: aquantia: Support for NIC-specific code
+  net: ethernet: aquantia: Atlantic A0 and B0 specific functions.
+  net: ethernet: aquantia: Vector operations
+  net: ethernet: aquantia: PCI operations
+  net: ethernet: aquantia: Atlantic hardware abstraction layer
+  net: ethernet: aquantia: Hardware interface and utility functions
+  net: ethernet: aquantia: Ethtool support
+  net: ethernet: aquantia: Receive side scaling
+  net: ethernet: aquantia: Integrate AQtion 2.5/5 GB NIC driver
+
+ drivers/net/ethernet/Kconfig                       |    1 +
+ drivers/net/ethernet/Makefile                      |    1 +
+ drivers/net/ethernet/aquantia/Kconfig              |   24 +
+ drivers/net/ethernet/aquantia/Makefile             |   44 +
+ drivers/net/ethernet/aquantia/aq_cfg.h             |   78 +
+ drivers/net/ethernet/aquantia/aq_common.h          |   24 +
+ drivers/net/ethernet/aquantia/aq_ethtool.c         |  251 +++
+ drivers/net/ethernet/aquantia/aq_ethtool.h         |   20 +
+ drivers/net/ethernet/aquantia/aq_hw.h              |  170 ++
+ drivers/net/ethernet/aquantia/aq_hw_utils.c        |   69 +
+ drivers/net/ethernet/aquantia/aq_hw_utils.h        |   48 +
+ drivers/net/ethernet/aquantia/aq_main.c            |  292 +++
+ drivers/net/ethernet/aquantia/aq_main.h            |   18 +
+ drivers/net/ethernet/aquantia/aq_nic.c             |  889 ++++++++
+ drivers/net/ethernet/aquantia/aq_nic.h             |  109 +
+ drivers/net/ethernet/aquantia/aq_nic_internal.h    |   47 +
+ drivers/net/ethernet/aquantia/aq_pci_func.c        |  348 +++
+ drivers/net/ethernet/aquantia/aq_pci_func.h        |   35 +
+ drivers/net/ethernet/aquantia/aq_ring.c            |  344 +++
+ drivers/net/ethernet/aquantia/aq_ring.h            |  147 ++
+ drivers/net/ethernet/aquantia/aq_rss.h             |   27 +
+ drivers/net/ethernet/aquantia/aq_utils.h           |   54 +
+ drivers/net/ethernet/aquantia/aq_vec.c             |  359 +++
+ drivers/net/ethernet/aquantia/aq_vec.h             |   38 +
+ drivers/net/ethernet/aquantia/hw_atl/hw_atl_a0.c   |  908 ++++++++
+ drivers/net/ethernet/aquantia/hw_atl/hw_atl_a0.h   |   35 +
+ .../ethernet/aquantia/hw_atl/hw_atl_a0_internal.h  |  153 ++
+ drivers/net/ethernet/aquantia/hw_atl/hw_atl_b0.c   |  961 ++++++++
+ drivers/net/ethernet/aquantia/hw_atl/hw_atl_b0.h   |   35 +
+ .../ethernet/aquantia/hw_atl/hw_atl_b0_internal.h  |  206 ++
+ drivers/net/ethernet/aquantia/hw_atl/hw_atl_llh.c  | 1395 ++++++++++++
+ drivers/net/ethernet/aquantia/hw_atl/hw_atl_llh.h  |  678 ++++++
+ .../ethernet/aquantia/hw_atl/hw_atl_llh_internal.h | 2376 ++++++++++++++++++++
+ .../net/ethernet/aquantia/hw_atl/hw_atl_utils.c    |  548 +++++
+ .../net/ethernet/aquantia/hw_atl/hw_atl_utils.h    |  211 ++
+ drivers/net/ethernet/aquantia/ver.h                |   19 +
+ 36 files changed, 10962 insertions(+)
+ create mode 100644 drivers/net/ethernet/aquantia/Kconfig
+ create mode 100644 drivers/net/ethernet/aquantia/Makefile
+ create mode 100644 drivers/net/ethernet/aquantia/aq_cfg.h
+ create mode 100644 drivers/net/ethernet/aquantia/aq_common.h
+ create mode 100644 drivers/net/ethernet/aquantia/aq_ethtool.c
+ create mode 100644 drivers/net/ethernet/aquantia/aq_ethtool.h
+ create mode 100644 drivers/net/ethernet/aquantia/aq_hw.h
+ create mode 100644 drivers/net/ethernet/aquantia/aq_hw_utils.c
+ create mode 100644 drivers/net/ethernet/aquantia/aq_hw_utils.h
+ create mode 100644 drivers/net/ethernet/aquantia/aq_main.c
+ create mode 100644 drivers/net/ethernet/aquantia/aq_main.h
+ create mode 100644 drivers/net/ethernet/aquantia/aq_nic.c
+ create mode 100644 drivers/net/ethernet/aquantia/aq_nic.h
+ create mode 100644 drivers/net/ethernet/aquantia/aq_nic_internal.h
+ create mode 100644 drivers/net/ethernet/aquantia/aq_pci_func.c
+ create mode 100644 drivers/net/ethernet/aquantia/aq_pci_func.h
+ create mode 100644 drivers/net/ethernet/aquantia/aq_ring.c
+ create mode 100644 drivers/net/ethernet/aquantia/aq_ring.h
+ create mode 100644 drivers/net/ethernet/aquantia/aq_rss.h
+ create mode 100644 drivers/net/ethernet/aquantia/aq_utils.h
+ create mode 100644 drivers/net/ethernet/aquantia/aq_vec.c
+ create mode 100644 drivers/net/ethernet/aquantia/aq_vec.h
+ create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_a0.c
+ create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_a0.h
+ create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_a0_internal.h
+ create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_b0.c
+ create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_b0.h
+ create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_b0_internal.h
+ create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_llh.c
+ create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_llh.h
+ create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_llh_internal.h
+ create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_utils.c
+ create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_utils.h
+ create mode 100644 drivers/net/ethernet/aquantia/ver.h
+
+-- 
+2.7.4
