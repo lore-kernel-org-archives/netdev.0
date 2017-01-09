@@ -1,74 +1,42 @@
-From: Bhumika Goyal <bhumirks@gmail.com>
-Subject: [PATCH] vhost: scsi: constify target_core_fabric_ops structures
-Date: Mon,  9 Jan 2017 20:51:02 +0530
-Message-ID: <1483975262-1260-1-git-send-email-bhumirks@gmail.com>
-Cc: Bhumika Goyal <bhumirks@gmail.com>
-To: julia.lawall@lip6.fr, mst@redhat.com, jasowang@redhat.com,
-        kvm@vger.kernel.org, virtualization@lists.linux-foundation.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+From: michael-dev <michael-dev@fami-braun.de>
+Subject: Re: [PATCH net-next] bridge: multicast to unicast
+Date: Mon, 09 Jan 2017 16:25:54 +0100
+Message-ID: <ebc5050e12c04273fa518e35d7f0b8bc@fami-braun.de>
+References: <20170102193214.31723-1-linus.luessing@c0d3.blue>
+ <1483706872.4089.8.camel@sipsolutions.net>
+ <8836daaa-9638-4502-d079-fd428595f822@nbd.name>
+ <1483710841.12677.1.camel@sipsolutions.net>
+ <22fad045-57c6-7789-d19f-f47bd0faf441@fami-braun.de>
+ <20170107145516.GE3134@otheros> <1483949336.17582.3.camel@sipsolutions.net>
+ <6f5ec9f1-800a-2bc4-2f41-9d803343bb22@fami-braun.de>
+ <1483964159.17582.34.camel@sipsolutions.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: =?UTF-8?Q?Linus_L=C3=BCssing?= <linus.luessing@c0d3.blue>,
+        Felix Fietkau <nbd@nbd.name>, netdev@vger.kernel.org,
+        "David S . Miller" <davem@davemloft.net>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
+        linux-wireless@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1483964159.17582.34.camel@sipsolutions.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Declare target_core_fabric_ops strucrues as const as they are only
-passed as an argument to the functions target_register_template and 
-target_unregister_template. The arguments are of type const struct 
-target_core_fabric_ops *, so target_core_fabric_ops structures having 
-this property can be declared const.
-Done using Coccinelle:
+Am 09.01.2017 13:15, schrieb Johannes Berg:
+>> That is bridge fdb entries (need to) expire so the bridge might
+>> "forget" a still-connected station not sending but only consuming
+>> broadcast traffic.
+> 
+> Ok, that I don't know. Somehow if you address a unicast packet there
+> the bridge has to make a decision - so it really should know?
 
-@r disable optional_qualifier@
-identifier i;
-position p;
-@@
-static struct target_core_fabric_ops i@p={...};
+If the bridge has not learned the unicast destination mac address on any 
+port, it will flood the packet on all ports except the port it received 
+the packet on.
 
-@ok@
-position p;
-identifier r.i;
-@@
-(
-target_register_template(&i@p)
-|
-target_unregister_template(&i@p)
-)
-@bad@
-position p!={r.p,ok.p};
-identifier r.i;
-@@
-i@p
-
-@depends on !bad disable optional_qualifier@
-identifier r.i;
-@@
-+const
-struct target_core_fabric_ops i;
-
-File size before: drivers/vhost/scsi.o
-   text	   data	    bss	    dec	    hex	filename
-  18063	   2985	     40	  21088	   5260	drivers/vhost/scsi.o
-
-File size after: drivers/vhost/scsi.o
-   text	   data	    bss	    dec	    hex	filename
-  18479	   2601	     40	  21120	   5280	drivers/vhost/scsi.o
-
-Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
----
- drivers/vhost/scsi.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/vhost/scsi.c b/drivers/vhost/scsi.c
-index 253310c..620366d 100644
---- a/drivers/vhost/scsi.c
-+++ b/drivers/vhost/scsi.c
-@@ -2087,7 +2087,7 @@ static void vhost_scsi_drop_tport(struct se_wwn *wwn)
- 	NULL,
- };
- 
--static struct target_core_fabric_ops vhost_scsi_ops = {
-+static const struct target_core_fabric_ops vhost_scsi_ops = {
- 	.module				= THIS_MODULE,
- 	.name				= "vhost",
- 	.get_fabric_name		= vhost_scsi_get_fabric_name,
--- 
-1.9.1
+Regards,
+M. Braun
