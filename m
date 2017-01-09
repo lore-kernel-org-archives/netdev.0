@@ -1,120 +1,90 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [net PATCH] net: virtio: cap mtu when XDP programs are running
-Date: Tue, 10 Jan 2017 01:58:58 +0200
-Message-ID: <20170110015759-mutt-send-email-mst@kernel.org>
-References: <20170102223031.11541.28717.stgit@john-Precision-Tower-5810>
- <402027b4-58c7-aa1b-5079-74e31448f544@redhat.com>
- <586BD5D5.6020100@gmail.com>
- <1caf1ffc-0f46-067e-0f0d-a93b408b4ffd@redhat.com>
- <586D458F.5050705@gmail.com>
- <068f0116-b37e-eb44-8c60-1781a9d5255e@redhat.com>
- <20170110010531-mutt-send-email-mst@kernel.org>
- <5874190B.9050505@gmail.com>
- <20170110012044-mutt-send-email-mst@kernel.org>
- <58742187.8050505@gmail.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build failure after merge of the net-next tree
+Date: Tue, 10 Jan 2017 10:59:27 +1100
+Message-ID: <20170110105927.29edcec0@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Jason Wang <jasowang@redhat.com>, john.r.fastabend@intel.com,
-        netdev@vger.kernel.org, alexei.starovoitov@gmail.com,
-        daniel@iogearbox.net
-To: John Fastabend <john.fastabend@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Ursula Braun <ubraun@linux.vnet.ibm.com>,
+        Utz Bacher <utz.bacher@de.ibm.com>
+To: David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>,
+        Al Viro <viro@ZenIV.linux.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:34866 "EHLO mx1.redhat.com"
+Received: from ozlabs.org ([103.22.144.67]:58073 "EHLO ozlabs.org"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753320AbdAIX7A (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 9 Jan 2017 18:59:00 -0500
-Content-Disposition: inline
-In-Reply-To: <58742187.8050505@gmail.com>
+        id S1764454AbdAIX73 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 9 Jan 2017 18:59:29 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 09, 2017 at 03:49:27PM -0800, John Fastabend wrote:
-> On 17-01-09 03:24 PM, Michael S. Tsirkin wrote:
-> > On Mon, Jan 09, 2017 at 03:13:15PM -0800, John Fastabend wrote:
-> >> On 17-01-09 03:05 PM, Michael S. Tsirkin wrote:
-> >>> On Thu, Jan 05, 2017 at 11:09:14AM +0800, Jason Wang wrote:
-> >>>>
-> >>>>
-> >>>> On 2017年01月05日 02:57, John Fastabend wrote:
-> >>>>> [...]
-> >>>>>
-> >>>>>> On 2017年01月04日 00:48, John Fastabend wrote:
-> >>>>>>> On 17-01-02 10:14 PM, Jason Wang wrote:
-> >>>>>>>> On 2017年01月03日 06:30, John Fastabend wrote:
-> >>>>>>>>> XDP programs can not consume multiple pages so we cap the MTU to
-> >>>>>>>>> avoid this case. Virtio-net however only checks the MTU at XDP
-> >>>>>>>>> program load and does not block MTU changes after the program
-> >>>>>>>>> has loaded.
-> >>>>>>>>>
-> >>>>>>>>> This patch sets/clears the max_mtu value at XDP load/unload time.
-> >>>>>>>>>
-> >>>>>>>>> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-> >>>>>>>>> ---
-> >>>>> [...]
-> >>>>>
-> >>>>>>> OK so this logic is a bit too simply. When it resets the max_mtu I guess it
-> >>>>>>> needs to read the mtu via
-> >>>>>>>
-> >>>>>>>      virtio_cread16(vdev, ...)
-> >>>>>>>
-> >>>>>>> or we may break the negotiated mtu.
-> >>>>>> Yes, this is a problem (even use ETH_MAX_MTU). We may need a method to notify
-> >>>>>> the device about the mtu in this case which is not supported by virtio now.
-> >>>>> Note this is not really a XDP specific problem. The guest can change the MTU
-> >>>>> after init time even without XDP which I assume should ideally result in a
-> >>>>> notification if the MTU is negotiated.
-> >>>>
-> >>>> Yes, Michael, do you think we need add some mechanism to notify host about
-> >>>> MTU change in this case?
-> >>>>
-> >>>> Thanks
-> >>>
-> >>> Why does host care?
-> >>>
-> >>
-> >> Well the guest will drop packets after mtu has been reduced.
-> > 
-> > I didn't know. What place in code does this?
-> > 
-> 
-> hmm in many of the drivers it is convention to use the mtu to set the rx
-> buffer sizes and a receive side max length filter. For example in the Intel
-> drivers if a packet with length greater than MTU + some headroom is received we
-> drop it. I guess in the networking stack RX path though nothing forces this and
-> virtio doesn't have any code to drop packets on rx size.
-> 
-> In virtio I don't see any existing case currently. In the XDP case though we
-> need to ensure packets fit in a page for the time being which is why I was
-> looking at this code and generated this patch.
+Hi all,
 
-I'd say just look at the hardware max mtu. Ignore the configured mtu.
+After merging the net-next tree, today's linux-next build (x86_64
+allmodconfig) failed like this:
 
+net/smc/af_smc.c: In function 'smc_splice_read':
+net/smc/af_smc.c:1258:39: error: passing argument 1 of 'smc->clcsock->ops->splice_read' from incompatible pointer type [-Werror=incompatible-pointer-types]
+   rc = smc->clcsock->ops->splice_read(smc->clcsock, ppos,
+                                       ^
+net/smc/af_smc.c:1258:39: note: expected 'struct file *' but argument is of type 'struct socket *'
+net/smc/af_smc.c: At top level:
+net/smc/af_smc.c:1288:17: error: initialization from incompatible pointer type [-Werror=incompatible-pointer-types]
+  .splice_read = smc_splice_read,   
+                 ^
+net/smc/af_smc.c:1288:17: note: (near initialization for 'smc_sock_ops.splice_read')
 
-> >> Although the guest
-> >> by reducing its MTU in some sense must expect this. Likewise if the host were
-> >> to change MTU after virtio_net probe time the guest would not learn about it.
-> > 
-> > The spec explicitly disallows this last one.
-> 
-> OK. By the way were do I get the latest source I see the published virtio1.0 at
-> the oasis-open.org site but it doesn't mention the MTU logic.
+Caused by commit
 
-You need to get it from svn.
+  ac7138746e14 ("smc: establish new socket family")
 
-> > 
-> >> I think at best negotiating the mtu is just a hint? If system _really_ cares
-> >> we could use lldp or some other out of band mechanism to learn/set/adjust MTU
-> >> on both systems and it would be more robust. I'm not actually convinced this
-> >> is a problem in bare metal systems we have the same issue with physical
-> >> switches and solve it out of band via configuration, protocols, etc.
-> >>
-> >> .John
-> > 
-> > ATM we don't have negotiation in virtio, just a max mtu limit.
-> > This doesn't free guest from configuring mtu correctly,
-> > just helps it avoid doing something clearly bogus.
-> > 
-> 
-> Yep. I'm fine with calling it a misconfiguration if the guest reduces the MTU
-> and the host continues to send packets @ advertised MTU.
+interacting with commit
+
+  15a8f657c71d ("switch socket ->splice_read() to struct file *")
+
+from the vfs tree.
+
+I applied the following merge fix patch which could well be incorrect ...
+
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Tue, 10 Jan 2017 10:52:38 +1100
+Subject: [PATCH] smc: merge fix for "switch socket ->splice_read() to struct file *"
+
+Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+---
+ net/smc/af_smc.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/net/smc/af_smc.c b/net/smc/af_smc.c
+index 5d4208ad029e..4875e65f0c4a 100644
+--- a/net/smc/af_smc.c
++++ b/net/smc/af_smc.c
+@@ -1242,10 +1242,11 @@ static ssize_t smc_sendpage(struct socket *sock, struct page *page,
+ 	return rc;
+ }
+ 
+-static ssize_t smc_splice_read(struct socket *sock, loff_t *ppos,
++static ssize_t smc_splice_read(struct file *file, loff_t *ppos,
+ 			       struct pipe_inode_info *pipe, size_t len,
+ 				    unsigned int flags)
+ {
++	struct socket *sock = file->private_data;
+ 	struct sock *sk = sock->sk;
+ 	struct smc_sock *smc;
+ 	int rc = -ENOTCONN;
+@@ -1255,7 +1256,7 @@ static ssize_t smc_splice_read(struct socket *sock, loff_t *ppos,
+ 	if ((sk->sk_state != SMC_ACTIVE) && (sk->sk_state != SMC_CLOSED))
+ 		goto out;
+ 	if (smc->use_fallback) {
+-		rc = smc->clcsock->ops->splice_read(smc->clcsock, ppos,
++		rc = smc->clcsock->ops->splice_read(file, ppos,
+ 						    pipe, len, flags);
+ 	} else {
+ 		rc = -EOPNOTSUPP;
+-- 
+2.10.2
+
+-- 
+Cheers,
+Stephen Rothwell
