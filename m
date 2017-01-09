@@ -1,51 +1,35 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 3/4] net: switchdev: Add
- switchdev_port_bridge_getlink_deferred
-Date: Mon, 9 Jan 2017 12:13:19 -0800
-Message-ID: <78bba92c-aa8e-ee1e-4b7a-3625d6f6309a@gmail.com>
-References: <20170109194503.10713-1-f.fainelli@gmail.com>
- <20170109194503.10713-4-f.fainelli@gmail.com>
- <20170109201135.GE3771@localhost.localdomain>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2 0/3] ip vrf: minor error message cleanups
+Date: Mon, 9 Jan 2017 12:15:12 -0800
+Message-ID: <20170109121512.071847c6@xeon-e3>
+References: <1483662143-15242-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-        vivien.didelot@savoirfairelinux.com, andrew@lunn.ch,
-        jiri@resnulli.us
-To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Cc: netdev@vger.kernel.org
+To: David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:34207 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751143AbdAIUNV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 15:13:21 -0500
-Received: by mail-pf0-f195.google.com with SMTP id y143so4052760pfb.1
-        for <netdev@vger.kernel.org>; Mon, 09 Jan 2017 12:13:21 -0800 (PST)
-In-Reply-To: <20170109201135.GE3771@localhost.localdomain>
+Received: from mail-pf0-f172.google.com ([209.85.192.172]:33360 "EHLO
+        mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932551AbdAIUPU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 15:15:20 -0500
+Received: by mail-pf0-f172.google.com with SMTP id y143so12259114pfb.0
+        for <netdev@vger.kernel.org>; Mon, 09 Jan 2017 12:15:20 -0800 (PST)
+In-Reply-To: <1483662143-15242-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/09/2017 12:11 PM, Marcelo Ricardo Leitner wrote:
-> On Mon, Jan 09, 2017 at 11:45:02AM -0800, Florian Fainelli wrote:
->> Add switchdev_port_bridge_getlink_deferred() which does a deferred
->> object dump operation, this is required for e.g: DSA switches which
->> typically have sleeping I/O operations which is incompatible with being
->> in atomic context obviously.
->>
->> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
->> ---
+On Thu,  5 Jan 2017 16:22:20 -0800
+David Ahern <dsa@cumulusnetworks.com> wrote:
 
->>  	struct switchdev_attr attr = {
->>  		.orig_dev = dev,
->> @@ -829,12 +841,49 @@ int switchdev_port_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
->>  	if (err && err != -EOPNOTSUPP)
->>  		return err;
->>  
->> -	return ndo_dflt_bridge_getlink(skb, pid, seq, dev, mode,
->> +	return ndo_dflt_bridge_getlink(skb, pid, seq, d, mode,
+> David Ahern (3):
+>   ip vrf: Fix error message when running exec as non-root user
+>   ip vrf: Improve error message for non-root user
+>   ip vrf: Clean up bpf related error messages
 > 
-> Was this s/dev/d/ by mistake?
+>  ip/ipvrf.c |  6 +++++-
+>  lib/fs.c   | 16 ++++++++++++----
+>  2 files changed, 17 insertions(+), 5 deletions(-)
+> 
 
-No, it's not a mistake, it was made so that the function signature could
-be within 80 columns.
--- 
-Florian
+Looks good, applied.
