@@ -1,7 +1,7 @@
 From: Christoph Hellwig <hch@lst.de>
-Subject: [PATCH 2/3] xgbe: switch to pci_irq_alloc_vectors
-Date: Mon,  9 Jan 2017 21:37:39 +0100
-Message-ID: <1483994260-19797-3-git-send-email-hch@lst.de>
+Subject: [PATCH 3/3] PCI/msi: remove pci_enable_msi_{exact,range}
+Date: Mon,  9 Jan 2017 21:37:40 +0100
+Message-ID: <1483994260-19797-4-git-send-email-hch@lst.de>
 References: <1483994260-19797-1-git-send-email-hch@lst.de>
 Cc: Mauro Carvalho Chehab <mchehab@s-opensource.com>,
         netdev@vger.kernel.org, linux-media@vger.kernel.org
@@ -11,123 +11,130 @@ In-Reply-To: <1483994260-19797-1-git-send-email-hch@lst.de>
 Sender: linux-media-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The newly added xgbe drivers uses the deprecated pci_enable_msi_exact
-and pci_enable_msix_range interfaces.  Switch it to use
-pci_irq_alloc_vectors instead.
+All multi-MSI allocations are now done through pci_irq_alloc_vectors,
+so remove the old interface.
 
 Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- drivers/net/ethernet/amd/xgbe/xgbe-pci.c | 47 +++++++++++++-------------------
- drivers/net/ethernet/amd/xgbe/xgbe.h     |  1 -
- 2 files changed, 19 insertions(+), 29 deletions(-)
+ Documentation/PCI/MSI-HOWTO.txt |  6 ++----
+ drivers/pci/msi.c               | 26 +++++++++-----------------
+ include/linux/pci.h             | 16 ++--------------
+ 3 files changed, 13 insertions(+), 35 deletions(-)
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-pci.c b/drivers/net/ethernet/amd/xgbe/xgbe-pci.c
-index e76b7f6..be2690e 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-pci.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-pci.c
-@@ -133,12 +133,13 @@ static int xgbe_config_msi(struct xgbe_prv_data *pdata)
- 			 pdata->tx_ring_count);
- 	msi_count = roundup_pow_of_two(msi_count);
+diff --git a/Documentation/PCI/MSI-HOWTO.txt b/Documentation/PCI/MSI-HOWTO.txt
+index cd9c9f6..b570a92 100644
+--- a/Documentation/PCI/MSI-HOWTO.txt
++++ b/Documentation/PCI/MSI-HOWTO.txt
+@@ -162,8 +162,6 @@ The following old APIs to enable and disable MSI or MSI-X interrupts should
+ not be used in new code:
  
--	ret = pci_enable_msi_exact(pdata->pcidev, msi_count);
-+	ret = pci_alloc_irq_vectors(pdata->pcidev, msi_count, msi_count,
-+			PCI_IRQ_MSI);
- 	if (ret < 0) {
- 		dev_info(pdata->dev, "MSI request for %u interrupts failed\n",
- 			 msi_count);
+   pci_enable_msi()		/* deprecated */
+-  pci_enable_msi_range()	/* deprecated */
+-  pci_enable_msi_exact()	/* deprecated */
+   pci_disable_msi()		/* deprecated */
+   pci_enable_msix_range()	/* deprecated */
+   pci_enable_msix_exact()	/* deprecated */
+@@ -268,5 +266,5 @@ or disabled (0).  If 0 is found in any of the msi_bus files belonging
+ to bridges between the PCI root and the device, MSIs are disabled.
  
--		ret = pci_enable_msi(pdata->pcidev);
-+		ret = pci_alloc_irq_vectors(pdata->pcidev, 1, 1, PCI_IRQ_MSI);
- 		if (ret < 0) {
- 			dev_info(pdata->dev, "MSI enablement failed\n");
- 			return ret;
-@@ -149,25 +150,26 @@ static int xgbe_config_msi(struct xgbe_prv_data *pdata)
- 
- 	pdata->irq_count = msi_count;
- 
--	pdata->dev_irq = pdata->pcidev->irq;
-+	pdata->dev_irq = pci_irq_vector(pdata->pcidev, 0);
- 
- 	if (msi_count > 1) {
--		pdata->ecc_irq = pdata->pcidev->irq + 1;
--		pdata->i2c_irq = pdata->pcidev->irq + 2;
--		pdata->an_irq = pdata->pcidev->irq + 3;
-+		pdata->ecc_irq = pci_irq_vector(pdata->pcidev, 1);
-+		pdata->i2c_irq = pci_irq_vector(pdata->pcidev, 2);
-+		pdata->an_irq = pci_irq_vector(pdata->pcidev, 3);
- 
- 		for (i = XGBE_MSIX_BASE_COUNT, j = 0;
- 		     (i < msi_count) && (j < XGBE_MAX_DMA_CHANNELS);
- 		     i++, j++)
--			pdata->channel_irq[j] = pdata->pcidev->irq + i;
-+			pdata->channel_irq[j] =
-+				pci_irq_vector(pdata->pcidev, i);
- 		pdata->channel_irq_count = j;
- 
- 		pdata->per_channel_irq = 1;
- 		pdata->channel_irq_mode = XGBE_IRQ_MODE_LEVEL;
- 	} else {
--		pdata->ecc_irq = pdata->pcidev->irq;
--		pdata->i2c_irq = pdata->pcidev->irq;
--		pdata->an_irq = pdata->pcidev->irq;
-+		pdata->ecc_irq = pci_irq_vector(pdata->pcidev, 0);
-+		pdata->i2c_irq = pci_irq_vector(pdata->pcidev, 0);
-+		pdata->an_irq = pci_irq_vector(pdata->pcidev, 0);
+ It is also worth checking the device driver to see whether it supports MSIs.
+-For example, it may contain calls to pci_enable_msi_range() or
+-pci_enable_msix_range().
++For example, it may contain calls to pci_irq_alloc_vectors with the
++PCI_IRQ_MSI or PCI_IRQ_MSIX flags.
+diff --git a/drivers/pci/msi.c b/drivers/pci/msi.c
+index 50c5003..16dda43 100644
+--- a/drivers/pci/msi.c
++++ b/drivers/pci/msi.c
+@@ -1109,23 +1109,15 @@ static int __pci_enable_msi_range(struct pci_dev *dev, int minvec, int maxvec,
  	}
+ }
  
- 	if (netif_msg_probe(pdata))
-@@ -186,33 +188,22 @@ static int xgbe_config_msix(struct xgbe_prv_data *pdata)
- 	msix_count += max(pdata->rx_ring_count,
- 			  pdata->tx_ring_count);
+-/**
+- * pci_enable_msi_range - configure device's MSI capability structure
+- * @dev: device to configure
+- * @minvec: minimal number of interrupts to configure
+- * @maxvec: maximum number of interrupts to configure
+- *
+- * This function tries to allocate a maximum possible number of interrupts in a
+- * range between @minvec and @maxvec. It returns a negative errno if an error
+- * occurs. If it succeeds, it returns the actual number of interrupts allocated
+- * and updates the @dev's irq member to the lowest new interrupt number;
+- * the other interrupt numbers allocated to this device are consecutive.
+- **/
+-int pci_enable_msi_range(struct pci_dev *dev, int minvec, int maxvec)
++/* deprecated, don't use */
++int pci_enable_msi(struct pci_dev *dev)
+ {
+-	return __pci_enable_msi_range(dev, minvec, maxvec, NULL);
++	int rc = __pci_enable_msi_range(dev, 1, 1, NULL);
++	if (rc < 0)
++		return rc;
++	return 0;
+ }
+-EXPORT_SYMBOL(pci_enable_msi_range);
++EXPORT_SYMBOL(pci_enable_msi);
  
--	pdata->msix_entries = devm_kcalloc(pdata->dev, msix_count,
--					   sizeof(struct msix_entry),
--					   GFP_KERNEL);
--	if (!pdata->msix_entries)
--		return -ENOMEM;
+ static int __pci_enable_msix_range(struct pci_dev *dev,
+ 				   struct msix_entry *entries, int minvec,
+@@ -1381,7 +1373,7 @@ int pci_msi_domain_check_cap(struct irq_domain *domain,
+ {
+ 	struct msi_desc *desc = first_pci_msi_entry(to_pci_dev(dev));
+ 
+-	/* Special handling to support pci_enable_msi_range() */
++	/* Special handling to support __pci_enable_msi_range() */
+ 	if (pci_msi_desc_is_multi_msi(desc) &&
+ 	    !(info->flags & MSI_FLAG_MULTI_PCI_MSI))
+ 		return 1;
+@@ -1394,7 +1386,7 @@ int pci_msi_domain_check_cap(struct irq_domain *domain,
+ static int pci_msi_domain_handle_error(struct irq_domain *domain,
+ 				       struct msi_desc *desc, int error)
+ {
+-	/* Special handling to support pci_enable_msi_range() */
++	/* Special handling to support __pci_enable_msi_range() */
+ 	if (pci_msi_desc_is_multi_msi(desc) && error == -ENOSPC)
+ 		return 1;
+ 
+diff --git a/include/linux/pci.h b/include/linux/pci.h
+index e2d1a12..2159376 100644
+--- a/include/linux/pci.h
++++ b/include/linux/pci.h
+@@ -1309,14 +1309,7 @@ void pci_msix_shutdown(struct pci_dev *dev);
+ void pci_disable_msix(struct pci_dev *dev);
+ void pci_restore_msi_state(struct pci_dev *dev);
+ int pci_msi_enabled(void);
+-int pci_enable_msi_range(struct pci_dev *dev, int minvec, int maxvec);
+-static inline int pci_enable_msi_exact(struct pci_dev *dev, int nvec)
+-{
+-	int rc = pci_enable_msi_range(dev, nvec, nvec);
+-	if (rc < 0)
+-		return rc;
+-	return 0;
+-}
++int pci_enable_msi(struct pci_dev *dev);
+ int pci_enable_msix_range(struct pci_dev *dev, struct msix_entry *entries,
+ 			  int minvec, int maxvec);
+ static inline int pci_enable_msix_exact(struct pci_dev *dev,
+@@ -1347,10 +1340,7 @@ static inline void pci_msix_shutdown(struct pci_dev *dev) { }
+ static inline void pci_disable_msix(struct pci_dev *dev) { }
+ static inline void pci_restore_msi_state(struct pci_dev *dev) { }
+ static inline int pci_msi_enabled(void) { return 0; }
+-static inline int pci_enable_msi_range(struct pci_dev *dev, int minvec,
+-				       int maxvec)
+-{ return -ENOSYS; }
+-static inline int pci_enable_msi_exact(struct pci_dev *dev, int nvec)
++static inline int pci_enable_msi(struct pci_dev *dev)
+ { return -ENOSYS; }
+ static inline int pci_enable_msix_range(struct pci_dev *dev,
+ 		      struct msix_entry *entries, int minvec, int maxvec)
+@@ -1426,8 +1416,6 @@ static inline void pcie_set_ecrc_checking(struct pci_dev *dev) { }
+ static inline void pcie_ecrc_get_policy(char *str) { }
+ #endif
+ 
+-#define pci_enable_msi(pdev)	pci_enable_msi_exact(pdev, 1)
 -
--	for (i = 0; i < msix_count; i++)
--		pdata->msix_entries[i].entry = i;
--
--	ret = pci_enable_msix_range(pdata->pcidev, pdata->msix_entries,
--				    XGBE_MSIX_MIN_COUNT, msix_count);
-+	ret = pci_alloc_irq_vectors(pdata->pcidev, XGBE_MSIX_MIN_COUNT,
-+			msix_count, PCI_IRQ_MSIX);
- 	if (ret < 0) {
- 		dev_info(pdata->dev, "MSI-X enablement failed\n");
--		devm_kfree(pdata->dev, pdata->msix_entries);
--		pdata->msix_entries = NULL;
- 		return ret;
- 	}
- 
- 	pdata->irq_count = ret;
- 
--	pdata->dev_irq = pdata->msix_entries[0].vector;
--	pdata->ecc_irq = pdata->msix_entries[1].vector;
--	pdata->i2c_irq = pdata->msix_entries[2].vector;
--	pdata->an_irq = pdata->msix_entries[3].vector;
-+	pdata->dev_irq = pci_irq_vector(pdata->pcidev, 0);
-+	pdata->ecc_irq = pci_irq_vector(pdata->pcidev, 1);
-+	pdata->i2c_irq = pci_irq_vector(pdata->pcidev, 2);
-+	pdata->an_irq = pci_irq_vector(pdata->pcidev, 3);
- 
- 	for (i = XGBE_MSIX_BASE_COUNT, j = 0; i < ret; i++, j++)
--		pdata->channel_irq[j] = pdata->msix_entries[i].vector;
-+		pdata->channel_irq[j] = pci_irq_vector(pdata->pcidev, i);
- 	pdata->channel_irq_count = j;
- 
- 	pdata->per_channel_irq = 1;
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe.h b/drivers/net/ethernet/amd/xgbe/xgbe.h
-index f52a9bd..3bcb6f5 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe.h
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe.h
-@@ -980,7 +980,6 @@ struct xgbe_prv_data {
- 	unsigned int desc_ded_count;
- 	unsigned int desc_sec_count;
- 
--	struct msix_entry *msix_entries;
- 	int dev_irq;
- 	int ecc_irq;
- 	int i2c_irq;
+ #ifdef CONFIG_HT_IRQ
+ /* The functions a driver should call */
+ int  ht_create_irq(struct pci_dev *dev, int idx);
 -- 
 2.1.4
