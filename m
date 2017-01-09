@@ -1,42 +1,59 @@
-From: Tobias Regnery <tobias.regnery@gmail.com>
-Subject: [PATCH net-next] alx: add feature flag for rx checksumming
-Date: Mon,  9 Jan 2017 13:15:55 +0100
-Message-ID: <20170109121555.4592-1-tobias.regnery@gmail.com>
-Cc: davem@davemloft.net, Tobias Regnery <tobias.regnery@gmail.com>
-To: netdev@vger.kernel.org, jcliburn@gmail.com, chris.snook@gmail.com
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Subject: [PATCH v6 0/3] adding new glue driver dwmac-dwc-qos-eth
+Date: Mon, 9 Jan 2017 12:35:07 +0000
+Message-ID: <cover.1483964586.git.jpinto@synopsys.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <lars.persson@axis.com>, <niklass@axis.com>, <swarren@nvidia.com>,
+        <treding@nvidia.com>, <netdev@vger.kernel.org>,
+        <nathan.sullivan@ni.com>, Joao Pinto <Joao.Pinto@synopsys.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:34738 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1760237AbdAIMQQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 07:16:16 -0500
-Received: by mail-wm0-f68.google.com with SMTP id c85so21543083wmi.1
-        for <netdev@vger.kernel.org>; Mon, 09 Jan 2017 04:16:16 -0800 (PST)
+Received: from us01smtprelay-2.synopsys.com ([198.182.60.111]:47183 "EHLO
+        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757328AbdAIMfU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 07:35:20 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The code to handle rx checksumming was in the driver since its introduction
-but for reasons unknown the feature flag was left out. Now it is possible
-to enable this feature with ethtool.
+This patch set contains the porting of the synopsys/dwc_eth_qos.c driver
+to the stmmac structure. This operation resulted in the creation of a new
+platform glue driver called dwmac-dwc-qos-eth which was based in the
+dwc_eth_qos as is.
 
-Tested on my AR8161 ethernet card, there are no regressions observed in
-netperf if this feature is enabled.
+dwmac-dwc-qos-eth inherited dwc_eth_qos DT bindings, to assure that current
+and old users can continue to use it as before. We can see this driver as
+being deprecated, since all new development will be done in stmmac.
 
-Signed-off-by: Tobias Regnery <tobias.regnery@gmail.com>
----
- drivers/net/ethernet/atheros/alx/main.c | 1 +
- 1 file changed, 1 insertion(+)
+Please check each patch for implementation details.
 
-diff --git a/drivers/net/ethernet/atheros/alx/main.c b/drivers/net/ethernet/atheros/alx/main.c
-index c66195d00ed4..4c80e0689db9 100644
---- a/drivers/net/ethernet/atheros/alx/main.c
-+++ b/drivers/net/ethernet/atheros/alx/main.c
-@@ -1816,6 +1816,7 @@ static int alx_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 
- 	netdev->hw_features = NETIF_F_SG |
- 			      NETIF_F_HW_CSUM |
-+			      NETIF_F_RXCSUM |
- 			      NETIF_F_TSO |
- 			      NETIF_F_TSO6;
- 
+Tested-by: Niklas Cassel <niklas.cassel@axis.com>
+Reviewed-by: Lars Persson <larper@axis.com>
+Acked-by: Alexandre TORGUE <alexandre.torgue@st.com>
+
+Joao Pinto (3):
+  stmmac: adding DT parameter for LPI tx clock gating
+  stmmac: move stmmac_clk, pclk, clk_ptp_ref and stmmac_rst to platform
+    structure
+  stmmac: adding new glue driver dwmac-dwc-qos-eth
+
+ .../bindings/net/snps,dwc-qos-ethernet.txt         |   3 +
+ Documentation/devicetree/bindings/net/stmmac.txt   |   2 +
+ drivers/net/ethernet/stmicro/stmmac/Kconfig        |   9 +
+ drivers/net/ethernet/stmicro/stmmac/Makefile       |   1 +
+ drivers/net/ethernet/stmicro/stmmac/common.h       |   3 +-
+ .../ethernet/stmicro/stmmac/dwmac-dwc-qos-eth.c    | 202 +++++++++++++++++++++
+ .../net/ethernet/stmicro/stmmac/dwmac-socfpga.c    |   2 +-
+ .../net/ethernet/stmicro/stmmac/dwmac1000_core.c   |   5 +-
+ drivers/net/ethernet/stmicro/stmmac/dwmac4.h       |   1 +
+ drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c  |   6 +-
+ drivers/net/ethernet/stmicro/stmmac/stmmac.h       |   5 -
+ .../net/ethernet/stmicro/stmmac/stmmac_ethtool.c   |   4 +-
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |  85 ++-------
+ .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |  65 ++++++-
+ include/linux/stmmac.h                             |   6 +
+ 15 files changed, 317 insertions(+), 82 deletions(-)
+ create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac-dwc-qos-eth.c
+
 -- 
 2.9.3
