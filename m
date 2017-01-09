@@ -1,66 +1,27 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH V4 net-next 1/3] vhost: better detection of available
-	buffers
-Date: Mon, 9 Jan 2017 10:59:16 +0800
-Message-ID: <e09ccb6a-87b8-d2b1-f64d-79ea7ea89954@redhat.com>
-References: <1483668797-24112-1-git-send-email-jasowang@redhat.com>
-	<1483668797-24112-2-git-send-email-jasowang@redhat.com>
-	<20170106214903-mutt-send-email-mst@kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 0/2] net: dsa: bcm_sf2: Couple fixes
+Date: Sun, 08 Jan 2017 22:02:34 -0500 (EST)
+Message-ID: <20170108.220234.1363866789223597432.davem@davemloft.net>
+References: <20170108050157.16302-1-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: kvm@vger.kernel.org, netdev@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, wexu@redhat.com,
-	stefanha@redhat.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20170106214903-mutt-send-email-mst@kernel.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com
+To: f.fainelli@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:48322 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753283AbdAIDCi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 8 Jan 2017 22:02:38 -0500
+In-Reply-To: <20170108050157.16302-1-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-CgpPbiAyMDE35bm0MDHmnIgwN+aXpSAwMzo1NSwgTWljaGFlbCBTLiBUc2lya2luIHdyb3RlOgo+
-IE9uIEZyaSwgSmFuIDA2LCAyMDE3IGF0IDEwOjEzOjE1QU0gKzA4MDAsIEphc29uIFdhbmcgd3Jv
-dGU6Cj4+IFRoaXMgcGF0Y2ggdHJpZXMgdG8gZG8gc2V2ZXJhbCB0d2Vha3Mgb24gdmhvc3RfdnFf
-YXZhaWxfZW1wdHkoKSBmb3IgYQo+PiBiZXR0ZXIgcGVyZm9ybWFuY2U6Cj4+Cj4+IC0gY2hlY2sg
-Y2FjaGVkIGF2YWlsIGluZGV4IGZpcnN0IHdoaWNoIGNvdWxkIGF2b2lkIHVzZXJzcGFjZSBtZW1v
-cnkgYWNjZXNzLgo+PiAtIHVzaW5nIHVubGlrZWx5KCkgZm9yIHRoZSBmYWlsdXJlIG9mIHVzZXJz
-cGFjZSBhY2Nlc3MKPj4gLSBjaGVjayB2cS0+bGFzdF9hdmFpbF9pZHggaW5zdGVhZCBvZiBjYWNo
-ZWQgYXZhaWwgaW5kZXggYXMgdGhlIGxhc3QKPj4gICAgc3RlcC4KPj4KPj4gVGhpcyBwYXRjaCBp
-cyBuZWVkIGZvciBiYXRjaGluZyBzdXBwb3J0cyB3aGljaCBuZWVkcyB0byBwZWVrIHdoZXRoZXIK
-Pj4gb3Igbm90IHRoZXJlJ3Mgc3RpbGwgYXZhaWxhYmxlIGJ1ZmZlcnMgaW4gdGhlIHJpbmcuCj4+
-Cj4+IFJldmlld2VkLWJ5OiBTdGVmYW4gSGFqbm9jemkgPHN0ZWZhbmhhQHJlZGhhdC5jb20+Cj4+
-IFNpZ25lZC1vZmYtYnk6IEphc29uIFdhbmcgPGphc293YW5nQHJlZGhhdC5jb20+Cj4+IC0tLQo+
-PiAgIGRyaXZlcnMvdmhvc3Qvdmhvc3QuYyB8IDggKysrKysrLS0KPj4gICAxIGZpbGUgY2hhbmdl
-ZCwgNiBpbnNlcnRpb25zKCspLCAyIGRlbGV0aW9ucygtKQo+Pgo+PiBkaWZmIC0tZ2l0IGEvZHJp
-dmVycy92aG9zdC92aG9zdC5jIGIvZHJpdmVycy92aG9zdC92aG9zdC5jCj4+IGluZGV4IGQ2NDMy
-NjAuLjlmMTE4MzggMTAwNjQ0Cj4+IC0tLSBhL2RyaXZlcnMvdmhvc3Qvdmhvc3QuYwo+PiArKysg
-Yi9kcml2ZXJzL3Zob3N0L3Zob3N0LmMKPj4gQEAgLTIyNDEsMTEgKzIyNDEsMTUgQEAgYm9vbCB2
-aG9zdF92cV9hdmFpbF9lbXB0eShzdHJ1Y3Qgdmhvc3RfZGV2ICpkZXYsIHN0cnVjdCB2aG9zdF92
-aXJ0cXVldWUgKnZxKQo+PiAgIAlfX3ZpcnRpbzE2IGF2YWlsX2lkeDsKPj4gICAJaW50IHI7Cj4+
-ICAgCj4+ICsJaWYgKHZxLT5hdmFpbF9pZHggIT0gdnEtPmxhc3RfYXZhaWxfaWR4KQo+PiArCQly
-ZXR1cm4gZmFsc2U7Cj4+ICsKPj4gICAJciA9IHZob3N0X2dldF91c2VyKHZxLCBhdmFpbF9pZHgs
-ICZ2cS0+YXZhaWwtPmlkeCk7Cj4+IC0JaWYgKHIpCj4+ICsJaWYgKHVubGlrZWx5KHIpKQo+PiAg
-IAkJcmV0dXJuIGZhbHNlOwo+PiArCXZxLT5hdmFpbF9pZHggPSB2aG9zdDE2X3RvX2NwdSh2cSwg
-YXZhaWxfaWR4KTsKPj4gICAKPj4gLQlyZXR1cm4gdmhvc3QxNl90b19jcHUodnEsIGF2YWlsX2lk
-eCkgPT0gdnEtPmF2YWlsX2lkeDsKPj4gKwlyZXR1cm4gdnEtPmF2YWlsX2lkeCA9PSB2cS0+bGFz
-dF9hdmFpbF9pZHg7Cj4+ICAgfQo+PiAgIEVYUE9SVF9TWU1CT0xfR1BMKHZob3N0X3ZxX2F2YWls
-X2VtcHR5KTsKPiBTbyBhZ2FpbiwgdGhpcyBkaWQgbm90IGFkZHJlc3MgdGhlIGlzc3VlIEkgcG9p
-bnRlZCBvdXQgaW4gdjE6Cj4gaWYgd2UgaGF2ZSAxIGJ1ZmZlciBpbiBSWCBxdWV1ZSBhbmQKPiB0
-aGF0IGlzIG5vdCBlbm91Z2ggdG8gc3RvcmUgdGhlIHdob2xlIHBhY2tldCwKPiB2aG9zdF92cV9h
-dmFpbF9lbXB0eSByZXR1cm5zIGZhbHNlLCB0aGVuIHdlIHJlLXJlYWQKPiB0aGUgZGVzY3JpcHRv
-cnMgYWdhaW4gYW5kIGFnYWluLgo+Cj4gWW91IGhhdmUgc2F2ZWQgYSBzaW5nbGUgaW5kZXggYWNj
-ZXNzIGJ1dCBub3QgdGhlIG1vcmUgZXhwZW5zaXZlCj4gZGVzY3JpcHRvciBhY2Nlc3MuCgpMb29r
-cyBub3QsIGlmIEkgdW5kZXJzdGFuZCB0aGUgY29kZSBjb3JyZWN0bHksIGluIHRoaXMgY2FzZSwg
-CmdldF9yeF9idWZzKCkgd2lsbCByZXR1cm4gemVybywgYW5kIHdlIHdpbGwgdHJ5IHRvIGVuYWJs
-ZSByeCBraWNrIGFuZCAKZXhpdCB0aGUgbG9vcC4KClRoYW5rcwoKX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX18KVmlydHVhbGl6YXRpb24gbWFpbGluZyBsaXN0
-ClZpcnR1YWxpemF0aW9uQGxpc3RzLmxpbnV4LWZvdW5kYXRpb24ub3JnCmh0dHBzOi8vbGlzdHMu
-bGludXhmb3VuZGF0aW9uLm9yZy9tYWlsbWFuL2xpc3RpbmZvL3ZpcnR1YWxpemF0aW9u
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Sat,  7 Jan 2017 21:01:55 -0800
+
+> Here are a couple of fixes for bcm_sf2, please queue these up for
+> -stable as well, thank you very much!
+
+Series applied and queued up for -stable, thanks.
