@@ -1,104 +1,42 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH net-next] bridge: multicast to unicast
-Date: Mon, 09 Jan 2017 09:08:56 +0100
-Message-ID: <1483949336.17582.3.camel@sipsolutions.net>
-References: <20170102193214.31723-1-linus.luessing@c0d3.blue>
-	<1483706872.4089.8.camel@sipsolutions.net>
-	<8836daaa-9638-4502-d079-fd428595f822@nbd.name>
-	<1483710841.12677.1.camel@sipsolutions.net>
-	<22fad045-57c6-7789-d19f-f47bd0faf441@fami-braun.de>
-	<20170107145516.GE3134@otheros>
+From: Saeed Mahameed <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+Subject: Re: [for-next V2 06/10] net/mlx5: Add interface to get reference to a UAR
+Date: Mon, 9 Jan 2017 10:31:36 +0200
+Message-ID: <CALzJLG-yiZfa6J0WciFPowfF2LWrXAqCKc4ETu4x=ZJdn+CfDA@mail.gmail.com>
+References: <1483890891-8767-1-git-send-email-saeedm@mellanox.com>
+ <1483890891-8767-7-git-send-email-saeedm@mellanox.com> <20170108170539.GA6323@yuval-lap.uk.oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"David S . Miller" <davem@davemloft.net>, Felix Fietkau <nbd@nbd.name>
-To: Linus =?ISO-8859-1?Q?L=FCssing?= <linus.luessing@c0d3.blue>, "M. Braun"
-	<michael-dev@fami-braun.de>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20170107145516.GE3134@otheros>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+To: Yuval Shaia <yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170108170539.GA6323-Hxa29pjIrETlQW142y8m19+IiqhCXseY@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2017-01-07 at 15:55 +0100, Linus Lüssing wrote:
-> On Sat, Jan 07, 2017 at 11:32:57AM +0100, M. Braun wrote:
-> > Am 06.01.2017 um 14:54 schrieb Johannes Berg:
-> > > 
-> > > > The bridge layer can use IGMP snooping to ensure that the
-> > > > multicast
-> > > > stream is only transmitted to clients that are actually a
-> > > > member of
-> > > > the group. Can the mac80211 feature do the same?
-> > > 
-> > > No, it'll convert the packet for all clients that are behind that
-> > > netdev. But that's an argument for dropping the mac80211 feature,
-> > > which
-> > > hasn't been merged upstream yet, no?
-> > 
-> > But there is multicast/broadcast traffic like e.g. ARP and some IP
-> > multicast groups that are not covered by IGMP snooping. The
-> > mac80211
-> > patch converts this to unicast as well, which the bridge cannot do.
-> > 
-> > That way, these features both complement and overlap each other.
-> 
-> Right, I'd agree with that.
+On Sun, Jan 8, 2017 at 7:05 PM, Yuval Shaia <yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org> wrote:
+> On Sun, Jan 08, 2017 at 05:54:47PM +0200, Saeed Mahameed wrote:
+>> From: Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+>>
+>>       err = mlx5_create_map_eq(dev, &table->cmd_eq, MLX5_EQ_VEC_CMD,
+>>                                MLX5_NUM_CMD_EQE, 1ull << MLX5_EVENT_TYPE_CMD,
+>> -                              "mlx5_cmd_eq", &dev->priv.bfregi.uars[0],
+>> -                              MLX5_EQ_TYPE_ASYNC);
+>> +                              "mlx5_cmd_eq",  MLX5_EQ_TYPE_ASYNC);
+>
+> Remove extra space
+>
 
-Ok.
-
-> I didn't write it explicitly in the commit message, but yes, the
-> like anything concerning bridge multicast snooping, bridge
-> multicast-to-unicast can only affect packets as noted in
-> RFC4541 ("Considerations for Internet Group Management Protocol (IGMP)
-> and Multicast Listener Discovery (MLD) Snooping Switches"), too.
-> 
-> So it is only working for IPv4 multicast, excluding link-local
-> (224.0.0.0/24), and IPv6 multicast, excluding all-host-multicast
-> (ff02::1).
-> 
-> And does not concern ARP in any way.
-> 
-> 
-> The nice complementary effect is, that the bridge can first sieve
-> out those IP packets thanks to IGMP/MLD snooping knowledge and for
-> anything else, like ARP, 224.0.0.x or ff02::1, the mac80211
-> multicast-to-unicast could do its job.
-> 
-> 
-> For APs with a small number of STAs (like your private home AP),
-> you might want to enable both bridge multicast-to-unicast and
-> mac80211 multicast-to-unicast for this complementary effect. While
-> on public APs with 30 to 50 STAs with varying distances and bitrates,
-> you might only one to enable the bridge one, because sending an ARP
-> packet 50x might actually reduce performance and airtime
-> significantly.
-
-Does it make sense to implement the two in separate layers though?
-
-Clearly, this part needs to be implemented in the bridge layer due to
-the snooping knowledge, but the code is very similar to what mac80211
-has now.
-
-It would probably not make sense to combine the two options into one,
-but it seems relatively simple for bridge to also implement the one
-mac80211 tentatively has now, with multiple benefits:
-
- * single place for configuration, leading to less possible confusion
-
- * single implementation for all wireless devices, including ones with
-   Full-MAC firmware that don't use mac80211
-
- * code sharing for the duplication, although admittedly not so much
-
-Thoughts?
-
-johannes
+Hi Yuval, thanks for the review,
+We will submit an incremental patch for this, as checkpatch doesn't
+complain about such minor things.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
