@@ -1,35 +1,51 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 0/3] ip vrf: minor error message cleanups
-Date: Mon, 9 Jan 2017 12:15:12 -0800
-Message-ID: <20170109121512.071847c6@xeon-e3>
-References: <1483662143-15242-1-git-send-email-dsa@cumulusnetworks.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [GIT] Networking
+Date: Mon, 09 Jan 2017 15:24:37 -0500 (EST)
+Message-ID: <20170109.152437.40458564953109123.davem@davemloft.net>
+References: <20170108.223847.1035900535306187665.davem@davemloft.net>
+        <CA+55aFzjL6Tf7JazeZtbi9UARhqofWU8xzYm0rbdAeCsD+nMPw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Ahern <dsa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f172.google.com ([209.85.192.172]:33360 "EHLO
-        mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932551AbdAIUPU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 15:15:20 -0500
-Received: by mail-pf0-f172.google.com with SMTP id y143so12259114pfb.0
-        for <netdev@vger.kernel.org>; Mon, 09 Jan 2017 12:15:20 -0800 (PST)
-In-Reply-To: <1483662143-15242-1-git-send-email-dsa@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kvalo@codeaurora.org, Larry.Finger@lwfinger.net,
+        akpm@linux-foundation.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CA+55aFzjL6Tf7JazeZtbi9UARhqofWU8xzYm0rbdAeCsD+nMPw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu,  5 Jan 2017 16:22:20 -0800
-David Ahern <dsa@cumulusnetworks.com> wrote:
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Date: Mon, 9 Jan 2017 12:08:02 -0800
 
-> David Ahern (3):
->   ip vrf: Fix error message when running exec as non-root user
->   ip vrf: Improve error message for non-root user
->   ip vrf: Clean up bpf related error messages
+> On Sun, Jan 8, 2017 at 7:38 PM, David Miller <davem@davemloft.net> wrote:
+>>
+>>   git://git.kernel.org/pub/scm/linux/kernel/git/davem/net
 > 
->  ip/ipvrf.c |  6 +++++-
->  lib/fs.c   | 16 ++++++++++++----
->  2 files changed, 17 insertions(+), 5 deletions(-)
+> Hmm. This still doesn't contain the rtlwifi oops fix that was posted
+> back before christmas.
 > 
+> Kalle said it was applied to the wireless-drivers tree as commit
+> 60f59ce02785 in his tree, but it's never gotten to me.
+> 
+> What's up? It's three weeks later, and people are hitting the bug.
 
-Looks good, applied.
+I haven't received a bug fix pull from Kalle since Dec 22nd:
+
+	http://patchwork.ozlabs.org/patch/708247/
+
+That one has:
+
+      rtlwifi: Fix kernel oops introduced with commit e49656147359
+
+Is that what you're talking about?
+
+In the thread I said I pulled it but indeed I don't have that commit
+in my tree either, weird.
+
+I just tried to pull that git URL right now and I get nothing:
+
+	git://git.kernel.org/pub/scm/linux/kernel/git/kvalo/wireless-drivers.git tags/wireless-drivers-for-davem-2016-12-22
+
+It looks like the rtlwifi fix is in his "pending" branch.
