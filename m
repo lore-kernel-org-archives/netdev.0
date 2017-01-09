@@ -1,74 +1,147 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [GIT] Networking
-Date: Mon, 09 Jan 2017 22:44:35 +0200
-Message-ID: <87inpot13g.fsf@kamboji.qca.qualcomm.com>
-References: <20170108.223847.1035900535306187665.davem@davemloft.net>
-        <CA+55aFzjL6Tf7JazeZtbi9UARhqofWU8xzYm0rbdAeCsD+nMPw@mail.gmail.com>
-        <20170109.152437.40458564953109123.davem@davemloft.net>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [RFC PATCH 2/4] page_pool: basic implementation of page_pool
+Date: Mon, 9 Jan 2017 21:45:24 +0100
+Message-ID: <20170109214524.534f53a8@redhat.com>
+References: <20161220132444.18788.50875.stgit@firesoul>
+	<20161220132817.18788.64726.stgit@firesoul>
+	<52478d40-8c34-4354-c9d8-286020eb26a6@suse.cz>
+	<20170104120055.7b277609@redhat.com>
+	<38d42210-de93-f16f-fa54-b149127fffeb@suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: torvalds@linux-foundation.org, Larry.Finger@lwfinger.net,
-        akpm@linux-foundation.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170109.152437.40458564953109123.davem@davemloft.net> (David
-        Miller's message of "Mon, 09 Jan 2017 15:24:37 -0500 (EST)")
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-mm@kvack.org, Alexander Duyck <alexander.duyck@gmail.com>,
+        willemdebruijn.kernel@gmail.com, netdev@vger.kernel.org,
+        john.fastabend@gmail.com, Saeed Mahameed <saeedm@mellanox.com>,
+        bjorn.topel@intel.com,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Mel Gorman
+ <mgorman@techsingularity.net>, brouer@redhat.com
+To: Vlastimil Babka <vbabka@suse.cz>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <38d42210-de93-f16f-fa54-b149127fffeb@suse.cz>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-David Miller <davem@davemloft.net> writes:
 
-> From: Linus Torvalds <torvalds@linux-foundation.org>
-> Date: Mon, 9 Jan 2017 12:08:02 -0800
->
->> On Sun, Jan 8, 2017 at 7:38 PM, David Miller <davem@davemloft.net> wrote:
->>>
->>>   git://git.kernel.org/pub/scm/linux/kernel/git/davem/net
->> 
->> Hmm. This still doesn't contain the rtlwifi oops fix that was posted
->> back before christmas.
->> 
->> Kalle said it was applied to the wireless-drivers tree as commit
->> 60f59ce02785 in his tree, but it's never gotten to me.
->> 
->> What's up? It's three weeks later, and people are hitting the bug.
->
-> I haven't received a bug fix pull from Kalle since Dec 22nd:
->
-> 	http://patchwork.ozlabs.org/patch/708247/
->
-> That one has:
->
->       rtlwifi: Fix kernel oops introduced with commit e49656147359
->
-> Is that what you're talking about?
->
-> In the thread I said I pulled it but indeed I don't have that commit
-> in my tree either, weird.
->
-> I just tried to pull that git URL right now and I get nothing:
->
-> 	git://git.kernel.org/pub/scm/linux/kernel/git/kvalo/wireless-drivers.git tags/wireless-drivers-for-davem-2016-12-22
->
-> It looks like the rtlwifi fix is in his "pending" branch.
+On Mon, 9 Jan 2017 11:43:39 +0100 Vlastimil Babka <vbabka@suse.cz> wrote:
 
-Be careful, there are two recent rtlwifi fixes in wireless-drivers:
+> On 01/04/2017 12:00 PM, Jesper Dangaard Brouer wrote:
+> > 
+> > On Tue, 3 Jan 2017 17:07:49 +0100 Vlastimil Babka <vbabka@suse.cz> wrote:
+> >   
+> >> On 12/20/2016 02:28 PM, Jesper Dangaard Brouer wrote:  
+> >>> The focus in this patch is getting the API around page_pool figured out.
+> >>>
+> >>> The internal data structures for returning page_pool pages is not optimal.
+> >>> This implementation use ptr_ring for recycling, which is known not to scale
+> >>> in case of multiple remote CPUs releasing/returning pages.    
+> >>
+> >> Just few very quick impressions...
+> >>  
+> >>> A bulking interface into the page allocator is also left for later. (This
+> >>> requires cooperation will Mel Gorman, who just send me some PoC patches for this).
+> >>> ---  
+> > [...]  
+> >>> diff --git a/include/linux/mm.h b/include/linux/mm.h
+> >>> index 4424784ac374..11b4d8fb280b 100644
+> >>> --- a/include/linux/mm.h
+> >>> +++ b/include/linux/mm.h  
+> > [...]  
+> >>> @@ -765,6 +766,11 @@ static inline void put_page(struct page *page)
+> >>>  {
+> >>>  	page = compound_head(page);
+> >>>
+> >>> +	if (PagePool(page)) {
+> >>> +		page_pool_put_page(page);
+> >>> +		return;
+> >>> +	}    
+> >>
+> >> Can't say I'm thrilled about a new page flag and a test in put_page().   
+> > 
+> > In patch 4/4, I'm scaling this back.  Avoiding to modify the inlined
+> > put_page(), by letting refcnt reach zero and catching pages belonging to
+> > a page_pool in __free_pages_ok() and free_hot_cold_page(). (Result
+> > in being more dependent on page-refcnt and loosing some performance).
+> > 
+> > Still needing a new page flag, or some other method of identifying when
+> > a page belongs to a page_pool.  
+> 
+> I see. I guess if all page pool pages were order>0 compound pages, you
+> could hook this to the existing compound_dtor functionality instead.
 
-60f59ce02785 rtlwifi: rtl_usb: Fix missing entry in USB driver's private data
-22b68b93ae25 rtlwifi: Fix kernel oops introduced with commit e49656147359
+The page_pool will support order>0 pages, but it is the order-0 case
+that is optimized for.
 
-You should have 22b68b93ae25 in your tree, but not 60f59ce02785. The
-reason why you didn't get 60f59ce02785 in my pull request was that I
-committed it late:
 
-commit 60f59ce0278557f7896d5158ae6d12a4855a72cc
-Author:     Larry Finger <Larry.Finger@lwfinger.net>
-AuthorDate: Wed Dec 21 11:18:55 2016 -0600
-Commit:     Kalle Valo <kvalo@codeaurora.org>
-CommitDate: Fri Dec 30 15:38:13 2016 +0200
+> >> I don't know the full life cycle here, but isn't it that these pages
+> >> will be specifically allocated and used in page pool aware drivers,
+> >> so maybe they can be also specifically freed there without hooking to
+> >> the generic page refcount mechanism?  
+> > 
+> > Drivers are already manipulating refcnt, to "splitup" the page (to
+> > save memory) for storing more RX frames per page.  Which is something
+> > the page_pool still need to support. (XDP can request one page per
+> > packet and gain the direct recycle optimization and instead waste mem).
+> > 
+> > Notice, a page_pool aware driver doesn't handle the "free-side".  Free
+> > happens when the packet/page is being consumed, spliced or transmitted
+> > out another non-page_pool-aware NIC driver.  An interresting case is
+> > packet-page waiting for DMA TX completion (on another NIC), thus need
+> > to async-store info on page_pool and DMA-addr.
+> > 
+> > Could extend the SKB (with a page_pool pointer)... BUT it defeats the
+> > purpose of avoiding to allocate the SKB.  E.g. in the cases where XDP
+> > takes the route-decision and transmit/forward the "raw"-page (out
+> > another NIC or into a "raw" socket), then we don't have a meta-data
+> > structure to store this info in. Thus, this info is stored in struct
+> > page.  
+> 
+> OK.
+> 
+> >>> +		 */
+> >>>  		struct address_space *mapping;	/* If low bit clear, points to
+> >>>  						 * inode address_space, or NULL.
+> >>>  						 * If page mapped as anonymous
+> >>> @@ -63,6 +69,7 @@ struct page {
+> >>>  	union {
+> >>>  		pgoff_t index;		/* Our offset within mapping. */
+> >>>  		void *freelist;		/* sl[aou]b first free object */
+> >>> +		dma_addr_t dma_addr;    /* used by page_pool */
+> >>>  		/* page_deferred_list().prev	-- second tail page */
+> >>>  	};
+> >>>
+> >>> @@ -117,6 +124,8 @@ struct page {
+> >>>  	 * avoid collision and false-positive PageTail().
+> >>>  	 */
+> >>>  	union {
+> >>> +		/* XXX: Idea reuse lru list, in page_pool to align with PCP */
+> >>> +
+> >>>  		struct list_head lru;	/* Pageout list, eg. active_list
+> >>>  					 * protected by zone_lru_lock !
+> >>>  					 * Can be used as a generic list  
+> > 
+> > Guess, I can move it here, as the page cannot be on the LRU-list, while
+> > being used (or VMA mapped). Right?  
+> 
+> Well typically the VMA mapped pages are those on the LRU list (anonymous
+> or file). But I don't suppose you will want memory reclaim to free your
+> pages, so seems lru field should be reusable for you.
 
-I'll send you a new pull request tomorrow (my time).
+Thanks for the info.
+
+So, LRU-list area could be reusable, but I does not align so well with
+the bulking API Mel just introduced/proposed, but still doable.
 
 -- 
-Kalle Valo
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
