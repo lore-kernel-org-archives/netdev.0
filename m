@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [for-next V3 02/10] IB/mlx5: Fix error handling order in create_kernel_qp
-Date: Mon,  9 Jan 2017 21:00:45 +0200
-Message-ID: <1483988453-28551-3-git-send-email-saeedm@mellanox.com>
+Subject: [for-next V3 05/10] net/mlx5: Introduce blue flame register allocator
+Date: Mon,  9 Jan 2017 21:00:48 +0200
+Message-ID: <1483988453-28551-6-git-send-email-saeedm@mellanox.com>
 References: <1483988453-28551-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
         Leon Romanovsky <leonro@mellanox.com>,
@@ -12,9 +12,9 @@ Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
 To: "David S. Miller" <davem@davemloft.net>,
         Doug Ledford <dledford@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:51986 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:51978 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1763164AbdAITBH (ORCPT
+        with ESMTP id S1761782AbdAITBH (ORCPT
         <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 14:01:07 -0500
 In-Reply-To: <1483988453-28551-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
@@ -22,48 +22,371 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Eli Cohen <eli@mellanox.com>
 
-Make sure order of cleanup is exactly the opposite of initialization.
+Here is an implementation of an allocator that allocates blue flame
+registers. A blue flame register is used for generating send doorbells.
+A blue flame register can be used to generate either a regular doorbell
+or a blue flame doorbell where the data to be sent is written to the
+device's I/O memory hence saving the need to read the data from memory.
+For blue flame kind of doorbells to succeed, the blue flame register
+need to be mapped as write combining. The user can specify what kind of
+send doorbells she wishes to use. If she requested write combining
+mapping but that failed, the allocator will fall back to non write
+combining mapping and will indicate that to the user.
+Subsequent patches in this series will make use of this allocator.
 
-Fixes: 9603b61de1ee ('mlx5: Move pci device handling from mlx5_ib to mlx5_core')
 Signed-off-by: Eli Cohen <eli@mellanox.com>
 Reviewed-by: Matan Barak <matanb@mellanox.com>
 Signed-off-by: Leon Romanovsky <leon@kernel.org>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/infiniband/hw/mlx5/qp.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/uar.c | 235 ++++++++++++++++++++++++++
+ include/linux/mlx5/device.h                   |   2 +
+ include/linux/mlx5/driver.h                   |  37 ++++
+ include/linux/mlx5/mlx5_ifc.h                 |   7 +-
+ 4 files changed, 279 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/infiniband/hw/mlx5/qp.c b/drivers/infiniband/hw/mlx5/qp.c
-index 53f4dd3..42d021cd 100644
---- a/drivers/infiniband/hw/mlx5/qp.c
-+++ b/drivers/infiniband/hw/mlx5/qp.c
-@@ -994,12 +994,12 @@ static int create_kernel_qp(struct mlx5_ib_dev *dev,
- 	return 0;
- 
- err_wrid:
--	mlx5_db_free(dev->mdev, &qp->db);
- 	kfree(qp->sq.wqe_head);
- 	kfree(qp->sq.w_list);
- 	kfree(qp->sq.wrid);
- 	kfree(qp->sq.wr_data);
- 	kfree(qp->rq.wrid);
-+	mlx5_db_free(dev->mdev, &qp->db);
- 
- err_free:
- 	kvfree(*in);
-@@ -1014,12 +1014,12 @@ static int create_kernel_qp(struct mlx5_ib_dev *dev,
- 
- static void destroy_qp_kernel(struct mlx5_ib_dev *dev, struct mlx5_ib_qp *qp)
- {
--	mlx5_db_free(dev->mdev, &qp->db);
- 	kfree(qp->sq.wqe_head);
- 	kfree(qp->sq.w_list);
- 	kfree(qp->sq.wrid);
- 	kfree(qp->sq.wr_data);
- 	kfree(qp->rq.wrid);
-+	mlx5_db_free(dev->mdev, &qp->db);
- 	mlx5_buf_free(dev->mdev, &qp->buf);
- 	free_uuar(&dev->mdev->priv.uuari, qp->bf->uuarn);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/uar.c b/drivers/net/ethernet/mellanox/mlx5/core/uar.c
+index ce7fceb..6a081a8 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/uar.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/uar.c
+@@ -231,3 +231,238 @@ void mlx5_unmap_free_uar(struct mlx5_core_dev *mdev, struct mlx5_uar *uar)
+ 	mlx5_cmd_free_uar(mdev, uar->index);
  }
+ EXPORT_SYMBOL(mlx5_unmap_free_uar);
++
++static int uars_per_sys_page(struct mlx5_core_dev *mdev)
++{
++	if (MLX5_CAP_GEN(mdev, uar_4k))
++		return MLX5_CAP_GEN(mdev, num_of_uars_per_page);
++
++	return 1;
++}
++
++static u64 uar2pfn(struct mlx5_core_dev *mdev, u32 index)
++{
++	u32 system_page_index;
++
++	if (MLX5_CAP_GEN(mdev, uar_4k))
++		system_page_index = index >> (PAGE_SHIFT - MLX5_ADAPTER_PAGE_SHIFT);
++	else
++		system_page_index = index;
++
++	return (pci_resource_start(mdev->pdev, 0) >> PAGE_SHIFT) + system_page_index;
++}
++
++static void up_rel_func(struct kref *kref)
++{
++	struct mlx5_uars_page *up = container_of(kref, struct mlx5_uars_page, ref_count);
++
++	list_del(&up->list);
++	if (mlx5_cmd_free_uar(up->mdev, up->index))
++		mlx5_core_warn(up->mdev, "failed to free uar index %d\n", up->index);
++	kfree(up->reg_bitmap);
++	kfree(up->fp_bitmap);
++	kfree(up);
++}
++
++static struct mlx5_uars_page *alloc_uars_page(struct mlx5_core_dev *mdev,
++					      bool map_wc)
++{
++	struct mlx5_uars_page *up;
++	int err = -ENOMEM;
++	phys_addr_t pfn;
++	int bfregs;
++	int i;
++
++	bfregs = uars_per_sys_page(mdev) * MLX5_BFREGS_PER_UAR;
++	up = kzalloc(sizeof(*up), GFP_KERNEL);
++	if (!up)
++		return ERR_PTR(err);
++
++	up->mdev = mdev;
++	up->reg_bitmap = kcalloc(BITS_TO_LONGS(bfregs), sizeof(unsigned long), GFP_KERNEL);
++	if (!up->reg_bitmap)
++		goto error1;
++
++	up->fp_bitmap = kcalloc(BITS_TO_LONGS(bfregs), sizeof(unsigned long), GFP_KERNEL);
++	if (!up->fp_bitmap)
++		goto error1;
++
++	for (i = 0; i < bfregs; i++)
++		if ((i % MLX5_BFREGS_PER_UAR) < MLX5_NON_FP_BFREGS_PER_UAR)
++			set_bit(i, up->reg_bitmap);
++		else
++			set_bit(i, up->fp_bitmap);
++
++	up->bfregs = bfregs;
++	up->fp_avail = bfregs * MLX5_FP_BFREGS_PER_UAR / MLX5_BFREGS_PER_UAR;
++	up->reg_avail = bfregs * MLX5_NON_FP_BFREGS_PER_UAR / MLX5_BFREGS_PER_UAR;
++
++	err = mlx5_cmd_alloc_uar(mdev, &up->index);
++	if (err) {
++		mlx5_core_warn(mdev, "mlx5_cmd_alloc_uar() failed, %d\n", err);
++		goto error1;
++	}
++
++	pfn = uar2pfn(mdev, up->index);
++	if (map_wc) {
++		up->map = ioremap_wc(pfn << PAGE_SHIFT, PAGE_SIZE);
++		if (!up->map) {
++			err = -EAGAIN;
++			goto error2;
++		}
++	} else {
++		up->map = ioremap(pfn << PAGE_SHIFT, PAGE_SIZE);
++		if (!up->map) {
++			err = -ENOMEM;
++			goto error2;
++		}
++	}
++	kref_init(&up->ref_count);
++	mlx5_core_dbg(mdev, "allocated UAR page: index %d, total bfregs %d\n",
++		      up->index, up->bfregs);
++	return up;
++
++error2:
++	if (mlx5_cmd_free_uar(mdev, up->index))
++		mlx5_core_warn(mdev, "failed to free uar index %d\n", up->index);
++error1:
++	kfree(up->fp_bitmap);
++	kfree(up->reg_bitmap);
++	kfree(up);
++	return ERR_PTR(err);
++}
++
++static unsigned long map_offset(struct mlx5_core_dev *mdev, int dbi)
++{
++	/* return the offset in bytes from the start of the page to the
++	 * blue flame area of the UAR
++	 */
++	return dbi / MLX5_BFREGS_PER_UAR * MLX5_ADAPTER_PAGE_SIZE +
++	       (dbi % MLX5_BFREGS_PER_UAR) *
++	       (1 << MLX5_CAP_GEN(mdev, log_bf_reg_size)) + MLX5_BF_OFFSET;
++}
++
++static int alloc_bfreg(struct mlx5_core_dev *mdev, struct mlx5_sq_bfreg *bfreg,
++		       bool map_wc, bool fast_path)
++{
++	struct mlx5_bfreg_data *bfregs;
++	struct mlx5_uars_page *up;
++	struct list_head *head;
++	unsigned long *bitmap;
++	unsigned int *avail;
++	struct mutex *lock;  /* pointer to right mutex */
++	int dbi;
++
++	bfregs = &mdev->priv.bfregs;
++	if (map_wc) {
++		head = &bfregs->wc_head.list;
++		lock = &bfregs->wc_head.lock;
++	} else {
++		head = &bfregs->reg_head.list;
++		lock = &bfregs->reg_head.lock;
++	}
++	mutex_lock(lock);
++	if (list_empty(head)) {
++		up = alloc_uars_page(mdev, map_wc);
++		if (IS_ERR(up)) {
++			mutex_unlock(lock);
++			return PTR_ERR(up);
++		}
++		list_add(&up->list, head);
++	} else {
++		up = list_entry(head->next, struct mlx5_uars_page, list);
++		kref_get(&up->ref_count);
++	}
++	if (fast_path) {
++		bitmap = up->fp_bitmap;
++		avail = &up->fp_avail;
++	} else {
++		bitmap = up->reg_bitmap;
++		avail = &up->reg_avail;
++	}
++	dbi = find_first_bit(bitmap, up->bfregs);
++	clear_bit(dbi, bitmap);
++	(*avail)--;
++	if (!(*avail))
++		list_del(&up->list);
++
++	bfreg->map = up->map + map_offset(mdev, dbi);
++	bfreg->up = up;
++	bfreg->wc = map_wc;
++	bfreg->index = up->index + dbi / MLX5_BFREGS_PER_UAR;
++	mutex_unlock(lock);
++
++	return 0;
++}
++
++int mlx5_alloc_bfreg(struct mlx5_core_dev *mdev, struct mlx5_sq_bfreg *bfreg,
++		     bool map_wc, bool fast_path)
++{
++	int err;
++
++	err = alloc_bfreg(mdev, bfreg, map_wc, fast_path);
++	if (!err)
++		return 0;
++
++	if (err == -EAGAIN && map_wc)
++		return alloc_bfreg(mdev, bfreg, false, fast_path);
++
++	return err;
++}
++EXPORT_SYMBOL(mlx5_alloc_bfreg);
++
++static unsigned int addr_to_dbi_in_syspage(struct mlx5_core_dev *dev,
++					   struct mlx5_uars_page *up,
++					   struct mlx5_sq_bfreg *bfreg)
++{
++	unsigned int uar_idx;
++	unsigned int bfreg_idx;
++	unsigned int bf_reg_size;
++
++	bf_reg_size = 1 << MLX5_CAP_GEN(dev, log_bf_reg_size);
++
++	uar_idx = (bfreg->map - up->map) >> MLX5_ADAPTER_PAGE_SHIFT;
++	bfreg_idx = (((uintptr_t)bfreg->map % MLX5_ADAPTER_PAGE_SIZE) - MLX5_BF_OFFSET) / bf_reg_size;
++
++	return uar_idx * MLX5_BFREGS_PER_UAR + bfreg_idx;
++}
++
++void mlx5_free_bfreg(struct mlx5_core_dev *mdev, struct mlx5_sq_bfreg *bfreg)
++{
++	struct mlx5_bfreg_data *bfregs;
++	struct mlx5_uars_page *up;
++	struct mutex *lock; /* pointer to right mutex */
++	unsigned int dbi;
++	bool fp;
++	unsigned int *avail;
++	unsigned long *bitmap;
++	struct list_head *head;
++
++	bfregs = &mdev->priv.bfregs;
++	if (bfreg->wc) {
++		head = &bfregs->wc_head.list;
++		lock = &bfregs->wc_head.lock;
++	} else {
++		head = &bfregs->reg_head.list;
++		lock = &bfregs->reg_head.lock;
++	}
++	up = bfreg->up;
++	dbi = addr_to_dbi_in_syspage(mdev, up, bfreg);
++	fp = (dbi % MLX5_BFREGS_PER_UAR) >= MLX5_NON_FP_BFREGS_PER_UAR;
++	if (fp) {
++		avail = &up->fp_avail;
++		bitmap = up->fp_bitmap;
++	} else {
++		avail = &up->reg_avail;
++		bitmap = up->reg_bitmap;
++	}
++	mutex_lock(lock);
++	(*avail)++;
++	set_bit(dbi, bitmap);
++	if (*avail == 1)
++		list_add_tail(&up->list, head);
++
++	kref_put(&up->ref_count, up_rel_func);
++	mutex_unlock(lock);
++}
++EXPORT_SYMBOL(mlx5_free_bfreg);
+diff --git a/include/linux/mlx5/device.h b/include/linux/mlx5/device.h
+index aa851c5..db1b928 100644
+--- a/include/linux/mlx5/device.h
++++ b/include/linux/mlx5/device.h
+@@ -215,6 +215,8 @@ enum {
+ 	MLX5_BFREGS_PER_UAR		= 4,
+ 	MLX5_MAX_UARS			= 1 << 8,
+ 	MLX5_NON_FP_BFREGS_PER_UAR	= 2,
++	MLX5_FP_BFREGS_PER_UAR		= MLX5_BFREGS_PER_UAR -
++					  MLX5_NON_FP_BFREGS_PER_UAR,
+ 	MLX5_MAX_BFREGS			= MLX5_MAX_UARS *
+ 					  MLX5_NON_FP_BFREGS_PER_UAR,
+ };
+diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
+index 3d07e25..969aa1f 100644
+--- a/include/linux/mlx5/driver.h
++++ b/include/linux/mlx5/driver.h
+@@ -452,6 +452,39 @@ struct mlx5_eq_table {
+ 	spinlock_t		lock;
+ };
+ 
++struct mlx5_uars_page {
++	void __iomem	       *map;
++	bool			wc;
++	u32			index;
++	struct list_head	list;
++	unsigned int		bfregs;
++	unsigned long	       *reg_bitmap; /* for non fast path bf regs */
++	unsigned long	       *fp_bitmap;
++	unsigned int		reg_avail;
++	unsigned int		fp_avail;
++	struct kref		ref_count;
++	struct mlx5_core_dev   *mdev;
++};
++
++struct mlx5_bfreg_head {
++	/* protect blue flame registers allocations */
++	struct mutex		lock;
++	struct list_head	list;
++};
++
++struct mlx5_bfreg_data {
++	struct mlx5_bfreg_head	reg_head;
++	struct mlx5_bfreg_head	wc_head;
++};
++
++struct mlx5_sq_bfreg {
++	void __iomem	       *map;
++	struct mlx5_uars_page  *up;
++	bool			wc;
++	u32			index;
++	unsigned int		offset;
++};
++
+ struct mlx5_uar {
+ 	u32			index;
+ 	struct list_head	bf_list;
+@@ -645,6 +678,7 @@ struct mlx5_priv {
+ 	void		       *pfault_ctx;
+ 	struct srcu_struct      pfault_srcu;
+ #endif
++	struct mlx5_bfreg_data		bfregs;
+ };
+ 
+ enum mlx5_device_state {
+@@ -1022,6 +1056,9 @@ void mlx5_cleanup_rl_table(struct mlx5_core_dev *dev);
+ int mlx5_rl_add_rate(struct mlx5_core_dev *dev, u32 rate, u16 *index);
+ void mlx5_rl_remove_rate(struct mlx5_core_dev *dev, u32 rate);
+ bool mlx5_rl_is_in_range(struct mlx5_core_dev *dev, u32 rate);
++int mlx5_alloc_bfreg(struct mlx5_core_dev *mdev, struct mlx5_sq_bfreg *bfreg,
++		     bool map_wc, bool fast_path);
++void mlx5_free_bfreg(struct mlx5_core_dev *mdev, struct mlx5_sq_bfreg *bfreg);
+ 
+ static inline int fw_initializing(struct mlx5_core_dev *dev)
+ {
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+index 15f8967..1223fef 100644
+--- a/include/linux/mlx5/mlx5_ifc.h
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -905,7 +905,8 @@ struct mlx5_ifc_cmd_hca_cap_bits {
+ 	u8         uc[0x1];
+ 	u8         rc[0x1];
+ 
+-	u8         reserved_at_240[0xa];
++	u8         uar_4k[0x1];
++	u8         reserved_at_241[0x9];
+ 	u8         uar_sz[0x6];
+ 	u8         reserved_at_250[0x8];
+ 	u8         log_pg_sz[0x8];
+@@ -997,7 +998,9 @@ struct mlx5_ifc_cmd_hca_cap_bits {
+ 	u8         device_frequency_mhz[0x20];
+ 	u8         device_frequency_khz[0x20];
+ 
+-	u8         reserved_at_500[0x80];
++	u8         reserved_at_500[0x20];
++	u8	   num_of_uars_per_page[0x20];
++	u8         reserved_at_540[0x40];
+ 
+ 	u8         reserved_at_580[0x3f];
+ 	u8         cqe_compression[0x1];
 -- 
 2.7.4
