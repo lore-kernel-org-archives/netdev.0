@@ -1,86 +1,57 @@
-From: Linus =?utf-8?Q?L=C3=BCssing?= <linus.luessing@c0d3.blue>
-Subject: Re: [PATCH net-next] bridge: multicast to unicast
-Date: Tue, 10 Jan 2017 00:12:03 +0100
-Message-ID: <20170109231203.GC5513@otheros>
-References: <1483965843.17582.37.camel@sipsolutions.net>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH V4 net-next 3/3] tun: rx batching
+Date: Tue, 10 Jan 2017 01:12:36 +0200
+Message-ID: <20170110011058-mutt-send-email-mst@kernel.org>
+References: <1483668797-24112-1-git-send-email-jasowang@redhat.com>
+	<1483668797-24112-4-git-send-email-jasowang@redhat.com>
+	<20170106214323-mutt-send-email-mst@kernel.org>
+	<bff99f2f-8293-0dda-1db1-881e555f3623@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Michael Braun <michael-dev@fami-braun.de>,
-	"David S . Miller" <davem@davemloft.net>, Felix Fietkau <nbd@nbd.name>
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: kvm@vger.kernel.org, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, wexu@redhat.com,
+	stefanha@redhat.com
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <1483965843.17582.37.camel@sipsolutions.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+In-Reply-To: <bff99f2f-8293-0dda-1db1-881e555f3623@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 09, 2017 at 10:42:46PM +0100, Johannes Berg wrote:
-> On Mon, 2017-01-09 at 22:33 +0100, Linus Lüssing wrote:
-> > On Mon, Jan 09, 2017 at 01:44:03PM +0100, Johannes Berg wrote:
-> > > 
-> > > > >          A host SHOULD silently discard a datagram that is
-> > > > > received via
-> > > > >          a link-layer broadcast (see Section 2.4) but does not
-> > > > > specify
-> > > > >          an IP multicast or broadcast destination address.
-> > > > 
-> > > > This example is the other way round. It specifies how the IP
-> > > > destination should look like in case of link-layer broadcast. Not
-> > > > how the link-layer destination should look like in case of a
-> > > > multicast/broadcast IP destination.
-> > > 
-> > > You stopped reading too early - snipped the context part for you :)
-> > 
-> > Sorry for writing to you directly, but I still have some
-> > difficulties. In pseudo-code that line says:
-> > 
-> > -----
-> > if ll_dst(pkt) == bcast AND ip_dst(pkt) != mcast/bcast:
-> > -> drop(pkt)
-> > -----
-> > 
-> > But after multicast-to-unicast conversion, we have:
-> > 
-> > -----
-> > ll_dst(pkt) == ucast AND ip_dst(pkt) == mcast
-> > -----
-> > 
-> > So none of the two requirements for dropping are matched?
-> > 
-> 
-> Exactly. My point is that this is breaking the expectation that hosts
-> are actually able to drop such packets.
-
-[readding CCs I removed earlier]
-
-Ah! Thanks. I was worried about creating packetloss :D.
-
-Hm, for this other other way round, I think it does not apply for
-the bridge multicast-to-unicast patch if I'm not misreading the bridge code:
-
-For a packet with a link-layer multicast address but a unicast IP
-destination, the bridge MDB lookup will fail.
-(http://lxr.free-electrons.com/source/net/bridge/br_multicast.c?v=4.8#L178
- returns NULL)
-
-Case A): No multicast router on port:
--> bridge, br_multicast_flood(), will drop the packet already
-   (no matter if multicast-to-unicast is enabled or not)
-
-Case B): Multicast router present on port:
--> The new patch does not apply multicast-to-unicast but just floods
-   packet unaltered
-   ("else { port = rport; addr = NULL; }" branch)
-
-Regards, Linus
+T24gTW9uLCBKYW4gMDksIDIwMTcgYXQgMTA6Mzk6NTVBTSArMDgwMCwgSmFzb24gV2FuZyB3cm90
+ZToKPiAKPiAKPiBPbiAyMDE35bm0MDHmnIgwN+aXpSAwMzo0NywgTWljaGFlbCBTLiBUc2lya2lu
+IHdyb3RlOgo+ID4gPiArc3RhdGljIGludCB0dW5fZ2V0X2NvYWxlc2NlKHN0cnVjdCBuZXRfZGV2
+aWNlICpkZXYsCj4gPiA+ICsJCQkgICAgc3RydWN0IGV0aHRvb2xfY29hbGVzY2UgKmVjKQo+ID4g
+PiArewo+ID4gPiArCXN0cnVjdCB0dW5fc3RydWN0ICp0dW4gPSBuZXRkZXZfcHJpdihkZXYpOwo+
+ID4gPiArCj4gPiA+ICsJZWMtPnJ4X21heF9jb2FsZXNjZWRfZnJhbWVzID0gdHVuLT5yeF9iYXRj
+aGVkOwo+ID4gPiArCj4gPiA+ICsJcmV0dXJuIDA7Cj4gPiA+ICt9Cj4gPiA+ICsKPiA+ID4gK3N0
+YXRpYyBpbnQgdHVuX3NldF9jb2FsZXNjZShzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LAo+ID4gPiAr
+CQkJICAgIHN0cnVjdCBldGh0b29sX2NvYWxlc2NlICplYykKPiA+ID4gK3sKPiA+ID4gKwlzdHJ1
+Y3QgdHVuX3N0cnVjdCAqdHVuID0gbmV0ZGV2X3ByaXYoZGV2KTsKPiA+ID4gKwo+ID4gPiArCWlm
+IChlYy0+cnhfbWF4X2NvYWxlc2NlZF9mcmFtZXMgPiBOQVBJX1BPTExfV0VJR0hUKQo+ID4gPiAr
+CQlyZXR1cm4gLUVJTlZBTDsKPiA+IFNvIHdoYXQgc2hvdWxkIHVzZXJzcGFjZSBkbz8gS2VlcCB0
+cnlpbmcgdW50aWwgaXQgc3VjY2VlZHM/Cj4gPiBJIHRoaW5rIGl0J3MgYmV0dGVyIHRvIGp1c3Qg
+dXNlIE5BUElfUE9MTF9XRUlHSFQgaW5zdGVhZCBhbmQgRFRSVCBoZXJlLgo+ID4gCj4gCj4gV2Vs
+bCwgbG9va2luZyBhdCBob3cgc2V0X2NvYWxlc2NlIGlzIGltcGxlbWVudGVkIGluIG90aGVyIGRy
+aXZlcnMsIC1FSU5WQUwKPiBpcyB1c3VhbGx5IHVzZWQgd2hlbiB1c2VyIGdpdmUgYSB2YWx1ZSB0
+aGF0IGV4Y2VlZHMgdGhlIGxpbWl0YXRpb24uIEZvcgo+IHR1bnRhcCwgd2hhdCBtaXNzZWQgaGVy
+ZSBpcyBwcm9iYWJseSBqdXN0IGEgZG9jdW1lbnRhdGlvbiBmb3IgY29hbGVzY2luZyBpbgo+IHR1
+bnRhcC50eHQuIChPciBleHRlbmQgZXRodG9vbCB0byByZXR1cm4gdGhlIG1heCB2YWx1ZSkuIFRo
+aXMgc2VlbXMgbXVjaAo+IGJldHRlciB0aGFuIHNpbGVudGx5IHJlZHVjZSB0aGUgdmFsdWUgdG8g
+dGhlIGxpbWl0YXRpb24uCj4gCj4gVGhhbmtzCgoKSSBkb24ndCB0aGluayBpdCdzIGJldHRlciwg
+aXQncyBtb3N0bHkgdGhhdAoxLiB0aGVyZSdzIGEgaGFyZHdhcmUgbGltaXQgc28gaXQgZG9lcyBu
+b3QgY2hhbmdlIG11Y2gKMi4gZGVmYXVsdCBpcyBlbmFibGVkIGFuZCBubyBvbmUgYm90aGVycyBj
+aGFuZ2luZwoKSSBkb24ndCBzZWUgaG93IHdpbGwgdHVudGFwLnR4dCBoZWxwIGlmIHdlIHdhbnQg
+dG8gY2hhbmdlIGl0CmluIHRoZSBmdXR1cmUuCgotLSAKTVNUCl9fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fClZpcnR1YWxpemF0aW9uIG1haWxpbmcgbGlzdApW
+aXJ0dWFsaXphdGlvbkBsaXN0cy5saW51eC1mb3VuZGF0aW9uLm9yZwpodHRwczovL2xpc3RzLmxp
+bnV4Zm91bmRhdGlvbi5vcmcvbWFpbG1hbi9saXN0aW5mby92aXJ0dWFsaXphdGlvbg==
