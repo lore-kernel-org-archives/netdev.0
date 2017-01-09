@@ -1,67 +1,65 @@
-From: Russell King - ARM Linux <linux@armlinux.org.uk>
-Subject: Re: [PATCH v2 1/7] arm: put types.h in uapi
-Date: Mon, 9 Jan 2017 12:00:04 +0000
-Message-ID: <20170109120004.GV14217@n2100.armlinux.org.uk>
+From: Russell King - ARM Linux <linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>
+Subject: Re: [PATCH v2 7/7] uapi: export all headers under uapi directories
+Date: Mon, 9 Jan 2017 12:01:08 +0000
+Message-ID: <20170109120107.GW14217@n2100.armlinux.org.uk>
 References: <bf83da6b-01ef-bf44-b3e1-ca6fc5636818@6wind.com>
  <1483695839-18660-1-git-send-email-nicolas.dichtel@6wind.com>
- <1483695839-18660-2-git-send-email-nicolas.dichtel@6wind.com>
- <1990589.0aJHWbJK4F@wuerfel>
+ <1483695839-18660-8-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linuxppc-dev@lists.ozlabs.org, linux-kbuild@vger.kernel.org,
-        linux-mips@linux-mips.org, alsa-devel@alsa-project.org,
-        linux-ia64@vger.kernel.org, linux-doc@vger.kernel.org,
-        airlied@linux.ie, linux-fbdev@vger.kernel.org,
-        dri-devel@lists.freedesktop.org, linux-mtd@lists.infradead.org,
-        sparclinux@vger.kernel.org, linux-arch@vger.kernel.org,
-        linux-s390@vger.kernel.org, linux-am33-list@redhat.com,
-        linux-c6x-dev@linux-c6x.org, linux-rdma@vger.kernel.org,
-        linux-hexagon@vger.kernel.org, linux-sh@vger.kernel.org,
-        coreteam@netfilter.org, fcoe-devel@open-fcoe.org,
-        xen-devel@lists.xenproject.org, linux-snps-arc@lists.infradead.org,
-        linux-media@vger.kernel.org, uclinux-h8-devel@lists.sourceforge.jp,
-        adi-buildroot-devel@lists.sourceforge.net,
-        linux-raid@vger.kernel.org, linux-m68k@lists.linux-m68
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-mips-bounce@linux-mips.org>
+Cc: arnd-r2nGTMty4D4@public.gmane.org, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org,
+        alsa-devel-K7yf7f+aM1XWsZ/bQMPhNw@public.gmane.org, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, airlied-cv59FeDIM0c@public.gmane.org,
+        linux-fbdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org,
+        linux-mtd-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, sparclinux-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-arch-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-am33-list-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-c6x-dev-jPsnJVOj+W6hPH1hqNUYSQ@public.gmane.org,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-hexagon-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, coreteam-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org,
+        fcoe-devel-s9riP+hp16TNLxjTenLetw@public.gmane.org, xen-devel-GuqFBffKawtpuQazS67q72D2FQJk+8+b@public.gmane.org,
+        linux-snps-arc-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        uclinux-h8-devel-5NWGOfrQmneRv+LV9MX5uooqe+aC9MnS@public.gmane.org,
+        linux-xtensa-PjhNF2WwrV/0Sa2dR60CXw@public.gmane.org, linux-kbuild-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        adi-buildroot-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+        linux-raid-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, lin
+To: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-metag-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <1990589.0aJHWbJK4F@wuerfel>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-help: <mailto:ecartis@linux-mips.org?Subject=help>
-List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
-List-software: Ecartis version 1.0.0
-List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
-List-owner: <mailto:ralf@linux-mips.org>
-List-post: <mailto:linux-mips@linux-mips.org>
-List-archive: <http://www.linux-mips.org/archives/linux-mips/>
+In-Reply-To: <1483695839-18660-8-git-send-email-nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
+Sender: linux-metag-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 09, 2017 at 12:33:02PM +0100, Arnd Bergmann wrote:
-> On Friday, January 6, 2017 10:43:53 AM CET Nicolas Dichtel wrote:
-> > 
-> > diff --git a/arch/arm/include/asm/types.h b/arch/arm/include/asm/types.h
-> > index a53cdb8f068c..c48fee3d7b3b 100644
-> > --- a/arch/arm/include/asm/types.h
-> > +++ b/arch/arm/include/asm/types.h
-> > @@ -1,40 +1,6 @@
-> >  #ifndef _ASM_TYPES_H
-> >  #define _ASM_TYPES_H
-> >  
-> > -#include <asm-generic/int-ll64.h>
-> ...
-> > -#define __UINTPTR_TYPE__       unsigned long
-> > -#endif
-> > +#include <uapi/asm/types.h>
-> >  
-> >  #endif /* _ASM_TYPES_H */
-> > 
-> 
-> Moving the file is correct as far as I can tell, but the extra
-> #include is not necessary here, as the kernel will automatically
-> search both arch/arm/include/ and arch/arm/include/uapi/.
+On Fri, Jan 06, 2017 at 10:43:59AM +0100, Nicolas Dichtel wrote:
+> diff --git a/arch/arm/include/uapi/asm/Kbuild b/arch/arm/include/uapi/asm/Kbuild
+> index 46a76cd6acb6..607f702c2d62 100644
+> --- a/arch/arm/include/uapi/asm/Kbuild
+> +++ b/arch/arm/include/uapi/asm/Kbuild
+> @@ -1,23 +1,6 @@
+>  # UAPI Header export list
+>  include include/uapi/asm-generic/Kbuild.asm
+>  
+> -header-y += auxvec.h
+> -header-y += byteorder.h
+> -header-y += fcntl.h
+> -header-y += hwcap.h
+> -header-y += ioctls.h
+> -header-y += kvm_para.h
+> -header-y += mman.h
+> -header-y += perf_regs.h
+> -header-y += posix_types.h
+> -header-y += ptrace.h
+> -header-y += setup.h
+> -header-y += sigcontext.h
+> -header-y += signal.h
+> -header-y += stat.h
+> -header-y += statfs.h
+> -header-y += swab.h
+> -header-y += unistd.h
+>  genhdr-y += unistd-common.h
+>  genhdr-y += unistd-oabi.h
+>  genhdr-y += unistd-eabi.h
 
-Indeed, I'd like to see the include/asm file gone.
+Acked-by: Russell King <rmk+kernel-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>
 
 -- 
 RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
