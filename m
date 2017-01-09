@@ -1,93 +1,40 @@
-From: Mark Rutland <mark.rutland@arm.com>
-Subject: Re: [PATCH RFC 3/4] dt-bindings: correct marvell orion MDIO binding
- document
-Date: Mon, 9 Jan 2017 10:31:56 +0000
-Message-ID: <20170109103156.GA2147@leverpostej>
-References: <20170107112656.GL14217@n2100.armlinux.org.uk>
- <E1cPpAk-0005uJ-TM@rmk-PC.armlinux.org.uk>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH v4] rfkill: Add rfkill-any LED trigger
+Date: Mon, 09 Jan 2017 11:39:50 +0100
+Message-ID: <1483958390.17582.16.camel@sipsolutions.net>
+References: <20170106060747.6162-1-kernel@kempniu.pl>
+         <1483705333.4089.6.camel@sipsolutions.net>
+         <20170106192027.GA756@kmp-mobile.hq.kempniu.pl>
+         (sfid-20170106_202031_655798_4350A20F)
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
- Andrew Lunn <andrew@lunn.ch>, Jason Cooper <jason@lakedaemon.net>,
- devicetree@vger.kernel.org, netdev@vger.kernel.org,
- Rob Herring <robh+dt@kernel.org>,
- Gregory Clement <gregory.clement@free-electrons.com>,
- Marcin Wojtas <mw@semihalf.com>, linux-arm-kernel@lists.infradead.org,
- Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: Russell King <rmk+kernel@armlinux.org.uk>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-Content-Disposition: inline
-In-Reply-To: <E1cPpAk-0005uJ-TM@rmk-PC.armlinux.org.uk>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: "David S . Miller" <davem@davemloft.net>,
+        =?UTF-8?Q?=D0=9C=D0=B8=D1=85=D0=B0=D0=B8=D0=BB_?=
+         =?UTF-8?Q?=D0=9A=D1=80=D0=B8=D0=BD=D0=BA=D0=B8=D0=BD?=
+        <krinkin.m.u@gmail.com>, linux-wireless@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: =?UTF-8?Q?Micha=C5=82_K=C4=99pie=C5=84?= <kernel@kempniu.pl>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170106192027.GA756@kmp-mobile.hq.kempniu.pl> (sfid-20170106_202031_655798_4350A20F)
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Jan 07, 2017 at 11:28:30AM +0000, Russell King wrote:
-> Correct the Marvell Orion MDIO binding document to properly reflect the
-> cases where an interrupt is present.  Augment the examples to show this.
+
+> > Looks better, but
+> > 
+> > > +static struct work_struct rfkill_any_work;
+> > 
+> > At least on module exit you need to cancel this work.
 > 
-> Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
+> It is cancelled in rfkill_any_led_trigger_unregister().  It seemed
+> fitting to do it this way as rfkill_any_work is initialized in
+> rfkill_any_led_trigger_register().  And if CONFIG_RFKILL_LEDS=n,
+> rfkill_any_work is neither initialized nor scheduled, so we should be
+> good as well.  Am I missing something?
 
-This looks fine to me.
+No, I just missed that, sorry.
 
-Acked-by: Mark Rutland <mark.rutland@arm.com>
+Applied the patch now.
 
-Mark.
-
-> ---
->  .../devicetree/bindings/net/marvell-orion-mdio.txt      | 17 +++++++++++++++--
->  1 file changed, 15 insertions(+), 2 deletions(-)
-> 
-> diff --git a/Documentation/devicetree/bindings/net/marvell-orion-mdio.txt b/Documentation/devicetree/bindings/net/marvell-orion-mdio.txt
-> index 9417e54c26c0..ca733ff68ab9 100644
-> --- a/Documentation/devicetree/bindings/net/marvell-orion-mdio.txt
-> +++ b/Documentation/devicetree/bindings/net/marvell-orion-mdio.txt
-> @@ -7,7 +7,10 @@ interface.
->  
->  Required properties:
->  - compatible: "marvell,orion-mdio"
-> -- reg: address and length of the SMI register
-> +- reg: address and length of the MDIO registers.  When an interrupt is
-> +  not present, the length is the size of the SMI register (4 bytes)
-> +  otherwise it must be 0x84 bytes to cover the interrupt control
-> +  registers.
->  
->  Optional properties:
->  - interrupts: interrupt line number for the SMI error/done interrupt
-> @@ -17,7 +20,7 @@ The child nodes of the MDIO driver are the individual PHY devices
->  connected to this MDIO bus. They must have a "reg" property given the
->  PHY address on the MDIO bus.
->  
-> -Example at the SoC level:
-> +Example at the SoC level without an interrupt property:
->  
->  mdio {
->  	#address-cells = <1>;
-> @@ -26,6 +29,16 @@ mdio {
->  	reg = <0xd0072004 0x4>;
->  };
->  
-> +Example with an interrupt property:
-> +
-> +mdio {
-> +	#address-cells = <1>;
-> +	#size-cells = <0>;
-> +	compatible = "marvell,orion-mdio";
-> +	reg = <0xd0072004 0x84>;
-> +	interrupts = <30>;
-> +};
-> +
->  And at the board level:
->  
->  mdio {
-> -- 
-> 2.7.4
-> 
+johannes
