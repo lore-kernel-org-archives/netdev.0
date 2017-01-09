@@ -1,230 +1,193 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next 2/7] net: ipv4: refactor ip_route_input_noref
-Date: Mon,  9 Jan 2017 13:32:46 -0800
-Message-ID: <1483997571-3964-3-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH net-next 1/7] net: ipv4: refactor __ip_route_output_key_hash
+Date: Mon,  9 Jan 2017 13:32:45 -0800
+Message-ID: <1483997571-3964-2-git-send-email-dsa@cumulusnetworks.com>
 References: <1483997571-3964-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f169.google.com ([209.85.192.169]:33417 "EHLO
-        mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932800AbdAIVc6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 16:32:58 -0500
-Received: by mail-pf0-f169.google.com with SMTP id y143so13067127pfb.0
-        for <netdev@vger.kernel.org>; Mon, 09 Jan 2017 13:32:58 -0800 (PST)
+Received: from mail-pf0-f179.google.com ([209.85.192.179]:36608 "EHLO
+        mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S935091AbdAIVc5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 16:32:57 -0500
+Received: by mail-pf0-f179.google.com with SMTP id 189so21507195pfu.3
+        for <netdev@vger.kernel.org>; Mon, 09 Jan 2017 13:32:57 -0800 (PST)
 In-Reply-To: <1483997571-3964-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A later patch wants access to the fib result on an input route lookup
-with the rcu lock held. Refactor ip_route_input_noref pushing the logic
-between rcu_read_lock ... rcu_read_unlock into a new helper that takes
-the fib_result as an input arg.
+A later patch wants access to the fib result on an output route lookup
+with the rcu lock held. Refactor __ip_route_output_key_hash, pushing
+the logic between rcu_read_lock ... rcu_read_unlock into a new helper
+that takes the fib_result as an input arg.
+
+To keep the name length under control remove the leading underscores
+from the name. _rcu is added to the name of the new helper indicating
+it is called with the rcu read lock held.
 
 Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- include/net/route.h |  3 +++
- net/ipv4/route.c    | 66 ++++++++++++++++++++++++++++++-----------------------
- 2 files changed, 40 insertions(+), 29 deletions(-)
+ include/net/route.h |  9 ++++++---
+ net/ipv4/icmp.c     |  4 ++--
+ net/ipv4/route.c    | 50 +++++++++++++++++++++++++++++---------------------
+ 3 files changed, 37 insertions(+), 26 deletions(-)
 
 diff --git a/include/net/route.h b/include/net/route.h
-index bf4f7a98f753..4f3502a67203 100644
+index c0874c87c173..bf4f7a98f753 100644
 --- a/include/net/route.h
 +++ b/include/net/route.h
-@@ -178,6 +178,9 @@ static inline struct rtable *ip_route_output_gre(struct net *net, struct flowi4
+@@ -113,13 +113,16 @@ struct in_device;
+ int ip_rt_init(void);
+ void rt_cache_flush(struct net *net);
+ void rt_flush_dev(struct net_device *dev);
+-struct rtable *__ip_route_output_key_hash(struct net *, struct flowi4 *flp,
+-					  int mp_hash);
++struct rtable *ip_route_output_key_hash(struct net *, struct flowi4 *flp,
++					int mp_hash);
++struct rtable *ip_route_output_key_hash_rcu(struct net *, struct flowi4 *flp,
++					    struct fib_result *res,
++					    int mp_hash);
  
- int ip_route_input_noref(struct sk_buff *skb, __be32 dst, __be32 src,
- 			 u8 tos, struct net_device *devin);
-+int ip_route_input_rcu(struct sk_buff *skb, __be32 dst, __be32 src,
-+		       u8 tos, struct net_device *devin,
-+		       struct fib_result *res);
+ static inline struct rtable *__ip_route_output_key(struct net *net,
+ 						   struct flowi4 *flp)
+ {
+-	return __ip_route_output_key_hash(net, flp, -1);
++	return ip_route_output_key_hash(net, flp, -1);
+ }
  
- static inline int ip_route_input(struct sk_buff *skb, __be32 dst, __be32 src,
- 				 u8 tos, struct net_device *devin)
+ struct rtable *ip_route_output_flow(struct net *, struct flowi4 *flp,
+diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
+index 0777ea949223..67ed57365f80 100644
+--- a/net/ipv4/icmp.c
++++ b/net/ipv4/icmp.c
+@@ -482,8 +482,8 @@ static struct rtable *icmp_route_lookup(struct net *net,
+ 	fl4->flowi4_oif = l3mdev_master_ifindex(skb_dst(skb_in)->dev);
+ 
+ 	security_skb_classify_flow(skb_in, flowi4_to_flowi(fl4));
+-	rt = __ip_route_output_key_hash(net, fl4,
+-					icmp_multipath_hash_skb(skb_in));
++	rt = ip_route_output_key_hash(net, fl4,
++				      icmp_multipath_hash_skb(skb_in));
+ 	if (IS_ERR(rt))
+ 		return rt;
+ 
 diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index effd7f8e31f9..3142cd802e79 100644
+index 7144288371cf..effd7f8e31f9 100644
 --- a/net/ipv4/route.c
 +++ b/net/ipv4/route.c
-@@ -1789,9 +1789,9 @@ static int ip_mkroute_input(struct sk_buff *skb,
+@@ -2181,29 +2181,39 @@ static struct rtable *__mkroute_output(const struct fib_result *res,
+  * Major route resolver routine.
   */
  
- static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
--			       u8 tos, struct net_device *dev)
-+			       u8 tos, struct net_device *dev,
-+			       struct fib_result *res)
+-struct rtable *__ip_route_output_key_hash(struct net *net, struct flowi4 *fl4,
+-					  int mp_hash)
++struct rtable *ip_route_output_key_hash(struct net *net, struct flowi4 *fl4,
++					int mp_hash)
  {
--	struct fib_result res;
- 	struct in_device *in_dev = __in_dev_get_rcu(dev);
- 	struct ip_tunnel_info *tun_info;
- 	struct flowi4	fl4;
-@@ -1821,8 +1821,8 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
- 	if (ipv4_is_multicast(saddr) || ipv4_is_lbcast(saddr))
- 		goto martian_source;
+-	struct net_device *dev_out = NULL;
+ 	__u8 tos = RT_FL_TOS(fl4);
+-	unsigned int flags = 0;
+ 	struct fib_result res;
+ 	struct rtable *rth;
+-	int orig_oif;
+-	int err = -ENETUNREACH;
  
--	res.fi = NULL;
--	res.table = NULL;
-+	res->fi = NULL;
-+	res->table = NULL;
- 	if (ipv4_is_lbcast(daddr) || (saddr == 0 && daddr == 0))
- 		goto brd_input;
+ 	res.tclassid	= 0;
+ 	res.fi		= NULL;
+ 	res.table	= NULL;
  
-@@ -1857,17 +1857,17 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
- 	fl4.flowi4_flags = 0;
- 	fl4.daddr = daddr;
- 	fl4.saddr = saddr;
--	err = fib_lookup(net, &fl4, &res, 0);
-+	err = fib_lookup(net, &fl4, res, 0);
- 	if (err != 0) {
- 		if (!IN_DEV_FORWARD(in_dev))
- 			err = -EHOSTUNREACH;
- 		goto no_route;
+-	orig_oif = fl4->flowi4_oif;
+-
+ 	fl4->flowi4_iif = LOOPBACK_IFINDEX;
+ 	fl4->flowi4_tos = tos & IPTOS_RT_MASK;
+ 	fl4->flowi4_scope = ((tos & RTO_ONLINK) ?
+ 			 RT_SCOPE_LINK : RT_SCOPE_UNIVERSE);
+ 
+ 	rcu_read_lock();
++	rth = ip_route_output_key_hash_rcu(net, fl4, &res, mp_hash);
++	rcu_read_unlock();
++
++	return rth;
++}
++EXPORT_SYMBOL_GPL(ip_route_output_key_hash);
++
++struct rtable *ip_route_output_key_hash_rcu(struct net *net, struct flowi4 *fl4,
++					    struct fib_result *res, int mp_hash)
++{
++	struct net_device *dev_out = NULL;
++	int orig_oif = fl4->flowi4_oif;
++	unsigned int flags = 0;
++	struct rtable *rth;
++	int err = -ENETUNREACH;
++
+ 	if (fl4->saddr) {
+ 		rth = ERR_PTR(-EINVAL);
+ 		if (ipv4_is_multicast(fl4->saddr) ||
+@@ -2289,15 +2299,15 @@ struct rtable *__ip_route_output_key_hash(struct net *net, struct flowi4 *fl4,
+ 			fl4->daddr = fl4->saddr = htonl(INADDR_LOOPBACK);
+ 		dev_out = net->loopback_dev;
+ 		fl4->flowi4_oif = LOOPBACK_IFINDEX;
+-		res.type = RTN_LOCAL;
++		res->type = RTN_LOCAL;
+ 		flags |= RTCF_LOCAL;
+ 		goto make_route;
  	}
  
--	if (res.type == RTN_BROADCAST)
-+	if (res->type == RTN_BROADCAST)
- 		goto brd_input;
+-	err = fib_lookup(net, fl4, &res, 0);
++	err = fib_lookup(net, fl4, res, 0);
+ 	if (err) {
+-		res.fi = NULL;
+-		res.table = NULL;
++		res->fi = NULL;
++		res->table = NULL;
+ 		if (fl4->flowi4_oif &&
+ 		    (ipv4_is_multicast(fl4->daddr) ||
+ 		    !netif_index_is_l3_master(net, fl4->flowi4_oif))) {
+@@ -2322,17 +2332,17 @@ struct rtable *__ip_route_output_key_hash(struct net *net, struct flowi4 *fl4,
+ 			if (fl4->saddr == 0)
+ 				fl4->saddr = inet_select_addr(dev_out, 0,
+ 							      RT_SCOPE_LINK);
+-			res.type = RTN_UNICAST;
++			res->type = RTN_UNICAST;
+ 			goto make_route;
+ 		}
+ 		rth = ERR_PTR(err);
+ 		goto out;
+ 	}
  
 -	if (res.type == RTN_LOCAL) {
 +	if (res->type == RTN_LOCAL) {
- 		err = fib_validate_source(skb, saddr, daddr, tos,
- 					  0, dev, in_dev, &itag);
- 		if (err < 0)
-@@ -1879,10 +1879,10 @@ static int ip_route_input_slow(struct sk_buff *skb, __be32 daddr, __be32 saddr,
- 		err = -EHOSTUNREACH;
- 		goto no_route;
- 	}
--	if (res.type != RTN_UNICAST)
-+	if (res->type != RTN_UNICAST)
- 		goto martian_destination;
- 
--	err = ip_mkroute_input(skb, &res, in_dev, daddr, saddr, tos);
-+	err = ip_mkroute_input(skb, res, in_dev, daddr, saddr, tos);
- out:	return err;
- 
- brd_input:
-@@ -1896,14 +1896,14 @@ out:	return err;
- 			goto martian_source;
- 	}
- 	flags |= RTCF_BROADCAST;
--	res.type = RTN_BROADCAST;
-+	res->type = RTN_BROADCAST;
- 	RT_CACHE_STAT_INC(in_brd);
- 
- local_input:
- 	do_cache = false;
--	if (res.fi) {
-+	if (res->fi) {
- 		if (!itag) {
--			rth = rcu_dereference(FIB_RES_NH(res).nh_rth_input);
-+			rth = rcu_dereference(FIB_RES_NH(*res).nh_rth_input);
- 			if (rt_cache_valid(rth)) {
- 				skb_dst_set_noref(skb, &rth->dst);
- 				err = 0;
-@@ -1914,7 +1914,7 @@ out:	return err;
- 	}
- 
- 	rth = rt_dst_alloc(l3mdev_master_dev_rcu(dev) ? : net->loopback_dev,
--			   flags | RTCF_LOCAL, res.type,
-+			   flags | RTCF_LOCAL, res->type,
- 			   IN_DEV_CONF_GET(in_dev, NOPOLICY), false, do_cache);
- 	if (!rth)
- 		goto e_nobufs;
-@@ -1924,18 +1924,18 @@ out:	return err;
- 	rth->dst.tclassid = itag;
- #endif
- 	rth->rt_is_input = 1;
--	if (res.table)
--		rth->rt_table_id = res.table->tb_id;
-+	if (res->table)
-+		rth->rt_table_id = res->table->tb_id;
- 
- 	RT_CACHE_STAT_INC(in_slow_tot);
--	if (res.type == RTN_UNREACHABLE) {
-+	if (res->type == RTN_UNREACHABLE) {
- 		rth->dst.input= ip_error;
- 		rth->dst.error= -err;
- 		rth->rt_flags 	&= ~RTCF_LOCAL;
- 	}
- 
- 	if (do_cache) {
--		struct fib_nh *nh = &FIB_RES_NH(res);
-+		struct fib_nh *nh = &FIB_RES_NH(*res);
- 
- 		rth->dst.lwtstate = lwtstate_get(nh->nh_lwtstate);
- 		if (lwtunnel_input_redirect(rth->dst.lwtstate)) {
-@@ -1955,9 +1955,9 @@ out:	return err;
- 
- no_route:
- 	RT_CACHE_STAT_INC(in_no_route);
--	res.type = RTN_UNREACHABLE;
--	res.fi = NULL;
--	res.table = NULL;
-+	res->type = RTN_UNREACHABLE;
-+	res->fi = NULL;
-+	res->table = NULL;
- 	goto local_input;
- 
- 	/*
-@@ -1987,10 +1987,21 @@ out:	return err;
- int ip_route_input_noref(struct sk_buff *skb, __be32 daddr, __be32 saddr,
- 			 u8 tos, struct net_device *dev)
- {
--	int res;
-+	struct fib_result res;
-+	int err;
- 
- 	rcu_read_lock();
-+	err = ip_route_input_rcu(skb, daddr, saddr, tos, dev, &res);
-+	rcu_read_unlock();
- 
-+	return err;
-+}
-+EXPORT_SYMBOL(ip_route_input_noref);
-+
-+/* called with rcu_read_lock held */
-+int ip_route_input_rcu(struct sk_buff *skb, __be32 daddr, __be32 saddr,
-+		       u8 tos, struct net_device *dev, struct fib_result *res)
-+{
- 	/* Multicast recognition logic is moved from route cache to here.
- 	   The problem was that too many Ethernet cards have broken/missing
- 	   hardware multicast filters :-( As result the host on multicasting
-@@ -2005,6 +2016,7 @@ int ip_route_input_noref(struct sk_buff *skb, __be32 daddr, __be32 saddr,
- 	if (ipv4_is_multicast(daddr)) {
- 		struct in_device *in_dev = __in_dev_get_rcu(dev);
- 		int our = 0;
-+		int err = -EINVAL;
- 
- 		if (in_dev)
- 			our = ip_check_mc_rcu(in_dev, daddr, saddr,
-@@ -2020,7 +2032,6 @@ int ip_route_input_noref(struct sk_buff *skb, __be32 daddr, __be32 saddr,
- 						      ip_hdr(skb)->protocol);
+ 		if (!fl4->saddr) {
+-			if (res.fi->fib_prefsrc)
+-				fl4->saddr = res.fi->fib_prefsrc;
++			if (res->fi->fib_prefsrc)
++				fl4->saddr = res->fi->fib_prefsrc;
+ 			else
+ 				fl4->saddr = fl4->daddr;
  		}
- 
--		res = -EINVAL;
- 		if (our
- #ifdef CONFIG_IP_MROUTE
- 			||
-@@ -2028,17 +2039,14 @@ int ip_route_input_noref(struct sk_buff *skb, __be32 daddr, __be32 saddr,
- 		     IN_DEV_MFORWARD(in_dev))
- #endif
- 		   ) {
--			res = ip_route_input_mc(skb, daddr, saddr,
-+			err = ip_route_input_mc(skb, daddr, saddr,
- 						tos, dev, our);
- 		}
--		rcu_read_unlock();
--		return res;
-+		return err;
+@@ -2344,20 +2354,18 @@ struct rtable *__ip_route_output_key_hash(struct net *net, struct flowi4 *fl4,
+ 		goto make_route;
  	}
--	res = ip_route_input_slow(skb, daddr, saddr, tos, dev);
+ 
+-	fib_select_path(net, &res, fl4, mp_hash);
++	fib_select_path(net, res, fl4, mp_hash);
+ 
+-	dev_out = FIB_RES_DEV(res);
++	dev_out = FIB_RES_DEV(*res);
+ 	fl4->flowi4_oif = dev_out->ifindex;
+ 
+ 
+ make_route:
+-	rth = __mkroute_output(&res, fl4, orig_oif, dev_out, flags);
++	rth = __mkroute_output(res, fl4, orig_oif, dev_out, flags);
+ 
+ out:
 -	rcu_read_unlock();
--	return res;
-+
-+	return ip_route_input_slow(skb, daddr, saddr, tos, dev, res);
+ 	return rth;
  }
--EXPORT_SYMBOL(ip_route_input_noref);
+-EXPORT_SYMBOL_GPL(__ip_route_output_key_hash);
  
- /* called with rcu_read_lock() */
- static struct rtable *__mkroute_output(const struct fib_result *res,
+ static struct dst_entry *ipv4_blackhole_dst_check(struct dst_entry *dst, u32 cookie)
+ {
 -- 
 2.1.4
