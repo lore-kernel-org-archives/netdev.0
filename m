@@ -1,46 +1,71 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: Marvell Phy (1510) issue since v4.7 kernel
-Date: Mon, 9 Jan 2017 23:56:41 +0100
-Message-ID: <20170109225641.GB22820@lunn.ch>
-References: <587410EF.5090607@ti.com>
+From: Bjorn Andersson <bjorn.andersson@linaro.org>
+Subject: Re: [PATCH] net: qrtr: Mark 'buf' as little endian
+Date: Mon, 9 Jan 2017 15:02:14 -0800
+Message-ID: <20170109230214.GX10531@minitux>
+References: <20170109223158.29255-1-sboyd@codeaurora.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "Kwok, WingMan" <w-kwok2@ti.com>
-To: Murali Karicheri <m-karicheri2@ti.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:53579 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1764260AbdAIW4n (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 9 Jan 2017 17:56:43 -0500
+Cc: "David S. Miller" <davem@davemloft.net>,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Stephen Boyd <sboyd@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <587410EF.5090607@ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20170109223158.29255-1-sboyd@codeaurora.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 09, 2017 at 05:38:39PM -0500, Murali Karicheri wrote:
-> Hello Charles-Antoine, Andrew,
+On Mon 09 Jan 14:31 PST 2017, Stephen Boyd wrote:
+
+> Failure to mark this pointer as __le32 causes checkers like
+> sparse to complain:
 > 
-> We have recently upgraded our kernel to v4.9 and started seeing an issue
-> on our Keystone EVMs (K2E/L) that uses Marvel Phy 1510. The issue is that
-> when we do a reboot command from the Linux console or do a SoC reset,
-> the DHCP times out at U-Boot due to Phy auto negotiation failure. This works
-> fine when the board is power cycled.
+> net/qrtr/qrtr.c:274:16: warning: incorrect type in assignment (different base types)
+> net/qrtr/qrtr.c:274:16:    expected unsigned int [unsigned] [usertype] <noident>
+> net/qrtr/qrtr.c:274:16:    got restricted __le32 [usertype] <noident>
+> net/qrtr/qrtr.c:275:16: warning: incorrect type in assignment (different base types)
+> net/qrtr/qrtr.c:275:16:    expected unsigned int [unsigned] [usertype] <noident>
+> net/qrtr/qrtr.c:275:16:    got restricted __le32 [usertype] <noident>
+> net/qrtr/qrtr.c:276:16: warning: incorrect type in assignment (different base types)
+> net/qrtr/qrtr.c:276:16:    expected unsigned int [unsigned] [usertype] <noident>
+> net/qrtr/qrtr.c:276:16:    got restricted __le32 [usertype] <noident>
+> 
+> Silence it.
+> 
+> Cc: Bjorn Andersson <bjorn.andersson@linaro.org>
 
-I've seen similar before. What version of kernel are you upgrading
-from?
+Acked-by: Bjorn Andersson <bjorn.andersson@linaro.org>
 
-The problem i've had is that on shutdown/reboot, linux powers the PHYs
-off. The uboot i have does not power them on again. Clearly a uboot
-issue, it should not assume the PHYs are powered on.
+Regards,
+Bjorn
 
-I work around this with a uboot command:
-
-mii write 1 0 0x3100
-
-where the PHY is at address 1 on the bus. This writes to register 0,
-and the import bit which needs setting to 0 is bit 11.
-
-If mii read shows bit 11 is set, you know there uboot did not power up
-the PHY.
-
-    Andrew
+> Signed-off-by: Stephen Boyd <sboyd@codeaurora.org>
+> ---
+>  net/qrtr/qrtr.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/qrtr/qrtr.c b/net/qrtr/qrtr.c
+> index c985ecbe9bd6..ae5ac175b2be 100644
+> --- a/net/qrtr/qrtr.c
+> +++ b/net/qrtr/qrtr.c
+> @@ -252,7 +252,7 @@ static struct sk_buff *qrtr_alloc_resume_tx(u32 src_node,
+>  	const int pkt_len = 20;
+>  	struct qrtr_hdr *hdr;
+>  	struct sk_buff *skb;
+> -	u32 *buf;
+> +	__le32 *buf;
+>  
+>  	skb = alloc_skb(QRTR_HDR_SIZE + pkt_len, GFP_KERNEL);
+>  	if (!skb)
+> @@ -269,7 +269,7 @@ static struct sk_buff *qrtr_alloc_resume_tx(u32 src_node,
+>  	hdr->dst_node_id = cpu_to_le32(dst_node);
+>  	hdr->dst_port_id = cpu_to_le32(QRTR_PORT_CTRL);
+>  
+> -	buf = (u32 *)skb_put(skb, pkt_len);
+> +	buf = (__le32 *)skb_put(skb, pkt_len);
+>  	memset(buf, 0, pkt_len);
+>  	buf[0] = cpu_to_le32(QRTR_TYPE_RESUME_TX);
+>  	buf[1] = cpu_to_le32(src_node);
+> -- 
+> The Qualcomm Innovation Center, Inc. is a member of the Code Aurora Forum,
+> a Linux Foundation Collaborative Project
+> 
