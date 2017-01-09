@@ -1,11 +1,9 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next PATCH 1/3] Revert "icmp: avoid allocating large
- struct on stack"
-Date: Mon, 09 Jan 2017 09:50:08 -0800
-Message-ID: <1483984208.5846.9.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [net-next PATCH 0/3] net: optimize ICMP-reply code path
+Date: Mon, 09 Jan 2017 09:56:50 -0800
+Message-ID: <1483984610.5846.12.camel@edumazet-glaptop3.roam.corp.google.com>
 References: <20170109150246.30215.63371.stgit@firesoul>
-         <20170109150404.30215.44512.stgit@firesoul>
-         <CAM_iQpUNmaBx6L4CcrXkh6aFj-fEXdoGTBJt+33W3Xg-=7yhWA@mail.gmail.com>
+         <CAM_iQpWVokaBs=mvG+PKArVx_t3xVg5n9SWjj69Uu=m-ywyH+w@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -13,31 +11,32 @@ Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
         Linux Kernel Network Developers <netdev@vger.kernel.org>
 To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:34974 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1163982AbdAIRuK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 12:50:10 -0500
-Received: by mail-pg0-f66.google.com with SMTP id 204so5472633pge.2
-        for <netdev@vger.kernel.org>; Mon, 09 Jan 2017 09:50:10 -0800 (PST)
-In-Reply-To: <CAM_iQpUNmaBx6L4CcrXkh6aFj-fEXdoGTBJt+33W3Xg-=7yhWA@mail.gmail.com>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:33767 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1422779AbdAIR4w (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 12:56:52 -0500
+Received: by mail-pg0-f68.google.com with SMTP id 194so7782121pgd.0
+        for <netdev@vger.kernel.org>; Mon, 09 Jan 2017 09:56:52 -0800 (PST)
+In-Reply-To: <CAM_iQpWVokaBs=mvG+PKArVx_t3xVg5n9SWjj69Uu=m-ywyH+w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2017-01-09 at 09:42 -0800, Cong Wang wrote:
-> On Mon, Jan 9, 2017 at 7:04 AM, Jesper Dangaard Brouer
+On Mon, 2017-01-09 at 09:43 -0800, Cong Wang wrote:
+> On Mon, Jan 9, 2017 at 7:03 AM, Jesper Dangaard Brouer
 > <brouer@redhat.com> wrote:
-> > This reverts commit 9a99d4a50cb8 ("icmp: avoid allocating large struct
-> > on stack"), because struct icmp_bxm no really a large struct, and
-> > allocating and free of this small 112 bytes hurts performance.
+> >
+> > Use-case: The specific case I experienced this being a bottleneck is,
+> > sending UDP packets to a port with no listener, which obviously result
+> > in kernel replying with ICMP Destination Unreachable (type:3), Port
+> > Unreachable (code:3), which cause the bottleneck.
 > 
-> The original commit fixes a warning for large stack usage, icmp_send()
-> is deep in the call stack.
-> 
-> Your optimization for a slow path makes no sense to me.
+> Why this is a case we should care about for performance?
 
-Do you have the stack trace of this event ?
+This is called provisioning.
 
-Even Linus allowed vmalloc() kernel stacks, while it certainly was an
-heresy 10 years ago.
+If you have a server farm that was qualified to handle 100 Mpps,
+you want to absorb these 100 Mpps, even if the UDP server is restarted
+in a clean or catastrophic mode.
 
-I doubt it makes a difference trying to save 104 bytes of kernel stack.
+The catastrophic mode would be the case that Jesper described : No UDP
+socket is bound and ready to receive packets.
