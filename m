@@ -1,53 +1,113 @@
-From: "Kwok, WingMan" <w-kwok2@ti.com>
-Subject: RE: Marvell Phy (1510) issue since v4.7 kernel
-Date: Mon, 9 Jan 2017 23:48:18 +0000
-Message-ID: <230CBA6E4B6B6B418E8730AC28E6FC7E153545A3@DFLE11.ent.ti.com>
-References: <587410EF.5090607@ti.com> <20170109225641.GB22820@lunn.ch>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [net PATCH] net: virtio: cap mtu when XDP programs are running
+Date: Mon, 9 Jan 2017 15:49:27 -0800
+Message-ID: <58742187.8050505@gmail.com>
+References: <20170102223031.11541.28717.stgit@john-Precision-Tower-5810>
+ <402027b4-58c7-aa1b-5079-74e31448f544@redhat.com>
+ <586BD5D5.6020100@gmail.com>
+ <1caf1ffc-0f46-067e-0f0d-a93b408b4ffd@redhat.com>
+ <586D458F.5050705@gmail.com>
+ <068f0116-b37e-eb44-8c60-1781a9d5255e@redhat.com>
+ <20170110010531-mutt-send-email-mst@kernel.org> <5874190B.9050505@gmail.com>
+ <20170110012044-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>,
-        "Karicheri, Muralidharan" <m-karicheri2@ti.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Jason Wang <jasowang@redhat.com>, john.r.fastabend@intel.com,
+        netdev@vger.kernel.org, alexei.starovoitov@gmail.com,
+        daniel@iogearbox.net
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fllnx209.ext.ti.com ([198.47.19.16]:49057 "EHLO
-        fllnx209.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752236AbdAIXss (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 18:48:48 -0500
-In-Reply-To: <20170109225641.GB22820@lunn.ch>
-Content-Language: en-US
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:33045 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756422AbdAIXtu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 18:49:50 -0500
+Received: by mail-pf0-f193.google.com with SMTP id 127so25776473pfg.0
+        for <netdev@vger.kernel.org>; Mon, 09 Jan 2017 15:49:50 -0800 (PST)
+In-Reply-To: <20170110012044-mutt-send-email-mst@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQpIaSBBbmRyZXcsDQoNCg0KPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBB
-bmRyZXcgTHVubiBbbWFpbHRvOmFuZHJld0BsdW5uLmNoXQ0KPiBTZW50OiBNb25kYXksIEphbnVh
-cnkgMDksIDIwMTcgNTo1NyBQTQ0KPiBUbzogS2FyaWNoZXJpLCBNdXJhbGlkaGFyYW4NCj4gQ2M6
-IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IEt3b2ssIFdpbmdNYW4NCj4gU3ViamVjdDogUmU6IE1h
-cnZlbGwgUGh5ICgxNTEwKSBpc3N1ZSBzaW5jZSB2NC43IGtlcm5lbA0KPiANCj4gT24gTW9uLCBK
-YW4gMDksIDIwMTcgYXQgMDU6Mzg6MzlQTSAtMDUwMCwgTXVyYWxpIEthcmljaGVyaSB3cm90ZToN
-Cj4gPiBIZWxsbyBDaGFybGVzLUFudG9pbmUsIEFuZHJldywNCj4gPg0KPiA+IFdlIGhhdmUgcmVj
-ZW50bHkgdXBncmFkZWQgb3VyIGtlcm5lbCB0byB2NC45IGFuZCBzdGFydGVkIHNlZWluZyBhbg0K
-PiBpc3N1ZQ0KPiA+IG9uIG91ciBLZXlzdG9uZSBFVk1zIChLMkUvTCkgdGhhdCB1c2VzIE1hcnZl
-bCBQaHkgMTUxMC4gVGhlIGlzc3VlIGlzDQo+IHRoYXQNCj4gPiB3aGVuIHdlIGRvIGEgcmVib290
-IGNvbW1hbmQgZnJvbSB0aGUgTGludXggY29uc29sZSBvciBkbyBhIFNvQw0KPiByZXNldCwNCj4g
-PiB0aGUgREhDUCB0aW1lcyBvdXQgYXQgVS1Cb290IGR1ZSB0byBQaHkgYXV0byBuZWdvdGlhdGlv
-biBmYWlsdXJlLg0KPiBUaGlzIHdvcmtzDQo+ID4gZmluZSB3aGVuIHRoZSBib2FyZCBpcyBwb3dl
-ciBjeWNsZWQuDQo+IA0KPiBJJ3ZlIHNlZW4gc2ltaWxhciBiZWZvcmUuIFdoYXQgdmVyc2lvbiBv
-ZiBrZXJuZWwgYXJlIHlvdSB1cGdyYWRpbmcNCj4gZnJvbT8NCj4gDQo+IFRoZSBwcm9ibGVtIGkn
-dmUgaGFkIGlzIHRoYXQgb24gc2h1dGRvd24vcmVib290LCBsaW51eCBwb3dlcnMgdGhlIFBIWXMN
-Cj4gb2ZmLiBUaGUgdWJvb3QgaSBoYXZlIGRvZXMgbm90IHBvd2VyIHRoZW0gb24gYWdhaW4uIENs
-ZWFybHkgYSB1Ym9vdA0KPiBpc3N1ZSwgaXQgc2hvdWxkIG5vdCBhc3N1bWUgdGhlIFBIWXMgYXJl
-IHBvd2VyZWQgb24uDQo+IA0KPiBJIHdvcmsgYXJvdW5kIHRoaXMgd2l0aCBhIHVib290IGNvbW1h
-bmQ6DQo+IA0KPiBtaWkgd3JpdGUgMSAwIDB4MzEwMA0KPiANCj4gd2hlcmUgdGhlIFBIWSBpcyBh
-dCBhZGRyZXNzIDEgb24gdGhlIGJ1cy4gVGhpcyB3cml0ZXMgdG8gcmVnaXN0ZXIgMCwNCj4gYW5k
-IHRoZSBpbXBvcnQgYml0IHdoaWNoIG5lZWRzIHNldHRpbmcgdG8gMCBpcyBiaXQgMTEuDQo+IA0K
-PiBJZiBtaWkgcmVhZCBzaG93cyBiaXQgMTEgaXMgc2V0LCB5b3Uga25vdyB0aGVyZSB1Ym9vdCBk
-aWQgbm90IHBvd2VyIHVwDQo+IHRoZSBQSFkuDQo+IA0KPiAgICAgQW5kcmV3DQoNClRoYW5rcyBm
-b3IgdGhlIHN1Z2dlc3Rpb24uDQoNCkJ1dCB3aGVuIGtlcm5lbCBpcyByZWJvb3QgaW50byB1LWJv
-b3QsICJtaWkgcmVhZCAwIDAiIHNob3dzDQoweDEwMDAsIGllLiBiaXQgMTEgaXMgMCwgYW5kIHN0
-aWxsIHRoZSBwaHkgYXV0by1uZWdvIHRpbWVzIG91dC4NCg0KVGhlICJtaWkgcmVhZCAwIDAiIHNo
-b3dzIHRoZSBzYW1lIHZhbHVlIDB4MTAwMCBpZiB3ZSBwb3dlciBjeWNsZQ0KYm9hcmQgYW5kIHRo
-ZSBwaHkgYXV0by1uZWdvIHdvcmtzIGZpbmUuDQoNCkNvdWxkIHRoZXJlIGJlIHNvbWUgb3RoZXIg
-cmVnaXN0ZXJzIHRoYXQgbmVlZCB0byBiZSByZS1jb25maWd1cmVkPw0KDQpXZSBhcmUgdXBncmFk
-aW5nIGZyb20ga2VybmVsIHY0LjQgdG8gdjQuOS4gQW5kIHRoZSB1LWJvb3QgaXMgMjAxNi4wNS4N
-Cg0KUmVnYXJkcywNCldpbmdNYW4NCg==
+On 17-01-09 03:24 PM, Michael S. Tsirkin wrote:
+> On Mon, Jan 09, 2017 at 03:13:15PM -0800, John Fastabend wrote:
+>> On 17-01-09 03:05 PM, Michael S. Tsirkin wrote:
+>>> On Thu, Jan 05, 2017 at 11:09:14AM +0800, Jason Wang wrote:
+>>>>
+>>>>
+>>>> On 2017年01月05日 02:57, John Fastabend wrote:
+>>>>> [...]
+>>>>>
+>>>>>> On 2017年01月04日 00:48, John Fastabend wrote:
+>>>>>>> On 17-01-02 10:14 PM, Jason Wang wrote:
+>>>>>>>> On 2017年01月03日 06:30, John Fastabend wrote:
+>>>>>>>>> XDP programs can not consume multiple pages so we cap the MTU to
+>>>>>>>>> avoid this case. Virtio-net however only checks the MTU at XDP
+>>>>>>>>> program load and does not block MTU changes after the program
+>>>>>>>>> has loaded.
+>>>>>>>>>
+>>>>>>>>> This patch sets/clears the max_mtu value at XDP load/unload time.
+>>>>>>>>>
+>>>>>>>>> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+>>>>>>>>> ---
+>>>>> [...]
+>>>>>
+>>>>>>> OK so this logic is a bit too simply. When it resets the max_mtu I guess it
+>>>>>>> needs to read the mtu via
+>>>>>>>
+>>>>>>>      virtio_cread16(vdev, ...)
+>>>>>>>
+>>>>>>> or we may break the negotiated mtu.
+>>>>>> Yes, this is a problem (even use ETH_MAX_MTU). We may need a method to notify
+>>>>>> the device about the mtu in this case which is not supported by virtio now.
+>>>>> Note this is not really a XDP specific problem. The guest can change the MTU
+>>>>> after init time even without XDP which I assume should ideally result in a
+>>>>> notification if the MTU is negotiated.
+>>>>
+>>>> Yes, Michael, do you think we need add some mechanism to notify host about
+>>>> MTU change in this case?
+>>>>
+>>>> Thanks
+>>>
+>>> Why does host care?
+>>>
+>>
+>> Well the guest will drop packets after mtu has been reduced.
+> 
+> I didn't know. What place in code does this?
+> 
+
+hmm in many of the drivers it is convention to use the mtu to set the rx
+buffer sizes and a receive side max length filter. For example in the Intel
+drivers if a packet with length greater than MTU + some headroom is received we
+drop it. I guess in the networking stack RX path though nothing forces this and
+virtio doesn't have any code to drop packets on rx size.
+
+In virtio I don't see any existing case currently. In the XDP case though we
+need to ensure packets fit in a page for the time being which is why I was
+looking at this code and generated this patch.
+
+>> Although the guest
+>> by reducing its MTU in some sense must expect this. Likewise if the host were
+>> to change MTU after virtio_net probe time the guest would not learn about it.
+> 
+> The spec explicitly disallows this last one.
+
+OK. By the way were do I get the latest source I see the published virtio1.0 at
+the oasis-open.org site but it doesn't mention the MTU logic.
+
+> 
+>> I think at best negotiating the mtu is just a hint? If system _really_ cares
+>> we could use lldp or some other out of band mechanism to learn/set/adjust MTU
+>> on both systems and it would be more robust. I'm not actually convinced this
+>> is a problem in bare metal systems we have the same issue with physical
+>> switches and solve it out of band via configuration, protocols, etc.
+>>
+>> .John
+> 
+> ATM we don't have negotiation in virtio, just a max mtu limit.
+> This doesn't free guest from configuring mtu correctly,
+> just helps it avoid doing something clearly bogus.
+> 
+
+Yep. I'm fine with calling it a misconfiguration if the guest reduces the MTU
+and the host continues to send packets @ advertised MTU.
