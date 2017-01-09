@@ -1,141 +1,82 @@
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: Re: [PATCH 3/4] net: ethernet: ti: cpsw: don't duplicate ndev_running
-Date: Mon, 9 Jan 2017 11:25:38 -0600
-Message-ID: <c6dfedc3-d346-b9a4-f398-96ac7e57d0b8@ti.com>
-References: <1483893663-15673-1-git-send-email-ivan.khoronzhuk@linaro.org>
- <1483893663-15673-4-git-send-email-ivan.khoronzhuk@linaro.org>
+From: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
+Subject: Re: [PATCH net-next v4 2/2] net: stmmac: dwmac-meson8b: make the
+ RGMII TX delay configurable
+Date: Mon, 9 Jan 2017 18:37:31 +0100
+Message-ID: <CAFBinCBDyBLtDZyawGGSNT2u71k9ALoSKcTAUm+PRKC+2yawzg@mail.gmail.com>
+References: <20161202233238.17561-1-martin.blumenstingl@googlemail.com>
+ <20161217182119.4037-1-martin.blumenstingl@googlemail.com>
+ <20161217182119.4037-3-martin.blumenstingl@googlemail.com>
+ <20161218.104950.1013829528388480468.davem@davemloft.net> <CAFBinCDZ_mqt8q2rG6zDy8ke5sX6L+4sVYOOhWUdO3apwFiRYw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <linux-omap@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>,
-        <netdev@vger.kernel.org>, <mugunthanvnm@ti.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
+        linux-amlogic@lists.infradead.org, robh+dt@kernel.org,
+        mark.rutland@arm.com, carlo@caione.org, khilman@baylibre.com,
+        peppe.cavallaro@st.com, alexandre.torgue@st.com,
+        linux-arm-kernel@lists.infradead.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lelnx194.ext.ti.com ([198.47.27.80]:44911 "EHLO
-        lelnx194.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1035128AbdAIRZk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 12:25:40 -0500
-In-Reply-To: <1483893663-15673-4-git-send-email-ivan.khoronzhuk@linaro.org>
+Received: from mail-lf0-f66.google.com ([209.85.215.66]:34687 "EHLO
+        mail-lf0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S968352AbdAIRhy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 12:37:54 -0500
+In-Reply-To: <CAFBinCDZ_mqt8q2rG6zDy8ke5sX6L+4sVYOOhWUdO3apwFiRYw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi David,
+
+On Sun, Dec 18, 2016 at 5:13 PM, Martin Blumenstingl
+<martin.blumenstingl@googlemail.com> wrote:
+> On Sun, Dec 18, 2016 at 4:49 PM, David Miller <davem@davemloft.net> wrote:
+>> From: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
+>> Date: Sat, 17 Dec 2016 19:21:19 +0100
+>>
+>>> Prior to this patch we were using a hardcoded RGMII TX clock delay of
+>>> 2ns (= 1/4 cycle of the 125MHz RGMII TX clock). This value works for
+>>> many boards, but unfortunately not for all (due to the way the actual
+>>> circuit is designed, sometimes because the TX delay is enabled in the
+>>> PHY, etc.). Making the TX delay on the MAC side configurable allows us
+>>> to support all possible hardware combinations.
+>>>
+>>> This allows fixing a compatibility issue on some boards, where the
+>>> RTL8211F PHY is configured to generate the TX delay. We can now turn
+>>> off the TX delay in the MAC, because otherwise we would be applying the
+>>> delay twice (which results in non-working TX traffic).
+>>>
+>>> Signed-off-by: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
+>>> Tested-by: Neil Armstrong <narmstrong@baylibre.com>
+>>
+>> Is this really the safest thing to do?
+>>
+>> If you say the existing hard-coded setting of 1/4 cycle works on most
+>> boards, and what you're trying to do is override it with an OF
+>> property value for boards where the existing setting does not work,
+>> then you _must_ use a default value that corresponds to what the
+>> existing code does not when you don't see this new OF property.
+> it's a bit more complicated in reality: 1/4 cycle works when the TX
+> delay of the RTL8211F PHY is turned off (until recently it was always
+> enabled for phy-mode RGMII).
+>
+>> So please retain the current behavior of the 1/4 cycle TX delay
+>> setting when you don't see the amlogic,tx-delay-ns property.
+>>
+>> I really think you risk breaking existing boards by not doing so,
+>> unless you can have this patch tested on every such board that exists
+>> and I don't think you really can feasibly and rigorously do that.
+> there's a patch in my follow-up series which adds the 2ns to the .dts
+> for all RGMII based boards: [0] (and I would keep these even if we had
+> a default value, just to make it explicit and thus easier to
+> understand for other people).
+> however, we can add the 2ns default back (I can do this if you want -
+> Rob Herring was unhappy with the missing documentation of this default
+> value [1] - so note to myself: take care of that as well). but then we
+> have to decide when to apply this default value: only when we're in
+> RGMII mode or also in any of the RGMII_*ID modes?
+>
+> please let me know how we should proceed
+gentle ping - what is your opinion on this?
 
 
-On 01/08/2017 10:41 AM, Ivan Khoronzhuk wrote:
-> No need to create additional vars to identify if interface is running.
-> So simplify code by removing redundant var and checking usage counter
-> instead.
-> 
-> Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-> ---
->  drivers/net/ethernet/ti/cpsw.c | 14 ++++----------
->  1 file changed, 4 insertions(+), 10 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-> index 40d7fc9..daae87f 100644
-> --- a/drivers/net/ethernet/ti/cpsw.c
-> +++ b/drivers/net/ethernet/ti/cpsw.c
-> @@ -357,7 +357,6 @@ struct cpsw_slave {
->  	struct phy_device		*phy;
->  	struct net_device		*ndev;
->  	u32				port_vlan;
-> -	u32				open_stat;
->  };
->  
->  static inline u32 slave_read(struct cpsw_slave *slave, u32 offset)
-> @@ -1241,7 +1240,7 @@ static int cpsw_common_res_usage_state(struct cpsw_common *cpsw)
->  	u32 usage_count = 0;
->  
->  	for (i = 0; i < cpsw->data.slaves; i++)
-> -		if (cpsw->slaves[i].open_stat)
-> +		if (netif_running(cpsw->slaves[i].ndev))
->  			usage_count++;
-
-Not sure this will work as you expected, but may be I've missed smth :(
-
-code in static int __dev_open(struct net_device *dev)
-..
-	set_bit(__LINK_STATE_START, &dev->state);
-
-	if (ops->ndo_validate_addr)
-		ret = ops->ndo_validate_addr(dev);
-
-	if (!ret && ops->ndo_open)
-		ret = ops->ndo_open(dev);
-
-	netpoll_poll_enable(dev);
-
-	if (ret)
-		clear_bit(__LINK_STATE_START, &dev->state);
-..
-
-so, netif_running(ndev) will start returning true before calling ops->ndo_open(dev);
-
->  
->  	return usage_count;
-> @@ -1502,7 +1501,7 @@ static int cpsw_ndo_open(struct net_device *ndev)
->  		 CPSW_RTL_VERSION(reg));
->  
->  	/* initialize host and slave ports */
-> -	if (!cpsw_common_res_usage_state(cpsw))
-> +	if (cpsw_common_res_usage_state(cpsw) < 2)
-
-Ah. You've changed the condition here.
-
-I think it might be reasonable to hide this inside cpsw_common_res_usage_state()
-and seems it can be renamed to smth like cpsw_is_running().
-
-
->  		cpsw_init_host_port(priv);
->  	for_each_slave(priv, cpsw_slave_open, priv);
->  
-> @@ -1513,7 +1512,7 @@ static int cpsw_ndo_open(struct net_device *ndev)
->  		cpsw_ale_add_vlan(cpsw->ale, cpsw->data.default_vlan,
->  				  ALE_ALL_PORTS, ALE_ALL_PORTS, 0, 0);
->  
-> -	if (!cpsw_common_res_usage_state(cpsw)) {
-> +	if (cpsw_common_res_usage_state(cpsw) < 2) {
->  		/* disable priority elevation */
->  		__raw_writel(0, &cpsw->regs->ptype);
->  
-> @@ -1556,9 +1555,6 @@ static int cpsw_ndo_open(struct net_device *ndev)
->  	cpdma_ctlr_start(cpsw->dma);
->  	cpsw_intr_enable(cpsw);
->  
-> -	if (cpsw->data.dual_emac)
-> -		cpsw->slaves[priv->emac_port].open_stat = true;
-> -
->  	return 0;
->  
->  err_cleanup:
-> @@ -1578,7 +1574,7 @@ static int cpsw_ndo_stop(struct net_device *ndev)
->  	netif_tx_stop_all_queues(priv->ndev);
->  	netif_carrier_off(priv->ndev);
->  
-> -	if (cpsw_common_res_usage_state(cpsw) <= 1) {
-> +	if (!cpsw_common_res_usage_state(cpsw)) {
-
-and here __LINK_STATE_START will be cleared before calling ops->ndo_stop(dev);
-So, from one side netif_running(ndev) usage will simplify cpsw_common_res_usage_state() internals,
-but from another side - it will make places where it's used even more entangled :( as for me,
-because when cpsw_common_res_usage_state() will return 1 in cpsw_ndo_open() it will mean
-"no interfaces is really running yet", but the same value 1 in cpsw_ndo_stop()
-will mean "there are still one is running".
-
->  		napi_disable(&cpsw->napi_rx);
->  		napi_disable(&cpsw->napi_tx);
->  		cpts_unregister(cpsw->cpts);
-> @@ -1592,8 +1588,6 @@ static int cpsw_ndo_stop(struct net_device *ndev)
->  		cpsw_split_res(ndev);
->  
->  	pm_runtime_put_sync(cpsw->dev);
-> -	if (cpsw->data.dual_emac)
-> -		cpsw->slaves[priv->emac_port].open_stat = false;
->  	return 0;
->  }
->  
-> 
-
--- 
-regards,
--grygorii
+Regards,
+Martin
