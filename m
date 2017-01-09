@@ -1,38 +1,43 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next PATCH 3/3] net: for rate-limited ICMP replies save
- one atomic operation
-Date: Mon, 09 Jan 2017 09:44:23 -0800
-Message-ID: <1483983863.5846.5.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [net-next PATCH 1/3] Revert "icmp: avoid allocating large
+ struct on stack"
+Date: Mon, 09 Jan 2017 09:50:08 -0800
+Message-ID: <1483984208.5846.9.camel@edumazet-glaptop3.roam.corp.google.com>
 References: <20170109150246.30215.63371.stgit@firesoul>
-         <20170109150414.30215.63724.stgit@firesoul>
+         <20170109150404.30215.44512.stgit@firesoul>
+         <CAM_iQpUNmaBx6L4CcrXkh6aFj-fEXdoGTBJt+33W3Xg-=7yhWA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:33411 "EHLO
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:34974 "EHLO
         mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1164009AbdAIRoY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 12:44:24 -0500
-Received: by mail-pg0-f66.google.com with SMTP id 194so7759404pgd.0
-        for <netdev@vger.kernel.org>; Mon, 09 Jan 2017 09:44:24 -0800 (PST)
-In-Reply-To: <20170109150414.30215.63724.stgit@firesoul>
+        with ESMTP id S1163982AbdAIRuK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 12:50:10 -0500
+Received: by mail-pg0-f66.google.com with SMTP id 204so5472633pge.2
+        for <netdev@vger.kernel.org>; Mon, 09 Jan 2017 09:50:10 -0800 (PST)
+In-Reply-To: <CAM_iQpUNmaBx6L4CcrXkh6aFj-fEXdoGTBJt+33W3Xg-=7yhWA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2017-01-09 at 16:04 +0100, Jesper Dangaard Brouer wrote:
-> It is possible to avoid the atomic operation in icmp{v6,}_xmit_lock,
-> by checking the sysctl_icmp_msgs_per_sec ratelimit before these calls,
-> as pointed out by Eric Dumazet, but the BH disabled state must be correct.
+On Mon, 2017-01-09 at 09:42 -0800, Cong Wang wrote:
+> On Mon, Jan 9, 2017 at 7:04 AM, Jesper Dangaard Brouer
+> <brouer@redhat.com> wrote:
+> > This reverts commit 9a99d4a50cb8 ("icmp: avoid allocating large struct
+> > on stack"), because struct icmp_bxm no really a large struct, and
+> > allocating and free of this small 112 bytes hurts performance.
 > 
-> The icmp_global_allow() call states it must be called with BH
-> disabled.  This protection was given by the calls icmp_xmit_lock and
-> icmpv6_xmit_lock.  Thus, split out local_bh_disable/enable from these
-> functions and maintain it explicitly at callers.
+> The original commit fixes a warning for large stack usage, icmp_send()
+> is deep in the call stack.
 > 
-> Suggested-by: Eric Dumazet <eric.dumazet@gmail.com>
-> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
-> ---
+> Your optimization for a slow path makes no sense to me.
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+Do you have the stack trace of this event ?
+
+Even Linus allowed vmalloc() kernel stacks, while it certainly was an
+heresy 10 years ago.
+
+I doubt it makes a difference trying to save 104 bytes of kernel stack.
