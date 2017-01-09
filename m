@@ -1,27 +1,87 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/5] bpf: verifier improvements
-Date: Mon, 09 Jan 2017 16:56:48 -0500 (EST)
-Message-ID: <20170109.165648.137511474123949969.davem@davemloft.net>
-References: <1483985990-1532850-1-git-send-email-ast@fb.com>
+From: Mel Gorman <mgorman@techsingularity.net>
+Subject: Re: [RFC PATCH 2/4] page_pool: basic implementation of page_pool
+Date: Mon, 9 Jan 2017 21:58:26 +0000
+Message-ID: <20170109215825.k4grwyhffiv6wksp@techsingularity.net>
+References: <20161220132444.18788.50875.stgit@firesoul>
+ <20161220132817.18788.64726.stgit@firesoul>
+ <52478d40-8c34-4354-c9d8-286020eb26a6@suse.cz>
+ <20170104120055.7b277609@redhat.com>
+ <38d42210-de93-f16f-fa54-b149127fffeb@suse.cz>
+ <20170109214524.534f53a8@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: daniel@iogearbox.net, g.borello@gmail.com, jbacik@fb.com,
-        netdev@vger.kernel.org
-To: ast@fb.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:52218 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751546AbdAIV4u (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 16:56:50 -0500
-In-Reply-To: <1483985990-1532850-1-git-send-email-ast@fb.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-15
+Cc: Vlastimil Babka <vbabka@suse.cz>, linux-mm@kvack.org,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	willemdebruijn.kernel@gmail.com, netdev@vger.kernel.org,
+	john.fastabend@gmail.com, Saeed Mahameed <saeedm@mellanox.com>,
+	bjorn.topel@intel.com,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Tariq Toukan <tariqt@mellanox.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20170109214524.534f53a8@redhat.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexei Starovoitov <ast@fb.com>
-Date: Mon, 9 Jan 2017 10:19:45 -0800
+On Mon, Jan 09, 2017 at 09:45:24PM +0100, Jesper Dangaard Brouer wrote:
+> > I see. I guess if all page pool pages were order>0 compound pages, you
+> > could hook this to the existing compound_dtor functionality instead.
+> 
+> The page_pool will support order>0 pages, but it is the order-0 case
+> that is optimized for.
+> 
 
-> A number of bpf verifier improvements from Gianluca.
-> See individual patches for details.
+The bulk allocator is currently not suitable for high-order pages. It would
+take more work to do that but is not necessarily even a good idea. FWIW,
+the high-order per-cpu page allocator posted some weeks ago would be the
+basis. I didn't push that series as the benefit to SLUB was too marginal
+given the complexity.
 
-Series applied, thanks!
+> > Well typically the VMA mapped pages are those on the LRU list (anonymous
+> > or file). But I don't suppose you will want memory reclaim to free your
+> > pages, so seems lru field should be reusable for you.
+> 
+> Thanks for the info.
+> 
+> So, LRU-list area could be reusable, but I does not align so well with
+> the bulking API Mel just introduced/proposed, but still doable.
+> 
+
+That's a relatively minor implementation detail. I needed something to
+hang the pages onto for returning. Using a list and page->lru is a standard
+approach but it does not mandate that the caller preserve page->lru or that
+it's related to the LRU. The caller simply needs to put the pages back onto
+a list if it's bulk freeing or call __free_pages() directly for each page.
+If any in-kernel user uses __free_pages() then the free_pages_bulk()
+API can be dropped entirely.
+
+I'm not intending to merge the bulk allocator due to a lack of in-kernel
+users and an inability to test in-kernel users.  It was simply designed to
+illustrate how to call the core of the page allocator in a way that avoids
+the really expensive checks. If required, the pages could be returned on
+a caller-allocated array or something exotic like using one page to store
+pointers to the rest. Either of those alternatives are harder to use. A
+caller-allocated array must be sure the nr_pages parameter is correct and
+the exotic approach would require careful use by the caller. Using page->lru
+was more straight-forward when the requirements of the callers was unknown.
+
+It opens the question of what to do with that series. I was going to wait
+for feedback but my intent was to try merge patches 1-3 if there were no
+objections and preferably with your reviewed-by or ack. I would then hand
+patch 4 over to you for addition to a series that added in-kernel callers to
+alloc_pages_bulk() be that the generic pool recycle or modifying drivers.
+You are then free to modify the API to suit your needs without having to
+figure out the best way of calling the page allocator.
+
+Any thoughts?
+
+-- 
+Mel Gorman
+SUSE Labs
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
