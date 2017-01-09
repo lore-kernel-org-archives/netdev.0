@@ -1,35 +1,39 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [for-next V2 06/10] net/mlx5: Add interface to get reference
- to a UAR
-Date: Mon, 09 Jan 2017 10:47:22 -0500 (EST)
-Message-ID: <20170109.104722.2246652236667186272.davem@davemloft.net>
-References: <1483890891-8767-7-git-send-email-saeedm@mellanox.com>
-        <20170108170539.GA6323@yuval-lap.uk.oracle.com>
-        <CALzJLG-yiZfa6J0WciFPowfF2LWrXAqCKc4ETu4x=ZJdn+CfDA@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHv2 net-next 0/5] sctp: add support for generating stream
+ reconf chunks
+Date: Mon, 09 Jan 2017 10:53:01 -0500 (EST)
+Message-ID: <20170109.105301.469495957021068521.davem@davemloft.net>
+References: <cover.1483781759.git.lucien.xin@gmail.com>
+        <20170109124325.GB20973@hmswarspite.think-freely.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yuval.shaia-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org, saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-        leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
-To: saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CALzJLG-yiZfa6J0WciFPowfF2LWrXAqCKc4ETu4x=ZJdn+CfDA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: lucien.xin@gmail.com, netdev@vger.kernel.org,
+        linux-sctp@vger.kernel.org, marcelo.leitner@gmail.com,
+        vyasevich@gmail.com
+To: nhorman@tuxdriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:39814 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757573AbdAIPxD (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 10:53:03 -0500
+In-Reply-To: <20170109124325.GB20973@hmswarspite.think-freely.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Saeed Mahameed <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
-Date: Mon, 9 Jan 2017 10:31:36 +0200
+From: Neil Horman <nhorman@tuxdriver.com>
+Date: Mon, 9 Jan 2017 07:43:25 -0500
 
-> We will submit an incremental patch for this, as checkpatch doesn't
-> complain about such minor things.
+> These all look reasonably good, but it seems before we accept them,
+> there should be an additional patch that actually makes use of the code.
+> I presume that is forthcomming?
 
-Please fix this and resubmit the series.
+This all comes from my asking that the original huge set of patches be
+split up.
 
-Checkpatch not complaining is not an argument for fixing up coding
-style issues reported to you in feedback.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+People always just rush this kind of work and never think about laying
+out the resubmission properly.
+
+One should always only submit new interfaces along with an actual use
+because only with a use can we properly review whether the new
+interface is good or not.
