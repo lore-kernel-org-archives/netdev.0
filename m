@@ -1,105 +1,93 @@
-From: Davide Caratti <dcaratti@redhat.com>
-Subject: [PATCH net-next v2 2/2] net/sched: act_csum: compute crc32c on SCTP packets
-Date: Mon,  9 Jan 2017 11:24:21 +0100
-Message-ID: <f6a23044e7e1075a9586013c8329c3e1bffe6fa3.1483957003.git.dcaratti@redhat.com>
-References: <cover.1483957003.git.dcaratti@redhat.com>
-Cc: netdev@vger.kernel.org
-To: Jamal Hadi Salim <jhs@mojatatu.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56538 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751948AbdAIK12 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 9 Jan 2017 05:27:28 -0500
-In-Reply-To: <cover.1483957003.git.dcaratti@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Mark Rutland <mark.rutland@arm.com>
+Subject: Re: [PATCH RFC 3/4] dt-bindings: correct marvell orion MDIO binding
+ document
+Date: Mon, 9 Jan 2017 10:31:56 +0000
+Message-ID: <20170109103156.GA2147@leverpostej>
+References: <20170107112656.GL14217@n2100.armlinux.org.uk>
+ <E1cPpAk-0005uJ-TM@rmk-PC.armlinux.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+ Andrew Lunn <andrew@lunn.ch>, Jason Cooper <jason@lakedaemon.net>,
+ devicetree@vger.kernel.org, netdev@vger.kernel.org,
+ Rob Herring <robh+dt@kernel.org>,
+ Gregory Clement <gregory.clement@free-electrons.com>,
+ Marcin Wojtas <mw@semihalf.com>, linux-arm-kernel@lists.infradead.org,
+ Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Russell King <rmk+kernel@armlinux.org.uk>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Disposition: inline
+In-Reply-To: <E1cPpAk-0005uJ-TM@rmk-PC.armlinux.org.uk>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-modify act_csum to compute crc32c on IPv4/IPv6 packets having SCTP in
-their payload, and extend UAPI definitions accordingly.
+On Sat, Jan 07, 2017 at 11:28:30AM +0000, Russell King wrote:
+> Correct the Marvell Orion MDIO binding document to properly reflect the
+> cases where an interrupt is present.  Augment the examples to show this.
+> 
+> Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
 
-Signed-off-by: Davide Caratti <dcaratti@redhat.com>
----
- include/uapi/linux/tc_act/tc_csum.h |  3 ++-
- net/sched/act_csum.c                | 30 ++++++++++++++++++++++++++++++
- 2 files changed, 32 insertions(+), 1 deletion(-)
+This looks fine to me.
 
-diff --git a/include/uapi/linux/tc_act/tc_csum.h b/include/uapi/linux/tc_act/tc_csum.h
-index 8ac8041..a11bb35 100644
---- a/include/uapi/linux/tc_act/tc_csum.h
-+++ b/include/uapi/linux/tc_act/tc_csum.h
-@@ -21,7 +21,8 @@ enum {
- 	TCA_CSUM_UPDATE_FLAG_IGMP    = 4,
- 	TCA_CSUM_UPDATE_FLAG_TCP     = 8,
- 	TCA_CSUM_UPDATE_FLAG_UDP     = 16,
--	TCA_CSUM_UPDATE_FLAG_UDPLITE = 32
-+	TCA_CSUM_UPDATE_FLAG_UDPLITE = 32,
-+	TCA_CSUM_UPDATE_FLAG_SCTP    = 64,
- };
- 
- struct tc_csum {
-diff --git a/net/sched/act_csum.c b/net/sched/act_csum.c
-index a0edd80..e978ccd4 100644
---- a/net/sched/act_csum.c
-+++ b/net/sched/act_csum.c
-@@ -30,6 +30,7 @@
- #include <net/tcp.h>
- #include <net/udp.h>
- #include <net/ip6_checksum.h>
-+#include <net/sctp/checksum.h>
- 
- #include <net/act_api.h>
- 
-@@ -322,6 +323,25 @@ static int tcf_csum_ipv6_udp(struct sk_buff *skb, unsigned int ihl,
- 	return 1;
- }
- 
-+static int tcf_csum_sctp(struct sk_buff *skb, unsigned int ihl,
-+			 unsigned int ipl)
-+{
-+	struct sctphdr *sctph;
-+
-+	if (skb_is_gso(skb) && skb_shinfo(skb)->gso_type & SKB_GSO_SCTP)
-+		return 1;
-+
-+	sctph = tcf_csum_skb_nextlayer(skb, ihl, ipl, sizeof(*sctph));
-+	if (!sctph)
-+		return 0;
-+
-+	sctph->checksum = sctp_compute_cksum(skb,
-+					     skb_network_offset(skb) + ihl);
-+	skb->ip_summed = CHECKSUM_NONE;
-+
-+	return 1;
-+}
-+
- static int tcf_csum_ipv4(struct sk_buff *skb, u32 update_flags)
- {
- 	const struct iphdr *iph;
-@@ -365,6 +385,11 @@ static int tcf_csum_ipv4(struct sk_buff *skb, u32 update_flags)
- 					       ntohs(iph->tot_len), 1))
- 				goto fail;
- 		break;
-+	case IPPROTO_SCTP:
-+		if ((update_flags & TCA_CSUM_UPDATE_FLAG_SCTP) &&
-+		    !tcf_csum_sctp(skb, iph->ihl * 4, ntohs(iph->tot_len)))
-+			goto fail;
-+		break;
- 	}
- 
- 	if (update_flags & TCA_CSUM_UPDATE_FLAG_IPV4HDR) {
-@@ -481,6 +506,11 @@ static int tcf_csum_ipv6(struct sk_buff *skb, u32 update_flags)
- 						       pl + sizeof(*ip6h), 1))
- 					goto fail;
- 			goto done;
-+		case IPPROTO_SCTP:
-+			if ((update_flags & TCA_CSUM_UPDATE_FLAG_SCTP) &&
-+			    !tcf_csum_sctp(skb, hl, pl + sizeof(*ip6h)))
-+				goto fail;
-+			goto done;
- 		default:
- 			goto ignore_skb;
- 		}
--- 
-2.7.4
+Acked-by: Mark Rutland <mark.rutland@arm.com>
+
+Mark.
+
+> ---
+>  .../devicetree/bindings/net/marvell-orion-mdio.txt      | 17 +++++++++++++++--
+>  1 file changed, 15 insertions(+), 2 deletions(-)
+> 
+> diff --git a/Documentation/devicetree/bindings/net/marvell-orion-mdio.txt b/Documentation/devicetree/bindings/net/marvell-orion-mdio.txt
+> index 9417e54c26c0..ca733ff68ab9 100644
+> --- a/Documentation/devicetree/bindings/net/marvell-orion-mdio.txt
+> +++ b/Documentation/devicetree/bindings/net/marvell-orion-mdio.txt
+> @@ -7,7 +7,10 @@ interface.
+>  
+>  Required properties:
+>  - compatible: "marvell,orion-mdio"
+> -- reg: address and length of the SMI register
+> +- reg: address and length of the MDIO registers.  When an interrupt is
+> +  not present, the length is the size of the SMI register (4 bytes)
+> +  otherwise it must be 0x84 bytes to cover the interrupt control
+> +  registers.
+>  
+>  Optional properties:
+>  - interrupts: interrupt line number for the SMI error/done interrupt
+> @@ -17,7 +20,7 @@ The child nodes of the MDIO driver are the individual PHY devices
+>  connected to this MDIO bus. They must have a "reg" property given the
+>  PHY address on the MDIO bus.
+>  
+> -Example at the SoC level:
+> +Example at the SoC level without an interrupt property:
+>  
+>  mdio {
+>  	#address-cells = <1>;
+> @@ -26,6 +29,16 @@ mdio {
+>  	reg = <0xd0072004 0x4>;
+>  };
+>  
+> +Example with an interrupt property:
+> +
+> +mdio {
+> +	#address-cells = <1>;
+> +	#size-cells = <0>;
+> +	compatible = "marvell,orion-mdio";
+> +	reg = <0xd0072004 0x84>;
+> +	interrupts = <30>;
+> +};
+> +
+>  And at the board level:
+>  
+>  mdio {
+> -- 
+> 2.7.4
+> 
