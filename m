@@ -1,57 +1,44 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [PATCH net-next] net/sched: cls_flower: Add user specified data
-Date: Mon, 9 Jan 2017 10:23:31 -0800
-Message-ID: <5873D523.4030301@gmail.com>
-References: <1483362833-52114-1-git-send-email-paulb@mellanox.com>
- <14675f63-4212-2f72-da4c-cd24b9d10881@mojatatu.com>
- <586A9A9F.4030002@gmail.com>
- <6b671aaf-d35d-70a5-65e0-40308baeb471@mojatatu.com>
- <20170108171902.GH1971@nanopsycho>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: Re: [PATCHv2 net-next 0/5] sctp: add support for generating stream
+ reconf chunks
+Date: Tue, 10 Jan 2017 02:27:09 +0800
+Message-ID: <CADvbK_dE74bAoTNo9gLczLuj71w3WMcPJ56tCFGJ=XjTMtTgRw@mail.gmail.com>
+References: <cover.1483781759.git.lucien.xin@gmail.com> <20170109124325.GB20973@hmswarspite.think-freely.org>
+ <20170109.105301.469495957021068521.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Paul Blakey <paulb@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Jiri Pirko <jiri@mellanox.com>,
-        Hadar Hen Zion <hadarh@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Roi Dayan <roid@mellanox.com>, Roman Mashak <mrv@mojatatu.com>,
-        Simon Horman <simon.horman@netronome.com>
-To: Jiri Pirko <jiri@resnulli.us>, Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+        network dev <netdev@vger.kernel.org>,
+        linux-sctp@vger.kernel.org,
+        Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Vlad Yasevich <vyasevich@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:35562 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1031638AbdAISXr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 13:23:47 -0500
-Received: by mail-pf0-f195.google.com with SMTP id f144so6083049pfa.2
-        for <netdev@vger.kernel.org>; Mon, 09 Jan 2017 10:23:47 -0800 (PST)
-In-Reply-To: <20170108171902.GH1971@nanopsycho>
+Received: from mail-qk0-f194.google.com ([209.85.220.194]:35515 "EHLO
+        mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1163274AbdAIS1P (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 13:27:15 -0500
+In-Reply-To: <20170109.105301.469495957021068521.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17-01-08 09:19 AM, Jiri Pirko wrote:
-> Mon, Jan 02, 2017 at 11:21:41PM CET, jhs@mojatatu.com wrote:
->> On 17-01-02 01:23 PM, John Fastabend wrote:
->>
->>>
->>> Additionally I would like to point out this is an arbitrary length binary
->>> blob (for undefined use, without even a specified encoding) that gets pushed
->>> between user space and hardware ;) This seemed to get folks fairly excited in
->>> the past.
->>>
->>
->> The binary blob size is a little strange - but i think there is value
->> in storing some "cookie" field. The challenge is whether the kernel
->> gets to intepret it; in which case encoding must be specified. Or
->> whether we should leave it up to user space - in which something
->> like tc could standardize its own encodings.
-> 
-> This should never be interpreted by kernel. I think this would be good
-> to make clear in the comment in the code.
-> 
+On Mon, Jan 9, 2017 at 11:53 PM, David Miller <davem@davemloft.net> wrote:
+> From: Neil Horman <nhorman@tuxdriver.com>
+> Date: Mon, 9 Jan 2017 07:43:25 -0500
+>
+>> These all look reasonably good, but it seems before we accept them,
+>> there should be an additional patch that actually makes use of the code.
+>> I presume that is forthcomming?
+>
+> This all comes from my asking that the original huge set of patches be
+> split up.
+>
+> People always just rush this kind of work and never think about laying
+> out the resubmission properly.
+>
+> One should always only submit new interfaces along with an actual use
+> because only with a use can we properly review whether the new
+> interface is good or not.
 
-Ah OK I had assumed you would be pushing this via tc_cls_flower_offload into
-the driver in a follow up patch. But if it lives in kernel space as opaque
-cookie guess its no different then other id fields order/prio/cookie.
-
-Thanks for clarifying.
+I was trying to keep the same order with rfc, but it seems not a good
+idea, will resplit, thanks.
