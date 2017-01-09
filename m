@@ -1,32 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/4] net: dsa: Make dsa_switch_ops const
-Date: Mon, 09 Jan 2017 14:34:17 -0500 (EST)
-Message-ID: <20170109.143417.1830765753133219802.davem@davemloft.net>
-References: <20170108225208.15431-1-f.fainelli@gmail.com>
+Subject: Re: [patch net-next 0/5] mlxsw: small driver update
+Date: Mon, 09 Jan 2017 14:36:13 -0500 (EST)
+Message-ID: <20170109.143613.1799466933825686961.davem@davemloft.net>
+References: <1483957548-3531-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andrew@lunn.ch,
-        vivien.didelot@savoirfairelinux.com
-To: f.fainelli@gmail.com
+Cc: netdev@vger.kernel.org, idosch@mellanox.com, eladr@mellanox.com,
+        yotamg@mellanox.com, nogahf@mellanox.com, arkadis@mellanox.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:48468 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:48552 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1763537AbdAITeT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 14:34:19 -0500
-In-Reply-To: <20170108225208.15431-1-f.fainelli@gmail.com>
+        with ESMTP id S1763385AbdAITgP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 14:36:15 -0500
+In-Reply-To: <1483957548-3531-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Sun,  8 Jan 2017 14:52:04 -0800
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Mon,  9 Jan 2017 11:25:43 +0100
 
-> This patch series allows us to annotate dsa_switch_ops with a const
-> qualifier.
+> This patchset contains various small "non-net" fixes and enhancements.
 
-I kinda suspect this will have minor conflicts with the ops overwrite
-bug fix I applied to 'net' right?
-
-I think I'll wait until I merge net into net-next before I try to
-apply this, and that should happend soon'ish.  I'm just waiting for
-Linus to take in my pull request.
+Series applied, thanks Jiri.
