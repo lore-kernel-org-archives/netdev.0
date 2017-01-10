@@ -1,96 +1,107 @@
-From: Martynas Pumputis <martynas@weave.works>
-Subject: [PATCH] vxlan: Set flow*_dport when doing route lookups
-Date: Tue, 10 Jan 2017 17:29:45 +0000
-Message-ID: <20170110172945.24676-1-martynas@weave.works>
-Cc: netdev@vger.kernel.org, Martynas Pumputis <martynas@weave.works>
-To: davem@davemloft.net
+From: Mason <slash.tmp@free.fr>
+Subject: Re: Setting link down hangs the kernel
+Date: Tue, 10 Jan 2017 18:29:36 +0100
+Message-ID: <50b26c5d-8c06-b1ac-374f-14c490c518af@free.fr>
+References: <3ac03634-02fa-6acd-479d-fc475fc45736@free.fr>
+ <b478607d-cb69-0efc-5a8c-9b7a54b88d68@free.fr>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Mans Rullgard <mans@mansr.com>,
+        Thibaud Cornic <thibaud_cornic@sigmadesigns.com>,
+        Thomas Gambier <thomas_gambier@sigmadesigns.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wj0-f177.google.com ([209.85.210.177]:35045 "EHLO
-        mail-wj0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S936906AbdAJR3N (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2017 12:29:13 -0500
-Received: by mail-wj0-f177.google.com with SMTP id i20so86399417wjn.2
-        for <netdev@vger.kernel.org>; Tue, 10 Jan 2017 09:29:12 -0800 (PST)
+Received: from smtp5-g21.free.fr ([212.27.42.5]:42070 "EHLO smtp5-g21.free.fr"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S938702AbdAJR3w (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 10 Jan 2017 12:29:52 -0500
+In-Reply-To: <b478607d-cb69-0efc-5a8c-9b7a54b88d68@free.fr>
+Content-Language: 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Otherwise, no xfrm policy with dport being set can be matched.
+On 10/01/2017 16:28, Mason wrote:
 
-Signed-off-by: Martynas Pumputis <martynas@weave.works>
----
- drivers/net/vxlan.c | 11 ++++++++---
- 1 file changed, 8 insertions(+), 3 deletions(-)
+> On 10/01/2017 15:36, Mason wrote:
+> 
+>> I'm using kernel v4.9 on a [new] dev board.
+>> I built a small kernel + rootfs with buildroot 2016.11.1
+>> eth0 is driven by drivers/net/ethernet/aurora/nb8800.c
+>>
+>> After booting, I just run udhcpc (busybox version)
+>> Then I set the link down, and the kernel hangs.
+>
+> So far, I've been unable to reproduce this issue on an older
+> smp8758 dev board.
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index bb70dd5..fcfe786 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1798,7 +1798,7 @@ static int vxlan_build_skb(struct sk_buff *skb, struct dst_entry *dst,
- static struct rtable *vxlan_get_route(struct vxlan_dev *vxlan, struct net_device *dev,
- 				      struct vxlan_sock *sock4,
- 				      struct sk_buff *skb, int oif, u8 tos,
--				      __be32 daddr, __be32 *saddr,
-+				      __be32 daddr, __be32 *saddr, __be16 dport,
- 				      struct dst_cache *dst_cache,
- 				      const struct ip_tunnel_info *info)
- {
-@@ -1824,6 +1824,7 @@ static struct rtable *vxlan_get_route(struct vxlan_dev *vxlan, struct net_device
- 	fl4.flowi4_proto = IPPROTO_UDP;
- 	fl4.daddr = daddr;
- 	fl4.saddr = *saddr;
-+	fl4.fl4_dport = dport;
- 
- 	rt = ip_route_output_key(vxlan->net, &fl4);
- 	if (likely(!IS_ERR(rt))) {
-@@ -1851,6 +1852,7 @@ static struct dst_entry *vxlan6_get_route(struct vxlan_dev *vxlan,
- 					  __be32 label,
- 					  const struct in6_addr *daddr,
- 					  struct in6_addr *saddr,
-+					  __be16 dport,
- 					  struct dst_cache *dst_cache,
- 					  const struct ip_tunnel_info *info)
- {
-@@ -1877,6 +1879,7 @@ static struct dst_entry *vxlan6_get_route(struct vxlan_dev *vxlan,
- 	fl6.flowlabel = ip6_make_flowinfo(RT_TOS(tos), label);
- 	fl6.flowi6_mark = skb->mark;
- 	fl6.flowi6_proto = IPPROTO_UDP;
-+	fl6.fl6_dport = dport;
- 
- 	err = ipv6_stub->ipv6_dst_lookup(vxlan->net,
- 					 sock6->sock->sk,
-@@ -2068,6 +2071,7 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 				     rdst ? rdst->remote_ifindex : 0, tos,
- 				     dst->sin.sin_addr.s_addr,
- 				     &src->sin.sin_addr.s_addr,
-+				     dst_port,
- 				     dst_cache, info);
- 		if (IS_ERR(rt)) {
- 			err = PTR_ERR(rt);
-@@ -2104,6 +2108,7 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 					rdst ? rdst->remote_ifindex : 0, tos,
- 					label, &dst->sin6.sin6_addr,
- 					&src->sin6.sin6_addr,
-+					dst_port,
- 					dst_cache, info);
- 		if (IS_ERR(ndst)) {
- 			err = PTR_ERR(ndst);
-@@ -2430,7 +2435,7 @@ static int vxlan_fill_metadata_dst(struct net_device *dev, struct sk_buff *skb)
- 
- 		rt = vxlan_get_route(vxlan, dev, sock4, skb, 0, info->key.tos,
- 				     info->key.u.ipv4.dst,
--				     &info->key.u.ipv4.src, NULL, info);
-+				     &info->key.u.ipv4.src, dport, NULL, info);
- 		if (IS_ERR(rt))
- 			return PTR_ERR(rt);
- 		ip_rt_put(rt);
-@@ -2441,7 +2446,7 @@ static int vxlan_fill_metadata_dst(struct net_device *dev, struct sk_buff *skb)
- 
- 		ndst = vxlan6_get_route(vxlan, dev, sock6, skb, 0, info->key.tos,
- 					info->key.label, &info->key.u.ipv6.dst,
--					&info->key.u.ipv6.src, NULL, info);
-+					&info->key.u.ipv6.src, dport, NULL, info);
- 		if (IS_ERR(ndst))
- 			return PTR_ERR(ndst);
- 		dst_release(ndst);
--- 
-2.10.2
+And another symptom (which exists only on the new board) :
+
+After the first "link down", udhcpc no longer works.
+
+Also, the OS prints "link down" only when udhcpc requests "link up".
+
+I guess I have lots of "fun" things to investigate tomorrow...
+Any pointers to where I should look first?
+
+I think some kind of "deferred worker thread" is spawned when the PHY
+state machine changes state? Could there be some kind of race there?
+Or is it more likely something is broken in the HW?
+
+
+Welcome to Buildroot
+buildroot login: root
+# udhcpc && ip addr
+udhcpc: started, v1.25.1
+udhcpc: sending discover
+udhcpc: sending discover
+[   28.427174] nb8800 26000.ethernet eth0: Link is Up - 1Gbps/Full - flow control rx/tx
+udhcpc: sending discover
+udhcpc: sending select for 172.27.64.46
+udhcpc: lease of 172.27.64.46 obtained, lease time 604800
+deleting routers
+adding dns 172.27.0.17
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue qlen 1
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast qlen 1000
+    link/ether 00:16:e8:78:2c:b3 brd ff:ff:ff:ff:ff:ff
+    inet 172.27.64.46/18 brd 172.27.127.255 scope global eth0
+       valid_lft forever preferred_lft forever
+# ip link set dev eth0 down && sleep 10 && udhcpc -T 1 -A 3
+udhcpc: started, v1.25.1
+udhcpc: sending discover
+[   55.040450] nb8800 26000.ethernet eth0: Link is Down
+udhcpc: sending discover
+udhcpc: sending discover
+[   57.067154] nb8800 26000.ethernet eth0: Link is Up - 1Gbps/Full - flow control rx/tx
+udhcpc: sending discover
+udhcpc: sending discover
+udhcpc: sending discover
+udhcpc: sending discover
+udhcpc: sending discover
+udhcpc: sending discover
+udhcpc: sending discover
+udhcpc: sending discover
+udhcpc: sending discover
+udhcpc: sending discover
+udhcpc: sending discover
+udhcpc: sending discover
+udhcpc: sending discover
+udhcpc: sending discover
+udhcpc: sending discover
+udhcpc: sending discover
+udhcpc: sending discover
+udhcpc: sending discover
+udhcpc: sending discover
+udhcpc: sending discover
+udhcpc: sending discover
+udhcpc: sending discover
+udhcpc: sending discover
+^C
+
+
+Regards.
