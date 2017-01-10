@@ -1,42 +1,78 @@
-From: Linus =?utf-8?Q?L=C3=BCssing?= <linus.luessing@c0d3.blue>
-Subject: Re: [PATCH net-next] bridge: multicast to unicast
-Date: Tue, 10 Jan 2017 05:18:16 +0100
-Message-ID: <20170110041816.GJ5513@otheros>
-References: <20170102193214.31723-1-linus.luessing@c0d3.blue>
-	<1483706872.4089.8.camel@sipsolutions.net>
-	<8836daaa-9638-4502-d079-fd428595f822@nbd.name>
-	<1483710841.12677.1.camel@sipsolutions.net>
-	<22fad045-57c6-7789-d19f-f47bd0faf441@fami-braun.de>
-	<20170107145516.GE3134@otheros>
-	<1483949336.17582.3.camel@sipsolutions.net>
-	<6f5ec9f1-800a-2bc4-2f41-9d803343bb22@fami-braun.de>
-	<20170109212345.GA5513@otheros> <20170109133032.221f8669@xeon-e3>
+From: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [for-next V2 08/10] IB/mlx5: Allow future extension of libmlx5
+ input data
+Date: Mon, 09 Jan 2017 23:24:37 -0500
+Message-ID: <1484022277.2149.4.camel@redhat.com>
+References: <1483890891-8767-1-git-send-email-saeedm@mellanox.com>
+         <1483890891-8767-9-git-send-email-saeedm@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"M. Braun" <michael-dev@fami-braun.de>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	"David S . Miller" <davem@davemloft.net>, Felix Fietkau <nbd@nbd.name>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <20170109133032.221f8669@xeon-e3>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Type: multipart/signed; micalg="pgp-sha256";
+        protocol="application/pgp-signature"; boundary="=-8tHI/gS+mTj/g/byMq8Z"
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+To: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1483890891-8767-9-git-send-email-saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 09, 2017 at 01:30:32PM -0800, Stephen Hemminger wrote:
-> I wonder if MAC80211 should be doing IGMP snooping and not bridge
-> in this environment.
 
-In the long term, yes. For now, not quite sure.
+--=-8tHI/gS+mTj/g/byMq8Z
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-I personally like to go for simple solutions first :).
+On Sun, 2017-01-08 at 17:54 +0200, Saeed Mahameed wrote:
+> From: Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+>=20
+> Current check requests that new fields in struct
+> mlx5_ib_alloc_ucontext_req_v2 that are not known to the driver be
+> zero.
+> This was introduced so new libraries passing additional information
+> to
+> the kernel through struct mlx5_ib_alloc_ucontext_req_v2 will be
+> notified
+> by old kernels that do not support their request by failing the
+> operation. This schecme is problematic since it requires libmlx5 to=20
+=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 ^ Typo
+
+
+
+--=20
+Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+=C2=A0 =C2=A0 GPG KeyID: B826A3330E572FDD
+=C2=A0 =C2=A0
+Key fingerprint =3D AE6B 1BDA 122B 23B4 265B =C2=A01274 B826 A333 0E57 2FDD
+
+--=-8tHI/gS+mTj/g/byMq8Z
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAABCAAGBQJYdGIFAAoJELgmozMOVy/dkDIP/0jyrB1QPac9+kwvEOxjwMy2
+CtEx5K8HeURar83cM8SaJiM8rprX/c8Wbk//Dtbx0JOC7ze30ZmCcersFoIDp8yJ
+zPzYgFD63SfEBmgwVDeakjBsPzBKBsZedKoJr6ivJkw9MJefzr094voXWvIDUxJk
+cDcKivyUsdx5Re9YFqNAr5kZg19c+83+du6o/aeSf/vL2KtQIwz9jAwjqKHDqCYU
+P7qxzxFdKw2Qi4n/xm6a4d++Y8P6oyF3uwC354dSQir7y943h6rmLvp8rQtamq5a
+y5NTdHBbSTuichTVSV6aao0L7svMipuqxklps3uTTdq22Gi9PqNG44gYUv/jgeWO
+Jvc6Sg8KytATgGoonPWatQSnphqTY4emcaQgOQlBZnYptmnuhraOiVlW4b0ysCEF
+15FSI/L9fHWdAeZyFFH5XqBZOBPiv6zfq4Ioo8koTzGMeYZHqebhsmhw0dEE6D2y
+C4Nqxxu0Tfh45ytKw9h06eep583cH+cLRdIUtS9GEtFZ2OdnZ4mjzW++9h0tYgcD
+4ov5qStEqB/oHFdIlBkqORjunXT1v57WwKot9/rW/qwvK4lHQgGNoxWuaRTGu6V8
+BRNSbUzqNa0VMhD8xhNJuDTTRnvJ71co/RIT/I+oAolxmsuZu4L/DMGT+ZyrEIMP
+d/EROv2X1peqs2H2pph+
+=sj2t
+-----END PGP SIGNATURE-----
+
+--=-8tHI/gS+mTj/g/byMq8Z--
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
