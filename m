@@ -1,85 +1,82 @@
-From: Tobias Klauser <tklauser@distanz.ch>
-Subject: [PATCH net-next] bpf: Make unnecessarily global functions static
-Date: Tue, 10 Jan 2017 15:02:16 +0100
-Message-ID: <20170110140216.26550-1-tklauser@distanz.ch>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next 0/4] net: switchdev: Avoid sleep in atomic with
+ DSA
+Date: Tue, 10 Jan 2017 15:18:07 +0100
+Message-ID: <20170110141807.GD1827@nanopsycho>
+References: <20170109194503.10713-1-f.fainelli@gmail.com>
+ <20170109204849.GA28310@splinter>
+ <e28f29c8-04ed-1d71-7b13-27a5d58d111c@gmail.com>
+ <20170109211436.GB28310@splinter>
+ <20170110120846.GC1827@nanopsycho>
+ <20170110132506.GA4084@splinter.mtl.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: ast@kernel.org, Martin KaFai Lau <kafai@fb.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
+        davem@davemloft.net, vivien.didelot@savoirfairelinux.com,
+        andrew@lunn.ch
+To: Ido Schimmel <idosch@idosch.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.zhinst.com ([212.126.164.98]:40098 "EHLO mail.zhinst.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S934634AbdAJOCT (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 10 Jan 2017 09:02:19 -0500
+Received: from mail-wj0-f193.google.com ([209.85.210.193]:33061 "EHLO
+        mail-wj0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1032565AbdAJOSK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2017 09:18:10 -0500
+Received: by mail-wj0-f193.google.com with SMTP id kp2so87682952wjc.0
+        for <netdev@vger.kernel.org>; Tue, 10 Jan 2017 06:18:09 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20170110132506.GA4084@splinter.mtl.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Make the functions __local_list_pop_free(), __local_list_pop_pending(),
-bpf_common_lru_populate() and bpf_percpu_lru_populate() static as they
-are not used outide of bpf_lru_list.c
+Tue, Jan 10, 2017 at 02:25:06PM CET, idosch@idosch.org wrote:
+>On Tue, Jan 10, 2017 at 01:08:46PM +0100, Jiri Pirko wrote:
+>> Mon, Jan 09, 2017 at 10:14:36PM CET, idosch@idosch.org wrote:
+>> >On Mon, Jan 09, 2017 at 12:56:48PM -0800, Florian Fainelli wrote:
+>> >> On 01/09/2017 12:48 PM, Ido Schimmel wrote:
+>> >> > Hi Florian,
+>> >> > 
+>> >> > On Mon, Jan 09, 2017 at 11:44:59AM -0800, Florian Fainelli wrote:
+>> >> >> Hi all,
+>> >> >>
+>> >> >> This patch series is to resolve a sleeping function called in atomic context
+>> >> >> debug splat that we observe with DSA.
+>> >> >>
+>> >> >> Let me know what you think, I was also wondering if we should just always
+>> >> >> make switchdev_port_vlan_fill() set SWITCHDEV_F_DEFER, but was afraid this
+>> >> >> could cause invalid contexts to be used for rocker, mlxsw, i40e etc.
+>> >> > 
+>> >> > Isn't this a bit of overkill? All the drivers you mention fill the VLAN
+>> >> > dump from their cache and don't require sleeping. Even b53 that you
+>> >> > mention in the last patch does that, but reads the PVID from the device,
+>> >> > which entails taking a mutex.
+>> >> 
+>> >> Correct.
+>> >> 
+>> >> > 
+>> >> > Can't you just cache the PVID as well? I think this will solve your
+>> >> > problem. Didn't look too much into the b53 code, so maybe I'm missing
+>> >> > something. Seems that mv88e6xxx has a similar problem.
+>> >> 
+>> >> I suppose we could indeed cache the PVID for b53, but for mv88e6xxx it
+>> >> seems like we need to perform a bunch of VTU operations, and those
+>> >> access HW registers, Andrew, Vivien, how do you want to solve that, do
+>> >> we want to introduce a general VLAN cache somewhere in switchdev/DSA/driver?
+>> >
+>> >Truth be told, I don't quite understand why switchdev infra even tries
+>> >to dump the VLANs from the device. Like, in which situations is this
+>> >going to be different from what the software bridge reports? Sure, you
+>> >can set the VLAN filters with SELF and skip the software bridge, but how
+>> >does that make sense in a model where you want to reflect the software
+>> >datapath?
+>> 
+>> But the vlans added by rtnl_bridge_setlink & SELF are not tracked by the
+>> bridge and therefore driver needs to dump them. You would have to pass
+>> some flag down to driver when adding SWITCHDEV_OBJ_ID_PORT_VLAN
+>> indicating the need to track the vlan and dump it. Right?
+>
+>Right, but back to my question - what's the use case for the SELF flag
+>in the switchdev model? Why would I configure a VLAN filter in the
+>hardware but not in the software bridge? The whole point is reflecting
+>the software bridge to the hardware.
 
-This fixes the following GCC warnings when building with 'W=1':
-
-  kernel/bpf/bpf_lru_list.c:363:22: warning: no previous prototype for ‘__local_list_pop_free’ [-Wmissing-prototypes]
-  kernel/bpf/bpf_lru_list.c:376:22: warning: no previous prototype for ‘__local_list_pop_pending’ [-Wmissing-prototypes]
-  kernel/bpf/bpf_lru_list.c:560:6: warning: no previous prototype for ‘bpf_common_lru_populate’ [-Wmissing-prototypes]
-  kernel/bpf/bpf_lru_list.c:577:6: warning: no previous prototype for ‘bpf_percpu_lru_populate’ [-Wmissing-prototypes]
-
-Cc: Martin KaFai Lau <kafai@fb.com>
-Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
----
- kernel/bpf/bpf_lru_list.c | 17 ++++++++++-------
- 1 file changed, 10 insertions(+), 7 deletions(-)
-
-diff --git a/kernel/bpf/bpf_lru_list.c b/kernel/bpf/bpf_lru_list.c
-index d78501ee0609..f62d1d56f41d 100644
---- a/kernel/bpf/bpf_lru_list.c
-+++ b/kernel/bpf/bpf_lru_list.c
-@@ -360,7 +360,8 @@ static void __local_list_add_pending(struct bpf_lru *lru,
- 	list_add(&node->list, local_pending_list(loc_l));
- }
- 
--struct bpf_lru_node *__local_list_pop_free(struct bpf_lru_locallist *loc_l)
-+static struct bpf_lru_node *
-+__local_list_pop_free(struct bpf_lru_locallist *loc_l)
- {
- 	struct bpf_lru_node *node;
- 
-@@ -373,8 +374,8 @@ struct bpf_lru_node *__local_list_pop_free(struct bpf_lru_locallist *loc_l)
- 	return node;
- }
- 
--struct bpf_lru_node *__local_list_pop_pending(struct bpf_lru *lru,
--					      struct bpf_lru_locallist *loc_l)
-+static struct bpf_lru_node *
-+__local_list_pop_pending(struct bpf_lru *lru, struct bpf_lru_locallist *loc_l)
- {
- 	struct bpf_lru_node *node;
- 	bool force = false;
-@@ -557,8 +558,9 @@ void bpf_lru_push_free(struct bpf_lru *lru, struct bpf_lru_node *node)
- 		bpf_common_lru_push_free(lru, node);
- }
- 
--void bpf_common_lru_populate(struct bpf_lru *lru, void *buf, u32 node_offset,
--			     u32 elem_size, u32 nr_elems)
-+static void bpf_common_lru_populate(struct bpf_lru *lru, void *buf,
-+				    u32 node_offset, u32 elem_size,
-+				    u32 nr_elems)
- {
- 	struct bpf_lru_list *l = &lru->common_lru.lru_list;
- 	u32 i;
-@@ -574,8 +576,9 @@ void bpf_common_lru_populate(struct bpf_lru *lru, void *buf, u32 node_offset,
- 	}
- }
- 
--void bpf_percpu_lru_populate(struct bpf_lru *lru, void *buf, u32 node_offset,
--			     u32 elem_size, u32 nr_elems)
-+static void bpf_percpu_lru_populate(struct bpf_lru *lru, void *buf,
-+				    u32 node_offset, u32 elem_size,
-+				    u32 nr_elems)
- {
- 	u32 i, pcpu_entries;
- 	int cpu;
--- 
-2.11.0
+I agree. For the bridge-switchdev usecase, I don't see a reason to use
+SELF for vlans as well. Do you suggest to simply remove this possibility?
