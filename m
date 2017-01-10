@@ -1,62 +1,58 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: linux-next: manual merge of the y2038 tree with the net-next tree
-Date: Tue, 10 Jan 2017 11:06:22 +0100
-Message-ID: <CAK8P3a2U5=LGWkLY6jCdfsoAAshc7ggL15Uao_Y1rwdwVNf0oA@mail.gmail.com>
-References: <20170110135201.2a62a4d9@canb.auug.org.au>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next v2 1/4] net: switchdev: Prepare for deferred
+ functions modifying objects
+Date: Tue, 10 Jan 2017 11:09:01 +0100
+Message-ID: <20170110100901.GB1827@nanopsycho>
+References: <20170109204523.5843-1-f.fainelli@gmail.com>
+ <20170109204523.5843-2-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>, linux-next@vger.kernel.org,
-        linux-kernel@vger.kernel.org, David Howells <dhowells@redhat.com>,
-        Tina Ruchandani <ruchandani.tina@gmail.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170110135201.2a62a4d9@canb.auug.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+        vivien.didelot@savoirfairelinux.com, andrew@lunn.ch,
+        marcelo.leitner@gmail.com
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:34708 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S934378AbdAJKJE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2017 05:09:04 -0500
+Received: by mail-wm0-f66.google.com with SMTP id c85so28294227wmi.1
+        for <netdev@vger.kernel.org>; Tue, 10 Jan 2017 02:09:04 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20170109204523.5843-2-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hmm, I thought I had removed that commit when you asked me about it
-last week. I've done it now, the conflict should be gone tomorrow.
+Mon, Jan 09, 2017 at 09:45:20PM CET, f.fainelli@gmail.com wrote:
+>In preparation for adding support for deferred dump operations, allow
+>specifying a deferred function whose signature allows read/write
+>objects.
+>
+>Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+>---
+> net/switchdev/switchdev.c | 21 ++++++++++++++++-----
+> 1 file changed, 16 insertions(+), 5 deletions(-)
+>
+>diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+>index 017801f9dbaa..3d70ad02c617 100644
+>--- a/net/switchdev/switchdev.c
+>+++ b/net/switchdev/switchdev.c
+>@@ -100,11 +100,14 @@ static DEFINE_SPINLOCK(deferred_lock);
+> 
+> typedef void switchdev_deferred_func_t(struct net_device *dev,
+> 				       const void *data);
+>+typedef void switchdev_deferred_func_rw_t(struct net_device *dev,
+>+					  void *data);
+> 
+> struct switchdev_deferred_item {
+> 	struct list_head list;
+> 	struct net_device *dev;
+> 	switchdev_deferred_func_t *func;
+>+	switchdev_deferred_func_rw_t *func_rw;
 
-On Tue, Jan 10, 2017 at 3:52 AM, Stephen Rothwell <sfr@canb.auug.org.au> wrote:
-> Hi Arnd,
->
-> Today's linux-next merge of the y2038 tree got a conflict in:
->
->   fs/afs/main.c
->
-> between commit:
->
->   8e8d7f13b6d5 ("afs: Add some tracepoints")
->
-> from the net-next tree and commit:
->
->   549eb7b22e24 ("AFS: Correctly use 64-bit time for UUID")
->
-> from the y2038 tree.
->
-> I fixed it up (see below) and can carry the fix as necessary. This
-> is now fixed as far as linux-next is concerned, but any non trivial
-> conflicts should be mentioned to your upstream maintainer when your tree
-> is submitted for merging.  You may also want to consider cooperating
-> with the maintainer of the conflicting tree to minimise any particularly
-> complex conflicts.
->
-> --
-> Cheers,
-> Stephen Rothwell
->
-> diff --cc fs/afs/main.c
-> index f8188feb03ad,129ff432391c..000000000000
-> --- a/fs/afs/main.c
-> +++ b/fs/afs/main.c
-> @@@ -14,8 -14,7 +14,9 @@@
->   #include <linux/init.h>
->   #include <linux/completion.h>
->   #include <linux/sched.h>
->  +#include <linux/random.h>
->  +#define CREATE_TRACE_POINTS
-> + #include <linux/ktime.h>
->   #include "internal.h"
->
->   MODULE_DESCRIPTION("AFS Client File System");
+I'm missing why you need to have 2 funcs here. Why you just can't re-use
+func?
+
+
+> 	unsigned long data[0];
+> };
