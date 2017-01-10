@@ -1,76 +1,212 @@
-From: Felix Fietkau <nbd@nbd.name>
-Subject: Re: [PATCH net-next] bridge: multicast to unicast
-Date: Tue, 10 Jan 2017 18:23:29 +0100
-Message-ID: <99c01ce6-d80c-790e-25e5-157be31aee9a@nbd.name>
-References: <20170102193214.31723-1-linus.luessing@c0d3.blue>
-	<1483706872.4089.8.camel@sipsolutions.net>
-	<8836daaa-9638-4502-d079-fd428595f822@nbd.name>
-	<1483710841.12677.1.camel@sipsolutions.net>
-	<22fad045-57c6-7789-d19f-f47bd0faf441@fami-braun.de>
-	<20170107145516.GE3134@otheros>
-	<1483949336.17582.3.camel@sipsolutions.net>
-	<6f5ec9f1-800a-2bc4-2f41-9d803343bb22@fami-braun.de>
-	<20170109212345.GA5513@otheros> <20170109133032.221f8669@xeon-e3>
-	<20170110041816.GJ5513@otheros>
-	<1484045763.1014.0.camel@sipsolutions.net>
-	<CAA93jw6+P8um7TxDCYgJ=SJfFzpskboR7njgudMb3NR4JZ34BA@mail.gmail.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH iproute2 1/3] sr: add header files for SR-IPv6
+Date: Tue, 10 Jan 2017 09:25:00 -0800
+Message-ID: <CALx6S35FqnWHGW3tLMy0eqb4qxvPmKwOy+oa0Z8CZahQzHqQBA@mail.gmail.com>
+References: <1484066486-22152-1-git-send-email-david.lebrun@uclouvain.be> <1484066486-22152-2-git-send-email-david.lebrun@uclouvain.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	bridge@lists.linux-foundation.org,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"M. Braun" <michael-dev@fami-braun.de>,
-	"David S . Miller" <davem@davemloft.net>
-To: Dave Taht <dave.taht@gmail.com>, Johannes Berg <johannes@sipsolutions.net>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <CAA93jw6+P8um7TxDCYgJ=SJfFzpskboR7njgudMb3NR4JZ34BA@mail.gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: David Lebrun <david.lebrun@uclouvain.be>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qt0-f195.google.com ([209.85.216.195]:34596 "EHLO
+        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1162658AbdAJRZC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2017 12:25:02 -0500
+Received: by mail-qt0-f195.google.com with SMTP id a29so18976734qtb.1
+        for <netdev@vger.kernel.org>; Tue, 10 Jan 2017 09:25:01 -0800 (PST)
+In-Reply-To: <1484066486-22152-2-git-send-email-david.lebrun@uclouvain.be>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2017-01-10 18:17, Dave Taht wrote:
-> In the case of wifi I have 3 issues with this line of thought.
-> 
-> multicast in wifi has generally supposed to be unreliable. This makes
-> it reliable. reliability comes at a cost -
-> 
-> multicast is typically set at a fixed low rate today. unicast is
-> retried at different rates until it succeeds - for every station
-> listening. If one station is already at the lowest rate, the total
-> cost of the transmit increases, rather than decreases.
-> 
-> unicast gets block acks until it succeeds. Again, more delay.
-> 
-> I think there is something like 31 soft-retries in the ath9k driver....
-If I remember correctly, hardware retries are counted here as well.
+ Acked-by: Tom Herbert <tom@herbertland.com>
 
-> what happens to diffserv markings here? for unicast CS1 goes into the
-> BE queue, CS6, the VO queue. Do we go from one flat queue for all of
-> multicast to punching it through one of the hardware queues based on
-> the diffserv mark now with this patch?
-> 
-> I would like it if there was a way to preserve the unreliability
-> (which multiple mesh protocols depend on), send stuff with QoSNoack,
-> etc - or dynamically choose (based on the rates of the stations)
-> between conventional multicast and unicast.
-> 
-> Or - better, IMHO, keep sending multicast as is but pick the best of
-> the rates available to all the listening stations for it.
-The advantage of the multicast-to-unicast conversion goes beyond simply
-selecting a better rate - aggregation matters a lot as well, and that is
-simply incompatible with normal multicast.
 
-Some multicast streams use lots of small-ish packets, the airtime impact
-of those is vastly reduced, even if the transmission has to be
-duplicated for a few stations.
 
-- Felix
+On Tue, Jan 10, 2017 at 8:41 AM, David Lebrun <david.lebrun@uclouvain.be> wrote:
+> This patch add the necessary header files to interface with the SR-IPv6 kernel
+> implementation.
+>
+> Signed-off-by: David Lebrun <david.lebrun@uclouvain.be>
+> ---
+>  include/linux/seg6.h          | 54 +++++++++++++++++++++++++++++++++++++++++++
+>  include/linux/seg6_genl.h     | 32 +++++++++++++++++++++++++
+>  include/linux/seg6_hmac.h     | 21 +++++++++++++++++
+>  include/linux/seg6_iptunnel.h | 38 ++++++++++++++++++++++++++++++
+>  4 files changed, 145 insertions(+)
+>  create mode 100644 include/linux/seg6.h
+>  create mode 100644 include/linux/seg6_genl.h
+>  create mode 100644 include/linux/seg6_hmac.h
+>  create mode 100644 include/linux/seg6_iptunnel.h
+>
+> diff --git a/include/linux/seg6.h b/include/linux/seg6.h
+> new file mode 100644
+> index 0000000..8f651bf
+> --- /dev/null
+> +++ b/include/linux/seg6.h
+> @@ -0,0 +1,54 @@
+> +/*
+> + *  SR-IPv6 implementation
+> + *
+> + *  Author:
+> + *  David Lebrun <david.lebrun@uclouvain.be>
+> + *
+> + *
+> + *  This program is free software; you can redistribute it and/or
+> + *      modify it under the terms of the GNU General Public License
+> + *      as published by the Free Software Foundation; either version
+> + *      2 of the License, or (at your option) any later version.
+> + */
+> +
+> +#ifndef _SEG6_H
+> +#define _SEG6_H
+> +
+> +/*
+> + * SRH
+> + */
+> +struct ipv6_sr_hdr {
+> +       __u8    nexthdr;
+> +       __u8    hdrlen;
+> +       __u8    type;
+> +       __u8    segments_left;
+> +       __u8    first_segment;
+> +       __u8    flag_1;
+> +       __u8    flag_2;
+> +       __u8    reserved;
+> +
+> +       struct in6_addr segments[0];
+> +};
+> +
+> +#define SR6_FLAG1_CLEANUP      (1 << 7)
+> +#define SR6_FLAG1_PROTECTED    (1 << 6)
+> +#define SR6_FLAG1_OAM          (1 << 5)
+> +#define SR6_FLAG1_ALERT                (1 << 4)
+> +#define SR6_FLAG1_HMAC         (1 << 3)
+> +
+> +#define SR6_TLV_INGRESS                1
+> +#define SR6_TLV_EGRESS         2
+> +#define SR6_TLV_OPAQUE         3
+> +#define SR6_TLV_PADDING                4
+> +#define SR6_TLV_HMAC           5
+> +
+> +#define sr_has_cleanup(srh) ((srh)->flag_1 & SR6_FLAG1_CLEANUP)
+> +#define sr_has_hmac(srh) ((srh)->flag_1 & SR6_FLAG1_HMAC)
+> +
+> +struct sr6_tlv {
+> +       __u8 type;
+> +       __u8 len;
+> +       __u8 data[0];
+> +};
+> +
+> +#endif
+> diff --git a/include/linux/seg6_genl.h b/include/linux/seg6_genl.h
+> new file mode 100644
+> index 0000000..36fcbc8
+> --- /dev/null
+> +++ b/include/linux/seg6_genl.h
+> @@ -0,0 +1,32 @@
+> +#ifndef _SEG6_GENL_H
+> +#define _SEG6_GENL_H
+> +
+> +#define SEG6_GENL_NAME         "SEG6"
+> +#define SEG6_GENL_VERSION      0x1
+> +
+> +enum {
+> +       SEG6_ATTR_UNSPEC,
+> +       SEG6_ATTR_DST,
+> +       SEG6_ATTR_DSTLEN,
+> +       SEG6_ATTR_HMACKEYID,
+> +       SEG6_ATTR_SECRET,
+> +       SEG6_ATTR_SECRETLEN,
+> +       SEG6_ATTR_ALGID,
+> +       SEG6_ATTR_HMACINFO,
+> +       __SEG6_ATTR_MAX,
+> +};
+> +
+> +#define SEG6_ATTR_MAX (__SEG6_ATTR_MAX - 1)
+> +
+> +enum {
+> +       SEG6_CMD_UNSPEC,
+> +       SEG6_CMD_SETHMAC,
+> +       SEG6_CMD_DUMPHMAC,
+> +       SEG6_CMD_SET_TUNSRC,
+> +       SEG6_CMD_GET_TUNSRC,
+> +       __SEG6_CMD_MAX,
+> +};
+> +
+> +#define SEG6_CMD_MAX (__SEG6_CMD_MAX - 1)
+> +
+> +#endif
+> diff --git a/include/linux/seg6_hmac.h b/include/linux/seg6_hmac.h
+> new file mode 100644
+> index 0000000..71803d2
+> --- /dev/null
+> +++ b/include/linux/seg6_hmac.h
+> @@ -0,0 +1,21 @@
+> +#ifndef _SEG6_HMAC_H
+> +#define _SEG6_HMAC_H
+> +
+> +#include <linux/seg6.h>
+> +
+> +#define SEG6_HMAC_SECRET_LEN   64
+> +#define SEG6_HMAC_FIELD_LEN    32
+> +
+> +struct sr6_tlv_hmac {
+> +       struct sr6_tlv tlvhdr;
+> +       __u16 reserved;
+> +       __be32 hmackeyid;
+> +       __u8 hmac[SEG6_HMAC_FIELD_LEN];
+> +};
+> +
+> +enum {
+> +       SEG6_HMAC_ALGO_SHA1 = 1,
+> +       SEG6_HMAC_ALGO_SHA256 = 2,
+> +};
+> +
+> +#endif
+> diff --git a/include/linux/seg6_iptunnel.h b/include/linux/seg6_iptunnel.h
+> new file mode 100644
+> index 0000000..0d72a58
+> --- /dev/null
+> +++ b/include/linux/seg6_iptunnel.h
+> @@ -0,0 +1,38 @@
+> +/*
+> + *  SR-IPv6 implementation
+> + *
+> + *  Author:
+> + *  David Lebrun <david.lebrun@uclouvain.be>
+> + *
+> + *
+> + *  This program is free software; you can redistribute it and/or
+> + *      modify it under the terms of the GNU General Public License
+> + *      as published by the Free Software Foundation; either version
+> + *      2 of the License, or (at your option) any later version.
+> + */
+> +
+> +#ifndef _SEG6_IPTUNNEL_H
+> +#define _SEG6_IPTUNNEL_H
+> +
+> +#include <linux/seg6.h>
+> +
+> +enum {
+> +       SEG6_IPTUNNEL_UNSPEC,
+> +       SEG6_IPTUNNEL_SRH,
+> +       __SEG6_IPTUNNEL_MAX,
+> +};
+> +#define SEG6_IPTUNNEL_MAX (__SEG6_IPTUNNEL_MAX - 1)
+> +
+> +struct seg6_iptunnel_encap {
+> +       int mode;
+> +       struct ipv6_sr_hdr srh[0];
+> +};
+> +
+> +#define SEG6_IPTUN_ENCAP_SIZE(x) ((sizeof(*x)) + (((x)->srh->hdrlen + 1) << 3))
+> +
+> +enum {
+> +       SEG6_IPTUN_MODE_INLINE,
+> +       SEG6_IPTUN_MODE_ENCAP,
+> +};
+> +
+> +#endif
+> --
+> 2.7.3
+>
