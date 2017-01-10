@@ -1,61 +1,51 @@
-From: Mark Brown <broonie@kernel.org>
-Subject: Re: next-20170110 build: 1 failures 4 warnings (next-20170110)
-Date: Tue, 10 Jan 2017 18:16:07 +0000
-Message-ID: <20170110181607.dp6giaxyeczykmv4@sirena.org.uk>
-References: <E1cQqkO-0005XB-2K@optimist>
+From: ericnetdev dumazet <erdnetdev@gmail.com>
+Subject: Re: [PATCH net] ipv6: sr: fix BUG in HMAC init when preemption is enabled
+Date: Tue, 10 Jan 2017 10:16:29 -0800
+Message-ID: <CAHTyZGxoCV=fUjbUq2r5vtH2rDqGScrf=ty2HYOL8KLhdf4R4w@mail.gmail.com>
+References: <1484055562-6414-1-git-send-email-david.lebrun@uclouvain.be>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="63sanvmh3yu7xdkw"
-Cc: kernel-build-reports@lists.linaro.org,
-        linaro-kernel@lists.linaro.org, linux-next@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
-To: Michael Scherban <m-scherban@ti.com>,
-        Murali Karicheri <m-karicheri2@ti.com>,
-        Sekhar Nori <nsekhar@ti.com>,
-        "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org
+To: David Lebrun <david.lebrun@uclouvain.be>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mezzanine.sirena.org.uk ([106.187.55.193]:41410 "EHLO
-        mezzanine.sirena.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1757542AbdAJSQW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2017 13:16:22 -0500
-Content-Disposition: inline
-In-Reply-To: <E1cQqkO-0005XB-2K@optimist>
+Received: from mail-it0-f65.google.com ([209.85.214.65]:36126 "EHLO
+        mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755547AbdAJSQa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2017 13:16:30 -0500
+Received: by mail-it0-f65.google.com with SMTP id o138so191914ito.3
+        for <netdev@vger.kernel.org>; Tue, 10 Jan 2017 10:16:30 -0800 (PST)
+In-Reply-To: <1484055562-6414-1-git-send-email-david.lebrun@uclouvain.be>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+2017-01-10 5:39 GMT-08:00 David Lebrun <david.lebrun@uclouvain.be>:
+> When CONFIG_PREEMPT=y, CONFIG_IPV6=m and CONFIG_SEG6_HMAC=y,
+> seg6_hmac_init() is called during the initialization of the ipv6 module.
+> This causes a subsequent call to smp_processor_id() with preemption
+> enabled, resulting in the following trace.
 
---63sanvmh3yu7xdkw
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+I disagree with  your fix.  Keeping GFP_KERNEL for all these per cpu
+allocations is needed.
 
-On Tue, Jan 10, 2017 at 07:21:32AM +0000, Build bot for Mark Brown wrote:
+What about the simpler :
 
-Today's -next fails to build an arm allmodconfig due to:
+Rationale : we only need to get the size of the allocation, we do not
+care of migration here, all cpus having the same allocation.
 
-> 	arm-allmodconfig
-> ../drivers/net/ethernet/ti/netcp_core.c:1951:28: error: initialization from incompatible pointer type [-Werror=incompatible-pointer-types]
+Another issue with this is code is that in case of an allocation
+error, no cleanup is performed to free prior allocations.
 
-caused by 6a8162e99ef344 (net: netcp: store network statistics in 64
-bits).  It's assigning the function
+diff --git a/net/ipv6/seg6_hmac.c b/net/ipv6/seg6_hmac.c
+index ef1c8a46e7aceee45b2044d4b4338dc3aed88807..b31d682816503129e12d3eae5b70a8cbce8525a7
+100644
+--- a/net/ipv6/seg6_hmac.c
++++ b/net/ipv6/seg6_hmac.c
+@@ -400,7 +400,7 @@ static int seg6_hmac_init_algo(void)
+                        *p_tfm = tfm;
+                }
 
-  static struct rtnl_link_stats64 *
-  netcp_get_stats(struct net_device *ndev, struct rtnl_link_stats64 *stats)
+-               p_tfm = this_cpu_ptr(algo->tfms);
++               p_tfm = __this_cpu_ptr(algo->tfms);
+                tfm = *p_tfm;
 
-to ndo_get_stats64 which expects a function returning void.
-
---63sanvmh3yu7xdkw
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEzBAABCAAdFiEEreZoqmdXGLWf4p/qJNaLcl1Uh9AFAlh1JOYACgkQJNaLcl1U
-h9D51Qf+KwriZ5/QHLVpchJX7ozC75aiZOua8cRooPNuldRsfCbB/CCKfk2HcZ7J
-/BvsRfhtuLFZS1OUYuJT6G3KnkjQg9byHM0QZVRKqFsZNGCO+P0QDidtmp8sYmEU
-WxuZy2UJXk8PIa2SQzWPxQs8LS/ttOesndlrqY/vYenqwGcbCvn3FnZHzA129v/C
-n5WnLIW+YVITAKhi23uDhAreqHqNc4iaYtIqxHtVv9YM3VOs4aqjilbbMugSqjjT
-ZqWi7ACqq2uquhIQeHnB23FLQwK4UQNyDyZOuAbNlZ1E0OQiUDw4GwsLwlYvb89W
-4WaTEYzqg3xySGrKj8Pgc/BtGsbegw==
-=dWbS
------END PGP SIGNATURE-----
-
---63sanvmh3yu7xdkw--
+                shsize = sizeof(*shash) + crypto_shash_descsize(tfm);
