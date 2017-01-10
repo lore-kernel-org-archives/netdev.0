@@ -1,53 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH 1/3] Revert "icmp: avoid allocating large
- struct on stack"
-Date: Tue, 10 Jan 2017 13:12:23 -0500 (EST)
-Message-ID: <20170110.131223.748150430551443881.davem@davemloft.net>
-References: <1483985224.21472.3.camel@edumazet-glaptop3.roam.corp.google.com>
-        <20170109.135259.988711786570465428.davem@davemloft.net>
-        <CAM_iQpUbcVogq7jGePkgPJ0z_J=46hnK8KcTiX1svVXr1Hoh-w@mail.gmail.com>
+From: Mark Brown <broonie@kernel.org>
+Subject: Re: next-20170110 build: 1 failures 4 warnings (next-20170110)
+Date: Tue, 10 Jan 2017 18:16:07 +0000
+Message-ID: <20170110181607.dp6giaxyeczykmv4@sirena.org.uk>
+References: <E1cQqkO-0005XB-2K@optimist>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, brouer@redhat.com, netdev@vger.kernel.org
-To: xiyou.wangcong@gmail.com
+Content-Type: multipart/signed; micalg=pgp-sha256;
+        protocol="application/pgp-signature"; boundary="63sanvmh3yu7xdkw"
+Cc: kernel-build-reports@lists.linaro.org,
+        linaro-kernel@lists.linaro.org, linux-next@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
+To: Michael Scherban <m-scherban@ti.com>,
+        Murali Karicheri <m-karicheri2@ti.com>,
+        Sekhar Nori <nsekhar@ti.com>,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:49226 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S938486AbdAJSMf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2017 13:12:35 -0500
-In-Reply-To: <CAM_iQpUbcVogq7jGePkgPJ0z_J=46hnK8KcTiX1svVXr1Hoh-w@mail.gmail.com>
+Received: from mezzanine.sirena.org.uk ([106.187.55.193]:41410 "EHLO
+        mezzanine.sirena.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1757542AbdAJSQW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2017 13:16:22 -0500
+Content-Disposition: inline
+In-Reply-To: <E1cQqkO-0005XB-2K@optimist>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Tue, 10 Jan 2017 10:06:01 -0800
 
-> On Mon, Jan 9, 2017 at 10:52 AM, David Miller <davem@davemloft.net> wrote:
->> From: Eric Dumazet <eric.dumazet@gmail.com>
->> Date: Mon, 09 Jan 2017 10:07:04 -0800
->>
->>> You really should come to netdev conferences so that you understand
->>> goals and efforts, instead of living in your cave.
->>
->> I completely agree with Eric.
->>
->> Cong we have a very serious problem with you exactly because you make
->> quite vicious emotional statements targetted at other developers
->> merely when they say something you disagree with.
-> 
-> What emotional? Pointing out Eris's words from 4 years ago is NOT
-> emotional, it is just a help.
+--63sanvmh3yu7xdkw
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Saying "Facepalm" is emotional and has nothing to do with the
-technical issues.
+On Tue, Jan 10, 2017 at 07:21:32AM +0000, Build bot for Mark Brown wrote:
 
-You can keep showing us how expertly you can deflect the real
-issue we are discussion here, but that won't improve the situation
-at all I am afraid.
+Today's -next fails to build an arm allmodconfig due to:
 
-> Not everyone is as free to travel to Canada without a visa as you,
-> unfortunately.
+> 	arm-allmodconfig
+> ../drivers/net/ethernet/ti/netcp_core.c:1951:28: error: initialization from incompatible pointer type [-Werror=incompatible-pointer-types]
 
-We hold netdev in other countries all over the world, stop making
-excuses.
+caused by 6a8162e99ef344 (net: netcp: store network statistics in 64
+bits).  It's assigning the function
+
+  static struct rtnl_link_stats64 *
+  netcp_get_stats(struct net_device *ndev, struct rtnl_link_stats64 *stats)
+
+to ndo_get_stats64 which expects a function returning void.
+
+--63sanvmh3yu7xdkw
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEzBAABCAAdFiEEreZoqmdXGLWf4p/qJNaLcl1Uh9AFAlh1JOYACgkQJNaLcl1U
+h9D51Qf+KwriZ5/QHLVpchJX7ozC75aiZOua8cRooPNuldRsfCbB/CCKfk2HcZ7J
+/BvsRfhtuLFZS1OUYuJT6G3KnkjQg9byHM0QZVRKqFsZNGCO+P0QDidtmp8sYmEU
+WxuZy2UJXk8PIa2SQzWPxQs8LS/ttOesndlrqY/vYenqwGcbCvn3FnZHzA129v/C
+n5WnLIW+YVITAKhi23uDhAreqHqNc4iaYtIqxHtVv9YM3VOs4aqjilbbMugSqjjT
+ZqWi7ACqq2uquhIQeHnB23FLQwK4UQNyDyZOuAbNlZ1E0OQiUDw4GwsLwlYvb89W
+4WaTEYzqg3xySGrKj8Pgc/BtGsbegw==
+=dWbS
+-----END PGP SIGNATURE-----
+
+--63sanvmh3yu7xdkw--
