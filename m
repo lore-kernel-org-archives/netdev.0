@@ -1,212 +1,330 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH iproute2 1/3] sr: add header files for SR-IPv6
-Date: Tue, 10 Jan 2017 09:25:00 -0800
-Message-ID: <CALx6S35FqnWHGW3tLMy0eqb4qxvPmKwOy+oa0Z8CZahQzHqQBA@mail.gmail.com>
-References: <1484066486-22152-1-git-send-email-david.lebrun@uclouvain.be> <1484066486-22152-2-git-send-email-david.lebrun@uclouvain.be>
+Subject: Re: [PATCH iproute2 2/3] ip: add ip sr command to control SR-IPv6
+ internal structures
+Date: Tue, 10 Jan 2017 09:25:30 -0800
+Message-ID: <CALx6S35YPNZoBv2ASVvKnOehO_ty_C61U2oXZNv4Vx7-Q+Ppkw@mail.gmail.com>
+References: <1484066486-22152-1-git-send-email-david.lebrun@uclouvain.be> <1484066486-22152-3-git-send-email-david.lebrun@uclouvain.be>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
 To: David Lebrun <david.lebrun@uclouvain.be>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f195.google.com ([209.85.216.195]:34596 "EHLO
-        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1162658AbdAJRZC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2017 12:25:02 -0500
-Received: by mail-qt0-f195.google.com with SMTP id a29so18976734qtb.1
-        for <netdev@vger.kernel.org>; Tue, 10 Jan 2017 09:25:01 -0800 (PST)
-In-Reply-To: <1484066486-22152-2-git-send-email-david.lebrun@uclouvain.be>
+Received: from mail-qt0-f193.google.com ([209.85.216.193]:34788 "EHLO
+        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1161796AbdAJRZc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2017 12:25:32 -0500
+Received: by mail-qt0-f193.google.com with SMTP id a29so18978663qtb.1
+        for <netdev@vger.kernel.org>; Tue, 10 Jan 2017 09:25:31 -0800 (PST)
+In-Reply-To: <1484066486-22152-3-git-send-email-david.lebrun@uclouvain.be>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- Acked-by: Tom Herbert <tom@herbertland.com>
-
-
-
 On Tue, Jan 10, 2017 at 8:41 AM, David Lebrun <david.lebrun@uclouvain.be> wrote:
-> This patch add the necessary header files to interface with the SR-IPv6 kernel
-> implementation.
+> This patch add commands to support the tunnel source properties
+> ("ip sr tunsrc") and the HMAC key -> secret, algorithm binding
+> ("ip sr hmac").
 >
 > Signed-off-by: David Lebrun <david.lebrun@uclouvain.be>
 > ---
->  include/linux/seg6.h          | 54 +++++++++++++++++++++++++++++++++++++++++++
->  include/linux/seg6_genl.h     | 32 +++++++++++++++++++++++++
->  include/linux/seg6_hmac.h     | 21 +++++++++++++++++
->  include/linux/seg6_iptunnel.h | 38 ++++++++++++++++++++++++++++++
->  4 files changed, 145 insertions(+)
->  create mode 100644 include/linux/seg6.h
->  create mode 100644 include/linux/seg6_genl.h
->  create mode 100644 include/linux/seg6_hmac.h
->  create mode 100644 include/linux/seg6_iptunnel.h
+>  ip/Makefile    |   2 +-
+>  ip/ip.c        |   3 +-
+>  ip/ip_common.h |   1 +
+>  ip/ipseg6.c    | 238 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+>  4 files changed, 242 insertions(+), 2 deletions(-)
+>  create mode 100644 ip/ipseg6.c
 >
-> diff --git a/include/linux/seg6.h b/include/linux/seg6.h
+> diff --git a/ip/Makefile b/ip/Makefile
+> index 1928489..678a795 100644
+> --- a/ip/Makefile
+> +++ b/ip/Makefile
+> @@ -8,7 +8,7 @@ IPOBJ=ip.o ipaddress.o ipaddrlabel.o iproute.o iprule.o ipnetns.o \
+>      link_iptnl.o link_gre6.o iplink_bond.o iplink_bond_slave.o iplink_hsr.o \
+>      iplink_bridge.o iplink_bridge_slave.o ipfou.o iplink_ipvlan.o \
+>      iplink_geneve.o iplink_vrf.o iproute_lwtunnel.o ipmacsec.o ipila.o \
+> -    ipvrf.o
+> +    ipvrf.o ipseg6.o
+>
+>  RTMONOBJ=rtmon.o
+>
+> diff --git a/ip/ip.c b/ip/ip.c
+> index 07050b0..7c14a8e 100644
+> --- a/ip/ip.c
+> +++ b/ip/ip.c
+> @@ -52,7 +52,7 @@ static void usage(void)
+>  "where  OBJECT := { link | address | addrlabel | route | rule | neigh | ntable |\n"
+>  "                   tunnel | tuntap | maddress | mroute | mrule | monitor | xfrm |\n"
+>  "                   netns | l2tp | fou | macsec | tcp_metrics | token | netconf | ila |\n"
+> -"                   vrf }\n"
+> +"                   vrf | sr }\n"
+>  "       OPTIONS := { -V[ersion] | -s[tatistics] | -d[etails] | -r[esolve] |\n"
+>  "                    -h[uman-readable] | -iec |\n"
+>  "                    -f[amily] { inet | inet6 | ipx | dnet | mpls | bridge | link } |\n"
+> @@ -101,6 +101,7 @@ static const struct cmd {
+>         { "netns",      do_netns },
+>         { "netconf",    do_ipnetconf },
+>         { "vrf",        do_ipvrf},
+> +       { "sr",         do_seg6 },
+>         { "help",       do_help },
+>         { 0 }
+>  };
+> diff --git a/ip/ip_common.h b/ip/ip_common.h
+> index ab6a834..13108c6 100644
+> --- a/ip/ip_common.h
+> +++ b/ip/ip_common.h
+> @@ -59,6 +59,7 @@ int do_ipnetconf(int argc, char **argv);
+>  int do_iptoken(int argc, char **argv);
+>  int do_ipvrf(int argc, char **argv);
+>  void vrf_reset(void);
+> +int do_seg6(int argc, char **argv);
+>
+>  int iplink_get(unsigned int flags, char *name, __u32 filt_mask);
+>
+> diff --git a/ip/ipseg6.c b/ip/ipseg6.c
 > new file mode 100644
-> index 0000000..8f651bf
+> index 0000000..0d4130e
 > --- /dev/null
-> +++ b/include/linux/seg6.h
-> @@ -0,0 +1,54 @@
+> +++ b/ip/ipseg6.c
+> @@ -0,0 +1,238 @@
 > +/*
-> + *  SR-IPv6 implementation
+> + * seg6.c "ip sr/seg6"
 > + *
-> + *  Author:
-> + *  David Lebrun <david.lebrun@uclouvain.be>
+> + *       This program is free software; you can redistribute it and/or
+> + *       modify it under the terms of the GNU General Public License
+> + *       version 2 as published by the Free Software Foundation;
 > + *
-> + *
-> + *  This program is free software; you can redistribute it and/or
-> + *      modify it under the terms of the GNU General Public License
-> + *      as published by the Free Software Foundation; either version
-> + *      2 of the License, or (at your option) any later version.
+> + * Author: David Lebrun <david.lebrun@uclouvain.be>
 > + */
 > +
-> +#ifndef _SEG6_H
-> +#define _SEG6_H
+> +#include <stdio.h>
+> +#include <stdlib.h>
+> +#include <string.h>
+> +#include <unistd.h>
+> +#include <errno.h>
+> +#include <sys/types.h>
+> +#include <sys/socket.h>
+> +#include <arpa/inet.h>
+> +#include <sys/ioctl.h>
+> +#include <linux/if.h>
 > +
-> +/*
-> + * SRH
-> + */
-> +struct ipv6_sr_hdr {
-> +       __u8    nexthdr;
-> +       __u8    hdrlen;
-> +       __u8    type;
-> +       __u8    segments_left;
-> +       __u8    first_segment;
-> +       __u8    flag_1;
-> +       __u8    flag_2;
-> +       __u8    reserved;
+> +#include <linux/genetlink.h>
+> +#include <linux/seg6_genl.h>
+> +#include <linux/seg6_hmac.h>
 > +
-> +       struct in6_addr segments[0];
-> +};
+> +#include "utils.h"
+> +#include "ip_common.h"
+> +#include "libgenl.h"
 > +
-> +#define SR6_FLAG1_CLEANUP      (1 << 7)
-> +#define SR6_FLAG1_PROTECTED    (1 << 6)
-> +#define SR6_FLAG1_OAM          (1 << 5)
-> +#define SR6_FLAG1_ALERT                (1 << 4)
-> +#define SR6_FLAG1_HMAC         (1 << 3)
+> +#define HMAC_KEY_PROMPT "Enter secret for HMAC key ID (blank to delete): "
 > +
-> +#define SR6_TLV_INGRESS                1
-> +#define SR6_TLV_EGRESS         2
-> +#define SR6_TLV_OPAQUE         3
-> +#define SR6_TLV_PADDING                4
-> +#define SR6_TLV_HMAC           5
+> +static void usage(void)
+> +{
+> +       fprintf(stderr, "Usage: ip sr { COMMAND | help }\n");
+> +       fprintf(stderr, "          ip sr hmac show\n");
+> +       fprintf(stderr, "          ip sr hmac set KEYID ALGO\n");
+> +       fprintf(stderr, "          ip sr tunsrc show\n");
+> +       fprintf(stderr, "          ip sr tunsrc set ADDRESS\n");
+> +       fprintf(stderr, "where  ALGO := { sha1 | sha256 }\n");
+> +       exit(-1);
+> +}
 > +
-> +#define sr_has_cleanup(srh) ((srh)->flag_1 & SR6_FLAG1_CLEANUP)
-> +#define sr_has_hmac(srh) ((srh)->flag_1 & SR6_FLAG1_HMAC)
+> +static struct rtnl_handle grth = { .fd = -1 };
+> +static int genl_family = -1;
 > +
-> +struct sr6_tlv {
-> +       __u8 type;
-> +       __u8 len;
-> +       __u8 data[0];
-> +};
+> +#define SEG6_REQUEST(_req, _bufsiz, _cmd, _flags) \
+> +       GENL_REQUEST(_req, _bufsiz, genl_family, 0, \
+> +                               SEG6_GENL_VERSION, _cmd, _flags)
 > +
-> +#endif
-> diff --git a/include/linux/seg6_genl.h b/include/linux/seg6_genl.h
-> new file mode 100644
-> index 0000000..36fcbc8
-> --- /dev/null
-> +++ b/include/linux/seg6_genl.h
-> @@ -0,0 +1,32 @@
-> +#ifndef _SEG6_GENL_H
-> +#define _SEG6_GENL_H
+> +static struct {
+> +       int cmd;
+> +       struct in6_addr addr;
+> +       __u32 keyid;
+> +       char *pass;
+> +       __u8 alg_id;
+> +} opts;
 > +
-> +#define SEG6_GENL_NAME         "SEG6"
-> +#define SEG6_GENL_VERSION      0x1
+> +static int process_msg(const struct sockaddr_nl *who, struct nlmsghdr *n,
+> +                      void *arg)
+> +{
+> +       struct rtattr *attrs[SEG6_ATTR_MAX + 1];
+> +       struct genlmsghdr *ghdr;
+> +       FILE *fp = (FILE *)arg;
+> +       int len = n->nlmsg_len;
 > +
-> +enum {
-> +       SEG6_ATTR_UNSPEC,
-> +       SEG6_ATTR_DST,
-> +       SEG6_ATTR_DSTLEN,
-> +       SEG6_ATTR_HMACKEYID,
-> +       SEG6_ATTR_SECRET,
-> +       SEG6_ATTR_SECRETLEN,
-> +       SEG6_ATTR_ALGID,
-> +       SEG6_ATTR_HMACINFO,
-> +       __SEG6_ATTR_MAX,
-> +};
+> +       if (n->nlmsg_type != genl_family)
+> +               return -1;
 > +
-> +#define SEG6_ATTR_MAX (__SEG6_ATTR_MAX - 1)
+> +       len -= NLMSG_LENGTH(GENL_HDRLEN);
+> +       if (len < 0)
+> +               return -1;
 > +
-> +enum {
-> +       SEG6_CMD_UNSPEC,
-> +       SEG6_CMD_SETHMAC,
-> +       SEG6_CMD_DUMPHMAC,
-> +       SEG6_CMD_SET_TUNSRC,
-> +       SEG6_CMD_GET_TUNSRC,
-> +       __SEG6_CMD_MAX,
-> +};
+> +       ghdr = NLMSG_DATA(n);
 > +
-> +#define SEG6_CMD_MAX (__SEG6_CMD_MAX - 1)
+> +       parse_rtattr(attrs, SEG6_ATTR_MAX, (void *)ghdr + GENL_HDRLEN, len);
 > +
-> +#endif
-> diff --git a/include/linux/seg6_hmac.h b/include/linux/seg6_hmac.h
-> new file mode 100644
-> index 0000000..71803d2
-> --- /dev/null
-> +++ b/include/linux/seg6_hmac.h
-> @@ -0,0 +1,21 @@
-> +#ifndef _SEG6_HMAC_H
-> +#define _SEG6_HMAC_H
+> +       switch (ghdr->cmd) {
+> +       case SEG6_CMD_DUMPHMAC:
+> +       {
+> +               char secret[64];
+> +               char *algstr;
+> +               __u8 slen = rta_getattr_u8(attrs[SEG6_ATTR_SECRETLEN]);
+> +               __u8 alg_id = rta_getattr_u8(attrs[SEG6_ATTR_ALGID]);
 > +
-> +#include <linux/seg6.h>
+> +               memset(secret, 0, 64);
 > +
-> +#define SEG6_HMAC_SECRET_LEN   64
-> +#define SEG6_HMAC_FIELD_LEN    32
+> +               if (slen > 63) {
+> +                       fprintf(stderr, "HMAC secret length %d > 63, "
+> +                                       "truncated\n", slen);
+> +                       slen = 63;
+> +               }
+> +               memcpy(secret, RTA_DATA(attrs[SEG6_ATTR_SECRET]), slen);
 > +
-> +struct sr6_tlv_hmac {
-> +       struct sr6_tlv tlvhdr;
-> +       __u16 reserved;
-> +       __be32 hmackeyid;
-> +       __u8 hmac[SEG6_HMAC_FIELD_LEN];
-> +};
+> +               switch (alg_id) {
+> +               case SEG6_HMAC_ALGO_SHA1:
+> +                       algstr = "sha1";
+> +                       break;
+> +               case SEG6_HMAC_ALGO_SHA256:
+> +                       algstr = "sha256";
+> +                       break;
+> +               default:
+> +                       algstr = "<unknown>";
+> +               }
 > +
-> +enum {
-> +       SEG6_HMAC_ALGO_SHA1 = 1,
-> +       SEG6_HMAC_ALGO_SHA256 = 2,
-> +};
+> +               fprintf(fp, "hmac %u ",
+> +                       rta_getattr_u32(attrs[SEG6_ATTR_HMACKEYID]));
+> +               fprintf(fp, "algo %s ", algstr);
+> +               fprintf(fp, "secret \"%s\" ", secret);
 > +
-> +#endif
-> diff --git a/include/linux/seg6_iptunnel.h b/include/linux/seg6_iptunnel.h
-> new file mode 100644
-> index 0000000..0d72a58
-> --- /dev/null
-> +++ b/include/linux/seg6_iptunnel.h
-> @@ -0,0 +1,38 @@
-> +/*
-> + *  SR-IPv6 implementation
-> + *
-> + *  Author:
-> + *  David Lebrun <david.lebrun@uclouvain.be>
-> + *
-> + *
-> + *  This program is free software; you can redistribute it and/or
-> + *      modify it under the terms of the GNU General Public License
-> + *      as published by the Free Software Foundation; either version
-> + *      2 of the License, or (at your option) any later version.
-> + */
+> +               fprintf(fp, "\n");
+> +               break;
+> +       }
+> +       case SEG6_CMD_GET_TUNSRC:
+> +       {
+> +               fprintf(fp, "tunsrc addr %s\n",
+> +                       rt_addr_n2a(AF_INET6, 16,
+> +                                   RTA_DATA(attrs[SEG6_ATTR_DST])));
+> +               break;
+> +       }
+> +       }
 > +
-> +#ifndef _SEG6_IPTUNNEL_H
-> +#define _SEG6_IPTUNNEL_H
+> +       return 0;
+> +}
 > +
-> +#include <linux/seg6.h>
+> +static int seg6_do_cmd(void)
+> +{
+> +       SEG6_REQUEST(req, 1024, opts.cmd, NLM_F_REQUEST);
+> +       int repl = 0, dump = 0;
 > +
-> +enum {
-> +       SEG6_IPTUNNEL_UNSPEC,
-> +       SEG6_IPTUNNEL_SRH,
-> +       __SEG6_IPTUNNEL_MAX,
-> +};
-> +#define SEG6_IPTUNNEL_MAX (__SEG6_IPTUNNEL_MAX - 1)
+> +       if (genl_family < 0) {
+> +               if (rtnl_open_byproto(&grth, 0, NETLINK_GENERIC) < 0) {
+> +                       fprintf(stderr, "Cannot open generic netlink socket\n");
+> +                       exit(1);
+> +               }
+> +               genl_family = genl_resolve_family(&grth, SEG6_GENL_NAME);
+> +               if (genl_family < 0)
+> +                       exit(1);
+> +               req.n.nlmsg_type = genl_family;
+> +       }
 > +
-> +struct seg6_iptunnel_encap {
-> +       int mode;
-> +       struct ipv6_sr_hdr srh[0];
-> +};
+> +       switch (opts.cmd) {
+> +       case SEG6_CMD_SETHMAC:
+> +       {
+> +               addattr32(&req.n, sizeof(req), SEG6_ATTR_HMACKEYID, opts.keyid);
+> +               addattr8(&req.n, sizeof(req), SEG6_ATTR_SECRETLEN,
+> +                        strlen(opts.pass));
+> +               addattr8(&req.n, sizeof(req), SEG6_ATTR_ALGID, opts.alg_id);
+> +               if (strlen(opts.pass))
+> +                       addattr_l(&req.n, sizeof(req), SEG6_ATTR_SECRET,
+> +                                 opts.pass, strlen(opts.pass));
+> +               break;
+> +       }
+> +       case SEG6_CMD_SET_TUNSRC:
+> +               addattr_l(&req.n, sizeof(req), SEG6_ATTR_DST, &opts.addr,
+> +                         sizeof(struct in6_addr));
+> +               break;
+> +       case SEG6_CMD_DUMPHMAC:
+> +               dump = 1;
+> +               break;
+> +       case SEG6_CMD_GET_TUNSRC:
+> +               repl = 1;
+> +               break;
+> +       }
 > +
-> +#define SEG6_IPTUN_ENCAP_SIZE(x) ((sizeof(*x)) + (((x)->srh->hdrlen + 1) << 3))
+> +       if (!repl && !dump) {
+> +               if (rtnl_talk(&grth, &req.n, NULL, 0) < 0)
+> +                       return -1;
+> +       } else if (repl) {
+> +               if (rtnl_talk(&grth, &req.n, &req.n, sizeof(req)) < 0)
+> +                       return -2;
+> +               if (process_msg(NULL, &req.n, stdout) < 0) {
+> +                       fprintf(stderr, "Error parsing reply\n");
+> +                       exit(1);
+> +               }
+> +       } else {
+> +               req.n.nlmsg_flags |= NLM_F_DUMP;
+> +               req.n.nlmsg_seq = grth.dump = ++grth.seq;
+> +               if (rtnl_send(&grth, &req, req.n.nlmsg_len) < 0) {
+> +                       perror("Failed to send dump request");
+> +                       exit(1);
+> +               }
 > +
-> +enum {
-> +       SEG6_IPTUN_MODE_INLINE,
-> +       SEG6_IPTUN_MODE_ENCAP,
-> +};
+> +               if (rtnl_dump_filter(&grth, process_msg, stdout) < 0) {
+> +                       fprintf(stderr, "Dump terminated\n");
+> +                       exit(1);
+> +               }
+> +       }
 > +
-> +#endif
+> +       return 0;
+> +}
+> +
+> +int do_seg6(int argc, char **argv)
+> +{
+> +       if (argc < 1 || matches(*argv, "help") == 0)
+> +               usage();
+> +
+> +       memset(&opts, 0, sizeof(opts));
+> +
+> +       if (matches(*argv, "hmac") == 0) {
+> +               NEXT_ARG();
+> +               if (matches(*argv, "show") == 0) {
+> +                       opts.cmd = SEG6_CMD_DUMPHMAC;
+> +               } else if (matches(*argv, "set") == 0) {
+> +                       NEXT_ARG();
+> +                       if (get_u32(&opts.keyid, *argv, 0) || opts.keyid == 0)
+> +                               invarg("hmac KEYID value is invalid", *argv);
+> +                       NEXT_ARG();
+> +                       if (strcmp(*argv, "sha1") == 0) {
+> +                               opts.alg_id = SEG6_HMAC_ALGO_SHA1;
+> +                       } else if (strcmp(*argv, "sha256") == 0) {
+> +                               opts.alg_id = SEG6_HMAC_ALGO_SHA256;
+> +                       } else {
+> +                               invarg("hmac ALGO value is invalid", *argv);
+> +                       }
+> +                       opts.cmd = SEG6_CMD_SETHMAC;
+> +                       opts.pass = getpass(HMAC_KEY_PROMPT);
+> +               } else {
+> +                       invarg("unknown", *argv);
+> +               }
+> +       } else if (matches(*argv, "tunsrc") == 0) {
+> +               NEXT_ARG();
+> +               if (matches(*argv, "show") == 0) {
+> +                       opts.cmd = SEG6_CMD_GET_TUNSRC;
+> +               } else if (matches(*argv, "set") == 0) {
+> +                       NEXT_ARG();
+> +                       opts.cmd = SEG6_CMD_SET_TUNSRC;
+> +                       if (!inet_get_addr(*argv, NULL, &opts.addr))
+> +                               invarg("tunsrc ADDRESS value is invalid",
+> +                                      *argv);
+> +               } else {
+> +                       invarg("unknown", *argv);
+> +               }
+> +       } else {
+> +               invarg("unknown", *argv);
+> +       }
+> +
+> +       return seg6_do_cmd();
+> +}
 > --
 > 2.7.3
 >
+
+ Acked-by: Tom Herbert <tom@herbertland.com>
