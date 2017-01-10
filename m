@@ -1,61 +1,106 @@
-From: Doug Ledford <dledford@redhat.com>
-Subject: Re: [for-next V2 00/10][pull request] Mellanox 100G mlx5 4K UAR
+From: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [for-next V3 00/10][pull request] Mellanox 100G mlx5 4K UAR
  support
-Date: Mon, 09 Jan 2017 23:29:22 -0500
-Message-ID: <1484022562.2149.5.camel@redhat.com>
-References: <1483890891-8767-1-git-send-email-saeedm@mellanox.com>
+Date: Mon, 09 Jan 2017 23:53:26 -0500
+Message-ID: <1484024006.2149.11.camel@redhat.com>
+References: <1483988453-28551-1-git-send-email-saeedm@mellanox.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha256";
-        protocol="application/pgp-signature"; boundary="=-Vb/tK7rHbdqO4vFW/FVg"
-Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-        Leon Romanovsky <leonro@mellanox.com>,
-        Eli Cohen <eli@mellanox.com>, Matan Barak <matanb@mellanox.com>
-To: Saeed Mahameed <saeedm@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56160 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1764760AbdAJE3Y (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 9 Jan 2017 23:29:24 -0500
-In-Reply-To: <1483890891-8767-1-git-send-email-saeedm@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+        protocol="application/pgp-signature"; boundary="=-9gVnIAHYtR+Y4ZuRldxl"
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+To: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1483988453-28551-1-git-send-email-saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 
---=-Vb/tK7rHbdqO4vFW/FVg
+--=-9gVnIAHYtR+Y4ZuRldxl
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Content-Transfer-Encoding: base64
 
-On Sun, 2017-01-08 at 17:54 +0200, Saeed Mahameed wrote:
-> Hi Dave and Doug,
->=20
-> Following the mlx5-odp submission, you can find here the 2nd mlx5
-> submission for 4.11 as a pull-request including mlx5 4K UAR support
-> from
-> Eli Cohen (details below).=C2=A0=C2=A0For you Doug, this pull request wil=
-l
-> provide=C2=A0
-> you with both mlx5 odp and mlx5 4k UAR since it is based on Dave's
-> net-next mlx5-odp merge commit.
->=20
-> v1->v2:
-> =C2=A0 - Removed 64BIT arch dependency.
->=20
-> Thank you,
-> Saeed.
->=C2=A0
+T24gTW9uLCAyMDE3LTAxLTA5IGF0IDIxOjAwICswMjAwLCBTYWVlZCBNYWhhbWVlZCB3cm90ZToK
+PiBIaSBEYXZlIGFuZCBEb3VnLAo+IAo+IEZvbGxvd2luZyB0aGUgbWx4NS1vZHAgc3VibWlzc2lv
+biwgeW91IGNhbiBmaW5kIGhlcmUgdGhlIDJuZCBtbHg1Cj4gc3VibWlzc2lvbiBmb3IgNC4xMSBh
+cyBhIHB1bGwtcmVxdWVzdCBpbmNsdWRpbmcgbWx4NSA0SyBVQVIgc3VwcG9ydAo+IGZyb20KPiBF
+bGkgQ29oZW4gKGRldGFpbHMgYmVsb3cpLsKgwqBGb3IgeW91IERvdWcsIHRoaXMgcHVsbCByZXF1
+ZXN0IHdpbGwKPiBwcm92aWRlCj4geW91IHdpdGggYm90aCBtbHg1IG9kcCBhbmQgbWx4NSA0ayBV
+QVIgc2luY2UgaXQgaXMgYmFzZWQgb24gRGF2ZSdzCj4gbmV0LW5leHQgbWx4NS1vZHAgbWVyZ2Ug
+Y29tbWl0Lgo+IAo+IHYxLT52MjoKPiDCoCAtIFJlbW92ZWQgNjRCSVQgYXJjaCBkZXBlbmRlbmN5
+Lgo+IHYyLT52MzoKPiDCoCAtIFJlbW92ZWQgZXh0cmEgc3BhY2UuCj4gCj4gVGhhbmsgeW91LAo+
+IFNhZWVkLgo+IAo+IFRoZSBmb2xsb3dpbmcgY2hhbmdlcyBzaW5jZSBjb21taXQKPiA1MjVkZmEy
+Y2RjZTRmNWFiNzYyNTFiNWU1N2ViYWJmNGYyZGZjNDBjOgo+IAo+IMKgIE1lcmdlIGJyYW5jaCAn
+bWx4NS1vZHAnICgyMDE3LTAxLTAyIDE1OjUxOjIxIC0wNTAwKQoKVGhpcyBiYXNlIGNvbW1pdCBs
+b29rcyBoYXJtbGVzcyBlbm91Z2gsIGJ1dCBzaW5jZSBpdCdzIGxpa2VseSBqdXN0IGEKY29tbWl0
+IGluIHlvdXIgdHJlZSwgaXQgaXNuJ3QgcmVhbGx5IGEgY2xlYXIgaW5kaWNhdG9yIG9mIGhvdyB5
+b3Ugc2V0CnRoaXMgdHJlZSB1cC4uLi4KCj4gYXJlIGF2YWlsYWJsZSBpbiB0aGUgZ2l0IHJlcG9z
+aXRvcnkgYXQ6Cj4gCj4gwqAgZ2l0Oi8vZ2l0Lmtlcm5lbC5vcmcvcHViL3NjbS9saW51eC9rZXJu
+ZWwvZ2l0L21lbGxhbm94L2xpbnV4LmdpdAo+IHRhZ3MvbWx4NS00a3Vhci1mb3ItNC4xMQo+IAo+
+IGZvciB5b3UgdG8gZmV0Y2ggY2hhbmdlcyB1cCB0bwo+IGY1MDJkODM0OTUwYTI4ZTAyNjUxYmI3
+ZTJjYzcxMTFkZGQzNTI2NDQ6Cj4gCj4gwqAgbmV0L21seDU6IEFjdGl2YXRlIHN1cHBvcnQgZm9y
+IDRLIFVBUnMgKDIwMTctMDEtMDkgMjA6MjU6MTAgKzAyMDApCgpCdXQgb25jZSBJIHB1bGxlZCB0
+aGlzLCBpdCBiZWNhbWUgY2xlYXIgeW91IGd1eXMgYmFzZWQgeW91ciB0cmVlIG9uIGEKbmV0LW5l
+eHQgc3RhcnRpbmcgcG9pbnQuIMKgWW91IG5lZWQgdG8gbWFrZSB0aGF0IGNsZWFyIGluIHRoZSBi
+ZWdpbm5pbmcuCsKgQW5kIHVubGVzcyB5b3UgY2FuJ3QgYXZvaWQgaXQsIGRvbid0IGRvIGl0LiDC
+oEkgZG9uJ3QgbGlrZSBoYXZpbmcgdG8KcHVsbCBpbiBEYXZlJ3MgbmV0LW5leHQgYmVmb3JlIEkg
+cHVsbCB5b3VyIGNvZGUgYmVjYXVzZSBpdCBtZWFucyBJCmNhbid0IHN1Ym1pdCBteSBwdWxsIHJl
+cXVlc3QgdG8gTGludXMgZHVyaW5nIHRoZSBtZXJnZSB3aW5kb3cgYXMgYQpzaW5nbGUgcHVsbCBy
+ZXF1ZXN0LCBJIGhhdmUgdG8gc3BsaXQgaXQgdXAgdG8gYmUgdGhlIHN0dWZmIHRoYXQgaXMKYmFz
+ZWQgb24gbmV0LW5leHQgYW5kIHRoZSBzdHVmZiBiYXNlZCBvbiBteSBvd24gbmV4dCBhcmVhLgoK
+PsKgCj4gLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLQo+IEVsaSBDb2hlbiAoMTApOgo+IMKgwqDCoMKgwqDCoElCL21seDU6IEZp
+eCBrZXJuZWwgdG8gdXNlciBsZWFrIHByZXZlbnRpb24gbG9naWMKPiDCoMKgwqDCoMKgwqBJQi9t
+bHg1OiBGaXggZXJyb3IgaGFuZGxpbmcgb3JkZXIgaW4gY3JlYXRlX2tlcm5lbF9xcAo+IMKgwqDC
+oMKgwqDCoG1seDU6IEZpeCBuYW1pbmcgY29udmVudGlvbiB3aXRoIHJlc3BlY3QgdG8gVUFScwo+
+IMKgwqDCoMKgwqDCoElCL21seDU6IEZpeCByZXRyaWV2YWwgb2YgaW5kZXggdG8gZmlyc3QgaGkg
+Y2xhc3MgYmZyZWcKPiDCoMKgwqDCoMKgwqBuZXQvbWx4NTogSW50cm9kdWNlIGJsdWUgZmxhbWUg
+cmVnaXN0ZXIgYWxsb2NhdG9yCj4gwqDCoMKgwqDCoMKgbmV0L21seDU6IEFkZCBpbnRlcmZhY2Ug
+dG8gZ2V0IHJlZmVyZW5jZSB0byBhIFVBUgo+IMKgwqDCoMKgwqDCoElCL21seDU6IFVzZSBibHVl
+IGZsYW1lIHJlZ2lzdGVyIGFsbG9jYXRvciBpbiBtbHg1X2liCj4gwqDCoMKgwqDCoMKgSUIvbWx4
+NTogQWxsb3cgZnV0dXJlIGV4dGVuc2lvbiBvZiBsaWJtbHg1IGlucHV0IGRhdGEKPiDCoMKgwqDC
+oMKgwqBJQi9tbHg1OiBTdXBwb3J0IDRrIFVBUiBmb3IgbGlibWx4NQo+IMKgwqDCoMKgwqDCoG5l
+dC9tbHg1OiBBY3RpdmF0ZSBzdXBwb3J0IGZvciA0SyBVQVJzCj4gCj4gwqBkcml2ZXJzL2luZmlu
+aWJhbmQvaHcvbWx4NS9jcS5jwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
+oHzCoMKgMTAgKy0KPiDCoGRyaXZlcnMvaW5maW5pYmFuZC9ody9tbHg1L21haW4uY8KgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoHwgMjc4ICsrKysrKysrKystCj4gLS0tLS0KPiDC
+oGRyaXZlcnMvaW5maW5pYmFuZC9ody9tbHg1L21seDVfaWIuaMKgwqDCoMKgwqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoHzCoMKgMzIgKy0KPiDCoGRyaXZlcnMvaW5maW5pYmFuZC9ody9tbHg1L3FwLmPC
+oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgfCAyOTAgKysrKysrKy0tCj4g
+LS0tLS0tLS0KPiDCoGRyaXZlcnMvbmV0L2V0aGVybmV0L21lbGxhbm94L21seDUvY29yZS9jcS5j
+wqDCoMKgwqDCoMKgwqB8wqDCoMKgMiArCj4gwqBkcml2ZXJzL25ldC9ldGhlcm5ldC9tZWxsYW5v
+eC9tbHg1L2NvcmUvZW4uaMKgwqDCoMKgwqDCoMKgfMKgwqAxMSArLQo+IMKgLi4uL25ldC9ldGhl
+cm5ldC9tZWxsYW5veC9tbHg1L2NvcmUvZW5fY29tbW9uLmPCoMKgwqDCoHzCoMKgMTIgKy0KPiDC
+oGRyaXZlcnMvbmV0L2V0aGVybmV0L21lbGxhbm94L21seDUvY29yZS9lbl9tYWluLmPCoMKgfMKg
+wqAyMSArLQo+IMKgZHJpdmVycy9uZXQvZXRoZXJuZXQvbWVsbGFub3gvbWx4NS9jb3JlL2VxLmPC
+oMKgwqDCoMKgwqDCoHzCoMKgMTQgKy0KPiDCoGRyaXZlcnMvbmV0L2V0aGVybmV0L21lbGxhbm94
+L21seDUvY29yZS9tYWluLmPCoMKgwqDCoMKgfMKgwqAyNiArLQo+IMKgZHJpdmVycy9uZXQvZXRo
+ZXJuZXQvbWVsbGFub3gvbWx4NS9jb3JlL3Vhci5jwqDCoMKgwqDCoMKgfCAzNTEKPiArKysrKysr
+KysrKysrLS0tLS0tLS0KPiDCoGluY2x1ZGUvbGludXgvbWx4NS9jcS5owqDCoMKgwqDCoMKgwqDC
+oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqB8wqDCoMKgNSArLQo+IMKg
+aW5jbHVkZS9saW51eC9tbHg1L2RldmljZS5owqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgfMKgwqAyMyArLQo+IMKgaW5jbHVkZS9saW51eC9tbHg1L2Rvb3Ji
+ZWxsLmjCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoHzCoMKgwqA2
+ICstCj4gwqBpbmNsdWRlL2xpbnV4L21seDUvZHJpdmVyLmjCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqB8wqDCoDgxICsrLS0tCj4gwqBpbmNsdWRlL2xpbnV4
+L21seDUvbWx4NV9pZmMuaMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
+oMKgfMKgwqDCoDcgKy0KPiDCoGluY2x1ZGUvdWFwaS9yZG1hL21seDUtYWJpLmjCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgfMKgwqAxOSArLQo+IMKgMTcgZmls
+ZXMgY2hhbmdlZCwgNjcyIGluc2VydGlvbnMoKyksIDUxNiBkZWxldGlvbnMoLSkKCldpdGhvdXQg
+Z29pbmcgaW50byBleGNydWNpYXRpbmcgZGV0YWlsLCB0aGlzIGlzIHdoYXQgSSBnb3Qgd2hlbiBJ
+CnB1bGxlZCB5b3VyIGJyYW5jaDoKCsKgMjczIGZpbGVzIGNoYW5nZWQsIDg4OTEgaW5zZXJ0aW9u
+cygrKSwgNjYzNyBkZWxldGlvbnMoLSkKwqBjcmVhdGUgbW9kZSAxMDA2NDQgZHJpdmVycy9uZXQv
+ZXRoZXJuZXQvcWxvZ2ljL3FlZGUvcWVkZV9maWx0ZXIuYwrCoGNyZWF0ZSBtb2RlIDEwMDY0NCBk
+cml2ZXJzL25ldC9ldGhlcm5ldC9xbG9naWMvcWVkZS9xZWRlX2ZwLmMKClBsZWFzZSBkb24ndCBk
+byB0aGlzIHVubGVzcyB5b3UgYWJzb2x1dGVseSBoYXZlIHRvLgoKLS0gCkRvdWcgTGVkZm9yZCA8
+ZGxlZGZvcmRAcmVkaGF0LmNvbT4KwqAgwqAgR1BHIEtleUlEOiBCODI2QTMzMzBFNTcyRkRECsKg
+IMKgCktleSBmaW5nZXJwcmludCA9IEFFNkIgMUJEQSAxMjJCIDIzQjQgMjY1QiDCoDEyNzQgQjgy
+NiBBMzMzIDBFNTcgMkZERAo=
 
-I know you have a couple issues to fix on respin (minor things as
-pointed out). =C2=A0Otherwise, I've reviewed of the IB portion of the code
-and have no objections.
 
---=20
-Doug Ledford <dledford@redhat.com>
-=C2=A0 =C2=A0 GPG KeyID: B826A3330E572FDD
-=C2=A0 =C2=A0
-Key fingerprint =3D AE6B 1BDA 122B 23B4 265B =C2=A01274 B826 A333 0E57 2FDD
-
---=-Vb/tK7rHbdqO4vFW/FVg
+--=-9gVnIAHYtR+Y4ZuRldxl
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
@@ -63,19 +108,24 @@ Content-Transfer-Encoding: 7bit
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v2
 
-iQIcBAABCAAGBQJYdGMiAAoJELgmozMOVy/d9doP+wWhPO3DoU69rbUqVqRwj/qq
-VSna6IxHdla5nrKGAnvF20HgWXxQ4D8JRk7RUtDKzHcmyTQf24S/kiBbDbF1AVNi
-q1WD7eeiJ1EK1ytacVgaqgHJ8H2Sse4Qo3NYWiRizI/64CgWJsnAWnoa06qAFOMd
-/w9VHObD3CwFBsiXQs6JgHZUoAfSVKPdUlJdvWqRwhaZpLHUC6SL0Wqji2JJqx1Z
-+NEmp74FLdDmms8e0npbzNOJXfRs8n4ysXVQaeJK4N5W+nq/ZYXJyInhkunpLrbz
-Z5FJv7PmmFs6uERJbgrKniGONGXv1jBfsM3LGaDYY2h93QXxc7Mp9m9LANLK1WwT
-lAgCxhN+tJRwVZgxR0XDju60l/3EX5dxrxyGZl3tiKtalGbwG+FEkdC5PYC8POEk
-qjFLwvyLHHmP1YNn6ayqeDwZ4+XEtw7/DzM3mfdOy0IXvdRZwSfljkcUKPN8egFK
-0X1Qn5le923dYPMTD+YhlC7EFZO6Ump95Ua0Rj4o01Ozd0MMFlflyLjXzPnWNEZi
-dVJqkkLYHgdO0r5HxdVWkT1t2F+fWJO9bTjJ5adH+p95KqqwD6+ZPwjmnWv21i1y
-7lUjEfUFbuFBBCgH8wFlkG7EevyLEIqPNf4wdSOYCrWBe6UTGcEXfPJh079e2UQ3
-P9BIaMrob1sfBAReAag/
-=HgS+
+iQIcBAABCAAGBQJYdGjGAAoJELgmozMOVy/d0j4P+wYZMRVJWyAwYNf3plvxy1Rv
+Rl5C8bQi2Hc/RQh/DcImFQNSzkUzcq0+231+3B+6VdggAJSkIVSAy18PqhYny1VR
+X40K0632qWuuXqDe8qzEQU6ttyDVkq/BgT05DJO1HRrB9I9mu+B5P3dP5ZWdn3E/
+L7FTzdMh7Zu/ONgUNq7kMo7vaqKg6f4XZdj8p3a5gyXH0va1/liPm3Osq1bmJnu2
+JUa+aet4euF5rMdoLUFF+qRkb7GKAp55p0XrirBlF9juBFBqRdU39qSnwyFaEtXx
+nL97/m00nv5RwD5+yhKRIX7+npkcKT9oHlUk1kQwg/c62YPpQoHHp/bsPxQSwQsC
+RNd/oSEHJa0WBH9WEaWj+AuNYIFYSObMLrQBZbE4T/M0Eir9pD9ZeK2drnD+CzCH
+dvmyifm3ZZhzaQK3KUJQvI62RFy0eV33gPcoUEV5Qzi+5rgndT5SYWAdb5uLNboM
+bfaaS0X+16KcXfKaENW89luLOVFoBUZSG96Qf5mWUPnq6CqUgXem8METbIqTXRNG
+CS842nk98O3QF0JzEJaV1lAFxyg1KOnpSfgPsjfu/BaarnH0NjPbLzHKXa8golYj
+wy/mVFP+7MQusurIDmJFBcTurIY9p+najo72RtRlLTf+GsylXw/Kgu/fK7NzKiIA
+QhupHEeKrX3Vmdx2l7Mf
+=vObn
 -----END PGP SIGNATURE-----
 
---=-Vb/tK7rHbdqO4vFW/FVg--
+--=-9gVnIAHYtR+Y4ZuRldxl--
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
