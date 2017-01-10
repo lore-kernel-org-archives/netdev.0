@@ -1,7 +1,7 @@
 From: Andy Lutomirski <luto@kernel.org>
-Subject: [PATCH v2 8/8] crypto/testmgr: Allocate only the required output size for hash tests
-Date: Tue, 10 Jan 2017 15:24:46 -0800
-Message-ID: <890f4bdb28a1cf72f6b802b220b35ebaf0f76bb9.1484090585.git.luto@kernel.org>
+Subject: [PATCH v2 7/8] net: Rename TCA*BPF_DIGEST to ..._SHA256
+Date: Tue, 10 Jan 2017 15:24:45 -0800
+Message-ID: <f284a4d87cde103cd78de64b8607e3c80a17e2e5.1484090585.git.luto@kernel.org>
 References: <cover.1484090585.git.luto@kernel.org>
 Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>,
         Hannes Frederic Sowa <hannes@stressinduktion.org>,
@@ -11,85 +11,91 @@ Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>,
         Tom Herbert <tom@herbertland.com>,
         "David S. Miller" <davem@davemloft.net>,
         Andy Lutomirski <luto@kernel.org>,
-        Ard Biesheuvel <ard.biesheuvel@linaro.org>,
-        Herbert Xu <herbert@gondor.apana.org.au>
+        Alexei Starovoitov <ast@kernel.org>
 To: Daniel Borkmann <daniel@iogearbox.net>,
         Netdev <netdev@vger.kernel.org>,
         LKML <linux-kernel@vger.kernel.org>,
         Linux Crypto Mailing List <linux-crypto@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.kernel.org ([198.145.29.136]:50784 "EHLO mail.kernel.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S933192AbdAJXZE (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 10 Jan 2017 18:25:04 -0500
 In-Reply-To: <cover.1484090585.git.luto@kernel.org>
 In-Reply-To: <cover.1484090585.git.luto@kernel.org>
 References: <cover.1484090585.git.luto@kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-There are some hashes (e.g. sha224) that have some internal trickery
-to make sure that only the correct number of output bytes are
-generated.  If something goes wrong, they could potentially overrun
-the output buffer.
+This makes it easier to add another digest algorithm down the road if
+needed.  It also serves to force any programs that might have been
+written against a kernel that had the old field name to notice the
+change and make any necessary changes.
 
-Make the test more robust by allocating only enough space for the
-correct output size so that memory debugging will catch the error if
-the output is overrun.
+This shouldn't violate any stable API policies, as no released kernel
+has ever had TCA*BPF_DIGEST.
 
-Tested by intentionally breaking sha224 to output all 256
-internally-generated bits while running on KASAN.
-
-Cc: Ard Biesheuvel <ard.biesheuvel@linaro.org>
-Cc: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: Daniel Borkmann <daniel@iogearbox.net>
+Cc: Alexei Starovoitov <ast@kernel.org>
 Signed-off-by: Andy Lutomirski <luto@kernel.org>
 ---
- crypto/testmgr.c | 9 +++++----
- 1 file changed, 5 insertions(+), 4 deletions(-)
+ include/uapi/linux/pkt_cls.h       | 2 +-
+ include/uapi/linux/tc_act/tc_bpf.h | 2 +-
+ net/sched/act_bpf.c                | 2 +-
+ net/sched/cls_bpf.c                | 2 +-
+ 4 files changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/crypto/testmgr.c b/crypto/testmgr.c
-index f616ad74cce7..575fc28a9ab2 100644
---- a/crypto/testmgr.c
-+++ b/crypto/testmgr.c
-@@ -265,6 +265,7 @@ static int __test_hash(struct crypto_ahash *tfm, struct hash_testvec *template,
- 		       const int align_offset)
- {
- 	const char *algo = crypto_tfm_alg_driver_name(crypto_ahash_tfm(tfm));
-+	size_t digest_size = crypto_ahash_digestsize(tfm);
- 	unsigned int i, j, k, temp;
- 	struct scatterlist sg[8];
- 	char *result;
-@@ -275,7 +276,7 @@ static int __test_hash(struct crypto_ahash *tfm, struct hash_testvec *template,
- 	char *xbuf[XBUFSIZE];
- 	int ret = -ENOMEM;
+diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
+index cb4bcdc58543..ac6b300c1550 100644
+--- a/include/uapi/linux/pkt_cls.h
++++ b/include/uapi/linux/pkt_cls.h
+@@ -397,7 +397,7 @@ enum {
+ 	TCA_BPF_NAME,
+ 	TCA_BPF_FLAGS,
+ 	TCA_BPF_FLAGS_GEN,
+-	TCA_BPF_DIGEST,
++	TCA_BPF_SHA256,
+ 	__TCA_BPF_MAX,
+ };
  
--	result = kmalloc(MAX_DIGEST_SIZE, GFP_KERNEL);
-+	result = kmalloc(digest_size, GFP_KERNEL);
- 	if (!result)
- 		return ret;
- 	key = kmalloc(MAX_KEYLEN, GFP_KERNEL);
-@@ -305,7 +306,7 @@ static int __test_hash(struct crypto_ahash *tfm, struct hash_testvec *template,
- 			goto out;
+diff --git a/include/uapi/linux/tc_act/tc_bpf.h b/include/uapi/linux/tc_act/tc_bpf.h
+index a6b88a6f7f71..eae18a7430eb 100644
+--- a/include/uapi/linux/tc_act/tc_bpf.h
++++ b/include/uapi/linux/tc_act/tc_bpf.h
+@@ -27,7 +27,7 @@ enum {
+ 	TCA_ACT_BPF_FD,
+ 	TCA_ACT_BPF_NAME,
+ 	TCA_ACT_BPF_PAD,
+-	TCA_ACT_BPF_DIGEST,
++	TCA_ACT_BPF_SHA256,
+ 	__TCA_ACT_BPF_MAX,
+ };
+ #define TCA_ACT_BPF_MAX (__TCA_ACT_BPF_MAX - 1)
+diff --git a/net/sched/act_bpf.c b/net/sched/act_bpf.c
+index 1c60317f0121..3868a66d0b24 100644
+--- a/net/sched/act_bpf.c
++++ b/net/sched/act_bpf.c
+@@ -123,7 +123,7 @@ static int tcf_bpf_dump_ebpf_info(const struct tcf_bpf *prog,
+ 	    nla_put_string(skb, TCA_ACT_BPF_NAME, prog->bpf_name))
+ 		return -EMSGSIZE;
  
- 		j++;
--		memset(result, 0, MAX_DIGEST_SIZE);
-+		memset(result, 0, digest_size);
+-	nla = nla_reserve(skb, TCA_ACT_BPF_DIGEST,
++	nla = nla_reserve(skb, TCA_ACT_BPF_SHA256,
+ 			  sizeof(prog->filter->digest));
+ 	if (nla == NULL)
+ 		return -EMSGSIZE;
+diff --git a/net/sched/cls_bpf.c b/net/sched/cls_bpf.c
+index adc776048d1a..6fc110321621 100644
+--- a/net/sched/cls_bpf.c
++++ b/net/sched/cls_bpf.c
+@@ -555,7 +555,7 @@ static int cls_bpf_dump_ebpf_info(const struct cls_bpf_prog *prog,
+ 	    nla_put_string(skb, TCA_BPF_NAME, prog->bpf_name))
+ 		return -EMSGSIZE;
  
- 		hash_buff = xbuf[0];
- 		hash_buff += align_offset;
-@@ -380,7 +381,7 @@ static int __test_hash(struct crypto_ahash *tfm, struct hash_testvec *template,
- 			continue;
+-	nla = nla_reserve(skb, TCA_BPF_DIGEST, sizeof(prog->filter->digest));
++	nla = nla_reserve(skb, TCA_BPF_SHA256, sizeof(prog->filter->digest));
+ 	if (nla == NULL)
+ 		return -EMSGSIZE;
  
- 		j++;
--		memset(result, 0, MAX_DIGEST_SIZE);
-+		memset(result, 0, digest_size);
- 
- 		temp = 0;
- 		sg_init_table(sg, template[i].np);
-@@ -458,7 +459,7 @@ static int __test_hash(struct crypto_ahash *tfm, struct hash_testvec *template,
- 			continue;
- 
- 		j++;
--		memset(result, 0, MAX_DIGEST_SIZE);
-+		memset(result, 0, digest_size);
- 
- 		ret = -EINVAL;
- 		hash_buff = xbuf[0];
 -- 
 2.9.3
