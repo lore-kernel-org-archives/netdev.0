@@ -1,73 +1,111 @@
-From: Juergen Gross <jgross@suse.com>
-Subject: Re: [PATCH 1/2] xen/netfront: set default upper limit of tx/rx queues
- to 8
-Date: Tue, 10 Jan 2017 16:02:44 +0100
-Message-ID: <beec31a2-94a4-8244-ab4b-806773645976@suse.com>
-References: <20170110133252.5346-1-jgross@suse.com>
- <20170110133252.5346-2-jgross@suse.com>
- <3ae4da4f-6a6a-db95-67a3-c0fba5524df1@oracle.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH] vhost: scsi: constify target_core_fabric_ops structures
+Date: Tue, 10 Jan 2017 17:13:27 +0200
+Message-ID: <20170110171201-mutt-send-email-mst@kernel.org>
+References: <1483975262-1260-1-git-send-email-bhumirks@gmail.com>
+	<20170110071054-mutt-send-email-mst@kernel.org>
+	<CAOH+1jG4xohEaTTcgXPq2SA6T8yM-Q8oMEMS3iwyp+0RQnxkUg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: wei.liu2@citrix.com, paul.durrant@citrix.com
-To: Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-        linux-kernel@vger.kernel.org, xen-devel@lists.xenproject.org,
-        netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:49088 "EHLO mx2.suse.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932881AbdAJPCs (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 10 Jan 2017 10:02:48 -0500
-In-Reply-To: <3ae4da4f-6a6a-db95-67a3-c0fba5524df1@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kvm@vger.kernel.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: Bhumika Goyal <bhumirks@gmail.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <CAOH+1jG4xohEaTTcgXPq2SA6T8yM-Q8oMEMS3iwyp+0RQnxkUg@mail.gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 10/01/17 15:53, Boris Ostrovsky wrote:
-> On 01/10/2017 08:32 AM, Juergen Gross wrote:
->> The default for the number of tx/rx queues of one interface is the
->> number of vcpus of the system today. As each queue pair reserves 512
->> grant pages this default consumes a ridiculous number of grants for
->> large guests.
->>
->> Limit the queue number to 8 as default. This value can be modified
->> via a module parameter if required.
->>
->> Signed-off-by: Juergen Gross <jgross@suse.com>
->> ---
->>  drivers/net/xen-netfront.c | 6 ++++--
->>  1 file changed, 4 insertions(+), 2 deletions(-)
->>
->> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
->> index a479cd9..490c865 100644
->> --- a/drivers/net/xen-netfront.c
->> +++ b/drivers/net/xen-netfront.c
->> @@ -57,6 +57,7 @@
->>  #include <xen/interface/grant_table.h>
->>  
->>  /* Module parameters */
->> +#define MAX_QUEUES_DEFAULT 8
->>  static unsigned int xennet_max_queues;
->>  module_param_named(max_queues, xennet_max_queues, uint, 0644);
->>  MODULE_PARM_DESC(max_queues,
->> @@ -2164,11 +2165,12 @@ static int __init netif_init(void)
->>  
->>  	pr_info("Initialising Xen virtual ethernet driver\n");
->>  
->> -	/* Allow as many queues as there are CPUs if user has not
->> +	/* Allow as many queues as there are CPUs inut max. 8 if user has not
+On Tue, Jan 10, 2017 at 06:11:25PM +0530, Bhumika Goyal wrote:
+> On Tue, Jan 10, 2017 at 10:41 AM, Michael S. Tsirkin <mst@redhat.com> wrote:
+> > On Mon, Jan 09, 2017 at 08:51:02PM +0530, Bhumika Goyal wrote:
+> >> Declare target_core_fabric_ops strucrues as const as they are only
+> >> passed as an argument to the functions target_register_template and
+> >> target_unregister_template. The arguments are of type const struct
+> >> target_core_fabric_ops *, so target_core_fabric_ops structures having
+> >> this property can be declared const.
+> >> Done using Coccinelle:
+> >>
+> >> @r disable optional_qualifier@
+> >> identifier i;
+> >> position p;
+> >> @@
+> >> static struct target_core_fabric_ops i@p={...};
+> >>
+> >> @ok@
+> >> position p;
+> >> identifier r.i;
+> >> @@
+> >> (
+> >> target_register_template(&i@p)
+> >> |
+> >> target_unregister_template(&i@p)
+> >> )
+> >> @bad@
+> >> position p!={r.p,ok.p};
+> >> identifier r.i;
+> >> @@
+> >> i@p
+> >>
+> >> @depends on !bad disable optional_qualifier@
+> >> identifier r.i;
+> >> @@
+> >> +const
+> >> struct target_core_fabric_ops i;
+> >>
+> >> File size before: drivers/vhost/scsi.o
+> >>    text          data     bss     dec     hex filename
+> >>   18063          2985      40   21088    5260 drivers/vhost/scsi.o
+> >>
+> >> File size after: drivers/vhost/scsi.o
+> >>    text          data     bss     dec     hex filename
+> >>   18479          2601      40   21120    5280 drivers/vhost/scsi.o
+> >
+> > What are these numbers trying to prove?
+> >
 > 
-> Based on comment change in the second patch: s/inut/but/ ? Also, comment
-> style in both patches.
-
-Typo: yes
-Style: no. checkpatch tells me that the net directory doesn't follow
-common kernel style.
-
+> These numbers show that adding const has decreased the size of the
+> data segment and increased the size of the text segment, suggesting
+> that the changed code has been compiled and the const annotation has
+> had an effect.
 > 
-> Other than that, for both:
-> 
-> Reviewed-by: Boris Ostrovsky <boris.ostrovsky@oracle.com>
+> Thanks,
+> Bhumika
 
-Thanks,
+I wonder why there's a net increase in memory consumption though.
 
-Juergen
+
+> >
+> >> Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
+> >> ---
+> >>  drivers/vhost/scsi.c | 2 +-
+> >>  1 file changed, 1 insertion(+), 1 deletion(-)
+> >>
+> >> diff --git a/drivers/vhost/scsi.c b/drivers/vhost/scsi.c
+> >> index 253310c..620366d 100644
+> >> --- a/drivers/vhost/scsi.c
+> >> +++ b/drivers/vhost/scsi.c
+> >> @@ -2087,7 +2087,7 @@ static void vhost_scsi_drop_tport(struct se_wwn *wwn)
+> >>       NULL,
+> >>  };
+> >>
+> >> -static struct target_core_fabric_ops vhost_scsi_ops = {
+> >> +static const struct target_core_fabric_ops vhost_scsi_ops = {
+> >>       .module                         = THIS_MODULE,
+> >>       .name                           = "vhost",
+> >>       .get_fabric_name                = vhost_scsi_get_fabric_name,
+> >
+> > If it can be const it probably should ...
+> >
+> >> --
+> >> 1.9.1
