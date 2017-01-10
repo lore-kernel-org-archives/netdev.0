@@ -1,148 +1,81 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [net PATCH] net: virtio: cap mtu when XDP programs are running
-Date: Mon, 9 Jan 2017 20:25:43 -0800
-Message-ID: <58746247.604@gmail.com>
-References: <586D458F.5050705@gmail.com>
- <068f0116-b37e-eb44-8c60-1781a9d5255e@redhat.com>
- <20170110010531-mutt-send-email-mst@kernel.org> <5874190B.9050505@gmail.com>
- <20170110012044-mutt-send-email-mst@kernel.org> <58742187.8050505@gmail.com>
- <20170110015759-mutt-send-email-mst@kernel.org>
- <9102bb4b-223a-d441-7546-8b4144d970fb@redhat.com>
- <20170110044910-mutt-send-email-mst@kernel.org> <5874555A.3070307@gmail.com>
- <20170110055023-mutt-send-email-mst@kernel.org>
+From: Doug Ledford <dledford@redhat.com>
+Subject: Re: [for-next V2 00/10][pull request] Mellanox 100G mlx5 4K UAR
+ support
+Date: Mon, 09 Jan 2017 23:29:22 -0500
+Message-ID: <1484022562.2149.5.camel@redhat.com>
+References: <1483890891-8767-1-git-send-email-saeedm@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Jason Wang <jasowang@redhat.com>, john.r.fastabend@intel.com,
-        netdev@vger.kernel.org, alexei.starovoitov@gmail.com,
-        daniel@iogearbox.net
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Content-Type: multipart/signed; micalg="pgp-sha256";
+        protocol="application/pgp-signature"; boundary="=-Vb/tK7rHbdqO4vFW/FVg"
+Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
+        Leon Romanovsky <leonro@mellanox.com>,
+        Eli Cohen <eli@mellanox.com>, Matan Barak <matanb@mellanox.com>
+To: Saeed Mahameed <saeedm@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:35220 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752779AbdAJEZ7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 23:25:59 -0500
-Received: by mail-pf0-f195.google.com with SMTP id f144so7862204pfa.2
-        for <netdev@vger.kernel.org>; Mon, 09 Jan 2017 20:25:59 -0800 (PST)
-In-Reply-To: <20170110055023-mutt-send-email-mst@kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:56160 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1764760AbdAJE3Y (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 9 Jan 2017 23:29:24 -0500
+In-Reply-To: <1483890891-8767-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17-01-09 07:55 PM, Michael S. Tsirkin wrote:
-> On Mon, Jan 09, 2017 at 07:30:34PM -0800, John Fastabend wrote:
->> On 17-01-09 06:51 PM, Michael S. Tsirkin wrote:
->>> On Tue, Jan 10, 2017 at 10:29:39AM +0800, Jason Wang wrote:
->>>>
->>>>
->>>> On 2017年01月10日 07:58, Michael S. Tsirkin wrote:
->>>>> On Mon, Jan 09, 2017 at 03:49:27PM -0800, John Fastabend wrote:
->>>>>> On 17-01-09 03:24 PM, Michael S. Tsirkin wrote:
->>>>>>> On Mon, Jan 09, 2017 at 03:13:15PM -0800, John Fastabend wrote:
->>>>>>>> On 17-01-09 03:05 PM, Michael S. Tsirkin wrote:
->>>>>>>>> On Thu, Jan 05, 2017 at 11:09:14AM +0800, Jason Wang wrote:
->>>>>>>>>> On 2017年01月05日 02:57, John Fastabend wrote:
->>>>>>>>>>> [...]
->>>>>>>>>>>
->>>>>>>>>>>> On 2017年01月04日 00:48, John Fastabend wrote:
->>>>>>>>>>>>> On 17-01-02 10:14 PM, Jason Wang wrote:
->>>>>>>>>>>>>> On 2017年01月03日 06:30, John Fastabend wrote:
->>>>>>>>>>>>>>> XDP programs can not consume multiple pages so we cap the MTU to
->>>>>>>>>>>>>>> avoid this case. Virtio-net however only checks the MTU at XDP
->>>>>>>>>>>>>>> program load and does not block MTU changes after the program
->>>>>>>>>>>>>>> has loaded.
->>>>>>>>>>>>>>>
->>>>>>>>>>>>>>> This patch sets/clears the max_mtu value at XDP load/unload time.
->>>>>>>>>>>>>>>
->>>>>>>>>>>>>>> Signed-off-by: John Fastabend<john.r.fastabend@intel.com>
->>>>>>>>>>>>>>> ---
->>>>>>>>>>> [...]
->>>>>>>>>>>
->>>>>>>>>>>>> OK so this logic is a bit too simply. When it resets the max_mtu I guess it
->>>>>>>>>>>>> needs to read the mtu via
->>>>>>>>>>>>>
->>>>>>>>>>>>>       virtio_cread16(vdev, ...)
->>>>>>>>>>>>>
->>>>>>>>>>>>> or we may break the negotiated mtu.
->>>>>>>>>>>> Yes, this is a problem (even use ETH_MAX_MTU). We may need a method to notify
->>>>>>>>>>>> the device about the mtu in this case which is not supported by virtio now.
->>>>>>>>>>> Note this is not really a XDP specific problem. The guest can change the MTU
->>>>>>>>>>> after init time even without XDP which I assume should ideally result in a
->>>>>>>>>>> notification if the MTU is negotiated.
->>>>>>>>>> Yes, Michael, do you think we need add some mechanism to notify host about
->>>>>>>>>> MTU change in this case?
->>>>>>>>>>
->>>>>>>>>> Thanks
->>>>>>>>> Why does host care?
->>>>>>>>>
->>>>>>>> Well the guest will drop packets after mtu has been reduced.
->>>>>>> I didn't know. What place in code does this?
->>>>>>>
->>>>>> hmm in many of the drivers it is convention to use the mtu to set the rx
->>>>>> buffer sizes and a receive side max length filter. For example in the Intel
->>>>>> drivers if a packet with length greater than MTU + some headroom is received we
->>>>>> drop it. I guess in the networking stack RX path though nothing forces this and
->>>>>> virtio doesn't have any code to drop packets on rx size.
->>>>>>
->>>>>> In virtio I don't see any existing case currently. In the XDP case though we
->>>>>> need to ensure packets fit in a page for the time being which is why I was
->>>>>> looking at this code and generated this patch.
->>>>> I'd say just look at the hardware max mtu. Ignore the configured mtu.
->>>>>
->>>>>
->>>>
->>>> Does this work for small buffers consider it always allocate skb with size
->>>> of GOOD_PACKET_LEN?
->>>
->>> Spec says hardware won't send in packets > max mtu in config space.
->>>
->>>> I think in any case, we should limit max_mtu to
->>>> GOOD_PACKET_LEN for small buffers.
->>>>
->>>> Thanks
->>>
->>> XDP seems to have a bunch of weird restrictions, I just
->>> do not like it that the logic spills out to all drivers.
->>> What if someone decides to extend it to two pages in the future?
->>> Recode it all in all drivers ...
->>>
->>> Why can't net core enforce mtu?
->>>
->>
->> OK I agree I'll put most the logic in rtnetlink.c when the program is added
->> or removed.
->>
->> But, I'm looking at the non-XDP receive_small path now and wondering how does
->> multiple buffer receives work (e.g. packet larger than GOOD_PACKET_LEN?)
-> 
-> I don't understand the question. Look at add_recvbuf_small,
-> it adds a tiny buffer for head and then the skb.
-> 
 
-Specifically this seems to fail with mergeable buffers disabled
+--=-Vb/tK7rHbdqO4vFW/FVg
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-On the host:
+On Sun, 2017-01-08 at 17:54 +0200, Saeed Mahameed wrote:
+> Hi Dave and Doug,
+>=20
+> Following the mlx5-odp submission, you can find here the 2nd mlx5
+> submission for 4.11 as a pull-request including mlx5 4K UAR support
+> from
+> Eli Cohen (details below).=C2=A0=C2=A0For you Doug, this pull request wil=
+l
+> provide=C2=A0
+> you with both mlx5 odp and mlx5 4k UAR since it is based on Dave's
+> net-next mlx5-odp merge commit.
+>=20
+> v1->v2:
+> =C2=A0 - Removed 64BIT arch dependency.
+>=20
+> Thank you,
+> Saeed.
+>=C2=A0
 
-# ip link set dev tap0 mtu 9000
-# ping 22.2 -s 2048
+I know you have a couple issues to fix on respin (minor things as
+pointed out). =C2=A0Otherwise, I've reviewed of the IB portion of the code
+and have no objections.
 
-On the guest:
+--=20
+Doug Ledford <dledford@redhat.com>
+=C2=A0 =C2=A0 GPG KeyID: B826A3330E572FDD
+=C2=A0 =C2=A0
+Key fingerprint =3D AE6B 1BDA 122B 23B4 265B =C2=A01274 B826 A333 0E57 2FDD
 
-# insmod ./drivers/net/virtio_net.ko
-# ip link set dev eth0 mtu 9000
+--=-Vb/tK7rHbdqO4vFW/FVg
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
-With mergeable buffers enabled no problems it works as I expect at least.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
 
+iQIcBAABCAAGBQJYdGMiAAoJELgmozMOVy/d9doP+wWhPO3DoU69rbUqVqRwj/qq
+VSna6IxHdla5nrKGAnvF20HgWXxQ4D8JRk7RUtDKzHcmyTQf24S/kiBbDbF1AVNi
+q1WD7eeiJ1EK1ytacVgaqgHJ8H2Sse4Qo3NYWiRizI/64CgWJsnAWnoa06qAFOMd
+/w9VHObD3CwFBsiXQs6JgHZUoAfSVKPdUlJdvWqRwhaZpLHUC6SL0Wqji2JJqx1Z
++NEmp74FLdDmms8e0npbzNOJXfRs8n4ysXVQaeJK4N5W+nq/ZYXJyInhkunpLrbz
+Z5FJv7PmmFs6uERJbgrKniGONGXv1jBfsM3LGaDYY2h93QXxc7Mp9m9LANLK1WwT
+lAgCxhN+tJRwVZgxR0XDju60l/3EX5dxrxyGZl3tiKtalGbwG+FEkdC5PYC8POEk
+qjFLwvyLHHmP1YNn6ayqeDwZ4+XEtw7/DzM3mfdOy0IXvdRZwSfljkcUKPN8egFK
+0X1Qn5le923dYPMTD+YhlC7EFZO6Ump95Ua0Rj4o01Ozd0MMFlflyLjXzPnWNEZi
+dVJqkkLYHgdO0r5HxdVWkT1t2F+fWJO9bTjJ5adH+p95KqqwD6+ZPwjmnWv21i1y
+7lUjEfUFbuFBBCgH8wFlkG7EevyLEIqPNf4wdSOYCrWBe6UTGcEXfPJh079e2UQ3
+P9BIaMrob1sfBAReAag/
+=HgS+
+-----END PGP SIGNATURE-----
 
-> 
->> I think
->> this is what Jason is looking at as well? The mergeable case clearly looks at
->> num_bufs in the descriptor to construct multi-buffer packets but nothing like
->> that exists in the small_receive path as best I can tell.
->>
->> .John
-> 
-> There's always a single buffer there.
-> BTW it was always a legacy path but if it's now important for people we
-> should probably check ANY_LAYOUT and put header linearly with the packet
-> if there.
-> 
+--=-Vb/tK7rHbdqO4vFW/FVg--
