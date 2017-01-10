@@ -1,131 +1,156 @@
-From: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [for-next V3 00/10][pull request] Mellanox 100G mlx5 4K UAR
- support
-Date: Mon, 09 Jan 2017 23:53:26 -0500
-Message-ID: <1484024006.2149.11.camel@redhat.com>
-References: <1483988453-28551-1-git-send-email-saeedm@mellanox.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [net PATCH] net: virtio: cap mtu when XDP programs are running
+Date: Tue, 10 Jan 2017 07:00:57 +0200
+Message-ID: <20170110065056-mutt-send-email-mst@kernel.org>
+References: <20170110010531-mutt-send-email-mst@kernel.org>
+ <5874190B.9050505@gmail.com>
+ <20170110012044-mutt-send-email-mst@kernel.org>
+ <58742187.8050505@gmail.com>
+ <20170110015759-mutt-send-email-mst@kernel.org>
+ <9102bb4b-223a-d441-7546-8b4144d970fb@redhat.com>
+ <20170110044910-mutt-send-email-mst@kernel.org>
+ <5874555A.3070307@gmail.com>
+ <20170110055023-mutt-send-email-mst@kernel.org>
+ <58746247.604@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha256";
-        protocol="application/pgp-signature"; boundary="=-9gVnIAHYtR+Y4ZuRldxl"
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1483988453-28551-1-git-send-email-saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Jason Wang <jasowang@redhat.com>, john.r.fastabend@intel.com,
+        netdev@vger.kernel.org, alexei.starovoitov@gmail.com,
+        daniel@iogearbox.net
+To: John Fastabend <john.fastabend@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:58814 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750701AbdAJFA7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 10 Jan 2017 00:00:59 -0500
+Content-Disposition: inline
+In-Reply-To: <58746247.604@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Mon, Jan 09, 2017 at 08:25:43PM -0800, John Fastabend wrote:
+> On 17-01-09 07:55 PM, Michael S. Tsirkin wrote:
+> > On Mon, Jan 09, 2017 at 07:30:34PM -0800, John Fastabend wrote:
+> >> On 17-01-09 06:51 PM, Michael S. Tsirkin wrote:
+> >>> On Tue, Jan 10, 2017 at 10:29:39AM +0800, Jason Wang wrote:
+> >>>>
+> >>>>
+> >>>> On 2017年01月10日 07:58, Michael S. Tsirkin wrote:
+> >>>>> On Mon, Jan 09, 2017 at 03:49:27PM -0800, John Fastabend wrote:
+> >>>>>> On 17-01-09 03:24 PM, Michael S. Tsirkin wrote:
+> >>>>>>> On Mon, Jan 09, 2017 at 03:13:15PM -0800, John Fastabend wrote:
+> >>>>>>>> On 17-01-09 03:05 PM, Michael S. Tsirkin wrote:
+> >>>>>>>>> On Thu, Jan 05, 2017 at 11:09:14AM +0800, Jason Wang wrote:
+> >>>>>>>>>> On 2017年01月05日 02:57, John Fastabend wrote:
+> >>>>>>>>>>> [...]
+> >>>>>>>>>>>
+> >>>>>>>>>>>> On 2017年01月04日 00:48, John Fastabend wrote:
+> >>>>>>>>>>>>> On 17-01-02 10:14 PM, Jason Wang wrote:
+> >>>>>>>>>>>>>> On 2017年01月03日 06:30, John Fastabend wrote:
+> >>>>>>>>>>>>>>> XDP programs can not consume multiple pages so we cap the MTU to
+> >>>>>>>>>>>>>>> avoid this case. Virtio-net however only checks the MTU at XDP
+> >>>>>>>>>>>>>>> program load and does not block MTU changes after the program
+> >>>>>>>>>>>>>>> has loaded.
+> >>>>>>>>>>>>>>>
+> >>>>>>>>>>>>>>> This patch sets/clears the max_mtu value at XDP load/unload time.
+> >>>>>>>>>>>>>>>
+> >>>>>>>>>>>>>>> Signed-off-by: John Fastabend<john.r.fastabend@intel.com>
+> >>>>>>>>>>>>>>> ---
+> >>>>>>>>>>> [...]
+> >>>>>>>>>>>
+> >>>>>>>>>>>>> OK so this logic is a bit too simply. When it resets the max_mtu I guess it
+> >>>>>>>>>>>>> needs to read the mtu via
+> >>>>>>>>>>>>>
+> >>>>>>>>>>>>>       virtio_cread16(vdev, ...)
+> >>>>>>>>>>>>>
+> >>>>>>>>>>>>> or we may break the negotiated mtu.
+> >>>>>>>>>>>> Yes, this is a problem (even use ETH_MAX_MTU). We may need a method to notify
+> >>>>>>>>>>>> the device about the mtu in this case which is not supported by virtio now.
+> >>>>>>>>>>> Note this is not really a XDP specific problem. The guest can change the MTU
+> >>>>>>>>>>> after init time even without XDP which I assume should ideally result in a
+> >>>>>>>>>>> notification if the MTU is negotiated.
+> >>>>>>>>>> Yes, Michael, do you think we need add some mechanism to notify host about
+> >>>>>>>>>> MTU change in this case?
+> >>>>>>>>>>
+> >>>>>>>>>> Thanks
+> >>>>>>>>> Why does host care?
+> >>>>>>>>>
+> >>>>>>>> Well the guest will drop packets after mtu has been reduced.
+> >>>>>>> I didn't know. What place in code does this?
+> >>>>>>>
+> >>>>>> hmm in many of the drivers it is convention to use the mtu to set the rx
+> >>>>>> buffer sizes and a receive side max length filter. For example in the Intel
+> >>>>>> drivers if a packet with length greater than MTU + some headroom is received we
+> >>>>>> drop it. I guess in the networking stack RX path though nothing forces this and
+> >>>>>> virtio doesn't have any code to drop packets on rx size.
+> >>>>>>
+> >>>>>> In virtio I don't see any existing case currently. In the XDP case though we
+> >>>>>> need to ensure packets fit in a page for the time being which is why I was
+> >>>>>> looking at this code and generated this patch.
+> >>>>> I'd say just look at the hardware max mtu. Ignore the configured mtu.
+> >>>>>
+> >>>>>
+> >>>>
+> >>>> Does this work for small buffers consider it always allocate skb with size
+> >>>> of GOOD_PACKET_LEN?
+> >>>
+> >>> Spec says hardware won't send in packets > max mtu in config space.
+> >>>
+> >>>> I think in any case, we should limit max_mtu to
+> >>>> GOOD_PACKET_LEN for small buffers.
+> >>>>
+> >>>> Thanks
+> >>>
+> >>> XDP seems to have a bunch of weird restrictions, I just
+> >>> do not like it that the logic spills out to all drivers.
+> >>> What if someone decides to extend it to two pages in the future?
+> >>> Recode it all in all drivers ...
+> >>>
+> >>> Why can't net core enforce mtu?
+> >>>
+> >>
+> >> OK I agree I'll put most the logic in rtnetlink.c when the program is added
+> >> or removed.
+> >>
+> >> But, I'm looking at the non-XDP receive_small path now and wondering how does
+> >> multiple buffer receives work (e.g. packet larger than GOOD_PACKET_LEN?)
+> > 
+> > I don't understand the question. Look at add_recvbuf_small,
+> > it adds a tiny buffer for head and then the skb.
+> > 
+> 
+> Specifically this seems to fail with mergeable buffers disabled
+> 
+> On the host:
+> 
+> # ip link set dev tap0 mtu 9000
+> # ping 22.2 -s 2048
+> 
+> On the guest:
+> 
+> # insmod ./drivers/net/virtio_net.ko
+> # ip link set dev eth0 mtu 9000
 
---=-9gVnIAHYtR+Y4ZuRldxl
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: base64
+Why would it work? You are sending a packet larger than ethernet MTU.
 
-T24gTW9uLCAyMDE3LTAxLTA5IGF0IDIxOjAwICswMjAwLCBTYWVlZCBNYWhhbWVlZCB3cm90ZToK
-PiBIaSBEYXZlIGFuZCBEb3VnLAo+IAo+IEZvbGxvd2luZyB0aGUgbWx4NS1vZHAgc3VibWlzc2lv
-biwgeW91IGNhbiBmaW5kIGhlcmUgdGhlIDJuZCBtbHg1Cj4gc3VibWlzc2lvbiBmb3IgNC4xMSBh
-cyBhIHB1bGwtcmVxdWVzdCBpbmNsdWRpbmcgbWx4NSA0SyBVQVIgc3VwcG9ydAo+IGZyb20KPiBF
-bGkgQ29oZW4gKGRldGFpbHMgYmVsb3cpLsKgwqBGb3IgeW91IERvdWcsIHRoaXMgcHVsbCByZXF1
-ZXN0IHdpbGwKPiBwcm92aWRlCj4geW91IHdpdGggYm90aCBtbHg1IG9kcCBhbmQgbWx4NSA0ayBV
-QVIgc2luY2UgaXQgaXMgYmFzZWQgb24gRGF2ZSdzCj4gbmV0LW5leHQgbWx4NS1vZHAgbWVyZ2Ug
-Y29tbWl0Lgo+IAo+IHYxLT52MjoKPiDCoCAtIFJlbW92ZWQgNjRCSVQgYXJjaCBkZXBlbmRlbmN5
-Lgo+IHYyLT52MzoKPiDCoCAtIFJlbW92ZWQgZXh0cmEgc3BhY2UuCj4gCj4gVGhhbmsgeW91LAo+
-IFNhZWVkLgo+IAo+IFRoZSBmb2xsb3dpbmcgY2hhbmdlcyBzaW5jZSBjb21taXQKPiA1MjVkZmEy
-Y2RjZTRmNWFiNzYyNTFiNWU1N2ViYWJmNGYyZGZjNDBjOgo+IAo+IMKgIE1lcmdlIGJyYW5jaCAn
-bWx4NS1vZHAnICgyMDE3LTAxLTAyIDE1OjUxOjIxIC0wNTAwKQoKVGhpcyBiYXNlIGNvbW1pdCBs
-b29rcyBoYXJtbGVzcyBlbm91Z2gsIGJ1dCBzaW5jZSBpdCdzIGxpa2VseSBqdXN0IGEKY29tbWl0
-IGluIHlvdXIgdHJlZSwgaXQgaXNuJ3QgcmVhbGx5IGEgY2xlYXIgaW5kaWNhdG9yIG9mIGhvdyB5
-b3Ugc2V0CnRoaXMgdHJlZSB1cC4uLi4KCj4gYXJlIGF2YWlsYWJsZSBpbiB0aGUgZ2l0IHJlcG9z
-aXRvcnkgYXQ6Cj4gCj4gwqAgZ2l0Oi8vZ2l0Lmtlcm5lbC5vcmcvcHViL3NjbS9saW51eC9rZXJu
-ZWwvZ2l0L21lbGxhbm94L2xpbnV4LmdpdAo+IHRhZ3MvbWx4NS00a3Vhci1mb3ItNC4xMQo+IAo+
-IGZvciB5b3UgdG8gZmV0Y2ggY2hhbmdlcyB1cCB0bwo+IGY1MDJkODM0OTUwYTI4ZTAyNjUxYmI3
-ZTJjYzcxMTFkZGQzNTI2NDQ6Cj4gCj4gwqAgbmV0L21seDU6IEFjdGl2YXRlIHN1cHBvcnQgZm9y
-IDRLIFVBUnMgKDIwMTctMDEtMDkgMjA6MjU6MTAgKzAyMDApCgpCdXQgb25jZSBJIHB1bGxlZCB0
-aGlzLCBpdCBiZWNhbWUgY2xlYXIgeW91IGd1eXMgYmFzZWQgeW91ciB0cmVlIG9uIGEKbmV0LW5l
-eHQgc3RhcnRpbmcgcG9pbnQuIMKgWW91IG5lZWQgdG8gbWFrZSB0aGF0IGNsZWFyIGluIHRoZSBi
-ZWdpbm5pbmcuCsKgQW5kIHVubGVzcyB5b3UgY2FuJ3QgYXZvaWQgaXQsIGRvbid0IGRvIGl0LiDC
-oEkgZG9uJ3QgbGlrZSBoYXZpbmcgdG8KcHVsbCBpbiBEYXZlJ3MgbmV0LW5leHQgYmVmb3JlIEkg
-cHVsbCB5b3VyIGNvZGUgYmVjYXVzZSBpdCBtZWFucyBJCmNhbid0IHN1Ym1pdCBteSBwdWxsIHJl
-cXVlc3QgdG8gTGludXMgZHVyaW5nIHRoZSBtZXJnZSB3aW5kb3cgYXMgYQpzaW5nbGUgcHVsbCBy
-ZXF1ZXN0LCBJIGhhdmUgdG8gc3BsaXQgaXQgdXAgdG8gYmUgdGhlIHN0dWZmIHRoYXQgaXMKYmFz
-ZWQgb24gbmV0LW5leHQgYW5kIHRoZSBzdHVmZiBiYXNlZCBvbiBteSBvd24gbmV4dCBhcmVhLgoK
-PsKgCj4gLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLQo+IEVsaSBDb2hlbiAoMTApOgo+IMKgwqDCoMKgwqDCoElCL21seDU6IEZp
-eCBrZXJuZWwgdG8gdXNlciBsZWFrIHByZXZlbnRpb24gbG9naWMKPiDCoMKgwqDCoMKgwqBJQi9t
-bHg1OiBGaXggZXJyb3IgaGFuZGxpbmcgb3JkZXIgaW4gY3JlYXRlX2tlcm5lbF9xcAo+IMKgwqDC
-oMKgwqDCoG1seDU6IEZpeCBuYW1pbmcgY29udmVudGlvbiB3aXRoIHJlc3BlY3QgdG8gVUFScwo+
-IMKgwqDCoMKgwqDCoElCL21seDU6IEZpeCByZXRyaWV2YWwgb2YgaW5kZXggdG8gZmlyc3QgaGkg
-Y2xhc3MgYmZyZWcKPiDCoMKgwqDCoMKgwqBuZXQvbWx4NTogSW50cm9kdWNlIGJsdWUgZmxhbWUg
-cmVnaXN0ZXIgYWxsb2NhdG9yCj4gwqDCoMKgwqDCoMKgbmV0L21seDU6IEFkZCBpbnRlcmZhY2Ug
-dG8gZ2V0IHJlZmVyZW5jZSB0byBhIFVBUgo+IMKgwqDCoMKgwqDCoElCL21seDU6IFVzZSBibHVl
-IGZsYW1lIHJlZ2lzdGVyIGFsbG9jYXRvciBpbiBtbHg1X2liCj4gwqDCoMKgwqDCoMKgSUIvbWx4
-NTogQWxsb3cgZnV0dXJlIGV4dGVuc2lvbiBvZiBsaWJtbHg1IGlucHV0IGRhdGEKPiDCoMKgwqDC
-oMKgwqBJQi9tbHg1OiBTdXBwb3J0IDRrIFVBUiBmb3IgbGlibWx4NQo+IMKgwqDCoMKgwqDCoG5l
-dC9tbHg1OiBBY3RpdmF0ZSBzdXBwb3J0IGZvciA0SyBVQVJzCj4gCj4gwqBkcml2ZXJzL2luZmlu
-aWJhbmQvaHcvbWx4NS9jcS5jwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
-oHzCoMKgMTAgKy0KPiDCoGRyaXZlcnMvaW5maW5pYmFuZC9ody9tbHg1L21haW4uY8KgwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoHwgMjc4ICsrKysrKysrKystCj4gLS0tLS0KPiDC
-oGRyaXZlcnMvaW5maW5pYmFuZC9ody9tbHg1L21seDVfaWIuaMKgwqDCoMKgwqDCoMKgwqDCoMKg
-wqDCoMKgwqDCoHzCoMKgMzIgKy0KPiDCoGRyaXZlcnMvaW5maW5pYmFuZC9ody9tbHg1L3FwLmPC
-oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgfCAyOTAgKysrKysrKy0tCj4g
-LS0tLS0tLS0KPiDCoGRyaXZlcnMvbmV0L2V0aGVybmV0L21lbGxhbm94L21seDUvY29yZS9jcS5j
-wqDCoMKgwqDCoMKgwqB8wqDCoMKgMiArCj4gwqBkcml2ZXJzL25ldC9ldGhlcm5ldC9tZWxsYW5v
-eC9tbHg1L2NvcmUvZW4uaMKgwqDCoMKgwqDCoMKgfMKgwqAxMSArLQo+IMKgLi4uL25ldC9ldGhl
-cm5ldC9tZWxsYW5veC9tbHg1L2NvcmUvZW5fY29tbW9uLmPCoMKgwqDCoHzCoMKgMTIgKy0KPiDC
-oGRyaXZlcnMvbmV0L2V0aGVybmV0L21lbGxhbm94L21seDUvY29yZS9lbl9tYWluLmPCoMKgfMKg
-wqAyMSArLQo+IMKgZHJpdmVycy9uZXQvZXRoZXJuZXQvbWVsbGFub3gvbWx4NS9jb3JlL2VxLmPC
-oMKgwqDCoMKgwqDCoHzCoMKgMTQgKy0KPiDCoGRyaXZlcnMvbmV0L2V0aGVybmV0L21lbGxhbm94
-L21seDUvY29yZS9tYWluLmPCoMKgwqDCoMKgfMKgwqAyNiArLQo+IMKgZHJpdmVycy9uZXQvZXRo
-ZXJuZXQvbWVsbGFub3gvbWx4NS9jb3JlL3Vhci5jwqDCoMKgwqDCoMKgfCAzNTEKPiArKysrKysr
-KysrKysrLS0tLS0tLS0KPiDCoGluY2x1ZGUvbGludXgvbWx4NS9jcS5owqDCoMKgwqDCoMKgwqDC
-oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqB8wqDCoMKgNSArLQo+IMKg
-aW5jbHVkZS9saW51eC9tbHg1L2RldmljZS5owqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgfMKgwqAyMyArLQo+IMKgaW5jbHVkZS9saW51eC9tbHg1L2Rvb3Ji
-ZWxsLmjCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoHzCoMKgwqA2
-ICstCj4gwqBpbmNsdWRlL2xpbnV4L21seDUvZHJpdmVyLmjCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqB8wqDCoDgxICsrLS0tCj4gwqBpbmNsdWRlL2xpbnV4
-L21seDUvbWx4NV9pZmMuaMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
-oMKgfMKgwqDCoDcgKy0KPiDCoGluY2x1ZGUvdWFwaS9yZG1hL21seDUtYWJpLmjCoMKgwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgfMKgwqAxOSArLQo+IMKgMTcgZmls
-ZXMgY2hhbmdlZCwgNjcyIGluc2VydGlvbnMoKyksIDUxNiBkZWxldGlvbnMoLSkKCldpdGhvdXQg
-Z29pbmcgaW50byBleGNydWNpYXRpbmcgZGV0YWlsLCB0aGlzIGlzIHdoYXQgSSBnb3Qgd2hlbiBJ
-CnB1bGxlZCB5b3VyIGJyYW5jaDoKCsKgMjczIGZpbGVzIGNoYW5nZWQsIDg4OTEgaW5zZXJ0aW9u
-cygrKSwgNjYzNyBkZWxldGlvbnMoLSkKwqBjcmVhdGUgbW9kZSAxMDA2NDQgZHJpdmVycy9uZXQv
-ZXRoZXJuZXQvcWxvZ2ljL3FlZGUvcWVkZV9maWx0ZXIuYwrCoGNyZWF0ZSBtb2RlIDEwMDY0NCBk
-cml2ZXJzL25ldC9ldGhlcm5ldC9xbG9naWMvcWVkZS9xZWRlX2ZwLmMKClBsZWFzZSBkb24ndCBk
-byB0aGlzIHVubGVzcyB5b3UgYWJzb2x1dGVseSBoYXZlIHRvLgoKLS0gCkRvdWcgTGVkZm9yZCA8
-ZGxlZGZvcmRAcmVkaGF0LmNvbT4KwqAgwqAgR1BHIEtleUlEOiBCODI2QTMzMzBFNTcyRkRECsKg
-IMKgCktleSBmaW5nZXJwcmludCA9IEFFNkIgMUJEQSAxMjJCIDIzQjQgMjY1QiDCoDEyNzQgQjgy
-NiBBMzMzIDBFNTcgMkZERAo=
+> With mergeable buffers enabled no problems it works as I expect at least.
 
+We don't expect to get these packets but
+mergeable is able to process them anyway.
+It's an accident :) 
 
---=-9gVnIAHYtR+Y4ZuRldxl
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCAAGBQJYdGjGAAoJELgmozMOVy/d0j4P+wYZMRVJWyAwYNf3plvxy1Rv
-Rl5C8bQi2Hc/RQh/DcImFQNSzkUzcq0+231+3B+6VdggAJSkIVSAy18PqhYny1VR
-X40K0632qWuuXqDe8qzEQU6ttyDVkq/BgT05DJO1HRrB9I9mu+B5P3dP5ZWdn3E/
-L7FTzdMh7Zu/ONgUNq7kMo7vaqKg6f4XZdj8p3a5gyXH0va1/liPm3Osq1bmJnu2
-JUa+aet4euF5rMdoLUFF+qRkb7GKAp55p0XrirBlF9juBFBqRdU39qSnwyFaEtXx
-nL97/m00nv5RwD5+yhKRIX7+npkcKT9oHlUk1kQwg/c62YPpQoHHp/bsPxQSwQsC
-RNd/oSEHJa0WBH9WEaWj+AuNYIFYSObMLrQBZbE4T/M0Eir9pD9ZeK2drnD+CzCH
-dvmyifm3ZZhzaQK3KUJQvI62RFy0eV33gPcoUEV5Qzi+5rgndT5SYWAdb5uLNboM
-bfaaS0X+16KcXfKaENW89luLOVFoBUZSG96Qf5mWUPnq6CqUgXem8METbIqTXRNG
-CS842nk98O3QF0JzEJaV1lAFxyg1KOnpSfgPsjfu/BaarnH0NjPbLzHKXa8golYj
-wy/mVFP+7MQusurIDmJFBcTurIY9p+najo72RtRlLTf+GsylXw/Kgu/fK7NzKiIA
-QhupHEeKrX3Vmdx2l7Mf
-=vObn
------END PGP SIGNATURE-----
-
---=-9gVnIAHYtR+Y4ZuRldxl--
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> > 
+> >> I think
+> >> this is what Jason is looking at as well? The mergeable case clearly looks at
+> >> num_bufs in the descriptor to construct multi-buffer packets but nothing like
+> >> that exists in the small_receive path as best I can tell.
+> >>
+> >> .John
+> > 
+> > There's always a single buffer there.
+> > BTW it was always a legacy path but if it's now important for people we
+> > should probably check ANY_LAYOUT and put header linearly with the packet
+> > if there.
+> > 
