@@ -1,107 +1,131 @@
-From: Hannes Reinecke <hare-l3A5Bk7waGM@public.gmane.org>
-Subject: Re: [PATCH RFC 5/5] qedf: Add FIP request handling
-Date: Tue, 10 Jan 2017 07:58:12 +0100
-Message-ID: <9cce615f-3d83-59ea-1fe1-e08bc4265dc5@suse.de>
-References: <1482520628-24207-1-git-send-email-chad.dupuis@cavium.com>
- <1482520628-24207-6-git-send-email-chad.dupuis@cavium.com>
- <a076b54b-966b-d652-7a0f-6b84aacb0ded@suse.de>
- <alpine.OSX.2.00.1701091147040.1044@administrators-macbook-pro.local>
+From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [RFC v2 00/10] HFI Virtual Network Interface Controller (VNIC)
+Date: Tue, 10 Jan 2017 10:14:02 +0200
+Message-ID: <20170110081402.GH7218@mtr-leonro.local>
+References: <1481788782-89964-1-git-send-email-niranjana.vishwanathapura@intel.com>
+ <20161215091226.GC811@mtr-leonro.local>
+ <20161215145212.GA29116@phlsvsds.ph.intel.com>
+ <380b05bf-a18e-1f20-7e8e-10b61f77dec7@redhat.com>
+ <20170109075104.GV15685@mtr-leonro.local>
+ <20170110033954.GA53664@knc-06.sc.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: quoted-printable
-Cc: martin.petersen-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org, linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, yuval.mintz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org, fcoe-devel-s9riP+hp16TNLxjTenLetw@public.gmane.org,
- QLogic-Storage-Upstream-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org
-To: Chad Dupuis <chad.dupuis-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-Return-path: <fcoe-devel-bounces-s9riP+hp16TNLxjTenLetw@public.gmane.org>
-In-Reply-To: <alpine.OSX.2.00.1701091147040.1044-nVgGmETfwnIFUnR/tdpssI0aTaFgKE92ACYyPGjX6YU@public.gmane.org>
-List-Unsubscribe: <http://lists.open-fcoe.org/mailman/options/fcoe-devel>,
- <mailto:fcoe-devel-request-s9riP+hp16TNLxjTenLetw@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-fcoe.org/pipermail/fcoe-devel/>
-List-Post: <mailto:fcoe-devel-s9riP+hp16TNLxjTenLetw@public.gmane.org>
-List-Help: <mailto:fcoe-devel-request-s9riP+hp16TNLxjTenLetw@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.open-fcoe.org/mailman/listinfo/fcoe-devel>,
- <mailto:fcoe-devel-request-s9riP+hp16TNLxjTenLetw@public.gmane.org?subject=subscribe>
-Errors-To: fcoe-devel-bounces-s9riP+hp16TNLxjTenLetw@public.gmane.org
-Sender: "fcoe-devel" <fcoe-devel-bounces-s9riP+hp16TNLxjTenLetw@public.gmane.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+        protocol="application/pgp-signature"; boundary="MAH+hnPXVZWQ5cD/"
+Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        "ira.weiny" <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        Jeff Kirsher <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
+To: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20170110033954.GA53664-wPcXA7LoDC+1XWohqUldA0EOCMrvLtNR@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 01/09/2017 05:47 PM, Chad Dupuis wrote:
-> =
 
-> On Wed, 28 Dec 2016, 9:11am -0000, Hannes Reinecke wrote:
-> =
+--MAH+hnPXVZWQ5cD/
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
->> On 12/23/2016 08:17 PM, Dupuis, Chad wrote:
->>> From: "Dupuis, Chad" <chad.dupuis-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
->>>
->>> This patch adds handling for FIP requests and responses that are handle=
-d by
->>> the driver itself and not by libfcoe.
->>>
->>> Signed-off-by: Nilesh Javali <nilesh.javali-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
->>> Signed-off-by: Manish Rangankar <manish.rangankar-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
->>> Signed-off-by: Saurav Kashyap <saurav.kashyap-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
->>> Signed-off-by: Chad Dupuis <chad.dupuis-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
->>> ---
->>>  drivers/scsi/qedf/qedf_fip.c | 267 +++++++++++++++++++++++++++++++++++=
-++++++++
->>>  1 file changed, 267 insertions(+)
->>>  create mode 100644 drivers/scsi/qedf/qedf_fip.c
->>>
->>> diff --git a/drivers/scsi/qedf/qedf_fip.c b/drivers/scsi/qedf/qedf_fip.c
->>> new file mode 100644
->>> index 0000000..4f185c6
->>> --- /dev/null
->>> +++ b/drivers/scsi/qedf/qedf_fip.c
->>> @@ -0,0 +1,267 @@
->>> +/*
->>> + *  QLogic FCoE Offload Driver
->>> + *  Copyright (c) 2016 Cavium Inc.
->>> + *
->>> + *  This software is available under the terms of the GNU General Publ=
-ic License
->>> + *  (GPL) Version 2, available from the file COPYING in the main direc=
-tory of
->>> + *  this source tree.
->>> + */
->>> +#include <linux/if_ether.h>
->>> +#include <linux/if_vlan.h>
->>> +#include "qedf.h"
->>> +
->>> +extern const struct qed_fcoe_ops *qed_ops;
->>> +/*
->>> + * FIP VLAN functions that will eventually move to libfcoe.
->>> + */
->>> +
->>> +void qedf_fcoe_send_vlan_req(struct qedf_ctx *qedf)
->>> +{
->>> +	struct sk_buff *skb;
->>> +	char *eth_fr;
->>> +	int fr_len;
->>> +	struct fip_vlan *vlan;
->>> +#define MY_FIP_ALL_FCF_MACS        ((__u8[6]) { 1, 0x10, 0x18, 1, 0, 2=
- })
->>> +	static u8 my_fcoe_all_fcfs[ETH_ALEN] =3D MY_FIP_ALL_FCF_MACS;
->>
->> Do you support VN2VN, too?
-> =
+On Mon, Jan 09, 2017 at 07:39:54PM -0800, Vishwanathapura, Niranjana wrote:
+> On Mon, Jan 09, 2017 at 09:51:04AM +0200, Leon Romanovsky wrote:
+> > On Thu, Dec 15, 2016 at 11:28:06AM -0500, Doug Ledford wrote:
+> > > On 12/15/2016 9:52 AM, ira.weiny wrote:
+> > >
+> > > 2) With more than 60% of the code being MAD related, and another
+> > > significant chunk being hfi related, and only a minor bit (20% maybe?)
+> > > being net related,
+> >
+> > Hi Doug and Ira,
+> >
+> > I may admit that I didn't read the code very deep, but from brief
+> > overview, I didn't find support for the claim the "60% code is MAD rela=
+ted".
+> > It looks like the opposite thing will be more accurate.
+> >
+> > Can you help me to understand this claim? How did you come to this
+> > conclusion?
+> >
+> > Thanks
+>
+> Hi Leon,
+>
+> Here is the breakdown of patches based on functionality.
 
-> Not currently, no.
-> =
+Hi Niranjana,
+Thank you for breakdown, it helped a lot.
 
-Ah.
+> In this series, patches #3..#8 compose hfi_vnic driver. In that, patches =
+#4,
+> #7 and #8 are MAD focused (interfacing with MAD agent and handling MAD
+> packets).
 
-Too bad. Any plans for it?
-It certainly eases up P2P setups for FCoE...
+Patch #3 is net device with all goodies from net stack.
+https://patchwork.kernel.org/patch/9475639/
+Patch #4 has one IB MAD related struct, all other things are specific to
+OFA and HFI declarations.
+https://patchwork.kernel.org/patch/9475653/
+Patch #7 continues to implement agnostic to IB MAD net device.
+https://patchwork.kernel.org/patch/9475641/
+Patch #8 is without doubts, MAD related.
+https://patchwork.kernel.org/patch/9475651/
 
-Cheers,
+Let's put aside patch #8, in such case, the proposed code won't need IB/cor=
+e at
+all and will look exactly like many other net drivers which encapsulate/dec=
+apsulate
+packets.
 
-Hannes
--- =
 
-Dr. Hannes Reinecke		   Teamlead Storage & Networking
-hare-l3A5Bk7waGM@public.gmane.org			               +49 911 74053 688
-SUSE LINUX GmbH, Maxfeldstr. 5, 90409 N=FCrnberg
-GF: F. Imend=F6rffer, J. Smithard, J. Guild, D. Upmanyu, G. Norton
-HRB 21284 (AG N=FCrnberg)
+> Patch #6 and half of #3 (_encap.c/h) are OPA encapsulation related. Patch=
+ #5
+> is netdev statistic related (which includes statistics MAD definitions).
+> So, only part of patch #3 (_netdev.c and _ethtool.c) deals with interfaci=
+ng
+> with netstack.
+> Those percentage numbers are based on actual lines of code in these patch=
+es
+> (files).
+>
+> We are also looking into Jason=E2=80=99s suggestion to make hfi_vnic inte=
+rface to
+> the bottom driver a generic interface. This will include moving some of t=
+he
+> netstack interfacing to the bottom hfi1 driver.
+
+Great, do you have rough estimation when will it be posted on the ML?
+
+Thanks
+
+>
+> Niranjana
+>
+
+--MAH+hnPXVZWQ5cD/
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAlh0l8oACgkQ5GN7iDZy
+WKdRJBAAnUAj+2E8UZ9adfL9PQkOPC4OPXaRAUQmtKSjKfDm8v8KFUvPSsfO0SMB
+CVzi9hqTDGx/QU6yNOpcFvixy4L+wQqySSyEhpwCooF7FqQ37hNVb2aaO9SH0cDW
+gByMmeU1Dg0kqAgQP8avZZAKhP573oEgd/IiOIWmYmDRmSIZ5z2nIpiWOl0wmSzK
+PzywwA2Ndi2yO1QqcScHW4H+OMDPmowFS4CNw3CkzIp6CIZgjXQ9oFpU/v4LkF+S
+039IgC24FUexEpLBxL0hFdLr7SfHHdrVuWLeU2tQk8JOXBSJ+344xlm9kSWRbqWn
+GMWWTqZZqJTDPdM5/+OJsh/01lsWrFgzjzxS000xL42zdGfyl6zRSPZYt6EpSaAX
+6O4ZtTUizy+gPBYPzqG6sxGfc2RhQmVTwdAaqRGCNqHdTnvwKjRY1hUW6N+0yFOR
+eF7lK3jEP13qEU+pg/z+BlikA+kJjTlMwZBUW+6ogEnei0H0KGUtcypMNlSqJ5jK
+MNwXkM/ZlwqG1lvkw5UUfmhv+xLn7uHuHEnri8yOwt0BvNRk6ft3ftxxmkflzyOj
+mDNTCahlqaw0Og+6nROyyU+Skey4EevYK5wr9WWlqG9M1lW/u8N21uifEXKqCC4J
+WBzIUZ73SXXLTdxFsGozUYj1EVoJDzO/MPHIfbjOiaZeaSAJDTU=
+=/bB4
+-----END PGP SIGNATURE-----
+
+--MAH+hnPXVZWQ5cD/--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
