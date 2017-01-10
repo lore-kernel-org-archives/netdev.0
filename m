@@ -1,111 +1,88 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH] vhost: scsi: constify target_core_fabric_ops structures
-Date: Tue, 10 Jan 2017 17:13:27 +0200
-Message-ID: <20170110171201-mutt-send-email-mst@kernel.org>
-References: <1483975262-1260-1-git-send-email-bhumirks@gmail.com>
-	<20170110071054-mutt-send-email-mst@kernel.org>
-	<CAOH+1jG4xohEaTTcgXPq2SA6T8yM-Q8oMEMS3iwyp+0RQnxkUg@mail.gmail.com>
+From: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Subject: Re: linux-next: build failure after merge of the net-next tree
+Date: Tue, 10 Jan 2017 16:14:25 +0100
+Message-ID: <da3e6b7a-b0ea-4197-f698-ddee4fdcc940@linux.vnet.ibm.com>
+References: <20170110105927.29edcec0@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: Bhumika Goyal <bhumirks@gmail.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <CAOH+1jG4xohEaTTcgXPq2SA6T8yM-Q8oMEMS3iwyp+0RQnxkUg@mail.gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Utz Bacher <utz.bacher@de.ibm.com>
+To: Stephen Rothwell <sfr@canb.auug.org.au>,
+        David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>,
+        Al Viro <viro@ZenIV.linux.org.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170110105927.29edcec0@canb.auug.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 10, 2017 at 06:11:25PM +0530, Bhumika Goyal wrote:
-> On Tue, Jan 10, 2017 at 10:41 AM, Michael S. Tsirkin <mst@redhat.com> wrote:
-> > On Mon, Jan 09, 2017 at 08:51:02PM +0530, Bhumika Goyal wrote:
-> >> Declare target_core_fabric_ops strucrues as const as they are only
-> >> passed as an argument to the functions target_register_template and
-> >> target_unregister_template. The arguments are of type const struct
-> >> target_core_fabric_ops *, so target_core_fabric_ops structures having
-> >> this property can be declared const.
-> >> Done using Coccinelle:
-> >>
-> >> @r disable optional_qualifier@
-> >> identifier i;
-> >> position p;
-> >> @@
-> >> static struct target_core_fabric_ops i@p={...};
-> >>
-> >> @ok@
-> >> position p;
-> >> identifier r.i;
-> >> @@
-> >> (
-> >> target_register_template(&i@p)
-> >> |
-> >> target_unregister_template(&i@p)
-> >> )
-> >> @bad@
-> >> position p!={r.p,ok.p};
-> >> identifier r.i;
-> >> @@
-> >> i@p
-> >>
-> >> @depends on !bad disable optional_qualifier@
-> >> identifier r.i;
-> >> @@
-> >> +const
-> >> struct target_core_fabric_ops i;
-> >>
-> >> File size before: drivers/vhost/scsi.o
-> >>    text          data     bss     dec     hex filename
-> >>   18063          2985      40   21088    5260 drivers/vhost/scsi.o
-> >>
-> >> File size after: drivers/vhost/scsi.o
-> >>    text          data     bss     dec     hex filename
-> >>   18479          2601      40   21120    5280 drivers/vhost/scsi.o
-> >
-> > What are these numbers trying to prove?
-> >
+ACK - smc_splice_read() is just a place holder at the moment. Its implementation for AF_SMC will follow.
+
+Regards, Ursula Braun
+
+On 01/10/2017 12:59 AM, Stephen Rothwell wrote:
+> Hi all,
 > 
-> These numbers show that adding const has decreased the size of the
-> data segment and increased the size of the text segment, suggesting
-> that the changed code has been compiled and the const annotation has
-> had an effect.
+> After merging the net-next tree, today's linux-next build (x86_64
+> allmodconfig) failed like this:
 > 
-> Thanks,
-> Bhumika
-
-I wonder why there's a net increase in memory consumption though.
-
-
-> >
-> >> Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
-> >> ---
-> >>  drivers/vhost/scsi.c | 2 +-
-> >>  1 file changed, 1 insertion(+), 1 deletion(-)
-> >>
-> >> diff --git a/drivers/vhost/scsi.c b/drivers/vhost/scsi.c
-> >> index 253310c..620366d 100644
-> >> --- a/drivers/vhost/scsi.c
-> >> +++ b/drivers/vhost/scsi.c
-> >> @@ -2087,7 +2087,7 @@ static void vhost_scsi_drop_tport(struct se_wwn *wwn)
-> >>       NULL,
-> >>  };
-> >>
-> >> -static struct target_core_fabric_ops vhost_scsi_ops = {
-> >> +static const struct target_core_fabric_ops vhost_scsi_ops = {
-> >>       .module                         = THIS_MODULE,
-> >>       .name                           = "vhost",
-> >>       .get_fabric_name                = vhost_scsi_get_fabric_name,
-> >
-> > If it can be const it probably should ...
-> >
-> >> --
-> >> 1.9.1
+> net/smc/af_smc.c: In function 'smc_splice_read':
+> net/smc/af_smc.c:1258:39: error: passing argument 1 of 'smc->clcsock->ops->splice_read' from incompatible pointer type [-Werror=incompatible-pointer-types]
+>    rc = smc->clcsock->ops->splice_read(smc->clcsock, ppos,
+>                                        ^
+> net/smc/af_smc.c:1258:39: note: expected 'struct file *' but argument is of type 'struct socket *'
+> net/smc/af_smc.c: At top level:
+> net/smc/af_smc.c:1288:17: error: initialization from incompatible pointer type [-Werror=incompatible-pointer-types]
+>   .splice_read = smc_splice_read,   
+>                  ^
+> net/smc/af_smc.c:1288:17: note: (near initialization for 'smc_sock_ops.splice_read')
+> 
+> Caused by commit
+> 
+>   ac7138746e14 ("smc: establish new socket family")
+> 
+> interacting with commit
+> 
+>   15a8f657c71d ("switch socket ->splice_read() to struct file *")
+> 
+> from the vfs tree.
+> 
+> I applied the following merge fix patch which could well be incorrect ...
+> 
+> From: Stephen Rothwell <sfr@canb.auug.org.au>
+> Date: Tue, 10 Jan 2017 10:52:38 +1100
+> Subject: [PATCH] smc: merge fix for "switch socket ->splice_read() to struct file *"
+> 
+> Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+> ---
+>  net/smc/af_smc.c | 5 +++--
+>  1 file changed, 3 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/smc/af_smc.c b/net/smc/af_smc.c
+> index 5d4208ad029e..4875e65f0c4a 100644
+> --- a/net/smc/af_smc.c
+> +++ b/net/smc/af_smc.c
+> @@ -1242,10 +1242,11 @@ static ssize_t smc_sendpage(struct socket *sock, struct page *page,
+>  	return rc;
+>  }
+> 
+> -static ssize_t smc_splice_read(struct socket *sock, loff_t *ppos,
+> +static ssize_t smc_splice_read(struct file *file, loff_t *ppos,
+>  			       struct pipe_inode_info *pipe, size_t len,
+>  				    unsigned int flags)
+>  {
+> +	struct socket *sock = file->private_data;
+>  	struct sock *sk = sock->sk;
+>  	struct smc_sock *smc;
+>  	int rc = -ENOTCONN;
+> @@ -1255,7 +1256,7 @@ static ssize_t smc_splice_read(struct socket *sock, loff_t *ppos,
+>  	if ((sk->sk_state != SMC_ACTIVE) && (sk->sk_state != SMC_CLOSED))
+>  		goto out;
+>  	if (smc->use_fallback) {
+> -		rc = smc->clcsock->ops->splice_read(smc->clcsock, ppos,
+> +		rc = smc->clcsock->ops->splice_read(file, ppos,
+>  						    pipe, len, flags);
+>  	} else {
+>  		rc = -EOPNOTSUPP;
+> 
