@@ -1,134 +1,42 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [net PATCH] net: virtio: cap mtu when XDP programs are running
-Date: Tue, 10 Jan 2017 05:55:39 +0200
-Message-ID: <20170110055023-mutt-send-email-mst@kernel.org>
-References: <586D458F.5050705@gmail.com>
- <068f0116-b37e-eb44-8c60-1781a9d5255e@redhat.com>
- <20170110010531-mutt-send-email-mst@kernel.org>
- <5874190B.9050505@gmail.com>
- <20170110012044-mutt-send-email-mst@kernel.org>
- <58742187.8050505@gmail.com>
- <20170110015759-mutt-send-email-mst@kernel.org>
- <9102bb4b-223a-d441-7546-8b4144d970fb@redhat.com>
- <20170110044910-mutt-send-email-mst@kernel.org>
- <5874555A.3070307@gmail.com>
+From: Linus =?utf-8?Q?L=C3=BCssing?= <linus.luessing@c0d3.blue>
+Subject: Re: [PATCH net-next] bridge: multicast to unicast
+Date: Tue, 10 Jan 2017 05:18:16 +0100
+Message-ID: <20170110041816.GJ5513@otheros>
+References: <20170102193214.31723-1-linus.luessing@c0d3.blue>
+	<1483706872.4089.8.camel@sipsolutions.net>
+	<8836daaa-9638-4502-d079-fd428595f822@nbd.name>
+	<1483710841.12677.1.camel@sipsolutions.net>
+	<22fad045-57c6-7789-d19f-f47bd0faf441@fami-braun.de>
+	<20170107145516.GE3134@otheros>
+	<1483949336.17582.3.camel@sipsolutions.net>
+	<6f5ec9f1-800a-2bc4-2f41-9d803343bb22@fami-braun.de>
+	<20170109212345.GA5513@otheros> <20170109133032.221f8669@xeon-e3>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Jason Wang <jasowang@redhat.com>, john.r.fastabend@intel.com,
-        netdev@vger.kernel.org, alexei.starovoitov@gmail.com,
-        daniel@iogearbox.net
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:34916 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751131AbdAJDzl (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 9 Jan 2017 22:55:41 -0500
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"M. Braun" <michael-dev@fami-braun.de>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	"David S . Miller" <davem@davemloft.net>, Felix Fietkau <nbd@nbd.name>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <5874555A.3070307@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20170109133032.221f8669@xeon-e3>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 09, 2017 at 07:30:34PM -0800, John Fastabend wrote:
-> On 17-01-09 06:51 PM, Michael S. Tsirkin wrote:
-> > On Tue, Jan 10, 2017 at 10:29:39AM +0800, Jason Wang wrote:
-> >>
-> >>
-> >> On 2017年01月10日 07:58, Michael S. Tsirkin wrote:
-> >>> On Mon, Jan 09, 2017 at 03:49:27PM -0800, John Fastabend wrote:
-> >>>> On 17-01-09 03:24 PM, Michael S. Tsirkin wrote:
-> >>>>> On Mon, Jan 09, 2017 at 03:13:15PM -0800, John Fastabend wrote:
-> >>>>>> On 17-01-09 03:05 PM, Michael S. Tsirkin wrote:
-> >>>>>>> On Thu, Jan 05, 2017 at 11:09:14AM +0800, Jason Wang wrote:
-> >>>>>>>> On 2017年01月05日 02:57, John Fastabend wrote:
-> >>>>>>>>> [...]
-> >>>>>>>>>
-> >>>>>>>>>> On 2017年01月04日 00:48, John Fastabend wrote:
-> >>>>>>>>>>> On 17-01-02 10:14 PM, Jason Wang wrote:
-> >>>>>>>>>>>> On 2017年01月03日 06:30, John Fastabend wrote:
-> >>>>>>>>>>>>> XDP programs can not consume multiple pages so we cap the MTU to
-> >>>>>>>>>>>>> avoid this case. Virtio-net however only checks the MTU at XDP
-> >>>>>>>>>>>>> program load and does not block MTU changes after the program
-> >>>>>>>>>>>>> has loaded.
-> >>>>>>>>>>>>>
-> >>>>>>>>>>>>> This patch sets/clears the max_mtu value at XDP load/unload time.
-> >>>>>>>>>>>>>
-> >>>>>>>>>>>>> Signed-off-by: John Fastabend<john.r.fastabend@intel.com>
-> >>>>>>>>>>>>> ---
-> >>>>>>>>> [...]
-> >>>>>>>>>
-> >>>>>>>>>>> OK so this logic is a bit too simply. When it resets the max_mtu I guess it
-> >>>>>>>>>>> needs to read the mtu via
-> >>>>>>>>>>>
-> >>>>>>>>>>>       virtio_cread16(vdev, ...)
-> >>>>>>>>>>>
-> >>>>>>>>>>> or we may break the negotiated mtu.
-> >>>>>>>>>> Yes, this is a problem (even use ETH_MAX_MTU). We may need a method to notify
-> >>>>>>>>>> the device about the mtu in this case which is not supported by virtio now.
-> >>>>>>>>> Note this is not really a XDP specific problem. The guest can change the MTU
-> >>>>>>>>> after init time even without XDP which I assume should ideally result in a
-> >>>>>>>>> notification if the MTU is negotiated.
-> >>>>>>>> Yes, Michael, do you think we need add some mechanism to notify host about
-> >>>>>>>> MTU change in this case?
-> >>>>>>>>
-> >>>>>>>> Thanks
-> >>>>>>> Why does host care?
-> >>>>>>>
-> >>>>>> Well the guest will drop packets after mtu has been reduced.
-> >>>>> I didn't know. What place in code does this?
-> >>>>>
-> >>>> hmm in many of the drivers it is convention to use the mtu to set the rx
-> >>>> buffer sizes and a receive side max length filter. For example in the Intel
-> >>>> drivers if a packet with length greater than MTU + some headroom is received we
-> >>>> drop it. I guess in the networking stack RX path though nothing forces this and
-> >>>> virtio doesn't have any code to drop packets on rx size.
-> >>>>
-> >>>> In virtio I don't see any existing case currently. In the XDP case though we
-> >>>> need to ensure packets fit in a page for the time being which is why I was
-> >>>> looking at this code and generated this patch.
-> >>> I'd say just look at the hardware max mtu. Ignore the configured mtu.
-> >>>
-> >>>
-> >>
-> >> Does this work for small buffers consider it always allocate skb with size
-> >> of GOOD_PACKET_LEN?
-> > 
-> > Spec says hardware won't send in packets > max mtu in config space.
-> > 
-> >> I think in any case, we should limit max_mtu to
-> >> GOOD_PACKET_LEN for small buffers.
-> >>
-> >> Thanks
-> > 
-> > XDP seems to have a bunch of weird restrictions, I just
-> > do not like it that the logic spills out to all drivers.
-> > What if someone decides to extend it to two pages in the future?
-> > Recode it all in all drivers ...
-> > 
-> > Why can't net core enforce mtu?
-> > 
-> 
-> OK I agree I'll put most the logic in rtnetlink.c when the program is added
-> or removed.
-> 
-> But, I'm looking at the non-XDP receive_small path now and wondering how does
-> multiple buffer receives work (e.g. packet larger than GOOD_PACKET_LEN?)
+On Mon, Jan 09, 2017 at 01:30:32PM -0800, Stephen Hemminger wrote:
+> I wonder if MAC80211 should be doing IGMP snooping and not bridge
+> in this environment.
 
-I don't understand the question. Look at add_recvbuf_small,
-it adds a tiny buffer for head and then the skb.
+In the long term, yes. For now, not quite sure.
 
-
-> I think
-> this is what Jason is looking at as well? The mergeable case clearly looks at
-> num_bufs in the descriptor to construct multi-buffer packets but nothing like
-> that exists in the small_receive path as best I can tell.
-> 
-> .John
-
-There's always a single buffer there.
-BTW it was always a legacy path but if it's now important for people we
-should probably check ANY_LAYOUT and put header linearly with the packet
-if there.
-
--- 
-MST
+I personally like to go for simple solutions first :).
