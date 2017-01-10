@@ -1,82 +1,70 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next PATCH 1/3] Revert "icmp: avoid allocating large
- struct on stack"
-Date: Tue, 10 Jan 2017 13:48:11 -0800
-Message-ID: <1484084891.21472.44.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1483985224.21472.3.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20170109.135259.988711786570465428.davem@davemloft.net>
-         <CAM_iQpUbcVogq7jGePkgPJ0z_J=46hnK8KcTiX1svVXr1Hoh-w@mail.gmail.com>
-         <20170110.131223.748150430551443881.davem@davemloft.net>
-         <CAM_iQpV0V23fndi6DOW1gu9kq+2UufHNrnfRYCME7uOOLCaX-Q@mail.gmail.com>
-         <20170110210820.1c5dbc87@redhat.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next 6/8] net: dsa: Add support for platform data
+Date: Tue, 10 Jan 2017 14:15:06 -0800
+Message-ID: <f48f61c6-e87c-c3bd-65e4-87e2093248d0@gmail.com>
+References: <20170110201235.21771-1-f.fainelli@gmail.com>
+ <20170110201235.21771-7-f.fainelli@gmail.com>
+ <20170110204124.GL22820@lunn.ch>
+ <1530c7f6-f8ba-ab32-75aa-288549f25db9@gmail.com>
+ <20170110212117.GO22820@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:33325 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752514AbdAJVsO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2017 16:48:14 -0500
-Received: by mail-pf0-f194.google.com with SMTP id 127so30593732pfg.0
-        for <netdev@vger.kernel.org>; Tue, 10 Jan 2017 13:48:13 -0800 (PST)
-In-Reply-To: <20170110210820.1c5dbc87@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, Jason Cooper <jason@lakedaemon.net>,
+        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+        Gregory Clement <gregory.clement@free-electrons.com>,
+        Russell King <linux@armlinux.org.uk>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Philippe Reynes <tremyfr@gmail.com>,
+        Martin Schwidefsky <schwidefsky@de.ibm.com>,
+        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+        Stuart Yoder <stuart.yoder@nxp.com>,
+        Ingo Tuchscherer <ingo.tuchscherer@linux.vnet.ibm.com>,
+        "moderated list:ARM/Marvell Dove/MV78xx0/Orion SOC support"
+        <linux-arm-kernel@lists.infradead.org>,
+        open list <linux-kernel@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>, John Crispin <john@phrozen.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170110212117.GO22820@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2017-01-10 at 21:08 +0100, Jesper Dangaard Brouer wrote:
-> On Tue, 10 Jan 2017 10:44:59 -0800 Cong Wang <xiyou.wangcong@gmail.com> wrote:
+On 01/10/2017 01:21 PM, Andrew Lunn wrote:
+>> Last time we discussed this, I had a super complex dsa2_platform_data
+>> that allowed you to do exactly the same thing we currently do with
+>> Device Tree, except that this was with platform_data. It took a lot of
+>> effort to get there, but I essentially had the ZII vf160 board example
+>> re-implemented and verified with a mockup driver (still have it in a
+>> branch that's not too far from net-next/master).
 > 
-> > On Tue, Jan 10, 2017 at 10:12 AM, David Miller <davem@davemloft.net> wrote:
-> [...]
-> > > You can keep showing us how expertly you can deflect the real
-> > > issue we are discussion here, but that won't improve the situation
-> > > at all I am afraid.  
-> > 
-> > Of course, there are just too many people too lazy to do a google search:
-> > 
-> > https://lists.debian.org/debian-kernel/2013/05/msg00500.html
+> One thing different this time is you have associated the platform data
+> to an MDIO device. So the platform data represents one switch, not the
+> whole complex. This is going to make the platform data much simpler,
+> and allow the core to do the work of assembling the multiple platform
+> datas into one switch complex. So basically, the platform data is
+> dsa_chip_data.
 > 
-> My analysis of the problem shown in above link is not related to using
-> all the stack space, but instead that skb->cb was not cleared.  This
-> can cause the ip_options_echo() call in icmp_send() to access garbage
-> as this is: __ip_options_echo(dopt, skb, &IPCB(skb)->opt).
+> To handle multi-CPUs, we need to move the master ethernet device and
+> put it next to the cpu port. So add a
 > 
-> Fixed by commit a622260254ee ("ip_tunnel: fix kernel panic with icmp_dest_unreach")
->  https://git.kernel.org/torvalds/c/a622260254ee
+> struct device   *netdev[DSA_MAX_PORTS];
 > 
-> Thus, it is (likely) the __ip_options_echo() call that violates stack
-> access, as it is passed in a pointer to the stack, and advance this
-> based on garbage "optlen".
+> to dsa_chip_data. It then becomes easy to represent multiple CPU
+> ports.
+
+Alright, let me get that prepared then, thanks!
+
 > 
+>> I would very much like to see the patches and then make a decision based
+>> on the submission rather than project a decision on code that has not
+>> been submitted yet.
+> 
+> The first version was posted a week ago. I requested a lot of
+> changes. So lets see what John says about when the next version will
+> be ready.
 
-I totally agree.
-
-This can not be stack being too small in current kernels.
-
-> #0 [ffff88003fd03798] machine_kexec at ffffffff81027430
-> #1 [ffff88003fd037e8] crash_kexec at ffffffff8107da80
-> #2 [ffff88003fd038b8] panic at ffffffff81540026
-> #3 [ffff88003fd03938] __stack_chk_fail at ffffffff81037f77
-> #4 [ffff88003fd03948] icmp_send at ffffffff814d5fec
-> #5 [ffff88003fd03b78] dev_hard_start_xmit at ffffffff8146e032
-> #6 [ffff88003fd03bc8] sch_direct_xmit at ffffffff81487d66
-> #7 [ffff88003fd03c08] __qdisc_run at ffffffff81487efd
-> #8 [ffff88003fd03c48] dev_queue_xmit at ffffffff8146e5a7
-> #9 [ffff88003fd03c88] ip_finish_output at ffffffff814ab596
-> #10 [ffff88003fd03ce8] __netif_receive_skb at ffffffff8146ed13
-> #11 [ffff88003fd03d88] napi_gro_receive at ffffffff8146fc50
-> #12 [ffff88003fd03da8] e1000_clean_rx_irq at ffffffff813bc67b
-> #13 [ffff88003fd03e48] e1000e_poll at ffffffff813c3a20
-> #14 [ffff88003fd03e98] net_rx_action at ffffffff8146f796
-> #15 [ffff88003fd03ee8] __do_softirq at ffffffff8103ebb9
-> #16 [ffff88003fd03f38] call_softirq at ffffffff8154444c
-> #17 [ffff88003fd03f50] do_softirq at ffffffff810047dd
-> #18 [ffff88003fd03f80] do_IRQ at ffffffff81003f6c
-
-Total stack used is about 3FFF - 3938, which is less than 2KB.
-
-x86_64 is supposed to have at least 16 KB irq stacks.
+Oh that series, okay, somehow I thought you were referring to something
+else.
+-- 
+Florian
