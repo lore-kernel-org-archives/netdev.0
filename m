@@ -1,49 +1,54 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: next-20170110 build: 1 failures 4 warnings (next-20170110)
-Date: Wed, 11 Jan 2017 07:21:41 +1100
-Message-ID: <20170111072131.51449059@canb.auug.org.au>
-References: <E1cQqkO-0005XB-2K@optimist>
-        <20170110181607.dp6giaxyeczykmv4@sirena.org.uk>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] gro: Enter slow-path if there is no tailroom
+Date: Tue, 10 Jan 2017 12:24:01 -0800
+Message-ID: <1484079841.21472.35.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Michael Scherban <m-scherban@ti.com>,
-        Murali Karicheri <m-karicheri2@ti.com>,
-        Sekhar Nori <nsekhar@ti.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        kernel-build-reports@lists.linaro.org,
-        linaro-kernel@lists.linaro.org, linux-next@vger.kernel.org,
-        linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-        stephen hemminger <stephen@networkplumber.org>
-To: Mark Brown <broonie@kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20170110181607.dp6giaxyeczykmv4@sirena.org.uk>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>,
+        Herbert Xu <herbert@gondor.apana.org.au>,
+        Slava Shwartsman <slavash@mellanox.com>,
+        Willem de Bruijn <willemb@google.com>,
+        Eric Dumazet <edumazet@google.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:36194 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1030869AbdAJUYE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2017 15:24:04 -0500
+Received: by mail-pf0-f193.google.com with SMTP id b22so13978791pfd.3
+        for <netdev@vger.kernel.org>; Tue, 10 Jan 2017 12:24:04 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Mark,
+From: Herbert Xu <herbert@gondor.apana.org.au>
 
-On Tue, 10 Jan 2017 18:16:07 +0000 Mark Brown <broonie@kernel.org> wrote:
->
-> On Tue, Jan 10, 2017 at 07:21:32AM +0000, Build bot for Mark Brown wrote:
-> 
-> Today's -next fails to build an arm allmodconfig due to:
-> 
-> > 	arm-allmodconfig
-> > ../drivers/net/ethernet/ti/netcp_core.c:1951:28: error: initialization from incompatible pointer type [-Werror=incompatible-pointer-types]  
-> 
-> caused by 6a8162e99ef344 (net: netcp: store network statistics in 64
-> bits).  It's assigning the function
-> 
->   static struct rtnl_link_stats64 *
->   netcp_get_stats(struct net_device *ndev, struct rtnl_link_stats64 *stats)
-> 
-> to ndo_get_stats64 which expects a function returning void.
+The GRO path has a fast-path where we avoid calling pskb_may_pull
+and pskb_expand by directly accessing frag0.  However, this should
+only be done if we have enough tailroom in the skb as otherwise
+we'll have to expand it later anyway.
 
-Yes, but only because commit bc1f44709cf2 ("net: make ndo_get_stats64 a
-void function") entered the net-next tree on the same day ... so it
-needs a followup fixup patch for this new usage.
+This patch adds the check by capping frag0_len with the skb tailroom.
 
--- 
-Cheers,
-Stephen Rothwell
+Fixes: cb18978cbf45 ("gro: Open-code final pskb_may_pull")
+Reported-by: Slava Shwartsman <slavash@mellanox.com>
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/core/dev.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 8db5a0b4b52061afe9cd44dead33cc69523d15df..88d2907ca2cda3438a7a1c0c179051a5038aa1e1 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4441,7 +4441,8 @@ static void skb_gro_reset_offset(struct sk_buff *skb)
+ 	    pinfo->nr_frags &&
+ 	    !PageHighMem(skb_frag_page(frag0))) {
+ 		NAPI_GRO_CB(skb)->frag0 = skb_frag_address(frag0);
+-		NAPI_GRO_CB(skb)->frag0_len = skb_frag_size(frag0);
++		NAPI_GRO_CB(skb)->frag0_len = min(skb_frag_size(frag0),
++						  skb->end - skb->tail);
+ 	}
+ }
+ 
