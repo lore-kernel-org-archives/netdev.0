@@ -1,84 +1,47 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] gro: Disable frag0 optimization on IPv6 ext headers
-Date: Tue, 10 Jan 2017 12:24:15 -0800
-Message-ID: <1484079855.21472.36.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        Slava Shwartsman <slavash@mellanox.com>,
-        Willem de Bruijn <willemb@google.com>,
-        Eric Dumazet <edumazet@google.com>
-To: David Miller <davem@davemloft.net>
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [PATCH net 05/10] net/mlx5e: Set inline mode requirements for matching on IP fragments
+Date: Tue, 10 Jan 2017 22:33:34 +0200
+Message-ID: <1484080419-24256-6-git-send-email-saeedm@mellanox.com>
+References: <1484080419-24256-1-git-send-email-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
+        Saeed Mahameed <saeedm@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:34947 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1161874AbdAJUYR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2017 15:24:17 -0500
-Received: by mail-pf0-f196.google.com with SMTP id f144so11430463pfa.2
-        for <netdev@vger.kernel.org>; Tue, 10 Jan 2017 12:24:17 -0800 (PST)
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:52046 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1751110AbdAJUe1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2017 15:34:27 -0500
+In-Reply-To: <1484080419-24256-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
+From: Or Gerlitz <ogerlitz@mellanox.com>
 
-The GRO fast path caches the frag0 address.  This address becomes
-invalid if frag0 is modified by pskb_may_pull or its variants.
-So whenever that happens we must disable the frag0 optimization.
+For e-switch level matching on packets being an IP fragment, we
+need to make sure the source vport inline mode is L3, fix that.
 
-This is usually done through the combination of gro_header_hard
-and gro_header_slow, however, the IPv6 extension header path did
-the pulling directly and would continue to use the GRO fast path
-incorrectly.
-
-This patch fixes it by disabling the fast path when we enter the
-IPv6 extension header path.
-
-Fixes: 78a478d0efd9 ("gro: Inline skb_gro_header and cache frag0 virtual address")
-Reported-by: Slava Shwartsman <slavash@mellanox.com>
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+Fixes: 3f7d0eb42d59 ('net/mlx5e: Offload TC matching on packets being IP fragments')
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Reviewed-by: Roi Dayan <roid@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- include/linux/netdevice.h |    9 +++++++--
- net/ipv6/ip6_offload.c    |    1 +
- 2 files changed, 8 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 994f7423a74bd622884c3b646f4123d28697b8ad..9bde9558b59672a866bd763039d326bde2af0f81 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -2477,14 +2477,19 @@ static inline int skb_gro_header_hard(struct sk_buff *skb, unsigned int hlen)
- 	return NAPI_GRO_CB(skb)->frag0_len < hlen;
- }
- 
-+static inline void skb_gro_frag0_invalidate(struct sk_buff *skb)
-+{
-+	NAPI_GRO_CB(skb)->frag0 = NULL;
-+	NAPI_GRO_CB(skb)->frag0_len = 0;
-+}
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+index 9cfddd9..a35fa1e 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+@@ -389,6 +389,10 @@ static int __parse_cls_flower(struct mlx5e_priv *priv,
+ 			MLX5_SET(fte_match_set_lyr_2_4, headers_c, frag, 1);
+ 			MLX5_SET(fte_match_set_lyr_2_4, headers_v, frag,
+ 				 key->flags & FLOW_DIS_IS_FRAGMENT);
 +
- static inline void *skb_gro_header_slow(struct sk_buff *skb, unsigned int hlen,
- 					unsigned int offset)
- {
- 	if (!pskb_may_pull(skb, hlen))
- 		return NULL;
++			/* the HW doesn't need L3 inline to match on frag=no */
++			if (key->flags & FLOW_DIS_IS_FRAGMENT)
++				*min_inline = MLX5_INLINE_MODE_IP;
+ 		}
+ 	}
  
--	NAPI_GRO_CB(skb)->frag0 = NULL;
--	NAPI_GRO_CB(skb)->frag0_len = 0;
-+	skb_gro_frag0_invalidate(skb);
- 	return skb->data + offset;
- }
- 
-diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
-index 89c59e656f44939863ceada610d3442d2de666ba..fc7b4017ba241f9dd39d49bd6258ecd4a16e3a3a 100644
---- a/net/ipv6/ip6_offload.c
-+++ b/net/ipv6/ip6_offload.c
-@@ -191,6 +191,7 @@ static struct sk_buff **ipv6_gro_receive(struct sk_buff **head,
- 	ops = rcu_dereference(inet6_offloads[proto]);
- 	if (!ops || !ops->callbacks.gro_receive) {
- 		__pskb_pull(skb, skb_gro_offset(skb));
-+		skb_gro_frag0_invalidate(skb);
- 		proto = ipv6_gso_pull_exthdrs(skb, proto);
- 		skb_gro_pull(skb, -skb_transport_offset(skb));
- 		skb_reset_transport_header(skb);
+-- 
+2.7.4
