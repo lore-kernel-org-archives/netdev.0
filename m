@@ -1,41 +1,57 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: [PATCH net-next] packet: pdiag_put_ring() should return TX_RING info for TPACKET_V3
-Date: Tue, 10 Jan 2017 07:47:15 -0800
-Message-ID: <b1ae12eaef34ce413e2dc3bc5075a3c0198d7ad1.1484060892.git.sowmini.varadhan@oracle.com>
-References: <cover.1484060892.git.sowmini.varadhan@oracle.com>
-Cc: daniel@iogearbox.net, willemb@google.com, davem@davemloft.net
-To: netdev@vger.kernel.org, sowmini.varadhan@oracle.com
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [PATCH net] netvsc: add rcu_read locking to netvsc callback
+Date: Tue, 10 Jan 2017 07:50:16 -0800
+Message-ID: <20170110155016.4897-1-sthemmin@microsoft.com>
+Cc: netdev@vger.kernel.org, Stephen Hemminger <sthemmin@microsoft.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:17698 "EHLO
-        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752091AbdAJPrt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2017 10:47:49 -0500
-In-Reply-To: <cover.1484060892.git.sowmini.varadhan@oracle.com>
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:35103 "EHLO
+        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756384AbdAJPu1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2017 10:50:27 -0500
+Received: by mail-pf0-f182.google.com with SMTP id f144so39561949pfa.2
+        for <netdev@vger.kernel.org>; Tue, 10 Jan 2017 07:50:27 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 7f953ab2ba46 ("af_packet: TX_RING support for TPACKET_V3")
-now makes it possible to use TX_RING with TPACKET_V3, so make the
-the relevant information available via 'ss -e -a --packet'
+Lockdep finds a case where netvsc receive processing is incorrectly
+assuming it is in RCU safe zone. The driver is using RCU to handle
+VF reference but RCU read lock not held.
 
-Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Fixes 0c9d3ba9a87b ("hv_netvsc: use RCU to protect vf_netdev")
+
+Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
 ---
- net/packet/diag.c |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
+ drivers/net/hyperv/netvsc_drv.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-diff --git a/net/packet/diag.c b/net/packet/diag.c
-index 0ed68f0..7ef1c88 100644
---- a/net/packet/diag.c
-+++ b/net/packet/diag.c
-@@ -73,8 +73,7 @@ static int pdiag_put_ring(struct packet_ring_buffer *ring, int ver, int nl_type,
- {
- 	struct packet_diag_ring pdr;
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index c9414c054852..fcab8019dda0 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -659,6 +659,7 @@ int netvsc_recv_callback(struct hv_device *device_obj,
+ 	 * policy filters on the host). Deliver these via the VF
+ 	 * interface in the guest.
+ 	 */
++	rcu_read_lock();
+ 	vf_netdev = rcu_dereference(net_device_ctx->vf_netdev);
+ 	if (vf_netdev && (vf_netdev->flags & IFF_UP))
+ 		net = vf_netdev;
+@@ -667,6 +668,7 @@ int netvsc_recv_callback(struct hv_device *device_obj,
+ 	skb = netvsc_alloc_recv_skb(net, packet, csum_info, *data, vlan_tci);
+ 	if (unlikely(!skb)) {
+ 		++net->stats.rx_dropped;
++		rcu_read_unlock();
+ 		return NVSP_STAT_FAIL;
+ 	}
  
--	if (!ring->pg_vec || ((ver > TPACKET_V2) &&
--				(nl_type == PACKET_DIAG_TX_RING)))
-+	if (!ring->pg_vec)
- 		return 0;
+@@ -696,6 +698,7 @@ int netvsc_recv_callback(struct hv_device *device_obj,
+ 	 * TODO - use NAPI?
+ 	 */
+ 	netif_rx(skb);
++	rcu_read_unlock();
  
- 	pdr.pdr_block_size = ring->pg_vec_pages << PAGE_SHIFT;
+ 	return 0;
+ }
 -- 
-1.7.1
+2.11.0
