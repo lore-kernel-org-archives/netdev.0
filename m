@@ -1,7 +1,7 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 6/8] net: dsa: Add support for platform data
-Date: Tue, 10 Jan 2017 12:12:33 -0800
-Message-ID: <20170110201235.21771-7-f.fainelli@gmail.com>
+Subject: [PATCH net-next 8/8] ARM: orion: Register DSA switch as a MDIO device
+Date: Tue, 10 Jan 2017 12:12:35 -0800
+Message-ID: <20170110201235.21771-9-f.fainelli@gmail.com>
 References: <20170110201235.21771-1-f.fainelli@gmail.com>
 Cc: Florian Fainelli <f.fainelli@gmail.com>,
         Jason Cooper <jason@lakedaemon.net>,
@@ -20,205 +20,69 @@ Cc: Florian Fainelli <f.fainelli@gmail.com>,
         Dove/MV78xx0/Orion SOC support),
         linux-kernel@vger.kernel.org (open list)
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:35165 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S967216AbdAJUN0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2017 15:13:26 -0500
 In-Reply-To: <20170110201235.21771-1-f.fainelli@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Allow drivers to use the new DSA API with platform data. Most of the
-code in net/dsa/dsa2.c does not rely so much on device_nodes and can get
-the same information from platform_data instead.
+Utilize the ability to pass board specific MDIO bus information towards a
+particular MDIO device thus allowing us to provide the per-port switch layout
+to the Marvell 88E6XXX switch driver.
+
+Since we would end-up with conflicting registration paths, do not register the
+"dsa" platform device anymore.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- include/net/dsa.h |  1 +
- net/dsa/dsa2.c    | 96 +++++++++++++++++++++++++++++++++++++++++++------------
- 2 files changed, 77 insertions(+), 20 deletions(-)
+ arch/arm/plat-orion/common.c | 19 ++++++++++++++++---
+ 1 file changed, 16 insertions(+), 3 deletions(-)
 
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index b9394379affb..f00ed7549a6e 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -140,6 +140,7 @@ struct dsa_switch_tree {
- };
+diff --git a/arch/arm/plat-orion/common.c b/arch/arm/plat-orion/common.c
+index 272f49b2c68f..1d8f4ad1ac9a 100644
+--- a/arch/arm/plat-orion/common.c
++++ b/arch/arm/plat-orion/common.c
+@@ -22,6 +22,7 @@
+ #include <linux/platform_data/dma-mv_xor.h>
+ #include <linux/platform_data/usb-ehci-orion.h>
+ #include <plat/common.h>
++#include <linux/phy.h>
  
- struct dsa_port {
-+	const char		*name;
- 	struct net_device	*netdev;
- 	struct device_node	*dn;
- 	unsigned int		ageing_time;
-diff --git a/net/dsa/dsa2.c b/net/dsa/dsa2.c
-index ddee540d9a83..7adda4b94934 100644
---- a/net/dsa/dsa2.c
-+++ b/net/dsa/dsa2.c
-@@ -81,14 +81,15 @@ static void dsa_dst_del_ds(struct dsa_switch_tree *dst,
- 
- static bool dsa_port_is_valid(struct dsa_port *port)
- {
--	return !!port->dn;
-+	return !!(port->dn || port->name);
- }
- 
- static bool dsa_port_is_dsa(struct dsa_port *port)
- {
--	const char *name;
-+	const char *name = port->name;
- 
--	name = of_get_property(port->dn, "label", NULL);
-+	if (port->dn)
-+		name = of_get_property(port->dn, "label", NULL);
- 	if (!name)
- 		return false;
- 
-@@ -100,9 +101,10 @@ static bool dsa_port_is_dsa(struct dsa_port *port)
- 
- static bool dsa_port_is_cpu(struct dsa_port *port)
- {
--	const char *name;
-+	const char *name = port->name;
- 
--	name = of_get_property(port->dn, "label", NULL);
-+	if (port->dn)
-+		name = of_get_property(port->dn, "label", NULL);
- 	if (!name)
- 		return false;
- 
-@@ -269,10 +271,11 @@ static void dsa_cpu_port_unapply(struct dsa_port *port, u32 index,
- static int dsa_user_port_apply(struct dsa_port *port, u32 index,
- 			       struct dsa_switch *ds)
- {
--	const char *name;
-+	const char *name = port->name;
- 	int err;
- 
--	name = of_get_property(port->dn, "label", NULL);
-+	if (port->dn)
-+		name = of_get_property(port->dn, "label", NULL);
- 
- 	err = dsa_slave_create(ds, ds->dev, index, name);
- 	if (err) {
-@@ -452,11 +455,14 @@ static int dsa_cpu_parse(struct dsa_port *port, u32 index,
- 	struct net_device *ethernet_dev;
- 	struct device_node *ethernet;
- 
--	ethernet = of_parse_phandle(port->dn, "ethernet", 0);
--	if (!ethernet)
--		return -EINVAL;
-+	if (port->dn) {
-+		ethernet = of_parse_phandle(port->dn, "ethernet", 0);
-+		if (!ethernet)
-+			return -EINVAL;
-+		ethernet_dev = of_find_net_device_by_node(ethernet);
-+	} else
-+		ethernet_dev = dev_to_net_device(dst->pd->netdev);
- 
--	ethernet_dev = of_find_net_device_by_node(ethernet);
- 	if (!ethernet_dev)
- 		return -EPROBE_DEFER;
- 
-@@ -559,6 +565,33 @@ static int dsa_parse_ports_dn(struct device_node *ports, struct dsa_switch *ds)
- 	return 0;
- }
- 
-+static int dsa_parse_ports(struct dsa_chip_data *cd, struct dsa_switch *ds)
-+{
-+	bool valid_name_found = false;
-+	unsigned int i;
+ /* Create a clkdev entry for a given device/clk */
+ void __init orion_clkdev_add(const char *con_id, const char *dev_id,
+@@ -470,15 +471,27 @@ void __init orion_ge11_init(struct mv643xx_eth_platform_data *eth_data,
+ /*****************************************************************************
+  * Ethernet switch
+  ****************************************************************************/
++static __initdata const char *orion_ge00_mvmdio_bus_name = "orion-mii";
++static __initdata struct mdio_board_info
++		  orion_ge00_switch_board_info[DSA_MAX_SWITCHES];
 +
-+	for (i = 0; i < DSA_MAX_PORTS; i++) {
-+		if (!cd->port_names[i])
-+			continue;
-+
-+		ds->ports[i].name = cd->port_names[i];
-+
-+		/* Initialize enabled_port_mask now for drv->setup()
-+		 * to have access to a correct value, just like what
-+		 * net/dsa/dsa.c::dsa_switch_setup_one does.
-+		 */
-+		if (!dsa_port_is_cpu(&ds->ports[i]))
-+			ds->enabled_port_mask |= 1 << i;
-+
-+		valid_name_found= true;
+ void __init orion_ge00_switch_init(struct dsa_platform_data *d)
+ {
++	struct mdio_board_info *bd;
+ 	int i;
+ 
+ 	d->netdev = &orion_ge00.dev;
+-	for (i = 0; i < d->nr_chips; i++)
+-		d->chip[i].host_dev = &orion_ge_mvmdio.dev;
++	for (i = 0; i < d->nr_chips; i++) {
++		bd = &orion_ge00_switch_board_info[i];
++		bd->bus_id = orion_ge00_mvmdio_bus_name;
++		bd->mdio_addr = d->chip[i].sw_addr;
++		strcpy(bd->modalias, "mv88e6085");
++		bd->platform_data = d;
 +	}
 +
-+	if (!valid_name_found && i == DSA_MAX_PORTS)
-+		return -EINVAL;
-+
-+	return 0;
-+}
-+
- static int dsa_parse_member_dn(struct device_node *np, u32 *tree, u32 *index)
- {
- 	int err;
-@@ -583,6 +616,17 @@ static int dsa_parse_member_dn(struct device_node *np, u32 *tree, u32 *index)
- 	return 0;
++	mdiobus_register_board_info(orion_ge00_switch_board_info,
++				    ARRAY_SIZE(orion_ge00_switch_board_info));
+ 
+-	platform_device_register_data(NULL, "dsa", 0, d, sizeof(d));
  }
  
-+static int dsa_parse_member(struct dsa_platform_data *pd, u32 *tree, u32 *index)
-+{
-+	*tree = *index = 0;
-+
-+	/* TODO, re-design platform data? */
-+	if (pd->nr_chips >= DSA_MAX_SWITCHES || !pd->chip)
-+		return -EINVAL;
-+
-+	return 0;
-+}
-+
- static struct device_node *dsa_get_ports(struct dsa_switch *ds,
- 					 struct device_node *np)
- {
-@@ -599,23 +643,34 @@ static struct device_node *dsa_get_ports(struct dsa_switch *ds,
- 
- static int _dsa_register_switch(struct dsa_switch *ds, struct device *dev)
- {
-+	struct dsa_platform_data *pdata = dev->platform_data;
- 	struct device_node *np = dev->of_node;
- 	struct dsa_switch_tree *dst;
- 	struct device_node *ports;
- 	u32 tree, index;
- 	int i, err;
- 
--	err = dsa_parse_member_dn(np, &tree, &index);
--	if (err)
--		return err;
-+	if (np) {
-+		err = dsa_parse_member_dn(np, &tree, &index);
-+		if (err)
-+			return err;
- 
--	ports = dsa_get_ports(ds, np);
--	if (IS_ERR(ports))
--		return PTR_ERR(ports);
-+		ports = dsa_get_ports(ds, np);
-+		if (IS_ERR(ports))
-+			return PTR_ERR(ports);
- 
--	err = dsa_parse_ports_dn(ports, ds);
--	if (err)
--		return err;
-+		err = dsa_parse_ports_dn(ports, ds);
-+		if (err)
-+			return err;
-+	} else {
-+		err = dsa_parse_member(pdata, &tree, &index);
-+		if (err)
-+			return err;
-+
-+		err = dsa_parse_ports(&pdata->chip[index], ds);
-+		if (err)
-+			return err;
-+	}
- 
- 	dst = dsa_get_dst(tree);
- 	if (!dst) {
-@@ -630,6 +685,7 @@ static int _dsa_register_switch(struct dsa_switch *ds, struct device *dev)
- 	}
- 
- 	ds->dst = dst;
-+	dst->pd = pdata;
- 	ds->index = index;
- 
- 	/* Initialize the routing table */
+ /*****************************************************************************
 -- 
 2.9.3
