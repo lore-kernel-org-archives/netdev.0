@@ -1,111 +1,55 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [net PATCH] net: virtio: cap mtu when XDP programs are running
-Date: Tue, 10 Jan 2017 11:34:23 +0800
-Message-ID: <b2ee7ade-3d95-f8c5-499b-8a725b5f7b8e@redhat.com>
-References: <586BD5D5.6020100@gmail.com>
- <1caf1ffc-0f46-067e-0f0d-a93b408b4ffd@redhat.com>
- <586D458F.5050705@gmail.com>
- <068f0116-b37e-eb44-8c60-1781a9d5255e@redhat.com>
- <20170110010531-mutt-send-email-mst@kernel.org> <5874190B.9050505@gmail.com>
- <20170110012044-mutt-send-email-mst@kernel.org> <58742187.8050505@gmail.com>
- <20170110015759-mutt-send-email-mst@kernel.org>
- <9102bb4b-223a-d441-7546-8b4144d970fb@redhat.com>
- <20170110044910-mutt-send-email-mst@kernel.org>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] net: ipv6: put autoconf routes into
+ per-interface tables
+Date: Mon, 9 Jan 2017 20:39:43 -0700
+Message-ID: <bbcab8bb-6a2a-6b90-f6a2-ad840a2c389c@cumulusnetworks.com>
+References: <20170106153026.24785-1-lorenzo@google.com>
+ <37df3b18-d17b-5875-7b44-db40be7b459c@cumulusnetworks.com>
+ <CAKD1Yr2U2Oh5yvHE7Znfc9mHzM4K6B_kU82Qctpcsmnt3y5GdQ@mail.gmail.com>
+ <e282793e-4057-7fe6-8322-e1899d873ae2@cumulusnetworks.com>
+ <CAKD1Yr21W2Ce6mhAqfz+mFUPTn+xn3K_Lz2q5LA27f6V=9tTSQ@mail.gmail.com>
+ <161222cb-5c61-d016-bc0f-2453fb0408b7@cumulusnetworks.com>
+ <CAKD1Yr0BnYNTYtCBHLy=KuhX3_23p8eQst61CoC0BHEr5PVkjQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: John Fastabend <john.fastabend@gmail.com>,
-        john.r.fastabend@intel.com, netdev@vger.kernel.org,
-        alexei.starovoitov@gmail.com, daniel@iogearbox.net
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        =?UTF-8?Q?Maciej_=c5=bbenczykowski?= <zenczykowski@gmail.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Erik Kline <ek@google.com>,
+        YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>,
+        David Miller <davem@davemloft.net>,
+        Daniel Rosenberg <drosen@google.com>, temnota.am@gmail.com
+To: Lorenzo Colitti <lorenzo@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58198 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932400AbdAJDec (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 9 Jan 2017 22:34:32 -0500
-In-Reply-To: <20170110044910-mutt-send-email-mst@kernel.org>
+Received: from mail-pf0-f171.google.com ([209.85.192.171]:36729 "EHLO
+        mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755369AbdAJDjq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 22:39:46 -0500
+Received: by mail-pf0-f171.google.com with SMTP id 189so26474655pfu.3
+        for <netdev@vger.kernel.org>; Mon, 09 Jan 2017 19:39:45 -0800 (PST)
+In-Reply-To: <CAKD1Yr0BnYNTYtCBHLy=KuhX3_23p8eQst61CoC0BHEr5PVkjQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-On 2017年01月10日 10:51, Michael S. Tsirkin wrote:
-> On Tue, Jan 10, 2017 at 10:29:39AM +0800, Jason Wang wrote:
+On 1/9/17 8:30 PM, Lorenzo Colitti wrote:
+> On Tue, Jan 10, 2017 at 12:04 PM, David Ahern <dsa@cumulusnetworks.com> wrote:
+>>> I have no firsthand experience of this myself, but if the problems
+>>> that Andrey reports above in this thread are real, then those would
+>>> indicate that the code is not well-supported. Being unable to accept
+>>> DAD is a pretty serious issue. Andrey, what version of the kernel did
+>>> you see this on?
 >>
->> On 2017年01月10日 07:58, Michael S. Tsirkin wrote:
->>> On Mon, Jan 09, 2017 at 03:49:27PM -0800, John Fastabend wrote:
->>>> On 17-01-09 03:24 PM, Michael S. Tsirkin wrote:
->>>>> On Mon, Jan 09, 2017 at 03:13:15PM -0800, John Fastabend wrote:
->>>>>> On 17-01-09 03:05 PM, Michael S. Tsirkin wrote:
->>>>>>> On Thu, Jan 05, 2017 at 11:09:14AM +0800, Jason Wang wrote:
->>>>>>>> On 2017年01月05日 02:57, John Fastabend wrote:
->>>>>>>>> [...]
->>>>>>>>>
->>>>>>>>>> On 2017年01月04日 00:48, John Fastabend wrote:
->>>>>>>>>>> On 17-01-02 10:14 PM, Jason Wang wrote:
->>>>>>>>>>>> On 2017年01月03日 06:30, John Fastabend wrote:
->>>>>>>>>>>>> XDP programs can not consume multiple pages so we cap the MTU to
->>>>>>>>>>>>> avoid this case. Virtio-net however only checks the MTU at XDP
->>>>>>>>>>>>> program load and does not block MTU changes after the program
->>>>>>>>>>>>> has loaded.
->>>>>>>>>>>>>
->>>>>>>>>>>>> This patch sets/clears the max_mtu value at XDP load/unload time.
->>>>>>>>>>>>>
->>>>>>>>>>>>> Signed-off-by: John Fastabend<john.r.fastabend@intel.com>
->>>>>>>>>>>>> ---
->>>>>>>>> [...]
->>>>>>>>>
->>>>>>>>>>> OK so this logic is a bit too simply. When it resets the max_mtu I guess it
->>>>>>>>>>> needs to read the mtu via
->>>>>>>>>>>
->>>>>>>>>>>        virtio_cread16(vdev, ...)
->>>>>>>>>>>
->>>>>>>>>>> or we may break the negotiated mtu.
->>>>>>>>>> Yes, this is a problem (even use ETH_MAX_MTU). We may need a method to notify
->>>>>>>>>> the device about the mtu in this case which is not supported by virtio now.
->>>>>>>>> Note this is not really a XDP specific problem. The guest can change the MTU
->>>>>>>>> after init time even without XDP which I assume should ideally result in a
->>>>>>>>> notification if the MTU is negotiated.
->>>>>>>> Yes, Michael, do you think we need add some mechanism to notify host about
->>>>>>>> MTU change in this case?
->>>>>>>>
->>>>>>>> Thanks
->>>>>>> Why does host care?
->>>>>>>
->>>>>> Well the guest will drop packets after mtu has been reduced.
->>>>> I didn't know. What place in code does this?
->>>>>
->>>> hmm in many of the drivers it is convention to use the mtu to set the rx
->>>> buffer sizes and a receive side max length filter. For example in the Intel
->>>> drivers if a packet with length greater than MTU + some headroom is received we
->>>> drop it. I guess in the networking stack RX path though nothing forces this and
->>>> virtio doesn't have any code to drop packets on rx size.
->>>>
->>>> In virtio I don't see any existing case currently. In the XDP case though we
->>>> need to ensure packets fit in a page for the time being which is why I was
->>>> looking at this code and generated this patch.
->>> I'd say just look at the hardware max mtu. Ignore the configured mtu.
->>>
->>>
->> Does this work for small buffers consider it always allocate skb with size
->> of GOOD_PACKET_LEN?
-> Spec says hardware won't send in packets > max mtu in config space.
+>> Are you referencing an Android or google thread? This patch thread has not mentioned any IPv6 problems.
+> 
+> No, this thread. I see message-ID 8cddkd-etc.ln1@banana.localnet in
+> this thread. If you didn't get it, I also see it in the comments on
+> patchwork - https://patchwork.ozlabs.org/patch/711956/
+> 
 
-Yes, but if max mtu is greater than GOOD_PACKET_LEN, packet will be dropped.
+Odd that I did not get that -- checked spam and trash.
 
->
->> I think in any case, we should limit max_mtu to
->> GOOD_PACKET_LEN for small buffers.
->>
->> Thanks
-> XDP seems to have a bunch of weird restrictions, I just
-> do not like it that the logic spills out to all drivers.
-> What if someone decides to extend it to two pages in the future?
-> Recode it all in all drivers ...
->
-> Why can't net core enforce mtu?
->
+Andrey is missing 830218c1add1da16519b71909e5cf21522b7d062 which tells me the comment is not based on 4.10 or net-next:
 
-Not sure it's a good idea to change mtu silently without notifying user.
-
-Thanks
+$ git describe 830218c1add1da16519b71909e5cf21522b7d062
+v4.8-14744-g830218c1add1
