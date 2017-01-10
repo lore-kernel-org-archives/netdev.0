@@ -1,59 +1,43 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: pull-request: wireless-drivers 2017-01-10
-Date: Tue, 10 Jan 2017 08:18:40 +0200
-Message-ID: <87a8aztp33.fsf@kamboji.qca.qualcomm.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH v2 03/13] net: ethernet: aquantia: Add ring support code
+Date: Mon, 9 Jan 2017 22:34:41 -0800
+Message-ID: <20170109223441.4cbca16a@xeon-e3>
+References: <cover.1483999588.git.vomlehn@texas.net>
+        <6dfadde2e1fe39b46d814c83fb7460566e860095.1483999588.git.vomlehn@texas.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, David VomLehn <vomlehn@texas.net>,
+        Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
+        Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>,
+        Pavel Belous <Pavel.Belous@aquantia.com>
+To: Alexander Loktionov <Alexander.Loktionov@aquantia.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:34012 "EHLO
+        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750772AbdAJGet (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2017 01:34:49 -0500
+Received: by mail-pf0-f182.google.com with SMTP id 127so41871922pfg.1
+        for <netdev@vger.kernel.org>; Mon, 09 Jan 2017 22:34:49 -0800 (PST)
+In-Reply-To: <6dfadde2e1fe39b46d814c83fb7460566e860095.1483999588.git.vomlehn@texas.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+On Mon,  9 Jan 2017 14:16:01 -0800
+Alexander Loktionov <Alexander.Loktionov@aquantia.com> wrote:
 
-here's the pull request with the important rtlwifi fix, more info in the
-tag below.
+> 		++self->stats.rx_packets;
+> +		++ndev->stats.rx_packets;
+> +		ndev->stats.rx_bytes += buff->len;
 
-During the long weekend we had here I finally updated Ubuntu on my
-workstation and git was updated along that. If you see anything funny or
-problems in my pull request due to the upgrade, please let me know. The
-upgrade might have broken something, at least git-request-pull needs to
-be now called differently.
+Why keep two sets of statistics (self->stats and ndev->stats); seems redundant.
+Could also use per-cpu network stats pcpu_sw_netstats
 
-Kalle
+You could also optimize by doing only one addition of ndev->stats after processing
+several packets.
 
-The following changes since commit f5a0aab84b74de68523599817569c057c7ac1622:
+> +		skb = netdev_alloc_skb(ndev, ETH_HLEN);
+> +		skb_put(skb, ETH_HLEN);
+> +		memcpy(skb->data, page_address(buff->page), ETH_HLEN);
 
-  net: ipv4: dst for local input routes should use l3mdev if relevant (2016-12-29 22:27:23 -0500)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/kvalo/wireless-drivers.git tags/wireless-drivers-for-davem-2017-01-10
-
-for you to fetch changes up to 60f59ce0278557f7896d5158ae6d12a4855a72cc:
-
-  rtlwifi: rtl_usb: Fix missing entry in USB driver's private data (2016-12-30 15:38:13 +0200)
-
-----------------------------------------------------------------
-wireless-drivers fixes for 4.10
-
-Only two fixes at this time. The rtlwifi fix is an important one as it
-fixes a reported oops and Linus was already asking about it. The
-orinoco fix is not tested on a real device, because it's old legacy
-hardware and hardly no-one use it, but it should fix a (theoretical)
-issue with VMAP_STACK.
-
-----------------------------------------------------------------
-Andrew Lutomirski (1):
-      orinoco: Use shash instead of ahash for MIC calculations
-
-Larry Finger (1):
-      rtlwifi: rtl_usb: Fix missing entry in USB driver's private data
-
- drivers/net/wireless/intersil/orinoco/mic.c     | 44 +++++++++++++++----------
- drivers/net/wireless/intersil/orinoco/mic.h     |  3 +-
- drivers/net/wireless/intersil/orinoco/orinoco.h |  4 +--
- drivers/net/wireless/realtek/rtlwifi/usb.c      |  1 +
- 4 files changed, 31 insertions(+), 21 deletions(-)
+Why not use build_skb() here?
