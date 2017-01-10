@@ -1,40 +1,77 @@
-From: Martin KaFai Lau <kafai@fb.com>
-Subject: Re: [PATCH net v2] mlx4: Return EOPNOTSUPP instead of ENOTSUPP
-Date: Tue, 10 Jan 2017 14:36:45 -0800
-Message-ID: <20170110212945.GA83130@kafai-mba.local>
-References: <1484070109-105991-1-git-send-email-kafai@fb.com>
- <CALzJLG99semMYGKMO1QvNg1EK0m-uFWv4+-o45oV9t3QoY6_rw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Kernel Team <kernel-team@fb.com>
-To: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH net] net: ipv4: Fix multipath selection with vrf
+Date: Tue, 10 Jan 2017 14:37:35 -0800
+Message-ID: <1484087855-4607-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:43116 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1755565AbdAJWg5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2017 17:36:57 -0500
-Content-Disposition: inline
-In-Reply-To: <CALzJLG99semMYGKMO1QvNg1EK0m-uFWv4+-o45oV9t3QoY6_rw@mail.gmail.com>
+Received: from mail-pf0-f178.google.com ([209.85.192.178]:33940 "EHLO
+        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750869AbdAJWkG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2017 17:40:06 -0500
+Received: by mail-pf0-f178.google.com with SMTP id 127so53788709pfg.1
+        for <netdev@vger.kernel.org>; Tue, 10 Jan 2017 14:40:06 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 10, 2017 at 10:04:55PM +0200, Saeed Mahameed wrote:
-> On Tue, Jan 10, 2017 at 7:41 PM, Martin KaFai Lau <kafai@fb.com> wrote:
-> > In commit b45f0674b997 ("mlx4: xdp: Allow raising MTU up to one page minus eth and vlan hdrs"),
-> > it changed EOPNOTSUPP to ENOTSUPP by mistake.  This patch fixes it.
-> >
-> > Fixes: b45f0674b997 ("mlx4: xdp: Allow raising MTU up to one page minus eth and vlan hdrs")
-> > Signed-off-by: Martin KaFai Lau <kafai@fb.com>
->
-> Acked-by: Saeed Mahameed <saeedm@mellanox.com>
->
->
-> Thank you martin.
->
-> Small question though,
-> is it essential for the upper layer to get the correct errno ? or this
-> is just a cleanup ?
-Former.  probably for the netlink's NLMSG_ERROR also.
+fib_select_path does not call fib_select_multipath if oif is set in the
+flow struct. For VRF use cases oif is always set, so multipath route
+selection is bypassed. Use the FLOWI_FLAG_SKIP_NH_OIF to skip the oif
+check similar to what is done in fib_table_lookup.
+
+Add saddr and proto to the flow struct for the fib lookup done by the
+VRF driver to better match hash computation for a flow.
+
+Fixes: 613d09b30f8b ("net: Use VRF device index for lookups on TX")
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+IPv6 multipath selection works fine as is.
+
+ drivers/net/vrf.c        | 2 ++
+ net/ipv4/fib_semantics.c | 9 +++++++--
+ 2 files changed, 9 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
+index 23dfb0eac098..0a067708aa39 100644
+--- a/drivers/net/vrf.c
++++ b/drivers/net/vrf.c
+@@ -263,7 +263,9 @@ static netdev_tx_t vrf_process_v4_outbound(struct sk_buff *skb,
+ 		.flowi4_iif = LOOPBACK_IFINDEX,
+ 		.flowi4_tos = RT_TOS(ip4h->tos),
+ 		.flowi4_flags = FLOWI_FLAG_ANYSRC | FLOWI_FLAG_SKIP_NH_OIF,
++		.flowi4_proto = ip4h->protocol,
+ 		.daddr = ip4h->daddr,
++		.saddr = ip4h->saddr,
+ 	};
+ 	struct net *net = dev_net(vrf_dev);
+ 	struct rtable *rt;
+diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+index 7a5b4c7d9a87..eba1546b5031 100644
+--- a/net/ipv4/fib_semantics.c
++++ b/net/ipv4/fib_semantics.c
+@@ -1618,8 +1618,13 @@ void fib_select_multipath(struct fib_result *res, int hash)
+ void fib_select_path(struct net *net, struct fib_result *res,
+ 		     struct flowi4 *fl4, int mp_hash)
+ {
++	bool oif_check;
++
++	oif_check = (fl4->flowi4_oif == 0 ||
++		     fl4->flowi4_flags & FLOWI_FLAG_SKIP_NH_OIF);
++
+ #ifdef CONFIG_IP_ROUTE_MULTIPATH
+-	if (res->fi->fib_nhs > 1 && fl4->flowi4_oif == 0) {
++	if (res->fi->fib_nhs > 1 && oif_check) {
+ 		if (mp_hash < 0)
+ 			mp_hash = get_hash_from_flowi4(fl4) >> 1;
+ 
+@@ -1629,7 +1634,7 @@ void fib_select_path(struct net *net, struct fib_result *res,
+ #endif
+ 	if (!res->prefixlen &&
+ 	    res->table->tb_num_default > 1 &&
+-	    res->type == RTN_UNICAST && !fl4->flowi4_oif)
++	    res->type == RTN_UNICAST && oif_check)
+ 		fib_select_default(fl4, res);
+ 
+ 	if (!fl4->saddr)
+-- 
+2.1.4
