@@ -1,91 +1,70 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
 Subject: Re: [PATCH net-next 6/8] net: dsa: Add support for platform data
-Date: Tue, 10 Jan 2017 13:06:07 -0800
-Message-ID: <1530c7f6-f8ba-ab32-75aa-288549f25db9@gmail.com>
+Date: Tue, 10 Jan 2017 22:21:17 +0100
+Message-ID: <20170110212117.GO22820@lunn.ch>
 References: <20170110201235.21771-1-f.fainelli@gmail.com>
  <20170110201235.21771-7-f.fainelli@gmail.com>
  <20170110204124.GL22820@lunn.ch>
+ <1530c7f6-f8ba-ab32-75aa-288549f25db9@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, Jason Cooper <jason@lakedaemon.net>,
-        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-        Gregory Clement <gregory.clement@free-electrons.com>,
-        Russell King <linux@armlinux.org.uk>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Philippe Reynes <tremyfr@gmail.com>,
-        Martin Schwidefsky <schwidefsky@de.ibm.com>,
-        Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-        Stuart Yoder <stuart.yoder@nxp.com>,
-        Ingo Tuchscherer <ingo.tuchscherer@linux.vnet.ibm.com>,
-        "moderated list:ARM/Marvell Dove/MV78xx0/Orion SOC support"
-        <linux-arm-kernel@lists.infradead.org>,
-        open list <linux-kernel@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170110204124.GL22820@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Ingo Tuchscherer <ingo.tuchscherer@linux.vnet.ibm.com>,
+ Jason Cooper <jason@lakedaemon.net>,
+ Vivien Didelot <vivien.didelot@savoirfairelinux.com>, netdev@vger.kernel.org,
+ open list <linux-kernel@vger.kernel.org>, Russell King <linux@armlinux.org.uk>,
+ Stuart Yoder <stuart.yoder@nxp.com>,
+ Martin Schwidefsky <schwidefsky@de.ibm.com>,
+ Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+ Gregory Clement <gregory.clement@free-electrons.com>,
+ Philippe Reynes <tremyfr@gmail.com>, "David S. Miller" <davem@davemloft.net>,
+ "moderated list:ARM/Marvell Dove/MV78xx0/Orion SOC support"
+ <linux-arm-kernel@lists.infradead.org>,
+ Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+	John Crispin <john@phrozen.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Disposition: inline
+In-Reply-To: <1530c7f6-f8ba-ab32-75aa-288549f25db9@gmail.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-On 01/10/2017 12:41 PM, Andrew Lunn wrote:
->> @@ -452,11 +455,14 @@ static int dsa_cpu_parse(struct dsa_port *port, u32 index,
->>  	struct net_device *ethernet_dev;
->>  	struct device_node *ethernet;
->>  
->> -	ethernet = of_parse_phandle(port->dn, "ethernet", 0);
->> -	if (!ethernet)
->> -		return -EINVAL;
->> +	if (port->dn) {
->> +		ethernet = of_parse_phandle(port->dn, "ethernet", 0);
->> +		if (!ethernet)
->> +			return -EINVAL;
->> +		ethernet_dev = of_find_net_device_by_node(ethernet);
->> +	} else
->> +		ethernet_dev = dev_to_net_device(dst->pd->netdev);
+> Last time we discussed this, I had a super complex dsa2_platform_data
+> that allowed you to do exactly the same thing we currently do with
+> Device Tree, except that this was with platform_data. It took a lot of
+> effort to get there, but I essentially had the ZII vf160 board example
+> re-implemented and verified with a mockup driver (still have it in a
+> branch that's not too far from net-next/master).
 
-Bonjour Andrew,
+One thing different this time is you have associated the platform data
+to an MDIO device. So the platform data represents one switch, not the
+whole complex. This is going to make the platform data much simpler,
+and allow the core to do the work of assembling the multiple platform
+datas into one switch complex. So basically, the platform data is
+dsa_chip_data.
 
-> 
-> Hi Florian
-> 
-> This is not going to work with John's rework of my multi CPU ports
-> code. I think you are going to have to modify the platform_data
-> structure to support multi-CPU ports.
+To handle multi-CPUs, we need to move the master ethernet device and
+put it next to the cpu port. So add a
 
-Last time we discussed this, I had a super complex dsa2_platform_data
-that allowed you to do exactly the same thing we currently do with
-Device Tree, except that this was with platform_data. It took a lot of
-effort to get there, but I essentially had the ZII vf160 board example
-re-implemented and verified with a mockup driver (still have it in a
-branch that's not too far from net-next/master).
+struct device   *netdev[DSA_MAX_PORTS];
 
-Your reply then AFAIR was that we should aim for something simpler and
-here is the result, we end-up re-using the existing dsa_platform_data
-with its limitations.
+to dsa_chip_data. It then becomes easy to represent multiple CPU
+ports.
 
-If we have legacy platforms with complex setups, I really don't think we
-have those in tree, we should use dsa2_platform_data (still have the
-patches somewhere for that) although I was hoping to not have to use it
-since it is way more intrusive into net/dsa/dsa2.c.
+> I would very much like to see the patches and then make a decision based
+> on the submission rather than project a decision on code that has not
+> been submitted yet.
 
-All platforms that I know that will benefit from this patch series: x86
-SCU from ZII (out of tree), BCM47xx, BCM63xx, Orion5x have the same
-properties: single switch attached to a SPI/MDIO/MMAP with built-in
-PHYs. If we have more complex setups than that, we should try to collect
-the requirements.
+The first version was posted a week ago. I requested a lot of
+changes. So lets see what John says about when the next version will
+be ready.
 
-> 
-> I put higher priority on cleanly integrating multi-CPU ports using
-> device tree, than supporting legacy platforms. I'm O.K. with
-> preparatory patches, but i think we should wait for actually platform
-> data changes until after Johns code has landed and we can design the
-> platform_data to work with it.
-
-I would very much like to see the patches and then make a decision based
-on the submission rather than project a decision on code that has not
-been submitted yet.
-
-Do we agree that patches 1 through 5 and 7 could go in then?
--- 
-Florian
+   Andrew
