@@ -1,61 +1,58 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net 10/10] net/mlx5: Only cancel recovery work when cleaning up device
-Date: Tue, 10 Jan 2017 22:33:39 +0200
-Message-ID: <1484080419-24256-11-git-send-email-saeedm@mellanox.com>
-References: <1484080419-24256-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Daniel Jurgens <danielj@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next 1/2] net: dsa: Implement ndo_get_phys_port_name()
+Date: Tue, 10 Jan 2017 12:32:36 -0800
+Message-ID: <20170110203237.23907-2-f.fainelli@gmail.com>
+References: <20170110203237.23907-1-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, vivien.didelot@savoirfairelinux.com,
+        andrew@lunn.ch, jiri@resnulli.us,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:52051 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751118AbdAJUe1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2017 15:34:27 -0500
-In-Reply-To: <1484080419-24256-1-git-send-email-saeedm@mellanox.com>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:35184 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751064AbdAJUcs (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2017 15:32:48 -0500
+Received: by mail-pf0-f194.google.com with SMTP id f144so11453436pfa.2
+        for <netdev@vger.kernel.org>; Tue, 10 Jan 2017 12:32:48 -0800 (PST)
+In-Reply-To: <20170110203237.23907-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Jurgens <danielj@mellanox.com>
+Return the physical port number of a DSA created network device using
+ndo_get_phys_port_name().
 
-Do not attempt to drain the health workqueue when unloading the device in
-the recovery flow, this can cause a deadlock when the recovery work
-tries to cancel itself with sync.
-
-Because the work is no longer unconditionally canceled when unloading, it
-must be explicitly canceled in the AER flow.
-
-fixes: 689a248df83b ("net/mlx5: Cancel recovery work in remove flow")
-Signed-off-by: Daniel Jurgens <danielj@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/main.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+ net/dsa/slave.c | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-index 6547f22..d01e9f2 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-@@ -1195,7 +1195,8 @@ static int mlx5_unload_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv,
- {
- 	int err = 0;
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 5cd5b8137c08..fed3fbd403cb 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -990,6 +990,15 @@ static int dsa_slave_get_phys_port_id(struct net_device *dev,
  
--	mlx5_drain_health_wq(dev);
-+	if (cleanup)
-+		mlx5_drain_health_wq(dev);
+ 	ppid->id_len = sizeof(p->port);
+ 	memcpy(ppid->id, &p->port, ppid->id_len);
++}
++
++static int dsa_slave_get_phys_port_name(struct net_device *dev,
++					char *name, size_t len)
++{
++	struct dsa_slave_priv *p = netdev_priv(dev);
++
++	if (snprintf(name, len, "p%d", p->port) >= len)
++		return -EINVAL;
  
- 	mutex_lock(&dev->intf_state_mutex);
- 	if (test_bit(MLX5_INTERFACE_STATE_DOWN, &dev->intf_state)) {
-@@ -1359,9 +1360,10 @@ static pci_ers_result_t mlx5_pci_err_detected(struct pci_dev *pdev,
+ 	return 0;
+ }
+@@ -1042,6 +1051,7 @@ static const struct net_device_ops dsa_slave_netdev_ops = {
+ 	.ndo_bridge_setlink	= switchdev_port_bridge_setlink,
+ 	.ndo_bridge_dellink	= switchdev_port_bridge_dellink,
+ 	.ndo_get_phys_port_id	= dsa_slave_get_phys_port_id,
++	.ndo_get_phys_port_name	= dsa_slave_get_phys_port_name,
+ };
  
- 	mlx5_enter_error_state(dev);
- 	mlx5_unload_one(dev, priv, false);
--	/* In case of kernel call save the pci state */
-+	/* In case of kernel call save the pci state and drain the health wq */
- 	if (state) {
- 		pci_save_state(pdev);
-+		mlx5_drain_health_wq(dev);
- 		mlx5_pci_disable_device(dev);
- 	}
- 
+ static const struct switchdev_ops dsa_slave_switchdev_ops = {
 -- 
-2.7.4
+2.9.3
