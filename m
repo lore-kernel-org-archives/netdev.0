@@ -1,79 +1,49 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 5/8] net: dsa: Export dev_to_net_device()
-Date: Tue, 10 Jan 2017 12:12:32 -0800
-Message-ID: <20170110201235.21771-6-f.fainelli@gmail.com>
-References: <20170110201235.21771-1-f.fainelli@gmail.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: next-20170110 build: 1 failures 4 warnings (next-20170110)
+Date: Wed, 11 Jan 2017 07:21:41 +1100
+Message-ID: <20170111072131.51449059@canb.auug.org.au>
+References: <E1cQqkO-0005XB-2K@optimist>
+        <20170110181607.dp6giaxyeczykmv4@sirena.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Lunn <andrew@lunn.ch>, Florian Fainelli <f.fainelli@gmail.com>,
- Ingo Tuchscherer <ingo.tuchscherer@linux.vnet.ibm.com>,
- Jason Cooper <jason@lakedaemon.net>,
- Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
- Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
- open list <linux-kernel@vger.kernel.org>, Russell King <linux@armlinux.org.uk>,
- Stuart Yoder <stuart.yoder@nxp.com>,
- Martin Schwidefsky <schwidefsky@de.ibm.com>,
- Gregory Clement <gregory.clement@free-electrons.com>,
- Philippe Reynes <tremyfr@gmail.com>, "David S. Miller" <davem@davemloft.net>,
- "moderated list:ARM/Marvell Dove/MV78xx0/Orion SOC support"
- <linux-arm-kernel@lists.infradead.org>,
- Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20170110201235.21771-1-f.fainelli@gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Cc: Michael Scherban <m-scherban@ti.com>,
+        Murali Karicheri <m-karicheri2@ti.com>,
+        Sekhar Nori <nsekhar@ti.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        kernel-build-reports@lists.linaro.org,
+        linaro-kernel@lists.linaro.org, linux-next@vger.kernel.org,
+        linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+        stephen hemminger <stephen@networkplumber.org>
+To: Mark Brown <broonie@kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20170110181607.dp6giaxyeczykmv4@sirena.org.uk>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We are going to need this in net/dsa/dsa2.c as well, so make it
-avaialable.
+Hi Mark,
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- include/net/dsa.h | 1 +
- net/dsa/dsa.c     | 3 ++-
- 2 files changed, 3 insertions(+), 1 deletion(-)
+On Tue, 10 Jan 2017 18:16:07 +0000 Mark Brown <broonie@kernel.org> wrote:
+>
+> On Tue, Jan 10, 2017 at 07:21:32AM +0000, Build bot for Mark Brown wrote:
+> 
+> Today's -next fails to build an arm allmodconfig due to:
+> 
+> > 	arm-allmodconfig
+> > ../drivers/net/ethernet/ti/netcp_core.c:1951:28: error: initialization from incompatible pointer type [-Werror=incompatible-pointer-types]  
+> 
+> caused by 6a8162e99ef344 (net: netcp: store network statistics in 64
+> bits).  It's assigning the function
+> 
+>   static struct rtnl_link_stats64 *
+>   netcp_get_stats(struct net_device *ndev, struct rtnl_link_stats64 *stats)
+> 
+> to ndo_get_stats64 which expects a function returning void.
 
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 16a502a6c26a..b9394379affb 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -396,6 +396,7 @@ struct dsa_switch_driver {
- void register_switch_driver(struct dsa_switch_driver *type);
- void unregister_switch_driver(struct dsa_switch_driver *type);
- struct mii_bus *dsa_host_dev_to_mii_bus(struct device *dev);
-+struct net_device *dev_to_net_device(struct device *dev);
- 
- static inline bool dsa_uses_tagged_protocol(struct dsa_switch_tree *dst)
- {
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index 2306d1b87c83..691ffc3f8ee6 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -491,7 +491,7 @@ struct mii_bus *dsa_host_dev_to_mii_bus(struct device *dev)
- }
- EXPORT_SYMBOL_GPL(dsa_host_dev_to_mii_bus);
- 
--static struct net_device *dev_to_net_device(struct device *dev)
-+struct net_device *dev_to_net_device(struct device *dev)
- {
- 	struct device *d;
- 
-@@ -508,6 +508,7 @@ static struct net_device *dev_to_net_device(struct device *dev)
- 
- 	return NULL;
- }
-+EXPORT_SYMBOL_GPL(dev_to_net_device);
- 
- #ifdef CONFIG_OF
- static int dsa_of_setup_routing_table(struct dsa_platform_data *pd,
+Yes, but only because commit bc1f44709cf2 ("net: make ndo_get_stats64 a
+void function") entered the net-next tree on the same day ... so it
+needs a followup fixup patch for this new usage.
+
 -- 
-2.9.3
+Cheers,
+Stephen Rothwell
