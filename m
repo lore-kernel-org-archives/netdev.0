@@ -1,47 +1,34 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net 05/10] net/mlx5e: Set inline mode requirements for matching on IP fragments
-Date: Tue, 10 Jan 2017 22:33:34 +0200
-Message-ID: <1484080419-24256-6-git-send-email-saeedm@mellanox.com>
-References: <1484080419-24256-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next 0/2] net: dsa: Implement ndo_get_phys_port_name()
+Date: Tue, 10 Jan 2017 12:32:35 -0800
+Message-ID: <20170110203237.23907-1-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, vivien.didelot@savoirfairelinux.com,
+        andrew@lunn.ch, jiri@resnulli.us,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:52046 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751110AbdAJUe1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2017 15:34:27 -0500
-In-Reply-To: <1484080419-24256-1-git-send-email-saeedm@mellanox.com>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:34104 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751059AbdAJUcr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2017 15:32:47 -0500
+Received: by mail-pf0-f193.google.com with SMTP id y143so9285475pfb.1
+        for <netdev@vger.kernel.org>; Tue, 10 Jan 2017 12:32:47 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
+Hi all,
 
-For e-switch level matching on packets being an IP fragment, we
-need to make sure the source vport inline mode is L3, fix that.
+This patch series implements ndo_get_phys_port_name() so we can revert
+ndo_get_phys_id() which was (ab)used in the DSA layer.
 
-Fixes: 3f7d0eb42d59 ('net/mlx5e: Offload TC matching on packets being IP fragments')
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-Reviewed-by: Roi Dayan <roid@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 4 ++++
- 1 file changed, 4 insertions(+)
+Thanks
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-index 9cfddd9..a35fa1e 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-@@ -389,6 +389,10 @@ static int __parse_cls_flower(struct mlx5e_priv *priv,
- 			MLX5_SET(fte_match_set_lyr_2_4, headers_c, frag, 1);
- 			MLX5_SET(fte_match_set_lyr_2_4, headers_v, frag,
- 				 key->flags & FLOW_DIS_IS_FRAGMENT);
-+
-+			/* the HW doesn't need L3 inline to match on frag=no */
-+			if (key->flags & FLOW_DIS_IS_FRAGMENT)
-+				*min_inline = MLX5_INLINE_MODE_IP;
- 		}
- 	}
- 
+Florian Fainelli (2):
+  net: dsa: Implement ndo_get_phys_port_name()
+  Revert "net: dsa: Implement ndo_get_phys_port_id"
+
+ net/dsa/slave.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
 -- 
-2.7.4
+2.9.3
