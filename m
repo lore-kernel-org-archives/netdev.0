@@ -1,47 +1,65 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH net-next] bridge: multicast to unicast
-Date: Tue, 10 Jan 2017 11:56:03 +0100
-Message-ID: <1484045763.1014.0.camel@sipsolutions.net>
-References: <20170102193214.31723-1-linus.luessing@c0d3.blue>
-	<1483706872.4089.8.camel@sipsolutions.net>
-	<8836daaa-9638-4502-d079-fd428595f822@nbd.name>
-	<1483710841.12677.1.camel@sipsolutions.net>
-	<22fad045-57c6-7789-d19f-f47bd0faf441@fami-braun.de>
-	<20170107145516.GE3134@otheros>
-	<1483949336.17582.3.camel@sipsolutions.net>
-	<6f5ec9f1-800a-2bc4-2f41-9d803343bb22@fami-braun.de>
-	<20170109212345.GA5513@otheros> <20170109133032.221f8669@xeon-e3>
-	<20170110041816.GJ5513@otheros>
+From: Keerthy <j-keerthy@ti.com>
+Subject: [PATCH] net: netcp: correct netcp_get_stats function signature
+Date: Tue, 10 Jan 2017 16:56:25 +0530
+Message-ID: <1484047585-16733-1-git-send-email-j-keerthy@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"M. Braun" <michael-dev@fami-braun.de>,
-	"David S . Miller" <davem@davemloft.net>, Felix Fietkau <nbd@nbd.name>
-To: Linus =?ISO-8859-1?Q?L=FCssing?= <linus.luessing@c0d3.blue>, Stephen
-	Hemminger <stephen@networkplumber.org>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20170110041816.GJ5513@otheros>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        <stephen@networkplumber.org>, <m-scherban@ti.com>,
+        <j-keerthy@ti.com>
+To: <w-kwok2@ti.com>, <m-karicheri2@ti.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2017-01-10 at 05:18 +0100, Linus Lüssing wrote:
-> On Mon, Jan 09, 2017 at 01:30:32PM -0800, Stephen Hemminger wrote:
-> > I wonder if MAC80211 should be doing IGMP snooping and not bridge
-> > in this environment.
-> 
-> In the long term, yes. For now, not quite sure.
+Commit: bc1f44709cf2 - net: make ndo_get_stats64 a void function
+and
+Commit: 6a8162e99ef3 - net: netcp: store network statistics in 64 bits.
 
-There's no "for now" in the kernel. Code added now will have to be
-maintained essentially forever.
+The commit 6a8162e99ef3 adds ndo_get_stats64 function as per old
+signature which causes compilation error:
 
-johannes
+drivers/net/ethernet/ti/netcp_core.c:1951:28: error:
+initialization from incompatible pointer type
+  .ndo_get_stats64        = netcp_get_stats,
+
+Hence correct netcp_get_stats function signature as per
+the latest definition.
+
+Signed-off-by: Keerthy <j-keerthy@ti.com>
+Fixes: 6a8162e99ef344fc("net: netcp: store network statistics in 64 bits")
+---
+
+This is due patches crossing at the same time.
+Fixes the compilation error. Only build tested. It would be
+good if someone can boot test.
+
+Applies on top of latest next branch.
+
+ drivers/net/ethernet/ti/netcp_core.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/ti/netcp_core.c b/drivers/net/ethernet/ti/netcp_core.c
+index 68a75cc..34852f2 100644
+--- a/drivers/net/ethernet/ti/netcp_core.c
++++ b/drivers/net/ethernet/ti/netcp_core.c
+@@ -1909,7 +1909,7 @@ static int netcp_setup_tc(struct net_device *dev, u32 handle, __be16 proto,
+ 	return 0;
+ }
+ 
+-static struct rtnl_link_stats64 *
++void
+ netcp_get_stats(struct net_device *ndev, struct rtnl_link_stats64 *stats)
+ {
+ 	struct netcp_intf *netcp = netdev_priv(ndev);
+@@ -1938,8 +1938,6 @@ static int netcp_setup_tc(struct net_device *dev, u32 handle, __be16 proto,
+ 	stats->rx_errors = p->rx_errors;
+ 	stats->rx_dropped = p->rx_dropped;
+ 	stats->tx_dropped = p->tx_dropped;
+-
+-	return stats;
+ }
+ 
+ static const struct net_device_ops netcp_netdev_ops = {
+-- 
+1.9.1
