@@ -1,39 +1,59 @@
-From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH RFC 3/4] dt-bindings: correct marvell orion MDIO binding
- document
-Date: Mon, 9 Jan 2017 23:35:50 -0600
-Message-ID: <20170110053550.e4igrh5dxfgsbtqc@rob-hp-laptop>
-References: <20170107112656.GL14217@n2100.armlinux.org.uk>
- <E1cPpAk-0005uJ-TM@rmk-PC.armlinux.org.uk>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: pull-request: wireless-drivers 2017-01-10
+Date: Tue, 10 Jan 2017 08:18:40 +0200
+Message-ID: <87a8aztp33.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Thomas Petazzoni <thomas.petazzoni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-        Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
-        Jason Cooper <jason-NLaQJdtUoK4Be96aLqz0jA@public.gmane.org>,
-        Gregory Clement <gregory.clement-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-        Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-        Marcin Wojtas <mw-nYOzD4b6Jr9Wk0Htik3J/w@public.gmane.org>,
-        Sebastian Hesselbarth <sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Russell King <rmk+kernel-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <E1cPpAk-0005uJ-TM-eh5Bv4kxaXIk46pC+1QYvQNdhmdF6hFW@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Jan 07, 2017 at 11:28:30AM +0000, Russell King wrote:
-> Correct the Marvell Orion MDIO binding document to properly reflect the
-> cases where an interrupt is present.  Augment the examples to show this.
-> 
-> Signed-off-by: Russell King <rmk+kernel-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>
-> ---
->  .../devicetree/bindings/net/marvell-orion-mdio.txt      | 17 +++++++++++++++--
->  1 file changed, 15 insertions(+), 2 deletions(-)
+Hi Dave,
 
-Acked-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+here's the pull request with the important rtlwifi fix, more info in the
+tag below.
+
+During the long weekend we had here I finally updated Ubuntu on my
+workstation and git was updated along that. If you see anything funny or
+problems in my pull request due to the upgrade, please let me know. The
+upgrade might have broken something, at least git-request-pull needs to
+be now called differently.
+
+Kalle
+
+The following changes since commit f5a0aab84b74de68523599817569c057c7ac1622:
+
+  net: ipv4: dst for local input routes should use l3mdev if relevant (2016-12-29 22:27:23 -0500)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/kvalo/wireless-drivers.git tags/wireless-drivers-for-davem-2017-01-10
+
+for you to fetch changes up to 60f59ce0278557f7896d5158ae6d12a4855a72cc:
+
+  rtlwifi: rtl_usb: Fix missing entry in USB driver's private data (2016-12-30 15:38:13 +0200)
+
+----------------------------------------------------------------
+wireless-drivers fixes for 4.10
+
+Only two fixes at this time. The rtlwifi fix is an important one as it
+fixes a reported oops and Linus was already asking about it. The
+orinoco fix is not tested on a real device, because it's old legacy
+hardware and hardly no-one use it, but it should fix a (theoretical)
+issue with VMAP_STACK.
+
+----------------------------------------------------------------
+Andrew Lutomirski (1):
+      orinoco: Use shash instead of ahash for MIC calculations
+
+Larry Finger (1):
+      rtlwifi: rtl_usb: Fix missing entry in USB driver's private data
+
+ drivers/net/wireless/intersil/orinoco/mic.c     | 44 +++++++++++++++----------
+ drivers/net/wireless/intersil/orinoco/mic.h     |  3 +-
+ drivers/net/wireless/intersil/orinoco/orinoco.h |  4 +--
+ drivers/net/wireless/realtek/rtlwifi/usb.c      |  1 +
+ 4 files changed, 31 insertions(+), 21 deletions(-)
