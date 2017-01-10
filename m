@@ -1,86 +1,98 @@
-From: Ido Schimmel <idosch@idosch.org>
-Subject: Re: [PATCH net-next 0/4] net: switchdev: Avoid sleep in atomic with
- DSA
-Date: Tue, 10 Jan 2017 18:08:52 +0200
-Message-ID: <20170110160852.GA18050@splinter.mtl.com>
-References: <20170109194503.10713-1-f.fainelli@gmail.com>
- <20170109204849.GA28310@splinter>
- <e28f29c8-04ed-1d71-7b13-27a5d58d111c@gmail.com>
- <20170109211436.GB28310@splinter>
- <20170110120846.GC1827@nanopsycho>
- <20170110132506.GA4084@splinter.mtl.com>
- <20170110141807.GD1827@nanopsycho>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
-        davem@davemloft.net, vivien.didelot@savoirfairelinux.com,
-        andrew@lunn.ch
-To: Jiri Pirko <jiri@resnulli.us>
+From: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Subject: [PATCH net 1/1] net/af_iucv: don't use paged skbs for TX on HiperSockets
+Date: Tue, 10 Jan 2017 17:10:34 +0100
+Message-ID: <20170110161034.82445-2-ubraun@linux.vnet.ibm.com>
+References: <20170110161034.82445-1-ubraun@linux.vnet.ibm.com>
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+        schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
+        stable@vger.kernel.org, ubraun@linux.vnet.ibm.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:37583 "EHLO
-        out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751197AbdAJQIz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2017 11:08:55 -0500
-Content-Disposition: inline
-In-Reply-To: <20170110141807.GD1827@nanopsycho>
+Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:33523 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1030792AbdAJQKp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2017 11:10:45 -0500
+Received: from pps.filterd (m0098399.ppops.net [127.0.0.1])
+        by mx0a-001b2d01.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id v0AG4heH076139
+        for <netdev@vger.kernel.org>; Tue, 10 Jan 2017 11:10:44 -0500
+Received: from e06smtp14.uk.ibm.com (e06smtp14.uk.ibm.com [195.75.94.110])
+        by mx0a-001b2d01.pphosted.com with ESMTP id 27w1s6bdyy-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Tue, 10 Jan 2017 11:10:44 -0500
+Received: from localhost
+        by e06smtp14.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
+        Tue, 10 Jan 2017 16:10:42 -0000
+In-Reply-To: <20170110161034.82445-1-ubraun@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 10, 2017 at 03:18:07PM +0100, Jiri Pirko wrote:
-> Tue, Jan 10, 2017 at 02:25:06PM CET, idosch@idosch.org wrote:
-> >On Tue, Jan 10, 2017 at 01:08:46PM +0100, Jiri Pirko wrote:
-> >> Mon, Jan 09, 2017 at 10:14:36PM CET, idosch@idosch.org wrote:
-> >> >On Mon, Jan 09, 2017 at 12:56:48PM -0800, Florian Fainelli wrote:
-> >> >> On 01/09/2017 12:48 PM, Ido Schimmel wrote:
-> >> >> > Hi Florian,
-> >> >> > 
-> >> >> > On Mon, Jan 09, 2017 at 11:44:59AM -0800, Florian Fainelli wrote:
-> >> >> >> Hi all,
-> >> >> >>
-> >> >> >> This patch series is to resolve a sleeping function called in atomic context
-> >> >> >> debug splat that we observe with DSA.
-> >> >> >>
-> >> >> >> Let me know what you think, I was also wondering if we should just always
-> >> >> >> make switchdev_port_vlan_fill() set SWITCHDEV_F_DEFER, but was afraid this
-> >> >> >> could cause invalid contexts to be used for rocker, mlxsw, i40e etc.
-> >> >> > 
-> >> >> > Isn't this a bit of overkill? All the drivers you mention fill the VLAN
-> >> >> > dump from their cache and don't require sleeping. Even b53 that you
-> >> >> > mention in the last patch does that, but reads the PVID from the device,
-> >> >> > which entails taking a mutex.
-> >> >> 
-> >> >> Correct.
-> >> >> 
-> >> >> > 
-> >> >> > Can't you just cache the PVID as well? I think this will solve your
-> >> >> > problem. Didn't look too much into the b53 code, so maybe I'm missing
-> >> >> > something. Seems that mv88e6xxx has a similar problem.
-> >> >> 
-> >> >> I suppose we could indeed cache the PVID for b53, but for mv88e6xxx it
-> >> >> seems like we need to perform a bunch of VTU operations, and those
-> >> >> access HW registers, Andrew, Vivien, how do you want to solve that, do
-> >> >> we want to introduce a general VLAN cache somewhere in switchdev/DSA/driver?
-> >> >
-> >> >Truth be told, I don't quite understand why switchdev infra even tries
-> >> >to dump the VLANs from the device. Like, in which situations is this
-> >> >going to be different from what the software bridge reports? Sure, you
-> >> >can set the VLAN filters with SELF and skip the software bridge, but how
-> >> >does that make sense in a model where you want to reflect the software
-> >> >datapath?
-> >> 
-> >> But the vlans added by rtnl_bridge_setlink & SELF are not tracked by the
-> >> bridge and therefore driver needs to dump them. You would have to pass
-> >> some flag down to driver when adding SWITCHDEV_OBJ_ID_PORT_VLAN
-> >> indicating the need to track the vlan and dump it. Right?
-> >
-> >Right, but back to my question - what's the use case for the SELF flag
-> >in the switchdev model? Why would I configure a VLAN filter in the
-> >hardware but not in the software bridge? The whole point is reflecting
-> >the software bridge to the hardware.
-> 
-> I agree. For the bridge-switchdev usecase, I don't see a reason to use
-> SELF for vlans as well. Do you suggest to simply remove this possibility?
+From: Julian Wiedmann <jwi@linux.vnet.ibm.com>
 
-Yes. This would also solve Florian's problem.
+With commit e53743994e21
+("af_iucv: use paged SKBs for big outbound messages"),
+we transmit paged skbs for both of AF_IUCV's transport modes
+(IUCV or HiperSockets).
+The qeth driver for Layer 3 HiperSockets currently doesn't
+support NETIF_F_SG, so these skbs would just be linearized again
+by the stack.
+Avoid that overhead by using paged skbs only for IUCV transport.
 
-Florian, what do you think?
+cc stable, since this also circumvents a significant skb leak when
+sending large messages (where the skb then needs to be linearized).
+
+Signed-off-by: Julian Wiedmann <jwi@linux.vnet.ibm.com>
+Signed-off-by: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Cc: <stable@vger.kernel.org> # v4.8+
+Fixes: e53743994e21 ("af_iucv: use paged SKBs for big outbound messages")
+---
+ net/iucv/af_iucv.c | 25 ++++++++++++++-----------
+ 1 file changed, 14 insertions(+), 11 deletions(-)
+
+diff --git a/net/iucv/af_iucv.c b/net/iucv/af_iucv.c
+index cfb9e5f..13190b3 100644
+--- a/net/iucv/af_iucv.c
++++ b/net/iucv/af_iucv.c
+@@ -1044,7 +1044,8 @@ static int iucv_sock_sendmsg(struct socket *sock, struct msghdr *msg,
+ {
+ 	struct sock *sk = sock->sk;
+ 	struct iucv_sock *iucv = iucv_sk(sk);
+-	size_t headroom, linear;
++	size_t headroom = 0;
++	size_t linear;
+ 	struct sk_buff *skb;
+ 	struct iucv_message txmsg = {0};
+ 	struct cmsghdr *cmsg;
+@@ -1122,18 +1123,20 @@ static int iucv_sock_sendmsg(struct socket *sock, struct msghdr *msg,
+ 	 * this is fine for SOCK_SEQPACKET (unless we want to support
+ 	 * segmented records using the MSG_EOR flag), but
+ 	 * for SOCK_STREAM we might want to improve it in future */
+-	headroom = (iucv->transport == AF_IUCV_TRANS_HIPER)
+-		   ? sizeof(struct af_iucv_trans_hdr) + ETH_HLEN : 0;
+-	if (headroom + len < PAGE_SIZE) {
++	if (iucv->transport == AF_IUCV_TRANS_HIPER) {
++		headroom = sizeof(struct af_iucv_trans_hdr) + ETH_HLEN;
+ 		linear = len;
+ 	} else {
+-		/* In nonlinear "classic" iucv skb,
+-		 * reserve space for iucv_array
+-		 */
+-		if (iucv->transport != AF_IUCV_TRANS_HIPER)
+-			headroom += sizeof(struct iucv_array) *
+-				    (MAX_SKB_FRAGS + 1);
+-		linear = PAGE_SIZE - headroom;
++		if (len < PAGE_SIZE) {
++			linear = len;
++		} else {
++			/* In nonlinear "classic" iucv skb,
++			 * reserve space for iucv_array
++			 */
++			headroom = sizeof(struct iucv_array) *
++				   (MAX_SKB_FRAGS + 1);
++			linear = PAGE_SIZE - headroom;
++		}
+ 	}
+ 	skb = sock_alloc_send_pskb(sk, headroom + linear, len - linear,
+ 				   noblock, &err, 0);
+-- 
+2.8.4
