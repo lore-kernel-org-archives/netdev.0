@@ -1,26 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] sfc: physical port ids
-Date: Tue, 10 Jan 2017 14:18:07 -0500 (EST)
-Message-ID: <20170110.141807.1947722285133247298.davem@davemloft.net>
-References: <78b911fa-ba82-093e-ba00-f4bdb09f1896@solarflare.com>
+Subject: Re: [PATCH v2 net-next] liquidio: store the L4 hash of rx packets
+ in skb
+Date: Tue, 10 Jan 2017 14:23:02 -0500 (EST)
+Message-ID: <20170110.142302.1520724578882136544.davem@davemloft.net>
+References: <20170109224240.GA10166@felix.cavium.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-net-drivers@solarflare.com, netdev@vger.kernel.org
-To: ecree@solarflare.com
+Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
+        derek.chickles@cavium.com, satananda.burla@cavium.com,
+        eric.dumazet@gmail.com
+To: felix.manlunas@cavium.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:51602 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:51730 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S940777AbdAJTSZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2017 14:18:25 -0500
-In-Reply-To: <78b911fa-ba82-093e-ba00-f4bdb09f1896@solarflare.com>
+        with ESMTP id S1765761AbdAJTXO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2017 14:23:14 -0500
+In-Reply-To: <20170109224240.GA10166@felix.cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Edward Cree <ecree@solarflare.com>
-Date: Tue, 10 Jan 2017 16:22:26 +0000
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Date: Mon, 9 Jan 2017 14:42:40 -0800
 
-> This series brings our handling of ndo_get_phys_port_id and related
->  interfaces into line with the behaviour of other drivers.
+> From: Prasad Kanneganti <prasad.kanneganti@cavium.com>
+> 
+> Store the L4 hash of received packets in the skb; the hash is computed in
+> the NIC firmware.
+> 
+> Signed-off-by: Prasad Kanneganti <prasad.kanneganti@cavium.com>
+> Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
+> Signed-off-by: Derek Chickles <derek.chickles@cavium.com>
+> Signed-off-by: Satanand Burla <satananda.burla@cavium.com>
 
-Series applied, thanks.
+Applied, thanks.
