@@ -1,109 +1,57 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [net PATCH] net: virtio: cap mtu when XDP programs are running
-Date: Tue, 10 Jan 2017 04:51:34 +0200
-Message-ID: <20170110044910-mutt-send-email-mst@kernel.org>
-References: <586BD5D5.6020100@gmail.com>
- <1caf1ffc-0f46-067e-0f0d-a93b408b4ffd@redhat.com>
- <586D458F.5050705@gmail.com>
- <068f0116-b37e-eb44-8c60-1781a9d5255e@redhat.com>
- <20170110010531-mutt-send-email-mst@kernel.org>
- <5874190B.9050505@gmail.com>
- <20170110012044-mutt-send-email-mst@kernel.org>
- <58742187.8050505@gmail.com>
- <20170110015759-mutt-send-email-mst@kernel.org>
- <9102bb4b-223a-d441-7546-8b4144d970fb@redhat.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the y2038 tree with the net-next tree
+Date: Tue, 10 Jan 2017 13:52:01 +1100
+Message-ID: <20170110135201.2a62a4d9@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: John Fastabend <john.fastabend@gmail.com>,
-        john.r.fastabend@intel.com, netdev@vger.kernel.org,
-        alexei.starovoitov@gmail.com, daniel@iogearbox.net
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60538 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932584AbdAJCvg (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 9 Jan 2017 21:51:36 -0500
-Content-Disposition: inline
-In-Reply-To: <9102bb4b-223a-d441-7546-8b4144d970fb@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+        David Howells <dhowells@redhat.com>,
+        Tina Ruchandani <ruchandani.tina@gmail.com>
+To: Arnd Bergmann <arnd@arndb.de>, David Miller <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 10, 2017 at 10:29:39AM +0800, Jason Wang wrote:
-> 
-> 
-> On 2017年01月10日 07:58, Michael S. Tsirkin wrote:
-> > On Mon, Jan 09, 2017 at 03:49:27PM -0800, John Fastabend wrote:
-> > > On 17-01-09 03:24 PM, Michael S. Tsirkin wrote:
-> > > > On Mon, Jan 09, 2017 at 03:13:15PM -0800, John Fastabend wrote:
-> > > > > On 17-01-09 03:05 PM, Michael S. Tsirkin wrote:
-> > > > > > On Thu, Jan 05, 2017 at 11:09:14AM +0800, Jason Wang wrote:
-> > > > > > > On 2017年01月05日 02:57, John Fastabend wrote:
-> > > > > > > > [...]
-> > > > > > > > 
-> > > > > > > > > On 2017年01月04日 00:48, John Fastabend wrote:
-> > > > > > > > > > On 17-01-02 10:14 PM, Jason Wang wrote:
-> > > > > > > > > > > On 2017年01月03日 06:30, John Fastabend wrote:
-> > > > > > > > > > > > XDP programs can not consume multiple pages so we cap the MTU to
-> > > > > > > > > > > > avoid this case. Virtio-net however only checks the MTU at XDP
-> > > > > > > > > > > > program load and does not block MTU changes after the program
-> > > > > > > > > > > > has loaded.
-> > > > > > > > > > > > 
-> > > > > > > > > > > > This patch sets/clears the max_mtu value at XDP load/unload time.
-> > > > > > > > > > > > 
-> > > > > > > > > > > > Signed-off-by: John Fastabend<john.r.fastabend@intel.com>
-> > > > > > > > > > > > ---
-> > > > > > > > [...]
-> > > > > > > > 
-> > > > > > > > > > OK so this logic is a bit too simply. When it resets the max_mtu I guess it
-> > > > > > > > > > needs to read the mtu via
-> > > > > > > > > > 
-> > > > > > > > > >       virtio_cread16(vdev, ...)
-> > > > > > > > > > 
-> > > > > > > > > > or we may break the negotiated mtu.
-> > > > > > > > > Yes, this is a problem (even use ETH_MAX_MTU). We may need a method to notify
-> > > > > > > > > the device about the mtu in this case which is not supported by virtio now.
-> > > > > > > > Note this is not really a XDP specific problem. The guest can change the MTU
-> > > > > > > > after init time even without XDP which I assume should ideally result in a
-> > > > > > > > notification if the MTU is negotiated.
-> > > > > > > Yes, Michael, do you think we need add some mechanism to notify host about
-> > > > > > > MTU change in this case?
-> > > > > > > 
-> > > > > > > Thanks
-> > > > > > Why does host care?
-> > > > > > 
-> > > > > Well the guest will drop packets after mtu has been reduced.
-> > > > I didn't know. What place in code does this?
-> > > > 
-> > > hmm in many of the drivers it is convention to use the mtu to set the rx
-> > > buffer sizes and a receive side max length filter. For example in the Intel
-> > > drivers if a packet with length greater than MTU + some headroom is received we
-> > > drop it. I guess in the networking stack RX path though nothing forces this and
-> > > virtio doesn't have any code to drop packets on rx size.
-> > > 
-> > > In virtio I don't see any existing case currently. In the XDP case though we
-> > > need to ensure packets fit in a page for the time being which is why I was
-> > > looking at this code and generated this patch.
-> > I'd say just look at the hardware max mtu. Ignore the configured mtu.
-> > 
-> > 
-> 
-> Does this work for small buffers consider it always allocate skb with size
-> of GOOD_PACKET_LEN?
+Hi Arnd,
 
-Spec says hardware won't send in packets > max mtu in config space.
+Today's linux-next merge of the y2038 tree got a conflict in:
 
-> I think in any case, we should limit max_mtu to
-> GOOD_PACKET_LEN for small buffers.
-> 
-> Thanks
+  fs/afs/main.c
 
-XDP seems to have a bunch of weird restrictions, I just
-do not like it that the logic spills out to all drivers.
-What if someone decides to extend it to two pages in the future?
-Recode it all in all drivers ...
+between commit:
 
-Why can't net core enforce mtu?
+  8e8d7f13b6d5 ("afs: Add some tracepoints")
+
+from the net-next tree and commit:
+
+  549eb7b22e24 ("AFS: Correctly use 64-bit time for UUID")
+
+from the y2038 tree.
+
+I fixed it up (see below) and can carry the fix as necessary. This
+is now fixed as far as linux-next is concerned, but any non trivial
+conflicts should be mentioned to your upstream maintainer when your tree
+is submitted for merging.  You may also want to consider cooperating
+with the maintainer of the conflicting tree to minimise any particularly
+complex conflicts.
 
 -- 
-MST
+Cheers,
+Stephen Rothwell
+
+diff --cc fs/afs/main.c
+index f8188feb03ad,129ff432391c..000000000000
+--- a/fs/afs/main.c
++++ b/fs/afs/main.c
+@@@ -14,8 -14,7 +14,9 @@@
+  #include <linux/init.h>
+  #include <linux/completion.h>
+  #include <linux/sched.h>
+ +#include <linux/random.h>
+ +#define CREATE_TRACE_POINTS
++ #include <linux/ktime.h>
+  #include "internal.h"
+  
+  MODULE_DESCRIPTION("AFS Client File System");
