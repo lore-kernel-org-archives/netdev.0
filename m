@@ -1,37 +1,82 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next] net: ipv6: put autoconf routes into
- per-interface tables
-Date: Mon, 9 Jan 2017 19:08:57 -0700
-Message-ID: <e282793e-4057-7fe6-8322-e1899d873ae2@cumulusnetworks.com>
-References: <20170106153026.24785-1-lorenzo@google.com>
- <37df3b18-d17b-5875-7b44-db40be7b459c@cumulusnetworks.com>
- <CAKD1Yr2U2Oh5yvHE7Znfc9mHzM4K6B_kU82Qctpcsmnt3y5GdQ@mail.gmail.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH V4 net-next 1/3] vhost: better detection of available
+	buffers
+Date: Tue, 10 Jan 2017 10:22:42 +0800
+Message-ID: <5eb3b349-bbae-6438-d8ea-7df82a7babb4@redhat.com>
+References: <1483668797-24112-1-git-send-email-jasowang@redhat.com>
+	<1483668797-24112-2-git-send-email-jasowang@redhat.com>
+	<20170106214903-mutt-send-email-mst@kernel.org>
+	<e09ccb6a-87b8-d2b1-f64d-79ea7ea89954@redhat.com>
+	<20170110010957-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        =?UTF-8?Q?Maciej_=c5=bbenczykowski?= <zenczykowski@gmail.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Erik Kline <ek@google.com>,
-        YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>,
-        David Miller <davem@davemloft.net>,
-        Daniel Rosenberg <drosen@google.com>
-To: Lorenzo Colitti <lorenzo@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f182.google.com ([209.85.192.182]:33615 "EHLO
-        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751784AbdAJCI7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 21:08:59 -0500
-Received: by mail-pf0-f182.google.com with SMTP id y143so16604210pfb.0
-        for <netdev@vger.kernel.org>; Mon, 09 Jan 2017 18:08:59 -0800 (PST)
-In-Reply-To: <CAKD1Yr2U2Oh5yvHE7Znfc9mHzM4K6B_kU82Qctpcsmnt3y5GdQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: kvm@vger.kernel.org, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, wexu@redhat.com,
+	stefanha@redhat.com
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20170110010957-mutt-send-email-mst@kernel.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 1/9/17 7:01 PM, Lorenzo Colitti wrote:
-> As others have mentioned, IPv6 on VRFs in client mode is also not
-> necessarily well-supported at the moment, and I don't know how long it
-> would take for it to be (assuming it can be made to work properly in
-> client mode without breaking the primary use cases for VRFs).
-
-That's news to me. What about IPv6 and VRF is not working or well-supported?
+CgpPbiAyMDE35bm0MDHmnIgxMOaXpSAwNzoxMCwgTWljaGFlbCBTLiBUc2lya2luIHdyb3RlOgo+
+IE9uIE1vbiwgSmFuIDA5LCAyMDE3IGF0IDEwOjU5OjE2QU0gKzA4MDAsIEphc29uIFdhbmcgd3Jv
+dGU6Cj4+Cj4+IE9uIDIwMTflubQwMeaciDA35pelIDAzOjU1LCBNaWNoYWVsIFMuIFRzaXJraW4g
+d3JvdGU6Cj4+PiBPbiBGcmksIEphbiAwNiwgMjAxNyBhdCAxMDoxMzoxNUFNICswODAwLCBKYXNv
+biBXYW5nIHdyb3RlOgo+Pj4+IFRoaXMgcGF0Y2ggdHJpZXMgdG8gZG8gc2V2ZXJhbCB0d2Vha3Mg
+b24gdmhvc3RfdnFfYXZhaWxfZW1wdHkoKSBmb3IgYQo+Pj4+IGJldHRlciBwZXJmb3JtYW5jZToK
+Pj4+Pgo+Pj4+IC0gY2hlY2sgY2FjaGVkIGF2YWlsIGluZGV4IGZpcnN0IHdoaWNoIGNvdWxkIGF2
+b2lkIHVzZXJzcGFjZSBtZW1vcnkgYWNjZXNzLgo+Pj4+IC0gdXNpbmcgdW5saWtlbHkoKSBmb3Ig
+dGhlIGZhaWx1cmUgb2YgdXNlcnNwYWNlIGFjY2Vzcwo+Pj4+IC0gY2hlY2sgdnEtPmxhc3RfYXZh
+aWxfaWR4IGluc3RlYWQgb2YgY2FjaGVkIGF2YWlsIGluZGV4IGFzIHRoZSBsYXN0Cj4+Pj4gICAg
+IHN0ZXAuCj4+Pj4KPj4+PiBUaGlzIHBhdGNoIGlzIG5lZWQgZm9yIGJhdGNoaW5nIHN1cHBvcnRz
+IHdoaWNoIG5lZWRzIHRvIHBlZWsgd2hldGhlcgo+Pj4+IG9yIG5vdCB0aGVyZSdzIHN0aWxsIGF2
+YWlsYWJsZSBidWZmZXJzIGluIHRoZSByaW5nLgo+Pj4+Cj4+Pj4gUmV2aWV3ZWQtYnk6IFN0ZWZh
+biBIYWpub2N6aSA8c3RlZmFuaGFAcmVkaGF0LmNvbT4KPj4+PiBTaWduZWQtb2ZmLWJ5OiBKYXNv
+biBXYW5nIDxqYXNvd2FuZ0ByZWRoYXQuY29tPgo+Pj4+IC0tLQo+Pj4+ICAgIGRyaXZlcnMvdmhv
+c3Qvdmhvc3QuYyB8IDggKysrKysrLS0KPj4+PiAgICAxIGZpbGUgY2hhbmdlZCwgNiBpbnNlcnRp
+b25zKCspLCAyIGRlbGV0aW9ucygtKQo+Pj4+Cj4+Pj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvdmhv
+c3Qvdmhvc3QuYyBiL2RyaXZlcnMvdmhvc3Qvdmhvc3QuYwo+Pj4+IGluZGV4IGQ2NDMyNjAuLjlm
+MTE4MzggMTAwNjQ0Cj4+Pj4gLS0tIGEvZHJpdmVycy92aG9zdC92aG9zdC5jCj4+Pj4gKysrIGIv
+ZHJpdmVycy92aG9zdC92aG9zdC5jCj4+Pj4gQEAgLTIyNDEsMTEgKzIyNDEsMTUgQEAgYm9vbCB2
+aG9zdF92cV9hdmFpbF9lbXB0eShzdHJ1Y3Qgdmhvc3RfZGV2ICpkZXYsIHN0cnVjdCB2aG9zdF92
+aXJ0cXVldWUgKnZxKQo+Pj4+ICAgIAlfX3ZpcnRpbzE2IGF2YWlsX2lkeDsKPj4+PiAgICAJaW50
+IHI7Cj4+Pj4gKwlpZiAodnEtPmF2YWlsX2lkeCAhPSB2cS0+bGFzdF9hdmFpbF9pZHgpCj4+Pj4g
+KwkJcmV0dXJuIGZhbHNlOwo+Pj4+ICsKPj4+PiAgICAJciA9IHZob3N0X2dldF91c2VyKHZxLCBh
+dmFpbF9pZHgsICZ2cS0+YXZhaWwtPmlkeCk7Cj4+Pj4gLQlpZiAocikKPj4+PiArCWlmICh1bmxp
+a2VseShyKSkKPj4+PiAgICAJCXJldHVybiBmYWxzZTsKPj4+PiArCXZxLT5hdmFpbF9pZHggPSB2
+aG9zdDE2X3RvX2NwdSh2cSwgYXZhaWxfaWR4KTsKPj4+PiAtCXJldHVybiB2aG9zdDE2X3RvX2Nw
+dSh2cSwgYXZhaWxfaWR4KSA9PSB2cS0+YXZhaWxfaWR4Owo+Pj4+ICsJcmV0dXJuIHZxLT5hdmFp
+bF9pZHggPT0gdnEtPmxhc3RfYXZhaWxfaWR4Owo+Pj4+ICAgIH0KPj4+PiAgICBFWFBPUlRfU1lN
+Qk9MX0dQTCh2aG9zdF92cV9hdmFpbF9lbXB0eSk7Cj4+PiBTbyBhZ2FpbiwgdGhpcyBkaWQgbm90
+IGFkZHJlc3MgdGhlIGlzc3VlIEkgcG9pbnRlZCBvdXQgaW4gdjE6Cj4+PiBpZiB3ZSBoYXZlIDEg
+YnVmZmVyIGluIFJYIHF1ZXVlIGFuZAo+Pj4gdGhhdCBpcyBub3QgZW5vdWdoIHRvIHN0b3JlIHRo
+ZSB3aG9sZSBwYWNrZXQsCj4+PiB2aG9zdF92cV9hdmFpbF9lbXB0eSByZXR1cm5zIGZhbHNlLCB0
+aGVuIHdlIHJlLXJlYWQKPj4+IHRoZSBkZXNjcmlwdG9ycyBhZ2FpbiBhbmQgYWdhaW4uCj4+Pgo+
+Pj4gWW91IGhhdmUgc2F2ZWQgYSBzaW5nbGUgaW5kZXggYWNjZXNzIGJ1dCBub3QgdGhlIG1vcmUg
+ZXhwZW5zaXZlCj4+PiBkZXNjcmlwdG9yIGFjY2Vzcy4KPj4gTG9va3Mgbm90LCBpZiBJIHVuZGVy
+c3RhbmQgdGhlIGNvZGUgY29ycmVjdGx5LCBpbiB0aGlzIGNhc2UsIGdldF9yeF9idWZzKCkKPj4g
+d2lsbCByZXR1cm4gemVybywgYW5kIHdlIHdpbGwgdHJ5IHRvIGVuYWJsZSByeCBraWNrIGFuZCBl
+eGl0IHRoZSBsb29wLgo+Pgo+PiBUaGFua3MKPiBJIG1lYW4gdGhpczoKPgo+ICAgICAgICAgICAg
+ICAgICAgd2hpbGUgKHZob3N0X2Nhbl9idXN5X3BvbGwodnEtPmRldiwgZW5kdGltZSkgJiYKPiAg
+ICAgICAgICAgICAgICAgICAgICAgICB2aG9zdF92cV9hdmFpbF9lbXB0eSh2cS0+ZGV2LCB2cSkp
+Cj4gICAgICAgICAgICAgICAgICAgICAgICAgIGNwdV9yZWxheCgpOwo+ICAgICAgICAgICAgICAg
+ICAgcHJlZW1wdF9lbmFibGUoKTsKPiAgICAgICAgICAgICAgICAgIHIgPSB2aG9zdF9nZXRfdnFf
+ZGVzYyh2cSwgdnEtPmlvdiwgQVJSQVlfU0laRSh2cS0+aW92KSwKPiAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICBvdXRfbnVtLCBpbl9udW0sIE5VTEwsIE5VTEwpOwo+Cj4K
+PiB2aG9zdF92cV9hdmFpbF9lbXB0eSByZXR1cm5zIGZhbHNlIHNvIHdlIGJyZWFrIG91dCBvZiB0
+aGUgbG9vcAo+IGFuZCBjYWxsIHZob3N0X2dldF92cV9kZXNjLgo+Cj4KCkJ1dCB0aGlzIGlzIHRo
+ZSBjb2RlIGZvciBwb2xsaW5nIHR4IHZxIG5vdCByeCBJIHRoaW5rPwoKVGhhbmtzCgpfX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpWaXJ0dWFsaXphdGlvbiBt
+YWlsaW5nIGxpc3QKVmlydHVhbGl6YXRpb25AbGlzdHMubGludXgtZm91bmRhdGlvbi5vcmcKaHR0
+cHM6Ly9saXN0cy5saW51eGZvdW5kYXRpb24ub3JnL21haWxtYW4vbGlzdGluZm8vdmlydHVhbGl6
+YXRpb24=
