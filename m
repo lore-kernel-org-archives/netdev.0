@@ -1,37 +1,48 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH 0/2] xen/net: limit number of tx/rx queues
-Date: Tue, 10 Jan 2017 13:54:22 +0000
-Message-ID: <20170110135422.GL1100@citrix.com>
-References: <20170110133252.5346-1-jgross@suse.com>
+From: Tobias Klauser <tklauser@distanz.ch>
+Subject: [PATCH net-next] bpf: Remove unused but set variable in __bpf_lru_list_shrink_inactive()
+Date: Tue, 10 Jan 2017 15:02:07 +0100
+Message-ID: <20170110140207.26480-1-tklauser@distanz.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <linux-kernel@vger.kernel.org>, <xen-devel@lists.xenproject.org>,
-        <netdev@vger.kernel.org>, <boris.ostrovsky@oracle.com>,
-        <wei.liu2@citrix.com>, <paul.durrant@citrix.com>
-To: Juergen Gross <jgross@suse.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170110133252.5346-1-jgross@suse.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: ast@kernel.org, Martin KaFai Lau <kafai@fb.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.zhinst.com ([212.126.164.98]:40088 "EHLO mail.zhinst.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S934634AbdAJOCN (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 10 Jan 2017 09:02:13 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 10, 2017 at 02:32:50PM +0100, Juergen Gross wrote:
-> The Xen network frontend/backend supports multiple tx/rx queues for one
-> virtual interface. The number of queues supported by the backend is
-> set to the number of cpus of the backend driver domain (usually dom0)
-> and the number of queues requested by the frontend is limited by the
-> number of vcpus of the related guest.
-> 
-> On large systems this can lead to ridiculous large number of queues
-> exhausting the required number of grant pages rather quick.
-> 
-> To avoid this limit the default maximum on both sides to 8. Both
-> frontend and backend maximum can be individually tuned via module
-> parameters.
-> 
-> Juergen Gross (2):
->   xen/netfront: set default upper limit of tx/rx queues to 8
->   xen/netback: set default upper limit of tx/rx queues to 8
-> 
+Remove the unused but set variable 'first_node' in
+__bpf_lru_list_shrink_inactive() to fix the following GCC warning when
+building with 'W=1':
 
-Acked-by: Wei Liu <wei.liu2@citrix.com>
+  kernel/bpf/bpf_lru_list.c:216:41: warning: variable ‘first_node’ set but not used [-Wunused-but-set-variable]
+
+Cc: Martin KaFai Lau <kafai@fb.com>
+Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+---
+ kernel/bpf/bpf_lru_list.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/kernel/bpf/bpf_lru_list.c b/kernel/bpf/bpf_lru_list.c
+index 89b7ef41c86b..d78501ee0609 100644
+--- a/kernel/bpf/bpf_lru_list.c
++++ b/kernel/bpf/bpf_lru_list.c
+@@ -213,11 +213,10 @@ __bpf_lru_list_shrink_inactive(struct bpf_lru *lru,
+ 			       enum bpf_lru_list_type tgt_free_type)
+ {
+ 	struct list_head *inactive = &l->lists[BPF_LRU_LIST_T_INACTIVE];
+-	struct bpf_lru_node *node, *tmp_node, *first_node;
++	struct bpf_lru_node *node, *tmp_node;
+ 	unsigned int nshrinked = 0;
+ 	unsigned int i = 0;
+ 
+-	first_node = list_first_entry(inactive, struct bpf_lru_node, list);
+ 	list_for_each_entry_safe_reverse(node, tmp_node, inactive, list) {
+ 		if (bpf_lru_node_is_ref(node)) {
+ 			__bpf_lru_node_move(l, node, BPF_LRU_LIST_T_ACTIVE);
+-- 
+2.11.0
