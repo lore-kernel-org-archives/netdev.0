@@ -1,36 +1,59 @@
-From: Lorenzo Colitti <lorenzo@google.com>
-Subject: Re: [PATCH net-next] net: ipv6: put autoconf routes into
- per-interface tables
-Date: Tue, 10 Jan 2017 11:29:40 +0900
-Message-ID: <CAKD1Yr21W2Ce6mhAqfz+mFUPTn+xn3K_Lz2q5LA27f6V=9tTSQ@mail.gmail.com>
-References: <20170106153026.24785-1-lorenzo@google.com> <37df3b18-d17b-5875-7b44-db40be7b459c@cumulusnetworks.com>
- <CAKD1Yr2U2Oh5yvHE7Znfc9mHzM4K6B_kU82Qctpcsmnt3y5GdQ@mail.gmail.com> <e282793e-4057-7fe6-8322-e1899d873ae2@cumulusnetworks.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH] vhost: scsi: constify target_core_fabric_ops structures
+Date: Tue, 10 Jan 2017 10:50:05 +0800
+Message-ID: <933d05a8-aabd-0cd8-1adf-d36af62a8e0c@redhat.com>
+References: <1483975262-1260-1-git-send-email-bhumirks@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Erik Kline <ek@google.com>,
-        YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>,
-        David Miller <davem@davemloft.net>,
-        Daniel Rosenberg <drosen@google.com>, temnota.am@gmail.com
-To: David Ahern <dsa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f46.google.com ([209.85.213.46]:36045 "EHLO
-        mail-vk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1161782AbdAJCaC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 9 Jan 2017 21:30:02 -0500
-Received: by mail-vk0-f46.google.com with SMTP id t8so18985674vke.3
-        for <netdev@vger.kernel.org>; Mon, 09 Jan 2017 18:30:02 -0800 (PST)
-In-Reply-To: <e282793e-4057-7fe6-8322-e1899d873ae2@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+To: Bhumika Goyal <bhumirks@gmail.com>, julia.lawall@lip6.fr, mst@redhat.com,
+	kvm@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1483975262-1260-1-git-send-email-bhumirks@gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 10, 2017 at 11:08 AM, David Ahern <dsa@cumulusnetworks.com> wrote:
-> That's news to me. What about IPv6 and VRF is not working or well-supported?
-
-I have no firsthand experience of this myself, but if the problems
-that Andrey reports above in this thread are real, then those would
-indicate that the code is not well-supported. Being unable to accept
-DAD is a pretty serious issue. Andrey, what version of the kernel did
-you see this on?
+CgpPbiAyMDE35bm0MDHmnIgwOeaXpSAyMzoyMSwgQmh1bWlrYSBHb3lhbCB3cm90ZToKPiBEZWNs
+YXJlIHRhcmdldF9jb3JlX2ZhYnJpY19vcHMgc3RydWNydWVzIGFzIGNvbnN0IGFzIHRoZXkgYXJl
+IG9ubHkKPiBwYXNzZWQgYXMgYW4gYXJndW1lbnQgdG8gdGhlIGZ1bmN0aW9ucyB0YXJnZXRfcmVn
+aXN0ZXJfdGVtcGxhdGUgYW5kCj4gdGFyZ2V0X3VucmVnaXN0ZXJfdGVtcGxhdGUuIFRoZSBhcmd1
+bWVudHMgYXJlIG9mIHR5cGUgY29uc3Qgc3RydWN0Cj4gdGFyZ2V0X2NvcmVfZmFicmljX29wcyAq
+LCBzbyB0YXJnZXRfY29yZV9mYWJyaWNfb3BzIHN0cnVjdHVyZXMgaGF2aW5nCj4gdGhpcyBwcm9w
+ZXJ0eSBjYW4gYmUgZGVjbGFyZWQgY29uc3QuCj4gRG9uZSB1c2luZyBDb2NjaW5lbGxlOgo+Cj4g
+QHIgZGlzYWJsZSBvcHRpb25hbF9xdWFsaWZpZXJACj4gaWRlbnRpZmllciBpOwo+IHBvc2l0aW9u
+IHA7Cj4gQEAKPiBzdGF0aWMgc3RydWN0IHRhcmdldF9jb3JlX2ZhYnJpY19vcHMgaUBwPXsuLi59
+Owo+Cj4gQG9rQAo+IHBvc2l0aW9uIHA7Cj4gaWRlbnRpZmllciByLmk7Cj4gQEAKPiAoCj4gdGFy
+Z2V0X3JlZ2lzdGVyX3RlbXBsYXRlKCZpQHApCj4gfAo+IHRhcmdldF91bnJlZ2lzdGVyX3RlbXBs
+YXRlKCZpQHApCj4gKQo+IEBiYWRACj4gcG9zaXRpb24gcCE9e3IucCxvay5wfTsKPiBpZGVudGlm
+aWVyIHIuaTsKPiBAQAo+IGlAcAo+Cj4gQGRlcGVuZHMgb24gIWJhZCBkaXNhYmxlIG9wdGlvbmFs
+X3F1YWxpZmllckAKPiBpZGVudGlmaWVyIHIuaTsKPiBAQAo+ICtjb25zdAo+IHN0cnVjdCB0YXJn
+ZXRfY29yZV9mYWJyaWNfb3BzIGk7Cj4KPiBGaWxlIHNpemUgYmVmb3JlOiBkcml2ZXJzL3Zob3N0
+L3Njc2kubwo+ICAgICB0ZXh0CSAgIGRhdGEJICAgIGJzcwkgICAgZGVjCSAgICBoZXgJZmlsZW5h
+bWUKPiAgICAxODA2MwkgICAyOTg1CSAgICAgNDAJICAyMTA4OAkgICA1MjYwCWRyaXZlcnMvdmhv
+c3Qvc2NzaS5vCj4KPiBGaWxlIHNpemUgYWZ0ZXI6IGRyaXZlcnMvdmhvc3Qvc2NzaS5vCj4gICAg
+IHRleHQJICAgZGF0YQkgICAgYnNzCSAgICBkZWMJICAgIGhleAlmaWxlbmFtZQo+ICAgIDE4NDc5
+CSAgIDI2MDEJICAgICA0MAkgIDIxMTIwCSAgIDUyODAJZHJpdmVycy92aG9zdC9zY3NpLm8KPgo+
+IFNpZ25lZC1vZmYtYnk6IEJodW1pa2EgR295YWwgPGJodW1pcmtzQGdtYWlsLmNvbT4KPiAtLS0K
+PiAgIGRyaXZlcnMvdmhvc3Qvc2NzaS5jIHwgMiArLQo+ICAgMSBmaWxlIGNoYW5nZWQsIDEgaW5z
+ZXJ0aW9uKCspLCAxIGRlbGV0aW9uKC0pCj4KPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy92aG9zdC9z
+Y3NpLmMgYi9kcml2ZXJzL3Zob3N0L3Njc2kuYwo+IGluZGV4IDI1MzMxMGMuLjYyMDM2NmQgMTAw
+NjQ0Cj4gLS0tIGEvZHJpdmVycy92aG9zdC9zY3NpLmMKPiArKysgYi9kcml2ZXJzL3Zob3N0L3Nj
+c2kuYwo+IEBAIC0yMDg3LDcgKzIwODcsNyBAQCBzdGF0aWMgdm9pZCB2aG9zdF9zY3NpX2Ryb3Bf
+dHBvcnQoc3RydWN0IHNlX3d3biAqd3duKQo+ICAgCU5VTEwsCj4gICB9Owo+ICAgCj4gLXN0YXRp
+YyBzdHJ1Y3QgdGFyZ2V0X2NvcmVfZmFicmljX29wcyB2aG9zdF9zY3NpX29wcyA9IHsKPiArc3Rh
+dGljIGNvbnN0IHN0cnVjdCB0YXJnZXRfY29yZV9mYWJyaWNfb3BzIHZob3N0X3Njc2lfb3BzID0g
+ewo+ICAgCS5tb2R1bGUJCQkJPSBUSElTX01PRFVMRSwKPiAgIAkubmFtZQkJCQk9ICJ2aG9zdCIs
+Cj4gICAJLmdldF9mYWJyaWNfbmFtZQkJPSB2aG9zdF9zY3NpX2dldF9mYWJyaWNfbmFtZSwKCkFj
+a2VkLWJ5OiBKYXNvbiBXYW5nIDxqYXNvd2FuZ0ByZWRoYXQuY29tPgpfX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpWaXJ0dWFsaXphdGlvbiBtYWlsaW5nIGxp
+c3QKVmlydHVhbGl6YXRpb25AbGlzdHMubGludXgtZm91bmRhdGlvbi5vcmcKaHR0cHM6Ly9saXN0
+cy5saW51eGZvdW5kYXRpb24ub3JnL21haWxtYW4vbGlzdGluZm8vdmlydHVhbGl6YXRpb24=
