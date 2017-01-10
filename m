@@ -1,73 +1,75 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net 01/10] net/mlx5e: Properly handle offloading of source udp port for IP tunnels
-Date: Tue, 10 Jan 2017 22:33:30 +0200
-Message-ID: <1484080419-24256-2-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net 09/10] net/mlx5e: Remove WARN_ONCE from adaptive moderation code
+Date: Tue, 10 Jan 2017 22:33:38 +0200
+Message-ID: <1484080419-24256-10-git-send-email-saeedm@mellanox.com>
 References: <1484080419-24256-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
+Cc: netdev@vger.kernel.org, Gil Rockah <gilr@mellanox.com>,
         Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:52049 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:52048 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751059AbdAJUe1 (ORCPT
+        with ESMTP id S1751105AbdAJUe1 (ORCPT
         <rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2017 15:34:27 -0500
 In-Reply-To: <1484080419-24256-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
+From: Gil Rockah <gilr@mellanox.com>
 
-We can offload the matching on source udp port of ip tunnels for
-decapsulation. We can not offload setting source udp port for tunnels
-as part of encapsulation. Fix both the code that deals with matching
-offload (decap) and the code that deal with encap offload to align with
-that.
+When trying to do interface down or changing interface configuration
+under heavy traffic, some of the adaptive moderation corner cases can
+occur and leave a WARN_ONCE call trace in the kernel log.
 
-Fixes: a54e20b4fcae ('net/mlx5e: Add basic TC tunnel set action for SRIOV offloads')
-Fixes: bbd00f7e2349 ('net/mlx5e: Add TC tunnel release action for SRIOV offloads')
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-Reviewed-by: Hadar Hen Zion <hadarh@mellanox.com>
+Those WARN_ONCE are meant for debug only, and should have been inserted
+only under debug. We avoid such call traces by removing those WARN_ONCE.
+
+Fixes: cb3c7fd4f839 ("net/mlx5e: Support adaptive RX coalescing")
+Signed-off-by: Gil Rockah <gilr@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 12 ++++++++----
- 1 file changed, 8 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx_am.c | 7 +------
+ 1 file changed, 1 insertion(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-index f8829b5..b60fece 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-@@ -239,10 +239,6 @@ static int parse_tunnel_attr(struct mlx5e_priv *priv,
- 		if (memchr_inv(&mask->dst, 0xff, sizeof(mask->dst)))
- 			return -EOPNOTSUPP;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx_am.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx_am.c
+index 1fffe48..cbfac06 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx_am.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx_am.c
+@@ -109,7 +109,6 @@ static bool mlx5e_am_on_top(struct mlx5e_rx_am *am)
+ 	switch (am->tune_state) {
+ 	case MLX5E_AM_PARKING_ON_TOP:
+ 	case MLX5E_AM_PARKING_TIRED:
+-		WARN_ONCE(true, "mlx5e_am_on_top: PARKING\n");
+ 		return true;
+ 	case MLX5E_AM_GOING_RIGHT:
+ 		return (am->steps_left > 1) && (am->steps_right == 1);
+@@ -123,7 +122,6 @@ static void mlx5e_am_turn(struct mlx5e_rx_am *am)
+ 	switch (am->tune_state) {
+ 	case MLX5E_AM_PARKING_ON_TOP:
+ 	case MLX5E_AM_PARKING_TIRED:
+-		WARN_ONCE(true, "mlx5e_am_turn: PARKING\n");
+ 		break;
+ 	case MLX5E_AM_GOING_RIGHT:
+ 		am->tune_state = MLX5E_AM_GOING_LEFT;
+@@ -144,7 +142,6 @@ static int mlx5e_am_step(struct mlx5e_rx_am *am)
+ 	switch (am->tune_state) {
+ 	case MLX5E_AM_PARKING_ON_TOP:
+ 	case MLX5E_AM_PARKING_TIRED:
+-		WARN_ONCE(true, "mlx5e_am_step: PARKING\n");
+ 		break;
+ 	case MLX5E_AM_GOING_RIGHT:
+ 		if (am->profile_ix == (MLX5E_PARAMS_AM_NUM_PROFILES - 1))
+@@ -282,10 +279,8 @@ static void mlx5e_am_calc_stats(struct mlx5e_rx_am_sample *start,
+ 	u32 delta_us = ktime_us_delta(end->time, start->time);
+ 	unsigned int npkts = end->pkt_ctr - start->pkt_ctr;
  
--		/* udp src port isn't supported */
--		if (memchr_inv(&mask->src, 0, sizeof(mask->src)))
--			return -EOPNOTSUPP;
--
- 		if (mlx5e_vxlan_lookup_port(priv, be16_to_cpu(key->dst)) &&
- 		    MLX5_CAP_ESW(priv->mdev, vxlan_encap_decap))
- 			parse_vxlan_attr(spec, f);
-@@ -254,6 +250,10 @@ static int parse_tunnel_attr(struct mlx5e_priv *priv,
- 		MLX5_SET(fte_match_set_lyr_2_4, headers_v,
- 			 udp_dport, ntohs(key->dst));
+-	if (!delta_us) {
+-		WARN_ONCE(true, "mlx5e_am_calc_stats: delta_us=0\n");
++	if (!delta_us)
+ 		return;
+-	}
  
-+		MLX5_SET(fte_match_set_lyr_2_4, headers_c,
-+			 udp_sport, ntohs(mask->src));
-+		MLX5_SET(fte_match_set_lyr_2_4, headers_v,
-+			 udp_sport, ntohs(key->src));
- 	} else { /* udp dst port must be given */
- 			return -EOPNOTSUPP;
- 	}
-@@ -796,6 +796,10 @@ static int mlx5e_attach_encap(struct mlx5e_priv *priv,
- 	if (!memchr_inv(&key->tp_dst, 0, sizeof(key->tp_dst)))
- 		return -EOPNOTSUPP;
- 
-+	/* setting udp src port isn't supported */
-+	if (memchr_inv(&key->tp_src, 0, sizeof(key->tp_src)))
-+		return -EOPNOTSUPP;
-+
- 	if (mlx5e_vxlan_lookup_port(priv, be16_to_cpu(key->tp_dst)) &&
- 	    MLX5_CAP_ESW(priv->mdev, vxlan_encap_decap)) {
- 		info.tp_dst = key->tp_dst;
+ 	curr_stats->ppms =            (npkts * USEC_PER_MSEC) / delta_us;
+ 	curr_stats->epms = (MLX5E_AM_NEVENTS * USEC_PER_MSEC) / delta_us;
 -- 
 2.7.4
