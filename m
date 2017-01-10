@@ -1,114 +1,114 @@
-From: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH net 1/2] r8152: split rtl8152_suspend function
-Date: Tue, 10 Jan 2017 17:04:06 +0800
-Message-ID: <1394712342-15778-230-Taiwan-albertk@realtek.com>
-References: <1394712342-15778-229-Taiwan-albertk@realtek.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next v2] net: dsa: make "label" property optional for
+ dsa2
+Date: Tue, 10 Jan 2017 10:55:24 +0100
+Message-ID: <20170110095524.GA1827@nanopsycho>
+References: <20170108231552.26995-1-vivien.didelot@savoirfairelinux.com>
+ <20170109073236.GA1862@nanopsycho>
+ <877f6446lp.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+ <20170109151131.GC1862@nanopsycho>
+ <87y3yk2q5e.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+ <20170109160632.GD1862@nanopsycho>
+ <89492624-84f2-ca73-75dd-7fa10819ad09@gmail.com>
+ <20170109175842.GH1862@nanopsycho>
+ <3897e83d-83a6-7bb1-311d-ae228390f757@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
-To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1394712342-15778-229-Taiwan-albertk-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com,
+        "David S. Miller" <davem@davemloft.net>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Uwe =?iso-8859-1?Q?Kleine-K=F6nig?= <uwe@kleine-koenig.org>,
+        Andrey Smirnov <andrew.smirnov@gmail.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <3897e83d-83a6-7bb1-311d-ae228390f757@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Split rtl8152_suspend() into rtl8152_system_suspend() and
-rtl8152_rumtime_suspend().
+Mon, Jan 09, 2017 at 07:06:39PM CET, f.fainelli@gmail.com wrote:
+>On 01/09/2017 09:58 AM, Jiri Pirko wrote:
+>> Mon, Jan 09, 2017 at 06:42:07PM CET, f.fainelli@gmail.com wrote:
+>>> On 01/09/2017 08:06 AM, Jiri Pirko wrote:
+>>>> Mon, Jan 09, 2017 at 04:45:33PM CET, vivien.didelot@savoirfairelinux.com wrote:
+>>>>> Hi Jiri,
+>>>>>
+>>>>> Jiri Pirko <jiri@resnulli.us> writes:
+>>>>>
+>>>>>>> Extra question: shouldn't phys_port_{id,name} be switchdev attributes in
+>>>>>>
+>>>>>> Again, phys_port_id has nothing to do with switches. Should be removed
+>>>>>> from dsa because its use there is incorrect.
+>>>>>
+>>>>> Florian, since 3a543ef just got in, can it be reverted?
+>>>>
+>>>> Yes, please revert it. It is only in net-next.
+>>>
+>>> Maybe the use case can be understood before reverting the change. How do
+>>> we actually the physical port number of an Ethernet switch per-port
+>>> network device? The name is not enough, because there are plenty of
+>>> cases where we need to manipulate a physical port number (be it just for
+>>> informational purposes).
+>> 
+>> Like what?
+>
+>Specifying the physical port number (and derive a queue number
+>eventually) for some ethtool (e.g: rxnfc)/tc (queue mapping) operations
+>where there is an action/queue/port destination argument that gets
+>programmed into the hardware.
 
-Signed-off-by: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
----
- drivers/net/usb/r8152.c | 57 ++++++++++++++++++++++++++++++++++---------------
- 1 file changed, 40 insertions(+), 17 deletions(-)
+Could you point me to a real example? User command?
 
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index 7dc6122..c5e6d88 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -3576,39 +3576,62 @@ static bool delay_autosuspend(struct r8152 *tp)
- 		return false;
- }
- 
--static int rtl8152_suspend(struct usb_interface *intf, pm_message_t message)
-+static int rtl8152_rumtime_suspend(struct r8152 *tp)
- {
--	struct r8152 *tp = usb_get_intfdata(intf);
- 	struct net_device *netdev = tp->netdev;
- 	int ret = 0;
- 
--	mutex_lock(&tp->control);
--
--	if (PMSG_IS_AUTO(message)) {
--		if (netif_running(netdev) && delay_autosuspend(tp)) {
-+	if (netif_running(netdev) && test_bit(WORK_ENABLE, &tp->flags)) {
-+		if (delay_autosuspend(tp)) {
- 			ret = -EBUSY;
- 			goto out1;
- 		}
- 
--		set_bit(SELECTIVE_SUSPEND, &tp->flags);
--	} else {
--		netif_device_detach(netdev);
-+		clear_bit(WORK_ENABLE, &tp->flags);
-+		usb_kill_urb(tp->intr_urb);
-+		napi_disable(&tp->napi);
-+		rtl_stop_rx(tp);
-+		tp->rtl_ops.autosuspend_en(tp, true);
-+		napi_enable(&tp->napi);
- 	}
- 
-+	set_bit(SELECTIVE_SUSPEND, &tp->flags);
-+
-+out1:
-+	return ret;
-+}
-+
-+static int rtl8152_system_suspend(struct r8152 *tp)
-+{
-+	struct net_device *netdev = tp->netdev;
-+	int ret = 0;
-+
-+	netif_device_detach(netdev);
-+
- 	if (netif_running(netdev) && test_bit(WORK_ENABLE, &tp->flags)) {
- 		clear_bit(WORK_ENABLE, &tp->flags);
- 		usb_kill_urb(tp->intr_urb);
- 		napi_disable(&tp->napi);
--		if (test_bit(SELECTIVE_SUSPEND, &tp->flags)) {
--			rtl_stop_rx(tp);
--			tp->rtl_ops.autosuspend_en(tp, true);
--		} else {
--			cancel_delayed_work_sync(&tp->schedule);
--			tp->rtl_ops.down(tp);
--		}
-+		cancel_delayed_work_sync(&tp->schedule);
-+		tp->rtl_ops.down(tp);
- 		napi_enable(&tp->napi);
- 	}
--out1:
-+
-+	return ret;
-+}
-+
-+static int rtl8152_suspend(struct usb_interface *intf, pm_message_t message)
-+{
-+	struct r8152 *tp = usb_get_intfdata(intf);
-+	int ret;
-+
-+	mutex_lock(&tp->control);
-+
-+	if (PMSG_IS_AUTO(message))
-+		ret = rtl8152_rumtime_suspend(tp);
-+	else
-+		ret = rtl8152_system_suspend(tp);
-+
- 	mutex_unlock(&tp->control);
- 
- 	return ret;
--- 
-2.7.4
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+>You already have the originating port number from the interface you call
+>the method against, but you also need the destination port number since
+>that is what the HW understands.
+
+This is internal to kernel? I fail to understand what you mean exactly.
+
+
+>
+>Aside from that, it is useful for allowing interface naming in user
+>space if you don't want to use labels.
+>
+>> 
+>> Why the name is not enough? This is something propagated to userspace
+>> and never used internally in kernel.
+>
+>Because the name is not reflective of the port number in some switches.
+>In my case for instance, we have 5 ports that are named after the
+>entities they connect to (an integrated Gigabit PHY, two RGMII pads, one
+>MoCA interface, and the CPU)
+>
+
+Again, I'm missing why you need a portnumber as a Integer to userspace.
+>From driver, you can expose phys_port_name:
+
+>0 -> gphy
+
+"p0" or "gphy"
+
+>1 -> rgmii_1
+
+"p1" or "rgmii_1"
+
+>2 -> rgmii_2
+
+...
+
+>7 -> moca
+>8 -> cpu
+>
+>> 
+>> Btw, ndo_get_phys_port_id does not give you number, but arbitrary binary.
+>
+>It's not entirely arbitrary for DSA switches since the port number is
+>stored in an u8 whose value is the port number in hexadecimal (as shown
+>by sysfs at least).
+
+In mlxsw, we also have port number stored in u8. It is used to
+communicate with hw of course. But outside the driver, this is exposed
+as phys_port_name "pX".
