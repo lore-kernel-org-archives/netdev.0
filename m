@@ -1,76 +1,41 @@
-From: Mason <slash.tmp@free.fr>
-Subject: Re: Setting link down hangs the kernel
-Date: Tue, 10 Jan 2017 16:28:05 +0100
-Message-ID: <b478607d-cb69-0efc-5a8c-9b7a54b88d68@free.fr>
-References: <3ac03634-02fa-6acd-479d-fc475fc45736@free.fr>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Mans Rullgard <mans@mansr.com>,
-        Thibaud Cornic <thibaud_cornic@sigmadesigns.com>,
-        Thomas Gambier <thomas_gambier@sigmadesigns.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>
-To: netdev <netdev@vger.kernel.org>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: [PATCH net-next] packet: pdiag_put_ring() should return TX_RING info for TPACKET_V3
+Date: Tue, 10 Jan 2017 07:47:15 -0800
+Message-ID: <b1ae12eaef34ce413e2dc3bc5075a3c0198d7ad1.1484060892.git.sowmini.varadhan@oracle.com>
+References: <cover.1484060892.git.sowmini.varadhan@oracle.com>
+Cc: daniel@iogearbox.net, willemb@google.com, davem@davemloft.net
+To: netdev@vger.kernel.org, sowmini.varadhan@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp5-g21.free.fr ([212.27.42.5]:47557 "EHLO smtp5-g21.free.fr"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754789AbdAJP2U (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 10 Jan 2017 10:28:20 -0500
-In-Reply-To: <3ac03634-02fa-6acd-479d-fc475fc45736@free.fr>
-Content-Language: 
+Received: from aserp1040.oracle.com ([141.146.126.69]:17698 "EHLO
+        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752091AbdAJPrt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2017 10:47:49 -0500
+In-Reply-To: <cover.1484060892.git.sowmini.varadhan@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/01/2017 15:36, Mason wrote:
+Commit 7f953ab2ba46 ("af_packet: TX_RING support for TPACKET_V3")
+now makes it possible to use TX_RING with TPACKET_V3, so make the
+the relevant information available via 'ss -e -a --packet'
 
-> I'm using kernel v4.9 on a [new] dev board.
-> I built a small kernel + rootfs with buildroot 2016.11.1
-> eth0 is driven by drivers/net/ethernet/aurora/nb8800.c
-> 
-> After booting, I just run udhcpc (busybox version)
-> Then I set the link down, and the kernel hangs.
+Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+---
+ net/packet/diag.c |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
 
-So far, I've been unable to reproduce this issue on an older
-smp8758 dev board.
-
-# while true
-> do
-> ip link set dev eth0 down
-> sleep 3
-> ip link set dev eth0 up
-> sleep 3
-> let "++XX"
-> echo $XX
-> done
-
-The output is strange nonetheless:
-
-1
-2
-3
-4
-5
-[  179.002757] nb8800 26000.ethernet eth0: Link is Up - 100Mbps/Full - flow control rx/tx
-6
-7
-[  192.538648] nb8800 26000.ethernet eth0: Link is Up - 1Gbps/Full - flow control rx/tx
-8
-9
-10
-11
-12
-[  222.284936] nb8800 26000.ethernet eth0: Link is Up - 100Mbps/Full - flow control rx/tx
-13
-14
-^C
-# [  235.800851] nb8800 26000.ethernet eth0: Link is Up - 1Gbps/Full - flow control rx/tx
-
-
-A) I would expect a "Link is Up" message for every "link up" command.
-I get only 4 messages for 14 commands. Is that expected?
-
-B) Twice, the PHY was only able to negotiate 100 Mbps, although the
-peer supports 1 Gbps. What could cause this?
-
-Regards.
+diff --git a/net/packet/diag.c b/net/packet/diag.c
+index 0ed68f0..7ef1c88 100644
+--- a/net/packet/diag.c
++++ b/net/packet/diag.c
+@@ -73,8 +73,7 @@ static int pdiag_put_ring(struct packet_ring_buffer *ring, int ver, int nl_type,
+ {
+ 	struct packet_diag_ring pdr;
+ 
+-	if (!ring->pg_vec || ((ver > TPACKET_V2) &&
+-				(nl_type == PACKET_DIAG_TX_RING)))
++	if (!ring->pg_vec)
+ 		return 0;
+ 
+ 	pdr.pdr_block_size = ring->pg_vec_pages << PAGE_SHIFT;
+-- 
+1.7.1
