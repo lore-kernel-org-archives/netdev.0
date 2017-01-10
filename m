@@ -1,52 +1,42 @@
-From: Russell King <rmk+kernel@armlinux.org.uk>
-Subject: [PATCH] net: phy: marvell: fix Marvell 88E1512 used in SGMII mode
-Date: Tue, 10 Jan 2017 23:13:45 +0000
-Message-ID: <E1cR5bt-0000O8-1T@rmk-PC.armlinux.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: Andrew Lunn <andrew@lunn.ch>,
-        Charles-Antoine Couret <charles-antoine.couret@nexvision.fr>,
-        linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
-To: Florian Fainelli <f.fainelli@gmail.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH] net: vrf: do not allow table id 0
+Date: Tue, 10 Jan 2017 15:22:25 -0800
+Message-ID: <1484090545-16407-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: frank.kellermann@atos.net, David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.armlinux.org.uk ([78.32.30.218]:59824 "EHLO
-        pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754602AbdAJXNx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2017 18:13:53 -0500
-Content-Disposition: inline
+Received: from mail-pf0-f170.google.com ([209.85.192.170]:33868 "EHLO
+        mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932982AbdAJXWd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2017 18:22:33 -0500
+Received: by mail-pf0-f170.google.com with SMTP id 127so54300613pfg.1
+        for <netdev@vger.kernel.org>; Tue, 10 Jan 2017 15:22:32 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When an Marvell 88E1512 PHY is connected to a nic in SGMII mode, the
-fiber page is used for the SGMII host-side connection.  The PHY driver
-notices that SUPPORTED_FIBRE is set, so it tries reading the fiber page
-for the link status, and ends up reading the MAC-side status instead of
-the outgoing (copper) link.  This leads to incorrect results reported
-via ethtool.
+Frank reported that vrf devices can be created with a table id of 0.
+This breaks many of the run time table id checks and should not be
+allowed. Detect this condition at create time and fail with EINVAL.
 
-If the PHY is connected via SGMII to the host, ignore the fiber page.
-However, continue to allow the existing power management code to
-suspend and resume the fiber page.
-
-Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
+Fixes: 193125dbd8eb ("net: Introduce VRF device driver")
+Reported-by: Frank Kellermann <frank.kellermann@atos.net>
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- drivers/net/phy/marvell.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/vrf.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
-index 6ad76829c7cd..04e439ad5cff 100644
---- a/drivers/net/phy/marvell.c
-+++ b/drivers/net/phy/marvell.c
-@@ -1190,7 +1190,8 @@ static int marvell_read_status(struct phy_device *phydev)
- 	int err;
+diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
+index 0a067708aa39..454f907d419a 100644
+--- a/drivers/net/vrf.c
++++ b/drivers/net/vrf.c
+@@ -1252,6 +1252,8 @@ static int vrf_newlink(struct net *src_net, struct net_device *dev,
+ 		return -EINVAL;
  
- 	/* Check the fiber mode first */
--	if (phydev->supported & SUPPORTED_FIBRE) {
-+	if (phydev->supported & SUPPORTED_FIBRE &&
-+	    phydev->interface != PHY_INTERFACE_MODE_SGMII) {
- 		err = phy_write(phydev, MII_MARVELL_PHY_PAGE, MII_M1111_FIBER);
- 		if (err < 0)
- 			goto error;
+ 	vrf->tb_id = nla_get_u32(data[IFLA_VRF_TABLE]);
++	if (vrf->tb_id == RT_TABLE_UNSPEC)
++		return -EINVAL;
+ 
+ 	dev->priv_flags |= IFF_L3MDEV_MASTER;
+ 
 -- 
-2.7.4
+2.1.4
