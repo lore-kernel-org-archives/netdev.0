@@ -1,38 +1,57 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [PATCH net v2] mlx4: Return EOPNOTSUPP instead of ENOTSUPP
-Date: Tue, 10 Jan 2017 22:04:55 +0200
-Message-ID: <CALzJLG99semMYGKMO1QvNg1EK0m-uFWv4+-o45oV9t3QoY6_rw@mail.gmail.com>
-References: <1484070109-105991-1-git-send-email-kafai@fb.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [net-next PATCH 1/3] Revert "icmp: avoid allocating large
+ struct on stack"
+Date: Tue, 10 Jan 2017 21:08:20 +0100
+Message-ID: <20170110210820.1c5dbc87@redhat.com>
+References: <1483985224.21472.3.camel@edumazet-glaptop3.roam.corp.google.com>
+        <20170109.135259.988711786570465428.davem@davemloft.net>
+        <CAM_iQpUbcVogq7jGePkgPJ0z_J=46hnK8KcTiX1svVXr1Hoh-w@mail.gmail.com>
+        <20170110.131223.748150430551443881.davem@davemloft.net>
+        <CAM_iQpV0V23fndi6DOW1gu9kq+2UufHNrnfRYCME7uOOLCaX-Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Kernel Team <kernel-team@fb.com>
-To: Martin KaFai Lau <kafai@fb.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        brouer@redhat.com
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f195.google.com ([209.85.220.195]:35686 "EHLO
-        mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S965855AbdAJUFR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2017 15:05:17 -0500
-Received: by mail-qk0-f195.google.com with SMTP id u25so77585539qki.2
-        for <netdev@vger.kernel.org>; Tue, 10 Jan 2017 12:05:16 -0800 (PST)
-In-Reply-To: <1484070109-105991-1-git-send-email-kafai@fb.com>
+Received: from mx1.redhat.com ([209.132.183.28]:55466 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S964918AbdAJUI1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 10 Jan 2017 15:08:27 -0500
+In-Reply-To: <CAM_iQpV0V23fndi6DOW1gu9kq+2UufHNrnfRYCME7uOOLCaX-Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 10, 2017 at 7:41 PM, Martin KaFai Lau <kafai@fb.com> wrote:
-> In commit b45f0674b997 ("mlx4: xdp: Allow raising MTU up to one page minus eth and vlan hdrs"),
-> it changed EOPNOTSUPP to ENOTSUPP by mistake.  This patch fixes it.
->
-> Fixes: b45f0674b997 ("mlx4: xdp: Allow raising MTU up to one page minus eth and vlan hdrs")
-> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
 
-Acked-by: Saeed Mahameed <saeedm@mellanox.com>
+On Tue, 10 Jan 2017 10:44:59 -0800 Cong Wang <xiyou.wangcong@gmail.com> wrote:
 
+> On Tue, Jan 10, 2017 at 10:12 AM, David Miller <davem@davemloft.net> wrote:
+[...]
+> > You can keep showing us how expertly you can deflect the real
+> > issue we are discussion here, but that won't improve the situation
+> > at all I am afraid.  
+> 
+> Of course, there are just too many people too lazy to do a google search:
+> 
+> https://lists.debian.org/debian-kernel/2013/05/msg00500.html
 
-Thank you martin.
+My analysis of the problem shown in above link is not related to using
+all the stack space, but instead that skb->cb was not cleared.  This
+can cause the ip_options_echo() call in icmp_send() to access garbage
+as this is: __ip_options_echo(dopt, skb, &IPCB(skb)->opt).
 
-Small question though,
-is it essential for the upper layer to get the correct errno ? or this
-is just a cleanup ?
+Fixed by commit a622260254ee ("ip_tunnel: fix kernel panic with icmp_dest_unreach")
+ https://git.kernel.org/torvalds/c/a622260254ee
+
+Thus, it is (likely) the __ip_options_echo() call that violates stack
+access, as it is passed in a pointer to the stack, and advance this
+based on garbage "optlen".
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
