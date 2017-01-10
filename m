@@ -1,57 +1,67 @@
-From: Felix Fietkau <nbd@nbd.name>
-Subject: Re: [PATCH net-next] bridge: multicast to unicast
-Date: Tue, 10 Jan 2017 22:27:25 +0100
-Message-ID: <73f29777-cf95-de99-f7a9-9d82e94c298d@nbd.name>
-References: <20170102193214.31723-1-linus.luessing@c0d3.blue>
-	<1483706872.4089.8.camel@sipsolutions.net>
-	<8836daaa-9638-4502-d079-fd428595f822@nbd.name>
-	<1483710841.12677.1.camel@sipsolutions.net>
-	<22fad045-57c6-7789-d19f-f47bd0faf441@fami-braun.de>
-	<20170107145516.GE3134@otheros>
-	<1483949336.17582.3.camel@sipsolutions.net>
-	<6f5ec9f1-800a-2bc4-2f41-9d803343bb22@fami-braun.de>
-	<20170109212345.GA5513@otheros> <20170109133032.221f8669@xeon-e3>
-	<20170110041816.GJ5513@otheros>
-	<1484045763.1014.0.camel@sipsolutions.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [net-next PATCH 1/3] Revert "icmp: avoid allocating large
+ struct on stack"
+Date: Tue, 10 Jan 2017 13:41:51 -0800
+Message-ID: <1484084511.12006.7.camel@perches.com>
+References: <1483985224.21472.3.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20170109.135259.988711786570465428.davem@davemloft.net>
+         <CAM_iQpUbcVogq7jGePkgPJ0z_J=46hnK8KcTiX1svVXr1Hoh-w@mail.gmail.com>
+         <20170110.131223.748150430551443881.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"David S . Miller" <davem@davemloft.net>,
-	"M. Braun" <michael-dev@fami-braun.de>
-To: Johannes Berg <johannes@sipsolutions.net>,
-	=?UTF-8?Q?Linus_L=c3=bcssing?= <linus.luessing@c0d3.blue>,
-	Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1484045763.1014.0.camel@sipsolutions.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, brouer@redhat.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, xiyou.wangcong@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay0139.hostedemail.com ([216.40.44.139]:57896 "EHLO
+        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1752620AbdAJVl4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2017 16:41:56 -0500
+In-Reply-To: <20170110.131223.748150430551443881.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2017-01-10 11:56, Johannes Berg wrote:
-> On Tue, 2017-01-10 at 05:18 +0100, Linus Lüssing wrote:
->> On Mon, Jan 09, 2017 at 01:30:32PM -0800, Stephen Hemminger wrote:
->> > I wonder if MAC80211 should be doing IGMP snooping and not bridge
->> > in this environment.
->> 
->> In the long term, yes. For now, not quite sure.
+On Tue, 2017-01-10 at 13:12 -0500, David Miller wrote:
+> From: Cong Wang <xiyou.wangcong@gmail.com>
+> Date: Tue, 10 Jan 2017 10:06:01 -0800
 > 
-> There's no "for now" in the kernel. Code added now will have to be
-> maintained essentially forever.
-I'm not sure that putting the IGMP snooping code in mac80211 is a good
-idea, that would be quite a bit of code duplication.
-This implementation works, it's very simple, and it's quite flexible for
-a number of use cases.
+> > On Mon, Jan 9, 2017 at 10:52 AM, David Miller <davem@davemloft.net> wrote:
+> >> From: Eric Dumazet <eric.dumazet@gmail.com>
+> >> Date: Mon, 09 Jan 2017 10:07:04 -0800
+> >>
+> >>> You really should come to netdev conferences so that you understand
+> >>> goals and efforts, instead of living in your cave.
+> >>
+> >> I completely agree with Eric.
+> >>
+> >> Cong we have a very serious problem with you exactly because you make
+> >> quite vicious emotional statements targetted at other developers
 
-Is there any remaining objection to merging this in principle (aside
-from potential issues with the code)?
+"quite vicious" is overstatement here.
 
-- Felix
+> >> merely when they say something you disagree with.
+> > 
+> > What emotional? Pointing out Eris's words from 4 years ago is NOT
+> > emotional, it is just a help.
+
+Not really.  Your "facepalm" didn't seem to be written as
+humor but more as an expression of your exasperation.
+
+> Saying "Facepalm" is emotional and has nothing to do with the
+> technical issues.
+
+Many words are emotional or conflictual.
+
+Saying "stupid" is emotional and also has no technical content.
+
+Stupid is used here all the time.  Happily, it's generally used
+as a reference to self and not about others.
+
+However it is still occasionally and unfortunately used when
+referencing proposed code or other person's behaviors.
+
+Thankfully, these types of words are being used less and less
+in discussions here.
+
+I agree with David and Eric that it's generally better to avoid
+these word choices.
