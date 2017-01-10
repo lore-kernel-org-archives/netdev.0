@@ -1,33 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: skb_flow_get_be16() can be static
-Date: Tue, 10 Jan 2017 13:31:35 -0500 (EST)
-Message-ID: <20170110.133135.1288355336758425739.davem@davemloft.net>
-References: <1483989481.21472.16.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [PATCH] [v3] net: qcom/emac: add ethtool support
+Date: Tue, 10 Jan 2017 13:28:07 -0500 (EST)
+Message-ID: <20170110.132807.68543251128870399.davem@davemloft.net>
+References: <1483984992-21236-1-git-send-email-timur@codeaurora.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org, alokc@codeaurora.org
+To: timur@codeaurora.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:49902 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:49786 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S935598AbdAJSbx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2017 13:31:53 -0500
-In-Reply-To: <1483989481.21472.16.camel@edumazet-glaptop3.roam.corp.google.com>
+        with ESMTP id S939588AbdAJS2P (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2017 13:28:15 -0500
+In-Reply-To: <1483984992-21236-1-git-send-email-timur@codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 09 Jan 2017 11:18:01 -0800
+From: Timur Tabi <timur@codeaurora.org>
+Date: Mon,  9 Jan 2017 12:03:12 -0600
 
-> From: Eric Dumazet <edumazet@google.com>
+> Add support for some ethtool methods: get/set link settings, get/set
+> message level, get statistics, get link status, get ring params, get
+> pause params, and restart autonegotiation.
 > 
-> Removes following sparse complain :
+> The code to collect the hardware statistics is moved into its own
+> function so that it can be used by "get statistics" method.
 > 
-> net/core/flow_dissector.c:70:8: warning: symbol 'skb_flow_get_be16'
-> was not declared. Should it be static?
-> 
-> Fixes: 972d3876faa8 ("flow dissector: ICMP support")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Timur Tabi <timur@codeaurora.org>
 
-Applied.
+Applied, thanks.
