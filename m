@@ -1,564 +1,131 @@
-From: Andy Lutomirski <luto@kernel.org>
-Subject: [PATCH v2 3/8] crypto/sha256: Build the SHA256 core separately from the crypto module
-Date: Tue, 10 Jan 2017 15:24:41 -0800
-Message-ID: <e9e12f056f2abed50a30b762db9185799f5864e6.1484090585.git.luto@kernel.org>
-References: <cover.1484090585.git.luto@kernel.org>
-Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Eric Biggers <ebiggers3@gmail.com>,
-        Tom Herbert <tom@herbertland.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Andy Lutomirski <luto@kernel.org>,
-        Ard Biesheuvel <ard.biesheuvel@linaro.org>,
-        Herbert Xu <herbert@gondor.apana.org.au>
-To: Daniel Borkmann <daniel@iogearbox.net>,
-        Netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1484090585.git.luto@kernel.org>
-In-Reply-To: <cover.1484090585.git.luto@kernel.org>
-References: <cover.1484090585.git.luto@kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
+Subject: 4.9.2 panic, __skb_flow_dissect, gro?
+Date: Wed, 11 Jan 2017 01:26:52 +0200
+Message-ID: <359da98eb44a5a9f9f286cc380143654@nuclearcat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+To: Linux Kernel Network Developers <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nuclearcat.com ([144.76.183.226]:37574 "EHLO nuclearcat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751861AbdAJX04 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 10 Jan 2017 18:26:56 -0500
+Received: from localhost (localhost [127.0.0.1])
+        by nuclearcat.com (Postfix) with ESMTP id 7105A67C353B
+        for <netdev@vger.kernel.org>; Tue, 10 Jan 2017 23:26:54 +0000 (UTC)
+Received: from nuclearcat.com ([127.0.0.1])
+        by localhost (nuclearcat.com [127.0.0.1]) (amavisd-new, port 10024)
+        with ESMTP id a91ekQihai6E for <netdev@vger.kernel.org>;
+        Tue, 10 Jan 2017 23:26:52 +0000 (UTC)
+Received: from germany.nuclearcat.com (localhost [127.0.0.1])
+        (Authenticated sender: nuclearcat@nuclearcat.com)
+        by nuclearcat.com (Postfix) with ESMTPA id 9FB0C67C0265
+        for <netdev@vger.kernel.org>; Tue, 10 Jan 2017 23:26:52 +0000 (UTC)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This just moves code around -- no code changes in this patch.  This
-wil let BPF-based tracing link against the SHA256 core code without
-depending on the crypto core.
+Hi,
 
-Cc: Ard Biesheuvel <ard.biesheuvel@linaro.org>
-Cc: Herbert Xu <herbert@gondor.apana.org.au>
-Signed-off-by: Andy Lutomirski <luto@kernel.org>
----
- crypto/Kconfig          |   8 ++
- crypto/Makefile         |   1 +
- crypto/sha256_direct.c  | 238 ++++++++++++++++++++++++++++++++++++++++++++++++
- crypto/sha256_generic.c | 214 -------------------------------------------
- 4 files changed, 247 insertions(+), 214 deletions(-)
- create mode 100644 crypto/sha256_direct.c
+Got panic message on 4.9.2 with latest patches from stable-queue, 
+probably it affects all 4.9 version
 
-diff --git a/crypto/Kconfig b/crypto/Kconfig
-index 160f08e721cc..b83ae6789e78 100644
---- a/crypto/Kconfig
-+++ b/crypto/Kconfig
-@@ -10,6 +10,13 @@ config XOR_BLOCKS
- source "crypto/async_tx/Kconfig"
- 
- #
-+# Cryptographic algorithms that are usable without the Crypto API.
-+# None of these should have visible config options.
-+#
-+config CRYPTO_SHA256_DIRECT
-+	bool
-+
-+#
- # Cryptographic API Configuration
- #
- menuconfig CRYPTO
-@@ -763,6 +770,7 @@ config CRYPTO_SHA512_MB
- 
- config CRYPTO_SHA256
- 	tristate "SHA224 and SHA256 digest algorithm"
-+	select CRYPTO_SHA256_DIRECT
- 	select CRYPTO_HASH
- 	help
- 	  SHA256 secure hash standard (DFIPS 180-2).
-diff --git a/crypto/Makefile b/crypto/Makefile
-index b8f0e3eb0791..e0118a3b0d99 100644
---- a/crypto/Makefile
-+++ b/crypto/Makefile
-@@ -71,6 +71,7 @@ obj-$(CONFIG_CRYPTO_RMD160) += rmd160.o
- obj-$(CONFIG_CRYPTO_RMD256) += rmd256.o
- obj-$(CONFIG_CRYPTO_RMD320) += rmd320.o
- obj-$(CONFIG_CRYPTO_SHA1) += sha1_generic.o
-+obj-$(CONFIG_CRYPTO_SHA256_DIRECT) += sha256_direct.o
- obj-$(CONFIG_CRYPTO_SHA256) += sha256_generic.o
- obj-$(CONFIG_CRYPTO_SHA512) += sha512_generic.o
- obj-$(CONFIG_CRYPTO_SHA3) += sha3_generic.o
-diff --git a/crypto/sha256_direct.c b/crypto/sha256_direct.c
-new file mode 100644
-index 000000000000..2029e4c08339
---- /dev/null
-+++ b/crypto/sha256_direct.c
-@@ -0,0 +1,238 @@
-+/*
-+ * Cryptographic API.
-+ *
-+ * SHA-256, as specified in
-+ * http://csrc.nist.gov/groups/STM/cavp/documents/shs/sha256-384-512.pdf
-+ *
-+ * SHA-256 code by Jean-Luc Cooke <jlcooke@certainkey.com>.
-+ *
-+ * Copyright (c) Jean-Luc Cooke <jlcooke@certainkey.com>
-+ * Copyright (c) Andrew McDonald <andrew@mcdonald.org.uk>
-+ * Copyright (c) 2002 James Morris <jmorris@intercode.com.au>
-+ * SHA224 Support Copyright 2007 Intel Corporation <jonathan.lynch@intel.com>
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of the GNU General Public License as published by the Free
-+ * Software Foundation; either version 2 of the License, or (at your option) 
-+ * any later version.
-+ *
-+ */
-+#include <linux/types.h>
-+#include <crypto/sha.h>
-+#include <crypto/sha256_base.h>
-+#include <asm/byteorder.h>
-+#include <asm/unaligned.h>
-+
-+static inline u32 Ch(u32 x, u32 y, u32 z)
-+{
-+	return z ^ (x & (y ^ z));
-+}
-+
-+static inline u32 Maj(u32 x, u32 y, u32 z)
-+{
-+	return (x & y) | (z & (x | y));
-+}
-+
-+#define e0(x)       (ror32(x, 2) ^ ror32(x,13) ^ ror32(x,22))
-+#define e1(x)       (ror32(x, 6) ^ ror32(x,11) ^ ror32(x,25))
-+#define s0(x)       (ror32(x, 7) ^ ror32(x,18) ^ (x >> 3))
-+#define s1(x)       (ror32(x,17) ^ ror32(x,19) ^ (x >> 10))
-+
-+static inline void LOAD_OP(int I, u32 *W, const u8 *input)
-+{
-+	W[I] = get_unaligned_be32((__u32 *)input + I);
-+}
-+
-+static inline void BLEND_OP(int I, u32 *W)
-+{
-+	W[I] = s1(W[I-2]) + W[I-7] + s0(W[I-15]) + W[I-16];
-+}
-+
-+static void sha256_transform(u32 *state, const u8 *input)
-+{
-+	u32 a, b, c, d, e, f, g, h, t1, t2;
-+	u32 W[64];
-+	int i;
-+
-+	/* load the input */
-+	for (i = 0; i < 16; i++)
-+		LOAD_OP(i, W, input);
-+
-+	/* now blend */
-+	for (i = 16; i < 64; i++)
-+		BLEND_OP(i, W);
-+
-+	/* load the state into our registers */
-+	a=state[0];  b=state[1];  c=state[2];  d=state[3];
-+	e=state[4];  f=state[5];  g=state[6];  h=state[7];
-+
-+	/* now iterate */
-+	t1 = h + e1(e) + Ch(e,f,g) + 0x428a2f98 + W[ 0];
-+	t2 = e0(a) + Maj(a,b,c);    d+=t1;    h=t1+t2;
-+	t1 = g + e1(d) + Ch(d,e,f) + 0x71374491 + W[ 1];
-+	t2 = e0(h) + Maj(h,a,b);    c+=t1;    g=t1+t2;
-+	t1 = f + e1(c) + Ch(c,d,e) + 0xb5c0fbcf + W[ 2];
-+	t2 = e0(g) + Maj(g,h,a);    b+=t1;    f=t1+t2;
-+	t1 = e + e1(b) + Ch(b,c,d) + 0xe9b5dba5 + W[ 3];
-+	t2 = e0(f) + Maj(f,g,h);    a+=t1;    e=t1+t2;
-+	t1 = d + e1(a) + Ch(a,b,c) + 0x3956c25b + W[ 4];
-+	t2 = e0(e) + Maj(e,f,g);    h+=t1;    d=t1+t2;
-+	t1 = c + e1(h) + Ch(h,a,b) + 0x59f111f1 + W[ 5];
-+	t2 = e0(d) + Maj(d,e,f);    g+=t1;    c=t1+t2;
-+	t1 = b + e1(g) + Ch(g,h,a) + 0x923f82a4 + W[ 6];
-+	t2 = e0(c) + Maj(c,d,e);    f+=t1;    b=t1+t2;
-+	t1 = a + e1(f) + Ch(f,g,h) + 0xab1c5ed5 + W[ 7];
-+	t2 = e0(b) + Maj(b,c,d);    e+=t1;    a=t1+t2;
-+
-+	t1 = h + e1(e) + Ch(e,f,g) + 0xd807aa98 + W[ 8];
-+	t2 = e0(a) + Maj(a,b,c);    d+=t1;    h=t1+t2;
-+	t1 = g + e1(d) + Ch(d,e,f) + 0x12835b01 + W[ 9];
-+	t2 = e0(h) + Maj(h,a,b);    c+=t1;    g=t1+t2;
-+	t1 = f + e1(c) + Ch(c,d,e) + 0x243185be + W[10];
-+	t2 = e0(g) + Maj(g,h,a);    b+=t1;    f=t1+t2;
-+	t1 = e + e1(b) + Ch(b,c,d) + 0x550c7dc3 + W[11];
-+	t2 = e0(f) + Maj(f,g,h);    a+=t1;    e=t1+t2;
-+	t1 = d + e1(a) + Ch(a,b,c) + 0x72be5d74 + W[12];
-+	t2 = e0(e) + Maj(e,f,g);    h+=t1;    d=t1+t2;
-+	t1 = c + e1(h) + Ch(h,a,b) + 0x80deb1fe + W[13];
-+	t2 = e0(d) + Maj(d,e,f);    g+=t1;    c=t1+t2;
-+	t1 = b + e1(g) + Ch(g,h,a) + 0x9bdc06a7 + W[14];
-+	t2 = e0(c) + Maj(c,d,e);    f+=t1;    b=t1+t2;
-+	t1 = a + e1(f) + Ch(f,g,h) + 0xc19bf174 + W[15];
-+	t2 = e0(b) + Maj(b,c,d);    e+=t1;    a=t1+t2;
-+
-+	t1 = h + e1(e) + Ch(e,f,g) + 0xe49b69c1 + W[16];
-+	t2 = e0(a) + Maj(a,b,c);    d+=t1;    h=t1+t2;
-+	t1 = g + e1(d) + Ch(d,e,f) + 0xefbe4786 + W[17];
-+	t2 = e0(h) + Maj(h,a,b);    c+=t1;    g=t1+t2;
-+	t1 = f + e1(c) + Ch(c,d,e) + 0x0fc19dc6 + W[18];
-+	t2 = e0(g) + Maj(g,h,a);    b+=t1;    f=t1+t2;
-+	t1 = e + e1(b) + Ch(b,c,d) + 0x240ca1cc + W[19];
-+	t2 = e0(f) + Maj(f,g,h);    a+=t1;    e=t1+t2;
-+	t1 = d + e1(a) + Ch(a,b,c) + 0x2de92c6f + W[20];
-+	t2 = e0(e) + Maj(e,f,g);    h+=t1;    d=t1+t2;
-+	t1 = c + e1(h) + Ch(h,a,b) + 0x4a7484aa + W[21];
-+	t2 = e0(d) + Maj(d,e,f);    g+=t1;    c=t1+t2;
-+	t1 = b + e1(g) + Ch(g,h,a) + 0x5cb0a9dc + W[22];
-+	t2 = e0(c) + Maj(c,d,e);    f+=t1;    b=t1+t2;
-+	t1 = a + e1(f) + Ch(f,g,h) + 0x76f988da + W[23];
-+	t2 = e0(b) + Maj(b,c,d);    e+=t1;    a=t1+t2;
-+
-+	t1 = h + e1(e) + Ch(e,f,g) + 0x983e5152 + W[24];
-+	t2 = e0(a) + Maj(a,b,c);    d+=t1;    h=t1+t2;
-+	t1 = g + e1(d) + Ch(d,e,f) + 0xa831c66d + W[25];
-+	t2 = e0(h) + Maj(h,a,b);    c+=t1;    g=t1+t2;
-+	t1 = f + e1(c) + Ch(c,d,e) + 0xb00327c8 + W[26];
-+	t2 = e0(g) + Maj(g,h,a);    b+=t1;    f=t1+t2;
-+	t1 = e + e1(b) + Ch(b,c,d) + 0xbf597fc7 + W[27];
-+	t2 = e0(f) + Maj(f,g,h);    a+=t1;    e=t1+t2;
-+	t1 = d + e1(a) + Ch(a,b,c) + 0xc6e00bf3 + W[28];
-+	t2 = e0(e) + Maj(e,f,g);    h+=t1;    d=t1+t2;
-+	t1 = c + e1(h) + Ch(h,a,b) + 0xd5a79147 + W[29];
-+	t2 = e0(d) + Maj(d,e,f);    g+=t1;    c=t1+t2;
-+	t1 = b + e1(g) + Ch(g,h,a) + 0x06ca6351 + W[30];
-+	t2 = e0(c) + Maj(c,d,e);    f+=t1;    b=t1+t2;
-+	t1 = a + e1(f) + Ch(f,g,h) + 0x14292967 + W[31];
-+	t2 = e0(b) + Maj(b,c,d);    e+=t1;    a=t1+t2;
-+
-+	t1 = h + e1(e) + Ch(e,f,g) + 0x27b70a85 + W[32];
-+	t2 = e0(a) + Maj(a,b,c);    d+=t1;    h=t1+t2;
-+	t1 = g + e1(d) + Ch(d,e,f) + 0x2e1b2138 + W[33];
-+	t2 = e0(h) + Maj(h,a,b);    c+=t1;    g=t1+t2;
-+	t1 = f + e1(c) + Ch(c,d,e) + 0x4d2c6dfc + W[34];
-+	t2 = e0(g) + Maj(g,h,a);    b+=t1;    f=t1+t2;
-+	t1 = e + e1(b) + Ch(b,c,d) + 0x53380d13 + W[35];
-+	t2 = e0(f) + Maj(f,g,h);    a+=t1;    e=t1+t2;
-+	t1 = d + e1(a) + Ch(a,b,c) + 0x650a7354 + W[36];
-+	t2 = e0(e) + Maj(e,f,g);    h+=t1;    d=t1+t2;
-+	t1 = c + e1(h) + Ch(h,a,b) + 0x766a0abb + W[37];
-+	t2 = e0(d) + Maj(d,e,f);    g+=t1;    c=t1+t2;
-+	t1 = b + e1(g) + Ch(g,h,a) + 0x81c2c92e + W[38];
-+	t2 = e0(c) + Maj(c,d,e);    f+=t1;    b=t1+t2;
-+	t1 = a + e1(f) + Ch(f,g,h) + 0x92722c85 + W[39];
-+	t2 = e0(b) + Maj(b,c,d);    e+=t1;    a=t1+t2;
-+
-+	t1 = h + e1(e) + Ch(e,f,g) + 0xa2bfe8a1 + W[40];
-+	t2 = e0(a) + Maj(a,b,c);    d+=t1;    h=t1+t2;
-+	t1 = g + e1(d) + Ch(d,e,f) + 0xa81a664b + W[41];
-+	t2 = e0(h) + Maj(h,a,b);    c+=t1;    g=t1+t2;
-+	t1 = f + e1(c) + Ch(c,d,e) + 0xc24b8b70 + W[42];
-+	t2 = e0(g) + Maj(g,h,a);    b+=t1;    f=t1+t2;
-+	t1 = e + e1(b) + Ch(b,c,d) + 0xc76c51a3 + W[43];
-+	t2 = e0(f) + Maj(f,g,h);    a+=t1;    e=t1+t2;
-+	t1 = d + e1(a) + Ch(a,b,c) + 0xd192e819 + W[44];
-+	t2 = e0(e) + Maj(e,f,g);    h+=t1;    d=t1+t2;
-+	t1 = c + e1(h) + Ch(h,a,b) + 0xd6990624 + W[45];
-+	t2 = e0(d) + Maj(d,e,f);    g+=t1;    c=t1+t2;
-+	t1 = b + e1(g) + Ch(g,h,a) + 0xf40e3585 + W[46];
-+	t2 = e0(c) + Maj(c,d,e);    f+=t1;    b=t1+t2;
-+	t1 = a + e1(f) + Ch(f,g,h) + 0x106aa070 + W[47];
-+	t2 = e0(b) + Maj(b,c,d);    e+=t1;    a=t1+t2;
-+
-+	t1 = h + e1(e) + Ch(e,f,g) + 0x19a4c116 + W[48];
-+	t2 = e0(a) + Maj(a,b,c);    d+=t1;    h=t1+t2;
-+	t1 = g + e1(d) + Ch(d,e,f) + 0x1e376c08 + W[49];
-+	t2 = e0(h) + Maj(h,a,b);    c+=t1;    g=t1+t2;
-+	t1 = f + e1(c) + Ch(c,d,e) + 0x2748774c + W[50];
-+	t2 = e0(g) + Maj(g,h,a);    b+=t1;    f=t1+t2;
-+	t1 = e + e1(b) + Ch(b,c,d) + 0x34b0bcb5 + W[51];
-+	t2 = e0(f) + Maj(f,g,h);    a+=t1;    e=t1+t2;
-+	t1 = d + e1(a) + Ch(a,b,c) + 0x391c0cb3 + W[52];
-+	t2 = e0(e) + Maj(e,f,g);    h+=t1;    d=t1+t2;
-+	t1 = c + e1(h) + Ch(h,a,b) + 0x4ed8aa4a + W[53];
-+	t2 = e0(d) + Maj(d,e,f);    g+=t1;    c=t1+t2;
-+	t1 = b + e1(g) + Ch(g,h,a) + 0x5b9cca4f + W[54];
-+	t2 = e0(c) + Maj(c,d,e);    f+=t1;    b=t1+t2;
-+	t1 = a + e1(f) + Ch(f,g,h) + 0x682e6ff3 + W[55];
-+	t2 = e0(b) + Maj(b,c,d);    e+=t1;    a=t1+t2;
-+
-+	t1 = h + e1(e) + Ch(e,f,g) + 0x748f82ee + W[56];
-+	t2 = e0(a) + Maj(a,b,c);    d+=t1;    h=t1+t2;
-+	t1 = g + e1(d) + Ch(d,e,f) + 0x78a5636f + W[57];
-+	t2 = e0(h) + Maj(h,a,b);    c+=t1;    g=t1+t2;
-+	t1 = f + e1(c) + Ch(c,d,e) + 0x84c87814 + W[58];
-+	t2 = e0(g) + Maj(g,h,a);    b+=t1;    f=t1+t2;
-+	t1 = e + e1(b) + Ch(b,c,d) + 0x8cc70208 + W[59];
-+	t2 = e0(f) + Maj(f,g,h);    a+=t1;    e=t1+t2;
-+	t1 = d + e1(a) + Ch(a,b,c) + 0x90befffa + W[60];
-+	t2 = e0(e) + Maj(e,f,g);    h+=t1;    d=t1+t2;
-+	t1 = c + e1(h) + Ch(h,a,b) + 0xa4506ceb + W[61];
-+	t2 = e0(d) + Maj(d,e,f);    g+=t1;    c=t1+t2;
-+	t1 = b + e1(g) + Ch(g,h,a) + 0xbef9a3f7 + W[62];
-+	t2 = e0(c) + Maj(c,d,e);    f+=t1;    b=t1+t2;
-+	t1 = a + e1(f) + Ch(f,g,h) + 0xc67178f2 + W[63];
-+	t2 = e0(b) + Maj(b,c,d);    e+=t1;    a=t1+t2;
-+
-+	state[0] += a; state[1] += b; state[2] += c; state[3] += d;
-+	state[4] += e; state[5] += f; state[6] += g; state[7] += h;
-+
-+	/* clear any sensitive info... */
-+	a = b = c = d = e = f = g = h = t1 = t2 = 0;
-+	memzero_explicit(W, 64 * sizeof(u32));
-+}
-+
-+static void sha256_generic_block_fn(struct sha256_state *sst, u8 const *src,
-+				    int blocks)
-+{
-+	while (blocks--) {
-+		sha256_transform(sst->state, src);
-+		src += SHA256_BLOCK_SIZE;
-+	}
-+}
-+
-+void sha256_update_direct(struct sha256_state *sctx, const u8 *data,
-+			  unsigned int len)
-+{
-+	__sha256_base_do_update(sctx, data, len, sha256_generic_block_fn);
-+}
-+EXPORT_SYMBOL(sha256_update_direct);
-+
-+void __sha256_final_direct(struct sha256_state *sctx, unsigned int digest_size,
-+			   u8 *out)
-+{
-+	sha256_do_finalize_direct(sctx, sha256_generic_block_fn);
-+	__sha256_base_finish(sctx, digest_size, out);
-+}
-+EXPORT_SYMBOL(sha256_final_direct);
-+
-+MODULE_LICENSE("GPL");
-diff --git a/crypto/sha256_generic.c b/crypto/sha256_generic.c
-index 573e114382f9..ffc444ef627c 100644
---- a/crypto/sha256_generic.c
-+++ b/crypto/sha256_generic.c
-@@ -24,8 +24,6 @@
- #include <linux/types.h>
- #include <crypto/sha.h>
- #include <crypto/sha256_base.h>
--#include <asm/byteorder.h>
--#include <asm/unaligned.h>
- 
- const u8 sha224_zero_message_hash[SHA224_DIGEST_SIZE] = {
- 	0xd1, 0x4a, 0x02, 0x8c, 0x2a, 0x3a, 0x2b, 0xc9, 0x47,
-@@ -43,210 +41,6 @@ const u8 sha256_zero_message_hash[SHA256_DIGEST_SIZE] = {
- };
- EXPORT_SYMBOL_GPL(sha256_zero_message_hash);
- 
--static inline u32 Ch(u32 x, u32 y, u32 z)
--{
--	return z ^ (x & (y ^ z));
--}
--
--static inline u32 Maj(u32 x, u32 y, u32 z)
--{
--	return (x & y) | (z & (x | y));
--}
--
--#define e0(x)       (ror32(x, 2) ^ ror32(x,13) ^ ror32(x,22))
--#define e1(x)       (ror32(x, 6) ^ ror32(x,11) ^ ror32(x,25))
--#define s0(x)       (ror32(x, 7) ^ ror32(x,18) ^ (x >> 3))
--#define s1(x)       (ror32(x,17) ^ ror32(x,19) ^ (x >> 10))
--
--static inline void LOAD_OP(int I, u32 *W, const u8 *input)
--{
--	W[I] = get_unaligned_be32((__u32 *)input + I);
--}
--
--static inline void BLEND_OP(int I, u32 *W)
--{
--	W[I] = s1(W[I-2]) + W[I-7] + s0(W[I-15]) + W[I-16];
--}
--
--static void sha256_transform(u32 *state, const u8 *input)
--{
--	u32 a, b, c, d, e, f, g, h, t1, t2;
--	u32 W[64];
--	int i;
--
--	/* load the input */
--	for (i = 0; i < 16; i++)
--		LOAD_OP(i, W, input);
--
--	/* now blend */
--	for (i = 16; i < 64; i++)
--		BLEND_OP(i, W);
--
--	/* load the state into our registers */
--	a=state[0];  b=state[1];  c=state[2];  d=state[3];
--	e=state[4];  f=state[5];  g=state[6];  h=state[7];
--
--	/* now iterate */
--	t1 = h + e1(e) + Ch(e,f,g) + 0x428a2f98 + W[ 0];
--	t2 = e0(a) + Maj(a,b,c);    d+=t1;    h=t1+t2;
--	t1 = g + e1(d) + Ch(d,e,f) + 0x71374491 + W[ 1];
--	t2 = e0(h) + Maj(h,a,b);    c+=t1;    g=t1+t2;
--	t1 = f + e1(c) + Ch(c,d,e) + 0xb5c0fbcf + W[ 2];
--	t2 = e0(g) + Maj(g,h,a);    b+=t1;    f=t1+t2;
--	t1 = e + e1(b) + Ch(b,c,d) + 0xe9b5dba5 + W[ 3];
--	t2 = e0(f) + Maj(f,g,h);    a+=t1;    e=t1+t2;
--	t1 = d + e1(a) + Ch(a,b,c) + 0x3956c25b + W[ 4];
--	t2 = e0(e) + Maj(e,f,g);    h+=t1;    d=t1+t2;
--	t1 = c + e1(h) + Ch(h,a,b) + 0x59f111f1 + W[ 5];
--	t2 = e0(d) + Maj(d,e,f);    g+=t1;    c=t1+t2;
--	t1 = b + e1(g) + Ch(g,h,a) + 0x923f82a4 + W[ 6];
--	t2 = e0(c) + Maj(c,d,e);    f+=t1;    b=t1+t2;
--	t1 = a + e1(f) + Ch(f,g,h) + 0xab1c5ed5 + W[ 7];
--	t2 = e0(b) + Maj(b,c,d);    e+=t1;    a=t1+t2;
--
--	t1 = h + e1(e) + Ch(e,f,g) + 0xd807aa98 + W[ 8];
--	t2 = e0(a) + Maj(a,b,c);    d+=t1;    h=t1+t2;
--	t1 = g + e1(d) + Ch(d,e,f) + 0x12835b01 + W[ 9];
--	t2 = e0(h) + Maj(h,a,b);    c+=t1;    g=t1+t2;
--	t1 = f + e1(c) + Ch(c,d,e) + 0x243185be + W[10];
--	t2 = e0(g) + Maj(g,h,a);    b+=t1;    f=t1+t2;
--	t1 = e + e1(b) + Ch(b,c,d) + 0x550c7dc3 + W[11];
--	t2 = e0(f) + Maj(f,g,h);    a+=t1;    e=t1+t2;
--	t1 = d + e1(a) + Ch(a,b,c) + 0x72be5d74 + W[12];
--	t2 = e0(e) + Maj(e,f,g);    h+=t1;    d=t1+t2;
--	t1 = c + e1(h) + Ch(h,a,b) + 0x80deb1fe + W[13];
--	t2 = e0(d) + Maj(d,e,f);    g+=t1;    c=t1+t2;
--	t1 = b + e1(g) + Ch(g,h,a) + 0x9bdc06a7 + W[14];
--	t2 = e0(c) + Maj(c,d,e);    f+=t1;    b=t1+t2;
--	t1 = a + e1(f) + Ch(f,g,h) + 0xc19bf174 + W[15];
--	t2 = e0(b) + Maj(b,c,d);    e+=t1;    a=t1+t2;
--
--	t1 = h + e1(e) + Ch(e,f,g) + 0xe49b69c1 + W[16];
--	t2 = e0(a) + Maj(a,b,c);    d+=t1;    h=t1+t2;
--	t1 = g + e1(d) + Ch(d,e,f) + 0xefbe4786 + W[17];
--	t2 = e0(h) + Maj(h,a,b);    c+=t1;    g=t1+t2;
--	t1 = f + e1(c) + Ch(c,d,e) + 0x0fc19dc6 + W[18];
--	t2 = e0(g) + Maj(g,h,a);    b+=t1;    f=t1+t2;
--	t1 = e + e1(b) + Ch(b,c,d) + 0x240ca1cc + W[19];
--	t2 = e0(f) + Maj(f,g,h);    a+=t1;    e=t1+t2;
--	t1 = d + e1(a) + Ch(a,b,c) + 0x2de92c6f + W[20];
--	t2 = e0(e) + Maj(e,f,g);    h+=t1;    d=t1+t2;
--	t1 = c + e1(h) + Ch(h,a,b) + 0x4a7484aa + W[21];
--	t2 = e0(d) + Maj(d,e,f);    g+=t1;    c=t1+t2;
--	t1 = b + e1(g) + Ch(g,h,a) + 0x5cb0a9dc + W[22];
--	t2 = e0(c) + Maj(c,d,e);    f+=t1;    b=t1+t2;
--	t1 = a + e1(f) + Ch(f,g,h) + 0x76f988da + W[23];
--	t2 = e0(b) + Maj(b,c,d);    e+=t1;    a=t1+t2;
--
--	t1 = h + e1(e) + Ch(e,f,g) + 0x983e5152 + W[24];
--	t2 = e0(a) + Maj(a,b,c);    d+=t1;    h=t1+t2;
--	t1 = g + e1(d) + Ch(d,e,f) + 0xa831c66d + W[25];
--	t2 = e0(h) + Maj(h,a,b);    c+=t1;    g=t1+t2;
--	t1 = f + e1(c) + Ch(c,d,e) + 0xb00327c8 + W[26];
--	t2 = e0(g) + Maj(g,h,a);    b+=t1;    f=t1+t2;
--	t1 = e + e1(b) + Ch(b,c,d) + 0xbf597fc7 + W[27];
--	t2 = e0(f) + Maj(f,g,h);    a+=t1;    e=t1+t2;
--	t1 = d + e1(a) + Ch(a,b,c) + 0xc6e00bf3 + W[28];
--	t2 = e0(e) + Maj(e,f,g);    h+=t1;    d=t1+t2;
--	t1 = c + e1(h) + Ch(h,a,b) + 0xd5a79147 + W[29];
--	t2 = e0(d) + Maj(d,e,f);    g+=t1;    c=t1+t2;
--	t1 = b + e1(g) + Ch(g,h,a) + 0x06ca6351 + W[30];
--	t2 = e0(c) + Maj(c,d,e);    f+=t1;    b=t1+t2;
--	t1 = a + e1(f) + Ch(f,g,h) + 0x14292967 + W[31];
--	t2 = e0(b) + Maj(b,c,d);    e+=t1;    a=t1+t2;
--
--	t1 = h + e1(e) + Ch(e,f,g) + 0x27b70a85 + W[32];
--	t2 = e0(a) + Maj(a,b,c);    d+=t1;    h=t1+t2;
--	t1 = g + e1(d) + Ch(d,e,f) + 0x2e1b2138 + W[33];
--	t2 = e0(h) + Maj(h,a,b);    c+=t1;    g=t1+t2;
--	t1 = f + e1(c) + Ch(c,d,e) + 0x4d2c6dfc + W[34];
--	t2 = e0(g) + Maj(g,h,a);    b+=t1;    f=t1+t2;
--	t1 = e + e1(b) + Ch(b,c,d) + 0x53380d13 + W[35];
--	t2 = e0(f) + Maj(f,g,h);    a+=t1;    e=t1+t2;
--	t1 = d + e1(a) + Ch(a,b,c) + 0x650a7354 + W[36];
--	t2 = e0(e) + Maj(e,f,g);    h+=t1;    d=t1+t2;
--	t1 = c + e1(h) + Ch(h,a,b) + 0x766a0abb + W[37];
--	t2 = e0(d) + Maj(d,e,f);    g+=t1;    c=t1+t2;
--	t1 = b + e1(g) + Ch(g,h,a) + 0x81c2c92e + W[38];
--	t2 = e0(c) + Maj(c,d,e);    f+=t1;    b=t1+t2;
--	t1 = a + e1(f) + Ch(f,g,h) + 0x92722c85 + W[39];
--	t2 = e0(b) + Maj(b,c,d);    e+=t1;    a=t1+t2;
--
--	t1 = h + e1(e) + Ch(e,f,g) + 0xa2bfe8a1 + W[40];
--	t2 = e0(a) + Maj(a,b,c);    d+=t1;    h=t1+t2;
--	t1 = g + e1(d) + Ch(d,e,f) + 0xa81a664b + W[41];
--	t2 = e0(h) + Maj(h,a,b);    c+=t1;    g=t1+t2;
--	t1 = f + e1(c) + Ch(c,d,e) + 0xc24b8b70 + W[42];
--	t2 = e0(g) + Maj(g,h,a);    b+=t1;    f=t1+t2;
--	t1 = e + e1(b) + Ch(b,c,d) + 0xc76c51a3 + W[43];
--	t2 = e0(f) + Maj(f,g,h);    a+=t1;    e=t1+t2;
--	t1 = d + e1(a) + Ch(a,b,c) + 0xd192e819 + W[44];
--	t2 = e0(e) + Maj(e,f,g);    h+=t1;    d=t1+t2;
--	t1 = c + e1(h) + Ch(h,a,b) + 0xd6990624 + W[45];
--	t2 = e0(d) + Maj(d,e,f);    g+=t1;    c=t1+t2;
--	t1 = b + e1(g) + Ch(g,h,a) + 0xf40e3585 + W[46];
--	t2 = e0(c) + Maj(c,d,e);    f+=t1;    b=t1+t2;
--	t1 = a + e1(f) + Ch(f,g,h) + 0x106aa070 + W[47];
--	t2 = e0(b) + Maj(b,c,d);    e+=t1;    a=t1+t2;
--
--	t1 = h + e1(e) + Ch(e,f,g) + 0x19a4c116 + W[48];
--	t2 = e0(a) + Maj(a,b,c);    d+=t1;    h=t1+t2;
--	t1 = g + e1(d) + Ch(d,e,f) + 0x1e376c08 + W[49];
--	t2 = e0(h) + Maj(h,a,b);    c+=t1;    g=t1+t2;
--	t1 = f + e1(c) + Ch(c,d,e) + 0x2748774c + W[50];
--	t2 = e0(g) + Maj(g,h,a);    b+=t1;    f=t1+t2;
--	t1 = e + e1(b) + Ch(b,c,d) + 0x34b0bcb5 + W[51];
--	t2 = e0(f) + Maj(f,g,h);    a+=t1;    e=t1+t2;
--	t1 = d + e1(a) + Ch(a,b,c) + 0x391c0cb3 + W[52];
--	t2 = e0(e) + Maj(e,f,g);    h+=t1;    d=t1+t2;
--	t1 = c + e1(h) + Ch(h,a,b) + 0x4ed8aa4a + W[53];
--	t2 = e0(d) + Maj(d,e,f);    g+=t1;    c=t1+t2;
--	t1 = b + e1(g) + Ch(g,h,a) + 0x5b9cca4f + W[54];
--	t2 = e0(c) + Maj(c,d,e);    f+=t1;    b=t1+t2;
--	t1 = a + e1(f) + Ch(f,g,h) + 0x682e6ff3 + W[55];
--	t2 = e0(b) + Maj(b,c,d);    e+=t1;    a=t1+t2;
--
--	t1 = h + e1(e) + Ch(e,f,g) + 0x748f82ee + W[56];
--	t2 = e0(a) + Maj(a,b,c);    d+=t1;    h=t1+t2;
--	t1 = g + e1(d) + Ch(d,e,f) + 0x78a5636f + W[57];
--	t2 = e0(h) + Maj(h,a,b);    c+=t1;    g=t1+t2;
--	t1 = f + e1(c) + Ch(c,d,e) + 0x84c87814 + W[58];
--	t2 = e0(g) + Maj(g,h,a);    b+=t1;    f=t1+t2;
--	t1 = e + e1(b) + Ch(b,c,d) + 0x8cc70208 + W[59];
--	t2 = e0(f) + Maj(f,g,h);    a+=t1;    e=t1+t2;
--	t1 = d + e1(a) + Ch(a,b,c) + 0x90befffa + W[60];
--	t2 = e0(e) + Maj(e,f,g);    h+=t1;    d=t1+t2;
--	t1 = c + e1(h) + Ch(h,a,b) + 0xa4506ceb + W[61];
--	t2 = e0(d) + Maj(d,e,f);    g+=t1;    c=t1+t2;
--	t1 = b + e1(g) + Ch(g,h,a) + 0xbef9a3f7 + W[62];
--	t2 = e0(c) + Maj(c,d,e);    f+=t1;    b=t1+t2;
--	t1 = a + e1(f) + Ch(f,g,h) + 0xc67178f2 + W[63];
--	t2 = e0(b) + Maj(b,c,d);    e+=t1;    a=t1+t2;
--
--	state[0] += a; state[1] += b; state[2] += c; state[3] += d;
--	state[4] += e; state[5] += f; state[6] += g; state[7] += h;
--
--	/* clear any sensitive info... */
--	a = b = c = d = e = f = g = h = t1 = t2 = 0;
--	memzero_explicit(W, 64 * sizeof(u32));
--}
--
--static void sha256_generic_block_fn(struct sha256_state *sst, u8 const *src,
--				    int blocks)
--{
--	while (blocks--) {
--		sha256_transform(sst->state, src);
--		src += SHA256_BLOCK_SIZE;
--	}
--}
--
--void sha256_update_direct(struct sha256_state *sctx, const u8 *data,
--			  unsigned int len)
--{
--	__sha256_base_do_update(sctx, data, len, sha256_generic_block_fn);
--}
--EXPORT_SYMBOL(sha256_update_direct);
--
- int crypto_sha256_update(struct shash_desc *desc, const u8 *data,
- 			  unsigned int len)
- {
-@@ -262,14 +56,6 @@ static int sha256_final(struct shash_desc *desc, u8 *out)
- 	return 0;
- }
- 
--void __sha256_final_direct(struct sha256_state *sctx, unsigned int digest_size,
--			   u8 *out)
--{
--	sha256_do_finalize_direct(sctx, sha256_generic_block_fn);
--	__sha256_base_finish(sctx, digest_size, out);
--}
--EXPORT_SYMBOL(sha256_final_direct);
--
- int crypto_sha256_finup(struct shash_desc *desc, const u8 *data,
- 			unsigned int len, u8 *hash)
- {
--- 
-2.9.3
+Panic message:
+
+dmesg-erst-6374119981415661569:<6>[   23.110324] ip_set: protocol 6
+dmesg-erst-6374119981415661569:<1>[   28.117455] BUG: unable to handle 
+kernel NULL pointer dereference at 0000000000000078
+dmesg-erst-6374119981415661569:<1>[   28.118036] IP: 
+[<ffffffff8188f9de>] __skb_flow_dissect+0x73f/0x931
+dmesg-erst-6374119981415661569:<4>[   28.118360] PGD 0
+dmesg-erst-6374119981415661569:<4>[   28.118427]
+dmesg-erst-6374119981415661569:<4>[   28.118730] Oops: 0000 [#1] SMP
+dmesg-erst-6374119981415661569:<4>[   28.118977] Modules linked in: 
+xt_TCPMSS xt_connmark ipt_MASQUERADE nf_nat_masquerade_ipv4 xt_nat 
+xt_rateest xt_RATEEST nf_conntrack_pptp nf_conntrack_proto_gre xt_CT 
+xt_set xt_hl xt_tcpudp ip_set_hash_net ip_set nfnetlink iptable_raw 
+iptable_mangle iptable_nat nf_conntrack_ipv4 nf_defrag_ipv4 nf_nat_ipv4 
+nf_nat nf_conntrack iptable_filter ip_tables x_tables 8021q garp mrp stp 
+llc netconsole configfs bonding ixgbe dca ipmi_watchdog ipmi_si 
+acpi_ipmi ipmi_msghandler
+dmesg-erst-6374119981415661569:<4>[   28.122784] CPU: 4 PID: 0 Comm: 
+swapper/4 Not tainted 4.9.2-build-0127 #3
+dmesg-erst-6374119981415661569:<4>[   28.123042] Hardware name: Intel 
+Corporation S2600WTT/S2600WTT, BIOS SE5C610.86B.01.01.0019.101220160604 
+10/12/2016
+dmesg-erst-6374119981415661569:<4>[   28.123488] task: ffff882fa6af24c0 
+task.stack: ffffc90031338000
+dmesg-erst-6374119981415661569:<4>[   28.123742] RIP: 
+0010:[<ffffffff8188f9de>]  [<ffffffff8188f9de>] 
+__skb_flow_dissect+0x73f/0x931
+dmesg-erst-6374119981415661569:<4>[   28.124243] RSP: 
+0018:ffff882fbfb03ce8  EFLAGS: 00010206
+dmesg-erst-6374119981415661569:<4>[   28.124497] RAX: 0000000000000130 
+RBX: 0000000000000022 RCX: ffff882f9eabb000
+dmesg-erst-6374119981415661569:<4>[   28.124756] RDX: 0000000000000010 
+RSI: ffff882f9eabb026 RDI: 000000000000002f
+dmesg-erst-6374119981415661569:<4>[   28.125015] RBP: ffff882fbfb03d78 
+R08: 000000000000000c R09: ffff882f9eabb022
+dmesg-erst-6374119981415661569:<4>[   28.125275] R10: 0000000000000140 
+R11: 0000000000000001 R12: 0000000000000b88
+dmesg-erst-6374119981415661569:<4>[   28.125532] R13: ffff882fbfb03d9c 
+R14: 0000000000000000 R15: ffffffff820c11a0
+dmesg-erst-6374119981415661569:<4>[   28.125792] FS:  
+0000000000000000(0000) GS:ffff882fbfb00000(0000) knlGS:0000000000000000
+dmesg-erst-6374119981415661569:<4>[   28.126227] CS:  0010 DS: 0000 ES: 
+0000 CR0: 0000000080050033
+dmesg-erst-6374119981415661569:<4>[   28.126482] CR2: 0000000000000078 
+CR3: 000000607f007000 CR4: 00000000001406e0
+dmesg-erst-6374119981415661569:<4>[   28.126741] Stack:
+dmesg-erst-6374119981415661569:<4>[   28.126983]  ffff882fbfb03cf8 
+ffffffff81885afb 00000001bfb03d88 ffffffff818953b5
+dmesg-erst-6374119981415661569:<4>[   28.127675]  ffff882fbfb03d9c 
+2f00000800000000 ffff882f9eabb000 ffff882fbfb03d48
+dmesg-erst-6374119981415661569:<4>[   28.128350]  ffffffff818ef3e4 
+ffff882fa4177400 000000000000004e 0000000000000000
+dmesg-erst-6374119981415661569:<4>[   28.129027] Call Trace:
+dmesg-erst-6374119981415661569:<4>[   28.129271]  <IRQ>
+dmesg-erst-6374119981415661569:<4>[   28.129340]  [<ffffffff81885afb>] ? 
+kfree_skb+0x25/0x27
+dmesg-erst-6374119981415661569:<4>[   28.129655]  [<ffffffff818953b5>] ? 
+__netif_receive_skb_core+0x61b/0x807
+dmesg-erst-6374119981415661569:<4>[   28.129917]  [<ffffffff818ef3e4>] ? 
+udp4_gro_receive+0x1f6/0x256
+dmesg-erst-6374119981415661569:<4>[   28.130174]  [<ffffffff818b43d3>] 
+eth_get_headlen+0x4c/0x82
+dmesg-erst-6374119981415661569:<4>[   28.130435]  [<ffffffffa003624f>] 
+ixgbe_clean_rx_irq+0x546/0x924 [ixgbe]
+dmesg-erst-6374119981415661569:<4>[   28.130694]  [<ffffffffa003723a>] 
+ixgbe_poll+0x4ef/0x679 [ixgbe]
+dmesg-erst-6374119981415661569:<4>[   28.130952]  [<ffffffff81896b60>] 
+net_rx_action+0x107/0x27d
+dmesg-erst-6374119981415661569:<4>[   28.131207]  [<ffffffff810d18c8>] 
+__do_softirq+0xb5/0x1a3
+dmesg-erst-6374119981415661569:<4>[   28.131460]  [<ffffffff810d1b2d>] 
+irq_exit+0x4d/0x8e
+dmesg-erst-6374119981415661569:<4>[   28.131712]  [<ffffffff81016bb7>] 
+do_IRQ+0xaa/0xc2
+dmesg-erst-6374119981415661569:<4>[   28.131965]  [<ffffffff8191483c>] 
+common_interrupt+0x7c/0x7c
+dmesg-erst-6374119981415661569:<4>[   28.132217]  <EOI>
+dmesg-erst-6374119981415661569:<4>[   28.132286]  [<ffffffff81913936>] ? 
+mwait_idle+0x4e/0x61
+dmesg-erst-6374119981415661569:<4>[   28.132773]  [<ffffffff8101cb40>] 
+arch_cpu_idle+0xa/0xc
+dmesg-erst-6374119981415661569:<4>[   28.133026]  [<ffffffff81913a4b>] 
+default_idle_call+0x20/0x22
+dmesg-erst-6374119981415661569:<4>[   28.133282]  [<ffffffff810fa1a5>] 
+cpu_startup_entry+0xde/0x185
+dmesg-erst-6374119981415661569:<4>[   28.133539]  [<ffffffff8102bda3>] 
+start_secondary+0xe8/0xeb
+dmesg-erst-6374119981415661569:<4>[   28.133792] Code: f7 e8 eb 63 ff ff 
+85 c0 0f 88 d5 01 00 00 44 8b 45 80 48 8d 75 b0 66 44 8b 66 0c 41 83 c0 
+0e e9 87 00 00 00 41 8d 50 04 66 85 c0 <41> 8b 46 78 44 0f 48 c2 41 2b 
+46 7c 42 8d 34 03 29 f0 83 f8 03
+dmesg-erst-6374119981415661569:<1>[   28.138401] RIP  
+[<ffffffff8188f9de>] __skb_flow_dissect+0x73f/0x931
+dmesg-erst-6374119981415661569:<4>[   28.138718]  RSP <ffff882fbfb03ce8>
+dmesg-erst-6374119981415661569:<4>[   28.138964] CR2: 0000000000000078
+dmesg-erst-6374119981415661569:<4>[   28.139215] ---[ end trace 
+46fb1cf5af272d67 ]---
