@@ -1,60 +1,134 @@
-From: Suman Anna <s-anna@ti.com>
-Subject: [PATCH] net: add the AF_QIPCRTR entries to family name tables
-Date: Mon, 9 Jan 2017 21:48:56 -0600
-Message-ID: <20170110034856.49721-1-s-anna@ti.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [net PATCH] net: virtio: cap mtu when XDP programs are running
+Date: Tue, 10 Jan 2017 05:55:39 +0200
+Message-ID: <20170110055023-mutt-send-email-mst@kernel.org>
+References: <586D458F.5050705@gmail.com>
+ <068f0116-b37e-eb44-8c60-1781a9d5255e@redhat.com>
+ <20170110010531-mutt-send-email-mst@kernel.org>
+ <5874190B.9050505@gmail.com>
+ <20170110012044-mutt-send-email-mst@kernel.org>
+ <58742187.8050505@gmail.com>
+ <20170110015759-mutt-send-email-mst@kernel.org>
+ <9102bb4b-223a-d441-7546-8b4144d970fb@redhat.com>
+ <20170110044910-mutt-send-email-mst@kernel.org>
+ <5874555A.3070307@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        Suman Anna <s-anna@ti.com>,
-        Courtney Cavin <courtney.cavin@sonymobile.com>,
-        Bjorn Andersson <bjorn.andersson@linaro.org>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: Jason Wang <jasowang@redhat.com>, john.r.fastabend@intel.com,
+        netdev@vger.kernel.org, alexei.starovoitov@gmail.com,
+        daniel@iogearbox.net
+To: John Fastabend <john.fastabend@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:34916 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751131AbdAJDzl (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 9 Jan 2017 22:55:41 -0500
+Content-Disposition: inline
+In-Reply-To: <5874555A.3070307@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit bdabad3e363d ("net: Add Qualcomm IPC router") introduced a
-new address family. Update the family name tables accordingly so
-that the lockdep initialization can use the proper names for this
-family.
+On Mon, Jan 09, 2017 at 07:30:34PM -0800, John Fastabend wrote:
+> On 17-01-09 06:51 PM, Michael S. Tsirkin wrote:
+> > On Tue, Jan 10, 2017 at 10:29:39AM +0800, Jason Wang wrote:
+> >>
+> >>
+> >> On 2017年01月10日 07:58, Michael S. Tsirkin wrote:
+> >>> On Mon, Jan 09, 2017 at 03:49:27PM -0800, John Fastabend wrote:
+> >>>> On 17-01-09 03:24 PM, Michael S. Tsirkin wrote:
+> >>>>> On Mon, Jan 09, 2017 at 03:13:15PM -0800, John Fastabend wrote:
+> >>>>>> On 17-01-09 03:05 PM, Michael S. Tsirkin wrote:
+> >>>>>>> On Thu, Jan 05, 2017 at 11:09:14AM +0800, Jason Wang wrote:
+> >>>>>>>> On 2017年01月05日 02:57, John Fastabend wrote:
+> >>>>>>>>> [...]
+> >>>>>>>>>
+> >>>>>>>>>> On 2017年01月04日 00:48, John Fastabend wrote:
+> >>>>>>>>>>> On 17-01-02 10:14 PM, Jason Wang wrote:
+> >>>>>>>>>>>> On 2017年01月03日 06:30, John Fastabend wrote:
+> >>>>>>>>>>>>> XDP programs can not consume multiple pages so we cap the MTU to
+> >>>>>>>>>>>>> avoid this case. Virtio-net however only checks the MTU at XDP
+> >>>>>>>>>>>>> program load and does not block MTU changes after the program
+> >>>>>>>>>>>>> has loaded.
+> >>>>>>>>>>>>>
+> >>>>>>>>>>>>> This patch sets/clears the max_mtu value at XDP load/unload time.
+> >>>>>>>>>>>>>
+> >>>>>>>>>>>>> Signed-off-by: John Fastabend<john.r.fastabend@intel.com>
+> >>>>>>>>>>>>> ---
+> >>>>>>>>> [...]
+> >>>>>>>>>
+> >>>>>>>>>>> OK so this logic is a bit too simply. When it resets the max_mtu I guess it
+> >>>>>>>>>>> needs to read the mtu via
+> >>>>>>>>>>>
+> >>>>>>>>>>>       virtio_cread16(vdev, ...)
+> >>>>>>>>>>>
+> >>>>>>>>>>> or we may break the negotiated mtu.
+> >>>>>>>>>> Yes, this is a problem (even use ETH_MAX_MTU). We may need a method to notify
+> >>>>>>>>>> the device about the mtu in this case which is not supported by virtio now.
+> >>>>>>>>> Note this is not really a XDP specific problem. The guest can change the MTU
+> >>>>>>>>> after init time even without XDP which I assume should ideally result in a
+> >>>>>>>>> notification if the MTU is negotiated.
+> >>>>>>>> Yes, Michael, do you think we need add some mechanism to notify host about
+> >>>>>>>> MTU change in this case?
+> >>>>>>>>
+> >>>>>>>> Thanks
+> >>>>>>> Why does host care?
+> >>>>>>>
+> >>>>>> Well the guest will drop packets after mtu has been reduced.
+> >>>>> I didn't know. What place in code does this?
+> >>>>>
+> >>>> hmm in many of the drivers it is convention to use the mtu to set the rx
+> >>>> buffer sizes and a receive side max length filter. For example in the Intel
+> >>>> drivers if a packet with length greater than MTU + some headroom is received we
+> >>>> drop it. I guess in the networking stack RX path though nothing forces this and
+> >>>> virtio doesn't have any code to drop packets on rx size.
+> >>>>
+> >>>> In virtio I don't see any existing case currently. In the XDP case though we
+> >>>> need to ensure packets fit in a page for the time being which is why I was
+> >>>> looking at this code and generated this patch.
+> >>> I'd say just look at the hardware max mtu. Ignore the configured mtu.
+> >>>
+> >>>
+> >>
+> >> Does this work for small buffers consider it always allocate skb with size
+> >> of GOOD_PACKET_LEN?
+> > 
+> > Spec says hardware won't send in packets > max mtu in config space.
+> > 
+> >> I think in any case, we should limit max_mtu to
+> >> GOOD_PACKET_LEN for small buffers.
+> >>
+> >> Thanks
+> > 
+> > XDP seems to have a bunch of weird restrictions, I just
+> > do not like it that the logic spills out to all drivers.
+> > What if someone decides to extend it to two pages in the future?
+> > Recode it all in all drivers ...
+> > 
+> > Why can't net core enforce mtu?
+> > 
+> 
+> OK I agree I'll put most the logic in rtnetlink.c when the program is added
+> or removed.
+> 
+> But, I'm looking at the non-XDP receive_small path now and wondering how does
+> multiple buffer receives work (e.g. packet larger than GOOD_PACKET_LEN?)
 
-Cc: Courtney Cavin <courtney.cavin@sonymobile.com>
-Cc: Bjorn Andersson <bjorn.andersson@linaro.org>
-Signed-off-by: Suman Anna <s-anna@ti.com>
----
- net/core/sock.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+I don't understand the question. Look at add_recvbuf_small,
+it adds a tiny buffer for head and then the skb.
 
-diff --git a/net/core/sock.c b/net/core/sock.c
-index f560e0826009..4eca27dc5c94 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -222,7 +222,7 @@ static const char *const af_family_key_strings[AF_MAX+1] = {
-   "sk_lock-AF_RXRPC" , "sk_lock-AF_ISDN"     , "sk_lock-AF_PHONET"   ,
-   "sk_lock-AF_IEEE802154", "sk_lock-AF_CAIF" , "sk_lock-AF_ALG"      ,
-   "sk_lock-AF_NFC"   , "sk_lock-AF_VSOCK"    , "sk_lock-AF_KCM"      ,
--  "sk_lock-AF_MAX"
-+  "sk_lock-AF_QIPCRTR", "sk_lock-AF_MAX"
- };
- static const char *const af_family_slock_key_strings[AF_MAX+1] = {
-   "slock-AF_UNSPEC", "slock-AF_UNIX"     , "slock-AF_INET"     ,
-@@ -239,7 +239,7 @@ static const char *const af_family_slock_key_strings[AF_MAX+1] = {
-   "slock-AF_RXRPC" , "slock-AF_ISDN"     , "slock-AF_PHONET"   ,
-   "slock-AF_IEEE802154", "slock-AF_CAIF" , "slock-AF_ALG"      ,
-   "slock-AF_NFC"   , "slock-AF_VSOCK"    ,"slock-AF_KCM"       ,
--  "slock-AF_MAX"
-+  "slock-AF_QIPCRTR", "slock-AF_MAX"
- };
- static const char *const af_family_clock_key_strings[AF_MAX+1] = {
-   "clock-AF_UNSPEC", "clock-AF_UNIX"     , "clock-AF_INET"     ,
-@@ -256,7 +256,7 @@ static const char *const af_family_clock_key_strings[AF_MAX+1] = {
-   "clock-AF_RXRPC" , "clock-AF_ISDN"     , "clock-AF_PHONET"   ,
-   "clock-AF_IEEE802154", "clock-AF_CAIF" , "clock-AF_ALG"      ,
-   "clock-AF_NFC"   , "clock-AF_VSOCK"    , "clock-AF_KCM"      ,
--  "clock-AF_MAX"
-+  "clock-AF_QIPCRTR", "clock-AF_MAX"
- };
- 
- /*
+
+> I think
+> this is what Jason is looking at as well? The mergeable case clearly looks at
+> num_bufs in the descriptor to construct multi-buffer packets but nothing like
+> that exists in the small_receive path as best I can tell.
+> 
+> .John
+
+There's always a single buffer there.
+BTW it was always a legacy path but if it's now important for people we
+should probably check ANY_LAYOUT and put header linearly with the packet
+if there.
+
 -- 
-2.10.2
+MST
