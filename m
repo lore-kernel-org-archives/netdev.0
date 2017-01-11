@@ -1,43 +1,64 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: [PATCH net-next 0/2] Move hwmon support out of switch and into
- PHYs.
-Date: Wed, 11 Jan 2017 10:00:18 -0800
-Message-ID: <20170111180018.GC22289@roeck-us.net>
-References: <1484096604-25033-1-git-send-email-andrew@lunn.ch>
- <87vatljzlo.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
- <20170111173741.GB13033@lunn.ch>
+From: Andy Lutomirski <luto@amacapital.net>
+Subject: Re: [PATCH v2 8/8] crypto/testmgr: Allocate only the required output
+ size for hash tests
+Date: Wed, 11 Jan 2017 10:10:27 -0800
+Message-ID: <CALCETrX_8_sbGgc4N8opSnXimnZNp5HbTvdonnHoFic8b_Zp-A@mail.gmail.com>
+References: <cover.1484090585.git.luto@kernel.org> <890f4bdb28a1cf72f6b802b220b35ebaf0f76bb9.1484090585.git.luto@kernel.org>
+ <063D6719AE5E284EB5DD2968C1650D6DB025EE7B@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset=UTF-8
+Cc: Andy Lutomirski <luto@kernel.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+        "Jason A. Donenfeld" <Jason@zx2c4.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Eric Biggers <ebiggers3@gmail.com>,
+        Tom Herbert <tom@herbertland.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Ard Biesheuvel <ard.biesheuvel@linaro.org>,
+        Herbert Xu <herbert@gondor.apana.org.au>
+To: David Laight <David.Laight@aculab.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bh-25.webhostbox.net ([208.91.199.152]:41332 "EHLO
-        bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1759916AbdAKSAV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 13:00:21 -0500
-Content-Disposition: inline
-In-Reply-To: <20170111173741.GB13033@lunn.ch>
+Received: from mail-ua0-f178.google.com ([209.85.217.178]:35438 "EHLO
+        mail-ua0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S937665AbdAKSK5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 13:10:57 -0500
+Received: by mail-ua0-f178.google.com with SMTP id y9so186352311uae.2
+        for <netdev@vger.kernel.org>; Wed, 11 Jan 2017 10:10:48 -0800 (PST)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB025EE7B@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 11, 2017 at 06:37:41PM +0100, Andrew Lunn wrote:
-> 
-> However, at the moment, there is no code to enable interrupts for
-> temperature alarms. I also don't see any need to add such code, since
-> there is nowhere in HWMON to actively report such an alarm condition.
-> 
-That is not entirely correct. It is not in the hwmon core, but that is
-mostly because the sysfs attributes are managed in the hwmon drivers,
-at least with the legacy API, and it is thus the responsibility of
-hwmon drivers to implement interrupts and to alert user space.
+On Wed, Jan 11, 2017 at 7:13 AM, David Laight <David.Laight@aculab.com> wrote:
+> From: Andy Lutomirski
+>> Sent: 10 January 2017 23:25
+>> There are some hashes (e.g. sha224) that have some internal trickery
+>> to make sure that only the correct number of output bytes are
+>> generated.  If something goes wrong, they could potentially overrun
+>> the output buffer.
+>>
+>> Make the test more robust by allocating only enough space for the
+>> correct output size so that memory debugging will catch the error if
+>> the output is overrun.
+>
+> Might be better to test this by allocating an overlong buffer
+> and then explicitly checking that the output hasn't overrun
+> the allowed space.
+>
+> If nothing else the error message will be clearer.
 
-It is on my task list to add a callback into the core, to support
-generating udev and sysfs events with the new API, but so far I don't
-see a need for it because no one requested it. This makes it kind
-of a circular argument (not that the dsa hwmon driver supports the
-new API anyway, but still).
+I thought about that, but then I'd have to figure out what poison
+value to use.  Both KASAN and the usual slab debugging are quite good
+at this kind of checking, and KASAN will even point you to the
+problematic code directly.
 
-Guenter
+--Andy
+
+
+-- 
+Andy Lutomirski
+AMA Capital Management, LLC
