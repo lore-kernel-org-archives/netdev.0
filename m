@@ -1,35 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] gro: use min_t() in skb_gro_reset_offset()
-Date: Wed, 11 Jan 2017 08:16:34 -0500 (EST)
-Message-ID: <20170111.081634.2168417008156230015.davem@davemloft.net>
-References: <1484079841.21472.35.camel@edumazet-glaptop3.roam.corp.google.com>
-        <20170110.212911.71346127320993214.davem@davemloft.net>
-        <1484106763.21472.49.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next 1/2] flow disector: ARP support
+Date: Wed, 11 Jan 2017 14:26:58 +0100
+Message-ID: <20170111132658.GI1852@nanopsycho>
+References: <1484139943-18199-1-git-send-email-simon.horman@netronome.com>
+ <1484139943-18199-2-git-send-email-simon.horman@netronome.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au,
-        slavash@mellanox.com, willemb@google.com, edumazet@google.com
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, Jiri Pirko <jiri@mellanox.com>,
+        Dinan Gunawardena <dinan.gunawardena@netronome.com>,
+        netdev@vger.kernel.org, oss-drivers@netronome.com
+To: Simon Horman <simon.horman@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:48194 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S966471AbdAKNQs (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 08:16:48 -0500
-In-Reply-To: <1484106763.21472.49.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-wj0-f195.google.com ([209.85.210.195]:35042 "EHLO
+        mail-wj0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S966554AbdAKN1B (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 08:27:01 -0500
+Received: by mail-wj0-f195.google.com with SMTP id ey1so11734097wjd.2
+        for <netdev@vger.kernel.org>; Wed, 11 Jan 2017 05:27:01 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1484139943-18199-2-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 10 Jan 2017 19:52:43 -0800
+Wed, Jan 11, 2017 at 02:05:42PM CET, simon.horman@netronome.com wrote:
+>Allow dissection of (R)ARP operation hardware and protocol addresses
+>for Ethernet hardware and IPv4 protocol addresses.
+>
+>There are currently no users of FLOW_DISSECTOR_KEY_ARP.
+>A follow-up patch will allow FLOW_DISSECTOR_KEY_ARP to be used by the
+>flower classifier.
+>
+>Signed-off-by: Simon Horman <simon.horman@netronome.com>
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> On 32bit arches, (skb->end - skb->data) is not 'unsigned int',
-> so we shall use min_t() instead of min() to avoid a compiler error.
-> 
-> Fixes: 1272ce87fa01 ("gro: Enter slow-path if there is no tailroom")
-> Reported-by: kernel test robot <fengguang.wu@intel.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-
-Applied, thanks Eric.
+Acked-by: Jiri Pirko <jiri@mellanox.com>
