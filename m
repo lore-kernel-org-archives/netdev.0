@@ -1,39 +1,27 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH net-next 0/2] Move hwmon support out of switch and into PHYs.
-Date: Wed, 11 Jan 2017 02:03:22 +0100
-Message-ID: <1484096604-25033-1-git-send-email-andrew@lunn.ch>
-Cc: netdev <netdev@vger.kernel.org>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>
-To: David Miller <davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: 4.9.2 panic, __skb_flow_dissect, gro?
+Date: Tue, 10 Jan 2017 20:08:04 -0500 (EST)
+Message-ID: <20170110.200804.303728442314129894.davem@davemloft.net>
+References: <359da98eb44a5a9f9f286cc380143654@nuclearcat.com>
+        <96694297c5f7178b92bfd9a12bef4a42@nuclearcat.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ian.kumlien@gmail.com
+To: nuclearcat@nuclearcat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:54670 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932324AbdAKBEa (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 10 Jan 2017 20:04:30 -0500
+Received: from shards.monkeyblade.net ([184.105.139.130]:33360 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758096AbdAKBII (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2017 20:08:08 -0500
+In-Reply-To: <96694297c5f7178b92bfd9a12bef4a42@nuclearcat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Marvell Ethernet switches contain temperature sensors. They are inside
-the embedded PHYs. Move the code into the PHY driver, so that discrete
-PHY drivers also export there temperature sensor.
+From: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
+Date: Wed, 11 Jan 2017 01:49:34 +0200
 
-Andrew Lunn (2):
-  phy: marvell: Add support for temperature sensor
-  net: dsa: Remove hwmon support
+> It seems this patch solve issue. I hope it will go to stable asap,
+> because without it loaded routers crashing almost instantly on 4.9.
 
- drivers/net/dsa/mv88e6xxx/chip.c      | 154 ------------
- drivers/net/dsa/mv88e6xxx/mv88e6xxx.h |  16 --
- drivers/net/phy/marvell.c             | 426 +++++++++++++++++++++++++++++++++-
- include/net/dsa.h                     |   8 -
- net/dsa/Kconfig                       |  11 -
- net/dsa/Makefile                      |   1 -
- net/dsa/dsa.c                         |   4 -
- net/dsa/dsa_priv.h                    |   9 -
- net/dsa/hwmon.c                       | 147 ------------
- 9 files changed, 423 insertions(+), 353 deletions(-)
- delete mode 100644 net/dsa/hwmon.c
-
--- 
-2.11.0
+I will submit this soon.
