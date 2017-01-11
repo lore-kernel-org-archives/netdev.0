@@ -1,158 +1,189 @@
-From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Subject: [PATCH net-next 11/13] s390/qeth: issue STARTLAN as first IPA command
-Date: Wed, 11 Jan 2017 12:55:58 +0100
-Message-ID: <20170111115600.4524-12-ubraun@linux.vnet.ibm.com>
-References: <20170111115600.4524-1-ubraun@linux.vnet.ibm.com>
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-        schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
-        stable@vger.kernel.org, ubraun@linux.vnet.ibm.com
-To: davem@davemloft.net
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <20170111115600.4524-1-ubraun@linux.vnet.ibm.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Subject: Re: [PATCH v2 0/2] remove dwc_eth_qos and rename stmicro/stmmac
+Date: Wed, 11 Jan 2017 11:54:56 +0000
+Message-ID: <298670a0-7074-a590-9498-7a9db68d499e@synopsys.com>
+References: <cover.1484059674.git.jpinto@synopsys.com>
+ <0dcdcb5f-200b-b130-9a67-774639353114@st.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 8bit
+Cc: <lars.persson@axis.com>, <niklass@axis.com>,
+        <peppe.cavallaro@st.com>, <netdev@vger.kernel.org>
+To: Alexandre Torgue <alexandre.torgue@st.com>,
+        Joao Pinto <Joao.Pinto@synopsys.com>, <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from us01smtprelay-2.synopsys.com ([198.182.60.111]:59124 "EHLO
+        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S935026AbdAKL5Y (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 06:57:24 -0500
+In-Reply-To: <0dcdcb5f-200b-b130-9a67-774639353114@st.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julian Wiedmann <jwi@linux.vnet.ibm.com>
 
-STARTLAN needs to be the first IPA command after MPC initialization
-completes.
-So move the qeth_send_startlan() call from the layer disciplines
-into the core path, right after the MPC handshake.
-While at it, replace the magic LAN OFFLINE return code
-with the existing enum.
+Hi Alex,
 
-Signed-off-by: Julian Wiedmann <jwi@linux.vnet.ibm.com>
-Signed-off-by: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Reviewed-by: Thomas Richter <tmricht@linux.vnet.ibm.com>
----
- drivers/s390/net/qeth_core.h      |  1 -
- drivers/s390/net/qeth_core_main.c | 21 +++++++++++++++++----
- drivers/s390/net/qeth_l2_main.c   | 15 ---------------
- drivers/s390/net/qeth_l3_main.c   | 15 ---------------
- 4 files changed, 17 insertions(+), 35 deletions(-)
+Às 11:39 AM de 1/11/2017, Alexandre Torgue escreveu:
+> Hi Jao,
+> 
+> On 01/10/2017 03:52 PM, Joao Pinto wrote:
+>> This patch set removes the synopsys/dwc_eth_qos since it was merged recently
+>> to stmmac (dwmac-dwc-qos-eth glue driver).
+>>
+>> It also renames stmicro/stmmac to synopsys/ since it is a standard ethernet
+>> software package regarding synopsys ethernet controllers, supporting the
+>> majority of Synopsys Ethernet IPs.
+> 
+> I understand the reason to rename stmmac driver. The only risk I see is that
+> usual user will be a little bit lost to find code. It seems there no risk of
+> backward compatibility with current/old DT (I assume you already checked this
+> point).
 
-diff --git a/drivers/s390/net/qeth_core.h b/drivers/s390/net/qeth_core.h
-index 774ae51..e7addea 100644
---- a/drivers/s390/net/qeth_core.h
-+++ b/drivers/s390/net/qeth_core.h
-@@ -913,7 +913,6 @@ void qeth_clear_thread_running_bit(struct qeth_card *, unsigned long);
- int qeth_core_hardsetup_card(struct qeth_card *);
- void qeth_print_status_message(struct qeth_card *);
- int qeth_init_qdio_queues(struct qeth_card *);
--int qeth_send_startlan(struct qeth_card *);
- int qeth_send_ipa_cmd(struct qeth_card *, struct qeth_cmd_buffer *,
- 		  int (*reply_cb)
- 		  (struct qeth_card *, struct qeth_reply *, unsigned long),
-diff --git a/drivers/s390/net/qeth_core_main.c b/drivers/s390/net/qeth_core_main.c
-index ca8309f..315d8a2 100644
---- a/drivers/s390/net/qeth_core_main.c
-+++ b/drivers/s390/net/qeth_core_main.c
-@@ -2944,7 +2944,7 @@ int qeth_send_ipa_cmd(struct qeth_card *card, struct qeth_cmd_buffer *iob,
- }
- EXPORT_SYMBOL_GPL(qeth_send_ipa_cmd);
- 
--int qeth_send_startlan(struct qeth_card *card)
-+static int qeth_send_startlan(struct qeth_card *card)
- {
- 	int rc;
- 	struct qeth_cmd_buffer *iob;
-@@ -2957,7 +2957,6 @@ int qeth_send_startlan(struct qeth_card *card)
- 	rc = qeth_send_ipa_cmd(card, iob, NULL, NULL);
- 	return rc;
- }
--EXPORT_SYMBOL_GPL(qeth_send_startlan);
- 
- static int qeth_default_setadapterparms_cb(struct qeth_card *card,
- 		struct qeth_reply *reply, unsigned long data)
-@@ -5087,6 +5086,20 @@ int qeth_core_hardsetup_card(struct qeth_card *card)
- 		goto out;
- 	}
- 
-+	rc = qeth_send_startlan(card);
-+	if (rc) {
-+		QETH_DBF_TEXT_(SETUP, 2, "6err%d", rc);
-+		if (rc == IPA_RC_LAN_OFFLINE) {
-+			dev_warn(&card->gdev->dev,
-+				"The LAN is offline\n");
-+			card->lan_online = 0;
-+		} else {
-+			rc = -ENODEV;
-+			goto out;
-+		}
-+	} else
-+		card->lan_online = 1;
-+
- 	card->options.ipa4.supported_funcs = 0;
- 	card->options.ipa6.supported_funcs = 0;
- 	card->options.adp.supported_funcs = 0;
-@@ -5098,14 +5111,14 @@ int qeth_core_hardsetup_card(struct qeth_card *card)
- 	if (qeth_is_supported(card, IPA_SETADAPTERPARMS)) {
- 		rc = qeth_query_setadapterparms(card);
- 		if (rc < 0) {
--			QETH_DBF_TEXT_(SETUP, 2, "6err%d", rc);
-+			QETH_DBF_TEXT_(SETUP, 2, "7err%d", rc);
- 			goto out;
- 		}
- 	}
- 	if (qeth_adp_supported(card, IPA_SETADP_SET_DIAG_ASSIST)) {
- 		rc = qeth_query_setdiagass(card);
- 		if (rc < 0) {
--			QETH_DBF_TEXT_(SETUP, 2, "7err%d", rc);
-+			QETH_DBF_TEXT_(SETUP, 2, "8err%d", rc);
- 			goto out;
- 		}
- 	}
-diff --git a/drivers/s390/net/qeth_l2_main.c b/drivers/s390/net/qeth_l2_main.c
-index c298759c..bea4833 100644
---- a/drivers/s390/net/qeth_l2_main.c
-+++ b/drivers/s390/net/qeth_l2_main.c
-@@ -1177,21 +1177,6 @@ static int __qeth_l2_set_online(struct ccwgroup_device *gdev, int recovery_mode)
- 	/* softsetup */
- 	QETH_DBF_TEXT(SETUP, 2, "softsetp");
- 
--	rc = qeth_send_startlan(card);
--	if (rc) {
--		QETH_DBF_TEXT_(SETUP, 2, "1err%d", rc);
--		if (rc == 0xe080) {
--			dev_warn(&card->gdev->dev,
--				"The LAN is offline\n");
--			card->lan_online = 0;
--			goto contin;
--		}
--		rc = -ENODEV;
--		goto out_remove;
--	} else
--		card->lan_online = 1;
--
--contin:
- 	if ((card->info.type == QETH_CARD_TYPE_OSD) ||
- 	    (card->info.type == QETH_CARD_TYPE_OSX)) {
- 		rc = qeth_l2_start_ipassists(card);
-diff --git a/drivers/s390/net/qeth_l3_main.c b/drivers/s390/net/qeth_l3_main.c
-index ac37d05..06d0add 100644
---- a/drivers/s390/net/qeth_l3_main.c
-+++ b/drivers/s390/net/qeth_l3_main.c
-@@ -3227,21 +3227,6 @@ static int __qeth_l3_set_online(struct ccwgroup_device *gdev, int recovery_mode)
- 	/* softsetup */
- 	QETH_DBF_TEXT(SETUP, 2, "softsetp");
- 
--	rc = qeth_send_startlan(card);
--	if (rc) {
--		QETH_DBF_TEXT_(SETUP, 2, "1err%d", rc);
--		if (rc == 0xe080) {
--			dev_warn(&card->gdev->dev,
--				"The LAN is offline\n");
--			card->lan_online = 0;
--			goto contin;
--		}
--		rc = -ENODEV;
--		goto out_remove;
--	} else
--		card->lan_online = 1;
--
--contin:
- 	rc = qeth_l3_setadapter_parms(card);
- 	if (rc)
- 		QETH_DBF_TEXT_(SETUP, 2, "2err%04x", rc);
--- 
-2.8.4
+I understand your concern, but for the Synopsys IPs users will be clearer what
+drivers to use and what current stmmac has to offer.
+
+In terms of tests, I tested it and worked out of the box because the same
+Kconfig IDs were used assuring the retro-compatibility that David suggested a
+few weeks ago. For DT users no problems are expected as well.
+
+Thanks,
+Joao
+
+> Let's see what David think about that but if there no risk of backward
+> compatibility with DT, I agree with the series.
+> 
+> Regards
+> Alex
+> 
+> 
+> 
+>>
+>> In the future we should make an effort to migrate to this new synopsys/
+>> driver package all the Ethernet Synopsys IP drivers scattered in net/ethernet.
+>>
+>> Joao Pinto (2):
+>>   synopsys: remove dwc_eth_qos driver
+>>   stmmac: rename it to synopsys
+>>
+>>  .../bindings/net/{stmmac.txt => synopsys.txt}      |    0
+>>  MAINTAINERS                                        |   11 +-
+>>  arch/arm/configs/multi_v7_defconfig                |    3 +-
+>>  drivers/net/ethernet/Kconfig                       |    3 +-
+>>  drivers/net/ethernet/Makefile                      |    3 +-
+>>  drivers/net/ethernet/stmicro/Kconfig               |   21 -
+>>  drivers/net/ethernet/stmicro/Makefile              |    5 -
+>>  drivers/net/ethernet/stmicro/stmmac/Kconfig        |  162 --
+>>  drivers/net/ethernet/stmicro/stmmac/Makefile       |   25 -
+>>  drivers/net/ethernet/synopsys/Kconfig              |  165 +-
+>>  drivers/net/ethernet/synopsys/Makefile             |   28 +-
+>>  .../{stmicro/stmmac => synopsys}/altr_tse_pcs.c    |    0
+>>  .../{stmicro/stmmac => synopsys}/altr_tse_pcs.h    |    0
+>>  .../{stmicro/stmmac => synopsys}/chain_mode.c      |    0
+>>  .../ethernet/{stmicro/stmmac => synopsys}/common.h |    0
+>>  .../ethernet/{stmicro/stmmac => synopsys}/descs.h  |    0
+>>  .../{stmicro/stmmac => synopsys}/descs_com.h       |    0
+>>  drivers/net/ethernet/synopsys/dwc_eth_qos.c        | 2996 --------------------
+>>  .../stmmac => synopsys}/dwmac-dwc-qos-eth.c        |    0
+>>  .../{stmicro/stmmac => synopsys}/dwmac-generic.c   |    0
+>>  .../{stmicro/stmmac => synopsys}/dwmac-ipq806x.c   |    0
+>>  .../{stmicro/stmmac => synopsys}/dwmac-lpc18xx.c   |    0
+>>  .../{stmicro/stmmac => synopsys}/dwmac-meson.c     |    0
+>>  .../{stmicro/stmmac => synopsys}/dwmac-meson8b.c   |    0
+>>  .../{stmicro/stmmac => synopsys}/dwmac-oxnas.c     |    0
+>>  .../{stmicro/stmmac => synopsys}/dwmac-rk.c        |    0
+>>  .../{stmicro/stmmac => synopsys}/dwmac-socfpga.c   |    0
+>>  .../{stmicro/stmmac => synopsys}/dwmac-sti.c       |    0
+>>  .../{stmicro/stmmac => synopsys}/dwmac-stm32.c     |    0
+>>  .../{stmicro/stmmac => synopsys}/dwmac-sunxi.c     |    0
+>>  .../{stmicro/stmmac => synopsys}/dwmac100.h        |    0
+>>  .../{stmicro/stmmac => synopsys}/dwmac1000.h       |    0
+>>  .../{stmicro/stmmac => synopsys}/dwmac1000_core.c  |    0
+>>  .../{stmicro/stmmac => synopsys}/dwmac1000_dma.c   |    0
+>>  .../{stmicro/stmmac => synopsys}/dwmac100_core.c   |    0
+>>  .../{stmicro/stmmac => synopsys}/dwmac100_dma.c    |    0
+>>  .../ethernet/{stmicro/stmmac => synopsys}/dwmac4.h |    0
+>>  .../{stmicro/stmmac => synopsys}/dwmac4_core.c     |    0
+>>  .../{stmicro/stmmac => synopsys}/dwmac4_descs.c    |    0
+>>  .../{stmicro/stmmac => synopsys}/dwmac4_descs.h    |    0
+>>  .../{stmicro/stmmac => synopsys}/dwmac4_dma.c      |    0
+>>  .../{stmicro/stmmac => synopsys}/dwmac4_dma.h      |    0
+>>  .../{stmicro/stmmac => synopsys}/dwmac4_lib.c      |    0
+>>  .../{stmicro/stmmac => synopsys}/dwmac_dma.h       |    0
+>>  .../{stmicro/stmmac => synopsys}/dwmac_lib.c       |    0
+>>  .../{stmicro/stmmac => synopsys}/enh_desc.c        |    0
+>>  .../ethernet/{stmicro/stmmac => synopsys}/mmc.h    |    0
+>>  .../{stmicro/stmmac => synopsys}/mmc_core.c        |    0
+>>  .../{stmicro/stmmac => synopsys}/norm_desc.c       |    0
+>>  .../{stmicro/stmmac => synopsys}/ring_mode.c       |    0
+>>  .../ethernet/{stmicro/stmmac => synopsys}/stmmac.h |    0
+>>  .../{stmicro/stmmac => synopsys}/stmmac_ethtool.c  |    0
+>>  .../{stmicro/stmmac => synopsys}/stmmac_hwtstamp.c |    0
+>>  .../{stmicro/stmmac => synopsys}/stmmac_main.c     |    0
+>>  .../{stmicro/stmmac => synopsys}/stmmac_mdio.c     |    0
+>>  .../{stmicro/stmmac => synopsys}/stmmac_pci.c      |    0
+>>  .../{stmicro/stmmac => synopsys}/stmmac_pcs.h      |    0
+>>  .../{stmicro/stmmac => synopsys}/stmmac_platform.c |    0
+>>  .../{stmicro/stmmac => synopsys}/stmmac_platform.h |    0
+>>  .../{stmicro/stmmac => synopsys}/stmmac_ptp.c      |    0
+>>  .../{stmicro/stmmac => synopsys}/stmmac_ptp.h      |    0
+>>  61 files changed, 180 insertions(+), 3242 deletions(-)
+>>  rename Documentation/devicetree/bindings/net/{stmmac.txt => synopsys.txt} (100%)
+>>  delete mode 100644 drivers/net/ethernet/stmicro/Kconfig
+>>  delete mode 100644 drivers/net/ethernet/stmicro/Makefile
+>>  delete mode 100644 drivers/net/ethernet/stmicro/stmmac/Kconfig
+>>  delete mode 100644 drivers/net/ethernet/stmicro/stmmac/Makefile
+>>  rename drivers/net/ethernet/{stmicro/stmmac => synopsys}/altr_tse_pcs.c (100%)
+>>  rename drivers/net/ethernet/{stmicro/stmmac => synopsys}/altr_tse_pcs.h (100%)
+>>  rename drivers/net/ethernet/{stmicro/stmmac => synopsys}/chain_mode.c (100%)
+>>  rename drivers/net/ethernet/{stmicro/stmmac => synopsys}/common.h (100%)
+>>  rename drivers/net/ethernet/{stmicro/stmmac => synopsys}/descs.h (100%)
+>>  rename drivers/net/ethernet/{stmicro/stmmac => synopsys}/descs_com.h (100%)
+>>  delete mode 100644 drivers/net/ethernet/synopsys/dwc_eth_qos.c
+>>  rename drivers/net/ethernet/{stmicro/stmmac => synopsys}/dwmac-dwc-qos-eth.c
+>> (100%)
+>>  rename drivers/net/ethernet/{stmicro/stmmac => synopsys}/dwmac-generic.c (100%)
+>>  rename drivers/net/ethernet/{stmicro/stmmac => synopsys}/dwmac-ipq806x.c (100%)
+>>  rename drivers/net/ethernet/{stmicro/stmmac => synopsys}/dwmac-lpc18xx.c (100%)
+>>  rename drivers/net/ethernet/{stmicro/stmmac => synopsys}/dwmac-meson.c (100%)
+>>  rename drivers/net/ethernet/{stmicro/stmmac => synopsys}/dwmac-meson8b.c (100%)
+>>  rename drivers/net/ethernet/{stmicro/stmmac => synopsys}/dwmac-oxnas.c (100%)
+>>  rename drivers/net/ethernet/{stmicro/stmmac => synopsys}/dwmac-rk.c (100%)
+>>  rename drivers/net/ethernet/{stmicro/stmmac => synopsys}/dwmac-socfpga.c (100%)
+>>  rename drivers/net/ethernet/{stmicro/stmmac => synopsys}/dwmac-sti.c (100%)
+>>  rename drivers/net/ethernet/{stmicro/stmmac => synopsys}/dwmac-stm32.c (100%)
+>>  rename drivers/net/ethernet/{stmicro/stmmac => synopsys}/dwmac-sunxi.c (100%)
+>>  rename drivers/net/ethernet/{stmicro/stmmac => synopsys}/dwmac100.h (100%)
+>>  rename drivers/net/ethernet/{stmicro/stmmac => synopsys}/dwmac1000.h (100%)
+>>  rename drivers/net/ethernet/{stmicro/stmmac => synopsys}/dwmac1000_core.c (100%)
+>>  rename drivers/net/ethernet/{stmicro/stmmac => synopsys}/dwmac1000_dma.c (100%)
+>>  rename drivers/net/ethernet/{stmicro/stmmac => synopsys}/dwmac100_core.c (100%)
+>>  rename drivers/net/ethernet/{stmicro/stmmac => synopsys}/dwmac100_dma.c (100%)
+>>  rename drivers/net/ethernet/{stmicro/stmmac => synopsys}/dwmac4.h (100%)
+>>  rename drivers/net/ethernet/{stmicro/stmmac => synopsys}/dwmac4_core.c (100%)
+>>  rename drivers/net/ethernet/{stmicro/stmmac => synopsys}/dwmac4_descs.c (100%)
+>>  rename drivers/net/ethernet/{stmicro/stmmac => synopsys}/dwmac4_descs.h (100%)
+>>  rename drivers/net/ethernet/{stmicro/stmmac => synopsys}/dwmac4_dma.c (100%)
+>>  rename drivers/net/ethernet/{stmicro/stmmac => synopsys}/dwmac4_dma.h (100%)
+>>  rename drivers/net/ethernet/{stmicro/stmmac => synopsys}/dwmac4_lib.c (100%)
+>>  rename drivers/net/ethernet/{stmicro/stmmac => synopsys}/dwmac_dma.h (100%)
+>>  rename drivers/net/ethernet/{stmicro/stmmac => synopsys}/dwmac_lib.c (100%)
+>>  rename drivers/net/ethernet/{stmicro/stmmac => synopsys}/enh_desc.c (100%)
+>>  rename drivers/net/ethernet/{stmicro/stmmac => synopsys}/mmc.h (100%)
+>>  rename drivers/net/ethernet/{stmicro/stmmac => synopsys}/mmc_core.c (100%)
+>>  rename drivers/net/ethernet/{stmicro/stmmac => synopsys}/norm_desc.c (100%)
+>>  rename drivers/net/ethernet/{stmicro/stmmac => synopsys}/ring_mode.c (100%)
+>>  rename drivers/net/ethernet/{stmicro/stmmac => synopsys}/stmmac.h (100%)
+>>  rename drivers/net/ethernet/{stmicro/stmmac => synopsys}/stmmac_ethtool.c (100%)
+>>  rename drivers/net/ethernet/{stmicro/stmmac => synopsys}/stmmac_hwtstamp.c
+>> (100%)
+>>  rename drivers/net/ethernet/{stmicro/stmmac => synopsys}/stmmac_main.c (100%)
+>>  rename drivers/net/ethernet/{stmicro/stmmac => synopsys}/stmmac_mdio.c (100%)
+>>  rename drivers/net/ethernet/{stmicro/stmmac => synopsys}/stmmac_pci.c (100%)
+>>  rename drivers/net/ethernet/{stmicro/stmmac => synopsys}/stmmac_pcs.h (100%)
+>>  rename drivers/net/ethernet/{stmicro/stmmac => synopsys}/stmmac_platform.c
+>> (100%)
+>>  rename drivers/net/ethernet/{stmicro/stmmac => synopsys}/stmmac_platform.h
+>> (100%)
+>>  rename drivers/net/ethernet/{stmicro/stmmac => synopsys}/stmmac_ptp.c (100%)
+>>  rename drivers/net/ethernet/{stmicro/stmmac => synopsys}/stmmac_ptp.h (100%)
+>>
