@@ -1,8 +1,9 @@
 From: Josef Bacik <jbacik@fb.com>
-Subject: [PATCH 1/6 net-next] inet: collapse ipv4/v6 rcv_saddr_equal functions into one
-Date: Wed, 11 Jan 2017 15:19:07 -0500
-Message-ID: <1484165952-20630-1-git-send-email-jbacik@fb.com>
+Subject: [PATCH 6/6 net-next] inet: reset tb->fastreuseport when adding a reuseport sk
+Date: Wed, 11 Jan 2017 15:22:44 -0500
+Message-ID: <1484166164-21250-5-git-send-email-jbacik@fb.com>
 References: <1484165171-19210-1-git-send-email-jbacik@fb.com>
+ <1484166164-21250-1-git-send-email-jbacik@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 To: <davem@davemloft.net>, <hannes@stressinduktion.org>,
@@ -10,464 +11,238 @@ To: <davem@davemloft.net>, <hannes@stressinduktion.org>,
         <tom@herbertland.com>, <netdev@vger.kernel.org>,
         <kernel-team@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:55166 "EHLO
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:55293 "EHLO
         mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1752968AbdAKUTn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 15:19:43 -0500
-In-Reply-To: <1484165171-19210-1-git-send-email-jbacik@fb.com>
+        by vger.kernel.org with ESMTP id S934316AbdAKUXb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 15:23:31 -0500
+In-Reply-To: <1484166164-21250-1-git-send-email-jbacik@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We pass these per-protocol equal functions around in various places, but
-we can just have one function that checks the sk->sk_family and then do
-the right comparison function.  I've also changed the ipv4 version to
-not cast to inet_sock since it is unneeded.
+If we have non reuseport sockets on a tb we will set tb->fastreuseport to 0 and
+never set it again.  Which means that in the future if we end up adding a bunch
+of reuseport sk's to that tb we'll have to do the expensive scan every time.
+Instead add the ipv4/ipv6 saddr fields to the bind bucket, as well as the family
+so we know what comparison to make, and the ipv6 only setting so we can make
+sure to compare with new sockets appropriately.  Once one sk has made it onto
+the list we know that there are no potential bind conflicts on the owners list
+that match that sk's rcv_addr.  So copy the sk's information into our bind
+bucket and set tb->fastruseport to FASTREUSESOCK_STRICT so we know we have to do
+an extra check for subsequent reuseport sockets and skip the expensive bind
+conflict check.
 
 Signed-off-by: Josef Bacik <jbacik@fb.com>
 ---
- include/net/addrconf.h           |  4 +--
- include/net/inet_hashtables.h    |  5 +--
- include/net/udp.h                |  1 -
- net/ipv4/inet_connection_sock.c  | 72 ++++++++++++++++++++++++++++++++++++++++
- net/ipv4/inet_hashtables.c       | 16 +++------
- net/ipv4/udp.c                   | 58 +++++++-------------------------
- net/ipv6/inet6_connection_sock.c |  4 +--
- net/ipv6/inet6_hashtables.c      | 46 +------------------------
- net/ipv6/udp.c                   |  2 +-
- 9 files changed, 95 insertions(+), 113 deletions(-)
+ include/net/inet_hashtables.h   |   9 ++++
+ net/ipv4/inet_connection_sock.c | 106 ++++++++++++++++++++++++++++++++--------
+ 2 files changed, 95 insertions(+), 20 deletions(-)
 
-diff --git a/include/net/addrconf.h b/include/net/addrconf.h
-index 8f998af..17c6fd8 100644
---- a/include/net/addrconf.h
-+++ b/include/net/addrconf.h
-@@ -88,9 +88,7 @@ int __ipv6_get_lladdr(struct inet6_dev *idev, struct in6_addr *addr,
- 		      u32 banned_flags);
- int ipv6_get_lladdr(struct net_device *dev, struct in6_addr *addr,
- 		    u32 banned_flags);
--int ipv4_rcv_saddr_equal(const struct sock *sk, const struct sock *sk2,
--			 bool match_wildcard);
--int ipv6_rcv_saddr_equal(const struct sock *sk, const struct sock *sk2,
-+int inet_rcv_saddr_equal(const struct sock *sk, const struct sock *sk2,
- 			 bool match_wildcard);
- void addrconf_join_solict(struct net_device *dev, const struct in6_addr *addr);
- void addrconf_leave_solict(struct inet6_dev *idev, const struct in6_addr *addr);
 diff --git a/include/net/inet_hashtables.h b/include/net/inet_hashtables.h
-index 0574493..756ed16 100644
+index 3fc0366..1178931 100644
 --- a/include/net/inet_hashtables.h
 +++ b/include/net/inet_hashtables.h
-@@ -203,10 +203,7 @@ void inet_hashinfo_init(struct inet_hashinfo *h);
- 
- bool inet_ehash_insert(struct sock *sk, struct sock *osk);
- bool inet_ehash_nolisten(struct sock *sk, struct sock *osk);
--int __inet_hash(struct sock *sk, struct sock *osk,
--		int (*saddr_same)(const struct sock *sk1,
--				  const struct sock *sk2,
--				  bool match_wildcard));
-+int __inet_hash(struct sock *sk, struct sock *osk);
- int inet_hash(struct sock *sk);
- void inet_unhash(struct sock *sk);
- 
-diff --git a/include/net/udp.h b/include/net/udp.h
-index 1661791..c9d8b8e 100644
---- a/include/net/udp.h
-+++ b/include/net/udp.h
-@@ -204,7 +204,6 @@ static inline void udp_lib_close(struct sock *sk, long timeout)
- }
- 
- int udp_lib_get_port(struct sock *sk, unsigned short snum,
--		     int (*)(const struct sock *, const struct sock *, bool),
- 		     unsigned int hash2_nulladdr);
- 
- u32 udp_flow_hashrnd(void);
+@@ -74,12 +74,21 @@ struct inet_ehash_bucket {
+  * users logged onto your box, isn't it nice to know that new data
+  * ports are created in O(1) time?  I thought so. ;-)	-DaveM
+  */
++#define FASTREUSEPORT_ANY	1
++#define FASTREUSEPORT_STRICT	2
++
+ struct inet_bind_bucket {
+ 	possible_net_t		ib_net;
+ 	unsigned short		port;
+ 	signed char		fastreuse;
+ 	signed char		fastreuseport;
+ 	kuid_t			fastuid;
++#if IS_ENABLED(CONFIG_IPV6)
++	struct in6_addr		fast_v6_rcv_saddr;
++#endif
++	__be32			fast_rcv_saddr;
++	unsigned short		fast_sk_family;
++	bool			fast_ipv6_only;
+ 	struct hlist_node	node;
+ 	struct hlist_head	owners;
+ };
 diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
-index 19ea045..ba597cb 100644
+index bbe2892..096a085 100644
 --- a/net/ipv4/inet_connection_sock.c
 +++ b/net/ipv4/inet_connection_sock.c
-@@ -31,6 +31,78 @@ const char inet_csk_timer_bug_msg[] = "inet_csk BUG: unknown timer value\n";
- EXPORT_SYMBOL(inet_csk_timer_bug_msg);
- #endif
- 
-+#if IS_ENABLED(CONFIG_IPV6)
-+/* match_wildcard == true:  IPV6_ADDR_ANY equals to any IPv6 addresses if IPv6
-+ *                          only, and any IPv4 addresses if not IPv6 only
-+ * match_wildcard == false: addresses must be exactly the same, i.e.
-+ *                          IPV6_ADDR_ANY only equals to IPV6_ADDR_ANY,
-+ *                          and 0.0.0.0 equals to 0.0.0.0 only
-+ */
-+static int ipv6_rcv_saddr_equal(const struct sock *sk, const struct sock *sk2,
-+				bool match_wildcard)
-+{
-+	const struct in6_addr *sk2_rcv_saddr6 = inet6_rcv_saddr(sk2);
-+	int sk2_ipv6only = inet_v6_ipv6only(sk2);
-+	int addr_type = ipv6_addr_type(&sk->sk_v6_rcv_saddr);
-+	int addr_type2 = sk2_rcv_saddr6 ? ipv6_addr_type(sk2_rcv_saddr6) : IPV6_ADDR_MAPPED;
-+
-+	/* if both are mapped, treat as IPv4 */
-+	if (addr_type == IPV6_ADDR_MAPPED && addr_type2 == IPV6_ADDR_MAPPED) {
-+		if (!sk2_ipv6only) {
-+			if (sk->sk_rcv_saddr == sk2->sk_rcv_saddr)
-+				return 1;
-+			if (!sk->sk_rcv_saddr || !sk2->sk_rcv_saddr)
-+				return match_wildcard;
-+		}
-+		return 0;
-+	}
-+
-+	if (addr_type == IPV6_ADDR_ANY && addr_type2 == IPV6_ADDR_ANY)
-+		return 1;
-+
-+	if (addr_type2 == IPV6_ADDR_ANY && match_wildcard &&
-+	    !(sk2_ipv6only && addr_type == IPV6_ADDR_MAPPED))
-+		return 1;
-+
-+	if (addr_type == IPV6_ADDR_ANY && match_wildcard &&
-+	    !(ipv6_only_sock(sk) && addr_type2 == IPV6_ADDR_MAPPED))
-+		return 1;
-+
-+	if (sk2_rcv_saddr6 &&
-+	    ipv6_addr_equal(&sk->sk_v6_rcv_saddr, sk2_rcv_saddr6))
-+		return 1;
-+
-+	return 0;
-+}
-+#endif
-+
-+/* match_wildcard == true:  0.0.0.0 equals to any IPv4 addresses
-+ * match_wildcard == false: addresses must be exactly the same, i.e.
-+ *                          0.0.0.0 only equals to 0.0.0.0
-+ */
-+static int ipv4_rcv_saddr_equal(const struct sock *sk, const struct sock *sk2,
-+				bool match_wildcard)
-+{
-+	if (!ipv6_only_sock(sk2)) {
-+		if (sk->sk_rcv_saddr == sk2->sk_rcv_saddr)
-+			return 1;
-+		if (!sk->sk_rcv_saddr || !sk2->sk_rcv_saddr)
-+			return match_wildcard;
-+	}
-+	return 0;
-+}
-+
-+int inet_rcv_saddr_equal(const struct sock *sk, const struct sock *sk2,
-+			 bool match_wildcard)
-+{
-+#if IS_ENABLED(CONFIG_IPV6)
-+	if (sk->sk_family == AF_INET6)
-+		return ipv6_rcv_saddr_equal(sk, sk2, match_wildcard);
-+#endif
-+	return ipv4_rcv_saddr_equal(sk, sk2, match_wildcard);
-+}
-+EXPORT_SYMBOL(inet_rcv_saddr_equal);
-+
- void inet_get_local_port_range(struct net *net, int *low, int *high)
- {
- 	unsigned int seq;
-diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
-index ca97835..2ef9b01 100644
---- a/net/ipv4/inet_hashtables.c
-+++ b/net/ipv4/inet_hashtables.c
-@@ -435,10 +435,7 @@ bool inet_ehash_nolisten(struct sock *sk, struct sock *osk)
- EXPORT_SYMBOL_GPL(inet_ehash_nolisten);
- 
- static int inet_reuseport_add_sock(struct sock *sk,
--				   struct inet_listen_hashbucket *ilb,
--				   int (*saddr_same)(const struct sock *sk1,
--						     const struct sock *sk2,
--						     bool match_wildcard))
-+				   struct inet_listen_hashbucket *ilb)
- {
- 	struct inet_bind_bucket *tb = inet_csk(sk)->icsk_bind_hash;
- 	struct sock *sk2;
-@@ -451,7 +448,7 @@ static int inet_reuseport_add_sock(struct sock *sk,
- 		    sk2->sk_bound_dev_if == sk->sk_bound_dev_if &&
- 		    inet_csk(sk2)->icsk_bind_hash == tb &&
- 		    sk2->sk_reuseport && uid_eq(uid, sock_i_uid(sk2)) &&
--		    saddr_same(sk, sk2, false))
-+		    inet_rcv_saddr_equal(sk, sk2, false))
- 			return reuseport_add_sock(sk, sk2);
- 	}
- 
-@@ -461,10 +458,7 @@ static int inet_reuseport_add_sock(struct sock *sk,
- 	return 0;
- }
- 
--int __inet_hash(struct sock *sk, struct sock *osk,
--		 int (*saddr_same)(const struct sock *sk1,
--				   const struct sock *sk2,
--				   bool match_wildcard))
-+int __inet_hash(struct sock *sk, struct sock *osk)
- {
- 	struct inet_hashinfo *hashinfo = sk->sk_prot->h.hashinfo;
- 	struct inet_listen_hashbucket *ilb;
-@@ -479,7 +473,7 @@ int __inet_hash(struct sock *sk, struct sock *osk,
- 
- 	spin_lock(&ilb->lock);
- 	if (sk->sk_reuseport) {
--		err = inet_reuseport_add_sock(sk, ilb, saddr_same);
-+		err = inet_reuseport_add_sock(sk, ilb);
- 		if (err)
- 			goto unlock;
- 	}
-@@ -503,7 +497,7 @@ int inet_hash(struct sock *sk)
- 
- 	if (sk->sk_state != TCP_CLOSE) {
- 		local_bh_disable();
--		err = __inet_hash(sk, NULL, ipv4_rcv_saddr_equal);
-+		err = __inet_hash(sk, NULL);
- 		local_bh_enable();
- 	}
- 
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 4318d72..d6dddcf 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -137,11 +137,7 @@ EXPORT_SYMBOL(udp_memory_allocated);
- static int udp_lib_lport_inuse(struct net *net, __u16 num,
- 			       const struct udp_hslot *hslot,
- 			       unsigned long *bitmap,
--			       struct sock *sk,
--			       int (*saddr_comp)(const struct sock *sk1,
--						 const struct sock *sk2,
--						 bool match_wildcard),
--			       unsigned int log)
-+			       struct sock *sk, unsigned int log)
- {
- 	struct sock *sk2;
- 	kuid_t uid = sock_i_uid(sk);
-@@ -153,7 +149,7 @@ static int udp_lib_lport_inuse(struct net *net, __u16 num,
- 		    (!sk2->sk_reuse || !sk->sk_reuse) &&
- 		    (!sk2->sk_bound_dev_if || !sk->sk_bound_dev_if ||
- 		     sk2->sk_bound_dev_if == sk->sk_bound_dev_if) &&
--		    saddr_comp(sk, sk2, true)) {
-+		    inet_rcv_saddr_equal(sk, sk2, true)) {
- 			if (sk2->sk_reuseport && sk->sk_reuseport &&
- 			    !rcu_access_pointer(sk->sk_reuseport_cb) &&
- 			    uid_eq(uid, sock_i_uid(sk2))) {
-@@ -176,10 +172,7 @@ static int udp_lib_lport_inuse(struct net *net, __u16 num,
+@@ -38,20 +38,21 @@ EXPORT_SYMBOL(inet_csk_timer_bug_msg);
+  *                          IPV6_ADDR_ANY only equals to IPV6_ADDR_ANY,
+  *                          and 0.0.0.0 equals to 0.0.0.0 only
   */
- static int udp_lib_lport_inuse2(struct net *net, __u16 num,
- 				struct udp_hslot *hslot2,
--				struct sock *sk,
--				int (*saddr_comp)(const struct sock *sk1,
--						  const struct sock *sk2,
--						  bool match_wildcard))
-+				struct sock *sk)
+-static int ipv6_rcv_saddr_equal(const struct sock *sk, const struct sock *sk2,
++static int ipv6_rcv_saddr_equal(const struct in6_addr *sk1_rcv_saddr6,
++				const struct in6_addr *sk2_rcv_saddr6,
++				__be32 sk1_rcv_saddr, __be32 sk2_rcv_saddr,
++				bool sk1_ipv6only, bool sk2_ipv6only,
+ 				bool match_wildcard)
  {
- 	struct sock *sk2;
- 	kuid_t uid = sock_i_uid(sk);
-@@ -193,7 +186,7 @@ static int udp_lib_lport_inuse2(struct net *net, __u16 num,
- 		    (!sk2->sk_reuse || !sk->sk_reuse) &&
- 		    (!sk2->sk_bound_dev_if || !sk->sk_bound_dev_if ||
- 		     sk2->sk_bound_dev_if == sk->sk_bound_dev_if) &&
--		    saddr_comp(sk, sk2, true)) {
-+		    inet_rcv_saddr_equal(sk, sk2, true)) {
- 			if (sk2->sk_reuseport && sk->sk_reuseport &&
- 			    !rcu_access_pointer(sk->sk_reuseport_cb) &&
- 			    uid_eq(uid, sock_i_uid(sk2))) {
-@@ -208,10 +201,7 @@ static int udp_lib_lport_inuse2(struct net *net, __u16 num,
- 	return res;
- }
- 
--static int udp_reuseport_add_sock(struct sock *sk, struct udp_hslot *hslot,
--				  int (*saddr_same)(const struct sock *sk1,
--						    const struct sock *sk2,
--						    bool match_wildcard))
-+static int udp_reuseport_add_sock(struct sock *sk, struct udp_hslot *hslot)
- {
- 	struct net *net = sock_net(sk);
- 	kuid_t uid = sock_i_uid(sk);
-@@ -225,7 +215,7 @@ static int udp_reuseport_add_sock(struct sock *sk, struct udp_hslot *hslot,
- 		    (udp_sk(sk2)->udp_port_hash == udp_sk(sk)->udp_port_hash) &&
- 		    (sk2->sk_bound_dev_if == sk->sk_bound_dev_if) &&
- 		    sk2->sk_reuseport && uid_eq(uid, sock_i_uid(sk2)) &&
--		    (*saddr_same)(sk, sk2, false)) {
-+		    inet_rcv_saddr_equal(sk, sk2, false)) {
- 			return reuseport_add_sock(sk, sk2);
- 		}
- 	}
-@@ -241,14 +231,10 @@ static int udp_reuseport_add_sock(struct sock *sk, struct udp_hslot *hslot,
-  *
-  *  @sk:          socket struct in question
-  *  @snum:        port number to look up
-- *  @saddr_comp:  AF-dependent comparison of bound local IP addresses
-  *  @hash2_nulladdr: AF-dependent hash value in secondary hash chains,
-  *                   with NULL address
-  */
- int udp_lib_get_port(struct sock *sk, unsigned short snum,
--		     int (*saddr_comp)(const struct sock *sk1,
--				       const struct sock *sk2,
--				       bool match_wildcard),
- 		     unsigned int hash2_nulladdr)
- {
- 	struct udp_hslot *hslot, *hslot2;
-@@ -277,7 +263,7 @@ int udp_lib_get_port(struct sock *sk, unsigned short snum,
- 			bitmap_zero(bitmap, PORTS_PER_CHAIN);
- 			spin_lock_bh(&hslot->lock);
- 			udp_lib_lport_inuse(net, snum, hslot, bitmap, sk,
--					    saddr_comp, udptable->log);
-+					    udptable->log);
- 
- 			snum = first;
- 			/*
-@@ -310,12 +296,11 @@ int udp_lib_get_port(struct sock *sk, unsigned short snum,
- 			if (hslot->count < hslot2->count)
- 				goto scan_primary_hash;
- 
--			exist = udp_lib_lport_inuse2(net, snum, hslot2,
--						     sk, saddr_comp);
-+			exist = udp_lib_lport_inuse2(net, snum, hslot2, sk);
- 			if (!exist && (hash2_nulladdr != slot2)) {
- 				hslot2 = udp_hashslot2(udptable, hash2_nulladdr);
- 				exist = udp_lib_lport_inuse2(net, snum, hslot2,
--							     sk, saddr_comp);
-+							     sk);
- 			}
- 			if (exist)
- 				goto fail_unlock;
-@@ -323,8 +308,7 @@ int udp_lib_get_port(struct sock *sk, unsigned short snum,
- 				goto found;
- 		}
- scan_primary_hash:
--		if (udp_lib_lport_inuse(net, snum, hslot, NULL, sk,
--					saddr_comp, 0))
-+		if (udp_lib_lport_inuse(net, snum, hslot, NULL, sk, 0))
- 			goto fail_unlock;
- 	}
- found:
-@@ -333,7 +317,7 @@ int udp_lib_get_port(struct sock *sk, unsigned short snum,
- 	udp_sk(sk)->udp_portaddr_hash ^= snum;
- 	if (sk_unhashed(sk)) {
- 		if (sk->sk_reuseport &&
--		    udp_reuseport_add_sock(sk, hslot, saddr_comp)) {
-+		    udp_reuseport_add_sock(sk, hslot)) {
- 			inet_sk(sk)->inet_num = 0;
- 			udp_sk(sk)->udp_port_hash = 0;
- 			udp_sk(sk)->udp_portaddr_hash ^= snum;
-@@ -365,24 +349,6 @@ int udp_lib_get_port(struct sock *sk, unsigned short snum,
- }
- EXPORT_SYMBOL(udp_lib_get_port);
- 
--/* match_wildcard == true:  0.0.0.0 equals to any IPv4 addresses
-- * match_wildcard == false: addresses must be exactly the same, i.e.
-- *                          0.0.0.0 only equals to 0.0.0.0
-- */
--int ipv4_rcv_saddr_equal(const struct sock *sk1, const struct sock *sk2,
--			 bool match_wildcard)
--{
--	struct inet_sock *inet1 = inet_sk(sk1), *inet2 = inet_sk(sk2);
--
--	if (!ipv6_only_sock(sk2)) {
--		if (inet1->inet_rcv_saddr == inet2->inet_rcv_saddr)
--			return 1;
--		if (!inet1->inet_rcv_saddr || !inet2->inet_rcv_saddr)
--			return match_wildcard;
--	}
--	return 0;
--}
--
- static u32 udp4_portaddr_hash(const struct net *net, __be32 saddr,
- 			      unsigned int port)
- {
-@@ -398,7 +364,7 @@ int udp_v4_get_port(struct sock *sk, unsigned short snum)
- 
- 	/* precompute partial secondary hash */
- 	udp_sk(sk)->udp_portaddr_hash = hash2_partial;
--	return udp_lib_get_port(sk, snum, ipv4_rcv_saddr_equal, hash2_nulladdr);
-+	return udp_lib_get_port(sk, snum, hash2_nulladdr);
- }
- 
- static int compute_score(struct sock *sk, struct net *net,
-diff --git a/net/ipv6/inet6_connection_sock.c b/net/ipv6/inet6_connection_sock.c
-index 7396e75..55ee2ea 100644
---- a/net/ipv6/inet6_connection_sock.c
-+++ b/net/ipv6/inet6_connection_sock.c
-@@ -54,12 +54,12 @@ int inet6_csk_bind_conflict(const struct sock *sk,
- 			     (sk2->sk_state != TCP_TIME_WAIT &&
- 			      !uid_eq(uid,
- 				      sock_i_uid((struct sock *)sk2))))) {
--				if (ipv6_rcv_saddr_equal(sk, sk2, true))
-+				if (inet_rcv_saddr_equal(sk, sk2, true))
- 					break;
- 			}
- 			if (!relax && reuse && sk2->sk_reuse &&
- 			    sk2->sk_state != TCP_LISTEN &&
--			    ipv6_rcv_saddr_equal(sk, sk2, true))
-+			    inet_rcv_saddr_equal(sk, sk2, true))
- 				break;
- 		}
- 	}
-diff --git a/net/ipv6/inet6_hashtables.c b/net/ipv6/inet6_hashtables.c
-index 02761c9..d090091 100644
---- a/net/ipv6/inet6_hashtables.c
-+++ b/net/ipv6/inet6_hashtables.c
-@@ -268,54 +268,10 @@ int inet6_hash(struct sock *sk)
- 
- 	if (sk->sk_state != TCP_CLOSE) {
- 		local_bh_disable();
--		err = __inet_hash(sk, NULL, ipv6_rcv_saddr_equal);
-+		err = __inet_hash(sk, NULL);
- 		local_bh_enable();
- 	}
- 
- 	return err;
- }
- EXPORT_SYMBOL_GPL(inet6_hash);
--
--/* match_wildcard == true:  IPV6_ADDR_ANY equals to any IPv6 addresses if IPv6
-- *                          only, and any IPv4 addresses if not IPv6 only
-- * match_wildcard == false: addresses must be exactly the same, i.e.
-- *                          IPV6_ADDR_ANY only equals to IPV6_ADDR_ANY,
-- *                          and 0.0.0.0 equals to 0.0.0.0 only
-- */
--int ipv6_rcv_saddr_equal(const struct sock *sk, const struct sock *sk2,
--			 bool match_wildcard)
--{
 -	const struct in6_addr *sk2_rcv_saddr6 = inet6_rcv_saddr(sk2);
 -	int sk2_ipv6only = inet_v6_ipv6only(sk2);
 -	int addr_type = ipv6_addr_type(&sk->sk_v6_rcv_saddr);
--	int addr_type2 = sk2_rcv_saddr6 ? ipv6_addr_type(sk2_rcv_saddr6) : IPV6_ADDR_MAPPED;
--
--	/* if both are mapped, treat as IPv4 */
--	if (addr_type == IPV6_ADDR_MAPPED && addr_type2 == IPV6_ADDR_MAPPED) {
--		if (!sk2_ipv6only) {
--			if (sk->sk_rcv_saddr == sk2->sk_rcv_saddr)
--				return 1;
--			if (!sk->sk_rcv_saddr || !sk2->sk_rcv_saddr)
--				return match_wildcard;
--		}
--		return 0;
--	}
--
--	if (addr_type == IPV6_ADDR_ANY && addr_type2 == IPV6_ADDR_ANY)
--		return 1;
--
--	if (addr_type2 == IPV6_ADDR_ANY && match_wildcard &&
--	    !(sk2_ipv6only && addr_type == IPV6_ADDR_MAPPED))
--		return 1;
--
--	if (addr_type == IPV6_ADDR_ANY && match_wildcard &&
--	    !(ipv6_only_sock(sk) && addr_type2 == IPV6_ADDR_MAPPED))
--		return 1;
--
--	if (sk2_rcv_saddr6 &&
--	    ipv6_addr_equal(&sk->sk_v6_rcv_saddr, sk2_rcv_saddr6))
--		return 1;
--
--	return 0;
--}
--EXPORT_SYMBOL_GPL(ipv6_rcv_saddr_equal);
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 4d5c4ee..05d6932 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -103,7 +103,7 @@ int udp_v6_get_port(struct sock *sk, unsigned short snum)
++	int addr_type = ipv6_addr_type(sk1_rcv_saddr6);
+ 	int addr_type2 = sk2_rcv_saddr6 ? ipv6_addr_type(sk2_rcv_saddr6) : IPV6_ADDR_MAPPED;
  
- 	/* precompute partial secondary hash */
- 	udp_sk(sk)->udp_portaddr_hash = hash2_partial;
--	return udp_lib_get_port(sk, snum, ipv6_rcv_saddr_equal, hash2_nulladdr);
-+	return udp_lib_get_port(sk, snum, hash2_nulladdr);
+ 	/* if both are mapped, treat as IPv4 */
+ 	if (addr_type == IPV6_ADDR_MAPPED && addr_type2 == IPV6_ADDR_MAPPED) {
+ 		if (!sk2_ipv6only) {
+-			if (sk->sk_rcv_saddr == sk2->sk_rcv_saddr)
++			if (sk1_rcv_saddr == sk2_rcv_saddr)
+ 				return 1;
+-			if (!sk->sk_rcv_saddr || !sk2->sk_rcv_saddr)
++			if (!sk1_rcv_saddr || !sk2_rcv_saddr)
+ 				return match_wildcard;
+ 		}
+ 		return 0;
+@@ -65,11 +66,11 @@ static int ipv6_rcv_saddr_equal(const struct sock *sk, const struct sock *sk2,
+ 		return 1;
+ 
+ 	if (addr_type == IPV6_ADDR_ANY && match_wildcard &&
+-	    !(ipv6_only_sock(sk) && addr_type2 == IPV6_ADDR_MAPPED))
++	    !(sk1_ipv6only && addr_type2 == IPV6_ADDR_MAPPED))
+ 		return 1;
+ 
+ 	if (sk2_rcv_saddr6 &&
+-	    ipv6_addr_equal(&sk->sk_v6_rcv_saddr, sk2_rcv_saddr6))
++	    ipv6_addr_equal(sk1_rcv_saddr6, sk2_rcv_saddr6))
+ 		return 1;
+ 
+ 	return 0;
+@@ -80,13 +81,13 @@ static int ipv6_rcv_saddr_equal(const struct sock *sk, const struct sock *sk2,
+  * match_wildcard == false: addresses must be exactly the same, i.e.
+  *                          0.0.0.0 only equals to 0.0.0.0
+  */
+-static int ipv4_rcv_saddr_equal(const struct sock *sk, const struct sock *sk2,
+-				bool match_wildcard)
++static int ipv4_rcv_saddr_equal(__be32 sk1_rcv_saddr, __be32 sk2_rcv_saddr,
++				bool sk2_ipv6only, bool match_wildcard)
+ {
+-	if (!ipv6_only_sock(sk2)) {
+-		if (sk->sk_rcv_saddr == sk2->sk_rcv_saddr)
++	if (!sk2_ipv6only) {
++		if (sk1_rcv_saddr == sk2_rcv_saddr)
+ 			return 1;
+-		if (!sk->sk_rcv_saddr || !sk2->sk_rcv_saddr)
++		if (!sk1_rcv_saddr || !sk2_rcv_saddr)
+ 			return match_wildcard;
+ 	}
+ 	return 0;
+@@ -97,9 +98,16 @@ int inet_rcv_saddr_equal(const struct sock *sk, const struct sock *sk2,
+ {
+ #if IS_ENABLED(CONFIG_IPV6)
+ 	if (sk->sk_family == AF_INET6)
+-		return ipv6_rcv_saddr_equal(sk, sk2, match_wildcard);
++		return ipv6_rcv_saddr_equal(&sk->sk_v6_rcv_saddr,
++					    &sk2->sk_v6_rcv_saddr,
++					    sk->sk_rcv_saddr,
++					    sk2->sk_rcv_saddr,
++					    ipv6_only_sock(sk),
++					    ipv6_only_sock(sk2),
++					    match_wildcard);
+ #endif
+-	return ipv4_rcv_saddr_equal(sk, sk2, match_wildcard);
++	return ipv4_rcv_saddr_equal(sk->sk_rcv_saddr, sk2->sk_rcv_saddr,
++				    ipv6_only_sock(sk2), match_wildcard);
+ }
+ EXPORT_SYMBOL(inet_rcv_saddr_equal);
+ 
+@@ -234,6 +242,39 @@ inet_csk_find_open_port(struct sock *sk, struct inet_bind_bucket **tb_ret, int *
+ 	return head;
  }
  
- static void udp_v6_rehash(struct sock *sk)
++static inline int sk_reuseport_match(struct inet_bind_bucket *tb,
++				     struct sock *sk)
++{
++	kuid_t uid = sock_i_uid(sk);
++
++	if (tb->fastreuseport <= 0)
++		return 0;
++	if (!sk->sk_reuseport)
++		return 0;
++	if (rcu_access_pointer(sk->sk_reuseport_cb))
++		return 0;
++	if (!uid_eq(tb->fastuid, uid))
++		return 0;
++	/* We only need to check the rcv_saddr if this tb was once marked
++	 * without fastreuseport and then was reset, as we can only know that
++	 * the fast_*rcv_saddr doesn't have any conflicts with the socks on the
++	 * owners list.
++	 */
++	if (tb->fastreuseport == FASTREUSEPORT_ANY)
++		return 1;
++#if IS_ENABLED(CONFIG_IPV6)
++	if (tb->fast_sk_family == AF_INET6)
++		return ipv6_rcv_saddr_equal(&tb->fast_v6_rcv_saddr,
++					    &sk->sk_v6_rcv_saddr,
++					    tb->fast_rcv_saddr,
++					    sk->sk_rcv_saddr,
++					    tb->fast_ipv6_only,
++					    ipv6_only_sock(sk), true);
++#endif
++	return ipv4_rcv_saddr_equal(tb->fast_rcv_saddr, sk->sk_rcv_saddr,
++				    ipv6_only_sock(sk), true);
++}
++
+ /* Obtain a reference to a local port for the given sock,
+  * if snum is zero it means select any available local port.
+  * We try to allocate an odd port (and leave even ports for connect())
+@@ -273,9 +314,7 @@ int inet_csk_get_port(struct sock *sk, unsigned short snum)
+ 			goto success;
+ 
+ 		if ((tb->fastreuse > 0 && reuse) ||
+-		     (tb->fastreuseport > 0 &&
+-		      !rcu_access_pointer(sk->sk_reuseport_cb) &&
+-		      sk->sk_reuseport && uid_eq(tb->fastuid, uid)))
++		    sk_reuseport_match(tb, sk))
+ 			goto success;
+ 		if (inet_csk_bind_conflict(sk, tb, true, true))
+ 			goto fail_unlock;
+@@ -284,16 +323,43 @@ int inet_csk_get_port(struct sock *sk, unsigned short snum)
+ 	if (!hlist_empty(&tb->owners)) {
+ 		tb->fastreuse = reuse;
+ 		if (sk->sk_reuseport) {
+-			tb->fastreuseport = 1;
++			tb->fastreuseport = FASTREUSEPORT_ANY;
+ 			tb->fastuid = uid;
++			tb->fast_rcv_saddr = sk->sk_rcv_saddr;
++			tb->fast_ipv6_only = ipv6_only_sock(sk);
++#if IS_ENABLED(CONFIG_IPV6)
++			tb->fast_v6_rcv_saddr = sk->sk_v6_rcv_saddr;
++#endif
+ 		} else {
+ 			tb->fastreuseport = 0;
+ 		}
+ 	} else {
+ 		if (!reuse)
+ 			tb->fastreuse = 0;
+-		if (!sk->sk_reuseport || !uid_eq(tb->fastuid, uid))
++		if (sk->sk_reuseport) {
++			/* We didn't match or we don't have fastreuseport set on
++			 * the tb, but we have sk_reuseport set on this socket
++			 * and we know that there are no bind conflicts with
++			 * this socket in this tb, so reset our tb's reuseport
++			 * settings so that any subsequent sockets that match
++			 * our current socket will be put on the fast path.
++			 *
++			 * If we reset we need to set FASTREUSEPORT_STRICT so we
++			 * do extra checking for all subsequent sk_reuseport
++			 * socks.
++			 */
++			if (!sk_reuseport_match(tb, sk)) {
++				tb->fastreuseport = FASTREUSEPORT_STRICT;
++				tb->fastuid = uid;
++				tb->fast_rcv_saddr = sk->sk_rcv_saddr;
++				tb->fast_ipv6_only = ipv6_only_sock(sk);
++#if IS_ENABLED(CONFIG_IPV6)
++				tb->fast_v6_rcv_saddr = sk->sk_v6_rcv_saddr;
++#endif
++			}
++		} else {
+ 			tb->fastreuseport = 0;
++		}
+ 	}
+ 	if (!inet_csk(sk)->icsk_bind_hash)
+ 		inet_bind_hash(sk, tb, port);
 -- 
 2.5.5
