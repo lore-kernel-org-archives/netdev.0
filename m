@@ -1,28 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] vxlan: Set flow*_dport when doing route lookups
-Date: Tue, 10 Jan 2017 21:10:04 -0500 (EST)
-Message-ID: <20170110.211004.1712612611986550798.davem@davemloft.net>
-References: <20170110172945.24676-1-martynas@weave.works>
+Subject: Re: [PATCH net v2] mlx4: Return EOPNOTSUPP instead of ENOTSUPP
+Date: Tue, 10 Jan 2017 21:17:24 -0500 (EST)
+Message-ID: <20170110.211724.1334303329696530105.davem@davemloft.net>
+References: <1484070109-105991-1-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: martynas@weave.works
+Cc: netdev@vger.kernel.org, saeedm@mellanox.com, tariqt@mellanox.com,
+        kernel-team@fb.com
+To: kafai@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:34604 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:34746 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S935891AbdAKCKG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2017 21:10:06 -0500
-In-Reply-To: <20170110172945.24676-1-martynas@weave.works>
+        with ESMTP id S935831AbdAKCR0 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2017 21:17:26 -0500
+In-Reply-To: <1484070109-105991-1-git-send-email-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Martynas Pumputis <martynas@weave.works>
-Date: Tue, 10 Jan 2017 17:29:45 +0000
+From: Martin KaFai Lau <kafai@fb.com>
+Date: Tue, 10 Jan 2017 09:41:49 -0800
 
-> Otherwise, no xfrm policy with dport being set can be matched.
+> In commit b45f0674b997 ("mlx4: xdp: Allow raising MTU up to one page minus eth and vlan hdrs"),
+> it changed EOPNOTSUPP to ENOTSUPP by mistake.  This patch fixes it.
 > 
-> Signed-off-by: Martynas Pumputis <martynas@weave.works>
+> Fixes: b45f0674b997 ("mlx4: xdp: Allow raising MTU up to one page minus eth and vlan hdrs")
+> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
 
-And likewise you should also be adding the source port, since it is
-available, to the route lookup as well.
+Applied.
