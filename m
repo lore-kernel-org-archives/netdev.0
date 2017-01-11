@@ -1,28 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] net: dsa: Implement
- ndo_get_phys_port_name()
-Date: Wed, 11 Jan 2017 09:59:17 -0500 (EST)
-Message-ID: <20170111.095917.2134768534431547423.davem@davemloft.net>
-References: <20170110203237.23907-1-f.fainelli@gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 0/4] net: switchdev: Avoid sleep in atomic with
+ DSA
+Date: Wed, 11 Jan 2017 15:59:34 +0100
+Message-ID: <20170111145934.GU22820@lunn.ch>
+References: <20170109194503.10713-1-f.fainelli@gmail.com>
+ <20170109204849.GA28310@splinter>
+ <e28f29c8-04ed-1d71-7b13-27a5d58d111c@gmail.com>
+ <20170109211436.GB28310@splinter>
+ <20170110120846.GC1827@nanopsycho>
+ <20170110132506.GA4084@splinter.mtl.com>
+ <20170110141807.GD1827@nanopsycho>
+ <20170110160852.GA18050@splinter.mtl.com>
+ <03ce7d38-7775-3cd7-d863-682316d949bf@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, vivien.didelot@savoirfairelinux.com,
-        andrew@lunn.ch, jiri@resnulli.us
-To: f.fainelli@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Ido Schimmel <idosch@idosch.org>, Jiri Pirko <jiri@resnulli.us>,
+        netdev@vger.kernel.org, davem@davemloft.net,
+        vivien.didelot@savoirfairelinux.com
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:50440 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S938050AbdAKO7T (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 09:59:19 -0500
-In-Reply-To: <20170110203237.23907-1-f.fainelli@gmail.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:55107 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S938050AbdAKO7h (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 11 Jan 2017 09:59:37 -0500
+Content-Disposition: inline
+In-Reply-To: <03ce7d38-7775-3cd7-d863-682316d949bf@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Tue, 10 Jan 2017 12:32:35 -0800
+> Vivien, Andrew, are you aware of an use case where we have the HW
+> programmed with a superset of VLANs wrt. the SW bridge?
 
-> This patch series implements ndo_get_phys_port_name() so we can revert
-> ndo_get_phys_id() which was (ab)used in the DSA layer.
+I cannot think of any case with a superset. Subset yes, but not
+superset.
 
-Series applied, thanks Florian.
+	Andrew
