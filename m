@@ -1,43 +1,51 @@
-From: Christoph Hellwig <hch@lst.de>
-Subject: Re: [PATCH 2/3] xgbe: switch to pci_irq_alloc_vectors
-Date: Wed, 11 Jan 2017 10:03:57 +0100
-Message-ID: <20170111090357.GB7350@lst.de>
-References: <1483994260-19797-1-git-send-email-hch@lst.de> <1483994260-19797-3-git-send-email-hch@lst.de> <11ed330c-84e9-79e9-7945-ca17a497359c@amd.com>
+From: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [RFC v2 00/10] HFI Virtual Network Interface Controller (VNIC)
+Date: Wed, 11 Jan 2017 01:05:39 -0800
+Message-ID: <20170111090539.GA78804@knc-06.sc.intel.com>
+References: <1481788782-89964-1-git-send-email-niranjana.vishwanathapura@intel.com>
+ <20161215091226.GC811@mtr-leonro.local>
+ <20161215145212.GA29116@phlsvsds.ph.intel.com>
+ <380b05bf-a18e-1f20-7e8e-10b61f77dec7@redhat.com>
+ <20170109075104.GV15685@mtr-leonro.local>
+ <20170110033954.GA53664@knc-06.sc.intel.com>
+ <20170110081402.GH7218@mtr-leonro.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Christoph Hellwig <hch@lst.de>, linux-pci@vger.kernel.org,
-        Mauro Carvalho Chehab <mchehab@s-opensource.com>,
-        netdev@vger.kernel.org, linux-media@vger.kernel.org
-To: Tom Lendacky <thomas.lendacky@amd.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from verein.lst.de ([213.95.11.211]:34370 "EHLO newverein.lst.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751641AbdAKJD7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 11 Jan 2017 04:03:59 -0500
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        "ira.weiny" <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        Jeff Kirsher <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
+To: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <11ed330c-84e9-79e9-7945-ca17a497359c@amd.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20170110081402.GH7218-U/DQcQFIOTAAJjI8aNfphQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 10, 2017 at 12:40:10PM -0600, Tom Lendacky wrote:
-> On 1/9/2017 2:37 PM, Christoph Hellwig wrote:
-> > The newly added xgbe drivers uses the deprecated pci_enable_msi_exact
-> > and pci_enable_msix_range interfaces.  Switch it to use
-> > pci_irq_alloc_vectors instead.
-> 
-> I was just working on switching over to this API with some additional
-> changes / simplification.  I'm ok with using this patch so that you get
-> the API removal accomplished.  Going through the PCI tree just means
-> it will probably be easier for me to hold off on the additional changes
-> I wanted to make until later.
+On Tue, Jan 10, 2017 at 10:14:02AM +0200, Leon Romanovsky wrote:
+>On Mon, Jan 09, 2017 at 07:39:54PM -0800, Vishwanathapura, Niranjana wrote:
+>> We are also looking into Jason’s suggestion to make hfi_vnic interface to
+>> the bottom driver a generic interface. This will include moving some of the
+>> netstack interfacing to the bottom hfi1 driver.
+>
+>Great, do you have rough estimation when will it be posted on the ML?
+>
+>Thanks
+>
 
-Hi Tom,
+Hi Leon,
 
-if you have a better patch I'd be more than happy to use that one instead,
-this one was intended as a stupid search and replace.  The important
-part for me is to get the two conversions and the interface removal
-in together.
+I am currently doing some prototype on this. I will respond with the interface 
+definition first once I have it solidified. RFC v3 with implemetion will be 
+later.
 
-E.g. I've alreayd wondered why the driver requires the exact vector
-number for MSI and a variable one for MSI-X, and there certainly is
-all kinds of opportunity for cosmetic cleanup.
+Niranjana
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
