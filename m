@@ -1,40 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 2/2] stmmac: rename it to synopsys
-Date: Wed, 11 Jan 2017 16:32:41 -0500 (EST)
-Message-ID: <20170111.163241.796671207580364768.davem@davemloft.net>
-References: <cover.1484059674.git.jpinto@synopsys.com>
-        <c74e6665ca14a4ca03b38cd3442ef0644d9e250d.1484059674.git.jpinto@synopsys.com>
-        <5b5a3231-eed4-ef29-b32a-a19077681dad@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: TCP using IPv4-mapped IPv6 address as source
+Date: Wed, 11 Jan 2017 13:47:37 -0800
+Message-ID: <1484171257.15816.5.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <87f4e2ec-22bf-2401-8401-57205f893289@udel.edu>
+         <1484151607.21472.55.camel@edumazet-glaptop3.roam.corp.google.com>
+         <d8df0fb3-6053-10e1-fc43-cccbfc3799bf@udel.edu>
+         <1484159519.21472.72.camel@edumazet-glaptop3.roam.corp.google.com>
+         <14f352f9-6c0a-17da-f28f-b23fe8ecd2a2@udel.edu>
+         <20170111195909.GL24086@oracle.com>
+         <1484167422.15816.1.camel@edumazet-glaptop3.roam.corp.google.com>
+         <0d48793d-81f1-3666-5c47-9c2431198dc1@udel.edu>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Joao.Pinto@synopsys.com, lars.persson@axis.com, niklass@axis.com,
-        peppe.cavallaro@st.com, alexandre.torgue@st.com,
-        netdev@vger.kernel.org
-To: f.fainelli@gmail.com
+Cc: Sowmini Varadhan <sowmini.varadhan@oracle.com>,
+        netdev@vger.kernel.org, edumazet@google.com,
+        Yuchung Cheng <ycheng@google.com>,
+        Neal Cardwell <ncardwell@google.com>
+To: "Jonathan T. Leighton" <jtleight@udel.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59986 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754204AbdAKVeA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 16:34:00 -0500
-In-Reply-To: <5b5a3231-eed4-ef29-b32a-a19077681dad@gmail.com>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:36119 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752103AbdAKVrj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 16:47:39 -0500
+Received: by mail-pf0-f194.google.com with SMTP id b22so108651pfd.3
+        for <netdev@vger.kernel.org>; Wed, 11 Jan 2017 13:47:39 -0800 (PST)
+In-Reply-To: <0d48793d-81f1-3666-5c47-9c2431198dc1@udel.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Wed, 11 Jan 2017 13:14:32 -0800
+On Wed, 2017-01-11 at 16:26 -0500, Jonathan T. Leighton wrote:
 
-> As mentioned before, although git is able to track renames, git log does
-> not automatically have --follow, so it can be hard for people to track
-> down the (new) history of the driver.
-> 
-> Personally, I don't see much value in doing this rename, especially when
-> all the driver internal structures are still going to be named with
-> stmmac (and please don't even think about doing a s/stmmac/snps/ inside
-> the driver ;)).
+> I'm sure I understand what you're saying here. There should be no flow 
+> to terminate.
 
-I agree, this could really make long term maintainence and bug fix
-backporting a nightmare for a lot of people.
+rfc2765 describes a way to use IPv4-mapped IPv6 packets on the wire.
 
-Please strongly reconsider, I still don't see any true value in this
-rename.
+What I meant by 'terminating' was that it does not tell if an end system
+(a host) is allowed to natively generate these packets.
+
+Anyway,
+https://tools.ietf.org/html/draft-itojun-v6ops-v4mapped-harmful-00 
+
+(which does not appear to be an RFC), tells us this would be
+dangerous ;)
