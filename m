@@ -1,72 +1,35 @@
-From: Chas Williams <3chas3@gmail.com>
-Subject: Re: net/atm: warning in alloc_tx/__might_sleep
-Date: Wed, 11 Jan 2017 09:37:06 -0500
-Message-ID: <1484145426.1643.7.camel@gmail.com>
-References: <CAAeHK+yZ16SKcmJbv2ARafGgAuX2wwQNE0HGdiFy1WgqPjxLMg@mail.gmail.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] wext: handle NULL exta data in iwe_stream_add_point
+ better
+Date: Wed, 11 Jan 2017 15:38:42 +0100
+Message-ID: <1484145522.29931.13.camel@sipsolutions.net>
+References: <20170111143532.485827-1-arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Dmitry Vyukov <dvyukov@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Andrey Konovalov <andreyknvl@google.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Al Viro <viro@zeniv.linux.org.uk>
+Content-Transfer-Encoding: 8bit
+Cc: linux-wireless@vger.kernel.org,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAAeHK+yZ16SKcmJbv2ARafGgAuX2wwQNE0HGdiFy1WgqPjxLMg@mail.gmail.com>
+In-Reply-To: <20170111143532.485827-1-arnd@arndb.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2017-01-09 at 18:20 +0100, Andrey Konovalov wrote:
-> Hi!
+On Wed, 2017-01-11 at 15:35 +0100, Arnd Bergmann wrote:
+> gcc-7 complains that wl3501_cs passes NULL into a function that
+> then uses the argument as the input for memcpy:
 > 
-> I've got the following error report while running the syzkaller fuzzer.
-> 
-> On commit a121103c922847ba5010819a3f250f1f7fc84ab8 (4.10-rc3).
-> 
-> A reproducer is attached.
-> 
-> ------------[ cut here ]------------
-> WARNING: CPU: 0 PID: 4114 at kernel/sched/core.c:7737 __might_sleep+0x149/0x1a0
-> do not call blocking ops when !TASK_RUNNING; state=1 set at
-> [<ffffffff813fcb22>] prepare_to_wait+0x182/0x530
-> Modules linked in:
-> CPU: 0 PID: 4114 Comm: a.out Not tainted 4.10.0-rc3+ #59
-> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
-> Call Trace:
->  __dump_stack lib/dump_stack.c:15
->  dump_stack+0x292/0x398 lib/dump_stack.c:51
->  __warn+0x19f/0x1e0 kernel/panic.c:547
->  warn_slowpath_fmt+0xc5/0x110 kernel/panic.c:562
->  __might_sleep+0x149/0x1a0 kernel/sched/core.c:7732
->  slab_pre_alloc_hook mm/slab.h:408
->  slab_alloc_node mm/slub.c:2634
->  kmem_cache_alloc_node+0x14a/0x280 mm/slub.c:2744
->  __alloc_skb+0x10f/0x800 net/core/skbuff.c:219
->  alloc_skb ./include/linux/skbuff.h:926
->  alloc_tx net/atm/common.c:75
+> drivers/net/wireless/wl3501_cs.c: In function 'wl3501_get_scan':
+> include/net/iw_handler.h:559:3: error: argument 2 null where non-null 
+> expected [-Werror=nonnull]
+>    memcpy(stream + point_len, extra, iwe->u.data.length);
 
-This is likely alloc_skb(..., GFP_KERNEL) in alloc_tx().  The simplest
-fix for this would be simply to switch this GFP_ATOMIC.  See if this is
-any better.
+I love wext ;-)
 
-diff --git a/net/atm/common.c b/net/atm/common.c
-index a3ca922..d84220c 100644
---- a/net/atm/common.c
-+++ b/net/atm/common.c
-@@ -72,7 +72,7 @@ static struct sk_buff *alloc_tx(struct atm_vcc *vcc, unsigned int size)
- 			 sk_wmem_alloc_get(sk), size, sk->sk_sndbuf);
- 		return NULL;
- 	}
--	while (!(skb = alloc_skb(size, GFP_KERNEL)))
-+	while (!(skb = alloc_skb(size, GFP_ATOMIC)))
- 		schedule();
- 	pr_debug("%d += %d\n", sk_wmem_alloc_get(sk), skb->truesize);
- 	atomic_add(skb->truesize, &sk->sk_wmem_alloc);
+> This works fine here because iwe->u.data.length is guaranteed to be
+> NULL, and the memcpy doesn't actually have an effect.
+
+I think you mean 0, not NULL, but I can fix that when I apply it.
+
+johannes
