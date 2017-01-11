@@ -1,39 +1,97 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH v2 7/8] net: Rename TCA*BPF_DIGEST to ..._SHA256
-Date: Wed, 11 Jan 2017 01:50:49 +0100
-Message-ID: <58758169.2020408@iogearbox.net>
-References: <cover.1484090585.git.luto@kernel.org> <f284a4d87cde103cd78de64b8607e3c80a17e2e5.1484090585.git.luto@kernel.org>
+From: Bart Van Assche <bart.vanassche@sandisk.com>
+Subject: [PATCH 8/9] IB: Convert ib_dma_*_coherent() argument type from u64 into dma_addr_t
+Date: Tue, 10 Jan 2017 16:56:47 -0800
+Message-ID: <20170111005648.14988-9-bart.vanassche@sandisk.com>
+References: <20170111005648.14988-1-bart.vanassche@sandisk.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Eric Biggers <ebiggers3@gmail.com>,
-        Tom Herbert <tom@herbertland.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexei Starovoitov <ast@kernel.org>
-To: Andy Lutomirski <luto@kernel.org>, Netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <f284a4d87cde103cd78de64b8607e3c80a17e2e5.1484090585.git.luto@kernel.org>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <linux-rdma@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        "David S . Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+        <rds-devel@oss.oracle.com>
+To: Doug Ledford <dledford@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-cys01nam02on0083.outbound.protection.outlook.com ([104.47.37.83]:53056
+        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1759776AbdAKA46 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 10 Jan 2017 19:56:58 -0500
+In-Reply-To: <20170111005648.14988-1-bart.vanassche@sandisk.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/11/2017 12:24 AM, Andy Lutomirski wrote:
-> This makes it easier to add another digest algorithm down the road if
-> needed.  It also serves to force any programs that might have been
-> written against a kernel that had the old field name to notice the
-> change and make any necessary changes.
->
-> This shouldn't violate any stable API policies, as no released kernel
-> has ever had TCA*BPF_DIGEST.
+This patch does not change any functionality.
 
-Imho, this and patch 6/8 is not really needed. Should there ever
-another digest alg be used (doubt it), then you'd need a new nl
-attribute and fdinfo line anyway to keep existing stuff intact.
-Nobody made the claim that you can just change this underneath
-and not respecting abi for existing applications when I read from
-above that such apps now will get "forced" to notice a change.
+Signed-off-by: Bart Van Assche <bart.vanassche@sandisk.com>
+Cc: David S. Miller <davem@davemloft.net>
+Cc: linux-rdma@vger.kernel.org
+Cc: netdev@vger.kernel.org
+Cc: rds-devel@oss.oracle.com
+---
+ include/rdma/ib_verbs.h | 11 +++--------
+ net/rds/ib.h            |  6 +++---
+ 2 files changed, 6 insertions(+), 11 deletions(-)
+
+diff --git a/include/rdma/ib_verbs.h b/include/rdma/ib_verbs.h
+index 89e80eb77e06..de8dfb61d2b6 100644
+--- a/include/rdma/ib_verbs.h
++++ b/include/rdma/ib_verbs.h
+@@ -3109,15 +3109,10 @@ static inline void ib_dma_sync_single_for_device(struct ib_device *dev,
+  */
+ static inline void *ib_dma_alloc_coherent(struct ib_device *dev,
+ 					   size_t size,
+-					   u64 *dma_handle,
++					   dma_addr_t *dma_handle,
+ 					   gfp_t flag)
+ {
+-	dma_addr_t handle;
+-	void *ret;
+-
+-	ret = dma_alloc_coherent(dev->dma_device, size, &handle, flag);
+-	*dma_handle = handle;
+-	return ret;
++	return dma_alloc_coherent(dev->dma_device, size, dma_handle, flag);
+ }
+ 
+ /**
+@@ -3129,7 +3124,7 @@ static inline void *ib_dma_alloc_coherent(struct ib_device *dev,
+  */
+ static inline void ib_dma_free_coherent(struct ib_device *dev,
+ 					size_t size, void *cpu_addr,
+-					u64 dma_handle)
++					dma_addr_t dma_handle)
+ {
+ 	dma_free_coherent(dev->dma_device, size, cpu_addr, dma_handle);
+ }
+diff --git a/net/rds/ib.h b/net/rds/ib.h
+index 45ac8e8e58f4..d21ca88ab628 100644
+--- a/net/rds/ib.h
++++ b/net/rds/ib.h
+@@ -134,7 +134,7 @@ struct rds_ib_connection {
+ 	struct rds_ib_work_ring	i_send_ring;
+ 	struct rm_data_op	*i_data_op;
+ 	struct rds_header	*i_send_hdrs;
+-	u64			i_send_hdrs_dma;
++	dma_addr_t		i_send_hdrs_dma;
+ 	struct rds_ib_send_work *i_sends;
+ 	atomic_t		i_signaled_sends;
+ 
+@@ -144,7 +144,7 @@ struct rds_ib_connection {
+ 	struct rds_ib_incoming	*i_ibinc;
+ 	u32			i_recv_data_rem;
+ 	struct rds_header	*i_recv_hdrs;
+-	u64			i_recv_hdrs_dma;
++	dma_addr_t		i_recv_hdrs_dma;
+ 	struct rds_ib_recv_work *i_recvs;
+ 	u64			i_ack_recv;	/* last ACK received */
+ 	struct rds_ib_refill_cache i_cache_incs;
+@@ -161,7 +161,7 @@ struct rds_ib_connection {
+ 	struct rds_header	*i_ack;
+ 	struct ib_send_wr	i_ack_wr;
+ 	struct ib_sge		i_ack_sge;
+-	u64			i_ack_dma;
++	dma_addr_t		i_ack_dma;
+ 	unsigned long		i_ack_queued;
+ 
+ 	/* Flow control related information
+-- 
+2.11.0
