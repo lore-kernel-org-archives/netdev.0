@@ -1,67 +1,70 @@
-From: "Jonathan T. Leighton" <jtleight@udel.edu>
-Subject: Re: TCP using IPv4-mapped IPv6 address as source
-Date: Wed, 11 Jan 2017 14:48:30 -0500
-Message-ID: <14f352f9-6c0a-17da-f28f-b23fe8ecd2a2@udel.edu>
-References: <87f4e2ec-22bf-2401-8401-57205f893289@udel.edu>
- <1484151607.21472.55.camel@edumazet-glaptop3.roam.corp.google.com>
- <d8df0fb3-6053-10e1-fc43-cccbfc3799bf@udel.edu>
- <1484159519.21472.72.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Michael Chan <michael.chan@broadcom.com>
+Subject: Re: [PATCH net-next 5/6] bnxt_en: Pass RoCE app priority to firmware.
+Date: Wed, 11 Jan 2017 11:53:32 -0800
+Message-ID: <CACKFLim1feaP_NnDtHhAwdON3hvOF2ofCMOZpGb+hyP1ES+Q-Q@mail.gmail.com>
+References: <1484097159-21575-1-git-send-email-michael.chan@broadcom.com>
+ <1484097159-21575-6-git-send-email-michael.chan@broadcom.com>
+ <20170111.104624.1616254027007040020.davem@davemloft.net> <CACKFLi=6Nt0hr59zA1BpFNH+_q_kU3eR+F6WFOBwFJ03-RzaEg@mail.gmail.com>
+ <1484159648.2149.42.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com,
-        Yuchung Cheng <ycheng@google.com>,
-        Neal Cardwell <ncardwell@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        Selvin Xavier <selvin.xavier@broadcom.com>,
+        Netdev <netdev@vger.kernel.org>
+To: Doug Ledford <dledford@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f182.google.com ([209.85.220.182]:36056 "EHLO
-        mail-qk0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S932966AbdAKTtP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 14:49:15 -0500
-Received: by mail-qk0-f182.google.com with SMTP id 11so121723146qkl.3
-        for <netdev@vger.kernel.org>; Wed, 11 Jan 2017 11:48:33 -0800 (PST)
-In-Reply-To: <1484159519.21472.72.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-oi0-f50.google.com ([209.85.218.50]:36663 "EHLO
+        mail-oi0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756960AbdAKTyI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 14:54:08 -0500
+Received: by mail-oi0-f50.google.com with SMTP id u143so191377234oif.3
+        for <netdev@vger.kernel.org>; Wed, 11 Jan 2017 11:53:33 -0800 (PST)
+In-Reply-To: <1484159648.2149.42.camel@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-On 1/11/17 1:31 PM, Eric Dumazet wrote:
-> On Wed, 2017-01-11 at 12:34 -0500, Jonathan T. Leighton wrote:
->> On 1/11/17 11:20 AM, Eric Dumazet wrote:
->>> On Thu, 2017-01-05 at 16:25 -0500, Jonathan T. Leighton wrote:
->>>> I've observed TCP using an IPv4-mapped IPv6 address as the source
->>>> address, which I believe contradicts
->>>> https://tools.ietf.org/html/rfc6890#page-14 (BCP 153). This occurs when
->>>> an IPv6 TCP socket, bound to a local IPv4-mapped IPv6 address, attempts
->>>> to connect to a remote IPv6 address. Presumable connect() should return
->>>> EAFNOSUPPORT in this case. Please advise me if this is not to
->>>> appropriate list to report this.
->>> Hi Jonathan
->>>
->>> I believe your concern makes sense.
->>> Do you have a patch to address this issue ?
->> Thanks for responding Eric. I have limited experience with kernel
->> patches. Nevertheless, unless there's someone with the experience and
->> time to jump on this, I'm interested in taking a crack at it. I think
->> the issue certainly warrants attention: instead of returning immediately
->> with EAFNOSUPPPORT, connect() retransmits its SYN 6 times, ultimately
->> returning ETIMEDOUT after 127 sec (1+2+4+...+64).
-> I am not aware of an application trying to perform a bind() to an IPV4
-> address before a connect() to an IPv6 destination.
+On Wed, Jan 11, 2017 at 10:34 AM, Doug Ledford <dledford@redhat.com> wrote:
+> On Wed, 2017-01-11 at 09:17 -0800, Michael Chan wrote:
+>> On Wed, Jan 11, 2017 at 7:46 AM, David Miller <davem@davemloft.net>
+>> wrote:
+>> >
+>> > From: Michael Chan <michael.chan@broadcom.com>
+>> > Date: Tue, 10 Jan 2017 20:12:38 -0500
+>> >
+>> > >
+>> > > diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_dcb.h
+>> > > b/drivers/net/ethernet/broadcom/bnxt/bnxt_dcb.h
+>> > > index 35a0d28..f2630cc 100644
+>> > > --- a/drivers/net/ethernet/broadcom/bnxt/bnxt_dcb.h
+>> > > +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_dcb.h
+>> > > @@ -36,6 +36,9 @@ struct bnxt_cos2bw_cfg {
+>> > >
+>> > >  #define HWRM_STRUCT_DATA_SUBTYPE_HOST_OPERATIONAL    0x0300
+>> > >
+>> > > +#define ETH_P_ROCE           0x8915
+>> >
+>> > There's also a similar define in the qedr infiniband driver, this
+>> > doesn't
+>> > make much sense.
+>> >
+>> > Please add this to if_ether.h, and reference it from there in the
+>> > drivers.
+>> >
+>> My colleague informed me that he has submitted a patch to do that
+>> through the rdma tree:
+>>
+>> http://marc.info/?l=linux-rdma&m=148217575500983&w=2
+>>
+>> But it hasn't been merged yet.  I can drop this patch now and wait
+>> for
+>> the RDMA patch to show up on net-next. Or I make the change later to
+>> use the common define when the RDMA patch is merged.  Thanks.
 >
-> A kernel fix is certainly something that would detect application bugs
-> in a more friendly way.
-
-I would say that an IPv6 socket binds to an IPv4-mapped IPv6 address, 
-but yes - using it to connect to an IPv6 address would be an application 
-bug. It also think that having connect() spend 2 minutes sending packets 
-containing an illegal source address is a bug. (And unfriendly!) I'll 
-look into writing a patch for this, and let you know whether or not I 
-think I'm up to it.
-
-- Jon
-
-> Thanks !
+> The patch for this is in my for-next area:
 >
+> 69ae543969ab RDMA: Adding ethertype ETH_P_IBOE
 >
+
+David, can you take the patch now and I will fix it later to use
+ETH_P_IBOE when the RDMA patch is pulled into net-next?  Or should I
+drop the patch for now?
