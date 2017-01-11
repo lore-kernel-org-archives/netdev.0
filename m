@@ -1,50 +1,44 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] sctp: Fix spelling mistake: "Atempt" -> "Attempt"
-Date: Wed, 11 Jan 2017 09:39:44 -0500
-Message-ID: <20170111143944.GC1518@hmswarspite.think-freely.org>
-References: <20170110225306.14880-1-colin.king@canonical.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] cgroup: move CONFIG_SOCK_CGROUP_DATA to init/Kconfig
+Date: Wed, 11 Jan 2017 09:48:20 -0500 (EST)
+Message-ID: <20170111.094820.1988998779765372781.davem@davemloft.net>
+References: <20170110120825.2984218-1-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vlad Yasevich <vyasevich@gmail.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Colin King <colin.king@canonical.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ast@kernel.org, luto@kernel.org,
+        augustocaringi@gmail.com, linux-kernel@vger.kernel.org
+To: arnd@arndb.de
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170110225306.14880-1-colin.king@canonical.com>
+In-Reply-To: <20170110120825.2984218-1-arnd@arndb.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 10, 2017 at 10:53:06PM +0000, Colin King wrote:
-> From: Colin Ian King <colin.king@canonical.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Tue, 10 Jan 2017 13:08:06 +0100
+
+> We now 'select SOCK_CGROUP_DATA' but Kconfig complains that this is
+> not right when CONFIG_NET is disabled and there is no socket interface:
 > 
-> Trivial fix to spelling mistake in WARN_ONCE message
+> warning: (CGROUP_BPF) selects SOCK_CGROUP_DATA which has unmet direct dependencies (NET)
 > 
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> I don't know what the correct solution for this is, but simply removing
+> the dependency on NET from SOCK_CGROUP_DATA by moving it out of the
+> 'if NET' section avoids the warning and does not produce other build
+> errors.
+> 
+> Fixes: 483c4933ea09 ("cgroup: Fix CGROUP_BPF config")
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 > ---
->  net/sctp/outqueue.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+> There was an earlier patch by Augusto Mecking Caringi, which added
+> a dependency, see https://lkml.org/lkml/2017/1/2/296.
 > 
-> diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
-> index e540826..34efaa4 100644
-> --- a/net/sctp/outqueue.c
-> +++ b/net/sctp/outqueue.c
-> @@ -1048,7 +1048,7 @@ static void sctp_outq_flush(struct sctp_outq *q, int rtx_timeout, gfp_t gfp)
->  			     (new_transport->state == SCTP_PF)))
->  				new_transport = asoc->peer.active_path;
->  			if (new_transport->state == SCTP_UNCONFIRMED) {
-> -				WARN_ONCE(1, "Atempt to send packet on unconfirmed path.");
-> +				WARN_ONCE(1, "Attempt to send packet on unconfirmed path.");
->  				sctp_chunk_fail(chunk, 0);
->  				sctp_chunk_free(chunk);
->  				continue;
-> -- 
-> 2.10.2
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+> I could not figure out whether CGROUP_BPF is meaningful without
+> CONFIG_NET, my version of the patch assumes that it is.
+> Applying either my version Augusto's to v4.10-rc will kill the
+> warning.
+
+CGROUP_BPF doesn't is not currently meaningful without CONFIG_NET,
+and especially SOCK_CGROUP_DATA is not meaningful without CONFIG_NET.
+
+Patch applied, thanks.
