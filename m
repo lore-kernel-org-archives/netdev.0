@@ -1,37 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: thunderx: Fix error return code in
- nicvf_open()
-Date: Wed, 11 Jan 2017 16:12:51 -0500 (EST)
-Message-ID: <20170111.161251.1979714688980792559.davem@davemloft.net>
-References: <20170111163251.19367-1-weiyj.lk@gmail.com>
+Subject: Re: [PATCH net-next] sfc: efx_get_phys_port_id() can be static
+Date: Wed, 11 Jan 2017 16:12:35 -0500 (EST)
+Message-ID: <20170111.161235.1084117606892550280.davem@davemloft.net>
+References: <20170111161612.14384-1-weiyj.lk@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: weiyongjun1@huawei.com, sgoutham@cavium.com, rric@kernel.org,
- linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
+Cc: linux-net-drivers@solarflare.com, ecree@solarflare.com,
+        bkenward@solarflare.com, weiyongjun1@huawei.com,
+        netdev@vger.kernel.org
 To: weiyj.lk@gmail.com
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20170111163251.19367-1-weiyj.lk@gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:59576 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1760130AbdAKVNg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 16:13:36 -0500
+In-Reply-To: <20170111161612.14384-1-weiyj.lk@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Wei Yongjun <weiyj.lk@gmail.com>
-Date: Wed, 11 Jan 2017 16:32:51 +0000
+Date: Wed, 11 Jan 2017 16:16:12 +0000
 
 > From: Wei Yongjun <weiyongjun1@huawei.com>
 > 
-> Fix to return a negative error code from the error handling
-> case instead of 0, as done elsewhere in this function.
+> Fixes the following sparse warning:
 > 
-> Fixes: 712c31853440 ("net: thunderx: Program LMAC credits based on MTU")
+> drivers/net/ethernet/sfc/efx.c:2337:5: warning:
+>  symbol 'efx_get_phys_port_id' was not declared. Should it be static?
+> 
 > Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
 
 Applied.
