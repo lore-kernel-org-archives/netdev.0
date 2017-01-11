@@ -1,51 +1,48 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 1/2] phy: marvell: Add support for temperature
- sensor
-Date: Wed, 11 Jan 2017 16:09:31 +0100
-Message-ID: <20170111150931.GV22820@lunn.ch>
-References: <1484096604-25033-1-git-send-email-andrew@lunn.ch>
- <1484096604-25033-2-git-send-email-andrew@lunn.ch>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH v2 8/8] crypto/testmgr: Allocate only the required
+ output size for hash tests
+Date: Wed, 11 Jan 2017 15:13:40 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB025EE7B@AcuExch.aculab.com>
+References: <cover.1484090585.git.luto@kernel.org>
+ <890f4bdb28a1cf72f6b802b220b35ebaf0f76bb9.1484090585.git.luto@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:55136 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1764841AbdAKPJe (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 11 Jan 2017 10:09:34 -0500
-Content-Disposition: inline
-In-Reply-To: <1484096604-25033-2-git-send-email-andrew@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Eric Dumazet <edumazet@google.com>,
+        "Eric Biggers" <ebiggers3@gmail.com>,
+        Tom Herbert <tom@herbertland.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Ard Biesheuvel <ard.biesheuvel@linaro.org>,
+        Herbert Xu <herbert@gondor.apana.org.au>
+To: 'Andy Lutomirski' <luto@kernel.org>,
+        Daniel Borkmann <daniel@iogearbox.net>,
+        Netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <890f4bdb28a1cf72f6b802b220b35ebaf0f76bb9.1484090585.git.luto@kernel.org>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> +static int marvell_hwmon_probe(struct phy_device *phydev,
-> +			       const struct hwmon_chip_info *chip)
-> +{
-> +	struct marvell_priv *priv = phydev->priv;
-> +	struct device *dev = &phydev->mdio.dev;
-> +	int err;
-> +
-> +	err = marvell_hwmon_name(phydev);
-> +	if (err)
-> +		return err;
-> +
-> +	priv->hwmon_dev = devm_hwmon_device_register_with_info(
-> +		dev, priv->hwmon_name, phydev, chip, NULL);
-> +
-> +	if (IS_ERR(priv->hwmon_dev))
-> +		return PTR_ERR(priv->hwmon_dev);
-> +
-> +	return 0;
-> +}
+From: Andy Lutomirski
+> Sent: 10 January 2017 23:25
+> There are some hashes (e.g. sha224) that have some internal trickery
+> to make sure that only the correct number of output bytes are
+> generated.  If something goes wrong, they could potentially overrun
+> the output buffer.
+> 
+> Make the test more robust by allocating only enough space for the
+> correct output size so that memory debugging will catch the error if
+> the output is overrun.
 
-0-day has pointed out this can be simplified to just
+Might be better to test this by allocating an overlong buffer
+and then explicitly checking that the output hasn't overrun
+the allowed space.
 
-        return PTR_ERR(priv->hwmon_dev);
+If nothing else the error message will be clearer.
 
-I will submit a v2 in a couple of days, when others have had chance to
-comment.
-
-	Andrew
+	David
