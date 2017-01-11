@@ -1,81 +1,55 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] [net] net/mlx5e: fix another -Wmaybe-uninitialized warning
-Date: Wed, 11 Jan 2017 22:14:51 +0100
-Message-ID: <20170111211451.2705705-1-arnd@arndb.de>
-Cc: Or Gerlitz <ogerlitz@mellanox.com>,
-        "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Arnd Bergmann <arnd@arndb.de>
-To: Saeed Mahameed <saeedm@mellanox.com>,
-        Hadar Hen Zion <hadarh@mellanox.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "Jonathan T. Leighton" <jtleight@udel.edu>
+Subject: Re: TCP using IPv4-mapped IPv6 address as source
+Date: Wed, 11 Jan 2017 16:26:04 -0500
+Message-ID: <0d48793d-81f1-3666-5c47-9c2431198dc1@udel.edu>
+References: <87f4e2ec-22bf-2401-8401-57205f893289@udel.edu>
+ <1484151607.21472.55.camel@edumazet-glaptop3.roam.corp.google.com>
+ <d8df0fb3-6053-10e1-fc43-cccbfc3799bf@udel.edu>
+ <1484159519.21472.72.camel@edumazet-glaptop3.roam.corp.google.com>
+ <14f352f9-6c0a-17da-f28f-b23fe8ecd2a2@udel.edu>
+ <20170111195909.GL24086@oracle.com>
+ <1484167422.15816.1.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, edumazet@google.com,
+        Yuchung Cheng <ycheng@google.com>,
+        Neal Cardwell <ncardwell@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+        Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qt0-f181.google.com ([209.85.216.181]:32955 "EHLO
+        mail-qt0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1758573AbdAKV0I (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 16:26:08 -0500
+Received: by mail-qt0-f181.google.com with SMTP id v23so694823qtb.0
+        for <netdev@vger.kernel.org>; Wed, 11 Jan 2017 13:26:07 -0800 (PST)
+In-Reply-To: <1484167422.15816.1.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-As found by Olof's build bot, today's mainline kernel gained a harmless
-warning about a potential uninitalied variable reference:
 
-drivers/net/ethernet/mellanox/mlx5/core/en_tc.c: In function 'parse_tc_fdb_actions':
-drivers/net/ethernet/mellanox/mlx5/core/en_tc.c:769:13: warning: 'out_dev' may be used uninitialized in this function [-Wmaybe-uninitialized]
-drivers/net/ethernet/mellanox/mlx5/core/en_tc.c:811:21: note: 'out_dev' was declared here
 
-This was introduced through the addition of an 'IS_ERR/PTR_ERR' pair that
-gcc is unfortunately unable to completely figure out. Replacing it with
-PTR_ERR_OR_ZERO makes the code more understandable to gcc so it no longer
-warns.
+On 1/11/17 3:43 PM, Eric Dumazet wrote:
+> On Wed, 2017-01-11 at 14:59 -0500, Sowmini Varadhan wrote:
+>
+>> I think the RFC states somewhere that you should never ever
+>> send out a v4 mapped address on the wire.
+> Can you point the exact RFC ?
+>
+> https://tools.ietf.org/html/rfc2765  seems to allow just that.
 
-Hadar Hen Zion already attempted to fix the warning earlier by adding
-fake initializations, but that ended up just making the code worse without
-fully addressing all warnings, so I'm reverting it now that it is no longer
-needed.
+Link was in my original post. See table 20:
 
-In order to avoid pulling a variable declaration into the #ifdef, I'm
-removing it in favor of a more readable 'if()' statement here that
-has the same effect.
+https://tools.ietf.org/html/rfc6890#page-14
 
-Link: http://arm-soc.lixom.net/buildlogs/mainline/v4.10-rc3-98-gcff3b2c/
-Fixes: a42485eb0ee4 ("net/mlx5e: TC ipv4 tunnel encap offload error flow fixes")
-Fixes: a757d108dc1a ("net/mlx5e: Fix kbuild warnings for uninitialized parameters")
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
----
- drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 17 +++++++++--------
- 1 file changed, 9 insertions(+), 8 deletions(-)
+> Jonathan issue is about terminating such flows in TCP stack, which is
+> likely not needed/useful.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-index 118cea5..07d83835 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-@@ -666,14 +666,15 @@ static int mlx5e_route_lookup_ipv4(struct mlx5e_priv *priv,
- 	struct rtable *rt;
- 	struct neighbour *n = NULL;
- 	int ttl;
-+	int ret;
-+
-+	if (!IS_ENABLED(CONFIG_INET))
-+		return -EOPNOTSUPP;
- 
--#if IS_ENABLED(CONFIG_INET)
- 	rt = ip_route_output_key(dev_net(mirred_dev), fl4);
--	if (IS_ERR(rt))
--		return PTR_ERR(rt);
--#else
--	return -EOPNOTSUPP;
--#endif
-+	ret = PTR_ERR_OR_ZERO(rt);
-+	if (ret)
-+		return ret;
- 
- 	if (!switchdev_port_same_parent_id(priv->netdev, rt->dst.dev)) {
- 		pr_warn("%s: can't offload, devices not on same HW e-switch\n", __func__);
-@@ -741,8 +742,8 @@ static int mlx5e_create_encap_header_ipv4(struct mlx5e_priv *priv,
- 	struct flowi4 fl4 = {};
- 	char *encap_header;
- 	int encap_size;
--	__be32 saddr = 0;
--	int ttl = 0;
-+	__be32 saddr;
-+	int ttl;
- 	int err;
- 
- 	encap_header = kzalloc(max_encap_size, GFP_KERNEL);
--- 
-2.9.0
+I'm sure I understand what you're saying here. There should be no flow 
+to terminate.
+
+>
+>
+>
+>
