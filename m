@@ -1,42 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ipv6: sr: fix BUG in HMAC init when preemption is
- enabled
-Date: Tue, 10 Jan 2017 21:00:13 -0500 (EST)
-Message-ID: <20170110.210013.2057547033044168090.davem@davemloft.net>
-References: <1484055562-6414-1-git-send-email-david.lebrun@uclouvain.be>
+Subject: Re: [PATCH net-next] bpf: Remove unused but set variable in
+ __bpf_lru_list_shrink_inactive()
+Date: Tue, 10 Jan 2017 21:01:37 -0500 (EST)
+Message-ID: <20170110.210137.849302729948766638.davem@davemloft.net>
+References: <20170110140207.26480-1-tklauser@distanz.ch>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: david.lebrun@uclouvain.be
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, ast@kernel.org, kafai@fb.com
+To: tklauser@distanz.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:34378 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:34396 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751862AbdAKCAR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2017 21:00:17 -0500
-In-Reply-To: <1484055562-6414-1-git-send-email-david.lebrun@uclouvain.be>
+        with ESMTP id S1751862AbdAKCBi (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2017 21:01:38 -0500
+In-Reply-To: <20170110140207.26480-1-tklauser@distanz.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Lebrun <david.lebrun@uclouvain.be>
-Date: Tue, 10 Jan 2017 14:39:22 +0100
-
-> When CONFIG_PREEMPT=y, CONFIG_IPV6=m and CONFIG_SEG6_HMAC=y,
-> seg6_hmac_init() is called during the initialization of the ipv6 module.
-> This causes a subsequent call to smp_processor_id() with preemption
-> enabled, resulting in the following trace.
- ...
-> This patch disable BHs in seg6_hmac_init() and seg6_hmac_exit(). BHs are
-> re-enabled for the call to crypto_alloc_shash. Indeed, this function might
-> call try_module_get(), which cannot be called in atomic context.
-> 
-> Signed-off-by: David Lebrun <david.lebrun@uclouvain.be>
- ...
-> -		char *ring = kzalloc(SEG6_HMAC_RING_SIZE, GFP_KERNEL);
-> +		char *ring = kzalloc(SEG6_HMAC_RING_SIZE, GFP_ATOMIC);
-
-I agree with Eric that moving to GFP_ATOMIC in this spots is a major step
-backwards, and that fixing the per-cpu access during this initializer
-is a much better direction to go.
-
-Thanks.
+RnJvbTogVG9iaWFzIEtsYXVzZXIgPHRrbGF1c2VyQGRpc3RhbnouY2g+DQpEYXRlOiBUdWUsIDEw
+IEphbiAyMDE3IDE1OjAyOjA3ICswMTAwDQoNCj4gUmVtb3ZlIHRoZSB1bnVzZWQgYnV0IHNldCB2
+YXJpYWJsZSAnZmlyc3Rfbm9kZScgaW4NCj4gX19icGZfbHJ1X2xpc3Rfc2hyaW5rX2luYWN0aXZl
+KCkgdG8gZml4IHRoZSBmb2xsb3dpbmcgR0NDIHdhcm5pbmcgd2hlbg0KPiBidWlsZGluZyB3aXRo
+ICdXPTEnOg0KPiANCj4gICBrZXJuZWwvYnBmL2JwZl9scnVfbGlzdC5jOjIxNjo0MTogd2Fybmlu
+ZzogdmFyaWFibGUgoWZpcnN0X25vZGWiIHNldCBidXQgbm90IHVzZWQgWy1XdW51c2VkLWJ1dC1z
+ZXQtdmFyaWFibGVdDQo+IA0KPiBDYzogTWFydGluIEthRmFpIExhdSA8a2FmYWlAZmIuY29tPg0K
+PiBTaWduZWQtb2ZmLWJ5OiBUb2JpYXMgS2xhdXNlciA8dGtsYXVzZXJAZGlzdGFuei5jaD4NCg0K
+QXBwbGllZC4NCg==
