@@ -1,101 +1,44 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: [net PATCH 0/2] Don't use lco_csum to compute IPv4 checksum
-Date: Thu, 12 Jan 2017 10:19:29 +1100
-Message-ID: <20170112101929.66c575f0@canb.auug.org.au>
-References: <20161128153927.15466.99193.stgit@ahduyck-blue-test.jf.intel.com>
-        <1480371962.2402.36.camel@intel.com>
-        <20161129104253.00ada847@canb.auug.org.au>
-        <20161129200708.3490344a@canb.auug.org.au>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: Marvell Phy (1510) issue since v4.7 kernel
+Date: Thu, 12 Jan 2017 00:22:00 +0100
+Message-ID: <20170111232200.GI13033@lunn.ch>
+References: <20170109225641.GB22820@lunn.ch>
+ <230CBA6E4B6B6B418E8730AC28E6FC7E153545A3@DFLE11.ent.ti.com>
+ <20170109235534.GH22820@lunn.ch>
+ <230CBA6E4B6B6B418E8730AC28E6FC7E153545C9@DFLE11.ent.ti.com>
+ <20170110015336.GA7160@lunn.ch>
+ <230CBA6E4B6B6B418E8730AC28E6FC7E15354AC2@DFLE11.ent.ti.com>
+ <20170111222758.GG13033@lunn.ch>
+ <230CBA6E4B6B6B418E8730AC28E6FC7E15354AE5@DFLE11.ent.ti.com>
+ <20170111225948.GH13033@lunn.ch>
+ <230CBA6E4B6B6B418E8730AC28E6FC7E15354B2B@DFLE11.ent.ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-        intel-wired-lan@lists.osuosl.org,
-        Alexander Duyck <alexander.h.duyck@intel.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        Eli Cooper <elicooper@gmx.com>,
-        Lance Richardson <lrichard@redhat.com>,
-        Sven-Haegar Koch <haegar@sdinet.de>
-To: davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: "rmk+kernel@arm.linux.org.uk" <rmk+kernel@arm.linux.org.uk>,
+        "charles-antoine.couret@nexvision.fr"
+        <charles-antoine.couret@nexvision.fr>,
+        "Karicheri, Muralidharan" <m-karicheri2@ti.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Kwok, WingMan" <w-kwok2@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([103.22.144.67]:51049 "EHLO ozlabs.org"
+Received: from vps0.lunn.ch ([178.209.37.122]:57842 "EHLO vps0.lunn.ch"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752050AbdAKXTc (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 11 Jan 2017 18:19:32 -0500
-In-Reply-To: <20161129200708.3490344a@canb.auug.org.au>
+        id S1751749AbdAKXWL (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 11 Jan 2017 18:22:11 -0500
+Content-Disposition: inline
+In-Reply-To: <230CBA6E4B6B6B418E8730AC28E6FC7E15354B2B@DFLE11.ent.ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+> > So i think the correct question should be, how can we tell the 88E1512
+> > from the 88E1510 if they have the same ID in register 3.
 
-On Tue, 29 Nov 2016 20:07:08 +1100 Stephen Rothwell <sfr@canb.auug.org.au> =
-wrote:
->
-> Hi Jeff,
->=20
-> On Tue, 29 Nov 2016 10:43:04 +1100 Stephen Rothwell <sfr@canb.auug.org.au=
-> wrote:
-> >
-> > On Mon, 28 Nov 2016 14:26:02 -0800 Jeff Kirsher <jeffrey.t.kirsher@inte=
-l.com> wrote: =20
-> > >
-> > > On Mon, 2016-11-28 at 10:42 -0500, Alexander Duyck wrote:   =20
-> > > > When I implemented the GSO partial support in the Intel drivers I w=
-as
-> > > > using
-> > > > lco_csum to compute the checksum that we needed to plug into the IP=
-v4
-> > > > checksum field in order to cancel out the data that was not a part =
-of the
-> > > > IPv4 header.=C2=A0 However this didn't take into account that the t=
-ransport
-> > > > offset might be pointing to the inner transport header.
-> > > >=20
-> > > > Instead of using lco_csum I have just coded around it so that we ca=
-n use
-> > > > the outer IP header plus the IP header length to determine where we=
- need
-> > > > to
-> > > > start our checksum and then just call csum_partial ourselves.
-> > > >=20
-> > > > This should fix the SIT issue reported on igb interfaces as well as
-> > > > simliar
-> > > > issues that would pop up on other Intel NICs.
-> > > >=20
-> > > > ---
-> > > >=20
-> > > > Alexander Duyck (2):
-> > > > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 igb/igbvf: Don't use lco_csum to com=
-pute IPv4 checksum
-> > > > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 ixgbe/ixgbevf: Don't use lco_csum to=
- compute IPv4 checksum     =20
-> > >=20
-> > > Stephen, I have applied Alex's patches to my net-queue tree. =C2=A0Ca=
-n you
-> > > confirm they resolve the bug seen?   =20
-> >=20
-> > Its a bit tricky because the origin problem only happens on my
-> > production server (ozlabs.org), but I will see if I can manage to just
-> > remove and reload the driver ...  though, the server is running a 4.7.8
-> > kernel and I am wondering how well these patches will apply? =20
->=20
-> We have a winner!  This fixes my problem, so I can run at full speed
-> with gso and tso enabled in the sit interface and tx-gso-partial
-> enabled on the underlying ethernet.
->=20
-> Thanks to everyone for diagnosis and solution.
->=20
-> It would be nice if this fix went into the stable kernels as well so it
-> will turn up in the distro kernels eventually.
+Hi WingMan
 
-It looks like these 2 commits:
+Do you know you really have a 1510? You can see it written on the
+chip?
 
-516165a1e2f2	igb/igbvf: Don't use lco_csum to compute IPv4 checksum
-c54cdc316dbd	ixgbe/ixgbevf: Don't use lco_csum to compute IPv4 checksum
+Please can you read page 18, register 30 and let us know what value
+you get.
 
-have not been sent to stable.  They fix a bug introduced in v4.7-rc1
-and so need to go into 4.7 and 4.8 stable trees.
-
---=20
-Cheers,
-Stephen Rothwell
+    Andrew
