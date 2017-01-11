@@ -1,42 +1,32 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] softingcs: ret is never non-zero, so remove non-zero check and -ENODEV return
-Date: Wed, 11 Jan 2017 15:02:38 +0000
-Message-ID: <20170111150238.19845-1-colin.king@canonical.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: phy: marvell: fix Marvell 88E1512 used in SGMII mode
+Date: Wed, 11 Jan 2017 10:03:23 -0500 (EST)
+Message-ID: <20170111.100323.1789649822390190475.davem@davemloft.net>
+References: <E1cR5bt-0000O8-1T@rmk-PC.armlinux.org.uk>
+ <61950d83-cbe1-6e1b-4afc-bc471b386ff3@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org
-To: Wolfgang Grandegger <wg@grandegger.com>,
-        Marc Kleine-Budde <mkl@pengutronix.de>,
-        linux-can@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: andrew@lunn.ch, rmk+kernel@armlinux.org.uk, netdev@vger.kernel.org,
+ linux-arm-kernel@lists.infradead.org, charles-antoine.couret@nexvision.fr
+To: f.fainelli@gmail.com
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <61950d83-cbe1-6e1b-4afc-bc471b386ff3@gmail.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-From: Colin Ian King <colin.king@canonical.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Tue, 10 Jan 2017 15:24:11 -0800
 
-The error return ret is never zero in the error handling path in
-softingcs_probe, so the check for non-zero and returning -ENODEV
-is logically dead code and hence redundant.  Remove it and just
-return ret.
+> Fixes: 6cfb3bcc0641 ("Marvell phy: check link status in case of fiber
+> link.")
 
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- drivers/net/can/softing/softing_cs.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/can/softing/softing_cs.c b/drivers/net/can/softing/softing_cs.c
-index cdc0c74..4d44928 100644
---- a/drivers/net/can/softing/softing_cs.c
-+++ b/drivers/net/can/softing/softing_cs.c
-@@ -310,7 +310,7 @@ static int softingcs_probe(struct pcmcia_device *pcmcia)
- pcmcia_failed:
- 	pcmcia_disable_device(pcmcia);
- 	pcmcia->priv = NULL;
--	return ret ?: -ENODEV;
-+	return ret;
- }
- 
- static const struct pcmcia_device_id softingcs_ids[] = {
--- 
-2.10.2
+Thanks, I added this to Russell's commit message.
