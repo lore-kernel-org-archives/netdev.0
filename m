@@ -1,33 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] r8152: fix the sw rx checksum is unavailable
-Date: Wed, 11 Jan 2017 16:09:16 -0500 (EST)
-Message-ID: <20170111.160916.187393669546544068.davem@davemloft.net>
-References: <1394712342-15778-232-Taiwan-albertk@realtek.com>
+Subject: Re: [PATCH v2] vxlan: Set ports in flow key when doing route
+ lookups
+Date: Wed, 11 Jan 2017 16:10:10 -0500 (EST)
+Message-ID: <20170111.161010.2279224715099681153.davem@davemloft.net>
+References: <20170110.211004.1712612611986550798.davem@davemloft.net>
+        <20170111151853.4794-1-martynas@weave.works>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
-        linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
-To: hayeswang@realtek.com
+Cc: netdev@vger.kernel.org
+To: martynas@weave.works
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59440 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:59466 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1754056AbdAKVJV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 16:09:21 -0500
-In-Reply-To: <1394712342-15778-232-Taiwan-albertk@realtek.com>
+        with ESMTP id S1755788AbdAKVKM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 16:10:12 -0500
+In-Reply-To: <20170111151853.4794-1-martynas@weave.works>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hayes Wang <hayeswang@realtek.com>
-Date: Wed, 11 Jan 2017 16:25:34 +0800
+From: Martynas Pumputis <martynas@weave.works>
+Date: Wed, 11 Jan 2017 15:18:53 +0000
 
-> Fix the hw rx checksum is always enabled, and the user couldn't switch
-> it to sw rx checksum.
+> Otherwise, a xfrm policy with sport/dport being set cannot be matched.
 > 
-> Note that the RTL_VER_01 only support sw rx checksum only. Besides,
-> the hw rx checksum for RTL_VER_02 is disabled after
-> commit b9a321b48af4 ("r8152: Fix broken RX checksums."). Re-enable it.
-> 
-> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+> Signed-off-by: Martynas Pumputis <martynas@weave.works>
+> ---
+> Changes in v2:
+>     - Set the source port in the flow key.
 
-Applied and queued up for -stable, thanks.
+Applied, thanks.
