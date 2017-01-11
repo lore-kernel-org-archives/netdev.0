@@ -1,32 +1,36 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] wext: handle NULL exta data in iwe_stream_add_point better
-Date: Wed, 11 Jan 2017 16:00:00 +0100
-Message-ID: <CAK8P3a2mOT=BG=9yxJ1e-q__5FYq6dfF3t3bT1vqcgFaQAUjog@mail.gmail.com>
-References: <20170111143532.485827-1-arnd@arndb.de> <1484145522.29931.13.camel@sipsolutions.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] net: ipv4: Fix multipath selection with vrf
+Date: Wed, 11 Jan 2017 10:00:27 -0500 (EST)
+Message-ID: <20170111.100027.559018351964620080.davem@davemloft.net>
+References: <1484087855-4607-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-wireless@vger.kernel.org,
-        "David S. Miller" <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: dsa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f67.google.com ([209.85.218.67]:33239 "EHLO
-        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S938150AbdAKPAB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 10:00:01 -0500
-In-Reply-To: <1484145522.29931.13.camel@sipsolutions.net>
+Received: from shards.monkeyblade.net ([184.105.139.130]:50476 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S938150AbdAKPA3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 10:00:29 -0500
+In-Reply-To: <1484087855-4607-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 11, 2017 at 3:38 PM, Johannes Berg
-<johannes@sipsolutions.net> wrote:
-> On Wed, 2017-01-11 at 15:35 +0100, Arnd Bergmann wrote:
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Tue, 10 Jan 2017 14:37:35 -0800
 
->> This works fine here because iwe->u.data.length is guaranteed to be
->> NULL, and the memcpy doesn't actually have an effect.
->
-> I think you mean 0, not NULL, but I can fix that when I apply it.
+> fib_select_path does not call fib_select_multipath if oif is set in the
+> flow struct. For VRF use cases oif is always set, so multipath route
+> selection is bypassed. Use the FLOWI_FLAG_SKIP_NH_OIF to skip the oif
+> check similar to what is done in fib_table_lookup.
+> 
+> Add saddr and proto to the flow struct for the fib lookup done by the
+> VRF driver to better match hash computation for a flow.
+> 
+> Fixes: 613d09b30f8b ("net: Use VRF device index for lookups on TX")
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+> ---
+> IPv6 multipath selection works fine as is.
 
-Right, thanks!
-
-    Arnd
+Applied and queued up for -stable, thanks David.
