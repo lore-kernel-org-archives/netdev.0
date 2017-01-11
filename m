@@ -1,46 +1,39 @@
-From: Rami Rosen <roszenrami@gmail.com>
-Subject: Re: [PATCH v2 01/13] net: ethernet: aquantia: Make and configuration files.
-Date: Thu, 12 Jan 2017 00:05:04 +0200
-Message-ID: <CAKoUAr=oxiQnQZnHYo2=yyUx=xftaMy3o5amMaRbf+xvQGpLwQ@mail.gmail.com>
-References: <cover.1483999588.git.vomlehn@texas.net> <0b0d8974bdbfa66ab3bc4460f32f7916dd54b85a.1483999588.git.vomlehn@texas.net>
+From: "Kwok, WingMan" <w-kwok2@ti.com>
+Subject: RE: Marvell Phy (1510) issue since v4.7 kernel
+Date: Wed, 11 Jan 2017 22:18:02 +0000
+Message-ID: <230CBA6E4B6B6B418E8730AC28E6FC7E15354AC2@DFLE11.ent.ti.com>
+References: <587410EF.5090607@ti.com> <20170109225641.GB22820@lunn.ch>
+ <230CBA6E4B6B6B418E8730AC28E6FC7E153545A3@DFLE11.ent.ti.com>
+ <20170109235534.GH22820@lunn.ch>
+ <230CBA6E4B6B6B418E8730AC28E6FC7E153545C9@DFLE11.ent.ti.com>
+ <20170110015336.GA7160@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>, David VomLehn <vomlehn@texas.net>,
-        Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
-        Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>,
-        Pavel Belous <Pavel.Belous@aquantia.com>
-To: Alexander Loktionov <Alexander.Loktionov@aquantia.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Karicheri, Muralidharan" <m-karicheri2@ti.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f67.google.com ([209.85.214.67]:35827 "EHLO
-        mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751141AbdAKWFF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 17:05:05 -0500
-Received: by mail-it0-f67.google.com with SMTP id 203so569770ith.2
-        for <netdev@vger.kernel.org>; Wed, 11 Jan 2017 14:05:05 -0800 (PST)
-In-Reply-To: <0b0d8974bdbfa66ab3bc4460f32f7916dd54b85a.1483999588.git.vomlehn@texas.net>
+Received: from lelnx194.ext.ti.com ([198.47.27.80]:21285 "EHLO
+        lelnx194.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932088AbdAKWSM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 17:18:12 -0500
+In-Reply-To: <20170110015336.GA7160@lunn.ch>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
-
-> +++ b/drivers/net/ethernet/aquantia/Makefile
-> @@ -0,0 +1,44 @@
-...
-...
-> > +obj-$(CONFIG_AQTION) += atlantic.o
-> +
-> +atlantic-objs := aq_main.o \
-> +       aq_nic.o \
-> +       aq_pci_func.o \
-
-Why twice aq_nic.o ? it appears two lines earlier:
-
-> +       aq_nic.o \
-> +       aq_vec.o \
-> +       aq_ring.o \
-...
-...
-
-Regards,
-Rami Rosen
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogQW5kcmV3IEx1bm4gW21h
+aWx0bzphbmRyZXdAbHVubi5jaF0NCj4gU2VudDogTW9uZGF5LCBKYW51YXJ5IDA5LCAyMDE3IDg6
+NTQgUE0NCj4gVG86IEt3b2ssIFdpbmdNYW4NCj4gQ2M6IEthcmljaGVyaSwgTXVyYWxpZGhhcmFu
+OyBuZXRkZXZAdmdlci5rZXJuZWwub3JnDQo+IFN1YmplY3Q6IFJlOiBNYXJ2ZWxsIFBoeSAoMTUx
+MCkgaXNzdWUgc2luY2UgdjQuNyBrZXJuZWwNCj4gDQo+ID4gRnJvbSBNYXJ2ZWxsJ3MgYnJpZWYg
+ZGVzY3JpcHRpb24NCj4gaHR0cDovL3d3dy5tYXJ2ZWxsLmNvbS90cmFuc2NlaXZlcnMvYWxhc2th
+LWdiZS8sDQo+ID4gaXQgc2VlbXMgdGhhdCA4OEUxNTEwLzE1MTggZG9uJ3Qgc3VwcG9ydCBmaWJl
+ci4gT25seSA4OEUxNTEyIGRvZXMuDQo+IEluDQo+ID4gdGhhdCBjYXNlLCB0aGUgZmliZXIgc3Vw
+cG9ydCBwYXRjaCBpcyBub3QgYXBwbGljYWJsZSB0bw0KPiA4OEUxNTEwLzE1MTguDQo+IA0KPiBP
+LksuIFRoYXQgbWFrZXMgaXQgZWFzaWVyLg0KPiANCj4gUGxlYXNlIGFkZCB0aGUgcmVsZXZhbnQg
+SURzIHRvIGluY2x1ZGUvbGludXgvbWFydmVsbC5oLCBhbmQgYWRkDQo+IGVudHJpZXMgdG8gZHJp
+dmVyL25ldC9waHkvbWFydmVsbC5jIGZvciAxNTEyIHdpdGggU1VQUE9SVEVEX0ZJQlJFIGFuZA0K
+PiAxNTEwIGFuZCAxNTE4IHdpdGhvdXQuDQo+IA0KPiAgICAgIEFuZHJldw0KDQpCeSBhbnkgY2hh
+bmNlIHlvdSBoYXZlIHRoZSBJRCBvZiAxNTEyPw0KDQpUaGFua3MsDQpXaW5nTWFuDQo=
