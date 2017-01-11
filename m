@@ -1,31 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: thunderx: Make hfunc variable const type
- in nicvf_set_rxfh()
-Date: Wed, 11 Jan 2017 10:51:02 -0500 (EST)
-Message-ID: <20170111.105102.1947940014901244160.davem@davemloft.net>
-References: <20170111091702.6343-1-rrichter@cavium.com>
+Subject: Re: [PATCH] bnxt_en: hide unused
+ bnxt_get_max_func_{vnics,rss_ctxs} functions
+Date: Wed, 11 Jan 2017 10:51:35 -0500 (EST)
+Message-ID: <20170111.105135.364136279090482156.davem@davemloft.net>
+References: <20170111143619.502495-1-arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sgoutham@cavium.com, rric@kernel.org, netdev@vger.kernel.org
-To: rrichter@cavium.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:51594 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S933792AbdAKPvE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 10:51:04 -0500
-In-Reply-To: <20170111091702.6343-1-rrichter@cavium.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: michael.chan@broadcom.com, prashant.sreedharan@broadcom.com,
+        sbaddipa@broadcom.com, aduyck@mirantis.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: arnd@arndb.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170111143619.502495-1-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Robert Richter <rrichter@cavium.com>
-Date: Wed, 11 Jan 2017 10:17:02 +0100
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Wed, 11 Jan 2017 15:36:09 +0100
 
-> @@ -635,7 +635,7 @@ static int nicvf_get_rxfh(struct net_device *dev, u32 *indir, u8 *hkey,
->  }
->  
->  static int nicvf_set_rxfh(struct net_device *dev, const u32 *indir,
-> -			  const u8 *hkey, u8 hfunc)
-> +			const u8 *hkey, const u8 hfunc)
+> There are lots of #ifdefs in this file, and a recent patch got one
+> of them wrong, leading to a harmless warning in some randconfig
+> builds:
+> 
+> ethernet/broadcom/bnxt/bnxt.c:4956:21: error: 'bnxt_get_max_func_vnics' defined but not used [-Werror=unused-function]
+> ethernet/broadcom/bnxt/bnxt.c:4947:21: error: 'bnxt_get_max_func_rss_ctxs' defined but not used [-Werror=unused-function]
+> 
+> Ideally we'd just remove all of them and use 'if (IS_ENABLED())'
+> checks instead, which don't have this problem, but for now, I'm
+> adding one more #ifdef to shut up the new warning.
+> 
+> Fixes: 8079e8f107bf ("bnxt_en: Refactor code that determines RFS capability.")
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-Please do not change the indentation, it is currently correct.
+Michael Chan has a fix for this coming my way.
