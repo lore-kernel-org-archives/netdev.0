@@ -1,70 +1,59 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net-next] bpf: Remove unused but set variable in
- __bpf_lru_list_shrink_inactive()
-Date: Tue, 10 Jan 2017 16:25:23 -0800
-Message-ID: <20170111002522.GB68360@ast-mbp.thefacebook.com>
-References: <20170110140207.26480-1-tklauser@distanz.ch>
+From: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
+Subject: Re: 4.9.2 panic, __skb_flow_dissect, gro?
+Date: Wed, 11 Jan 2017 02:31:22 +0200
+Message-ID: <382fbc6c96f0abfece7d33d185aa298d@nuclearcat.com>
+References: <359da98eb44a5a9f9f286cc380143654@nuclearcat.com>
+ <96694297c5f7178b92bfd9a12bef4a42@nuclearcat.com>
+ <CAA85sZsKSJkaWJ44w9__mJ6vH9ViZwpsovOhnEZRG3sO5K-2PA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, ast@kernel.org,
-        Martin KaFai Lau <kafai@fb.com>
-To: Tobias Klauser <tklauser@distanz.ch>
+Content-Type: text/plain; charset=US-ASCII;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        David Miller <davem@davemloft.net>
+To: Ian Kumlien <ian.kumlien@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:35966 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S934253AbdAKAZ2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2017 19:25:28 -0500
-Received: by mail-pf0-f193.google.com with SMTP id b22so14659316pfd.3
-        for <netdev@vger.kernel.org>; Tue, 10 Jan 2017 16:25:27 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20170110140207.26480-1-tklauser@distanz.ch>
+Received: from nuclearcat.com ([144.76.183.226]:40976 "EHLO nuclearcat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750792AbdAKAbZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 10 Jan 2017 19:31:25 -0500
+In-Reply-To: <CAA85sZsKSJkaWJ44w9__mJ6vH9ViZwpsovOhnEZRG3sO5K-2PA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 10, 2017 at 03:02:07PM +0100, Tobias Klauser wrote:
-> Remove the unused but set variable 'first_node' in
-> __bpf_lru_list_shrink_inactive() to fix the following GCC warning when
-> building with 'W=1':
-> 
->   kernel/bpf/bpf_lru_list.c:216:41: warning: variable ‘first_node’ set but not used [-Wunused-but-set-variable]
-> 
-> Cc: Martin KaFai Lau <kafai@fb.com>
-> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
-> ---
->  kernel/bpf/bpf_lru_list.c | 3 +--
->  1 file changed, 1 insertion(+), 2 deletions(-)
-> 
-> diff --git a/kernel/bpf/bpf_lru_list.c b/kernel/bpf/bpf_lru_list.c
-> index 89b7ef41c86b..d78501ee0609 100644
-> --- a/kernel/bpf/bpf_lru_list.c
-> +++ b/kernel/bpf/bpf_lru_list.c
-> @@ -213,11 +213,10 @@ __bpf_lru_list_shrink_inactive(struct bpf_lru *lru,
->  			       enum bpf_lru_list_type tgt_free_type)
->  {
->  	struct list_head *inactive = &l->lists[BPF_LRU_LIST_T_INACTIVE];
-> -	struct bpf_lru_node *node, *tmp_node, *first_node;
-> +	struct bpf_lru_node *node, *tmp_node;
->  	unsigned int nshrinked = 0;
->  	unsigned int i = 0;
->  
-> -	first_node = list_first_entry(inactive, struct bpf_lru_node, list);
->  	list_for_each_entry_safe_reverse(node, tmp_node, inactive, list) {
->  		if (bpf_lru_node_is_ref(node)) {
->  			__bpf_lru_node_move(l, node, BPF_LRU_LIST_T_ACTIVE);
+Yes, it is in the list (ixgbe)
 
-Martin,
-I cannot tell whether it's actually copy-paste leftover
-or this patch is needed:
-
-diff --git a/kernel/bpf/bpf_lru_list.c b/kernel/bpf/bpf_lru_list.c
-index 89b7ef41c86b..b9255a427c28 100644
---- a/kernel/bpf/bpf_lru_list.c
-+++ b/kernel/bpf/bpf_lru_list.c
-@@ -229,6 +229,7 @@ __bpf_lru_list_shrink_inactive(struct bpf_lru *lru,
-                }
-
-                if (++i == lru->nr_scans)
-+               if (++i == lru->nr_scans || node == first_node)
-                        break;
-        }
+On 2017-01-11 02:16, Ian Kumlien wrote:
+> Added David Miller to CC since he said it was queued for stable, maybe
+> he can comment
+> 
+> On Wed, Jan 11, 2017 at 12:49 AM, Denys Fedoryshchenko
+> <nuclearcat@nuclearcat.com> wrote:
+>> It seems this patch solve issue. I hope it will go to stable asap, 
+>> because
+>> without it loaded routers crashing almost instantly on 4.9.
+> 
+> I'm also worried that you could trigger it remotely....
+> 
+> I suspect the following:
+> intel: fm10k, i40e, i40ev, igb, ixgbe, ixgbevf
+> mellanox: mlx4, mlx5
+> qlogic: qede
+> 
+> since skb_flow_dissect is called by eth_get_headlen in these drivers...
+> 
+> My machine was running with igb when it happened, is your network
+> driver in the list?
+> 
+> David: Let me know if i can help with the -stable bit in anyway, i've
+> been surprised to see it miss .1 and .2
+> 
+>> commit  d0af683407a26a4437d8fa6e283ea201f2ae8146 (patch)
+>> tree    e769779cf59b0b73333b50a68db5d0b8897a7cb6 
+>> /net/core/flow_dissector.c
+>> parent  94ba998b63c41e92da1b2f0cd8679e038181ef48 (diff)
+>> flow_dissector: Update pptp handling to avoid null pointer deref.
+>> __skb_flow_dissect can be called with a skb or a data packet, either
+>> can be NULL. All calls seems to have been moved to 
+>> __skb_header_pointer
+>> except the pptp handling which is still calling skb_header_pointer.
