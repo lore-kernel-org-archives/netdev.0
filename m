@@ -1,46 +1,53 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH net-next] net: thunderx: Fix error return code in nicvf_open()
-Date: Wed, 11 Jan 2017 16:32:51 +0000
-Message-ID: <20170111163251.19367-1-weiyj.lk@gmail.com>
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Subject: Re: [PATCH 2/3] xgbe: switch to pci_irq_alloc_vectors
+Date: Wed, 11 Jan 2017 10:46:45 -0600
+Message-ID: <c3f96e57-0a22-99dd-ca48-b0b84913e4df@amd.com>
+References: <1483994260-19797-1-git-send-email-hch@lst.de>
+ <1483994260-19797-3-git-send-email-hch@lst.de>
+ <11ed330c-84e9-79e9-7945-ca17a497359c@amd.com> <20170111090357.GB7350@lst.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: Wei Yongjun <weiyongjun1@huawei.com>,
-        linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
-To: Sunil Goutham <sgoutham@cavium.com>,
-        Robert Richter <rric@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:33810 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751039AbdAKQc6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 11:32:58 -0500
-Received: by mail-pg0-f66.google.com with SMTP id b1so54139278pgc.1
-        for <netdev@vger.kernel.org>; Wed, 11 Jan 2017 08:32:58 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <linux-pci@vger.kernel.org>,
+        Mauro Carvalho Chehab <mchehab@s-opensource.com>,
+        <netdev@vger.kernel.org>, <linux-media@vger.kernel.org>
+To: Christoph Hellwig <hch@lst.de>
+Return-path: <linux-media-owner@vger.kernel.org>
+In-Reply-To: <20170111090357.GB7350@lst.de>
+Sender: linux-media-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Wei Yongjun <weiyongjun1@huawei.com>
+On 1/11/2017 3:03 AM, Christoph Hellwig wrote:
+> On Tue, Jan 10, 2017 at 12:40:10PM -0600, Tom Lendacky wrote:
+>> On 1/9/2017 2:37 PM, Christoph Hellwig wrote:
+>>> The newly added xgbe drivers uses the deprecated pci_enable_msi_exact
+>>> and pci_enable_msix_range interfaces.  Switch it to use
+>>> pci_irq_alloc_vectors instead.
+>>
+>> I was just working on switching over to this API with some additional
+>> changes / simplification.  I'm ok with using this patch so that you get
+>> the API removal accomplished.  Going through the PCI tree just means
+>> it will probably be easier for me to hold off on the additional changes
+>> I wanted to make until later.
+> 
+> Hi Tom,
 
-Fix to return a negative error code from the error handling
-case instead of 0, as done elsewhere in this function.
+Hi Christoph,
 
-Fixes: 712c31853440 ("net: thunderx: Program LMAC credits based on MTU")
-Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
----
- drivers/net/ethernet/cavium/thunder/nicvf_main.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+> 
+> if you have a better patch I'd be more than happy to use that one instead,
+> this one was intended as a stupid search and replace.  The important
+> part for me is to get the two conversions and the interface removal
+> in together.
 
-diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_main.c b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-index 273eafd..a25bb6e 100644
---- a/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-+++ b/drivers/net/ethernet/cavium/thunder/nicvf_main.c
-@@ -1274,7 +1274,8 @@ int nicvf_open(struct net_device *netdev)
- 	/* Configure receive side scaling and MTU */
- 	if (!nic->sqs_mode) {
- 		nicvf_rss_init(nic);
--		if (nicvf_update_hw_max_frs(nic, netdev->mtu))
-+		err = nicvf_update_hw_max_frs(nic, netdev->mtu);
-+		if (err)
- 			goto cleanup;
- 
- 		/* Clear percpu stats */
+That sounds good, I'll send the patch to you in a separate email for use
+in your series.
+
+Thanks,
+Tom
+
+> 
+> E.g. I've alreayd wondered why the driver requires the exact vector
+> number for MSI and a variable one for MSI-X, and there certainly is
+> all kinds of opportunity for cosmetic cleanup.
+> 
