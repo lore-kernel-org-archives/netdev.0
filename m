@@ -1,46 +1,31 @@
-From: Andrey Konovalov <andreyknvl@google.com>
-Subject: Re: net/atm: warning in alloc_tx/__might_sleep
-Date: Wed, 11 Jan 2017 11:18:52 +0100
-Message-ID: <CAAeHK+xULc-jFCpdNZ4E5Qj3dezv75YS-Uyc9bt5cbrjCRyzLQ@mail.gmail.com>
-References: <CAAeHK+yZ16SKcmJbv2ARafGgAuX2wwQNE0HGdiFy1WgqPjxLMg@mail.gmail.com>
- <CAM_iQpWaHX_orHbFjKcjBZL67b6LUAmOfvS1SQP13VPZDo-69w@mail.gmail.com> <CANn89iLxQPAt0e5Yc0yYFFQtoQwuRsdAwH9m1d4oqWQ3W=DZTQ@mail.gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH/RFC net-next 0/2] net/sched: cls_flower: Support matching
+ ARP
+Date: Wed, 11 Jan 2017 11:27:07 +0100
+Message-ID: <20170111102707.GG1852@nanopsycho>
+References: <1484128942-11745-1-git-send-email-simon.horman@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Al Viro <viro@zeniv.linux.org.uk>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Eric Dumazet <edumazet@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CANn89iLxQPAt0e5Yc0yYFFQtoQwuRsdAwH9m1d4oqWQ3W=DZTQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jiri Pirko <jiri@mellanox.com>,
+        Dinan Gunawardena <dinan.gunawardena@netronome.com>,
+        netdev@vger.kernel.org, oss-drivers@netronome.com
+To: Simon Horman <simon.horman@netronome.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:35033 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1760865AbdAKK1Q (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 05:27:16 -0500
+Received: by mail-wm0-f65.google.com with SMTP id l2so35966808wml.2
+        for <netdev@vger.kernel.org>; Wed, 11 Jan 2017 02:27:15 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1484128942-11745-1-git-send-email-simon.horman@netronome.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 10, 2017 at 6:40 PM, Eric Dumazet <edumazet@google.com> wrote:
-> On Tue, Jan 10, 2017 at 9:35 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
->> On Mon, Jan 9, 2017 at 9:20 AM, Andrey Konovalov <andreyknvl@google.com> wrote:
->>
->> The fix should be straight-forward. Mind to try the attached patch?
+Wed, Jan 11, 2017 at 11:02:20AM CET, simon.horman@netronome.com wrote:
+>Add support for support matching on ARP operation, and hardware and
+>protocol addresses for Ethernet hardware and IPv4 protocol addresses.
 
-Hi Cong,
-
-Your patch with schedule() removed as suggested by Eric fixes the issue.
-
-Tested-by: Andrey Konovalov <andreyknvl@google.com>
+This patchset looks fine to me. Please feel free to submit it.
 
 Thanks!
-
->
->
-> You forgot to remove schedule() ?
->
->   schedule();
-> + wait_woken(&wait, TASK_INTERRUPTIBLE, MAX_SCHEDULE_TIMEOUT);
