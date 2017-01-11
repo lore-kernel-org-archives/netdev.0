@@ -1,51 +1,40 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] wext: handle NULL exta data in iwe_stream_add_point better
-Date: Wed, 11 Jan 2017 21:39:07 +0100
-Message-ID: <3292373.oxnXTOSWCQ@wuerfel>
-References: <20170111143532.485827-1-arnd@arndb.de> <CAK8P3a2mOT=BG=9yxJ1e-q__5FYq6dfF3t3bT1vqcgFaQAUjog@mail.gmail.com> <1484147177.29931.14.camel@sipsolutions.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: TCP using IPv4-mapped IPv6 address as source
+Date: Wed, 11 Jan 2017 12:43:42 -0800
+Message-ID: <1484167422.15816.1.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <87f4e2ec-22bf-2401-8401-57205f893289@udel.edu>
+         <1484151607.21472.55.camel@edumazet-glaptop3.roam.corp.google.com>
+         <d8df0fb3-6053-10e1-fc43-cccbfc3799bf@udel.edu>
+         <1484159519.21472.72.camel@edumazet-glaptop3.roam.corp.google.com>
+         <14f352f9-6c0a-17da-f28f-b23fe8ecd2a2@udel.edu>
+         <20170111195909.GL24086@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: linux-wireless@vger.kernel.org,
-        "David S. Miller" <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1484147177.29931.14.camel@sipsolutions.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "Jonathan T. Leighton" <jtleight@udel.edu>, netdev@vger.kernel.org,
+        edumazet@google.com, Yuchung Cheng <ycheng@google.com>,
+        Neal Cardwell <ncardwell@google.com>
+To: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:36052 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755311AbdAKUnw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 15:43:52 -0500
+Received: by mail-pf0-f193.google.com with SMTP id b22so17166480pfd.3
+        for <netdev@vger.kernel.org>; Wed, 11 Jan 2017 12:43:49 -0800 (PST)
+In-Reply-To: <20170111195909.GL24086@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wednesday, January 11, 2017 4:06:17 PM CET Johannes Berg wrote:
-> 
-> Applied. Also fixed the typo in the subject :)
+On Wed, 2017-01-11 at 14:59 -0500, Sowmini Varadhan wrote:
 
-Thanks! Unfortunately I now got another warning for the same function,
-and though I would have expected the patch to fix it, that did not work:
+> I think the RFC states somewhere that you should never ever
+> send out a v4 mapped address on the wire.
 
-In file included from /git/arm-soc/drivers/net/wireless/intersil/prism54/islpci_dev.h:27:0,
-                 from /git/arm-soc/drivers/net/wireless/intersil/prism54/isl_ioctl.h:24,
-                 from /git/arm-soc/drivers/net/wireless/intersil/prism54/isl_ioctl.c:32:
-/git/arm-soc/drivers/net/wireless/intersil/prism54/isl_ioctl.c: In function 'prism54_get_scan':
-/git/arm-soc/include/net/iw_handler.h:560:4: error: argument 2 null where non-null expected [-Werror=nonnull]
-    memcpy(stream + point_len, extra, iwe->u.data.length);
+Can you point the exact RFC ?
 
-The change below kills that warning too, but it gets even uglier there:
+https://tools.ietf.org/html/rfc2765  seems to allow just that.
 
-diff --git a/include/net/iw_handler.h b/include/net/iw_handler.h
-index 1a41043688bc..c2aa73e5e6bb 100644
---- a/include/net/iw_handler.h
-+++ b/include/net/iw_handler.h
-@@ -556,7 +556,7 @@ iwe_stream_add_point(struct iw_request_info *info, char *stream, char *ends,
- 		memcpy(stream + lcp_len,
- 		       ((char *) &iwe->u) + IW_EV_POINT_OFF,
- 		       IW_EV_POINT_PK_LEN - IW_EV_LCP_PK_LEN);
--		if (iwe->u.data.length)
-+		if (iwe->u.data.length && extra)
- 			memcpy(stream + point_len, extra, iwe->u.data.length);
- 		stream += event_len;
- 	}
 
-Let me know if you want a proper follow-up patch, or if you can amend your
-commit, or you have a better idea for resolving that warning.
-
-	Arnd
+Jonathan issue is about terminating such flows in TCP stack, which is
+likely not needed/useful.
