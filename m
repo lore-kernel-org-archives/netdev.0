@@ -1,139 +1,51 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [net PATCH] net: virtio: cap mtu when XDP programs are running
-Date: Wed, 11 Jan 2017 11:37:09 +0800
-Message-ID: <97f33fe6-a434-0669-c412-cd0847f3b48f@redhat.com>
-References: <20170110010531-mutt-send-email-mst@kernel.org>
- <5874190B.9050505@gmail.com> <20170110012044-mutt-send-email-mst@kernel.org>
- <58742187.8050505@gmail.com> <20170110015759-mutt-send-email-mst@kernel.org>
- <9102bb4b-223a-d441-7546-8b4144d970fb@redhat.com>
- <20170110044910-mutt-send-email-mst@kernel.org> <5874555A.3070307@gmail.com>
- <20170110055023-mutt-send-email-mst@kernel.org> <58746247.604@gmail.com>
- <20170110065056-mutt-send-email-mst@kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] gro: use min_t() in skb_gro_reset_offset()
+Date: Tue, 10 Jan 2017 19:52:43 -0800
+Message-ID: <1484106763.21472.49.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1484079841.21472.35.camel@edumazet-glaptop3.roam.corp.google.com>
+         <20170110.212911.71346127320993214.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org,
-        alexei.starovoitov@gmail.com, daniel@iogearbox.net
-To: "Michael S. Tsirkin" <mst@redhat.com>,
-        John Fastabend <john.fastabend@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au,
+        slavash@mellanox.com, willemb@google.com, edumazet@google.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48968 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1759210AbdAKDhR (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 10 Jan 2017 22:37:17 -0500
-In-Reply-To: <20170110065056-mutt-send-email-mst@kernel.org>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:33278 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1761267AbdAKDwq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2017 22:52:46 -0500
+Received: by mail-pf0-f194.google.com with SMTP id 127so31831541pfg.0
+        for <netdev@vger.kernel.org>; Tue, 10 Jan 2017 19:52:46 -0800 (PST)
+In-Reply-To: <20170110.212911.71346127320993214.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Eric Dumazet <edumazet@google.com>
 
+On 32bit arches, (skb->end - skb->data) is not 'unsigned int',
+so we shall use min_t() instead of min() to avoid a compiler error.
 
-On 2017年01月10日 13:00, Michael S. Tsirkin wrote:
-> On Mon, Jan 09, 2017 at 08:25:43PM -0800, John Fastabend wrote:
->> On 17-01-09 07:55 PM, Michael S. Tsirkin wrote:
->>> On Mon, Jan 09, 2017 at 07:30:34PM -0800, John Fastabend wrote:
->>>> On 17-01-09 06:51 PM, Michael S. Tsirkin wrote:
->>>>> On Tue, Jan 10, 2017 at 10:29:39AM +0800, Jason Wang wrote:
->>>>>> On 2017年01月10日 07:58, Michael S. Tsirkin wrote:
->>>>>>> On Mon, Jan 09, 2017 at 03:49:27PM -0800, John Fastabend wrote:
->>>>>>>> On 17-01-09 03:24 PM, Michael S. Tsirkin wrote:
->>>>>>>>> On Mon, Jan 09, 2017 at 03:13:15PM -0800, John Fastabend wrote:
->>>>>>>>>> On 17-01-09 03:05 PM, Michael S. Tsirkin wrote:
->>>>>>>>>>> On Thu, Jan 05, 2017 at 11:09:14AM +0800, Jason Wang wrote:
->>>>>>>>>>>> On 2017年01月05日 02:57, John Fastabend wrote:
->>>>>>>>>>>>> [...]
->>>>>>>>>>>>>
->>>>>>>>>>>>>> On 2017年01月04日 00:48, John Fastabend wrote:
->>>>>>>>>>>>>>> On 17-01-02 10:14 PM, Jason Wang wrote:
->>>>>>>>>>>>>>>> On 2017年01月03日 06:30, John Fastabend wrote:
->>>>>>>>>>>>>>>>> XDP programs can not consume multiple pages so we cap the MTU to
->>>>>>>>>>>>>>>>> avoid this case. Virtio-net however only checks the MTU at XDP
->>>>>>>>>>>>>>>>> program load and does not block MTU changes after the program
->>>>>>>>>>>>>>>>> has loaded.
->>>>>>>>>>>>>>>>>
->>>>>>>>>>>>>>>>> This patch sets/clears the max_mtu value at XDP load/unload time.
->>>>>>>>>>>>>>>>>
->>>>>>>>>>>>>>>>> Signed-off-by: John Fastabend<john.r.fastabend@intel.com>
->>>>>>>>>>>>>>>>> ---
->>>>>>>>>>>>> [...]
->>>>>>>>>>>>>
->>>>>>>>>>>>>>> OK so this logic is a bit too simply. When it resets the max_mtu I guess it
->>>>>>>>>>>>>>> needs to read the mtu via
->>>>>>>>>>>>>>>
->>>>>>>>>>>>>>>        virtio_cread16(vdev, ...)
->>>>>>>>>>>>>>>
->>>>>>>>>>>>>>> or we may break the negotiated mtu.
->>>>>>>>>>>>>> Yes, this is a problem (even use ETH_MAX_MTU). We may need a method to notify
->>>>>>>>>>>>>> the device about the mtu in this case which is not supported by virtio now.
->>>>>>>>>>>>> Note this is not really a XDP specific problem. The guest can change the MTU
->>>>>>>>>>>>> after init time even without XDP which I assume should ideally result in a
->>>>>>>>>>>>> notification if the MTU is negotiated.
->>>>>>>>>>>> Yes, Michael, do you think we need add some mechanism to notify host about
->>>>>>>>>>>> MTU change in this case?
->>>>>>>>>>>>
->>>>>>>>>>>> Thanks
->>>>>>>>>>> Why does host care?
->>>>>>>>>>>
->>>>>>>>>> Well the guest will drop packets after mtu has been reduced.
->>>>>>>>> I didn't know. What place in code does this?
->>>>>>>>>
->>>>>>>> hmm in many of the drivers it is convention to use the mtu to set the rx
->>>>>>>> buffer sizes and a receive side max length filter. For example in the Intel
->>>>>>>> drivers if a packet with length greater than MTU + some headroom is received we
->>>>>>>> drop it. I guess in the networking stack RX path though nothing forces this and
->>>>>>>> virtio doesn't have any code to drop packets on rx size.
->>>>>>>>
->>>>>>>> In virtio I don't see any existing case currently. In the XDP case though we
->>>>>>>> need to ensure packets fit in a page for the time being which is why I was
->>>>>>>> looking at this code and generated this patch.
->>>>>>> I'd say just look at the hardware max mtu. Ignore the configured mtu.
->>>>>>>
->>>>>>>
->>>>>> Does this work for small buffers consider it always allocate skb with size
->>>>>> of GOOD_PACKET_LEN?
->>>>> Spec says hardware won't send in packets > max mtu in config space.
->>>>>
->>>>>> I think in any case, we should limit max_mtu to
->>>>>> GOOD_PACKET_LEN for small buffers.
->>>>>>
->>>>>> Thanks
->>>>> XDP seems to have a bunch of weird restrictions, I just
->>>>> do not like it that the logic spills out to all drivers.
->>>>> What if someone decides to extend it to two pages in the future?
->>>>> Recode it all in all drivers ...
->>>>>
->>>>> Why can't net core enforce mtu?
->>>>>
->>>> OK I agree I'll put most the logic in rtnetlink.c when the program is added
->>>> or removed.
->>>>
->>>> But, I'm looking at the non-XDP receive_small path now and wondering how does
->>>> multiple buffer receives work (e.g. packet larger than GOOD_PACKET_LEN?)
->>> I don't understand the question. Look at add_recvbuf_small,
->>> it adds a tiny buffer for head and then the skb.
->>>
->> Specifically this seems to fail with mergeable buffers disabled
->>
->> On the host:
->>
->> # ip link set dev tap0 mtu 9000
->> # ping 22.2 -s 2048
->>
->> On the guest:
->>
->> # insmod ./drivers/net/virtio_net.ko
->> # ip link set dev eth0 mtu 9000
-> Why would it work? You are sending a packet larger than ethernet MTU.
+Fixes: 1272ce87fa01 ("gro: Enter slow-path if there is no tailroom")
+Reported-by: kernel test robot <fengguang.wu@intel.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/core/dev.c |    5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-Ok, does it mean virtio-net does not support Jumbo frame? And if it 
-can't work, use MAX_MTU as max_mtu is a bug to me.
-
->
->> With mergeable buffers enabled no problems it works as I expect at least.
-> We don't expect to get these packets but
-> mergeable is able to process them anyway.
-> It's an accident:)  
->
-
-But path MTU discovery indeed benefits from this "accident".
-
-Thanks
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 88d2907ca2cda3438a7a1c0c179051a5038aa1e1..07b307b0b414730688b64fdb2295b0fa1b721e51 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4441,8 +4441,9 @@ static void skb_gro_reset_offset(struct sk_buff *skb)
+ 	    pinfo->nr_frags &&
+ 	    !PageHighMem(skb_frag_page(frag0))) {
+ 		NAPI_GRO_CB(skb)->frag0 = skb_frag_address(frag0);
+-		NAPI_GRO_CB(skb)->frag0_len = min(skb_frag_size(frag0),
+-						  skb->end - skb->tail);
++		NAPI_GRO_CB(skb)->frag0_len = min_t(unsigned int,
++						    skb_frag_size(frag0),
++						    skb->end - skb->tail);
+ 	}
+ }
+ 
