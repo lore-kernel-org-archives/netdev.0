@@ -1,98 +1,38 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 0/4] net: switchdev: Avoid sleep in atomic with
- DSA
-Date: Tue, 10 Jan 2017 17:42:23 -0800
-Message-ID: <03ce7d38-7775-3cd7-d863-682316d949bf@gmail.com>
-References: <20170109194503.10713-1-f.fainelli@gmail.com>
- <20170109204849.GA28310@splinter>
- <e28f29c8-04ed-1d71-7b13-27a5d58d111c@gmail.com>
- <20170109211436.GB28310@splinter> <20170110120846.GC1827@nanopsycho>
- <20170110132506.GA4084@splinter.mtl.com> <20170110141807.GD1827@nanopsycho>
- <20170110160852.GA18050@splinter.mtl.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: qrtr: Mark 'buf' as little endian
+Date: Tue, 10 Jan 2017 20:45:54 -0500 (EST)
+Message-ID: <20170110.204554.1451403281569434916.davem@davemloft.net>
+References: <20170109223158.29255-1-sboyd@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-        vivien.didelot@savoirfairelinux.com, andrew@lunn.ch
-To: Ido Schimmel <idosch@idosch.org>, Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:35301 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753879AbdAKBm0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2017 20:42:26 -0500
-Received: by mail-pf0-f194.google.com with SMTP id f144so12387553pfa.2
-        for <netdev@vger.kernel.org>; Tue, 10 Jan 2017 17:42:26 -0800 (PST)
-In-Reply-To: <20170110160852.GA18050@splinter.mtl.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+        bjorn.andersson@linaro.org
+To: sboyd@codeaurora.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170109223158.29255-1-sboyd@codeaurora.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 01/10/2017 08:08 AM, Ido Schimmel wrote:
-> On Tue, Jan 10, 2017 at 03:18:07PM +0100, Jiri Pirko wrote:
->> Tue, Jan 10, 2017 at 02:25:06PM CET, idosch@idosch.org wrote:
->>> On Tue, Jan 10, 2017 at 01:08:46PM +0100, Jiri Pirko wrote:
->>>> Mon, Jan 09, 2017 at 10:14:36PM CET, idosch@idosch.org wrote:
->>>>> On Mon, Jan 09, 2017 at 12:56:48PM -0800, Florian Fainelli wrote:
->>>>>> On 01/09/2017 12:48 PM, Ido Schimmel wrote:
->>>>>>> Hi Florian,
->>>>>>>
->>>>>>> On Mon, Jan 09, 2017 at 11:44:59AM -0800, Florian Fainelli wrote:
->>>>>>>> Hi all,
->>>>>>>>
->>>>>>>> This patch series is to resolve a sleeping function called in atomic context
->>>>>>>> debug splat that we observe with DSA.
->>>>>>>>
->>>>>>>> Let me know what you think, I was also wondering if we should just always
->>>>>>>> make switchdev_port_vlan_fill() set SWITCHDEV_F_DEFER, but was afraid this
->>>>>>>> could cause invalid contexts to be used for rocker, mlxsw, i40e etc.
->>>>>>>
->>>>>>> Isn't this a bit of overkill? All the drivers you mention fill the VLAN
->>>>>>> dump from their cache and don't require sleeping. Even b53 that you
->>>>>>> mention in the last patch does that, but reads the PVID from the device,
->>>>>>> which entails taking a mutex.
->>>>>>
->>>>>> Correct.
->>>>>>
->>>>>>>
->>>>>>> Can't you just cache the PVID as well? I think this will solve your
->>>>>>> problem. Didn't look too much into the b53 code, so maybe I'm missing
->>>>>>> something. Seems that mv88e6xxx has a similar problem.
->>>>>>
->>>>>> I suppose we could indeed cache the PVID for b53, but for mv88e6xxx it
->>>>>> seems like we need to perform a bunch of VTU operations, and those
->>>>>> access HW registers, Andrew, Vivien, how do you want to solve that, do
->>>>>> we want to introduce a general VLAN cache somewhere in switchdev/DSA/driver?
->>>>>
->>>>> Truth be told, I don't quite understand why switchdev infra even tries
->>>>> to dump the VLANs from the device. Like, in which situations is this
->>>>> going to be different from what the software bridge reports? Sure, you
->>>>> can set the VLAN filters with SELF and skip the software bridge, but how
->>>>> does that make sense in a model where you want to reflect the software
->>>>> datapath?
->>>>
->>>> But the vlans added by rtnl_bridge_setlink & SELF are not tracked by the
->>>> bridge and therefore driver needs to dump them. You would have to pass
->>>> some flag down to driver when adding SWITCHDEV_OBJ_ID_PORT_VLAN
->>>> indicating the need to track the vlan and dump it. Right?
->>>
->>> Right, but back to my question - what's the use case for the SELF flag
->>> in the switchdev model? Why would I configure a VLAN filter in the
->>> hardware but not in the software bridge? The whole point is reflecting
->>> the software bridge to the hardware.
->>
->> I agree. For the bridge-switchdev usecase, I don't see a reason to use
->> SELF for vlans as well. Do you suggest to simply remove this possibility?
+From: Stephen Boyd <sboyd@codeaurora.org>
+Date: Mon,  9 Jan 2017 14:31:58 -0800
+
+> Failure to mark this pointer as __le32 causes checkers like
+> sparse to complain:
 > 
-> Yes. This would also solve Florian's problem.
+> net/qrtr/qrtr.c:274:16: warning: incorrect type in assignment (different base types)
+> net/qrtr/qrtr.c:274:16:    expected unsigned int [unsigned] [usertype] <noident>
+> net/qrtr/qrtr.c:274:16:    got restricted __le32 [usertype] <noident>
+> net/qrtr/qrtr.c:275:16: warning: incorrect type in assignment (different base types)
+> net/qrtr/qrtr.c:275:16:    expected unsigned int [unsigned] [usertype] <noident>
+> net/qrtr/qrtr.c:275:16:    got restricted __le32 [usertype] <noident>
+> net/qrtr/qrtr.c:276:16: warning: incorrect type in assignment (different base types)
+> net/qrtr/qrtr.c:276:16:    expected unsigned int [unsigned] [usertype] <noident>
+> net/qrtr/qrtr.c:276:16:    got restricted __le32 [usertype] <noident>
 > 
-> Florian, what do you think?
+> Silence it.
+> 
+> Cc: Bjorn Andersson <bjorn.andersson@linaro.org>
+> Signed-off-by: Stephen Boyd <sboyd@codeaurora.org>
 
-I don't really see a value for configuring a VLAN in HW exclusively and
-not at the SW bridge level as well (unless you wanted some kind of
-discarding of packets?). Even with the patch proposed a while back to
-decouple the bridge master device, we would still end up with the same
-VLAN attributes programmed in HW and SW.
-
-Vivien, Andrew, are you aware of an use case where we have the HW
-programmed with a superset of VLANs wrt. the SW bridge?
--- 
-Florian
+Applied, thanks.
