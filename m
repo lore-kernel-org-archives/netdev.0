@@ -1,57 +1,88 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH v2 7/8] net: Rename TCA*BPF_DIGEST to ..._SHA256
-Date: Wed, 11 Jan 2017 10:09:46 +0100
-Message-ID: <5875F65A.4010904@iogearbox.net>
-References: <cover.1484090585.git.luto@kernel.org> <f284a4d87cde103cd78de64b8607e3c80a17e2e5.1484090585.git.luto@kernel.org> <58758169.2020408@iogearbox.net> <CALCETrUHenMS1iomFr7+YEy_M3zaotrWbfMe93=BmzCbzJ0fLw@mail.gmail.com>
+From: Leon Romanovsky <leon@kernel.org>
+Subject: Re: [RFC v2 00/10] HFI Virtual Network Interface Controller (VNIC)
+Date: Wed, 11 Jan 2017 11:16:55 +0200
+Message-ID: <20170111091655.GZ7218@mtr-leonro.local>
+References: <1481788782-89964-1-git-send-email-niranjana.vishwanathapura@intel.com>
+ <20161215091226.GC811@mtr-leonro.local>
+ <20161215145212.GA29116@phlsvsds.ph.intel.com>
+ <380b05bf-a18e-1f20-7e8e-10b61f77dec7@redhat.com>
+ <20170109075104.GV15685@mtr-leonro.local>
+ <20170110033954.GA53664@knc-06.sc.intel.com>
+ <20170110081402.GH7218@mtr-leonro.local>
+ <20170111090539.GA78804@knc-06.sc.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Andy Lutomirski <luto@kernel.org>, Netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
-        "Jason A. Donenfeld" <Jason@zx2c4.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Eric Biggers <ebiggers3@gmail.com>,
-        Tom Herbert <tom@herbertland.com>,
+Content-Type: multipart/signed; micalg=pgp-sha256;
+        protocol="application/pgp-signature"; boundary="IUSVF+LtaR4kWxuH"
+Cc: Doug Ledford <dledford@redhat.com>,
+        "ira.weiny" <ira.weiny@intel.com>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
         "David S. Miller" <davem@davemloft.net>,
-        Alexei Starovoitov <ast@kernel.org>
-To: Andy Lutomirski <luto@amacapital.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CALCETrUHenMS1iomFr7+YEy_M3zaotrWbfMe93=BmzCbzJ0fLw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+        linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
+        dennis.dalessandro@intel.com
+To: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.kernel.org ([198.145.29.136]:52662 "EHLO mail.kernel.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1756004AbdAKJQw (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 11 Jan 2017 04:16:52 -0500
+Content-Disposition: inline
+In-Reply-To: <20170111090539.GA78804@knc-06.sc.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Andy,
 
-On 01/11/2017 04:11 AM, Andy Lutomirski wrote:
-> On Tue, Jan 10, 2017 at 4:50 PM, Daniel Borkmann <daniel@iogearbox.net> wrote:
->> On 01/11/2017 12:24 AM, Andy Lutomirski wrote:
->>>
->>> This makes it easier to add another digest algorithm down the road if
->>> needed.  It also serves to force any programs that might have been
->>> written against a kernel that had the old field name to notice the
->>> change and make any necessary changes.
->>>
->>> This shouldn't violate any stable API policies, as no released kernel
->>> has ever had TCA*BPF_DIGEST.
->>
->> Imho, this and patch 6/8 is not really needed. Should there ever
->> another digest alg be used (doubt it), then you'd need a new nl
->> attribute and fdinfo line anyway to keep existing stuff intact.
->> Nobody made the claim that you can just change this underneath
->> and not respecting abi for existing applications when I read from
->> above that such apps now will get "forced" to notice a change.
+--IUSVF+LtaR4kWxuH
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+On Wed, Jan 11, 2017 at 01:05:39AM -0800, Vishwanathapura, Niranjana wrote:
+> On Tue, Jan 10, 2017 at 10:14:02AM +0200, Leon Romanovsky wrote:
+> > On Mon, Jan 09, 2017 at 07:39:54PM -0800, Vishwanathapura, Niranjana wr=
+ote:
+> > > We are also looking into Jason=E2=80=99s suggestion to make hfi_vnic =
+interface to
+> > > the bottom driver a generic interface. This will include moving some =
+of the
+> > > netstack interfacing to the bottom hfi1 driver.
+> >
+> > Great, do you have rough estimation when will it be posted on the ML?
+> >
+> > Thanks
+> >
 >
-> Fair enough.  I was more concerned about prerelease iproute2 versions,
-> but maybe that's a nonissue.  I'll drop these two patches.
+> Hi Leon,
+>
+> I am currently doing some prototype on this. I will respond with the
+> interface definition first once I have it solidified. RFC v3 with
+> implemetion will be later.
 
-Ok. Sleeping over this a bit, how about a general rename into
-"prog_tag" for fdinfo and TCA_BPF_TAG resp. TCA_ACT_BPF_TAG for
-the netlink attributes, fwiw, it might reduce any assumptions on
-this being made? If this would be preferable, I could cook that
-patch against -net for renaming it?
+It makes sense.
+Thanks
 
-Thanks,
-Daniel
+>
+> Niranjana
+>
+>
+
+--IUSVF+LtaR4kWxuH
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAlh1+AcACgkQ5GN7iDZy
+WKdjiQ//aUxtTbM9nCSas6rRow2OhozmjQy2jai1S+sDpL+vQ6/Ylr5Xg2nWA9ay
++BzscJ3mCx2jrwhvCwDiy7B25kKLe1iopyeHw44hjVv78sdyORCAzD1BuNhH9MZf
+c0x9JaJzZLp/13wQcM6aDLu0ERkVPG+llfiBkq1KUERAaRIESPrRRY3hbnuiPXrt
+Gk+3bkhIg5MeK+E6pd873k5ySQ3PL01i/VORLeftgs50uDY1EZ34iK2h2d3bcqEi
+Mw7Plpx46d57GI1h9Jc1ummHp+K7HHMQ6c/Fnwohdf9XEaZGTOkmpH5nFs1Ziurj
+vnSduuP09HKYSDqn7aZhgEji0VvssG30jCtaMOxBDUD2EaSiBWo5WqYdR/AwlYZd
+CLkBNprLpXZOzd+XTAzIDmdO2TpADTwgf1G3VlFdT6Yd/LWrn4yQgx4J8ieHM1/2
+KRhZuH9pPXDwjfFdmTGjfuOsYJnPk2+DXN6haQhepWQRcdnpd0s/CBoadqidLCXM
+K9tkZyIvkwcdvUQ9fpmAGMvYDUfdwPlPJorvC0pAfhoAUXdHdRqiMhGWiZeNHkpq
+eyeKQaIv23C5fRSztSnE6fMcSbHbBiXIpA2EiDwO4Br/AXvOCQGGjq3Z0kdOLISq
+QXWfgZEtuSHpB3NQtr18YbO1KFqZOBSLaH48cQrxuZs1MdEPrqY=
+=z2yx
+-----END PGP SIGNATURE-----
+
+--IUSVF+LtaR4kWxuH--
