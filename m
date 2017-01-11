@@ -1,7 +1,7 @@
 From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Subject: [PATCH net-next 06/13] s390/qeth: drop qeth_l2_del_all_macs() parameter
-Date: Wed, 11 Jan 2017 12:55:53 +0100
-Message-ID: <20170111115600.4524-7-ubraun@linux.vnet.ibm.com>
+Subject: [PATCH net-next 03/13] s390/qeth: warning for OSA3 RX/TX checksum offloading
+Date: Wed, 11 Jan 2017 12:55:50 +0100
+Message-ID: <20170111115600.4524-4-ubraun@linux.vnet.ibm.com>
 References: <20170111115600.4524-1-ubraun@linux.vnet.ibm.com>
 Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
         schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
@@ -12,53 +12,41 @@ In-Reply-To: <20170111115600.4524-1-ubraun@linux.vnet.ibm.com>
 Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Julian Wiedmann <jwi@linux.vnet.ibm.com>
+From: Thomas Richter <tmricht@linux.vnet.ibm.com>
 
-The only caller passes del = 0, so remove both the parameter and
-the code that handles != 0.
+When RX/TX checksum offloading is turned on and the adapter is
+an OSA 3 card in layer 3 mode, the checksum offloading is only
+performed when both peers use different adapters. If both peers
+share an OSA 3 card, communication is a memory copy and
+checksum offloading is not performed.
 
-Signed-off-by: Julian Wiedmann <jwi@linux.vnet.ibm.com>
+This patch adds a warning to inform the administrator.
+
+OSA 3 in layer 2 mode does not offer the RX/TX checksum
+offload feature.
+
+Signed-off-by: Thomas Richter <tmricht@linux.vnet.ibm.com>
 Signed-off-by: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Reviewed-by: Thomas Richter <tmricht@linux.vnet.ibm.com>
+Reviewed-by: Julian Wiedmann <jwi@linux.vnet.ibm.com>
 ---
- drivers/s390/net/qeth_l2_main.c | 11 ++---------
- 1 file changed, 2 insertions(+), 9 deletions(-)
+ drivers/s390/net/qeth_core_main.c | 5 +++++
+ 1 file changed, 5 insertions(+)
 
-diff --git a/drivers/s390/net/qeth_l2_main.c b/drivers/s390/net/qeth_l2_main.c
-index 9c921c28..3025f56 100644
---- a/drivers/s390/net/qeth_l2_main.c
-+++ b/drivers/s390/net/qeth_l2_main.c
-@@ -216,7 +216,7 @@ static int qeth_l2_write_mac(struct qeth_card *card, struct qeth_mac *mac)
- 	return rc;
- }
- 
--static void qeth_l2_del_all_macs(struct qeth_card *card, int del)
-+static void qeth_l2_del_all_macs(struct qeth_card *card)
- {
- 	struct qeth_mac *mac;
- 	struct hlist_node *tmp;
-@@ -224,13 +224,6 @@ static void qeth_l2_del_all_macs(struct qeth_card *card, int del)
- 
- 	spin_lock_bh(&card->mclock);
- 	hash_for_each_safe(card->mac_htable, i, tmp, mac, hnode) {
--		if (del) {
--			if (mac->is_uc)
--				qeth_l2_send_setdelmac(card, mac->mac_addr,
--						IPA_CMD_DELVMAC);
--			else
--				qeth_l2_send_delgroupmac(card, mac->mac_addr);
--		}
- 		hash_del(&mac->hnode);
- 		kfree(mac);
+diff --git a/drivers/s390/net/qeth_core_main.c b/drivers/s390/net/qeth_core_main.c
+index 49b813f..ca8309f 100644
+--- a/drivers/s390/net/qeth_core_main.c
++++ b/drivers/s390/net/qeth_core_main.c
+@@ -6116,6 +6116,11 @@ static int qeth_send_checksum_on(struct qeth_card *card, int cstype)
+ 		if ((required_features & chksum_cb.supported) !=
+ 		    required_features)
+ 			rc = -EIO;
++		else if (!(QETH_IPA_CHECKSUM_LP2LP & chksum_cb.supported) &&
++			 cstype == IPA_INBOUND_CHECKSUM)
++			dev_warn(&card->gdev->dev,
++				 "Hardware checksumming is performed only if %s and its peer use different OSA Express 3 ports\n",
++				 QETH_CARD_IFNAME(card));
  	}
-@@ -425,7 +418,7 @@ static void qeth_l2_stop_card(struct qeth_card *card, int recovery_mode)
- 		card->state = CARD_STATE_SOFTSETUP;
- 	}
- 	if (card->state == CARD_STATE_SOFTSETUP) {
--		qeth_l2_del_all_macs(card, 0);
-+		qeth_l2_del_all_macs(card);
- 		qeth_clear_ipacmd_list(card);
- 		card->state = CARD_STATE_HARDSETUP;
- 	}
+ 	if (rc) {
+ 		qeth_send_simple_setassparms(card, cstype, IPA_CMD_ASS_STOP, 0);
 -- 
 2.8.4
