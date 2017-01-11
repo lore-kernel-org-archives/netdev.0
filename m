@@ -1,33 +1,40 @@
 From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [PATCH/RFC net-next 0/2] net/sched: cls_flower: Support matching
- ARP
-Date: Wed, 11 Jan 2017 14:07:12 +0100
-Message-ID: <20170111130711.GA18510@penelope.horms.nl>
-References: <1484128942-11745-1-git-send-email-simon.horman@netronome.com>
- <20170111102707.GG1852@nanopsycho>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Pirko <jiri@mellanox.com>,
-        Dinan Gunawardena <dinan.gunawardena@netronome.com>,
-        netdev@vger.kernel.org, oss-drivers@netronome.com
-To: Jiri Pirko <jiri@resnulli.us>
+Subject: [PATCH iproute2/net-next] tc: ife: correct spelling of prio in example
+Date: Wed, 11 Jan 2017 14:10:16 +0100
+Message-ID: <1484140216-19142-1-git-send-email-simon.horman@netronome.com>
+Cc: Dinan Gunawardena <dinan.gunawardena@netronome.com>,
+        netdev@vger.kernel.org, Simon Horman <simon.horman@netronome.com>,
+        Lucas Bates <lucasb@mojatatu.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wj0-f169.google.com ([209.85.210.169]:34227 "EHLO
-        mail-wj0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S966472AbdAKNHQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 08:07:16 -0500
-Received: by mail-wj0-f169.google.com with SMTP id tn15so101959580wjb.1
-        for <netdev@vger.kernel.org>; Wed, 11 Jan 2017 05:07:16 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20170111102707.GG1852@nanopsycho>
+Received: from kirsty.vergenet.net ([202.4.237.240]:56973 "EHLO
+        kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S966467AbdAKNK3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 08:10:29 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 11, 2017 at 11:27:07AM +0100, Jiri Pirko wrote:
-> Wed, Jan 11, 2017 at 11:02:20AM CET, simon.horman@netronome.com wrote:
-> >Add support for support matching on ARP operation, and hardware and
-> >protocol addresses for Ethernet hardware and IPv4 protocol addresses.
-> 
-> This patchset looks fine to me. Please feel free to submit it.
+Correct typo in example in ife man page.
 
-Thanks, done.
+Fixes: 06f9a59170c0 ("man: tc-ife.8: man page for ife action")
+Cc: Lucas Bates <lucasb@mojatatu.com>
+Signed-off-by: Simon Horman <simon.horman@netronome.com>
+---
+ man/man8/tc-ife.8 | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/man/man8/tc-ife.8 b/man/man8/tc-ife.8
+index aaf0f97d5c8d..dae8b9be9bcb 100644
+--- a/man/man8/tc-ife.8
++++ b/man/man8/tc-ife.8
+@@ -99,7 +99,7 @@ classification so that it will match ICMP on the next rule, at prio 3:
+ # tc filter add dev eth0 parent ffff: prio 2 protocol 0xdead \\
+ 	u32 match u32 0 0 flowid 1:1 \\
+ 	action ife decode reclassify
+-# tc filter add dev eth0 parent ffff: priod 3 protocol ip \\
++# tc filter add dev eth0 parent ffff: prio 3 protocol ip \\
+ 	u32 match ip protocol 0xff flowid 1:1 \\
+ 	action continue
+ .EE
+-- 
+2.7.0.rc3.207.g0ac5344
