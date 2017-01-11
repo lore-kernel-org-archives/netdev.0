@@ -1,32 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: dsa: Ensure validity of dst->ds[0]
-Date: Tue, 10 Jan 2017 20:19:58 -0500 (EST)
-Message-ID: <20170110.201958.2241956529987896253.davem@davemloft.net>
-References: <20170109195834.11697-1-f.fainelli@gmail.com>
+Subject: Re: kill off pci_enable_msi_{exact,range}
+Date: Tue, 10 Jan 2017 20:20:24 -0500 (EST)
+Message-ID: <20170110.202024.798810764764725086.davem@davemloft.net>
+References: <1483994260-19797-1-git-send-email-hch@lst.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, vivien.didelot@savoirfairelinux.com,
-        andrew@lunn.ch
-To: f.fainelli@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:33552 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752929AbdAKBUA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2017 20:20:00 -0500
-In-Reply-To: <20170109195834.11697-1-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-pci@vger.kernel.org, mchehab@s-opensource.com,
+        netdev@vger.kernel.org, linux-media@vger.kernel.org
+To: hch@lst.de
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <1483994260-19797-1-git-send-email-hch@lst.de>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Mon,  9 Jan 2017 11:58:34 -0800
+From: Christoph Hellwig <hch@lst.de>
+Date: Mon,  9 Jan 2017 21:37:37 +0100
 
-> It is perfectly possible to have non zero indexed switches being present
-> in a DSA switch tree, in such a case, we will be deferencing a NULL
-> pointer while dsa_cpu_port_ethtool_{setup,restore}. Be more defensive
-> and ensure that dst->ds[0] is valid before doing anything with it.
+> I had hope that we could kill these old interfaces of for 4.10-rc,
+> but as of today Linus tree still has two users:
 > 
-> Fixes: 0c73c523cf73 ("net: dsa: Initialize CPU port ethtool ops per tree")
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+>  (1) the cobalt media driver, for which I sent a patch long time ago,
+>      it got missed in the merge window.
+>  (2) the new xgbe driver was merged in 4.10-rc but used the old interfaces
+>      anyway
+> 
+> This series resend the patch for (1) and adds a new one for (2), as well
+> as having the final removal patch behind it.  Maybe we should just queue
+> up all three together in the PCI tree for 4.11?
 
-Applied and queued up for -stable, thanks.
+Feel free to toss this into the PCI tree.
