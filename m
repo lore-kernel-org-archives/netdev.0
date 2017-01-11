@@ -1,46 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: TCP using IPv4-mapped IPv6 address as source
-Date: Wed, 11 Jan 2017 13:47:37 -0800
-Message-ID: <1484171257.15816.5.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <87f4e2ec-22bf-2401-8401-57205f893289@udel.edu>
-         <1484151607.21472.55.camel@edumazet-glaptop3.roam.corp.google.com>
-         <d8df0fb3-6053-10e1-fc43-cccbfc3799bf@udel.edu>
-         <1484159519.21472.72.camel@edumazet-glaptop3.roam.corp.google.com>
-         <14f352f9-6c0a-17da-f28f-b23fe8ecd2a2@udel.edu>
-         <20170111195909.GL24086@oracle.com>
-         <1484167422.15816.1.camel@edumazet-glaptop3.roam.corp.google.com>
-         <0d48793d-81f1-3666-5c47-9c2431198dc1@udel.edu>
+From: Rami Rosen <roszenrami@gmail.com>
+Subject: Re: [PATCH v2 01/13] net: ethernet: aquantia: Make and configuration files.
+Date: Thu, 12 Jan 2017 00:05:04 +0200
+Message-ID: <CAKoUAr=oxiQnQZnHYo2=yyUx=xftaMy3o5amMaRbf+xvQGpLwQ@mail.gmail.com>
+References: <cover.1483999588.git.vomlehn@texas.net> <0b0d8974bdbfa66ab3bc4460f32f7916dd54b85a.1483999588.git.vomlehn@texas.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Sowmini Varadhan <sowmini.varadhan@oracle.com>,
-        netdev@vger.kernel.org, edumazet@google.com,
-        Yuchung Cheng <ycheng@google.com>,
-        Neal Cardwell <ncardwell@google.com>
-To: "Jonathan T. Leighton" <jtleight@udel.edu>
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>, David VomLehn <vomlehn@texas.net>,
+        Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
+        Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>,
+        Pavel Belous <Pavel.Belous@aquantia.com>
+To: Alexander Loktionov <Alexander.Loktionov@aquantia.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:36119 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752103AbdAKVrj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 16:47:39 -0500
-Received: by mail-pf0-f194.google.com with SMTP id b22so108651pfd.3
-        for <netdev@vger.kernel.org>; Wed, 11 Jan 2017 13:47:39 -0800 (PST)
-In-Reply-To: <0d48793d-81f1-3666-5c47-9c2431198dc1@udel.edu>
+Received: from mail-it0-f67.google.com ([209.85.214.67]:35827 "EHLO
+        mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751141AbdAKWFF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 17:05:05 -0500
+Received: by mail-it0-f67.google.com with SMTP id 203so569770ith.2
+        for <netdev@vger.kernel.org>; Wed, 11 Jan 2017 14:05:05 -0800 (PST)
+In-Reply-To: <0b0d8974bdbfa66ab3bc4460f32f7916dd54b85a.1483999588.git.vomlehn@texas.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2017-01-11 at 16:26 -0500, Jonathan T. Leighton wrote:
+Hi,
 
-> I'm sure I understand what you're saying here. There should be no flow 
-> to terminate.
 
-rfc2765 describes a way to use IPv4-mapped IPv6 packets on the wire.
+> +++ b/drivers/net/ethernet/aquantia/Makefile
+> @@ -0,0 +1,44 @@
+...
+...
+> > +obj-$(CONFIG_AQTION) += atlantic.o
+> +
+> +atlantic-objs := aq_main.o \
+> +       aq_nic.o \
+> +       aq_pci_func.o \
 
-What I meant by 'terminating' was that it does not tell if an end system
-(a host) is allowed to natively generate these packets.
+Why twice aq_nic.o ? it appears two lines earlier:
 
-Anyway,
-https://tools.ietf.org/html/draft-itojun-v6ops-v4mapped-harmful-00 
+> +       aq_nic.o \
+> +       aq_vec.o \
+> +       aq_ring.o \
+...
+...
 
-(which does not appear to be an RFC), tells us this would be
-dangerous ;)
+Regards,
+Rami Rosen
