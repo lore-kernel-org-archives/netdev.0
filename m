@@ -1,32 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: phy: marvell: fix Marvell 88E1512 used in SGMII mode
-Date: Wed, 11 Jan 2017 10:03:23 -0500 (EST)
-Message-ID: <20170111.100323.1789649822390190475.davem@davemloft.net>
-References: <E1cR5bt-0000O8-1T@rmk-PC.armlinux.org.uk>
- <61950d83-cbe1-6e1b-4afc-bc471b386ff3@gmail.com>
+Subject: Re: [PATCH] net: vrf: do not allow table id 0
+Date: Wed, 11 Jan 2017 10:04:58 -0500 (EST)
+Message-ID: <20170111.100458.1322323080511918611.davem@davemloft.net>
+References: <1484090545-16407-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, rmk+kernel@armlinux.org.uk, netdev@vger.kernel.org,
- linux-arm-kernel@lists.infradead.org, charles-antoine.couret@nexvision.fr
-To: f.fainelli@gmail.com
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <61950d83-cbe1-6e1b-4afc-bc471b386ff3@gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, frank.kellermann@atos.net
+To: dsa@cumulusnetworks.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:50610 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751052AbdAKPFA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 10:05:00 -0500
+In-Reply-To: <1484090545-16407-1-git-send-email-dsa@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Tue, 10 Jan 2017 15:24:11 -0800
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Tue, 10 Jan 2017 15:22:25 -0800
 
-> Fixes: 6cfb3bcc0641 ("Marvell phy: check link status in case of fiber
-> link.")
+> Frank reported that vrf devices can be created with a table id of 0.
+> This breaks many of the run time table id checks and should not be
+> allowed. Detect this condition at create time and fail with EINVAL.
+> 
+> Fixes: 193125dbd8eb ("net: Introduce VRF device driver")
+> Reported-by: Frank Kellermann <frank.kellermann@atos.net>
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 
-Thanks, I added this to Russell's commit message.
+Applied and queued up for -stable, thanks David.
