@@ -1,36 +1,68 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] wext: handle NULL exta data in iwe_stream_add_point
- better
-Date: Wed, 11 Jan 2017 16:06:17 +0100
-Message-ID: <1484147177.29931.14.camel@sipsolutions.net>
-References: <20170111143532.485827-1-arnd@arndb.de>
-         <1484145522.29931.13.camel@sipsolutions.net>
-         <CAK8P3a2mOT=BG=9yxJ1e-q__5FYq6dfF3t3bT1vqcgFaQAUjog@mail.gmail.com>
-         (sfid-20170111_160001_614546_326AFA12)
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Subject: Re: [PATCH v2 0/2] remove dwc_eth_qos and rename stmicro/stmmac
+Date: Wed, 11 Jan 2017 15:06:55 +0000
+Message-ID: <329b0d8c-4cda-7238-c229-d69ac251f26b@synopsys.com>
+References: <cover.1484059674.git.jpinto@synopsys.com>
+ <0dcdcb5f-200b-b130-9a67-774639353114@st.com>
+ <20170111.095256.1057845755758556047.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org,
-        "David S. Miller" <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAK8P3a2mOT=BG=9yxJ1e-q__5FYq6dfF3t3bT1vqcgFaQAUjog@mail.gmail.com> (sfid-20170111_160001_614546_326AFA12)
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 8bit
+Cc: <Joao.Pinto@synopsys.com>, <lars.persson@axis.com>,
+        <niklass@axis.com>, <peppe.cavallaro@st.com>,
+        <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>, <alexandre.torgue@st.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from us01smtprelay-2.synopsys.com ([198.182.47.9]:38798 "EHLO
+        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756516AbdAKPHn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 10:07:43 -0500
+In-Reply-To: <20170111.095256.1057845755758556047.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2017-01-11 at 16:00 +0100, Arnd Bergmann wrote:
-> On Wed, Jan 11, 2017 at 3:38 PM, Johannes Berg
-> <johannes@sipsolutions.net> wrote:
-> > On Wed, 2017-01-11 at 15:35 +0100, Arnd Bergmann wrote:
-> > > This works fine here because iwe->u.data.length is guaranteed to
-> > > be
-> > > NULL, and the memcpy doesn't actually have an effect.
-> > 
-> > I think you mean 0, not NULL, but I can fix that when I apply it.
+Hello David,
+
+Às 2:52 PM de 1/11/2017, David Miller escreveu:
+> From: Alexandre Torgue <alexandre.torgue@st.com>
+> Date: Wed, 11 Jan 2017 12:39:09 +0100
 > 
-> Right, thanks!
+>> Let's see what David think about that but if there no risk of backward
+>> compatibility with DT, I agree with the series.
+> 
+> I really am generally against driver renames.  The only potentially
+> make new users happy, but can only negatively impact existing users.
+> 
+> The new name is not terribly appropriate either, it is using the name
+> of the manufacturer rather than referring to a chipset or a class or
+> chipsets.
 
-Applied. Also fixed the typo in the subject :)
+stmmac is in fact a bundle of Synopsys Ethernet IPs. We can go with Jie'
+suggestion a include all the Ips it supports like "Synopsys 10M/100M/1G/eQOS
+Ethernet Drivers".
 
-johannes
+> 
+> I don't see what the big deal is in leaving the name as 'stmmac' and
+> in a way leaving it alone shows respect for the people who have worked
+> on and cared for the stmmac driver for all of these years.
+
+I have a huge respect for STMicroelectronics and above all respect for the
+developers that work hard to put things working properly and care for it, and
+that's why before starting developing I had a discussion with stmmac maintainers
+in order to align with them. From me you can only expect collaboration, help and
+dedication, since Linux is for common good right, or at least I believe so.
+Another thing to point is that I wish that Alexandre and Peppe remain
+maintainers since they are doing an excelent job.
+
+The goal of this work is to improve code organization and future merge of other
+Synopsys Ethernet IP driver that will be able to merge into this "synopsys
+driver bundle". That is why I volunteered to merge the dwc qos axis' driver into
+stmmac.
+
+Thanks.
+Joao
+
+
+> 
+> Thanks.
+> 
