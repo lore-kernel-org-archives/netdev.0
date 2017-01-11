@@ -1,47 +1,43 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH net-next] sfc: efx_get_phys_port_id() can be static
-Date: Wed, 11 Jan 2017 16:16:12 +0000
-Message-ID: <20170111161612.14384-1-weiyj.lk@gmail.com>
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Subject: Re: [PATCH v2 0/2] remove dwc_eth_qos and rename stmicro/stmmac
+Date: Wed, 11 Jan 2017 16:17:50 +0000
+Message-ID: <a0619a6c-12be-38ae-1b41-ad70d4f89926@synopsys.com>
+References: <0dcdcb5f-200b-b130-9a67-774639353114@st.com>
+ <20170111.095256.1057845755758556047.davem@davemloft.net>
+ <329b0d8c-4cda-7238-c229-d69ac251f26b@synopsys.com>
+ <20170111.102000.1291650495305959047.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Wei Yongjun <weiyongjun1@huawei.com>, netdev@vger.kernel.org
-To: Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
-        Edward Cree <ecree@solarflare.com>,
-        Bert Kenward <bkenward@solarflare.com>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 8bit
+Cc: <alexandre.torgue@st.com>, <lars.persson@axis.com>,
+        <niklass@axis.com>, <peppe.cavallaro@st.com>,
+        <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>, <Joao.Pinto@synopsys.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f68.google.com ([74.125.83.68]:36472 "EHLO
-        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751622AbdAKQQU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 11:16:20 -0500
-Received: by mail-pg0-f68.google.com with SMTP id 75so15901299pgf.3
-        for <netdev@vger.kernel.org>; Wed, 11 Jan 2017 08:16:20 -0800 (PST)
+Received: from smtprelay2.synopsys.com ([198.182.60.111]:34094 "EHLO
+        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1755197AbdAKQR4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 11:17:56 -0500
+In-Reply-To: <20170111.102000.1291650495305959047.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <weiyongjun1@huawei.com>
+Às 3:20 PM de 1/11/2017, David Miller escreveu:
+> From: Joao Pinto <Joao.Pinto@synopsys.com>
+> Date: Wed, 11 Jan 2017 15:06:55 +0000
+> 
+>> The goal of this work is to improve code organization and future merge of other
+>> Synopsys Ethernet IP driver that will be able to merge into this "synopsys
+>> driver bundle". That is why I volunteered to merge the dwc qos axis' driver into
+>> stmmac.
+> 
+> Then I want to see an ACK from Alexandre and Peppe for this renaming
+> patch set.
+> 
 
-Fixes the following sparse warning:
+Of course!
 
-drivers/net/ethernet/sfc/efx.c:2337:5: warning:
- symbol 'efx_get_phys_port_id' was not declared. Should it be static?
+Alexandre and Peppe do you want a file / function rename as well?
 
-Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
----
- drivers/net/ethernet/sfc/efx.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
-index 543fa48..f2ec853 100644
---- a/drivers/net/ethernet/sfc/efx.c
-+++ b/drivers/net/ethernet/sfc/efx.c
-@@ -2334,8 +2334,8 @@ static int efx_set_features(struct net_device *net_dev, netdev_features_t data)
- 	return 0;
- }
- 
--int efx_get_phys_port_id(struct net_device *net_dev,
--			 struct netdev_phys_item_id *ppid)
-+static int efx_get_phys_port_id(struct net_device *net_dev,
-+				struct netdev_phys_item_id *ppid)
- {
- 	struct efx_nic *efx = netdev_priv(net_dev);
+Thanks.
+Joao
