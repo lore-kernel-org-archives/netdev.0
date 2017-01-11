@@ -1,57 +1,107 @@
-From: "Kwok, WingMan" <w-kwok2@ti.com>
-Subject: RE: Marvell Phy (1510) issue since v4.7 kernel
-Date: Wed, 11 Jan 2017 23:09:03 +0000
-Message-ID: <230CBA6E4B6B6B418E8730AC28E6FC7E15354B2B@DFLE11.ent.ti.com>
-References: <587410EF.5090607@ti.com> <20170109225641.GB22820@lunn.ch>
- <230CBA6E4B6B6B418E8730AC28E6FC7E153545A3@DFLE11.ent.ti.com>
- <20170109235534.GH22820@lunn.ch>
- <230CBA6E4B6B6B418E8730AC28E6FC7E153545C9@DFLE11.ent.ti.com>
- <20170110015336.GA7160@lunn.ch>
- <230CBA6E4B6B6B418E8730AC28E6FC7E15354AC2@DFLE11.ent.ti.com>
- <20170111222758.GG13033@lunn.ch>
- <230CBA6E4B6B6B418E8730AC28E6FC7E15354AE5@DFLE11.ent.ti.com>
- <20170111225948.GH13033@lunn.ch>
+From: Vineeth Remanan Pillai <vineethp@amazon.com>
+Subject: [PATCH] xen-netfront: Fix Rx stall during network stress and OOM
+Date: Wed, 11 Jan 2017 23:17:17 +0000
+Message-ID: <1484176637-2869-1-git-send-email-vineethp@amazon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "rmk+kernel@arm.linux.org.uk" <rmk+kernel@arm.linux.org.uk>,
-        "charles-antoine.couret@nexvision.fr"
-        <charles-antoine.couret@nexvision.fr>,
-        "Karicheri, Muralidharan" <m-karicheri2@ti.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fllnx209.ext.ti.com ([198.47.19.16]:60587 "EHLO
-        fllnx209.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1759772AbdAKXKh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 18:10:37 -0500
-In-Reply-To: <20170111225948.GH13033@lunn.ch>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Vineeth Remanan Pillai <vineethp@amazon.com>, <kamatam@amazon.com>,
+        <aliguori@amazon.com>
+To: <boris.ostrovsky@oracle.com>, <jgross@suse.com>,
+        <xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogQW5kcmV3IEx1bm4gW21h
-aWx0bzphbmRyZXdAbHVubi5jaF0NCj4gU2VudDogV2VkbmVzZGF5LCBKYW51YXJ5IDExLCAyMDE3
-IDY6MDAgUE0NCj4gVG86IEt3b2ssIFdpbmdNYW4NCj4gQ2M6IHJtaytrZXJuZWxAYXJtLmxpbnV4
-Lm9yZy51azsgY2hhcmxlcy1hbnRvaW5lLmNvdXJldEBuZXh2aXNpb24uZnI7DQo+IEthcmljaGVy
-aSwgTXVyYWxpZGhhcmFuOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnDQo+IFN1YmplY3Q6IFJlOiBN
-YXJ2ZWxsIFBoeSAoMTUxMCkgaXNzdWUgc2luY2UgdjQuNyBrZXJuZWwNCj4gDQo+ID4gbG9vcGlu
-ZyBpbiBDaGFybGVzLUFudG9pbmUgKGF1dGhvciBvZiBwYXRjaA0KPiA+IHdpdGggY29tbWl0IGlk
-IDZjZmIzYmNjKQ0KPiA+DQo+ID4gQ2hhcmxlcy1BbnRvaW5lLA0KPiA+DQo+ID4gRG8geW91IGhh
-dmUgdGhlIElEIG9mIE1hcnZlbGwgUEhZIDg4RTE1MTI/DQo+IA0KPiBJIHN1c3BlY3QgdGhhdCBp
-cyB0aGUgd3JvbmcgcXVlc3Rpb24gdG8gYXNrLg0KPiANCj4gVGhlIE1hcnZlbGwgZHJpdmVyIGlz
-IGJlaW5nIGxvYWRlZCwgc28gaXQgbXVzdCBiZSB1c2luZyBvbiBvZiB0aGUgSURzDQo+IGluIHRo
-ZSBkcml2ZXIuIFRoZXJlIGlzIG5vIElEIGluIHRoZSBkcml2ZXIgc3BlY2lmaWNhbGx5IGZvciB0
-aGUNCj4gODhFMTUxMi4gSXQgc2VlbXMgbGlrZSB0aGUgODhFMTUxMiB1c2VzIHRoZSA4OEUxNTEw
-IElELg0KPiANCj4gU28gaSB0aGluayB0aGUgY29ycmVjdCBxdWVzdGlvbiBzaG91bGQgYmUsIGhv
-dyBjYW4gd2UgdGVsbCB0aGUgODhFMTUxMg0KPiBmcm9tIHRoZSA4OEUxNTEwIGlmIHRoZXkgaGF2
-ZSB0aGUgc2FtZSBJRCBpbiByZWdpc3RlciAzLg0KPiANCj4gSXQgYXBwZWFycyB0aGF0IGZvciB0
-aGUgODhFMTUxMiwgcGFnZSAwIGFyZSB0aGUgY29wcGVyIHJlZ2lzdGVycyBhbmQNCj4gcGFnZSAx
-IGlzIHRoZSBmaWJyZSByZWdpc3RlcnMuIE1heWJlIHRoZSA4OEUxNTEyIGhhcyBhbiBJRCBpbiBw
-YWdlIDENCj4gcmVnaXN0ZXIgMz8gTWF5YmUgdGhlIDg4RTE1MTAgZG9lcyBub3QgaGF2ZSBhbiBJ
-RCBpbiBwYWdlIDEgcmVnaXN0ZXINCj4gMz8NCj4gDQo+IAlBbmRyZXcNCg0KQW5kcmV3LA0KDQpX
-b3VsZCBDaGFybGVzLUFudG9pbmUgYmUgdGhlIGJldHRlciBwZXJzb24gdG8gc3VibWl0IGEgcGF0
-Y2gNCnRvIGZpeCB0aGUgb3JpZ2luYWwgcHJvYmxlbSB0aGVuLCBzaW5jZSBoZSB0ZXN0ZWQgdGhl
-IG9yaWdpbmFsDQpmaWJlciBzdXBwb3J0IHBhdGNoIHdpdGggMTUxMj8gSSB1bmZvcnR1bmF0ZWx5
-IGRvbid0IGhhdmUgdGhlDQpkYXRhc2hlZXQgZm9yIDE1MTIsIGFuZCBpdCBkb2VzIG5vdCBzZWVt
-IHRvIGJlIGF2YWlsYWJsZSBwdWJsaWNseS4NCg0KUmVnYXJkcywNCldpbmdNYW4NCg0K
+During an OOM scenario, request slots could not be created as skb
+allocation fails. So the netback cannot pass in packets and netfront
+wrongly assumes that there is no more work to be done and it disables
+polling. This causes Rx to stall.
+
+Fix is to consider the skb allocation failure as an error and in the
+event of this error, re-enable polling so that request slots could be
+created when memory is available.
+
+Signed-off-by: Vineeth Remanan Pillai <vineethp@amazon.com>
+---
+ drivers/net/xen-netfront.c | 23 ++++++++++++++++-------
+ 1 file changed, 16 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+index 40f26b6..8275549 100644
+--- a/drivers/net/xen-netfront.c
++++ b/drivers/net/xen-netfront.c
+@@ -277,13 +277,14 @@ static struct sk_buff *xennet_alloc_one_rx_buffer(struct netfront_queue *queue)
+ }
+ 
+ 
+-static void xennet_alloc_rx_buffers(struct netfront_queue *queue)
++static int xennet_alloc_rx_buffers(struct netfront_queue *queue)
+ {
+ 	RING_IDX req_prod = queue->rx.req_prod_pvt;
+ 	int notify;
++	int err = 0;
+ 
+ 	if (unlikely(!netif_carrier_ok(queue->info->netdev)))
+-		return;
++		return err;
+ 
+ 	for (req_prod = queue->rx.req_prod_pvt;
+ 	     req_prod - queue->rx.rsp_cons < NET_RX_RING_SIZE;
+@@ -295,8 +296,10 @@ static void xennet_alloc_rx_buffers(struct netfront_queue *queue)
+ 		struct xen_netif_rx_request *req;
+ 
+ 		skb = xennet_alloc_one_rx_buffer(queue);
+-		if (!skb)
++		if (!skb) {
++			err = -ENOMEM;
+ 			break;
++		}
+ 
+ 		id = xennet_rxidx(req_prod);
+ 
+@@ -321,9 +324,9 @@ static void xennet_alloc_rx_buffers(struct netfront_queue *queue)
+ 	queue->rx.req_prod_pvt = req_prod;
+ 
+ 	/* Not enough requests? Try again later. */
+-	if (req_prod - queue->rx.rsp_cons < NET_RX_SLOTS_MIN) {
++	if (req_prod - queue->rx.sring->rsp_prod < NET_RX_SLOTS_MIN) {
+ 		mod_timer(&queue->rx_refill_timer, jiffies + (HZ/10));
+-		return;
++		return err;
+ 	}
+ 
+ 	wmb();		/* barrier so backend seens requests */
+@@ -331,6 +334,8 @@ static void xennet_alloc_rx_buffers(struct netfront_queue *queue)
+ 	RING_PUSH_REQUESTS_AND_CHECK_NOTIFY(&queue->rx, notify);
+ 	if (notify)
+ 		notify_remote_via_irq(queue->rx_irq);
++
++	return err;
+ }
+ 
+ static int xennet_open(struct net_device *dev)
+@@ -1046,7 +1051,7 @@ static int xennet_poll(struct napi_struct *napi, int budget)
+ 
+ 	work_done -= handle_incoming_queue(queue, &rxq);
+ 
+-	xennet_alloc_rx_buffers(queue);
++	err = xennet_alloc_rx_buffers(queue);
+ 
+ 	if (work_done < budget) {
+ 		int more_to_do = 0;
+@@ -1054,7 +1059,11 @@ static int xennet_poll(struct napi_struct *napi, int budget)
+ 		napi_complete(napi);
+ 
+ 		RING_FINAL_CHECK_FOR_RESPONSES(&queue->rx, more_to_do);
+-		if (more_to_do)
++
++		/* If there is more work to do or could not allocate
++		 * rx buffers, re-enable polling.
++		 */
++		if (more_to_do || err != 0)
+ 			napi_schedule(napi);
+ 	}
+ 
+-- 
+2.1.2.AMZN
