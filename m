@@ -1,59 +1,38 @@
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: Re: [PATCH v2 0/2] remove dwc_eth_qos and rename stmicro/stmmac
-Date: Wed, 11 Jan 2017 16:19:19 +0000
-Message-ID: <bb15d840-10ec-7249-98c5-3a48d0174ba6@synopsys.com>
-References: <0dcdcb5f-200b-b130-9a67-774639353114@st.com>
- <20170111.095256.1057845755758556047.davem@davemloft.net>
- <329b0d8c-4cda-7238-c229-d69ac251f26b@synopsys.com>
- <20170111.102000.1291650495305959047.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: TCP using IPv4-mapped IPv6 address as source
+Date: Wed, 11 Jan 2017 08:20:07 -0800
+Message-ID: <1484151607.21472.55.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <87f4e2ec-22bf-2401-8401-57205f893289@udel.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 8bit
-Cc: <alexandre.torgue@st.com>, <lars.persson@axis.com>,
-        <niklass@axis.com>, <peppe.cavallaro@st.com>,
-        <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>, <Joao.Pinto@synopsys.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, edumazet@google.com,
+        Yuchung Cheng <ycheng@google.com>,
+        Neal Cardwell <ncardwell@google.com>
+To: "Jonathan T. Leighton" <jtleight@udel.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay2.synopsys.com ([198.182.60.111]:34112 "EHLO
-        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751671AbdAKQTY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 11:19:24 -0500
-In-Reply-To: <20170111.102000.1291650495305959047.davem@davemloft.net>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:36014 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752180AbdAKQUJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 11:20:09 -0500
+Received: by mail-pf0-f193.google.com with SMTP id b22so16797819pfd.3
+        for <netdev@vger.kernel.org>; Wed, 11 Jan 2017 08:20:09 -0800 (PST)
+In-Reply-To: <87f4e2ec-22bf-2401-8401-57205f893289@udel.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Às 3:20 PM de 1/11/2017, David Miller escreveu:
-> From: Joao Pinto <Joao.Pinto@synopsys.com>
-> Date: Wed, 11 Jan 2017 15:06:55 +0000
-> 
->> The goal of this work is to improve code organization and future merge of other
->> Synopsys Ethernet IP driver that will be able to merge into this "synopsys
->> driver bundle". That is why I volunteered to merge the dwc qos axis' driver into
->> stmmac.
-> 
-> Then I want to see an ACK from Alexandre and Peppe for this renaming
-> patch set.
-> 
+On Thu, 2017-01-05 at 16:25 -0500, Jonathan T. Leighton wrote:
+> I've observed TCP using an IPv4-mapped IPv6 address as the source 
+> address, which I believe contradicts 
+> https://tools.ietf.org/html/rfc6890#page-14 (BCP 153). This occurs when 
+> an IPv6 TCP socket, bound to a local IPv4-mapped IPv6 address, attempts 
+> to connect to a remote IPv6 address. Presumable connect() should return 
+> EAFNOSUPPORT in this case. Please advise me if this is not to 
+> appropriate list to report this.
 
-Just a side question. My commits are assuming my username instead of my name.
-Did you ever had a similar issue? My gitconfig:
+Hi Jonathan
 
-> [user]
->         email = jpinto@synopsys.com
->         name = Joao Pinto
-> [format]
->         signoff = true
->         thread = true
-> [sendemail]
->         smtpEncryption = tls
->         smtpServer = <SERVER>
->         smtpUser = <SERVER_USER>
->         confirm = auto
-> [core]
->         excludesfile = /path/.gitignore [pack]
->         windowMemory = 2048m
-> [diff]
->         renames = copy
+I believe your concern makes sense.
+Do you have a patch to address this issue ?
 
-Thanks,
-Joao
+Thanks
