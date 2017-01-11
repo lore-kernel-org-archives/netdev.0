@@ -1,87 +1,98 @@
-From: Somnath Kotur <somnath.kotur@broadcom.com>
-Subject: Re: [PATCH net-next v3 10/27] benet: use __vlan_hwaccel helpers
-Date: Wed, 11 Jan 2017 10:59:54 +0530
-Message-ID: <CAOBf=muK-w-=5Vdz-3tMXUGw=YsFXB8sow+8iSd-Zo1kS9DNdw@mail.gmail.com>
-References: <cover.1483484748.git.mirq-linux@rere.qmqm.pl> <49348df8468691f6065a7a3c8c10dd076612d587.1483475202.git.mirq-linux@rere.qmqm.pl>
- <CACZ4nhsUxWYvM5HoASHb7-m2uZtnk3DN6cQigp+cObyLqPJXdA@mail.gmail.com> <8a9f0d12b69ee4e25fefc4872575d5cf31441bb8.1483484748.git.mirq-linux@rere.qmqm.pl>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [RFC PATCH 2/4] page_pool: basic implementation of page_pool
+Date: Wed, 11 Jan 2017 08:10:52 +0100
+Message-ID: <20170111081052.1df59d4d@redhat.com>
+References: <20161220132444.18788.50875.stgit@firesoul>
+        <20161220132817.18788.64726.stgit@firesoul>
+        <52478d40-8c34-4354-c9d8-286020eb26a6@suse.cz>
+        <20170104120055.7b277609@redhat.com>
+        <38d42210-de93-f16f-fa54-b149127fffeb@suse.cz>
+        <20170109214524.534f53a8@redhat.com>
+        <20170109215825.k4grwyhffiv6wksp@techsingularity.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@vger.kernel.org, Ajit Khaparde <ajit.khaparde@broadcom.com>
-To: =?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Vlastimil Babka <vbabka@suse.cz>, linux-mm@kvack.org,
+        Alexander Duyck <alexander.duyck@gmail.com>,
+        willemdebruijn.kernel@gmail.com, netdev@vger.kernel.org,
+        john.fastabend@gmail.com, Saeed Mahameed <saeedm@mellanox.com>,
+        bjorn.topel@intel.com,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Tariq Toukan <tariqt@mellanox.com>, brouer@redhat.com
+To: Mel Gorman <mgorman@techsingularity.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f50.google.com ([209.85.214.50]:38008 "EHLO
-        mail-it0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1761703AbdAKFaQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 00:30:16 -0500
-Received: by mail-it0-f50.google.com with SMTP id x2so105629418itf.1
-        for <netdev@vger.kernel.org>; Tue, 10 Jan 2017 21:30:15 -0800 (PST)
-In-Reply-To: <8a9f0d12b69ee4e25fefc4872575d5cf31441bb8.1483484748.git.mirq-linux@rere.qmqm.pl>
+Received: from mx1.redhat.com ([209.132.183.28]:45970 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1762087AbdAKHLB (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 11 Jan 2017 02:11:01 -0500
+In-Reply-To: <20170109215825.k4grwyhffiv6wksp@techsingularity.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 4, 2017 at 4:41 AM, Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.=
-qmqm.pl> wrote:
->
-> Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
-> ---
-> v3: fix adapter->pvid handling
->
->  drivers/net/ethernet/emulex/benet/be_main.c | 13 +++++++++----
->  1 file changed, 9 insertions(+), 4 deletions(-)
->
-> diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/et=
-hernet/emulex/benet/be_main.c
-> index 7e1633bf5a22..cd12c9a7664b 100644
-> --- a/drivers/net/ethernet/emulex/benet/be_main.c
-> +++ b/drivers/net/ethernet/emulex/benet/be_main.c
-> @@ -1035,30 +1035,35 @@ static struct sk_buff *be_insert_vlan_in_pkt(stru=
-ct be_adapter *adapter,
->                                              struct be_wrb_params
->                                              *wrb_params)
->  {
-> +       bool insert_vlan =3D false;
->         u16 vlan_tag =3D 0;
->
->         skb =3D skb_share_check(skb, GFP_ATOMIC);
->         if (unlikely(!skb))
->                 return skb;
->
-> -       if (skb_vlan_tag_present(skb))
-> +       if (skb_vlan_tag_present(skb)) {
->                 vlan_tag =3D be_get_tx_vlan_tag(adapter, skb);
-> +               insert_vlan =3D true;
-> +       }
->
->         if (qnq_async_evt_rcvd(adapter) && adapter->pvid) {
-> -               if (!vlan_tag)
-> +               if (!insert_vlan) {
->                         vlan_tag =3D adapter->pvid;
-> +                       insert_vlan =3D true;
-> +               }
->                 /* f/w workaround to set skip_hw_vlan =3D 1, informs the =
-F/W to
->                  * skip VLAN insertion
->                  */
->                 BE_WRB_F_SET(wrb_params->features, VLAN_SKIP_HW, 1);
->         }
->
-> -       if (vlan_tag) {
-> +       if (insert_vlan) {
->                 skb =3D vlan_insert_tag_set_proto(skb, htons(ETH_P_8021Q)=
-,
->                                                 vlan_tag);
->                 if (unlikely(!skb))
->                         return skb;
-> -               skb->vlan_tci =3D 0;
-> +               __vlan_hwaccel_clear_tag(skb);
->         }
->
->         /* Insert the outer VLAN, if any */
-> --
-> 2.11.0
->
+On Mon, 9 Jan 2017 21:58:26 +0000
+Mel Gorman <mgorman@techsingularity.net> wrote:
 
-Thanks
+> On Mon, Jan 09, 2017 at 09:45:24PM +0100, Jesper Dangaard Brouer wrote:
+> > > I see. I guess if all page pool pages were order>0 compound pages, you
+> > > could hook this to the existing compound_dtor functionality instead.  
+> > 
+> > The page_pool will support order>0 pages, but it is the order-0 case
+> > that is optimized for.
+> >   
+> 
+> The bulk allocator is currently not suitable for high-order pages. It would
+> take more work to do that but is not necessarily even a good idea. FWIW,
+> the high-order per-cpu page allocator posted some weeks ago would be the
+> basis. I didn't push that series as the benefit to SLUB was too marginal
+> given the complexity.
+> 
+> > > Well typically the VMA mapped pages are those on the LRU list (anonymous
+> > > or file). But I don't suppose you will want memory reclaim to free your
+> > > pages, so seems lru field should be reusable for you.  
+> > 
+> > Thanks for the info.
+> > 
+> > So, LRU-list area could be reusable, but I does not align so well with
+> > the bulking API Mel just introduced/proposed, but still doable.
+> >   
+> 
+> That's a relatively minor implementation detail. I needed something to
+> hang the pages onto for returning. Using a list and page->lru is a standard
+> approach but it does not mandate that the caller preserve page->lru or that
+> it's related to the LRU. The caller simply needs to put the pages back onto
+> a list if it's bulk freeing or call __free_pages() directly for each page.
+> If any in-kernel user uses __free_pages() then the free_pages_bulk()
+> API can be dropped entirely.
+> 
+> I'm not intending to merge the bulk allocator due to a lack of in-kernel
+> users and an inability to test in-kernel users.  It was simply designed to
+> illustrate how to call the core of the page allocator in a way that avoids
+> the really expensive checks. If required, the pages could be returned on
+> a caller-allocated array or something exotic like using one page to store
+> pointers to the rest. Either of those alternatives are harder to use. A
+> caller-allocated array must be sure the nr_pages parameter is correct and
+> the exotic approach would require careful use by the caller. Using page->lru
+> was more straight-forward when the requirements of the callers was unknown.
+> 
+> It opens the question of what to do with that series. I was going to wait
+> for feedback but my intent was to try merge patches 1-3 if there were no
+> objections and preferably with your reviewed-by or ack. I would then hand
+> patch 4 over to you for addition to a series that added in-kernel callers to
+> alloc_pages_bulk() be that the generic pool recycle or modifying drivers.
+> You are then free to modify the API to suit your needs without having to
+> figure out the best way of calling the page allocator.
 
-Acked-by: Somnath Kotur <somnath.kotur@broadcom.com>
+I think that sound like a good plan.
+
+Your patches 1-3 is a significant performance improvement for the page
+allocator, and I want to see those merged.  Don't want to block it with
+patch 4 (bulking).
+
+I'm going to do some (more) testing on your patchset, and then ACK the
+patches.
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  LinkedIn: http://www.linkedin.com/in/brouer
