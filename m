@@ -1,52 +1,79 @@
-From: "Kwok, WingMan" <w-kwok2@ti.com>
-Subject: RE: Marvell Phy (1510) issue since v4.7 kernel
-Date: Wed, 11 Jan 2017 22:32:02 +0000
-Message-ID: <230CBA6E4B6B6B418E8730AC28E6FC7E15354AD5@DFLE11.ent.ti.com>
-References: <587410EF.5090607@ti.com> <20170109225641.GB22820@lunn.ch>
- <230CBA6E4B6B6B418E8730AC28E6FC7E153545A3@DFLE11.ent.ti.com>
- <20170109235534.GH22820@lunn.ch>
- <230CBA6E4B6B6B418E8730AC28E6FC7E153545C9@DFLE11.ent.ti.com>
- <20170110015336.GA7160@lunn.ch>
- <230CBA6E4B6B6B418E8730AC28E6FC7E15354AC2@DFLE11.ent.ti.com>
- <20170111222758.GG13033@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Karicheri, Muralidharan" <m-karicheri2@ti.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>,
-        "rmk+kernel@arm.linux.org.uk" <rmk+kernel@arm.linux.org.uk>
+From: Timur Tabi <timur@codeaurora.org>
+Subject: [PATCH] [v2] net: qcom/emac: grab a reference to the phydev on ACPI systems
+Date: Wed, 11 Jan 2017 16:45:51 -0600
+Message-ID: <1484174751-19036-1-git-send-email-timur@codeaurora.org>
+To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+        johan@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fllnx209.ext.ti.com ([198.47.19.16]:59827 "EHLO
-        fllnx209.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752332AbdAKWdB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 17:33:01 -0500
-In-Reply-To: <20170111222758.GG13033@lunn.ch>
-Content-Language: en-US
+Received: from smtp.codeaurora.org ([198.145.29.96]:34440 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753618AbdAKWqk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 17:46:40 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogQW5kcmV3IEx1bm4gW21h
-aWx0bzphbmRyZXdAbHVubi5jaF0NCj4gU2VudDogV2VkbmVzZGF5LCBKYW51YXJ5IDExLCAyMDE3
-IDU6MjggUE0NCj4gVG86IEt3b2ssIFdpbmdNYW4NCj4gQ2M6IEthcmljaGVyaSwgTXVyYWxpZGhh
-cmFuOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnDQo+IFN1YmplY3Q6IFJlOiBNYXJ2ZWxsIFBoeSAo
-MTUxMCkgaXNzdWUgc2luY2UgdjQuNyBrZXJuZWwNCj4gDQo+IE9uIFdlZCwgSmFuIDExLCAyMDE3
-IGF0IDEwOjE4OjAyUE0gKzAwMDAsIEt3b2ssIFdpbmdNYW4gd3JvdGU6DQo+ID4NCj4gPg0KPiA+
-ID4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gPiA+IEZyb206IEFuZHJldyBMdW5uIFtt
-YWlsdG86YW5kcmV3QGx1bm4uY2hdDQo+ID4gPiBTZW50OiBNb25kYXksIEphbnVhcnkgMDksIDIw
-MTcgODo1NCBQTQ0KPiA+ID4gVG86IEt3b2ssIFdpbmdNYW4NCj4gPiA+IENjOiBLYXJpY2hlcmks
-IE11cmFsaWRoYXJhbjsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZw0KPiA+ID4gU3ViamVjdDogUmU6
-IE1hcnZlbGwgUGh5ICgxNTEwKSBpc3N1ZSBzaW5jZSB2NC43IGtlcm5lbA0KPiA+ID4NCj4gPiA+
-ID4gRnJvbSBNYXJ2ZWxsJ3MgYnJpZWYgZGVzY3JpcHRpb24NCj4gPiA+IGh0dHA6Ly93d3cubWFy
-dmVsbC5jb20vdHJhbnNjZWl2ZXJzL2FsYXNrYS1nYmUvLA0KPiA+ID4gPiBpdCBzZWVtcyB0aGF0
-IDg4RTE1MTAvMTUxOCBkb24ndCBzdXBwb3J0IGZpYmVyLiBPbmx5IDg4RTE1MTINCj4gZG9lcy4N
-Cj4gPiA+IEluDQo+ID4gPiA+IHRoYXQgY2FzZSwgdGhlIGZpYmVyIHN1cHBvcnQgcGF0Y2ggaXMg
-bm90IGFwcGxpY2FibGUgdG8NCj4gPiA+IDg4RTE1MTAvMTUxOC4NCj4gPiA+DQo+ID4gPiBPLksu
-IFRoYXQgbWFrZXMgaXQgZWFzaWVyLg0KPiA+ID4NCj4gPiA+IFBsZWFzZSBhZGQgdGhlIHJlbGV2
-YW50IElEcyB0byBpbmNsdWRlL2xpbnV4L21hcnZlbGwuaCwgYW5kIGFkZA0KPiA+ID4gZW50cmll
-cyB0byBkcml2ZXIvbmV0L3BoeS9tYXJ2ZWxsLmMgZm9yIDE1MTIgd2l0aCBTVVBQT1JURURfRklC
-UkUNCj4gYW5kDQo+ID4gPiAxNTEwIGFuZCAxNTE4IHdpdGhvdXQuDQo+ID4gPg0KPiA+ID4gICAg
-ICBBbmRyZXcNCj4gPg0KPiA+IEJ5IGFueSBjaGFuY2UgeW91IGhhdmUgdGhlIElEIG9mIDE1MTI/
-DQo+IA0KPiBOb3BlLCBzb3JyeS4NCj4gDQo+IFRyeSBSdXNzZWxsIEtpbmcuDQo+IA0KPiAgICAg
-QW5kcmV3DQoNClJ1c3NlbGwsDQoNCkRvIHlvdSBoYXZlIHRoZSBJRCBvZiBNYXJ2ZWxsIFBIWSA4
-OEUxNTEyPw0KDQpUaGFua3MsDQpXaW5nTWFuDQoNCg0K
+Commit 6ffe1c4cd0a7 ("net: qcom/emac: fix of_node and phydev leaks")
+fixed the problem with reference leaks on phydev, but the fix is
+device-tree specific.  When the driver unloads, the reference is
+dropped only on DT systems.
+
+Instead, it's cleaner if up grab an reference on ACPI systems.
+When the driver unloads, we can drop the reference without having
+to check whether we're on a DT system.
+
+Signed-off-by: Timur Tabi <timur@codeaurora.org>
+---
+
+Notes:
+    v2: add check for null pointer
+
+ drivers/net/ethernet/qualcomm/emac/emac-phy.c | 7 +++++++
+ drivers/net/ethernet/qualcomm/emac/emac.c     | 6 ++----
+ 2 files changed, 9 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/qualcomm/emac/emac-phy.c b/drivers/net/ethernet/qualcomm/emac/emac-phy.c
+index 99a14df..2851b4c 100644
+--- a/drivers/net/ethernet/qualcomm/emac/emac-phy.c
++++ b/drivers/net/ethernet/qualcomm/emac/emac-phy.c
+@@ -201,6 +201,13 @@ int emac_phy_config(struct platform_device *pdev, struct emac_adapter *adpt)
+ 		else
+ 			adpt->phydev = mdiobus_get_phy(mii_bus, phy_addr);
+ 
++		/* of_phy_find_device() claims a reference to the phydev,
++		 * so we do that here manually as well. When the driver
++		 * later unloads, it can unilaterally drop the reference
++		 * without worrying about ACPI vs DT.
++		 */
++		if (adpt->phydev)
++			get_device(&adpt->phydev->mdio.dev);
+ 	} else {
+ 		struct device_node *phy_np;
+ 
+diff --git a/drivers/net/ethernet/qualcomm/emac/emac.c b/drivers/net/ethernet/qualcomm/emac/emac.c
+index 6ffe192..0aac0de 100644
+--- a/drivers/net/ethernet/qualcomm/emac/emac.c
++++ b/drivers/net/ethernet/qualcomm/emac/emac.c
+@@ -729,8 +729,7 @@ static int emac_probe(struct platform_device *pdev)
+ err_undo_napi:
+ 	netif_napi_del(&adpt->rx_q.napi);
+ err_undo_mdiobus:
+-	if (!has_acpi_companion(&pdev->dev))
+-		put_device(&adpt->phydev->mdio.dev);
++	put_device(&adpt->phydev->mdio.dev);
+ 	mdiobus_unregister(adpt->mii_bus);
+ err_undo_clocks:
+ 	emac_clks_teardown(adpt);
+@@ -750,8 +749,7 @@ static int emac_remove(struct platform_device *pdev)
+ 
+ 	emac_clks_teardown(adpt);
+ 
+-	if (!has_acpi_companion(&pdev->dev))
+-		put_device(&adpt->phydev->mdio.dev);
++	put_device(&adpt->phydev->mdio.dev);
+ 	mdiobus_unregister(adpt->mii_bus);
+ 	free_netdev(netdev);
+ 
+-- 
+Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
+Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
+Code Aurora Forum, a Linux Foundation Collaborative Project.
