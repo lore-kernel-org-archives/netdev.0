@@ -1,69 +1,139 @@
-From: Keerthy <j-keerthy@ti.com>
-Subject: [PATCH v2] net: netcp: correct netcp_get_stats function signature
-Date: Wed, 11 Jan 2017 09:03:29 +0530
-Message-ID: <1484105609-8647-1-git-send-email-j-keerthy@ti.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [net PATCH] net: virtio: cap mtu when XDP programs are running
+Date: Wed, 11 Jan 2017 11:37:09 +0800
+Message-ID: <97f33fe6-a434-0669-c412-cd0847f3b48f@redhat.com>
+References: <20170110010531-mutt-send-email-mst@kernel.org>
+ <5874190B.9050505@gmail.com> <20170110012044-mutt-send-email-mst@kernel.org>
+ <58742187.8050505@gmail.com> <20170110015759-mutt-send-email-mst@kernel.org>
+ <9102bb4b-223a-d441-7546-8b4144d970fb@redhat.com>
+ <20170110044910-mutt-send-email-mst@kernel.org> <5874555A.3070307@gmail.com>
+ <20170110055023-mutt-send-email-mst@kernel.org> <58746247.604@gmail.com>
+ <20170110065056-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        <stephen@networkplumber.org>, <m-scherban@ti.com>,
-        <j-keerthy@ti.com>
-To: <w-kwok2@ti.com>, <m-karicheri2@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org,
+        alexei.starovoitov@gmail.com, daniel@iogearbox.net
+To: "Michael S. Tsirkin" <mst@redhat.com>,
+        John Fastabend <john.fastabend@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:48968 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1759210AbdAKDhR (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 10 Jan 2017 22:37:17 -0500
+In-Reply-To: <20170110065056-mutt-send-email-mst@kernel.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit: bc1f44709cf2 - net: make ndo_get_stats64 a void function
-and
-Commit: 6a8162e99ef3 - net: netcp: store network statistics in 64 bits.
 
-The commit 6a8162e99ef3 adds ndo_get_stats64 function as per old
-signature which causes compilation error:
 
-drivers/net/ethernet/ti/netcp_core.c:1951:28: error:
-initialization from incompatible pointer type
-  .ndo_get_stats64        = netcp_get_stats,
+On 2017年01月10日 13:00, Michael S. Tsirkin wrote:
+> On Mon, Jan 09, 2017 at 08:25:43PM -0800, John Fastabend wrote:
+>> On 17-01-09 07:55 PM, Michael S. Tsirkin wrote:
+>>> On Mon, Jan 09, 2017 at 07:30:34PM -0800, John Fastabend wrote:
+>>>> On 17-01-09 06:51 PM, Michael S. Tsirkin wrote:
+>>>>> On Tue, Jan 10, 2017 at 10:29:39AM +0800, Jason Wang wrote:
+>>>>>> On 2017年01月10日 07:58, Michael S. Tsirkin wrote:
+>>>>>>> On Mon, Jan 09, 2017 at 03:49:27PM -0800, John Fastabend wrote:
+>>>>>>>> On 17-01-09 03:24 PM, Michael S. Tsirkin wrote:
+>>>>>>>>> On Mon, Jan 09, 2017 at 03:13:15PM -0800, John Fastabend wrote:
+>>>>>>>>>> On 17-01-09 03:05 PM, Michael S. Tsirkin wrote:
+>>>>>>>>>>> On Thu, Jan 05, 2017 at 11:09:14AM +0800, Jason Wang wrote:
+>>>>>>>>>>>> On 2017年01月05日 02:57, John Fastabend wrote:
+>>>>>>>>>>>>> [...]
+>>>>>>>>>>>>>
+>>>>>>>>>>>>>> On 2017年01月04日 00:48, John Fastabend wrote:
+>>>>>>>>>>>>>>> On 17-01-02 10:14 PM, Jason Wang wrote:
+>>>>>>>>>>>>>>>> On 2017年01月03日 06:30, John Fastabend wrote:
+>>>>>>>>>>>>>>>>> XDP programs can not consume multiple pages so we cap the MTU to
+>>>>>>>>>>>>>>>>> avoid this case. Virtio-net however only checks the MTU at XDP
+>>>>>>>>>>>>>>>>> program load and does not block MTU changes after the program
+>>>>>>>>>>>>>>>>> has loaded.
+>>>>>>>>>>>>>>>>>
+>>>>>>>>>>>>>>>>> This patch sets/clears the max_mtu value at XDP load/unload time.
+>>>>>>>>>>>>>>>>>
+>>>>>>>>>>>>>>>>> Signed-off-by: John Fastabend<john.r.fastabend@intel.com>
+>>>>>>>>>>>>>>>>> ---
+>>>>>>>>>>>>> [...]
+>>>>>>>>>>>>>
+>>>>>>>>>>>>>>> OK so this logic is a bit too simply. When it resets the max_mtu I guess it
+>>>>>>>>>>>>>>> needs to read the mtu via
+>>>>>>>>>>>>>>>
+>>>>>>>>>>>>>>>        virtio_cread16(vdev, ...)
+>>>>>>>>>>>>>>>
+>>>>>>>>>>>>>>> or we may break the negotiated mtu.
+>>>>>>>>>>>>>> Yes, this is a problem (even use ETH_MAX_MTU). We may need a method to notify
+>>>>>>>>>>>>>> the device about the mtu in this case which is not supported by virtio now.
+>>>>>>>>>>>>> Note this is not really a XDP specific problem. The guest can change the MTU
+>>>>>>>>>>>>> after init time even without XDP which I assume should ideally result in a
+>>>>>>>>>>>>> notification if the MTU is negotiated.
+>>>>>>>>>>>> Yes, Michael, do you think we need add some mechanism to notify host about
+>>>>>>>>>>>> MTU change in this case?
+>>>>>>>>>>>>
+>>>>>>>>>>>> Thanks
+>>>>>>>>>>> Why does host care?
+>>>>>>>>>>>
+>>>>>>>>>> Well the guest will drop packets after mtu has been reduced.
+>>>>>>>>> I didn't know. What place in code does this?
+>>>>>>>>>
+>>>>>>>> hmm in many of the drivers it is convention to use the mtu to set the rx
+>>>>>>>> buffer sizes and a receive side max length filter. For example in the Intel
+>>>>>>>> drivers if a packet with length greater than MTU + some headroom is received we
+>>>>>>>> drop it. I guess in the networking stack RX path though nothing forces this and
+>>>>>>>> virtio doesn't have any code to drop packets on rx size.
+>>>>>>>>
+>>>>>>>> In virtio I don't see any existing case currently. In the XDP case though we
+>>>>>>>> need to ensure packets fit in a page for the time being which is why I was
+>>>>>>>> looking at this code and generated this patch.
+>>>>>>> I'd say just look at the hardware max mtu. Ignore the configured mtu.
+>>>>>>>
+>>>>>>>
+>>>>>> Does this work for small buffers consider it always allocate skb with size
+>>>>>> of GOOD_PACKET_LEN?
+>>>>> Spec says hardware won't send in packets > max mtu in config space.
+>>>>>
+>>>>>> I think in any case, we should limit max_mtu to
+>>>>>> GOOD_PACKET_LEN for small buffers.
+>>>>>>
+>>>>>> Thanks
+>>>>> XDP seems to have a bunch of weird restrictions, I just
+>>>>> do not like it that the logic spills out to all drivers.
+>>>>> What if someone decides to extend it to two pages in the future?
+>>>>> Recode it all in all drivers ...
+>>>>>
+>>>>> Why can't net core enforce mtu?
+>>>>>
+>>>> OK I agree I'll put most the logic in rtnetlink.c when the program is added
+>>>> or removed.
+>>>>
+>>>> But, I'm looking at the non-XDP receive_small path now and wondering how does
+>>>> multiple buffer receives work (e.g. packet larger than GOOD_PACKET_LEN?)
+>>> I don't understand the question. Look at add_recvbuf_small,
+>>> it adds a tiny buffer for head and then the skb.
+>>>
+>> Specifically this seems to fail with mergeable buffers disabled
+>>
+>> On the host:
+>>
+>> # ip link set dev tap0 mtu 9000
+>> # ping 22.2 -s 2048
+>>
+>> On the guest:
+>>
+>> # insmod ./drivers/net/virtio_net.ko
+>> # ip link set dev eth0 mtu 9000
+> Why would it work? You are sending a packet larger than ethernet MTU.
 
-Hence correct netcp_get_stats function signature as per
-the latest definition.
+Ok, does it mean virtio-net does not support Jumbo frame? And if it 
+can't work, use MAX_MTU as max_mtu is a bug to me.
 
-Signed-off-by: Keerthy <j-keerthy@ti.com>
-Fixes: 6a8162e99ef344fc("net: netcp: store network statistics in 64 bits")
----
+>
+>> With mergeable buffers enabled no problems it works as I expect at least.
+> We don't expect to get these packets but
+> mergeable is able to process them anyway.
+> It's an accident:)  
+>
 
-Changes in v2:
+But path MTU discovery indeed benefits from this "accident".
 
-  * Added the static in the function definition.
-
-This is due patches crossing at the same time.
-Fixes the compilation error. Only build tested. It would be
-good if someone can boot test.
-
-Applies on top of latest next branch.
-
- drivers/net/ethernet/ti/netcp_core.c | 4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/ti/netcp_core.c b/drivers/net/ethernet/ti/netcp_core.c
-index 68a75cc..34852f2 100644
---- a/drivers/net/ethernet/ti/netcp_core.c
-+++ b/drivers/net/ethernet/ti/netcp_core.c
-@@ -1909,7 +1909,7 @@ static int netcp_setup_tc(struct net_device *dev, u32 handle, __be16 proto,
- 	return 0;
- }
- 
--static struct rtnl_link_stats64 *
-+static void
- netcp_get_stats(struct net_device *ndev, struct rtnl_link_stats64 *stats)
- {
- 	struct netcp_intf *netcp = netdev_priv(ndev);
-@@ -1938,8 +1938,6 @@ static int netcp_setup_tc(struct net_device *dev, u32 handle, __be16 proto,
- 	stats->rx_errors = p->rx_errors;
- 	stats->rx_dropped = p->rx_dropped;
- 	stats->tx_dropped = p->tx_dropped;
--
--	return stats;
- }
- 
- static const struct net_device_ops netcp_netdev_ops = {
--- 
-1.9.1
+Thanks
