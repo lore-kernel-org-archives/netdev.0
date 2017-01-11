@@ -1,96 +1,55 @@
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: Re: [PATCH v2 0/2] remove dwc_eth_qos and rename stmicro/stmmac
-Date: Wed, 11 Jan 2017 14:29:41 +0000
-Message-ID: <a91d92f0-21a5-2225-88c3-162c8fb005f5@synopsys.com>
-References: <cover.1484059674.git.jpinto@synopsys.com>
- <0dcdcb5f-200b-b130-9a67-774639353114@st.com>
- <298670a0-7074-a590-9498-7a9db68d499e@synopsys.com>
- <d814eabb-ec19-9df4-1f44-4405ece6995f@st.com>
+From: <Andrei.Pistirica@microchip.com>
+Subject: RE: [RFC PATCH net-next v4 1/2] macb: Add 1588 support in Cadence GEM.
+Date: Wed, 11 Jan 2017 14:34:13 +0000
+Message-ID: <07C910AB6AC6C345A093D5A08F5AF568CB77996E@CHN-SV-EXMX03.mchp-main.com>
+References: <1481720175-12703-1-git-send-email-andrei.pistirica@microchip.com>
+ <BN3PR07MB2516815EDE69ACDCE27F81A3C96F0@BN3PR07MB2516.namprd07.prod.outlook.com>
+ <20170102113155.GA16373@localhost.localdomain>
+ <0717c63b-2e29-9ad1-7f01-39817980933f@atmel.com>
+ <20170102161359.GD3609@localhost.localdomain>
+ <CAFcVECK1vt7Hu4tgSZ2+kKpMxoT-wpikMDq65HaxRv-EMgobHA@mail.gmail.com>
+ <BN3PR07MB25168573DD82F1681CDC8437C96E0@BN3PR07MB2516.namprd07.prod.outlook.com>
+ <20170103111447.GA26488@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 8bit
-Cc: <lars.persson@axis.com>, <niklass@axis.com>,
-        <peppe.cavallaro@st.com>, <netdev@vger.kernel.org>
-To: Alexandre Torgue <alexandre.torgue@st.com>,
-        Joao Pinto <Joao.Pinto@synopsys.com>, <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay4.synopsys.com ([198.182.47.9]:38225 "EHLO
-        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1763084AbdAKOa1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 09:30:27 -0500
-In-Reply-To: <d814eabb-ec19-9df4-1f44-4405ece6995f@st.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: tbultel@pixelsurmer.com, boris.brezillon@free-electrons.com,
+ netdev@vger.kernel.org, alexandre.belloni@free-electrons.com,
+ linux-kernel@vger.kernel.org, michals@xilinx.com, anirudh@xilinx.com,
+ punnaia@xilinx.com, davem@davemloft.net, linux-arm-kernel@lists.infradead.org
+To: <richardcochran@gmail.com>, <rafalo@cadence.com>,
+ <harinikatakamlinux@gmail.com>, <nicolas.ferre@atmel.com>,
+ <harini.katakam@xilinx.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <20170103111447.GA26488@localhost.localdomain>
+Content-Language: en-US
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
+ 
+> On Tue, Jan 03, 2017 at 10:47:56AM +0000, Rafal Ozieblo wrote:
+> > We could use only descriptor approach but there are many Atmel's cores
+> on the market which support only event registers.
+> 
+> As I said in my other reply in this thread, the Atmel cores cannot possibly be
+> made to work correctly.
+> 
+> Sad, but true.
 
-Alex,
+In conscience, I will make a patch containing only the common code (just to benefit from this effort) and then Rafal can add the driver for the GXL version on top of it.
+Everybody agrees with this?
 
-Às 2:25 PM de 1/11/2017, Alexandre Torgue escreveu:
-> Jao,
-> 
-> On 01/11/2017 12:54 PM, Joao Pinto wrote:
->>
->> Hi Alex,
->>
->> Às 11:39 AM de 1/11/2017, Alexandre Torgue escreveu:
->>> Hi Jao,
->>>
->>> On 01/10/2017 03:52 PM, Joao Pinto wrote:
->>>> This patch set removes the synopsys/dwc_eth_qos since it was merged recently
->>>> to stmmac (dwmac-dwc-qos-eth glue driver).
->>>>
->>>> It also renames stmicro/stmmac to synopsys/ since it is a standard ethernet
->>>> software package regarding synopsys ethernet controllers, supporting the
->>>> majority of Synopsys Ethernet IPs.
->>>
->>> I understand the reason to rename stmmac driver. The only risk I see is that
->>> usual user will be a little bit lost to find code. It seems there no risk of
->>> backward compatibility with current/old DT (I assume you already checked this
->>> point).
->>
->> I understand your concern, but for the Synopsys IPs users will be clearer what
->> drivers to use and what current stmmac has to offer.
-> 
-> I agree.
-> 
->>
->> In terms of tests, I tested it and worked out of the box because the same
->> Kconfig IDs were used assuring the retro-compatibility that David suggested a
->> few weeks ago. For DT users no problems are expected as well.
-> 
-> Ok, sounds good.
-> 
-> I see that you rename also Documentation/devicetree/bindings/net/stmmac.txt. You
-> have also to change some words inside as it talks about Stmicroelectronics.
-
-You are right. Going to change that and send a v3. Counting on your ack :)
-Thanks!
+Best regards,
+Andrei
 
 > 
-> Regards
-> Alex
-> 
->>
->> Thanks,
->> Joao
->>
->>> Let's see what David think about that but if there no risk of backward
->>> compatibility with DT, I agree with the series.
->>>
->>> Regards
->>> Alex
->>>
->>>
->>>
->>>>
->>>> In the future we should make an effort to migrate to this new synopsys/
->>>> driver package all the Ethernet Synopsys IP drivers scattered in net/ethernet.
->>>>
->>>> Joao Pinto (2):
->>>>   synopsys: remove dwc_eth_qos driver
->>>>   stmmac: rename it to synopsys
->>>>
->>>>  .../bindings/net/{stmmac.txt => synopsys.txt}      |    0
->>>>  MAINTAINERS                                        |   11 +-
->>>>  arch/arm/configs/multi_v7_defconfig                |    3 +-
->>>>  drivers/net/ethernet/Kconfig                       |    3 +-
+> Thanks,
+> Richard
