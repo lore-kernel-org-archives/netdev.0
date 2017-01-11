@@ -1,41 +1,62 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next 2/2] net/sched: cls_flower: Support matching on
- ARP
-Date: Wed, 11 Jan 2017 14:27:10 +0100
-Message-ID: <20170111132710.GJ1852@nanopsycho>
-References: <1484139943-18199-1-git-send-email-simon.horman@netronome.com>
- <1484139943-18199-3-git-send-email-simon.horman@netronome.com>
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: [net-next PATCH v6 0/3] net: dummy: Introduce dummy virtual
+ functions
+Date: Wed, 11 Jan 2017 14:38:57 +0100
+Message-ID: <20170111133857.GA10974@orbyte.nwl.cc>
+References: <20170105190913.29986-1-phil@nwl.cc>
+ <20170106.203804.2023763441703979123.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, Jiri Pirko <jiri@mellanox.com>,
-        Dinan Gunawardena <dinan.gunawardena@netronome.com>,
-        netdev@vger.kernel.org, oss-drivers@netronome.com
-To: Simon Horman <simon.horman@netronome.com>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:33818 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S966554AbdAKN1N (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 08:27:13 -0500
-Received: by mail-wm0-f67.google.com with SMTP id c85so36518711wmi.1
-        for <netdev@vger.kernel.org>; Wed, 11 Jan 2017 05:27:12 -0800 (PST)
+Received: from orbyte.nwl.cc ([151.80.46.58]:52895 "EHLO mail.nwl.cc"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1759696AbdAKNjA (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 11 Jan 2017 08:39:00 -0500
 Content-Disposition: inline
-In-Reply-To: <1484139943-18199-3-git-send-email-simon.horman@netronome.com>
+In-Reply-To: <20170106.203804.2023763441703979123.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wed, Jan 11, 2017 at 02:05:43PM CET, simon.horman@netronome.com wrote:
->Support matching on ARP operation, and hardware and protocol addresses
->for Ethernet hardware and IPv4 protocol addresses.
->
->Example usage:
->
->tc qdisc add dev eth0 ingress
->
->tc filter add dev eth0 protocol arp parent ffff: flower indev eth0 \
->	arp_op request arp_sip 10.0.0.1 action drop
->tc filter add dev eth0 protocol rarp parent ffff: flower indev eth0 \
->	arp_op reply arp_tha 52:54:3f:00:00:00/24 action drop
->
->Signed-off-by: Simon Horman <simon.horman@netronome.com>
+Hi David,
 
-Acked-by: Jiri Pirko <jiri@mellanox.com>
+On Fri, Jan 06, 2017 at 08:38:04PM -0500, David Miller wrote:
+> From: Phil Sutter <phil@nwl.cc>
+> Date: Thu,  5 Jan 2017 20:09:10 +0100
+> 
+> > This series adds VF support to dummy device driver after adding the
+> > necessary infrastructure changes:
+> > 
+> > Patch 1 adds a netdevice callback for device-specific VF count
+> > retrieval. Patch 2 then changes dev_num_vf() implementation to make use
+> > of that new callback (if implemented), falling back to the old
+> > behaviour. Patch 3 then implements VF support in dummy, without the fake
+> > PCI parent device hack from v5.
+> 
+> Please don't make this a netdev specific method and interface.
+> 
+> Put the method in "struct bus_device", thereby making it a generic
+> "device" layer thing.
+> 
+> So the pci BUS type will implement pci_bus_type.num_vf().  And you'll
+> make a bus type for the dummy device to attach to which will implement
+> it's own.
+
+Following your approach, I'm running into a weird issue with conflicting
+sysfs symlink names after calling register_netdevice for the dummy
+device which has dev->dev.bus set to the dummy bus type I introduced:
+
+In netdev_register_kobject, dev->class is set to &net_class. This means
+that later in device_add, the call to device_add_class_symlinks will
+create symlink to the class named devices/virtual/net/dummy0/subsystem.
+
+The following call to bus_add_device by device_add though tries to
+create a symlink to the bus with identical name.
+
+This seems like a bug in device_add, but things apparently work for
+other devices and I don't get what's different for them. Can you maybe
+give me a hint what to look for or do you have an idea what I am
+missing?
+
+Thanks, Phil
