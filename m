@@ -1,46 +1,59 @@
-From: Robert Richter <rrichter@cavium.com>
-Subject: [PATCH net-next] net: thunderx: Make hfunc variable const type in nicvf_set_rxfh()
-Date: Wed, 11 Jan 2017 10:17:02 +0100
-Message-ID: <20170111091702.6343-1-rrichter@cavium.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH net-next] bridge: multicast to unicast
+Date: Wed, 11 Jan 2017 10:17:58 +0100
+Message-ID: <1484126278.23671.3.camel@sipsolutions.net>
+References: <20170109231203.GC5513@otheros>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Sunil Goutham <sgoutham@cavium.com>,
-        Robert Richter <rric@kernel.org>, <netdev@vger.kernel.org>,
-        Robert Richter <rrichter@cavium.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-dm3nam03on0041.outbound.protection.outlook.com ([104.47.41.41]:60491
-        "EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1756004AbdAKJRw (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 11 Jan 2017 04:17:52 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Michael Braun <michael-dev@fami-braun.de>,
+	"David S . Miller" <davem@davemloft.net>, Felix Fietkau <nbd@nbd.name>
+To: Linus =?ISO-8859-1?Q?L=FCssing?= <linus.luessing@c0d3.blue>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20170109231203.GC5513@otheros>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
->From struct ethtool_ops:
 
-        int     (*set_rxfh)(struct net_device *, const u32 *indir,
-                            const u8 *key, const u8 hfunc);
+> > Exactly. My point is that this is breaking the expectation that
+> > hosts are actually able to drop such packets.
+> 
+> [readding CCs I removed earlier]
+> 
+> Ah! Thanks. I was worried about creating packetloss :D.
 
-Change function arg of hfunc to const type.
+Ah, well, no - at least not in this case.
 
-Signed-off-by: Robert Richter <rrichter@cavium.com>
----
- drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> Hm, for this other other way round, I think it does not apply for
+> the bridge multicast-to-unicast patch if I'm not misreading the
+> bridge code:
+> 
+> For a packet with a link-layer multicast address but a unicast IP
+> destination, the bridge MDB lookup will fail.
+> (http://lxr.free-electrons.com/source/net/bridge/br_multicast.c?v=4.8
+> #L178
+>  returns NULL)
+> 
+> Case A): No multicast router on port:
+> -> bridge, br_multicast_flood(), will drop the packet already
+>    (no matter if multicast-to-unicast is enabled or not)
+> 
+> Case B): Multicast router present on port:
+> -> The new patch does not apply multicast-to-unicast but just floods
+>    packet unaltered
+>    ("else { port = rport; addr = NULL; }" branch)
 
-diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c b/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c
-index 2e74bbaa38e1..3a4761aa8efd 100644
---- a/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c
-+++ b/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c
-@@ -635,7 +635,7 @@ static int nicvf_get_rxfh(struct net_device *dev, u32 *indir, u8 *hkey,
- }
- 
- static int nicvf_set_rxfh(struct net_device *dev, const u32 *indir,
--			  const u8 *hkey, u8 hfunc)
-+			const u8 *hkey, const u8 hfunc)
- {
- 	struct nicvf *nic = netdev_priv(dev);
- 	struct nicvf_rss_info *rss = &nic->rss_info;
--- 
-2.11.0
+Ah, interesting. This is different then - the mac80211 code is not L3
+aware at all.
+
+johannes
