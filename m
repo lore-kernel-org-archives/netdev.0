@@ -1,89 +1,67 @@
-From: Michal Hocko <mhocko@kernel.org>
-Subject: Re: net/atm: warning in alloc_tx/__might_sleep
-Date: Wed, 11 Jan 2017 20:46:45 +0100
-Message-ID: <20170111194645.GM16365@dhcp22.suse.cz>
-References: <CAAeHK+yZ16SKcmJbv2ARafGgAuX2wwQNE0HGdiFy1WgqPjxLMg@mail.gmail.com>
- <1484145426.1643.7.camel@gmail.com>
- <20170111194525.GA16375@dhcp22.suse.cz>
+From: "Jonathan T. Leighton" <jtleight@udel.edu>
+Subject: Re: TCP using IPv4-mapped IPv6 address as source
+Date: Wed, 11 Jan 2017 14:48:30 -0500
+Message-ID: <14f352f9-6c0a-17da-f28f-b23fe8ecd2a2@udel.edu>
+References: <87f4e2ec-22bf-2401-8401-57205f893289@udel.edu>
+ <1484151607.21472.55.camel@edumazet-glaptop3.roam.corp.google.com>
+ <d8df0fb3-6053-10e1-fc43-cccbfc3799bf@udel.edu>
+ <1484159519.21472.72.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrey Konovalov <andreyknvl@google.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Al Viro <viro@zeniv.linux.org.uk>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Chas Williams <3chas3@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170111194525.GA16375@dhcp22.suse.cz>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, edumazet@google.com,
+        Yuchung Cheng <ycheng@google.com>,
+        Neal Cardwell <ncardwell@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f182.google.com ([209.85.220.182]:36056 "EHLO
+        mail-qk0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932966AbdAKTtP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 14:49:15 -0500
+Received: by mail-qk0-f182.google.com with SMTP id 11so121723146qkl.3
+        for <netdev@vger.kernel.org>; Wed, 11 Jan 2017 11:48:33 -0800 (PST)
+In-Reply-To: <1484159519.21472.72.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed 11-01-17 20:45:25, Michal Hocko wrote:
-> On Wed 11-01-17 09:37:06, Chas Williams wrote:
-> > On Mon, 2017-01-09 at 18:20 +0100, Andrey Konovalov wrote:
-> > > Hi!
-> > > 
-> > > I've got the following error report while running the syzkaller fuzzer.
-> > > 
-> > > On commit a121103c922847ba5010819a3f250f1f7fc84ab8 (4.10-rc3).
-> > > 
-> > > A reproducer is attached.
-> > > 
-> > > ------------[ cut here ]------------
-> > > WARNING: CPU: 0 PID: 4114 at kernel/sched/core.c:7737 __might_sleep+0x149/0x1a0
-> > > do not call blocking ops when !TASK_RUNNING; state=1 set at
-> > > [<ffffffff813fcb22>] prepare_to_wait+0x182/0x530
-> > > Modules linked in:
-> > > CPU: 0 PID: 4114 Comm: a.out Not tainted 4.10.0-rc3+ #59
-> > > Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
-> > > Call Trace:
-> > >  __dump_stack lib/dump_stack.c:15
-> > >  dump_stack+0x292/0x398 lib/dump_stack.c:51
-> > >  __warn+0x19f/0x1e0 kernel/panic.c:547
-> > >  warn_slowpath_fmt+0xc5/0x110 kernel/panic.c:562
-> > >  __might_sleep+0x149/0x1a0 kernel/sched/core.c:7732
-> > >  slab_pre_alloc_hook mm/slab.h:408
-> > >  slab_alloc_node mm/slub.c:2634
-> > >  kmem_cache_alloc_node+0x14a/0x280 mm/slub.c:2744
-> > >  __alloc_skb+0x10f/0x800 net/core/skbuff.c:219
-> > >  alloc_skb ./include/linux/skbuff.h:926
-> > >  alloc_tx net/atm/common.c:75
-> > 
-> > This is likely alloc_skb(..., GFP_KERNEL) in alloc_tx().  The simplest
-> > fix for this would be simply to switch this GFP_ATOMIC.  See if this is
-> > any better.
-> > 
-> > diff --git a/net/atm/common.c b/net/atm/common.c
-> > index a3ca922..d84220c 100644
-> > --- a/net/atm/common.c
-> > +++ b/net/atm/common.c
-> > @@ -72,7 +72,7 @@ static struct sk_buff *alloc_tx(struct atm_vcc *vcc, unsigned int size)
-> >  			 sk_wmem_alloc_get(sk), size, sk->sk_sndbuf);
-> >  		return NULL;
-> >  	}
-> > -	while (!(skb = alloc_skb(size, GFP_KERNEL)))
-> > +	while (!(skb = alloc_skb(size, GFP_ATOMIC)))
-> >  		schedule();
-> >  	pr_debug("%d += %d\n", sk_wmem_alloc_get(sk), skb->truesize);
-> >  	atomic_add(skb->truesize, &sk->sk_wmem_alloc);
-> 
-> Blee, this code is just horrendous. But the "fix" is obviously broken!
-> schedule() is just a noop if you do not change the task state and what
-> you are just asking for is a never failing non sleeping allocation - aka
-> a busy loop in the kernel!
 
-And btw. this while loop should be really turned into GFP_KERNEL |
-__GFP_NOFAIL with and explanation why this allocation cannot possibly
-fail.
--- 
-Michal Hocko
-SUSE Labs
+
+On 1/11/17 1:31 PM, Eric Dumazet wrote:
+> On Wed, 2017-01-11 at 12:34 -0500, Jonathan T. Leighton wrote:
+>> On 1/11/17 11:20 AM, Eric Dumazet wrote:
+>>> On Thu, 2017-01-05 at 16:25 -0500, Jonathan T. Leighton wrote:
+>>>> I've observed TCP using an IPv4-mapped IPv6 address as the source
+>>>> address, which I believe contradicts
+>>>> https://tools.ietf.org/html/rfc6890#page-14 (BCP 153). This occurs when
+>>>> an IPv6 TCP socket, bound to a local IPv4-mapped IPv6 address, attempts
+>>>> to connect to a remote IPv6 address. Presumable connect() should return
+>>>> EAFNOSUPPORT in this case. Please advise me if this is not to
+>>>> appropriate list to report this.
+>>> Hi Jonathan
+>>>
+>>> I believe your concern makes sense.
+>>> Do you have a patch to address this issue ?
+>> Thanks for responding Eric. I have limited experience with kernel
+>> patches. Nevertheless, unless there's someone with the experience and
+>> time to jump on this, I'm interested in taking a crack at it. I think
+>> the issue certainly warrants attention: instead of returning immediately
+>> with EAFNOSUPPPORT, connect() retransmits its SYN 6 times, ultimately
+>> returning ETIMEDOUT after 127 sec (1+2+4+...+64).
+> I am not aware of an application trying to perform a bind() to an IPV4
+> address before a connect() to an IPv6 destination.
+>
+> A kernel fix is certainly something that would detect application bugs
+> in a more friendly way.
+
+I would say that an IPv6 socket binds to an IPv4-mapped IPv6 address, 
+but yes - using it to connect to an IPv6 address would be an application 
+bug. It also think that having connect() spend 2 minutes sending packets 
+containing an illegal source address is a bug. (And unfriendly!) I'll 
+look into writing a patch for this, and let you know whether or not I 
+think I'm up to it.
+
+- Jon
+
+> Thanks !
+>
+>
