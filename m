@@ -1,63 +1,52 @@
-From: Teresa Remmet <t.remmet@phytec.de>
-Subject: net: ti: cpsw-phy-sel: RGMII is not working on AM335x
-Date: Wed, 11 Jan 2017 09:14:23 +0100
-Message-ID: <1484122463.3777.1.camel@phytec.de>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: [PATCH net] r8152: fix the sw rx checksum is unavailable
+Date: Wed, 11 Jan 2017 16:25:34 +0800
+Message-ID: <1394712342-15778-232-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8BIT
-Cc: linux-omap@vger.kernel.org, netdev@vger.kernel.org
-To: Alexandru Gagniuc <alex.g@adaptrum.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Mugunthan V N <mugunthanvnm@ti.com>,
-        Grygorii Strashko <grygorii.strashko@ti.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.x-arc.de ([217.6.246.34]:44576 "EHLO root.phytec.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S932539AbdAKIO0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 11 Jan 2017 03:14:26 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
+        <linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
+To: <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
+Fix the hw rx checksum is always enabled, and the user couldn't switch
+it to sw rx checksum.
 
-I met a issue with the gmii_sel register on the AM335x when using
-RGMII. The patch,
+Note that the RTL_VER_01 only support sw rx checksum only. Besides,
+the hw rx checksum for RTL_VER_02 is disabled after
+commit b9a321b48af4 ("r8152: Fix broken RX checksums."). Re-enable it.
 
-commit 74685b08fbb26ff5b8448fabe0941a53269dd33e
-Author: Alex <alex.g@adaptrum.com>
-Date:   Tue Dec 6 10:56:51 2016 -0800
+Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+---
+ drivers/net/usb/r8152.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
 
-    drivers: net: cpsw-phy-sel: Clear RGMII_IDMODE on "rgmii" links
-    
-    Support for setting the RGMII_IDMODE bit was added in the commit
-    referenced below. However, that commit did not add the symmetrical
-    clearing of the bit by way of setting it in "mask". Add it here.
-    
-    Note that the documentation marks clearing this bit as "reserved",
-    however, according to TI, support for delaying the clock does exist in
-    the MAC, although it is not officially supported.
-    We tested this on a board with an RGMII to RGMII link that will not
-    work unless this bit is cleared.
-    
-    Fixes: 0fb26c3063ea ("drivers: net: cpsw-phy-sel: add support to configure rgmii int
-    Signed-off-by: Alexandru Gagniuc <alex.g@adaptrum.com>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-
-
-is suppose to fix the RGMII mode with setting the RGMII0/1_ID_MODE
-bit to 0: "Reserved". I use RMII1 and RGMII2 on our custom 
-AM335x board. The RMII1 is still working with the patch but
-I do not get any data transfered on the RGMII2. When I revert
-the patch, everything works again.
-I tested this on 4.10-rc3.
-
-The AM335x TRM Rev. O notes on Chapter 14.3.6.4:
-"The RGMII0/1_ID_MODE bit value in the GMII_SEL register should
-only be set to 1 for 'no internal delay'.
-The device does not support internal delay mode for RGMII."
-
-So I wonder what is correct now? As for me the patch makes RGMII unusable.
-Has anyone an explanation?
-
-Regards,
-Teresa
+diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+index be41856..f3b48ad 100644
+--- a/drivers/net/usb/r8152.c
++++ b/drivers/net/usb/r8152.c
+@@ -1730,7 +1730,7 @@ static u8 r8152_rx_csum(struct r8152 *tp, struct rx_desc *rx_desc)
+ 	u8 checksum = CHECKSUM_NONE;
+ 	u32 opts2, opts3;
+ 
+-	if (tp->version == RTL_VER_01 || tp->version == RTL_VER_02)
++	if (!(tp->netdev->features & NETIF_F_RXCSUM))
+ 		goto return_result;
+ 
+ 	opts2 = le32_to_cpu(rx_desc->opts2);
+@@ -4356,6 +4356,11 @@ static int rtl8152_probe(struct usb_interface *intf,
+ 				NETIF_F_HIGHDMA | NETIF_F_FRAGLIST |
+ 				NETIF_F_IPV6_CSUM | NETIF_F_TSO6;
+ 
++	if (tp->version == RTL_VER_01) {
++		netdev->features &= ~NETIF_F_RXCSUM;
++		netdev->hw_features &= ~NETIF_F_RXCSUM;
++	}
++
+ 	netdev->ethtool_ops = &ops;
+ 	netif_set_gso_max_size(netdev, RTL_LIMITED_TSO_SIZE);
+ 
+-- 
+2.7.4
