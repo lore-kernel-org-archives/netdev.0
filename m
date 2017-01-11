@@ -1,54 +1,72 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] bnxt_en: hide unused bnxt_get_max_func_{vnics,rss_ctxs} functions
-Date: Wed, 11 Jan 2017 15:36:09 +0100
-Message-ID: <20170111143619.502495-1-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>,
+From: Chas Williams <3chas3@gmail.com>
+Subject: Re: net/atm: warning in alloc_tx/__might_sleep
+Date: Wed, 11 Jan 2017 09:37:06 -0500
+Message-ID: <1484145426.1643.7.camel@gmail.com>
+References: <CAAeHK+yZ16SKcmJbv2ARafGgAuX2wwQNE0HGdiFy1WgqPjxLMg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Andrey Konovalov <andreyknvl@google.com>,
         "David S. Miller" <davem@davemloft.net>,
-        Prashant Sreedharan <prashant.sreedharan@broadcom.com>,
-        Satish Baddipadige <sbaddipa@broadcom.com>,
-        Alexander Duyck <aduyck@mirantis.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Michael Chan <michael.chan@broadcom.com>
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Al Viro <viro@zeniv.linux.org.uk>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAAeHK+yZ16SKcmJbv2ARafGgAuX2wwQNE0HGdiFy1WgqPjxLMg@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-There are lots of #ifdefs in this file, and a recent patch got one
-of them wrong, leading to a harmless warning in some randconfig
-builds:
+On Mon, 2017-01-09 at 18:20 +0100, Andrey Konovalov wrote:
+> Hi!
+> 
+> I've got the following error report while running the syzkaller fuzzer.
+> 
+> On commit a121103c922847ba5010819a3f250f1f7fc84ab8 (4.10-rc3).
+> 
+> A reproducer is attached.
+> 
+> ------------[ cut here ]------------
+> WARNING: CPU: 0 PID: 4114 at kernel/sched/core.c:7737 __might_sleep+0x149/0x1a0
+> do not call blocking ops when !TASK_RUNNING; state=1 set at
+> [<ffffffff813fcb22>] prepare_to_wait+0x182/0x530
+> Modules linked in:
+> CPU: 0 PID: 4114 Comm: a.out Not tainted 4.10.0-rc3+ #59
+> Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+> Call Trace:
+>  __dump_stack lib/dump_stack.c:15
+>  dump_stack+0x292/0x398 lib/dump_stack.c:51
+>  __warn+0x19f/0x1e0 kernel/panic.c:547
+>  warn_slowpath_fmt+0xc5/0x110 kernel/panic.c:562
+>  __might_sleep+0x149/0x1a0 kernel/sched/core.c:7732
+>  slab_pre_alloc_hook mm/slab.h:408
+>  slab_alloc_node mm/slub.c:2634
+>  kmem_cache_alloc_node+0x14a/0x280 mm/slub.c:2744
+>  __alloc_skb+0x10f/0x800 net/core/skbuff.c:219
+>  alloc_skb ./include/linux/skbuff.h:926
+>  alloc_tx net/atm/common.c:75
 
-ethernet/broadcom/bnxt/bnxt.c:4956:21: error: 'bnxt_get_max_func_vnics' defined but not used [-Werror=unused-function]
-ethernet/broadcom/bnxt/bnxt.c:4947:21: error: 'bnxt_get_max_func_rss_ctxs' defined but not used [-Werror=unused-function]
+This is likely alloc_skb(..., GFP_KERNEL) in alloc_tx().  The simplest
+fix for this would be simply to switch this GFP_ATOMIC.  See if this is
+any better.
 
-Ideally we'd just remove all of them and use 'if (IS_ENABLED())'
-checks instead, which don't have this problem, but for now, I'm
-adding one more #ifdef to shut up the new warning.
-
-Fixes: 8079e8f107bf ("bnxt_en: Refactor code that determines RFS capability.")
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
----
- drivers/net/ethernet/broadcom/bnxt/bnxt.c | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index 7bd2a85694dd..c0918507fdb4 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -4944,6 +4944,7 @@ static int bnxt_setup_int_mode(struct bnxt *bp)
- 	return rc;
- }
- 
-+#ifdef CONFIG_RFS_ACCEL
- static unsigned int bnxt_get_max_func_rss_ctxs(struct bnxt *bp)
- {
- #if defined(CONFIG_BNXT_SRIOV)
-@@ -4961,6 +4962,7 @@ static unsigned int bnxt_get_max_func_vnics(struct bnxt *bp)
- #endif
- 	return bp->pf.max_vnics;
- }
-+#endif
- 
- unsigned int bnxt_get_max_func_stat_ctxs(struct bnxt *bp)
- {
--- 
-2.9.0
+diff --git a/net/atm/common.c b/net/atm/common.c
+index a3ca922..d84220c 100644
+--- a/net/atm/common.c
++++ b/net/atm/common.c
+@@ -72,7 +72,7 @@ static struct sk_buff *alloc_tx(struct atm_vcc *vcc, unsigned int size)
+ 			 sk_wmem_alloc_get(sk), size, sk->sk_sndbuf);
+ 		return NULL;
+ 	}
+-	while (!(skb = alloc_skb(size, GFP_KERNEL)))
++	while (!(skb = alloc_skb(size, GFP_ATOMIC)))
+ 		schedule();
+ 	pr_debug("%d += %d\n", sk_wmem_alloc_get(sk), skb->truesize);
+ 	atomic_add(skb->truesize, &sk->sk_wmem_alloc);
