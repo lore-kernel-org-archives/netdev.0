@@ -1,58 +1,31 @@
-From: Teresa Remmet <t.remmet@phytec.de>
-Subject: Re: net: ti: cpsw-phy-sel: RGMII is not working on AM335x
-Date: Wed, 11 Jan 2017 16:57:35 +0100
-Message-ID: <1484150255.3777.13.camel@phytec.de>
-References: <1484122463.3777.1.camel@phytec.de>
-         <20170111151407.GW22820@lunn.ch>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/2] net/sched: cls_flower: Support matching
+ ARP
+Date: Wed, 11 Jan 2017 11:04:40 -0500 (EST)
+Message-ID: <20170111.110440.419194808990740589.davem@davemloft.net>
+References: <1484139943-18199-1-git-send-email-simon.horman@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: base64
-Cc: Alexandru Gagniuc <alex.g@adaptrum.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Mugunthan V N <mugunthanvnm@ti.com>,
-        Grygorii Strashko <grygorii.strashko@ti.com>,
-        linux-omap@vger.kernel.org, netdev@vger.kernel.org
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jiri@mellanox.com, dinan.gunawardena@netronome.com,
+        netdev@vger.kernel.org, oss-drivers@netronome.com
+To: simon.horman@netronome.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.phycore.de ([217.6.246.34]:45118 "EHLO root.phytec.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1763740AbdAKP5i (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 11 Jan 2017 10:57:38 -0500
-In-Reply-To: <20170111151407.GW22820@lunn.ch>
+Received: from shards.monkeyblade.net ([184.105.139.130]:51974 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932852AbdAKQEm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 11:04:42 -0500
+In-Reply-To: <1484139943-18199-1-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SGVsbG8gQW5kcmV3LAoKQW0gTWl0dHdvY2gsIGRlbiAxMS4wMS4yMDE3LCAxNjoxNCArMDEwMCBz
-Y2hyaWViIEFuZHJldyBMdW5uOgo+ID4gCj4gPiBTbyBJIHdvbmRlciB3aGF0IGlzIGNvcnJlY3Qg
-bm93PyBBcyBmb3IgbWUgdGhlIHBhdGNoIG1ha2VzIFJHTUlJCj4gPiB1bnVzYWJsZS4KPiA+IEhh
-cyBhbnlvbmUgYW4gZXhwbGFuYXRpb24/Cj4gSGkgVGVyZXNhCj4gCj4gSW4geW91ciBkZXZpY2Ug
-dHJlZSwgd2hhdCBwaHktbW9kZSBkbyB5b3UgaGF2ZT8KPiAKPiBBbmQgZG9lcyB5b3VyIGhhcmR3
-YXJlIHJlcXVpcmUgYW4gUkdNSUkgZGVsYXkgaW4gb3JkZXIgdGhhdCBpdCB3b3Jrcz8KCm15IGRl
-dmljZSB0cmVlIG5vZGUgZm9yIHRoZSBSR01JSSBsb29rcyBsaWtlIHRoaXM6CgomY3Bzd19lbWFj
-MSB7CsKgwqDCoMKgwqDCoMKgwqBwaHktaGFuZGxlID0gPCZwaHkxPjsKwqDCoMKgwqDCoMKgwqDC
-oHBoeS1tb2RlID0gInJnbWlpIjsKwqDCoMKgwqDCoMKgwqDCoGR1YWxfZW1hY19yZXNfdmxhbiA9
-IDwyPjsKwqDCoMKgwqDCoMKgwqDCoHN0YXR1cyA9ICJva2F5IjsKfTsKCiZkYXZpbmNpX21kaW8g
-ewrCoMKgwqDCoMKgwqDCoMKgcGh5MTogZXRoZXJuZXQtcGh5QDEgewrCoMKgwqDCoMKgwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoHJlZyA9IDwyPjsKCsKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
-oMKgLyogUmVnaXN0ZXIgMjYwICgxMDRoKSDigJMgUkdNSUkgQ2xvY2sgYW5kIENvbnRyb2wgUGFk
-IFNrZXcgKi/CoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoHJ4Yy1za2V3LXBzID0gPDE0
-MDA+OwrCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoHJ4ZHYtc2tldy1wcyA9IDwwPjsK
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqB0eGMtc2tldy1wcyA9IDwxNDAwPjsKwqDC
-oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqB0eGVuLXNrZXctcHMgPSA8MD47CsKgwqDCoMKg
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgLyogUmVnaXN0ZXIgMjYxICgxMDVoKSDigJMgUkdNSUkg
-UlggRGF0YSBQYWQgU2tldyAqLwrCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoHJ4ZDMt
-c2tldy1wcyA9IDwwPjsKwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqByeGQyLXNrZXct
-cHMgPSA8MD47CsKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgcnhkMS1za2V3LXBzID0g
-PDA+OwrCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoHJ4ZDAtc2tldy1wcyA9IDwwPjsK
-wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqAvKiBSZWdpc3RlciAyNjIgKDEwNmgpIOKA
-kyBSR01JSSBUWCBEYXRhIFBhZCBTa2V3ICovCsKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
-oMKgdHhkMy1za2V3LXBzID0gPDA+OwrCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoHR4
-ZDItc2tldy1wcyA9IDwwPjsKwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqB0eGQxLXNr
-ZXctcHMgPSA8MD47CsKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgdHhkMC1za2V3LXBz
-ID0gPDA+OwrCoMKgwqDCoMKgwqDCoMKgfTsKfTsKClRoZSBwaHkgd2UgdXNlIGlzIGEgS1NaOTAy
-MS4gQW5kIHllcyB3ZSBhZGQgZGVsYXlzIHRvIHRoZQpwaHksIGFzIHlvdSBjYW4gc2VlLiBXaGVu
-IGxvb2tpbmcgdG8gdGhlIGR0cyBkb2N1bWVudGF0aW9uIEkgcHJvYmFibHkKbmVlZCB0byBzZXQg
-dGhlIHBoeS1tb2RlIHRvICJyZ21paS1pZCIgaW5zdGVhZCwgYXMgdGhlIHBoeSBpcyBwcm92aWRp
-bmcKdGhlIGRlbGF5cy4KSSBtYWtlIGEgcXVpY2sgdGVzdCB3aXRoIHRoYXQgY2hhbmdlIGFuZCBp
-dCBpcyB3b3JraW5nLiBTbyB0aGlzIHNlZW1zCnRvIHNvbHZlIG15IHByb2JsZW0uIFRoYW5rIHlv
-dSBmb3IgdGhlIGhpbnQuCgpSZWdhcmRzLApUZXJlc2EKCj4gCj4gwqDCoMKgwqBBbmRyZXc=
+From: Simon Horman <simon.horman@netronome.com>
+Date: Wed, 11 Jan 2017 14:05:41 +0100
+
+> Add support for support matching on ARP operation, and hardware and
+> protocol addresses for Ethernet hardware and IPv4 protocol addresses.
+> 
+> Changes since RFC:
+> * None other than dropping RFC designation after positive feedback from Jiri
+
+Series applied, thanks Simon.
