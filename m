@@ -1,36 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bnxt_en: hide unused
- bnxt_get_max_func_{vnics,rss_ctxs} functions
-Date: Wed, 11 Jan 2017 10:51:35 -0500 (EST)
-Message-ID: <20170111.105135.364136279090482156.davem@davemloft.net>
-References: <20170111143619.502495-1-arnd@arndb.de>
+From: Teresa Remmet <t.remmet@phytec.de>
+Subject: Re: net: ti: cpsw-phy-sel: RGMII is not working on AM335x
+Date: Wed, 11 Jan 2017 16:57:35 +0100
+Message-ID: <1484150255.3777.13.camel@phytec.de>
+References: <1484122463.3777.1.camel@phytec.de>
+         <20170111151407.GW22820@lunn.ch>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: michael.chan@broadcom.com, prashant.sreedharan@broadcom.com,
-        sbaddipa@broadcom.com, aduyck@mirantis.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: arnd@arndb.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170111143619.502495-1-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: base64
+Cc: Alexandru Gagniuc <alex.g@adaptrum.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Mugunthan V N <mugunthanvnm@ti.com>,
+        Grygorii Strashko <grygorii.strashko@ti.com>,
+        linux-omap@vger.kernel.org, netdev@vger.kernel.org
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.phycore.de ([217.6.246.34]:45118 "EHLO root.phytec.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1763740AbdAKP5i (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 11 Jan 2017 10:57:38 -0500
+In-Reply-To: <20170111151407.GW22820@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Wed, 11 Jan 2017 15:36:09 +0100
-
-> There are lots of #ifdefs in this file, and a recent patch got one
-> of them wrong, leading to a harmless warning in some randconfig
-> builds:
-> 
-> ethernet/broadcom/bnxt/bnxt.c:4956:21: error: 'bnxt_get_max_func_vnics' defined but not used [-Werror=unused-function]
-> ethernet/broadcom/bnxt/bnxt.c:4947:21: error: 'bnxt_get_max_func_rss_ctxs' defined but not used [-Werror=unused-function]
-> 
-> Ideally we'd just remove all of them and use 'if (IS_ENABLED())'
-> checks instead, which don't have this problem, but for now, I'm
-> adding one more #ifdef to shut up the new warning.
-> 
-> Fixes: 8079e8f107bf ("bnxt_en: Refactor code that determines RFS capability.")
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-
-Michael Chan has a fix for this coming my way.
+SGVsbG8gQW5kcmV3LAoKQW0gTWl0dHdvY2gsIGRlbiAxMS4wMS4yMDE3LCAxNjoxNCArMDEwMCBz
+Y2hyaWViIEFuZHJldyBMdW5uOgo+ID4gCj4gPiBTbyBJIHdvbmRlciB3aGF0IGlzIGNvcnJlY3Qg
+bm93PyBBcyBmb3IgbWUgdGhlIHBhdGNoIG1ha2VzIFJHTUlJCj4gPiB1bnVzYWJsZS4KPiA+IEhh
+cyBhbnlvbmUgYW4gZXhwbGFuYXRpb24/Cj4gSGkgVGVyZXNhCj4gCj4gSW4geW91ciBkZXZpY2Ug
+dHJlZSwgd2hhdCBwaHktbW9kZSBkbyB5b3UgaGF2ZT8KPiAKPiBBbmQgZG9lcyB5b3VyIGhhcmR3
+YXJlIHJlcXVpcmUgYW4gUkdNSUkgZGVsYXkgaW4gb3JkZXIgdGhhdCBpdCB3b3Jrcz8KCm15IGRl
+dmljZSB0cmVlIG5vZGUgZm9yIHRoZSBSR01JSSBsb29rcyBsaWtlIHRoaXM6CgomY3Bzd19lbWFj
+MSB7CsKgwqDCoMKgwqDCoMKgwqBwaHktaGFuZGxlID0gPCZwaHkxPjsKwqDCoMKgwqDCoMKgwqDC
+oHBoeS1tb2RlID0gInJnbWlpIjsKwqDCoMKgwqDCoMKgwqDCoGR1YWxfZW1hY19yZXNfdmxhbiA9
+IDwyPjsKwqDCoMKgwqDCoMKgwqDCoHN0YXR1cyA9ICJva2F5IjsKfTsKCiZkYXZpbmNpX21kaW8g
+ewrCoMKgwqDCoMKgwqDCoMKgcGh5MTogZXRoZXJuZXQtcGh5QDEgewrCoMKgwqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoHJlZyA9IDwyPjsKCsKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
+oMKgLyogUmVnaXN0ZXIgMjYwICgxMDRoKSDigJMgUkdNSUkgQ2xvY2sgYW5kIENvbnRyb2wgUGFk
+IFNrZXcgKi/CoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoHJ4Yy1za2V3LXBzID0gPDE0
+MDA+OwrCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoHJ4ZHYtc2tldy1wcyA9IDwwPjsK
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqB0eGMtc2tldy1wcyA9IDwxNDAwPjsKwqDC
+oMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqB0eGVuLXNrZXctcHMgPSA8MD47CsKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgLyogUmVnaXN0ZXIgMjYxICgxMDVoKSDigJMgUkdNSUkg
+UlggRGF0YSBQYWQgU2tldyAqLwrCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoHJ4ZDMt
+c2tldy1wcyA9IDwwPjsKwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqByeGQyLXNrZXct
+cHMgPSA8MD47CsKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgcnhkMS1za2V3LXBzID0g
+PDA+OwrCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoHJ4ZDAtc2tldy1wcyA9IDwwPjsK
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqAvKiBSZWdpc3RlciAyNjIgKDEwNmgpIOKA
+kyBSR01JSSBUWCBEYXRhIFBhZCBTa2V3ICovCsKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
+oMKgdHhkMy1za2V3LXBzID0gPDA+OwrCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoHR4
+ZDItc2tldy1wcyA9IDwwPjsKwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqB0eGQxLXNr
+ZXctcHMgPSA8MD47CsKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgdHhkMC1za2V3LXBz
+ID0gPDA+OwrCoMKgwqDCoMKgwqDCoMKgfTsKfTsKClRoZSBwaHkgd2UgdXNlIGlzIGEgS1NaOTAy
+MS4gQW5kIHllcyB3ZSBhZGQgZGVsYXlzIHRvIHRoZQpwaHksIGFzIHlvdSBjYW4gc2VlLiBXaGVu
+IGxvb2tpbmcgdG8gdGhlIGR0cyBkb2N1bWVudGF0aW9uIEkgcHJvYmFibHkKbmVlZCB0byBzZXQg
+dGhlIHBoeS1tb2RlIHRvICJyZ21paS1pZCIgaW5zdGVhZCwgYXMgdGhlIHBoeSBpcyBwcm92aWRp
+bmcKdGhlIGRlbGF5cy4KSSBtYWtlIGEgcXVpY2sgdGVzdCB3aXRoIHRoYXQgY2hhbmdlIGFuZCBp
+dCBpcyB3b3JraW5nLiBTbyB0aGlzIHNlZW1zCnRvIHNvbHZlIG15IHByb2JsZW0uIFRoYW5rIHlv
+dSBmb3IgdGhlIGhpbnQuCgpSZWdhcmRzLApUZXJlc2EKCj4gCj4gwqDCoMKgwqBBbmRyZXc=
