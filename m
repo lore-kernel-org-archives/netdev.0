@@ -1,54 +1,35 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next 6/7] net: ipv4: return route match in GETROUTE
- request
-Date: Wed, 11 Jan 2017 10:24:40 -0700
-Message-ID: <103ce935-42d1-6b7c-40e5-2734df07a3ea@cumulusnetworks.com>
-References: <1483997571-3964-1-git-send-email-dsa@cumulusnetworks.com>
- <1483997571-3964-7-git-send-email-dsa@cumulusnetworks.com>
- <20170110.204034.925090776724245879.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2] net: thunderx: Make hfunc variable const
+ type in nicvf_set_rxfh()
+Date: Wed, 11 Jan 2017 16:13:07 -0500 (EST)
+Message-ID: <20170111.161307.1442732653533967340.davem@davemloft.net>
+References: <20170111170432.31210-1-rrichter@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: sgoutham@cavium.com, rric@kernel.org, netdev@vger.kernel.org
+To: rrichter@cavium.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f50.google.com ([74.125.83.50]:36411 "EHLO
-        mail-pg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751949AbdAKRYn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 12:24:43 -0500
-Received: by mail-pg0-f50.google.com with SMTP id f188so283174244pgc.3
-        for <netdev@vger.kernel.org>; Wed, 11 Jan 2017 09:24:42 -0800 (PST)
-In-Reply-To: <20170110.204034.925090776724245879.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([184.105.139.130]:59596 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1760272AbdAKVNg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 16:13:36 -0500
+In-Reply-To: <20170111170432.31210-1-rrichter@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 1/10/17 6:40 PM, David Miller wrote:
-> From: David Ahern <dsa@cumulusnetworks.com>
-> Date: Mon,  9 Jan 2017 13:32:50 -0800
-> 
->> diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
->> index 8c93ad1ef9ab..471384b72cea 100644
->> --- a/include/uapi/linux/rtnetlink.h
->> +++ b/include/uapi/linux/rtnetlink.h
->> @@ -319,6 +319,8 @@ enum rtattr_type_t {
->>  	RTA_EXPIRES,
->>  	RTA_PAD,
->>  	RTA_UID,
->> +	RTA_ROUTE_GET,  /* nested attribute; route spec for RTM_GETROUTE */
->> +	RTA_ROUTE_GET_RTM, /* struct rtmsg for nested spec */
->>  	__RTA_MAX
->>  };
-> 
-> The nested attribute and the attributes within that nested attribute
-> live in two different attribute number namespaces.
-> 
-> So usually we allocate the nested attribute at the top level in the
-> main enumeration.  Then the elements within the nested attribute
-> get allocated with a new enumeration created specifically for items
-> inside that nested attribute.
-> 
-> For example, RTA_METRICS --> RTAX_*
-> 
-> So please arrange things this way.
+From: Robert Richter <rrichter@cavium.com>
+Date: Wed, 11 Jan 2017 18:04:32 +0100
 
-ok. I did it this way for code re-use since the nested attribute is a route spec. If separate attributes for the nest are desired I'll do that.
+> From struct ethtool_ops:
+> 
+>         int     (*set_rxfh)(struct net_device *, const u32 *indir,
+>                             const u8 *key, const u8 hfunc);
+> 
+> Change function arg of hfunc to const type.
+> 
+> V2: Fixed indentation.
+> 
+> Signed-off-by: Robert Richter <rrichter@cavium.com>
+
+Applied.
