@@ -1,35 +1,84 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 0/2] Move hwmon support out of switch and into
- PHYs.
-Date: Wed, 11 Jan 2017 20:19:59 +0100
-Message-ID: <20170111191959.GD13033@lunn.ch>
-References: <1484096604-25033-1-git-send-email-andrew@lunn.ch>
- <87vatljzlo.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
- <20170111173741.GB13033@lunn.ch>
- <0148fe14-a6aa-7f96-6244-74103de05879@gmail.com>
+From: Michal Hocko <mhocko@kernel.org>
+Subject: Re: net/atm: warning in alloc_tx/__might_sleep
+Date: Wed, 11 Jan 2017 20:45:26 +0100
+Message-ID: <20170111194525.GA16375@dhcp22.suse.cz>
+References: <CAAeHK+yZ16SKcmJbv2ARafGgAuX2wwQNE0HGdiFy1WgqPjxLMg@mail.gmail.com>
+ <1484145426.1643.7.camel@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        David Miller <davem@davemloft.net>,
+Cc: Andrey Konovalov <andreyknvl@google.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
         netdev <netdev@vger.kernel.org>,
-        Guenter Roeck <linux@roeck-us.net>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:56931 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752969AbdAKTUD (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 11 Jan 2017 14:20:03 -0500
+        LKML <linux-kernel@vger.kernel.org>,
+        Al Viro <viro@zeniv.linux.org.uk>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Chas Williams <3chas3@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <0148fe14-a6aa-7f96-6244-74103de05879@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1484145426.1643.7.camel@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> Are not the *_alarm attributes specifically designed to report such
-> things? See Documentation/hwmon/sysfs-interface
+On Wed 11-01-17 09:37:06, Chas Williams wrote:
+> On Mon, 2017-01-09 at 18:20 +0100, Andrey Konovalov wrote:
+> > Hi!
+> > 
+> > I've got the following error report while running the syzkaller fuzzer.
+> > 
+> > On commit a121103c922847ba5010819a3f250f1f7fc84ab8 (4.10-rc3).
+> > 
+> > A reproducer is attached.
+> > 
+> > ------------[ cut here ]------------
+> > WARNING: CPU: 0 PID: 4114 at kernel/sched/core.c:7737 __might_sleep+0x149/0x1a0
+> > do not call blocking ops when !TASK_RUNNING; state=1 set at
+> > [<ffffffff813fcb22>] prepare_to_wait+0x182/0x530
+> > Modules linked in:
+> > CPU: 0 PID: 4114 Comm: a.out Not tainted 4.10.0-rc3+ #59
+> > Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+> > Call Trace:
+> >  __dump_stack lib/dump_stack.c:15
+> >  dump_stack+0x292/0x398 lib/dump_stack.c:51
+> >  __warn+0x19f/0x1e0 kernel/panic.c:547
+> >  warn_slowpath_fmt+0xc5/0x110 kernel/panic.c:562
+> >  __might_sleep+0x149/0x1a0 kernel/sched/core.c:7732
+> >  slab_pre_alloc_hook mm/slab.h:408
+> >  slab_alloc_node mm/slub.c:2634
+> >  kmem_cache_alloc_node+0x14a/0x280 mm/slub.c:2744
+> >  __alloc_skb+0x10f/0x800 net/core/skbuff.c:219
+> >  alloc_skb ./include/linux/skbuff.h:926
+> >  alloc_tx net/atm/common.c:75
+> 
+> This is likely alloc_skb(..., GFP_KERNEL) in alloc_tx().  The simplest
+> fix for this would be simply to switch this GFP_ATOMIC.  See if this is
+> any better.
+> 
+> diff --git a/net/atm/common.c b/net/atm/common.c
+> index a3ca922..d84220c 100644
+> --- a/net/atm/common.c
+> +++ b/net/atm/common.c
+> @@ -72,7 +72,7 @@ static struct sk_buff *alloc_tx(struct atm_vcc *vcc, unsigned int size)
+>  			 sk_wmem_alloc_get(sk), size, sk->sk_sndbuf);
+>  		return NULL;
+>  	}
+> -	while (!(skb = alloc_skb(size, GFP_KERNEL)))
+> +	while (!(skb = alloc_skb(size, GFP_ATOMIC)))
+>  		schedule();
+>  	pr_debug("%d += %d\n", sk_wmem_alloc_get(sk), skb->truesize);
+>  	atomic_add(skb->truesize, &sk->sk_wmem_alloc);
 
-Hi Florian
+Blee, this code is just horrendous. But the "fix" is obviously broken!
+schedule() is just a noop if you do not change the task state and what
+you are just asking for is a never failing non sleeping allocation - aka
+a busy loop in the kernel!
 
-Yes it is, and at the moment, userspace needs to poll it. No need for
-in interrupt.
-
-   Andrew
+-- 
+Michal Hocko
+SUSE Labs
