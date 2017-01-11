@@ -1,38 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: qrtr: Mark 'buf' as little endian
-Date: Tue, 10 Jan 2017 20:45:54 -0500 (EST)
-Message-ID: <20170110.204554.1451403281569434916.davem@davemloft.net>
-References: <20170109223158.29255-1-sboyd@codeaurora.org>
+Subject: Re: [PATCH next v2] ipvlan: improvise dev_id generation logic in
+ IPvlan
+Date: Tue, 10 Jan 2017 20:47:41 -0500 (EST)
+Message-ID: <20170110.204741.1506942846730150633.davem@davemloft.net>
+References: <20170109230554.38328-1-mahesh@bandewar.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-        bjorn.andersson@linaro.org
-To: sboyd@codeaurora.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170109223158.29255-1-sboyd@codeaurora.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, maheshb@google.com, edumazet@google.com,
+        davem@davemloft.org
+To: mahesh@bandewar.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:34206 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932619AbdAKBrn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2017 20:47:43 -0500
+In-Reply-To: <20170109230554.38328-1-mahesh@bandewar.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Boyd <sboyd@codeaurora.org>
-Date: Mon,  9 Jan 2017 14:31:58 -0800
+From: Mahesh Bandewar <mahesh@bandewar.net>
+Date: Mon,  9 Jan 2017 15:05:54 -0800
 
-> Failure to mark this pointer as __le32 causes checkers like
-> sparse to complain:
+> From: Mahesh Bandewar <maheshb@google.com>
 > 
-> net/qrtr/qrtr.c:274:16: warning: incorrect type in assignment (different base types)
-> net/qrtr/qrtr.c:274:16:    expected unsigned int [unsigned] [usertype] <noident>
-> net/qrtr/qrtr.c:274:16:    got restricted __le32 [usertype] <noident>
-> net/qrtr/qrtr.c:275:16: warning: incorrect type in assignment (different base types)
-> net/qrtr/qrtr.c:275:16:    expected unsigned int [unsigned] [usertype] <noident>
-> net/qrtr/qrtr.c:275:16:    got restricted __le32 [usertype] <noident>
-> net/qrtr/qrtr.c:276:16: warning: incorrect type in assignment (different base types)
-> net/qrtr/qrtr.c:276:16:    expected unsigned int [unsigned] [usertype] <noident>
-> net/qrtr/qrtr.c:276:16:    got restricted __le32 [usertype] <noident>
+> The patch 009146d117b ("ipvlan: assign unique dev-id for each slave
+> device.") used ida_simple_get() to generate dev_ids assigned to the
+> slave devices. However (Eric has pointed out that) there is a shortcoming
+> with that approach as it always uses the first available ID. This
+> becomes a problem when a slave gets deleted and a new slave gets added.
+> The ID gets reassigned causing the new slave to get the same link-local
+> address. This side-effect is undesirable.
 > 
-> Silence it.
+> This patch adds a per-port variable that keeps track of the IDs
+> assigned and used as the stat-base for the IDR api. This base will be
+> wrapped around when it reaches the MAX (0xFFFE) value possibly on a
+> busy system where slaves are added and deleted routinely.
 > 
-> Cc: Bjorn Andersson <bjorn.andersson@linaro.org>
-> Signed-off-by: Stephen Boyd <sboyd@codeaurora.org>
+> Fixes: 009146d117b ("ipvlan: assign unique dev-id for each slave device.")
+> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+> CC: Eric Dumazet <edumazet@google.com>
+> CC: David Miller <davem@davemloft.org>
+> ---
+> v1 -> v2
+>   Implemented Dave's comments and reinstated IDR API.
 
 Applied, thanks.
