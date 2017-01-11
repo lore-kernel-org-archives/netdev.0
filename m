@@ -1,31 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: vrf: do not allow table id 0
-Date: Wed, 11 Jan 2017 10:04:58 -0500 (EST)
-Message-ID: <20170111.100458.1322323080511918611.davem@davemloft.net>
-References: <1484090545-16407-1-git-send-email-dsa@cumulusnetworks.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] wext: handle NULL exta data in iwe_stream_add_point
+ better
+Date: Wed, 11 Jan 2017 16:06:17 +0100
+Message-ID: <1484147177.29931.14.camel@sipsolutions.net>
+References: <20170111143532.485827-1-arnd@arndb.de>
+         <1484145522.29931.13.camel@sipsolutions.net>
+         <CAK8P3a2mOT=BG=9yxJ1e-q__5FYq6dfF3t3bT1vqcgFaQAUjog@mail.gmail.com>
+         (sfid-20170111_160001_614546_326AFA12)
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, frank.kellermann@atos.net
-To: dsa@cumulusnetworks.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:50610 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751052AbdAKPFA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 10:05:00 -0500
-In-Reply-To: <1484090545-16407-1-git-send-email-dsa@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless@vger.kernel.org,
+        "David S. Miller" <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAK8P3a2mOT=BG=9yxJ1e-q__5FYq6dfF3t3bT1vqcgFaQAUjog@mail.gmail.com> (sfid-20170111_160001_614546_326AFA12)
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Ahern <dsa@cumulusnetworks.com>
-Date: Tue, 10 Jan 2017 15:22:25 -0800
-
-> Frank reported that vrf devices can be created with a table id of 0.
-> This breaks many of the run time table id checks and should not be
-> allowed. Detect this condition at create time and fail with EINVAL.
+On Wed, 2017-01-11 at 16:00 +0100, Arnd Bergmann wrote:
+> On Wed, Jan 11, 2017 at 3:38 PM, Johannes Berg
+> <johannes@sipsolutions.net> wrote:
+> > On Wed, 2017-01-11 at 15:35 +0100, Arnd Bergmann wrote:
+> > > This works fine here because iwe->u.data.length is guaranteed to
+> > > be
+> > > NULL, and the memcpy doesn't actually have an effect.
+> > 
+> > I think you mean 0, not NULL, but I can fix that when I apply it.
 > 
-> Fixes: 193125dbd8eb ("net: Introduce VRF device driver")
-> Reported-by: Frank Kellermann <frank.kellermann@atos.net>
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+> Right, thanks!
 
-Applied and queued up for -stable, thanks David.
+Applied. Also fixed the typo in the subject :)
+
+johannes
