@@ -1,43 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] gro: Disable frag0 optimization on IPv6 ext headers
-Date: Tue, 10 Jan 2017 21:31:24 -0500 (EST)
-Message-ID: <20170110.213124.566361734898965140.davem@davemloft.net>
-References: <1484079855.21472.36.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [PATCH net 00/10] Mellanox mlx5 fixes and cleanups 2017-01-10
+Date: Tue, 10 Jan 2017 21:35:36 -0500 (EST)
+Message-ID: <20170110.213536.874833215273637134.davem@davemloft.net>
+References: <1484080419-24256-1-git-send-email-saeedm@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au,
-        slavash@mellanox.com, willemb@google.com, edumazet@google.com
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org
+To: saeedm@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:35002 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:35140 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1759807AbdAKCb0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2017 21:31:26 -0500
-In-Reply-To: <1484079855.21472.36.camel@edumazet-glaptop3.roam.corp.google.com>
+        with ESMTP id S1753890AbdAKCfh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2017 21:35:37 -0500
+In-Reply-To: <1484080419-24256-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 10 Jan 2017 12:24:15 -0800
+From: Saeed Mahameed <saeedm@mellanox.com>
+Date: Tue, 10 Jan 2017 22:33:29 +0200
 
-> From: Herbert Xu <herbert@gondor.apana.org.au>
-> 
-> The GRO fast path caches the frag0 address.  This address becomes
-> invalid if frag0 is modified by pskb_may_pull or its variants.
-> So whenever that happens we must disable the frag0 optimization.
-> 
-> This is usually done through the combination of gro_header_hard
-> and gro_header_slow, however, the IPv6 extension header path did
-> the pulling directly and would continue to use the GRO fast path
-> incorrectly.
-> 
-> This patch fixes it by disabling the fast path when we enter the
-> IPv6 extension header path.
-> 
-> Fixes: 78a478d0efd9 ("gro: Inline skb_gro_header and cache frag0 virtual address")
-> Reported-by: Slava Shwartsman <slavash@mellanox.com>
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> This series includes some mlx5e general cleanups from Daniel, Gil, Hadar
+> and myself.
+> Also it includes some critical mlx5e TC offloads fixes from Or Gerlitz.
 
-Applied and queued up for -stable.
+Series applied, thanks.
+
+> For -stable:
+>  - net/mlx5e: Remove WARN_ONCE from adaptive moderation code
+> 
+>    Although this fix doesn't affect any functionality, I thought it is
+>    better to clean this -WARN_ONCE- up for -stable in case someone hits
+>    such corner case.
+
+Queued up for -stable, thanks.
