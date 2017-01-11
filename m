@@ -1,107 +1,101 @@
-From: Vineeth Remanan Pillai <vineethp@amazon.com>
-Subject: [PATCH] xen-netfront: Fix Rx stall during network stress and OOM
-Date: Wed, 11 Jan 2017 23:17:17 +0000
-Message-ID: <1484176637-2869-1-git-send-email-vineethp@amazon.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: [net PATCH 0/2] Don't use lco_csum to compute IPv4 checksum
+Date: Thu, 12 Jan 2017 10:19:29 +1100
+Message-ID: <20170112101929.66c575f0@canb.auug.org.au>
+References: <20161128153927.15466.99193.stgit@ahduyck-blue-test.jf.intel.com>
+        <1480371962.2402.36.camel@intel.com>
+        <20161129104253.00ada847@canb.auug.org.au>
+        <20161129200708.3490344a@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Vineeth Remanan Pillai <vineethp@amazon.com>, <kamatam@amazon.com>,
-        <aliguori@amazon.com>
-To: <boris.ostrovsky@oracle.com>, <jgross@suse.com>,
-        <xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+        intel-wired-lan@lists.osuosl.org,
+        Alexander Duyck <alexander.h.duyck@intel.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Eli Cooper <elicooper@gmx.com>,
+        Lance Richardson <lrichard@redhat.com>,
+        Sven-Haegar Koch <haegar@sdinet.de>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ozlabs.org ([103.22.144.67]:51049 "EHLO ozlabs.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752050AbdAKXTc (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 11 Jan 2017 18:19:32 -0500
+In-Reply-To: <20161129200708.3490344a@canb.auug.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-During an OOM scenario, request slots could not be created as skb
-allocation fails. So the netback cannot pass in packets and netfront
-wrongly assumes that there is no more work to be done and it disables
-polling. This causes Rx to stall.
+Hi Dave,
 
-Fix is to consider the skb allocation failure as an error and in the
-event of this error, re-enable polling so that request slots could be
-created when memory is available.
+On Tue, 29 Nov 2016 20:07:08 +1100 Stephen Rothwell <sfr@canb.auug.org.au> =
+wrote:
+>
+> Hi Jeff,
+>=20
+> On Tue, 29 Nov 2016 10:43:04 +1100 Stephen Rothwell <sfr@canb.auug.org.au=
+> wrote:
+> >
+> > On Mon, 28 Nov 2016 14:26:02 -0800 Jeff Kirsher <jeffrey.t.kirsher@inte=
+l.com> wrote: =20
+> > >
+> > > On Mon, 2016-11-28 at 10:42 -0500, Alexander Duyck wrote:   =20
+> > > > When I implemented the GSO partial support in the Intel drivers I w=
+as
+> > > > using
+> > > > lco_csum to compute the checksum that we needed to plug into the IP=
+v4
+> > > > checksum field in order to cancel out the data that was not a part =
+of the
+> > > > IPv4 header.=C2=A0 However this didn't take into account that the t=
+ransport
+> > > > offset might be pointing to the inner transport header.
+> > > >=20
+> > > > Instead of using lco_csum I have just coded around it so that we ca=
+n use
+> > > > the outer IP header plus the IP header length to determine where we=
+ need
+> > > > to
+> > > > start our checksum and then just call csum_partial ourselves.
+> > > >=20
+> > > > This should fix the SIT issue reported on igb interfaces as well as
+> > > > simliar
+> > > > issues that would pop up on other Intel NICs.
+> > > >=20
+> > > > ---
+> > > >=20
+> > > > Alexander Duyck (2):
+> > > > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 igb/igbvf: Don't use lco_csum to com=
+pute IPv4 checksum
+> > > > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0 ixgbe/ixgbevf: Don't use lco_csum to=
+ compute IPv4 checksum     =20
+> > >=20
+> > > Stephen, I have applied Alex's patches to my net-queue tree. =C2=A0Ca=
+n you
+> > > confirm they resolve the bug seen?   =20
+> >=20
+> > Its a bit tricky because the origin problem only happens on my
+> > production server (ozlabs.org), but I will see if I can manage to just
+> > remove and reload the driver ...  though, the server is running a 4.7.8
+> > kernel and I am wondering how well these patches will apply? =20
+>=20
+> We have a winner!  This fixes my problem, so I can run at full speed
+> with gso and tso enabled in the sit interface and tx-gso-partial
+> enabled on the underlying ethernet.
+>=20
+> Thanks to everyone for diagnosis and solution.
+>=20
+> It would be nice if this fix went into the stable kernels as well so it
+> will turn up in the distro kernels eventually.
 
-Signed-off-by: Vineeth Remanan Pillai <vineethp@amazon.com>
----
- drivers/net/xen-netfront.c | 23 ++++++++++++++++-------
- 1 file changed, 16 insertions(+), 7 deletions(-)
+It looks like these 2 commits:
 
-diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-index 40f26b6..8275549 100644
---- a/drivers/net/xen-netfront.c
-+++ b/drivers/net/xen-netfront.c
-@@ -277,13 +277,14 @@ static struct sk_buff *xennet_alloc_one_rx_buffer(struct netfront_queue *queue)
- }
- 
- 
--static void xennet_alloc_rx_buffers(struct netfront_queue *queue)
-+static int xennet_alloc_rx_buffers(struct netfront_queue *queue)
- {
- 	RING_IDX req_prod = queue->rx.req_prod_pvt;
- 	int notify;
-+	int err = 0;
- 
- 	if (unlikely(!netif_carrier_ok(queue->info->netdev)))
--		return;
-+		return err;
- 
- 	for (req_prod = queue->rx.req_prod_pvt;
- 	     req_prod - queue->rx.rsp_cons < NET_RX_RING_SIZE;
-@@ -295,8 +296,10 @@ static void xennet_alloc_rx_buffers(struct netfront_queue *queue)
- 		struct xen_netif_rx_request *req;
- 
- 		skb = xennet_alloc_one_rx_buffer(queue);
--		if (!skb)
-+		if (!skb) {
-+			err = -ENOMEM;
- 			break;
-+		}
- 
- 		id = xennet_rxidx(req_prod);
- 
-@@ -321,9 +324,9 @@ static void xennet_alloc_rx_buffers(struct netfront_queue *queue)
- 	queue->rx.req_prod_pvt = req_prod;
- 
- 	/* Not enough requests? Try again later. */
--	if (req_prod - queue->rx.rsp_cons < NET_RX_SLOTS_MIN) {
-+	if (req_prod - queue->rx.sring->rsp_prod < NET_RX_SLOTS_MIN) {
- 		mod_timer(&queue->rx_refill_timer, jiffies + (HZ/10));
--		return;
-+		return err;
- 	}
- 
- 	wmb();		/* barrier so backend seens requests */
-@@ -331,6 +334,8 @@ static void xennet_alloc_rx_buffers(struct netfront_queue *queue)
- 	RING_PUSH_REQUESTS_AND_CHECK_NOTIFY(&queue->rx, notify);
- 	if (notify)
- 		notify_remote_via_irq(queue->rx_irq);
-+
-+	return err;
- }
- 
- static int xennet_open(struct net_device *dev)
-@@ -1046,7 +1051,7 @@ static int xennet_poll(struct napi_struct *napi, int budget)
- 
- 	work_done -= handle_incoming_queue(queue, &rxq);
- 
--	xennet_alloc_rx_buffers(queue);
-+	err = xennet_alloc_rx_buffers(queue);
- 
- 	if (work_done < budget) {
- 		int more_to_do = 0;
-@@ -1054,7 +1059,11 @@ static int xennet_poll(struct napi_struct *napi, int budget)
- 		napi_complete(napi);
- 
- 		RING_FINAL_CHECK_FOR_RESPONSES(&queue->rx, more_to_do);
--		if (more_to_do)
-+
-+		/* If there is more work to do or could not allocate
-+		 * rx buffers, re-enable polling.
-+		 */
-+		if (more_to_do || err != 0)
- 			napi_schedule(napi);
- 	}
- 
--- 
-2.1.2.AMZN
+516165a1e2f2	igb/igbvf: Don't use lco_csum to compute IPv4 checksum
+c54cdc316dbd	ixgbe/ixgbevf: Don't use lco_csum to compute IPv4 checksum
+
+have not been sent to stable.  They fix a bug introduced in v4.7-rc1
+and so need to go into 4.7 and 4.8 stable trees.
+
+--=20
+Cheers,
+Stephen Rothwell
