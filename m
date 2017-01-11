@@ -1,39 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: phy: marvell: fix Marvell 88E1512 used in SGMII
- mode
-Date: Wed, 11 Jan 2017 10:03:07 -0500 (EST)
-Message-ID: <20170111.100307.1659171906235723077.davem@davemloft.net>
-References: <E1cR5bt-0000O8-1T@rmk-PC.armlinux.org.uk>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH] softingcs: ret is never non-zero, so remove non-zero check and -ENODEV return
+Date: Wed, 11 Jan 2017 15:02:38 +0000
+Message-ID: <20170111150238.19845-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, andrew@lunn.ch,
-        charles-antoine.couret@nexvision.fr,
-        linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
-To: rmk+kernel@armlinux.org.uk
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:50572 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1764003AbdAKPDK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 10:03:10 -0500
-In-Reply-To: <E1cR5bt-0000O8-1T@rmk-PC.armlinux.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org
+To: Wolfgang Grandegger <wg@grandegger.com>,
+        Marc Kleine-Budde <mkl@pengutronix.de>,
+        linux-can@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Russell King <rmk+kernel@armlinux.org.uk>
-Date: Tue, 10 Jan 2017 23:13:45 +0000
+From: Colin Ian King <colin.king@canonical.com>
 
-> When an Marvell 88E1512 PHY is connected to a nic in SGMII mode, the
-> fiber page is used for the SGMII host-side connection.  The PHY driver
-> notices that SUPPORTED_FIBRE is set, so it tries reading the fiber page
-> for the link status, and ends up reading the MAC-side status instead of
-> the outgoing (copper) link.  This leads to incorrect results reported
-> via ethtool.
-> 
-> If the PHY is connected via SGMII to the host, ignore the fiber page.
-> However, continue to allow the existing power management code to
-> suspend and resume the fiber page.
-> 
-> Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
+The error return ret is never zero in the error handling path in
+softingcs_probe, so the check for non-zero and returning -ENODEV
+is logically dead code and hence redundant.  Remove it and just
+return ret.
 
-Applied, thanks Russell.
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ drivers/net/can/softing/softing_cs.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/can/softing/softing_cs.c b/drivers/net/can/softing/softing_cs.c
+index cdc0c74..4d44928 100644
+--- a/drivers/net/can/softing/softing_cs.c
++++ b/drivers/net/can/softing/softing_cs.c
+@@ -310,7 +310,7 @@ static int softingcs_probe(struct pcmcia_device *pcmcia)
+ pcmcia_failed:
+ 	pcmcia_disable_device(pcmcia);
+ 	pcmcia->priv = NULL;
+-	return ret ?: -ENODEV;
++	return ret;
+ }
+ 
+ static const struct pcmcia_device_id softingcs_ids[] = {
+-- 
+2.10.2
