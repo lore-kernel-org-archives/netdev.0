@@ -1,44 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] cgroup: move CONFIG_SOCK_CGROUP_DATA to init/Kconfig
-Date: Wed, 11 Jan 2017 09:48:20 -0500 (EST)
-Message-ID: <20170111.094820.1988998779765372781.davem@davemloft.net>
-References: <20170110120825.2984218-1-arnd@arndb.de>
+Subject: Re: [PATCH v2 0/2] remove dwc_eth_qos and rename stmicro/stmmac
+Date: Wed, 11 Jan 2017 09:52:56 -0500 (EST)
+Message-ID: <20170111.095256.1057845755758556047.davem@davemloft.net>
+References: <cover.1484059674.git.jpinto@synopsys.com>
+        <0dcdcb5f-200b-b130-9a67-774639353114@st.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ast@kernel.org, luto@kernel.org,
-        augustocaringi@gmail.com, linux-kernel@vger.kernel.org
-To: arnd@arndb.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170110120825.2984218-1-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Joao.Pinto@synopsys.com, lars.persson@axis.com, niklass@axis.com,
+        peppe.cavallaro@st.com, netdev@vger.kernel.org
+To: alexandre.torgue@st.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:50342 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S932553AbdAKOw6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 09:52:58 -0500
+In-Reply-To: <0dcdcb5f-200b-b130-9a67-774639353114@st.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Tue, 10 Jan 2017 13:08:06 +0100
+From: Alexandre Torgue <alexandre.torgue@st.com>
+Date: Wed, 11 Jan 2017 12:39:09 +0100
 
-> We now 'select SOCK_CGROUP_DATA' but Kconfig complains that this is
-> not right when CONFIG_NET is disabled and there is no socket interface:
-> 
-> warning: (CGROUP_BPF) selects SOCK_CGROUP_DATA which has unmet direct dependencies (NET)
-> 
-> I don't know what the correct solution for this is, but simply removing
-> the dependency on NET from SOCK_CGROUP_DATA by moving it out of the
-> 'if NET' section avoids the warning and does not produce other build
-> errors.
-> 
-> Fixes: 483c4933ea09 ("cgroup: Fix CGROUP_BPF config")
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> ---
-> There was an earlier patch by Augusto Mecking Caringi, which added
-> a dependency, see https://lkml.org/lkml/2017/1/2/296.
-> 
-> I could not figure out whether CGROUP_BPF is meaningful without
-> CONFIG_NET, my version of the patch assumes that it is.
-> Applying either my version Augusto's to v4.10-rc will kill the
-> warning.
+> Let's see what David think about that but if there no risk of backward
+> compatibility with DT, I agree with the series.
 
-CGROUP_BPF doesn't is not currently meaningful without CONFIG_NET,
-and especially SOCK_CGROUP_DATA is not meaningful without CONFIG_NET.
+I really am generally against driver renames.  The only potentially
+make new users happy, but can only negatively impact existing users.
 
-Patch applied, thanks.
+The new name is not terribly appropriate either, it is using the name
+of the manufacturer rather than referring to a chipset or a class or
+chipsets.
+
+I don't see what the big deal is in leaving the name as 'stmmac' and
+in a way leaving it alone shows respect for the people who have worked
+on and cared for the stmmac driver for all of these years.
+
+Thanks.
