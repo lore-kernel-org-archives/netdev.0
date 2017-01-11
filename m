@@ -1,48 +1,50 @@
-From: Robert Richter <rrichter@cavium.com>
-Subject: [PATCH net-next v2] net: thunderx: Make hfunc variable const type in nicvf_set_rxfh()
-Date: Wed, 11 Jan 2017 18:04:32 +0100
-Message-ID: <20170111170432.31210-1-rrichter@cavium.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next 0/2] Move hwmon support out of switch and into PHYs.
+Date: Wed, 11 Jan 2017 12:06:11 -0500
+Message-ID: <87vatljzlo.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <1484096604-25033-1-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Sunil Goutham <sgoutham@cavium.com>,
-        Robert Richter <rric@kernel.org>, <netdev@vger.kernel.org>,
-        Robert Richter <rrichter@cavium.com>
-To: David Miller <davem@davemloft.net>
+Cc: netdev <netdev@vger.kernel.org>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Guenter Roeck <linux@roeck-us.net>
+To: Andrew Lunn <andrew@lunn.ch>, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-cys01nam02on0060.outbound.protection.outlook.com ([104.47.37.60]:34129
-        "EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1759042AbdAKRFB (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 11 Jan 2017 12:05:01 -0500
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:47032 "EHLO
+        mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750879AbdAKRGe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 12:06:34 -0500
+In-Reply-To: <1484096604-25033-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->From struct ethtool_ops:
+Hi Andrew,
 
-        int     (*set_rxfh)(struct net_device *, const u32 *indir,
-                            const u8 *key, const u8 hfunc);
+Andrew Lunn <andrew@lunn.ch> writes:
 
-Change function arg of hfunc to const type.
+> Marvell Ethernet switches contain temperature sensors. They are inside
+> the embedded PHYs. Move the code into the PHY driver, so that discrete
+> PHY drivers also export there temperature sensor.
 
-V2: Fixed indentation.
+This message is not correct. The Marvell Ethernet switches contain only
+one temperature sensor for the entire chip (please adjust the cover
+letter and commit messages when you respin.)
 
-Signed-off-by: Robert Richter <rrichter@cavium.com>
----
- drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+The temperature and threshold are accessed through the embedded PHY
+registers of any port, as long as the port is not disabled.
 
-diff --git a/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c b/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c
-index 2e74bbaa38e1..5ac474683c98 100644
---- a/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c
-+++ b/drivers/net/ethernet/cavium/thunder/nicvf_ethtool.c
-@@ -635,7 +635,7 @@ static int nicvf_get_rxfh(struct net_device *dev, u32 *indir, u8 *hkey,
- }
- 
- static int nicvf_set_rxfh(struct net_device *dev, const u32 *indir,
--			  const u8 *hkey, u8 hfunc)
-+			  const u8 *hkey, const u8 hfunc)
- {
- 	struct nicvf *nic = netdev_priv(dev);
- 	struct nicvf_rss_info *rss = &nic->rss_info;
--- 
-2.11.0
+Even unlikely to be used, an interrupt can be generated when the
+temperature exceeds a certain threshold. It should be enabled on only
+one port at a time since there is only one temperature sensor.
+
+To sum up briefly, the temperature chip is physically inside the switch
+chip, but its access is via the embedded PHYs of the switch.
+
+I'd prefer to see the temperature code in the PHY driver as well, but I
+prefer we make sure that privileging the data access over the physical
+representation is the correct thing to do before moving code around.
+
+Thanks,
+
+        Vivien
