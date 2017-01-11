@@ -1,32 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] vxlan: Set ports in flow key when doing route
- lookups
-Date: Wed, 11 Jan 2017 16:10:10 -0500 (EST)
-Message-ID: <20170111.161010.2279224715099681153.davem@davemloft.net>
-References: <20170110.211004.1712612611986550798.davem@davemloft.net>
-        <20170111151853.4794-1-martynas@weave.works>
+Subject: Re: [PATCH net-next] net: thunderx: Fix error return code in
+ nicvf_open()
+Date: Wed, 11 Jan 2017 16:12:51 -0500 (EST)
+Message-ID: <20170111.161251.1979714688980792559.davem@davemloft.net>
+References: <20170111163251.19367-1-weiyj.lk@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: martynas@weave.works
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59466 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755788AbdAKVKM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 16:10:12 -0500
-In-Reply-To: <20170111151853.4794-1-martynas@weave.works>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: weiyongjun1@huawei.com, sgoutham@cavium.com, rric@kernel.org,
+ linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
+To: weiyj.lk@gmail.com
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <20170111163251.19367-1-weiyj.lk@gmail.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-From: Martynas Pumputis <martynas@weave.works>
-Date: Wed, 11 Jan 2017 15:18:53 +0000
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Date: Wed, 11 Jan 2017 16:32:51 +0000
 
-> Otherwise, a xfrm policy with sport/dport being set cannot be matched.
+> From: Wei Yongjun <weiyongjun1@huawei.com>
 > 
-> Signed-off-by: Martynas Pumputis <martynas@weave.works>
-> ---
-> Changes in v2:
->     - Set the source port in the flow key.
+> Fix to return a negative error code from the error handling
+> case instead of 0, as done elsewhere in this function.
+> 
+> Fixes: 712c31853440 ("net: thunderx: Program LMAC credits based on MTU")
+> Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
 
-Applied, thanks.
+Applied.
