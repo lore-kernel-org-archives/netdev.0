@@ -1,51 +1,73 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] gro: use min_t() in skb_gro_reset_offset()
-Date: Tue, 10 Jan 2017 19:52:43 -0800
-Message-ID: <1484106763.21472.49.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1484079841.21472.35.camel@edumazet-glaptop3.roam.corp.google.com>
-         <20170110.212911.71346127320993214.davem@davemloft.net>
+From: Jie Deng <Jie.Deng1@synopsys.com>
+Subject: Re: [PATCH v2 2/2] stmmac: rename it to synopsys
+Date: Wed, 11 Jan 2017 12:00:36 +0800
+Message-ID: <40521f32-436d-b31d-92a4-4cff97f3411d@synopsys.com>
+References: <cover.1484059674.git.jpinto@synopsys.com>
+ <c74e6665ca14a4ca03b38cd3442ef0644d9e250d.1484059674.git.jpinto@synopsys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au,
-        slavash@mellanox.com, willemb@google.com, edumazet@google.com
-To: David Miller <davem@davemloft.net>
+Cc: <lars.persson@axis.com>, <niklass@axis.com>,
+        <peppe.cavallaro@st.com>, <alexandre.torgue@st.com>,
+        <netdev@vger.kernel.org>, <CARLOS.PALMINHA@synopsys.com>
+To: Joao Pinto <Joao.Pinto@synopsys.com>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:33278 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1761267AbdAKDwq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2017 22:52:46 -0500
-Received: by mail-pf0-f194.google.com with SMTP id 127so31831541pfg.0
-        for <netdev@vger.kernel.org>; Tue, 10 Jan 2017 19:52:46 -0800 (PST)
-In-Reply-To: <20170110.212911.71346127320993214.davem@davemloft.net>
+Received: from smtprelay4.synopsys.com ([198.182.47.9]:58472 "EHLO
+        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752723AbdAKEA6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2017 23:00:58 -0500
+In-Reply-To: <c74e6665ca14a4ca03b38cd3442ef0644d9e250d.1484059674.git.jpinto@synopsys.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+Hi Joao,
 
-On 32bit arches, (skb->end - skb->data) is not 'unsigned int',
-so we shall use min_t() instead of min() to avoid a compiler error.
 
-Fixes: 1272ce87fa01 ("gro: Enter slow-path if there is no tailroom")
-Reported-by: kernel test robot <fengguang.wu@intel.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/core/dev.c |    5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+On 2017/1/10 22:52, Joao Pinto wrote:
+> This patch renames stmicro/stmmac to synopsys/ since it is a standard
+> ethernet software package regarding synopsys ethernet controllers, supporting
+> the majority of Synopsys Ethernet IPs. The config IDs remain the same, for
+> retro-compatibility, only the description was changed.
+>
+> Signed-off-by: Joao Pinto <jpinto@synopsys.com>
+> ---
+> changes v1->v2:
+> - nothing changed. Just to keep up with patch set version
+>
+> @@ -1,5 +1,5 @@
+>  config STMMAC_ETH
+> -	tristate "STMicroelectronics 10/100/1000 Ethernet driver"
+> +	tristate "Synopsys Ethernet drivers"
+>  	depends on HAS_IOMEM && HAS_DMA
+>  	select MII
+>  	select PHYLIB
+> @@ -14,7 +14,7 @@ config STMMAC_ETH
+>  if STMMAC_ETH
+>  
+"Synopsys Ethernet drivers" is too generic. The name should reflect the
+controller. This driver is for Synopsys GMAC 10M/100M/1G IPs. We will submit a
+driver for the new 25G/40G/50G/100G XLGMAC IP in the future.
+>  config STMMAC_PLATFORM
+> -	tristate "STMMAC Platform bus support"
+> +	tristate "Platform bus support"
+>  	depends on STMMAC_ETH
+>  	select MFD_SYSCON
+>  	default y
+> @@ -149,13 +149,13 @@ config DWMAC_SUNXI
+>  endif
+>  
+>  config STMMAC_PCI
+> -	tristate "STMMAC PCI bus support"
+> +	tristate "PCI bus support"
+>  	depends on STMMAC_ETH && PCI
+>  	---help---
+>  	  This is to select the Synopsys DWMAC available on PCI devices,
+>  	  if you have a controller with this interface, say Y or M here.
+>  
+> -	  This PCI support is tested on XLINX XC2V3000 FF1152AMT0221
+> +	  This PCI support was tested on XLINX XC2V3000 FF1152AMT0221
+>  	  D1215994A VIRTEX FPGA board.
+The name is also too generic. Please try to reflect the controller.
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 88d2907ca2cda3438a7a1c0c179051a5038aa1e1..07b307b0b414730688b64fdb2295b0fa1b721e51 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4441,8 +4441,9 @@ static void skb_gro_reset_offset(struct sk_buff *skb)
- 	    pinfo->nr_frags &&
- 	    !PageHighMem(skb_frag_page(frag0))) {
- 		NAPI_GRO_CB(skb)->frag0 = skb_frag_address(frag0);
--		NAPI_GRO_CB(skb)->frag0_len = min(skb_frag_size(frag0),
--						  skb->end - skb->tail);
-+		NAPI_GRO_CB(skb)->frag0_len = min_t(unsigned int,
-+						    skb_frag_size(frag0),
-+						    skb->end - skb->tail);
- 	}
- }
- 
+Thanks,
+Jie
