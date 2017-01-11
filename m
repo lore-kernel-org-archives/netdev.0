@@ -1,62 +1,38 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [net-next PATCH v6 0/3] net: dummy: Introduce dummy virtual
- functions
-Date: Wed, 11 Jan 2017 14:38:57 +0100
-Message-ID: <20170111133857.GA10974@orbyte.nwl.cc>
-References: <20170105190913.29986-1-phil@nwl.cc>
- <20170106.203804.2023763441703979123.davem@davemloft.net>
+From: Mrs Sandra Udo <"udo."@eagle.ocn.ne.jp>
+Subject: Reply urgent Please
+Date: Wed, 11 Jan 2017 22:26:28 +0900 (JST)
+Message-ID: <454115776.120494850.1484141188679.JavaMail.root@eagle.ocn.ne.jp>
+Reply-To: Mrs Sandra Udo <mrsudo136@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:52895 "EHLO mail.nwl.cc"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1759696AbdAKNjA (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 11 Jan 2017 08:39:00 -0500
-Content-Disposition: inline
-In-Reply-To: <20170106.203804.2023763441703979123.davem@davemloft.net>
+Received: from mbkd0338.ocn.ad.jp ([153.149.236.39]:35899 "EHLO
+        mbkd0338.ocn.ad.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S966738AbdAKNnt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 08:43:49 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+Dearest Beloved in the Lord.
 
-On Fri, Jan 06, 2017 at 08:38:04PM -0500, David Miller wrote:
-> From: Phil Sutter <phil@nwl.cc>
-> Date: Thu,  5 Jan 2017 20:09:10 +0100
-> 
-> > This series adds VF support to dummy device driver after adding the
-> > necessary infrastructure changes:
-> > 
-> > Patch 1 adds a netdevice callback for device-specific VF count
-> > retrieval. Patch 2 then changes dev_num_vf() implementation to make use
-> > of that new callback (if implemented), falling back to the old
-> > behaviour. Patch 3 then implements VF support in dummy, without the fake
-> > PCI parent device hack from v5.
-> 
-> Please don't make this a netdev specific method and interface.
-> 
-> Put the method in "struct bus_device", thereby making it a generic
-> "device" layer thing.
-> 
-> So the pci BUS type will implement pci_bus_type.num_vf().  And you'll
-> make a bus type for the dummy device to attach to which will implement
-> it's own.
+I pray that God will protect you and your family. My name is Engineer.
+Mrs Sandra Udo; I am an Esophageal Cancer patient, and presently
+hospitalized. My doctor says I have a few months to live. I have been
+touched by God to donate from what I have inherited from my late
+husband to you for good work of God.
 
-Following your approach, I'm running into a weird issue with conflicting
-sysfs symlink names after calling register_netdevice for the dummy
-device which has dev->dev.bus set to the dummy bus type I introduced:
+I will be going in for an operation soon. I decided to WILL/donate the
+sum of $5,500,000.00 to you for the good work of God, to set up a
+foundation for the Orphanage.
 
-In netdev_register_kobject, dev->class is set to &net_class. This means
-that later in device_add, the call to device_add_class_symlinks will
-create symlink to the class named devices/virtual/net/dummy0/subsystem.
+I will provide you more details information after knowing your
+willingness to handle this fund with fear of God.
 
-The following call to bus_add_device by device_add though tries to
-create a symlink to the bus with identical name.
+E-mail: ( mrssandrau@gmail.com )
 
-This seems like a bug in device_add, but things apparently work for
-other devices and I don't get what's different for them. Can you maybe
-give me a hint what to look for or do you have an idea what I am
-missing?
+Thanks and God bless.
 
-Thanks, Phil
+ Yours Sincerely,
+Engineer. Mrs Sandra Udo.
