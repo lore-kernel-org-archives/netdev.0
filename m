@@ -1,44 +1,43 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: Marvell Phy (1510) issue since v4.7 kernel
-Date: Thu, 12 Jan 2017 00:22:00 +0100
-Message-ID: <20170111232200.GI13033@lunn.ch>
-References: <20170109225641.GB22820@lunn.ch>
- <230CBA6E4B6B6B418E8730AC28E6FC7E153545A3@DFLE11.ent.ti.com>
- <20170109235534.GH22820@lunn.ch>
- <230CBA6E4B6B6B418E8730AC28E6FC7E153545C9@DFLE11.ent.ti.com>
- <20170110015336.GA7160@lunn.ch>
- <230CBA6E4B6B6B418E8730AC28E6FC7E15354AC2@DFLE11.ent.ti.com>
- <20170111222758.GG13033@lunn.ch>
- <230CBA6E4B6B6B418E8730AC28E6FC7E15354AE5@DFLE11.ent.ti.com>
- <20170111225948.GH13033@lunn.ch>
- <230CBA6E4B6B6B418E8730AC28E6FC7E15354B2B@DFLE11.ent.ti.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "rmk+kernel@arm.linux.org.uk" <rmk+kernel@arm.linux.org.uk>,
-        "charles-antoine.couret@nexvision.fr"
-        <charles-antoine.couret@nexvision.fr>,
-        "Karicheri, Muralidharan" <m-karicheri2@ti.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Kwok, WingMan" <w-kwok2@ti.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH] net: ipv4: fix table id in getroute response
+Date: Wed, 11 Jan 2017 15:42:17 -0800
+Message-ID: <1484178137-23735-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:57842 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751749AbdAKXWL (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 11 Jan 2017 18:22:11 -0500
-Content-Disposition: inline
-In-Reply-To: <230CBA6E4B6B6B418E8730AC28E6FC7E15354B2B@DFLE11.ent.ti.com>
+Received: from mail-pf0-f181.google.com ([209.85.192.181]:36113 "EHLO
+        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754039AbdAKXnG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 18:43:06 -0500
+Received: by mail-pf0-f181.google.com with SMTP id 189so1836390pfu.3
+        for <netdev@vger.kernel.org>; Wed, 11 Jan 2017 15:42:24 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> > So i think the correct question should be, how can we tell the 88E1512
-> > from the 88E1510 if they have the same ID in register 3.
+rtm_table is an 8-bit field while table ids are allowed up to u32. Commit
+709772e6e065 ("net: Fix routing tables with id > 255 for legacy software")
+added the preference to set rtm_table in dumps to RT_TABLE_COMPAT if the
+table id is > 255. The table id returned on get route requests should do
+the same.
 
-Hi WingMan
+Fixes: c36ba6603a11 ("net: Allow user to get table id from route lookup")
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+ net/ipv4/route.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Do you know you really have a 1510? You can see it written on the
-chip?
-
-Please can you read page 18, register 30 and let us know what value
-you get.
-
-    Andrew
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 0fcac8e7a2b2..709ffe67d1de 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -2472,7 +2472,7 @@ static int rt_fill_info(struct net *net,  __be32 dst, __be32 src, u32 table_id,
+ 	r->rtm_dst_len	= 32;
+ 	r->rtm_src_len	= 0;
+ 	r->rtm_tos	= fl4->flowi4_tos;
+-	r->rtm_table	= table_id;
++	r->rtm_table	= table_id < 256 ? table_id : RT_TABLE_COMPAT;
+ 	if (nla_put_u32(skb, RTA_TABLE, table_id))
+ 		goto nla_put_failure;
+ 	r->rtm_type	= rt->rt_type;
+-- 
+2.1.4
