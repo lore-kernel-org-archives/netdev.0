@@ -1,51 +1,57 @@
-From: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [RFC v2 00/10] HFI Virtual Network Interface Controller (VNIC)
-Date: Wed, 11 Jan 2017 01:05:39 -0800
-Message-ID: <20170111090539.GA78804@knc-06.sc.intel.com>
-References: <1481788782-89964-1-git-send-email-niranjana.vishwanathapura@intel.com>
- <20161215091226.GC811@mtr-leonro.local>
- <20161215145212.GA29116@phlsvsds.ph.intel.com>
- <380b05bf-a18e-1f20-7e8e-10b61f77dec7@redhat.com>
- <20170109075104.GV15685@mtr-leonro.local>
- <20170110033954.GA53664@knc-06.sc.intel.com>
- <20170110081402.GH7218@mtr-leonro.local>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH v2 7/8] net: Rename TCA*BPF_DIGEST to ..._SHA256
+Date: Wed, 11 Jan 2017 10:09:46 +0100
+Message-ID: <5875F65A.4010904@iogearbox.net>
+References: <cover.1484090585.git.luto@kernel.org> <f284a4d87cde103cd78de64b8607e3c80a17e2e5.1484090585.git.luto@kernel.org> <58758169.2020408@iogearbox.net> <CALCETrUHenMS1iomFr7+YEy_M3zaotrWbfMe93=BmzCbzJ0fLw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        "ira.weiny" <ira.weiny-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        Jeff Kirsher <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        dennis.dalessandro-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-To: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20170110081402.GH7218-U/DQcQFIOTAAJjI8aNfphQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Transfer-Encoding: 7bit
+Cc: Andy Lutomirski <luto@kernel.org>, Netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+        "Jason A. Donenfeld" <Jason@zx2c4.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Eric Biggers <ebiggers3@gmail.com>,
+        Tom Herbert <tom@herbertland.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Alexei Starovoitov <ast@kernel.org>
+To: Andy Lutomirski <luto@amacapital.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CALCETrUHenMS1iomFr7+YEy_M3zaotrWbfMe93=BmzCbzJ0fLw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 10, 2017 at 10:14:02AM +0200, Leon Romanovsky wrote:
->On Mon, Jan 09, 2017 at 07:39:54PM -0800, Vishwanathapura, Niranjana wrote:
->> We are also looking into Jason’s suggestion to make hfi_vnic interface to
->> the bottom driver a generic interface. This will include moving some of the
->> netstack interfacing to the bottom hfi1 driver.
+Hi Andy,
+
+On 01/11/2017 04:11 AM, Andy Lutomirski wrote:
+> On Tue, Jan 10, 2017 at 4:50 PM, Daniel Borkmann <daniel@iogearbox.net> wrote:
+>> On 01/11/2017 12:24 AM, Andy Lutomirski wrote:
+>>>
+>>> This makes it easier to add another digest algorithm down the road if
+>>> needed.  It also serves to force any programs that might have been
+>>> written against a kernel that had the old field name to notice the
+>>> change and make any necessary changes.
+>>>
+>>> This shouldn't violate any stable API policies, as no released kernel
+>>> has ever had TCA*BPF_DIGEST.
+>>
+>> Imho, this and patch 6/8 is not really needed. Should there ever
+>> another digest alg be used (doubt it), then you'd need a new nl
+>> attribute and fdinfo line anyway to keep existing stuff intact.
+>> Nobody made the claim that you can just change this underneath
+>> and not respecting abi for existing applications when I read from
+>> above that such apps now will get "forced" to notice a change.
 >
->Great, do you have rough estimation when will it be posted on the ML?
->
->Thanks
->
+> Fair enough.  I was more concerned about prerelease iproute2 versions,
+> but maybe that's a nonissue.  I'll drop these two patches.
 
-Hi Leon,
+Ok. Sleeping over this a bit, how about a general rename into
+"prog_tag" for fdinfo and TCA_BPF_TAG resp. TCA_ACT_BPF_TAG for
+the netlink attributes, fwiw, it might reduce any assumptions on
+this being made? If this would be preferable, I could cook that
+patch against -net for renaming it?
 
-I am currently doing some prototype on this. I will respond with the interface 
-definition first once I have it solidified. RFC v3 with implemetion will be 
-later.
-
-Niranjana
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks,
+Daniel
