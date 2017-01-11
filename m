@@ -1,147 +1,152 @@
 From: Simon Horman <simon.horman@netronome.com>
-Subject: [PATCH net-next 1/2] flow disector: ARP support
-Date: Wed, 11 Jan 2017 14:05:42 +0100
-Message-ID: <1484139943-18199-2-git-send-email-simon.horman@netronome.com>
+Subject: [PATCH net-next 2/2] net/sched: cls_flower: Support matching on ARP
+Date: Wed, 11 Jan 2017 14:05:43 +0100
+Message-ID: <1484139943-18199-3-git-send-email-simon.horman@netronome.com>
 References: <1484139943-18199-1-git-send-email-simon.horman@netronome.com>
 Cc: Dinan Gunawardena <dinan.gunawardena@netronome.com>,
         netdev@vger.kernel.org, oss-drivers@netronome.com,
         Simon Horman <simon.horman@netronome.com>
 To: David Miller <davem@davemloft.net>, Jiri Pirko <jiri@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f47.google.com ([74.125.82.47]:38669 "EHLO
-        mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S966401AbdAKNGO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 08:06:14 -0500
-Received: by mail-wm0-f47.google.com with SMTP id r144so27896631wme.1
-        for <netdev@vger.kernel.org>; Wed, 11 Jan 2017 05:06:14 -0800 (PST)
+Received: from mail-wj0-f175.google.com ([209.85.210.175]:35950 "EHLO
+        mail-wj0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S966463AbdAKNGQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 08:06:16 -0500
+Received: by mail-wj0-f175.google.com with SMTP id ew7so88136988wjc.3
+        for <netdev@vger.kernel.org>; Wed, 11 Jan 2017 05:06:15 -0800 (PST)
 In-Reply-To: <1484139943-18199-1-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allow dissection of (R)ARP operation hardware and protocol addresses
+Support matching on ARP operation, and hardware and protocol addresses
 for Ethernet hardware and IPv4 protocol addresses.
 
-There are currently no users of FLOW_DISSECTOR_KEY_ARP.
-A follow-up patch will allow FLOW_DISSECTOR_KEY_ARP to be used by the
-flower classifier.
+Example usage:
+
+tc qdisc add dev eth0 ingress
+
+tc filter add dev eth0 protocol arp parent ffff: flower indev eth0 \
+	arp_op request arp_sip 10.0.0.1 action drop
+tc filter add dev eth0 protocol rarp parent ffff: flower indev eth0 \
+	arp_op reply arp_tha 52:54:3f:00:00:00/24 action drop
 
 Signed-off-by: Simon Horman <simon.horman@netronome.com>
 ---
- include/net/flow_dissector.h | 19 +++++++++++++++
- net/core/flow_dissector.c    | 57 ++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 76 insertions(+)
+ include/uapi/linux/pkt_cls.h | 11 ++++++++++
+ net/sched/cls_flower.c       | 51 ++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 62 insertions(+)
 
-diff --git a/include/net/flow_dissector.h b/include/net/flow_dissector.h
-index d896a33e00d4..ac9703018a3a 100644
---- a/include/net/flow_dissector.h
-+++ b/include/net/flow_dissector.h
-@@ -89,6 +89,24 @@ struct flow_dissector_key_addrs {
+diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
+index a081efbd61a2..1e5e1ddfdaca 100644
+--- a/include/uapi/linux/pkt_cls.h
++++ b/include/uapi/linux/pkt_cls.h
+@@ -416,6 +416,17 @@ enum {
+ 	TCA_FLOWER_KEY_ICMPV6_TYPE,	/* u8 */
+ 	TCA_FLOWER_KEY_ICMPV6_TYPE_MASK,/* u8 */
+ 
++	TCA_FLOWER_KEY_ARP_SIP,		/* be32 */
++	TCA_FLOWER_KEY_ARP_SIP_MASK,	/* be32 */
++	TCA_FLOWER_KEY_ARP_TIP,		/* be32 */
++	TCA_FLOWER_KEY_ARP_TIP_MASK,	/* be32 */
++	TCA_FLOWER_KEY_ARP_OP,		/* u8 */
++	TCA_FLOWER_KEY_ARP_OP_MASK,	/* u8 */
++	TCA_FLOWER_KEY_ARP_SHA,		/* ETH_ALEN */
++	TCA_FLOWER_KEY_ARP_SHA_MASK,	/* ETH_ALEN */
++	TCA_FLOWER_KEY_ARP_THA,		/* ETH_ALEN */
++	TCA_FLOWER_KEY_ARP_THA_MASK,	/* ETH_ALEN */
++
+ 	__TCA_FLOWER_MAX,
  };
  
- /**
-+ * flow_dissector_key_arp:
-+ *	@ports: Operation, source and target addresses for an ARP header
-+ *              for Ethernet hardware addresses and IPv4 protocol addresses
-+ *		sip: Sender IP address
-+ *		tip: Target IP address
-+ *		op:  Operation
-+ *		sha: Sender hardware address
-+ *		tpa: Target hardware address
-+ */
-+struct flow_dissector_key_arp {
-+	__u32 sip;
-+	__u32 tip;
-+	__u8 op;
-+	unsigned char sha[ETH_ALEN];
-+	unsigned char tha[ETH_ALEN];
-+};
-+
-+/**
-  * flow_dissector_key_tp_ports:
-  *	@ports: port numbers of Transport header
-  *		src: source port number
-@@ -141,6 +159,7 @@ enum flow_dissector_key_id {
- 	FLOW_DISSECTOR_KEY_ICMP, /* struct flow_dissector_key_icmp */
- 	FLOW_DISSECTOR_KEY_ETH_ADDRS, /* struct flow_dissector_key_eth_addrs */
- 	FLOW_DISSECTOR_KEY_TIPC_ADDRS, /* struct flow_dissector_key_tipc_addrs */
-+	FLOW_DISSECTOR_KEY_ARP, /* struct flow_dissector_key_arp */
- 	FLOW_DISSECTOR_KEY_VLAN, /* struct flow_dissector_key_flow_vlan */
- 	FLOW_DISSECTOR_KEY_FLOW_LABEL, /* struct flow_dissector_key_flow_tags */
- 	FLOW_DISSECTOR_KEY_GRE_KEYID, /* struct flow_dissector_key_keyid */
-diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index fe4e1531976c..5b3800fe20f3 100644
---- a/net/core/flow_dissector.c
-+++ b/net/core/flow_dissector.c
-@@ -138,6 +138,7 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
- 	struct flow_dissector_key_control *key_control;
- 	struct flow_dissector_key_basic *key_basic;
- 	struct flow_dissector_key_addrs *key_addrs;
-+	struct flow_dissector_key_arp *key_arp;
- 	struct flow_dissector_key_ports *key_ports;
- 	struct flow_dissector_key_icmp *key_icmp;
- 	struct flow_dissector_key_tags *key_tags;
-@@ -379,6 +380,62 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
+diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
+index 970db7a41684..a3bfda3091a4 100644
+--- a/net/sched/cls_flower.c
++++ b/net/sched/cls_flower.c
+@@ -40,6 +40,7 @@ struct fl_flow_key {
+ 	};
+ 	struct flow_dissector_key_ports tp;
+ 	struct flow_dissector_key_icmp icmp;
++	struct flow_dissector_key_arp arp;
+ 	struct flow_dissector_key_keyid enc_key_id;
+ 	union {
+ 		struct flow_dissector_key_ipv4_addrs enc_ipv4;
+@@ -401,6 +402,16 @@ static const struct nla_policy fl_policy[TCA_FLOWER_MAX + 1] = {
+ 	[TCA_FLOWER_KEY_ICMPV6_TYPE_MASK] = { .type = NLA_U8 },
+ 	[TCA_FLOWER_KEY_ICMPV6_CODE]	= { .type = NLA_U8 },
+ 	[TCA_FLOWER_KEY_ICMPV6_CODE_MASK] = { .type = NLA_U8 },
++	[TCA_FLOWER_KEY_ARP_SIP]	= { .type = NLA_U32 },
++	[TCA_FLOWER_KEY_ARP_SIP_MASK]	= { .type = NLA_U32 },
++	[TCA_FLOWER_KEY_ARP_TIP]	= { .type = NLA_U32 },
++	[TCA_FLOWER_KEY_ARP_TIP_MASK]	= { .type = NLA_U32 },
++	[TCA_FLOWER_KEY_ARP_OP]		= { .type = NLA_U8 },
++	[TCA_FLOWER_KEY_ARP_OP_MASK]	= { .type = NLA_U8 },
++	[TCA_FLOWER_KEY_ARP_SHA]	= { .len = ETH_ALEN },
++	[TCA_FLOWER_KEY_ARP_SHA_MASK]	= { .len = ETH_ALEN },
++	[TCA_FLOWER_KEY_ARP_THA]	= { .len = ETH_ALEN },
++	[TCA_FLOWER_KEY_ARP_THA_MASK]	= { .len = ETH_ALEN },
+ };
  
- 		nhoff += FCOE_HEADER_LEN;
- 		goto out_good;
-+
-+	case htons(ETH_P_ARP):
-+	case htons(ETH_P_RARP): {
-+		struct {
-+			unsigned char ar_sha[ETH_ALEN];
-+			unsigned char ar_sip[4];
-+			unsigned char ar_tha[ETH_ALEN];
-+			unsigned char ar_tip[4];
-+		} *arp_eth, _arp_eth;
-+		const struct arphdr *arp;
-+		struct arphdr *_arp;
-+
-+		arp = __skb_header_pointer(skb, nhoff, sizeof(_arp), data,
-+					   hlen, &_arp);
-+		if (!arp)
-+			goto out_bad;
-+
-+		if (arp->ar_hrd != htons(ARPHRD_ETHER) ||
-+		    arp->ar_pro != htons(ETH_P_IP) ||
-+		    arp->ar_hln != ETH_ALEN ||
-+		    arp->ar_pln != 4 ||
-+		    (arp->ar_op != htons(ARPOP_REPLY) &&
-+		     arp->ar_op != htons(ARPOP_REQUEST)))
-+			goto out_bad;
-+
-+		arp_eth = __skb_header_pointer(skb, nhoff + sizeof(_arp),
-+					       sizeof(_arp_eth), data,
-+					       hlen - sizeof(_arp),
-+					       &_arp_eth);
-+		if (!arp)
-+			goto out_bad;
-+
-+		if (dissector_uses_key(flow_dissector,
-+				       FLOW_DISSECTOR_KEY_ARP)) {
-+
-+			key_arp = skb_flow_dissector_target(flow_dissector,
-+							    FLOW_DISSECTOR_KEY_ARP,
-+							    target_container);
-+
-+			memcpy(&key_arp->sip, arp_eth->ar_sip,
-+			       sizeof(key_arp->sip));
-+			memcpy(&key_arp->tip, arp_eth->ar_tip,
-+			       sizeof(key_arp->tip));
-+
-+			/* Only store the lower byte of the opcode;
-+			 * this covers ARPOP_REPLY and ARPOP_REQUEST.
-+			 */
-+			key_arp->op = ntohs(arp->ar_op) & 0xff;
-+
-+			ether_addr_copy(key_arp->sha, arp_eth->ar_sha);
-+			ether_addr_copy(key_arp->tha, arp_eth->ar_tha);
-+		}
-+
-+		goto out_good;
-+	}
-+
- 	default:
- 		goto out_bad;
+ static void fl_set_key_val(struct nlattr **tb,
+@@ -572,6 +583,23 @@ static int fl_set_key(struct net *net, struct nlattr **tb,
+ 			       &mask->icmp.code,
+ 			       TCA_FLOWER_KEY_ICMPV4_CODE_MASK,
+ 			       sizeof(key->icmp.code));
++	} else if (key->basic.n_proto == htons(ETH_P_ARP) ||
++		   key->basic.n_proto == htons(ETH_P_RARP)) {
++		fl_set_key_val(tb, &key->arp.sip, TCA_FLOWER_KEY_ARP_SIP,
++			       &mask->arp.sip, TCA_FLOWER_KEY_ARP_SIP_MASK,
++			       sizeof(key->arp.sip));
++		fl_set_key_val(tb, &key->arp.tip, TCA_FLOWER_KEY_ARP_TIP,
++			       &mask->arp.tip, TCA_FLOWER_KEY_ARP_TIP_MASK,
++			       sizeof(key->arp.tip));
++		fl_set_key_val(tb, &key->arp.op, TCA_FLOWER_KEY_ARP_OP,
++			       &mask->arp.op, TCA_FLOWER_KEY_ARP_OP_MASK,
++			       sizeof(key->arp.op));
++		fl_set_key_val(tb, key->arp.sha, TCA_FLOWER_KEY_ARP_SHA,
++			       mask->arp.sha, TCA_FLOWER_KEY_ARP_SHA_MASK,
++			       sizeof(key->arp.sha));
++		fl_set_key_val(tb, key->arp.tha, TCA_FLOWER_KEY_ARP_THA,
++			       mask->arp.tha, TCA_FLOWER_KEY_ARP_THA_MASK,
++			       sizeof(key->arp.tha));
  	}
+ 
+ 	if (tb[TCA_FLOWER_KEY_ENC_IPV4_SRC] ||
+@@ -689,6 +717,8 @@ static void fl_init_dissector(struct cls_fl_head *head,
+ 	FL_KEY_SET_IF_MASKED(&mask->key, keys, cnt,
+ 			     FLOW_DISSECTOR_KEY_ICMP, icmp);
+ 	FL_KEY_SET_IF_MASKED(&mask->key, keys, cnt,
++			     FLOW_DISSECTOR_KEY_ARP, arp);
++	FL_KEY_SET_IF_MASKED(&mask->key, keys, cnt,
+ 			     FLOW_DISSECTOR_KEY_VLAN, vlan);
+ 	FL_KEY_SET_IF_MASKED(&mask->key, keys, cnt,
+ 			     FLOW_DISSECTOR_KEY_ENC_KEYID, enc_key_id);
+@@ -1112,6 +1142,27 @@ static int fl_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
+ 				  TCA_FLOWER_KEY_ICMPV6_CODE_MASK,
+ 				  sizeof(key->icmp.code))))
+ 		goto nla_put_failure;
++	else if ((key->basic.n_proto == htons(ETH_P_ARP) ||
++		  key->basic.n_proto == htons(ETH_P_RARP)) &&
++		 (fl_dump_key_val(skb, &key->arp.sip,
++				  TCA_FLOWER_KEY_ARP_SIP, &mask->arp.sip,
++				  TCA_FLOWER_KEY_ARP_SIP_MASK,
++				  sizeof(key->arp.sip)) ||
++		  fl_dump_key_val(skb, &key->arp.tip,
++				  TCA_FLOWER_KEY_ARP_TIP, &mask->arp.tip,
++				  TCA_FLOWER_KEY_ARP_TIP_MASK,
++				  sizeof(key->arp.tip)) ||
++		  fl_dump_key_val(skb, &key->arp.op,
++				  TCA_FLOWER_KEY_ARP_OP, &mask->arp.op,
++				  TCA_FLOWER_KEY_ARP_OP_MASK,
++				  sizeof(key->arp.op)) ||
++		  fl_dump_key_val(skb, key->arp.sha, TCA_FLOWER_KEY_ARP_SHA,
++				  mask->arp.sha, TCA_FLOWER_KEY_ARP_SHA_MASK,
++				  sizeof(key->arp.sha)) ||
++		  fl_dump_key_val(skb, key->arp.tha, TCA_FLOWER_KEY_ARP_THA,
++				  mask->arp.tha, TCA_FLOWER_KEY_ARP_THA_MASK,
++				  sizeof(key->arp.tha))))
++		goto nla_put_failure;
+ 
+ 	if (key->enc_control.addr_type == FLOW_DISSECTOR_KEY_IPV4_ADDRS &&
+ 	    (fl_dump_key_val(skb, &key->enc_ipv4.src,
 -- 
 2.7.0.rc3.207.g0ac5344
