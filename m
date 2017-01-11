@@ -1,38 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] netvsc: add rcu_read locking to netvsc callback
-Date: Tue, 10 Jan 2017 21:06:21 -0500 (EST)
-Message-ID: <20170110.210621.1899425596662682692.davem@davemloft.net>
-References: <20170110155016.4897-1-sthemmin@microsoft.com>
+Subject: Re: [PATCH net 1/1] net/af_iucv: don't use paged skbs for TX on
+ HiperSockets
+Date: Tue, 10 Jan 2017 21:07:11 -0500 (EST)
+Message-ID: <20170110.210711.1780886001866499809.davem@davemloft.net>
+References: <20170110161034.82445-1-ubraun@linux.vnet.ibm.com>
+        <20170110161034.82445-2-ubraun@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sthemmin@microsoft.com
-To: stephen@networkplumber.org
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+        schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
+        stable@vger.kernel.org
+To: ubraun@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:34540 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:34578 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1753885AbdAKCGW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2017 21:06:22 -0500
-In-Reply-To: <20170110155016.4897-1-sthemmin@microsoft.com>
+        with ESMTP id S935739AbdAKCHN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2017 21:07:13 -0500
+In-Reply-To: <20170110161034.82445-2-ubraun@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Tue, 10 Jan 2017 07:50:16 -0800
+From: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Date: Tue, 10 Jan 2017 17:10:34 +0100
 
-> Lockdep finds a case where netvsc receive processing is incorrectly
-> assuming it is in RCU safe zone. The driver is using RCU to handle
-> VF reference but RCU read lock not held.
+> From: Julian Wiedmann <jwi@linux.vnet.ibm.com>
 > 
-> Fixes 0c9d3ba9a87b ("hv_netvsc: use RCU to protect vf_netdev")
+> With commit e53743994e21
+> ("af_iucv: use paged SKBs for big outbound messages"),
+> we transmit paged skbs for both of AF_IUCV's transport modes
+> (IUCV or HiperSockets).
+> The qeth driver for Layer 3 HiperSockets currently doesn't
+> support NETIF_F_SG, so these skbs would just be linearized again
+> by the stack.
+> Avoid that overhead by using paged skbs only for IUCV transport.
 > 
-> Signed-off-by: Stephen Hemminger <sthemmin@microsoft.com>
+> cc stable, since this also circumvents a significant skb leak when
+> sending large messages (where the skb then needs to be linearized).
+> 
+> Signed-off-by: Julian Wiedmann <jwi@linux.vnet.ibm.com>
+> Signed-off-by: Ursula Braun <ubraun@linux.vnet.ibm.com>
+> Cc: <stable@vger.kernel.org> # v4.8+
+> Fixes: e53743994e21 ("af_iucv: use paged SKBs for big outbound messages")
 
-Fixes tag must have a colon character after "Fixes", you must also
-not put any empty lines in between the Fixes tag and the other
-tags like signoffs.
-
-Futhermore 0c9d3ba9a87b is not a valid GIT SHA1 ID.
-
-[davem@kkuri net]$ git describe 0c9d3ba9a87b
-fatal: Not a valid object name 0c9d3ba9a87b
+Applied.
