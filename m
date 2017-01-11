@@ -1,93 +1,109 @@
-From: Felix Fietkau <nbd@nbd.name>
-Subject: Re: [PATCH net-next] bridge: multicast to unicast
-Date: Wed, 11 Jan 2017 13:21:34 +0100
-Message-ID: <8d3f0bd9-8b66-ce49-ab1d-56e8c73764fc@nbd.name>
-References: <20170102193214.31723-1-linus.luessing@c0d3.blue>
- <1483706872.4089.8.camel@sipsolutions.net>
- <8836daaa-9638-4502-d079-fd428595f822@nbd.name>
- <1483710841.12677.1.camel@sipsolutions.net>
- <22fad045-57c6-7789-d19f-f47bd0faf441@fami-braun.de>
- <20170107145516.GE3134@otheros> <1483949336.17582.3.camel@sipsolutions.net>
- <6f5ec9f1-800a-2bc4-2f41-9d803343bb22@fami-braun.de>
- <20170109212345.GA5513@otheros> <20170109133032.221f8669@xeon-e3>
- <20170110041816.GJ5513@otheros> <1484045763.1014.0.camel@sipsolutions.net>
- <73f29777-cf95-de99-f7a9-9d82e94c298d@nbd.name>
- <058f2afd-2502-e2e5-6427-1536fcd5851f@quantenna.com>
- <015bf651-7584-13c0-16b9-d4e29e23c96b@nbd.name>
- <ee946686-699c-da64-4932-f58e3f1a83ad@quantenna.com>
+From: Jesper Nilsson <jesper.nilsson@axis.com>
+Subject: Re: [PATCH v2 0/7] uapi: export all headers under uapi directories
+Date: Wed, 11 Jan 2017 13:42:02 +0100
+Message-ID: <20170111124202.GD7275@axis.com>
+References: <bf83da6b-01ef-bf44-b3e1-ca6fc5636818@6wind.com>
+ <1483695839-18660-1-git-send-email-nicolas.dichtel@6wind.com>
+ <3131144.4Ej3KFWRbz@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-        linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
-        "David S . Miller" <davem@davemloft.net>,
-        "M. Braun" <michael-dev@fami-braun.de>
-To: IgorMitsyanko <igor.mitsyanko.os@quantenna.com>,
-        Johannes Berg <johannes@sipsolutions.net>,
-        =?UTF-8?Q?Linus_L=c3=bcssing?= <linus.luessing@c0d3.blue>,
-        Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <ee946686-699c-da64-4932-f58e3f1a83ad@quantenna.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linuxppc-dev@lists.ozlabs.org, linux-kbuild@vger.kernel.org,
+        Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+        linux-mips@linux-mips.org, alsa-devel@alsa-project.org,
+        linux-ia64@vger.kernel.org, linux-doc@vger.kernel.org,
+        airlied@linux.ie, linux-fbdev@vger.kernel.org,
+        dri-devel@lists.freedesktop.org, linux-mtd@lists.infradead.org,
+        sparclinux@vger.kernel.org, linux-arch@vger.kernel.org,
+        linux-s390@vger.kernel.org, linux-am33-list@redhat.com,
+        linux-c6x-dev@linux-c6x.org, linux-rdma@vger.kernel.org,
+        linux-hexagon@vger.kernel.org, linux-sh@vger.kernel.org,
+        coreteam@netfilter.org, fcoe-devel@open-fcoe.org,
+        xen-devel@lists.xenproject.org, linux-snps-arc@lists.infradead.org,
+        linux-media@vger.kernel.org, uclinux-h8-devel@lists.sourceforge.jp,
+        adi-buildroot-devel@lists.sourceforge.net,
+        l
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-doc-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <3131144.4Ej3KFWRbz@wuerfel>
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 2017-01-11 13:15, IgorMitsyanko wrote:
-> On 01/11/2017 02:30 PM, Felix Fietkau wrote:
->> On 2017-01-11 12:26, IgorMitsyanko wrote:
->>> On 01/11/2017 12:27 AM, Felix Fietkau wrote:
->>>> On 2017-01-10 11:56, Johannes Berg wrote:
->>>>> On Tue, 2017-01-10 at 05:18 +0100, Linus Lüssing wrote:
->>>>>> On Mon, Jan 09, 2017 at 01:30:32PM -0800, Stephen Hemminger wrote:
->>>>>>> I wonder if MAC80211 should be doing IGMP snooping and not bridge
->>>>>>> in this environment.
->>>>>> In the long term, yes. For now, not quite sure.
->>>>> There's no "for now" in the kernel. Code added now will have to be
->>>>> maintained essentially forever.
->>>> I'm not sure that putting the IGMP snooping code in mac80211 is a good
->>>> idea, that would be quite a bit of code duplication.
->>>> This implementation works, it's very simple, and it's quite flexible for
->>>> a number of use cases.
->>>>
->>>> Is there any remaining objection to merging this in principle (aside
->>>> from potential issues with the code)?
->>>>
->>>> - Felix
->>>>
->>>
->>> Hi Felix, can we consider two examples configurations with multicast
->>> traffic:
->>>
->>> 1. AP is a source of multicast traffic itself, no bridge on AP. For
->>> example, wireless video server streaming to several clients.
->>> In this situation, we can not make use of possible advantages given by
->>> mc-to-uc conversion?
->> You could simply put the AP interface in a bridge, no need to have any
->> other bridge members present.
->>
->>> 2. A configuration with AP + STA + 3 client devices behind STA.
->>>                               ----|client 1|
->>>                              |
->>> |  mc  |----|AP|----|STA|---|---|client 2|
->>> |server|                    |
->>>                               ----|client 3|
->>>
->>> Multicast server behind AP streams MC video traffic. All 3 clients
->>> behind the STA have joined the multicast group.
->>> I'm not sure if this case will be handled correctly with mc-to-uc
->>> conversion in bridge on AP?
->> What do you mean by "3 client devices behind STA"? Are you using a
->> 4-addr STA, multicast routing, or some kind of vendor specific "client
->> bridge" hackery?
+On Mon, Jan 09, 2017 at 12:33:58PM +0100, Arnd Bergmann wrote:
+> On Friday, January 6, 2017 10:43:52 AM CET Nicolas Dichtel wrote:
+> > Here is the v2 of this series. The first 5 patches are just cleanup: some
+> > exported headers were still under a non-uapi directory.
 > 
-> 3 client devices connected by backbone Ethernet network. Generic
-> case is probably STA/AP operating in 4-addr mode (more or less standard
-> solution as far as I know).
-If the AP is running in 4-addr mode, it will need to have a bridge
-interface anyway, because the link to the STA will be split out into a
-separate virtual interface (AP_VLAN iftype).
+> Since this is meant as a cleanup, I commented on this to point out a cleaner
+> way to do the same.
+> 
+> > The patch 6 was spotted by code review: there is no in-tree user of this
+> > functionality.
+> > The last patch remove the use of header-y. Now all files under an uapi
+> > directory are exported.
+> 
+> Very nice!
+> 
+> > asm is a bit special, most of architectures export asm/<arch>/include/uapi/asm
+> > only, but there is two exceptions:
+> >  - cris which exports arch/cris/include/uapi/arch-v[10|32];
+> 
+> This is interesting, though not your problem. Maybe someone who understands
+> cris better can comment on this: How is the decision made about which of
+> the arch/user.h headers gets used? I couldn't find that in the sources,
+> but it appears to be based on kernel compile-time settings, which is
+> wrong for user space header files that should be independent of the kernel
+> config.
 
-In this case you don't actually need any multicast-to-unicast
-conversion, because the multicast traffic will be unicast on 802.11
-already (due to use of 4-addr mode).
+I believe it's since the CRISv10 and CRISv32 are very different beasts,
+and that is selected via kernel config...
 
-- Felix
+This part of the CRIS port has been transformed a couple of times from
+the original layout without uapi, and there's still some legacy silliness,
+where some files might have been exported but never used from userspace
+except for some corner cases.
+
+> >  - tile which exports arch/tile/include/uapi/arch.
+> > Because I don't know if the output of 'make headers_install_all' can be changed,
+> > I introduce subdir-y in Kbuild file. The headers_install_all target copies all
+> > asm/<arch>/include/uapi/asm to usr/include/asm-<arch> but
+> > arch/cris/include/uapi/arch-v[10|32] and arch/tile/include/uapi/arch are not
+> > prefixed (they are put asis in usr/include/). If it's acceptable to modify the
+> > output of 'make headers_install_all' to export asm headers in
+> > usr/include/asm-<arch>/asm, then I could remove this new subdir-y and exports
+> > everything under arch/<arch>/include/uapi/.
+> 
+> I don't know if anyone still uses "make headers_install_all", I suspect
+> distros these days all use "make headers_install", so it probably
+> doesn't matter much.
+> 
+> In case of cris, it should be easy enough to move all the contents of the
+> uapi/arch-*/*.h headers into the respective uapi/asm/*.h headers, they
+> only seem to be referenced from there.
+
+This would seem to be a reasonable change.
+
+> For tile, I suspect that would not work as the arch/*.h headers are
+> apparently defined as interfaces for both user space and kernel.
+> 
+> > Note also that exported files for asm are a mix of files listed by:
+> >  - include/uapi/asm-generic/Kbuild.asm;
+> >  - arch/x86/include/uapi/asm/Kbuild;
+> >  - arch/x86/include/asm/Kbuild.
+> > This complicates a lot the processing (arch/x86/include/asm/Kbuild is also
+> > used by scripts/Makefile.asm-generic).
+> > 
+> > This series has been tested with a 'make headers_install' on x86 and a
+> > 'make headers_install_all'. I've checked the result of both commands.
+> > 
+> > This patch is built against linus tree. I don't know if it should be
+> > made against antoher tree.
+> 
+> The series should probably get merged through the kbuild tree, but testing
+> it on mainline is fine here.
+> 
+> 	Arnd
+
+/^JN - Jesper Nilsson
+-- 
+               Jesper Nilsson -- jesper.nilsson@axis.com
