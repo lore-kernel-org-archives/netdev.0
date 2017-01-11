@@ -1,68 +1,51 @@
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: Re: [PATCH v2 0/2] remove dwc_eth_qos and rename stmicro/stmmac
-Date: Wed, 11 Jan 2017 15:06:55 +0000
-Message-ID: <329b0d8c-4cda-7238-c229-d69ac251f26b@synopsys.com>
-References: <cover.1484059674.git.jpinto@synopsys.com>
- <0dcdcb5f-200b-b130-9a67-774639353114@st.com>
- <20170111.095256.1057845755758556047.davem@davemloft.net>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 1/2] phy: marvell: Add support for temperature
+ sensor
+Date: Wed, 11 Jan 2017 16:09:31 +0100
+Message-ID: <20170111150931.GV22820@lunn.ch>
+References: <1484096604-25033-1-git-send-email-andrew@lunn.ch>
+ <1484096604-25033-2-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 8bit
-Cc: <Joao.Pinto@synopsys.com>, <lars.persson@axis.com>,
-        <niklass@axis.com>, <peppe.cavallaro@st.com>,
-        <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>, <alexandre.torgue@st.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        Florian Fainelli <f.fainelli@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from us01smtprelay-2.synopsys.com ([198.182.47.9]:38798 "EHLO
-        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1756516AbdAKPHn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 10:07:43 -0500
-In-Reply-To: <20170111.095256.1057845755758556047.davem@davemloft.net>
+Received: from vps0.lunn.ch ([178.209.37.122]:55136 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1764841AbdAKPJe (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 11 Jan 2017 10:09:34 -0500
+Content-Disposition: inline
+In-Reply-To: <1484096604-25033-2-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello David,
+> +static int marvell_hwmon_probe(struct phy_device *phydev,
+> +			       const struct hwmon_chip_info *chip)
+> +{
+> +	struct marvell_priv *priv = phydev->priv;
+> +	struct device *dev = &phydev->mdio.dev;
+> +	int err;
+> +
+> +	err = marvell_hwmon_name(phydev);
+> +	if (err)
+> +		return err;
+> +
+> +	priv->hwmon_dev = devm_hwmon_device_register_with_info(
+> +		dev, priv->hwmon_name, phydev, chip, NULL);
+> +
+> +	if (IS_ERR(priv->hwmon_dev))
+> +		return PTR_ERR(priv->hwmon_dev);
+> +
+> +	return 0;
+> +}
 
-Às 2:52 PM de 1/11/2017, David Miller escreveu:
-> From: Alexandre Torgue <alexandre.torgue@st.com>
-> Date: Wed, 11 Jan 2017 12:39:09 +0100
-> 
->> Let's see what David think about that but if there no risk of backward
->> compatibility with DT, I agree with the series.
-> 
-> I really am generally against driver renames.  The only potentially
-> make new users happy, but can only negatively impact existing users.
-> 
-> The new name is not terribly appropriate either, it is using the name
-> of the manufacturer rather than referring to a chipset or a class or
-> chipsets.
+0-day has pointed out this can be simplified to just
 
-stmmac is in fact a bundle of Synopsys Ethernet IPs. We can go with Jie'
-suggestion a include all the Ips it supports like "Synopsys 10M/100M/1G/eQOS
-Ethernet Drivers".
+        return PTR_ERR(priv->hwmon_dev);
 
-> 
-> I don't see what the big deal is in leaving the name as 'stmmac' and
-> in a way leaving it alone shows respect for the people who have worked
-> on and cared for the stmmac driver for all of these years.
+I will submit a v2 in a couple of days, when others have had chance to
+comment.
 
-I have a huge respect for STMicroelectronics and above all respect for the
-developers that work hard to put things working properly and care for it, and
-that's why before starting developing I had a discussion with stmmac maintainers
-in order to align with them. From me you can only expect collaboration, help and
-dedication, since Linux is for common good right, or at least I believe so.
-Another thing to point is that I wish that Alexandre and Peppe remain
-maintainers since they are doing an excelent job.
-
-The goal of this work is to improve code organization and future merge of other
-Synopsys Ethernet IP driver that will be able to merge into this "synopsys
-driver bundle". That is why I volunteered to merge the dwc qos axis' driver into
-stmmac.
-
-Thanks.
-Joao
-
-
-> 
-> Thanks.
-> 
+	Andrew
