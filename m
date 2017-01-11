@@ -1,43 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 5/8] net: dsa: Export dev_to_net_device()
-Date: Tue, 10 Jan 2017 21:24:57 -0500 (EST)
-Message-ID: <20170110.212457.38085718141908018.davem@davemloft.net>
-References: <20170110201235.21771-1-f.fainelli@gmail.com>
-        <20170110201235.21771-6-f.fainelli@gmail.com>
+Subject: Re: [PATCH net] gro: Enter slow-path if there is no tailroom
+Date: Tue, 10 Jan 2017 21:29:11 -0500 (EST)
+Message-ID: <20170110.212911.71346127320993214.davem@davemloft.net>
+References: <1484079841.21472.35.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jason@lakedaemon.net, andrew@lunn.ch,
-        sebastian.hesselbarth@gmail.com,
-        gregory.clement@free-electrons.com, linux@armlinux.org.uk,
-        vivien.didelot@savoirfairelinux.com, tremyfr@gmail.com,
-        schwidefsky@de.ibm.com, gregkh@linuxfoundation.org,
-        stuart.yoder@nxp.com, ingo.tuchscherer@linux.vnet.ibm.com,
-        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
-To: f.fainelli@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170110201235.21771-6-f.fainelli@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au,
+        slavash@mellanox.com, willemb@google.com, edumazet@google.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:34972 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752002AbdAKC3O (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 10 Jan 2017 21:29:14 -0500
+In-Reply-To: <1484079841.21472.35.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Tue, 10 Jan 2017 12:12:32 -0800
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 10 Jan 2017 12:24:01 -0800
 
-> @@ -491,7 +491,7 @@ struct mii_bus *dsa_host_dev_to_mii_bus(struct device *dev)
->  }
->  EXPORT_SYMBOL_GPL(dsa_host_dev_to_mii_bus);
->  
-> -static struct net_device *dev_to_net_device(struct device *dev)
-> +struct net_device *dev_to_net_device(struct device *dev)
->  {
->  	struct device *d;
->  
-> @@ -508,6 +508,7 @@ static struct net_device *dev_to_net_device(struct device *dev)
->  
->  	return NULL;
->  }
-> +EXPORT_SYMBOL_GPL(dev_to_net_device);
+> From: Herbert Xu <herbert@gondor.apana.org.au>
+> 
+> The GRO path has a fast-path where we avoid calling pskb_may_pull
+> and pskb_expand by directly accessing frag0.  However, this should
+> only be done if we have enough tailroom in the skb as otherwise
+> we'll have to expand it later anyway.
+> 
+> This patch adds the check by capping frag0_len with the skb tailroom.
+> 
+> Fixes: cb18978cbf45 ("gro: Open-code final pskb_may_pull")
+> Reported-by: Slava Shwartsman <slavash@mellanox.com>
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Something like this, a public interface with a very high level generic name,
-doesn't belong in the DSA layer.  It belongs in net/core/dev.c or something
-like that.
+
+Applied and queued up for -stable.
