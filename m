@@ -1,37 +1,32 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 0/4] net: switchdev: Avoid sleep in atomic with
- DSA
-Date: Wed, 11 Jan 2017 15:59:34 +0100
-Message-ID: <20170111145934.GU22820@lunn.ch>
-References: <20170109194503.10713-1-f.fainelli@gmail.com>
- <20170109204849.GA28310@splinter>
- <e28f29c8-04ed-1d71-7b13-27a5d58d111c@gmail.com>
- <20170109211436.GB28310@splinter>
- <20170110120846.GC1827@nanopsycho>
- <20170110132506.GA4084@splinter.mtl.com>
- <20170110141807.GD1827@nanopsycho>
- <20170110160852.GA18050@splinter.mtl.com>
- <03ce7d38-7775-3cd7-d863-682316d949bf@gmail.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH] wext: handle NULL exta data in iwe_stream_add_point better
+Date: Wed, 11 Jan 2017 16:00:00 +0100
+Message-ID: <CAK8P3a2mOT=BG=9yxJ1e-q__5FYq6dfF3t3bT1vqcgFaQAUjog@mail.gmail.com>
+References: <20170111143532.485827-1-arnd@arndb.de> <1484145522.29931.13.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ido Schimmel <idosch@idosch.org>, Jiri Pirko <jiri@resnulli.us>,
-        netdev@vger.kernel.org, davem@davemloft.net,
-        vivien.didelot@savoirfairelinux.com
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: linux-wireless@vger.kernel.org,
+        "David S. Miller" <davem@davemloft.net>,
+        Networking <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:55107 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S938050AbdAKO7h (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 11 Jan 2017 09:59:37 -0500
-Content-Disposition: inline
-In-Reply-To: <03ce7d38-7775-3cd7-d863-682316d949bf@gmail.com>
+Received: from mail-oi0-f67.google.com ([209.85.218.67]:33239 "EHLO
+        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S938150AbdAKPAB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 10:00:01 -0500
+In-Reply-To: <1484145522.29931.13.camel@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Vivien, Andrew, are you aware of an use case where we have the HW
-> programmed with a superset of VLANs wrt. the SW bridge?
+On Wed, Jan 11, 2017 at 3:38 PM, Johannes Berg
+<johannes@sipsolutions.net> wrote:
+> On Wed, 2017-01-11 at 15:35 +0100, Arnd Bergmann wrote:
 
-I cannot think of any case with a superset. Subset yes, but not
-superset.
+>> This works fine here because iwe->u.data.length is guaranteed to be
+>> NULL, and the memcpy doesn't actually have an effect.
+>
+> I think you mean 0, not NULL, but I can fix that when I apply it.
 
-	Andrew
+Right, thanks!
+
+    Arnd
