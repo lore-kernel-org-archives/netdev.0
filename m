@@ -1,7 +1,7 @@
 From: Joao Pinto <Joao.Pinto@synopsys.com>
 Subject: Re: [PATCH v2 0/2] remove dwc_eth_qos and rename stmicro/stmmac
-Date: Wed, 11 Jan 2017 16:17:50 +0000
-Message-ID: <a0619a6c-12be-38ae-1b41-ad70d4f89926@synopsys.com>
+Date: Wed, 11 Jan 2017 16:19:19 +0000
+Message-ID: <bb15d840-10ec-7249-98c5-3a48d0174ba6@synopsys.com>
 References: <0dcdcb5f-200b-b130-9a67-774639353114@st.com>
  <20170111.095256.1057845755758556047.davem@davemloft.net>
  <329b0d8c-4cda-7238-c229-d69ac251f26b@synopsys.com>
@@ -14,10 +14,10 @@ Cc: <alexandre.torgue@st.com>, <lars.persson@axis.com>,
         <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>, <Joao.Pinto@synopsys.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay2.synopsys.com ([198.182.60.111]:34094 "EHLO
+Received: from smtprelay2.synopsys.com ([198.182.60.111]:34112 "EHLO
         smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1755197AbdAKQR4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 11:17:56 -0500
+        with ESMTP id S1751671AbdAKQTY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 11:19:24 -0500
 In-Reply-To: <20170111.102000.1291650495305959047.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -35,9 +35,25 @@ List-ID: <netdev.vger.kernel.org>
 > patch set.
 > 
 
-Of course!
+Just a side question. My commits are assuming my username instead of my name.
+Did you ever had a similar issue? My gitconfig:
 
-Alexandre and Peppe do you want a file / function rename as well?
+> [user]
+>         email = jpinto@synopsys.com
+>         name = Joao Pinto
+> [format]
+>         signoff = true
+>         thread = true
+> [sendemail]
+>         smtpEncryption = tls
+>         smtpServer = <SERVER>
+>         smtpUser = <SERVER_USER>
+>         confirm = auto
+> [core]
+>         excludesfile = /path/.gitignore [pack]
+>         windowMemory = 2048m
+> [diff]
+>         renames = copy
 
-Thanks.
+Thanks,
 Joao
