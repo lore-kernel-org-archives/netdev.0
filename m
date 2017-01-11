@@ -1,40 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 5/6] bnxt_en: Pass RoCE app priority to
- firmware.
-Date: Wed, 11 Jan 2017 10:46:24 -0500 (EST)
-Message-ID: <20170111.104624.1616254027007040020.davem@davemloft.net>
-References: <1484097159-21575-1-git-send-email-michael.chan@broadcom.com>
-        <1484097159-21575-6-git-send-email-michael.chan@broadcom.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC PATCH] tcp: accept RST for rcv_nxt - 1 after receiving a
+ FIN
+Date: Wed, 11 Jan 2017 07:48:10 -0800
+Message-ID: <1484149690.21472.53.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1483652008-20255-1-git-send-email-jbaron@akamai.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: michael.chan@broadcom.com
+To: Jason Baron <jbaron@akamai.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:51542 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752144AbdAKPq3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 10:46:29 -0500
-In-Reply-To: <1484097159-21575-6-git-send-email-michael.chan@broadcom.com>
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:32978 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1756366AbdAKPsM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 10:48:12 -0500
+Received: by mail-pg0-f67.google.com with SMTP id 194so9593752pgd.0
+        for <netdev@vger.kernel.org>; Wed, 11 Jan 2017 07:48:12 -0800 (PST)
+In-Reply-To: <1483652008-20255-1-git-send-email-jbaron@akamai.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michael Chan <michael.chan@broadcom.com>
-Date: Tue, 10 Jan 2017 20:12:38 -0500
+On Thu, 2017-01-05 at 16:33 -0500, Jason Baron wrote:
 
-> diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_dcb.h b/drivers/net/ethernet/broadcom/bnxt/bnxt_dcb.h
-> index 35a0d28..f2630cc 100644
-> --- a/drivers/net/ethernet/broadcom/bnxt/bnxt_dcb.h
-> +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_dcb.h
-> @@ -36,6 +36,9 @@ struct bnxt_cos2bw_cfg {
 >  
->  #define HWRM_STRUCT_DATA_SUBTYPE_HOST_OPERATIONAL	0x0300
->  
-> +#define ETH_P_ROCE		0x8915
+> +/* Accept RST for rcv_nxt - 1 after a FIN.
+> + * When tcp connections are abruptly terminated from Mac OSX (via ^C), a
+> + * FIN is sent followed by a RST packet. The RST is sent with the same
+> + * sequence number as the FIN, and thus according to RFC 5961 a challenge
+> + * ACK should be sent. However, Mac OSX does not reply to the challenge ACK
+> + * with a RST on the closed socket, hence accept this class of RSTs.
+> + */
+> +static bool tcp_reset_check(struct sock *sk, struct sk_buff *skb)
 
-There's also a similar define in the qedr infiniband driver, this doesn't
-make much sense.
+const struct sock *sk, const struct sk_buff *skb
 
-Please add this to if_ether.h, and reference it from there in the drivers.
+> +{
+> +	struct tcp_sock *tp = tcp_sk(sk);
+> +
+> +	return unlikely((TCP_SKB_CB(skb)->seq == (tp->rcv_nxt - 1)) &&
+> +			(TCP_SKB_CB(skb)->end_seq == (tp->rcv_nxt - 1))	&&
 
-Thanks.
+Why is the test on end_seq needed ?
+
+> +			(sk->sk_state == TCP_CLOSE_WAIT ||
+> +			 sk->sk_state == TCP_LAST_ACK ||
+> +			 sk->sk_state == TCP_CLOSING));
+> +}
+
+Testing many states can be done more efficiently :
+
+   (1 << sk->sk_state) & (TCPF_CLOSE_WAIT | TCPF_LAST_ACK |
+                          TCPF_CLOSING)
+
+Thanks
