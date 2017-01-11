@@ -1,72 +1,34 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: net/atm: warning in alloc_tx/__might_sleep
-Date: Wed, 11 Jan 2017 11:11:59 -0800
-Message-ID: <1484161919.21472.74.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <CAAeHK+yZ16SKcmJbv2ARafGgAuX2wwQNE0HGdiFy1WgqPjxLMg@mail.gmail.com>
-         <CAM_iQpWaHX_orHbFjKcjBZL67b6LUAmOfvS1SQP13VPZDo-69w@mail.gmail.com>
-         <CANn89iLxQPAt0e5Yc0yYFFQtoQwuRsdAwH9m1d4oqWQ3W=DZTQ@mail.gmail.com>
-         <20170110224722.GA21775@electric-eye.fr.zoreil.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 0/2] Move hwmon support out of switch and into
+ PHYs.
+Date: Wed, 11 Jan 2017 20:16:43 +0100
+Message-ID: <20170111191643.GC13033@lunn.ch>
+References: <1484096604-25033-1-git-send-email-andrew@lunn.ch>
+ <87vatljzlo.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+ <20170111173741.GB13033@lunn.ch>
+ <20170111180018.GC22289@roeck-us.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
-        Cong Wang <xiyou.wangcong@gmail.com>,
-        Andrey Konovalov <andreyknvl@google.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        David Miller <davem@davemloft.net>,
         netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Al Viro <viro@zeniv.linux.org.uk>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170110224722.GA21775@electric-eye.fr.zoreil.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+        Florian Fainelli <f.fainelli@gmail.com>
+To: Guenter Roeck <linux@roeck-us.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:56905 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750757AbdAKTQw (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 11 Jan 2017 14:16:52 -0500
+Content-Disposition: inline
+In-Reply-To: <20170111180018.GC22289@roeck-us.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2017-01-10 at 23:47 +0100, Francois Romieu wrote:
-> Eric Dumazet <edumazet@google.com> :
-> > On Tue, Jan 10, 2017 at 9:35 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> > > On Mon, Jan 9, 2017 at 9:20 AM, Andrey Konovalov <andreyknvl@google.com> wrote:
-> > >
-> > > The fix should be straight-forward. Mind to try the attached patch?
-> > 
-> > 
-> > You forgot to remove schedule() ?
-> 
-> It may be clearer to split alloc_tx in two parts: only the unsleepable
-> "if (sk_wmem_alloc_get(sk) && !atm_may_send(vcc, size)) {" part of it
-> contributes to the inner "while (!(skb = alloc_tx(vcc, eff))) {" block.
-> 
-> See net/atm/common.c
-> [...]
-> static struct sk_buff *alloc_tx(struct atm_vcc *vcc, unsigned int size)
-> {
->         struct sk_buff *skb;
->         struct sock *sk = sk_atm(vcc);
-> 
->         if (sk_wmem_alloc_get(sk) && !atm_may_send(vcc, size)) {
->                 pr_debug("Sorry: wmem_alloc = %d, size = %d, sndbuf = %d\n",
->                          sk_wmem_alloc_get(sk), size, sk->sk_sndbuf);
->                 return NULL;
->         }
->         while (!(skb = alloc_skb(size, GFP_KERNEL)))
->                 schedule();
+>  This makes it kind
+> of a circular argument (not that the dsa hwmon driver supports the
+> new API anyway, but still).
 
-Yeah, this code looks quite wrong anyway.
+Actually, the code i posted does. I didn't just move it, i re-wrote it
+to use devm_hwmon_device_register_with_info().
 
-We can read it as an infinite loop in some stress conditions or memcg
-constraints.
-
-
-> The waiting stuff is related to vcc drain but the code makes it look as
-> if it were also related to skb alloc (it isn't).
-> 
-> It may be obvious for you but it took me a while to figure what the
-> code is supposed to achieve.
-> 
+   Andrew
