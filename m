@@ -1,106 +1,124 @@
-From: "Kwok, WingMan" <w-kwok2@ti.com>
-Subject: RE: Marvell Phy (1510) issue since v4.7 kernel
-Date: Thu, 12 Jan 2017 22:40:05 +0000
-Message-ID: <230CBA6E4B6B6B418E8730AC28E6FC7E15354EDB@DFLE11.ent.ti.com>
-References: <20170110015336.GA7160@lunn.ch>
- <230CBA6E4B6B6B418E8730AC28E6FC7E15354AC2@DFLE11.ent.ti.com>
- <20170111222758.GG13033@lunn.ch>
- <230CBA6E4B6B6B418E8730AC28E6FC7E15354AE5@DFLE11.ent.ti.com>
- <20170111225948.GH13033@lunn.ch>
- <230CBA6E4B6B6B418E8730AC28E6FC7E15354B2B@DFLE11.ent.ti.com>
- <20170111232200.GI13033@lunn.ch>
- <230CBA6E4B6B6B418E8730AC28E6FC7E15354B66@DFLE11.ent.ti.com>
- <20170112010658.GA25391@lunn.ch>
- <230CBA6E4B6B6B418E8730AC28E6FC7E15354EB0@DFLE11.ent.ti.com>
- <20170112214140.GM14217@n2100.armlinux.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Andrew Lunn <andrew@lunn.ch>,
-        "Karicheri, Muralidharan" <m-karicheri2@ti.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Russell King - ARM Linux <linux@armlinux.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fllnx210.ext.ti.com ([198.47.19.17]:16977 "EHLO
-        fllnx210.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750780AbdALWkY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 17:40:24 -0500
-In-Reply-To: <20170112214140.GM14217@n2100.armlinux.org.uk>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: william.c.roberts@intel.com
+Subject: [PATCH] can: Fix kernel panic at security_sock_rcv_skb
+Date: Thu, 12 Jan 2017 14:40:55 -0800
+Message-ID: <1484260855-15844-1-git-send-email-william.c.roberts@intel.com>
+Cc: sds@tycho.nsa.gov, paul@paul-moore.com,
+        Zhang Yanmin <yanmin.zhang@intel.com>, He@vger.kernel.org,
+        Bo <bo.he@intel.com>, Liu Shuo A <shuo.a.liu@intel.com>,
+        William Roberts <william.c.roberts@intel.com>
+To: selinux@tycho.nsa.gov, socketcan@hartkopp.net, mkl@pengutronix.de,
+        davem@davemloft.net, linux-can@vger.kernel.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogUnVzc2VsbCBLaW5nIC0g
-QVJNIExpbnV4IFttYWlsdG86bGludXhAYXJtbGludXgub3JnLnVrXQ0KPiBTZW50OiBUaHVyc2Rh
-eSwgSmFudWFyeSAxMiwgMjAxNyA0OjQyIFBNDQo+IFRvOiBLd29rLCBXaW5nTWFuDQo+IENjOiBB
-bmRyZXcgTHVubjsgS2FyaWNoZXJpLCBNdXJhbGlkaGFyYW47IG5ldGRldkB2Z2VyLmtlcm5lbC5v
-cmcNCj4gU3ViamVjdDogUmU6IE1hcnZlbGwgUGh5ICgxNTEwKSBpc3N1ZSBzaW5jZSB2NC43IGtl
-cm5lbA0KPiANCj4gT24gVGh1LCBKYW4gMTIsIDIwMTcgYXQgMDk6MzE6MjdQTSArMDAwMCwgS3dv
-aywgV2luZ01hbiB3cm90ZToNCj4gPg0KPiA+ID4gPiBJIGRvdWJsZSBjaGVja2VkIHRoYXQgb3Vy
-cyBpcyBhY3R1YWxseSBhIDg4RTE1MTQuIEFjY29yZGluZw0KPiA+ID4gPiB0byBNYXJ2ZWxsJ3Mg
-YnJpZWYgZGVzY3JpcHRpb24sIGl0IHNlZW1zIHRoYXQgaXQgZG9lcyBzdXBwb3J0DQo+ID4gPiA+
-IGZpYmVyLg0KPiA+ID4gPg0KPiA+ID4gPiBSZWFkaW5nIHBhZ2UgMTggcmVnIDMwIHJldHVybnMg
-Ni4NCj4gPiA+DQo+ID4gPiBPLkssIHRoYXQgaXMgY29uc2lzdGVudC4gTG9va2luZyBhdCB0aGUg
-TWFydmVsbCBTREs6DQo+ID4gPg0KPiA+ID4gcGh5L0luY2x1ZGUvbWFkQXBpRGVmcy5oOiNkZWZp
-bmUgICAgTUFEX1NVQl84OEUxNTEwICA0ICAgLyoNCj4gODhFMTUxMCAqLw0KPiA+ID4gcGh5L0lu
-Y2x1ZGUvbWFkQXBpRGVmcy5oOiNkZWZpbmUgICAgTUFEX1NVQl84OEUxNTE4ICA1ICAgLyoNCj4g
-ODhFMTUxOCAqLw0KPiA+ID4gcGh5L0luY2x1ZGUvbWFkQXBpRGVmcy5oOiNkZWZpbmUgICAgTUFE
-X1NVQl84OEUxNTEyICA2ICAgLyoNCj4gPiA+IDg4RTE1MTIvODhFMTUxNCAqLw0KPiA+ID4NCj4g
-PiA+IEkgdG9vayBhbm90aGVyIGxvb2sgYXQgdGhlIHBhdGNoIGFkZGluZyBGaWJyZSBzdXBwb3J0
-LiBUaGUNCj4gPiA+IHN1c3BlbmQvcmVzdW1lIGZ1bmN0aW9ucyBhcmUgd3JvbmcuDQo+ID4gPg0K
-PiA+ID4gICAgICAgICAvKiBTdXNwZW5kIHRoZSBmaWJlciBtb2RlIGZpcnN0ICovDQo+ID4gPiAg
-ICAgICAgIGlmICghKHBoeWRldi0+c3VwcG9ydGVkICYgU1VQUE9SVEVEX0ZJQlJFKSkgew0KPiA+
-ID4NCj4gPiA+IFRoZSAhIHNob3VsZCBub3QgYmUgdGhlcmUuIERvZXMgcmVtb3ZpbmcgdGhlbSBi
-b3RoIGZpeCB5b3VyDQo+IHByb2JsZW0/DQo+ID4gPg0KPiA+DQo+ID4gSGkgQW5kcmV3LA0KPiA+
-DQo+ID4gVGhhbmtzIGZvciB0YWtpbmcgdGhlIHRpbWUgdG8gbG9vayBpbnRvIHRob3NlIHBhdGNo
-ZXMuIFllcyB3ZSBub3RpY2UNCj4gPiB0aGUgZXJyb3IgaW4gdGhlIHN1c3BlbmQvcmVzdW1lIGZ1
-bmN0aW9ucyBhbHNvLg0KPiA+DQo+ID4gQnV0IG91ciBwcm9ibGVtIGlzIGNhdXNlZCBieSB0aGUg
-cmVhZF9zdGF0dXMgZnVuY3Rpb246DQo+ID4NCj4gPiAJaWYgKChwaHlkZXYtPnN1cHBvcnRlZCAm
-IFNVUFBPUlRFRF9GSUJSRSkpIHsNCj4gPiAJCWVyciA9IHBoeV93cml0ZShwaHlkZXYsIE1JSV9N
-QVJWRUxMX1BIWV9QQUdFLA0KPiBNSUlfTTExMTFfRklCRVIpOw0KPiA+IAkJaWYgKGVyciA8IDAp
-DQo+ID4gCQkJZ290byBlcnJvcjsNCj4gPg0KPiA+IAkJZXJyID0gbWFydmVsbF9yZWFkX3N0YXR1
-c19wYWdlKHBoeWRldiwgTUlJX00xMTExX0ZJQkVSKTsNCj4gPiAJCWlmIChlcnIgPCAwKQ0KPiA+
-IAkJCWdvdG8gZXJyb3I7DQo+ID4NCj4gPiAJCS8qIElmIHRoZSBmaWJlciBsaW5rIGlzIHVwLCBp
-dCBpcyB0aGUgc2VsZWN0ZWQgYW5kIHVzZWQNCj4gbGluay4NCj4gPiAJCSogSW4gdGhpcyBjYXNl
-LCB3ZSBuZWVkIHRvIHN0YXkgaW4gdGhlIGZpYmVyIHBhZ2UuDQo+ID4gCQkqIFBsZWFzZSB0byBi
-ZSBjYXJlZnVsIGFib3V0IHRoYXQsIGF2b2lkIHRvIHJlc3RvcmUgQ29wcGVyDQo+IHBhZ2UNCj4g
-PiAJCSogaW4gb3RoZXIgZnVuY3Rpb25zIHdoaWNoIGNvdWxkIGJyZWFrIHRoZSBiZWhhdmlvdXIN
-Cj4gPiAJCSogZm9yIHNvbWUgZmliZXIgcGh5IGxpa2UgODhFMTUxMi4NCj4gPiAJCSogKi8NCj4g
-PiAJCWlmIChwaHlkZXYtPmxpbmspDQo+ID4gCQkJcmV0dXJuIDA7DQo+ID4NCj4gPiB3aGljaCBr
-ZWVwcyB0aGUgZmliZXIgcGFnZSBpZiBwaHlkZXYtPmxpbmsgaXMgdHJ1ZSAoZm9yIHNvbWUNCj4g
-PiByZWFzb24gdGhpcyBpcyB0aGUgY2FzZSBldmVuIHRob3VnaCB3ZSBhcmUgbm90IHVzaW5nIGZp
-YmVyKQ0KPiANCj4gU2VlIGJlbG93Lg0KPiANCj4gPiBIb3dldmVyLCB0aGlzIGNhdXNlcyBhIHBy
-b2JsZW0gaW4ga2VybmVsIHJlYm9vdCBiZWNhdXNlIG5laXRoZXINCj4gPiB0aGUgc3VzcGVuZC9y
-ZXN1bWUgaXMgY2FsbGVkIHRvIHJlc3RvcmUgdGhlIGNvcHBlciBwYWdlIGFuZA0KPiA+IHUtYm9v
-dCBtYXJ2ZWxsIHBoeSBkcml2ZXIgZG9lcyBub3Qgc3VwcG9ydCAxNTEwIGZpYmVyLCB3aGljaA0K
-PiA+IHdpbGwgdGhlbiByZXN1bHQgaW4gd3JpdGluZyB0byB0aGUgd3JvbmcgcGh5IHJlZ3MgYW5k
-IGNhdXNlcw0KPiA+IGEgc2dtaWkgYXV0by1uZWdvIHRpbWUgb3V0Lg0KPiANCj4gU28gd2hhdCB3
-ZSBuZWVkIHRvIGRvIGlzIHRvIGhhdmUgYSAuc2h1dGRvd24gZnVuY3Rpb24gaW5zdGFsbGVkIC0g
-YnV0DQo+IGl0J3Mgbm90IHRoYXQgc2ltcGxlLi4uDQo+IA0KPiAJLm1kaW9kcnYgPSB7DQo+IAkJ
-LmRyaXZlciA9IHsNCj4gCQkJLnNodXRkb3duID0gbXY4OGUxNTEyX3NodXRkb3duLA0KPiAJCX0s
-DQo+IAl9LA0KPiANCj4gaW4gdGhlIGFwcHJvcHJpYXRlIHBoeV9kcml2ZXIgYXJyYXkgZWxlbWVu
-dCwgYW5kIHRoZW4gaGF2ZToNCj4gDQo+IHN0YXRpYyB2b2lkIG12ODhlMTUxMl9zaHV0ZG93bihz
-dHJ1Y3QgZGV2aWNlICpkZXYpDQo+IHsNCj4gCXN0cnVjdCBwaHlfZGV2aWNlICpwaHlkZXYgPSB0
-b19waHlfZGV2aWNlKGRldik7DQo+IA0KPiAJcGh5X3dyaXRlKHBoeWRldiwgTUlJX01BUlZFTExf
-UEhZX1BBR0UsIE1JSV9NMTExMV9DT1BQRVIpOw0KPiB9DQo+IA0KPiB3aGljaCB3aWxsIHJlc3Rv
-cmUgdGhlIGNvcHBlciBwYWdlIG9uIG5vbi1lbWVyZ2VuY3kgcmVib290cy4gIEZvcg0KPiBlbWVy
-Z2VuY3kgcmVib290cywgd2UncmUgb3V0IG9mIGx1Y2suLi4gdGhlIHJlYWwgZml4IHdvdWxkIGJl
-IGZvcg0KPiB1Ym9vdCB0byBlbnN1cmUgdGhhdCB3aGVuIGl0IGRldGVjdHMgdGhpcyBQSFksIGl0
-IGVuc3VyZXMgdGhhdCB0aGUNCj4gcmlnaHQgcGFnZSBpcyBzZWxlY3RlZC4NCj4gDQo+IE5vdywg
-dGhhdCBhbGwgc2FpZCwgdGhlcmUncyBhIGJ1ZyBpbiB0aGlzIGNvZGUsIHdoaWNoIGlzIGZpeGVk
-IGJ5DQo+IGEgcGF0Y2ggSSByZWNlbnRseSBzdWJtaXR0ZWQuICBJZiB5b3UgaGF2ZSBhbiA4OEUx
-NTF4IGNvbm5lY3RlZCB2aWENCj4gU0dNSUksIHRoZW4gdGhlIHJlYWRfc3RhdHVzIGZ1bmN0aW9u
-IGluY29ycmVjdGx5IGJlbGlldmVzIGl0IHNob3VsZA0KPiBiZSByZWFkaW5nIGZyb20gdGhlIGZp
-YmVyIHBhZ2UgLSB3aGVuIGluIGZhY3QgdGhlIGZpYmVyIHBhZ2UgaXMNCj4gcmVwb3J0aW5nIHRo
-ZSBzdGF0dXMgb2YgdGhlIGhvc3Qtc2lkZSBsaW5rLiAgU28sIGJlZm9yZSB0cnlpbmcgdGhlDQo+
-IGFib3ZlIG1vZGlmaWNhdGlvbiwgcGxlYXNlIHRyeSB0aGlzIHBhdGNoIC0gaXQncyBhbHJlYWR5
-IGJlZW4gbWVyZ2VkDQo+IGludG8gdGhlIG5ldCB0cmVlLCBzbyBzaG91bGQgaGl0IC1yYyBzb29u
-Lg0KPiANCj4gTXkgZ3Vlc3MgZnJvbSB3aGF0IHlvdSd2ZSBzYWlkIGFib3ZlIGlzIHRoYXQgeW91
-ciA4OEUxNTF4IGlzIGNvbm5lY3RlZA0KPiB2aWEgU0dNSUksIHNvIHlvdSBuZWVkIHRoZSBwYXRj
-aCBiZWxvdyByYXRoZXIgdGhhbiB0cnlpbmcgdG8gaW5zdGFsbA0KPiBhIHNodXRkb3duIGZ1bmN0
-aW9uLg0KPiANCj4gODw9PT09DQo+IEZyb206IFJ1c3NlbGwgS2luZyA8cm1rK2tlcm5lbEBhcm1s
-aW51eC5vcmcudWs+DQo+IFN1YmplY3Q6IFtQQVRDSF0gbmV0OiBwaHk6IG1hcnZlbGw6IGZpeCBN
-YXJ2ZWxsIDg4RTE1MTIgdXNlZCBpbiBTR01JSQ0KPiBtb2RlDQo+IA0KDQpIaSBSdXNzZWxsLA0K
-DQpUaGFua3MgZm9yIHRoZSBleHBsYW5hdGlvbnMuIFllcywgb3VyIDg4ZTE1MTQgaXMgY29ubmVj
-dGVkIHRvIHRoZQ0KaG9zdCB2aWEgc2dtaWkgYW5kIHlvdXIgcGF0Y2ggZG9lcyBwcm92aWRlIGEg
-c29sdXRpb24gdG8gb3VyIHByb2JsZW0uDQoNClJlZ2FyZHMsDQpXaW5nTWFuDQo=
+From: Zhang Yanmin <yanmin.zhang@intel.com>
+
+The patch is for fix the below kernel panic:
+BUG: unable to handle kernel NULL pointer dereference at (null)
+IP: [<ffffffff81495e25>] selinux_socket_sock_rcv_skb+0x65/0x2a0
+
+Call Trace:
+ <IRQ>
+ [<ffffffff81485d8c>] security_sock_rcv_skb+0x4c/0x60
+ [<ffffffff81d55771>] sk_filter+0x41/0x210
+ [<ffffffff81d12913>] sock_queue_rcv_skb+0x53/0x3a0
+ [<ffffffff81f0a2b3>] raw_rcv+0x2a3/0x3c0
+ [<ffffffff81f06eab>] can_rcv_filter+0x12b/0x370
+ [<ffffffff81f07af9>] can_receive+0xd9/0x120
+ [<ffffffff81f07beb>] can_rcv+0xab/0x100
+ [<ffffffff81d362ac>] __netif_receive_skb_core+0xd8c/0x11f0
+ [<ffffffff81d36734>] __netif_receive_skb+0x24/0xb0
+ [<ffffffff81d37f67>] process_backlog+0x127/0x280
+ [<ffffffff81d36f7b>] net_rx_action+0x33b/0x4f0
+ [<ffffffff810c88d4>] __do_softirq+0x184/0x440
+ [<ffffffff81f9e86c>] do_softirq_own_stack+0x1c/0x30
+ <EOI>
+ [<ffffffff810c76fb>] do_softirq.part.18+0x3b/0x40
+ [<ffffffff810c8bed>] do_softirq+0x1d/0x20
+ [<ffffffff81d30085>] netif_rx_ni+0xe5/0x110
+ [<ffffffff8199cc87>] slcan_receive_buf+0x507/0x520
+ [<ffffffff8167ef7c>] flush_to_ldisc+0x21c/0x230
+ [<ffffffff810e3baf>] process_one_work+0x24f/0x670
+ [<ffffffff810e44ed>] worker_thread+0x9d/0x6f0
+ [<ffffffff810e4450>] ? rescuer_thread+0x480/0x480
+ [<ffffffff810ebafc>] kthread+0x12c/0x150
+ [<ffffffff81f9ccef>] ret_from_fork+0x3f/0x70
+
+The sk dereferenced in panic has been released. After the rcu_call in
+can_rx_unregister, receiver was protected by RCU but inner data was
+not, then later sk will be freed while other CPU is still using it.
+We need wait here to make sure sk referenced via receiver was safe.
+
+=> security_sk_free
+=> sk_destruct
+=> __sk_free
+=> sk_free
+=> raw_release
+=> sock_release
+=> sock_close
+=> __fput
+=> ____fput
+=> task_work_run
+=> exit_to_usermode_loop
+=> syscall_return_slowpath
+=> int_ret_from_sys_call
+
+Tracked-On: https://jira01.devtools.intel.com/browse/OAM-40528
+Signed-off-by: Zhang Yanmin <yanmin.zhang@intel.com>
+Signed-off-by: He, Bo <bo.he@intel.com>
+Signed-off-by: Liu Shuo A <shuo.a.liu@intel.com>
+Signed-off-by: William Roberts <william.c.roberts@intel.com>
+---
+ net/can/af_can.c | 14 ++++++++------
+ net/can/af_can.h |  1 -
+ 2 files changed, 8 insertions(+), 7 deletions(-)
+
+diff --git a/net/can/af_can.c b/net/can/af_can.c
+index 1108079..fcbe971 100644
+--- a/net/can/af_can.c
++++ b/net/can/af_can.c
+@@ -517,10 +517,8 @@ EXPORT_SYMBOL(can_rx_register);
+ /*
+  * can_rx_delete_receiver - rcu callback for single receiver entry removal
+  */
+-static void can_rx_delete_receiver(struct rcu_head *rp)
++static void can_rx_delete_receiver(struct receiver *r)
+ {
+-	struct receiver *r = container_of(rp, struct receiver, rcu);
+-
+ 	kmem_cache_free(rcv_cache, r);
+ }
+ 
+@@ -595,9 +593,13 @@ void can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
+  out:
+ 	spin_unlock(&can_rcvlists_lock);
+ 
+-	/* schedule the receiver item for deletion */
+-	if (r)
+-		call_rcu(&r->rcu, can_rx_delete_receiver);
++	/* synchronize_rcu to wait until a grace period has elapsed, to make
++	 * sure all receiver's sk dereferenced by others.
++	 */
++	if (r) {
++		synchronize_rcu();
++		can_rx_delete_receiver(r);
++	}
+ }
+ EXPORT_SYMBOL(can_rx_unregister);
+ 
+diff --git a/net/can/af_can.h b/net/can/af_can.h
+index fca0fe9..a0cbf83 100644
+--- a/net/can/af_can.h
++++ b/net/can/af_can.h
+@@ -50,7 +50,6 @@
+ 
+ struct receiver {
+ 	struct hlist_node list;
+-	struct rcu_head rcu;
+ 	canid_t can_id;
+ 	canid_t mask;
+ 	unsigned long matches;
+-- 
+2.7.4
