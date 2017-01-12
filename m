@@ -1,138 +1,218 @@
 From: Alexander Loktionov <Alexander.Loktionov@aquantia.com>
-Subject: [PATCH v4 00/13] net: ethernet: aquantia: Add AQtion 2.5/5 GB NIC driver
-Date: Wed, 11 Jan 2017 19:53:04 -0800
-Message-ID: <cover.1484192452.git.vomlehn@texas.net>
+Subject: [PATCH v4 02/13] net: ethernet: aquantia: Common functions and definitions
+Date: Wed, 11 Jan 2017 19:53:06 -0800
+Message-ID: <20a9e54c90f44662be120d9c863a89f1ffe340e5.1484192452.git.vomlehn@texas.net>
+References: <cover.1484192452.git.vomlehn@texas.net>
 Cc: "David S . Miller" <davem@davemloft.net>,
         Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
         Alexander Loktionov <Alexander.Loktionov@aquantia.com>,
         Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>,
-        Pavel Belous <Pavel.Belous@aquantia.com>
+        Pavel Belous <Pavel.Belous@aquantia.com>,
+        Dmitry Bezrukov <Dmitry.Bezrukov@aquantia.com>
 To: netdev@vger.kernel.org, David VomLehn <vomlehn@texas.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from barracuda5.aus1.datafoundry.com ([209.99.124.136]:43658 "EHLO
+Received: from barracuda5.aus1.datafoundry.com ([209.99.124.136]:43692 "EHLO
         barracuda.datafoundry.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1752167AbdALDx5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 22:53:57 -0500
+        by vger.kernel.org with ESMTP id S1752167AbdALDyB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 22:54:01 -0500
+In-Reply-To: <cover.1484192452.git.vomlehn@texas.net>
+In-Reply-To: <c1ad2600fae843ad7f21a7eb41a096aa3cdf239b.1484192452.git.vomlehn@texas.net>
+References: <cover.1484192452.git.vomlehn@texas.net> <c1ad2600fae843ad7f21a7eb41a096aa3cdf239b.1484192452.git.vomlehn@texas.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: David VomLehn <vomlehn@texas.net>
 
-This series introduces the AQtion NIC driver for the aQuantia
-AQC107/AQC108 network devices.
-
-v1: Initial version
-v2: o Make necessary drivers/net/ethernet changes to integrate software
-    o Drop intermediate atlantic directory
-    o Remove Makefile things only appropriate to out of tree module
-      building
-v3: o Move changes to drivers/net/ethernet/{Kconfig,Makefile} to the last
-      patch to ensure clean bisection.
-    o Removed inline attribute aq_hw_write_req() as it was defined in
-      only one .c file.
-    o #included pci.h in aq_common.h to get struct pci definition.
-    o Modified code to unlock based execution flow rather than using a flag.
-    o Made a number of functions that were only used in a single file static.
-    o Cleaned up error and return code handling in various places.
-    o Remove AQ_CFG_IP_ALIGN definition.
-    o Other minor code clean up.
-v4: o Using do_div for 64 bit division.
-    o Modified NIC statistics code.
-    o Using build_skb instead netdev_alloc_skb for single fragment packets.
-    o Removed extra aq_nic.o from Makefile
+Add files containing the functions and definitions used in common in
+different functional areas.
 
 Signed-off-by: Alexander Loktionov <Alexander.Loktionov@aquantia.com>
 Signed-off-by: Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>
 Signed-off-by: Pavel Belous <Pavel.Belous@aquantia.com>
+Signed-off-by: Dmitry Bezrukov <Dmitry.Bezrukov@aquantia.com>
 Signed-off-by: David M. VomLehn <vomlehn@texas.net>
 ---
-
-David VomLehn (13):
-  net: ethernet: aquantia: Make and configuration files.
-  net: ethernet: aquantia: Common functions and definitions
-  net: ethernet: aquantia: Add ring support code
-  net: ethernet: aquantia: Low-level hardware interfaces
-  net: ethernet: aquantia: Support for NIC-specific code
-  net: ethernet: aquantia: Atlantic A0 and B0 specific functions.
-  net: ethernet: aquantia: Vector operations
-  net: ethernet: aquantia: PCI operations
-  net: ethernet: aquantia: Atlantic hardware abstraction layer
-  net: ethernet: aquantia: Hardware interface and utility functions
-  net: ethernet: aquantia: Ethtool support
-  net: ethernet: aquantia: Receive side scaling
-  net: ethernet: aquantia: Integrate AQtion 2.5/5 GB NIC driver
-
- drivers/net/ethernet/Kconfig                       |    1 +
- drivers/net/ethernet/Makefile                      |    1 +
- drivers/net/ethernet/aquantia/Kconfig              |   24 +
- drivers/net/ethernet/aquantia/Makefile             |   43 +
- drivers/net/ethernet/aquantia/aq_cfg.h             |   78 +
- drivers/net/ethernet/aquantia/aq_common.h          |   24 +
- drivers/net/ethernet/aquantia/aq_ethtool.c         |  251 +++
- drivers/net/ethernet/aquantia/aq_ethtool.h         |   20 +
- drivers/net/ethernet/aquantia/aq_hw.h              |  170 ++
- drivers/net/ethernet/aquantia/aq_hw_utils.c        |   69 +
- drivers/net/ethernet/aquantia/aq_hw_utils.h        |   48 +
- drivers/net/ethernet/aquantia/aq_main.c            |  292 +++
- drivers/net/ethernet/aquantia/aq_main.h            |   18 +
- drivers/net/ethernet/aquantia/aq_nic.c             |  911 ++++++++
- drivers/net/ethernet/aquantia/aq_nic.h             |  109 +
- drivers/net/ethernet/aquantia/aq_nic_internal.h    |   47 +
- drivers/net/ethernet/aquantia/aq_pci_func.c        |  348 +++
- drivers/net/ethernet/aquantia/aq_pci_func.h        |   35 +
- drivers/net/ethernet/aquantia/aq_ring.c            |  359 +++
- drivers/net/ethernet/aquantia/aq_ring.h            |  158 ++
- drivers/net/ethernet/aquantia/aq_rss.h             |   27 +
- drivers/net/ethernet/aquantia/aq_utils.h           |   54 +
- drivers/net/ethernet/aquantia/aq_vec.c             |  386 ++++
- drivers/net/ethernet/aquantia/aq_vec.h             |   43 +
- drivers/net/ethernet/aquantia/hw_atl/hw_atl_a0.c   |  908 ++++++++
- drivers/net/ethernet/aquantia/hw_atl/hw_atl_a0.h   |   35 +
- .../ethernet/aquantia/hw_atl/hw_atl_a0_internal.h  |  153 ++
- drivers/net/ethernet/aquantia/hw_atl/hw_atl_b0.c   |  961 ++++++++
- drivers/net/ethernet/aquantia/hw_atl/hw_atl_b0.h   |   35 +
- .../ethernet/aquantia/hw_atl/hw_atl_b0_internal.h  |  206 ++
- drivers/net/ethernet/aquantia/hw_atl/hw_atl_llh.c  | 1395 ++++++++++++
- drivers/net/ethernet/aquantia/hw_atl/hw_atl_llh.h  |  678 ++++++
- .../ethernet/aquantia/hw_atl/hw_atl_llh_internal.h | 2376 ++++++++++++++++++++
- .../net/ethernet/aquantia/hw_atl/hw_atl_utils.c    |  548 +++++
- .../net/ethernet/aquantia/hw_atl/hw_atl_utils.h    |  211 ++
- drivers/net/ethernet/aquantia/ver.h                |   19 +
- 36 files changed, 11041 insertions(+)
- create mode 100644 drivers/net/ethernet/aquantia/Kconfig
- create mode 100644 drivers/net/ethernet/aquantia/Makefile
+ drivers/net/ethernet/aquantia/aq_cfg.h    | 78 +++++++++++++++++++++++++++++++
+ drivers/net/ethernet/aquantia/aq_common.h | 24 ++++++++++
+ drivers/net/ethernet/aquantia/aq_utils.h  | 54 +++++++++++++++++++++
+ 3 files changed, 156 insertions(+)
  create mode 100644 drivers/net/ethernet/aquantia/aq_cfg.h
  create mode 100644 drivers/net/ethernet/aquantia/aq_common.h
- create mode 100644 drivers/net/ethernet/aquantia/aq_ethtool.c
- create mode 100644 drivers/net/ethernet/aquantia/aq_ethtool.h
- create mode 100644 drivers/net/ethernet/aquantia/aq_hw.h
- create mode 100644 drivers/net/ethernet/aquantia/aq_hw_utils.c
- create mode 100644 drivers/net/ethernet/aquantia/aq_hw_utils.h
- create mode 100644 drivers/net/ethernet/aquantia/aq_main.c
- create mode 100644 drivers/net/ethernet/aquantia/aq_main.h
- create mode 100644 drivers/net/ethernet/aquantia/aq_nic.c
- create mode 100644 drivers/net/ethernet/aquantia/aq_nic.h
- create mode 100644 drivers/net/ethernet/aquantia/aq_nic_internal.h
- create mode 100644 drivers/net/ethernet/aquantia/aq_pci_func.c
- create mode 100644 drivers/net/ethernet/aquantia/aq_pci_func.h
- create mode 100644 drivers/net/ethernet/aquantia/aq_ring.c
- create mode 100644 drivers/net/ethernet/aquantia/aq_ring.h
- create mode 100644 drivers/net/ethernet/aquantia/aq_rss.h
  create mode 100644 drivers/net/ethernet/aquantia/aq_utils.h
- create mode 100644 drivers/net/ethernet/aquantia/aq_vec.c
- create mode 100644 drivers/net/ethernet/aquantia/aq_vec.h
- create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_a0.c
- create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_a0.h
- create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_a0_internal.h
- create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_b0.c
- create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_b0.h
- create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_b0_internal.h
- create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_llh.c
- create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_llh.h
- create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_llh_internal.h
- create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_utils.c
- create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_utils.h
- create mode 100644 drivers/net/ethernet/aquantia/ver.h
 
+diff --git a/drivers/net/ethernet/aquantia/aq_cfg.h b/drivers/net/ethernet/aquantia/aq_cfg.h
+new file mode 100644
+index 0000000..63f01b8
+--- /dev/null
++++ b/drivers/net/ethernet/aquantia/aq_cfg.h
+@@ -0,0 +1,78 @@
++/*
++ * aQuantia Corporation Network Driver
++ * Copyright (C) 2014-2017 aQuantia Corporation. All rights reserved
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ */
++
++/* File aq_cfg.h: Definition of configuration parameters and constants. */
++
++#ifndef AQ_CFG_H
++#define AQ_CFG_H
++
++#define AQ_CFG_VECS_DEF   4U
++#define AQ_CFG_TCS_DEF    1U
++
++#define AQ_CFG_TXDS_DEF    4096U
++#define AQ_CFG_RXDS_DEF    1024U
++
++#define AQ_CFG_IS_POLLING_DEF 0U
++
++#define AQ_CFG_FORCE_LEGACY_INT 0U
++
++#define AQ_CFG_IS_INTERRUPT_MODERATION_DEF   1U
++#define AQ_CFG_INTERRUPT_MODERATION_RATE_DEF 0xFFFFU
++#define AQ_CFG_IRQ_MASK                      0x1FFU
++
++#define AQ_CFG_VECS_MAX   8U
++#define AQ_CFG_TCS_MAX    8U
++
++#define AQ_CFG_TX_FRAME_MAX  (16U * 1024U)
++#define AQ_CFG_RX_FRAME_MAX  (4U * 1024U)
++
++/* LRO */
++#define AQ_CFG_IS_LRO_DEF           1U
++
++/* RSS */
++#define AQ_CFG_RSS_INDIRECTION_TABLE_MAX  128U
++#define AQ_CFG_RSS_HASHKEY_SIZE           320U
++
++#define AQ_CFG_IS_RSS_DEF           1U
++#define AQ_CFG_NUM_RSS_QUEUES_DEF   AQ_CFG_VECS_DEF
++#define AQ_CFG_RSS_BASE_CPU_NUM_DEF 0U
++
++#define AQ_CFG_PCI_FUNC_MSIX_IRQS   9U
++#define AQ_CFG_PCI_FUNC_PORTS       2U
++
++#define AQ_CFG_SERVICE_TIMER_INTERVAL    (2 * HZ)
++#define AQ_CFG_POLLING_TIMER_INTERVAL   ((unsigned int)(2 * HZ))
++
++#define AQ_CFG_SKB_FRAGS_MAX   32U
++
++#define AQ_CFG_NAPI_WEIGHT     64U
++
++#define AQ_CFG_MULTICAST_ADDRESS_MAX     32U
++
++/*#define AQ_CFG_MAC_ADDR_PERMANENT {0x30, 0x0E, 0xE3, 0x12, 0x34, 0x56}*/
++
++#define AQ_CFG_FC_MODE 3U
++
++#define AQ_CFG_SPEED_MSK  0xFFFFU	/* 0xFFFFU==auto_neg */
++
++#define AQ_CFG_IS_AUTONEG_DEF       1U
++#define AQ_CFG_MTU_DEF              1514U
++
++#define AQ_CFG_LOCK_TRYS   100U
++
++#define AQ_CFG_DRV_AUTHOR      "aQuantia"
++#define AQ_CFG_DRV_DESC        "aQuantia Corporation(R) Network Driver"
++#define AQ_CFG_DRV_NAME        "aquantia"
++#define AQ_CFG_DRV_VERSION	__stringify(NIC_MAJOR_DRIVER_VERSION)"."\
++				__stringify(NIC_MINOR_DRIVER_VERSION)"."\
++				__stringify(NIC_BUILD_DRIVER_VERSION)"."\
++				__stringify(NIC_REVISION_DRIVER_VERSION)
++
++#endif /* AQ_CFG_H */
++
+diff --git a/drivers/net/ethernet/aquantia/aq_common.h b/drivers/net/ethernet/aquantia/aq_common.h
+new file mode 100644
+index 0000000..af00d48
+--- /dev/null
++++ b/drivers/net/ethernet/aquantia/aq_common.h
+@@ -0,0 +1,24 @@
++/*
++ * aQuantia Corporation Network Driver
++ * Copyright (C) 2014-2017 aQuantia Corporation. All rights reserved
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ */
++
++/* File aq_common.h: Basic includes for all files in project. */
++
++#ifndef AQ_COMMON_H
++#define AQ_COMMON_H
++
++#include <linux/etherdevice.h>
++#include <linux/pci.h>
++
++#include "ver.h"
++#include "aq_nic.h"
++#include "aq_cfg.h"
++#include "aq_utils.h"
++
++#endif /* AQ_COMMON_H */
++
+diff --git a/drivers/net/ethernet/aquantia/aq_utils.h b/drivers/net/ethernet/aquantia/aq_utils.h
+new file mode 100644
+index 0000000..e8b4167
+--- /dev/null
++++ b/drivers/net/ethernet/aquantia/aq_utils.h
+@@ -0,0 +1,54 @@
++/*
++ * aQuantia Corporation Network Driver
++ * Copyright (C) 2014-2017 aQuantia Corporation. All rights reserved
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ */
++
++/* File aq_utils.h: Useful macro and structures used in all layers of driver. */
++
++#ifndef AQ_UTILS_H
++#define AQ_UTILS_H
++
++#include "aq_common.h"
++
++#ifndef MBIT
++#define MBIT ((u64)1000000U)
++#define GBIT ((u64)1000000000U)
++#endif
++
++#define AQ_IRQ_INVALID 0U
++#define AQ_IRQ_LEGACY  1U
++#define AQ_IRQ_MSI     2U
++#define AQ_IRQ_MSIX    3U
++
++#define AQ_DIMOF(_ARY_)  ARRAY_SIZE(_ARY_)
++
++#define AQ_OBJ_HEADER spinlock_t lock; atomic_t flags; atomic_t busy_count
++
++struct aq_obj_s {
++	AQ_OBJ_HEADER;
++};
++
++#define AQ_OBJ_TST(_OBJ_, _FLAG_)  ((_FLAG_) & atomic_read(&(_OBJ_)->flags))
++
++#define AQ_OBJ_SET(_OBJ_, _F_) \
++{ unsigned long flags_old, flags_new; atomic_t *flags = &(_OBJ_)->flags; \
++do { \
++	flags_old = atomic_read(flags); \
++	flags_new = flags_old | (_F_); \
++} while (atomic_cmpxchg(flags, \
++	flags_old, flags_new) != flags_old); }
++
++#define AQ_OBJ_CLR(_OBJ_, _F_) \
++{ unsigned long flags_old, flags_new; atomic_t *flags = &(_OBJ_)->flags; \
++do { \
++	flags_old = atomic_read(flags); \
++	flags_new = flags_old & ~(_F_); \
++} while (atomic_cmpxchg(flags, \
++	flags_old, flags_new) != flags_old); }
++
++#endif /* AQ_UTILS_H */
++
 -- 
 2.7.4
