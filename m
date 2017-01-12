@@ -1,54 +1,55 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH/RFC v2 net-next] ravb: unmap descriptors when freeing
- rings
-Date: Thu, 12 Jan 2017 19:33:51 +0300
-Message-ID: <dc41bc36-8239-39d7-def1-a60603e3890a@cogentembedded.com>
-References: <1483613000-537-1-git-send-email-horms+renesas@verge.net.au>
- <6fcec500-bed6-ffa3-2887-d45b34703682@cogentembedded.com>
- <20170112091116.GC7724@verge.net.au>
- <3e1d4324-4288-8d65-56fd-8c3e7283020b@cogentembedded.com>
- <20170112131821.GA16060@verge.net.au>
+From: Harsh Jain <Harsh@chelsio.com>
+Subject: Re: [PATCH v1 3/8] crypto:chcr- Fix key length for RFC4106
+Date: Thu, 12 Jan 2017 22:08:46 +0530
+Message-ID: <648404c5-4234-7895-d478-858433b0d093@chelsio.com>
+References: <cover.1483599449.git.harsh@chelsio.com>
+ <6d8e61299e051d51dacdb6bfd6c5e582b230027c.1483599449.git.harsh@chelsio.com>
+ <20170112160959.GA19732@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-        Magnus Damm <magnus.damm@gmail.com>, netdev@vger.kernel.org,
-        linux-renesas-soc@vger.kernel.org
-To: Simon Horman <horms@verge.net.au>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <20170112131821.GA16060@verge.net.au>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: hariprasad@chelsio.com, netdev@vger.kernel.org,
+        linux-crypto@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([12.32.117.8]:38122 "EHLO l.chelsio.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1750791AbdALQi7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 12 Jan 2017 11:38:59 -0500
+In-Reply-To: <20170112160959.GA19732@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/12/2017 04:18 PM, Simon Horman wrote:
 
-> ...
->
->>>>   Here, it stop once an untransmitted buffer is encountered...
->>>
->>> Yes, I see that now.
->>>
->>> I wonder if we should:
->>>
->>> a) paramatise ravb_tx_free() so it may either clear all transmitted buffers
->>>   (current behaviour) or all buffers (new behaviour).
->>> b) provide a different version of this loop in ravb_ring_free()
->>>
->>> What are your thoughts?
+
+On 12-01-2017 21:39, Herbert Xu wrote:
+> On Fri, Jan 06, 2017 at 02:01:34PM +0530, Harsh Jain wrote:
+>> Check keylen before copying salt to avoid wrap around of Integer.
 >>
->>    I'm voting for (b).
->
-> Ok, something like this?
->
-> @@ -215,6 +225,30 @@ static void ravb_ring_free(struct net_device *ndev, int q)
->  	}
->
->  	if (priv->tx_ring[q]) {
-> +		for (; priv->cur_tx[q] - priv->dirty_tx[q] > 0; priv->dirty_tx[q]++) {
+>> Signed-off-by: Harsh Jain <harsh@chelsio.com>
+>> ---
+>>  drivers/crypto/chelsio/chcr_algo.c | 4 ++--
+>>  1 file changed, 2 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/drivers/crypto/chelsio/chcr_algo.c b/drivers/crypto/chelsio/chcr_algo.c
+>> index deec7c0..6c2dea3 100644
+>> --- a/drivers/crypto/chelsio/chcr_algo.c
+>> +++ b/drivers/crypto/chelsio/chcr_algo.c
+>> @@ -2194,8 +2194,8 @@ static int chcr_gcm_setkey(struct crypto_aead *aead, const u8 *key,
+>>  	unsigned int ck_size;
+>>  	int ret = 0, key_ctx_size = 0;
+>>  
+>> -	if (get_aead_subtype(aead) ==
+>> -	    CRYPTO_ALG_SUB_TYPE_AEAD_RFC4106) {
+>> +	if (get_aead_subtype(aead) == CRYPTO_ALG_SUB_TYPE_AEAD_RFC4106 &&
+>> +	    keylen > 3) {
+>>  		keylen -= 4;  /* nonce/salt is present in the last 4 bytes */
+>>  		memcpy(aeadctx->salt, key + keylen, 4);
+>>  	}
+> We should return an error in this case.
+That case is already handled in next if condition.It will error out with -EINVAL in next condition.
 
-    You're still copying the loop logic from ravb_tx_free() while we (I think) 
-need a simple loop over all the descriptor ring.
+if (keylen == AES_KEYSIZE_128) {
 
-[...]
-
-MBR, Sergei
+>
+> Cheers,
