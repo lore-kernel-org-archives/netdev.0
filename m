@@ -1,89 +1,108 @@
-From: "Kwok, WingMan" <w-kwok2@ti.com>
-Subject: RE: Marvell Phy (1510) issue since v4.7 kernel
-Date: Thu, 12 Jan 2017 21:31:27 +0000
-Message-ID: <230CBA6E4B6B6B418E8730AC28E6FC7E15354EB0@DFLE11.ent.ti.com>
-References: <20170109235534.GH22820@lunn.ch>
- <230CBA6E4B6B6B418E8730AC28E6FC7E153545C9@DFLE11.ent.ti.com>
- <20170110015336.GA7160@lunn.ch>
- <230CBA6E4B6B6B418E8730AC28E6FC7E15354AC2@DFLE11.ent.ti.com>
- <20170111222758.GG13033@lunn.ch>
- <230CBA6E4B6B6B418E8730AC28E6FC7E15354AE5@DFLE11.ent.ti.com>
- <20170111225948.GH13033@lunn.ch>
- <230CBA6E4B6B6B418E8730AC28E6FC7E15354B2B@DFLE11.ent.ti.com>
- <20170111232200.GI13033@lunn.ch>
- <230CBA6E4B6B6B418E8730AC28E6FC7E15354B66@DFLE11.ent.ti.com>
- <20170112010658.GA25391@lunn.ch>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH v2 2/2] stmmac: rename it to synopsys
+Date: Thu, 12 Jan 2017 11:42:31 -0800
+Message-ID: <b1cccb3f-4647-d973-62e5-58d41e98b514@gmail.com>
+References: <cover.1484059674.git.jpinto@synopsys.com>
+ <c74e6665ca14a4ca03b38cd3442ef0644d9e250d.1484059674.git.jpinto@synopsys.com>
+ <5b5a3231-eed4-ef29-b32a-a19077681dad@gmail.com>
+ <a2d2e457-47e5-bb73-a059-0cb907a29ae0@synopsys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "rmk+kernel@arm.linux.org.uk" <rmk+kernel@arm.linux.org.uk>,
-        "Karicheri, Muralidharan" <m-karicheri2@ti.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: lars.persson@axis.com, niklass@axis.com, peppe.cavallaro@st.com,
+        alexandre.torgue@st.com, netdev@vger.kernel.org
+To: Joao Pinto <Joao.Pinto@synopsys.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fllnx210.ext.ti.com ([198.47.19.17]:15503 "EHLO
-        fllnx210.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750733AbdALVbm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 16:31:42 -0500
-In-Reply-To: <20170112010658.GA25391@lunn.ch>
-Content-Language: en-US
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:34300 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750750AbdALVdl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 16:33:41 -0500
+Received: by mail-pf0-f194.google.com with SMTP id y143so5066316pfb.1
+        for <netdev@vger.kernel.org>; Thu, 12 Jan 2017 13:33:40 -0800 (PST)
+In-Reply-To: <a2d2e457-47e5-bb73-a059-0cb907a29ae0@synopsys.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQo+ID4gSSBkb3VibGUgY2hlY2tlZCB0aGF0IG91cnMgaXMgYWN0dWFsbHkgYSA4OEUxNTE0LiBB
-Y2NvcmRpbmcNCj4gPiB0byBNYXJ2ZWxsJ3MgYnJpZWYgZGVzY3JpcHRpb24sIGl0IHNlZW1zIHRo
-YXQgaXQgZG9lcyBzdXBwb3J0DQo+ID4gZmliZXIuDQo+ID4NCj4gPiBSZWFkaW5nIHBhZ2UgMTgg
-cmVnIDMwIHJldHVybnMgNi4NCj4gDQo+IE8uSywgdGhhdCBpcyBjb25zaXN0ZW50LiBMb29raW5n
-IGF0IHRoZSBNYXJ2ZWxsIFNESzoNCj4gDQo+IHBoeS9JbmNsdWRlL21hZEFwaURlZnMuaDojZGVm
-aW5lICAgIE1BRF9TVUJfODhFMTUxMCAgNCAgIC8qIDg4RTE1MTAgKi8NCj4gcGh5L0luY2x1ZGUv
-bWFkQXBpRGVmcy5oOiNkZWZpbmUgICAgTUFEX1NVQl84OEUxNTE4ICA1ICAgLyogODhFMTUxOCAq
-Lw0KPiBwaHkvSW5jbHVkZS9tYWRBcGlEZWZzLmg6I2RlZmluZSAgICBNQURfU1VCXzg4RTE1MTIg
-IDYgICAvKg0KPiA4OEUxNTEyLzg4RTE1MTQgKi8NCj4gDQo+IEkgdG9vayBhbm90aGVyIGxvb2sg
-YXQgdGhlIHBhdGNoIGFkZGluZyBGaWJyZSBzdXBwb3J0LiBUaGUNCj4gc3VzcGVuZC9yZXN1bWUg
-ZnVuY3Rpb25zIGFyZSB3cm9uZy4NCj4gDQo+ICAgICAgICAgLyogU3VzcGVuZCB0aGUgZmliZXIg
-bW9kZSBmaXJzdCAqLw0KPiAgICAgICAgIGlmICghKHBoeWRldi0+c3VwcG9ydGVkICYgU1VQUE9S
-VEVEX0ZJQlJFKSkgew0KPiANCj4gVGhlICEgc2hvdWxkIG5vdCBiZSB0aGVyZS4gRG9lcyByZW1v
-dmluZyB0aGVtIGJvdGggZml4IHlvdXIgcHJvYmxlbT8NCj4gDQoNCkhpIEFuZHJldywNCg0KVGhh
-bmtzIGZvciB0YWtpbmcgdGhlIHRpbWUgdG8gbG9vayBpbnRvIHRob3NlIHBhdGNoZXMuIFllcyB3
-ZSBub3RpY2UNCnRoZSBlcnJvciBpbiB0aGUgc3VzcGVuZC9yZXN1bWUgZnVuY3Rpb25zIGFsc28u
-DQoNCkJ1dCBvdXIgcHJvYmxlbSBpcyBjYXVzZWQgYnkgdGhlIHJlYWRfc3RhdHVzIGZ1bmN0aW9u
-Og0KDQoJaWYgKChwaHlkZXYtPnN1cHBvcnRlZCAmIFNVUFBPUlRFRF9GSUJSRSkpIHsNCgkJZXJy
-ID0gcGh5X3dyaXRlKHBoeWRldiwgTUlJX01BUlZFTExfUEhZX1BBR0UsIE1JSV9NMTExMV9GSUJF
-Uik7DQoJCWlmIChlcnIgPCAwKQ0KCQkJZ290byBlcnJvcjsNCgkJDQoJCWVyciA9IG1hcnZlbGxf
-cmVhZF9zdGF0dXNfcGFnZShwaHlkZXYsIE1JSV9NMTExMV9GSUJFUik7DQoJCWlmIChlcnIgPCAw
-KQ0KCQkJZ290byBlcnJvcjsNCgkJDQoJCS8qIElmIHRoZSBmaWJlciBsaW5rIGlzIHVwLCBpdCBp
-cyB0aGUgc2VsZWN0ZWQgYW5kIHVzZWQgbGluay4NCgkJKiBJbiB0aGlzIGNhc2UsIHdlIG5lZWQg
-dG8gc3RheSBpbiB0aGUgZmliZXIgcGFnZS4NCgkJKiBQbGVhc2UgdG8gYmUgY2FyZWZ1bCBhYm91
-dCB0aGF0LCBhdm9pZCB0byByZXN0b3JlIENvcHBlciBwYWdlDQoJCSogaW4gb3RoZXIgZnVuY3Rp
-b25zIHdoaWNoIGNvdWxkIGJyZWFrIHRoZSBiZWhhdmlvdXINCgkJKiBmb3Igc29tZSBmaWJlciBw
-aHkgbGlrZSA4OEUxNTEyLg0KCQkqICovDQoJCWlmIChwaHlkZXYtPmxpbmspDQoJCQlyZXR1cm4g
-MDsNCg0Kd2hpY2gga2VlcHMgdGhlIGZpYmVyIHBhZ2UgaWYgcGh5ZGV2LT5saW5rIGlzIHRydWUg
-KGZvciBzb21lDQpyZWFzb24gdGhpcyBpcyB0aGUgY2FzZSBldmVuIHRob3VnaCB3ZSBhcmUgbm90
-IHVzaW5nIGZpYmVyKQ0KDQpIb3dldmVyLCB0aGlzIGNhdXNlcyBhIHByb2JsZW0gaW4ga2VybmVs
-IHJlYm9vdCBiZWNhdXNlIG5laXRoZXINCnRoZSBzdXNwZW5kL3Jlc3VtZSBpcyBjYWxsZWQgdG8g
-cmVzdG9yZSB0aGUgY29wcGVyIHBhZ2UgYW5kDQp1LWJvb3QgbWFydmVsbCBwaHkgZHJpdmVyIGRv
-ZXMgbm90IHN1cHBvcnQgMTUxMCBmaWJlciwgd2hpY2gNCndpbGwgdGhlbiByZXN1bHQgaW4gd3Jp
-dGluZyB0byB0aGUgd3JvbmcgcGh5IHJlZ3MgYW5kIGNhdXNlcw0KYSBzZ21paSBhdXRvLW5lZ28g
-dGltZSBvdXQuDQoNCkluIGFkZGl0aW9uIHRvIGZpeGluZyB0aGUgISBpbiBzdXNwZW5kL3Jlc3Vt
-ZSwgbXkgc3VnZ2VzdGlvbg0Kd291bGQgYmUgdG8gY2hhbmdlIGFsc28gdGhlIHJlYWRfc3RhdHVz
-IGZ1bmN0aW9uIHRvDQphbHdheXMgcmVzdG9yZSB0aGUgY29wcGVyIHBhZ2UgYWZ0ZXIgZG9pbmcg
-dGhlIGZpYmVyIHN0dWZmczoNCg0KCWlmICgocGh5ZGV2LT5zdXBwb3J0ZWQgJiBTVVBQT1JURURf
-RklCUkUpKSB7DQoJCWVyciA9IHBoeV93cml0ZShwaHlkZXYsIE1JSV9NQVJWRUxMX1BIWV9QQUdF
-LCBNSUlfTTExMTFfRklCRVIpOw0KCQlpZiAoZXJyIDwgMCkNCgkJCWdvdG8gZXJyb3I7DQoJCQ0K
-CQllcnIgPSBtYXJ2ZWxsX3JlYWRfc3RhdHVzX3BhZ2UocGh5ZGV2LCBNSUlfTTExMTFfRklCRVIp
-Ow0KCQlpZiAoZXJyIDwgMCkNCgkJCWdvdG8gZXJyb3I7DQoJCQ0KCQllcnIgPSBwaHlfd3JpdGUo
-cGh5ZGV2LCBNSUlfTUFSVkVMTF9QSFlfUEFHRSwgTUlJX00xMTExX0NPUFBFUik7DQoJCWlmIChl
-cnIgPCAwKQ0KCQkJZ290byBlcnJvcjsNCg0KCQkvKiBJZiB0aGUgZmliZXIgbGluayBpcyB1cCwg
-aXQgaXMgdGhlIHNlbGVjdGVkIGFuZCB1c2VkIGxpbmsuDQoJCSogSW4gdGhpcyBjYXNlLCB3ZSBu
-ZWVkIHRvIHN0YXkgaW4gdGhlIGZpYmVyIHBhZ2UuDQoJCSogUGxlYXNlIHRvIGJlIGNhcmVmdWwg
-YWJvdXQgdGhhdCwgYXZvaWQgdG8gcmVzdG9yZSBDb3BwZXIgcGFnZQ0KCQkqIGluIG90aGVyIGZ1
-bmN0aW9ucyB3aGljaCBjb3VsZCBicmVhayB0aGUgYmVoYXZpb3VyDQoJCSogZm9yIHNvbWUgZmli
-ZXIgcGh5IGxpa2UgODhFMTUxMi4NCgkJKiAqLw0KCQlpZiAocGh5ZGV2LT5saW5rKQ0KCQkJcmV0
-dXJuIDA7DQoNClRoaXMgbWFrZXMgc3VyZSB0aGF0IGl0IGlzIGFsd2F5cyB0aGUgY29wcGVyIHBh
-Z2UgYnJvdWdodCB1cA0KYW5kIHdoZW5ldmVyIGl0IG5lZWRzIHRvIGRvIHNvbWUgZmliZXIgc3R1
-ZmZzLCB0aGUgZmliZXIgcGFnZQ0KbmVlZHMgdG8gYmUgYnJvdWdodCBvdXQgZXhwbGljaXRseSwg
-d2hpY2ggaXMgYWxyZWFkeSB0aGUgY2FzZQ0KY3VycmVudGx5Lg0KDQpBbm90aGVyIGlzc3VlIGlz
-IHRoYXQsIGFzIG9mIG5vdywgRklCRVIgaXMgZW5hYmxlZCByZWdhcmRsZXNzDQpvZiB0aGUgc3Bl
-Y2lmaWMgODhlMTUxeC4gQnV0IEkgYmVsaWV2ZSB0aGVyZSBpcyA4OGUxNTF4IGNoaXAocykNCnRo
-YXQgZG9lcyBub3Qgc3VwcG9ydCBmaWJlci4gU2hvdWxkIGZpYmVyIGJlIGVuYWJsZWQgb25seSBm
-b3INCnRob3NlIHRoYXQgZG8gc3VwcG9ydCBmaWJlcj8NCg0KV2luZ01hbg0K
+On 01/12/2017 01:43 AM, Joao Pinto wrote:
+> 
+> First of all, I am suggesting an alternative way of organizing the code, and
+> that's it, I have no second intentions about anything :).
+> 
+> Please don't see this as a take-over or erase Stmicro from credits, please... it
+> makes no sense. You can leave STMicro license and all the credits fine by me and
+> I insist on it. But lets name it for something that makes sense... lets call it
+> dwc (designware controllers), I am totally open to suggestions.
+
+I don't understand how you reached this conclusion based on what I
+wrote, but I have no concerns about take over or anything, and keep in
+mind that maintainership is by nature a volatile thing. One day, a group
+of people can be in charge of some piece of code, and in the future, it
+could be another group of people, let's be agile.
+
+> 
+> I don't understand the hostility of some comments, honestly.
+
+It was not my intention to be hostile and I am sorry if this was how you
+perceived it.
+
+As an occasional contributor to netdev and the stmmac driver what I
+welcome more than anything is more eyeballs and dedicated people
+maintaining the driver, because it's always a good sign that there is
+interesting in making the driver rock solid and feature full. As a
+non-Linux kernel developer (OpenWrt/LEDE) what I care about is being
+able to quickly backport fixes without going through too many hoops
+(including driver rename, relocation etc.).
+
+> 
+> The easiest way is to keep things like they are today, and believe me I have a
+> lot of things to do, like adding the support of multi-queues / multi-channels to
+> stmmac, so I not suggesting this because it is fun.
+
+I believe this is what David is also asking for here.
+
+> 
+> I am suggesting this because it is what I am used to seeing in other subsystems.
+> USB has dwc2 and dwc3 folders that clearly identifies that they are Designware
+> (synopsys) extensions to the USB 2.0 and 3.0. The author of dwc3 was Texas
+> Instruments, and they did not name it ti/usb. For example I use an AXS101
+> Development board that does not have a stmicro SoC but has a Designware Ethernet
+> IP in it, so uses stmicro/stmmac. For me it is confusing.
+
+The examples you are giving unfortunately unveil the same pattern: a
+customer of the DWC/SNPS IP was first in the upstreaming business, and
+because of that they were able to dictate how the initial submission
+would look like, this was noticed, and you are now as a company
+remedying that, and this is great!
+
+There are ways to improve the situation to avoid the confusion:
+
+- provide clear Kconfig help texts that indicate that the driver is not
+just for STMicro but for SNPS IPs in general
+
+- provide a Documentation/networking/ entry that explains the history,
+why the driver remains with/has this name, and eventually technical
+information about it
+
+> 
+> Lets not name it synopsys, for me it is totally fine, but naming it
+> stmicro/stmmac is not the right way because it seems like it is a driver just
+> for stmicro products, which is not, is for products that use Designware Ethernet
+> IPs.
+> 
+> I am volunteering to do this work, let's discuss this.
+
+I would focus on what has value: adding features, support for newer
+versions of the IP and fixing bugs, not moving the code around which is
+just fixing a cosmetic and historical problem, but not a functional
+problem. By moving the code you are making the job of David and other
+kernel maintainers dealing with -stable backports nearly impossible,
+ultimately arming your relationship with the community over something
+that is not considered an essential change.
+
+Let me give you another example, when Broadcom sold its bnx2x LoB to
+Qlogic, the driver was not renamed, nor moved, and now that Qlogic has
+been acquired by Cavium, it still remains under the same directory. Yes,
+it is presenting a singularity and is technically not correct, because
+the IP now belongs to Cavium, but it is what it is for historical reasons.
+-- 
+Florian
