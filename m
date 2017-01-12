@@ -1,105 +1,143 @@
-From: Jie Deng <Jie.Deng1@synopsys.com>
-Subject: Re: [PATCH v2 2/2] stmmac: rename it to synopsys
-Date: Thu, 12 Jan 2017 11:44:17 +0800
-Message-ID: <03c4bef3-de38-0e51-e20d-2c9fc4bb6f8d@synopsys.com>
-References: <cover.1484059674.git.jpinto@synopsys.com>
- <c74e6665ca14a4ca03b38cd3442ef0644d9e250d.1484059674.git.jpinto@synopsys.com>
- <40521f32-436d-b31d-92a4-4cff97f3411d@synopsys.com>
- <df4597b0-019d-07e1-e4f0-37d4920125d9@synopsys.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: <lars.persson@axis.com>, <niklass@axis.com>,
-        <peppe.cavallaro@st.com>, <alexandre.torgue@st.com>,
-        <netdev@vger.kernel.org>, Florian Fainelli <f.fainelli@gmail.com>,
-        <CARLOS.PALMINHA@synopsys.com>
-To: Joao Pinto <Joao.Pinto@synopsys.com>,
-        Joao Pinto <Joao.Pinto@synopsys.com>, <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay4.synopsys.com ([198.182.47.9]:49452 "EHLO
-        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752282AbdALDoa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 22:44:30 -0500
-In-Reply-To: <df4597b0-019d-07e1-e4f0-37d4920125d9@synopsys.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next v2 01/10] net: dsa: Pass device pointer to dsa_register_switch
+Date: Wed, 11 Jan 2017 19:41:12 -0800
+Message-ID: <20170112034121.27697-2-f.fainelli@gmail.com>
+References: <20170112034121.27697-1-f.fainelli@gmail.com>
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        Jason Cooper <jason@lakedaemon.net>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+        Gregory Clement <gregory.clement@free-electrons.com>,
+        Russell King <linux@armlinux.org.uk>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-arm-kernel@lists.infradead.org (moderated list:ARM
+        SUB-ARCHITECTURES), linux-kernel@vger.kernel.org (open list),
+        gregkh@linuxfoundation.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170112034121.27697-1-f.fainelli@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Joao,
+In preparation for allowing dsa_register_switch() to be supplied with
+device/platform data, pass down a struct device pointer instead of a
+struct device_node.
 
-On 2017/1/11 18:35, Joao Pinto wrote:
-> Hi Jie,
->
-> Às 4:00 AM de 1/11/2017, Jie Deng escreveu:
->> Hi Joao,
->>
->>
->> On 2017/1/10 22:52, Joao Pinto wrote:
->>> This patch renames stmicro/stmmac to synopsys/ since it is a standard
->>> ethernet software package regarding synopsys ethernet controllers, supporting
->>> the majority of Synopsys Ethernet IPs. The config IDs remain the same, for
->>> retro-compatibility, only the description was changed.
->>>
->>> Signed-off-by: Joao Pinto <jpinto@synopsys.com>
->>> ---
->>> changes v1->v2:
->>> - nothing changed. Just to keep up with patch set version
->>>
->>> @@ -1,5 +1,5 @@
->>>  config STMMAC_ETH
->>> -	tristate "STMicroelectronics 10/100/1000 Ethernet driver"
->>> +	tristate "Synopsys Ethernet drivers"
->>>  	depends on HAS_IOMEM && HAS_DMA
->>>  	select MII
->>>  	select PHYLIB
->>> @@ -14,7 +14,7 @@ config STMMAC_ETH
->>>  if STMMAC_ETH
->>>  
->> "Synopsys Ethernet drivers" is too generic. The name should reflect the
->> controller. This driver is for Synopsys GMAC 10M/100M/1G IPs. We will submit a
->> driver for the new 25G/40G/50G/100G XLGMAC IP in the future.
-> As you know Synopsys is an IP vendor that as a wide range of IPs related to
-> Ethernet. stmmac is a driver that was well built and well maintained and
-> supports most of those Ethernet IPs, so it has the potential to be the official
-> Synopsys Ethernet driver suite in the future.
->
-> Let's make baby steps. For now stmmac supports 10M/100M/1G and also QoS which is
-> a separated IP and the different IP cores are selected by device tree.
->
-> In the future it would be usefull to be selectable by Kconfig options, making it
-> more clear to the kernel user. For example:
->
-> Synopsys Ethernet drivers
->   eQoS Core
->   10M Core
->   100M Core
->   1G Core
->   25G Core
->   ....
->
-> The XLGMAC will be great for our users and I will be 100% available to help you
-> with it.
->
-> Thanks,
-> Joao
->
-Currently, Synopsys has three series IPs cores. They are
-    1. 10M/100M/1G   (GMAC, QoS)
-    2. 1G/2.5G/5G/10G (XGMAC)
-    3. 10G/25G/40G/50G/100G (XLGMAC)
-More info: https://www.synopsys.com/designware-ip/interface-ip/ethernet.html
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/dsa/b53/b53_common.c |  2 +-
+ drivers/net/dsa/mv88e6xxx/chip.c | 11 ++++++-----
+ drivers/net/dsa/qca8k.c          |  2 +-
+ include/net/dsa.h                |  2 +-
+ net/dsa/dsa2.c                   |  7 ++++---
+ 5 files changed, 13 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/net/dsa/b53/b53_common.c b/drivers/net/dsa/b53/b53_common.c
+index 5102a3701a1a..7179eed9ee6d 100644
+--- a/drivers/net/dsa/b53/b53_common.c
++++ b/drivers/net/dsa/b53/b53_common.c
+@@ -1882,7 +1882,7 @@ int b53_switch_register(struct b53_device *dev)
  
-You have successfully merged  dwc_eth_qos.c into stmmac. stmmac now fully
-supports the 10M/100M/1G series IPs. Personally, I do support Florian's
-suggestion not to rename stmmac.
-considering to avoid  future confusion and make easy maintenance, Following is
-my suggestions
-   1. not to do any rename
-   2. keep all 10M/100M/1G IPs (GMAC, QoS) development in stmmac.
-   3. keep all 1G/2.5G/5G/10G IP (XGMAC) development in amd-xgbe.
-   4. submit a new driver under synopsys/ for the new 10G/25G/40G/50G/100G
-(XLGMAC) IP.
-
-Welcome opinions from others.
-
-Thanks,
-Jie
+ 	pr_info("found switch: %s, rev %i\n", dev->name, dev->core_rev);
+ 
+-	return dsa_register_switch(dev->ds, dev->ds->dev->of_node);
++	return dsa_register_switch(dev->ds, dev->ds->dev);
+ }
+ EXPORT_SYMBOL(b53_switch_register);
+ 
+diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+index eea8e0176e33..1060597e160a 100644
+--- a/drivers/net/dsa/mv88e6xxx/chip.c
++++ b/drivers/net/dsa/mv88e6xxx/chip.c
+@@ -4407,8 +4407,7 @@ static struct dsa_switch_driver mv88e6xxx_switch_drv = {
+ 	.ops			= &mv88e6xxx_switch_ops,
+ };
+ 
+-static int mv88e6xxx_register_switch(struct mv88e6xxx_chip *chip,
+-				     struct device_node *np)
++static int mv88e6xxx_register_switch(struct mv88e6xxx_chip *chip)
+ {
+ 	struct device *dev = chip->dev;
+ 	struct dsa_switch *ds;
+@@ -4423,7 +4422,7 @@ static int mv88e6xxx_register_switch(struct mv88e6xxx_chip *chip,
+ 
+ 	dev_set_drvdata(dev, ds);
+ 
+-	return dsa_register_switch(ds, np);
++	return dsa_register_switch(ds, dev);
+ }
+ 
+ static void mv88e6xxx_unregister_switch(struct mv88e6xxx_chip *chip)
+@@ -4507,9 +4506,11 @@ static int mv88e6xxx_probe(struct mdio_device *mdiodev)
+ 	if (err)
+ 		goto out_g2_irq;
+ 
+-	err = mv88e6xxx_register_switch(chip, np);
+-	if (err)
++	err = mv88e6xxx_register_switch(chip);
++	if (err) {
++		mv88e6xxx_mdio_unregister(chip);
+ 		goto out_mdio;
++	}
+ 
+ 	return 0;
+ 
+diff --git a/drivers/net/dsa/qca8k.c b/drivers/net/dsa/qca8k.c
+index 54d270d59eb0..c084aa484d2b 100644
+--- a/drivers/net/dsa/qca8k.c
++++ b/drivers/net/dsa/qca8k.c
+@@ -964,7 +964,7 @@ qca8k_sw_probe(struct mdio_device *mdiodev)
+ 	mutex_init(&priv->reg_mutex);
+ 	dev_set_drvdata(&mdiodev->dev, priv);
+ 
+-	return dsa_register_switch(priv->ds, priv->ds->dev->of_node);
++	return dsa_register_switch(priv->ds, &mdiodev->dev);
+ }
+ 
+ static void
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index b94d1f2ef912..16a502a6c26a 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -403,7 +403,7 @@ static inline bool dsa_uses_tagged_protocol(struct dsa_switch_tree *dst)
+ }
+ 
+ void dsa_unregister_switch(struct dsa_switch *ds);
+-int dsa_register_switch(struct dsa_switch *ds, struct device_node *np);
++int dsa_register_switch(struct dsa_switch *ds, struct device *dev);
+ #ifdef CONFIG_PM_SLEEP
+ int dsa_switch_suspend(struct dsa_switch *ds);
+ int dsa_switch_resume(struct dsa_switch *ds);
+diff --git a/net/dsa/dsa2.c b/net/dsa/dsa2.c
+index 42a41d84053c..4170f7ea8e28 100644
+--- a/net/dsa/dsa2.c
++++ b/net/dsa/dsa2.c
+@@ -579,8 +579,9 @@ static struct device_node *dsa_get_ports(struct dsa_switch *ds,
+ 	return ports;
+ }
+ 
+-static int _dsa_register_switch(struct dsa_switch *ds, struct device_node *np)
++static int _dsa_register_switch(struct dsa_switch *ds, struct device *dev)
+ {
++	struct device_node *np = dev->of_node;
+ 	struct device_node *ports = dsa_get_ports(ds, np);
+ 	struct dsa_switch_tree *dst;
+ 	u32 tree, index;
+@@ -660,12 +661,12 @@ static int _dsa_register_switch(struct dsa_switch *ds, struct device_node *np)
+ 	return err;
+ }
+ 
+-int dsa_register_switch(struct dsa_switch *ds, struct device_node *np)
++int dsa_register_switch(struct dsa_switch *ds, struct device *dev)
+ {
+ 	int err;
+ 
+ 	mutex_lock(&dsa2_mutex);
+-	err = _dsa_register_switch(ds, np);
++	err = _dsa_register_switch(ds, dev);
+ 	mutex_unlock(&dsa2_mutex);
+ 
+ 	return err;
+-- 
+2.9.3
