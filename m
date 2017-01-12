@@ -1,45 +1,42 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH net-next 1/4] siphash: add cryptographically secure PRF
-Date: Thu, 12 Jan 2017 23:04:17 +0800
-Message-ID: <20170112150417.GA15951@gondor.apana.org.au>
-References: <20170107040459.GA575@zzz>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH/RFC net] ravb: do not use zero-length alighment DMA
+ request
+Date: Thu, 12 Jan 2017 10:21:02 -0500 (EST)
+Message-ID: <20170112.102102.2249793963798495642.davem@davemloft.net>
+References: <1484229217-25585-1-git-send-email-horms+renesas@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jason@zx2c4.com, davem@davemloft.net, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, jeanphilippe.aumasson@gmail.com,
-        torvalds@linux-foundation.org, David.Laight@aculab.com,
-        eric.dumazet@gmail.com
-To: Eric Biggers <ebiggers3@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: sergei.shtylyov@cogentembedded.com, magnus.damm@gmail.com,
+        netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org
+To: horms+renesas@verge.net.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:59005 "EHLO
-        helcar.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751318AbdALPa1 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 10:30:27 -0500
-Content-Disposition: inline
-In-Reply-To: <20170107040459.GA575@zzz>
+Received: from shards.monkeyblade.net ([184.105.139.130]:50718 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750791AbdALPb6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 10:31:58 -0500
+In-Reply-To: <1484229217-25585-1-git-send-email-horms+renesas@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Biggers <ebiggers3@gmail.com> wrote:
-> Hi Jason, just a few comments:
-> 
-> On Fri, Jan 06, 2017 at 09:10:52PM +0100, Jason A. Donenfeld wrote:
->> +#define SIPHASH_ALIGNMENT __alignof__(u64)
->> +typedef u64 siphash_key_t[2];
-> 
-> I was confused by all the functions passing siphash_key_t "by value" until I saw
-> that it's actually typedefed to u64[2].  Have you considered making it a struct
-> instead, something like this?
-> 
-> typedef struct {
->        u64 v[2];
-> } siphash_key_t;
+From: Simon Horman <horms+renesas@verge.net.au>
+Date: Thu, 12 Jan 2017 14:53:37 +0100
 
-If it's just an 128-bit value then we have u128 in crypto/b128ops.h
-that could be generalised for this.
+> diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
+> index 92d7692c840d..3b4d2504285e 100644
+> --- a/drivers/net/ethernet/renesas/ravb_main.c
+> +++ b/drivers/net/ethernet/renesas/ravb_main.c
+> @@ -1508,6 +1508,8 @@ static netdev_tx_t ravb_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+>  	buffer = PTR_ALIGN(priv->tx_align[q], DPTR_ALIGN) +
+>  		 entry / NUM_TX_DESC * DPTR_ALIGN;
+>  	len = PTR_ALIGN(skb->data, DPTR_ALIGN) - skb->data;
+> +	if (len == 0)
+> +		len = skb->len > 4 ? 4 : skb->len;
+>  	memcpy(buffer, skb->data, len);
+>  	dma_addr = dma_map_single(ndev->dev.parent, buffer, len, DMA_TO_DEVICE);
+>  	if (dma_mapping_error(ndev->dev.parent, dma_addr))
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Assume len ends up being skb->len, then the second DMA mapping will be
+made of zero length.
+
+This code needs a bit of TLC.
