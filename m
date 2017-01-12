@@ -1,52 +1,64 @@
-From: Simon Horman <horms+renesas@verge.net.au>
-Subject: [PATCH/RFC net] ravb: Remove Rx overflow log messages
-Date: Thu, 12 Jan 2017 09:41:10 +0100
-Message-ID: <1484210470-3095-1-git-send-email-horms+renesas@verge.net.au>
-Cc: Magnus Damm <magnus.damm@gmail.com>, netdev@vger.kernel.org,
-        linux-renesas-soc@vger.kernel.org
-To: David Miller <davem@davemloft.net>,
-        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+From: Michal Hocko <mhocko@kernel.org>
+Subject: Re: [Patch net] atm: remove an unnecessary loop
+Date: Thu, 12 Jan 2017 09:43:25 +0100
+Message-ID: <20170112084325.GC2264@dhcp22.suse.cz>
+References: <1484197322-958-1-git-send-email-xiyou.wangcong@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, romieu@fr.zoreil.com, 3chas3@gmail.com,
+        andreyknvl@google.com
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:40319 "EHLO
-        kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750886AbdALIml (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 03:42:41 -0500
+Received: from mx2.suse.de ([195.135.220.15]:38823 "EHLO mx2.suse.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750796AbdALIn2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 12 Jan 2017 03:43:28 -0500
+Content-Disposition: inline
+In-Reply-To: <1484197322-958-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+On Wed 11-01-17 21:02:01, Cong Wang wrote:
+> alloc_tx() is already inside a wait loop for a successful skb
+> allocation, this loop inside alloc_tx() is quite unnecessary
+> and actually problematic.
 
-Remove Rx overflow log messages as in an environment where logging results
-in network traffic logging may cause further overflows.
+I am not familiar with this code at all but vcc_sendmsg seems to be one
+of those cases where open coding __GFP_NOFAIL semantic makes sense as
+there is an allocation fallback strategy implemented.
 
-Fixes: c156633f1353 ("Renesas Ethernet AVB driver proper")
-Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
-[simon: reworked changelog]
-Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
----
- drivers/net/ethernet/renesas/ravb_main.c | 8 ++------
- 1 file changed, 2 insertions(+), 6 deletions(-)
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
-index 92d7692c840d..5e5ad978eab9 100644
---- a/drivers/net/ethernet/renesas/ravb_main.c
-+++ b/drivers/net/ethernet/renesas/ravb_main.c
-@@ -926,14 +926,10 @@ static int ravb_poll(struct napi_struct *napi, int budget)
- 	/* Receive error message handling */
- 	priv->rx_over_errors =  priv->stats[RAVB_BE].rx_over_errors;
- 	priv->rx_over_errors += priv->stats[RAVB_NC].rx_over_errors;
--	if (priv->rx_over_errors != ndev->stats.rx_over_errors) {
-+	if (priv->rx_over_errors != ndev->stats.rx_over_errors)
- 		ndev->stats.rx_over_errors = priv->rx_over_errors;
--		netif_err(priv, rx_err, ndev, "Receive Descriptor Empty\n");
--	}
--	if (priv->rx_fifo_errors != ndev->stats.rx_fifo_errors) {
-+	if (priv->rx_fifo_errors != ndev->stats.rx_fifo_errors)
- 		ndev->stats.rx_fifo_errors = priv->rx_fifo_errors;
--		netif_err(priv, rx_err, ndev, "Receive FIFO Overflow\n");
--	}
- out:
- 	return budget - quota;
- }
+I cannot give my reviewed-by because I am not familiar with the code but
+this looks like an improvement to me.
+
+> ---
+>  net/atm/common.c | 9 +++++----
+>  1 file changed, 5 insertions(+), 4 deletions(-)
+> 
+> diff --git a/net/atm/common.c b/net/atm/common.c
+> index a3ca922..7ec3bbc 100644
+> --- a/net/atm/common.c
+> +++ b/net/atm/common.c
+> @@ -72,10 +72,11 @@ static struct sk_buff *alloc_tx(struct atm_vcc *vcc, unsigned int size)
+>  			 sk_wmem_alloc_get(sk), size, sk->sk_sndbuf);
+>  		return NULL;
+>  	}
+> -	while (!(skb = alloc_skb(size, GFP_KERNEL)))
+> -		schedule();
+> -	pr_debug("%d += %d\n", sk_wmem_alloc_get(sk), skb->truesize);
+> -	atomic_add(skb->truesize, &sk->sk_wmem_alloc);
+> +	skb = alloc_skb(size, GFP_KERNEL);
+> +	if (skb) {
+> +		pr_debug("%d += %d\n", sk_wmem_alloc_get(sk), skb->truesize);
+> +		atomic_add(skb->truesize, &sk->sk_wmem_alloc);
+> +	}
+>  	return skb;
+>  }
+>  
+> -- 
+> 2.5.5
+
 -- 
-2.7.0.rc3.207.g0ac5344
+Michal Hocko
+SUSE Labs
