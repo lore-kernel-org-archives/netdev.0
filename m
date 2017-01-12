@@ -1,56 +1,50 @@
 From: Alexander Loktionov <Alexander.Loktionov@aquantia.com>
-Subject: [PATCH v4 06/13] net: ethernet: aquantia: Atlantic A0 and B0 specific functions.
-Date: Wed, 11 Jan 2017 19:53:10 -0800
-Message-ID: <b96fe90743466d671a2ac5a741118059cdeb5f1a.1484192452.git.vomlehn@texas.net>
+Subject: [PATCH v4 04/13] net: ethernet: aquantia: Low-level hardware interfaces
+Date: Wed, 11 Jan 2017 19:53:08 -0800
+Message-ID: <317cced5b487a46d728e731f967bf6231ea453ec.1484192452.git.vomlehn@texas.net>
 References: <cover.1484192452.git.vomlehn@texas.net>
 Cc: "David S . Miller" <davem@davemloft.net>,
         Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
         Alexander Loktionov <Alexander.Loktionov@aquantia.com>,
         Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>,
-        Pavel Belous <Pavel.Belous@aquantia.com>,
+        "Pavel . Belous" <Pavel.Belous@aquantia.com>,
         Dmitry Bezrukov <Dmitry.Bezrukov@aquantia.com>
 To: netdev@vger.kernel.org, David VomLehn <vomlehn@texas.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from barracuda5.aus1.datafoundry.com ([209.99.124.136]:43759 "EHLO
+Received: from barracuda5.aus1.datafoundry.com ([209.99.124.136]:43729 "EHLO
         barracuda.datafoundry.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1752710AbdALDyI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 22:54:08 -0500
+        by vger.kernel.org with ESMTP id S1752397AbdALDyG (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 22:54:06 -0500
 In-Reply-To: <cover.1484192452.git.vomlehn@texas.net>
-In-Reply-To: <2287a0a40f4c507fa650ee2750d613c28fbb57a7.1484192452.git.vomlehn@texas.net>
-References: <cover.1484192452.git.vomlehn@texas.net> <c1ad2600fae843ad7f21a7eb41a096aa3cdf239b.1484192452.git.vomlehn@texas.net> <20a9e54c90f44662be120d9c863a89f1ffe340e5.1484192452.git.vomlehn@texas.net> <6c34bc1f4f4a63732a5c6ac960eb78c55646be06.1484192452.git.vomlehn@texas.net> <317cced5b487a46d728e731f967bf6231ea453ec.1484192452.git.vomlehn@texas.net> <2287a0a40f4c507fa650ee2750d613c28fbb57a7.1484192452.git.vomlehn@texas.net>
+In-Reply-To: <6c34bc1f4f4a63732a5c6ac960eb78c55646be06.1484192452.git.vomlehn@texas.net>
+References: <cover.1484192452.git.vomlehn@texas.net> <c1ad2600fae843ad7f21a7eb41a096aa3cdf239b.1484192452.git.vomlehn@texas.net> <20a9e54c90f44662be120d9c863a89f1ffe340e5.1484192452.git.vomlehn@texas.net> <6c34bc1f4f4a63732a5c6ac960eb78c55646be06.1484192452.git.vomlehn@texas.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: David VomLehn <vomlehn@texas.net>
 
-Add Atlantic A0 and B0 specific functions.
+Add definitions of functions that interface directly with the hardware.
 
 Signed-off-by: Alexander Loktionov <Alexander.Loktionov@aquantia.com>
 Signed-off-by: Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>
-Signed-off-by: Pavel Belous <Pavel.Belous@aquantia.com>
+Signed-off-by: Pavel.Belous <Pavel.Belous@aquantia.com>
 Signed-off-by: Dmitry Bezrukov <Dmitry.Bezrukov@aquantia.com>
 Signed-off-by: David M. VomLehn <vomlehn@texas.net>
 ---
- drivers/net/ethernet/aquantia/hw_atl/hw_atl_a0.c   | 908 +++++++++++++++++++
- drivers/net/ethernet/aquantia/hw_atl/hw_atl_a0.h   |  35 +
- .../ethernet/aquantia/hw_atl/hw_atl_a0_internal.h  | 153 ++++
- drivers/net/ethernet/aquantia/hw_atl/hw_atl_b0.c   | 961 +++++++++++++++++++++
- drivers/net/ethernet/aquantia/hw_atl/hw_atl_b0.h   |  35 +
- .../ethernet/aquantia/hw_atl/hw_atl_b0_internal.h  | 206 +++++
- 6 files changed, 2298 insertions(+)
- create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_a0.c
- create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_a0.h
- create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_a0_internal.h
- create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_b0.c
- create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_b0.h
- create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_b0_internal.h
+ drivers/net/ethernet/aquantia/hw_atl/hw_atl_llh.c  | 1395 ++++++++++++
+ drivers/net/ethernet/aquantia/hw_atl/hw_atl_llh.h  |  678 ++++++
+ .../ethernet/aquantia/hw_atl/hw_atl_llh_internal.h | 2376 ++++++++++++++++++++
+ 3 files changed, 4449 insertions(+)
+ create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_llh.c
+ create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_llh.h
+ create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_llh_internal.h
 
-diff --git a/drivers/net/ethernet/aquantia/hw_atl/hw_atl_a0.c b/drivers/net/ethernet/aquantia/hw_atl/hw_atl_a0.c
+diff --git a/drivers/net/ethernet/aquantia/hw_atl/hw_atl_llh.c b/drivers/net/ethernet/aquantia/hw_atl/hw_atl_llh.c
 new file mode 100644
-index 0000000..02863c8
+index 0000000..6a20e62
 --- /dev/null
-+++ b/drivers/net/ethernet/aquantia/hw_atl/hw_atl_a0.c
-@@ -0,0 +1,908 @@
++++ b/drivers/net/ethernet/aquantia/hw_atl/hw_atl_llh.c
+@@ -0,0 +1,1395 @@
 +/*
 + * aQuantia Corporation Network Driver
 + * Copyright (C) 2014-2017 aQuantia Corporation. All rights reserved
@@ -60,2078 +54,1398 @@ index 0000000..02863c8
 + * version 2, as published by the Free Software Foundation.
 + */
 +
-+/* File hw_atl_a0.c: Definition of Atlantic hardware specific functions. */
++/* File hw_atl_llh.c: Definitions of bitfield and register access functions for
++ * Atlantic registers.
++ */
 +
-+#include "../aq_hw.h"
-+#include "../aq_hw_utils.h"
-+#include "../aq_ring.h"
-+#include "hw_atl_a0.h"
-+#include "hw_atl_utils.h"
 +#include "hw_atl_llh.h"
-+#include "hw_atl_a0_internal.h"
-+
-+static int hw_atl_a0_get_hw_caps(struct aq_hw_s *self,
-+				 struct aq_hw_caps_s *aq_hw_caps)
-+{
-+	memcpy(aq_hw_caps, &hw_atl_a0_hw_caps_, sizeof(*aq_hw_caps));
-+	return 0;
-+}
-+
-+static struct aq_hw_s *hw_atl_a0_create(struct aq_pci_func_s *aq_pci_func,
-+					unsigned int port,
-+					struct aq_hw_ops *ops)
-+{
-+	struct hw_atl_s *self = NULL;
-+	int err = 0;
-+
-+	self = kzalloc(sizeof(*self), GFP_KERNEL);
-+	if (!self) {
-+		err = -ENOMEM;
-+		goto err_exit;
-+	}
-+	self->base.aq_pci_func = aq_pci_func;
-+
-+	self->base.not_ff_addr = 0x10U;
-+
-+err_exit:
-+	return (struct aq_hw_s *)self;
-+}
-+
-+static void hw_atl_a0_destroy(struct aq_hw_s *self)
-+{
-+	kfree(self);
-+}
-+
-+static int hw_atl_a0_hw_reset(struct aq_hw_s *self)
-+{
-+	int err = 0;
-+
-+	glb_glb_reg_res_dis_set(self, 1U);
-+	pci_pci_reg_res_dis_set(self, 0U);
-+	rx_rx_reg_res_dis_set(self, 0U);
-+	tx_tx_reg_res_dis_set(self, 0U);
-+
-+	HW_ATL_FLUSH();
-+	glb_soft_res_set(self, 1);
-+
-+	/* check 10 times by 1ms */
-+	AQ_HW_WAIT_FOR(glb_soft_res_get(self) == 0, 1000U, 10U);
-+	if (err < 0)
-+		goto err_exit;
-+
-+	itr_irq_reg_res_dis_set(self, 0U);
-+	itr_res_irq_set(self, 1U);
-+
-+	/* check 10 times by 1ms */
-+	AQ_HW_WAIT_FOR(itr_res_irq_get(self) == 0, 1000U, 10U);
-+	if (err < 0)
-+		goto err_exit;
-+
-+	hw_atl_utils_mpi_set(self, MPI_RESET, 0x0U);
-+
-+	err = aq_hw_err_from_flags(self);
-+
-+err_exit:
-+	return err;
-+}
-+
-+static int hw_atl_a0_hw_qos_set(struct aq_hw_s *self)
-+{
-+	u32 tc = 0U;
-+	u32 buff_size = 0U;
-+	unsigned int i_priority = 0U;
-+	bool is_rx_flow_control = false;
-+
-+	/* TPS Descriptor rate init */
-+	tps_tx_pkt_shed_desc_rate_curr_time_res_set(self, 0x0U);
-+	tps_tx_pkt_shed_desc_rate_lim_set(self, 0xA);
-+
-+	/* TPS VM init */
-+	tps_tx_pkt_shed_desc_vm_arb_mode_set(self, 0U);
-+
-+	/* TPS TC credits init */
-+	tps_tx_pkt_shed_desc_tc_arb_mode_set(self, 0U);
-+	tps_tx_pkt_shed_data_arb_mode_set(self, 0U);
-+
-+	tps_tx_pkt_shed_tc_data_max_credit_set(self, 0xFFF, 0U);
-+	tps_tx_pkt_shed_tc_data_weight_set(self, 0x64, 0U);
-+	tps_tx_pkt_shed_desc_tc_max_credit_set(self, 0x50, 0U);
-+	tps_tx_pkt_shed_desc_tc_weight_set(self, 0x1E, 0U);
-+
-+	/* Tx buf size */
-+	buff_size = HW_ATL_A0_TXBUF_MAX;
-+
-+	tpb_tx_pkt_buff_size_per_tc_set(self, buff_size, tc);
-+	tpb_tx_buff_hi_threshold_per_tc_set(self,
-+					    (buff_size * (1024 / 32U) * 66U) /
-+					    100U, tc);
-+	tpb_tx_buff_lo_threshold_per_tc_set(self,
-+					    (buff_size * (1024 / 32U) * 50U) /
-+					    100U, tc);
-+
-+	/* QoS Rx buf size per TC */
-+	tc = 0;
-+	is_rx_flow_control = (AQ_NIC_FC_RX & self->aq_nic_cfg->flow_control);
-+	buff_size = HW_ATL_A0_RXBUF_MAX;
-+
-+	rpb_rx_pkt_buff_size_per_tc_set(self, buff_size, tc);
-+	rpb_rx_buff_hi_threshold_per_tc_set(self,
-+					    (buff_size *
-+					    (1024U / 32U) * 66U) /
-+					    100U, tc);
-+	rpb_rx_buff_lo_threshold_per_tc_set(self,
-+					    (buff_size *
-+					    (1024U / 32U) * 50U) /
-+					    100U, tc);
-+	rpb_rx_xoff_en_per_tc_set(self, is_rx_flow_control ? 1U : 0U, tc);
-+
-+	/* QoS 802.1p priority -> TC mapping */
-+	for (i_priority = 8U; i_priority--;)
-+		rpf_rpb_user_priority_tc_map_set(self, i_priority, 0U);
-+
-+	return aq_hw_err_from_flags(self);
-+}
-+
-+static int hw_atl_a0_hw_rss_hash_set(struct aq_hw_s *self,
-+				     struct aq_rss_parameters *rss_params)
-+{
-+	struct aq_nic_cfg_s *cfg = NULL;
-+	int err = 0;
-+	unsigned int i = 0U;
-+	unsigned int addr = 0U;
-+
-+	cfg = self->aq_nic_cfg;
-+
-+	for (i = 10, addr = 0U; i--; ++addr) {
-+		u32 key_data = cfg->is_rss ?
-+			__swab32(rss_params->hash_secret_key[i]) : 0U;
-+		rpf_rss_key_wr_data_set(self, key_data);
-+		rpf_rss_key_addr_set(self, addr);
-+		rpf_rss_key_wr_en_set(self, 1U);
-+		AQ_HW_WAIT_FOR(rpf_rss_key_wr_en_get(self) == 0, 1000U, 10U);
-+		if (err < 0)
-+			goto err_exit;
-+	}
-+
-+	err = aq_hw_err_from_flags(self);
-+
-+err_exit:
-+	return err;
-+}
-+
-+static int hw_atl_a0_hw_rss_set(struct aq_hw_s *self,
-+				struct aq_rss_parameters *rss_params)
-+{
-+	u8 *indirection_table =	rss_params->indirection_table;
-+	u32 i = 0U;
-+	u32 num_rss_queues = max(1U, self->aq_nic_cfg->num_rss_queues);
-+	int err = 0;
-+	u16 bitary[(HW_ATL_A0_RSS_REDIRECTION_MAX *
-+					HW_ATL_A0_RSS_REDIRECTION_BITS / 16U)];
-+
-+	memset(bitary, 0, sizeof(bitary));
-+
-+	for (i = HW_ATL_A0_RSS_REDIRECTION_MAX; i--; ) {
-+		(*(u32 *)(bitary + ((i * 3U) / 16U))) |=
-+			((indirection_table[i] % num_rss_queues) <<
-+			((i * 3U) & 0xFU));
-+	}
-+
-+	for (i = AQ_DIMOF(bitary); i--;) {
-+		rpf_rss_redir_tbl_wr_data_set(self, bitary[i]);
-+		rpf_rss_redir_tbl_addr_set(self, i);
-+		rpf_rss_redir_wr_en_set(self, 1U);
-+		AQ_HW_WAIT_FOR(rpf_rss_redir_wr_en_get(self) == 0, 1000U, 10U);
-+		if (err < 0)
-+			goto err_exit;
-+	}
-+
-+	err = aq_hw_err_from_flags(self);
-+
-+err_exit:
-+	return err;
-+}
-+
-+static int hw_atl_a0_hw_offload_set(struct aq_hw_s *self,
-+				    struct aq_nic_cfg_s *aq_nic_cfg)
-+{
-+	int err = 0;
-+
-+	/* TX checksums offloads*/
-+	tpo_ipv4header_crc_offload_en_set(self, 1);
-+	tpo_tcp_udp_crc_offload_en_set(self, 1);
-+	if (err < 0)
-+		goto err_exit;
-+
-+	/* RX checksums offloads*/
-+	rpo_ipv4header_crc_offload_en_set(self, 1);
-+	rpo_tcp_udp_crc_offload_en_set(self, 1);
-+	if (err < 0)
-+		goto err_exit;
-+
-+	/* LSO offloads*/
-+	tdm_large_send_offload_en_set(self, 0xFFFFFFFFU);
-+	if (err < 0)
-+		goto err_exit;
-+
-+	err = aq_hw_err_from_flags(self);
-+
-+err_exit:
-+	return err;
-+}
-+
-+static int hw_atl_a0_hw_init_tx_path(struct aq_hw_s *self)
-+{
-+	thm_lso_tcp_flag_of_first_pkt_set(self, 0x0FF6U);
-+	thm_lso_tcp_flag_of_middle_pkt_set(self, 0x0FF6U);
-+	thm_lso_tcp_flag_of_last_pkt_set(self, 0x0F7FU);
-+
-+	/* Tx interrupts */
-+	tdm_tx_desc_wr_wb_irq_en_set(self, 1U);
-+
-+	/* misc */
-+	aq_hw_write_reg(self, 0x00007040U, IS_CHIP_FEATURE(TPO2) ?
-+			0x00010000U : 0x00000000U);
-+	tdm_tx_dca_en_set(self, 0U);
-+	tdm_tx_dca_mode_set(self, 0U);
-+
-+	tpb_tx_path_scp_ins_en_set(self, 1U);
-+
-+	return aq_hw_err_from_flags(self);
-+}
-+
-+static int hw_atl_a0_hw_init_rx_path(struct aq_hw_s *self)
-+{
-+	struct aq_nic_cfg_s *cfg = self->aq_nic_cfg;
-+	int i;
-+
-+	/* Rx TC/RSS number config */
-+	rpb_rpf_rx_traf_class_mode_set(self, 1U);
-+
-+	/* Rx flow control */
-+	rpb_rx_flow_ctl_mode_set(self, 1U);
-+
-+	/* RSS Ring selection */
-+	reg_rx_flr_rss_control1set(self, cfg->is_rss ?
-+					0xB3333333U : 0x00000000U);
-+
-+	/* Multicast filters */
-+	for (i = HW_ATL_A0_MAC_MAX; i--;) {
-+		rpfl2_uc_flr_en_set(self, (i == 0U) ? 1U : 0U, i);
-+		rpfl2unicast_flr_act_set(self, 1U, i);
-+	}
-+
-+	reg_rx_flr_mcst_flr_msk_set(self, 0x00000000U);
-+	reg_rx_flr_mcst_flr_set(self, 0x00010FFFU, 0U);
-+
-+	/* Vlan filters */
-+	rpf_vlan_outer_etht_set(self, 0x88A8U);
-+	rpf_vlan_inner_etht_set(self, 0x8100U);
-+	rpf_vlan_prom_mode_en_set(self, 1);
-+
-+	/* Rx Interrupts */
-+	rdm_rx_desc_wr_wb_irq_en_set(self, 1U);
-+
-+	/* misc */
-+	rpfl2broadcast_flr_act_set(self, 1U);
-+	rpfl2broadcast_count_threshold_set(self, 0xFFFFU & (~0U / 256U));
-+
-+	rdm_rx_dca_en_set(self, 0U);
-+	rdm_rx_dca_mode_set(self, 0U);
-+
-+	return aq_hw_err_from_flags(self);
-+}
-+
-+static int hw_atl_a0_hw_mac_addr_set(struct aq_hw_s *self, u8 *mac_addr)
-+{
-+	int err = 0;
-+	unsigned int h = 0U;
-+	unsigned int l = 0U;
-+
-+	if (!mac_addr) {
-+		err = -EINVAL;
-+		goto err_exit;
-+	}
-+	h = (mac_addr[0] << 8) | (mac_addr[1]);
-+	l = (mac_addr[2] << 24) | (mac_addr[3] << 16) |
-+		(mac_addr[4] << 8) | mac_addr[5];
-+
-+	rpfl2_uc_flr_en_set(self, 0U, HW_ATL_A0_MAC);
-+	rpfl2unicast_dest_addresslsw_set(self, l, HW_ATL_A0_MAC);
-+	rpfl2unicast_dest_addressmsw_set(self, h, HW_ATL_A0_MAC);
-+	rpfl2_uc_flr_en_set(self, 1U, HW_ATL_A0_MAC);
-+
-+	err = aq_hw_err_from_flags(self);
-+
-+err_exit:
-+	return err;
-+}
-+
-+static int hw_atl_a0_hw_init(struct aq_hw_s *self,
-+			     struct aq_nic_cfg_s *aq_nic_cfg,
-+			     u8 *mac_addr)
-+{
-+	static u32 aq_hw_atl_igcr_table_[4][2] = {
-+		{ 0x20000000U, 0x20000000U }, /* AQ_IRQ_INVALID */
-+		{ 0x20000080U, 0x20000080U }, /* AQ_IRQ_LEGACY */
-+		{ 0x20000021U, 0x20000025U }, /* AQ_IRQ_MSI */
-+		{ 0x20000022U, 0x20000026U }  /* AQ_IRQ_MSIX */
-+	};
-+
-+	int err = 0;
-+
-+	self->aq_nic_cfg = aq_nic_cfg;
-+
-+	hw_atl_utils_hw_chip_features_init(self,
-+					   &PHAL_ATLANTIC_A0->chip_features);
-+
-+	hw_atl_a0_hw_init_tx_path(self);
-+	hw_atl_a0_hw_init_rx_path(self);
-+
-+	hw_atl_a0_hw_mac_addr_set(self, mac_addr);
-+
-+	hw_atl_utils_mpi_set(self, MPI_INIT, aq_nic_cfg->link_speed_msk);
-+
-+	reg_tx_dma_debug_ctl_set(self, 0x800000b8U);
-+	reg_tx_dma_debug_ctl_set(self, 0x000000b8U);
-+
-+	hw_atl_a0_hw_qos_set(self);
-+	hw_atl_a0_hw_rss_set(self, &aq_nic_cfg->aq_rss);
-+	hw_atl_a0_hw_rss_hash_set(self, &aq_nic_cfg->aq_rss);
-+
-+	err = aq_hw_err_from_flags(self);
-+	if (err < 0)
-+		goto err_exit;
-+
-+	/* Interrupts */
-+	reg_irq_glb_ctl_set(self,
-+			    aq_hw_atl_igcr_table_[aq_nic_cfg->irq_type]
-+						 [(aq_nic_cfg->vecs > 1U) ?
-+						 1 : 0]);
-+
-+	itr_irq_auto_masklsw_set(self, aq_nic_cfg->aq_hw_caps->irq_mask);
-+
-+	/* Interrupts */
-+	reg_gen_irq_map_set(self,
-+			    ((HW_ATL_A0_ERR_INT << 0x18) | (1U << 0x1F)) |
-+			    ((HW_ATL_A0_ERR_INT << 0x10) | (1U << 0x17)) |
-+			    ((HW_ATL_A0_ERR_INT << 8) | (1U << 0xF)) |
-+			    ((HW_ATL_A0_ERR_INT) | (1U << 0x7)), 0U);
-+
-+	hw_atl_a0_hw_offload_set(self, aq_nic_cfg);
-+
-+err_exit:
-+	return err;
-+}
-+
-+static int hw_atl_a0_hw_ring_tx_start(struct aq_hw_s *self,
-+				      struct aq_ring_s *ring)
-+{
-+	tdm_tx_desc_en_set(self, 1, ring->idx);
-+	return aq_hw_err_from_flags(self);
-+}
-+
-+static int hw_atl_a0_hw_ring_rx_start(struct aq_hw_s *self,
-+				      struct aq_ring_s *ring)
-+{
-+	rdm_rx_desc_en_set(self, 1, ring->idx);
-+	return aq_hw_err_from_flags(self);
-+}
-+
-+static int hw_atl_a0_hw_start(struct aq_hw_s *self)
-+{
-+	tpb_tx_buff_en_set(self, 1);
-+	rpb_rx_buff_en_set(self, 1);
-+	return aq_hw_err_from_flags(self);
-+}
-+
-+static int hw_atl_a0_hw_tx_ring_tail_update(struct aq_hw_s *self,
-+					    struct aq_ring_s *ring)
-+{
-+	reg_tx_dma_desc_tail_ptr_set(self, ring->sw_tail, ring->idx);
-+	return 0;
-+}
-+
-+static int hw_atl_a0_hw_ring_tx_xmit(struct aq_hw_s *self,
-+				     struct aq_ring_s *ring,
-+				     unsigned int frags)
-+{
-+	struct aq_ring_buff_s *buff = NULL;
-+	struct hw_atl_txd_s *txd = NULL;
-+	unsigned int buff_pa_len = 0U;
-+	unsigned int pkt_len = 0U;
-+	unsigned int frag_count = 0U;
-+	bool is_gso = false;
-+
-+	buff = &ring->buff_ring[ring->sw_tail];
-+	pkt_len = (buff->is_eop && buff->is_sop) ? buff->len : buff->len_pkt;
-+
-+	for (frag_count = 0; frag_count < frags; frag_count++) {
-+		txd = (struct hw_atl_txd_s *)&ring->dx_ring[ring->sw_tail *
-+						HW_ATL_A0_TXD_SIZE];
-+		txd->ctl = 0;
-+		txd->ctl2 = 0;
-+		txd->buf_addr = 0;
-+
-+		buff = &ring->buff_ring[ring->sw_tail];
-+
-+		if (buff->is_txc) {
-+			txd->ctl |= (buff->len_l3 << 31) |
-+				(buff->len_l2 << 24) |
-+				HW_ATL_A0_TXD_CTL_CMD_TCP |
-+				HW_ATL_A0_TXD_CTL_DESC_TYPE_TXC;
-+			txd->ctl2 |= (buff->mss << 16) |
-+				(buff->len_l4 << 8) |
-+				(buff->len_l3 >> 1);
-+
-+			pkt_len -= (buff->len_l4 +
-+				    buff->len_l3 +
-+				    buff->len_l2);
-+			is_gso = true;
-+		} else {
-+			buff_pa_len = buff->len;
-+
-+			txd->buf_addr = buff->pa;
-+			txd->ctl |= (HW_ATL_A0_TXD_CTL_BLEN &
-+						((u32)buff_pa_len << 4));
-+			txd->ctl |= HW_ATL_A0_TXD_CTL_DESC_TYPE_TXD;
-+			/* PAY_LEN */
-+			txd->ctl2 |= HW_ATL_A0_TXD_CTL2_LEN & (pkt_len << 14);
-+
-+			if (is_gso) {
-+				txd->ctl |= HW_ATL_A0_TXD_CTL_CMD_LSO;
-+				txd->ctl2 |= HW_ATL_A0_TXD_CTL2_CTX_EN;
-+			}
-+
-+			/* Tx checksum offloads */
-+			if (buff->is_ip_cso)
-+				txd->ctl |= HW_ATL_A0_TXD_CTL_CMD_IPCSO;
-+
-+			if (buff->is_udp_cso || buff->is_tcp_cso)
-+				txd->ctl |= HW_ATL_A0_TXD_CTL_CMD_TUCSO;
-+
-+			if (unlikely(buff->is_eop)) {
-+				txd->ctl |= HW_ATL_A0_TXD_CTL_EOP;
-+				txd->ctl |= HW_ATL_A0_TXD_CTL_CMD_WB;
-+			}
-+		}
-+
-+		ring->sw_tail = aq_ring_next_dx(ring, ring->sw_tail);
-+	}
-+
-+	hw_atl_a0_hw_tx_ring_tail_update(self, ring);
-+	return aq_hw_err_from_flags(self);
-+}
-+
-+static int hw_atl_a0_hw_ring_rx_init(struct aq_hw_s *self,
-+				     struct aq_ring_s *aq_ring,
-+				     struct aq_ring_param_s *aq_ring_param)
-+{
-+	u32 dma_desc_addr_lsw = (u32)aq_ring->dx_ring_pa;
-+	u32 dma_desc_addr_msw = (u32)(((u64)aq_ring->dx_ring_pa) >> 32);
-+
-+	rdm_rx_desc_en_set(self, false, aq_ring->idx);
-+
-+	rdm_rx_desc_head_splitting_set(self, 0U, aq_ring->idx);
-+
-+	reg_rx_dma_desc_base_addresslswset(self, dma_desc_addr_lsw,
-+					   aq_ring->idx);
-+
-+	reg_rx_dma_desc_base_addressmswset(self,
-+					   dma_desc_addr_msw, aq_ring->idx);
-+
-+	rdm_rx_desc_len_set(self, aq_ring->size / 8U, aq_ring->idx);
-+
-+	rdm_rx_desc_data_buff_size_set(self,
-+				       AQ_CFG_RX_FRAME_MAX / 1024U,
-+				       aq_ring->idx);
-+
-+	rdm_rx_desc_head_buff_size_set(self, 0U, aq_ring->idx);
-+	rdm_rx_desc_head_splitting_set(self, 0U, aq_ring->idx);
-+	rpo_rx_desc_vlan_stripping_set(self, 0U, aq_ring->idx);
-+
-+	/* Rx ring set mode */
-+
-+	/* Mapping interrupt vector */
-+	itr_irq_map_rx_set(self, aq_ring_param->vec_idx, aq_ring->idx);
-+	itr_irq_map_en_rx_set(self, true, aq_ring->idx);
-+
-+	rdm_cpu_id_set(self, aq_ring_param->cpu, aq_ring->idx);
-+	rdm_rx_desc_dca_en_set(self, 0U, aq_ring->idx);
-+	rdm_rx_head_dca_en_set(self, 0U, aq_ring->idx);
-+	rdm_rx_pld_dca_en_set(self, 0U, aq_ring->idx);
-+
-+	return aq_hw_err_from_flags(self);
-+}
-+
-+static int hw_atl_a0_hw_ring_tx_init(struct aq_hw_s *self,
-+				     struct aq_ring_s *aq_ring,
-+				     struct aq_ring_param_s *aq_ring_param)
-+{
-+	u32 dma_desc_lsw_addr = (u32)aq_ring->dx_ring_pa;
-+	u32 dma_desc_msw_addr = (u32)(((u64)aq_ring->dx_ring_pa) >> 32);
-+
-+	reg_tx_dma_desc_base_addresslswset(self, dma_desc_lsw_addr,
-+					   aq_ring->idx);
-+
-+	reg_tx_dma_desc_base_addressmswset(self, dma_desc_msw_addr,
-+					   aq_ring->idx);
-+
-+	tdm_tx_desc_len_set(self, aq_ring->size / 8U, aq_ring->idx);
-+
-+	hw_atl_a0_hw_tx_ring_tail_update(self, aq_ring);
-+
-+	/* Set Tx threshold */
-+	tdm_tx_desc_wr_wb_threshold_set(self, 0U, aq_ring->idx);
-+
-+	/* Mapping interrupt vector */
-+	itr_irq_map_tx_set(self, aq_ring_param->vec_idx, aq_ring->idx);
-+	itr_irq_map_en_tx_set(self, true, aq_ring->idx);
-+
-+	tdm_cpu_id_set(self, aq_ring_param->cpu, aq_ring->idx);
-+	tdm_tx_desc_dca_en_set(self, 0U, aq_ring->idx);
-+
-+	return aq_hw_err_from_flags(self);
-+}
-+
-+static int hw_atl_a0_hw_ring_rx_fill(struct aq_hw_s *self,
-+				     struct aq_ring_s *ring,
-+				     unsigned int sw_tail_old)
-+{
-+	for (; sw_tail_old != ring->sw_tail;
-+		sw_tail_old = aq_ring_next_dx(ring, sw_tail_old)) {
-+		struct hw_atl_rxd_s *rxd =
-+			(struct hw_atl_rxd_s *)&ring->dx_ring[sw_tail_old *
-+							HW_ATL_A0_RXD_SIZE];
-+
-+		struct aq_ring_buff_s *buff = &ring->buff_ring[sw_tail_old];
-+
-+		rxd->buf_addr = buff->pa;
-+		rxd->hdr_addr = 0U;
-+	}
-+
-+	reg_rx_dma_desc_tail_ptr_set(self, sw_tail_old, ring->idx);
-+
-+	return aq_hw_err_from_flags(self);
-+}
-+
-+static int hw_atl_a0_hw_ring_tx_head_update(struct aq_hw_s *self,
-+					    struct aq_ring_s *ring)
-+{
-+	int err = 0;
-+	unsigned int hw_head_ = tdm_tx_desc_head_ptr_get(self, ring->idx);
-+
-+	if (AQ_OBJ_TST(self, AQ_HW_FLAG_ERR_UNPLUG)) {
-+		err = -ENXIO;
-+		goto err_exit;
-+	}
-+	ring->hw_head = hw_head_;
-+	err = aq_hw_err_from_flags(self);
-+
-+err_exit:
-+	return err;
-+}
-+
-+static int hw_atl_a0_hw_ring_rx_receive(struct aq_hw_s *self,
-+					struct aq_ring_s *ring)
-+{
-+	struct device *ndev = aq_nic_get_dev(ring->aq_nic);
-+
-+	for (; ring->hw_head != ring->sw_tail;
-+		ring->hw_head = aq_ring_next_dx(ring, ring->hw_head)) {
-+		struct aq_ring_buff_s *buff = NULL;
-+		struct hw_atl_rxd_wb_s *rxd_wb = (struct hw_atl_rxd_wb_s *)
-+			&ring->dx_ring[ring->hw_head * HW_ATL_A0_RXD_SIZE];
-+
-+		unsigned int is_err = 1U;
-+		unsigned int is_rx_check_sum_enabled = 0U;
-+		unsigned int pkt_type = 0U;
-+
-+		if (!(rxd_wb->status & 0x5U)) { /* RxD is not done */
-+			if ((1U << 4) &
-+				reg_rx_dma_desc_status_get(self, ring->idx)) {
-+			rdm_rx_desc_en_set(self, false, ring->idx);
-+			rdm_rx_desc_res_set(self, true, ring->idx);
-+			rdm_rx_desc_res_set(self, false, ring->idx);
-+			rdm_rx_desc_en_set(self, true, ring->idx);
-+			}
-+
-+			if (ring->hw_head ||
-+			    (rdm_rx_desc_head_ptr_get(self, ring->idx) < 2U)) {
-+				break;
-+			} else if (!(rxd_wb->status & 0x1U)) {
-+				struct hw_atl_rxd_wb_s *rxd_wb1 =
-+					(struct hw_atl_rxd_wb_s *)
-+					(&ring->dx_ring[(1U) *
-+						HW_ATL_A0_RXD_SIZE]);
-+
-+				if ((rxd_wb1->status & 0x1U)) {
-+					rxd_wb->pkt_len = 1514U;
-+					rxd_wb->status = 3U;
-+				} else {
-+					break;
-+				}
-+			}
-+		}
-+
-+		buff = &ring->buff_ring[ring->hw_head];
-+
-+		if (0x3U != (rxd_wb->status & 0x3U))
-+			rxd_wb->status |= 4;
-+
-+		is_err = (0x0000001CU & rxd_wb->status);
-+		is_rx_check_sum_enabled = (rxd_wb->type) & (0x3U << 19);
-+		pkt_type = 0xFFU & (rxd_wb->type >> 4);
-+
-+		if (is_rx_check_sum_enabled) {
-+			if (0x0U == (pkt_type & 0x3U))
-+				buff->is_ip_cso = (is_err & 0x08U) ? 0 : 1;
-+
-+			if (0x4U == (pkt_type & 0x1CU))
-+				buff->is_udp_cso = (is_err & 0x10U) ? 0 : 1;
-+			else if (0x0U == (pkt_type & 0x1CU))
-+				buff->is_tcp_cso = (is_err & 0x10U) ? 0 : 1;
-+		}
-+
-+		is_err &= ~0x18U;
-+		is_err &= ~0x04U;
-+
-+		dma_unmap_page(ndev, buff->pa, buff->len, DMA_FROM_DEVICE);
-+
-+		if (is_err || rxd_wb->type & 0x1000U) {
-+			/* status error or DMA error */
-+			buff->is_error = 1U;
-+		} else {
-+			if (self->aq_nic_cfg->is_rss) {
-+				/* last 4 byte */
-+				u16 rss_type = rxd_wb->type & 0xFU;
-+
-+				if (rss_type && rss_type < 0x8U) {
-+					buff->is_hash_l4 = (rss_type == 0x4 ||
-+							rss_type == 0x5);
-+					buff->rss_hash = rxd_wb->rss_hash;
-+				}
-+			}
-+
-+			if (HW_ATL_A0_RXD_WB_STAT2_EOP & rxd_wb->status) {
-+				buff->len = (rxd_wb->pkt_len &
-+						(AQ_CFG_RX_FRAME_MAX - 1U));
-+				buff->len = buff->len ?
-+					buff->len : AQ_CFG_RX_FRAME_MAX;
-+				buff->next = 0U;
-+				buff->is_eop = 1U;
-+			} else {
-+				/* jumbo */
-+				buff->next = aq_ring_next_dx(ring,
-+							     ring->hw_head);
-+				++ring->stats.rx.jumbo_packets;
-+			}
-+		}
-+	}
-+
-+	return aq_hw_err_from_flags(self);
-+}
-+
-+static int hw_atl_a0_hw_irq_enable(struct aq_hw_s *self, u64 mask)
-+{
-+	itr_irq_msk_setlsw_set(self, LODWORD(mask) |
-+			       (1U << HW_ATL_A0_ERR_INT));
-+	return aq_hw_err_from_flags(self);
-+}
-+
-+static int hw_atl_a0_hw_irq_disable(struct aq_hw_s *self, u64 mask)
-+{
-+	itr_irq_msk_clearlsw_set(self, LODWORD(mask));
-+	itr_irq_status_clearlsw_set(self, LODWORD(mask));
-+
-+	if ((1U << 16) & reg_gen_irq_status_get(self))
-+
-+		atomic_inc(&PHAL_ATLANTIC_A0->dpc);
-+
-+	return aq_hw_err_from_flags(self);
-+}
-+
-+static int hw_atl_a0_hw_irq_read(struct aq_hw_s *self, u64 *mask)
-+{
-+	*mask = itr_irq_statuslsw_get(self);
-+	return aq_hw_err_from_flags(self);
-+}
-+
-+#define IS_FILTER_ENABLED(_F_) ((packet_filter & (_F_)) ? 1U : 0U)
-+
-+static int hw_atl_a0_hw_packet_filter_set(struct aq_hw_s *self,
-+					  unsigned int packet_filter)
-+{
-+	unsigned int i = 0U;
-+
-+	rpfl2promiscuous_mode_en_set(self, IS_FILTER_ENABLED(IFF_PROMISC));
-+	rpfl2multicast_flr_en_set(self, IS_FILTER_ENABLED(IFF_MULTICAST), 0);
-+	rpfl2broadcast_en_set(self, IS_FILTER_ENABLED(IFF_BROADCAST));
-+
-+	self->aq_nic_cfg->is_mc_list_enabled =
-+			IS_FILTER_ENABLED(IFF_MULTICAST);
-+
-+	for (i = HW_ATL_A0_MAC_MIN; i < HW_ATL_A0_MAC_MAX; ++i)
-+		rpfl2_uc_flr_en_set(self,
-+				    (self->aq_nic_cfg->is_mc_list_enabled &&
-+				    (i <= self->aq_nic_cfg->mc_list_count)) ?
-+				    1U : 0U, i);
-+
-+	return aq_hw_err_from_flags(self);
-+}
-+
-+#undef IS_FILTER_ENABLED
-+
-+static int hw_atl_a0_hw_multicast_list_set(struct aq_hw_s *self,
-+					   u8 ar_mac
-+					   [AQ_CFG_MULTICAST_ADDRESS_MAX]
-+					   [ETH_ALEN],
-+					   u32 count)
-+{
-+	int err = 0;
-+
-+	if (count > (HW_ATL_A0_MAC_MAX - HW_ATL_A0_MAC_MIN)) {
-+		err = EBADRQC;
-+		goto err_exit;
-+	}
-+	for (self->aq_nic_cfg->mc_list_count = 0U;
-+			self->aq_nic_cfg->mc_list_count < count;
-+			++self->aq_nic_cfg->mc_list_count) {
-+		u32 i = self->aq_nic_cfg->mc_list_count;
-+		u32 h = (ar_mac[i][0] << 8) | (ar_mac[i][1]);
-+		u32 l = (ar_mac[i][2] << 24) | (ar_mac[i][3] << 16) |
-+					(ar_mac[i][4] << 8) | ar_mac[i][5];
-+
-+		rpfl2_uc_flr_en_set(self, 0U, HW_ATL_A0_MAC_MIN + i);
-+
-+		rpfl2unicast_dest_addresslsw_set(self,
-+						 l, HW_ATL_A0_MAC_MIN + i);
-+
-+		rpfl2unicast_dest_addressmsw_set(self,
-+						 h, HW_ATL_A0_MAC_MIN + i);
-+
-+		rpfl2_uc_flr_en_set(self,
-+				    (self->aq_nic_cfg->is_mc_list_enabled),
-+				    HW_ATL_A0_MAC_MIN + i);
-+	}
-+
-+	err = aq_hw_err_from_flags(self);
-+
-+err_exit:
-+	return err;
-+}
-+
-+static int hw_atl_a0_hw_interrupt_moderation_set(struct aq_hw_s *self,
-+						 bool itr_enabled)
-+{
-+	unsigned int i = 0U;
-+
-+	if (itr_enabled && self->aq_nic_cfg->itr) {
-+		if (self->aq_nic_cfg->itr != 0xFFFFU) {
-+			u32 itr_ = (self->aq_nic_cfg->itr >> 1);
-+
-+			itr_ = min(AQ_CFG_IRQ_MASK, itr_);
-+
-+			PHAL_ATLANTIC_A0->itr_rx = 0x80000000U |
-+					(itr_ << 0x10);
-+		} else  {
-+			u32 n = 0xFFFFU & aq_hw_read_reg(self, 0x00002A00U);
-+
-+			if (n < (do_div(self->aq_link_status.bps, 1000000U))) {
-+				PHAL_ATLANTIC_A0->itr_rx = 0U;
-+			} else {
-+				static unsigned int hw_timers_tbl_[] = {
-+					0x01CU, /* 10Gbit */
-+					0x039U, /* 5Gbit */
-+					0x039U, /* 5Gbit 5GS */
-+					0x073U, /* 2.5Gbit */
-+					0x120U, /* 1Gbit */
-+					0x1FFU, /* 100Mbit */
-+				};
-+
-+				unsigned int speed_index =
-+					hw_atl_utils_bps_2_speed_index(
-+						self->aq_link_status.bps);
-+
-+				PHAL_ATLANTIC_A0->itr_rx =
-+					0x80000000U |
-+					(hw_timers_tbl_[speed_index] << 0x10U);
-+			}
-+
-+			aq_hw_write_reg(self, 0x00002A00U, 0x40000000U);
-+			aq_hw_write_reg(self, 0x00002A00U, 0x8D000000U);
-+		}
-+	} else {
-+		PHAL_ATLANTIC_A0->itr_rx = 0U;
-+	}
-+
-+	for (i = HW_ATL_A0_RINGS_MAX; i--;)
-+		reg_irq_thr_set(self, PHAL_ATLANTIC_A0->itr_rx, i);
-+
-+	return aq_hw_err_from_flags(self);
-+}
-+
-+static int hw_atl_a0_hw_stop(struct aq_hw_s *self)
-+{
-+	hw_atl_a0_hw_irq_disable(self, HW_ATL_A0_INT_MASK);
-+	return aq_hw_err_from_flags(self);
-+}
-+
-+static int hw_atl_a0_hw_ring_tx_stop(struct aq_hw_s *self,
-+				     struct aq_ring_s *ring)
-+{
-+	tdm_tx_desc_en_set(self, 0U, ring->idx);
-+	return aq_hw_err_from_flags(self);
-+}
-+
-+static int hw_atl_a0_hw_ring_rx_stop(struct aq_hw_s *self,
-+				     struct aq_ring_s *ring)
-+{
-+	rdm_rx_desc_en_set(self, 0U, ring->idx);
-+	return aq_hw_err_from_flags(self);
-+}
-+
-+static int hw_atl_a0_hw_set_speed(struct aq_hw_s *self, u32 speed)
-+{
-+	int err = 0;
-+
-+	err = hw_atl_utils_mpi_set_speed(self, speed, MPI_INIT);
-+	if (err < 0)
-+		goto err_exit;
-+
-+err_exit:
-+	return err;
-+}
-+
-+static struct aq_hw_ops hw_atl_ops_ = {
-+	.create               = hw_atl_a0_create,
-+	.destroy              = hw_atl_a0_destroy,
-+	.get_hw_caps          = hw_atl_a0_get_hw_caps,
-+
-+	.hw_get_mac_permanent = hw_atl_utils_get_mac_permanent,
-+	.hw_set_mac_address   = hw_atl_a0_hw_mac_addr_set,
-+	.hw_get_link_status   = hw_atl_utils_mpi_get_link_state,
-+	.hw_set_link_speed    = hw_atl_a0_hw_set_speed,
-+	.hw_init              = hw_atl_a0_hw_init,
-+	.hw_deinit            = hw_atl_utils_hw_deinit,
-+	.hw_set_power         = hw_atl_utils_hw_set_power,
-+	.hw_reset             = hw_atl_a0_hw_reset,
-+	.hw_start             = hw_atl_a0_hw_start,
-+	.hw_ring_tx_start     = hw_atl_a0_hw_ring_tx_start,
-+	.hw_ring_tx_stop      = hw_atl_a0_hw_ring_tx_stop,
-+	.hw_ring_rx_start     = hw_atl_a0_hw_ring_rx_start,
-+	.hw_ring_rx_stop      = hw_atl_a0_hw_ring_rx_stop,
-+	.hw_stop              = hw_atl_a0_hw_stop,
-+
-+	.hw_ring_tx_xmit         = hw_atl_a0_hw_ring_tx_xmit,
-+	.hw_ring_tx_head_update  = hw_atl_a0_hw_ring_tx_head_update,
-+
-+	.hw_ring_rx_receive      = hw_atl_a0_hw_ring_rx_receive,
-+	.hw_ring_rx_fill         = hw_atl_a0_hw_ring_rx_fill,
-+
-+	.hw_irq_enable           = hw_atl_a0_hw_irq_enable,
-+	.hw_irq_disable          = hw_atl_a0_hw_irq_disable,
-+	.hw_irq_read             = hw_atl_a0_hw_irq_read,
-+
-+	.hw_ring_rx_init             = hw_atl_a0_hw_ring_rx_init,
-+	.hw_ring_tx_init             = hw_atl_a0_hw_ring_tx_init,
-+	.hw_packet_filter_set        = hw_atl_a0_hw_packet_filter_set,
-+	.hw_multicast_list_set       = hw_atl_a0_hw_multicast_list_set,
-+	.hw_interrupt_moderation_set = hw_atl_a0_hw_interrupt_moderation_set,
-+	.hw_rss_set                  = hw_atl_a0_hw_rss_set,
-+	.hw_rss_hash_set             = hw_atl_a0_hw_rss_hash_set,
-+	.hw_get_regs                 = hw_atl_utils_hw_get_regs,
-+	.hw_get_hw_stats             = hw_atl_utils_get_hw_stats,
-+	.hw_get_fw_version           = hw_atl_utils_get_fw_version,
-+};
-+
-+struct aq_hw_ops *hw_atl_a0_get_ops_by_id(struct pci_dev *pdev)
-+{
-+	bool is_vid_ok = (pdev->vendor == PCI_VENDOR_ID_AQUANTIA);
-+	bool is_did_ok = ((pdev->device == HW_ATL_DEVICE_ID_0001) ||
-+			(pdev->device == HW_ATL_DEVICE_ID_D100) ||
-+			(pdev->device == HW_ATL_DEVICE_ID_D107) ||
-+			(pdev->device == HW_ATL_DEVICE_ID_D108) ||
-+			(pdev->device == HW_ATL_DEVICE_ID_D109));
-+
-+	bool is_rev_ok = (pdev->revision == 1U);
-+
-+	return (is_vid_ok && is_did_ok && is_rev_ok) ? &hw_atl_ops_ : NULL;
-+}
-+
-diff --git a/drivers/net/ethernet/aquantia/hw_atl/hw_atl_a0.h b/drivers/net/ethernet/aquantia/hw_atl/hw_atl_a0.h
-new file mode 100644
-index 0000000..a146e4e
---- /dev/null
-+++ b/drivers/net/ethernet/aquantia/hw_atl/hw_atl_a0.h
-@@ -0,0 +1,35 @@
-+/*
-+ * aQuantia Corporation Network Driver
-+ * Copyright (C) 2014-2017 aQuantia Corporation. All rights reserved
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ */
-+
-+/* File hw_atl_a0.h: Declaration of abstract interface for Atlantic hardware
-+ * specific functions.
-+ */
-+
-+#ifndef HW_ATL_A0_H
-+#define HW_ATL_A0_H
-+
-+#include "../aq_common.h"
-+
-+#ifndef PCI_VENDOR_ID_AQUANTIA
-+
-+#define PCI_VENDOR_ID_AQUANTIA  0x1D6A
-+#define HW_ATL_DEVICE_ID_0001   0x0001
-+#define HW_ATL_DEVICE_ID_D100   0xD100
-+#define HW_ATL_DEVICE_ID_D107   0xD107
-+#define HW_ATL_DEVICE_ID_D108   0xD108
-+#define HW_ATL_DEVICE_ID_D109   0xD109
-+
-+#define HW_ATL_NIC_NAME "aQuantia AQtion 5Gbit Network Adapter"
-+
-+#endif
-+
-+struct aq_hw_ops *hw_atl_a0_get_ops_by_id(struct pci_dev *pdev);
-+
-+#endif /* HW_ATL_A0_H */
-+
-diff --git a/drivers/net/ethernet/aquantia/hw_atl/hw_atl_a0_internal.h b/drivers/net/ethernet/aquantia/hw_atl/hw_atl_a0_internal.h
-new file mode 100644
-index 0000000..0cba7bb
---- /dev/null
-+++ b/drivers/net/ethernet/aquantia/hw_atl/hw_atl_a0_internal.h
-@@ -0,0 +1,153 @@
-+/*
-+ * aQuantia Corporation Network Driver
-+ * Copyright (C) 2014-2017 aQuantia Corporation. All rights reserved
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ */
-+
-+/* File hw_atl_a0_internal.h: Definition of Atlantic A0 chip specific
-+ * constants.
-+ */
-+
-+#ifndef HW_ATL_A0_INTERNAL_H
-+#define HW_ATL_A0_INTERNAL_H
-+
-+#include "../aq_common.h"
-+
-+#define HW_ATL_A0_MTU_JUMBO 9014U
-+
-+#define HW_ATL_A0_TX_RINGS 4U
-+#define HW_ATL_A0_RX_RINGS 4U
-+
-+#define HW_ATL_A0_RINGS_MAX 32U
-+#define HW_ATL_A0_TXD_SIZE  16U
-+#define HW_ATL_A0_RXD_SIZE  16U
-+
-+#define HW_ATL_A0_MAC      0U
-+#define HW_ATL_A0_MAC_MIN  1U
-+#define HW_ATL_A0_MAC_MAX  33U
-+
-+/* interrupts */
-+#define HW_ATL_A0_ERR_INT 8U
-+#define HW_ATL_A0_INT_MASK  0xFFFFFFFFU
-+
-+#define HW_ATL_A0_TXD_CTL2_LEN        0xFFFFC000U
-+#define HW_ATL_A0_TXD_CTL2_CTX_EN     0x00002000U
-+#define HW_ATL_A0_TXD_CTL2_CTX_IDX    0x00001000U
-+
-+#define HW_ATL_A0_TXD_CTL_DESC_TYPE_TXD   0x00000001U
-+#define HW_ATL_A0_TXD_CTL_DESC_TYPE_TXC   0x00000002U
-+#define HW_ATL_A0_TXD_CTL_BLEN        0x000FFFF0U
-+#define HW_ATL_A0_TXD_CTL_DD          0x00100000U
-+#define HW_ATL_A0_TXD_CTL_EOP         0x00200000U
-+
-+#define HW_ATL_A0_TXD_CTL_CMD_X       0x3FC00000U
-+
-+#define HW_ATL_A0_TXD_CTL_CMD_VLAN    BIT(22)
-+#define HW_ATL_A0_TXD_CTL_CMD_FCS     BIT(23)
-+#define HW_ATL_A0_TXD_CTL_CMD_IPCSO   BIT(24)
-+#define HW_ATL_A0_TXD_CTL_CMD_TUCSO   BIT(25)
-+#define HW_ATL_A0_TXD_CTL_CMD_LSO     BIT(26)
-+#define HW_ATL_A0_TXD_CTL_CMD_WB      BIT(27)
-+#define HW_ATL_A0_TXD_CTL_CMD_VXLAN   BIT(28)
-+
-+#define HW_ATL_A0_TXD_CTL_CMD_IPV6    BIT(21)
-+#define HW_ATL_A0_TXD_CTL_CMD_TCP     BIT(22)
-+
-+#define HW_ATL_A0_MPI_CONTROL_ADR     0x0368U
-+#define HW_ATL_A0_MPI_STATE_ADR       0x036CU
-+
-+#define HW_ATL_A0_MPI_SPEED_MSK       0xFFFFU
-+#define HW_ATL_A0_MPI_SPEED_SHIFT     16U
-+
-+#define HW_ATL_A0_RATE_10G            BIT(0)
-+#define HW_ATL_A0_RATE_5G             BIT(1)
-+#define HW_ATL_A0_RATE_2G5            BIT(3)
-+#define HW_ATL_A0_RATE_1G             BIT(4)
-+#define HW_ATL_A0_RATE_100M           BIT(5)
-+
-+#define HW_ATL_A0_TXBUF_MAX 160U
-+#define HW_ATL_A0_RXBUF_MAX 320U
-+
-+#define HW_ATL_A0_RSS_REDIRECTION_MAX 64U
-+#define HW_ATL_A0_RSS_REDIRECTION_BITS 3U
-+
-+#define HW_ATL_A0_TC_MAX 1U
-+#define HW_ATL_A0_RSS_MAX 8U
-+
-+#define HW_ATL_A0_FW_SEMA_RAM           0x2U
-+
-+#define HW_ATL_A0_RXD_DD    0x1U
-+#define HW_ATL_A0_RXD_NCEA0 0x1U
-+
-+#define HW_ATL_A0_RXD_WB_STAT2_EOP     0x0002U
-+
-+#define HW_ATL_A0_UCP_0X370_REG  0x370U
-+
-+/* Hardware tx descriptor */
-+struct __packed hw_atl_txd_s {
-+	u64 buf_addr;
-+	u32 ctl;
-+	u32 ctl2; /* 63..46 - payload length, 45 - ctx enable, 44 - ctx index */
-+};
-+
-+/* Hardware tx context descriptor */
-+struct __packed hw_atl_txc_s {
-+	u32 rsvd;
-+	u32 len;
-+	u32 ctl;
-+	u32 len2;
-+};
-+
-+/* Hardware rx descriptor */
-+struct __packed hw_atl_rxd_s {
-+	u64 buf_addr;
-+	u64 hdr_addr;
-+};
-+
-+/* Hardware rx descriptor writeback */
-+struct __packed hw_atl_rxd_wb_s {
-+	u32 type;
-+	u32 rss_hash;
-+	u16 status;
-+	u16 pkt_len;
-+	u16 next_desc_ptr;
-+	u16 vlan;
-+};
-+
-+/* HW layer capabilities */
-+static struct aq_hw_caps_s hw_atl_a0_hw_caps_ = {
-+	.ports = 1U,
-+	.is_64_dma = true,
-+	.msix_irqs = 4U,
-+	.irq_mask = ~0U,
-+	.vecs = HW_ATL_A0_RSS_MAX,
-+	.tcs = HW_ATL_A0_TC_MAX,
-+	.rxd_alignment = 1U,
-+	.rxd_size = HW_ATL_A0_RXD_SIZE,
-+	.rxds = 248U,
-+	.txd_alignment = 1U,
-+	.txd_size = HW_ATL_A0_TXD_SIZE,
-+	.txds = 8U * 1024U,
-+	.txhwb_alignment = 4096U,
-+	.tx_rings = HW_ATL_A0_TX_RINGS,
-+	.rx_rings = HW_ATL_A0_RX_RINGS,
-+	.hw_features = NETIF_F_HW_CSUM |
-+			NETIF_F_RXHASH |
-+			NETIF_F_SG |
-+			NETIF_F_TSO,
-+	.hw_priv_flags = IFF_UNICAST_FLT,
-+	.link_speed_msk = (HW_ATL_A0_RATE_10G |
-+			HW_ATL_A0_RATE_5G |
-+			HW_ATL_A0_RATE_2G5 |
-+			HW_ATL_A0_RATE_1G |
-+			HW_ATL_A0_RATE_100M),
-+	.flow_control = true,
-+	.mtu = HW_ATL_A0_MTU_JUMBO,
-+	.mac_regs_count = 88,
-+};
-+
-+#endif /* HW_ATL_A0_INTERNAL_H */
-+
-diff --git a/drivers/net/ethernet/aquantia/hw_atl/hw_atl_b0.c b/drivers/net/ethernet/aquantia/hw_atl/hw_atl_b0.c
-new file mode 100644
-index 0000000..125bef3
---- /dev/null
-+++ b/drivers/net/ethernet/aquantia/hw_atl/hw_atl_b0.c
-@@ -0,0 +1,961 @@
-+/*
-+ * aQuantia Corporation Network Driver
-+ * Copyright (C) 2014-2017 aQuantia Corporation. All rights reserved
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ */
-+
-+/* File hw_atl_b0.c: Definition of Atlantic hardware specific functions. */
-+
-+#include "../aq_hw.h"
++#include "hw_atl_llh_internal.h"
 +#include "../aq_hw_utils.h"
-+#include "../aq_ring.h"
-+#include "hw_atl_b0.h"
-+#include "hw_atl_utils.h"
-+#include "hw_atl_llh.h"
-+#include "hw_atl_b0_internal.h"
 +
-+static int hw_atl_b0_get_hw_caps(struct aq_hw_s *self,
-+				 struct aq_hw_caps_s *aq_hw_caps)
++/* global */
++void reg_glb_cpu_sem_set(struct aq_hw_s *aq_hw, u32 glb_cpu_sem, u32 semaphore)
 +{
-+	memcpy(aq_hw_caps, &hw_atl_b0_hw_caps_, sizeof(*aq_hw_caps));
-+	return 0;
++	aq_hw_write_reg(aq_hw, glb_cpu_sem_adr(semaphore), glb_cpu_sem);
 +}
 +
-+static struct aq_hw_s *hw_atl_b0_create(struct aq_pci_func_s *aq_pci_func,
-+					unsigned int port,
-+					struct aq_hw_ops *ops)
++u32 reg_glb_cpu_sem_get(struct aq_hw_s *aq_hw, u32 semaphore)
 +{
-+	struct hw_atl_s *self = NULL;
-+	int err = 0;
-+
-+	self = kzalloc(sizeof(*self), GFP_KERNEL);
-+	if (!self) {
-+		err = -ENOMEM;
-+		goto err_exit;
-+	}
-+	self->base.aq_pci_func = aq_pci_func;
-+
-+	self->base.not_ff_addr = 0x10U;
-+
-+err_exit:
-+	return (struct aq_hw_s *)self;
++	return aq_hw_read_reg(aq_hw, glb_cpu_sem_adr(semaphore));
 +}
 +
-+static void hw_atl_b0_destroy(struct aq_hw_s *self)
++void glb_glb_reg_res_dis_set(struct aq_hw_s *aq_hw, u32 glb_reg_res_dis)
 +{
-+	kfree(self);
++	aq_hw_write_reg_bit(aq_hw, glb_reg_res_dis_adr,
++			    glb_reg_res_dis_msk,
++			    glb_reg_res_dis_shift,
++			    glb_reg_res_dis);
 +}
 +
-+static int hw_atl_b0_hw_reset(struct aq_hw_s *self)
++void glb_soft_res_set(struct aq_hw_s *aq_hw, u32 soft_res)
 +{
-+	int err = 0;
-+
-+	glb_glb_reg_res_dis_set(self, 1U);
-+	pci_pci_reg_res_dis_set(self, 0U);
-+	rx_rx_reg_res_dis_set(self, 0U);
-+	tx_tx_reg_res_dis_set(self, 0U);
-+
-+	HW_ATL_FLUSH();
-+	glb_soft_res_set(self, 1);
-+
-+	/* check 10 times by 1ms */
-+	AQ_HW_WAIT_FOR(glb_soft_res_get(self) == 0, 1000U, 10U);
-+	if (err < 0)
-+		goto err_exit;
-+
-+	itr_irq_reg_res_dis_set(self, 0U);
-+	itr_res_irq_set(self, 1U);
-+
-+	/* check 10 times by 1ms */
-+	AQ_HW_WAIT_FOR(itr_res_irq_get(self) == 0, 1000U, 10U);
-+	if (err < 0)
-+		goto err_exit;
-+
-+	hw_atl_utils_mpi_set(self, MPI_RESET, 0x0U);
-+
-+	err = aq_hw_err_from_flags(self);
-+
-+err_exit:
-+	return err;
++	aq_hw_write_reg_bit(aq_hw, glb_soft_res_adr, glb_soft_res_msk,
++			    glb_soft_res_shift, soft_res);
 +}
 +
-+static int hw_atl_b0_hw_qos_set(struct aq_hw_s *self)
++u32 glb_soft_res_get(struct aq_hw_s *aq_hw)
 +{
-+	u32 tc = 0U;
-+	u32 buff_size = 0U;
-+	unsigned int i_priority = 0U;
-+	bool is_rx_flow_control = false;
-+
-+	/* TPS Descriptor rate init */
-+	tps_tx_pkt_shed_desc_rate_curr_time_res_set(self, 0x0U);
-+	tps_tx_pkt_shed_desc_rate_lim_set(self, 0xA);
-+
-+	/* TPS VM init */
-+	tps_tx_pkt_shed_desc_vm_arb_mode_set(self, 0U);
-+
-+	/* TPS TC credits init */
-+	tps_tx_pkt_shed_desc_tc_arb_mode_set(self, 0U);
-+	tps_tx_pkt_shed_data_arb_mode_set(self, 0U);
-+
-+	tps_tx_pkt_shed_tc_data_max_credit_set(self, 0xFFF, 0U);
-+	tps_tx_pkt_shed_tc_data_weight_set(self, 0x64, 0U);
-+	tps_tx_pkt_shed_desc_tc_max_credit_set(self, 0x50, 0U);
-+	tps_tx_pkt_shed_desc_tc_weight_set(self, 0x1E, 0U);
-+
-+	/* Tx buf size */
-+	buff_size = HW_ATL_B0_TXBUF_MAX;
-+
-+	tpb_tx_pkt_buff_size_per_tc_set(self, buff_size, tc);
-+	tpb_tx_buff_hi_threshold_per_tc_set(self,
-+					    (buff_size * (1024 / 32U) * 66U) /
-+					    100U, tc);
-+	tpb_tx_buff_lo_threshold_per_tc_set(self,
-+					    (buff_size * (1024 / 32U) * 50U) /
-+					    100U, tc);
-+
-+	/* QoS Rx buf size per TC */
-+	tc = 0;
-+	is_rx_flow_control = (AQ_NIC_FC_RX & self->aq_nic_cfg->flow_control);
-+	buff_size = HW_ATL_B0_RXBUF_MAX;
-+
-+	rpb_rx_pkt_buff_size_per_tc_set(self, buff_size, tc);
-+	rpb_rx_buff_hi_threshold_per_tc_set(self,
-+					    (buff_size *
-+					    (1024U / 32U) * 66U) /
-+					    100U, tc);
-+	rpb_rx_buff_lo_threshold_per_tc_set(self,
-+					    (buff_size *
-+					    (1024U / 32U) * 50U) /
-+					    100U, tc);
-+	rpb_rx_xoff_en_per_tc_set(self, is_rx_flow_control ? 1U : 0U, tc);
-+
-+	/* QoS 802.1p priority -> TC mapping */
-+	for (i_priority = 8U; i_priority--;)
-+		rpf_rpb_user_priority_tc_map_set(self, i_priority, 0U);
-+
-+	return aq_hw_err_from_flags(self);
++	return aq_hw_read_reg_bit(aq_hw, glb_soft_res_adr,
++				  glb_soft_res_msk,
++				  glb_soft_res_shift);
 +}
 +
-+static int hw_atl_b0_hw_rss_hash_set(struct aq_hw_s *self,
-+				     struct aq_rss_parameters *rss_params)
++u32 reg_rx_dma_stat_counter7get(struct aq_hw_s *aq_hw)
 +{
-+	struct aq_nic_cfg_s *cfg = NULL;
-+	int err = 0;
-+	unsigned int i = 0U;
-+	unsigned int addr = 0U;
-+
-+	cfg = self->aq_nic_cfg;
-+
-+	for (i = 10, addr = 0U; i--; ++addr) {
-+		u32 key_data = cfg->is_rss ?
-+			__swab32(rss_params->hash_secret_key[i]) : 0U;
-+		rpf_rss_key_wr_data_set(self, key_data);
-+		rpf_rss_key_addr_set(self, addr);
-+		rpf_rss_key_wr_en_set(self, 1U);
-+		AQ_HW_WAIT_FOR(rpf_rss_key_wr_en_get(self) == 0, 1000U, 10U);
-+		if (err < 0)
-+			goto err_exit;
-+	}
-+
-+	err = aq_hw_err_from_flags(self);
-+
-+err_exit:
-+	return err;
++	return aq_hw_read_reg(aq_hw, rx_dma_stat_counter7_adr);
 +}
 +
-+static int hw_atl_b0_hw_rss_set(struct aq_hw_s *self,
-+				struct aq_rss_parameters *rss_params)
++u32 reg_glb_mif_id_get(struct aq_hw_s *aq_hw)
 +{
-+	u8 *indirection_table =	rss_params->indirection_table;
-+	u32 i = 0U;
-+	u32 num_rss_queues = max(1U, self->aq_nic_cfg->num_rss_queues);
-+	int err = 0;
-+	u16 bitary[(HW_ATL_B0_RSS_REDIRECTION_MAX *
-+					HW_ATL_B0_RSS_REDIRECTION_BITS / 16U)];
-+
-+	memset(bitary, 0, sizeof(bitary));
-+
-+	for (i = HW_ATL_B0_RSS_REDIRECTION_MAX; i--;) {
-+		(*(u32 *)(bitary + ((i * 3U) / 16U))) |=
-+			((indirection_table[i] % num_rss_queues) <<
-+			((i * 3U) & 0xFU));
-+	}
-+
-+	for (i = AQ_DIMOF(bitary); i--;) {
-+		rpf_rss_redir_tbl_wr_data_set(self, bitary[i]);
-+		rpf_rss_redir_tbl_addr_set(self, i);
-+		rpf_rss_redir_wr_en_set(self, 1U);
-+		AQ_HW_WAIT_FOR(rpf_rss_redir_wr_en_get(self) == 0, 1000U, 10U);
-+		if (err < 0)
-+			goto err_exit;
-+	}
-+
-+	err = aq_hw_err_from_flags(self);
-+
-+err_exit:
-+	return err;
++	return aq_hw_read_reg(aq_hw, glb_mif_id_adr);
 +}
 +
-+static int hw_atl_b0_hw_offload_set(struct aq_hw_s *self,
-+				    struct aq_nic_cfg_s *aq_nic_cfg)
++/* stats */
++u32 rpb_rx_dma_drop_pkt_cnt_get(struct aq_hw_s *aq_hw)
 +{
-+	int err = 0;
-+	unsigned int i;
-+
-+	/* TX checksums offloads*/
-+	tpo_ipv4header_crc_offload_en_set(self, 1);
-+	tpo_tcp_udp_crc_offload_en_set(self, 1);
-+	if (err < 0)
-+		goto err_exit;
-+
-+	/* RX checksums offloads*/
-+	rpo_ipv4header_crc_offload_en_set(self, 1);
-+	rpo_tcp_udp_crc_offload_en_set(self, 1);
-+	if (err < 0)
-+		goto err_exit;
-+
-+	/* LSO offloads*/
-+	tdm_large_send_offload_en_set(self, 0xFFFFFFFFU);
-+	if (err < 0)
-+		goto err_exit;
-+
-+/* LRO offloads */
-+	{
-+		unsigned int val = (8U < HW_ATL_B0_LRO_RXD_MAX) ? 0x3U :
-+			((4U < HW_ATL_B0_LRO_RXD_MAX) ? 0x2U :
-+			((2U < HW_ATL_B0_LRO_RXD_MAX) ? 0x1U : 0x0));
-+
-+		for (i = 0; i < HW_ATL_B0_RINGS_MAX; i++)
-+			rpo_lro_max_num_of_descriptors_set(self, val, i);
-+
-+		rpo_lro_time_base_divider_set(self, 0x61AU);
-+		rpo_lro_inactive_interval_set(self, 0);
-+		rpo_lro_max_coalescing_interval_set(self, 2);
-+
-+		rpo_lro_qsessions_lim_set(self, 1U);
-+
-+		rpo_lro_total_desc_lim_set(self, 2U);
-+
-+		rpo_lro_patch_optimization_en_set(self, 0U);
-+
-+		rpo_lro_min_pay_of_first_pkt_set(self, 10U);
-+
-+		rpo_lro_pkt_lim_set(self, 1U);
-+
-+		rpo_lro_en_set(self, aq_nic_cfg->is_lro ? 0xFFFFFFFFU : 0U);
-+	}
-+	err = aq_hw_err_from_flags(self);
-+
-+err_exit:
-+	return err;
++	return aq_hw_read_reg(aq_hw, rpb_rx_dma_drop_pkt_cnt_adr);
 +}
 +
-+static int hw_atl_b0_hw_init_tx_path(struct aq_hw_s *self)
++u32 stats_rx_dma_good_octet_counterlsw_get(struct aq_hw_s *aq_hw)
 +{
-+	thm_lso_tcp_flag_of_first_pkt_set(self, 0x0FF6U);
-+	thm_lso_tcp_flag_of_middle_pkt_set(self, 0x0FF6U);
-+	thm_lso_tcp_flag_of_last_pkt_set(self, 0x0F7FU);
-+
-+	/* Tx interrupts */
-+	tdm_tx_desc_wr_wb_irq_en_set(self, 1U);
-+
-+	/* misc */
-+	aq_hw_write_reg(self, 0x00007040U, IS_CHIP_FEATURE(TPO2) ?
-+			0x00010000U : 0x00000000U);
-+	tdm_tx_dca_en_set(self, 0U);
-+	tdm_tx_dca_mode_set(self, 0U);
-+
-+	tpb_tx_path_scp_ins_en_set(self, 1U);
-+
-+	return aq_hw_err_from_flags(self);
++	return aq_hw_read_reg(aq_hw, stats_rx_dma_good_octet_counterlsw__adr);
 +}
 +
-+static int hw_atl_b0_hw_init_rx_path(struct aq_hw_s *self)
++u32 stats_rx_dma_good_pkt_counterlsw_get(struct aq_hw_s *aq_hw)
 +{
-+	struct aq_nic_cfg_s *cfg = self->aq_nic_cfg;
-+	int i;
-+
-+	/* Rx TC/RSS number config */
-+	rpb_rpf_rx_traf_class_mode_set(self, 1U);
-+
-+	/* Rx flow control */
-+	rpb_rx_flow_ctl_mode_set(self, 1U);
-+
-+	/* RSS Ring selection */
-+	reg_rx_flr_rss_control1set(self, cfg->is_rss ?
-+					0xB3333333U : 0x00000000U);
-+
-+	/* Multicast filters */
-+	for (i = HW_ATL_B0_MAC_MAX; i--;) {
-+		rpfl2_uc_flr_en_set(self, (i == 0U) ? 1U : 0U, i);
-+		rpfl2unicast_flr_act_set(self, 1U, i);
-+	}
-+
-+	reg_rx_flr_mcst_flr_msk_set(self, 0x00000000U);
-+	reg_rx_flr_mcst_flr_set(self, 0x00010FFFU, 0U);
-+
-+	/* Vlan filters */
-+	rpf_vlan_outer_etht_set(self, 0x88A8U);
-+	rpf_vlan_inner_etht_set(self, 0x8100U);
-+
-+	if (cfg->vlan_id) {
-+		rpf_vlan_flr_act_set(self, 1U, 0U);
-+		rpf_vlan_id_flr_set(self, 0U, 0U);
-+		rpf_vlan_flr_en_set(self, 0U, 0U);
-+
-+		rpf_vlan_accept_untagged_packets_set(self, 1U);
-+		rpf_vlan_untagged_act_set(self, 1U);
-+
-+		rpf_vlan_flr_act_set(self, 1U, 1U);
-+		rpf_vlan_id_flr_set(self, cfg->vlan_id, 0U);
-+		rpf_vlan_flr_en_set(self, 1U, 1U);
-+	} else {
-+		rpf_vlan_prom_mode_en_set(self, 1);
-+	}
-+
-+	/* Rx Interrupts */
-+	rdm_rx_desc_wr_wb_irq_en_set(self, 1U);
-+
-+	/* misc */
-+	aq_hw_write_reg(self, 0x00005040U,
-+			IS_CHIP_FEATURE(RPF2) ? 0x000F0000U : 0x00000000U);
-+
-+	rpfl2broadcast_flr_act_set(self, 1U);
-+	rpfl2broadcast_count_threshold_set(self, 0xFFFFU & (~0U / 256U));
-+
-+	rdm_rx_dca_en_set(self, 0U);
-+	rdm_rx_dca_mode_set(self, 0U);
-+
-+	return aq_hw_err_from_flags(self);
++	return aq_hw_read_reg(aq_hw, stats_rx_dma_good_pkt_counterlsw__adr);
 +}
 +
-+static int hw_atl_b0_hw_mac_addr_set(struct aq_hw_s *self, u8 *mac_addr)
++u32 stats_tx_dma_good_octet_counterlsw_get(struct aq_hw_s *aq_hw)
 +{
-+	int err = 0;
-+	unsigned int h = 0U;
-+	unsigned int l = 0U;
-+
-+	if (!mac_addr) {
-+		err = -EINVAL;
-+		goto err_exit;
-+	}
-+	h = (mac_addr[0] << 8) | (mac_addr[1]);
-+	l = (mac_addr[2] << 24) | (mac_addr[3] << 16) |
-+		(mac_addr[4] << 8) | mac_addr[5];
-+
-+	rpfl2_uc_flr_en_set(self, 0U, HW_ATL_B0_MAC);
-+	rpfl2unicast_dest_addresslsw_set(self, l, HW_ATL_B0_MAC);
-+	rpfl2unicast_dest_addressmsw_set(self, h, HW_ATL_B0_MAC);
-+	rpfl2_uc_flr_en_set(self, 1U, HW_ATL_B0_MAC);
-+
-+	err = aq_hw_err_from_flags(self);
-+
-+err_exit:
-+	return err;
++	return aq_hw_read_reg(aq_hw, stats_tx_dma_good_octet_counterlsw__adr);
 +}
 +
-+static int hw_atl_b0_hw_init(struct aq_hw_s *self,
-+			     struct aq_nic_cfg_s *aq_nic_cfg,
-+			     u8 *mac_addr)
++u32 stats_tx_dma_good_pkt_counterlsw_get(struct aq_hw_s *aq_hw)
 +{
-+	static u32 aq_hw_atl_igcr_table_[4][2] = {
-+		{ 0x20000000U, 0x20000000U }, /* AQ_IRQ_INVALID */
-+		{ 0x20000080U, 0x20000080U }, /* AQ_IRQ_LEGACY */
-+		{ 0x20000021U, 0x20000025U }, /* AQ_IRQ_MSI */
-+		{ 0x20000022U, 0x20000026U }  /* AQ_IRQ_MSIX */
-+	};
-+
-+	int err = 0;
-+
-+	self->aq_nic_cfg = aq_nic_cfg;
-+
-+	hw_atl_utils_hw_chip_features_init(self,
-+					   &PHAL_ATLANTIC_B0->chip_features);
-+
-+	hw_atl_b0_hw_init_tx_path(self);
-+	hw_atl_b0_hw_init_rx_path(self);
-+
-+	hw_atl_b0_hw_mac_addr_set(self, mac_addr);
-+
-+	hw_atl_utils_mpi_set(self, MPI_INIT, aq_nic_cfg->link_speed_msk);
-+
-+	hw_atl_b0_hw_qos_set(self);
-+	hw_atl_b0_hw_rss_set(self, &aq_nic_cfg->aq_rss);
-+	hw_atl_b0_hw_rss_hash_set(self, &aq_nic_cfg->aq_rss);
-+
-+	err = aq_hw_err_from_flags(self);
-+	if (err < 0)
-+		goto err_exit;
-+
-+	/* Interrupts */
-+	reg_irq_glb_ctl_set(self,
-+			    aq_hw_atl_igcr_table_[aq_nic_cfg->irq_type]
-+						 [(aq_nic_cfg->vecs > 1U) ?
-+						 1 : 0]);
-+
-+	itr_irq_auto_masklsw_set(self, aq_nic_cfg->aq_hw_caps->irq_mask);
-+
-+	/* Interrupts */
-+	reg_gen_irq_map_set(self,
-+			    ((HW_ATL_B0_ERR_INT << 0x18) | (1U << 0x1F)) |
-+			    ((HW_ATL_B0_ERR_INT << 0x10) | (1U << 0x17)), 0U);
-+
-+	hw_atl_b0_hw_offload_set(self, aq_nic_cfg);
-+
-+err_exit:
-+	return err;
++	return aq_hw_read_reg(aq_hw, stats_tx_dma_good_pkt_counterlsw__adr);
 +}
 +
-+static int hw_atl_b0_hw_ring_tx_start(struct aq_hw_s *self,
-+				      struct aq_ring_s *ring)
++u32 stats_rx_dma_good_octet_countermsw_get(struct aq_hw_s *aq_hw)
 +{
-+	tdm_tx_desc_en_set(self, 1, ring->idx);
-+	return aq_hw_err_from_flags(self);
++	return aq_hw_read_reg(aq_hw, stats_rx_dma_good_octet_countermsw__adr);
 +}
 +
-+static int hw_atl_b0_hw_ring_rx_start(struct aq_hw_s *self,
-+				      struct aq_ring_s *ring)
++u32 stats_rx_dma_good_pkt_countermsw_get(struct aq_hw_s *aq_hw)
 +{
-+	rdm_rx_desc_en_set(self, 1, ring->idx);
-+	return aq_hw_err_from_flags(self);
++	return aq_hw_read_reg(aq_hw, stats_rx_dma_good_pkt_countermsw__adr);
 +}
 +
-+static int hw_atl_b0_hw_start(struct aq_hw_s *self)
++u32 stats_tx_dma_good_octet_countermsw_get(struct aq_hw_s *aq_hw)
 +{
-+	tpb_tx_buff_en_set(self, 1);
-+	rpb_rx_buff_en_set(self, 1);
-+	return aq_hw_err_from_flags(self);
++	return aq_hw_read_reg(aq_hw, stats_tx_dma_good_octet_countermsw__adr);
 +}
 +
-+static int hw_atl_b0_hw_tx_ring_tail_update(struct aq_hw_s *self,
-+					    struct aq_ring_s *ring)
++u32 stats_tx_dma_good_pkt_countermsw_get(struct aq_hw_s *aq_hw)
 +{
-+	reg_tx_dma_desc_tail_ptr_set(self, ring->sw_tail, ring->idx);
-+	return 0;
++	return aq_hw_read_reg(aq_hw, stats_tx_dma_good_pkt_countermsw__adr);
 +}
 +
-+static int hw_atl_b0_hw_ring_tx_xmit(struct aq_hw_s *self,
-+				     struct aq_ring_s *ring,
-+				     unsigned int frags)
++/* interrupt */
++void itr_irq_auto_masklsw_set(struct aq_hw_s *aq_hw, u32 irq_auto_masklsw)
 +{
-+	struct aq_ring_buff_s *buff = NULL;
-+	struct hw_atl_txd_s *txd = NULL;
-+	unsigned int buff_pa_len = 0U;
-+	unsigned int pkt_len = 0U;
-+	unsigned int frag_count = 0U;
-+	bool is_gso = false;
-+
-+	buff = &ring->buff_ring[ring->sw_tail];
-+	pkt_len = (buff->is_eop && buff->is_sop) ? buff->len : buff->len_pkt;
-+
-+	for (frag_count = 0; frag_count < frags; frag_count++) {
-+		txd = (struct hw_atl_txd_s *)&ring->dx_ring[ring->sw_tail *
-+						HW_ATL_B0_TXD_SIZE];
-+		txd->ctl = 0;
-+		txd->ctl2 = 0;
-+		txd->buf_addr = 0;
-+
-+		buff = &ring->buff_ring[ring->sw_tail];
-+
-+		if (buff->is_txc) {
-+			txd->ctl |= (buff->len_l3 << 31) |
-+				(buff->len_l2 << 24) |
-+				HW_ATL_B0_TXD_CTL_CMD_TCP |
-+				HW_ATL_B0_TXD_CTL_DESC_TYPE_TXC;
-+			txd->ctl2 |= (buff->mss << 16) |
-+				(buff->len_l4 << 8) |
-+				(buff->len_l3 >> 1);
-+
-+			pkt_len -= (buff->len_l4 +
-+				    buff->len_l3 +
-+				    buff->len_l2);
-+			is_gso = true;
-+		} else {
-+			buff_pa_len = buff->len;
-+
-+			txd->buf_addr = buff->pa;
-+			txd->ctl |= (HW_ATL_B0_TXD_CTL_BLEN &
-+						((u32)buff_pa_len << 4));
-+			txd->ctl |= HW_ATL_B0_TXD_CTL_DESC_TYPE_TXD;
-+			/* PAY_LEN */
-+			txd->ctl2 |= HW_ATL_B0_TXD_CTL2_LEN & (pkt_len << 14);
-+
-+			if (is_gso) {
-+				txd->ctl |= HW_ATL_B0_TXD_CTL_CMD_LSO;
-+				txd->ctl2 |= HW_ATL_B0_TXD_CTL2_CTX_EN;
-+			}
-+
-+			/* Tx checksum offloads */
-+			if (buff->is_ip_cso)
-+				txd->ctl |= HW_ATL_B0_TXD_CTL_CMD_IPCSO;
-+
-+			if (buff->is_udp_cso || buff->is_tcp_cso)
-+				txd->ctl |= HW_ATL_B0_TXD_CTL_CMD_TUCSO;
-+
-+			if (unlikely(buff->is_eop)) {
-+				txd->ctl |= HW_ATL_B0_TXD_CTL_EOP;
-+				txd->ctl |= HW_ATL_B0_TXD_CTL_CMD_WB;
-+			}
-+		}
-+
-+		ring->sw_tail = aq_ring_next_dx(ring, ring->sw_tail);
-+	}
-+
-+	hw_atl_b0_hw_tx_ring_tail_update(self, ring);
-+	return aq_hw_err_from_flags(self);
++	aq_hw_write_reg(aq_hw, itr_iamrlsw_adr, irq_auto_masklsw);
 +}
 +
-+static int hw_atl_b0_hw_ring_rx_init(struct aq_hw_s *self,
-+				     struct aq_ring_s *aq_ring,
-+				     struct aq_ring_param_s *aq_ring_param)
++void itr_irq_map_en_rx_set(struct aq_hw_s *aq_hw, u32 irq_map_en_rx, u32 rx)
 +{
-+	u32 dma_desc_addr_lsw = (u32)aq_ring->dx_ring_pa;
-+	u32 dma_desc_addr_msw = (u32)(((u64)aq_ring->dx_ring_pa) >> 32);
++/* register address for bitfield imr_rx{r}_en */
++	static u32 itr_imr_rxren_adr[32] = {
++			0x00002100U, 0x00002100U, 0x00002104U, 0x00002104U,
++			0x00002108U, 0x00002108U, 0x0000210cU, 0x0000210cU,
++			0x00002110U, 0x00002110U, 0x00002114U, 0x00002114U,
++			0x00002118U, 0x00002118U, 0x0000211cU, 0x0000211cU,
++			0x00002120U, 0x00002120U, 0x00002124U, 0x00002124U,
++			0x00002128U, 0x00002128U, 0x0000212cU, 0x0000212cU,
++			0x00002130U, 0x00002130U, 0x00002134U, 0x00002134U,
++			0x00002138U, 0x00002138U, 0x0000213cU, 0x0000213cU
++		};
 +
-+	rdm_rx_desc_en_set(self, false, aq_ring->idx);
++/* bitmask for bitfield imr_rx{r}_en */
++	static u32 itr_imr_rxren_msk[32] = {
++			0x00008000U, 0x00000080U, 0x00008000U, 0x00000080U,
++			0x00008000U, 0x00000080U, 0x00008000U, 0x00000080U,
++			0x00008000U, 0x00000080U, 0x00008000U, 0x00000080U,
++			0x00008000U, 0x00000080U, 0x00008000U, 0x00000080U,
++			0x00008000U, 0x00000080U, 0x00008000U, 0x00000080U,
++			0x00008000U, 0x00000080U, 0x00008000U, 0x00000080U,
++			0x00008000U, 0x00000080U, 0x00008000U, 0x00000080U,
++			0x00008000U, 0x00000080U, 0x00008000U, 0x00000080U
++		};
 +
-+	rdm_rx_desc_head_splitting_set(self, 0U, aq_ring->idx);
++/* lower bit position of bitfield imr_rx{r}_en */
++	static u32 itr_imr_rxren_shift[32] = {
++			15U, 7U, 15U, 7U, 15U, 7U, 15U, 7U,
++			15U, 7U, 15U, 7U, 15U, 7U, 15U, 7U,
++			15U, 7U, 15U, 7U, 15U, 7U, 15U, 7U,
++			15U, 7U, 15U, 7U, 15U, 7U, 15U, 7U
++		};
 +
-+	reg_rx_dma_desc_base_addresslswset(self, dma_desc_addr_lsw,
-+					   aq_ring->idx);
-+
-+	reg_rx_dma_desc_base_addressmswset(self,
-+					   dma_desc_addr_msw, aq_ring->idx);
-+
-+	rdm_rx_desc_len_set(self, aq_ring->size / 8U, aq_ring->idx);
-+
-+	rdm_rx_desc_data_buff_size_set(self,
-+				       AQ_CFG_RX_FRAME_MAX / 1024U,
-+				       aq_ring->idx);
-+
-+	rdm_rx_desc_head_buff_size_set(self, 0U, aq_ring->idx);
-+	rdm_rx_desc_head_splitting_set(self, 0U, aq_ring->idx);
-+	rpo_rx_desc_vlan_stripping_set(self, 0U, aq_ring->idx);
-+
-+	/* Rx ring set mode */
-+
-+	/* Mapping interrupt vector */
-+	itr_irq_map_rx_set(self, aq_ring_param->vec_idx, aq_ring->idx);
-+	itr_irq_map_en_rx_set(self, true, aq_ring->idx);
-+
-+	rdm_cpu_id_set(self, aq_ring_param->cpu, aq_ring->idx);
-+	rdm_rx_desc_dca_en_set(self, 0U, aq_ring->idx);
-+	rdm_rx_head_dca_en_set(self, 0U, aq_ring->idx);
-+	rdm_rx_pld_dca_en_set(self, 0U, aq_ring->idx);
-+
-+	return aq_hw_err_from_flags(self);
++	aq_hw_write_reg_bit(aq_hw, itr_imr_rxren_adr[rx],
++			    itr_imr_rxren_msk[rx],
++			    itr_imr_rxren_shift[rx],
++			    irq_map_en_rx);
 +}
 +
-+static int hw_atl_b0_hw_ring_tx_init(struct aq_hw_s *self,
-+				     struct aq_ring_s *aq_ring,
-+				     struct aq_ring_param_s *aq_ring_param)
++void itr_irq_map_en_tx_set(struct aq_hw_s *aq_hw, u32 irq_map_en_tx, u32 tx)
 +{
-+	u32 dma_desc_lsw_addr = (u32)aq_ring->dx_ring_pa;
-+	u32 dma_desc_msw_addr = (u32)(((u64)aq_ring->dx_ring_pa) >> 32);
++/* register address for bitfield imr_tx{t}_en */
++	static u32 itr_imr_txten_adr[32] = {
++			0x00002100U, 0x00002100U, 0x00002104U, 0x00002104U,
++			0x00002108U, 0x00002108U, 0x0000210cU, 0x0000210cU,
++			0x00002110U, 0x00002110U, 0x00002114U, 0x00002114U,
++			0x00002118U, 0x00002118U, 0x0000211cU, 0x0000211cU,
++			0x00002120U, 0x00002120U, 0x00002124U, 0x00002124U,
++			0x00002128U, 0x00002128U, 0x0000212cU, 0x0000212cU,
++			0x00002130U, 0x00002130U, 0x00002134U, 0x00002134U,
++			0x00002138U, 0x00002138U, 0x0000213cU, 0x0000213cU
++		};
 +
-+	reg_tx_dma_desc_base_addresslswset(self, dma_desc_lsw_addr,
-+					   aq_ring->idx);
++/* bitmask for bitfield imr_tx{t}_en */
++	static u32 itr_imr_txten_msk[32] = {
++			0x80000000U, 0x00800000U, 0x80000000U, 0x00800000U,
++			0x80000000U, 0x00800000U, 0x80000000U, 0x00800000U,
++			0x80000000U, 0x00800000U, 0x80000000U, 0x00800000U,
++			0x80000000U, 0x00800000U, 0x80000000U, 0x00800000U,
++			0x80000000U, 0x00800000U, 0x80000000U, 0x00800000U,
++			0x80000000U, 0x00800000U, 0x80000000U, 0x00800000U,
++			0x80000000U, 0x00800000U, 0x80000000U, 0x00800000U,
++			0x80000000U, 0x00800000U, 0x80000000U, 0x00800000U
++		};
 +
-+	reg_tx_dma_desc_base_addressmswset(self, dma_desc_msw_addr,
-+					   aq_ring->idx);
++/* lower bit position of bitfield imr_tx{t}_en */
++	static u32 itr_imr_txten_shift[32] = {
++			31U, 23U, 31U, 23U, 31U, 23U, 31U, 23U,
++			31U, 23U, 31U, 23U, 31U, 23U, 31U, 23U,
++			31U, 23U, 31U, 23U, 31U, 23U, 31U, 23U,
++			31U, 23U, 31U, 23U, 31U, 23U, 31U, 23U
++		};
 +
-+	tdm_tx_desc_len_set(self, aq_ring->size / 8U, aq_ring->idx);
-+
-+	hw_atl_b0_hw_tx_ring_tail_update(self, aq_ring);
-+
-+	/* Set Tx threshold */
-+	tdm_tx_desc_wr_wb_threshold_set(self, 0U, aq_ring->idx);
-+
-+	/* Mapping interrupt vector */
-+	itr_irq_map_tx_set(self, aq_ring_param->vec_idx, aq_ring->idx);
-+	itr_irq_map_en_tx_set(self, true, aq_ring->idx);
-+
-+	tdm_cpu_id_set(self, aq_ring_param->cpu, aq_ring->idx);
-+	tdm_tx_desc_dca_en_set(self, 0U, aq_ring->idx);
-+
-+	return aq_hw_err_from_flags(self);
++	aq_hw_write_reg_bit(aq_hw, itr_imr_txten_adr[tx],
++			    itr_imr_txten_msk[tx],
++			    itr_imr_txten_shift[tx],
++			    irq_map_en_tx);
 +}
 +
-+static int hw_atl_b0_hw_ring_rx_fill(struct aq_hw_s *self,
-+				     struct aq_ring_s *ring,
-+				     unsigned int sw_tail_old)
++void itr_irq_map_rx_set(struct aq_hw_s *aq_hw, u32 irq_map_rx, u32 rx)
 +{
-+	for (; sw_tail_old != ring->sw_tail;
-+		sw_tail_old = aq_ring_next_dx(ring, sw_tail_old)) {
-+		struct hw_atl_rxd_s *rxd =
-+			(struct hw_atl_rxd_s *)&ring->dx_ring[sw_tail_old *
-+							HW_ATL_B0_RXD_SIZE];
++/* register address for bitfield imr_rx{r}[4:0] */
++	static u32 itr_imr_rxr_adr[32] = {
++			0x00002100U, 0x00002100U, 0x00002104U, 0x00002104U,
++			0x00002108U, 0x00002108U, 0x0000210cU, 0x0000210cU,
++			0x00002110U, 0x00002110U, 0x00002114U, 0x00002114U,
++			0x00002118U, 0x00002118U, 0x0000211cU, 0x0000211cU,
++			0x00002120U, 0x00002120U, 0x00002124U, 0x00002124U,
++			0x00002128U, 0x00002128U, 0x0000212cU, 0x0000212cU,
++			0x00002130U, 0x00002130U, 0x00002134U, 0x00002134U,
++			0x00002138U, 0x00002138U, 0x0000213cU, 0x0000213cU
++		};
 +
-+		struct aq_ring_buff_s *buff = &ring->buff_ring[sw_tail_old];
++/* bitmask for bitfield imr_rx{r}[4:0] */
++	static u32 itr_imr_rxr_msk[32] = {
++			0x00001f00U, 0x0000001fU, 0x00001f00U, 0x0000001fU,
++			0x00001f00U, 0x0000001fU, 0x00001f00U, 0x0000001fU,
++			0x00001f00U, 0x0000001fU, 0x00001f00U, 0x0000001fU,
++			0x00001f00U, 0x0000001fU, 0x00001f00U, 0x0000001fU,
++			0x00001f00U, 0x0000001fU, 0x00001f00U, 0x0000001fU,
++			0x00001f00U, 0x0000001fU, 0x00001f00U, 0x0000001fU,
++			0x00001f00U, 0x0000001fU, 0x00001f00U, 0x0000001fU,
++			0x00001f00U, 0x0000001fU, 0x00001f00U, 0x0000001fU
++		};
 +
-+		rxd->buf_addr = buff->pa;
-+		rxd->hdr_addr = 0U;
-+	}
++/* lower bit position of bitfield imr_rx{r}[4:0] */
++	static u32 itr_imr_rxr_shift[32] = {
++			8U, 0U, 8U, 0U, 8U, 0U, 8U, 0U,
++			8U, 0U, 8U, 0U, 8U, 0U, 8U, 0U,
++			8U, 0U, 8U, 0U, 8U, 0U, 8U, 0U,
++			8U, 0U, 8U, 0U, 8U, 0U, 8U, 0U
++		};
 +
-+	reg_rx_dma_desc_tail_ptr_set(self, sw_tail_old, ring->idx);
-+
-+	return aq_hw_err_from_flags(self);
++	aq_hw_write_reg_bit(aq_hw, itr_imr_rxr_adr[rx],
++			    itr_imr_rxr_msk[rx],
++			    itr_imr_rxr_shift[rx],
++			    irq_map_rx);
 +}
 +
-+static int hw_atl_b0_hw_ring_tx_head_update(struct aq_hw_s *self,
-+					    struct aq_ring_s *ring)
++void itr_irq_map_tx_set(struct aq_hw_s *aq_hw, u32 irq_map_tx, u32 tx)
 +{
-+	int err = 0;
-+	unsigned int hw_head_ = tdm_tx_desc_head_ptr_get(self, ring->idx);
++/* register address for bitfield imr_tx{t}[4:0] */
++	static u32 itr_imr_txt_adr[32] = {
++			0x00002100U, 0x00002100U, 0x00002104U, 0x00002104U,
++			0x00002108U, 0x00002108U, 0x0000210cU, 0x0000210cU,
++			0x00002110U, 0x00002110U, 0x00002114U, 0x00002114U,
++			0x00002118U, 0x00002118U, 0x0000211cU, 0x0000211cU,
++			0x00002120U, 0x00002120U, 0x00002124U, 0x00002124U,
++			0x00002128U, 0x00002128U, 0x0000212cU, 0x0000212cU,
++			0x00002130U, 0x00002130U, 0x00002134U, 0x00002134U,
++			0x00002138U, 0x00002138U, 0x0000213cU, 0x0000213cU
++		};
 +
-+	if (AQ_OBJ_TST(self, AQ_HW_FLAG_ERR_UNPLUG)) {
-+		err = -ENXIO;
-+		goto err_exit;
-+	}
-+	ring->hw_head = hw_head_;
-+	err = aq_hw_err_from_flags(self);
++/* bitmask for bitfield imr_tx{t}[4:0] */
++	static u32 itr_imr_txt_msk[32] = {
++			0x1f000000U, 0x001f0000U, 0x1f000000U, 0x001f0000U,
++			0x1f000000U, 0x001f0000U, 0x1f000000U, 0x001f0000U,
++			0x1f000000U, 0x001f0000U, 0x1f000000U, 0x001f0000U,
++			0x1f000000U, 0x001f0000U, 0x1f000000U, 0x001f0000U,
++			0x1f000000U, 0x001f0000U, 0x1f000000U, 0x001f0000U,
++			0x1f000000U, 0x001f0000U, 0x1f000000U, 0x001f0000U,
++			0x1f000000U, 0x001f0000U, 0x1f000000U, 0x001f0000U,
++			0x1f000000U, 0x001f0000U, 0x1f000000U, 0x001f0000U
++		};
 +
-+err_exit:
-+	return err;
++/* lower bit position of bitfield imr_tx{t}[4:0] */
++	static u32 itr_imr_txt_shift[32] = {
++			24U, 16U, 24U, 16U, 24U, 16U, 24U, 16U,
++			24U, 16U, 24U, 16U, 24U, 16U, 24U, 16U,
++			24U, 16U, 24U, 16U, 24U, 16U, 24U, 16U,
++			24U, 16U, 24U, 16U, 24U, 16U, 24U, 16U
++		};
++
++	aq_hw_write_reg_bit(aq_hw, itr_imr_txt_adr[tx],
++			    itr_imr_txt_msk[tx],
++			    itr_imr_txt_shift[tx],
++			    irq_map_tx);
 +}
 +
-+static int hw_atl_b0_hw_ring_rx_receive(struct aq_hw_s *self,
-+					struct aq_ring_s *ring)
++void itr_irq_msk_clearlsw_set(struct aq_hw_s *aq_hw, u32 irq_msk_clearlsw)
 +{
-+	struct device *ndev = aq_nic_get_dev(ring->aq_nic);
-+
-+	for (; ring->hw_head != ring->sw_tail;
-+		ring->hw_head = aq_ring_next_dx(ring, ring->hw_head)) {
-+		struct aq_ring_buff_s *buff = NULL;
-+		struct hw_atl_rxd_wb_s *rxd_wb = (struct hw_atl_rxd_wb_s *)
-+			&ring->dx_ring[ring->hw_head * HW_ATL_B0_RXD_SIZE];
-+
-+		unsigned int is_err = 1U;
-+		unsigned int is_rx_check_sum_enabled = 0U;
-+		unsigned int pkt_type = 0U;
-+
-+		if (!(rxd_wb->status & 0x1U)) { /* RxD is not done */
-+			break;
-+		}
-+
-+		buff = &ring->buff_ring[ring->hw_head];
-+
-+		is_err = (0x0000003CU & rxd_wb->status);
-+
-+		is_rx_check_sum_enabled = (rxd_wb->type) & (0x3U << 19);
-+		is_err &= ~0x20U; /* exclude validity bit */
-+
-+		pkt_type = 0xFFU & (rxd_wb->type >> 4);
-+
-+		if (is_rx_check_sum_enabled) {
-+			if (0x0U == (pkt_type & 0x3U))
-+				buff->is_ip_cso = (is_err & 0x08U) ? 0U : 1U;
-+
-+			if (0x4U == (pkt_type & 0x1CU))
-+				buff->is_udp_cso = buff->is_cso_err ? 0U : 1U;
-+			else if (0x0U == (pkt_type & 0x1CU))
-+				buff->is_tcp_cso = buff->is_cso_err ? 0U : 1U;
-+		}
-+
-+		is_err &= ~0x18U;
-+
-+		dma_unmap_page(ndev, buff->pa, buff->len, DMA_FROM_DEVICE);
-+
-+		if (is_err || rxd_wb->type & 0x1000U) {
-+			/* status error or DMA error */
-+			buff->is_error = 1U;
-+		} else {
-+			if (self->aq_nic_cfg->is_rss) {
-+				/* last 4 byte */
-+				u16 rss_type = rxd_wb->type & 0xFU;
-+
-+				if (rss_type && rss_type < 0x8U) {
-+					buff->is_hash_l4 = (rss_type == 0x4 ||
-+					rss_type == 0x5);
-+					buff->rss_hash = rxd_wb->rss_hash;
-+				}
-+			}
-+
-+			if (HW_ATL_B0_RXD_WB_STAT2_EOP & rxd_wb->status) {
-+				buff->len = (rxd_wb->pkt_len &
-+						(AQ_CFG_RX_FRAME_MAX - 1U));
-+				buff->len = buff->len ?
-+					buff->len : AQ_CFG_RX_FRAME_MAX;
-+				buff->next = 0U;
-+				buff->is_eop = 1U;
-+			} else {
-+				if (HW_ATL_B0_RXD_WB_STAT2_RSCCNT &
-+					rxd_wb->status) {
-+					/* LRO */
-+					buff->next = rxd_wb->next_desc_ptr;
-+					++ring->stats.rx.lro_packets;
-+				} else {
-+					/* jumbo */
-+					buff->next =
-+						aq_ring_next_dx(ring,
-+								ring->hw_head);
-+					++ring->stats.rx.jumbo_packets;
-+				}
-+			}
-+		}
-+	}
-+
-+	return aq_hw_err_from_flags(self);
++	aq_hw_write_reg(aq_hw, itr_imcrlsw_adr, irq_msk_clearlsw);
 +}
 +
-+static int hw_atl_b0_hw_irq_enable(struct aq_hw_s *self, u64 mask)
++void itr_irq_msk_setlsw_set(struct aq_hw_s *aq_hw, u32 irq_msk_setlsw)
 +{
-+	itr_irq_msk_setlsw_set(self, LODWORD(mask));
-+	return aq_hw_err_from_flags(self);
++	aq_hw_write_reg(aq_hw, itr_imsrlsw_adr, irq_msk_setlsw);
 +}
 +
-+static int hw_atl_b0_hw_irq_disable(struct aq_hw_s *self, u64 mask)
++void itr_irq_reg_res_dis_set(struct aq_hw_s *aq_hw, u32 irq_reg_res_dis)
 +{
-+	itr_irq_msk_clearlsw_set(self, LODWORD(mask));
-+	itr_irq_status_clearlsw_set(self, LODWORD(mask));
-+
-+	atomic_inc(&PHAL_ATLANTIC_B0->dpc);
-+	return aq_hw_err_from_flags(self);
++	aq_hw_write_reg_bit(aq_hw, itr_reg_res_dsbl_adr,
++			    itr_reg_res_dsbl_msk,
++			    itr_reg_res_dsbl_shift, irq_reg_res_dis);
 +}
 +
-+static int hw_atl_b0_hw_irq_read(struct aq_hw_s *self, u64 *mask)
++void itr_irq_status_clearlsw_set(struct aq_hw_s *aq_hw,
++				 u32 irq_status_clearlsw)
 +{
-+	*mask = itr_irq_statuslsw_get(self);
-+	return aq_hw_err_from_flags(self);
++	aq_hw_write_reg(aq_hw, itr_iscrlsw_adr, irq_status_clearlsw);
 +}
 +
-+#define IS_FILTER_ENABLED(_F_) ((packet_filter & (_F_)) ? 1U : 0U)
-+
-+static int hw_atl_b0_hw_packet_filter_set(struct aq_hw_s *self,
-+					  unsigned int packet_filter)
++u32 itr_irq_statuslsw_get(struct aq_hw_s *aq_hw)
 +{
-+	unsigned int i = 0U;
-+
-+	rpfl2promiscuous_mode_en_set(self, IS_FILTER_ENABLED(IFF_PROMISC));
-+	rpfl2multicast_flr_en_set(self,
-+				  IS_FILTER_ENABLED(IFF_MULTICAST), 0);
-+
-+	rpfl2_accept_all_mc_packets_set(self,
-+					IS_FILTER_ENABLED(IFF_ALLMULTI));
-+
-+	rpfl2broadcast_en_set(self, IS_FILTER_ENABLED(IFF_BROADCAST));
-+
-+	self->aq_nic_cfg->is_mc_list_enabled = IS_FILTER_ENABLED(IFF_MULTICAST);
-+
-+	for (i = HW_ATL_B0_MAC_MIN; i < HW_ATL_B0_MAC_MAX; ++i)
-+		rpfl2_uc_flr_en_set(self,
-+				    (self->aq_nic_cfg->is_mc_list_enabled &&
-+				    (i <= self->aq_nic_cfg->mc_list_count)) ?
-+				    1U : 0U, i);
-+
-+	return aq_hw_err_from_flags(self);
++	return aq_hw_read_reg(aq_hw, itr_isrlsw_adr);
 +}
 +
-+#undef IS_FILTER_ENABLED
-+
-+static int hw_atl_b0_hw_multicast_list_set(struct aq_hw_s *self,
-+					   u8 ar_mac
-+					   [AQ_CFG_MULTICAST_ADDRESS_MAX]
-+					   [ETH_ALEN],
-+					   u32 count)
++u32 itr_res_irq_get(struct aq_hw_s *aq_hw)
 +{
-+	int err = 0;
-+
-+	if (count > (HW_ATL_B0_MAC_MAX - HW_ATL_B0_MAC_MIN)) {
-+		err = -EBADRQC;
-+		goto err_exit;
-+	}
-+	for (self->aq_nic_cfg->mc_list_count = 0U;
-+			self->aq_nic_cfg->mc_list_count < count;
-+			++self->aq_nic_cfg->mc_list_count) {
-+		u32 i = self->aq_nic_cfg->mc_list_count;
-+		u32 h = (ar_mac[i][0] << 8) | (ar_mac[i][1]);
-+		u32 l = (ar_mac[i][2] << 24) | (ar_mac[i][3] << 16) |
-+					(ar_mac[i][4] << 8) | ar_mac[i][5];
-+
-+		rpfl2_uc_flr_en_set(self, 0U, HW_ATL_B0_MAC_MIN + i);
-+
-+		rpfl2unicast_dest_addresslsw_set(self,
-+						 l, HW_ATL_B0_MAC_MIN + i);
-+
-+		rpfl2unicast_dest_addressmsw_set(self,
-+						 h, HW_ATL_B0_MAC_MIN + i);
-+
-+		rpfl2_uc_flr_en_set(self,
-+				    (self->aq_nic_cfg->is_mc_list_enabled),
-+				    HW_ATL_B0_MAC_MIN + i);
-+	}
-+
-+	err = aq_hw_err_from_flags(self);
-+
-+err_exit:
-+	return err;
++	return aq_hw_read_reg_bit(aq_hw, itr_res_adr, itr_res_msk,
++				  itr_res_shift);
 +}
 +
-+static int hw_atl_b0_hw_interrupt_moderation_set(struct aq_hw_s *self,
-+						 bool itr_enabled)
++void itr_res_irq_set(struct aq_hw_s *aq_hw, u32 res_irq)
 +{
-+	unsigned int i = 0U;
-+
-+	if (itr_enabled && self->aq_nic_cfg->itr) {
-+		tdm_tx_desc_wr_wb_irq_en_set(self, 0U);
-+		tdm_tdm_intr_moder_en_set(self, 1U);
-+		rdm_rx_desc_wr_wb_irq_en_set(self, 0U);
-+		rdm_rdm_intr_moder_en_set(self, 1U);
-+
-+		PHAL_ATLANTIC_B0->itr_tx = 2U;
-+		PHAL_ATLANTIC_B0->itr_rx = 2U;
-+
-+		if (self->aq_nic_cfg->itr != 0xFFFFU) {
-+			unsigned int max_timer = self->aq_nic_cfg->itr / 2U;
-+			unsigned int min_timer = self->aq_nic_cfg->itr / 32U;
-+
-+			max_timer = min(0x1FFU, max_timer);
-+			min_timer = min(0xFFU, min_timer);
-+
-+			PHAL_ATLANTIC_B0->itr_tx |= min_timer << 0x8U;
-+			PHAL_ATLANTIC_B0->itr_tx |= max_timer << 0x10U;
-+			PHAL_ATLANTIC_B0->itr_rx |= min_timer << 0x8U;
-+			PHAL_ATLANTIC_B0->itr_rx |= max_timer << 0x10U;
-+		} else {
-+			static unsigned int hw_atl_b0_timers_table_tx_[][2] = {
-+				{0xffU, 0xffU}, /* 10Gbit */
-+				{0xffU, 0x1ffU}, /* 5Gbit */
-+				{0xffU, 0x1ffU}, /* 5Gbit 5GS */
-+				{0xffU, 0x1ffU}, /* 2.5Gbit */
-+				{0xffU, 0x1ffU}, /* 1Gbit */
-+				{0xffU, 0x1ffU}, /* 100Mbit */
-+			};
-+
-+			static unsigned int hw_atl_b0_timers_table_rx_[][2] = {
-+				{0x6U, 0x38U},/* 10Gbit */
-+				{0xCU, 0x70U},/* 5Gbit */
-+				{0xCU, 0x70U},/* 5Gbit 5GS */
-+				{0x18U, 0xE0U},/* 2.5Gbit */
-+				{0x30U, 0x80U},/* 1Gbit */
-+				{0x4U, 0x50U},/* 100Mbit */
-+			};
-+
-+			unsigned int speed_index =
-+					hw_atl_utils_bps_2_speed_index(
-+						self->aq_link_status.bps);
-+
-+			PHAL_ATLANTIC_B0->itr_tx |=
-+				hw_atl_b0_timers_table_tx_[speed_index]
-+				[0] << 0x8U; /* set min timer value */
-+			PHAL_ATLANTIC_B0->itr_tx |=
-+				hw_atl_b0_timers_table_tx_[speed_index]
-+				[1] << 0x10U; /* set max timer value */
-+
-+			PHAL_ATLANTIC_B0->itr_rx |=
-+				hw_atl_b0_timers_table_rx_[speed_index]
-+				[0] << 0x8U; /* set min timer value */
-+			PHAL_ATLANTIC_B0->itr_rx |=
-+				hw_atl_b0_timers_table_rx_[speed_index]
-+				[1] << 0x10U; /* set max timer value */
-+		}
-+	} else {
-+		tdm_tx_desc_wr_wb_irq_en_set(self, 1U);
-+		tdm_tdm_intr_moder_en_set(self, 0U);
-+		rdm_rx_desc_wr_wb_irq_en_set(self, 1U);
-+		rdm_rdm_intr_moder_en_set(self, 0U);
-+		PHAL_ATLANTIC_B0->itr_tx = 0U;
-+		PHAL_ATLANTIC_B0->itr_rx = 0U;
-+	}
-+
-+	for (i = HW_ATL_B0_RINGS_MAX; i--;) {
-+		reg_tx_intr_moder_ctrl_set(self,
-+					   PHAL_ATLANTIC_B0->itr_tx, i);
-+		reg_rx_intr_moder_ctrl_set(self,
-+					   PHAL_ATLANTIC_B0->itr_rx, i);
-+	}
-+
-+	return aq_hw_err_from_flags(self);
++	aq_hw_write_reg_bit(aq_hw, itr_res_adr, itr_res_msk,
++			    itr_res_shift, res_irq);
 +}
 +
-+static int hw_atl_b0_hw_stop(struct aq_hw_s *self)
++/* rdm */
++void rdm_cpu_id_set(struct aq_hw_s *aq_hw, u32 cpuid, u32 dca)
 +{
-+	hw_atl_b0_hw_irq_disable(self, HW_ATL_B0_INT_MASK);
-+	return aq_hw_err_from_flags(self);
++	aq_hw_write_reg_bit(aq_hw, rdm_dcadcpuid_adr(dca),
++			    rdm_dcadcpuid_msk,
++			    rdm_dcadcpuid_shift, cpuid);
 +}
 +
-+static int hw_atl_b0_hw_ring_tx_stop(struct aq_hw_s *self,
-+				     struct aq_ring_s *ring)
++void rdm_rx_dca_en_set(struct aq_hw_s *aq_hw, u32 rx_dca_en)
 +{
-+	tdm_tx_desc_en_set(self, 0U, ring->idx);
-+	return aq_hw_err_from_flags(self);
++	aq_hw_write_reg_bit(aq_hw, rdm_dca_en_adr, rdm_dca_en_msk,
++			    rdm_dca_en_shift, rx_dca_en);
 +}
 +
-+static int hw_atl_b0_hw_ring_rx_stop(struct aq_hw_s *self,
-+				     struct aq_ring_s *ring)
++void rdm_rx_dca_mode_set(struct aq_hw_s *aq_hw, u32 rx_dca_mode)
 +{
-+	rdm_rx_desc_en_set(self, 0U, ring->idx);
-+	return aq_hw_err_from_flags(self);
++	aq_hw_write_reg_bit(aq_hw, rdm_dca_mode_adr, rdm_dca_mode_msk,
++			    rdm_dca_mode_shift, rx_dca_mode);
 +}
 +
-+static int hw_atl_b0_hw_set_speed(struct aq_hw_s *self, u32 speed)
++void rdm_rx_desc_data_buff_size_set(struct aq_hw_s *aq_hw,
++				    u32 rx_desc_data_buff_size, u32 descriptor)
 +{
-+	int err = 0;
-+
-+	err = hw_atl_utils_mpi_set_speed(self, speed, MPI_INIT);
-+	if (err < 0)
-+		goto err_exit;
-+
-+err_exit:
-+	return err;
++	aq_hw_write_reg_bit(aq_hw, rdm_descddata_size_adr(descriptor),
++			    rdm_descddata_size_msk,
++			    rdm_descddata_size_shift,
++			    rx_desc_data_buff_size);
 +}
 +
-+static struct aq_hw_ops hw_atl_ops_ = {
-+	.create               = hw_atl_b0_create,
-+	.destroy              = hw_atl_b0_destroy,
-+	.get_hw_caps          = hw_atl_b0_get_hw_caps,
-+
-+	.hw_get_mac_permanent = hw_atl_utils_get_mac_permanent,
-+	.hw_set_mac_address   = hw_atl_b0_hw_mac_addr_set,
-+	.hw_get_link_status   = hw_atl_utils_mpi_get_link_state,
-+	.hw_set_link_speed    = hw_atl_b0_hw_set_speed,
-+	.hw_init              = hw_atl_b0_hw_init,
-+	.hw_deinit            = hw_atl_utils_hw_deinit,
-+	.hw_set_power         = hw_atl_utils_hw_set_power,
-+	.hw_reset             = hw_atl_b0_hw_reset,
-+	.hw_start             = hw_atl_b0_hw_start,
-+	.hw_ring_tx_start     = hw_atl_b0_hw_ring_tx_start,
-+	.hw_ring_tx_stop      = hw_atl_b0_hw_ring_tx_stop,
-+	.hw_ring_rx_start     = hw_atl_b0_hw_ring_rx_start,
-+	.hw_ring_rx_stop      = hw_atl_b0_hw_ring_rx_stop,
-+	.hw_stop              = hw_atl_b0_hw_stop,
-+
-+	.hw_ring_tx_xmit         = hw_atl_b0_hw_ring_tx_xmit,
-+	.hw_ring_tx_head_update  = hw_atl_b0_hw_ring_tx_head_update,
-+
-+	.hw_ring_rx_receive      = hw_atl_b0_hw_ring_rx_receive,
-+	.hw_ring_rx_fill         = hw_atl_b0_hw_ring_rx_fill,
-+
-+	.hw_irq_enable           = hw_atl_b0_hw_irq_enable,
-+	.hw_irq_disable          = hw_atl_b0_hw_irq_disable,
-+	.hw_irq_read             = hw_atl_b0_hw_irq_read,
-+
-+	.hw_ring_rx_init             = hw_atl_b0_hw_ring_rx_init,
-+	.hw_ring_tx_init             = hw_atl_b0_hw_ring_tx_init,
-+	.hw_packet_filter_set        = hw_atl_b0_hw_packet_filter_set,
-+	.hw_multicast_list_set       = hw_atl_b0_hw_multicast_list_set,
-+	.hw_interrupt_moderation_set = hw_atl_b0_hw_interrupt_moderation_set,
-+	.hw_rss_set                  = hw_atl_b0_hw_rss_set,
-+	.hw_rss_hash_set             = hw_atl_b0_hw_rss_hash_set,
-+	.hw_get_regs                 = hw_atl_utils_hw_get_regs,
-+	.hw_get_hw_stats             = hw_atl_utils_get_hw_stats,
-+	.hw_get_fw_version           = hw_atl_utils_get_fw_version,
-+};
-+
-+struct aq_hw_ops *hw_atl_b0_get_ops_by_id(struct pci_dev *pdev)
++void rdm_rx_desc_dca_en_set(struct aq_hw_s *aq_hw, u32 rx_desc_dca_en, u32 dca)
 +{
-+	bool is_vid_ok = (pdev->vendor == PCI_VENDOR_ID_AQUANTIA);
-+	bool is_did_ok = ((pdev->device == HW_ATL_DEVICE_ID_0001) ||
-+			(pdev->device == HW_ATL_DEVICE_ID_D100) ||
-+			(pdev->device == HW_ATL_DEVICE_ID_D107) ||
-+			(pdev->device == HW_ATL_DEVICE_ID_D108) ||
-+			(pdev->device == HW_ATL_DEVICE_ID_D109));
-+
-+	bool is_rev_ok = (pdev->revision == 2U);
-+
-+	return (is_vid_ok && is_did_ok && is_rev_ok) ? &hw_atl_ops_ : NULL;
++	aq_hw_write_reg_bit(aq_hw, rdm_dcaddesc_en_adr(dca),
++			    rdm_dcaddesc_en_msk,
++			    rdm_dcaddesc_en_shift,
++			    rx_desc_dca_en);
 +}
 +
-diff --git a/drivers/net/ethernet/aquantia/hw_atl/hw_atl_b0.h b/drivers/net/ethernet/aquantia/hw_atl/hw_atl_b0.h
++void rdm_rx_desc_en_set(struct aq_hw_s *aq_hw, u32 rx_desc_en, u32 descriptor)
++{
++	aq_hw_write_reg_bit(aq_hw, rdm_descden_adr(descriptor),
++			    rdm_descden_msk,
++			    rdm_descden_shift,
++			    rx_desc_en);
++}
++
++void rdm_rx_desc_head_buff_size_set(struct aq_hw_s *aq_hw,
++				    u32 rx_desc_head_buff_size, u32 descriptor)
++{
++	aq_hw_write_reg_bit(aq_hw, rdm_descdhdr_size_adr(descriptor),
++			    rdm_descdhdr_size_msk,
++			    rdm_descdhdr_size_shift,
++			    rx_desc_head_buff_size);
++}
++
++void rdm_rx_desc_head_splitting_set(struct aq_hw_s *aq_hw,
++				    u32 rx_desc_head_splitting, u32 descriptor)
++{
++	aq_hw_write_reg_bit(aq_hw, rdm_descdhdr_split_adr(descriptor),
++			    rdm_descdhdr_split_msk,
++			    rdm_descdhdr_split_shift,
++			    rx_desc_head_splitting);
++}
++
++u32 rdm_rx_desc_head_ptr_get(struct aq_hw_s *aq_hw, u32 descriptor)
++{
++	return aq_hw_read_reg_bit(aq_hw, rdm_descdhd_adr(descriptor),
++				  rdm_descdhd_msk, rdm_descdhd_shift);
++}
++
++void rdm_rx_desc_len_set(struct aq_hw_s *aq_hw, u32 rx_desc_len, u32 descriptor)
++{
++	aq_hw_write_reg_bit(aq_hw, rdm_descdlen_adr(descriptor),
++			    rdm_descdlen_msk, rdm_descdlen_shift,
++			    rx_desc_len);
++}
++
++void rdm_rx_desc_res_set(struct aq_hw_s *aq_hw, u32 rx_desc_res, u32 descriptor)
++{
++	aq_hw_write_reg_bit(aq_hw, rdm_descdreset_adr(descriptor),
++			    rdm_descdreset_msk, rdm_descdreset_shift,
++			    rx_desc_res);
++}
++
++void rdm_rx_desc_wr_wb_irq_en_set(struct aq_hw_s *aq_hw,
++				  u32 rx_desc_wr_wb_irq_en)
++{
++	aq_hw_write_reg_bit(aq_hw, rdm_int_desc_wrb_en_adr,
++			    rdm_int_desc_wrb_en_msk,
++			    rdm_int_desc_wrb_en_shift,
++			    rx_desc_wr_wb_irq_en);
++}
++
++void rdm_rx_head_dca_en_set(struct aq_hw_s *aq_hw, u32 rx_head_dca_en, u32 dca)
++{
++	aq_hw_write_reg_bit(aq_hw, rdm_dcadhdr_en_adr(dca),
++			    rdm_dcadhdr_en_msk,
++			    rdm_dcadhdr_en_shift,
++			    rx_head_dca_en);
++}
++
++void rdm_rx_pld_dca_en_set(struct aq_hw_s *aq_hw, u32 rx_pld_dca_en, u32 dca)
++{
++	aq_hw_write_reg_bit(aq_hw, rdm_dcadpay_en_adr(dca),
++			    rdm_dcadpay_en_msk, rdm_dcadpay_en_shift,
++			    rx_pld_dca_en);
++}
++
++void rdm_rdm_intr_moder_en_set(struct aq_hw_s *aq_hw, u32 rdm_intr_moder_en)
++{
++	aq_hw_write_reg_bit(aq_hw, rdm_int_rim_en_adr,
++			    rdm_int_rim_en_msk,
++			    rdm_int_rim_en_shift,
++			    rdm_intr_moder_en);
++}
++
++/* reg */
++void reg_gen_irq_map_set(struct aq_hw_s *aq_hw, u32 gen_intr_map, u32 regidx)
++{
++	aq_hw_write_reg(aq_hw, gen_intr_map_adr(regidx), gen_intr_map);
++}
++
++u32 reg_gen_irq_status_get(struct aq_hw_s *aq_hw)
++{
++	return aq_hw_read_reg(aq_hw, gen_intr_stat_adr);
++}
++
++void reg_irq_glb_ctl_set(struct aq_hw_s *aq_hw, u32 intr_glb_ctl)
++{
++	aq_hw_write_reg(aq_hw, intr_glb_ctl_adr, intr_glb_ctl);
++}
++
++void reg_irq_thr_set(struct aq_hw_s *aq_hw, u32 intr_thr, u32 throttle)
++{
++	aq_hw_write_reg(aq_hw, intr_thr_adr(throttle), intr_thr);
++}
++
++void reg_rx_dma_desc_base_addresslswset(struct aq_hw_s *aq_hw,
++					u32 rx_dma_desc_base_addrlsw,
++					u32 descriptor)
++{
++	aq_hw_write_reg(aq_hw, rx_dma_desc_base_addrlsw_adr(descriptor),
++			rx_dma_desc_base_addrlsw);
++}
++
++void reg_rx_dma_desc_base_addressmswset(struct aq_hw_s *aq_hw,
++					u32 rx_dma_desc_base_addrmsw,
++					u32 descriptor)
++{
++	aq_hw_write_reg(aq_hw, rx_dma_desc_base_addrmsw_adr(descriptor),
++			rx_dma_desc_base_addrmsw);
++}
++
++u32 reg_rx_dma_desc_status_get(struct aq_hw_s *aq_hw, u32 descriptor)
++{
++	return aq_hw_read_reg(aq_hw, rx_dma_desc_stat_adr(descriptor));
++}
++
++void reg_rx_dma_desc_tail_ptr_set(struct aq_hw_s *aq_hw,
++				  u32 rx_dma_desc_tail_ptr, u32 descriptor)
++{
++	aq_hw_write_reg(aq_hw, rx_dma_desc_tail_ptr_adr(descriptor),
++			rx_dma_desc_tail_ptr);
++}
++
++void reg_rx_flr_mcst_flr_msk_set(struct aq_hw_s *aq_hw, u32 rx_flr_mcst_flr_msk)
++{
++	aq_hw_write_reg(aq_hw, rx_flr_mcst_flr_msk_adr, rx_flr_mcst_flr_msk);
++}
++
++void reg_rx_flr_mcst_flr_set(struct aq_hw_s *aq_hw, u32 rx_flr_mcst_flr,
++			     u32 filter)
++{
++	aq_hw_write_reg(aq_hw, rx_flr_mcst_flr_adr(filter), rx_flr_mcst_flr);
++}
++
++void reg_rx_flr_rss_control1set(struct aq_hw_s *aq_hw, u32 rx_flr_rss_control1)
++{
++	aq_hw_write_reg(aq_hw, rx_flr_rss_control1_adr, rx_flr_rss_control1);
++}
++
++void reg_rx_flr_control2_set(struct aq_hw_s *aq_hw, u32 rx_filter_control2)
++{
++	aq_hw_write_reg(aq_hw, rx_flr_control2_adr, rx_filter_control2);
++}
++
++void reg_rx_intr_moder_ctrl_set(struct aq_hw_s *aq_hw,
++				u32 rx_intr_moderation_ctl,
++				u32 queue)
++{
++	aq_hw_write_reg(aq_hw, rx_intr_moderation_ctl_adr(queue),
++			rx_intr_moderation_ctl);
++}
++
++void reg_tx_dma_debug_ctl_set(struct aq_hw_s *aq_hw, u32 tx_dma_debug_ctl)
++{
++	aq_hw_write_reg(aq_hw, tx_dma_debug_ctl_adr, tx_dma_debug_ctl);
++}
++
++void reg_tx_dma_desc_base_addresslswset(struct aq_hw_s *aq_hw,
++					u32 tx_dma_desc_base_addrlsw,
++					u32 descriptor)
++{
++	aq_hw_write_reg(aq_hw, tx_dma_desc_base_addrlsw_adr(descriptor),
++			tx_dma_desc_base_addrlsw);
++}
++
++void reg_tx_dma_desc_base_addressmswset(struct aq_hw_s *aq_hw,
++					u32 tx_dma_desc_base_addrmsw,
++					u32 descriptor)
++{
++	aq_hw_write_reg(aq_hw, tx_dma_desc_base_addrmsw_adr(descriptor),
++			tx_dma_desc_base_addrmsw);
++}
++
++void reg_tx_dma_desc_tail_ptr_set(struct aq_hw_s *aq_hw,
++				  u32 tx_dma_desc_tail_ptr, u32 descriptor)
++{
++	aq_hw_write_reg(aq_hw, tx_dma_desc_tail_ptr_adr(descriptor),
++			tx_dma_desc_tail_ptr);
++}
++
++void reg_tx_intr_moder_ctrl_set(struct aq_hw_s *aq_hw,
++				u32 tx_intr_moderation_ctl,
++				u32 queue)
++{
++	aq_hw_write_reg(aq_hw, tx_intr_moderation_ctl_adr(queue),
++			tx_intr_moderation_ctl);
++}
++
++/* RPB: rx packet buffer */
++void rpb_dma_sys_lbk_set(struct aq_hw_s *aq_hw, u32 dma_sys_lbk)
++{
++	aq_hw_write_reg_bit(aq_hw, rpb_dma_sys_lbk_adr,
++			    rpb_dma_sys_lbk_msk,
++			    rpb_dma_sys_lbk_shift, dma_sys_lbk);
++}
++
++void rpb_rpf_rx_traf_class_mode_set(struct aq_hw_s *aq_hw,
++				    u32 rx_traf_class_mode)
++{
++	aq_hw_write_reg_bit(aq_hw, rpb_rpf_rx_tc_mode_adr,
++			    rpb_rpf_rx_tc_mode_msk,
++			    rpb_rpf_rx_tc_mode_shift,
++			    rx_traf_class_mode);
++}
++
++void rpb_rx_buff_en_set(struct aq_hw_s *aq_hw, u32 rx_buff_en)
++{
++	aq_hw_write_reg_bit(aq_hw, rpb_rx_buf_en_adr, rpb_rx_buf_en_msk,
++			    rpb_rx_buf_en_shift, rx_buff_en);
++}
++
++void rpb_rx_buff_hi_threshold_per_tc_set(struct aq_hw_s *aq_hw,
++					 u32 rx_buff_hi_threshold_per_tc,
++					 u32 buffer)
++{
++	aq_hw_write_reg_bit(aq_hw, rpb_rxbhi_thresh_adr(buffer),
++			    rpb_rxbhi_thresh_msk, rpb_rxbhi_thresh_shift,
++			    rx_buff_hi_threshold_per_tc);
++}
++
++void rpb_rx_buff_lo_threshold_per_tc_set(struct aq_hw_s *aq_hw,
++					 u32 rx_buff_lo_threshold_per_tc,
++					 u32 buffer)
++{
++	aq_hw_write_reg_bit(aq_hw, rpb_rxblo_thresh_adr(buffer),
++			    rpb_rxblo_thresh_msk,
++			    rpb_rxblo_thresh_shift,
++			    rx_buff_lo_threshold_per_tc);
++}
++
++void rpb_rx_flow_ctl_mode_set(struct aq_hw_s *aq_hw, u32 rx_flow_ctl_mode)
++{
++	aq_hw_write_reg_bit(aq_hw, rpb_rx_fc_mode_adr,
++			    rpb_rx_fc_mode_msk,
++			    rpb_rx_fc_mode_shift, rx_flow_ctl_mode);
++}
++
++void rpb_rx_pkt_buff_size_per_tc_set(struct aq_hw_s *aq_hw,
++				     u32 rx_pkt_buff_size_per_tc, u32 buffer)
++{
++	aq_hw_write_reg_bit(aq_hw, rpb_rxbbuf_size_adr(buffer),
++			    rpb_rxbbuf_size_msk, rpb_rxbbuf_size_shift,
++			    rx_pkt_buff_size_per_tc);
++}
++
++void rpb_rx_xoff_en_per_tc_set(struct aq_hw_s *aq_hw, u32 rx_xoff_en_per_tc,
++			       u32 buffer)
++{
++	aq_hw_write_reg_bit(aq_hw, rpb_rxbxoff_en_adr(buffer),
++			    rpb_rxbxoff_en_msk, rpb_rxbxoff_en_shift,
++			    rx_xoff_en_per_tc);
++}
++
++/* rpf */
++
++void rpfl2broadcast_count_threshold_set(struct aq_hw_s *aq_hw,
++					u32 l2broadcast_count_threshold)
++{
++	aq_hw_write_reg_bit(aq_hw, rpfl2bc_thresh_adr,
++			    rpfl2bc_thresh_msk,
++			    rpfl2bc_thresh_shift,
++			    l2broadcast_count_threshold);
++}
++
++void rpfl2broadcast_en_set(struct aq_hw_s *aq_hw, u32 l2broadcast_en)
++{
++	aq_hw_write_reg_bit(aq_hw, rpfl2bc_en_adr, rpfl2bc_en_msk,
++			    rpfl2bc_en_shift, l2broadcast_en);
++}
++
++void rpfl2broadcast_flr_act_set(struct aq_hw_s *aq_hw, u32 l2broadcast_flr_act)
++{
++	aq_hw_write_reg_bit(aq_hw, rpfl2bc_act_adr, rpfl2bc_act_msk,
++			    rpfl2bc_act_shift, l2broadcast_flr_act);
++}
++
++void rpfl2multicast_flr_en_set(struct aq_hw_s *aq_hw, u32 l2multicast_flr_en,
++			       u32 filter)
++{
++	aq_hw_write_reg_bit(aq_hw, rpfl2mc_enf_adr(filter),
++			    rpfl2mc_enf_msk,
++			    rpfl2mc_enf_shift, l2multicast_flr_en);
++}
++
++void rpfl2promiscuous_mode_en_set(struct aq_hw_s *aq_hw,
++				  u32 l2promiscuous_mode_en)
++{
++	aq_hw_write_reg_bit(aq_hw, rpfl2promis_mode_adr,
++			    rpfl2promis_mode_msk,
++			    rpfl2promis_mode_shift,
++			    l2promiscuous_mode_en);
++}
++
++void rpfl2unicast_flr_act_set(struct aq_hw_s *aq_hw, u32 l2unicast_flr_act,
++			      u32 filter)
++{
++	aq_hw_write_reg_bit(aq_hw, rpfl2uc_actf_adr(filter),
++			    rpfl2uc_actf_msk, rpfl2uc_actf_shift,
++			    l2unicast_flr_act);
++}
++
++void rpfl2_uc_flr_en_set(struct aq_hw_s *aq_hw, u32 l2unicast_flr_en,
++			 u32 filter)
++{
++	aq_hw_write_reg_bit(aq_hw, rpfl2uc_enf_adr(filter),
++			    rpfl2uc_enf_msk,
++			    rpfl2uc_enf_shift, l2unicast_flr_en);
++}
++
++void rpfl2unicast_dest_addresslsw_set(struct aq_hw_s *aq_hw,
++				      u32 l2unicast_dest_addresslsw,
++				      u32 filter)
++{
++	aq_hw_write_reg(aq_hw, rpfl2uc_daflsw_adr(filter),
++			l2unicast_dest_addresslsw);
++}
++
++void rpfl2unicast_dest_addressmsw_set(struct aq_hw_s *aq_hw,
++				      u32 l2unicast_dest_addressmsw,
++				      u32 filter)
++{
++	aq_hw_write_reg_bit(aq_hw, rpfl2uc_dafmsw_adr(filter),
++			    rpfl2uc_dafmsw_msk, rpfl2uc_dafmsw_shift,
++			    l2unicast_dest_addressmsw);
++}
++
++void rpfl2_accept_all_mc_packets_set(struct aq_hw_s *aq_hw,
++				     u32 l2_accept_all_mc_packets)
++{
++	aq_hw_write_reg_bit(aq_hw, rpfl2mc_accept_all_adr,
++			    rpfl2mc_accept_all_msk,
++			    rpfl2mc_accept_all_shift,
++			    l2_accept_all_mc_packets);
++}
++
++void rpf_rpb_user_priority_tc_map_set(struct aq_hw_s *aq_hw,
++				      u32 user_priority_tc_map, u32 tc)
++{
++/* register address for bitfield rx_tc_up{t}[2:0] */
++	static u32 rpf_rpb_rx_tc_upt_adr[8] = {
++			0x000054c4U, 0x000054c4U, 0x000054c4U, 0x000054c4U,
++			0x000054c4U, 0x000054c4U, 0x000054c4U, 0x000054c4U
++		};
++
++/* bitmask for bitfield rx_tc_up{t}[2:0] */
++	static u32 rpf_rpb_rx_tc_upt_msk[8] = {
++			0x00000007U, 0x00000070U, 0x00000700U, 0x00007000U,
++			0x00070000U, 0x00700000U, 0x07000000U, 0x70000000U
++		};
++
++/* lower bit position of bitfield rx_tc_up{t}[2:0] */
++	static u32 rpf_rpb_rx_tc_upt_shft[8] = {
++			0U, 4U, 8U, 12U, 16U, 20U, 24U, 28U
++		};
++
++	aq_hw_write_reg_bit(aq_hw, rpf_rpb_rx_tc_upt_adr[tc],
++			    rpf_rpb_rx_tc_upt_msk[tc],
++			    rpf_rpb_rx_tc_upt_shft[tc],
++			    user_priority_tc_map);
++}
++
++void rpf_rss_key_addr_set(struct aq_hw_s *aq_hw, u32 rss_key_addr)
++{
++	aq_hw_write_reg_bit(aq_hw, rpf_rss_key_addr_adr,
++			    rpf_rss_key_addr_msk,
++			    rpf_rss_key_addr_shift,
++			    rss_key_addr);
++}
++
++void rpf_rss_key_wr_data_set(struct aq_hw_s *aq_hw, u32 rss_key_wr_data)
++{
++	aq_hw_write_reg(aq_hw, rpf_rss_key_wr_data_adr,
++			rss_key_wr_data);
++}
++
++u32 rpf_rss_key_wr_en_get(struct aq_hw_s *aq_hw)
++{
++	return aq_hw_read_reg_bit(aq_hw, rpf_rss_key_wr_eni_adr,
++				  rpf_rss_key_wr_eni_msk,
++				  rpf_rss_key_wr_eni_shift);
++}
++
++void rpf_rss_key_wr_en_set(struct aq_hw_s *aq_hw, u32 rss_key_wr_en)
++{
++	aq_hw_write_reg_bit(aq_hw, rpf_rss_key_wr_eni_adr,
++			    rpf_rss_key_wr_eni_msk,
++			    rpf_rss_key_wr_eni_shift,
++			    rss_key_wr_en);
++}
++
++void rpf_rss_redir_tbl_addr_set(struct aq_hw_s *aq_hw, u32 rss_redir_tbl_addr)
++{
++	aq_hw_write_reg_bit(aq_hw, rpf_rss_redir_addr_adr,
++			    rpf_rss_redir_addr_msk,
++			    rpf_rss_redir_addr_shift, rss_redir_tbl_addr);
++}
++
++void rpf_rss_redir_tbl_wr_data_set(struct aq_hw_s *aq_hw,
++				   u32 rss_redir_tbl_wr_data)
++{
++	aq_hw_write_reg_bit(aq_hw, rpf_rss_redir_wr_data_adr,
++			    rpf_rss_redir_wr_data_msk,
++			    rpf_rss_redir_wr_data_shift,
++			    rss_redir_tbl_wr_data);
++}
++
++u32 rpf_rss_redir_wr_en_get(struct aq_hw_s *aq_hw)
++{
++	return aq_hw_read_reg_bit(aq_hw, rpf_rss_redir_wr_eni_adr,
++				  rpf_rss_redir_wr_eni_msk,
++				  rpf_rss_redir_wr_eni_shift);
++}
++
++void rpf_rss_redir_wr_en_set(struct aq_hw_s *aq_hw, u32 rss_redir_wr_en)
++{
++	aq_hw_write_reg_bit(aq_hw, rpf_rss_redir_wr_eni_adr,
++			    rpf_rss_redir_wr_eni_msk,
++			    rpf_rss_redir_wr_eni_shift, rss_redir_wr_en);
++}
++
++void rpf_tpo_to_rpf_sys_lbk_set(struct aq_hw_s *aq_hw, u32 tpo_to_rpf_sys_lbk)
++{
++	aq_hw_write_reg_bit(aq_hw, rpf_tpo_rpf_sys_lbk_adr,
++			    rpf_tpo_rpf_sys_lbk_msk,
++			    rpf_tpo_rpf_sys_lbk_shift,
++			    tpo_to_rpf_sys_lbk);
++}
++
++void rpf_vlan_inner_etht_set(struct aq_hw_s *aq_hw, u32 vlan_inner_etht)
++{
++	aq_hw_write_reg_bit(aq_hw, rpf_vl_inner_tpid_adr,
++			    rpf_vl_inner_tpid_msk,
++			    rpf_vl_inner_tpid_shift,
++			    vlan_inner_etht);
++}
++
++void rpf_vlan_outer_etht_set(struct aq_hw_s *aq_hw, u32 vlan_outer_etht)
++{
++	aq_hw_write_reg_bit(aq_hw, rpf_vl_outer_tpid_adr,
++			    rpf_vl_outer_tpid_msk,
++			    rpf_vl_outer_tpid_shift,
++			    vlan_outer_etht);
++}
++
++void rpf_vlan_prom_mode_en_set(struct aq_hw_s *aq_hw, u32 vlan_prom_mode_en)
++{
++	aq_hw_write_reg_bit(aq_hw, rpf_vl_promis_mode_adr,
++			    rpf_vl_promis_mode_msk,
++			    rpf_vl_promis_mode_shift,
++			    vlan_prom_mode_en);
++}
++
++void rpf_vlan_accept_untagged_packets_set(struct aq_hw_s *aq_hw,
++					  u32 vlan_accept_untagged_packets)
++{
++	aq_hw_write_reg_bit(aq_hw, rpf_vl_accept_untagged_mode_adr,
++			    rpf_vl_accept_untagged_mode_msk,
++			    rpf_vl_accept_untagged_mode_shift,
++			    vlan_accept_untagged_packets);
++}
++
++void rpf_vlan_untagged_act_set(struct aq_hw_s *aq_hw, u32 vlan_untagged_act)
++{
++	aq_hw_write_reg_bit(aq_hw, rpf_vl_untagged_act_adr,
++			    rpf_vl_untagged_act_msk,
++			    rpf_vl_untagged_act_shift,
++			    vlan_untagged_act);
++}
++
++void rpf_vlan_flr_en_set(struct aq_hw_s *aq_hw, u32 vlan_flr_en, u32 filter)
++{
++	aq_hw_write_reg_bit(aq_hw, rpf_vl_en_f_adr(filter),
++			    rpf_vl_en_f_msk,
++			    rpf_vl_en_f_shift,
++			    vlan_flr_en);
++}
++
++void rpf_vlan_flr_act_set(struct aq_hw_s *aq_hw, u32 vlan_flr_act, u32 filter)
++{
++	aq_hw_write_reg_bit(aq_hw, rpf_vl_act_f_adr(filter),
++			    rpf_vl_act_f_msk,
++			    rpf_vl_act_f_shift,
++			    vlan_flr_act);
++}
++
++void rpf_vlan_id_flr_set(struct aq_hw_s *aq_hw, u32 vlan_id_flr, u32 filter)
++{
++	aq_hw_write_reg_bit(aq_hw, rpf_vl_id_f_adr(filter),
++			    rpf_vl_id_f_msk,
++			    rpf_vl_id_f_shift,
++			    vlan_id_flr);
++}
++
++void rpf_etht_flr_en_set(struct aq_hw_s *aq_hw, u32 etht_flr_en, u32 filter)
++{
++	aq_hw_write_reg_bit(aq_hw, rpf_et_enf_adr(filter),
++			    rpf_et_enf_msk,
++			    rpf_et_enf_shift, etht_flr_en);
++}
++
++void rpf_etht_user_priority_en_set(struct aq_hw_s *aq_hw,
++				   u32 etht_user_priority_en, u32 filter)
++{
++	aq_hw_write_reg_bit(aq_hw, rpf_et_upfen_adr(filter),
++			    rpf_et_upfen_msk, rpf_et_upfen_shift,
++			    etht_user_priority_en);
++}
++
++void rpf_etht_rx_queue_en_set(struct aq_hw_s *aq_hw, u32 etht_rx_queue_en,
++			      u32 filter)
++{
++	aq_hw_write_reg_bit(aq_hw, rpf_et_rxqfen_adr(filter),
++			    rpf_et_rxqfen_msk, rpf_et_rxqfen_shift,
++			    etht_rx_queue_en);
++}
++
++void rpf_etht_user_priority_set(struct aq_hw_s *aq_hw, u32 etht_user_priority,
++				u32 filter)
++{
++	aq_hw_write_reg_bit(aq_hw, rpf_et_upf_adr(filter),
++			    rpf_et_upf_msk,
++			    rpf_et_upf_shift, etht_user_priority);
++}
++
++void rpf_etht_rx_queue_set(struct aq_hw_s *aq_hw, u32 etht_rx_queue,
++			   u32 filter)
++{
++	aq_hw_write_reg_bit(aq_hw, rpf_et_rxqf_adr(filter),
++			    rpf_et_rxqf_msk,
++			    rpf_et_rxqf_shift, etht_rx_queue);
++}
++
++void rpf_etht_mgt_queue_set(struct aq_hw_s *aq_hw, u32 etht_mgt_queue,
++			    u32 filter)
++{
++	aq_hw_write_reg_bit(aq_hw, rpf_et_mng_rxqf_adr(filter),
++			    rpf_et_mng_rxqf_msk, rpf_et_mng_rxqf_shift,
++			    etht_mgt_queue);
++}
++
++void rpf_etht_flr_act_set(struct aq_hw_s *aq_hw, u32 etht_flr_act, u32 filter)
++{
++	aq_hw_write_reg_bit(aq_hw, rpf_et_actf_adr(filter),
++			    rpf_et_actf_msk,
++			    rpf_et_actf_shift, etht_flr_act);
++}
++
++void rpf_etht_flr_set(struct aq_hw_s *aq_hw, u32 etht_flr, u32 filter)
++{
++	aq_hw_write_reg_bit(aq_hw, rpf_et_valf_adr(filter),
++			    rpf_et_valf_msk,
++			    rpf_et_valf_shift, etht_flr);
++}
++
++/* RPO: rx packet offload */
++void rpo_ipv4header_crc_offload_en_set(struct aq_hw_s *aq_hw,
++				       u32 ipv4header_crc_offload_en)
++{
++	aq_hw_write_reg_bit(aq_hw, rpo_ipv4chk_en_adr,
++			    rpo_ipv4chk_en_msk,
++			    rpo_ipv4chk_en_shift,
++			    ipv4header_crc_offload_en);
++}
++
++void rpo_rx_desc_vlan_stripping_set(struct aq_hw_s *aq_hw,
++				    u32 rx_desc_vlan_stripping, u32 descriptor)
++{
++	aq_hw_write_reg_bit(aq_hw, rpo_descdvl_strip_adr(descriptor),
++			    rpo_descdvl_strip_msk,
++			    rpo_descdvl_strip_shift,
++			    rx_desc_vlan_stripping);
++}
++
++void rpo_tcp_udp_crc_offload_en_set(struct aq_hw_s *aq_hw,
++				    u32 tcp_udp_crc_offload_en)
++{
++	aq_hw_write_reg_bit(aq_hw, rpol4chk_en_adr, rpol4chk_en_msk,
++			    rpol4chk_en_shift, tcp_udp_crc_offload_en);
++}
++
++void rpo_lro_en_set(struct aq_hw_s *aq_hw, u32 lro_en)
++{
++	aq_hw_write_reg(aq_hw, rpo_lro_en_adr, lro_en);
++}
++
++void rpo_lro_patch_optimization_en_set(struct aq_hw_s *aq_hw,
++				       u32 lro_patch_optimization_en)
++{
++	aq_hw_write_reg_bit(aq_hw, rpo_lro_ptopt_en_adr,
++			    rpo_lro_ptopt_en_msk,
++			    rpo_lro_ptopt_en_shift,
++			    lro_patch_optimization_en);
++}
++
++void rpo_lro_qsessions_lim_set(struct aq_hw_s *aq_hw,
++			       u32 lro_qsessions_lim)
++{
++	aq_hw_write_reg_bit(aq_hw, rpo_lro_qses_lmt_adr,
++			    rpo_lro_qses_lmt_msk,
++			    rpo_lro_qses_lmt_shift,
++			    lro_qsessions_lim);
++}
++
++void rpo_lro_total_desc_lim_set(struct aq_hw_s *aq_hw, u32 lro_total_desc_lim)
++{
++	aq_hw_write_reg_bit(aq_hw, rpo_lro_tot_dsc_lmt_adr,
++			    rpo_lro_tot_dsc_lmt_msk,
++			    rpo_lro_tot_dsc_lmt_shift,
++			    lro_total_desc_lim);
++}
++
++void rpo_lro_min_pay_of_first_pkt_set(struct aq_hw_s *aq_hw,
++				      u32 lro_min_pld_of_first_pkt)
++{
++	aq_hw_write_reg_bit(aq_hw, rpo_lro_pkt_min_adr,
++			    rpo_lro_pkt_min_msk,
++			    rpo_lro_pkt_min_shift,
++			    lro_min_pld_of_first_pkt);
++}
++
++void rpo_lro_pkt_lim_set(struct aq_hw_s *aq_hw, u32 lro_pkt_lim)
++{
++	aq_hw_write_reg(aq_hw, rpo_lro_rsc_max_adr, lro_pkt_lim);
++}
++
++void rpo_lro_max_num_of_descriptors_set(struct aq_hw_s *aq_hw,
++					u32 lro_max_number_of_descriptors,
++					u32 lro)
++{
++/* Register address for bitfield lro{L}_des_max[1:0] */
++	static u32 rpo_lro_ldes_max_adr[32] = {
++			0x000055A0U, 0x000055A0U, 0x000055A0U, 0x000055A0U,
++			0x000055A0U, 0x000055A0U, 0x000055A0U, 0x000055A0U,
++			0x000055A4U, 0x000055A4U, 0x000055A4U, 0x000055A4U,
++			0x000055A4U, 0x000055A4U, 0x000055A4U, 0x000055A4U,
++			0x000055A8U, 0x000055A8U, 0x000055A8U, 0x000055A8U,
++			0x000055A8U, 0x000055A8U, 0x000055A8U, 0x000055A8U,
++			0x000055ACU, 0x000055ACU, 0x000055ACU, 0x000055ACU,
++			0x000055ACU, 0x000055ACU, 0x000055ACU, 0x000055ACU
++		};
++
++/* Bitmask for bitfield lro{L}_des_max[1:0] */
++	static u32 rpo_lro_ldes_max_msk[32] = {
++			0x00000003U, 0x00000030U, 0x00000300U, 0x00003000U,
++			0x00030000U, 0x00300000U, 0x03000000U, 0x30000000U,
++			0x00000003U, 0x00000030U, 0x00000300U, 0x00003000U,
++			0x00030000U, 0x00300000U, 0x03000000U, 0x30000000U,
++			0x00000003U, 0x00000030U, 0x00000300U, 0x00003000U,
++			0x00030000U, 0x00300000U, 0x03000000U, 0x30000000U,
++			0x00000003U, 0x00000030U, 0x00000300U, 0x00003000U,
++			0x00030000U, 0x00300000U, 0x03000000U, 0x30000000U
++		};
++
++/* Lower bit position of bitfield lro{L}_des_max[1:0] */
++	static u32 rpo_lro_ldes_max_shift[32] = {
++			0U, 4U, 8U, 12U, 16U, 20U, 24U, 28U,
++			0U, 4U, 8U, 12U, 16U, 20U, 24U, 28U,
++			0U, 4U, 8U, 12U, 16U, 20U, 24U, 28U,
++			0U, 4U, 8U, 12U, 16U, 20U, 24U, 28U
++		};
++
++	aq_hw_write_reg_bit(aq_hw, rpo_lro_ldes_max_adr[lro],
++			    rpo_lro_ldes_max_msk[lro],
++			    rpo_lro_ldes_max_shift[lro],
++			    lro_max_number_of_descriptors);
++}
++
++void rpo_lro_time_base_divider_set(struct aq_hw_s *aq_hw,
++				   u32 lro_time_base_divider)
++{
++	aq_hw_write_reg_bit(aq_hw, rpo_lro_tb_div_adr,
++			    rpo_lro_tb_div_msk,
++			    rpo_lro_tb_div_shift,
++			    lro_time_base_divider);
++}
++
++void rpo_lro_inactive_interval_set(struct aq_hw_s *aq_hw,
++				   u32 lro_inactive_interval)
++{
++	aq_hw_write_reg_bit(aq_hw, rpo_lro_ina_ival_adr,
++			    rpo_lro_ina_ival_msk,
++			    rpo_lro_ina_ival_shift,
++			    lro_inactive_interval);
++}
++
++void rpo_lro_max_coalescing_interval_set(struct aq_hw_s *aq_hw,
++					 u32 lro_max_coalescing_interval)
++{
++	aq_hw_write_reg_bit(aq_hw, rpo_lro_max_ival_adr,
++			    rpo_lro_max_ival_msk,
++			    rpo_lro_max_ival_shift,
++			    lro_max_coalescing_interval);
++}
++
++/* rx */
++void rx_rx_reg_res_dis_set(struct aq_hw_s *aq_hw, u32 rx_reg_res_dis)
++{
++	aq_hw_write_reg_bit(aq_hw, rx_reg_res_dsbl_adr,
++			    rx_reg_res_dsbl_msk,
++			    rx_reg_res_dsbl_shift,
++			    rx_reg_res_dis);
++}
++
++/* tdm */
++void tdm_cpu_id_set(struct aq_hw_s *aq_hw, u32 cpuid, u32 dca)
++{
++	aq_hw_write_reg_bit(aq_hw, tdm_dcadcpuid_adr(dca),
++			    tdm_dcadcpuid_msk,
++			    tdm_dcadcpuid_shift, cpuid);
++}
++
++void tdm_large_send_offload_en_set(struct aq_hw_s *aq_hw,
++				   u32 large_send_offload_en)
++{
++	aq_hw_write_reg(aq_hw, tdm_lso_en_adr, large_send_offload_en);
++}
++
++void tdm_tx_dca_en_set(struct aq_hw_s *aq_hw, u32 tx_dca_en)
++{
++	aq_hw_write_reg_bit(aq_hw, tdm_dca_en_adr, tdm_dca_en_msk,
++			    tdm_dca_en_shift, tx_dca_en);
++}
++
++void tdm_tx_dca_mode_set(struct aq_hw_s *aq_hw, u32 tx_dca_mode)
++{
++	aq_hw_write_reg_bit(aq_hw, tdm_dca_mode_adr, tdm_dca_mode_msk,
++			    tdm_dca_mode_shift, tx_dca_mode);
++}
++
++void tdm_tx_desc_dca_en_set(struct aq_hw_s *aq_hw, u32 tx_desc_dca_en, u32 dca)
++{
++	aq_hw_write_reg_bit(aq_hw, tdm_dcaddesc_en_adr(dca),
++			    tdm_dcaddesc_en_msk, tdm_dcaddesc_en_shift,
++			    tx_desc_dca_en);
++}
++
++void tdm_tx_desc_en_set(struct aq_hw_s *aq_hw, u32 tx_desc_en, u32 descriptor)
++{
++	aq_hw_write_reg_bit(aq_hw, tdm_descden_adr(descriptor),
++			    tdm_descden_msk,
++			    tdm_descden_shift,
++			    tx_desc_en);
++}
++
++u32 tdm_tx_desc_head_ptr_get(struct aq_hw_s *aq_hw, u32 descriptor)
++{
++	return aq_hw_read_reg_bit(aq_hw, tdm_descdhd_adr(descriptor),
++				  tdm_descdhd_msk, tdm_descdhd_shift);
++}
++
++void tdm_tx_desc_len_set(struct aq_hw_s *aq_hw, u32 tx_desc_len,
++			 u32 descriptor)
++{
++	aq_hw_write_reg_bit(aq_hw, tdm_descdlen_adr(descriptor),
++			    tdm_descdlen_msk,
++			    tdm_descdlen_shift,
++			    tx_desc_len);
++}
++
++void tdm_tx_desc_wr_wb_irq_en_set(struct aq_hw_s *aq_hw,
++				  u32 tx_desc_wr_wb_irq_en)
++{
++	aq_hw_write_reg_bit(aq_hw, tdm_int_desc_wrb_en_adr,
++			    tdm_int_desc_wrb_en_msk,
++			    tdm_int_desc_wrb_en_shift,
++			    tx_desc_wr_wb_irq_en);
++}
++
++void tdm_tx_desc_wr_wb_threshold_set(struct aq_hw_s *aq_hw,
++				     u32 tx_desc_wr_wb_threshold,
++				     u32 descriptor)
++{
++	aq_hw_write_reg_bit(aq_hw, tdm_descdwrb_thresh_adr(descriptor),
++			    tdm_descdwrb_thresh_msk,
++			    tdm_descdwrb_thresh_shift,
++			    tx_desc_wr_wb_threshold);
++}
++
++void tdm_tdm_intr_moder_en_set(struct aq_hw_s *aq_hw,
++			       u32 tdm_irq_moderation_en)
++{
++	aq_hw_write_reg_bit(aq_hw, tdm_int_mod_en_adr,
++			    tdm_int_mod_en_msk,
++			    tdm_int_mod_en_shift,
++			    tdm_irq_moderation_en);
++}
++
++/* thm */
++void thm_lso_tcp_flag_of_first_pkt_set(struct aq_hw_s *aq_hw,
++				       u32 lso_tcp_flag_of_first_pkt)
++{
++	aq_hw_write_reg_bit(aq_hw, thm_lso_tcp_flag_first_adr,
++			    thm_lso_tcp_flag_first_msk,
++			    thm_lso_tcp_flag_first_shift,
++			    lso_tcp_flag_of_first_pkt);
++}
++
++void thm_lso_tcp_flag_of_last_pkt_set(struct aq_hw_s *aq_hw,
++				      u32 lso_tcp_flag_of_last_pkt)
++{
++	aq_hw_write_reg_bit(aq_hw, thm_lso_tcp_flag_last_adr,
++			    thm_lso_tcp_flag_last_msk,
++			    thm_lso_tcp_flag_last_shift,
++			    lso_tcp_flag_of_last_pkt);
++}
++
++void thm_lso_tcp_flag_of_middle_pkt_set(struct aq_hw_s *aq_hw,
++					u32 lso_tcp_flag_of_middle_pkt)
++{
++	aq_hw_write_reg_bit(aq_hw, thm_lso_tcp_flag_mid_adr,
++			    thm_lso_tcp_flag_mid_msk,
++			    thm_lso_tcp_flag_mid_shift,
++			    lso_tcp_flag_of_middle_pkt);
++}
++
++/* TPB: tx packet buffer */
++void tpb_tx_buff_en_set(struct aq_hw_s *aq_hw, u32 tx_buff_en)
++{
++	aq_hw_write_reg_bit(aq_hw, tpb_tx_buf_en_adr, tpb_tx_buf_en_msk,
++			    tpb_tx_buf_en_shift, tx_buff_en);
++}
++
++void tpb_tx_buff_hi_threshold_per_tc_set(struct aq_hw_s *aq_hw,
++					 u32 tx_buff_hi_threshold_per_tc,
++					 u32 buffer)
++{
++	aq_hw_write_reg_bit(aq_hw, tpb_txbhi_thresh_adr(buffer),
++			    tpb_txbhi_thresh_msk, tpb_txbhi_thresh_shift,
++			    tx_buff_hi_threshold_per_tc);
++}
++
++void tpb_tx_buff_lo_threshold_per_tc_set(struct aq_hw_s *aq_hw,
++					 u32 tx_buff_lo_threshold_per_tc,
++					 u32 buffer)
++{
++	aq_hw_write_reg_bit(aq_hw, tpb_txblo_thresh_adr(buffer),
++			    tpb_txblo_thresh_msk, tpb_txblo_thresh_shift,
++			    tx_buff_lo_threshold_per_tc);
++}
++
++void tpb_tx_dma_sys_lbk_en_set(struct aq_hw_s *aq_hw, u32 tx_dma_sys_lbk_en)
++{
++	aq_hw_write_reg_bit(aq_hw, tpb_dma_sys_lbk_adr,
++			    tpb_dma_sys_lbk_msk,
++			    tpb_dma_sys_lbk_shift,
++			    tx_dma_sys_lbk_en);
++}
++
++void tpb_tx_pkt_buff_size_per_tc_set(struct aq_hw_s *aq_hw,
++				     u32 tx_pkt_buff_size_per_tc, u32 buffer)
++{
++	aq_hw_write_reg_bit(aq_hw, tpb_txbbuf_size_adr(buffer),
++			    tpb_txbbuf_size_msk,
++			    tpb_txbbuf_size_shift,
++			    tx_pkt_buff_size_per_tc);
++}
++
++void tpb_tx_path_scp_ins_en_set(struct aq_hw_s *aq_hw, u32 tx_path_scp_ins_en)
++{
++	aq_hw_write_reg_bit(aq_hw, tpb_tx_scp_ins_en_adr,
++			    tpb_tx_scp_ins_en_msk,
++			    tpb_tx_scp_ins_en_shift,
++			    tx_path_scp_ins_en);
++}
++
++/* TPO: tx packet offload */
++void tpo_ipv4header_crc_offload_en_set(struct aq_hw_s *aq_hw,
++				       u32 ipv4header_crc_offload_en)
++{
++	aq_hw_write_reg_bit(aq_hw, tpo_ipv4chk_en_adr,
++			    tpo_ipv4chk_en_msk,
++			    tpo_ipv4chk_en_shift,
++			    ipv4header_crc_offload_en);
++}
++
++void tpo_tcp_udp_crc_offload_en_set(struct aq_hw_s *aq_hw,
++				    u32 tcp_udp_crc_offload_en)
++{
++	aq_hw_write_reg_bit(aq_hw, tpol4chk_en_adr,
++			    tpol4chk_en_msk,
++			    tpol4chk_en_shift,
++			    tcp_udp_crc_offload_en);
++}
++
++void tpo_tx_pkt_sys_lbk_en_set(struct aq_hw_s *aq_hw, u32 tx_pkt_sys_lbk_en)
++{
++	aq_hw_write_reg_bit(aq_hw, tpo_pkt_sys_lbk_adr,
++			    tpo_pkt_sys_lbk_msk,
++			    tpo_pkt_sys_lbk_shift,
++			    tx_pkt_sys_lbk_en);
++}
++
++/* TPS: tx packet scheduler */
++void tps_tx_pkt_shed_data_arb_mode_set(struct aq_hw_s *aq_hw,
++				       u32 tx_pkt_shed_data_arb_mode)
++{
++	aq_hw_write_reg_bit(aq_hw, tps_data_tc_arb_mode_adr,
++			    tps_data_tc_arb_mode_msk,
++			    tps_data_tc_arb_mode_shift,
++			    tx_pkt_shed_data_arb_mode);
++}
++
++void tps_tx_pkt_shed_desc_rate_curr_time_res_set(struct aq_hw_s *aq_hw,
++						 u32 curr_time_res)
++{
++	aq_hw_write_reg_bit(aq_hw, tps_desc_rate_ta_rst_adr,
++			    tps_desc_rate_ta_rst_msk,
++			    tps_desc_rate_ta_rst_shift,
++			    curr_time_res);
++}
++
++void tps_tx_pkt_shed_desc_rate_lim_set(struct aq_hw_s *aq_hw,
++				       u32 tx_pkt_shed_desc_rate_lim)
++{
++	aq_hw_write_reg_bit(aq_hw, tps_desc_rate_lim_adr,
++			    tps_desc_rate_lim_msk,
++			    tps_desc_rate_lim_shift,
++			    tx_pkt_shed_desc_rate_lim);
++}
++
++void tps_tx_pkt_shed_desc_tc_arb_mode_set(struct aq_hw_s *aq_hw,
++					  u32 tx_pkt_shed_desc_tc_arb_mode)
++{
++	aq_hw_write_reg_bit(aq_hw, tps_desc_tc_arb_mode_adr,
++			    tps_desc_tc_arb_mode_msk,
++			    tps_desc_tc_arb_mode_shift,
++			    tx_pkt_shed_desc_tc_arb_mode);
++}
++
++void tps_tx_pkt_shed_desc_tc_max_credit_set(struct aq_hw_s *aq_hw,
++					    u32 tx_pkt_shed_desc_tc_max_credit,
++					    u32 tc)
++{
++	aq_hw_write_reg_bit(aq_hw, tps_desc_tctcredit_max_adr(tc),
++			    tps_desc_tctcredit_max_msk,
++			    tps_desc_tctcredit_max_shift,
++			    tx_pkt_shed_desc_tc_max_credit);
++}
++
++void tps_tx_pkt_shed_desc_tc_weight_set(struct aq_hw_s *aq_hw,
++					u32 tx_pkt_shed_desc_tc_weight, u32 tc)
++{
++	aq_hw_write_reg_bit(aq_hw, tps_desc_tctweight_adr(tc),
++			    tps_desc_tctweight_msk,
++			    tps_desc_tctweight_shift,
++			    tx_pkt_shed_desc_tc_weight);
++}
++
++void tps_tx_pkt_shed_desc_vm_arb_mode_set(struct aq_hw_s *aq_hw,
++					  u32 tx_pkt_shed_desc_vm_arb_mode)
++{
++	aq_hw_write_reg_bit(aq_hw, tps_desc_vm_arb_mode_adr,
++			    tps_desc_vm_arb_mode_msk,
++			    tps_desc_vm_arb_mode_shift,
++			    tx_pkt_shed_desc_vm_arb_mode);
++}
++
++void tps_tx_pkt_shed_tc_data_max_credit_set(struct aq_hw_s *aq_hw,
++					    u32 tx_pkt_shed_tc_data_max_credit,
++					    u32 tc)
++{
++	aq_hw_write_reg_bit(aq_hw, tps_data_tctcredit_max_adr(tc),
++			    tps_data_tctcredit_max_msk,
++			    tps_data_tctcredit_max_shift,
++			    tx_pkt_shed_tc_data_max_credit);
++}
++
++void tps_tx_pkt_shed_tc_data_weight_set(struct aq_hw_s *aq_hw,
++					u32 tx_pkt_shed_tc_data_weight, u32 tc)
++{
++	aq_hw_write_reg_bit(aq_hw, tps_data_tctweight_adr(tc),
++			    tps_data_tctweight_msk,
++			    tps_data_tctweight_shift,
++			    tx_pkt_shed_tc_data_weight);
++}
++
++/* tx */
++void tx_tx_reg_res_dis_set(struct aq_hw_s *aq_hw, u32 tx_reg_res_dis)
++{
++	aq_hw_write_reg_bit(aq_hw, tx_reg_res_dsbl_adr,
++			    tx_reg_res_dsbl_msk,
++			    tx_reg_res_dsbl_shift, tx_reg_res_dis);
++}
++
++/* msm */
++u32 msm_reg_access_status_get(struct aq_hw_s *aq_hw)
++{
++	return aq_hw_read_reg_bit(aq_hw, msm_reg_access_busy_adr,
++				  msm_reg_access_busy_msk,
++				  msm_reg_access_busy_shift);
++}
++
++void msm_reg_addr_for_indirect_addr_set(struct aq_hw_s *aq_hw,
++					u32 reg_addr_for_indirect_addr)
++{
++	aq_hw_write_reg_bit(aq_hw, msm_reg_addr_adr,
++			    msm_reg_addr_msk,
++			    msm_reg_addr_shift,
++			    reg_addr_for_indirect_addr);
++}
++
++void msm_reg_rd_strobe_set(struct aq_hw_s *aq_hw, u32 reg_rd_strobe)
++{
++	aq_hw_write_reg_bit(aq_hw, msm_reg_rd_strobe_adr,
++			    msm_reg_rd_strobe_msk,
++			    msm_reg_rd_strobe_shift,
++			    reg_rd_strobe);
++}
++
++u32 msm_reg_rd_data_get(struct aq_hw_s *aq_hw)
++{
++	return aq_hw_read_reg(aq_hw, msm_reg_rd_data_adr);
++}
++
++void msm_reg_wr_data_set(struct aq_hw_s *aq_hw, u32 reg_wr_data)
++{
++	aq_hw_write_reg(aq_hw, msm_reg_wr_data_adr, reg_wr_data);
++}
++
++void msm_reg_wr_strobe_set(struct aq_hw_s *aq_hw, u32 reg_wr_strobe)
++{
++	aq_hw_write_reg_bit(aq_hw, msm_reg_wr_strobe_adr,
++			    msm_reg_wr_strobe_msk,
++			    msm_reg_wr_strobe_shift,
++			    reg_wr_strobe);
++}
++
++/* pci */
++void pci_pci_reg_res_dis_set(struct aq_hw_s *aq_hw, u32 pci_reg_res_dis)
++{
++	aq_hw_write_reg_bit(aq_hw, pci_reg_res_dsbl_adr,
++			    pci_reg_res_dsbl_msk,
++			    pci_reg_res_dsbl_shift,
++			    pci_reg_res_dis);
++}
++
++void reg_glb_cpu_scratch_scp_set(struct aq_hw_s *aq_hw, u32 glb_cpu_scratch_scp,
++				 u32 scratch_scp)
++{
++	aq_hw_write_reg(aq_hw, glb_cpu_scratch_scp_adr(scratch_scp),
++			glb_cpu_scratch_scp);
++}
++
+diff --git a/drivers/net/ethernet/aquantia/hw_atl/hw_atl_llh.h b/drivers/net/ethernet/aquantia/hw_atl/hw_atl_llh.h
 new file mode 100644
-index 0000000..337a41e
+index 0000000..7cf2e8e
 --- /dev/null
-+++ b/drivers/net/ethernet/aquantia/hw_atl/hw_atl_b0.h
-@@ -0,0 +1,35 @@
++++ b/drivers/net/ethernet/aquantia/hw_atl/hw_atl_llh.h
+@@ -0,0 +1,678 @@
 +/*
 + * aQuantia Corporation Network Driver
 + * Copyright (C) 2014-2017 aQuantia Corporation. All rights reserved
@@ -2141,38 +1455,681 @@ index 0000000..337a41e
 + * version 2, as published by the Free Software Foundation.
 + */
 +
-+/* File hw_atl_b0.h: Declaration of abstract interface for Atlantic hardware
-+ * specific functions.
++/* File hw_atl_llh.h: Declarations of bitfield and register access functions for
++ * Atlantic registers.
 + */
 +
-+#ifndef HW_ATL_B0_H
-+#define HW_ATL_B0_H
++#ifndef HW_ATL_LLH_H
++#define HW_ATL_LLH_H
 +
-+#include "../aq_common.h"
++#include <linux/types.h>
 +
-+#ifndef PCI_VENDOR_ID_AQUANTIA
++struct aq_hw_s;
 +
-+#define PCI_VENDOR_ID_AQUANTIA  0x1D6A
-+#define HW_ATL_DEVICE_ID_0001   0x0001
-+#define HW_ATL_DEVICE_ID_D100   0xD100
-+#define HW_ATL_DEVICE_ID_D107   0xD107
-+#define HW_ATL_DEVICE_ID_D108   0xD108
-+#define HW_ATL_DEVICE_ID_D109   0xD109
++/* global */
 +
-+#define HW_ATL_NIC_NAME "aQuantia AQtion 5Gbit Network Adapter"
++/* set global microprocessor semaphore */
++void reg_glb_cpu_sem_set(struct aq_hw_s *aq_hw,	u32 glb_cpu_sem,
++			 u32 semaphore);
 +
-+#endif
++/* get global microprocessor semaphore */
++u32 reg_glb_cpu_sem_get(struct aq_hw_s *aq_hw, u32 semaphore);
 +
-+struct aq_hw_ops *hw_atl_b0_get_ops_by_id(struct pci_dev *pdev);
++/* set global register reset disable */
++void glb_glb_reg_res_dis_set(struct aq_hw_s *aq_hw, u32 glb_reg_res_dis);
 +
-+#endif /* HW_ATL_B0_H */
++/* set soft reset */
++void glb_soft_res_set(struct aq_hw_s *aq_hw, u32 soft_res);
 +
-diff --git a/drivers/net/ethernet/aquantia/hw_atl/hw_atl_b0_internal.h b/drivers/net/ethernet/aquantia/hw_atl/hw_atl_b0_internal.h
++/* get soft reset */
++u32 glb_soft_res_get(struct aq_hw_s *aq_hw);
++
++/* stats */
++
++u32 rpb_rx_dma_drop_pkt_cnt_get(struct aq_hw_s *aq_hw);
++
++/* get rx dma good octet counter lsw */
++u32 stats_rx_dma_good_octet_counterlsw_get(struct aq_hw_s *aq_hw);
++
++/* get rx dma good packet counter lsw */
++u32 stats_rx_dma_good_pkt_counterlsw_get(struct aq_hw_s *aq_hw);
++
++/* get tx dma good octet counter lsw */
++u32 stats_tx_dma_good_octet_counterlsw_get(struct aq_hw_s *aq_hw);
++
++/* get tx dma good packet counter lsw */
++u32 stats_tx_dma_good_pkt_counterlsw_get(struct aq_hw_s *aq_hw);
++
++/* get rx dma good octet counter msw */
++u32 stats_rx_dma_good_octet_countermsw_get(struct aq_hw_s *aq_hw);
++
++/* get rx dma good packet counter msw */
++u32 stats_rx_dma_good_pkt_countermsw_get(struct aq_hw_s *aq_hw);
++
++/* get tx dma good octet counter msw */
++u32 stats_tx_dma_good_octet_countermsw_get(struct aq_hw_s *aq_hw);
++
++/* get tx dma good packet counter msw */
++u32 stats_tx_dma_good_pkt_countermsw_get(struct aq_hw_s *aq_hw);
++
++/* get msm rx errors counter register */
++u32 reg_mac_msm_rx_errs_cnt_get(struct aq_hw_s *aq_hw);
++
++/* get msm rx unicast frames counter register */
++u32 reg_mac_msm_rx_ucst_frm_cnt_get(struct aq_hw_s *aq_hw);
++
++/* get msm rx multicast frames counter register */
++u32 reg_mac_msm_rx_mcst_frm_cnt_get(struct aq_hw_s *aq_hw);
++
++/* get msm rx broadcast frames counter register */
++u32 reg_mac_msm_rx_bcst_frm_cnt_get(struct aq_hw_s *aq_hw);
++
++/* get msm rx broadcast octets counter register 1 */
++u32 reg_mac_msm_rx_bcst_octets_counter1get(struct aq_hw_s *aq_hw);
++
++/* get msm rx unicast octets counter register 0 */
++u32 reg_mac_msm_rx_ucst_octets_counter0get(struct aq_hw_s *aq_hw);
++
++/* get rx dma statistics counter 7 */
++u32 reg_rx_dma_stat_counter7get(struct aq_hw_s *aq_hw);
++
++/* get msm tx errors counter register */
++u32 reg_mac_msm_tx_errs_cnt_get(struct aq_hw_s *aq_hw);
++
++/* get msm tx unicast frames counter register */
++u32 reg_mac_msm_tx_ucst_frm_cnt_get(struct aq_hw_s *aq_hw);
++
++/* get msm tx multicast frames counter register */
++u32 reg_mac_msm_tx_mcst_frm_cnt_get(struct aq_hw_s *aq_hw);
++
++/* get msm tx broadcast frames counter register */
++u32 reg_mac_msm_tx_bcst_frm_cnt_get(struct aq_hw_s *aq_hw);
++
++/* get msm tx multicast octets counter register 1 */
++u32 reg_mac_msm_tx_mcst_octets_counter1get(struct aq_hw_s *aq_hw);
++
++/* get msm tx broadcast octets counter register 1 */
++u32 reg_mac_msm_tx_bcst_octets_counter1get(struct aq_hw_s *aq_hw);
++
++/* get msm tx unicast octets counter register 0 */
++u32 reg_mac_msm_tx_ucst_octets_counter0get(struct aq_hw_s *aq_hw);
++
++/* get global mif identification */
++u32 reg_glb_mif_id_get(struct aq_hw_s *aq_hw);
++
++/* interrupt */
++
++/* set interrupt auto mask lsw */
++void itr_irq_auto_masklsw_set(struct aq_hw_s *aq_hw, u32 irq_auto_masklsw);
++
++/* set interrupt mapping enable rx */
++void itr_irq_map_en_rx_set(struct aq_hw_s *aq_hw, u32 irq_map_en_rx, u32 rx);
++
++/* set interrupt mapping enable tx */
++void itr_irq_map_en_tx_set(struct aq_hw_s *aq_hw, u32 irq_map_en_tx, u32 tx);
++
++/* set interrupt mapping rx */
++void itr_irq_map_rx_set(struct aq_hw_s *aq_hw, u32 irq_map_rx, u32 rx);
++
++/* set interrupt mapping tx */
++void itr_irq_map_tx_set(struct aq_hw_s *aq_hw, u32 irq_map_tx, u32 tx);
++
++/* set interrupt mask clear lsw */
++void itr_irq_msk_clearlsw_set(struct aq_hw_s *aq_hw, u32 irq_msk_clearlsw);
++
++/* set interrupt mask set lsw */
++void itr_irq_msk_setlsw_set(struct aq_hw_s *aq_hw, u32 irq_msk_setlsw);
++
++/* set interrupt register reset disable */
++void itr_irq_reg_res_dis_set(struct aq_hw_s *aq_hw, u32 irq_reg_res_dis);
++
++/* set interrupt status clear lsw */
++void itr_irq_status_clearlsw_set(struct aq_hw_s *aq_hw,
++				 u32 irq_status_clearlsw);
++
++/* get interrupt status lsw */
++u32 itr_irq_statuslsw_get(struct aq_hw_s *aq_hw);
++
++/* get reset interrupt */
++u32 itr_res_irq_get(struct aq_hw_s *aq_hw);
++
++/* set reset interrupt */
++void itr_res_irq_set(struct aq_hw_s *aq_hw, u32 res_irq);
++
++/* rdm */
++
++/* set cpu id */
++void rdm_cpu_id_set(struct aq_hw_s *aq_hw, u32 cpuid, u32 dca);
++
++/* set rx dca enable */
++void rdm_rx_dca_en_set(struct aq_hw_s *aq_hw, u32 rx_dca_en);
++
++/* set rx dca mode */
++void rdm_rx_dca_mode_set(struct aq_hw_s *aq_hw, u32 rx_dca_mode);
++
++/* set rx descriptor data buffer size */
++void rdm_rx_desc_data_buff_size_set(struct aq_hw_s *aq_hw,
++				    u32 rx_desc_data_buff_size,
++				    u32 descriptor);
++
++/* set rx descriptor dca enable */
++void rdm_rx_desc_dca_en_set(struct aq_hw_s *aq_hw, u32 rx_desc_dca_en,
++			    u32 dca);
++
++/* set rx descriptor enable */
++void rdm_rx_desc_en_set(struct aq_hw_s *aq_hw, u32 rx_desc_en,
++			u32 descriptor);
++
++/* set rx descriptor header splitting */
++void rdm_rx_desc_head_splitting_set(struct aq_hw_s *aq_hw,
++				    u32 rx_desc_head_splitting,
++				    u32 descriptor);
++
++/* get rx descriptor head pointer */
++u32 rdm_rx_desc_head_ptr_get(struct aq_hw_s *aq_hw, u32 descriptor);
++
++/* set rx descriptor length */
++void rdm_rx_desc_len_set(struct aq_hw_s *aq_hw, u32 rx_desc_len,
++			 u32 descriptor);
++
++/* set rx descriptor write-back interrupt enable */
++void rdm_rx_desc_wr_wb_irq_en_set(struct aq_hw_s *aq_hw,
++				  u32 rx_desc_wr_wb_irq_en);
++
++/* set rx header dca enable */
++void rdm_rx_head_dca_en_set(struct aq_hw_s *aq_hw, u32 rx_head_dca_en,
++			    u32 dca);
++
++/* set rx payload dca enable */
++void rdm_rx_pld_dca_en_set(struct aq_hw_s *aq_hw, u32 rx_pld_dca_en, u32 dca);
++
++/* set rx descriptor header buffer size */
++void rdm_rx_desc_head_buff_size_set(struct aq_hw_s *aq_hw,
++				    u32 rx_desc_head_buff_size,
++				    u32 descriptor);
++
++/* set rx descriptor reset */
++void rdm_rx_desc_res_set(struct aq_hw_s *aq_hw, u32 rx_desc_res,
++			 u32 descriptor);
++
++/* Set RDM Interrupt Moderation Enable */
++void rdm_rdm_intr_moder_en_set(struct aq_hw_s *aq_hw, u32 rdm_intr_moder_en);
++
++/* reg */
++
++/* set general interrupt mapping register */
++void reg_gen_irq_map_set(struct aq_hw_s *aq_hw, u32 gen_intr_map, u32 regidx);
++
++/* get general interrupt status register */
++u32 reg_gen_irq_status_get(struct aq_hw_s *aq_hw);
++
++/* set interrupt global control register */
++void reg_irq_glb_ctl_set(struct aq_hw_s *aq_hw, u32 intr_glb_ctl);
++
++/* set interrupt throttle register */
++void reg_irq_thr_set(struct aq_hw_s *aq_hw, u32 intr_thr, u32 throttle);
++
++/* set rx dma descriptor base address lsw */
++void reg_rx_dma_desc_base_addresslswset(struct aq_hw_s *aq_hw,
++					u32 rx_dma_desc_base_addrlsw,
++					u32 descriptor);
++
++/* set rx dma descriptor base address msw */
++void reg_rx_dma_desc_base_addressmswset(struct aq_hw_s *aq_hw,
++					u32 rx_dma_desc_base_addrmsw,
++					u32 descriptor);
++
++/* get rx dma descriptor status register */
++u32 reg_rx_dma_desc_status_get(struct aq_hw_s *aq_hw, u32 descriptor);
++
++/* set rx dma descriptor tail pointer register */
++void reg_rx_dma_desc_tail_ptr_set(struct aq_hw_s *aq_hw,
++				  u32 rx_dma_desc_tail_ptr,
++				  u32 descriptor);
++
++/* set rx filter multicast filter mask register */
++void reg_rx_flr_mcst_flr_msk_set(struct aq_hw_s *aq_hw,
++				 u32 rx_flr_mcst_flr_msk);
++
++/* set rx filter multicast filter register */
++void reg_rx_flr_mcst_flr_set(struct aq_hw_s *aq_hw, u32 rx_flr_mcst_flr,
++			     u32 filter);
++
++/* set rx filter rss control register 1 */
++void reg_rx_flr_rss_control1set(struct aq_hw_s *aq_hw,
++				u32 rx_flr_rss_control1);
++
++/* Set RX Filter Control Register 2 */
++void reg_rx_flr_control2_set(struct aq_hw_s *aq_hw, u32 rx_flr_control2);
++
++/* Set RX Interrupt Moderation Control Register */
++void reg_rx_intr_moder_ctrl_set(struct aq_hw_s *aq_hw,
++				u32 rx_intr_moderation_ctl,
++				u32 queue);
++
++/* set tx dma debug control */
++void reg_tx_dma_debug_ctl_set(struct aq_hw_s *aq_hw, u32 tx_dma_debug_ctl);
++
++/* set tx dma descriptor base address lsw */
++void reg_tx_dma_desc_base_addresslswset(struct aq_hw_s *aq_hw,
++					u32 tx_dma_desc_base_addrlsw,
++					u32 descriptor);
++
++/* set tx dma descriptor base address msw */
++void reg_tx_dma_desc_base_addressmswset(struct aq_hw_s *aq_hw,
++					u32 tx_dma_desc_base_addrmsw,
++					u32 descriptor);
++
++/* set tx dma descriptor tail pointer register */
++void reg_tx_dma_desc_tail_ptr_set(struct aq_hw_s *aq_hw,
++				  u32 tx_dma_desc_tail_ptr,
++				  u32 descriptor);
++
++/* Set TX Interrupt Moderation Control Register */
++void reg_tx_intr_moder_ctrl_set(struct aq_hw_s *aq_hw,
++				u32 tx_intr_moderation_ctl,
++				u32 queue);
++
++/* set global microprocessor scratch pad */
++void reg_glb_cpu_scratch_scp_set(struct aq_hw_s *aq_hw,
++				 u32 glb_cpu_scratch_scp, u32 scratch_scp);
++
++/* rpb */
++
++/* set dma system loopback */
++void rpb_dma_sys_lbk_set(struct aq_hw_s *aq_hw, u32 dma_sys_lbk);
++
++/* set rx traffic class mode */
++void rpb_rpf_rx_traf_class_mode_set(struct aq_hw_s *aq_hw,
++				    u32 rx_traf_class_mode);
++
++/* set rx buffer enable */
++void rpb_rx_buff_en_set(struct aq_hw_s *aq_hw, u32 rx_buff_en);
++
++/* set rx buffer high threshold (per tc) */
++void rpb_rx_buff_hi_threshold_per_tc_set(struct aq_hw_s *aq_hw,
++					 u32 rx_buff_hi_threshold_per_tc,
++					 u32 buffer);
++
++/* set rx buffer low threshold (per tc) */
++void rpb_rx_buff_lo_threshold_per_tc_set(struct aq_hw_s *aq_hw,
++					 u32 rx_buff_lo_threshold_per_tc,
++					 u32 buffer);
++
++/* set rx flow control mode */
++void rpb_rx_flow_ctl_mode_set(struct aq_hw_s *aq_hw, u32 rx_flow_ctl_mode);
++
++/* set rx packet buffer size (per tc) */
++void rpb_rx_pkt_buff_size_per_tc_set(struct aq_hw_s *aq_hw,
++				     u32 rx_pkt_buff_size_per_tc,
++				     u32 buffer);
++
++/* set rx xoff enable (per tc) */
++void rpb_rx_xoff_en_per_tc_set(struct aq_hw_s *aq_hw, u32 rx_xoff_en_per_tc,
++			       u32 buffer);
++
++/* rpf */
++
++/* set l2 broadcast count threshold */
++void rpfl2broadcast_count_threshold_set(struct aq_hw_s *aq_hw,
++					u32 l2broadcast_count_threshold);
++
++/* set l2 broadcast enable */
++void rpfl2broadcast_en_set(struct aq_hw_s *aq_hw, u32 l2broadcast_en);
++
++/* set l2 broadcast filter action */
++void rpfl2broadcast_flr_act_set(struct aq_hw_s *aq_hw,
++				u32 l2broadcast_flr_act);
++
++/* set l2 multicast filter enable */
++void rpfl2multicast_flr_en_set(struct aq_hw_s *aq_hw, u32 l2multicast_flr_en,
++			       u32 filter);
++
++/* set l2 promiscuous mode enable */
++void rpfl2promiscuous_mode_en_set(struct aq_hw_s *aq_hw,
++				  u32 l2promiscuous_mode_en);
++
++/* set l2 unicast filter action */
++void rpfl2unicast_flr_act_set(struct aq_hw_s *aq_hw, u32 l2unicast_flr_act,
++			      u32 filter);
++
++/* set l2 unicast filter enable */
++void rpfl2_uc_flr_en_set(struct aq_hw_s *aq_hw, u32 l2unicast_flr_en,
++			 u32 filter);
++
++/* set l2 unicast destination address lsw */
++void rpfl2unicast_dest_addresslsw_set(struct aq_hw_s *aq_hw,
++				      u32 l2unicast_dest_addresslsw,
++				      u32 filter);
++
++/* set l2 unicast destination address msw */
++void rpfl2unicast_dest_addressmsw_set(struct aq_hw_s *aq_hw,
++				      u32 l2unicast_dest_addressmsw,
++				      u32 filter);
++
++/* Set L2 Accept all Multicast packets */
++void rpfl2_accept_all_mc_packets_set(struct aq_hw_s *aq_hw,
++				     u32 l2_accept_all_mc_packets);
++
++/* set user-priority tc mapping */
++void rpf_rpb_user_priority_tc_map_set(struct aq_hw_s *aq_hw,
++				      u32 user_priority_tc_map, u32 tc);
++
++/* set rss key address */
++void rpf_rss_key_addr_set(struct aq_hw_s *aq_hw, u32 rss_key_addr);
++
++/* set rss key write data */
++void rpf_rss_key_wr_data_set(struct aq_hw_s *aq_hw, u32 rss_key_wr_data);
++
++/* get rss key write enable */
++u32 rpf_rss_key_wr_en_get(struct aq_hw_s *aq_hw);
++
++/* set rss key write enable */
++void rpf_rss_key_wr_en_set(struct aq_hw_s *aq_hw, u32 rss_key_wr_en);
++
++/* set rss redirection table address */
++void rpf_rss_redir_tbl_addr_set(struct aq_hw_s *aq_hw,
++				u32 rss_redir_tbl_addr);
++
++/* set rss redirection table write data */
++void rpf_rss_redir_tbl_wr_data_set(struct aq_hw_s *aq_hw,
++				   u32 rss_redir_tbl_wr_data);
++
++/* get rss redirection write enable */
++u32 rpf_rss_redir_wr_en_get(struct aq_hw_s *aq_hw);
++
++/* set rss redirection write enable */
++void rpf_rss_redir_wr_en_set(struct aq_hw_s *aq_hw, u32 rss_redir_wr_en);
++
++/* set tpo to rpf system loopback */
++void rpf_tpo_to_rpf_sys_lbk_set(struct aq_hw_s *aq_hw,
++				u32 tpo_to_rpf_sys_lbk);
++
++/* set vlan inner ethertype */
++void rpf_vlan_inner_etht_set(struct aq_hw_s *aq_hw, u32 vlan_inner_etht);
++
++/* set vlan outer ethertype */
++void rpf_vlan_outer_etht_set(struct aq_hw_s *aq_hw, u32 vlan_outer_etht);
++
++/* set vlan promiscuous mode enable */
++void rpf_vlan_prom_mode_en_set(struct aq_hw_s *aq_hw, u32 vlan_prom_mode_en);
++
++/* Set VLAN untagged action */
++void rpf_vlan_untagged_act_set(struct aq_hw_s *aq_hw, u32 vlan_untagged_act);
++
++/* Set VLAN accept untagged packets */
++void rpf_vlan_accept_untagged_packets_set(struct aq_hw_s *aq_hw,
++					  u32 vlan_accept_untagged_packets);
++
++/* Set VLAN filter enable */
++void rpf_vlan_flr_en_set(struct aq_hw_s *aq_hw, u32 vlan_flr_en, u32 filter);
++
++/* Set VLAN Filter Action */
++void rpf_vlan_flr_act_set(struct aq_hw_s *aq_hw, u32 vlan_filter_act,
++			  u32 filter);
++
++/* Set VLAN ID Filter */
++void rpf_vlan_id_flr_set(struct aq_hw_s *aq_hw, u32 vlan_id_flr, u32 filter);
++
++/* set ethertype filter enable */
++void rpf_etht_flr_en_set(struct aq_hw_s *aq_hw, u32 etht_flr_en, u32 filter);
++
++/* set  ethertype user-priority enable */
++void rpf_etht_user_priority_en_set(struct aq_hw_s *aq_hw,
++				   u32 etht_user_priority_en, u32 filter);
++
++/* set  ethertype rx queue enable */
++void rpf_etht_rx_queue_en_set(struct aq_hw_s *aq_hw, u32 etht_rx_queue_en,
++			      u32 filter);
++
++/* set ethertype rx queue */
++void rpf_etht_rx_queue_set(struct aq_hw_s *aq_hw, u32 etht_rx_queue,
++			   u32 filter);
++
++/* set ethertype user-priority */
++void rpf_etht_user_priority_set(struct aq_hw_s *aq_hw, u32 etht_user_priority,
++				u32 filter);
++
++/* set ethertype management queue */
++void rpf_etht_mgt_queue_set(struct aq_hw_s *aq_hw, u32 etht_mgt_queue,
++			    u32 filter);
++
++/* set ethertype filter action */
++void rpf_etht_flr_act_set(struct aq_hw_s *aq_hw, u32 etht_flr_act,
++			  u32 filter);
++
++/* set ethertype filter */
++void rpf_etht_flr_set(struct aq_hw_s *aq_hw, u32 etht_flr, u32 filter);
++
++/* rpo */
++
++/* set ipv4 header checksum offload enable */
++void rpo_ipv4header_crc_offload_en_set(struct aq_hw_s *aq_hw,
++				       u32 ipv4header_crc_offload_en);
++
++/* set rx descriptor vlan stripping */
++void rpo_rx_desc_vlan_stripping_set(struct aq_hw_s *aq_hw,
++				    u32 rx_desc_vlan_stripping,
++				    u32 descriptor);
++
++/* set tcp/udp checksum offload enable */
++void rpo_tcp_udp_crc_offload_en_set(struct aq_hw_s *aq_hw,
++				    u32 tcp_udp_crc_offload_en);
++
++/* Set LRO Patch Optimization Enable. */
++void rpo_lro_patch_optimization_en_set(struct aq_hw_s *aq_hw,
++				       u32 lro_patch_optimization_en);
++
++/* Set Large Receive Offload Enable */
++void rpo_lro_en_set(struct aq_hw_s *aq_hw, u32 lro_en);
++
++/* Set LRO Q Sessions Limit */
++void rpo_lro_qsessions_lim_set(struct aq_hw_s *aq_hw, u32 lro_qsessions_lim);
++
++/* Set LRO Total Descriptor Limit */
++void rpo_lro_total_desc_lim_set(struct aq_hw_s *aq_hw, u32 lro_total_desc_lim);
++
++/* Set LRO Min Payload of First Packet */
++void rpo_lro_min_pay_of_first_pkt_set(struct aq_hw_s *aq_hw,
++				      u32 lro_min_pld_of_first_pkt);
++
++/* Set LRO Packet Limit */
++void rpo_lro_pkt_lim_set(struct aq_hw_s *aq_hw, u32 lro_packet_lim);
++
++/* Set LRO Max Number of Descriptors */
++void rpo_lro_max_num_of_descriptors_set(struct aq_hw_s *aq_hw,
++					u32 lro_max_desc_num, u32 lro);
++
++/* Set LRO Time Base Divider */
++void rpo_lro_time_base_divider_set(struct aq_hw_s *aq_hw,
++				   u32 lro_time_base_divider);
++
++/*Set LRO Inactive Interval */
++void rpo_lro_inactive_interval_set(struct aq_hw_s *aq_hw,
++				   u32 lro_inactive_interval);
++
++/*Set LRO Max Coalescing Interval */
++void rpo_lro_max_coalescing_interval_set(struct aq_hw_s *aq_hw,
++					 u32 lro_max_coalescing_interval);
++
++/* rx */
++
++/* set rx register reset disable */
++void rx_rx_reg_res_dis_set(struct aq_hw_s *aq_hw, u32 rx_reg_res_dis);
++
++/* tdm */
++
++/* set cpu id */
++void tdm_cpu_id_set(struct aq_hw_s *aq_hw, u32 cpuid, u32 dca);
++
++/* set large send offload enable */
++void tdm_large_send_offload_en_set(struct aq_hw_s *aq_hw,
++				   u32 large_send_offload_en);
++
++/* set tx descriptor enable */
++void tdm_tx_desc_en_set(struct aq_hw_s *aq_hw, u32 tx_desc_en, u32 descriptor);
++
++/* set tx dca enable */
++void tdm_tx_dca_en_set(struct aq_hw_s *aq_hw, u32 tx_dca_en);
++
++/* set tx dca mode */
++void tdm_tx_dca_mode_set(struct aq_hw_s *aq_hw, u32 tx_dca_mode);
++
++/* set tx descriptor dca enable */
++void tdm_tx_desc_dca_en_set(struct aq_hw_s *aq_hw, u32 tx_desc_dca_en, u32 dca);
++
++/* get tx descriptor head pointer */
++u32 tdm_tx_desc_head_ptr_get(struct aq_hw_s *aq_hw, u32 descriptor);
++
++/* set tx descriptor length */
++void tdm_tx_desc_len_set(struct aq_hw_s *aq_hw, u32 tx_desc_len,
++			 u32 descriptor);
++
++/* set tx descriptor write-back interrupt enable */
++void tdm_tx_desc_wr_wb_irq_en_set(struct aq_hw_s *aq_hw,
++				  u32 tx_desc_wr_wb_irq_en);
++
++/* set tx descriptor write-back threshold */
++void tdm_tx_desc_wr_wb_threshold_set(struct aq_hw_s *aq_hw,
++				     u32 tx_desc_wr_wb_threshold,
++				     u32 descriptor);
++
++/* Set TDM Interrupt Moderation Enable */
++void tdm_tdm_intr_moder_en_set(struct aq_hw_s *aq_hw,
++			       u32 tdm_irq_moderation_en);
++/* thm */
++
++/* set lso tcp flag of first packet */
++void thm_lso_tcp_flag_of_first_pkt_set(struct aq_hw_s *aq_hw,
++				       u32 lso_tcp_flag_of_first_pkt);
++
++/* set lso tcp flag of last packet */
++void thm_lso_tcp_flag_of_last_pkt_set(struct aq_hw_s *aq_hw,
++				      u32 lso_tcp_flag_of_last_pkt);
++
++/* set lso tcp flag of middle packet */
++void thm_lso_tcp_flag_of_middle_pkt_set(struct aq_hw_s *aq_hw,
++					u32 lso_tcp_flag_of_middle_pkt);
++
++/* tpb */
++
++/* set tx buffer enable */
++void tpb_tx_buff_en_set(struct aq_hw_s *aq_hw, u32 tx_buff_en);
++
++/* set tx buffer high threshold (per tc) */
++void tpb_tx_buff_hi_threshold_per_tc_set(struct aq_hw_s *aq_hw,
++					 u32 tx_buff_hi_threshold_per_tc,
++					 u32 buffer);
++
++/* set tx buffer low threshold (per tc) */
++void tpb_tx_buff_lo_threshold_per_tc_set(struct aq_hw_s *aq_hw,
++					 u32 tx_buff_lo_threshold_per_tc,
++					 u32 buffer);
++
++/* set tx dma system loopback enable */
++void tpb_tx_dma_sys_lbk_en_set(struct aq_hw_s *aq_hw, u32 tx_dma_sys_lbk_en);
++
++/* set tx packet buffer size (per tc) */
++void tpb_tx_pkt_buff_size_per_tc_set(struct aq_hw_s *aq_hw,
++				     u32 tx_pkt_buff_size_per_tc, u32 buffer);
++
++/* set tx path pad insert enable */
++void tpb_tx_path_scp_ins_en_set(struct aq_hw_s *aq_hw, u32 tx_path_scp_ins_en);
++
++/* tpo */
++
++/* set ipv4 header checksum offload enable */
++void tpo_ipv4header_crc_offload_en_set(struct aq_hw_s *aq_hw,
++				       u32 ipv4header_crc_offload_en);
++
++/* set tcp/udp checksum offload enable */
++void tpo_tcp_udp_crc_offload_en_set(struct aq_hw_s *aq_hw,
++				    u32 tcp_udp_crc_offload_en);
++
++/* set tx pkt system loopback enable */
++void tpo_tx_pkt_sys_lbk_en_set(struct aq_hw_s *aq_hw, u32 tx_pkt_sys_lbk_en);
++
++/* tps */
++
++/* set tx packet scheduler data arbitration mode */
++void tps_tx_pkt_shed_data_arb_mode_set(struct aq_hw_s *aq_hw,
++				       u32 tx_pkt_shed_data_arb_mode);
++
++/* set tx packet scheduler descriptor rate current time reset */
++void tps_tx_pkt_shed_desc_rate_curr_time_res_set(struct aq_hw_s *aq_hw,
++						 u32 curr_time_res);
++
++/* set tx packet scheduler descriptor rate limit */
++void tps_tx_pkt_shed_desc_rate_lim_set(struct aq_hw_s *aq_hw,
++				       u32 tx_pkt_shed_desc_rate_lim);
++
++/* set tx packet scheduler descriptor tc arbitration mode */
++void tps_tx_pkt_shed_desc_tc_arb_mode_set(struct aq_hw_s *aq_hw,
++					  u32 tx_pkt_shed_desc_tc_arb_mode);
++
++/* set tx packet scheduler descriptor tc max credit */
++void tps_tx_pkt_shed_desc_tc_max_credit_set(struct aq_hw_s *aq_hw,
++					    u32 tx_pkt_shed_desc_tc_max_credit,
++					    u32 tc);
++
++/* set tx packet scheduler descriptor tc weight */
++void tps_tx_pkt_shed_desc_tc_weight_set(struct aq_hw_s *aq_hw,
++					u32 tx_pkt_shed_desc_tc_weight,
++					u32 tc);
++
++/* set tx packet scheduler descriptor vm arbitration mode */
++void tps_tx_pkt_shed_desc_vm_arb_mode_set(struct aq_hw_s *aq_hw,
++					  u32 tx_pkt_shed_desc_vm_arb_mode);
++
++/* set tx packet scheduler tc data max credit */
++void tps_tx_pkt_shed_tc_data_max_credit_set(struct aq_hw_s *aq_hw,
++					    u32 tx_pkt_shed_tc_data_max_credit,
++					    u32 tc);
++
++/* set tx packet scheduler tc data weight */
++void tps_tx_pkt_shed_tc_data_weight_set(struct aq_hw_s *aq_hw,
++					u32 tx_pkt_shed_tc_data_weight,
++					u32 tc);
++
++/* tx */
++
++/* set tx register reset disable */
++void tx_tx_reg_res_dis_set(struct aq_hw_s *aq_hw, u32 tx_reg_res_dis);
++
++/* msm */
++
++/* get register access status */
++u32 msm_reg_access_status_get(struct aq_hw_s *aq_hw);
++
++/* set  register address for indirect address */
++void msm_reg_addr_for_indirect_addr_set(struct aq_hw_s *aq_hw,
++					u32 reg_addr_for_indirect_addr);
++
++/* set register read strobe */
++void msm_reg_rd_strobe_set(struct aq_hw_s *aq_hw, u32 reg_rd_strobe);
++
++/* get  register read data */
++u32 msm_reg_rd_data_get(struct aq_hw_s *aq_hw);
++
++/* set  register write data */
++void msm_reg_wr_data_set(struct aq_hw_s *aq_hw, u32 reg_wr_data);
++
++/* set register write strobe */
++void msm_reg_wr_strobe_set(struct aq_hw_s *aq_hw, u32 reg_wr_strobe);
++
++/* pci */
++
++/* set pci register reset disable */
++void pci_pci_reg_res_dis_set(struct aq_hw_s *aq_hw, u32 pci_reg_res_dis);
++
++#endif /* HW_ATL_LLH_H */
++
+diff --git a/drivers/net/ethernet/aquantia/hw_atl/hw_atl_llh_internal.h b/drivers/net/ethernet/aquantia/hw_atl/hw_atl_llh_internal.h
 new file mode 100644
-index 0000000..e493eba
+index 0000000..ae09f05
 --- /dev/null
-+++ b/drivers/net/ethernet/aquantia/hw_atl/hw_atl_b0_internal.h
-@@ -0,0 +1,206 @@
++++ b/drivers/net/ethernet/aquantia/hw_atl/hw_atl_llh_internal.h
+@@ -0,0 +1,2376 @@
 +/*
 + * aQuantia Corporation Network Driver
 + * Copyright (C) 2014-2017 aQuantia Corporation. All rights reserved
@@ -2182,202 +2139,2372 @@ index 0000000..e493eba
 + * version 2, as published by the Free Software Foundation.
 + */
 +
-+/* File hw_atl_b0_internal.h: Definition of Atlantic B0 chip specific
-+ * constants.
++/* File hw_atl_llh_internal.h: Preprocessor definitions
++ * for Atlantic registers.
 + */
 +
-+#ifndef HW_ATL_B0_INTERNAL_H
-+#define HW_ATL_B0_INTERNAL_H
++#ifndef HW_ATL_LLH_INTERNAL_H
++#define HW_ATL_LLH_INTERNAL_H
 +
-+#include "../aq_common.h"
++/* global microprocessor semaphore  definitions
++ * base address: 0x000003a0
++ * parameter: semaphore {s} | stride size 0x4 | range [0, 15]
++ */
++#define glb_cpu_sem_adr(semaphore)  (0x000003a0u + (semaphore) * 0x4)
++/* register address for bitfield rx dma good octet counter lsw [1f:0] */
++#define stats_rx_dma_good_octet_counterlsw__adr 0x00006808
++/* register address for bitfield rx dma good packet counter lsw [1f:0] */
++#define stats_rx_dma_good_pkt_counterlsw__adr 0x00006800
++/* register address for bitfield tx dma good octet counter lsw [1f:0] */
++#define stats_tx_dma_good_octet_counterlsw__adr 0x00008808
++/* register address for bitfield tx dma good packet counter lsw [1f:0] */
++#define stats_tx_dma_good_pkt_counterlsw__adr 0x00008800
 +
-+#define HW_ATL_B0_MTU_JUMBO (16000U)
-+#define HW_ATL_B0_MTU        1514U
++/* register address for bitfield rx dma good octet counter msw [3f:20] */
++#define stats_rx_dma_good_octet_countermsw__adr 0x0000680c
++/* register address for bitfield rx dma good packet counter msw [3f:20] */
++#define stats_rx_dma_good_pkt_countermsw__adr 0x00006804
++/* register address for bitfield tx dma good octet counter msw [3f:20] */
++#define stats_tx_dma_good_octet_countermsw__adr 0x0000880c
++/* register address for bitfield tx dma good packet counter msw [3f:20] */
++#define stats_tx_dma_good_pkt_countermsw__adr 0x00008804
 +
-+#define HW_ATL_B0_TX_RINGS 4U
-+#define HW_ATL_B0_RX_RINGS 4U
++/* preprocessor definitions for msm rx errors counter register */
++#define mac_msm_rx_errs_cnt_adr 0x00000120u
 +
-+#define HW_ATL_B0_RINGS_MAX 32U
-+#define HW_ATL_B0_TXD_SIZE       (16U)
-+#define HW_ATL_B0_RXD_SIZE       (16U)
++/* preprocessor definitions for msm rx unicast frames counter register */
++#define mac_msm_rx_ucst_frm_cnt_adr 0x000000e0u
 +
-+#define HW_ATL_B0_MAC      0U
-+#define HW_ATL_B0_MAC_MIN  1U
-+#define HW_ATL_B0_MAC_MAX  33U
++/* preprocessor definitions for msm rx multicast frames counter register */
++#define mac_msm_rx_mcst_frm_cnt_adr 0x000000e8u
 +
-+/* UCAST/MCAST filters */
-+#define HW_ATL_B0_UCAST_FILTERS_MAX 38
-+#define HW_ATL_B0_MCAST_FILTERS_MAX 8
++/* preprocessor definitions for msm rx broadcast frames counter register */
++#define mac_msm_rx_bcst_frm_cnt_adr 0x000000f0u
 +
-+/* interrupts */
-+#define HW_ATL_B0_ERR_INT 8U
-+#define HW_ATL_B0_INT_MASK  (0xFFFFFFFFU)
++/* preprocessor definitions for msm rx broadcast octets counter register 1 */
++#define mac_msm_rx_bcst_octets_counter1_adr 0x000001b0u
 +
-+#define HW_ATL_B0_TXD_CTL2_LEN        (0xFFFFC000)
-+#define HW_ATL_B0_TXD_CTL2_CTX_EN     (0x00002000)
-+#define HW_ATL_B0_TXD_CTL2_CTX_IDX    (0x00001000)
++/* preprocessor definitions for msm rx broadcast octets counter register 2 */
++#define mac_msm_rx_bcst_octets_counter2_adr 0x000001b4u
 +
-+#define HW_ATL_B0_TXD_CTL_DESC_TYPE_TXD   (0x00000001)
-+#define HW_ATL_B0_TXD_CTL_DESC_TYPE_TXC   (0x00000002)
-+#define HW_ATL_B0_TXD_CTL_BLEN        (0x000FFFF0)
-+#define HW_ATL_B0_TXD_CTL_DD          (0x00100000)
-+#define HW_ATL_B0_TXD_CTL_EOP         (0x00200000)
++/* preprocessor definitions for msm rx unicast octets counter register 0 */
++#define mac_msm_rx_ucst_octets_counter0_adr 0x000001b8u
 +
-+#define HW_ATL_B0_TXD_CTL_CMD_X       (0x3FC00000)
++/* preprocessor definitions for rx dma statistics counter 7 */
++#define rx_dma_stat_counter7_adr 0x00006818u
 +
-+#define HW_ATL_B0_TXD_CTL_CMD_VLAN    BIT(22)
-+#define HW_ATL_B0_TXD_CTL_CMD_FCS     BIT(23)
-+#define HW_ATL_B0_TXD_CTL_CMD_IPCSO   BIT(24)
-+#define HW_ATL_B0_TXD_CTL_CMD_TUCSO   BIT(25)
-+#define HW_ATL_B0_TXD_CTL_CMD_LSO     BIT(26)
-+#define HW_ATL_B0_TXD_CTL_CMD_WB      BIT(27)
-+#define HW_ATL_B0_TXD_CTL_CMD_VXLAN   BIT(28)
++/* preprocessor definitions for msm tx unicast frames counter register */
++#define mac_msm_tx_ucst_frm_cnt_adr 0x00000108u
 +
-+#define HW_ATL_B0_TXD_CTL_CMD_IPV6    BIT(21)
-+#define HW_ATL_B0_TXD_CTL_CMD_TCP     BIT(22)
++/* preprocessor definitions for msm tx multicast frames counter register */
++#define mac_msm_tx_mcst_frm_cnt_adr 0x00000110u
 +
-+#define HW_ATL_B0_MPI_CONTROL_ADR       0x0368U
-+#define HW_ATL_B0_MPI_STATE_ADR         0x036CU
++/* preprocessor definitions for global mif identification */
++#define glb_mif_id_adr 0x0000001cu
 +
-+#define HW_ATL_B0_MPI_SPEED_MSK         0xFFFFU
-+#define HW_ATL_B0_MPI_SPEED_SHIFT       16U
++/* register address for bitfield iamr_lsw[1f:0] */
++#define itr_iamrlsw_adr 0x00002090
++/* register address for bitfield rx dma drop packet counter [1f:0] */
++#define rpb_rx_dma_drop_pkt_cnt_adr 0x00006818
 +
-+#define HW_ATL_B0_RATE_10G              BIT(0)
-+#define HW_ATL_B0_RATE_5G               BIT(1)
-+#define HW_ATL_B0_RATE_2G5              BIT(3)
-+#define HW_ATL_B0_RATE_1G               BIT(4)
-+#define HW_ATL_B0_RATE_100M             BIT(5)
++/* register address for bitfield imcr_lsw[1f:0] */
++#define itr_imcrlsw_adr 0x00002070
++/* register address for bitfield imsr_lsw[1f:0] */
++#define itr_imsrlsw_adr 0x00002060
++/* register address for bitfield itr_reg_res_dsbl */
++#define itr_reg_res_dsbl_adr 0x00002300
++/* bitmask for bitfield itr_reg_res_dsbl */
++#define itr_reg_res_dsbl_msk 0x20000000
++/* lower bit position of bitfield itr_reg_res_dsbl */
++#define itr_reg_res_dsbl_shift 29
++/* register address for bitfield iscr_lsw[1f:0] */
++#define itr_iscrlsw_adr 0x00002050
++/* register address for bitfield isr_lsw[1f:0] */
++#define itr_isrlsw_adr 0x00002000
++/* register address for bitfield itr_reset */
++#define itr_res_adr 0x00002300
++/* bitmask for bitfield itr_reset */
++#define itr_res_msk 0x80000000
++/* lower bit position of bitfield itr_reset */
++#define itr_res_shift 31
++/* register address for bitfield dca{d}_cpuid[7:0] */
++#define rdm_dcadcpuid_adr(dca) (0x00006100 + (dca) * 0x4)
++/* bitmask for bitfield dca{d}_cpuid[7:0] */
++#define rdm_dcadcpuid_msk 0x000000ff
++/* lower bit position of bitfield dca{d}_cpuid[7:0] */
++#define rdm_dcadcpuid_shift 0
++/* register address for bitfield dca_en */
++#define rdm_dca_en_adr 0x00006180
 +
-+#define HW_ATL_B0_TXBUF_MAX  160U
-+#define HW_ATL_B0_RXBUF_MAX  320U
++/* rx dca_en bitfield definitions
++ * preprocessor definitions for the bitfield "dca_en".
++ * port="pif_rdm_dca_en_i"
++ */
 +
-+#define HW_ATL_B0_RSS_REDIRECTION_MAX 64U
-+#define HW_ATL_B0_RSS_REDIRECTION_BITS 3U
-+#define HW_ATL_B0_RSS_HASHKEY_BITS 320U
++/* register address for bitfield dca_en */
++#define rdm_dca_en_adr 0x00006180
++/* bitmask for bitfield dca_en */
++#define rdm_dca_en_msk 0x80000000
++/* inverted bitmask for bitfield dca_en */
++#define rdm_dca_en_mskn 0x7fffffff
++/* lower bit position of bitfield dca_en */
++#define rdm_dca_en_shift 31
++/* width of bitfield dca_en */
++#define rdm_dca_en_width 1
++/* default value of bitfield dca_en */
++#define rdm_dca_en_default 0x1
 +
-+#define HW_ATL_B0_TCRSS_4_8  1
-+#define HW_ATL_B0_TC_MAX 1U
-+#define HW_ATL_B0_RSS_MAX 8U
++/* rx dca_mode[3:0] bitfield definitions
++ * preprocessor definitions for the bitfield "dca_mode[3:0]".
++ * port="pif_rdm_dca_mode_i[3:0]"
++ */
 +
-+#define HW_ATL_B0_LRO_RXD_MAX 2U
-+#define HW_ATL_B0_RS_SLIP_ENABLED  0U
++/* register address for bitfield dca_mode[3:0] */
++#define rdm_dca_mode_adr 0x00006180
++/* bitmask for bitfield dca_mode[3:0] */
++#define rdm_dca_mode_msk 0x0000000f
++/* inverted bitmask for bitfield dca_mode[3:0] */
++#define rdm_dca_mode_mskn 0xfffffff0
++/* lower bit position of bitfield dca_mode[3:0] */
++#define rdm_dca_mode_shift 0
++/* width of bitfield dca_mode[3:0] */
++#define rdm_dca_mode_width 4
++/* default value of bitfield dca_mode[3:0] */
++#define rdm_dca_mode_default 0x0
 +
-+/* (256k -1(max pay_len) - 54(header)) */
-+#define HAL_ATL_B0_LSO_MAX_SEGMENT_SIZE 262089U
++/* rx desc{d}_data_size[4:0] bitfield definitions
++ * preprocessor definitions for the bitfield "desc{d}_data_size[4:0]".
++ * parameter: descriptor {d} | stride size 0x20 | range [0, 31]
++ * port="pif_rdm_desc0_data_size_i[4:0]"
++ */
 +
-+/* (256k -1(max pay_len) - 74(header)) */
-+#define HAL_ATL_B0_LSO_IPV6_MAX_SEGMENT_SIZE 262069U
++/* register address for bitfield desc{d}_data_size[4:0] */
++#define rdm_descddata_size_adr(descriptor) (0x00005b18 + (descriptor) * 0x20)
++/* bitmask for bitfield desc{d}_data_size[4:0] */
++#define rdm_descddata_size_msk 0x0000001f
++/* inverted bitmask for bitfield desc{d}_data_size[4:0] */
++#define rdm_descddata_size_mskn 0xffffffe0
++/* lower bit position of bitfield desc{d}_data_size[4:0] */
++#define rdm_descddata_size_shift 0
++/* width of bitfield desc{d}_data_size[4:0] */
++#define rdm_descddata_size_width 5
++/* default value of bitfield desc{d}_data_size[4:0] */
++#define rdm_descddata_size_default 0x0
 +
-+#define HW_ATL_B0_CHIP_REVISION_B0      0xA0U
-+#define HW_ATL_B0_CHIP_REVISION_UNKNOWN 0xFFU
++/* rx dca{d}_desc_en bitfield definitions
++ * preprocessor definitions for the bitfield "dca{d}_desc_en".
++ * parameter: dca {d} | stride size 0x4 | range [0, 31]
++ * port="pif_rdm_dca_desc_en_i[0]"
++ */
 +
-+#define HW_ATL_B0_FW_VER_EXPECTED       0x01030006U
-+#define HW_ATL_B0_FW_SEMA_RAM           0x2U
++/* register address for bitfield dca{d}_desc_en */
++#define rdm_dcaddesc_en_adr(dca) (0x00006100 + (dca) * 0x4)
++/* bitmask for bitfield dca{d}_desc_en */
++#define rdm_dcaddesc_en_msk 0x80000000
++/* inverted bitmask for bitfield dca{d}_desc_en */
++#define rdm_dcaddesc_en_mskn 0x7fffffff
++/* lower bit position of bitfield dca{d}_desc_en */
++#define rdm_dcaddesc_en_shift 31
++/* width of bitfield dca{d}_desc_en */
++#define rdm_dcaddesc_en_width 1
++/* default value of bitfield dca{d}_desc_en */
++#define rdm_dcaddesc_en_default 0x0
 +
-+#define HW_ATL_B0_TXC_LEN_TUNLEN    (0x0000FF00)
-+#define HW_ATL_B0_TXC_LEN_OUTLEN    (0xFFFF0000)
++/* rx desc{d}_en bitfield definitions
++ * preprocessor definitions for the bitfield "desc{d}_en".
++ * parameter: descriptor {d} | stride size 0x20 | range [0, 31]
++ * port="pif_rdm_desc_en_i[0]"
++ */
 +
-+#define HW_ATL_B0_TXC_CTL_DESC_TYPE (0x00000007)
-+#define HW_ATL_B0_TXC_CTL_CTX_ID    (0x00000008)
-+#define HW_ATL_B0_TXC_CTL_VLAN      (0x000FFFF0)
-+#define HW_ATL_B0_TXC_CTL_CMD       (0x00F00000)
-+#define HW_ATL_B0_TXC_CTL_L2LEN     (0x7F000000)
++/* register address for bitfield desc{d}_en */
++#define rdm_descden_adr(descriptor) (0x00005b08 + (descriptor) * 0x20)
++/* bitmask for bitfield desc{d}_en */
++#define rdm_descden_msk 0x80000000
++/* inverted bitmask for bitfield desc{d}_en */
++#define rdm_descden_mskn 0x7fffffff
++/* lower bit position of bitfield desc{d}_en */
++#define rdm_descden_shift 31
++/* width of bitfield desc{d}_en */
++#define rdm_descden_width 1
++/* default value of bitfield desc{d}_en */
++#define rdm_descden_default 0x0
 +
-+#define HW_ATL_B0_TXC_CTL_L3LEN     (0x80000000)	/* L3LEN lsb */
-+#define HW_ATL_B0_TXC_LEN2_L3LEN    (0x000000FF)	/* L3LE upper bits */
-+#define HW_ATL_B0_TXC_LEN2_L4LEN    (0x0000FF00)
-+#define HW_ATL_B0_TXC_LEN2_MSSLEN   (0xFFFF0000)
++/* rx desc{d}_hdr_size[4:0] bitfield definitions
++ * preprocessor definitions for the bitfield "desc{d}_hdr_size[4:0]".
++ * parameter: descriptor {d} | stride size 0x20 | range [0, 31]
++ * port="pif_rdm_desc0_hdr_size_i[4:0]"
++ */
 +
-+#define HW_ATL_B0_RXD_DD    (0x1)
-+#define HW_ATL_B0_RXD_NCEA0 (0x1)
++/* register address for bitfield desc{d}_hdr_size[4:0] */
++#define rdm_descdhdr_size_adr(descriptor) (0x00005b18 + (descriptor) * 0x20)
++/* bitmask for bitfield desc{d}_hdr_size[4:0] */
++#define rdm_descdhdr_size_msk 0x00001f00
++/* inverted bitmask for bitfield desc{d}_hdr_size[4:0] */
++#define rdm_descdhdr_size_mskn 0xffffe0ff
++/* lower bit position of bitfield desc{d}_hdr_size[4:0] */
++#define rdm_descdhdr_size_shift 8
++/* width of bitfield desc{d}_hdr_size[4:0] */
++#define rdm_descdhdr_size_width 5
++/* default value of bitfield desc{d}_hdr_size[4:0] */
++#define rdm_descdhdr_size_default 0x0
 +
-+#define HW_ATL_B0_RXD_WB_STAT_RSSTYPE (0x0000000F)
-+#define HW_ATL_B0_RXD_WB_STAT_PKTTYPE (0x00000FF0)
-+#define HW_ATL_B0_RXD_WB_STAT_RXCTRL  (0x00180000)
-+#define HW_ATL_B0_RXD_WB_STAT_SPLHDR  (0x00200000)
-+#define HW_ATL_B0_RXD_WB_STAT_HDRLEN  (0xFFC00000)
++/* rx desc{d}_hdr_split bitfield definitions
++ * preprocessor definitions for the bitfield "desc{d}_hdr_split".
++ * parameter: descriptor {d} | stride size 0x20 | range [0, 31]
++ * port="pif_rdm_desc_hdr_split_i[0]"
++ */
 +
-+#define HW_ATL_B0_RXD_WB_STAT2_DD      (0x0001)
-+#define HW_ATL_B0_RXD_WB_STAT2_EOP     (0x0002)
-+#define HW_ATL_B0_RXD_WB_STAT2_RXSTAT  (0x003C)
-+#define HW_ATL_B0_RXD_WB_STAT2_MACERR  (0x0004)
-+#define HW_ATL_B0_RXD_WB_STAT2_IP4ERR  (0x0008)
-+#define HW_ATL_B0_RXD_WB_STAT2_TCPUPDERR  (0x0010)
-+#define HW_ATL_B0_RXD_WB_STAT2_RXESTAT (0x0FC0)
-+#define HW_ATL_B0_RXD_WB_STAT2_RSCCNT  (0xF000)
++/* register address for bitfield desc{d}_hdr_split */
++#define rdm_descdhdr_split_adr(descriptor) (0x00005b08 + (descriptor) * 0x20)
++/* bitmask for bitfield desc{d}_hdr_split */
++#define rdm_descdhdr_split_msk 0x10000000
++/* inverted bitmask for bitfield desc{d}_hdr_split */
++#define rdm_descdhdr_split_mskn 0xefffffff
++/* lower bit position of bitfield desc{d}_hdr_split */
++#define rdm_descdhdr_split_shift 28
++/* width of bitfield desc{d}_hdr_split */
++#define rdm_descdhdr_split_width 1
++/* default value of bitfield desc{d}_hdr_split */
++#define rdm_descdhdr_split_default 0x0
 +
-+#define L2_FILTER_ACTION_DISCARD (0x0)
-+#define L2_FILTER_ACTION_HOST    (0x1)
++/* rx desc{d}_hd[c:0] bitfield definitions
++ * preprocessor definitions for the bitfield "desc{d}_hd[c:0]".
++ * parameter: descriptor {d} | stride size 0x20 | range [0, 31]
++ * port="rdm_pif_desc0_hd_o[12:0]"
++ */
 +
-+#define HW_ATL_B0_UCP_0X370_REG  (0x370)
++/* register address for bitfield desc{d}_hd[c:0] */
++#define rdm_descdhd_adr(descriptor) (0x00005b0c + (descriptor) * 0x20)
++/* bitmask for bitfield desc{d}_hd[c:0] */
++#define rdm_descdhd_msk 0x00001fff
++/* inverted bitmask for bitfield desc{d}_hd[c:0] */
++#define rdm_descdhd_mskn 0xffffe000
++/* lower bit position of bitfield desc{d}_hd[c:0] */
++#define rdm_descdhd_shift 0
++/* width of bitfield desc{d}_hd[c:0] */
++#define rdm_descdhd_width 13
 +
-+#define HW_ATL_B0_FLUSH() AQ_HW_READ_REG(self, 0x10)
++/* rx desc{d}_len[9:0] bitfield definitions
++ * preprocessor definitions for the bitfield "desc{d}_len[9:0]".
++ * parameter: descriptor {d} | stride size 0x20 | range [0, 31]
++ * port="pif_rdm_desc0_len_i[9:0]"
++ */
 +
-+/* Hardware tx descriptor */
-+struct __packed hw_atl_txd_s {
-+	u64 buf_addr;
-+	u32 ctl;
-+	u32 ctl2; /* 63..46 - payload length, 45 - ctx enable, 44 - ctx index */
-+};
++/* register address for bitfield desc{d}_len[9:0] */
++#define rdm_descdlen_adr(descriptor) (0x00005b08 + (descriptor) * 0x20)
++/* bitmask for bitfield desc{d}_len[9:0] */
++#define rdm_descdlen_msk 0x00001ff8
++/* inverted bitmask for bitfield desc{d}_len[9:0] */
++#define rdm_descdlen_mskn 0xffffe007
++/* lower bit position of bitfield desc{d}_len[9:0] */
++#define rdm_descdlen_shift 3
++/* width of bitfield desc{d}_len[9:0] */
++#define rdm_descdlen_width 10
++/* default value of bitfield desc{d}_len[9:0] */
++#define rdm_descdlen_default 0x0
 +
-+/* Hardware tx context descriptor */
-+struct __packed hw_atl_txc_s {
-+	u32 rsvd;
-+	u32 len;
-+	u32 ctl;
-+	u32 len2;
-+};
++/* rx desc{d}_reset bitfield definitions
++ * preprocessor definitions for the bitfield "desc{d}_reset".
++ * parameter: descriptor {d} | stride size 0x20 | range [0, 31]
++ * port="pif_rdm_q_pf_res_i[0]"
++ */
 +
-+/* Hardware rx descriptor */
-+struct __packed hw_atl_rxd_s {
-+	u64 buf_addr;
-+	u64 hdr_addr;
-+};
++/* register address for bitfield desc{d}_reset */
++#define rdm_descdreset_adr(descriptor) (0x00005b08 + (descriptor) * 0x20)
++/* bitmask for bitfield desc{d}_reset */
++#define rdm_descdreset_msk 0x02000000
++/* inverted bitmask for bitfield desc{d}_reset */
++#define rdm_descdreset_mskn 0xfdffffff
++/* lower bit position of bitfield desc{d}_reset */
++#define rdm_descdreset_shift 25
++/* width of bitfield desc{d}_reset */
++#define rdm_descdreset_width 1
++/* default value of bitfield desc{d}_reset */
++#define rdm_descdreset_default 0x0
 +
-+/* Hardware rx descriptor writeback */
-+struct __packed hw_atl_rxd_wb_s {
-+	u32 type;
-+	u32 rss_hash;
-+	u16 status;
-+	u16 pkt_len;
-+	u16 next_desc_ptr;
-+	u16 vlan;
-+};
++/* rx int_desc_wrb_en bitfield definitions
++ * preprocessor definitions for the bitfield "int_desc_wrb_en".
++ * port="pif_rdm_int_desc_wrb_en_i"
++ */
 +
-+/* HW layer capabilities */
-+static struct aq_hw_caps_s hw_atl_b0_hw_caps_ = {
-+	.ports = 1U,
-+	.is_64_dma = true,
-+	.msix_irqs = 4U,
-+	.irq_mask = ~0U,
-+	.vecs = HW_ATL_B0_RSS_MAX,
-+	.tcs = HW_ATL_B0_TC_MAX,
-+	.rxd_alignment = 1U,
-+	.rxd_size = HW_ATL_B0_RXD_SIZE,
-+	.rxds = 8U * 1024U,
-+	.txd_alignment = 1U,
-+	.txd_size = HW_ATL_B0_TXD_SIZE,
-+	.txds = 8U * 1024U,
-+	.txhwb_alignment = 4096U,
-+	.tx_rings = HW_ATL_B0_TX_RINGS,
-+	.rx_rings = HW_ATL_B0_RX_RINGS,
-+	.hw_features = NETIF_F_HW_CSUM |
-+			NETIF_F_RXHASH |
-+			NETIF_F_SG |
-+			NETIF_F_TSO |
-+			NETIF_F_LRO,
-+	.hw_priv_flags = IFF_UNICAST_FLT,
-+	.link_speed_msk = (HW_ATL_B0_RATE_10G |
-+			HW_ATL_B0_RATE_5G |
-+			HW_ATL_B0_RATE_2G5 |
-+			HW_ATL_B0_RATE_1G |
-+			HW_ATL_B0_RATE_100M),
-+	.flow_control = true,
-+	.mtu = HW_ATL_B0_MTU_JUMBO,
-+	.mac_regs_count = 88,
-+};
++/* register address for bitfield int_desc_wrb_en */
++#define rdm_int_desc_wrb_en_adr 0x00005a30
++/* bitmask for bitfield int_desc_wrb_en */
++#define rdm_int_desc_wrb_en_msk 0x00000004
++/* inverted bitmask for bitfield int_desc_wrb_en */
++#define rdm_int_desc_wrb_en_mskn 0xfffffffb
++/* lower bit position of bitfield int_desc_wrb_en */
++#define rdm_int_desc_wrb_en_shift 2
++/* width of bitfield int_desc_wrb_en */
++#define rdm_int_desc_wrb_en_width 1
++/* default value of bitfield int_desc_wrb_en */
++#define rdm_int_desc_wrb_en_default 0x0
 +
-+#endif /* HW_ATL_B0_INTERNAL_H */
++/* rx dca{d}_hdr_en bitfield definitions
++ * preprocessor definitions for the bitfield "dca{d}_hdr_en".
++ * parameter: dca {d} | stride size 0x4 | range [0, 31]
++ * port="pif_rdm_dca_hdr_en_i[0]"
++ */
++
++/* register address for bitfield dca{d}_hdr_en */
++#define rdm_dcadhdr_en_adr(dca) (0x00006100 + (dca) * 0x4)
++/* bitmask for bitfield dca{d}_hdr_en */
++#define rdm_dcadhdr_en_msk 0x40000000
++/* inverted bitmask for bitfield dca{d}_hdr_en */
++#define rdm_dcadhdr_en_mskn 0xbfffffff
++/* lower bit position of bitfield dca{d}_hdr_en */
++#define rdm_dcadhdr_en_shift 30
++/* width of bitfield dca{d}_hdr_en */
++#define rdm_dcadhdr_en_width 1
++/* default value of bitfield dca{d}_hdr_en */
++#define rdm_dcadhdr_en_default 0x0
++
++/* rx dca{d}_pay_en bitfield definitions
++ * preprocessor definitions for the bitfield "dca{d}_pay_en".
++ * parameter: dca {d} | stride size 0x4 | range [0, 31]
++ * port="pif_rdm_dca_pay_en_i[0]"
++ */
++
++/* register address for bitfield dca{d}_pay_en */
++#define rdm_dcadpay_en_adr(dca) (0x00006100 + (dca) * 0x4)
++/* bitmask for bitfield dca{d}_pay_en */
++#define rdm_dcadpay_en_msk 0x20000000
++/* inverted bitmask for bitfield dca{d}_pay_en */
++#define rdm_dcadpay_en_mskn 0xdfffffff
++/* lower bit position of bitfield dca{d}_pay_en */
++#define rdm_dcadpay_en_shift 29
++/* width of bitfield dca{d}_pay_en */
++#define rdm_dcadpay_en_width 1
++/* default value of bitfield dca{d}_pay_en */
++#define rdm_dcadpay_en_default 0x0
++
++/* RX rdm_int_rim_en Bitfield Definitions
++ * Preprocessor definitions for the bitfield "rdm_int_rim_en".
++ * PORT="pif_rdm_int_rim_en_i"
++ */
++
++/* Register address for bitfield rdm_int_rim_en */
++#define rdm_int_rim_en_adr 0x00005A30
++/* Bitmask for bitfield rdm_int_rim_en */
++#define rdm_int_rim_en_msk 0x00000008
++/* Inverted bitmask for bitfield rdm_int_rim_en */
++#define rdm_int_rim_en_mskn 0xFFFFFFF7
++/* Lower bit position of bitfield rdm_int_rim_en */
++#define rdm_int_rim_en_shift 3
++/* Width of bitfield rdm_int_rim_en */
++#define rdm_int_rim_en_width 1
++/* Default value of bitfield rdm_int_rim_en */
++#define rdm_int_rim_en_default 0x0
++
++/* general interrupt mapping register definitions
++ * preprocessor definitions for general interrupt mapping register
++ * base address: 0x00002180
++ * parameter: regidx {f} | stride size 0x4 | range [0, 3]
++ */
++#define gen_intr_map_adr(regidx) (0x00002180u + (regidx) * 0x4)
++
++/* general interrupt status register definitions
++ * preprocessor definitions for general interrupt status register
++ * address: 0x000021A0
++ */
++
++#define gen_intr_stat_adr 0x000021A4U
++
++/* interrupt global control register  definitions
++ * preprocessor definitions for interrupt global control register
++ * address: 0x00002300
++ */
++#define intr_glb_ctl_adr 0x00002300u
++
++/* interrupt throttle register definitions
++ * preprocessor definitions for interrupt throttle register
++ * base address: 0x00002800
++ * parameter: throttle {t} | stride size 0x4 | range [0, 31]
++ */
++#define intr_thr_adr(throttle) (0x00002800u + (throttle) * 0x4)
++
++/* rx dma descriptor base address lsw definitions
++ * preprocessor definitions for rx dma descriptor base address lsw
++ * base address: 0x00005b00
++ * parameter: descriptor {d} | stride size 0x20 | range [0, 31]
++ */
++#define rx_dma_desc_base_addrlsw_adr(descriptor) \
++(0x00005b00u + (descriptor) * 0x20)
++
++/* rx dma descriptor base address msw definitions
++ * preprocessor definitions for rx dma descriptor base address msw
++ * base address: 0x00005b04
++ * parameter: descriptor {d} | stride size 0x20 | range [0, 31]
++ */
++#define rx_dma_desc_base_addrmsw_adr(descriptor) \
++(0x00005b04u + (descriptor) * 0x20)
++
++/* rx dma descriptor status register definitions
++ * preprocessor definitions for rx dma descriptor status register
++ * base address: 0x00005b14
++ * parameter: descriptor {d} | stride size 0x20 | range [0, 31]
++ */
++#define rx_dma_desc_stat_adr(descriptor) (0x00005b14u + (descriptor) * 0x20)
++
++/* rx dma descriptor tail pointer register definitions
++ * preprocessor definitions for rx dma descriptor tail pointer register
++ * base address: 0x00005b10
++ * parameter: descriptor {d} | stride size 0x20 | range [0, 31]
++ */
++#define rx_dma_desc_tail_ptr_adr(descriptor) (0x00005b10u + (descriptor) * 0x20)
++
++/* rx interrupt moderation control register definitions
++ * Preprocessor definitions for RX Interrupt Moderation Control Register
++ * Base Address: 0x00005A40
++ * Parameter: RIM {R} | stride size 0x4 | range [0, 31]
++ */
++#define rx_intr_moderation_ctl_adr(rim) (0x00005A40u + (rim) * 0x4)
++
++/* rx filter multicast filter mask register definitions
++ * preprocessor definitions for rx filter multicast filter mask register
++ * address: 0x00005270
++ */
++#define rx_flr_mcst_flr_msk_adr 0x00005270u
++
++/* rx filter multicast filter register definitions
++ * preprocessor definitions for rx filter multicast filter register
++ * base address: 0x00005250
++ * parameter: filter {f} | stride size 0x4 | range [0, 7]
++ */
++#define rx_flr_mcst_flr_adr(filter) (0x00005250u + (filter) * 0x4)
++
++/* RX Filter RSS Control Register 1 Definitions
++ * Preprocessor definitions for RX Filter RSS Control Register 1
++ * Address: 0x000054C0
++ */
++#define rx_flr_rss_control1_adr 0x000054C0u
++
++/* RX Filter Control Register 2 Definitions
++ * Preprocessor definitions for RX Filter Control Register 2
++ * Address: 0x00005104
++ */
++#define rx_flr_control2_adr 0x00005104u
++
++/* tx tx dma debug control [1f:0] bitfield definitions
++ * preprocessor definitions for the bitfield "tx dma debug control [1f:0]".
++ * port="pif_tdm_debug_cntl_i[31:0]"
++ */
++
++/* register address for bitfield tx dma debug control [1f:0] */
++#define tdm_tx_dma_debug_ctl_adr 0x00008920
++/* bitmask for bitfield tx dma debug control [1f:0] */
++#define tdm_tx_dma_debug_ctl_msk 0xffffffff
++/* inverted bitmask for bitfield tx dma debug control [1f:0] */
++#define tdm_tx_dma_debug_ctl_mskn 0x00000000
++/* lower bit position of bitfield tx dma debug control [1f:0] */
++#define tdm_tx_dma_debug_ctl_shift 0
++/* width of bitfield tx dma debug control [1f:0] */
++#define tdm_tx_dma_debug_ctl_width 32
++/* default value of bitfield tx dma debug control [1f:0] */
++#define tdm_tx_dma_debug_ctl_default 0x0
++
++/* tx dma descriptor base address lsw definitions
++ * preprocessor definitions for tx dma descriptor base address lsw
++ * base address: 0x00007c00
++ * parameter: descriptor {d} | stride size 0x40 | range [0, 31]
++ */
++#define tx_dma_desc_base_addrlsw_adr(descriptor) \
++	(0x00007c00u + (descriptor) * 0x40)
++
++/* tx dma descriptor tail pointer register definitions
++ * preprocessor definitions for tx dma descriptor tail pointer register
++ * base address: 0x00007c10
++ *  parameter: descriptor {d} | stride size 0x40 | range [0, 31]
++ */
++#define tx_dma_desc_tail_ptr_adr(descriptor) (0x00007c10u + (descriptor) * 0x40)
++
++/* rx dma_sys_loopback bitfield definitions
++ * preprocessor definitions for the bitfield "dma_sys_loopback".
++ * port="pif_rpb_dma_sys_lbk_i"
++ */
++
++/* register address for bitfield dma_sys_loopback */
++#define rpb_dma_sys_lbk_adr 0x00005000
++/* bitmask for bitfield dma_sys_loopback */
++#define rpb_dma_sys_lbk_msk 0x00000040
++/* inverted bitmask for bitfield dma_sys_loopback */
++#define rpb_dma_sys_lbk_mskn 0xffffffbf
++/* lower bit position of bitfield dma_sys_loopback */
++#define rpb_dma_sys_lbk_shift 6
++/* width of bitfield dma_sys_loopback */
++#define rpb_dma_sys_lbk_width 1
++/* default value of bitfield dma_sys_loopback */
++#define rpb_dma_sys_lbk_default 0x0
++
++/* rx rx_tc_mode bitfield definitions
++ * preprocessor definitions for the bitfield "rx_tc_mode".
++ * port="pif_rpb_rx_tc_mode_i,pif_rpf_rx_tc_mode_i"
++ */
++
++/* register address for bitfield rx_tc_mode */
++#define rpb_rpf_rx_tc_mode_adr 0x00005700
++/* bitmask for bitfield rx_tc_mode */
++#define rpb_rpf_rx_tc_mode_msk 0x00000100
++/* inverted bitmask for bitfield rx_tc_mode */
++#define rpb_rpf_rx_tc_mode_mskn 0xfffffeff
++/* lower bit position of bitfield rx_tc_mode */
++#define rpb_rpf_rx_tc_mode_shift 8
++/* width of bitfield rx_tc_mode */
++#define rpb_rpf_rx_tc_mode_width 1
++/* default value of bitfield rx_tc_mode */
++#define rpb_rpf_rx_tc_mode_default 0x0
++
++/* rx rx_buf_en bitfield definitions
++ * preprocessor definitions for the bitfield "rx_buf_en".
++ * port="pif_rpb_rx_buf_en_i"
++ */
++
++/* register address for bitfield rx_buf_en */
++#define rpb_rx_buf_en_adr 0x00005700
++/* bitmask for bitfield rx_buf_en */
++#define rpb_rx_buf_en_msk 0x00000001
++/* inverted bitmask for bitfield rx_buf_en */
++#define rpb_rx_buf_en_mskn 0xfffffffe
++/* lower bit position of bitfield rx_buf_en */
++#define rpb_rx_buf_en_shift 0
++/* width of bitfield rx_buf_en */
++#define rpb_rx_buf_en_width 1
++/* default value of bitfield rx_buf_en */
++#define rpb_rx_buf_en_default 0x0
++
++/* rx rx{b}_hi_thresh[d:0] bitfield definitions
++ * preprocessor definitions for the bitfield "rx{b}_hi_thresh[d:0]".
++ * parameter: buffer {b} | stride size 0x10 | range [0, 7]
++ * port="pif_rpb_rx0_hi_thresh_i[13:0]"
++ */
++
++/* register address for bitfield rx{b}_hi_thresh[d:0] */
++#define rpb_rxbhi_thresh_adr(buffer) (0x00005714 + (buffer) * 0x10)
++/* bitmask for bitfield rx{b}_hi_thresh[d:0] */
++#define rpb_rxbhi_thresh_msk 0x3fff0000
++/* inverted bitmask for bitfield rx{b}_hi_thresh[d:0] */
++#define rpb_rxbhi_thresh_mskn 0xc000ffff
++/* lower bit position of bitfield rx{b}_hi_thresh[d:0] */
++#define rpb_rxbhi_thresh_shift 16
++/* width of bitfield rx{b}_hi_thresh[d:0] */
++#define rpb_rxbhi_thresh_width 14
++/* default value of bitfield rx{b}_hi_thresh[d:0] */
++#define rpb_rxbhi_thresh_default 0x0
++
++/* rx rx{b}_lo_thresh[d:0] bitfield definitions
++ * preprocessor definitions for the bitfield "rx{b}_lo_thresh[d:0]".
++ * parameter: buffer {b} | stride size 0x10 | range [0, 7]
++ * port="pif_rpb_rx0_lo_thresh_i[13:0]"
++ */
++
++/* register address for bitfield rx{b}_lo_thresh[d:0] */
++#define rpb_rxblo_thresh_adr(buffer) (0x00005714 + (buffer) * 0x10)
++/* bitmask for bitfield rx{b}_lo_thresh[d:0] */
++#define rpb_rxblo_thresh_msk 0x00003fff
++/* inverted bitmask for bitfield rx{b}_lo_thresh[d:0] */
++#define rpb_rxblo_thresh_mskn 0xffffc000
++/* lower bit position of bitfield rx{b}_lo_thresh[d:0] */
++#define rpb_rxblo_thresh_shift 0
++/* width of bitfield rx{b}_lo_thresh[d:0] */
++#define rpb_rxblo_thresh_width 14
++/* default value of bitfield rx{b}_lo_thresh[d:0] */
++#define rpb_rxblo_thresh_default 0x0
++
++/* rx rx_fc_mode[1:0] bitfield definitions
++ * preprocessor definitions for the bitfield "rx_fc_mode[1:0]".
++ * port="pif_rpb_rx_fc_mode_i[1:0]"
++ */
++
++/* register address for bitfield rx_fc_mode[1:0] */
++#define rpb_rx_fc_mode_adr 0x00005700
++/* bitmask for bitfield rx_fc_mode[1:0] */
++#define rpb_rx_fc_mode_msk 0x00000030
++/* inverted bitmask for bitfield rx_fc_mode[1:0] */
++#define rpb_rx_fc_mode_mskn 0xffffffcf
++/* lower bit position of bitfield rx_fc_mode[1:0] */
++#define rpb_rx_fc_mode_shift 4
++/* width of bitfield rx_fc_mode[1:0] */
++#define rpb_rx_fc_mode_width 2
++/* default value of bitfield rx_fc_mode[1:0] */
++#define rpb_rx_fc_mode_default 0x0
++
++/* rx rx{b}_buf_size[8:0] bitfield definitions
++ * preprocessor definitions for the bitfield "rx{b}_buf_size[8:0]".
++ * parameter: buffer {b} | stride size 0x10 | range [0, 7]
++ * port="pif_rpb_rx0_buf_size_i[8:0]"
++ */
++
++/* register address for bitfield rx{b}_buf_size[8:0] */
++#define rpb_rxbbuf_size_adr(buffer) (0x00005710 + (buffer) * 0x10)
++/* bitmask for bitfield rx{b}_buf_size[8:0] */
++#define rpb_rxbbuf_size_msk 0x000001ff
++/* inverted bitmask for bitfield rx{b}_buf_size[8:0] */
++#define rpb_rxbbuf_size_mskn 0xfffffe00
++/* lower bit position of bitfield rx{b}_buf_size[8:0] */
++#define rpb_rxbbuf_size_shift 0
++/* width of bitfield rx{b}_buf_size[8:0] */
++#define rpb_rxbbuf_size_width 9
++/* default value of bitfield rx{b}_buf_size[8:0] */
++#define rpb_rxbbuf_size_default 0x0
++
++/* rx rx{b}_xoff_en bitfield definitions
++ * preprocessor definitions for the bitfield "rx{b}_xoff_en".
++ * parameter: buffer {b} | stride size 0x10 | range [0, 7]
++ * port="pif_rpb_rx_xoff_en_i[0]"
++ */
++
++/* register address for bitfield rx{b}_xoff_en */
++#define rpb_rxbxoff_en_adr(buffer) (0x00005714 + (buffer) * 0x10)
++/* bitmask for bitfield rx{b}_xoff_en */
++#define rpb_rxbxoff_en_msk 0x80000000
++/* inverted bitmask for bitfield rx{b}_xoff_en */
++#define rpb_rxbxoff_en_mskn 0x7fffffff
++/* lower bit position of bitfield rx{b}_xoff_en */
++#define rpb_rxbxoff_en_shift 31
++/* width of bitfield rx{b}_xoff_en */
++#define rpb_rxbxoff_en_width 1
++/* default value of bitfield rx{b}_xoff_en */
++#define rpb_rxbxoff_en_default 0x0
++
++/* rx l2_bc_thresh[f:0] bitfield definitions
++ * preprocessor definitions for the bitfield "l2_bc_thresh[f:0]".
++ * port="pif_rpf_l2_bc_thresh_i[15:0]"
++ */
++
++/* register address for bitfield l2_bc_thresh[f:0] */
++#define rpfl2bc_thresh_adr 0x00005100
++/* bitmask for bitfield l2_bc_thresh[f:0] */
++#define rpfl2bc_thresh_msk 0xffff0000
++/* inverted bitmask for bitfield l2_bc_thresh[f:0] */
++#define rpfl2bc_thresh_mskn 0x0000ffff
++/* lower bit position of bitfield l2_bc_thresh[f:0] */
++#define rpfl2bc_thresh_shift 16
++/* width of bitfield l2_bc_thresh[f:0] */
++#define rpfl2bc_thresh_width 16
++/* default value of bitfield l2_bc_thresh[f:0] */
++#define rpfl2bc_thresh_default 0x0
++
++/* rx l2_bc_en bitfield definitions
++ * preprocessor definitions for the bitfield "l2_bc_en".
++ * port="pif_rpf_l2_bc_en_i"
++ */
++
++/* register address for bitfield l2_bc_en */
++#define rpfl2bc_en_adr 0x00005100
++/* bitmask for bitfield l2_bc_en */
++#define rpfl2bc_en_msk 0x00000001
++/* inverted bitmask for bitfield l2_bc_en */
++#define rpfl2bc_en_mskn 0xfffffffe
++/* lower bit position of bitfield l2_bc_en */
++#define rpfl2bc_en_shift 0
++/* width of bitfield l2_bc_en */
++#define rpfl2bc_en_width 1
++/* default value of bitfield l2_bc_en */
++#define rpfl2bc_en_default 0x0
++
++/* rx l2_bc_act[2:0] bitfield definitions
++ * preprocessor definitions for the bitfield "l2_bc_act[2:0]".
++ * port="pif_rpf_l2_bc_act_i[2:0]"
++ */
++
++/* register address for bitfield l2_bc_act[2:0] */
++#define rpfl2bc_act_adr 0x00005100
++/* bitmask for bitfield l2_bc_act[2:0] */
++#define rpfl2bc_act_msk 0x00007000
++/* inverted bitmask for bitfield l2_bc_act[2:0] */
++#define rpfl2bc_act_mskn 0xffff8fff
++/* lower bit position of bitfield l2_bc_act[2:0] */
++#define rpfl2bc_act_shift 12
++/* width of bitfield l2_bc_act[2:0] */
++#define rpfl2bc_act_width 3
++/* default value of bitfield l2_bc_act[2:0] */
++#define rpfl2bc_act_default 0x0
++
++/* rx l2_mc_en{f} bitfield definitions
++ * preprocessor definitions for the bitfield "l2_mc_en{f}".
++ * parameter: filter {f} | stride size 0x4 | range [0, 7]
++ * port="pif_rpf_l2_mc_en_i[0]"
++ */
++
++/* register address for bitfield l2_mc_en{f} */
++#define rpfl2mc_enf_adr(filter) (0x00005250 + (filter) * 0x4)
++/* bitmask for bitfield l2_mc_en{f} */
++#define rpfl2mc_enf_msk 0x80000000
++/* inverted bitmask for bitfield l2_mc_en{f} */
++#define rpfl2mc_enf_mskn 0x7fffffff
++/* lower bit position of bitfield l2_mc_en{f} */
++#define rpfl2mc_enf_shift 31
++/* width of bitfield l2_mc_en{f} */
++#define rpfl2mc_enf_width 1
++/* default value of bitfield l2_mc_en{f} */
++#define rpfl2mc_enf_default 0x0
++
++/* rx l2_promis_mode bitfield definitions
++ * preprocessor definitions for the bitfield "l2_promis_mode".
++ * port="pif_rpf_l2_promis_mode_i"
++ */
++
++/* register address for bitfield l2_promis_mode */
++#define rpfl2promis_mode_adr 0x00005100
++/* bitmask for bitfield l2_promis_mode */
++#define rpfl2promis_mode_msk 0x00000008
++/* inverted bitmask for bitfield l2_promis_mode */
++#define rpfl2promis_mode_mskn 0xfffffff7
++/* lower bit position of bitfield l2_promis_mode */
++#define rpfl2promis_mode_shift 3
++/* width of bitfield l2_promis_mode */
++#define rpfl2promis_mode_width 1
++/* default value of bitfield l2_promis_mode */
++#define rpfl2promis_mode_default 0x0
++
++/* rx l2_uc_act{f}[2:0] bitfield definitions
++ * preprocessor definitions for the bitfield "l2_uc_act{f}[2:0]".
++ * parameter: filter {f} | stride size 0x8 | range [0, 37]
++ * port="pif_rpf_l2_uc_act0_i[2:0]"
++ */
++
++/* register address for bitfield l2_uc_act{f}[2:0] */
++#define rpfl2uc_actf_adr(filter) (0x00005114 + (filter) * 0x8)
++/* bitmask for bitfield l2_uc_act{f}[2:0] */
++#define rpfl2uc_actf_msk 0x00070000
++/* inverted bitmask for bitfield l2_uc_act{f}[2:0] */
++#define rpfl2uc_actf_mskn 0xfff8ffff
++/* lower bit position of bitfield l2_uc_act{f}[2:0] */
++#define rpfl2uc_actf_shift 16
++/* width of bitfield l2_uc_act{f}[2:0] */
++#define rpfl2uc_actf_width 3
++/* default value of bitfield l2_uc_act{f}[2:0] */
++#define rpfl2uc_actf_default 0x0
++
++/* rx l2_uc_en{f} bitfield definitions
++ * preprocessor definitions for the bitfield "l2_uc_en{f}".
++ * parameter: filter {f} | stride size 0x8 | range [0, 37]
++ * port="pif_rpf_l2_uc_en_i[0]"
++ */
++
++/* register address for bitfield l2_uc_en{f} */
++#define rpfl2uc_enf_adr(filter) (0x00005114 + (filter) * 0x8)
++/* bitmask for bitfield l2_uc_en{f} */
++#define rpfl2uc_enf_msk 0x80000000
++/* inverted bitmask for bitfield l2_uc_en{f} */
++#define rpfl2uc_enf_mskn 0x7fffffff
++/* lower bit position of bitfield l2_uc_en{f} */
++#define rpfl2uc_enf_shift 31
++/* width of bitfield l2_uc_en{f} */
++#define rpfl2uc_enf_width 1
++/* default value of bitfield l2_uc_en{f} */
++#define rpfl2uc_enf_default 0x0
++
++/* register address for bitfield l2_uc_da{f}_lsw[1f:0] */
++#define rpfl2uc_daflsw_adr(filter) (0x00005110 + (filter) * 0x8)
++/* register address for bitfield l2_uc_da{f}_msw[f:0] */
++#define rpfl2uc_dafmsw_adr(filter) (0x00005114 + (filter) * 0x8)
++/* bitmask for bitfield l2_uc_da{f}_msw[f:0] */
++#define rpfl2uc_dafmsw_msk 0x0000ffff
++/* lower bit position of bitfield l2_uc_da{f}_msw[f:0] */
++#define rpfl2uc_dafmsw_shift 0
++
++/* rx l2_mc_accept_all bitfield definitions
++ * Preprocessor definitions for the bitfield "l2_mc_accept_all".
++ * PORT="pif_rpf_l2_mc_all_accept_i"
++ */
++
++/* Register address for bitfield l2_mc_accept_all */
++#define rpfl2mc_accept_all_adr 0x00005270
++/* Bitmask for bitfield l2_mc_accept_all */
++#define rpfl2mc_accept_all_msk 0x00004000
++/* Inverted bitmask for bitfield l2_mc_accept_all */
++#define rpfl2mc_accept_all_mskn 0xFFFFBFFF
++/* Lower bit position of bitfield l2_mc_accept_all */
++#define rpfl2mc_accept_all_shift 14
++/* Width of bitfield l2_mc_accept_all */
++#define rpfl2mc_accept_all_width 1
++/* Default value of bitfield l2_mc_accept_all */
++#define rpfl2mc_accept_all_default 0x0
++
++/* width of bitfield rx_tc_up{t}[2:0] */
++#define rpf_rpb_rx_tc_upt_width 3
++/* default value of bitfield rx_tc_up{t}[2:0] */
++#define rpf_rpb_rx_tc_upt_default 0x0
++
++/* rx rss_key_addr[4:0] bitfield definitions
++ * preprocessor definitions for the bitfield "rss_key_addr[4:0]".
++ * port="pif_rpf_rss_key_addr_i[4:0]"
++ */
++
++/* register address for bitfield rss_key_addr[4:0] */
++#define rpf_rss_key_addr_adr 0x000054d0
++/* bitmask for bitfield rss_key_addr[4:0] */
++#define rpf_rss_key_addr_msk 0x0000001f
++/* inverted bitmask for bitfield rss_key_addr[4:0] */
++#define rpf_rss_key_addr_mskn 0xffffffe0
++/* lower bit position of bitfield rss_key_addr[4:0] */
++#define rpf_rss_key_addr_shift 0
++/* width of bitfield rss_key_addr[4:0] */
++#define rpf_rss_key_addr_width 5
++/* default value of bitfield rss_key_addr[4:0] */
++#define rpf_rss_key_addr_default 0x0
++
++/* rx rss_key_wr_data[1f:0] bitfield definitions
++ * preprocessor definitions for the bitfield "rss_key_wr_data[1f:0]".
++ * port="pif_rpf_rss_key_wr_data_i[31:0]"
++ */
++
++/* register address for bitfield rss_key_wr_data[1f:0] */
++#define rpf_rss_key_wr_data_adr 0x000054d4
++/* bitmask for bitfield rss_key_wr_data[1f:0] */
++#define rpf_rss_key_wr_data_msk 0xffffffff
++/* inverted bitmask for bitfield rss_key_wr_data[1f:0] */
++#define rpf_rss_key_wr_data_mskn 0x00000000
++/* lower bit position of bitfield rss_key_wr_data[1f:0] */
++#define rpf_rss_key_wr_data_shift 0
++/* width of bitfield rss_key_wr_data[1f:0] */
++#define rpf_rss_key_wr_data_width 32
++/* default value of bitfield rss_key_wr_data[1f:0] */
++#define rpf_rss_key_wr_data_default 0x0
++
++/* rx rss_key_wr_en_i bitfield definitions
++ * preprocessor definitions for the bitfield "rss_key_wr_en_i".
++ * port="pif_rpf_rss_key_wr_en_i"
++ */
++
++/* register address for bitfield rss_key_wr_en_i */
++#define rpf_rss_key_wr_eni_adr 0x000054d0
++/* bitmask for bitfield rss_key_wr_en_i */
++#define rpf_rss_key_wr_eni_msk 0x00000020
++/* inverted bitmask for bitfield rss_key_wr_en_i */
++#define rpf_rss_key_wr_eni_mskn 0xffffffdf
++/* lower bit position of bitfield rss_key_wr_en_i */
++#define rpf_rss_key_wr_eni_shift 5
++/* width of bitfield rss_key_wr_en_i */
++#define rpf_rss_key_wr_eni_width 1
++/* default value of bitfield rss_key_wr_en_i */
++#define rpf_rss_key_wr_eni_default 0x0
++
++/* rx rss_redir_addr[3:0] bitfield definitions
++ * preprocessor definitions for the bitfield "rss_redir_addr[3:0]".
++ * port="pif_rpf_rss_redir_addr_i[3:0]"
++ */
++
++/* register address for bitfield rss_redir_addr[3:0] */
++#define rpf_rss_redir_addr_adr 0x000054e0
++/* bitmask for bitfield rss_redir_addr[3:0] */
++#define rpf_rss_redir_addr_msk 0x0000000f
++/* inverted bitmask for bitfield rss_redir_addr[3:0] */
++#define rpf_rss_redir_addr_mskn 0xfffffff0
++/* lower bit position of bitfield rss_redir_addr[3:0] */
++#define rpf_rss_redir_addr_shift 0
++/* width of bitfield rss_redir_addr[3:0] */
++#define rpf_rss_redir_addr_width 4
++/* default value of bitfield rss_redir_addr[3:0] */
++#define rpf_rss_redir_addr_default 0x0
++
++/* rx rss_redir_wr_data[f:0] bitfield definitions
++ * preprocessor definitions for the bitfield "rss_redir_wr_data[f:0]".
++ * port="pif_rpf_rss_redir_wr_data_i[15:0]"
++ */
++
++/* register address for bitfield rss_redir_wr_data[f:0] */
++#define rpf_rss_redir_wr_data_adr 0x000054e4
++/* bitmask for bitfield rss_redir_wr_data[f:0] */
++#define rpf_rss_redir_wr_data_msk 0x0000ffff
++/* inverted bitmask for bitfield rss_redir_wr_data[f:0] */
++#define rpf_rss_redir_wr_data_mskn 0xffff0000
++/* lower bit position of bitfield rss_redir_wr_data[f:0] */
++#define rpf_rss_redir_wr_data_shift 0
++/* width of bitfield rss_redir_wr_data[f:0] */
++#define rpf_rss_redir_wr_data_width 16
++/* default value of bitfield rss_redir_wr_data[f:0] */
++#define rpf_rss_redir_wr_data_default 0x0
++
++/* rx rss_redir_wr_en_i bitfield definitions
++ * preprocessor definitions for the bitfield "rss_redir_wr_en_i".
++ * port="pif_rpf_rss_redir_wr_en_i"
++ */
++
++/* register address for bitfield rss_redir_wr_en_i */
++#define rpf_rss_redir_wr_eni_adr 0x000054e0
++/* bitmask for bitfield rss_redir_wr_en_i */
++#define rpf_rss_redir_wr_eni_msk 0x00000010
++/* inverted bitmask for bitfield rss_redir_wr_en_i */
++#define rpf_rss_redir_wr_eni_mskn 0xffffffef
++/* lower bit position of bitfield rss_redir_wr_en_i */
++#define rpf_rss_redir_wr_eni_shift 4
++/* width of bitfield rss_redir_wr_en_i */
++#define rpf_rss_redir_wr_eni_width 1
++/* default value of bitfield rss_redir_wr_en_i */
++#define rpf_rss_redir_wr_eni_default 0x0
++
++/* rx tpo_rpf_sys_loopback bitfield definitions
++ * preprocessor definitions for the bitfield "tpo_rpf_sys_loopback".
++ * port="pif_rpf_tpo_pkt_sys_lbk_i"
++ */
++
++/* register address for bitfield tpo_rpf_sys_loopback */
++#define rpf_tpo_rpf_sys_lbk_adr 0x00005000
++/* bitmask for bitfield tpo_rpf_sys_loopback */
++#define rpf_tpo_rpf_sys_lbk_msk 0x00000100
++/* inverted bitmask for bitfield tpo_rpf_sys_loopback */
++#define rpf_tpo_rpf_sys_lbk_mskn 0xfffffeff
++/* lower bit position of bitfield tpo_rpf_sys_loopback */
++#define rpf_tpo_rpf_sys_lbk_shift 8
++/* width of bitfield tpo_rpf_sys_loopback */
++#define rpf_tpo_rpf_sys_lbk_width 1
++/* default value of bitfield tpo_rpf_sys_loopback */
++#define rpf_tpo_rpf_sys_lbk_default 0x0
++
++/* rx vl_inner_tpid[f:0] bitfield definitions
++ * preprocessor definitions for the bitfield "vl_inner_tpid[f:0]".
++ * port="pif_rpf_vl_inner_tpid_i[15:0]"
++ */
++
++/* register address for bitfield vl_inner_tpid[f:0] */
++#define rpf_vl_inner_tpid_adr 0x00005284
++/* bitmask for bitfield vl_inner_tpid[f:0] */
++#define rpf_vl_inner_tpid_msk 0x0000ffff
++/* inverted bitmask for bitfield vl_inner_tpid[f:0] */
++#define rpf_vl_inner_tpid_mskn 0xffff0000
++/* lower bit position of bitfield vl_inner_tpid[f:0] */
++#define rpf_vl_inner_tpid_shift 0
++/* width of bitfield vl_inner_tpid[f:0] */
++#define rpf_vl_inner_tpid_width 16
++/* default value of bitfield vl_inner_tpid[f:0] */
++#define rpf_vl_inner_tpid_default 0x8100
++
++/* rx vl_outer_tpid[f:0] bitfield definitions
++ * preprocessor definitions for the bitfield "vl_outer_tpid[f:0]".
++ * port="pif_rpf_vl_outer_tpid_i[15:0]"
++ */
++
++/* register address for bitfield vl_outer_tpid[f:0] */
++#define rpf_vl_outer_tpid_adr 0x00005284
++/* bitmask for bitfield vl_outer_tpid[f:0] */
++#define rpf_vl_outer_tpid_msk 0xffff0000
++/* inverted bitmask for bitfield vl_outer_tpid[f:0] */
++#define rpf_vl_outer_tpid_mskn 0x0000ffff
++/* lower bit position of bitfield vl_outer_tpid[f:0] */
++#define rpf_vl_outer_tpid_shift 16
++/* width of bitfield vl_outer_tpid[f:0] */
++#define rpf_vl_outer_tpid_width 16
++/* default value of bitfield vl_outer_tpid[f:0] */
++#define rpf_vl_outer_tpid_default 0x88a8
++
++/* rx vl_promis_mode bitfield definitions
++ * preprocessor definitions for the bitfield "vl_promis_mode".
++ * port="pif_rpf_vl_promis_mode_i"
++ */
++
++/* register address for bitfield vl_promis_mode */
++#define rpf_vl_promis_mode_adr 0x00005280
++/* bitmask for bitfield vl_promis_mode */
++#define rpf_vl_promis_mode_msk 0x00000002
++/* inverted bitmask for bitfield vl_promis_mode */
++#define rpf_vl_promis_mode_mskn 0xfffffffd
++/* lower bit position of bitfield vl_promis_mode */
++#define rpf_vl_promis_mode_shift 1
++/* width of bitfield vl_promis_mode */
++#define rpf_vl_promis_mode_width 1
++/* default value of bitfield vl_promis_mode */
++#define rpf_vl_promis_mode_default 0x0
++
++/* RX vl_accept_untagged_mode Bitfield Definitions
++ * Preprocessor definitions for the bitfield "vl_accept_untagged_mode".
++ * PORT="pif_rpf_vl_accept_untagged_i"
++ */
++
++/* Register address for bitfield vl_accept_untagged_mode */
++#define rpf_vl_accept_untagged_mode_adr 0x00005280
++/* Bitmask for bitfield vl_accept_untagged_mode */
++#define rpf_vl_accept_untagged_mode_msk 0x00000004
++/* Inverted bitmask for bitfield vl_accept_untagged_mode */
++#define rpf_vl_accept_untagged_mode_mskn 0xFFFFFFFB
++/* Lower bit position of bitfield vl_accept_untagged_mode */
++#define rpf_vl_accept_untagged_mode_shift 2
++/* Width of bitfield vl_accept_untagged_mode */
++#define rpf_vl_accept_untagged_mode_width 1
++/* Default value of bitfield vl_accept_untagged_mode */
++#define rpf_vl_accept_untagged_mode_default 0x0
++
++/* rX vl_untagged_act[2:0] Bitfield Definitions
++ * Preprocessor definitions for the bitfield "vl_untagged_act[2:0]".
++ * PORT="pif_rpf_vl_untagged_act_i[2:0]"
++ */
++
++/* Register address for bitfield vl_untagged_act[2:0] */
++#define rpf_vl_untagged_act_adr 0x00005280
++/* Bitmask for bitfield vl_untagged_act[2:0] */
++#define rpf_vl_untagged_act_msk 0x00000038
++/* Inverted bitmask for bitfield vl_untagged_act[2:0] */
++#define rpf_vl_untagged_act_mskn 0xFFFFFFC7
++/* Lower bit position of bitfield vl_untagged_act[2:0] */
++#define rpf_vl_untagged_act_shift 3
++/* Width of bitfield vl_untagged_act[2:0] */
++#define rpf_vl_untagged_act_width 3
++/* Default value of bitfield vl_untagged_act[2:0] */
++#define rpf_vl_untagged_act_default 0x0
++
++/* RX vl_en{F} Bitfield Definitions
++ * Preprocessor definitions for the bitfield "vl_en{F}".
++ * Parameter: filter {F} | stride size 0x4 | range [0, 15]
++ * PORT="pif_rpf_vl_en_i[0]"
++ */
++
++/* Register address for bitfield vl_en{F} */
++#define rpf_vl_en_f_adr(filter) (0x00005290 + (filter) * 0x4)
++/* Bitmask for bitfield vl_en{F} */
++#define rpf_vl_en_f_msk 0x80000000
++/* Inverted bitmask for bitfield vl_en{F} */
++#define rpf_vl_en_f_mskn 0x7FFFFFFF
++/* Lower bit position of bitfield vl_en{F} */
++#define rpf_vl_en_f_shift 31
++/* Width of bitfield vl_en{F} */
++#define rpf_vl_en_f_width 1
++/* Default value of bitfield vl_en{F} */
++#define rpf_vl_en_f_default 0x0
++
++/* RX vl_act{F}[2:0] Bitfield Definitions
++ * Preprocessor definitions for the bitfield "vl_act{F}[2:0]".
++ * Parameter: filter {F} | stride size 0x4 | range [0, 15]
++ * PORT="pif_rpf_vl_act0_i[2:0]"
++ */
++
++/* Register address for bitfield vl_act{F}[2:0] */
++#define rpf_vl_act_f_adr(filter) (0x00005290 + (filter) * 0x4)
++/* Bitmask for bitfield vl_act{F}[2:0] */
++#define rpf_vl_act_f_msk 0x00070000
++/* Inverted bitmask for bitfield vl_act{F}[2:0] */
++#define rpf_vl_act_f_mskn 0xFFF8FFFF
++/* Lower bit position of bitfield vl_act{F}[2:0] */
++#define rpf_vl_act_f_shift 16
++/* Width of bitfield vl_act{F}[2:0] */
++#define rpf_vl_act_f_width 3
++/* Default value of bitfield vl_act{F}[2:0] */
++#define rpf_vl_act_f_default 0x0
++
++/* RX vl_id{F}[B:0] Bitfield Definitions
++ * Preprocessor definitions for the bitfield "vl_id{F}[B:0]".
++ * Parameter: filter {F} | stride size 0x4 | range [0, 15]
++ * PORT="pif_rpf_vl_id0_i[11:0]"
++ */
++
++/* Register address for bitfield vl_id{F}[B:0] */
++#define rpf_vl_id_f_adr(filter) (0x00005290 + (filter) * 0x4)
++/* Bitmask for bitfield vl_id{F}[B:0] */
++#define rpf_vl_id_f_msk 0x00000FFF
++/* Inverted bitmask for bitfield vl_id{F}[B:0] */
++#define rpf_vl_id_f_mskn 0xFFFFF000
++/* Lower bit position of bitfield vl_id{F}[B:0] */
++#define rpf_vl_id_f_shift 0
++/* Width of bitfield vl_id{F}[B:0] */
++#define rpf_vl_id_f_width 12
++/* Default value of bitfield vl_id{F}[B:0] */
++#define rpf_vl_id_f_default 0x0
++
++/* RX et_en{F} Bitfield Definitions
++ * Preprocessor definitions for the bitfield "et_en{F}".
++ * Parameter: filter {F} | stride size 0x4 | range [0, 15]
++ * PORT="pif_rpf_et_en_i[0]"
++ */
++
++/* Register address for bitfield et_en{F} */
++#define rpf_et_en_f_adr(filter) (0x00005300 + (filter) * 0x4)
++/* Bitmask for bitfield et_en{F} */
++#define rpf_et_en_f_msk 0x80000000
++/* Inverted bitmask for bitfield et_en{F} */
++#define rpf_et_en_f_mskn 0x7FFFFFFF
++/* Lower bit position of bitfield et_en{F} */
++#define rpf_et_en_f_shift 31
++/* Width of bitfield et_en{F} */
++#define rpf_et_en_f_width 1
++/* Default value of bitfield et_en{F} */
++#define rpf_et_en_f_default 0x0
++
++/* rx et_en{f} bitfield definitions
++ * preprocessor definitions for the bitfield "et_en{f}".
++ * parameter: filter {f} | stride size 0x4 | range [0, 15]
++ * port="pif_rpf_et_en_i[0]"
++ */
++
++/* register address for bitfield et_en{f} */
++#define rpf_et_enf_adr(filter) (0x00005300 + (filter) * 0x4)
++/* bitmask for bitfield et_en{f} */
++#define rpf_et_enf_msk 0x80000000
++/* inverted bitmask for bitfield et_en{f} */
++#define rpf_et_enf_mskn 0x7fffffff
++/* lower bit position of bitfield et_en{f} */
++#define rpf_et_enf_shift 31
++/* width of bitfield et_en{f} */
++#define rpf_et_enf_width 1
++/* default value of bitfield et_en{f} */
++#define rpf_et_enf_default 0x0
++
++/* rx et_up{f}_en bitfield definitions
++ * preprocessor definitions for the bitfield "et_up{f}_en".
++ * parameter: filter {f} | stride size 0x4 | range [0, 15]
++ * port="pif_rpf_et_up_en_i[0]"
++ */
++
++/* register address for bitfield et_up{f}_en */
++#define rpf_et_upfen_adr(filter) (0x00005300 + (filter) * 0x4)
++/* bitmask for bitfield et_up{f}_en */
++#define rpf_et_upfen_msk 0x40000000
++/* inverted bitmask for bitfield et_up{f}_en */
++#define rpf_et_upfen_mskn 0xbfffffff
++/* lower bit position of bitfield et_up{f}_en */
++#define rpf_et_upfen_shift 30
++/* width of bitfield et_up{f}_en */
++#define rpf_et_upfen_width 1
++/* default value of bitfield et_up{f}_en */
++#define rpf_et_upfen_default 0x0
++
++/* rx et_rxq{f}_en bitfield definitions
++ * preprocessor definitions for the bitfield "et_rxq{f}_en".
++ * parameter: filter {f} | stride size 0x4 | range [0, 15]
++ * port="pif_rpf_et_rxq_en_i[0]"
++ */
++
++/* register address for bitfield et_rxq{f}_en */
++#define rpf_et_rxqfen_adr(filter) (0x00005300 + (filter) * 0x4)
++/* bitmask for bitfield et_rxq{f}_en */
++#define rpf_et_rxqfen_msk 0x20000000
++/* inverted bitmask for bitfield et_rxq{f}_en */
++#define rpf_et_rxqfen_mskn 0xdfffffff
++/* lower bit position of bitfield et_rxq{f}_en */
++#define rpf_et_rxqfen_shift 29
++/* width of bitfield et_rxq{f}_en */
++#define rpf_et_rxqfen_width 1
++/* default value of bitfield et_rxq{f}_en */
++#define rpf_et_rxqfen_default 0x0
++
++/* rx et_up{f}[2:0] bitfield definitions
++ * preprocessor definitions for the bitfield "et_up{f}[2:0]".
++ * parameter: filter {f} | stride size 0x4 | range [0, 15]
++ * port="pif_rpf_et_up0_i[2:0]"
++ */
++
++/* register address for bitfield et_up{f}[2:0] */
++#define rpf_et_upf_adr(filter) (0x00005300 + (filter) * 0x4)
++/* bitmask for bitfield et_up{f}[2:0] */
++#define rpf_et_upf_msk 0x1c000000
++/* inverted bitmask for bitfield et_up{f}[2:0] */
++#define rpf_et_upf_mskn 0xe3ffffff
++/* lower bit position of bitfield et_up{f}[2:0] */
++#define rpf_et_upf_shift 26
++/* width of bitfield et_up{f}[2:0] */
++#define rpf_et_upf_width 3
++/* default value of bitfield et_up{f}[2:0] */
++#define rpf_et_upf_default 0x0
++
++/* rx et_rxq{f}[4:0] bitfield definitions
++ * preprocessor definitions for the bitfield "et_rxq{f}[4:0]".
++ * parameter: filter {f} | stride size 0x4 | range [0, 15]
++ * port="pif_rpf_et_rxq0_i[4:0]"
++ */
++
++/* register address for bitfield et_rxq{f}[4:0] */
++#define rpf_et_rxqf_adr(filter) (0x00005300 + (filter) * 0x4)
++/* bitmask for bitfield et_rxq{f}[4:0] */
++#define rpf_et_rxqf_msk 0x01f00000
++/* inverted bitmask for bitfield et_rxq{f}[4:0] */
++#define rpf_et_rxqf_mskn 0xfe0fffff
++/* lower bit position of bitfield et_rxq{f}[4:0] */
++#define rpf_et_rxqf_shift 20
++/* width of bitfield et_rxq{f}[4:0] */
++#define rpf_et_rxqf_width 5
++/* default value of bitfield et_rxq{f}[4:0] */
++#define rpf_et_rxqf_default 0x0
++
++/* rx et_mng_rxq{f} bitfield definitions
++ * preprocessor definitions for the bitfield "et_mng_rxq{f}".
++ * parameter: filter {f} | stride size 0x4 | range [0, 15]
++ * port="pif_rpf_et_mng_rxq_i[0]"
++ */
++
++/* register address for bitfield et_mng_rxq{f} */
++#define rpf_et_mng_rxqf_adr(filter) (0x00005300 + (filter) * 0x4)
++/* bitmask for bitfield et_mng_rxq{f} */
++#define rpf_et_mng_rxqf_msk 0x00080000
++/* inverted bitmask for bitfield et_mng_rxq{f} */
++#define rpf_et_mng_rxqf_mskn 0xfff7ffff
++/* lower bit position of bitfield et_mng_rxq{f} */
++#define rpf_et_mng_rxqf_shift 19
++/* width of bitfield et_mng_rxq{f} */
++#define rpf_et_mng_rxqf_width 1
++/* default value of bitfield et_mng_rxq{f} */
++#define rpf_et_mng_rxqf_default 0x0
++
++/* rx et_act{f}[2:0] bitfield definitions
++ * preprocessor definitions for the bitfield "et_act{f}[2:0]".
++ * parameter: filter {f} | stride size 0x4 | range [0, 15]
++ * port="pif_rpf_et_act0_i[2:0]"
++ */
++
++/* register address for bitfield et_act{f}[2:0] */
++#define rpf_et_actf_adr(filter) (0x00005300 + (filter) * 0x4)
++/* bitmask for bitfield et_act{f}[2:0] */
++#define rpf_et_actf_msk 0x00070000
++/* inverted bitmask for bitfield et_act{f}[2:0] */
++#define rpf_et_actf_mskn 0xfff8ffff
++/* lower bit position of bitfield et_act{f}[2:0] */
++#define rpf_et_actf_shift 16
++/* width of bitfield et_act{f}[2:0] */
++#define rpf_et_actf_width 3
++/* default value of bitfield et_act{f}[2:0] */
++#define rpf_et_actf_default 0x0
++
++/* rx et_val{f}[f:0] bitfield definitions
++ * preprocessor definitions for the bitfield "et_val{f}[f:0]".
++ * parameter: filter {f} | stride size 0x4 | range [0, 15]
++ * port="pif_rpf_et_val0_i[15:0]"
++ */
++
++/* register address for bitfield et_val{f}[f:0] */
++#define rpf_et_valf_adr(filter) (0x00005300 + (filter) * 0x4)
++/* bitmask for bitfield et_val{f}[f:0] */
++#define rpf_et_valf_msk 0x0000ffff
++/* inverted bitmask for bitfield et_val{f}[f:0] */
++#define rpf_et_valf_mskn 0xffff0000
++/* lower bit position of bitfield et_val{f}[f:0] */
++#define rpf_et_valf_shift 0
++/* width of bitfield et_val{f}[f:0] */
++#define rpf_et_valf_width 16
++/* default value of bitfield et_val{f}[f:0] */
++#define rpf_et_valf_default 0x0
++
++/* rx ipv4_chk_en bitfield definitions
++ * preprocessor definitions for the bitfield "ipv4_chk_en".
++ * port="pif_rpo_ipv4_chk_en_i"
++ */
++
++/* register address for bitfield ipv4_chk_en */
++#define rpo_ipv4chk_en_adr 0x00005580
++/* bitmask for bitfield ipv4_chk_en */
++#define rpo_ipv4chk_en_msk 0x00000002
++/* inverted bitmask for bitfield ipv4_chk_en */
++#define rpo_ipv4chk_en_mskn 0xfffffffd
++/* lower bit position of bitfield ipv4_chk_en */
++#define rpo_ipv4chk_en_shift 1
++/* width of bitfield ipv4_chk_en */
++#define rpo_ipv4chk_en_width 1
++/* default value of bitfield ipv4_chk_en */
++#define rpo_ipv4chk_en_default 0x0
++
++/* rx desc{d}_vl_strip bitfield definitions
++ * preprocessor definitions for the bitfield "desc{d}_vl_strip".
++ * parameter: descriptor {d} | stride size 0x20 | range [0, 31]
++ * port="pif_rpo_desc_vl_strip_i[0]"
++ */
++
++/* register address for bitfield desc{d}_vl_strip */
++#define rpo_descdvl_strip_adr(descriptor) (0x00005b08 + (descriptor) * 0x20)
++/* bitmask for bitfield desc{d}_vl_strip */
++#define rpo_descdvl_strip_msk 0x20000000
++/* inverted bitmask for bitfield desc{d}_vl_strip */
++#define rpo_descdvl_strip_mskn 0xdfffffff
++/* lower bit position of bitfield desc{d}_vl_strip */
++#define rpo_descdvl_strip_shift 29
++/* width of bitfield desc{d}_vl_strip */
++#define rpo_descdvl_strip_width 1
++/* default value of bitfield desc{d}_vl_strip */
++#define rpo_descdvl_strip_default 0x0
++
++/* rx l4_chk_en bitfield definitions
++ * preprocessor definitions for the bitfield "l4_chk_en".
++ * port="pif_rpo_l4_chk_en_i"
++ */
++
++/* register address for bitfield l4_chk_en */
++#define rpol4chk_en_adr 0x00005580
++/* bitmask for bitfield l4_chk_en */
++#define rpol4chk_en_msk 0x00000001
++/* inverted bitmask for bitfield l4_chk_en */
++#define rpol4chk_en_mskn 0xfffffffe
++/* lower bit position of bitfield l4_chk_en */
++#define rpol4chk_en_shift 0
++/* width of bitfield l4_chk_en */
++#define rpol4chk_en_width 1
++/* default value of bitfield l4_chk_en */
++#define rpol4chk_en_default 0x0
++
++/* rx reg_res_dsbl bitfield definitions
++ * preprocessor definitions for the bitfield "reg_res_dsbl".
++ * port="pif_rx_reg_res_dsbl_i"
++ */
++
++/* register address for bitfield reg_res_dsbl */
++#define rx_reg_res_dsbl_adr 0x00005000
++/* bitmask for bitfield reg_res_dsbl */
++#define rx_reg_res_dsbl_msk 0x20000000
++/* inverted bitmask for bitfield reg_res_dsbl */
++#define rx_reg_res_dsbl_mskn 0xdfffffff
++/* lower bit position of bitfield reg_res_dsbl */
++#define rx_reg_res_dsbl_shift 29
++/* width of bitfield reg_res_dsbl */
++#define rx_reg_res_dsbl_width 1
++/* default value of bitfield reg_res_dsbl */
++#define rx_reg_res_dsbl_default 0x1
++
++/* tx dca{d}_cpuid[7:0] bitfield definitions
++ * preprocessor definitions for the bitfield "dca{d}_cpuid[7:0]".
++ * parameter: dca {d} | stride size 0x4 | range [0, 31]
++ * port="pif_tdm_dca0_cpuid_i[7:0]"
++ */
++
++/* register address for bitfield dca{d}_cpuid[7:0] */
++#define tdm_dcadcpuid_adr(dca) (0x00008400 + (dca) * 0x4)
++/* bitmask for bitfield dca{d}_cpuid[7:0] */
++#define tdm_dcadcpuid_msk 0x000000ff
++/* inverted bitmask for bitfield dca{d}_cpuid[7:0] */
++#define tdm_dcadcpuid_mskn 0xffffff00
++/* lower bit position of bitfield dca{d}_cpuid[7:0] */
++#define tdm_dcadcpuid_shift 0
++/* width of bitfield dca{d}_cpuid[7:0] */
++#define tdm_dcadcpuid_width 8
++/* default value of bitfield dca{d}_cpuid[7:0] */
++#define tdm_dcadcpuid_default 0x0
++
++/* tx lso_en[1f:0] bitfield definitions
++ * preprocessor definitions for the bitfield "lso_en[1f:0]".
++ * port="pif_tdm_lso_en_i[31:0]"
++ */
++
++/* register address for bitfield lso_en[1f:0] */
++#define tdm_lso_en_adr 0x00007810
++/* bitmask for bitfield lso_en[1f:0] */
++#define tdm_lso_en_msk 0xffffffff
++/* inverted bitmask for bitfield lso_en[1f:0] */
++#define tdm_lso_en_mskn 0x00000000
++/* lower bit position of bitfield lso_en[1f:0] */
++#define tdm_lso_en_shift 0
++/* width of bitfield lso_en[1f:0] */
++#define tdm_lso_en_width 32
++/* default value of bitfield lso_en[1f:0] */
++#define tdm_lso_en_default 0x0
++
++/* tx dca_en bitfield definitions
++ * preprocessor definitions for the bitfield "dca_en".
++ * port="pif_tdm_dca_en_i"
++ */
++
++/* register address for bitfield dca_en */
++#define tdm_dca_en_adr 0x00008480
++/* bitmask for bitfield dca_en */
++#define tdm_dca_en_msk 0x80000000
++/* inverted bitmask for bitfield dca_en */
++#define tdm_dca_en_mskn 0x7fffffff
++/* lower bit position of bitfield dca_en */
++#define tdm_dca_en_shift 31
++/* width of bitfield dca_en */
++#define tdm_dca_en_width 1
++/* default value of bitfield dca_en */
++#define tdm_dca_en_default 0x1
++
++/* tx dca_mode[3:0] bitfield definitions
++ * preprocessor definitions for the bitfield "dca_mode[3:0]".
++ * port="pif_tdm_dca_mode_i[3:0]"
++ */
++
++/* register address for bitfield dca_mode[3:0] */
++#define tdm_dca_mode_adr 0x00008480
++/* bitmask for bitfield dca_mode[3:0] */
++#define tdm_dca_mode_msk 0x0000000f
++/* inverted bitmask for bitfield dca_mode[3:0] */
++#define tdm_dca_mode_mskn 0xfffffff0
++/* lower bit position of bitfield dca_mode[3:0] */
++#define tdm_dca_mode_shift 0
++/* width of bitfield dca_mode[3:0] */
++#define tdm_dca_mode_width 4
++/* default value of bitfield dca_mode[3:0] */
++#define tdm_dca_mode_default 0x0
++
++/* tx dca{d}_desc_en bitfield definitions
++ * preprocessor definitions for the bitfield "dca{d}_desc_en".
++ * parameter: dca {d} | stride size 0x4 | range [0, 31]
++ * port="pif_tdm_dca_desc_en_i[0]"
++ */
++
++/* register address for bitfield dca{d}_desc_en */
++#define tdm_dcaddesc_en_adr(dca) (0x00008400 + (dca) * 0x4)
++/* bitmask for bitfield dca{d}_desc_en */
++#define tdm_dcaddesc_en_msk 0x80000000
++/* inverted bitmask for bitfield dca{d}_desc_en */
++#define tdm_dcaddesc_en_mskn 0x7fffffff
++/* lower bit position of bitfield dca{d}_desc_en */
++#define tdm_dcaddesc_en_shift 31
++/* width of bitfield dca{d}_desc_en */
++#define tdm_dcaddesc_en_width 1
++/* default value of bitfield dca{d}_desc_en */
++#define tdm_dcaddesc_en_default 0x0
++
++/* tx desc{d}_en bitfield definitions
++ * preprocessor definitions for the bitfield "desc{d}_en".
++ * parameter: descriptor {d} | stride size 0x40 | range [0, 31]
++ * port="pif_tdm_desc_en_i[0]"
++ */
++
++/* register address for bitfield desc{d}_en */
++#define tdm_descden_adr(descriptor) (0x00007c08 + (descriptor) * 0x40)
++/* bitmask for bitfield desc{d}_en */
++#define tdm_descden_msk 0x80000000
++/* inverted bitmask for bitfield desc{d}_en */
++#define tdm_descden_mskn 0x7fffffff
++/* lower bit position of bitfield desc{d}_en */
++#define tdm_descden_shift 31
++/* width of bitfield desc{d}_en */
++#define tdm_descden_width 1
++/* default value of bitfield desc{d}_en */
++#define tdm_descden_default 0x0
++
++/* tx desc{d}_hd[c:0] bitfield definitions
++ * preprocessor definitions for the bitfield "desc{d}_hd[c:0]".
++ * parameter: descriptor {d} | stride size 0x40 | range [0, 31]
++ * port="tdm_pif_desc0_hd_o[12:0]"
++ */
++
++/* register address for bitfield desc{d}_hd[c:0] */
++#define tdm_descdhd_adr(descriptor) (0x00007c0c + (descriptor) * 0x40)
++/* bitmask for bitfield desc{d}_hd[c:0] */
++#define tdm_descdhd_msk 0x00001fff
++/* inverted bitmask for bitfield desc{d}_hd[c:0] */
++#define tdm_descdhd_mskn 0xffffe000
++/* lower bit position of bitfield desc{d}_hd[c:0] */
++#define tdm_descdhd_shift 0
++/* width of bitfield desc{d}_hd[c:0] */
++#define tdm_descdhd_width 13
++
++/* tx desc{d}_len[9:0] bitfield definitions
++ * preprocessor definitions for the bitfield "desc{d}_len[9:0]".
++ * parameter: descriptor {d} | stride size 0x40 | range [0, 31]
++ * port="pif_tdm_desc0_len_i[9:0]"
++ */
++
++/* register address for bitfield desc{d}_len[9:0] */
++#define tdm_descdlen_adr(descriptor) (0x00007c08 + (descriptor) * 0x40)
++/* bitmask for bitfield desc{d}_len[9:0] */
++#define tdm_descdlen_msk 0x00001ff8
++/* inverted bitmask for bitfield desc{d}_len[9:0] */
++#define tdm_descdlen_mskn 0xffffe007
++/* lower bit position of bitfield desc{d}_len[9:0] */
++#define tdm_descdlen_shift 3
++/* width of bitfield desc{d}_len[9:0] */
++#define tdm_descdlen_width 10
++/* default value of bitfield desc{d}_len[9:0] */
++#define tdm_descdlen_default 0x0
++
++/* tx int_desc_wrb_en bitfield definitions
++ * preprocessor definitions for the bitfield "int_desc_wrb_en".
++ * port="pif_tdm_int_desc_wrb_en_i"
++ */
++
++/* register address for bitfield int_desc_wrb_en */
++#define tdm_int_desc_wrb_en_adr 0x00007b40
++/* bitmask for bitfield int_desc_wrb_en */
++#define tdm_int_desc_wrb_en_msk 0x00000002
++/* inverted bitmask for bitfield int_desc_wrb_en */
++#define tdm_int_desc_wrb_en_mskn 0xfffffffd
++/* lower bit position of bitfield int_desc_wrb_en */
++#define tdm_int_desc_wrb_en_shift 1
++/* width of bitfield int_desc_wrb_en */
++#define tdm_int_desc_wrb_en_width 1
++/* default value of bitfield int_desc_wrb_en */
++#define tdm_int_desc_wrb_en_default 0x0
++
++/* tx desc{d}_wrb_thresh[6:0] bitfield definitions
++ * preprocessor definitions for the bitfield "desc{d}_wrb_thresh[6:0]".
++ * parameter: descriptor {d} | stride size 0x40 | range [0, 31]
++ * port="pif_tdm_desc0_wrb_thresh_i[6:0]"
++ */
++
++/* register address for bitfield desc{d}_wrb_thresh[6:0] */
++#define tdm_descdwrb_thresh_adr(descriptor) (0x00007c18 + (descriptor) * 0x40)
++/* bitmask for bitfield desc{d}_wrb_thresh[6:0] */
++#define tdm_descdwrb_thresh_msk 0x00007f00
++/* inverted bitmask for bitfield desc{d}_wrb_thresh[6:0] */
++#define tdm_descdwrb_thresh_mskn 0xffff80ff
++/* lower bit position of bitfield desc{d}_wrb_thresh[6:0] */
++#define tdm_descdwrb_thresh_shift 8
++/* width of bitfield desc{d}_wrb_thresh[6:0] */
++#define tdm_descdwrb_thresh_width 7
++/* default value of bitfield desc{d}_wrb_thresh[6:0] */
++#define tdm_descdwrb_thresh_default 0x0
++
++/* tx lso_tcp_flag_first[b:0] bitfield definitions
++ * preprocessor definitions for the bitfield "lso_tcp_flag_first[b:0]".
++ * port="pif_thm_lso_tcp_flag_first_i[11:0]"
++ */
++
++/* register address for bitfield lso_tcp_flag_first[b:0] */
++#define thm_lso_tcp_flag_first_adr 0x00007820
++/* bitmask for bitfield lso_tcp_flag_first[b:0] */
++#define thm_lso_tcp_flag_first_msk 0x00000fff
++/* inverted bitmask for bitfield lso_tcp_flag_first[b:0] */
++#define thm_lso_tcp_flag_first_mskn 0xfffff000
++/* lower bit position of bitfield lso_tcp_flag_first[b:0] */
++#define thm_lso_tcp_flag_first_shift 0
++/* width of bitfield lso_tcp_flag_first[b:0] */
++#define thm_lso_tcp_flag_first_width 12
++/* default value of bitfield lso_tcp_flag_first[b:0] */
++#define thm_lso_tcp_flag_first_default 0x0
++
++/* tx lso_tcp_flag_last[b:0] bitfield definitions
++ * preprocessor definitions for the bitfield "lso_tcp_flag_last[b:0]".
++ * port="pif_thm_lso_tcp_flag_last_i[11:0]"
++ */
++
++/* register address for bitfield lso_tcp_flag_last[b:0] */
++#define thm_lso_tcp_flag_last_adr 0x00007824
++/* bitmask for bitfield lso_tcp_flag_last[b:0] */
++#define thm_lso_tcp_flag_last_msk 0x00000fff
++/* inverted bitmask for bitfield lso_tcp_flag_last[b:0] */
++#define thm_lso_tcp_flag_last_mskn 0xfffff000
++/* lower bit position of bitfield lso_tcp_flag_last[b:0] */
++#define thm_lso_tcp_flag_last_shift 0
++/* width of bitfield lso_tcp_flag_last[b:0] */
++#define thm_lso_tcp_flag_last_width 12
++/* default value of bitfield lso_tcp_flag_last[b:0] */
++#define thm_lso_tcp_flag_last_default 0x0
++
++/* tx lso_tcp_flag_mid[b:0] bitfield definitions
++ * preprocessor definitions for the bitfield "lso_tcp_flag_mid[b:0]".
++ * port="pif_thm_lso_tcp_flag_mid_i[11:0]"
++ */
++
++/* Register address for bitfield lro_rsc_max[1F:0] */
++#define rpo_lro_rsc_max_adr 0x00005598
++/* Bitmask for bitfield lro_rsc_max[1F:0] */
++#define rpo_lro_rsc_max_msk 0xFFFFFFFF
++/* Inverted bitmask for bitfield lro_rsc_max[1F:0] */
++#define rpo_lro_rsc_max_mskn 0x00000000
++/* Lower bit position of bitfield lro_rsc_max[1F:0] */
++#define rpo_lro_rsc_max_shift 0
++/* Width of bitfield lro_rsc_max[1F:0] */
++#define rpo_lro_rsc_max_width 32
++/* Default value of bitfield lro_rsc_max[1F:0] */
++#define rpo_lro_rsc_max_default 0x0
++
++/* RX lro_en[1F:0] Bitfield Definitions
++ * Preprocessor definitions for the bitfield "lro_en[1F:0]".
++ * PORT="pif_rpo_lro_en_i[31:0]"
++ */
++
++/* Register address for bitfield lro_en[1F:0] */
++#define rpo_lro_en_adr 0x00005590
++/* Bitmask for bitfield lro_en[1F:0] */
++#define rpo_lro_en_msk 0xFFFFFFFF
++/* Inverted bitmask for bitfield lro_en[1F:0] */
++#define rpo_lro_en_mskn 0x00000000
++/* Lower bit position of bitfield lro_en[1F:0] */
++#define rpo_lro_en_shift 0
++/* Width of bitfield lro_en[1F:0] */
++#define rpo_lro_en_width 32
++/* Default value of bitfield lro_en[1F:0] */
++#define rpo_lro_en_default 0x0
++
++/* RX lro_ptopt_en Bitfield Definitions
++ * Preprocessor definitions for the bitfield "lro_ptopt_en".
++ * PORT="pif_rpo_lro_ptopt_en_i"
++ */
++
++/* Register address for bitfield lro_ptopt_en */
++#define rpo_lro_ptopt_en_adr 0x00005594
++/* Bitmask for bitfield lro_ptopt_en */
++#define rpo_lro_ptopt_en_msk 0x00008000
++/* Inverted bitmask for bitfield lro_ptopt_en */
++#define rpo_lro_ptopt_en_mskn 0xFFFF7FFF
++/* Lower bit position of bitfield lro_ptopt_en */
++#define rpo_lro_ptopt_en_shift 15
++/* Width of bitfield lro_ptopt_en */
++#define rpo_lro_ptopt_en_width 1
++/* Default value of bitfield lro_ptopt_en */
++#define rpo_lro_ptopt_en_defalt 0x1
++
++/* RX lro_q_ses_lmt Bitfield Definitions
++ * Preprocessor definitions for the bitfield "lro_q_ses_lmt".
++ * PORT="pif_rpo_lro_q_ses_lmt_i[1:0]"
++ */
++
++/* Register address for bitfield lro_q_ses_lmt */
++#define rpo_lro_qses_lmt_adr 0x00005594
++/* Bitmask for bitfield lro_q_ses_lmt */
++#define rpo_lro_qses_lmt_msk 0x00003000
++/* Inverted bitmask for bitfield lro_q_ses_lmt */
++#define rpo_lro_qses_lmt_mskn 0xFFFFCFFF
++/* Lower bit position of bitfield lro_q_ses_lmt */
++#define rpo_lro_qses_lmt_shift 12
++/* Width of bitfield lro_q_ses_lmt */
++#define rpo_lro_qses_lmt_width 2
++/* Default value of bitfield lro_q_ses_lmt */
++#define rpo_lro_qses_lmt_default 0x1
++
++/* RX lro_tot_dsc_lmt[1:0] Bitfield Definitions
++ * Preprocessor definitions for the bitfield "lro_tot_dsc_lmt[1:0]".
++ * PORT="pif_rpo_lro_tot_dsc_lmt_i[1:0]"
++ */
++
++/* Register address for bitfield lro_tot_dsc_lmt[1:0] */
++#define rpo_lro_tot_dsc_lmt_adr 0x00005594
++/* Bitmask for bitfield lro_tot_dsc_lmt[1:0] */
++#define rpo_lro_tot_dsc_lmt_msk 0x00000060
++/* Inverted bitmask for bitfield lro_tot_dsc_lmt[1:0] */
++#define rpo_lro_tot_dsc_lmt_mskn 0xFFFFFF9F
++/* Lower bit position of bitfield lro_tot_dsc_lmt[1:0] */
++#define rpo_lro_tot_dsc_lmt_shift 5
++/* Width of bitfield lro_tot_dsc_lmt[1:0] */
++#define rpo_lro_tot_dsc_lmt_width 2
++/* Default value of bitfield lro_tot_dsc_lmt[1:0] */
++#define rpo_lro_tot_dsc_lmt_defalt 0x1
++
++/* RX lro_pkt_min[4:0] Bitfield Definitions
++ * Preprocessor definitions for the bitfield "lro_pkt_min[4:0]".
++ * PORT="pif_rpo_lro_pkt_min_i[4:0]"
++ */
++
++/* Register address for bitfield lro_pkt_min[4:0] */
++#define rpo_lro_pkt_min_adr 0x00005594
++/* Bitmask for bitfield lro_pkt_min[4:0] */
++#define rpo_lro_pkt_min_msk 0x0000001F
++/* Inverted bitmask for bitfield lro_pkt_min[4:0] */
++#define rpo_lro_pkt_min_mskn 0xFFFFFFE0
++/* Lower bit position of bitfield lro_pkt_min[4:0] */
++#define rpo_lro_pkt_min_shift 0
++/* Width of bitfield lro_pkt_min[4:0] */
++#define rpo_lro_pkt_min_width 5
++/* Default value of bitfield lro_pkt_min[4:0] */
++#define rpo_lro_pkt_min_default 0x8
++
++/* Width of bitfield lro{L}_des_max[1:0] */
++#define rpo_lro_ldes_max_width 2
++/* Default value of bitfield lro{L}_des_max[1:0] */
++#define rpo_lro_ldes_max_default 0x0
++
++/* RX lro_tb_div[11:0] Bitfield Definitions
++ * Preprocessor definitions for the bitfield "lro_tb_div[11:0]".
++ * PORT="pif_rpo_lro_tb_div_i[11:0]"
++ */
++
++/* Register address for bitfield lro_tb_div[11:0] */
++#define rpo_lro_tb_div_adr 0x00005620
++/* Bitmask for bitfield lro_tb_div[11:0] */
++#define rpo_lro_tb_div_msk 0xFFF00000
++/* Inverted bitmask for bitfield lro_tb_div[11:0] */
++#define rpo_lro_tb_div_mskn 0x000FFFFF
++/* Lower bit position of bitfield lro_tb_div[11:0] */
++#define rpo_lro_tb_div_shift 20
++/* Width of bitfield lro_tb_div[11:0] */
++#define rpo_lro_tb_div_width 12
++/* Default value of bitfield lro_tb_div[11:0] */
++#define rpo_lro_tb_div_default 0xC35
++
++/* RX lro_ina_ival[9:0] Bitfield Definitions
++ *   Preprocessor definitions for the bitfield "lro_ina_ival[9:0]".
++ *   PORT="pif_rpo_lro_ina_ival_i[9:0]"
++ */
++
++/* Register address for bitfield lro_ina_ival[9:0] */
++#define rpo_lro_ina_ival_adr 0x00005620
++/* Bitmask for bitfield lro_ina_ival[9:0] */
++#define rpo_lro_ina_ival_msk 0x000FFC00
++/* Inverted bitmask for bitfield lro_ina_ival[9:0] */
++#define rpo_lro_ina_ival_mskn 0xFFF003FF
++/* Lower bit position of bitfield lro_ina_ival[9:0] */
++#define rpo_lro_ina_ival_shift 10
++/* Width of bitfield lro_ina_ival[9:0] */
++#define rpo_lro_ina_ival_width 10
++/* Default value of bitfield lro_ina_ival[9:0] */
++#define rpo_lro_ina_ival_default 0xA
++
++/* RX lro_max_ival[9:0] Bitfield Definitions
++ * Preprocessor definitions for the bitfield "lro_max_ival[9:0]".
++ * PORT="pif_rpo_lro_max_ival_i[9:0]"
++ */
++
++/* Register address for bitfield lro_max_ival[9:0] */
++#define rpo_lro_max_ival_adr 0x00005620
++/* Bitmask for bitfield lro_max_ival[9:0] */
++#define rpo_lro_max_ival_msk 0x000003FF
++/* Inverted bitmask for bitfield lro_max_ival[9:0] */
++#define rpo_lro_max_ival_mskn 0xFFFFFC00
++/* Lower bit position of bitfield lro_max_ival[9:0] */
++#define rpo_lro_max_ival_shift 0
++/* Width of bitfield lro_max_ival[9:0] */
++#define rpo_lro_max_ival_width 10
++/* Default value of bitfield lro_max_ival[9:0] */
++#define rpo_lro_max_ival_default 0x19
++
++/* TX dca{D}_cpuid[7:0] Bitfield Definitions
++ * Preprocessor definitions for the bitfield "dca{D}_cpuid[7:0]".
++ * Parameter: DCA {D} | stride size 0x4 | range [0, 31]
++ * PORT="pif_tdm_dca0_cpuid_i[7:0]"
++ */
++
++/* Register address for bitfield dca{D}_cpuid[7:0] */
++#define tdm_dca_dcpuid_adr(dca) (0x00008400 + (dca) * 0x4)
++/* Bitmask for bitfield dca{D}_cpuid[7:0] */
++#define tdm_dca_dcpuid_msk 0x000000FF
++/* Inverted bitmask for bitfield dca{D}_cpuid[7:0] */
++#define tdm_dca_dcpuid_mskn 0xFFFFFF00
++/* Lower bit position of bitfield dca{D}_cpuid[7:0] */
++#define tdm_dca_dcpuid_shift 0
++/* Width of bitfield dca{D}_cpuid[7:0] */
++#define tdm_dca_dcpuid_width 8
++/* Default value of bitfield dca{D}_cpuid[7:0] */
++#define tdm_dca_dcpuid_default 0x0
++
++/* TX dca{D}_desc_en Bitfield Definitions
++ * Preprocessor definitions for the bitfield "dca{D}_desc_en".
++ * Parameter: DCA {D} | stride size 0x4 | range [0, 31]
++ * PORT="pif_tdm_dca_desc_en_i[0]"
++ */
++
++/* Register address for bitfield dca{D}_desc_en */
++#define tdm_dca_ddesc_en_adr(dca) (0x00008400 + (dca) * 0x4)
++/* Bitmask for bitfield dca{D}_desc_en */
++#define tdm_dca_ddesc_en_msk 0x80000000
++/* Inverted bitmask for bitfield dca{D}_desc_en */
++#define tdm_dca_ddesc_en_mskn 0x7FFFFFFF
++/* Lower bit position of bitfield dca{D}_desc_en */
++#define tdm_dca_ddesc_en_shift 31
++/* Width of bitfield dca{D}_desc_en */
++#define tdm_dca_ddesc_en_width 1
++/* Default value of bitfield dca{D}_desc_en */
++#define tdm_dca_ddesc_en_default 0x0
++
++/* TX desc{D}_en Bitfield Definitions
++ * Preprocessor definitions for the bitfield "desc{D}_en".
++ * Parameter: descriptor {D} | stride size 0x40 | range [0, 31]
++ * PORT="pif_tdm_desc_en_i[0]"
++ */
++
++/* Register address for bitfield desc{D}_en */
++#define tdm_desc_den_adr(descriptor) (0x00007C08 + (descriptor) * 0x40)
++/* Bitmask for bitfield desc{D}_en */
++#define tdm_desc_den_msk 0x80000000
++/* Inverted bitmask for bitfield desc{D}_en */
++#define tdm_desc_den_mskn 0x7FFFFFFF
++/* Lower bit position of bitfield desc{D}_en */
++#define tdm_desc_den_shift 31
++/* Width of bitfield desc{D}_en */
++#define tdm_desc_den_width 1
++/* Default value of bitfield desc{D}_en */
++#define tdm_desc_den_default 0x0
++
++/* TX desc{D}_hd[C:0] Bitfield Definitions
++ * Preprocessor definitions for the bitfield "desc{D}_hd[C:0]".
++ * Parameter: descriptor {D} | stride size 0x40 | range [0, 31]
++ * PORT="tdm_pif_desc0_hd_o[12:0]"
++ */
++
++/* Register address for bitfield desc{D}_hd[C:0] */
++#define tdm_desc_dhd_adr(descriptor) (0x00007C0C + (descriptor) * 0x40)
++/* Bitmask for bitfield desc{D}_hd[C:0] */
++#define tdm_desc_dhd_msk 0x00001FFF
++/* Inverted bitmask for bitfield desc{D}_hd[C:0] */
++#define tdm_desc_dhd_mskn 0xFFFFE000
++/* Lower bit position of bitfield desc{D}_hd[C:0] */
++#define tdm_desc_dhd_shift 0
++/* Width of bitfield desc{D}_hd[C:0] */
++#define tdm_desc_dhd_width 13
++
++/* TX desc{D}_len[9:0] Bitfield Definitions
++ * Preprocessor definitions for the bitfield "desc{D}_len[9:0]".
++ * Parameter: descriptor {D} | stride size 0x40 | range [0, 31]
++ * PORT="pif_tdm_desc0_len_i[9:0]"
++ */
++
++/* Register address for bitfield desc{D}_len[9:0] */
++#define tdm_desc_dlen_adr(descriptor) (0x00007C08 + (descriptor) * 0x40)
++/* Bitmask for bitfield desc{D}_len[9:0] */
++#define tdm_desc_dlen_msk 0x00001FF8
++/* Inverted bitmask for bitfield desc{D}_len[9:0] */
++#define tdm_desc_dlen_mskn 0xFFFFE007
++/* Lower bit position of bitfield desc{D}_len[9:0] */
++#define tdm_desc_dlen_shift 3
++/* Width of bitfield desc{D}_len[9:0] */
++#define tdm_desc_dlen_width 10
++/* Default value of bitfield desc{D}_len[9:0] */
++#define tdm_desc_dlen_default 0x0
++
++/* TX desc{D}_wrb_thresh[6:0] Bitfield Definitions
++ * Preprocessor definitions for the bitfield "desc{D}_wrb_thresh[6:0]".
++ * Parameter: descriptor {D} | stride size 0x40 | range [0, 31]
++ * PORT="pif_tdm_desc0_wrb_thresh_i[6:0]"
++ */
++
++/* Register address for bitfield desc{D}_wrb_thresh[6:0] */
++#define tdm_desc_dwrb_thresh_adr(descriptor) \
++	(0x00007C18 + (descriptor) * 0x40)
++/* Bitmask for bitfield desc{D}_wrb_thresh[6:0] */
++#define tdm_desc_dwrb_thresh_msk 0x00007F00
++/* Inverted bitmask for bitfield desc{D}_wrb_thresh[6:0] */
++#define tdm_desc_dwrb_thresh_mskn 0xFFFF80FF
++/* Lower bit position of bitfield desc{D}_wrb_thresh[6:0] */
++#define tdm_desc_dwrb_thresh_shift 8
++/* Width of bitfield desc{D}_wrb_thresh[6:0] */
++#define tdm_desc_dwrb_thresh_width 7
++/* Default value of bitfield desc{D}_wrb_thresh[6:0] */
++#define tdm_desc_dwrb_thresh_default 0x0
++
++/* TX tdm_int_mod_en Bitfield Definitions
++ * Preprocessor definitions for the bitfield "tdm_int_mod_en".
++ * PORT="pif_tdm_int_mod_en_i"
++ */
++
++/* Register address for bitfield tdm_int_mod_en */
++#define tdm_int_mod_en_adr 0x00007B40
++/* Bitmask for bitfield tdm_int_mod_en */
++#define tdm_int_mod_en_msk 0x00000010
++/* Inverted bitmask for bitfield tdm_int_mod_en */
++#define tdm_int_mod_en_mskn 0xFFFFFFEF
++/* Lower bit position of bitfield tdm_int_mod_en */
++#define tdm_int_mod_en_shift 4
++/* Width of bitfield tdm_int_mod_en */
++#define tdm_int_mod_en_width 1
++/* Default value of bitfield tdm_int_mod_en */
++#define tdm_int_mod_en_default 0x0
++
++/* TX lso_tcp_flag_mid[B:0] Bitfield Definitions
++ * Preprocessor definitions for the bitfield "lso_tcp_flag_mid[B:0]".
++ * PORT="pif_thm_lso_tcp_flag_mid_i[11:0]"
++ */
++/* register address for bitfield lso_tcp_flag_mid[b:0] */
++#define thm_lso_tcp_flag_mid_adr 0x00007820
++/* bitmask for bitfield lso_tcp_flag_mid[b:0] */
++#define thm_lso_tcp_flag_mid_msk 0x0fff0000
++/* inverted bitmask for bitfield lso_tcp_flag_mid[b:0] */
++#define thm_lso_tcp_flag_mid_mskn 0xf000ffff
++/* lower bit position of bitfield lso_tcp_flag_mid[b:0] */
++#define thm_lso_tcp_flag_mid_shift 16
++/* width of bitfield lso_tcp_flag_mid[b:0] */
++#define thm_lso_tcp_flag_mid_width 12
++/* default value of bitfield lso_tcp_flag_mid[b:0] */
++#define thm_lso_tcp_flag_mid_default 0x0
++
++/* tx tx_buf_en bitfield definitions
++ * preprocessor definitions for the bitfield "tx_buf_en".
++ * port="pif_tpb_tx_buf_en_i"
++ */
++
++/* register address for bitfield tx_buf_en */
++#define tpb_tx_buf_en_adr 0x00007900
++/* bitmask for bitfield tx_buf_en */
++#define tpb_tx_buf_en_msk 0x00000001
++/* inverted bitmask for bitfield tx_buf_en */
++#define tpb_tx_buf_en_mskn 0xfffffffe
++/* lower bit position of bitfield tx_buf_en */
++#define tpb_tx_buf_en_shift 0
++/* width of bitfield tx_buf_en */
++#define tpb_tx_buf_en_width 1
++/* default value of bitfield tx_buf_en */
++#define tpb_tx_buf_en_default 0x0
++
++/* tx tx{b}_hi_thresh[c:0] bitfield definitions
++ * preprocessor definitions for the bitfield "tx{b}_hi_thresh[c:0]".
++ * parameter: buffer {b} | stride size 0x10 | range [0, 7]
++ * port="pif_tpb_tx0_hi_thresh_i[12:0]"
++ */
++
++/* register address for bitfield tx{b}_hi_thresh[c:0] */
++#define tpb_txbhi_thresh_adr(buffer) (0x00007914 + (buffer) * 0x10)
++/* bitmask for bitfield tx{b}_hi_thresh[c:0] */
++#define tpb_txbhi_thresh_msk 0x1fff0000
++/* inverted bitmask for bitfield tx{b}_hi_thresh[c:0] */
++#define tpb_txbhi_thresh_mskn 0xe000ffff
++/* lower bit position of bitfield tx{b}_hi_thresh[c:0] */
++#define tpb_txbhi_thresh_shift 16
++/* width of bitfield tx{b}_hi_thresh[c:0] */
++#define tpb_txbhi_thresh_width 13
++/* default value of bitfield tx{b}_hi_thresh[c:0] */
++#define tpb_txbhi_thresh_default 0x0
++
++/* tx tx{b}_lo_thresh[c:0] bitfield definitions
++ * preprocessor definitions for the bitfield "tx{b}_lo_thresh[c:0]".
++ * parameter: buffer {b} | stride size 0x10 | range [0, 7]
++ * port="pif_tpb_tx0_lo_thresh_i[12:0]"
++ */
++
++/* register address for bitfield tx{b}_lo_thresh[c:0] */
++#define tpb_txblo_thresh_adr(buffer) (0x00007914 + (buffer) * 0x10)
++/* bitmask for bitfield tx{b}_lo_thresh[c:0] */
++#define tpb_txblo_thresh_msk 0x00001fff
++/* inverted bitmask for bitfield tx{b}_lo_thresh[c:0] */
++#define tpb_txblo_thresh_mskn 0xffffe000
++/* lower bit position of bitfield tx{b}_lo_thresh[c:0] */
++#define tpb_txblo_thresh_shift 0
++/* width of bitfield tx{b}_lo_thresh[c:0] */
++#define tpb_txblo_thresh_width 13
++/* default value of bitfield tx{b}_lo_thresh[c:0] */
++#define tpb_txblo_thresh_default 0x0
++
++/* tx dma_sys_loopback bitfield definitions
++ * preprocessor definitions for the bitfield "dma_sys_loopback".
++ * port="pif_tpb_dma_sys_lbk_i"
++ */
++
++/* register address for bitfield dma_sys_loopback */
++#define tpb_dma_sys_lbk_adr 0x00007000
++/* bitmask for bitfield dma_sys_loopback */
++#define tpb_dma_sys_lbk_msk 0x00000040
++/* inverted bitmask for bitfield dma_sys_loopback */
++#define tpb_dma_sys_lbk_mskn 0xffffffbf
++/* lower bit position of bitfield dma_sys_loopback */
++#define tpb_dma_sys_lbk_shift 6
++/* width of bitfield dma_sys_loopback */
++#define tpb_dma_sys_lbk_width 1
++/* default value of bitfield dma_sys_loopback */
++#define tpb_dma_sys_lbk_default 0x0
++
++/* tx tx{b}_buf_size[7:0] bitfield definitions
++ * preprocessor definitions for the bitfield "tx{b}_buf_size[7:0]".
++ * parameter: buffer {b} | stride size 0x10 | range [0, 7]
++ * port="pif_tpb_tx0_buf_size_i[7:0]"
++ */
++
++/* register address for bitfield tx{b}_buf_size[7:0] */
++#define tpb_txbbuf_size_adr(buffer) (0x00007910 + (buffer) * 0x10)
++/* bitmask for bitfield tx{b}_buf_size[7:0] */
++#define tpb_txbbuf_size_msk 0x000000ff
++/* inverted bitmask for bitfield tx{b}_buf_size[7:0] */
++#define tpb_txbbuf_size_mskn 0xffffff00
++/* lower bit position of bitfield tx{b}_buf_size[7:0] */
++#define tpb_txbbuf_size_shift 0
++/* width of bitfield tx{b}_buf_size[7:0] */
++#define tpb_txbbuf_size_width 8
++/* default value of bitfield tx{b}_buf_size[7:0] */
++#define tpb_txbbuf_size_default 0x0
++
++/* tx tx_scp_ins_en bitfield definitions
++ * preprocessor definitions for the bitfield "tx_scp_ins_en".
++ * port="pif_tpb_scp_ins_en_i"
++ */
++
++/* register address for bitfield tx_scp_ins_en */
++#define tpb_tx_scp_ins_en_adr 0x00007900
++/* bitmask for bitfield tx_scp_ins_en */
++#define tpb_tx_scp_ins_en_msk 0x00000004
++/* inverted bitmask for bitfield tx_scp_ins_en */
++#define tpb_tx_scp_ins_en_mskn 0xfffffffb
++/* lower bit position of bitfield tx_scp_ins_en */
++#define tpb_tx_scp_ins_en_shift 2
++/* width of bitfield tx_scp_ins_en */
++#define tpb_tx_scp_ins_en_width 1
++/* default value of bitfield tx_scp_ins_en */
++#define tpb_tx_scp_ins_en_default 0x0
++
++/* tx ipv4_chk_en bitfield definitions
++ * preprocessor definitions for the bitfield "ipv4_chk_en".
++ * port="pif_tpo_ipv4_chk_en_i"
++ */
++
++/* register address for bitfield ipv4_chk_en */
++#define tpo_ipv4chk_en_adr 0x00007800
++/* bitmask for bitfield ipv4_chk_en */
++#define tpo_ipv4chk_en_msk 0x00000002
++/* inverted bitmask for bitfield ipv4_chk_en */
++#define tpo_ipv4chk_en_mskn 0xfffffffd
++/* lower bit position of bitfield ipv4_chk_en */
++#define tpo_ipv4chk_en_shift 1
++/* width of bitfield ipv4_chk_en */
++#define tpo_ipv4chk_en_width 1
++/* default value of bitfield ipv4_chk_en */
++#define tpo_ipv4chk_en_default 0x0
++
++/* tx l4_chk_en bitfield definitions
++ * preprocessor definitions for the bitfield "l4_chk_en".
++ * port="pif_tpo_l4_chk_en_i"
++ */
++
++/* register address for bitfield l4_chk_en */
++#define tpol4chk_en_adr 0x00007800
++/* bitmask for bitfield l4_chk_en */
++#define tpol4chk_en_msk 0x00000001
++/* inverted bitmask for bitfield l4_chk_en */
++#define tpol4chk_en_mskn 0xfffffffe
++/* lower bit position of bitfield l4_chk_en */
++#define tpol4chk_en_shift 0
++/* width of bitfield l4_chk_en */
++#define tpol4chk_en_width 1
++/* default value of bitfield l4_chk_en */
++#define tpol4chk_en_default 0x0
++
++/* tx pkt_sys_loopback bitfield definitions
++ * preprocessor definitions for the bitfield "pkt_sys_loopback".
++ * port="pif_tpo_pkt_sys_lbk_i"
++ */
++
++/* register address for bitfield pkt_sys_loopback */
++#define tpo_pkt_sys_lbk_adr 0x00007000
++/* bitmask for bitfield pkt_sys_loopback */
++#define tpo_pkt_sys_lbk_msk 0x00000080
++/* inverted bitmask for bitfield pkt_sys_loopback */
++#define tpo_pkt_sys_lbk_mskn 0xffffff7f
++/* lower bit position of bitfield pkt_sys_loopback */
++#define tpo_pkt_sys_lbk_shift 7
++/* width of bitfield pkt_sys_loopback */
++#define tpo_pkt_sys_lbk_width 1
++/* default value of bitfield pkt_sys_loopback */
++#define tpo_pkt_sys_lbk_default 0x0
++
++/* tx data_tc_arb_mode bitfield definitions
++ * preprocessor definitions for the bitfield "data_tc_arb_mode".
++ * port="pif_tps_data_tc_arb_mode_i"
++ */
++
++/* register address for bitfield data_tc_arb_mode */
++#define tps_data_tc_arb_mode_adr 0x00007100
++/* bitmask for bitfield data_tc_arb_mode */
++#define tps_data_tc_arb_mode_msk 0x00000001
++/* inverted bitmask for bitfield data_tc_arb_mode */
++#define tps_data_tc_arb_mode_mskn 0xfffffffe
++/* lower bit position of bitfield data_tc_arb_mode */
++#define tps_data_tc_arb_mode_shift 0
++/* width of bitfield data_tc_arb_mode */
++#define tps_data_tc_arb_mode_width 1
++/* default value of bitfield data_tc_arb_mode */
++#define tps_data_tc_arb_mode_default 0x0
++
++/* tx desc_rate_ta_rst bitfield definitions
++ * preprocessor definitions for the bitfield "desc_rate_ta_rst".
++ * port="pif_tps_desc_rate_ta_rst_i"
++ */
++
++/* register address for bitfield desc_rate_ta_rst */
++#define tps_desc_rate_ta_rst_adr 0x00007310
++/* bitmask for bitfield desc_rate_ta_rst */
++#define tps_desc_rate_ta_rst_msk 0x80000000
++/* inverted bitmask for bitfield desc_rate_ta_rst */
++#define tps_desc_rate_ta_rst_mskn 0x7fffffff
++/* lower bit position of bitfield desc_rate_ta_rst */
++#define tps_desc_rate_ta_rst_shift 31
++/* width of bitfield desc_rate_ta_rst */
++#define tps_desc_rate_ta_rst_width 1
++/* default value of bitfield desc_rate_ta_rst */
++#define tps_desc_rate_ta_rst_default 0x0
++
++/* tx desc_rate_limit[a:0] bitfield definitions
++ * preprocessor definitions for the bitfield "desc_rate_limit[a:0]".
++ * port="pif_tps_desc_rate_lim_i[10:0]"
++ */
++
++/* register address for bitfield desc_rate_limit[a:0] */
++#define tps_desc_rate_lim_adr 0x00007310
++/* bitmask for bitfield desc_rate_limit[a:0] */
++#define tps_desc_rate_lim_msk 0x000007ff
++/* inverted bitmask for bitfield desc_rate_limit[a:0] */
++#define tps_desc_rate_lim_mskn 0xfffff800
++/* lower bit position of bitfield desc_rate_limit[a:0] */
++#define tps_desc_rate_lim_shift 0
++/* width of bitfield desc_rate_limit[a:0] */
++#define tps_desc_rate_lim_width 11
++/* default value of bitfield desc_rate_limit[a:0] */
++#define tps_desc_rate_lim_default 0x0
++
++/* tx desc_tc_arb_mode[1:0] bitfield definitions
++ * preprocessor definitions for the bitfield "desc_tc_arb_mode[1:0]".
++ * port="pif_tps_desc_tc_arb_mode_i[1:0]"
++ */
++
++/* register address for bitfield desc_tc_arb_mode[1:0] */
++#define tps_desc_tc_arb_mode_adr 0x00007200
++/* bitmask for bitfield desc_tc_arb_mode[1:0] */
++#define tps_desc_tc_arb_mode_msk 0x00000003
++/* inverted bitmask for bitfield desc_tc_arb_mode[1:0] */
++#define tps_desc_tc_arb_mode_mskn 0xfffffffc
++/* lower bit position of bitfield desc_tc_arb_mode[1:0] */
++#define tps_desc_tc_arb_mode_shift 0
++/* width of bitfield desc_tc_arb_mode[1:0] */
++#define tps_desc_tc_arb_mode_width 2
++/* default value of bitfield desc_tc_arb_mode[1:0] */
++#define tps_desc_tc_arb_mode_default 0x0
++
++/* tx desc_tc{t}_credit_max[b:0] bitfield definitions
++ * preprocessor definitions for the bitfield "desc_tc{t}_credit_max[b:0]".
++ * parameter: tc {t} | stride size 0x4 | range [0, 7]
++ * port="pif_tps_desc_tc0_credit_max_i[11:0]"
++ */
++
++/* register address for bitfield desc_tc{t}_credit_max[b:0] */
++#define tps_desc_tctcredit_max_adr(tc) (0x00007210 + (tc) * 0x4)
++/* bitmask for bitfield desc_tc{t}_credit_max[b:0] */
++#define tps_desc_tctcredit_max_msk 0x0fff0000
++/* inverted bitmask for bitfield desc_tc{t}_credit_max[b:0] */
++#define tps_desc_tctcredit_max_mskn 0xf000ffff
++/* lower bit position of bitfield desc_tc{t}_credit_max[b:0] */
++#define tps_desc_tctcredit_max_shift 16
++/* width of bitfield desc_tc{t}_credit_max[b:0] */
++#define tps_desc_tctcredit_max_width 12
++/* default value of bitfield desc_tc{t}_credit_max[b:0] */
++#define tps_desc_tctcredit_max_default 0x0
++
++/* tx desc_tc{t}_weight[8:0] bitfield definitions
++ * preprocessor definitions for the bitfield "desc_tc{t}_weight[8:0]".
++ * parameter: tc {t} | stride size 0x4 | range [0, 7]
++ * port="pif_tps_desc_tc0_weight_i[8:0]"
++ */
++
++/* register address for bitfield desc_tc{t}_weight[8:0] */
++#define tps_desc_tctweight_adr(tc) (0x00007210 + (tc) * 0x4)
++/* bitmask for bitfield desc_tc{t}_weight[8:0] */
++#define tps_desc_tctweight_msk 0x000001ff
++/* inverted bitmask for bitfield desc_tc{t}_weight[8:0] */
++#define tps_desc_tctweight_mskn 0xfffffe00
++/* lower bit position of bitfield desc_tc{t}_weight[8:0] */
++#define tps_desc_tctweight_shift 0
++/* width of bitfield desc_tc{t}_weight[8:0] */
++#define tps_desc_tctweight_width 9
++/* default value of bitfield desc_tc{t}_weight[8:0] */
++#define tps_desc_tctweight_default 0x0
++
++/* tx desc_vm_arb_mode bitfield definitions
++ * preprocessor definitions for the bitfield "desc_vm_arb_mode".
++ * port="pif_tps_desc_vm_arb_mode_i"
++ */
++
++/* register address for bitfield desc_vm_arb_mode */
++#define tps_desc_vm_arb_mode_adr 0x00007300
++/* bitmask for bitfield desc_vm_arb_mode */
++#define tps_desc_vm_arb_mode_msk 0x00000001
++/* inverted bitmask for bitfield desc_vm_arb_mode */
++#define tps_desc_vm_arb_mode_mskn 0xfffffffe
++/* lower bit position of bitfield desc_vm_arb_mode */
++#define tps_desc_vm_arb_mode_shift 0
++/* width of bitfield desc_vm_arb_mode */
++#define tps_desc_vm_arb_mode_width 1
++/* default value of bitfield desc_vm_arb_mode */
++#define tps_desc_vm_arb_mode_default 0x0
++
++/* tx data_tc{t}_credit_max[b:0] bitfield definitions
++ * preprocessor definitions for the bitfield "data_tc{t}_credit_max[b:0]".
++ * parameter: tc {t} | stride size 0x4 | range [0, 7]
++ * port="pif_tps_data_tc0_credit_max_i[11:0]"
++ */
++
++/* register address for bitfield data_tc{t}_credit_max[b:0] */
++#define tps_data_tctcredit_max_adr(tc) (0x00007110 + (tc) * 0x4)
++/* bitmask for bitfield data_tc{t}_credit_max[b:0] */
++#define tps_data_tctcredit_max_msk 0x0fff0000
++/* inverted bitmask for bitfield data_tc{t}_credit_max[b:0] */
++#define tps_data_tctcredit_max_mskn 0xf000ffff
++/* lower bit position of bitfield data_tc{t}_credit_max[b:0] */
++#define tps_data_tctcredit_max_shift 16
++/* width of bitfield data_tc{t}_credit_max[b:0] */
++#define tps_data_tctcredit_max_width 12
++/* default value of bitfield data_tc{t}_credit_max[b:0] */
++#define tps_data_tctcredit_max_default 0x0
++
++/* tx data_tc{t}_weight[8:0] bitfield definitions
++ * preprocessor definitions for the bitfield "data_tc{t}_weight[8:0]".
++ * parameter: tc {t} | stride size 0x4 | range [0, 7]
++ * port="pif_tps_data_tc0_weight_i[8:0]"
++ */
++
++/* register address for bitfield data_tc{t}_weight[8:0] */
++#define tps_data_tctweight_adr(tc) (0x00007110 + (tc) * 0x4)
++/* bitmask for bitfield data_tc{t}_weight[8:0] */
++#define tps_data_tctweight_msk 0x000001ff
++/* inverted bitmask for bitfield data_tc{t}_weight[8:0] */
++#define tps_data_tctweight_mskn 0xfffffe00
++/* lower bit position of bitfield data_tc{t}_weight[8:0] */
++#define tps_data_tctweight_shift 0
++/* width of bitfield data_tc{t}_weight[8:0] */
++#define tps_data_tctweight_width 9
++/* default value of bitfield data_tc{t}_weight[8:0] */
++#define tps_data_tctweight_default 0x0
++
++/* tx reg_res_dsbl bitfield definitions
++ * preprocessor definitions for the bitfield "reg_res_dsbl".
++ * port="pif_tx_reg_res_dsbl_i"
++ */
++
++/* register address for bitfield reg_res_dsbl */
++#define tx_reg_res_dsbl_adr 0x00007000
++/* bitmask for bitfield reg_res_dsbl */
++#define tx_reg_res_dsbl_msk 0x20000000
++/* inverted bitmask for bitfield reg_res_dsbl */
++#define tx_reg_res_dsbl_mskn 0xdfffffff
++/* lower bit position of bitfield reg_res_dsbl */
++#define tx_reg_res_dsbl_shift 29
++/* width of bitfield reg_res_dsbl */
++#define tx_reg_res_dsbl_width 1
++/* default value of bitfield reg_res_dsbl */
++#define tx_reg_res_dsbl_default 0x1
++
++/* mac_phy register access busy bitfield definitions
++ * preprocessor definitions for the bitfield "register access busy".
++ * port="msm_pif_reg_busy_o"
++ */
++
++/* register address for bitfield register access busy */
++#define msm_reg_access_busy_adr 0x00004400
++/* bitmask for bitfield register access busy */
++#define msm_reg_access_busy_msk 0x00001000
++/* inverted bitmask for bitfield register access busy */
++#define msm_reg_access_busy_mskn 0xffffefff
++/* lower bit position of bitfield register access busy */
++#define msm_reg_access_busy_shift 12
++/* width of bitfield register access busy */
++#define msm_reg_access_busy_width 1
++
++/* mac_phy msm register address[7:0] bitfield definitions
++ * preprocessor definitions for the bitfield "msm register address[7:0]".
++ * port="pif_msm_reg_addr_i[7:0]"
++ */
++
++/* register address for bitfield msm register address[7:0] */
++#define msm_reg_addr_adr 0x00004400
++/* bitmask for bitfield msm register address[7:0] */
++#define msm_reg_addr_msk 0x000000ff
++/* inverted bitmask for bitfield msm register address[7:0] */
++#define msm_reg_addr_mskn 0xffffff00
++/* lower bit position of bitfield msm register address[7:0] */
++#define msm_reg_addr_shift 0
++/* width of bitfield msm register address[7:0] */
++#define msm_reg_addr_width 8
++/* default value of bitfield msm register address[7:0] */
++#define msm_reg_addr_default 0x0
++
++/* mac_phy register read strobe bitfield definitions
++ * preprocessor definitions for the bitfield "register read strobe".
++ * port="pif_msm_reg_rden_i"
++ */
++
++/* register address for bitfield register read strobe */
++#define msm_reg_rd_strobe_adr 0x00004400
++/* bitmask for bitfield register read strobe */
++#define msm_reg_rd_strobe_msk 0x00000200
++/* inverted bitmask for bitfield register read strobe */
++#define msm_reg_rd_strobe_mskn 0xfffffdff
++/* lower bit position of bitfield register read strobe */
++#define msm_reg_rd_strobe_shift 9
++/* width of bitfield register read strobe */
++#define msm_reg_rd_strobe_width 1
++/* default value of bitfield register read strobe */
++#define msm_reg_rd_strobe_default 0x0
++
++/* mac_phy msm register read data[31:0] bitfield definitions
++ * preprocessor definitions for the bitfield "msm register read data[31:0]".
++ * port="msm_pif_reg_rd_data_o[31:0]"
++ */
++
++/* register address for bitfield msm register read data[31:0] */
++#define msm_reg_rd_data_adr 0x00004408
++/* bitmask for bitfield msm register read data[31:0] */
++#define msm_reg_rd_data_msk 0xffffffff
++/* inverted bitmask for bitfield msm register read data[31:0] */
++#define msm_reg_rd_data_mskn 0x00000000
++/* lower bit position of bitfield msm register read data[31:0] */
++#define msm_reg_rd_data_shift 0
++/* width of bitfield msm register read data[31:0] */
++#define msm_reg_rd_data_width 32
++
++/* mac_phy msm register write data[31:0] bitfield definitions
++ * preprocessor definitions for the bitfield "msm register write data[31:0]".
++ * port="pif_msm_reg_wr_data_i[31:0]"
++ */
++
++/* register address for bitfield msm register write data[31:0] */
++#define msm_reg_wr_data_adr 0x00004404
++/* bitmask for bitfield msm register write data[31:0] */
++#define msm_reg_wr_data_msk 0xffffffff
++/* inverted bitmask for bitfield msm register write data[31:0] */
++#define msm_reg_wr_data_mskn 0x00000000
++/* lower bit position of bitfield msm register write data[31:0] */
++#define msm_reg_wr_data_shift 0
++/* width of bitfield msm register write data[31:0] */
++#define msm_reg_wr_data_width 32
++/* default value of bitfield msm register write data[31:0] */
++#define msm_reg_wr_data_default 0x0
++
++/* mac_phy register write strobe bitfield definitions
++ * preprocessor definitions for the bitfield "register write strobe".
++ * port="pif_msm_reg_wren_i"
++ */
++
++/* register address for bitfield register write strobe */
++#define msm_reg_wr_strobe_adr 0x00004400
++/* bitmask for bitfield register write strobe */
++#define msm_reg_wr_strobe_msk 0x00000100
++/* inverted bitmask for bitfield register write strobe */
++#define msm_reg_wr_strobe_mskn 0xfffffeff
++/* lower bit position of bitfield register write strobe */
++#define msm_reg_wr_strobe_shift 8
++/* width of bitfield register write strobe */
++#define msm_reg_wr_strobe_width 1
++/* default value of bitfield register write strobe */
++#define msm_reg_wr_strobe_default 0x0
++
++/* mif soft reset bitfield definitions
++ * preprocessor definitions for the bitfield "soft reset".
++ * port="pif_glb_res_i"
++ */
++
++/* register address for bitfield soft reset */
++#define glb_soft_res_adr 0x00000000
++/* bitmask for bitfield soft reset */
++#define glb_soft_res_msk 0x00008000
++/* inverted bitmask for bitfield soft reset */
++#define glb_soft_res_mskn 0xffff7fff
++/* lower bit position of bitfield soft reset */
++#define glb_soft_res_shift 15
++/* width of bitfield soft reset */
++#define glb_soft_res_width 1
++/* default value of bitfield soft reset */
++#define glb_soft_res_default 0x0
++
++/* mif register reset disable bitfield definitions
++ * preprocessor definitions for the bitfield "register reset disable".
++ * port="pif_glb_reg_res_dsbl_i"
++ */
++
++/* register address for bitfield register reset disable */
++#define glb_reg_res_dis_adr 0x00000000
++/* bitmask for bitfield register reset disable */
++#define glb_reg_res_dis_msk 0x00004000
++/* inverted bitmask for bitfield register reset disable */
++#define glb_reg_res_dis_mskn 0xffffbfff
++/* lower bit position of bitfield register reset disable */
++#define glb_reg_res_dis_shift 14
++/* width of bitfield register reset disable */
++#define glb_reg_res_dis_width 1
++/* default value of bitfield register reset disable */
++#define glb_reg_res_dis_default 0x1
++
++/* tx dma debug control definitions */
++#define tx_dma_debug_ctl_adr 0x00008920u
++
++/* tx dma descriptor base address msw definitions */
++#define tx_dma_desc_base_addrmsw_adr(descriptor) \
++			(0x00007c04u + (descriptor) * 0x40)
++
++/* tx interrupt moderation control register definitions
++ * Preprocessor definitions for TX Interrupt Moderation Control Register
++ * Base Address: 0x00008980
++ * Parameter: queue {Q} | stride size 0x4 | range [0, 31]
++ */
++
++#define tx_intr_moderation_ctl_adr(queue) (0x00008980u + (queue) * 0x4)
++
++/* pcie reg_res_dsbl bitfield definitions
++ * preprocessor definitions for the bitfield "reg_res_dsbl".
++ * port="pif_pci_reg_res_dsbl_i"
++ */
++
++/* register address for bitfield reg_res_dsbl */
++#define pci_reg_res_dsbl_adr 0x00001000
++/* bitmask for bitfield reg_res_dsbl */
++#define pci_reg_res_dsbl_msk 0x20000000
++/* inverted bitmask for bitfield reg_res_dsbl */
++#define pci_reg_res_dsbl_mskn 0xdfffffff
++/* lower bit position of bitfield reg_res_dsbl */
++#define pci_reg_res_dsbl_shift 29
++/* width of bitfield reg_res_dsbl */
++#define pci_reg_res_dsbl_width 1
++/* default value of bitfield reg_res_dsbl */
++#define pci_reg_res_dsbl_default 0x1
++
++/* global microprocessor scratch pad definitions */
++#define glb_cpu_scratch_scp_adr(scratch_scp) (0x00000300u + (scratch_scp) * 0x4)
++
++#endif /* HW_ATL_LLH_INTERNAL_H */
 +
 -- 
 2.7.4
