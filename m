@@ -1,167 +1,112 @@
-From: Simon Horman <horms+renesas@verge.net.au>
-Subject: [PATCH/RFC net] ravb: do not use zero-length alighment DMA request
-Date: Thu, 12 Jan 2017 14:53:37 +0100
-Message-ID: <1484229217-25585-1-git-send-email-horms+renesas@verge.net.au>
-Cc: Magnus Damm <magnus.damm@gmail.com>, netdev@vger.kernel.org,
-        linux-renesas-soc@vger.kernel.org
-To: David Miller <davem@davemloft.net>,
-        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Subject: [PATCH net-next 2/2] smc: ETH_ALEN as memcpy length for mac addresses
+Date: Thu, 12 Jan 2017 14:57:15 +0100
+Message-ID: <20170112135715.64242-3-ubraun@linux.vnet.ibm.com>
+References: <20170112135715.64242-1-ubraun@linux.vnet.ibm.com>
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+        schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
+        ubraun@linux.vnet.ibm.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:47498 "EHLO
+        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1750778AbdALN6E (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 08:58:04 -0500
+Received: from pps.filterd (m0098419.ppops.net [127.0.0.1])
+        by mx0b-001b2d01.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id v0CDsCgZ125003
+        for <netdev@vger.kernel.org>; Thu, 12 Jan 2017 08:57:26 -0500
+Received: from e06smtp05.uk.ibm.com (e06smtp05.uk.ibm.com [195.75.94.101])
+        by mx0b-001b2d01.pphosted.com with ESMTP id 27xaca213e-1
+        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Thu, 12 Jan 2017 08:57:26 -0500
+Received: from localhost
+        by e06smtp05.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+        for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
+        Thu, 12 Jan 2017 13:57:23 -0000
+In-Reply-To: <20170112135715.64242-1-ubraun@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Masaru Nagai <masaru.nagai.vx@renesas.com>
+When creating an SMC connection, there is a CLC (connection layer control)
+handshake to prepare for RDMA traffic. The corresponding code is part of
+commit 0cfdd8f92cac ("smc: connection and link group creation").
+Mac addresses to be exchanged in the handshake are copied with a wrong
+length of 12 instead of 6 bytes. Following code overwrites the wrongly
+copied code, but nevertheless the correct length should already be used for
+the preceding mac address copying. Use ETH_ALEN for the memcpy length with
+mac addresses.
 
-Due to alignment requirements of the hardware transmissions are split
-into two DMA requests, a small padding request of 0 - 4 bytes in length
-followed by the a request for rest of the packet.
-
-In the case of IP packets the first request will never be zero due
-to the way that the stack aligns buffers for IP packets. However, for
-non-IP packets it may be zero.
-
-In this case it has been reported that timeouts occur, presumably because
-transmission stops at the first zero-length DMA request and thus the packet
-is not transmitted. However, in my environment a BUG is triggered as
-follows:
-
-[   20.381417] ------------[ cut here ]------------
-[   20.386054] kernel BUG at lib/swiotlb.c:495!
-[   20.390324] Internal error: Oops - BUG: 0 [#1] PREEMPT SMP
-[   20.395805] Modules linked in:
-[   20.398862] CPU: 0 PID: 2089 Comm: mz Not tainted 4.10.0-rc3-00001-gf13ad2db193f #162
-[   20.406689] Hardware name: Renesas Salvator-X board based on r8a7796 (DT)
-[   20.413474] task: ffff80063b1f1900 task.stack: ffff80063a71c000
-[   20.419404] PC is at swiotlb_tbl_map_single+0x178/0x2ec
-[   20.424625] LR is at map_single+0x4c/0x98
-[   20.428629] pc : [<ffff00000839c4c0>] lr : [<ffff00000839c680>] pstate: 800001c5
-[   20.436019] sp : ffff80063a71f9b0
-[   20.439327] x29: ffff80063a71f9b0 x28: ffff80063a20d500
-[   20.444636] x27: ffff000008ed5000 x26: 0000000000000000
-[   20.449944] x25: 000000067abe2adc x24: 0000000000000000
-[   20.455252] x23: 0000000000200000 x22: 0000000000000001
-[   20.460559] x21: 0000000000175ffe x20: ffff80063b2a0010
-[   20.465866] x19: 0000000000000000 x18: 0000ffffcae6fb20
-[   20.471173] x17: 0000ffffa09ba018 x16: ffff0000087c8b70
-[   20.476480] x15: 0000ffffa084f588 x14: 0000ffffa09cfa14
-[   20.481787] x13: 0000ffffcae87ff0 x12: 000000000063abe2
-[   20.487098] x11: ffff000008096360 x10: ffff80063abe2adc
-[   20.492407] x9 : 0000000000000000 x8 : 0000000000000000
-[   20.497718] x7 : 0000000000000000 x6 : ffff000008ed50d0
-[   20.503028] x5 : 0000000000000000 x4 : 0000000000000001
-[   20.508338] x3 : 0000000000000000 x2 : 000000067abe2adc
-[   20.513648] x1 : 00000000bafff000 x0 : 0000000000000000
-[   20.518958]
-[   20.520446] Process mz (pid: 2089, stack limit = 0xffff80063a71c000)
-[   20.526798] Stack: (0xffff80063a71f9b0 to 0xffff80063a720000)
-[   20.532543] f9a0:                                   ffff80063a71fa30 ffff00000839c680
-[   20.540374] f9c0: ffff80063b2a0010 ffff80063b2a0010 0000000000000001 0000000000000000
-[   20.548204] f9e0: 000000000000006e ffff80063b23c000 ffff80063b23c000 0000000000000000
-[   20.556034] fa00: ffff80063b23c000 ffff80063a20d500 000000013b1f1900 0000000000000000
-[   20.563864] fa20: ffff80063ffd18e0 ffff80063b2a0010 ffff80063a71fa60 ffff00000839cd10
-[   20.571694] fa40: ffff80063b2a0010 0000000000000000 ffff80063ffd18e0 000000067abe2adc
-[   20.579524] fa60: ffff80063a71fa90 ffff000008096380 ffff80063b2a0010 0000000000000000
-[   20.587353] fa80: 0000000000000000 0000000000000001 ffff80063a71fac0 ffff00000864f770
-[   20.595184] faa0: ffff80063b23caf0 0000000000000000 0000000000000000 0000000000000140
-[   20.603014] fac0: ffff80063a71fb60 ffff0000087e6498 ffff80063a20d500 ffff80063b23c000
-[   20.610843] fae0: 0000000000000000 ffff000008daeaf0 0000000000000000 ffff000008daeb00
-[   20.618673] fb00: ffff80063a71fc0c ffff000008da7000 ffff80063b23c090 ffff80063a44f000
-[   20.626503] fb20: 0000000000000000 ffff000008daeb00 ffff80063a71fc0c ffff000008da7000
-[   20.634333] fb40: ffff80063b23c090 0000000000000000 ffff800600000037 ffff0000087e63d8
-[   20.642163] fb60: ffff80063a71fbc0 ffff000008807510 ffff80063a692400 ffff80063a20d500
-[   20.649993] fb80: ffff80063a44f000 ffff80063b23c000 ffff80063a69249c 0000000000000000
-[   20.657823] fba0: 0000000000000000 ffff80063a087800 ffff80063b23c000 ffff80063a20d500
-[   20.665653] fbc0: ffff80063a71fc10 ffff0000087e67dc ffff80063a20d500 ffff80063a692400
-[   20.673483] fbe0: ffff80063b23c000 0000000000000000 ffff80063a44f000 ffff80063a69249c
-[   20.681312] fc00: ffff80063a5f1a10 000000103a087800 ffff80063a71fc70 ffff0000087e6b24
-[   20.689142] fc20: ffff80063a5f1a80 ffff80063a71fde8 000000000000000f 00000000000005ea
-[   20.696972] fc40: ffff80063a5f1a10 0000000000000000 000000000000000f ffff00000887fbd0
-[   20.704802] fc60: fffffff43a5f1a80 0000000000000000 ffff80063a71fc80 ffff000008880240
-[   20.712632] fc80: ffff80063a71fd90 ffff0000087c7a34 ffff80063afc7180 0000000000000000
-[   20.720462] fca0: 0000ffffcae6fe18 0000000000000014 0000000060000000 0000000000000015
-[   20.728292] fcc0: 0000000000000123 00000000000000ce ffff0000088d2000 ffff80063b1f1900
-[   20.736122] fce0: 0000000000008933 ffff000008e7cb80 ffff80063a71fd80 ffff0000087c50a4
-[   20.743951] fd00: 0000000000008933 ffff000008e7cb80 ffff000008e7cb80 000000100000000e
-[   20.751781] fd20: ffff80063a71fe4c 0000ffff00000300 0000000000000123 0000000000000000
-[   20.759611] fd40: 0000000000000000 ffff80063b1f0000 000000000000000e 0000000000000300
-[   20.767441] fd60: 0000000000000000 0000000000000000 0000000000000000 0000000000000000
-[   20.775271] fd80: 0000000000000000 0000000000000000 ffff80063a71fda0 ffff0000087c8c20
-[   20.783100] fda0: 0000000000000000 ffff000008082f30 0000000000000000 0000800637260000
-[   20.790930] fdc0: ffffffffffffffff 0000ffffa0903078 0000000000000000 000000001ea87232
-[   20.798760] fde0: 000000000000000f ffff80063a71fe40 ffff800600000014 ffff000000000001
-[   20.806590] fe00: 0000000000000000 0000000000000000 ffff80063a71fde8 0000000000000000
-[   20.814420] fe20: 0000000000000000 0000000000000000 0000000000000000 0000000000000001
-[   20.822249] fe40: 0000000203000011 0000000000000000 0000000000000000 ffff80063a68aa00
-[   20.830079] fe60: ffff80063a68aa00 0000000000000003 0000000000008933 ffff0000081f1b9c
-[   20.837909] fe80: 0000000000000000 ffff000008082f30 0000000000000000 0000800637260000
-[   20.845739] fea0: ffffffffffffffff 0000ffffa07ca81c 0000000060000000 0000000000000015
-[   20.853569] fec0: 0000000000000003 000000001ea87232 000000000000000f 0000000000000000
-[   20.861399] fee0: 0000ffffcae6fe18 0000000000000014 0000000000000300 0000000000000000
-[   20.869228] ff00: 00000000000000ce 0000000000000000 00000000ffffffff 0000000000000000
-[   20.877059] ff20: 0000000000000002 0000ffffcae87ff0 0000ffffa09cfa14 0000ffffa084f588
-[   20.884888] ff40: 0000000000000000 0000ffffa09ba018 0000ffffcae6fb20 000000001ea87010
-[   20.892718] ff60: 0000ffffa09b9000 0000ffffcae6fe30 0000ffffcae6fe18 000000000000000f
-[   20.900548] ff80: 0000000000000003 000000001ea87232 0000000000000000 0000000000000000
-[   20.908378] ffa0: 0000000000000000 0000ffffcae6fdc0 0000ffffa09a7824 0000ffffcae6fdc0
-[   20.916208] ffc0: 0000ffffa0903078 0000000060000000 0000000000000003 00000000000000ce
-[   20.924038] ffe0: 0000000000000000 0000000000000000 ffffffffffffffff ffffffffffffffff
-[   20.931867] Call trace:
-[   20.934312] Exception stack(0xffff80063a71f7e0 to 0xffff80063a71f910)
-[   20.940750] f7e0: 0000000000000000 0001000000000000 ffff80063a71f9b0 ffff00000839c4c0
-[   20.948580] f800: ffff80063a71f840 ffff00000888a6e4 ffff80063a24c418 ffff80063a24c448
-[   20.956410] f820: 0000000000000000 ffff00000811cd54 ffff80063a71f860 ffff80063a24c458
-[   20.964240] f840: ffff80063a71f870 ffff00000888b258 ffff80063a24c418 0000000000000001
-[   20.972070] f860: ffff80063a71f910 ffff80063a7b7028 ffff80063a71f890 ffff0000088825e4
-[   20.979899] f880: 0000000000000000 00000000bafff000 000000067abe2adc 0000000000000000
-[   20.987729] f8a0: 0000000000000001 0000000000000000 ffff000008ed50d0 0000000000000000
-[   20.995560] f8c0: 0000000000000000 0000000000000000 ffff80063abe2adc ffff000008096360
-[   21.003390] f8e0: 000000000063abe2 0000ffffcae87ff0 0000ffffa09cfa14 0000ffffa084f588
-[   21.011219] f900: ffff0000087c8b70 0000ffffa09ba018
-[   21.016097] [<ffff00000839c4c0>] swiotlb_tbl_map_single+0x178/0x2ec
-[   21.022362] [<ffff00000839c680>] map_single+0x4c/0x98
-[   21.027411] [<ffff00000839cd10>] swiotlb_map_page+0xa4/0x138
-[   21.033072] [<ffff000008096380>] __swiotlb_map_page+0x20/0x7c
-[   21.038821] [<ffff00000864f770>] ravb_start_xmit+0x174/0x668
-[   21.044484] [<ffff0000087e6498>] dev_hard_start_xmit+0x8c/0x120
-[   21.050407] [<ffff000008807510>] sch_direct_xmit+0x108/0x1a0
-[   21.056064] [<ffff0000087e67dc>] __dev_queue_xmit+0x194/0x4cc
-[   21.061807] [<ffff0000087e6b24>] dev_queue_xmit+0x10/0x18
-[   21.067214] [<ffff000008880240>] packet_sendmsg+0xf40/0x1220
-[   21.072873] [<ffff0000087c7a34>] sock_sendmsg+0x18/0x2c
-[   21.078097] [<ffff0000087c8c20>] SyS_sendto+0xb0/0xf0
-[   21.083150] [<ffff000008082f30>] el0_svc_naked+0x24/0x28
-[   21.088462] Code: d34bfef7 2a1803f3 1a9f86d6 35fff878 (d4210000)
-[   21.094611] ---[ end trace 5bc544ad491f3814 ]---
-[   21.099234] Kernel panic - not syncing: Fatal exception in interrupt
-[   21.105587] Kernel Offset: disabled
-[   21.109073] Memory Limit: none
-[   21.112126] ---[ end Kernel panic - not syncing: Fatal exception in interrupt
-
-Fixes: 2f45d1902acf ("ravb: minimize TX data copying")
-Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
-Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
+Signed-off-by: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Fixes: 0cfdd8f92cac ("smc: connection and link group creation")
+Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
 ---
-v1 [Simon Horman]
-* rewrote changelog
-* handle skb->len < 4
+ net/smc/smc_clc.c | 10 ++++------
+ net/smc/smc_ib.h  |  4 +++-
+ 2 files changed, 7 insertions(+), 7 deletions(-)
 
-v0 [Kazuya Mizuguchi]
----
- drivers/net/ethernet/renesas/ravb_main.c | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
-index 92d7692c840d..3b4d2504285e 100644
---- a/drivers/net/ethernet/renesas/ravb_main.c
-+++ b/drivers/net/ethernet/renesas/ravb_main.c
-@@ -1508,6 +1508,8 @@ static netdev_tx_t ravb_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 	buffer = PTR_ALIGN(priv->tx_align[q], DPTR_ALIGN) +
- 		 entry / NUM_TX_DESC * DPTR_ALIGN;
- 	len = PTR_ALIGN(skb->data, DPTR_ALIGN) - skb->data;
-+	if (len == 0)
-+		len = skb->len > 4 ? 4 : skb->len;
- 	memcpy(buffer, skb->data, len);
- 	dma_addr = dma_map_single(ndev->dev.parent, buffer, len, DMA_TO_DEVICE);
- 	if (dma_mapping_error(ndev->dev.parent, dma_addr))
+diff --git a/net/smc/smc_clc.c b/net/smc/smc_clc.c
+index e1e684c..cc6b6f8 100644
+--- a/net/smc/smc_clc.c
++++ b/net/smc/smc_clc.c
+@@ -10,6 +10,7 @@
+  */
+ 
+ #include <linux/in.h>
++#include <linux/if_ether.h>
+ #include <net/sock.h>
+ #include <net/tcp.h>
+ 
+@@ -151,8 +152,7 @@ int smc_clc_send_proposal(struct smc_sock *smc,
+ 	pclc.hdr.version = SMC_CLC_V1;		/* SMC version */
+ 	memcpy(pclc.lcl.id_for_peer, local_systemid, sizeof(local_systemid));
+ 	memcpy(&pclc.lcl.gid, &smcibdev->gid[ibport - 1], SMC_GID_SIZE);
+-	memcpy(&pclc.lcl.mac, &smcibdev->mac[ibport - 1],
+-	       sizeof(smcibdev->mac[ibport - 1]));
++	memcpy(&pclc.lcl.mac, &smcibdev->mac[ibport - 1], ETH_ALEN);
+ 
+ 	/* determine subnet and mask from internal TCP socket */
+ 	rc = smc_netinfo_by_tcpsk(smc->clcsock, &pclc.outgoing_subnet,
+@@ -199,8 +199,7 @@ int smc_clc_send_confirm(struct smc_sock *smc)
+ 	memcpy(cclc.lcl.id_for_peer, local_systemid, sizeof(local_systemid));
+ 	memcpy(&cclc.lcl.gid, &link->smcibdev->gid[link->ibport - 1],
+ 	       SMC_GID_SIZE);
+-	memcpy(&cclc.lcl.mac, &link->smcibdev->mac[link->ibport - 1],
+-	       sizeof(link->smcibdev->mac));
++	memcpy(&cclc.lcl.mac, &link->smcibdev->mac[link->ibport - 1], ETH_ALEN);
+ 	hton24(cclc.qpn, link->roce_qp->qp_num);
+ 	cclc.rmb_rkey =
+ 		htonl(conn->rmb_desc->mr_rx[SMC_SINGLE_LINK]->rkey);
+@@ -252,8 +251,7 @@ int smc_clc_send_accept(struct smc_sock *new_smc, int srv_first_contact)
+ 	memcpy(aclc.lcl.id_for_peer, local_systemid, sizeof(local_systemid));
+ 	memcpy(&aclc.lcl.gid, &link->smcibdev->gid[link->ibport - 1],
+ 	       SMC_GID_SIZE);
+-	memcpy(&aclc.lcl.mac, link->smcibdev->mac[link->ibport - 1],
+-	       sizeof(link->smcibdev->mac[link->ibport - 1]));
++	memcpy(&aclc.lcl.mac, link->smcibdev->mac[link->ibport - 1], ETH_ALEN);
+ 	hton24(aclc.qpn, link->roce_qp->qp_num);
+ 	aclc.rmb_rkey =
+ 		htonl(conn->rmb_desc->mr_rx[SMC_SINGLE_LINK]->rkey);
+diff --git a/net/smc/smc_ib.h b/net/smc/smc_ib.h
+index 3fe2d55..a95f74b 100644
+--- a/net/smc/smc_ib.h
++++ b/net/smc/smc_ib.h
+@@ -11,6 +11,7 @@
+ #ifndef _SMC_IB_H
+ #define _SMC_IB_H
+ 
++#include <linux/if_ether.h>
+ #include <rdma/ib_verbs.h>
+ 
+ #define SMC_MAX_PORTS			2	/* Max # of ports */
+@@ -34,7 +35,8 @@ struct smc_ib_device {				/* ib-device infos for smc */
+ 	struct ib_cq		*roce_cq_recv;	/* recv completion queue */
+ 	struct tasklet_struct	send_tasklet;	/* called by send cq handler */
+ 	struct tasklet_struct	recv_tasklet;	/* called by recv cq handler */
+-	char			mac[SMC_MAX_PORTS][6]; /* mac address per port*/
++	char			mac[SMC_MAX_PORTS][ETH_ALEN];
++						/* mac address per port*/
+ 	union ib_gid		gid[SMC_MAX_PORTS]; /* gid per port */
+ 	u8			initialized : 1; /* ib dev CQ, evthdl done */
+ 	struct work_struct	port_event_work;
 -- 
-2.7.0.rc3.207.g0ac5344
+2.8.4
