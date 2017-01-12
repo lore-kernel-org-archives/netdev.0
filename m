@@ -1,107 +1,74 @@
-From: "Kwok, WingMan" <w-kwok2@ti.com>
-Subject: RE: Marvell Phy (1510) issue since v4.7 kernel
-Date: Thu, 12 Jan 2017 22:49:56 +0000
-Message-ID: <230CBA6E4B6B6B418E8730AC28E6FC7E15354F22@DFLE11.ent.ti.com>
-References: <20170110015336.GA7160@lunn.ch>
- <230CBA6E4B6B6B418E8730AC28E6FC7E15354AC2@DFLE11.ent.ti.com>
- <20170111222758.GG13033@lunn.ch>
- <230CBA6E4B6B6B418E8730AC28E6FC7E15354AE5@DFLE11.ent.ti.com>
- <20170111225948.GH13033@lunn.ch>
- <230CBA6E4B6B6B418E8730AC28E6FC7E15354B2B@DFLE11.ent.ti.com>
- <20170111232200.GI13033@lunn.ch>
- <230CBA6E4B6B6B418E8730AC28E6FC7E15354B66@DFLE11.ent.ti.com>
- <20170112010658.GA25391@lunn.ch>
- <230CBA6E4B6B6B418E8730AC28E6FC7E15354EB0@DFLE11.ent.ti.com>
- <20170112214941.GE10203@lunn.ch>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next v2 05/10] drivers: base: Add device_find_class()
+Date: Thu, 12 Jan 2017 14:50:39 -0800
+Message-ID: <81f5965c-3484-92d9-5c04-94c5b73735d0@gmail.com>
+References: <20170112034121.27697-1-f.fainelli@gmail.com>
+ <20170112034121.27697-6-f.fainelli@gmail.com>
+ <20170112.162135.441956368122992032.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "rmk+kernel@arm.linux.org.uk" <rmk+kernel@arm.linux.org.uk>,
-        "Karicheri, Muralidharan" <m-karicheri2@ti.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fllnx210.ext.ti.com ([198.47.19.17]:17210 "EHLO
-        fllnx210.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750876AbdALWuJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 17:50:09 -0500
-In-Reply-To: <20170112214941.GE10203@lunn.ch>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jason@lakedaemon.net, andrew@lunn.ch,
+        sebastian.hesselbarth@gmail.com,
+        gregory.clement@free-electrons.com, linux@armlinux.org.uk,
+        vivien.didelot@savoirfairelinux.com,
+        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+        gregkh@linuxfoundation.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170112.162135.441956368122992032.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-SGkgQW5kcmV3LA0KDQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IEFuZHJl
-dyBMdW5uIFttYWlsdG86YW5kcmV3QGx1bm4uY2hdDQo+IFNlbnQ6IFRodXJzZGF5LCBKYW51YXJ5
-IDEyLCAyMDE3IDQ6NTAgUE0NCj4gVG86IEt3b2ssIFdpbmdNYW4NCj4gQ2M6IHJtaytrZXJuZWxA
-YXJtLmxpbnV4Lm9yZy51azsgS2FyaWNoZXJpLCBNdXJhbGlkaGFyYW47DQo+IG5ldGRldkB2Z2Vy
-Lmtlcm5lbC5vcmcNCj4gU3ViamVjdDogUmU6IE1hcnZlbGwgUGh5ICgxNTEwKSBpc3N1ZSBzaW5j
-ZSB2NC43IGtlcm5lbA0KPiANCj4gPiBCdXQgb3VyIHByb2JsZW0gaXMgY2F1c2VkIGJ5IHRoZSBy
-ZWFkX3N0YXR1cyBmdW5jdGlvbjoNCj4gPg0KPiA+IAlpZiAoKHBoeWRldi0+c3VwcG9ydGVkICYg
-U1VQUE9SVEVEX0ZJQlJFKSkgew0KPiA+IAkJZXJyID0gcGh5X3dyaXRlKHBoeWRldiwgTUlJX01B
-UlZFTExfUEhZX1BBR0UsDQo+IE1JSV9NMTExMV9GSUJFUik7DQo+ID4gCQlpZiAoZXJyIDwgMCkN
-Cj4gPiAJCQlnb3RvIGVycm9yOw0KPiA+DQo+ID4gCQllcnIgPSBtYXJ2ZWxsX3JlYWRfc3RhdHVz
-X3BhZ2UocGh5ZGV2LCBNSUlfTTExMTFfRklCRVIpOw0KPiA+IAkJaWYgKGVyciA8IDApDQo+ID4g
-CQkJZ290byBlcnJvcjsNCj4gPg0KPiA+IAkJLyogSWYgdGhlIGZpYmVyIGxpbmsgaXMgdXAsIGl0
-IGlzIHRoZSBzZWxlY3RlZCBhbmQgdXNlZA0KPiBsaW5rLg0KPiA+IAkJKiBJbiB0aGlzIGNhc2Us
-IHdlIG5lZWQgdG8gc3RheSBpbiB0aGUgZmliZXIgcGFnZS4NCj4gPiAJCSogUGxlYXNlIHRvIGJl
-IGNhcmVmdWwgYWJvdXQgdGhhdCwgYXZvaWQgdG8gcmVzdG9yZSBDb3BwZXINCj4gcGFnZQ0KPiA+
-IAkJKiBpbiBvdGhlciBmdW5jdGlvbnMgd2hpY2ggY291bGQgYnJlYWsgdGhlIGJlaGF2aW91cg0K
-PiA+IAkJKiBmb3Igc29tZSBmaWJlciBwaHkgbGlrZSA4OEUxNTEyLg0KPiA+IAkJKiAqLw0KPiA+
-IAkJaWYgKHBoeWRldi0+bGluaykNCj4gPiAJCQlyZXR1cm4gMDsNCj4gPg0KPiA+IHdoaWNoIGtl
-ZXBzIHRoZSBmaWJlciBwYWdlIGlmIHBoeWRldi0+bGluayBpcyB0cnVlIChmb3Igc29tZQ0KPiA+
-IHJlYXNvbiB0aGlzIGlzIHRoZSBjYXNlIGV2ZW4gdGhvdWdoIHdlIGFyZSBub3QgdXNpbmcgZmli
-ZXIpDQo+IA0KPiBIb3cgYXJlIHlvdSB1c2luZyB0aGUgUEhZLiBXaGF0IHBoeS1tb2RlIGRvIHlv
-dSBoYXZlIHNldD8gIERvIHlvdQ0KPiBoYXBwZW4gdG8gYmUgdXNpbmcgaXQgYXMgYW4gUkdNSUkg
-dG8gU0VSREVTL1NHTUlJIGJyaWRnZT8gVGhpcyBpcyB3aGF0DQo+IFJ1c3NlbGwgS2luZyBpcyBk
-b2luZywgaSB0aGluay4NCj4gDQoNCm91ciA4OGUxNTE0IGlzIGNvbm5lY3RlZCB0byB0aGUgaG9z
-dCB2aWEgc2dtaWkuDQoNCj4gSGF2ZSB5b3UgdHJpZWQgdGhlIHBhdGNoIFJ1c3NlbGwgc3VibWl0
-dGVkIHJlY2VudGx5Lg0KPiANCj4gQXV0aG9yOiBSdXNzZWxsIEtpbmcgPHJtaytrZXJuZWxAYXJt
-bGludXgub3JnLnVrPg0KPiBEYXRlOiAgIFR1ZSBKYW4gMTAgMjM6MTM6NDUgMjAxNyArMDAwMA0K
-PiANCj4gICAgIG5ldDogcGh5OiBtYXJ2ZWxsOiBmaXggTWFydmVsbCA4OEUxNTEyIHVzZWQgaW4g
-U0dNSUkgbW9kZQ0KPiANCj4gICAgIFdoZW4gYW4gTWFydmVsbCA4OEUxNTEyIFBIWSBpcyBjb25u
-ZWN0ZWQgdG8gYSBuaWMgaW4gU0dNSUkgbW9kZSwNCj4gdGhlDQo+ICAgICBmaWJlciBwYWdlIGlz
-IHVzZWQgZm9yIHRoZSBTR01JSSBob3N0LXNpZGUgY29ubmVjdGlvbi4gIFRoZSBQSFkNCj4gZHJp
-dmVyDQo+ICAgICBub3RpY2VzIHRoYXQgU1VQUE9SVEVEX0ZJQlJFIGlzIHNldCwgc28gaXQgdHJp
-ZXMgcmVhZGluZyB0aGUgZmliZXINCj4gcGFnZQ0KPiAgICAgZm9yIHRoZSBsaW5rIHN0YXR1cywg
-YW5kIGVuZHMgdXAgcmVhZGluZyB0aGUgTUFDLXNpZGUgc3RhdHVzDQo+IGluc3RlYWQgb2YNCj4g
-ICAgIHRoZSBvdXRnb2luZyAoY29wcGVyKSBsaW5rLiAgVGhpcyBsZWFkcyB0byBpbmNvcnJlY3Qg
-cmVzdWx0cw0KPiByZXBvcnRlZA0KPiAgICAgdmlhIGV0aHRvb2wuDQo+IA0KPiAgICAgSWYgdGhl
-IFBIWSBpcyBjb25uZWN0ZWQgdmlhIFNHTUlJIHRvIHRoZSBob3N0LCBpZ25vcmUgdGhlIGZpYmVy
-DQo+IHBhZ2UuDQo+ICAgICBIb3dldmVyLCBjb250aW51ZSB0byBhbGxvdyB0aGUgZXhpc3Rpbmcg
-cG93ZXIgbWFuYWdlbWVudCBjb2RlIHRvDQo+ICAgICBzdXNwZW5kIGFuZCByZXN1bWUgdGhlIGZp
-YmVyIHBhZ2UuDQo+IA0KDQpUaGFua3MgZm9yIHBvaW50ZXIuIEl0IGRvZXMgZml4IHRoZSBwcm9i
-bGVtLg0KDQo+ID4gSG93ZXZlciwgdGhpcyBjYXVzZXMgYSBwcm9ibGVtIGluIGtlcm5lbCByZWJv
-b3QgYmVjYXVzZSBuZWl0aGVyDQo+ID4gdGhlIHN1c3BlbmQvcmVzdW1lIGlzIGNhbGxlZCB0byBy
-ZXN0b3JlIHRoZSBjb3BwZXIgcGFnZSBhbmQNCj4gPiB1LWJvb3QgbWFydmVsbCBwaHkgZHJpdmVy
-IGRvZXMgbm90IHN1cHBvcnQgMTUxMCBmaWJlciwgd2hpY2gNCj4gPiB3aWxsIHRoZW4gcmVzdWx0
-IGluIHdyaXRpbmcgdG8gdGhlIHdyb25nIHBoeSByZWdzIGFuZCBjYXVzZXMNCj4gPiBhIHNnbWlp
-IGF1dG8tbmVnbyB0aW1lIG91dC4NCj4gDQo+IFRoaXMgaXMgc3RpbGwgYSB1LWJvb3QgYnVnLiBJ
-dCBzaG91bGQgbm90IGFzc3VtZSB0aGUgUEhZIGlzIGluIGEgc2FuZQ0KPiBzdGF0ZS4gSXQgc2hv
-dWxkIHJlc2V0IGl0IGFuZCBjb25maWd1cmUgaXQgYXMgbmVlZGVkLiBTbyBmYXIsIGkgZG9uJ3QN
-Cj4gdGhpbmsgeW91IGhhdmUgcmVwb3J0ZWQgYW55IGlzc3VlcyB3aXRoIExpbnV4IHVzYWdlIG9m
-IHRoZSBQSFkuIFRoZXJlDQo+IGNsZWFybHkgYXJlIGJ1Z3MsIGJ1dCB5b3VyIHJlYWwgcHJvYmxl
-bSBpcyB1LWJvb3QuDQo+IA0KDQpZZXMuIEFncmVlLg0KDQo+ID4gSW4gYWRkaXRpb24gdG8gZml4
-aW5nIHRoZSAhIGluIHN1c3BlbmQvcmVzdW1lLCBteSBzdWdnZXN0aW9uDQo+ID4gd291bGQgYmUg
-dG8gY2hhbmdlIGFsc28gdGhlIHJlYWRfc3RhdHVzIGZ1bmN0aW9uIHRvDQo+ID4gYWx3YXlzIHJl
-c3RvcmUgdGhlIGNvcHBlciBwYWdlIGFmdGVyIGRvaW5nIHRoZSBmaWJlciBzdHVmZnM6DQo+IA0K
-PiBOb3BlLiBUaGlzIGlzIGRvbmUgZGVsaWJlcmF0ZWx5LCBhcyB0aGUgY29tbWVudCBzdWdnZXN0
-czoNCj4gDQo+ID4gCQkvKiBJZiB0aGUgZmliZXIgbGluayBpcyB1cCwgaXQgaXMgdGhlIHNlbGVj
-dGVkIGFuZCB1c2VkDQo+IGxpbmsuDQo+ID4gCQkqIEluIHRoaXMgY2FzZSwgd2UgbmVlZCB0byBz
-dGF5IGluIHRoZSBmaWJlciBwYWdlLg0KPiA+IAkJKiBQbGVhc2UgdG8gYmUgY2FyZWZ1bCBhYm91
-dCB0aGF0LCBhdm9pZCB0byByZXN0b3JlIENvcHBlcg0KPiBwYWdlDQo+ID4gCQkqIGluIG90aGVy
-IGZ1bmN0aW9ucyB3aGljaCBjb3VsZCBicmVhayB0aGUgYmVoYXZpb3VyDQo+ID4gCQkqIGZvciBz
-b21lIGZpYmVyIHBoeSBsaWtlIDg4RTE1MTIuDQo+ID4gCQkqICovDQo+ID4gCQlpZiAocGh5ZGV2
-LT5saW5rKQ0KPiA+IAkJCXJldHVybiAwOw0KPiANCj4gVGhlIHBvaW50IGlzLCB0aGUgcGh5bGli
-IHdpbGwgY29udGludWUgcG9sbGluZyB0aGUgUEhZIHJlZ2lzdGVycywNCj4gcmVhZGluZyB0aGVt
-LiBJZiB0aGUgRklCUkUgaXMgdXAsIHdlIHdhbnQgdG8gcmVhZCB0aGUgRklCUkUgdmFsdWVzLA0K
-PiBub3QgdGhlIGNvcHBlci4NCj4gDQoNClRoYW5rcyBmb3IgdGhlIGV4cGxhbmF0aW9ucy4NCg0K
-PiA+IEFub3RoZXIgaXNzdWUgaXMgdGhhdCwgYXMgb2Ygbm93LCBGSUJFUiBpcyBlbmFibGVkIHJl
-Z2FyZGxlc3MNCj4gPiBvZiB0aGUgc3BlY2lmaWMgODhlMTUxeC4gQnV0IEkgYmVsaWV2ZSB0aGVy
-ZSBpcyA4OGUxNTF4IGNoaXAocykNCj4gPiB0aGF0IGRvZXMgbm90IHN1cHBvcnQgZmliZXIuIFNo
-b3VsZCBmaWJlciBiZSBlbmFibGVkIG9ubHkgZm9yDQo+ID4gdGhvc2UgdGhhdCBkbyBzdXBwb3J0
-IGZpYmVyPw0KPiANCj4gWWVzLCB3ZSBzaG91bGQgbG9vayBhdCByZWdpc3RlciAzMCwgcGFnZSAx
-OCBhbnkgc2V0IFNVUFBPUlRFRF9GSUJSRQ0KPiBiYXNlZCBvbiB0aGF0Lg0KPiANCg0KVGhhbmtz
-IGZvciB0aGUgc3VnZ2VzdGlvbnMuDQoNCj4gICAgICAgQW5kcmV3DQoNCkp1c3Qgd2FudCB0byBr
-bm93IGlmIHRoZXJlIGlzIGFscmVhZHkgYSBwYXRjaCBpbiB0aGUgbmV0IHRyZWUNCmZpeGluZyB0
-aGUgaW5jb3JyZWN0ICEgaW4gdGhlIHN1c3BlbmQvcmVzdW1lIGZ1bmN0aW9ucyBhbHNvPw0KDQpX
-aW5nTWFuDQo=
+On 01/12/2017 01:21 PM, David Miller wrote:
+> From: Florian Fainelli <f.fainelli@gmail.com>
+> Date: Wed, 11 Jan 2017 19:41:16 -0800
+> 
+>> Add a helper function to lookup a device reference given a class name.
+>> This is a preliminary patch to remove adhoc code from net/dsa/dsa.c and
+>> make it more generic.
+>>
+>> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+>> ---
+>>  drivers/base/core.c    | 19 +++++++++++++++++++
+>>  include/linux/device.h |  1 +
+>>  2 files changed, 20 insertions(+)
+>>
+>> diff --git a/drivers/base/core.c b/drivers/base/core.c
+>> index 020ea7f05520..3dd6047c10d8 100644
+>> --- a/drivers/base/core.c
+>> +++ b/drivers/base/core.c
+>> @@ -2065,6 +2065,25 @@ struct device *device_find_child(struct device *parent, void *data,
+>>  }
+>>  EXPORT_SYMBOL_GPL(device_find_child);
+>>  
+>> +static int dev_is_class(struct device *dev, void *class)
+> 
+> I know you are just moving code, but this class argumnet is a string
+> and thus should be "char *" or even "const char *".
+
+Well, this is really so that we don't need to cast the arguments passed
+to device_find_child(), which takes a void *data as well. If we made
+that a const char *class, we'd get warnings that look like these:
+
+drivers/base/core.c: In function 'device_find_class':
+drivers/base/core.c:2083:2: warning: passing argument 2 of
+'device_find_child' discards 'const' qualifier from pointer target type
+[enabled by default]
+  return device_find_child(parent, class, dev_is_class);
+  ^
+drivers/base/core.c:2050:16: note: expected 'void *' but argument is of
+type 'const char *'
+ struct device *device_find_child(struct device *parent, void *data,
+                ^
+drivers/base/core.c:2083:2: warning: passing argument 3 of
+'device_find_child' from incompatible pointer type [enabled by default]
+  return device_find_child(parent, class, dev_is_class);
+  ^
+drivers/base/core.c:2050:16: note: expected 'int (*)(struct device *,
+void *)' but argument is of type 'int (*)(struct device *, const char *)'
+ struct device *device_find_child(struct device *parent, void *data,
+                ^
+
+-- 
+Florian
