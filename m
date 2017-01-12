@@ -1,32 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tilepro: Fix non-void return from void function
-Date: Thu, 12 Jan 2017 15:14:28 -0500 (EST)
-Message-ID: <20170112.151428.219165181835416547.davem@davemloft.net>
-References: <fb9071cb1b950cd3328d838f511231d11d07990c.1484175023.git.joe@perches.com>
+Subject: Re: [PATCH] [v2] net: qcom/emac: grab a reference to the phydev on
+ ACPI systems
+Date: Thu, 12 Jan 2017 15:14:23 -0500 (EST)
+Message-ID: <20170112.151423.1152252804419911864.davem@davemloft.net>
+References: <1484174751-19036-1-git-send-email-timur@codeaurora.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: cmetcalf@mellanox.com, stephen@networkplumber.org,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: joe@perches.com
+Cc: netdev@vger.kernel.org, johan@kernel.org
+To: timur@codeaurora.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:56356 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:56350 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751158AbdALUOa (ORCPT
+        with ESMTP id S1750797AbdALUOa (ORCPT
         <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 15:14:30 -0500
-In-Reply-To: <fb9071cb1b950cd3328d838f511231d11d07990c.1484175023.git.joe@perches.com>
+In-Reply-To: <1484174751-19036-1-git-send-email-timur@codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Wed, 11 Jan 2017 14:52:20 -0800
+From: Timur Tabi <timur@codeaurora.org>
+Date: Wed, 11 Jan 2017 16:45:51 -0600
 
-> commit bc1f44709cf2 ("net: make ndo_get_stats64 a void function")
-> mistakenly used a return value for this void conversion.
+> Commit 6ffe1c4cd0a7 ("net: qcom/emac: fix of_node and phydev leaks")
+> fixed the problem with reference leaks on phydev, but the fix is
+> device-tree specific.  When the driver unloads, the reference is
+> dropped only on DT systems.
 > 
-> Fix it.
+> Instead, it's cleaner if up grab an reference on ACPI systems.
+> When the driver unloads, we can drop the reference without having
+> to check whether we're on a DT system.
 > 
-> Signed-off-by: Joe Perches <joe@perches.com>
-> cc: stephen hemminger <stephen@networkplumber.org>
+> Signed-off-by: Timur Tabi <timur@codeaurora.org>
 
 Applied.
