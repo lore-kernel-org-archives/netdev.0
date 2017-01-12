@@ -1,42 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH/RFC net] ravb: do not use zero-length alighment DMA
- request
-Date: Thu, 12 Jan 2017 10:21:02 -0500 (EST)
-Message-ID: <20170112.102102.2249793963798495642.davem@davemloft.net>
-References: <1484229217-25585-1-git-send-email-horms+renesas@verge.net.au>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH iproute2 v4 0/4] update ifstat for new stats
+Date: Thu, 12 Jan 2017 16:32:31 +0100
+Message-ID: <20170112163231.443f9205@griffin>
+References: <1484228991-32999-1-git-send-email-nogahf@mellanox.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: sergei.shtylyov@cogentembedded.com, magnus.damm@gmail.com,
-        netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org
-To: horms+renesas@verge.net.au
+Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
+        roszenrami@gmail.com, roopa@cumulusnetworks.com, jiri@mellanox.com,
+        idosch@mellanox.com, eladr@mellanox.com, yotamg@mellanox.com,
+        ogerlitz@mellanox.com
+To: Nogah Frankel <nogahf@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:50718 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750791AbdALPb6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 10:31:58 -0500
-In-Reply-To: <1484229217-25585-1-git-send-email-horms+renesas@verge.net.au>
+Received: from mx1.redhat.com ([209.132.183.28]:57514 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750899AbdALPcg (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 12 Jan 2017 10:32:36 -0500
+In-Reply-To: <1484228991-32999-1-git-send-email-nogahf@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Simon Horman <horms+renesas@verge.net.au>
-Date: Thu, 12 Jan 2017 14:53:37 +0100
+On Thu, 12 Jan 2017 15:49:47 +0200, Nogah Frankel wrote:
+> Previously stats were gotten by RTM_GETLINK which returns 32 bits based
+> statistics. It supports only one type of stats.
+> Lately, a new method to get stats was added - RTM_GETSTATS. It supports
+> ability to choose stats type. The basic stats were changed from 32 bits
+> based to 64 bits based.
+> 
+> This patchset adds ifstat the ability to get extended stats by this
+> method. Its adds two types of extended stats:
+> 64bits - the same as the "normal" stats but get the stats from the cpu
+> in 64 bits based struct.
+> cpu_hits - for packets that hit cpu.
 
-> diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
-> index 92d7692c840d..3b4d2504285e 100644
-> --- a/drivers/net/ethernet/renesas/ravb_main.c
-> +++ b/drivers/net/ethernet/renesas/ravb_main.c
-> @@ -1508,6 +1508,8 @@ static netdev_tx_t ravb_start_xmit(struct sk_buff *skb, struct net_device *ndev)
->  	buffer = PTR_ALIGN(priv->tx_align[q], DPTR_ALIGN) +
->  		 entry / NUM_TX_DESC * DPTR_ALIGN;
->  	len = PTR_ALIGN(skb->data, DPTR_ALIGN) - skb->data;
-> +	if (len == 0)
-> +		len = skb->len > 4 ? 4 : skb->len;
->  	memcpy(buffer, skb->data, len);
->  	dma_addr = dma_map_single(ndev->dev.parent, buffer, len, DMA_TO_DEVICE);
->  	if (dma_mapping_error(ndev->dev.parent, dma_addr))
+Please add also documentation to the respective man pages.
 
-Assume len ends up being skb->len, then the second DMA mapping will be
-made of zero length.
-
-This code needs a bit of TLC.
+ Jiri
