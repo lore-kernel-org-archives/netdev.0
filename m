@@ -1,57 +1,39 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [iproute PATCH] tc: m_xt: Fix segfault with iptables-1.6.0
-Date: Thu, 12 Jan 2017 11:34:49 -0800
-Message-ID: <20170112113449.581e2219@xeon-e3>
-References: <20170112142249.13041-1-phil@nwl.cc>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] tcp: fix tcp_fastopen unaligned access complaints on
+ sparc
+Date: Thu, 12 Jan 2017 15:39:29 -0500 (EST)
+Message-ID: <20170112.153929.270105303415628819.davem@davemloft.net>
+References: <1484252011.13165.0.camel@edumazet-glaptop3.roam.corp.google.com>
+        <cd152a9f-4855-a552-2b45-bd619436a628@oracle.com>
+        <1484252733.13165.1.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Phil Sutter <phil@nwl.cc>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f171.google.com ([209.85.192.171]:34473 "EHLO
-        mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750806AbdALUgB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 15:36:01 -0500
-Received: by mail-pf0-f171.google.com with SMTP id 127so18178639pfg.1
-        for <netdev@vger.kernel.org>; Thu, 12 Jan 2017 12:36:01 -0800 (PST)
-In-Reply-To: <20170112142249.13041-1-phil@nwl.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: rob.gardner@oracle.com, shannon.nelson@oracle.com,
+        netdev@vger.kernel.org, sparclinux@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <sparclinux-owner@vger.kernel.org>
+In-Reply-To: <1484252733.13165.1.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: sparclinux-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 12 Jan 2017 15:22:49 +0100
-Phil Sutter <phil@nwl.cc> wrote:
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 12 Jan 2017 12:25:33 -0800
 
-> Said iptables version introduced struct xtables_globals field
-> 'compat_rev', a function pointer. Initializing it is mandatory as
-> libxtables calls it without existence check.
+> On Thu, 2017-01-12 at 13:15 -0700, Rob Gardner wrote:
 > 
-> Without this, tc segfaults when using the xt action like so:
+>> 
+>> I suspect that someplace, somebody is casting val to an int * or 
+>> something like that.
 > 
-> | tc filter add dev d0 parent ffff: u32 match u32 0 0 \
-> |	action xt -j MARK --set-mark 20
-> 
-> Signed-off-by: Phil Sutter <phil@nwl.cc>
-> ---
->  tc/m_xt.c | 3 +++
->  1 file changed, 3 insertions(+)
-> 
-> diff --git a/tc/m_xt.c b/tc/m_xt.c
-> index dbb54981462ee..57ed40d7aa3a8 100644
-> --- a/tc/m_xt.c
-> +++ b/tc/m_xt.c
-> @@ -77,6 +77,9 @@ static struct xtables_globals tcipt_globals = {
->  	.orig_opts = original_opts,
->  	.opts = original_opts,
->  	.exit_err = NULL,
-> +#if (XTABLES_VERSION_CODE >= 11)
-> +	.compat_rev = xtables_compatible_revision,
-> +#endif
->  };
->  
->  /*
+> Then that would be the bug. Can we root cause this please ?
 
-Ah the xtables API is not really an application friendly API by
-any stretch of the imagination
+The three accesses to foc->val are via function calls, at least when I
+try to build it, one via memcmp(), one via memcpy() (for the structure
+assignment at the end of the function) and one via a call into the
+crypto layer when we do tcp_fastopen_cookie_gen).
 
-Parenthesis not really necessary there.
+So if the PC is inside of tcp_try_fastopen() it has to be something
+else, or something specific to your gcc and build.
+
