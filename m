@@ -1,55 +1,34 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH/RFC net] ravb: do not use zero-length alighment DMA
- request
-Date: Thu, 12 Jan 2017 16:46:47 +0100
-Message-ID: <20170112154647.GA2329@verge.net.au>
-References: <1484229217-25585-1-git-send-email-horms+renesas@verge.net.au>
- <20170112.102102.2249793963798495642.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] synopsys: remove dwc_eth_qos driver
+Date: Thu, 12 Jan 2017 10:48:03 -0500 (EST)
+Message-ID: <20170112.104803.240247212224131685.davem@davemloft.net>
+References: <2d50f9fea61de2eb082b217d435334d40e3e01ad.1484214626.git.jpinto@synopsys.com>
+        <20170112.102802.1485105708725148022.davem@davemloft.net>
+        <0eb32fee-0354-522d-72c4-3d1105ec04ed@synopsys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: sergei.shtylyov@cogentembedded.com, magnus.damm@gmail.com,
-        netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170112.102102.2249793963798495642.davem@davemloft.net>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: lars.persson@axis.com, niklass@axis.com, peppe.cavallaro@st.com,
+        alexandre.torgue@st.com, netdev@vger.kernel.org
+To: Joao.Pinto@synopsys.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:51054 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750819AbdALPsF (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 10:48:05 -0500
+In-Reply-To: <0eb32fee-0354-522d-72c4-3d1105ec04ed@synopsys.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 12, 2017 at 10:21:02AM -0500, David Miller wrote:
-> From: Simon Horman <horms+renesas@verge.net.au>
-> Date: Thu, 12 Jan 2017 14:53:37 +0100
-> 
-> > diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
-> > index 92d7692c840d..3b4d2504285e 100644
-> > --- a/drivers/net/ethernet/renesas/ravb_main.c
-> > +++ b/drivers/net/ethernet/renesas/ravb_main.c
-> > @@ -1508,6 +1508,8 @@ static netdev_tx_t ravb_start_xmit(struct sk_buff *skb, struct net_device *ndev)
-> >  	buffer = PTR_ALIGN(priv->tx_align[q], DPTR_ALIGN) +
-> >  		 entry / NUM_TX_DESC * DPTR_ALIGN;
-> >  	len = PTR_ALIGN(skb->data, DPTR_ALIGN) - skb->data;
-> > +	if (len == 0)
-> > +		len = skb->len > 4 ? 4 : skb->len;
-> >  	memcpy(buffer, skb->data, len);
-> >  	dma_addr = dma_map_single(ndev->dev.parent, buffer, len, DMA_TO_DEVICE);
-> >  	if (dma_mapping_error(ndev->dev.parent, dma_addr))
-> 
-> Assume len ends up being skb->len, then the second DMA mapping will be
-> made of zero length.
-> 
-> This code needs a bit of TLC.
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Date: Thu, 12 Jan 2017 15:46:31 +0000
 
-Thanks, I realised that after sending this patch.
+> Hope we can meet in a LinuxCon soon and have a talk, for you to know
+> me and this way you will see that I am a guy that is only focused in
+> producing work the best way possible, and nothing else.
 
-What I now see is that a few lines further up there is:
+I do not argue your intentions.
 
-	 if (skb_put_padto(skb, ETH_ZLEN))
-		goto drop;
-
-	where ETH_ZLEN is 60.
-
-So I don't think we need to worry about skb->len being less than 60 and
-this patch can be simplified to:
-
-	if (len == 0)
-		len = 4;
+I argue the side effects of your change for the ecosystem of
+long term maintaince and backporting, and what tangible benefit
+this change brings to users.
