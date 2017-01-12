@@ -1,40 +1,52 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] wext: handle NULL exta data in iwe_stream_add_point
- better
-Date: Thu, 12 Jan 2017 09:37:06 +0100
-Message-ID: <1484210226.5391.1.camel@sipsolutions.net>
-References: <20170111143532.485827-1-arnd@arndb.de>
-         <CAK8P3a2mOT=BG=9yxJ1e-q__5FYq6dfF3t3bT1vqcgFaQAUjog@mail.gmail.com>
-         <1484147177.29931.14.camel@sipsolutions.net> <3292373.oxnXTOSWCQ@wuerfel>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org,
-        "David S. Miller" <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <3292373.oxnXTOSWCQ@wuerfel>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Simon Horman <horms+renesas@verge.net.au>
+Subject: [PATCH/RFC net] ravb: Remove Rx overflow log messages
+Date: Thu, 12 Jan 2017 09:41:10 +0100
+Message-ID: <1484210470-3095-1-git-send-email-horms+renesas@verge.net.au>
+Cc: Magnus Damm <magnus.damm@gmail.com>, netdev@vger.kernel.org,
+        linux-renesas-soc@vger.kernel.org
+To: David Miller <davem@davemloft.net>,
+        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kirsty.vergenet.net ([202.4.237.240]:40319 "EHLO
+        kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750886AbdALIml (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 03:42:41 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2017-01-11 at 21:39 +0100, Arnd Bergmann wrote:
-> On Wednesday, January 11, 2017 4:06:17 PM CET Johannes Berg wrote:
-> > 
-> > Applied. Also fixed the typo in the subject :)
-> 
-> Thanks! Unfortunately I now got another warning for the same
-> function, and though I would have expected the patch to fix it, that
-> did not work:
+From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
 
-I've come to expect better of you (i.e. testing your own patches) ;-)
+Remove Rx overflow log messages as in an environment where logging results
+in network traffic logging may cause further overflows.
 
+Fixes: c156633f1353 ("Renesas Ethernet AVB driver proper")
+Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+[simon: reworked changelog]
+Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
+---
+ drivers/net/ethernet/renesas/ravb_main.c | 8 ++------
+ 1 file changed, 2 insertions(+), 6 deletions(-)
 
-Come to think of it, I'm thinking I should drop this patch and the
-driver should just use iwe_stream_add_event() instead? It'll be
-somewhat tricky to get the length correct though.
-
-Alternatively, perhaps we should just uninline all the crap and then
-the compiler can't bother us :)
-
-johannes
+diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
+index 92d7692c840d..5e5ad978eab9 100644
+--- a/drivers/net/ethernet/renesas/ravb_main.c
++++ b/drivers/net/ethernet/renesas/ravb_main.c
+@@ -926,14 +926,10 @@ static int ravb_poll(struct napi_struct *napi, int budget)
+ 	/* Receive error message handling */
+ 	priv->rx_over_errors =  priv->stats[RAVB_BE].rx_over_errors;
+ 	priv->rx_over_errors += priv->stats[RAVB_NC].rx_over_errors;
+-	if (priv->rx_over_errors != ndev->stats.rx_over_errors) {
++	if (priv->rx_over_errors != ndev->stats.rx_over_errors)
+ 		ndev->stats.rx_over_errors = priv->rx_over_errors;
+-		netif_err(priv, rx_err, ndev, "Receive Descriptor Empty\n");
+-	}
+-	if (priv->rx_fifo_errors != ndev->stats.rx_fifo_errors) {
++	if (priv->rx_fifo_errors != ndev->stats.rx_fifo_errors)
+ 		ndev->stats.rx_fifo_errors = priv->rx_fifo_errors;
+-		netif_err(priv, rx_err, ndev, "Receive FIFO Overflow\n");
+-	}
+ out:
+ 	return budget - quota;
+ }
+-- 
+2.7.0.rc3.207.g0ac5344
