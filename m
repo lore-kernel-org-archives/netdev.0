@@ -1,71 +1,46 @@
-From: Mason <slash.tmp@free.fr>
-Subject: Re: Setting link down or up in software
-Date: Thu, 12 Jan 2017 16:16:49 +0100
-Message-ID: <2044a26f-cf95-ac55-6265-ac76c3ca53f6@free.fr>
-References: <75bd6df2-714a-2b9b-a0e3-f5574c295377@free.fr>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] net: ipv6: put autoconf routes into
+ per-interface tables
+Date: Thu, 12 Jan 2017 08:17:18 -0700
+Message-ID: <da432a7e-63f2-c94b-9b60-aa763715b550@cumulusnetworks.com>
+References: <20170106153026.24785-1-lorenzo@google.com>
+ <37df3b18-d17b-5875-7b44-db40be7b459c@cumulusnetworks.com>
+ <CAKD1Yr2U2Oh5yvHE7Znfc9mHzM4K6B_kU82Qctpcsmnt3y5GdQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Mans Rullgard <mans@mansr.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Thibaud Cornic <thibaud_cornic@sigmadesigns.com>
-To: netdev <netdev@vger.kernel.org>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        =?UTF-8?Q?Maciej_=c5=bbenczykowski?= <zenczykowski@gmail.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Erik Kline <ek@google.com>,
+        YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>,
+        David Miller <davem@davemloft.net>,
+        Daniel Rosenberg <drosen@google.com>
+To: Lorenzo Colitti <lorenzo@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp5-g21.free.fr ([212.27.42.5]:17475 "EHLO smtp5-g21.free.fr"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750720AbdALPRE (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 12 Jan 2017 10:17:04 -0500
-In-Reply-To: <75bd6df2-714a-2b9b-a0e3-f5574c295377@free.fr>
-Content-Language: 
+Received: from mail-io0-f182.google.com ([209.85.223.182]:32967 "EHLO
+        mail-io0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750818AbdALPRX (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 10:17:23 -0500
+Received: by mail-io0-f182.google.com with SMTP id v96so20641734ioi.0
+        for <netdev@vger.kernel.org>; Thu, 12 Jan 2017 07:17:23 -0800 (PST)
+In-Reply-To: <CAKD1Yr2U2Oh5yvHE7Znfc9mHzM4K6B_kU82Qctpcsmnt3y5GdQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/01/2017 14:05, Mason wrote:
+On 1/9/17 7:01 PM, Lorenzo Colitti wrote:
+> On Sun, Jan 8, 2017 at 1:24 PM, David Ahern <dsa@cumulusnetworks.com> wrote:
+>> Why not use the VRF capability then? create a VRF and assign the interface to it. End result is the same -- separate tables and the need to use a bind-to-device API to hit those routes.
+> 
+> Requiring that VRFs for this creates additional complexity, because
+> each network now requires its own VRF. That means that the connection
+> manager must create the VRF before the interface comes up and receives
+> the RA.
+> 
+> In some cases this might not be possible. For example, consider a tun
+> interface that's created by a different process such as a VPN client.
+> In this case the connection manager doesn't know the interface name,
+> and the VPN client doesn't know to create the VRF, so if the tun
+> interface gets an RA after the tun is created but
 
-> I'm wondering what are the semantics of calling
-> 
-> 	ip link set dev eth0 down
-> 
-> I was expecting that to somehow instruct the device's ethernet driver
-> to shut everything down, have the PHY tell the peer that it's going
-> away, maybe even put the PHY in some low-power mode, etc.
-> 
-> But it doesn't seem to be doing any of that on my HW.
-> 
-> So what exactly is it supposed to do?
-> 
-> 
-> And on top of that, I am seeing random occurrences of
-> 
-> 	nb8800 26000.ethernet eth0: Link is Down
-> 
-> Sometimes it is printed immediately.
-> Sometimes it is printed as soon as I run "ip link set dev eth0 up" (?!)
-> Sometimes it is not printed at all.
-> 
-> I find this erratic behavior very confusing.
-> 
-> Is it the symptom of some deeper bug?
-
-Here's an example of "Link is Down" printed when I set link up:
-
-At [   62.750220] I run ip link set dev eth0 down
-Then leave the system idle for 10 minutes.
-At [  646.263041] I run ip link set dev eth0 up
-At [  647.364079] it prints "Link is Down"
-At [  649.417434] it prints "Link is Up - 1Gbps/Full - flow control rx/tx"
-
-I think whether I set up the PHY to use interrupts or polling
-does have an influence on the weirdness I observe.
-
-AFAICT, changing the interface flags is done in dev_change_flags
-which calls __dev_change_flags and __dev_notify_flags
-
-Is one of these supposed to call the device driver through a
-callback at some point?
-
-How/when is the phy_state_machine notified of the change in
-interface flags?
-
-Regards.
+Have you looked at adding basic l3mdev capabilities to tun? in this case just l3mdev_fib_table needs be implemented. On interface create push down a table id and set the IFF_L3MDEV_MASTER flag.
