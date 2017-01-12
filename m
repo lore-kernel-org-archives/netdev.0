@@ -1,46 +1,52 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH/RFC net] ravb: do not use zero-length alighment DMA
- request
-Date: Thu, 12 Jan 2017 19:14:52 +0300
-Message-ID: <c99997c5-5c3f-d966-1ce4-e81dc7bfb42d@cogentembedded.com>
-References: <1484229217-25585-1-git-send-email-horms+renesas@verge.net.au>
- <20170112.102102.2249793963798495642.davem@davemloft.net>
- <20170112154647.GA2329@verge.net.au>
- <20170112.110402.1123747824643306383.davem@davemloft.net>
+From: Mason <slash.tmp@free.fr>
+Subject: Re: Setting link down or up in software
+Date: Thu, 12 Jan 2017 17:22:14 +0100
+Message-ID: <75281de4-d50d-76fd-8de9-606001a4d93a@free.fr>
+References: <75bd6df2-714a-2b9b-a0e3-f5574c295377@free.fr>
+ <2044a26f-cf95-ac55-6265-ac76c3ca53f6@free.fr>
+ <20170112152856.GL13033@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: magnus.damm@gmail.com, netdev@vger.kernel.org,
-        linux-renesas-soc@vger.kernel.org
-To: David Miller <davem@davemloft.net>, horms@verge.net.au
+Cc: netdev <netdev@vger.kernel.org>, Mans Rullgard <mans@mansr.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Thibaud Cornic <thibaud_cornic@sigmadesigns.com>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f45.google.com ([209.85.215.45]:32969 "EHLO
-        mail-lf0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750994AbdALQO5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 11:14:57 -0500
-Received: by mail-lf0-f45.google.com with SMTP id k86so16526848lfi.0
-        for <netdev@vger.kernel.org>; Thu, 12 Jan 2017 08:14:56 -0800 (PST)
-In-Reply-To: <20170112.110402.1123747824643306383.davem@davemloft.net>
+Received: from smtp5-g21.free.fr ([212.27.42.5]:37093 "EHLO smtp5-g21.free.fr"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750733AbdALQWb (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 12 Jan 2017 11:22:31 -0500
+In-Reply-To: <20170112152856.GL13033@lunn.ch>
+Content-Language: 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/12/2017 07:04 PM, David Miller wrote:
+On 12/01/2017 16:28, Andrew Lunn wrote:
 
->> What I now see is that a few lines further up there is:
+> Mason wrote:
+> 
+>> Here's an example of "Link is Down" printed when I set link up:
 >>
->> 	 if (skb_put_padto(skb, ETH_ZLEN))
->> 		goto drop;
->>
->> 	where ETH_ZLEN is 60.
->>
->> So I don't think we need to worry about skb->len being less than 60 and
->> this patch can be simplified to:
->>
->> 	if (len == 0)
->> 		len = 4;
->
-> I'd say this might deserve a comment...
+>> At [   62.750220] I run ip link set dev eth0 down
+>> Then leave the system idle for 10 minutes.
+>> At [  646.263041] I run ip link set dev eth0 up
+>> At [  647.364079] it prints "Link is Down"
+>> At [  649.417434] it prints "Link is Up - 1Gbps/Full - flow control rx/tx"
+> 
+> Purely a guess, but when you up the interface, it starts auto
+> negotiation. That often involves resetting the PHY. If the PHY has
+> already once completed autoneg, e.g. because of the boot loader, it
+> will be initially UP. The reset will put it DOWN, and then once
+> autoneg is complete, it will be Up again.
+> 
+> Pure guess. Go read the code and see if i'm write.
 
-    Sure. And the one better than the original "quick fix"... :-)
+Thanks for giving me some food for thought, although the net framework
+is far from easy to navigate. (So I'm not sure "go read the code" will
+take me anywhere in the short term.)
 
-MBR, Sergei
+Whatever the reason for the symptoms I'm seeing, some kind of race
+condition must be involved, because it occurs randomly.
+
+Regards.
