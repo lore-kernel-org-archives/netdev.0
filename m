@@ -1,173 +1,77 @@
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: Re: [PATCH 3/4] net: ethernet: ti: cpsw: don't duplicate ndev_running
-Date: Thu, 12 Jan 2017 11:34:47 -0600
-Message-ID: <2eb8a083-41e8-e7ec-17dc-36626ac68f00@ti.com>
-References: <1483893663-15673-1-git-send-email-ivan.khoronzhuk@linaro.org>
- <1483893663-15673-4-git-send-email-ivan.khoronzhuk@linaro.org>
- <c6dfedc3-d346-b9a4-f398-96ac7e57d0b8@ti.com>
- <20170111015619.GA20617@khorivan>
+From: Michal Hocko <mhocko@kernel.org>
+Subject: Re: [PATCH 5/6] treewide: use kv[mz]alloc* rather than opencoded
+ variants
+Date: Thu, 12 Jan 2017 18:37:46 +0100
+Message-ID: <20170112173745.GC31509@dhcp22.suse.cz>
+References: <20170112153717.28943-1-mhocko@kernel.org>
+ <20170112153717.28943-6-mhocko@kernel.org>
+ <CAGXu5jKhYP=5YNuntzmG64WL92F59VKhByOh9nqaGP7-LBEnng@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <mugunthanvnm@ti.com>, <linux-omap@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>,
-        Florian Fainelli <f.fainelli@gmail.com>
-To: <netdev@vger.kernel.org>, Eric Dumazet <edumazet@google.com>,
-        "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170111015619.GA20617@khorivan>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Vlastimil Babka <vbabka@suse.cz>,
+	David Rientjes <rientjes@google.com>, Mel Gorman <mgorman@suse.de>,
+	Johannes Weiner <hannes@cmpxchg.org>,
+	Al Viro <viro@zeniv.linux.org.uk>, Linux-MM <linux-mm@kvack.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Martin Schwidefsky <schwidefsky@de.ibm.com>,
+	Heiko Carstens <heiko.carstens@de.ibm.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Anton Vorontsov <anton@enomsg.org>,
+	Colin Cross <ccross@android.com>, Tony Luck <tony.luck@intel.com>,
+	"Rafael J. Wysocki" <rjw@rjwysocki.net>,
+	Ben Skeggs <bskeggs@redhat.com>,
+	Kent Overstreet <kent.overstreet@gmail.com>,
+	Santosh Raspatur <santosh@chelsio.com>,
+	Hariprasad S <hariprasad@chelsio.com>,
+	Tariq Toukan <tariqt@mellanox.com>,
+	Yishai Hadas <yishaih@mellanox.com>,
+	Dan Williams <dan.j.williams@intel.com>,
+	Oleg Drokin <oleg.drokin@intel.com>,
+	Andreas
+To: Kees Cook <keescook@chromium.org>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <CAGXu5jKhYP=5YNuntzmG64WL92F59VKhByOh9nqaGP7-LBEnng@mail.gmail.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-
-
-On 01/10/2017 07:56 PM, Ivan Khoronzhuk wrote:
-> On Mon, Jan 09, 2017 at 11:25:38AM -0600, Grygorii Strashko wrote:
->>
->>
->> On 01/08/2017 10:41 AM, Ivan Khoronzhuk wrote:
->>> No need to create additional vars to identify if interface is running.
->>> So simplify code by removing redundant var and checking usage counter
->>> instead.
->>>
->>> Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
->>> ---
->>>  drivers/net/ethernet/ti/cpsw.c | 14 ++++----------
->>>  1 file changed, 4 insertions(+), 10 deletions(-)
->>>
->>> diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
->>> index 40d7fc9..daae87f 100644
->>> --- a/drivers/net/ethernet/ti/cpsw.c
->>> +++ b/drivers/net/ethernet/ti/cpsw.c
->>> @@ -357,7 +357,6 @@ struct cpsw_slave {
->>>  	struct phy_device		*phy;
->>>  	struct net_device		*ndev;
->>>  	u32				port_vlan;
->>> -	u32				open_stat;
->>>  };
->>>  
->>>  static inline u32 slave_read(struct cpsw_slave *slave, u32 offset)
->>> @@ -1241,7 +1240,7 @@ static int cpsw_common_res_usage_state(struct cpsw_common *cpsw)
->>>  	u32 usage_count = 0;
->>>  
->>>  	for (i = 0; i < cpsw->data.slaves; i++)
->>> -		if (cpsw->slaves[i].open_stat)
->>> +		if (netif_running(cpsw->slaves[i].ndev))
->>>  			usage_count++;
->>
->> Not sure this will work as you expected, but may be I've missed smth :(
-> I've changed conditions, will work.
+On Thu 12-01-17 09:26:09, Kees Cook wrote:
+> On Thu, Jan 12, 2017 at 7:37 AM, Michal Hocko <mhocko@kernel.org> wrote:
+[...]
+> > diff --git a/arch/s390/kvm/kvm-s390.c b/arch/s390/kvm/kvm-s390.c
+> > index 4f74511015b8..e6bbb33d2956 100644
+> > --- a/arch/s390/kvm/kvm-s390.c
+> > +++ b/arch/s390/kvm/kvm-s390.c
+> > @@ -1126,10 +1126,7 @@ static long kvm_s390_get_skeys(struct kvm *kvm, struct kvm_s390_skeys *args)
+> >         if (args->count < 1 || args->count > KVM_S390_SKEYS_MAX)
+> >                 return -EINVAL;
+> >
+> > -       keys = kmalloc_array(args->count, sizeof(uint8_t),
+> > -                            GFP_KERNEL | __GFP_NOWARN);
+> > -       if (!keys)
+> > -               keys = vmalloc(sizeof(uint8_t) * args->count);
+> > +       keys = kvmalloc(args->count * sizeof(uint8_t), GFP_KERNEL);
 > 
->>
->> code in static int __dev_open(struct net_device *dev)
->> ..
->> 	set_bit(__LINK_STATE_START, &dev->state);
->>
->> 	if (ops->ndo_validate_addr)
->> 		ret = ops->ndo_validate_addr(dev);
->>
->> 	if (!ret && ops->ndo_open)
->> 		ret = ops->ndo_open(dev);
->>
->> 	netpoll_poll_enable(dev);
->>
->> 	if (ret)
->> 		clear_bit(__LINK_STATE_START, &dev->state);
->> ..
->>
->> so, netif_running(ndev) will start returning true before calling ops->ndo_open(dev);
-> Yes, It's done bearing it in mind of course.
-> 
->>
->>>  
->>>  	return usage_count;
->>> @@ -1502,7 +1501,7 @@ static int cpsw_ndo_open(struct net_device *ndev)
->>>  		 CPSW_RTL_VERSION(reg));
->>>  
->>>  	/* initialize host and slave ports */
->>> -	if (!cpsw_common_res_usage_state(cpsw))
->>> +	if (cpsw_common_res_usage_state(cpsw) < 2)
->>
->> Ah. You've changed the condition here.
->>
->> I think it might be reasonable to hide this inside cpsw_common_res_usage_state()
->> and seems it can be renamed to smth like cpsw_is_running().
-> It probably needs to be renamed to smth a little different,
-> like cpsw_get_usage_count ...or cpsw_get_open_ndev_count
+> Before doing this conversion, can we add a kvmalloc_array() API? This
+> conversion could allow for the reintroduction of integer overflow
+> flaws. (This particular situation isn't at risk since ->count is
+> checked, but I'd prefer we not create a risky set of examples for
+> using kvmalloc.)
 
-cpsw_get_usage_count () sounds good
+Well, I am not opposed to kvmalloc_array but I would argue that this
+conversion cannot introduce new overflow issues. The code would have
+to be broken already because even though kmalloc_array checks for the
+overflow but vmalloc fallback doesn't...
 
-> 
->>
->>
->>>  		cpsw_init_host_port(priv);
->>>  	for_each_slave(priv, cpsw_slave_open, priv);
->>>  
->>> @@ -1513,7 +1512,7 @@ static int cpsw_ndo_open(struct net_device *ndev)
->>>  		cpsw_ale_add_vlan(cpsw->ale, cpsw->data.default_vlan,
->>>  				  ALE_ALL_PORTS, ALE_ALL_PORTS, 0, 0);
->>>  
->>> -	if (!cpsw_common_res_usage_state(cpsw)) {
->>> +	if (cpsw_common_res_usage_state(cpsw) < 2) {
->>>  		/* disable priority elevation */
->>>  		__raw_writel(0, &cpsw->regs->ptype);
->>>  
->>> @@ -1556,9 +1555,6 @@ static int cpsw_ndo_open(struct net_device *ndev)
->>>  	cpdma_ctlr_start(cpsw->dma);
->>>  	cpsw_intr_enable(cpsw);
->>>  
->>> -	if (cpsw->data.dual_emac)
->>> -		cpsw->slaves[priv->emac_port].open_stat = true;
->>> -
->>>  	return 0;
->>>  
->>>  err_cleanup:
->>> @@ -1578,7 +1574,7 @@ static int cpsw_ndo_stop(struct net_device *ndev)
->>>  	netif_tx_stop_all_queues(priv->ndev);
->>>  	netif_carrier_off(priv->ndev);
->>>  
->>> -	if (cpsw_common_res_usage_state(cpsw) <= 1) {
->>> +	if (!cpsw_common_res_usage_state(cpsw)) {
->>
->> and here __LINK_STATE_START will be cleared before calling ops->ndo_stop(dev);
-> Actually it's changed because of it.
-> 
->> So, from one side netif_running(ndev) usage will simplify cpsw_common_res_usage_state() internals,
->> but from another side - it will make places where it's used even more entangled :( as for me,
->> because when cpsw_common_res_usage_state() will return 1 in cpsw_ndo_open() it will mean
->> "no interfaces is really running yet", but the same value 1 in cpsw_ndo_stop()
-> why not? no interfaces running, except the one excuting ndo_open now.
-> It's more clear then duplicating it and using two different ways in
-> different places for identifing running devices. Current way more
-> close to some testing code, not final version. Just to be consistent
-> better to change it.
-> 
-> Yes, it returns different results when it's called from ndo_close and
-> ndo_open. Maybe name for the function is not very close to an action
-> it's doing, it declares more intention, and even not for every case.
-> What about to rename it to some cpsw_get_open_ndev_count and add
-> comments in several places explaining what it actually do.
-
-yes. please. comments are required at least.
-
-its actually a question why __LINK_STATE_START is managed this way in ./net/core/dev.c
-
-__dev_open()
-	set_bit(__LINK_STATE_START, &dev->state); <---- before .ndo_open()
-
-	if (!ret && ops->ndo_open)
-		ret = ops->ndo_open(dev);
-
-	<---- shouldn't set_bit(__LINK_STATE_START, &dev->state) be after calling .ndo_open() ??
-
-__dev_close_many()
-
-	clear_bit(__LINK_STATE_START, &dev->state); <-stop sequence is differ from open.
-
-	if (ops->ndo_stop)
-			ops->ndo_stop(dev);
-
+If there is a general interest for this API I can add it.
 
 -- 
-regards,
--grygorii
+Michal Hocko
+SUSE Labs
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
