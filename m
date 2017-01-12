@@ -1,36 +1,76 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch net-next] stmmac: indent an if statement
-Date: Thu, 12 Jan 2017 21:46:32 +0300
-Message-ID: <20170112184631.GA12157@mwanda>
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Subject: [PATCH net-next] liquidio: replace skb_tx_hash with fallback
+Date: Thu, 12 Jan 2017 10:46:06 -0800
+Message-ID: <20170112184606.GA5503@felix.cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexandre Torgue <alexandre.torgue@st.com>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        jpinto <Joao.Pinto@synopsys.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, <raghu.vatsavayi@cavium.com>,
+        <derek.chickles@cavium.com>, <satananda.burla@cavium.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:24849 "EHLO
-        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750916AbdALSqr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 13:46:47 -0500
+Received: from mail-bl2nam02on0057.outbound.protection.outlook.com ([104.47.38.57]:20274
+        "EHLO NAM02-BL2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1750919AbdALSrK (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 12 Jan 2017 13:47:10 -0500
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The break statement should be indented one more tab.
+From: Satanand Burla <satananda.burla@cavium.com>
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Use fallback instead of skb_tx_hash for selecting txq
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index ac32f9e..4daa8a3 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -191,7 +191,7 @@ static int stmmac_dt_phy(struct plat_stmmacenet_data *plat,
- 		for_each_child_of_node(np, plat->mdio_node) {
- 			if (of_device_is_compatible(plat->mdio_node,
- 						    "snps,dwmac-mdio"))
--			break;
-+				break;
- 		}
- 	}
+Signed-off-by: Satanand Burla <satananda.burla@cavium.com>
+Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
+Signed-off-by: Derek Chickles <derek.chickles@cavium.com>
+---
+ drivers/net/ethernet/cavium/liquidio/lio_main.c    | 10 ++--------
+ drivers/net/ethernet/cavium/liquidio/lio_vf_main.c | 11 ++---------
+ 2 files changed, 4 insertions(+), 17 deletions(-)
+
+diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+index b8b579d..90f000f 100644
+--- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
++++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+@@ -2231,15 +2231,9 @@ static void if_cfg_callback(struct octeon_device *oct,
+  */
+ static u16 select_q(struct net_device *dev, struct sk_buff *skb,
+ 		    void *accel_priv __attribute__((unused)),
+-		    select_queue_fallback_t fallback __attribute__((unused)))
++		    select_queue_fallback_t fallback)
+ {
+-	u32 qindex = 0;
+-	struct lio *lio;
+-
+-	lio = GET_LIO(dev);
+-	qindex = skb_tx_hash(dev, skb);
+-
+-	return (u16)(qindex % (lio->linfo.num_txpciq));
++	return fallback(dev, skb);
+ }
  
+ /** Routine to push packets arriving on Octeon interface upto network layer.
+diff --git a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
+index ad2e72d..a7478eb 100644
+--- a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
++++ b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
+@@ -1463,16 +1463,9 @@ static void if_cfg_callback(struct octeon_device *oct,
+  */
+ static u16 select_q(struct net_device *dev, struct sk_buff *skb,
+ 		    void *accel_priv __attribute__((unused)),
+-		    select_queue_fallback_t fallback __attribute__((unused)))
++		    select_queue_fallback_t fallback)
+ {
+-	struct lio *lio;
+-	u32 qindex;
+-
+-	lio = GET_LIO(dev);
+-
+-	qindex = skb_tx_hash(dev, skb);
+-
+-	return (u16)(qindex % (lio->linfo.num_txpciq));
++	return fallback(dev, skb);
+ }
+ 
+ /** Routine to push packets arriving on Octeon interface upto network layer.
