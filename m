@@ -1,48 +1,39 @@
-From: Josef Bacik <jbacik@fb.com>
-Subject: Re: [PATCH 1/6 net-next] inet: collapse ipv4/v6 rcv_saddr_equal
- functions into one
-Date: Thu, 12 Jan 2017 13:13:59 -0500
-Message-ID: <1484244839.3869.0@smtp.office365.com>
-References: <CAEfhGixyDxk6yNCY-FVLAop-VvO0jB1YuOu3i382Y5S40ocwOA@mail.gmail.com>
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: Re: To netlink or not to netlink, that is the question
+Date: Thu, 12 Jan 2017 19:28:20 +0100
+Message-ID: <CAHmME9rWDzO9j8E1HYSXY6j9FJqHODOYnEW8+SSggapDkQ_jBA@mail.gmail.com>
+References: <CAHmME9pkktqOSUyTS_XhgC-CE4iqTv6UEA6w74kkm3xnBY8z9g@mail.gmail.com>
+ <20170112091440.7f6cd41f@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Cc: David Miller <davem@davemloft.net>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        "Tom Herbert" <tom@herbertland.com>,
-        netdev <netdev@vger.kernel.org>, <kernel-team@fb.com>
-To: Craig Gallek <kraigatgoog@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:33815 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750934AbdALSOb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 13:14:31 -0500
-In-Reply-To: <CAEfhGixyDxk6yNCY-FVLAop-VvO0jB1YuOu3i382Y5S40ocwOA@mail.gmail.com>
+Received: from frisell.zx2c4.com ([192.95.5.64]:39223 "EHLO frisell.zx2c4.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750971AbdALS2a (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 12 Jan 2017 13:28:30 -0500
+Received: by frisell.zx2c4.com (ZX2C4 Mail Server) with ESMTP id 3c8188a7
+        for <netdev@vger.kernel.org>;
+        Thu, 12 Jan 2017 18:18:22 +0000 (UTC)
+Received: by frisell.zx2c4.com (ZX2C4 Mail Server) with ESMTPSA id a768a05e (TLSv1.2:ECDHE-RSA-AES128-GCM-SHA256:128:NO)
+        for <netdev@vger.kernel.org>;
+        Thu, 12 Jan 2017 18:18:21 +0000 (UTC)
+Received: by mail-oi0-f51.google.com with SMTP id u143so32721374oif.3
+        for <netdev@vger.kernel.org>; Thu, 12 Jan 2017 10:28:22 -0800 (PST)
+In-Reply-To: <20170112091440.7f6cd41f@xeon-e3>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 12, 2017 at 12:41 PM, Craig Gallek <kraigatgoog@gmail.com> 
-wrote:
-> On Wed, Jan 11, 2017 at 3:19 PM, Josef Bacik <jbacik@fb.com> wrote:
->>  +int inet_rcv_saddr_equal(const struct sock *sk, const struct sock 
->> *sk2,
->>  +                        bool match_wildcard)
->>  +{
->>  +#if IS_ENABLED(CONFIG_IPV6)
->>  +       if (sk->sk_family == AF_INET6)
-> Still wrapping my head around this, so take it with a grain of salt,
-> but it's not obvious to me that sk and sk2 are guaranteed to have the
-> same family here (or if it even matters).  Especially in the context
-> of the next patch which removes the bind_conflict callback...  Does
-> this need to be an OR check for the family of either socket?  Or is it
-> safe as-is because the first socket passed to this function is always
-> the existing one and the second one is the possible conflict socket?
+On Thu, Jan 12, 2017 at 6:14 PM, Stephen Hemminger
+<stephen@networkplumber.org> wrote:
+> It is up to you but I doubt that code with new private ioctl's will be
+> accepted upstream. If you want full review then post for inclusion upstream.
+> If you just want to maintain it is a private fork, go ahead and do what
+> you want and suffer the consequences.
 
-It's safe as is, all we care is that sk1 is the INET6 socket.  In the 
-compare function we use inet6_rcv_saddr(sk2) which will return NULL if 
-it isn't INET6 and then the function handles that case appropriately.  
-This stuff is subtle so it's easy to get confused, I always made sure 
-to run it on our production boxes to make sure I didn't break something 
-;).  Thanks,
-
-Josef
+Obviously I'm going for upstream conclusion and not willing to "suffer
+the consequences", hence my email in the first place. Given that you
+seem most interested in netlink, might you have any constructive
+suggestions on how netlink might be used with very large atomic
+messages?
