@@ -1,145 +1,88 @@
-From: David Lebrun <david.lebrun@uclouvain.be>
-Subject: Re: [PATCH net-next] ipv6: sr: static percpu allocation for hmac_ring
-Date: Thu, 12 Jan 2017 21:10:00 +0100
-Message-ID: <5877E298.2010806@uclouvain.be>
-References: <1484239810.15816.47.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] liquidio: replace skb_tx_hash with fallback
+Date: Thu, 12 Jan 2017 11:10:18 -0800
+Message-ID: <1484248218.3321.1.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170112184606.GA5503@felix.cavium.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-        protocol="application/pgp-signature";
-        boundary="LPfukhKGx75nmFQRVacEwkOMNf9iEi0qr"
-Cc: netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-        David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+        raghu.vatsavayi@cavium.com, derek.chickles@cavium.com,
+        satananda.burla@cavium.com
+To: Felix Manlunas <felix.manlunas@cavium.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:33192 "EHLO
-        smtp1.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750896AbdALUJN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 15:09:13 -0500
-In-Reply-To: <1484239810.15816.47.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:34419 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750823AbdALUL5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 15:11:57 -0500
+Received: by mail-pf0-f194.google.com with SMTP id y143so4848954pfb.1
+        for <netdev@vger.kernel.org>; Thu, 12 Jan 2017 12:11:57 -0800 (PST)
+In-Reply-To: <20170112184606.GA5503@felix.cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---LPfukhKGx75nmFQRVacEwkOMNf9iEi0qr
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-
-On 01/12/2017 05:50 PM, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
->=20
-> Current allocations are not NUMA aware, and lack proper
-> cleanup in case of error.
->=20
-> It is perfectly fine to use static per cpu allocations for 256 bytes
-> per cpu.
->=20
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: David Lebrun <david.lebrun@uclouvain.be>
+On Thu, 2017-01-12 at 10:46 -0800, Felix Manlunas wrote:
+> From: Satanand Burla <satananda.burla@cavium.com>
+> 
+> Use fallback instead of skb_tx_hash for selecting txq
+> 
+> Signed-off-by: Satanand Burla <satananda.burla@cavium.com>
+> Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
+> Signed-off-by: Derek Chickles <derek.chickles@cavium.com>
 > ---
->  net/ipv6/seg6_hmac.c |   43 ++---------------------------------------
->  1 file changed, 3 insertions(+), 40 deletions(-)
->=20
-> diff --git a/net/ipv6/seg6_hmac.c b/net/ipv6/seg6_hmac.c
-> index ef1c8a46e7aceee45b2044d4b4338dc3aed88807..6389bf3e9c9f28cdd3e3017=
-5f2880b74e099e273 100644
-> --- a/net/ipv6/seg6_hmac.c
-> +++ b/net/ipv6/seg6_hmac.c
-> @@ -45,7 +45,7 @@
->  #include <net/seg6_hmac.h>
->  #include <linux/random.h>
-> =20
-> -static char * __percpu *hmac_ring;
-> +static DEFINE_PER_CPU(char [SEG6_HMAC_RING_SIZE], hmac_ring);
-> =20
->  static int seg6_hmac_cmpfn(struct rhashtable_compare_arg *arg, const v=
-oid *obj)
+>  drivers/net/ethernet/cavium/liquidio/lio_main.c    | 10 ++--------
+>  drivers/net/ethernet/cavium/liquidio/lio_vf_main.c | 11 ++---------
+>  2 files changed, 4 insertions(+), 17 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+> index b8b579d..90f000f 100644
+> --- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
+> +++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+> @@ -2231,15 +2231,9 @@ static void if_cfg_callback(struct octeon_device *oct,
+>   */
+>  static u16 select_q(struct net_device *dev, struct sk_buff *skb,
+>  		    void *accel_priv __attribute__((unused)),
+> -		    select_queue_fallback_t fallback __attribute__((unused)))
+> +		    select_queue_fallback_t fallback)
 >  {
-> @@ -192,7 +192,7 @@ int seg6_hmac_compute(struct seg6_hmac_info *hinfo,=
- struct ipv6_sr_hdr *hdr,
->  	 */
-> =20
->  	local_bh_disable();
-> -	ring =3D *this_cpu_ptr(hmac_ring);
-> +	ring =3D this_cpu_ptr(hmac_ring);
->  	off =3D ring;
-> =20
->  	/* source address */
-> @@ -353,27 +353,6 @@ int seg6_push_hmac(struct net *net, struct in6_add=
-r *saddr,
+> -	u32 qindex = 0;
+> -	struct lio *lio;
+> -
+> -	lio = GET_LIO(dev);
+> -	qindex = skb_tx_hash(dev, skb);
+> -
+> -	return (u16)(qindex % (lio->linfo.num_txpciq));
+> +	return fallback(dev, skb);
 >  }
->  EXPORT_SYMBOL(seg6_push_hmac);
-> =20
-> -static int seg6_hmac_init_ring(void)
-> -{
-> -	int i;
-> -
-> -	hmac_ring =3D alloc_percpu(char *);
-> -
-> -	if (!hmac_ring)
-> -		return -ENOMEM;
-> -
-> -	for_each_possible_cpu(i) {
-> -		char *ring =3D kzalloc(SEG6_HMAC_RING_SIZE, GFP_KERNEL);
-> -
-> -		if (!ring)
-> -			return -ENOMEM;
-> -
-> -		*per_cpu_ptr(hmac_ring, i) =3D ring;
-> -	}
-> -
-> -	return 0;
-> -}
-> -
->  static int seg6_hmac_init_algo(void)
+>  
+>  /** Routine to push packets arriving on Octeon interface upto network layer.
+> diff --git a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
+> index ad2e72d..a7478eb 100644
+> --- a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
+> +++ b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
+> @@ -1463,16 +1463,9 @@ static void if_cfg_callback(struct octeon_device *oct,
+>   */
+>  static u16 select_q(struct net_device *dev, struct sk_buff *skb,
+>  		    void *accel_priv __attribute__((unused)),
+> -		    select_queue_fallback_t fallback __attribute__((unused)))
+> +		    select_queue_fallback_t fallback)
 >  {
->  	struct seg6_hmac_algo *algo;
-> @@ -422,16 +401,7 @@ static int seg6_hmac_init_algo(void)
-> =20
->  int __init seg6_hmac_init(void)
->  {
-> -	int ret;
+> -	struct lio *lio;
+> -	u32 qindex;
 > -
-> -	ret =3D seg6_hmac_init_ring();
-> -	if (ret < 0)
-> -		goto out;
+> -	lio = GET_LIO(dev);
 > -
-> -	ret =3D seg6_hmac_init_algo();
+> -	qindex = skb_tx_hash(dev, skb);
 > -
-> -out:
-> -	return ret;
-> +	return seg6_hmac_init_algo();
+> -	return (u16)(qindex % (lio->linfo.num_txpciq));
+> +	return fallback(dev, skb);
 >  }
->  EXPORT_SYMBOL(seg6_hmac_init);
-> =20
-> @@ -450,13 +420,6 @@ void seg6_hmac_exit(void)
->  	struct seg6_hmac_algo *algo =3D NULL;
->  	int i, alg_count, cpu;
-> =20
-> -	for_each_possible_cpu(i) {
-> -		char *ring =3D *per_cpu_ptr(hmac_ring, i);
-> -
-> -		kfree(ring);
-> -	}
-> -	free_percpu(hmac_ring);
-> -
->  	alg_count =3D sizeof(hmac_algos) / sizeof(struct seg6_hmac_algo);
->  	for (i =3D 0; i < alg_count; i++) {
->  		algo =3D &hmac_algos[i];
->=20
->=20
-
-Acked-by: David Lebrun <david.lebrun@uclouvain.be>
+>  
+>  /** Routine to push packets arriving on Octeon interface upto network layer.
 
 
---LPfukhKGx75nmFQRVacEwkOMNf9iEi0qr
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+Why are you keeping these functions then ?
 
------BEGIN PGP SIGNATURE-----
+Remove them completely, and remove .ndo_select_queue from your ops.
 
-iEYEARECAAYFAlh34psACgkQjbzn67sZ6AMqYwCfenHRf1K4GIZN0fJ9JIVMA8Rw
-3CIAn1SOCsFceWcrh5N9cUzGrFzHc3O2
-=tcSZ
------END PGP SIGNATURE-----
-
---LPfukhKGx75nmFQRVacEwkOMNf9iEi0qr--
+Core networking stack will fallback automatically.
