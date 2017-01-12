@@ -1,58 +1,101 @@
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: Re: [PATCH v2 2/2] stmmac: rename it to synopsys
-Date: Thu, 12 Jan 2017 16:04:45 +0000
-Message-ID: <6da8254b-11b2-aa0d-9640-ca73e30bcc0f@synopsys.com>
-References: <dbb59d07-4ab4-37d2-5e70-073091749445@synopsys.com>
- <20170112.102630.1448382649844350511.davem@davemloft.net>
- <3ec17612-255f-5fc7-02c6-9ba5b76d2c09@synopsys.com>
- <20170112.104539.326369092090046644.davem@davemloft.net>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH] [net] net/mlx5e: fix another -Wmaybe-uninitialized warning
+Date: Thu, 12 Jan 2017 17:04:43 +0100
+Message-ID: <2981112.7jTLlX72ae@wuerfel>
+References: <20170111211451.2705705-1-arnd@arndb.de> <46a85790-2cfe-a8d9-f764-4f736fbd1af7@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 8bit
-Cc: <alexandre.torgue@st.com>, <f.fainelli@gmail.com>,
-        <lars.persson@axis.com>, <niklass@axis.com>,
-        <peppe.cavallaro@st.com>, <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>, <Joao.Pinto@synopsys.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay.synopsys.com ([198.182.60.111]:52855 "EHLO
-        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750734AbdALQEu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 11:04:50 -0500
-In-Reply-To: <20170112.104539.326369092090046644.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Saeed Mahameed <saeedm@mellanox.com>,
+        Hadar Hen Zion <hadarh@mellanox.com>,
+        "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Or Gerlitz <ogerlitz@mellanox.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <46a85790-2cfe-a8d9-f764-4f736fbd1af7@mellanox.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Às 3:45 PM de 1/12/2017, David Miller escreveu:
-> From: Joao Pinto <Joao.Pinto@synopsys.com>
-> Date: Thu, 12 Jan 2017 15:39:47 +0000
+On Thursday, January 12, 2017 5:21:49 PM CET Or Gerlitz wrote:
+> On 1/11/2017 11:14 PM, Arnd Bergmann wrote:
+> > As found by Olof's build bot, today's mainline kernel gained a harmless
+> > warning about a potential uninitalied variable reference:
+> >
+> > drivers/net/ethernet/mellanox/mlx5/core/en_tc.c: In function 'parse_tc_fdb_actions':
+> > drivers/net/ethernet/mellanox/mlx5/core/en_tc.c:769:13: warning: 'out_dev' may be used uninitialized in this function [-Wmaybe-uninitialized]
+> > drivers/net/ethernet/mellanox/mlx5/core/en_tc.c:811:21: note: 'out_dev' was declared here
+> >
+> > This was introduced through the addition of an 'IS_ERR/PTR_ERR' pair that
+> > gcc is unfortunately unable to completely figure out. Replacing it with
+> > PTR_ERR_OR_ZERO makes the code more understandable to gcc so it no longer
+> > warns.
 > 
->> In my understanding the advantage is to prepare the future.
-> 
-> If the driver is named foo or bar, yet in both cases loads and
-> properly attaches to the user's device, the user does not care.
+> can you elaborate on this a little further?
 
-Of course. Although my car works I like to open the hood a see it clean and
-organized. Gives the user more confidence.
 
-> 
-> Therefore, there is no bonafide benefit to the user.
-> 
-> You aren't getting past that point.
-> 
-> You also are not addressing the pain this will cause for long
-> term maintainence of this driver.
+The problem is
 
-I am aware. I can co-maintain it if current maintainers wish it, no problem with
-that. My activity at Synopsys in mainline contribution, so it is part of my job.
+static int mlx5e_route_lookup_ipv4(struct net_device **out_dev, ...)
+{
+       ...
+       if (IS_ERR(rt))
+              return PTR_ERR(rt);
+       *out_dev = ...;
+       ...
+}
 
-> 
-> I'm the one who does all of the backporting of stmmac bug fixes to
-> -stable, so I for one care a lot about this.
-> 
-> You are making more work for me and lots of other people by renaming
-> this driver and I don't think you are considering that at all.
-> 
+static int mlx5e_create_encap_header_ipv4(...)
+{
+       ...
+       err = mlx5e_route_lookup_ipv4(..., out_dev, ...);
+       if (err)
+               goto out;
 
-I understand, it is a lot of work. I volunteer to help.
+       e->out_dev = *out_dev;
+       ...
+}
 
-Joao
+I've seen several examples of this, the problem every time is
+that gcc cannot tell that if(IS_ERR()) in the first function is
+equivalent to if(err) in the second, so it assumes that 'out_dev'
+is used here after the first 'return PTR_ERR(rt)'.
+
+The PTR_ERR_OR_ZERO() case by comparison is fairly easy to detect
+by gcc, so it can't get that wrong here.
+
+> > Hadar Hen Zion already attempted to fix the warning earlier by adding
+> > fake initializations, but that ended up just making the code worse without
+> > fully addressing all warnings, so I'm reverting it now that it is no longer needed.
+> 
+> ok, so if your approach eliminates the warning on out_dev and also on 
+> the variables for which Hadar added the faked initializers, I guess we 
+> should be fine with this change (saw your reply on my other comment), 
+
+Ok.
+
+> just another question:
+> 
+> > In order to avoid pulling a variable declaration into the #ifdef, I'm
+> > removing it in favor of a more readable 'if()' statement here that has the same effect.
+> 
+> When I build here without CONFIG_INET in my system, the build goes fine 
+> with this approach. However, we're pretty sure that in the past we got 
+> 0-day report from the kbuild test robot where he was unhappy that we 
+> make the ip_route_output_key call without being wrapped with that #if 
+> IS_ENABLED(CONFIG_INET) -- so, we don't want to go there again... thoughts?
+
+I went back and forth between the two versions, either leaving the #if
+in place, or using the if(IS_ENABLED()) check to be really sure that
+we can't get compile error here.
+
+I did check that ip_route_output_key() is always declared, but now
+I see that net/route.h might not always be included from en_tc.c
+if CONFIG_INET is disabled (I don't see how it gets included, but
+it obviously is when CONFIG_INET is turned on).
+
+Adding an explicit include of that file should probably avoid the
+case you ran into earlier, but for I agree it's safer to not rely
+on that here for a bugfix, and just leave the #ifdef. Do you want to
+modify it yourself, or should I spin a new version with that?
+
+	Arnd
