@@ -1,49 +1,39 @@
-From: Julia Lawall <julia.lawall@lip6.fr>
-Subject: Re: [patch net-next] stmmac: indent an if statement
-Date: Thu, 12 Jan 2017 20:46:05 +0100 (CET)
-Message-ID: <alpine.DEB.2.20.1701122045460.1988@hadrien>
-References: <20170112184631.GA12157@mwanda>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/6 net-next] inet: drop ->bind_conflict
+Date: Thu, 12 Jan 2017 14:56:40 -0500 (EST)
+Message-ID: <20170112.145640.2151487482259137455.davem@davemloft.net>
+References: <1484165171-19210-1-git-send-email-jbacik@fb.com>
+        <1484166164-21250-1-git-send-email-jbacik@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        jpinto <Joao.Pinto@synopsys.com>,
-        Alexandre Torgue <alexandre.torgue@st.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel-janitors@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170112184631.GA12157@mwanda>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: hannes@stressinduktion.org, kraigatgoog@gmail.com,
+        eric.dumazet@gmail.com, tom@herbertland.com,
+        netdev@vger.kernel.org, kernel-team@fb.com
+To: jbacik@fb.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:55986 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750835AbdALT4t (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 14:56:49 -0500
+In-Reply-To: <1484166164-21250-1-git-send-email-jbacik@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Josef Bacik <jbacik@fb.com>
+Date: Wed, 11 Jan 2017 15:22:40 -0500
 
+> diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+> index 56d756e..dc07734 100644
+> --- a/net/ipv4/tcp_ipv4.c
+> +++ b/net/ipv4/tcp_ipv4.c
+> @@ -63,6 +63,7 @@
+>  #include <linux/times.h>
+>  #include <linux/slab.h>
+>  
+> +#include <net/addrconf.h>
+>  #include <net/net_namespace.h>
+>  #include <net/icmp.h>
+>  #include <net/inet_hashtables.h>
 
-On Thu, 12 Jan 2017, Dan Carpenter wrote:
-
-> The break statement should be indented one more tab.
->
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
->
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> index ac32f9e..4daa8a3 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-> @@ -191,7 +191,7 @@ static int stmmac_dt_phy(struct plat_stmmacenet_data *plat,
->  		for_each_child_of_node(np, plat->mdio_node) {
->  			if (of_device_is_compatible(plat->mdio_node,
->  						    "snps,dwmac-mdio"))
-> -			break;
-> +				break;
-
-If there is a break, there is probably also a need for an of_node_put?
-
-julia
-
->  		}
->  	}
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe kernel-janitors" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+I don't see what this has to do with this change.
