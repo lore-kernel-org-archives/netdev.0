@@ -1,64 +1,86 @@
-From: Michal Hocko <mhocko@kernel.org>
-Subject: Re: [Patch net] atm: remove an unnecessary loop
-Date: Thu, 12 Jan 2017 09:43:25 +0100
-Message-ID: <20170112084325.GC2264@dhcp22.suse.cz>
-References: <1484197322-958-1-git-send-email-xiyou.wangcong@gmail.com>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: wl1251 & mac address & calibration data
+Date: Thu, 12 Jan 2017 09:50:33 +0100
+Message-ID: <20170112085033.GA27429@amd>
+References: <201611111820.52072@pali>
+ <201612181204.52928@pali>
+ <83b2e9a4-f990-68a8-241e-375e46448d47@broadcom.com>
+ <201612181309.01298@pali>
+ <fd180271-1cd4-9891-e3d5-ae9cd0fb088b@broadcom.com>
+ <87shpiu8j8.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, romieu@fr.zoreil.com, 3chas3@gmail.com,
-        andreyknvl@google.com
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:38823 "EHLO mx2.suse.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750796AbdALIn2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 12 Jan 2017 03:43:28 -0500
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="zYM0uCDKw75PZbzx"
+Cc: Arend Van Spriel <arend.vanspriel@broadcom.com>,
+        Pali =?iso-8859-1?Q?Roh=E1r?= <pali.rohar@gmail.com>,
+        Daniel Wagner <wagi@monom.org>,
+        "Luis R. Rodriguez" <mcgrof@kernel.org>,
+        Tom Gundersen <teg@jklm.no>,
+        Johannes Berg <johannes@sipsolutions.net>,
+        Ming Lei <ming.lei@canonical.com>,
+        Mimi Zohar <zohar@linux.vnet.ibm.com>,
+        Bjorn Andersson <bjorn.andersson@linaro.org>,
+        =?utf-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>,
+        Sebastian Reichel <sre@kernel.org>,
+        Michal Kazior <michal.kazior@tieto.com>,
+        Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>,
+        Aaro Koskinen <aaro.koskinen@iki.fi>,
+        Tony Lindgren <tony@atomide.com>,
+        linux-wireless <linux-wireless@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vge
+To: Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1484197322-958-1-git-send-email-xiyou.wangcong@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <87shpiu8j8.fsf@kamboji.qca.qualcomm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed 11-01-17 21:02:01, Cong Wang wrote:
-> alloc_tx() is already inside a wait loop for a successful skb
-> allocation, this loop inside alloc_tx() is quite unnecessary
-> and actually problematic.
 
-I am not familiar with this code at all but vcc_sendmsg seems to be one
-of those cases where open coding __GFP_NOFAIL semantic makes sense as
-there is an allocation fallback strategy implemented.
+--zYM0uCDKw75PZbzx
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+Hi!
 
-I cannot give my reviewed-by because I am not familiar with the code but
-this looks like an improvement to me.
+> >> But overwriting that one file is not possible as it next update of=20
+> >> linux-firmware package will overwrite it back. It break any normal usa=
+ge=20
+> >> of package management.
+> >>=20
+> >> Also it is ridiculously broken by design if some "boot" files needs to=
+=20
+> >> be overwritten to initialize hardware properly. To not break booting y=
+ou=20
+> >> need to overwrite that file before first boot. But without booting=20
+> >> device you cannot read calibration data. So some hack with autoreboot=
+=20
+> >> after boot is needed.
+>=20
+> Providing the calibration data via Device Tree is the proper way to
+> solve this. Yes yes, I know N900 doesn't support it but that's a
+> deficiency in N900, not Linux.
 
-> ---
->  net/atm/common.c | 9 +++++----
->  1 file changed, 5 insertions(+), 4 deletions(-)
-> 
-> diff --git a/net/atm/common.c b/net/atm/common.c
-> index a3ca922..7ec3bbc 100644
-> --- a/net/atm/common.c
-> +++ b/net/atm/common.c
-> @@ -72,10 +72,11 @@ static struct sk_buff *alloc_tx(struct atm_vcc *vcc, unsigned int size)
->  			 sk_wmem_alloc_get(sk), size, sk->sk_sndbuf);
->  		return NULL;
->  	}
-> -	while (!(skb = alloc_skb(size, GFP_KERNEL)))
-> -		schedule();
-> -	pr_debug("%d += %d\n", sk_wmem_alloc_get(sk), skb->truesize);
-> -	atomic_add(skb->truesize, &sk->sk_wmem_alloc);
-> +	skb = alloc_skb(size, GFP_KERNEL);
-> +	if (skb) {
-> +		pr_debug("%d += %d\n", sk_wmem_alloc_get(sk), skb->truesize);
-> +		atomic_add(skb->truesize, &sk->sk_wmem_alloc);
-> +	}
->  	return skb;
->  }
->  
-> -- 
-> 2.5.5
+Linux has to work with whatever hardware provides. You may not like
+N900 design, but we have to support it, anyway.
 
--- 
-Michal Hocko
-SUSE Labs
+								Pavel
+--=20
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
+g.html
+
+--zYM0uCDKw75PZbzx
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iEYEARECAAYFAlh3Q1kACgkQMOfwapXb+vLRBgCfaqMyZ3ITOaCxDvpMuo5FEZcf
+YfUAnR7gu4B5Y/2Mxq1as2HuZasjY9ax
+=7x1Q
+-----END PGP SIGNATURE-----
+
+--zYM0uCDKw75PZbzx--
