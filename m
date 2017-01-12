@@ -1,37 +1,89 @@
-From: Bjorn Helgaas <helgaas@kernel.org>
-Subject: Re: kill off pci_enable_msi_{exact,range}
-Date: Thu, 12 Jan 2017 15:29:00 -0600
-Message-ID: <20170112212900.GE8312@bhelgaas-glaptop.roam.corp.google.com>
-References: <1483994260-19797-1-git-send-email-hch@lst.de>
+From: "Kwok, WingMan" <w-kwok2@ti.com>
+Subject: RE: Marvell Phy (1510) issue since v4.7 kernel
+Date: Thu, 12 Jan 2017 21:31:27 +0000
+Message-ID: <230CBA6E4B6B6B418E8730AC28E6FC7E15354EB0@DFLE11.ent.ti.com>
+References: <20170109235534.GH22820@lunn.ch>
+ <230CBA6E4B6B6B418E8730AC28E6FC7E153545C9@DFLE11.ent.ti.com>
+ <20170110015336.GA7160@lunn.ch>
+ <230CBA6E4B6B6B418E8730AC28E6FC7E15354AC2@DFLE11.ent.ti.com>
+ <20170111222758.GG13033@lunn.ch>
+ <230CBA6E4B6B6B418E8730AC28E6FC7E15354AE5@DFLE11.ent.ti.com>
+ <20170111225948.GH13033@lunn.ch>
+ <230CBA6E4B6B6B418E8730AC28E6FC7E15354B2B@DFLE11.ent.ti.com>
+ <20170111232200.GI13033@lunn.ch>
+ <230CBA6E4B6B6B418E8730AC28E6FC7E15354B66@DFLE11.ent.ti.com>
+ <20170112010658.GA25391@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-pci@vger.kernel.org,
-        Mauro Carvalho Chehab <mchehab@s-opensource.com>,
-        netdev@vger.kernel.org, linux-media@vger.kernel.org,
-        Tom Lendacky <thomas.lendacky@amd.com>
-To: Christoph Hellwig <hch@lst.de>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "rmk+kernel@arm.linux.org.uk" <rmk+kernel@arm.linux.org.uk>,
+        "Karicheri, Muralidharan" <m-karicheri2@ti.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:59192 "EHLO mail.kernel.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750733AbdALV3E (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 12 Jan 2017 16:29:04 -0500
-Content-Disposition: inline
-In-Reply-To: <1483994260-19797-1-git-send-email-hch@lst.de>
+Received: from fllnx210.ext.ti.com ([198.47.19.17]:15503 "EHLO
+        fllnx210.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750733AbdALVbm (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 16:31:42 -0500
+In-Reply-To: <20170112010658.GA25391@lunn.ch>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 09, 2017 at 09:37:37PM +0100, Christoph Hellwig wrote:
-> I had hope that we could kill these old interfaces of for 4.10-rc,
-> but as of today Linus tree still has two users:
-> 
->  (1) the cobalt media driver, for which I sent a patch long time ago,
->      it got missed in the merge window.
->  (2) the new xgbe driver was merged in 4.10-rc but used the old interfaces
->      anyway
-> 
-> This series resend the patch for (1) and adds a new one for (2), as well
-> as having the final removal patch behind it.  Maybe we should just queue
-> up all three together in the PCI tree for 4.11?
-
-Applied all three (with Tom's ack on the amd-xgbe patch) to pci/msi for
-v4.11, thanks!
+DQo+ID4gSSBkb3VibGUgY2hlY2tlZCB0aGF0IG91cnMgaXMgYWN0dWFsbHkgYSA4OEUxNTE0LiBB
+Y2NvcmRpbmcNCj4gPiB0byBNYXJ2ZWxsJ3MgYnJpZWYgZGVzY3JpcHRpb24sIGl0IHNlZW1zIHRo
+YXQgaXQgZG9lcyBzdXBwb3J0DQo+ID4gZmliZXIuDQo+ID4NCj4gPiBSZWFkaW5nIHBhZ2UgMTgg
+cmVnIDMwIHJldHVybnMgNi4NCj4gDQo+IE8uSywgdGhhdCBpcyBjb25zaXN0ZW50LiBMb29raW5n
+IGF0IHRoZSBNYXJ2ZWxsIFNESzoNCj4gDQo+IHBoeS9JbmNsdWRlL21hZEFwaURlZnMuaDojZGVm
+aW5lICAgIE1BRF9TVUJfODhFMTUxMCAgNCAgIC8qIDg4RTE1MTAgKi8NCj4gcGh5L0luY2x1ZGUv
+bWFkQXBpRGVmcy5oOiNkZWZpbmUgICAgTUFEX1NVQl84OEUxNTE4ICA1ICAgLyogODhFMTUxOCAq
+Lw0KPiBwaHkvSW5jbHVkZS9tYWRBcGlEZWZzLmg6I2RlZmluZSAgICBNQURfU1VCXzg4RTE1MTIg
+IDYgICAvKg0KPiA4OEUxNTEyLzg4RTE1MTQgKi8NCj4gDQo+IEkgdG9vayBhbm90aGVyIGxvb2sg
+YXQgdGhlIHBhdGNoIGFkZGluZyBGaWJyZSBzdXBwb3J0LiBUaGUNCj4gc3VzcGVuZC9yZXN1bWUg
+ZnVuY3Rpb25zIGFyZSB3cm9uZy4NCj4gDQo+ICAgICAgICAgLyogU3VzcGVuZCB0aGUgZmliZXIg
+bW9kZSBmaXJzdCAqLw0KPiAgICAgICAgIGlmICghKHBoeWRldi0+c3VwcG9ydGVkICYgU1VQUE9S
+VEVEX0ZJQlJFKSkgew0KPiANCj4gVGhlICEgc2hvdWxkIG5vdCBiZSB0aGVyZS4gRG9lcyByZW1v
+dmluZyB0aGVtIGJvdGggZml4IHlvdXIgcHJvYmxlbT8NCj4gDQoNCkhpIEFuZHJldywNCg0KVGhh
+bmtzIGZvciB0YWtpbmcgdGhlIHRpbWUgdG8gbG9vayBpbnRvIHRob3NlIHBhdGNoZXMuIFllcyB3
+ZSBub3RpY2UNCnRoZSBlcnJvciBpbiB0aGUgc3VzcGVuZC9yZXN1bWUgZnVuY3Rpb25zIGFsc28u
+DQoNCkJ1dCBvdXIgcHJvYmxlbSBpcyBjYXVzZWQgYnkgdGhlIHJlYWRfc3RhdHVzIGZ1bmN0aW9u
+Og0KDQoJaWYgKChwaHlkZXYtPnN1cHBvcnRlZCAmIFNVUFBPUlRFRF9GSUJSRSkpIHsNCgkJZXJy
+ID0gcGh5X3dyaXRlKHBoeWRldiwgTUlJX01BUlZFTExfUEhZX1BBR0UsIE1JSV9NMTExMV9GSUJF
+Uik7DQoJCWlmIChlcnIgPCAwKQ0KCQkJZ290byBlcnJvcjsNCgkJDQoJCWVyciA9IG1hcnZlbGxf
+cmVhZF9zdGF0dXNfcGFnZShwaHlkZXYsIE1JSV9NMTExMV9GSUJFUik7DQoJCWlmIChlcnIgPCAw
+KQ0KCQkJZ290byBlcnJvcjsNCgkJDQoJCS8qIElmIHRoZSBmaWJlciBsaW5rIGlzIHVwLCBpdCBp
+cyB0aGUgc2VsZWN0ZWQgYW5kIHVzZWQgbGluay4NCgkJKiBJbiB0aGlzIGNhc2UsIHdlIG5lZWQg
+dG8gc3RheSBpbiB0aGUgZmliZXIgcGFnZS4NCgkJKiBQbGVhc2UgdG8gYmUgY2FyZWZ1bCBhYm91
+dCB0aGF0LCBhdm9pZCB0byByZXN0b3JlIENvcHBlciBwYWdlDQoJCSogaW4gb3RoZXIgZnVuY3Rp
+b25zIHdoaWNoIGNvdWxkIGJyZWFrIHRoZSBiZWhhdmlvdXINCgkJKiBmb3Igc29tZSBmaWJlciBw
+aHkgbGlrZSA4OEUxNTEyLg0KCQkqICovDQoJCWlmIChwaHlkZXYtPmxpbmspDQoJCQlyZXR1cm4g
+MDsNCg0Kd2hpY2gga2VlcHMgdGhlIGZpYmVyIHBhZ2UgaWYgcGh5ZGV2LT5saW5rIGlzIHRydWUg
+KGZvciBzb21lDQpyZWFzb24gdGhpcyBpcyB0aGUgY2FzZSBldmVuIHRob3VnaCB3ZSBhcmUgbm90
+IHVzaW5nIGZpYmVyKQ0KDQpIb3dldmVyLCB0aGlzIGNhdXNlcyBhIHByb2JsZW0gaW4ga2VybmVs
+IHJlYm9vdCBiZWNhdXNlIG5laXRoZXINCnRoZSBzdXNwZW5kL3Jlc3VtZSBpcyBjYWxsZWQgdG8g
+cmVzdG9yZSB0aGUgY29wcGVyIHBhZ2UgYW5kDQp1LWJvb3QgbWFydmVsbCBwaHkgZHJpdmVyIGRv
+ZXMgbm90IHN1cHBvcnQgMTUxMCBmaWJlciwgd2hpY2gNCndpbGwgdGhlbiByZXN1bHQgaW4gd3Jp
+dGluZyB0byB0aGUgd3JvbmcgcGh5IHJlZ3MgYW5kIGNhdXNlcw0KYSBzZ21paSBhdXRvLW5lZ28g
+dGltZSBvdXQuDQoNCkluIGFkZGl0aW9uIHRvIGZpeGluZyB0aGUgISBpbiBzdXNwZW5kL3Jlc3Vt
+ZSwgbXkgc3VnZ2VzdGlvbg0Kd291bGQgYmUgdG8gY2hhbmdlIGFsc28gdGhlIHJlYWRfc3RhdHVz
+IGZ1bmN0aW9uIHRvDQphbHdheXMgcmVzdG9yZSB0aGUgY29wcGVyIHBhZ2UgYWZ0ZXIgZG9pbmcg
+dGhlIGZpYmVyIHN0dWZmczoNCg0KCWlmICgocGh5ZGV2LT5zdXBwb3J0ZWQgJiBTVVBQT1JURURf
+RklCUkUpKSB7DQoJCWVyciA9IHBoeV93cml0ZShwaHlkZXYsIE1JSV9NQVJWRUxMX1BIWV9QQUdF
+LCBNSUlfTTExMTFfRklCRVIpOw0KCQlpZiAoZXJyIDwgMCkNCgkJCWdvdG8gZXJyb3I7DQoJCQ0K
+CQllcnIgPSBtYXJ2ZWxsX3JlYWRfc3RhdHVzX3BhZ2UocGh5ZGV2LCBNSUlfTTExMTFfRklCRVIp
+Ow0KCQlpZiAoZXJyIDwgMCkNCgkJCWdvdG8gZXJyb3I7DQoJCQ0KCQllcnIgPSBwaHlfd3JpdGUo
+cGh5ZGV2LCBNSUlfTUFSVkVMTF9QSFlfUEFHRSwgTUlJX00xMTExX0NPUFBFUik7DQoJCWlmIChl
+cnIgPCAwKQ0KCQkJZ290byBlcnJvcjsNCg0KCQkvKiBJZiB0aGUgZmliZXIgbGluayBpcyB1cCwg
+aXQgaXMgdGhlIHNlbGVjdGVkIGFuZCB1c2VkIGxpbmsuDQoJCSogSW4gdGhpcyBjYXNlLCB3ZSBu
+ZWVkIHRvIHN0YXkgaW4gdGhlIGZpYmVyIHBhZ2UuDQoJCSogUGxlYXNlIHRvIGJlIGNhcmVmdWwg
+YWJvdXQgdGhhdCwgYXZvaWQgdG8gcmVzdG9yZSBDb3BwZXIgcGFnZQ0KCQkqIGluIG90aGVyIGZ1
+bmN0aW9ucyB3aGljaCBjb3VsZCBicmVhayB0aGUgYmVoYXZpb3VyDQoJCSogZm9yIHNvbWUgZmli
+ZXIgcGh5IGxpa2UgODhFMTUxMi4NCgkJKiAqLw0KCQlpZiAocGh5ZGV2LT5saW5rKQ0KCQkJcmV0
+dXJuIDA7DQoNClRoaXMgbWFrZXMgc3VyZSB0aGF0IGl0IGlzIGFsd2F5cyB0aGUgY29wcGVyIHBh
+Z2UgYnJvdWdodCB1cA0KYW5kIHdoZW5ldmVyIGl0IG5lZWRzIHRvIGRvIHNvbWUgZmliZXIgc3R1
+ZmZzLCB0aGUgZmliZXIgcGFnZQ0KbmVlZHMgdG8gYmUgYnJvdWdodCBvdXQgZXhwbGljaXRseSwg
+d2hpY2ggaXMgYWxyZWFkeSB0aGUgY2FzZQ0KY3VycmVudGx5Lg0KDQpBbm90aGVyIGlzc3VlIGlz
+IHRoYXQsIGFzIG9mIG5vdywgRklCRVIgaXMgZW5hYmxlZCByZWdhcmRsZXNzDQpvZiB0aGUgc3Bl
+Y2lmaWMgODhlMTUxeC4gQnV0IEkgYmVsaWV2ZSB0aGVyZSBpcyA4OGUxNTF4IGNoaXAocykNCnRo
+YXQgZG9lcyBub3Qgc3VwcG9ydCBmaWJlci4gU2hvdWxkIGZpYmVyIGJlIGVuYWJsZWQgb25seSBm
+b3INCnRob3NlIHRoYXQgZG8gc3VwcG9ydCBmaWJlcj8NCg0KV2luZ01hbg0K
