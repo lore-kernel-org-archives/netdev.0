@@ -1,47 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 05/10] drivers: base: Add
- device_find_class()
-Date: Thu, 12 Jan 2017 16:21:35 -0500 (EST)
-Message-ID: <20170112.162135.441956368122992032.davem@davemloft.net>
-References: <20170112034121.27697-1-f.fainelli@gmail.com>
-        <20170112034121.27697-6-f.fainelli@gmail.com>
+From: Bjorn Helgaas <helgaas@kernel.org>
+Subject: Re: kill off pci_enable_msi_{exact,range}
+Date: Thu, 12 Jan 2017 15:29:00 -0600
+Message-ID: <20170112212900.GE8312@bhelgaas-glaptop.roam.corp.google.com>
+References: <1483994260-19797-1-git-send-email-hch@lst.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jason@lakedaemon.net, andrew@lunn.ch,
-        sebastian.hesselbarth@gmail.com,
-        gregory.clement@free-electrons.com, linux@armlinux.org.uk,
-        vivien.didelot@savoirfairelinux.com,
-        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
-        gregkh@linuxfoundation.org
-To: f.fainelli@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170112034121.27697-6-f.fainelli@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-pci@vger.kernel.org,
+        Mauro Carvalho Chehab <mchehab@s-opensource.com>,
+        netdev@vger.kernel.org, linux-media@vger.kernel.org,
+        Tom Lendacky <thomas.lendacky@amd.com>
+To: Christoph Hellwig <hch@lst.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.kernel.org ([198.145.29.136]:59192 "EHLO mail.kernel.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750733AbdALV3E (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 12 Jan 2017 16:29:04 -0500
+Content-Disposition: inline
+In-Reply-To: <1483994260-19797-1-git-send-email-hch@lst.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Wed, 11 Jan 2017 19:41:16 -0800
-
-> Add a helper function to lookup a device reference given a class name.
-> This is a preliminary patch to remove adhoc code from net/dsa/dsa.c and
-> make it more generic.
+On Mon, Jan 09, 2017 at 09:37:37PM +0100, Christoph Hellwig wrote:
+> I had hope that we could kill these old interfaces of for 4.10-rc,
+> but as of today Linus tree still has two users:
 > 
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
-> ---
->  drivers/base/core.c    | 19 +++++++++++++++++++
->  include/linux/device.h |  1 +
->  2 files changed, 20 insertions(+)
+>  (1) the cobalt media driver, for which I sent a patch long time ago,
+>      it got missed in the merge window.
+>  (2) the new xgbe driver was merged in 4.10-rc but used the old interfaces
+>      anyway
 > 
-> diff --git a/drivers/base/core.c b/drivers/base/core.c
-> index 020ea7f05520..3dd6047c10d8 100644
-> --- a/drivers/base/core.c
-> +++ b/drivers/base/core.c
-> @@ -2065,6 +2065,25 @@ struct device *device_find_child(struct device *parent, void *data,
->  }
->  EXPORT_SYMBOL_GPL(device_find_child);
->  
-> +static int dev_is_class(struct device *dev, void *class)
+> This series resend the patch for (1) and adds a new one for (2), as well
+> as having the final removal patch behind it.  Maybe we should just queue
+> up all three together in the PCI tree for 4.11?
 
-I know you are just moving code, but this class argumnet is a string
-and thus should be "char *" or even "const char *".
+Applied all three (with Tom's ack on the amd-xgbe patch) to pci/msi for
+v4.11, thanks!
