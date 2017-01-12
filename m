@@ -1,49 +1,100 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [Patch] Fixing order of trinary operator when assigning the
- ifindex in XFRM Decode Session
-Date: Thu, 12 Jan 2017 13:28:52 -0700
-Message-ID: <b6ffee14-c5ef-cec7-344a-331c142ed79c@cumulusnetworks.com>
-References: <BY1PR0701MB12228231F8BCD74FC473284A9A790@BY1PR0701MB1222.namprd07.prod.outlook.com>
+From: David Lebrun <david.lebrun@uclouvain.be>
+Subject: [PATCH net v3] ipv6: sr: fix several BUGs when preemption is enabled
+Date: Thu, 12 Jan 2017 21:30:01 +0100
+Message-ID: <1484253001-29677-1-git-send-email-david.lebrun@uclouvain.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: "steffen.klassert@secunet.com" <steffen.klassert@secunet.com>
-To: "Chacon, Carlos A" <carlos.chacon@gatech.edu>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain
+Cc: David Lebrun <david.lebrun@uclouvain.be>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f181.google.com ([209.85.192.181]:36234 "EHLO
-        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750750AbdALU2z (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 15:28:55 -0500
-Received: by mail-pf0-f181.google.com with SMTP id 189so18287345pfu.3
-        for <netdev@vger.kernel.org>; Thu, 12 Jan 2017 12:28:54 -0800 (PST)
-In-Reply-To: <BY1PR0701MB12228231F8BCD74FC473284A9A790@BY1PR0701MB1222.namprd07.prod.outlook.com>
+Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:40871 "EHLO
+        smtp2.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750762AbdALU3P (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 15:29:15 -0500
+Received: from mailboxes.uclouvain.be (mailboxes.uclouvain.be [130.104.6.131])
+        (using TLSv1.2 with cipher ECDHE-RSA-AES256-SHA384 (256/256 bits))
+        (No client certificate requested)
+        by smtp2.sgsi.ucl.ac.be (Postfix) with ESMTPS id E186F67DDE5
+        for <netdev@vger.kernel.org>; Thu, 12 Jan 2017 21:29:04 +0100 (CET)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Carlos:
+When CONFIG_PREEMPT=y, CONFIG_IPV6=m and CONFIG_SEG6_HMAC=y,
+seg6_hmac_init() is called during the initialization of the ipv6 module.
+This causes a subsequent call to smp_processor_id() with preemption
+enabled, resulting in the following trace.
 
-patches sent to netdev should be plain text only. Using git send-email would be best.
+[   20.451460] BUG: using smp_processor_id() in preemptible [00000000] code: systemd/1
+[   20.452556] caller is debug_smp_processor_id+0x17/0x19
+[   20.453304] CPU: 0 PID: 1 Comm: systemd Not tainted 4.9.0-rc5-00973-g46738b1 #1
+[   20.454406]  ffffc9000062fc18 ffffffff813607b2 0000000000000000 ffffffff81a7f782
+[   20.455528]  ffffc9000062fc48 ffffffff813778dc 0000000000000000 00000000001dcf98
+[   20.456539]  ffffffffa003bd08 ffffffff81af93e0 ffffc9000062fc58 ffffffff81377905
+[   20.456539] Call Trace:
+[   20.456539]  [<ffffffff813607b2>] dump_stack+0x63/0x7f
+[   20.456539]  [<ffffffff813778dc>] check_preemption_disabled+0xd1/0xe3
+[   20.456539]  [<ffffffff81377905>] debug_smp_processor_id+0x17/0x19
+[   20.460260]  [<ffffffffa0061f3b>] seg6_hmac_init+0xfa/0x192 [ipv6]
+[   20.460260]  [<ffffffffa0061ccc>] seg6_init+0x39/0x6f [ipv6]
+[   20.460260]  [<ffffffffa006121a>] inet6_init+0x21a/0x321 [ipv6]
+[   20.460260]  [<ffffffffa0061000>] ? 0xffffffffa0061000
+[   20.460260]  [<ffffffff81000457>] do_one_initcall+0x8b/0x115
+[   20.460260]  [<ffffffff811328a3>] do_init_module+0x53/0x1c4
+[   20.460260]  [<ffffffff8110650a>] load_module+0x1153/0x14ec
+[   20.460260]  [<ffffffff81106a7b>] SYSC_finit_module+0x8c/0xb9
+[   20.460260]  [<ffffffff81106a7b>] ? SYSC_finit_module+0x8c/0xb9
+[   20.460260]  [<ffffffff81106abc>] SyS_finit_module+0x9/0xb
+[   20.460260]  [<ffffffff810014d1>] do_syscall_64+0x62/0x75
+[   20.460260]  [<ffffffff816834f0>] entry_SYSCALL64_slow_path+0x25/0x25
 
-Also, the Subject line should start with the area affected (e.g., net: xfrm:) and really should be a bit shorter. e.g., something like this:
+Moreover, dst_cache_* functions also call smp_processor_id(), generating
+a similar trace.
 
-[PATCH] net: xfrm: fix flow oif in decode_session
+This patch uses raw_cpu_ptr() in seg6_hmac_init() rather than this_cpu_ptr()
+and disable preemption when using dst_cache_* functions.
 
+Signed-off-by: David Lebrun <david.lebrun@uclouvain.be>
+---
+ net/ipv6/seg6_hmac.c     | 2 +-
+ net/ipv6/seg6_iptunnel.c | 4 ++++
+ 2 files changed, 5 insertions(+), 1 deletion(-)
 
-On 1/12/17 1:01 PM, Chacon, Carlos A wrote:
-> 
-> Author: Carlos Chacon <carlos.chacon@gatech.edu>
-> Date:   Thu Jan 12 11:42:32 2017 -0800
-> 
->     Fixing order of trinary operator when assigning the ifindex in XFRM Decode Session
-> 
->     For xfrm4_policy.c:_decode_session4 and xfrm6_policy.c:_decode_session6 the line
->         fl4->flowi4_oif = reverse ? skb->skb_iif : oif;
->         fl6->flowi6_oif = reverse ? skb->skb_iif : oif;
->     is assigning the incorrect oif to the flow_oif. It should read:
->         reverse ? oif : skb->skb_iif;
->     The "reverse" variable is defined in  net/xfrm/xfrm_policy.c:__xfrm_policy_check
->     when it checks if the dir is above the XFRM_POLICY_MASK if this returns false
->     it reverses the ifindex, but it should only reverse if it returns true.
-
-The above explanation suggests the reverse flag in __xfrm_policy_check should be fixed. Can you check that and maybe __xfrm_policy_check2 as well?
+diff --git a/net/ipv6/seg6_hmac.c b/net/ipv6/seg6_hmac.c
+index ef1c8a4..03a0648 100644
+--- a/net/ipv6/seg6_hmac.c
++++ b/net/ipv6/seg6_hmac.c
+@@ -400,7 +400,7 @@ static int seg6_hmac_init_algo(void)
+ 			*p_tfm = tfm;
+ 		}
+ 
+-		p_tfm = this_cpu_ptr(algo->tfms);
++		p_tfm = raw_cpu_ptr(algo->tfms);
+ 		tfm = *p_tfm;
+ 
+ 		shsize = sizeof(*shash) + crypto_shash_descsize(tfm);
+diff --git a/net/ipv6/seg6_iptunnel.c b/net/ipv6/seg6_iptunnel.c
+index bbfca22..1d60cb1 100644
+--- a/net/ipv6/seg6_iptunnel.c
++++ b/net/ipv6/seg6_iptunnel.c
+@@ -265,7 +265,9 @@ int seg6_output(struct net *net, struct sock *sk, struct sk_buff *skb)
+ 	slwt = seg6_lwt_lwtunnel(orig_dst->lwtstate);
+ 
+ #ifdef CONFIG_DST_CACHE
++	preempt_disable();
+ 	dst = dst_cache_get(&slwt->cache);
++	preempt_enable();
+ #endif
+ 
+ 	if (unlikely(!dst)) {
+@@ -286,7 +288,9 @@ int seg6_output(struct net *net, struct sock *sk, struct sk_buff *skb)
+ 		}
+ 
+ #ifdef CONFIG_DST_CACHE
++		preempt_disable();
+ 		dst_cache_set_ip6(&slwt->cache, dst, &fl6.saddr);
++		preempt_enable();
+ #endif
+ 	}
+ 
+-- 
+2.7.3
