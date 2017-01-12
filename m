@@ -1,44 +1,55 @@
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: Re: [PATCH] synopsys: remove dwc_eth_qos driver
-Date: Thu, 12 Jan 2017 15:46:31 +0000
-Message-ID: <0eb32fee-0354-522d-72c4-3d1105ec04ed@synopsys.com>
-References: <2d50f9fea61de2eb082b217d435334d40e3e01ad.1484214626.git.jpinto@synopsys.com>
- <20170112.102802.1485105708725148022.davem@davemloft.net>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH/RFC net] ravb: do not use zero-length alighment DMA
+ request
+Date: Thu, 12 Jan 2017 16:46:47 +0100
+Message-ID: <20170112154647.GA2329@verge.net.au>
+References: <1484229217-25585-1-git-send-email-horms+renesas@verge.net.au>
+ <20170112.102102.2249793963798495642.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 8bit
-Cc: <lars.persson@axis.com>, <niklass@axis.com>,
-        <peppe.cavallaro@st.com>, <alexandre.torgue@st.com>,
-        <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>, <Joao.Pinto@synopsys.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay.synopsys.com ([198.182.47.9]:58300 "EHLO
-        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751015AbdALPqg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 10:46:36 -0500
-In-Reply-To: <20170112.102802.1485105708725148022.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: sergei.shtylyov@cogentembedded.com, magnus.damm@gmail.com,
+        netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170112.102102.2249793963798495642.davem@davemloft.net>
+Sender: linux-renesas-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Às 3:28 PM de 1/12/2017, David Miller escreveu:
+On Thu, Jan 12, 2017 at 10:21:02AM -0500, David Miller wrote:
+> From: Simon Horman <horms+renesas@verge.net.au>
+> Date: Thu, 12 Jan 2017 14:53:37 +0100
 > 
-> There is no driver named "synopsys", therefore "synopsys: " is not an
-> appropriate subsystem prefix.
+> > diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
+> > index 92d7692c840d..3b4d2504285e 100644
+> > --- a/drivers/net/ethernet/renesas/ravb_main.c
+> > +++ b/drivers/net/ethernet/renesas/ravb_main.c
+> > @@ -1508,6 +1508,8 @@ static netdev_tx_t ravb_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+> >  	buffer = PTR_ALIGN(priv->tx_align[q], DPTR_ALIGN) +
+> >  		 entry / NUM_TX_DESC * DPTR_ALIGN;
+> >  	len = PTR_ALIGN(skb->data, DPTR_ALIGN) - skb->data;
+> > +	if (len == 0)
+> > +		len = skb->len > 4 ? 4 : skb->len;
+> >  	memcpy(buffer, skb->data, len);
+> >  	dma_addr = dma_map_single(ndev->dev.parent, buffer, len, DMA_TO_DEVICE);
+> >  	if (dma_mapping_error(ndev->dev.parent, dma_addr))
 > 
-> Subsystem prefixes have to refer to real names in the source tree in
-> one form or another.
+> Assume len ends up being skb->len, then the second DMA mapping will be
+> made of zero length.
 > 
-> I know you guys really want to rename the stmmac driver to that, but
-> no agreement has occurred on that issue and therefore assuming it
-> has happened is not appropriate.
-> 
+> This code needs a bit of TLC.
 
-:) I put synopsys because it is the name of the folder where dwc_eth_qos.c is.
-Do you want me to change the title to "dwc_eth_qos: remove dwc_eth_qos driver"?
+Thanks, I realised that after sending this patch.
 
-Hope we can meet in a LinuxCon soon and have a talk, for you to know me and this
-way you will see that I am a guy that is only focused in producing work the best
-way possible, and nothing else.
+What I now see is that a few lines further up there is:
 
-Thanks,
-Joao
+	 if (skb_put_padto(skb, ETH_ZLEN))
+		goto drop;
+
+	where ETH_ZLEN is 60.
+
+So I don't think we need to worry about skb->len being less than 60 and
+this patch can be simplified to:
+
+	if (len == 0)
+		len = 4;
