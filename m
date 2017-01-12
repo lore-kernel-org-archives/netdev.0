@@ -1,77 +1,103 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v2 06/10] net: dsa: Migrate to device_find_class()
-Date: Wed, 11 Jan 2017 19:41:17 -0800
-Message-ID: <20170112034121.27697-7-f.fainelli@gmail.com>
+Subject: [PATCH net-next v2 03/10] net: dsa: Suffix function manipulating
+ device_node with _dn
+Date: Wed, 11 Jan 2017 19:41:14 -0800
+Message-ID: <20170112034121.27697-4-f.fainelli@gmail.com>
 References: <20170112034121.27697-1-f.fainelli@gmail.com>
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        Jason Cooper <jason@lakedaemon.net>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-        Gregory Clement <gregory.clement@free-electrons.com>,
-        Russell King <linux@armlinux.org.uk>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        linux-arm-kernel@lists.infradead.org (moderated list:ARM
-        SUB-ARCHITECTURES), linux-kernel@vger.kernel.org (open list),
-        gregkh@linuxfoundation.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Lunn <andrew@lunn.ch>, Florian Fainelli <f.fainelli@gmail.com>,
+ Jason Cooper <jason@lakedaemon.net>,
+ Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+ gregkh@linuxfoundation.org, Russell King <linux@armlinux.org.uk>,
+ open list <linux-kernel@vger.kernel.org>,
+ Gregory Clement <gregory.clement@free-electrons.com>,
+ "David S. Miller" <davem@davemloft.net>,
+ "moderated list:ARM SUB-ARCHITECTURES" <linux-arm-kernel@lists.infradead.org>,
+ Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 In-Reply-To: <20170112034121.27697-1-f.fainelli@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-Now that the base device driver code provides an identical
-implementation of dev_find_class() utilize device_find_class() instead
-of our own version of it.
+Make it clear that these functions take a device_node structure pointer
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- net/dsa/dsa.c | 22 ++--------------------
- 1 file changed, 2 insertions(+), 20 deletions(-)
+ net/dsa/dsa2.c | 16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
 
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index 2306d1b87c83..77fa4c4f5828 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -455,29 +455,11 @@ EXPORT_SYMBOL_GPL(dsa_switch_resume);
- #endif
+diff --git a/net/dsa/dsa2.c b/net/dsa/dsa2.c
+index 6e3675220fef..04ab62251fe3 100644
+--- a/net/dsa/dsa2.c
++++ b/net/dsa/dsa2.c
+@@ -94,8 +94,8 @@ static bool dsa_port_is_cpu(struct dsa_port *port)
+ 	return !!of_parse_phandle(port->dn, "ethernet", 0);
+ }
  
- /* platform driver init and cleanup *****************************************/
--static int dev_is_class(struct device *dev, void *class)
--{
--	if (dev->class != NULL && !strcmp(dev->class->name, class))
--		return 1;
--
--	return 0;
--}
--
--static struct device *dev_find_class(struct device *parent, char *class)
--{
--	if (dev_is_class(parent, class)) {
--		get_device(parent);
--		return parent;
--	}
--
--	return device_find_child(parent, class, dev_is_class);
--}
--
- struct mii_bus *dsa_host_dev_to_mii_bus(struct device *dev)
+-static bool dsa_ds_find_port(struct dsa_switch *ds,
+-			     struct device_node *port)
++static bool dsa_ds_find_port_dn(struct dsa_switch *ds,
++				struct device_node *port)
  {
- 	struct device *d;
+ 	u32 index;
  
--	d = dev_find_class(dev, "mdio_bus");
-+	d = device_find_class(dev, "mdio_bus");
- 	if (d != NULL) {
- 		struct mii_bus *bus;
+@@ -105,8 +105,8 @@ static bool dsa_ds_find_port(struct dsa_switch *ds,
+ 	return false;
+ }
  
-@@ -495,7 +477,7 @@ static struct net_device *dev_to_net_device(struct device *dev)
+-static struct dsa_switch *dsa_dst_find_port(struct dsa_switch_tree *dst,
+-					    struct device_node *port)
++static struct dsa_switch *dsa_dst_find_port_dn(struct dsa_switch_tree *dst,
++					       struct device_node *port)
  {
- 	struct device *d;
+ 	struct dsa_switch *ds;
+ 	u32 index;
+@@ -116,7 +116,7 @@ static struct dsa_switch *dsa_dst_find_port(struct dsa_switch_tree *dst,
+ 		if (!ds)
+ 			continue;
  
--	d = dev_find_class(dev, "net");
-+	d = device_find_class(dev, "net");
- 	if (d != NULL) {
- 		struct net_device *nd;
+-		if (dsa_ds_find_port(ds, port))
++		if (dsa_ds_find_port_dn(ds, port))
+ 			return ds;
+ 	}
+ 
+@@ -137,7 +137,7 @@ static int dsa_port_complete(struct dsa_switch_tree *dst,
+ 		if (!link)
+ 			break;
+ 
+-		dst_ds = dsa_dst_find_port(dst, link);
++		dst_ds = dsa_dst_find_port_dn(dst, link);
+ 		of_node_put(link);
+ 
+ 		if (!dst_ds)
+@@ -546,7 +546,7 @@ static int dsa_parse_ports_dn(struct device_node *ports, struct dsa_switch *ds)
+ 	return 0;
+ }
+ 
+-static int dsa_parse_member(struct device_node *np, u32 *tree, u32 *index)
++static int dsa_parse_member_dn(struct device_node *np, u32 *tree, u32 *index)
+ {
+ 	int err;
+ 
+@@ -592,7 +592,7 @@ static int _dsa_register_switch(struct dsa_switch *ds, struct device *dev)
+ 	u32 tree, index;
+ 	int i, err;
+ 
+-	err = dsa_parse_member(np, &tree, &index);
++	err = dsa_parse_member_dn(np, &tree, &index);
+ 	if (err)
+ 		return err;
  
 -- 
 2.9.3
