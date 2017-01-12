@@ -1,53 +1,64 @@
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: Re: [PATCH] synopsys: remove dwc_eth_qos driver
-Date: Thu, 12 Jan 2017 15:54:39 +0000
-Message-ID: <066a57f3-29b5-c297-cd67-d9c937b9c9d9@synopsys.com>
-References: <2d50f9fea61de2eb082b217d435334d40e3e01ad.1484214626.git.jpinto@synopsys.com>
- <20170112.102802.1485105708725148022.davem@davemloft.net>
- <0eb32fee-0354-522d-72c4-3d1105ec04ed@synopsys.com>
- <20170112.104803.240247212224131685.davem@davemloft.net>
+From: David Sterba <dsterba@suse.cz>
+Subject: Re: [PATCH 5/6] treewide: use kv[mz]alloc* rather than opencoded
+ variants
+Date: Thu, 12 Jan 2017 16:57:43 +0100
+Message-ID: <20170112155743.GN12081@suse.cz>
+References: <20170112153717.28943-1-mhocko@kernel.org>
+ <20170112153717.28943-6-mhocko@kernel.org>
+Reply-To: dsterba@suse.cz
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 8bit
-Cc: <lars.persson@axis.com>, <niklass@axis.com>,
-        <peppe.cavallaro@st.com>, <alexandre.torgue@st.com>,
-        <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>, <Joao.Pinto@synopsys.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay.synopsys.com ([198.182.60.111]:52752 "EHLO
-        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751254AbdALP4T (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 10:56:19 -0500
-In-Reply-To: <20170112.104803.240247212224131685.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Colin Cross <ccross@android.com>,
+	Hariprasad S <hariprasad@chelsio.com>,
+	Santosh Raspatur <santosh@chelsio.com>,
+	Kees Cook <keescook@chromium.org>,
+	Johannes Weiner <hannes@cmpxchg.org>,
+	Heiko Carstens <heiko.carstens@de.ibm.com>,
+	Martin Schwidefsky <schwidefsky@de.ibm.com>,
+	Anton Vorontsov <anton@enomsg.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Ilya Dryomov <idryomov@gmail.com>,
+	Kent Overstreet <kent.overstreet@gmail.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	David Rientjes <rientjes@google.com>,
+	Andreas Dilger <andreas.dilger@intel.com>,
+	Dan Williams <dan.j.williams@intel.com>,
+	Oleg Drokin <oleg.drokin@intel.com>,
+	Tony Luck <tony.luck@intel.com>,
+	Alexei Starovoitov <ast@kernel.org>, linux-mm@kvack.org,
+	Tariq Toukan <tariqt@mellanox.com>,
+	Yishai Hadas <yishaih@mellanox.com>,
+	Boris Ostrovsky <boris.ostrovsky@oracl
+To: Michal Hocko <mhocko@kernel.org>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20170112153717.28943-6-mhocko@kernel.org>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Às 3:48 PM de 1/12/2017, David Miller escreveu:
-> From: Joao Pinto <Joao.Pinto@synopsys.com>
-> Date: Thu, 12 Jan 2017 15:46:31 +0000
+On Thu, Jan 12, 2017 at 04:37:16PM +0100, Michal Hocko wrote:
+> From: Michal Hocko <mhocko@suse.com>
 > 
->> Hope we can meet in a LinuxCon soon and have a talk, for you to know
->> me and this way you will see that I am a guy that is only focused in
->> producing work the best way possible, and nothing else.
+> There are many code paths opencoding kvmalloc. Let's use the helper
+> instead. The main difference to kvmalloc is that those users are usually
+> not considering all the aspects of the memory allocator. E.g. allocation
+> requests < 64kB are basically never failing and invoke OOM killer to
+> satisfy the allocation. This sounds too disruptive for something that
+> has a reasonable fallback - the vmalloc. On the other hand those
+> requests might fallback to vmalloc even when the memory allocator would
+> succeed after several more reclaim/compaction attempts previously. There
+> is no guarantee something like that happens though.
 > 
-> I do not argue your intentions.
-> 
-> I argue the side effects of your change for the ecosystem of
-> long term maintaince and backporting, and what tangible benefit
-> this change brings to users.
-> 
+> This patch converts many of those places to kv[mz]alloc* helpers because
+> they are more conservative.
 
-The driver synopsys/dwc_eth_qos is no longer necessary since it was ported to
-stmmac. The merged followed all the requirements given by AXIS coleagues Niklas
-and Lars. The new stmmac solution was tested by them. In my opinion of course
-there is no reason to synopsys/dwc_eth_qos to exist anymore. I am deleting now a
-synopsys/ name folder :) I did this work to improve organization and centralize
-dwc ethernet in stmmac.
+For the btrfs bits,
 
-I know that changing what is working properly is a risk, I totally understand,
-and if I was a top maintainer I would have the same concern of course. But in
-this case I think it is good to organize the house. My intentions are to stick
-around and help developing Ethernet, like I am helping developing PCI host/.
+Acked-by: David Sterba <dsterba@suse.com>
 
-Thanks,
-Joao
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
