@@ -1,54 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: fix tcp_fastopen unaligned access complaints on
- sparc
-Date: Thu, 12 Jan 2017 16:18:52 -0500 (EST)
-Message-ID: <20170112.161852.1469407145449781531.davem@davemloft.net>
-References: <1c39bf41-4ebf-643a-c6a0-caf98a17a89c@oracle.com>
-        <20170112.154143.1940764507974590907.davem@davemloft.net>
-        <131ec7b7-5b74-2545-8bf7-92812443a876@oracle.com>
+Subject: Re: [PATCH net-next v2 05/10] drivers: base: Add
+ device_find_class()
+Date: Thu, 12 Jan 2017 16:21:35 -0500 (EST)
+Message-ID: <20170112.162135.441956368122992032.davem@davemloft.net>
+References: <20170112034121.27697-1-f.fainelli@gmail.com>
+        <20170112034121.27697-6-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, rob.gardner@oracle.com,
-        netdev@vger.kernel.org, sparclinux@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: shannon.nelson@oracle.com
+Cc: netdev@vger.kernel.org, jason@lakedaemon.net, andrew@lunn.ch,
+        sebastian.hesselbarth@gmail.com,
+        gregory.clement@free-electrons.com, linux@armlinux.org.uk,
+        vivien.didelot@savoirfairelinux.com,
+        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+        gregkh@linuxfoundation.org
+To: f.fainelli@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <131ec7b7-5b74-2545-8bf7-92812443a876@oracle.com>
+In-Reply-To: <20170112034121.27697-6-f.fainelli@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Shannon Nelson <shannon.nelson@oracle.com>
-Date: Thu, 12 Jan 2017 12:56:08 -0800
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Wed, 11 Jan 2017 19:41:16 -0800
 
+> Add a helper function to lookup a device reference given a class name.
+> This is a preliminary patch to remove adhoc code from net/dsa/dsa.c and
+> make it more generic.
 > 
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> ---
+>  drivers/base/core.c    | 19 +++++++++++++++++++
+>  include/linux/device.h |  1 +
+>  2 files changed, 20 insertions(+)
 > 
-> On 1/12/2017 12:41 PM, David Miller wrote:
->> From: Shannon Nelson <shannon.nelson@oracle.com>
->> Date: Thu, 12 Jan 2017 12:30:38 -0800
->>
->>> On 1/12/2017 12:25 PM, Eric Dumazet wrote:
->>>> On Thu, 2017-01-12 at 13:15 -0700, Rob Gardner wrote:
->>>>
->>>>>
->>>>> I suspect that someplace, somebody is casting val to an int * or
->>>>> something like that.
->>>>
->>>> Then that would be the bug. Can we root cause this please ?
->>>>
->>>>
->>>
->>> Look in net/ipv4/tcp_fastopen.c:tcp_fastopen_cookie_gen() for the line
->>>
->>> 	 struct in6_addr *buf = (struct in6_addr *) tmp.val;
->>
->> Oh yeah, that's it.  I didn't notice that at all.
->>
-> 
-> It looked to me like swapping the data fields would be the easiest and
-> least impactive way to fix this.  I didn't want to mess with the
-> logic. I'm certainly open to other suggestions.
+> diff --git a/drivers/base/core.c b/drivers/base/core.c
+> index 020ea7f05520..3dd6047c10d8 100644
+> --- a/drivers/base/core.c
+> +++ b/drivers/base/core.c
+> @@ -2065,6 +2065,25 @@ struct device *device_find_child(struct device *parent, void *data,
+>  }
+>  EXPORT_SYMBOL_GPL(device_find_child);
+>  
+> +static int dev_is_class(struct device *dev, void *class)
 
-Given the nature of the problem, your fix is probably fine.
-
-Eric, any objections?
+I know you are just moving code, but this class argumnet is a string
+and thus should be "char *" or even "const char *".
