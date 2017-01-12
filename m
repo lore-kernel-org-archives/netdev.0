@@ -1,71 +1,100 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: To netlink or not to netlink, that is the question
-Date: Thu, 12 Jan 2017 09:14:40 -0800
-Message-ID: <20170112091440.7f6cd41f@xeon-e3>
-References: <CAHmME9pkktqOSUyTS_XhgC-CE4iqTv6UEA6w74kkm3xnBY8z9g@mail.gmail.com>
+From: Grygorii Strashko <grygorii.strashko@ti.com>
+Subject: [PATCH] ARM: dts: am57xx-beagle-x15: implement errata "Ethernet RGMII2 Limited to 10/100 Mbps"
+Date: Thu, 12 Jan 2017 11:14:29 -0600
+Message-ID: <20170112171429.8106-1-grygorii.strashko@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>
-To: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Content-Type: text/plain
+Cc: <linux-omap@vger.kernel.org>, Sekhar Nori <nsekhar@ti.com>,
+        <netdev@vger.kernel.org>,
+        Grygorii Strashko <grygorii.strashko@ti.com>
+To: Tony Lindgren <tony@atomide.com>,
+        Mugunthan V N <mugunthanvnm@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f171.google.com ([209.85.192.171]:33759 "EHLO
-        mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750923AbdALROu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 12:14:50 -0500
-Received: by mail-pf0-f171.google.com with SMTP id y143so16148819pfb.0
-        for <netdev@vger.kernel.org>; Thu, 12 Jan 2017 09:14:49 -0800 (PST)
-In-Reply-To: <CAHmME9pkktqOSUyTS_XhgC-CE4iqTv6UEA6w74kkm3xnBY8z9g@mail.gmail.com>
+Received: from fllnx209.ext.ti.com ([198.47.19.16]:29800 "EHLO
+        fllnx209.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750911AbdALRO6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 12:14:58 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 12 Jan 2017 14:01:07 +0100
-"Jason A. Donenfeld" <Jason@zx2c4.com> wrote:
+According to errata i880 description the speed of Ethernet port 1 on AM572x
+SoCs rev 1.1 shuld be limited to 10/100Mbps, because RGMII2 Switching
+Characteristics are not compatible with 1000 Mbps operation [1].
+The issue is fixed with Rev 2.0 silicon.
 
-> Hey folks,
-> 
-> A few months ago I switched away from using netlink in wireguard,
-> preferring instead to use ioctl. I had come up against limitations in
-> rtnetlink, and ioctl presented a straightforward hard to screw-up
-> alternative. The very simple API is documented here:
-> https://git.zx2c4.com/WireGuard/tree/src/uapi.h
-> 
-> This works well, and I'm reluctant to change it, but as I do more
-> complicated things, and as kernel submission time looms nearer, I'm
-> kept up at night by the notion that maybe I ought to give netlink
-> another chance. But how?
-> 
-> For each wireguard interface, there are three types of structures for
-> userspace to configure. There is one wgdevice for each interface. Each
-> wgdevice has a variable amount (up to 2^16) of wgpeers. Each wgpeer
-> has a variable amount (up to 2^16) of wgipmasks. I'd like an interface
-> to get and set all of these at once, atomically.
-> 
-> Presently, with the ioctl, I just have a simple get ioctl and a simple
-> set ioctl. The set one passes a user space pointer, which is read
-> incrementally in kernel space. The get one will first return how much
-> userspace should allocate, and then when called again will write
-> incrementally into a provided userspace buffer up to a passed-in
-> maximum number of bytes. Very basic, I'm quite happy.
-> 
-> When I had tried to do this priorly with netlink, I did it by defining
-> changelink and fill_info in rtnl_link_ops. For changelink, I iterated
-> through the netlink objects, and for fill_info, I filled in the skb
-> with netlink objects. This was a bit more complex but basically
-> worked. Except netlink skbs have a maximum size and are buffered,
-> which means things broke entirely when trying to read or write logs of
-> wgpeers or lots of wgipmasks. So, the meager interfaces afforded to me
-> by rtnl_link_ops are insufficient. Doing anything beyond this, either
-> by registering new rtnetlink messages, or by using generic netlink,
-> seemed overwhelmingly complex and undesirable.
-> 
-> So I'm wondering -- is there a good way to be doing this with netlink?
-> Or am I right to stay with ioctl?
-> 
-> Thanks,
-> Jason
+Hence, rework Beagle-X15 and Begale-X15-revb1 to use phy-handle instead of
+phy_id and apply corresponding limitation to the Ethernet Phy 1.
 
-It is up to you but I doubt that code with new private ioctl's will be
-accepted upstream. If you want full review then post for inclusion upstream.
-If you just want to maintain it is a private fork, go ahead and do what
-you want and suffer the consequences.
+[1] http://www.ti.com/lit/er/sprz429j/sprz429j.pdf
+
+Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
+---
+ arch/arm/boot/dts/am57xx-beagle-x15-common.dtsi | 14 ++++++++++++--
+ arch/arm/boot/dts/am57xx-beagle-x15-revb1.dts   |  5 +++++
+ arch/arm/boot/dts/am57xx-beagle-x15.dts         |  5 +++++
+ 3 files changed, 22 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm/boot/dts/am57xx-beagle-x15-common.dtsi b/arch/arm/boot/dts/am57xx-beagle-x15-common.dtsi
+index 78bee26..0429fa0 100644
+--- a/arch/arm/boot/dts/am57xx-beagle-x15-common.dtsi
++++ b/arch/arm/boot/dts/am57xx-beagle-x15-common.dtsi
+@@ -421,19 +421,29 @@
+ 			      <&dra7_pmx_core 0x3f8>;
+ };
+ 
++&davinci_mdio {
++	phy0: ethernet-phy@1 {
++		reg = <1>;
++	};
++
++	phy1: ethernet-phy@2 {
++		reg = <2>;
++	};
++};
++
+ &mac {
+ 	status = "okay";
+ 	dual_emac;
+ };
+ 
+ &cpsw_emac0 {
+-	phy_id = <&davinci_mdio>, <1>;
++	phy-handle = <&phy0>;
+ 	phy-mode = "rgmii";
+ 	dual_emac_res_vlan = <1>;
+ };
+ 
+ &cpsw_emac1 {
+-	phy_id = <&davinci_mdio>, <2>;
++	phy-handle = <&phy1>;
+ 	phy-mode = "rgmii";
+ 	dual_emac_res_vlan = <2>;
+ };
+diff --git a/arch/arm/boot/dts/am57xx-beagle-x15-revb1.dts b/arch/arm/boot/dts/am57xx-beagle-x15-revb1.dts
+index ca85570..39a92af 100644
+--- a/arch/arm/boot/dts/am57xx-beagle-x15-revb1.dts
++++ b/arch/arm/boot/dts/am57xx-beagle-x15-revb1.dts
+@@ -22,3 +22,8 @@
+ 	vmmc-supply = <&vdd_3v3>;
+ 	vmmc-aux-supply = <&ldo1_reg>;
+ };
++
++/* errata i880 "Ethernet RGMII2 Limited to 10/100 Mbps" */
++&phy1 {
++	max-speed = <100>;
++};
+diff --git a/arch/arm/boot/dts/am57xx-beagle-x15.dts b/arch/arm/boot/dts/am57xx-beagle-x15.dts
+index 8c66f2e..19a60a1 100644
+--- a/arch/arm/boot/dts/am57xx-beagle-x15.dts
++++ b/arch/arm/boot/dts/am57xx-beagle-x15.dts
+@@ -22,3 +22,8 @@
+ &mmc1 {
+ 	vmmc-supply = <&ldo1_reg>;
+ };
++
++/* errata i880 "Ethernet RGMII2 Limited to 10/100 Mbps" */
++&phy1 {
++	max-speed = <100>;
++};
+-- 
+2.10.1.dirty
