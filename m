@@ -1,7 +1,7 @@
 From: Rajat Jain <rajatja@google.com>
-Subject: [PATCH v5 2/3] Bluetooth: btusb: Add out-of-band wakeup support
-Date: Thu, 12 Jan 2017 10:01:06 -0800
-Message-ID: <20170112180107.63244-2-rajatja@google.com>
+Subject: [PATCH v5 3/3] Bluetooth: btusb: Configure Marvell to use one of the pins for oob wakeup
+Date: Thu, 12 Jan 2017 10:01:07 -0800
+Message-ID: <20170112180107.63244-3-rajatja@google.com>
 References: <20170112180107.63244-1-rajatja@google.com>
 Cc: Rajat Jain <rajatja@google.com>, rajatxjain@gmail.com
 To: Rob Herring <robh+dt@kernel.org>,
@@ -20,70 +20,115 @@ In-Reply-To: <20170112180107.63244-1-rajatja@google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Some onboard BT chips (e.g. Marvell 8997) contain a wakeup pin that
-can be connected to a gpio on the CPU side, and can be used to wakeup
-the host out-of-band. This can be useful in situations where the
-in-band wakeup is not possible or not preferable (e.g. the in-band
-wakeup may require the USB host controller to remain active, and
-hence consuming more system power during system sleep).
+The Marvell devices may have many gpio pins, and hence for wakeup
+on these out-of-band pins, the chip needs to be told which pin is
+to be used for wakeup, using an hci command.
 
-The oob gpio interrupt to be used for wakeup on the CPU side, is
-read from the device tree node, (using standard interrupt descriptors).
-A devcie tree binding document is also added for the driver. The
-compatible string is in compliance with
-Documentation/devicetree/bindings/usb/usb-device.txt
+Thus, we read the pin number etc from the device tree node and send
+a command to the chip.
 
 Signed-off-by: Rajat Jain <rajatja@google.com>
 Reviewed-by: Brian Norris <briannorris@chromium.org>
 Acked-by: Rob Herring <robh@kernel.org>
 ---
-v5: Move the call to pm_wakeup_event() to the begining of irq handler.
-v4: Move the set_bit(BTUSB_OOB_WAKE_DISABLED,..) call to the beginning of
-    btusb_config_oob_wake()
-v3: Add Brian's "Reviewed-by"
-v2: * Use interrupt-names ("wakeup") instead of assuming first interrupt.
-    * Leave it on device tree to specify IRQ flags (level /edge triggered)
-    * Mark the device as non wakeable on exit.
+v5: same as v5
+v4: same as v3
+v3: * remove the Marvell specific id table and check
+    * Add reference to marvell-bt-8xxx.txt in btusb.txt
+    * Add "Reviewed-by" and "Acked-by"    
+v2: Fix the binding document to specify to use "wakeup" interrupt-name
 
- Documentation/devicetree/bindings/net/btusb.txt | 40 ++++++++++++
- drivers/bluetooth/btusb.c                       | 85 +++++++++++++++++++++++++
- 2 files changed, 125 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/btusb.txt
+ Documentation/devicetree/bindings/net/btusb.txt    |  3 ++
+ .../{marvell-bt-sd8xxx.txt => marvell-bt-8xxx.txt} | 46 +++++++++++++++----
+ drivers/bluetooth/btusb.c                          | 51 ++++++++++++++++++++++
+ 3 files changed, 92 insertions(+), 8 deletions(-)
+ rename Documentation/devicetree/bindings/net/{marvell-bt-sd8xxx.txt => marvell-bt-8xxx.txt} (50%)
 
 diff --git a/Documentation/devicetree/bindings/net/btusb.txt b/Documentation/devicetree/bindings/net/btusb.txt
-new file mode 100644
-index 000000000000..2c0355c85972
---- /dev/null
+index 2c0355c85972..01fa2d4188d4 100644
+--- a/Documentation/devicetree/bindings/net/btusb.txt
 +++ b/Documentation/devicetree/bindings/net/btusb.txt
-@@ -0,0 +1,40 @@
-+Generic Bluetooth controller over USB (btusb driver)
-+---------------------------------------------------
+@@ -10,6 +10,9 @@ Required properties:
+ 
+ 		  "usb1286,204e" (Marvell 8997)
+ 
++Also, vendors that use btusb may have device additional properties, e.g:
++Documentation/devicetree/bindings/net/marvell-bt-8xxx.txt
 +
-+Required properties:
+ Optional properties:
+ 
+   - interrupt-parent: phandle of the parent interrupt controller
+diff --git a/Documentation/devicetree/bindings/net/marvell-bt-sd8xxx.txt b/Documentation/devicetree/bindings/net/marvell-bt-8xxx.txt
+similarity index 50%
+rename from Documentation/devicetree/bindings/net/marvell-bt-sd8xxx.txt
+rename to Documentation/devicetree/bindings/net/marvell-bt-8xxx.txt
+index 6a9a63cb0543..9be1059ff03f 100644
+--- a/Documentation/devicetree/bindings/net/marvell-bt-sd8xxx.txt
++++ b/Documentation/devicetree/bindings/net/marvell-bt-8xxx.txt
+@@ -1,16 +1,21 @@
+-Marvell 8897/8997 (sd8897/sd8997) bluetooth SDIO devices
++Marvell 8897/8997 (sd8897/sd8997) bluetooth devices (SDIO or USB based)
+ ------
++The 8997 devices supports multiple interfaces. When used on SDIO interfaces,
++the btmrvl driver is used and when used on USB interface, the btusb driver is
++used.
+ 
+ Required properties:
+ 
+   - compatible : should be one of the following:
+-	* "marvell,sd8897-bt"
+-	* "marvell,sd8997-bt"
++	* "marvell,sd8897-bt" (for SDIO)
++	* "marvell,sd8997-bt" (for SDIO)
++	* "usb1286,204e"      (for USB)
+ 
+ Optional properties:
+ 
+   - marvell,cal-data: Calibration data downloaded to the device during
+ 		      initialization. This is an array of 28 values(u8).
++		      This is only applicable to SDIO devices.
+ 
+   - marvell,wakeup-pin: It represents wakeup pin number of the bluetooth chip.
+ 		        firmware will use the pin to wakeup host system (u16).
+@@ -18,10 +23,15 @@ Optional properties:
+ 		      platform. The value will be configured to firmware. This
+ 		      is needed to work chip's sleep feature as expected (u16).
+   - interrupt-parent: phandle of the parent interrupt controller
+-  - interrupts : interrupt pin number to the cpu. Driver will request an irq based
+-		 on this interrupt number. During system suspend, the irq will be
+-		 enabled so that the bluetooth chip can wakeup host platform under
+-		 certain condition. During system resume, the irq will be disabled
++  - interrupt-names: Used only for USB based devices (See below)
++  - interrupts : specifies the interrupt pin number to the cpu. For SDIO, the
++		 driver will use the first interrupt specified in the interrupt
++		 array. For USB based devices, the driver will use the interrupt
++		 named "wakeup" from the interrupt-names and interrupt arrays.
++		 The driver will request an irq based on this interrupt number.
++		 During system suspend, the irq will be enabled so that the
++		 bluetooth chip can wakeup host platform under certain
++		 conditions. During system resume, the irq will be disabled
+ 		 to make sure unnecessary interrupt is not received.
+ 
+ Example:
+@@ -29,7 +39,9 @@ Example:
+ IRQ pin 119 is used as system wakeup source interrupt.
+ wakeup pin 13 and gap 100ms are configured so that firmware can wakeup host
+ using this device side pin and wakeup latency.
+-calibration data is also available in below example.
 +
-+  - compatible : should comply with the format "usbVID,PID" specified in
-+		 Documentation/devicetree/bindings/usb/usb-device.txt
-+		 At the time of writing, the only OF supported devices
-+		 (more may be added later) are:
++Example for SDIO device follows (calibration data is also available in
++below example).
+ 
+ &mmc3 {
+ 	status = "okay";
+@@ -54,3 +66,21 @@ calibration data is also available in below example.
+ 		marvell,wakeup-gap-ms = /bits/ 16 <0x64>;
+ 	};
+ };
 +
-+		  "usb1286,204e" (Marvell 8997)
++Example for USB device:
 +
-+Optional properties:
-+
-+  - interrupt-parent: phandle of the parent interrupt controller
-+  - interrupt-names: (see below)
-+  - interrupts : The interrupt specified by the name "wakeup" is the interrupt
-+		 that shall be used for out-of-band wake-on-bt. Driver will
-+		 request this interrupt for wakeup. During system suspend, the
-+		 irq will be enabled so that the bluetooth chip can wakeup host
-+		 platform out of band. During system resume, the irq will be
-+		 disabled to make sure unnecessary interrupt is not received.
-+
-+Example:
-+
-+Following example uses irq pin number 3 of gpio0 for out of band wake-on-bt:
-+
-+&usb_host1_ehci {
++&usb_host1_ohci {
 +    status = "okay";
 +    #address-cells = <1>;
 +    #size-cells = <0>;
@@ -92,154 +137,80 @@ index 000000000000..2c0355c85972
 +	compatible = "usb1286,204e";
 +	reg = <1>;
 +	interrupt-parent = <&gpio0>;
-+	interrupt-name = "wakeup";
-+	interrupts = <3 IRQ_TYPE_LEVEL_LOW>;
++	interrupt-names = "wakeup";
++	interrupts = <119 IRQ_TYPE_LEVEL_LOW>;
++	marvell,wakeup-pin = /bits/ 16 <0x0d>;
++	marvell,wakeup-gap-ms = /bits/ 16 <0x64>;
 +    };
 +};
 diff --git a/drivers/bluetooth/btusb.c b/drivers/bluetooth/btusb.c
-index ce22cefceed1..0a777bb407b1 100644
+index 0a777bb407b1..a1079c19b96f 100644
 --- a/drivers/bluetooth/btusb.c
 +++ b/drivers/bluetooth/btusb.c
-@@ -24,6 +24,8 @@
- #include <linux/module.h>
- #include <linux/usb.h>
- #include <linux/firmware.h>
-+#include <linux/of_device.h>
-+#include <linux/of_irq.h>
- #include <asm/unaligned.h>
- 
- #include <net/bluetooth/bluetooth.h>
-@@ -369,6 +371,7 @@ static const struct usb_device_id blacklist_table[] = {
- #define BTUSB_BOOTING		9
- #define BTUSB_RESET_RESUME	10
- #define BTUSB_DIAG_RUNNING	11
-+#define BTUSB_OOB_WAKE_DISABLED	12
- 
- struct btusb_data {
- 	struct hci_dev       *hdev;
-@@ -416,6 +419,8 @@ struct btusb_data {
- 	int (*recv_bulk)(struct btusb_data *data, void *buffer, int count);
- 
- 	int (*setup_on_usb)(struct hci_dev *hdev);
-+
-+	int oob_wake_irq;   /* irq for out-of-band wake-on-bt */
- };
- 
- static inline void btusb_free_frags(struct btusb_data *data)
-@@ -2728,6 +2733,66 @@ static int btusb_bcm_set_diag(struct hci_dev *hdev, bool enable)
+@@ -2343,6 +2343,50 @@ static int btusb_shutdown_intel(struct hci_dev *hdev)
+ 	return 0;
  }
- #endif
  
 +#ifdef CONFIG_PM
-+static irqreturn_t btusb_oob_wake_handler(int irq, void *priv)
++/* Configure an out-of-band gpio as wake-up pin, if specified in device tree */
++static int marvell_config_oob_wake(struct hci_dev *hdev)
 +{
-+	struct btusb_data *data = priv;
-+
-+	pm_wakeup_event(&data->udev->dev, 0);
-+
-+	/* Disable only if not already disabled (keep it balanced) */
-+	if (!test_and_set_bit(BTUSB_OOB_WAKE_DISABLED, &data->flags)) {
-+		disable_irq_nosync(irq);
-+		disable_irq_wake(irq);
-+	}
-+	return IRQ_HANDLED;
-+}
-+
-+static const struct of_device_id btusb_match_table[] = {
-+	{ .compatible = "usb1286,204e" },
-+	{ }
-+};
-+MODULE_DEVICE_TABLE(of, btusb_match_table);
-+
-+/* Use an oob wakeup pin? */
-+static int btusb_config_oob_wake(struct hci_dev *hdev)
-+{
++	struct sk_buff *skb;
 +	struct btusb_data *data = hci_get_drvdata(hdev);
 +	struct device *dev = &data->udev->dev;
-+	int irq, ret;
++	u16 pin, gap, opcode;
++	int ret;
++	u8 cmd[5];
 +
-+	set_bit(BTUSB_OOB_WAKE_DISABLED, &data->flags);
-+
-+	if (!of_match_device(btusb_match_table, dev))
++	/* Move on if no wakeup pin specified */
++	if (of_property_read_u16(dev->of_node, "marvell,wakeup-pin", &pin) ||
++	    of_property_read_u16(dev->of_node, "marvell,wakeup-gap-ms", &gap))
 +		return 0;
 +
-+	/* Move on if no IRQ specified */
-+	irq = of_irq_get_byname(dev->of_node, "wakeup");
-+	if (irq <= 0) {
-+		bt_dev_dbg(hdev, "%s: no OOB Wakeup IRQ in DT", __func__);
-+		return 0;
++	/* Vendor specific command to configure a GPIO as wake-up pin */
++	opcode = hci_opcode_pack(0x3F, 0x59);
++	cmd[0] = opcode & 0xFF;
++	cmd[1] = opcode >> 8;
++	cmd[2] = 2; /* length of parameters that follow */
++	cmd[3] = pin;
++	cmd[4] = gap; /* time in ms, for which wakeup pin should be asserted */
++
++	skb = bt_skb_alloc(sizeof(cmd), GFP_KERNEL);
++	if (!skb) {
++		bt_dev_err(hdev, "%s: No memory\n", __func__);
++		return -ENOMEM;
 +	}
 +
-+	ret = devm_request_irq(&hdev->dev, irq, btusb_oob_wake_handler,
-+			       0, "OOB Wake-on-BT", data);
++	memcpy(skb_put(skb, sizeof(cmd)), cmd, sizeof(cmd));
++	hci_skb_pkt_type(skb) = HCI_COMMAND_PKT;
++
++	ret = btusb_send_frame(hdev, skb);
 +	if (ret) {
-+		bt_dev_err(hdev, "%s: IRQ request failed", __func__);
++		bt_dev_err(hdev, "%s: configuration failed\n", __func__);
++		kfree_skb(skb);
 +		return ret;
 +	}
 +
-+	ret = device_init_wakeup(dev, true);
-+	if (ret) {
-+		bt_dev_err(hdev, "%s: failed to init_wakeup\n", __func__);
-+		return ret;
-+	}
-+
-+	data->oob_wake_irq = irq;
-+	disable_irq(irq);
-+	bt_dev_info(hdev, "OOB Wake-on-BT configured at IRQ %u\n", irq);
 +	return 0;
 +}
 +#endif
 +
- static int btusb_probe(struct usb_interface *intf,
- 		       const struct usb_device_id *id)
+ static int btusb_set_bdaddr_marvell(struct hci_dev *hdev,
+ 				    const bdaddr_t *bdaddr)
  {
-@@ -2849,6 +2914,11 @@ static int btusb_probe(struct usb_interface *intf,
- 	hdev->send   = btusb_send_frame;
- 	hdev->notify = btusb_notify;
- 
-+#ifdef CONFIG_PM
-+	err = btusb_config_oob_wake(hdev);
-+	if (err)
-+		goto out_free_dev;
-+#endif
+@@ -2918,6 +2962,13 @@ static int btusb_probe(struct usb_interface *intf,
+ 	err = btusb_config_oob_wake(hdev);
+ 	if (err)
+ 		goto out_free_dev;
++
++	/* Marvell devices may need a specific chip configuration */
++	if (id->driver_info & BTUSB_MARVELL && data->oob_wake_irq) {
++		err = marvell_config_oob_wake(hdev);
++		if (err)
++			goto out_free_dev;
++	}
+ #endif
  	if (id->driver_info & BTUSB_CW6622)
  		set_bit(HCI_QUIRK_BROKEN_STORED_LINK_KEY, &hdev->quirks);
- 
-@@ -3061,6 +3131,9 @@ static void btusb_disconnect(struct usb_interface *intf)
- 			usb_driver_release_interface(&btusb_driver, data->isoc);
- 	}
- 
-+	if (data->oob_wake_irq)
-+		device_init_wakeup(&data->udev->dev, false);
-+
- 	hci_free_dev(hdev);
- }
- 
-@@ -3089,6 +3162,12 @@ static int btusb_suspend(struct usb_interface *intf, pm_message_t message)
- 	btusb_stop_traffic(data);
- 	usb_kill_anchored_urbs(&data->tx_anchor);
- 
-+	if (data->oob_wake_irq && device_may_wakeup(&data->udev->dev)) {
-+		clear_bit(BTUSB_OOB_WAKE_DISABLED, &data->flags);
-+		enable_irq_wake(data->oob_wake_irq);
-+		enable_irq(data->oob_wake_irq);
-+	}
-+
- 	/* Optionally request a device reset on resume, but only when
- 	 * wakeups are disabled. If wakeups are enabled we assume the
- 	 * device will stay powered up throughout suspend.
-@@ -3126,6 +3205,12 @@ static int btusb_resume(struct usb_interface *intf)
- 	if (--data->suspend_count)
- 		return 0;
- 
-+	/* Disable only if not already disabled (keep it balanced) */
-+	if (!test_and_set_bit(BTUSB_OOB_WAKE_DISABLED, &data->flags)) {
-+		disable_irq(data->oob_wake_irq);
-+		disable_irq_wake(data->oob_wake_irq);
-+	}
-+
- 	if (!test_bit(HCI_RUNNING, &hdev->flags))
- 		goto done;
- 
 -- 
 2.11.0.390.gc69c2f50cf-goog
