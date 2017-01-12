@@ -1,34 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] cdc-ether: usbnet_cdc_zte_status() can be
- static
-Date: Thu, 12 Jan 2017 11:09:41 -0500 (EST)
-Message-ID: <20170112.110941.1808004349333485081.davem@davemloft.net>
-References: <20170112134347.22793-1-weiyj.lk@gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: Correct method for initializing Pause and Asymmetrical Pause
+ support in phy drivers
+Date: Thu, 12 Jan 2017 16:35:35 +0100
+Message-ID: <20170112153535.GA10203@lunn.ch>
+References: <CAMqDo0XxvtjD+uJQeHJuSyN71zEEa5AB9YE1CUYK8wq2NGeAbQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: oliver@neukum.org, weiyongjun1@huawei.com,
-        linux-usb@vger.kernel.org, netdev@vger.kernel.org
-To: weiyj.lk@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Marc Bertola <marc.bertola@prolucid.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:51508 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750832AbdALQKB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 11:10:01 -0500
-In-Reply-To: <20170112134347.22793-1-weiyj.lk@gmail.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:58481 "EHLO vps0.lunn.ch"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751113AbdALQK0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 12 Jan 2017 11:10:26 -0500
+Content-Disposition: inline
+In-Reply-To: <CAMqDo0XxvtjD+uJQeHJuSyN71zEEa5AB9YE1CUYK8wq2NGeAbQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Date: Thu, 12 Jan 2017 13:43:47 +0000
+On Thu, Jan 12, 2017 at 10:21:29AM -0500, Marc Bertola wrote:
+> Hello netdev list,
+> 
+> I am currently investigating a problem related to Ethernet
+> auto-negotiation of Pause and Asymmetrical Pause capabilities.
 
-> From: Wei Yongjun <weiyongjun1@huawei.com>
-> 
-> Fixes the following sparse warning:
-> 
-> drivers/net/usb/cdc_ether.c:469:6: warning:
->  symbol 'usbnet_cdc_zte_status' was not declared. Should it be static?
-> 
-> Signed-off-by: Wei Yongjun <weiyongjun1@huawei.com>
+Hi Marc
 
-Applied.
+Have you read:
+
+commit 2fa3e25b454e267d8f55ee19c27be540495463e7
+Author: Florian Fainelli <f.fainelli@gmail.com>
+Date:   Sun Nov 27 18:45:13 2016 -0800
+
+    Documentation: net: phy: Add a paragraph about pause frames/flow control
+    
+    Describe that the Ethernet MAC controller is ultimately responsible for
+    dealing with proper pause frames/flow control advertisement and
+    enabling, and that it is therefore allowed to have it change
+    phydev->supported/advertising with SUPPORTED_Pause and
+    SUPPORTED_AsymPause.
+    
+    Reviewed-by: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
+    Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+    Andrew
