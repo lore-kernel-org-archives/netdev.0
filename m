@@ -1,216 +1,82 @@
-From: Rajat Jain <rajatja@google.com>
-Subject: [PATCH v5 3/3] Bluetooth: btusb: Configure Marvell to use one of the pins for oob wakeup
-Date: Thu, 12 Jan 2017 10:01:07 -0800
-Message-ID: <20170112180107.63244-3-rajatja@google.com>
-References: <20170112180107.63244-1-rajatja@google.com>
-Cc: Rajat Jain <rajatja@google.com>, rajatxjain@gmail.com
-To: Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Marcel Holtmann <marcel@holtmann.org>,
-        Gustavo Padovan <gustavo@padovan.org>,
-        Johan Hedberg <johan.hedberg@gmail.com>,
-        Amitkumar Karwar <akarwar@marvell.com>,
-        Wei-Ning Huang <wnhuang@chromium.org>,
-        Xinming Hu <huxm@marvell.com>, netdev@vger.kernel.org,
-        devicetree@vger.kernel.org, linux-bluetooth@vger.kernel.org,
-        Brian Norris <briannorris@google.com>,
-        linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170112180107.63244-1-rajatja@google.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Igor Druzhinin <igor.druzhinin@citrix.com>
+Subject: Re: [PATCH] xen-netback: fix memory leaks on XenBus
+	disconnect
+Date: Thu, 12 Jan 2017 18:05:36 +0000
+Message-ID: <ac2136fd-a1c7-d990-a79b-ec5e24daa543@citrix.com>
+References: <1484243516-141100-1-git-send-email-igor.druzhinin@citrix.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: jgross@suse.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: <wei.liu2@citrix.com>, <xen-devel@lists.xenproject.org>,
+ <paul.durrant@citrix.com>
+Return-path: <xen-devel-bounces@lists.xen.org>
+In-Reply-To: <1484243516-141100-1-git-send-email-igor.druzhinin@citrix.com>
+List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Errors-To: xen-devel-bounces@lists.xen.org
+Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
 List-Id: netdev.vger.kernel.org
 
-The Marvell devices may have many gpio pins, and hence for wakeup
-on these out-of-band pins, the chip needs to be told which pin is
-to be used for wakeup, using an hci command.
-
-Thus, we read the pin number etc from the device tree node and send
-a command to the chip.
-
-Signed-off-by: Rajat Jain <rajatja@google.com>
-Reviewed-by: Brian Norris <briannorris@chromium.org>
-Acked-by: Rob Herring <robh@kernel.org>
----
-v5: same as v5
-v4: same as v3
-v3: * remove the Marvell specific id table and check
-    * Add reference to marvell-bt-8xxx.txt in btusb.txt
-    * Add "Reviewed-by" and "Acked-by"    
-v2: Fix the binding document to specify to use "wakeup" interrupt-name
-
- Documentation/devicetree/bindings/net/btusb.txt    |  3 ++
- .../{marvell-bt-sd8xxx.txt => marvell-bt-8xxx.txt} | 46 +++++++++++++++----
- drivers/bluetooth/btusb.c                          | 51 ++++++++++++++++++++++
- 3 files changed, 92 insertions(+), 8 deletions(-)
- rename Documentation/devicetree/bindings/net/{marvell-bt-sd8xxx.txt => marvell-bt-8xxx.txt} (50%)
-
-diff --git a/Documentation/devicetree/bindings/net/btusb.txt b/Documentation/devicetree/bindings/net/btusb.txt
-index 2c0355c85972..01fa2d4188d4 100644
---- a/Documentation/devicetree/bindings/net/btusb.txt
-+++ b/Documentation/devicetree/bindings/net/btusb.txt
-@@ -10,6 +10,9 @@ Required properties:
- 
- 		  "usb1286,204e" (Marvell 8997)
- 
-+Also, vendors that use btusb may have device additional properties, e.g:
-+Documentation/devicetree/bindings/net/marvell-bt-8xxx.txt
-+
- Optional properties:
- 
-   - interrupt-parent: phandle of the parent interrupt controller
-diff --git a/Documentation/devicetree/bindings/net/marvell-bt-sd8xxx.txt b/Documentation/devicetree/bindings/net/marvell-bt-8xxx.txt
-similarity index 50%
-rename from Documentation/devicetree/bindings/net/marvell-bt-sd8xxx.txt
-rename to Documentation/devicetree/bindings/net/marvell-bt-8xxx.txt
-index 6a9a63cb0543..9be1059ff03f 100644
---- a/Documentation/devicetree/bindings/net/marvell-bt-sd8xxx.txt
-+++ b/Documentation/devicetree/bindings/net/marvell-bt-8xxx.txt
-@@ -1,16 +1,21 @@
--Marvell 8897/8997 (sd8897/sd8997) bluetooth SDIO devices
-+Marvell 8897/8997 (sd8897/sd8997) bluetooth devices (SDIO or USB based)
- ------
-+The 8997 devices supports multiple interfaces. When used on SDIO interfaces,
-+the btmrvl driver is used and when used on USB interface, the btusb driver is
-+used.
- 
- Required properties:
- 
-   - compatible : should be one of the following:
--	* "marvell,sd8897-bt"
--	* "marvell,sd8997-bt"
-+	* "marvell,sd8897-bt" (for SDIO)
-+	* "marvell,sd8997-bt" (for SDIO)
-+	* "usb1286,204e"      (for USB)
- 
- Optional properties:
- 
-   - marvell,cal-data: Calibration data downloaded to the device during
- 		      initialization. This is an array of 28 values(u8).
-+		      This is only applicable to SDIO devices.
- 
-   - marvell,wakeup-pin: It represents wakeup pin number of the bluetooth chip.
- 		        firmware will use the pin to wakeup host system (u16).
-@@ -18,10 +23,15 @@ Optional properties:
- 		      platform. The value will be configured to firmware. This
- 		      is needed to work chip's sleep feature as expected (u16).
-   - interrupt-parent: phandle of the parent interrupt controller
--  - interrupts : interrupt pin number to the cpu. Driver will request an irq based
--		 on this interrupt number. During system suspend, the irq will be
--		 enabled so that the bluetooth chip can wakeup host platform under
--		 certain condition. During system resume, the irq will be disabled
-+  - interrupt-names: Used only for USB based devices (See below)
-+  - interrupts : specifies the interrupt pin number to the cpu. For SDIO, the
-+		 driver will use the first interrupt specified in the interrupt
-+		 array. For USB based devices, the driver will use the interrupt
-+		 named "wakeup" from the interrupt-names and interrupt arrays.
-+		 The driver will request an irq based on this interrupt number.
-+		 During system suspend, the irq will be enabled so that the
-+		 bluetooth chip can wakeup host platform under certain
-+		 conditions. During system resume, the irq will be disabled
- 		 to make sure unnecessary interrupt is not received.
- 
- Example:
-@@ -29,7 +39,9 @@ Example:
- IRQ pin 119 is used as system wakeup source interrupt.
- wakeup pin 13 and gap 100ms are configured so that firmware can wakeup host
- using this device side pin and wakeup latency.
--calibration data is also available in below example.
-+
-+Example for SDIO device follows (calibration data is also available in
-+below example).
- 
- &mmc3 {
- 	status = "okay";
-@@ -54,3 +66,21 @@ calibration data is also available in below example.
- 		marvell,wakeup-gap-ms = /bits/ 16 <0x64>;
- 	};
- };
-+
-+Example for USB device:
-+
-+&usb_host1_ohci {
-+    status = "okay";
-+    #address-cells = <1>;
-+    #size-cells = <0>;
-+
-+    mvl_bt1: bt@1 {
-+	compatible = "usb1286,204e";
-+	reg = <1>;
-+	interrupt-parent = <&gpio0>;
-+	interrupt-names = "wakeup";
-+	interrupts = <119 IRQ_TYPE_LEVEL_LOW>;
-+	marvell,wakeup-pin = /bits/ 16 <0x0d>;
-+	marvell,wakeup-gap-ms = /bits/ 16 <0x64>;
-+    };
-+};
-diff --git a/drivers/bluetooth/btusb.c b/drivers/bluetooth/btusb.c
-index 0a777bb407b1..a1079c19b96f 100644
---- a/drivers/bluetooth/btusb.c
-+++ b/drivers/bluetooth/btusb.c
-@@ -2343,6 +2343,50 @@ static int btusb_shutdown_intel(struct hci_dev *hdev)
- 	return 0;
- }
- 
-+#ifdef CONFIG_PM
-+/* Configure an out-of-band gpio as wake-up pin, if specified in device tree */
-+static int marvell_config_oob_wake(struct hci_dev *hdev)
-+{
-+	struct sk_buff *skb;
-+	struct btusb_data *data = hci_get_drvdata(hdev);
-+	struct device *dev = &data->udev->dev;
-+	u16 pin, gap, opcode;
-+	int ret;
-+	u8 cmd[5];
-+
-+	/* Move on if no wakeup pin specified */
-+	if (of_property_read_u16(dev->of_node, "marvell,wakeup-pin", &pin) ||
-+	    of_property_read_u16(dev->of_node, "marvell,wakeup-gap-ms", &gap))
-+		return 0;
-+
-+	/* Vendor specific command to configure a GPIO as wake-up pin */
-+	opcode = hci_opcode_pack(0x3F, 0x59);
-+	cmd[0] = opcode & 0xFF;
-+	cmd[1] = opcode >> 8;
-+	cmd[2] = 2; /* length of parameters that follow */
-+	cmd[3] = pin;
-+	cmd[4] = gap; /* time in ms, for which wakeup pin should be asserted */
-+
-+	skb = bt_skb_alloc(sizeof(cmd), GFP_KERNEL);
-+	if (!skb) {
-+		bt_dev_err(hdev, "%s: No memory\n", __func__);
-+		return -ENOMEM;
-+	}
-+
-+	memcpy(skb_put(skb, sizeof(cmd)), cmd, sizeof(cmd));
-+	hci_skb_pkt_type(skb) = HCI_COMMAND_PKT;
-+
-+	ret = btusb_send_frame(hdev, skb);
-+	if (ret) {
-+		bt_dev_err(hdev, "%s: configuration failed\n", __func__);
-+		kfree_skb(skb);
-+		return ret;
-+	}
-+
-+	return 0;
-+}
-+#endif
-+
- static int btusb_set_bdaddr_marvell(struct hci_dev *hdev,
- 				    const bdaddr_t *bdaddr)
- {
-@@ -2918,6 +2962,13 @@ static int btusb_probe(struct usb_interface *intf,
- 	err = btusb_config_oob_wake(hdev);
- 	if (err)
- 		goto out_free_dev;
-+
-+	/* Marvell devices may need a specific chip configuration */
-+	if (id->driver_info & BTUSB_MARVELL && data->oob_wake_irq) {
-+		err = marvell_config_oob_wake(hdev);
-+		if (err)
-+			goto out_free_dev;
-+	}
- #endif
- 	if (id->driver_info & BTUSB_CW6622)
- 		set_bit(HCI_QUIRK_BROKEN_STORED_LINK_KEY, &hdev->quirks);
--- 
-2.11.0.390.gc69c2f50cf-goog
+T24gMTIvMDEvMTcgMTc6NTEsIElnb3IgRHJ1emhpbmluIHdyb3RlOgo+IEVsaW1pbmF0ZSBtZW1v
+cnkgbGVha3MgaW50cm9kdWNlZCBzZXZlcmFsIHllYXJzIGFnbyBieSBjbGVhbmluZyB0aGUgcXVl
+dWUKPiByZXNvdXJjZXMgd2hpY2ggYXJlIGFsbG9jYXRlZCBvbiBYZW5CdXMgY29ubmVjdGlvbiBl
+dmVudC4gTmFtZWx5LCBxdWV1ZQo+IHN0cnVjdHVyZSBhcnJheSBhbmQgcGFnZXMgdXNlZCBmb3Ig
+SU8gcmluZ3MuCj4gdmlmLT5sb2NrIGlzIHVzZWQgdG8gcHJvdGVjdCBzdGF0aXN0aWNzIGdhdGhl
+cmluZyBhZ2VudHMgZnJvbSB1c2luZyB0aGUKPiBxdWV1ZSBzdHJ1Y3R1cmUgZHVyaW5nIGNsZWFu
+aW5nLgo+IAo+IFNpZ25lZC1vZmYtYnk6IElnb3IgRHJ1emhpbmluIDxpZ29yLmRydXpoaW5pbkBj
+aXRyaXguY29tPgo+IC0tLQo+ICBkcml2ZXJzL25ldC94ZW4tbmV0YmFjay9pbnRlcmZhY2UuYyB8
+ICA2ICsrKystLQo+ICBkcml2ZXJzL25ldC94ZW4tbmV0YmFjay94ZW5idXMuYyAgICB8IDEzICsr
+KysrKysrKysrKysKPiAgMiBmaWxlcyBjaGFuZ2VkLCAxNyBpbnNlcnRpb25zKCspLCAyIGRlbGV0
+aW9ucygtKQo+IAo+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC94ZW4tbmV0YmFjay9pbnRlcmZh
+Y2UuYyBiL2RyaXZlcnMvbmV0L3hlbi1uZXRiYWNrL2ludGVyZmFjZS5jCj4gaW5kZXggZTMwZmZk
+Mi4uNTc5NTIxMyAxMDA2NDQKPiAtLS0gYS9kcml2ZXJzL25ldC94ZW4tbmV0YmFjay9pbnRlcmZh
+Y2UuYwo+ICsrKyBiL2RyaXZlcnMvbmV0L3hlbi1uZXRiYWNrL2ludGVyZmFjZS5jCj4gQEAgLTIy
+MSwxOCArMjIxLDE4IEBAIHN0YXRpYyBzdHJ1Y3QgbmV0X2RldmljZV9zdGF0cyAqeGVudmlmX2dl
+dF9zdGF0cyhzdHJ1Y3QgbmV0X2RldmljZSAqZGV2KQo+ICB7Cj4gIAlzdHJ1Y3QgeGVudmlmICp2
+aWYgPSBuZXRkZXZfcHJpdihkZXYpOwo+ICAJc3RydWN0IHhlbnZpZl9xdWV1ZSAqcXVldWUgPSBO
+VUxMOwo+IC0JdW5zaWduZWQgaW50IG51bV9xdWV1ZXMgPSB2aWYtPm51bV9xdWV1ZXM7Cj4gIAl1
+bnNpZ25lZCBsb25nIHJ4X2J5dGVzID0gMDsKPiAgCXVuc2lnbmVkIGxvbmcgcnhfcGFja2V0cyA9
+IDA7Cj4gIAl1bnNpZ25lZCBsb25nIHR4X2J5dGVzID0gMDsKPiAgCXVuc2lnbmVkIGxvbmcgdHhf
+cGFja2V0cyA9IDA7Cj4gIAl1bnNpZ25lZCBpbnQgaW5kZXg7Cj4gIAo+ICsJc3Bpbl9sb2NrKCZ2
+aWYtPmxvY2spOwo+ICAJaWYgKHZpZi0+cXVldWVzID09IE5VTEwpCj4gIAkJZ290byBvdXQ7Cj4g
+IAo+ICAJLyogQWdncmVnYXRlIHR4IGFuZCByeCBzdGF0cyBmcm9tIGVhY2ggcXVldWUgKi8KPiAt
+CWZvciAoaW5kZXggPSAwOyBpbmRleCA8IG51bV9xdWV1ZXM7ICsraW5kZXgpIHsKPiArCWZvciAo
+aW5kZXggPSAwOyBpbmRleCA8IHZpZi0+bnVtX3F1ZXVlczsgKytpbmRleCkgewo+ICAJCXF1ZXVl
+ID0gJnZpZi0+cXVldWVzW2luZGV4XTsKPiAgCQlyeF9ieXRlcyArPSBxdWV1ZS0+c3RhdHMucnhf
+Ynl0ZXM7Cj4gIAkJcnhfcGFja2V0cyArPSBxdWV1ZS0+c3RhdHMucnhfcGFja2V0czsKPiBAQCAt
+MjQxLDYgKzI0MSw4IEBAIHN0YXRpYyBzdHJ1Y3QgbmV0X2RldmljZV9zdGF0cyAqeGVudmlmX2dl
+dF9zdGF0cyhzdHJ1Y3QgbmV0X2RldmljZSAqZGV2KQo+ICAJfQo+ICAKPiAgb3V0Ogo+ICsJc3Bp
+bl91bmxvY2soJnZpZi0+bG9jayk7Cj4gKwo+ICAJdmlmLT5kZXYtPnN0YXRzLnJ4X2J5dGVzID0g
+cnhfYnl0ZXM7Cj4gIAl2aWYtPmRldi0+c3RhdHMucnhfcGFja2V0cyA9IHJ4X3BhY2tldHM7Cj4g
+IAl2aWYtPmRldi0+c3RhdHMudHhfYnl0ZXMgPSB0eF9ieXRlczsKPiBkaWZmIC0tZ2l0IGEvZHJp
+dmVycy9uZXQveGVuLW5ldGJhY2sveGVuYnVzLmMgYi9kcml2ZXJzL25ldC94ZW4tbmV0YmFjay94
+ZW5idXMuYwo+IGluZGV4IDMxMjRlYWUuLjg1Yjc0MmUgMTAwNjQ0Cj4gLS0tIGEvZHJpdmVycy9u
+ZXQveGVuLW5ldGJhY2sveGVuYnVzLmMKPiArKysgYi9kcml2ZXJzL25ldC94ZW4tbmV0YmFjay94
+ZW5idXMuYwo+IEBAIC00OTMsMTEgKzQ5MywyMiBAQCBzdGF0aWMgaW50IGJhY2tlbmRfY3JlYXRl
+X3hlbnZpZihzdHJ1Y3QgYmFja2VuZF9pbmZvICpiZSkKPiAgc3RhdGljIHZvaWQgYmFja2VuZF9k
+aXNjb25uZWN0KHN0cnVjdCBiYWNrZW5kX2luZm8gKmJlKQo+ICB7Cj4gIAlpZiAoYmUtPnZpZikg
+ewo+ICsJCXVuc2lnbmVkIGludCBxdWV1ZV9pbmRleDsKPiArCj4gIAkJeGVuX3VucmVnaXN0ZXJf
+d2F0Y2hlcnMoYmUtPnZpZik7Cj4gICNpZmRlZiBDT05GSUdfREVCVUdfRlMKPiAgCQl4ZW52aWZf
+ZGVidWdmc19kZWxpZihiZS0+dmlmKTsKPiAgI2VuZGlmIC8qIENPTkZJR19ERUJVR19GUyAqLwo+
+ICAJCXhlbnZpZl9kaXNjb25uZWN0X2RhdGEoYmUtPnZpZik7Cj4gKwkJZm9yIChxdWV1ZV9pbmRl
+eCA9IDA7IHF1ZXVlX2luZGV4IDwgYmUtPnZpZi0+bnVtX3F1ZXVlczsgKytxdWV1ZV9pbmRleCkK
+PiArCQkJeGVudmlmX2RlaW5pdF9xdWV1ZSgmYmUtPnZpZi0+cXVldWVzW3F1ZXVlX2luZGV4XSk7
+Cj4gKwo+ICsJCXNwaW5fbG9jaygmYmUtPnZpZi0+bG9jayk7Cj4gKwkJdmZyZWUoYmUtPnZpZi0+
+cXVldWVzKTsKPiArCQliZS0+dmlmLT5udW1fcXVldWVzID0gMDsKPiArCQliZS0+dmlmLT5xdWV1
+ZXMgPSBOVUxMOwo+ICsJCXNwaW5fdW5sb2NrKCZiZS0+dmlmLT5sb2NrKTsKPiArCj4gIAkJeGVu
+dmlmX2Rpc2Nvbm5lY3RfY3RybChiZS0+dmlmKTsKPiAgCX0KPiAgfQo+IEBAIC0xMDM0LDYgKzEw
+NDUsOCBAQCBzdGF0aWMgdm9pZCBjb25uZWN0KHN0cnVjdCBiYWNrZW5kX2luZm8gKmJlKQo+ICBl
+cnI6Cj4gIAlpZiAoYmUtPnZpZi0+bnVtX3F1ZXVlcyA+IDApCj4gIAkJeGVudmlmX2Rpc2Nvbm5l
+Y3RfZGF0YShiZS0+dmlmKTsgLyogQ2xlYW4gdXAgZXhpc3RpbmcgcXVldWVzICovCj4gKwlmb3Ig
+KHF1ZXVlX2luZGV4ID0gMDsgcXVldWVfaW5kZXggPCBiZS0+dmlmLT5udW1fcXVldWVzOyArK3F1
+ZXVlX2luZGV4KQo+ICsJCXhlbnZpZl9kZWluaXRfcXVldWUoJmJlLT52aWYtPnF1ZXVlc1txdWV1
+ZV9pbmRleF0pOwo+ICAJdmZyZWUoYmUtPnZpZi0+cXVldWVzKTsKPiAgCWJlLT52aWYtPnF1ZXVl
+cyA9IE5VTEw7Cj4gIAliZS0+dmlmLT5udW1fcXVldWVzID0gMDsKPiAKCkFkZCBKdWVyZ2VuIEdy
+b3NzIHRvIENDLgoKSWdvcgoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX18KWGVuLWRldmVsIG1haWxpbmcgbGlzdApYZW4tZGV2ZWxAbGlzdHMueGVuLm9yZwpo
+dHRwczovL2xpc3RzLnhlbi5vcmcveGVuLWRldmVsCg==
