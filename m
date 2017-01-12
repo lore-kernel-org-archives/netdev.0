@@ -1,79 +1,63 @@
-From: Boris Ostrovsky <boris.ostrovsky@oracle.com>
-Subject: Re: [PATCH 5/6] treewide: use kv[mz]alloc* rather than opencoded
- variants
-Date: Thu, 12 Jan 2017 15:14:54 -0500
-Message-ID: <09bbc480-1490-da27-732c-046e0ebfa89f@oracle.com>
-References: <20170112153717.28943-1-mhocko@kernel.org>
- <20170112153717.28943-6-mhocko@kernel.org>
+From: Rob Gardner <rob.gardner@oracle.com>
+Subject: Re: [PATCH] tcp: fix tcp_fastopen unaligned access complaints on
+ sparc
+Date: Thu, 12 Jan 2017 13:15:41 -0700
+Message-ID: <cd152a9f-4855-a552-2b45-bd619436a628@oracle.com>
+References: <1484251157-245538-1-git-send-email-shannon.nelson@oracle.com>
+ <1484252011.13165.0.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: quoted-printable
-Cc: Vlastimil Babka <vbabka@suse.cz>, David Rientjes <rientjes@google.com>,
-        Mel Gorman <mgorman@suse.de>, Johannes Weiner <hannes@cmpxchg.org>,
-        Al Viro <viro@zeniv.linux.org.uk>, linux-mm@kvack.org,
-        LKML <linux-kernel@vger.kernel.org>, Michal Hocko <mhocko@suse.com>,
-        Martin Schwidefsky <schwidefsky@de.ibm.com>,
-        Heiko Carstens <heiko.carstens@de.ibm.com>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        Anton Vorontsov
- <anton@enomsg.org>, Colin Cross <ccross@android.com>,
-        Kees Cook <keescook@chromium.org>, Tony Luck <tony.luck@intel.com>,
-        "Rafael J. Wysocki" <rjw@rjwysocki.net>,
-        Ben Skeggs <bskeggs@redhat.com>,
-        Kent Overstreet <kent.overstreet@gmail.com>,
-        Santosh Raspatur <santosh@chelsio.com>,
-        Hariprasad S
- <hariprasad@chelsio.com>,
-        Tariq Toukan <tariqt@mellanox.com>,
-        Yishai
-To: Michal Hocko <mhocko@kernel.org>,
-        Andrew Morton <akpm@linux-foundation.org>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20170112153717.28943-6-mhocko@kernel.org>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+        sparclinux@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+        Shannon Nelson <shannon.nelson@oracle.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1484252011.13165.0.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On 01/12/2017 01:13 PM, Eric Dumazet wrote:
+> On Thu, 2017-01-12 at 11:59 -0800, Shannon Nelson wrote:
+>> Fix up a data alignment issue on sparc by swapping the order
+>> of the cookie byte array field with the length field in
+>> struct tcp_fastopen_cookie
+>>
+>> This addresses log complaints like these:
+>>      log_unaligned: 113 callbacks suppressed
+>>      Kernel unaligned access at TPC[976490] tcp_try_fastopen+0x2d0/0x360
+>>      Kernel unaligned access at TPC[9764ac] tcp_try_fastopen+0x2ec/0x360
+>>      Kernel unaligned access at TPC[9764c8] tcp_try_fastopen+0x308/0x360
+>>      Kernel unaligned access at TPC[9764e4] tcp_try_fastopen+0x324/0x360
+>>      Kernel unaligned access at TPC[976490] tcp_try_fastopen+0x2d0/0x360
+>>
+>> Signed-off-by: Shannon Nelson <shannon.nelson@oracle.com>
+>> ---
+>>   include/linux/tcp.h |    2 +-
+>>   1 files changed, 1 insertions(+), 1 deletions(-)
+>>
+>> diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+>> index fc5848d..95cda75 100644
+>> --- a/include/linux/tcp.h
+>> +++ b/include/linux/tcp.h
+>> @@ -62,8 +62,8 @@ static inline unsigned int tcp_optlen(const struct sk_buff *skb)
+>>   
+>>   /* TCP Fast Open Cookie as stored in memory */
+>>   struct tcp_fastopen_cookie {
+>> -	s8	len;
+>>   	u8	val[TCP_FASTOPEN_COOKIE_MAX];
+>> +	s8	len;
+>>   	bool	exp;	/* In RFC6994 experimental option format */
+>>   };
+>>   
+> Strange... Do you have an explanation of why this patch would be
+> needed ? A compiler issue ?
+>
+>
+> s8 and u8 are bytes after all.
+>
+>
 
-> diff --git a/drivers/xen/evtchn.c b/drivers/xen/evtchn.c
-> index 6890897a6f30..10f1ef582659 100644
-> --- a/drivers/xen/evtchn.c
-> +++ b/drivers/xen/evtchn.c
-> @@ -87,18 +87,6 @@ struct user_evtchn {
->  	bool enabled;
->  };
-> =20
-> -static evtchn_port_t *evtchn_alloc_ring(unsigned int size)
-> -{
-> -	evtchn_port_t *ring;
-> -	size_t s =3D size * sizeof(*ring);
-> -
-> -	ring =3D kmalloc(s, GFP_KERNEL);
-> -	if (!ring)
-> -		ring =3D vmalloc(s);
-> -
-> -	return ring;
-> -}
-> -
->  static void evtchn_free_ring(evtchn_port_t *ring)
->  {
->  	kvfree(ring);
-> @@ -334,7 +322,7 @@ static int evtchn_resize_ring(struct per_user_data =
-*u)
->  	else
->  		new_size =3D 2 * u->ring_size;
-> =20
-> -	new_ring =3D evtchn_alloc_ring(new_size);
-> +	new_ring =3D kvmalloc(new_size * sizeof(*new_ring), GFP_KERNEL);
->  	if (!new_ring)
->  		return -ENOMEM;
-> =20
 
-Xen bits:
-
-Reviewed-by: Boris Ostrovsky <boris.ostrovsky@oracle.com>
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+I suspect that someplace, somebody is casting val to an int * or 
+something like that.
