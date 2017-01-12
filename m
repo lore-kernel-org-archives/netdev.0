@@ -1,26 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] net/smc: fix typo and clc-bug
-Date: Thu, 12 Jan 2017 09:47:48 -0500 (EST)
-Message-ID: <20170112.094748.1286163398451487294.davem@davemloft.net>
-References: <20170112135715.64242-1-ubraun@linux.vnet.ibm.com>
+Subject: Re: [PATCH net-next v2 0/2] More flexible BPF cb access
+Date: Thu, 12 Jan 2017 10:00:52 -0500 (EST)
+Message-ID: <20170112.100052.1107997007670054678.davem@davemloft.net>
+References: <cover.1484214889.git.daniel@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-        schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com
-To: ubraun@linux.vnet.ibm.com
+Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org
+To: daniel@iogearbox.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:49972 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:50010 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750730AbdALO46 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 09:56:58 -0500
-In-Reply-To: <20170112135715.64242-1-ubraun@linux.vnet.ibm.com>
+        with ESMTP id S1750731AbdALPAz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 10:00:55 -0500
+In-Reply-To: <cover.1484214889.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Date: Thu, 12 Jan 2017 14:57:13 +0100
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Thu, 12 Jan 2017 11:51:31 +0100
 
-> I received 2 bug reports for my new AF_SMC-code. Here are the fixes for them.
+> This patch improves BPF's cb access by allowing b/h/w/dw
+> access variants on it. For details, please see individual
+> patches.
 
 Series applied, thanks.
