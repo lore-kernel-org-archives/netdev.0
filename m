@@ -1,28 +1,53 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: fix tcp_fastopen unaligned access complaints on
- sparc
-Date: Thu, 12 Jan 2017 16:47:31 -0500 (EST)
-Message-ID: <20170112.164731.720625943370044951.davem@davemloft.net>
-References: <131ec7b7-5b74-2545-8bf7-92812443a876@oracle.com>
-        <20170112.161852.1469407145449781531.davem@davemloft.net>
-        <1484256990.13165.6.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [PATCH net-next] ipmr: improve hash scalability
+Date: Thu, 12 Jan 2017 16:48:55 -0500 (EST)
+Message-ID: <20170112.164855.1809139637816615905.davem@davemloft.net>
+References: <1484232813-11473-1-git-send-email-nikolay@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shannon.nelson@oracle.com, rob.gardner@oracle.com,
-        netdev@vger.kernel.org, sparclinux@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <sparclinux-owner@vger.kernel.org>
-In-Reply-To: <1484256990.13165.6.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: sparclinux-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+        sharpd@cumulusnetworks.com
+To: nikolay@cumulusnetworks.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:58444 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750825AbdALVs5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 16:48:57 -0500
+In-Reply-To: <1484232813-11473-1-git-send-email-nikolay@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 12 Jan 2017 13:36:30 -0800
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Date: Thu, 12 Jan 2017 15:53:33 +0100
 
-> val should be an union, so that proper alignment is enforced by one
-> member.
+> Recently we started using ipmr with thousands of entries and easily hit
+> soft lockups on smaller devices. The reason is that the hash function
+> uses the high order bits from the src and dst, but those don't change in
+> many common cases, also the hash table  is only 64 elements so with
+> thousands it doesn't scale at all.
+> This patch migrates the hash table to rhashtable, and in particular the
+> rhl interface which allows for duplicate elements to be chained because
+> of the MFC_PROXY support (*,G; *,*,oif cases) which allows for multiple
+> duplicate entries to be added with different interfaces (IMO wrong, but
+> it's been in for a long time).
+> 
+> And here are some results from tests I've run in a VM:
+>  mr_table size (default, allocated for all namespaces):
+>   Before                    After
+>    49304 bytes               2400 bytes
+> 
+>  Add 65000 routes (the diff is much larger on smaller devices):
+>   Before                    After
+>    1m42s                     58s
+> 
+>  Forwarding 256 byte packets with 65000 routes (test done in a VM):
+>   Before                    After
+>    3 Mbps / ~1465 pps        122 Mbps / ~59000 pps
+> 
+> As a bonus we no longer see the soft lockups on smaller devices which
+> showed up even with 2000 entries before.
+> 
+> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 
-Sure, annotating the type so that it is aligned correctly makes
-sense.
+Looks really nice, applied, thanks!
