@@ -1,72 +1,46 @@
-From: Joao Pinto <Joao.Pinto@synopsys.com>
-Subject: Re: [PATCH v2 2/2] stmmac: rename it to synopsys
-Date: Thu, 12 Jan 2017 11:09:47 +0000
-Message-ID: <dbb59d07-4ab4-37d2-5e70-073091749445@synopsys.com>
-References: <cover.1484059674.git.jpinto@synopsys.com>
- <c74e6665ca14a4ca03b38cd3442ef0644d9e250d.1484059674.git.jpinto@synopsys.com>
- <5b5a3231-eed4-ef29-b32a-a19077681dad@gmail.com>
- <a2d2e457-47e5-bb73-a059-0cb907a29ae0@synopsys.com>
- <57d96ccb-7fd4-0707-4902-a5bdd2a6ef39@st.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next 2/2] bpf: allow b/h/w/dw access for bpf's cb
+ in ctx
+Date: Thu, 12 Jan 2017 11:53:10 +0100
+Message-ID: <58776016.1050303@iogearbox.net>
+References: <cover.1484182858.git.daniel@iogearbox.net> <fff467f83e48c6c15053a7637893bf247c9be102.1484182858.git.daniel@iogearbox.net> <bb078a63-6bcc-22f8-c98e-8445f66678c9@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: <lars.persson@axis.com>, <niklass@axis.com>,
-        <peppe.cavallaro@st.com>, <netdev@vger.kernel.org>
-To: Alexandre Torgue <alexandre.torgue@st.com>,
-        Joao Pinto <Joao.Pinto@synopsys.com>,
-        Florian Fainelli <f.fainelli@gmail.com>, <davem@davemloft.net>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org
+To: Quentin Monnet <quentin.monnet@6wind.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay4.synopsys.com ([198.182.47.9]:55228 "EHLO
-        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751206AbdALLOZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 06:14:25 -0500
-In-Reply-To: <57d96ccb-7fd4-0707-4902-a5bdd2a6ef39@st.com>
+Received: from www62.your-server.de ([213.133.104.62]:37790 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750804AbdALLUh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 06:20:37 -0500
+In-Reply-To: <bb078a63-6bcc-22f8-c98e-8445f66678c9@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Alex, good morning!
+On 01/12/2017 09:25 AM, Quentin Monnet wrote:
+> 2017-01-12 (02:21 +0100) ~ Daniel Borkmann <daniel@iogearbox.net>
+[...]
+>> diff --git a/tools/testing/selftests/bpf/test_verifier.c b/tools/testing/selftests/bpf/test_verifier.c
+>> index 9bb4534..f664bed 100644
+>> --- a/tools/testing/selftests/bpf/test_verifier.c
+>> +++ b/tools/testing/selftests/bpf/test_verifier.c
+>> @@ -859,15 +859,451 @@ struct test_val {
+>
+> [...]
+>
+>> +	{
+>> +		"check cb access: doulbe, oob 5",
+>> +		.insns = {
+>> +			BPF_MOV64_IMM(BPF_REG_0, 0),
+>> +			BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_1,
+>> +				    offsetof(struct __sk_buff, cb[4]) + 8),
+>> +			BPF_EXIT_INSN(),
+>> +		},
+>> +		.errstr = "invalid bpf_context access",
+>> +		.result = REJECT,
+>> +	},
+>
+> Nitpicking: typo ("doulbe").
 
-Às 10:11 AM de 1/12/2017, Alexandre Torgue escreveu:
->>
->> Lets not name it synopsys, for me it is totally fine, but naming it
->> stmicro/stmmac is not the right way because it seems like it is a driver just
->> for stmicro products, which is not, is for products that use Designware Ethernet
->> IPs.
->>
->> I am volunteering to do this work, let's discuss this.
-> 
-> For me it makes no sens to rename only folder (stmicro/stmmac by synopsys) and
-> keep stmmac* inside a synopsys folder (that is very confusing). If you propose
-> that you have to change all.
-> 
-> BUT doing that, we will lose all stmmac driver story and we don't want that.
-
-Totally understand your point. Do you agree on this approach?
-rename "stmicro" to "dwc" (designware controllers) and leave stmmac as it is
-today. This small change is enough in my point of view and sole the problems you
-refer. We would have net/ethernet/dwc/stmmac/.
-
-I can also rename the dwmac4 files and functions to eqos, since soon we will
-have a new eqos version.
-
-dwmac4.h -> eqos.h
-dwmac4_core.c -> eqos_core.c
-dwmac4_descs.c -> eqos_descs.c
-dwmac4_descs.h -> eqos_descs.h
-dwmac4_dma.c -> eqos_dma.c
-dwmac4_dma.h -> eqos_dma.h
-dwmac4_lib.c -> eqos_lib.c
-
-What do you think about this approach?
-
-Thanks,
-Joao
-
-> 
-> 
-> 
->>
->> Thanks,
->> Joao
->>
->>
+Thanks for spotting, I've sent out a v2.
