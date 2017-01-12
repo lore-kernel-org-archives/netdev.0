@@ -1,190 +1,106 @@
-From: Sridhar Samudrala <sridhar.samudrala@intel.com>
-Subject: [next-queue v4 PATCH 3/7] i40e: Sync link state between VFs and VFPRs
-Date: Thu, 12 Jan 2017 14:35:06 -0800
-Message-ID: <1484260510-9162-4-git-send-email-sridhar.samudrala@intel.com>
-References: <1484260510-9162-1-git-send-email-sridhar.samudrala@intel.com>
-To: alexander.h.duyck@intel.com, john.r.fastabend@intel.com,
-        anjali.singhai@intel.com, jakub.kicinski@netronome.com,
-        davem@davemloft.net, scott.d.peterson@intel.com,
-        gerlitz.or@gmail.com, jiri@resnulli.us,
-        intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
+From: "Kwok, WingMan" <w-kwok2@ti.com>
+Subject: RE: Marvell Phy (1510) issue since v4.7 kernel
+Date: Thu, 12 Jan 2017 22:40:05 +0000
+Message-ID: <230CBA6E4B6B6B418E8730AC28E6FC7E15354EDB@DFLE11.ent.ti.com>
+References: <20170110015336.GA7160@lunn.ch>
+ <230CBA6E4B6B6B418E8730AC28E6FC7E15354AC2@DFLE11.ent.ti.com>
+ <20170111222758.GG13033@lunn.ch>
+ <230CBA6E4B6B6B418E8730AC28E6FC7E15354AE5@DFLE11.ent.ti.com>
+ <20170111225948.GH13033@lunn.ch>
+ <230CBA6E4B6B6B418E8730AC28E6FC7E15354B2B@DFLE11.ent.ti.com>
+ <20170111232200.GI13033@lunn.ch>
+ <230CBA6E4B6B6B418E8730AC28E6FC7E15354B66@DFLE11.ent.ti.com>
+ <20170112010658.GA25391@lunn.ch>
+ <230CBA6E4B6B6B418E8730AC28E6FC7E15354EB0@DFLE11.ent.ti.com>
+ <20170112214140.GM14217@n2100.armlinux.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Andrew Lunn <andrew@lunn.ch>,
+        "Karicheri, Muralidharan" <m-karicheri2@ti.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Russell King - ARM Linux <linux@armlinux.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:60232 "EHLO mga14.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751132AbdALWfR (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 12 Jan 2017 17:35:17 -0500
-In-Reply-To: <1484260510-9162-1-git-send-email-sridhar.samudrala@intel.com>
+Received: from fllnx210.ext.ti.com ([198.47.19.17]:16977 "EHLO
+        fllnx210.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750780AbdALWkY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 17:40:24 -0500
+In-Reply-To: <20170112214140.GM14217@n2100.armlinux.org.uk>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch enables
-- reflecting the link state of VFPR based on VF admin state & link state
-  of VF based on admin state of VFPR.
-- bringing up/down the VFPR sends a notification to update VF link state.
-- bringing up/down the VF will cause the link state update of VFPR.
-- enable/disable VF link state via ndo_set_vf_link_state will update the
-  admin state of associated VFPR.
-
-PF: enp5s0f0, VFs: enp5s2,enp5s2f1 VFPRs:enp5s0f0-vf0, enp5s0f0-vf1
-# rmmod i40e; modprobe i40e
-# devlink dev eswitch set pci/0000:05:00.0 mode switchdev
-# echo 2 > /sys/class/net/enp5s0f0/device/sriov_numvfs
-
-# ip link set enp5s2 up
-# ip link set enp5s0f0-vf0 up
-# ip link set enp5s0f0-vf1 up
-
-/* enp5s2 UP -> enp5s0f0-vf0 CARRIER ON */
-# ip link show enp5s0f0-vf0
-215: enp5s0f0-vf0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UP mode DEFAULT group default qlen 1000
-     link/ether 68:05:ca:2e:72:68 brd ff:ff:ff:ff:ff:ff
-
-/* enp5s0f0-vf0 UP -> enp5s2 CARRIER ON */
-# ip link show enp5s2
-218: enp5s2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP mode DEFAULT group default qlen 1000
-     link/ether ea:4d:60:bc:6f:85 brd ff:ff:ff:ff:ff:ff
-
-/* enp5s2f1 DOWN -> enp5s0f0-vf1 NO-CARRIER */
-# ip link show enp5s0f0-vf1
-216: enp5s0f0-vf1: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc fq_codel state DOWN mode DEFAULT group default qlen 1000
-     link/ether 68:05:ca:2e:72:68 brd ff:ff:ff:ff:ff:ff
-
-# ip link set enp5s0f0-vf0 down
-# ip link set enp5s2f1 up
-
-/* enp5s0-vf0 DOWN -> enp5s2 NO_CARRIER */
-# ip link show enp5s2
-218: enp5s2: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc mq state DOWN mode DEFAULT group default qlen 1000
-     link/ether ea:4d:60:bc:6f:85 brd ff:ff:ff:ff:ff:ff
-
-# ip -d link show enp5s0f0
-213: enp5s0f0: <BROADCAST,MULTICAST> mtu 1500 qdisc noop portid 6805ca27268 state DOWN mode DEFAULT group default qlen 1000
-     link/ether 68:05:ca:2e:72:68 brd ff:ff:ff:ff:ff:ff promiscuity 0 addrgenmode eui64
-     vf 0 MAC 00:00:00:00:00:00, spoof checking on, link-state disable, trust off
-     vf 1 MAC 00:00:00:00:00:00, spoof checking on, link-state enable, trust off
-
-Signed-off-by: Sridhar Samudrala <sridhar.samudrala@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 54 ++++++++++++++++++++++
- 1 file changed, 54 insertions(+)
-
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index f9927dc..275113c 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -1029,6 +1029,13 @@ void i40e_reset_vf(struct i40e_vf *vf, bool flr)
-  **/
- static int i40e_vfpr_netdev_open(struct net_device *dev)
- {
-+	struct i40e_vfpr_netdev_priv *priv = netdev_priv(dev);
-+	struct i40e_vf *vf = priv->vf;
-+
-+	vf->link_forced = true;
-+	vf->link_up = true;
-+	i40e_vc_notify_vf_link_state(vf);
-+
- 	return 0;
- }
- 
-@@ -1040,6 +1047,13 @@ static int i40e_vfpr_netdev_open(struct net_device *dev)
-  **/
- static int i40e_vfpr_netdev_stop(struct net_device *dev)
- {
-+	struct i40e_vfpr_netdev_priv *priv = netdev_priv(dev);
-+	struct i40e_vf *vf = priv->vf;
-+
-+	vf->link_forced = true;
-+	vf->link_up = false;
-+	i40e_vc_notify_vf_link_state(vf);
-+
- 	return 0;
- }
- 
-@@ -1126,6 +1140,13 @@ int i40e_alloc_vfpr_netdev(struct i40e_vf *vf, u16 vf_num)
- 	/* Delete broadcast filter for VF */
- 	i40e_update_vf_broadcast_filter(vf, false);
- 
-+	/* Reset VF link as we are changing the mode to 'switchdev'. VFPR netdev
-+	 * needs to be brought up to enable VF link.
-+	 */
-+	vf->link_forced = true;
-+	vf->link_up = false;
-+	i40e_vc_notify_vf_link_state(vf);
-+
- 	return 0;
- }
- 
-@@ -1150,6 +1171,10 @@ void i40e_free_vfpr_netdev(struct i40e_vf *vf)
- 
- 	/* Add broadcast filter to VF */
- 	i40e_update_vf_broadcast_filter(vf, true);
-+
-+	/* In legacy mode, VF link is not controlled by VFPR */
-+	vf->link_forced = false;
-+	i40e_vc_notify_vf_link_state(vf);
- }
- 
- /**
-@@ -1907,8 +1932,17 @@ static int i40e_vc_enable_queues_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
- 		goto error_param;
- 	}
- 
-+	if (vf->link_forced && !vf->link_up) {
-+		aq_ret = I40E_ERR_PARAM;
-+		goto error_param;
-+	}
-+
- 	if (i40e_vsi_start_rings(pf->vsi[vf->lan_vsi_idx]))
- 		aq_ret = I40E_ERR_TIMEOUT;
-+
-+	if ((aq_ret == 0) && vf->vfpr_netdev)
-+		netif_carrier_on(vf->vfpr_netdev);
-+
- error_param:
- 	/* send the response to the VF */
- 	return i40e_vc_send_resp_to_vf(vf, I40E_VIRTCHNL_OP_ENABLE_QUEUES,
-@@ -1946,8 +1980,16 @@ static int i40e_vc_disable_queues_msg(struct i40e_vf *vf, u8 *msg, u16 msglen)
- 		goto error_param;
- 	}
- 
-+	if (vf->link_forced && vf->link_up) {
-+		aq_ret = I40E_ERR_PARAM;
-+		goto error_param;
-+	}
-+
- 	i40e_vsi_stop_rings(pf->vsi[vf->lan_vsi_idx]);
- 
-+	if ((aq_ret == 0) && vf->vfpr_netdev)
-+		netif_carrier_off(vf->vfpr_netdev);
-+
- error_param:
- 	/* send the response to the VF */
- 	return i40e_vc_send_resp_to_vf(vf, I40E_VIRTCHNL_OP_DISABLE_QUEUES,
-@@ -3183,6 +3225,7 @@ int i40e_ndo_set_vf_link_state(struct net_device *netdev, int vf_id, int link)
- 	struct i40e_netdev_priv *np = netdev_priv(netdev);
- 	struct i40e_pf *pf = np->vsi->back;
- 	struct i40e_virtchnl_pf_event pfe;
-+	struct net_device *vfpr_netdev;
- 	struct i40e_hw *hw = &pf->hw;
- 	struct i40e_vf *vf;
- 	int abs_vf_id;
-@@ -3225,6 +3268,17 @@ int i40e_ndo_set_vf_link_state(struct net_device *netdev, int vf_id, int link)
- 		ret = -EINVAL;
- 		goto error_out;
- 	}
-+
-+	vfpr_netdev = vf->vfpr_netdev;
-+	if (vfpr_netdev) {
-+		unsigned int flags = vfpr_netdev->flags;
-+
-+		if (vf->link_up)
-+			dev_change_flags(vfpr_netdev, flags | IFF_UP);
-+		else
-+			dev_change_flags(vfpr_netdev, flags & ~IFF_UP);
-+	}
-+
- 	/* Notify the VF of its new link state */
- 	i40e_aq_send_msg_to_vf(hw, abs_vf_id, I40E_VIRTCHNL_OP_EVENT,
- 			       0, (u8 *)&pfe, sizeof(pfe), NULL);
--- 
-2.5.5
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogUnVzc2VsbCBLaW5nIC0g
+QVJNIExpbnV4IFttYWlsdG86bGludXhAYXJtbGludXgub3JnLnVrXQ0KPiBTZW50OiBUaHVyc2Rh
+eSwgSmFudWFyeSAxMiwgMjAxNyA0OjQyIFBNDQo+IFRvOiBLd29rLCBXaW5nTWFuDQo+IENjOiBB
+bmRyZXcgTHVubjsgS2FyaWNoZXJpLCBNdXJhbGlkaGFyYW47IG5ldGRldkB2Z2VyLmtlcm5lbC5v
+cmcNCj4gU3ViamVjdDogUmU6IE1hcnZlbGwgUGh5ICgxNTEwKSBpc3N1ZSBzaW5jZSB2NC43IGtl
+cm5lbA0KPiANCj4gT24gVGh1LCBKYW4gMTIsIDIwMTcgYXQgMDk6MzE6MjdQTSArMDAwMCwgS3dv
+aywgV2luZ01hbiB3cm90ZToNCj4gPg0KPiA+ID4gPiBJIGRvdWJsZSBjaGVja2VkIHRoYXQgb3Vy
+cyBpcyBhY3R1YWxseSBhIDg4RTE1MTQuIEFjY29yZGluZw0KPiA+ID4gPiB0byBNYXJ2ZWxsJ3Mg
+YnJpZWYgZGVzY3JpcHRpb24sIGl0IHNlZW1zIHRoYXQgaXQgZG9lcyBzdXBwb3J0DQo+ID4gPiA+
+IGZpYmVyLg0KPiA+ID4gPg0KPiA+ID4gPiBSZWFkaW5nIHBhZ2UgMTggcmVnIDMwIHJldHVybnMg
+Ni4NCj4gPiA+DQo+ID4gPiBPLkssIHRoYXQgaXMgY29uc2lzdGVudC4gTG9va2luZyBhdCB0aGUg
+TWFydmVsbCBTREs6DQo+ID4gPg0KPiA+ID4gcGh5L0luY2x1ZGUvbWFkQXBpRGVmcy5oOiNkZWZp
+bmUgICAgTUFEX1NVQl84OEUxNTEwICA0ICAgLyoNCj4gODhFMTUxMCAqLw0KPiA+ID4gcGh5L0lu
+Y2x1ZGUvbWFkQXBpRGVmcy5oOiNkZWZpbmUgICAgTUFEX1NVQl84OEUxNTE4ICA1ICAgLyoNCj4g
+ODhFMTUxOCAqLw0KPiA+ID4gcGh5L0luY2x1ZGUvbWFkQXBpRGVmcy5oOiNkZWZpbmUgICAgTUFE
+X1NVQl84OEUxNTEyICA2ICAgLyoNCj4gPiA+IDg4RTE1MTIvODhFMTUxNCAqLw0KPiA+ID4NCj4g
+PiA+IEkgdG9vayBhbm90aGVyIGxvb2sgYXQgdGhlIHBhdGNoIGFkZGluZyBGaWJyZSBzdXBwb3J0
+LiBUaGUNCj4gPiA+IHN1c3BlbmQvcmVzdW1lIGZ1bmN0aW9ucyBhcmUgd3JvbmcuDQo+ID4gPg0K
+PiA+ID4gICAgICAgICAvKiBTdXNwZW5kIHRoZSBmaWJlciBtb2RlIGZpcnN0ICovDQo+ID4gPiAg
+ICAgICAgIGlmICghKHBoeWRldi0+c3VwcG9ydGVkICYgU1VQUE9SVEVEX0ZJQlJFKSkgew0KPiA+
+ID4NCj4gPiA+IFRoZSAhIHNob3VsZCBub3QgYmUgdGhlcmUuIERvZXMgcmVtb3ZpbmcgdGhlbSBi
+b3RoIGZpeCB5b3VyDQo+IHByb2JsZW0/DQo+ID4gPg0KPiA+DQo+ID4gSGkgQW5kcmV3LA0KPiA+
+DQo+ID4gVGhhbmtzIGZvciB0YWtpbmcgdGhlIHRpbWUgdG8gbG9vayBpbnRvIHRob3NlIHBhdGNo
+ZXMuIFllcyB3ZSBub3RpY2UNCj4gPiB0aGUgZXJyb3IgaW4gdGhlIHN1c3BlbmQvcmVzdW1lIGZ1
+bmN0aW9ucyBhbHNvLg0KPiA+DQo+ID4gQnV0IG91ciBwcm9ibGVtIGlzIGNhdXNlZCBieSB0aGUg
+cmVhZF9zdGF0dXMgZnVuY3Rpb246DQo+ID4NCj4gPiAJaWYgKChwaHlkZXYtPnN1cHBvcnRlZCAm
+IFNVUFBPUlRFRF9GSUJSRSkpIHsNCj4gPiAJCWVyciA9IHBoeV93cml0ZShwaHlkZXYsIE1JSV9N
+QVJWRUxMX1BIWV9QQUdFLA0KPiBNSUlfTTExMTFfRklCRVIpOw0KPiA+IAkJaWYgKGVyciA8IDAp
+DQo+ID4gCQkJZ290byBlcnJvcjsNCj4gPg0KPiA+IAkJZXJyID0gbWFydmVsbF9yZWFkX3N0YXR1
+c19wYWdlKHBoeWRldiwgTUlJX00xMTExX0ZJQkVSKTsNCj4gPiAJCWlmIChlcnIgPCAwKQ0KPiA+
+IAkJCWdvdG8gZXJyb3I7DQo+ID4NCj4gPiAJCS8qIElmIHRoZSBmaWJlciBsaW5rIGlzIHVwLCBp
+dCBpcyB0aGUgc2VsZWN0ZWQgYW5kIHVzZWQNCj4gbGluay4NCj4gPiAJCSogSW4gdGhpcyBjYXNl
+LCB3ZSBuZWVkIHRvIHN0YXkgaW4gdGhlIGZpYmVyIHBhZ2UuDQo+ID4gCQkqIFBsZWFzZSB0byBi
+ZSBjYXJlZnVsIGFib3V0IHRoYXQsIGF2b2lkIHRvIHJlc3RvcmUgQ29wcGVyDQo+IHBhZ2UNCj4g
+PiAJCSogaW4gb3RoZXIgZnVuY3Rpb25zIHdoaWNoIGNvdWxkIGJyZWFrIHRoZSBiZWhhdmlvdXIN
+Cj4gPiAJCSogZm9yIHNvbWUgZmliZXIgcGh5IGxpa2UgODhFMTUxMi4NCj4gPiAJCSogKi8NCj4g
+PiAJCWlmIChwaHlkZXYtPmxpbmspDQo+ID4gCQkJcmV0dXJuIDA7DQo+ID4NCj4gPiB3aGljaCBr
+ZWVwcyB0aGUgZmliZXIgcGFnZSBpZiBwaHlkZXYtPmxpbmsgaXMgdHJ1ZSAoZm9yIHNvbWUNCj4g
+PiByZWFzb24gdGhpcyBpcyB0aGUgY2FzZSBldmVuIHRob3VnaCB3ZSBhcmUgbm90IHVzaW5nIGZp
+YmVyKQ0KPiANCj4gU2VlIGJlbG93Lg0KPiANCj4gPiBIb3dldmVyLCB0aGlzIGNhdXNlcyBhIHBy
+b2JsZW0gaW4ga2VybmVsIHJlYm9vdCBiZWNhdXNlIG5laXRoZXINCj4gPiB0aGUgc3VzcGVuZC9y
+ZXN1bWUgaXMgY2FsbGVkIHRvIHJlc3RvcmUgdGhlIGNvcHBlciBwYWdlIGFuZA0KPiA+IHUtYm9v
+dCBtYXJ2ZWxsIHBoeSBkcml2ZXIgZG9lcyBub3Qgc3VwcG9ydCAxNTEwIGZpYmVyLCB3aGljaA0K
+PiA+IHdpbGwgdGhlbiByZXN1bHQgaW4gd3JpdGluZyB0byB0aGUgd3JvbmcgcGh5IHJlZ3MgYW5k
+IGNhdXNlcw0KPiA+IGEgc2dtaWkgYXV0by1uZWdvIHRpbWUgb3V0Lg0KPiANCj4gU28gd2hhdCB3
+ZSBuZWVkIHRvIGRvIGlzIHRvIGhhdmUgYSAuc2h1dGRvd24gZnVuY3Rpb24gaW5zdGFsbGVkIC0g
+YnV0DQo+IGl0J3Mgbm90IHRoYXQgc2ltcGxlLi4uDQo+IA0KPiAJLm1kaW9kcnYgPSB7DQo+IAkJ
+LmRyaXZlciA9IHsNCj4gCQkJLnNodXRkb3duID0gbXY4OGUxNTEyX3NodXRkb3duLA0KPiAJCX0s
+DQo+IAl9LA0KPiANCj4gaW4gdGhlIGFwcHJvcHJpYXRlIHBoeV9kcml2ZXIgYXJyYXkgZWxlbWVu
+dCwgYW5kIHRoZW4gaGF2ZToNCj4gDQo+IHN0YXRpYyB2b2lkIG12ODhlMTUxMl9zaHV0ZG93bihz
+dHJ1Y3QgZGV2aWNlICpkZXYpDQo+IHsNCj4gCXN0cnVjdCBwaHlfZGV2aWNlICpwaHlkZXYgPSB0
+b19waHlfZGV2aWNlKGRldik7DQo+IA0KPiAJcGh5X3dyaXRlKHBoeWRldiwgTUlJX01BUlZFTExf
+UEhZX1BBR0UsIE1JSV9NMTExMV9DT1BQRVIpOw0KPiB9DQo+IA0KPiB3aGljaCB3aWxsIHJlc3Rv
+cmUgdGhlIGNvcHBlciBwYWdlIG9uIG5vbi1lbWVyZ2VuY3kgcmVib290cy4gIEZvcg0KPiBlbWVy
+Z2VuY3kgcmVib290cywgd2UncmUgb3V0IG9mIGx1Y2suLi4gdGhlIHJlYWwgZml4IHdvdWxkIGJl
+IGZvcg0KPiB1Ym9vdCB0byBlbnN1cmUgdGhhdCB3aGVuIGl0IGRldGVjdHMgdGhpcyBQSFksIGl0
+IGVuc3VyZXMgdGhhdCB0aGUNCj4gcmlnaHQgcGFnZSBpcyBzZWxlY3RlZC4NCj4gDQo+IE5vdywg
+dGhhdCBhbGwgc2FpZCwgdGhlcmUncyBhIGJ1ZyBpbiB0aGlzIGNvZGUsIHdoaWNoIGlzIGZpeGVk
+IGJ5DQo+IGEgcGF0Y2ggSSByZWNlbnRseSBzdWJtaXR0ZWQuICBJZiB5b3UgaGF2ZSBhbiA4OEUx
+NTF4IGNvbm5lY3RlZCB2aWENCj4gU0dNSUksIHRoZW4gdGhlIHJlYWRfc3RhdHVzIGZ1bmN0aW9u
+IGluY29ycmVjdGx5IGJlbGlldmVzIGl0IHNob3VsZA0KPiBiZSByZWFkaW5nIGZyb20gdGhlIGZp
+YmVyIHBhZ2UgLSB3aGVuIGluIGZhY3QgdGhlIGZpYmVyIHBhZ2UgaXMNCj4gcmVwb3J0aW5nIHRo
+ZSBzdGF0dXMgb2YgdGhlIGhvc3Qtc2lkZSBsaW5rLiAgU28sIGJlZm9yZSB0cnlpbmcgdGhlDQo+
+IGFib3ZlIG1vZGlmaWNhdGlvbiwgcGxlYXNlIHRyeSB0aGlzIHBhdGNoIC0gaXQncyBhbHJlYWR5
+IGJlZW4gbWVyZ2VkDQo+IGludG8gdGhlIG5ldCB0cmVlLCBzbyBzaG91bGQgaGl0IC1yYyBzb29u
+Lg0KPiANCj4gTXkgZ3Vlc3MgZnJvbSB3aGF0IHlvdSd2ZSBzYWlkIGFib3ZlIGlzIHRoYXQgeW91
+ciA4OEUxNTF4IGlzIGNvbm5lY3RlZA0KPiB2aWEgU0dNSUksIHNvIHlvdSBuZWVkIHRoZSBwYXRj
+aCBiZWxvdyByYXRoZXIgdGhhbiB0cnlpbmcgdG8gaW5zdGFsbA0KPiBhIHNodXRkb3duIGZ1bmN0
+aW9uLg0KPiANCj4gODw9PT09DQo+IEZyb206IFJ1c3NlbGwgS2luZyA8cm1rK2tlcm5lbEBhcm1s
+aW51eC5vcmcudWs+DQo+IFN1YmplY3Q6IFtQQVRDSF0gbmV0OiBwaHk6IG1hcnZlbGw6IGZpeCBN
+YXJ2ZWxsIDg4RTE1MTIgdXNlZCBpbiBTR01JSQ0KPiBtb2RlDQo+IA0KDQpIaSBSdXNzZWxsLA0K
+DQpUaGFua3MgZm9yIHRoZSBleHBsYW5hdGlvbnMuIFllcywgb3VyIDg4ZTE1MTQgaXMgY29ubmVj
+dGVkIHRvIHRoZQ0KaG9zdCB2aWEgc2dtaWkgYW5kIHlvdXIgcGF0Y2ggZG9lcyBwcm92aWRlIGEg
+c29sdXRpb24gdG8gb3VyIHByb2JsZW0uDQoNClJlZ2FyZHMsDQpXaW5nTWFuDQo=
