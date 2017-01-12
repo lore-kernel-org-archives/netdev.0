@@ -1,53 +1,49 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: Marvell Phy (1510) issue since v4.7 kernel
-Date: Thu, 12 Jan 2017 02:06:58 +0100
-Message-ID: <20170112010658.GA25391@lunn.ch>
-References: <20170109235534.GH22820@lunn.ch>
- <230CBA6E4B6B6B418E8730AC28E6FC7E153545C9@DFLE11.ent.ti.com>
- <20170110015336.GA7160@lunn.ch>
- <230CBA6E4B6B6B418E8730AC28E6FC7E15354AC2@DFLE11.ent.ti.com>
- <20170111222758.GG13033@lunn.ch>
- <230CBA6E4B6B6B418E8730AC28E6FC7E15354AE5@DFLE11.ent.ti.com>
- <20170111225948.GH13033@lunn.ch>
- <230CBA6E4B6B6B418E8730AC28E6FC7E15354B2B@DFLE11.ent.ti.com>
- <20170111232200.GI13033@lunn.ch>
- <230CBA6E4B6B6B418E8730AC28E6FC7E15354B66@DFLE11.ent.ti.com>
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Subject: [PATCH net-next] liquidio: remove unnecessary code
+Date: Wed, 11 Jan 2017 17:09:02 -0800
+Message-ID: <20170112010902.GA9597@felix.cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "rmk+kernel@arm.linux.org.uk" <rmk+kernel@arm.linux.org.uk>,
-        "Karicheri, Muralidharan" <m-karicheri2@ti.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Kwok, WingMan" <w-kwok2@ti.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, <raghu.vatsavayi@cavium.com>,
+        <derek.chickles@cavium.com>, <satananda.burla@cavium.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:57871 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S935867AbdALBHD (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 11 Jan 2017 20:07:03 -0500
+Received: from mail-sn1nam01on0070.outbound.protection.outlook.com ([104.47.32.70]:62795
+        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1761280AbdALBKD (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 11 Jan 2017 20:10:03 -0500
 Content-Disposition: inline
-In-Reply-To: <230CBA6E4B6B6B418E8730AC28E6FC7E15354B66@DFLE11.ent.ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Hi Andrew,
-> 
-> I double checked that ours is actually a 88E1514. According
-> to Marvell's brief description, it seems that it does support
-> fiber.
-> 
-> Reading page 18 reg 30 returns 6.
+Remove code that's no longer needed.  It used to serve a purpose, which was
+to fix a link-related bug.  For a while now, the NIC firmware has had a
+more elegant fix for that bug.
 
-O.K, that is consistent. Looking at the Marvell SDK:
+Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
+Signed-off-by: Derek Chickles <derek.chickles@cavium.com>
+Signed-off-by: Satanand Burla <satananda.burla@cavium.com>
+---
+ drivers/net/ethernet/cavium/liquidio/lio_main.c | 8 +-------
+ 1 file changed, 1 insertion(+), 7 deletions(-)
 
-phy/Include/madApiDefs.h:#define    MAD_SUB_88E1510  4   /* 88E1510 */
-phy/Include/madApiDefs.h:#define    MAD_SUB_88E1518  5   /* 88E1518 */
-phy/Include/madApiDefs.h:#define    MAD_SUB_88E1512  6   /* 88E1512/88E1514 */
-
-I took another look at the patch adding Fibre support. The
-suspend/resume functions are wrong.
-
-        /* Suspend the fiber mode first */
-        if (!(phydev->supported & SUPPORTED_FIBRE)) {
+diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+index b8b579d..cc825d5 100644
+--- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
++++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+@@ -2693,13 +2693,7 @@ static int liquidio_stop(struct net_device *netdev)
+ 	lio->linfo.link.s.link_up = 0;
+ 	lio->link_changes++;
  
-The ! should not be there. Does removing them both fix your problem?
-
-    Andrew
+-	/* Pause for a moment and wait for Octeon to flush out (to the wire) any
+-	 * egress packets that are in-flight.
+-	 */
+-	set_current_state(TASK_INTERRUPTIBLE);
+-	schedule_timeout(msecs_to_jiffies(100));
+-
+-	/* Now it should be safe to tell Octeon that nic interface is down. */
++	/* Tell Octeon that nic interface is down. */
+ 	send_rx_ctrl_cmd(lio, 0);
+ 
+ 	if (OCTEON_CN23XX_PF(oct)) {
