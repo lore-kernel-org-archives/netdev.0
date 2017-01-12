@@ -1,35 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] net: thunderx: Make hfunc variable const
- type in nicvf_set_rxfh()
-Date: Wed, 11 Jan 2017 16:13:07 -0500 (EST)
-Message-ID: <20170111.161307.1442732653533967340.davem@davemloft.net>
-References: <20170111170432.31210-1-rrichter@cavium.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH/RFC v2 net-next] ravb: unmap descriptors when freeing
+ rings
+Date: Thu, 12 Jan 2017 19:37:06 +0300
+Message-ID: <08e00682-a8da-1483-b2d8-f58d32587fd6@cogentembedded.com>
+References: <1483613000-537-1-git-send-email-horms+renesas@verge.net.au>
+ <6fcec500-bed6-ffa3-2887-d45b34703682@cogentembedded.com>
+ <20170112091116.GC7724@verge.net.au>
+ <d840eddd-f6a3-fe8c-dbaa-242c117b5274@marvell.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: sgoutham@cavium.com, rric@kernel.org, netdev@vger.kernel.org
-To: rrichter@cavium.com
+Cc: David Miller <davem@davemloft.net>,
+        Magnus Damm <magnus.damm@gmail.com>, netdev@vger.kernel.org,
+        linux-renesas-soc@vger.kernel.org
+To: Lino Sanfilippo <lsanfil@marvell.com>,
+        Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:59596 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1760272AbdAKVNg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 16:13:36 -0500
-In-Reply-To: <20170111170432.31210-1-rrichter@cavium.com>
+Received: from mail-lf0-f49.google.com ([209.85.215.49]:32825 "EHLO
+        mail-lf0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750945AbdALQhK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 11:37:10 -0500
+Received: by mail-lf0-f49.google.com with SMTP id k86so17107887lfi.0
+        for <netdev@vger.kernel.org>; Thu, 12 Jan 2017 08:37:10 -0800 (PST)
+In-Reply-To: <d840eddd-f6a3-fe8c-dbaa-242c117b5274@marvell.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Robert Richter <rrichter@cavium.com>
-Date: Wed, 11 Jan 2017 18:04:32 +0100
+On 01/12/2017 04:23 PM, Lino Sanfilippo wrote:
 
-> From struct ethtool_ops:
-> 
->         int     (*set_rxfh)(struct net_device *, const u32 *indir,
->                             const u8 *key, const u8 hfunc);
-> 
-> Change function arg of hfunc to const type.
-> 
-> V2: Fixed indentation.
-> 
-> Signed-off-by: Robert Richter <rrichter@cavium.com>
+>>>> +
+>>>> +    for (; priv->cur_tx[q] - priv->dirty_tx[q] > 0; priv->dirty_tx[q]++) {
+>
+> BTW: How can this work correctly when cur_tx wraps and dirty_tx is greater?
 
-Applied.
+    {cur|dirty}_tx never wrap.
+
+> Regards,
+> Lino
+
+MBR, Sergei
