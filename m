@@ -1,39 +1,33 @@
 From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: Re: To netlink or not to netlink, that is the question
-Date: Thu, 12 Jan 2017 19:28:20 +0100
-Message-ID: <CAHmME9rWDzO9j8E1HYSXY6j9FJqHODOYnEW8+SSggapDkQ_jBA@mail.gmail.com>
-References: <CAHmME9pkktqOSUyTS_XhgC-CE4iqTv6UEA6w74kkm3xnBY8z9g@mail.gmail.com>
- <20170112091440.7f6cd41f@xeon-e3>
+Subject: Re: [PATCH net-next 1/4] siphash: add cryptographically secure PRF
+Date: Thu, 12 Jan 2017 19:30:17 +0100
+Message-ID: <CAHmME9ocpbm_pafLv40VKgR0AJ1fbphjO-gwtddZJ3v8maLgvQ@mail.gmail.com>
+References: <20170107040459.GA575@zzz> <20170112150417.GA15951@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from frisell.zx2c4.com ([192.95.5.64]:39223 "EHLO frisell.zx2c4.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750971AbdALS2a (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 12 Jan 2017 13:28:30 -0500
-Received: by frisell.zx2c4.com (ZX2C4 Mail Server) with ESMTP id 3c8188a7
-        for <netdev@vger.kernel.org>;
-        Thu, 12 Jan 2017 18:18:22 +0000 (UTC)
-Received: by frisell.zx2c4.com (ZX2C4 Mail Server) with ESMTPSA id a768a05e (TLSv1.2:ECDHE-RSA-AES128-GCM-SHA256:128:NO)
-        for <netdev@vger.kernel.org>;
-        Thu, 12 Jan 2017 18:18:21 +0000 (UTC)
-Received: by mail-oi0-f51.google.com with SMTP id u143so32721374oif.3
-        for <netdev@vger.kernel.org>; Thu, 12 Jan 2017 10:28:22 -0800 (PST)
-In-Reply-To: <20170112091440.7f6cd41f@xeon-e3>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Eric Biggers <ebiggers3@gmail.com>,
+        David Miller <davem@davemloft.net>,
+        Netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>,
+        Linus Torvalds <torvalds@linux-foundation.org>,
+        David Laight <David.Laight@aculab.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170112150417.GA15951@gondor.apana.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 12, 2017 at 6:14 PM, Stephen Hemminger
-<stephen@networkplumber.org> wrote:
-> It is up to you but I doubt that code with new private ioctl's will be
-> accepted upstream. If you want full review then post for inclusion upstream.
-> If you just want to maintain it is a private fork, go ahead and do what
-> you want and suffer the consequences.
+On Thu, Jan 12, 2017 at 4:04 PM, Herbert Xu <herbert@gondor.apana.org.au> wrote:
+>> typedef struct {
+>>        u64 v[2];
+>> } siphash_key_t;
+>
+> If it's just an 128-bit value then we have u128 in crypto/b128ops.h
+> that could be generalised for this.
 
-Obviously I'm going for upstream conclusion and not willing to "suffer
-the consequences", hence my email in the first place. Given that you
-seem most interested in netlink, might you have any constructive
-suggestions on how netlink might be used with very large atomic
-messages?
+Nope, it's actually two 64-bit values. Yes, the user fills it in as
+one blob to get_random_bytes, but it's used internally by the
+algorithm as two distinct variables (which conveniently fit into
+64-bit registers).
