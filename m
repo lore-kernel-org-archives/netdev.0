@@ -1,90 +1,65 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCHv3 2/6] sh_eth: add generic wake-on-lan support via magic
- packet
-Date: Thu, 12 Jan 2017 15:55:54 +0300
-Message-ID: <4842b7e9-70a6-03ff-3ca0-36fbd1dcf4a3@cogentembedded.com>
-References: <20170109153409.13956-1-niklas.soderlund+renesas@ragnatech.se>
- <20170109153409.13956-3-niklas.soderlund+renesas@ragnatech.se>
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: To netlink or not to netlink, that is the question
+Date: Thu, 12 Jan 2017 14:01:07 +0100
+Message-ID: <CAHmME9pkktqOSUyTS_XhgC-CE4iqTv6UEA6w74kkm3xnBY8z9g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8bit
-Cc: Geert Uytterhoeven <geert@linux-m68k.org>, linux-pm@vger.kernel.org
-To: =?UTF-8?Q?Niklas_S=c3=b6derlund?=
-        <niklas.soderlund+renesas@ragnatech.se>,
-        Simon Horman <horms+renesas@verge.net.au>,
-        netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org
-Return-path: <linux-pm-owner@vger.kernel.org>
-In-Reply-To: <20170109153409.13956-3-niklas.soderlund+renesas@ragnatech.se>
-Sender: linux-pm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+To: Netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from frisell.zx2c4.com ([192.95.5.64]:43344 "EHLO frisell.zx2c4.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751191AbdALNBQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 12 Jan 2017 08:01:16 -0500
+Received: by frisell.zx2c4.com (ZX2C4 Mail Server) with ESMTP id 95e5f199
+        for <netdev@vger.kernel.org>;
+        Thu, 12 Jan 2017 12:51:09 +0000 (UTC)
+Received: by frisell.zx2c4.com (ZX2C4 Mail Server) with ESMTPSA id cf24c34b (TLSv1.2:ECDHE-RSA-AES128-GCM-SHA256:128:NO)
+        for <netdev@vger.kernel.org>;
+        Thu, 12 Jan 2017 12:51:09 +0000 (UTC)
+Received: by mail-oi0-f45.google.com with SMTP id j15so21586335oih.2
+        for <netdev@vger.kernel.org>; Thu, 12 Jan 2017 05:01:08 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello!
+Hey folks,
 
-On 01/09/2017 06:34 PM, Niklas Söderlund wrote:
+A few months ago I switched away from using netlink in wireguard,
+preferring instead to use ioctl. I had come up against limitations in
+rtnetlink, and ioctl presented a straightforward hard to screw-up
+alternative. The very simple API is documented here:
+https://git.zx2c4.com/WireGuard/tree/src/uapi.h
 
-> Add generic functionality to support Wake-on-LAN using MagicPacket which
-> are supported by at least a few versions of sh_eth. Only add
-> functionality for WoL, no specific sh_eth versions are marked to support
-> WoL yet.
->
-> WoL is enabled in the suspend callback by setting MagicPacket detection
-> and disabling all interrupts expect MagicPacket. In the resume path the
-> driver needs to reset the hardware to rearm the WoL logic, this prevents
-> the driver from simply restoring the registers and to take advantage of
-> that sh_eth was not suspended to reduce resume time. To reset the
-> hardware the driver closes and reopens the device just like it would do
-> in a normal suspend/resume scenario without WoL enabled, but it both
-> closes and opens the device in the resume callback since the device
-> needs to be open for WoL to work.
->
-> One quirk needed for WoL is that the module clock needs to be prevented
-> from being switched off by Runtime PM. To keep the clock alive the
-> suspend callback need to call clk_enable() directly to increase the
-> usage count of the clock. Then when Runtime PM decreases the clock usage
-> count it won't reach 0 and be switched off.
->
-> Signed-off-by: Niklas Söderlund <niklas.soderlund+renesas@ragnatech.se>
-> ---
->  drivers/net/ethernet/renesas/sh_eth.c | 114 +++++++++++++++++++++++++++++++---
->  drivers/net/ethernet/renesas/sh_eth.h |   3 +
->  2 files changed, 109 insertions(+), 8 deletions(-)
->
-> diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-> index 8a784dce45fa..542c92b57b35 100644
-> --- a/drivers/net/ethernet/renesas/sh_eth.c
-> +++ b/drivers/net/ethernet/renesas/sh_eth.c
-> @@ -1552,6 +1552,8 @@ static void sh_eth_emac_interrupt(struct net_device *ndev)
->  			sh_eth_rcv_snd_enable(ndev);
->  		}
->  	}
-> +	if (felic_stat & ECSR_MPD)
-> +		pm_wakeup_event(&mdp->pdev->dev, 0);
+This works well, and I'm reluctant to change it, but as I do more
+complicated things, and as kernel submission time looms nearer, I'm
+kept up at night by the notion that maybe I ought to give netlink
+another chance. But how?
 
-    Hum, seeing a corner case: if we're ignoring the link interrupt (and it 
-does occur along with ECSR.MPD, we'll return and miss this check. It would 
-have been preferable to add this code above the ECSR.LCHNG handler...
+For each wireguard interface, there are three types of structures for
+userspace to configure. There is one wgdevice for each interface. Each
+wgdevice has a variable amount (up to 2^16) of wgpeers. Each wgpeer
+has a variable amount (up to 2^16) of wgipmasks. I'd like an interface
+to get and set all of these at once, atomically.
 
-[...]
-> @@ -3150,15 +3189,67 @@ static int sh_eth_drv_remove(struct platform_device *pdev)
->
->  #ifdef CONFIG_PM
->  #ifdef CONFIG_PM_SLEEP
-> +static int sh_eth_wol_setup(struct net_device *ndev)
-> +{
-> +	struct sh_eth_private *mdp = netdev_priv(ndev);
-> +
-> +	/* Only allow ECI interrupts */
-> +	synchronize_irq(ndev->irq);
-> +	napi_disable(&mdp->napi);
-> +	sh_eth_write(ndev, DMAC_M_ECI, EESIPR);
-> +
-> +	/* Enable MagicPacket */
-> +	sh_eth_modify(ndev, ECMR, 0, ECMR_MPDE);
+Presently, with the ioctl, I just have a simple get ioctl and a simple
+set ioctl. The set one passes a user space pointer, which is read
+incrementally in kernel space. The get one will first return how much
+userspace should allocate, and then when called again will write
+incrementally into a provided userspace buffer up to a passed-in
+maximum number of bytes. Very basic, I'm quite happy.
 
-    I'd prefer sh_eth_modify(ndev, ECMR, ECMR_MPDE, ECMR_MPDE) to be 
-consistent with my other code...
+When I had tried to do this priorly with netlink, I did it by defining
+changelink and fill_info in rtnl_link_ops. For changelink, I iterated
+through the netlink objects, and for fill_info, I filled in the skb
+with netlink objects. This was a bit more complex but basically
+worked. Except netlink skbs have a maximum size and are buffered,
+which means things broke entirely when trying to read or write logs of
+wgpeers or lots of wgipmasks. So, the meager interfaces afforded to me
+by rtnl_link_ops are insufficient. Doing anything beyond this, either
+by registering new rtnetlink messages, or by using generic netlink,
+seemed overwhelmingly complex and undesirable.
 
-[...]
+So I'm wondering -- is there a good way to be doing this with netlink?
+Or am I right to stay with ioctl?
 
-MBR, Sergei
-
+Thanks,
+Jason
