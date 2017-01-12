@@ -1,55 +1,54 @@
-From: Harsh Jain <Harsh@chelsio.com>
-Subject: Re: [PATCH v1 3/8] crypto:chcr- Fix key length for RFC4106
-Date: Thu, 12 Jan 2017 22:08:46 +0530
-Message-ID: <648404c5-4234-7895-d478-858433b0d093@chelsio.com>
-References: <cover.1483599449.git.harsh@chelsio.com>
- <6d8e61299e051d51dacdb6bfd6c5e582b230027c.1483599449.git.harsh@chelsio.com>
- <20170112160959.GA19732@gondor.apana.org.au>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH v2 8/8] crypto/testmgr: Allocate only the required output
+ size for hash tests
+Date: Fri, 13 Jan 2017 00:44:11 +0800
+Message-ID: <20170112164411.GA20313@gondor.apana.org.au>
+References: <cover.1484090585.git.luto@kernel.org>
+ <890f4bdb28a1cf72f6b802b220b35ebaf0f76bb9.1484090585.git.luto@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: hariprasad@chelsio.com, netdev@vger.kernel.org,
-        linux-crypto@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+        Netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+        "Jason A. Donenfeld" <Jason@zx2c4.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Eric Biggers <ebiggers3@gmail.com>,
+        Tom Herbert <tom@herbertland.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Ard Biesheuvel <ard.biesheuvel@linaro.org>
+To: Andy Lutomirski <luto@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:38122 "EHLO l.chelsio.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750791AbdALQi7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 12 Jan 2017 11:38:59 -0500
-In-Reply-To: <20170112160959.GA19732@gondor.apana.org.au>
+Received: from helcar.hengli.com.au ([209.40.204.226]:43429 "EHLO
+        helcar.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1750818AbdALQog (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 11:44:36 -0500
+Content-Disposition: inline
+In-Reply-To: <890f4bdb28a1cf72f6b802b220b35ebaf0f76bb9.1484090585.git.luto@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, Jan 10, 2017 at 03:24:46PM -0800, Andy Lutomirski wrote:
+> There are some hashes (e.g. sha224) that have some internal trickery
+> to make sure that only the correct number of output bytes are
+> generated.  If something goes wrong, they could potentially overrun
+> the output buffer.
+> 
+> Make the test more robust by allocating only enough space for the
+> correct output size so that memory debugging will catch the error if
+> the output is overrun.
+> 
+> Tested by intentionally breaking sha224 to output all 256
+> internally-generated bits while running on KASAN.
+> 
+> Cc: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+> Cc: Herbert Xu <herbert@gondor.apana.org.au>
+> Signed-off-by: Andy Lutomirski <luto@kernel.org>
 
-
-On 12-01-2017 21:39, Herbert Xu wrote:
-> On Fri, Jan 06, 2017 at 02:01:34PM +0530, Harsh Jain wrote:
->> Check keylen before copying salt to avoid wrap around of Integer.
->>
->> Signed-off-by: Harsh Jain <harsh@chelsio.com>
->> ---
->>  drivers/crypto/chelsio/chcr_algo.c | 4 ++--
->>  1 file changed, 2 insertions(+), 2 deletions(-)
->>
->> diff --git a/drivers/crypto/chelsio/chcr_algo.c b/drivers/crypto/chelsio/chcr_algo.c
->> index deec7c0..6c2dea3 100644
->> --- a/drivers/crypto/chelsio/chcr_algo.c
->> +++ b/drivers/crypto/chelsio/chcr_algo.c
->> @@ -2194,8 +2194,8 @@ static int chcr_gcm_setkey(struct crypto_aead *aead, const u8 *key,
->>  	unsigned int ck_size;
->>  	int ret = 0, key_ctx_size = 0;
->>  
->> -	if (get_aead_subtype(aead) ==
->> -	    CRYPTO_ALG_SUB_TYPE_AEAD_RFC4106) {
->> +	if (get_aead_subtype(aead) == CRYPTO_ALG_SUB_TYPE_AEAD_RFC4106 &&
->> +	    keylen > 3) {
->>  		keylen -= 4;  /* nonce/salt is present in the last 4 bytes */
->>  		memcpy(aeadctx->salt, key + keylen, 4);
->>  	}
-> We should return an error in this case.
-That case is already handled in next if condition.It will error out with -EINVAL in next condition.
-
-if (keylen == AES_KEYSIZE_128) {
-
->
-> Cheers,
+Patch applied.  Thanks.
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
