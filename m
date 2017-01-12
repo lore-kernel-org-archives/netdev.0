@@ -1,48 +1,29 @@
-From: Shannon Nelson <shannon.nelson@oracle.com>
-Subject: [PATCH] tcp: fix tcp_fastopen unaligned access complaints on sparc
-Date: Thu, 12 Jan 2017 11:59:17 -0800
-Message-ID: <1484251157-245538-1-git-send-email-shannon.nelson@oracle.com>
-Cc: sparclinux@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Shannon Nelson <shannon.nelson@oracle.com>
-To: netdev@vger.kernel.org, davem@davemloft.net
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/3] net: mdio-gpio: Use modern GPIO helpers
+Date: Thu, 12 Jan 2017 15:05:42 -0500 (EST)
+Message-ID: <20170112.150542.674368477401449471.davem@davemloft.net>
+References: <20170111205951.32363-1-f.fainelli@gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, andrew@lunn.ch,
+        vivien.didelot@savoirfairelinux.com, cphealy@gmail.com,
+        linux@roeck-us.net
+To: f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:33163 "EHLO
-        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750780AbdALT7m (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 14:59:42 -0500
+Received: from shards.monkeyblade.net ([184.105.139.130]:56140 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750845AbdALUFp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 15:05:45 -0500
+In-Reply-To: <20170111205951.32363-1-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix up a data alignment issue on sparc by swapping the order
-of the cookie byte array field with the length field in
-struct tcp_fastopen_cookie
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Wed, 11 Jan 2017 12:59:48 -0800
 
-This addresses log complaints like these:
-    log_unaligned: 113 callbacks suppressed
-    Kernel unaligned access at TPC[976490] tcp_try_fastopen+0x2d0/0x360
-    Kernel unaligned access at TPC[9764ac] tcp_try_fastopen+0x2ec/0x360
-    Kernel unaligned access at TPC[9764c8] tcp_try_fastopen+0x308/0x360
-    Kernel unaligned access at TPC[9764e4] tcp_try_fastopen+0x324/0x360
-    Kernel unaligned access at TPC[976490] tcp_try_fastopen+0x2d0/0x360
+> This patch series modernizes the mdio-gpio and makes it switch to the
+> latest and greatest API for manipulating GPIO lines, thus allowing
+> some simplifications in the driver.
 
-Signed-off-by: Shannon Nelson <shannon.nelson@oracle.com>
----
- include/linux/tcp.h |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index fc5848d..95cda75 100644
---- a/include/linux/tcp.h
-+++ b/include/linux/tcp.h
-@@ -62,8 +62,8 @@ static inline unsigned int tcp_optlen(const struct sk_buff *skb)
- 
- /* TCP Fast Open Cookie as stored in memory */
- struct tcp_fastopen_cookie {
--	s8	len;
- 	u8	val[TCP_FASTOPEN_COOKIE_MAX];
-+	s8	len;
- 	bool	exp;	/* In RFC6994 experimental option format */
- };
- 
--- 
-1.7.1
+Series applied, thanks.
