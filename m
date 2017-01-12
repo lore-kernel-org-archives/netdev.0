@@ -1,108 +1,47 @@
-From: Chas Williams <3chas3@gmail.com>
-Subject: Re: net/atm: warning in alloc_tx/__might_sleep
-Date: Thu, 12 Jan 2017 05:40:54 -0500
-Message-ID: <1484217654.1643.12.camel@gmail.com>
-References: <CAAeHK+yZ16SKcmJbv2ARafGgAuX2wwQNE0HGdiFy1WgqPjxLMg@mail.gmail.com>
-         <1484145426.1643.7.camel@gmail.com> <20170111194525.GA16375@dhcp22.suse.cz>
-         <20170111194645.GM16365@dhcp22.suse.cz>
-         <CAM_iQpWqCaHp2OxdaTOvJrf5vuvPn=rVGTvpGuZMEoBNC95EEQ@mail.gmail.com>
+From: Kalle Valo <kvalo@qca.qualcomm.com>
+Subject: Re: [v5,1/5] soc: qcom: smem_state: Fix include for ERR_PTR()
+Date: Thu, 12 Jan 2017 11:47:40 +0100
+Message-ID: <3591936e6ea64d71a1e5fadc33f43dd3@euamsexm01a.eu.qualcomm.com>
+References: <1479190014-11297-1-git-send-email-bjorn.andersson@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: Andrey Konovalov <andreyknvl@google.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Al Viro <viro@zeniv.linux.org.uk>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>,
-        Michal Hocko <mhocko@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAM_iQpWqCaHp2OxdaTOvJrf5vuvPn=rVGTvpGuZMEoBNC95EEQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Eugene Krasnikov <k.eugene.e@gmail.com>,
+        Kalle Valo <kvalo@codeaurora.org>,
+        Andy Gross <andy.gross@linaro.org>,
+        <wcn36xx@lists.infradead.org>, <linux-wireless@vger.kernel.org>,
+        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        <linux-arm-msm@vger.kernel.org>
+To: Bjorn Andersson <bjorn.andersson@linaro.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wolverine02.qualcomm.com ([199.106.114.251]:60450 "EHLO
+        wolverine02.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750912AbdALKsN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 05:48:13 -0500
+In-Reply-To: <1479190014-11297-1-git-send-email-bjorn.andersson@linaro.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2017-01-11 at 20:36 -0800, Cong Wang wrote:
-> On Wed, Jan 11, 2017 at 11:46 AM, Michal Hocko <mhocko@kernel.org> wrote:
-> > On Wed 11-01-17 20:45:25, Michal Hocko wrote:
-> >> On Wed 11-01-17 09:37:06, Chas Williams wrote:
-> >> > On Mon, 2017-01-09 at 18:20 +0100, Andrey Konovalov wrote:
-> >> > > Hi!
-> >> > >
-> >> > > I've got the following error report while running the syzkaller fuzzer.
-> >> > >
-> >> > > On commit a121103c922847ba5010819a3f250f1f7fc84ab8 (4.10-rc3).
-> >> > >
-> >> > > A reproducer is attached.
-> >> > >
-> >> > > ------------[ cut here ]------------
-> >> > > WARNING: CPU: 0 PID: 4114 at kernel/sched/core.c:7737 __might_sleep+0x149/0x1a0
-> >> > > do not call blocking ops when !TASK_RUNNING; state=1 set at
-> >> > > [<ffffffff813fcb22>] prepare_to_wait+0x182/0x530
-> >> > > Modules linked in:
-> >> > > CPU: 0 PID: 4114 Comm: a.out Not tainted 4.10.0-rc3+ #59
-> >> > > Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
-> >> > > Call Trace:
-> >> > >  __dump_stack lib/dump_stack.c:15
-> >> > >  dump_stack+0x292/0x398 lib/dump_stack.c:51
-> >> > >  __warn+0x19f/0x1e0 kernel/panic.c:547
-> >> > >  warn_slowpath_fmt+0xc5/0x110 kernel/panic.c:562
-> >> > >  __might_sleep+0x149/0x1a0 kernel/sched/core.c:7732
-> >> > >  slab_pre_alloc_hook mm/slab.h:408
-> >> > >  slab_alloc_node mm/slub.c:2634
-> >> > >  kmem_cache_alloc_node+0x14a/0x280 mm/slub.c:2744
-> >> > >  __alloc_skb+0x10f/0x800 net/core/skbuff.c:219
-> >> > >  alloc_skb ./include/linux/skbuff.h:926
-> >> > >  alloc_tx net/atm/common.c:75
-> >> >
-> >> > This is likely alloc_skb(..., GFP_KERNEL) in alloc_tx().  The simplest
-> >> > fix for this would be simply to switch this GFP_ATOMIC.  See if this is
-> >> > any better.
-> >> >
-> >> > diff --git a/net/atm/common.c b/net/atm/common.c
-> >> > index a3ca922..d84220c 100644
-> >> > --- a/net/atm/common.c
-> >> > +++ b/net/atm/common.c
-> >> > @@ -72,7 +72,7 @@ static struct sk_buff *alloc_tx(struct atm_vcc *vcc, unsigned int size)
-> >> >                      sk_wmem_alloc_get(sk), size, sk->sk_sndbuf);
-> >> >             return NULL;
-> >> >     }
-> >> > -   while (!(skb = alloc_skb(size, GFP_KERNEL)))
-> >> > +   while (!(skb = alloc_skb(size, GFP_ATOMIC)))
-> >> >             schedule();
-> >> >     pr_debug("%d += %d\n", sk_wmem_alloc_get(sk), skb->truesize);
-> >> >     atomic_add(skb->truesize, &sk->sk_wmem_alloc);
-> >>
-> >> Blee, this code is just horrendous. But the "fix" is obviously broken!
-> >> schedule() is just a noop if you do not change the task state and what
-> >> you are just asking for is a never failing non sleeping allocation - aka
-> >> a busy loop in the kernel!
-> >
-> > And btw. this while loop should be really turned into GFP_KERNEL |
-> > __GFP_NOFAIL with and explanation why this allocation cannot possibly
-> > fail.
+Bjorn Andersson <bjorn.andersson@linaro.org> wrote:
+> The correct include file for getting errno constants and ERR_PTR() is
+> linux/err.h, rather than linux/errno.h, so fix the include.
 > 
-> I think a nested loop is quite unnecessary, probably due to the code itself
-> is pretty old. The alloc_tx() is in the outer loop, the alloc_skb() is
-> in the inner
-> loop, both seem to wait for a successful GFP allocation. The inner one
-> is even more unnecessary.
-> 
-> Of course, I am not surprised MM may already have a mechanism to do
-> the similar logic.
-> 
-> There maybe some reason ATM needs such a logic, although other proto
-> could handle skb allocation failure quite well in ->sendmsg().
+> Fixes: e8b123e60084 ("soc: qcom: smem_state: Add stubs for disabled smem_state")
+> Acked-by: Andy Gross <andy.gross@linaro.org>
+> Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
 
+5 patches applied to ath-next branch of ath.git, thanks.
 
-I can't think of any particular reason that it needs this loop here.  I suspect
-that the loop for alloc_tx() predates the wait logic in ->sendmsg() and that the
-original looping was in alloc_tx() initially and was simply never removed.  Changes
-here would date back to before the git conversion.
+6c0b2e833f14 soc: qcom: smem_state: Fix include for ERR_PTR()
+f303a9311065 wcn36xx: Transition driver to SMD client
+886039036c20 wcn36xx: Implement firmware assisted scan
+43efa3c0f241 wcn36xx: Implement print_reg indication
+d53628882255 wcn36xx: Don't use the destroyed hal_mutex
+
+-- 
+https://patchwork.kernel.org/patch/9429045/
+
+Documentation about submitting wireless patches and checking status
+from patchwork:
+
+https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
