@@ -1,98 +1,48 @@
 From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: net/atm: warning in alloc_tx/__might_sleep
-Date: Wed, 11 Jan 2017 20:36:48 -0800
-Message-ID: <CAM_iQpWqCaHp2OxdaTOvJrf5vuvPn=rVGTvpGuZMEoBNC95EEQ@mail.gmail.com>
-References: <CAAeHK+yZ16SKcmJbv2ARafGgAuX2wwQNE0HGdiFy1WgqPjxLMg@mail.gmail.com>
- <1484145426.1643.7.camel@gmail.com> <20170111194525.GA16375@dhcp22.suse.cz> <20170111194645.GM16365@dhcp22.suse.cz>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Chas Williams <3chas3@gmail.com>,
-        Andrey Konovalov <andreyknvl@google.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@namei.org>,
-        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Al Viro <viro@zeniv.linux.org.uk>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        Kostya Serebryany <kcc@google.com>,
-        Eric Dumazet <edumazet@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Michal Hocko <mhocko@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170111194645.GM16365@dhcp22.suse.cz>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Subject: [Patch net] atm: remove an unnecessary loop
+Date: Wed, 11 Jan 2017 21:02:01 -0800
+Message-ID: <1484197322-958-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: mhocko@kernel.org, romieu@fr.zoreil.com, 3chas3@gmail.com,
+        andreyknvl@google.com, Cong Wang <xiyou.wangcong@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:33237 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750700AbdALFC1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 00:02:27 -0500
+Received: by mail-pf0-f193.google.com with SMTP id 127so1593681pfg.0
+        for <netdev@vger.kernel.org>; Wed, 11 Jan 2017 21:02:27 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 11, 2017 at 11:46 AM, Michal Hocko <mhocko@kernel.org> wrote:
-> On Wed 11-01-17 20:45:25, Michal Hocko wrote:
->> On Wed 11-01-17 09:37:06, Chas Williams wrote:
->> > On Mon, 2017-01-09 at 18:20 +0100, Andrey Konovalov wrote:
->> > > Hi!
->> > >
->> > > I've got the following error report while running the syzkaller fuzzer.
->> > >
->> > > On commit a121103c922847ba5010819a3f250f1f7fc84ab8 (4.10-rc3).
->> > >
->> > > A reproducer is attached.
->> > >
->> > > ------------[ cut here ]------------
->> > > WARNING: CPU: 0 PID: 4114 at kernel/sched/core.c:7737 __might_sleep+0x149/0x1a0
->> > > do not call blocking ops when !TASK_RUNNING; state=1 set at
->> > > [<ffffffff813fcb22>] prepare_to_wait+0x182/0x530
->> > > Modules linked in:
->> > > CPU: 0 PID: 4114 Comm: a.out Not tainted 4.10.0-rc3+ #59
->> > > Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
->> > > Call Trace:
->> > >  __dump_stack lib/dump_stack.c:15
->> > >  dump_stack+0x292/0x398 lib/dump_stack.c:51
->> > >  __warn+0x19f/0x1e0 kernel/panic.c:547
->> > >  warn_slowpath_fmt+0xc5/0x110 kernel/panic.c:562
->> > >  __might_sleep+0x149/0x1a0 kernel/sched/core.c:7732
->> > >  slab_pre_alloc_hook mm/slab.h:408
->> > >  slab_alloc_node mm/slub.c:2634
->> > >  kmem_cache_alloc_node+0x14a/0x280 mm/slub.c:2744
->> > >  __alloc_skb+0x10f/0x800 net/core/skbuff.c:219
->> > >  alloc_skb ./include/linux/skbuff.h:926
->> > >  alloc_tx net/atm/common.c:75
->> >
->> > This is likely alloc_skb(..., GFP_KERNEL) in alloc_tx().  The simplest
->> > fix for this would be simply to switch this GFP_ATOMIC.  See if this is
->> > any better.
->> >
->> > diff --git a/net/atm/common.c b/net/atm/common.c
->> > index a3ca922..d84220c 100644
->> > --- a/net/atm/common.c
->> > +++ b/net/atm/common.c
->> > @@ -72,7 +72,7 @@ static struct sk_buff *alloc_tx(struct atm_vcc *vcc, unsigned int size)
->> >                      sk_wmem_alloc_get(sk), size, sk->sk_sndbuf);
->> >             return NULL;
->> >     }
->> > -   while (!(skb = alloc_skb(size, GFP_KERNEL)))
->> > +   while (!(skb = alloc_skb(size, GFP_ATOMIC)))
->> >             schedule();
->> >     pr_debug("%d += %d\n", sk_wmem_alloc_get(sk), skb->truesize);
->> >     atomic_add(skb->truesize, &sk->sk_wmem_alloc);
->>
->> Blee, this code is just horrendous. But the "fix" is obviously broken!
->> schedule() is just a noop if you do not change the task state and what
->> you are just asking for is a never failing non sleeping allocation - aka
->> a busy loop in the kernel!
->
-> And btw. this while loop should be really turned into GFP_KERNEL |
-> __GFP_NOFAIL with and explanation why this allocation cannot possibly
-> fail.
+alloc_tx() is already inside a wait loop for a successful skb
+allocation, this loop inside alloc_tx() is quite unnecessary
+and actually problematic.
 
-I think a nested loop is quite unnecessary, probably due to the code itself
-is pretty old. The alloc_tx() is in the outer loop, the alloc_skb() is
-in the inner
-loop, both seem to wait for a successful GFP allocation. The inner one
-is even more unnecessary.
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+---
+ net/atm/common.c | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
 
-Of course, I am not surprised MM may already have a mechanism to do
-the similar logic.
-
-There maybe some reason ATM needs such a logic, although other proto
-could handle skb allocation failure quite well in ->sendmsg().
+diff --git a/net/atm/common.c b/net/atm/common.c
+index a3ca922..7ec3bbc 100644
+--- a/net/atm/common.c
++++ b/net/atm/common.c
+@@ -72,10 +72,11 @@ static struct sk_buff *alloc_tx(struct atm_vcc *vcc, unsigned int size)
+ 			 sk_wmem_alloc_get(sk), size, sk->sk_sndbuf);
+ 		return NULL;
+ 	}
+-	while (!(skb = alloc_skb(size, GFP_KERNEL)))
+-		schedule();
+-	pr_debug("%d += %d\n", sk_wmem_alloc_get(sk), skb->truesize);
+-	atomic_add(skb->truesize, &sk->sk_wmem_alloc);
++	skb = alloc_skb(size, GFP_KERNEL);
++	if (skb) {
++		pr_debug("%d += %d\n", sk_wmem_alloc_get(sk), skb->truesize);
++		atomic_add(skb->truesize, &sk->sk_wmem_alloc);
++	}
+ 	return skb;
+ }
+ 
+-- 
+2.5.5
