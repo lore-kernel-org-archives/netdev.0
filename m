@@ -1,36 +1,81 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] wext: handle NULL exta data in iwe_stream_add_point better
-Date: Thu, 12 Jan 2017 10:44:16 +0100
-Message-ID: <3158205.0GkzbOcZ01@wuerfel>
-References: <20170111143532.485827-1-arnd@arndb.de> <3292373.oxnXTOSWCQ@wuerfel> <1484212560.5391.3.camel@sipsolutions.net>
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Subject: Re: [PATCH v2 2/2] stmmac: rename it to synopsys
+Date: Thu, 12 Jan 2017 09:43:03 +0000
+Message-ID: <a2d2e457-47e5-bb73-a059-0cb907a29ae0@synopsys.com>
+References: <cover.1484059674.git.jpinto@synopsys.com>
+ <c74e6665ca14a4ca03b38cd3442ef0644d9e250d.1484059674.git.jpinto@synopsys.com>
+ <5b5a3231-eed4-ef29-b32a-a19077681dad@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: linux-wireless@vger.kernel.org,
-        "David S. Miller" <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1484212560.5391.3.camel@sipsolutions.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: <lars.persson@axis.com>, <niklass@axis.com>,
+        <peppe.cavallaro@st.com>, <alexandre.torgue@st.com>,
+        <netdev@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+        Joao Pinto <Joao.Pinto@synopsys.com>, <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay.synopsys.com ([198.182.47.9]:53974 "EHLO
+        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750899AbdALJpp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 04:45:45 -0500
+In-Reply-To: <5b5a3231-eed4-ef29-b32a-a19077681dad@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday, January 12, 2017 10:16:00 AM CET Johannes Berg wrote:
-> And I realized only now that this was a different place ...
 
-Right, it was a few hundred randconfigs later after I had confirmed
-that the first patch fixed all the configurations that were broken
-at first.
+Hi Florian,
 
-> I've just added the check you suggested - spent way too much time
-> already on this old crap 
+Às 9:14 PM de 1/11/2017, Florian Fainelli escreveu:
+> On 01/10/2017 06:52 AM, Joao Pinto wrote:
+>> This patch renames stmicro/stmmac to synopsys/ since it is a standard
+>> ethernet software package regarding synopsys ethernet controllers, supporting
+>> the majority of Synopsys Ethernet IPs. The config IDs remain the same, for
+>> retro-compatibility, only the description was changed.
+> 
+> Do re really have to do this? ST Micro were the first to upstream
+> support for a Synopsys IP, and it was later on identified as being
+> "stmicro" instead of "synopsys" (during the big driver move under
+> drivers/net/ethernet) whichever came first in the driver essentially "wins".
+> 
+> As mentioned before, although git is able to track renames, git log does
+> not automatically have --follow, so it can be hard for people to track
+> down the (new) history of the driver.
+> 
+> Personally, I don't see much value in doing this rename, especially when
+> all the driver internal structures are still going to be named with
+> stmmac (and please don't even think about doing a s/stmmac/snps/ inside
+> the driver ;)).
+> 
+> My 2 cents.
+> 
 
-Ok, thanks! Let's hope it doesn't come back once more.
+First of all, I am suggesting an alternative way of organizing the code, and
+that's it, I have no second intentions about anything :).
 
-I'm still trying to categorize the newly added warnings in gcc-7,
-there a number of very useful warnings that got added, but some of
-them are rather noisy and find both a number of real bugs and
-false positives. The NULL check had only a few findings that all
-seemed worth fixing.
+Please don't see this as a take-over or erase Stmicro from credits, please... it
+makes no sense. You can leave STMicro license and all the credits fine by me and
+I insist on it. But lets name it for something that makes sense... lets call it
+dwc (designware controllers), I am totally open to suggestions.
 
-	Arnd
+I don't understand the hostility of some comments, honestly.
+
+The easiest way is to keep things like they are today, and believe me I have a
+lot of things to do, like adding the support of multi-queues / multi-channels to
+stmmac, so I not suggesting this because it is fun.
+
+I am suggesting this because it is what I am used to seeing in other subsystems.
+USB has dwc2 and dwc3 folders that clearly identifies that they are Designware
+(synopsys) extensions to the USB 2.0 and 3.0. The author of dwc3 was Texas
+Instruments, and they did not name it ti/usb. For example I use an AXS101
+Development board that does not have a stmicro SoC but has a Designware Ethernet
+IP in it, so uses stmicro/stmmac. For me it is confusing.
+
+Lets not name it synopsys, for me it is totally fine, but naming it
+stmicro/stmmac is not the right way because it seems like it is a driver just
+for stmicro products, which is not, is for products that use Designware Ethernet
+IPs.
+
+I am volunteering to do this work, let's discuss this.
+
+Thanks,
+Joao
