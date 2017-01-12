@@ -1,55 +1,90 @@
-From: Simon Horman <horms+renesas@verge.net.au>
-Subject: [PATCH net] ravb: Remove Rx overflow log messages
-Date: Thu, 12 Jan 2017 13:21:06 +0100
-Message-ID: <20170112122106.GA32727@verge.net.au>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCHv3 2/6] sh_eth: add generic wake-on-lan support via magic
+ packet
+Date: Thu, 12 Jan 2017 15:55:54 +0300
+Message-ID: <4842b7e9-70a6-03ff-3ca0-36fbd1dcf4a3@cogentembedded.com>
+References: <20170109153409.13956-1-niklas.soderlund+renesas@ragnatech.se>
+ <20170109153409.13956-3-niklas.soderlund+renesas@ragnatech.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Magnus Damm <magnus.damm@gmail.com>, netdev@vger.kernel.org,
-        linux-renesas-soc@vger.kernel.org
-To: David Miller <davem@davemloft.net>,
-        Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-renesas-soc-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: Geert Uytterhoeven <geert@linux-m68k.org>, linux-pm@vger.kernel.org
+To: =?UTF-8?Q?Niklas_S=c3=b6derlund?=
+        <niklas.soderlund+renesas@ragnatech.se>,
+        Simon Horman <horms+renesas@verge.net.au>,
+        netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org
+Return-path: <linux-pm-owner@vger.kernel.org>
+In-Reply-To: <20170109153409.13956-3-niklas.soderlund+renesas@ragnatech.se>
+Sender: linux-pm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
+Hello!
 
-Remove Rx overflow log messages as in an environment where logging results
-in network traffic logging may cause further overflows.
+On 01/09/2017 06:34 PM, Niklas Söderlund wrote:
 
-Fixes: c156633f1353 ("Renesas Ethernet AVB driver proper")
-Signed-off-by: Kazuya Mizuguchi <kazuya.mizuguchi.ks@renesas.com>
-[simon: reworked changelog]
-Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
-Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
----
-Changes since RFC:
-* Added Ack from Sergei
----
- drivers/net/ethernet/renesas/ravb_main.c | 8 ++------
- 1 file changed, 2 insertions(+), 6 deletions(-)
+> Add generic functionality to support Wake-on-LAN using MagicPacket which
+> are supported by at least a few versions of sh_eth. Only add
+> functionality for WoL, no specific sh_eth versions are marked to support
+> WoL yet.
+>
+> WoL is enabled in the suspend callback by setting MagicPacket detection
+> and disabling all interrupts expect MagicPacket. In the resume path the
+> driver needs to reset the hardware to rearm the WoL logic, this prevents
+> the driver from simply restoring the registers and to take advantage of
+> that sh_eth was not suspended to reduce resume time. To reset the
+> hardware the driver closes and reopens the device just like it would do
+> in a normal suspend/resume scenario without WoL enabled, but it both
+> closes and opens the device in the resume callback since the device
+> needs to be open for WoL to work.
+>
+> One quirk needed for WoL is that the module clock needs to be prevented
+> from being switched off by Runtime PM. To keep the clock alive the
+> suspend callback need to call clk_enable() directly to increase the
+> usage count of the clock. Then when Runtime PM decreases the clock usage
+> count it won't reach 0 and be switched off.
+>
+> Signed-off-by: Niklas Söderlund <niklas.soderlund+renesas@ragnatech.se>
+> ---
+>  drivers/net/ethernet/renesas/sh_eth.c | 114 +++++++++++++++++++++++++++++++---
+>  drivers/net/ethernet/renesas/sh_eth.h |   3 +
+>  2 files changed, 109 insertions(+), 8 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+> index 8a784dce45fa..542c92b57b35 100644
+> --- a/drivers/net/ethernet/renesas/sh_eth.c
+> +++ b/drivers/net/ethernet/renesas/sh_eth.c
+> @@ -1552,6 +1552,8 @@ static void sh_eth_emac_interrupt(struct net_device *ndev)
+>  			sh_eth_rcv_snd_enable(ndev);
+>  		}
+>  	}
+> +	if (felic_stat & ECSR_MPD)
+> +		pm_wakeup_event(&mdp->pdev->dev, 0);
 
-diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
-index 92d7692c840d..5e5ad978eab9 100644
---- a/drivers/net/ethernet/renesas/ravb_main.c
-+++ b/drivers/net/ethernet/renesas/ravb_main.c
-@@ -926,14 +926,10 @@ static int ravb_poll(struct napi_struct *napi, int budget)
- 	/* Receive error message handling */
- 	priv->rx_over_errors =  priv->stats[RAVB_BE].rx_over_errors;
- 	priv->rx_over_errors += priv->stats[RAVB_NC].rx_over_errors;
--	if (priv->rx_over_errors != ndev->stats.rx_over_errors) {
-+	if (priv->rx_over_errors != ndev->stats.rx_over_errors)
- 		ndev->stats.rx_over_errors = priv->rx_over_errors;
--		netif_err(priv, rx_err, ndev, "Receive Descriptor Empty\n");
--	}
--	if (priv->rx_fifo_errors != ndev->stats.rx_fifo_errors) {
-+	if (priv->rx_fifo_errors != ndev->stats.rx_fifo_errors)
- 		ndev->stats.rx_fifo_errors = priv->rx_fifo_errors;
--		netif_err(priv, rx_err, ndev, "Receive FIFO Overflow\n");
--	}
- out:
- 	return budget - quota;
- }
--- 
-2.7.0.rc3.207.g0ac5344
+    Hum, seeing a corner case: if we're ignoring the link interrupt (and it 
+does occur along with ECSR.MPD, we'll return and miss this check. It would 
+have been preferable to add this code above the ECSR.LCHNG handler...
+
+[...]
+> @@ -3150,15 +3189,67 @@ static int sh_eth_drv_remove(struct platform_device *pdev)
+>
+>  #ifdef CONFIG_PM
+>  #ifdef CONFIG_PM_SLEEP
+> +static int sh_eth_wol_setup(struct net_device *ndev)
+> +{
+> +	struct sh_eth_private *mdp = netdev_priv(ndev);
+> +
+> +	/* Only allow ECI interrupts */
+> +	synchronize_irq(ndev->irq);
+> +	napi_disable(&mdp->napi);
+> +	sh_eth_write(ndev, DMAC_M_ECI, EESIPR);
+> +
+> +	/* Enable MagicPacket */
+> +	sh_eth_modify(ndev, ECMR, 0, ECMR_MPDE);
+
+    I'd prefer sh_eth_modify(ndev, ECMR, ECMR_MPDE, ECMR_MPDE) to be 
+consistent with my other code...
+
+[...]
+
+MBR, Sergei
+
