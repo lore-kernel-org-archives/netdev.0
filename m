@@ -1,85 +1,124 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next] net: core: Make netif_wake_subqueue a wrapper
-Date: Wed, 11 Jan 2017 21:13:02 -0800
-Message-ID: <20170112051302.1064-1-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f65.google.com ([209.85.218.65]:35518 "EHLO
-        mail-oi0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750704AbdALFNG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 00:13:06 -0500
-Received: by mail-oi0-f65.google.com with SMTP id x84so1350105oix.2
-        for <netdev@vger.kernel.org>; Wed, 11 Jan 2017 21:13:06 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Liu ShuoX <shuo.a.liu@intel.com>
+Subject: [PATCH] can: Fix kernel panic at security_sock_rcv_skb
+Date: Thu, 12 Jan 2017 14:33:18 +0800
+Message-ID: <1484202799-7287-1-git-send-email-shuo.a.liu@intel.com>
+Cc: yanmin_zhang@linux.intel.com, shuox.liu@gmail.com,
+        Zhang Yanmin <yanmin.zhang@intel.com>,
+        "He, Bo" <bo.he@intel.com>, Liu Shuo A <shuo.a.liu@intel.com>,
+        Oliver Hartkopp <socketcan@hartkopp.net>,
+        Marc Kleine-Budde <mkl@pengutronix.de>,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-can@vger.kernel.org (open list:CAN NETWORK LAYER),
+        netdev@vger.kernel.org (open list:NETWORKING [GENERAL])
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-netif_wake_subqueue() is duplicating the same thing that netif_tx_wake_queue()
-does, so make it call it directly after looking up the queue from the index.
+From: Zhang Yanmin <yanmin.zhang@intel.com>
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+The patch is for fix the below kernel panic:
+BUG: unable to handle kernel NULL pointer dereference at (null)
+IP: [<ffffffff81495e25>] selinux_socket_sock_rcv_skb+0x65/0x2a0
+
+Call Trace:
+ <IRQ>
+ [<ffffffff81485d8c>] security_sock_rcv_skb+0x4c/0x60
+ [<ffffffff81d55771>] sk_filter+0x41/0x210
+ [<ffffffff81d12913>] sock_queue_rcv_skb+0x53/0x3a0
+ [<ffffffff81f0a2b3>] raw_rcv+0x2a3/0x3c0
+ [<ffffffff81f06eab>] can_rcv_filter+0x12b/0x370
+ [<ffffffff81f07af9>] can_receive+0xd9/0x120
+ [<ffffffff81f07beb>] can_rcv+0xab/0x100
+ [<ffffffff81d362ac>] __netif_receive_skb_core+0xd8c/0x11f0
+ [<ffffffff81d36734>] __netif_receive_skb+0x24/0xb0
+ [<ffffffff81d37f67>] process_backlog+0x127/0x280
+ [<ffffffff81d36f7b>] net_rx_action+0x33b/0x4f0
+ [<ffffffff810c88d4>] __do_softirq+0x184/0x440
+ [<ffffffff81f9e86c>] do_softirq_own_stack+0x1c/0x30
+ <EOI>
+ [<ffffffff810c76fb>] do_softirq.part.18+0x3b/0x40
+ [<ffffffff810c8bed>] do_softirq+0x1d/0x20
+ [<ffffffff81d30085>] netif_rx_ni+0xe5/0x110
+ [<ffffffff8199cc87>] slcan_receive_buf+0x507/0x520
+ [<ffffffff8167ef7c>] flush_to_ldisc+0x21c/0x230
+ [<ffffffff810e3baf>] process_one_work+0x24f/0x670
+ [<ffffffff810e44ed>] worker_thread+0x9d/0x6f0
+ [<ffffffff810e4450>] ? rescuer_thread+0x480/0x480
+ [<ffffffff810ebafc>] kthread+0x12c/0x150
+ [<ffffffff81f9ccef>] ret_from_fork+0x3f/0x70
+
+The sk dereferenced in panic has been released. After the rcu_call in
+can_rx_unregister, receiver was protected by RCU but inner data was
+not, then later sk will be freed while other CPU is still using it.
+We need wait here to make sure sk referenced via receiver was safe.
+
+=> security_sk_free
+=> sk_destruct
+=> __sk_free
+=> sk_free
+=> raw_release
+=> sock_release
+=> sock_close
+=> __fput
+=> ____fput
+=> task_work_run
+=> exit_to_usermode_loop
+=> syscall_return_slowpath
+=> int_ret_from_sys_call
+
+Signed-off-by: Zhang Yanmin <yanmin.zhang@intel.com>
+Signed-off-by: He, Bo <bo.he@intel.com>
+Signed-off-by: Liu Shuo A <shuo.a.liu@intel.com>
 ---
- include/linux/netdevice.h | 14 +++++++++++++-
- net/core/dev.c            | 22 ----------------------
- 2 files changed, 13 insertions(+), 23 deletions(-)
+ net/can/af_can.c | 14 ++++++++------
+ net/can/af_can.h |  1 -
+ 2 files changed, 8 insertions(+), 7 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index d532c070163f..6d021c37b774 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -3106,7 +3106,19 @@ static inline bool netif_subqueue_stopped(const struct net_device *dev,
- 	return __netif_subqueue_stopped(dev, skb_get_queue_mapping(skb));
- }
- 
--void netif_wake_subqueue(struct net_device *dev, u16 queue_index);
-+/**
-+ *	netif_wake_subqueue - allow sending packets on subqueue
-+ *	@dev: network device
-+ *	@queue_index: sub queue index
-+ *
-+ * Resume individual transmit queue of a device with multiple transmit queues.
-+ */
-+static inline void netif_wake_subqueue(struct net_device *dev, u16 queue_index)
-+{
-+	struct netdev_queue *txq = netdev_get_tx_queue(dev, queue_index);
-+
-+	netif_tx_wake_queue(txq);
-+}
- 
- #ifdef CONFIG_XPS
- int netif_set_xps_queue(struct net_device *dev, const struct cpumask *mask,
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 643e4a4491c6..7547e2ccc06b 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2408,28 +2408,6 @@ void netif_schedule_queue(struct netdev_queue *txq)
- }
- EXPORT_SYMBOL(netif_schedule_queue);
- 
--/**
-- *	netif_wake_subqueue - allow sending packets on subqueue
-- *	@dev: network device
-- *	@queue_index: sub queue index
-- *
-- * Resume individual transmit queue of a device with multiple transmit queues.
-- */
--void netif_wake_subqueue(struct net_device *dev, u16 queue_index)
--{
--	struct netdev_queue *txq = netdev_get_tx_queue(dev, queue_index);
--
--	if (test_and_clear_bit(__QUEUE_STATE_DRV_XOFF, &txq->state)) {
--		struct Qdisc *q;
--
--		rcu_read_lock();
--		q = rcu_dereference(txq->qdisc);
--		__netif_schedule(q);
--		rcu_read_unlock();
--	}
--}
--EXPORT_SYMBOL(netif_wake_subqueue);
--
- void netif_tx_wake_queue(struct netdev_queue *dev_queue)
+diff --git a/net/can/af_can.c b/net/can/af_can.c
+index 1108079..fcbe971 100644
+--- a/net/can/af_can.c
++++ b/net/can/af_can.c
+@@ -517,10 +517,8 @@ int can_rx_register(struct net_device *dev, canid_t can_id, canid_t mask,
+ /*
+  * can_rx_delete_receiver - rcu callback for single receiver entry removal
+  */
+-static void can_rx_delete_receiver(struct rcu_head *rp)
++static void can_rx_delete_receiver(struct receiver *r)
  {
- 	if (test_and_clear_bit(__QUEUE_STATE_DRV_XOFF, &dev_queue->state)) {
+-	struct receiver *r = container_of(rp, struct receiver, rcu);
+-
+ 	kmem_cache_free(rcv_cache, r);
+ }
+ 
+@@ -595,9 +593,13 @@ void can_rx_unregister(struct net_device *dev, canid_t can_id, canid_t mask,
+  out:
+ 	spin_unlock(&can_rcvlists_lock);
+ 
+-	/* schedule the receiver item for deletion */
+-	if (r)
+-		call_rcu(&r->rcu, can_rx_delete_receiver);
++	/* synchronize_rcu to wait until a grace period has elapsed, to make
++	 * sure all receiver's sk dereferenced by others.
++	 */
++	if (r) {
++		synchronize_rcu();
++		can_rx_delete_receiver(r);
++	}
+ }
+ EXPORT_SYMBOL(can_rx_unregister);
+ 
+diff --git a/net/can/af_can.h b/net/can/af_can.h
+index fca0fe9..a0cbf83 100644
+--- a/net/can/af_can.h
++++ b/net/can/af_can.h
+@@ -50,7 +50,6 @@
+ 
+ struct receiver {
+ 	struct hlist_node list;
+-	struct rcu_head rcu;
+ 	canid_t can_id;
+ 	canid_t mask;
+ 	unsigned long matches;
 -- 
-2.9.3
+1.9.4
