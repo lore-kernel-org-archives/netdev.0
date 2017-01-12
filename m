@@ -1,143 +1,138 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v2 01/10] net: dsa: Pass device pointer to dsa_register_switch
-Date: Wed, 11 Jan 2017 19:41:12 -0800
-Message-ID: <20170112034121.27697-2-f.fainelli@gmail.com>
-References: <20170112034121.27697-1-f.fainelli@gmail.com>
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        Jason Cooper <jason@lakedaemon.net>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-        Gregory Clement <gregory.clement@free-electrons.com>,
-        Russell King <linux@armlinux.org.uk>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        linux-arm-kernel@lists.infradead.org (moderated list:ARM
-        SUB-ARCHITECTURES), linux-kernel@vger.kernel.org (open list),
-        gregkh@linuxfoundation.org
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170112034121.27697-1-f.fainelli@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Alexander Loktionov <Alexander.Loktionov@aquantia.com>
+Subject: [PATCH v4 00/13] net: ethernet: aquantia: Add AQtion 2.5/5 GB NIC driver
+Date: Wed, 11 Jan 2017 19:53:04 -0800
+Message-ID: <cover.1484192452.git.vomlehn@texas.net>
+Cc: "David S . Miller" <davem@davemloft.net>,
+        Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
+        Alexander Loktionov <Alexander.Loktionov@aquantia.com>,
+        Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>,
+        Pavel Belous <Pavel.Belous@aquantia.com>
+To: netdev@vger.kernel.org, David VomLehn <vomlehn@texas.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from barracuda5.aus1.datafoundry.com ([209.99.124.136]:43658 "EHLO
+        barracuda.datafoundry.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1752167AbdALDx5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 22:53:57 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In preparation for allowing dsa_register_switch() to be supplied with
-device/platform data, pass down a struct device pointer instead of a
-struct device_node.
+From: David VomLehn <vomlehn@texas.net>
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+This series introduces the AQtion NIC driver for the aQuantia
+AQC107/AQC108 network devices.
+
+v1: Initial version
+v2: o Make necessary drivers/net/ethernet changes to integrate software
+    o Drop intermediate atlantic directory
+    o Remove Makefile things only appropriate to out of tree module
+      building
+v3: o Move changes to drivers/net/ethernet/{Kconfig,Makefile} to the last
+      patch to ensure clean bisection.
+    o Removed inline attribute aq_hw_write_req() as it was defined in
+      only one .c file.
+    o #included pci.h in aq_common.h to get struct pci definition.
+    o Modified code to unlock based execution flow rather than using a flag.
+    o Made a number of functions that were only used in a single file static.
+    o Cleaned up error and return code handling in various places.
+    o Remove AQ_CFG_IP_ALIGN definition.
+    o Other minor code clean up.
+v4: o Using do_div for 64 bit division.
+    o Modified NIC statistics code.
+    o Using build_skb instead netdev_alloc_skb for single fragment packets.
+    o Removed extra aq_nic.o from Makefile
+
+Signed-off-by: Alexander Loktionov <Alexander.Loktionov@aquantia.com>
+Signed-off-by: Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>
+Signed-off-by: Pavel Belous <Pavel.Belous@aquantia.com>
+Signed-off-by: David M. VomLehn <vomlehn@texas.net>
 ---
- drivers/net/dsa/b53/b53_common.c |  2 +-
- drivers/net/dsa/mv88e6xxx/chip.c | 11 ++++++-----
- drivers/net/dsa/qca8k.c          |  2 +-
- include/net/dsa.h                |  2 +-
- net/dsa/dsa2.c                   |  7 ++++---
- 5 files changed, 13 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/dsa/b53/b53_common.c b/drivers/net/dsa/b53/b53_common.c
-index 5102a3701a1a..7179eed9ee6d 100644
---- a/drivers/net/dsa/b53/b53_common.c
-+++ b/drivers/net/dsa/b53/b53_common.c
-@@ -1882,7 +1882,7 @@ int b53_switch_register(struct b53_device *dev)
- 
- 	pr_info("found switch: %s, rev %i\n", dev->name, dev->core_rev);
- 
--	return dsa_register_switch(dev->ds, dev->ds->dev->of_node);
-+	return dsa_register_switch(dev->ds, dev->ds->dev);
- }
- EXPORT_SYMBOL(b53_switch_register);
- 
-diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index eea8e0176e33..1060597e160a 100644
---- a/drivers/net/dsa/mv88e6xxx/chip.c
-+++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -4407,8 +4407,7 @@ static struct dsa_switch_driver mv88e6xxx_switch_drv = {
- 	.ops			= &mv88e6xxx_switch_ops,
- };
- 
--static int mv88e6xxx_register_switch(struct mv88e6xxx_chip *chip,
--				     struct device_node *np)
-+static int mv88e6xxx_register_switch(struct mv88e6xxx_chip *chip)
- {
- 	struct device *dev = chip->dev;
- 	struct dsa_switch *ds;
-@@ -4423,7 +4422,7 @@ static int mv88e6xxx_register_switch(struct mv88e6xxx_chip *chip,
- 
- 	dev_set_drvdata(dev, ds);
- 
--	return dsa_register_switch(ds, np);
-+	return dsa_register_switch(ds, dev);
- }
- 
- static void mv88e6xxx_unregister_switch(struct mv88e6xxx_chip *chip)
-@@ -4507,9 +4506,11 @@ static int mv88e6xxx_probe(struct mdio_device *mdiodev)
- 	if (err)
- 		goto out_g2_irq;
- 
--	err = mv88e6xxx_register_switch(chip, np);
--	if (err)
-+	err = mv88e6xxx_register_switch(chip);
-+	if (err) {
-+		mv88e6xxx_mdio_unregister(chip);
- 		goto out_mdio;
-+	}
- 
- 	return 0;
- 
-diff --git a/drivers/net/dsa/qca8k.c b/drivers/net/dsa/qca8k.c
-index 54d270d59eb0..c084aa484d2b 100644
---- a/drivers/net/dsa/qca8k.c
-+++ b/drivers/net/dsa/qca8k.c
-@@ -964,7 +964,7 @@ qca8k_sw_probe(struct mdio_device *mdiodev)
- 	mutex_init(&priv->reg_mutex);
- 	dev_set_drvdata(&mdiodev->dev, priv);
- 
--	return dsa_register_switch(priv->ds, priv->ds->dev->of_node);
-+	return dsa_register_switch(priv->ds, &mdiodev->dev);
- }
- 
- static void
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index b94d1f2ef912..16a502a6c26a 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -403,7 +403,7 @@ static inline bool dsa_uses_tagged_protocol(struct dsa_switch_tree *dst)
- }
- 
- void dsa_unregister_switch(struct dsa_switch *ds);
--int dsa_register_switch(struct dsa_switch *ds, struct device_node *np);
-+int dsa_register_switch(struct dsa_switch *ds, struct device *dev);
- #ifdef CONFIG_PM_SLEEP
- int dsa_switch_suspend(struct dsa_switch *ds);
- int dsa_switch_resume(struct dsa_switch *ds);
-diff --git a/net/dsa/dsa2.c b/net/dsa/dsa2.c
-index 42a41d84053c..4170f7ea8e28 100644
---- a/net/dsa/dsa2.c
-+++ b/net/dsa/dsa2.c
-@@ -579,8 +579,9 @@ static struct device_node *dsa_get_ports(struct dsa_switch *ds,
- 	return ports;
- }
- 
--static int _dsa_register_switch(struct dsa_switch *ds, struct device_node *np)
-+static int _dsa_register_switch(struct dsa_switch *ds, struct device *dev)
- {
-+	struct device_node *np = dev->of_node;
- 	struct device_node *ports = dsa_get_ports(ds, np);
- 	struct dsa_switch_tree *dst;
- 	u32 tree, index;
-@@ -660,12 +661,12 @@ static int _dsa_register_switch(struct dsa_switch *ds, struct device_node *np)
- 	return err;
- }
- 
--int dsa_register_switch(struct dsa_switch *ds, struct device_node *np)
-+int dsa_register_switch(struct dsa_switch *ds, struct device *dev)
- {
- 	int err;
- 
- 	mutex_lock(&dsa2_mutex);
--	err = _dsa_register_switch(ds, np);
-+	err = _dsa_register_switch(ds, dev);
- 	mutex_unlock(&dsa2_mutex);
- 
- 	return err;
+David VomLehn (13):
+  net: ethernet: aquantia: Make and configuration files.
+  net: ethernet: aquantia: Common functions and definitions
+  net: ethernet: aquantia: Add ring support code
+  net: ethernet: aquantia: Low-level hardware interfaces
+  net: ethernet: aquantia: Support for NIC-specific code
+  net: ethernet: aquantia: Atlantic A0 and B0 specific functions.
+  net: ethernet: aquantia: Vector operations
+  net: ethernet: aquantia: PCI operations
+  net: ethernet: aquantia: Atlantic hardware abstraction layer
+  net: ethernet: aquantia: Hardware interface and utility functions
+  net: ethernet: aquantia: Ethtool support
+  net: ethernet: aquantia: Receive side scaling
+  net: ethernet: aquantia: Integrate AQtion 2.5/5 GB NIC driver
+
+ drivers/net/ethernet/Kconfig                       |    1 +
+ drivers/net/ethernet/Makefile                      |    1 +
+ drivers/net/ethernet/aquantia/Kconfig              |   24 +
+ drivers/net/ethernet/aquantia/Makefile             |   43 +
+ drivers/net/ethernet/aquantia/aq_cfg.h             |   78 +
+ drivers/net/ethernet/aquantia/aq_common.h          |   24 +
+ drivers/net/ethernet/aquantia/aq_ethtool.c         |  251 +++
+ drivers/net/ethernet/aquantia/aq_ethtool.h         |   20 +
+ drivers/net/ethernet/aquantia/aq_hw.h              |  170 ++
+ drivers/net/ethernet/aquantia/aq_hw_utils.c        |   69 +
+ drivers/net/ethernet/aquantia/aq_hw_utils.h        |   48 +
+ drivers/net/ethernet/aquantia/aq_main.c            |  292 +++
+ drivers/net/ethernet/aquantia/aq_main.h            |   18 +
+ drivers/net/ethernet/aquantia/aq_nic.c             |  911 ++++++++
+ drivers/net/ethernet/aquantia/aq_nic.h             |  109 +
+ drivers/net/ethernet/aquantia/aq_nic_internal.h    |   47 +
+ drivers/net/ethernet/aquantia/aq_pci_func.c        |  348 +++
+ drivers/net/ethernet/aquantia/aq_pci_func.h        |   35 +
+ drivers/net/ethernet/aquantia/aq_ring.c            |  359 +++
+ drivers/net/ethernet/aquantia/aq_ring.h            |  158 ++
+ drivers/net/ethernet/aquantia/aq_rss.h             |   27 +
+ drivers/net/ethernet/aquantia/aq_utils.h           |   54 +
+ drivers/net/ethernet/aquantia/aq_vec.c             |  386 ++++
+ drivers/net/ethernet/aquantia/aq_vec.h             |   43 +
+ drivers/net/ethernet/aquantia/hw_atl/hw_atl_a0.c   |  908 ++++++++
+ drivers/net/ethernet/aquantia/hw_atl/hw_atl_a0.h   |   35 +
+ .../ethernet/aquantia/hw_atl/hw_atl_a0_internal.h  |  153 ++
+ drivers/net/ethernet/aquantia/hw_atl/hw_atl_b0.c   |  961 ++++++++
+ drivers/net/ethernet/aquantia/hw_atl/hw_atl_b0.h   |   35 +
+ .../ethernet/aquantia/hw_atl/hw_atl_b0_internal.h  |  206 ++
+ drivers/net/ethernet/aquantia/hw_atl/hw_atl_llh.c  | 1395 ++++++++++++
+ drivers/net/ethernet/aquantia/hw_atl/hw_atl_llh.h  |  678 ++++++
+ .../ethernet/aquantia/hw_atl/hw_atl_llh_internal.h | 2376 ++++++++++++++++++++
+ .../net/ethernet/aquantia/hw_atl/hw_atl_utils.c    |  548 +++++
+ .../net/ethernet/aquantia/hw_atl/hw_atl_utils.h    |  211 ++
+ drivers/net/ethernet/aquantia/ver.h                |   19 +
+ 36 files changed, 11041 insertions(+)
+ create mode 100644 drivers/net/ethernet/aquantia/Kconfig
+ create mode 100644 drivers/net/ethernet/aquantia/Makefile
+ create mode 100644 drivers/net/ethernet/aquantia/aq_cfg.h
+ create mode 100644 drivers/net/ethernet/aquantia/aq_common.h
+ create mode 100644 drivers/net/ethernet/aquantia/aq_ethtool.c
+ create mode 100644 drivers/net/ethernet/aquantia/aq_ethtool.h
+ create mode 100644 drivers/net/ethernet/aquantia/aq_hw.h
+ create mode 100644 drivers/net/ethernet/aquantia/aq_hw_utils.c
+ create mode 100644 drivers/net/ethernet/aquantia/aq_hw_utils.h
+ create mode 100644 drivers/net/ethernet/aquantia/aq_main.c
+ create mode 100644 drivers/net/ethernet/aquantia/aq_main.h
+ create mode 100644 drivers/net/ethernet/aquantia/aq_nic.c
+ create mode 100644 drivers/net/ethernet/aquantia/aq_nic.h
+ create mode 100644 drivers/net/ethernet/aquantia/aq_nic_internal.h
+ create mode 100644 drivers/net/ethernet/aquantia/aq_pci_func.c
+ create mode 100644 drivers/net/ethernet/aquantia/aq_pci_func.h
+ create mode 100644 drivers/net/ethernet/aquantia/aq_ring.c
+ create mode 100644 drivers/net/ethernet/aquantia/aq_ring.h
+ create mode 100644 drivers/net/ethernet/aquantia/aq_rss.h
+ create mode 100644 drivers/net/ethernet/aquantia/aq_utils.h
+ create mode 100644 drivers/net/ethernet/aquantia/aq_vec.c
+ create mode 100644 drivers/net/ethernet/aquantia/aq_vec.h
+ create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_a0.c
+ create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_a0.h
+ create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_a0_internal.h
+ create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_b0.c
+ create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_b0.h
+ create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_b0_internal.h
+ create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_llh.c
+ create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_llh.h
+ create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_llh_internal.h
+ create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_utils.c
+ create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_utils.h
+ create mode 100644 drivers/net/ethernet/aquantia/ver.h
+
 -- 
-2.9.3
+2.7.4
