@@ -1,35 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 2/2] stmmac: rename it to synopsys
-Date: Thu, 12 Jan 2017 10:26:30 -0500 (EST)
-Message-ID: <20170112.102630.1448382649844350511.davem@davemloft.net>
-References: <a2d2e457-47e5-bb73-a059-0cb907a29ae0@synopsys.com>
-        <57d96ccb-7fd4-0707-4902-a5bdd2a6ef39@st.com>
-        <dbb59d07-4ab4-37d2-5e70-073091749445@synopsys.com>
+Subject: Re: [PATCH] synopsys: remove dwc_eth_qos driver
+Date: Thu, 12 Jan 2017 10:28:02 -0500 (EST)
+Message-ID: <20170112.102802.1485105708725148022.davem@davemloft.net>
+References: <2d50f9fea61de2eb082b217d435334d40e3e01ad.1484214626.git.jpinto@synopsys.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: alexandre.torgue@st.com, f.fainelli@gmail.com,
-        lars.persson@axis.com, niklass@axis.com, peppe.cavallaro@st.com,
-        netdev@vger.kernel.org
+Cc: lars.persson@axis.com, niklass@axis.com, peppe.cavallaro@st.com,
+        alexandre.torgue@st.com, netdev@vger.kernel.org
 To: Joao.Pinto@synopsys.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:50598 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:50658 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750793AbdALP0d (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 10:26:33 -0500
-In-Reply-To: <dbb59d07-4ab4-37d2-5e70-073091749445@synopsys.com>
+        with ESMTP id S1751051AbdALP2O (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 10:28:14 -0500
+In-Reply-To: <2d50f9fea61de2eb082b217d435334d40e3e01ad.1484214626.git.jpinto@synopsys.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-I don't understand at all why it is so important to change the name of
-these files nor the directory they live in.
+There is no driver named "synopsys", therefore "synopsys: " is not an
+appropriate subsystem prefix.
 
-What bonafide benefit will users receive if we do this?
+Subsystem prefixes have to refer to real names in the source tree in
+one form or another.
 
-The only clear part is the downside, which is that it is going to make
-it painful to browse source history and backport bug fixes.
-
-Please, let's not do this.
-
-Thanks.
+I know you guys really want to rename the stmmac driver to that, but
+no agreement has occurred on that issue and therefore assuming it
+has happened is not appropriate.
