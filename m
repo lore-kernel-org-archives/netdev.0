@@ -1,31 +1,32 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] tcp: fix tcp_fastopen unaligned access complaints on
- sparc
-Date: Thu, 12 Jan 2017 12:25:33 -0800
-Message-ID: <1484252733.13165.1.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1484251157-245538-1-git-send-email-shannon.nelson@oracle.com>
-         <1484252011.13165.0.camel@edumazet-glaptop3.roam.corp.google.com>
-         <cd152a9f-4855-a552-2b45-bd619436a628@oracle.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] liquidio: remove unnecessary code
+Date: Thu, 12 Jan 2017 15:25:49 -0500 (EST)
+Message-ID: <20170112.152549.1436993838110326721.davem@davemloft.net>
+References: <20170112010902.GA9597@felix.cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Shannon Nelson <shannon.nelson@oracle.com>, netdev@vger.kernel.org,
-        davem@davemloft.net, sparclinux@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Rob Gardner <rob.gardner@oracle.com>
+Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
+        derek.chickles@cavium.com, satananda.burla@cavium.com
+To: felix.manlunas@cavium.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:34515 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750750AbdALUZk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 15:25:40 -0500
-In-Reply-To: <cd152a9f-4855-a552-2b45-bd619436a628@oracle.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:56618 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750846AbdALU0B (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 15:26:01 -0500
+In-Reply-To: <20170112010902.GA9597@felix.cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2017-01-12 at 13:15 -0700, Rob Gardner wrote:
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Date: Wed, 11 Jan 2017 17:09:02 -0800
 
+> Remove code that's no longer needed.  It used to serve a purpose, which was
+> to fix a link-related bug.  For a while now, the NIC firmware has had a
+> more elegant fix for that bug.
 > 
-> I suspect that someplace, somebody is casting val to an int * or 
-> something like that.
+> Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
+> Signed-off-by: Derek Chickles <derek.chickles@cavium.com>
+> Signed-off-by: Satanand Burla <satananda.burla@cavium.com>
 
-Then that would be the bug. Can we root cause this please ?
+Applied.
