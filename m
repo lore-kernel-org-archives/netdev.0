@@ -1,40 +1,72 @@
-From: Kalle Valo <kvalo@qca.qualcomm.com>
-Subject: Re: ath9k: fix spelling mistake: "meaurement" -> "measurement"
-Date: Thu, 12 Jan 2017 12:01:15 +0100
-Message-ID: <b06e4d8f8c004ab5977d5269ef71a9c1@euamsexm01a.eu.qualcomm.com>
-References: <20161230140647.12945-1-colin.king@canonical.com>
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Subject: Re: [PATCH v2 2/2] stmmac: rename it to synopsys
+Date: Thu, 12 Jan 2017 11:09:47 +0000
+Message-ID: <dbb59d07-4ab4-37d2-5e70-073091749445@synopsys.com>
+References: <cover.1484059674.git.jpinto@synopsys.com>
+ <c74e6665ca14a4ca03b38cd3442ef0644d9e250d.1484059674.git.jpinto@synopsys.com>
+ <5b5a3231-eed4-ef29-b32a-a19077681dad@gmail.com>
+ <a2d2e457-47e5-bb73-a059-0cb907a29ae0@synopsys.com>
+ <57d96ccb-7fd4-0707-4902-a5bdd2a6ef39@st.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: QCA ath9k Development <ath9k-devel@qca.qualcomm.com>,
-        Kalle Valo <kvalo@codeaurora.org>,
-        <linux-wireless@vger.kernel.org>, <ath9k-devel@lists.ath9k.org>,
-        <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Colin Ian King <colin.king@canonical.com>
+Content-Transfer-Encoding: 8bit
+Cc: <lars.persson@axis.com>, <niklass@axis.com>,
+        <peppe.cavallaro@st.com>, <netdev@vger.kernel.org>
+To: Alexandre Torgue <alexandre.torgue@st.com>,
+        Joao Pinto <Joao.Pinto@synopsys.com>,
+        Florian Fainelli <f.fainelli@gmail.com>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wolverine02.qualcomm.com ([199.106.114.251]:42697 "EHLO
-        wolverine02.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750904AbdALLBY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 06:01:24 -0500
-In-Reply-To: <20161230140647.12945-1-colin.king@canonical.com>
+Received: from smtprelay4.synopsys.com ([198.182.47.9]:55228 "EHLO
+        smtprelay.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751206AbdALLOZ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 06:14:25 -0500
+In-Reply-To: <57d96ccb-7fd4-0707-4902-a5bdd2a6ef39@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Colin Ian King <colin.king@canonical.com> wrote:
-> From: Colin Ian King <colin.king@canonical.com>
+Hi Alex, good morning!
+
+Às 10:11 AM de 1/12/2017, Alexandre Torgue escreveu:
+>>
+>> Lets not name it synopsys, for me it is totally fine, but naming it
+>> stmicro/stmmac is not the right way because it seems like it is a driver just
+>> for stmicro products, which is not, is for products that use Designware Ethernet
+>> IPs.
+>>
+>> I am volunteering to do this work, let's discuss this.
 > 
-> Trivial fix to spelling mistake in ath_err message
+> For me it makes no sens to rename only folder (stmicro/stmmac by synopsys) and
+> keep stmmac* inside a synopsys folder (that is very confusing). If you propose
+> that you have to change all.
 > 
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> BUT doing that, we will lose all stmmac driver story and we don't want that.
 
-Patch applied to ath-next branch of ath.git, thanks.
+Totally understand your point. Do you agree on this approach?
+rename "stmicro" to "dwc" (designware controllers) and leave stmmac as it is
+today. This small change is enough in my point of view and sole the problems you
+refer. We would have net/ethernet/dwc/stmmac/.
 
-714ee339ff90 ath9k: fix spelling mistake: "meaurement" -> "measurement"
+I can also rename the dwmac4 files and functions to eqos, since soon we will
+have a new eqos version.
 
--- 
-https://patchwork.kernel.org/patch/9492191/
+dwmac4.h -> eqos.h
+dwmac4_core.c -> eqos_core.c
+dwmac4_descs.c -> eqos_descs.c
+dwmac4_descs.h -> eqos_descs.h
+dwmac4_dma.c -> eqos_dma.c
+dwmac4_dma.h -> eqos_dma.h
+dwmac4_lib.c -> eqos_lib.c
 
-Documentation about submitting wireless patches and checking status
-from patchwork:
+What do you think about this approach?
 
-https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
+Thanks,
+Joao
+
+> 
+> 
+> 
+>>
+>> Thanks,
+>> Joao
+>>
+>>
