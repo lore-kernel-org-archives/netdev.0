@@ -1,77 +1,55 @@
-From: Igor Druzhinin <igor.druzhinin@citrix.com>
-Subject: [PATCH] xen-netback: fix memory leaks on XenBus
-	disconnect
-Date: Thu, 12 Jan 2017 17:51:56 +0000
-Message-ID: <1484243516-141100-1-git-send-email-igor.druzhinin@citrix.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [EXT] Re: [PATCH/RFC v2 net-next] ravb: unmap descriptors when
+ freeing rings
+Date: Thu, 12 Jan 2017 21:00:14 +0300
+Message-ID: <8d3a42b2-1883-58c9-7377-59b0673b4308@cogentembedded.com>
+References: <1483613000-537-1-git-send-email-horms+renesas@verge.net.au>
+ <6fcec500-bed6-ffa3-2887-d45b34703682@cogentembedded.com>
+ <20170112091116.GC7724@verge.net.au>
+ <d840eddd-f6a3-fe8c-dbaa-242c117b5274@marvell.com>
+ <08e00682-a8da-1483-b2d8-f58d32587fd6@cogentembedded.com>
+ <4950c7fd-dfe5-ea02-ba23-5477a0ba8e5e@marvell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
- igor.druzhinin@citrix.com
-To: <wei.liu2@citrix.com>, <xen-devel@lists.xenproject.org>,
- <paul.durrant@citrix.com>
-Return-path: <xen-devel-bounces@lists.xen.org>
-List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Errors-To: xen-devel-bounces@lists.xen.org
-Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+        Magnus Damm <magnus.damm@gmail.com>, netdev@vger.kernel.org,
+        linux-renesas-soc@vger.kernel.org
+To: Lino Sanfilippo <lsanfil@marvell.com>,
+        Simon Horman <horms@verge.net.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f50.google.com ([209.85.215.50]:35389 "EHLO
+        mail-lf0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750791AbdALSAS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 13:00:18 -0500
+Received: by mail-lf0-f50.google.com with SMTP id m78so19065085lfg.2
+        for <netdev@vger.kernel.org>; Thu, 12 Jan 2017 10:00:18 -0800 (PST)
+In-Reply-To: <4950c7fd-dfe5-ea02-ba23-5477a0ba8e5e@marvell.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RWxpbWluYXRlIG1lbW9yeSBsZWFrcyBpbnRyb2R1Y2VkIHNldmVyYWwgeWVhcnMgYWdvIGJ5IGNs
-ZWFuaW5nIHRoZSBxdWV1ZQpyZXNvdXJjZXMgd2hpY2ggYXJlIGFsbG9jYXRlZCBvbiBYZW5CdXMg
-Y29ubmVjdGlvbiBldmVudC4gTmFtZWx5LCBxdWV1ZQpzdHJ1Y3R1cmUgYXJyYXkgYW5kIHBhZ2Vz
-IHVzZWQgZm9yIElPIHJpbmdzLgp2aWYtPmxvY2sgaXMgdXNlZCB0byBwcm90ZWN0IHN0YXRpc3Rp
-Y3MgZ2F0aGVyaW5nIGFnZW50cyBmcm9tIHVzaW5nIHRoZQpxdWV1ZSBzdHJ1Y3R1cmUgZHVyaW5n
-IGNsZWFuaW5nLgoKU2lnbmVkLW9mZi1ieTogSWdvciBEcnV6aGluaW4gPGlnb3IuZHJ1emhpbmlu
-QGNpdHJpeC5jb20+Ci0tLQogZHJpdmVycy9uZXQveGVuLW5ldGJhY2svaW50ZXJmYWNlLmMgfCAg
-NiArKysrLS0KIGRyaXZlcnMvbmV0L3hlbi1uZXRiYWNrL3hlbmJ1cy5jICAgIHwgMTMgKysrKysr
-KysrKysrKwogMiBmaWxlcyBjaGFuZ2VkLCAxNyBpbnNlcnRpb25zKCspLCAyIGRlbGV0aW9ucygt
-KQoKZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L3hlbi1uZXRiYWNrL2ludGVyZmFjZS5jIGIvZHJp
-dmVycy9uZXQveGVuLW5ldGJhY2svaW50ZXJmYWNlLmMKaW5kZXggZTMwZmZkMi4uNTc5NTIxMyAx
-MDA2NDQKLS0tIGEvZHJpdmVycy9uZXQveGVuLW5ldGJhY2svaW50ZXJmYWNlLmMKKysrIGIvZHJp
-dmVycy9uZXQveGVuLW5ldGJhY2svaW50ZXJmYWNlLmMKQEAgLTIyMSwxOCArMjIxLDE4IEBAIHN0
-YXRpYyBzdHJ1Y3QgbmV0X2RldmljZV9zdGF0cyAqeGVudmlmX2dldF9zdGF0cyhzdHJ1Y3QgbmV0
-X2RldmljZSAqZGV2KQogewogCXN0cnVjdCB4ZW52aWYgKnZpZiA9IG5ldGRldl9wcml2KGRldik7
-CiAJc3RydWN0IHhlbnZpZl9xdWV1ZSAqcXVldWUgPSBOVUxMOwotCXVuc2lnbmVkIGludCBudW1f
-cXVldWVzID0gdmlmLT5udW1fcXVldWVzOwogCXVuc2lnbmVkIGxvbmcgcnhfYnl0ZXMgPSAwOwog
-CXVuc2lnbmVkIGxvbmcgcnhfcGFja2V0cyA9IDA7CiAJdW5zaWduZWQgbG9uZyB0eF9ieXRlcyA9
-IDA7CiAJdW5zaWduZWQgbG9uZyB0eF9wYWNrZXRzID0gMDsKIAl1bnNpZ25lZCBpbnQgaW5kZXg7
-CiAKKwlzcGluX2xvY2soJnZpZi0+bG9jayk7CiAJaWYgKHZpZi0+cXVldWVzID09IE5VTEwpCiAJ
-CWdvdG8gb3V0OwogCiAJLyogQWdncmVnYXRlIHR4IGFuZCByeCBzdGF0cyBmcm9tIGVhY2ggcXVl
-dWUgKi8KLQlmb3IgKGluZGV4ID0gMDsgaW5kZXggPCBudW1fcXVldWVzOyArK2luZGV4KSB7CisJ
-Zm9yIChpbmRleCA9IDA7IGluZGV4IDwgdmlmLT5udW1fcXVldWVzOyArK2luZGV4KSB7CiAJCXF1
-ZXVlID0gJnZpZi0+cXVldWVzW2luZGV4XTsKIAkJcnhfYnl0ZXMgKz0gcXVldWUtPnN0YXRzLnJ4
-X2J5dGVzOwogCQlyeF9wYWNrZXRzICs9IHF1ZXVlLT5zdGF0cy5yeF9wYWNrZXRzOwpAQCAtMjQx
-LDYgKzI0MSw4IEBAIHN0YXRpYyBzdHJ1Y3QgbmV0X2RldmljZV9zdGF0cyAqeGVudmlmX2dldF9z
-dGF0cyhzdHJ1Y3QgbmV0X2RldmljZSAqZGV2KQogCX0KIAogb3V0OgorCXNwaW5fdW5sb2NrKCZ2
-aWYtPmxvY2spOworCiAJdmlmLT5kZXYtPnN0YXRzLnJ4X2J5dGVzID0gcnhfYnl0ZXM7CiAJdmlm
-LT5kZXYtPnN0YXRzLnJ4X3BhY2tldHMgPSByeF9wYWNrZXRzOwogCXZpZi0+ZGV2LT5zdGF0cy50
-eF9ieXRlcyA9IHR4X2J5dGVzOwpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQveGVuLW5ldGJhY2sv
-eGVuYnVzLmMgYi9kcml2ZXJzL25ldC94ZW4tbmV0YmFjay94ZW5idXMuYwppbmRleCAzMTI0ZWFl
-Li44NWI3NDJlIDEwMDY0NAotLS0gYS9kcml2ZXJzL25ldC94ZW4tbmV0YmFjay94ZW5idXMuYwor
-KysgYi9kcml2ZXJzL25ldC94ZW4tbmV0YmFjay94ZW5idXMuYwpAQCAtNDkzLDExICs0OTMsMjIg
-QEAgc3RhdGljIGludCBiYWNrZW5kX2NyZWF0ZV94ZW52aWYoc3RydWN0IGJhY2tlbmRfaW5mbyAq
-YmUpCiBzdGF0aWMgdm9pZCBiYWNrZW5kX2Rpc2Nvbm5lY3Qoc3RydWN0IGJhY2tlbmRfaW5mbyAq
-YmUpCiB7CiAJaWYgKGJlLT52aWYpIHsKKwkJdW5zaWduZWQgaW50IHF1ZXVlX2luZGV4OworCiAJ
-CXhlbl91bnJlZ2lzdGVyX3dhdGNoZXJzKGJlLT52aWYpOwogI2lmZGVmIENPTkZJR19ERUJVR19G
-UwogCQl4ZW52aWZfZGVidWdmc19kZWxpZihiZS0+dmlmKTsKICNlbmRpZiAvKiBDT05GSUdfREVC
-VUdfRlMgKi8KIAkJeGVudmlmX2Rpc2Nvbm5lY3RfZGF0YShiZS0+dmlmKTsKKwkJZm9yIChxdWV1
-ZV9pbmRleCA9IDA7IHF1ZXVlX2luZGV4IDwgYmUtPnZpZi0+bnVtX3F1ZXVlczsgKytxdWV1ZV9p
-bmRleCkKKwkJCXhlbnZpZl9kZWluaXRfcXVldWUoJmJlLT52aWYtPnF1ZXVlc1txdWV1ZV9pbmRl
-eF0pOworCisJCXNwaW5fbG9jaygmYmUtPnZpZi0+bG9jayk7CisJCXZmcmVlKGJlLT52aWYtPnF1
-ZXVlcyk7CisJCWJlLT52aWYtPm51bV9xdWV1ZXMgPSAwOworCQliZS0+dmlmLT5xdWV1ZXMgPSBO
-VUxMOworCQlzcGluX3VubG9jaygmYmUtPnZpZi0+bG9jayk7CisKIAkJeGVudmlmX2Rpc2Nvbm5l
-Y3RfY3RybChiZS0+dmlmKTsKIAl9CiB9CkBAIC0xMDM0LDYgKzEwNDUsOCBAQCBzdGF0aWMgdm9p
-ZCBjb25uZWN0KHN0cnVjdCBiYWNrZW5kX2luZm8gKmJlKQogZXJyOgogCWlmIChiZS0+dmlmLT5u
-dW1fcXVldWVzID4gMCkKIAkJeGVudmlmX2Rpc2Nvbm5lY3RfZGF0YShiZS0+dmlmKTsgLyogQ2xl
-YW4gdXAgZXhpc3RpbmcgcXVldWVzICovCisJZm9yIChxdWV1ZV9pbmRleCA9IDA7IHF1ZXVlX2lu
-ZGV4IDwgYmUtPnZpZi0+bnVtX3F1ZXVlczsgKytxdWV1ZV9pbmRleCkKKwkJeGVudmlmX2RlaW5p
-dF9xdWV1ZSgmYmUtPnZpZi0+cXVldWVzW3F1ZXVlX2luZGV4XSk7CiAJdmZyZWUoYmUtPnZpZi0+
-cXVldWVzKTsKIAliZS0+dmlmLT5xdWV1ZXMgPSBOVUxMOwogCWJlLT52aWYtPm51bV9xdWV1ZXMg
-PSAwOwotLSAKMS44LjMuMQoKCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fClhlbi1kZXZlbCBtYWlsaW5nIGxpc3QKWGVuLWRldmVsQGxpc3RzLnhlbi5vcmcK
-aHR0cHM6Ly9saXN0cy54ZW4ub3JnL3hlbi1kZXZlbAo=
+On 01/12/2017 07:55 PM, Lino Sanfilippo wrote:
+
+>>>>>> +
+>>>>>> +    for (; priv->cur_tx[q] - priv->dirty_tx[q] > 0; priv->dirty_tx[q]++) {
+>>>
+>>> BTW: How can this work correctly when cur_tx wraps and dirty_tx is greater?
+>>
+>>    {cur|dirty}_tx never wrap.
+>>
+>
+> Both values are 32 bit and AFAICS they are only incremented (and never reset or
+> decremented).
+
+    Yeah, sorry, O thought you mean the TX ring size wrapping.
+
+> So what prevents them from wrapping every 2^32 processed tx descriptors? Am I
+> missing
+> something?
+
+    The math should still work all right IIUC.
+
+> Regards,
+> Lino
+
+MBR, Sergei
