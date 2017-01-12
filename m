@@ -1,36 +1,46 @@
-From: Marc Bertola <marc.bertola@prolucid.ca>
-Subject: Re: Correct method for initializing Pause and Asymmetrical Pause
- support in phy drivers
-Date: Thu, 12 Jan 2017 11:52:46 -0500
-Message-ID: <CAMqDo0Wy0MkOvtqj84U=Dm6rb+BBSVNREAndBLGvojMHYirgaw@mail.gmail.com>
-References: <CAMqDo0XxvtjD+uJQeHJuSyN71zEEa5AB9YE1CUYK8wq2NGeAbQ@mail.gmail.com>
- <68c58b10-1458-636e-a4a6-686a17ba743b@neratec.com>
+From: Lino Sanfilippo <lsanfil@marvell.com>
+Subject: Re: [EXT] Re: [PATCH/RFC v2 net-next] ravb: unmap descriptors when
+ freeing rings
+Date: Thu, 12 Jan 2017 17:55:29 +0100
+Message-ID: <4950c7fd-dfe5-ea02-ba23-5477a0ba8e5e@marvell.com>
+References: <1483613000-537-1-git-send-email-horms+renesas@verge.net.au>
+ <6fcec500-bed6-ffa3-2887-d45b34703682@cogentembedded.com>
+ <20170112091116.GC7724@verge.net.au>
+ <d840eddd-f6a3-fe8c-dbaa-242c117b5274@marvell.com>
+ <08e00682-a8da-1483-b2d8-f58d32587fd6@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, Florian Fainelli <f.fainelli@gmail.com>,
-        Timur Tabi <timur@codeaurora.org>
-To: Zefir Kurtisi <zefir.kurtisi@neratec.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f51.google.com ([209.85.218.51]:35195 "EHLO
-        mail-oi0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750773AbdALQxH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 11:53:07 -0500
-Received: by mail-oi0-f51.google.com with SMTP id j15so29602951oih.2
-        for <netdev@vger.kernel.org>; Thu, 12 Jan 2017 08:53:07 -0800 (PST)
-In-Reply-To: <68c58b10-1458-636e-a4a6-686a17ba743b@neratec.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+        Magnus Damm <magnus.damm@gmail.com>, <netdev@vger.kernel.org>,
+        <linux-renesas-soc@vger.kernel.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+        Simon Horman <horms@verge.net.au>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <08e00682-a8da-1483-b2d8-f58d32587fd6@cogentembedded.com>
+Sender: linux-renesas-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Yes! This solution makes most sense, as Pause support is definitely on
-the MAC side.
+Hi,
 
-I thought this was not allowed because I was following instructions
-from a stale copy of phy.txt -- I figured my copy was good because the
-"last update" date at the top of the master file was the same. (It is
-still 2008-04-08  -- see
-https://github.com/torvalds/linux/blob/master/Documentation/networking/phy.txt)
+On 12.01.2017 17:37, Sergei Shtylyov wrote:
+> External Email
+>
+> ----------------------------------------------------------------------
+> On 01/12/2017 04:23 PM, Lino Sanfilippo wrote:
+>
+>>>>> +
+>>>>> +    for (; priv->cur_tx[q] - priv->dirty_tx[q] > 0; priv->dirty_tx[q]++) {
+>>
+>> BTW: How can this work correctly when cur_tx wraps and dirty_tx is greater?
+>
+>    {cur|dirty}_tx never wrap.
+>
 
-Thank you very much for your swift response. This whole issue has been
-very interesting to investigate. I'll take a look at Timur's cleanup
-and respect that approach as I repair the older copy of kernel that I
-am working with for this project.
+Both values are 32 bit and AFAICS they are only incremented (and never reset or
+decremented).
+So what prevents them from wrapping every 2^32 processed tx descriptors? Am I missing
+something?
+
+Regards,
+Lino
