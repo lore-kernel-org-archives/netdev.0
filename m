@@ -1,77 +1,43 @@
-From: Michal Hocko <mhocko@kernel.org>
-Subject: Re: [PATCH 5/6] treewide: use kv[mz]alloc* rather than opencoded
- variants
-Date: Thu, 12 Jan 2017 18:37:46 +0100
-Message-ID: <20170112173745.GC31509@dhcp22.suse.cz>
-References: <20170112153717.28943-1-mhocko@kernel.org>
- <20170112153717.28943-6-mhocko@kernel.org>
- <CAGXu5jKhYP=5YNuntzmG64WL92F59VKhByOh9nqaGP7-LBEnng@mail.gmail.com>
+From: Craig Gallek <kraigatgoog@gmail.com>
+Subject: Re: [PATCH 1/6 net-next] inet: collapse ipv4/v6 rcv_saddr_equal
+ functions into one
+Date: Thu, 12 Jan 2017 12:41:33 -0500
+Message-ID: <CAEfhGixyDxk6yNCY-FVLAop-VvO0jB1YuOu3i382Y5S40ocwOA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Vlastimil Babka <vbabka@suse.cz>,
-	David Rientjes <rientjes@google.com>, Mel Gorman <mgorman@suse.de>,
-	Johannes Weiner <hannes@cmpxchg.org>,
-	Al Viro <viro@zeniv.linux.org.uk>, Linux-MM <linux-mm@kvack.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>,
-	Heiko Carstens <heiko.carstens@de.ibm.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Anton Vorontsov <anton@enomsg.org>,
-	Colin Cross <ccross@android.com>, Tony Luck <tony.luck@intel.com>,
-	"Rafael J. Wysocki" <rjw@rjwysocki.net>,
-	Ben Skeggs <bskeggs@redhat.com>,
-	Kent Overstreet <kent.overstreet@gmail.com>,
-	Santosh Raspatur <santosh@chelsio.com>,
-	Hariprasad S <hariprasad@chelsio.com>,
-	Tariq Toukan <tariqt@mellanox.com>,
-	Yishai Hadas <yishaih@mellanox.com>,
-	Dan Williams <dan.j.williams@intel.com>,
-	Oleg Drokin <oleg.drokin@intel.com>,
-	Andreas
-To: Kees Cook <keescook@chromium.org>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <CAGXu5jKhYP=5YNuntzmG64WL92F59VKhByOh9nqaGP7-LBEnng@mail.gmail.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        Tom Herbert <tom@herbertland.com>,
+        netdev <netdev@vger.kernel.org>, kernel-team@fb.com
+To: Josef Bacik <jbacik@fb.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f67.google.com ([209.85.215.67]:35331 "EHLO
+        mail-lf0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751194AbdALRlh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 12:41:37 -0500
+Received: by mail-lf0-f67.google.com with SMTP id v186so2888134lfa.2
+        for <netdev@vger.kernel.org>; Thu, 12 Jan 2017 09:41:37 -0800 (PST)
+Received: from mail-lf0-f45.google.com (mail-lf0-f45.google.com. [209.85.215.45])
+        by smtp.gmail.com with ESMTPSA id s63sm1034376lja.49.2017.01.12.09.41.34
+        for <netdev@vger.kernel.org>
+        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Thu, 12 Jan 2017 09:41:34 -0800 (PST)
+Received: by mail-lf0-f45.google.com with SMTP id m78so18641011lfg.2
+        for <netdev@vger.kernel.org>; Thu, 12 Jan 2017 09:41:34 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu 12-01-17 09:26:09, Kees Cook wrote:
-> On Thu, Jan 12, 2017 at 7:37 AM, Michal Hocko <mhocko@kernel.org> wrote:
-[...]
-> > diff --git a/arch/s390/kvm/kvm-s390.c b/arch/s390/kvm/kvm-s390.c
-> > index 4f74511015b8..e6bbb33d2956 100644
-> > --- a/arch/s390/kvm/kvm-s390.c
-> > +++ b/arch/s390/kvm/kvm-s390.c
-> > @@ -1126,10 +1126,7 @@ static long kvm_s390_get_skeys(struct kvm *kvm, struct kvm_s390_skeys *args)
-> >         if (args->count < 1 || args->count > KVM_S390_SKEYS_MAX)
-> >                 return -EINVAL;
-> >
-> > -       keys = kmalloc_array(args->count, sizeof(uint8_t),
-> > -                            GFP_KERNEL | __GFP_NOWARN);
-> > -       if (!keys)
-> > -               keys = vmalloc(sizeof(uint8_t) * args->count);
-> > +       keys = kvmalloc(args->count * sizeof(uint8_t), GFP_KERNEL);
-> 
-> Before doing this conversion, can we add a kvmalloc_array() API? This
-> conversion could allow for the reintroduction of integer overflow
-> flaws. (This particular situation isn't at risk since ->count is
-> checked, but I'd prefer we not create a risky set of examples for
-> using kvmalloc.)
-
-Well, I am not opposed to kvmalloc_array but I would argue that this
-conversion cannot introduce new overflow issues. The code would have
-to be broken already because even though kmalloc_array checks for the
-overflow but vmalloc fallback doesn't...
-
-If there is a general interest for this API I can add it.
-
--- 
-Michal Hocko
-SUSE Labs
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+On Wed, Jan 11, 2017 at 3:19 PM, Josef Bacik <jbacik@fb.com> wrote:
+> +int inet_rcv_saddr_equal(const struct sock *sk, const struct sock *sk2,
+> +                        bool match_wildcard)
+> +{
+> +#if IS_ENABLED(CONFIG_IPV6)
+> +       if (sk->sk_family == AF_INET6)
+Still wrapping my head around this, so take it with a grain of salt,
+but it's not obvious to me that sk and sk2 are guaranteed to have the
+same family here (or if it even matters).  Especially in the context
+of the next patch which removes the bind_conflict callback...  Does
+this need to be an OR check for the family of either socket?  Or is it
+safe as-is because the first socket passed to this function is always
+the existing one and the second one is the possible conflict socket?
