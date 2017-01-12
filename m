@@ -1,96 +1,108 @@
-From: Alexandre Torgue <alexandre.torgue@st.com>
-Subject: Re: [PATCH v2 2/2] stmmac: rename it to synopsys
-Date: Thu, 12 Jan 2017 11:11:31 +0100
-Message-ID: <57d96ccb-7fd4-0707-4902-a5bdd2a6ef39@st.com>
-References: <cover.1484059674.git.jpinto@synopsys.com>
- <c74e6665ca14a4ca03b38cd3442ef0644d9e250d.1484059674.git.jpinto@synopsys.com>
- <5b5a3231-eed4-ef29-b32a-a19077681dad@gmail.com>
- <a2d2e457-47e5-bb73-a059-0cb907a29ae0@synopsys.com>
+From: Chas Williams <3chas3@gmail.com>
+Subject: Re: net/atm: warning in alloc_tx/__might_sleep
+Date: Thu, 12 Jan 2017 05:40:54 -0500
+Message-ID: <1484217654.1643.12.camel@gmail.com>
+References: <CAAeHK+yZ16SKcmJbv2ARafGgAuX2wwQNE0HGdiFy1WgqPjxLMg@mail.gmail.com>
+         <1484145426.1643.7.camel@gmail.com> <20170111194525.GA16375@dhcp22.suse.cz>
+         <20170111194645.GM16365@dhcp22.suse.cz>
+         <CAM_iQpWqCaHp2OxdaTOvJrf5vuvPn=rVGTvpGuZMEoBNC95EEQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 8bit
-Cc: <lars.persson@axis.com>, <niklass@axis.com>,
-        <peppe.cavallaro@st.com>, <netdev@vger.kernel.org>
-To: Joao Pinto <Joao.Pinto@synopsys.com>,
-        Florian Fainelli <f.fainelli@gmail.com>, <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx07-00178001.pphosted.com ([62.209.51.94]:15874 "EHLO
-        mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750827AbdALKLm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 05:11:42 -0500
-In-Reply-To: <a2d2e457-47e5-bb73-a059-0cb907a29ae0@synopsys.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Andrey Konovalov <andreyknvl@google.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Al Viro <viro@zeniv.linux.org.uk>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>,
+        Michal Hocko <mhocko@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAM_iQpWqCaHp2OxdaTOvJrf5vuvPn=rVGTvpGuZMEoBNC95EEQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Joao
+On Wed, 2017-01-11 at 20:36 -0800, Cong Wang wrote:
+> On Wed, Jan 11, 2017 at 11:46 AM, Michal Hocko <mhocko@kernel.org> wrote:
+> > On Wed 11-01-17 20:45:25, Michal Hocko wrote:
+> >> On Wed 11-01-17 09:37:06, Chas Williams wrote:
+> >> > On Mon, 2017-01-09 at 18:20 +0100, Andrey Konovalov wrote:
+> >> > > Hi!
+> >> > >
+> >> > > I've got the following error report while running the syzkaller fuzzer.
+> >> > >
+> >> > > On commit a121103c922847ba5010819a3f250f1f7fc84ab8 (4.10-rc3).
+> >> > >
+> >> > > A reproducer is attached.
+> >> > >
+> >> > > ------------[ cut here ]------------
+> >> > > WARNING: CPU: 0 PID: 4114 at kernel/sched/core.c:7737 __might_sleep+0x149/0x1a0
+> >> > > do not call blocking ops when !TASK_RUNNING; state=1 set at
+> >> > > [<ffffffff813fcb22>] prepare_to_wait+0x182/0x530
+> >> > > Modules linked in:
+> >> > > CPU: 0 PID: 4114 Comm: a.out Not tainted 4.10.0-rc3+ #59
+> >> > > Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+> >> > > Call Trace:
+> >> > >  __dump_stack lib/dump_stack.c:15
+> >> > >  dump_stack+0x292/0x398 lib/dump_stack.c:51
+> >> > >  __warn+0x19f/0x1e0 kernel/panic.c:547
+> >> > >  warn_slowpath_fmt+0xc5/0x110 kernel/panic.c:562
+> >> > >  __might_sleep+0x149/0x1a0 kernel/sched/core.c:7732
+> >> > >  slab_pre_alloc_hook mm/slab.h:408
+> >> > >  slab_alloc_node mm/slub.c:2634
+> >> > >  kmem_cache_alloc_node+0x14a/0x280 mm/slub.c:2744
+> >> > >  __alloc_skb+0x10f/0x800 net/core/skbuff.c:219
+> >> > >  alloc_skb ./include/linux/skbuff.h:926
+> >> > >  alloc_tx net/atm/common.c:75
+> >> >
+> >> > This is likely alloc_skb(..., GFP_KERNEL) in alloc_tx().  The simplest
+> >> > fix for this would be simply to switch this GFP_ATOMIC.  See if this is
+> >> > any better.
+> >> >
+> >> > diff --git a/net/atm/common.c b/net/atm/common.c
+> >> > index a3ca922..d84220c 100644
+> >> > --- a/net/atm/common.c
+> >> > +++ b/net/atm/common.c
+> >> > @@ -72,7 +72,7 @@ static struct sk_buff *alloc_tx(struct atm_vcc *vcc, unsigned int size)
+> >> >                      sk_wmem_alloc_get(sk), size, sk->sk_sndbuf);
+> >> >             return NULL;
+> >> >     }
+> >> > -   while (!(skb = alloc_skb(size, GFP_KERNEL)))
+> >> > +   while (!(skb = alloc_skb(size, GFP_ATOMIC)))
+> >> >             schedule();
+> >> >     pr_debug("%d += %d\n", sk_wmem_alloc_get(sk), skb->truesize);
+> >> >     atomic_add(skb->truesize, &sk->sk_wmem_alloc);
+> >>
+> >> Blee, this code is just horrendous. But the "fix" is obviously broken!
+> >> schedule() is just a noop if you do not change the task state and what
+> >> you are just asking for is a never failing non sleeping allocation - aka
+> >> a busy loop in the kernel!
+> >
+> > And btw. this while loop should be really turned into GFP_KERNEL |
+> > __GFP_NOFAIL with and explanation why this allocation cannot possibly
+> > fail.
+> 
+> I think a nested loop is quite unnecessary, probably due to the code itself
+> is pretty old. The alloc_tx() is in the outer loop, the alloc_skb() is
+> in the inner
+> loop, both seem to wait for a successful GFP allocation. The inner one
+> is even more unnecessary.
+> 
+> Of course, I am not surprised MM may already have a mechanism to do
+> the similar logic.
+> 
+> There maybe some reason ATM needs such a logic, although other proto
+> could handle skb allocation failure quite well in ->sendmsg().
 
-On 01/12/2017 10:43 AM, Joao Pinto wrote:
->
-> Hi Florian,
->
-> Às 9:14 PM de 1/11/2017, Florian Fainelli escreveu:
->> On 01/10/2017 06:52 AM, Joao Pinto wrote:
->>> This patch renames stmicro/stmmac to synopsys/ since it is a standard
->>> ethernet software package regarding synopsys ethernet controllers, supporting
->>> the majority of Synopsys Ethernet IPs. The config IDs remain the same, for
->>> retro-compatibility, only the description was changed.
->>
->> Do re really have to do this? ST Micro were the first to upstream
->> support for a Synopsys IP, and it was later on identified as being
->> "stmicro" instead of "synopsys" (during the big driver move under
->> drivers/net/ethernet) whichever came first in the driver essentially "wins".
->>
->> As mentioned before, although git is able to track renames, git log does
->> not automatically have --follow, so it can be hard for people to track
->> down the (new) history of the driver.
->>
->> Personally, I don't see much value in doing this rename, especially when
->> all the driver internal structures are still going to be named with
->> stmmac (and please don't even think about doing a s/stmmac/snps/ inside
->> the driver ;)).
->>
->> My 2 cents.
->>
->
-> First of all, I am suggesting an alternative way of organizing the code, and
-> that's it, I have no second intentions about anything :).
->
-> Please don't see this as a take-over or erase Stmicro from credits, please... it
-> makes no sense. You can leave STMicro license and all the credits fine by me and
-> I insist on it. But lets name it for something that makes sense... lets call it
-> dwc (designware controllers), I am totally open to suggestions.
->
-> I don't understand the hostility of some comments, honestly.
->
-> The easiest way is to keep things like they are today, and believe me I have a
-> lot of things to do, like adding the support of multi-queues / multi-channels to
-> stmmac, so I not suggesting this because it is fun.
->
-> I am suggesting this because it is what I am used to seeing in other subsystems.
-> USB has dwc2 and dwc3 folders that clearly identifies that they are Designware
-> (synopsys) extensions to the USB 2.0 and 3.0. The author of dwc3 was Texas
-> Instruments, and they did not name it ti/usb. For example I use an AXS101
-> Development board that does not have a stmicro SoC but has a Designware Ethernet
-> IP in it, so uses stmicro/stmmac. For me it is confusing.
->
-> Lets not name it synopsys, for me it is totally fine, but naming it
-> stmicro/stmmac is not the right way because it seems like it is a driver just
-> for stmicro products, which is not, is for products that use Designware Ethernet
-> IPs.
->
-> I am volunteering to do this work, let's discuss this.
 
-For me it makes no sens to rename only folder (stmicro/stmmac by 
-synopsys) and keep stmmac* inside a synopsys folder (that is very 
-confusing). If you propose that you have to change all.
-
-BUT doing that, we will lose all stmmac driver story and we don't want 
-that.
-
-
-
->
-> Thanks,
-> Joao
->
->
+I can't think of any particular reason that it needs this loop here.  I suspect
+that the loop for alloc_tx() predates the wait logic in ->sendmsg() and that the
+original looping was in alloc_tx() initially and was simply never removed.  Changes
+here would date back to before the git conversion.
