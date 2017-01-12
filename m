@@ -1,47 +1,36 @@
-From: Bart Van Assche <bart.vanassche@sandisk.com>
-Subject: [PATCH v2 11/26] RDS: IB: Remove an unused structure member
-Date: Thu, 12 Jan 2017 11:07:03 -0800
-Message-ID: <20170112190718.6728-12-bart.vanassche@sandisk.com>
-References: <20170112190718.6728-1-bart.vanassche@sandisk.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: To netlink or not to netlink, that is the question
+Date: Thu, 12 Jan 2017 14:11:27 -0500 (EST)
+Message-ID: <20170112.141127.426662758858102403.davem@davemloft.net>
+References: <CAHmME9rWDzO9j8E1HYSXY6j9FJqHODOYnEW8+SSggapDkQ_jBA@mail.gmail.com>
+        <1484246584.4651.3.camel@redhat.com>
+        <CAHmME9oYDdQGsQ8jQGJMeJ-0A6O+Och+Y+5Q_=Q=M9qgrxDq2Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-rdma@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-        "Greg Kroah-Hartman" <gregkh@linuxfoundation.org>,
-        Bart Van Assche <bart.vanassche@sandisk.com>,
-        "David S . Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-        <rds-devel@oss.oracle.com>
-To: Doug Ledford <dledford@redhat.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dcbw@redhat.com, stephen@networkplumber.org, netdev@vger.kernel.org
+To: Jason@zx2c4.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2nam01on0062.outbound.protection.outlook.com ([104.47.34.62]:3808
-        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750911AbdALTIK (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 12 Jan 2017 14:08:10 -0500
-In-Reply-To: <20170112190718.6728-1-bart.vanassche@sandisk.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:55204 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751036AbdALTL3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 14:11:29 -0500
+In-Reply-To: <CAHmME9oYDdQGsQ8jQGJMeJ-0A6O+Och+Y+5Q_=Q=M9qgrxDq2Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Bart Van Assche <bart.vanassche@sandisk.com>
-Acked-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Cc: David S. Miller <davem@davemloft.net>
-Cc: linux-rdma@vger.kernel.org
-Cc: netdev@vger.kernel.org
-Cc: rds-devel@oss.oracle.com
----
- net/rds/ib_mr.h | 1 -
- 1 file changed, 1 deletion(-)
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Date: Thu, 12 Jan 2017 20:02:14 +0100
 
-diff --git a/net/rds/ib_mr.h b/net/rds/ib_mr.h
-index 1c754f4acbe5..24c086db4511 100644
---- a/net/rds/ib_mr.h
-+++ b/net/rds/ib_mr.h
-@@ -45,7 +45,6 @@
- 
- struct rds_ib_fmr {
- 	struct ib_fmr		*fmr;
--	u64			*dma;
- };
- 
- enum rds_ib_fr_state {
--- 
-2.11.0
+> But what about fetching the list of all existing peers and ipmasks
+> atomically? It seems like with multiple calls, if I'm using some kind
+> of pagination, things could change in the process. That's why using
+> one big buffer was most appealing... Any ideas about this?
+
+This is a fact of life, dumps are always chopped into suitable
+numbers of responses as necessary.  We do this for IPV4 routes,
+network interfaces, etc. and it all works out just fine.
+
+The thing you should be asking yourself is, if something as heavily
+used and fundamental as IPV4 can handle this, probably your scenerio
+can be handled just fine as well.
