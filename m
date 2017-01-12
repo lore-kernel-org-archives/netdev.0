@@ -1,69 +1,52 @@
-From: Christian Borntraeger <borntraeger@de.ibm.com>
-Subject: Re: [PATCH 5/6] treewide: use kv[mz]alloc* rather than opencoded
- variants
-Date: Thu, 12 Jan 2017 17:05:58 +0100
-Message-ID: <1a293278-63ab-c54d-0872-0bed42e9710e@de.ibm.com>
-References: <20170112153717.28943-1-mhocko@kernel.org>
- <20170112153717.28943-6-mhocko@kernel.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH v1 3/8] crypto:chcr- Fix key length for RFC4106
+Date: Fri, 13 Jan 2017 00:09:59 +0800
+Message-ID: <20170112160959.GA19732@gondor.apana.org.au>
+References: <cover.1483599449.git.harsh@chelsio.com>
+ <6d8e61299e051d51dacdb6bfd6c5e582b230027c.1483599449.git.harsh@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Vlastimil Babka <vbabka@suse.cz>,
-        David Rientjes <rientjes@google.com>,
-        Mel Gorman <mgorman@suse.de>,
-        Johannes Weiner <hannes@cmpxchg.org>,
-        Al Viro <viro@zeniv.linux.org.uk>, linux-mm@kvack.org,
-        LKML <linux-kernel@vger.kernel.org>,
-        Michal Hocko <mhocko@suse.com>,
-        Martin Schwidefsky <schwidefsky@de.ibm.com>,
-        Heiko Carstens <heiko.carstens@de.ibm.com>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        Anton Vorontsov <anton@enomsg.org>,
-        Colin Cross <ccross@android.com>,
-        Kees Cook <keescook@chromium.org>,
-        Tony Luck <tony.luck@intel.com>,
-        "Rafael J. Wysocki" <rjw@rjwysocki.net>,
-        Ben Skeggs <bskeggs@redhat.com>,
-        Kent Overstreet <kent.overstreet@gmail.com>,
-        Santosh Raspatur <santosh@chelsio.com>,
-        Hariprasad S <hariprasad@chelsio.com>,
-        Tariq Toukan
-To: Michal Hocko <mhocko@kernel.org>,
-        Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170112153717.28943-6-mhocko@kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: hariprasad@chelsio.com, netdev@vger.kernel.org,
+        linux-crypto@vger.kernel.org
+To: Harsh Jain <harsh@chelsio.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from helcar.hengli.com.au ([209.40.204.226]:51405 "EHLO
+        helcar.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1751049AbdALQKH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 11:10:07 -0500
+Content-Disposition: inline
+In-Reply-To: <6d8e61299e051d51dacdb6bfd6c5e582b230027c.1483599449.git.harsh@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/12/2017 04:37 PM, Michal Hocko wrote:
-> diff --git a/arch/s390/kvm/kvm-s390.c b/arch/s390/kvm/kvm-s390.c
-> index 4f74511015b8..e6bbb33d2956 100644
-> --- a/arch/s390/kvm/kvm-s390.c
-> +++ b/arch/s390/kvm/kvm-s390.c
-> @@ -1126,10 +1126,7 @@ static long kvm_s390_get_skeys(struct kvm *kvm, struct kvm_s390_skeys *args)
->  	if (args->count < 1 || args->count > KVM_S390_SKEYS_MAX)
->  		return -EINVAL;
+On Fri, Jan 06, 2017 at 02:01:34PM +0530, Harsh Jain wrote:
+> Check keylen before copying salt to avoid wrap around of Integer.
 > 
-> -	keys = kmalloc_array(args->count, sizeof(uint8_t),
-> -			     GFP_KERNEL | __GFP_NOWARN);
-> -	if (!keys)
-> -		keys = vmalloc(sizeof(uint8_t) * args->count);
-> +	keys = kvmalloc(args->count * sizeof(uint8_t), GFP_KERNEL);
->  	if (!keys)
->  		return -ENOMEM;
+> Signed-off-by: Harsh Jain <harsh@chelsio.com>
+> ---
+>  drivers/crypto/chelsio/chcr_algo.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
 > 
-> @@ -1171,10 +1168,7 @@ static long kvm_s390_set_skeys(struct kvm *kvm, struct kvm_s390_skeys *args)
->  	if (args->count < 1 || args->count > KVM_S390_SKEYS_MAX)
->  		return -EINVAL;
-> 
-> -	keys = kmalloc_array(args->count, sizeof(uint8_t),
-> -			     GFP_KERNEL | __GFP_NOWARN);
-> -	if (!keys)
-> -		keys = vmalloc(sizeof(uint8_t) * args->count);
-> +	keys = kvmalloc(sizeof(uint8_t) * args->count, GFP_KERNEL);
->  	if (!keys)
->  		return -ENOMEM;
+> diff --git a/drivers/crypto/chelsio/chcr_algo.c b/drivers/crypto/chelsio/chcr_algo.c
+> index deec7c0..6c2dea3 100644
+> --- a/drivers/crypto/chelsio/chcr_algo.c
+> +++ b/drivers/crypto/chelsio/chcr_algo.c
+> @@ -2194,8 +2194,8 @@ static int chcr_gcm_setkey(struct crypto_aead *aead, const u8 *key,
+>  	unsigned int ck_size;
+>  	int ret = 0, key_ctx_size = 0;
+>  
+> -	if (get_aead_subtype(aead) ==
+> -	    CRYPTO_ALG_SUB_TYPE_AEAD_RFC4106) {
+> +	if (get_aead_subtype(aead) == CRYPTO_ALG_SUB_TYPE_AEAD_RFC4106 &&
+> +	    keylen > 3) {
+>  		keylen -= 4;  /* nonce/salt is present in the last 4 bytes */
+>  		memcpy(aeadctx->salt, key + keylen, 4);
+>  	}
 
-KVM/s390 parts
+We should return an error in this case.
 
-Acked-by: Christian Borntraeger <borntraeger@de.ibm.com>
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
