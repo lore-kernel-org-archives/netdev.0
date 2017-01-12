@@ -1,45 +1,50 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH] [net] net/mlx5e: fix another -Wmaybe-uninitialized warning
-Date: Thu, 12 Jan 2017 22:55:48 +0200
-Message-ID: <CAJ3xEMgr8joOeiBtDcHGXzRn7XUdNJNmGS_rWBcUqeTXJFxGVQ@mail.gmail.com>
-References: <20170111211451.2705705-1-arnd@arndb.de> <46a85790-2cfe-a8d9-f764-4f736fbd1af7@mellanox.com>
- <2981112.7jTLlX72ae@wuerfel>
+From: Shannon Nelson <shannon.nelson@oracle.com>
+Subject: Re: [PATCH] tcp: fix tcp_fastopen unaligned access complaints on
+ sparc
+Date: Thu, 12 Jan 2017 12:56:08 -0800
+Message-ID: <131ec7b7-5b74-2545-8bf7-92812443a876@oracle.com>
+References: <cd152a9f-4855-a552-2b45-bd619436a628@oracle.com>
+ <1484252733.13165.1.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1c39bf41-4ebf-643a-c6a0-caf98a17a89c@oracle.com>
+ <20170112.154143.1940764507974590907.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Or Gerlitz <ogerlitz@mellanox.com>,
-        Saeed Mahameed <saeedm@mellanox.com>,
-        Hadar Hen Zion <hadarh@mellanox.com>,
-        "David S . Miller" <davem@davemloft.net>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        Linux Kernel <linux-kernel@vger.kernel.org>
-To: Arnd Bergmann <arnd@arndb.de>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, rob.gardner@oracle.com,
+        netdev@vger.kernel.org, sparclinux@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <2981112.7jTLlX72ae@wuerfel>
+In-Reply-To: <20170112.154143.1940764507974590907.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 12, 2017 at 6:04 PM, Arnd Bergmann <arnd@arndb.de> wrote:
-> On Thursday, January 12, 2017 5:21:49 PM CET Or Gerlitz wrote:
 
 
->> When I build here without CONFIG_INET in my system, the build goes fine
->> with this approach. However, we're pretty sure that in the past we got
->> 0-day report from the kbuild test robot where he was unhappy that we
->> make the ip_route_output_key call without being wrapped with that #if
->> IS_ENABLED(CONFIG_INET) -- so, we don't want to go there again... thoughts?
+On 1/12/2017 12:41 PM, David Miller wrote:
+> From: Shannon Nelson <shannon.nelson@oracle.com>
+> Date: Thu, 12 Jan 2017 12:30:38 -0800
+>
+>> On 1/12/2017 12:25 PM, Eric Dumazet wrote:
+>>> On Thu, 2017-01-12 at 13:15 -0700, Rob Gardner wrote:
+>>>
+>>>>
+>>>> I suspect that someplace, somebody is casting val to an int * or
+>>>> something like that.
+>>>
+>>> Then that would be the bug. Can we root cause this please ?
+>>>
+>>>
+>>
+>> Look in net/ipv4/tcp_fastopen.c:tcp_fastopen_cookie_gen() for the line
+>>
+>> 	 struct in6_addr *buf = (struct in6_addr *) tmp.val;
+>
+> Oh yeah, that's it.  I didn't notice that at all.
+>
 
-> I went back and forth between the two versions, either leaving the #if
-> in place, or using the if(IS_ENABLED()) check to be really sure that
-> we can't get compile error here.
+It looked to me like swapping the data fields would be the easiest and 
+least impactive way to fix this.  I didn't want to mess with the logic. 
+I'm certainly open to other suggestions.
 
-> I did check that ip_route_output_key() is always declared, but now
-> I see that net/route.h might not always be included from en_tc.c
-> if CONFIG_INET is disabled (I don't see how it gets included, but
-> it obviously is when CONFIG_INET is turned on).
-
-> Adding an explicit include of that file should probably avoid the
-> case you ran into earlier, but for I agree it's safer to not rely
-> on that here for a bugfix, and just leave the #ifdef. Do you want to
-> modify it yourself, or should I spin a new version with that?
-
-I can do that next week, thanks
+sln
