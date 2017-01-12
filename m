@@ -1,436 +1,98 @@
-From: Alexander Loktionov <Alexander.Loktionov@aquantia.com>
-Subject: [PATCH v4 08/13] net: ethernet: aquantia: PCI operations
-Date: Wed, 11 Jan 2017 19:53:12 -0800
-Message-ID: <4218cb42d4819ff59f24b3a3b28d2621c549f202.1484192452.git.vomlehn@texas.net>
-References: <cover.1484192452.git.vomlehn@texas.net>
-Cc: "David S . Miller" <davem@davemloft.net>,
-        Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
-        Alexander Loktionov <Alexander.Loktionov@aquantia.com>,
-        Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>,
-        Pavel Belous <Pavel.Belous@aquantia.com>,
-        Dmitry Bezrukov <Dmitry.Bezrukov@aquantia.com>
-To: netdev@vger.kernel.org, David VomLehn <vomlehn@texas.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from barracuda5.aus1.datafoundry.com ([209.99.124.136]:43789 "EHLO
-        barracuda.datafoundry.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751206AbdALDyP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 11 Jan 2017 22:54:15 -0500
-In-Reply-To: <cover.1484192452.git.vomlehn@texas.net>
-In-Reply-To: <14143df0838ee18962e5df714d31b683afe44077.1484192452.git.vomlehn@texas.net>
-References: <cover.1484192452.git.vomlehn@texas.net> <c1ad2600fae843ad7f21a7eb41a096aa3cdf239b.1484192452.git.vomlehn@texas.net> <20a9e54c90f44662be120d9c863a89f1ffe340e5.1484192452.git.vomlehn@texas.net> <6c34bc1f4f4a63732a5c6ac960eb78c55646be06.1484192452.git.vomlehn@texas.net> <317cced5b487a46d728e731f967bf6231ea453ec.1484192452.git.vomlehn@texas.net> <2287a0a40f4c507fa650ee2750d613c28fbb57a7.1484192452.git.vomlehn@texas.net> <b96fe90743466d671a2ac5a741118059cdeb5f1a.1484192452.git.vomlehn@texas.net> <14143df0838ee18962e5df714d31b683afe44077.1484192452.git.vomlehn@texas.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: net/atm: warning in alloc_tx/__might_sleep
+Date: Wed, 11 Jan 2017 20:36:48 -0800
+Message-ID: <CAM_iQpWqCaHp2OxdaTOvJrf5vuvPn=rVGTvpGuZMEoBNC95EEQ@mail.gmail.com>
+References: <CAAeHK+yZ16SKcmJbv2ARafGgAuX2wwQNE0HGdiFy1WgqPjxLMg@mail.gmail.com>
+ <1484145426.1643.7.camel@gmail.com> <20170111194525.GA16375@dhcp22.suse.cz> <20170111194645.GM16365@dhcp22.suse.cz>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Chas Williams <3chas3@gmail.com>,
+        Andrey Konovalov <andreyknvl@google.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Al Viro <viro@zeniv.linux.org.uk>,
+        Dmitry Vyukov <dvyukov@google.com>,
+        Kostya Serebryany <kcc@google.com>,
+        Eric Dumazet <edumazet@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Michal Hocko <mhocko@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170111194645.GM16365@dhcp22.suse.cz>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David VomLehn <vomlehn@texas.net>
+On Wed, Jan 11, 2017 at 11:46 AM, Michal Hocko <mhocko@kernel.org> wrote:
+> On Wed 11-01-17 20:45:25, Michal Hocko wrote:
+>> On Wed 11-01-17 09:37:06, Chas Williams wrote:
+>> > On Mon, 2017-01-09 at 18:20 +0100, Andrey Konovalov wrote:
+>> > > Hi!
+>> > >
+>> > > I've got the following error report while running the syzkaller fuzzer.
+>> > >
+>> > > On commit a121103c922847ba5010819a3f250f1f7fc84ab8 (4.10-rc3).
+>> > >
+>> > > A reproducer is attached.
+>> > >
+>> > > ------------[ cut here ]------------
+>> > > WARNING: CPU: 0 PID: 4114 at kernel/sched/core.c:7737 __might_sleep+0x149/0x1a0
+>> > > do not call blocking ops when !TASK_RUNNING; state=1 set at
+>> > > [<ffffffff813fcb22>] prepare_to_wait+0x182/0x530
+>> > > Modules linked in:
+>> > > CPU: 0 PID: 4114 Comm: a.out Not tainted 4.10.0-rc3+ #59
+>> > > Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
+>> > > Call Trace:
+>> > >  __dump_stack lib/dump_stack.c:15
+>> > >  dump_stack+0x292/0x398 lib/dump_stack.c:51
+>> > >  __warn+0x19f/0x1e0 kernel/panic.c:547
+>> > >  warn_slowpath_fmt+0xc5/0x110 kernel/panic.c:562
+>> > >  __might_sleep+0x149/0x1a0 kernel/sched/core.c:7732
+>> > >  slab_pre_alloc_hook mm/slab.h:408
+>> > >  slab_alloc_node mm/slub.c:2634
+>> > >  kmem_cache_alloc_node+0x14a/0x280 mm/slub.c:2744
+>> > >  __alloc_skb+0x10f/0x800 net/core/skbuff.c:219
+>> > >  alloc_skb ./include/linux/skbuff.h:926
+>> > >  alloc_tx net/atm/common.c:75
+>> >
+>> > This is likely alloc_skb(..., GFP_KERNEL) in alloc_tx().  The simplest
+>> > fix for this would be simply to switch this GFP_ATOMIC.  See if this is
+>> > any better.
+>> >
+>> > diff --git a/net/atm/common.c b/net/atm/common.c
+>> > index a3ca922..d84220c 100644
+>> > --- a/net/atm/common.c
+>> > +++ b/net/atm/common.c
+>> > @@ -72,7 +72,7 @@ static struct sk_buff *alloc_tx(struct atm_vcc *vcc, unsigned int size)
+>> >                      sk_wmem_alloc_get(sk), size, sk->sk_sndbuf);
+>> >             return NULL;
+>> >     }
+>> > -   while (!(skb = alloc_skb(size, GFP_KERNEL)))
+>> > +   while (!(skb = alloc_skb(size, GFP_ATOMIC)))
+>> >             schedule();
+>> >     pr_debug("%d += %d\n", sk_wmem_alloc_get(sk), skb->truesize);
+>> >     atomic_add(skb->truesize, &sk->sk_wmem_alloc);
+>>
+>> Blee, this code is just horrendous. But the "fix" is obviously broken!
+>> schedule() is just a noop if you do not change the task state and what
+>> you are just asking for is a never failing non sleeping allocation - aka
+>> a busy loop in the kernel!
+>
+> And btw. this while loop should be really turned into GFP_KERNEL |
+> __GFP_NOFAIL with and explanation why this allocation cannot possibly
+> fail.
 
-Add functions that handle the PCI bus interface.
+I think a nested loop is quite unnecessary, probably due to the code itself
+is pretty old. The alloc_tx() is in the outer loop, the alloc_skb() is
+in the inner
+loop, both seem to wait for a successful GFP allocation. The inner one
+is even more unnecessary.
 
-Signed-off-by: Alexander Loktionov <Alexander.Loktionov@aquantia.com>
-Signed-off-by: Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>
-Signed-off-by: Pavel Belous <Pavel.Belous@aquantia.com>
-Signed-off-by: Dmitry Bezrukov <Dmitry.Bezrukov@aquantia.com>
-Signed-off-by: David M. VomLehn <vomlehn@texas.net>
----
- drivers/net/ethernet/aquantia/aq_pci_func.c | 348 ++++++++++++++++++++++++++++
- drivers/net/ethernet/aquantia/aq_pci_func.h |  35 +++
- 2 files changed, 383 insertions(+)
- create mode 100644 drivers/net/ethernet/aquantia/aq_pci_func.c
- create mode 100644 drivers/net/ethernet/aquantia/aq_pci_func.h
+Of course, I am not surprised MM may already have a mechanism to do
+the similar logic.
 
-diff --git a/drivers/net/ethernet/aquantia/aq_pci_func.c b/drivers/net/ethernet/aquantia/aq_pci_func.c
-new file mode 100644
-index 0000000..18c427d
---- /dev/null
-+++ b/drivers/net/ethernet/aquantia/aq_pci_func.c
-@@ -0,0 +1,348 @@
-+/*
-+ * aQuantia Corporation Network Driver
-+ * Copyright (C) 2014-2017 aQuantia Corporation. All rights reserved
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ */
-+
-+/* File aq_pci_func.c: Definition of PCI functions. */
-+
-+#include "aq_pci_func.h"
-+#include "aq_nic.h"
-+#include "aq_vec.h"
-+#include "aq_hw.h"
-+#include <linux/interrupt.h>
-+
-+struct aq_pci_func_s {
-+	struct pci_dev *pdev;
-+	struct aq_nic_s *port[AQ_CFG_PCI_FUNC_PORTS];
-+	void __iomem *mmio;
-+	void *aq_vec[AQ_CFG_PCI_FUNC_MSIX_IRQS];
-+	resource_size_t mmio_pa;
-+	unsigned int msix_entry_mask;
-+	unsigned int irq_type;
-+	unsigned int ports;
-+	bool is_pci_enabled;
-+	bool is_regions;
-+	bool is_pci_using_dac;
-+	struct aq_hw_caps_s aq_hw_caps;
-+	struct msix_entry msix_entry[AQ_CFG_PCI_FUNC_MSIX_IRQS];
-+};
-+
-+struct aq_pci_func_s *aq_pci_func_alloc(struct aq_hw_ops *aq_hw_ops,
-+					struct pci_dev *pdev,
-+					const struct net_device_ops *ndev_ops,
-+					const struct ethtool_ops *eth_ops)
-+{
-+	struct aq_pci_func_s *self = NULL;
-+	int err = 0;
-+	unsigned int port = 0U;
-+
-+	if (!aq_hw_ops) {
-+		err = -EFAULT;
-+		goto err_exit;
-+	}
-+	self = kzalloc(sizeof(*self), GFP_KERNEL);
-+	if (!self) {
-+		err = -ENOMEM;
-+		goto err_exit;
-+	}
-+
-+	pci_set_drvdata(pdev, self);
-+	self->pdev = pdev;
-+
-+	err = aq_hw_ops->get_hw_caps(NULL, &self->aq_hw_caps);
-+	if (err < 0)
-+		goto err_exit;
-+
-+	self->ports = self->aq_hw_caps.ports;
-+
-+	for (port = 0; port < self->ports; ++port) {
-+		struct aq_nic_s *aq_nic = aq_nic_alloc_cold(ndev_ops, eth_ops,
-+							    &pdev->dev, self,
-+							    port, aq_hw_ops);
-+
-+		if (!aq_nic) {
-+			err = -ENOMEM;
-+			goto err_exit;
-+		}
-+		self->port[port] = aq_nic;
-+	}
-+
-+err_exit:
-+	if (err < 0) {
-+		if (self)
-+			aq_pci_func_free(self);
-+		self = NULL;
-+	}
-+
-+	(void)err;
-+	return self;
-+}
-+
-+int aq_pci_func_init(struct aq_pci_func_s *self)
-+{
-+	int err = 0;
-+	unsigned int bar = 0U;
-+	unsigned int port = 0U;
-+	unsigned int i = 0U;
-+
-+	err = pci_enable_device(self->pdev);
-+	if (err < 0)
-+		goto err_exit;
-+
-+	self->is_pci_enabled = true;
-+
-+	err = pci_set_dma_mask(self->pdev, DMA_BIT_MASK(64));
-+	if (!err) {
-+		err = pci_set_consistent_dma_mask(self->pdev, DMA_BIT_MASK(64));
-+		self->is_pci_using_dac = 1;
-+	}
-+	if (err) {
-+		err = pci_set_dma_mask(self->pdev, DMA_BIT_MASK(32));
-+		if (!err)
-+			err = pci_set_consistent_dma_mask(self->pdev,
-+							  DMA_BIT_MASK(32));
-+		self->is_pci_using_dac = 0;
-+	}
-+	if (err != 0) {
-+		err = -ENOSR;
-+		goto err_exit;
-+	}
-+
-+	err = pci_request_regions(self->pdev, AQ_CFG_DRV_NAME "_mmio");
-+	if (err < 0)
-+		goto err_exit;
-+
-+	self->is_regions = true;
-+
-+	pci_set_master(self->pdev);
-+
-+	for (bar = 0; bar < 4; ++bar) {
-+		if (IORESOURCE_MEM & pci_resource_flags(self->pdev, bar)) {
-+			resource_size_t reg_sz;
-+
-+			self->mmio_pa = pci_resource_start(self->pdev, bar);
-+			if (self->mmio_pa == 0U) {
-+				err = -EIO;
-+				goto err_exit;
-+			}
-+
-+			reg_sz = pci_resource_len(self->pdev, bar);
-+			if ((reg_sz <= 24 /*ATL_REGS_SIZE*/)) {
-+				err = -EIO;
-+				goto err_exit;
-+			}
-+
-+			self->mmio = ioremap_nocache(self->mmio_pa, reg_sz);
-+			if (!self->mmio) {
-+				err = -EIO;
-+				goto err_exit;
-+			}
-+			break;
-+		}
-+	}
-+
-+	if (err < 0)
-+		goto err_exit;
-+	for (i = 0; i < self->aq_hw_caps.msix_irqs; i++)
-+		self->msix_entry[i].entry = i;
-+
-+	/*enable interrupts */
-+#if AQ_CFG_FORCE_LEGACY_INT
-+	self->irq_type = AQ_IRQ_LEGACY;
-+#else
-+	err = pci_enable_msix(self->pdev, self->msix_entry,
-+			      self->aq_hw_caps.msix_irqs);
-+
-+	if (err >= 0) {
-+		self->irq_type = AQ_IRQ_MSIX;
-+	} else {
-+		err = pci_enable_msi(self->pdev);
-+
-+		if (err >= 0) {
-+			self->irq_type = AQ_IRQ_MSI;
-+		} else {
-+			self->irq_type = AQ_IRQ_LEGACY;
-+			err = 0;
-+		}
-+	}
-+#endif
-+
-+	/* net device init */
-+	for (port = 0; port < self->ports; ++port) {
-+		if (!self->port[port])
-+			continue;
-+
-+		aq_nic_cfg_start(self->port[port]);
-+		aq_nic_ndev_init(self->port[port]);
-+
-+		err = aq_nic_ndev_register(self->port[port]);
-+		if (err < 0)
-+			goto err_exit;
-+	}
-+
-+err_exit:
-+	if (err < 0)
-+		aq_pci_func_deinit(self);
-+	return err;
-+}
-+
-+int aq_pci_func_alloc_irq(struct aq_pci_func_s *self, unsigned int i,
-+			  char *name, void *aq_vec, cpumask_t *affinity_mask)
-+{
-+	int err = 0;
-+
-+	switch (self->irq_type) {
-+	case AQ_IRQ_MSIX:
-+		err = request_irq(self->msix_entry[i].vector, aq_vec_isr, 0,
-+				  name, aq_vec);
-+		break;
-+
-+	case AQ_IRQ_MSI:
-+		err = request_irq(self->pdev->irq, aq_vec_isr, 0, name, aq_vec);
-+		break;
-+
-+	case AQ_IRQ_LEGACY:
-+		err = request_irq(self->pdev->irq, aq_vec_isr_legacy,
-+				  IRQF_SHARED, name, aq_vec);
-+		break;
-+
-+	default:
-+		err = -EFAULT;
-+		break;
-+	}
-+
-+	if (err >= 0) {
-+		self->msix_entry_mask |= (1 << i);
-+		self->aq_vec[i] = aq_vec;
-+
-+		if (self->irq_type == AQ_IRQ_MSIX)
-+			irq_set_affinity_hint(self->msix_entry[i].vector,
-+					      affinity_mask);
-+	}
-+
-+	return err;
-+}
-+
-+void aq_pci_func_free_irqs(struct aq_pci_func_s *self)
-+{
-+	unsigned int i = 0U;
-+
-+	for (i = 32U; i--;) {
-+		if (!((1U << i) & self->msix_entry_mask))
-+			continue;
-+
-+		switch (self->irq_type) {
-+		case AQ_IRQ_MSIX:
-+			irq_set_affinity_hint(self->msix_entry[i].vector, NULL);
-+			free_irq(self->msix_entry[i].vector, self->aq_vec[i]);
-+			break;
-+
-+		case AQ_IRQ_MSI:
-+			free_irq(self->pdev->irq, self->aq_vec[i]);
-+			break;
-+
-+		case AQ_IRQ_LEGACY:
-+			free_irq(self->pdev->irq, self->aq_vec[i]);
-+			break;
-+
-+		default:
-+			break;
-+		}
-+
-+		self->msix_entry_mask &= ~(1U << i);
-+	}
-+}
-+
-+void __iomem *aq_pci_func_get_mmio(struct aq_pci_func_s *self)
-+{
-+	return self->mmio;
-+}
-+
-+unsigned int aq_pci_func_get_irq_type(struct aq_pci_func_s *self)
-+{
-+	return self->irq_type;
-+}
-+
-+int aq_pci_func_deinit(struct aq_pci_func_s *self)
-+{
-+	int err = 0;
-+
-+	if (!self) {
-+		err = -EFAULT;
-+		goto err_exit;
-+	}
-+	aq_pci_func_free_irqs(self);
-+
-+	switch (self->irq_type) {
-+	case AQ_IRQ_MSI:
-+		pci_disable_msi(self->pdev);
-+		break;
-+
-+	case AQ_IRQ_MSIX:
-+		pci_disable_msix(self->pdev);
-+		break;
-+
-+	case AQ_IRQ_LEGACY:
-+		break;
-+
-+	default:
-+		break;
-+	}
-+
-+	if (self->is_regions)
-+		pci_release_regions(self->pdev);
-+
-+	if (self->is_pci_enabled)
-+		pci_disable_device(self->pdev);
-+
-+err_exit:
-+	return err;
-+}
-+
-+void aq_pci_func_free(struct aq_pci_func_s *self)
-+{
-+	int err = 0;
-+	unsigned int port = 0U;
-+
-+	if (!self) {
-+		err = -EFAULT;
-+		goto err_exit;
-+	}
-+	for (port = 0; port < self->ports; ++port) {
-+		if (!self->port[port])
-+			continue;
-+
-+		aq_nic_ndev_free(self->port[port]);
-+	}
-+
-+	kfree(self);
-+
-+err_exit:
-+	(void)err;
-+}
-+
-+int aq_pci_func_change_pm_state(struct aq_pci_func_s *self,
-+				pm_message_t *pm_msg)
-+{
-+	int err = 0;
-+	unsigned int port = 0U;
-+
-+	if (!self) {
-+		err = -EFAULT;
-+		goto err_exit;
-+	}
-+	for (port = 0; port < self->ports; ++port) {
-+		if (!self->port[port])
-+			continue;
-+
-+		aq_nic_change_pm_state(self->port[port], pm_msg);
-+	}
-+
-+err_exit:
-+	return err;
-+}
-+
-diff --git a/drivers/net/ethernet/aquantia/aq_pci_func.h b/drivers/net/ethernet/aquantia/aq_pci_func.h
-new file mode 100644
-index 0000000..d5b3510
---- /dev/null
-+++ b/drivers/net/ethernet/aquantia/aq_pci_func.h
-@@ -0,0 +1,35 @@
-+/*
-+ * aQuantia Corporation Network Driver
-+ * Copyright (C) 2014-2017 aQuantia Corporation. All rights reserved
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ */
-+
-+/* File aq_pci_func.h: Declaration of PCI functions. */
-+
-+#ifndef AQ_PCI_FUNC_H
-+#define AQ_PCI_FUNC_H
-+
-+#include "aq_common.h"
-+
-+struct aq_pci_func_s *aq_pci_func_alloc(struct aq_hw_ops *hw_ops,
-+					struct pci_dev *pdev,
-+					const struct net_device_ops *ndev_ops,
-+					const struct ethtool_ops *eth_ops);
-+int aq_pci_func_init(struct aq_pci_func_s *self);
-+int aq_pci_func_alloc_irq(struct aq_pci_func_s *self, unsigned int i,
-+			  char *name, void *aq_vec,
-+			  cpumask_t *affinity_mask);
-+void aq_pci_func_free_irqs(struct aq_pci_func_s *self);
-+int aq_pci_func_start(struct aq_pci_func_s *self);
-+void __iomem *aq_pci_func_get_mmio(struct aq_pci_func_s *self);
-+unsigned int aq_pci_func_get_irq_type(struct aq_pci_func_s *self);
-+int aq_pci_func_deinit(struct aq_pci_func_s *self);
-+void aq_pci_func_free(struct aq_pci_func_s *self);
-+int aq_pci_func_change_pm_state(struct aq_pci_func_s *self,
-+				pm_message_t *pm_msg);
-+
-+#endif /* AQ_PCI_FUNC_H */
-+
--- 
-2.7.4
+There maybe some reason ATM needs such a logic, although other proto
+could handle skb allocation failure quite well in ->sendmsg().
