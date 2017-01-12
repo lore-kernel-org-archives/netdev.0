@@ -1,68 +1,67 @@
-From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH 8/9] IB: Convert ib_dma_*_coherent() argument type from
- u64 into dma_addr_t
-Date: Thu, 12 Jan 2017 15:12:57 +0200
-Message-ID: <20170112131257.GI20392@mtr-leonro.local>
-References: <20170111005648.14988-1-bart.vanassche@sandisk.com>
- <20170111005648.14988-9-bart.vanassche@sandisk.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v3 net-next 4/4] syncookies: use SipHash in place of SHA1
+Date: Thu, 12 Jan 2017 05:17:58 -0800
+Message-ID: <1484227078.15816.29.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170108125403.16355-1-Jason@zx2c4.com>
+         <20170108125403.16355-5-Jason@zx2c4.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="uAgJxtfIS94j9H4T"
-Cc: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        "David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org
-To: Bart Van Assche <bart.vanassche-XdAiOPVOjttBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20170111005648.14988-9-bart.vanassche-XdAiOPVOjttBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, ebiggers3@gmail.com,
+        jeanphilippe.aumasson@gmail.com, gregkh@linuxfoundation.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170108125403.16355-5-Jason@zx2c4.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Sun, 2017-01-08 at 13:54 +0100, Jason A. Donenfeld wrote:
+> SHA1 is slower and less secure than SipHash, and so replacing syncookie
+> generation with SipHash makes natural sense. Some BSDs have been doing
+> this for several years in fact.
+> 
+> The speedup should be similar -- and even more impressive -- to the
+> speedup from the sequence number fix in this series.
 
---uAgJxtfIS94j9H4T
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+I confirm a nice speedup under SYNFLOOD.
 
-On Tue, Jan 10, 2017 at 04:56:47PM -0800, Bart Van Assche wrote:
-> This patch does not change any functionality.
->
-> Signed-off-by: Bart Van Assche <bart.vanassche-XdAiOPVOjttBDgjK7y7TUQ@public.gmane.org>
-> Cc: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-> Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> Cc: rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org
-> ---
->  include/rdma/ib_verbs.h | 11 +++--------
->  net/rds/ib.h            |  6 +++---
->  2 files changed, 6 insertions(+), 11 deletions(-)
->
+sha_transform() used to consume ~12 % of cpu cycles, while the
+siphash_2u64() only uses ~1.9 %
 
-Thanks,
-Reviewed-by: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Depending on the setup, gain is about 9 %
 
---uAgJxtfIS94j9H4T
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAlh3gNkACgkQ5GN7iDZy
-WKfnRRAAr2CAKQHBEHxpkofVg2wUoJHG89XvfM41jPyBigzayhT57/kn1OY9mZav
-kbvDWTedd3uaunrzW6NPgFnd6xiAU6FiuT4NnkqHen0e4d4EvmCQrOqxl6GojKSc
-5pCYVlmv/LXnRxxW1gDug7QYT8FGtpWQ59DKU3m1+BbqEv0gC7BP/mTmG01Ybk6N
-tIj5WJ+WBqK/c7vk77QeKo5xOsmLaU7c5AAt4Crj93Kfh6A7+Es5+JARZftMhH4T
-xUiBX9QCT9bVBiHrbFCMZ3qxZlcMedhTc/2DruNKE2FT2S/ywv8nxrTpYumY85u6
-ocLrnKDzDhC0k8YotMtU743zyiZO/rSwkxKlI1nBPsXSGIMSFU8u6OnP90sZ1aWf
-eTNh7ugyZPJ2PZHAeG6LQh5AuIUNje7Q1dVJLi1oe/83ciGBDYgT8nb2trLm5bDq
-YvYfUJug+65GV9CFiXm9/sJ7QySvLDBKuzV7Df4gSd0jf+8tOLn69hSU1w7ybywr
-g1fGI4tPyS+ymb79yeHuSiM3S8mka9JQuy5mxJTRK6NZmxtTqwrpr/G84KkDup75
-8Yn7uc4NBm0MsYKcPnkzcoodzwCgt1hth9yvDfK5VLjWEL2VFFfCYDM5FbiMqQgH
-5wZCfIs2TXOnLFCY1YTIG6D1KHFIoOlKh1t0FP9pkewoC7l7fv8=
-=M49R
------END PGP SIGNATURE-----
-
---uAgJxtfIS94j9H4T--
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+     4.48%  [kernel]  [k] ipt_do_table                   
+     4.39%  [kernel]  [k] fib_table_lookup               
+     3.90%  [kernel]  [k] __netif_receive_skb_core       
+     3.76%  [kernel]  [k] fib_rules_lookup               
+     3.15%  [kernel]  [k] __inet_lookup_established      
+     3.11%  [kernel]  [k] tcp_conn_request               
+     2.51%  [kernel]  [k] tcp_v4_rcv                     
+     2.42%  [kernel]  [k] tcp_make_synack                
+     2.22%  [kernel]  [k] nf_iterate                     
+     2.16%  [kernel]  [k] ip_rcv                         
+     1.92%  [kernel]  [k] siphash_2u64                   
+     1.76%  [kernel]  [k] __ip_route_output_key          
+     1.73%  [kernel]  [k] mlx4_en_process_rx_cq          
+     1.68%  [kernel]  [k] memcpy_erms                    
+     1.59%  [kernel]  [k] __alloc_skb                    
+     1.49%  [kernel]  [k] __dev_queue_xmit               
+     1.48%  [kernel]  [k] kmem_cache_alloc               
+     1.38%  [kernel]  [k] __local_bh_enable_ip           
+     1.36%  [kernel]  [k] kmem_cache_free                
+     1.21%  [kernel]  [k] ___cache_free                  
+     1.09%  [kernel]  [k] __build_skb                    
+     1.07%  [kernel]  [k] inet_reqsk_alloc               
+     1.04%  [kernel]  [k] kfree                          
+     1.04%  [kernel]  [k] ip_build_and_send_pkt          
+     1.04%  [kernel]  [k] inet_gro_receive               
+     1.01%  [kernel]  [k] fib_validate_source            
+     0.98%  [kernel]  [k] tcp_openreq_init_rwin          
+     0.98%  [kernel]  [k] inet_csk_route_req             
+     0.97%  [kernel]  [k] fib_get_table                  
+     0.96%  [kernel]  [k] ip_finish_output2              
+     0.94%  [kernel]  [k] tcp_v4_do_rcv                  
+     0.91%  [kernel]  [k] ip_local_deliver_finish        
+     0.91%  [kernel]  [k] netif_skb_features             
+     0.91%  [kernel]  [k] dev_hard_start_xmit         
