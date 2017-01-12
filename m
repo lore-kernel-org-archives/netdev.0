@@ -1,60 +1,52 @@
-From: Nogah Frankel <nogahf@mellanox.com>
-Subject: [PATCH iproute2 v4 0/4] update ifstat for new stats
-Date: Thu, 12 Jan 2017 15:49:47 +0200
-Message-ID: <1484228991-32999-1-git-send-email-nogahf@mellanox.com>
-Cc: stephen@networkplumber.org, roszenrami@gmail.com,
-        roopa@cumulusnetworks.com, jiri@mellanox.com, idosch@mellanox.com,
-        eladr@mellanox.com, yotamg@mellanox.com, ogerlitz@mellanox.com,
-        Nogah Frankel <nogahf@mellanox.com>
-To: netdev@vger.kernel.org
+From: Mason <slash.tmp@free.fr>
+Subject: Setting link down or up in software
+Date: Thu, 12 Jan 2017 14:05:14 +0100
+Message-ID: <75bd6df2-714a-2b9b-a0e3-f5574c295377@free.fr>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Mans Rullgard <mans@mansr.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Thibaud Cornic <thibaud_cornic@sigmadesigns.com>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:44273 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1750819AbdALNq7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 08:46:59 -0500
+Received: from smtpfb2-g21.free.fr ([212.27.42.10]:39011 "EHLO
+        smtpfb2-g21.free.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750733AbdALNwc (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 08:52:32 -0500
+Received: from smtp5-g21.free.fr (smtp5-g21.free.fr [212.27.42.5])
+        by smtpfb2-g21.free.fr (Postfix) with ESMTP id 99B9FD309ED
+        for <netdev@vger.kernel.org>; Thu, 12 Jan 2017 14:05:29 +0100 (CET)
+Content-Language: 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Previously stats were gotten by RTM_GETLINK which returns 32 bits based
-statistics. It supports only one type of stats.
-Lately, a new method to get stats was added - RTM_GETSTATS. It supports
-ability to choose stats type. The basic stats were changed from 32 bits
-based to 64 bits based.
+Hello,
 
-This patchset adds ifstat the ability to get extended stats by this
-method. Its adds two types of extended stats:
-64bits - the same as the "normal" stats but get the stats from the cpu
-in 64 bits based struct.
-cpu_hits - for packets that hit cpu.
+I'm wondering what are the semantics of calling
 
----
-v3->v4:
-- patch 2/4:
- - change xstat name read to avoid redundant copy.
- - delete extra line
-- patch 4/4:
- - change xstat name.
+	ip link set dev eth0 down
 
-v2->v3:
-- patch 1/4:
- - add a new patch to reorder includes in misc/ifstat.c
-- patch 2/4: (previously 1/3)
- - fix typos.
- - change error print to use fprintf.
+I was expecting that to somehow instruct the device's ethernet driver
+to shut everything down, have the PHY tell the peer that it's going
+away, maybe even put the PHY in some low-power mode, etc.
 
-v1->v2:
- - change from using RTM_GETSTATS always to using it only for extended
-   stats.
- - Add 64bits extended stats type.
+But it doesn't seem to be doing any of that on my HW.
 
-Nogah Frankel (4):
-  ifstat: Includes reorder
-  ifstat: Add extended statistics to ifstat
-  ifstat: Add 64 bits based stats to extended statistics
-  ifstat: Add "sw only" extended statistics to ifstat
+So what exactly is it supposed to do?
 
- misc/ifstat.c | 170 +++++++++++++++++++++++++++++++++++++++++++++++++++-------
- 1 file changed, 152 insertions(+), 18 deletions(-)
 
--- 
-2.4.3
+And on top of that, I am seeing random occurrences of
+
+	nb8800 26000.ethernet eth0: Link is Down
+
+Sometimes it is printed immediately.
+Sometimes it is printed as soon as I run "ip link set dev eth0 up" (?!)
+Sometimes it is not printed at all.
+
+I find this erratic behavior very confusing.
+
+Is it the symptom of some deeper bug?
+
+Regards.
