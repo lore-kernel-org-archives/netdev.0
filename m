@@ -1,36 +1,95 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: To netlink or not to netlink, that is the question
-Date: Thu, 12 Jan 2017 14:11:27 -0500 (EST)
-Message-ID: <20170112.141127.426662758858102403.davem@davemloft.net>
-References: <CAHmME9rWDzO9j8E1HYSXY6j9FJqHODOYnEW8+SSggapDkQ_jBA@mail.gmail.com>
-        <1484246584.4651.3.camel@redhat.com>
-        <CAHmME9oYDdQGsQ8jQGJMeJ-0A6O+Och+Y+5Q_=Q=M9qgrxDq2Q@mail.gmail.com>
+From: Bart Van Assche <bart.vanassche@sandisk.com>
+Subject: [PATCH v2 12/26] IB: Convert ib_dma_*_coherent() argument type from u64 into dma_addr_t
+Date: Thu, 12 Jan 2017 11:07:04 -0800
+Message-ID: <20170112190718.6728-13-bart.vanassche@sandisk.com>
+References: <20170112190718.6728-1-bart.vanassche@sandisk.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dcbw@redhat.com, stephen@networkplumber.org, netdev@vger.kernel.org
-To: Jason@zx2c4.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:55204 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751036AbdALTL3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 14:11:29 -0500
-In-Reply-To: <CAHmME9oYDdQGsQ8jQGJMeJ-0A6O+Och+Y+5Q_=Q=M9qgrxDq2Q@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <linux-rdma@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        "Greg Kroah-Hartman" <gregkh@linuxfoundation.org>,
+        Bart Van Assche <bart.vanassche@sandisk.com>,
+        "David S . Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+        <rds-devel@oss.oracle.com>
+To: Doug Ledford <dledford@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170112190718.6728-1-bart.vanassche@sandisk.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Date: Thu, 12 Jan 2017 20:02:14 +0100
+This patch does not change any functionality.
 
-> But what about fetching the list of all existing peers and ipmasks
-> atomically? It seems like with multiple calls, if I'm using some kind
-> of pagination, things could change in the process. That's why using
-> one big buffer was most appealing... Any ideas about this?
+Signed-off-by: Bart Van Assche <bart.vanassche@sandisk.com>
+Reviewed-by: Leon Romanovsky <leonro@mellanox.com>
+Cc: David S. Miller <davem@davemloft.net>
+Cc: linux-rdma@vger.kernel.org
+Cc: netdev@vger.kernel.org
+Cc: rds-devel@oss.oracle.com
+---
+ include/rdma/ib_verbs.h | 11 +++--------
+ net/rds/ib.h            |  6 +++---
+ 2 files changed, 6 insertions(+), 11 deletions(-)
 
-This is a fact of life, dumps are always chopped into suitable
-numbers of responses as necessary.  We do this for IPV4 routes,
-network interfaces, etc. and it all works out just fine.
-
-The thing you should be asking yourself is, if something as heavily
-used and fundamental as IPV4 can handle this, probably your scenerio
-can be handled just fine as well.
+diff --git a/include/rdma/ib_verbs.h b/include/rdma/ib_verbs.h
+index 89e80eb77e06..de8dfb61d2b6 100644
+--- a/include/rdma/ib_verbs.h
++++ b/include/rdma/ib_verbs.h
+@@ -3109,15 +3109,10 @@ static inline void ib_dma_sync_single_for_device(struct ib_device *dev,
+  */
+ static inline void *ib_dma_alloc_coherent(struct ib_device *dev,
+ 					   size_t size,
+-					   u64 *dma_handle,
++					   dma_addr_t *dma_handle,
+ 					   gfp_t flag)
+ {
+-	dma_addr_t handle;
+-	void *ret;
+-
+-	ret = dma_alloc_coherent(dev->dma_device, size, &handle, flag);
+-	*dma_handle = handle;
+-	return ret;
++	return dma_alloc_coherent(dev->dma_device, size, dma_handle, flag);
+ }
+ 
+ /**
+@@ -3129,7 +3124,7 @@ static inline void *ib_dma_alloc_coherent(struct ib_device *dev,
+  */
+ static inline void ib_dma_free_coherent(struct ib_device *dev,
+ 					size_t size, void *cpu_addr,
+-					u64 dma_handle)
++					dma_addr_t dma_handle)
+ {
+ 	dma_free_coherent(dev->dma_device, size, cpu_addr, dma_handle);
+ }
+diff --git a/net/rds/ib.h b/net/rds/ib.h
+index 45ac8e8e58f4..d21ca88ab628 100644
+--- a/net/rds/ib.h
++++ b/net/rds/ib.h
+@@ -134,7 +134,7 @@ struct rds_ib_connection {
+ 	struct rds_ib_work_ring	i_send_ring;
+ 	struct rm_data_op	*i_data_op;
+ 	struct rds_header	*i_send_hdrs;
+-	u64			i_send_hdrs_dma;
++	dma_addr_t		i_send_hdrs_dma;
+ 	struct rds_ib_send_work *i_sends;
+ 	atomic_t		i_signaled_sends;
+ 
+@@ -144,7 +144,7 @@ struct rds_ib_connection {
+ 	struct rds_ib_incoming	*i_ibinc;
+ 	u32			i_recv_data_rem;
+ 	struct rds_header	*i_recv_hdrs;
+-	u64			i_recv_hdrs_dma;
++	dma_addr_t		i_recv_hdrs_dma;
+ 	struct rds_ib_recv_work *i_recvs;
+ 	u64			i_ack_recv;	/* last ACK received */
+ 	struct rds_ib_refill_cache i_cache_incs;
+@@ -161,7 +161,7 @@ struct rds_ib_connection {
+ 	struct rds_header	*i_ack;
+ 	struct ib_send_wr	i_ack_wr;
+ 	struct ib_sge		i_ack_sge;
+-	u64			i_ack_dma;
++	dma_addr_t		i_ack_dma;
+ 	unsigned long		i_ack_queued;
+ 
+ 	/* Flow control related information
+-- 
+2.11.0
