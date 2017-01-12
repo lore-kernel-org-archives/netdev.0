@@ -1,39 +1,63 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: Setting link down or up in software
-Date: Thu, 12 Jan 2017 16:28:56 +0100
-Message-ID: <20170112152856.GL13033@lunn.ch>
-References: <75bd6df2-714a-2b9b-a0e3-f5574c295377@free.fr>
- <2044a26f-cf95-ac55-6265-ac76c3ca53f6@free.fr>
+From: Vadim Lomovtsev <Vadim.Lomovtsev@caviumnetworks.com>
+Subject: [PATCH] net: thunderx: acpi: fix LMAC initialization
+Date: Thu, 12 Jan 2017 07:28:06 -0800
+Message-ID: <1484234886-22172-1-git-send-email-Vadim.Lomovtsev@caviumnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>, Mans Rullgard <mans@mansr.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Thibaud Cornic <thibaud_cornic@sigmadesigns.com>
-To: Mason <slash.tmp@free.fr>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:58429 "EHLO vps0.lunn.ch"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750816AbdALP27 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 12 Jan 2017 10:28:59 -0500
-Content-Disposition: inline
-In-Reply-To: <2044a26f-cf95-ac55-6265-ac76c3ca53f6@free.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Vadim Lomovtsev <Vadim.Lomovtsev@caviumnetworks.com>
+To: <linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
+        <linux-kernel@vger.kernel.org>, <sgoutham@cavium.com>,
+        <rric@kernel.org>, <Radha.Chintakuntla@cavium.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> Here's an example of "Link is Down" printed when I set link up:
-> 
-> At [   62.750220] I run ip link set dev eth0 down
-> Then leave the system idle for 10 minutes.
-> At [  646.263041] I run ip link set dev eth0 up
-> At [  647.364079] it prints "Link is Down"
-> At [  649.417434] it prints "Link is Up - 1Gbps/Full - flow control rx/tx"
+While probing BGX we requesting appropriate QLM for it's configuration
+and get LMAC count by that request. Then, while reading configured
+MAC values from SSDT table we need to save them in proper mapping:
+  BGX[i]->lmac[j].mac = <MAC value>
+to later provide for initialization stuff. In order to fill
+such mapping properly we need to add lmac index to be used while
+acpi initialization since at this moment bgx->lmac_count already contains
+actual value.
 
-Purely a guess, but when you up the interface, it starts auto
-negotiation. That often involves resetting the PHY. If the PHY has
-already once completed autoneg, e.g. because of the boot loader, it
-will be initially UP. The reset will put it DOWN, and then once
-autoneg is complete, it will be Up again.
+Signed-off-by: Vadim Lomovtsev <Vadim.Lomovtsev@caviumnetworks.com>
+---
+ drivers/net/ethernet/cavium/thunder/thunder_bgx.c | 11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
 
-Pure guess. Go read the code and see if i'm write.
-
-     Andrew
+diff --git a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
+index be30ad0..a3f4f83 100644
+--- a/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
++++ b/drivers/net/ethernet/cavium/thunder/thunder_bgx.c
+@@ -47,8 +47,9 @@ struct lmac {
+ struct bgx {
+ 	u8			bgx_id;
+ 	struct	lmac		lmac[MAX_LMAC_PER_BGX];
+-	int			lmac_count;
++	u8			lmac_count;
+ 	u8			max_lmac;
++	u8                      acpi_lmac_idx;
+ 	void __iomem		*reg_base;
+ 	struct pci_dev		*pdev;
+ 	bool                    is_dlm;
+@@ -1073,13 +1074,13 @@ static acpi_status bgx_acpi_register_phy(acpi_handle handle,
+ 	if (acpi_bus_get_device(handle, &adev))
+ 		goto out;
+ 
+-	acpi_get_mac_address(dev, adev, bgx->lmac[bgx->lmac_count].mac);
++	acpi_get_mac_address(dev, adev, bgx->lmac[bgx->acpi_lmac_idx].mac);
+ 
+-	SET_NETDEV_DEV(&bgx->lmac[bgx->lmac_count].netdev, dev);
++	SET_NETDEV_DEV(&bgx->lmac[bgx->acpi_lmac_idx].netdev, dev);
+ 
+-	bgx->lmac[bgx->lmac_count].lmacid = bgx->lmac_count;
++	bgx->lmac[bgx->acpi_lmac_idx].lmacid = bgx->acpi_lmac_idx;
++	bgx->acpi_lmac_idx++; /* move to next LMAC */
+ out:
+-	bgx->lmac_count++;
+ 	return AE_OK;
+ }
+ 
+-- 
+1.8.3.1
