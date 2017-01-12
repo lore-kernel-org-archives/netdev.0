@@ -1,100 +1,61 @@
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: [PATCH] ARM: dts: am57xx-beagle-x15: implement errata "Ethernet RGMII2 Limited to 10/100 Mbps"
-Date: Thu, 12 Jan 2017 11:14:29 -0600
-Message-ID: <20170112171429.8106-1-grygorii.strashko@ti.com>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: To netlink or not to netlink, that is the question
+Date: Thu, 12 Jan 2017 12:43:04 -0600
+Message-ID: <1484246584.4651.3.camel@redhat.com>
+References: <CAHmME9pkktqOSUyTS_XhgC-CE4iqTv6UEA6w74kkm3xnBY8z9g@mail.gmail.com>
+         <20170112091440.7f6cd41f@xeon-e3>
+         <CAHmME9rWDzO9j8E1HYSXY6j9FJqHODOYnEW8+SSggapDkQ_jBA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-omap@vger.kernel.org>, Sekhar Nori <nsekhar@ti.com>,
-        <netdev@vger.kernel.org>,
-        Grygorii Strashko <grygorii.strashko@ti.com>
-To: Tony Lindgren <tony@atomide.com>,
-        Mugunthan V N <mugunthanvnm@ti.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@vger.kernel.org>
+To: "Jason A. Donenfeld" <Jason@zx2c4.com>,
+        Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fllnx209.ext.ti.com ([198.47.19.16]:29800 "EHLO
-        fllnx209.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750911AbdALRO6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 12:14:58 -0500
+Received: from mx1.redhat.com ([209.132.183.28]:37944 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751253AbdALSnH (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 12 Jan 2017 13:43:07 -0500
+In-Reply-To: <CAHmME9rWDzO9j8E1HYSXY6j9FJqHODOYnEW8+SSggapDkQ_jBA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-According to errata i880 description the speed of Ethernet port 1 on AM572x
-SoCs rev 1.1 shuld be limited to 10/100Mbps, because RGMII2 Switching
-Characteristics are not compatible with 1000 Mbps operation [1].
-The issue is fixed with Rev 2.0 silicon.
+On Thu, 2017-01-12 at 19:28 +0100, Jason A. Donenfeld wrote:
+> On Thu, Jan 12, 2017 at 6:14 PM, Stephen Hemminger
+> <stephen@networkplumber.org> wrote:
+> > It is up to you but I doubt that code with new private ioctl's will
+> > be
+> > accepted upstream. If you want full review then post for inclusion
+> > upstream.
+> > If you just want to maintain it is a private fork, go ahead and do
+> > what
+> > you want and suffer the consequences.
+> 
+> Obviously I'm going for upstream conclusion and not willing to
+> "suffer
+> the consequences", hence my email in the first place. Given that you
+> seem most interested in netlink, might you have any constructive
+> suggestions on how netlink might be used with very large atomic
+> messages?
 
-Hence, rework Beagle-X15 and Begale-X15-revb1 to use phy-handle instead of
-phy_id and apply corresponding limitation to the Ethernet Phy 1.
+Typically kernel code doesn't pass very large atomic messages back and
+forth.  From the description you mailed, I would guess a better fit API
+would be to have specific netlink mechanisms for add/remove wgpeers,
+and a specific mechanism for add/remove ipmasks for each peer.  And
+don't forget netlink events to indicate when peers and ipmasks have
+been added/removed, so userspace is aware of that.
 
-[1] http://www.ti.com/lit/er/sprz429j/sprz429j.pdf
+Besides, perhaps multiple programs may wish to manipulate a wgdevice,
+which could include adding/removing peers or ipmasks from separate
+userspace processes.  That's not really possible with a huge buffer
+that includes all the information, as a process would have to read the
+buffer, update it, and send it back, which would then potentially
+clobber whatever another process did between the read/write.
 
-Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
----
- arch/arm/boot/dts/am57xx-beagle-x15-common.dtsi | 14 ++++++++++++--
- arch/arm/boot/dts/am57xx-beagle-x15-revb1.dts   |  5 +++++
- arch/arm/boot/dts/am57xx-beagle-x15.dts         |  5 +++++
- 3 files changed, 22 insertions(+), 2 deletions(-)
+In short, if the API doesn't quite fit, then perhaps the API could be
+broken up into smaller, more discrete operations that better fit the
+netlink API.
 
-diff --git a/arch/arm/boot/dts/am57xx-beagle-x15-common.dtsi b/arch/arm/boot/dts/am57xx-beagle-x15-common.dtsi
-index 78bee26..0429fa0 100644
---- a/arch/arm/boot/dts/am57xx-beagle-x15-common.dtsi
-+++ b/arch/arm/boot/dts/am57xx-beagle-x15-common.dtsi
-@@ -421,19 +421,29 @@
- 			      <&dra7_pmx_core 0x3f8>;
- };
- 
-+&davinci_mdio {
-+	phy0: ethernet-phy@1 {
-+		reg = <1>;
-+	};
-+
-+	phy1: ethernet-phy@2 {
-+		reg = <2>;
-+	};
-+};
-+
- &mac {
- 	status = "okay";
- 	dual_emac;
- };
- 
- &cpsw_emac0 {
--	phy_id = <&davinci_mdio>, <1>;
-+	phy-handle = <&phy0>;
- 	phy-mode = "rgmii";
- 	dual_emac_res_vlan = <1>;
- };
- 
- &cpsw_emac1 {
--	phy_id = <&davinci_mdio>, <2>;
-+	phy-handle = <&phy1>;
- 	phy-mode = "rgmii";
- 	dual_emac_res_vlan = <2>;
- };
-diff --git a/arch/arm/boot/dts/am57xx-beagle-x15-revb1.dts b/arch/arm/boot/dts/am57xx-beagle-x15-revb1.dts
-index ca85570..39a92af 100644
---- a/arch/arm/boot/dts/am57xx-beagle-x15-revb1.dts
-+++ b/arch/arm/boot/dts/am57xx-beagle-x15-revb1.dts
-@@ -22,3 +22,8 @@
- 	vmmc-supply = <&vdd_3v3>;
- 	vmmc-aux-supply = <&ldo1_reg>;
- };
-+
-+/* errata i880 "Ethernet RGMII2 Limited to 10/100 Mbps" */
-+&phy1 {
-+	max-speed = <100>;
-+};
-diff --git a/arch/arm/boot/dts/am57xx-beagle-x15.dts b/arch/arm/boot/dts/am57xx-beagle-x15.dts
-index 8c66f2e..19a60a1 100644
---- a/arch/arm/boot/dts/am57xx-beagle-x15.dts
-+++ b/arch/arm/boot/dts/am57xx-beagle-x15.dts
-@@ -22,3 +22,8 @@
- &mmc1 {
- 	vmmc-supply = <&ldo1_reg>;
- };
-+
-+/* errata i880 "Ethernet RGMII2 Limited to 10/100 Mbps" */
-+&phy1 {
-+	max-speed = <100>;
-+};
--- 
-2.10.1.dirty
+Just some thoughts...
+
+Dan
