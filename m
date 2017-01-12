@@ -1,68 +1,54 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [iproute PATCH] tc: m_xt: Fix segfault with iptables-1.6.0
-Date: Thu, 12 Jan 2017 22:09:36 +0100
-Message-ID: <20170112210935.GH6774@orbyte.nwl.cc>
-References: <20170112142249.13041-1-phil@nwl.cc>
- <20170112113449.581e2219@xeon-e3>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] tcp: fix tcp_fastopen unaligned access complaints on
+ sparc
+Date: Thu, 12 Jan 2017 16:18:52 -0500 (EST)
+Message-ID: <20170112.161852.1469407145449781531.davem@davemloft.net>
+References: <1c39bf41-4ebf-643a-c6a0-caf98a17a89c@oracle.com>
+        <20170112.154143.1940764507974590907.davem@davemloft.net>
+        <131ec7b7-5b74-2545-8bf7-92812443a876@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:59347 "EHLO mail.nwl.cc"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750730AbdALVJi (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 12 Jan 2017 16:09:38 -0500
-Content-Disposition: inline
-In-Reply-To: <20170112113449.581e2219@xeon-e3>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, rob.gardner@oracle.com,
+        netdev@vger.kernel.org, sparclinux@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: shannon.nelson@oracle.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <131ec7b7-5b74-2545-8bf7-92812443a876@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 12, 2017 at 11:34:49AM -0800, Stephen Hemminger wrote:
-> On Thu, 12 Jan 2017 15:22:49 +0100
-> Phil Sutter <phil@nwl.cc> wrote:
+From: Shannon Nelson <shannon.nelson@oracle.com>
+Date: Thu, 12 Jan 2017 12:56:08 -0800
+
 > 
-> > Said iptables version introduced struct xtables_globals field
-> > 'compat_rev', a function pointer. Initializing it is mandatory as
-> > libxtables calls it without existence check.
-> > 
-> > Without this, tc segfaults when using the xt action like so:
-> > 
-> > | tc filter add dev d0 parent ffff: u32 match u32 0 0 \
-> > |	action xt -j MARK --set-mark 20
-> > 
-> > Signed-off-by: Phil Sutter <phil@nwl.cc>
-> > ---
-> >  tc/m_xt.c | 3 +++
-> >  1 file changed, 3 insertions(+)
-> > 
-> > diff --git a/tc/m_xt.c b/tc/m_xt.c
-> > index dbb54981462ee..57ed40d7aa3a8 100644
-> > --- a/tc/m_xt.c
-> > +++ b/tc/m_xt.c
-> > @@ -77,6 +77,9 @@ static struct xtables_globals tcipt_globals = {
-> >  	.orig_opts = original_opts,
-> >  	.opts = original_opts,
-> >  	.exit_err = NULL,
-> > +#if (XTABLES_VERSION_CODE >= 11)
-> > +	.compat_rev = xtables_compatible_revision,
-> > +#endif
-> >  };
-> >  
-> >  /*
 > 
-> Ah the xtables API is not really an application friendly API by
-> any stretch of the imagination
+> On 1/12/2017 12:41 PM, David Miller wrote:
+>> From: Shannon Nelson <shannon.nelson@oracle.com>
+>> Date: Thu, 12 Jan 2017 12:30:38 -0800
+>>
+>>> On 1/12/2017 12:25 PM, Eric Dumazet wrote:
+>>>> On Thu, 2017-01-12 at 13:15 -0700, Rob Gardner wrote:
+>>>>
+>>>>>
+>>>>> I suspect that someplace, somebody is casting val to an int * or
+>>>>> something like that.
+>>>>
+>>>> Then that would be the bug. Can we root cause this please ?
+>>>>
+>>>>
+>>>
+>>> Look in net/ipv4/tcp_fastopen.c:tcp_fastopen_cookie_gen() for the line
+>>>
+>>> 	 struct in6_addr *buf = (struct in6_addr *) tmp.val;
+>>
+>> Oh yeah, that's it.  I didn't notice that at all.
+>>
+> 
+> It looked to me like swapping the data fields would be the easiest and
+> least impactive way to fix this.  I didn't want to mess with the
+> logic. I'm certainly open to other suggestions.
 
-Yeah, this could have really been handled by the lib, especially since
-it provides the callback to assign to it. But whatever, looking at the
-git log shows it's not happening for the first time so at least it's
-consistent. :)
+Given the nature of the problem, your fix is probably fine.
 
-> Parenthesis not really necessary there.
-
-Oh, indeed! I just stuck to how the other XTABLES_VERSION_CODE checks
-are made. Are you going to apply this patch either way? I'll then
-follow-up dropping the parentheses at all places at once.
-
-Thanks, Phil
+Eric, any objections?
