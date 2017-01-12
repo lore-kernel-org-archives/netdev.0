@@ -1,82 +1,48 @@
-From: Igor Druzhinin <igor.druzhinin@citrix.com>
-Subject: Re: [PATCH] xen-netback: fix memory leaks on XenBus
-	disconnect
-Date: Thu, 12 Jan 2017 18:05:36 +0000
-Message-ID: <ac2136fd-a1c7-d990-a79b-ec5e24daa543@citrix.com>
-References: <1484243516-141100-1-git-send-email-igor.druzhinin@citrix.com>
+From: Josef Bacik <jbacik@fb.com>
+Subject: Re: [PATCH 1/6 net-next] inet: collapse ipv4/v6 rcv_saddr_equal
+ functions into one
+Date: Thu, 12 Jan 2017 13:13:59 -0500
+Message-ID: <1484244839.3869.0@smtp.office365.com>
+References: <CAEfhGixyDxk6yNCY-FVLAop-VvO0jB1YuOu3i382Y5S40ocwOA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: jgross@suse.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: <wei.liu2@citrix.com>, <xen-devel@lists.xenproject.org>,
- <paul.durrant@citrix.com>
-Return-path: <xen-devel-bounces@lists.xen.org>
-In-Reply-To: <1484243516-141100-1-git-send-email-igor.druzhinin@citrix.com>
-List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Errors-To: xen-devel-bounces@lists.xen.org
-Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Cc: David Miller <davem@davemloft.net>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        "Tom Herbert" <tom@herbertland.com>,
+        netdev <netdev@vger.kernel.org>, <kernel-team@fb.com>
+To: Craig Gallek <kraigatgoog@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:33815 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1750934AbdALSOb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 13:14:31 -0500
+In-Reply-To: <CAEfhGixyDxk6yNCY-FVLAop-VvO0jB1YuOu3i382Y5S40ocwOA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gMTIvMDEvMTcgMTc6NTEsIElnb3IgRHJ1emhpbmluIHdyb3RlOgo+IEVsaW1pbmF0ZSBtZW1v
-cnkgbGVha3MgaW50cm9kdWNlZCBzZXZlcmFsIHllYXJzIGFnbyBieSBjbGVhbmluZyB0aGUgcXVl
-dWUKPiByZXNvdXJjZXMgd2hpY2ggYXJlIGFsbG9jYXRlZCBvbiBYZW5CdXMgY29ubmVjdGlvbiBl
-dmVudC4gTmFtZWx5LCBxdWV1ZQo+IHN0cnVjdHVyZSBhcnJheSBhbmQgcGFnZXMgdXNlZCBmb3Ig
-SU8gcmluZ3MuCj4gdmlmLT5sb2NrIGlzIHVzZWQgdG8gcHJvdGVjdCBzdGF0aXN0aWNzIGdhdGhl
-cmluZyBhZ2VudHMgZnJvbSB1c2luZyB0aGUKPiBxdWV1ZSBzdHJ1Y3R1cmUgZHVyaW5nIGNsZWFu
-aW5nLgo+IAo+IFNpZ25lZC1vZmYtYnk6IElnb3IgRHJ1emhpbmluIDxpZ29yLmRydXpoaW5pbkBj
-aXRyaXguY29tPgo+IC0tLQo+ICBkcml2ZXJzL25ldC94ZW4tbmV0YmFjay9pbnRlcmZhY2UuYyB8
-ICA2ICsrKystLQo+ICBkcml2ZXJzL25ldC94ZW4tbmV0YmFjay94ZW5idXMuYyAgICB8IDEzICsr
-KysrKysrKysrKysKPiAgMiBmaWxlcyBjaGFuZ2VkLCAxNyBpbnNlcnRpb25zKCspLCAyIGRlbGV0
-aW9ucygtKQo+IAo+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC94ZW4tbmV0YmFjay9pbnRlcmZh
-Y2UuYyBiL2RyaXZlcnMvbmV0L3hlbi1uZXRiYWNrL2ludGVyZmFjZS5jCj4gaW5kZXggZTMwZmZk
-Mi4uNTc5NTIxMyAxMDA2NDQKPiAtLS0gYS9kcml2ZXJzL25ldC94ZW4tbmV0YmFjay9pbnRlcmZh
-Y2UuYwo+ICsrKyBiL2RyaXZlcnMvbmV0L3hlbi1uZXRiYWNrL2ludGVyZmFjZS5jCj4gQEAgLTIy
-MSwxOCArMjIxLDE4IEBAIHN0YXRpYyBzdHJ1Y3QgbmV0X2RldmljZV9zdGF0cyAqeGVudmlmX2dl
-dF9zdGF0cyhzdHJ1Y3QgbmV0X2RldmljZSAqZGV2KQo+ICB7Cj4gIAlzdHJ1Y3QgeGVudmlmICp2
-aWYgPSBuZXRkZXZfcHJpdihkZXYpOwo+ICAJc3RydWN0IHhlbnZpZl9xdWV1ZSAqcXVldWUgPSBO
-VUxMOwo+IC0JdW5zaWduZWQgaW50IG51bV9xdWV1ZXMgPSB2aWYtPm51bV9xdWV1ZXM7Cj4gIAl1
-bnNpZ25lZCBsb25nIHJ4X2J5dGVzID0gMDsKPiAgCXVuc2lnbmVkIGxvbmcgcnhfcGFja2V0cyA9
-IDA7Cj4gIAl1bnNpZ25lZCBsb25nIHR4X2J5dGVzID0gMDsKPiAgCXVuc2lnbmVkIGxvbmcgdHhf
-cGFja2V0cyA9IDA7Cj4gIAl1bnNpZ25lZCBpbnQgaW5kZXg7Cj4gIAo+ICsJc3Bpbl9sb2NrKCZ2
-aWYtPmxvY2spOwo+ICAJaWYgKHZpZi0+cXVldWVzID09IE5VTEwpCj4gIAkJZ290byBvdXQ7Cj4g
-IAo+ICAJLyogQWdncmVnYXRlIHR4IGFuZCByeCBzdGF0cyBmcm9tIGVhY2ggcXVldWUgKi8KPiAt
-CWZvciAoaW5kZXggPSAwOyBpbmRleCA8IG51bV9xdWV1ZXM7ICsraW5kZXgpIHsKPiArCWZvciAo
-aW5kZXggPSAwOyBpbmRleCA8IHZpZi0+bnVtX3F1ZXVlczsgKytpbmRleCkgewo+ICAJCXF1ZXVl
-ID0gJnZpZi0+cXVldWVzW2luZGV4XTsKPiAgCQlyeF9ieXRlcyArPSBxdWV1ZS0+c3RhdHMucnhf
-Ynl0ZXM7Cj4gIAkJcnhfcGFja2V0cyArPSBxdWV1ZS0+c3RhdHMucnhfcGFja2V0czsKPiBAQCAt
-MjQxLDYgKzI0MSw4IEBAIHN0YXRpYyBzdHJ1Y3QgbmV0X2RldmljZV9zdGF0cyAqeGVudmlmX2dl
-dF9zdGF0cyhzdHJ1Y3QgbmV0X2RldmljZSAqZGV2KQo+ICAJfQo+ICAKPiAgb3V0Ogo+ICsJc3Bp
-bl91bmxvY2soJnZpZi0+bG9jayk7Cj4gKwo+ICAJdmlmLT5kZXYtPnN0YXRzLnJ4X2J5dGVzID0g
-cnhfYnl0ZXM7Cj4gIAl2aWYtPmRldi0+c3RhdHMucnhfcGFja2V0cyA9IHJ4X3BhY2tldHM7Cj4g
-IAl2aWYtPmRldi0+c3RhdHMudHhfYnl0ZXMgPSB0eF9ieXRlczsKPiBkaWZmIC0tZ2l0IGEvZHJp
-dmVycy9uZXQveGVuLW5ldGJhY2sveGVuYnVzLmMgYi9kcml2ZXJzL25ldC94ZW4tbmV0YmFjay94
-ZW5idXMuYwo+IGluZGV4IDMxMjRlYWUuLjg1Yjc0MmUgMTAwNjQ0Cj4gLS0tIGEvZHJpdmVycy9u
-ZXQveGVuLW5ldGJhY2sveGVuYnVzLmMKPiArKysgYi9kcml2ZXJzL25ldC94ZW4tbmV0YmFjay94
-ZW5idXMuYwo+IEBAIC00OTMsMTEgKzQ5MywyMiBAQCBzdGF0aWMgaW50IGJhY2tlbmRfY3JlYXRl
-X3hlbnZpZihzdHJ1Y3QgYmFja2VuZF9pbmZvICpiZSkKPiAgc3RhdGljIHZvaWQgYmFja2VuZF9k
-aXNjb25uZWN0KHN0cnVjdCBiYWNrZW5kX2luZm8gKmJlKQo+ICB7Cj4gIAlpZiAoYmUtPnZpZikg
-ewo+ICsJCXVuc2lnbmVkIGludCBxdWV1ZV9pbmRleDsKPiArCj4gIAkJeGVuX3VucmVnaXN0ZXJf
-d2F0Y2hlcnMoYmUtPnZpZik7Cj4gICNpZmRlZiBDT05GSUdfREVCVUdfRlMKPiAgCQl4ZW52aWZf
-ZGVidWdmc19kZWxpZihiZS0+dmlmKTsKPiAgI2VuZGlmIC8qIENPTkZJR19ERUJVR19GUyAqLwo+
-ICAJCXhlbnZpZl9kaXNjb25uZWN0X2RhdGEoYmUtPnZpZik7Cj4gKwkJZm9yIChxdWV1ZV9pbmRl
-eCA9IDA7IHF1ZXVlX2luZGV4IDwgYmUtPnZpZi0+bnVtX3F1ZXVlczsgKytxdWV1ZV9pbmRleCkK
-PiArCQkJeGVudmlmX2RlaW5pdF9xdWV1ZSgmYmUtPnZpZi0+cXVldWVzW3F1ZXVlX2luZGV4XSk7
-Cj4gKwo+ICsJCXNwaW5fbG9jaygmYmUtPnZpZi0+bG9jayk7Cj4gKwkJdmZyZWUoYmUtPnZpZi0+
-cXVldWVzKTsKPiArCQliZS0+dmlmLT5udW1fcXVldWVzID0gMDsKPiArCQliZS0+dmlmLT5xdWV1
-ZXMgPSBOVUxMOwo+ICsJCXNwaW5fdW5sb2NrKCZiZS0+dmlmLT5sb2NrKTsKPiArCj4gIAkJeGVu
-dmlmX2Rpc2Nvbm5lY3RfY3RybChiZS0+dmlmKTsKPiAgCX0KPiAgfQo+IEBAIC0xMDM0LDYgKzEw
-NDUsOCBAQCBzdGF0aWMgdm9pZCBjb25uZWN0KHN0cnVjdCBiYWNrZW5kX2luZm8gKmJlKQo+ICBl
-cnI6Cj4gIAlpZiAoYmUtPnZpZi0+bnVtX3F1ZXVlcyA+IDApCj4gIAkJeGVudmlmX2Rpc2Nvbm5l
-Y3RfZGF0YShiZS0+dmlmKTsgLyogQ2xlYW4gdXAgZXhpc3RpbmcgcXVldWVzICovCj4gKwlmb3Ig
-KHF1ZXVlX2luZGV4ID0gMDsgcXVldWVfaW5kZXggPCBiZS0+dmlmLT5udW1fcXVldWVzOyArK3F1
-ZXVlX2luZGV4KQo+ICsJCXhlbnZpZl9kZWluaXRfcXVldWUoJmJlLT52aWYtPnF1ZXVlc1txdWV1
-ZV9pbmRleF0pOwo+ICAJdmZyZWUoYmUtPnZpZi0+cXVldWVzKTsKPiAgCWJlLT52aWYtPnF1ZXVl
-cyA9IE5VTEw7Cj4gIAliZS0+dmlmLT5udW1fcXVldWVzID0gMDsKPiAKCkFkZCBKdWVyZ2VuIEdy
-b3NzIHRvIENDLgoKSWdvcgoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX18KWGVuLWRldmVsIG1haWxpbmcgbGlzdApYZW4tZGV2ZWxAbGlzdHMueGVuLm9yZwpo
-dHRwczovL2xpc3RzLnhlbi5vcmcveGVuLWRldmVsCg==
+On Thu, Jan 12, 2017 at 12:41 PM, Craig Gallek <kraigatgoog@gmail.com> 
+wrote:
+> On Wed, Jan 11, 2017 at 3:19 PM, Josef Bacik <jbacik@fb.com> wrote:
+>>  +int inet_rcv_saddr_equal(const struct sock *sk, const struct sock 
+>> *sk2,
+>>  +                        bool match_wildcard)
+>>  +{
+>>  +#if IS_ENABLED(CONFIG_IPV6)
+>>  +       if (sk->sk_family == AF_INET6)
+> Still wrapping my head around this, so take it with a grain of salt,
+> but it's not obvious to me that sk and sk2 are guaranteed to have the
+> same family here (or if it even matters).  Especially in the context
+> of the next patch which removes the bind_conflict callback...  Does
+> this need to be an OR check for the family of either socket?  Or is it
+> safe as-is because the first socket passed to this function is always
+> the existing one and the second one is the possible conflict socket?
+
+It's safe as is, all we care is that sk1 is the INET6 socket.  In the 
+compare function we use inet6_rcv_saddr(sk2) which will return NULL if 
+it isn't INET6 and then the function handles that case appropriately.  
+This stuff is subtle so it's easy to get confused, I always made sure 
+to run it on our production boxes to make sure I didn't break something 
+;).  Thanks,
+
+Josef
