@@ -1,60 +1,54 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [PATCH] can: Fix kernel panic at security_sock_rcv_skb
-Date: Thu, 12 Jan 2017 17:33:38 +0100
-Message-ID: <9e6817a0-65b3-ed16-4616-f8e55aee09c4@hartkopp.net>
-References: <1484202799-7287-1-git-send-email-shuo.a.liu@intel.com>
- <0e458012-e97b-298d-296e-ed25e35689a0@hartkopp.net>
- <1484226099.15816.25.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH/RFC v2 net-next] ravb: unmap descriptors when freeing
+ rings
+Date: Thu, 12 Jan 2017 19:33:51 +0300
+Message-ID: <dc41bc36-8239-39d7-def1-a60603e3890a@cogentembedded.com>
+References: <1483613000-537-1-git-send-email-horms+renesas@verge.net.au>
+ <6fcec500-bed6-ffa3-2887-d45b34703682@cogentembedded.com>
+ <20170112091116.GC7724@verge.net.au>
+ <3e1d4324-4288-8d65-56fd-8c3e7283020b@cogentembedded.com>
+ <20170112131821.GA16060@verge.net.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        linux-kernel@vger.kernel.org, yanmin_zhang@linux.intel.com,
-        shuox.liu@gmail.com, Zhang Yanmin <yanmin.zhang@intel.com>,
-        "He, Bo" <bo.he@intel.com>, Marc Kleine-Budde <mkl@pengutronix.de>,
-        "David S. Miller" <davem@davemloft.net>,
-        "open list:CAN NETWORK LAYER" <linux-can@vger.kernel.org>,
-        "open list:NETWORKING [GENERAL]" <netdev@vger.kernel.org>
-To: Liu ShuoX <shuo.a.liu@intel.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1484226099.15816.25.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: linux-can-owner@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+        Magnus Damm <magnus.damm@gmail.com>, netdev@vger.kernel.org,
+        linux-renesas-soc@vger.kernel.org
+To: Simon Horman <horms@verge.net.au>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <20170112131821.GA16060@verge.net.au>
+Sender: linux-renesas-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 01/12/2017 02:01 PM, Eric Dumazet wrote:
-> On Thu, 2017-01-12 at 09:22 +0100, Oliver Hartkopp wrote:
+On 01/12/2017 04:18 PM, Simon Horman wrote:
 
->> But my main concern is:
+> ...
+>
+>>>>   Here, it stop once an untransmitted buffer is encountered...
+>>>
+>>> Yes, I see that now.
+>>>
+>>> I wonder if we should:
+>>>
+>>> a) paramatise ravb_tx_free() so it may either clear all transmitted buffers
+>>>   (current behaviour) or all buffers (new behaviour).
+>>> b) provide a different version of this loop in ravb_ring_free()
+>>>
+>>> What are your thoughts?
 >>
->> The reason why can_rx_delete_receiver() was introduced was the need to
->> remove a huge number of receivers with can_rx_unregister().
->>
->> When you call synchronize_rcu() after each receiver removal this would
->> potentially lead to a big performance issue when e.g. closing CAN_RAW
->> sockets with a high number of receivers.
->>
->> So the idea was to remove/unlink the receiver hlist_del_rcu(&r->list)
->> and also kmem_cache_free(rcv_cache, r) by some rcu mechanism - so that
->> all elements are cleaned up by rcu at a later point.
->>
->> Is it possible that the problems emerge due to hlist_del_rcu(&r->list)
->> and you accidently fix it with your introduced synchronize_rcu()?
+>>    I'm voting for (b).
 >
-> I agree this patch does not fix the root cause.
+> Ok, something like this?
 >
-> The main problem seems that the sockets themselves are not RCU
-> protected.
+> @@ -215,6 +225,30 @@ static void ravb_ring_free(struct net_device *ndev, int q)
+>  	}
 >
-> If CAN uses RCU for delivery, then sockets should be freed only after
-> one RCU grace period.
->
-> On recent kernels, following patch could help :
->
+>  	if (priv->tx_ring[q]) {
+> +		for (; priv->cur_tx[q] - priv->dirty_tx[q] > 0; priv->dirty_tx[q]++) {
 
-Thanks Eric!
+    You're still copying the loop logic from ravb_tx_free() while we (I think) 
+need a simple loop over all the descriptor ring.
 
-@Liu ShuoX: Can you check if Eric's suggestion fixes the issue in your 
-setup?
+[...]
 
-Best regards,
-Oliver
+MBR, Sergei
