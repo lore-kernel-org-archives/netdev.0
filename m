@@ -1,41 +1,47 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: Re: To netlink or not to netlink, that is the question
-Date: Thu, 12 Jan 2017 20:02:14 +0100
-Message-ID: <CAHmME9oYDdQGsQ8jQGJMeJ-0A6O+Och+Y+5Q_=Q=M9qgrxDq2Q@mail.gmail.com>
-References: <CAHmME9pkktqOSUyTS_XhgC-CE4iqTv6UEA6w74kkm3xnBY8z9g@mail.gmail.com>
- <20170112091440.7f6cd41f@xeon-e3> <CAHmME9rWDzO9j8E1HYSXY6j9FJqHODOYnEW8+SSggapDkQ_jBA@mail.gmail.com>
- <1484246584.4651.3.camel@redhat.com>
+From: Bart Van Assche <bart.vanassche@sandisk.com>
+Subject: [PATCH v2 11/26] RDS: IB: Remove an unused structure member
+Date: Thu, 12 Jan 2017 11:07:03 -0800
+Message-ID: <20170112190718.6728-12-bart.vanassche@sandisk.com>
+References: <20170112190718.6728-1-bart.vanassche@sandisk.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-        Netdev <netdev@vger.kernel.org>
-To: Dan Williams <dcbw@redhat.com>
+Content-Type: text/plain
+Cc: <linux-rdma@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        "Greg Kroah-Hartman" <gregkh@linuxfoundation.org>,
+        Bart Van Assche <bart.vanassche@sandisk.com>,
+        "David S . Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+        <rds-devel@oss.oracle.com>
+To: Doug Ledford <dledford@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from frisell.zx2c4.com ([192.95.5.64]:51396 "EHLO frisell.zx2c4.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750746AbdALTCS (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 12 Jan 2017 14:02:18 -0500
-Received: by frisell.zx2c4.com (ZX2C4 Mail Server) with ESMTP id 8a844c15
-        for <netdev@vger.kernel.org>;
-        Thu, 12 Jan 2017 18:52:16 +0000 (UTC)
-Received: by frisell.zx2c4.com (ZX2C4 Mail Server) with ESMTPSA id fa4f9085 (TLSv1.2:ECDHE-RSA-AES128-GCM-SHA256:128:NO)
-        for <netdev@vger.kernel.org>;
-        Thu, 12 Jan 2017 18:52:15 +0000 (UTC)
-Received: by mail-oi0-f42.google.com with SMTP id u143so33816362oif.3
-        for <netdev@vger.kernel.org>; Thu, 12 Jan 2017 11:02:16 -0800 (PST)
-In-Reply-To: <1484246584.4651.3.camel@redhat.com>
+Received: from mail-by2nam01on0062.outbound.protection.outlook.com ([104.47.34.62]:3808
+        "EHLO NAM01-BY2-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1750911AbdALTIK (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 12 Jan 2017 14:08:10 -0500
+In-Reply-To: <20170112190718.6728-1-bart.vanassche@sandisk.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dan,
+Signed-off-by: Bart Van Assche <bart.vanassche@sandisk.com>
+Acked-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+Cc: David S. Miller <davem@davemloft.net>
+Cc: linux-rdma@vger.kernel.org
+Cc: netdev@vger.kernel.org
+Cc: rds-devel@oss.oracle.com
+---
+ net/rds/ib_mr.h | 1 -
+ 1 file changed, 1 deletion(-)
 
-Thanks for your response. I'd thought about this, at least for
-adding/removing wgpeers/wgipmasks and for configuring wgdevices. This
-would fit into multiple smaller messages indeed.
-
-But what about fetching the list of all existing peers and ipmasks
-atomically? It seems like with multiple calls, if I'm using some kind
-of pagination, things could change in the process. That's why using
-one big buffer was most appealing... Any ideas about this?
-
-Jason
+diff --git a/net/rds/ib_mr.h b/net/rds/ib_mr.h
+index 1c754f4acbe5..24c086db4511 100644
+--- a/net/rds/ib_mr.h
++++ b/net/rds/ib_mr.h
+@@ -45,7 +45,6 @@
+ 
+ struct rds_ib_fmr {
+ 	struct ib_fmr		*fmr;
+-	u64			*dma;
+ };
+ 
+ enum rds_ib_fr_state {
+-- 
+2.11.0
