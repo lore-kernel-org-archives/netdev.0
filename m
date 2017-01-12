@@ -1,71 +1,69 @@
 From: Kalle Valo <kvalo@qca.qualcomm.com>
-Subject: Re: net: wireless: ath: wil6210: constify cfg80211_ops structures
-Date: Thu, 12 Jan 2017 11:55:43 +0100
-Message-ID: <66ab58f4a83d4164ae06cbb27fb38904@euamsexm01a.eu.qualcomm.com>
-References: <1482014667-27082-1-git-send-email-bhumirks@gmail.com>
+Subject: Re: [1/2] ath9k: ar9002_mac: kill off ACCESS_ONCE()
+Date: Thu, 12 Jan 2017 12:00:25 +0100
+Message-ID: <35e1ad24f23d41c7956d82b5ca9fc0e6@euamsexm01a.eu.qualcomm.com>
+References: <1482864599-19995-2-git-send-email-mark.rutland@arm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: <julia.lawall@lip6.fr>, <qca_merez@qca.qualcomm.com>,
+Cc: <linux-kernel@vger.kernel.org>, <ath9k-devel@qca.qualcomm.com>,
         <kvalo@codeaurora.org>, <linux-wireless@vger.kernel.org>,
-        <wil6210@qca.qualcomm.com>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>, Bhumika Goyal <bhumirks@gmail.com>
-To: Bhumika Goyal <bhumirks@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wolverine02.qualcomm.com ([199.106.114.251]:11871 "EHLO
-        wolverine02.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751468AbdALKzw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 05:55:52 -0500
-In-Reply-To: <1482014667-27082-1-git-send-email-bhumirks@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+        <ath9k-devel@lists.ath9k.org>, <netdev@vger.kernel.org>,
+        Mark Rutland <mark.rutland@arm.com>
+To: Mark Rutland <mark.rutland@arm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1482864599-19995-2-git-send-email-mark.rutland@arm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Bhumika Goyal <bhumirks@gmail.com> wrote:
-> cfg80211_ops structures are only passed as an argument to the function
-> wiphy_new. This argument is of type const, so cfg80211_ops strutures
-> having this property can be declared as const.
-> Done using Coccinelle
+Mark Rutland <mark.rutland@arm.com> wrote:
+> For several reasons, it is desirable to use {READ,WRITE}_ONCE() in
+> preference to ACCESS_ONCE(), and new code is expected to use one of the
+> former. So far, there's been no reason to change most existing uses of
+> ACCESS_ONCE(), as these aren't currently harmful.
 > 
-> @r1 disable optional_qualifier @
-> identifier i;
-> position p;
+> However, for some new features (e.g. KTSAN / Kernel Thread Sanitizer),
+> it is necessary to instrument reads and writes separately, which is not
+> possible with ACCESS_ONCE(). This distinction is critical to correct
+> operation.
+> 
+> It's possible to transform the bulk of kernel code using the Coccinelle
+> script below. However, for some files (including the ath9k ar9002 mac
+> driver), this mangles the formatting. As a preparatory step, this patch
+> converts the driver to use {READ,WRITE}_ONCE() without said mangling.
+> 
+> ----
+> virtual patch
+> 
+> @ depends on patch @
+> expression E1, E2;
 > @@
-> static struct cfg80211_ops i@p = {...};
 > 
-> @ok1@
-> identifier r1.i;
-> position p;
+> - ACCESS_ONCE(E1) = E2
+> + WRITE_ONCE(E1, E2)
+> 
+> @ depends on patch @
+> expression E;
 > @@
-> wiphy_new(&i@p,...)
 > 
-> @bad@
-> position p!={r1.p,ok1.p};
-> identifier r1.i;
-> @@
-> i@p
+> - ACCESS_ONCE(E)
+> + READ_ONCE(E)
+> ----
 > 
-> @depends on !bad disable optional_qualifier@
-> identifier r1.i;
-> @@
-> +const
-> struct cfg80211_ops i;
-> 
-> File size before:
->    text	   data	    bss	    dec	    hex	filename
->   18133	   6632	      0	  24765	   60bd wireless/ath/wil6210/cfg80211.o
-> 
-> File size after:
->    text	   data	    bss	    dec	    hex	filename
->   18933	   5832	      0	  24765	   60bd wireless/ath/wil6210/cfg80211.o
-> 
-> Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
+> Signed-off-by: Mark Rutland <mark.rutland@arm.com>
+> Cc: ath9k-devel@qca.qualcomm.com
+> Cc: Kalle Valo <kvalo@codeaurora.org>
+> Cc: linux-wireless@vger.kernel.org
+> Cc: ath9k-devel@lists.ath9k.org
+> Cc: netdev@vger.kernel.org
 
-Patch applied to ath-next branch of ath.git, thanks.
+2 patches applied to ath-next branch of ath.git, thanks.
 
-b59eb96181e7 wil6210: constify cfg80211_ops structures
+d5a3a76a9cb8 ath9k: ar9002_mac: kill off ACCESS_ONCE()
+50f3818196f5 ath9k: ar9003_mac: kill off ACCESS_ONCE()
 
 -- 
-https://patchwork.kernel.org/patch/9479127/
+https://patchwork.kernel.org/patch/9489799/
 
 Documentation about submitting wireless patches and checking status
 from patchwork:
