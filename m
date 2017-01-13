@@ -1,69 +1,93 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [net-next PATCH 1/3] Revert "icmp: avoid allocating large struct
- on stack"
-Date: Thu, 12 Jan 2017 14:21:20 -0800
-Message-ID: <CAM_iQpWdjo-3+vVQpay9FSEbc_R5Y2=iKA8PpC4f=USTDkL+ww@mail.gmail.com>
-References: <1483985224.21472.3.camel@edumazet-glaptop3.roam.corp.google.com>
- <20170109.135259.988711786570465428.davem@davemloft.net> <CAM_iQpUbcVogq7jGePkgPJ0z_J=46hnK8KcTiX1svVXr1Hoh-w@mail.gmail.com>
- <20170110.131223.748150430551443881.davem@davemloft.net> <CAM_iQpV0V23fndi6DOW1gu9kq+2UufHNrnfRYCME7uOOLCaX-Q@mail.gmail.com>
- <20170110210820.1c5dbc87@redhat.com> <1484084891.21472.44.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Paul Durrant <Paul.Durrant@citrix.com>
+Subject: RE: [PATCH] xen-netback: fix memory leaks on XenBus disconnect
+Date: Fri, 13 Jan 2017 10:49:36 +0000
+Message-ID: <75863da2db4f48929c9eea56f76dbd9e@AMSPEX02CL03.citrite.net>
+References: <1484243516-141100-1-git-send-email-igor.druzhinin@citrix.com>
+ <20170113103800.GA5089@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
-        David Miller <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f194.google.com ([209.85.220.194]:34463 "EHLO
-        mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750730AbdALWVl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 17:21:41 -0500
-Received: by mail-qk0-f194.google.com with SMTP id e1so4686959qkh.1
-        for <netdev@vger.kernel.org>; Thu, 12 Jan 2017 14:21:41 -0800 (PST)
-In-Reply-To: <1484084891.21472.44.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Wei Liu <wei.liu2@citrix.com>,
+        "xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Wei Liu <wei.liu2@citrix.com>,
+        Igor Druzhinin <igor.druzhinin@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170113103800.GA5089@citrix.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 10, 2017 at 1:48 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Tue, 2017-01-10 at 21:08 +0100, Jesper Dangaard Brouer wrote:
->> On Tue, 10 Jan 2017 10:44:59 -0800 Cong Wang <xiyou.wangcong@gmail.com> wrote:
->>
->> > On Tue, Jan 10, 2017 at 10:12 AM, David Miller <davem@davemloft.net> wrote:
->> [...]
->> > > You can keep showing us how expertly you can deflect the real
->> > > issue we are discussion here, but that won't improve the situation
->> > > at all I am afraid.
->> >
->> > Of course, there are just too many people too lazy to do a google search:
->> >
->> > https://lists.debian.org/debian-kernel/2013/05/msg00500.html
->>
->> My analysis of the problem shown in above link is not related to using
->> all the stack space, but instead that skb->cb was not cleared.  This
->> can cause the ip_options_echo() call in icmp_send() to access garbage
->> as this is: __ip_options_echo(dopt, skb, &IPCB(skb)->opt).
->>
->> Fixed by commit a622260254ee ("ip_tunnel: fix kernel panic with icmp_dest_unreach")
->>  https://git.kernel.org/torvalds/c/a622260254ee
->>
->> Thus, it is (likely) the __ip_options_echo() call that violates stack
->> access, as it is passed in a pointer to the stack, and advance this
->> based on garbage "optlen".
->>
->
-> I totally agree.
+> -----Original Message-----
+> From: Wei Liu [mailto:wei.liu2@citrix.com]
+> Sent: 13 January 2017 10:38
+> To: Igor Druzhinin <igor.druzhinin@citrix.com>
+> Cc: Wei Liu <wei.liu2@citrix.com>; xen-devel@lists.xenproject.org; Paul
+> Durrant <Paul.Durrant@citrix.com>; netdev@vger.kernel.org; linux-
+> kernel@vger.kernel.org
+> Subject: Re: [PATCH] xen-netback: fix memory leaks on XenBus disconnect
+> 
+> On Thu, Jan 12, 2017 at 05:51:56PM +0000, Igor Druzhinin wrote:
+> > Eliminate memory leaks introduced several years ago by cleaning the
+> queue
+> > resources which are allocated on XenBus connection event. Namely, queue
+> > structure array and pages used for IO rings.
+> > vif->lock is used to protect statistics gathering agents from using the
+> > queue structure during cleaning.
+> >
+> 
+> There is code in netback_remove which eventually calls xenvif_free to
+> free up the resources, maybe you should modify xenvif_free instead? That
+> seems more symmetric to me. What do you think?
 
-I can't agree, iptunnel or ipgre symbols are not in the above stack trace
-at all. Although I do agree that the above stack usage is not aggressive,
-especially when compared with the other I sent.
+The connect code vallocs the queue array because the size is not known until then so it makes sense that disconnect vfrees it.
 
-My vague memory told me the original problem I fixed is related to vxlan
-but after trying to search all netdev archives in 2013 May/Jun, I still can't
-find it, perhaps it was reported to LKML or somewhere else rather than
-netdev. It was certainly a real problem.
+  Paul
 
-Even though the irq stack is 16K, but it is too easy to stack netdevices
-and stack qdisc's too, so for TX path I am not surprised at all if 16K could
-be exhausted eventually. Yeah, it is hard to blame one of them in the call
-chain, but 112 bytes _alone_ are aggressive for such a function deeply
-in the call stack. That's my whole point.
+> 
+> > Signed-off-by: Igor Druzhinin <igor.druzhinin@citrix.com>
+> > ---
+> >  drivers/net/xen-netback/interface.c |  6 ++++--
+> >  drivers/net/xen-netback/xenbus.c    | 13 +++++++++++++
+> >  2 files changed, 17 insertions(+), 2 deletions(-)
+> >
+> > diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-
+> netback/interface.c
+> > index e30ffd2..5795213 100644
+> > --- a/drivers/net/xen-netback/interface.c
+> > +++ b/drivers/net/xen-netback/interface.c
+> > @@ -221,18 +221,18 @@ static struct net_device_stats
+> *xenvif_get_stats(struct net_device *dev)
+> >  {
+> >  	struct xenvif *vif = netdev_priv(dev);
+> >  	struct xenvif_queue *queue = NULL;
+> > -	unsigned int num_queues = vif->num_queues;
+> >  	unsigned long rx_bytes = 0;
+> >  	unsigned long rx_packets = 0;
+> >  	unsigned long tx_bytes = 0;
+> >  	unsigned long tx_packets = 0;
+> >  	unsigned int index;
+> >
+> > +	spin_lock(&vif->lock);
+> >  	if (vif->queues == NULL)
+> >  		goto out;
+> >
+> >  	/* Aggregate tx and rx stats from each queue */
+> > -	for (index = 0; index < num_queues; ++index) {
+> > +	for (index = 0; index < vif->num_queues; ++index) {
+> >  		queue = &vif->queues[index];
+> >  		rx_bytes += queue->stats.rx_bytes;
+> >  		rx_packets += queue->stats.rx_packets;
+> > @@ -241,6 +241,8 @@ static struct net_device_stats
+> *xenvif_get_stats(struct net_device *dev)
+> >  	}
+> >
+> >  out:
+> > +	spin_unlock(&vif->lock);
+> > +
+> 
+> Good catch, this is definitely needed. And it would probably be in a
+> separate patch.
+> 
+> Wei.
