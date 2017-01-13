@@ -1,52 +1,110 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net] atm: remove an unnecessary loop
-Date: Thu, 12 Jan 2017 16:14:30 -0800
-Message-ID: <CAM_iQpX2TipBW2Pm-OHRobfZaVoV9_D8Se8u9oKryt96SZFRkA@mail.gmail.com>
-References: <1484197322-958-1-git-send-email-xiyou.wangcong@gmail.com> <20170113000700.GA1482@electric-eye.fr.zoreil.com>
+From: Felix Manlunas <felix.manlunas@cavium.com>
+Subject: [PATCH net-next] liquidio: use fallback for selecting txq
+Date: Thu, 12 Jan 2017 16:18:22 -0800
+Message-ID: <20170113001822.GA10813@felix.cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Michal Hocko <mhocko@kernel.org>,
-        Chas Williams <3chas3@gmail.com>,
-        Andrey Konovalov <andreyknvl@google.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, <raghu.vatsavayi@cavium.com>,
+        <derek.chickles@cavium.com>, <satananda.burla@cavium.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f195.google.com ([209.85.216.195]:34385 "EHLO
-        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750897AbdAMAOv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 19:14:51 -0500
-Received: by mail-qt0-f195.google.com with SMTP id a29so4382326qtb.1
-        for <netdev@vger.kernel.org>; Thu, 12 Jan 2017 16:14:51 -0800 (PST)
-In-Reply-To: <20170113000700.GA1482@electric-eye.fr.zoreil.com>
+Received: from mail-dm3nam03on0064.outbound.protection.outlook.com ([104.47.41.64]:15651
+        "EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751095AbdAMATZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 12 Jan 2017 19:19:25 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 12, 2017 at 4:07 PM, Francois Romieu <romieu@fr.zoreil.com> wrote:
-> Cong Wang <xiyou.wangcong@gmail.com> :
-> [...]
->> diff --git a/net/atm/common.c b/net/atm/common.c
->> index a3ca922..7ec3bbc 100644
->> --- a/net/atm/common.c
->> +++ b/net/atm/common.c
->> @@ -72,10 +72,11 @@ static struct sk_buff *alloc_tx(struct atm_vcc *vcc, unsigned int size)
->>                        sk_wmem_alloc_get(sk), size, sk->sk_sndbuf);
->>               return NULL;
->>       }
->> -     while (!(skb = alloc_skb(size, GFP_KERNEL)))
->> -             schedule();
->> -     pr_debug("%d += %d\n", sk_wmem_alloc_get(sk), skb->truesize);
->> -     atomic_add(skb->truesize, &sk->sk_wmem_alloc);
->> +     skb = alloc_skb(size, GFP_KERNEL);
->> +     if (skb) {
->> +             pr_debug("%d += %d\n", sk_wmem_alloc_get(sk), skb->truesize);
->> +             atomic_add(skb->truesize, &sk->sk_wmem_alloc);
->> +     }
->>       return skb;
->>  }
->
-> Were alloc_skb moved one level up in the call stack, there would be
-> no need to use the new wait api in the subsequent page, thus easing
-> pre 3.19 longterm kernel maintenance (at least those on korg page).
+From: Satanand Burla <satananda.burla@cavium.com>
 
-alloc_skb(GFP_KERNEL) itself is sleeping, so the new wait api is still
-needed.
+Remove assignment to ndo_select_queue so that fallback is used for
+selecting txq.  Also remove the now-useless function that used to be
+assigned to ndo_select_queue.
+
+Signed-off-by: Satanand Burla <satananda.burla@cavium.com>
+Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
+Signed-off-by: Derek Chickles <derek.chickles@cavium.com>
+---
+ drivers/net/ethernet/cavium/liquidio/lio_main.c    | 20 --------------------
+ drivers/net/ethernet/cavium/liquidio/lio_vf_main.c | 21 ---------------------
+ 2 files changed, 41 deletions(-)
+
+diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+index cc825d5..2b89ec2 100644
+--- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
++++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+@@ -2223,25 +2223,6 @@ static void if_cfg_callback(struct octeon_device *oct,
+ 	wake_up_interruptible(&ctx->wc);
+ }
+ 
+-/**
+- * \brief Select queue based on hash
+- * @param dev Net device
+- * @param skb sk_buff structure
+- * @returns selected queue number
+- */
+-static u16 select_q(struct net_device *dev, struct sk_buff *skb,
+-		    void *accel_priv __attribute__((unused)),
+-		    select_queue_fallback_t fallback __attribute__((unused)))
+-{
+-	u32 qindex = 0;
+-	struct lio *lio;
+-
+-	lio = GET_LIO(dev);
+-	qindex = skb_tx_hash(dev, skb);
+-
+-	return (u16)(qindex % (lio->linfo.num_txpciq));
+-}
+-
+ /** Routine to push packets arriving on Octeon interface upto network layer.
+  * @param oct_id   - octeon device id.
+  * @param skbuff   - skbuff struct to be passed to network layer.
+@@ -3755,7 +3736,6 @@ static const struct net_device_ops lionetdevops = {
+ 	.ndo_set_vf_vlan	= liquidio_set_vf_vlan,
+ 	.ndo_get_vf_config	= liquidio_get_vf_config,
+ 	.ndo_set_vf_link_state  = liquidio_set_vf_link_state,
+-	.ndo_select_queue	= select_q
+ };
+ 
+ /** \brief Entry point for the liquidio module
+diff --git a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
+index ad2e72d..19d88fb 100644
+--- a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
++++ b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
+@@ -1455,26 +1455,6 @@ static void if_cfg_callback(struct octeon_device *oct,
+ 	wake_up_interruptible(&ctx->wc);
+ }
+ 
+-/**
+- * \brief Select queue based on hash
+- * @param dev Net device
+- * @param skb sk_buff structure
+- * @returns selected queue number
+- */
+-static u16 select_q(struct net_device *dev, struct sk_buff *skb,
+-		    void *accel_priv __attribute__((unused)),
+-		    select_queue_fallback_t fallback __attribute__((unused)))
+-{
+-	struct lio *lio;
+-	u32 qindex;
+-
+-	lio = GET_LIO(dev);
+-
+-	qindex = skb_tx_hash(dev, skb);
+-
+-	return (u16)(qindex % (lio->linfo.num_txpciq));
+-}
+-
+ /** Routine to push packets arriving on Octeon interface upto network layer.
+  * @param oct_id   - octeon device id.
+  * @param skbuff   - skbuff struct to be passed to network layer.
+@@ -2717,7 +2697,6 @@ static const struct net_device_ops lionetdevops = {
+ 	.ndo_set_features	= liquidio_set_features,
+ 	.ndo_udp_tunnel_add     = liquidio_add_vxlan_port,
+ 	.ndo_udp_tunnel_del     = liquidio_del_vxlan_port,
+-	.ndo_select_queue	= select_q,
+ };
+ 
+ static int lio_nic_info(struct octeon_recv_info *recv_info, void *buf)
