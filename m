@@ -1,73 +1,54 @@
-From: Colin Ian King <colin.king@canonical.com>
-Subject: Re: [PATCH] flow disector: check if arp_eth is null rather than arp
-Date: Fri, 13 Jan 2017 18:25:16 +0000
-Message-ID: <7b26e04c-b3f1-a82f-8f18-d93207388a28@canonical.com>
-References: <20170113133428.20130-1-colin.king@canonical.com>
- <1484331851.13165.46.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch net] atm: remove an unnecessary loop
+Date: Fri, 13 Jan 2017 10:20:33 -0800
+Message-ID: <CAM_iQpXd8qTTRT_+CkHnpMNC=CSS9vfB6zKtSjmLV_yya5BL8Q@mail.gmail.com>
+References: <1484197322-958-1-git-send-email-xiyou.wangcong@gmail.com>
+ <20170113000700.GA1482@electric-eye.fr.zoreil.com> <20170113.121001.2197905484527884236.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "David S . Miller" <davem@davemloft.net>,
-        Alexander Duyck <aduyck@mirantis.com>,
-        Jiri Pirko <jiri@mellanox.com>,
-        Tom Herbert <tom@herbertland.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Simon Horman <simon.horman@netronome.com>,
-        Hadar Hen Zion <hadarh@mellanox.com>,
-        Gao Feng <fgao@ikuai8.com>, Amir Vadai <amir@vadai.me>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1484331851.13165.46.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Michal Hocko <mhocko@kernel.org>,
+        Chas Williams <3chas3@gmail.com>,
+        Andrey Konovalov <andreyknvl@google.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f194.google.com ([209.85.220.194]:35822 "EHLO
+        mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750757AbdAMS3A (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 13:29:00 -0500
+Received: by mail-qk0-f194.google.com with SMTP id u25so8215067qki.2
+        for <netdev@vger.kernel.org>; Fri, 13 Jan 2017 10:28:20 -0800 (PST)
+In-Reply-To: <20170113.121001.2197905484527884236.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 13/01/17 18:24, Eric Dumazet wrote:
-> On Fri, 2017-01-13 at 13:34 +0000, Colin King wrote:
->> From: Colin Ian King <colin.king@canonical.com>
+On Fri, Jan 13, 2017 at 9:10 AM, David Miller <davem@davemloft.net> wrote:
+> From: Francois Romieu <romieu@fr.zoreil.com>
+> Date: Fri, 13 Jan 2017 01:07:00 +0100
+>
+>> Were alloc_skb moved one level up in the call stack, there would be
+>> no need to use the new wait api in the subsequent page, thus easing
+>> pre 3.19 longterm kernel maintenance (at least those on korg page).
 >>
->> arp is being checked instead of arp_eth to see if the call to
->> __skb_header_pointer failed. Fix this by checking arp_eth is
->> null instead of arp.
->>
->> CoverityScan CID#1396428 ("Logically dead code") on 2nd
->> arp comparison (which should be arp_eth instead).
->>
->> Fixes: commit 55733350e5e8b70c5 ("flow disector: ARP support")
->> Signed-off-by: Colin Ian King <colin.king@canonical.com>
->> ---
->>  net/core/flow_dissector.c | 2 +-
->>  1 file changed, 1 insertion(+), 1 deletion(-)
->>
->> diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
->> index e3dffc7..fec48e9 100644
->> --- a/net/core/flow_dissector.c
->> +++ b/net/core/flow_dissector.c
->> @@ -409,7 +409,7 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
->>  					       sizeof(_arp_eth), data,
->>  					       hlen - sizeof(_arp),
->>  					       &_arp_eth);
->> -		if (!arp)
->> +		if (!arp_eth)
->>  			goto out_bad;
->>  
->>  		if (dissector_uses_key(flow_dissector,
-> 
-> It looks that we try very hard to add critical bugs in flow dissector.
-> 
-> This is embarrassing really.
-> 
-> I am questioning if the __skb_header_pointer() is correct
-> 
-> Why using hlen - sizeof(_arp) ?
-> 
->                arp_eth = __skb_header_pointer(skb, nhoff + sizeof(_arp),
->                                               sizeof(_arp_eth), data,
->                                               hlen - sizeof(_arp),
->                                               &_arp_eth);
-> 
+>> But it tastes a tad bit too masochistic.
+>
+> Lack of error handling of allocation failure is always a huge red
+> flag.  We even long ago tried to do something like this for TCP FIN
+> handling.
+>
+> It's dumb, it doesn't work.
+>
+> Therefore I agree that the correct fix is to move the SKB allocation
+> up one level to vcc_sendmsg() and make it handle errors properly.
 
-Yep, the sizeof maybe dubious too, I overlooked that one; if somebody
-can clarify that then I'll send a V2 if it needs fixing up too.
+If you can justify API is not broken by doing that, I am more than happy
+to do it, as I already stated in the latter patch:
 
-Colin
+"Of course, the logic itself is suspicious, other sendmsg()
+could handle skb allocation failure very well, not sure
+why ATM has to wait for a successful one here. But probably
+it is too late to change since the errno and behavior is
+visible to user-space. So just leave the logic as it is."
+
+For some reason, no one reads that patch. :-/
