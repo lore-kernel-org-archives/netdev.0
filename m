@@ -1,104 +1,90 @@
-From: Ganesh Goudar <ganeshgr@chelsio.com>
-Subject: [PATCH net-next] cxgb4: Fix misleading packet/frame count stats.
-Date: Fri, 13 Jan 2017 14:46:40 +0530
-Message-ID: <1484299000-7586-1-git-send-email-ganeshgr@chelsio.com>
-Cc: nirranjan@chelsio.com, hariprasad@chelsio.com, leedom@chelsio.com,
-        Ganesh Goudar <ganeshgr@chelsio.com>
-To: netdev@vger.kernel.org, davem@davemloft.net
+From: Zefir Kurtisi <zefir.kurtisi@neratec.com>
+Subject: Re: Setting link down or up in software
+Date: Fri, 13 Jan 2017 10:20:25 +0100
+Message-ID: <0273a4ad-46f7-d7b9-a206-6bd713e6165e@neratec.com>
+References: <75bd6df2-714a-2b9b-a0e3-f5574c295377@free.fr>
+ <2044a26f-cf95-ac55-6265-ac76c3ca53f6@free.fr>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Mans Rullgard <mans@mansr.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Thibaud Cornic <thibaud_cornic@sigmadesigns.com>
+To: Mason <slash.tmp@free.fr>, netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:4481 "EHLO
-        stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751241AbdAMJQx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 04:16:53 -0500
+Received: from mail.neratec.com ([46.140.151.2]:11780 "EHLO mail.neratec.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751282AbdAMJU2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 13 Jan 2017 04:20:28 -0500
+In-Reply-To: <2044a26f-cf95-ac55-6265-ac76c3ca53f6@free.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Do not count pause frames as part of general TX/RX frame
-counters.
+On 01/12/2017 04:16 PM, Mason wrote:
+> On 12/01/2017 14:05, Mason wrote:
+> 
+>> I'm wondering what are the semantics of calling
+>>
+>> 	ip link set dev eth0 down
+>>
+>> I was expecting that to somehow instruct the device's ethernet driver
+>> to shut everything down, have the PHY tell the peer that it's going
+>> away, maybe even put the PHY in some low-power mode, etc.
+>>
+>> But it doesn't seem to be doing any of that on my HW.
+>>
+>> So what exactly is it supposed to do?
+>>
+>>
+>> And on top of that, I am seeing random occurrences of
+>>
+>> 	nb8800 26000.ethernet eth0: Link is Down
+>>
+>> Sometimes it is printed immediately.
+>> Sometimes it is printed as soon as I run "ip link set dev eth0 up" (?!)
+>> Sometimes it is not printed at all.
+>>
+>> I find this erratic behavior very confusing.
+>>
+>> Is it the symptom of some deeper bug?
+> 
+> Here's an example of "Link is Down" printed when I set link up:
+> 
+> At [   62.750220] I run ip link set dev eth0 down
+> Then leave the system idle for 10 minutes.
+> At [  646.263041] I run ip link set dev eth0 up
+> At [  647.364079] it prints "Link is Down"
+> At [  649.417434] it prints "Link is Up - 1Gbps/Full - flow control rx/tx"
+> 
+> I think whether I set up the PHY to use interrupts or polling
+> does have an influence on the weirdness I observe.
+> 
+> AFAICT, changing the interface flags is done in dev_change_flags
+> which calls __dev_change_flags and __dev_notify_flags
+> 
+> Is one of these supposed to call the device driver through a
+> callback at some point?
+> 
+> How/when is the phy_state_machine notified of the change in
+> interface flags?
+> 
+> Regards.
+> 
+Hm, reminds me of something at my side that I recently fixed with [1]. For me it
+was pulling the cable got randomly unnoticed at PHY layer - but might be related.
 
-Based on the original work of Casey Leedom <leedom@chelsio.com>
-Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c   | 18 ++++++++++++++++++
- drivers/net/ethernet/chelsio/cxgb4/t4_regs.h | 17 +++++++++++++++++
- 2 files changed, 35 insertions(+)
+Do you by chance have some component that polls the link states over the ethtool
+interface very often (like once per second)? At my side it was a snmpd agent that
+pro-actively updated the interface states every second and with that 'stole' the
+link change information from the phy link state machine. What you need to have to
+run in such a failing situation is:
+1) an ETH driver that updates link status in ethtool GSET path (e.g. dsa does)
+2) some component that continuously polls states via ethtool GSET
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-index f113015..ac712ac 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-@@ -5501,6 +5501,7 @@ void t4_get_port_stats_offset(struct adapter *adap, int idx,
- void t4_get_port_stats(struct adapter *adap, int idx, struct port_stats *p)
- {
- 	u32 bgmap = t4_get_mps_bg_map(adap, idx);
-+	u32 stat_ctl = t4_read_reg(adap, MPS_STAT_CTL_A);
- 
- #define GET_STAT(name) \
- 	t4_read_reg64(adap, \
-@@ -5532,6 +5533,14 @@ void t4_get_port_stats(struct adapter *adap, int idx, struct port_stats *p)
- 	p->tx_ppp6             = GET_STAT(TX_PORT_PPP6);
- 	p->tx_ppp7             = GET_STAT(TX_PORT_PPP7);
- 
-+	if (CHELSIO_CHIP_VERSION(adap->params.chip) >= CHELSIO_T5) {
-+		if (stat_ctl & COUNTPAUSESTATTX_F) {
-+			p->tx_frames -= p->tx_pause;
-+			p->tx_octets -= p->tx_pause * 64;
-+		}
-+		if (stat_ctl & COUNTPAUSEMCTX_F)
-+			p->tx_mcast_frames -= p->tx_pause;
-+	}
- 	p->rx_octets           = GET_STAT(RX_PORT_BYTES);
- 	p->rx_frames           = GET_STAT(RX_PORT_FRAMES);
- 	p->rx_bcast_frames     = GET_STAT(RX_PORT_BCAST);
-@@ -5560,6 +5569,15 @@ void t4_get_port_stats(struct adapter *adap, int idx, struct port_stats *p)
- 	p->rx_ppp6             = GET_STAT(RX_PORT_PPP6);
- 	p->rx_ppp7             = GET_STAT(RX_PORT_PPP7);
- 
-+	if (CHELSIO_CHIP_VERSION(adap->params.chip) >= CHELSIO_T5) {
-+		if (stat_ctl & COUNTPAUSESTATRX_F) {
-+			p->rx_frames -= p->rx_pause;
-+			p->rx_octets -= p->rx_pause * 64;
-+		}
-+		if (stat_ctl & COUNTPAUSEMCRX_F)
-+			p->rx_mcast_frames -= p->rx_pause;
-+	}
-+
- 	p->rx_ovflow0 = (bgmap & 1) ? GET_STAT_COM(RX_BG_0_MAC_DROP_FRAME) : 0;
- 	p->rx_ovflow1 = (bgmap & 2) ? GET_STAT_COM(RX_BG_1_MAC_DROP_FRAME) : 0;
- 	p->rx_ovflow2 = (bgmap & 4) ? GET_STAT_COM(RX_BG_2_MAC_DROP_FRAME) : 0;
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-index e685163..f71001d 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-@@ -1798,12 +1798,29 @@
- 
- #define MPS_CMN_CTL_A	0x9000
- 
-+#define COUNTPAUSEMCRX_S    5
-+#define COUNTPAUSEMCRX_V(x) ((x) << COUNTPAUSEMCRX_S)
-+#define COUNTPAUSEMCRX_F    COUNTPAUSEMCRX_V(1U)
-+
-+#define COUNTPAUSESTATRX_S    4
-+#define COUNTPAUSESTATRX_V(x) ((x) << COUNTPAUSESTATRX_S)
-+#define COUNTPAUSESTATRX_F    COUNTPAUSESTATRX_V(1U)
-+
-+#define COUNTPAUSEMCTX_S    3
-+#define COUNTPAUSEMCTX_V(x) ((x) << COUNTPAUSEMCTX_S)
-+#define COUNTPAUSEMCTX_F    COUNTPAUSEMCTX_V(1U)
-+
-+#define COUNTPAUSESTATTX_S    2
-+#define COUNTPAUSESTATTX_V(x) ((x) << COUNTPAUSESTATTX_S)
-+#define COUNTPAUSESTATTX_F    COUNTPAUSESTATTX_V(1U)
-+
- #define NUMPORTS_S    0
- #define NUMPORTS_M    0x3U
- #define NUMPORTS_G(x) (((x) >> NUMPORTS_S) & NUMPORTS_M)
- 
- #define MPS_INT_CAUSE_A 0x9008
- #define MPS_TX_INT_CAUSE_A 0x9408
-+#define MPS_STAT_CTL_A 0x9600
- 
- #define FRMERR_S    15
- #define FRMERR_V(x) ((x) << FRMERR_S)
--- 
-2.1.0
+
+Cheers,
+Zefir
+
+
+[1] https://patchwork.ozlabs.org/patch/711839/
