@@ -1,80 +1,46 @@
 From: Ivan Vecera <cera@cera.cz>
-Subject: [PATCH net 3/3] be2net: fix MAC addr setting on privileged BE3 VFs
-Date: Fri, 13 Jan 2017 22:38:29 +0100
-Message-ID: <20170113213829.22722-3-cera@cera.cz>
-References: <20170113213829.22722-1-cera@cera.cz>
+Subject: [PATCH net 1/3] be2net: fix status check in be_cmd_pmac_add()
+Date: Fri, 13 Jan 2017 22:38:27 +0100
+Message-ID: <20170113213829.22722-1-cera@cera.cz>
 Cc: Sathya Perla <sathya.perla@broadcom.com>,
         Ajit Khaparde <ajit.khaparde@broadcom.com>,
         Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>,
         Somnath Kotur <somnath.kotur@broadcom.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47960 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:38388 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751442AbdAMVih (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 13 Jan 2017 16:38:37 -0500
-In-Reply-To: <20170113213829.22722-1-cera@cera.cz>
+        id S1751166AbdAMVie (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 13 Jan 2017 16:38:34 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-During interface opening MAC address stored in netdev->dev_addr is
-programmed in the HW with exception of BE3 VFs where the initial
-MAC is programmed by parent PF. This is OK when MAC address is not
-changed when an interfaces is down. In this case the requested MAC is
-stored to netdev->dev_addr and later is stored into HW during opening.
-But this is not done for all BE3 VFs so the NIC HW does not know
-anything about this change and all traffic is filtered.
+Return value from be_mcc_notify_wait() contains a base completion status
+together with an additional status. The base_status() macro need to be
+used to access base status.
 
-This is the case of bonding if fail_over_mac == 0 where the MACs of
-the slaves are changed while they are down.
-
-The be2net behavior is too restrictive because if a BE3 VF has
-the FILTMGMT privilege then it is able to modify its MAC without
-any restriction.
-
-To solve the described problem the driver should take care about these
-privileged BE3 VFs so the MAC is programmed during opening. And by
-contrast unpriviled BE3 VFs should not be allowed to change its MAC
-in any case.
-
+Fixes: e3a7ae2 be2net: Changing MAC Address of a VF was broken
 Cc: Sathya Perla <sathya.perla@broadcom.com>
 Cc: Ajit Khaparde <ajit.khaparde@broadcom.com>
 Cc: Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
 Cc: Somnath Kotur <somnath.kotur@broadcom.com>
 Signed-off-by: Ivan Vecera <cera@cera.cz>
 ---
- drivers/net/ethernet/emulex/benet/be_main.c | 12 ++++++++++--
- 1 file changed, 10 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/emulex/benet/be_cmds.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index d606e20..1a7f8ad 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -318,6 +318,13 @@ static int be_mac_addr_set(struct net_device *netdev, void *p)
- 	if (ether_addr_equal(addr->sa_data, adapter->dev_mac))
- 		return 0;
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
+index 0e74529..30e8550 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.c
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
+@@ -1118,7 +1118,7 @@ int be_cmd_pmac_add(struct be_adapter *adapter, u8 *mac_addr,
+ err:
+ 	mutex_unlock(&adapter->mcc_lock);
  
-+	/* BE3 VFs without FILTMGMT privilege are not allowed to set its MAC
-+	 * address
-+	 */
-+	if (BEx_chip(adapter) && be_virtfn(adapter) &&
-+	    !check_privilege(adapter, BE_PRIV_FILTMGMT))
-+		return -EPERM;
-+
- 	/* if device is not running, copy MAC to netdev->dev_addr */
- 	if (!netif_running(netdev))
- 		goto done;
-@@ -3766,8 +3773,9 @@ static int be_enable_if_filters(struct be_adapter *adapter)
- 	if (status)
- 		return status;
+-	 if (status == MCC_STATUS_UNAUTHORIZED_REQUEST)
++	 if (base_status(status) == MCC_STATUS_UNAUTHORIZED_REQUEST)
+ 		status = -EPERM;
  
--	/* For BE3 VFs, the PF programs the initial MAC address */
--	if (!(BEx_chip(adapter) && be_virtfn(adapter))) {
-+	/* Don't add MAC on BE3 VFs without FILTMGMT privilege */
-+	if (!BEx_chip(adapter) || !be_virtfn(adapter) ||
-+	    check_privilege(adapter, BE_PRIV_FILTMGMT)) {
- 		status = be_dev_mac_add(adapter, adapter->netdev->dev_addr);
- 		if (status)
- 			return status;
+ 	return status;
 -- 
 2.10.2
