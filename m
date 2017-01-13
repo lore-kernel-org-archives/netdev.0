@@ -1,193 +1,113 @@
 From: Yuchung Cheng <ycheng@google.com>
-Subject: [net-next 07/13] tcp: enable RACK loss detection to trigger recovery
-Date: Thu, 12 Jan 2017 22:03:48 -0800
-Message-ID: <20170113060354.85234-8-ycheng@google.com>
+Subject: [net-next 02/13] tcp: new helper for RACK to detect loss
+Date: Thu, 12 Jan 2017 22:03:43 -0800
+Message-ID: <20170113060354.85234-3-ycheng@google.com>
 References: <20170113060354.85234-1-ycheng@google.com>
 Cc: netdev@vger.kernel.org, edumazet@google.com, ncardwell@google.com,
         nanditad@google.com, Yuchung Cheng <ycheng@google.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f182.google.com ([209.85.192.182]:35957 "EHLO
-        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751188AbdAMGE0 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 01:04:26 -0500
-Received: by mail-pf0-f182.google.com with SMTP id 189so25840680pfu.3
-        for <netdev@vger.kernel.org>; Thu, 12 Jan 2017 22:04:25 -0800 (PST)
+Received: from mail-pf0-f178.google.com ([209.85.192.178]:33915 "EHLO
+        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751141AbdAMGET (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 01:04:19 -0500
+Received: by mail-pf0-f178.google.com with SMTP id 127so25540581pfg.1
+        for <netdev@vger.kernel.org>; Thu, 12 Jan 2017 22:04:19 -0800 (PST)
 In-Reply-To: <20170113060354.85234-1-ycheng@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch changes two things:
-
-1. Start fast recovery with RACK in addition to other heuristics
-   (e.g., DUPACK threshold, FACK). Prior to this change RACK
-   is enabled to detect losses only after the recovery has
-   started by other algorithms.
-
-2. Disable TCP early retransmit. RACK subsumes the early retransmit
-   with the new reordering timer feature. A latter patch in this
-   series removes the early retransmit code.
+Create a new helper tcp_rack_detect_loss to prepare the upcoming
+RACK reordering timer patch.
 
 Signed-off-by: Yuchung Cheng <ycheng@google.com>
 Signed-off-by: Neal Cardwell <ncardwell@google.com>
 Acked-by: Eric Dumazet <edumazet@google.com>
 ---
- include/net/tcp.h       | 11 ++++-------
- net/ipv4/tcp_input.c    | 29 +++++++++++++++++++++--------
- net/ipv4/tcp_recovery.c | 16 ++++++++++------
- 3 files changed, 35 insertions(+), 21 deletions(-)
+ include/net/tcp.h       |  3 +--
+ net/ipv4/tcp_input.c    | 12 ++++++++----
+ net/ipv4/tcp_recovery.c | 22 +++++++++++++---------
+ 3 files changed, 22 insertions(+), 15 deletions(-)
 
 diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 5fb1e75a32a9..423438dd6fe9 100644
+index 1da0aa724929..51183bba3835 100644
 --- a/include/net/tcp.h
 +++ b/include/net/tcp.h
-@@ -262,6 +262,9 @@ extern int sysctl_tcp_slow_start_after_idle;
- extern int sysctl_tcp_thin_linear_timeouts;
- extern int sysctl_tcp_thin_dupack;
- extern int sysctl_tcp_early_retrans;
-+extern int sysctl_tcp_recovery;
-+#define TCP_RACK_LOSS_DETECTION  0x1 /* Use RACK to detect losses */
-+
- extern int sysctl_tcp_limit_output_bytes;
- extern int sysctl_tcp_challenge_ack_limit;
- extern int sysctl_tcp_min_tso_segs;
-@@ -1043,6 +1046,7 @@ static inline void tcp_enable_early_retrans(struct tcp_sock *tp)
+@@ -1863,8 +1863,7 @@ extern int sysctl_tcp_recovery;
+ /* Use TCP RACK to detect (some) tail and retransmit losses */
+ #define TCP_RACK_LOST_RETRANS  0x1
  
- 	tp->do_early_retrans = sysctl_tcp_early_retrans &&
- 		sysctl_tcp_early_retrans < 4 && !sysctl_tcp_thin_dupack &&
-+		!(sysctl_tcp_recovery & TCP_RACK_LOSS_DETECTION) &&
- 		net->ipv4.sysctl_tcp_reordering == 3;
- }
+-extern int tcp_rack_mark_lost(struct sock *sk);
+-
++extern void tcp_rack_mark_lost(struct sock *sk);
+ extern void tcp_rack_advance(struct tcp_sock *tp,
+ 			     const struct skb_mstamp *xmit_time, u8 sacked);
  
-@@ -1859,13 +1863,6 @@ void tcp_v4_init(void);
- void tcp_init(void);
- 
- /* tcp_recovery.c */
--
--/* Flags to enable various loss recovery features. See below */
--extern int sysctl_tcp_recovery;
--
--/* Use TCP RACK to detect (some) tail and retransmit losses */
--#define TCP_RACK_LOST_RETRANS  0x1
--
- extern void tcp_rack_mark_lost(struct sock *sk, const struct skb_mstamp *now);
- extern void tcp_rack_advance(struct tcp_sock *tp, u8 sacked, u32 end_seq,
- 			     const struct skb_mstamp *xmit_time,
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 9c98dc874825..4ad75b8c4fee 100644
+index ec6d84363024..bb24b93e64bc 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
-@@ -2129,10 +2129,25 @@ static bool tcp_pause_early_retransmit(struct sock *sk, int flag)
-  *	F.e. after RTO, when all the queue is considered as lost,
-  *	lost_out = packets_out and in_flight = retrans_out.
-  *
-- *		Essentially, we have now two algorithms counting
-+ *		Essentially, we have now a few algorithms detecting
-  *		lost packets.
-  *
-- *		FACK: It is the simplest heuristics. As soon as we decided
-+ *		If the receiver supports SACK:
-+ *
-+ *		RFC6675/3517: It is the conventional algorithm. A packet is
-+ *		considered lost if the number of higher sequence packets
-+ *		SACKed is greater than or equal the DUPACK thoreshold
-+ *		(reordering). This is implemented in tcp_mark_head_lost and
-+ *		tcp_update_scoreboard.
-+ *
-+ *		RACK (draft-ietf-tcpm-rack-01): it is a newer algorithm
-+ *		(2017-) that checks timing instead of counting DUPACKs.
-+ *		Essentially a packet is considered lost if it's not S/ACKed
-+ *		after RTT + reordering_window, where both metrics are
-+ *		dynamically measured and adjusted. This is implemented in
-+ *		tcp_rack_mark_lost.
-+ *
-+ *		FACK: it is the simplest heuristics. As soon as we decided
-  *		that something is lost, we decide that _all_ not SACKed
-  *		packets until the most forward SACK are lost. I.e.
-  *		lost_out = fackets_out - sacked_out and left_out = fackets_out.
-@@ -2141,16 +2156,14 @@ static bool tcp_pause_early_retransmit(struct sock *sk, int flag)
-  *		takes place. We use FACK by default until reordering
-  *		is suspected on the path to this destination.
-  *
-- *		NewReno: when Recovery is entered, we assume that one segment
-+ *		If the receiver does not support SACK:
-+ *
-+ *		NewReno (RFC6582): in Recovery we assume that one segment
-  *		is lost (classic Reno). While we are in Recovery and
-  *		a partial ACK arrives, we assume that one more packet
-  *		is lost (NewReno). This heuristics are the same in NewReno
-  *		and SACK.
-  *
-- *  Imagine, that's all! Forget about all this shamanism about CWND inflation
-- *  deflation etc. CWND is real congestion window, never inflated, changes
-- *  only according to classic VJ rules.
-- *
-  * Really tricky (and requiring careful tuning) part of algorithm
-  * is hidden in functions tcp_time_to_recover() and tcp_xmit_retransmit_queue().
-  * The first determines the moment _when_ we should reduce CWND and,
-@@ -2807,7 +2820,7 @@ static void tcp_rack_identify_loss(struct sock *sk, int *ack_flag,
- 	struct tcp_sock *tp = tcp_sk(sk);
+@@ -2865,10 +2865,14 @@ static void tcp_fastretrans_alert(struct sock *sk, const int acked,
+ 	}
  
  	/* Use RACK to detect loss */
--	if (sysctl_tcp_recovery & TCP_RACK_LOST_RETRANS) {
-+	if (sysctl_tcp_recovery & TCP_RACK_LOSS_DETECTION) {
- 		u32 prior_retrans = tp->retrans_out;
+-	if (sysctl_tcp_recovery & TCP_RACK_LOST_RETRANS &&
+-	    tcp_rack_mark_lost(sk)) {
+-		flag |= FLAG_LOST_RETRANS;
+-		*ack_flag |= FLAG_LOST_RETRANS;
++	if (sysctl_tcp_recovery & TCP_RACK_LOST_RETRANS) {
++		u32 prior_retrans = tp->retrans_out;
++
++		tcp_rack_mark_lost(sk);
++		if (prior_retrans > tp->retrans_out) {
++			flag |= FLAG_LOST_RETRANS;
++			*ack_flag |= FLAG_LOST_RETRANS;
++		}
+ 	}
  
- 		tcp_rack_mark_lost(sk, ack_time);
+ 	/* E. Process state. */
 diff --git a/net/ipv4/tcp_recovery.c b/net/ipv4/tcp_recovery.c
-index 1e330a2f913d..4ecb38ae8504 100644
+index f38dba5aed7a..7ea0377229c0 100644
 --- a/net/ipv4/tcp_recovery.c
 +++ b/net/ipv4/tcp_recovery.c
-@@ -1,7 +1,7 @@
- #include <linux/tcp.h>
- #include <net/tcp.h>
- 
--int sysctl_tcp_recovery __read_mostly = TCP_RACK_LOST_RETRANS;
-+int sysctl_tcp_recovery __read_mostly = TCP_RACK_LOSS_DETECTION;
- 
- static void tcp_rack_mark_skb_lost(struct sock *sk, struct sk_buff *skb)
+@@ -32,17 +32,11 @@ static void tcp_rack_mark_skb_lost(struct sock *sk, struct sk_buff *skb)
+  * The current version is only used after recovery starts but can be
+  * easily extended to detect the first loss.
+  */
+-int tcp_rack_mark_lost(struct sock *sk)
++static void tcp_rack_detect_loss(struct sock *sk)
  {
-@@ -24,7 +24,9 @@ static bool tcp_rack_sent_after(const struct skb_mstamp *t1,
- 	       (t1->v64 == t2->v64 && after(seq1, seq2));
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	struct sk_buff *skb;
+-	u32 reo_wnd, prior_retrans = tp->retrans_out;
+-
+-	if (inet_csk(sk)->icsk_ca_state < TCP_CA_Recovery || !tp->rack.advanced)
+-		return 0;
+-
+-	/* Reset the advanced flag to avoid unnecessary queue scanning */
+-	tp->rack.advanced = 0;
++	u32 reo_wnd;
+ 
+ 	/* To be more reordering resilient, allow min_rtt/4 settling delay
+ 	 * (lower-bounded to 1000uS). We use min_rtt instead of the smoothed
+@@ -82,7 +76,17 @@ int tcp_rack_mark_lost(struct sock *sk)
+ 			break;
+ 		}
+ 	}
+-	return prior_retrans - tp->retrans_out;
++}
++
++void tcp_rack_mark_lost(struct sock *sk)
++{
++	struct tcp_sock *tp = tcp_sk(sk);
++
++	if (inet_csk(sk)->icsk_ca_state < TCP_CA_Recovery || !tp->rack.advanced)
++		return;
++	/* Reset the advanced flag to avoid unnecessary queue scanning */
++	tp->rack.advanced = 0;
++	tcp_rack_detect_loss(sk);
  }
  
--/* Marks a packet lost, if some packet sent later has been (s)acked.
-+/* RACK loss detection (IETF draft draft-ietf-tcpm-rack-01):
-+ *
-+ * Marks a packet lost, if some packet sent later has been (s)acked.
-  * The underlying idea is similar to the traditional dupthresh and FACK
-  * but they look at different metrics:
-  *
-@@ -37,8 +39,10 @@ static bool tcp_rack_sent_after(const struct skb_mstamp *t1,
-  * is being more resilient to reordering by simply allowing some
-  * "settling delay", instead of tweaking the dupthresh.
-  *
-- * The current version is only used after recovery starts but can be
-- * easily extended to detect the first loss.
-+ * When tcp_rack_detect_loss() detects some packets are lost and we
-+ * are not already in the CA_Recovery state, either tcp_rack_reo_timeout()
-+ * or tcp_time_to_recover()'s "Trick#1: the loss is proven" code path will
-+ * make us enter the CA_Recovery state.
-  */
- static void tcp_rack_detect_loss(struct sock *sk, const struct skb_mstamp *now,
- 				 u32 *reo_timeout)
-@@ -54,7 +58,7 @@ static void tcp_rack_detect_loss(struct sock *sk, const struct skb_mstamp *now,
- 	 * to queuing or delayed ACKs.
- 	 */
- 	reo_wnd = 1000;
--	if (tp->rack.reord && tcp_min_rtt(tp) != ~0U)
-+	if ((tp->rack.reord || !tp->lost_out) && tcp_min_rtt(tp) != ~0U)
- 		reo_wnd = max(tcp_min_rtt(tp) >> 2, reo_wnd);
- 
- 	tcp_for_write_queue(skb, sk) {
-@@ -105,7 +109,7 @@ void tcp_rack_mark_lost(struct sock *sk, const struct skb_mstamp *now)
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	u32 timeout;
- 
--	if (inet_csk(sk)->icsk_ca_state < TCP_CA_Recovery || !tp->rack.advanced)
-+	if (!tp->rack.advanced)
- 		return;
- 
- 	/* Reset the advanced flag to avoid unnecessary queue scanning */
+ /* Record the most recently (re)sent time among the (s)acked packets */
 -- 
 2.11.0.483.g087da7b7c-goog
