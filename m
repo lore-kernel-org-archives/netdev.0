@@ -1,134 +1,73 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next] net: ipv6: Allow shorthand delete of all nexthops in multipath route
-Date: Fri, 13 Jan 2017 15:54:28 -0800
-Message-ID: <1484351668-8962-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: ddutt@cumulusnetworks.com, David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
+From: Chas Williams <3chas3@gmail.com>
+Subject: Re: [Patch net] atm: remove an unnecessary loop
+Date: Fri, 13 Jan 2017 18:54:34 -0500
+Message-ID: <1484351674.1643.16.camel@gmail.com>
+References: <1484197322-958-1-git-send-email-xiyou.wangcong@gmail.com>
+         <20170113000700.GA1482@electric-eye.fr.zoreil.com>
+         <20170113.121001.2197905484527884236.davem@davemloft.net>
+         <CAM_iQpXd8qTTRT_+CkHnpMNC=CSS9vfB6zKtSjmLV_yya5BL8Q@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Michal Hocko <mhocko@kernel.org>,
+        Andrey Konovalov <andreyknvl@google.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>,
+        David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f170.google.com ([209.85.192.170]:36513 "EHLO
-        mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751563AbdAMXye (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 18:54:34 -0500
-Received: by mail-pf0-f170.google.com with SMTP id 189so38203966pfu.3
-        for <netdev@vger.kernel.org>; Fri, 13 Jan 2017 15:54:34 -0800 (PST)
+Received: from mail-qk0-f194.google.com ([209.85.220.194]:33263 "EHLO
+        mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751641AbdAMXyh (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 18:54:37 -0500
+Received: by mail-qk0-f194.google.com with SMTP id 11so9205790qkl.0
+        for <netdev@vger.kernel.org>; Fri, 13 Jan 2017 15:54:36 -0800 (PST)
+In-Reply-To: <CAM_iQpXd8qTTRT_+CkHnpMNC=CSS9vfB6zKtSjmLV_yya5BL8Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-IPv4 allows multipath routes to be deleted using just the prefix and
-length. For example:
-    $ ip ro ls vrf red
-    unreachable default metric 8192
-    1.1.1.0/24
-        nexthop via 10.100.1.254  dev eth1 weight 1
-        nexthop via 10.11.200.2  dev eth11.200 weight 1
-    10.11.200.0/24 dev eth11.200 proto kernel scope link src 10.11.200.3
-    10.100.1.0/24 dev eth1 proto kernel scope link src 10.100.1.3
+On Fri, 2017-01-13 at 10:20 -0800, Cong Wang wrote:
+> On Fri, Jan 13, 2017 at 9:10 AM, David Miller <davem@davemloft.net> wrote:
+> > From: Francois Romieu <romieu@fr.zoreil.com>
+> > Date: Fri, 13 Jan 2017 01:07:00 +0100
+> >
+> >> Were alloc_skb moved one level up in the call stack, there would be
+> >> no need to use the new wait api in the subsequent page, thus easing
+> >> pre 3.19 longterm kernel maintenance (at least those on korg page).
+> >>
+> >> But it tastes a tad bit too masochistic.
+> >
+> > Lack of error handling of allocation failure is always a huge red
+> > flag.  We even long ago tried to do something like this for TCP FIN
+> > handling.
+> >
+> > It's dumb, it doesn't work.
+> >
+> > Therefore I agree that the correct fix is to move the SKB allocation
+> > up one level to vcc_sendmsg() and make it handle errors properly.
+> 
+> If you can justify API is not broken by doing that, I am more than happy
+> to do it, as I already stated in the latter patch:
 
-    $ ip ro del 1.1.1.0/24 vrf red
+The man page for sendmsg() allows for ENOMEM.  See below.
 
-    $ ip ro ls vrf red
-    unreachable default metric 8192
-    10.11.200.0/24 dev eth11.200 proto kernel scope link src 10.11.200.3
-    10.100.1.0/24 dev eth1 proto kernel scope link src 10.100.1.3
+> 
+> "Of course, the logic itself is suspicious, other sendmsg()
+> could handle skb allocation failure very well, not sure
+> why ATM has to wait for a successful one here. But probably
+> it is too late to change since the errno and behavior is
+> visible to user-space. So just leave the logic as it is."
+> 
+> For some reason, no one reads that patch. :-/
 
-The same notation does not work with IPv6 because of how multipath routes
-are implemented for IPv6. For IPv6 only the first nexthop of a multipath
-route is deleted if the request contains only a prefix and length. This
-leads to unnecessary complexity in userspace dealing with IPv6 multipath
-routes.
+I read it and I agree.  I think it should be moved up/conflated with
+vcc_sendmsg().  vcc_sendmsg() can already return an errno for other
+conditions so if so has written something where they are explicitly
+not expecting a ENOMEM, we really can't help them.
 
-This patch allows all nexthops to be deleted without specifying each one
-in the delete request by passing a new flag, RTM_F_ALL_NEXTHOPS, in
-rtm_flags.
+I would certainly prefer to not have to resort to an atomic allocation.
+That's just going to make matters worse as far as similarity to the
+existing API.
 
-With this patch (and an updated iproute2 command):
-    $  ip -6 ro ls vrf red
-    1111::/120 via 2100:1::62 dev eth1 metric 1024  pref medium
-    1111::/120 via 2100:1::61 dev eth1 metric 1024  pref medium
-    1111::/120 via 2100:1::60 dev eth1 metric 1024  pref medium
-    2100:1::/120 dev eth1 proto kernel metric 256  pref medium
-    2100:1::/64 dev eth1 proto kernel metric 256  expires 86386sec pref medium
-    ...
-
-    $ ip -6 ro del vrf red 1111::1/120
-    $ ip -6 ro ls vrf red
-    2100:1::/120 dev eth1 proto kernel metric 256  pref medium
-    2100:1::/64 dev eth1 proto kernel metric 256  expires 86382sec pref medium
-    ...
-
-The flag is added to fib6_config by converting fc_type to a u16 (as
-noted fc_type only uses 8 bits). The new u16 hole is a bitmap with
-fc_delete_all_nexthop as the first bit.
-
-Suggested-by: Dinesh Dutt <ddutt@cumulusnetworks.com>
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
- include/net/ip6_fib.h          |  4 +++-
- include/uapi/linux/rtnetlink.h |  1 +
- net/ipv6/route.c               | 10 +++++++++-
- 3 files changed, 13 insertions(+), 2 deletions(-)
-
-diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
-index a74e2aa40ef4..11ab99e87c5f 100644
---- a/include/net/ip6_fib.h
-+++ b/include/net/ip6_fib.h
-@@ -37,7 +37,9 @@ struct fib6_config {
- 	int		fc_ifindex;
- 	u32		fc_flags;
- 	u32		fc_protocol;
--	u32		fc_type;	/* only 8 bits are used */
-+	u16		fc_type;	/* only 8 bits are used */
-+	u16		fc_delete_all_nexthop : 1,
-+			__unused : 15;
- 
- 	struct in6_addr	fc_dst;
- 	struct in6_addr	fc_src;
-diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
-index 8c93ad1ef9ab..7fb206bc42f9 100644
---- a/include/uapi/linux/rtnetlink.h
-+++ b/include/uapi/linux/rtnetlink.h
-@@ -276,6 +276,7 @@ enum rt_scope_t {
- #define RTM_F_EQUALIZE		0x400	/* Multipath equalizer: NI	*/
- #define RTM_F_PREFIX		0x800	/* Prefix addresses		*/
- #define RTM_F_LOOKUP_TABLE	0x1000	/* set rtm_table to FIB lookup result */
-+#define RTM_F_ALL_NEXTHOPS	0x2000	/* delete all nexthops (IPv6) */
- 
- /* Reserved table identifiers */
- 
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index ce5aaf448c54..8bb5f6a35ba8 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -2154,6 +2154,7 @@ static int ip6_route_del(struct fib6_config *cfg)
- 	if (!table)
- 		return err;
- 
-+again:
- 	read_lock_bh(&table->tb6_lock);
- 
- 	fn = fib6_locate(&table->tb6_root,
-@@ -2179,7 +2180,11 @@ static int ip6_route_del(struct fib6_config *cfg)
- 			dst_hold(&rt->dst);
- 			read_unlock_bh(&table->tb6_lock);
- 
--			return __ip6_del_rt(rt, &cfg->fc_nlinfo);
-+			err = __ip6_del_rt(rt, &cfg->fc_nlinfo);
-+			if (err || !cfg->fc_delete_all_nexthop)
-+				return err;
-+
-+			goto again;
- 		}
- 	}
- 	read_unlock_bh(&table->tb6_lock);
-@@ -2849,6 +2854,9 @@ static int rtm_to_fib6_config(struct sk_buff *skb, struct nlmsghdr *nlh,
- 	if (rtm->rtm_flags & RTM_F_CLONED)
- 		cfg->fc_flags |= RTF_CACHE;
- 
-+	if (rtm->rtm_flags & RTM_F_ALL_NEXTHOPS)
-+		cfg->fc_delete_all_nexthop = 1;
-+
- 	cfg->fc_nlinfo.portid = NETLINK_CB(skb).portid;
- 	cfg->fc_nlinfo.nlh = nlh;
- 	cfg->fc_nlinfo.nl_net = sock_net(skb->sk);
--- 
-2.1.4
+So, as Francois has suggested, just wait for the atm socket to
+drain, and then do the allocation after the wait is finished.
