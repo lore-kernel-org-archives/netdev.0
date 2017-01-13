@@ -1,8 +1,8 @@
 From: John Fastabend <john.fastabend@gmail.com>
-Subject: [net PATCH v3 1/5] virtio_net: use dev_kfree_skb for small buffer
- XDP receive
-Date: Thu, 12 Jan 2017 18:50:36 -0800
-Message-ID: <20170113025036.4535.46911.stgit@john-Precision-Tower-5810>
+Subject: [net PATCH v3 2/5] net: virtio: wrap rtnl_lock in test for calling
+ with lock already held
+Date: Thu, 12 Jan 2017 18:51:00 -0800
+Message-ID: <20170113025100.4535.35887.stgit@john-Precision-Tower-5810>
 References: <20170113024908.4535.8835.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,51 +12,87 @@ Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org,
         daniel@iogearbox.net
 To: jasowang@redhat.com, mst@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:34756 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750985AbdAMCuy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 21:50:54 -0500
-Received: by mail-pf0-f195.google.com with SMTP id y143so6064743pfb.1
-        for <netdev@vger.kernel.org>; Thu, 12 Jan 2017 18:50:54 -0800 (PST)
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:36113 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751049AbdAMCvS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 21:51:18 -0500
+Received: by mail-pf0-f196.google.com with SMTP id b22so6032584pfd.3
+        for <netdev@vger.kernel.org>; Thu, 12 Jan 2017 18:51:18 -0800 (PST)
 In-Reply-To: <20170113024908.4535.8835.stgit@john-Precision-Tower-5810>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In the small buffer case during driver unload we currently use
-put_page instead of dev_kfree_skb. Resolve this by adding a check
-for virtnet mode when checking XDP queue type. Also name the
-function so that the code reads correctly to match the additional
-check.
+For XDP use case and to allow ethtool reset tests it is useful to be
+able to use reset routines from contexts where rtnl lock is already
+held.
 
 Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 ---
- drivers/net/virtio_net.c |    8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
+ drivers/net/virtio_net.c |   16 +++++++++-------
+ 1 file changed, 9 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 4a10500..d97bb71 100644
+index d97bb71..43cb2e0 100644
 --- a/drivers/net/virtio_net.c
 +++ b/drivers/net/virtio_net.c
-@@ -1890,8 +1890,12 @@ static void free_receive_page_frags(struct virtnet_info *vi)
- 			put_page(vi->rq[i].alloc_frag.page);
+@@ -1864,12 +1864,13 @@ static void virtnet_free_queues(struct virtnet_info *vi)
+ 	kfree(vi->sq);
  }
  
--static bool is_xdp_queue(struct virtnet_info *vi, int q)
-+static bool is_xdp_raw_buffer_queue(struct virtnet_info *vi, int q)
+-static void free_receive_bufs(struct virtnet_info *vi)
++static void free_receive_bufs(struct virtnet_info *vi, bool need_lock)
  {
-+	/* For small receive mode always use kfree_skb variants */
-+	if (!vi->mergeable_rx_bufs)
-+		return false;
-+
- 	if (q < (vi->curr_queue_pairs - vi->xdp_queue_pairs))
- 		return false;
- 	else if (q < vi->curr_queue_pairs)
-@@ -1908,7 +1912,7 @@ static void free_unused_bufs(struct virtnet_info *vi)
+ 	struct bpf_prog *old_prog;
+ 	int i;
+ 
+-	rtnl_lock();
++	if (need_lock)
++		rtnl_lock();
  	for (i = 0; i < vi->max_queue_pairs; i++) {
- 		struct virtqueue *vq = vi->sq[i].vq;
- 		while ((buf = virtqueue_detach_unused_buf(vq)) != NULL) {
--			if (!is_xdp_queue(vi, i))
-+			if (!is_xdp_raw_buffer_queue(vi, i))
- 				dev_kfree_skb(buf);
- 			else
- 				put_page(virt_to_head_page(buf));
+ 		while (vi->rq[i].pages)
+ 			__free_pages(get_a_page(&vi->rq[i], GFP_KERNEL), 0);
+@@ -1879,7 +1880,8 @@ static void free_receive_bufs(struct virtnet_info *vi)
+ 		if (old_prog)
+ 			bpf_prog_put(old_prog);
+ 	}
+-	rtnl_unlock();
++	if (need_lock)
++		rtnl_unlock();
+ }
+ 
+ static void free_receive_page_frags(struct virtnet_info *vi)
+@@ -2351,14 +2353,14 @@ static int virtnet_probe(struct virtio_device *vdev)
+ 	return err;
+ }
+ 
+-static void remove_vq_common(struct virtnet_info *vi)
++static void remove_vq_common(struct virtnet_info *vi, bool lock)
+ {
+ 	vi->vdev->config->reset(vi->vdev);
+ 
+ 	/* Free unused buffers in both send and recv, if any. */
+ 	free_unused_bufs(vi);
+ 
+-	free_receive_bufs(vi);
++	free_receive_bufs(vi, lock);
+ 
+ 	free_receive_page_frags(vi);
+ 
+@@ -2376,7 +2378,7 @@ static void virtnet_remove(struct virtio_device *vdev)
+ 
+ 	unregister_netdev(vi->dev);
+ 
+-	remove_vq_common(vi);
++	remove_vq_common(vi, true);
+ 
+ 	free_percpu(vi->stats);
+ 	free_netdev(vi->dev);
+@@ -2401,7 +2403,7 @@ static int virtnet_freeze(struct virtio_device *vdev)
+ 			napi_disable(&vi->rq[i].napi);
+ 	}
+ 
+-	remove_vq_common(vi);
++	remove_vq_common(vi, true);
+ 
+ 	return 0;
+ }
