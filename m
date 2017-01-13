@@ -1,55 +1,48 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] flow disector: check if arp_eth is null rather than arp
-Date: Fri, 13 Jan 2017 13:34:28 +0000
-Message-ID: <20170113133428.20130-1-colin.king@canonical.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: To netlink or not to netlink, that is the question
+Date: Fri, 13 Jan 2017 14:36:36 +0100
+Message-ID: <980e960c-9186-741a-4094-f0c03118de14@6wind.com>
+References: <CAHmME9pkktqOSUyTS_XhgC-CE4iqTv6UEA6w74kkm3xnBY8z9g@mail.gmail.com>
+ <20170112091440.7f6cd41f@xeon-e3>
+ <CAHmME9rWDzO9j8E1HYSXY6j9FJqHODOYnEW8+SSggapDkQ_jBA@mail.gmail.com>
+ <1484246584.4651.3.camel@redhat.com>
+ <CAHmME9oYDdQGsQ8jQGJMeJ-0A6O+Och+Y+5Q_=Q=M9qgrxDq2Q@mail.gmail.com>
+ <1484291830.19860.3.camel@sipsolutions.net>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org
-To: "David S . Miller" <davem@davemloft.net>,
-        Alexander Duyck <aduyck@mirantis.com>,
-        Jiri Pirko <jiri@mellanox.com>,
-        Tom Herbert <tom@herbertland.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Simon Horman <simon.horman@netronome.com>,
-        Hadar Hen Zion <hadarh@mellanox.com>,
-        Gao Feng <fgao@ikuai8.com>, Amir Vadai <amir@vadai.me>,
-        netdev@vger.kernel.org
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+        Netdev <netdev@vger.kernel.org>
+To: Johannes Berg <johannes@sipsolutions.net>,
+        "Jason A. Donenfeld" <Jason@zx2c4.com>,
+        Dan Williams <dcbw@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:54560 "EHLO
-        youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751444AbdAMNfo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 08:35:44 -0500
+Received: from mail-lf0-f53.google.com ([209.85.215.53]:34449 "EHLO
+        mail-lf0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751444AbdAMNhk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 08:37:40 -0500
+Received: by mail-lf0-f53.google.com with SMTP id v186so37652401lfa.1
+        for <netdev@vger.kernel.org>; Fri, 13 Jan 2017 05:36:40 -0800 (PST)
+In-Reply-To: <1484291830.19860.3.camel@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king@canonical.com>
+Le 13/01/2017 à 08:17, Johannes Berg a écrit :
+[snip]
+> In addition to what others have said - netlink typically includes (and
+> has helpers to do so) a generation counter that's updated whenever this
+> list changes, and included in each message, so if userspace really
+> cares (often not) it can retry the dump until the system was idle
+> enough to get a consistent snapshot.
+Look at NLM_F_DUMP_INTR to get details.
 
-arp is being checked instead of arp_eth to see if the call to
-__skb_header_pointer failed. Fix this by checking arp_eth is
-null instead of arp.
+> 
+> It also looks to me like your existing API isn't even compat-safe due
+> to u64 alignment (e.g. in wgpeer), proving once again that ioctl is a
+> bad idea.
++1
 
-CoverityScan CID#1396428 ("Logically dead code") on 2nd
-arp comparison (which should be arp_eth instead).
 
-Fixes: commit 55733350e5e8b70c5 ("flow disector: ARP support")
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- net/core/flow_dissector.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index e3dffc7..fec48e9 100644
---- a/net/core/flow_dissector.c
-+++ b/net/core/flow_dissector.c
-@@ -409,7 +409,7 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
- 					       sizeof(_arp_eth), data,
- 					       hlen - sizeof(_arp),
- 					       &_arp_eth);
--		if (!arp)
-+		if (!arp_eth)
- 			goto out_bad;
- 
- 		if (dissector_uses_key(flow_dissector,
--- 
-2.10.2
+Regards,
+Nicolas
