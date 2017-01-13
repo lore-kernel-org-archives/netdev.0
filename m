@@ -1,215 +1,189 @@
-From: Russell King <rmk+kernel-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>
-Subject: [PATCH RFC 6/7] net: phy: remove the indirect MMD read/write methods
-Date: Fri, 13 Jan 2017 15:22:09 +0000
-Message-ID: <E1cS3g9-0003Xx-5K@rmk-PC.armlinux.org.uk>
-References: <20170113152059.GR14217@n2100.armlinux.org.uk>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net] ravb: do not use zero-length alighment DMA request
+Date: Fri, 13 Jan 2017 18:29:10 +0300
+Message-ID: <1800e846-81d3-806e-3767-5839b2c14fe6@cogentembedded.com>
+References: <1484312940-11147-1-git-send-email-horms+renesas@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Microchip Linux Driver Support <UNGLinuxDriver-UWL1GkI3JZL3oGB3hsPCZA@public.gmane.org>,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Woojung Huh <woojung.huh-UWL1GkI3JZL3oGB3hsPCZA@public.gmane.org>,
-        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170113152059.GR14217-l+eeeJia6m9URfEZ8mYm6t73F7V6hmMc@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Magnus Damm <magnus.damm@gmail.com>, netdev@vger.kernel.org,
+        linux-renesas-soc@vger.kernel.org,
+        Masaru Nagai <masaru.nagai.vx@renesas.com>
+To: Simon Horman <horms+renesas@verge.net.au>,
+        David Miller <davem@davemloft.net>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <1484312940-11147-1-git-send-email-horms+renesas@verge.net.au>
+Sender: linux-renesas-soc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Remove the indirect MMD read/write methods which are now no longer
-necessary.
+Hello!
 
-Signed-off-by: Russell King <rmk+kernel-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>
----
- drivers/net/phy/phy-core.c | 119 +++++++++++++--------------------------------
- include/linux/phy.h        |  18 -------
- 2 files changed, 35 insertions(+), 102 deletions(-)
+On 01/13/2017 04:09 PM, Simon Horman wrote:
 
-diff --git a/drivers/net/phy/phy-core.c b/drivers/net/phy/phy-core.c
-index b50b3a64cf6a..80795ccd3fab 100644
---- a/drivers/net/phy/phy-core.c
-+++ b/drivers/net/phy/phy-core.c
-@@ -23,102 +23,41 @@ static inline void mmd_phy_indirect(struct mii_bus *bus, int prtad, int devad,
- }
- 
- /**
-- * phy_read_mmd_indirect - reads data from the MMD registers
-- * @phydev: The PHY device bus
-- * @prtad: MMD Address
-- * @devad: MMD DEVAD
-- *
-- * Description: it reads data from the MMD registers (clause 22 to access to
-- * clause 45) of the specified phy address.
-- * To read these register we have:
-- * 1) Write reg 13 // DEVAD
-- * 2) Write reg 14 // MMD Address
-- * 3) Write reg 13 // MMD Data Command for MMD DEVAD
-- * 3) Read  reg 14 // Read MMD data
-- */
--int phy_read_mmd_indirect(struct phy_device *phydev, int prtad, int devad)
--{
--	struct phy_driver *phydrv = phydev->drv;
--	int addr = phydev->mdio.addr;
--	int value = -1;
--
--	if (!phydrv->read_mmd_indirect) {
--		struct mii_bus *bus = phydev->mdio.bus;
--
--		mutex_lock(&bus->mdio_lock);
--		mmd_phy_indirect(bus, prtad, devad, addr);
--
--		/* Read the content of the MMD's selected register */
--		value = bus->read(bus, addr, MII_MMD_DATA);
--		mutex_unlock(&bus->mdio_lock);
--	} else {
--		value = phydrv->read_mmd_indirect(phydev, prtad, devad, addr);
--	}
--	return value;
--}
--EXPORT_SYMBOL(phy_read_mmd_indirect);
--
--/**
-  * phy_read_mmd - Convenience function for reading a register
-  * from an MMD on a given PHY.
-  * @phydev: The phy_device struct
-- * @devad: The MMD to read from
-- * @regnum: The register on the MMD to read
-+ * @devad: The MMD to read from (0..31)
-+ * @regnum: The register on the MMD to read (0..65535)
-  *
-  * Same rules as for phy_read();
-  */
- int phy_read_mmd(struct phy_device *phydev, int devad, u32 regnum)
- {
-+	int val;
-+
- 	if (regnum > (u16)~0 || devad > 32)
- 		return -EINVAL;
- 
--	if (phydev->drv->read_mmd)
--		return phydev->drv->read_mmd(phydev, devad, regnum);
--
--	if (phydev->is_c45) {
-+	if (phydev->drv->read_mmd) {
-+		val = phydev->drv->read_mmd(phydev, devad, regnum);
-+	} else if (phydev->is_c45) {
- 		u32 addr = MII_ADDR_C45 | (devad << 16) | (regnum & 0xffff);
--		return mdiobus_read(phydev->mdio.bus, phydev->mdio.addr, addr);
--	}
--
--	return phy_read_mmd_indirect(phydev, regnum, devad);
--}
--EXPORT_SYMBOL(phy_read_mmd);
--
--/**
-- * phy_write_mmd_indirect - writes data to the MMD registers
-- * @phydev: The PHY device
-- * @prtad: MMD Address
-- * @devad: MMD DEVAD
-- * @data: data to write in the MMD register
-- *
-- * Description: Write data from the MMD registers of the specified
-- * phy address.
-- * To write these register we have:
-- * 1) Write reg 13 // DEVAD
-- * 2) Write reg 14 // MMD Address
-- * 3) Write reg 13 // MMD Data Command for MMD DEVAD
-- * 3) Write reg 14 // Write MMD data
-- */
--void phy_write_mmd_indirect(struct phy_device *phydev, int prtad,
--				   int devad, u32 data)
--{
--	struct phy_driver *phydrv = phydev->drv;
--	int addr = phydev->mdio.addr;
- 
--	if (!phydrv->write_mmd_indirect) {
-+		val = mdiobus_read(phydev->mdio.bus, phydev->mdio.addr, addr);
-+	} else {
- 		struct mii_bus *bus = phydev->mdio.bus;
-+		int phy_addr = phydev->mdio.addr;
- 
- 		mutex_lock(&bus->mdio_lock);
--		mmd_phy_indirect(bus, prtad, devad, addr);
-+		mmd_phy_indirect(bus, regnum, devad, phy_addr);
- 
--		/* Write the data into MMD's selected register */
--		bus->write(bus, addr, MII_MMD_DATA, data);
-+		/* Read the content of the MMD's selected register */
-+		val = bus->read(bus, phy_addr, MII_MMD_DATA);
- 		mutex_unlock(&bus->mdio_lock);
--	} else {
--		phydrv->write_mmd_indirect(phydev, prtad, devad, addr, data);
- 	}
-+	return val;
- }
--EXPORT_SYMBOL(phy_write_mmd_indirect);
-+EXPORT_SYMBOL(phy_read_mmd);
- 
- /**
-  * phy_write_mmd - Convenience function for writing a register
-@@ -132,19 +71,31 @@ EXPORT_SYMBOL(phy_write_mmd_indirect);
-  */
- int phy_write_mmd(struct phy_device *phydev, int devad, u32 regnum, u16 val)
- {
-+	int ret;
-+
- 	if (regnum > (u16)~0 || devad > 32)
- 		return -EINVAL;
- 
--	if (phydev->drv->read_mmd)
--		return phydev->drv->write_mmd(phydev, devad, regnum, val);
--
--	if (phydev->is_c45) {
-+	if (phydev->drv->read_mmd) {
-+		ret = phydev->drv->write_mmd(phydev, devad, regnum, val);
-+	} else if (phydev->is_c45) {
- 		u32 addr = MII_ADDR_C45 | (devad << 16) | (regnum & 0xffff);
- 
--		return mdiobus_write(phydev->mdio.bus, phydev->mdio.addr,
--				     addr, val);
--	}
-+		ret = mdiobus_write(phydev->mdio.bus, phydev->mdio.addr,
-+				    addr, val);
-+	} else {
-+		struct mii_bus *bus = phydev->mdio.bus;
-+		int phy_addr = phydev->mdio.addr;
- 
--	return phy_write_mmd_indirect(phydev, regnum, devad, val);
-+		mutex_lock(&bus->mdio_lock);
-+		mmd_phy_indirect(bus, regnum, devad, phy_addr);
-+
-+		/* Write the data into MMD's selected register */
-+		bus->write(bus, phy_addr, MII_MMD_DATA, val);
-+		mutex_unlock(&bus->mdio_lock);
-+
-+		ret = 0;
-+	}
-+	return ret;
- }
- EXPORT_SYMBOL(phy_write_mmd);
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index 54fa76efb096..ebd1c55f1624 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -607,24 +607,6 @@ struct phy_driver {
- 	int (*write_mmd)(struct phy_device *dev, int devnum, u16 regnum,
- 			 u16 val);
- 
--	/* A function provided by a phy specific driver to override the
--	 * the PHY driver framework support for reading a MMD register
--	 * from the PHY. If not supported, return -1. This function is
--	 * optional for PHY specific drivers, if not provided then the
--	 * default MMD read function is used by the PHY framework.
--	 */
--	int (*read_mmd_indirect)(struct phy_device *dev, int ptrad,
--				 int devnum, int regnum);
--
--	/* A function provided by a phy specific driver to override the
--	 * the PHY driver framework support for writing a MMD register
--	 * from the PHY. This function is optional for PHY specific drivers,
--	 * if not provided then the default MMD read function is used by
--	 * the PHY framework.
--	 */
--	void (*write_mmd_indirect)(struct phy_device *dev, int ptrad,
--				   int devnum, int regnum, u32 val);
+> From: Masaru Nagai <masaru.nagai.vx@renesas.com>
+>
+> Due to alignment requirements of the hardware transmissions are split into
+> two DMA descriptors, a small padding descriptor of 0 - 3 bytes in length
+
+    OK but you forgot to use "descriptor" ISO "request" in the subject. :-)
+
+> followed by a descriptor for rest of the packet.
+>
+> In the case of IP packets the first descriptor will never be zero due to
+> the way that the stack aligns buffers for IP packets. However, for non-IP
+> packets it may be zero.
+>
+> In that case it has been reported that timeouts occur, presumably because
+> transmission stops at the first zero-length DMA descriptor and thus the
+> packet is not transmitted. However, in my environment a BUG is triggered as
+> follows:
+>
+> [   20.381417] ------------[ cut here ]------------
+> [   20.386054] kernel BUG at lib/swiotlb.c:495!
+> [   20.390324] Internal error: Oops - BUG: 0 [#1] PREEMPT SMP
+> [   20.395805] Modules linked in:
+> [   20.398862] CPU: 0 PID: 2089 Comm: mz Not tainted 4.10.0-rc3-00001-gf13ad2db193f #162
+> [   20.406689] Hardware name: Renesas Salvator-X board based on r8a7796 (DT)
+> [   20.413474] task: ffff80063b1f1900 task.stack: ffff80063a71c000
+> [   20.419404] PC is at swiotlb_tbl_map_single+0x178/0x2ec
+> [   20.424625] LR is at map_single+0x4c/0x98
+> [   20.428629] pc : [<ffff00000839c4c0>] lr : [<ffff00000839c680>] pstate: 800001c5
+> [   20.436019] sp : ffff80063a71f9b0
+> [   20.439327] x29: ffff80063a71f9b0 x28: ffff80063a20d500
+> [   20.444636] x27: ffff000008ed5000 x26: 0000000000000000
+> [   20.449944] x25: 000000067abe2adc x24: 0000000000000000
+> [   20.455252] x23: 0000000000200000 x22: 0000000000000001
+> [   20.460559] x21: 0000000000175ffe x20: ffff80063b2a0010
+> [   20.465866] x19: 0000000000000000 x18: 0000ffffcae6fb20
+> [   20.471173] x17: 0000ffffa09ba018 x16: ffff0000087c8b70
+> [   20.476480] x15: 0000ffffa084f588 x14: 0000ffffa09cfa14
+> [   20.481787] x13: 0000ffffcae87ff0 x12: 000000000063abe2
+> [   20.487098] x11: ffff000008096360 x10: ffff80063abe2adc
+> [   20.492407] x9 : 0000000000000000 x8 : 0000000000000000
+> [   20.497718] x7 : 0000000000000000 x6 : ffff000008ed50d0
+> [   20.503028] x5 : 0000000000000000 x4 : 0000000000000001
+> [   20.508338] x3 : 0000000000000000 x2 : 000000067abe2adc
+> [   20.513648] x1 : 00000000bafff000 x0 : 0000000000000000
+> [   20.518958]
+> [   20.520446] Process mz (pid: 2089, stack limit = 0xffff80063a71c000)
+> [   20.526798] Stack: (0xffff80063a71f9b0 to 0xffff80063a720000)
+> [   20.532543] f9a0:                                   ffff80063a71fa30 ffff00000839c680
+> [   20.540374] f9c0: ffff80063b2a0010 ffff80063b2a0010 0000000000000001 0000000000000000
+> [   20.548204] f9e0: 000000000000006e ffff80063b23c000 ffff80063b23c000 0000000000000000
+> [   20.556034] fa00: ffff80063b23c000 ffff80063a20d500 000000013b1f1900 0000000000000000
+> [   20.563864] fa20: ffff80063ffd18e0 ffff80063b2a0010 ffff80063a71fa60 ffff00000839cd10
+> [   20.571694] fa40: ffff80063b2a0010 0000000000000000 ffff80063ffd18e0 000000067abe2adc
+> [   20.579524] fa60: ffff80063a71fa90 ffff000008096380 ffff80063b2a0010 0000000000000000
+> [   20.587353] fa80: 0000000000000000 0000000000000001 ffff80063a71fac0 ffff00000864f770
+> [   20.595184] faa0: ffff80063b23caf0 0000000000000000 0000000000000000 0000000000000140
+> [   20.603014] fac0: ffff80063a71fb60 ffff0000087e6498 ffff80063a20d500 ffff80063b23c000
+> [   20.610843] fae0: 0000000000000000 ffff000008daeaf0 0000000000000000 ffff000008daeb00
+> [   20.618673] fb00: ffff80063a71fc0c ffff000008da7000 ffff80063b23c090 ffff80063a44f000
+> [   20.626503] fb20: 0000000000000000 ffff000008daeb00 ffff80063a71fc0c ffff000008da7000
+> [   20.634333] fb40: ffff80063b23c090 0000000000000000 ffff800600000037 ffff0000087e63d8
+> [   20.642163] fb60: ffff80063a71fbc0 ffff000008807510 ffff80063a692400 ffff80063a20d500
+> [   20.649993] fb80: ffff80063a44f000 ffff80063b23c000 ffff80063a69249c 0000000000000000
+> [   20.657823] fba0: 0000000000000000 ffff80063a087800 ffff80063b23c000 ffff80063a20d500
+> [   20.665653] fbc0: ffff80063a71fc10 ffff0000087e67dc ffff80063a20d500 ffff80063a692400
+> [   20.673483] fbe0: ffff80063b23c000 0000000000000000 ffff80063a44f000 ffff80063a69249c
+> [   20.681312] fc00: ffff80063a5f1a10 000000103a087800 ffff80063a71fc70 ffff0000087e6b24
+> [   20.689142] fc20: ffff80063a5f1a80 ffff80063a71fde8 000000000000000f 00000000000005ea
+> [   20.696972] fc40: ffff80063a5f1a10 0000000000000000 000000000000000f ffff00000887fbd0
+> [   20.704802] fc60: fffffff43a5f1a80 0000000000000000 ffff80063a71fc80 ffff000008880240
+> [   20.712632] fc80: ffff80063a71fd90 ffff0000087c7a34 ffff80063afc7180 0000000000000000
+> [   20.720462] fca0: 0000ffffcae6fe18 0000000000000014 0000000060000000 0000000000000015
+> [   20.728292] fcc0: 0000000000000123 00000000000000ce ffff0000088d2000 ffff80063b1f1900
+> [   20.736122] fce0: 0000000000008933 ffff000008e7cb80 ffff80063a71fd80 ffff0000087c50a4
+> [   20.743951] fd00: 0000000000008933 ffff000008e7cb80 ffff000008e7cb80 000000100000000e
+> [   20.751781] fd20: ffff80063a71fe4c 0000ffff00000300 0000000000000123 0000000000000000
+> [   20.759611] fd40: 0000000000000000 ffff80063b1f0000 000000000000000e 0000000000000300
+> [   20.767441] fd60: 0000000000000000 0000000000000000 0000000000000000 0000000000000000
+> [   20.775271] fd80: 0000000000000000 0000000000000000 ffff80063a71fda0 ffff0000087c8c20
+> [   20.783100] fda0: 0000000000000000 ffff000008082f30 0000000000000000 0000800637260000
+> [   20.790930] fdc0: ffffffffffffffff 0000ffffa0903078 0000000000000000 000000001ea87232
+> [   20.798760] fde0: 000000000000000f ffff80063a71fe40 ffff800600000014 ffff000000000001
+> [   20.806590] fe00: 0000000000000000 0000000000000000 ffff80063a71fde8 0000000000000000
+> [   20.814420] fe20: 0000000000000000 0000000000000000 0000000000000000 0000000000000001
+> [   20.822249] fe40: 0000000203000011 0000000000000000 0000000000000000 ffff80063a68aa00
+> [   20.830079] fe60: ffff80063a68aa00 0000000000000003 0000000000008933 ffff0000081f1b9c
+> [   20.837909] fe80: 0000000000000000 ffff000008082f30 0000000000000000 0000800637260000
+> [   20.845739] fea0: ffffffffffffffff 0000ffffa07ca81c 0000000060000000 0000000000000015
+> [   20.853569] fec0: 0000000000000003 000000001ea87232 000000000000000f 0000000000000000
+> [   20.861399] fee0: 0000ffffcae6fe18 0000000000000014 0000000000000300 0000000000000000
+> [   20.869228] ff00: 00000000000000ce 0000000000000000 00000000ffffffff 0000000000000000
+> [   20.877059] ff20: 0000000000000002 0000ffffcae87ff0 0000ffffa09cfa14 0000ffffa084f588
+> [   20.884888] ff40: 0000000000000000 0000ffffa09ba018 0000ffffcae6fb20 000000001ea87010
+> [   20.892718] ff60: 0000ffffa09b9000 0000ffffcae6fe30 0000ffffcae6fe18 000000000000000f
+> [   20.900548] ff80: 0000000000000003 000000001ea87232 0000000000000000 0000000000000000
+> [   20.908378] ffa0: 0000000000000000 0000ffffcae6fdc0 0000ffffa09a7824 0000ffffcae6fdc0
+> [   20.916208] ffc0: 0000ffffa0903078 0000000060000000 0000000000000003 00000000000000ce
+> [   20.924038] ffe0: 0000000000000000 0000000000000000 ffffffffffffffff ffffffffffffffff
+> [   20.931867] Call trace:
+> [   20.934312] Exception stack(0xffff80063a71f7e0 to 0xffff80063a71f910)
+> [   20.940750] f7e0: 0000000000000000 0001000000000000 ffff80063a71f9b0 ffff00000839c4c0
+> [   20.948580] f800: ffff80063a71f840 ffff00000888a6e4 ffff80063a24c418 ffff80063a24c448
+> [   20.956410] f820: 0000000000000000 ffff00000811cd54 ffff80063a71f860 ffff80063a24c458
+> [   20.964240] f840: ffff80063a71f870 ffff00000888b258 ffff80063a24c418 0000000000000001
+> [   20.972070] f860: ffff80063a71f910 ffff80063a7b7028 ffff80063a71f890 ffff0000088825e4
+> [   20.979899] f880: 0000000000000000 00000000bafff000 000000067abe2adc 0000000000000000
+> [   20.987729] f8a0: 0000000000000001 0000000000000000 ffff000008ed50d0 0000000000000000
+> [   20.995560] f8c0: 0000000000000000 0000000000000000 ffff80063abe2adc ffff000008096360
+> [   21.003390] f8e0: 000000000063abe2 0000ffffcae87ff0 0000ffffa09cfa14 0000ffffa084f588
+> [   21.011219] f900: ffff0000087c8b70 0000ffffa09ba018
+> [   21.016097] [<ffff00000839c4c0>] swiotlb_tbl_map_single+0x178/0x2ec
+> [   21.022362] [<ffff00000839c680>] map_single+0x4c/0x98
+> [   21.027411] [<ffff00000839cd10>] swiotlb_map_page+0xa4/0x138
+> [   21.033072] [<ffff000008096380>] __swiotlb_map_page+0x20/0x7c
+> [   21.038821] [<ffff00000864f770>] ravb_start_xmit+0x174/0x668
+> [   21.044484] [<ffff0000087e6498>] dev_hard_start_xmit+0x8c/0x120
+> [   21.050407] [<ffff000008807510>] sch_direct_xmit+0x108/0x1a0
+> [   21.056064] [<ffff0000087e67dc>] __dev_queue_xmit+0x194/0x4cc
+> [   21.061807] [<ffff0000087e6b24>] dev_queue_xmit+0x10/0x18
+> [   21.067214] [<ffff000008880240>] packet_sendmsg+0xf40/0x1220
+> [   21.072873] [<ffff0000087c7a34>] sock_sendmsg+0x18/0x2c
+> [   21.078097] [<ffff0000087c8c20>] SyS_sendto+0xb0/0xf0
+> [   21.083150] [<ffff000008082f30>] el0_svc_naked+0x24/0x28
+> [   21.088462] Code: d34bfef7 2a1803f3 1a9f86d6 35fff878 (d4210000)
+> [   21.094611] ---[ end trace 5bc544ad491f3814 ]---
+> [   21.099234] Kernel panic - not syncing: Fatal exception in interrupt
+> [   21.105587] Kernel Offset: disabled
+> [   21.109073] Memory Limit: none
+> [   21.112126] ---[ end Kernel panic - not syncing: Fatal exception in interrupt
+>
+> Fixes: 2f45d1902acf ("ravb: minimize TX data copying")
+> Signed-off-by: Masaru Nagai <masaru.nagai.vx@renesas.com
+> Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
+
+Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+
+> ---
+> v1 [Simon Horman]
+> * don't handle skb->len < 4; it is always at least 60
+> * add comment
+> * dropped RFC designation
+>
+> v1 [Simon Horman]
+> * rewrote changelog
+> * handle skb->len < 4
+>
+> v0 [Masaru Nagai]
+> ---
+>  drivers/net/ethernet/renesas/ravb_main.c | 13 +++++++++++++
+>  1 file changed, 13 insertions(+)
+>
+> diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
+> index 5e5ad978eab9..1cd6ba986669 100644
+> --- a/drivers/net/ethernet/renesas/ravb_main.c
+> +++ b/drivers/net/ethernet/renesas/ravb_main.c
+> @@ -1504,6 +1504,19 @@ static netdev_tx_t ravb_start_xmit(struct sk_buff *skb, struct net_device *ndev)
+>  	buffer = PTR_ALIGN(priv->tx_align[q], DPTR_ALIGN) +
+>  		 entry / NUM_TX_DESC * DPTR_ALIGN;
+>  	len = PTR_ALIGN(skb->data, DPTR_ALIGN) - skb->data;
+> +	/* Zero length DMA descriptors are problematic as they terminate
+> +	 * DMA requests. Avoid them by simply using a length of DPTR_ALIGN (4)
+
+    I'd write "seem to terminate DMA transfers" rather.
+
+[...]
+
+MBR, Sergei
