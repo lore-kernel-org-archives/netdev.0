@@ -1,214 +1,156 @@
 From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCHv3 net-next 6/7] sctp: add sockopt SCTP_ENABLE_STREAM_RESET
-Date: Sat, 14 Jan 2017 03:15:40 +0800
-Message-ID: <d2cae903bc3512af1ff9a993b156e3d08973af87.1484334002.git.lucien.xin@gmail.com>
+Subject: [PATCHv3 net-next 4/7] sctp: add stream reconf primitive
+Date: Sat, 14 Jan 2017 03:15:38 +0800
+Message-ID: <05371aa8e63a160f467f3463749431dadcd30a8b.1484334002.git.lucien.xin@gmail.com>
 References: <cover.1484334002.git.lucien.xin@gmail.com>
  <5f8a7d818b5db99f2ff2a791a451b311c09fad7f.1484334002.git.lucien.xin@gmail.com>
  <6c991b81f4a92cec3da773bae9b19e878e810c88.1484334002.git.lucien.xin@gmail.com>
  <c0d647fad638de6623db1d1277f63dd4a52d28c4.1484334002.git.lucien.xin@gmail.com>
- <05371aa8e63a160f467f3463749431dadcd30a8b.1484334002.git.lucien.xin@gmail.com>
- <1277c93e5816c40893ceb6441b7c8151de48bf31.1484334002.git.lucien.xin@gmail.com>
 Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
         Neil Horman <nhorman@tuxdriver.com>,
         Vlad Yasevich <vyasevich@gmail.com>, davem@davemloft.net
 To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:35604 "EHLO
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:35488 "EHLO
         mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750885AbdAMTQh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 14:16:37 -0500
-In-Reply-To: <1277c93e5816c40893ceb6441b7c8151de48bf31.1484334002.git.lucien.xin@gmail.com>
+        with ESMTP id S1750805AbdAMTQV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 14:16:21 -0500
+In-Reply-To: <c0d647fad638de6623db1d1277f63dd4a52d28c4.1484334002.git.lucien.xin@gmail.com>
 In-Reply-To: <cover.1484334002.git.lucien.xin@gmail.com>
 References: <cover.1484334002.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch is to add sockopt SCTP_ENABLE_STREAM_RESET to get/set
-strreset_enable to indicate which reconf request type it supports,
-which is described in rfc6525 section 6.3.1.
+This patch is to add a primitive based on sctp primitive frame for
+sending stream reconf request. It works as the other primitives,
+and create a SCTP_CMD_REPLY command to send the request chunk out.
+
+sctp_primitive_RECONF would be the api to send a reconf request
+chunk.
 
 Signed-off-by: Xin Long <lucien.xin@gmail.com>
 ---
- include/net/sctp/structs.h |  4 +++
- include/uapi/linux/sctp.h  |  7 ++++
- net/sctp/associola.c       |  1 +
- net/sctp/socket.c          | 84 ++++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 96 insertions(+)
+ include/net/sctp/constants.h |  3 ++-
+ include/net/sctp/sctp.h      |  2 ++
+ include/net/sctp/sm.h        |  1 +
+ net/sctp/primitive.c         |  3 +++
+ net/sctp/sm_statefuns.c      | 13 +++++++++++++
+ net/sctp/sm_statetable.c     | 20 ++++++++++++++++++++
+ 6 files changed, 41 insertions(+), 1 deletion(-)
 
-diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-index ee037ef..d99b76e 100644
---- a/include/net/sctp/structs.h
-+++ b/include/net/sctp/structs.h
-@@ -1257,6 +1257,8 @@ struct sctp_endpoint {
- 	__u8  auth_enable:1,
- 	      prsctp_enable:1,
- 	      reconf_enable:1;
+diff --git a/include/net/sctp/constants.h b/include/net/sctp/constants.h
+index 8307c86..3567c97 100644
+--- a/include/net/sctp/constants.h
++++ b/include/net/sctp/constants.h
+@@ -114,9 +114,10 @@ typedef enum {
+ 	SCTP_PRIMITIVE_SEND,
+ 	SCTP_PRIMITIVE_REQUESTHEARTBEAT,
+ 	SCTP_PRIMITIVE_ASCONF,
++	SCTP_PRIMITIVE_RECONF,
+ } sctp_event_primitive_t;
+ 
+-#define SCTP_EVENT_PRIMITIVE_MAX	SCTP_PRIMITIVE_ASCONF
++#define SCTP_EVENT_PRIMITIVE_MAX	SCTP_PRIMITIVE_RECONF
+ #define SCTP_NUM_PRIMITIVE_TYPES	(SCTP_EVENT_PRIMITIVE_MAX + 1)
+ 
+ /* We define here a utility type for manipulating subtypes.
+diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
+index 598d938..bc0e049 100644
+--- a/include/net/sctp/sctp.h
++++ b/include/net/sctp/sctp.h
+@@ -141,6 +141,8 @@ int sctp_primitive_ABORT(struct net *, struct sctp_association *, void *arg);
+ int sctp_primitive_SEND(struct net *, struct sctp_association *, void *arg);
+ int sctp_primitive_REQUESTHEARTBEAT(struct net *, struct sctp_association *, void *arg);
+ int sctp_primitive_ASCONF(struct net *, struct sctp_association *, void *arg);
++int sctp_primitive_RECONF(struct net *net, struct sctp_association *asoc,
++			  void *arg);
+ 
+ /*
+  * sctp/input.c
+diff --git a/include/net/sctp/sm.h b/include/net/sctp/sm.h
+index d2d9e28..430ed13 100644
+--- a/include/net/sctp/sm.h
++++ b/include/net/sctp/sm.h
+@@ -157,6 +157,7 @@ sctp_state_fn_t sctp_sf_error_shutdown;
+ sctp_state_fn_t sctp_sf_ignore_primitive;
+ sctp_state_fn_t sctp_sf_do_prm_requestheartbeat;
+ sctp_state_fn_t sctp_sf_do_prm_asconf;
++sctp_state_fn_t sctp_sf_do_prm_reconf;
+ 
+ /* Prototypes for other event state functions.  */
+ sctp_state_fn_t sctp_sf_do_no_pending_tsn;
+diff --git a/net/sctp/primitive.c b/net/sctp/primitive.c
+index ab8d9f9..f0553a0 100644
+--- a/net/sctp/primitive.c
++++ b/net/sctp/primitive.c
+@@ -211,3 +211,6 @@ DECLARE_PRIMITIVE(REQUESTHEARTBEAT);
+ */
+ 
+ DECLARE_PRIMITIVE(ASCONF);
 +
-+	__u8  strreset_enable;
++/* RE-CONFIG 5.1 */
++DECLARE_PRIMITIVE(RECONF);
+diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
+index 2ae186a..782e579 100644
+--- a/net/sctp/sm_statefuns.c
++++ b/net/sctp/sm_statefuns.c
+@@ -5185,6 +5185,19 @@ sctp_disposition_t sctp_sf_do_prm_asconf(struct net *net,
+ 	return SCTP_DISPOSITION_CONSUME;
+ }
+ 
++/* RE-CONFIG Section 5.1 RECONF Chunk Procedures */
++sctp_disposition_t sctp_sf_do_prm_reconf(struct net *net,
++					 const struct sctp_endpoint *ep,
++					 const struct sctp_association *asoc,
++					 const sctp_subtype_t type,
++					 void *arg, sctp_cmd_seq_t *commands)
++{
++	struct sctp_chunk *chunk = arg;
++
++	sctp_add_cmd_sf(commands, SCTP_CMD_REPLY, SCTP_CHUNK(chunk));
++	return SCTP_DISPOSITION_CONSUME;
++}
++
+ /*
+  * Ignore the primitive event
+  *
+diff --git a/net/sctp/sm_statetable.c b/net/sctp/sm_statetable.c
+index 3da521a..b5438b4 100644
+--- a/net/sctp/sm_statetable.c
++++ b/net/sctp/sm_statetable.c
+@@ -643,6 +643,25 @@ chunk_event_table_unknown[SCTP_STATE_NUM_STATES] = {
+ 	TYPE_SCTP_FUNC(sctp_sf_error_shutdown), \
+ } /* TYPE_SCTP_PRIMITIVE_ASCONF */
+ 
++#define TYPE_SCTP_PRIMITIVE_RECONF { \
++	/* SCTP_STATE_CLOSED */ \
++	TYPE_SCTP_FUNC(sctp_sf_error_closed), \
++	/* SCTP_STATE_COOKIE_WAIT */ \
++	TYPE_SCTP_FUNC(sctp_sf_error_closed), \
++	/* SCTP_STATE_COOKIE_ECHOED */ \
++	TYPE_SCTP_FUNC(sctp_sf_error_closed), \
++	/* SCTP_STATE_ESTABLISHED */ \
++	TYPE_SCTP_FUNC(sctp_sf_do_prm_reconf), \
++	/* SCTP_STATE_SHUTDOWN_PENDING */ \
++	TYPE_SCTP_FUNC(sctp_sf_do_prm_reconf), \
++	/* SCTP_STATE_SHUTDOWN_SENT */ \
++	TYPE_SCTP_FUNC(sctp_sf_do_prm_reconf), \
++	/* SCTP_STATE_SHUTDOWN_RECEIVED */ \
++	TYPE_SCTP_FUNC(sctp_sf_do_prm_reconf), \
++	/* SCTP_STATE_SHUTDOWN_ACK_SENT */ \
++	TYPE_SCTP_FUNC(sctp_sf_error_shutdown), \
++} /* TYPE_SCTP_PRIMITIVE_RECONF */
++
+ /* The primary index for this table is the primitive type.
+  * The secondary index for this table is the state.
+  */
+@@ -653,6 +672,7 @@ static const sctp_sm_table_entry_t primitive_event_table[SCTP_NUM_PRIMITIVE_TYPE
+ 	TYPE_SCTP_PRIMITIVE_SEND,
+ 	TYPE_SCTP_PRIMITIVE_REQUESTHEARTBEAT,
+ 	TYPE_SCTP_PRIMITIVE_ASCONF,
++	TYPE_SCTP_PRIMITIVE_RECONF,
  };
  
- /* Recover the outter endpoint structure. */
-@@ -1872,6 +1874,8 @@ struct sctp_association {
- 	     prsctp_enable:1,
- 	     reconf_enable:1;
- 
-+	__u8 strreset_enable;
-+
- 	__u32 strreset_outseq; /* Update after receiving response */
- 	__u32 strreset_inseq; /* Update after receiving request */
- 
-diff --git a/include/uapi/linux/sctp.h b/include/uapi/linux/sctp.h
-index a406adc..867be0f 100644
---- a/include/uapi/linux/sctp.h
-+++ b/include/uapi/linux/sctp.h
-@@ -115,6 +115,7 @@ typedef __s32 sctp_assoc_t;
- #define SCTP_PR_SUPPORTED	113
- #define SCTP_DEFAULT_PRINFO	114
- #define SCTP_PR_ASSOC_STATUS	115
-+#define SCTP_ENABLE_STREAM_RESET	118
- 
- /* PR-SCTP policies */
- #define SCTP_PR_SCTP_NONE	0x0000
-@@ -138,6 +139,12 @@ typedef __s32 sctp_assoc_t;
- #define SCTP_PR_RTX_ENABLED(x)	(SCTP_PR_POLICY(x) == SCTP_PR_SCTP_RTX)
- #define SCTP_PR_PRIO_ENABLED(x)	(SCTP_PR_POLICY(x) == SCTP_PR_SCTP_PRIO)
- 
-+/* For enable stream reset */
-+#define SCTP_ENABLE_RESET_STREAM_REQ	0x01
-+#define SCTP_ENABLE_RESET_ASSOC_REQ	0x02
-+#define SCTP_ENABLE_CHANGE_ASSOC_REQ	0x04
-+#define SCTP_ENABLE_STRRESET_MASK	0x07
-+
- /* These are bit fields for msghdr->msg_flags.  See section 5.1.  */
- /* On user space Linux, these live in <bits/socket.h> as an enum.  */
- enum sctp_msg_flags {
-diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-index 68b99ad..e50dc6d 100644
---- a/net/sctp/associola.c
-+++ b/net/sctp/associola.c
-@@ -271,6 +271,7 @@ static struct sctp_association *sctp_association_init(struct sctp_association *a
- 	asoc->active_key_id = ep->active_key_id;
- 	asoc->prsctp_enable = ep->prsctp_enable;
- 	asoc->reconf_enable = ep->reconf_enable;
-+	asoc->strreset_enable = ep->strreset_enable;
- 
- 	/* Save the hmacs and chunks list into this association */
- 	if (ep->auth_hmacs_list)
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index 318c678..ae07db4 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -3751,6 +3751,42 @@ static int sctp_setsockopt_default_prinfo(struct sock *sk,
- 	return retval;
- }
- 
-+static int sctp_setsockopt_enable_strreset(struct sock *sk,
-+					   char __user *optval,
-+					   unsigned int optlen)
-+{
-+	struct sctp_assoc_value params;
-+	struct sctp_association *asoc;
-+	int retval = -EINVAL;
-+
-+	if (optlen != sizeof(params))
-+		goto out;
-+
-+	if (copy_from_user(&params, optval, optlen)) {
-+		retval = -EFAULT;
-+		goto out;
-+	}
-+
-+	if (params.assoc_value & (~SCTP_ENABLE_STRRESET_MASK))
-+		goto out;
-+
-+	asoc = sctp_id2assoc(sk, params.assoc_id);
-+	if (asoc) {
-+		asoc->strreset_enable = params.assoc_value;
-+	} else if (!params.assoc_id) {
-+		struct sctp_sock *sp = sctp_sk(sk);
-+
-+		sp->ep->strreset_enable = params.assoc_value;
-+	} else {
-+		goto out;
-+	}
-+
-+	retval = 0;
-+
-+out:
-+	return retval;
-+}
-+
- /* API 6.2 setsockopt(), getsockopt()
-  *
-  * Applications use setsockopt() and getsockopt() to set or retrieve
-@@ -3917,6 +3953,9 @@ static int sctp_setsockopt(struct sock *sk, int level, int optname,
- 	case SCTP_DEFAULT_PRINFO:
- 		retval = sctp_setsockopt_default_prinfo(sk, optval, optlen);
- 		break;
-+	case SCTP_ENABLE_STREAM_RESET:
-+		retval = sctp_setsockopt_enable_strreset(sk, optval, optlen);
-+		break;
- 	default:
- 		retval = -ENOPROTOOPT;
- 		break;
-@@ -6401,6 +6440,47 @@ static int sctp_getsockopt_pr_assocstatus(struct sock *sk, int len,
- 	return retval;
- }
- 
-+static int sctp_getsockopt_enable_strreset(struct sock *sk, int len,
-+					   char __user *optval,
-+					   int __user *optlen)
-+{
-+	struct sctp_assoc_value params;
-+	struct sctp_association *asoc;
-+	int retval = -EFAULT;
-+
-+	if (len < sizeof(params)) {
-+		retval = -EINVAL;
-+		goto out;
-+	}
-+
-+	len = sizeof(params);
-+	if (copy_from_user(&params, optval, len))
-+		goto out;
-+
-+	asoc = sctp_id2assoc(sk, params.assoc_id);
-+	if (asoc) {
-+		params.assoc_value = asoc->strreset_enable;
-+	} else if (!params.assoc_id) {
-+		struct sctp_sock *sp = sctp_sk(sk);
-+
-+		params.assoc_value = sp->ep->strreset_enable;
-+	} else {
-+		retval = -EINVAL;
-+		goto out;
-+	}
-+
-+	if (put_user(len, optlen))
-+		goto out;
-+
-+	if (copy_to_user(optval, &params, len))
-+		goto out;
-+
-+	retval = 0;
-+
-+out:
-+	return retval;
-+}
-+
- static int sctp_getsockopt(struct sock *sk, int level, int optname,
- 			   char __user *optval, int __user *optlen)
- {
-@@ -6568,6 +6648,10 @@ static int sctp_getsockopt(struct sock *sk, int level, int optname,
- 		retval = sctp_getsockopt_pr_assocstatus(sk, len, optval,
- 							optlen);
- 		break;
-+	case SCTP_ENABLE_STREAM_RESET:
-+		retval = sctp_getsockopt_enable_strreset(sk, len, optval,
-+							 optlen);
-+		break;
- 	default:
- 		retval = -ENOPROTOOPT;
- 		break;
+ #define TYPE_SCTP_OTHER_NO_PENDING_TSN  { \
 -- 
 2.1.0
