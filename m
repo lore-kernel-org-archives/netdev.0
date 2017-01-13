@@ -1,56 +1,56 @@
-From: Borislav Petkov <bp@alien8.de>
-Subject: Re: [PATCH v3 4/8] x86: stop exporting msr-index.h to userland
-Date: Fri, 13 Jan 2017 17:38:36 +0100
-Message-ID: <20170113163836.jn3u6xyfcrbtynut@pd.tnic>
-References: <1484304406-10820-5-git-send-email-nicolas.dichtel@6wind.com>
- <3131144.4Ej3KFWRbz@wuerfel>
- <1484304406-10820-1-git-send-email-nicolas.dichtel@6wind.com>
- <25483.1484322229@warthog.procyon.org.uk>
- <dd826bc7-e1ef-be29-e0c3-692afb346036@6wind.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] mlx4: do not call napi_schedule() without care
+Date: Fri, 13 Jan 2017 08:39:24 -0800
+Message-ID: <1484325564.13165.30.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: David Howells <dhowells@redhat.com>, arnd@arndb.de,
-        linux-kbuild@vger.kernel.org, linux-doc@vger.kernel.org,
-        linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org,
-        linux-snps-arc@lists.infradead.org,
-        linux-arm-kernel@lists.infradead.org,
-        adi-buildroot-devel@lists.sourceforge.net,
-        linux-c6x-dev@linux-c6x.org, linux-cris-kernel@axis.com,
-        uclinux-h8-devel@lists.sourceforge.jp,
-        linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org,
-        linux-m68k@vger.kernel.org, linux-metag@vger.kernel.org,
-        linux-mips@linux-mips.org, linux-am33-list@redhat.com,
-        nios2-dev@lists.rocketboards.org, openrisc@lists.librecores.org,
-        linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-        linux-s390@vger.kernel.org, linux-sh@vger.kernel.org,
-        sparclinux@vger.kernel.org, linux-xtensa@linux-xtens
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Return-path: <linux-sh-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <dd826bc7-e1ef-be29-e0c3-692afb346036@6wind.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+        Erez Shitrit <erezsh@mellanox.com>,
+        Eugenia Emantayev <eugenia@mellanox.com>,
+        Tariq Toukan <tariqt@mellanox.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:36106 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750936AbdAMQjg (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 11:39:36 -0500
+Received: by mail-pf0-f194.google.com with SMTP id b22so9031720pfd.3
+        for <netdev@vger.kernel.org>; Fri, 13 Jan 2017 08:39:30 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 13, 2017 at 05:08:34PM +0100, Nicolas Dichtel wrote:
-> Le 13/01/2017 à 16:43, David Howells a écrit :
-> >> -header-y += msr-index.h
-> > 
-> > I see it on my desktop as /usr/include/asm/msr-index.h and it's been there at
-> > least four years - and as such it's part of the UAPI.  I don't think you can
-> > remove it unless you can guarantee there are no userspace users.
-> I keep it in the v2 of the series, but the maintainer, Borislav Petkov, asks me
-> to un-export it.
-> 
-> I will follow the maintainer decision.
+From: Eric Dumazet <edumazet@google.com>
 
-I'm not the maintainer. I simply think that exporting that file was
-wrong because it if we change something in it, we will break userspace.
-And that should not happen - if userspace needs MSRs, it should do its
-own defines.
+Disable BH around the call to napi_schedule() to avoid following warning
 
--- 
-Regards/Gruss,
-    Boris.
+[   52.095499] NOHZ: local_softirq_pending 08
+[   52.421291] NOHZ: local_softirq_pending 08
+[   52.608313] NOHZ: local_softirq_pending 08
 
-Good mailing practices for 400: avoid top-posting and trim the reply.
+Fixes: 8d59de8f7bb3 ("net/mlx4_en: Process all completions in RX rings after port goes up")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Erez Shitrit <erezsh@mellanox.com>
+Cc: Eugenia Emantayev <eugenia@mellanox.com>
+Cc: Tariq Toukan <tariqt@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c |    5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index 4910d9af19335d4b97d39760c163b41eecc26242..761f8b12399cab245abccc0f7d7f84fde742c14d 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -1748,8 +1748,11 @@ int mlx4_en_start_port(struct net_device *dev)
+ 	/* Process all completions if exist to prevent
+ 	 * the queues freezing if they are full
+ 	 */
+-	for (i = 0; i < priv->rx_ring_num; i++)
++	for (i = 0; i < priv->rx_ring_num; i++) {
++		local_bh_disable();
+ 		napi_schedule(&priv->rx_cq[i]->napi);
++		local_bh_enable();
++	}
+ 
+ 	netif_tx_start_all_queues(dev);
+ 	netif_device_attach(dev);
