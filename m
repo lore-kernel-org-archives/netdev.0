@@ -1,43 +1,43 @@
-From: Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
-Subject: Re: [3/5] ath10k: Remove unused wmi_p2p_noa_descriptor 'noa' in
- wmi-tlv
-Date: Fri, 13 Jan 2017 15:01:57 +0100
-Message-ID: <ab6e49f1d0f2446c8a411cfd688ab0e9@euamsexm01a.eu.qualcomm.com>
-References: <99d0ff42e57d5f62560e72d926b4d69d5d7c418b.1479974100.git.kirtika@chromium.org>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next v2 08/10] net: dsa: Add support for platform data
+Date: Fri, 13 Jan 2017 15:04:59 +0100
+Message-ID: <20170113140459.GH10203@lunn.ch>
+References: <20170112034121.27697-1-f.fainelli@gmail.com>
+ <20170112034121.27697-9-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Raja Mani <rmani-Rm6X0d1/PG5y9aJCnZT0Uw@public.gmane.org>,
-        "Michal Kazior" <michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>
-To: Kirtika Ruchandani <kirtika.ruchandani-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <99d0ff42e57d5f62560e72d926b4d69d5d7c418b.1479974100.git.kirtika-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Jason Cooper <jason@lakedaemon.net>,
+        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+        Gregory Clement <gregory.clement@free-electrons.com>,
+        Russell King <linux@armlinux.org.uk>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        "moderated list:ARM SUB-ARCHITECTURES"
+        <linux-arm-kernel@lists.infradead.org>,
+        open list <linux-kernel@vger.kernel.org>,
+        gregkh@linuxfoundation.org
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170112034121.27697-9-f.fainelli@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Kirtika Ruchandani <kirtika.ruchandani-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> Commit ca996ec56608 (ath10k: implement wmi-tlv backend)
-> introduced ath10k_wmi_tlv_op_gen_vdev_start() where
-> 'struct wmi_p2p_noa_descriptor *noa' is defined and set but not used.
-> Compiling with W=1 gives the following warning, fix it.
-> drivers/net/wireless/ath/ath10k/wmi-tlv.c: In function ‘ath10k_wmi_tlv_op_gen_vdev_start’:
-> drivers/net/wireless/ath/ath10k/wmi-tlv.c:1647:33: warning: variable ‘noa’ set but not used [-Wunused-but-set-variable]
-> 
-> Fixes: ca996ec56608 ("ath10k: implement wmi-tlv backend")
-> Cc: Michal Kazior <michal.kazior-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>
-> Cc: Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
-> Signed-off-by: Kirtika Ruchandani <kirtika-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+> index cd91070b5467..d326fc4afad7 100644
+> --- a/net/dsa/dsa2.c
+> +++ b/net/dsa/dsa2.c
+> @@ -81,17 +81,23 @@ static void dsa_dst_del_ds(struct dsa_switch_tree *dst,
+>  
+>  static bool dsa_port_is_valid(struct dsa_port *port)
+>  {
+> -	return !!port->dn;
+> +	return !!(port->dn || port->name);
+>  }
+  
+Does this clash with Viviens recent change to make names optional and
+have the kernel assign it?
 
-No response to Michal's comment by the author
+I suppose you could use an name of "eth%d"? Is it worth adding a
+comment to the platform data structure?
 
-Patch set to Changes Requested.
-
--- 
-https://patchwork.kernel.org/patch/9444937/
-
-Documentation about submitting wireless patches and checking status
-from patchwork:
-
-https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
+	Andrew
