@@ -1,73 +1,122 @@
-From: Chas Williams <3chas3@gmail.com>
-Subject: Re: [Patch net] atm: remove an unnecessary loop
-Date: Fri, 13 Jan 2017 18:54:34 -0500
-Message-ID: <1484351674.1643.16.camel@gmail.com>
-References: <1484197322-958-1-git-send-email-xiyou.wangcong@gmail.com>
-         <20170113000700.GA1482@electric-eye.fr.zoreil.com>
-         <20170113.121001.2197905484527884236.davem@davemloft.net>
-         <CAM_iQpXd8qTTRT_+CkHnpMNC=CSS9vfB6zKtSjmLV_yya5BL8Q@mail.gmail.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [net PATCH v3 2/5] net: virtio: wrap rtnl_lock in test for
+ calling with lock already held
+Date: Fri, 13 Jan 2017 15:56:06 -0800
+Message-ID: <58796916.4020404@gmail.com>
+References: <20170113024908.4535.8835.stgit@john-Precision-Tower-5810>
+ <20170113025100.4535.35887.stgit@john-Precision-Tower-5810>
+ <20170113083408.202d6e30@xeon-e3> <58790F02.8090409@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Michal Hocko <mhocko@kernel.org>,
-        Andrey Konovalov <andreyknvl@google.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>,
-        David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: jasowang@redhat.com, mst@redhat.com, john.r.fastabend@intel.com,
+        netdev@vger.kernel.org, alexei.starovoitov@gmail.com,
+        daniel@iogearbox.net
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f194.google.com ([209.85.220.194]:33263 "EHLO
-        mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751641AbdAMXyh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 18:54:37 -0500
-Received: by mail-qk0-f194.google.com with SMTP id 11so9205790qkl.0
-        for <netdev@vger.kernel.org>; Fri, 13 Jan 2017 15:54:36 -0800 (PST)
-In-Reply-To: <CAM_iQpXd8qTTRT_+CkHnpMNC=CSS9vfB6zKtSjmLV_yya5BL8Q@mail.gmail.com>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:33862 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750729AbdAMX4m (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 18:56:42 -0500
+Received: by mail-pf0-f196.google.com with SMTP id y143so10260465pfb.1
+        for <netdev@vger.kernel.org>; Fri, 13 Jan 2017 15:56:28 -0800 (PST)
+In-Reply-To: <58790F02.8090409@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2017-01-13 at 10:20 -0800, Cong Wang wrote:
-> On Fri, Jan 13, 2017 at 9:10 AM, David Miller <davem@davemloft.net> wrote:
-> > From: Francois Romieu <romieu@fr.zoreil.com>
-> > Date: Fri, 13 Jan 2017 01:07:00 +0100
-> >
-> >> Were alloc_skb moved one level up in the call stack, there would be
-> >> no need to use the new wait api in the subsequent page, thus easing
-> >> pre 3.19 longterm kernel maintenance (at least those on korg page).
-> >>
-> >> But it tastes a tad bit too masochistic.
-> >
-> > Lack of error handling of allocation failure is always a huge red
-> > flag.  We even long ago tried to do something like this for TCP FIN
-> > handling.
-> >
-> > It's dumb, it doesn't work.
-> >
-> > Therefore I agree that the correct fix is to move the SKB allocation
-> > up one level to vcc_sendmsg() and make it handle errors properly.
+On 17-01-13 09:31 AM, John Fastabend wrote:
+> On 17-01-13 08:34 AM, Stephen Hemminger wrote:
+>> On Thu, 12 Jan 2017 18:51:00 -0800
+>> John Fastabend <john.fastabend@gmail.com> wrote:
+>>
+>>>  
+>>> -static void free_receive_bufs(struct virtnet_info *vi)
+>>> +static void free_receive_bufs(struct virtnet_info *vi, bool need_lock)
+>>>  {
+>>>  	struct bpf_prog *old_prog;
+>>>  	int i;
+>>>  
+>>> -	rtnl_lock();
+>>> +	if (need_lock)
+>>> +		rtnl_lock();
+>>>  	for (i = 0; i < vi->max_queue_pairs; i++) {
+>>>  		while (vi->rq[i].pages)
+>>>  			__free_pages(get_a_page(&vi->rq[i], GFP_KERNEL), 0);
+>>> @@ -1879,7 +1880,8 @@ static void free_receive_bufs(struct virtnet_info *vi)
+>>>  		if (old_prog)
+>>>  			bpf_prog_put(old_prog);
+>>>  	}
+>>> -	rtnl_unlock();
+>>> +	if (need_lock)
+>>> +		rtnl_unlock();
+>>>  }
+>>
+>> Conditional locking is bad idea; sparse complains about it and is later source
+>> of bugs. The more typical way of doing this in kernel is:
 > 
-> If you can justify API is not broken by doing that, I am more than happy
-> to do it, as I already stated in the latter patch:
-
-The man page for sendmsg() allows for ENOMEM.  See below.
-
+> OK I'll use the normal form.
 > 
-> "Of course, the logic itself is suspicious, other sendmsg()
-> could handle skb allocation failure very well, not sure
-> why ATM has to wait for a successful one here. But probably
-> it is too late to change since the errno and behavior is
-> visible to user-space. So just leave the logic as it is."
+>>
+>> void _foo(some args)
+>> {
+>> 	ASSERT_RTNL();
+>>
+>> 	...
+>> }
+>>
+>> void foo(some args)
+>> {
+>> 	rtnl_lock();
+>> 	_foo(some args)
+>> 	rtnl_unlock();
+>> }
+>>
+>>
 > 
-> For some reason, no one reads that patch. :-/
 
-I read it and I agree.  I think it should be moved up/conflated with
-vcc_sendmsg().  vcc_sendmsg() can already return an errno for other
-conditions so if so has written something where they are explicitly
-not expecting a ENOMEM, we really can't help them.
+Actually doing this without a rtnl_try_lock() is going to create two more
+callbacks in virtio core just for virtio_net. All the other users do not
+appear to have locking restrictions. How about the following it at least
+helps in that there is no argument passing and if/else on the locks itself
+but does use the if around rtnl_try_lock().
 
-I would certainly prefer to not have to resort to an atomic allocation.
-That's just going to make matters worse as far as similarity to the
-existing API.
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -1864,12 +1864,11 @@ static void virtnet_free_queues(struct virtnet_info *vi)
+        kfree(vi->sq);
+ }
 
-So, as Francois has suggested, just wait for the atm socket to
-drain, and then do the allocation after the wait is finished.
+-static void free_receive_bufs(struct virtnet_info *vi)
++static void _free_receive_bufs(struct virtnet_info *vi)
+ {
+        struct bpf_prog *old_prog;
+        int i;
+
+-       rtnl_lock();
+        for (i = 0; i < vi->max_queue_pairs; i++) {
+                while (vi->rq[i].pages)
+                        __free_pages(get_a_page(&vi->rq[i], GFP_KERNEL), 0);
+@@ -1879,6 +1878,12 @@ static void free_receive_bufs(struct virtnet_info *vi)
+                if (old_prog)
+                        bpf_prog_put(old_prog);
+        }
++}
++
++static void free_receive_bufs(struct virtnet_info *vi)
++{
++       rtnl_lock();
++       _free_receive_bufs(vi);
+        rtnl_unlock();
+ }
+
+@@ -2358,7 +2363,10 @@ static void remove_vq_common(struct virtnet_info *vi)
+        /* Free unused buffers in both send and recv, if any. */
+        free_unused_bufs(vi);
+
+-       free_receive_bufs(vi);
++       if (rtnl_is_locked());
++               _free_receive_bufs(vi);
++       else
++               free_receive_bufs(vi);
+
+        free_receive_page_frags(vi);
