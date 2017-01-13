@@ -1,162 +1,129 @@
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next] cxgb4: Shutdown adapter if firmware times out or errors out
-Date: Fri, 13 Jan 2017 21:55:26 +0530
-Message-ID: <1484324726-29590-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
-        ganeshgr@chelsio.com, Hariprasad Shenai <hariprasad@chelsio.com>
-To: netdev@vger.kernel.org
+From: Zefir Kurtisi <zefir.kurtisi@neratec.com>
+Subject: Re: Setting link down or up in software
+Date: Fri, 13 Jan 2017 17:28:19 +0100
+Message-ID: <bfe5bd8b-d4eb-8c8e-45d8-6ea1c133b4a7@neratec.com>
+References: <75bd6df2-714a-2b9b-a0e3-f5574c295377@free.fr>
+ <2044a26f-cf95-ac55-6265-ac76c3ca53f6@free.fr>
+ <0273a4ad-46f7-d7b9-a206-6bd713e6165e@neratec.com>
+ <9be9b48d-1bef-b48f-866f-8651d9b9c245@free.fr>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Mans Rullgard <mans@mansr.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Thibaud Cornic <thibaud_cornic@sigmadesigns.com>
+To: Mason <slash.tmp@free.fr>, netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([12.32.117.8]:49644 "EHLO
-        stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751017AbdAMQUL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 11:20:11 -0500
+Received: from mail.neratec.com ([46.140.151.2]:42479 "EHLO mail.neratec.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752005AbdAMQ2Y (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 13 Jan 2017 11:28:24 -0500
+In-Reply-To: <9be9b48d-1bef-b48f-866f-8651d9b9c245@free.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Perform an emergency shutdown of the adapter and stop it from
-continuing any further communication on the ports or DMA to the
-host. This is typically used when the adapter and/or firmware
-have crashed and we want to prevent any further accidental
-communication with the rest of the world. This will also force
-the port Link Status to go down -- if register writes work --
-which should help our peers figure out that we're down.
+On 01/13/2017 04:17 PM, Mason wrote:
+> On 13/01/2017 10:20, Zefir Kurtisi wrote:
+>> On 01/12/2017 04:16 PM, Mason wrote:
+>>> On 12/01/2017 14:05, Mason wrote:
+>>>
+>>>> I'm wondering what are the semantics of calling
+>>>>
+>>>> 	ip link set dev eth0 down
+>>>>
+>>>> I was expecting that to somehow instruct the device's ethernet driver
+>>>> to shut everything down, have the PHY tell the peer that it's going
+>>>> away, maybe even put the PHY in some low-power mode, etc.
+>>>>
+>>>> But it doesn't seem to be doing any of that on my HW.
+>>>>
+>>>> So what exactly is it supposed to do?
+>>>>
+>>>>
+>>>> And on top of that, I am seeing random occurrences of
+>>>>
+>>>> 	nb8800 26000.ethernet eth0: Link is Down
+>>>>
+>>>> Sometimes it is printed immediately.
+>>>> Sometimes it is printed as soon as I run "ip link set dev eth0 up" (?!)
+>>>> Sometimes it is not printed at all.
+>>>>
+>>>> I find this erratic behavior very confusing.
+>>>>
+>>>> Is it the symptom of some deeper bug?
+>>>
+>>> Here's an example of "Link is Down" printed when I set link up:
+>>>
+>>> At [   62.750220] I run ip link set dev eth0 down
+>>> Then leave the system idle for 10 minutes.
+>>> At [  646.263041] I run ip link set dev eth0 up
+>>> At [  647.364079] it prints "Link is Down"
+>>> At [  649.417434] it prints "Link is Up - 1Gbps/Full - flow control rx/tx"
+>>>
+>>> I think whether I set up the PHY to use interrupts or polling
+>>> does have an influence on the weirdness I observe.
+>>>
+>>> AFAICT, changing the interface flags is done in dev_change_flags
+>>> which calls __dev_change_flags and __dev_notify_flags
+>>>
+>>> Is one of these supposed to call the device driver through a
+>>> callback at some point?
+>>>
+>>> How/when is the phy_state_machine notified of the change in
+>>> interface flags?
+>>>
+>>> Regards.
+>>>
+>> Hm, reminds me of something at my side that I recently fixed with [1]. For me it
+>> was pulling the cable got randomly unnoticed at PHY layer - but might be related.
+>>
+>> Do you by chance have some component that polls the link states over the ethtool
+>> interface very often (like once per second)? At my side it was a snmpd agent that
+>> pro-actively updated the interface states every second and with that 'stole' the
+>> link change information from the phy link state machine. What you need to have to
+>> run in such a failing situation is:
+>> 1) an ETH driver that updates link status in ethtool GSET path (e.g. dsa does)
+>> 2) some component that continuously polls states via ethtool GSET
+>>
+>>
+>> Cheers,
+>> Zefir
+>>
+>>
+>> [1] https://patchwork.ozlabs.org/patch/711839/
+> 
+> Hello Zefir,
+> 
+> Thanks for the insightful comment.
+> 
+> This is a minimal buildroot system, with no frills, and not much running.
+> There definitely is no SNMP daemon running, but I can't be 100% sure that
+> busybox isn't polling the link state once in a while. (It's unlikely.)
+> 
+> I'm surprised that there are still bugs lurking in the phy state machine,
+> I expected this to be a "solved problem", but I suppose power management
+> has broken many assumptions that were once safe...
+> 
+> By the way, I did come across code paths where phy->state was read or
+> written without taking the lock. Isn't that never supposed to happen?
+> 
+> Regards.
+> 
 
-Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |  1 +
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 20 +++++++++++--
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c      | 39 +++++++++++++++++++++++--
- drivers/net/ethernet/chelsio/cxgb4/t4_regs.h    |  8 +++++
- 4 files changed, 64 insertions(+), 4 deletions(-)
+The problem is that phydev->read_status() is not meant to be called from outside
+the pyh state machine. Some ETH drivers are doing this in the ethtool GSET path,
+either by a wrong assumption that they need to have the link status updated
+instantly, or because other drivers are are based on copy-pasting others. I myself
+did not find defined rules what ETH drivers are allowed to call and what they must
+not, so as a result there is a handful of ETH drivers that are doing it wrong.
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-index ad0096e74813..ccb455f14d08 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-@@ -1501,6 +1501,7 @@ int t4_prep_fw(struct adapter *adap, struct fw_info *fw_info,
- 	       const u8 *fw_data, unsigned int fw_size,
- 	       struct fw_hdr *card_fw, enum dev_state state, int *reset);
- int t4_prep_adapter(struct adapter *adapter);
-+int t4_shutdown_adapter(struct adapter *adapter);
- 
- enum t4_bar2_qtype { T4_BAR2_QTYPE_EGRESS, T4_BAR2_QTYPE_INGRESS };
- int t4_bar2_sge_qregs(struct adapter *adapter,
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 3349e1f376c3..45ec2374f668 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -2782,8 +2782,24 @@ static const struct ethtool_ops cxgb4_mgmt_ethtool_ops = {
- 
- void t4_fatal_err(struct adapter *adap)
- {
--	t4_set_reg_field(adap, SGE_CONTROL_A, GLOBALENABLE_F, 0);
--	t4_intr_disable(adap);
-+	int port;
-+
-+	/* Disable the SGE since ULDs are going to free resources that
-+	 * could be exposed to the adapter.  RDMA MWs for example...
-+	 */
-+	t4_shutdown_adapter(adap);
-+	for_each_port(adap, port) {
-+		struct net_device *dev = adap->port[port];
-+
-+		/* If we get here in very early initialization the network
-+		 * devices may not have been set up yet.
-+		 */
-+		if (!dev)
-+			continue;
-+
-+		netif_tx_stop_all_queues(dev);
-+		netif_carrier_off(dev);
-+	}
- 	dev_alert(adap->pdev_dev, "encountered fatal error, adapter stopped\n");
- }
- 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-index f113015074b1..093444a220af 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-@@ -330,11 +330,12 @@ int t4_wr_mbox_meat_timeout(struct adapter *adap, int mbox, const void *cmd,
- 		 * mailbox access list but this is a start.  We very rearely
- 		 * contend on access to the mailbox ...
- 		 */
--		if (i > FW_CMD_MAX_TIMEOUT) {
-+		pcie_fw = t4_read_reg(adap, PCIE_FW_A);
-+		if (i > FW_CMD_MAX_TIMEOUT || (pcie_fw & PCIE_FW_ERR_F)) {
- 			spin_lock(&adap->mbox_lock);
- 			list_del(&entry.list);
- 			spin_unlock(&adap->mbox_lock);
--			ret = -EBUSY;
-+			ret = (pcie_fw & PCIE_FW_ERR_F) ? -ENXIO : -EBUSY;
- 			t4_record_mbox(adap, cmd, size, access, ret);
- 			return ret;
- 		}
-@@ -432,6 +433,7 @@ int t4_wr_mbox_meat_timeout(struct adapter *adap, int mbox, const void *cmd,
- 	spin_lock(&adap->mbox_lock);
- 	list_del(&entry.list);
- 	spin_unlock(&adap->mbox_lock);
-+	t4_fatal_err(adap);
- 	return ret;
- }
- 
-@@ -7540,6 +7542,39 @@ int t4_prep_adapter(struct adapter *adapter)
- }
- 
- /**
-+ *	t4_shutdown_adapter - shut down adapter, host & wire
-+ *	@adapter: the adapter
-+ *
-+ *	Perform an emergency shutdown of the adapter and stop it from
-+ *	continuing any further communication on the ports or DMA to the
-+ *	host.  This is typically used when the adapter and/or firmware
-+ *	have crashed and we want to prevent any further accidental
-+ *	communication with the rest of the world.  This will also force
-+ *	the port Link Status to go down -- if register writes work --
-+ *	which should help our peers figure out that we're down.
-+ */
-+int t4_shutdown_adapter(struct adapter *adapter)
-+{
-+	int port;
-+
-+	t4_intr_disable(adapter);
-+	t4_write_reg(adapter, DBG_GPIO_EN_A, 0);
-+	for_each_port(adapter, port) {
-+		u32 a_port_cfg = PORT_REG(port,
-+					  is_t4(adapter->params.chip)
-+					  ? XGMAC_PORT_CFG_A
-+					  : MAC_PORT_CFG_A);
-+
-+		t4_write_reg(adapter, a_port_cfg,
-+			     t4_read_reg(adapter, a_port_cfg)
-+			     & ~SIGNAL_DET_V(1));
-+	}
-+	t4_set_reg_field(adapter, SGE_CONTROL_A, GLOBALENABLE_F, 0);
-+
-+	return 0;
-+}
-+
-+/**
-  *	t4_bar2_sge_qregs - return BAR2 SGE Queue register information
-  *	@adapter: the adapter
-  *	@qid: the Queue ID
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-index e685163b1357..edb9b97dcc5c 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-@@ -855,6 +855,14 @@
- #define PERR_INT_CAUSE_V(x) ((x) << PERR_INT_CAUSE_S)
- #define PERR_INT_CAUSE_F    PERR_INT_CAUSE_V(1U)
- 
-+#define DBG_GPIO_EN_A		0x6010
-+#define XGMAC_PORT_CFG_A	0x1000
-+#define MAC_PORT_CFG_A		0x800
-+
-+#define SIGNAL_DET_S    14
-+#define SIGNAL_DET_V(x) ((x) << SIGNAL_DET_S)
-+#define SIGNAL_DET_F    SIGNAL_DET_V(1U)
-+
- #define MC_ECC_STATUS_A		0x751c
- #define MC_P_ECC_STATUS_A	0x4131c
- 
--- 
-2.3.4
+Florian is going to push the developers to fix the drivers with time.
+
+As for your specific problem: since I fought myself with the PHY/ETH subsystems
+over the past months, I might remember something relevant to your issue. Could you
+give some more info on your setup (PHY driver, opmode (SGMII, RGMII, etc.), ETH).
+
+
+Cheers,
+Zefir
