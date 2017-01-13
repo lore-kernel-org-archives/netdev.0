@@ -1,110 +1,103 @@
-From: Felix Manlunas <felix.manlunas@cavium.com>
-Subject: [PATCH net-next] liquidio: use fallback for selecting txq
-Date: Thu, 12 Jan 2017 16:18:22 -0800
-Message-ID: <20170113001822.GA10813@felix.cavium.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, <raghu.vatsavayi@cavium.com>,
-        <derek.chickles@cavium.com>, <satananda.burla@cavium.com>
-To: <davem@davemloft.net>
+From: Lance Richardson <lrichard@redhat.com>
+Subject: [PATCH net] openvswitch: maintain correct checksum state in conntrack actions
+Date: Thu, 12 Jan 2017 19:33:18 -0500
+Message-ID: <1484267598-4493-1-git-send-email-lrichard@redhat.com>
+To: netdev@vger.kernel.org, dev@openvswitch.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-dm3nam03on0064.outbound.protection.outlook.com ([104.47.41.64]:15651
-        "EHLO NAM03-DM3-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751095AbdAMATZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 12 Jan 2017 19:19:25 -0500
-Content-Disposition: inline
+Received: from mx1.redhat.com ([209.132.183.28]:36788 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750863AbdAMAdU (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 12 Jan 2017 19:33:20 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Satanand Burla <satananda.burla@cavium.com>
+When executing conntrack actions on skbuffs with checksum mode
+CHECKSUM_COMPLETE, the checksum must be updated to account for
+header pushes and pulls. Otherwise we get "hw csum failure"
+logs similar to this (ICMP packet received on geneve tunnel
+via ixgbe NIC):
 
-Remove assignment to ndo_select_queue so that fallback is used for
-selecting txq.  Also remove the now-useless function that used to be
-assigned to ndo_select_queue.
+[  405.740065] genev_sys_6081: hw csum failure
+[  405.740106] CPU: 3 PID: 0 Comm: swapper/3 Tainted: G          I     4.10.0-rc3+ #1
+[  405.740108] Call Trace:
+[  405.740110]  <IRQ>
+[  405.740113]  dump_stack+0x63/0x87
+[  405.740116]  netdev_rx_csum_fault+0x3a/0x40
+[  405.740118]  __skb_checksum_complete+0xcf/0xe0
+[  405.740120]  nf_ip_checksum+0xc8/0xf0
+[  405.740124]  icmp_error+0x1de/0x351 [nf_conntrack_ipv4]
+[  405.740132]  nf_conntrack_in+0xe1/0x550 [nf_conntrack]
+[  405.740137]  ? find_bucket.isra.2+0x62/0x70 [openvswitch]
+[  405.740143]  __ovs_ct_lookup+0x95/0x980 [openvswitch]
+[  405.740145]  ? netif_rx_internal+0x44/0x110
+[  405.740149]  ovs_ct_execute+0x147/0x4b0 [openvswitch]
+[  405.740153]  do_execute_actions+0x22e/0xa70 [openvswitch]
+[  405.740157]  ovs_execute_actions+0x40/0x120 [openvswitch]
+[  405.740161]  ovs_dp_process_packet+0x84/0x120 [openvswitch]
+[  405.740166]  ovs_vport_receive+0x73/0xd0 [openvswitch]
+[  405.740168]  ? udp_rcv+0x1a/0x20
+[  405.740170]  ? ip_local_deliver_finish+0x93/0x1e0
+[  405.740172]  ? ip_local_deliver+0x6f/0xe0
+[  405.740174]  ? ip_rcv_finish+0x3a0/0x3a0
+[  405.740176]  ? ip_rcv_finish+0xdb/0x3a0
+[  405.740177]  ? ip_rcv+0x2a7/0x400
+[  405.740180]  ? __netif_receive_skb_core+0x970/0xa00
+[  405.740185]  netdev_frame_hook+0xd3/0x160 [openvswitch]
+[  405.740187]  __netif_receive_skb_core+0x1dc/0xa00
+[  405.740194]  ? ixgbe_clean_rx_irq+0x46d/0xa20 [ixgbe]
+[  405.740197]  __netif_receive_skb+0x18/0x60
+[  405.740199]  netif_receive_skb_internal+0x40/0xb0
+[  405.740201]  napi_gro_receive+0xcd/0x120
+[  405.740204]  gro_cell_poll+0x57/0x80 [geneve]
+[  405.740206]  net_rx_action+0x260/0x3c0
+[  405.740209]  __do_softirq+0xc9/0x28c
+[  405.740211]  irq_exit+0xd9/0xf0
+[  405.740213]  do_IRQ+0x51/0xd0
+[  405.740215]  common_interrupt+0x93/0x93
 
-Signed-off-by: Satanand Burla <satananda.burla@cavium.com>
-Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
-Signed-off-by: Derek Chickles <derek.chickles@cavium.com>
+Fixes: 7f8a436eaa2c ("openvswitch: Add conntrack action")
+Signed-off-by: Lance Richardson <lrichard@redhat.com>
 ---
- drivers/net/ethernet/cavium/liquidio/lio_main.c    | 20 --------------------
- drivers/net/ethernet/cavium/liquidio/lio_vf_main.c | 21 ---------------------
- 2 files changed, 41 deletions(-)
+ net/openvswitch/conntrack.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-index cc825d5..2b89ec2 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-@@ -2223,25 +2223,6 @@ static void if_cfg_callback(struct octeon_device *oct,
- 	wake_up_interruptible(&ctx->wc);
+diff --git a/net/openvswitch/conntrack.c b/net/openvswitch/conntrack.c
+index 6b78bab..54253ea 100644
+--- a/net/openvswitch/conntrack.c
++++ b/net/openvswitch/conntrack.c
+@@ -514,7 +514,7 @@ static int ovs_ct_nat_execute(struct sk_buff *skb, struct nf_conn *ct,
+ 	int hooknum, nh_off, err = NF_ACCEPT;
+ 
+ 	nh_off = skb_network_offset(skb);
+-	skb_pull(skb, nh_off);
++	skb_pull_rcsum(skb, nh_off);
+ 
+ 	/* See HOOK2MANIP(). */
+ 	if (maniptype == NF_NAT_MANIP_SRC)
+@@ -579,6 +579,7 @@ static int ovs_ct_nat_execute(struct sk_buff *skb, struct nf_conn *ct,
+ 	err = nf_nat_packet(ct, ctinfo, hooknum, skb);
+ push:
+ 	skb_push(skb, nh_off);
++	skb_postpush_rcsum(skb, skb->data, nh_off);
+ 
+ 	return err;
  }
+@@ -886,7 +887,7 @@ int ovs_ct_execute(struct net *net, struct sk_buff *skb,
  
--/**
-- * \brief Select queue based on hash
-- * @param dev Net device
-- * @param skb sk_buff structure
-- * @returns selected queue number
-- */
--static u16 select_q(struct net_device *dev, struct sk_buff *skb,
--		    void *accel_priv __attribute__((unused)),
--		    select_queue_fallback_t fallback __attribute__((unused)))
--{
--	u32 qindex = 0;
--	struct lio *lio;
--
--	lio = GET_LIO(dev);
--	qindex = skb_tx_hash(dev, skb);
--
--	return (u16)(qindex % (lio->linfo.num_txpciq));
--}
--
- /** Routine to push packets arriving on Octeon interface upto network layer.
-  * @param oct_id   - octeon device id.
-  * @param skbuff   - skbuff struct to be passed to network layer.
-@@ -3755,7 +3736,6 @@ static const struct net_device_ops lionetdevops = {
- 	.ndo_set_vf_vlan	= liquidio_set_vf_vlan,
- 	.ndo_get_vf_config	= liquidio_get_vf_config,
- 	.ndo_set_vf_link_state  = liquidio_set_vf_link_state,
--	.ndo_select_queue	= select_q
- };
+ 	/* The conntrack module expects to be working at L3. */
+ 	nh_ofs = skb_network_offset(skb);
+-	skb_pull(skb, nh_ofs);
++	skb_pull_rcsum(skb, nh_ofs);
  
- /** \brief Entry point for the liquidio module
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-index ad2e72d..19d88fb 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_vf_main.c
-@@ -1455,26 +1455,6 @@ static void if_cfg_callback(struct octeon_device *oct,
- 	wake_up_interruptible(&ctx->wc);
- }
+ 	if (key->ip.frag != OVS_FRAG_TYPE_NONE) {
+ 		err = handle_fragments(net, key, info->zone.id, skb);
+@@ -900,6 +901,7 @@ int ovs_ct_execute(struct net *net, struct sk_buff *skb,
+ 		err = ovs_ct_lookup(net, key, info, skb);
  
--/**
-- * \brief Select queue based on hash
-- * @param dev Net device
-- * @param skb sk_buff structure
-- * @returns selected queue number
-- */
--static u16 select_q(struct net_device *dev, struct sk_buff *skb,
--		    void *accel_priv __attribute__((unused)),
--		    select_queue_fallback_t fallback __attribute__((unused)))
--{
--	struct lio *lio;
--	u32 qindex;
--
--	lio = GET_LIO(dev);
--
--	qindex = skb_tx_hash(dev, skb);
--
--	return (u16)(qindex % (lio->linfo.num_txpciq));
--}
--
- /** Routine to push packets arriving on Octeon interface upto network layer.
-  * @param oct_id   - octeon device id.
-  * @param skbuff   - skbuff struct to be passed to network layer.
-@@ -2717,7 +2697,6 @@ static const struct net_device_ops lionetdevops = {
- 	.ndo_set_features	= liquidio_set_features,
- 	.ndo_udp_tunnel_add     = liquidio_add_vxlan_port,
- 	.ndo_udp_tunnel_del     = liquidio_del_vxlan_port,
--	.ndo_select_queue	= select_q,
- };
- 
- static int lio_nic_info(struct octeon_recv_info *recv_info, void *buf)
+ 	skb_push(skb, nh_ofs);
++	skb_postpush_rcsum(skb, skb->data, nh_ofs);
+ 	if (err)
+ 		kfree_skb(skb);
+ 	return err;
+-- 
+1.8.3.1
