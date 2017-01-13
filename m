@@ -1,323 +1,193 @@
 From: Yuchung Cheng <ycheng@google.com>
-Subject: [PATCH net-next v2 04/13] tcp: add reordering timer in RACK loss detection
-Date: Thu, 12 Jan 2017 22:11:33 -0800
-Message-ID: <20170113061142.127344-5-ycheng@google.com>
+Subject: [PATCH net-next v2 07/13] tcp: enable RACK loss detection to trigger recovery
+Date: Thu, 12 Jan 2017 22:11:36 -0800
+Message-ID: <20170113061142.127344-8-ycheng@google.com>
 References: <20170113061142.127344-1-ycheng@google.com>
 Cc: netdev@vger.kernel.org, edumazet@google.com, ncardwell@google.com,
         nanditad@google.com, Yuchung Cheng <ycheng@google.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f182.google.com ([209.85.192.182]:35894 "EHLO
-        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751077AbdAMGMM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 01:12:12 -0500
-Received: by mail-pf0-f182.google.com with SMTP id 189so25984399pfu.3
-        for <netdev@vger.kernel.org>; Thu, 12 Jan 2017 22:12:11 -0800 (PST)
+Received: from mail-pf0-f178.google.com ([209.85.192.178]:33807 "EHLO
+        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751218AbdAMGMU (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 01:12:20 -0500
+Received: by mail-pf0-f178.google.com with SMTP id 127so25685249pfg.1
+        for <netdev@vger.kernel.org>; Thu, 12 Jan 2017 22:12:20 -0800 (PST)
 In-Reply-To: <20170113061142.127344-1-ycheng@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch makes RACK install a reordering timer when it suspects
-some packets might be lost, but wants to delay the decision
-a little bit to accomodate reordering.
+This patch changes two things:
 
-It does not create a new timer but instead repurposes the existing
-RTO timer, because both are meant to retransmit packets.
-Specifically it arms a timer ICSK_TIME_REO_TIMEOUT when
-the RACK timing check fails. The wait time is set to
+1. Start fast recovery with RACK in addition to other heuristics
+   (e.g., DUPACK threshold, FACK). Prior to this change RACK
+   is enabled to detect losses only after the recovery has
+   started by other algorithms.
 
-  RACK.RTT + RACK.reo_wnd - (NOW - Packet.xmit_time) + fudge
-
-This translates to expecting a packet (Packet) should take
-(RACK.RTT + RACK.reo_wnd + fudge) to deliver after it was sent.
-
-When there are multiple packets that need a timer, we use one timer
-with the maximum timeout. Therefore the timer conservatively uses
-the maximum window to expire N packets by one timeout, instead of
-N timeouts to expire N packets sent at different times.
-
-The fudge factor is 2 jiffies to ensure when the timer fires, all
-the suspected packets would exceed the deadline and be marked lost
-by tcp_rack_detect_loss(). It has to be at least 1 jiffy because the
-clock may tick between calling icsk_reset_xmit_timer(timeout) and
-actually hang the timer. The next jiffy is to lower-bound the timeout
-to 2 jiffies when reo_wnd is < 1ms.
-
-When the reordering timer fires (tcp_rack_reo_timeout): If we aren't
-in Recovery we'll enter fast recovery and force fast retransmit.
-This is very similar to the early retransmit (RFC5827) except RACK
-is not constrained to only enter recovery for small outstanding
-flights.
+2. Disable TCP early retransmit. RACK subsumes the early retransmit
+   with the new reordering timer feature. A latter patch in this
+   series removes the early retransmit code.
 
 Signed-off-by: Yuchung Cheng <ycheng@google.com>
 Signed-off-by: Neal Cardwell <ncardwell@google.com>
 Acked-by: Eric Dumazet <edumazet@google.com>
 ---
- include/net/inet_connection_sock.h |  4 ++-
- include/net/tcp.h                  |  4 +++
- net/ipv4/inet_diag.c               |  1 +
- net/ipv4/tcp_input.c               |  6 ++--
- net/ipv4/tcp_ipv4.c                |  1 +
- net/ipv4/tcp_output.c              |  3 +-
- net/ipv4/tcp_recovery.c            | 57 +++++++++++++++++++++++++++++++++-----
- net/ipv4/tcp_timer.c               |  3 ++
- net/ipv6/tcp_ipv6.c                |  1 +
- 9 files changed, 68 insertions(+), 12 deletions(-)
+ include/net/tcp.h       | 11 ++++-------
+ net/ipv4/tcp_input.c    | 29 +++++++++++++++++++++--------
+ net/ipv4/tcp_recovery.c | 16 ++++++++++------
+ 3 files changed, 35 insertions(+), 21 deletions(-)
 
-diff --git a/include/net/inet_connection_sock.h b/include/net/inet_connection_sock.h
-index 85ee3879499e..84b2edde09b1 100644
---- a/include/net/inet_connection_sock.h
-+++ b/include/net/inet_connection_sock.h
-@@ -144,6 +144,7 @@ struct inet_connection_sock {
- #define ICSK_TIME_PROBE0	3	/* Zero window probe timer */
- #define ICSK_TIME_EARLY_RETRANS 4	/* Early retransmit timer */
- #define ICSK_TIME_LOSS_PROBE	5	/* Tail loss probe timer */
-+#define ICSK_TIME_REO_TIMEOUT	6	/* Reordering timer */
- 
- static inline struct inet_connection_sock *inet_csk(const struct sock *sk)
- {
-@@ -234,7 +235,8 @@ static inline void inet_csk_reset_xmit_timer(struct sock *sk, const int what,
- 	}
- 
- 	if (what == ICSK_TIME_RETRANS || what == ICSK_TIME_PROBE0 ||
--	    what == ICSK_TIME_EARLY_RETRANS || what ==  ICSK_TIME_LOSS_PROBE) {
-+	    what == ICSK_TIME_EARLY_RETRANS || what == ICSK_TIME_LOSS_PROBE ||
-+	    what == ICSK_TIME_REO_TIMEOUT) {
- 		icsk->icsk_pending = what;
- 		icsk->icsk_timeout = jiffies + when;
- 		sk_reset_timer(sk, &icsk->icsk_retransmit_timer, icsk->icsk_timeout);
 diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 1439107658c2..64fcdeb3358b 100644
+index 5fb1e75a32a9..423438dd6fe9 100644
 --- a/include/net/tcp.h
 +++ b/include/net/tcp.h
-@@ -143,6 +143,7 @@ void tcp_time_wait(struct sock *sk, int state, int timeo);
- #define TCP_RESOURCE_PROBE_INTERVAL ((unsigned)(HZ/2U)) /* Maximal interval between probes
- 					                 * for local resources.
- 					                 */
-+#define TCP_REO_TIMEOUT_MIN	(2000) /* Min RACK reordering timeout in usec */
+@@ -262,6 +262,9 @@ extern int sysctl_tcp_slow_start_after_idle;
+ extern int sysctl_tcp_thin_linear_timeouts;
+ extern int sysctl_tcp_thin_dupack;
+ extern int sysctl_tcp_early_retrans;
++extern int sysctl_tcp_recovery;
++#define TCP_RACK_LOSS_DETECTION  0x1 /* Use RACK to detect losses */
++
+ extern int sysctl_tcp_limit_output_bytes;
+ extern int sysctl_tcp_challenge_ack_limit;
+ extern int sysctl_tcp_min_tso_segs;
+@@ -1043,6 +1046,7 @@ static inline void tcp_enable_early_retrans(struct tcp_sock *tp)
  
- #define TCP_KEEPALIVE_TIME	(120*60*HZ)	/* two hours */
- #define TCP_KEEPALIVE_PROBES	9		/* Max of 9 keepalive probes	*/
-@@ -397,6 +398,7 @@ struct sock *tcp_check_req(struct sock *sk, struct sk_buff *skb,
- int tcp_child_process(struct sock *parent, struct sock *child,
- 		      struct sk_buff *skb);
- void tcp_enter_loss(struct sock *sk);
-+void tcp_cwnd_reduction(struct sock *sk, int newly_acked_sacked, int flag);
- void tcp_clear_retrans(struct tcp_sock *tp);
- void tcp_update_metrics(struct sock *sk);
- void tcp_init_metrics(struct sock *sk);
-@@ -541,6 +543,7 @@ int tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb, int segs);
- void tcp_retransmit_timer(struct sock *sk);
- void tcp_xmit_retransmit_queue(struct sock *);
- void tcp_simple_retransmit(struct sock *);
-+void tcp_enter_recovery(struct sock *sk, bool ece_ack);
- int tcp_trim_head(struct sock *, struct sk_buff *, u32);
- int tcp_fragment(struct sock *, struct sk_buff *, u32, unsigned int, gfp_t);
+ 	tp->do_early_retrans = sysctl_tcp_early_retrans &&
+ 		sysctl_tcp_early_retrans < 4 && !sysctl_tcp_thin_dupack &&
++		!(sysctl_tcp_recovery & TCP_RACK_LOSS_DETECTION) &&
+ 		net->ipv4.sysctl_tcp_reordering == 3;
+ }
  
-@@ -1867,6 +1870,7 @@ extern void tcp_rack_mark_lost(struct sock *sk, const struct skb_mstamp *now);
- extern void tcp_rack_advance(struct tcp_sock *tp, u8 sacked,
+@@ -1859,13 +1863,6 @@ void tcp_v4_init(void);
+ void tcp_init(void);
+ 
+ /* tcp_recovery.c */
+-
+-/* Flags to enable various loss recovery features. See below */
+-extern int sysctl_tcp_recovery;
+-
+-/* Use TCP RACK to detect (some) tail and retransmit losses */
+-#define TCP_RACK_LOST_RETRANS  0x1
+-
+ extern void tcp_rack_mark_lost(struct sock *sk, const struct skb_mstamp *now);
+ extern void tcp_rack_advance(struct tcp_sock *tp, u8 sacked, u32 end_seq,
  			     const struct skb_mstamp *xmit_time,
- 			     const struct skb_mstamp *ack_time);
-+extern void tcp_rack_reo_timeout(struct sock *sk);
- 
- /*
-  * Save and compile IPv4 options, return a pointer to it
-diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
-index 4dea33e5f295..d216e40623d3 100644
---- a/net/ipv4/inet_diag.c
-+++ b/net/ipv4/inet_diag.c
-@@ -216,6 +216,7 @@ int inet_sk_diag_fill(struct sock *sk, struct inet_connection_sock *icsk,
- 
- 	if (icsk->icsk_pending == ICSK_TIME_RETRANS ||
- 	    icsk->icsk_pending == ICSK_TIME_EARLY_RETRANS ||
-+	    icsk->icsk_pending == ICSK_TIME_REO_TIMEOUT ||
- 	    icsk->icsk_pending == ICSK_TIME_LOSS_PROBE) {
- 		r->idiag_timer = 1;
- 		r->idiag_retrans = icsk->icsk_retransmits;
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 8ccd171999bf..be1191829963 100644
+index 9c98dc874825..4ad75b8c4fee 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
-@@ -2522,8 +2522,7 @@ static void tcp_init_cwnd_reduction(struct sock *sk)
- 	tcp_ecn_queue_cwr(tp);
- }
- 
--static void tcp_cwnd_reduction(struct sock *sk, int newly_acked_sacked,
--			       int flag)
-+void tcp_cwnd_reduction(struct sock *sk, int newly_acked_sacked, int flag)
- {
+@@ -2129,10 +2129,25 @@ static bool tcp_pause_early_retransmit(struct sock *sk, int flag)
+  *	F.e. after RTO, when all the queue is considered as lost,
+  *	lost_out = packets_out and in_flight = retrans_out.
+  *
+- *		Essentially, we have now two algorithms counting
++ *		Essentially, we have now a few algorithms detecting
+  *		lost packets.
+  *
+- *		FACK: It is the simplest heuristics. As soon as we decided
++ *		If the receiver supports SACK:
++ *
++ *		RFC6675/3517: It is the conventional algorithm. A packet is
++ *		considered lost if the number of higher sequence packets
++ *		SACKed is greater than or equal the DUPACK thoreshold
++ *		(reordering). This is implemented in tcp_mark_head_lost and
++ *		tcp_update_scoreboard.
++ *
++ *		RACK (draft-ietf-tcpm-rack-01): it is a newer algorithm
++ *		(2017-) that checks timing instead of counting DUPACKs.
++ *		Essentially a packet is considered lost if it's not S/ACKed
++ *		after RTT + reordering_window, where both metrics are
++ *		dynamically measured and adjusted. This is implemented in
++ *		tcp_rack_mark_lost.
++ *
++ *		FACK: it is the simplest heuristics. As soon as we decided
+  *		that something is lost, we decide that _all_ not SACKed
+  *		packets until the most forward SACK are lost. I.e.
+  *		lost_out = fackets_out - sacked_out and left_out = fackets_out.
+@@ -2141,16 +2156,14 @@ static bool tcp_pause_early_retransmit(struct sock *sk, int flag)
+  *		takes place. We use FACK by default until reordering
+  *		is suspected on the path to this destination.
+  *
+- *		NewReno: when Recovery is entered, we assume that one segment
++ *		If the receiver does not support SACK:
++ *
++ *		NewReno (RFC6582): in Recovery we assume that one segment
+  *		is lost (classic Reno). While we are in Recovery and
+  *		a partial ACK arrives, we assume that one more packet
+  *		is lost (NewReno). This heuristics are the same in NewReno
+  *		and SACK.
+  *
+- *  Imagine, that's all! Forget about all this shamanism about CWND inflation
+- *  deflation etc. CWND is real congestion window, never inflated, changes
+- *  only according to classic VJ rules.
+- *
+  * Really tricky (and requiring careful tuning) part of algorithm
+  * is hidden in functions tcp_time_to_recover() and tcp_xmit_retransmit_queue().
+  * The first determines the moment _when_ we should reduce CWND and,
+@@ -2807,7 +2820,7 @@ static void tcp_rack_identify_loss(struct sock *sk, int *ack_flag,
  	struct tcp_sock *tp = tcp_sk(sk);
- 	int sndcnt = 0;
-@@ -2691,7 +2690,7 @@ void tcp_simple_retransmit(struct sock *sk)
- }
- EXPORT_SYMBOL(tcp_simple_retransmit);
  
--static void tcp_enter_recovery(struct sock *sk, bool ece_ack)
-+void tcp_enter_recovery(struct sock *sk, bool ece_ack)
- {
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	int mib_idx;
-@@ -3031,6 +3030,7 @@ void tcp_rearm_rto(struct sock *sk)
- 		u32 rto = inet_csk(sk)->icsk_rto;
- 		/* Offset the time elapsed after installing regular RTO */
- 		if (icsk->icsk_pending == ICSK_TIME_EARLY_RETRANS ||
-+		    icsk->icsk_pending == ICSK_TIME_REO_TIMEOUT ||
- 		    icsk->icsk_pending == ICSK_TIME_LOSS_PROBE) {
- 			struct sk_buff *skb = tcp_write_queue_head(sk);
- 			const u32 rto_time_stamp =
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 56d756ecfb59..ebf3e0c4967a 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -2230,6 +2230,7 @@ static void get_tcp4_sock(struct sock *sk, struct seq_file *f, int i)
+ 	/* Use RACK to detect loss */
+-	if (sysctl_tcp_recovery & TCP_RACK_LOST_RETRANS) {
++	if (sysctl_tcp_recovery & TCP_RACK_LOSS_DETECTION) {
+ 		u32 prior_retrans = tp->retrans_out;
  
- 	if (icsk->icsk_pending == ICSK_TIME_RETRANS ||
- 	    icsk->icsk_pending == ICSK_TIME_EARLY_RETRANS ||
-+	    icsk->icsk_pending == ICSK_TIME_REO_TIMEOUT ||
- 	    icsk->icsk_pending == ICSK_TIME_LOSS_PROBE) {
- 		timer_active	= 1;
- 		timer_expires	= icsk->icsk_timeout;
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 1d5331a1b1dc..0ba9026cb70d 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -2960,7 +2960,8 @@ void tcp_xmit_retransmit_queue(struct sock *sk)
- 		if (tcp_in_cwnd_reduction(sk))
- 			tp->prr_out += tcp_skb_pcount(skb);
- 
--		if (skb == tcp_write_queue_head(sk))
-+		if (skb == tcp_write_queue_head(sk) &&
-+		    icsk->icsk_pending != ICSK_TIME_REO_TIMEOUT)
- 			inet_csk_reset_xmit_timer(sk, ICSK_TIME_RETRANS,
- 						  inet_csk(sk)->icsk_rto,
- 						  TCP_RTO_MAX);
+ 		tcp_rack_mark_lost(sk, ack_time);
 diff --git a/net/ipv4/tcp_recovery.c b/net/ipv4/tcp_recovery.c
-index 557363cde58a..eb39b1b6d1dc 100644
+index 1e330a2f913d..4ecb38ae8504 100644
 --- a/net/ipv4/tcp_recovery.c
 +++ b/net/ipv4/tcp_recovery.c
-@@ -32,19 +32,18 @@ static void tcp_rack_mark_skb_lost(struct sock *sk, struct sk_buff *skb)
-  * The current version is only used after recovery starts but can be
-  * easily extended to detect the first loss.
-  */
--static void tcp_rack_detect_loss(struct sock *sk, const struct skb_mstamp *now)
-+static void tcp_rack_detect_loss(struct sock *sk, const struct skb_mstamp *now,
-+				 u32 *reo_timeout)
- {
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	struct sk_buff *skb;
- 	u32 reo_wnd;
+@@ -1,7 +1,7 @@
+ #include <linux/tcp.h>
+ #include <net/tcp.h>
  
-+	*reo_timeout = 0;
- 	/* To be more reordering resilient, allow min_rtt/4 settling delay
- 	 * (lower-bounded to 1000uS). We use min_rtt instead of the smoothed
- 	 * RTT because reordering is often a path property and less related
+-int sysctl_tcp_recovery __read_mostly = TCP_RACK_LOST_RETRANS;
++int sysctl_tcp_recovery __read_mostly = TCP_RACK_LOSS_DETECTION;
+ 
+ static void tcp_rack_mark_skb_lost(struct sock *sk, struct sk_buff *skb)
+ {
+@@ -24,7 +24,9 @@ static bool tcp_rack_sent_after(const struct skb_mstamp *t1,
+ 	       (t1->v64 == t2->v64 && after(seq1, seq2));
+ }
+ 
+-/* Marks a packet lost, if some packet sent later has been (s)acked.
++/* RACK loss detection (IETF draft draft-ietf-tcpm-rack-01):
++ *
++ * Marks a packet lost, if some packet sent later has been (s)acked.
+  * The underlying idea is similar to the traditional dupthresh and FACK
+  * but they look at different metrics:
+  *
+@@ -37,8 +39,10 @@ static bool tcp_rack_sent_after(const struct skb_mstamp *t1,
+  * is being more resilient to reordering by simply allowing some
+  * "settling delay", instead of tweaking the dupthresh.
+  *
+- * The current version is only used after recovery starts but can be
+- * easily extended to detect the first loss.
++ * When tcp_rack_detect_loss() detects some packets are lost and we
++ * are not already in the CA_Recovery state, either tcp_rack_reo_timeout()
++ * or tcp_time_to_recover()'s "Trick#1: the loss is proven" code path will
++ * make us enter the CA_Recovery state.
+  */
+ static void tcp_rack_detect_loss(struct sock *sk, const struct skb_mstamp *now,
+ 				 u32 *reo_timeout)
+@@ -54,7 +58,7 @@ static void tcp_rack_detect_loss(struct sock *sk, const struct skb_mstamp *now,
  	 * to queuing or delayed ACKs.
--	 *
--	 * TODO: measure and adapt to the observed reordering delay, and
--	 * use a timer to retransmit like the delayed early retransmit.
  	 */
  	reo_wnd = 1000;
- 	if (tp->rack.reord && tcp_min_rtt(tp) != ~0U)
-@@ -66,10 +65,23 @@ static void tcp_rack_detect_loss(struct sock *sk, const struct skb_mstamp *now)
- 			 * A packet is lost if its elapsed time is beyond
- 			 * the recent RTT plus the reordering window.
- 			 */
--			if (skb_mstamp_us_delta(now, &skb->skb_mstamp) >
--			    tp->rack.rtt_us + reo_wnd) {
-+			u32 elapsed = skb_mstamp_us_delta(now,
-+							  &skb->skb_mstamp);
-+			s32 remaining = tp->rack.rtt_us + reo_wnd - elapsed;
-+
-+			if (remaining < 0) {
- 				tcp_rack_mark_skb_lost(sk, skb);
-+				continue;
- 			}
-+
-+			/* Skip ones marked lost but not yet retransmitted */
-+			if ((scb->sacked & TCPCB_LOST) &&
-+			    !(scb->sacked & TCPCB_SACKED_RETRANS))
-+				continue;
-+
-+			/* Record maximum wait time (+1 to avoid 0) */
-+			*reo_timeout = max_t(u32, *reo_timeout, 1 + remaining);
-+
- 		} else if (!(scb->sacked & TCPCB_RETRANS)) {
- 			/* Original data are sent sequentially so stop early
- 			 * b/c the rest are all sent after rack_sent
-@@ -82,12 +94,19 @@ static void tcp_rack_detect_loss(struct sock *sk, const struct skb_mstamp *now)
- void tcp_rack_mark_lost(struct sock *sk, const struct skb_mstamp *now)
- {
+-	if (tp->rack.reord && tcp_min_rtt(tp) != ~0U)
++	if ((tp->rack.reord || !tp->lost_out) && tcp_min_rtt(tp) != ~0U)
+ 		reo_wnd = max(tcp_min_rtt(tp) >> 2, reo_wnd);
+ 
+ 	tcp_for_write_queue(skb, sk) {
+@@ -105,7 +109,7 @@ void tcp_rack_mark_lost(struct sock *sk, const struct skb_mstamp *now)
  	struct tcp_sock *tp = tcp_sk(sk);
-+	u32 timeout;
+ 	u32 timeout;
  
- 	if (inet_csk(sk)->icsk_ca_state < TCP_CA_Recovery || !tp->rack.advanced)
+-	if (inet_csk(sk)->icsk_ca_state < TCP_CA_Recovery || !tp->rack.advanced)
++	if (!tp->rack.advanced)
  		return;
-+
+ 
  	/* Reset the advanced flag to avoid unnecessary queue scanning */
- 	tp->rack.advanced = 0;
--	tcp_rack_detect_loss(sk, now);
-+	tcp_rack_detect_loss(sk, now, &timeout);
-+	if (timeout) {
-+		timeout = usecs_to_jiffies(timeout + TCP_REO_TIMEOUT_MIN);
-+		inet_csk_reset_xmit_timer(sk, ICSK_TIME_REO_TIMEOUT,
-+					  timeout, inet_csk(sk)->icsk_rto);
-+	}
- }
- 
- /* Record the most recently (re)sent time among the (s)acked packets
-@@ -123,3 +142,27 @@ void tcp_rack_advance(struct tcp_sock *tp, u8 sacked,
- 	tp->rack.mstamp = *xmit_time;
- 	tp->rack.advanced = 1;
- }
-+
-+/* We have waited long enough to accommodate reordering. Mark the expired
-+ * packets lost and retransmit them.
-+ */
-+void tcp_rack_reo_timeout(struct sock *sk)
-+{
-+	struct tcp_sock *tp = tcp_sk(sk);
-+	struct skb_mstamp now;
-+	u32 timeout, prior_inflight;
-+
-+	skb_mstamp_get(&now);
-+	prior_inflight = tcp_packets_in_flight(tp);
-+	tcp_rack_detect_loss(sk, &now, &timeout);
-+	if (prior_inflight != tcp_packets_in_flight(tp)) {
-+		if (inet_csk(sk)->icsk_ca_state != TCP_CA_Recovery) {
-+			tcp_enter_recovery(sk, false);
-+			if (!inet_csk(sk)->icsk_ca_ops->cong_control)
-+				tcp_cwnd_reduction(sk, 1, 0);
-+		}
-+		tcp_xmit_retransmit_queue(sk);
-+	}
-+	if (inet_csk(sk)->icsk_pending != ICSK_TIME_RETRANS)
-+		tcp_rearm_rto(sk);
-+}
-diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
-index 29a9bd5f1225..953c02a8566e 100644
---- a/net/ipv4/tcp_timer.c
-+++ b/net/ipv4/tcp_timer.c
-@@ -563,6 +563,9 @@ void tcp_write_timer_handler(struct sock *sk)
- 	event = icsk->icsk_pending;
- 
- 	switch (event) {
-+	case ICSK_TIME_REO_TIMEOUT:
-+		tcp_rack_reo_timeout(sk);
-+		break;
- 	case ICSK_TIME_EARLY_RETRANS:
- 		tcp_resume_early_retransmit(sk);
- 		break;
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 228965dca3c5..f52c3742b404 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1746,6 +1746,7 @@ static void get_tcp6_sock(struct seq_file *seq, struct sock *sp, int i)
- 
- 	if (icsk->icsk_pending == ICSK_TIME_RETRANS ||
- 	    icsk->icsk_pending == ICSK_TIME_EARLY_RETRANS ||
-+	    icsk->icsk_pending == ICSK_TIME_REO_TIMEOUT ||
- 	    icsk->icsk_pending == ICSK_TIME_LOSS_PROBE) {
- 		timer_active	= 1;
- 		timer_expires	= icsk->icsk_timeout;
 -- 
 2.11.0.483.g087da7b7c-goog
