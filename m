@@ -1,95 +1,77 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [net PATCH v3 3/5] virtio_net: factor out xdp handler for
- readability
-Date: Fri, 13 Jan 2017 11:56:57 -0800
-Message-ID: <58793109.8050405@gmail.com>
-References: <20170113024908.4535.8835.stgit@john-Precision-Tower-5810>
- <20170113025123.4535.75989.stgit@john-Precision-Tower-5810>
- <da246cbb-710c-275f-489c-251ea898a389@redhat.com>
+From: Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>
+Subject: ANNOUNCE: Netdev 2.1 in Montreal
+Date: Fri, 13 Jan 2017 14:58:19 -0500
+Message-ID: <1a7b6b2c-38bc-7c6f-e3bf-ab913b163dba@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 8bit
-Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org,
-        alexei.starovoitov@gmail.com, daniel@iogearbox.net
-To: Jason Wang <jasowang@redhat.com>, mst@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:36073 "EHLO
-        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750914AbdAMT5L (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 14:57:11 -0500
-Received: by mail-pf0-f195.google.com with SMTP id b22so9594864pfd.3
-        for <netdev@vger.kernel.org>; Fri, 13 Jan 2017 11:57:11 -0800 (PST)
-In-Reply-To: <da246cbb-710c-275f-489c-251ea898a389@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netfilter-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        info-Aq7fehzYRUagpaxmtUs7hg@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        tech-committee-Aq7fehzYRUagpaxmtUs7hg@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Stephen Jaworski <jaws-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
+        Rob Echlin <rob-XjY9sGI/8jX3fQ9qLvQP4Q@public.gmane.org>, lwn-T1hC0tSOHrs@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 17-01-12 11:40 PM, Jason Wang wrote:
-> 
-> 
-> On 2017年01月13日 10:51, John Fastabend wrote:
->> At this point the do_xdp_prog is mostly if/else branches handling
->> the different modes of virtio_net. So remove it and handle running
->> the program in the per mode handlers.
->>
->> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
->> ---
->>   drivers/net/virtio_net.c |   76 +++++++++++++++++-----------------------------
->>   1 file changed, 28 insertions(+), 48 deletions(-)
->>
->> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
->> index 43cb2e0..ec54644 100644
->> --- a/drivers/net/virtio_net.c
->> +++ b/drivers/net/virtio_net.c
->> @@ -388,49 +388,6 @@ static void virtnet_xdp_xmit(struct virtnet_info *vi,
->>       virtqueue_kick(sq->vq);
->>   }
->>   
-> 
-> [...]
-> 
->>             /* This happens when rx buffer size is underestimated */
->> @@ -598,8 +570,10 @@ static struct sk_buff *receive_mergeable(struct
->> net_device *dev,
->>           if (unlikely(hdr->hdr.gso_type))
->>               goto err_xdp;
->>   -        act = do_xdp_prog(vi, rq, xdp_prog,
->> -                  page_address(xdp_page) + offset, len);
->> +        data = page_address(xdp_page) + offset;
->> +        xdp.data = data + desc_room;
->> +        xdp.data_end = xdp.data + (len - vi->hdr_len);
-> 
-> It looks desc_room is always vi->hdr_len.
-> 
 
-Seems to be the case I'll just use vi->hdr_len and remove the variable.
+Folks,
 
-Thanks.
+We are pleased to announce Netdev 2.1 (year 2, conference 1)
+in the beautiful city of Montreal, Canada on the 6th to 8th of April.
+The website is now online: http://www.netdevconf.org/2.1/
+Netdev 2.1 will be held back to back with netconf2017.1
+(http://vger.kernel.org/netconf2017.html)
 
->> +        act = bpf_prog_run_xdp(xdp_prog, &xdp);
->>           switch (act) {
->>           case XDP_PASS:
->>               /* We can only create skb based on xdp_page. */
->> @@ -613,13 +587,19 @@ static struct sk_buff *receive_mergeable(struct
->> net_device *dev,
->>               }
->>               break;
->>           case XDP_TX:
->> +            qp = vi->curr_queue_pairs -
->> +                vi->xdp_queue_pairs +
->> +                smp_processor_id();
->> +            virtnet_xdp_xmit(vi, rq, &vi->sq[qp], &xdp, data);
->>               ewma_pkt_len_add(&rq->mrg_avg_pkt_len, len);
->>               if (unlikely(xdp_page != page))
->>                   goto err_xdp;
->>               rcu_read_unlock();
->>               goto xdp_xmit;
->> -        case XDP_DROP:
->>           default:
->> +            bpf_warn_invalid_xdp_action(act);
->> +        case XDP_ABORTED:
->> +        case XDP_DROP:
->>               if (unlikely(xdp_page != page))
->>                   __free_pages(xdp_page, 0);
->>               ewma_pkt_len_add(&rq->mrg_avg_pkt_len, len);
->>
-> 
+Netdev 2.1 is a  community-driven conference geared towards Linux
+netheads. Linux kernel networking and user space utilization of the
+interfaces to the Linux kernel networking subsystem are the central
+theme.
+If you are using Linux as a boot system for proprietary networking,
+then this conference _may not be for you_.
+
+Registration costs
+------------------
+Very Cheap.
+$CAN 300 if you register before Feb 27. $360 after.
+$CAN 150 if you are a student. $180 after Feb 27
+
+Why you should register
+-----------------------
+If you yearn for the old community tech driven conferences where
+you mingle with fellow geeks (only these would be Linux networking
+geeks) then this would be it. There will be no marketing flashing
+light openings or loud bad music. Just a pure feed of Linux
+networking. Gurus and magicians of all sorts will be there mingling,
+juggling and giving talks.
+
+While there will be heavy Linux kernel influence we expect a lot
+of user space presence as well.
+
+Exact Location:
+-----------------
+Tentative: LE WESTIN MONTRÉAL
+
+Sponsorship
+------------
+
+If you can help us organize this event by sponsoring, please drop us a 
+line to: sponsor-Aq7fehzYRUagpaxmtUs7hg@public.gmane.org and we'll send you our sponsorship policy.
+
+Important dates
+----------------
+January 18, 2017 Call for proposals open
+January 23, 2017 Registration opens
+February 20, 2017 Call for proposals close
+February 27, 2017 Early Registration close
+March 13, 2017 Conference schedule announced
+March 27, 2017 Paper submission
+March 31, 2017 Online Registration close
+April 3, 2017 Slides submission
+April 6-8, 2017 Conference days
+May 1, 2017 Slides release
+June 1, 2017 Paper release
+
+cheers,
+jamal
