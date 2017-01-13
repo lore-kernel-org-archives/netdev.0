@@ -1,50 +1,54 @@
-From: Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>
-Subject: Re: [pull request][for-next] Mellanox mlx5 Reorganize core driver
- directory layout
-Date: Fri, 13 Jan 2017 15:07:51 -0800
-Message-ID: <CALx6S34zw7S+8rB9nuBtbzZ6JkcVreHTwJZrXftHdfmKLF3knQ@mail.gmail.com>
-References: <1484241755-17603-1-git-send-email-saeedm@mellanox.com>
- <20170113.121407.448230751444957957.davem@davemloft.net> <20170113202932.GS20392@mtr-leonro.local>
- <CALx6S37hb78RJ8tCtsCsX2fg6e-D+naNpSQo6T2AyWMd0U74sQ@mail.gmail.com>
- <CALzJLG_RsvgszVxGZ7+VgYjET9w=XTjq36Z72diOQFNJWz9tQw@mail.gmail.com>
- <CALx6S35cSnMoBtxi+Eb_mH=LCLy9yY6U5sxofndce9r0eCs8+w@mail.gmail.com> <10e998b7-0008-2f26-2874-57ec61c8cacb@hpe.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH v2 7/8] net: Rename TCA*BPF_DIGEST to ..._SHA256
+Date: Sat, 14 Jan 2017 00:08:30 +0100
+Message-ID: <58795DEE.3090403@iogearbox.net>
+References: <cover.1484090585.git.luto@kernel.org> <f284a4d87cde103cd78de64b8607e3c80a17e2e5.1484090585.git.luto@kernel.org> <58758169.2020408@iogearbox.net> <CALCETrUHenMS1iomFr7+YEy_M3zaotrWbfMe93=BmzCbzJ0fLw@mail.gmail.com> <5875F65A.4010904@iogearbox.net> <CALCETrVhuszdsfayLrBBkSzJ+A3m+hJjdZQWDj9FOg+2UB_ZBw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Saeed Mahameed <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
-        Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Rick Jones <rick.jones2-ZPxbGqLxI0U@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <10e998b7-0008-2f26-2874-57ec61c8cacb-ZPxbGqLxI0U@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Andy Lutomirski <luto@kernel.org>, Netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Linux Crypto Mailing List <linux-crypto@vger.kernel.org>,
+        "Jason A. Donenfeld" <Jason@zx2c4.com>,
+        Hannes Frederic Sowa <hannes@stressinduktion.org>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Eric Biggers <ebiggers3@gmail.com>,
+        Tom Herbert <tom@herbertland.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Alexei Starovoitov <ast@kernel.org>
+To: Andy Lutomirski <luto@amacapital.net>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <CALCETrVhuszdsfayLrBBkSzJ+A3m+hJjdZQWDj9FOg+2UB_ZBw@mail.gmail.com>
+Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 13, 2017 at 2:59 PM, Rick Jones <rick.jones2-ZPxbGqLxI0U@public.gmane.org> wrote:
-> On 01/13/2017 02:56 PM, Tom Herbert wrote:
->>
->> On Fri, Jan 13, 2017 at 2:45 PM, Saeed Mahameed
->>>
->>> what configuration are you running ? what traffic ?
->>>
->> Nothing fancy. 8 queues and 20 concurrent netperf TCP_STREAMs trips
->> it. Not a lot of them, but I don't think we really should ever see
->> these errors.
+On 01/11/2017 07:19 PM, Andy Lutomirski wrote:
+> On Wed, Jan 11, 2017 at 1:09 AM, Daniel Borkmann <daniel@iogearbox.net> wrote:
+[...]
+>> Ok. Sleeping over this a bit, how about a general rename into
+>> "prog_tag" for fdinfo and TCA_BPF_TAG resp. TCA_ACT_BPF_TAG for
+>> the netlink attributes, fwiw, it might reduce any assumptions on
+>> this being made? If this would be preferable, I could cook that
+>> patch against -net for renaming it?
 >
+> That would be fine with me.
 >
-> Straight-up defaults with netperf, or do you use specific -s/S or -m/M
-> options?
+> I think there are two reasonable approaches to computing the actual tag.
 >
-./super_netperf_tput 20 -H test001 -l 100 -t TCP_STREAM
+> 1. Use a standard, modern cryptographic hash.  SHA-256, SHA-512,
+> Blake2b, whatever.  SHA-1 is a bad choice in part because it's partly
+> broken and in part because the implementation in lib/ is a real mess
+> to use (as you noticed while writing the code).
+>
+> 2. Use whatever algorithm you like but make the tag so short that it's
+> obviously not collision-free.  48 or 64 bits is probably reasonable.
+>
+> The intermediate versions are just asking for trouble.
 
-> happy benchmarking,
->
-> rick jones
->
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Yeah agree, I've just sent a patch to rework this a bit and it got
+also reasonably small for net. Cleanups, if needed, can be done in
+net-next once that's pulled into it.
+
+Thanks,
+Daniel
