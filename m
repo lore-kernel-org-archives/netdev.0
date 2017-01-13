@@ -1,71 +1,47 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH] xen-netback: fix memory leaks on XenBus disconnect
-Date: Fri, 13 Jan 2017 10:38:00 +0000
-Message-ID: <20170113103800.GA5089@citrix.com>
-References: <1484243516-141100-1-git-send-email-igor.druzhinin@citrix.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <wei.liu2@citrix.com>, <xen-devel@lists.xenproject.org>,
-        <paul.durrant@citrix.com>, <netdev@vger.kernel.org>,
-        <linux-kernel@vger.kernel.org>
-To: Igor Druzhinin <igor.druzhinin@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1484243516-141100-1-git-send-email-igor.druzhinin@citrix.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH v3 4/8] x86: stop exporting msr-index.h to userland
+Date: Fri, 13 Jan 2017 11:46:42 +0100
+Message-ID: <1484304406-10820-5-git-send-email-nicolas.dichtel@6wind.com>
+References: <3131144.4Ej3KFWRbz@wuerfel>
+ <1484304406-10820-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: mmarek@suse.com, linux-kbuild@vger.kernel.org,
+        linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org,
+        linux-arm-kernel@lists.infradead.org,
+        adi-buildroot-devel@lists.sourceforge.net,
+        linux-c6x-dev@linux-c6x.org, linux-cris-kernel@axis.com,
+        uclinux-h8-devel@lists.sourceforge.jp,
+        linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org,
+        linux-m68k@lists.linux-m68k.org, linux-metag@vger.kernel.org,
+        linux-mips@linux-mips.org, linux-am33-list@redhat.com,
+        nios2-dev@lists.rocketboards.org, openrisc@lists.librecores.org,
+        linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+        linux-s390@vger.kernel.org, linux-sh@vger.kernel.org,
+        sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org,
+        linux-arch@vger.kernel.
+To: arnd@arndb.de
+Return-path: <linux-arch-owner@vger.kernel.org>
+In-Reply-To: <1484304406-10820-1-git-send-email-nicolas.dichtel@6wind.com>
+Sender: linux-arch-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 12, 2017 at 05:51:56PM +0000, Igor Druzhinin wrote:
-> Eliminate memory leaks introduced several years ago by cleaning the queue
-> resources which are allocated on XenBus connection event. Namely, queue
-> structure array and pages used for IO rings.
-> vif->lock is used to protect statistics gathering agents from using the
-> queue structure during cleaning.
-> 
+Suggested-by: Borislav Petkov <bp@alien8.de>
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+ arch/x86/include/uapi/asm/Kbuild | 1 -
+ 1 file changed, 1 deletion(-)
 
-There is code in netback_remove which eventually calls xenvif_free to
-free up the resources, maybe you should modify xenvif_free instead? That
-seems more symmetric to me. What do you think?
-
-> Signed-off-by: Igor Druzhinin <igor.druzhinin@citrix.com>
-> ---
->  drivers/net/xen-netback/interface.c |  6 ++++--
->  drivers/net/xen-netback/xenbus.c    | 13 +++++++++++++
->  2 files changed, 17 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
-> index e30ffd2..5795213 100644
-> --- a/drivers/net/xen-netback/interface.c
-> +++ b/drivers/net/xen-netback/interface.c
-> @@ -221,18 +221,18 @@ static struct net_device_stats *xenvif_get_stats(struct net_device *dev)
->  {
->  	struct xenvif *vif = netdev_priv(dev);
->  	struct xenvif_queue *queue = NULL;
-> -	unsigned int num_queues = vif->num_queues;
->  	unsigned long rx_bytes = 0;
->  	unsigned long rx_packets = 0;
->  	unsigned long tx_bytes = 0;
->  	unsigned long tx_packets = 0;
->  	unsigned int index;
->  
-> +	spin_lock(&vif->lock);
->  	if (vif->queues == NULL)
->  		goto out;
->  
->  	/* Aggregate tx and rx stats from each queue */
-> -	for (index = 0; index < num_queues; ++index) {
-> +	for (index = 0; index < vif->num_queues; ++index) {
->  		queue = &vif->queues[index];
->  		rx_bytes += queue->stats.rx_bytes;
->  		rx_packets += queue->stats.rx_packets;
-> @@ -241,6 +241,8 @@ static struct net_device_stats *xenvif_get_stats(struct net_device *dev)
->  	}
->  
->  out:
-> +	spin_unlock(&vif->lock);
-> +
-
-Good catch, this is definitely needed. And it would probably be in a
-separate patch.
-
-Wei.
+diff --git a/arch/x86/include/uapi/asm/Kbuild b/arch/x86/include/uapi/asm/Kbuild
+index 3dec769cadf7..1c532b3f18ea 100644
+--- a/arch/x86/include/uapi/asm/Kbuild
++++ b/arch/x86/include/uapi/asm/Kbuild
+@@ -27,7 +27,6 @@ header-y += ldt.h
+ header-y += mce.h
+ header-y += mman.h
+ header-y += msgbuf.h
+-header-y += msr-index.h
+ header-y += msr.h
+ header-y += mtrr.h
+ header-y += param.h
+-- 
+2.8.1
