@@ -1,74 +1,93 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next v2 08/10] net: dsa: Add support for platform data
-Date: Fri, 13 Jan 2017 15:11:10 +0100
-Message-ID: <20170113141110.GI10203@lunn.ch>
-References: <20170112034121.27697-1-f.fainelli@gmail.com>
- <20170112034121.27697-9-f.fainelli@gmail.com>
+From: Alexey Kodanev <alexey.kodanev@oracle.com>
+Subject: tcp: performance issue with fastopen connections (mss > window)
+Date: Fri, 13 Jan 2017 17:17:10 +0300
+Message-ID: <5878E166.8080800@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Jason Cooper <jason@lakedaemon.net>,
-        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-        Gregory Clement <gregory.clement@free-electrons.com>,
-        Russell King <linux@armlinux.org.uk>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        "moderated list:ARM SUB-ARCHITECTURES"
-        <linux-arm-kernel@lists.infradead.org>,
-        open list <linux-kernel@vger.kernel.org>,
-        gregkh@linuxfoundation.org
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170112034121.27697-9-f.fainelli@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Vasily Isaenko <vasily.isaenko@oracle.com>
+To: David Miller <davem@davemloft.net>,
+        Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:30310 "EHLO
+        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751653AbdAMORW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 09:17:22 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->  static int _dsa_register_switch(struct dsa_switch *ds, struct device *dev)
->  {
-> +	struct dsa_chip_data *pdata = dev->platform_data;
->  	struct device_node *np = dev->of_node;
->  	struct dsa_switch_tree *dst;
->  	struct device_node *ports;
->  	u32 tree, index;
->  	int i, err;
->  
-> -	err = dsa_parse_member_dn(np, &tree, &index);
-> -	if (err)
-> -		return err;
-> +	if (np) {
-> +		err = dsa_parse_member_dn(np, &tree, &index);
-> +		if (err)
-> +			return err;
->  
-> -	ports = dsa_get_ports(ds, np);
-> -	if (IS_ERR(ports))
-> -		return PTR_ERR(ports);
-> +		ports = dsa_get_ports(ds, np);
-> +		if (IS_ERR(ports))
-> +			return PTR_ERR(ports);
->  
-> -	err = dsa_parse_ports_dn(ports, ds);
-> -	if (err)
-> -		return err;
-> +		err = dsa_parse_ports_dn(ports, ds);
-> +		if (err)
-> +			return err;
-> +	} else {
-> +		err = dsa_parse_member(pdata, &tree, &index);
+Hi,
 
-Hi Florian
+Got the issue when running LTP/netstress test on localhost with mss
+greater than the send window advertised by client (right after 3WHS).
+Here is the testscenario that can reproduce this:
 
-Maybe it is hiding, but i don't see anywhere you check that pdata !=
-NULL.
+TCP client is sending 32 bytes request, TCP server replies with 65KB answer.
+net.ipv4.tcp_fastopen set to 3. Also notethat the first TCP Fastopen
+connectionprocessed without delay as tcp_send_mss()setshalf of the window
+sizeto the'size_goal' inside tcp_sendmsg().
 
-At least for x86 platforms, i don't expect we are booting using
-platform data like ARM systems used to do. I think it is more likely a
-glue module will be loaded. It looks up the MDIO bus and appends a
-platform data to an MDIO device. The switch driver then needs to load
-and use the platform data. But if things happen in a different order,
-it could be the switch driver probes before the glue driver, meaning
-pdata is NULL.
+Though on the 2nd and subsequent connections:
 
-Do we even want to return -EPROBE_DEFERED?
+< S  seq 0:0 win 43690 options [mss 65495 wscale 7
+          tfo cookie ac6246a51d5422fc] length 32
+ > S.seq 0:0ack 1win 43690 options [mss 65495wscale 7] length 0
+<.ack 1 win 342 length 0
 
-      Andrew
+Inside tcp_sendmsg(), tcp_send_mss() returns 65483 in 'mss_now',as well as
+in 'size_goal'. This results the segment not queued for transmition 
+until all
+data copied from userbuffer. Then, inside  __tcp_push_pending_frames() it
+breaks on send window test,continue with the check probe timer, thus
+introducing 200ms delay here.
+
+Fragmentationoccurs in tcp_write_wakeup()...
+
++0.2> P. seq 1:43777 ack 1 win 342 length 43776
+<. ack 43777, win 1365 length 0
+      > P. seq 43777:65001 ack 1 win 342 optionslength 21224
+      ...
+
+
+Not sure what is the right fix for this, I guess we could limit 'size_goal'
+to the current window or mss, what is currently less, e.g:
+
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 4a04496..3d3bd97 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -860,7 +860,12 @@ static unsigned int tcp_xmit_size_goal(struct sock 
+*sk, u32 mss_now,
+                 size_goal = tp->gso_segs * mss_now;
+         }
+
+-       return max(size_goal, mss_now);
++       size_goal = max(size_goal, mss_now);
++
++       if (tp->snd_wnd > TCP_MSS_DEFAULT)
++               return min(tp->snd_wnd, size_goal);
++
++       return size_goal;
+  }
+
+  static int tcp_send_mss(struct sock *sk, int *size_goal, int flags)
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 1d5331a..0ac133f 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2445,7 +2445,7 @@ void tcp_push_one(struct sock *sk, unsigned int 
+mss_now)
+  {
+         struct sk_buff *skb = tcp_send_head(sk);
+
+-       BUG_ON(!skb || skb->len < mss_now);
++       BUG_ON(!skb);
+
+         tcp_write_xmit(sk, mss_now, TCP_NAGLE_PUSH, 1, sk->sk_allocation);
+  }
+
+
+Any ideas?
+
+Thanks,
+Alexey
