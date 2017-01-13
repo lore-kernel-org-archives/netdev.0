@@ -1,93 +1,75 @@
-From: Alexey Kodanev <alexey.kodanev@oracle.com>
-Subject: tcp: performance issue with fastopen connections (mss > window)
-Date: Fri, 13 Jan 2017 17:17:10 +0300
-Message-ID: <5878E166.8080800@oracle.com>
+From: Murali Karicheri <m-karicheri2@ti.com>
+Subject: [PATCH] net: phy: dp83867: allow RGMII_TXID/RGMII_RXID interface types
+Date: Fri, 13 Jan 2017 09:32:34 -0500
+Message-ID: <1484317954-27871-1-git-send-email-m-karicheri2@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Vasily Isaenko <vasily.isaenko@oracle.com>
-To: David Miller <davem@davemloft.net>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:30310 "EHLO
-        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751653AbdAMORW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 09:17:22 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+To: <robh+dt@kernel.org>, <mark.rutland@arm.com>,
+        <f.fainelli@gmail.com>, <netdev@vger.kernel.org>,
+        <devicetree@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+        <nsekhar@ti.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+Currently dp83867 driver returns error if phy interface type
+PHY_INTERFACE_MODE_RGMII_RXID is used to set the rx only internal
+delay. Similarly issue happens for PHY_INTERFACE_MODE_RGMII_TXID.
+Fix this by checking also the interface type if a particular delay
+value is missing in the phy dt bindings. Also update the DT document
+accordingly.
 
-Got the issue when running LTP/netstress test on localhost with mss
-greater than the send window advertised by client (right after 3WHS).
-Here is the testscenario that can reproduce this:
+Signed-off-by: Murali Karicheri <m-karicheri2@ti.com>
+Signed-off-by: Sekhar Nori <nsekhar@ti.com>
+---
+ - I had sent this earlier and some how it didn't get through and
+   I haven't seen any comment for this. So sending this again.
+ - Applies to master.
 
-TCP client is sending 32 bytes request, TCP server replies with 65KB answer.
-net.ipv4.tcp_fastopen set to 3. Also notethat the first TCP Fastopen
-connectionprocessed without delay as tcp_send_mss()setshalf of the window
-sizeto the'size_goal' inside tcp_sendmsg().
+ Documentation/devicetree/bindings/net/ti,dp83867.txt | 6 ++++--
+ drivers/net/phy/dp83867.c                            | 8 ++++++--
+ 2 files changed, 10 insertions(+), 4 deletions(-)
 
-Though on the 2nd and subsequent connections:
-
-< S  seq 0:0 win 43690 options [mss 65495 wscale 7
-          tfo cookie ac6246a51d5422fc] length 32
- > S.seq 0:0ack 1win 43690 options [mss 65495wscale 7] length 0
-<.ack 1 win 342 length 0
-
-Inside tcp_sendmsg(), tcp_send_mss() returns 65483 in 'mss_now',as well as
-in 'size_goal'. This results the segment not queued for transmition 
-until all
-data copied from userbuffer. Then, inside  __tcp_push_pending_frames() it
-breaks on send window test,continue with the check probe timer, thus
-introducing 200ms delay here.
-
-Fragmentationoccurs in tcp_write_wakeup()...
-
-+0.2> P. seq 1:43777 ack 1 win 342 length 43776
-<. ack 43777, win 1365 length 0
-      > P. seq 43777:65001 ack 1 win 342 optionslength 21224
-      ...
-
-
-Not sure what is the right fix for this, I guess we could limit 'size_goal'
-to the current window or mss, what is currently less, e.g:
-
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 4a04496..3d3bd97 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -860,7 +860,12 @@ static unsigned int tcp_xmit_size_goal(struct sock 
-*sk, u32 mss_now,
-                 size_goal = tp->gso_segs * mss_now;
-         }
-
--       return max(size_goal, mss_now);
-+       size_goal = max(size_goal, mss_now);
-+
-+       if (tp->snd_wnd > TCP_MSS_DEFAULT)
-+               return min(tp->snd_wnd, size_goal);
-+
-+       return size_goal;
-  }
-
-  static int tcp_send_mss(struct sock *sk, int *size_goal, int flags)
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 1d5331a..0ac133f 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -2445,7 +2445,7 @@ void tcp_push_one(struct sock *sk, unsigned int 
-mss_now)
-  {
-         struct sk_buff *skb = tcp_send_head(sk);
-
--       BUG_ON(!skb || skb->len < mss_now);
-+       BUG_ON(!skb);
-
-         tcp_write_xmit(sk, mss_now, TCP_NAGLE_PUSH, 1, sk->sk_allocation);
-  }
-
-
-Any ideas?
-
-Thanks,
-Alexey
+diff --git a/Documentation/devicetree/bindings/net/ti,dp83867.txt b/Documentation/devicetree/bindings/net/ti,dp83867.txt
+index 85bf945..afe9630 100644
+--- a/Documentation/devicetree/bindings/net/ti,dp83867.txt
++++ b/Documentation/devicetree/bindings/net/ti,dp83867.txt
+@@ -3,9 +3,11 @@
+ Required properties:
+ 	- reg - The ID number for the phy, usually a small integer
+ 	- ti,rx-internal-delay - RGMII Receive Clock Delay - see dt-bindings/net/ti-dp83867.h
+-		for applicable values
++		for applicable values. Required only if interface type is
++		PHY_INTERFACE_MODE_RGMII_ID or PHY_INTERFACE_MODE_RGMII_RXID
+ 	- ti,tx-internal-delay - RGMII Transmit Clock Delay - see dt-bindings/net/ti-dp83867.h
+-		for applicable values
++		for applicable values. Required only if interface type is
++		PHY_INTERFACE_MODE_RGMII_ID or PHY_INTERFACE_MODE_RGMII_TXID
+ 	- ti,fifo-depth - Transmitt FIFO depth- see dt-bindings/net/ti-dp83867.h
+ 		for applicable values
+ 
+diff --git a/drivers/net/phy/dp83867.c b/drivers/net/phy/dp83867.c
+index e84ae08..ca1b462 100644
+--- a/drivers/net/phy/dp83867.c
++++ b/drivers/net/phy/dp83867.c
+@@ -132,12 +132,16 @@ static int dp83867_of_init(struct phy_device *phydev)
+ 
+ 	ret = of_property_read_u32(of_node, "ti,rx-internal-delay",
+ 				   &dp83867->rx_id_delay);
+-	if (ret)
++	if (ret &&
++	    (phydev->interface == PHY_INTERFACE_MODE_RGMII_ID ||
++	     phydev->interface == PHY_INTERFACE_MODE_RGMII_RXID))
+ 		return ret;
+ 
+ 	ret = of_property_read_u32(of_node, "ti,tx-internal-delay",
+ 				   &dp83867->tx_id_delay);
+-	if (ret)
++	if (ret &&
++	    (phydev->interface == PHY_INTERFACE_MODE_RGMII_ID ||
++	     phydev->interface == PHY_INTERFACE_MODE_RGMII_TXID))
+ 		return ret;
+ 
+ 	return of_property_read_u32(of_node, "ti,fifo-depth",
+-- 
+1.9.1
