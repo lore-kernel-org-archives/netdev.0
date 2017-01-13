@@ -1,38 +1,47 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH] rtlwifi: rtl8192ee: New firmware from Realtek
-Date: Fri, 13 Jan 2017 09:57:21 -0600
-Message-ID: <38b9425e-0353-f13f-994b-1beaae41c1d6@lwfinger.net>
-References: <20161217185054.15017-1-Larry.Finger@lwfinger.net>
- <20170113150306.GE13400@bombadil.infradead.org>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH v3 4/8] x86: stop exporting msr-index.h to userland
+Date: Fri, 13 Jan 2017 17:08:34 +0100
+Message-ID: <dd826bc7-e1ef-be29-e0c3-692afb346036@6wind.com>
+References: <1484304406-10820-5-git-send-email-nicolas.dichtel@6wind.com>
+ <3131144.4Ej3KFWRbz@wuerfel>
+ <1484304406-10820-1-git-send-email-nicolas.dichtel@6wind.com>
+ <25483.1484322229@warthog.procyon.org.uk>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, Troy Tan <troy_tan@realsil.com.cn>,
-        netdev@vger.kernel.org, linux-firmware@kernel.org
-To: Kyle McMartin <kyle@infradead.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f66.google.com ([209.85.218.66]:35494 "EHLO
-        mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752023AbdAMP5Y (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 10:57:24 -0500
-In-Reply-To: <20170113150306.GE13400@bombadil.infradead.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8bit
+Cc: arnd@arndb.de, linux-kbuild@vger.kernel.org,
+        linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org,
+        linux-arm-kernel@lists.infradead.org,
+        adi-buildroot-devel@lists.sourceforge.net,
+        linux-c6x-dev@linux-c6x.org, linux-cris-kernel@axis.com,
+        uclinux-h8-devel@lists.sourceforge.jp,
+        linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org,
+        linux-m68k@vger.kernel.org, linux-metag@vger.kernel.org,
+        linux-mips@linux-mips.org, linux-am33-list@redhat.com,
+        nios2-dev@lists.rocketboards.org, openrisc@lists.librecores.org,
+        linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+        linux-s390@vger.kernel.org, linux-sh@vger.kernel.org,
+        sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org,
+        linux-arch@vger.kernel.org, dr
+To: David Howells <dhowells@redhat.com>
+Return-path: <linux-media-owner@vger.kernel.org>
+In-Reply-To: <25483.1484322229@warthog.procyon.org.uk>
+Sender: linux-media-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 01/13/2017 09:03 AM, Kyle McMartin wrote:
-> On Sat, Dec 17, 2016 at 12:50:54PM -0600, Larry Finger wrote:
->> -Info: Taken from Realtek version rtl_92ce_92se_92de_8723ae_88ee_8723be_92ee_linux_mac80211_0017.1224.2013
->> +Info: Initial version taken from Realtek version
->> +      rtl_92ce_92se_92de_8723ae_88ee_8723be_92ee_linux_mac80211_0017.1224.2013
->> +      Updated Jan. 14, 2015 with file added by Realtek to
->> +      http://github.com/lwfinger/rtlwifi_new.git.
->>  File: rtlwifi/rtl8192eefw.bin
->>
->
-> Uh, did something weird happen here? This patch was applied in 2015. ;-)
->
-> cheers, Kyle
+Le 13/01/2017 à 16:43, David Howells a écrit :
+>> -header-y += msr-index.h
+> 
+> I see it on my desktop as /usr/include/asm/msr-index.h and it's been there at
+> least four years - and as such it's part of the UAPI.  I don't think you can
+> remove it unless you can guarantee there are no userspace users.
+I keep it in the v2 of the series, but the maintainer, Borislav Petkov, asks me
+to un-export it.
 
-Realtek fixed some bugs in the firmware. This is a new version.
+I will follow the maintainer decision.
 
-Larry
+
+Regards,
+Nicolas
