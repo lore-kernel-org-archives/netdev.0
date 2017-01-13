@@ -1,139 +1,65 @@
 From: Alexander Loktionov <Alexander.Loktionov@aquantia.com>
-Subject: [PATCH v5 00/13] net: ethernet: aquantia: Add AQtion 2.5/5 GB NIC driver
-Date: Thu, 12 Jan 2017 21:02:16 -0800
-Message-ID: <cover.1484283610.git.vomlehn@texas.net>
+Subject: [PATCH v5 13/13] net: ethernet: aquantia: Integrate AQtion 2.5/5 GB NIC driver
+Date: Thu, 12 Jan 2017 21:02:29 -0800
+Message-ID: <93d0334dcaa6479cd438eb4c11425d84cc6df7f0.1484283610.git.vomlehn@texas.net>
+References: <cover.1484283610.git.vomlehn@texas.net>
 Cc: "David S . Miller" <davem@davemloft.net>,
         Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
         Alexander Loktionov <Alexander.Loktionov@aquantia.com>,
         Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>,
-        Pavel Belous <Pavel.Belous@aquantia.com>
+        Pavel Belous <Pavel.Belous@aquantia.com>,
+        Dmitry Bezrukov <Dmitry.Bezrukov@aquantia.com>
 To: netdev@vger.kernel.org, David VomLehn <vomlehn@texas.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from barracuda1.aus1.datafoundry.com ([209.99.124.132]:53542 "EHLO
+Received: from barracuda1.aus1.datafoundry.com ([209.99.124.132]:53742 "EHLO
         milter.aus.datafoundry.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1750749AbdAMFDV (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 00:03:21 -0500
+        by vger.kernel.org with ESMTP id S1751090AbdAMFDa (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 00:03:30 -0500
+In-Reply-To: <cover.1484283610.git.vomlehn@texas.net>
+In-Reply-To: <c54a5830be99bc8f7ecbb4408bbc6b979b056c6a.1484283610.git.vomlehn@texas.net>
+References: <cover.1484283610.git.vomlehn@texas.net> <fe1664e502d28bcb6a5689787b8000e6c9288307.1484283610.git.vomlehn@texas.net> <2c056fd544958594f6356a17892c251ea26ea8c8.1484283610.git.vomlehn@texas.net> <98a7a3c6800c246753ef6cfaa5982a348da757c8.1484283610.git.vomlehn@texas.net> <29b795c8c4fc8de7925e82e071e5feaa266cd801.1484283610.git.vomlehn@texas.net> <5e87af3b0effb96698d0c085366b1ba9320a6305.1484283610.git.vomlehn@texas.net> <e17f53f9485f69edafa966d2bcbaa4b9fd7c145f.1484283610.git.vomlehn@texas.net> <e3f7eda0cc3bfa3426932c39465971ba4c6226ef.1484283610.git.vomlehn@texas.net> <2889e8e87b8b89945f34e57a7f8ca253f204de47.1484283610.git.vomlehn@texas.net> <fef6ab77998a2914f94549367b88ab31e1f734e7.1484283610.git.vomlehn@texas.net> <bd4244af243c5800bd08cfe6c3859f1b406089be.1484283610.git.vomleh
+ n@texas.net> <b2236a13fcf9ac65f15cfc084de670948517e003.1484283610.git.vomlehn@texas.net> <c54a5830be99bc8f7ecbb4408bbc6b979b056c6a.1484283610.git.vomlehn@texas.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: David VomLehn <vomlehn@texas.net>
 
-v1: Initial version
-v2: o Make necessary drivers/net/ethernet changes to integrate software
-    o Drop intermediate atlantic directory
-    o Remove Makefile things only appropriate to out of tree module
-      building
-v3: o Move changes to drivers/net/ethernet/{Kconfig,Makefile} to the last
-      patch to ensure clean bisection.
-    o Removed inline attribute aq_hw_write_req() as it was defined in
-      only one .c file.
-    o #included pci.h in aq_common.h to get struct pci definition.
-    o Modified code to unlock based execution flow rather than using a
-      flag.
-    o Made a number of functions that were only used in a single file
-      static.
-    o Cleaned up error and return code handling in various places.
-    o Remove AQ_CFG_IP_ALIGN definition.
-    o Other minor code clean up.
-v4: o Using do_div for 64 bit division.
-    o Modified NIC statistics code.
-    o Using build_skb instead netdev_alloc_skb for single fragment
-      packets.
-    o Removed extra aq_nic.o from Makefile
-v5: o Removed extra newline at the end of the files.
-    o Wrapped cover letter lines.
+Modify the drivers/net/ethernet/{Makefile,Kconfig} file to make them a
+part of the network drivers build.
 
 Signed-off-by: Alexander Loktionov <Alexander.Loktionov@aquantia.com>
 Signed-off-by: Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>
 Signed-off-by: Pavel Belous <Pavel.Belous@aquantia.com>
+Signed-off-by: Dmitry Bezrukov <Dmitry.Bezrukov@aquantia.com>
 Signed-off-by: David M. VomLehn <vomlehn@texas.net>
+---
+ drivers/net/ethernet/Kconfig  | 1 +
+ drivers/net/ethernet/Makefile | 1 +
+ 2 files changed, 2 insertions(+)
 
-David VomLehn (13):
-  net: ethernet: aquantia: Make and configuration files.
-  net: ethernet: aquantia: Common functions and definitions
-  net: ethernet: aquantia: Add ring support code
-  net: ethernet: aquantia: Low-level hardware interfaces
-  net: ethernet: aquantia: Support for NIC-specific code
-  net: ethernet: aquantia: Atlantic A0 and B0 specific functions.
-  net: ethernet: aquantia: Vector operations
-  net: ethernet: aquantia: PCI operations
-  net: ethernet: aquantia: Atlantic hardware abstraction layer
-  net: ethernet: aquantia: Hardware interface and utility functions
-  net: ethernet: aquantia: Ethtool support
-  net: ethernet: aquantia: Receive side scaling
-  net: ethernet: aquantia: Integrate AQtion 2.5/5 GB NIC driver
-
- drivers/net/ethernet/Kconfig                       |    1 +
- drivers/net/ethernet/Makefile                      |    1 +
- drivers/net/ethernet/aquantia/Kconfig              |   24 +
- drivers/net/ethernet/aquantia/Makefile             |   42 +
- drivers/net/ethernet/aquantia/aq_cfg.h             |   77 +
- drivers/net/ethernet/aquantia/aq_common.h          |   23 +
- drivers/net/ethernet/aquantia/aq_ethtool.c         |  250 +++
- drivers/net/ethernet/aquantia/aq_ethtool.h         |   19 +
- drivers/net/ethernet/aquantia/aq_hw.h              |  169 ++
- drivers/net/ethernet/aquantia/aq_hw_utils.c        |   68 +
- drivers/net/ethernet/aquantia/aq_hw_utils.h        |   47 +
- drivers/net/ethernet/aquantia/aq_main.c            |  291 +++
- drivers/net/ethernet/aquantia/aq_main.h            |   17 +
- drivers/net/ethernet/aquantia/aq_nic.c             |  910 ++++++++
- drivers/net/ethernet/aquantia/aq_nic.h             |  108 +
- drivers/net/ethernet/aquantia/aq_nic_internal.h    |   46 +
- drivers/net/ethernet/aquantia/aq_pci_func.c        |  347 +++
- drivers/net/ethernet/aquantia/aq_pci_func.h        |   34 +
- drivers/net/ethernet/aquantia/aq_ring.c            |  358 +++
- drivers/net/ethernet/aquantia/aq_ring.h            |  157 ++
- drivers/net/ethernet/aquantia/aq_rss.h             |   26 +
- drivers/net/ethernet/aquantia/aq_utils.h           |   53 +
- drivers/net/ethernet/aquantia/aq_vec.c             |  385 ++++
- drivers/net/ethernet/aquantia/aq_vec.h             |   42 +
- drivers/net/ethernet/aquantia/hw_atl/hw_atl_a0.c   |  907 ++++++++
- drivers/net/ethernet/aquantia/hw_atl/hw_atl_a0.h   |   34 +
- .../ethernet/aquantia/hw_atl/hw_atl_a0_internal.h  |  152 ++
- drivers/net/ethernet/aquantia/hw_atl/hw_atl_b0.c   |  960 ++++++++
- drivers/net/ethernet/aquantia/hw_atl/hw_atl_b0.h   |   34 +
- .../ethernet/aquantia/hw_atl/hw_atl_b0_internal.h  |  205 ++
- drivers/net/ethernet/aquantia/hw_atl/hw_atl_llh.c  | 1394 ++++++++++++
- drivers/net/ethernet/aquantia/hw_atl/hw_atl_llh.h  |  677 ++++++
- .../ethernet/aquantia/hw_atl/hw_atl_llh_internal.h | 2375 ++++++++++++++++++++
- .../net/ethernet/aquantia/hw_atl/hw_atl_utils.c    |  547 +++++
- .../net/ethernet/aquantia/hw_atl/hw_atl_utils.h    |  210 ++
- drivers/net/ethernet/aquantia/ver.h                |   18 +
- 36 files changed, 11008 insertions(+)
- create mode 100644 drivers/net/ethernet/aquantia/Kconfig
- create mode 100644 drivers/net/ethernet/aquantia/Makefile
- create mode 100644 drivers/net/ethernet/aquantia/aq_cfg.h
- create mode 100644 drivers/net/ethernet/aquantia/aq_common.h
- create mode 100644 drivers/net/ethernet/aquantia/aq_ethtool.c
- create mode 100644 drivers/net/ethernet/aquantia/aq_ethtool.h
- create mode 100644 drivers/net/ethernet/aquantia/aq_hw.h
- create mode 100644 drivers/net/ethernet/aquantia/aq_hw_utils.c
- create mode 100644 drivers/net/ethernet/aquantia/aq_hw_utils.h
- create mode 100644 drivers/net/ethernet/aquantia/aq_main.c
- create mode 100644 drivers/net/ethernet/aquantia/aq_main.h
- create mode 100644 drivers/net/ethernet/aquantia/aq_nic.c
- create mode 100644 drivers/net/ethernet/aquantia/aq_nic.h
- create mode 100644 drivers/net/ethernet/aquantia/aq_nic_internal.h
- create mode 100644 drivers/net/ethernet/aquantia/aq_pci_func.c
- create mode 100644 drivers/net/ethernet/aquantia/aq_pci_func.h
- create mode 100644 drivers/net/ethernet/aquantia/aq_ring.c
- create mode 100644 drivers/net/ethernet/aquantia/aq_ring.h
- create mode 100644 drivers/net/ethernet/aquantia/aq_rss.h
- create mode 100644 drivers/net/ethernet/aquantia/aq_utils.h
- create mode 100644 drivers/net/ethernet/aquantia/aq_vec.c
- create mode 100644 drivers/net/ethernet/aquantia/aq_vec.h
- create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_a0.c
- create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_a0.h
- create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_a0_internal.h
- create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_b0.c
- create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_b0.h
- create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_b0_internal.h
- create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_llh.c
- create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_llh.h
- create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_llh_internal.h
- create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_utils.c
- create mode 100644 drivers/net/ethernet/aquantia/hw_atl/hw_atl_utils.h
- create mode 100644 drivers/net/ethernet/aquantia/ver.h
-
+diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
+index 8cc7467..d467c8b 100644
+--- a/drivers/net/ethernet/Kconfig
++++ b/drivers/net/ethernet/Kconfig
+@@ -28,6 +28,7 @@ source "drivers/net/ethernet/amazon/Kconfig"
+ source "drivers/net/ethernet/amd/Kconfig"
+ source "drivers/net/ethernet/apm/Kconfig"
+ source "drivers/net/ethernet/apple/Kconfig"
++source "drivers/net/ethernet/aquantia/Kconfig"
+ source "drivers/net/ethernet/arc/Kconfig"
+ source "drivers/net/ethernet/atheros/Kconfig"
+ source "drivers/net/ethernet/aurora/Kconfig"
+diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
+index a09423d..123ef8e 100644
+--- a/drivers/net/ethernet/Makefile
++++ b/drivers/net/ethernet/Makefile
+@@ -14,6 +14,7 @@ obj-$(CONFIG_NET_VENDOR_AMAZON) += amazon/
+ obj-$(CONFIG_NET_VENDOR_AMD) += amd/
+ obj-$(CONFIG_NET_XGENE) += apm/
+ obj-$(CONFIG_NET_VENDOR_APPLE) += apple/
++obj-$(CONFIG_NET_VENDOR_AQUANTIA) += aquantia/
+ obj-$(CONFIG_NET_VENDOR_ARC) += arc/
+ obj-$(CONFIG_NET_VENDOR_ATHEROS) += atheros/
+ obj-$(CONFIG_NET_VENDOR_AURORA) += aurora/
 -- 
 2.7.4
