@@ -1,54 +1,55 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [Patch net] atm: remove an unnecessary loop
-Date: Fri, 13 Jan 2017 14:23:46 +0100
-Message-ID: <20170113132346.GA19220@electric-eye.fr.zoreil.com>
-References: <CAM_iQpX2TipBW2Pm-OHRobfZaVoV9_D8Se8u9oKryt96SZFRkA@mail.gmail.com>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH] flow disector: check if arp_eth is null rather than arp
+Date: Fri, 13 Jan 2017 13:34:28 +0000
+Message-ID: <20170113133428.20130-1-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, mhocko@kernel.org, 3chas3@gmail.com,
-        andreyknvl@google.com
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org
+To: "David S . Miller" <davem@davemloft.net>,
+        Alexander Duyck <aduyck@mirantis.com>,
+        Jiri Pirko <jiri@mellanox.com>,
+        Tom Herbert <tom@herbertland.com>,
+        Eric Dumazet <edumazet@google.com>,
+        Simon Horman <simon.horman@netronome.com>,
+        Hadar Hen Zion <hadarh@mellanox.com>,
+        Gao Feng <fgao@ikuai8.com>, Amir Vadai <amir@vadai.me>,
+        netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:40432 "EHLO
-        violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751602AbdAMNXv (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 08:23:51 -0500
-Content-Disposition: inline
-In-Reply-To: <CAM_iQpX2TipBW2Pm-OHRobfZaVoV9_D8Se8u9oKryt96SZFRkA@mail.gmail.com>
+Received: from youngberry.canonical.com ([91.189.89.112]:54560 "EHLO
+        youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751444AbdAMNfo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 08:35:44 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cong Wang <xiyou.wangcong@gmail.com> :
-[...]
-> alloc_skb(GFP_KERNEL) itself is sleeping, so the new wait api is still
-> needed.
+From: Colin Ian King <colin.king@canonical.com>
 
-The task state change warning is the symptom.
+arp is being checked instead of arp_eth to see if the call to
+__skb_header_pointer failed. Fix this by checking arp_eth is
+null instead of arp.
 
-The deeply nested alloc_skb is the problem.
+CoverityScan CID#1396428 ("Logically dead code") on 2nd
+arp comparison (which should be arp_eth instead).
 
-Diagnosis: nesting is wrong. It makes zero sense. Fix it and the
-implicit task state change problem automagically goes away.
+Fixes: commit 55733350e5e8b70c5 ("flow disector: ARP support")
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ net/core/flow_dissector.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-alloc_skb() does not need to be in the "while" loop.
-
-alloc_skb() does not need to be in the {prepare_to_wait/add_wait_queue ...
-finish_wait/remove_wait_queue} block.
-
-alloc_tx() is not correctly named: given its original content, it deserves
-to be called something like:
-
-"wait_for_decent_tx_drain_and_alloc_by_hand_coz_i_dont_trust_the_mm_subsystem_and_i_dont_know_what_i_want"
-
-I claim that:
-- alloc_tx() should only perform the "wait_for_decent_tx_drain" part
-- alloc_skb() ought to be done directly in vcc_sendmsg
-- alloc_skb() failure can be handled gracefully in vcc_sendmsg
-- alloc_skb() may use a (m->msg_flags & MSG_DONTWAIT) dependant
-  GFP_{KERNEL / ATOMIC} flag
-- most of it can be done in a longterm maintenance pain minimizing
-  way. Call it a side-effect: I don't claim that it *must* be done
-  this way.
-
+diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+index e3dffc7..fec48e9 100644
+--- a/net/core/flow_dissector.c
++++ b/net/core/flow_dissector.c
+@@ -409,7 +409,7 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
+ 					       sizeof(_arp_eth), data,
+ 					       hlen - sizeof(_arp),
+ 					       &_arp_eth);
+-		if (!arp)
++		if (!arp_eth)
+ 			goto out_bad;
+ 
+ 		if (dissector_uses_key(flow_dissector,
 -- 
-Ueimor
+2.10.2
