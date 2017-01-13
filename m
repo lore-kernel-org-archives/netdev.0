@@ -1,64 +1,50 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH net] mlx4: do not call napi_schedule() without care
-Date: Fri, 13 Jan 2017 15:07:31 -0800
-Message-ID: <CAKgT0UdgzU1BAjiKyMFeB+KOJbDSdbBS6KdHX2LZ_pWT3XiXjg@mail.gmail.com>
-References: <1484325564.13165.30.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>
+Subject: Re: [pull request][for-next] Mellanox mlx5 Reorganize core driver
+ directory layout
+Date: Fri, 13 Jan 2017 15:07:51 -0800
+Message-ID: <CALx6S34zw7S+8rB9nuBtbzZ6JkcVreHTwJZrXftHdfmKLF3knQ@mail.gmail.com>
+References: <1484241755-17603-1-git-send-email-saeedm@mellanox.com>
+ <20170113.121407.448230751444957957.davem@davemloft.net> <20170113202932.GS20392@mtr-leonro.local>
+ <CALx6S37hb78RJ8tCtsCsX2fg6e-D+naNpSQo6T2AyWMd0U74sQ@mail.gmail.com>
+ <CALzJLG_RsvgszVxGZ7+VgYjET9w=XTjq36Z72diOQFNJWz9tQw@mail.gmail.com>
+ <CALx6S35cSnMoBtxi+Eb_mH=LCLy9yY6U5sxofndce9r0eCs8+w@mail.gmail.com> <10e998b7-0008-2f26-2874-57ec61c8cacb@hpe.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Erez Shitrit <erezsh@mellanox.com>,
-        Eugenia Emantayev <eugenia@mellanox.com>,
-        Tariq Toukan <tariqt@mellanox.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f66.google.com ([209.85.214.66]:35261 "EHLO
-        mail-it0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751537AbdAMXHc (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 18:07:32 -0500
-Received: by mail-it0-f66.google.com with SMTP id 203so6567271ith.2
-        for <netdev@vger.kernel.org>; Fri, 13 Jan 2017 15:07:32 -0800 (PST)
-In-Reply-To: <1484325564.13165.30.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Saeed Mahameed <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
+        Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Rick Jones <rick.jones2-ZPxbGqLxI0U@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <10e998b7-0008-2f26-2874-57ec61c8cacb-ZPxbGqLxI0U@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 13, 2017 at 8:39 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> From: Eric Dumazet <edumazet@google.com>
+On Fri, Jan 13, 2017 at 2:59 PM, Rick Jones <rick.jones2-ZPxbGqLxI0U@public.gmane.org> wrote:
+> On 01/13/2017 02:56 PM, Tom Herbert wrote:
+>>
+>> On Fri, Jan 13, 2017 at 2:45 PM, Saeed Mahameed
+>>>
+>>> what configuration are you running ? what traffic ?
+>>>
+>> Nothing fancy. 8 queues and 20 concurrent netperf TCP_STREAMs trips
+>> it. Not a lot of them, but I don't think we really should ever see
+>> these errors.
 >
-> Disable BH around the call to napi_schedule() to avoid following warning
 >
-> [   52.095499] NOHZ: local_softirq_pending 08
-> [   52.421291] NOHZ: local_softirq_pending 08
-> [   52.608313] NOHZ: local_softirq_pending 08
+> Straight-up defaults with netperf, or do you use specific -s/S or -m/M
+> options?
 >
-> Fixes: 8d59de8f7bb3 ("net/mlx4_en: Process all completions in RX rings after port goes up")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Erez Shitrit <erezsh@mellanox.com>
-> Cc: Eugenia Emantayev <eugenia@mellanox.com>
-> Cc: Tariq Toukan <tariqt@mellanox.com>
-> ---
->  drivers/net/ethernet/mellanox/mlx4/en_netdev.c |    5 ++++-
->  1 file changed, 4 insertions(+), 1 deletion(-)
->
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-> index 4910d9af19335d4b97d39760c163b41eecc26242..761f8b12399cab245abccc0f7d7f84fde742c14d 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-> @@ -1748,8 +1748,11 @@ int mlx4_en_start_port(struct net_device *dev)
->         /* Process all completions if exist to prevent
->          * the queues freezing if they are full
->          */
-> -       for (i = 0; i < priv->rx_ring_num; i++)
-> +       for (i = 0; i < priv->rx_ring_num; i++) {
-> +               local_bh_disable();
->                 napi_schedule(&priv->rx_cq[i]->napi);
-> +               local_bh_enable();
-> +       }
+./super_netperf_tput 20 -H test001 -l 100 -t TCP_STREAM
 
-Couldn't you save yourself a ton of trouble by wrapping the loop
-inside of the local_bh_disable/enable instead of wrapping them up
-inside the loop?  It just seems like it might be more efficient to
-schedule them and then process them as a block instead of doing it one
-at a time.
-
-- Alex
+> happy benchmarking,
+>
+> rick jones
+>
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
