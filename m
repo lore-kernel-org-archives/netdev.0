@@ -1,57 +1,52 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next v2 00/10] net: dsa: Support for pdata in dsa2
-Date: Thu, 12 Jan 2017 21:34:59 -0500
-Message-ID: <87fuknpu0c.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
-References: <20170112034121.27697-1-f.fainelli@gmail.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: [net PATCH v3 0/5] virtio_net XDP fixes and adjust_header support
+Date: Thu, 12 Jan 2017 18:50:11 -0800
+Message-ID: <20170113024908.4535.8835.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        Jason Cooper <jason@lakedaemon.net>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-        Gregory Clement <gregory.clement@free-electrons.com>,
-        Russell King <linux@armlinux.org.uk>,
-        "David S. Miller" <davem@davemloft.net>,
-        "moderated list\:ARM SUB-ARCHITECTURES"
-        <linux-arm-kernel@lists.infradead.org>,
-        open list <linux-kernel@vger.kernel.org>,
-        gregkh@linuxfoundation.org
-To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170112034121.27697-1-f.fainelli@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org,
+        john.fastabend@gmail.com, alexei.starovoitov@gmail.com,
+        daniel@iogearbox.net
+To: jasowang@redhat.com, mst@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:36807 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750877AbdAMCub (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 21:50:31 -0500
+Received: by mail-pf0-f194.google.com with SMTP id b22so6029523pfd.3
+        for <netdev@vger.kernel.org>; Thu, 12 Jan 2017 18:50:31 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Florian,
+This has a fix to handle small buffer free logic correctly and then
+also adds adjust head support.
 
-Florian Fainelli <f.fainelli@gmail.com> writes:
+I pushed adjust head at net (even though its rc3) to avoid having
+to push another exception case into virtio_net to catch if the
+program uses adjust_head and then block it. If there are any strong
+objections to this we can push it at net-next and use a patch from
+Jakub to add the exception handling but then user space has to deal
+with it either via try/fail logic or via kernel version checks. Granted
+we already have some cases that need to be configured to enable XDP
+but I don't see any reason to have yet another one when we can fix it
+now vs delaying a kernel version.
 
-> Hi all,
->
-> This is not exactly new, and was sent before, although back then, I did not
-> have an user of the pre-declared MDIO board information, but now we do. Note
-> that I have additional changes queued up to have b53 register platform data for
-> MIPS bcm47xx and bcm63xx.
->
-> Yes I know that we should have the Orion platforms eventually be converted to
-> Device Tree, but until that happens, I don't want any remaining users of the
-> old "dsa" platform device (hence the previous DTS submissions for ARM/mvebu)
-> and, there will be platforms out there that most likely won't never see DT
-> coming their way (BCM47xx is almost 100% sure, BCM63xx maybe not in a distant
-> future).
->
-> We would probably want the whole series to be merged via David Miller's tree
-> to simplify things.
->
-> Greg, can you Ack/Nack patch 5 since it touched the core LDD?
->
-> Thanks!
 
-I've tested this patchset on my mv88e6xxx (DTS) boards to make sure
-nothing was broken, since it touches the driver. Looks good!
+v2: fix spelling error, convert unsigned -> unsigned int
+v3: v2 git crashed during send so retrying sorry for the noise
 
-Tested-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
 
-Thanks,
+John Fastabend (5):
+      virtio_net: use dev_kfree_skb for small buffer XDP receive
+      net: virtio: wrap rtnl_lock in test for calling with lock already held
+      virtio_net: factor out xdp handler for readability
+      virtio_net: remove duplicate queue pair binding in XDP
+      virtio_net: XDP support for adjust_head
 
-        Vivien
+
+ drivers/net/virtio_net.c |  251 ++++++++++++++++++++++++++++++++--------------
+ drivers/virtio/virtio.c  |    9 +-
+ include/linux/virtio.h   |    3 +
+ 3 files changed, 183 insertions(+), 80 deletions(-)
