@@ -1,56 +1,68 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH][V2] flow dissector: check if arp_eth is null rather than arp
-Date: Fri, 13 Jan 2017 18:48:20 +0000
-Message-ID: <20170113184820.823-1-colin.king@canonical.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next] mii_bus: increase MII_BUS_ID_SIZE to 61
+Date: Fri, 13 Jan 2017 10:59:50 -0800
+Message-ID: <d0fd8c35-4100-3c63-ab89-85a7f5521b88@gmail.com>
+References: <1484320752-32096-1-git-send-email-volodymyr.bendiuga@gmail.com>
+ <20170113163108.GN10203@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org
-To: "David S . Miller" <davem@davemloft.net>,
-        Alexander Duyck <aduyck@mirantis.com>,
-        Jiri Pirko <jiri@mellanox.com>,
-        Tom Herbert <tom@herbertland.com>,
-        Eric Dumazet <edumazet@google.com>,
-        Hadar Hen Zion <hadarh@mellanox.com>,
-        Simon Horman <simon.horman@netronome.com>,
-        Gao Feng <fgao@ikuai8.com>, Amir Vadai <amir@vadai.me>,
-        netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, volodymyr.bendiuga@westermo.se,
+        =?UTF-8?Q?Magnus_=c3=96berg?= <magnus.oberg@westermo.se>
+To: Andrew Lunn <andrew@lunn.ch>,
+        Volodymyr Bendiuga <volodymyr.bendiuga@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:35450 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750835AbdAMS7x (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 13:59:53 -0500
+Received: by mail-pf0-f195.google.com with SMTP id f144so9469050pfa.2
+        for <netdev@vger.kernel.org>; Fri, 13 Jan 2017 10:59:52 -0800 (PST)
+In-Reply-To: <20170113163108.GN10203@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king@canonical.com>
+On 01/13/2017 08:31 AM, Andrew Lunn wrote:
+> On Fri, Jan 13, 2017 at 04:19:12PM +0100, Volodymyr Bendiuga wrote:
+>> From: Volodymyr Bendiuga <volodymyr.bendiuga@westermo.se>
+>>
+>> Some bus names are pretty long and do not fit into 20 chars.
+>>
+>> Signed-off-by: Volodymyr Bendiuga <volodymyr.bendiuga@westermo.se>
+>> Signed-off-by: Magnus Öberg <magnus.oberg@westermo.se>
+>> ---
+>>  include/linux/phy.h | 2 +-
+>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>>
+>> diff --git a/include/linux/phy.h b/include/linux/phy.h
+>> index feb8a98..b67f94d 100644
+>> --- a/include/linux/phy.h
+>> +++ b/include/linux/phy.h
+>> @@ -162,7 +162,7 @@ static inline const char *phy_modes(phy_interface_t interface)
+>>   * Need to be a little smaller than phydev->dev.bus_id to leave room
+>>   * for the ":%02x"
+>>   */
+>> -#define MII_BUS_ID_SIZE	(20 - 3)
+>> +#define MII_BUS_ID_SIZE	(64 - 3)
+> 
+> Hi Volodymyr
+> 
+> Humm, i assume you looked at the comment? What is the size of phydev->dev.bus_id?
+> Is 61 still a little smaller?
 
-arp is being checked instead of arp_eth to see if the call to
-__skb_header_pointer failed. Fix this by checking arp_eth is
-null instead of arp.   Also fix to use length hlen rather than
-hlen - sizeof(_arp); thanks to Eric Dumazet for spotting
-this latter issue.
+Also it seems like you missed this one:
 
-CoverityScan CID#1396428 ("Logically dead code") on 2nd
-arp comparison (which should be arp_eth instead).
+/* A Structure for boards to register fixups with the PHY Lib */
+struct phy_fixup {
+        struct list_head list;
+        char bus_id[20];
+	^================
+        u32 phy_uid;
+        u32 phy_uid_mask;
+        int (*run)(struct phy_device *phydev);
+};
 
-Fixes: commit 55733350e5e8b70c5 ("flow disector: ARP support")
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- net/core/flow_dissector.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index e3dffc7..c35aae1 100644
---- a/net/core/flow_dissector.c
-+++ b/net/core/flow_dissector.c
-@@ -407,9 +407,9 @@ bool __skb_flow_dissect(const struct sk_buff *skb,
- 
- 		arp_eth = __skb_header_pointer(skb, nhoff + sizeof(_arp),
- 					       sizeof(_arp_eth), data,
--					       hlen - sizeof(_arp),
-+					       hlen,
- 					       &_arp_eth);
--		if (!arp)
-+		if (!arp_eth)
- 			goto out_bad;
- 
- 		if (dissector_uses_key(flow_dissector,
+Did you really run into naming conflicts where increasing the bus ID
+size became the only solution here?
 -- 
-2.10.2
+Florian
