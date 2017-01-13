@@ -1,43 +1,34 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2/net-next 0/2] net/sched: cls_flower: Support
- matching ARP
-Date: Thu, 12 Jan 2017 17:47:04 -0800
-Message-ID: <20170112174704.79a6f764@xeon-e3>
-References: <1484208719-1581-1-git-send-email-simon.horman@netronome.com>
+From: Benjamin Poirier <bpoirier@suse.com>
+Subject: Re: [PATCH] i40e: Invoke softirqs after napi_reschedule
+Date: Thu, 12 Jan 2017 17:51:00 -0800
+Message-ID: <20170113015100.duhc4tmqnblqzucq@f1.synalogic.ca>
+References: <20170113010414.22708-1-bpoirier@suse.com>
+ <1484270130.13165.15.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Dinan Gunawardena <dinan.gunawardena@netronome.com>,
-        netdev@vger.kernel.org
-To: Simon Horman <simon.horman@netronome.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f178.google.com ([209.85.192.178]:34383 "EHLO
-        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750819AbdAMBrL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 20:47:11 -0500
-Received: by mail-pf0-f178.google.com with SMTP id 127so21861124pfg.1
-        for <netdev@vger.kernel.org>; Thu, 12 Jan 2017 17:47:11 -0800 (PST)
-In-Reply-To: <1484208719-1581-1-git-send-email-simon.horman@netronome.com>
+Received: from mx2.suse.de ([195.135.220.15]:56407 "EHLO mx2.suse.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750819AbdAMBvJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 12 Jan 2017 20:51:09 -0500
+Content-Disposition: inline
+In-Reply-To: <1484270130.13165.15.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 12 Jan 2017 09:11:57 +0100
-Simon Horman <simon.horman@netronome.com> wrote:
+On 2017/01/12 17:15, Eric Dumazet wrote:
+> On Thu, 2017-01-12 at 17:04 -0800, Benjamin Poirier wrote:
+> > The following message is logged from time to time when using i40e:
+> > NOHZ: local_softirq_pending 08
+> > 
+> > i40e may schedule napi from a workqueue. Afterwards, softirqs are not run
+> > in a deterministic time frame. The problem is the same as what was
+> > described in commit ec13ee80145c ("virtio_net: invoke softirqs after
+> > __napi_schedule") and this patch applies the same fix to i40e.
+> 
+> Yes, I believe mlx4 has a similar problem in mlx4_en_recover_from_oom()
 
-> Add support for support matching on ARP operation, and hardware and
-> protocol addresses for Ethernet hardware and IPv4 protocol addresses.
-> 
-> Changes since RFC:
-> * Drop RFC designation; kernel patches are present in net-next
-> 
-> Simon Horman (2):
->   tc: flower: update headers for TCA_FLOWER_KEY_ARP*
->   tc: flower: Support matching ARP
-> 
->  include/linux/pkt_cls.h |  11 +++
->  man/man8/tc-flower.8    |  41 +++++++++-
->  tc/f_flower.c           | 208 ++++++++++++++++++++++++++++++++++++++++++++----
->  3 files changed, 243 insertions(+), 17 deletions(-)
-> 
-
-Applied to net-next
+Indeed, I was going to send a patch for mlx4 after this one is accepted.
