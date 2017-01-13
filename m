@@ -1,50 +1,74 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] xfrm: state: fix potential null pointer dereference on afinfo
-Date: Fri, 13 Jan 2017 14:07:03 +0000
-Message-ID: <20170113140703.20961-1-colin.king@canonical.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next v2 08/10] net: dsa: Add support for platform data
+Date: Fri, 13 Jan 2017 15:11:10 +0100
+Message-ID: <20170113141110.GI10203@lunn.ch>
+References: <20170112034121.27697-1-f.fainelli@gmail.com>
+ <20170112034121.27697-9-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:55024 "EHLO
-        youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750898AbdAMOIK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 09:08:10 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Jason Cooper <jason@lakedaemon.net>,
+        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+        Gregory Clement <gregory.clement@free-electrons.com>,
+        Russell King <linux@armlinux.org.uk>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        "moderated list:ARM SUB-ARCHITECTURES"
+        <linux-arm-kernel@lists.infradead.org>,
+        open list <linux-kernel@vger.kernel.org>,
+        gregkh@linuxfoundation.org
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170112034121.27697-9-f.fainelli@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Colin Ian King <colin.king@canonical.com>
+>  static int _dsa_register_switch(struct dsa_switch *ds, struct device *dev)
+>  {
+> +	struct dsa_chip_data *pdata = dev->platform_data;
+>  	struct device_node *np = dev->of_node;
+>  	struct dsa_switch_tree *dst;
+>  	struct device_node *ports;
+>  	u32 tree, index;
+>  	int i, err;
+>  
+> -	err = dsa_parse_member_dn(np, &tree, &index);
+> -	if (err)
+> -		return err;
+> +	if (np) {
+> +		err = dsa_parse_member_dn(np, &tree, &index);
+> +		if (err)
+> +			return err;
+>  
+> -	ports = dsa_get_ports(ds, np);
+> -	if (IS_ERR(ports))
+> -		return PTR_ERR(ports);
+> +		ports = dsa_get_ports(ds, np);
+> +		if (IS_ERR(ports))
+> +			return PTR_ERR(ports);
+>  
+> -	err = dsa_parse_ports_dn(ports, ds);
+> -	if (err)
+> -		return err;
+> +		err = dsa_parse_ports_dn(ports, ds);
+> +		if (err)
+> +			return err;
+> +	} else {
+> +		err = dsa_parse_member(pdata, &tree, &index);
 
-afinfo is being null checked before a call afinfo->init_tempsel
-so afinfo may be potentially null. ifinfo may still be null in
-the case were it is not updated when family == tmpl->encap_family,
-hence we may hit a null pointer dereference in the call to
-afinfo->init_temprop.
+Hi Florian
 
-Fix this by adding a null ptr check before calling init_temprop.
+Maybe it is hiding, but i don't see anywhere you check that pdata !=
+NULL.
 
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- net/xfrm/xfrm_state.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+At least for x86 platforms, i don't expect we are booting using
+platform data like ARM systems used to do. I think it is more likely a
+glue module will be loaded. It looks up the MDIO bus and appends a
+platform data to an MDIO device. The switch driver then needs to load
+and use the platform data. But if things happen in a different order,
+it could be the switch driver probes before the glue driver, meaning
+pdata is NULL.
 
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index a62097e..5083418 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -656,7 +656,8 @@ xfrm_init_tempstate(struct xfrm_state *x, const struct flowi *fl,
- 		if (!afinfo)
- 			return;
- 	}
--	afinfo->init_temprop(x, tmpl, daddr, saddr);
-+	if (afinfo)
-+		afinfo->init_temprop(x, tmpl, daddr, saddr);
- }
- 
- static struct xfrm_state *__xfrm_state_lookup(struct net *net, u32 mark,
--- 
-2.10.2
+Do we even want to return -EPROBE_DEFERED?
+
+      Andrew
