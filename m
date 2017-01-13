@@ -1,70 +1,79 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH v5 01/13] net: ethernet: aquantia: Make and
- configuration files.
-Date: Thu, 12 Jan 2017 21:59:21 -0800
-Message-ID: <1484287161.3065.27.camel@perches.com>
-References: <cover.1484283610.git.vomlehn@texas.net>
-         <fe1664e502d28bcb6a5689787b8000e6c9288307.1484283610.git.vomlehn@texas.net>
-         <1484283977.3065.24.camel@perches.com>
-         <a1dcfa57-97a1-dc20-6d8d-60cba3be3a56@texas.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "David S . Miller" <davem@davemloft.net>,
-        Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
-        Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>,
-        Pavel Belous <Pavel.Belous@aquantia.com>,
-        Dmitry Bezrukov <Dmitry.Bezrukov@aquantia.com>
-To: David VomLehn <vomlehn@texas.net>,
-        Alexander Loktionov <Alexander.Loktionov@aquantia.com>,
-        netdev@vger.kernel.org
+From: Yuchung Cheng <ycheng@google.com>
+Subject: [net-next 00/13] RACK fast recovery
+Date: Thu, 12 Jan 2017 22:03:41 -0800
+Message-ID: <20170113060354.85234-1-ycheng@google.com>
+Cc: netdev@vger.kernel.org, edumazet@google.com, ncardwell@google.com,
+        nanditad@google.com, Yuchung Cheng <ycheng@google.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0089.hostedemail.com ([216.40.44.89]:57103 "EHLO
-        smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751064AbdAMGAr (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 01:00:47 -0500
-Received: from smtprelay.hostedemail.com (10.5.19.251.rfc1918.com [10.5.19.251])
-        by smtpgrave03.hostedemail.com (Postfix) with ESMTP id B8EEA28FBC7
-        for <netdev@vger.kernel.org>; Fri, 13 Jan 2017 06:00:24 +0000 (UTC)
-In-Reply-To: <a1dcfa57-97a1-dc20-6d8d-60cba3be3a56@texas.net>
+Received: from mail-pf0-f174.google.com ([209.85.192.174]:33901 "EHLO
+        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751077AbdAMGER (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 01:04:17 -0500
+Received: by mail-pf0-f174.google.com with SMTP id 127so25539840pfg.1
+        for <netdev@vger.kernel.org>; Thu, 12 Jan 2017 22:04:17 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2017-01-12 at 21:24 -0800, David VomLehn wrote:
-> On 01/12/2017 09:06 PM, Joe Perches wrote:
-> > On Thu, 2017-01-12 at 21:02 -0800, Alexander Loktionov wrote:
-> > > From: David VomLehn <vomlehn@texas.net>
-> > > 
-> > > Patches to create the make and configuration files.
-> > 
-> > This patch should _really_ be the last in the series
-> > not the first.
-> > 
-> 
-> Could you explain the basis for this? By convention, we put tables of 
-> content at the beginning of books and only indices at the back. 
-> Analogously, make and config files can be used to established the 
-> context for what follows, making it easier to understand. Once 
-> committed, of course, the order no longer matters except as bisection is 
-> concerned.
+The patch set enables RACK loss detection (draft-ietf-tcpm-rack-01)
+to trigger fast recovery with a reordering timer.
 
-As I wrote the first time:
+Previously RACK has been running in auxiliary mode where it is
+used to detect packet losses once the recovery has triggered by
+other algorithms (e.g., FACK). By inspecting packet timestamps,
+RACK can start ACK-driven repairs timely. A few similar heuristics
+are no longer needed and are either removed or disabled to reduce
+the complexity of the Linux TCP loss recovery engine:
 
-On Tue, 2016-12-27 at 08:15 -0800, Joe Perches wrote:
-> On Tue, 2016-12-27 at 05:17 -0800, David VomLehn wrote:
-> > Patches to create the make and configuration files.
-[]
-> Patch 1 will not build if CONFIG_AQTION is enabled.
-> Patch 1/12 should be reordered to be patch 12/12 and
-> all the other patches moved up appropriately. 
+  1. FACK (Forward Acknowledgement)
+  2. Early Retransmit (RFC5827)
+  3. thin_dupack (fast recovery on single DUPACK for thin-streams)
+  4. NCR (Non-Congestion Robustness RFC4653) (RFC4653)
+  5. Forward Retransmit
 
-You don't create the files until later patches.
+After this change, Linux's loss recovery algorithms consist of
+  1. Conventional DUPACK threshold approach (RFC6675)
+  2. RACK and Tail Loss Probe (draft-ietf-tcpm-rack-01)
+  3. RTO plus F-RTO extension (RFC5682)
 
-If you applied just this first patch and tried to
-add CONFIG_AQTION=y to the .config, make fails.
+The patch set has been tested on Google servers extensively and
+presented in several IETF meetings. The data suggests that RACK
+successfully improves recovery performance:
+https://www.ietf.org/proceedings/97/slides/slides-97-tcpm-draft-ietf-tcpm-rack-01.pdf
+https://www.ietf.org/proceedings/96/slides/slides-96-tcpm-3.pdf
 
-That's bad for git bisect.
-Every patch in this series should build properly.
 
-If you delay the adding of the Makefile and Kconfig
-until all the files are added, then it'd bisect fine.
+Yuchung Cheng (13):
+  tcp: new helper function for RACK loss detection
+  tcp: new helper for RACK to detect loss
+  tcp: record most recent RTT in RACK loss detection
+  tcp: add reordering timer in RACK loss detection
+  tcp: use sequence to break TS ties for RACK loss detection
+  tcp: check undo conditions before detecting losses
+  tcp: enable RACK loss detection to trigger recovery
+  tcp: extend F-RTO to catch more spurious timeouts
+  tcp: remove forward retransmit feature
+  tcp: remove early retransmit
+  tcp: remove RFC4653 NCR
+  tcp: remove thin_dupack feature
+  tcp: disable fack by default
+
+ Documentation/networking/ip-sysctl.txt |  31 +----
+ include/linux/tcp.h                    |   8 +-
+ include/net/inet_connection_sock.h     |   4 +-
+ include/net/tcp.h                      |  40 ++----
+ net/ipv4/inet_diag.c                   |   2 +-
+ net/ipv4/sysctl_net_ipv4.c             |   7 --
+ net/ipv4/tcp.c                         |   9 +-
+ net/ipv4/tcp_input.c                   | 224 +++++++++++++--------------------
+ net/ipv4/tcp_ipv4.c                    |   2 +-
+ net/ipv4/tcp_metrics.c                 |   1 -
+ net/ipv4/tcp_minisocks.c               |   1 -
+ net/ipv4/tcp_output.c                  |  75 ++---------
+ net/ipv4/tcp_recovery.c                | 148 ++++++++++++++++------
+ net/ipv4/tcp_timer.c                   |   4 +-
+ net/ipv6/tcp_ipv6.c                    |   2 +-
+ 15 files changed, 237 insertions(+), 321 deletions(-)
+
+-- 
+2.11.0.483.g087da7b7c-goog
