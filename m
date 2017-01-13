@@ -1,64 +1,70 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: Commit 1fe8e0... (include more headers in if_tunnel.h) breaks
- my user-space build.
-Date: Fri, 13 Jan 2017 11:41:58 -0800
-Message-ID: <20170113114158.6e5c3461@xeon-e3>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: Commit 1fe8e0... (include more headers in if_tunnel.h) breaks my
+ user-space build.
+Date: Fri, 13 Jan 2017 11:50:32 -0800
+Message-ID: <6c983e7e-dbb3-3542-ffed-95f4d2f3c5bc@candelatech.com>
 References: <f1cede01-3fa4-130a-fa2d-7cbdfe3648b3@candelatech.com>
+ <20170113114158.6e5c3461@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 8bit
 Cc: netdev <netdev@vger.kernel.org>, mikko.rapeli@iki.fi
-To: Ben Greear <greearb@candelatech.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f178.google.com ([209.85.192.178]:34277 "EHLO
-        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751045AbdAMTmI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 14:42:08 -0500
-Received: by mail-pf0-f178.google.com with SMTP id 127so35208149pfg.1
-        for <netdev@vger.kernel.org>; Fri, 13 Jan 2017 11:42:07 -0800 (PST)
-In-Reply-To: <f1cede01-3fa4-130a-fa2d-7cbdfe3648b3@candelatech.com>
+Received: from mail2.candelatech.com ([208.74.158.173]:54292 "EHLO
+        mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750923AbdAMTud (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 14:50:33 -0500
+In-Reply-To: <20170113114158.6e5c3461@xeon-e3>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 13 Jan 2017 11:12:32 -0800
-Ben Greear <greearb@candelatech.com> wrote:
+On 01/13/2017 11:41 AM, Stephen Hemminger wrote:
+> On Fri, 13 Jan 2017 11:12:32 -0800
+> Ben Greear <greearb@candelatech.com> wrote:
+>
+>> I am including netinet/ip.h, and also linux/if_tunnel.h, and the linux/ip.h conflicts with
+>> netinet/ip.h.
+>>
+>> Maybe my build environment is screwed up, but maybe also it would be better to
+>> just let the user include appropriate headers before including if_tunnel.h
+>> and revert this patch?
+>>
+>>
+>> include/uapi/linux/if_tunnel.h: include linux/if.h, linux/ip.h and linux/in6.h
+>>
+>>      Fixes userspace compilation errors like:
+>>
+>>      error: field ‘iph’ has incomplete type
+>>      error: field ‘prefix’ has incomplete type
+>>
+>>      Signed-off-by: Mikko Rapeli <mikko.rapeli@iki.fi>
+>>      Signed-off-by: David S. Miller <davem@davemloft.net>
+>>
+>> Thanks,
+>> Ben
+>>
+>
+> What I ended up doing for iproute2 was including all headers used by the source
+> based on sanitized kernel headers.  Basically
+>   $ git grep '^#include <linux/' | \
+> 	awk -F: '{print $2}' | \
+> 	sed -e 's/^#include <//' -e 's/>.*$//' | \
+> 	sort -u >linux.headers
+>    $ for f in $(cat linux.headers)
+>      do cp ~/kernel/net-next/usr/include/$f include/$f
+>      done
+>
+> You can't take only some of the headers, once you decide to diverge from glibc provided
+> headers, you got to take them all.
+>
 
-> I am including netinet/ip.h, and also linux/if_tunnel.h, and the linux/ip=
-.h conflicts with
-> netinet/ip.h.
->=20
-> Maybe my build environment is screwed up, but maybe also it would be bett=
-er to
-> just let the user include appropriate headers before including if_tunnel.h
-> and revert this patch?
->=20
->=20
-> include/uapi/linux/if_tunnel.h: include linux/if.h, linux/ip.h and linux/=
-in6.h
->=20
->      Fixes userspace compilation errors like:
->=20
->      error: field =E2=80=98iph=E2=80=99 has incomplete type
->      error: field =E2=80=98prefix=E2=80=99 has incomplete type
->=20
->      Signed-off-by: Mikko Rapeli <mikko.rapeli@iki.fi>
->      Signed-off-by: David S. Miller <davem@davemloft.net>
->=20
-> Thanks,
-> Ben
->=20
+I do grab a copy of the linux kernel headers and compile against that, but netinet/ip.h is
+coming from the OS.  Do you mean I should not include netinet/ip.h and instead use linux/ip.h?
 
-What I ended up doing for iproute2 was including all headers used by the so=
-urce
-based on sanitized kernel headers.  Basically
-  $ git grep '^#include <linux/' | \
-	awk -F: '{print $2}' | \
-	sed -e 's/^#include <//' -e 's/>.*$//' | \
-	sort -u >linux.headers
-   $ for f in $(cat linux.headers)
-     do cp ~/kernel/net-next/usr/include/$f include/$f
-     done
+Thanks,
+Ben
 
-You can't take only some of the headers, once you decide to diverge from gl=
-ibc provided
-headers, you got to take them all.
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
