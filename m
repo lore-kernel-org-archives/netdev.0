@@ -1,87 +1,32 @@
-From: "Dilger, Andreas" <andreas.dilger@intel.com>
-Subject: Re: [PATCH 5/6] treewide: use kv[mz]alloc* rather than opencoded
- variants
-Date: Fri, 13 Jan 2017 01:11:51 +0000
-Message-ID: <0B164192-F549-4D5E-BB07-B51886D936B0@intel.com>
-References: <20170112153717.28943-1-mhocko@kernel.org>
- <20170112153717.28943-6-mhocko@kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] i40e: Invoke softirqs after napi_reschedule
+Date: Thu, 12 Jan 2017 17:15:30 -0800
+Message-ID: <1484270130.13165.15.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170113010414.22708-1-bpoirier@suse.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: Andrew Morton <akpm@linux-foundation.org>, Vlastimil Babka
-	<vbabka@suse.cz>, David Rientjes <rientjes@google.com>, Mel Gorman
-	<mgorman@suse.de>, Johannes Weiner <hannes@cmpxchg.org>, Al Viro
-	<viro@zeniv.linux.org.uk>, "linux-mm@kvack.org" <linux-mm@kvack.org>, LKML
-	<linux-kernel@vger.kernel.org>, Michal Hocko <mhocko@suse.com>, "Martin
- Schwidefsky" <schwidefsky@de.ibm.com>, Heiko Carstens
-	<heiko.carstens@de.ibm.com>, Herbert Xu <herbert@gondor.apana.org.au>, Anton
- Vorontsov <anton@enomsg.org>, Colin Cross <ccross@android.com>, "Kees Cook"
-	<keescook@chromium.org>, "Luck, Tony" <tony.luck@intel.com>, "Rafael J.
- Wysocki" <rjw@rjwysocki.net>, Ben Skeggs <bskeggs@redhat.com>, "Kent
- Overstreet" <kent.overstreet@gmail.com>, Santosh Raspatur
-	<santosh@chelsio.com>, Hariprasad S <hariprasad@chelsio.com>, Tariq Toukan
-	<tariqt@mellanox.com>, Yishai Hadas <yishaih@mellanox.com>, "Will
-To: Michal Hocko <mhocko@kernel.org>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20170112153717.28943-6-mhocko@kernel.org>
-Content-Language: en-US
-Content-ID: <FCAE4B7494D2EB4C9A20DA989F97BADD@intel.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
+To: Benjamin Poirier <bpoirier@suse.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:33176 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750874AbdAMBPd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 20:15:33 -0500
+Received: by mail-pf0-f193.google.com with SMTP id 127so5699736pfg.0
+        for <netdev@vger.kernel.org>; Thu, 12 Jan 2017 17:15:32 -0800 (PST)
+In-Reply-To: <20170113010414.22708-1-bpoirier@suse.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Thu, 2017-01-12 at 17:04 -0800, Benjamin Poirier wrote:
+> The following message is logged from time to time when using i40e:
+> NOHZ: local_softirq_pending 08
+> 
+> i40e may schedule napi from a workqueue. Afterwards, softirqs are not run
+> in a deterministic time frame. The problem is the same as what was
+> described in commit ec13ee80145c ("virtio_net: invoke softirqs after
+> __napi_schedule") and this patch applies the same fix to i40e.
 
-> On Jan 12, 2017, at 08:37, Michal Hocko <mhocko@kernel.org> wrote:
->=20
-> From: Michal Hocko <mhocko@suse.com>
->=20
-> There are many code paths opencoding kvmalloc. Let's use the helper
-> instead. The main difference to kvmalloc is that those users are usually
-> not considering all the aspects of the memory allocator. E.g. allocation
-> requests < 64kB are basically never failing and invoke OOM killer to
-> satisfy the allocation. This sounds too disruptive for something that
-> has a reasonable fallback - the vmalloc. On the other hand those
-> requests might fallback to vmalloc even when the memory allocator would
-> succeed after several more reclaim/compaction attempts previously. There
-> is no guarantee something like that happens though.
->=20
-> This patch converts many of those places to kv[mz]alloc* helpers because
-> they are more conservative.
->=20
-> Signed-off-by: Michal Hocko <mhocko@suse.com>
-
-Lustre part can be
-Acked-by: Andreas Dilger <andreas.dilger@intel.com>
-
-[snip]
-
-> diff --git a/drivers/staging/lustre/lnet/libcfs/linux/linux-mem.c b/drive=
-rs/staging/lustre/lnet/libcfs/linux/linux-mem.c
-> index a6a76a681ea9..8f638267e704 100644
-> --- a/drivers/staging/lustre/lnet/libcfs/linux/linux-mem.c
-> +++ b/drivers/staging/lustre/lnet/libcfs/linux/linux-mem.c
-> @@ -45,15 +45,6 @@ EXPORT_SYMBOL(libcfs_kvzalloc);
-> void *libcfs_kvzalloc_cpt(struct cfs_cpt_table *cptab, int cpt, size_t si=
-ze,
-> 			  gfp_t flags)
-> {
-> -	void *ret;
-> -
-> -	ret =3D kzalloc_node(size, flags | __GFP_NOWARN,
-> -			   cfs_cpt_spread_node(cptab, cpt));
-> -	if (!ret) {
-> -		WARN_ON(!(flags & (__GFP_FS | __GFP_HIGH)));
-> -		ret =3D vmalloc_node(size, cfs_cpt_spread_node(cptab, cpt));
-> -	}
-> -
-> -	return ret;
-> +	return kvzalloc_node(size, flags, cfs_cpt_spread_node(cptab, cpt));
-> }
-> EXPORT_SYMBOL(libcfs_kvzalloc_cpt);
-
-
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Yes, I believe mlx4 has a similar problem in mlx4_en_recover_from_oom()
