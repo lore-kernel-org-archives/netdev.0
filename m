@@ -1,69 +1,84 @@
-From: Russell King <rmk+kernel@armlinux.org.uk>
-Subject: [PATCH RFC 3/7] net: lan78xx: update for
- phy_(read|write)_mmd_indirect() removal
-Date: Fri, 13 Jan 2017 15:21:53 +0000
-Message-ID: <E1cS3ft-0003Xc-OH@rmk-PC.armlinux.org.uk>
+From: Russell King <rmk+kernel-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>
+Subject: [PATCH RFC 7/7] net: phy: clean up mmd_phy_indirect()
+Date: Fri, 13 Jan 2017 15:22:14 +0000
+Message-ID: <E1cS3gE-0003Y4-BR@rmk-PC.armlinux.org.uk>
 References: <20170113152059.GR14217@n2100.armlinux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 8bit
-Cc: linux-usb@vger.kernel.org,
-        Microchip Linux Driver Support <UNGLinuxDriver@microchip.com>,
-        netdev@vger.kernel.org, Woojung Huh <woojung.huh@microchip.com>,
-        linux-arm-kernel@lists.infradead.org
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.armlinux.org.uk ([78.32.30.218]:47256 "EHLO
-        pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751944AbdAMPWj (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 10:22:39 -0500
-In-Reply-To: <20170113152059.GR14217@n2100.armlinux.org.uk>
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        Microchip Linux Driver Support <UNGLinuxDriver-UWL1GkI3JZL3oGB3hsPCZA@public.gmane.org>,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Woojung Huh <woojung.huh-UWL1GkI3JZL3oGB3hsPCZA@public.gmane.org>,
+        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170113152059.GR14217-l+eeeJia6m9URfEZ8mYm6t73F7V6hmMc@public.gmane.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-lan78xx appears to use phylib in a rather weird way, accessing the PHY
-partly through phylib, and partly by makign direct accesses to it,
-including to the Clause 45 registers.  As the indirect MMD accessors are
-going away, update this driver to use the plain phy_(read|write)_mmd()
-accessors instead.
+Make mmd_phy_indirect() use the same terminology as the rest of the
+code, making clear what each address is - phy address, devad, and
+register number.
 
-Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
+While here, remove the "inline" from this static function, leaving
+it to the compiler to decide whether to inline this function, and
+get rid of unnecessary parens.
+
+Signed-off-by: Russell King <rmk+kernel-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>
 ---
- drivers/net/usb/lan78xx.c | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+ drivers/net/phy/phy-core.c | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/usb/lan78xx.c b/drivers/net/usb/lan78xx.c
-index 08f8703e4d54..5e222d47f212 100644
---- a/drivers/net/usb/lan78xx.c
-+++ b/drivers/net/usb/lan78xx.c
-@@ -1951,10 +1951,10 @@ static int lan8835_fixup(struct phy_device *phydev)
- 	struct lan78xx_net *dev = netdev_priv(phydev->attached_dev);
+diff --git a/drivers/net/phy/phy-core.c b/drivers/net/phy/phy-core.c
+index 80795ccd3fab..357a4d0d7641 100644
+--- a/drivers/net/phy/phy-core.c
++++ b/drivers/net/phy/phy-core.c
+@@ -9,17 +9,17 @@
+ #include <linux/export.h>
+ #include <linux/phy.h>
  
- 	/* LED2/PME_N/IRQ_N/RGMII_ID pin to IRQ_N mode */
--	buf = phy_read_mmd_indirect(phydev, 0x8010, 3);
-+	buf = phy_read_mmd(phydev, MDIO_MMD_PCS, 0x8010);
- 	buf &= ~0x1800;
- 	buf |= 0x0800;
--	phy_write_mmd_indirect(phydev, 0x8010, 3, buf);
-+	phy_write_mmd(phydev, MDIO_MMD_PCS, 0x8010, buf);
+-static inline void mmd_phy_indirect(struct mii_bus *bus, int prtad, int devad,
+-				    int addr)
++static void mmd_phy_indirect(struct mii_bus *bus, int phy_addr, int devad,
++			     u16 regnum)
+ {
+ 	/* Write the desired MMD Devad */
+-	bus->write(bus, addr, MII_MMD_CTRL, devad);
++	bus->write(bus, phy_addr, MII_MMD_CTRL, devad);
  
- 	/* RGMII MAC TXC Delay Enable */
- 	ret = lan78xx_write_reg(dev, MAC_RGMII_ID,
-@@ -1974,11 +1974,11 @@ static int ksz9031rnx_fixup(struct phy_device *phydev)
+ 	/* Write the desired MMD register address */
+-	bus->write(bus, addr, MII_MMD_DATA, prtad);
++	bus->write(bus, phy_addr, MII_MMD_DATA, regnum);
  
- 	/* Micrel9301RNX PHY configuration */
- 	/* RGMII Control Signal Pad Skew */
--	phy_write_mmd_indirect(phydev, 4, 2, 0x0077);
-+	phy_write_mmd(phydev, MDIO_MMD_WIS, 4, 0x0077);
- 	/* RGMII RX Data Pad Skew */
--	phy_write_mmd_indirect(phydev, 5, 2, 0x7777);
-+	phy_write_mmd(phydev, MDIO_MMD_WIS, 5, 0x7777);
- 	/* RGMII RX Clock Pad Skew */
--	phy_write_mmd_indirect(phydev, 8, 2, 0x1FF);
-+	phy_write_mmd(phydev, MDIO_MMD_WIS, 8, 0x1FF);
+ 	/* Select the Function : DATA with no post increment */
+-	bus->write(bus, addr, MII_MMD_CTRL, (devad | MII_MMD_CTRL_NOINCR));
++	bus->write(bus, phy_addr, MII_MMD_CTRL, devad | MII_MMD_CTRL_NOINCR);
+ }
  
- 	dev->interface = PHY_INTERFACE_MODE_RGMII_RXID;
+ /**
+@@ -49,7 +49,7 @@ int phy_read_mmd(struct phy_device *phydev, int devad, u32 regnum)
+ 		int phy_addr = phydev->mdio.addr;
  
+ 		mutex_lock(&bus->mdio_lock);
+-		mmd_phy_indirect(bus, regnum, devad, phy_addr);
++		mmd_phy_indirect(bus, phy_addr, devad, regnum);
+ 
+ 		/* Read the content of the MMD's selected register */
+ 		val = bus->read(bus, phy_addr, MII_MMD_DATA);
+@@ -88,7 +88,7 @@ int phy_write_mmd(struct phy_device *phydev, int devad, u32 regnum, u16 val)
+ 		int phy_addr = phydev->mdio.addr;
+ 
+ 		mutex_lock(&bus->mdio_lock);
+-		mmd_phy_indirect(bus, regnum, devad, phy_addr);
++		mmd_phy_indirect(bus, phy_addr, devad, regnum);
+ 
+ 		/* Write the data into MMD's selected register */
+ 		bus->write(bus, phy_addr, MII_MMD_DATA, val);
 -- 
 2.7.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
