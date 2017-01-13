@@ -1,314 +1,296 @@
-From: Russell King <rmk+kernel-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>
-Subject: [PATCH RFC 1/7] net: phy: move phy MMD accessors to phy-core.c
-Date: Fri, 13 Jan 2017 15:21:43 +0000
-Message-ID: <E1cS3fj-0003XN-F0@rmk-PC.armlinux.org.uk>
+From: Russell King <rmk+kernel@armlinux.org.uk>
+Subject: [PATCH RFC 4/7] net: phy: switch remaining users to
+ phy_(read|write)_mmd()
+Date: Fri, 13 Jan 2017 15:21:58 +0000
+Message-ID: <E1cS3fy-0003Xj-TG@rmk-PC.armlinux.org.uk>
 References: <20170113152059.GR14217@n2100.armlinux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 8bit
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Microchip Linux Driver Support <UNGLinuxDriver-UWL1GkI3JZL3oGB3hsPCZA@public.gmane.org>,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Woojung Huh <woojung.huh-UWL1GkI3JZL3oGB3hsPCZA@public.gmane.org>,
-        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170113152059.GR14217-l+eeeJia6m9URfEZ8mYm6t73F7V6hmMc@public.gmane.org>
+Cc: linux-usb@vger.kernel.org,
+        Microchip Linux Driver Support <UNGLinuxDriver@microchip.com>,
+        netdev@vger.kernel.org, Woojung Huh <woojung.huh@microchip.com>,
+        linux-arm-kernel@lists.infradead.org
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from pandora.armlinux.org.uk ([78.32.30.218]:47276 "EHLO
+        pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752006AbdAMPW5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 10:22:57 -0500
+In-Reply-To: <20170113152059.GR14217@n2100.armlinux.org.uk>
 Content-Disposition: inline
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Move the phy_(read|write)__mmd() helpers out of line, they will become
-our main MMD accessor functions, and so will be a little more complex.
-This complexity doesn't belong in an inline function.  Also move the
-_indirect variants as well to keep like functionality together.
+Switch everyone over to using phy_read_mmd() and phy_write_mmd() now
+that they are able to handle both Clause 22 indirect addressing and
+Clause 45 direct addressing methods to the MMD registers.
 
-Signed-off-by: Russell King <rmk+kernel-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>
+Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
 ---
- drivers/net/phy/Makefile   |   3 +-
- drivers/net/phy/phy-core.c | 135 +++++++++++++++++++++++++++++++++++++++++++++
- drivers/net/phy/phy.c      |  85 ----------------------------
- include/linux/phy.h        |  20 +------
- 4 files changed, 139 insertions(+), 104 deletions(-)
- create mode 100644 drivers/net/phy/phy-core.c
+ drivers/net/phy/bcm-phy-lib.c | 12 ++++--------
+ drivers/net/phy/dp83867.c     | 18 ++++++++----------
+ drivers/net/phy/intel-xway.c  | 26 +++++++++++++-------------
+ drivers/net/phy/microchip.c   |  5 ++---
+ drivers/net/phy/phy.c         | 25 ++++++++++---------------
+ drivers/net/phy/phy_device.c  |  4 ++--
+ 6 files changed, 39 insertions(+), 51 deletions(-)
 
-diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
-index 356859ac7c18..06fa2e04ac7e 100644
---- a/drivers/net/phy/Makefile
-+++ b/drivers/net/phy/Makefile
-@@ -1,6 +1,7 @@
- # Makefile for Linux PHY drivers and MDIO bus drivers
+diff --git a/drivers/net/phy/bcm-phy-lib.c b/drivers/net/phy/bcm-phy-lib.c
+index ab9ad689617c..90be6ee42dfa 100644
+--- a/drivers/net/phy/bcm-phy-lib.c
++++ b/drivers/net/phy/bcm-phy-lib.c
+@@ -201,8 +201,7 @@ int bcm_phy_set_eee(struct phy_device *phydev, bool enable)
+ 	int val;
  
--libphy-y			:= phy.o phy_device.o mdio_bus.o mdio_device.o
-+libphy-y			:= phy.o phy_device.o mdio_bus.o mdio_device.o \
-+				   phy-core.o
- libphy-$(CONFIG_SWPHY)		+= swphy.o
- libphy-$(CONFIG_LED_TRIGGER_PHY)	+= phy_led_triggers.o
+ 	/* Enable EEE at PHY level */
+-	val = phy_read_mmd_indirect(phydev, BRCM_CL45VEN_EEE_CONTROL,
+-				    MDIO_MMD_AN);
++	val = phy_read_mmd(phydev, MDIO_MMD_AN, BRCM_CL45VEN_EEE_CONTROL);
+ 	if (val < 0)
+ 		return val;
  
-diff --git a/drivers/net/phy/phy-core.c b/drivers/net/phy/phy-core.c
-new file mode 100644
-index 000000000000..b8d8276a3099
---- /dev/null
-+++ b/drivers/net/phy/phy-core.c
-@@ -0,0 +1,135 @@
-+/*
-+ * Core PHY library, taken from phy.c
-+ *
-+ * This program is free software; you can redistribute  it and/or modify it
-+ * under  the terms of  the GNU General  Public License as published by the
-+ * Free Software Foundation;  either version 2 of the  License, or (at your
-+ * option) any later version.
-+ */
-+#include <linux/export.h>
-+#include <linux/phy.h>
-+
-+static inline void mmd_phy_indirect(struct mii_bus *bus, int prtad, int devad,
-+				    int addr)
-+{
-+	/* Write the desired MMD Devad */
-+	bus->write(bus, addr, MII_MMD_CTRL, devad);
-+
-+	/* Write the desired MMD register address */
-+	bus->write(bus, addr, MII_MMD_DATA, prtad);
-+
-+	/* Select the Function : DATA with no post increment */
-+	bus->write(bus, addr, MII_MMD_CTRL, (devad | MII_MMD_CTRL_NOINCR));
-+}
-+
-+/**
-+ * phy_read_mmd_indirect - reads data from the MMD registers
-+ * @phydev: The PHY device bus
-+ * @prtad: MMD Address
-+ * @devad: MMD DEVAD
-+ *
-+ * Description: it reads data from the MMD registers (clause 22 to access to
-+ * clause 45) of the specified phy address.
-+ * To read these register we have:
-+ * 1) Write reg 13 // DEVAD
-+ * 2) Write reg 14 // MMD Address
-+ * 3) Write reg 13 // MMD Data Command for MMD DEVAD
-+ * 3) Read  reg 14 // Read MMD data
-+ */
-+int phy_read_mmd_indirect(struct phy_device *phydev, int prtad, int devad)
-+{
-+	struct phy_driver *phydrv = phydev->drv;
-+	int addr = phydev->mdio.addr;
-+	int value = -1;
-+
-+	if (!phydrv->read_mmd_indirect) {
-+		struct mii_bus *bus = phydev->mdio.bus;
-+
-+		mutex_lock(&bus->mdio_lock);
-+		mmd_phy_indirect(bus, prtad, devad, addr);
-+
-+		/* Read the content of the MMD's selected register */
-+		value = bus->read(bus, addr, MII_MMD_DATA);
-+		mutex_unlock(&bus->mdio_lock);
-+	} else {
-+		value = phydrv->read_mmd_indirect(phydev, prtad, devad, addr);
-+	}
-+	return value;
-+}
-+EXPORT_SYMBOL(phy_read_mmd_indirect);
-+
-+/**
-+ * phy_read_mmd - Convenience function for reading a register
-+ * from an MMD on a given PHY.
-+ * @phydev: The phy_device struct
-+ * @devad: The MMD to read from
-+ * @regnum: The register on the MMD to read
-+ *
-+ * Same rules as for phy_read();
-+ */
-+int phy_read_mmd(struct phy_device *phydev, int devad, u32 regnum)
-+{
-+	if (!phydev->is_c45)
-+		return -EOPNOTSUPP;
-+
-+	return mdiobus_read(phydev->mdio.bus, phydev->mdio.addr,
-+			    MII_ADDR_C45 | (devad << 16) | (regnum & 0xffff));
-+}
-+EXPORT_SYMBOL(phy_read_mmd);
-+
-+/**
-+ * phy_write_mmd_indirect - writes data to the MMD registers
-+ * @phydev: The PHY device
-+ * @prtad: MMD Address
-+ * @devad: MMD DEVAD
-+ * @data: data to write in the MMD register
-+ *
-+ * Description: Write data from the MMD registers of the specified
-+ * phy address.
-+ * To write these register we have:
-+ * 1) Write reg 13 // DEVAD
-+ * 2) Write reg 14 // MMD Address
-+ * 3) Write reg 13 // MMD Data Command for MMD DEVAD
-+ * 3) Write reg 14 // Write MMD data
-+ */
-+void phy_write_mmd_indirect(struct phy_device *phydev, int prtad,
-+				   int devad, u32 data)
-+{
-+	struct phy_driver *phydrv = phydev->drv;
-+	int addr = phydev->mdio.addr;
-+
-+	if (!phydrv->write_mmd_indirect) {
-+		struct mii_bus *bus = phydev->mdio.bus;
-+
-+		mutex_lock(&bus->mdio_lock);
-+		mmd_phy_indirect(bus, prtad, devad, addr);
-+
-+		/* Write the data into MMD's selected register */
-+		bus->write(bus, addr, MII_MMD_DATA, data);
-+		mutex_unlock(&bus->mdio_lock);
-+	} else {
-+		phydrv->write_mmd_indirect(phydev, prtad, devad, addr, data);
-+	}
-+}
-+EXPORT_SYMBOL(phy_write_mmd_indirect);
-+
-+/**
-+ * phy_write_mmd - Convenience function for writing a register
-+ * on an MMD on a given PHY.
-+ * @phydev: The phy_device struct
-+ * @devad: The MMD to read from
-+ * @regnum: The register on the MMD to read
-+ * @val: value to write to @regnum
-+ *
-+ * Same rules as for phy_write();
-+ */
-+int phy_write_mmd(struct phy_device *phydev, int devad, u32 regnum, u16 val)
-+{
-+	if (!phydev->is_c45)
-+		return -EOPNOTSUPP;
-+
-+	regnum = MII_ADDR_C45 | ((devad & 0x1f) << 16) | (regnum & 0xffff);
-+
-+	return mdiobus_write(phydev->mdio.bus, phydev->mdio.addr, regnum, val);
-+}
-+EXPORT_SYMBOL(phy_write_mmd);
+@@ -211,12 +210,10 @@ int bcm_phy_set_eee(struct phy_device *phydev, bool enable)
+ 	else
+ 		val &= ~(LPI_FEATURE_EN | LPI_FEATURE_EN_DIG1000X);
+ 
+-	phy_write_mmd_indirect(phydev, BRCM_CL45VEN_EEE_CONTROL,
+-			       MDIO_MMD_AN, (u32)val);
++	phy_write_mmd(phydev, MDIO_MMD_AN, BRCM_CL45VEN_EEE_CONTROL, (u32)val);
+ 
+ 	/* Advertise EEE */
+-	val = phy_read_mmd_indirect(phydev, BCM_CL45VEN_EEE_ADV,
+-				    MDIO_MMD_AN);
++	val = phy_read_mmd(phydev, MDIO_MMD_AN, BCM_CL45VEN_EEE_ADV);
+ 	if (val < 0)
+ 		return val;
+ 
+@@ -225,8 +222,7 @@ int bcm_phy_set_eee(struct phy_device *phydev, bool enable)
+ 	else
+ 		val &= ~(MDIO_AN_EEE_ADV_100TX | MDIO_AN_EEE_ADV_1000T);
+ 
+-	phy_write_mmd_indirect(phydev, BCM_CL45VEN_EEE_ADV,
+-			       MDIO_MMD_AN, (u32)val);
++	phy_write_mmd(phydev, MDIO_MMD_AN, BCM_CL45VEN_EEE_ADV, (u32)val);
+ 
+ 	return 0;
+ }
+diff --git a/drivers/net/phy/dp83867.c b/drivers/net/phy/dp83867.c
+index 1b639242f9e2..43a5a22234f1 100644
+--- a/drivers/net/phy/dp83867.c
++++ b/drivers/net/phy/dp83867.c
+@@ -180,8 +180,7 @@ static int dp83867_config_init(struct phy_device *phydev)
+ 
+ 	if ((phydev->interface >= PHY_INTERFACE_MODE_RGMII_ID) &&
+ 	    (phydev->interface <= PHY_INTERFACE_MODE_RGMII_RXID)) {
+-		val = phy_read_mmd_indirect(phydev, DP83867_RGMIICTL,
+-					    DP83867_DEVADDR);
++		val = phy_read_mmd(phydev, DP83867_DEVADDR, DP83867_RGMIICTL);
+ 
+ 		if (phydev->interface == PHY_INTERFACE_MODE_RGMII_ID)
+ 			val |= (DP83867_RGMII_TX_CLK_DELAY_EN | DP83867_RGMII_RX_CLK_DELAY_EN);
+@@ -192,25 +191,24 @@ static int dp83867_config_init(struct phy_device *phydev)
+ 		if (phydev->interface == PHY_INTERFACE_MODE_RGMII_RXID)
+ 			val |= DP83867_RGMII_RX_CLK_DELAY_EN;
+ 
+-		phy_write_mmd_indirect(phydev, DP83867_RGMIICTL,
+-				       DP83867_DEVADDR, val);
++		phy_write_mmd(phydev, DP83867_DEVADDR, DP83867_RGMIICTL, val);
+ 
+ 		delay = (dp83867->rx_id_delay |
+ 			(dp83867->tx_id_delay << DP83867_RGMII_TX_CLK_DELAY_SHIFT));
+ 
+-		phy_write_mmd_indirect(phydev, DP83867_RGMIIDCTL,
+-				       DP83867_DEVADDR, delay);
++		phy_write_mmd(phydev, DP83867_DEVADDR, DP83867_RGMIIDCTL,
++			      delay);
+ 
+ 		if (dp83867->io_impedance >= 0) {
+-			val = phy_read_mmd_indirect(phydev, DP83867_IO_MUX_CFG,
+-						    DP83867_DEVADDR);
++			val = phy_read_mmd(phydev, DP83867_DEVADDR,
++					   DP83867_IO_MUX_CFG);
+ 
+ 			val &= ~DP83867_IO_MUX_CFG_IO_IMPEDANCE_CTRL;
+ 			val |= dp83867->io_impedance &
+ 			       DP83867_IO_MUX_CFG_IO_IMPEDANCE_CTRL;
+ 
+-			phy_write_mmd_indirect(phydev, DP83867_IO_MUX_CFG,
+-					       DP83867_DEVADDR, val);
++			phy_write_mmd(phydev, DP83867_DEVADDR,
++				      DP83867_IO_MUX_CFG, val);
+ 		}
+ 	}
+ 
+diff --git a/drivers/net/phy/intel-xway.c b/drivers/net/phy/intel-xway.c
+index b1fd7bb0e4db..55f8c52dd2f1 100644
+--- a/drivers/net/phy/intel-xway.c
++++ b/drivers/net/phy/intel-xway.c
+@@ -166,13 +166,13 @@ static int xway_gphy_config_init(struct phy_device *phydev)
+ 	/* Clear all pending interrupts */
+ 	phy_read(phydev, XWAY_MDIO_ISTAT);
+ 
+-	phy_write_mmd_indirect(phydev, XWAY_MMD_LEDCH, MDIO_MMD_VEND2,
+-			       XWAY_MMD_LEDCH_NACS_NONE |
+-			       XWAY_MMD_LEDCH_SBF_F02HZ |
+-			       XWAY_MMD_LEDCH_FBF_F16HZ);
+-	phy_write_mmd_indirect(phydev, XWAY_MMD_LEDCL, MDIO_MMD_VEND2,
+-			       XWAY_MMD_LEDCH_CBLINK_NONE |
+-			       XWAY_MMD_LEDCH_SCAN_NONE);
++	phy_write_mmd(phydev, MDIO_MMD_VEND2, XWAY_MMD_LEDCH,
++		      XWAY_MMD_LEDCH_NACS_NONE |
++		      XWAY_MMD_LEDCH_SBF_F02HZ |
++		      XWAY_MMD_LEDCH_FBF_F16HZ);
++	phy_write_mmd(phydev, MDIO_MMD_VEND2, XWAY_MMD_LEDCL,
++		      XWAY_MMD_LEDCH_CBLINK_NONE |
++		      XWAY_MMD_LEDCH_SCAN_NONE);
+ 
+ 	/**
+ 	 * In most cases only one LED is connected to this phy, so
+@@ -183,12 +183,12 @@ static int xway_gphy_config_init(struct phy_device *phydev)
+ 	ledxh = XWAY_MMD_LEDxH_BLINKF_NONE | XWAY_MMD_LEDxH_CON_LINK10XX;
+ 	ledxl = XWAY_MMD_LEDxL_PULSE_TXACT | XWAY_MMD_LEDxL_PULSE_RXACT |
+ 		XWAY_MMD_LEDxL_BLINKS_NONE;
+-	phy_write_mmd_indirect(phydev, XWAY_MMD_LED0H, MDIO_MMD_VEND2, ledxh);
+-	phy_write_mmd_indirect(phydev, XWAY_MMD_LED0L, MDIO_MMD_VEND2, ledxl);
+-	phy_write_mmd_indirect(phydev, XWAY_MMD_LED1H, MDIO_MMD_VEND2, ledxh);
+-	phy_write_mmd_indirect(phydev, XWAY_MMD_LED1L, MDIO_MMD_VEND2, ledxl);
+-	phy_write_mmd_indirect(phydev, XWAY_MMD_LED2H, MDIO_MMD_VEND2, ledxh);
+-	phy_write_mmd_indirect(phydev, XWAY_MMD_LED2L, MDIO_MMD_VEND2, ledxl);
++	phy_write_mmd(phydev, MDIO_MMD_VEND2, XWAY_MMD_LED0H, ledxh);
++	phy_write_mmd(phydev, MDIO_MMD_VEND2, XWAY_MMD_LED0L, ledxl);
++	phy_write_mmd(phydev, MDIO_MMD_VEND2, XWAY_MMD_LED1H, ledxh);
++	phy_write_mmd(phydev, MDIO_MMD_VEND2, XWAY_MMD_LED1L, ledxl);
++	phy_write_mmd(phydev, MDIO_MMD_VEND2, XWAY_MMD_LED2H, ledxh);
++	phy_write_mmd(phydev, MDIO_MMD_VEND2, XWAY_MMD_LED2L, ledxl);
+ 
+ 	return 0;
+ }
+diff --git a/drivers/net/phy/microchip.c b/drivers/net/phy/microchip.c
+index 324fbf6ad8ff..2b2f543cf9f0 100644
+--- a/drivers/net/phy/microchip.c
++++ b/drivers/net/phy/microchip.c
+@@ -78,9 +78,8 @@ static int lan88xx_probe(struct phy_device *phydev)
+ 	priv->wolopts = 0;
+ 
+ 	/* these values can be used to identify internal PHY */
+-	priv->chip_id = phy_read_mmd_indirect(phydev, LAN88XX_MMD3_CHIP_ID, 3);
+-	priv->chip_rev = phy_read_mmd_indirect(phydev, LAN88XX_MMD3_CHIP_REV,
+-					       3);
++	priv->chip_id = phy_read_mmd(phydev, 3, LAN88XX_MMD3_CHIP_ID);
++	priv->chip_rev = phy_read_mmd(phydev, 3, LAN88XX_MMD3_CHIP_REV);
+ 
+ 	phydev->priv = priv;
+ 
 diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index 25f93a98863b..c6022b66f81d 100644
+index c6022b66f81d..e97fda83726a 100644
 --- a/drivers/net/phy/phy.c
 +++ b/drivers/net/phy/phy.c
-@@ -1175,91 +1175,6 @@ void phy_mac_interrupt(struct phy_device *phydev, int new_link)
+@@ -1207,8 +1207,7 @@ int phy_init_eee(struct phy_device *phydev, bool clk_stop_enable)
+ 			return status;
+ 
+ 		/* First check if the EEE ability is supported */
+-		eee_cap = phy_read_mmd_indirect(phydev, MDIO_PCS_EEE_ABLE,
+-						MDIO_MMD_PCS);
++		eee_cap = phy_read_mmd(phydev, MDIO_MMD_PCS, MDIO_PCS_EEE_ABLE);
+ 		if (eee_cap <= 0)
+ 			goto eee_exit_err;
+ 
+@@ -1219,13 +1218,11 @@ int phy_init_eee(struct phy_device *phydev, bool clk_stop_enable)
+ 		/* Check which link settings negotiated and verify it in
+ 		 * the EEE advertising registers.
+ 		 */
+-		eee_lp = phy_read_mmd_indirect(phydev, MDIO_AN_EEE_LPABLE,
+-					       MDIO_MMD_AN);
++		eee_lp = phy_read_mmd(phydev, MDIO_MMD_AN, MDIO_AN_EEE_LPABLE);
+ 		if (eee_lp <= 0)
+ 			goto eee_exit_err;
+ 
+-		eee_adv = phy_read_mmd_indirect(phydev, MDIO_AN_EEE_ADV,
+-						MDIO_MMD_AN);
++		eee_adv = phy_read_mmd(phydev, MDIO_MMD_AN, MDIO_AN_EEE_ADV);
+ 		if (eee_adv <= 0)
+ 			goto eee_exit_err;
+ 
+@@ -1238,14 +1235,12 @@ int phy_init_eee(struct phy_device *phydev, bool clk_stop_enable)
+ 			/* Configure the PHY to stop receiving xMII
+ 			 * clock while it is signaling LPI.
+ 			 */
+-			int val = phy_read_mmd_indirect(phydev, MDIO_CTRL1,
+-							MDIO_MMD_PCS);
++			int val = phy_read_mmd(phydev, MDIO_MMD_PCS, MDIO_CTRL1);
+ 			if (val < 0)
+ 				return val;
+ 
+ 			val |= MDIO_PCS_CTRL1_CLKSTOP_EN;
+-			phy_write_mmd_indirect(phydev, MDIO_CTRL1,
+-					       MDIO_MMD_PCS, val);
++			phy_write_mmd(phydev, MDIO_MMD_PCS, MDIO_CTRL1, val);
+ 		}
+ 
+ 		return 0; /* EEE supported */
+@@ -1264,7 +1259,7 @@ EXPORT_SYMBOL(phy_init_eee);
+  */
+ int phy_get_eee_err(struct phy_device *phydev)
+ {
+-	return phy_read_mmd_indirect(phydev, MDIO_PCS_EEE_WK_ERR, MDIO_MMD_PCS);
++	return phy_read_mmd(phydev, MDIO_MMD_PCS, MDIO_PCS_EEE_WK_ERR);
  }
- EXPORT_SYMBOL(phy_mac_interrupt);
+ EXPORT_SYMBOL(phy_get_eee_err);
  
--static inline void mmd_phy_indirect(struct mii_bus *bus, int prtad, int devad,
--				    int addr)
--{
--	/* Write the desired MMD Devad */
--	bus->write(bus, addr, MII_MMD_CTRL, devad);
--
--	/* Write the desired MMD register address */
--	bus->write(bus, addr, MII_MMD_DATA, prtad);
--
--	/* Select the Function : DATA with no post increment */
--	bus->write(bus, addr, MII_MMD_CTRL, (devad | MII_MMD_CTRL_NOINCR));
--}
--
--/**
-- * phy_read_mmd_indirect - reads data from the MMD registers
-- * @phydev: The PHY device bus
-- * @prtad: MMD Address
-- * @devad: MMD DEVAD
-- *
-- * Description: it reads data from the MMD registers (clause 22 to access to
-- * clause 45) of the specified phy address.
-- * To read these register we have:
-- * 1) Write reg 13 // DEVAD
-- * 2) Write reg 14 // MMD Address
-- * 3) Write reg 13 // MMD Data Command for MMD DEVAD
-- * 3) Read  reg 14 // Read MMD data
-- */
--int phy_read_mmd_indirect(struct phy_device *phydev, int prtad, int devad)
--{
--	struct phy_driver *phydrv = phydev->drv;
--	int addr = phydev->mdio.addr;
--	int value = -1;
--
--	if (!phydrv->read_mmd_indirect) {
--		struct mii_bus *bus = phydev->mdio.bus;
--
--		mutex_lock(&bus->mdio_lock);
--		mmd_phy_indirect(bus, prtad, devad, addr);
--
--		/* Read the content of the MMD's selected register */
--		value = bus->read(bus, addr, MII_MMD_DATA);
--		mutex_unlock(&bus->mdio_lock);
--	} else {
--		value = phydrv->read_mmd_indirect(phydev, prtad, devad, addr);
--	}
--	return value;
--}
--EXPORT_SYMBOL(phy_read_mmd_indirect);
--
--/**
-- * phy_write_mmd_indirect - writes data to the MMD registers
-- * @phydev: The PHY device
-- * @prtad: MMD Address
-- * @devad: MMD DEVAD
-- * @data: data to write in the MMD register
-- *
-- * Description: Write data from the MMD registers of the specified
-- * phy address.
-- * To write these register we have:
-- * 1) Write reg 13 // DEVAD
-- * 2) Write reg 14 // MMD Address
-- * 3) Write reg 13 // MMD Data Command for MMD DEVAD
-- * 3) Write reg 14 // Write MMD data
-- */
--void phy_write_mmd_indirect(struct phy_device *phydev, int prtad,
--				   int devad, u32 data)
--{
--	struct phy_driver *phydrv = phydev->drv;
--	int addr = phydev->mdio.addr;
--
--	if (!phydrv->write_mmd_indirect) {
--		struct mii_bus *bus = phydev->mdio.bus;
--
--		mutex_lock(&bus->mdio_lock);
--		mmd_phy_indirect(bus, prtad, devad, addr);
--
--		/* Write the data into MMD's selected register */
--		bus->write(bus, addr, MII_MMD_DATA, data);
--		mutex_unlock(&bus->mdio_lock);
--	} else {
--		phydrv->write_mmd_indirect(phydev, prtad, devad, addr, data);
--	}
--}
--EXPORT_SYMBOL(phy_write_mmd_indirect);
--
- /**
-  * phy_init_eee - init and check the EEE feature
-  * @phydev: target phy_device struct
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index f7d95f644eed..72acb0233b5f 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -647,14 +647,7 @@ struct phy_fixup {
-  *
-  * Same rules as for phy_read();
-  */
--static inline int phy_read_mmd(struct phy_device *phydev, int devad, u32 regnum)
--{
--	if (!phydev->is_c45)
--		return -EOPNOTSUPP;
--
--	return mdiobus_read(phydev->mdio.bus, phydev->mdio.addr,
--			    MII_ADDR_C45 | (devad << 16) | (regnum & 0xffff));
--}
-+int phy_read_mmd(struct phy_device *phydev, int devad, u32 regnum);
+@@ -1281,19 +1276,19 @@ int phy_ethtool_get_eee(struct phy_device *phydev, struct ethtool_eee *data)
+ 	int val;
  
- /**
-  * phy_read_mmd_indirect - reads data from the MMD registers
-@@ -748,16 +741,7 @@ static inline bool phy_is_pseudo_fixed_link(struct phy_device *phydev)
-  *
-  * Same rules as for phy_write();
-  */
--static inline int phy_write_mmd(struct phy_device *phydev, int devad,
--				u32 regnum, u16 val)
--{
--	if (!phydev->is_c45)
--		return -EOPNOTSUPP;
--
--	regnum = MII_ADDR_C45 | ((devad & 0x1f) << 16) | (regnum & 0xffff);
+ 	/* Get Supported EEE */
+-	val = phy_read_mmd_indirect(phydev, MDIO_PCS_EEE_ABLE, MDIO_MMD_PCS);
++	val = phy_read_mmd(phydev, MDIO_MMD_PCS, MDIO_PCS_EEE_ABLE);
+ 	if (val < 0)
+ 		return val;
+ 	data->supported = mmd_eee_cap_to_ethtool_sup_t(val);
+ 
+ 	/* Get advertisement EEE */
+-	val = phy_read_mmd_indirect(phydev, MDIO_AN_EEE_ADV, MDIO_MMD_AN);
++	val = phy_read_mmd(phydev, MDIO_MMD_AN, MDIO_AN_EEE_ADV);
+ 	if (val < 0)
+ 		return val;
+ 	data->advertised = mmd_eee_adv_to_ethtool_adv_t(val);
+ 
+ 	/* Get LP advertisement EEE */
+-	val = phy_read_mmd_indirect(phydev, MDIO_AN_EEE_LPABLE, MDIO_MMD_AN);
++	val = phy_read_mmd(phydev, MDIO_MMD_AN, MDIO_AN_EEE_LPABLE);
+ 	if (val < 0)
+ 		return val;
+ 	data->lp_advertised = mmd_eee_adv_to_ethtool_adv_t(val);
+@@ -1316,7 +1311,7 @@ int phy_ethtool_set_eee(struct phy_device *phydev, struct ethtool_eee *data)
+ 	/* Mask prohibited EEE modes */
+ 	val &= ~phydev->eee_broken_modes;
+ 
+-	phy_write_mmd_indirect(phydev, MDIO_AN_EEE_ADV, MDIO_MMD_AN, val);
++	phy_write_mmd(phydev, MDIO_MMD_AN, MDIO_AN_EEE_ADV, val);
+ 
+ 	return 0;
+ }
+diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+index 92b08383cafa..453b9aca8f24 100644
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -1198,7 +1198,7 @@ static int genphy_config_eee_advert(struct phy_device *phydev)
+ 	 * supported by the phy. If we read 0, EEE is not advertised
+ 	 * In both case, we don't need to continue
+ 	 */
+-	adv = phy_read_mmd_indirect(phydev, MDIO_AN_EEE_ADV, MDIO_MMD_AN);
++	adv = phy_read_mmd(phydev, MDIO_MMD_AN, MDIO_AN_EEE_ADV);
+ 	if (adv <= 0)
+ 		return 0;
+ 
+@@ -1209,7 +1209,7 @@ static int genphy_config_eee_advert(struct phy_device *phydev)
+ 	if (old_adv == adv)
+ 		return 0;
+ 
+-	phy_write_mmd_indirect(phydev, MDIO_AN_EEE_ADV, MDIO_MMD_AN, adv);
++	phy_write_mmd(phydev, MDIO_MMD_AN, MDIO_AN_EEE_ADV, adv);
+ 
+ 	return 1;
+ }
+-- 
+2.7.4
