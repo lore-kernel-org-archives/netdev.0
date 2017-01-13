@@ -1,27 +1,26 @@
-From: Christoph Hellwig <hch@lst.de>
-Subject: Re: kill off pci_enable_msi_{exact,range}
-Date: Fri, 13 Jan 2017 18:15:19 +0100
-Message-ID: <20170113171519.GA5857@lst.de>
-References: <1483994260-19797-1-git-send-email-hch@lst.de> <20170112212900.GE8312@bhelgaas-glaptop.roam.corp.google.com> <20170113075503.GA26014@lst.de> <20170113080553.GA26280@lst.de> <20170113171321.GA22776@bhelgaas-glaptop.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 0/2] bpf: add longest prefix match map
+Date: Fri, 13 Jan 2017 12:15:37 -0500 (EST)
+Message-ID: <20170113.121537.1934808389681386879.davem@davemloft.net>
+References: <20170112172922.16636-1-daniel@zonque.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Christoph Hellwig <hch@lst.de>, linux-pci@vger.kernel.org,
-        Mauro Carvalho Chehab <mchehab@s-opensource.com>,
-        netdev@vger.kernel.org, linux-media@vger.kernel.org,
-        Tom Lendacky <thomas.lendacky@amd.com>
-To: Bjorn Helgaas <helgaas@kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ast@fb.com, dh.herrmann@gmail.com, daniel@iogearbox.net,
+        netdev@vger.kernel.org
+To: daniel@zonque.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from verein.lst.de ([213.95.11.211]:58035 "EHLO newverein.lst.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750862AbdAMRPc (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 13 Jan 2017 12:15:32 -0500
-Content-Disposition: inline
-In-Reply-To: <20170113171321.GA22776@bhelgaas-glaptop.roam.corp.google.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:50886 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750996AbdAMRPt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 12:15:49 -0500
+In-Reply-To: <20170112172922.16636-1-daniel@zonque.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 13, 2017 at 11:13:21AM -0600, Bjorn Helgaas wrote:
-> I dropped the empty commit and replaced the xgbe patch with the one below.
-> Can you take a look at [1] and make sure it's what you expected?
+From: Daniel Mack <daniel@zonque.org>
+Date: Thu, 12 Jan 2017 18:29:20 +0100
 
-This looks great, thanks!
+> Feedback is much appreciated.
+
+Daniel and Alexei, can I get a review please?
