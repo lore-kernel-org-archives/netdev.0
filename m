@@ -1,84 +1,73 @@
-From: Russell King <rmk+kernel-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>
-Subject: [PATCH RFC 7/7] net: phy: clean up mmd_phy_indirect()
-Date: Fri, 13 Jan 2017 15:22:14 +0000
-Message-ID: <E1cS3gE-0003Y4-BR@rmk-PC.armlinux.org.uk>
+From: Russell King <rmk+kernel@armlinux.org.uk>
+Subject: [PATCH RFC 5/7] net: phy: convert micrel to new read_mmd/write_mmd
+ driver methods
+Date: Fri, 13 Jan 2017 15:22:04 +0000
+Message-ID: <E1cS3g4-0003Xq-1S@rmk-PC.armlinux.org.uk>
 References: <20170113152059.GR14217@n2100.armlinux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 8bit
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        Microchip Linux Driver Support <UNGLinuxDriver-UWL1GkI3JZL3oGB3hsPCZA@public.gmane.org>,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Woojung Huh <woojung.huh-UWL1GkI3JZL3oGB3hsPCZA@public.gmane.org>,
-        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20170113152059.GR14217-l+eeeJia6m9URfEZ8mYm6t73F7V6hmMc@public.gmane.org>
+Cc: linux-usb@vger.kernel.org,
+        Microchip Linux Driver Support <UNGLinuxDriver@microchip.com>,
+        netdev@vger.kernel.org, Woojung Huh <woojung.huh@microchip.com>,
+        linux-arm-kernel@lists.infradead.org
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from pandora.armlinux.org.uk ([78.32.30.218]:47284 "EHLO
+        pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751952AbdAMPXN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 10:23:13 -0500
+In-Reply-To: <20170113152059.GR14217@n2100.armlinux.org.uk>
 Content-Disposition: inline
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Make mmd_phy_indirect() use the same terminology as the rest of the
-code, making clear what each address is - phy address, devad, and
-register number.
+Convert micrel to the new read_mmd/write_mmd driver methods.  This
+Clause 22 PHY does not support any MMD access method.
 
-While here, remove the "inline" from this static function, leaving
-it to the compiler to decide whether to inline this function, and
-get rid of unnecessary parens.
-
-Signed-off-by: Russell King <rmk+kernel-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org>
+Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
 ---
- drivers/net/phy/phy-core.c | 14 +++++++-------
- 1 file changed, 7 insertions(+), 7 deletions(-)
+ drivers/net/phy/micrel.c | 13 ++++++-------
+ 1 file changed, 6 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/phy/phy-core.c b/drivers/net/phy/phy-core.c
-index 80795ccd3fab..357a4d0d7641 100644
---- a/drivers/net/phy/phy-core.c
-+++ b/drivers/net/phy/phy-core.c
-@@ -9,17 +9,17 @@
- #include <linux/export.h>
- #include <linux/phy.h>
- 
--static inline void mmd_phy_indirect(struct mii_bus *bus, int prtad, int devad,
--				    int addr)
-+static void mmd_phy_indirect(struct mii_bus *bus, int phy_addr, int devad,
-+			     u16 regnum)
+diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
+index 9a77289109b7..8d6432c23a14 100644
+--- a/drivers/net/phy/micrel.c
++++ b/drivers/net/phy/micrel.c
+@@ -637,8 +637,7 @@ static int ksz8873mll_config_aneg(struct phy_device *phydev)
+  * MMD extended PHY registers.
+  */
+ static int
+-ksz9021_rd_mmd_phyreg(struct phy_device *phydev, int ptrad, int devnum,
+-		      int regnum)
++ksz9021_rd_mmd_phyreg(struct phy_device *phydev, int devad, u16 regnum)
  {
- 	/* Write the desired MMD Devad */
--	bus->write(bus, addr, MII_MMD_CTRL, devad);
-+	bus->write(bus, phy_addr, MII_MMD_CTRL, devad);
- 
- 	/* Write the desired MMD register address */
--	bus->write(bus, addr, MII_MMD_DATA, prtad);
-+	bus->write(bus, phy_addr, MII_MMD_DATA, regnum);
- 
- 	/* Select the Function : DATA with no post increment */
--	bus->write(bus, addr, MII_MMD_CTRL, (devad | MII_MMD_CTRL_NOINCR));
-+	bus->write(bus, phy_addr, MII_MMD_CTRL, devad | MII_MMD_CTRL_NOINCR);
+ 	return -1;
+ }
+@@ -646,10 +645,10 @@ ksz9021_rd_mmd_phyreg(struct phy_device *phydev, int ptrad, int devnum,
+ /* This routine does nothing since the Micrel ksz9021 does not support
+  * standard IEEE MMD extended PHY registers.
+  */
+-static void
+-ksz9021_wr_mmd_phyreg(struct phy_device *phydev, int ptrad, int devnum,
+-		      int regnum, u32 val)
++static int
++ksz9021_wr_mmd_phyreg(struct phy_device *phydev, int devad, u16 regnum, u16 val)
+ {
++	return -1;
  }
  
- /**
-@@ -49,7 +49,7 @@ int phy_read_mmd(struct phy_device *phydev, int devad, u32 regnum)
- 		int phy_addr = phydev->mdio.addr;
- 
- 		mutex_lock(&bus->mdio_lock);
--		mmd_phy_indirect(bus, regnum, devad, phy_addr);
-+		mmd_phy_indirect(bus, phy_addr, devad, regnum);
- 
- 		/* Read the content of the MMD's selected register */
- 		val = bus->read(bus, phy_addr, MII_MMD_DATA);
-@@ -88,7 +88,7 @@ int phy_write_mmd(struct phy_device *phydev, int devad, u32 regnum, u16 val)
- 		int phy_addr = phydev->mdio.addr;
- 
- 		mutex_lock(&bus->mdio_lock);
--		mmd_phy_indirect(bus, regnum, devad, phy_addr);
-+		mmd_phy_indirect(bus, phy_addr, devad, regnum);
- 
- 		/* Write the data into MMD's selected register */
- 		bus->write(bus, phy_addr, MII_MMD_DATA, val);
+ static int kszphy_get_sset_count(struct phy_device *phydev)
+@@ -962,8 +961,8 @@ static struct phy_driver ksphy_driver[] = {
+ 	.get_stats	= kszphy_get_stats,
+ 	.suspend	= genphy_suspend,
+ 	.resume		= genphy_resume,
+-	.read_mmd_indirect = ksz9021_rd_mmd_phyreg,
+-	.write_mmd_indirect = ksz9021_wr_mmd_phyreg,
++	.read_mmd	= ksz9021_rd_mmd_phyreg,
++	.write_mmd	= ksz9021_wr_mmd_phyreg,
+ }, {
+ 	.phy_id		= PHY_ID_KSZ9031,
+ 	.phy_id_mask	= MICREL_PHY_ID_MASK,
 -- 
 2.7.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
