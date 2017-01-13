@@ -1,122 +1,54 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [net PATCH v3 2/5] net: virtio: wrap rtnl_lock in test for
- calling with lock already held
-Date: Fri, 13 Jan 2017 15:56:06 -0800
-Message-ID: <58796916.4020404@gmail.com>
-References: <20170113024908.4535.8835.stgit@john-Precision-Tower-5810>
- <20170113025100.4535.35887.stgit@john-Precision-Tower-5810>
- <20170113083408.202d6e30@xeon-e3> <58790F02.8090409@gmail.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net] bpf: rework prog_digest into prog_tag
+Date: Sat, 14 Jan 2017 00:59:19 +0100
+Message-ID: <587969D7.5010806@iogearbox.net>
+References: <384476e29f6a378766c4052187b9b5f840f4030e.1484346362.git.daniel@iogearbox.net> <CALCETrUjmscreaadCOn6hSEMBEf83JyhwdVtKj1=fAf3MuiDtQ@mail.gmail.com> <58796595.3030904@iogearbox.net> <CALCETrWD7FuRLH0dC46bMf85mXosC3r54=TAXdar5EsZvbvyzg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jasowang@redhat.com, mst@redhat.com, john.r.fastabend@intel.com,
-        netdev@vger.kernel.org, alexei.starovoitov@gmail.com,
-        daniel@iogearbox.net
-To: Stephen Hemminger <stephen@networkplumber.org>
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Andrew Lutomirski <luto@kernel.org>,
+        Network Development <netdev@vger.kernel.org>
+To: Andy Lutomirski <luto@amacapital.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:33862 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750729AbdAMX4m (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 18:56:42 -0500
-Received: by mail-pf0-f196.google.com with SMTP id y143so10260465pfb.1
-        for <netdev@vger.kernel.org>; Fri, 13 Jan 2017 15:56:28 -0800 (PST)
-In-Reply-To: <58790F02.8090409@gmail.com>
+Received: from www62.your-server.de ([213.133.104.62]:52440 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750718AbdAMX7Y (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 18:59:24 -0500
+In-Reply-To: <CALCETrWD7FuRLH0dC46bMf85mXosC3r54=TAXdar5EsZvbvyzg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17-01-13 09:31 AM, John Fastabend wrote:
-> On 17-01-13 08:34 AM, Stephen Hemminger wrote:
->> On Thu, 12 Jan 2017 18:51:00 -0800
->> John Fastabend <john.fastabend@gmail.com> wrote:
+On 01/14/2017 12:49 AM, Andy Lutomirski wrote:
+> On Fri, Jan 13, 2017 at 3:41 PM, Daniel Borkmann <daniel@iogearbox.net> wrote:
+>> On 01/14/2017 12:16 AM, Andy Lutomirski wrote:
+>>> On Fri, Jan 13, 2017 at 2:38 PM, Daniel Borkmann <daniel@iogearbox.net>
+>>> wrote:
+>>>>
+>>>> Commit 7bd509e311f4 ("bpf: add prog_digest and expose it via
+>>>> fdinfo/netlink") was recently discussed, partially due to
+>>>> admittedly suboptimal name of "prog_digest" in combination
+>>>> with sha1 hash usage, thus inevitably and rightfully concerns
+>>>> about its security in terms of collision resistance were
+>>>> raised with regards to use-cases.
+>>>
+>>> Seems reasonable.  My only question is whether you'd still want to
+>>> switch to SHA-256 just from a code cleanliness perspective.  With
+>>> SHA-256 you can use the easy streaming API I wrote, but with SHA-1
+>>> you're still stuck with the crappy API in lib/, and I'm not
+>>> volunteering to fix up the SHA-1 API.
 >>
->>>  
->>> -static void free_receive_bufs(struct virtnet_info *vi)
->>> +static void free_receive_bufs(struct virtnet_info *vi, bool need_lock)
->>>  {
->>>  	struct bpf_prog *old_prog;
->>>  	int i;
->>>  
->>> -	rtnl_lock();
->>> +	if (need_lock)
->>> +		rtnl_lock();
->>>  	for (i = 0; i < vi->max_queue_pairs; i++) {
->>>  		while (vi->rq[i].pages)
->>>  			__free_pages(get_a_page(&vi->rq[i], GFP_KERNEL), 0);
->>> @@ -1879,7 +1880,8 @@ static void free_receive_bufs(struct virtnet_info *vi)
->>>  		if (old_prog)
->>>  			bpf_prog_put(old_prog);
->>>  	}
->>> -	rtnl_unlock();
->>> +	if (need_lock)
->>> +		rtnl_unlock();
->>>  }
->>
->> Conditional locking is bad idea; sparse complains about it and is later source
->> of bugs. The more typical way of doing this in kernel is:
-> 
-> OK I'll use the normal form.
-> 
->>
->> void _foo(some args)
->> {
->> 	ASSERT_RTNL();
->>
->> 	...
->> }
->>
->> void foo(some args)
->> {
->> 	rtnl_lock();
->> 	_foo(some args)
->> 	rtnl_unlock();
->> }
->>
->>
-> 
+>> We'd need to truncate that in kernel anyway to not get a too long
+>> tag, so given that I'm actually fine with it as-is. I was planning
+>> to submit the code for testing to bpf selftests for net-next once
+>> it's merged back, too.
+>
+> Unless you want to kill off that vmalloc()+vfree() pair...
 
-Actually doing this without a rtnl_try_lock() is going to create two more
-callbacks in virtio core just for virtio_net. All the other users do not
-appear to have locking restrictions. How about the following it at least
-helps in that there is no argument passing and if/else on the locks itself
-but does use the if around rtnl_try_lock().
+That is really just in slow-path, and should that become a bottleneck
+compared to the rest of the verification steps or allocs we do there,
+then we can always clean it up in net-next.
 
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -1864,12 +1864,11 @@ static void virtnet_free_queues(struct virtnet_info *vi)
-        kfree(vi->sq);
- }
-
--static void free_receive_bufs(struct virtnet_info *vi)
-+static void _free_receive_bufs(struct virtnet_info *vi)
- {
-        struct bpf_prog *old_prog;
-        int i;
-
--       rtnl_lock();
-        for (i = 0; i < vi->max_queue_pairs; i++) {
-                while (vi->rq[i].pages)
-                        __free_pages(get_a_page(&vi->rq[i], GFP_KERNEL), 0);
-@@ -1879,6 +1878,12 @@ static void free_receive_bufs(struct virtnet_info *vi)
-                if (old_prog)
-                        bpf_prog_put(old_prog);
-        }
-+}
-+
-+static void free_receive_bufs(struct virtnet_info *vi)
-+{
-+       rtnl_lock();
-+       _free_receive_bufs(vi);
-        rtnl_unlock();
- }
-
-@@ -2358,7 +2363,10 @@ static void remove_vq_common(struct virtnet_info *vi)
-        /* Free unused buffers in both send and recv, if any. */
-        free_unused_bufs(vi);
-
--       free_receive_bufs(vi);
-+       if (rtnl_is_locked());
-+               _free_receive_bufs(vi);
-+       else
-+               free_receive_bufs(vi);
-
-        free_receive_page_frags(vi);
+Thanks,
+Daniel
