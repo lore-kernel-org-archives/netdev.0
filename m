@@ -1,49 +1,75 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: To netlink or not to netlink, that is the question
-Date: Fri, 13 Jan 2017 08:17:10 +0100
-Message-ID: <1484291830.19860.3.camel@sipsolutions.net>
-References: <CAHmME9pkktqOSUyTS_XhgC-CE4iqTv6UEA6w74kkm3xnBY8z9g@mail.gmail.com>
-         <20170112091440.7f6cd41f@xeon-e3>
-         <CAHmME9rWDzO9j8E1HYSXY6j9FJqHODOYnEW8+SSggapDkQ_jBA@mail.gmail.com>
-         <1484246584.4651.3.camel@redhat.com>
-         <CAHmME9oYDdQGsQ8jQGJMeJ-0A6O+Och+Y+5Q_=Q=M9qgrxDq2Q@mail.gmail.com>
-         (sfid-20170112_200222_564116_D34FB2DF)
+From: David VomLehn <vomlehn@texas.net>
+Subject: Re: [PATCH v5 01/13] net: ethernet: aquantia: Make and configuration
+ files.
+Date: Thu, 12 Jan 2017 22:57:19 -0800
+Message-ID: <ce83519e-18bf-b202-7a0f-c217ab8aa189@texas.net>
+References: <cover.1484283610.git.vomlehn@texas.net>
+ <fe1664e502d28bcb6a5689787b8000e6c9288307.1484283610.git.vomlehn@texas.net>
+ <1484283977.3065.24.camel@perches.com>
+ <a1dcfa57-97a1-dc20-6d8d-60cba3be3a56@texas.net>
+ <1484287161.3065.27.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-        Netdev <netdev@vger.kernel.org>
-To: "Jason A. Donenfeld" <Jason@zx2c4.com>,
-        Dan Williams <dcbw@redhat.com>
+Cc: "David S . Miller" <davem@davemloft.net>,
+        Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
+        Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>,
+        Pavel Belous <Pavel.Belous@aquantia.com>,
+        Dmitry Bezrukov <Dmitry.Bezrukov@aquantia.com>
+To: Joe Perches <joe@perches.com>,
+        Alexander Loktionov <Alexander.Loktionov@aquantia.com>,
+        netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:49056 "EHLO sipsolutions.net"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751108AbdAMHRR (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 13 Jan 2017 02:17:17 -0500
-In-Reply-To: <CAHmME9oYDdQGsQ8jQGJMeJ-0A6O+Och+Y+5Q_=Q=M9qgrxDq2Q@mail.gmail.com> (sfid-20170112_200222_564116_D34FB2DF)
+Received: from barracuda1.aus1.datafoundry.com ([209.99.124.132]:58418 "EHLO
+        milter.aus.datafoundry.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1751099AbdAMH0b (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 02:26:31 -0500
+In-Reply-To: <1484287161.3065.27.camel@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2017-01-12 at 20:02 +0100, Jason A. Donenfeld wrote:
-> Hi Dan,
-> 
-> Thanks for your response. I'd thought about this, at least for
-> adding/removing wgpeers/wgipmasks and for configuring wgdevices. This
-> would fit into multiple smaller messages indeed.
-> 
-> But what about fetching the list of all existing peers and ipmasks
-> atomically? It seems like with multiple calls, if I'm using some kind
-> of pagination, things could change in the process. That's why using
-> one big buffer was most appealing... Any ideas about this?
+On 01/12/2017 09:59 PM, Joe Perches wrote:
+> On Thu, 2017-01-12 at 21:24 -0800, David VomLehn wrote:
+>> On 01/12/2017 09:06 PM, Joe Perches wrote:
+>>> On Thu, 2017-01-12 at 21:02 -0800, Alexander Loktionov wrote:
+>>>> From: David VomLehn <vomlehn@texas.net>
+>>>>
+>>>> Patches to create the make and configuration files.
+>>> This patch should _really_ be the last in the series
+>>> not the first.
+>>>
+>> Could you explain the basis for this? By convention, we put tables of
+>> content at the beginning of books and only indices at the back.
+>> Analogously, make and config files can be used to established the
+>> context for what follows, making it easier to understand. Once
+>> committed, of course, the order no longer matters except as bisection is
+>> concerned.
+> As I wrote the first time:
+>
+> On Tue, 2016-12-27 at 08:15 -0800, Joe Perches wrote:
+>> On Tue, 2016-12-27 at 05:17 -0800, David VomLehn wrote:
+>>> Patches to create the make and configuration files.
+> []
+>> Patch 1 will not build if CONFIG_AQTION is enabled.
+>> Patch 1/12 should be reordered to be patch 12/12 and
+>> all the other patches moved up appropriately.
+> You don't create the files until later patches.
+>
+> If you applied just this first patch and tried to
+> add CONFIG_AQTION=y to the .config, make fails.
+>
+> That's bad for git bisect.
+> Every patch in this series should build properly.
+>
+> If you delay the adding of the Makefile and Kconfig
+> until all the files are added, then it'd bisect fine.
+Please go back and re-read the latest patches; I think you will find 
+your concern about CONFIG_AQTION addressed in the v5 patchset. The 01/13 
+patch no longer has the changes to Makefile and Kconfig in 
+drivers/net/ethernet that will pull in the Makefile and Kconfig from 
+drivers/net/ethernet/aquantia. Those changes are now in the 13/13 patch, 
+which should make it bisectable. If I am missing something, please let 
+me know.
 
-In addition to what others have said - netlink typically includes (and
-has helpers to do so) a generation counter that's updated whenever this
-list changes, and included in each message, so if userspace really
-cares (often not) it can retry the dump until the system was idle
-enough to get a consistent snapshot.
-
-It also looks to me like your existing API isn't even compat-safe due
-to u64 alignment (e.g. in wgpeer), proving once again that ioctl is a
-bad idea.
-
-johannes
+-- 
+David VL
