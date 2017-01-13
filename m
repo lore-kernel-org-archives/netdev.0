@@ -1,45 +1,71 @@
-From: Volodymyr Bendiuga <volodymyr.bendiuga@gmail.com>
-Subject: [PATCH net-next] mii_bus: increase MII_BUS_ID_SIZE to 61
-Date: Fri, 13 Jan 2017 16:19:12 +0100
-Message-ID: <1484320752-32096-1-git-send-email-volodymyr.bendiuga@gmail.com>
+From: Richard Guy Briggs <rgb@redhat.com>
+Subject: Re: [PATCH V2] audit: log 32-bit socketcalls
+Date: Fri, 13 Jan 2017 10:20:48 -0500
+Message-ID: <20170113152047.GC3087@madcap2.tricolour.ca>
+References: <dd937da01da72da9277e44ed79abd1f4618c14c5.1484297765.git.rgb@redhat.com>
+ <1484318543.5300.1.camel@redhat.com>
+ <20170113150637.GB3087@madcap2.tricolour.ca>
+ <1484320702.5300.8.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: 8bit
-Cc: =?UTF-8?q?Magnus=20=C3=96berg?= <magnus.oberg@westermo.se>
-To: f.fainelli@gmail.com, netdev@vger.kernel.org,
-        volodymyr.bendiuga@westermo.se
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-audit@redhat.com, Kangkook Jee <aixer77@gmail.com>,
+        Paul Moore <pmoore@redhat.com>, Steve Grubb <sgrubb@redhat.com>
+To: Eric Paris <eparis@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f65.google.com ([209.85.215.65]:36582 "EHLO
-        mail-lf0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751678AbdAMPTa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 10:19:30 -0500
-Received: by mail-lf0-f65.google.com with SMTP id h65so6102219lfi.3
-        for <netdev@vger.kernel.org>; Fri, 13 Jan 2017 07:19:29 -0800 (PST)
+Received: from mx1.redhat.com ([209.132.183.28]:24972 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751808AbdAMPUv (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Fri, 13 Jan 2017 10:20:51 -0500
+Content-Disposition: inline
+In-Reply-To: <1484320702.5300.8.camel@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Volodymyr Bendiuga <volodymyr.bendiuga@westermo.se>
+On 2017-01-13 10:18, Eric Paris wrote:
+> On Fri, 2017-01-13 at 10:06 -0500, Richard Guy Briggs wrote:
+> > On 2017-01-13 09:42, Eric Paris wrote:
+> > > On Fri, 2017-01-13 at 04:51 -0500, Richard Guy Briggs wrote:
+> 
+> 
+> > > > diff --git a/include/linux/audit.h b/include/linux/audit.h
+> > > > index 9d4443f..43d8003 100644
+> > > > --- a/include/linux/audit.h
+> > > > +++ b/include/linux/audit.h
+> > > > @@ -387,6 +387,18 @@ static inline int audit_socketcall(int
+> > > > nargs,
+> > > > unsigned long *args)
+> > > >  		return __audit_socketcall(nargs, args);
+> > > >  	return 0;
+> > > >  }
+> > > > +static inline int audit_socketcall_compat(int nargs, u32 *args)
+> > > > +{
+> > > > +	if (unlikely(!audit_dummy_context())) {
+> > > 
+> > > I've always hated these likely/unlikely. Mostly because I think
+> > > they
+> > > are so often wrong. I believe this says that you compiled audit in
+> > > but
+> > > you expect it to be explicitly disabled. While that is (recently)
+> > > true
+> > > in Fedora I highly doubt that's true on the vast majority of
+> > > systems
+> > > that have audit compiled in.
+> > 
+> > It has been argued that audit should have pretty much no performance
+> > impact if it is not in use and that if it is, we're willing to take
+> > the
+> > more significant overhead of the rest of the code for the sake of one
+> > test to determine whether or not to follow this code path.
+> 
+> Ok, I can buy that argument. Not sure its where I would have settled,
+> but it does make sense. I'll obviously defer to Paul on what he wants
+> out of style. I always assume the compiler is brilliant and write
+> stupid code but your logic is sound there too.
+> 
+> You can/should pretend I said nothing.
 
-Some bus names are pretty long and do not fit into 20 chars.
+You're keeping me honest and making me work for my dinner!  ;-)
 
-Signed-off-by: Volodymyr Bendiuga <volodymyr.bendiuga@westermo.se>
-Signed-off-by: Magnus Ã–berg <magnus.oberg@westermo.se>
----
- include/linux/phy.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index feb8a98..b67f94d 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -162,7 +162,7 @@ static inline const char *phy_modes(phy_interface_t interface)
-  * Need to be a little smaller than phydev->dev.bus_id to leave room
-  * for the ":%02x"
-  */
--#define MII_BUS_ID_SIZE	(20 - 3)
-+#define MII_BUS_ID_SIZE	(64 - 3)
- 
- /* Or MII_ADDR_C45 into regnum for read/write on mii_bus to enable the 21 bit
-    IEEE 802.3ae clause 45 addressing mode used by 10GIGE phy chips. */
--- 
-2.7.4
+- RGB
