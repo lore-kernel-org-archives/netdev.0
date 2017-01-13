@@ -1,90 +1,67 @@
-From: Zefir Kurtisi <zefir.kurtisi@neratec.com>
-Subject: Re: Setting link down or up in software
-Date: Fri, 13 Jan 2017 10:20:25 +0100
-Message-ID: <0273a4ad-46f7-d7b9-a206-6bd713e6165e@neratec.com>
-References: <75bd6df2-714a-2b9b-a0e3-f5574c295377@free.fr>
- <2044a26f-cf95-ac55-6265-ac76c3ca53f6@free.fr>
+From: David Lebrun <david.lebrun@uclouvain.be>
+Subject: [PATCH net-next] ipv6: sr: add missing Kbuild export for header files
+Date: Fri, 13 Jan 2017 10:26:04 +0100
+Message-ID: <1484299564-6165-1-git-send-email-david.lebrun@uclouvain.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Mans Rullgard <mans@mansr.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Thibaud Cornic <thibaud_cornic@sigmadesigns.com>
-To: Mason <slash.tmp@free.fr>, netdev <netdev@vger.kernel.org>
+Content-Type: text/plain
+Cc: David Lebrun <david.lebrun@uclouvain.be>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.neratec.com ([46.140.151.2]:11780 "EHLO mail.neratec.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751282AbdAMJU2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 13 Jan 2017 04:20:28 -0500
-In-Reply-To: <2044a26f-cf95-ac55-6265-ac76c3ca53f6@free.fr>
+Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:33489 "EHLO
+        smtp4.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751286AbdAMJZb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 04:25:31 -0500
+Received: from mailboxes.uclouvain.be (mailboxes.uclouvain.be [130.104.6.131])
+        (using TLSv1.2 with cipher ECDHE-RSA-AES256-SHA384 (256/256 bits))
+        (No client certificate requested)
+        by smtp4.sgsi.ucl.ac.be (Postfix) with ESMTPS id A6A0167DDA4
+        for <netdev@vger.kernel.org>; Fri, 13 Jan 2017 10:25:04 +0100 (CET)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/12/2017 04:16 PM, Mason wrote:
-> On 12/01/2017 14:05, Mason wrote:
-> 
->> I'm wondering what are the semantics of calling
->>
->> 	ip link set dev eth0 down
->>
->> I was expecting that to somehow instruct the device's ethernet driver
->> to shut everything down, have the PHY tell the peer that it's going
->> away, maybe even put the PHY in some low-power mode, etc.
->>
->> But it doesn't seem to be doing any of that on my HW.
->>
->> So what exactly is it supposed to do?
->>
->>
->> And on top of that, I am seeing random occurrences of
->>
->> 	nb8800 26000.ethernet eth0: Link is Down
->>
->> Sometimes it is printed immediately.
->> Sometimes it is printed as soon as I run "ip link set dev eth0 up" (?!)
->> Sometimes it is not printed at all.
->>
->> I find this erratic behavior very confusing.
->>
->> Is it the symptom of some deeper bug?
-> 
-> Here's an example of "Link is Down" printed when I set link up:
-> 
-> At [   62.750220] I run ip link set dev eth0 down
-> Then leave the system idle for 10 minutes.
-> At [  646.263041] I run ip link set dev eth0 up
-> At [  647.364079] it prints "Link is Down"
-> At [  649.417434] it prints "Link is Up - 1Gbps/Full - flow control rx/tx"
-> 
-> I think whether I set up the PHY to use interrupts or polling
-> does have an influence on the weirdness I observe.
-> 
-> AFAICT, changing the interface flags is done in dev_change_flags
-> which calls __dev_change_flags and __dev_notify_flags
-> 
-> Is one of these supposed to call the device driver through a
-> callback at some point?
-> 
-> How/when is the phy_state_machine notified of the change in
-> interface flags?
-> 
-> Regards.
-> 
-Hm, reminds me of something at my side that I recently fixed with [1]. For me it
-was pulling the cable got randomly unnoticed at PHY layer - but might be related.
+Add missing IPv6-SR header files in include/uapi/linux/Kbuild.
 
-Do you by chance have some component that polls the link states over the ethtool
-interface very often (like once per second)? At my side it was a snmpd agent that
-pro-actively updated the interface states every second and with that 'stole' the
-link change information from the phy link state machine. What you need to have to
-run in such a failing situation is:
-1) an ETH driver that updates link status in ethtool GSET path (e.g. dsa does)
-2) some component that continuously polls states via ethtool GSET
+Also, prevent seg6_lwt_headroom() from being exported.
 
+Signed-off-by: David Lebrun <david.lebrun@uclouvain.be>
+---
+ include/uapi/linux/Kbuild          | 4 ++++
+ include/uapi/linux/seg6_iptunnel.h | 4 ++++
+ 2 files changed, 8 insertions(+)
 
-Cheers,
-Zefir
-
-
-[1] https://patchwork.ozlabs.org/patch/711839/
+diff --git a/include/uapi/linux/Kbuild b/include/uapi/linux/Kbuild
+index f330ba4..e600b50 100644
+--- a/include/uapi/linux/Kbuild
++++ b/include/uapi/linux/Kbuild
+@@ -379,6 +379,10 @@ header-y += sctp.h
+ header-y += sdla.h
+ header-y += seccomp.h
+ header-y += securebits.h
++header-y += seg6_genl.h
++header-y += seg6.h
++header-y += seg6_hmac.h
++header-y += seg6_iptunnel.h
+ header-y += selinux_netlink.h
+ header-y += sem.h
+ header-y += serial_core.h
+diff --git a/include/uapi/linux/seg6_iptunnel.h b/include/uapi/linux/seg6_iptunnel.h
+index 0f7dbd2..7a7183d 100644
+--- a/include/uapi/linux/seg6_iptunnel.h
++++ b/include/uapi/linux/seg6_iptunnel.h
+@@ -33,6 +33,8 @@ enum {
+ 	SEG6_IPTUN_MODE_ENCAP,
+ };
+ 
++#ifdef __KERNEL__
++
+ static inline size_t seg6_lwt_headroom(struct seg6_iptunnel_encap *tuninfo)
+ {
+ 	int encap = (tuninfo->mode == SEG6_IPTUN_MODE_ENCAP);
+@@ -42,3 +44,5 @@ static inline size_t seg6_lwt_headroom(struct seg6_iptunnel_encap *tuninfo)
+ }
+ 
+ #endif
++
++#endif
+-- 
+2.7.3
