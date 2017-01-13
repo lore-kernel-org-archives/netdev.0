@@ -1,71 +1,74 @@
-From: Richard Guy Briggs <rgb@redhat.com>
-Subject: Re: [PATCH V2] audit: log 32-bit socketcalls
-Date: Fri, 13 Jan 2017 10:20:48 -0500
-Message-ID: <20170113152047.GC3087@madcap2.tricolour.ca>
-References: <dd937da01da72da9277e44ed79abd1f4618c14c5.1484297765.git.rgb@redhat.com>
- <1484318543.5300.1.camel@redhat.com>
- <20170113150637.GB3087@madcap2.tricolour.ca>
- <1484320702.5300.8.camel@redhat.com>
+From: Russell King - ARM Linux <linux@armlinux.org.uk>
+Subject: [PATCH RFC 0/7] Clean up PHY MMD accessors
+Date: Fri, 13 Jan 2017 15:20:59 +0000
+Message-ID: <20170113152059.GR14217@n2100.armlinux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-audit@redhat.com, Kangkook Jee <aixer77@gmail.com>,
-        Paul Moore <pmoore@redhat.com>, Steve Grubb <sgrubb@redhat.com>
-To: Eric Paris <eparis@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:24972 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751808AbdAMPUv (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 13 Jan 2017 10:20:51 -0500
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Woojung Huh <woojung.huh@microchip.com>, netdev@vger.kernel.org,
+ linux-usb@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+ Microchip Linux Driver Support <UNGLinuxDriver@microchip.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 Content-Disposition: inline
-In-Reply-To: <1484320702.5300.8.camel@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On 2017-01-13 10:18, Eric Paris wrote:
-> On Fri, 2017-01-13 at 10:06 -0500, Richard Guy Briggs wrote:
-> > On 2017-01-13 09:42, Eric Paris wrote:
-> > > On Fri, 2017-01-13 at 04:51 -0500, Richard Guy Briggs wrote:
-> 
-> 
-> > > > diff --git a/include/linux/audit.h b/include/linux/audit.h
-> > > > index 9d4443f..43d8003 100644
-> > > > --- a/include/linux/audit.h
-> > > > +++ b/include/linux/audit.h
-> > > > @@ -387,6 +387,18 @@ static inline int audit_socketcall(int
-> > > > nargs,
-> > > > unsigned long *args)
-> > > >  		return __audit_socketcall(nargs, args);
-> > > >  	return 0;
-> > > >  }
-> > > > +static inline int audit_socketcall_compat(int nargs, u32 *args)
-> > > > +{
-> > > > +	if (unlikely(!audit_dummy_context())) {
-> > > 
-> > > I've always hated these likely/unlikely. Mostly because I think
-> > > they
-> > > are so often wrong. I believe this says that you compiled audit in
-> > > but
-> > > you expect it to be explicitly disabled. While that is (recently)
-> > > true
-> > > in Fedora I highly doubt that's true on the vast majority of
-> > > systems
-> > > that have audit compiled in.
-> > 
-> > It has been argued that audit should have pretty much no performance
-> > impact if it is not in use and that if it is, we're willing to take
-> > the
-> > more significant overhead of the rest of the code for the sake of one
-> > test to determine whether or not to follow this code path.
-> 
-> Ok, I can buy that argument. Not sure its where I would have settled,
-> but it does make sense. I'll obviously defer to Paul on what he wants
-> out of style. I always assume the compiler is brilliant and write
-> stupid code but your logic is sound there too.
-> 
-> You can/should pretend I said nothing.
+This series cleans up phylib's MMD accessors, so that we have a common
+way of accessing the Clause 45 register set.
 
-You're keeping me honest and making me work for my dinner!  ;-)
+The current situation is far from ideal - we have phy_(read|write)_mmd()
+which accesses Clause 45 registers over Clause 45 accesses, and we have
+phy_(read|write)_mmd_indirect(), which accesses Clause 45 registers via
+Clause 22 register 13/14.
 
-- RGB
+Generic code uses the indirect methods to access standard Clause 45
+features, and when we come to add Clause 45 PHY support to phylib, we
+would need to make these conditional upon the PHY type, or duplicate
+these functions.
+
+An alternative solution is to merge these accessors together, and select
+the appropriate access method depending upon the 802.3 clause that the
+PHY conforms with.  The result is that we have a single set of
+phy_(read|write)_mmd() accessors.
+
+For cases which require special handling, we still allow PHY drivers to
+override all MMD accesses - except rather than just overriding the
+indirect accesses.  This keeps existing overrides working.
+
+Combining the two also has another beneficial side effect - we get rid
+of similar functions that take arguments in different orders.  The
+old direct accessors took the phy structure, devad and register number,
+whereas the indirect accessors took the phy structure, register number
+and devad in that order.  Care must be taken when updating future
+drivers that the argument order is correct, and the function name is
+not merely replaced.
+
+This patch set is against 4.10-rc3 at present.
+
+ drivers/net/phy/Makefile      |   3 +-
+ drivers/net/phy/bcm-phy-lib.c |  12 ++---
+ drivers/net/phy/dp83867.c     |  18 +++----
+ drivers/net/phy/intel-xway.c  |  26 +++++-----
+ drivers/net/phy/micrel.c      |  13 +++--
+ drivers/net/phy/microchip.c   |   5 +-
+ drivers/net/phy/phy-core.c    | 101 ++++++++++++++++++++++++++++++++++++++
+ drivers/net/phy/phy.c         | 110 ++++--------------------------------------
+ drivers/net/phy/phy_device.c  |   4 +-
+ drivers/net/usb/lan78xx.c     |  10 ++--
+ include/linux/phy.h           |  56 +++++++++------------
+ 11 files changed, 176 insertions(+), 182 deletions(-)
+ create mode 100644 drivers/net/phy/phy-core.c
+
+-- 
+RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
+FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
+according to speedtest.net.
