@@ -1,42 +1,57 @@
-From: Basil Gunn <basil@pacabunga.com>
-Subject: [PATCH 1/1] ax25: Fix segfault after sock connection timeout
-Date: Sat, 14 Jan 2017 12:18:55 -0800
-Message-ID: <20170114121855.62254455@brox.localnet>
+From: Remanan Pillai <vineethp@u480fcf3b67f557f68df1.ant.amazon.com>
+Subject: [PATCH v2] xen-netfront: Fix Rx stall during network
+	stress and OOM
+Date: Fri, 13 Jan 2017 09:55:00 -0800
+Message-ID: <1484330100-3960-1-git-send-email-vineethp@u480fcf3b67f557f68df1.ant.amazon.com>
+References: <0cb06b48-cb3c-47aa-2ae6-3a70197a5b64@amazon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: stable@vger.kernel.org, Jeremy McDermond <mcdermj@xenotropic.com>,
-        f6bvp <f6bvp@free.fr>
-To: Joerg Reuter <jreuter@yaina.de>,
-        Ralf Baechle <ralf@linux-mips.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        linux-hams@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-Return-path: <linux-hams-owner@vger.kernel.org>
-Sender: linux-hams-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Vineeth Remanan Pillai <vineethp@amazon.com>, kamatam@amazon.com,
+ aliguori@amazon.com
+To: <boris.ostrovsky@oracle.com>, <jgross@suse.com>,
+ <xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>,
+ <linux-kernel@vger.kernel.org>
+Return-path: <xen-devel-bounces@lists.xen.org>
+In-Reply-To: <0cb06b48-cb3c-47aa-2ae6-3a70197a5b64@amazon.com>
+List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Errors-To: xen-devel-bounces@lists.xen.org
+Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
 List-Id: netdev.vger.kernel.org
 
-The ax.25 socket connection timed out & the sock struct has been
-previously taken down ie. sock struct is now a NULL pointer. Checking
-the sock_flag causes the segfault.  Check if the socket struct pointer
-is NULL before checking sock_flag. This segfault is seen in
-timed out netrom connections.
-
-Please submit to -stable.
-
-Signed-off-by: Basil Gunn <basil@pacabunga.com>
----
-
-diff --git a/net/ax25/ax25_subr.c b/net/ax25/ax25_subr.c
-index 4855d18..038b109 100644
---- a/net/ax25/ax25_subr.c
-+++ b/net/ax25/ax25_subr.c
-@@ -264,7 +264,7 @@ void ax25_disconnect(ax25_cb *ax25, int reason)
- {
- 	ax25_clear_queues(ax25);
-
--	if (!sock_flag(ax25->sk, SOCK_DESTROY))
-+	if (!ax25->sk || !sock_flag(ax25->sk, SOCK_DESTROY))
- 		ax25_stop_heartbeat(ax25);
- 	ax25_stop_t1timer(ax25);
- 	ax25_stop_t2timer(ax25);
+RnJvbTogVmluZWV0aCBSZW1hbmFuIFBpbGxhaSA8dmluZWV0aHBAYW1hem9uLmNvbT4KCkR1cmlu
+ZyBhbiBPT00gc2NlbmFyaW8sIHJlcXVlc3Qgc2xvdHMgY291bGQgbm90IGJlIGNyZWF0ZWQgYXMg
+c2tiCmFsbG9jYXRpb24gZmFpbHMuIFNvIHRoZSBuZXRiYWNrIGNhbm5vdCBwYXNzIGluIHBhY2tl
+dHMgYW5kIG5ldGZyb250Cndyb25nbHkgYXNzdW1lcyB0aGF0IHRoZXJlIGlzIG5vIG1vcmUgd29y
+ayB0byBiZSBkb25lIGFuZCBpdCBkaXNhYmxlcwpwb2xsaW5nLiBUaGlzIGNhdXNlcyBSeCB0byBz
+dGFsbC4KClRoZSBpc3N1ZSBpcyB3aXRoIHRoZSByZXRyeSBsb2dpYyB3aGljaCBzY2hlZHVsZXMg
+dGhlIHRpbWVyIGlmIHRoZQpjcmVhdGVkIHNsb3RzIGFyZSBsZXNzIHRoYW4gTkVUX1JYX1NMT1RT
+X01JTi4gVGhlIGNvdW50IG9mIG5ldyByZXF1ZXN0CnNsb3RzIHRvIGJlIHB1c2hlZCBhcmUgY2Fs
+Y3VsYXRlZCBhcyBhIGRpZmZlcmVuY2UgYmV0d2VlbiBuZXcgcmVxX3Byb2QKYW5kIHJzcF9jb25z
+IHdoaWNoIGNvdWxkIGJlIG1vcmUgdGhhbiB0aGUgYWN0dWFsIHNsb3RzLCBpZiB0aGVyZSBhcmUK
+dW5jb25zdW1lZCByZXNwb25zZXMuCgpUaGUgZml4IGlzIHRvIGNhbGN1bGF0ZSB0aGUgY291bnQg
+b2YgbmV3bHkgY3JlYXRlZCBzbG90cyBhcyB0aGUKZGlmZmVyZW5jZSBiZXR3ZWVuIG5ldyByZXFf
+cHJvZCBhbmQgb2xkIHJlcV9wcm9kLgoKU2lnbmVkLW9mZi1ieTogVmluZWV0aCBSZW1hbmFuIFBp
+bGxhaSA8dmluZWV0aHBAYW1hem9uLmNvbT4KLS0tCkNoYW5nZXMgaW4gdjI6CgktIFJlbW92ZWQg
+dGhlIG9sZCBpbXBsZW1lbnRhdGlvbiBvZiBlbmFibGluZyBwb2xsaW5nIG9uCgkgIHNrYiBhbGxv
+Y2F0aW9uIGVycm9yLgoJLSBDb3JyZWN0ZWQgdGhlIHJlZmlsbCB0aW1lciBsb2dpYyB0byBzY2hl
+ZHVsZSB3aGVuIG5ld2x5CgkgIGNyZWF0ZWQgc2xvdHMgc2luY2UgbGFzdCBwdXNoIGlzIGxlc3Mg
+dGhhbiBORVRfUlhfU0xPVFNfTUlOLgoKIGRyaXZlcnMvbmV0L3hlbi1uZXRmcm9udC5jIHwgMiAr
+LQogMSBmaWxlIGNoYW5nZWQsIDEgaW5zZXJ0aW9uKCspLCAxIGRlbGV0aW9uKC0pCgpkaWZmIC0t
+Z2l0IGEvZHJpdmVycy9uZXQveGVuLW5ldGZyb250LmMgYi9kcml2ZXJzL25ldC94ZW4tbmV0ZnJv
+bnQuYwppbmRleCA0MGYyNmI2Li4yYzdjMjlmIDEwMDY0NAotLS0gYS9kcml2ZXJzL25ldC94ZW4t
+bmV0ZnJvbnQuYworKysgYi9kcml2ZXJzL25ldC94ZW4tbmV0ZnJvbnQuYwpAQCAtMzIxLDcgKzMy
+MSw3IEBAIHN0YXRpYyB2b2lkIHhlbm5ldF9hbGxvY19yeF9idWZmZXJzKHN0cnVjdCBuZXRmcm9u
+dF9xdWV1ZSAqcXVldWUpCiAJcXVldWUtPnJ4LnJlcV9wcm9kX3B2dCA9IHJlcV9wcm9kOwogCiAJ
+LyogTm90IGVub3VnaCByZXF1ZXN0cz8gVHJ5IGFnYWluIGxhdGVyLiAqLwotCWlmIChyZXFfcHJv
+ZCAtIHF1ZXVlLT5yeC5yc3BfY29ucyA8IE5FVF9SWF9TTE9UU19NSU4pIHsKKwlpZiAocmVxX3By
+b2QgLSBxdWV1ZS0+cnguc3JpbmctPnJlcV9wcm9kIDwgTkVUX1JYX1NMT1RTX01JTikgewogCQlt
+b2RfdGltZXIoJnF1ZXVlLT5yeF9yZWZpbGxfdGltZXIsIGppZmZpZXMgKyAoSFovMTApKTsKIAkJ
+cmV0dXJuOwogCX0KLS0gCjIuNy40CgoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX18KWGVuLWRldmVsIG1haWxpbmcgbGlzdApYZW4tZGV2ZWxAbGlzdHMueGVu
+Lm9yZwpodHRwczovL2xpc3RzLnhlbi5vcmcveGVuLWRldmVsCg==
