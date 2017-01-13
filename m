@@ -1,7 +1,7 @@
 From: Alexander Loktionov <Alexander.Loktionov@aquantia.com>
-Subject: [PATCH v5 08/13] net: ethernet: aquantia: PCI operations
-Date: Thu, 12 Jan 2017 21:02:24 -0800
-Message-ID: <2889e8e87b8b89945f34e57a7f8ca253f204de47.1484283610.git.vomlehn@texas.net>
+Subject: [PATCH v5 02/13] net: ethernet: aquantia: Common functions and definitions
+Date: Thu, 12 Jan 2017 21:02:18 -0800
+Message-ID: <2c056fd544958594f6356a17892c251ea26ea8c8.1484283610.git.vomlehn@texas.net>
 References: <cover.1484283610.git.vomlehn@texas.net>
 Cc: "David S . Miller" <davem@davemloft.net>,
         Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
@@ -11,19 +11,20 @@ Cc: "David S . Miller" <davem@davemloft.net>,
         Dmitry Bezrukov <Dmitry.Bezrukov@aquantia.com>
 To: netdev@vger.kernel.org, David VomLehn <vomlehn@texas.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from barracuda1.aus1.datafoundry.com ([209.99.124.132]:53663 "EHLO
+Received: from barracuda1.aus1.datafoundry.com ([209.99.124.132]:53571 "EHLO
         milter.aus.datafoundry.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1751085AbdAMFDZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 00:03:25 -0500
+        by vger.kernel.org with ESMTP id S1750787AbdAMFDV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 00:03:21 -0500
 In-Reply-To: <cover.1484283610.git.vomlehn@texas.net>
-In-Reply-To: <e3f7eda0cc3bfa3426932c39465971ba4c6226ef.1484283610.git.vomlehn@texas.net>
-References: <cover.1484283610.git.vomlehn@texas.net> <fe1664e502d28bcb6a5689787b8000e6c9288307.1484283610.git.vomlehn@texas.net> <2c056fd544958594f6356a17892c251ea26ea8c8.1484283610.git.vomlehn@texas.net> <98a7a3c6800c246753ef6cfaa5982a348da757c8.1484283610.git.vomlehn@texas.net> <29b795c8c4fc8de7925e82e071e5feaa266cd801.1484283610.git.vomlehn@texas.net> <5e87af3b0effb96698d0c085366b1ba9320a6305.1484283610.git.vomlehn@texas.net> <e17f53f9485f69edafa966d2bcbaa4b9fd7c145f.1484283610.git.vomlehn@texas.net> <e3f7eda0cc3bfa3426932c39465971ba4c6226ef.1484283610.git.vomlehn@texas.net>
+In-Reply-To: <fe1664e502d28bcb6a5689787b8000e6c9288307.1484283610.git.vomlehn@texas.net>
+References: <cover.1484283610.git.vomlehn@texas.net> <fe1664e502d28bcb6a5689787b8000e6c9288307.1484283610.git.vomlehn@texas.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: David VomLehn <vomlehn@texas.net>
 
-Add functions that handle the PCI bus interface.
+Add files containing the functions and definitions used in common in
+different functional areas.
 
 Signed-off-by: Alexander Loktionov <Alexander.Loktionov@aquantia.com>
 Signed-off-by: Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>
@@ -31,18 +32,20 @@ Signed-off-by: Pavel Belous <Pavel.Belous@aquantia.com>
 Signed-off-by: Dmitry Bezrukov <Dmitry.Bezrukov@aquantia.com>
 Signed-off-by: David M. VomLehn <vomlehn@texas.net>
 ---
- drivers/net/ethernet/aquantia/aq_pci_func.c | 347 ++++++++++++++++++++++++++++
- drivers/net/ethernet/aquantia/aq_pci_func.h |  34 +++
- 2 files changed, 381 insertions(+)
- create mode 100644 drivers/net/ethernet/aquantia/aq_pci_func.c
- create mode 100644 drivers/net/ethernet/aquantia/aq_pci_func.h
+ drivers/net/ethernet/aquantia/aq_cfg.h    | 77 +++++++++++++++++++++++++++++++
+ drivers/net/ethernet/aquantia/aq_common.h | 23 +++++++++
+ drivers/net/ethernet/aquantia/aq_utils.h  | 53 +++++++++++++++++++++
+ 3 files changed, 153 insertions(+)
+ create mode 100644 drivers/net/ethernet/aquantia/aq_cfg.h
+ create mode 100644 drivers/net/ethernet/aquantia/aq_common.h
+ create mode 100644 drivers/net/ethernet/aquantia/aq_utils.h
 
-diff --git a/drivers/net/ethernet/aquantia/aq_pci_func.c b/drivers/net/ethernet/aquantia/aq_pci_func.c
+diff --git a/drivers/net/ethernet/aquantia/aq_cfg.h b/drivers/net/ethernet/aquantia/aq_cfg.h
 new file mode 100644
-index 0000000..0b9052c
+index 0000000..5f99237
 --- /dev/null
-+++ b/drivers/net/ethernet/aquantia/aq_pci_func.c
-@@ -0,0 +1,347 @@
++++ b/drivers/net/ethernet/aquantia/aq_cfg.h
+@@ -0,0 +1,77 @@
 +/*
 + * aQuantia Corporation Network Driver
 + * Copyright (C) 2014-2017 aQuantia Corporation. All rights reserved
@@ -52,350 +55,109 @@ index 0000000..0b9052c
 + * version 2, as published by the Free Software Foundation.
 + */
 +
-+/* File aq_pci_func.c: Definition of PCI functions. */
++/* File aq_cfg.h: Definition of configuration parameters and constants. */
 +
-+#include "aq_pci_func.h"
++#ifndef AQ_CFG_H
++#define AQ_CFG_H
++
++#define AQ_CFG_VECS_DEF   4U
++#define AQ_CFG_TCS_DEF    1U
++
++#define AQ_CFG_TXDS_DEF    4096U
++#define AQ_CFG_RXDS_DEF    1024U
++
++#define AQ_CFG_IS_POLLING_DEF 0U
++
++#define AQ_CFG_FORCE_LEGACY_INT 0U
++
++#define AQ_CFG_IS_INTERRUPT_MODERATION_DEF   1U
++#define AQ_CFG_INTERRUPT_MODERATION_RATE_DEF 0xFFFFU
++#define AQ_CFG_IRQ_MASK                      0x1FFU
++
++#define AQ_CFG_VECS_MAX   8U
++#define AQ_CFG_TCS_MAX    8U
++
++#define AQ_CFG_TX_FRAME_MAX  (16U * 1024U)
++#define AQ_CFG_RX_FRAME_MAX  (4U * 1024U)
++
++/* LRO */
++#define AQ_CFG_IS_LRO_DEF           1U
++
++/* RSS */
++#define AQ_CFG_RSS_INDIRECTION_TABLE_MAX  128U
++#define AQ_CFG_RSS_HASHKEY_SIZE           320U
++
++#define AQ_CFG_IS_RSS_DEF           1U
++#define AQ_CFG_NUM_RSS_QUEUES_DEF   AQ_CFG_VECS_DEF
++#define AQ_CFG_RSS_BASE_CPU_NUM_DEF 0U
++
++#define AQ_CFG_PCI_FUNC_MSIX_IRQS   9U
++#define AQ_CFG_PCI_FUNC_PORTS       2U
++
++#define AQ_CFG_SERVICE_TIMER_INTERVAL    (2 * HZ)
++#define AQ_CFG_POLLING_TIMER_INTERVAL   ((unsigned int)(2 * HZ))
++
++#define AQ_CFG_SKB_FRAGS_MAX   32U
++
++#define AQ_CFG_NAPI_WEIGHT     64U
++
++#define AQ_CFG_MULTICAST_ADDRESS_MAX     32U
++
++/*#define AQ_CFG_MAC_ADDR_PERMANENT {0x30, 0x0E, 0xE3, 0x12, 0x34, 0x56}*/
++
++#define AQ_CFG_FC_MODE 3U
++
++#define AQ_CFG_SPEED_MSK  0xFFFFU	/* 0xFFFFU==auto_neg */
++
++#define AQ_CFG_IS_AUTONEG_DEF       1U
++#define AQ_CFG_MTU_DEF              1514U
++
++#define AQ_CFG_LOCK_TRYS   100U
++
++#define AQ_CFG_DRV_AUTHOR      "aQuantia"
++#define AQ_CFG_DRV_DESC        "aQuantia Corporation(R) Network Driver"
++#define AQ_CFG_DRV_NAME        "aquantia"
++#define AQ_CFG_DRV_VERSION	__stringify(NIC_MAJOR_DRIVER_VERSION)"."\
++				__stringify(NIC_MINOR_DRIVER_VERSION)"."\
++				__stringify(NIC_BUILD_DRIVER_VERSION)"."\
++				__stringify(NIC_REVISION_DRIVER_VERSION)
++
++#endif /* AQ_CFG_H */
+diff --git a/drivers/net/ethernet/aquantia/aq_common.h b/drivers/net/ethernet/aquantia/aq_common.h
+new file mode 100644
+index 0000000..9eb5e22
+--- /dev/null
++++ b/drivers/net/ethernet/aquantia/aq_common.h
+@@ -0,0 +1,23 @@
++/*
++ * aQuantia Corporation Network Driver
++ * Copyright (C) 2014-2017 aQuantia Corporation. All rights reserved
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ */
++
++/* File aq_common.h: Basic includes for all files in project. */
++
++#ifndef AQ_COMMON_H
++#define AQ_COMMON_H
++
++#include <linux/etherdevice.h>
++#include <linux/pci.h>
++
++#include "ver.h"
 +#include "aq_nic.h"
-+#include "aq_vec.h"
-+#include "aq_hw.h"
-+#include <linux/interrupt.h>
-+
-+struct aq_pci_func_s {
-+	struct pci_dev *pdev;
-+	struct aq_nic_s *port[AQ_CFG_PCI_FUNC_PORTS];
-+	void __iomem *mmio;
-+	void *aq_vec[AQ_CFG_PCI_FUNC_MSIX_IRQS];
-+	resource_size_t mmio_pa;
-+	unsigned int msix_entry_mask;
-+	unsigned int irq_type;
-+	unsigned int ports;
-+	bool is_pci_enabled;
-+	bool is_regions;
-+	bool is_pci_using_dac;
-+	struct aq_hw_caps_s aq_hw_caps;
-+	struct msix_entry msix_entry[AQ_CFG_PCI_FUNC_MSIX_IRQS];
-+};
-+
-+struct aq_pci_func_s *aq_pci_func_alloc(struct aq_hw_ops *aq_hw_ops,
-+					struct pci_dev *pdev,
-+					const struct net_device_ops *ndev_ops,
-+					const struct ethtool_ops *eth_ops)
-+{
-+	struct aq_pci_func_s *self = NULL;
-+	int err = 0;
-+	unsigned int port = 0U;
-+
-+	if (!aq_hw_ops) {
-+		err = -EFAULT;
-+		goto err_exit;
-+	}
-+	self = kzalloc(sizeof(*self), GFP_KERNEL);
-+	if (!self) {
-+		err = -ENOMEM;
-+		goto err_exit;
-+	}
-+
-+	pci_set_drvdata(pdev, self);
-+	self->pdev = pdev;
-+
-+	err = aq_hw_ops->get_hw_caps(NULL, &self->aq_hw_caps);
-+	if (err < 0)
-+		goto err_exit;
-+
-+	self->ports = self->aq_hw_caps.ports;
-+
-+	for (port = 0; port < self->ports; ++port) {
-+		struct aq_nic_s *aq_nic = aq_nic_alloc_cold(ndev_ops, eth_ops,
-+							    &pdev->dev, self,
-+							    port, aq_hw_ops);
-+
-+		if (!aq_nic) {
-+			err = -ENOMEM;
-+			goto err_exit;
-+		}
-+		self->port[port] = aq_nic;
-+	}
-+
-+err_exit:
-+	if (err < 0) {
-+		if (self)
-+			aq_pci_func_free(self);
-+		self = NULL;
-+	}
-+
-+	(void)err;
-+	return self;
-+}
-+
-+int aq_pci_func_init(struct aq_pci_func_s *self)
-+{
-+	int err = 0;
-+	unsigned int bar = 0U;
-+	unsigned int port = 0U;
-+	unsigned int i = 0U;
-+
-+	err = pci_enable_device(self->pdev);
-+	if (err < 0)
-+		goto err_exit;
-+
-+	self->is_pci_enabled = true;
-+
-+	err = pci_set_dma_mask(self->pdev, DMA_BIT_MASK(64));
-+	if (!err) {
-+		err = pci_set_consistent_dma_mask(self->pdev, DMA_BIT_MASK(64));
-+		self->is_pci_using_dac = 1;
-+	}
-+	if (err) {
-+		err = pci_set_dma_mask(self->pdev, DMA_BIT_MASK(32));
-+		if (!err)
-+			err = pci_set_consistent_dma_mask(self->pdev,
-+							  DMA_BIT_MASK(32));
-+		self->is_pci_using_dac = 0;
-+	}
-+	if (err != 0) {
-+		err = -ENOSR;
-+		goto err_exit;
-+	}
-+
-+	err = pci_request_regions(self->pdev, AQ_CFG_DRV_NAME "_mmio");
-+	if (err < 0)
-+		goto err_exit;
-+
-+	self->is_regions = true;
-+
-+	pci_set_master(self->pdev);
-+
-+	for (bar = 0; bar < 4; ++bar) {
-+		if (IORESOURCE_MEM & pci_resource_flags(self->pdev, bar)) {
-+			resource_size_t reg_sz;
-+
-+			self->mmio_pa = pci_resource_start(self->pdev, bar);
-+			if (self->mmio_pa == 0U) {
-+				err = -EIO;
-+				goto err_exit;
-+			}
-+
-+			reg_sz = pci_resource_len(self->pdev, bar);
-+			if ((reg_sz <= 24 /*ATL_REGS_SIZE*/)) {
-+				err = -EIO;
-+				goto err_exit;
-+			}
-+
-+			self->mmio = ioremap_nocache(self->mmio_pa, reg_sz);
-+			if (!self->mmio) {
-+				err = -EIO;
-+				goto err_exit;
-+			}
-+			break;
-+		}
-+	}
-+
-+	if (err < 0)
-+		goto err_exit;
-+	for (i = 0; i < self->aq_hw_caps.msix_irqs; i++)
-+		self->msix_entry[i].entry = i;
-+
-+	/*enable interrupts */
-+#if AQ_CFG_FORCE_LEGACY_INT
-+	self->irq_type = AQ_IRQ_LEGACY;
-+#else
-+	err = pci_enable_msix(self->pdev, self->msix_entry,
-+			      self->aq_hw_caps.msix_irqs);
-+
-+	if (err >= 0) {
-+		self->irq_type = AQ_IRQ_MSIX;
-+	} else {
-+		err = pci_enable_msi(self->pdev);
-+
-+		if (err >= 0) {
-+			self->irq_type = AQ_IRQ_MSI;
-+		} else {
-+			self->irq_type = AQ_IRQ_LEGACY;
-+			err = 0;
-+		}
-+	}
-+#endif
-+
-+	/* net device init */
-+	for (port = 0; port < self->ports; ++port) {
-+		if (!self->port[port])
-+			continue;
-+
-+		aq_nic_cfg_start(self->port[port]);
-+		aq_nic_ndev_init(self->port[port]);
-+
-+		err = aq_nic_ndev_register(self->port[port]);
-+		if (err < 0)
-+			goto err_exit;
-+	}
-+
-+err_exit:
-+	if (err < 0)
-+		aq_pci_func_deinit(self);
-+	return err;
-+}
-+
-+int aq_pci_func_alloc_irq(struct aq_pci_func_s *self, unsigned int i,
-+			  char *name, void *aq_vec, cpumask_t *affinity_mask)
-+{
-+	int err = 0;
-+
-+	switch (self->irq_type) {
-+	case AQ_IRQ_MSIX:
-+		err = request_irq(self->msix_entry[i].vector, aq_vec_isr, 0,
-+				  name, aq_vec);
-+		break;
-+
-+	case AQ_IRQ_MSI:
-+		err = request_irq(self->pdev->irq, aq_vec_isr, 0, name, aq_vec);
-+		break;
-+
-+	case AQ_IRQ_LEGACY:
-+		err = request_irq(self->pdev->irq, aq_vec_isr_legacy,
-+				  IRQF_SHARED, name, aq_vec);
-+		break;
-+
-+	default:
-+		err = -EFAULT;
-+		break;
-+	}
-+
-+	if (err >= 0) {
-+		self->msix_entry_mask |= (1 << i);
-+		self->aq_vec[i] = aq_vec;
-+
-+		if (self->irq_type == AQ_IRQ_MSIX)
-+			irq_set_affinity_hint(self->msix_entry[i].vector,
-+					      affinity_mask);
-+	}
-+
-+	return err;
-+}
-+
-+void aq_pci_func_free_irqs(struct aq_pci_func_s *self)
-+{
-+	unsigned int i = 0U;
-+
-+	for (i = 32U; i--;) {
-+		if (!((1U << i) & self->msix_entry_mask))
-+			continue;
-+
-+		switch (self->irq_type) {
-+		case AQ_IRQ_MSIX:
-+			irq_set_affinity_hint(self->msix_entry[i].vector, NULL);
-+			free_irq(self->msix_entry[i].vector, self->aq_vec[i]);
-+			break;
-+
-+		case AQ_IRQ_MSI:
-+			free_irq(self->pdev->irq, self->aq_vec[i]);
-+			break;
-+
-+		case AQ_IRQ_LEGACY:
-+			free_irq(self->pdev->irq, self->aq_vec[i]);
-+			break;
-+
-+		default:
-+			break;
-+		}
-+
-+		self->msix_entry_mask &= ~(1U << i);
-+	}
-+}
-+
-+void __iomem *aq_pci_func_get_mmio(struct aq_pci_func_s *self)
-+{
-+	return self->mmio;
-+}
-+
-+unsigned int aq_pci_func_get_irq_type(struct aq_pci_func_s *self)
-+{
-+	return self->irq_type;
-+}
-+
-+int aq_pci_func_deinit(struct aq_pci_func_s *self)
-+{
-+	int err = 0;
-+
-+	if (!self) {
-+		err = -EFAULT;
-+		goto err_exit;
-+	}
-+	aq_pci_func_free_irqs(self);
-+
-+	switch (self->irq_type) {
-+	case AQ_IRQ_MSI:
-+		pci_disable_msi(self->pdev);
-+		break;
-+
-+	case AQ_IRQ_MSIX:
-+		pci_disable_msix(self->pdev);
-+		break;
-+
-+	case AQ_IRQ_LEGACY:
-+		break;
-+
-+	default:
-+		break;
-+	}
-+
-+	if (self->is_regions)
-+		pci_release_regions(self->pdev);
-+
-+	if (self->is_pci_enabled)
-+		pci_disable_device(self->pdev);
-+
-+err_exit:
-+	return err;
-+}
-+
-+void aq_pci_func_free(struct aq_pci_func_s *self)
-+{
-+	int err = 0;
-+	unsigned int port = 0U;
-+
-+	if (!self) {
-+		err = -EFAULT;
-+		goto err_exit;
-+	}
-+	for (port = 0; port < self->ports; ++port) {
-+		if (!self->port[port])
-+			continue;
-+
-+		aq_nic_ndev_free(self->port[port]);
-+	}
-+
-+	kfree(self);
-+
-+err_exit:
-+	(void)err;
-+}
-+
-+int aq_pci_func_change_pm_state(struct aq_pci_func_s *self,
-+				pm_message_t *pm_msg)
-+{
-+	int err = 0;
-+	unsigned int port = 0U;
-+
-+	if (!self) {
-+		err = -EFAULT;
-+		goto err_exit;
-+	}
-+	for (port = 0; port < self->ports; ++port) {
-+		if (!self->port[port])
-+			continue;
-+
-+		aq_nic_change_pm_state(self->port[port], pm_msg);
-+	}
-+
-+err_exit:
-+	return err;
-+}
-diff --git a/drivers/net/ethernet/aquantia/aq_pci_func.h b/drivers/net/ethernet/aquantia/aq_pci_func.h
++#include "aq_cfg.h"
++#include "aq_utils.h"
++
++#endif /* AQ_COMMON_H */
+diff --git a/drivers/net/ethernet/aquantia/aq_utils.h b/drivers/net/ethernet/aquantia/aq_utils.h
 new file mode 100644
-index 0000000..f7479a3
+index 0000000..2ffc0f4
 --- /dev/null
-+++ b/drivers/net/ethernet/aquantia/aq_pci_func.h
-@@ -0,0 +1,34 @@
++++ b/drivers/net/ethernet/aquantia/aq_utils.h
+@@ -0,0 +1,53 @@
 +/*
 + * aQuantia Corporation Network Driver
 + * Copyright (C) 2014-2017 aQuantia Corporation. All rights reserved
@@ -405,30 +167,49 @@ index 0000000..f7479a3
 + * version 2, as published by the Free Software Foundation.
 + */
 +
-+/* File aq_pci_func.h: Declaration of PCI functions. */
++/* File aq_utils.h: Useful macro and structures used in all layers of driver. */
 +
-+#ifndef AQ_PCI_FUNC_H
-+#define AQ_PCI_FUNC_H
++#ifndef AQ_UTILS_H
++#define AQ_UTILS_H
 +
 +#include "aq_common.h"
 +
-+struct aq_pci_func_s *aq_pci_func_alloc(struct aq_hw_ops *hw_ops,
-+					struct pci_dev *pdev,
-+					const struct net_device_ops *ndev_ops,
-+					const struct ethtool_ops *eth_ops);
-+int aq_pci_func_init(struct aq_pci_func_s *self);
-+int aq_pci_func_alloc_irq(struct aq_pci_func_s *self, unsigned int i,
-+			  char *name, void *aq_vec,
-+			  cpumask_t *affinity_mask);
-+void aq_pci_func_free_irqs(struct aq_pci_func_s *self);
-+int aq_pci_func_start(struct aq_pci_func_s *self);
-+void __iomem *aq_pci_func_get_mmio(struct aq_pci_func_s *self);
-+unsigned int aq_pci_func_get_irq_type(struct aq_pci_func_s *self);
-+int aq_pci_func_deinit(struct aq_pci_func_s *self);
-+void aq_pci_func_free(struct aq_pci_func_s *self);
-+int aq_pci_func_change_pm_state(struct aq_pci_func_s *self,
-+				pm_message_t *pm_msg);
++#ifndef MBIT
++#define MBIT ((u64)1000000U)
++#define GBIT ((u64)1000000000U)
++#endif
 +
-+#endif /* AQ_PCI_FUNC_H */
++#define AQ_IRQ_INVALID 0U
++#define AQ_IRQ_LEGACY  1U
++#define AQ_IRQ_MSI     2U
++#define AQ_IRQ_MSIX    3U
++
++#define AQ_DIMOF(_ARY_)  ARRAY_SIZE(_ARY_)
++
++#define AQ_OBJ_HEADER spinlock_t lock; atomic_t flags; atomic_t busy_count
++
++struct aq_obj_s {
++	AQ_OBJ_HEADER;
++};
++
++#define AQ_OBJ_TST(_OBJ_, _FLAG_)  ((_FLAG_) & atomic_read(&(_OBJ_)->flags))
++
++#define AQ_OBJ_SET(_OBJ_, _F_) \
++{ unsigned long flags_old, flags_new; atomic_t *flags = &(_OBJ_)->flags; \
++do { \
++	flags_old = atomic_read(flags); \
++	flags_new = flags_old | (_F_); \
++} while (atomic_cmpxchg(flags, \
++	flags_old, flags_new) != flags_old); }
++
++#define AQ_OBJ_CLR(_OBJ_, _F_) \
++{ unsigned long flags_old, flags_new; atomic_t *flags = &(_OBJ_)->flags; \
++do { \
++	flags_old = atomic_read(flags); \
++	flags_new = flags_old & ~(_F_); \
++} while (atomic_cmpxchg(flags, \
++	flags_old, flags_new) != flags_old); }
++
++#endif /* AQ_UTILS_H */
 -- 
 2.7.4
