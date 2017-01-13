@@ -1,44 +1,73 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] tcp: fix tcp_fastopen unaligned access complaints
- on sparc
-Date: Fri, 13 Jan 2017 12:31:53 -0500 (EST)
-Message-ID: <20170113.123153.1102439896232313596.davem@davemloft.net>
-References: <1484259898-30719-1-git-send-email-shannon.nelson@oracle.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [net PATCH v3 2/5] net: virtio: wrap rtnl_lock in test for
+ calling with lock already held
+Date: Fri, 13 Jan 2017 09:31:46 -0800
+Message-ID: <58790F02.8090409@gmail.com>
+References: <20170113024908.4535.8835.stgit@john-Precision-Tower-5810>
+ <20170113025100.4535.35887.stgit@john-Precision-Tower-5810>
+ <20170113083408.202d6e30@xeon-e3>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sparclinux@vger.kernel.org,
-        linux-kernel@vger.kernel.org, eric.dumazet@gmail.com,
-        rob.gardner@oracle.com
-To: shannon.nelson@oracle.com
+Cc: jasowang@redhat.com, mst@redhat.com, john.r.fastabend@intel.com,
+        netdev@vger.kernel.org, alexei.starovoitov@gmail.com,
+        daniel@iogearbox.net
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:51166 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750898AbdAMRcN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 12:32:13 -0500
-In-Reply-To: <1484259898-30719-1-git-send-email-shannon.nelson@oracle.com>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:36124 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750906AbdAMRcM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 12:32:12 -0500
+Received: by mail-pf0-f196.google.com with SMTP id b22so9188250pfd.3
+        for <netdev@vger.kernel.org>; Fri, 13 Jan 2017 09:31:59 -0800 (PST)
+In-Reply-To: <20170113083408.202d6e30@xeon-e3>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@oracle.com>
-Date: Thu, 12 Jan 2017 14:24:58 -0800
-
-> Fix up a data alignment issue on sparc by swapping the order
-> of the cookie byte array field with the length field in
-> struct tcp_fastopen_cookie, and making it a proper union
-> to clean up the typecasting.
+On 17-01-13 08:34 AM, Stephen Hemminger wrote:
+> On Thu, 12 Jan 2017 18:51:00 -0800
+> John Fastabend <john.fastabend@gmail.com> wrote:
 > 
-> This addresses log complaints like these:
->     log_unaligned: 113 callbacks suppressed
->     Kernel unaligned access at TPC[976490] tcp_try_fastopen+0x2d0/0x360
->     Kernel unaligned access at TPC[9764ac] tcp_try_fastopen+0x2ec/0x360
->     Kernel unaligned access at TPC[9764c8] tcp_try_fastopen+0x308/0x360
->     Kernel unaligned access at TPC[9764e4] tcp_try_fastopen+0x324/0x360
->     Kernel unaligned access at TPC[976490] tcp_try_fastopen+0x2d0/0x360
+>>  
+>> -static void free_receive_bufs(struct virtnet_info *vi)
+>> +static void free_receive_bufs(struct virtnet_info *vi, bool need_lock)
+>>  {
+>>  	struct bpf_prog *old_prog;
+>>  	int i;
+>>  
+>> -	rtnl_lock();
+>> +	if (need_lock)
+>> +		rtnl_lock();
+>>  	for (i = 0; i < vi->max_queue_pairs; i++) {
+>>  		while (vi->rq[i].pages)
+>>  			__free_pages(get_a_page(&vi->rq[i], GFP_KERNEL), 0);
+>> @@ -1879,7 +1880,8 @@ static void free_receive_bufs(struct virtnet_info *vi)
+>>  		if (old_prog)
+>>  			bpf_prog_put(old_prog);
+>>  	}
+>> -	rtnl_unlock();
+>> +	if (need_lock)
+>> +		rtnl_unlock();
+>>  }
 > 
-> Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> Signed-off-by: Shannon Nelson <shannon.nelson@oracle.com>
-> ---
-> v2: Use Eric's suggestion for a union in the struct
+> Conditional locking is bad idea; sparse complains about it and is later source
+> of bugs. The more typical way of doing this in kernel is:
 
-Applied and queued up for -stable, thanks.
+OK I'll use the normal form.
+
+> 
+> void _foo(some args)
+> {
+> 	ASSERT_RTNL();
+> 
+> 	...
+> }
+> 
+> void foo(some args)
+> {
+> 	rtnl_lock();
+> 	_foo(some args)
+> 	rtnl_unlock();
+> }
+> 
+> 
