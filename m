@@ -1,44 +1,52 @@
-From: David Howells <dhowells@redhat.com>
-Subject: (no subject)
-Date: Fri, 13 Jan 2017 15:43:49 +0000
-Message-ID: <25483.1484322229@warthog.procyon.org.uk>
-References: <1484304406-10820-5-git-send-email-nicolas.dichtel@6wind.com> <3131144.4Ej3KFWRbz@wuerfel> <1484304406-10820-1-git-send-email-nicolas.dichtel@6wind.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: dhowells@redhat.com, arnd@arndb.de, linux-kbuild@vger.kernel.org,
-        linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org,
-        linux-arm-kernel@lists.infradead.org,
-        adi-buildroot-devel@lists.sourceforge.net,
-        linux-c6x-dev@linux-c6x.org, linux-cris-kernel@axis.com,
-        uclinux-h8-devel@lists.sourceforge.jp,
-        linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org,
-        linux-m68k@vger.kernel.org, linux-metag@vger.kernel.org,
-        linux-mips@linux-mips.org, linux-am33-list@redhat.com,
-        nios2-dev@lists.rocketboards.org, openrisc@lists.librecores.org,
-        linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-        linux-s390@vger.kernel.org, linux-sh@vger.kernel.org,
-        sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org,
-        linux-arc
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Return-path: <linux-mips-bounce@linux-mips.org>
-In-Reply-To: <1484304406-10820-5-git-send-email-nicolas.dichtel@6wind.com>
-Content-ID: <25482.1484322229.1@warthog.procyon.org.uk>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-help: <mailto:ecartis@linux-mips.org?Subject=help>
-List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
-List-software: Ecartis version 1.0.0
-List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
-List-owner: <mailto:ralf@linux-mips.org>
-List-post: <mailto:linux-mips@linux-mips.org>
-List-archive: <http://www.linux-mips.org/archives/linux-mips/>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] netfilter: ipt_CLUSTERIP: fix build error without procfs
+Date: Fri, 13 Jan 2017 16:41:03 +0100
+Message-ID: <20170113154204.2737978-1-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd@arndb.de>, Patrick McHardy <kaber@trash.net>,
+        Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+        "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@namei.org>,
+        Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+        Xin Long <lucien.xin@gmail.com>,
+        netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> -header-y += msr-index.h
+We can't access c->pde if CONFIG_PROC_FS is disabled:
 
-I see it on my desktop as /usr/include/asm/msr-index.h and it's been there at
-least four years - and as such it's part of the UAPI.  I don't think you can
-remove it unless you can guarantee there are no userspace users.
+net/ipv4/netfilter/ipt_CLUSTERIP.c: In function 'clusterip_config_find_get':
+net/ipv4/netfilter/ipt_CLUSTERIP.c:147:9: error: 'struct clusterip_config' has no member named 'pde'
 
-David
+This moves the check inside of another #ifdef.
+
+Fixes: 6c5d5cfbe3c5 ("netfilter: ipt_CLUSTERIP: check duplicate config when initializing")
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+ net/ipv4/netfilter/ipt_CLUSTERIP.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/net/ipv4/netfilter/ipt_CLUSTERIP.c b/net/ipv4/netfilter/ipt_CLUSTERIP.c
+index 1e38d8bf5631..52f26459efc3 100644
+--- a/net/ipv4/netfilter/ipt_CLUSTERIP.c
++++ b/net/ipv4/netfilter/ipt_CLUSTERIP.c
+@@ -144,7 +144,12 @@ clusterip_config_find_get(struct net *net, __be32 clusterip, int entry)
+ 	rcu_read_lock_bh();
+ 	c = __clusterip_config_find(net, clusterip);
+ 	if (c) {
+-		if (!c->pde || unlikely(!atomic_inc_not_zero(&c->refcount)))
++#ifdef CONFIG_PROC_FS
++		if (!c->pde)
++			c = NULL;
++		else
++#endif
++		if (unlikely(!atomic_inc_not_zero(&c->refcount)))
+ 			c = NULL;
+ 		else if (entry)
+ 			atomic_inc(&c->entries);
+-- 
+2.9.0
+
