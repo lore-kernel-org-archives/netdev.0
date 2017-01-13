@@ -1,73 +1,81 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [net PATCH v3 2/5] net: virtio: wrap rtnl_lock in test for
- calling with lock already held
-Date: Fri, 13 Jan 2017 09:31:46 -0800
-Message-ID: <58790F02.8090409@gmail.com>
-References: <20170113024908.4535.8835.stgit@john-Precision-Tower-5810>
- <20170113025100.4535.35887.stgit@john-Precision-Tower-5810>
- <20170113083408.202d6e30@xeon-e3>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: resend: tcp: performance issue with fastopen connections (mss > window)
+Date: Fri, 13 Jan 2017 12:32:53 -0500
+Message-ID: <CADVnQykVj0CdHVYkfuogy6nOxfL+ODXue-3siKh_oACCBjVrtg@mail.gmail.com>
+References: <30f38b3c-8c5c-7fab-e424-985e63ad900a@oracle.com>
+ <1484321734.13165.24.camel@edumazet-glaptop3.roam.corp.google.com>
+ <22b07900-2151-a31f-34aa-7fb47c958423@oracle.com> <CANn89i+5m2uUBmHRHG32_oPyR53vQoG4SfOY6xWG_RNxPz6dZw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: jasowang@redhat.com, mst@redhat.com, john.r.fastabend@intel.com,
-        netdev@vger.kernel.org, alexei.starovoitov@gmail.com,
-        daniel@iogearbox.net
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexey Kodanev <alexey.kodanev@oracle.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>,
+        Vasily Isaenko <vasily.isaenko@oracle.com>,
+        Yuchung Cheng <ycheng@google.com>
+To: Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:36124 "EHLO
-        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750906AbdAMRcM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 12:32:12 -0500
-Received: by mail-pf0-f196.google.com with SMTP id b22so9188250pfd.3
-        for <netdev@vger.kernel.org>; Fri, 13 Jan 2017 09:31:59 -0800 (PST)
-In-Reply-To: <20170113083408.202d6e30@xeon-e3>
+Received: from mail-oi0-f54.google.com ([209.85.218.54]:35712 "EHLO
+        mail-oi0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750796AbdAMRd7 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 12:33:59 -0500
+Received: by mail-oi0-f54.google.com with SMTP id j15so64276507oih.2
+        for <netdev@vger.kernel.org>; Fri, 13 Jan 2017 09:33:24 -0800 (PST)
+In-Reply-To: <CANn89i+5m2uUBmHRHG32_oPyR53vQoG4SfOY6xWG_RNxPz6dZw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17-01-13 08:34 AM, Stephen Hemminger wrote:
-> On Thu, 12 Jan 2017 18:51:00 -0800
-> John Fastabend <john.fastabend@gmail.com> wrote:
-> 
->>  
->> -static void free_receive_bufs(struct virtnet_info *vi)
->> +static void free_receive_bufs(struct virtnet_info *vi, bool need_lock)
->>  {
->>  	struct bpf_prog *old_prog;
->>  	int i;
->>  
->> -	rtnl_lock();
->> +	if (need_lock)
->> +		rtnl_lock();
->>  	for (i = 0; i < vi->max_queue_pairs; i++) {
->>  		while (vi->rq[i].pages)
->>  			__free_pages(get_a_page(&vi->rq[i], GFP_KERNEL), 0);
->> @@ -1879,7 +1880,8 @@ static void free_receive_bufs(struct virtnet_info *vi)
->>  		if (old_prog)
->>  			bpf_prog_put(old_prog);
->>  	}
->> -	rtnl_unlock();
->> +	if (need_lock)
->> +		rtnl_unlock();
->>  }
-> 
-> Conditional locking is bad idea; sparse complains about it and is later source
-> of bugs. The more typical way of doing this in kernel is:
+On Fri, Jan 13, 2017 at 12:14 PM, Eric Dumazet <edumazet@google.com> wrote:
+>
+> On Fri, Jan 13, 2017 at 9:07 AM, Alexey Kodanev
+> <alexey.kodanev@oracle.com> wrote:
+> > Hi Eric,
+> > On 13.01.2017 18:35, Eric Dumazet wrote:
+>
+> >> Care to send a packetdrill test so that we have a clear picture of what
+> >> is going on ?
+> >
+> > Is it capable of making two connections in the single test, one after
+> > another?
+>
+> Absolutely.
+>
+> Neal, Yuchung would you be kind enough to send a Fastopen tpacketdrill
+> template showing a typical fastopen test
+> running on an upstream kernel ?
+>
+> Thanks !
 
-OK I'll use the normal form.
+Sure, here is an example packetdrill script, IIRC written by Yuchung,
+which demonstrates TCP fast open and consecutive active connections:
 
-> 
-> void _foo(some args)
-> {
-> 	ASSERT_RTNL();
-> 
-> 	...
-> }
-> 
-> void foo(some args)
-> {
-> 	rtnl_lock();
-> 	_foo(some args)
-> 	rtnl_unlock();
-> }
-> 
-> 
+`sysctl -q net.ipv4.tcp_timestamps=0`
+
+// Cache warmup: send a Fast Open cookie request
+0.000 socket(..., SOCK_STREAM, IPPROTO_TCP) = 3
+   +0 fcntl(3, F_SETFL, O_RDWR|O_NONBLOCK) = 0
+   +0 sendto(3, ..., 0, MSG_FASTOPEN, ..., ...) = -1 EINPROGRESS
+(Operation is now in progress)
+   +0 > S 0:0(0) <mss 1460,nop,nop,sackOK,nop,wscale 8,FO,nop,nop>
++.010 < S. 123:123(0) ack 1 win 5840 <mss
+1040,nop,nop,sackOK,nop,wscale 6,FO abcd1234,nop,nop>
+   +0 > . 1:1(0) ack 1
+   +0 close(3) = 0
+   +0 > F. 1:1(0) ack 1
++.010 < F. 1:1(0) ack 2 win 92
+   +0 > .  2:2(0) ack 2
+
+//
+// TEST1: Servers sends SYN-ACK with data and another two data packets
+//
+   +0 socket(..., SOCK_STREAM, IPPROTO_TCP) = 4
+   +0 fcntl(4, F_SETFL, O_RDWR|O_NONBLOCK) = 0
+   +0 sendto(4, ..., 1000, MSG_FASTOPEN, ..., ...) = 1000
+   +0 > S 0:1000(1000) <mss 1460,nop,nop,sackOK,nop,wscale 8,FO
+abcd1234,nop,nop>
++.010 < S. 1000000:1001400(1400) ack 1001 win 5840 <mss
+1040,nop,nop,sackOK,nop,wscale 6>
+   +0 < . 1401:2801(1400) ack 1001 win 257
+   +0 < P. 2801:3001(200) ack 1001 win 257
+
+neal
