@@ -1,64 +1,38 @@
-From: Tobias Klauser <tklauser@distanz.ch>
-Subject: Re: [PATCH] cxgb4: Remove redundant memset before memcpy
-Date: Fri, 13 Jan 2017 16:57:14 +0100
-Message-ID: <20170113155714.GE1201@distanz.ch>
-References: <1484301169-11724-1-git-send-email-mayhs11saini@gmail.com>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [PATCH] rtlwifi: rtl8192ee: New firmware from Realtek
+Date: Fri, 13 Jan 2017 09:57:21 -0600
+Message-ID: <38b9425e-0353-f13f-994b-1beaae41c1d6@lwfinger.net>
+References: <20161217185054.15017-1-Larry.Finger@lwfinger.net>
+ <20170113150306.GE13400@bombadil.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: hariprasad@chelsio.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Shyam Saini <mayhs11saini@gmail.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless@vger.kernel.org, Troy Tan <troy_tan@realsil.com.cn>,
+        netdev@vger.kernel.org, linux-firmware@kernel.org
+To: Kyle McMartin <kyle@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sym2.noone.org ([178.63.92.236]:33916 "EHLO sym2.noone.org"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1752023AbdAMP5S (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 13 Jan 2017 10:57:18 -0500
-Content-Disposition: inline
-In-Reply-To: <1484301169-11724-1-git-send-email-mayhs11saini@gmail.com>
+Received: from mail-oi0-f66.google.com ([209.85.218.66]:35494 "EHLO
+        mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752023AbdAMP5Y (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 10:57:24 -0500
+In-Reply-To: <20170113150306.GE13400@bombadil.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2017-01-13 at 10:52:49 +0100, Shyam Saini <mayhs11saini@gmail.com> wrote:
-> The region set by the call to memset, immediately overwritten by the
-> subsequent call to memcpy and thus makes the  memset redundant
-> 
-> Signed-off-by: Shyam Saini <mayhs11saini@gmail.com>
-> ---
->  drivers/net/ethernet/chelsio/cxgb4/sched.c | 3 ---
->  1 file changed, 3 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/chelsio/cxgb4/sched.c b/drivers/net/ethernet/chelsio/cxgb4/sched.c
-> index cbd68a8..5725693 100644
-> --- a/drivers/net/ethernet/chelsio/cxgb4/sched.c
-> +++ b/drivers/net/ethernet/chelsio/cxgb4/sched.c
-> @@ -398,7 +398,6 @@ static struct sched_class *t4_sched_class_lookup(struct port_info *pi,
->  		struct ch_sched_params tp;
->  
->  		memset(&info, 0, sizeof(info));
+On 01/13/2017 09:03 AM, Kyle McMartin wrote:
+> On Sat, Dec 17, 2016 at 12:50:54PM -0600, Larry Finger wrote:
+>> -Info: Taken from Realtek version rtl_92ce_92se_92de_8723ae_88ee_8723be_92ee_linux_mac80211_0017.1224.2013
+>> +Info: Initial version taken from Realtek version
+>> +      rtl_92ce_92se_92de_8723ae_88ee_8723be_92ee_linux_mac80211_0017.1224.2013
+>> +      Updated Jan. 14, 2015 with file added by Realtek to
+>> +      http://github.com/lwfinger/rtlwifi_new.git.
+>>  File: rtlwifi/rtl8192eefw.bin
+>>
+>
+> Uh, did something weird happen here? This patch was applied in 2015. ;-)
+>
+> cheers, Kyle
 
-This memset is also redundant because info is memcpy()'ed to before
-being used in the loop (and it isn't used outside of the loop).
+Realtek fixed some bugs in the firmware. This is a new version.
 
-> -		memset(&tp, 0, sizeof(tp));
->  
->  		memcpy(&tp, p, sizeof(tp));
->  		/* Don't try to match class parameter */
-> @@ -409,7 +408,6 @@ static struct sched_class *t4_sched_class_lookup(struct port_info *pi,
->  			if (e->state == SCHED_STATE_UNUSED)
->  				continue;
->  
-> -			memset(&info, 0, sizeof(info));
->  			memcpy(&info, &e->info, sizeof(info));
->  			/* Don't try to match class parameter */
->  			info.u.params.class = SCHED_CLS_NONE;
-> @@ -458,7 +456,6 @@ static struct sched_class *t4_sched_class_alloc(struct port_info *pi,
->  		if (!e)
->  			goto out;
->  
-> -		memset(&np, 0, sizeof(np));
->  		memcpy(&np, p, sizeof(np));
->  		np.u.params.class = e->idx;
->  
-> -- 
-> 2.7.4
-> 
+Larry
