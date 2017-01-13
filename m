@@ -1,78 +1,98 @@
 From: Yuchung Cheng <ycheng@google.com>
-Subject: [PATCH net-next v2 00/13] tcp: RACK fast recovery
-Date: Thu, 12 Jan 2017 22:11:29 -0800
-Message-ID: <20170113061142.127344-1-ycheng@google.com>
+Subject: [PATCH net-next v2 08/13] tcp: extend F-RTO to catch more spurious timeouts
+Date: Thu, 12 Jan 2017 22:11:37 -0800
+Message-ID: <20170113061142.127344-9-ycheng@google.com>
+References: <20170113061142.127344-1-ycheng@google.com>
 Cc: netdev@vger.kernel.org, edumazet@google.com, ncardwell@google.com,
         nanditad@google.com, Yuchung Cheng <ycheng@google.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f172.google.com ([209.85.192.172]:35221 "EHLO
-        mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750787AbdAMGMG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 01:12:06 -0500
-Received: by mail-pf0-f172.google.com with SMTP id f144so25918897pfa.2
-        for <netdev@vger.kernel.org>; Thu, 12 Jan 2017 22:12:06 -0800 (PST)
+Received: from mail-pf0-f175.google.com ([209.85.192.175]:35924 "EHLO
+        mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751195AbdAMGMQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 01:12:16 -0500
+Received: by mail-pf0-f175.google.com with SMTP id 189so25985750pfu.3
+        for <netdev@vger.kernel.org>; Thu, 12 Jan 2017 22:12:16 -0800 (PST)
+In-Reply-To: <20170113061142.127344-1-ycheng@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The patch set enables RACK loss detection (draft-ietf-tcpm-rack-01)
-to trigger fast recovery with a reordering timer.
+Current F-RTO reverts cwnd reset whenever a never-retransmitted
+packet was (s)acked. The timeout can be declared spurious because
+the packets acknoledged with this ACK was transmitted before the
+timeout, so clearly not all the packets are lost to reset the cwnd.
 
-Previously RACK has been running in auxiliary mode where it is
-used to detect packet losses once the recovery has triggered by
-other algorithms (e.g., FACK). By inspecting packet timestamps,
-RACK can start ACK-driven repairs timely. A few similar heuristics
-are no longer needed and are either removed or disabled to reduce
-the complexity of the Linux TCP loss recovery engine:
+This nice detection does not really depend F-RTO internals. This
+patch applies the detection universally. On Google servers this
+change detected 20% more spurious timeouts.
 
-  1. FACK (Forward Acknowledgement)
-  2. Early Retransmit (RFC5827)
-  3. thin_dupack (fast recovery on single DUPACK for thin-streams)
-  4. NCR (Non-Congestion Robustness RFC4653) (RFC4653)
-  5. Forward Retransmit
+Suggested-by: Neal Cardwell <ncardwell@google.com>
+Signed-off-by: Yuchung Cheng <ycheng@google.com>
+Signed-off-by: Neal Cardwell <ncardwell@google.com>
+Acked-by: Eric Dumazet <edumazet@google.com>
+---
+ net/ipv4/tcp_input.c | 33 +++++++++++++++++++--------------
+ 1 file changed, 19 insertions(+), 14 deletions(-)
 
-After this change, Linux's loss recovery algorithms consist of
-  1. Conventional DUPACK threshold approach (RFC6675)
-  2. RACK and Tail Loss Probe (draft-ietf-tcpm-rack-01)
-  3. RTO plus F-RTO extension (RFC5682)
-
-The patch set has been tested on Google servers extensively and
-presented in several IETF meetings. The data suggests that RACK
-successfully improves recovery performance:
-https://www.ietf.org/proceedings/97/slides/slides-97-tcpm-draft-ietf-tcpm-rack-01.pdf
-https://www.ietf.org/proceedings/96/slides/slides-96-tcpm-3.pdf
-
-Yuchung Cheng (13):
-  tcp: new helper function for RACK loss detection
-  tcp: new helper for RACK to detect loss
-  tcp: record most recent RTT in RACK loss detection
-  tcp: add reordering timer in RACK loss detection
-  tcp: use sequence to break TS ties for RACK loss detection
-  tcp: check undo conditions before detecting losses
-  tcp: enable RACK loss detection to trigger recovery
-  tcp: extend F-RTO to catch more spurious timeouts
-  tcp: remove forward retransmit feature
-  tcp: remove early retransmit
-  tcp: remove RFC4653 NCR
-  tcp: remove thin_dupack feature
-  tcp: disable fack by default
-
- Documentation/networking/ip-sysctl.txt |  31 +----
- include/linux/tcp.h                    |   8 +-
- include/net/inet_connection_sock.h     |   4 +-
- include/net/tcp.h                      |  40 ++----
- net/ipv4/inet_diag.c                   |   2 +-
- net/ipv4/sysctl_net_ipv4.c             |   7 --
- net/ipv4/tcp.c                         |   9 +-
- net/ipv4/tcp_input.c                   | 224 +++++++++++++--------------------
- net/ipv4/tcp_ipv4.c                    |   2 +-
- net/ipv4/tcp_metrics.c                 |   1 -
- net/ipv4/tcp_minisocks.c               |   1 -
- net/ipv4/tcp_output.c                  |  75 ++---------
- net/ipv4/tcp_recovery.c                | 148 ++++++++++++++++------
- net/ipv4/tcp_timer.c                   |   4 +-
- net/ipv6/tcp_ipv6.c                    |   2 +-
- 15 files changed, 237 insertions(+), 321 deletions(-)
-
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 4ad75b8c4fee..9469ce384d3b 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -1939,7 +1939,6 @@ void tcp_enter_loss(struct sock *sk)
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	struct net *net = sock_net(sk);
+ 	struct sk_buff *skb;
+-	bool new_recovery = icsk->icsk_ca_state < TCP_CA_Recovery;
+ 	bool is_reneg;			/* is receiver reneging on SACKs? */
+ 	bool mark_lost;
+ 
+@@ -2000,13 +1999,15 @@ void tcp_enter_loss(struct sock *sk)
+ 	tp->high_seq = tp->snd_nxt;
+ 	tcp_ecn_queue_cwr(tp);
+ 
+-	/* F-RTO RFC5682 sec 3.1 step 1: retransmit SND.UNA if no previous
+-	 * loss recovery is underway except recurring timeout(s) on
+-	 * the same SND.UNA (sec 3.2). Disable F-RTO on path MTU probing
++	/* F-RTO RFC5682 sec 3.1 step 1 mandates to disable F-RTO
++	 * if a previous recovery is underway, otherwise it may incorrectly
++	 * call a timeout spurious if some previously retransmitted packets
++	 * are s/acked (sec 3.2). We do not apply that retriction since
++	 * retransmitted skbs are permanently tagged with TCPCB_EVER_RETRANS
++	 * so FLAG_ORIG_SACK_ACKED is always correct. But we do disable F-RTO
++	 * on PTMU discovery to avoid sending new data.
+ 	 */
+-	tp->frto = sysctl_tcp_frto &&
+-		   (new_recovery || icsk->icsk_retransmits) &&
+-		   !inet_csk(sk)->icsk_mtup.probe_size;
++	tp->frto = sysctl_tcp_frto && !inet_csk(sk)->icsk_mtup.probe_size;
+ }
+ 
+ /* If ACK arrived pointing to a remembered SACK, it means that our
+@@ -2740,14 +2741,18 @@ static void tcp_process_loss(struct sock *sk, int flag, bool is_dupack,
+ 	    tcp_try_undo_loss(sk, false))
+ 		return;
+ 
+-	if (tp->frto) { /* F-RTO RFC5682 sec 3.1 (sack enhanced version). */
+-		/* Step 3.b. A timeout is spurious if not all data are
+-		 * lost, i.e., never-retransmitted data are (s)acked.
+-		 */
+-		if ((flag & FLAG_ORIG_SACK_ACKED) &&
+-		    tcp_try_undo_loss(sk, true))
+-			return;
++	/* The ACK (s)acks some never-retransmitted data meaning not all
++	 * the data packets before the timeout were lost. Therefore we
++	 * undo the congestion window and state. This is essentially
++	 * the operation in F-RTO (RFC5682 section 3.1 step 3.b). Since
++	 * a retransmitted skb is permantly marked, we can apply such an
++	 * operation even if F-RTO was not used.
++	 */
++	if ((flag & FLAG_ORIG_SACK_ACKED) &&
++	    tcp_try_undo_loss(sk, tp->undo_marker))
++		return;
+ 
++	if (tp->frto) { /* F-RTO RFC5682 sec 3.1 (sack enhanced version). */
+ 		if (after(tp->snd_nxt, tp->high_seq)) {
+ 			if (flag & FLAG_DATA_SACKED || is_dupack)
+ 				tp->frto = 0; /* Step 3.a. loss was real */
 -- 
 2.11.0.483.g087da7b7c-goog
