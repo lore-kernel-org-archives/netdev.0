@@ -1,114 +1,83 @@
 From: Yuchung Cheng <ycheng@google.com>
-Subject: [net-next 06/13] tcp: check undo conditions before detecting losses
-Date: Thu, 12 Jan 2017 22:03:47 -0800
-Message-ID: <20170113060354.85234-7-ycheng@google.com>
+Subject: [net-next 13/13] tcp: disable fack by default
+Date: Thu, 12 Jan 2017 22:03:54 -0800
+Message-ID: <20170113060354.85234-14-ycheng@google.com>
 References: <20170113060354.85234-1-ycheng@google.com>
 Cc: netdev@vger.kernel.org, edumazet@google.com, ncardwell@google.com,
         nanditad@google.com, Yuchung Cheng <ycheng@google.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f181.google.com ([209.85.192.181]:33105 "EHLO
-        mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751077AbdAMGEY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 01:04:24 -0500
-Received: by mail-pf0-f181.google.com with SMTP id y143so25898398pfb.0
-        for <netdev@vger.kernel.org>; Thu, 12 Jan 2017 22:04:24 -0800 (PST)
+Received: from mail-pf0-f175.google.com ([209.85.192.175]:33152 "EHLO
+        mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751222AbdAMGEn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 01:04:43 -0500
+Received: by mail-pf0-f175.google.com with SMTP id y143so25900990pfb.0
+        for <netdev@vger.kernel.org>; Thu, 12 Jan 2017 22:04:43 -0800 (PST)
 In-Reply-To: <20170113060354.85234-1-ycheng@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently RACK would mark loss before the undo operations in TCP
-loss recovery. This could incorrectly identify real losses as
-spurious. For example a sender first experiences a delay spike and
-then eventually some packets were lost due to buffer overrun.
-In this case, the sender should perform fast recovery b/c not all
-the packets were lost.
+This patch disables FACK by default as RACK is the successor of FACK
+(inspired by the insights behind FACK).
 
-But the sender may first trigger a (spurious) RTO and reset
-cwnd to 1. The following ACKs may used to mark real losses by
-tcp_rack_mark_lost. Then in tcp_process_loss this ACK could trigger
-F-RTO undo condition and unmark real losses and revert the cwnd
-reduction. If there are no more ACKs coming back, eventually the
-sender would timeout again instead of performing fast recovery.
+FACK[1] in Linux works as follows: a packet P is deemed lost,
+if packet Q of higher sequence is s/acked and P and Q are distant
+by at least dupthresh number of packets in sequence space.
 
-The patch fixes this incorrect process by always performing
-the undo checks before detecting losses.
+FACK is more aggressive than the IETF recommened recovery for SACK
+(RFC3517 A Conservative Selective Acknowledgment (SACK)-based Loss
+ Recovery Algorithm for TCP), because a single SACK may trigger
+fast recovery. This obviously won't work well with reordering so
+FACK is dynamically disabled upon detecting reordering.
 
-Fixes: 4f41b1c58a32 ("tcp: use RACK to detect losses")
+RACK supersedes FACK by using time distance instead of sequence
+distance. On reordering, RACK waits for a quarter of RTT receiving
+a single SACK before starting recovery. (the timer can be made more
+adaptive in the future by measuring reordering distance in time,
+but currently RTT/4 seem to work well.) Once the recovery starts,
+RACK behaves almost like FACK because it reduces the reodering
+window to 1ms, so it fast retransmits quickly. In addition RACK
+can detect loss retransmission as it does not care about the packet
+sequences (being repeated or not), which is extremely useful when
+the connection is going through a traffic policer.
+
+Google server experiments indicate that disabling FACK after enabling
+RACK has negligible impact on the overall loss recovery performance
+with more reordering events detected.  But we still keep the FACK
+implementation for backup if RACK has bugs that needs to be disabled.
+
+[1] M. Mathis, J. Mahdavi, "Forward Acknowledgment: Refining
+TCP Congestion Control," In Proceedings of SIGCOMM '96, August 1996.
+
 Signed-off-by: Yuchung Cheng <ycheng@google.com>
 Signed-off-by: Neal Cardwell <ncardwell@google.com>
 Acked-by: Eric Dumazet <edumazet@google.com>
 ---
- net/ipv4/tcp_input.c | 33 ++++++++++++++++++++-------------
- 1 file changed, 20 insertions(+), 13 deletions(-)
+ net/ipv4/tcp_input.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index e42ca11c0326..9c98dc874825 100644
+index 39ebc20ca1b2..1a34e9278c07 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
-@@ -2801,6 +2801,21 @@ static bool tcp_try_undo_partial(struct sock *sk, const int acked)
- 	return false;
- }
- 
-+static void tcp_rack_identify_loss(struct sock *sk, int *ack_flag,
-+				   const struct skb_mstamp *ack_time)
-+{
-+	struct tcp_sock *tp = tcp_sk(sk);
-+
-+	/* Use RACK to detect loss */
-+	if (sysctl_tcp_recovery & TCP_RACK_LOST_RETRANS) {
-+		u32 prior_retrans = tp->retrans_out;
-+
-+		tcp_rack_mark_lost(sk, ack_time);
-+		if (prior_retrans > tp->retrans_out)
-+			*ack_flag |= FLAG_LOST_RETRANS;
-+	}
-+}
-+
- /* Process an event, which can update packets-in-flight not trivially.
-  * Main goal of this function is to calculate new estimate for left_out,
-  * taking into account both packets sitting in receiver's buffer and
-@@ -2866,17 +2881,6 @@ static void tcp_fastretrans_alert(struct sock *sk, const int acked,
- 		}
- 	}
- 
--	/* Use RACK to detect loss */
--	if (sysctl_tcp_recovery & TCP_RACK_LOST_RETRANS) {
--		u32 prior_retrans = tp->retrans_out;
--
--		tcp_rack_mark_lost(sk, ack_time);
--		if (prior_retrans > tp->retrans_out) {
--			flag |= FLAG_LOST_RETRANS;
--			*ack_flag |= FLAG_LOST_RETRANS;
--		}
--	}
--
- 	/* E. Process state. */
- 	switch (icsk->icsk_ca_state) {
- 	case TCP_CA_Recovery:
-@@ -2894,11 +2898,13 @@ static void tcp_fastretrans_alert(struct sock *sk, const int acked,
- 			tcp_try_keep_open(sk);
- 			return;
- 		}
-+		tcp_rack_identify_loss(sk, ack_flag, ack_time);
- 		break;
- 	case TCP_CA_Loss:
- 		tcp_process_loss(sk, flag, is_dupack, rexmit);
--		if (icsk->icsk_ca_state != TCP_CA_Open &&
--		    !(flag & FLAG_LOST_RETRANS))
-+		tcp_rack_identify_loss(sk, ack_flag, ack_time);
-+		if (!(icsk->icsk_ca_state == TCP_CA_Open ||
-+		      (*ack_flag & FLAG_LOST_RETRANS)))
- 			return;
- 		/* Change state if cwnd is undone or retransmits are lost */
- 	default:
-@@ -2912,6 +2918,7 @@ static void tcp_fastretrans_alert(struct sock *sk, const int acked,
- 		if (icsk->icsk_ca_state <= TCP_CA_Disorder)
- 			tcp_try_undo_dsack(sk);
- 
-+		tcp_rack_identify_loss(sk, ack_flag, ack_time);
- 		if (!tcp_time_to_recover(sk, flag)) {
- 			tcp_try_to_open(sk, flag);
- 			return;
+@@ -79,7 +79,7 @@
+ int sysctl_tcp_timestamps __read_mostly = 1;
+ int sysctl_tcp_window_scaling __read_mostly = 1;
+ int sysctl_tcp_sack __read_mostly = 1;
+-int sysctl_tcp_fack __read_mostly = 1;
++int sysctl_tcp_fack __read_mostly;
+ int sysctl_tcp_max_reordering __read_mostly = 300;
+ int sysctl_tcp_dsack __read_mostly = 1;
+ int sysctl_tcp_app_win __read_mostly = 31;
+@@ -2114,7 +2114,8 @@ static inline int tcp_dupack_heuristics(const struct tcp_sock *tp)
+  *		dynamically measured and adjusted. This is implemented in
+  *		tcp_rack_mark_lost.
+  *
+- *		FACK: it is the simplest heuristics. As soon as we decided
++ *		FACK (Disabled by default. Subsumbed by RACK):
++ *		It is the simplest heuristics. As soon as we decided
+  *		that something is lost, we decide that _all_ not SACKed
+  *		packets until the most forward SACK are lost. I.e.
+  *		lost_out = fackets_out - sacked_out and left_out = fackets_out.
 -- 
 2.11.0.483.g087da7b7c-goog
