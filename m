@@ -1,52 +1,87 @@
-From: Jeff Epler <jepler@unpythonic.net>
-Subject: Re: [PATCH v2 7/7] uapi: export all headers under uapi directories
-Date: Thu, 12 Jan 2017 19:04:27 -0600
-Message-ID: <20170113010427.GA22650@unpythonic.net>
-References: <bf83da6b-01ef-bf44-b3e1-ca6fc5636818@6wind.com>
- <1483695839-18660-1-git-send-email-nicolas.dichtel@6wind.com>
- <1483695839-18660-8-git-send-email-nicolas.dichtel@6wind.com>
- <20170109125638.GA15506@infradead.org>
- <464a1323-4450-e563-ff59-9e6d57b75959@6wind.com>
- <alpine.LSU.2.20.1701121727180.19188@erq.vanv.qr>
- <9d68af8a-a609-d7b1-58a9-f1155313b077@6wind.com>
+From: "Dilger, Andreas" <andreas.dilger@intel.com>
+Subject: Re: [PATCH 5/6] treewide: use kv[mz]alloc* rather than opencoded
+ variants
+Date: Fri, 13 Jan 2017 01:11:51 +0000
+Message-ID: <0B164192-F549-4D5E-BB07-B51886D936B0@intel.com>
+References: <20170112153717.28943-1-mhocko@kernel.org>
+ <20170112153717.28943-6-mhocko@kernel.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linux-mips@linux-mips.org, alsa-devel@alsa-project.org,
- linux-ia64@vger.kernel.org, linux-doc@vger.kernel.org, airlied@linux.ie,
- linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org,
- linux-mtd@lists.infradead.org, sparclinux@vger.kernel.org,
- linux-arch@vger.kernel.org, linux-s390@vger.kernel.org,
- linux-am33-list@redhat.com, linux-c6x-dev@linux-c6x.org,
- linux-rdma@vger.kernel.org, linux-hexagon@vger.kernel.org,
- linux-sh@vger.kernel.org, Christoph Hellwig <hch@infradead.org>,
- coreteam@netfilter.org, fcoe-devel@open-fcoe.org,
- xen-devel@lists.xenproject.org, linux-snps-arc@lists.infradead.org,
- linux-media@vger.kernel.org, uclinux-h8-devel@lists.sourceforge.jp,
- linux-xtensa@linux-xtensa.org, arnd@arndb.de, linux-kbuild@vger.kernel.org,
- adi-buildroot-devel@lists.sourceforge.net, linux-raid@vger.kernel.org,
- linux-m68k@lists.linux-m68k.org, mmarek@suse.com, linux-metag@v
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Return-path: <linux-snps-arc-bounces+gla-linux-snps-arc=m.gmane.org@lists.infradead.org>
-Content-Disposition: inline
-In-Reply-To: <9d68af8a-a609-d7b1-58a9-f1155313b077@6wind.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-snps-arc>,
- <mailto:linux-snps-arc-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-snps-arc/>
-List-Post: <mailto:linux-snps-arc@lists.infradead.org>
-List-Help: <mailto:linux-snps-arc-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-snps-arc>,
- <mailto:linux-snps-arc-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-snps-arc" <linux-snps-arc-bounces@lists.infradead.org>
-Errors-To: linux-snps-arc-bounces+gla-linux-snps-arc=m.gmane.org@lists.infradead.org
+Content-Transfer-Encoding: quoted-printable
+Cc: Andrew Morton <akpm@linux-foundation.org>, Vlastimil Babka
+	<vbabka@suse.cz>, David Rientjes <rientjes@google.com>, Mel Gorman
+	<mgorman@suse.de>, Johannes Weiner <hannes@cmpxchg.org>, Al Viro
+	<viro@zeniv.linux.org.uk>, "linux-mm@kvack.org" <linux-mm@kvack.org>, LKML
+	<linux-kernel@vger.kernel.org>, Michal Hocko <mhocko@suse.com>, "Martin
+ Schwidefsky" <schwidefsky@de.ibm.com>, Heiko Carstens
+	<heiko.carstens@de.ibm.com>, Herbert Xu <herbert@gondor.apana.org.au>, Anton
+ Vorontsov <anton@enomsg.org>, Colin Cross <ccross@android.com>, "Kees Cook"
+	<keescook@chromium.org>, "Luck, Tony" <tony.luck@intel.com>, "Rafael J.
+ Wysocki" <rjw@rjwysocki.net>, Ben Skeggs <bskeggs@redhat.com>, "Kent
+ Overstreet" <kent.overstreet@gmail.com>, Santosh Raspatur
+	<santosh@chelsio.com>, Hariprasad S <hariprasad@chelsio.com>, Tariq Toukan
+	<tariqt@mellanox.com>, Yishai Hadas <yishaih@mellanox.com>, "Will
+To: Michal Hocko <mhocko@kernel.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20170112153717.28943-6-mhocko@kernel.org>
+Content-Language: en-US
+Content-ID: <FCAE4B7494D2EB4C9A20DA989F97BADD@intel.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 12, 2017 at 05:32:09PM +0100, Nicolas Dichtel wrote:
-> What I was trying to say is that I export those directories like other are.
-> Removing those files is not related to that series.
 
-Perhaps the correct solution is to only copy files matching "*.h" to
-reduce the risk of copying files incidentally created by kbuild but
-which shouldn't be installed as uapi headers.
+> On Jan 12, 2017, at 08:37, Michal Hocko <mhocko@kernel.org> wrote:
+>=20
+> From: Michal Hocko <mhocko@suse.com>
+>=20
+> There are many code paths opencoding kvmalloc. Let's use the helper
+> instead. The main difference to kvmalloc is that those users are usually
+> not considering all the aspects of the memory allocator. E.g. allocation
+> requests < 64kB are basically never failing and invoke OOM killer to
+> satisfy the allocation. This sounds too disruptive for something that
+> has a reasonable fallback - the vmalloc. On the other hand those
+> requests might fallback to vmalloc even when the memory allocator would
+> succeed after several more reclaim/compaction attempts previously. There
+> is no guarantee something like that happens though.
+>=20
+> This patch converts many of those places to kv[mz]alloc* helpers because
+> they are more conservative.
+>=20
+> Signed-off-by: Michal Hocko <mhocko@suse.com>
 
-jeff
+Lustre part can be
+Acked-by: Andreas Dilger <andreas.dilger@intel.com>
+
+[snip]
+
+> diff --git a/drivers/staging/lustre/lnet/libcfs/linux/linux-mem.c b/drive=
+rs/staging/lustre/lnet/libcfs/linux/linux-mem.c
+> index a6a76a681ea9..8f638267e704 100644
+> --- a/drivers/staging/lustre/lnet/libcfs/linux/linux-mem.c
+> +++ b/drivers/staging/lustre/lnet/libcfs/linux/linux-mem.c
+> @@ -45,15 +45,6 @@ EXPORT_SYMBOL(libcfs_kvzalloc);
+> void *libcfs_kvzalloc_cpt(struct cfs_cpt_table *cptab, int cpt, size_t si=
+ze,
+> 			  gfp_t flags)
+> {
+> -	void *ret;
+> -
+> -	ret =3D kzalloc_node(size, flags | __GFP_NOWARN,
+> -			   cfs_cpt_spread_node(cptab, cpt));
+> -	if (!ret) {
+> -		WARN_ON(!(flags & (__GFP_FS | __GFP_HIGH)));
+> -		ret =3D vmalloc_node(size, cfs_cpt_spread_node(cptab, cpt));
+> -	}
+> -
+> -	return ret;
+> +	return kvzalloc_node(size, flags, cfs_cpt_spread_node(cptab, cpt));
+> }
+> EXPORT_SYMBOL(libcfs_kvzalloc_cpt);
+
+
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
