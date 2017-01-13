@@ -1,180 +1,154 @@
 From: Yuchung Cheng <ycheng@google.com>
-Subject: [PATCH net-next v2 09/13] tcp: remove forward retransmit feature
-Date: Thu, 12 Jan 2017 22:11:38 -0800
-Message-ID: <20170113061142.127344-10-ycheng@google.com>
+Subject: [PATCH net-next v2 12/13] tcp: remove thin_dupack feature
+Date: Thu, 12 Jan 2017 22:11:41 -0800
+Message-ID: <20170113061142.127344-13-ycheng@google.com>
 References: <20170113061142.127344-1-ycheng@google.com>
 Cc: netdev@vger.kernel.org, edumazet@google.com, ncardwell@google.com,
         nanditad@google.com, Yuchung Cheng <ycheng@google.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f180.google.com ([209.85.192.180]:33846 "EHLO
-        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751222AbdAMGMV (ORCPT
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:32961 "EHLO
+        mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751220AbdAMGMV (ORCPT
         <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 01:12:21 -0500
-Received: by mail-pf0-f180.google.com with SMTP id 127so25686871pfg.1
-        for <netdev@vger.kernel.org>; Thu, 12 Jan 2017 22:12:21 -0800 (PST)
+Received: by mail-pf0-f182.google.com with SMTP id y143so26043938pfb.0
+        for <netdev@vger.kernel.org>; Thu, 12 Jan 2017 22:12:20 -0800 (PST)
 In-Reply-To: <20170113061142.127344-1-ycheng@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Forward retransmit is an esoteric feature in RFC3517 (condition(3)
-in the NextSeg()). Basically if a packet is not considered lost by
-the current criteria (# of dupacks etc), but the congestion window
-has room for more packets, then retransmit this packet.
+Thin stream DUPACK is to start fast recovery on only one DUPACK
+provided the connection is a thin stream (i.e., low inflight).  But
+this older feature is now subsumed with RACK. If a connection
+receives only a single DUPACK, RACK would arm a reordering timer
+and soon starts fast recovery instead of timeout if no further
+ACKs are received.
 
-However it actually conflicts with the rest of recovery design. For
-example, when reordering is detected we want to be conservative
-in retransmitting packets but forward-retransmit feature would
-break that to force more retransmission. Also the implementation is
-fairly complicated inside the retransmission logic inducing extra
-iterations in the write queue. With RACK losses are being detected
-timely and this heuristic is no longer necessary. There this patch
-removes the feature.
+The socket option (THIN_DUPACK) is kept as a nop for compatibility.
+Note that this patch does not change another thin-stream feature
+which enables linear RTO. Although it might be good to generalize
+that in the future (i.e., linear RTO for the first say 3 retries).
 
 Signed-off-by: Yuchung Cheng <ycheng@google.com>
 Signed-off-by: Neal Cardwell <ncardwell@google.com>
 Acked-by: Eric Dumazet <edumazet@google.com>
 ---
- include/linux/tcp.h   |  1 -
- net/ipv4/tcp_input.c  |  5 -----
- net/ipv4/tcp_output.c | 61 +++------------------------------------------------
- 3 files changed, 3 insertions(+), 64 deletions(-)
+ Documentation/networking/ip-sysctl.txt | 12 ------------
+ include/linux/tcp.h                    |  2 +-
+ net/ipv4/sysctl_net_ipv4.c             |  7 -------
+ net/ipv4/tcp.c                         |  6 ++----
+ net/ipv4/tcp_input.c                   | 13 -------------
+ 5 files changed, 3 insertions(+), 37 deletions(-)
 
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index 7de2cf79e16f..aa1bb49f1dc6 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -703,18 +703,6 @@ tcp_thin_linear_timeouts - BOOLEAN
+ 	Documentation/networking/tcp-thin.txt
+ 	Default: 0
+ 
+-tcp_thin_dupack - BOOLEAN
+-	Enable dynamic triggering of retransmissions after one dupACK
+-	for thin streams. If set, a check is performed upon reception
+-	of a dupACK to determine if the stream is thin (less than 4
+-	packets in flight). As long as the stream is found to be thin,
+-	data is retransmitted on the first received dupACK. This
+-	improves retransmission latency for non-aggressive thin
+-	streams, often found to be time-dependent.
+-	For more information on thin streams, see
+-	Documentation/networking/tcp-thin.txt
+-	Default: 0
+-
+ tcp_limit_output_bytes - INTEGER
+ 	Controls TCP Small Queue limit per tcp socket.
+ 	TCP bulk sender tends to increase packets in flight until it
 diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index 970d5f00589f..8e5f4c15d0e5 100644
+index 4733368f953a..6c22332afb75 100644
 --- a/include/linux/tcp.h
 +++ b/include/linux/tcp.h
-@@ -307,7 +307,6 @@ struct tcp_sock {
- 					 */
+@@ -220,7 +220,7 @@ struct tcp_sock {
+ 		unused:5;
+ 	u8	nonagle     : 4,/* Disable Nagle algorithm?             */
+ 		thin_lto    : 1,/* Use linear timeouts for thin streams */
+-		thin_dupack : 1,/* Fast retransmit on first dupack      */
++		unused1	    : 1,
+ 		repair      : 1,
+ 		frto        : 1;/* F-RTO (RFC5682) activated in CA_Loss */
+ 	u8	repair_queue;
+diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+index 0f2d37e8e983..c8d283615c6f 100644
+--- a/net/ipv4/sysctl_net_ipv4.c
++++ b/net/ipv4/sysctl_net_ipv4.c
+@@ -537,13 +537,6 @@ static struct ctl_table ipv4_table[] = {
+ 		.proc_handler   = proc_dointvec
+ 	},
+ 	{
+-		.procname       = "tcp_thin_dupack",
+-		.data           = &sysctl_tcp_thin_dupack,
+-		.maxlen         = sizeof(int),
+-		.mode           = 0644,
+-		.proc_handler   = proc_dointvec
+-	},
+-	{
+ 		.procname	= "tcp_early_retrans",
+ 		.data		= &sysctl_tcp_early_retrans,
+ 		.maxlen		= sizeof(int),
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index d9023e8ed53e..aba6ea76338e 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -2474,9 +2474,6 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
+ 	case TCP_THIN_DUPACK:
+ 		if (val < 0 || val > 1)
+ 			err = -EINVAL;
+-		else {
+-			tp->thin_dupack = val;
+-		}
+ 		break;
  
- 	int     lost_cnt_hint;
--	u32     retransmit_high;	/* L-bits may be on up to this seqno */
+ 	case TCP_REPAIR:
+@@ -2966,8 +2963,9 @@ static int do_tcp_getsockopt(struct sock *sk, int level,
+ 	case TCP_THIN_LINEAR_TIMEOUTS:
+ 		val = tp->thin_lto;
+ 		break;
++
+ 	case TCP_THIN_DUPACK:
+-		val = tp->thin_dupack;
++		val = 0;
+ 		break;
  
- 	u32	prior_ssthresh; /* ssthresh saved at recovery start	*/
- 	u32	high_seq;	/* snd_nxt at onset of congestion	*/
+ 	case TCP_REPAIR:
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 9469ce384d3b..a041a92348ee 100644
+index 87315ab1ab1a..39ebc20ca1b2 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
-@@ -916,10 +916,6 @@ static void tcp_verify_retransmit_hint(struct tcp_sock *tp, struct sk_buff *skb)
- 	    before(TCP_SKB_CB(skb)->seq,
- 		   TCP_SKB_CB(tp->retransmit_skb_hint)->seq))
- 		tp->retransmit_skb_hint = skb;
+@@ -95,9 +95,6 @@ int sysctl_tcp_rfc1337 __read_mostly;
+ int sysctl_tcp_max_orphans __read_mostly = NR_FILE;
+ int sysctl_tcp_frto __read_mostly = 2;
+ int sysctl_tcp_min_rtt_wlen __read_mostly = 300;
 -
--	if (!tp->lost_out ||
--	    after(TCP_SKB_CB(skb)->end_seq, tp->retransmit_high))
--		tp->retransmit_high = TCP_SKB_CB(skb)->end_seq;
- }
+-int sysctl_tcp_thin_dupack __read_mostly;
+-
+ int sysctl_tcp_moderate_rcvbuf __read_mostly = 1;
+ int sysctl_tcp_early_retrans __read_mostly = 3;
+ int sysctl_tcp_invalid_ratelimit __read_mostly = HZ/2;
+@@ -2170,16 +2167,6 @@ static bool tcp_time_to_recover(struct sock *sk, int flag)
+ 	if (tcp_dupack_heuristics(tp) > tp->reordering)
+ 		return true;
  
- /* Sum the number of packets on the wire we have marked as lost.
-@@ -1983,7 +1979,6 @@ void tcp_enter_loss(struct sock *sk)
- 			TCP_SKB_CB(skb)->sacked &= ~TCPCB_SACKED_ACKED;
- 			TCP_SKB_CB(skb)->sacked |= TCPCB_LOST;
- 			tp->lost_out += tcp_skb_pcount(skb);
--			tp->retransmit_high = TCP_SKB_CB(skb)->end_seq;
- 		}
- 	}
- 	tcp_verify_left_out(tp);
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 0ba9026cb70d..6327e4d368a4 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -2831,36 +2831,6 @@ int tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb, int segs)
- 	return err;
- }
- 
--/* Check if we forward retransmits are possible in the current
-- * window/congestion state.
-- */
--static bool tcp_can_forward_retransmit(struct sock *sk)
--{
--	const struct inet_connection_sock *icsk = inet_csk(sk);
--	const struct tcp_sock *tp = tcp_sk(sk);
--
--	/* Forward retransmissions are possible only during Recovery. */
--	if (icsk->icsk_ca_state != TCP_CA_Recovery)
--		return false;
--
--	/* No forward retransmissions in Reno are possible. */
--	if (tcp_is_reno(tp))
--		return false;
--
--	/* Yeah, we have to make difficult choice between forward transmission
--	 * and retransmission... Both ways have their merits...
--	 *
--	 * For now we do not retransmit anything, while we have some new
--	 * segments to send. In the other cases, follow rule 3 for
--	 * NextSeg() specified in RFC3517.
+-	/* If a thin stream is detected, retransmit after first
+-	 * received dupack. Employ only if SACK is supported in order
+-	 * to avoid possible corner-case series of spurious retransmissions
+-	 * Use only if there are no unsent data.
 -	 */
+-	if ((tp->thin_dupack || sysctl_tcp_thin_dupack) &&
+-	    tcp_stream_is_thin(tp) && tcp_dupack_heuristics(tp) > 1 &&
+-	    tcp_is_sack(tp) && !tcp_send_head(sk))
+-		return true;
 -
--	if (tcp_may_send_now(sk))
--		return false;
--
--	return true;
--}
--
- /* This gets called after a retransmit timeout, and the initially
-  * retransmitted data is acknowledged.  It tries to continue
-  * resending the rest of the retransmit queue, until either
-@@ -2875,24 +2845,16 @@ void tcp_xmit_retransmit_queue(struct sock *sk)
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	struct sk_buff *skb;
- 	struct sk_buff *hole = NULL;
--	u32 max_segs, last_lost;
-+	u32 max_segs;
- 	int mib_idx;
--	int fwd_rexmitting = 0;
+ 	return false;
+ }
  
- 	if (!tp->packets_out)
- 		return;
- 
--	if (!tp->lost_out)
--		tp->retransmit_high = tp->snd_una;
--
- 	if (tp->retransmit_skb_hint) {
- 		skb = tp->retransmit_skb_hint;
--		last_lost = TCP_SKB_CB(skb)->end_seq;
--		if (after(last_lost, tp->retransmit_high))
--			last_lost = tp->retransmit_high;
- 	} else {
- 		skb = tcp_write_queue_head(sk);
--		last_lost = tp->snd_una;
- 	}
- 
- 	max_segs = tcp_tso_segs(sk, tcp_current_mss(sk));
-@@ -2915,31 +2877,14 @@ void tcp_xmit_retransmit_queue(struct sock *sk)
- 		 */
- 		segs = min_t(int, segs, max_segs);
- 
--		if (fwd_rexmitting) {
--begin_fwd:
--			if (!before(TCP_SKB_CB(skb)->seq, tcp_highest_sack_seq(tp)))
--				break;
--			mib_idx = LINUX_MIB_TCPFORWARDRETRANS;
--
--		} else if (!before(TCP_SKB_CB(skb)->seq, tp->retransmit_high)) {
--			tp->retransmit_high = last_lost;
--			if (!tcp_can_forward_retransmit(sk))
--				break;
--			/* Backtrack if necessary to non-L'ed skb */
--			if (hole) {
--				skb = hole;
--				hole = NULL;
--			}
--			fwd_rexmitting = 1;
--			goto begin_fwd;
--
-+		if (tp->retrans_out >= tp->lost_out) {
-+			break;
- 		} else if (!(sacked & TCPCB_LOST)) {
- 			if (!hole && !(sacked & (TCPCB_SACKED_RETRANS|TCPCB_SACKED_ACKED)))
- 				hole = skb;
- 			continue;
- 
- 		} else {
--			last_lost = TCP_SKB_CB(skb)->end_seq;
- 			if (icsk->icsk_ca_state != TCP_CA_Loss)
- 				mib_idx = LINUX_MIB_TCPFASTRETRANS;
- 			else
 -- 
 2.11.0.483.g087da7b7c-goog
