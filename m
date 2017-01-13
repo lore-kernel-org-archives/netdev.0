@@ -1,110 +1,79 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [pull request][for-next] Mellanox mlx5 Reorganize core driver
- directory layout
-Date: Sat, 14 Jan 2017 00:07:11 +0200
-Message-ID: <CALzJLG_fjiGyuB_buZqOSMU7SaCnuqFiZ0UyW+hPDq+3yx7TWg@mail.gmail.com>
-References: <1484241755-17603-1-git-send-email-saeedm@mellanox.com> <20170113.121407.448230751444957957.davem@davemloft.net>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: Commit 1fe8e0... (include more headers in if_tunnel.h) breaks
+ my user-space build.
+Date: Fri, 13 Jan 2017 14:08:06 -0800
+Message-ID: <20170113140806.01f65b8a@xeon-e3>
+References: <f1cede01-3fa4-130a-fa2d-7cbdfe3648b3@candelatech.com>
+        <20170113114158.6e5c3461@xeon-e3>
+        <6c983e7e-dbb3-3542-ffed-95f4d2f3c5bc@candelatech.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Saeed Mahameed <saeedm@mellanox.com>,
-        Doug Ledford <dledford@redhat.com>,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        linux-rdma@vger.kernel.org, Leon Romanovsky <leon@kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev <netdev@vger.kernel.org>, mikko.rapeli@iki.fi
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f194.google.com ([209.85.220.194]:33368 "EHLO
-        mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751267AbdAMWHd (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 17:07:33 -0500
-Received: by mail-qk0-f194.google.com with SMTP id 11so8950666qkl.0
-        for <netdev@vger.kernel.org>; Fri, 13 Jan 2017 14:07:32 -0800 (PST)
-In-Reply-To: <20170113.121407.448230751444957957.davem@davemloft.net>
+Received: from mail-pf0-f178.google.com ([209.85.192.178]:32935 "EHLO
+        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751291AbdAMWIT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 17:08:19 -0500
+Received: by mail-pf0-f178.google.com with SMTP id y143so37175798pfb.0
+        for <netdev@vger.kernel.org>; Fri, 13 Jan 2017 14:08:19 -0800 (PST)
+In-Reply-To: <6c983e7e-dbb3-3542-ffed-95f4d2f3c5bc@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 13, 2017 at 7:14 PM, David Miller <davem@davemloft.net> wrote:
-> From: Saeed Mahameed <saeedm@mellanox.com>
-> Date: Thu, 12 Jan 2017 19:22:34 +0200
->
->> This pull request includes one patch from Leon, this patch as described
->> below will change the driver directory structure and layout for better,
->> logical and modular driver files separation.
->>
->> This change is important to both rdma and net maintainers in order to
->> have smoother management of driver patches for different mlx5 sub modules
->> and smoother rdma-next vs. net-next features submissions.
->>
->> Please find more info below -in the tag commit message-,
->> review and let us know if there's any problem.
->>
->> This change doesn't introduce any conflicts with the current mlx5
->> fixes and cleanups posted on 2017-01-10 to net branch, and merge tests
->> worked flawlessly with no issues.
->>
->> This is the last pull request meant for both rdma-next and net-next.
->> Once pulled, this will be the base shared code for both trees.
->
-> This is pretty crazy, it will make all bug fix backporting to -stable
-> a complete nightmare for myself, Doug, various distribution maintainers
-> and many other people who quietly have to maintain their own trees and
-> do backporting.
->
+On Fri, 13 Jan 2017 11:50:32 -0800
+Ben Greear <greearb@candelatech.com> wrote:
 
-I hear you,
-But please bear with me here, what if we queue this patch up to -stable ? and we
-(Mellanox) and specifically our dedicated inbox team, will make sure
-that this patch
-will land on the various distributions and for those maintaining their
-own trees.
-This patch is really straight forward (rename files) and I already
-tried to cherry-pick it
-on older kernels, I only got a couple of conflicts on some of the
-"#inlcude" lines we've
-changed, and they are pretty straightforward to fix, we can even avoid
-this if we decide to
-not move mlx5 header files in this phase.
+> On 01/13/2017 11:41 AM, Stephen Hemminger wrote:
+> > On Fri, 13 Jan 2017 11:12:32 -0800
+> > Ben Greear <greearb@candelatech.com> wrote:
+> > =20
+> >> I am including netinet/ip.h, and also linux/if_tunnel.h, and the linux=
+/ip.h conflicts with
+> >> netinet/ip.h.
+> >>
+> >> Maybe my build environment is screwed up, but maybe also it would be b=
+etter to
+> >> just let the user include appropriate headers before including if_tunn=
+el.h
+> >> and revert this patch?
+> >>
+> >>
+> >> include/uapi/linux/if_tunnel.h: include linux/if.h, linux/ip.h and lin=
+ux/in6.h
+> >>
+> >>      Fixes userspace compilation errors like:
+> >>
+> >>      error: field =E2=80=98iph=E2=80=99 has incomplete type
+> >>      error: field =E2=80=98prefix=E2=80=99 has incomplete type
+> >>
+> >>      Signed-off-by: Mikko Rapeli <mikko.rapeli@iki.fi>
+> >>      Signed-off-by: David S. Miller <davem@davemloft.net>
+> >>
+> >> Thanks,
+> >> Ben
+> >> =20
+> >
+> > What I ended up doing for iproute2 was including all headers used by th=
+e source
+> > based on sanitized kernel headers.  Basically
+> >   $ git grep '^#include <linux/' | \
+> > 	awk -F: '{print $2}' | \
+> > 	sed -e 's/^#include <//' -e 's/>.*$//' | \
+> > 	sort -u >linux.headers
+> >    $ for f in $(cat linux.headers)
+> >      do cp ~/kernel/net-next/usr/include/$f include/$f
+> >      done
+> >
+> > You can't take only some of the headers, once you decide to diverge fro=
+m glibc provided
+> > headers, you got to take them all.
+> > =20
+>=20
+> I do grab a copy of the linux kernel headers and compile against that, bu=
+t netinet/ip.h is
+> coming from the OS.  Do you mean I should not include netinet/ip.h and in=
+stead use linux/ip.h?
 
-If this is possible then all trees will be aligned and it will be a
-win win situation.
-
-> I really don't think you can justify this rearrangement based upon the
-> consequences and how much activity happens in this driver.
->
-
-Right, but this is not the only justification, I can sum it up to that
-we would like
-to lay out the foundation for many years to come for a well designed
-driver with a modular
-sub modules break down and scalable infrastructure. We already plan to
-submit more mlx5
-independent  sub modules - just like mlx5e (en_*) files and mlx5_ib
-driver- so this was also
-a reason for us to consider this re-engagement at this stage.
-
-> You should have thought long and hard about the layout a long time ago
-> rather than after the driver has been in the tree for many years.
->
-
-I had this Idea for the separation before the mlx5 Ethernet
-submission, but I wasn't the maintainer
-back then, and i have been itching to submit such patch for long as
-well, still i don't think
-it is too late, We (Me and Leon) will keep maintaining this driver for
-only god knows how many years to come,
-and the mlx5 drivers are meant to serve at least 3-4 more future HW generations.
-
-Long story short, We would like to re-arrange the driver in a way that
-would serve us (the maintainers) and serve those
-who are going do develop the future Stack features and the future HW
-generations over the well designed (Hopefully)
-mlx5 infrastructure.
-Keeping it as it is today, will only make the situation worst in the
-future and it will be really hard to avoid having a spaghetti code
-in the mlx5 driver. All i want to point out here is that maintaining
-such a flat subtree is also nightmare.
-
-So i am only asking you to reconsider this change and give my -stable
-suggestion a thought.
-
-Thank you.
-Saeed.
+I don't think you can mix netinet/ip.h and linux/ip.h, yes that is a mess.
