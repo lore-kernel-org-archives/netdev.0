@@ -1,53 +1,134 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: Re: [PATCH net] bpf: rework prog_digest into prog_tag
-Date: Fri, 13 Jan 2017 15:49:55 -0800
-Message-ID: <CALCETrWD7FuRLH0dC46bMf85mXosC3r54=TAXdar5EsZvbvyzg@mail.gmail.com>
-References: <384476e29f6a378766c4052187b9b5f840f4030e.1484346362.git.daniel@iogearbox.net>
- <CALCETrUjmscreaadCOn6hSEMBEf83JyhwdVtKj1=fAf3MuiDtQ@mail.gmail.com> <58796595.3030904@iogearbox.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Andrew Lutomirski <luto@kernel.org>,
-        Network Development <netdev@vger.kernel.org>
-To: Daniel Borkmann <daniel@iogearbox.net>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH net-next] net: ipv6: Allow shorthand delete of all nexthops in multipath route
+Date: Fri, 13 Jan 2017 15:54:28 -0800
+Message-ID: <1484351668-8962-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: ddutt@cumulusnetworks.com, David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ua0-f178.google.com ([209.85.217.178]:34850 "EHLO
-        mail-ua0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751514AbdAMXuR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 18:50:17 -0500
-Received: by mail-ua0-f178.google.com with SMTP id y9so48041705uae.2
-        for <netdev@vger.kernel.org>; Fri, 13 Jan 2017 15:50:17 -0800 (PST)
-In-Reply-To: <58796595.3030904@iogearbox.net>
+Received: from mail-pf0-f170.google.com ([209.85.192.170]:36513 "EHLO
+        mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751563AbdAMXye (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 18:54:34 -0500
+Received: by mail-pf0-f170.google.com with SMTP id 189so38203966pfu.3
+        for <netdev@vger.kernel.org>; Fri, 13 Jan 2017 15:54:34 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 13, 2017 at 3:41 PM, Daniel Borkmann <daniel@iogearbox.net> wrote:
-> On 01/14/2017 12:16 AM, Andy Lutomirski wrote:
->>
->> On Fri, Jan 13, 2017 at 2:38 PM, Daniel Borkmann <daniel@iogearbox.net>
->> wrote:
->>>
->>> Commit 7bd509e311f4 ("bpf: add prog_digest and expose it via
->>> fdinfo/netlink") was recently discussed, partially due to
->>> admittedly suboptimal name of "prog_digest" in combination
->>> with sha1 hash usage, thus inevitably and rightfully concerns
->>> about its security in terms of collision resistance were
->>> raised with regards to use-cases.
->>
->>
->> Seems reasonable.  My only question is whether you'd still want to
->> switch to SHA-256 just from a code cleanliness perspective.  With
->> SHA-256 you can use the easy streaming API I wrote, but with SHA-1
->> you're still stuck with the crappy API in lib/, and I'm not
->> volunteering to fix up the SHA-1 API.
->
->
-> We'd need to truncate that in kernel anyway to not get a too long
-> tag, so given that I'm actually fine with it as-is. I was planning
-> to submit the code for testing to bpf selftests for net-next once
-> it's merged back, too.
+IPv4 allows multipath routes to be deleted using just the prefix and
+length. For example:
+    $ ip ro ls vrf red
+    unreachable default metric 8192
+    1.1.1.0/24
+        nexthop via 10.100.1.254  dev eth1 weight 1
+        nexthop via 10.11.200.2  dev eth11.200 weight 1
+    10.11.200.0/24 dev eth11.200 proto kernel scope link src 10.11.200.3
+    10.100.1.0/24 dev eth1 proto kernel scope link src 10.100.1.3
 
-Unless you want to kill off that vmalloc()+vfree() pair...
+    $ ip ro del 1.1.1.0/24 vrf red
 
---Andy
+    $ ip ro ls vrf red
+    unreachable default metric 8192
+    10.11.200.0/24 dev eth11.200 proto kernel scope link src 10.11.200.3
+    10.100.1.0/24 dev eth1 proto kernel scope link src 10.100.1.3
+
+The same notation does not work with IPv6 because of how multipath routes
+are implemented for IPv6. For IPv6 only the first nexthop of a multipath
+route is deleted if the request contains only a prefix and length. This
+leads to unnecessary complexity in userspace dealing with IPv6 multipath
+routes.
+
+This patch allows all nexthops to be deleted without specifying each one
+in the delete request by passing a new flag, RTM_F_ALL_NEXTHOPS, in
+rtm_flags.
+
+With this patch (and an updated iproute2 command):
+    $  ip -6 ro ls vrf red
+    1111::/120 via 2100:1::62 dev eth1 metric 1024  pref medium
+    1111::/120 via 2100:1::61 dev eth1 metric 1024  pref medium
+    1111::/120 via 2100:1::60 dev eth1 metric 1024  pref medium
+    2100:1::/120 dev eth1 proto kernel metric 256  pref medium
+    2100:1::/64 dev eth1 proto kernel metric 256  expires 86386sec pref medium
+    ...
+
+    $ ip -6 ro del vrf red 1111::1/120
+    $ ip -6 ro ls vrf red
+    2100:1::/120 dev eth1 proto kernel metric 256  pref medium
+    2100:1::/64 dev eth1 proto kernel metric 256  expires 86382sec pref medium
+    ...
+
+The flag is added to fib6_config by converting fc_type to a u16 (as
+noted fc_type only uses 8 bits). The new u16 hole is a bitmap with
+fc_delete_all_nexthop as the first bit.
+
+Suggested-by: Dinesh Dutt <ddutt@cumulusnetworks.com>
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+ include/net/ip6_fib.h          |  4 +++-
+ include/uapi/linux/rtnetlink.h |  1 +
+ net/ipv6/route.c               | 10 +++++++++-
+ 3 files changed, 13 insertions(+), 2 deletions(-)
+
+diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
+index a74e2aa40ef4..11ab99e87c5f 100644
+--- a/include/net/ip6_fib.h
++++ b/include/net/ip6_fib.h
+@@ -37,7 +37,9 @@ struct fib6_config {
+ 	int		fc_ifindex;
+ 	u32		fc_flags;
+ 	u32		fc_protocol;
+-	u32		fc_type;	/* only 8 bits are used */
++	u16		fc_type;	/* only 8 bits are used */
++	u16		fc_delete_all_nexthop : 1,
++			__unused : 15;
+ 
+ 	struct in6_addr	fc_dst;
+ 	struct in6_addr	fc_src;
+diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
+index 8c93ad1ef9ab..7fb206bc42f9 100644
+--- a/include/uapi/linux/rtnetlink.h
++++ b/include/uapi/linux/rtnetlink.h
+@@ -276,6 +276,7 @@ enum rt_scope_t {
+ #define RTM_F_EQUALIZE		0x400	/* Multipath equalizer: NI	*/
+ #define RTM_F_PREFIX		0x800	/* Prefix addresses		*/
+ #define RTM_F_LOOKUP_TABLE	0x1000	/* set rtm_table to FIB lookup result */
++#define RTM_F_ALL_NEXTHOPS	0x2000	/* delete all nexthops (IPv6) */
+ 
+ /* Reserved table identifiers */
+ 
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index ce5aaf448c54..8bb5f6a35ba8 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -2154,6 +2154,7 @@ static int ip6_route_del(struct fib6_config *cfg)
+ 	if (!table)
+ 		return err;
+ 
++again:
+ 	read_lock_bh(&table->tb6_lock);
+ 
+ 	fn = fib6_locate(&table->tb6_root,
+@@ -2179,7 +2180,11 @@ static int ip6_route_del(struct fib6_config *cfg)
+ 			dst_hold(&rt->dst);
+ 			read_unlock_bh(&table->tb6_lock);
+ 
+-			return __ip6_del_rt(rt, &cfg->fc_nlinfo);
++			err = __ip6_del_rt(rt, &cfg->fc_nlinfo);
++			if (err || !cfg->fc_delete_all_nexthop)
++				return err;
++
++			goto again;
+ 		}
+ 	}
+ 	read_unlock_bh(&table->tb6_lock);
+@@ -2849,6 +2854,9 @@ static int rtm_to_fib6_config(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 	if (rtm->rtm_flags & RTM_F_CLONED)
+ 		cfg->fc_flags |= RTF_CACHE;
+ 
++	if (rtm->rtm_flags & RTM_F_ALL_NEXTHOPS)
++		cfg->fc_delete_all_nexthop = 1;
++
+ 	cfg->fc_nlinfo.portid = NETLINK_CB(skb).portid;
+ 	cfg->fc_nlinfo.nlh = nlh;
+ 	cfg->fc_nlinfo.nl_net = sock_net(skb->sk);
+-- 
+2.1.4
