@@ -1,374 +1,164 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH v2 1/2] bpf: add a longest prefix match trie map
- implementation
-Date: Fri, 13 Jan 2017 10:01:41 -0800
-Message-ID: <20170113180139.GB49247@ast-mbp.thefacebook.com>
-References: <20170112172922.16636-1-daniel@zonque.org>
- <20170112172922.16636-2-daniel@zonque.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ast@fb.com, dh.herrmann@gmail.com, daniel@iogearbox.net,
-        netdev@vger.kernel.org, davem@davemloft.net
-To: Daniel Mack <daniel@zonque.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:35177 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751079AbdAMSBq (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 13:01:46 -0500
-Received: by mail-pf0-f193.google.com with SMTP id f144so9303268pfa.2
-        for <netdev@vger.kernel.org>; Fri, 13 Jan 2017 10:01:46 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20170112172922.16636-2-daniel@zonque.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Bhumika Goyal <bhumirks@gmail.com>
+Subject: [PATCH] net: constify mdiobb_ops structures
+Date: Fri, 13 Jan 2017 23:32:26 +0530
+Message-ID: <1484330546-16569-1-git-send-email-bhumirks@gmail.com>
+Cc: Bhumika Goyal <bhumirks@gmail.com>
+To: julia.lawall@lip6.fr, pantelis.antoniou@gmail.com,
+        vbordug@ru.mvista.com, sergei.shtylyov@cogentembedded.com,
+        f.fainelli@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+        linux-renesas-soc@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 12, 2017 at 06:29:21PM +0100, Daniel Mack wrote:
-> This trie implements a longest prefix match algorithm that can be used
-> to match IP addresses to a stored set of ranges.
-> 
-> Internally, data is stored in an unbalanced trie of nodes that has a
-> maximum height of n, where n is the prefixlen the trie was created
-> with.
-> 
-> Tries may be created with prefix lengths that are multiples of 8, in
-> the range from 8 to 2048. The key used for lookup and update operations
-> is a struct bpf_lpm_trie_key, and the value is a uint64_t.
-> 
-> The code carries more information about the internal implementation.
-> 
-> Signed-off-by: Daniel Mack <daniel@zonque.org>
-> Reviewed-by: David Herrmann <dh.herrmann@gmail.com>
-> ---
->  include/uapi/linux/bpf.h |   7 +
->  kernel/bpf/Makefile      |   2 +-
->  kernel/bpf/lpm_trie.c    | 499 +++++++++++++++++++++++++++++++++++++++++++++++
->  3 files changed, 507 insertions(+), 1 deletion(-)
->  create mode 100644 kernel/bpf/lpm_trie.c
-> 
-> diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-> index 0eb0e87..d564277 100644
-> --- a/include/uapi/linux/bpf.h
-> +++ b/include/uapi/linux/bpf.h
-> @@ -63,6 +63,12 @@ struct bpf_insn {
->  	__s32	imm;		/* signed immediate constant */
->  };
->  
-> +/* Key of an a BPF_MAP_TYPE_LPM_TRIE entry */
-> +struct bpf_lpm_trie_key {
-> +	__u32	prefixlen;	/* up to 32 for AF_INET, 128 for AF_INET6 */
-> +	__u8	data[0];	/* Arbitrary size */
-> +};
-> +
->  /* BPF syscall commands, see bpf(2) man-page for details. */
->  enum bpf_cmd {
->  	BPF_MAP_CREATE,
-> @@ -89,6 +95,7 @@ enum bpf_map_type {
->  	BPF_MAP_TYPE_CGROUP_ARRAY,
->  	BPF_MAP_TYPE_LRU_HASH,
->  	BPF_MAP_TYPE_LRU_PERCPU_HASH,
-> +	BPF_MAP_TYPE_LPM_TRIE,
->  };
->  
->  enum bpf_prog_type {
-> diff --git a/kernel/bpf/Makefile b/kernel/bpf/Makefile
-> index 1276474..e1ce4f4 100644
-> --- a/kernel/bpf/Makefile
-> +++ b/kernel/bpf/Makefile
-> @@ -1,7 +1,7 @@
->  obj-y := core.o
->  
->  obj-$(CONFIG_BPF_SYSCALL) += syscall.o verifier.o inode.o helpers.o
-> -obj-$(CONFIG_BPF_SYSCALL) += hashtab.o arraymap.o percpu_freelist.o bpf_lru_list.o
-> +obj-$(CONFIG_BPF_SYSCALL) += hashtab.o arraymap.o percpu_freelist.o bpf_lru_list.o lpm_trie.o
->  ifeq ($(CONFIG_PERF_EVENTS),y)
->  obj-$(CONFIG_BPF_SYSCALL) += stackmap.o
->  endif
-> diff --git a/kernel/bpf/lpm_trie.c b/kernel/bpf/lpm_trie.c
-> new file mode 100644
-> index 0000000..7f6d47e
-> --- /dev/null
-> +++ b/kernel/bpf/lpm_trie.c
-> @@ -0,0 +1,499 @@
-> +/*
-> + * Longest prefix match list implementation
-> + *
-> + * Copyright (c) 2016,2017 Daniel Mack
-> + * Copyright (c) 2016 David Herrmann
-> + *
-> + * This file is subject to the terms and conditions of version 2 of the GNU
-> + * General Public License.  See the file COPYING in the main directory of the
-> + * Linux distribution for more details.
-> + */
-> +
-> +#include <linux/bpf.h>
-> +#include <linux/err.h>
-> +#include <linux/slab.h>
-> +#include <linux/spinlock.h>
-> +#include <linux/vmalloc.h>
-> +#include <net/ipv6.h>
-> +
-> +struct lpm_trie_node;
-> +
-> +struct lpm_trie_node {
-> +	struct rcu_head rcu;
-> +	struct lpm_trie_node __rcu	*child[2];
-> +	void				*value;
-> +	u32				prefixlen;
-> +	u8				data[0];
-> +};
-> +
-> +struct lpm_trie {
-> +	struct bpf_map			map;
-> +	struct lpm_trie_node __rcu	*root;
-> +	size_t				n_entries;
-> +	size_t				max_prefixlen;
-> +	size_t				data_size;
-> +	raw_spinlock_t			lock;
-> +};
-> +
-> +/*
-> + * This trie implements a longest prefix match algorithm that can be used to
-> + * match IP addresses to a stored set of ranges.
-> + *
-> + * Data stored in @data of struct bpf_lpm_key and struct lpm_trie_node is
-> + * interpreted as big endian, so data[0] stores the most significant byte.
-> + *
-> + * Match ranges are internally stored in instances of struct lpm_trie_node
-> + * which each contain their prefix length as well as two pointers that may
-> + * lead to more nodes containing more specific matches. Each node also stores
-> + * a value that is defined by and returned to userspace via the update_elem
-> + * and lookup functions.
-> + *
-> + * For instance, let's start with a trie that was created with a prefix length
-> + * of 32, so it can be used for IPv4 addresses, and one single element that
-> + * matches 192.168.0.0/16. The data array would hence contain
-> + * [0xc0, 0xa8, 0x00, 0x00] in big-endian notation. This documentation will
-> + * stick to IP-address notation for readability though.
-> + *
-> + * As the trie is empty initially, the new node (1) will be places as root
-> + * node, denoted as (R) in the example below. As there are no other node, both
-> + * child pointers are %NULL.
-> + *
-> + *              +----------------+
-> + *              |       (1)  (R) |
-> + *              | 192.168.0.0/16 |
-> + *              |    value: 1    |
-> + *              |   [0]    [1]   |
-> + *              +----------------+
-> + *
-> + * Next, let's add a new node (2) matching 192.168.0.0/24. As there is already
-> + * a node with the same data and a smaller prefix (ie, a less specific one),
-> + * node (2) will become a child of (1). In child index depends on the next bit
-> + * that is outside of that (1) matches, and that bit is 0, so (2) will be
+Declare mdiobb_ops structures as const as they are only stored in the
+ops field of mdiobb_ctrl structures. This field is of type const, so
+mdiobb_ops structures having this property can be declared const too.
+Done using Coccinelle:
 
-s/outside of that/outside of what/ ?
-or you meant something else?
+@r disable optional_qualifier@
+identifier x;
+position p;
+@@
+static struct mdiobb_ops x@p={...};
 
-> + * child[0] of (1):
-> + *
-> + *              +----------------+
-> + *              |       (1)  (R) |
-> + *              | 192.168.0.0/16 |
-> + *              |    value: 1    |
-> + *              |   [0]    [1]   |
-> + *              +----------------+
-> + *                   |
-> + *    +----------------+
-> + *    |       (2)      |
-> + *    | 192.168.0.0/24 |
-> + *    |    value: 2    |
-> + *    |   [0]    [1]   |
-> + *    +----------------+
-> + *
-> + * The child[1] slot of (1) could be filled with another node which has bit #17
-> + * (the next bit after the ones that (1) matches on) set to 1. For instance,
-> + * 192.168.128.0/24:
-> + *
-> + *              +----------------+
-> + *              |       (1)  (R) |
-> + *              | 192.168.0.0/16 |
-> + *              |    value: 1    |
-> + *              |   [0]    [1]   |
-> + *              +----------------+
-> + *                   |      |
-> + *    +----------------+  +------------------+
-> + *    |       (2)      |  |        (3)       |
-> + *    | 192.168.0.0/24 |  | 192.168.128.0/24 |
-> + *    |    value: 2    |  |     value: 3     |
-> + *    |   [0]    [1]   |  |    [0]    [1]    |
-> + *    +----------------+  +------------------+
-> + *
-> + * Let's add another node (4) to the game for 192.168.1.0/24. In order to place
-> + * it, node (1) is looked at first, and because (4) of the semantics laid out
-> + * above (bit #17 is 0), it would normally be attached to (1) as child[0].
-> + * However, that slot is already allocated, so a new node is needed in between.
-> + * That node is does not have a value attached to it and it will never be
+@ok@
+struct bb_info bitbang;
+struct ravb_private priv;
+struct ax_device ax;
+struct mdio_gpio_info bb;
+identifier r.x;
+position p;
+@@
+(
+bitbang.ctrl.ops=&x@p
+|
+priv.mdiobb.ops=&x@p
+|
+ax.bb_ctrl.ops=&x@p
+|
+bb.ctrl.ops=&x@p
+)
 
-s/node is does/node does/
+@bad@
+position p != {r.p,ok.p};
+identifier r.x;
+@@
+x@p
 
-> + * returned to users as result of a lookup. It is only there to differenciate
+@depends on !bad disable optional_qualifier@
+identifier r.x;
+@@
++const
+struct mdiobb_ops x;
 
-s/differenciate/differentiate/
+Before and after size details:
 
-> + * the traversal further. It will get a prefix as wide as necessary to
-> + * distinguish its two children:
-> + *
-> + *                      +----------------+
-> + *                      |       (1)  (R) |
-> + *                      | 192.168.0.0/16 |
-> + *                      |    value: 1    |
-> + *                      |   [0]    [1]   |
-> + *                      +----------------+
-> + *                           |      |
-> + *            +----------------+  +------------------+
-> + *            |       (4)  (I) |  |        (3)       |
-> + *            | 192.168.0.0/23 |  | 192.168.128.0/24 |
-> + *            |    value: ---  |  |     value: 3     |
-> + *            |   [0]    [1]   |  |    [0]    [1]    |
-> + *            +----------------+  +------------------+
-> + *                 |      |
-> + *  +----------------+  +----------------+
-> + *  |       (2)      |  |       (5)      |
-> + *  | 192.168.0.0/24 |  | 192.168.1.0/24 |
-> + *  |    value: 2    |  |     value: 5   |
-> + *  |   [0]    [1]   |  |   [0]    [1]   |
-> + *  +----------------+  +----------------+
-> + *
-> + * 192.168.1.1/32 would be a child of (5) etc.
-> + *
-> + * An intermediate node will be turned into a 'real' node on demand. In the
-> + * example above, (4) would be re-used if 192.168.0.0/23 is added to the trie.
-> + *
-> + * A fully populated trie would have a height of 32 nodes, as the trie was
-> + * created with a prefix length of 32.
-> + *
-> + * The lookup starts at the root node. If the current node matches and if there
-> + * is a child that can be used to become more specific, the trie is traversed
-> + * downwards. The last node in the traversal that is a non-intermediate one is
-> + * returned.
-> + */
-> +
-> +static inline int extract_bit(const u8 *data, size_t index)
-> +{
-> +	return !!(data[index / 8] & (1 << (7 - (index % 8))));
-> +}
-> +
-> +/**
-> + * longest_prefix_match() - determine the longest prefix
-> + * @trie:	The trie to get internal sizes from
-> + * @node:	The node to operate on
-> + * @key:	The key to compare to @node
-> + *
-> + * Determine the longest prefix of @node that matches the bits in @key.
-> + */
-> +static size_t longest_prefix_match(const struct lpm_trie *trie,
-> +				   const struct lpm_trie_node *node,
-> +				   const struct bpf_lpm_trie_key *key)
-> +{
-> +	size_t prefixlen = 0;
-> +	int i;
-> +
-> +	for (i = 0; i < trie->data_size; i++) {
-> +		size_t b;
-> +
-> +		b = 8 - fls(node->data[i] ^ key->data[i]);
-> +		prefixlen += b;
-> +
-> +		if (prefixlen >= node->prefixlen || prefixlen >= key->prefixlen)
-> +			return min(node->prefixlen, key->prefixlen);
-> +
-> +		if (b < 8)
-> +			break;
-> +	}
-> +
-> +	return prefixlen;
-> +}
-> +
-> +/* Called from syscall or from eBPF program */
-> +static void *trie_lookup_elem(struct bpf_map *map, void *_key)
-> +{
-> +	struct lpm_trie_node *node, *found = NULL;
-> +	struct bpf_lpm_trie_key *key = _key;
-> +	struct lpm_trie *trie =
-> +		container_of(map, struct lpm_trie, map);
-> +
-> +	/* Start walking the trie from the root node ... */
-> +
-> +	for (node = rcu_dereference(trie->root); node;) {
-> +		unsigned int next_bit;
-> +		size_t matchlen;
-> +
-> +		/*
-> +		 * Determine the longest prefix of @node that matches @key.
-> +		 * If it's the maximum possible prefix for this trie, we have
-> +		 * an exact match and can return it directly.
-> +		 */
+File size before:
+   text	   data	    bss	    dec	    hex	filename
+  13293	   1203	     16	  14512	   38b0 net/ethernet/8390/ax88796.o
+File size after:
+   text	   data	    bss	    dec	    hex	filename
+  13357	   1139	     16	  14512	   38b0 net/ethernet/8390/ax88796.o
 
-useful comments, but not in networking style. bpf is using networking style.
-please reformat.
+File size before: 
+   text	   data	    bss	    dec	    hex	filename
+   1440	    100	      0	   1540	    604 freescale/fs_enet/mii-bitbang.o
+File size after: Remains the same
 
-> +		matchlen = longest_prefix_match(trie, node, key);
-> +		if (matchlen == trie->max_prefixlen)
-> +			return node->value;
-> +
-> +		/*
-> +		 * If the number of bits that match is smaller than the prefix
-> +		 * length of @node, bail out and return the node we have seen
-> +		 * last in the traversal (ie, the parent).
-> +		 */
-> +		if (matchlen < node->prefixlen)
-> +			break;
-> +
-> +		/*
-> +		 * Consider this node as return candidate unless it is an
-> +		 * artificially added intermediate one, in which case ->value
-> +		 * is %NULL
-> +		 */
-> +		if (node->value)
-> +			found = node;
-> +
-> +		/*
-> +		 * If the node match is fully satisfied, let's see if we can
-> +		 * become more specific. Determine the next bit in the key and
-> +		 * traverse down.
-> +		 */
-> +		next_bit = extract_bit(key->data, node->prefixlen);
-> +		node = rcu_dereference(node->child[next_bit]);
-> +	}
-> +
-> +	return found ? found->value : NULL;
-> +}
-> +
-> +static struct lpm_trie_node *lpm_trie_node_alloc(const struct lpm_trie *trie,
-> +						 const void *value)
-> +{
-> +	struct lpm_trie_node *node;
-> +	gfp_t gfp = GFP_ATOMIC | __GFP_NOWARN;
-> +
-> +	node = kmalloc(sizeof(struct lpm_trie_node) + trie->data_size, gfp);
-> +	if (!node)
-> +		return ERR_PTR(-ENOMEM);
-> +
-> +	if (value) {
-> +		node->value = kmemdup(value, trie->map.value_size, gfp);
+File size before:
+   text	   data	    bss	    dec	    hex	filename
+  19000	    192	     16	  19208	   4b08	net/ethernet/renesas/ravb_main.o
+File size after: Remains the same
 
-can you make value to be part of the node? similar to how hash map is done?
-that will help avoid 2nd allocation, will speedup insertion and will
-help converting this code to user pre-allocated elements.
-I suspect the concern was that for many inner nodes that value is null ?
-But in your use case the value_size will be == 0 eventually,
-so by embedding it when can save memory too, since 'value' pointer will
-be replaced with boolean present flag ?
-So potentially less memory and less cache misses?
+File size before:
+   text	   data	    bss	    dec	    hex	filename
+  28501	   1568	      8	  30077	   757d net/ethernet/renesas/sh_eth.o
+File size after:
+   text	   data	    bss	    dec	    hex	filename
+  28565	   1504	      8	  30077	   757d net/ethernet/renesas/sh_eth.o
 
-Overall algorithm is indeed straightforward and simple which is great,
-but I would still like to see some performance numbers. Looks like
-the best case for single 32-bit element it needs 4 xors and compares
-which is fine. For mostly populate trie it's 4xors * 32 depth
-which is pretty good too, but cache misses on pointer walks may
-kill performance unless we're hitting the same path all the time.
-I think it's all acceptable due to simplicity of the implementation
-which we may improve later if it turns out to be a bottle neck for
-some use cases. We just need a baseline to have realistic expectations.
+File size before:
+   text	   data	    bss	    dec	    hex	filename
+   1859	    248	      0	   2107	    83b	drivers/net/phy/mdio-gpio.o
+File size after:
+   text	   data	    bss	    dec	    hex	filename
+   1915	    192	      0	   2107	    83b	drivers/net/phy/mdio-gpio.o
 
-Thanks!
+Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
+---
+ drivers/net/ethernet/8390/ax88796.c                  | 2 +-
+ drivers/net/ethernet/freescale/fs_enet/mii-bitbang.c | 2 +-
+ drivers/net/ethernet/renesas/ravb_main.c             | 2 +-
+ drivers/net/ethernet/renesas/sh_eth.c                | 2 +-
+ drivers/net/phy/mdio-gpio.c                          | 2 +-
+ 5 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/ethernet/8390/ax88796.c b/drivers/net/ethernet/8390/ax88796.c
+index b0a3b85..e977671 100644
+--- a/drivers/net/ethernet/8390/ax88796.c
++++ b/drivers/net/ethernet/8390/ax88796.c
+@@ -585,7 +585,7 @@ static int ax_bb_get_data(struct mdiobb_ctrl *ctrl)
+ 	return reg_memr & AX_MEMR_MDI ? 1 : 0;
+ }
+ 
+-static struct mdiobb_ops bb_ops = {
++static const struct mdiobb_ops bb_ops = {
+ 	.owner = THIS_MODULE,
+ 	.set_mdc = ax_bb_mdc,
+ 	.set_mdio_dir = ax_bb_dir,
+diff --git a/drivers/net/ethernet/freescale/fs_enet/mii-bitbang.c b/drivers/net/ethernet/freescale/fs_enet/mii-bitbang.c
+index 1f015ed..c8e5d88 100644
+--- a/drivers/net/ethernet/freescale/fs_enet/mii-bitbang.c
++++ b/drivers/net/ethernet/freescale/fs_enet/mii-bitbang.c
+@@ -100,7 +100,7 @@ static inline void mdc(struct mdiobb_ctrl *ctrl, int what)
+ 	in_be32(bitbang->dat);
+ }
+ 
+-static struct mdiobb_ops bb_ops = {
++static const struct mdiobb_ops bb_ops = {
+ 	.owner = THIS_MODULE,
+ 	.set_mdc = mdc,
+ 	.set_mdio_dir = mdio_dir,
+diff --git a/drivers/net/ethernet/renesas/ravb_main.c b/drivers/net/ethernet/renesas/ravb_main.c
+index 92d7692..1b0acd1 100644
+--- a/drivers/net/ethernet/renesas/ravb_main.c
++++ b/drivers/net/ethernet/renesas/ravb_main.c
+@@ -171,7 +171,7 @@ static int ravb_get_mdio_data(struct mdiobb_ctrl *ctrl)
+ }
+ 
+ /* MDIO bus control struct */
+-static struct mdiobb_ops bb_ops = {
++static const struct mdiobb_ops bb_ops = {
+ 	.owner = THIS_MODULE,
+ 	.set_mdc = ravb_set_mdc,
+ 	.set_mdio_dir = ravb_set_mdio_dir,
+diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+index 00fafab..6ef5dd8 100644
+--- a/drivers/net/ethernet/renesas/sh_eth.c
++++ b/drivers/net/ethernet/renesas/sh_eth.c
+@@ -1052,7 +1052,7 @@ static void sh_mdc_ctrl(struct mdiobb_ctrl *ctrl, int bit)
+ }
+ 
+ /* mdio bus control struct */
+-static struct mdiobb_ops bb_ops = {
++static const struct mdiobb_ops bb_ops = {
+ 	.owner = THIS_MODULE,
+ 	.set_mdc = sh_mdc_ctrl,
+ 	.set_mdio_dir = sh_mmd_ctrl,
+diff --git a/drivers/net/phy/mdio-gpio.c b/drivers/net/phy/mdio-gpio.c
+index 27ab630..97333d5 100644
+--- a/drivers/net/phy/mdio-gpio.c
++++ b/drivers/net/phy/mdio-gpio.c
+@@ -122,7 +122,7 @@ static void mdc_set(struct mdiobb_ctrl *ctrl, int what)
+ 	gpio_set_value_cansleep(bitbang->mdc, what ^ bitbang->mdc_active_low);
+ }
+ 
+-static struct mdiobb_ops mdio_gpio_ops = {
++static const struct mdiobb_ops mdio_gpio_ops = {
+ 	.owner = THIS_MODULE,
+ 	.set_mdc = mdc_set,
+ 	.set_mdio_dir = mdio_dir,
+-- 
+1.9.1
