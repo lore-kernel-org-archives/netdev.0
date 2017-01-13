@@ -1,30 +1,145 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 05/10] drivers: base: Add
- device_find_class()
-Date: Thu, 12 Jan 2017 23:16:37 -0500 (EST)
-Message-ID: <20170112.231637.1459914337755928344.davem@davemloft.net>
-References: <20170112034121.27697-6-f.fainelli@gmail.com>
-        <20170112.162135.441956368122992032.davem@davemloft.net>
-        <81f5965c-3484-92d9-5c04-94c5b73735d0@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jason@lakedaemon.net, andrew@lunn.ch,
-        sebastian.hesselbarth@gmail.com,
-        gregory.clement@free-electrons.com, linux@armlinux.org.uk,
-        vivien.didelot@savoirfairelinux.com,
-        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
-        gregkh@linuxfoundation.org
-To: f.fainelli@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <81f5965c-3484-92d9-5c04-94c5b73735d0@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Alexander Loktionov <Alexander.Loktionov@aquantia.com>
+Subject: [PATCH v5 01/13] net: ethernet: aquantia: Make and configuration files.
+Date: Thu, 12 Jan 2017 21:02:17 -0800
+Message-ID: <fe1664e502d28bcb6a5689787b8000e6c9288307.1484283610.git.vomlehn@texas.net>
+References: <cover.1484283610.git.vomlehn@texas.net>
+Cc: "David S . Miller" <davem@davemloft.net>,
+        Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
+        Alexander Loktionov <Alexander.Loktionov@aquantia.com>,
+        Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>,
+        Pavel Belous <Pavel.Belous@aquantia.com>,
+        Dmitry Bezrukov <Dmitry.Bezrukov@aquantia.com>
+To: netdev@vger.kernel.org, David VomLehn <vomlehn@texas.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from barracuda1.aus1.datafoundry.com ([209.99.124.132]:53557 "EHLO
+        milter.aus.datafoundry.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1750775AbdAMFDV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 00:03:21 -0500
+In-Reply-To: <cover.1484283610.git.vomlehn@texas.net>
+In-Reply-To: <cover.1484283610.git.vomlehn@texas.net>
+References: <cover.1484283610.git.vomlehn@texas.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Thu, 12 Jan 2017 14:50:39 -0800
+From: David VomLehn <vomlehn@texas.net>
 
-> Well, this is really so that we don't need to cast the arguments passed
-> to device_find_child(), which takes a void *data as well.
+Patches to create the make and configuration files.
 
-Aha, I didn't catch that, my bad.
+Signed-off-by: Alexander Loktionov <Alexander.Loktionov@aquantia.com>
+Signed-off-by: Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>
+Signed-off-by: Pavel Belous <Pavel.Belous@aquantia.com>
+Signed-off-by: Dmitry Bezrukov <Dmitry.Bezrukov@aquantia.com>
+Signed-off-by: David M. VomLehn <vomlehn@texas.net>
+---
+ drivers/net/ethernet/aquantia/Kconfig  | 24 +++++++++++++++++++
+ drivers/net/ethernet/aquantia/Makefile | 42 ++++++++++++++++++++++++++++++++++
+ drivers/net/ethernet/aquantia/ver.h    | 18 +++++++++++++++
+ 3 files changed, 84 insertions(+)
+ create mode 100644 drivers/net/ethernet/aquantia/Kconfig
+ create mode 100644 drivers/net/ethernet/aquantia/Makefile
+ create mode 100644 drivers/net/ethernet/aquantia/ver.h
+
+diff --git a/drivers/net/ethernet/aquantia/Kconfig b/drivers/net/ethernet/aquantia/Kconfig
+new file mode 100644
+index 0000000..a74a4c0
+--- /dev/null
++++ b/drivers/net/ethernet/aquantia/Kconfig
+@@ -0,0 +1,24 @@
++#
++# aQuantia device configuration
++#
++
++config NET_VENDOR_AQUANTIA
++	bool "aQuantia devices"
++	default y
++	---help---
++	  Set this to y if you have an Ethernet network cards that uses the aQuantia
++	  chipset.
++
++	  This option does not build any drivers; it casues the aQuantia
++	  drivers that can be built to appear in the list of Ethernet drivers.
++
++
++if NET_VENDOR_AQUANTIA
++
++config AQTION
++	tristate "aQuantia AQtion Support"
++	depends on PCI
++	---help---
++	  This enables the support for the aQuantia AQtion Ethernet card.
++
++endif # NET_VENDOR_AQUANTIA
+diff --git a/drivers/net/ethernet/aquantia/Makefile b/drivers/net/ethernet/aquantia/Makefile
+new file mode 100644
+index 0000000..e4ae696
+--- /dev/null
++++ b/drivers/net/ethernet/aquantia/Makefile
+@@ -0,0 +1,42 @@
++################################################################################
++#
++# aQuantia Ethernet Controller AQtion Linux Driver
++# Copyright(c) 2014-2017 aQuantia Corporation.
++#
++# This program is free software; you can redistribute it and/or modify it
++# under the terms and conditions of the GNU General Public License,
++# version 2, as published by the Free Software Foundation.
++#
++# This program is distributed in the hope it will be useful, but WITHOUT
++# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++# FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++# more details.
++#
++# You should have received a copy of the GNU General Public License along
++# with this program. If not, see <http://www.gnu.org/licenses/>.
++#
++# The full GNU General Public License is included in this distribution in
++# the file called "COPYING".
++#
++# Contact Information: <rdc-drv@aquantia.com>
++# aQuantia Corporation, 105 E. Tasman Dr. San Jose, CA 95134, USA
++#
++################################################################################
++
++#
++# Makefile for the AQtion(tm) Ethernet driver
++#
++
++obj-$(CONFIG_AQTION) += atlantic.o
++
++atlantic-objs := aq_main.o \
++	aq_nic.o \
++	aq_pci_func.o \
++	aq_vec.o \
++	aq_ring.o \
++	aq_hw_utils.o \
++	aq_ethtool.o \
++	hw_atl/hw_atl_a0.o \
++	hw_atl/hw_atl_b0.o \
++	hw_atl/hw_atl_utils.o \
++	hw_atl/hw_atl_llh.o
+diff --git a/drivers/net/ethernet/aquantia/ver.h b/drivers/net/ethernet/aquantia/ver.h
+new file mode 100644
+index 0000000..636d646
+--- /dev/null
++++ b/drivers/net/ethernet/aquantia/ver.h
+@@ -0,0 +1,18 @@
++/*
++ * aQuantia Corporation Network Driver
++ * Copyright (C) 2014-2017 aQuantia Corporation. All rights reserved
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ */
++
++#ifndef VER_H
++#define VER_H
++
++#define NIC_MAJOR_DRIVER_VERSION           1
++#define NIC_MINOR_DRIVER_VERSION           5
++#define NIC_BUILD_DRIVER_VERSION           339
++#define NIC_REVISION_DRIVER_VERSION        0
++
++#endif /* VER_H */
+-- 
+2.7.4
