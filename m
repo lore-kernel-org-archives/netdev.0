@@ -1,42 +1,57 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH iproute2] Add support for rt_protos.d
-Date: Thu, 12 Jan 2017 19:11:44 -0700
-Message-ID: <0f141758-4227-b3fd-802a-bcd891ee8402@cumulusnetworks.com>
-References: <1484005389-29381-1-git-send-email-dsa@cumulusnetworks.com>
- <20170112172706.4832fb67@xeon-e3>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next v2 00/10] net: dsa: Support for pdata in dsa2
+Date: Thu, 12 Jan 2017 21:34:59 -0500
+Message-ID: <87fuknpu0c.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <20170112034121.27697-1-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f175.google.com ([209.85.192.175]:35331 "EHLO
-        mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751069AbdAMCLw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 21:11:52 -0500
-Received: by mail-pf0-f175.google.com with SMTP id f144so22410712pfa.2
-        for <netdev@vger.kernel.org>; Thu, 12 Jan 2017 18:11:51 -0800 (PST)
-In-Reply-To: <20170112172706.4832fb67@xeon-e3>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        Jason Cooper <jason@lakedaemon.net>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+        Gregory Clement <gregory.clement@free-electrons.com>,
+        Russell King <linux@armlinux.org.uk>,
+        "David S. Miller" <davem@davemloft.net>,
+        "moderated list\:ARM SUB-ARCHITECTURES"
+        <linux-arm-kernel@lists.infradead.org>,
+        open list <linux-kernel@vger.kernel.org>,
+        gregkh@linuxfoundation.org
+To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170112034121.27697-1-f.fainelli@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 1/12/17 6:27 PM, Stephen Hemminger wrote:
->> diff --git a/etc/iproute2/rt_protos.d/README b/etc/iproute2/rt_protos.d/README
->> new file mode 100644
->> index 000000000000..723509ce56b6
->> --- /dev/null
->> +++ b/etc/iproute2/rt_protos.d/README
->> @@ -0,0 +1,3 @@
->> +Each file in this directory is an rt_protos configuration file. iproute2
->> +commands scan this directory processing all files that end in '.conf'.
->> +
-> 
-> Applied, but required manual fixup.
-> 
-> 
-> .git/rebase-apply/patch:15: new blank line at EOF.
-> +
-> warning: 1 line adds whitespace errors.
-> 
+Hi Florian,
 
-yes, i noticed that when I applied the patch to our local repo. It's a copy of the rt_tables.d patch and that README has the extra newline too.
+Florian Fainelli <f.fainelli@gmail.com> writes:
+
+> Hi all,
+>
+> This is not exactly new, and was sent before, although back then, I did not
+> have an user of the pre-declared MDIO board information, but now we do. Note
+> that I have additional changes queued up to have b53 register platform data for
+> MIPS bcm47xx and bcm63xx.
+>
+> Yes I know that we should have the Orion platforms eventually be converted to
+> Device Tree, but until that happens, I don't want any remaining users of the
+> old "dsa" platform device (hence the previous DTS submissions for ARM/mvebu)
+> and, there will be platforms out there that most likely won't never see DT
+> coming their way (BCM47xx is almost 100% sure, BCM63xx maybe not in a distant
+> future).
+>
+> We would probably want the whole series to be merged via David Miller's tree
+> to simplify things.
+>
+> Greg, can you Ack/Nack patch 5 since it touched the core LDD?
+>
+> Thanks!
+
+I've tested this patchset on my mv88e6xxx (DTS) boards to make sure
+nothing was broken, since it touches the driver. Looks good!
+
+Tested-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+
+Thanks,
+
+        Vivien
