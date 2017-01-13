@@ -1,66 +1,84 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH ipsec-next] xfrm: fix possible null deref in xfrm_init_tempstate
-Date: Fri, 13 Jan 2017 14:55:14 +0100
-Message-ID: <1484315714-4840-1-git-send-email-fw@strlen.de>
-Cc: dan.carpenter@oracle.com, Florian Westphal <fw@strlen.de>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([146.0.238.67]:42098 "EHLO
-        Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751621AbdAMNy6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 08:54:58 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: pull-request: mac80211 2017-01-13
+Date: Fri, 13 Jan 2017 14:55:15 +0100
+Message-ID: <20170113135516.19593-1-johannes@sipsolutions.net>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Dan reports following smatch warning:
- net/xfrm/xfrm_state.c:659
- error: we previously assumed 'afinfo' could be null (see line 651)
+Hi Dave,
 
- 649  struct xfrm_state_afinfo *afinfo = xfrm_state_afinfo_get_rcu(family);
- 651  if (afinfo)
-		...
- 658  }
- 659  afinfo->init_temprop(x, tmpl, daddr, saddr);
+Here's another update for the current cycle. Some of those
+patches have been sitting in our tree and I haven't been
+pulling them out quickly enough - will try to do better...
 
-I am resonably sure afinfo cannot be NULL here.
+Please pull and let me know if there's any problem.
 
-xfrm_state4.c and state6.c are both part of ipv4/ipv6 (depends on
-CONFIG_XFRM, a boolean) but even if ipv6 is a module state6.c can't
-be removed (ipv6 lacks module_exit so it cannot be removed).
+Thanks,
+johannes
 
-The only callers for xfrm6_fini that leads to state backend unregister
-are error unwinding paths that can be called during ipv6 init function.
 
-So after ipv6 module is loaded successfully the state backend cannot go
-away anymore.
 
-The family value from policy lookup path is taken from dst_entry, so
-that should always be AF_INET(6).
+The following changes since commit 03430fa10b99e95e3a15eb7c00978fb1652f3b24:
 
-However, since this silences the warning and avoids readers of this
-code wondering about possible null deref it seems preferrable to
-be defensive and just add the old check back.
+  Merge branch 'bcm_sf2-fixes' (2017-01-08 22:01:22 -0500)
 
-Fixes: 711059b9752ad0 ("xfrm: add and use xfrm_state_afinfo_get_rcu")
-Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index a62097e640b5..5a597dbbe564 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -648,8 +648,10 @@ xfrm_init_tempstate(struct xfrm_state *x, const struct flowi *fl,
- {
- 	struct xfrm_state_afinfo *afinfo = xfrm_state_afinfo_get_rcu(family);
- 
--	if (afinfo)
--		afinfo->init_tempsel(&x->sel, fl);
-+	if (!afinfo)
-+		return;
-+
-+	afinfo->init_tempsel(&x->sel, fl);
- 
- 	if (family != tmpl->encap_family) {
- 		afinfo = xfrm_state_afinfo_get_rcu(tmpl->encap_family);
--- 
-2.7.3
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211.git tags/mac80211-for-davem-2017-01-13
+
+for you to fetch changes up to dbef53621116474bb883f76f0ba6b7640bc42332:
+
+  mac80211: prevent skb/txq mismatch (2017-01-13 14:47:21 +0100)
+
+----------------------------------------------------------------
+We have a number of fixes, in part because I was late
+in actually sending them out - will try to do better in
+the future:
+ * handle VHT opmode properly when hostapd is controlling
+   full station state
+ * two fixes for minimum channel width in mac80211
+ * don't leave SMPS set to junk in HT capabilities
+ * fix headroom when forwarding mesh packets, recently
+   broken by another fix that failed to take into account
+   frame encryption
+ * fix the TID in null-data packets indicating EOSP (end
+   of service period) in U-APSD
+ * prevent attempting to use (and then failing which
+   results in crashes) TXQs on stations that aren't added
+   to the driver yet
+
+----------------------------------------------------------------
+Beni Lev (1):
+      cfg80211: consider VHT opmode on station update
+
+Cedric Izoard (1):
+      mac80211: Fix headroom allocation when forwarding mesh pkt
+
+Emmanuel Grumbach (1):
+      mac80211: fix the TID on NDPs sent as EOSP carrier
+
+Felix Fietkau (1):
+      mac80211: initialize SMPS field in HT capabilities
+
+Johannes Berg (3):
+      mac80211: implement multicast forwarding on fast-RX path
+      mac80211: calculate min channel width correctly
+      mac80211: recalculate min channel width on VHT opmode changes
+
+Michal Kazior (1):
+      mac80211: prevent skb/txq mismatch
+
+ include/uapi/linux/nl80211.h |  4 +++-
+ net/mac80211/chan.c          |  3 ---
+ net/mac80211/iface.c         | 21 +++++++++++++++++++++
+ net/mac80211/main.c          | 13 +++++++++----
+ net/mac80211/rate.c          |  2 ++
+ net/mac80211/rx.c            | 38 +++++++++++++++++++++-----------------
+ net/mac80211/sta_info.c      |  4 ++--
+ net/mac80211/tx.c            | 17 +++++++----------
+ net/mac80211/vht.c           |  4 +++-
+ net/wireless/nl80211.c       | 15 +++++++++++++++
+ 10 files changed, 83 insertions(+), 38 deletions(-)
