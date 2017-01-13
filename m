@@ -1,98 +1,146 @@
 From: Yuchung Cheng <ycheng@google.com>
-Subject: [PATCH net-next v2 08/13] tcp: extend F-RTO to catch more spurious timeouts
-Date: Thu, 12 Jan 2017 22:11:37 -0800
-Message-ID: <20170113061142.127344-9-ycheng@google.com>
+Subject: [PATCH net-next v2 05/13] tcp: use sequence to break TS ties for RACK loss detection
+Date: Thu, 12 Jan 2017 22:11:34 -0800
+Message-ID: <20170113061142.127344-6-ycheng@google.com>
 References: <20170113061142.127344-1-ycheng@google.com>
 Cc: netdev@vger.kernel.org, edumazet@google.com, ncardwell@google.com,
         nanditad@google.com, Yuchung Cheng <ycheng@google.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f175.google.com ([209.85.192.175]:35924 "EHLO
+Received: from mail-pf0-f175.google.com ([209.85.192.175]:35902 "EHLO
         mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751195AbdAMGMQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 01:12:16 -0500
-Received: by mail-pf0-f175.google.com with SMTP id 189so25985750pfu.3
-        for <netdev@vger.kernel.org>; Thu, 12 Jan 2017 22:12:16 -0800 (PST)
+        with ESMTP id S1751195AbdAMGMN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 01:12:13 -0500
+Received: by mail-pf0-f175.google.com with SMTP id 189so25984690pfu.3
+        for <netdev@vger.kernel.org>; Thu, 12 Jan 2017 22:12:12 -0800 (PST)
 In-Reply-To: <20170113061142.127344-1-ycheng@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Current F-RTO reverts cwnd reset whenever a never-retransmitted
-packet was (s)acked. The timeout can be declared spurious because
-the packets acknoledged with this ACK was transmitted before the
-timeout, so clearly not all the packets are lost to reset the cwnd.
+The packets inside a jumbo skb (e.g., TSO) share the same skb
+timestamp, even though they are sent sequentially on the wire. Since
+RACK is based on time, it can not detect some packets inside the
+same skb are lost.  However, we can leverage the packet sequence
+numbers as extended timestamps to detect losses. Therefore, when
+RACK timestamp is identical to skb's timestamp (i.e., one of the
+packets of the skb is acked or sacked), we use the sequence numbers
+of the acked and unacked packets to break ties.
 
-This nice detection does not really depend F-RTO internals. This
-patch applies the detection universally. On Google servers this
-change detected 20% more spurious timeouts.
+We can use the same sequence logic to advance RACK xmit time as
+well to detect more losses and avoid timeout.
 
-Suggested-by: Neal Cardwell <ncardwell@google.com>
 Signed-off-by: Yuchung Cheng <ycheng@google.com>
 Signed-off-by: Neal Cardwell <ncardwell@google.com>
 Acked-by: Eric Dumazet <edumazet@google.com>
 ---
- net/ipv4/tcp_input.c | 33 +++++++++++++++++++--------------
- 1 file changed, 19 insertions(+), 14 deletions(-)
+ include/linux/tcp.h     |  1 +
+ include/net/tcp.h       |  2 +-
+ net/ipv4/tcp_input.c    |  5 +++--
+ net/ipv4/tcp_recovery.c | 17 ++++++++++++++---
+ 4 files changed, 19 insertions(+), 6 deletions(-)
 
+diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+index 1255c592719c..970d5f00589f 100644
+--- a/include/linux/tcp.h
++++ b/include/linux/tcp.h
+@@ -208,6 +208,7 @@ struct tcp_sock {
+ 	struct tcp_rack {
+ 		struct skb_mstamp mstamp; /* (Re)sent time of the skb */
+ 		u32 rtt_us;  /* Associated RTT */
++		u32 end_seq; /* Ending TCP sequence of the skb */
+ 		u8 advanced; /* mstamp advanced since last lost marking */
+ 		u8 reord;    /* reordering detected */
+ 	} rack;
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 64fcdeb3358b..5fb1e75a32a9 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -1867,7 +1867,7 @@ extern int sysctl_tcp_recovery;
+ #define TCP_RACK_LOST_RETRANS  0x1
+ 
+ extern void tcp_rack_mark_lost(struct sock *sk, const struct skb_mstamp *now);
+-extern void tcp_rack_advance(struct tcp_sock *tp, u8 sacked,
++extern void tcp_rack_advance(struct tcp_sock *tp, u8 sacked, u32 end_seq,
+ 			     const struct skb_mstamp *xmit_time,
+ 			     const struct skb_mstamp *ack_time);
+ extern void tcp_rack_reo_timeout(struct sock *sk);
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 4ad75b8c4fee..9469ce384d3b 100644
+index be1191829963..e42ca11c0326 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
-@@ -1939,7 +1939,6 @@ void tcp_enter_loss(struct sock *sk)
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	struct net *net = sock_net(sk);
- 	struct sk_buff *skb;
--	bool new_recovery = icsk->icsk_ca_state < TCP_CA_Recovery;
- 	bool is_reneg;			/* is receiver reneging on SACKs? */
- 	bool mark_lost;
+@@ -1218,7 +1218,8 @@ static u8 tcp_sacktag_one(struct sock *sk,
+ 		return sacked;
  
-@@ -2000,13 +1999,15 @@ void tcp_enter_loss(struct sock *sk)
- 	tp->high_seq = tp->snd_nxt;
- 	tcp_ecn_queue_cwr(tp);
+ 	if (!(sacked & TCPCB_SACKED_ACKED)) {
+-		tcp_rack_advance(tp, sacked, xmit_time, &state->ack_time);
++		tcp_rack_advance(tp, sacked, end_seq,
++				 xmit_time, &state->ack_time);
  
--	/* F-RTO RFC5682 sec 3.1 step 1: retransmit SND.UNA if no previous
--	 * loss recovery is underway except recurring timeout(s) on
--	 * the same SND.UNA (sec 3.2). Disable F-RTO on path MTU probing
-+	/* F-RTO RFC5682 sec 3.1 step 1 mandates to disable F-RTO
-+	 * if a previous recovery is underway, otherwise it may incorrectly
-+	 * call a timeout spurious if some previously retransmitted packets
-+	 * are s/acked (sec 3.2). We do not apply that retriction since
-+	 * retransmitted skbs are permanently tagged with TCPCB_EVER_RETRANS
-+	 * so FLAG_ORIG_SACK_ACKED is always correct. But we do disable F-RTO
-+	 * on PTMU discovery to avoid sending new data.
- 	 */
--	tp->frto = sysctl_tcp_frto &&
--		   (new_recovery || icsk->icsk_retransmits) &&
--		   !inet_csk(sk)->icsk_mtup.probe_size;
-+	tp->frto = sysctl_tcp_frto && !inet_csk(sk)->icsk_mtup.probe_size;
+ 		if (sacked & TCPCB_SACKED_RETRANS) {
+ 			/* If the segment is not tagged as lost,
+@@ -3171,7 +3172,7 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
+ 		} else if (tcp_is_sack(tp)) {
+ 			tp->delivered += acked_pcount;
+ 			if (!tcp_skb_spurious_retrans(tp, skb))
+-				tcp_rack_advance(tp, sacked,
++				tcp_rack_advance(tp, sacked, scb->end_seq,
+ 						 &skb->skb_mstamp,
+ 						 &sack->ack_time);
+ 		}
+diff --git a/net/ipv4/tcp_recovery.c b/net/ipv4/tcp_recovery.c
+index eb39b1b6d1dc..1e330a2f913d 100644
+--- a/net/ipv4/tcp_recovery.c
++++ b/net/ipv4/tcp_recovery.c
+@@ -16,6 +16,14 @@ static void tcp_rack_mark_skb_lost(struct sock *sk, struct sk_buff *skb)
+ 	}
  }
  
- /* If ACK arrived pointing to a remembered SACK, it means that our
-@@ -2740,14 +2741,18 @@ static void tcp_process_loss(struct sock *sk, int flag, bool is_dupack,
- 	    tcp_try_undo_loss(sk, false))
++static bool tcp_rack_sent_after(const struct skb_mstamp *t1,
++				const struct skb_mstamp *t2,
++				u32 seq1, u32 seq2)
++{
++	return skb_mstamp_after(t1, t2) ||
++	       (t1->v64 == t2->v64 && after(seq1, seq2));
++}
++
+ /* Marks a packet lost, if some packet sent later has been (s)acked.
+  * The underlying idea is similar to the traditional dupthresh and FACK
+  * but they look at different metrics:
+@@ -60,7 +68,8 @@ static void tcp_rack_detect_loss(struct sock *sk, const struct skb_mstamp *now,
+ 		    scb->sacked & TCPCB_SACKED_ACKED)
+ 			continue;
+ 
+-		if (skb_mstamp_after(&tp->rack.mstamp, &skb->skb_mstamp)) {
++		if (tcp_rack_sent_after(&tp->rack.mstamp, &skb->skb_mstamp,
++					tp->rack.end_seq, scb->end_seq)) {
+ 			/* Step 3 in draft-cheng-tcpm-rack-00.txt:
+ 			 * A packet is lost if its elapsed time is beyond
+ 			 * the recent RTT plus the reordering window.
+@@ -113,14 +122,15 @@ void tcp_rack_mark_lost(struct sock *sk, const struct skb_mstamp *now)
+  * This is "Step 3: Advance RACK.xmit_time and update RACK.RTT" from
+  * draft-cheng-tcpm-rack-00.txt
+  */
+-void tcp_rack_advance(struct tcp_sock *tp, u8 sacked,
++void tcp_rack_advance(struct tcp_sock *tp, u8 sacked, u32 end_seq,
+ 		      const struct skb_mstamp *xmit_time,
+ 		      const struct skb_mstamp *ack_time)
+ {
+ 	u32 rtt_us;
+ 
+ 	if (tp->rack.mstamp.v64 &&
+-	    !skb_mstamp_after(xmit_time, &tp->rack.mstamp))
++	    !tcp_rack_sent_after(xmit_time, &tp->rack.mstamp,
++				 end_seq, tp->rack.end_seq))
  		return;
  
--	if (tp->frto) { /* F-RTO RFC5682 sec 3.1 (sack enhanced version). */
--		/* Step 3.b. A timeout is spurious if not all data are
--		 * lost, i.e., never-retransmitted data are (s)acked.
--		 */
--		if ((flag & FLAG_ORIG_SACK_ACKED) &&
--		    tcp_try_undo_loss(sk, true))
--			return;
-+	/* The ACK (s)acks some never-retransmitted data meaning not all
-+	 * the data packets before the timeout were lost. Therefore we
-+	 * undo the congestion window and state. This is essentially
-+	 * the operation in F-RTO (RFC5682 section 3.1 step 3.b). Since
-+	 * a retransmitted skb is permantly marked, we can apply such an
-+	 * operation even if F-RTO was not used.
-+	 */
-+	if ((flag & FLAG_ORIG_SACK_ACKED) &&
-+	    tcp_try_undo_loss(sk, tp->undo_marker))
-+		return;
+ 	rtt_us = skb_mstamp_us_delta(ack_time, xmit_time);
+@@ -140,6 +150,7 @@ void tcp_rack_advance(struct tcp_sock *tp, u8 sacked,
+ 	}
+ 	tp->rack.rtt_us = rtt_us;
+ 	tp->rack.mstamp = *xmit_time;
++	tp->rack.end_seq = end_seq;
+ 	tp->rack.advanced = 1;
+ }
  
-+	if (tp->frto) { /* F-RTO RFC5682 sec 3.1 (sack enhanced version). */
- 		if (after(tp->snd_nxt, tp->high_seq)) {
- 			if (flag & FLAG_DATA_SACKED || is_dupack)
- 				tp->frto = 0; /* Step 3.a. loss was real */
 -- 
 2.11.0.483.g087da7b7c-goog
