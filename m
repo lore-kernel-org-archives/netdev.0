@@ -1,60 +1,113 @@
-From: Eric Paris <eparis@redhat.com>
-Subject: Re: [PATCH V2] audit: log 32-bit socketcalls
-Date: Fri, 13 Jan 2017 10:18:22 -0500
-Message-ID: <1484320702.5300.8.camel@redhat.com>
-References: <dd937da01da72da9277e44ed79abd1f4618c14c5.1484297765.git.rgb@redhat.com>
-         <1484318543.5300.1.camel@redhat.com>
-         <20170113150637.GB3087@madcap2.tricolour.ca>
+From: Mason <slash.tmp@free.fr>
+Subject: Re: Setting link down or up in software
+Date: Fri, 13 Jan 2017 16:17:05 +0100
+Message-ID: <9be9b48d-1bef-b48f-866f-8651d9b9c245@free.fr>
+References: <75bd6df2-714a-2b9b-a0e3-f5574c295377@free.fr>
+ <2044a26f-cf95-ac55-6265-ac76c3ca53f6@free.fr>
+ <0273a4ad-46f7-d7b9-a206-6bd713e6165e@neratec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-audit@redhat.com, Kangkook Jee <aixer77@gmail.com>,
-        Paul Moore <pmoore@redhat.com>, Steve Grubb <sgrubb@redhat.com>
-To: Richard Guy Briggs <rgb@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170113150637.GB3087@madcap2.tricolour.ca>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Mans Rullgard <mans@mansr.com>,
+        Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Thibaud Cornic <thibaud_cornic@sigmadesigns.com>
+To: Zefir Kurtisi <zefir.kurtisi@neratec.com>,
+        netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtpfb1-g21.free.fr ([212.27.42.9]:47697 "EHLO
+        smtpfb1-g21.free.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751771AbdAMPSv (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 10:18:51 -0500
+Received: from smtp2-g21.free.fr (smtp2-g21.free.fr [212.27.42.2])
+        by smtpfb1-g21.free.fr (Postfix) with ESMTP id 58CFA3C622
+        for <netdev@vger.kernel.org>; Fri, 13 Jan 2017 16:18:23 +0100 (CET)
+In-Reply-To: <0273a4ad-46f7-d7b9-a206-6bd713e6165e@neratec.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2017-01-13 at 10:06 -0500, Richard Guy Briggs wrote:
-> On 2017-01-13 09:42, Eric Paris wrote:
-> > On Fri, 2017-01-13 at 04:51 -0500, Richard Guy Briggs wrote:
-
-
-> > > diff --git a/include/linux/audit.h b/include/linux/audit.h
-> > > index 9d4443f..43d8003 100644
-> > > --- a/include/linux/audit.h
-> > > +++ b/include/linux/audit.h
-> > > @@ -387,6 +387,18 @@ static inline int audit_socketcall(int
-> > > nargs,
-> > > unsigned long *args)
-> > >  		return __audit_socketcall(nargs, args);
-> > >  	return 0;
-> > >  }
-> > > +static inline int audit_socketcall_compat(int nargs, u32 *args)
-> > > +{
-> > > +	if (unlikely(!audit_dummy_context())) {
-> > 
-> > I've always hated these likely/unlikely. Mostly because I think
-> > they
-> > are so often wrong. I believe this says that you compiled audit in
-> > but
-> > you expect it to be explicitly disabled. While that is (recently)
-> > true
-> > in Fedora I highly doubt that's true on the vast majority of
-> > systems
-> > that have audit compiled in.
+On 13/01/2017 10:20, Zefir Kurtisi wrote:
+> On 01/12/2017 04:16 PM, Mason wrote:
+>> On 12/01/2017 14:05, Mason wrote:
+>>
+>>> I'm wondering what are the semantics of calling
+>>>
+>>> 	ip link set dev eth0 down
+>>>
+>>> I was expecting that to somehow instruct the device's ethernet driver
+>>> to shut everything down, have the PHY tell the peer that it's going
+>>> away, maybe even put the PHY in some low-power mode, etc.
+>>>
+>>> But it doesn't seem to be doing any of that on my HW.
+>>>
+>>> So what exactly is it supposed to do?
+>>>
+>>>
+>>> And on top of that, I am seeing random occurrences of
+>>>
+>>> 	nb8800 26000.ethernet eth0: Link is Down
+>>>
+>>> Sometimes it is printed immediately.
+>>> Sometimes it is printed as soon as I run "ip link set dev eth0 up" (?!)
+>>> Sometimes it is not printed at all.
+>>>
+>>> I find this erratic behavior very confusing.
+>>>
+>>> Is it the symptom of some deeper bug?
+>>
+>> Here's an example of "Link is Down" printed when I set link up:
+>>
+>> At [   62.750220] I run ip link set dev eth0 down
+>> Then leave the system idle for 10 minutes.
+>> At [  646.263041] I run ip link set dev eth0 up
+>> At [  647.364079] it prints "Link is Down"
+>> At [  649.417434] it prints "Link is Up - 1Gbps/Full - flow control rx/tx"
+>>
+>> I think whether I set up the PHY to use interrupts or polling
+>> does have an influence on the weirdness I observe.
+>>
+>> AFAICT, changing the interface flags is done in dev_change_flags
+>> which calls __dev_change_flags and __dev_notify_flags
+>>
+>> Is one of these supposed to call the device driver through a
+>> callback at some point?
+>>
+>> How/when is the phy_state_machine notified of the change in
+>> interface flags?
+>>
+>> Regards.
+>>
+> Hm, reminds me of something at my side that I recently fixed with [1]. For me it
+> was pulling the cable got randomly unnoticed at PHY layer - but might be related.
 > 
-> It has been argued that audit should have pretty much no performance
-> impact if it is not in use and that if it is, we're willing to take
-> the
-> more significant overhead of the rest of the code for the sake of one
-> test to determine whether or not to follow this code path.
+> Do you by chance have some component that polls the link states over the ethtool
+> interface very often (like once per second)? At my side it was a snmpd agent that
+> pro-actively updated the interface states every second and with that 'stole' the
+> link change information from the phy link state machine. What you need to have to
+> run in such a failing situation is:
+> 1) an ETH driver that updates link status in ethtool GSET path (e.g. dsa does)
+> 2) some component that continuously polls states via ethtool GSET
+> 
+> 
+> Cheers,
+> Zefir
+> 
+> 
+> [1] https://patchwork.ozlabs.org/patch/711839/
 
-Ok, I can buy that argument. Not sure its where I would have settled,
-but it does make sense. I'll obviously defer to Paul on what he wants
-out of style. I always assume the compiler is brilliant and write
-stupid code but your logic is sound there too.
+Hello Zefir,
 
-You can/should pretend I said nothing.
+Thanks for the insightful comment.
+
+This is a minimal buildroot system, with no frills, and not much running.
+There definitely is no SNMP daemon running, but I can't be 100% sure that
+busybox isn't polling the link state once in a while. (It's unlikely.)
+
+I'm surprised that there are still bugs lurking in the phy state machine,
+I expected this to be a "solved problem", but I suppose power management
+has broken many assumptions that were once safe...
+
+By the way, I did come across code paths where phy->state was read or
+written without taking the lock. Isn't that never supposed to happen?
+
+Regards.
