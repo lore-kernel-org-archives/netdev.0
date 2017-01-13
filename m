@@ -1,47 +1,31 @@
-From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next] afs: Conditionalise a new unused variable
-Date: Fri, 13 Jan 2017 14:46:19 +0000
-Message-ID: <148431877922.23745.3756091538832610041.stgit@warthog.procyon.org.uk>
+From: Alexey Kodanev <alexey.kodanev@oracle.com>
+Subject: Re: tcp: performance issue with fastopen connections (mss > window)
+Date: Fri, 13 Jan 2017 17:58:49 +0300
+Message-ID: <ee4ee3b0-81b7-e31b-ef4d-b6e4488d9cfe@oracle.com>
+References: <5878E166.8080800@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: dhowells@redhat.com, linux-afs@lists.infradead.org,
-        linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Vasily Isaenko <vasily.isaenko@oracle.com>
+To: David Miller <davem@davemloft.net>,
+        Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:18015 "EHLO
+        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751739AbdAMO7H (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 09:59:07 -0500
+In-Reply-To: <5878E166.8080800@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Arnd Bergmann <arnd@arndb.de>
+On 13.01.2017 17:17, Alexey Kodanev wrote:
+> Hi,
+>
+> Got the issue when running LTP/netstress test on localhost with mss
+> greater than the send window advertised by client (right after 3WHS).
+> Here is the testscenario that can reproduce this:
 
-The bulk readpages support introduced a harmless warning:
+Please ignore this message with 'flowed' format. Will resend.
 
-fs/afs/file.c: In function 'afs_readpages_page_done':
-fs/afs/file.c:270:20: error: unused variable 'vnode' [-Werror=unused-variable]
-
-This adds an #ifdef to match the user of that variable.  The user of the
-variable has to be conditional because it accesses a member of a struct
-that is also conditional.
-
-Fixes: 91b467e0a3f5 ("afs: Make afs_readpages() fetch data in bulk")
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Signed-off-by: David Howells <dhowells@redhat.com>
----
-
- fs/afs/file.c |    2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/fs/afs/file.c b/fs/afs/file.c
-index 82897a78abc7..ba7b71fba34b 100644
---- a/fs/afs/file.c
-+++ b/fs/afs/file.c
-@@ -267,7 +267,9 @@ static int afs_readpage(struct file *file, struct page *page)
-  */
- static void afs_readpages_page_done(struct afs_call *call, struct afs_read *req)
- {
-+#ifdef CONFIG_AFS_FSCACHE
- 	struct afs_vnode *vnode = call->reply;
-+#endif
- 	struct page *page = req->pages[req->index];
- 
- 	req->pages[req->index] = NULL;
+Thanks,
+Alexey
