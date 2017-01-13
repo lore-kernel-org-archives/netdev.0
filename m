@@ -1,84 +1,342 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: pull-request: mac80211 2017-01-13
-Date: Fri, 13 Jan 2017 14:55:15 +0100
-Message-ID: <20170113135516.19593-1-johannes@sipsolutions.net>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [PATCH net-next] net/mlx5e: Support bpf_xdp_adjust_head()
+Date: Fri, 13 Jan 2017 15:58:46 +0200
+Message-ID: <CALzJLG_9MTsTV4Y=+BgT7MXO+x-rq526fntxLdAOt=nLD6j9mA@mail.gmail.com>
+References: <1484186975-1862468-1-git-send-email-kafai@fb.com>
+ <CALzJLG-fj3LHEuZ78tRS8OL-x0rPRgKnsoxtJFon4Fw8-WK1AA@mail.gmail.com> <20170112232546.GA1595@kafai-mba.local>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Kernel Team <kernel-team@fb.com>
+To: Martin KaFai Lau <kafai@fb.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qt0-f194.google.com ([209.85.216.194]:34409 "EHLO
+        mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751806AbdAMN7H (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 08:59:07 -0500
+Received: by mail-qt0-f194.google.com with SMTP id a29so6280533qtb.1
+        for <netdev@vger.kernel.org>; Fri, 13 Jan 2017 05:59:07 -0800 (PST)
+In-Reply-To: <20170112232546.GA1595@kafai-mba.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+On Fri, Jan 13, 2017 at 1:25 AM, Martin KaFai Lau <kafai@fb.com> wrote:
+> On Thu, Jan 12, 2017 at 03:10:30PM +0200, Saeed Mahameed wrote:
+>> On Thu, Jan 12, 2017 at 4:09 AM, Martin KaFai Lau <kafai@fb.com> wrote:
+>> > This patch adds bpf_xdp_adjust_head() support to mlx5e.
+>>
+>> Hi Martin, Thanks for the patch !
+>>
+>> you can find some comments below.
+>>
+>> >
+>> > 1. rx_headroom is added to struct mlx5e_rq.  It uses
+>> >    an existing 4 byte hole in the struct.
+>> > 2. The adjusted data length is checked against
+>> >    MLX5E_XDP_MIN_INLINE and MLX5E_SW2HW_MTU(rq->netdev->mtu).
+>> > 3. The macro MLX5E_SW2HW_MTU is moved from en_main.c to en.h.
+>> >    MLX5E_HW2SW_MTU is also moved to en.h for symmetric reason
+>> >    but it is not a must.
+>> >
+>> > Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+>> > ---
+>> >  drivers/net/ethernet/mellanox/mlx5/core/en.h      |  4 ++
+>> >  drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 18 +++----
+>> >  drivers/net/ethernet/mellanox/mlx5/core/en_rx.c   | 63 ++++++++++++++---------
+>> >  3 files changed, 51 insertions(+), 34 deletions(-)
+>> >
+>> > diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+>> > index a473cea10c16..0d9dd860a295 100644
+>> > --- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
+>> > +++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+>> > @@ -51,6 +51,9 @@
+>> >
+>> >  #define MLX5_SET_CFG(p, f, v) MLX5_SET(create_flow_group_in, p, f, v)
+>> >
+>> > +#define MLX5E_HW2SW_MTU(hwmtu) ((hwmtu) - (ETH_HLEN + VLAN_HLEN + ETH_FCS_LEN))
+>> > +#define MLX5E_SW2HW_MTU(swmtu) ((swmtu) + (ETH_HLEN + VLAN_HLEN + ETH_FCS_LEN))
+>> > +
+>> >  #define MLX5E_MAX_NUM_TC       8
+>> >
+>> >  #define MLX5E_PARAMS_MINIMUM_LOG_SQ_SIZE                0x6
+>> > @@ -369,6 +372,7 @@ struct mlx5e_rq {
+>> >
+>> >         unsigned long          state;
+>> >         int                    ix;
+>> > +       u16                    rx_headroom;
+>> >
+>> >         struct mlx5e_rx_am     am; /* Adaptive Moderation */
+>> >         struct bpf_prog       *xdp_prog;
+>> > diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+>> > index f74ba73c55c7..aba3691e0919 100644
+>> > --- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+>> > +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+>> > @@ -343,9 +343,6 @@ static void mlx5e_disable_async_events(struct mlx5e_priv *priv)
+>> >         synchronize_irq(mlx5_get_msix_vec(priv->mdev, MLX5_EQ_VEC_ASYNC));
+>> >  }
+>> >
+>> > -#define MLX5E_HW2SW_MTU(hwmtu) (hwmtu - (ETH_HLEN + VLAN_HLEN + ETH_FCS_LEN))
+>> > -#define MLX5E_SW2HW_MTU(swmtu) (swmtu + (ETH_HLEN + VLAN_HLEN + ETH_FCS_LEN))
+>> > -
+>> >  static inline int mlx5e_get_wqe_mtt_sz(void)
+>> >  {
+>> >         /* UMR copies MTTs in units of MLX5_UMR_MTT_ALIGNMENT bytes.
+>> > @@ -534,9 +531,13 @@ static int mlx5e_create_rq(struct mlx5e_channel *c,
+>> >                 goto err_rq_wq_destroy;
+>> >         }
+>> >
+>> > -       rq->buff.map_dir = DMA_FROM_DEVICE;
+>> > -       if (rq->xdp_prog)
+>> > +       if (rq->xdp_prog) {
+>> >                 rq->buff.map_dir = DMA_BIDIRECTIONAL;
+>> > +               rq->rx_headroom = XDP_PACKET_HEADROOM;
+>> > +       } else {
+>> > +               rq->buff.map_dir = DMA_FROM_DEVICE;
+>> > +               rq->rx_headroom = MLX5_RX_HEADROOM;
+>> > +       }
+>> >
+>> >         switch (priv->params.rq_wq_type) {
+>> >         case MLX5_WQ_TYPE_LINKED_LIST_STRIDING_RQ:
+>> > @@ -586,7 +587,7 @@ static int mlx5e_create_rq(struct mlx5e_channel *c,
+>> >                 byte_count = rq->buff.wqe_sz;
+>> >
+>> >                 /* calc the required page order */
+>> > -               frag_sz = MLX5_RX_HEADROOM +
+>> > +               frag_sz = rq->rx_headroom +
+>> >                           byte_count /* packet data */ +
+>> >                           SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
+>> >                 frag_sz = SKB_DATA_ALIGN(frag_sz);
+>> > @@ -3153,11 +3154,6 @@ static int mlx5e_xdp_set(struct net_device *netdev, struct bpf_prog *prog)
+>> >         bool reset, was_opened;
+>> >         int i;
+>> >
+>> > -       if (prog && prog->xdp_adjust_head) {
+>> > -               netdev_err(netdev, "Does not support bpf_xdp_adjust_head()\n");
+>> > -               return -EOPNOTSUPP;
+>> > -       }
+>> > -
+>> >         mutex_lock(&priv->state_lock);
+>> >
+>> >         if ((netdev->features & NETIF_F_LRO) && prog) {
+>> > diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+>> > index 0e2fb3ed1790..914e00132e08 100644
+>> > --- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+>> > +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx.c
+>> > @@ -264,7 +264,7 @@ int mlx5e_alloc_rx_wqe(struct mlx5e_rq *rq, struct mlx5e_rx_wqe *wqe, u16 ix)
+>> >         if (unlikely(mlx5e_page_alloc_mapped(rq, di)))
+>> >                 return -ENOMEM;
+>> >
+>> > -       wqe->data.addr = cpu_to_be64(di->addr + MLX5_RX_HEADROOM);
+>> > +       wqe->data.addr = cpu_to_be64(di->addr + rq->rx_headroom);
+>> >         return 0;
+>> >  }
+>> >
+>> > @@ -646,8 +646,7 @@ static inline void mlx5e_xmit_xdp_doorbell(struct mlx5e_sq *sq)
+>> >
+>> >  static inline void mlx5e_xmit_xdp_frame(struct mlx5e_rq *rq,
+>> >                                         struct mlx5e_dma_info *di,
+>> > -                                       unsigned int data_offset,
+>> > -                                       int len)
+>> > +                                       const struct xdp_buff *xdp)
+>> >  {
+>> >         struct mlx5e_sq          *sq   = &rq->channel->xdp_sq;
+>> >         struct mlx5_wq_cyc       *wq   = &sq->wq;
+>> > @@ -659,9 +658,17 @@ static inline void mlx5e_xmit_xdp_frame(struct mlx5e_rq *rq,
+>> >         struct mlx5_wqe_eth_seg  *eseg = &wqe->eth;
+>> >         struct mlx5_wqe_data_seg *dseg;
+>> >
+>> > +       ptrdiff_t data_offset = xdp->data - xdp->data_hard_start;
+>> >         dma_addr_t dma_addr  = di->addr + data_offset + MLX5E_XDP_MIN_INLINE;
+>> > -       unsigned int dma_len = len - MLX5E_XDP_MIN_INLINE;
+>> > -       void *data           = page_address(di->page) + data_offset;
+>> > +       unsigned int dma_len = xdp->data_end - xdp->data;
+>> > +
+>> > +       if (unlikely(dma_len < MLX5E_XDP_MIN_INLINE ||
+>>
+>> I don't think this can happen, MLX5E_XDP_MIN_INLINE is 18 bytes and
+>> should not get bigger in the future,
+>> Also i don't think it is possible for XDP prog to xmit packets smaller
+>> than 18 bytes, let's remove this
+> The bpf_xdp_adjust_head() only checks for a min of ETH_HLEN which is 14.
+> Hence, <18 bytes is still possible here.
+>
+>>
+>> > +                    MLX5E_SW2HW_MTU(rq->netdev->mtu) < dma_len)) {
+>> > +               rq->stats.xdp_drop++;
+>> > +               mlx5e_page_release(rq, di, true);
+>> > +               return;
+>> > +       }
+>> > +       dma_len -= MLX5E_XDP_MIN_INLINE;
+>>
+>> Move this to after the below sanity check, it is better to separate
+>> logic from pre-conditions
+> Will do.
+>
+>>
+>> >
+>> >         if (unlikely(!mlx5e_sq_has_room_for(sq, MLX5E_XDP_TX_WQEBBS))) {
+>> >                 if (sq->db.xdp.doorbell) {
+>> > @@ -680,7 +687,7 @@ static inline void mlx5e_xmit_xdp_frame(struct mlx5e_rq *rq,
+>> >         memset(wqe, 0, sizeof(*wqe));
+>> >
+>> >         /* copy the inline part */
+>> > -       memcpy(eseg->inline_hdr_start, data, MLX5E_XDP_MIN_INLINE);
+>> > +       memcpy(eseg->inline_hdr_start, xdp->data, MLX5E_XDP_MIN_INLINE);
+>> >         eseg->inline_hdr_sz = cpu_to_be16(MLX5E_XDP_MIN_INLINE);
+>> >
+>> >         dseg = (struct mlx5_wqe_data_seg *)cseg + (MLX5E_XDP_TX_DS_COUNT - 1);
+>> > @@ -706,22 +713,16 @@ static inline void mlx5e_xmit_xdp_frame(struct mlx5e_rq *rq,
+>> >  static inline bool mlx5e_xdp_handle(struct mlx5e_rq *rq,
+>> >                                     const struct bpf_prog *prog,
+>> >                                     struct mlx5e_dma_info *di,
+>> > -                                   void *data, u16 len)
+>> > +                                   struct xdp_buff *xdp)
+>> >  {
+>> > -       struct xdp_buff xdp;
+>> >         u32 act;
+>> >
+>> > -       if (!prog)
+>> > -               return false;
+>> > -
+>> > -       xdp.data = data;
+>> > -       xdp.data_end = xdp.data + len;
+>> > -       act = bpf_prog_run_xdp(prog, &xdp);
+>> > +       act = bpf_prog_run_xdp(prog, xdp);
+>> >         switch (act) {
+>> >         case XDP_PASS:
+>> >                 return false;
+>> >         case XDP_TX:
+>> > -               mlx5e_xmit_xdp_frame(rq, di, MLX5_RX_HEADROOM, len);
+>> > +               mlx5e_xmit_xdp_frame(rq, di, xdp);
+>> >                 return true;
+>> >         default:
+>> >                 bpf_warn_invalid_xdp_action(act);
+>> > @@ -737,18 +738,19 @@ static inline
+>> >  struct sk_buff *skb_from_cqe(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe,
+>> >                              u16 wqe_counter, u32 cqe_bcnt)
+>> >  {
+>> > +       const struct bpf_prog *xdp_prog;
+>> >         struct mlx5e_dma_info *di;
+>> >         struct sk_buff *skb;
+>> >         void *va, *data;
+>> > -       bool consumed;
+>> > +       u16 rx_headroom = rq->rx_headroom;
+>> >
+>> >         di             = &rq->dma_info[wqe_counter];
+>> >         va             = page_address(di->page);
+>> > -       data           = va + MLX5_RX_HEADROOM;
+>> > +       data           = va + rx_headroom;
+>> >
+>> >         dma_sync_single_range_for_cpu(rq->pdev,
+>> >                                       di->addr,
+>> > -                                     MLX5_RX_HEADROOM,
+>> > +                                     rx_headroom,
+>> >                                       rq->buff.wqe_sz,
+>> >                                       DMA_FROM_DEVICE);
+>> >         prefetch(data);
+>> > @@ -760,11 +762,26 @@ struct sk_buff *skb_from_cqe(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe,
+>> >         }
+>> >
+>> >         rcu_read_lock();
+>> > -       consumed = mlx5e_xdp_handle(rq, READ_ONCE(rq->xdp_prog), di, data,
+>> > -                                   cqe_bcnt);
+>> > +       xdp_prog = READ_ONCE(rq->xdp_prog);
+>> > +       if (xdp_prog) {
+>> > +               struct xdp_buff xdp;
+>> > +               bool consumed;
+>> > +
+>> > +               xdp.data = data;
+>> > +               xdp.data_end = xdp.data + cqe_bcnt;
+>> > +               xdp.data_hard_start = va;
+>> > +
+>> > +               consumed = mlx5e_xdp_handle(rq, xdp_prog, di, &xdp);
+>> > +
+>> > +               if (consumed) {
+>> > +                       rcu_read_unlock();
+>> > +                       return NULL; /* page/packet was consumed by XDP */
+>> > +               }
+>> > +
+>> > +               rx_headroom = xdp.data - xdp.data_hard_start;
+>> > +               cqe_bcnt = xdp.data_end - xdp.data;
+>> > +       }
+>>
+>> This whole new logic belongs to mlx5e_xdp_handle, I would like to keep
+>> xdp related code in one place.
+>>
+>> move the xdp_buff initialization back to there and keep the xdp_prog
+>> check in mlx5e_xdp_handle;
+>> +      xdp_prog = READ_ONCE(rq->xdp_prog);
+>> +       if (!xdp_prog)
+>> +                    return false
+>>
+>> you can remove "const struct bpf_prog *prog" parameter from
+>> mlx5e_xdp_handle and take it directly from rq.
+>>
+>> if you need va for xdp_buff you can pass it as a paramter to
+>> mlx5e_xdp_handle  as well:
+>> mlx5e_xdp_handle(rq, di, va, data, cqe_bcnt);
+>> Make sense ?
+> I moved them because xdp.data could be adjusted which then
+> rx_headroom and cqe_bcnt have to be adjusted accordingly
+> in skb_from_cqe() also.
+>
+> I understand your point.  After another quick thought,
+> the adjusted xdp.data is the only one that we want in skb_from_cqe().
+> I will try to make mlx5e_xdp_handle() to return the adjusted xdp.data
+> instead of bool.
+>
 
-Here's another update for the current cycle. Some of those
-patches have been sitting in our tree and I haven't been
-pulling them out quickly enough - will try to do better...
+hmm, You also need the adjusted cqe_bcnt! this will make
+mlx5e_xdp_handle stuffed with parameters,
 
-Please pull and let me know if there's any problem.
+what if, in skb_from_cqe we warp data, rx_headroom and cqe_bcnt in one struct.
+
+struct mlx5e_rx_buff {
+void *data;
+u6 headroom;
+u32 bcnt;
+}
+
+initialize it at the start of skb_from_cqe:
+
+struct mlx5e_rx_buff rxb;
+
+rxb.headroom = rq->headroom;
+rxb.data = va + rxb.headroom;
+rxb.bcnt = cqe_bcnt;
+
+pass it to mlx5e_xdp_handle(rq, di, va, &rxb) in case xdp_prog is ON
+and rxb needs adjustment.
+
+At the end use it to build the SKB:
+skb = build_skb(va, RQ_PAGE_SIZE(rq));
+skb_reserve(skb, rxb.headroom);
+skb_put(skb, rxb.bcnt);
 
 Thanks,
-johannes
+Saeed.
 
-
-
-The following changes since commit 03430fa10b99e95e3a15eb7c00978fb1652f3b24:
-
-  Merge branch 'bcm_sf2-fixes' (2017-01-08 22:01:22 -0500)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211.git tags/mac80211-for-davem-2017-01-13
-
-for you to fetch changes up to dbef53621116474bb883f76f0ba6b7640bc42332:
-
-  mac80211: prevent skb/txq mismatch (2017-01-13 14:47:21 +0100)
-
-----------------------------------------------------------------
-We have a number of fixes, in part because I was late
-in actually sending them out - will try to do better in
-the future:
- * handle VHT opmode properly when hostapd is controlling
-   full station state
- * two fixes for minimum channel width in mac80211
- * don't leave SMPS set to junk in HT capabilities
- * fix headroom when forwarding mesh packets, recently
-   broken by another fix that failed to take into account
-   frame encryption
- * fix the TID in null-data packets indicating EOSP (end
-   of service period) in U-APSD
- * prevent attempting to use (and then failing which
-   results in crashes) TXQs on stations that aren't added
-   to the driver yet
-
-----------------------------------------------------------------
-Beni Lev (1):
-      cfg80211: consider VHT opmode on station update
-
-Cedric Izoard (1):
-      mac80211: Fix headroom allocation when forwarding mesh pkt
-
-Emmanuel Grumbach (1):
-      mac80211: fix the TID on NDPs sent as EOSP carrier
-
-Felix Fietkau (1):
-      mac80211: initialize SMPS field in HT capabilities
-
-Johannes Berg (3):
-      mac80211: implement multicast forwarding on fast-RX path
-      mac80211: calculate min channel width correctly
-      mac80211: recalculate min channel width on VHT opmode changes
-
-Michal Kazior (1):
-      mac80211: prevent skb/txq mismatch
-
- include/uapi/linux/nl80211.h |  4 +++-
- net/mac80211/chan.c          |  3 ---
- net/mac80211/iface.c         | 21 +++++++++++++++++++++
- net/mac80211/main.c          | 13 +++++++++----
- net/mac80211/rate.c          |  2 ++
- net/mac80211/rx.c            | 38 +++++++++++++++++++++-----------------
- net/mac80211/sta_info.c      |  4 ++--
- net/mac80211/tx.c            | 17 +++++++----------
- net/mac80211/vht.c           |  4 +++-
- net/wireless/nl80211.c       | 15 +++++++++++++++
- 10 files changed, 83 insertions(+), 38 deletions(-)
+> Thanks,
+> --Martin
+>
+>>
+>> >         rcu_read_unlock();
+>> > -       if (consumed)
+>> > -               return NULL; /* page/packet was consumed by XDP */
+>> >
+>> >         skb = build_skb(va, RQ_PAGE_SIZE(rq));
+>> >         if (unlikely(!skb)) {
+>> > @@ -777,7 +794,7 @@ struct sk_buff *skb_from_cqe(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe,
+>> >         page_ref_inc(di->page);
+>> >         mlx5e_page_release(rq, di, true);
+>> >
+>> > -       skb_reserve(skb, MLX5_RX_HEADROOM);
+>> > +       skb_reserve(skb, rx_headroom);
+>> >         skb_put(skb, cqe_bcnt);
+>> >
+>> >         return skb;
+>> > --
+>> > 2.5.1
+>> >
