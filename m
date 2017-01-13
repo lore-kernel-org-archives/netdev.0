@@ -1,77 +1,325 @@
-From: Jamal Hadi Salim <jhs-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>
-Subject: ANNOUNCE: Netdev 2.1 in Montreal
-Date: Fri, 13 Jan 2017 14:58:19 -0500
-Message-ID: <1a7b6b2c-38bc-7c6f-e3bf-ab913b163dba@mojatatu.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [net PATCH v3 5/5] virtio_net: XDP support for adjust_head
+Date: Fri, 13 Jan 2017 12:08:34 -0800
+Message-ID: <587933C2.8090003@gmail.com>
+References: <20170113024908.4535.8835.stgit@john-Precision-Tower-5810>
+ <20170113025206.4535.28363.stgit@john-Precision-Tower-5810>
+ <7c41d9b0-aa77-1485-4890-177ca7b01e50@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 8bit
-Cc: netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netfilter-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        info-Aq7fehzYRUagpaxmtUs7hg@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        tech-committee-Aq7fehzYRUagpaxmtUs7hg@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Stephen Jaworski <jaws-jkUAjuhPggJWk0Htik3J/w@public.gmane.org>,
-        Rob Echlin <rob-XjY9sGI/8jX3fQ9qLvQP4Q@public.gmane.org>, lwn-T1hC0tSOHrs@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org,
+        alexei.starovoitov@gmail.com, daniel@iogearbox.net
+To: Jason Wang <jasowang@redhat.com>, mst@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:35221 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751312AbdAMUIx (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 15:08:53 -0500
+Received: by mail-pf0-f195.google.com with SMTP id f144so9659681pfa.2
+        for <netdev@vger.kernel.org>; Fri, 13 Jan 2017 12:08:53 -0800 (PST)
+In-Reply-To: <7c41d9b0-aa77-1485-4890-177ca7b01e50@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On 17-01-12 11:41 PM, Jason Wang wrote:
+> 
+> 
+> On 2017年01月13日 10:52, John Fastabend wrote:
+>> Add support for XDP adjust head by allocating a 256B header region
+>> that XDP programs can grow into. This is only enabled when a XDP
+>> program is loaded.
+>>
+>> In order to ensure that we do not have to unwind queue headroom push
+>> queue setup below bpf_prog_add. It reads better to do a prog ref
+>> unwind vs another queue setup call.
+>>
+>> At the moment this code must do a full reset to ensure old buffers
+>> without headroom on program add or with headroom on program removal
+>> are not used incorrectly in the datapath. Ideally we would only
+>> have to disable/enable the RX queues being updated but there is no
+>> API to do this at the moment in virtio so use the big hammer. In
+>> practice it is likely not that big of a problem as this will only
+>> happen when XDP is enabled/disabled changing programs does not
+>> require the reset. There is some risk that the driver may either
+>> have an allocation failure or for some reason fail to correctly
+>> negotiate with the underlying backend in this case the driver will
+>> be left uninitialized. I have not seen this ever happen on my test
+>> systems and for what its worth this same failure case can occur
+>> from probe and other contexts in virtio framework.
+>>
+>> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+>> ---
+>>   drivers/net/virtio_net.c |  155 ++++++++++++++++++++++++++++++++++++++++------
+>>   drivers/virtio/virtio.c  |    9 ++-
+>>   include/linux/virtio.h   |    3 +
+>>   3 files changed, 144 insertions(+), 23 deletions(-)
+>>
+>> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+>> index 6041828..8b897e7 100644
+>> --- a/drivers/net/virtio_net.c
+>> +++ b/drivers/net/virtio_net.c
+>> @@ -28,6 +28,7 @@
+>>   #include <linux/slab.h>
+>>   #include <linux/cpu.h>
+>>   #include <linux/average.h>
+>> +#include <linux/pci.h>
+>>   #include <net/busy_poll.h>
+>>     static int napi_weight = NAPI_POLL_WEIGHT;
+>> @@ -159,6 +160,9 @@ struct virtnet_info {
+>>       /* Ethtool settings */
+>>       u8 duplex;
+>>       u32 speed;
+>> +
+>> +    /* Headroom allocated in RX Queue */
+>> +    unsigned int headroom;
+> 
+> If this could not be changed in anyway, better use a macro instead of a filed
+> here. And there's even no need to add an extra parameter to
+> add_recvbuf_mergeable().
 
-Folks,
+OK originally I thought this might be dynamic but I agree no need
+for it here.
 
-We are pleased to announce Netdev 2.1 (year 2, conference 1)
-in the beautiful city of Montreal, Canada on the 6th to 8th of April.
-The website is now online: http://www.netdevconf.org/2.1/
-Netdev 2.1 will be held back to back with netconf2017.1
-(http://vger.kernel.org/netconf2017.html)
+> 
+>>   };
+>>     struct padded_vnet_hdr {
+>> @@ -359,6 +363,7 @@ static void virtnet_xdp_xmit(struct virtnet_info *vi,
+>>       }
+>>         if (vi->mergeable_rx_bufs) {
+>> +        xdp->data -= sizeof(struct virtio_net_hdr_mrg_rxbuf);
+> 
+> Fail to understand why this is needed. We should have excluded vnet header from
+> xdp->data even before bpf_prog_run_xdp().
+> 
+>>           /* Zero header and leave csum up to XDP layers */
+>>           hdr = xdp->data;
+>>           memset(hdr, 0, vi->hdr_len);
+>> @@ -375,7 +380,9 @@ static void virtnet_xdp_xmit(struct virtnet_info *vi,
+>>           num_sg = 2;
+>>           sg_init_table(sq->sg, 2);
+>>           sg_set_buf(sq->sg, hdr, vi->hdr_len);
+>> -        skb_to_sgvec(skb, sq->sg + 1, 0, skb->len);
+>> +        skb_to_sgvec(skb, sq->sg + 1,
+>> +                 xdp->data - xdp->data_hard_start,
+>> +                 xdp->data_end - xdp->data);
+>>       }
+>>       err = virtqueue_add_outbuf(sq->vq, sq->sg, num_sg,
+>>                      data, GFP_ATOMIC);
+>> @@ -401,7 +408,6 @@ static struct sk_buff *receive_small(struct net_device *dev,
+>>       struct bpf_prog *xdp_prog;
+>>         len -= vi->hdr_len;
+>> -    skb_trim(skb, len);
+>>         rcu_read_lock();
+>>       xdp_prog = rcu_dereference(rq->xdp_prog);
+>> @@ -413,11 +419,15 @@ static struct sk_buff *receive_small(struct net_device
+>> *dev,
+>>           if (unlikely(hdr->hdr.gso_type || hdr->hdr.flags))
+>>               goto err_xdp;
+>>   -        xdp.data = skb->data;
+>> +        xdp.data_hard_start = skb->data;
+>> +        xdp.data = skb->data + vi->headroom;
+>>           xdp.data_end = xdp.data + len;
+>>           act = bpf_prog_run_xdp(xdp_prog, &xdp);
+>>           switch (act) {
+>>           case XDP_PASS:
+>> +            /* Recalculate length in case bpf program changed it */
+>> +            len = xdp.data_end - xdp.data;
+>> +            __skb_pull(skb, xdp.data - xdp.data_hard_start);
+> 
+> How about do this just after bpf_pro_run_xdp() for XDP_TX too? This is more
+> readable and there's no need to change xmit path.
 
-Netdev 2.1 is a  community-driven conference geared towards Linux
-netheads. Linux kernel networking and user space utilization of the
-interfaces to the Linux kernel networking subsystem are the central
-theme.
-If you are using Linux as a boot system for proprietary networking,
-then this conference _may not be for you_.
+Agreed will do.
 
-Registration costs
-------------------
-Very Cheap.
-$CAN 300 if you register before Feb 27. $360 after.
-$CAN 150 if you are a student. $180 after Feb 27
+> 
+>>               break;
+>>           case XDP_TX:
+>>               virtnet_xdp_xmit(vi, rq, &xdp, skb);
+>> @@ -432,6 +442,7 @@ static struct sk_buff *receive_small(struct net_device *dev,
+>>       }
+>>       rcu_read_unlock();
+>>   +    skb_trim(skb, len);
+>>       return skb;
+>>     err_xdp:
+>> @@ -569,7 +580,11 @@ static struct sk_buff *receive_mergeable(struct
+>> net_device *dev,
+>>           if (unlikely(hdr->hdr.gso_type))
+>>               goto err_xdp;
+>>   +        /* Allow consuming headroom but reserve enough space to push
+>> +         * the descriptor on if we get an XDP_TX return code.
+>> +         */
+>>           data = page_address(xdp_page) + offset;
+>> +        xdp.data_hard_start = data - vi->headroom + desc_room;
+> 
+> Two possible issues here:
+> 
+> 1) If we want to adjust header after linearizing, we should reserve a room for
+> that page, but I don't see any codes for this.
+> 2) If the header has been adjusted, looks like we need change offset value
+> otherwise, page_to_skb() won't build a correct skb for us for XDP_PASS.
+> 
 
-Why you should register
------------------------
-If you yearn for the old community tech driven conferences where
-you mingle with fellow geeks (only these would be Linux networking
-geeks) then this would be it. There will be no marketing flashing
-light openings or loud bad music. Just a pure feed of Linux
-networking. Gurus and magicians of all sorts will be there mingling,
-juggling and giving talks.
+Both correct thanks. I'll add a couple sample programs to catch this as well.
 
-While there will be heavy Linux kernel influence we expect a lot
-of user space presence as well.
+>>           xdp.data = data + desc_room;
+>>           xdp.data_end = xdp.data + (len - vi->hdr_len);
+>>           act = bpf_prog_run_xdp(xdp_prog, &xdp);
+>> @@ -748,20 +763,21 @@ static void receive_buf(struct virtnet_info *vi, struct
+>> receive_queue *rq,
+>>   static int add_recvbuf_small(struct virtnet_info *vi, struct receive_queue *rq,
+>>                    gfp_t gfp)
+>>   {
+>> +    int headroom = GOOD_PACKET_LEN + vi->headroom;
+>>       struct sk_buff *skb;
+>>       struct virtio_net_hdr_mrg_rxbuf *hdr;
+>>       int err;
+>>   -    skb = __netdev_alloc_skb_ip_align(vi->dev, GOOD_PACKET_LEN, gfp);
+>> +    skb = __netdev_alloc_skb_ip_align(vi->dev, headroom, gfp);
+>>       if (unlikely(!skb))
+>>           return -ENOMEM;
+>>   -    skb_put(skb, GOOD_PACKET_LEN);
+>> +    skb_put(skb, headroom);
+>>         hdr = skb_vnet_hdr(skb);
+>>       sg_init_table(rq->sg, 2);
+>>       sg_set_buf(rq->sg, hdr, vi->hdr_len);
+>> -    skb_to_sgvec(skb, rq->sg + 1, 0, skb->len);
+>> +    skb_to_sgvec(skb, rq->sg + 1, vi->headroom, skb->len - vi->headroom);
+>>         err = virtqueue_add_inbuf(rq->vq, rq->sg, 2, skb, gfp);
+>>       if (err < 0)
+>> @@ -829,24 +845,27 @@ static unsigned int get_mergeable_buf_len(struct
+>> ewma_pkt_len *avg_pkt_len)
+>>       return ALIGN(len, MERGEABLE_BUFFER_ALIGN);
+>>   }
+>>   -static int add_recvbuf_mergeable(struct receive_queue *rq, gfp_t gfp)
+>> +static int add_recvbuf_mergeable(struct virtnet_info *vi,
+>> +                 struct receive_queue *rq, gfp_t gfp)
+>>   {
+>>       struct page_frag *alloc_frag = &rq->alloc_frag;
+>> +    unsigned int headroom = vi->headroom;
+>>       char *buf;
+>>       unsigned long ctx;
+>>       int err;
+>>       unsigned int len, hole;
+>>         len = get_mergeable_buf_len(&rq->mrg_avg_pkt_len);
+>> -    if (unlikely(!skb_page_frag_refill(len, alloc_frag, gfp)))
+>> +    if (unlikely(!skb_page_frag_refill(len + headroom, alloc_frag, gfp)))
+>>           return -ENOMEM;
+>>         buf = (char *)page_address(alloc_frag->page) + alloc_frag->offset;
+>> +    buf += headroom; /* advance address leaving hole at front of pkt */
+>>       ctx = mergeable_buf_to_ctx(buf, len);
+>>       get_page(alloc_frag->page);
+>> -    alloc_frag->offset += len;
+>> +    alloc_frag->offset += len + headroom;
+>>       hole = alloc_frag->size - alloc_frag->offset;
+>> -    if (hole < len) {
+>> +    if (hole < len + headroom) {
+>>           /* To avoid internal fragmentation, if there is very likely not
+>>            * enough space for another buffer, add the remaining space to
+>>            * the current buffer. This extra space is not included in
+>> @@ -880,7 +899,7 @@ static bool try_fill_recv(struct virtnet_info *vi, struct
+>> receive_queue *rq,
+>>       gfp |= __GFP_COLD;
+>>       do {
+>>           if (vi->mergeable_rx_bufs)
+>> -            err = add_recvbuf_mergeable(rq, gfp);
+>> +            err = add_recvbuf_mergeable(vi, rq, gfp);
+>>           else if (vi->big_packets)
+>>               err = add_recvbuf_big(vi, rq, gfp);
+>>           else
+>> @@ -1675,12 +1694,90 @@ static void virtnet_init_settings(struct net_device *dev)
+>>       .set_settings = virtnet_set_settings,
+>>   };
+>>   +#define VIRTIO_XDP_HEADROOM 256
+>> +
+>> +static int init_vqs(struct virtnet_info *vi);
+>> +static void remove_vq_common(struct virtnet_info *vi, bool lock);
+>> +
+>> +/* Reset virtio device with RTNL held this is very similar to the
+>> + * freeze()/restore() logic except we need to ensure locking. It is
+>> + * possible that this routine may fail and leave the driver in a
+>> + * failed state. However assuming the driver negotiated correctly
+>> + * at probe time we _should_ be able to (re)negotiate driver again.
+>> + */
+> 
+> Instead of duplicate codes and export helpers, why not use
+> virtio_device_freeze()/virtio_device_restore()? For rtnl_lock in restore, you
+> can probably avoid it be checking rtnl_is_locked() before?
 
-Exact Location:
------------------
-Tentative: LE WESTIN MONTRÉAL
+freeze/restore does virtnet_cpu_notif_* work that is not needed
+in this case. But the overhead here is maybe minimal.
 
-Sponsorship
-------------
+Michael wanted to create a generic virtio_reset() so let me
+give that a try and that should clean this up as well.
 
-If you can help us organize this event by sponsoring, please drop us a 
-line to: sponsor-Aq7fehzYRUagpaxmtUs7hg@public.gmane.org and we'll send you our sponsorship policy.
+.John
 
-Important dates
-----------------
-January 18, 2017 Call for proposals open
-January 23, 2017 Registration opens
-February 20, 2017 Call for proposals close
-February 27, 2017 Early Registration close
-March 13, 2017 Conference schedule announced
-March 27, 2017 Paper submission
-March 31, 2017 Online Registration close
-April 3, 2017 Slides submission
-April 6-8, 2017 Conference days
-May 1, 2017 Slides release
-June 1, 2017 Paper release
-
-cheers,
-jamal
+> 
+>> +static int virtnet_xdp_reset(struct virtnet_info *vi)
+>> +{
+>> +    struct virtio_device *vdev = vi->vdev;
+>> +    unsigned int status;
+>> +    int i, ret;
+>> +
+>> +    /* Disable and unwind rings */
+>> +    virtio_config_disable(vdev);
+>> +    vdev->failed = vdev->config->get_status(vdev) & VIRTIO_CONFIG_S_FAILED;
+>> +
+>> +    netif_device_detach(vi->dev);
+>> +    cancel_delayed_work_sync(&vi->refill);
+>> +    if (netif_running(vi->dev)) {
+>> +        for (i = 0; i < vi->max_queue_pairs; i++)
+>> +            napi_disable(&vi->rq[i].napi);
+>> +    }
+>> +
+>> +    remove_vq_common(vi, false);
+>> +
+>> +    /* Do a reset per virtio spec recommendation */
+>> +    vdev->config->reset(vdev);
+>> +
+>> +    /* Acknowledge that we've seen the device. */
+>> +    status = vdev->config->get_status(vdev);
+>> +    vdev->config->set_status(vdev, status | VIRTIO_CONFIG_S_ACKNOWLEDGE);
+>> +
+>> +    /* Notify driver is up and finalize features per specification. The
+>> +     * error code from finalize features is checked here but should not
+>> +     * fail because we assume features were previously synced successfully.
+>> +     */
+>> +    status = vdev->config->get_status(vdev);
+>> +    vdev->config->set_status(vdev, status | VIRTIO_CONFIG_S_DRIVER);
+>> +    ret = virtio_finalize_features(vdev);
+>> +    if (ret) {
+>> +        netdev_warn(vi->dev, "virtio_finalize_features failed during reset
+>> aborting\n");
+>> +        goto err;
+>> +    }
+>> +
+>> +    ret = init_vqs(vi);
+>> +    if (ret) {
+>> +        netdev_warn(vi->dev, "init_vqs failed during reset aborting\n");
+>> +        goto err;
+>> +    }
+>> +    virtio_device_ready(vi->vdev);
+>> +
+>> +    if (netif_running(vi->dev)) {
+>> +        for (i = 0; i < vi->curr_queue_pairs; i++)
+>> +            if (!try_fill_recv(vi, &vi->rq[i], GFP_KERNEL))
+>> +                schedule_delayed_work(&vi->refill, 0);
+>> +
+>> +        for (i = 0; i < vi->max_queue_pairs; i++)
+>> +            virtnet_napi_enable(&vi->rq[i]);
+>> +    }
+>> +    netif_device_attach(vi->dev);
+>> +    /* Finally, tell the device we're all set */
+>> +    status = vdev->config->get_status(vdev);
+>> +    vdev->config->set_status(vdev, status | VIRTIO_CONFIG_S_DRIVER_OK);
+>> +    virtio_config_enable(vdev);
+>> +
+>> +    return 0;
+>> +err:
+>> +    status = vdev->config->get_status(vdev);
+>> +    vdev->config->set_status(vdev, status | VIRTIO_CONFIG_S_FAILED);
+>> +    return ret;
+>> +}
+> 
+> [...]
