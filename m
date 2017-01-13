@@ -1,34 +1,42 @@
-From: Benjamin Poirier <bpoirier@suse.com>
-Subject: Re: [PATCH] i40e: Invoke softirqs after napi_reschedule
-Date: Thu, 12 Jan 2017 17:51:00 -0800
-Message-ID: <20170113015100.duhc4tmqnblqzucq@f1.synalogic.ca>
-References: <20170113010414.22708-1-bpoirier@suse.com>
- <1484270130.13165.15.camel@edumazet-glaptop3.roam.corp.google.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH iproute2] Add support for rt_protos.d
+Date: Thu, 12 Jan 2017 19:11:44 -0700
+Message-ID: <0f141758-4227-b3fd-802a-bcd891ee8402@cumulusnetworks.com>
+References: <1484005389-29381-1-git-send-email-dsa@cumulusnetworks.com>
+ <20170112172706.4832fb67@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:56407 "EHLO mx2.suse.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750819AbdAMBvJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Thu, 12 Jan 2017 20:51:09 -0500
-Content-Disposition: inline
-In-Reply-To: <1484270130.13165.15.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-pf0-f175.google.com ([209.85.192.175]:35331 "EHLO
+        mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751069AbdAMCLw (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 12 Jan 2017 21:11:52 -0500
+Received: by mail-pf0-f175.google.com with SMTP id f144so22410712pfa.2
+        for <netdev@vger.kernel.org>; Thu, 12 Jan 2017 18:11:51 -0800 (PST)
+In-Reply-To: <20170112172706.4832fb67@xeon-e3>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2017/01/12 17:15, Eric Dumazet wrote:
-> On Thu, 2017-01-12 at 17:04 -0800, Benjamin Poirier wrote:
-> > The following message is logged from time to time when using i40e:
-> > NOHZ: local_softirq_pending 08
-> > 
-> > i40e may schedule napi from a workqueue. Afterwards, softirqs are not run
-> > in a deterministic time frame. The problem is the same as what was
-> > described in commit ec13ee80145c ("virtio_net: invoke softirqs after
-> > __napi_schedule") and this patch applies the same fix to i40e.
+On 1/12/17 6:27 PM, Stephen Hemminger wrote:
+>> diff --git a/etc/iproute2/rt_protos.d/README b/etc/iproute2/rt_protos.d/README
+>> new file mode 100644
+>> index 000000000000..723509ce56b6
+>> --- /dev/null
+>> +++ b/etc/iproute2/rt_protos.d/README
+>> @@ -0,0 +1,3 @@
+>> +Each file in this directory is an rt_protos configuration file. iproute2
+>> +commands scan this directory processing all files that end in '.conf'.
+>> +
 > 
-> Yes, I believe mlx4 has a similar problem in mlx4_en_recover_from_oom()
+> Applied, but required manual fixup.
+> 
+> 
+> .git/rebase-apply/patch:15: new blank line at EOF.
+> +
+> warning: 1 line adds whitespace errors.
+> 
 
-Indeed, I was going to send a patch for mlx4 after this one is accepted.
+yes, i noticed that when I applied the patch to our local repo. It's a copy of the rt_tables.d patch and that README has the extra newline too.
