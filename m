@@ -1,68 +1,374 @@
-From: "'Naveen N. Rao'" <naveen.n.rao@linux.vnet.ibm.com>
-Subject: Re: [PATCH 3/3] powerpc: bpf: implement in-register swap for 64-bit
- endian operations
-Date: Fri, 13 Jan 2017 23:22:01 +0530
-Message-ID: <20170113175201.GD3470@naverao1-tp.localdomain>
-References: <e73efe6facf6c06932b4a87707e5978172ee773e.1484326337.git.naveen.n.rao@linux.vnet.ibm.com>
- <bb264395301754f43b77ddec68a16dd34220abb4.1484326337.git.naveen.n.rao@linux.vnet.ibm.com>
- <063D6719AE5E284EB5DD2968C1650D6DB02635FB@AcuExch.aculab.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH v2 1/2] bpf: add a longest prefix match trie map
+ implementation
+Date: Fri, 13 Jan 2017 10:01:41 -0800
+Message-ID: <20170113180139.GB49247@ast-mbp.thefacebook.com>
+References: <20170112172922.16636-1-daniel@zonque.org>
+ <20170112172922.16636-2-daniel@zonque.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "mpe@ellerman.id.au" <mpe@ellerman.id.au>,
-        "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "ast@fb.com" <ast@fb.com>,
-        "daniel@iogearbox.net" <daniel@iogearbox.net>,
-        "davem@davemloft.net" <davem@davemloft.net>
-To: David Laight <David.Laight@ACULAB.COM>
+Cc: ast@fb.com, dh.herrmann@gmail.com, daniel@iogearbox.net,
+        netdev@vger.kernel.org, davem@davemloft.net
+To: Daniel Mack <daniel@zonque.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:47176 "EHLO
-        mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750992AbdAMRwM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 12:52:12 -0500
-Received: from pps.filterd (m0098410.ppops.net [127.0.0.1])
-        by mx0a-001b2d01.pphosted.com (8.16.0.17/8.16.0.17) with SMTP id v0DHpoV0044378
-        for <netdev@vger.kernel.org>; Fri, 13 Jan 2017 12:52:12 -0500
-Received: from e23smtp01.au.ibm.com (e23smtp01.au.ibm.com [202.81.31.143])
-        by mx0a-001b2d01.pphosted.com with ESMTP id 27y00ahxqs-1
-        (version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-        for <netdev@vger.kernel.org>; Fri, 13 Jan 2017 12:52:11 -0500
-Received: from localhost
-        by e23smtp01.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-        for <netdev@vger.kernel.org> from <naveen.n.rao@linux.vnet.ibm.com>;
-        Sat, 14 Jan 2017 03:52:09 +1000
-Received: from d23relay07.au.ibm.com (d23relay07.au.ibm.com [9.190.26.37])
-        by d23dlp02.au.ibm.com (Postfix) with ESMTP id 0C9482BB0045
-        for <netdev@vger.kernel.org>; Sat, 14 Jan 2017 04:52:07 +1100 (EST)
-Received: from d23av03.au.ibm.com (d23av03.au.ibm.com [9.190.234.97])
-        by d23relay07.au.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id v0DHq6p530277782
-        for <netdev@vger.kernel.org>; Sat, 14 Jan 2017 04:52:06 +1100
-Received: from d23av03.au.ibm.com (localhost [127.0.0.1])
-        by d23av03.au.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id v0DHq507001948
-        for <netdev@vger.kernel.org>; Sat, 14 Jan 2017 04:52:06 +1100
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:35177 "EHLO
+        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751079AbdAMSBq (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 13:01:46 -0500
+Received: by mail-pf0-f193.google.com with SMTP id f144so9303268pfa.2
+        for <netdev@vger.kernel.org>; Fri, 13 Jan 2017 10:01:46 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB02635FB@AcuExch.aculab.com>
+In-Reply-To: <20170112172922.16636-2-daniel@zonque.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2017/01/13 05:17PM, David Laight wrote:
-> From: Naveen N. Rao
-> > Sent: 13 January 2017 17:10
-> > Generate instructions to perform the endian conversion using registers,
-> > rather than generating two memory accesses.
-> > 
-> > The "way easier and faster" comment was obviously for the author, not
-> > the processor.
+On Thu, Jan 12, 2017 at 06:29:21PM +0100, Daniel Mack wrote:
+> This trie implements a longest prefix match algorithm that can be used
+> to match IP addresses to a stored set of ranges.
 > 
-> That rather depends on whether the processor has a store to load forwarder
-> that will satisfy the read from the store buffer.
-> I don't know about ppc, but at least some x86 will do that.
+> Internally, data is stored in an unbalanced trie of nodes that has a
+> maximum height of n, where n is the prefixlen the trie was created
+> with.
+> 
+> Tries may be created with prefix lengths that are multiples of 8, in
+> the range from 8 to 2048. The key used for lookup and update operations
+> is a struct bpf_lpm_trie_key, and the value is a uint64_t.
+> 
+> The code carries more information about the internal implementation.
+> 
+> Signed-off-by: Daniel Mack <daniel@zonque.org>
+> Reviewed-by: David Herrmann <dh.herrmann@gmail.com>
+> ---
+>  include/uapi/linux/bpf.h |   7 +
+>  kernel/bpf/Makefile      |   2 +-
+>  kernel/bpf/lpm_trie.c    | 499 +++++++++++++++++++++++++++++++++++++++++++++++
+>  3 files changed, 507 insertions(+), 1 deletion(-)
+>  create mode 100644 kernel/bpf/lpm_trie.c
+> 
+> diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+> index 0eb0e87..d564277 100644
+> --- a/include/uapi/linux/bpf.h
+> +++ b/include/uapi/linux/bpf.h
+> @@ -63,6 +63,12 @@ struct bpf_insn {
+>  	__s32	imm;		/* signed immediate constant */
+>  };
+>  
+> +/* Key of an a BPF_MAP_TYPE_LPM_TRIE entry */
+> +struct bpf_lpm_trie_key {
+> +	__u32	prefixlen;	/* up to 32 for AF_INET, 128 for AF_INET6 */
+> +	__u8	data[0];	/* Arbitrary size */
+> +};
+> +
+>  /* BPF syscall commands, see bpf(2) man-page for details. */
+>  enum bpf_cmd {
+>  	BPF_MAP_CREATE,
+> @@ -89,6 +95,7 @@ enum bpf_map_type {
+>  	BPF_MAP_TYPE_CGROUP_ARRAY,
+>  	BPF_MAP_TYPE_LRU_HASH,
+>  	BPF_MAP_TYPE_LRU_PERCPU_HASH,
+> +	BPF_MAP_TYPE_LPM_TRIE,
+>  };
+>  
+>  enum bpf_prog_type {
+> diff --git a/kernel/bpf/Makefile b/kernel/bpf/Makefile
+> index 1276474..e1ce4f4 100644
+> --- a/kernel/bpf/Makefile
+> +++ b/kernel/bpf/Makefile
+> @@ -1,7 +1,7 @@
+>  obj-y := core.o
+>  
+>  obj-$(CONFIG_BPF_SYSCALL) += syscall.o verifier.o inode.o helpers.o
+> -obj-$(CONFIG_BPF_SYSCALL) += hashtab.o arraymap.o percpu_freelist.o bpf_lru_list.o
+> +obj-$(CONFIG_BPF_SYSCALL) += hashtab.o arraymap.o percpu_freelist.o bpf_lru_list.o lpm_trie.o
+>  ifeq ($(CONFIG_PERF_EVENTS),y)
+>  obj-$(CONFIG_BPF_SYSCALL) += stackmap.o
+>  endif
+> diff --git a/kernel/bpf/lpm_trie.c b/kernel/bpf/lpm_trie.c
+> new file mode 100644
+> index 0000000..7f6d47e
+> --- /dev/null
+> +++ b/kernel/bpf/lpm_trie.c
+> @@ -0,0 +1,499 @@
+> +/*
+> + * Longest prefix match list implementation
+> + *
+> + * Copyright (c) 2016,2017 Daniel Mack
+> + * Copyright (c) 2016 David Herrmann
+> + *
+> + * This file is subject to the terms and conditions of version 2 of the GNU
+> + * General Public License.  See the file COPYING in the main directory of the
+> + * Linux distribution for more details.
+> + */
+> +
+> +#include <linux/bpf.h>
+> +#include <linux/err.h>
+> +#include <linux/slab.h>
+> +#include <linux/spinlock.h>
+> +#include <linux/vmalloc.h>
+> +#include <net/ipv6.h>
+> +
+> +struct lpm_trie_node;
+> +
+> +struct lpm_trie_node {
+> +	struct rcu_head rcu;
+> +	struct lpm_trie_node __rcu	*child[2];
+> +	void				*value;
+> +	u32				prefixlen;
+> +	u8				data[0];
+> +};
+> +
+> +struct lpm_trie {
+> +	struct bpf_map			map;
+> +	struct lpm_trie_node __rcu	*root;
+> +	size_t				n_entries;
+> +	size_t				max_prefixlen;
+> +	size_t				data_size;
+> +	raw_spinlock_t			lock;
+> +};
+> +
+> +/*
+> + * This trie implements a longest prefix match algorithm that can be used to
+> + * match IP addresses to a stored set of ranges.
+> + *
+> + * Data stored in @data of struct bpf_lpm_key and struct lpm_trie_node is
+> + * interpreted as big endian, so data[0] stores the most significant byte.
+> + *
+> + * Match ranges are internally stored in instances of struct lpm_trie_node
+> + * which each contain their prefix length as well as two pointers that may
+> + * lead to more nodes containing more specific matches. Each node also stores
+> + * a value that is defined by and returned to userspace via the update_elem
+> + * and lookup functions.
+> + *
+> + * For instance, let's start with a trie that was created with a prefix length
+> + * of 32, so it can be used for IPv4 addresses, and one single element that
+> + * matches 192.168.0.0/16. The data array would hence contain
+> + * [0xc0, 0xa8, 0x00, 0x00] in big-endian notation. This documentation will
+> + * stick to IP-address notation for readability though.
+> + *
+> + * As the trie is empty initially, the new node (1) will be places as root
+> + * node, denoted as (R) in the example below. As there are no other node, both
+> + * child pointers are %NULL.
+> + *
+> + *              +----------------+
+> + *              |       (1)  (R) |
+> + *              | 192.168.0.0/16 |
+> + *              |    value: 1    |
+> + *              |   [0]    [1]   |
+> + *              +----------------+
+> + *
+> + * Next, let's add a new node (2) matching 192.168.0.0/24. As there is already
+> + * a node with the same data and a smaller prefix (ie, a less specific one),
+> + * node (2) will become a child of (1). In child index depends on the next bit
+> + * that is outside of that (1) matches, and that bit is 0, so (2) will be
 
-Interesting - good to know that.
+s/outside of that/outside of what/ ?
+or you meant something else?
 
-However, I don't think powerpc does that and in-register swap is likely 
-faster regardless. Note also that gcc prefers this form at higher 
-optimization levels.
+> + * child[0] of (1):
+> + *
+> + *              +----------------+
+> + *              |       (1)  (R) |
+> + *              | 192.168.0.0/16 |
+> + *              |    value: 1    |
+> + *              |   [0]    [1]   |
+> + *              +----------------+
+> + *                   |
+> + *    +----------------+
+> + *    |       (2)      |
+> + *    | 192.168.0.0/24 |
+> + *    |    value: 2    |
+> + *    |   [0]    [1]   |
+> + *    +----------------+
+> + *
+> + * The child[1] slot of (1) could be filled with another node which has bit #17
+> + * (the next bit after the ones that (1) matches on) set to 1. For instance,
+> + * 192.168.128.0/24:
+> + *
+> + *              +----------------+
+> + *              |       (1)  (R) |
+> + *              | 192.168.0.0/16 |
+> + *              |    value: 1    |
+> + *              |   [0]    [1]   |
+> + *              +----------------+
+> + *                   |      |
+> + *    +----------------+  +------------------+
+> + *    |       (2)      |  |        (3)       |
+> + *    | 192.168.0.0/24 |  | 192.168.128.0/24 |
+> + *    |    value: 2    |  |     value: 3     |
+> + *    |   [0]    [1]   |  |    [0]    [1]    |
+> + *    +----------------+  +------------------+
+> + *
+> + * Let's add another node (4) to the game for 192.168.1.0/24. In order to place
+> + * it, node (1) is looked at first, and because (4) of the semantics laid out
+> + * above (bit #17 is 0), it would normally be attached to (1) as child[0].
+> + * However, that slot is already allocated, so a new node is needed in between.
+> + * That node is does not have a value attached to it and it will never be
 
-Thanks,
-Naveen
+s/node is does/node does/
+
+> + * returned to users as result of a lookup. It is only there to differenciate
+
+s/differenciate/differentiate/
+
+> + * the traversal further. It will get a prefix as wide as necessary to
+> + * distinguish its two children:
+> + *
+> + *                      +----------------+
+> + *                      |       (1)  (R) |
+> + *                      | 192.168.0.0/16 |
+> + *                      |    value: 1    |
+> + *                      |   [0]    [1]   |
+> + *                      +----------------+
+> + *                           |      |
+> + *            +----------------+  +------------------+
+> + *            |       (4)  (I) |  |        (3)       |
+> + *            | 192.168.0.0/23 |  | 192.168.128.0/24 |
+> + *            |    value: ---  |  |     value: 3     |
+> + *            |   [0]    [1]   |  |    [0]    [1]    |
+> + *            +----------------+  +------------------+
+> + *                 |      |
+> + *  +----------------+  +----------------+
+> + *  |       (2)      |  |       (5)      |
+> + *  | 192.168.0.0/24 |  | 192.168.1.0/24 |
+> + *  |    value: 2    |  |     value: 5   |
+> + *  |   [0]    [1]   |  |   [0]    [1]   |
+> + *  +----------------+  +----------------+
+> + *
+> + * 192.168.1.1/32 would be a child of (5) etc.
+> + *
+> + * An intermediate node will be turned into a 'real' node on demand. In the
+> + * example above, (4) would be re-used if 192.168.0.0/23 is added to the trie.
+> + *
+> + * A fully populated trie would have a height of 32 nodes, as the trie was
+> + * created with a prefix length of 32.
+> + *
+> + * The lookup starts at the root node. If the current node matches and if there
+> + * is a child that can be used to become more specific, the trie is traversed
+> + * downwards. The last node in the traversal that is a non-intermediate one is
+> + * returned.
+> + */
+> +
+> +static inline int extract_bit(const u8 *data, size_t index)
+> +{
+> +	return !!(data[index / 8] & (1 << (7 - (index % 8))));
+> +}
+> +
+> +/**
+> + * longest_prefix_match() - determine the longest prefix
+> + * @trie:	The trie to get internal sizes from
+> + * @node:	The node to operate on
+> + * @key:	The key to compare to @node
+> + *
+> + * Determine the longest prefix of @node that matches the bits in @key.
+> + */
+> +static size_t longest_prefix_match(const struct lpm_trie *trie,
+> +				   const struct lpm_trie_node *node,
+> +				   const struct bpf_lpm_trie_key *key)
+> +{
+> +	size_t prefixlen = 0;
+> +	int i;
+> +
+> +	for (i = 0; i < trie->data_size; i++) {
+> +		size_t b;
+> +
+> +		b = 8 - fls(node->data[i] ^ key->data[i]);
+> +		prefixlen += b;
+> +
+> +		if (prefixlen >= node->prefixlen || prefixlen >= key->prefixlen)
+> +			return min(node->prefixlen, key->prefixlen);
+> +
+> +		if (b < 8)
+> +			break;
+> +	}
+> +
+> +	return prefixlen;
+> +}
+> +
+> +/* Called from syscall or from eBPF program */
+> +static void *trie_lookup_elem(struct bpf_map *map, void *_key)
+> +{
+> +	struct lpm_trie_node *node, *found = NULL;
+> +	struct bpf_lpm_trie_key *key = _key;
+> +	struct lpm_trie *trie =
+> +		container_of(map, struct lpm_trie, map);
+> +
+> +	/* Start walking the trie from the root node ... */
+> +
+> +	for (node = rcu_dereference(trie->root); node;) {
+> +		unsigned int next_bit;
+> +		size_t matchlen;
+> +
+> +		/*
+> +		 * Determine the longest prefix of @node that matches @key.
+> +		 * If it's the maximum possible prefix for this trie, we have
+> +		 * an exact match and can return it directly.
+> +		 */
+
+useful comments, but not in networking style. bpf is using networking style.
+please reformat.
+
+> +		matchlen = longest_prefix_match(trie, node, key);
+> +		if (matchlen == trie->max_prefixlen)
+> +			return node->value;
+> +
+> +		/*
+> +		 * If the number of bits that match is smaller than the prefix
+> +		 * length of @node, bail out and return the node we have seen
+> +		 * last in the traversal (ie, the parent).
+> +		 */
+> +		if (matchlen < node->prefixlen)
+> +			break;
+> +
+> +		/*
+> +		 * Consider this node as return candidate unless it is an
+> +		 * artificially added intermediate one, in which case ->value
+> +		 * is %NULL
+> +		 */
+> +		if (node->value)
+> +			found = node;
+> +
+> +		/*
+> +		 * If the node match is fully satisfied, let's see if we can
+> +		 * become more specific. Determine the next bit in the key and
+> +		 * traverse down.
+> +		 */
+> +		next_bit = extract_bit(key->data, node->prefixlen);
+> +		node = rcu_dereference(node->child[next_bit]);
+> +	}
+> +
+> +	return found ? found->value : NULL;
+> +}
+> +
+> +static struct lpm_trie_node *lpm_trie_node_alloc(const struct lpm_trie *trie,
+> +						 const void *value)
+> +{
+> +	struct lpm_trie_node *node;
+> +	gfp_t gfp = GFP_ATOMIC | __GFP_NOWARN;
+> +
+> +	node = kmalloc(sizeof(struct lpm_trie_node) + trie->data_size, gfp);
+> +	if (!node)
+> +		return ERR_PTR(-ENOMEM);
+> +
+> +	if (value) {
+> +		node->value = kmemdup(value, trie->map.value_size, gfp);
+
+can you make value to be part of the node? similar to how hash map is done?
+that will help avoid 2nd allocation, will speedup insertion and will
+help converting this code to user pre-allocated elements.
+I suspect the concern was that for many inner nodes that value is null ?
+But in your use case the value_size will be == 0 eventually,
+so by embedding it when can save memory too, since 'value' pointer will
+be replaced with boolean present flag ?
+So potentially less memory and less cache misses?
+
+Overall algorithm is indeed straightforward and simple which is great,
+but I would still like to see some performance numbers. Looks like
+the best case for single 32-bit element it needs 4 xors and compares
+which is fine. For mostly populate trie it's 4xors * 32 depth
+which is pretty good too, but cache misses on pointer walks may
+kill performance unless we're hitting the same path all the time.
+I think it's all acceptable due to simplicity of the implementation
+which we may improve later if it turns out to be a bottle neck for
+some use cases. We just need a baseline to have realistic expectations.
+
+Thanks!
