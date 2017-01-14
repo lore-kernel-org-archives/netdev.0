@@ -1,141 +1,51 @@
-From: Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>
-Subject: Re: [pull request][for-next] Mellanox mlx5 Reorganize core driver
- directory layout
-Date: Sat, 14 Jan 2017 09:37:20 -0800
-Message-ID: <CALx6S37FHv3d0_hsXd63m37CEgT4N8myjUey29iDo1DRR=T9tQ@mail.gmail.com>
-References: <1484241755-17603-1-git-send-email-saeedm@mellanox.com>
- <20170113.121407.448230751444957957.davem@davemloft.net> <20170113202932.GS20392@mtr-leonro.local>
- <CALx6S37hb78RJ8tCtsCsX2fg6e-D+naNpSQo6T2AyWMd0U74sQ@mail.gmail.com> <CALzJLG_RsvgszVxGZ7+VgYjET9w=XTjq36Z72diOQFNJWz9tQw@mail.gmail.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH net-next] net/sched: cls_flower: Add user specified data
+Date: Sat, 14 Jan 2017 12:46:42 -0500
+Message-ID: <d18e9e5b-8781-6054-b42f-75cad3720c04@mojatatu.com>
+References: <1483362833-52114-1-git-send-email-paulb@mellanox.com>
+ <14675f63-4212-2f72-da4c-cd24b9d10881@mojatatu.com>
+ <586A9A9F.4030002@gmail.com>
+ <6b671aaf-d35d-70a5-65e0-40308baeb471@mojatatu.com>
+ <20170108171902.GH1971@nanopsycho> <5873D523.4030301@gmail.com>
+ <68e41fe4-5c4c-e159-fbfc-17d06638707d@mojatatu.com>
+ <20170114144855.GA1886@nanopsycho.orion>
+ <de59c019-8a7d-6747-ddc1-9a21f40d3e04@mojatatu.com>
+ <20170114152918.GC1886@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-        Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Saeed Mahameed <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CALzJLG_RsvgszVxGZ7+VgYjET9w=XTjq36Z72diOQFNJWz9tQw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: John Fastabend <john.fastabend@gmail.com>,
+        Paul Blakey <paulb@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        Jiri Pirko <jiri@mellanox.com>,
+        Hadar Hen Zion <hadarh@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Roi Dayan <roid@mellanox.com>, Roman Mashak <mrv@mojatatu.com>,
+        Simon Horman <simon.horman@netronome.com>
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f196.google.com ([209.85.223.196]:34089 "EHLO
+        mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750807AbdANRqp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 14 Jan 2017 12:46:45 -0500
+Received: by mail-io0-f196.google.com with SMTP id c80so8705415iod.1
+        for <netdev@vger.kernel.org>; Sat, 14 Jan 2017 09:46:45 -0800 (PST)
+In-Reply-To: <20170114152918.GC1886@nanopsycho.orion>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 13, 2017 at 2:45 PM, Saeed Mahameed
-<saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org> wrote:
-> On Sat, Jan 14, 2017 at 12:06 AM, Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org> wrote:
->> On Fri, Jan 13, 2017 at 12:29 PM, Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org> wrote:
->>> On Fri, Jan 13, 2017 at 12:14:07PM -0500, David Miller wrote:
->>>> From: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
->>>> Date: Thu, 12 Jan 2017 19:22:34 +0200
->>>>
->>>> > This pull request includes one patch from Leon, this patch as described
->>>> > below will change the driver directory structure and layout for better,
->>>> > logical and modular driver files separation.
->>>> >
->>>> > This change is important to both rdma and net maintainers in order to
->>>> > have smoother management of driver patches for different mlx5 sub modules
->>>> > and smoother rdma-next vs. net-next features submissions.
->>>> >
->>>> > Please find more info below -in the tag commit message-,
->>>> > review and let us know if there's any problem.
->>>> >
->>>> > This change doesn't introduce any conflicts with the current mlx5
->>>> > fixes and cleanups posted on 2017-01-10 to net branch, and merge tests
->>>> > worked flawlessly with no issues.
->>>> >
->>>> > This is the last pull request meant for both rdma-next and net-next.
->>>> > Once pulled, this will be the base shared code for both trees.
->>>>
->>>> This is pretty crazy, it will make all bug fix backporting to -stable
->>>> a complete nightmare for myself, Doug, various distribution maintainers
->>>> and many other people who quietly have to maintain their own trees and
->>>> do backporting.
->>>
->>> Hi Dave,
->>>
->>> I understand your worries, but our case is similar to various other
->>> drivers, for example hfi1 which was in staging for years while
->>> supported in RedHat and moved from there to IB. The Chelsio drivers did
->>> similar reorg in 2016 (drivers/net/ethernet/chelsio/libcxgb) while their
->>> drivers were in the tree for long time before.
->>>
->>> Additionally, Doug doesn't need to maintain -stable queue and it is done
->>> by relevant submaintainers who are adding stable tags by themselves. In
->>> the IB case, the burden will continue to be on me and not on Doug.
->>>
->> Recently I had to backport the mlx5 driver from 4.9 to 4.6 in order to
->> get support for XDP. The biggest issue I faced was the lack of
->> modularity in the many driver features that are now supported. The
->> problem with backporting these new features is the spider web of
->> dependencies that they bring in from the rest of the kernel. I ended
->> up taking out en_rep, vxlan, en_tc, eswitch, and dcbnl. The result was
->> ~340 patches which is still a lot but at least this was constrained to
->> patches in the mlx5 directories and are relevant to what we want to
->> do.
->>
->> In lieu of restructuring the directories, I would much rather see more
->> config options so that we can build drivers that don't unnecessarily
->> complicate our lives with features we don't use. This is not just true
->> for Mellanox, but I would say it would be true of any driver that
->> someone is trying to deploy and maintain at large scale.
->>
->
-> I think we should have both, if the restructuring made right,
-> new whole features (e.g eswitch and eswitch offlaods or any independent module),
-> can sit in their own directory and keep their own logic concentrated
-> in one place, and only touch the
-> main driver code with simple entry points in the main flow,  this way
-> you can simply compile their whole directories
-> out with a config flag directly from the Makefile.
->
-That would be nice, but that is not what your new layout gives us yet.
-The starting point for this structure should be to discern what the
-minimum set of files is to build a functional and good performance
-driver with the basic functionality including only the most common
-offloads. These I would think constitute the core files for the driver
-and hence make sense to be in the "core" directory. Personally I would
-drop the en_ file prefix and not make an en directory, we're already
-in the ethernet driver part of the tree so I don't know what this name
-is supposed to convey. For reference I gave you this list of
-components I disabled to do the backport, some we're not split out in
-your directory layout. A good example is the VXLAN offload support,
-the changes in that area we're mostly due to Alexander's patch set to
-redo the interface for these accelerations-- so to back port driver
-from 4.9 to 4.6 I would need to pull those in and whatever else those
-depend on. It was way easier to just ifdef out the relevant calls and
-not compile the vxlan files to do the backport.
+On 17-01-14 10:29 AM, Jiri Pirko wrote:
+> Sat, Jan 14, 2017 at 04:03:17PM CET, jhs@mojatatu.com wrote:
 
-Tom
+> Fair. So could this be done like IFLA_PHYS_SWITCH_ID and
+> IFLA_PHYS_PORT_ID. They can have variable size, max is MAX_PHYS_ITEM_ID_LEN
+>
+> We can let user to pass arbitrary len up to 16 bytes. This has benefit in
+> fact that if in future this needs to be extended to say 32 bytes, it is
+> backward compatible. We just change the check in kernel.
+>
 
->> Btw, we did hit one issue in the backport. We started to get rx csum
->> faults (checksum complete value indicates TCP checksum is bad, but
->> host computation says checksum is good). I ran against 4.9 upstream
->> kernel and do see these, however don't see them in 4.10. I haven't
->> bisected yet. Is this a known issue?
->>
->
-> Not to me, I don't recall any csum related fixes or feature submitted
-> lately to mlx5,
-> Maybe something changed in the stack ?
->
-> what configuration are you running ? what traffic ?
->
->> Thanks,
->> Tom
->>
->>>>
->>>> I really don't think you can justify this rearrangement based upon the
->>>> consequences and how much activity happens in this driver.
->>>>
->>>> You should have thought long and hard about the layout a long time ago
->>>> rather than after the driver has been in the tree for many years.
->>>>
->>>> Sorry.
->> --
->> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
->> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Sure. Ive run out of time for now; but will work on a new version later.
+
+cheers,
+jamal
