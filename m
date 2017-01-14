@@ -1,34 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] liquidio: use fallback for selecting txq
-Date: Fri, 13 Jan 2017 20:18:30 -0500 (EST)
-Message-ID: <20170113.201830.465133784845041556.davem@davemloft.net>
-References: <20170113001822.GA10813@felix.cavium.com>
+Subject: Re: [PATCH] i40e: Invoke softirqs after napi_reschedule
+Date: Fri, 13 Jan 2017 20:27:00 -0500 (EST)
+Message-ID: <20170113.202700.720848716249365172.davem@davemloft.net>
+References: <20170113010414.22708-1-bpoirier@suse.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, raghu.vatsavayi@cavium.com,
-        derek.chickles@cavium.com, satananda.burla@cavium.com
-To: felix.manlunas@cavium.com
+Cc: jeffrey.t.kirsher@intel.com, intel-wired-lan@lists.osuosl.org,
+        netdev@vger.kernel.org
+To: bpoirier@suse.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60456 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:60608 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751157AbdANBSg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 20:18:36 -0500
-In-Reply-To: <20170113001822.GA10813@felix.cavium.com>
+        with ESMTP id S1750899AbdANB1C (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 20:27:02 -0500
+In-Reply-To: <20170113010414.22708-1-bpoirier@suse.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Felix Manlunas <felix.manlunas@cavium.com>
-Date: Thu, 12 Jan 2017 16:18:22 -0800
+From: Benjamin Poirier <bpoirier@suse.com>
+Date: Thu, 12 Jan 2017 17:04:14 -0800
 
-> From: Satanand Burla <satananda.burla@cavium.com>
+> The following message is logged from time to time when using i40e:
+> NOHZ: local_softirq_pending 08
 > 
-> Remove assignment to ndo_select_queue so that fallback is used for
-> selecting txq.  Also remove the now-useless function that used to be
-> assigned to ndo_select_queue.
+> i40e may schedule napi from a workqueue. Afterwards, softirqs are not run
+> in a deterministic time frame. The problem is the same as what was
+> described in commit ec13ee80145c ("virtio_net: invoke softirqs after
+> __napi_schedule") and this patch applies the same fix to i40e.
 > 
-> Signed-off-by: Satanand Burla <satananda.burla@cavium.com>
-> Signed-off-by: Felix Manlunas <felix.manlunas@cavium.com>
-> Signed-off-by: Derek Chickles <derek.chickles@cavium.com>
+> Signed-off-by: Benjamin Poirier <bpoirier@suse.com>
 
-Applied, thank you.
+I hope to see this from one of Jeff's pull requests to me in the
+near future.
