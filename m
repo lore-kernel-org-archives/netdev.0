@@ -1,54 +1,73 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net] bpf: rework prog_digest into prog_tag
-Date: Sat, 14 Jan 2017 00:59:19 +0100
-Message-ID: <587969D7.5010806@iogearbox.net>
-References: <384476e29f6a378766c4052187b9b5f840f4030e.1484346362.git.daniel@iogearbox.net> <CALCETrUjmscreaadCOn6hSEMBEf83JyhwdVtKj1=fAf3MuiDtQ@mail.gmail.com> <58796595.3030904@iogearbox.net> <CALCETrWD7FuRLH0dC46bMf85mXosC3r54=TAXdar5EsZvbvyzg@mail.gmail.com>
+From: Krister Johansen <kjlx@templeofstupid.com>
+Subject: Re: [PATCH v2 net-next] Introduce a sysctl that modifies the value
+ of PROT_SOCK.
+Date: Fri, 13 Jan 2017 16:11:38 -0800
+Message-ID: <20170114001138.GC3094@templeofstupid.com>
+References: <20161231125505.7f0c7dff@xeon-e3>
+ <20170112065225.GB2345@templeofstupid.com>
+ <1484231997.15816.36.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Andrew Lutomirski <luto@kernel.org>,
-        Network Development <netdev@vger.kernel.org>
-To: Andy Lutomirski <luto@amacapital.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Krister Johansen <kjlx@templeofstupid.com>,
+        Stephen Hemminger <stephen@networkplumber.org>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:52440 "EHLO
-        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750718AbdAMX7Y (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 18:59:24 -0500
-In-Reply-To: <CALCETrWD7FuRLH0dC46bMf85mXosC3r54=TAXdar5EsZvbvyzg@mail.gmail.com>
+Received: from sub5.mail.dreamhost.com ([208.113.200.129]:47106 "EHLO
+        homiemail-a43.g.dreamhost.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1750713AbdANALk (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 19:11:40 -0500
+Received: from homiemail-a43.g.dreamhost.com (localhost [127.0.0.1])
+        by homiemail-a43.g.dreamhost.com (Postfix) with ESMTP id 93B5D6002C06
+        for <netdev@vger.kernel.org>; Fri, 13 Jan 2017 16:11:39 -0800 (PST)
+Received: from kmjvbox (c-73-70-90-212.hsd1.ca.comcast.net [73.70.90.212])
+        (using TLSv1 with cipher ECDHE-RSA-AES256-SHA (256/256 bits))
+        (No client certificate requested)
+        (Authenticated sender: kjlx@templeofstupid.com)
+        by homiemail-a43.g.dreamhost.com (Postfix) with ESMTPSA id 654FC6002972
+        for <netdev@vger.kernel.org>; Fri, 13 Jan 2017 16:11:39 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1484231997.15816.36.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/14/2017 12:49 AM, Andy Lutomirski wrote:
-> On Fri, Jan 13, 2017 at 3:41 PM, Daniel Borkmann <daniel@iogearbox.net> wrote:
->> On 01/14/2017 12:16 AM, Andy Lutomirski wrote:
->>> On Fri, Jan 13, 2017 at 2:38 PM, Daniel Borkmann <daniel@iogearbox.net>
->>> wrote:
->>>>
->>>> Commit 7bd509e311f4 ("bpf: add prog_digest and expose it via
->>>> fdinfo/netlink") was recently discussed, partially due to
->>>> admittedly suboptimal name of "prog_digest" in combination
->>>> with sha1 hash usage, thus inevitably and rightfully concerns
->>>> about its security in terms of collision resistance were
->>>> raised with regards to use-cases.
->>>
->>> Seems reasonable.  My only question is whether you'd still want to
->>> switch to SHA-256 just from a code cleanliness perspective.  With
->>> SHA-256 you can use the easy streaming API I wrote, but with SHA-1
->>> you're still stuck with the crappy API in lib/, and I'm not
->>> volunteering to fix up the SHA-1 API.
->>
->> We'd need to truncate that in kernel anyway to not get a too long
->> tag, so given that I'm actually fine with it as-is. I was planning
->> to submit the code for testing to bpf selftests for net-next once
->> it's merged back, too.
->
-> Unless you want to kill off that vmalloc()+vfree() pair...
+On Thu, Jan 12, 2017 at 06:39:57AM -0800, Eric Dumazet wrote:
+> On Wed, 2017-01-11 at 22:52 -0800, Krister Johansen wrote:
+> > Add net.ipv4.ip_unprotected_port_start, which is a per namespace sysctl
+> > that denotes the first unprotected inet port in the namespace.  To
+> > disable all protected ports set this to zero.  It also checks for
+> > overlap with the local port range.  The protected and local range may
+> > not overlap.
+> > 
+> > The use case for this change is to allow containerized processes to bind
+> > to priviliged ports, but prevent them from ever being allowed to modify
+> > their container's network configuration.  The latter is accomplished by
+> > ensuring that the network namespace is not a child of the user
+> > namespace.  This modification was needed to allow the container manager
+> > to disable a namespace's priviliged port restrictions without exposing
+> > control of the network namespace to processes in the user namespace.
+> > 
+> > Signed-off-by: Krister Johansen <kjlx@templeofstupid.com>
+> > ---
+> >  include/net/ip.h               | 10 +++++++++
+> >  include/net/netns/ipv4.h       |  1 +
+> >  net/ipv4/af_inet.c             |  5 ++++-
+> >  net/ipv4/sysctl_net_ipv4.c     | 50 +++++++++++++++++++++++++++++++++++++++++-
+> >  net/ipv6/af_inet6.c            |  3 ++-
+> >  net/netfilter/ipvs/ip_vs_ctl.c |  7 +++---
+> >  net/sctp/socket.c              | 10 +++++----
+> >  security/selinux/hooks.c       |  3 ++-
+> 
+> Adding a new sysctl without documentation is generally not accepted.
+> 
+> Please take a look at Documentation/networking/ip-sysctl.txt
 
-That is really just in slow-path, and should that become a bottleneck
-compared to the rest of the verification steps or allocs we do there,
-then we can always clean it up in net-next.
+Thanks for catching this.  I'll add an entry to the documentation.
 
-Thanks,
-Daniel
+> BTW, sticking to 'unprivileged' ports might be better than 'unprotected'
+> which is vague.
+
+I don't have a strong preference about the naming.  I'd be happy to
+change it to 'unprivileged' instead.
+
+-K
