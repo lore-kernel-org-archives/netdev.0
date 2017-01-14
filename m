@@ -1,29 +1,25 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] cxgb4: Remove redundant memset before memcpy
-Date: Sat, 14 Jan 2017 12:00:27 -0500 (EST)
-Message-ID: <20170114.120027.401686898931069481.davem@davemloft.net>
-References: <1484356660-19082-1-git-send-email-mayhs11saini@gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull-request: mac80211-next 2017-01-13
+Date: Sat, 14 Jan 2017 12:04:05 -0500 (EST)
+Message-ID: <20170114.120405.510393682983930825.davem@davemloft.net>
+References: <20170113102933.8246-1-johannes@sipsolutions.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hariprasad@chelsio.com, tklauser@distanz.ch,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: mayhs11saini@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1484356660-19082-1-git-send-email-mayhs11saini@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20170113102933.8246-1-johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Shyam Saini <mayhs11saini@gmail.com>
-Date: Sat, 14 Jan 2017 06:47:40 +0530
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Date: Fri, 13 Jan 2017 11:29:32 +0100
 
-> The region set by the call to memset, immediately overwritten by
-> the subsequent call to memcpy and thus makes the  memset redundant.
+> This is my first pull request for net-next, and it seems a bit
+> bigger than the past few releases. Detailed information below,
+> as usual.
 > 
-> Also remove the memset((&info, 0, sizeof(info)) on line 398 because
-> info is memcpy()'ed to before being used in the loop and it isn't
-> used outside of the loop.
-> 
-> Signed-off-by: Shyam Saini <mayhs11saini@gmail.com>
+> Please pull and let me know if there's any problem.
 
-Applied to net-next, thanks.
+Pulled, thanks Johannes.
