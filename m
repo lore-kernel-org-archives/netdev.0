@@ -1,70 +1,83 @@
-From: Liu Shuo <shuo.a.liu@intel.com>
-Subject: Re: [PATCH] can: Fix kernel panic at security_sock_rcv_skb
-Date: Sat, 14 Jan 2017 11:43:30 +0800
-Message-ID: <20170114034330.GA30070@shuo-desktop.sh.intel.com>
-References: <1484202799-7287-1-git-send-email-shuo.a.liu@intel.com>
- <0e458012-e97b-298d-296e-ed25e35689a0@hartkopp.net>
- <1484226099.15816.25.camel@edumazet-glaptop3.roam.corp.google.com>
- <9e6817a0-65b3-ed16-4616-f8e55aee09c4@hartkopp.net>
+From: David VomLehn <vomlehn@texas.net>
+Subject: Re: [PATCH v5 00/13] net: ethernet: aquantia: Add AQtion 2.5/5 GB NIC
+ driver
+Date: Fri, 13 Jan 2017 19:41:22 -0800
+Message-ID: <1473b399-9f4e-0046-c176-e4d43533b09c@texas.net>
+References: <cover.1484283610.git.vomlehn@texas.net>
+ <9a4e95cc-9daa-f883-46c0-f477e28b9f0f@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        linux-kernel@vger.kernel.org, yanmin_zhang@linux.intel.com,
-        shuox.liu@gmail.com, Zhang Yanmin <yanmin.zhang@intel.com>,
-        "He, Bo" <bo.he@intel.com>, Marc Kleine-Budde <mkl@pengutronix.de>,
-        "David S. Miller" <davem@davemloft.net>,
-        "open list:CAN NETWORK LAYER" <linux-can@vger.kernel.org>,
-        "open list:NETWORKING [GENERAL]" <netdev@vger.kernel.org>
-To: Oliver Hartkopp <socketcan@hartkopp.net>
-Return-path: <linux-can-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <9e6817a0-65b3-ed16-4616-f8e55aee09c4@hartkopp.net>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S . Miller" <davem@davemloft.net>,
+        Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
+        Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>,
+        Pavel Belous <Pavel.Belous@aquantia.com>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+        Alexander Loktionov <Alexander.Loktionov@aquantia.com>,
+        netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from barracuda2.aus1.datafoundry.com ([209.99.124.133]:50752 "EHLO
+        milter.aus.datafoundry.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1750808AbdAND6o (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 22:58:44 -0500
+In-Reply-To: <9a4e95cc-9daa-f883-46c0-f477e28b9f0f@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu 12.Jan'17 at 17:33:38 +0100, Oliver Hartkopp wrote:
->On 01/12/2017 02:01 PM, Eric Dumazet wrote:
->>On Thu, 2017-01-12 at 09:22 +0100, Oliver Hartkopp wrote:
+On 01/13/2017 05:38 PM, Florian Fainelli wrote:
+> On 01/12/2017 09:02 PM, Alexander Loktionov wrote:
+>> From: David VomLehn <vomlehn@texas.net>
+>>
+>> v1: Initial version
+>> v2: o Make necessary drivers/net/ethernet changes to integrate software
+>>      o Drop intermediate atlantic directory
+>>      o Remove Makefile things only appropriate to out of tree module
+>>        building
+>> v3: o Move changes to drivers/net/ethernet/{Kconfig,Makefile} to the last
+>>        patch to ensure clean bisection.
+>>      o Removed inline attribute aq_hw_write_req() as it was defined in
+>>        only one .c file.
+>>      o #included pci.h in aq_common.h to get struct pci definition.
+>>      o Modified code to unlock based execution flow rather than using a
+>>        flag.
+>>      o Made a number of functions that were only used in a single file
+>>        static.
+>>      o Cleaned up error and return code handling in various places.
+>>      o Remove AQ_CFG_IP_ALIGN definition.
+>>      o Other minor code clean up.
+>> v4: o Using do_div for 64 bit division.
+>>      o Modified NIC statistics code.
+>>      o Using build_skb instead netdev_alloc_skb for single fragment
+>>        packets.
+>>      o Removed extra aq_nic.o from Makefile
+>> v5: o Removed extra newline at the end of the files.
+>>      o Wrapped cover letter lines.
+> Have not looked at the driver yet, but the threading of your emails is
+> weird, each patch is in reply to the previous one. It would be more
+> natural to have all numbered patches be in reply to the cover letter,
+> which according to the version of git you seem to have used (2.7.4)
+> should already be the default. In graphical terms what we see right now is:
 >
->>>But my main concern is:
->>>
->>>The reason why can_rx_delete_receiver() was introduced was the need to
->>>remove a huge number of receivers with can_rx_unregister().
->>>
->>>When you call synchronize_rcu() after each receiver removal this would
->>>potentially lead to a big performance issue when e.g. closing CAN_RAW
->>>sockets with a high number of receivers.
->>>
->>>So the idea was to remove/unlink the receiver hlist_del_rcu(&r->list)
->>>and also kmem_cache_free(rcv_cache, r) by some rcu mechanism - so that
->>>all elements are cleaned up by rcu at a later point.
->>>
->>>Is it possible that the problems emerge due to hlist_del_rcu(&r->list)
->>>and you accidently fix it with your introduced synchronize_rcu()?
->>
->>I agree this patch does not fix the root cause.
->>
->>The main problem seems that the sockets themselves are not RCU
->>protected.
->>
->>If CAN uses RCU for delivery, then sockets should be freed only after
->>one RCU grace period.
->>
->>On recent kernels, following patch could help :
->>
+> [PATCH 00/13]
+> 	[PATCH 01/13]
+> 		[PATCH 02/13]
+> 			....
 >
->Thanks Eric!
+> While we should see:
 >
->@Liu ShuoX: Can you check if Eric's suggestion fixes the issue in your 
->setup?
-Sorry for late reply. I was OOO yesterday.
-With Eric's hint, i just found his patch that "net: add SOCK_RCU_FREE
-socket flag" in the latest kernel. With backporting this one plus Eric's
-following patch, it fixs my failure.
+>
+> [PATCH 00/13]
+> 	[PATCH 01/13]
+> 	[PATCH 02/13]
+> 	....
+>
+> Can you fix that for future submissions, this may sound like a cosmetic
+> thing, but it really helps with threading/reading etc.
+>
+> Thanks!
+This looks like it is a consequence of setting the git configuration 
+item format.thread to deep. I've switched it to shallow, which should 
+give the threading you suggest.
 
-Thanks Eric and Oliver!
-
-Shuo
->
->Best regards,
->Oliver
+-- 
+David VL
