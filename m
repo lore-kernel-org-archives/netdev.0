@@ -1,242 +1,103 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [net-next 2/3] tipc: modify struct tipc_plist to be more versatile
-Date: Tue,  3 Jan 2017 10:26:47 -0500
-Message-ID: <1483457208-29033-3-git-send-email-jon.maloy@ericsson.com>
-References: <1483457208-29033-1-git-send-email-jon.maloy@ericsson.com>
-Cc: netdev@vger.kernel.org, Al Viro <viro@zeniv.linux.org.uk>,
-        parthasarathy.bhuvaragan@ericsson.com, ying.xue@windriver.com,
-        maloy@donjonn.com, tipc-discussion@lists.sourceforge.net,
-        Jon Maloy <jon.maloy@ericsson.com>
-To: davem@davemloft.net
+From: Daniel Mack <daniel@zonque.org>
+Subject: Re: [PATCH v2 1/2] bpf: add a longest prefix match trie map
+ implementation
+Date: Sat, 14 Jan 2017 11:37:59 +0100
+Message-ID: <5bbf4088-005d-d9ca-785e-6e4e684b62f9@zonque.org>
+References: <20170112172922.16636-1-daniel@zonque.org>
+ <20170112172922.16636-2-daniel@zonque.org>
+ <20170113180139.GB49247@ast-mbp.thefacebook.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: ast@fb.com, dh.herrmann@gmail.com, daniel@iogearbox.net,
+        netdev@vger.kernel.org, davem@davemloft.net
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp107.biz.mail.bf1.yahoo.com ([98.139.244.55]:26500 "EHLO
-        smtp107.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750818AbdANIYx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 14 Jan 2017 03:24:53 -0500
-In-Reply-To: <1483457208-29033-1-git-send-email-jon.maloy@ericsson.com>
+Received: from svenfoo.org ([82.94.215.22]:40482 "EHLO mail.zonque.de"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751770AbdANKiD (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 14 Jan 2017 05:38:03 -0500
+In-Reply-To: <20170113180139.GB49247@ast-mbp.thefacebook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-During multicast reception we currently use a simple linked list with
-push/pop semantics to store port numbers.
+On 01/13/2017 07:01 PM, Alexei Starovoitov wrote:
+> On Thu, Jan 12, 2017 at 06:29:21PM +0100, Daniel Mack wrote:
+>> This trie implements a longest prefix match algorithm that can be used
+>> to match IP addresses to a stored set of ranges.
+>>
+>> Internally, data is stored in an unbalanced trie of nodes that has a
+>> maximum height of n, where n is the prefixlen the trie was created
+>> with.
+>>
+>> Tries may be created with prefix lengths that are multiples of 8, in
+>> the range from 8 to 2048. The key used for lookup and update operations
+>> is a struct bpf_lpm_trie_key, and the value is a uint64_t.
+>>
+>> The code carries more information about the internal implementation.
+>>
+>> Signed-off-by: Daniel Mack <daniel@zonque.org>
+>> Reviewed-by: David Herrmann <dh.herrmann@gmail.com>
+>> ---
+>>  include/uapi/linux/bpf.h |   7 +
+>>  kernel/bpf/Makefile      |   2 +-
+>>  kernel/bpf/lpm_trie.c    | 499 +++++++++++++++++++++++++++++++++++++++++++++++
+>>  3 files changed, 507 insertions(+), 1 deletion(-)
+>>  create mode 100644 kernel/bpf/lpm_trie.c
 
-We now see a need for a more generic list for storing values of type
-u32. We therefore make some modifications to this list, while replacing
-the prefix 'tipc_plist_' with 'u32_'. We also add a couple of new
-functions which will come to use in the next commits.
+...
 
-Acked-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
-Acked-by: Ying Xue <ying.xue@windriver.com>
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
----
- net/tipc/name_table.c | 100 ++++++++++++++++++++++++++++++++++++--------------
- net/tipc/name_table.h |  21 ++++-------
- net/tipc/socket.c     |   8 ++--
- 3 files changed, 83 insertions(+), 46 deletions(-)
+Thanks for spotting my typos! :)
 
-diff --git a/net/tipc/name_table.c b/net/tipc/name_table.c
-index e190460..5a86df1 100644
---- a/net/tipc/name_table.c
-+++ b/net/tipc/name_table.c
-@@ -608,7 +608,7 @@ u32 tipc_nametbl_translate(struct net *net, u32 type, u32 instance,
-  * Returns non-zero if any off-node ports overlap
-  */
- int tipc_nametbl_mc_translate(struct net *net, u32 type, u32 lower, u32 upper,
--			      u32 limit, struct tipc_plist *dports)
-+			      u32 limit, struct list_head *dports)
- {
- 	struct name_seq *seq;
- 	struct sub_seq *sseq;
-@@ -633,7 +633,7 @@ int tipc_nametbl_mc_translate(struct net *net, u32 type, u32 lower, u32 upper,
- 		info = sseq->info;
- 		list_for_each_entry(publ, &info->node_list, node_list) {
- 			if (publ->scope <= limit)
--				tipc_plist_push(dports, publ->ref);
-+				u32_push(dports, publ->ref);
- 		}
- 
- 		if (info->cluster_list_size != info->node_list_size)
-@@ -1022,40 +1022,84 @@ int tipc_nl_name_table_dump(struct sk_buff *skb, struct netlink_callback *cb)
- 	return skb->len;
- }
- 
--void tipc_plist_push(struct tipc_plist *pl, u32 port)
-+struct u32_item {
-+	struct list_head list;
-+	u32 value;
-+};
-+
-+bool u32_find(struct list_head *l, u32 value)
- {
--	struct tipc_plist *nl;
-+	struct u32_item *item;
- 
--	if (likely(!pl->port)) {
--		pl->port = port;
--		return;
-+	list_for_each_entry(item, l, list) {
-+		if (item->value == value)
-+			return true;
- 	}
--	if (pl->port == port)
--		return;
--	list_for_each_entry(nl, &pl->list, list) {
--		if (nl->port == port)
--			return;
-+	return false;
-+}
-+
-+bool u32_push(struct list_head *l, u32 value)
-+{
-+	struct u32_item *item;
-+
-+	list_for_each_entry(item, l, list) {
-+		if (item->value == value)
-+			return false;
-+	}
-+	item = kmalloc(sizeof(*item), GFP_ATOMIC);
-+	if (unlikely(!item))
-+		return false;
-+
-+	item->value = value;
-+	list_add(&item->list, l);
-+	return true;
-+}
-+
-+u32 u32_pop(struct list_head *l)
-+{
-+	struct u32_item *item;
-+	u32 value = 0;
-+
-+	if (list_empty(l))
-+		return 0;
-+	item = list_first_entry(l, typeof(*item), list);
-+	value = item->value;
-+	list_del(&item->list);
-+	kfree(item);
-+	return value;
-+}
-+
-+bool u32_del(struct list_head *l, u32 value)
-+{
-+	struct u32_item *item, *tmp;
-+
-+	list_for_each_entry_safe(item, tmp, l, list) {
-+		if (item->value != value)
-+			continue;
-+		list_del(&item->list);
-+		kfree(item);
-+		return true;
- 	}
--	nl = kmalloc(sizeof(*nl), GFP_ATOMIC);
--	if (nl) {
--		nl->port = port;
--		list_add(&nl->list, &pl->list);
-+	return false;
-+}
-+
-+void u32_list_purge(struct list_head *l)
-+{
-+	struct u32_item *item, *tmp;
-+
-+	list_for_each_entry_safe(item, tmp, l, list) {
-+		list_del(&item->list);
-+		kfree(item);
- 	}
- }
- 
--u32 tipc_plist_pop(struct tipc_plist *pl)
-+int u32_list_len(struct list_head *l)
- {
--	struct tipc_plist *nl;
--	u32 port = 0;
-+	struct u32_item *item;
-+	int i = 0;
- 
--	if (likely(list_empty(&pl->list))) {
--		port = pl->port;
--		pl->port = 0;
--		return port;
-+	list_for_each_entry(item, l, list) {
-+		i++;
- 	}
--	nl = list_first_entry(&pl->list, typeof(*nl), list);
--	port = nl->port;
--	list_del(&nl->list);
--	kfree(nl);
--	return port;
-+	return i;
- }
-diff --git a/net/tipc/name_table.h b/net/tipc/name_table.h
-index 1524a73..c89bb3f 100644
---- a/net/tipc/name_table.h
-+++ b/net/tipc/name_table.h
-@@ -99,7 +99,7 @@ int tipc_nl_name_table_dump(struct sk_buff *skb, struct netlink_callback *cb);
- 
- u32 tipc_nametbl_translate(struct net *net, u32 type, u32 instance, u32 *node);
- int tipc_nametbl_mc_translate(struct net *net, u32 type, u32 lower, u32 upper,
--			      u32 limit, struct tipc_plist *dports);
-+			      u32 limit, struct list_head *dports);
- struct publication *tipc_nametbl_publish(struct net *net, u32 type, u32 lower,
- 					 u32 upper, u32 scope, u32 port_ref,
- 					 u32 key);
-@@ -116,18 +116,11 @@ void tipc_nametbl_unsubscribe(struct tipc_subscription *s);
- int tipc_nametbl_init(struct net *net);
- void tipc_nametbl_stop(struct net *net);
- 
--struct tipc_plist {
--	struct list_head list;
--	u32 port;
--};
--
--static inline void tipc_plist_init(struct tipc_plist *pl)
--{
--	INIT_LIST_HEAD(&pl->list);
--	pl->port = 0;
--}
--
--void tipc_plist_push(struct tipc_plist *pl, u32 port);
--u32 tipc_plist_pop(struct tipc_plist *pl);
-+bool u32_push(struct list_head *l, u32 value);
-+u32 u32_pop(struct list_head *l);
-+bool u32_find(struct list_head *l, u32 value);
-+bool u32_del(struct list_head *l, u32 value);
-+void u32_list_purge(struct list_head *l);
-+int u32_list_len(struct list_head *l);
- 
- #endif
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index f27462e..fae6a55 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -788,7 +788,7 @@ void tipc_sk_mcast_rcv(struct net *net, struct sk_buff_head *arrvq,
- 		       struct sk_buff_head *inputq)
- {
- 	struct tipc_msg *msg;
--	struct tipc_plist dports;
-+	struct list_head dports;
- 	u32 portid;
- 	u32 scope = TIPC_CLUSTER_SCOPE;
- 	struct sk_buff_head tmpq;
-@@ -796,7 +796,7 @@ void tipc_sk_mcast_rcv(struct net *net, struct sk_buff_head *arrvq,
- 	struct sk_buff *skb, *_skb;
- 
- 	__skb_queue_head_init(&tmpq);
--	tipc_plist_init(&dports);
-+	INIT_LIST_HEAD(&dports);
- 
- 	skb = tipc_skb_peek(arrvq, &inputq->lock);
- 	for (; skb; skb = tipc_skb_peek(arrvq, &inputq->lock)) {
-@@ -810,8 +810,8 @@ void tipc_sk_mcast_rcv(struct net *net, struct sk_buff_head *arrvq,
- 		tipc_nametbl_mc_translate(net,
- 					  msg_nametype(msg), msg_namelower(msg),
- 					  msg_nameupper(msg), scope, &dports);
--		portid = tipc_plist_pop(&dports);
--		for (; portid; portid = tipc_plist_pop(&dports)) {
-+		portid = u32_pop(&dports);
-+		for (; portid; portid = u32_pop(&dports)) {
- 			_skb = __pskb_copy(skb, hsz, GFP_ATOMIC);
- 			if (_skb) {
- 				msg_set_destport(buf_msg(_skb), portid);
--- 
-2.7.4
+>> +static struct lpm_trie_node *lpm_trie_node_alloc(const struct lpm_trie *trie,
+>> +						 const void *value)
+>> +{
+>> +	struct lpm_trie_node *node;
+>> +	gfp_t gfp = GFP_ATOMIC | __GFP_NOWARN;
+>> +
+>> +	node = kmalloc(sizeof(struct lpm_trie_node) + trie->data_size, gfp);
+>> +	if (!node)
+>> +		return ERR_PTR(-ENOMEM);
+>> +
+>> +	if (value) {
+>> +		node->value = kmemdup(value, trie->map.value_size, gfp);
+> 
+> can you make value to be part of the node? similar to how hash map is done?
+> that will help avoid 2nd allocation, will speedup insertion and will
+> help converting this code to user pre-allocated elements.
+> I suspect the concern was that for many inner nodes that value is null ?
+> But in your use case the value_size will be == 0 eventually,
+> so by embedding it when can save memory too, since 'value' pointer will
+> be replaced with boolean present flag ?
+> So potentially less memory and less cache misses?
+
+Yes, that's a good idea. Implemented that now.
+
+> Overall algorithm is indeed straightforward and simple which is great,
+> but I would still like to see some performance numbers.
+
+I'm not sure yet how to implement such a test in a meaningful way, tbh.
+Given that the lookups have to be done one by one, I expect the syscall
+overhead to be quite significant.
+
+> Looks like
+> the best case for single 32-bit element it needs 4 xors and compares
+> which is fine. For mostly populate trie it's 4xors * 32 depth
+> which is pretty good too, but cache misses on pointer walks may
+> kill performance unless we're hitting the same path all the time.
+> I think it's all acceptable due to simplicity of the implementation
+> which we may improve later if it turns out to be a bottle neck for
+> some use cases. We just need a baseline to have realistic expectations.
+
+Yes, the maximum height of the trie is the number of bits in the prefix,
+so for n bits, the iteration would at most take n steps to finish. For
+each step, an xor and compare for n/8 bytes are needed.
+
+As you say, the implementation could be improved under the hood if
+someone spots a bottleneck somewhere.
+
+I'll post a v3 with your comments addressed for further discussion.
+
+
+Thanks,
+Daniel
