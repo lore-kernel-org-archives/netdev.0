@@ -1,35 +1,79 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] i40e: Invoke softirqs after napi_reschedule
-Date: Fri, 13 Jan 2017 20:27:00 -0500 (EST)
-Message-ID: <20170113.202700.720848716249365172.davem@davemloft.net>
-References: <20170113010414.22708-1-bpoirier@suse.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH v5 00/13] net: ethernet: aquantia: Add AQtion 2.5/5 GB NIC
+ driver
+Date: Fri, 13 Jan 2017 17:38:03 -0800
+Message-ID: <9a4e95cc-9daa-f883-46c0-f477e28b9f0f@gmail.com>
+References: <cover.1484283610.git.vomlehn@texas.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, intel-wired-lan@lists.osuosl.org,
-        netdev@vger.kernel.org
-To: bpoirier@suse.com
+Cc: "David S . Miller" <davem@davemloft.net>,
+        Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
+        Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>,
+        Pavel Belous <Pavel.Belous@aquantia.com>
+To: Alexander Loktionov <Alexander.Loktionov@aquantia.com>,
+        netdev@vger.kernel.org, David VomLehn <vomlehn@texas.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60608 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750899AbdANB1C (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 20:27:02 -0500
-In-Reply-To: <20170113010414.22708-1-bpoirier@suse.com>
+Received: from mail-it0-f66.google.com ([209.85.214.66]:34220 "EHLO
+        mail-it0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750917AbdANBiY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 20:38:24 -0500
+Received: by mail-it0-f66.google.com with SMTP id o185so6843999itb.1
+        for <netdev@vger.kernel.org>; Fri, 13 Jan 2017 17:38:05 -0800 (PST)
+In-Reply-To: <cover.1484283610.git.vomlehn@texas.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Benjamin Poirier <bpoirier@suse.com>
-Date: Thu, 12 Jan 2017 17:04:14 -0800
-
-> The following message is logged from time to time when using i40e:
-> NOHZ: local_softirq_pending 08
+On 01/12/2017 09:02 PM, Alexander Loktionov wrote:
+> From: David VomLehn <vomlehn@texas.net>
 > 
-> i40e may schedule napi from a workqueue. Afterwards, softirqs are not run
-> in a deterministic time frame. The problem is the same as what was
-> described in commit ec13ee80145c ("virtio_net: invoke softirqs after
-> __napi_schedule") and this patch applies the same fix to i40e.
-> 
-> Signed-off-by: Benjamin Poirier <bpoirier@suse.com>
+> v1: Initial version
+> v2: o Make necessary drivers/net/ethernet changes to integrate software
+>     o Drop intermediate atlantic directory
+>     o Remove Makefile things only appropriate to out of tree module
+>       building
+> v3: o Move changes to drivers/net/ethernet/{Kconfig,Makefile} to the last
+>       patch to ensure clean bisection.
+>     o Removed inline attribute aq_hw_write_req() as it was defined in
+>       only one .c file.
+>     o #included pci.h in aq_common.h to get struct pci definition.
+>     o Modified code to unlock based execution flow rather than using a
+>       flag.
+>     o Made a number of functions that were only used in a single file
+>       static.
+>     o Cleaned up error and return code handling in various places.
+>     o Remove AQ_CFG_IP_ALIGN definition.
+>     o Other minor code clean up.
+> v4: o Using do_div for 64 bit division.
+>     o Modified NIC statistics code.
+>     o Using build_skb instead netdev_alloc_skb for single fragment
+>       packets.
+>     o Removed extra aq_nic.o from Makefile
+> v5: o Removed extra newline at the end of the files.
+>     o Wrapped cover letter lines.
 
-I hope to see this from one of Jeff's pull requests to me in the
-near future.
+Have not looked at the driver yet, but the threading of your emails is
+weird, each patch is in reply to the previous one. It would be more
+natural to have all numbered patches be in reply to the cover letter,
+which according to the version of git you seem to have used (2.7.4)
+should already be the default. In graphical terms what we see right now is:
+
+[PATCH 00/13]
+	[PATCH 01/13]
+		[PATCH 02/13]
+			....
+
+While we should see:
+
+
+[PATCH 00/13]
+	[PATCH 01/13]
+	[PATCH 02/13]
+	....
+
+Can you fix that for future submissions, this may sound like a cosmetic
+thing, but it really helps with threading/reading etc.
+
+Thanks!
+-- 
+Florian
