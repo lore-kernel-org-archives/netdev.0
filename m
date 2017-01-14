@@ -1,165 +1,240 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH] net: marvell: skge: use new api ethtool_{get|set}_link_ksettings
-Date: Sat, 14 Jan 2017 13:08:28 +0100
-Message-ID: <1484395708-4107-1-git-send-email-tremyfr@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Philippe Reynes <tremyfr@gmail.com>
-To: mlindner@marvell.com, stephen@networkplumber.org,
-        davem@davemloft.net
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [PATCH net-next] net/mlx5e: Support bpf_xdp_adjust_head()
+Date: Sat, 14 Jan 2017 14:15:50 +0200
+Message-ID: <CALzJLG-EMT88Z9eWsJXxuxbe4YqvMcfXZC6ag8NzvQ5vgLyfUg@mail.gmail.com>
+References: <1484186975-1862468-1-git-send-email-kafai@fb.com>
+ <CALzJLG-fj3LHEuZ78tRS8OL-x0rPRgKnsoxtJFon4Fw8-WK1AA@mail.gmail.com>
+ <20170112232546.GA1595@kafai-mba.local> <CALzJLG_9MTsTV4Y=+BgT7MXO+x-rq526fntxLdAOt=nLD6j9mA@mail.gmail.com>
+ <20170113223141.GA87089@kafai-mba.local>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+        Saeed Mahameed <saeedm@mellanox.com>,
+        Tariq Toukan <tariqt@mellanox.com>,
+        Kernel Team <kernel-team@fb.com>
+To: Martin KaFai Lau <kafai@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:32971 "EHLO
-        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751907AbdANMIi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 14 Jan 2017 07:08:38 -0500
+Received: from mail-qk0-f194.google.com ([209.85.220.194]:35961 "EHLO
+        mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751919AbdANMQL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 14 Jan 2017 07:16:11 -0500
+Received: by mail-qk0-f194.google.com with SMTP id a20so10578078qkc.3
+        for <netdev@vger.kernel.org>; Sat, 14 Jan 2017 04:16:11 -0800 (PST)
+In-Reply-To: <20170113223141.GA87089@kafai-mba.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The ethtool api {get|set}_settings is deprecated.
-We move this driver to new api {get|set}_link_ksettings.
+On Sat, Jan 14, 2017 at 12:31 AM, Martin KaFai Lau <kafai@fb.com> wrote:
+> On Fri, Jan 13, 2017 at 03:58:46PM +0200, Saeed Mahameed wrote:
+>> >> > @@ -680,7 +687,7 @@ static inline void mlx5e_xmit_xdp_frame(struct mlx5e_rq *rq,
+>> >> >         memset(wqe, 0, sizeof(*wqe));
+>> >> >
+>> >> >         /* copy the inline part */
+>> >> > -       memcpy(eseg->inline_hdr_start, data, MLX5E_XDP_MIN_INLINE);
+>> >> > +       memcpy(eseg->inline_hdr_start, xdp->data, MLX5E_XDP_MIN_INLINE);
+>> >> >         eseg->inline_hdr_sz = cpu_to_be16(MLX5E_XDP_MIN_INLINE);
+>> >> >
+>> >> >         dseg = (struct mlx5_wqe_data_seg *)cseg + (MLX5E_XDP_TX_DS_COUNT - 1);
+>> >> > @@ -706,22 +713,16 @@ static inline void mlx5e_xmit_xdp_frame(struct mlx5e_rq *rq,
+>> >> >  static inline bool mlx5e_xdp_handle(struct mlx5e_rq *rq,
+>> >> >                                     const struct bpf_prog *prog,
+>> >> >                                     struct mlx5e_dma_info *di,
+>> >> > -                                   void *data, u16 len)
+>> >> > +                                   struct xdp_buff *xdp)
+>> >> >  {
+>> >> > -       struct xdp_buff xdp;
+>> >> >         u32 act;
+>> >> >
+>> >> > -       if (!prog)
+>> >> > -               return false;
+>> >> > -
+>> >> > -       xdp.data = data;
+>> >> > -       xdp.data_end = xdp.data + len;
+>> >> > -       act = bpf_prog_run_xdp(prog, &xdp);
+>> >> > +       act = bpf_prog_run_xdp(prog, xdp);
+>> >> >         switch (act) {
+>> >> >         case XDP_PASS:
+>> >> >                 return false;
+>> >> >         case XDP_TX:
+>> >> > -               mlx5e_xmit_xdp_frame(rq, di, MLX5_RX_HEADROOM, len);
+>> >> > +               mlx5e_xmit_xdp_frame(rq, di, xdp);
+>> >> >                 return true;
+>> >> >         default:
+>> >> >                 bpf_warn_invalid_xdp_action(act);
+>> >> > @@ -737,18 +738,19 @@ static inline
+>> >> >  struct sk_buff *skb_from_cqe(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe,
+>> >> >                              u16 wqe_counter, u32 cqe_bcnt)
+>> >> >  {
+>> >> > +       const struct bpf_prog *xdp_prog;
+>> >> >         struct mlx5e_dma_info *di;
+>> >> >         struct sk_buff *skb;
+>> >> >         void *va, *data;
+>> >> > -       bool consumed;
+>> >> > +       u16 rx_headroom = rq->rx_headroom;
+>> >> >
+>> >> >         di             = &rq->dma_info[wqe_counter];
+>> >> >         va             = page_address(di->page);
+>> >> > -       data           = va + MLX5_RX_HEADROOM;
+>> >> > +       data           = va + rx_headroom;
+>> >> >
+>> >> >         dma_sync_single_range_for_cpu(rq->pdev,
+>> >> >                                       di->addr,
+>> >> > -                                     MLX5_RX_HEADROOM,
+>> >> > +                                     rx_headroom,
+>> >> >                                       rq->buff.wqe_sz,
+>> >> >                                       DMA_FROM_DEVICE);
+>> >> >         prefetch(data);
+>> >> > @@ -760,11 +762,26 @@ struct sk_buff *skb_from_cqe(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe,
+>> >> >         }
+>> >> >
+>> >> >         rcu_read_lock();
+>> >> > -       consumed = mlx5e_xdp_handle(rq, READ_ONCE(rq->xdp_prog), di, data,
+>> >> > -                                   cqe_bcnt);
+>> >> > +       xdp_prog = READ_ONCE(rq->xdp_prog);
+>> >> > +       if (xdp_prog) {
+>> >> > +               struct xdp_buff xdp;
+>> >> > +               bool consumed;
+>> >> > +
+>> >> > +               xdp.data = data;
+>> >> > +               xdp.data_end = xdp.data + cqe_bcnt;
+>> >> > +               xdp.data_hard_start = va;
+>> >> > +
+>> >> > +               consumed = mlx5e_xdp_handle(rq, xdp_prog, di, &xdp);
+>> >> > +
+>> >> > +               if (consumed) {
+>> >> > +                       rcu_read_unlock();
+>> >> > +                       return NULL; /* page/packet was consumed by XDP */
+>> >> > +               }
+>> >> > +
+>> >> > +               rx_headroom = xdp.data - xdp.data_hard_start;
+>> >> > +               cqe_bcnt = xdp.data_end - xdp.data;
+>> >> > +       }
+>> >>
+>> >> This whole new logic belongs to mlx5e_xdp_handle, I would like to keep
+>> >> xdp related code in one place.
+>> >>
+>> >> move the xdp_buff initialization back to there and keep the xdp_prog
+>> >> check in mlx5e_xdp_handle;
+>> >> +      xdp_prog = READ_ONCE(rq->xdp_prog);
+>> >> +       if (!xdp_prog)
+>> >> +                    return false
+>> >>
+>> >> you can remove "const struct bpf_prog *prog" parameter from
+>> >> mlx5e_xdp_handle and take it directly from rq.
+>> >>
+>> >> if you need va for xdp_buff you can pass it as a paramter to
+>> >> mlx5e_xdp_handle  as well:
+>> >> mlx5e_xdp_handle(rq, di, va, data, cqe_bcnt);
+>> >> Make sense ?
+>> > I moved them because xdp.data could be adjusted which then
+>> > rx_headroom and cqe_bcnt have to be adjusted accordingly
+>> > in skb_from_cqe() also.
+>> >
+>> > I understand your point.  After another quick thought,
+>> > the adjusted xdp.data is the only one that we want in skb_from_cqe().
+>> > I will try to make mlx5e_xdp_handle() to return the adjusted xdp.data
+>> > instead of bool.
+>> >
+>>
+>> hmm, You also need the adjusted cqe_bcnt! this will make
+>> mlx5e_xdp_handle stuffed with parameters,
+>>
+>> what if, in skb_from_cqe we warp data, rx_headroom and cqe_bcnt in one struct.
+>>
+>> struct mlx5e_rx_buff {
+>> void *data;
+>> u6 headroom;
+>> u32 bcnt;
+>> }
+>>
+>> initialize it at the start of skb_from_cqe:
+>>
+>> struct mlx5e_rx_buff rxb;
+>>
+>> rxb.headroom = rq->headroom;
+>> rxb.data = va + rxb.headroom;
+>> rxb.bcnt = cqe_bcnt;
+>>
+>> pass it to mlx5e_xdp_handle(rq, di, va, &rxb) in case xdp_prog is ON
+>> and rxb needs adjustment.
+>>
+>> At the end use it to build the SKB:
+>> skb = build_skb(va, RQ_PAGE_SIZE(rq));
+>> skb_reserve(skb, rxb.headroom);
+>> skb_put(skb, rxb.bcnt);
+> How about something like this without introducing a new struct?
+>
+> -static inline bool mlx5e_xdp_handle(struct mlx5e_rq *rq,
+> -                                   const struct bpf_prog *prog,
+> -                                   struct mlx5e_dma_info *di,
+> -                                   void *data, u16 len)
+> +static inline int mlx5e_xdp_handle(struct mlx5e_rq *rq,
+> +                                  struct mlx5e_dma_info *di,
+> +                                  void *va, u16 *rx_headroom, u32 *len)
 
-The callback set_link_ksettings no longer update the value
-of advertising, as the struct ethtool_link_ksettings is
-defined as const.
+Also good.
 
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
----
- drivers/net/ethernet/marvell/skge.c |   63 ++++++++++++++++++++--------------
- 1 files changed, 37 insertions(+), 26 deletions(-)
-
-diff --git a/drivers/net/ethernet/marvell/skge.c b/drivers/net/ethernet/marvell/skge.c
-index 9146a51..81106b7 100644
---- a/drivers/net/ethernet/marvell/skge.c
-+++ b/drivers/net/ethernet/marvell/skge.c
-@@ -300,65 +300,76 @@ static u32 skge_supported_modes(const struct skge_hw *hw)
- 	return supported;
- }
- 
--static int skge_get_settings(struct net_device *dev,
--			     struct ethtool_cmd *ecmd)
-+static int skge_get_link_ksettings(struct net_device *dev,
-+				   struct ethtool_link_ksettings *cmd)
- {
- 	struct skge_port *skge = netdev_priv(dev);
- 	struct skge_hw *hw = skge->hw;
-+	u32 supported, advertising;
- 
--	ecmd->transceiver = XCVR_INTERNAL;
--	ecmd->supported = skge_supported_modes(hw);
-+	supported = skge_supported_modes(hw);
- 
- 	if (hw->copper) {
--		ecmd->port = PORT_TP;
--		ecmd->phy_address = hw->phy_addr;
-+		cmd->base.port = PORT_TP;
-+		cmd->base.phy_address = hw->phy_addr;
- 	} else
--		ecmd->port = PORT_FIBRE;
-+		cmd->base.port = PORT_FIBRE;
-+
-+	advertising = skge->advertising;
-+	cmd->base.autoneg = skge->autoneg;
-+	cmd->base.speed = skge->speed;
-+	cmd->base.duplex = skge->duplex;
-+
-+	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.supported,
-+						supported);
-+	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.advertising,
-+						advertising);
- 
--	ecmd->advertising = skge->advertising;
--	ecmd->autoneg = skge->autoneg;
--	ethtool_cmd_speed_set(ecmd, skge->speed);
--	ecmd->duplex = skge->duplex;
- 	return 0;
- }
- 
--static int skge_set_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
-+static int skge_set_link_ksettings(struct net_device *dev,
-+				   const struct ethtool_link_ksettings *cmd)
- {
- 	struct skge_port *skge = netdev_priv(dev);
- 	const struct skge_hw *hw = skge->hw;
- 	u32 supported = skge_supported_modes(hw);
- 	int err = 0;
-+	u32 advertising;
-+
-+	ethtool_convert_link_mode_to_legacy_u32(&advertising,
-+						cmd->link_modes.advertising);
- 
--	if (ecmd->autoneg == AUTONEG_ENABLE) {
--		ecmd->advertising = supported;
-+	if (cmd->base.autoneg == AUTONEG_ENABLE) {
-+		advertising = supported;
- 		skge->duplex = -1;
- 		skge->speed = -1;
- 	} else {
- 		u32 setting;
--		u32 speed = ethtool_cmd_speed(ecmd);
-+		u32 speed = cmd->base.speed;
- 
- 		switch (speed) {
- 		case SPEED_1000:
--			if (ecmd->duplex == DUPLEX_FULL)
-+			if (cmd->base.duplex == DUPLEX_FULL)
- 				setting = SUPPORTED_1000baseT_Full;
--			else if (ecmd->duplex == DUPLEX_HALF)
-+			else if (cmd->base.duplex == DUPLEX_HALF)
- 				setting = SUPPORTED_1000baseT_Half;
- 			else
- 				return -EINVAL;
- 			break;
- 		case SPEED_100:
--			if (ecmd->duplex == DUPLEX_FULL)
-+			if (cmd->base.duplex == DUPLEX_FULL)
- 				setting = SUPPORTED_100baseT_Full;
--			else if (ecmd->duplex == DUPLEX_HALF)
-+			else if (cmd->base.duplex == DUPLEX_HALF)
- 				setting = SUPPORTED_100baseT_Half;
- 			else
- 				return -EINVAL;
- 			break;
- 
- 		case SPEED_10:
--			if (ecmd->duplex == DUPLEX_FULL)
-+			if (cmd->base.duplex == DUPLEX_FULL)
- 				setting = SUPPORTED_10baseT_Full;
--			else if (ecmd->duplex == DUPLEX_HALF)
-+			else if (cmd->base.duplex == DUPLEX_HALF)
- 				setting = SUPPORTED_10baseT_Half;
- 			else
- 				return -EINVAL;
-@@ -371,11 +382,11 @@ static int skge_set_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
- 			return -EINVAL;
- 
- 		skge->speed = speed;
--		skge->duplex = ecmd->duplex;
-+		skge->duplex = cmd->base.duplex;
- 	}
- 
--	skge->autoneg = ecmd->autoneg;
--	skge->advertising = ecmd->advertising;
-+	skge->autoneg = cmd->base.autoneg;
-+	skge->advertising = advertising;
- 
- 	if (netif_running(dev)) {
- 		skge_down(dev);
-@@ -875,8 +886,6 @@ static int skge_set_eeprom(struct net_device *dev, struct ethtool_eeprom *eeprom
- }
- 
- static const struct ethtool_ops skge_ethtool_ops = {
--	.get_settings	= skge_get_settings,
--	.set_settings	= skge_set_settings,
- 	.get_drvinfo	= skge_get_drvinfo,
- 	.get_regs_len	= skge_get_regs_len,
- 	.get_regs	= skge_get_regs,
-@@ -899,6 +908,8 @@ static int skge_set_eeprom(struct net_device *dev, struct ethtool_eeprom *eeprom
- 	.set_phys_id	= skge_set_phys_id,
- 	.get_sset_count = skge_get_sset_count,
- 	.get_ethtool_stats = skge_get_ethtool_stats,
-+	.get_link_ksettings = skge_get_link_ksettings,
-+	.set_link_ksettings = skge_set_link_ksettings,
- };
- 
- /*
--- 
-1.7.4.4
+>  {
+> +       const struct bpf_prog *prog = READ_ONCE(rq->xdp_prog);
+>         struct xdp_buff xdp;
+>         u32 act;
+>
+>         if (!prog)
+>                 return false;
+>
+> -       xdp.data = data;
+> -       xdp.data_end = xdp.data + len;
+> +       xdp.data = va + *rx_headroom;
+> +       xdp.data_end = xdp.data + *len;
+> +       xdp.data_hard_start = va;
+> +
+>         act = bpf_prog_run_xdp(prog, &xdp);
+>         switch (act) {
+>         case XDP_PASS:
+> +               *rx_headroom = xdp.data - xdp.data_hard_start;
+> +               *len = xdp.data_end - xdp.data;
+>                 return false;
+>         case XDP_TX:
+> -               mlx5e_xmit_xdp_frame(rq, di, MLX5_RX_HEADROOM, len);
+> +               mlx5e_xmit_xdp_frame(rq, di, &xdp);
+>                 return true;
+>         default:
+>                 bpf_warn_invalid_xdp_action(act);
+> @@ -740,15 +751,16 @@ struct sk_buff *skb_from_cqe(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe,
+>         struct mlx5e_dma_info *di;
+>         struct sk_buff *skb;
+>         void *va, *data;
+> +       u16 rx_headroom = rq->rx_headroom;
+>         bool consumed;
+>
+>         di             = &rq->dma_info[wqe_counter];
+>         va             = page_address(di->page);
+> -       data           = va + MLX5_RX_HEADROOM;
+> +       data           = va + rx_headroom;
+>
+>         dma_sync_single_range_for_cpu(rq->pdev,
+>                                       di->addr,
+> -                                     MLX5_RX_HEADROOM,
+> +                                     rx_headroom,
+>                                       rq->buff.wqe_sz,
+>                                       DMA_FROM_DEVICE);
+>         prefetch(data);
+> @@ -760,8 +772,7 @@ struct sk_buff *skb_from_cqe(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe,
+>         }
+>
+>         rcu_read_lock();
+> -       consumed = mlx5e_xdp_handle(rq, READ_ONCE(rq->xdp_prog), di, data,
+> -                                   cqe_bcnt);
+> +       consumed = mlx5e_xdp_handle(rq, di, va, &rx_headroom, &cqe_bcnt);
+>         rcu_read_unlock();
+>         if (consumed)
+>                 return NULL; /* page/packet was consumed by XDP */
+> @@ -777,7 +788,7 @@ struct sk_buff *skb_from_cqe(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe,
+>         page_ref_inc(di->page);
+>         mlx5e_page_release(rq, di, true);
+>
+> -       skb_reserve(skb, MLX5_RX_HEADROOM);
+> +       skb_reserve(skb, rx_headroom);
+>         skb_put(skb, cqe_bcnt);
+>
+>         return skb;
