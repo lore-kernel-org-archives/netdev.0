@@ -1,10 +1,10 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v5 05/13] net: ethernet: aquantia: Support for
- NIC-specific code
-Date: Fri, 13 Jan 2017 18:00:36 -0800
-Message-ID: <3dfe11ac-4215-21d0-2242-7a4ad6157e56@gmail.com>
+Subject: Re: [PATCH v5 01/13] net: ethernet: aquantia: Make and configuration
+ files.
+Date: Fri, 13 Jan 2017 18:01:08 -0800
+Message-ID: <e8fb12b1-d7bc-bd38-7e72-ad049d306b22@gmail.com>
 References: <cover.1484283610.git.vomlehn@texas.net>
- <5e87af3b0effb96698d0c085366b1ba9320a6305.1484283610.git.vomlehn@texas.net>
+ <fe1664e502d28bcb6a5689787b8000e6c9288307.1484283610.git.vomlehn@texas.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 8bit
@@ -16,20 +16,20 @@ Cc: "David S . Miller" <davem@davemloft.net>,
 To: Alexander Loktionov <Alexander.Loktionov@aquantia.com>,
         netdev@vger.kernel.org, David VomLehn <vomlehn@texas.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f193.google.com ([209.85.223.193]:36703 "EHLO
-        mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750963AbdANCAl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 21:00:41 -0500
-Received: by mail-io0-f193.google.com with SMTP id q20so7315541ioi.3
-        for <netdev@vger.kernel.org>; Fri, 13 Jan 2017 18:00:40 -0800 (PST)
-In-Reply-To: <5e87af3b0effb96698d0c085366b1ba9320a6305.1484283610.git.vomlehn@texas.net>
+Received: from mail-io0-f196.google.com ([209.85.223.196]:35162 "EHLO
+        mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751022AbdANCBL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 21:01:11 -0500
+Received: by mail-io0-f196.google.com with SMTP id m98so7349955iod.2
+        for <netdev@vger.kernel.org>; Fri, 13 Jan 2017 18:01:11 -0800 (PST)
+In-Reply-To: <fe1664e502d28bcb6a5689787b8000e6c9288307.1484283610.git.vomlehn@texas.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On 01/12/2017 09:02 PM, Alexander Loktionov wrote:
 > From: David VomLehn <vomlehn@texas.net>
 > 
-> Add support for code specific to the Atlantic NIC.
+> Patches to create the make and configuration files.
 > 
 > Signed-off-by: Alexander Loktionov <Alexander.Loktionov@aquantia.com>
 > Signed-off-by: Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>
@@ -37,24 +37,101 @@ On 01/12/2017 09:02 PM, Alexander Loktionov wrote:
 > Signed-off-by: Dmitry Bezrukov <Dmitry.Bezrukov@aquantia.com>
 > Signed-off-by: David M. VomLehn <vomlehn@texas.net>
 > ---
->  drivers/net/ethernet/aquantia/aq_main.c         | 291 ++++++++
->  drivers/net/ethernet/aquantia/aq_main.h         |  17 +
->  drivers/net/ethernet/aquantia/aq_nic.c          | 910 ++++++++++++++++++++++++
->  drivers/net/ethernet/aquantia/aq_nic.h          | 108 +++
->  drivers/net/ethernet/aquantia/aq_nic_internal.h |  46 ++
->  5 files changed, 1372 insertions(+)
->  create mode 100644 drivers/net/ethernet/aquantia/aq_main.c
->  create mode 100644 drivers/net/ethernet/aquantia/aq_main.h
->  create mode 100644 drivers/net/ethernet/aquantia/aq_nic.c
->  create mode 100644 drivers/net/ethernet/aquantia/aq_nic.h
->  create mode 100644 drivers/net/ethernet/aquantia/aq_nic_internal.h
+>  drivers/net/ethernet/aquantia/Kconfig  | 24 +++++++++++++++++++
+>  drivers/net/ethernet/aquantia/Makefile | 42 ++++++++++++++++++++++++++++++++++
+>  drivers/net/ethernet/aquantia/ver.h    | 18 +++++++++++++++
+>  3 files changed, 84 insertions(+)
+>  create mode 100644 drivers/net/ethernet/aquantia/Kconfig
+>  create mode 100644 drivers/net/ethernet/aquantia/Makefile
+>  create mode 100644 drivers/net/ethernet/aquantia/ver.h
 > 
-> diff --git a/drivers/net/ethernet/aquantia/aq_main.c b/drivers/net/ethernet/aquantia/aq_main.c
+> diff --git a/drivers/net/ethernet/aquantia/Kconfig b/drivers/net/ethernet/aquantia/Kconfig
 > new file mode 100644
-> index 0000000..18a6012
+> index 0000000..a74a4c0
 > --- /dev/null
-> +++ b/drivers/net/ethernet/aquantia/aq_main.c
-> @@ -0,0 +1,291 @@
+> +++ b/drivers/net/ethernet/aquantia/Kconfig
+> @@ -0,0 +1,24 @@
+> +#
+> +# aQuantia device configuration
+> +#
+> +
+> +config NET_VENDOR_AQUANTIA
+> +	bool "aQuantia devices"
+> +	default y
+> +	---help---
+> +	  Set this to y if you have an Ethernet network cards that uses the aQuantia
+> +	  chipset.
+
+Could be interesting specify which specific commercial products available.
+
+> +
+> +	  This option does not build any drivers; it casues the aQuantia
+> +	  drivers that can be built to appear in the list of Ethernet drivers.
+> +
+> +
+> +if NET_VENDOR_AQUANTIA
+> +
+> +config AQTION
+> +	tristate "aQuantia AQtion Support"
+> +	depends on PCI
+> +	---help---
+> +	  This enables the support for the aQuantia AQtion Ethernet card.
+> +
+> +endif # NET_VENDOR_AQUANTIA
+> diff --git a/drivers/net/ethernet/aquantia/Makefile b/drivers/net/ethernet/aquantia/Makefile
+> new file mode 100644
+> index 0000000..e4ae696
+> --- /dev/null
+> +++ b/drivers/net/ethernet/aquantia/Makefile
+> @@ -0,0 +1,42 @@
+> +################################################################################
+> +#
+> +# aQuantia Ethernet Controller AQtion Linux Driver
+> +# Copyright(c) 2014-2017 aQuantia Corporation.
+> +#
+> +# This program is free software; you can redistribute it and/or modify it
+> +# under the terms and conditions of the GNU General Public License,
+> +# version 2, as published by the Free Software Foundation.
+> +#
+> +# This program is distributed in the hope it will be useful, but WITHOUT
+> +# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+> +# FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+> +# more details.
+> +#
+> +# You should have received a copy of the GNU General Public License along
+> +# with this program. If not, see <http://www.gnu.org/licenses/>.
+> +#
+> +# The full GNU General Public License is included in this distribution in
+> +# the file called "COPYING".
+> +#
+> +# Contact Information: <rdc-drv@aquantia.com>
+> +# aQuantia Corporation, 105 E. Tasman Dr. San Jose, CA 95134, USA
+> +#
+> +################################################################################
+> +
+> +#
+> +# Makefile for the AQtion(tm) Ethernet driver
+> +#
+> +
+> +obj-$(CONFIG_AQTION) += atlantic.o
+> +
+> +atlantic-objs := aq_main.o \
+> +	aq_nic.o \
+> +	aq_pci_func.o \
+> +	aq_vec.o \
+> +	aq_ring.o \
+> +	aq_hw_utils.o \
+> +	aq_ethtool.o \
+> +	hw_atl/hw_atl_a0.o \
+> +	hw_atl/hw_atl_b0.o \
+> +	hw_atl/hw_atl_utils.o \
+> +	hw_atl/hw_atl_llh.o
+> diff --git a/drivers/net/ethernet/aquantia/ver.h b/drivers/net/ethernet/aquantia/ver.h
+> new file mode 100644
+> index 0000000..636d646
+> --- /dev/null
+> +++ b/drivers/net/ethernet/aquantia/ver.h
+> @@ -0,0 +1,18 @@
 > +/*
 > + * aQuantia Corporation Network Driver
 > + * Copyright (C) 2014-2017 aQuantia Corporation. All rights reserved
@@ -64,217 +141,16 @@ On 01/12/2017 09:02 PM, Alexander Loktionov wrote:
 > + * version 2, as published by the Free Software Foundation.
 > + */
 > +
-> +/* File aq_main.c: Main file for aQuantia Linux driver. */
+> +#ifndef VER_H
+> +#define VER_H
 > +
-> +#include "aq_main.h"
-> +#include "aq_nic.h"
-> +#include "aq_pci_func.h"
-> +#include "aq_ethtool.h"
-> +#include "hw_atl/hw_atl_a0.h"
-> +#include "hw_atl/hw_atl_b0.h"
-> +
-> +#include <linux/netdevice.h>
-> +#include <linux/module.h>
-> +
-> +static const struct pci_device_id aq_pci_tbl[] = {
-> +	{ PCI_VDEVICE(AQUANTIA, HW_ATL_DEVICE_ID_0001), },
-> +	{ PCI_VDEVICE(AQUANTIA, HW_ATL_DEVICE_ID_D100), },
-> +	{ PCI_VDEVICE(AQUANTIA, HW_ATL_DEVICE_ID_D107), },
-> +	{ PCI_VDEVICE(AQUANTIA, HW_ATL_DEVICE_ID_D108), },
-> +	{ PCI_VDEVICE(AQUANTIA, HW_ATL_DEVICE_ID_D109), },
-> +	{}
-> +};
-> +
-> +MODULE_DEVICE_TABLE(pci, aq_pci_tbl);
-> +
-> +MODULE_LICENSE("GPL v2");
-> +MODULE_VERSION(AQ_CFG_DRV_VERSION);
-> +MODULE_AUTHOR(AQ_CFG_DRV_AUTHOR);
-> +MODULE_DESCRIPTION(AQ_CFG_DRV_DESC);
+> +#define NIC_MAJOR_DRIVER_VERSION           1
+> +#define NIC_MINOR_DRIVER_VERSION           5
+> +#define NIC_BUILD_DRIVER_VERSION           339
+> +#define NIC_REVISION_DRIVER_VERSION        0
 
-Inline the defines directly into that file, and these typically go at
-the end of the file.
-
-> +
-> +static struct aq_hw_ops *aq_pci_probe_get_hw_ops_by_id(struct pci_dev *pdev)
-> +{
-> +	struct aq_hw_ops *ops = NULL;
-> +	int err = 0;
-> +
-> +	ops = hw_atl_a0_get_ops_by_id(pdev);
-> +	if (ops) {
-> +		err = 0;
-> +		goto err_exit;
-> +	}
-
-Should not that come from the pci_device_id .driver_data structure?
-
-> +
-> +	ops = hw_atl_b0_get_ops_by_id(pdev);
-> +	if (ops) {
-> +		err = 0;
-> +		goto err_exit;
-> +	}
-> +
-> +/* the H/W was not recognized */
-> +	err = -EFAULT;
-> +
-> +err_exit:
-> +	return ops;
-> +}
-> +
-> +static int aq_ndev_open(struct net_device *ndev)
-> +{
-> +	struct aq_nic_s *aq_nic = NULL;
-> +	int err = 0;
-> +
-> +	aq_nic = aq_nic_alloc_hot(ndev);
-> +	if (!aq_nic) {
-> +		err = -ENOMEM;
-> +		goto err_exit;
-> +	}
-> +	err = aq_nic_init(aq_nic);
-> +	if (err < 0)
-> +		goto err_exit;
-> +	err = aq_nic_start(aq_nic);
-> +	if (err < 0)
-> +		goto err_exit;
-> +
-> +err_exit:
-> +	if (err < 0) {
-
-Just make the error label be taken only if there is an error instead of
-checking here again for a negative error code.
-
-> +		if (aq_nic)
-> +			aq_nic_deinit(aq_nic);
-> +	}
-> +	return err;
-> +}
-> +
-> +static int aq_ndev_close(struct net_device *ndev)
-> +{
-> +	struct aq_nic_s *aq_nic = (struct aq_nic_s *)netdev_priv(ndev);
-
-No casting needed.
-
-> +
-> +	aq_nic_stop(aq_nic);
-> +	aq_nic_deinit(aq_nic);
-> +	aq_nic_free_hot_resources(aq_nic);
-> +
-> +	return 0;
-> +}
-> +
-> +static int aq_ndev_start_xmit(struct sk_buff *skb, struct net_device *ndev)
-> +{
-> +	struct aq_nic_s *aq_nic = (struct aq_nic_s *)netdev_priv(ndev);
-> +	int err = 0;
-> +
-> +	err = aq_nic_xmit(aq_nic, skb);
-> +	if (err < 0)
-> +		goto err_exit;
-> +
-> +err_exit:
-> +	return err;
-
-Just inline the contents of aq_nic_xmit(), this function serves nothing
-useful here.
-
-> +}
-> +
-> +static int aq_ndev_change_mtu(struct net_device *ndev, int new_mtu)
-> +{
-> +	struct aq_nic_s *aq_nic = (struct aq_nic_s *)netdev_priv(ndev);
-> +	int err = 0;
-> +
-> +	if (new_mtu == ndev->mtu) {
-> +		err = 0;
-> +		goto err_exit;
-> +	}
-> +	if (new_mtu < 68) {
-> +		err = -EINVAL;
-> +		goto err_exit;
-> +	}
-
-What's so special about 68 here?
-
-> +	err = aq_nic_set_mtu(aq_nic, new_mtu + ETH_HLEN);
-
-Why do not need to include ETH_HLEN here?
-
-> +	if (err < 0)
-> +		goto err_exit;
-> +	ndev->mtu = new_mtu;
-> +
-> +	if (netif_running(ndev)) {
-> +		aq_ndev_close(ndev);
-> +		aq_ndev_open(ndev);
-> +	}
-> +
-> +err_exit:
-> +	return err;
-> +}
-> +
-> +static int aq_ndev_set_features(struct net_device *ndev,
-> +				netdev_features_t features)
-> +{
-> +	struct aq_nic_s *aq_nic = (struct aq_nic_s *)netdev_priv(ndev);
-> +	struct aq_nic_cfg_s *aq_cfg = aq_nic_get_cfg(aq_nic);
-> +	bool is_lro = false;
-> +
-> +	if (aq_cfg->hw_features & NETIF_F_LRO) {
-> +		is_lro = features & NETIF_F_LRO;
-> +
-> +		if (aq_cfg->is_lro != is_lro) {
-> +			aq_cfg->is_lro = is_lro;
-> +
-> +			if (netif_running(ndev)) {
-> +				aq_ndev_close(ndev);
-> +				aq_ndev_open(ndev);
-> +			}
-
-Can this be made less disruptive to the network interface?
-
-> +		}
-> +	}
-> +
-> +	return 0;
-> +}
-> +
-> +static int aq_ndev_set_mac_address(struct net_device *ndev, void *addr)
-> +{
-> +	struct aq_nic_s *aq_nic = (struct aq_nic_s *)netdev_priv(ndev);
-> +	int err = 0;
-> +
-> +	err = eth_mac_addr(ndev, addr);
-> +	if (err < 0)
-> +		goto err_exit;
-> +	err = aq_nic_set_mac(aq_nic, ndev);
-> +	if (err < 0)
-> +		goto err_exit;
-> +
-> +err_exit:
-> +	return err;
-> +}
-> +
-> +static void aq_ndev_set_multicast_settings(struct net_device *ndev)
-> +{
-> +	struct aq_nic_s *aq_nic = (struct aq_nic_s *)netdev_priv(ndev);
-> +	int err = 0;
-> +
-> +	err = aq_nic_set_packet_filter(aq_nic, ndev->flags);
-> +	if (err < 0)
-> +		goto err_exit;
-> +
-> +	if (netdev_mc_count(ndev)) {
-> +		err = aq_nic_set_multicast_list(aq_nic, ndev);
-> +		if (err < 0)
-> +			goto err_exit;
-> +	}
-
-That's not enough, you need to deal with Unicast address filtering,
-promiscuous mode, and if you run out of space in your multicast address
-filter.
+That probably means nothing since it's the first time for the upstream
+kernel that such a driver exists. Defining versions of software is such
+an interesting subject anyway!
 -- 
 Florian
