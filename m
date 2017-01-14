@@ -1,139 +1,93 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v3 00/10] net: dsa: Support for pdata in dsa2
-Date: Sat, 14 Jan 2017 13:47:03 -0800
-Message-ID: <20170114214713.28109-1-f.fainelli@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Lunn <andrew@lunn.ch>, Florian Fainelli <f.fainelli@gmail.com>,
- Jason Cooper <jason@lakedaemon.net>,
- Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
- gregkh@linuxfoundation.org, Russell King <linux@armlinux.org.uk>,
- open list <linux-kernel@vger.kernel.org>,
- Gregory Clement <gregory.clement@free-electrons.com>,
- "David S. Miller" <davem@davemloft.net>,
- "moderated list:ARM SUB-ARCHITECTURES" <linux-arm-kernel@lists.infradead.org>,
- Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Subject: [PATCH net-next v3 03/10] net: dsa: Suffix function manipulating device_node with _dn
+Date: Sat, 14 Jan 2017 13:47:06 -0800
+Message-ID: <20170114214713.28109-4-f.fainelli@gmail.com>
+References: <20170114214713.28109-1-f.fainelli@gmail.com>
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        Jason Cooper <jason@lakedaemon.net>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+        Gregory Clement <gregory.clement@free-electrons.com>,
+        Russell King <linux@armlinux.org.uk>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-arm-kernel@lists.infradead.org (moderated list:ARM
+        SUB-ARCHITECTURES), linux-kernel@vger.kernel.org (open list),
+        gregkh@linuxfoundation.org
 To: netdev@vger.kernel.org
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170114214713.28109-1-f.fainelli@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+Make it clear that these functions take a device_node structure pointer
 
-This is not exactly new, and was sent before, although back then, I did not
-have an user of the pre-declared MDIO board information, but now we do. Note
-that I have additional changes queued up to have b53 register platform data for
-MIPS bcm47xx and bcm63xx.
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ net/dsa/dsa2.c | 16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
 
-Yes I know that we should have the Orion platforms eventually be converted to
-Device Tree, but until that happens, I don't want any remaining users of the
-old "dsa" platform device (hence the previous DTS submissions for ARM/mvebu)
-and, there will be platforms out there that most likely won't never see DT
-coming their way (BCM47xx is almost 100% sure, BCM63xx maybe not in a distant
-future).
-
-We would probably want the whole series to be merged via David Miller's tree
-to simplify things.
-
-Greg, can you Ack/Nack patch 5 since it touched the core LDD?
-
-Vivien, since some patches did change, I did not apply your Tested-by tag
-to all patches.
-
-Thanks!
-
-Changes in v3:
-
-- Tested EPROBE_DEFER from a mockup MDIO/DSA switch driver and everything
-  is fine, once the driver finally probes we have access to platform data
-  as expected
-
-- added comment above dsa_port_is_valid() that port->name is mandatory
-  for platform data cases
-
-- added an extra check in dsa_parse_member() for a NULL pdata pointer
-
-- fixed a bunch of checkpatch errors and warnings
-
-Changes in v2:
-
-- Rebased against latest net-next/master
-
-- Moved dev_find_class() to device_find_class() into drivers/base/core.c
-
-- Moved dev_to_net_device into net/core/dev.c
-
-- Utilize dsa_chip_data directly instead of dsa_platform_data
-
-- Augmented dsa_chip_data to be multi-CPU port ready
-
-Changes from last submission (few months back):
-
-- rebased against latest net-next
-
-- do not introduce dsa2_platform_data which was overkill and was meant to
-  allow us to do exaclty the same things with platform data and Device Tree
-  we use the existing dsa_platform_data instead
-
-- properly register MDIO devices when the MDIO bus is registered and associate
-  platform_data with them
-
-- add a change to the Orion platform code to demonstrate how this can be used
-
-Thank you
-
-Florian Fainelli (10):
-  net: dsa: Pass device pointer to dsa_register_switch
-  net: dsa: Make most functions take a dsa_port argument
-  net: dsa: Suffix function manipulating device_node with _dn
-  net: dsa: Move ports assignment closer to error checking
-  drivers: base: Add device_find_class()
-  net: dsa: Migrate to device_find_class()
-  net: Relocate dev_to_net_device() into core
-  net: dsa: Add support for platform data
-  net: phy: Allow pre-declaration of MDIO devices
-  ARM: orion: Register DSA switch as a MDIO device
-
- arch/arm/mach-orion5x/common.c               |   2 +-
- arch/arm/mach-orion5x/common.h               |   4 +-
- arch/arm/mach-orion5x/rd88f5181l-fxo-setup.c |   7 +-
- arch/arm/mach-orion5x/rd88f5181l-ge-setup.c  |   7 +-
- arch/arm/mach-orion5x/rd88f6183ap-ge-setup.c |   7 +-
- arch/arm/mach-orion5x/wnr854t-setup.c        |   2 +-
- arch/arm/mach-orion5x/wrt350n-v2-setup.c     |   7 +-
- arch/arm/plat-orion/common.c                 |  25 +++-
- arch/arm/plat-orion/include/plat/common.h    |   4 +-
- drivers/base/core.c                          |  19 +++
- drivers/net/dsa/b53/b53_common.c             |   2 +-
- drivers/net/dsa/mv88e6xxx/chip.c             |  11 +-
- drivers/net/dsa/qca8k.c                      |   2 +-
- drivers/net/phy/Makefile                     |   3 +-
- drivers/net/phy/mdio-boardinfo.c             |  86 +++++++++++++
- drivers/net/phy/mdio-boardinfo.h             |  19 +++
- drivers/net/phy/mdio_bus.c                   |   4 +
- drivers/net/phy/mdio_device.c                |  11 ++
- include/linux/device.h                       |   1 +
- include/linux/mdio.h                         |   3 +
- include/linux/mod_devicetable.h              |   1 +
- include/linux/netdevice.h                    |   2 +
- include/linux/phy.h                          |  19 +++
- include/net/dsa.h                            |   8 +-
- net/core/dev.c                               |  19 +++
- net/dsa/dsa.c                                |  53 ++------
- net/dsa/dsa2.c                               | 174 +++++++++++++++++++--------
- net/dsa/dsa_priv.h                           |   4 +-
- 28 files changed, 365 insertions(+), 141 deletions(-)
- create mode 100644 drivers/net/phy/mdio-boardinfo.c
- create mode 100644 drivers/net/phy/mdio-boardinfo.h
-
+diff --git a/net/dsa/dsa2.c b/net/dsa/dsa2.c
+index 6e3675220fef..04ab62251fe3 100644
+--- a/net/dsa/dsa2.c
++++ b/net/dsa/dsa2.c
+@@ -94,8 +94,8 @@ static bool dsa_port_is_cpu(struct dsa_port *port)
+ 	return !!of_parse_phandle(port->dn, "ethernet", 0);
+ }
+ 
+-static bool dsa_ds_find_port(struct dsa_switch *ds,
+-			     struct device_node *port)
++static bool dsa_ds_find_port_dn(struct dsa_switch *ds,
++				struct device_node *port)
+ {
+ 	u32 index;
+ 
+@@ -105,8 +105,8 @@ static bool dsa_ds_find_port(struct dsa_switch *ds,
+ 	return false;
+ }
+ 
+-static struct dsa_switch *dsa_dst_find_port(struct dsa_switch_tree *dst,
+-					    struct device_node *port)
++static struct dsa_switch *dsa_dst_find_port_dn(struct dsa_switch_tree *dst,
++					       struct device_node *port)
+ {
+ 	struct dsa_switch *ds;
+ 	u32 index;
+@@ -116,7 +116,7 @@ static struct dsa_switch *dsa_dst_find_port(struct dsa_switch_tree *dst,
+ 		if (!ds)
+ 			continue;
+ 
+-		if (dsa_ds_find_port(ds, port))
++		if (dsa_ds_find_port_dn(ds, port))
+ 			return ds;
+ 	}
+ 
+@@ -137,7 +137,7 @@ static int dsa_port_complete(struct dsa_switch_tree *dst,
+ 		if (!link)
+ 			break;
+ 
+-		dst_ds = dsa_dst_find_port(dst, link);
++		dst_ds = dsa_dst_find_port_dn(dst, link);
+ 		of_node_put(link);
+ 
+ 		if (!dst_ds)
+@@ -546,7 +546,7 @@ static int dsa_parse_ports_dn(struct device_node *ports, struct dsa_switch *ds)
+ 	return 0;
+ }
+ 
+-static int dsa_parse_member(struct device_node *np, u32 *tree, u32 *index)
++static int dsa_parse_member_dn(struct device_node *np, u32 *tree, u32 *index)
+ {
+ 	int err;
+ 
+@@ -592,7 +592,7 @@ static int _dsa_register_switch(struct dsa_switch *ds, struct device *dev)
+ 	u32 tree, index;
+ 	int i, err;
+ 
+-	err = dsa_parse_member(np, &tree, &index);
++	err = dsa_parse_member_dn(np, &tree, &index);
+ 	if (err)
+ 		return err;
+ 
 -- 
 2.9.3
