@@ -1,7 +1,7 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v3 08/10] net: dsa: Add support for platform data
-Date: Sat, 14 Jan 2017 13:47:11 -0800
-Message-ID: <20170114214713.28109-9-f.fainelli@gmail.com>
+Subject: [PATCH net-next v3 07/10] net: Relocate dev_to_net_device() into core
+Date: Sat, 14 Jan 2017 13:47:10 -0800
+Message-ID: <20170114214713.28109-8-f.fainelli@gmail.com>
 References: <20170114214713.28109-1-f.fainelli@gmail.com>
 Cc: Florian Fainelli <f.fainelli@gmail.com>,
         Jason Cooper <jason@lakedaemon.net>,
@@ -20,222 +20,86 @@ In-Reply-To: <20170114214713.28109-1-f.fainelli@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Allow drivers to use the new DSA API with platform data. Most of the
-code in net/dsa/dsa2.c does not rely so much on device_nodes and can get
-the same information from platform_data instead.
-
-We purposely do not support distributed configurations with platform
-data, so drivers should be providing a pointer to a 'struct
-dsa_chip_data' structure if they wish to communicate per-port layout.
-
-Multiple CPUs port could potentially be supported and dsa_chip_data is
-extended to receive up to one reference to an upstream network device
-per port described by a dsa_chip_data structure.
+dev_to_net_device() is moved from net/dsa/dsa.c to net/core/dev.c since
+it going to be used by net/dsa/dsa2.c and the namespace of the function
+justifies making it available to other users potentially.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- include/net/dsa.h |   6 ++++
- net/dsa/dsa2.c    | 101 ++++++++++++++++++++++++++++++++++++++++++++----------
- 2 files changed, 89 insertions(+), 18 deletions(-)
+ include/linux/netdevice.h |  2 ++
+ net/core/dev.c            | 19 +++++++++++++++++++
+ net/dsa/dsa.c             | 18 ------------------
+ 3 files changed, 21 insertions(+), 18 deletions(-)
 
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 16a502a6c26a..491008792e4d 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -42,6 +42,11 @@ struct dsa_chip_data {
- 	struct device	*host_dev;
- 	int		sw_addr;
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 97ae0ac513ee..6d021c37b774 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -4390,4 +4390,6 @@ do {								\
+ #define PTYPE_HASH_SIZE	(16)
+ #define PTYPE_HASH_MASK	(PTYPE_HASH_SIZE - 1)
  
-+	/*
-+	 * Reference to network devices
-+	 */
-+	struct device	*netdev[DSA_MAX_PORTS];
++struct net_device *dev_to_net_device(struct device *dev);
 +
- 	/* set to size of eeprom if supported by the switch */
- 	int		eeprom_len;
- 
-@@ -140,6 +145,7 @@ struct dsa_switch_tree {
- };
- 
- struct dsa_port {
-+	const char		*name;
- 	struct net_device	*netdev;
- 	struct device_node	*dn;
- 	unsigned int		ageing_time;
-diff --git a/net/dsa/dsa2.c b/net/dsa/dsa2.c
-index cd91070b5467..598229b02fd3 100644
---- a/net/dsa/dsa2.c
-+++ b/net/dsa/dsa2.c
-@@ -79,19 +79,28 @@ static void dsa_dst_del_ds(struct dsa_switch_tree *dst,
- 	kref_put(&dst->refcount, dsa_free_dst);
+ #endif	/* _LINUX_NETDEVICE_H */
+diff --git a/net/core/dev.c b/net/core/dev.c
+index ad5959e56116..7547e2ccc06b 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -8128,6 +8128,25 @@ const char *netdev_drivername(const struct net_device *dev)
+ 	return empty;
  }
  
-+/* For platform data configurations, we need to have a valid name argument to
-+ * differentiate a disabled port from an enabled one
-+ */
- static bool dsa_port_is_valid(struct dsa_port *port)
- {
--	return !!port->dn;
-+	return !!(port->dn || port->name);
- }
- 
- static bool dsa_port_is_dsa(struct dsa_port *port)
- {
--	return !!of_parse_phandle(port->dn, "link", 0);
-+	if (port->name && !strcmp(port->name, "dsa"))
-+		return true;
-+	else
-+		return !!of_parse_phandle(port->dn, "link", 0);
- }
- 
- static bool dsa_port_is_cpu(struct dsa_port *port)
- {
--	return !!of_parse_phandle(port->dn, "ethernet", 0);
-+	if (port->name && !strcmp(port->name, "cpu"))
-+		return true;
-+	else
-+		return !!of_parse_phandle(port->dn, "ethernet", 0);
- }
- 
- static bool dsa_ds_find_port_dn(struct dsa_switch *ds,
-@@ -251,10 +260,11 @@ static void dsa_cpu_port_unapply(struct dsa_port *port, u32 index,
- static int dsa_user_port_apply(struct dsa_port *port, u32 index,
- 			       struct dsa_switch *ds)
- {
--	const char *name;
-+	const char *name = port->name;
- 	int err;
- 
--	name = of_get_property(port->dn, "label", NULL);
-+	if (port->dn)
-+		name = of_get_property(port->dn, "label", NULL);
- 	if (!name)
- 		name = "eth%d";
- 
-@@ -439,11 +449,15 @@ static int dsa_cpu_parse(struct dsa_port *port, u32 index,
- 	struct net_device *ethernet_dev;
- 	struct device_node *ethernet;
- 
--	ethernet = of_parse_phandle(port->dn, "ethernet", 0);
--	if (!ethernet)
--		return -EINVAL;
-+	if (port->dn) {
-+		ethernet = of_parse_phandle(port->dn, "ethernet", 0);
-+		if (!ethernet)
-+			return -EINVAL;
-+		ethernet_dev = of_find_net_device_by_node(ethernet);
-+	} else {
-+		ethernet_dev = dev_to_net_device(ds->cd->netdev[index]);
-+	}
- 
--	ethernet_dev = of_find_net_device_by_node(ethernet);
- 	if (!ethernet_dev)
- 		return -EPROBE_DEFER;
- 
-@@ -546,6 +560,33 @@ static int dsa_parse_ports_dn(struct device_node *ports, struct dsa_switch *ds)
- 	return 0;
- }
- 
-+static int dsa_parse_ports(struct dsa_chip_data *cd, struct dsa_switch *ds)
++struct net_device *dev_to_net_device(struct device *dev)
 +{
-+	bool valid_name_found = false;
-+	unsigned int i;
++	struct device *d;
 +
-+	for (i = 0; i < DSA_MAX_PORTS; i++) {
-+		if (!cd->port_names[i])
-+			continue;
++	d = device_find_class(dev, "net");
++	if (d) {
++		struct net_device *nd;
 +
-+		ds->ports[i].name = cd->port_names[i];
++		nd = to_net_dev(d);
++		dev_hold(nd);
++		put_device(d);
 +
-+		/* Initialize enabled_port_mask now for drv->setup()
-+		 * to have access to a correct value, just like what
-+		 * net/dsa/dsa.c::dsa_switch_setup_one does.
-+		 */
-+		if (!dsa_port_is_cpu(&ds->ports[i]))
-+			ds->enabled_port_mask |= 1 << i;
-+
-+		valid_name_found = true;
++		return nd;
 +	}
 +
-+	if (!valid_name_found && i == DSA_MAX_PORTS)
-+		return -EINVAL;
-+
-+	return 0;
++	return NULL;
 +}
++EXPORT_SYMBOL_GPL(dev_to_net_device);
 +
- static int dsa_parse_member_dn(struct device_node *np, u32 *tree, u32 *index)
+ static void __netdev_printk(const char *level, const struct net_device *dev,
+ 			    struct va_format *vaf)
  {
- 	int err;
-@@ -570,6 +611,18 @@ static int dsa_parse_member_dn(struct device_node *np, u32 *tree, u32 *index)
- 	return 0;
+diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+index 77fa4c4f5828..6c264f92fec5 100644
+--- a/net/dsa/dsa.c
++++ b/net/dsa/dsa.c
+@@ -473,24 +473,6 @@ struct mii_bus *dsa_host_dev_to_mii_bus(struct device *dev)
  }
+ EXPORT_SYMBOL_GPL(dsa_host_dev_to_mii_bus);
  
-+static int dsa_parse_member(struct dsa_chip_data *pd, u32 *tree, u32 *index)
-+{
-+	if (!pd)
-+		return -ENODEV;
-+
-+	/* We do not support complex trees with dsa_chip_data */
-+	*tree = 0;
-+	*index = 0;
-+
-+	return 0;
-+}
-+
- static struct device_node *dsa_get_ports(struct dsa_switch *ds,
- 					 struct device_node *np)
- {
-@@ -586,23 +639,34 @@ static struct device_node *dsa_get_ports(struct dsa_switch *ds,
- 
- static int _dsa_register_switch(struct dsa_switch *ds, struct device *dev)
- {
-+	struct dsa_chip_data *pdata = dev->platform_data;
- 	struct device_node *np = dev->of_node;
- 	struct dsa_switch_tree *dst;
- 	struct device_node *ports;
- 	u32 tree, index;
- 	int i, err;
- 
--	err = dsa_parse_member_dn(np, &tree, &index);
--	if (err)
--		return err;
-+	if (np) {
-+		err = dsa_parse_member_dn(np, &tree, &index);
-+		if (err)
-+			return err;
- 
--	ports = dsa_get_ports(ds, np);
--	if (IS_ERR(ports))
--		return PTR_ERR(ports);
-+		ports = dsa_get_ports(ds, np);
-+		if (IS_ERR(ports))
-+			return PTR_ERR(ports);
- 
--	err = dsa_parse_ports_dn(ports, ds);
--	if (err)
--		return err;
-+		err = dsa_parse_ports_dn(ports, ds);
-+		if (err)
-+			return err;
-+	} else {
-+		err = dsa_parse_member(pdata, &tree, &index);
-+		if (err)
-+			return err;
-+
-+		err = dsa_parse_ports(pdata, ds);
-+		if (err)
-+			return err;
-+	}
- 
- 	dst = dsa_get_dst(tree);
- 	if (!dst) {
-@@ -618,6 +682,7 @@ static int _dsa_register_switch(struct dsa_switch *ds, struct device *dev)
- 
- 	ds->dst = dst;
- 	ds->index = index;
-+	ds->cd = pdata;
- 
- 	/* Initialize the routing table */
- 	for (i = 0; i < DSA_MAX_SWITCHES; ++i)
+-static struct net_device *dev_to_net_device(struct device *dev)
+-{
+-	struct device *d;
+-
+-	d = device_find_class(dev, "net");
+-	if (d != NULL) {
+-		struct net_device *nd;
+-
+-		nd = to_net_dev(d);
+-		dev_hold(nd);
+-		put_device(d);
+-
+-		return nd;
+-	}
+-
+-	return NULL;
+-}
+-
+ #ifdef CONFIG_OF
+ static int dsa_of_setup_routing_table(struct dsa_platform_data *pd,
+ 					struct dsa_chip_data *cd,
 -- 
 2.9.3
