@@ -1,70 +1,102 @@
-From: Krister Johansen <kjlx@templeofstupid.com>
-Subject: Re: [PATCH v2 net-next] Introduce a sysctl that modifies the value
- of PROT_SOCK.
-Date: Fri, 13 Jan 2017 16:13:35 -0800
-Message-ID: <20170114001335.GD3094@templeofstupid.com>
-References: <20161231125505.7f0c7dff@xeon-e3>
- <20170112065225.GB2345@templeofstupid.com>
- <20170112.092213.864894939381841760.davem@davemloft.net>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [Patch net] atm: remove an unnecessary loop
+Date: Sat, 14 Jan 2017 01:14:22 +0100
+Message-ID: <20170114001422.GA6874@electric-eye.fr.zoreil.com>
+References: <CAM_iQpXd8qTTRT_+CkHnpMNC=CSS9vfB6zKtSjmLV_yya5BL8Q@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: kjlx@templeofstupid.com, stephen@networkplumber.org,
-        netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Michal Hocko <mhocko@kernel.org>,
+        Chas Williams <3chas3@gmail.com>,
+        Andrey Konovalov <andreyknvl@google.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sub5.mail.dreamhost.com ([208.113.200.129]:47143 "EHLO
-        homiemail-a43.g.dreamhost.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750713AbdANANh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 19:13:37 -0500
-Received: from homiemail-a43.g.dreamhost.com (localhost [127.0.0.1])
-        by homiemail-a43.g.dreamhost.com (Postfix) with ESMTP id E5EE86002D19
-        for <netdev@vger.kernel.org>; Fri, 13 Jan 2017 16:13:36 -0800 (PST)
-Received: from kmjvbox (c-73-70-90-212.hsd1.ca.comcast.net [73.70.90.212])
-        (using TLSv1 with cipher ECDHE-RSA-AES256-SHA (256/256 bits))
-        (No client certificate requested)
-        (Authenticated sender: kjlx@templeofstupid.com)
-        by homiemail-a43.g.dreamhost.com (Postfix) with ESMTPSA id B4EA16002D17
-        for <netdev@vger.kernel.org>; Fri, 13 Jan 2017 16:13:36 -0800 (PST)
+Received: from violet.fr.zoreil.com ([92.243.8.30]:42556 "EHLO
+        violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750713AbdANAOb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 19:14:31 -0500
 Content-Disposition: inline
-In-Reply-To: <20170112.092213.864894939381841760.davem@davemloft.net>
+In-Reply-To: <CAM_iQpXd8qTTRT_+CkHnpMNC=CSS9vfB6zKtSjmLV_yya5BL8Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 12, 2017 at 09:22:13AM -0500, David Miller wrote:
-> From: Krister Johansen <kjlx@templeofstupid.com>
-> > The use case for this change is to allow containerized processes to bind
-> > to priviliged ports, but prevent them from ever being allowed to modify
-> > their container's network configuration.  The latter is accomplished by
-> > ensuring that the network namespace is not a child of the user
-> > namespace.  This modification was needed to allow the container manager
-> > to disable a namespace's priviliged port restrictions without exposing
-> > control of the network namespace to processes in the user namespace.
+Cong Wang <xiyou.wangcong@gmail.com> :
+[...]
+> If you can justify API is not broken by doing that, I am more than happy
+> to do it, as I already stated in the latter patch:
 > 
-> This is what CAP_NET_BIND_SERVICE is for, and why it is a separate
-> network privilege, please use it.
+> "Of course, the logic itself is suspicious, other sendmsg()
+> could handle skb allocation failure very well, not sure
+> why ATM has to wait for a successful one here. But probably
+> it is too late to change since the errno and behavior is
+> visible to user-space. So just leave the logic as it is."
+> 
+> For some reason, no one reads that patch. :-/
 
-It sounds like I may have done an inadequate job of explaining why I
-took this approach instead of going the CAP_NET_BIND_SERVICE route.
+Believe it or not but I actually read it.
 
-In this scenario, the network namespace is created and configured first.
-Then the containerized processed get placed into a separate user
-namespace.  This is so that the processes in the container, even if they
-somehow manage to obtain extra privilege in the userns, can never modify
-the network namespace.
+It changes the logic : the original code would have been unable to
+escape the while loop on memory failure. Fine, I don't mind the change.
+Actually I believe that these two patches are too shy (and backport
+unefficient). Instead of trying to reformulate why, here's what I have
+in mind. Uncompiled, caveat emptor, etc.
 
-The check in ns_capable() is looking at the priviliges of the user
-namespace that created the netns and its parents.  Even if I were to
-grant a process in the container CAP_NET_BIND_SERVICE, ns_capable()
-wouldn't recognize that as being a valid privilige for the netns.
+I'll do a (slow) build and test on saturday's night with a pair of
+iphase 5575.
 
-If I were to invert the order of operations and create the userns before
-the netns, then the capability would be recognized.  However, that also
-allows any potential privilege escalation in the userns to bring with it
-the potential that an attacker can modify the container's network
-configuration.
+diff --git a/net/atm/common.c b/net/atm/common.c
+index a3ca922..67f76f3 100644
+--- a/net/atm/common.c
++++ b/net/atm/common.c
+@@ -62,21 +62,16 @@ static void vcc_remove_socket(struct sock *sk)
+ 	write_unlock_irq(&vcc_sklist_lock);
+ }
+ 
+-static struct sk_buff *alloc_tx(struct atm_vcc *vcc, unsigned int size)
++static bool vcc_tx_ready(struct atm_vcc *vcc, unsigned int size)
+ {
+-	struct sk_buff *skb;
+ 	struct sock *sk = sk_atm(vcc);
+ 
+ 	if (sk_wmem_alloc_get(sk) && !atm_may_send(vcc, size)) {
+ 		pr_debug("Sorry: wmem_alloc = %d, size = %d, sndbuf = %d\n",
+ 			 sk_wmem_alloc_get(sk), size, sk->sk_sndbuf);
+-		return NULL;
++		return false;
+ 	}
+-	while (!(skb = alloc_skb(size, GFP_KERNEL)))
+-		schedule();
+-	pr_debug("%d += %d\n", sk_wmem_alloc_get(sk), skb->truesize);
+-	atomic_add(skb->truesize, &sk->sk_wmem_alloc);
+-	return skb;
++	return true;
+ }
+ 
+ static void vcc_sock_destruct(struct sock *sk)
+@@ -606,7 +601,7 @@ int vcc_sendmsg(struct socket *sock, struct msghdr *m, size_t size)
+ 	eff = (size+3) & ~3; /* align to word boundary */
+ 	prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
+ 	error = 0;
+-	while (!(skb = alloc_tx(vcc, eff))) {
++	while (!vcc_tx_ready(vcc, eff)) {
+ 		if (m->msg_flags & MSG_DONTWAIT) {
+ 			error = -EAGAIN;
+ 			break;
+@@ -628,6 +623,13 @@ int vcc_sendmsg(struct socket *sock, struct msghdr *m, size_t size)
+ 	finish_wait(sk_sleep(sk), &wait);
+ 	if (error)
+ 		goto out;
++
++	skb = alloc_skb(eff, GFP_KERNEL);
++	if (!skb)
++		goto out;
++	pr_debug("%d += %d\n", sk_wmem_alloc_get(sk), skb->truesize);
++	atomic_add(skb->truesize, &sk->sk_wmem_alloc);
++
+ 	skb->dev = NULL; /* for paths shared with net_device interfaces */
+ 	ATM_SKB(skb)->atm_options = vcc->atm_options;
+ 	if (!copy_from_iter_full(skb_put(skb, size), size, &m->msg_iter)) {
 
-I'd much rather run the containers without privs, and without the userns
-having rights to the netns, to mitigate the risk of an attacker being
-able to alter the container's networking configuration.
-
--K
+-- 
+Ueimor
