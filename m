@@ -1,227 +1,77 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next 1/1] net sched actions: Add support for user
- cookies
-Date: Sat, 14 Jan 2017 16:22:48 +0100
-Message-ID: <20170114152248.GB1886@nanopsycho.orion>
-References: <1484405958-24591-1-git-send-email-jhs@emojatatu.com>
+Subject: Re: [PATCH net-next] net/sched: cls_flower: Add user specified data
+Date: Sat, 14 Jan 2017 16:29:18 +0100
+Message-ID: <20170114152918.GC1886@nanopsycho.orion>
+References: <1483362833-52114-1-git-send-email-paulb@mellanox.com>
+ <14675f63-4212-2f72-da4c-cd24b9d10881@mojatatu.com>
+ <586A9A9F.4030002@gmail.com>
+ <6b671aaf-d35d-70a5-65e0-40308baeb471@mojatatu.com>
+ <20170108171902.GH1971@nanopsycho>
+ <5873D523.4030301@gmail.com>
+ <68e41fe4-5c4c-e159-fbfc-17d06638707d@mojatatu.com>
+ <20170114144855.GA1886@nanopsycho.orion>
+ <de59c019-8a7d-6747-ddc1-9a21f40d3e04@mojatatu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, jiri@mellanox.com,
-        paulb@mellanox.com, john.fastabend@gmail.com,
-        simon.horman@netronome.com, mrv@mojatatu.com, hadarh@mellanox.com,
-        ogerlitz@mellanox.com, roid@mellanox.com, xiyou.wangcong@gmail.com,
-        daniel@iogearbox.net, Jamal Hadi Salim <hadi@mojatatu.com>
+Cc: John Fastabend <john.fastabend@gmail.com>,
+        Paul Blakey <paulb@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        Jiri Pirko <jiri@mellanox.com>,
+        Hadar Hen Zion <hadarh@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Roi Dayan <roid@mellanox.com>, Roman Mashak <mrv@mojatatu.com>,
+        Simon Horman <simon.horman@netronome.com>
 To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:34258 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750909AbdANPWw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 14 Jan 2017 10:22:52 -0500
-Received: by mail-wm0-f68.google.com with SMTP id c85so18860614wmi.1
-        for <netdev@vger.kernel.org>; Sat, 14 Jan 2017 07:22:51 -0800 (PST)
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:35799 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751034AbdANP3o (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 14 Jan 2017 10:29:44 -0500
+Received: by mail-wm0-f65.google.com with SMTP id d140so2596716wmd.2
+        for <netdev@vger.kernel.org>; Sat, 14 Jan 2017 07:29:21 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <1484405958-24591-1-git-send-email-jhs@emojatatu.com>
+In-Reply-To: <de59c019-8a7d-6747-ddc1-9a21f40d3e04@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sat, Jan 14, 2017 at 03:59:18PM CET, jhs@mojatatu.com wrote:
->From: Jamal Hadi Salim <hadi@mojatatu.com>
+Sat, Jan 14, 2017 at 04:03:17PM CET, jhs@mojatatu.com wrote:
+>On 17-01-14 09:48 AM, Jiri Pirko wrote:
+>> Sat, Jan 14, 2017 at 01:56:35PM CET, jhs@mojatatu.com wrote:
 >
->Introduce optional 128-bit action cookie.
->Like all other cookie schemes in the networking world (eg in protocols
->like http or existing kernel fib protocol field, etc) the idea is to save
->user state that when retrieved serves as a correlator. The kernel
->_should not_ intepret it.  The user can store whatever they wish in the
->128 bits.
 >
->Sample exercise(using two 64bit values to represent the 128 bits):
+>> > I think the feature makes a lot of sense (as is the action variant).
+>> > But can we make it:
+>> > a) fixed size
+>> 
+>> Can you elaborate on why is this needed?
+>> 
 >
->.. create an accept action with cookie 0xA:0xa0a0a0a0a0a0a0
->sudo $TC actions add action ok index 1 cookie 0xA 0xa0a0a0a0a0a0a0
+>My experience with the action bits its easier to debug
+>and enforces some discipline to not abuse the amount of RAM used.
+>If you have 1M rules, one extra 128M is easier on the system than
+>a few Gigs.
 
-2x 64bit values? Why can't this have variable length, according to what
-user needs:
+Fair. So could this be done like IFLA_PHYS_SWITCH_ID and
+IFLA_PHYS_PORT_ID. They can have variable size, max is MAX_PHYS_ITEM_ID_LEN
 
-sudo $TC actions add action ok index 1 cookie a0
-sudo $TC actions add action ok index 1 cookie a01122
-sudo $TC actions add action ok index 1 cookie a01122334455
-sudo $TC actions add action ok index 1 cookie a01122334455aabbccddeeff
-
-
->
->.. dump all gact actions..
->sudo $TC -s actions ls action gact
->
->	action order 0: gact action pass
->	 random type none pass val 0
->	 index 1 ref 2 bind 1 installed 1221 sec used 27 sec
-> 	Action statistics:
->	Sent 373248 bytes 5056 pkt (dropped 0, overlimits 0 requeues 0)
->	backlog 0b 0p requeues 0
->	 cookie(0000000a:00000000:a0a0a0a0:00a0a0a0)
-
-Input is 2x64 and dump is 4x32? That is confusing. With my suggested
-example, this would be:
-
-	 cookie a0
-	 cookie a01122
-	 cookie a01122334455
-	 cookie a01122334455aabbccddeeff
+We can let user to pass arbitrary len up to 16 bytes. This has benefit in
+fact that if in future this needs to be extended to say 32 bytes, it is
+backward compatible. We just change the check in kernel.
 
 
 >
->.. bind the accept action to a filter..
->sudo $TC filter add dev lo parent ffff: protocol ip prio 1 \
->u32 match ip dst 127.0.0.1/32 flowid 1:1 action gact index 1
+>> 
+>> > b) apply to all classifiers
+>> > c) please post a usage example via iproute2/tc
+>> > 
+>> > I am going to post the action variant in the next while - will do some more
+>> > testing first.
+>> 
+>> I believe we have to make the cls and ats cookies exactly the same.
+>> 
 >
->... send some traffic..
->$ ping 127.0.0.1 -c 3
->PING 127.0.0.1 (127.0.0.1) 56(84) bytes of data.
->64 bytes from 127.0.0.1: icmp_seq=1 ttl=64 time=0.020 ms
->64 bytes from 127.0.0.1: icmp_seq=2 ttl=64 time=0.027 ms
->64 bytes from 127.0.0.1: icmp_seq=3 ttl=64 time=0.038 ms
+>Probably - they are both needed. See the patch I just posted.
 >
->--- 127.0.0.1 ping statistics ---
->3 packets transmitted, 3 received, 0% packet loss, time 2109ms
->rtt min/avg/max/mdev = 0.020/0.028/0.038/0.008 ms 1
->
->... show some stats
->$ sudo $TC -s actions get  action gact index 1
->
->	action order 1: gact action pass
->	 random type none pass val 0
->	 index 1 ref 3 bind 1 installed 2182 sec used 1 sec
-> 	Action statistics:
->	Sent 700344 bytes 9486 pkt (dropped 0, overlimits 0 requeues 0)
->	backlog 0b 0p requeues 0
->
->Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
->---
-> include/net/act_api.h        |  7 +++++++
-> include/uapi/linux/pkt_cls.h |  7 +++++++
-> net/sched/act_api.c          | 27 +++++++++++++++++++++++++--
-> 3 files changed, 39 insertions(+), 2 deletions(-)
->
->diff --git a/include/net/act_api.h b/include/net/act_api.h
->index 1d71644..b948db9 100644
->--- a/include/net/act_api.h
->+++ b/include/net/act_api.h
->@@ -20,6 +20,12 @@ struct tcf_hashinfo {
-> 
-> struct tc_action_ops;
-> 
->+union act_cookie {
->+	u16 ck16[8];
->+	u32 ck32[4];
->+	u64 ck64[2];
-
-Since this should be never interpreted by kernel, I don't understand why
-this union is needed. Why just don't pass a char array?
-
-Also, whatever format this is, could we make is shared with cls cookie?
-
-
->+};
->+
-> struct tc_action {
-> 	const struct tc_action_ops	*ops;
-> 	__u32				type; /* for backward compat(TCA_OLD_COMPAT) */
->@@ -41,6 +47,7 @@ struct tc_action {
-> 	struct rcu_head			tcfa_rcu;
-> 	struct gnet_stats_basic_cpu __percpu *cpu_bstats;
-> 	struct gnet_stats_queue __percpu *cpu_qstats;
->+	union act_cookie	*ck;
-> };
-> #define tcf_head	common.tcfa_head
-> #define tcf_index	common.tcfa_index
->diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
->index 1e5e1dd..6379af3 100644
->--- a/include/uapi/linux/pkt_cls.h
->+++ b/include/uapi/linux/pkt_cls.h
->@@ -4,6 +4,12 @@
-> #include <linux/types.h>
-> #include <linux/pkt_sched.h>
-> 
->+union u_act_cookie {
->+	__u16 ck16[8];
->+	__u32 ck32[4];
->+	__u64 ck64[2];
->+};
-
-Again, the same struct? I don't understand why twice.
-
-
->+
-> /* Action attributes */
-> enum {
-> 	TCA_ACT_UNSPEC,
->@@ -12,6 +18,7 @@ enum {
-> 	TCA_ACT_INDEX,
-> 	TCA_ACT_STATS,
-> 	TCA_ACT_PAD,
->+	TCA_ACT_COOKIE,
-> 	__TCA_ACT_MAX
-> };
-> 
->diff --git a/net/sched/act_api.c b/net/sched/act_api.c
->index f04715a..85e77181 100644
->--- a/net/sched/act_api.c
->+++ b/net/sched/act_api.c
->@@ -33,6 +33,7 @@ static void free_tcf(struct rcu_head *head)
-> 
-> 	free_percpu(p->cpu_bstats);
-> 	free_percpu(p->cpu_qstats);
->+	kfree(p->ck);
-> 	kfree(p);
-> }
-> 
->@@ -464,8 +465,8 @@ int tcf_action_destroy(struct list_head *actions, int bind)
-> 	return a->ops->dump(skb, a, bind, ref);
-> }
-> 
->-int
->-tcf_action_dump_1(struct sk_buff *skb, struct tc_action *a, int bind, int ref)
->+int tcf_action_dump_1(struct sk_buff *skb, struct tc_action *a, int bind,
->+		      int ref)
-> {
-> 	int err = -EINVAL;
-> 	unsigned char *b = skb_tail_pointer(skb);
->@@ -475,6 +476,12 @@ int tcf_action_destroy(struct list_head *actions, int bind)
-> 		goto nla_put_failure;
-> 	if (tcf_action_copy_stats(skb, a, 0))
-> 		goto nla_put_failure;
->+	if (a->ck) {
->+		if (nla_put(skb, TCA_ACT_COOKIE, sizeof(union act_cookie),
->+			    a->ck))
->+			goto nla_put_failure;
->+	}
->+
-> 	nest = nla_nest_start(skb, TCA_OPTIONS);
-> 	if (nest == NULL)
-> 		goto nla_put_failure;
->@@ -575,6 +582,22 @@ struct tc_action *tcf_action_init_1(struct net *net, struct nlattr *nla,
-> 	if (err < 0)
-> 		goto err_mod;
-> 
->+	if (tb[TCA_ACT_COOKIE]) {
->+		if (nla_len(tb[TCA_ACT_COOKIE]) != sizeof(union act_cookie)) {
->+			err = -EINVAL;
->+			goto err_mod;
->+		}
->+
->+		a->ck = kzalloc(sizeof(union act_cookie), GFP_KERNEL);
->+		if (unlikely(!a->ck)) {
->+			err = -ENOMEM;
->+			goto err_mod;
->+		}
->+
->+		memcpy((void *)a->ck, nla_data(tb[TCA_ACT_COOKIE]),
->+		       sizeof(union act_cookie));
->+	}
->+
-> 	/* module count goes up only when brand new policy is created
-> 	 * if it exists and is only bound to in a_o->init() then
-> 	 * ACT_P_CREATED is not returned (a zero is).
->-- 
->1.9.1
+>cheers,
+>jamal
 >
