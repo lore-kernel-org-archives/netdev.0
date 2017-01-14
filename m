@@ -1,55 +1,30 @@
-From: Shyam Saini <mayhs11saini@gmail.com>
-Subject: [PATCH] cxgb4:  Remove redundant memset before memcpy
-Date: Sat, 14 Jan 2017 06:47:40 +0530
-Message-ID: <1484356660-19082-1-git-send-email-mayhs11saini@gmail.com>
-Cc: tklauser@distanz.ch, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, Shyam Saini <mayhs11saini@gmail.com>
-To: hariprasad@chelsio.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: dsa: mv88e6xxx: add EEPROM support to
+ 6390
+Date: Fri, 13 Jan 2017 20:18:10 -0500 (EST)
+Message-ID: <20170113.201810.1158668449050217504.davem@davemloft.net>
+References: <20170112230716.2083-1-vivien.didelot@savoirfairelinux.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        kernel@savoirfairelinux.com, f.fainelli@gmail.com, andrew@lunn.ch,
+        cphealy@gmail.com, nikita.yoush@cogentembedded.com
+To: vivien.didelot@savoirfairelinux.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170112230716.2083-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The region set by the call to memset, immediately overwritten by
-the subsequent call to memcpy and thus makes the  memset redundant.
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Date: Thu, 12 Jan 2017 18:07:16 -0500
 
-Also remove the memset((&info, 0, sizeof(info)) on line 398 because
-info is memcpy()'ed to before being used in the loop and it isn't
-used outside of the loop.
+> The Marvell 6352 chip has a 8-bit address/16-bit data EEPROM access.
+> The Marvell 6390 chip has a 16-bit address/8-bit data EEPROM access.
+> 
+> This patch implements the 8-bit data EEPROM access in the mv88e6xxx
+> driver and adds its support to chips of the 6390 family.
+> 
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
-Signed-off-by: Shyam Saini <mayhs11saini@gmail.com>
----
- drivers/net/ethernet/chelsio/cxgb4/sched.c | 5 -----
- 1 file changed, 5 deletions(-)
-
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/sched.c b/drivers/net/ethernet/chelsio/cxgb4/sched.c
-index cbd68a8..c902635 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/sched.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/sched.c
-@@ -397,9 +397,6 @@ static struct sched_class *t4_sched_class_lookup(struct port_info *pi,
- 		struct ch_sched_params info;
- 		struct ch_sched_params tp;
- 
--		memset(&info, 0, sizeof(info));
--		memset(&tp, 0, sizeof(tp));
--
- 		memcpy(&tp, p, sizeof(tp));
- 		/* Don't try to match class parameter */
- 		tp.u.params.class = SCHED_CLS_NONE;
-@@ -409,7 +406,6 @@ static struct sched_class *t4_sched_class_lookup(struct port_info *pi,
- 			if (e->state == SCHED_STATE_UNUSED)
- 				continue;
- 
--			memset(&info, 0, sizeof(info));
- 			memcpy(&info, &e->info, sizeof(info));
- 			/* Don't try to match class parameter */
- 			info.u.params.class = SCHED_CLS_NONE;
-@@ -458,7 +454,6 @@ static struct sched_class *t4_sched_class_alloc(struct port_info *pi,
- 		if (!e)
- 			goto out;
- 
--		memset(&np, 0, sizeof(np));
- 		memcpy(&np, p, sizeof(np));
- 		np.u.params.class = e->idx;
- 
--- 
-2.7.4
+Applied.
