@@ -1,29 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/5] bnxt_en: Misc. updates for net-next.
-Date: Fri, 13 Jan 2017 23:22:08 -0500 (EST)
-Message-ID: <20170113.232208.907719708717551594.davem@davemloft.net>
-References: <1484289124-28853-1-git-send-email-michael.chan@broadcom.com>
+Subject: Re: [PATCH net-next] cxgb4: Fix misleading packet/frame count
+ stats.
+Date: Fri, 13 Jan 2017 23:35:58 -0500 (EST)
+Message-ID: <20170113.233558.449344643002793694.davem@davemloft.net>
+References: <1484299000-7586-1-git-send-email-ganeshgr@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: michael.chan@broadcom.com
+Cc: netdev@vger.kernel.org, nirranjan@chelsio.com,
+        hariprasad@chelsio.com, leedom@chelsio.com
+To: ganeshgr@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:35392 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:35516 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750913AbdANEW7 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 23:22:59 -0500
-In-Reply-To: <1484289124-28853-1-git-send-email-michael.chan@broadcom.com>
+        with ESMTP id S1751086AbdANEgA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Fri, 13 Jan 2017 23:36:00 -0500
+In-Reply-To: <1484299000-7586-1-git-send-email-ganeshgr@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michael Chan <michael.chan@broadcom.com>
-Date: Fri, 13 Jan 2017 01:31:59 -0500
+From: Ganesh Goudar <ganeshgr@chelsio.com>
+Date: Fri, 13 Jan 2017 14:46:40 +0530
 
-> Miscellaneous updates including firmware spec update, ethtool -p blinking
-> LED support, RDMA SRIOV config callback, and minor fixes.
+> Do not count pause frames as part of general TX/RX frame
+> counters.
 > 
-> v2: Dropped the DCBX RoCE app TLV patch until the ETH_P_IBOE RDMA patch
-> is merged.
+> Based on the original work of Casey Leedom <leedom@chelsio.com>
+> Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
 
-Series applied, thanks.
+Applied.
