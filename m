@@ -1,7 +1,7 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v3 10/10] ARM: orion: Register DSA switch as a MDIO device
-Date: Sat, 14 Jan 2017 13:47:13 -0800
-Message-ID: <20170114214713.28109-11-f.fainelli@gmail.com>
+Subject: [PATCH net-next v3 09/10] net: phy: Allow pre-declaration of MDIO devices
+Date: Sat, 14 Jan 2017 13:47:12 -0800
+Message-ID: <20170114214713.28109-10-f.fainelli@gmail.com>
 References: <20170114214713.28109-1-f.fainelli@gmail.com>
 Cc: Florian Fainelli <f.fainelli@gmail.com>,
         Jason Cooper <jason@lakedaemon.net>,
@@ -20,246 +20,270 @@ In-Reply-To: <20170114214713.28109-1-f.fainelli@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Utilize the ability to pass board specific MDIO bus information towards a
-particular MDIO device thus allowing us to provide the per-port switch layout
-to the Marvell 88E6XXX switch driver.
-
-Since we would end-up with conflicting registration paths, do not register the
-"dsa" platform device anymore.
-
-Note that the MDIO devices registered by code in net/dsa/dsa2.c does not
-parse a dsa_platform_data, but directly take a dsa_chip_data (specific
-to a single switch chip), so we update the different call sites to pass
-this structure down to orion_ge00_switch_init().
+Allow board support code to collect pre-declarations for MDIO devices by
+registering them with mdiobus_register_board_info(). SPI and I2C buses
+have a similar feature, we were missing this for MDIO devices, but this
+is particularly useful for e.g: MDIO-connected switches which need to
+provide their port layout (often board-specific) to a MDIO Ethernet
+switch driver.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- arch/arm/mach-orion5x/common.c               |  2 +-
- arch/arm/mach-orion5x/common.h               |  4 ++--
- arch/arm/mach-orion5x/rd88f5181l-fxo-setup.c |  7 +------
- arch/arm/mach-orion5x/rd88f5181l-ge-setup.c  |  7 +------
- arch/arm/mach-orion5x/rd88f6183ap-ge-setup.c |  7 +------
- arch/arm/mach-orion5x/wnr854t-setup.c        |  2 +-
- arch/arm/mach-orion5x/wrt350n-v2-setup.c     |  7 +------
- arch/arm/plat-orion/common.c                 | 25 +++++++++++++++++++------
- arch/arm/plat-orion/include/plat/common.h    |  4 ++--
- 9 files changed, 29 insertions(+), 36 deletions(-)
+ drivers/net/phy/Makefile         |  3 +-
+ drivers/net/phy/mdio-boardinfo.c | 86 ++++++++++++++++++++++++++++++++++++++++
+ drivers/net/phy/mdio-boardinfo.h | 19 +++++++++
+ drivers/net/phy/mdio_bus.c       |  4 ++
+ drivers/net/phy/mdio_device.c    | 11 +++++
+ include/linux/mdio.h             |  3 ++
+ include/linux/mod_devicetable.h  |  1 +
+ include/linux/phy.h              | 19 +++++++++
+ 8 files changed, 145 insertions(+), 1 deletion(-)
+ create mode 100644 drivers/net/phy/mdio-boardinfo.c
+ create mode 100644 drivers/net/phy/mdio-boardinfo.h
 
-diff --git a/arch/arm/mach-orion5x/common.c b/arch/arm/mach-orion5x/common.c
-index 04910764c385..83a7ec4c16d0 100644
---- a/arch/arm/mach-orion5x/common.c
-+++ b/arch/arm/mach-orion5x/common.c
-@@ -105,7 +105,7 @@ void __init orion5x_eth_init(struct mv643xx_eth_platform_data *eth_data)
- /*****************************************************************************
-  * Ethernet switch
-  ****************************************************************************/
--void __init orion5x_eth_switch_init(struct dsa_platform_data *d)
-+void __init orion5x_eth_switch_init(struct dsa_chip_data *d)
- {
- 	orion_ge00_switch_init(d);
- }
-diff --git a/arch/arm/mach-orion5x/common.h b/arch/arm/mach-orion5x/common.h
-index 8a4115bd441d..efeffc6b4ebb 100644
---- a/arch/arm/mach-orion5x/common.h
-+++ b/arch/arm/mach-orion5x/common.h
-@@ -3,7 +3,7 @@
+diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
+index 356859ac7c18..407b0b601ea8 100644
+--- a/drivers/net/phy/Makefile
++++ b/drivers/net/phy/Makefile
+@@ -1,6 +1,7 @@
+ # Makefile for Linux PHY drivers and MDIO bus drivers
  
- #include <linux/reboot.h>
+-libphy-y			:= phy.o phy_device.o mdio_bus.o mdio_device.o
++libphy-y			:= phy.o phy_device.o mdio_bus.o mdio_device.o \
++				   mdio-boardinfo.o
+ libphy-$(CONFIG_SWPHY)		+= swphy.o
+ libphy-$(CONFIG_LED_TRIGGER_PHY)	+= phy_led_triggers.o
  
--struct dsa_platform_data;
-+struct dsa_chip_data;
- struct mv643xx_eth_platform_data;
- struct mv_sata_platform_data;
- 
-@@ -41,7 +41,7 @@ void orion5x_setup_wins(void);
- void orion5x_ehci0_init(void);
- void orion5x_ehci1_init(void);
- void orion5x_eth_init(struct mv643xx_eth_platform_data *eth_data);
--void orion5x_eth_switch_init(struct dsa_platform_data *d);
-+void orion5x_eth_switch_init(struct dsa_chip_data *d);
- void orion5x_i2c_init(void);
- void orion5x_sata_init(struct mv_sata_platform_data *sata_data);
- void orion5x_spi_init(void);
-diff --git a/arch/arm/mach-orion5x/rd88f5181l-fxo-setup.c b/arch/arm/mach-orion5x/rd88f5181l-fxo-setup.c
-index dccadf68ea2b..a3c1336d30c9 100644
---- a/arch/arm/mach-orion5x/rd88f5181l-fxo-setup.c
-+++ b/arch/arm/mach-orion5x/rd88f5181l-fxo-setup.c
-@@ -101,11 +101,6 @@ static struct dsa_chip_data rd88f5181l_fxo_switch_chip_data = {
- 	.port_names[7]	= "lan3",
- };
- 
--static struct dsa_platform_data __initdata rd88f5181l_fxo_switch_plat_data = {
--	.nr_chips	= 1,
--	.chip		= &rd88f5181l_fxo_switch_chip_data,
--};
--
- static void __init rd88f5181l_fxo_init(void)
- {
- 	/*
-@@ -120,7 +115,7 @@ static void __init rd88f5181l_fxo_init(void)
- 	 */
- 	orion5x_ehci0_init();
- 	orion5x_eth_init(&rd88f5181l_fxo_eth_data);
--	orion5x_eth_switch_init(&rd88f5181l_fxo_switch_plat_data);
-+	orion5x_eth_switch_init(&rd88f5181l_fxo_switch_chip_data);
- 	orion5x_uart0_init();
- 
- 	mvebu_mbus_add_window_by_id(ORION_MBUS_DEVBUS_BOOT_TARGET,
-diff --git a/arch/arm/mach-orion5x/rd88f5181l-ge-setup.c b/arch/arm/mach-orion5x/rd88f5181l-ge-setup.c
-index affe5ec825de..252efe29bd1a 100644
---- a/arch/arm/mach-orion5x/rd88f5181l-ge-setup.c
-+++ b/arch/arm/mach-orion5x/rd88f5181l-ge-setup.c
-@@ -102,11 +102,6 @@ static struct dsa_chip_data rd88f5181l_ge_switch_chip_data = {
- 	.port_names[7]	= "lan3",
- };
- 
--static struct dsa_platform_data __initdata rd88f5181l_ge_switch_plat_data = {
--	.nr_chips	= 1,
--	.chip		= &rd88f5181l_ge_switch_chip_data,
--};
--
- static struct i2c_board_info __initdata rd88f5181l_ge_i2c_rtc = {
- 	I2C_BOARD_INFO("ds1338", 0x68),
- };
-@@ -125,7 +120,7 @@ static void __init rd88f5181l_ge_init(void)
- 	 */
- 	orion5x_ehci0_init();
- 	orion5x_eth_init(&rd88f5181l_ge_eth_data);
--	orion5x_eth_switch_init(&rd88f5181l_ge_switch_plat_data);
-+	orion5x_eth_switch_init(&rd88f5181l_ge_switch_chip_data);
- 	orion5x_i2c_init();
- 	orion5x_uart0_init();
- 
-diff --git a/arch/arm/mach-orion5x/rd88f6183ap-ge-setup.c b/arch/arm/mach-orion5x/rd88f6183ap-ge-setup.c
-index 67ee8571b03c..f4f1dbe1d91d 100644
---- a/arch/arm/mach-orion5x/rd88f6183ap-ge-setup.c
-+++ b/arch/arm/mach-orion5x/rd88f6183ap-ge-setup.c
-@@ -40,11 +40,6 @@ static struct dsa_chip_data rd88f6183ap_ge_switch_chip_data = {
- 	.port_names[5]	= "cpu",
- };
- 
--static struct dsa_platform_data __initdata rd88f6183ap_ge_switch_plat_data = {
--	.nr_chips	= 1,
--	.chip		= &rd88f6183ap_ge_switch_chip_data,
--};
--
- static struct mtd_partition rd88f6183ap_ge_partitions[] = {
- 	{
- 		.name	= "kernel",
-@@ -89,7 +84,7 @@ static void __init rd88f6183ap_ge_init(void)
- 	 */
- 	orion5x_ehci0_init();
- 	orion5x_eth_init(&rd88f6183ap_ge_eth_data);
--	orion5x_eth_switch_init(&rd88f6183ap_ge_switch_plat_data);
-+	orion5x_eth_switch_init(&rd88f6183ap_ge_switch_chip_data);
- 	spi_register_board_info(rd88f6183ap_ge_spi_slave_info,
- 				ARRAY_SIZE(rd88f6183ap_ge_spi_slave_info));
- 	orion5x_spi_init();
-diff --git a/arch/arm/mach-orion5x/wnr854t-setup.c b/arch/arm/mach-orion5x/wnr854t-setup.c
-index 4dbcdbe1de7c..ac3376fc269f 100644
---- a/arch/arm/mach-orion5x/wnr854t-setup.c
-+++ b/arch/arm/mach-orion5x/wnr854t-setup.c
-@@ -124,7 +124,7 @@ static void __init wnr854t_init(void)
- 	 * Configure peripherals.
- 	 */
- 	orion5x_eth_init(&wnr854t_eth_data);
--	orion5x_eth_switch_init(&wnr854t_switch_plat_data);
-+	orion5x_eth_switch_init(&wnr854t_switch_chip_data);
- 	orion5x_uart0_init();
- 
- 	mvebu_mbus_add_window_by_id(ORION_MBUS_DEVBUS_BOOT_TARGET,
-diff --git a/arch/arm/mach-orion5x/wrt350n-v2-setup.c b/arch/arm/mach-orion5x/wrt350n-v2-setup.c
-index a6a8c4648d74..9250bb2e429c 100644
---- a/arch/arm/mach-orion5x/wrt350n-v2-setup.c
-+++ b/arch/arm/mach-orion5x/wrt350n-v2-setup.c
-@@ -191,11 +191,6 @@ static struct dsa_chip_data wrt350n_v2_switch_chip_data = {
- 	.port_names[7]	= "lan4",
- };
- 
--static struct dsa_platform_data __initdata wrt350n_v2_switch_plat_data = {
--	.nr_chips	= 1,
--	.chip		= &wrt350n_v2_switch_chip_data,
--};
--
- static void __init wrt350n_v2_init(void)
- {
- 	/*
-@@ -210,7 +205,7 @@ static void __init wrt350n_v2_init(void)
- 	 */
- 	orion5x_ehci0_init();
- 	orion5x_eth_init(&wrt350n_v2_eth_data);
--	orion5x_eth_switch_init(&wrt350n_v2_switch_plat_data);
-+	orion5x_eth_switch_init(&wrt350n_v2_switch_chip_data);
- 	orion5x_uart0_init();
- 
- 	mvebu_mbus_add_window_by_id(ORION_MBUS_DEVBUS_BOOT_TARGET,
-diff --git a/arch/arm/plat-orion/common.c b/arch/arm/plat-orion/common.c
-index 272f49b2c68f..9255b6d67ba5 100644
---- a/arch/arm/plat-orion/common.c
-+++ b/arch/arm/plat-orion/common.c
-@@ -22,6 +22,7 @@
- #include <linux/platform_data/dma-mv_xor.h>
- #include <linux/platform_data/usb-ehci-orion.h>
- #include <plat/common.h>
-+#include <linux/phy.h>
- 
- /* Create a clkdev entry for a given device/clk */
- void __init orion_clkdev_add(const char *con_id, const char *dev_id,
-@@ -470,15 +471,27 @@ void __init orion_ge11_init(struct mv643xx_eth_platform_data *eth_data,
- /*****************************************************************************
-  * Ethernet switch
-  ****************************************************************************/
--void __init orion_ge00_switch_init(struct dsa_platform_data *d)
-+static __initconst const char *orion_ge00_mvmdio_bus_name = "orion-mii";
-+static __initdata struct mdio_board_info
-+		  orion_ge00_switch_board_info;
+diff --git a/drivers/net/phy/mdio-boardinfo.c b/drivers/net/phy/mdio-boardinfo.c
+new file mode 100644
+index 000000000000..6b988f77da08
+--- /dev/null
++++ b/drivers/net/phy/mdio-boardinfo.c
+@@ -0,0 +1,86 @@
++/*
++ * mdio-boardinfo - Collect pre-declarations for MDIO devices
++ *
++ * This program is free software; you can redistribute  it and/or modify it
++ * under  the terms of  the GNU General  Public License as published by the
++ * Free Software Foundation;  either version 2 of the  License, or (at your
++ * option) any later version.
++ */
 +
-+void __init orion_ge00_switch_init(struct dsa_chip_data *d)
- {
--	int i;
-+	struct mdio_board_info *bd;
++#include <linux/kernel.h>
++#include <linux/slab.h>
++#include <linux/export.h>
++#include <linux/mutex.h>
++#include <linux/list.h>
++
++#include "mdio-boardinfo.h"
++
++static LIST_HEAD(mdio_board_list);
++static DEFINE_MUTEX(mdio_board_lock);
++
++/**
++ * mdiobus_setup_mdiodev_from_board_info - create and setup MDIO devices
++ * from pre-collected board specific MDIO information
++ * @mdiodev: MDIO device pointer
++ * Context: can sleep
++ */
++void mdiobus_setup_mdiodev_from_board_info(struct mii_bus *bus)
++{
++	struct mdio_board_entry *be;
++	struct mdio_device *mdiodev;
++	struct mdio_board_info *bi;
++	int ret;
++
++	mutex_lock(&mdio_board_lock);
++	list_for_each_entry(be, &mdio_board_list, list) {
++		bi = &be->board_info;
++
++		if (strcmp(bus->id, bi->bus_id))
++			continue;
++
++		mdiodev = mdio_device_create(bus, bi->mdio_addr);
++		if (IS_ERR(mdiodev))
++			continue;
++
++		strncpy(mdiodev->modalias, bi->modalias,
++			sizeof(mdiodev->modalias));
++		mdiodev->bus_match = mdio_device_bus_match;
++		mdiodev->dev.platform_data = (void *)bi->platform_data;
++
++		ret = mdio_device_register(mdiodev);
++		if (ret) {
++			mdio_device_free(mdiodev);
++			continue;
++		}
++	}
++	mutex_unlock(&mdio_board_lock);
++}
++
++/**
++ * mdio_register_board_info - register MDIO devices for a given board
++ * @info: array of devices descriptors
++ * @n: number of descriptors provided
++ * Context: can sleep
++ *
++ * The board info passed can be marked with __initdata but be pointers
++ * such as platform_data etc. are copied as-is
++ */
++int mdiobus_register_board_info(const struct mdio_board_info *info,
++				unsigned int n)
++{
++	struct mdio_board_entry *be;
 +	unsigned int i;
 +
-+	for (i = 0; i < ARRAY_SIZE(d->port_names); i++)
-+		if (!strcmp(d->port_names[i], "cpu"))
-+			break;
++	be = kcalloc(n, sizeof(*be), GFP_KERNEL);
++	if (!be)
++		return -ENOMEM;
++
++	for (i = 0; i < n; i++, be++, info++) {
++		memcpy(&be->board_info, info, sizeof(*info));
++		mutex_lock(&mdio_board_lock);
++		list_add_tail(&be->list, &mdio_board_list);
++		mutex_unlock(&mdio_board_lock);
++	}
++
++	return 0;
++}
+diff --git a/drivers/net/phy/mdio-boardinfo.h b/drivers/net/phy/mdio-boardinfo.h
+new file mode 100644
+index 000000000000..00f98163e90e
+--- /dev/null
++++ b/drivers/net/phy/mdio-boardinfo.h
+@@ -0,0 +1,19 @@
++/*
++ * mdio-boardinfo.h - board info interface internal to the mdio_bus
++ * component
++ */
++
++#ifndef __MDIO_BOARD_INFO_H
++#define __MDIO_BOARD_INFO_H
++
++#include <linux/phy.h>
++#include <linux/mutex.h>
++
++struct mdio_board_entry {
++	struct list_head	list;
++	struct mdio_board_info	board_info;
++};
++
++void mdiobus_setup_mdiodev_from_board_info(struct mii_bus *bus);
++
++#endif /* __MDIO_BOARD_INFO_H */
+diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
+index 653d076eafe5..fa7d51f14869 100644
+--- a/drivers/net/phy/mdio_bus.c
++++ b/drivers/net/phy/mdio_bus.c
+@@ -41,6 +41,8 @@
+ #define CREATE_TRACE_POINTS
+ #include <trace/events/mdio.h>
  
--	d->netdev = &orion_ge00.dev;
--	for (i = 0; i < d->nr_chips; i++)
--		d->chip[i].host_dev = &orion_ge_mvmdio.dev;
-+	bd = &orion_ge00_switch_board_info;
-+	bd->bus_id = orion_ge00_mvmdio_bus_name;
-+	bd->mdio_addr = d->sw_addr;
-+	d->netdev[i] = &orion_ge00.dev;
-+	strcpy(bd->modalias, "mv88e6085");
-+	bd->platform_data = d;
++#include "mdio-boardinfo.h"
++
+ int mdiobus_register_device(struct mdio_device *mdiodev)
+ {
+ 	if (mdiodev->bus->mdio_map[mdiodev->addr])
+@@ -343,6 +345,8 @@ int __mdiobus_register(struct mii_bus *bus, struct module *owner)
+ 		}
+ 	}
  
--	platform_device_register_data(NULL, "dsa", 0, d, sizeof(d));
-+	mdiobus_register_board_info(&orion_ge00_switch_board_info, 1);
++	mdiobus_setup_mdiodev_from_board_info(bus);
++
+ 	bus->state = MDIOBUS_REGISTERED;
+ 	pr_info("%s: probed\n", bus->name);
+ 	return 0;
+diff --git a/drivers/net/phy/mdio_device.c b/drivers/net/phy/mdio_device.c
+index fc3aaaa36b1d..e24f28924af8 100644
+--- a/drivers/net/phy/mdio_device.c
++++ b/drivers/net/phy/mdio_device.c
+@@ -34,6 +34,17 @@ static void mdio_device_release(struct device *dev)
+ 	kfree(to_mdio_device(dev));
  }
  
- /*****************************************************************************
-diff --git a/arch/arm/plat-orion/include/plat/common.h b/arch/arm/plat-orion/include/plat/common.h
-index 9347f3c58a6d..3647d3b33c20 100644
---- a/arch/arm/plat-orion/include/plat/common.h
-+++ b/arch/arm/plat-orion/include/plat/common.h
-@@ -12,7 +12,7 @@
- #include <linux/mv643xx_eth.h>
- #include <linux/platform_data/usb-ehci-orion.h>
++int mdio_device_bus_match(struct device *dev, struct device_driver *drv)
++{
++	struct mdio_device *mdiodev = to_mdio_device(dev);
++	struct mdio_driver *mdiodrv = to_mdio_driver(drv);
++
++	if (mdiodrv->mdiodrv.flags & MDIO_DEVICE_IS_PHY)
++		return 0;
++
++	return strcmp(mdiodev->modalias, drv->name) == 0;
++}
++
+ struct mdio_device *mdio_device_create(struct mii_bus *bus, int addr)
+ {
+ 	struct mdio_device *mdiodev;
+diff --git a/include/linux/mdio.h b/include/linux/mdio.h
+index b6587a4b32e7..00a7f43c1482 100644
+--- a/include/linux/mdio.h
++++ b/include/linux/mdio.h
+@@ -10,6 +10,7 @@
+ #define __LINUX_MDIO_H__
  
--struct dsa_platform_data;
-+struct dsa_chip_data;
- struct mv_sata_platform_data;
+ #include <uapi/linux/mdio.h>
++#include <linux/mod_devicetable.h>
  
- void __init orion_uart0_init(void __iomem *membase,
-@@ -57,7 +57,7 @@ void __init orion_ge11_init(struct mv643xx_eth_platform_data *eth_data,
- 			    unsigned long mapbase,
- 			    unsigned long irq);
+ struct mii_bus;
  
--void __init orion_ge00_switch_init(struct dsa_platform_data *d);
-+void __init orion_ge00_switch_init(struct dsa_chip_data *d);
+@@ -29,6 +30,7 @@ struct mdio_device {
  
- void __init orion_i2c_init(unsigned long mapbase,
- 			   unsigned long irq,
+ 	const struct dev_pm_ops *pm_ops;
+ 	struct mii_bus *bus;
++	char modalias[MDIO_NAME_SIZE];
+ 
+ 	int (*bus_match)(struct device *dev, struct device_driver *drv);
+ 	void (*device_free)(struct mdio_device *mdiodev);
+@@ -71,6 +73,7 @@ int mdio_device_register(struct mdio_device *mdiodev);
+ void mdio_device_remove(struct mdio_device *mdiodev);
+ int mdio_driver_register(struct mdio_driver *drv);
+ void mdio_driver_unregister(struct mdio_driver *drv);
++int mdio_device_bus_match(struct device *dev, struct device_driver *drv);
+ 
+ static inline bool mdio_phy_id_is_c45(int phy_id)
+ {
+diff --git a/include/linux/mod_devicetable.h b/include/linux/mod_devicetable.h
+index 8a57f0b1242d..8850fcaf50db 100644
+--- a/include/linux/mod_devicetable.h
++++ b/include/linux/mod_devicetable.h
+@@ -501,6 +501,7 @@ struct platform_device_id {
+ 	kernel_ulong_t driver_data;
+ };
+ 
++#define MDIO_NAME_SIZE		32
+ #define MDIO_MODULE_PREFIX	"mdio:"
+ 
+ #define MDIO_ID_FMT "%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d"
+diff --git a/include/linux/phy.h b/include/linux/phy.h
+index f7d95f644eed..7745f7391d3e 100644
+--- a/include/linux/phy.h
++++ b/include/linux/phy.h
+@@ -882,6 +882,25 @@ void mdio_bus_exit(void);
+ 
+ extern struct bus_type mdio_bus_type;
+ 
++struct mdio_board_info {
++	const char	*bus_id;
++	char		modalias[MDIO_NAME_SIZE];
++	int		mdio_addr;
++	const void	*platform_data;
++};
++
++#if IS_ENABLED(CONFIG_PHYLIB)
++int mdiobus_register_board_info(const struct mdio_board_info *info,
++				unsigned int n);
++#else
++static inline int mdiobus_register_board_info(const struct mdio_board_info *i,
++					      unsigned int n)
++{
++	return 0;
++}
++#endif
++
++
+ /**
+  * module_phy_driver() - Helper macro for registering PHY drivers
+  * @__phy_drivers: array of PHY drivers to register
 -- 
 2.9.3
