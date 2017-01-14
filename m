@@ -1,114 +1,169 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: [PATCH resend iproute2 1/1] utils: make hex2mem available to all users
-Date: Sat, 14 Jan 2017 17:10:06 -0500
-Message-ID: <1484431806-31969-1-git-send-email-jhs@emojatatu.com>
-Cc: netdev@vger.kernel.org, Jamal Hadi Salim <jhs@mojatatu.com>
-To: stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f67.google.com ([209.85.214.67]:36159 "EHLO
-        mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750702AbdANWR6 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 14 Jan 2017 17:17:58 -0500
-Received: by mail-it0-f67.google.com with SMTP id o138so8706448ito.3
-        for <netdev@vger.kernel.org>; Sat, 14 Jan 2017 14:17:57 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH] net: marvell: sky2: use new api ethtool_{get|set}_link_ksettings
+Date: Sat, 14 Jan 2017 23:26:22 +0100
+Message-ID: <1484432782-1175-1-git-send-email-tremyfr@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Philippe Reynes <tremyfr@gmail.com>
+To: mlindner@marvell.com, stephen@networkplumber.org,
+        davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jamal Hadi Salim <jhs@mojatatu.com>
+The ethtool api {get|set}_settings is deprecated.
+We move this driver to new api {get|set}_link_ksettings.
 
-hex2mem() api is useful for parsing hexstrings which are then packed in
-a stream of chars.
-
-Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
 ---
- include/utils.h |  1 +
- ip/ipl2tp.c     | 25 -------------------------
- lib/utils.c     | 25 +++++++++++++++++++++++++
- 3 files changed, 26 insertions(+), 25 deletions(-)
+ drivers/net/ethernet/marvell/sky2.c |   68 ++++++++++++++++++++--------------
+ 1 files changed, 40 insertions(+), 28 deletions(-)
 
-diff --git a/include/utils.h b/include/utils.h
-index dc1d6b9..22369e0 100644
---- a/include/utils.h
-+++ b/include/utils.h
-@@ -118,6 +118,7 @@ int get_be32(__be32 *val, const char *arg, int base);
- int get_be16(__be16 *val, const char *arg, int base);
- int get_addr64(__u64 *ap, const char *cp);
- 
-+int hex2mem(const char *buf, uint8_t *mem, int count);
- char *hexstring_n2a(const __u8 *str, int len, char *buf, int blen);
- __u8 *hexstring_a2n(const char *str, __u8 *buf, int blen, unsigned int *len);
- #define ADDR64_BUF_SIZE sizeof("xxxx:xxxx:xxxx:xxxx")
-diff --git a/ip/ipl2tp.c b/ip/ipl2tp.c
-index 0f91aeb..88664c9 100644
---- a/ip/ipl2tp.c
-+++ b/ip/ipl2tp.c
-@@ -485,31 +485,6 @@ static int get_tunnel(struct l2tp_data *p)
-  * Command parser
-  *****************************************************************************/
- 
--static int hex2mem(const char *buf, uint8_t *mem, int count)
--{
--	int i, j;
--	int c;
--
--	for (i = 0, j = 0; i < count; i++, j += 2) {
--		c = get_hex(buf[j]);
--		if (c < 0)
--			goto err;
--
--		mem[i] = c << 4;
--
--		c = get_hex(buf[j + 1]);
--		if (c < 0)
--			goto err;
--
--		mem[i] |= c;
--	}
--
--	return 0;
--
--err:
--	return -1;
--}
--
- static void usage(void) __attribute__((noreturn));
- 
- static void usage(void)
-diff --git a/lib/utils.c b/lib/utils.c
-index 83c9d09..870c4f1 100644
---- a/lib/utils.c
-+++ b/lib/utils.c
-@@ -962,6 +962,31 @@ __u8 *hexstring_a2n(const char *str, __u8 *buf, int blen, unsigned int *len)
- 	return buf;
+diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethernet/marvell/sky2.c
+index 18d6336..be003c5 100644
+--- a/drivers/net/ethernet/marvell/sky2.c
++++ b/drivers/net/ethernet/marvell/sky2.c
+@@ -3589,47 +3589,59 @@ static u32 sky2_supported_modes(const struct sky2_hw *hw)
+ 			| SUPPORTED_1000baseT_Full;
  }
  
-+int hex2mem(const char *buf, uint8_t *mem, int count)
-+{
-+	int i, j;
-+	int c;
-+
-+	for (i = 0, j = 0; i < count; i++, j += 2) {
-+		c = get_hex(buf[j]);
-+		if (c < 0)
-+			goto err;
-+
-+		mem[i] = c << 4;
-+
-+		c = get_hex(buf[j + 1]);
-+		if (c < 0)
-+			goto err;
-+
-+		mem[i] |= c;
-+	}
-+
-+	return 0;
-+
-+err:
-+	return -1;
-+}
-+
- int addr64_n2a(__u64 addr, char *buff, size_t len)
+-static int sky2_get_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
++static int sky2_get_link_ksettings(struct net_device *dev,
++				   struct ethtool_link_ksettings *cmd)
  {
- 	__u16 *words = (__u16 *)&addr;
+ 	struct sky2_port *sky2 = netdev_priv(dev);
+ 	struct sky2_hw *hw = sky2->hw;
++	u32 supported, advertising;
+ 
+-	ecmd->transceiver = XCVR_INTERNAL;
+-	ecmd->supported = sky2_supported_modes(hw);
+-	ecmd->phy_address = PHY_ADDR_MARV;
++	supported = sky2_supported_modes(hw);
++	cmd->base.phy_address = PHY_ADDR_MARV;
+ 	if (sky2_is_copper(hw)) {
+-		ecmd->port = PORT_TP;
+-		ethtool_cmd_speed_set(ecmd, sky2->speed);
+-		ecmd->supported |=  SUPPORTED_Autoneg | SUPPORTED_TP;
++		cmd->base.port = PORT_TP;
++		cmd->base.speed = sky2->speed;
++		supported |=  SUPPORTED_Autoneg | SUPPORTED_TP;
+ 	} else {
+-		ethtool_cmd_speed_set(ecmd, SPEED_1000);
+-		ecmd->port = PORT_FIBRE;
+-		ecmd->supported |=  SUPPORTED_Autoneg | SUPPORTED_FIBRE;
++		cmd->base.speed = SPEED_1000;
++		cmd->base.port = PORT_FIBRE;
++		supported |=  SUPPORTED_Autoneg | SUPPORTED_FIBRE;
+ 	}
+ 
+-	ecmd->advertising = sky2->advertising;
+-	ecmd->autoneg = (sky2->flags & SKY2_FLAG_AUTO_SPEED)
++	advertising = sky2->advertising;
++	cmd->base.autoneg = (sky2->flags & SKY2_FLAG_AUTO_SPEED)
+ 		? AUTONEG_ENABLE : AUTONEG_DISABLE;
+-	ecmd->duplex = sky2->duplex;
++	cmd->base.duplex = sky2->duplex;
++
++	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.supported,
++						supported);
++	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.advertising,
++						advertising);
++
+ 	return 0;
+ }
+ 
+-static int sky2_set_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
++static int sky2_set_link_ksettings(struct net_device *dev,
++				   const struct ethtool_link_ksettings *cmd)
+ {
+ 	struct sky2_port *sky2 = netdev_priv(dev);
+ 	const struct sky2_hw *hw = sky2->hw;
+ 	u32 supported = sky2_supported_modes(hw);
++	u32 new_advertising;
++
++	ethtool_convert_link_mode_to_legacy_u32(&new_advertising,
++						cmd->link_modes.advertising);
+ 
+-	if (ecmd->autoneg == AUTONEG_ENABLE) {
+-		if (ecmd->advertising & ~supported)
++	if (cmd->base.autoneg == AUTONEG_ENABLE) {
++		if (new_advertising & ~supported)
+ 			return -EINVAL;
+ 
+ 		if (sky2_is_copper(hw))
+-			sky2->advertising = ecmd->advertising |
++			sky2->advertising = new_advertising |
+ 					    ADVERTISED_TP |
+ 					    ADVERTISED_Autoneg;
+ 		else
+-			sky2->advertising = ecmd->advertising |
++			sky2->advertising = new_advertising |
+ 					    ADVERTISED_FIBRE |
+ 					    ADVERTISED_Autoneg;
+ 
+@@ -3638,30 +3650,30 @@ static int sky2_set_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
+ 		sky2->speed = -1;
+ 	} else {
+ 		u32 setting;
+-		u32 speed = ethtool_cmd_speed(ecmd);
++		u32 speed = cmd->base.speed;
+ 
+ 		switch (speed) {
+ 		case SPEED_1000:
+-			if (ecmd->duplex == DUPLEX_FULL)
++			if (cmd->base.duplex == DUPLEX_FULL)
+ 				setting = SUPPORTED_1000baseT_Full;
+-			else if (ecmd->duplex == DUPLEX_HALF)
++			else if (cmd->base.duplex == DUPLEX_HALF)
+ 				setting = SUPPORTED_1000baseT_Half;
+ 			else
+ 				return -EINVAL;
+ 			break;
+ 		case SPEED_100:
+-			if (ecmd->duplex == DUPLEX_FULL)
++			if (cmd->base.duplex == DUPLEX_FULL)
+ 				setting = SUPPORTED_100baseT_Full;
+-			else if (ecmd->duplex == DUPLEX_HALF)
++			else if (cmd->base.duplex == DUPLEX_HALF)
+ 				setting = SUPPORTED_100baseT_Half;
+ 			else
+ 				return -EINVAL;
+ 			break;
+ 
+ 		case SPEED_10:
+-			if (ecmd->duplex == DUPLEX_FULL)
++			if (cmd->base.duplex == DUPLEX_FULL)
+ 				setting = SUPPORTED_10baseT_Full;
+-			else if (ecmd->duplex == DUPLEX_HALF)
++			else if (cmd->base.duplex == DUPLEX_HALF)
+ 				setting = SUPPORTED_10baseT_Half;
+ 			else
+ 				return -EINVAL;
+@@ -3674,7 +3686,7 @@ static int sky2_set_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
+ 			return -EINVAL;
+ 
+ 		sky2->speed = speed;
+-		sky2->duplex = ecmd->duplex;
++		sky2->duplex = cmd->base.duplex;
+ 		sky2->flags &= ~SKY2_FLAG_AUTO_SPEED;
+ 	}
+ 
+@@ -4405,8 +4417,6 @@ static int sky2_set_features(struct net_device *dev, netdev_features_t features)
+ }
+ 
+ static const struct ethtool_ops sky2_ethtool_ops = {
+-	.get_settings	= sky2_get_settings,
+-	.set_settings	= sky2_set_settings,
+ 	.get_drvinfo	= sky2_get_drvinfo,
+ 	.get_wol	= sky2_get_wol,
+ 	.set_wol	= sky2_set_wol,
+@@ -4429,6 +4439,8 @@ static int sky2_set_features(struct net_device *dev, netdev_features_t features)
+ 	.set_phys_id	= sky2_set_phys_id,
+ 	.get_sset_count = sky2_get_sset_count,
+ 	.get_ethtool_stats = sky2_get_ethtool_stats,
++	.get_link_ksettings = sky2_get_link_ksettings,
++	.set_link_ksettings = sky2_set_link_ksettings,
+ };
+ 
+ #ifdef CONFIG_SKY2_DEBUG
 -- 
-1.9.1
+1.7.4.4
