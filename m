@@ -1,105 +1,194 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v3 07/10] net: Relocate dev_to_net_device() into core
-Date: Sat, 14 Jan 2017 13:47:10 -0800
-Message-ID: <20170114214713.28109-8-f.fainelli@gmail.com>
-References: <20170114214713.28109-1-f.fainelli@gmail.com>
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        Jason Cooper <jason@lakedaemon.net>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-        Gregory Clement <gregory.clement@free-electrons.com>,
-        Russell King <linux@armlinux.org.uk>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        linux-arm-kernel@lists.infradead.org (moderated list:ARM
-        SUB-ARCHITECTURES), linux-kernel@vger.kernel.org (open list),
-        gregkh@linuxfoundation.org
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170114214713.28109-1-f.fainelli@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: [PATCH net-next 1/1] net sched actions: Add support for user cookies
+Date: Sat, 14 Jan 2017 16:52:44 -0500
+Message-ID: <1484430764-30788-1-git-send-email-jhs@emojatatu.com>
+Cc: netdev@vger.kernel.org, jiri@mellanox.com, paulb@mellanox.com,
+        john.fastabend@gmail.com, simon.horman@netronome.com,
+        mrv@mojatatu.com, hadarh@mellanox.com, ogerlitz@mellanox.com,
+        roid@mellanox.com, xiyou.wangcong@gmail.com, daniel@iogearbox.net,
+        Jamal Hadi Salim <jhs@mojatatu.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f194.google.com ([209.85.223.194]:32852 "EHLO
+        mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751993AbdANVwy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 14 Jan 2017 16:52:54 -0500
+Received: by mail-io0-f194.google.com with SMTP id 101so9094520iom.0
+        for <netdev@vger.kernel.org>; Sat, 14 Jan 2017 13:52:54 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-dev_to_net_device() is moved from net/dsa/dsa.c to net/core/dev.c since
-it going to be used by net/dsa/dsa2.c and the namespace of the function
-justifies making it available to other users potentially.
+From: Jamal Hadi Salim <jhs@mojatatu.com>
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+Introduce optional 128-bit action cookie.
+Like all other cookie schemes in the networking world (eg in protocols
+like http or existing kernel fib protocol field, etc) the idea is to save
+user state that when retrieved serves as a correlator. The kernel
+_should not_ intepret it.  The user can store whatever they wish in the
+128 bits.
+
+Sample exercise(using two 64bit values to represent the 128 bits):
+
+.. create an accept action with cookie a1b2c3d4
+sudo $TC actions add action ok index 1 cookie a1b2c3d4
+
+.. dump all gact actions..
+sudo $TC -s actions ls action gact
+
+	action order 0: gact action pass
+	 random type none pass val 0
+	 index 1 ref 1 bind 0 installed 5 sec used 5 sec
+ 	Action statistics:
+	Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+	backlog 0b 0p requeues 0
+	cookie a1b2c3d4
+
+.. bind the accept action to a filter..
+sudo $TC filter add dev lo parent ffff: protocol ip prio 1 \
+u32 match ip dst 127.0.0.1/32 flowid 1:1 action gact index 1
+
+... send some traffic..
+$ ping 127.0.0.1 -c 3
+PING 127.0.0.1 (127.0.0.1) 56(84) bytes of data.
+64 bytes from 127.0.0.1: icmp_seq=1 ttl=64 time=0.020 ms
+64 bytes from 127.0.0.1: icmp_seq=2 ttl=64 time=0.027 ms
+64 bytes from 127.0.0.1: icmp_seq=3 ttl=64 time=0.038 ms
+
+--- 127.0.0.1 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2109ms
+rtt min/avg/max/mdev = 0.020/0.028/0.038/0.008 ms 1
+
+... show some stats
+$ sudo $TC -s actions get action gact index 1
+
+	action order 1: gact action pass
+	 random type none pass val 0
+	 index 1 ref 2 bind 1 installed 204 sec used 5 sec
+ 	Action statistics:
+        Sent 12168 bytes 164 pkt (dropped 0, overlimits 0 requeues 0)
+	backlog 0b 0p requeues 0
+	cookie a1b2c3d4
+
+.. try longer cookie...
+$ sudo $TC actions replace action ok index 1 cookie 1234567890abcdef
+.. dump..
+$ sudo $TC -s actions ls action gact
+
+	action order 1: gact action pass
+	 random type none pass val 0
+	 index 1 ref 2 bind 1 installed 204 sec used 5 sec
+ 	Action statistics:
+        Sent 12168 bytes 164 pkt (dropped 0, overlimits 0 requeues 0)
+	backlog 0b 0p requeues 0
+	cookie 1234567890abcdef
+
+Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
 ---
- include/linux/netdevice.h |  2 ++
- net/core/dev.c            | 19 +++++++++++++++++++
- net/dsa/dsa.c             | 18 ------------------
- 3 files changed, 21 insertions(+), 18 deletions(-)
+ include/net/act_api.h        |  1 +
+ include/uapi/linux/pkt_cls.h | 11 +++++++++++
+ net/sched/act_api.c          | 28 ++++++++++++++++++++++++++--
+ 3 files changed, 38 insertions(+), 2 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 97ae0ac513ee..6d021c37b774 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -4390,4 +4390,6 @@ do {								\
- #define PTYPE_HASH_SIZE	(16)
- #define PTYPE_HASH_MASK	(PTYPE_HASH_SIZE - 1)
+diff --git a/include/net/act_api.h b/include/net/act_api.h
+index 1d71644..0692458 100644
+--- a/include/net/act_api.h
++++ b/include/net/act_api.h
+@@ -41,6 +41,7 @@ struct tc_action {
+ 	struct rcu_head			tcfa_rcu;
+ 	struct gnet_stats_basic_cpu __percpu *cpu_bstats;
+ 	struct gnet_stats_queue __percpu *cpu_qstats;
++	struct tc_cookie	*act_ck;
+ };
+ #define tcf_head	common.tcfa_head
+ #define tcf_index	common.tcfa_index
+diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
+index 1e5e1dd..063bc89 100644
+--- a/include/uapi/linux/pkt_cls.h
++++ b/include/uapi/linux/pkt_cls.h
+@@ -4,6 +4,16 @@
+ #include <linux/types.h>
+ #include <linux/pkt_sched.h>
  
-+struct net_device *dev_to_net_device(struct device *dev);
++#define MAX_TC_COOKIE_SZ 16
 +
- #endif	/* _LINUX_NETDEVICE_H */
-diff --git a/net/core/dev.c b/net/core/dev.c
-index ad5959e56116..7547e2ccc06b 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -8128,6 +8128,25 @@ const char *netdev_drivername(const struct net_device *dev)
- 	return empty;
++/* This structure holds cookie structure that is passed from user
++ * to the kernel for actions and classifiers
++ */
++struct tc_cookie {
++	unsigned char ck[MAX_TC_COOKIE_SZ];
++	unsigned char ck_len;
++};
++
+ /* Action attributes */
+ enum {
+ 	TCA_ACT_UNSPEC,
+@@ -12,6 +22,7 @@ enum {
+ 	TCA_ACT_INDEX,
+ 	TCA_ACT_STATS,
+ 	TCA_ACT_PAD,
++	TCA_ACT_COOKIE,
+ 	__TCA_ACT_MAX
+ };
+ 
+diff --git a/net/sched/act_api.c b/net/sched/act_api.c
+index f04715a..b82908a 100644
+--- a/net/sched/act_api.c
++++ b/net/sched/act_api.c
+@@ -33,6 +33,7 @@ static void free_tcf(struct rcu_head *head)
+ 
+ 	free_percpu(p->cpu_bstats);
+ 	free_percpu(p->cpu_qstats);
++	kfree(p->act_ck);
+ 	kfree(p);
  }
  
-+struct net_device *dev_to_net_device(struct device *dev)
-+{
-+	struct device *d;
-+
-+	d = device_find_class(dev, "net");
-+	if (d) {
-+		struct net_device *nd;
-+
-+		nd = to_net_dev(d);
-+		dev_hold(nd);
-+		put_device(d);
-+
-+		return nd;
+@@ -464,8 +465,8 @@ int tcf_action_destroy(struct list_head *actions, int bind)
+ 	return a->ops->dump(skb, a, bind, ref);
+ }
+ 
+-int
+-tcf_action_dump_1(struct sk_buff *skb, struct tc_action *a, int bind, int ref)
++int tcf_action_dump_1(struct sk_buff *skb, struct tc_action *a, int bind,
++		      int ref)
+ {
+ 	int err = -EINVAL;
+ 	unsigned char *b = skb_tail_pointer(skb);
+@@ -475,6 +476,12 @@ int tcf_action_destroy(struct list_head *actions, int bind)
+ 		goto nla_put_failure;
+ 	if (tcf_action_copy_stats(skb, a, 0))
+ 		goto nla_put_failure;
++	if (a->act_ck) {
++		if (nla_put(skb, TCA_ACT_COOKIE, a->act_ck->ck_len,
++			    a->act_ck))
++			goto nla_put_failure;
 +	}
 +
-+	return NULL;
-+}
-+EXPORT_SYMBOL_GPL(dev_to_net_device);
-+
- static void __netdev_printk(const char *level, const struct net_device *dev,
- 			    struct va_format *vaf)
- {
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index 77fa4c4f5828..6c264f92fec5 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -473,24 +473,6 @@ struct mii_bus *dsa_host_dev_to_mii_bus(struct device *dev)
- }
- EXPORT_SYMBOL_GPL(dsa_host_dev_to_mii_bus);
+ 	nest = nla_nest_start(skb, TCA_OPTIONS);
+ 	if (nest == NULL)
+ 		goto nla_put_failure;
+@@ -575,6 +582,23 @@ struct tc_action *tcf_action_init_1(struct net *net, struct nlattr *nla,
+ 	if (err < 0)
+ 		goto err_mod;
  
--static struct net_device *dev_to_net_device(struct device *dev)
--{
--	struct device *d;
--
--	d = device_find_class(dev, "net");
--	if (d != NULL) {
--		struct net_device *nd;
--
--		nd = to_net_dev(d);
--		dev_hold(nd);
--		put_device(d);
--
--		return nd;
--	}
--
--	return NULL;
--}
--
- #ifdef CONFIG_OF
- static int dsa_of_setup_routing_table(struct dsa_platform_data *pd,
- 					struct dsa_chip_data *cd,
++	if (tb[TCA_ACT_COOKIE]) {
++		if (nla_len(tb[TCA_ACT_COOKIE]) > MAX_TC_COOKIE_SZ) {
++			err = -EINVAL;
++			goto err_mod;
++		}
++
++		a->act_ck = kzalloc(sizeof(*a->act_ck), GFP_KERNEL);
++		if (unlikely(!a->act_ck)) {
++			err = -ENOMEM;
++			goto err_mod;
++		}
++
++		memcpy((void *)a->act_ck->ck, nla_data(tb[TCA_ACT_COOKIE]),
++		       nla_len(tb[TCA_ACT_COOKIE]));
++		a->act_ck->ck_len = nla_len(tb[TCA_ACT_COOKIE]);
++	}
++
+ 	/* module count goes up only when brand new policy is created
+ 	 * if it exists and is only bound to in a_o->init() then
+ 	 * ACT_P_CREATED is not returned (a zero is).
 -- 
-2.9.3
+1.9.1
