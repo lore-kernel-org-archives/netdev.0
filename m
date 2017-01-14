@@ -1,169 +1,66 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH] net: marvell: sky2: use new api ethtool_{get|set}_link_ksettings
-Date: Sat, 14 Jan 2017 23:26:22 +0100
-Message-ID: <1484432782-1175-1-git-send-email-tremyfr@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Philippe Reynes <tremyfr@gmail.com>
-To: mlindner@marvell.com, stephen@networkplumber.org,
-        davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Rami Rosen <roszenrami@gmail.com>
+Subject: Re: [PATCH v5 05/13] net: ethernet: aquantia: Support for
+ NIC-specific code
+Date: Sun, 15 Jan 2017 00:55:02 +0200
+Message-ID: <CAKoUArkh3gyVSrX1GWRQsrFFBg8B59LjtXK=yG6JWMHan7fW7A@mail.gmail.com>
+References: <cover.1484283610.git.vomlehn@texas.net> <5e87af3b0effb96698d0c085366b1ba9320a6305.1484283610.git.vomlehn@texas.net>
+ <3dfe11ac-4215-21d0-2242-7a4ad6157e56@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexander Loktionov <Alexander.Loktionov@aquantia.com>,
+        Netdev <netdev@vger.kernel.org>,
+        David VomLehn <vomlehn@texas.net>,
+        "David S . Miller" <davem@davemloft.net>,
+        Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
+        Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>,
+        Pavel Belous <Pavel.Belous@aquantia.com>,
+        Dmitry Bezrukov <Dmitry.Bezrukov@aquantia.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f67.google.com ([209.85.214.67]:36789 "EHLO
+        mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750721AbdANWzE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 14 Jan 2017 17:55:04 -0500
+Received: by mail-it0-f67.google.com with SMTP id o138so8756202ito.3
+        for <netdev@vger.kernel.org>; Sat, 14 Jan 2017 14:55:04 -0800 (PST)
+In-Reply-To: <3dfe11ac-4215-21d0-2242-7a4ad6157e56@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The ethtool api {get|set}_settings is deprecated.
-We move this driver to new api {get|set}_link_ksettings.
+Hi, Florian,
 
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
----
- drivers/net/ethernet/marvell/sky2.c |   68 ++++++++++++++++++++--------------
- 1 files changed, 40 insertions(+), 28 deletions(-)
+> +}
+> +
+> +static int aq_ndev_change_mtu(struct net_device *ndev, int new_mtu)
+> +{
+> +     struct aq_nic_s *aq_nic = (struct aq_nic_s *)netdev_priv(ndev);
+> +     int err = 0;
+> +
+> +     if (new_mtu == ndev->mtu) {
+> +             err = 0;
+> +             goto err_exit;
+> +     }
+> +     if (new_mtu < 68) {
+> +             err = -EINVAL;
+> +             goto err_exit;
+> +     }
 
-diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethernet/marvell/sky2.c
-index 18d6336..be003c5 100644
---- a/drivers/net/ethernet/marvell/sky2.c
-+++ b/drivers/net/ethernet/marvell/sky2.c
-@@ -3589,47 +3589,59 @@ static u32 sky2_supported_modes(const struct sky2_hw *hw)
- 			| SUPPORTED_1000baseT_Full;
- }
- 
--static int sky2_get_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
-+static int sky2_get_link_ksettings(struct net_device *dev,
-+				   struct ethtool_link_ksettings *cmd)
- {
- 	struct sky2_port *sky2 = netdev_priv(dev);
- 	struct sky2_hw *hw = sky2->hw;
-+	u32 supported, advertising;
- 
--	ecmd->transceiver = XCVR_INTERNAL;
--	ecmd->supported = sky2_supported_modes(hw);
--	ecmd->phy_address = PHY_ADDR_MARV;
-+	supported = sky2_supported_modes(hw);
-+	cmd->base.phy_address = PHY_ADDR_MARV;
- 	if (sky2_is_copper(hw)) {
--		ecmd->port = PORT_TP;
--		ethtool_cmd_speed_set(ecmd, sky2->speed);
--		ecmd->supported |=  SUPPORTED_Autoneg | SUPPORTED_TP;
-+		cmd->base.port = PORT_TP;
-+		cmd->base.speed = sky2->speed;
-+		supported |=  SUPPORTED_Autoneg | SUPPORTED_TP;
- 	} else {
--		ethtool_cmd_speed_set(ecmd, SPEED_1000);
--		ecmd->port = PORT_FIBRE;
--		ecmd->supported |=  SUPPORTED_Autoneg | SUPPORTED_FIBRE;
-+		cmd->base.speed = SPEED_1000;
-+		cmd->base.port = PORT_FIBRE;
-+		supported |=  SUPPORTED_Autoneg | SUPPORTED_FIBRE;
- 	}
- 
--	ecmd->advertising = sky2->advertising;
--	ecmd->autoneg = (sky2->flags & SKY2_FLAG_AUTO_SPEED)
-+	advertising = sky2->advertising;
-+	cmd->base.autoneg = (sky2->flags & SKY2_FLAG_AUTO_SPEED)
- 		? AUTONEG_ENABLE : AUTONEG_DISABLE;
--	ecmd->duplex = sky2->duplex;
-+	cmd->base.duplex = sky2->duplex;
-+
-+	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.supported,
-+						supported);
-+	ethtool_convert_legacy_u32_to_link_mode(cmd->link_modes.advertising,
-+						advertising);
-+
- 	return 0;
- }
- 
--static int sky2_set_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
-+static int sky2_set_link_ksettings(struct net_device *dev,
-+				   const struct ethtool_link_ksettings *cmd)
- {
- 	struct sky2_port *sky2 = netdev_priv(dev);
- 	const struct sky2_hw *hw = sky2->hw;
- 	u32 supported = sky2_supported_modes(hw);
-+	u32 new_advertising;
-+
-+	ethtool_convert_link_mode_to_legacy_u32(&new_advertising,
-+						cmd->link_modes.advertising);
- 
--	if (ecmd->autoneg == AUTONEG_ENABLE) {
--		if (ecmd->advertising & ~supported)
-+	if (cmd->base.autoneg == AUTONEG_ENABLE) {
-+		if (new_advertising & ~supported)
- 			return -EINVAL;
- 
- 		if (sky2_is_copper(hw))
--			sky2->advertising = ecmd->advertising |
-+			sky2->advertising = new_advertising |
- 					    ADVERTISED_TP |
- 					    ADVERTISED_Autoneg;
- 		else
--			sky2->advertising = ecmd->advertising |
-+			sky2->advertising = new_advertising |
- 					    ADVERTISED_FIBRE |
- 					    ADVERTISED_Autoneg;
- 
-@@ -3638,30 +3650,30 @@ static int sky2_set_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
- 		sky2->speed = -1;
- 	} else {
- 		u32 setting;
--		u32 speed = ethtool_cmd_speed(ecmd);
-+		u32 speed = cmd->base.speed;
- 
- 		switch (speed) {
- 		case SPEED_1000:
--			if (ecmd->duplex == DUPLEX_FULL)
-+			if (cmd->base.duplex == DUPLEX_FULL)
- 				setting = SUPPORTED_1000baseT_Full;
--			else if (ecmd->duplex == DUPLEX_HALF)
-+			else if (cmd->base.duplex == DUPLEX_HALF)
- 				setting = SUPPORTED_1000baseT_Half;
- 			else
- 				return -EINVAL;
- 			break;
- 		case SPEED_100:
--			if (ecmd->duplex == DUPLEX_FULL)
-+			if (cmd->base.duplex == DUPLEX_FULL)
- 				setting = SUPPORTED_100baseT_Full;
--			else if (ecmd->duplex == DUPLEX_HALF)
-+			else if (cmd->base.duplex == DUPLEX_HALF)
- 				setting = SUPPORTED_100baseT_Half;
- 			else
- 				return -EINVAL;
- 			break;
- 
- 		case SPEED_10:
--			if (ecmd->duplex == DUPLEX_FULL)
-+			if (cmd->base.duplex == DUPLEX_FULL)
- 				setting = SUPPORTED_10baseT_Full;
--			else if (ecmd->duplex == DUPLEX_HALF)
-+			else if (cmd->base.duplex == DUPLEX_HALF)
- 				setting = SUPPORTED_10baseT_Half;
- 			else
- 				return -EINVAL;
-@@ -3674,7 +3686,7 @@ static int sky2_set_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
- 			return -EINVAL;
- 
- 		sky2->speed = speed;
--		sky2->duplex = ecmd->duplex;
-+		sky2->duplex = cmd->base.duplex;
- 		sky2->flags &= ~SKY2_FLAG_AUTO_SPEED;
- 	}
- 
-@@ -4405,8 +4417,6 @@ static int sky2_set_features(struct net_device *dev, netdev_features_t features)
- }
- 
- static const struct ethtool_ops sky2_ethtool_ops = {
--	.get_settings	= sky2_get_settings,
--	.set_settings	= sky2_set_settings,
- 	.get_drvinfo	= sky2_get_drvinfo,
- 	.get_wol	= sky2_get_wol,
- 	.set_wol	= sky2_set_wol,
-@@ -4429,6 +4439,8 @@ static int sky2_set_features(struct net_device *dev, netdev_features_t features)
- 	.set_phys_id	= sky2_set_phys_id,
- 	.get_sset_count = sky2_get_sset_count,
- 	.get_ethtool_stats = sky2_get_ethtool_stats,
-+	.get_link_ksettings = sky2_get_link_ksettings,
-+	.set_link_ksettings = sky2_set_link_ksettings,
- };
- 
- #ifdef CONFIG_SKY2_DEBUG
--- 
-1.7.4.4
+> What's so special about 68 here?
+
+I think that the check that the passed MTU is at least 68 bytes is
+justified and correct.
+This convention is followed by a large number of Ethernet drivers; for example,
+http://lxr.free-electrons.com/source/drivers/net/ethernet/intel/i40e/i40e_main.c#L2246
+http://lxr.free-electrons.com/source/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c#L6049
+
+The size of 68 bytes is originated from RFC 791:
+https://tools.ietf.org/html/rfc791
+...
+Every internet module must be able to forward a datagram of 68 octets
+without further fragmentation.
+This is because an internet header may be up to 60 octets, and the
+minimum fragment is 8 octets.
+...
+
+Regards,
+Rami Rosen
