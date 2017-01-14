@@ -1,88 +1,70 @@
-From: yuan linyu <cugyly@163.com>
-Subject: [PATCH] net: add regs attribute to phy device for user diagnose
-Date: Sat, 14 Jan 2017 10:46:31 +0800
-Message-ID: <1484361992-30591-1-git-send-email-cugyly@163.com>
+From: Liu Shuo <shuo.a.liu@intel.com>
+Subject: Re: [PATCH] can: Fix kernel panic at security_sock_rcv_skb
+Date: Sat, 14 Jan 2017 11:43:30 +0800
+Message-ID: <20170114034330.GA30070@shuo-desktop.sh.intel.com>
+References: <1484202799-7287-1-git-send-email-shuo.a.liu@intel.com>
+ <0e458012-e97b-298d-296e-ed25e35689a0@hartkopp.net>
+ <1484226099.15816.25.camel@edumazet-glaptop3.roam.corp.google.com>
+ <9e6817a0-65b3-ed16-4616-f8e55aee09c4@hartkopp.net>
 Mime-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-        yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-        "David S . Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from m50-132.163.com ([123.125.50.132]:33109 "EHLO m50-132.163.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751364AbdANCrE (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Fri, 13 Jan 2017 21:47:04 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+        linux-kernel@vger.kernel.org, yanmin_zhang@linux.intel.com,
+        shuox.liu@gmail.com, Zhang Yanmin <yanmin.zhang@intel.com>,
+        "He, Bo" <bo.he@intel.com>, Marc Kleine-Budde <mkl@pengutronix.de>,
+        "David S. Miller" <davem@davemloft.net>,
+        "open list:CAN NETWORK LAYER" <linux-can@vger.kernel.org>,
+        "open list:NETWORKING [GENERAL]" <netdev@vger.kernel.org>
+To: Oliver Hartkopp <socketcan@hartkopp.net>
+Return-path: <linux-can-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <9e6817a0-65b3-ed16-4616-f8e55aee09c4@hartkopp.net>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+On Thu 12.Jan'17 at 17:33:38 +0100, Oliver Hartkopp wrote:
+>On 01/12/2017 02:01 PM, Eric Dumazet wrote:
+>>On Thu, 2017-01-12 at 09:22 +0100, Oliver Hartkopp wrote:
+>
+>>>But my main concern is:
+>>>
+>>>The reason why can_rx_delete_receiver() was introduced was the need to
+>>>remove a huge number of receivers with can_rx_unregister().
+>>>
+>>>When you call synchronize_rcu() after each receiver removal this would
+>>>potentially lead to a big performance issue when e.g. closing CAN_RAW
+>>>sockets with a high number of receivers.
+>>>
+>>>So the idea was to remove/unlink the receiver hlist_del_rcu(&r->list)
+>>>and also kmem_cache_free(rcv_cache, r) by some rcu mechanism - so that
+>>>all elements are cleaned up by rcu at a later point.
+>>>
+>>>Is it possible that the problems emerge due to hlist_del_rcu(&r->list)
+>>>and you accidently fix it with your introduced synchronize_rcu()?
+>>
+>>I agree this patch does not fix the root cause.
+>>
+>>The main problem seems that the sockets themselves are not RCU
+>>protected.
+>>
+>>If CAN uses RCU for delivery, then sockets should be freed only after
+>>one RCU grace period.
+>>
+>>On recent kernels, following patch could help :
+>>
+>
+>Thanks Eric!
+>
+>@Liu ShuoX: Can you check if Eric's suggestion fixes the issue in your 
+>setup?
+Sorry for late reply. I was OOO yesterday.
+With Eric's hint, i just found his patch that "net: add SOCK_RCU_FREE
+socket flag" in the latest kernel. With backporting this one plus Eric's
+following patch, it fixs my failure.
 
-if phy device have register(s) configuration problem,
-user can use this attribute to diagnose.
-this feature need phy driver maintainer implement.
+Thanks Eric and Oliver!
 
-Signed-off-by: yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
----
- drivers/net/phy/phy_device.c | 26 ++++++++++++++++++++++++++
- include/linux/phy.h          |  4 ++++
- 2 files changed, 30 insertions(+)
-
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index 92b0838..a400748 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -617,10 +617,36 @@ phy_has_fixups_show(struct device *dev, struct device_attribute *attr,
- }
- static DEVICE_ATTR_RO(phy_has_fixups);
- 
-+static ssize_t
-+phy_regs_show(struct device *dev, struct device_attribute *attr,
-+		    char *buf)
-+{
-+	struct phy_device *phydev = to_phy_device(dev);
-+
-+	if (!phydev->drv || !phydev->drv->read_regs)
-+		return 0;
-+
-+	return phydev->drv->read_regs(phydev, buf, PAGE_SIZE);
-+}
-+
-+static ssize_t
-+phy_regs_store(struct device *dev, struct device_attribute *attr,
-+		    const char *buf, size_t count)
-+{
-+	struct phy_device *phydev = to_phy_device(dev);
-+
-+	if (!phydev->drv || !phydev->drv->write_regs)
-+		return 0;
-+
-+	return phydev->drv->write_regs(phydev, buf, count);
-+}
-+static DEVICE_ATTR_RW(phy_regs);
-+
- static struct attribute *phy_dev_attrs[] = {
- 	&dev_attr_phy_id.attr,
- 	&dev_attr_phy_interface.attr,
- 	&dev_attr_phy_has_fixups.attr,
-+	&dev_attr_phy_regs.attr,
- 	NULL,
- };
- ATTRIBUTE_GROUPS(phy_dev);
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index f7d95f6..c9c4ab3 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -622,6 +622,10 @@ struct phy_driver {
- 	int (*set_tunable)(struct phy_device *dev,
- 			    struct ethtool_tunable *tuna,
- 			    const void *data);
-+
-+	/* Diagnose PHY register configuration issue from user space */
-+	ssize_t (*read_regs)(struct phy_device *dev, char *buf, size_t size);
-+	int (*write_regs)(struct phy_device *dev, const char *buf, size_t size);
- };
- #define to_phy_driver(d) container_of(to_mdio_common_driver(d),		\
- 				      struct phy_driver, mdiodrv)
--- 
-2.7.4
+Shuo
+>
+>Best regards,
+>Oliver
