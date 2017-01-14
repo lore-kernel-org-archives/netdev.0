@@ -1,80 +1,139 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v3 05/10] drivers: base: Add device_find_class()
-Date: Sat, 14 Jan 2017 13:47:08 -0800
-Message-ID: <20170114214713.28109-6-f.fainelli@gmail.com>
-References: <20170114214713.28109-1-f.fainelli@gmail.com>
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-        Jason Cooper <jason@lakedaemon.net>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-        Gregory Clement <gregory.clement@free-electrons.com>,
-        Russell King <linux@armlinux.org.uk>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        linux-arm-kernel@lists.infradead.org (moderated list:ARM
-        SUB-ARCHITECTURES), linux-kernel@vger.kernel.org (open list),
-        gregkh@linuxfoundation.org
+Subject: [PATCH net-next v3 00/10] net: dsa: Support for pdata in dsa2
+Date: Sat, 14 Jan 2017 13:47:03 -0800
+Message-ID: <20170114214713.28109-1-f.fainelli@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Lunn <andrew@lunn.ch>, Florian Fainelli <f.fainelli@gmail.com>,
+ Jason Cooper <jason@lakedaemon.net>,
+ Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+ gregkh@linuxfoundation.org, Russell King <linux@armlinux.org.uk>,
+ open list <linux-kernel@vger.kernel.org>,
+ Gregory Clement <gregory.clement@free-electrons.com>,
+ "David S. Miller" <davem@davemloft.net>,
+ "moderated list:ARM SUB-ARCHITECTURES" <linux-arm-kernel@lists.infradead.org>,
+ Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f193.google.com ([209.85.216.193]:34291 "EHLO
-        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752222AbdANVre (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 14 Jan 2017 16:47:34 -0500
-In-Reply-To: <20170114214713.28109-1-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-Add a helper function to lookup a device reference given a class name.
-This is a preliminary patch to remove adhoc code from net/dsa/dsa.c and
-make it more generic.
+Hi all,
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/base/core.c    | 19 +++++++++++++++++++
- include/linux/device.h |  1 +
- 2 files changed, 20 insertions(+)
+This is not exactly new, and was sent before, although back then, I did not
+have an user of the pre-declared MDIO board information, but now we do. Note
+that I have additional changes queued up to have b53 register platform data for
+MIPS bcm47xx and bcm63xx.
 
-diff --git a/drivers/base/core.c b/drivers/base/core.c
-index 020ea7f05520..3dd6047c10d8 100644
---- a/drivers/base/core.c
-+++ b/drivers/base/core.c
-@@ -2065,6 +2065,25 @@ struct device *device_find_child(struct device *parent, void *data,
- }
- EXPORT_SYMBOL_GPL(device_find_child);
- 
-+static int dev_is_class(struct device *dev, void *class)
-+{
-+	if (dev->class != NULL && !strcmp(dev->class->name, class))
-+		return 1;
-+
-+	return 0;
-+}
-+
-+struct device *device_find_class(struct device *parent, char *class)
-+{
-+	if (dev_is_class(parent, class)) {
-+		get_device(parent);
-+		return parent;
-+	}
-+
-+	return device_find_child(parent, class, dev_is_class);
-+}
-+EXPORT_SYMBOL_GPL(device_find_class);
-+
- int __init devices_init(void)
- {
- 	devices_kset = kset_create_and_add("devices", &device_uevent_ops, NULL);
-diff --git a/include/linux/device.h b/include/linux/device.h
-index 491b4c0ca633..8d37f5ecb972 100644
---- a/include/linux/device.h
-+++ b/include/linux/device.h
-@@ -1120,6 +1120,7 @@ extern int device_for_each_child_reverse(struct device *dev, void *data,
- 		     int (*fn)(struct device *dev, void *data));
- extern struct device *device_find_child(struct device *dev, void *data,
- 				int (*match)(struct device *dev, void *data));
-+extern struct device *device_find_class(struct device *parent, char *class);
- extern int device_rename(struct device *dev, const char *new_name);
- extern int device_move(struct device *dev, struct device *new_parent,
- 		       enum dpm_order dpm_order);
+Yes I know that we should have the Orion platforms eventually be converted to
+Device Tree, but until that happens, I don't want any remaining users of the
+old "dsa" platform device (hence the previous DTS submissions for ARM/mvebu)
+and, there will be platforms out there that most likely won't never see DT
+coming their way (BCM47xx is almost 100% sure, BCM63xx maybe not in a distant
+future).
+
+We would probably want the whole series to be merged via David Miller's tree
+to simplify things.
+
+Greg, can you Ack/Nack patch 5 since it touched the core LDD?
+
+Vivien, since some patches did change, I did not apply your Tested-by tag
+to all patches.
+
+Thanks!
+
+Changes in v3:
+
+- Tested EPROBE_DEFER from a mockup MDIO/DSA switch driver and everything
+  is fine, once the driver finally probes we have access to platform data
+  as expected
+
+- added comment above dsa_port_is_valid() that port->name is mandatory
+  for platform data cases
+
+- added an extra check in dsa_parse_member() for a NULL pdata pointer
+
+- fixed a bunch of checkpatch errors and warnings
+
+Changes in v2:
+
+- Rebased against latest net-next/master
+
+- Moved dev_find_class() to device_find_class() into drivers/base/core.c
+
+- Moved dev_to_net_device into net/core/dev.c
+
+- Utilize dsa_chip_data directly instead of dsa_platform_data
+
+- Augmented dsa_chip_data to be multi-CPU port ready
+
+Changes from last submission (few months back):
+
+- rebased against latest net-next
+
+- do not introduce dsa2_platform_data which was overkill and was meant to
+  allow us to do exaclty the same things with platform data and Device Tree
+  we use the existing dsa_platform_data instead
+
+- properly register MDIO devices when the MDIO bus is registered and associate
+  platform_data with them
+
+- add a change to the Orion platform code to demonstrate how this can be used
+
+Thank you
+
+Florian Fainelli (10):
+  net: dsa: Pass device pointer to dsa_register_switch
+  net: dsa: Make most functions take a dsa_port argument
+  net: dsa: Suffix function manipulating device_node with _dn
+  net: dsa: Move ports assignment closer to error checking
+  drivers: base: Add device_find_class()
+  net: dsa: Migrate to device_find_class()
+  net: Relocate dev_to_net_device() into core
+  net: dsa: Add support for platform data
+  net: phy: Allow pre-declaration of MDIO devices
+  ARM: orion: Register DSA switch as a MDIO device
+
+ arch/arm/mach-orion5x/common.c               |   2 +-
+ arch/arm/mach-orion5x/common.h               |   4 +-
+ arch/arm/mach-orion5x/rd88f5181l-fxo-setup.c |   7 +-
+ arch/arm/mach-orion5x/rd88f5181l-ge-setup.c  |   7 +-
+ arch/arm/mach-orion5x/rd88f6183ap-ge-setup.c |   7 +-
+ arch/arm/mach-orion5x/wnr854t-setup.c        |   2 +-
+ arch/arm/mach-orion5x/wrt350n-v2-setup.c     |   7 +-
+ arch/arm/plat-orion/common.c                 |  25 +++-
+ arch/arm/plat-orion/include/plat/common.h    |   4 +-
+ drivers/base/core.c                          |  19 +++
+ drivers/net/dsa/b53/b53_common.c             |   2 +-
+ drivers/net/dsa/mv88e6xxx/chip.c             |  11 +-
+ drivers/net/dsa/qca8k.c                      |   2 +-
+ drivers/net/phy/Makefile                     |   3 +-
+ drivers/net/phy/mdio-boardinfo.c             |  86 +++++++++++++
+ drivers/net/phy/mdio-boardinfo.h             |  19 +++
+ drivers/net/phy/mdio_bus.c                   |   4 +
+ drivers/net/phy/mdio_device.c                |  11 ++
+ include/linux/device.h                       |   1 +
+ include/linux/mdio.h                         |   3 +
+ include/linux/mod_devicetable.h              |   1 +
+ include/linux/netdevice.h                    |   2 +
+ include/linux/phy.h                          |  19 +++
+ include/net/dsa.h                            |   8 +-
+ net/core/dev.c                               |  19 +++
+ net/dsa/dsa.c                                |  53 ++------
+ net/dsa/dsa2.c                               | 174 +++++++++++++++++++--------
+ net/dsa/dsa_priv.h                           |   4 +-
+ 28 files changed, 365 insertions(+), 141 deletions(-)
+ create mode 100644 drivers/net/phy/mdio-boardinfo.c
+ create mode 100644 drivers/net/phy/mdio-boardinfo.h
+
 -- 
 2.9.3
