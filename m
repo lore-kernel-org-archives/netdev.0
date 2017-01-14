@@ -1,58 +1,47 @@
 From: Jamal Hadi Salim <jhs@mojatatu.com>
 Subject: Re: [PATCH net-next] net/sched: cls_flower: Add user specified data
-Date: Sat, 14 Jan 2017 07:56:35 -0500
-Message-ID: <68e41fe4-5c4c-e159-fbfc-17d06638707d@mojatatu.com>
+Date: Sat, 14 Jan 2017 08:06:56 -0500
+Message-ID: <825bbdf0-44e9-e960-74d1-76d7f6601de3@mojatatu.com>
 References: <1483362833-52114-1-git-send-email-paulb@mellanox.com>
  <14675f63-4212-2f72-da4c-cd24b9d10881@mojatatu.com>
  <586A9A9F.4030002@gmail.com>
  <6b671aaf-d35d-70a5-65e0-40308baeb471@mojatatu.com>
- <20170108171902.GH1971@nanopsycho> <5873D523.4030301@gmail.com>
+ <586ADAFE.1010105@gmail.com>
+ <13dfd148-6a5b-cf62-b2b9-1c13e6d31155@mojatatu.com>
+ <586B29A4.2060408@gmail.com>
+ <92224e21-cd3c-26b0-d8a0-31a07268e553@mojatatu.com>
+ <606f64cb-1744-d44f-8fd1-a4bdb1ca872f@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Paul Blakey <paulb@mellanox.com>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Jiri Pirko <jiri@mellanox.com>,
+Cc: Jiri Pirko <jiri@mellanox.com>,
         Hadar Hen Zion <hadarh@mellanox.com>,
         Or Gerlitz <ogerlitz@mellanox.com>,
         Roi Dayan <roid@mellanox.com>, Roman Mashak <mrv@mojatatu.com>,
         Simon Horman <simon.horman@netronome.com>
-To: John Fastabend <john.fastabend@gmail.com>,
-        Jiri Pirko <jiri@resnulli.us>
+To: Paul Blakey <paulb@mellanox.com>,
+        John Fastabend <john.fastabend@gmail.com>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f196.google.com ([209.85.223.196]:33863 "EHLO
+Received: from mail-io0-f196.google.com ([209.85.223.196]:33584 "EHLO
         mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751146AbdANM4i (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 14 Jan 2017 07:56:38 -0500
-Received: by mail-io0-f196.google.com with SMTP id c80so8209159iod.1
-        for <netdev@vger.kernel.org>; Sat, 14 Jan 2017 04:56:38 -0800 (PST)
-In-Reply-To: <5873D523.4030301@gmail.com>
+        with ESMTP id S1750750AbdANNHY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 14 Jan 2017 08:07:24 -0500
+Received: by mail-io0-f196.google.com with SMTP id 101so8219300iom.0
+        for <netdev@vger.kernel.org>; Sat, 14 Jan 2017 05:06:59 -0800 (PST)
+In-Reply-To: <606f64cb-1744-d44f-8fd1-a4bdb1ca872f@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17-01-09 01:23 PM, John Fastabend wrote:
-> On 17-01-08 09:19 AM, Jiri Pirko wrote:
-
-[..]
->> This should never be interpreted by kernel. I think this would be good
->> to make clear in the comment in the code.
->>
+On 17-01-03 07:22 AM, Paul Blakey wrote:
 >
-> Ah OK I had assumed you would be pushing this via tc_cls_flower_offload into
-> the driver in a follow up patch. But if it lives in kernel space as opaque
-> cookie guess its no different then other id fields order/prio/cookie.
+> I don't mind having it on TC level but I didn't want to intervene with
+> all filters/TC.
 >
-> Thanks for clarifying.
 
-
-I think the feature makes a lot of sense (as is the action variant).
-But can we make it:
-a) fixed size
-b) apply to all classifiers
-c) please post a usage example via iproute2/tc
-
-I am going to post the action variant in the next while - will do some 
-more testing first.
+Please do make it for all classifiers. I described a use case for u32
+where the cookie could be used to pretty print the output on a
+dump/get.
 
 cheers,
 jamal
