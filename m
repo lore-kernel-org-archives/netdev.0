@@ -1,114 +1,73 @@
-From: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
-Subject: Re: 4.9 conntrack performance issues
-Date: Sun, 15 Jan 2017 02:42:37 +0200
-Message-ID: <c75f3f7b9fefe55d24402f2d9b49b5ae@nuclearcat.com>
-References: <1a71d807acf63135bb037c7144fcd8d9@nuclearcat.com>
- <20170114235333.GA13421@breakpoint.cc>
- <d6dfdd8cf83933fc8f548da62a147775@nuclearcat.com>
- <20170115002936.GC13421@breakpoint.cc>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH v5 05/13] net: ethernet: aquantia: Support for
+ NIC-specific code
+Date: Sun, 15 Jan 2017 02:15:47 +0100
+Message-ID: <20170115011547.GA5643@lunn.ch>
+References: <cover.1484283610.git.vomlehn@texas.net>
+ <5e87af3b0effb96698d0c085366b1ba9320a6305.1484283610.git.vomlehn@texas.net>
+ <3dfe11ac-4215-21d0-2242-7a4ad6157e56@gmail.com>
+ <CAKoUArkh3gyVSrX1GWRQsrFFBg8B59LjtXK=yG6JWMHan7fW7A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
- format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Guillaume Nault <g.nault@alphalink.fr>,
-        Netfilter Devel <netfilter-devel@vger.kernel.org>,
-        Pablo Neira Ayuso <pablo@netfilter.org>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        nicolas.dichtel@6wind.com, netdev-owner@vger.kernel.org
-To: Florian Westphal <fw@strlen.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        Alexander Loktionov <Alexander.Loktionov@aquantia.com>,
+        Netdev <netdev@vger.kernel.org>,
+        David VomLehn <vomlehn@texas.net>,
+        "David S . Miller" <davem@davemloft.net>,
+        Simon Edelhaus <Simon.Edelhaus@aquantia.com>,
+        Dmitrii Tarakanov <Dmitrii.Tarakanov@aquantia.com>,
+        Pavel Belous <Pavel.Belous@aquantia.com>,
+        Dmitry Bezrukov <Dmitry.Bezrukov@aquantia.com>
+To: Rami Rosen <roszenrami@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nuclearcat.com ([144.76.183.226]:54158 "EHLO nuclearcat.com"
+Received: from vps0.lunn.ch ([178.209.37.122]:60389 "EHLO vps0.lunn.ch"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750718AbdAOAmk (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sat, 14 Jan 2017 19:42:40 -0500
-In-Reply-To: <20170115002936.GC13421@breakpoint.cc>
+        id S1750738AbdAOBPv (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sat, 14 Jan 2017 20:15:51 -0500
+Content-Disposition: inline
+In-Reply-To: <CAKoUArkh3gyVSrX1GWRQsrFFBg8B59LjtXK=yG6JWMHan7fW7A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2017-01-15 02:29, Florian Westphal wrote:
-> Denys Fedoryshchenko <nuclearcat@nuclearcat.com> wrote:
->> On 2017-01-15 01:53, Florian Westphal wrote:
->> >Denys Fedoryshchenko <nuclearcat@nuclearcat.com> wrote:
->> >
->> >I suspect you might also have to change
->> >
->> >1011         } else if (expired_count) {
->> >1012                 gc_work->next_gc_run /= 2U;
->> >1013                 next_run = msecs_to_jiffies(1);
->> >1014         } else {
->> >
->> >line 2013 to
->> >	next_run = msecs_to_jiffies(HZ / 2);
+On Sun, Jan 15, 2017 at 12:55:02AM +0200, Rami Rosen wrote:
+> Hi, Florian,
 > 
-> I think its wrong to rely on "expired_count", with these
-> kinds of numbers (up to 10k entries are scanned per round
-> in Denys setup, its basically always going to be > 0.
-> 
-> I think we should only decide to scan more frequently if
-> eviction ratio is large, say, we found more than 1/4 of
-> entries to be stale.
-> 
-> I sent a small patch offlist that does just that.
-> 
->> >How many total connections is the machine handling on average?
->> >And how many new/delete events happen per second?
->> 1-2 million connections, at current moment 988k
->> I dont know if it is correct method to measure events rate:
->> 
->> NAT ~ # timeout -t 5 conntrack -E -e NEW | wc -l
->> conntrack v1.4.2 (conntrack-tools): 40027 flow events have been shown.
->> 40027
->> NAT ~ # timeout -t 5 conntrack -E -e DESTROY | wc -l
->> conntrack v1.4.2 (conntrack-tools): 40951 flow events have been shown.
->> 40951
-> 
-> Thanks, thats exactly what I was looking for.
-> So I am not at all surprised that gc_worker eats cpu cycles...
-> 
->> It is not peak time, so values can be 2-3 higher at peak time, but 
->> even
->> right now, it is hogging one core, leaving only 20% idle left,
->> while others are 80-83% idle.
-> 
-> I agree its a bug.
-> 
->> >>               |--54.65%--gc_worker
->> >>               |          |
->> >>               |           --3.58%--nf_ct_gc_expired
->> >>               |                     |
->> >>               |                     |--1.90%--nf_ct_delete
->> >
->> >I'd be interested to see how often that shows up on other cores
->> >(from packet path).
->> Other CPU's totally different:
->> This is top entry
->>     99.60%     0.00%  swapper  [kernel.kallsyms]    [k] 
->> start_secondary
->>             |
->>             ---start_secondary
->>                |
->>                 --99.42%--cpu_startup_entry
->>                           |
-> [..]
-> 
->> |--36.02%--process_backlog
->>                                      |                     |          
->> |
->> |          |
->>                                      |                     |          
->> |
->> |           --35.64%--__netif_receive_skb
->> 
->> gc_worker didnt appeared on other core at all.
->> Or i am checking something wrong?
-> 
-> Look for "nf_ct_gc_expired" and "nf_ct_delete".
-> Its going to be deep down in the call graph.
-I tried my best to record as much data as possible, but it doesnt show 
-it in callgraph, just a little bit in statistics:
+> > +}
+> > +
+> > +static int aq_ndev_change_mtu(struct net_device *ndev, int new_mtu)
+> > +{
+> > +     struct aq_nic_s *aq_nic = (struct aq_nic_s *)netdev_priv(ndev);
+> > +     int err = 0;
+> > +
+> > +     if (new_mtu == ndev->mtu) {
+> > +             err = 0;
+> > +             goto err_exit;
+> > +     }
+> > +     if (new_mtu < 68) {
+> > +             err = -EINVAL;
+> > +             goto err_exit;
+> > +     }
 
-      0.01%     0.00%  swapper      [nf_conntrack]            [k] 
-nf_ct_delete
-      0.01%     0.00%  swapper      [nf_conntrack]            [k] 
-nf_ct_gc_expired
-And thats it.
+Actually, the core will already impose min/max of ETH_MIN_MTU and
+ETH_DATA_LEN. See 
+
+commit a52ad514fdf3b8a57ca4322c92d2d8d5c6182485
+Author: Jarod Wilson <jarod@redhat.com>
+Date:   Fri Oct 7 22:04:34 2016 -0400
+
+    net: deprecate eth_change_mtu, remove usage
+    
+    With centralized MTU checking, there's nothing productive done by
+    eth_change_mtu that isn't already done in dev_set_mtu, so mark it as
+    deprecated and remove all usage of it in the kernel. All callers have been
+    audited for calls to alloc_etherdev* or ether_setup directly, which means
+    they all have a valid dev->min_mtu and dev->max_mtu. Now eth_change_mtu
+    prints out a netdev_warn about being deprecated, for the benefit of
+    out-of-tree drivers that might be utilizing it.
+    
+    Of note, dvb_net.c actually had dev->mtu = 4096, while using
+    eth_change_mtu, meaning that if you ever tried changing it's mtu, you
+    couldn't set it above 1500 anymore. It's now getting dev->max_mtu also set
+    to 4096 to remedy that.
+
+    Andrew
