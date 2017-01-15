@@ -1,70 +1,46 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next v3 1/1] net sched actions: Add support for user
- cookies
-Date: Sun, 15 Jan 2017 10:18:20 -0500
-Message-ID: <ac5fe140-e52a-ff5c-dafe-2d6841b07560@mojatatu.com>
-References: <1484488879-29560-1-git-send-email-jhs@emojatatu.com>
- <1484488879-29560-2-git-send-email-jhs@emojatatu.com>
- <20170115150133.GA1774@nanopsycho.orion>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH] secure_seq: initialize secret at boot instead of at runtime
+Date: Sun, 15 Jan 2017 16:37:31 +0100
+Message-ID: <587B973B.8040008@iogearbox.net>
+References: <20170115140136.23135-1-Jason@zx2c4.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, jiri@mellanox.com,
-        paulb@mellanox.com, john.fastabend@gmail.com,
-        simon.horman@netronome.com, mrv@mojatatu.com, hadarh@mellanox.com,
-        ogerlitz@mellanox.com, roid@mellanox.com, xiyou.wangcong@gmail.com,
-        daniel@iogearbox.net
-To: Jiri Pirko <jiri@resnulli.us>
+To: "Jason A. Donenfeld" <Jason@zx2c4.com>, netdev@vger.kernel.org,
+        davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f67.google.com ([209.85.214.67]:34770 "EHLO
-        mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751114AbdAOPSa (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 15 Jan 2017 10:18:30 -0500
-Received: by mail-it0-f67.google.com with SMTP id o185so9900615itb.1
-        for <netdev@vger.kernel.org>; Sun, 15 Jan 2017 07:18:24 -0800 (PST)
-In-Reply-To: <20170115150133.GA1774@nanopsycho.orion>
+Received: from www62.your-server.de ([213.133.104.62]:43126 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751098AbdAOPhf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 15 Jan 2017 10:37:35 -0500
+In-Reply-To: <20170115140136.23135-1-Jason@zx2c4.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17-01-15 10:01 AM, Jiri Pirko wrote:
-> Sun, Jan 15, 2017 at 03:01:19PM CET, jhs@mojatatu.com wrote:
+On 01/15/2017 03:01 PM, Jason A. Donenfeld wrote:
+> While the static key stuff is fast, it's not as fast as simply not
+> having any code to run. So, this patch generates the secret at
+> boot, rather than at runtime.
+>
+> Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
+> ---
+> I can imagine this patch not being desirable because:
+>
+>    a) It was done this way in the first place for a reason. (Which?)
 
->> +cls_set_class(struct tcf_proto *tp, unsigned long *clp,
->
-> ??
->
->> 	unsigned long cl)
->> {
->> 	unsigned long old_cl;
->> -	
->> +
->
-> ??
->
->> 	tcf_tree_lock(tp);
->> 	old_cl = __cls_set_class(clp, cl);
->> 	tcf_tree_unlock(tp);
->> -
->> +
->
-> ??
->
->> 	return old_cl;
->> }
->>
->> @@ -237,7 +237,7 @@ static inline int tcf_em_early_end(struct tcf_ematch *em, int result)
->>
->> 	return 0;
->> }
->> -	
->> +
->
-> ??
->
+See git log:
 
-All these things with "??" were annoying whitespace and stylistic
-things my fingers couldnt resist. It is legit to include such changes
-in a patch when touching the code (as long as not a bug fix).
+commit aebda156a570782a86fc4426842152237a19427d
+Author: Eric Dumazet <edumazet@google.com>
+Date:   Mon Apr 29 05:58:52 2013 +0000
 
-cheers,
-jamal
+     net: defer net_secret[] initialization
+
+     Instead of feeding net_secret[] at boot time, defer the init
+     at the point first socket is created.
+
+     This permits some platforms to use better entropy sources than
+     the ones available at boot time.
+
+     Signed-off-by: Eric Dumazet <edumazet@google.com>
+     Signed-off-by: David S. Miller <davem@davemloft.net>
