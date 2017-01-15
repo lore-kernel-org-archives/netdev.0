@@ -1,113 +1,92 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next v3 06/10] net: dsa: Migrate to
- device_find_class()
-Date: Sun, 15 Jan 2017 09:27:22 -0800
-Message-ID: <fc247aeb-a8d6-5ba9-c26d-cb057a5ac34d@gmail.com>
-References: <20170114214713.28109-1-f.fainelli@gmail.com>
- <20170114214713.28109-7-f.fainelli@gmail.com>
- <20170115110628.GF26374@kroah.com>
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: sctp: kernel memory overwrite attempt detected in sctp_getsockopt_assoc_stats
+Date: Sun, 15 Jan 2017 18:29:59 +0100
+Message-ID: <CACT4Y+ZDPa+spEh6P_ip9=hsNfeZ8KJfwJu5jTrPKVkGJUaZSg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, Jason Cooper <jason@lakedaemon.net>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-        Gregory Clement <gregory.clement@free-electrons.com>,
-        Russell King <linux@armlinux.org.uk>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        "moderated list:ARM SUB-ARCHITECTURES"
-        <linux-arm-kernel@lists.infradead.org>,
-        open list <linux-kernel@vger.kernel.org>
-To: Greg KH <gregkh@linuxfoundation.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: syzkaller <syzkaller@googlegroups.com>
+To: Vladislav Yasevich <vyasevich@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        David Miller <davem@davemloft.net>, linux-sctp@vger.kernel.org,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Kees Cook <keescook@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ot0-f196.google.com ([74.125.82.196]:33953 "EHLO
-        mail-ot0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751153AbdAOR1Z (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 15 Jan 2017 12:27:25 -0500
-In-Reply-To: <20170115110628.GF26374@kroah.com>
+Received: from mail-lf0-f44.google.com ([209.85.215.44]:36483 "EHLO
+        mail-lf0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751153AbdAORaW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 15 Jan 2017 12:30:22 -0500
+Received: by mail-lf0-f44.google.com with SMTP id z134so64180883lff.3
+        for <netdev@vger.kernel.org>; Sun, 15 Jan 2017 09:30:21 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hello,
+
+I've enabled CONFIG_HARDENED_USERCOPY_PAGESPAN on syzkaller fuzzer and
+now I am seeing lots of:
+
+usercopy: kernel memory overwrite attempt detected to ffff8801a74f6f10
+(<spans multiple pages>) (256 bytes)
+
+kernel BUG at mm/usercopy.c:75!
+invalid opcode: 0000 [#1] SMP KASAN
+Dumping ftrace buffer:
+   (ftrace buffer empty)
+Modules linked in:
+CPU: 1 PID: 15686 Comm: syz-executor3 Not tainted 4.9.0 #1
+Hardware name: Google Google Compute Engine/Google Compute Engine,
+BIOS Google 01/01/2011
+task: ffff8801c89b2500 task.stack: ffff8801a74f0000
+RIP: 0010:[<ffffffff81a1b041>]  [<ffffffff81a1b041>] report_usercopy
+mm/usercopy.c:67 [inline]
+RIP: 0010:[<ffffffff81a1b041>]  [<ffffffff81a1b041>]
+__check_object_size+0x2d1/0x9ec mm/usercopy.c:278
+RSP: 0018:ffff8801a74f6cd0  EFLAGS: 00010286
+RAX: 000000000000006b RBX: ffffffff84500120 RCX: 0000000000000000
+RDX: 000000000000006b RSI: ffffffff815a7791 RDI: ffffed0034e9ed8c
+RBP: ffff8801a74f6e48 R08: 0000000000000001 R09: 0000000000000000
+R10: 0000000000000000 R11: 0000000000000001 R12: ffff8801a74f6f10
+R13: 0000000000000100 R14: ffffffff845000e0 R15: ffff8801a74f700f
+FS:  00007f80918de700(0000) GS:ffff8801dc100000(0000) knlGS:0000000000000000
+CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+CR2: 0000000020058ffc CR3: 00000001cc1cc000 CR4: 00000000001406e0
+Stack:
+ ffffffff8598fcc8 0000000000000000 000077ff80000000 ffffea0005c99608
+ ffffffff844fff40 ffffffff844fff40 0000000041b58ab3 ffffffff84ae0fa0
+ ffffffff81a1ad70 ffff8801c89b2500 dead000000000100 ffffffff814d4425
+Call Trace:
+ [<ffffffff83e4ece9>] check_object_size include/linux/thread_info.h:129 [inline]
+ [<ffffffff83e4ece9>] copy_from_user arch/x86/include/asm/uaccess.h:692 [inline]
+ [<ffffffff83e4ece9>] sctp_getsockopt_assoc_stats+0x169/0xa10
+net/sctp/socket.c:6182
+ [<ffffffff83e5cc52>] sctp_getsockopt+0x1af2/0x66a0 net/sctp/socket.c:6556
+ [<ffffffff834f92c5>] sock_common_getsockopt+0x95/0xd0 net/core/sock.c:2649
+ [<ffffffff834f4910>] SYSC_getsockopt net/socket.c:1788 [inline]
+ [<ffffffff834f4910>] SyS_getsockopt+0x240/0x380 net/socket.c:1770
+ [<ffffffff81009798>] do_syscall_64+0x2e8/0x930 arch/x86/entry/common.c:280
+ [<ffffffff84370a49>] entry_SYSCALL64_slow_path+0x25/0x25
+Code: b0 fe ff ff e8 e1 25 ce ff 48 8b 85 b0 fe ff ff 4d 89 e9 4c 89
+e1 4c 89 f2 48 89 de 48 c7 c7 a0 01 50 84 49 89 c0 e8 51 d9 e0 ff <0f>
+0b e8 b8 25 ce ff 4c 89 f2 4c 89 ee 4c 89 e7 e8 6a 1b fc ff
+RIP  [<ffffffff81a1b041>] report_usercopy mm/usercopy.c:67 [inline]
+RIP  [<ffffffff81a1b041>] __check_object_size+0x2d1/0x9ec mm/usercopy.c:278
+ RSP <ffff8801a74f6cd0>
+---[ end trace 5e438996b2c0b35d ]---
 
 
-On 01/15/2017 03:06 AM, Greg KH wrote:
-> On Sat, Jan 14, 2017 at 01:47:09PM -0800, Florian Fainelli wrote:
->> Now that the base device driver code provides an identical
->> implementation of dev_find_class() utilize device_find_class() instead
->> of our own version of it.
->>
->> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
->> ---
->>  net/dsa/dsa.c | 22 ++--------------------
->>  1 file changed, 2 insertions(+), 20 deletions(-)
->>
->> diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
->> index 2306d1b87c83..77fa4c4f5828 100644
->> --- a/net/dsa/dsa.c
->> +++ b/net/dsa/dsa.c
->> @@ -455,29 +455,11 @@ EXPORT_SYMBOL_GPL(dsa_switch_resume);
->>  #endif
->>  
->>  /* platform driver init and cleanup *****************************************/
->> -static int dev_is_class(struct device *dev, void *class)
->> -{
->> -	if (dev->class != NULL && !strcmp(dev->class->name, class))
->> -		return 1;
->> -
->> -	return 0;
->> -}
->> -
->> -static struct device *dev_find_class(struct device *parent, char *class)
->> -{
->> -	if (dev_is_class(parent, class)) {
->> -		get_device(parent);
->> -		return parent;
->> -	}
->> -
->> -	return device_find_child(parent, class, dev_is_class);
->> -}
->> -
->>  struct mii_bus *dsa_host_dev_to_mii_bus(struct device *dev)
->>  {
->>  	struct device *d;
->>  
->> -	d = dev_find_class(dev, "mdio_bus");
->> +	d = device_find_class(dev, "mdio_bus");
->>  	if (d != NULL) {
->>  		struct mii_bus *bus;
-> 
-> You want a peer of your device on a specific class?  What is this for?
+I am not sure why check_object_size flags this an a bug,
+copy_from_user copies into a stack object:
 
-It's not a peer of our device, it's a separate device reference from the
-one looked up in the "net" class. In the classic, and now deprecated DSA
-device driver model, a "dsa" platform device would represent one or more
-Ethernet switches, connected via a MDIO bus (this reference above), and
-one Ethernet device (the CPU/host/management interface). This was
-completely violating the Linux device driver model and imposed
-limitations on what bus would be used, and we did not have proper struct
-device references (therefore no adequate hierarchy either).
+static int sctp_getsockopt_assoc_stats(struct sock *sk, int len,
+                                       char __user *optval,
+                                       int __user *optlen)
+{
+        struct sctp_assoc_stats sas;
+        len = min_t(size_t, len, sizeof(sas));
+        if (copy_from_user(&sas, optval, len))
+                return -EFAULT;
 
-Thanks to the work of Andrew, we now have proper MDIO, SPI, GPIO, I2C,
-PCI, platform and drivers that allow us to register with DSA as a
-specialized kind of device (so we are now finally using the right Linux
-Device Driver model). What we still need though, in order to our switch
-to the networking stack is a reference to the master/host network device
-since we mangle packets in and out of it.
+Kees, can this be a false positive?
 
-> 
->> @@ -495,7 +477,7 @@ static struct net_device *dev_to_net_device(struct device *dev)
->>  {
->>  	struct device *d;
->>  
->> -	d = dev_find_class(dev, "net");
->> +	d = device_find_class(dev, "net");
->>  	if (d != NULL) {
->>  		struct net_device *nd;
-> 
-> Again, huh?  What is the device heirachy here that is so odd that this
-> type of function is needed?
-
-An Ethernet switch managed by DSA needs to have one ore more references
-to a host/CPU/management network interface, this is what this struct
-device reference is here for.
+On commit f4d3935e4f4884ba80561db5549394afb8eef8f7.
