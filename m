@@ -1,92 +1,179 @@
-From: Dmitry Vyukov <dvyukov@google.com>
-Subject: sctp: kernel memory overwrite attempt detected in sctp_getsockopt_assoc_stats
-Date: Sun, 15 Jan 2017 18:29:59 +0100
-Message-ID: <CACT4Y+ZDPa+spEh6P_ip9=hsNfeZ8KJfwJu5jTrPKVkGJUaZSg@mail.gmail.com>
+From: Paul Blakey <paulb@mellanox.com>
+Subject: Re: [PATCH net-next] net/sched: cls_flower: Add user specified data
+Date: Sun, 15 Jan 2017 19:36:52 +0200
+Message-ID: <040c6876-a323-0a35-229f-46bc33b6de11@mellanox.com>
+References: <1483362833-52114-1-git-send-email-paulb@mellanox.com>
+ <14675f63-4212-2f72-da4c-cd24b9d10881@mojatatu.com>
+ <20170108171251.GF1971@nanopsycho>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: syzkaller <syzkaller@googlegroups.com>
-To: Vladislav Yasevich <vyasevich@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>,
-        David Miller <davem@davemloft.net>, linux-sctp@vger.kernel.org,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Kees Cook <keescook@google.com>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <paulb@mellanox.com>, "David S. Miller" <davem@davemloft.net>,
+        <netdev@vger.kernel.org>, Jiri Pirko <jiri@mellanox.com>,
+        Hadar Hen Zion <hadarh@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Roi Dayan <roid@mellanox.com>, Roman Mashak <mrv@mojatatu.com>
+To: Jiri Pirko <jiri@resnulli.us>, Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f44.google.com ([209.85.215.44]:36483 "EHLO
-        mail-lf0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751153AbdAORaW (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 15 Jan 2017 12:30:22 -0500
-Received: by mail-lf0-f44.google.com with SMTP id z134so64180883lff.3
-        for <netdev@vger.kernel.org>; Sun, 15 Jan 2017 09:30:21 -0800 (PST)
+Received: from mail-ve1eur01on0089.outbound.protection.outlook.com ([104.47.1.89]:50208
+        "EHLO EUR01-VE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751223AbdAORhF (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 15 Jan 2017 12:37:05 -0500
+In-Reply-To: <20170108171251.GF1971@nanopsycho>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
-
-I've enabled CONFIG_HARDENED_USERCOPY_PAGESPAN on syzkaller fuzzer and
-now I am seeing lots of:
-
-usercopy: kernel memory overwrite attempt detected to ffff8801a74f6f10
-(<spans multiple pages>) (256 bytes)
-
-kernel BUG at mm/usercopy.c:75!
-invalid opcode: 0000 [#1] SMP KASAN
-Dumping ftrace buffer:
-   (ftrace buffer empty)
-Modules linked in:
-CPU: 1 PID: 15686 Comm: syz-executor3 Not tainted 4.9.0 #1
-Hardware name: Google Google Compute Engine/Google Compute Engine,
-BIOS Google 01/01/2011
-task: ffff8801c89b2500 task.stack: ffff8801a74f0000
-RIP: 0010:[<ffffffff81a1b041>]  [<ffffffff81a1b041>] report_usercopy
-mm/usercopy.c:67 [inline]
-RIP: 0010:[<ffffffff81a1b041>]  [<ffffffff81a1b041>]
-__check_object_size+0x2d1/0x9ec mm/usercopy.c:278
-RSP: 0018:ffff8801a74f6cd0  EFLAGS: 00010286
-RAX: 000000000000006b RBX: ffffffff84500120 RCX: 0000000000000000
-RDX: 000000000000006b RSI: ffffffff815a7791 RDI: ffffed0034e9ed8c
-RBP: ffff8801a74f6e48 R08: 0000000000000001 R09: 0000000000000000
-R10: 0000000000000000 R11: 0000000000000001 R12: ffff8801a74f6f10
-R13: 0000000000000100 R14: ffffffff845000e0 R15: ffff8801a74f700f
-FS:  00007f80918de700(0000) GS:ffff8801dc100000(0000) knlGS:0000000000000000
-CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-CR2: 0000000020058ffc CR3: 00000001cc1cc000 CR4: 00000000001406e0
-Stack:
- ffffffff8598fcc8 0000000000000000 000077ff80000000 ffffea0005c99608
- ffffffff844fff40 ffffffff844fff40 0000000041b58ab3 ffffffff84ae0fa0
- ffffffff81a1ad70 ffff8801c89b2500 dead000000000100 ffffffff814d4425
-Call Trace:
- [<ffffffff83e4ece9>] check_object_size include/linux/thread_info.h:129 [inline]
- [<ffffffff83e4ece9>] copy_from_user arch/x86/include/asm/uaccess.h:692 [inline]
- [<ffffffff83e4ece9>] sctp_getsockopt_assoc_stats+0x169/0xa10
-net/sctp/socket.c:6182
- [<ffffffff83e5cc52>] sctp_getsockopt+0x1af2/0x66a0 net/sctp/socket.c:6556
- [<ffffffff834f92c5>] sock_common_getsockopt+0x95/0xd0 net/core/sock.c:2649
- [<ffffffff834f4910>] SYSC_getsockopt net/socket.c:1788 [inline]
- [<ffffffff834f4910>] SyS_getsockopt+0x240/0x380 net/socket.c:1770
- [<ffffffff81009798>] do_syscall_64+0x2e8/0x930 arch/x86/entry/common.c:280
- [<ffffffff84370a49>] entry_SYSCALL64_slow_path+0x25/0x25
-Code: b0 fe ff ff e8 e1 25 ce ff 48 8b 85 b0 fe ff ff 4d 89 e9 4c 89
-e1 4c 89 f2 48 89 de 48 c7 c7 a0 01 50 84 49 89 c0 e8 51 d9 e0 ff <0f>
-0b e8 b8 25 ce ff 4c 89 f2 4c 89 ee 4c 89 e7 e8 6a 1b fc ff
-RIP  [<ffffffff81a1b041>] report_usercopy mm/usercopy.c:67 [inline]
-RIP  [<ffffffff81a1b041>] __check_object_size+0x2d1/0x9ec mm/usercopy.c:278
- RSP <ffff8801a74f6cd0>
----[ end trace 5e438996b2c0b35d ]---
 
 
-I am not sure why check_object_size flags this an a bug,
-copy_from_user copies into a stack object:
+On 08/01/2017 19:12, Jiri Pirko wrote:
+> Mon, Jan 02, 2017 at 03:59:49PM CET, jhs@mojatatu.com wrote:
+>>
+>> We have been using a cookie as well for actions (which we have been
+>> using but have been too lazy to submit so far). I am going to port
+>> it over to the newer kernels and post it.
+>
+> Hard to deal with something we can't look at :)
+>
+>
+>> In our case that is intended to be opaque to the kernel i.e kernel
+>> never inteprets it; in that case it is similar to the kernel
+>> FIB protocol field.
+>
+> In case of this patch, kernel also never interprets it. What makes you
+> think otherwise. Bot kernel, it is always a binary blob.
+>
+>
+>>
+>> In your case - could this cookie have been a class/flowid
+>> (a 32 bit)?
+>> And would it not make more sense for it the cookie to be
+>> generic to all classifiers? i.e why is it specific to flower?
+>
+> Correct, makes sense to have it generic for all cls and perhaps also
+> acts.
+>
+>
 
-static int sctp_getsockopt_assoc_stats(struct sock *sk, int len,
-                                       char __user *optval,
-                                       int __user *optlen)
-{
-        struct sctp_assoc_stats sas;
-        len = min_t(size_t, len, sizeof(sas));
-        if (copy_from_user(&sas, optval, len))
-                return -EFAULT;
+Hi all,
+I've started implementing a general cookie for all classifiers,
+I added the cookie on tcf_proto struct but then I realized that it won't 
+work as I want. What I want is cookie per internal element (those that 
+are identified by handles), which we can have many per one tcf_proto:
 
-Kees, can this be a false positive?
+tc filter add dev <DEV> parent ffff: prio 1 cookie 0x123 basic action drop
+tc filter add dev <DEV> parent ffff: prio 1 cookie 0x456 "port6" basic 
+action drop
+tc filter add dev <DEV> parent ffff: prio 1 cookie 0x777 basic action drop
 
-On commit f4d3935e4f4884ba80561db5549394afb8eef8f7.
+So there is three options to do that:
+1) Implement it in each classifier, using some generic function. (kinda 
+like stats, where classifiler_dump() calls tcf_exts_dump_stats())
+2) Have a global hash table for cookies [prio,handle]->[cookie]
+3) Have it on flower only for now :)
+
+With the first one we will have to change each classifier (or leave it 
+unsupported as default).
+Second is less code to change (instead of changing each classifier), but 
+might be slower. I'm afraid how it will affect dumping several filters.
+Third is this patch.
+
+Thanks,
+Paul.
+
+
+
+>>
+>> cheers,
+>> jamal
+>>
+>> On 17-01-02 08:13 AM, Paul Blakey wrote:
+>>> This is to support saving extra data that might be helpful on retrieval.
+>>> First use case is upcoming openvswitch flow offloads, extra data will
+>>> include UFID and port mappings for each added flow.
+>>>
+>>> Signed-off-by: Paul Blakey <paulb@mellanox.com>
+>>> Reviewed-by: Roi Dayan <roid@mellanox.com>
+>>> Acked-by: Jiri Pirko <jiri@mellanox.com>
+>>> ---
+>>>  include/uapi/linux/pkt_cls.h |  3 +++
+>>>  net/sched/cls_flower.c       | 22 +++++++++++++++++++++-
+>>>  2 files changed, 24 insertions(+), 1 deletion(-)
+>>>
+>>> diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
+>>> index cb4bcdc..ca9bbe3 100644
+>>> --- a/include/uapi/linux/pkt_cls.h
+>>> +++ b/include/uapi/linux/pkt_cls.h
+>>> @@ -471,10 +471,13 @@ enum {
+>>>  	TCA_FLOWER_KEY_ICMPV6_TYPE,	/* u8 */
+>>>  	TCA_FLOWER_KEY_ICMPV6_TYPE_MASK,/* u8 */
+>>>
+>>> +	TCA_FLOWER_COOKIE,		/* binary */
+>>> +
+>>>  	__TCA_FLOWER_MAX,
+>>>  };
+>>>
+>>>  #define TCA_FLOWER_MAX (__TCA_FLOWER_MAX - 1)
+>>> +#define FLOWER_MAX_COOKIE_SIZE 128
+>>>
+>>>  enum {
+>>>  	TCA_FLOWER_KEY_FLAGS_IS_FRAGMENT = (1 << 0),
+>>> diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
+>>> index 333f8e2..e2f5b25 100644
+>>> --- a/net/sched/cls_flower.c
+>>> +++ b/net/sched/cls_flower.c
+>>> @@ -85,6 +85,8 @@ struct cls_fl_filter {
+>>>  	struct rcu_head	rcu;
+>>>  	struct tc_to_netdev tc;
+>>>  	struct net_device *hw_dev;
+>>> +	size_t cookie_len;
+>>> +	long cookie[0];
+>>>  };
+>>>
+>>>  static unsigned short int fl_mask_range(const struct fl_flow_mask *mask)
+>>> @@ -794,6 +796,9 @@ static int fl_change(struct net *net, struct sk_buff *in_skb,
+>>>  	struct cls_fl_filter *fnew;
+>>>  	struct nlattr *tb[TCA_FLOWER_MAX + 1];
+>>>  	struct fl_flow_mask mask = {};
+>>> +	const struct nlattr *attr;
+>>> +	size_t cookie_len = 0;
+>>> +	void *cookie;
+>>>  	int err;
+>>>
+>>>  	if (!tca[TCA_OPTIONS])
+>>> @@ -806,10 +811,22 @@ static int fl_change(struct net *net, struct sk_buff *in_skb,
+>>>  	if (fold && handle && fold->handle != handle)
+>>>  		return -EINVAL;
+>>>
+>>> -	fnew = kzalloc(sizeof(*fnew), GFP_KERNEL);
+>>> +	if (tb[TCA_FLOWER_COOKIE]) {
+>>> +		attr = tb[TCA_FLOWER_COOKIE];
+>>> +		cookie_len = nla_len(attr);
+>>> +		cookie = nla_data(attr);
+>>> +		if (cookie_len > FLOWER_MAX_COOKIE_SIZE)
+>>> +			return -EINVAL;
+>>> +	}
+>>> +
+>>> +	fnew = kzalloc(sizeof(*fnew) + cookie_len, GFP_KERNEL);
+>>>  	if (!fnew)
+>>>  		return -ENOBUFS;
+>>>
+>>> +	fnew->cookie_len = cookie_len;
+>>> +	if (cookie_len)
+>>> +		memcpy(fnew->cookie, cookie, cookie_len);
+>>> +
+>>>  	err = tcf_exts_init(&fnew->exts, TCA_FLOWER_ACT, 0);
+>>>  	if (err < 0)
+>>>  		goto errout;
+>>> @@ -1151,6 +1168,9 @@ static int fl_dump(struct net *net, struct tcf_proto *tp, unsigned long fh,
+>>>
+>>>  	nla_put_u32(skb, TCA_FLOWER_FLAGS, f->flags);
+>>>
+>>> +	if (f->cookie_len)
+>>> +		nla_put(skb, TCA_FLOWER_COOKIE, f->cookie_len, f->cookie);
+>>> +
+>>>  	if (tcf_exts_dump(skb, &f->exts))
+>>>  		goto nla_put_failure;
+>>>
+>>>
+>>
