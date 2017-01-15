@@ -1,95 +1,137 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [PATCH net-next] net/sched: cls_flower: Add user specified data
-Date: Sun, 15 Jan 2017 11:08:04 -0800
-Message-ID: <587BC894.3080909@gmail.com>
-References: <1483362833-52114-1-git-send-email-paulb@mellanox.com>
- <14675f63-4212-2f72-da4c-cd24b9d10881@mojatatu.com>
- <20170108171251.GF1971@nanopsycho>
- <040c6876-a323-0a35-229f-46bc33b6de11@mellanox.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next v3 06/10] net: dsa: Migrate to device_find_class()
+Date: Sun, 15 Jan 2017 20:16:32 +0100
+Message-ID: <20170115191632.GD5643@lunn.ch>
+References: <20170114214713.28109-1-f.fainelli@gmail.com>
+ <20170114214713.28109-7-f.fainelli@gmail.com>
+ <20170115110628.GF26374@kroah.com>
+ <fc247aeb-a8d6-5ba9-c26d-cb057a5ac34d@gmail.com>
+ <20170115173949.GA19268@kroah.com>
+ <a9ea1f45-b9a5-d840-68e0-9bf9bc7a6598@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Jiri Pirko <jiri@mellanox.com>,
-        Hadar Hen Zion <hadarh@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Roi Dayan <roid@mellanox.com>, Roman Mashak <mrv@mojatatu.com>
-To: Paul Blakey <paulb@mellanox.com>, Jiri Pirko <jiri@resnulli.us>,
-        Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:35054 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751206AbdAOTIY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 15 Jan 2017 14:08:24 -0500
-Received: by mail-pg0-f66.google.com with SMTP id 204so3436669pge.2
-        for <netdev@vger.kernel.org>; Sun, 15 Jan 2017 11:08:24 -0800 (PST)
-In-Reply-To: <040c6876-a323-0a35-229f-46bc33b6de11@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jason Cooper <jason@lakedaemon.net>,
+ Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+ Greg KH <gregkh@linuxfoundation.org>, Russell King <linux@armlinux.org.uk>,
+ open list <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+ Gregory Clement <gregory.clement@free-electrons.com>,
+ "David S. Miller" <davem@davemloft.net>,
+ "moderated list:ARM SUB-ARCHITECTURES" <linux-arm-kernel@lists.infradead.org>,
+ Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Disposition: inline
+In-Reply-To: <a9ea1f45-b9a5-d840-68e0-9bf9bc7a6598@gmail.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On 17-01-15 09:36 AM, Paul Blakey wrote:
-> 
-> 
-> On 08/01/2017 19:12, Jiri Pirko wrote:
->> Mon, Jan 02, 2017 at 03:59:49PM CET, jhs@mojatatu.com wrote:
->>>
->>> We have been using a cookie as well for actions (which we have been
->>> using but have been too lazy to submit so far). I am going to port
->>> it over to the newer kernels and post it.
->>
->> Hard to deal with something we can't look at :)
->>
->>
->>> In our case that is intended to be opaque to the kernel i.e kernel
->>> never inteprets it; in that case it is similar to the kernel
->>> FIB protocol field.
->>
->> In case of this patch, kernel also never interprets it. What makes you
->> think otherwise. Bot kernel, it is always a binary blob.
->>
->>
->>>
->>> In your case - could this cookie have been a class/flowid
->>> (a 32 bit)?
->>> And would it not make more sense for it the cookie to be
->>> generic to all classifiers? i.e why is it specific to flower?
->>
->> Correct, makes sense to have it generic for all cls and perhaps also
->> acts.
->>
->>
-> 
-> Hi all,
-> I've started implementing a general cookie for all classifiers,
-> I added the cookie on tcf_proto struct but then I realized that it won't work as
-> I want. What I want is cookie per internal element (those that are identified by
-> handles), which we can have many per one tcf_proto:
-> 
-> tc filter add dev <DEV> parent ffff: prio 1 cookie 0x123 basic action drop
-> tc filter add dev <DEV> parent ffff: prio 1 cookie 0x456 "port6" basic action drop
-> tc filter add dev <DEV> parent ffff: prio 1 cookie 0x777 basic action drop
-> 
-> So there is three options to do that:
-> 1) Implement it in each classifier, using some generic function. (kinda like
-> stats, where classifiler_dump() calls tcf_exts_dump_stats())
-> 2) Have a global hash table for cookies [prio,handle]->[cookie]
-> 3) Have it on flower only for now :)
-> 
-> With the first one we will have to change each classifier (or leave it
-> unsupported as default).
-> Second is less code to change (instead of changing each classifier), but might
-> be slower. I'm afraid how it will affect dumping several filters.
-> Third is this patch.
-> 
-> Thanks,
-> Paul.
+> > What exactly is the relationship between these devices (a ascii-art tree
+> > or sysfs tree output might be nice) so I can try to understand what is
+> > going on here.
 
-Avoid (2) it creates way more problems than its worth like is it locked/not
-locked, how is it synced, collisions, etc. Seems way overkill.
+Hi Greg, Florian
 
-I like the generic functionality of (1) but unless we see this pop up in
-different filters I wouldn't require it for now. If you just do it in flower
-(option 3) when its added to another classifier we can generalize it. As a
-middle ground creating nice helper routines as needed goes a long way.
+A few diagrams and trees which might help understand what is going on.
 
-.John
+The first diagram comes from the 2008 patch which added all this code:
+
+            +-----------+       +-----------+
+            |           | RGMII |           |
+            |           +-------+           +------ 1000baseT MDI ("WAN")
+            |           |       |  6-port   +------ 1000baseT MDI ("LAN1")
+            |    CPU    |       |  ethernet +------ 1000baseT MDI ("LAN2")
+            |           |MIImgmt|  switch   +------ 1000baseT MDI ("LAN3")
+            |           +-------+  w/5 PHYs +------ 1000baseT MDI ("LAN4")
+            |           |       |           |
+            +-----------+       +-----------+
+
+We have an ethernet switch and a host CPU. The switch is connected to
+the CPU in two different ways. RGMII allows us to get Ethernet frames
+from the CPU into the switch. MIImgmt, is the management bus normally
+used for Ethernet PHYs, but Marvell switches also use it for Managing
+switches.
+
+The diagram above is the simplest setup. You can have multiple
+Ethernet switches, connected together via switch ports. Each switch
+has its own MIImgmt connect to the CPU, but there is only one RGMII
+link.
+
+When this code was designed back in 2008, it was decided to represent
+this is a platform device, and it has a platform_data, which i have
+slightly edited to keep it simple:
+
+struct dsa_platform_data {
+        /*
+         * Reference to a Linux network interface that connects
+         * to the root switch chip of the tree.
+         */
+        struct device   *netdev;
+
+        /*
+         * Info structs describing each of the switch chips
+         * connected via this network interface.
+         */
+        int             nr_chips;
+        struct dsa_chip_data    *chip;
+};
+
+This netdev is the CPU side of the RGMII interface.
+
+Each switch has a dsa_chip_data, again edited:
+
+struct dsa_chip_data {
+        /*
+         * How to access the switch configuration registers.
+         */
+        struct device   *host_dev;
+        int             sw_addr;
+...
+}
+
+The host_dev is the CPU side of the MIImgmt, and we have the address
+the switch is using on the bus.
+
+During probe of this platform device, we need to get from the
+struct device *netdev to a struct net_device *dev.
+
+So the code looks in the device net class to find the device
+
+|   |   |   |-- f1074000.ethernet
+|   |   |   |   |-- deferred_probe
+|   |   |   |   |-- driver -> ../../../../../bus/platform/drivers/mvneta
+|   |   |   |   |-- driver_override
+|   |   |   |   |-- modalias
+|   |   |   |   |-- net
+|   |   |   |   |   `-- eth1
+|   |   |   |   |       |-- addr_assign_type
+|   |   |   |   |       |-- address
+|   |   |   |   |       |-- addr_len
+|   |   |   |   |       |-- broadcast
+|   |   |   |   |       |-- carrier
+|   |   |   |   |       |-- carrier_changes
+|   |   |   |   |       |-- deferred_probe
+|   |   |   |   |       |-- device -> ../../../f1074000.ethernet
+
+and then use container_of() to get the net_device.
+
+Similarly, the code needs to get from struct device *host_dev to a struct mii_bus *.
+
+|   |   |   |-- f1072004.mdio
+|   |   |   |   |-- deferred_probe
+|   |   |   |   |-- driver -> ../../../../../bus/platform/drivers/orion-mdio
+|   |   |   |   |-- driver_override
+|   |   |   |   |-- mdio_bus
+|   |   |   |   |   `-- f1072004.mdio-mi
+|   |   |   |   |       |-- deferred_probe
+|   |   |   |   |       |-- device -> ../../../f1072004.mdio
+
+    Andrew
