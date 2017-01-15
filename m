@@ -1,47 +1,39 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next v3 04/10] net: dsa: Move ports assignment closer
- to error checking
-Date: Sun, 15 Jan 2017 13:17:11 +0300
-Message-ID: <f67f9157-47fb-bb55-a248-de63b6d9d851@cogentembedded.com>
-References: <20170114214713.28109-1-f.fainelli@gmail.com>
- <20170114214713.28109-5-f.fainelli@gmail.com>
+From: yuan linyu <cugyly@163.com>
+Subject: Re: [PATCH] net: add regs attribute to phy device for user diagnose
+Date: Sun, 15 Jan 2017 18:40:52 +0800
+Message-ID: <1484476852.7461.4.camel@163.com>
+References: <1484361992-30591-1-git-send-email-cugyly@163.com>
+         <20170114162453.GB1072@lunn.ch>
+         <da255b0c-dba6-ef35-d436-3110d8492f95@gmail.com>
+         <1484445063.4555.8.camel@163.com>
+         <580590a9-d03b-2fab-efe7-173427b7c331@gmail.com>
+Reply-To: cugyly@163.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jason Cooper <jason@lakedaemon.net>, Andrew Lunn <andrew@lunn.ch>,
-        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-        Gregory Clement <gregory.clement@free-electrons.com>,
-        Russell King <linux@armlinux.org.uk>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        "moderated list:ARM SUB-ARCHITECTURES"
-        <linux-arm-kernel@lists.infradead.org>,
-        open list <linux-kernel@vger.kernel.org>,
-        gregkh@linuxfoundation.org
-To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+        Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f52.google.com ([209.85.215.52]:35951 "EHLO
-        mail-lf0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750809AbdAOKRP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 15 Jan 2017 05:17:15 -0500
-Received: by mail-lf0-f52.google.com with SMTP id z134so60756289lff.3
-        for <netdev@vger.kernel.org>; Sun, 15 Jan 2017 02:17:14 -0800 (PST)
-In-Reply-To: <20170114214713.28109-5-f.fainelli@gmail.com>
+Received: from m12-13.163.com ([220.181.12.13]:58247 "EHLO m12-13.163.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750824AbdAOKlW (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Sun, 15 Jan 2017 05:41:22 -0500
+In-Reply-To: <580590a9-d03b-2fab-efe7-173427b7c331@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello!
+On 六, 2017-01-14 at 17:57 -0800, Florian Fainelli wrote:
+> Le 01/14/17 à 17:51, yuan linyu a écrit :
+> > 
+> > I think mii-tool or ethtool can't do it currently.
+> Maybe they cannot right now but they can certainly be patched to support
+> that. sysfs is not an appropriate interface for what you are proposing
+> here. We already have a set/get register via ethtool (-d/-D) it would
+> seem natural to use this.
+I think most ethernet driver implement ethtool -d to dump mac register.
 
-On 1/15/2017 12:47 AM, Florian Fainelli wrote:
-
-> Move the assignment of ports in _dsa_register_switch() closer to where
-> it is checked, no functional change. Re-order declarations to be
-
-    "Be" not needed.
-
-> preserve the inverted christmas tree style.
->
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
-[...]
-
-MBR, Sergei
+> 
+> Besides that, are not the current ioctl() good enough for that?
+I think user/developer diagnose through simple attribute file will be easy.
