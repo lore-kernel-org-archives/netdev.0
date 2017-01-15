@@ -1,14 +1,12 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH net-next v3 06/10] net: dsa: Migrate to
- device_find_class()
-Date: Sun, 15 Jan 2017 18:39:49 +0100
-Message-ID: <20170115173949.GA19268@kroah.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next v3 00/10] net: dsa: Support for pdata in dsa2
+Date: Sun, 15 Jan 2017 09:40:24 -0800
+Message-ID: <bc0d9ea7-17ee-abc3-b2aa-4d241413b9a3@gmail.com>
 References: <20170114214713.28109-1-f.fainelli@gmail.com>
- <20170114214713.28109-7-f.fainelli@gmail.com>
- <20170115110628.GF26374@kroah.com>
- <fc247aeb-a8d6-5ba9-c26d-cb057a5ac34d@gmail.com>
+ <20170115110831.GH26374@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8bit
 Cc: netdev@vger.kernel.org, Jason Cooper <jason@lakedaemon.net>,
         Andrew Lunn <andrew@lunn.ch>,
         Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
@@ -19,91 +17,46 @@ Cc: netdev@vger.kernel.org, Jason Cooper <jason@lakedaemon.net>,
         "moderated list:ARM SUB-ARCHITECTURES"
         <linux-arm-kernel@lists.infradead.org>,
         open list <linux-kernel@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>
+To: Greg KH <gregkh@linuxfoundation.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <fc247aeb-a8d6-5ba9-c26d-cb057a5ac34d@gmail.com>
+In-Reply-To: <20170115110831.GH26374@kroah.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Jan 15, 2017 at 09:27:22AM -0800, Florian Fainelli wrote:
+On 01/15/2017 03:08 AM, Greg KH wrote:
+> On Sat, Jan 14, 2017 at 01:47:03PM -0800, Florian Fainelli wrote:
+>> Hi all,
+>>
+>> This is not exactly new, and was sent before, although back then, I did not
+>> have an user of the pre-declared MDIO board information, but now we do. Note
+>> that I have additional changes queued up to have b53 register platform data for
+>> MIPS bcm47xx and bcm63xx.
+>>
+>> Yes I know that we should have the Orion platforms eventually be converted to
+>> Device Tree, but until that happens, I don't want any remaining users of the
+>> old "dsa" platform device (hence the previous DTS submissions for ARM/mvebu)
+>> and, there will be platforms out there that most likely won't never see DT
+>> coming their way (BCM47xx is almost 100% sure, BCM63xx maybe not in a distant
+>> future).
+>>
+>> We would probably want the whole series to be merged via David Miller's tree
+>> to simplify things.
+>>
+>> Greg, can you Ack/Nack patch 5 since it touched the core LDD?
 > 
-> 
-> On 01/15/2017 03:06 AM, Greg KH wrote:
-> > On Sat, Jan 14, 2017 at 01:47:09PM -0800, Florian Fainelli wrote:
-> >> Now that the base device driver code provides an identical
-> >> implementation of dev_find_class() utilize device_find_class() instead
-> >> of our own version of it.
-> >>
-> >> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
-> >> ---
-> >>  net/dsa/dsa.c | 22 ++--------------------
-> >>  1 file changed, 2 insertions(+), 20 deletions(-)
-> >>
-> >> diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-> >> index 2306d1b87c83..77fa4c4f5828 100644
-> >> --- a/net/dsa/dsa.c
-> >> +++ b/net/dsa/dsa.c
-> >> @@ -455,29 +455,11 @@ EXPORT_SYMBOL_GPL(dsa_switch_resume);
-> >>  #endif
-> >>  
-> >>  /* platform driver init and cleanup *****************************************/
-> >> -static int dev_is_class(struct device *dev, void *class)
-> >> -{
-> >> -	if (dev->class != NULL && !strcmp(dev->class->name, class))
-> >> -		return 1;
-> >> -
-> >> -	return 0;
-> >> -}
-> >> -
-> >> -static struct device *dev_find_class(struct device *parent, char *class)
-> >> -{
-> >> -	if (dev_is_class(parent, class)) {
-> >> -		get_device(parent);
-> >> -		return parent;
-> >> -	}
-> >> -
-> >> -	return device_find_child(parent, class, dev_is_class);
-> >> -}
-> >> -
-> >>  struct mii_bus *dsa_host_dev_to_mii_bus(struct device *dev)
-> >>  {
-> >>  	struct device *d;
-> >>  
-> >> -	d = dev_find_class(dev, "mdio_bus");
-> >> +	d = device_find_class(dev, "mdio_bus");
-> >>  	if (d != NULL) {
-> >>  		struct mii_bus *bus;
-> > 
-> > You want a peer of your device on a specific class?  What is this for?
-> 
-> It's not a peer of our device, it's a separate device reference from the
-> one looked up in the "net" class. In the classic, and now deprecated DSA
-> device driver model, a "dsa" platform device would represent one or more
-> Ethernet switches, connected via a MDIO bus (this reference above), and
-> one Ethernet device (the CPU/host/management interface). This was
-> completely violating the Linux device driver model and imposed
-> limitations on what bus would be used, and we did not have proper struct
-> device references (therefore no adequate hierarchy either).
-> 
-> Thanks to the work of Andrew, we now have proper MDIO, SPI, GPIO, I2C,
-> PCI, platform and drivers that allow us to register with DSA as a
-> specialized kind of device (so we are now finally using the right Linux
-> Device Driver model). What we still need though, in order to our switch
-> to the networking stack is a reference to the master/host network device
-> since we mangle packets in and out of it.
+> I've NAKed them for now, you need to describe what you are trying to do
+> here, as it doesn't make any sense to me at the moment.
 
-Ok, but where in the tree are you trying to find this other device?  Are
-you just going to randomly find any device that happens to be of the
-specific class type?  That seems really fragile and broken :(
+For one, this is moving *existing* code from net/dsa/dsa.c part into the
+device core for device_find_class() and part into the network device
+core for dev_to_net_device(). Patch 8 is where this actually gets used.
+See my individual replies for more details.
 
-You should NEVER have to walk the device tree to find stuff.  Why can't
-you have a pointer to the device you need to talk to some other way?
-
-What exactly is the relationship between these devices (a ascii-art tree
-or sysfs tree output might be nice) so I can try to understand what is
-going on here.
-
-thanks,
-
-greg k-h
+Even though the existing code is there in net/dsa/dsa.c, at this point,
+and for the sake of getting these patches merged via David, I can
+probably just keep it where it is (like what patch series v1 did) and
+just namespace it with dsa_. Later on, if this is deemed valuable to
+other parts of the kernel, I can try to relocate it to the device core,
+does that sound acceptable?
+-- 
+Florian
