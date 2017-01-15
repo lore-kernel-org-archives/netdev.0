@@ -1,252 +1,92 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCHv3 net-next 2/7] sctp: add support for generating stream
- reconf ssn reset request chunk
-Date: Sun, 15 Jan 2017 13:51:51 -0200
-Message-ID: <20170115155150.GG3781@localhost.localdomain>
-References: <cover.1484334002.git.lucien.xin@gmail.com>
- <6c991b81f4a92cec3da773bae9b19e878e810c88.1484334002.git.lucien.xin@gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next v3 07/10] net: Relocate dev_to_net_device() into
+ core
+Date: Sun, 15 Jan 2017 09:20:06 -0800
+Message-ID: <621be9fe-0869-2d0a-fd49-97468c2d4972@gmail.com>
+References: <20170114214713.28109-1-f.fainelli@gmail.com>
+ <20170114214713.28109-8-f.fainelli@gmail.com>
+ <20170115110753.GG26374@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-        Neil Horman <nhorman@tuxdriver.com>,
-        Vlad Yasevich <vyasevich@gmail.com>, davem@davemloft.net
-To: Xin Long <lucien.xin@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35344 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751165AbdAOPv4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 15 Jan 2017 10:51:56 -0500
-Content-Disposition: inline
-In-Reply-To: <6c991b81f4a92cec3da773bae9b19e878e810c88.1484334002.git.lucien.xin@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Jason Cooper <jason@lakedaemon.net>,
+        Andrew Lunn <andrew@lunn.ch>,
+        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+        Gregory Clement <gregory.clement@free-electrons.com>,
+        Russell King <linux@armlinux.org.uk>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        "moderated list:ARM SUB-ARCHITECTURES"
+        <linux-arm-kernel@lists.infradead.org>,
+        open list <linux-kernel@vger.kernel.org>
+To: Greg KH <gregkh@linuxfoundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170115110753.GG26374@kroah.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Jan 14, 2017 at 03:15:36AM +0800, Xin Long wrote:
-> This patch is to add asoc strreset_outseq and strreset_inseq for
-> saving the reconf request sequence, initialize them when create
-> assoc and process init, and also to define Incoming and Outgoing
-> SSN Reset Request Parameter described in rfc6525 section 4.1 and
-> 4.2, As they can be in one same chunk as section rfc6525 3.1-3
-> describes, it makes them in one function.
+
+
+On 01/15/2017 03:07 AM, Greg KH wrote:
+> On Sat, Jan 14, 2017 at 01:47:10PM -0800, Florian Fainelli wrote:
+>> dev_to_net_device() is moved from net/dsa/dsa.c to net/core/dev.c since
+>> it going to be used by net/dsa/dsa2.c and the namespace of the function
+>> justifies making it available to other users potentially.
+>>
+>> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+>> ---
+>>  include/linux/netdevice.h |  2 ++
+>>  net/core/dev.c            | 19 +++++++++++++++++++
+>>  net/dsa/dsa.c             | 18 ------------------
+>>  3 files changed, 21 insertions(+), 18 deletions(-)
+>>
+>> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+>> index 97ae0ac513ee..6d021c37b774 100644
+>> --- a/include/linux/netdevice.h
+>> +++ b/include/linux/netdevice.h
+>> @@ -4390,4 +4390,6 @@ do {								\
+>>  #define PTYPE_HASH_SIZE	(16)
+>>  #define PTYPE_HASH_MASK	(PTYPE_HASH_SIZE - 1)
+>>  
+>> +struct net_device *dev_to_net_device(struct device *dev);
+>> +
+>>  #endif	/* _LINUX_NETDEVICE_H */
+>> diff --git a/net/core/dev.c b/net/core/dev.c
+>> index ad5959e56116..7547e2ccc06b 100644
+>> --- a/net/core/dev.c
+>> +++ b/net/core/dev.c
+>> @@ -8128,6 +8128,25 @@ const char *netdev_drivername(const struct net_device *dev)
+>>  	return empty;
+>>  }
+>>  
+>> +struct net_device *dev_to_net_device(struct device *dev)
+>> +{
+>> +	struct device *d;
+>> +
+>> +	d = device_find_class(dev, "net");
+>> +	if (d) {
+>> +		struct net_device *nd;
+>> +
+>> +		nd = to_net_dev(d);
+>> +		dev_hold(nd);
+>> +		put_device(d);
+>> +
+>> +		return nd;
+>> +	}
+>> +
+>> +	return NULL;
+>> +}
+>> +EXPORT_SYMBOL_GPL(dev_to_net_device);
 > 
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
-> ---
->  include/linux/sctp.h       | 26 ++++++++++++++
->  include/net/sctp/sm.h      |  5 ++-
->  include/net/sctp/structs.h |  3 ++
->  net/sctp/associola.c       |  1 +
->  net/sctp/sm_make_chunk.c   | 88 ++++++++++++++++++++++++++++++++++++++++++++++
->  5 files changed, 122 insertions(+), 1 deletion(-)
-> 
-> diff --git a/include/linux/sctp.h b/include/linux/sctp.h
-> index cdc3b05..d5da19c 100644
-> --- a/include/linux/sctp.h
-> +++ b/include/linux/sctp.h
-> @@ -200,6 +200,13 @@ typedef enum {
->  	SCTP_PARAM_SUCCESS_REPORT	= cpu_to_be16(0xc005),
->  	SCTP_PARAM_ADAPTATION_LAYER_IND = cpu_to_be16(0xc006),
->  
-> +	/* RE-CONFIG. Section 4 */
-> +	SCTP_PARAM_RESET_OUT_REQUEST		= cpu_to_be16(0x000d),
-> +	SCTP_PARAM_RESET_IN_REQUEST		= cpu_to_be16(0x000e),
-> +	SCTP_PARAM_RESET_TSN_REQUEST		= cpu_to_be16(0x000f),
-> +	SCTP_PARAM_RESET_RESPONSE		= cpu_to_be16(0x0010),
-> +	SCTP_PARAM_RESET_ADD_OUT_STREAMS	= cpu_to_be16(0x0011),
-> +	SCTP_PARAM_RESET_ADD_IN_STREAMS		= cpu_to_be16(0x0012),
->  } sctp_param_t; /* enum */
->  
->  
-> @@ -716,4 +723,23 @@ struct sctp_reconf_chunk {
->  	__u8 params[0];
->  } __packed;
->  
-> +struct sctp_strreset_req {
-> +	sctp_paramhdr_t param_hdr;
-> +	__u32 request_seq;
-> +} __packed;
-> +
-> +struct sctp_strreset_outreq {
-> +	sctp_paramhdr_t param_hdr;
-> +	__u32 request_seq;
+> This really isn't just a "struct device to net device cast" type
+> function, (otherwise a simple container_of() would work).  You are
+> walking the device tree and assuming it is in a specific order so that
+> this function works.  You better document the hell out of this,
+> otherwise people are going to try to use this and get very confused,
+> very quickly...
 
-This should be:
-+	struct sctp_strreset_req strreset_req;
-Use the definition you created above for the encapsulation and make the
-embedding evident.
-Like it's done for sctp_chunkhdr_t.
-
-> +	__u32 response_seq;
-> +	__u32 send_reset_at_tsn;
-> +	__u16 list_of_streams[0];
-> +} __packed;
-> +
-> +struct sctp_strreset_inreq {
-> +	sctp_paramhdr_t param_hdr;
-> +	__u32 request_seq;
-
-Same here.
-
-> +	__u16 list_of_streams[0];
-> +} __packed;
-> +
->  #endif /* __LINUX_SCTP_H__ */
-> diff --git a/include/net/sctp/sm.h b/include/net/sctp/sm.h
-> index ca6c971..3462cb0 100644
-> --- a/include/net/sctp/sm.h
-> +++ b/include/net/sctp/sm.h
-> @@ -259,7 +259,10 @@ struct sctp_chunk *sctp_make_fwdtsn(const struct sctp_association *asoc,
->  				    __u32 new_cum_tsn, size_t nstreams,
->  				    struct sctp_fwdtsn_skip *skiplist);
->  struct sctp_chunk *sctp_make_auth(const struct sctp_association *asoc);
-> -
-> +struct sctp_chunk *sctp_make_strreset_req(
-> +				const struct sctp_association *asoc,
-> +				__u16 stream_num, __u16 *stream_list,
-> +				bool out, bool in);
->  void sctp_chunk_assign_tsn(struct sctp_chunk *);
->  void sctp_chunk_assign_ssn(struct sctp_chunk *);
->  
-> diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-> index 4741ec2..3dc983e 100644
-> --- a/include/net/sctp/structs.h
-> +++ b/include/net/sctp/structs.h
-> @@ -1865,6 +1865,9 @@ struct sctp_association {
->  	     temp:1,		/* Is it a temporary association? */
->  	     prsctp_enable:1;
->  
-> +	__u32 strreset_outseq; /* Update after receiving response */
-> +	__u32 strreset_inseq; /* Update after receiving request */
-> +
->  	struct sctp_priv_assoc_stats stats;
->  
->  	int sent_cnt_removable;
-> diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-> index 36294f7..42ece6f 100644
-> --- a/net/sctp/associola.c
-> +++ b/net/sctp/associola.c
-> @@ -207,6 +207,7 @@ static struct sctp_association *sctp_association_init(struct sctp_association *a
->  	 * association to the same value as the initial TSN.
->  	 */
->  	asoc->addip_serial = asoc->c.initial_tsn;
-> +	asoc->strreset_outseq = asoc->c.initial_tsn;
->  
->  	INIT_LIST_HEAD(&asoc->addip_chunk_list);
->  	INIT_LIST_HEAD(&asoc->asconf_ack_list);
-> diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
-> index fd58097..172385c 100644
-> --- a/net/sctp/sm_make_chunk.c
-> +++ b/net/sctp/sm_make_chunk.c
-> @@ -1844,6 +1844,7 @@ struct sctp_association *sctp_unpack_cookie(
->  	retval->next_tsn = retval->c.initial_tsn;
->  	retval->ctsn_ack_point = retval->next_tsn - 1;
->  	retval->addip_serial = retval->c.initial_tsn;
-> +	retval->strreset_outseq = retval->c.initial_tsn;
->  	retval->adv_peer_ack_point = retval->ctsn_ack_point;
->  	retval->peer.prsctp_capable = retval->c.prsctp_capable;
->  	retval->peer.adaptation_ind = retval->c.adaptation_ind;
-> @@ -2387,6 +2388,8 @@ int sctp_process_init(struct sctp_association *asoc, struct sctp_chunk *chunk,
->  	asoc->peer.i.initial_tsn =
->  		ntohl(peer_init->init_hdr.initial_tsn);
->  
-> +	asoc->strreset_inseq = asoc->peer.i.initial_tsn;
-> +
->  	/* Apply the upper bounds for output streams based on peer's
->  	 * number of inbound streams.
->  	 */
-> @@ -3559,3 +3562,88 @@ static struct sctp_chunk *sctp_make_reconf(
->  
->  	return retval;
->  }
-> +
-> +/* RE-CONFIG 4.1 (STREAM OUT RESET)
-> + *   0                   1                   2                   3
-> + *   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-> + *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-> + *  |     Parameter Type = 13       | Parameter Length = 16 + 2 * N |
-> + *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-> + *  |           Re-configuration Request Sequence Number            |
-> + *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-> + *  |           Re-configuration Response Sequence Number           |
-> + *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-> + *  |                Sender's Last Assigned TSN                     |
-> + *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-> + *  |  Stream Number 1 (optional)   |    Stream Number 2 (optional) |
-> + *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-> + *  /                            ......                             /
-> + *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-> + *  |  Stream Number N-1 (optional) |    Stream Number N (optional) |
-> + *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-> + *
-> + * RE-CONFIG 4.2 (STREAM IN RESET)
-> + *   0                   1                   2                   3
-> + *   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-> + *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-> + *  |     Parameter Type = 14       |  Parameter Length = 8 + 2 * N |
-> + *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-> + *  |          Re-configuration Request Sequence Number             |
-> + *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-> + *  |  Stream Number 1 (optional)   |    Stream Number 2 (optional) |
-> + *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-> + *  /                            ......                             /
-> + *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-> + *  |  Stream Number N-1 (optional) |    Stream Number N (optional) |
-> + *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-> + */
-> +struct sctp_chunk *sctp_make_strreset_req(
-> +				const struct sctp_association *asoc,
-> +				__u16 stream_num, __u16 *stream_list,
-> +				bool out, bool in)
-> +{
-> +	struct sctp_strreset_outreq outreq;
-> +	__u16 stream_len = stream_num * 2;
-> +	struct sctp_strreset_inreq inreq;
-> +	struct sctp_chunk *retval;
-> +	__u16 outlen, inlen, i;
-> +
-> +	outlen = (sizeof(outreq) + stream_len) * out;
-> +	inlen = (sizeof(inreq) + stream_len) * in;
-> +
-> +	retval = sctp_make_reconf(asoc, outlen + inlen);
-> +	if (!retval)
-> +		return NULL;
-> +
-> +	for (i = 0; i < stream_num; i++)
-> +		stream_list[i] = htons(stream_list[i]);
-> +
-> +	if (outlen) {
-> +		outreq.param_hdr.type = SCTP_PARAM_RESET_OUT_REQUEST;
-> +		outreq.param_hdr.length = htons(outlen);
-> +		outreq.request_seq = htonl(asoc->strreset_outseq);
-> +		outreq.response_seq = htonl(asoc->strreset_inseq - 1);
-> +		outreq.send_reset_at_tsn = htonl(asoc->next_tsn - 1);
-> +
-> +		sctp_addto_chunk(retval, sizeof(outreq), &outreq);
-> +
-> +		if (stream_len)
-> +			sctp_addto_chunk(retval, stream_len, stream_list);
-> +	}
-> +
-> +	if (inlen) {
-> +		inreq.param_hdr.type = SCTP_PARAM_RESET_IN_REQUEST;
-> +		inreq.param_hdr.length = htons(inlen);
-> +		inreq.request_seq = htonl(asoc->strreset_outseq + out);
-> +
-> +		sctp_addto_chunk(retval, sizeof(inreq), &inreq);
-> +
-> +		if (stream_len)
-> +			sctp_addto_chunk(retval, stream_len, stream_list);
-> +	}
-> +
-> +	for (i = 0; i < stream_num; i++)
-> +		stream_list[i] = ntohs(stream_list[i]);
-> +
-> +	return retval;
-> +}
-> -- 
-> 2.1.0
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+Fair enough. Does that make it clearer how the device_find_class() is
+used though? Maybe device_find_class() should be named
+device_find_by_class_name() instead?
+-- 
+Florian
