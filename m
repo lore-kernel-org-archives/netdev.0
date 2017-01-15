@@ -1,92 +1,33 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next v3 07/10] net: Relocate dev_to_net_device() into
- core
-Date: Sun, 15 Jan 2017 09:20:06 -0800
-Message-ID: <621be9fe-0869-2d0a-fd49-97468c2d4972@gmail.com>
-References: <20170114214713.28109-1-f.fainelli@gmail.com>
- <20170114214713.28109-8-f.fainelli@gmail.com>
- <20170115110753.GG26374@kroah.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next] net: ipv6: Allow shorthand delete of all
+ nexthops in multipath route
+Date: Sun, 15 Jan 2017 10:21:47 -0700
+Message-ID: <e043af04-3fba-20f8-5c60-ae06166d6f7a@cumulusnetworks.com>
+References: <1484351668-8962-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jason Cooper <jason@lakedaemon.net>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-        Gregory Clement <gregory.clement@free-electrons.com>,
-        Russell King <linux@armlinux.org.uk>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        "moderated list:ARM SUB-ARCHITECTURES"
-        <linux-arm-kernel@lists.infradead.org>,
-        open list <linux-kernel@vger.kernel.org>
-To: Greg KH <gregkh@linuxfoundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170115110753.GG26374@kroah.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: ddutt@cumulusnetworks.com
+To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f177.google.com ([209.85.192.177]:34323 "EHLO
+        mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751165AbdAORVu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 15 Jan 2017 12:21:50 -0500
+Received: by mail-pf0-f177.google.com with SMTP id e4so8736019pfg.1
+        for <netdev@vger.kernel.org>; Sun, 15 Jan 2017 09:21:49 -0800 (PST)
+In-Reply-To: <1484351668-8962-1-git-send-email-dsa@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-
-On 01/15/2017 03:07 AM, Greg KH wrote:
-> On Sat, Jan 14, 2017 at 01:47:10PM -0800, Florian Fainelli wrote:
->> dev_to_net_device() is moved from net/dsa/dsa.c to net/core/dev.c since
->> it going to be used by net/dsa/dsa2.c and the namespace of the function
->> justifies making it available to other users potentially.
->>
->> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
->> ---
->>  include/linux/netdevice.h |  2 ++
->>  net/core/dev.c            | 19 +++++++++++++++++++
->>  net/dsa/dsa.c             | 18 ------------------
->>  3 files changed, 21 insertions(+), 18 deletions(-)
->>
->> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
->> index 97ae0ac513ee..6d021c37b774 100644
->> --- a/include/linux/netdevice.h
->> +++ b/include/linux/netdevice.h
->> @@ -4390,4 +4390,6 @@ do {								\
->>  #define PTYPE_HASH_SIZE	(16)
->>  #define PTYPE_HASH_MASK	(PTYPE_HASH_SIZE - 1)
->>  
->> +struct net_device *dev_to_net_device(struct device *dev);
->> +
->>  #endif	/* _LINUX_NETDEVICE_H */
->> diff --git a/net/core/dev.c b/net/core/dev.c
->> index ad5959e56116..7547e2ccc06b 100644
->> --- a/net/core/dev.c
->> +++ b/net/core/dev.c
->> @@ -8128,6 +8128,25 @@ const char *netdev_drivername(const struct net_device *dev)
->>  	return empty;
->>  }
->>  
->> +struct net_device *dev_to_net_device(struct device *dev)
->> +{
->> +	struct device *d;
->> +
->> +	d = device_find_class(dev, "net");
->> +	if (d) {
->> +		struct net_device *nd;
->> +
->> +		nd = to_net_dev(d);
->> +		dev_hold(nd);
->> +		put_device(d);
->> +
->> +		return nd;
->> +	}
->> +
->> +	return NULL;
->> +}
->> +EXPORT_SYMBOL_GPL(dev_to_net_device);
+On 1/13/17 4:54 PM, David Ahern wrote:
+> The same notation does not work with IPv6 because of how multipath routes
+> are implemented for IPv6. For IPv6 only the first nexthop of a multipath
+> route is deleted if the request contains only a prefix and length. This
+> leads to unnecessary complexity in userspace dealing with IPv6 multipath
+> routes.
 > 
-> This really isn't just a "struct device to net device cast" type
-> function, (otherwise a simple container_of() would work).  You are
-> walking the device tree and assuming it is in a specific order so that
-> this function works.  You better document the hell out of this,
-> otherwise people are going to try to use this and get very confused,
-> very quickly...
+> This patch allows all nexthops to be deleted without specifying each one
+> in the delete request
 
-Fair enough. Does that make it clearer how the device_find_class() is
-used though? Maybe device_find_class() should be named
-device_find_by_class_name() instead?
--- 
-Florian
+Dave: please drop this patch. I found a problem with this approach. Will re-send a new version along with some other ipv6 multipath patches.
