@@ -1,160 +1,114 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next v2 1/3] net: ipv6: Allow shorthand delete of all nexthops in multipath route
-Date: Sun, 15 Jan 2017 12:07:04 -0800
-Message-ID: <1484510826-2723-2-git-send-email-dsa@cumulusnetworks.com>
-References: <1484510826-2723-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: ddutt@cumulusnetworks.com, David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f46.google.com ([74.125.83.46]:33568 "EHLO
-        mail-pg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751493AbdAOUH2 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 15 Jan 2017 15:07:28 -0500
-Received: by mail-pg0-f46.google.com with SMTP id 204so9307210pge.0
-        for <netdev@vger.kernel.org>; Sun, 15 Jan 2017 12:07:28 -0800 (PST)
-In-Reply-To: <1484510826-2723-1-git-send-email-dsa@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: sctp: kernel memory overwrite attempt detected in
+ sctp_getsockopt_assoc_stats
+Date: Sun, 15 Jan 2017 15:35:15 -0500
+Message-ID: <20170115203515.GA6274@neilslaptop.think-freely.org>
+References: <CACT4Y+ZDPa+spEh6P_ip9=hsNfeZ8KJfwJu5jTrPKVkGJUaZSg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Vladislav Yasevich <vyasevich@gmail.com>,
+        David Miller <davem@davemloft.net>, linux-sctp@vger.kernel.org,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Kees Cook <keescook@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: Dmitry Vyukov <dvyukov@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CACT4Y+ZDPa+spEh6P_ip9=hsNfeZ8KJfwJu5jTrPKVkGJUaZSg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-IPv4 allows multipath routes to be deleted using just the prefix and
-length. For example:
-    $ ip ro ls vrf red
-    unreachable default metric 8192
-    1.1.1.0/24
-        nexthop via 10.100.1.254  dev eth1 weight 1
-        nexthop via 10.11.200.2  dev eth11.200 weight 1
-    10.11.200.0/24 dev eth11.200 proto kernel scope link src 10.11.200.3
-    10.100.1.0/24 dev eth1 proto kernel scope link src 10.100.1.3
+On Sun, Jan 15, 2017 at 06:29:59PM +0100, Dmitry Vyukov wrote:
+> Hello,
+> 
+> I've enabled CONFIG_HARDENED_USERCOPY_PAGESPAN on syzkaller fuzzer and
+> now I am seeing lots of:
+> 
+If I'm not mistaken, its because thats specifically what that option does.  From
+the Kconfig:
+onfig HARDENED_USERCOPY_PAGESPAN
+        bool "Refuse to copy allocations that span multiple pages"
+        depends on HARDENED_USERCOPY
+        depends on EXPERT
+        help
+          When a multi-page allocation is done without __GFP_COMP,
+          hardened usercopy will reject attempts to copy it. There are,
+          however, several cases of this in the kernel that have not all
+          been removed. This config is intended to be used only while
+          trying to find such users.
 
-    $ ip ro del 1.1.1.0/24 vrf red
+So, if the fuzzer does a setsockopt and the data it passes crosses a page
+boundary, it seems like this will get triggered.  Based on the fact that its
+only used to find users that do this, it seems like not the sort of thing that
+you want enabled while running a fuzzer that might do it arbitrarily.
 
-    $ ip ro ls vrf red
-    unreachable default metric 8192
-    10.11.200.0/24 dev eth11.200 proto kernel scope link src 10.11.200.3
-    10.100.1.0/24 dev eth1 proto kernel scope link src 10.100.1.3
+Regards
+Neil
 
-The same notation does not work with IPv6 because of how multipath routes
-are implemented for IPv6. For IPv6 only the first nexthop of a multipath
-route is deleted if the request contains only a prefix and length. This
-leads to unnecessary complexity in userspace dealing with IPv6 multipath
-routes.
 
-This patch allows all nexthops to be deleted without specifying each one
-in the delete request by passing a new flag, RTM_F_ALL_NEXTHOPS, in
-rtm_flags. Internally, this is done by walking the sibling list of the
-route matching the specifications given (prefix, length, metric, protocol,
-etc).
-
-With this patch (and an updated iproute2 command):
-    $  ip -6 ro ls vrf red
-    2001:db8::/120 via 2001:db8:1::62 dev eth1 metric 256  pref medium
-    2001:db8::/120 via 2001:db8:1::61 dev eth1 metric 256  pref medium
-    2001:db8::/120 via 2001:db8:1::60 dev eth1 metric 256  pref medium
-    2001:db8:1::/120 dev eth1 proto kernel metric 256  pref medium
-    ...
-
-    $ ip -6 ro del vrf red 1111::1/120
-    $ ip -6 ro ls vrf red
-    2001:db8:1::/120 dev eth1 proto kernel metric 256  pref medium
-    ...
-
-The flag is added to fib6_config by converting fc_type to a u16 (as
-noted fc_type only uses 8 bits). The new u16 hole is a bitmap with
-fc_delete_all_nexthop as the first bit.
-
-Suggested-by: Dinesh Dutt <ddutt@cumulusnetworks.com>
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
-v2
-- switched example to rfc 3849 documentation address per request
-- changed delete loop to explicitly look at siblings list for
-  first route matching specs given (metric, protocol, etc)
-
- include/net/ip6_fib.h          |  4 +++-
- include/uapi/linux/rtnetlink.h |  1 +
- net/ipv6/route.c               | 28 +++++++++++++++++++++++++---
- 3 files changed, 29 insertions(+), 4 deletions(-)
-
-diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
-index a74e2aa40ef4..11ab99e87c5f 100644
---- a/include/net/ip6_fib.h
-+++ b/include/net/ip6_fib.h
-@@ -37,7 +37,9 @@ struct fib6_config {
- 	int		fc_ifindex;
- 	u32		fc_flags;
- 	u32		fc_protocol;
--	u32		fc_type;	/* only 8 bits are used */
-+	u16		fc_type;	/* only 8 bits are used */
-+	u16		fc_delete_all_nexthop : 1,
-+			__unused : 15;
- 
- 	struct in6_addr	fc_dst;
- 	struct in6_addr	fc_src;
-diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
-index 8c93ad1ef9ab..7fb206bc42f9 100644
---- a/include/uapi/linux/rtnetlink.h
-+++ b/include/uapi/linux/rtnetlink.h
-@@ -276,6 +276,7 @@ enum rt_scope_t {
- #define RTM_F_EQUALIZE		0x400	/* Multipath equalizer: NI	*/
- #define RTM_F_PREFIX		0x800	/* Prefix addresses		*/
- #define RTM_F_LOOKUP_TABLE	0x1000	/* set rtm_table to FIB lookup result */
-+#define RTM_F_ALL_NEXTHOPS	0x2000	/* delete all nexthops (IPv6) */
- 
- /* Reserved table identifiers */
- 
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index ce5aaf448c54..c95e2f941468 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -2143,6 +2143,26 @@ int ip6_del_rt(struct rt6_info *rt)
- 	return __ip6_del_rt(rt, &info);
- }
- 
-+/* called with table lock held */
-+static int __ip6_route_del(struct rt6_info *rt, struct fib6_config *cfg)
-+{
-+	int err;
-+
-+	if (rt->rt6i_nsiblings && cfg->fc_delete_all_nexthop) {
-+		struct rt6_info *sibling, *next_sibling;
-+
-+		list_for_each_entry_safe(sibling, next_sibling,
-+					 &rt->rt6i_siblings,
-+					 rt6i_siblings) {
-+			err = fib6_del(sibling, &cfg->fc_nlinfo);
-+			if (err)
-+				return err;
-+		}
-+	}
-+
-+	return fib6_del(rt, &cfg->fc_nlinfo);
-+}
-+
- static int ip6_route_del(struct fib6_config *cfg)
- {
- 	struct fib6_table *table;
-@@ -2176,10 +2196,9 @@ static int ip6_route_del(struct fib6_config *cfg)
- 				continue;
- 			if (cfg->fc_protocol && cfg->fc_protocol != rt->rt6i_protocol)
- 				continue;
--			dst_hold(&rt->dst);
--			read_unlock_bh(&table->tb6_lock);
- 
--			return __ip6_del_rt(rt, &cfg->fc_nlinfo);
-+			err = __ip6_route_del(rt, cfg);
-+			break;
- 		}
- 	}
- 	read_unlock_bh(&table->tb6_lock);
-@@ -2849,6 +2868,9 @@ static int rtm_to_fib6_config(struct sk_buff *skb, struct nlmsghdr *nlh,
- 	if (rtm->rtm_flags & RTM_F_CLONED)
- 		cfg->fc_flags |= RTF_CACHE;
- 
-+	if (rtm->rtm_flags & RTM_F_ALL_NEXTHOPS)
-+		cfg->fc_delete_all_nexthop = 1;
-+
- 	cfg->fc_nlinfo.portid = NETLINK_CB(skb).portid;
- 	cfg->fc_nlinfo.nlh = nlh;
- 	cfg->fc_nlinfo.nl_net = sock_net(skb->sk);
--- 
-2.1.4
+> usercopy: kernel memory overwrite attempt detected to ffff8801a74f6f10
+> (<spans multiple pages>) (256 bytes)
+> 
+> kernel BUG at mm/usercopy.c:75!
+> invalid opcode: 0000 [#1] SMP KASAN
+> Dumping ftrace buffer:
+>    (ftrace buffer empty)
+> Modules linked in:
+> CPU: 1 PID: 15686 Comm: syz-executor3 Not tainted 4.9.0 #1
+> Hardware name: Google Google Compute Engine/Google Compute Engine,
+> BIOS Google 01/01/2011
+> task: ffff8801c89b2500 task.stack: ffff8801a74f0000
+> RIP: 0010:[<ffffffff81a1b041>]  [<ffffffff81a1b041>] report_usercopy
+> mm/usercopy.c:67 [inline]
+> RIP: 0010:[<ffffffff81a1b041>]  [<ffffffff81a1b041>]
+> __check_object_size+0x2d1/0x9ec mm/usercopy.c:278
+> RSP: 0018:ffff8801a74f6cd0  EFLAGS: 00010286
+> RAX: 000000000000006b RBX: ffffffff84500120 RCX: 0000000000000000
+> RDX: 000000000000006b RSI: ffffffff815a7791 RDI: ffffed0034e9ed8c
+> RBP: ffff8801a74f6e48 R08: 0000000000000001 R09: 0000000000000000
+> R10: 0000000000000000 R11: 0000000000000001 R12: ffff8801a74f6f10
+> R13: 0000000000000100 R14: ffffffff845000e0 R15: ffff8801a74f700f
+> FS:  00007f80918de700(0000) GS:ffff8801dc100000(0000) knlGS:0000000000000000
+> CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+> CR2: 0000000020058ffc CR3: 00000001cc1cc000 CR4: 00000000001406e0
+> Stack:
+>  ffffffff8598fcc8 0000000000000000 000077ff80000000 ffffea0005c99608
+>  ffffffff844fff40 ffffffff844fff40 0000000041b58ab3 ffffffff84ae0fa0
+>  ffffffff81a1ad70 ffff8801c89b2500 dead000000000100 ffffffff814d4425
+> Call Trace:
+>  [<ffffffff83e4ece9>] check_object_size include/linux/thread_info.h:129 [inline]
+>  [<ffffffff83e4ece9>] copy_from_user arch/x86/include/asm/uaccess.h:692 [inline]
+>  [<ffffffff83e4ece9>] sctp_getsockopt_assoc_stats+0x169/0xa10
+> net/sctp/socket.c:6182
+>  [<ffffffff83e5cc52>] sctp_getsockopt+0x1af2/0x66a0 net/sctp/socket.c:6556
+>  [<ffffffff834f92c5>] sock_common_getsockopt+0x95/0xd0 net/core/sock.c:2649
+>  [<ffffffff834f4910>] SYSC_getsockopt net/socket.c:1788 [inline]
+>  [<ffffffff834f4910>] SyS_getsockopt+0x240/0x380 net/socket.c:1770
+>  [<ffffffff81009798>] do_syscall_64+0x2e8/0x930 arch/x86/entry/common.c:280
+>  [<ffffffff84370a49>] entry_SYSCALL64_slow_path+0x25/0x25
+> Code: b0 fe ff ff e8 e1 25 ce ff 48 8b 85 b0 fe ff ff 4d 89 e9 4c 89
+> e1 4c 89 f2 48 89 de 48 c7 c7 a0 01 50 84 49 89 c0 e8 51 d9 e0 ff <0f>
+> 0b e8 b8 25 ce ff 4c 89 f2 4c 89 ee 4c 89 e7 e8 6a 1b fc ff
+> RIP  [<ffffffff81a1b041>] report_usercopy mm/usercopy.c:67 [inline]
+> RIP  [<ffffffff81a1b041>] __check_object_size+0x2d1/0x9ec mm/usercopy.c:278
+>  RSP <ffff8801a74f6cd0>
+> ---[ end trace 5e438996b2c0b35d ]---
+> 
+> 
+> I am not sure why check_object_size flags this an a bug,
+> copy_from_user copies into a stack object:
+> 
+> static int sctp_getsockopt_assoc_stats(struct sock *sk, int len,
+>                                        char __user *optval,
+>                                        int __user *optlen)
+> {
+>         struct sctp_assoc_stats sas;
+>         len = min_t(size_t, len, sizeof(sas));
+>         if (copy_from_user(&sas, optval, len))
+>                 return -EFAULT;
+> 
+> Kees, can this be a false positive?
+> 
+> On commit f4d3935e4f4884ba80561db5549394afb8eef8f7.
+> 
