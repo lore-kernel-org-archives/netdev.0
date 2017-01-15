@@ -1,50 +1,33 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH net-next v3 00/10] net: dsa: Support for pdata in dsa2
-Date: Sun, 15 Jan 2017 12:08:31 +0100
-Message-ID: <20170115110831.GH26374@kroah.com>
-References: <20170114214713.28109-1-f.fainelli@gmail.com>
+From: Nicolas Iooss <nicolas.iooss_linux@m4x.org>
+Subject: qla3xxx: u32 constant overflow in fm93c56a_select()
+Date: Sun, 15 Jan 2017 13:03:45 +0100
+Message-ID: <67b57b66-2231-6605-4388-75507001a79e@m4x.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Jason Cooper <jason@lakedaemon.net>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-        Gregory Clement <gregory.clement@free-electrons.com>,
-        Russell King <linux@armlinux.org.uk>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        "moderated list:ARM SUB-ARCHITECTURES"
-        <linux-arm-kernel@lists.infradead.org>,
-        open list <linux-kernel@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org
+To: Dept-GELinuxNICDev@cavium.com, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170114214713.28109-1-f.fainelli@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Jan 14, 2017 at 01:47:03PM -0800, Florian Fainelli wrote:
-> Hi all,
-> 
-> This is not exactly new, and was sent before, although back then, I did not
-> have an user of the pre-declared MDIO board information, but now we do. Note
-> that I have additional changes queued up to have b53 register platform data for
-> MIPS bcm47xx and bcm63xx.
-> 
-> Yes I know that we should have the Orion platforms eventually be converted to
-> Device Tree, but until that happens, I don't want any remaining users of the
-> old "dsa" platform device (hence the previous DTS submissions for ARM/mvebu)
-> and, there will be platforms out there that most likely won't never see DT
-> coming their way (BCM47xx is almost 100% sure, BCM63xx maybe not in a distant
-> future).
-> 
-> We would probably want the whole series to be merged via David Miller's tree
-> to simplify things.
-> 
-> Greg, can you Ack/Nack patch 5 since it touched the core LDD?
+Hello,
 
-I've NAKed them for now, you need to describe what you are trying to do
-here, as it doesn't make any sense to me at the moment.
+In drivers/net/ethernet/qlogic/qla3xxx.c, fm93c56a_select() currently calls:
 
-thanks,
+  ql_write_nvram_reg(qdev, spir,
+    ((ISP_NVRAM_MASK << 16) | qdev->eeprom_cmd_data));
 
-greg k-h
+and ISP_NVRAM_MASK is defined as (0x000F << 16).
+
+ql_write_nvram_reg() writes a 32-bit value but (ISP_NVRAM_MASK << 16)
+expands to ((0x000F << 16) << 16) = 0xF << 32, which overflows the u32
+type. This means the above call is equivalent to:
+
+  ql_write_nvram_reg(qdev, spir, qdev->eeprom_cmd_data);
+
+Is this something normal, in which case (ISP_NVRAM_MASK << 16) would be
+removed, or a bug?
+
+Thanks,
+Nicolas
