@@ -1,12 +1,14 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next v3 00/10] net: dsa: Support for pdata in dsa2
-Date: Sun, 15 Jan 2017 09:40:24 -0800
-Message-ID: <bc0d9ea7-17ee-abc3-b2aa-4d241413b9a3@gmail.com>
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH net-next v3 07/10] net: Relocate dev_to_net_device() into
+ core
+Date: Sun, 15 Jan 2017 18:40:36 +0100
+Message-ID: <20170115174036.GB19268@kroah.com>
 References: <20170114214713.28109-1-f.fainelli@gmail.com>
- <20170115110831.GH26374@kroah.com>
+ <20170114214713.28109-8-f.fainelli@gmail.com>
+ <20170115110753.GG26374@kroah.com>
+ <621be9fe-0869-2d0a-fd49-97468c2d4972@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 8bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, Jason Cooper <jason@lakedaemon.net>,
         Andrew Lunn <andrew@lunn.ch>,
         Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
@@ -17,46 +19,83 @@ Cc: netdev@vger.kernel.org, Jason Cooper <jason@lakedaemon.net>,
         "moderated list:ARM SUB-ARCHITECTURES"
         <linux-arm-kernel@lists.infradead.org>,
         open list <linux-kernel@vger.kernel.org>
-To: Greg KH <gregkh@linuxfoundation.org>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170115110831.GH26374@kroah.com>
+Content-Disposition: inline
+In-Reply-To: <621be9fe-0869-2d0a-fd49-97468c2d4972@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 01/15/2017 03:08 AM, Greg KH wrote:
-> On Sat, Jan 14, 2017 at 01:47:03PM -0800, Florian Fainelli wrote:
->> Hi all,
->>
->> This is not exactly new, and was sent before, although back then, I did not
->> have an user of the pre-declared MDIO board information, but now we do. Note
->> that I have additional changes queued up to have b53 register platform data for
->> MIPS bcm47xx and bcm63xx.
->>
->> Yes I know that we should have the Orion platforms eventually be converted to
->> Device Tree, but until that happens, I don't want any remaining users of the
->> old "dsa" platform device (hence the previous DTS submissions for ARM/mvebu)
->> and, there will be platforms out there that most likely won't never see DT
->> coming their way (BCM47xx is almost 100% sure, BCM63xx maybe not in a distant
->> future).
->>
->> We would probably want the whole series to be merged via David Miller's tree
->> to simplify things.
->>
->> Greg, can you Ack/Nack patch 5 since it touched the core LDD?
+On Sun, Jan 15, 2017 at 09:20:06AM -0800, Florian Fainelli wrote:
 > 
-> I've NAKed them for now, you need to describe what you are trying to do
-> here, as it doesn't make any sense to me at the moment.
+> 
+> On 01/15/2017 03:07 AM, Greg KH wrote:
+> > On Sat, Jan 14, 2017 at 01:47:10PM -0800, Florian Fainelli wrote:
+> >> dev_to_net_device() is moved from net/dsa/dsa.c to net/core/dev.c since
+> >> it going to be used by net/dsa/dsa2.c and the namespace of the function
+> >> justifies making it available to other users potentially.
+> >>
+> >> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> >> ---
+> >>  include/linux/netdevice.h |  2 ++
+> >>  net/core/dev.c            | 19 +++++++++++++++++++
+> >>  net/dsa/dsa.c             | 18 ------------------
+> >>  3 files changed, 21 insertions(+), 18 deletions(-)
+> >>
+> >> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> >> index 97ae0ac513ee..6d021c37b774 100644
+> >> --- a/include/linux/netdevice.h
+> >> +++ b/include/linux/netdevice.h
+> >> @@ -4390,4 +4390,6 @@ do {								\
+> >>  #define PTYPE_HASH_SIZE	(16)
+> >>  #define PTYPE_HASH_MASK	(PTYPE_HASH_SIZE - 1)
+> >>  
+> >> +struct net_device *dev_to_net_device(struct device *dev);
+> >> +
+> >>  #endif	/* _LINUX_NETDEVICE_H */
+> >> diff --git a/net/core/dev.c b/net/core/dev.c
+> >> index ad5959e56116..7547e2ccc06b 100644
+> >> --- a/net/core/dev.c
+> >> +++ b/net/core/dev.c
+> >> @@ -8128,6 +8128,25 @@ const char *netdev_drivername(const struct net_device *dev)
+> >>  	return empty;
+> >>  }
+> >>  
+> >> +struct net_device *dev_to_net_device(struct device *dev)
+> >> +{
+> >> +	struct device *d;
+> >> +
+> >> +	d = device_find_class(dev, "net");
+> >> +	if (d) {
+> >> +		struct net_device *nd;
+> >> +
+> >> +		nd = to_net_dev(d);
+> >> +		dev_hold(nd);
+> >> +		put_device(d);
+> >> +
+> >> +		return nd;
+> >> +	}
+> >> +
+> >> +	return NULL;
+> >> +}
+> >> +EXPORT_SYMBOL_GPL(dev_to_net_device);
+> > 
+> > This really isn't just a "struct device to net device cast" type
+> > function, (otherwise a simple container_of() would work).  You are
+> > walking the device tree and assuming it is in a specific order so that
+> > this function works.  You better document the hell out of this,
+> > otherwise people are going to try to use this and get very confused,
+> > very quickly...
+> 
+> Fair enough. Does that make it clearer how the device_find_class() is
+> used though? Maybe device_find_class() should be named
+> device_find_by_class_name() instead?
 
-For one, this is moving *existing* code from net/dsa/dsa.c part into the
-device core for device_find_class() and part into the network device
-core for dev_to_net_device(). Patch 8 is where this actually gets used.
-See my individual replies for more details.
+Better, but you are just poking around randomly in the device tree and
+"hoping" you get it right.  What happens if devices move around?  You
+are assuming some sort of heirachy here that I don't understand at
+all...
 
-Even though the existing code is there in net/dsa/dsa.c, at this point,
-and for the sake of getting these patches merged via David, I can
-probably just keep it where it is (like what patch series v1 did) and
-just namespace it with dsa_. Later on, if this is deemed valuable to
-other parts of the kernel, I can try to relocate it to the device core,
-does that sound acceptable?
--- 
-Florian
+thanks,
+
+greg k-h
