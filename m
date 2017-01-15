@@ -1,96 +1,69 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: 4.9 conntrack performance issues
-Date: Sun, 15 Jan 2017 01:29:36 +0100
-Message-ID: <20170115002936.GC13421@breakpoint.cc>
-References: <1a71d807acf63135bb037c7144fcd8d9@nuclearcat.com>
- <20170114235333.GA13421@breakpoint.cc>
- <d6dfdd8cf83933fc8f548da62a147775@nuclearcat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>,
-        Guillaume Nault <g.nault@alphalink.fr>,
-        Netfilter Devel <netfilter-devel@vger.kernel.org>,
-        Pablo Neira Ayuso <pablo@netfilter.org>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        nicolas.dichtel@6wind.com, netdev-owner@vger.kernel.org
-To: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <d6dfdd8cf83933fc8f548da62a147775@nuclearcat.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net-next] bpf, trace: make ctx access checks more robust
+Date: Sun, 15 Jan 2017 01:34:25 +0100
+Message-ID: <1484440465-20491-1-git-send-email-daniel@iogearbox.net>
+Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org,
+        Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:54090 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750743AbdAOAeb (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sat, 14 Jan 2017 19:34:31 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Denys Fedoryshchenko <nuclearcat@nuclearcat.com> wrote:
-> On 2017-01-15 01:53, Florian Westphal wrote:
-> >Denys Fedoryshchenko <nuclearcat@nuclearcat.com> wrote:
-> >
-> >I suspect you might also have to change
-> >
-> >1011         } else if (expired_count) {
-> >1012                 gc_work->next_gc_run /= 2U;
-> >1013                 next_run = msecs_to_jiffies(1);
-> >1014         } else {
-> >
-> >line 2013 to
-> >	next_run = msecs_to_jiffies(HZ / 2);
+Make sure that ctx cannot potentially be accessed oob by asserting
+explicitly that ctx access size into pt_regs for BPF_PROG_TYPE_KPROBE
+programs must be within limits. In case some 32bit archs have pt_regs
+not being a multiple of 8, then BPF_DW access could cause such access.
 
-I think its wrong to rely on "expired_count", with these
-kinds of numbers (up to 10k entries are scanned per round
-in Denys setup, its basically always going to be > 0.
+BPF_PROG_TYPE_KPROBE progs don't have a ctx conversion function since
+there's no extra mapping needed. kprobe_prog_is_valid_access() didn't
+enforce sizeof(long) as the only allowed access size, since LLVM can
+generate non BPF_W/BPF_DW access to regs from time to time.
 
-I think we should only decide to scan more frequently if
-eviction ratio is large, say, we found more than 1/4 of
-entries to be stale.
+For BPF_PROG_TYPE_TRACEPOINT we don't have a ctx conversion either, so
+add a BUILD_BUG_ON() check to make sure that BPF_DW access will not be
+a similar issue in future (ctx works on event buffer as opposed to
+pt_regs there).
 
-I sent a small patch offlist that does just that.
+Fixes: 2541517c32be ("tracing, perf: Implement BPF programs attached to kprobes")
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Acked-by: Alexei Starovoitov <ast@kernel.org>
+---
+ ( Applies to both, but net-next should be just okay. For the comment
+   I used kernel comment style as done throughout whole bpf_trace.c. )
 
-> >How many total connections is the machine handling on average?
-> >And how many new/delete events happen per second?
-> 1-2 million connections, at current moment 988k
-> I dont know if it is correct method to measure events rate:
-> 
-> NAT ~ # timeout -t 5 conntrack -E -e NEW | wc -l
-> conntrack v1.4.2 (conntrack-tools): 40027 flow events have been shown.
-> 40027
-> NAT ~ # timeout -t 5 conntrack -E -e DESTROY | wc -l
-> conntrack v1.4.2 (conntrack-tools): 40951 flow events have been shown.
-> 40951
+ kernel/trace/bpf_trace.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
 
-Thanks, thats exactly what I was looking for.
-So I am not at all surprised that gc_worker eats cpu cycles...
-
-> It is not peak time, so values can be 2-3 higher at peak time, but even
-> right now, it is hogging one core, leaving only 20% idle left,
-> while others are 80-83% idle.
-
-I agree its a bug.
-
-> >>               |--54.65%--gc_worker
-> >>               |          |
-> >>               |           --3.58%--nf_ct_gc_expired
-> >>               |                     |
-> >>               |                     |--1.90%--nf_ct_delete
-> >
-> >I'd be interested to see how often that shows up on other cores
-> >(from packet path).
-> Other CPU's totally different:
-> This is top entry
->     99.60%     0.00%  swapper  [kernel.kallsyms]    [k] start_secondary
->             |
->             ---start_secondary
->                |
->                 --99.42%--cpu_startup_entry
->                           |
-[..]
-
-> |--36.02%--process_backlog
->                                      |                     |          |
-> |          |
->                                      |                     |          |
-> |           --35.64%--__netif_receive_skb
-> 
-> gc_worker didnt appeared on other core at all.
-> Or i am checking something wrong?
-
-Look for "nf_ct_gc_expired" and "nf_ct_delete".
-Its going to be deep down in the call graph.
+diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
+index 1860e7f..81fbc86 100644
+--- a/kernel/trace/bpf_trace.c
++++ b/kernel/trace/bpf_trace.c
+@@ -459,6 +459,13 @@ static bool kprobe_prog_is_valid_access(int off, int size, enum bpf_access_type
+ 		return false;
+ 	if (off % size != 0)
+ 		return false;
++	/*
++	 * Assertion for 32 bit to make sure last 8 byte access
++	 * (BPF_DW) to the last 4 byte member is disallowed.
++	 */
++	if (off + size > sizeof(struct pt_regs))
++		return false;
++
+ 	return true;
+ }
+ 
+@@ -540,6 +547,8 @@ static bool tp_prog_is_valid_access(int off, int size, enum bpf_access_type type
+ 		return false;
+ 	if (off % size != 0)
+ 		return false;
++
++	BUILD_BUG_ON(PERF_MAX_TRACE_SIZE % sizeof(__u64));
+ 	return true;
+ }
+ 
+-- 
+2.5.5
