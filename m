@@ -1,10 +1,8 @@
 From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH net-next v3 07/10] net: Relocate dev_to_net_device() into
- core
-Date: Sun, 15 Jan 2017 12:07:53 +0100
-Message-ID: <20170115110753.GG26374@kroah.com>
+Subject: Re: [PATCH net-next v3 00/10] net: dsa: Support for pdata in dsa2
+Date: Sun, 15 Jan 2017 12:08:31 +0100
+Message-ID: <20170115110831.GH26374@kroah.com>
 References: <20170114214713.28109-1-f.fainelli@gmail.com>
- <20170114214713.28109-8-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, Jason Cooper <jason@lakedaemon.net>,
@@ -20,66 +18,32 @@ Cc: netdev@vger.kernel.org, Jason Cooper <jason@lakedaemon.net>,
 To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20170114214713.28109-8-f.fainelli@gmail.com>
+In-Reply-To: <20170114214713.28109-1-f.fainelli@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Jan 14, 2017 at 01:47:10PM -0800, Florian Fainelli wrote:
-> dev_to_net_device() is moved from net/dsa/dsa.c to net/core/dev.c since
-> it going to be used by net/dsa/dsa2.c and the namespace of the function
-> justifies making it available to other users potentially.
+On Sat, Jan 14, 2017 at 01:47:03PM -0800, Florian Fainelli wrote:
+> Hi all,
 > 
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
-> ---
->  include/linux/netdevice.h |  2 ++
->  net/core/dev.c            | 19 +++++++++++++++++++
->  net/dsa/dsa.c             | 18 ------------------
->  3 files changed, 21 insertions(+), 18 deletions(-)
+> This is not exactly new, and was sent before, although back then, I did not
+> have an user of the pre-declared MDIO board information, but now we do. Note
+> that I have additional changes queued up to have b53 register platform data for
+> MIPS bcm47xx and bcm63xx.
 > 
-> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> index 97ae0ac513ee..6d021c37b774 100644
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -4390,4 +4390,6 @@ do {								\
->  #define PTYPE_HASH_SIZE	(16)
->  #define PTYPE_HASH_MASK	(PTYPE_HASH_SIZE - 1)
->  
-> +struct net_device *dev_to_net_device(struct device *dev);
-> +
->  #endif	/* _LINUX_NETDEVICE_H */
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index ad5959e56116..7547e2ccc06b 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -8128,6 +8128,25 @@ const char *netdev_drivername(const struct net_device *dev)
->  	return empty;
->  }
->  
-> +struct net_device *dev_to_net_device(struct device *dev)
-> +{
-> +	struct device *d;
-> +
-> +	d = device_find_class(dev, "net");
-> +	if (d) {
-> +		struct net_device *nd;
-> +
-> +		nd = to_net_dev(d);
-> +		dev_hold(nd);
-> +		put_device(d);
-> +
-> +		return nd;
-> +	}
-> +
-> +	return NULL;
-> +}
-> +EXPORT_SYMBOL_GPL(dev_to_net_device);
+> Yes I know that we should have the Orion platforms eventually be converted to
+> Device Tree, but until that happens, I don't want any remaining users of the
+> old "dsa" platform device (hence the previous DTS submissions for ARM/mvebu)
+> and, there will be platforms out there that most likely won't never see DT
+> coming their way (BCM47xx is almost 100% sure, BCM63xx maybe not in a distant
+> future).
+> 
+> We would probably want the whole series to be merged via David Miller's tree
+> to simplify things.
+> 
+> Greg, can you Ack/Nack patch 5 since it touched the core LDD?
 
-This really isn't just a "struct device to net device cast" type
-function, (otherwise a simple container_of() would work).  You are
-walking the device tree and assuming it is in a specific order so that
-this function works.  You better document the hell out of this,
-otherwise people are going to try to use this and get very confused,
-very quickly...
+I've NAKed them for now, you need to describe what you are trying to do
+here, as it doesn't make any sense to me at the moment.
 
 thanks,
 
