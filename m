@@ -1,114 +1,169 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: sctp: kernel memory overwrite attempt detected in
- sctp_getsockopt_assoc_stats
-Date: Sun, 15 Jan 2017 15:35:15 -0500
-Message-ID: <20170115203515.GA6274@neilslaptop.think-freely.org>
-References: <CACT4Y+ZDPa+spEh6P_ip9=hsNfeZ8KJfwJu5jTrPKVkGJUaZSg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Vladislav Yasevich <vyasevich@gmail.com>,
-        David Miller <davem@davemloft.net>, linux-sctp@vger.kernel.org,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Kees Cook <keescook@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Dmitry Vyukov <dvyukov@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CACT4Y+ZDPa+spEh6P_ip9=hsNfeZ8KJfwJu5jTrPKVkGJUaZSg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH] net: jme: use new api ethtool_{get|set}_link_ksettings
+Date: Sun, 15 Jan 2017 23:18:21 +0100
+Message-ID: <1484518701-27039-1-git-send-email-tremyfr@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        Philippe Reynes <tremyfr@gmail.com>
+To: cooldavid@cooldavid.org, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:35916 "EHLO
+        mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751068AbdAOWSu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 15 Jan 2017 17:18:50 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jan 15, 2017 at 06:29:59PM +0100, Dmitry Vyukov wrote:
-> Hello,
-> 
-> I've enabled CONFIG_HARDENED_USERCOPY_PAGESPAN on syzkaller fuzzer and
-> now I am seeing lots of:
-> 
-If I'm not mistaken, its because thats specifically what that option does.  From
-the Kconfig:
-onfig HARDENED_USERCOPY_PAGESPAN
-        bool "Refuse to copy allocations that span multiple pages"
-        depends on HARDENED_USERCOPY
-        depends on EXPERT
-        help
-          When a multi-page allocation is done without __GFP_COMP,
-          hardened usercopy will reject attempts to copy it. There are,
-          however, several cases of this in the kernel that have not all
-          been removed. This config is intended to be used only while
-          trying to find such users.
+The ethtool api {get|set}_settings is deprecated.
+We move this driver to new api {get|set}_link_ksettings.
 
-So, if the fuzzer does a setsockopt and the data it passes crosses a page
-boundary, it seems like this will get triggered.  Based on the fact that its
-only used to find users that do this, it seems like not the sort of thing that
-you want enabled while running a fuzzer that might do it arbitrarily.
+As I don't have the hardware, I'd be very pleased if
+someone may test this patch.
 
-Regards
-Neil
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+---
+ drivers/net/ethernet/jme.c |   34 +++++++++++++++++-----------------
+ drivers/net/ethernet/jme.h |    6 +++---
+ 2 files changed, 20 insertions(+), 20 deletions(-)
 
-
-> usercopy: kernel memory overwrite attempt detected to ffff8801a74f6f10
-> (<spans multiple pages>) (256 bytes)
-> 
-> kernel BUG at mm/usercopy.c:75!
-> invalid opcode: 0000 [#1] SMP KASAN
-> Dumping ftrace buffer:
->    (ftrace buffer empty)
-> Modules linked in:
-> CPU: 1 PID: 15686 Comm: syz-executor3 Not tainted 4.9.0 #1
-> Hardware name: Google Google Compute Engine/Google Compute Engine,
-> BIOS Google 01/01/2011
-> task: ffff8801c89b2500 task.stack: ffff8801a74f0000
-> RIP: 0010:[<ffffffff81a1b041>]  [<ffffffff81a1b041>] report_usercopy
-> mm/usercopy.c:67 [inline]
-> RIP: 0010:[<ffffffff81a1b041>]  [<ffffffff81a1b041>]
-> __check_object_size+0x2d1/0x9ec mm/usercopy.c:278
-> RSP: 0018:ffff8801a74f6cd0  EFLAGS: 00010286
-> RAX: 000000000000006b RBX: ffffffff84500120 RCX: 0000000000000000
-> RDX: 000000000000006b RSI: ffffffff815a7791 RDI: ffffed0034e9ed8c
-> RBP: ffff8801a74f6e48 R08: 0000000000000001 R09: 0000000000000000
-> R10: 0000000000000000 R11: 0000000000000001 R12: ffff8801a74f6f10
-> R13: 0000000000000100 R14: ffffffff845000e0 R15: ffff8801a74f700f
-> FS:  00007f80918de700(0000) GS:ffff8801dc100000(0000) knlGS:0000000000000000
-> CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-> CR2: 0000000020058ffc CR3: 00000001cc1cc000 CR4: 00000000001406e0
-> Stack:
->  ffffffff8598fcc8 0000000000000000 000077ff80000000 ffffea0005c99608
->  ffffffff844fff40 ffffffff844fff40 0000000041b58ab3 ffffffff84ae0fa0
->  ffffffff81a1ad70 ffff8801c89b2500 dead000000000100 ffffffff814d4425
-> Call Trace:
->  [<ffffffff83e4ece9>] check_object_size include/linux/thread_info.h:129 [inline]
->  [<ffffffff83e4ece9>] copy_from_user arch/x86/include/asm/uaccess.h:692 [inline]
->  [<ffffffff83e4ece9>] sctp_getsockopt_assoc_stats+0x169/0xa10
-> net/sctp/socket.c:6182
->  [<ffffffff83e5cc52>] sctp_getsockopt+0x1af2/0x66a0 net/sctp/socket.c:6556
->  [<ffffffff834f92c5>] sock_common_getsockopt+0x95/0xd0 net/core/sock.c:2649
->  [<ffffffff834f4910>] SYSC_getsockopt net/socket.c:1788 [inline]
->  [<ffffffff834f4910>] SyS_getsockopt+0x240/0x380 net/socket.c:1770
->  [<ffffffff81009798>] do_syscall_64+0x2e8/0x930 arch/x86/entry/common.c:280
->  [<ffffffff84370a49>] entry_SYSCALL64_slow_path+0x25/0x25
-> Code: b0 fe ff ff e8 e1 25 ce ff 48 8b 85 b0 fe ff ff 4d 89 e9 4c 89
-> e1 4c 89 f2 48 89 de 48 c7 c7 a0 01 50 84 49 89 c0 e8 51 d9 e0 ff <0f>
-> 0b e8 b8 25 ce ff 4c 89 f2 4c 89 ee 4c 89 e7 e8 6a 1b fc ff
-> RIP  [<ffffffff81a1b041>] report_usercopy mm/usercopy.c:67 [inline]
-> RIP  [<ffffffff81a1b041>] __check_object_size+0x2d1/0x9ec mm/usercopy.c:278
->  RSP <ffff8801a74f6cd0>
-> ---[ end trace 5e438996b2c0b35d ]---
-> 
-> 
-> I am not sure why check_object_size flags this an a bug,
-> copy_from_user copies into a stack object:
-> 
-> static int sctp_getsockopt_assoc_stats(struct sock *sk, int len,
->                                        char __user *optval,
->                                        int __user *optlen)
-> {
->         struct sctp_assoc_stats sas;
->         len = min_t(size_t, len, sizeof(sas));
->         if (copy_from_user(&sas, optval, len))
->                 return -EFAULT;
-> 
-> Kees, can this be a false positive?
-> 
-> On commit f4d3935e4f4884ba80561db5549394afb8eef8f7.
-> 
+diff --git a/drivers/net/ethernet/jme.c b/drivers/net/ethernet/jme.c
+index f9fcab5..f580b49 100644
+--- a/drivers/net/ethernet/jme.c
++++ b/drivers/net/ethernet/jme.c
+@@ -1879,7 +1879,7 @@
+ 
+ 	jme_phy_on(jme);
+ 	if (test_bit(JME_FLAG_SSET, &jme->flags))
+-		jme_set_settings(netdev, &jme->old_ecmd);
++		jme_set_link_ksettings(netdev, &jme->old_cmd);
+ 	else
+ 		jme_reset_phy_processor(jme);
+ 	jme_phy_calibration(jme);
+@@ -2374,7 +2374,7 @@ static void jme_drop_tx_map(struct jme_adapter *jme, int startidx, int count)
+ 	jme->phylink = 0;
+ 	jme_reset_phy_processor(jme);
+ 	if (test_bit(JME_FLAG_SSET, &jme->flags))
+-		jme_set_settings(netdev, &jme->old_ecmd);
++		jme_set_link_ksettings(netdev, &jme->old_cmd);
+ 
+ 	/*
+ 	 * Force to Reset the link again
+@@ -2648,27 +2648,27 @@ static inline void jme_resume_rx(struct jme_adapter *jme)
+ }
+ 
+ static int
+-jme_get_settings(struct net_device *netdev,
+-		     struct ethtool_cmd *ecmd)
++jme_get_link_ksettings(struct net_device *netdev,
++		       struct ethtool_link_ksettings *cmd)
+ {
+ 	struct jme_adapter *jme = netdev_priv(netdev);
+ 	int rc;
+ 
+ 	spin_lock_bh(&jme->phy_lock);
+-	rc = mii_ethtool_gset(&(jme->mii_if), ecmd);
++	rc = mii_ethtool_get_link_ksettings(&jme->mii_if, cmd);
+ 	spin_unlock_bh(&jme->phy_lock);
+ 	return rc;
+ }
+ 
+ static int
+-jme_set_settings(struct net_device *netdev,
+-		     struct ethtool_cmd *ecmd)
++jme_set_link_ksettings(struct net_device *netdev,
++		       const struct ethtool_link_ksettings *cmd)
+ {
+ 	struct jme_adapter *jme = netdev_priv(netdev);
+ 	int rc, fdc = 0;
+ 
+-	if (ethtool_cmd_speed(ecmd) == SPEED_1000
+-	    && ecmd->autoneg != AUTONEG_ENABLE)
++	if (cmd->base.speed == SPEED_1000 &&
++	    cmd->base.autoneg != AUTONEG_ENABLE)
+ 		return -EINVAL;
+ 
+ 	/*
+@@ -2676,18 +2676,18 @@ static inline void jme_resume_rx(struct jme_adapter *jme)
+ 	 * Hardware would not generate link change interrupt.
+ 	 */
+ 	if (jme->mii_if.force_media &&
+-	ecmd->autoneg != AUTONEG_ENABLE &&
+-	(jme->mii_if.full_duplex != ecmd->duplex))
++	    cmd->base.autoneg != AUTONEG_ENABLE &&
++	    (jme->mii_if.full_duplex != cmd->base.duplex))
+ 		fdc = 1;
+ 
+ 	spin_lock_bh(&jme->phy_lock);
+-	rc = mii_ethtool_sset(&(jme->mii_if), ecmd);
++	rc = mii_ethtool_set_link_ksettings(&jme->mii_if, cmd);
+ 	spin_unlock_bh(&jme->phy_lock);
+ 
+ 	if (!rc) {
+ 		if (fdc)
+ 			jme_reset_link(jme);
+-		jme->old_ecmd = *ecmd;
++		jme->old_cmd = *cmd;
+ 		set_bit(JME_FLAG_SSET, &jme->flags);
+ 	}
+ 
+@@ -2716,7 +2716,7 @@ static inline void jme_resume_rx(struct jme_adapter *jme)
+ 	if (!rc && (cmd == SIOCSMIIREG)) {
+ 		if (duplex_chg)
+ 			jme_reset_link(jme);
+-		jme_get_settings(netdev, &jme->old_ecmd);
++		jme_get_link_ksettings(netdev, &jme->old_cmd);
+ 		set_bit(JME_FLAG_SSET, &jme->flags);
+ 	}
+ 
+@@ -2915,8 +2915,6 @@ static void jme_netpoll(struct net_device *dev)
+ 	.set_pauseparam		= jme_set_pauseparam,
+ 	.get_wol		= jme_get_wol,
+ 	.set_wol		= jme_set_wol,
+-	.get_settings		= jme_get_settings,
+-	.set_settings		= jme_set_settings,
+ 	.get_link		= jme_get_link,
+ 	.get_msglevel           = jme_get_msglevel,
+ 	.set_msglevel           = jme_set_msglevel,
+@@ -2924,6 +2922,8 @@ static void jme_netpoll(struct net_device *dev)
+ 	.get_eeprom_len		= jme_get_eeprom_len,
+ 	.get_eeprom		= jme_get_eeprom,
+ 	.set_eeprom		= jme_set_eeprom,
++	.get_link_ksettings	= jme_get_link_ksettings,
++	.set_link_ksettings	= jme_set_link_ksettings,
+ };
+ 
+ static int
+@@ -3306,7 +3306,7 @@ static void jme_netpoll(struct net_device *dev)
+ 	jme_clear_pm_disable_wol(jme);
+ 	jme_phy_on(jme);
+ 	if (test_bit(JME_FLAG_SSET, &jme->flags))
+-		jme_set_settings(netdev, &jme->old_ecmd);
++		jme_set_link_ksettings(netdev, &jme->old_cmd);
+ 	else
+ 		jme_reset_phy_processor(jme);
+ 	jme_phy_calibration(jme);
+diff --git a/drivers/net/ethernet/jme.h b/drivers/net/ethernet/jme.h
+index 58cd67c..89535c0 100644
+--- a/drivers/net/ethernet/jme.h
++++ b/drivers/net/ethernet/jme.h
+@@ -447,7 +447,7 @@ struct jme_adapter {
+ 	u8			chip_sub_rev;
+ 	u8			pcirev;
+ 	u32			msg_enable;
+-	struct ethtool_cmd	old_ecmd;
++	struct ethtool_link_ksettings old_cmd;
+ 	unsigned int		old_mtu;
+ 	struct dynpcc_info	dpi;
+ 	atomic_t		intr_sem;
+@@ -1270,8 +1270,8 @@ static inline int new_phy_power_ctrl(u8 chip_main_rev)
+ /*
+  * Function prototypes
+  */
+-static int jme_set_settings(struct net_device *netdev,
+-				struct ethtool_cmd *ecmd);
++static int jme_set_link_ksettings(struct net_device *netdev,
++				  const struct ethtool_link_ksettings *cmd);
+ static void jme_set_unicastaddr(struct net_device *netdev);
+ static void jme_set_multi(struct net_device *netdev);
+ 
+-- 
+1.7.4.4
