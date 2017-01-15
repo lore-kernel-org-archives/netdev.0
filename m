@@ -1,20 +1,20 @@
 From: Heiner Kallweit <hkallweit1@gmail.com>
-Subject: net: stmmac: don't use netdev_[dbg, info, ..] before net_device is
- registered
-Date: Sun, 15 Jan 2017 19:17:56 +0100
-Message-ID: <da21972e-87cd-370c-e9ff-219fc82ebd10@gmail.com>
+Subject: [PATCH] net: stmmac: don't use netdev_[dbg, info, ..] before
+ net_device is registered
+Date: Sun, 15 Jan 2017 19:19:00 +0100
+Message-ID: <01b736a6-b9e9-05cf-0937-f6ac18ac8e3c@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:36521 "EHLO
-        mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751200AbdAOSSE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 15 Jan 2017 13:18:04 -0500
-Received: by mail-wm0-f68.google.com with SMTP id r126so25464832wmr.3
-        for <netdev@vger.kernel.org>; Sun, 15 Jan 2017 10:18:04 -0800 (PST)
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:34212 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751200AbdAOSTL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 15 Jan 2017 13:19:11 -0500
+Received: by mail-wm0-f66.google.com with SMTP id c85so25312748wmi.1
+        for <netdev@vger.kernel.org>; Sun, 15 Jan 2017 10:19:06 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
