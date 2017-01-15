@@ -1,10 +1,10 @@
 From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH net-next v3 06/10] net: dsa: Migrate to
- device_find_class()
-Date: Sun, 15 Jan 2017 12:06:28 +0100
-Message-ID: <20170115110628.GF26374@kroah.com>
+Subject: Re: [PATCH net-next v3 07/10] net: Relocate dev_to_net_device() into
+ core
+Date: Sun, 15 Jan 2017 12:07:53 +0100
+Message-ID: <20170115110753.GG26374@kroah.com>
 References: <20170114214713.28109-1-f.fainelli@gmail.com>
- <20170114214713.28109-7-f.fainelli@gmail.com>
+ <20170114214713.28109-8-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, Jason Cooper <jason@lakedaemon.net>,
@@ -20,69 +20,67 @@ Cc: netdev@vger.kernel.org, Jason Cooper <jason@lakedaemon.net>,
 To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20170114214713.28109-7-f.fainelli@gmail.com>
+In-Reply-To: <20170114214713.28109-8-f.fainelli@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Jan 14, 2017 at 01:47:09PM -0800, Florian Fainelli wrote:
-> Now that the base device driver code provides an identical
-> implementation of dev_find_class() utilize device_find_class() instead
-> of our own version of it.
+On Sat, Jan 14, 2017 at 01:47:10PM -0800, Florian Fainelli wrote:
+> dev_to_net_device() is moved from net/dsa/dsa.c to net/core/dev.c since
+> it going to be used by net/dsa/dsa2.c and the namespace of the function
+> justifies making it available to other users potentially.
 > 
 > Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 > ---
->  net/dsa/dsa.c | 22 ++--------------------
->  1 file changed, 2 insertions(+), 20 deletions(-)
+>  include/linux/netdevice.h |  2 ++
+>  net/core/dev.c            | 19 +++++++++++++++++++
+>  net/dsa/dsa.c             | 18 ------------------
+>  3 files changed, 21 insertions(+), 18 deletions(-)
 > 
-> diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-> index 2306d1b87c83..77fa4c4f5828 100644
-> --- a/net/dsa/dsa.c
-> +++ b/net/dsa/dsa.c
-> @@ -455,29 +455,11 @@ EXPORT_SYMBOL_GPL(dsa_switch_resume);
->  #endif
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index 97ae0ac513ee..6d021c37b774 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -4390,4 +4390,6 @@ do {								\
+>  #define PTYPE_HASH_SIZE	(16)
+>  #define PTYPE_HASH_MASK	(PTYPE_HASH_SIZE - 1)
 >  
->  /* platform driver init and cleanup *****************************************/
-> -static int dev_is_class(struct device *dev, void *class)
-> -{
-> -	if (dev->class != NULL && !strcmp(dev->class->name, class))
-> -		return 1;
-> -
-> -	return 0;
-> -}
-> -
-> -static struct device *dev_find_class(struct device *parent, char *class)
-> -{
-> -	if (dev_is_class(parent, class)) {
-> -		get_device(parent);
-> -		return parent;
-> -	}
-> -
-> -	return device_find_child(parent, class, dev_is_class);
-> -}
-> -
->  struct mii_bus *dsa_host_dev_to_mii_bus(struct device *dev)
->  {
->  	struct device *d;
+> +struct net_device *dev_to_net_device(struct device *dev);
+> +
+>  #endif	/* _LINUX_NETDEVICE_H */
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index ad5959e56116..7547e2ccc06b 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -8128,6 +8128,25 @@ const char *netdev_drivername(const struct net_device *dev)
+>  	return empty;
+>  }
 >  
-> -	d = dev_find_class(dev, "mdio_bus");
-> +	d = device_find_class(dev, "mdio_bus");
->  	if (d != NULL) {
->  		struct mii_bus *bus;
-
-You want a peer of your device on a specific class?  What is this for?
-
-> @@ -495,7 +477,7 @@ static struct net_device *dev_to_net_device(struct device *dev)
->  {
->  	struct device *d;
->  
-> -	d = dev_find_class(dev, "net");
+> +struct net_device *dev_to_net_device(struct device *dev)
+> +{
+> +	struct device *d;
+> +
 > +	d = device_find_class(dev, "net");
->  	if (d != NULL) {
->  		struct net_device *nd;
+> +	if (d) {
+> +		struct net_device *nd;
+> +
+> +		nd = to_net_dev(d);
+> +		dev_hold(nd);
+> +		put_device(d);
+> +
+> +		return nd;
+> +	}
+> +
+> +	return NULL;
+> +}
+> +EXPORT_SYMBOL_GPL(dev_to_net_device);
 
-Again, huh?  What is the device heirachy here that is so odd that this
-type of function is needed?
+This really isn't just a "struct device to net device cast" type
+function, (otherwise a simple container_of() would work).  You are
+walking the device tree and assuming it is in a specific order so that
+this function works.  You better document the hell out of this,
+otherwise people are going to try to use this and get very confused,
+very quickly...
 
-totally confused,
+thanks,
 
 greg k-h
