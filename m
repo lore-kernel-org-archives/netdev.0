@@ -1,29 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/3] powerpc: bpf: remove redundant check for non-null
- image
-Date: Mon, 16 Jan 2017 13:38:59 -0500 (EST)
-Message-ID: <20170116.133859.1157069434816521683.davem@davemloft.net>
-References: <e73efe6facf6c06932b4a87707e5978172ee773e.1484326337.git.naveen.n.rao@linux.vnet.ibm.com>
+Subject: Re: [PATCH net-next] netlink: do not enter direct reclaim from
+ netlink_trim()
+Date: Mon, 16 Jan 2017 13:39:55 -0500 (EST)
+Message-ID: <20170116.133955.89348360657996924.davem@davemloft.net>
+References: <1484327482.13165.38.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mpe@ellerman.id.au, linuxppc-dev@lists.ozlabs.org,
-        netdev@vger.kernel.org, ast@fb.com, daniel@iogearbox.net
-To: naveen.n.rao@linux.vnet.ibm.com
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:45994 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:46014 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750788AbdAPSjB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2017 13:39:01 -0500
-In-Reply-To: <e73efe6facf6c06932b4a87707e5978172ee773e.1484326337.git.naveen.n.rao@linux.vnet.ibm.com>
+        with ESMTP id S1750858AbdAPSj4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2017 13:39:56 -0500
+In-Reply-To: <1484327482.13165.38.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 13 Jan 2017 09:11:22 -0800
 
-I'm assuming these patches will go via the powerpc tree.
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> In commit d35c99ff77ecb ("netlink: do not enter direct reclaim from
+> netlink_dump()") we made sure to not trigger expensive memory reclaim.
+> 
+> Problem is that a bit later, netlink_trim() might be called and
+> trigger memory reclaim.
+> 
+> netlink_trim() should be best effort, and really as fast as possible.
+> Under memory pressure, it is fine to not trim this skb.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-If you want them to go into net-next, I kindly ask that you always
-explicitly say so, and furthermore always submit a patch series with
-a proper "[PATCH 0/N] ..." header posting.
-
-Thanks.
+Applied, thanks Eric.
