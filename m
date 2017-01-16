@@ -1,44 +1,28 @@
-From: Tariq Toukan <tariqt@mellanox.com>
-Subject: [PATCH net 0/3] mlx4 core fixes
-Date: Mon, 16 Jan 2017 18:31:36 +0200
-Message-ID: <1484584299-3950-1-git-send-email-tariqt@mellanox.com>
-Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
-        Jack Morgenstein <jackm@dev.mellanox.co.il>,
-        Tariq Toukan <tariqt@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request: bluetooth 2017-01-16
+Date: Mon, 16 Jan 2017 11:37:50 -0500 (EST)
+Message-ID: <20170116.113750.107115602776612426.davem@davemloft.net>
+References: <20170116075831.GA7190@x1c>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org
+To: johan.hedberg@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:36309 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751253AbdAPQcA (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2017 11:32:00 -0500
+Received: from shards.monkeyblade.net ([184.105.139.130]:43774 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750927AbdAPQhy (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2017 11:37:54 -0500
+In-Reply-To: <20170116075831.GA7190@x1c>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+From: Johan Hedberg <johan.hedberg@gmail.com>
+Date: Mon, 16 Jan 2017 09:58:31 +0200
 
-This patchset contains bug fixes from Jack to the mlx4 Core driver.
+> Here are a couple of important 802.15.4 driver fixes for the 4.10
+> kernel.
+> 
+> Please let me know if there are any issues pulling. Thanks.
 
-Patch 1 solves a race in the flow of CQ free.
-Patch 2 moves some qp context flags update to the correct qp transition.
-Patch 3 eliminates warnings from the path of SRQ_LIMIT that flood the message log,
-and keeps them only in the path of SRQ_CATAS_ERROR.
-
-Series generated against net commit:
-1a717fcf8bbe Merge tag 'mac80211-for-davem-2017-01-13' of git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211
-
-Thanks,
-Tariq.
-
-Jack Morgenstein (3):
-  net/mlx4_core: Fix racy CQ (Completion Queue) free
-  net/mlx4_core: Fix when to save some qp context flags for dynamic VST
-    to VGT transitions
-  net/mlx4_core: Eliminate warning messages for SRQ_LIMIT under SRIOV
-
- drivers/net/ethernet/mellanox/mlx4/cq.c            | 38 ++++++++++++----------
- drivers/net/ethernet/mellanox/mlx4/eq.c            | 23 ++++++++-----
- .../net/ethernet/mellanox/mlx4/resource_tracker.c  |  5 +--
- 3 files changed, 37 insertions(+), 29 deletions(-)
-
--- 
-1.8.3.1
+Pulled, thank you.
