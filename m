@@ -1,121 +1,78 @@
 From: Leon Romanovsky <leon@kernel.org>
-Subject: Re: [PATCH 5/6] treewide: use kv[mz]alloc* rather than opencoded
- variants
-Date: Mon, 16 Jan 2017 10:28:48 +0200
-Message-ID: <20170116082848.GA32481@mtr-leonro.local>
-References: <20170112153717.28943-1-mhocko@kernel.org>
- <20170112153717.28943-6-mhocko@kernel.org>
- <20170114105632.GV20392@mtr-leonro.local>
- <20170116073310.GA7981@dhcp22.suse.cz>
+Subject: Re: [PATCH for bnxt_re V3 03/21] bnxt_re: register with the NIC
+ driver
+Date: Mon, 16 Jan 2017 10:33:20 +0200
+Message-ID: <20170116083320.GB32481@mtr-leonro.local>
+References: <1482225211-22423-1-git-send-email-selvin.xavier@broadcom.com>
+ <1482225211-22423-4-git-send-email-selvin.xavier@broadcom.com>
+ <20170115194143.GE20392@mtr-leonro.local>
+ <CA+sbYW2SMbExwyw20TZtn3U13fkJvKCs5P8w5LdovN4Q3u0sjg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha256;
-        protocol="application/pgp-signature"; boundary="YiEDa0DAkWCtVeE4"
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-        Vlastimil Babka <vbabka@suse.cz>,
-        David Rientjes <rientjes@google.com>,
-        Mel Gorman <mgorman@suse.de>,
-        Johannes Weiner <hannes@cmpxchg.org>,
-        Al Viro <viro@zeniv.linux.org.uk>, linux-mm@kvack.org,
-        LKML <linux-kernel@vger.kernel.org>,
-        Martin Schwidefsky <schwidefsky@de.ibm.com>,
-        Heiko Carstens <heiko.carstens@de.ibm.com>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        Anton Vorontsov <anton@enomsg.org>,
-        Colin Cross <ccross@android.com>,
-        Kees Cook <keescook@chromium.org>,
-        Tony Luck <tony.luck@intel.com>,
-        "Rafael J. Wysocki" <rjw@rjwysocki.net>,
-        Ben Skeggs <bskeggs@redhat.com>,
-        Kent Overstreet <kent.overstreet@gmail.com>,
-        Santosh Raspatur <santosh@chelsio.com>,
-        Hariprasad S <hariprasad@chelsio.com>,
-        Ta
-To: Michal Hocko <mhocko@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+        protocol="application/pgp-signature"; boundary="tjCHc7DPkfUGtrlw"
+Cc: Doug Ledford <dledford@redhat.com>, linux-rdma@vger.kernel.org,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        Michael Chan <michael.chan@broadcom.com>,
+        Eddie Wai <eddie.wai@broadcom.com>,
+        Devesh Sharma <devesh.sharma@broadcom.com>,
+        Somnath Kotur <somnath.kotur@broadcom.com>,
+        Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
+To: Selvin Xavier <selvin.xavier@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.kernel.org ([198.145.29.136]:48138 "EHLO mail.kernel.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750817AbdAPIdU (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 16 Jan 2017 03:33:20 -0500
 Content-Disposition: inline
-In-Reply-To: <20170116073310.GA7981@dhcp22.suse.cz>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <CA+sbYW2SMbExwyw20TZtn3U13fkJvKCs5P8w5LdovN4Q3u0sjg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
---YiEDa0DAkWCtVeE4
+--tjCHc7DPkfUGtrlw
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
-On Mon, Jan 16, 2017 at 08:33:11AM +0100, Michal Hocko wrote:
-> On Sat 14-01-17 12:56:32, Leon Romanovsky wrote:
-> [...]
-> > Hi Michal,
+On Mon, Jan 16, 2017 at 01:38:40PM +0530, Selvin Xavier wrote:
+> On Mon, Jan 16, 2017 at 1:11 AM, Leon Romanovsky <leon@kernel.org> wrote:
+> > Recently, in one of our submission to netdev and rdma, we got
+> > a reminder that inline functions shouldn't be in *.c. Let for
+> > the compiler to decide.
 > >
-> > I don't see mlx5_vzalloc in the changed list. Any reason why did you skip it?
-> >
-> >  881 static inline void *mlx5_vzalloc(unsigned long size)
-> >  882 {
-> >  883         void *rtn;
-> >  884
-> >  885         rtn = kzalloc(size, GFP_KERNEL | __GFP_NOWARN);
-> >  886         if (!rtn)
-> >  887                 rtn = vzalloc(size);
-> >  888         return rtn;
-> >  889 }
+> > IMHO, it should be open-coded without wrappers and honestly I failed to
+> > understand why do you need so many wrappers for one line standard kernel
+> > functions.
 >
-> No reason to skip it, I just didn't see it. I will fold the following in
-> if you are OK with it
+> Agreed. During the initial days of development, we had some debug code also
+> inside these wrapper functions. Since the debug code was removed before upstream
+> submission, this function ended up as a wrapper for standard kernel function.
+> It makes perfect sense to knock off these wrapper functions. I will
+> queue it for next
+> clean-up/bug fix patch series.
 
-Sure, no problem.
-Once, the patch set is accepted, we (Mellanox) will get rid of mlx5_vzalloc().
+I'm fine with it as long as it's done.
 
-Thanks
-
-
-> ---
-> diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
-> index cdd2bd62f86d..5e6063170e48 100644
-> --- a/include/linux/mlx5/driver.h
-> +++ b/include/linux/mlx5/driver.h
-> @@ -874,12 +874,7 @@ static inline u16 cmdif_rev(struct mlx5_core_dev *dev)
 >
->  static inline void *mlx5_vzalloc(unsigned long size)
->  {
-> -	void *rtn;
-> -
-> -	rtn = kzalloc(size, GFP_KERNEL | __GFP_NOWARN);
-> -	if (!rtn)
-> -		rtn = vzalloc(size);
-> -	return rtn;
-> +	return kvzalloc(GFP_KERNEL, size);
->  }
->
->  static inline u32 mlx5_base_mkey(const u32 key)
->
-> --
-> Michal Hocko
-> SUSE Labs
->
-> --
-> To unsubscribe, send a message with 'unsubscribe linux-mm' in
-> the body to majordomo@kvack.org.  For more info on Linux MM,
-> see: http://www.linux-mm.org/ .
-> Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+> Thanks
 
---YiEDa0DAkWCtVeE4
+--tjCHc7DPkfUGtrlw
 Content-Type: application/pgp-signature; name="signature.asc"
 
 -----BEGIN PGP SIGNATURE-----
 
-iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAlh8hEAACgkQ5GN7iDZy
-WKfBNxAAkj0ybtP+5KSc+/M9wFhub8PFtORtxzgDRBAHYRABNvI3EiVJHEKpgATk
-LyEloC5fDyPla83eJ5euvFeQmxDf6ZXlW9FiA9Cbo9pY35b0TV6dacdGzvuDtbbo
-a+eiBrr9SBwqyqYsdbyD/gVp66qyVcw9qAUTIspnAD4T3z/6X01RCAot+np0Dfij
-ufCYftxKYXrHOuSy07lrqrCVMiPwr9DGwNuwEA4wjkQnZMEkhlygbT4ZgyEvc6A8
-aP3hV84+9m5NSt+ziM/JjPyszG9DVRFTAjhezSS7DzhIHkrP/BJTCeomB22m+Gbr
-a6N5F5vHNjzoUQRgAbqNxKbGlle3Ae37Jn4qmlSp2nbHm/9oyJlWhSYlNuIxYuOc
-e3f6FKex3niJB0Om6bcfyANzQHQYlKiqI0fAUgZgfXFMw0597BvMxTvs4jRsjntG
-Eey2iKvnaaN2GtuuLtQPaGb6IIIe34flsuY8o2JQtwyrIPIT6i8jmvjv5CkQZhqj
-HkXX/ZTyIYibQAPqrpiRVd+m2ZTgi+wmj+kZuZ8KTKKZGz+IpaGEZ1xyD7XvQVqA
-+gDDmqgdU+hqQkBD7h4iOcUV9EpVz6olWtb3EvrsHF/7p0zwL25mp6Tf4ZDhpT7E
-J6r0Zz9paK3eE708RiX2Pc8OhcEfZ8C9uNW/rxxDMEj28/mf4Tw=
-=Qluq
+iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAlh8hVAACgkQ5GN7iDZy
+WKey1w/+M5SwWmXdmG12wS4gef3Ru0t9diKnIFym3XF9KlmUxV3oo+35M/BInw2e
+ZQ0c+2Uk35XwzEToVeN8qLCxaHSGAZK3dLB/KfbsaKum1yEMWnpybGB784Z1KkL5
+NXIBF8Vojc0T1obUT8iWf40cKk8dml86cbo4RxBHdVhiymS0TaaUkxJo5VXmhV9k
+1HAgZRdWp4LpEEuIpsH/GAaqn7RlKjRuAV5sX0ZD3EovaGjTYSiSjQT5tqU7sV7Z
+Q1SVJ9OWCJpHtB6OCRI3PPHti0zahtcAAgOumyKcd3Lom3b6rtgaYc+SbajSPn1J
+ltbH7Oneq1zspBVDm7dDrYefoHdmaFYHPdcCj4aMqrwtJT2s10lryLgAYXhjlPZN
+OWIzaD5E2bWLAk4YNvkctwUmRLabZvmQQd2BR6acXbCAyLvPefDCbILJZvf+50/w
+KGdnQlaXT2D+7ChJoeXkfKMKT2VrCx/Ribir45V9B05Fc7fQldBFMw3eIJJPBRfo
+PzolXbWGWyVPAiX2+2ckth/u+WwxNEpaQRLuE8U3doLNbibTmAF1V7+ZEf2i0Giu
+SxbIEspZyp+8RTS+k3m0IVKcGrHTXvAJ75Vmu8BcozWhtLNmAhgrpWSwoQP4pot2
+T6K/cZ6c/AtoopQbMSdGsRaUJg9LoztbGiz9C0jdLDLe9CiqcEk=
+=vSj2
 -----END PGP SIGNATURE-----
 
---YiEDa0DAkWCtVeE4--
+--tjCHc7DPkfUGtrlw--
