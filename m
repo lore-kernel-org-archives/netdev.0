@@ -1,54 +1,109 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: sctp: kernel memory overwrite attempt detected in
- sctp_getsockopt_assoc_stats
-Date: Mon, 16 Jan 2017 14:50:48 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6DB0264AD2@AcuExch.aculab.com>
-References: <CACT4Y+ZDPa+spEh6P_ip9=hsNfeZ8KJfwJu5jTrPKVkGJUaZSg@mail.gmail.com>
- <20170115203515.GA6274@neilslaptop.think-freely.org>
- <CACT4Y+Zp4cruuKtf7fkSeLFbYLzTOD79Y2c+cCrHx-pbEXC_6A@mail.gmail.com>
- <20170116135743.GC30105@hmswarspite.think-freely.org>
- <CACT4Y+aoRnZyPYM=Bz3RLWhK+MYrQJBZ22TijJd=fzHp9KG+9A@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Vladislav Yasevich <vyasevich@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Kees Cook <keescook@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: 'Dmitry Vyukov' <dvyukov@google.com>,
-        Neil Horman <nhorman@tuxdriver.com>
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: [PATCH v2] net/irda: fix lockdep annotation
+Date: Mon, 16 Jan 2017 15:51:29 +0100
+Message-ID: <20170116145129.102159-1-dvyukov@google.com>
+Cc: glider@google.com, andreyknvl@google.com,
+        Dmitry Vyukov <dvyukov@google.com>, netdev@vger.kernel.org
+To: davej@redhat.com, samuel@sortiz.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.192]:55198 "EHLO
-        smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750817AbdAPOvB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2017 09:51:01 -0500
-In-Reply-To: <CACT4Y+aoRnZyPYM=Bz3RLWhK+MYrQJBZ22TijJd=fzHp9KG+9A@mail.gmail.com>
-Content-Language: en-US
+Received: from mail-wm0-f43.google.com ([74.125.82.43]:37316 "EHLO
+        mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751192AbdAPOve (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2017 09:51:34 -0500
+Received: by mail-wm0-f43.google.com with SMTP id c206so178771714wme.0
+        for <netdev@vger.kernel.org>; Mon, 16 Jan 2017 06:51:34 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRG1pdHJ5IFZ5dWtvdg0KPiBTZW50OiAxNiBKYW51YXJ5IDIwMTcgMTQ6MDQNCj4gPj4g
-Pj4gSSd2ZSBlbmFibGVkIENPTkZJR19IQVJERU5FRF9VU0VSQ09QWV9QQUdFU1BBTiBvbiBzeXpr
-YWxsZXIgZnV6emVyIGFuZA0KLi4uDQo+ID4+IFRoZSBjb2RlIGFsc28gdGFrZXMgaW50byBhY2Nv
-dW50IGNvbXBvdW5kIHBhZ2VzLiBBcyBmYXIgYXMgSQ0KPiA+PiB1bmRlcnN0YW5kIHRoZSBpbnRl
-bnRpb24gb2YgdGhlIGNoZWNrIGlzIHRvIGVmZmVjdGl2ZWx5IGZpbmQNCj4gPj4gb3V0LW9mLWJv
-dW5kcyBjb3BpZXMgKGUuZy4gZ29lcyBiZXlvbmQgdGhlIGN1cnJlbnQgaGVhcCBhbGxvY2F0aW9u
-KS4gSQ0KPiA+PiB3b3VsZCBleHBlY3QgdGhhdCBzdGFja3MgYXJlIGFsbG9jYXRlZCBhcyBjb21w
-b3VuZCBwYWdlcyBhbmQgZG9uJ3QNCj4gPj4gdHJpZ2dlciB0aGlzIGNoZWNrLiBJIGRvbid0IHNl
-ZSBpdCBpcyBmaXJpbmcgaW4gb3RoZXIgc2ltaWxhciBwbGFjZXMuDQo+ID4+DQo+ID4gSG9uZXN0
-bHksIEknbSBub3Qgb3Zlcmx5IGZhbWlsaWFyIHdpdGggc3RhY2sgcGFnZSBhbGxvY2F0aW9uLCBh
-dCBsZWFzdCBub3Qgc28NCj4gPiBmYXIgYXMgY29tcG91bmQgdnMuIHNpbmdsZSBwYWdlIGFsbG9j
-YXRpb24gaXMgY29uY2VybmVkLiAgSSBzdXBwb3NlIHRoZSBxdWVzdGlvbg0KPiA+IHlvdXIgcmVh
-bGx5IGFza2luZyBoZXJlIGlzOiBIYXZlIHlvdSBmb3VuZCBhIGNhc2UgaW4gd2hpY2ggdGhlIHN5
-c2NhbGwgZnV6emVyDQo+ID4gaGFzIGZvcmNlZCB0aGUgYWxsb2NhdGlvbiBvZiBhbiBpbnNlY3Vy
-ZSBub24tY29tcG91bmQgcGFnZSBvbiB0aGUgc3RhY2ssIG9yIGlzDQo+ID4gdGhpcyBhIGZhbHNl
-IHBvc2l0aXZlIHdhcm5pbmcuICBJIGNhbid0IHByb3ZpZGUgdGhlIGFuc3dlciB0byB0aGF0Lg0K
-PiANCj4gWWVzLiBJIGFkZGVkIEtlZXMsIGF1dGhvciBvZiBDT05GSUdfSEFSREVORURfVVNFUkNP
-UFlfUEFHRVNQQU4sIHRvIFRvIGxpbmUuDQo+IEtlZXMsIGlzIHRoaXMgYSBmYWxzZSBwb3NpdGl2
-ZT8NCg0KSSdkIGd1ZXNzIHRoYXQgdGhlIGtlcm5lbCBzdGFjayBpcyAoc29tZWhvdykgYWxsb2Nh
-dGVkIHBhZ2UgYnkgcGFnZQ0KcmF0aGVyIHRoYW4gYnkgYSBzaW5nbGUgbXVsdGktcGFnZSBhbGxv
-Y2F0ZS4NCk9yIG1heWJlIHZtYWxsb2MoKSBpc24ndCBzZXR0aW5nIHRoZSByZXF1aXJlZCBmbGFn
-Pz8NCg0KCURhdmlkDQoNCg==
+The current annotation uses a global variable as recursion counter.
+The variable is not atomic nor protected with a mutex, but mutated
+by multiple threads. This causes lockdep bug reports episodically:
+
+BUG: looking up invalid subclass: 4294967295
+...
+_raw_spin_lock_irqsave_nested+0x120/0x180
+hashbin_delete+0x4fe/0x750
+__irias_delete_object+0xab/0x170
+irias_delete_object+0x5f/0xc0
+ircomm_tty_detach_cable+0x1d5/0x3f0
+...
+
+Make the hashbin_lock_depth variable atomic to prevent bug reports.
+
+As is this causes "unused variable 'depth'" warning without LOCKDEP.
+So also change raw_spin_lock_irqsave_nested() macro to not cause
+the warning without LOCKDEP. Similar to what raw_spin_lock_nested()
+already does.
+
+Signed-off-by: Dmitry Vyukov <dvyukov@google.com>
+Cc: Dave Jones <davej@redhat.com>
+Cc: Samuel Ortiz <samuel@sortiz.org>
+Cc: David S. Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+Fixes: c7630a4b932af ("[IrDA]: irda lockdep annotation")
+
+---
+
+Changes since v1:
+ - Added raw_spin_lock_irqsave_nested() change
+   as 0-DAY bot reported compiler warning without LOCKDEP.
+---
+ include/linux/spinlock.h |  1 +
+ net/irda/irqueue.c       | 12 +++++++-----
+ 2 files changed, 8 insertions(+), 5 deletions(-)
+
+diff --git a/include/linux/spinlock.h b/include/linux/spinlock.h
+index 47dd0cebd204..27aca8c1b129 100644
+--- a/include/linux/spinlock.h
++++ b/include/linux/spinlock.h
+@@ -217,6 +217,7 @@ static inline void do_raw_spin_unlock(raw_spinlock_t *lock) __releases(lock)
+ #else
+ #define raw_spin_lock_irqsave_nested(lock, flags, subclass)		\
+ 	do {								\
++		(void)subclass;						\
+ 		typecheck(unsigned long, flags);			\
+ 		flags = _raw_spin_lock_irqsave(lock);			\
+ 	} while (0)
+diff --git a/net/irda/irqueue.c b/net/irda/irqueue.c
+index acbe61c7e683..b9fd74e6ca99 100644
+--- a/net/irda/irqueue.c
++++ b/net/irda/irqueue.c
+@@ -384,21 +384,23 @@ EXPORT_SYMBOL(hashbin_new);
+  *    just supply kfree, which should take care of the job.
+  */
+ #ifdef CONFIG_LOCKDEP
+-static int hashbin_lock_depth = 0;
++static atomic_t hashbin_lock_depth = ATOMIC_INIT(0);
+ #endif
+ int hashbin_delete( hashbin_t* hashbin, FREE_FUNC free_func)
+ {
+ 	irda_queue_t* queue;
+ 	unsigned long flags = 0;
+-	int i;
++	int i, depth = 0;
+ 
+ 	IRDA_ASSERT(hashbin != NULL, return -1;);
+ 	IRDA_ASSERT(hashbin->magic == HB_MAGIC, return -1;);
+ 
+ 	/* Synchronize */
+ 	if ( hashbin->hb_type & HB_LOCK ) {
+-		spin_lock_irqsave_nested(&hashbin->hb_spinlock, flags,
+-					 hashbin_lock_depth++);
++#ifdef CONFIG_LOCKDEP
++		depth = atomic_inc_return(&hashbin_lock_depth) - 1;
++#endif
++		spin_lock_irqsave_nested(&hashbin->hb_spinlock, flags, depth);
+ 	}
+ 
+ 	/*
+@@ -423,7 +425,7 @@ int hashbin_delete( hashbin_t* hashbin, FREE_FUNC free_func)
+ 	if ( hashbin->hb_type & HB_LOCK) {
+ 		spin_unlock_irqrestore(&hashbin->hb_spinlock, flags);
+ #ifdef CONFIG_LOCKDEP
+-		hashbin_lock_depth--;
++		atomic_dec(&hashbin_lock_depth);
+ #endif
+ 	}
+ 
+-- 
+2.11.0.483.g087da7b7c-goog
