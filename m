@@ -1,65 +1,130 @@
 From: Tariq Toukan <tariqt@mellanox.com>
-Subject: [PATCH net-next 0/9] mlx4 misc improvements
-Date: Mon, 16 Jan 2017 19:29:56 +0200
-Message-ID: <1484587805-12666-1-git-send-email-tariqt@mellanox.com>
+Subject: [PATCH net-next 8/9] net/mlx4_en: Check the enabling mtu flag in SET_PORT wrapper flow
+Date: Mon, 16 Jan 2017 19:30:04 +0200
+Message-ID: <1484587805-12666-9-git-send-email-tariqt@mellanox.com>
+References: <1484587805-12666-1-git-send-email-tariqt@mellanox.com>
 Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
+        Shaker Daibes <shakerd@mellanox.com>,
         Tariq Toukan <tariqt@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:43739 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:43768 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1750747AbdAPRac (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2017 12:30:32 -0500
+        with ESMTP id S1751075AbdAPRah (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2017 12:30:37 -0500
+In-Reply-To: <1484587805-12666-1-git-send-email-tariqt@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+From: Shaker Daibes <shakerd@mellanox.com>
 
-This patchset contains several improvements and cleanups
-from the team to the mlx4 Eth and core drivers.
+Make sure MTU mask flag is set using new field upon set port
+request. In addition, move this code into a helper function for better
+code readability.
 
-Series generated against net-next commit:
-dbeaa8c2a4ba stmmac: indent an if statement
+Signed-off-by: Shaker Daibes <shakerd@mellanox.com>
+Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/port.c | 59 +++++++++++++++++++------------
+ 1 file changed, 37 insertions(+), 22 deletions(-)
 
-Thanks,
-Tariq.
-
-Alaa Hleihel (1):
-  net/mlx4_core: Get num_tc using netdev_get_num_tc
-
-Ariel Levkovich (1):
-  net/mlx4_en: Adding support of turning off link autonegotiation via
-    ethtool
-
-Daniel Jurgens (1):
-  net/mlx4_core: Set EQ affinity hint to local NUMA CPUs
-
-Matan Barak (1):
-  net/mlx4_core: Add resource alloc/dealloc debugging
-
-Shaker Daibes (3):
-  net/mlx4_en: Pass user MTU value to Firmware at set port command
-  net/mlx4_en: Check the enabling mtu flag in SET_PORT wrapper flow
-  net/mlx4_en: Check the enabling pptx/pprx flags in SET_PORT wrapper
-    flow
-
-Tariq Toukan (1):
-  net/mlx4: Replace ENOSYS with better fitting error codes
-
-Yishai Hadas (1):
-  net/mlx4_core: Device revision support
-
- drivers/net/ethernet/mellanox/mlx4/en_ethtool.c    |  28 +++-
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c     |   8 +
- drivers/net/ethernet/mellanox/mlx4/en_port.h       |   1 -
- drivers/net/ethernet/mellanox/mlx4/en_tx.c         |   2 +-
- drivers/net/ethernet/mellanox/mlx4/fw.c            |   6 +-
- drivers/net/ethernet/mellanox/mlx4/main.c          |   9 +-
- drivers/net/ethernet/mellanox/mlx4/mlx4.h          |  11 +-
- drivers/net/ethernet/mellanox/mlx4/port.c          | 170 ++++++++++++++++-----
- .../net/ethernet/mellanox/mlx4/resource_tracker.c  |  51 ++++++-
- include/linux/mlx4/device.h                        |   8 +-
- 10 files changed, 230 insertions(+), 64 deletions(-)
-
+diff --git a/drivers/net/ethernet/mellanox/mlx4/port.c b/drivers/net/ethernet/mellanox/mlx4/port.c
+index a7b0cdcb358a..57a10575a7aa 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/port.c
++++ b/drivers/net/ethernet/mellanox/mlx4/port.c
+@@ -52,6 +52,7 @@
+ 
+ #define MLX4_FLAG2_V_IGNORE_FCS_MASK		BIT(1)
+ #define MLX4_FLAG2_V_USER_MTU_MASK		BIT(5)
++#define MLX4_FLAG_V_MTU_MASK			BIT(0)
+ #define MLX4_IGNORE_FCS_MASK			0x1
+ #define MLX4_TC_MAX_NUMBER			8
+ 
+@@ -1241,6 +1242,38 @@ void mlx4_reset_roce_gids(struct mlx4_dev *dev, int slave)
+ }
+ 
+ static void
++mlx4_en_set_port_mtu(struct mlx4_dev *dev, int slave, int port,
++		     struct mlx4_set_port_general_context *gen_context)
++{
++	struct mlx4_priv *priv = mlx4_priv(dev);
++	struct mlx4_mfunc_master_ctx *master = &priv->mfunc.master;
++	struct mlx4_slave_state *slave_st = &master->slave_state[slave];
++	u16 mtu, prev_mtu;
++
++	/* Mtu is configured as the max USER_MTU among all
++	 * the functions on the port.
++	 */
++	mtu = be16_to_cpu(gen_context->mtu);
++	mtu = min_t(int, mtu, dev->caps.eth_mtu_cap[port] +
++		    ETH_HLEN + VLAN_HLEN + ETH_FCS_LEN);
++	prev_mtu = slave_st->mtu[port];
++	slave_st->mtu[port] = mtu;
++	if (mtu > master->max_mtu[port])
++		master->max_mtu[port] = mtu;
++	if (mtu < prev_mtu && prev_mtu == master->max_mtu[port]) {
++		int i;
++
++		slave_st->mtu[port] = mtu;
++		master->max_mtu[port] = mtu;
++		for (i = 0; i < dev->num_slaves; i++)
++			master->max_mtu[port] =
++				max_t(u16, master->max_mtu[port],
++				      master->slave_state[i].mtu[port]);
++	}
++	gen_context->mtu = cpu_to_be16(master->max_mtu[port]);
++}
++
++static void
+ mlx4_en_set_port_user_mtu(struct mlx4_dev *dev, int slave, int port,
+ 			  struct mlx4_set_port_general_context *gen_context)
+ {
+@@ -1278,7 +1311,6 @@ static int mlx4_common_set_port(struct mlx4_dev *dev, int slave, u32 in_mod,
+ 	struct mlx4_priv *priv = mlx4_priv(dev);
+ 	struct mlx4_port_info *port_info;
+ 	struct mlx4_mfunc_master_ctx *master = &priv->mfunc.master;
+-	struct mlx4_slave_state *slave_st = &master->slave_state[slave];
+ 	struct mlx4_set_port_rqp_calc_context *qpn_context;
+ 	struct mlx4_set_port_general_context *gen_context;
+ 	struct mlx4_roce_gid_entry *gid_entry_tbl, *gid_entry_mbox, *gid_entry_mb1;
+@@ -1289,7 +1321,6 @@ static int mlx4_common_set_port(struct mlx4_dev *dev, int slave, u32 in_mod,
+ 	int base;
+ 	u32 in_modifier;
+ 	u32 promisc;
+-	u16 mtu, prev_mtu;
+ 	int err;
+ 	int i, j;
+ 	int offset;
+@@ -1332,26 +1363,10 @@ static int mlx4_common_set_port(struct mlx4_dev *dev, int slave, u32 in_mod,
+ 			break;
+ 		case MLX4_SET_PORT_GENERAL:
+ 			gen_context = inbox->buf;
+-			/* Mtu is configured as the max MTU among all the
+-			 * the functions on the port. */
+-			mtu = be16_to_cpu(gen_context->mtu);
+-			mtu = min_t(int, mtu, dev->caps.eth_mtu_cap[port] +
+-				    ETH_HLEN + VLAN_HLEN + ETH_FCS_LEN);
+-			prev_mtu = slave_st->mtu[port];
+-			slave_st->mtu[port] = mtu;
+-			if (mtu > master->max_mtu[port])
+-				master->max_mtu[port] = mtu;
+-			if (mtu < prev_mtu && prev_mtu ==
+-						master->max_mtu[port]) {
+-				slave_st->mtu[port] = mtu;
+-				master->max_mtu[port] = mtu;
+-				for (i = 0; i < dev->num_slaves; i++) {
+-					master->max_mtu[port] =
+-					max(master->max_mtu[port],
+-					    master->slave_state[i].mtu[port]);
+-				}
+-			}
+-			gen_context->mtu = cpu_to_be16(master->max_mtu[port]);
++
++			if (gen_context->flags & MLX4_FLAG_V_MTU_MASK)
++				mlx4_en_set_port_mtu(dev, slave, port,
++						     gen_context);
+ 
+ 			if (gen_context->flags2 & MLX4_FLAG2_V_USER_MTU_MASK)
+ 				mlx4_en_set_port_user_mtu(dev, slave, port,
 -- 
 1.8.3.1
