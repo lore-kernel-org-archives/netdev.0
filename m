@@ -1,44 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v1 1/1] tipc: allocate user memory
- with GFP_KERNEL flag
-Date: Mon, 16 Jan 2017 13:32:05 -0500 (EST)
-Message-ID: <20170116.133205.742000535333252859.davem@davemloft.net>
-References: <1484318785-20749-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
+Subject: Re: [PATCH net-next] cxgb4: Shutdown adapter if firmware times out
+ or errors out
+Date: Mon, 16 Jan 2017 13:35:43 -0500 (EST)
+Message-ID: <20170116.133543.71724184955414718.davem@davemloft.net>
+References: <1484324726-29590-1-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net,
-	jon.maloy@ericsson.com
-To: parthasarathy.bhuvaragan@ericsson.com
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <1484318785-20749-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, leedom@chelsio.com, nirranjan@chelsio.com,
+        ganeshgr@chelsio.com
+To: hariprasad@chelsio.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:45956 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750826AbdAPSfp (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2017 13:35:45 -0500
+In-Reply-To: <1484324726-29590-1-git-send-email-hariprasad@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
-Date: Fri, 13 Jan 2017 15:46:25 +0100
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Date: Fri, 13 Jan 2017 21:55:26 +0530
 
-> Until now, we allocate memory always with GFP_ATOMIC flag.
-> When the system is under memory pressure and a user tries to send,
-> the send fails due to low memory. However, the user application
-> can wait for free memory if we allocate it using GFP_KERNEL flag.
+> Perform an emergency shutdown of the adapter and stop it from
+> continuing any further communication on the ports or DMA to the
+> host. This is typically used when the adapter and/or firmware
+> have crashed and we want to prevent any further accidental
+> communication with the rest of the world. This will also force
+> the port Link Status to go down -- if register writes work --
+> which should help our peers figure out that we're down.
 > 
-> In this commit, we use allocate memory with GFP_KERNEL for all user
-> allocation.
-> 
-> Reported-by: Rune Torgersen <runet@innovsys.com>
-> Acked-by: Jon Maloy <jon.maloy@ericsson.com>
-> Signed-off-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
+> Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 
-Applied.
-
-------------------------------------------------------------------------------
-Check out the vibrant tech community on one of the world's most
-engaging tech sites, SlashDot.org! http://sdm.link/slashdot
+Applied, thank you.
