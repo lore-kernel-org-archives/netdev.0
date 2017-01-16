@@ -1,84 +1,59 @@
 From: Dmitry Vyukov <dvyukov@google.com>
-Subject: Re: [PATCH] net/irda: fix lockdep annotation
-Date: Mon, 16 Jan 2017 15:52:03 +0100
-Message-ID: <CACT4Y+bBMpPjAFrCZk-KLeMhzhj-Bwh2T4SCfCXTNiF1q1cKqA@mail.gmail.com>
-References: <20170116102503.23800-1-dvyukov@google.com> <201701162214.BqECKe5z%fengguang.wu@intel.com>
+Subject: Re: sctp: kernel memory overwrite attempt detected in sctp_getsockopt_assoc_stats
+Date: Mon, 16 Jan 2017 15:56:06 +0100
+Message-ID: <CACT4Y+bK3nvWoGJcZs5k1Lr3Rbn7ZxBCvNscs9Ty=7ZJEF37kQ@mail.gmail.com>
+References: <CACT4Y+ZDPa+spEh6P_ip9=hsNfeZ8KJfwJu5jTrPKVkGJUaZSg@mail.gmail.com>
+ <20170115203515.GA6274@neilslaptop.think-freely.org> <CACT4Y+Zp4cruuKtf7fkSeLFbYLzTOD79Y2c+cCrHx-pbEXC_6A@mail.gmail.com>
+ <20170116135743.GC30105@hmswarspite.think-freely.org> <CACT4Y+aoRnZyPYM=Bz3RLWhK+MYrQJBZ22TijJd=fzHp9KG+9A@mail.gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6DB0264AD2@AcuExch.aculab.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: kbuild-all@01.org, Dave Jones <davej@redhat.com>,
-        Samuel Ortiz <samuel@sortiz.org>,
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+        Vladislav Yasevich <vyasevich@gmail.com>,
         David Miller <davem@davemloft.net>,
-        Alexander Potapenko <glider@google.com>,
-        andreyknvl <andreyknvl@google.com>,
-        netdev <netdev@vger.kernel.org>
-To: kbuild test robot <lkp@intel.com>
+        "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
+        netdev <netdev@vger.kernel.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Kees Cook <keescook@google.com>,
+        syzkaller <syzkaller@googlegroups.com>
+To: David Laight <David.Laight@aculab.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f49.google.com ([209.85.215.49]:34949 "EHLO
-        mail-lf0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750855AbdAPOwZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2017 09:52:25 -0500
-Received: by mail-lf0-f49.google.com with SMTP id n124so16416076lfd.2
-        for <netdev@vger.kernel.org>; Mon, 16 Jan 2017 06:52:24 -0800 (PST)
-In-Reply-To: <201701162214.BqECKe5z%fengguang.wu@intel.com>
+Received: from mail-lf0-f43.google.com ([209.85.215.43]:35182 "EHLO
+        mail-lf0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750831AbdAPO43 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2017 09:56:29 -0500
+Received: by mail-lf0-f43.google.com with SMTP id n124so16518219lfd.2
+        for <netdev@vger.kernel.org>; Mon, 16 Jan 2017 06:56:28 -0800 (PST)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB0264AD2@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 16, 2017 at 3:11 PM, kbuild test robot <lkp@intel.com> wrote:
-> Hi Dmitry,
+On Mon, Jan 16, 2017 at 3:50 PM, David Laight <David.Laight@aculab.com> wrote:
+> From: Dmitry Vyukov
+>> Sent: 16 January 2017 14:04
+>> >> >> I've enabled CONFIG_HARDENED_USERCOPY_PAGESPAN on syzkaller fuzzer and
+> ...
+>> >> The code also takes into account compound pages. As far as I
+>> >> understand the intention of the check is to effectively find
+>> >> out-of-bounds copies (e.g. goes beyond the current heap allocation). I
+>> >> would expect that stacks are allocated as compound pages and don't
+>> >> trigger this check. I don't see it is firing in other similar places.
+>> >>
+>> > Honestly, I'm not overly familiar with stack page allocation, at least not so
+>> > far as compound vs. single page allocation is concerned.  I suppose the question
+>> > your really asking here is: Have you found a case in which the syscall fuzzer
+>> > has forced the allocation of an insecure non-compound page on the stack, or is
+>> > this a false positive warning.  I can't provide the answer to that.
+>>
+>> Yes. I added Kees, author of CONFIG_HARDENED_USERCOPY_PAGESPAN, to To line.
+>> Kees, is this a false positive?
 >
-> [auto build test WARNING on net-next/master]
-> [also build test WARNING on v4.10-rc4 next-20170116]
-> [if your patch is applied to the wrong git tree, please drop us a note to help improve the system]
->
-> url:    https://github.com/0day-ci/linux/commits/Dmitry-Vyukov/net-irda-fix-lockdep-annotation/20170116-183405
-> config: x86_64-randconfig-s2-01161850 (attached as .config)
-> compiler: gcc-4.4 (Debian 4.4.7-8) 4.4.7
-> reproduce:
->         # save the attached .config to linux build tree
->         make ARCH=x86_64
->
-> All warnings (new ones prefixed by >>):
->
->    net/irda/irqueue.c: In function 'hashbin_delete':
->>> net/irda/irqueue.c:393: warning: unused variable 'depth'
+> I'd guess that the kernel stack is (somehow) allocated page by page
+> rather than by a single multi-page allocate.
+> Or maybe vmalloc() isn't setting the required flag??
 
 
-Mailed v2 with a fix for the warning.
-
-Thanks, 0-DAY!
-
-
->    At top level:
->    cc1: warning: unrecognized command line option "-Wno-maybe-uninitialized"
->
-> vim +/depth +393 net/irda/irqueue.c
->
->    377
->    378
->    379  /*
->    380   * Function hashbin_delete (hashbin, free_func)
->    381   *
->    382   *    Destroy hashbin, the free_func can be a user supplied special routine
->    383   *    for deallocating this structure if it's complex. If not the user can
->    384   *    just supply kfree, which should take care of the job.
->    385   */
->    386  #ifdef CONFIG_LOCKDEP
->    387  static atomic_t hashbin_lock_depth = ATOMIC_INIT(0);
->    388  #endif
->    389  int hashbin_delete( hashbin_t* hashbin, FREE_FUNC free_func)
->    390  {
->    391          irda_queue_t* queue;
->    392          unsigned long flags = 0;
->  > 393          int i, depth = 0;
->    394
->    395          IRDA_ASSERT(hashbin != NULL, return -1;);
->    396          IRDA_ASSERT(hashbin->magic == HB_MAGIC, return -1;);
->    397
->    398          /* Synchronize */
->    399          if ( hashbin->hb_type & HB_LOCK ) {
->    400  #ifdef CONFIG_LOCKDEP
->    401                  depth = atomic_inc_return(&hashbin_lock_depth) - 1;
->
-> ---
-> 0-DAY kernel test infrastructure                Open Source Technology Center
-> https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
+Just in case, I don't have CONFIG_VMAP_STACK selected.
+If it is a generic issue, then CONFIG_HARDENED_USERCOPY_PAGESPAN looks
+considerably broken as there are tons of copies onto stack. I don't
+see what's special in this particular case.
