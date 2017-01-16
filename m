@@ -1,85 +1,83 @@
-From: Paul Moore <paul@paul-moore.com>
-Subject: Re: [PATCH V2] audit: log 32-bit socketcalls
-Date: Mon, 16 Jan 2017 15:38:33 -0500
-Message-ID: <CAHC9VhQwVOQ+-iZ1iC-efVvCUadMCdRJS60wqgUQWgExL51yEw@mail.gmail.com>
-References: <dd937da01da72da9277e44ed79abd1f4618c14c5.1484297765.git.rgb@redhat.com>
- <20170116.132745.1831536278596554491.davem@davemloft.net>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH/RFC v2 net-next] ravb: unmap descriptors when freeing
+ rings
+Date: Mon, 16 Jan 2017 23:41:51 +0300
+Message-ID: <8ab10450-5fe3-bc33-6c66-6f3ea861f561@cogentembedded.com>
+References: <1483613000-537-1-git-send-email-horms+renesas@verge.net.au>
+ <6fcec500-bed6-ffa3-2887-d45b34703682@cogentembedded.com>
+ <20170112091116.GC7724@verge.net.au>
+ <3e1d4324-4288-8d65-56fd-8c3e7283020b@cogentembedded.com>
+ <20170112131821.GA16060@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: rgb@redhat.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, linux-audit@redhat.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f65.google.com ([209.85.213.65]:36810 "EHLO
-        mail-vk0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750900AbdAPUif (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2017 15:38:35 -0500
-Received: by mail-vk0-f65.google.com with SMTP id n19so9578391vkd.3
-        for <netdev@vger.kernel.org>; Mon, 16 Jan 2017 12:38:35 -0800 (PST)
-In-Reply-To: <20170116.132745.1831536278596554491.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+        Magnus Damm <magnus.damm@gmail.com>, netdev@vger.kernel.org,
+        linux-renesas-soc@vger.kernel.org
+To: Simon Horman <horms@verge.net.au>
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <20170112131821.GA16060@verge.net.au>
+Sender: linux-renesas-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 16, 2017 at 1:27 PM, David Miller <davem@davemloft.net> wrote:
-> From: Richard Guy Briggs <rgb@redhat.com>
-> Date: Fri, 13 Jan 2017 04:51:48 -0500
->
->> diff --git a/include/linux/audit.h b/include/linux/audit.h
->> index 9d4443f..43d8003 100644
->> --- a/include/linux/audit.h
->> +++ b/include/linux/audit.h
->> @@ -387,6 +387,18 @@ static inline int audit_socketcall(int nargs, unsigned long *args)
->>               return __audit_socketcall(nargs, args);
->>       return 0;
->>  }
->> +static inline int audit_socketcall_compat(int nargs, u32 *args)
->> +{
->
-> Please put an empty line between function definitions.
+Hello!
 
-David, assuming Richard makes your requested changes, any objection if
-I merge this via the audit tree instead of the netdev tree?  It's a
-bit easier for us from a testing perspective this way ...
+On 01/12/2017 04:18 PM, Simon Horman wrote:
 
->> +     if (unlikely(!audit_dummy_context())) {
->> +             int i;
->> +             unsigned long a[AUDITSC_ARGS];
->
-> Please order local variable declarations from longest to shortest line.
->
->> +
->> +             for (i=0; i<nargs; i++)
->
-> Please put a space around operators such as "=" and "<".
->
->> +                     a[i] = (unsigned long)args[i];
->> +             return __audit_socketcall(nargs, a);
->> +     }
->> +     return 0;
->> +}
->>  static inline int audit_sockaddr(int len, void *addr)
->
-> Again, empty line between function definitions please.
->
->> @@ -781,14 +782,24 @@ COMPAT_SYSCALL_DEFINE5(recvmmsg, int, fd, struct compat_mmsghdr __user *, mmsg,
+> ...
+
+>>>>   Here, it stop once an untransmitted buffer is encountered...
+>>>
+>>> Yes, I see that now.
+>>>
+>>> I wonder if we should:
+>>>
+>>> a) paramatise ravb_tx_free() so it may either clear all transmitted buffers
+>>>   (current behaviour) or all buffers (new behaviour).
+>>> b) provide a different version of this loop in ravb_ring_free()
+>>>
+>>> What are your thoughts?
 >>
->>  COMPAT_SYSCALL_DEFINE2(socketcall, int, call, u32 __user *, args)
->>  {
->> +     unsigned int len;
->>       int ret;
->> -     u32 a[6];
->> +     u32 a[AUDITSC_ARGS];
->>       u32 a0, a1;
+>>    I'm voting for (b).
+
+    After looking at this issue for another time, I'll vote for (a). Sorry for 
+back-and-forth on this matter -- I somehow thought we could do a better job by 
+scanning all the TX ring...
+
+> Ok, something like this?
 >
-> Longest to shortest line for local variable declarations please.
+> @@ -215,6 +225,30 @@ static void ravb_ring_free(struct net_device *ndev, int q)
+>  	}
 >
-> --
-> Linux-audit mailing list
-> Linux-audit@redhat.com
-> https://www.redhat.com/mailman/listinfo/linux-audit
+>  	if (priv->tx_ring[q]) {
+> +		for (; priv->cur_tx[q] - priv->dirty_tx[q] > 0; priv->dirty_tx[q]++) {
+> +			struct ravb_tx_desc *desc;
+> +			int entry;
+> +
+> +			entry = priv->dirty_tx[q] % (priv->num_tx_ring[q] *
+> +						     NUM_TX_DESC);
+> +			desc = &priv->tx_ring[q][entry];
+> +
+> +			/* Free the original skb. */
+> +			if (priv->tx_skb[q][entry / NUM_TX_DESC]) {
+> +				u32 size = le16_to_cpu(desc->ds_tagl) & TX_DS;
+> +
+> +				dma_unmap_single(ndev->dev.parent,
+> +						 le32_to_cpu(desc->dptr),
+> +						 size, DMA_TO_DEVICE);
+> +				/* Last packet descriptor? */
+> +				if (entry % NUM_TX_DESC == NUM_TX_DESC - 1) {
+> +					entry /= NUM_TX_DESC;
+> +					dev_kfree_skb_any(priv->tx_skb[q][entry]);
+> +					priv->tx_skb[q][entry] = NULL;
+> +				}
+> +			}
+> +		}
+> +
 
+    This is only different from ravb_tx_free() by not stopping on unfinished 
+descriptor, so we must be good with adding an extra param to it...
 
+[...]
 
--- 
-paul moore
-www.paul-moore.com
+MBR, Sergei
