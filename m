@@ -1,58 +1,31 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH] net: marvell: skge: use new api
- ethtool_{get|set}_link_ksettings
-Date: Mon, 16 Jan 2017 09:50:03 -0800
-Message-ID: <20170116095003.6998b773@xeon-e3>
-References: <1484395708-4107-1-git-send-email-tremyfr@gmail.com>
-        <20170116092951.3b577463@xeon-e3>
-        <20170116.123617.1891198374111644473.davem@davemloft.net>
+Subject: Re: [PATCH iproute2 1/1] utils: make hex2mem available to all users
+Date: Mon, 16 Jan 2017 09:51:54 -0800
+Message-ID: <20170116095154.786409d3@xeon-e3>
+References: <1484431483-31896-1-git-send-email-jhs@emojatatu.com>
+        <b7ca90ca-dd72-3f20-7509-7732742941a7@mojatatu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: tremyfr@gmail.com, mlindner@marvell.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170116.123617.1891198374111644473.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Jamal Hadi Salim <jhs@mojatatu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pg0-f53.google.com ([74.125.83.53]:33223 "EHLO
+        mail-pg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750747AbdAPRwC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2017 12:52:02 -0500
+Received: by mail-pg0-f53.google.com with SMTP id 204so17200311pge.0
+        for <netdev@vger.kernel.org>; Mon, 16 Jan 2017 09:52:02 -0800 (PST)
+In-Reply-To: <b7ca90ca-dd72-3f20-7509-7732742941a7@mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 16 Jan 2017 12:36:17 -0500 (EST)
-David Miller <davem@davemloft.net> wrote:
+On Sat, 14 Jan 2017 17:09:58 -0500
+Jamal Hadi Salim <jhs@mojatatu.com> wrote:
 
-> From: Stephen Hemminger <stephen@networkplumber.org>
-> Date: Mon, 16 Jan 2017 09:29:51 -0800
+> Sorry, messed up Stephen's address. Resending..
 > 
-> > On Sat, 14 Jan 2017 13:08:28 +0100
-> > Philippe Reynes <tremyfr@gmail.com> wrote:
-> >   
-> >> The ethtool api {get|set}_settings is deprecated.
-> >> We move this driver to new api {get|set}_link_ksettings.
-> >> 
-> >> The callback set_link_ksettings no longer update the value
-> >> of advertising, as the struct ethtool_link_ksettings is
-> >> defined as const.
-> >> 
-> >> Signed-off-by: Philippe Reynes <tremyfr@gmail.com>  
-> > 
-> > Did you test this on real hardware?  
-> 
-> Philippe probably doesn't have physical access to most of the
-> drivers he is converting.
-> 
-> But, he is the only person working on converting all of the drivers,
-> and therefore when the change looks straightforward I am going to
-> reward his work and effort by applying his changes and hope there
-> isn't any fallout.
-> 
-> Those who really care can test his patches and give a Tested-by:
-> 
-> Thanks.
+> cheers,
+> jamal
 
-Yes, it looks mechanical and should be applied. There are lots of pieces of
-old hardware that no developer is running, and if we required full test suite runs
-on all drivers, then no refactoring would ever be possible.
-
-My preference is to always add commit note that the patch was compile
-tested only so that if someone has a problem with real hardware then they know
-what to suspect.
+No problem. I get almost all patches only from patchwork anyway.
