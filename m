@@ -1,49 +1,41 @@
-From: Gilad Ben-Yossef <gilad@benyossef.com>
-Subject: [PATCH ipsec-next v3 2/2] IPsec: do not ignore crypto err in ah6 input
-Date: Mon, 16 Jan 2017 13:17:56 +0200
-Message-ID: <1484565476-19371-3-git-send-email-gilad@benyossef.com>
-References: <1484565476-19371-1-git-send-email-gilad@benyossef.com>
-Cc: ofir.drang@arm.com, gilad.benyossef@arm.com
-To: steffen.klassert@secunet.com, herbert@gondor.apana.org.au,
-        davem@davemloft.net, netdev@vger.kernel.org
+From: yuan linyu <cugyly@163.com>
+Subject: Re: [PATCH] net: add regs attribute to phy device for user diagnose
+Date: Mon, 16 Jan 2017 20:59:39 +0800
+Message-ID: <1484571579.3374.4.camel@163.com>
+References: <1484361992-30591-1-git-send-email-cugyly@163.com>
+         <20170114162453.GB1072@lunn.ch>
+         <da255b0c-dba6-ef35-d436-3110d8492f95@gmail.com>
+         <1484445063.4555.8.camel@163.com> <20170115172150.GC5643@lunn.ch>
+Reply-To: cugyly@163.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from foss.arm.com ([217.140.101.70]:50234 "EHLO foss.arm.com"
+Received: from m12-12.163.com ([220.181.12.12]:37488 "EHLO m12-12.163.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750994AbdAPLST (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 16 Jan 2017 06:18:19 -0500
-In-Reply-To: <1484565476-19371-1-git-send-email-gilad@benyossef.com>
+        id S1751043AbdAPNAR (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 16 Jan 2017 08:00:17 -0500
+In-Reply-To: <20170115172150.GC5643@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ah6 input processing uses the asynchronous hash crypto API which
-supplies an error code as part of the operation completion but
-the error code was being ignored.
-
-Treat a crypto API error indication as a verification failure.
-
-While a crypto API reported error would almost certainly result
-in a memcpy of the digest failing anyway and thus the security
-risk seems minor, performing a memory compare on what might be
-uninitialized memory is wrong.
-
-Signed-off-by: Gilad Ben-Yossef <gilad@benyossef.com>
----
- net/ipv6/ah6.c | 3 +++
- 1 file changed, 3 insertions(+)
-
-diff --git a/net/ipv6/ah6.c b/net/ipv6/ah6.c
-index 189eb10..dda6035 100644
---- a/net/ipv6/ah6.c
-+++ b/net/ipv6/ah6.c
-@@ -474,6 +474,9 @@ static void ah6_input_done(struct crypto_async_request *base, int err)
- 	int hdr_len = skb_network_header_len(skb);
- 	int ah_hlen = (ah->hdrlen + 2) << 2;
- 
-+	if (err)
-+		goto out;
-+
- 	work_iph = AH_SKB_CB(skb)->tmp;
- 	auth_data = ah_tmp_auth(work_iph, hdr_len);
- 	icv = ah_tmp_icv(ahp->ahash, auth_data, ahp->icv_trunc_len);
--- 
-2.1.4
+On 日, 2017-01-15 at 18:21 +0100, Andrew Lunn wrote:
+> On Sun, Jan 15, 2017 at 09:51:03AM +0800, yuan linyu wrote:
+> > 
+> > I hope user/developer can read this attribute file "regs" to do
+> > a full check of all registers value, and they can write any register
+> > inside PHY through this file.
+> Since this is intended for debug, it should not be sysfs, but debugfs.
+agree,
+> However, in general, Linux does not allow user space to peek and poke
+> device registers. Can you point me at examples where i can do the same
+> to my GPU? SATA controller? Ethernet controller, I2C temperature
+> sensor? Any device?
+we can read registers of ethernet controller(memory register accessed) through devmem or ethtool
+> 
+>    Andrew
+> 
