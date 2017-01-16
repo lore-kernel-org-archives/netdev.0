@@ -1,72 +1,78 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next v3 1/1] net sched actions: Add support for user
- cookies
-Date: Mon, 16 Jan 2017 08:27:54 +0100
-Message-ID: <20170116072754.GA1804@nanopsycho.orion>
-References: <1484488879-29560-1-git-send-email-jhs@emojatatu.com>
- <1484488879-29560-2-git-send-email-jhs@emojatatu.com>
- <20170115150133.GA1774@nanopsycho.orion>
- <ac5fe140-e52a-ff5c-dafe-2d6841b07560@mojatatu.com>
+From: Michal Hocko <mhocko@kernel.org>
+Subject: Re: [PATCH 5/6] treewide: use kv[mz]alloc* rather than opencoded
+ variants
+Date: Mon, 16 Jan 2017 08:33:11 +0100
+Message-ID: <20170116073310.GA7981@dhcp22.suse.cz>
+References: <20170112153717.28943-1-mhocko@kernel.org>
+ <20170112153717.28943-6-mhocko@kernel.org>
+ <20170114105632.GV20392@mtr-leonro.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, jiri@mellanox.com,
-        paulb@mellanox.com, john.fastabend@gmail.com,
-        simon.horman@netronome.com, mrv@mojatatu.com, hadarh@mellanox.com,
-        ogerlitz@mellanox.com, roid@mellanox.com, xiyou.wangcong@gmail.com,
-        daniel@iogearbox.net
-To: Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:34755 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751009AbdAPH16 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2017 02:27:58 -0500
-Received: by mail-wm0-f66.google.com with SMTP id c85so28542632wmi.1
-        for <netdev@vger.kernel.org>; Sun, 15 Jan 2017 23:27:57 -0800 (PST)
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+        Vlastimil Babka <vbabka@suse.cz>,
+        David Rientjes <rientjes@google.com>,
+        Mel Gorman <mgorman@suse.de>,
+        Johannes Weiner <hannes@cmpxchg.org>,
+        Al Viro <viro@zeniv.linux.org.uk>, linux-mm@kvack.org,
+        LKML <linux-kernel@vger.kernel.org>,
+        Martin Schwidefsky <schwidefsky@de.ibm.com>,
+        Heiko Carstens <heiko.carstens@de.ibm.com>,
+        Herbert Xu <herbert@gondor.apana.org.au>,
+        Anton Vorontsov <anton@enomsg.org>,
+        Colin Cross <ccross@android.com>,
+        Kees Cook <keescook@chromium.org>,
+        Tony Luck <tony.luck@intel.com>,
+        "Rafael J. Wysocki" <rjw@rjwysocki.net>,
+        Ben Skeggs <bskeggs@redhat.com>,
+        Kent Overstreet <kent.overstreet@gmail.com>,
+        Santosh Raspatur <santosh@chelsio.com>,
+        Hariprasad S <hariprasad@chelsio.com>,
+        Ta
+To: Leon Romanovsky <leon@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <ac5fe140-e52a-ff5c-dafe-2d6841b07560@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20170114105632.GV20392@mtr-leonro.local>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Sun, Jan 15, 2017 at 04:18:20PM CET, jhs@mojatatu.com wrote:
->On 17-01-15 10:01 AM, Jiri Pirko wrote:
->> Sun, Jan 15, 2017 at 03:01:19PM CET, jhs@mojatatu.com wrote:
->
->> > +cls_set_class(struct tcf_proto *tp, unsigned long *clp,
->> 
->> ??
->> 
->> > 	unsigned long cl)
->> > {
->> > 	unsigned long old_cl;
->> > -	
->> > +
->> 
->> ??
->> 
->> > 	tcf_tree_lock(tp);
->> > 	old_cl = __cls_set_class(clp, cl);
->> > 	tcf_tree_unlock(tp);
->> > -
->> > +
->> 
->> ??
->> 
->> > 	return old_cl;
->> > }
->> > 
->> > @@ -237,7 +237,7 @@ static inline int tcf_em_early_end(struct tcf_ematch *em, int result)
->> > 
->> > 	return 0;
->> > }
->> > -	
->> > +
->> 
->> ??
->> 
->
->All these things with "??" were annoying whitespace and stylistic
->things my fingers couldnt resist. It is legit to include such changes
->in a patch when touching the code (as long as not a bug fix).
+On Sat 14-01-17 12:56:32, Leon Romanovsky wrote:
+[...]
+> Hi Michal,
+> 
+> I don't see mlx5_vzalloc in the changed list. Any reason why did you skip it?
+> 
+>  881 static inline void *mlx5_vzalloc(unsigned long size)
+>  882 {
+>  883         void *rtn;
+>  884
+>  885         rtn = kzalloc(size, GFP_KERNEL | __GFP_NOWARN);
+>  886         if (!rtn)
+>  887                 rtn = vzalloc(size);
+>  888         return rtn;
+>  889 }
 
-Well, I think you should change this in a separate patch as it has 0
-relation with this patch.
+No reason to skip it, I just didn't see it. I will fold the following in
+if you are OK with it
+---
+diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
+index cdd2bd62f86d..5e6063170e48 100644
+--- a/include/linux/mlx5/driver.h
++++ b/include/linux/mlx5/driver.h
+@@ -874,12 +874,7 @@ static inline u16 cmdif_rev(struct mlx5_core_dev *dev)
+ 
+ static inline void *mlx5_vzalloc(unsigned long size)
+ {
+-	void *rtn;
+-
+-	rtn = kzalloc(size, GFP_KERNEL | __GFP_NOWARN);
+-	if (!rtn)
+-		rtn = vzalloc(size);
+-	return rtn;
++	return kvzalloc(GFP_KERNEL, size);
+ }
+ 
+ static inline u32 mlx5_base_mkey(const u32 key)
+
+-- 
+Michal Hocko
+SUSE Labs
