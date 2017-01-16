@@ -1,36 +1,39 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] net: phy: dp83867: allow RGMII_TXID/RGMII_RXID
- interface types
-Date: Mon, 16 Jan 2017 13:30:13 -0500 (EST)
-Message-ID: <20170116.133013.1991641424053320492.davem@davemloft.net>
-References: <1484317954-27871-1-git-send-email-m-karicheri2@ti.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] afs: Conditionalise a new unused variable
+Date: Mon, 16 Jan 2017 13:31:17 -0500 (EST)
+Message-ID: <20170116.133117.2240643249072761154.davem@davemloft.net>
+References: <148431877922.23745.3756091538832610041.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, nsekhar-l0cyMroinI0@public.gmane.org
-To: m-karicheri2-l0cyMroinI0@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1484317954-27871-1-git-send-email-m-karicheri2-l0cyMroinI0@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-afs@lists.infradead.org,
+        linux-kernel@vger.kernel.org
+To: dhowells@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:45776 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750826AbdAPSbT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2017 13:31:19 -0500
+In-Reply-To: <148431877922.23745.3756091538832610041.stgit@warthog.procyon.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Murali Karicheri <m-karicheri2-l0cyMroinI0@public.gmane.org>
-Date: Fri, 13 Jan 2017 09:32:34 -0500
+From: David Howells <dhowells@redhat.com>
+Date: Fri, 13 Jan 2017 14:46:19 +0000
 
-> Currently dp83867 driver returns error if phy interface type
-> PHY_INTERFACE_MODE_RGMII_RXID is used to set the rx only internal
-> delay. Similarly issue happens for PHY_INTERFACE_MODE_RGMII_TXID.
-> Fix this by checking also the interface type if a particular delay
-> value is missing in the phy dt bindings. Also update the DT document
-> accordingly.
+> From: Arnd Bergmann <arnd@arndb.de>
 > 
-> Signed-off-by: Murali Karicheri <m-karicheri2-l0cyMroinI0@public.gmane.org>
-> Signed-off-by: Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>
+> The bulk readpages support introduced a harmless warning:
+> 
+> fs/afs/file.c: In function 'afs_readpages_page_done':
+> fs/afs/file.c:270:20: error: unused variable 'vnode' [-Werror=unused-variable]
+> 
+> This adds an #ifdef to match the user of that variable.  The user of the
+> variable has to be conditional because it accesses a member of a struct
+> that is also conditional.
+> 
+> Fixes: 91b467e0a3f5 ("afs: Make afs_readpages() fetch data in bulk")
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Signed-off-by: David Howells <dhowells@redhat.com>
 
-Applied, thanks.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied.
