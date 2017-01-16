@@ -1,64 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V2] audit: log 32-bit socketcalls
-Date: Mon, 16 Jan 2017 13:27:45 -0500 (EST)
-Message-ID: <20170116.132745.1831536278596554491.davem@davemloft.net>
-References: <dd937da01da72da9277e44ed79abd1f4618c14c5.1484297765.git.rgb@redhat.com>
+Subject: Re: [PATCH 1/3] powerpc: bpf: remove redundant check for non-null
+ image
+Date: Mon, 16 Jan 2017 13:38:59 -0500 (EST)
+Message-ID: <20170116.133859.1157069434816521683.davem@davemloft.net>
+References: <e73efe6facf6c06932b4a87707e5978172ee773e.1484326337.git.naveen.n.rao@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        linux-audit@redhat.com, aixer77@gmail.com, eparis@redhat.com,
-        pmoore@redhat.com, sgrubb@redhat.com
-To: rgb@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <dd937da01da72da9277e44ed79abd1f4618c14c5.1484297765.git.rgb@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: mpe@ellerman.id.au, linuxppc-dev@lists.ozlabs.org,
+        netdev@vger.kernel.org, ast@fb.com, daniel@iogearbox.net
+To: naveen.n.rao@linux.vnet.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:45994 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750788AbdAPSjB (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2017 13:39:01 -0500
+In-Reply-To: <e73efe6facf6c06932b4a87707e5978172ee773e.1484326337.git.naveen.n.rao@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Richard Guy Briggs <rgb@redhat.com>
-Date: Fri, 13 Jan 2017 04:51:48 -0500
 
-> diff --git a/include/linux/audit.h b/include/linux/audit.h
-> index 9d4443f..43d8003 100644
-> --- a/include/linux/audit.h
-> +++ b/include/linux/audit.h
-> @@ -387,6 +387,18 @@ static inline int audit_socketcall(int nargs, unsigned long *args)
->  		return __audit_socketcall(nargs, args);
->  	return 0;
->  }
-> +static inline int audit_socketcall_compat(int nargs, u32 *args)
-> +{
+I'm assuming these patches will go via the powerpc tree.
 
-Please put an empty line between function definitions.
+If you want them to go into net-next, I kindly ask that you always
+explicitly say so, and furthermore always submit a patch series with
+a proper "[PATCH 0/N] ..." header posting.
 
-> +	if (unlikely(!audit_dummy_context())) {
-> +		int i;
-> +		unsigned long a[AUDITSC_ARGS];
-
-Please order local variable declarations from longest to shortest line.
-
-> +
-> +		for (i=0; i<nargs; i++)
-
-Please put a space around operators such as "=" and "<".
-
-> +			a[i] = (unsigned long)args[i];
-> +		return __audit_socketcall(nargs, a);
-> +	}
-> +	return 0;
-> +}
->  static inline int audit_sockaddr(int len, void *addr)
-
-Again, empty line between function definitions please.
-
-> @@ -781,14 +782,24 @@ COMPAT_SYSCALL_DEFINE5(recvmmsg, int, fd, struct compat_mmsghdr __user *, mmsg,
->  
->  COMPAT_SYSCALL_DEFINE2(socketcall, int, call, u32 __user *, args)
->  {
-> +	unsigned int len;
->  	int ret;
-> -	u32 a[6];
-> +	u32 a[AUDITSC_ARGS];
->  	u32 a0, a1;
-
-Longest to shortest line for local variable declarations please.
+Thanks.
