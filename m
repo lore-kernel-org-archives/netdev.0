@@ -1,62 +1,107 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH v2 net-next] IPsec: do not ignore crypto err in ah input
-Date: Mon, 16 Jan 2017 08:35:35 +0100
-Message-ID: <20170116073535.GL3541@gauss.secunet.com>
-References: <1484460583-2303-1-git-send-email-gilad@benyossef.com>
+From: Paul Blakey <paulb@mellanox.com>
+Subject: Re: [PATCH net-next] net/sched: cls_flower: Add user specified data
+Date: Mon, 16 Jan 2017 09:54:18 +0200
+Message-ID: <11bcf09a-0144-fd7f-369b-771962475c5e@mellanox.com>
+References: <1483362833-52114-1-git-send-email-paulb@mellanox.com>
+ <14675f63-4212-2f72-da4c-cd24b9d10881@mojatatu.com>
+ <20170108171251.GF1971@nanopsycho>
+ <040c6876-a323-0a35-229f-46bc33b6de11@mellanox.com>
+ <587BC894.3080909@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <herbert@gondor.apana.org.au>, <davem@davemloft.net>,
-        <netdev@vger.kernel.org>, <ofir.drang@arm.com>,
-        <gilad.benyossef@arm.com>,
-        Alexander Alemayhu <alexander@alemayhu.com>
-To: Gilad Ben-Yossef <gilad@benyossef.com>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <paulb@mellanox.com>, "David S. Miller" <davem@davemloft.net>,
+        <netdev@vger.kernel.org>, Jiri Pirko <jiri@mellanox.com>,
+        Hadar Hen Zion <hadarh@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Roi Dayan <roid@mellanox.com>, Roman Mashak <mrv@mojatatu.com>
+To: John Fastabend <john.fastabend@gmail.com>,
+        Jiri Pirko <jiri@resnulli.us>,
+        Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:51292 "EHLO a.mx.secunet.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750845AbdAPHfj (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 16 Jan 2017 02:35:39 -0500
-Content-Disposition: inline
-In-Reply-To: <1484460583-2303-1-git-send-email-gilad@benyossef.com>
+Received: from mail-ve1eur01on0048.outbound.protection.outlook.com ([104.47.1.48]:51730
+        "EHLO EUR01-VE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1750845AbdAPHy3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 16 Jan 2017 02:54:29 -0500
+In-Reply-To: <587BC894.3080909@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jan 15, 2017 at 08:09:43AM +0200, Gilad Ben-Yossef wrote:
-> ah input processing uses the asynchronous hash crypto API which supplies 
-> an error code as part of the operation completion but the error code was 
-> being ignored.
-> 
-> Treat a crypto API error indication as a verification failure.
-> 
-> While a crypto API reported error would almost certainly result in a 
-> memcmp of the digest failing anyway and thus the security risk seems 
-> minor, performing a memory compare on what might be uninitialized memory 
-> is wrong.
-> 
-> Signed-off-by: Gilad Ben-Yossef <gilad@benyossef.com>
-> CC: Alexander Alemayhu <alexander@alemayhu.com>
-> ---
-> 
-> The change was boot tested on Arm64 but I did not exercise
-> the specific error code path in question.
-> 
-> Changes from v1:
-> - Fixed typo in patch description pointed out by Alexander
-> 
->  net/ipv4/ah4.c | 3 +++
->  1 file changed, 3 insertions(+)
-> 
-> diff --git a/net/ipv4/ah4.c b/net/ipv4/ah4.c
-> index f2a7102..22377c8 100644
-> --- a/net/ipv4/ah4.c
-> +++ b/net/ipv4/ah4.c
-> @@ -270,6 +270,9 @@ static void ah_input_done(struct crypto_async_request *base, int err)
->  	int ihl = ip_hdrlen(skb);
->  	int ah_hlen = (ah->hdrlen + 2) << 2;
->  
-> +	if (err)
-> +		goto out;
-> +
 
-IPv6 has the same problem, can we get it fixed there too?
 
-Thanks!
+On 15/01/2017 21:08, John Fastabend wrote:
+> On 17-01-15 09:36 AM, Paul Blakey wrote:
+>>
+>>
+>> On 08/01/2017 19:12, Jiri Pirko wrote:
+>>> Mon, Jan 02, 2017 at 03:59:49PM CET, jhs@mojatatu.com wrote:
+>>>>
+>>>> We have been using a cookie as well for actions (which we have been
+>>>> using but have been too lazy to submit so far). I am going to port
+>>>> it over to the newer kernels and post it.
+>>>
+>>> Hard to deal with something we can't look at :)
+>>>
+>>>
+>>>> In our case that is intended to be opaque to the kernel i.e kernel
+>>>> never inteprets it; in that case it is similar to the kernel
+>>>> FIB protocol field.
+>>>
+>>> In case of this patch, kernel also never interprets it. What makes you
+>>> think otherwise. Bot kernel, it is always a binary blob.
+>>>
+>>>
+>>>>
+>>>> In your case - could this cookie have been a class/flowid
+>>>> (a 32 bit)?
+>>>> And would it not make more sense for it the cookie to be
+>>>> generic to all classifiers? i.e why is it specific to flower?
+>>>
+>>> Correct, makes sense to have it generic for all cls and perhaps also
+>>> acts.
+>>>
+>>>
+>>
+>> Hi all,
+>> I've started implementing a general cookie for all classifiers,
+>> I added the cookie on tcf_proto struct but then I realized that it won't work as
+>> I want. What I want is cookie per internal element (those that are identified by
+>> handles), which we can have many per one tcf_proto:
+>>
+>> tc filter add dev <DEV> parent ffff: prio 1 cookie 0x123 basic action drop
+>> tc filter add dev <DEV> parent ffff: prio 1 cookie 0x456 "port6" basic action drop
+>> tc filter add dev <DEV> parent ffff: prio 1 cookie 0x777 basic action drop
+>>
+>> So there is three options to do that:
+>> 1) Implement it in each classifier, using some generic function. (kinda like
+>> stats, where classifiler_dump() calls tcf_exts_dump_stats())
+>> 2) Have a global hash table for cookies [prio,handle]->[cookie]
+>> 3) Have it on flower only for now :)
+>>
+>> With the first one we will have to change each classifier (or leave it
+>> unsupported as default).
+>> Second is less code to change (instead of changing each classifier), but might
+>> be slower. I'm afraid how it will affect dumping several filters.
+>> Third is this patch.
+>>
+>> Thanks,
+>> Paul.
+>
+> Avoid (2) it creates way more problems than its worth like is it locked/not
+> locked, how is it synced, collisions, etc. Seems way overkill.
+>
+> I like the generic functionality of (1) but unless we see this pop up in
+> different filters I wouldn't require it for now. If you just do it in flower
+> (option 3) when its added to another classifier we can generalize it. As a
+> middle ground creating nice helper routines as needed goes a long way.
+>
+> .John
+>
+
+Hi all,
+So is everyone ok with leaving the commit as is, only adding user data
+to flower for now?
+
+Thanks,
+Paul.
