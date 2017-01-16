@@ -1,34 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: stmmac: don't use netdev_[dbg, info, ..] before
- net_device is registered
-Date: Mon, 16 Jan 2017 14:52:40 -0500 (EST)
-Message-ID: <20170116.145240.496347319342609740.davem@davemloft.net>
-References: <01b736a6-b9e9-05cf-0937-f6ac18ac8e3c@gmail.com>
+From: Paul Moore <paul@paul-moore.com>
+Subject: Re: [PATCH V2] audit: log 32-bit socketcalls
+Date: Mon, 16 Jan 2017 15:04:23 -0500
+Message-ID: <CAHC9VhQsL7c=dAd4ZyTbEugkcrNuaxGNnaOi8oMkn=NCwuVoHA@mail.gmail.com>
+References: <dd937da01da72da9277e44ed79abd1f4618c14c5.1484297765.git.rgb@redhat.com>
+ <1484318543.5300.1.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: hkallweit1@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:47806 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750968AbdAPUCE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2017 15:02:04 -0500
-In-Reply-To: <01b736a6-b9e9-05cf-0937-f6ac18ac8e3c@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-audit@redhat.com, Steve@redhat.com
+To: Eric Paris <eparis@redhat.com>, Richard Guy Briggs <rgb@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1484318543.5300.1.camel@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Heiner Kallweit <hkallweit1@gmail.com>
-Date: Sun, 15 Jan 2017 19:19:00 +0100
+On Fri, Jan 13, 2017 at 9:42 AM, Eric Paris <eparis@redhat.com> wrote:
+> On Fri, 2017-01-13 at 04:51 -0500, Richard Guy Briggs wrote:
+>> diff --git a/include/linux/audit.h b/include/linux/audit.h
+>> index 9d4443f..43d8003 100644
+>> --- a/include/linux/audit.h
+>> +++ b/include/linux/audit.h
+>> @@ -387,6 +387,18 @@ static inline int audit_socketcall(int nargs,
+>> unsigned long *args)
+>>               return __audit_socketcall(nargs, args);
+>>       return 0;
+>>  }
+>> +static inline int audit_socketcall_compat(int nargs, u32 *args)
+>> +{
+>> +     if (unlikely(!audit_dummy_context())) {
+>
+> I've always hated these likely/unlikely. Mostly because I think they
+> are so often wrong. I believe this says that you compiled audit in but
+> you expect it to be explicitly disabled. While that is (recently) true
+> in Fedora I highly doubt that's true on the vast majority of systems
+> that have audit compiled in.
 
-> Don't use netdev_info and friends before the net_device is registered.
-> This avoids ugly messages like
-> "meson8b-dwmac c9410000.ethernet (unnamed net_device) (uninitialized):
-> Enable RX Mitigation via HW Watchdog Timer"
-> 
-> Signed-off-by: Heiner Kallweit <hkallweit1@gmail.com>
+Richard and I have talked about the likely/unlikely optimization
+before and I know Richard likes to use them, but I don't for the
+reasons Eric has already mentioned.   Richard, since you're respinning
+the patch, go ahead and yank out the unlikely() call.
 
-Indeed, this is a side-effect of the MDIO vs. register_netdev race fix
-that went in the other week.
-
-Applied, thanks.
+-- 
+paul moore
+www.paul-moore.com
