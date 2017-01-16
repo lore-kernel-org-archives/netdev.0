@@ -1,44 +1,46 @@
-From: Tariq Toukan <tariqt@mellanox.com>
-Subject: [PATCH net-next 3/9] net/mlx4_core: Set EQ affinity hint to local NUMA CPUs
-Date: Mon, 16 Jan 2017 19:29:59 +0200
-Message-ID: <1484587805-12666-4-git-send-email-tariqt@mellanox.com>
-References: <1484587805-12666-1-git-send-email-tariqt@mellanox.com>
-Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
-        Daniel Jurgens <danielj@mellanox.com>,
-        Tariq Toukan <tariqt@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:43779 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751091AbdAPRah (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2017 12:30:37 -0500
-In-Reply-To: <1484587805-12666-1-git-send-email-tariqt@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: marvell: skge: use new api
+ ethtool_{get|set}_link_ksettings
+Date: Mon, 16 Jan 2017 12:36:17 -0500 (EST)
+Message-ID: <20170116.123617.1891198374111644473.davem@davemloft.net>
+References: <1484395708-4107-1-git-send-email-tremyfr@gmail.com>
+        <20170116092951.3b577463@xeon-e3>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: tremyfr@gmail.com, mlindner@marvell.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: stephen@networkplumber.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170116092951.3b577463@xeon-e3>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Jurgens <danielj@mellanox.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Mon, 16 Jan 2017 09:29:51 -0800
 
-Use CPUs on the close NUMA when setting the EQ affinity hints.
+> On Sat, 14 Jan 2017 13:08:28 +0100
+> Philippe Reynes <tremyfr@gmail.com> wrote:
+> 
+>> The ethtool api {get|set}_settings is deprecated.
+>> We move this driver to new api {get|set}_link_ksettings.
+>> 
+>> The callback set_link_ksettings no longer update the value
+>> of advertising, as the struct ethtool_link_ksettings is
+>> defined as const.
+>> 
+>> Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+> 
+> Did you test this on real hardware?
 
-Signed-off-by: Daniel Jurgens <danielj@mellanox.com>
-Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/main.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+Philippe probably doesn't have physical access to most of the
+drivers he is converting.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
-index 6efd66b0b822..058531bf7947 100644
---- a/drivers/net/ethernet/mellanox/mlx4/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-@@ -2843,7 +2843,8 @@ static int mlx4_init_affinity_hint(struct mlx4_dev *dev, int port, int eqn)
- 	if (!zalloc_cpumask_var(&eq->affinity_mask, GFP_KERNEL))
- 		return -ENOMEM;
- 
--	cpumask_set_cpu(requested_cpu, eq->affinity_mask);
-+	cpumask_set_cpu(cpumask_local_spread(requested_cpu, dev->numa_node),
-+			eq->affinity_mask);
- 
- 	return 0;
- }
--- 
-1.8.3.1
+But, he is the only person working on converting all of the drivers,
+and therefore when the change looks straightforward I am going to
+reward his work and effort by applying his changes and hope there
+isn't any fallout.
+
+Those who really care can test his patches and give a Tested-by:
+
+Thanks.
