@@ -1,35 +1,54 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sfc: Replace memset with eth_zero_addr
-Date: Mon, 16 Jan 2017 11:47:06 -0500 (EST)
-Message-ID: <20170116.114706.2025561306237388836.davem@davemloft.net>
-References: <1484538981-24591-1-git-send-email-mayhs11saini@gmail.com>
-        <7f1c75ec-3cad-0071-9f41-86773361281e@solarflare.com>
+Subject: Re: [PATCH net v3] ravb: do not use zero-length alignment DMA
+ descriptor
+Date: Mon, 16 Jan 2017 11:53:50 -0500 (EST)
+Message-ID: <20170116.115350.943642905478824707.davem@davemloft.net>
+References: <1484563521-12009-1-git-send-email-horms+renesas@verge.net.au>
+        <96396803-caac-13cd-3e17-f9d10fc608ad@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mayhs11saini@gmail.com, bkenward@solarflare.com,
-        netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: ecree@solarflare.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:43918 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751361AbdAPQrN (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2017 11:47:13 -0500
-In-Reply-To: <7f1c75ec-3cad-0071-9f41-86773361281e@solarflare.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: horms+renesas@verge.net.au, magnus.damm@gmail.com,
+        netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org,
+        masaru.nagai.vx@renesas.com
+To: sergei.shtylyov@cogentembedded.com
+Return-path: <linux-renesas-soc-owner@vger.kernel.org>
+In-Reply-To: <96396803-caac-13cd-3e17-f9d10fc608ad@cogentembedded.com>
+Sender: linux-renesas-soc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Edward Cree <ecree@solarflare.com>
-Date: Mon, 16 Jan 2017 09:35:38 +0000
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Date: Mon, 16 Jan 2017 16:01:49 +0300
 
-> On 16/01/17 03:56, Shyam Saini wrote:
->> Use eth_zero_addr to assign zero address to the given address array
->> instead of memset when the second argument in memset is address
->> of zero which makes the code clearer and also add header
->> file linux/etherdevice.h
+> On 01/16/2017 01:45 PM, Simon Horman wrote:
+> 
+>> From: Masaru Nagai <masaru.nagai.vx@renesas.com>
 >>
->> Signed-off-by: Shyam Saini <mayhs11saini@gmail.com>
->> ---
-> Acked-by: Edward Cree <ecree@solarflare.com>
+>> Due to alignment requirements of the hardware transmissions are split
+>> into
+>> two DMA descriptors, a small padding descriptor of 0 - 3 bytes in
+>> length
+>> followed by a descriptor for rest of the packet.
+>>
+>> In the case of IP packets the first descriptor will never be zero due
+>> to
+>> the way that the stack aligns buffers for IP packets. However, for
+>> non-IP
+>> packets it may be zero.
+>>
+>> In that case it has been reported that timeouts occur, presumably
+>> because
+>> transmission stops at the first zero-length DMA descriptor and thus
+>> the
+>> packet is not transmitted. However, in my environment a BUG is
+>> triggered as
+>> follows:
+> [...]
+> 
+>> Fixes: 2f45d1902acf ("ravb: minimize TX data copying")
+>> Signed-off-by: Masaru Nagai <masaru.nagai.vx@renesas.com
+>> Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
+> 
+> Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
-Applied to net-next.
+Applied and queued up for -stable, thanks.
