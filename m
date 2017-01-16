@@ -1,65 +1,60 @@
-From: Tariq Toukan <ttoukan.linux@gmail.com>
-Subject: Re: [PATCH net] mlx4: do not call napi_schedule() without care
-Date: Mon, 16 Jan 2017 11:02:44 +0200
-Message-ID: <352911f4-7073-ad7f-83d9-dbcc6e07d553@gmail.com>
-References: <1484325564.13165.30.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Kishon Vijay Abraham I <kishon@ti.com>
+Subject: Re: [PATCH 0/6] USB support for Broadcom NSP SoC
+Date: Mon, 16 Jan 2017 14:47:46 +0530
+Message-ID: <587C8FBA.7010802@ti.com>
+References: <1478683994-12008-1-git-send-email-yendapally.reddy@broadcom.com>
+ <79483fc3-5e91-a1f0-1dbf-1987682373e6@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-        Erez Shitrit <erezsh@mellanox.com>,
-        Eugenia Emantayev <eugenia@mellanox.com>,
-        Tariq Toukan <tariqt@mellanox.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-        David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:35865 "EHLO
-        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750862AbdAPJCt (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2017 04:02:49 -0500
-Received: by mail-wm0-f66.google.com with SMTP id r126so29244862wmr.3
-        for <netdev@vger.kernel.org>; Mon, 16 Jan 2017 01:02:48 -0800 (PST)
-In-Reply-To: <1484325564.13165.30.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, bcm-kernel-feedback-list@broadcom.com,
+ linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+ devicetree@vger.kernel.org
+To: Florian Fainelli <f.fainelli@gmail.com>, Yendapally Reddy Dhananjaya Reddy
+ <yendapally.reddy@broadcom.com>, Rob Herring <robh+dt@kernel.org>, Mark
+ Rutland <mark.rutland@arm.com>,
+ Russell King <linux@armlinux.org.uk>, Ray Jui <rjui@broadcom.com>,
+ Scott Branden <sbranden@broadcom.com>, Jon Mason <jonmason@broadcom.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <79483fc3-5e91-a1f0-1dbf-1987682373e6@gmail.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-Thanks Eric.
 
-On 13/01/2017 6:39 PM, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> Disable BH around the call to napi_schedule() to avoid following warning
->
-> [   52.095499] NOHZ: local_softirq_pending 08
-> [   52.421291] NOHZ: local_softirq_pending 08
-> [   52.608313] NOHZ: local_softirq_pending 08
->
-> Fixes: 8d59de8f7bb3 ("net/mlx4_en: Process all completions in RX rings after port goes up")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Erez Shitrit <erezsh@mellanox.com>
-> Cc: Eugenia Emantayev <eugenia@mellanox.com>
-> Cc: Tariq Toukan <tariqt@mellanox.com>
-> ---
->   drivers/net/ethernet/mellanox/mlx4/en_netdev.c |    5 ++++-
->   1 file changed, 4 insertions(+), 1 deletion(-)
->
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-> index 4910d9af19335d4b97d39760c163b41eecc26242..761f8b12399cab245abccc0f7d7f84fde742c14d 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-> @@ -1748,8 +1748,11 @@ int mlx4_en_start_port(struct net_device *dev)
->   	/* Process all completions if exist to prevent
->   	 * the queues freezing if they are full
->   	 */
-> -	for (i = 0; i < priv->rx_ring_num; i++)
-> +	for (i = 0; i < priv->rx_ring_num; i++) {
-> +		local_bh_disable();
->   		napi_schedule(&priv->rx_cq[i]->napi);
-> +		local_bh_enable();
-> +	}
->   
->   	netif_tx_start_all_queues(dev);
->   	netif_device_attach(dev);
->
->
-Acked-by: Tariq Toukan <tariqt@mellanox.com>
+
+On Tuesday 13 December 2016 07:50 AM, Florian Fainelli wrote:
+> On 11/09/2016 01:33 AM, Yendapally Reddy Dhananjaya Reddy wrote:
+>> This patch set contains the usb support for Broadcom NSP SoC.
+>> The usb phy is connected through mdio interface. The mdio interface
+>> can be used to access either internal phys or external phys using a
+>> multiplexer.
+>>
+>> The first patch provides the documentation details for mdio-mux and
+>> second patch provides the documentation details for usb3 phy. The third
+>> patch contains the mdio-mux support and fourth patch contains the
+>> changes to the mdio bus driver.
+>>
+>> The fifth patch provides the phy driver and sixth patch provides the
+>> enable method for usb.
+>>
+>> This patch series has been tested on NSP bcm958625HR board.
+>> This patch series is based on v4.9.0-rc1 and is available from github-
+>> repo: https://github.com/Broadcom/cygnus-linux.git
+>> branch:nsp-usb-v1
+> 
+> Can you resubmit this patch series with the feedback from Andrew, Rob
+> and Scott addressed?
+
+can the phy patches be re-submitted based on latest mainline and addressing
+those feedbacks?
+
+Thanks
+Kishon
