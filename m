@@ -1,107 +1,80 @@
-From: Paul Blakey <paulb@mellanox.com>
-Subject: Re: [PATCH net-next] net/sched: cls_flower: Add user specified data
-Date: Mon, 16 Jan 2017 09:54:18 +0200
-Message-ID: <11bcf09a-0144-fd7f-369b-771962475c5e@mellanox.com>
-References: <1483362833-52114-1-git-send-email-paulb@mellanox.com>
- <14675f63-4212-2f72-da4c-cd24b9d10881@mojatatu.com>
- <20170108171251.GF1971@nanopsycho>
- <040c6876-a323-0a35-229f-46bc33b6de11@mellanox.com>
- <587BC894.3080909@gmail.com>
+From: Johan Hedberg <johan.hedberg@gmail.com>
+Subject: pull request: bluetooth 2017-01-16
+Date: Mon, 16 Jan 2017 09:58:31 +0200
+Message-ID: <20170116075831.GA7190@x1c>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <paulb@mellanox.com>, "David S. Miller" <davem@davemloft.net>,
-        <netdev@vger.kernel.org>, Jiri Pirko <jiri@mellanox.com>,
-        Hadar Hen Zion <hadarh@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Roi Dayan <roid@mellanox.com>, Roman Mashak <mrv@mojatatu.com>
-To: John Fastabend <john.fastabend@gmail.com>,
-        Jiri Pirko <jiri@resnulli.us>,
-        Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+        protocol="application/pgp-signature"; boundary="YiEDa0DAkWCtVeE4"
+Cc: linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve1eur01on0048.outbound.protection.outlook.com ([104.47.1.48]:51730
-        "EHLO EUR01-VE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750845AbdAPHy3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 16 Jan 2017 02:54:29 -0500
-In-Reply-To: <587BC894.3080909@gmail.com>
+Received: from mail-lf0-f65.google.com ([209.85.215.65]:33619 "EHLO
+        mail-lf0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750840AbdAPH6k (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2017 02:58:40 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
+--YiEDa0DAkWCtVeE4
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-On 15/01/2017 21:08, John Fastabend wrote:
-> On 17-01-15 09:36 AM, Paul Blakey wrote:
->>
->>
->> On 08/01/2017 19:12, Jiri Pirko wrote:
->>> Mon, Jan 02, 2017 at 03:59:49PM CET, jhs@mojatatu.com wrote:
->>>>
->>>> We have been using a cookie as well for actions (which we have been
->>>> using but have been too lazy to submit so far). I am going to port
->>>> it over to the newer kernels and post it.
->>>
->>> Hard to deal with something we can't look at :)
->>>
->>>
->>>> In our case that is intended to be opaque to the kernel i.e kernel
->>>> never inteprets it; in that case it is similar to the kernel
->>>> FIB protocol field.
->>>
->>> In case of this patch, kernel also never interprets it. What makes you
->>> think otherwise. Bot kernel, it is always a binary blob.
->>>
->>>
->>>>
->>>> In your case - could this cookie have been a class/flowid
->>>> (a 32 bit)?
->>>> And would it not make more sense for it the cookie to be
->>>> generic to all classifiers? i.e why is it specific to flower?
->>>
->>> Correct, makes sense to have it generic for all cls and perhaps also
->>> acts.
->>>
->>>
->>
->> Hi all,
->> I've started implementing a general cookie for all classifiers,
->> I added the cookie on tcf_proto struct but then I realized that it won't work as
->> I want. What I want is cookie per internal element (those that are identified by
->> handles), which we can have many per one tcf_proto:
->>
->> tc filter add dev <DEV> parent ffff: prio 1 cookie 0x123 basic action drop
->> tc filter add dev <DEV> parent ffff: prio 1 cookie 0x456 "port6" basic action drop
->> tc filter add dev <DEV> parent ffff: prio 1 cookie 0x777 basic action drop
->>
->> So there is three options to do that:
->> 1) Implement it in each classifier, using some generic function. (kinda like
->> stats, where classifiler_dump() calls tcf_exts_dump_stats())
->> 2) Have a global hash table for cookies [prio,handle]->[cookie]
->> 3) Have it on flower only for now :)
->>
->> With the first one we will have to change each classifier (or leave it
->> unsupported as default).
->> Second is less code to change (instead of changing each classifier), but might
->> be slower. I'm afraid how it will affect dumping several filters.
->> Third is this patch.
->>
->> Thanks,
->> Paul.
->
-> Avoid (2) it creates way more problems than its worth like is it locked/not
-> locked, how is it synced, collisions, etc. Seems way overkill.
->
-> I like the generic functionality of (1) but unless we see this pop up in
-> different filters I wouldn't require it for now. If you just do it in flower
-> (option 3) when its added to another classifier we can generalize it. As a
-> middle ground creating nice helper routines as needed goes a long way.
->
-> .John
->
+Hi Dave,
 
-Hi all,
-So is everyone ok with leaving the commit as is, only adding user data
-to flower for now?
+Here are a couple of important 802.15.4 driver fixes for the 4.10
+kernel.
 
-Thanks,
-Paul.
+Please let me know if there are any issues pulling. Thanks.
+
+Johan
+
+---
+The following changes since commit 8a430ed50bb1b19ca14a46661f3b1b35f2fb5c39:
+
+  net: ipv4: fix table id in getroute response (2017-01-12 15:18:20 -0500)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/bluetooth/bluetooth.git for-upstream
+
+for you to fetch changes up to 8e38b7d4d71479b23b77f01cf0e5071610b8f357:
+
+  ieee802154: atusb: fix driver to work with older firmware versions (2017-01-12 22:12:43 +0100)
+
+----------------------------------------------------------------
+Andrey Smirnov (1):
+      at86rf230: Allow slow GPIO pins for "rstn"
+
+Stefan Schmidt (4):
+      ieee802154: atusb: do not use the stack for buffers to make them DMA able
+      ieee802154: atusb: make sure we set a randaom extended address if fetching fails
+      ieee802154: atusb: do not use the stack for address fetching to make it DMA able
+      ieee802154: atusb: fix driver to work with older firmware versions
+
+ drivers/net/ieee802154/at86rf230.c |  4 +--
+ drivers/net/ieee802154/atusb.c     | 59 +++++++++++++++++++++++---------
+ 2 files changed, 45 insertions(+), 18 deletions(-)
+
+--YiEDa0DAkWCtVeE4
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIcBAEBAgAGBQJYfH0nAAoJECQj9vv5qNQS9mgP/3eKGzRp7JB77D5A64JvfVhB
+tLfK/7mO2u67Oaje0kG06UwXFmCYOXH/i3MtX/SeLn44lpC7d9GNYFdYozkt4cz0
+pNVRhTJZzqJTMKcrPrl2XbL0bczP+C+CJ+3FOjJYCUvTDXehm4hHF+K30h0Jk9ES
+ZF+ArOJSRumn7uCNLm9qh2nVqq6HsCcyIJdWzm6T7ARk0SGYwoJfb/OmqqMFEo2j
+rRbwI53l7cXgOe1BpS1zQWlwbOUR2ro6gBixyKx1YVEoUz5BdWOZPBw/85T9Jq5+
+r2eybdUg4bW6OjP64IBO8JniQ5249pTbB9WC5Y0JZRQ617oyDRWYucrilTVzlKdX
+Qyx6Daevd/aQPIjEmfNTNQNjl4+nJmQrhD6ZDFSprkfAA/yRhIHISwq7FPO7g/8y
+4Xxd5z/GUmQUsGojFGohxwFcGSXj8pEYTekBoejRvw9Q+0VfMPq+BLLb64tOXwdq
+PdoScLgU6cM/F2Bugqh5zrft301NnM1RRwvpq3V5RdtwfdHCvod8eYGfWr3TtaFk
+/8a40JdNEIsF+up3gIYyP7jlKCzG009J2UTzickfArvx20QWfEZ6npEAkmrVdAHx
+wBp4IVL+WN/hRi0zAIKcJSllSeEOCKcZ09ICJnkuvcRIGFWVNoAmBlKidjagUw6x
+6faTvYaapEY35WglZCEg
+=64Oe
+-----END PGP SIGNATURE-----
+
+--YiEDa0DAkWCtVeE4--
