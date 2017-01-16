@@ -1,26 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next] stmmac: indent an if statement
-Date: Sun, 15 Jan 2017 22:14:38 -0500 (EST)
-Message-ID: <20170115.221438.1956356112755181222.davem@davemloft.net>
-References: <20170112184631.GA12157@mwanda>
+Subject: Re: [PATCH net] openvswitch: maintain correct checksum state in
+ conntrack actions
+Date: Sun, 15 Jan 2017 22:16:31 -0500 (EST)
+Message-ID: <20170115.221631.1432868195915672145.davem@davemloft.net>
+References: <1484267598-4493-1-git-send-email-lrichard@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: peppe.cavallaro@st.com, Joao.Pinto@synopsys.com,
-        alexandre.torgue@st.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170112184631.GA12157@mwanda>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, dev@openvswitch.org
+To: lrichard@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:56798 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751246AbdAPDQd (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 15 Jan 2017 22:16:33 -0500
+In-Reply-To: <1484267598-4493-1-git-send-email-lrichard@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Thu, 12 Jan 2017 21:46:32 +0300
+From: Lance Richardson <lrichard@redhat.com>
+Date: Thu, 12 Jan 2017 19:33:18 -0500
 
-> The break statement should be indented one more tab.
-> 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> When executing conntrack actions on skbuffs with checksum mode
+> CHECKSUM_COMPLETE, the checksum must be updated to account for
+> header pushes and pulls. Otherwise we get "hw csum failure"
+> logs similar to this (ICMP packet received on geneve tunnel
+> via ixgbe NIC):
+ ...
+> Fixes: 7f8a436eaa2c ("openvswitch: Add conntrack action")
+> Signed-off-by: Lance Richardson <lrichard@redhat.com>
 
-Applied, but like Julia I think we might have a missing of_node_put()
-here.
+Applied and queued up for -stable.
