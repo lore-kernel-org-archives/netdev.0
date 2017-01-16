@@ -1,72 +1,65 @@
-From: Paul Blakey <paulb@mellanox.com>
-Subject: [PATCH net-next] net/sched: cls_flower: Disallow duplicate internal elements
-Date: Mon, 16 Jan 2017 10:45:13 +0200
-Message-ID: <1484556313-33614-1-git-send-email-paulb@mellanox.com>
-Cc: Jiri Pirko <jiri@mellanox.com>, Roi Dayan <roid@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Hadar Hen Zion <hadarh@mellanox.com>,
-        Paul Blakey <paulb@mellanox.com>
-To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+From: Tariq Toukan <ttoukan.linux@gmail.com>
+Subject: Re: [PATCH net] mlx4: do not call napi_schedule() without care
+Date: Mon, 16 Jan 2017 11:02:44 +0200
+Message-ID: <352911f4-7073-ad7f-83d9-dbcc6e07d553@gmail.com>
+References: <1484325564.13165.30.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+        Erez Shitrit <erezsh@mellanox.com>,
+        Eugenia Emantayev <eugenia@mellanox.com>,
+        Tariq Toukan <tariqt@mellanox.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+        David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:49004 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751107AbdAPIpZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2017 03:45:25 -0500
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:35865 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750862AbdAPJCt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2017 04:02:49 -0500
+Received: by mail-wm0-f66.google.com with SMTP id r126so29244862wmr.3
+        for <netdev@vger.kernel.org>; Mon, 16 Jan 2017 01:02:48 -0800 (PST)
+In-Reply-To: <1484325564.13165.30.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Flower currently allows having the same filter twice with the same
-priority. Actions (and statistics update) will always execute on the
-first inserted rule leaving the second rule unused.
-This patch disallows that.
+Thanks Eric.
 
-Signed-off-by: Paul Blakey <paulb@mellanox.com>
-Acked-by: Jiri Pirko <jiri@mellanox.com>
----
- net/sched/cls_flower.c | 17 ++++++++++++++---
- 1 file changed, 14 insertions(+), 3 deletions(-)
-
-diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
-index a3bfda3..2793445 100644
---- a/net/sched/cls_flower.c
-+++ b/net/sched/cls_flower.c
-@@ -134,6 +134,14 @@ static void fl_clear_masked_range(struct fl_flow_key *key,
- 	memset(fl_key_get_start(key, mask), 0, fl_mask_range(mask));
- }
- 
-+static struct cls_fl_filter *fl_lookup(struct cls_fl_head *head,
-+				       struct fl_flow_key *mkey)
-+{
-+	return rhashtable_lookup_fast(&head->ht,
-+				      fl_key_get_start(mkey, &head->mask),
-+				      head->ht_params);
-+}
-+
- static int fl_classify(struct sk_buff *skb, const struct tcf_proto *tp,
- 		       struct tcf_result *res)
- {
-@@ -181,9 +189,7 @@ static int fl_classify(struct sk_buff *skb, const struct tcf_proto *tp,
- 
- 	fl_set_masked_key(&skb_mkey, &skb_key, &head->mask);
- 
--	f = rhashtable_lookup_fast(&head->ht,
--				   fl_key_get_start(&skb_mkey, &head->mask),
--				   head->ht_params);
-+	f = fl_lookup(head, &skb_mkey);
- 	if (f && !tc_skip_sw(f->flags)) {
- 		*res = f->res;
- 		return tcf_exts_exec(skb, &f->exts, res);
-@@ -875,6 +881,11 @@ static int fl_change(struct net *net, struct sk_buff *in_skb,
- 		goto errout;
- 
- 	if (!tc_skip_sw(fnew->flags)) {
-+		if (!fold && fl_lookup(head, &fnew->mkey)) {
-+			err = -EEXIST;
-+			goto errout;
-+		}
-+
- 		err = rhashtable_insert_fast(&head->ht, &fnew->ht_node,
- 					     head->ht_params);
- 		if (err)
--- 
-2.7.4
+On 13/01/2017 6:39 PM, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
+>
+> Disable BH around the call to napi_schedule() to avoid following warning
+>
+> [   52.095499] NOHZ: local_softirq_pending 08
+> [   52.421291] NOHZ: local_softirq_pending 08
+> [   52.608313] NOHZ: local_softirq_pending 08
+>
+> Fixes: 8d59de8f7bb3 ("net/mlx4_en: Process all completions in RX rings after port goes up")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Erez Shitrit <erezsh@mellanox.com>
+> Cc: Eugenia Emantayev <eugenia@mellanox.com>
+> Cc: Tariq Toukan <tariqt@mellanox.com>
+> ---
+>   drivers/net/ethernet/mellanox/mlx4/en_netdev.c |    5 ++++-
+>   1 file changed, 4 insertions(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> index 4910d9af19335d4b97d39760c163b41eecc26242..761f8b12399cab245abccc0f7d7f84fde742c14d 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> @@ -1748,8 +1748,11 @@ int mlx4_en_start_port(struct net_device *dev)
+>   	/* Process all completions if exist to prevent
+>   	 * the queues freezing if they are full
+>   	 */
+> -	for (i = 0; i < priv->rx_ring_num; i++)
+> +	for (i = 0; i < priv->rx_ring_num; i++) {
+> +		local_bh_disable();
+>   		napi_schedule(&priv->rx_cq[i]->napi);
+> +		local_bh_enable();
+> +	}
+>   
+>   	netif_tx_start_all_queues(dev);
+>   	netif_device_attach(dev);
+>
+>
+Acked-by: Tariq Toukan <tariqt@mellanox.com>
