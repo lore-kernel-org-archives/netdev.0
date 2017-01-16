@@ -1,36 +1,53 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] sfc: TX PIO fixes
-Date: Mon, 16 Jan 2017 14:01:36 -0500 (EST)
-Message-ID: <20170116.140136.2122671601212176674.davem@davemloft.net>
-References: <eae20bb1-89d4-0e81-6c56-0c7058d06ada@solarflare.com>
+Subject: Re: [PATCH net] bpf: rework prog_digest into prog_tag
+Date: Mon, 16 Jan 2017 14:03:54 -0500 (EST)
+Message-ID: <20170116.140354.1715988456440754815.davem@davemloft.net>
+References: <384476e29f6a378766c4052187b9b5f840f4030e.1484346362.git.daniel@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-net-drivers@solarflare.com, netdev@vger.kernel.org
-To: ecree@solarflare.com
+Cc: alexei.starovoitov@gmail.com, luto@kernel.org,
+        netdev@vger.kernel.org
+To: daniel@iogearbox.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:46512 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:46596 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750916AbdAPTBi (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2017 14:01:38 -0500
-In-Reply-To: <eae20bb1-89d4-0e81-6c56-0c7058d06ada@solarflare.com>
+        with ESMTP id S1750840AbdAPTD4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2017 14:03:56 -0500
+In-Reply-To: <384476e29f6a378766c4052187b9b5f840f4030e.1484346362.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Edward Cree <ecree@solarflare.com>
-Date: Fri, 13 Jan 2017 21:18:38 +0000
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Fri, 13 Jan 2017 23:38:15 +0100
 
-> Edward Cree (2):
->   sfc: allow PIO more often
->   sfc: get PIO buffer size from the NIC
+> Commit 7bd509e311f4 ("bpf: add prog_digest and expose it via
+> fdinfo/netlink") was recently discussed, partially due to
+> admittedly suboptimal name of "prog_digest" in combination
+> with sha1 hash usage, thus inevitably and rightfully concerns
+> about its security in terms of collision resistance were
+> raised with regards to use-cases.
+> 
+> The intended use cases are for debugging resp. introspection
+> only for providing a stable "tag" over the instruction sequence
+> that both kernel and user space can calculate independently.
+> It's not usable at all for making a security relevant decision.
+> So collisions where two different instruction sequences generate
+> the same tag can happen, but ideally at a rather low rate. The
+> "tag" will be dumped in hex and is short enough to introspect
+> in tracepoints or kallsyms output along with other data such
+> as stack trace, etc. Thus, this patch performs a rename into
+> prog_tag and truncates the tag to a short output (64 bits) to
+> make it obvious it's not collision-free.
+> 
+> Should in future a hash or facility be needed with a security
+> relevant focus, then we can think about requirements, constraints,
+> etc that would fit to that situation. For now, rework the exposed
+> parts for the current use cases as long as nothing has been
+> released yet. Tested on x86_64 and s390x.
+> 
+> Fixes: 7bd509e311f4 ("bpf: add prog_digest and expose it via fdinfo/netlink")
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> Acked-by: Alexei Starovoitov <ast@kernel.org>
 
-Both patches applied, thanks.
-
-When you give me a completely content free header posting like this, it
-is basically worthless to me and I don't even use it.
-
-Please put some real content into this header posting, explaining what
-the series is doing at a high level, how it is doing it, and why it is
-doing it that way.
-
-Thanks.
+Applied, thanks.
