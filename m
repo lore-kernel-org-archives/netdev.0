@@ -1,119 +1,72 @@
-From: Dmitry Vyukov <dvyukov@google.com>
-Subject: Re: sctp: kernel memory overwrite attempt detected in sctp_getsockopt_assoc_stats
-Date: Mon, 16 Jan 2017 08:11:40 +0100
-Message-ID: <CACT4Y+Zp4cruuKtf7fkSeLFbYLzTOD79Y2c+cCrHx-pbEXC_6A@mail.gmail.com>
-References: <CACT4Y+ZDPa+spEh6P_ip9=hsNfeZ8KJfwJu5jTrPKVkGJUaZSg@mail.gmail.com>
- <20170115203515.GA6274@neilslaptop.think-freely.org>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next v3 1/1] net sched actions: Add support for user
+ cookies
+Date: Mon, 16 Jan 2017 08:27:54 +0100
+Message-ID: <20170116072754.GA1804@nanopsycho.orion>
+References: <1484488879-29560-1-git-send-email-jhs@emojatatu.com>
+ <1484488879-29560-2-git-send-email-jhs@emojatatu.com>
+ <20170115150133.GA1774@nanopsycho.orion>
+ <ac5fe140-e52a-ff5c-dafe-2d6841b07560@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Vladislav Yasevich <vyasevich@gmail.com>,
-        David Miller <davem@davemloft.net>, linux-sctp@vger.kernel.org,
-        netdev <netdev@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        Kees Cook <keescook@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170115203515.GA6274@neilslaptop.think-freely.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org, jiri@mellanox.com,
+        paulb@mellanox.com, john.fastabend@gmail.com,
+        simon.horman@netronome.com, mrv@mojatatu.com, hadarh@mellanox.com,
+        ogerlitz@mellanox.com, roid@mellanox.com, xiyou.wangcong@gmail.com,
+        daniel@iogearbox.net
+To: Jamal Hadi Salim <jhs@mojatatu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:34755 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751009AbdAPH16 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2017 02:27:58 -0500
+Received: by mail-wm0-f66.google.com with SMTP id c85so28542632wmi.1
+        for <netdev@vger.kernel.org>; Sun, 15 Jan 2017 23:27:57 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <ac5fe140-e52a-ff5c-dafe-2d6841b07560@mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jan 15, 2017 at 9:35 PM, Neil Horman <nhorman@tuxdriver.com> wrote:
-> On Sun, Jan 15, 2017 at 06:29:59PM +0100, Dmitry Vyukov wrote:
->> Hello,
->>
->> I've enabled CONFIG_HARDENED_USERCOPY_PAGESPAN on syzkaller fuzzer and
->> now I am seeing lots of:
->>
-> If I'm not mistaken, its because thats specifically what that option does.  From
-> the Kconfig:
-> onfig HARDENED_USERCOPY_PAGESPAN
->         bool "Refuse to copy allocations that span multiple pages"
->         depends on HARDENED_USERCOPY
->         depends on EXPERT
->         help
->           When a multi-page allocation is done without __GFP_COMP,
->           hardened usercopy will reject attempts to copy it. There are,
->           however, several cases of this in the kernel that have not all
->           been removed. This config is intended to be used only while
->           trying to find such users.
+Sun, Jan 15, 2017 at 04:18:20PM CET, jhs@mojatatu.com wrote:
+>On 17-01-15 10:01 AM, Jiri Pirko wrote:
+>> Sun, Jan 15, 2017 at 03:01:19PM CET, jhs@mojatatu.com wrote:
 >
-> So, if the fuzzer does a setsockopt and the data it passes crosses a page
-> boundary, it seems like this will get triggered.  Based on the fact that its
-> only used to find users that do this, it seems like not the sort of thing that
-> you want enabled while running a fuzzer that might do it arbitrarily.
+>> > +cls_set_class(struct tcf_proto *tp, unsigned long *clp,
+>> 
+>> ??
+>> 
+>> > 	unsigned long cl)
+>> > {
+>> > 	unsigned long old_cl;
+>> > -	
+>> > +
+>> 
+>> ??
+>> 
+>> > 	tcf_tree_lock(tp);
+>> > 	old_cl = __cls_set_class(clp, cl);
+>> > 	tcf_tree_unlock(tp);
+>> > -
+>> > +
+>> 
+>> ??
+>> 
+>> > 	return old_cl;
+>> > }
+>> > 
+>> > @@ -237,7 +237,7 @@ static inline int tcf_em_early_end(struct tcf_ematch *em, int result)
+>> > 
+>> > 	return 0;
+>> > }
+>> > -	
+>> > +
+>> 
+>> ??
+>> 
+>
+>All these things with "??" were annoying whitespace and stylistic
+>things my fingers couldnt resist. It is legit to include such changes
+>in a patch when touching the code (as long as not a bug fix).
 
-
-The code also takes into account compound pages. As far as I
-understand the intention of the check is to effectively find
-out-of-bounds copies (e.g. goes beyond the current heap allocation). I
-would expect that stacks are allocated as compound pages and don't
-trigger this check. I don't see it is firing in other similar places.
-
-
-
->> usercopy: kernel memory overwrite attempt detected to ffff8801a74f6f10
->> (<spans multiple pages>) (256 bytes)
->>
->> kernel BUG at mm/usercopy.c:75!
->> invalid opcode: 0000 [#1] SMP KASAN
->> Dumping ftrace buffer:
->>    (ftrace buffer empty)
->> Modules linked in:
->> CPU: 1 PID: 15686 Comm: syz-executor3 Not tainted 4.9.0 #1
->> Hardware name: Google Google Compute Engine/Google Compute Engine,
->> BIOS Google 01/01/2011
->> task: ffff8801c89b2500 task.stack: ffff8801a74f0000
->> RIP: 0010:[<ffffffff81a1b041>]  [<ffffffff81a1b041>] report_usercopy
->> mm/usercopy.c:67 [inline]
->> RIP: 0010:[<ffffffff81a1b041>]  [<ffffffff81a1b041>]
->> __check_object_size+0x2d1/0x9ec mm/usercopy.c:278
->> RSP: 0018:ffff8801a74f6cd0  EFLAGS: 00010286
->> RAX: 000000000000006b RBX: ffffffff84500120 RCX: 0000000000000000
->> RDX: 000000000000006b RSI: ffffffff815a7791 RDI: ffffed0034e9ed8c
->> RBP: ffff8801a74f6e48 R08: 0000000000000001 R09: 0000000000000000
->> R10: 0000000000000000 R11: 0000000000000001 R12: ffff8801a74f6f10
->> R13: 0000000000000100 R14: ffffffff845000e0 R15: ffff8801a74f700f
->> FS:  00007f80918de700(0000) GS:ffff8801dc100000(0000) knlGS:0000000000000000
->> CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
->> CR2: 0000000020058ffc CR3: 00000001cc1cc000 CR4: 00000000001406e0
->> Stack:
->>  ffffffff8598fcc8 0000000000000000 000077ff80000000 ffffea0005c99608
->>  ffffffff844fff40 ffffffff844fff40 0000000041b58ab3 ffffffff84ae0fa0
->>  ffffffff81a1ad70 ffff8801c89b2500 dead000000000100 ffffffff814d4425
->> Call Trace:
->>  [<ffffffff83e4ece9>] check_object_size include/linux/thread_info.h:129 [inline]
->>  [<ffffffff83e4ece9>] copy_from_user arch/x86/include/asm/uaccess.h:692 [inline]
->>  [<ffffffff83e4ece9>] sctp_getsockopt_assoc_stats+0x169/0xa10
->> net/sctp/socket.c:6182
->>  [<ffffffff83e5cc52>] sctp_getsockopt+0x1af2/0x66a0 net/sctp/socket.c:6556
->>  [<ffffffff834f92c5>] sock_common_getsockopt+0x95/0xd0 net/core/sock.c:2649
->>  [<ffffffff834f4910>] SYSC_getsockopt net/socket.c:1788 [inline]
->>  [<ffffffff834f4910>] SyS_getsockopt+0x240/0x380 net/socket.c:1770
->>  [<ffffffff81009798>] do_syscall_64+0x2e8/0x930 arch/x86/entry/common.c:280
->>  [<ffffffff84370a49>] entry_SYSCALL64_slow_path+0x25/0x25
->> Code: b0 fe ff ff e8 e1 25 ce ff 48 8b 85 b0 fe ff ff 4d 89 e9 4c 89
->> e1 4c 89 f2 48 89 de 48 c7 c7 a0 01 50 84 49 89 c0 e8 51 d9 e0 ff <0f>
->> 0b e8 b8 25 ce ff 4c 89 f2 4c 89 ee 4c 89 e7 e8 6a 1b fc ff
->> RIP  [<ffffffff81a1b041>] report_usercopy mm/usercopy.c:67 [inline]
->> RIP  [<ffffffff81a1b041>] __check_object_size+0x2d1/0x9ec mm/usercopy.c:278
->>  RSP <ffff8801a74f6cd0>
->> ---[ end trace 5e438996b2c0b35d ]---
->>
->>
->> I am not sure why check_object_size flags this an a bug,
->> copy_from_user copies into a stack object:
->>
->> static int sctp_getsockopt_assoc_stats(struct sock *sk, int len,
->>                                        char __user *optval,
->>                                        int __user *optlen)
->> {
->>         struct sctp_assoc_stats sas;
->>         len = min_t(size_t, len, sizeof(sas));
->>         if (copy_from_user(&sas, optval, len))
->>                 return -EFAULT;
->>
->> Kees, can this be a false positive?
->>
->> On commit f4d3935e4f4884ba80561db5549394afb8eef8f7.
->>
+Well, I think you should change this in a separate patch as it has 0
+relation with this patch.
