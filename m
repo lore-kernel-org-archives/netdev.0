@@ -1,8 +1,7 @@
 From: John Fastabend <john.fastabend@gmail.com>
-Subject: [net PATCH v4 4/6] virtio_net: remove duplicate queue pair binding
- in XDP
-Date: Sun, 15 Jan 2017 16:00:46 -0800
-Message-ID: <20170116000046.28980.51941.stgit@john-Precision-Tower-5810>
+Subject: [net PATCH v4 5/6] virtio: add pci_down/pci_up configuration
+Date: Sun, 15 Jan 2017 16:01:19 -0800
+Message-ID: <20170116000119.28980.89712.stgit@john-Precision-Tower-5810>
 References: <20170115235528.28980.85142.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,85 +11,148 @@ Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org,
         daniel@iogearbox.net
 To: jasowang@redhat.com, mst@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:33981 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751122AbdAPABO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 15 Jan 2017 19:01:14 -0500
-Received: by mail-pg0-f67.google.com with SMTP id b1so3806101pgc.1
-        for <netdev@vger.kernel.org>; Sun, 15 Jan 2017 16:01:13 -0800 (PST)
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:35891 "EHLO
+        mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751259AbdAPABj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 15 Jan 2017 19:01:39 -0500
+Received: by mail-pf0-f196.google.com with SMTP id 19so2166344pfo.3
+        for <netdev@vger.kernel.org>; Sun, 15 Jan 2017 16:01:39 -0800 (PST)
 In-Reply-To: <20170115235528.28980.85142.stgit@john-Precision-Tower-5810>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Factor out qp assignment.
+In virtio_net we need to do a full reset of the device to support
+queue reconfiguration and also we can trigger this via ethtool
+commands. So instead of open coding this in net driver push this
+into generic code in virtio. This also avoid exporting a handful
+of internal virtio routines.
 
 Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 ---
- drivers/net/virtio_net.c |   18 +++++++-----------
- 1 file changed, 7 insertions(+), 11 deletions(-)
+ drivers/virtio/virtio.c         |   14 ++++++++++++--
+ drivers/virtio/virtio_balloon.c |    4 ----
+ drivers/virtio/virtio_input.c   |    4 ----
+ include/linux/virtio.h          |    5 +----
+ 4 files changed, 13 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 7dda206..ac853b9 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -332,15 +332,19 @@ static struct sk_buff *page_to_skb(struct virtnet_info *vi,
+diff --git a/drivers/virtio/virtio.c b/drivers/virtio/virtio.c
+index 7062bb0..681fcfb 100644
+--- a/drivers/virtio/virtio.c
++++ b/drivers/virtio/virtio.c
+@@ -339,7 +339,6 @@ void unregister_virtio_device(struct virtio_device *dev)
+ }
+ EXPORT_SYMBOL_GPL(unregister_virtio_device);
  
- static void virtnet_xdp_xmit(struct virtnet_info *vi,
- 			     struct receive_queue *rq,
--			     struct send_queue *sq,
- 			     struct xdp_buff *xdp,
- 			     void *data)
+-#ifdef CONFIG_PM_SLEEP
+ int virtio_device_freeze(struct virtio_device *dev)
  {
- 	struct virtio_net_hdr_mrg_rxbuf *hdr;
- 	unsigned int num_sg, len;
-+	struct send_queue *sq;
-+	unsigned int qp;
- 	void *xdp_sent;
- 	int err;
- 
-+	qp = vi->curr_queue_pairs - vi->xdp_queue_pairs + smp_processor_id();
-+	sq = &vi->sq[qp];
+ 	struct virtio_driver *drv = drv_to_virtio(dev->dev.driver);
+@@ -400,7 +399,18 @@ int virtio_device_restore(struct virtio_device *dev)
+ 	return ret;
+ }
+ EXPORT_SYMBOL_GPL(virtio_device_restore);
+-#endif
 +
- 	/* Free up any pending old buffers before queueing new ones. */
- 	while ((xdp_sent = virtqueue_get_buf(sq->vq, &len)) != NULL) {
- 		if (vi->mergeable_rx_bufs) {
-@@ -404,7 +408,6 @@ static struct sk_buff *receive_small(struct net_device *dev,
- 	if (xdp_prog) {
- 		struct virtio_net_hdr_mrg_rxbuf *hdr = buf;
- 		struct xdp_buff xdp;
--		unsigned int qp;
- 		u32 act;
++int virtio_device_reset(struct virtio_device *dev)
++{
++	int err;
++
++	err = virtio_device_freeze(dev);
++	if (err)
++		return err;
++
++	return virtio_device_restore(dev);
++}
++EXPORT_SYMBOL_GPL(virtio_device_reset);
  
- 		if (unlikely(hdr->hdr.gso_type || hdr->hdr.flags))
-@@ -417,10 +420,7 @@ static struct sk_buff *receive_small(struct net_device *dev,
- 		case XDP_PASS:
- 			break;
- 		case XDP_TX:
--			qp = vi->curr_queue_pairs -
--				vi->xdp_queue_pairs +
--				smp_processor_id();
--			virtnet_xdp_xmit(vi, rq, &vi->sq[qp], &xdp, skb);
-+			virtnet_xdp_xmit(vi, rq, &xdp, skb);
- 			rcu_read_unlock();
- 			goto xdp_xmit;
- 		default:
-@@ -545,7 +545,6 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
- 	if (xdp_prog) {
- 		struct page *xdp_page;
- 		struct xdp_buff xdp;
--		unsigned int qp;
- 		void *data;
- 		u32 act;
+ static int virtio_init(void)
+ {
+diff --git a/drivers/virtio/virtio_balloon.c b/drivers/virtio/virtio_balloon.c
+index 181793f..4ca6220 100644
+--- a/drivers/virtio/virtio_balloon.c
++++ b/drivers/virtio/virtio_balloon.c
+@@ -620,7 +620,6 @@ static void virtballoon_remove(struct virtio_device *vdev)
+ 	kfree(vb);
+ }
  
-@@ -586,10 +585,7 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
- 			}
- 			break;
- 		case XDP_TX:
--			qp = vi->curr_queue_pairs -
--				vi->xdp_queue_pairs +
--				smp_processor_id();
--			virtnet_xdp_xmit(vi, rq, &vi->sq[qp], &xdp, data);
-+			virtnet_xdp_xmit(vi, rq, &xdp, data);
- 			ewma_pkt_len_add(&rq->mrg_avg_pkt_len, len);
- 			if (unlikely(xdp_page != page))
- 				goto err_xdp;
+-#ifdef CONFIG_PM_SLEEP
+ static int virtballoon_freeze(struct virtio_device *vdev)
+ {
+ 	struct virtio_balloon *vb = vdev->priv;
+@@ -649,7 +648,6 @@ static int virtballoon_restore(struct virtio_device *vdev)
+ 	update_balloon_size(vb);
+ 	return 0;
+ }
+-#endif
+ 
+ static unsigned int features[] = {
+ 	VIRTIO_BALLOON_F_MUST_TELL_HOST,
+@@ -666,10 +664,8 @@ static int virtballoon_restore(struct virtio_device *vdev)
+ 	.probe =	virtballoon_probe,
+ 	.remove =	virtballoon_remove,
+ 	.config_changed = virtballoon_changed,
+-#ifdef CONFIG_PM_SLEEP
+ 	.freeze	=	virtballoon_freeze,
+ 	.restore =	virtballoon_restore,
+-#endif
+ };
+ 
+ module_virtio_driver(virtio_balloon_driver);
+diff --git a/drivers/virtio/virtio_input.c b/drivers/virtio/virtio_input.c
+index 350a2a5..d3517e2 100644
+--- a/drivers/virtio/virtio_input.c
++++ b/drivers/virtio/virtio_input.c
+@@ -328,7 +328,6 @@ static void virtinput_remove(struct virtio_device *vdev)
+ 	kfree(vi);
+ }
+ 
+-#ifdef CONFIG_PM_SLEEP
+ static int virtinput_freeze(struct virtio_device *vdev)
+ {
+ 	struct virtio_input *vi = vdev->priv;
+@@ -356,7 +355,6 @@ static int virtinput_restore(struct virtio_device *vdev)
+ 	virtinput_fill_evt(vi);
+ 	return 0;
+ }
+-#endif
+ 
+ static unsigned int features[] = {
+ 	/* none */
+@@ -374,10 +372,8 @@ static int virtinput_restore(struct virtio_device *vdev)
+ 	.id_table            = id_table,
+ 	.probe               = virtinput_probe,
+ 	.remove              = virtinput_remove,
+-#ifdef CONFIG_PM_SLEEP
+ 	.freeze	             = virtinput_freeze,
+ 	.restore             = virtinput_restore,
+-#endif
+ };
+ 
+ module_virtio_driver(virtio_input_driver);
+diff --git a/include/linux/virtio.h b/include/linux/virtio.h
+index d5eb547..ff69f9a 100644
+--- a/include/linux/virtio.h
++++ b/include/linux/virtio.h
+@@ -138,10 +138,9 @@ static inline struct virtio_device *dev_to_virtio(struct device *_dev)
+ void virtio_break_device(struct virtio_device *dev);
+ 
+ void virtio_config_changed(struct virtio_device *dev);
+-#ifdef CONFIG_PM_SLEEP
+ int virtio_device_freeze(struct virtio_device *dev);
+ int virtio_device_restore(struct virtio_device *dev);
+-#endif
++int virtio_device_reset(struct virtio_device *dev);
+ 
+ /**
+  * virtio_driver - operations for a virtio I/O driver
+@@ -167,10 +166,8 @@ struct virtio_driver {
+ 	void (*scan)(struct virtio_device *dev);
+ 	void (*remove)(struct virtio_device *dev);
+ 	void (*config_changed)(struct virtio_device *dev);
+-#ifdef CONFIG_PM
+ 	int (*freeze)(struct virtio_device *dev);
+ 	int (*restore)(struct virtio_device *dev);
+-#endif
+ };
+ 
+ static inline struct virtio_driver *drv_to_virtio(struct device_driver *drv)
