@@ -1,47 +1,125 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] net: add regs attribute to phy device for user diagnose
-Date: Mon, 16 Jan 2017 12:22:16 -0800
-Message-ID: <cf3e3125-582f-8b91-9c23-05dbdd2c6d24@gmail.com>
-References: <1484361992-30591-1-git-send-email-cugyly@163.com>
- <20170114162453.GB1072@lunn.ch>
- <da255b0c-dba6-ef35-d436-3110d8492f95@gmail.com>
- <1484445063.4555.8.camel@163.com> <20170115172150.GC5643@lunn.ch>
- <1484571579.3374.4.camel@163.com>
+From: Saeed Mahameed <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+Subject: Re: [pull request][for-next] Mellanox mlx5 Reorganize core driver
+ directory layout
+Date: Mon, 16 Jan 2017 22:30:29 +0200
+Message-ID: <CALzJLG--ZRVk0Zy+6UaGCWbOhki+PZnkmrh9rjojU1ZDm_5Y6w@mail.gmail.com>
+References: <1484241755-17603-1-git-send-email-saeedm@mellanox.com>
+ <20170113.121407.448230751444957957.davem@davemloft.net> <CALzJLG_fjiGyuB_buZqOSMU7SaCnuqFiZ0UyW+hPDq+3yx7TWg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: "David S . Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        yuan linyu <Linyu.Yuan@alcatel-sbell.com.cn>
-To: cugyly@163.com, Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:34851 "EHLO
-        mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750803AbdAPUWU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2017 15:22:20 -0500
-Received: by mail-pf0-f193.google.com with SMTP id f144so14662309pfa.2
-        for <netdev@vger.kernel.org>; Mon, 16 Jan 2017 12:22:19 -0800 (PST)
-In-Reply-To: <1484571579.3374.4.camel@163.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+        Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+        Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CALzJLG_fjiGyuB_buZqOSMU7SaCnuqFiZ0UyW+hPDq+3yx7TWg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 01/16/2017 04:59 AM, yuan linyu wrote:
-> On 日, 2017-01-15 at 18:21 +0100, Andrew Lunn wrote:
->> On Sun, Jan 15, 2017 at 09:51:03AM +0800, yuan linyu wrote:
->>>  
->>> I hope user/developer can read this attribute file "regs" to do
->>> a full check of all registers value, and they can write any register
->>> inside PHY through this file.
->> Since this is intended for debug, it should not be sysfs, but debugfs.
-> agree,
->> However, in general, Linux does not allow user space to peek and poke
->> device registers. Can you point me at examples where i can do the same
->> to my GPU? SATA controller? Ethernet controller, I2C temperature
->> sensor? Any device?
-> we can read registers of ethernet controller(memory register accessed) through devmem or ethtool
+On Sat, Jan 14, 2017 at 12:07 AM, Saeed Mahameed
+<saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org> wrote:
+> On Fri, Jan 13, 2017 at 7:14 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
+>> From: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+>> Date: Thu, 12 Jan 2017 19:22:34 +0200
+>>
+>>> This pull request includes one patch from Leon, this patch as described
+>>> below will change the driver directory structure and layout for better,
+>>> logical and modular driver files separation.
+>>>
+>>> This change is important to both rdma and net maintainers in order to
+>>> have smoother management of driver patches for different mlx5 sub modules
+>>> and smoother rdma-next vs. net-next features submissions.
+>>>
+>>> Please find more info below -in the tag commit message-,
+>>> review and let us know if there's any problem.
+>>>
+>>> This change doesn't introduce any conflicts with the current mlx5
+>>> fixes and cleanups posted on 2017-01-10 to net branch, and merge tests
+>>> worked flawlessly with no issues.
+>>>
+>>> This is the last pull request meant for both rdma-next and net-next.
+>>> Once pulled, this will be the base shared code for both trees.
+>>
+>> This is pretty crazy, it will make all bug fix backporting to -stable
+>> a complete nightmare for myself, Doug, various distribution maintainers
+>> and many other people who quietly have to maintain their own trees and
+>> do backporting.
+>>
+>
+> I hear you,
+> But please bear with me here, what if we queue this patch up to -stable ? and we
+> (Mellanox) and specifically our dedicated inbox team, will make sure
+> that this patch
+> will land on the various distributions and for those maintaining their
+> own trees.
+> This patch is really straight forward (rename files) and I already
+> tried to cherry-pick it
+> on older kernels, I only got a couple of conflicts on some of the
+> "#inlcude" lines we've
+> changed, and they are pretty straightforward to fix, we can even avoid
+> this if we decide to
+> not move mlx5 header files in this phase.
+>
+> If this is possible then all trees will be aligned and it will be a
+> win win situation.
+>
 
-So why not add support in ethtool for reading PHY registers if you need
-it? There are handful of PHY "things" in ethtool, such as reading
-counters, configuring downshift etc., adding support for dumping
-registers does not sound out of space.
--- 
-Florian
+Hi Dave,
+
+Any chance you saw my -stable suggestion above ?
+I think it would really close the backporting gap.
+
+Sorry i am bothering you with this topic, but we really desire the new
+structure and
+I never got your feedback on this suggestion, so i would like to hear
+your thoughts.
+
+Thanks,
+Saeed.
+
+>> I really don't think you can justify this rearrangement based upon the
+>> consequences and how much activity happens in this driver.
+>>
+>
+> Right, but this is not the only justification, I can sum it up to that
+> we would like
+> to lay out the foundation for many years to come for a well designed
+> driver with a modular
+> sub modules break down and scalable infrastructure. We already plan to
+> submit more mlx5
+> independent  sub modules - just like mlx5e (en_*) files and mlx5_ib
+> driver- so this was also
+> a reason for us to consider this re-engagement at this stage.
+>
+>> You should have thought long and hard about the layout a long time ago
+>> rather than after the driver has been in the tree for many years.
+>>
+>
+> I had this Idea for the separation before the mlx5 Ethernet
+> submission, but I wasn't the maintainer
+> back then, and i have been itching to submit such patch for long as
+> well, still i don't think
+> it is too late, We (Me and Leon) will keep maintaining this driver for
+> only god knows how many years to come,
+> and the mlx5 drivers are meant to serve at least 3-4 more future HW generations.
+>
+> Long story short, We would like to re-arrange the driver in a way that
+> would serve us (the maintainers) and serve those
+> who are going do develop the future Stack features and the future HW
+> generations over the well designed (Hopefully)
+> mlx5 infrastructure.
+> Keeping it as it is today, will only make the situation worst in the
+> future and it will be really hard to avoid having a spaghetti code
+> in the mlx5 driver. All i want to point out here is that maintaining
+> such a flat subtree is also nightmare.
+>
+> So i am only asking you to reconsider this change and give my -stable
+> suggestion a thought.
+>
+> Thank you.
+> Saeed.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
