@@ -1,60 +1,100 @@
 From: Tariq Toukan <tariqt@mellanox.com>
-Subject: [PATCH net-next 5/9] net/mlx4_core: Get num_tc using netdev_get_num_tc
-Date: Mon, 16 Jan 2017 19:30:01 +0200
-Message-ID: <1484587805-12666-6-git-send-email-tariqt@mellanox.com>
+Subject: [PATCH net-next 1/9] net/mlx4: Replace ENOSYS with better fitting error codes
+Date: Mon, 16 Jan 2017 19:29:57 +0200
+Message-ID: <1484587805-12666-2-git-send-email-tariqt@mellanox.com>
 References: <1484587805-12666-1-git-send-email-tariqt@mellanox.com>
 Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
-        Alaa Hleihel <alaa@mellanox.com>,
         Tariq Toukan <tariqt@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:43789 "EHLO
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:43777 "EHLO
         mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751140AbdAPRam (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2017 12:30:42 -0500
+        with ESMTP id S1751106AbdAPRah (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2017 12:30:37 -0500
 In-Reply-To: <1484587805-12666-1-git-send-email-tariqt@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alaa Hleihel <alaa@mellanox.com>
+Conform the following warning:
+WARNING: ENOSYS means 'invalid syscall nr' and nothing else.
 
-Avoid reading num_tc directly from struct net_device, but use
-the helper function netdev_get_num_tc.
-
-Fixes: bc6a4744b827 ("net/mlx4_en: num cores tx rings for every UP")
-Fixes: f5b6345ba8da ("net/mlx4_en: User prio mapping gets corrupted when changing number of channels")
-Signed-off-by: Alaa Hleihel <alaa@mellanox.com>
 Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_ethtool.c | 2 +-
- drivers/net/ethernet/mellanox/mlx4/en_tx.c      | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c       | 2 +-
+ drivers/net/ethernet/mellanox/mlx4/fw.c               | 2 +-
+ drivers/net/ethernet/mellanox/mlx4/main.c             | 6 +++---
+ drivers/net/ethernet/mellanox/mlx4/resource_tracker.c | 2 +-
+ 4 files changed, 6 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-index 63f5b0ab95d6..0ab644b6c2e6 100644
+index d9c9f86a30df..63f5b0ab95d6 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
 +++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-@@ -1793,7 +1793,7 @@ static int mlx4_en_set_channels(struct net_device *dev,
- 	netif_set_real_num_tx_queues(dev, priv->tx_ring_num[TX]);
- 	netif_set_real_num_rx_queues(dev, priv->rx_ring_num);
+@@ -1985,7 +1985,7 @@ static int mlx4_en_get_module_info(struct net_device *dev,
+ 		modinfo->eeprom_len = ETH_MODULE_SFF_8472_LEN;
+ 		break;
+ 	default:
+-		return -ENOSYS;
++		return -EINVAL;
+ 	}
  
--	if (dev->num_tc)
-+	if (netdev_get_num_tc(dev))
- 		mlx4_en_setup_tc(dev, MLX4_EN_NUM_UP);
+ 	return 0;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
+index 84bab9f0732e..25b5b32e958f 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/fw.c
++++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
+@@ -672,7 +672,7 @@ int mlx4_QUERY_FUNC_CAP(struct mlx4_dev *dev, u8 gen_or_port,
+ 	MLX4_GET(field, outbox, QUERY_FUNC_CAP_PHYS_PORT_OFFSET);
+ 	func_cap->physical_port = field;
+ 	if (func_cap->physical_port != gen_or_port) {
+-		err = -ENOSYS;
++		err = -EINVAL;
+ 		goto out;
+ 	}
  
- 	en_warn(priv, "Using %d TX rings\n", priv->tx_ring_num[TX]);
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-index 5886ad78058f..3ed42199d3f1 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-@@ -710,7 +710,7 @@ u16 mlx4_en_select_queue(struct net_device *dev, struct sk_buff *skb,
- 	u16 rings_p_up = priv->num_tx_rings_p_up;
- 	u8 up = 0;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+index bffa6f345f2f..6efd66b0b822 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+@@ -838,7 +838,7 @@ static int mlx4_slave_cap(struct mlx4_dev *dev)
+ 	 */
+ 	if (hca_param.global_caps) {
+ 		mlx4_err(dev, "Unknown hca global capabilities\n");
+-		return -ENOSYS;
++		return -EINVAL;
+ 	}
  
--	if (dev->num_tc)
-+	if (netdev_get_num_tc(dev))
- 		return skb_tx_hash(dev, skb);
+ 	mlx4_log_num_mgm_entry_size = hca_param.log_mc_entry_sz;
+@@ -896,7 +896,7 @@ static int mlx4_slave_cap(struct mlx4_dev *dev)
+ 	    PF_CONTEXT_BEHAVIOUR_MASK) {
+ 		mlx4_err(dev, "Unknown pf context behaviour %x known flags %x\n",
+ 			 func_cap.pf_context_behaviour, PF_CONTEXT_BEHAVIOUR_MASK);
+-		return -ENOSYS;
++		return -EINVAL;
+ 	}
  
- 	if (skb_vlan_tag_present(skb))
+ 	dev->caps.num_ports		= func_cap.num_ports;
+@@ -3492,7 +3492,7 @@ static int mlx4_load_one(struct pci_dev *pdev, int pci_dev_data,
+ 	mlx4_enable_msi_x(dev);
+ 	if ((mlx4_is_mfunc(dev)) &&
+ 	    !(dev->flags & MLX4_FLAG_MSI_X)) {
+-		err = -ENOSYS;
++		err = -ENOTSUPP;
+ 		mlx4_err(dev, "INTx is not supported in multi-function mode, aborting\n");
+ 		goto err_free_eq;
+ 	}
+diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+index 56185a0b827d..13cb47363db6 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
++++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+@@ -1396,7 +1396,7 @@ static int remove_ok(struct res_common *res, enum mlx4_resource type, int extra)
+ 	case RES_MTT:
+ 		return remove_mtt_ok((struct res_mtt *)res, extra);
+ 	case RES_MAC:
+-		return -ENOSYS;
++		return -ENOTSUPP;
+ 	case RES_EQ:
+ 		return remove_eq_ok((struct res_eq *)res);
+ 	case RES_COUNTER:
 -- 
 1.8.3.1
