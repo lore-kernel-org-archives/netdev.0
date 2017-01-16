@@ -1,65 +1,50 @@
-From: Chad Dupuis <chad.dupuis@cavium.com>
-Subject: Re: [PATCH 1/2] qed: Add support for hardware offloaded FCoE.
-Date: Mon, 16 Jan 2017 16:47:52 -0500
-Message-ID: <alpine.OSX.2.00.1701161633290.2060@administrators-macbook-pro.local>
-References: <1484596437-27637-1-git-send-email-chad.dupuis@cavium.com> <1484596437-27637-2-git-send-email-chad.dupuis@cavium.com>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [PATCH net-next 6/9] net/mlx4_en: Adding support of turning off
+ link autonegotiation via ethtool
+Date: Mon, 16 Jan 2017 23:48:18 +0200
+Message-ID: <CAJ3xEMjEPQv=Agz5Wr-2UEL+iv7nz4NAcpCKY9=C4vs6SfKLLA@mail.gmail.com>
+References: <1484587805-12666-1-git-send-email-tariqt@mellanox.com> <1484587805-12666-7-git-send-email-tariqt@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: <linux-scsi@vger.kernel.org>, <fcoe-devel@open-fcoe.org>,
-        <netdev@vger.kernel.org>, <yuval.mintz@cavium.com>,
-        <QLogic-Storage-Upstream@cavium.com>
-To: <martin.petersen@oracle.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        Eran Ben Elisha <eranbe@mellanox.com>
+To: Tariq Toukan <tariqt@mellanox.com>,
+        Ariel Levkovich <lariel@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn3nam01on0052.outbound.protection.outlook.com ([104.47.33.52]:19680
-        "EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750877AbdAPVsM (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 16 Jan 2017 16:48:12 -0500
-In-Reply-To: <1484596437-27637-2-git-send-email-chad.dupuis@cavium.com>
+Received: from mail-oi0-f67.google.com ([209.85.218.67]:35589 "EHLO
+        mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751238AbdAPVsT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2017 16:48:19 -0500
+Received: by mail-oi0-f67.google.com with SMTP id x84so13582024oix.2
+        for <netdev@vger.kernel.org>; Mon, 16 Jan 2017 13:48:19 -0800 (PST)
+In-Reply-To: <1484587805-12666-7-git-send-email-tariqt@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I forgot to add netdev-next to the subject line.  Is a repost needed here?
+On Mon, Jan 16, 2017 at 7:30 PM, Tariq Toukan <tariqt@mellanox.com> wrote:
+0644
+> --- a/include/linux/mlx4/device.h
+> +++ b/include/linux/mlx4/device.h
+> @@ -1539,8 +1539,13 @@ enum mlx4_ptys_proto {
+>         MLX4_PTYS_EN = 1<<2,
+>  };
+>
+> +enum mlx4_ptys_flags {
+> +       MLX4_PTYS_AN_DISABLE_CAP   = 1 << 5,
+> +       MLX4_PTYS_AN_DISABLE_ADMIN = 1 << 6,
+> +};
+> +
+>  struct mlx4_ptys_reg {
+> -       u8 resrvd1;
+> +       u8 flags;
+>         u8 local_port;
+>         u8 resrvd2;
+>         u8 proto_mask;
 
-On Mon, 16 Jan 2017, 7:53pm -0000, Dupuis, Chad wrote:
+Hi Ariel,
 
-> From: Arun Easi <arun.easi@qlogic.com>
-> 
-> This adds the backbone required for the various HW initalizations
-> which are necessary for the FCoE driver (qedf) for QLogic FastLinQ
-> 4xxxx line of adapters - FW notification, resource initializations, etc.
-> 
-> Signed-off-by: Arun Easi <arun.easi@cavium.com>
-> Signed-off-by: Yuval Mintz <yuval.mintz@cavium.com>
-> ---
->  drivers/net/ethernet/qlogic/Kconfig               |   3 +
->  drivers/net/ethernet/qlogic/qed/Makefile          |   1 +
->  drivers/net/ethernet/qlogic/qed/qed.h             |  11 +
->  drivers/net/ethernet/qlogic/qed/qed_cxt.c         |  98 ++-
->  drivers/net/ethernet/qlogic/qed/qed_cxt.h         |   3 +
->  drivers/net/ethernet/qlogic/qed/qed_dcbx.c        |  11 +
->  drivers/net/ethernet/qlogic/qed/qed_dcbx.h        |   1 +
->  drivers/net/ethernet/qlogic/qed/qed_dev.c         | 205 ++++-
->  drivers/net/ethernet/qlogic/qed/qed_dev_api.h     |  42 +
->  drivers/net/ethernet/qlogic/qed/qed_fcoe.c        | 990 ++++++++++++++++++++++
->  drivers/net/ethernet/qlogic/qed/qed_fcoe.h        |  52 ++
->  drivers/net/ethernet/qlogic/qed/qed_hsi.h         | 781 ++++++++++++++++-
->  drivers/net/ethernet/qlogic/qed/qed_hw.c          |   3 +
->  drivers/net/ethernet/qlogic/qed/qed_ll2.c         |  25 +
->  drivers/net/ethernet/qlogic/qed/qed_ll2.h         |   2 +-
->  drivers/net/ethernet/qlogic/qed/qed_main.c        |   7 +
->  drivers/net/ethernet/qlogic/qed/qed_mcp.c         |   3 +
->  drivers/net/ethernet/qlogic/qed/qed_mcp.h         |   1 +
->  drivers/net/ethernet/qlogic/qed/qed_reg_addr.h    |   8 +
->  drivers/net/ethernet/qlogic/qed/qed_sp.h          |   4 +
->  drivers/net/ethernet/qlogic/qed/qed_sp_commands.c |   3 +
->  include/linux/qed/common_hsi.h                    |  10 +-
->  include/linux/qed/fcoe_common.h                   | 715 ++++++++++++++++
->  include/linux/qed/qed_fcoe_if.h                   | 145 ++++
->  include/linux/qed/qed_if.h                        |  39 +
->  25 files changed, 3152 insertions(+), 11 deletions(-)
->  create mode 100644 drivers/net/ethernet/qlogic/qed/qed_fcoe.c
->  create mode 100644 drivers/net/ethernet/qlogic/qed/qed_fcoe.h
->  create mode 100644 include/linux/qed/fcoe_common.h
->  create mode 100644 include/linux/qed/qed_fcoe_if.h
-> 
+I didn't see any new dev cap bit, what happens with FW version which
+don't support this, is the result well defined? what is it?
+
+Or.
