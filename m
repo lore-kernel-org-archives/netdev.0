@@ -1,60 +1,30 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [patch net-next] stmmac: indent an if statement
-Date: Tue, 17 Jan 2017 00:56:15 +0300
-Message-ID: <20170116215615.GG4104@mwanda>
-References: <20170112184631.GA12157@mwanda>
- <20170115.221438.1956356112755181222.davem@davemloft.net>
- <20170116091924.GA4104@mwanda>
- <20170116093954.GB4104@mwanda>
- <alpine.DEB.2.20.1701162240100.2031@hadrien>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] qed: Add support for hardware offloaded FCoE.
+Date: Mon, 16 Jan 2017 16:56:38 -0500 (EST)
+Message-ID: <20170116.165638.599456861364932573.davem@davemloft.net>
+References: <1484596437-27637-1-git-send-email-chad.dupuis@cavium.com>
+        <1484596437-27637-2-git-send-email-chad.dupuis@cavium.com>
+        <alpine.OSX.2.00.1701161633290.2060@administrators-macbook-pro.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, peppe.cavallaro@st.com,
-        Joao.Pinto@synopsys.com, alexandre.torgue@st.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel-janitors@vger.kernel.org
-To: Julia Lawall <julia.lawall@lip6.fr>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.DEB.2.20.1701162240100.2031@hadrien>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: martin.petersen@oracle.com, linux-scsi@vger.kernel.org,
+        fcoe-devel@open-fcoe.org, netdev@vger.kernel.org,
+        yuval.mintz@cavium.com, QLogic-Storage-Upstream@cavium.com
+To: chad.dupuis@cavium.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:49538 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750877AbdAPV4k (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2017 16:56:40 -0500
+In-Reply-To: <alpine.OSX.2.00.1701161633290.2060@administrators-macbook-pro.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 16, 2017 at 10:46:22PM +0100, Julia Lawall wrote:
-> 
-> 
-> On Mon, 16 Jan 2017, Dan Carpenter wrote:
-> 
-> > On Mon, Jan 16, 2017 at 12:19:24PM +0300, Dan Carpenter wrote:
-> > > On Sun, Jan 15, 2017 at 10:14:38PM -0500, David Miller wrote:
-> > > > From: Dan Carpenter <dan.carpenter@oracle.com>
-> > > > Date: Thu, 12 Jan 2017 21:46:32 +0300
-> > > >
-> > > > > The break statement should be indented one more tab.
-> > > > >
-> > > > > Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> > > >
-> > > > Applied, but like Julia I think we might have a missing of_node_put()
-> > > > here.
-> > >
-> > > Of course, sorry for dropping the ball on this.  I'll send a patch for
-> > > that.
-> > >
-> >
-> > Actually, I've looked at it some more and I think this function is OK.
-> > We're supposed to do an of_node_put() later...  I can't find where that
-> > happens, but presumably that's because I don't know stmmac well.  This
-> > code here, though, is fine.
-> 
-> Why do you think it is fine?  Does anyone in the calling context know
-> which child would have caused the break?
+From: Chad Dupuis <chad.dupuis@cavium.com>
+Date: Mon, 16 Jan 2017 16:47:52 -0500
 
-Yeah.  It's saved in plat->mdio_node and we expect to be holding on
-either path through the function.
+> I forgot to add netdev-next to the subject line.  Is a repost needed
+> here?
 
-(It would be better if one of the stmmac people were responding here
-insead of a random fix the indenting weenie like myself.)
-
-regards,
-dan caprenter
-
+Not this time, no.
