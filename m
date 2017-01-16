@@ -1,43 +1,53 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] mlx4: do not call napi_schedule() without care
-Date: Mon, 16 Jan 2017 11:45:06 -0500 (EST)
-Message-ID: <20170116.114506.889699414533682932.davem@davemloft.net>
-References: <1484325564.13165.30.camel@edumazet-glaptop3.roam.corp.google.com>
-        <352911f4-7073-ad7f-83d9-dbcc6e07d553@gmail.com>
+Subject: Re: [PATCH 1/2] qed: Replace memset with eth_zero_addr
+Date: Mon, 16 Jan 2017 11:46:06 -0500 (EST)
+Message-ID: <20170116.114606.1692928906878877115.davem@davemloft.net>
+References: <1484538277-21376-1-git-send-email-mayhs11saini@gmail.com>
+        <20170115.233830.123911280062970298.davem@davemloft.net>
+        <20170116092435.GA2970@mystictot>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-        erezsh@mellanox.com, eugenia@mellanox.com, tariqt@mellanox.com
-To: ttoukan.linux@gmail.com
+Cc: Yuval.Mintz@cavium.com, Ariel.Elior@cavium.com,
+        everest-linux-l2@cavium.com, netdev@vger.kernel.org
+To: mayhs11saini@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:43872 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:43876 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750826AbdAPQpI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2017 11:45:08 -0500
-In-Reply-To: <352911f4-7073-ad7f-83d9-dbcc6e07d553@gmail.com>
+        with ESMTP id S1751600AbdAPQqM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2017 11:46:12 -0500
+In-Reply-To: <20170116092435.GA2970@mystictot>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tariq Toukan <ttoukan.linux@gmail.com>
-Date: Mon, 16 Jan 2017 11:02:44 +0200
+From: Shyam Saini <mayhs11saini@gmail.com>
+Date: Mon, 16 Jan 2017 14:54:35 +0530
 
-> Thanks Eric.
+> On Sun, Jan 15, 2017 at 11:38:30PM -0500, David Miller wrote:
+>> 
+>> Please do not ever submit two patches which have the same exact commit
+>> header line, as these two patches do.
+>> 
+>> When someone looks into the shortlog of GIT history all they will see
+>> is "qed: Replace memset with eth_zero_addr" twice.
+>> 
+>> This gives the reader no idea what might be different between those
+>> two changes.
+>> 
+>> Therefore you must give unique a commit header text for each change,
+>> which communicates sufficiently what is different in each change.
 > 
-> On 13/01/2017 6:39 PM, Eric Dumazet wrote:
->> From: Eric Dumazet <edumazet@google.com>
->>
->> Disable BH around the call to napi_schedule() to avoid following
->> warning
->>
->> [   52.095499] NOHZ: local_softirq_pending 08
->> [   52.421291] NOHZ: local_softirq_pending 08
->> [   52.608313] NOHZ: local_softirq_pending 08
->>
->> Fixes: 8d59de8f7bb3 ("net/mlx4_en: Process all completions in RX rings
->> after port goes up")
->> Signed-off-by: Eric Dumazet <edumazet@google.com>
- ...
-> Acked-by: Tariq Toukan <tariqt@mellanox.com>
+> Thanks a lot for correcting me. I'll take care of this thing.
+> 
+> I'm resending these two patches as 
+> 	1). qed: Replace memset with eth_zero_addr
+> 	2). qed: Use eth_zero_addr
+> 	
+> I hope it resolves same commit header line conflict.
 
-Applied and queued up for -stable, thanks.
+You aren't understanding the point.
+
+Those two lines still say exactly the same thing.
+
+What is different about these two changes?  The answer to that question
+must propagate into those lines of text.
