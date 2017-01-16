@@ -1,44 +1,87 @@
-From: Selvin Xavier <selvin.xavier@broadcom.com>
-Subject: Re: [PATCH for bnxt_re V3 03/21] bnxt_re: register with the NIC driver
-Date: Mon, 16 Jan 2017 13:38:40 +0530
-Message-ID: <CA+sbYW2SMbExwyw20TZtn3U13fkJvKCs5P8w5LdovN4Q3u0sjg@mail.gmail.com>
-References: <1482225211-22423-1-git-send-email-selvin.xavier@broadcom.com>
- <1482225211-22423-4-git-send-email-selvin.xavier@broadcom.com> <20170115194143.GE20392@mtr-leonro.local>
+From: Tariq Toukan <tariqt@mellanox.com>
+Subject: Re: [PATCH 5/6] treewide: use kv[mz]alloc* rather than opencoded
+ variants
+Date: Mon, 16 Jan 2017 10:18:48 +0200
+Message-ID: <836c370c-f8ff-d682-f457-0ad0da622068@mellanox.com>
+References: <20170112153717.28943-1-mhocko@kernel.org>
+ <20170112153717.28943-6-mhocko@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Doug Ledford <dledford@redhat.com>, linux-rdma@vger.kernel.org,
-        Linux Netdev List <netdev@vger.kernel.org>,
-        Michael Chan <michael.chan@broadcom.com>,
-        Eddie Wai <eddie.wai@broadcom.com>,
-        Devesh Sharma <devesh.sharma@broadcom.com>,
-        Somnath Kotur <somnath.kotur@broadcom.com>,
-        Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
-To: Leon Romanovsky <leon@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f181.google.com ([209.85.216.181]:36312 "EHLO
-        mail-qt0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750880AbdAPIIl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2017 03:08:41 -0500
-Received: by mail-qt0-f181.google.com with SMTP id k15so97633325qtg.3
-        for <netdev@vger.kernel.org>; Mon, 16 Jan 2017 00:08:41 -0800 (PST)
-In-Reply-To: <20170115194143.GE20392@mtr-leonro.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Vlastimil Babka <vbabka@suse.cz>,
+        David Rientjes <rientjes@google.com>,
+        Mel Gorman <mgorman@suse.de>,
+        Johannes Weiner <hannes@cmpxchg.org>,
+        Al Viro <viro@zeniv.linux.org.uk>, <linux-mm@kvack.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        Michal Hocko <mhocko@suse.com>,
+        Martin Schwidefsky <schwidefsky@de.ibm.com>,
+        Heiko Carstens <heiko.carstens@de.ibm.com>,
+        Herbert Xu <herbert@gondor.apana.org.au>,
+        Anton Vorontsov <anton@enomsg.org>,
+        Colin Cross <ccross@android.com>,
+        Kees Cook <keescook@chromium.org>,
+        Tony Luck <tony.luck@intel.com>,
+        "Rafael J. Wysocki" <rjw@rjwysocki.net>,
+        Ben Skeggs <bskeggs@redhat.com>,
+        Kent Overstreet <kent.overstreet@gmail.com>,
+        Santosh Raspatur <santosh@chelsio.com>,
+        Hariprasad S <hariprasad@chelsio.com>,
+        Yishai Hada
+To: Michal Hocko <mhocko@kernel.org>,
+        Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170112153717.28943-6-mhocko@kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 16, 2017 at 1:11 AM, Leon Romanovsky <leon@kernel.org> wrote:
-> Recently, in one of our submission to netdev and rdma, we got
-> a reminder that inline functions shouldn't be in *.c. Let for
-> the compiler to decide.
+
+
+On 12/01/2017 5:37 PM, Michal Hocko wrote:
+> From: Michal Hocko <mhocko@suse.com>
 >
-> IMHO, it should be open-coded without wrappers and honestly I failed to
-> understand why do you need so many wrappers for one line standard kernel
-> functions.
+> There are many code paths opencoding kvmalloc. Let's use the helper
+> instead. The main difference to kvmalloc is that those users are usually
+> not considering all the aspects of the memory allocator. E.g. allocation
+> requests < 64kB are basically never failing and invoke OOM killer to
+> satisfy the allocation. This sounds too disruptive for something that
+> has a reasonable fallback - the vmalloc. On the other hand those
+> requests might fallback to vmalloc even when the memory allocator would
+> succeed after several more reclaim/compaction attempts previously. There
+> is no guarantee something like that happens though.
+>
+> This patch converts many of those places to kv[mz]alloc* helpers because
+> they are more conservative.
+>
+> Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>
+> Cc: Heiko Carstens <heiko.carstens@de.ibm.com>
+> Cc: Herbert Xu <herbert@gondor.apana.org.au>
+> Cc: Anton Vorontsov <anton@enomsg.org>
+> Cc: Colin Cross <ccross@android.com>
+> Cc: Kees Cook <keescook@chromium.org>
+> Cc: Tony Luck <tony.luck@intel.com>
+> Cc: "Rafael J. Wysocki" <rjw@rjwysocki.net>
+> Cc: Ben Skeggs <bskeggs@redhat.com>
+> Cc: Kent Overstreet <kent.overstreet@gmail.com>
+> Cc: Santosh Raspatur <santosh@chelsio.com>
+> Cc: Hariprasad S <hariprasad@chelsio.com>
+> Cc: Tariq Toukan <tariqt@mellanox.com>
+> Cc: Yishai Hadas <yishaih@mellanox.com>
+> Cc: Dan Williams <dan.j.williams@intel.com>
+> Cc: Oleg Drokin <oleg.drokin@intel.com>
+> Cc: Andreas Dilger <andreas.dilger@intel.com>
+> Cc: Boris Ostrovsky <boris.ostrovsky@oracle.com>
+> Cc: David Sterba <dsterba@suse.com>
+> Cc: "Yan, Zheng" <zyan@redhat.com>
+> Cc: Ilya Dryomov <idryomov@gmail.com>
+> Cc: Alexander Viro <viro@zeniv.linux.org.uk>
+> Cc: Alexei Starovoitov <ast@kernel.org>
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: netdev@vger.kernel.org
+> Signed-off-by: Michal Hocko <mhocko@suse.com>
+> ---
+Acked-by: Tariq Toukan <tariqt@mellanox.com>
+For the mlx4 parts.
 
-Agreed. During the initial days of development, we had some debug code also
-inside these wrapper functions. Since the debug code was removed before upstream
-submission, this function ended up as a wrapper for standard kernel function.
-It makes perfect sense to knock off these wrapper functions. I will
-queue it for next
-clean-up/bug fix patch series.
-
-Thanks
+Regards.
+Tariq
