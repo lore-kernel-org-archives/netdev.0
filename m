@@ -1,64 +1,49 @@
-From: Julia Lawall <julia.lawall@lip6.fr>
-Subject: Re: [patch net-next] stmmac: indent an if statement
-Date: Mon, 16 Jan 2017 23:10:32 +0100 (CET)
-Message-ID: <alpine.DEB.2.20.1701162308540.2031@hadrien>
-References: <20170112184631.GA12157@mwanda> <20170115.221438.1956356112755181222.davem@davemloft.net> <20170116091924.GA4104@mwanda> <20170116093954.GB4104@mwanda> <alpine.DEB.2.20.1701162240100.2031@hadrien> <20170116215615.GG4104@mwanda>
+From: Daniel Jurgens <danielj@mellanox.com>
+Subject: Re: [PATCH net-next 3/9] net/mlx4_core: Set EQ affinity hint to local
+ NUMA CPUs
+Date: Mon, 16 Jan 2017 22:21:54 +0000
+Message-ID: <VI1PR0501MB2429A6F8FDBD6DC9E835BE66C47D0@VI1PR0501MB2429.eurprd05.prod.outlook.com>
+References: <1484587805-12666-1-git-send-email-tariqt@mellanox.com>
+ <1484587805-12666-4-git-send-email-tariqt@mellanox.com>
+ <CAJ3xEMiGQHV1Qc0aW43SJaNO7X5TRLdYRaZgEiA6099vbBAAXw@mail.gmail.com>
+ <VI1PR0501MB2429F11A34431293F2D0C327C47D0@VI1PR0501MB2429.eurprd05.prod.outlook.com>
+ <CAJ3xEMjGv8xm7vOgASd0CvpS9uQFLv8tT_n7aqsuoB7eTUAZUg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, peppe.cavallaro@st.com,
-        Joao.Pinto@synopsys.com, alexandre.torgue@st.com,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-        kernel-janitors@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170116215615.GG4104@mwanda>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: Tariq Toukan <tariqt@mellanox.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        "Eran Ben Elisha" <eranbe@mellanox.com>
+To: Or Gerlitz <gerlitz.or@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-eopbgr10042.outbound.protection.outlook.com ([40.107.1.42]:35324
+        "EHLO EUR02-HE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1750858AbdAPWWA (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 16 Jan 2017 17:22:00 -0500
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-
-On Tue, 17 Jan 2017, Dan Carpenter wrote:
-
-> On Mon, Jan 16, 2017 at 10:46:22PM +0100, Julia Lawall wrote:
-> >
-> >
-> > On Mon, 16 Jan 2017, Dan Carpenter wrote:
-> >
-> > > On Mon, Jan 16, 2017 at 12:19:24PM +0300, Dan Carpenter wrote:
-> > > > On Sun, Jan 15, 2017 at 10:14:38PM -0500, David Miller wrote:
-> > > > > From: Dan Carpenter <dan.carpenter@oracle.com>
-> > > > > Date: Thu, 12 Jan 2017 21:46:32 +0300
-> > > > >
-> > > > > > The break statement should be indented one more tab.
-> > > > > >
-> > > > > > Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> > > > >
-> > > > > Applied, but like Julia I think we might have a missing of_node_put()
-> > > > > here.
-> > > >
-> > > > Of course, sorry for dropping the ball on this.  I'll send a patch for
-> > > > that.
-> > > >
-> > >
-> > > Actually, I've looked at it some more and I think this function is OK.
-> > > We're supposed to do an of_node_put() later...  I can't find where that
-> > > happens, but presumably that's because I don't know stmmac well.  This
-> > > code here, though, is fine.
-> >
-> > Why do you think it is fine?  Does anyone in the calling context know
-> > which child would have caused the break?
->
-> Yeah.  It's saved in plat->mdio_node and we expect to be holding on
-> either path through the function.
->
-> (It would be better if one of the stmmac people were responding here
-> insead of a random fix the indenting weenie like myself.)
-
-OK, I agree that there should not be an of_node_put with the break.
-
-Perhaps there should be an of_node_put on plat->mdio_node in
-stmmac_remove_config_dt, like there is an of_node_put on plat->phy_node.
-But it would certainly be helpful to hear from someone who knows the code
-better.
-
-julia
+On 1/16/2017 3:59 PM, Or Gerlitz wrote:=0A=
+> On Mon, Jan 16, 2017 at 11:54 PM, Daniel Jurgens <danielj@mellanox.com> w=
+rote:=0A=
+>> On 1/16/2017 3:44 PM, Or Gerlitz wrote:=0A=
+>>> On Mon, Jan 16, 2017 at 7:29 PM, Tariq Toukan <tariqt@mellanox.com> wro=
+te:=0A=
+>>>> From: Daniel Jurgens <danielj@mellanox.com>=0A=
+>>>>=0A=
+>>>> Use CPUs on the close NUMA when setting the EQ affinity hints.=0A=
+>>> Dan, are we sure there are no down-sides for always doing this? this=0A=
+>>> code is probably there for many years and we're introducing here new=0A=
+>>> behaviour to potentially to many Ms installs when they get distro=0A=
+>>> update that includes this patch.=0A=
+>=0A=
+>> I don't see a downside, this just favors using the node local CPUs befor=
+e others.=0A=
+> OK, so this just favors before others and not limits (not in front of=0A=
+> the code now)? would be good to improve the change log and make this=0A=
+> clear.=0A=
+Right, doesn't limit.  Just favors the local node.  I can work with Tariq t=
+o update the commit message if you think it necessary.=0A=
