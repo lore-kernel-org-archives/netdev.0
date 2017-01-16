@@ -1,30 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] qed: Replace memset with eth_zero_addr
-Date: Mon, 16 Jan 2017 13:25:07 -0500 (EST)
-Message-ID: <20170116.132507.247451258073906225.davem@davemloft.net>
-References: <1484589810-13723-1-git-send-email-mayhs11saini@gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] net: phy: dp83867: allow RGMII_TXID/RGMII_RXID
+ interface types
+Date: Mon, 16 Jan 2017 13:30:13 -0500 (EST)
+Message-ID: <20170116.133013.1991641424053320492.davem@davemloft.net>
+References: <1484317954-27871-1-git-send-email-m-karicheri2@ti.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Yuval.Mintz@cavium.com, Ariel.Elior@cavium.com,
-        everest-linux-l2@cavium.com, netdev@vger.kernel.org
-To: mayhs11saini@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:45664 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751133AbdAPSZI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2017 13:25:08 -0500
-In-Reply-To: <1484589810-13723-1-git-send-email-mayhs11saini@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, nsekhar-l0cyMroinI0@public.gmane.org
+To: m-karicheri2-l0cyMroinI0@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1484317954-27871-1-git-send-email-m-karicheri2-l0cyMroinI0@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Shyam Saini <mayhs11saini@gmail.com>
-Date: Mon, 16 Jan 2017 23:33:30 +0530
+From: Murali Karicheri <m-karicheri2-l0cyMroinI0@public.gmane.org>
+Date: Fri, 13 Jan 2017 09:32:34 -0500
 
-> Use eth_zero_addr to assign zero address to the given address array
-> instead of memset when the second argument in memset is address
-> of zero. Also, it makes the code clearer
+> Currently dp83867 driver returns error if phy interface type
+> PHY_INTERFACE_MODE_RGMII_RXID is used to set the rx only internal
+> delay. Similarly issue happens for PHY_INTERFACE_MODE_RGMII_TXID.
+> Fix this by checking also the interface type if a particular delay
+> value is missing in the phy dt bindings. Also update the DT document
+> accordingly.
 > 
-> Signed-off-by: Shyam Saini <mayhs11saini@gmail.com>
+> Signed-off-by: Murali Karicheri <m-karicheri2-l0cyMroinI0@public.gmane.org>
+> Signed-off-by: Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>
 
-This doesn't apply cleanly to net-next, please respin.
+Applied, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
