@@ -1,53 +1,42 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: Re: [PATCH] sfc: Replace memset with eth_zero_addr
-Date: Mon, 16 Jan 2017 09:35:38 +0000
-Message-ID: <7f1c75ec-3cad-0071-9f41-86773361281e@solarflare.com>
-References: <1484538981-24591-1-git-send-email-mayhs11saini@gmail.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Re: [patch net-next] stmmac: indent an if statement
+Date: Mon, 16 Jan 2017 12:39:54 +0300
+Message-ID: <20170116093954.GB4104@mwanda>
+References: <20170112184631.GA12157@mwanda>
+ <20170115.221438.1956356112755181222.davem@davemloft.net>
+ <20170116091924.GA4104@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: <bkenward@solarflare.com>, <netdev@vger.kernel.org>,
-        <linux-net-drivers@solarflare.com>
-To: Shyam Saini <mayhs11saini@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo02.seg.att.com ([209.65.160.78]:2085 "EHLO
-        nbfkord-smmo02.seg.att.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751070AbdAPJfw (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2017 04:35:52 -0500
-In-Reply-To: <1484538981-24591-1-git-send-email-mayhs11saini@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: peppe.cavallaro@st.com, Joao.Pinto@synopsys.com,
+        alexandre.torgue@st.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170116091924.GA4104@mwanda>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 16/01/17 03:56, Shyam Saini wrote:
-> Use eth_zero_addr to assign zero address to the given address array
-> instead of memset when the second argument in memset is address
-> of zero which makes the code clearer and also add header
-> file linux/etherdevice.h
->
-> Signed-off-by: Shyam Saini <mayhs11saini@gmail.com>
-> ---
-Acked-by: Edward Cree <ecree@solarflare.com>
->  drivers/net/ethernet/sfc/ef10_sriov.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
->
-> diff --git a/drivers/net/ethernet/sfc/ef10_sriov.c b/drivers/net/ethernet/sfc/ef10_sriov.c
-> index a949b9d..228806c 100644
-> --- a/drivers/net/ethernet/sfc/ef10_sriov.c
-> +++ b/drivers/net/ethernet/sfc/ef10_sriov.c
-> @@ -6,6 +6,7 @@
->   * under the terms of the GNU General Public License version 2 as published
->   * by the Free Software Foundation, incorporated herein by reference.
->   */
-> +#include <linux/etherdevice.h>
->  #include <linux/pci.h>
->  #include <linux/module.h>
->  #include "net_driver.h"
-> @@ -554,7 +555,7 @@ int efx_ef10_sriov_set_vf_mac(struct efx_nic *efx, int vf_i, u8 *mac)
->  	return 0;
->  
->  fail:
-> -	memset(vf->mac, 0, ETH_ALEN);
-> +	eth_zero_addr(vf->mac);
->  	return rc;
->  }
->  
+On Mon, Jan 16, 2017 at 12:19:24PM +0300, Dan Carpenter wrote:
+> On Sun, Jan 15, 2017 at 10:14:38PM -0500, David Miller wrote:
+> > From: Dan Carpenter <dan.carpenter@oracle.com>
+> > Date: Thu, 12 Jan 2017 21:46:32 +0300
+> > 
+> > > The break statement should be indented one more tab.
+> > > 
+> > > Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> > 
+> > Applied, but like Julia I think we might have a missing of_node_put()
+> > here.
+> 
+> Of course, sorry for dropping the ball on this.  I'll send a patch for
+> that.
+> 
+
+Actually, I've looked at it some more and I think this function is OK.
+We're supposed to do an of_node_put() later...  I can't find where that
+happens, but presumably that's because I don't know stmmac well.  This
+code here, though, is fine.
+
+regards,
+dan carpenter
