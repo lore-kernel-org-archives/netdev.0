@@ -1,78 +1,62 @@
-From: Michal Hocko <mhocko@kernel.org>
-Subject: Re: [PATCH 5/6] treewide: use kv[mz]alloc* rather than opencoded
- variants
-Date: Mon, 16 Jan 2017 08:33:11 +0100
-Message-ID: <20170116073310.GA7981@dhcp22.suse.cz>
-References: <20170112153717.28943-1-mhocko@kernel.org>
- <20170112153717.28943-6-mhocko@kernel.org>
- <20170114105632.GV20392@mtr-leonro.local>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH v2 net-next] IPsec: do not ignore crypto err in ah input
+Date: Mon, 16 Jan 2017 08:35:35 +0100
+Message-ID: <20170116073535.GL3541@gauss.secunet.com>
+References: <1484460583-2303-1-git-send-email-gilad@benyossef.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-        Vlastimil Babka <vbabka@suse.cz>,
-        David Rientjes <rientjes@google.com>,
-        Mel Gorman <mgorman@suse.de>,
-        Johannes Weiner <hannes@cmpxchg.org>,
-        Al Viro <viro@zeniv.linux.org.uk>, linux-mm@kvack.org,
-        LKML <linux-kernel@vger.kernel.org>,
-        Martin Schwidefsky <schwidefsky@de.ibm.com>,
-        Heiko Carstens <heiko.carstens@de.ibm.com>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        Anton Vorontsov <anton@enomsg.org>,
-        Colin Cross <ccross@android.com>,
-        Kees Cook <keescook@chromium.org>,
-        Tony Luck <tony.luck@intel.com>,
-        "Rafael J. Wysocki" <rjw@rjwysocki.net>,
-        Ben Skeggs <bskeggs@redhat.com>,
-        Kent Overstreet <kent.overstreet@gmail.com>,
-        Santosh Raspatur <santosh@chelsio.com>,
-        Hariprasad S <hariprasad@chelsio.com>,
-        Ta
-To: Leon Romanovsky <leon@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <herbert@gondor.apana.org.au>, <davem@davemloft.net>,
+        <netdev@vger.kernel.org>, <ofir.drang@arm.com>,
+        <gilad.benyossef@arm.com>,
+        Alexander Alemayhu <alexander@alemayhu.com>
+To: Gilad Ben-Yossef <gilad@benyossef.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([62.96.220.36]:51292 "EHLO a.mx.secunet.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750845AbdAPHfj (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 16 Jan 2017 02:35:39 -0500
 Content-Disposition: inline
-In-Reply-To: <20170114105632.GV20392@mtr-leonro.local>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1484460583-2303-1-git-send-email-gilad@benyossef.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat 14-01-17 12:56:32, Leon Romanovsky wrote:
-[...]
-> Hi Michal,
+On Sun, Jan 15, 2017 at 08:09:43AM +0200, Gilad Ben-Yossef wrote:
+> ah input processing uses the asynchronous hash crypto API which supplies 
+> an error code as part of the operation completion but the error code was 
+> being ignored.
 > 
-> I don't see mlx5_vzalloc in the changed list. Any reason why did you skip it?
+> Treat a crypto API error indication as a verification failure.
 > 
->  881 static inline void *mlx5_vzalloc(unsigned long size)
->  882 {
->  883         void *rtn;
->  884
->  885         rtn = kzalloc(size, GFP_KERNEL | __GFP_NOWARN);
->  886         if (!rtn)
->  887                 rtn = vzalloc(size);
->  888         return rtn;
->  889 }
+> While a crypto API reported error would almost certainly result in a 
+> memcmp of the digest failing anyway and thus the security risk seems 
+> minor, performing a memory compare on what might be uninitialized memory 
+> is wrong.
+> 
+> Signed-off-by: Gilad Ben-Yossef <gilad@benyossef.com>
+> CC: Alexander Alemayhu <alexander@alemayhu.com>
+> ---
+> 
+> The change was boot tested on Arm64 but I did not exercise
+> the specific error code path in question.
+> 
+> Changes from v1:
+> - Fixed typo in patch description pointed out by Alexander
+> 
+>  net/ipv4/ah4.c | 3 +++
+>  1 file changed, 3 insertions(+)
+> 
+> diff --git a/net/ipv4/ah4.c b/net/ipv4/ah4.c
+> index f2a7102..22377c8 100644
+> --- a/net/ipv4/ah4.c
+> +++ b/net/ipv4/ah4.c
+> @@ -270,6 +270,9 @@ static void ah_input_done(struct crypto_async_request *base, int err)
+>  	int ihl = ip_hdrlen(skb);
+>  	int ah_hlen = (ah->hdrlen + 2) << 2;
+>  
+> +	if (err)
+> +		goto out;
+> +
 
-No reason to skip it, I just didn't see it. I will fold the following in
-if you are OK with it
----
-diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
-index cdd2bd62f86d..5e6063170e48 100644
---- a/include/linux/mlx5/driver.h
-+++ b/include/linux/mlx5/driver.h
-@@ -874,12 +874,7 @@ static inline u16 cmdif_rev(struct mlx5_core_dev *dev)
- 
- static inline void *mlx5_vzalloc(unsigned long size)
- {
--	void *rtn;
--
--	rtn = kzalloc(size, GFP_KERNEL | __GFP_NOWARN);
--	if (!rtn)
--		rtn = vzalloc(size);
--	return rtn;
-+	return kvzalloc(GFP_KERNEL, size);
- }
- 
- static inline u32 mlx5_base_mkey(const u32 key)
+IPv6 has the same problem, can we get it fixed there too?
 
--- 
-Michal Hocko
-SUSE Labs
+Thanks!
