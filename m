@@ -1,39 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] afs: Conditionalise a new unused variable
-Date: Mon, 16 Jan 2017 13:31:17 -0500 (EST)
-Message-ID: <20170116.133117.2240643249072761154.davem@davemloft.net>
-References: <148431877922.23745.3756091538832610041.stgit@warthog.procyon.org.uk>
+Subject: Re: [PATCH net v1 1/1] tipc: allocate user memory
+ with GFP_KERNEL flag
+Date: Mon, 16 Jan 2017 13:32:05 -0500 (EST)
+Message-ID: <20170116.133205.742000535333252859.davem@davemloft.net>
+References: <1484318785-20749-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-afs@lists.infradead.org,
-        linux-kernel@vger.kernel.org
-To: dhowells@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:45776 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750826AbdAPSbT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2017 13:31:19 -0500
-In-Reply-To: <148431877922.23745.3756091538832610041.stgit@warthog.procyon.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net,
+	jon.maloy@ericsson.com
+To: parthasarathy.bhuvaragan@ericsson.com
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: <1484318785-20749-1-git-send-email-parthasarathy.bhuvaragan@ericsson.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-From: David Howells <dhowells@redhat.com>
-Date: Fri, 13 Jan 2017 14:46:19 +0000
+From: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
+Date: Fri, 13 Jan 2017 15:46:25 +0100
 
-> From: Arnd Bergmann <arnd@arndb.de>
+> Until now, we allocate memory always with GFP_ATOMIC flag.
+> When the system is under memory pressure and a user tries to send,
+> the send fails due to low memory. However, the user application
+> can wait for free memory if we allocate it using GFP_KERNEL flag.
 > 
-> The bulk readpages support introduced a harmless warning:
+> In this commit, we use allocate memory with GFP_KERNEL for all user
+> allocation.
 > 
-> fs/afs/file.c: In function 'afs_readpages_page_done':
-> fs/afs/file.c:270:20: error: unused variable 'vnode' [-Werror=unused-variable]
-> 
-> This adds an #ifdef to match the user of that variable.  The user of the
-> variable has to be conditional because it accesses a member of a struct
-> that is also conditional.
-> 
-> Fixes: 91b467e0a3f5 ("afs: Make afs_readpages() fetch data in bulk")
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> Signed-off-by: David Howells <dhowells@redhat.com>
+> Reported-by: Rune Torgersen <runet@innovsys.com>
+> Acked-by: Jon Maloy <jon.maloy@ericsson.com>
+> Signed-off-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
 
 Applied.
+
+------------------------------------------------------------------------------
+Check out the vibrant tech community on one of the world's most
+engaging tech sites, SlashDot.org! http://sdm.link/slashdot
