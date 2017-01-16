@@ -1,19 +1,29 @@
-From: <unsubscribe.me@admisi.com>
-Subject: (unknown)
-Date: Mon, 16 Jan 2017 02:18:12 -0000
-Message-ID: <148453309289.28422.10072804163868260242@hinet.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] synopsys: remove dwc_eth_qos driver
+Date: Sun, 15 Jan 2017 22:12:04 -0500 (EST)
+Message-ID: <20170115.221204.1986879090344938852.davem@davemloft.net>
+References: <2d50f9fea61de2eb082b217d435334d40e3e01ad.1484214626.git.jpinto@synopsys.com>
 Mime-Version: 1.0
-Content-Type: application/zip; name="EMAIL_33007_netdev.zip"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: lars.persson@axis.com, niklass@axis.com, peppe.cavallaro@st.com,
+        alexandre.torgue@st.com, netdev@vger.kernel.org
+To: Joao.Pinto@synopsys.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1-161-235-62.dynamic.hinet.net ([1.161.235.62]:57723 "HELO
-        hinet.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-        id S1751357AbdAPCST (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Sun, 15 Jan 2017 21:18:19 -0500
-Subject: 
-Content-Disposition: attachment
+Received: from shards.monkeyblade.net ([184.105.139.130]:56768 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751681AbdAPDM1 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 15 Jan 2017 22:12:27 -0500
+In-Reply-To: <2d50f9fea61de2eb082b217d435334d40e3e01ad.1484214626.git.jpinto@synopsys.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-File 'attachments/doc4biz.zip' not found
+From: Joao Pinto <Joao.Pinto@synopsys.com>
+Date: Thu, 12 Jan 2017 09:56:18 +0000
+
+> This driver is no longer necessary since it was merged into stmmac.
+> 
+> Acked-by: Lars Persson <larper@axis.com>
+> Signed-off-by: Joao Pinto <jpinto@synopsys.com>
+
+Applied.
