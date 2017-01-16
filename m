@@ -1,54 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v3] ravb: do not use zero-length alignment DMA
- descriptor
-Date: Mon, 16 Jan 2017 11:53:50 -0500 (EST)
-Message-ID: <20170116.115350.943642905478824707.davem@davemloft.net>
-References: <1484563521-12009-1-git-send-email-horms+renesas@verge.net.au>
-        <96396803-caac-13cd-3e17-f9d10fc608ad@cogentembedded.com>
+Subject: Re: [PATCH] cpmac: remove hopeless #warning
+Date: Mon, 16 Jan 2017 11:54:56 -0500 (EST)
+Message-ID: <20170116.115456.1313982115096026749.davem@davemloft.net>
+References: <20170116132113.2056012-1-arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: horms+renesas@verge.net.au, magnus.damm@gmail.com,
-        netdev@vger.kernel.org, linux-renesas-soc@vger.kernel.org,
-        masaru.nagai.vx@renesas.com
-To: sergei.shtylyov@cogentembedded.com
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <96396803-caac-13cd-3e17-f9d10fc608ad@cogentembedded.com>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: f.fainelli@gmail.com, tremyfr@gmail.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: arnd@arndb.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:44082 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751218AbdAPQy6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2017 11:54:58 -0500
+In-Reply-To: <20170116132113.2056012-1-arnd@arndb.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Date: Mon, 16 Jan 2017 16:01:49 +0300
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Mon, 16 Jan 2017 14:20:54 +0100
 
-> On 01/16/2017 01:45 PM, Simon Horman wrote:
+> The #warning was present 10 years ago when the driver first got merged.
+> As the platform is rather obsolete by now, it seems very unlikely that
+> the warning will cause anyone to fix the code properly.
 > 
->> From: Masaru Nagai <masaru.nagai.vx@renesas.com>
->>
->> Due to alignment requirements of the hardware transmissions are split
->> into
->> two DMA descriptors, a small padding descriptor of 0 - 3 bytes in
->> length
->> followed by a descriptor for rest of the packet.
->>
->> In the case of IP packets the first descriptor will never be zero due
->> to
->> the way that the stack aligns buffers for IP packets. However, for
->> non-IP
->> packets it may be zero.
->>
->> In that case it has been reported that timeouts occur, presumably
->> because
->> transmission stops at the first zero-length DMA descriptor and thus
->> the
->> packet is not transmitted. However, in my environment a BUG is
->> triggered as
->> follows:
-> [...]
+> kernelci.org reports the warning for every build in the meantime, so
+> I think it's better to just turn it into a code comment to reduce
+> noise.
 > 
->> Fixes: 2f45d1902acf ("ravb: minimize TX data copying")
->> Signed-off-by: Masaru Nagai <masaru.nagai.vx@renesas.com
->> Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
-> 
-> Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-Applied and queued up for -stable, thanks.
+Agreed, applied, thanks Arnd.
