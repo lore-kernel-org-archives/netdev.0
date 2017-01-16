@@ -1,59 +1,29 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: Re: [PATCH net-next] sctp: remove useless code from sctp_apply_peer_addr_params
-Date: Mon, 16 Jan 2017 23:10:06 +0800
-Message-ID: <CADvbK_cfLoOm0F8yuvco143k42j2JDRuV_jKLpW5ow2qWwpopg@mail.gmail.com>
-References: <99bc9f227c4c857d2bb258391231231d46c1899d.1484336556.git.marcelo.leitner@gmail.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next v2 1/3] net: ipv6: Allow shorthand delete of all
+ nexthops in multipath route
+Date: Mon, 16 Jan 2017 08:58:39 -0700
+Message-ID: <7a47c420-0c35-4877-f618-8ca85d3dc5c6@cumulusnetworks.com>
+References: <1484510826-2723-1-git-send-email-dsa@cumulusnetworks.com>
+ <1484510826-2723-2-git-send-email-dsa@cumulusnetworks.com>
+ <587CEB67.3040807@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-        Vlad Yasevich <vyasevich@gmail.com>,
-        Neil Horman <nhorman@tuxdriver.com>
-To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ddutt@cumulusnetworks.com
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f193.google.com ([209.85.220.193]:35815 "EHLO
-        mail-qk0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750742AbdAPPKI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2017 10:10:08 -0500
-In-Reply-To: <99bc9f227c4c857d2bb258391231231d46c1899d.1484336556.git.marcelo.leitner@gmail.com>
+Received: from mail-pf0-f180.google.com ([209.85.192.180]:34195 "EHLO
+        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750826AbdAPP6m (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2017 10:58:42 -0500
+Received: by mail-pf0-f180.google.com with SMTP id e4so16005263pfg.1
+        for <netdev@vger.kernel.org>; Mon, 16 Jan 2017 07:58:42 -0800 (PST)
+In-Reply-To: <587CEB67.3040807@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 14, 2017 at 4:31 AM, Marcelo Ricardo Leitner
-<marcelo.leitner@gmail.com> wrote:
-> sctp_frag_point() doesn't store anything, and thus just calling it
-> cannot do anything useful.
->
-> sctp_apply_peer_addr_params is only called by
-> sctp_setsockopt_peer_addr_params. When operating on an asoc,
-> sctp_setsockopt_peer_addr_params will call sctp_apply_peer_addr_params
-> once for the asoc, and then once for each transport this asoc has,
-> meaning that the frag_point will be recomputed when updating the
-> transports and calling it when updating the asoc is not necessary.
-> IOW, no action is needed here and we can remove this call.
->
-> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Reviewed-by: Xin Long <lucien.xin@gmail.com>
+On 1/16/17 8:48 AM, Roopa Prabhu wrote:
+> Do we really need the flag ?. It seems like delete with just prefix should delete all the routes in a multipath
+> route by default... (understand that you have it there to preserve existing behavior...for people who maybe relying on it. But this seems more like a bug fix. route replace went through a few such bug fixes "ipv6: fix ECMP route replacement"). ok with either approach.
 
-> ---
->  net/sctp/socket.c | 1 -
->  1 file changed, 1 deletion(-)
->
-> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-> index 318c6786d6539a301ac7b76d82a49a1af3818d10..635e0341269330187c78ba93a35689f5c5d6be02 100644
-> --- a/net/sctp/socket.c
-> +++ b/net/sctp/socket.c
-> @@ -2430,7 +2430,6 @@ static int sctp_apply_peer_addr_params(struct sctp_paddrparams *params,
->                         sctp_assoc_sync_pmtu(sctp_opt2sk(sp), asoc);
->                 } else if (asoc) {
->                         asoc->pathmtu = params->spp_pathmtu;
-> -                       sctp_frag_point(asoc, params->spp_pathmtu);
->                 } else {
->                         sp->pathmtu = params->spp_pathmtu;
->                 }
-> --
-> 2.9.3
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I'm fine dropping the flag for this patch and just deleting the entire route. The flag only exists because this patch changes behavior visible to the user.
