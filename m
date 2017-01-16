@@ -1,27 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: constify mdiobb_ops structures
-Date: Mon, 16 Jan 2017 13:47:01 -0500 (EST)
-Message-ID: <20170116.134701.1316974977589117728.davem@davemloft.net>
-References: <1484330546-16569-1-git-send-email-bhumirks@gmail.com>
+Subject: Re: [PATCH][V2] flow dissector: check if arp_eth is null rather
+ than arp
+Date: Mon, 16 Jan 2017 13:49:10 -0500 (EST)
+Message-ID: <20170116.134910.2033399594368664910.davem@davemloft.net>
+References: <20170113184820.823-1-colin.king@canonical.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: julia.lawall@lip6.fr, pantelis.antoniou@gmail.com,
-        vbordug@ru.mvista.com, sergei.shtylyov@cogentembedded.com,
-        f.fainelli@gmail.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-        linux-renesas-soc@vger.kernel.org
-To: bhumirks@gmail.com
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <1484330546-16569-1-git-send-email-bhumirks@gmail.com>
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: aduyck@mirantis.com, jiri@mellanox.com, tom@herbertland.com,
+        edumazet@google.com, hadarh@mellanox.com,
+        simon.horman@netronome.com, fgao@ikuai8.com, amir@vadai.me,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: colin.king@canonical.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:46334 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750788AbdAPStM (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2017 13:49:12 -0500
+In-Reply-To: <20170113184820.823-1-colin.king@canonical.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Bhumika Goyal <bhumirks@gmail.com>
-Date: Fri, 13 Jan 2017 23:32:26 +0530
+From: Colin King <colin.king@canonical.com>
+Date: Fri, 13 Jan 2017 18:48:20 +0000
 
-> Declare mdiobb_ops structures as const as they are only stored in the
-> ops field of mdiobb_ctrl structures. This field is of type const, so
-> mdiobb_ops structures having this property can be declared const too.
+> From: Colin Ian King <colin.king@canonical.com>
+> 
+> arp is being checked instead of arp_eth to see if the call to
+> __skb_header_pointer failed. Fix this by checking arp_eth is
+> null instead of arp.   Also fix to use length hlen rather than
+> hlen - sizeof(_arp); thanks to Eric Dumazet for spotting
+> this latter issue.
+> 
+> CoverityScan CID#1396428 ("Logically dead code") on 2nd
+> arp comparison (which should be arp_eth instead).
+> 
+> Fixes: commit 55733350e5e8b70c5 ("flow disector: ARP support")
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
-This patch doesn't apply cleanly to net-next, please respin.
+Applied, thanks.
