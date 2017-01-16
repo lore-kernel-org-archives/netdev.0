@@ -1,53 +1,41 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net-next] sctp: remove unused var from sctp_process_asconf
-Date: Mon, 16 Jan 2017 08:13:47 -0500
-Message-ID: <20170116131347.GA30105@hmswarspite.think-freely.org>
-References: <5da2cda90a7489b22ae98703d7543c5316bae375.1484336552.git.marcelo.leitner@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-        Vlad Yasevich <vyasevich@gmail.com>
-To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:42729 "EHLO
-        smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751096AbdAPNOu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2017 08:14:50 -0500
-Content-Disposition: inline
-In-Reply-To: <5da2cda90a7489b22ae98703d7543c5316bae375.1484336552.git.marcelo.leitner@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] cpmac: remove hopeless #warning
+Date: Mon, 16 Jan 2017 14:20:54 +0100
+Message-ID: <20170116132113.2056012-1-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd@arndb.de>,
+        "David S. Miller" <davem@davemloft.net>,
+        Philippe Reynes <tremyfr@gmail.com>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 13, 2017 at 06:27:33PM -0200, Marcelo Ricardo Leitner wrote:
-> Assigned but not used.
-> 
-> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-> ---
->  net/sctp/sm_make_chunk.c | 2 --
->  1 file changed, 2 deletions(-)
-> 
-> diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
-> index a15d824a313d310ed03ba77055d22b1c7c9d0662..80a9088084ac0d1116bf983fad9a0cdfddeefe44 100644
-> --- a/net/sctp/sm_make_chunk.c
-> +++ b/net/sctp/sm_make_chunk.c
-> @@ -3210,7 +3210,6 @@ struct sctp_chunk *sctp_process_asconf(struct sctp_association *asoc,
->  	union sctp_params param;
->  	sctp_addiphdr_t		*hdr;
->  	union sctp_addr_param	*addr_param;
-> -	sctp_addip_param_t	*asconf_param;
->  	struct sctp_chunk	*asconf_ack;
->  	__be16	err_code;
->  	int	length = 0;
-> @@ -3230,7 +3229,6 @@ struct sctp_chunk *sctp_process_asconf(struct sctp_association *asoc,
->  	 * asconf parameter.
->  	 */
->  	length = ntohs(addr_param->p.length);
-> -	asconf_param = (void *)addr_param + length;
->  	chunk_len -= length;
->  
->  	/* create an ASCONF_ACK chunk.
-> -- 
-> 2.9.3
-> 
-> 
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+The #warning was present 10 years ago when the driver first got merged.
+As the platform is rather obsolete by now, it seems very unlikely that
+the warning will cause anyone to fix the code properly.
+
+kernelci.org reports the warning for every build in the meantime, so
+I think it's better to just turn it into a code comment to reduce
+noise.
+
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+ drivers/net/ethernet/ti/cpmac.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/ti/cpmac.c b/drivers/net/ethernet/ti/cpmac.c
+index 77c88fcf2b86..9b8a30bf939b 100644
+--- a/drivers/net/ethernet/ti/cpmac.c
++++ b/drivers/net/ethernet/ti/cpmac.c
+@@ -1210,7 +1210,7 @@ int cpmac_init(void)
+ 		goto fail_alloc;
+ 	}
+ 
+-#warning FIXME: unhardcode gpio&reset bits
++	/* FIXME: unhardcode gpio&reset bits */
+ 	ar7_gpio_disable(26);
+ 	ar7_gpio_disable(27);
+ 	ar7_device_reset(AR7_RESET_BIT_CPMAC_LO);
+-- 
+2.9.0
