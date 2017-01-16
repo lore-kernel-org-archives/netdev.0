@@ -1,46 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: add regs attribute to phy device for user diagnose
-Date: Mon, 16 Jan 2017 16:54:01 -0500 (EST)
-Message-ID: <20170116.165401.1642553705400599921.davem@davemloft.net>
-References: <20170115172150.GC5643@lunn.ch>
-        <1484571579.3374.4.camel@163.com>
-        <cf3e3125-582f-8b91-9c23-05dbdd2c6d24@gmail.com>
+From: Daniel Jurgens <danielj@mellanox.com>
+Subject: Re: [PATCH net-next 3/9] net/mlx4_core: Set EQ affinity hint to local
+ NUMA CPUs
+Date: Mon, 16 Jan 2017 21:54:36 +0000
+Message-ID: <VI1PR0501MB2429F11A34431293F2D0C327C47D0@VI1PR0501MB2429.eurprd05.prod.outlook.com>
+References: <1484587805-12666-1-git-send-email-tariqt@mellanox.com>
+ <1484587805-12666-4-git-send-email-tariqt@mellanox.com>
+ <CAJ3xEMiGQHV1Qc0aW43SJaNO7X5TRLdYRaZgEiA6099vbBAAXw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: cugyly@163.com, andrew@lunn.ch, netdev@vger.kernel.org,
-        Linyu.Yuan@alcatel-sbell.com.cn
-To: f.fainelli@gmail.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Linux Netdev List <netdev@vger.kernel.org>,
+        Eran Ben Elisha <eranbe@mellanox.com>
+To: Or Gerlitz <gerlitz.or@gmail.com>,
+        Tariq Toukan <tariqt@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:49478 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750996AbdAPVyG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2017 16:54:06 -0500
-In-Reply-To: <cf3e3125-582f-8b91-9c23-05dbdd2c6d24@gmail.com>
+Received: from mail-db5eur01on0061.outbound.protection.outlook.com ([104.47.2.61]:52101
+        "EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1750996AbdAPVyk (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 16 Jan 2017 16:54:40 -0500
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Mon, 16 Jan 2017 12:22:16 -0800
-
-> On 01/16/2017 04:59 AM, yuan linyu wrote:
->> On 日, 2017-01-15 at 18:21 +0100, Andrew Lunn wrote:
->>> On Sun, Jan 15, 2017 at 09:51:03AM +0800, yuan linyu wrote:
->>>>  
->>>> I hope user/developer can read this attribute file "regs" to do
->>>> a full check of all registers value, and they can write any register
->>>> inside PHY through this file.
->>> Since this is intended for debug, it should not be sysfs, but debugfs.
->> agree,
->>> However, in general, Linux does not allow user space to peek and poke
->>> device registers. Can you point me at examples where i can do the same
->>> to my GPU? SATA controller? Ethernet controller, I2C temperature
->>> sensor? Any device?
->> we can read registers of ethernet controller(memory register accessed) through devmem or ethtool
-> 
-> So why not add support in ethtool for reading PHY registers if you need
-> it? There are handful of PHY "things" in ethtool, such as reading
-> counters, configuring downshift etc., adding support for dumping
-> registers does not sound out of space.
-
-Agreed.
+On 1/16/2017 3:44 PM, Or Gerlitz wrote:=0A=
+> On Mon, Jan 16, 2017 at 7:29 PM, Tariq Toukan <tariqt@mellanox.com> wrote=
+:=0A=
+>> From: Daniel Jurgens <danielj@mellanox.com>=0A=
+>>=0A=
+>> Use CPUs on the close NUMA when setting the EQ affinity hints.=0A=
+> Dan, are we sure there are no down-sides for always doing this? this=0A=
+> code is probably there for many years and we're introducing here new=0A=
+> behaviour to potentially to many Ms installs when they get distro=0A=
+> update that includes this patch.=0A=
+>=0A=
+I don't see a downside, this just favors using the node local CPUs before o=
+thers.  I don't understand your 2nd sentence there.  "Ms installs"?=0A=
+=0A=
