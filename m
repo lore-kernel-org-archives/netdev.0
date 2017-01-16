@@ -1,38 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] mld: do not remove mld souce list info when set
- link down
-Date: Mon, 16 Jan 2017 12:45:20 -0500 (EST)
-Message-ID: <20170116.124520.1104251072700866507.davem@davemloft.net>
-References: <1484227177-7857-1-git-send-email-liuhangbin@gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH] net: marvell: skge: use new api
+ ethtool_{get|set}_link_ksettings
+Date: Mon, 16 Jan 2017 09:50:03 -0800
+Message-ID: <20170116095003.6998b773@xeon-e3>
+References: <1484395708-4107-1-git-send-email-tremyfr@gmail.com>
+        <20170116092951.3b577463@xeon-e3>
+        <20170116.123617.1891198374111644473.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: liuhangbin@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:45038 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750929AbdAPRpZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2017 12:45:25 -0500
-In-Reply-To: <1484227177-7857-1-git-send-email-liuhangbin@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: tremyfr@gmail.com, mlindner@marvell.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170116.123617.1891198374111644473.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Hangbin Liu <liuhangbin@gmail.com>
-Date: Thu, 12 Jan 2017 21:19:37 +0800
+On Mon, 16 Jan 2017 12:36:17 -0500 (EST)
+David Miller <davem@davemloft.net> wrote:
 
-> This is an IPv6 version of commit 24803f38a5c0 ("igmp: do not remove igmp
-> souce list..."). In mld_del_delrec(), we will restore back all source filter
-> info instead of flush them.
+> From: Stephen Hemminger <stephen@networkplumber.org>
+> Date: Mon, 16 Jan 2017 09:29:51 -0800
 > 
-> Move mld_clear_delrec() from ipv6_mc_down() to ipv6_mc_destroy_dev() since
-> we should not remove source list info when set link down. Remove
-> igmp6_group_dropped() in ipv6_mc_destroy_dev() since we have called it in
-> ipv6_mc_down().
+> > On Sat, 14 Jan 2017 13:08:28 +0100
+> > Philippe Reynes <tremyfr@gmail.com> wrote:
+> >   
+> >> The ethtool api {get|set}_settings is deprecated.
+> >> We move this driver to new api {get|set}_link_ksettings.
+> >> 
+> >> The callback set_link_ksettings no longer update the value
+> >> of advertising, as the struct ethtool_link_ksettings is
+> >> defined as const.
+> >> 
+> >> Signed-off-by: Philippe Reynes <tremyfr@gmail.com>  
+> > 
+> > Did you test this on real hardware?  
 > 
-> Also clear all source info after igmp6_group_dropped() instead of in it
-> because ipv6_mc_down() will call igmp6_group_dropped().
+> Philippe probably doesn't have physical access to most of the
+> drivers he is converting.
 > 
-> Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
+> But, he is the only person working on converting all of the drivers,
+> and therefore when the change looks straightforward I am going to
+> reward his work and effort by applying his changes and hope there
+> isn't any fallout.
+> 
+> Those who really care can test his patches and give a Tested-by:
+> 
+> Thanks.
 
-Applied.
+Yes, it looks mechanical and should be applied. There are lots of pieces of
+old hardware that no developer is running, and if we required full test suite runs
+on all drivers, then no refactoring would ever be possible.
+
+My preference is to always add commit note that the patch was compile
+tested only so that if someone has a problem with real hardware then they know
+what to suspect.
