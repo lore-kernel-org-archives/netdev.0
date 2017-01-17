@@ -1,43 +1,79 @@
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH] stmmac: add missing of_node_put
-Date: Tue, 17 Jan 2017 12:23:21 +0100
-Message-ID: <1484652201-20048-1-git-send-email-Julia.Lawall@lip6.fr>
-Cc: kernel-janitors@vger.kernel.org,
-        Alexandre Torgue <alexandre.torgue@st.com>,
-        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail3-relais-sop.national.inria.fr ([192.134.164.104]:7413 "EHLO
-        mail3-relais-sop.national.inria.fr" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750747AbdAQLoT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 06:44:19 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Julia Lawall <julia.lawall@lip6.fr>
+Subject: Re: [patch net-next] stmmac: indent an if statement
+Date: Tue, 17 Jan 2017 12:45:00 +0100 (CET)
+Message-ID: <alpine.DEB.2.20.1701171244400.2779@hadrien>
+References: <20170112184631.GA12157@mwanda> <20170115.221438.1956356112755181222.davem@davemloft.net> <20170116091924.GA4104@mwanda> <20170116093954.GB4104@mwanda> <alpine.DEB.2.20.1701162240100.2031@hadrien> <20170116215615.GG4104@mwanda>
+ <alpine.DEB.2.20.1701162308540.2031@hadrien> <4902e86a-6a86-57d6-51c2-55e391b83dc3@st.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Cc: Dan Carpenter <dan.carpenter@oracle.com>,
+        David Miller <davem@davemloft.net>, peppe.cavallaro@st.com,
+        Joao.Pinto@synopsys.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Alexandre Torgue <alexandre.torgue@st.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4902e86a-6a86-57d6-51c2-55e391b83dc3@st.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The function stmmac_dt_phy provides several possibilities for initializing
-plat->mdio_node, all of which have the effect of increasing the reference
-count of the assigned value.  This field is not updated elsewhere, so the
-value is live until the end of the lifetime of plat (devm_allocated), just
-after the end of stmmac_remove_config_dt.  Thus, add an of_node_put on
-plat->mdio_node in stmmac_remove_config_dt.  It is possible that the field
-mdio_node is never initialized, but of_node_put is NULL-safe, so it is also
-safe to call of_node_put in that case.
 
-Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
----
- drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c |    1 +
- 1 file changed, 1 insertion(+)
+On Tue, 17 Jan 2017, Alexandre Torgue wrote:
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index 4daa8a3..460f94f 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -409,6 +409,7 @@ void stmmac_remove_config_dt(struct platform_device *pdev,
- 	if (of_phy_is_fixed_link(np))
- 		of_phy_deregister_fixed_link(np);
- 	of_node_put(plat->phy_node);
-+	of_node_put(plat->mdio_node);
- }
- #else
- struct plat_stmmacenet_data *
+> Hi Julia
+>
+> On 01/16/2017 11:10 PM, Julia Lawall wrote:
+> >
+> >
+> > On Tue, 17 Jan 2017, Dan Carpenter wrote:
+> >
+> > > On Mon, Jan 16, 2017 at 10:46:22PM +0100, Julia Lawall wrote:
+> > > >
+> > > >
+> > > > On Mon, 16 Jan 2017, Dan Carpenter wrote:
+> > > >
+> > > > > On Mon, Jan 16, 2017 at 12:19:24PM +0300, Dan Carpenter wrote:
+> > > > > > On Sun, Jan 15, 2017 at 10:14:38PM -0500, David Miller wrote:
+> > > > > > > From: Dan Carpenter <dan.carpenter@oracle.com>
+> > > > > > > Date: Thu, 12 Jan 2017 21:46:32 +0300
+> > > > > > >
+> > > > > > > > The break statement should be indented one more tab.
+> > > > > > > >
+> > > > > > > > Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> > > > > > >
+> > > > > > > Applied, but like Julia I think we might have a missing
+> > > > > > > of_node_put()
+> > > > > > > here.
+> > > > > >
+> > > > > > Of course, sorry for dropping the ball on this.  I'll send a patch
+> > > > > > for
+> > > > > > that.
+> > > > > >
+> > > > >
+> > > > > Actually, I've looked at it some more and I think this function is OK.
+> > > > > We're supposed to do an of_node_put() later...  I can't find where
+> > > > > that
+> > > > > happens, but presumably that's because I don't know stmmac well.  This
+> > > > > code here, though, is fine.
+> > > >
+> > > > Why do you think it is fine?  Does anyone in the calling context know
+> > > > which child would have caused the break?
+> > >
+> > > Yeah.  It's saved in plat->mdio_node and we expect to be holding on
+> > > either path through the function.
+> > >
+> > > (It would be better if one of the stmmac people were responding here
+> > > insead of a random fix the indenting weenie like myself.)
+> >
+> > OK, I agree that there should not be an of_node_put with the break.
+> >
+> > Perhaps there should be an of_node_put on plat->mdio_node in
+> > stmmac_remove_config_dt, like there is an of_node_put on plat->phy_node.
+> > But it would certainly be helpful to hear from someone who knows the code
+> > better.
+>
+> I also think it's missing! Can you propose a patch ?
+
+Done.  Thanks for the clarification.
+
+julia
