@@ -1,50 +1,68 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net-next v4 1/2] net sched actions: Add support for user cookies
-Date: Tue, 17 Jan 2017 10:40:31 -0800
-Message-ID: <CAM_iQpUfvSCJ6j+GsefShWK++tfuBr=buWauBY81gaOpqvN=gA@mail.gmail.com>
-References: <1484651509-27500-1-git-send-email-jhs@emojatatu.com> <1484651509-27500-2-git-send-email-jhs@emojatatu.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [net PATCH v4 5/6] virtio: add pci_down/pci_up configuration
+Date: Tue, 17 Jan 2017 10:45:12 -0800
+Message-ID: <587E6638.80907@gmail.com>
+References: <20170115235528.28980.85142.stgit@john-Precision-Tower-5810>
+ <20170116000119.28980.89712.stgit@john-Precision-Tower-5810>
+ <8844bce3-74bc-fca3-a87b-6736fc62fe62@redhat.com>
+ <587C464E.6020407@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        Linux Kernel Network Developers <netdev@vger.kernel.org>,
-        Jiri Pirko <jiri@mellanox.com>, paulb@mellanox.com,
-        John Fastabend <john.fastabend@gmail.com>,
-        Simon Horman <simon.horman@netronome.com>,
-        Roman Mashak <mrv@mojatatu.com>,
-        Hadar Har-Zion <hadarh@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Roi Dayan <roid@mellanox.com>,
-        Daniel Borkmann <daniel@iogearbox.net>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org,
+        alexei.starovoitov@gmail.com, daniel@iogearbox.net
+To: Jason Wang <jasowang@redhat.com>, mst@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:35185 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750888AbdAQSm3 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 13:42:29 -0500
-Received: by mail-wm0-f67.google.com with SMTP id d140so24145898wmd.2
-        for <netdev@vger.kernel.org>; Tue, 17 Jan 2017 10:40:53 -0800 (PST)
-In-Reply-To: <1484651509-27500-2-git-send-email-jhs@emojatatu.com>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:35719 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751145AbdAQSpl (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 13:45:41 -0500
+Received: by mail-pg0-f65.google.com with SMTP id 204so8635106pge.2
+        for <netdev@vger.kernel.org>; Tue, 17 Jan 2017 10:45:24 -0800 (PST)
+In-Reply-To: <587C464E.6020407@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 17, 2017 at 3:11 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
-> @@ -575,6 +583,23 @@ struct tc_action *tcf_action_init_1(struct net *net, struct nlattr *nla,
->         if (err < 0)
->                 goto err_mod;
->
-> +       if (tb[TCA_ACT_COOKIE]) {
-> +               if (nla_len(tb[TCA_ACT_COOKIE]) > TC_COOKIE_MAX_SIZE) {
-> +                       err = -EINVAL;
-> +                       goto err_mod;
-> +               }
-> +
-> +               a->act_ck = kzalloc(sizeof(*a->act_ck), GFP_KERNEL);
-> +               if (unlikely(!a->act_ck)) {
-> +                       err = -ENOMEM;
-> +                       goto err_mod;
-> +               }
-> +
+On 17-01-15 08:04 PM, John Fastabend wrote:
+> On 17-01-15 07:57 PM, Jason Wang wrote:
+>>
+>>
+>> On 2017年01月16日 08:01, John Fastabend wrote:
+>>> In virtio_net we need to do a full reset of the device to support
+>>> queue reconfiguration and also we can trigger this via ethtool
+>>> commands. So instead of open coding this in net driver push this
+>>> into generic code in virtio. This also avoid exporting a handful
+>>> of internal virtio routines.
+>>
+>> Looks like this is not a pci specific stuffs. And there's some driver left (e.g
+>> scsi and block).
+>>
+>> In fact, I'm not sure touching other drivers is really needed. Maybe we can just:
+>> - move virtio_device_freeze(), virtio_device_restore() and .freeze/.restore in
+>> virtio_driver out of CONFIG_PM_SLEEP
+>> - move virtnet_freeze() and virtnet_restore() out of CONFIG_PM_SLEEP
+>> - introduce virtio_net_reset() and call
+>> virtio_device_freeze()/virtio_device_restore() there
+>>
+> 
+> Michael, what do you think? I was following your suggestion on writing a
+> generic virtio reset here. I don't have a preference either way.
 
-I am afraid you can't just goto err_mod for error case here, b/c ->init()
-is already called before this, you probably either have to call ->destroy()
-for error path, or move this before ->init().
+Actually if I roll it into virtio_net per above suggestion I can probably get
+the locking correct. As DaveM points out its complete junk at the moment around
+the rtnl_try_lock() logic. Ugh.
+
+I'll spin a v5...
+
+> 
+>> Another possible issue for sleep/hibernation is xdp_prog were not restored, if
+>> this is not XDP intended, we'd better fix this.
+> 
+> Yep this bug exists even without this series. I'll add it to my list of things
+> to fix. Along with small packet max_mtu.
+> 
+>>
+>> Thanks
+>>
+>> [...]
+> 
