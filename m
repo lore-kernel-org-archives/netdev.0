@@ -1,64 +1,75 @@
 From: Richard Guy Briggs <rgb@redhat.com>
 Subject: Re: [PATCH V2] audit: log 32-bit socketcalls
-Date: Mon, 16 Jan 2017 22:53:07 -0500
-Message-ID: <20170117035307.GA1095@madcap2.tricolour.ca>
+Date: Mon, 16 Jan 2017 23:03:50 -0500
+Message-ID: <20170117040350.GB1095@madcap2.tricolour.ca>
 References: <dd937da01da72da9277e44ed79abd1f4618c14c5.1484297765.git.rgb@redhat.com>
-	<1484318543.5300.1.camel@redhat.com>
-	<CAHC9VhQsL7c=dAd4ZyTbEugkcrNuaxGNnaOi8oMkn=NCwuVoHA@mail.gmail.com>
+ <20170116.132745.1831536278596554491.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Steve@redhat.com, linux-audit@redhat.com,
-        linux-kernel@vger.kernel.org
-To: Paul Moore <paul@paul-moore.com>
-Return-path: <linux-audit-bounces@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        linux-audit@redhat.com, aixer77@gmail.com, eparis@redhat.com,
+        pmoore@redhat.com, sgrubb@redhat.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <CAHC9VhQsL7c=dAd4ZyTbEugkcrNuaxGNnaOi8oMkn=NCwuVoHA@mail.gmail.com>
-List-Unsubscribe: <https://www.redhat.com/mailman/options/linux-audit>,
-	<mailto:linux-audit-request@redhat.com?subject=unsubscribe>
-List-Archive: <https://www.redhat.com/archives/linux-audit>
-List-Post: <mailto:linux-audit@redhat.com>
-List-Help: <mailto:linux-audit-request@redhat.com?subject=help>
-List-Subscribe: <https://www.redhat.com/mailman/listinfo/linux-audit>,
-	<mailto:linux-audit-request@redhat.com?subject=subscribe>
-Sender: linux-audit-bounces@redhat.com
-Errors-To: linux-audit-bounces@redhat.com
+In-Reply-To: <20170116.132745.1831536278596554491.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 2017-01-16 15:04, Paul Moore wrote:
-> On Fri, Jan 13, 2017 at 9:42 AM, Eric Paris <eparis@redhat.com> wrote:
-> > On Fri, 2017-01-13 at 04:51 -0500, Richard Guy Briggs wrote:
-> >> diff --git a/include/linux/audit.h b/include/linux/audit.h
-> >> index 9d4443f..43d8003 100644
-> >> --- a/include/linux/audit.h
-> >> +++ b/include/linux/audit.h
-> >> @@ -387,6 +387,18 @@ static inline int audit_socketcall(int nargs,
-> >> unsigned long *args)
-> >>               return __audit_socketcall(nargs, args);
-> >>       return 0;
-> >>  }
-> >> +static inline int audit_socketcall_compat(int nargs, u32 *args)
-> >> +{
-> >> +     if (unlikely(!audit_dummy_context())) {
-> >
-> > I've always hated these likely/unlikely. Mostly because I think they
-> > are so often wrong. I believe this says that you compiled audit in but
-> > you expect it to be explicitly disabled. While that is (recently) true
-> > in Fedora I highly doubt that's true on the vast majority of systems
-> > that have audit compiled in.
+On 2017-01-16 13:27, David Miller wrote:
+> From: Richard Guy Briggs <rgb@redhat.com>
+> Date: Fri, 13 Jan 2017 04:51:48 -0500
 > 
-> Richard and I have talked about the likely/unlikely optimization
-> before and I know Richard likes to use them, but I don't for the
-> reasons Eric has already mentioned.   Richard, since you're respinning
-> the patch, go ahead and yank out the unlikely() call.
+> > diff --git a/include/linux/audit.h b/include/linux/audit.h
+> > index 9d4443f..43d8003 100644
+> > --- a/include/linux/audit.h
+> > +++ b/include/linux/audit.h
+> > @@ -387,6 +387,18 @@ static inline int audit_socketcall(int nargs, unsigned long *args)
+> >  		return __audit_socketcall(nargs, args);
+> >  	return 0;
+> >  }
+> > +static inline int audit_socketcall_compat(int nargs, u32 *args)
+> > +{
+> 
+> Please put an empty line between function definitions.
 
-I don't "like to use them".  I'm simply following the use and style of
-existing code and the arguments of others in places of critical
-performance.  If I "fix" that one, then I would feel compelled to yank
-out the one in the function immediately above, audit_socketcall() for
-consistency to ease my conscience.  Eric conceded that argument.
+Ok, should I reformat the rest of the file while I'm at it?
 
-> paul moore
+> > +	if (unlikely(!audit_dummy_context())) {
+> > +		int i;
+> > +		unsigned long a[AUDITSC_ARGS];
+> 
+> Please order local variable declarations from longest to shortest line.
+
+Ok.  Is this a recent addition to a style guide or in checkpatch.pl?
+
+> > +
+> > +		for (i=0; i<nargs; i++)
+> 
+> Please put a space around operators such as "=" and "<".
+
+Oops, my bad...
+
+> > +			a[i] = (unsigned long)args[i];
+> > +		return __audit_socketcall(nargs, a);
+> > +	}
+> > +	return 0;
+> > +}
+> >  static inline int audit_sockaddr(int len, void *addr)
+> 
+> Again, empty line between function definitions please.
+> 
+> > @@ -781,14 +782,24 @@ COMPAT_SYSCALL_DEFINE5(recvmmsg, int, fd, struct compat_mmsghdr __user *, mmsg,
+> >  
+> >  COMPAT_SYSCALL_DEFINE2(socketcall, int, call, u32 __user *, args)
+> >  {
+> > +	unsigned int len;
+> >  	int ret;
+> > -	u32 a[6];
+> > +	u32 a[AUDITSC_ARGS];
+> >  	u32 a0, a1;
+> 
+> Longest to shortest line for local variable declarations please.
 
 - RGB
 
