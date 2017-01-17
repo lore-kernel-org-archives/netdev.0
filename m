@@ -1,49 +1,64 @@
-From: Rolf Neugebauer <rolf.neugebauer@docker.com>
-Subject: [PATCH] virtio: don't set VIRTIO_NET_HDR_F_DATA_VALID on xmit
-Date: Tue, 17 Jan 2017 18:13:51 +0000
-Message-ID: <20170117181351.98291-1-rolf.neugebauer@docker.com>
-Cc: mst@redhat.com, davem@davemloft.net, jasowang@redhat.com,
-        rppt@linux.vnet.ibm.com,
-        Rolf Neugebauer <rolf.neugebauer@docker.com>
-To: netdev@vger.kernel.org
+From: Elad Nachman <EladN@gilat.com>
+Subject: RE: Kernel 4.6.7-rt14 kernel workqueue lockup - rtnl deadlock plus
+ syscall endless loop
+Date: Tue, 17 Jan 2017 18:15:19 +0000
+Message-ID: <AM5PR0701MB1873F82D61AF17A09F2B0E26A07C0@AM5PR0701MB1873.eurprd07.prod.outlook.com>
+References: <AM5PR0701MB187338B2418A19E1B4B55C98A07C0@AM5PR0701MB1873.eurprd07.prod.outlook.com>
+ <20170117.125748.122599514616047216.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1255"
+Content-Transfer-Encoding: quoted-printable
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f50.google.com ([74.125.82.50]:36690 "EHLO
-        mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751007AbdAQSOC (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 13:14:02 -0500
-Received: by mail-wm0-f50.google.com with SMTP id c85so211677383wmi.1
-        for <netdev@vger.kernel.org>; Tue, 17 Jan 2017 10:14:01 -0800 (PST)
+Received: from mail-he1eur01on0060.outbound.protection.outlook.com ([104.47.0.60]:29856
+        "EHLO EUR01-HE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751095AbdAQSPW (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 17 Jan 2017 13:15:22 -0500
+In-Reply-To: <20170117.125748.122599514616047216.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch part reverts fd2a0437dc33 and e858fae2b0b8 which introduced a
-subtle change in how the virtio_net flags are derived from the SKBs
-ip_summed field.
+Any thought about limiting the amount of busy polling?
+Say if more than X polls are done within a jiffy, then at least for preempt=
+able kernels you can sleep for a jiffy inside the syscall to yield the CPU =
+for a while?
 
-With the above commits, the flags are set to VIRTIO_NET_HDR_F_DATA_VALID
-when ip_summed == CHECKSUM_UNNECESSARY, thus treating it differently to
-ip_summed == CHECKSUM_NONE, which should be the same.
+Thanks,
 
-Further, the virtio spec 1.0 / CS04 explicitly says that
-VIRTIO_NET_HDR_F_DATA_VALID must not be set by the driver.
+Elad.
 
-Signed-off-by: Rolf Neugebauer <rolf.neugebauer@docker.com>
----
- include/linux/virtio_net.h | 2 --
- 1 file changed, 2 deletions(-)
+-----Original Message-----
+From: David Miller [mailto:davem@davemloft.net]
+Sent: =E9=E5=ED =E2 17 =E9=F0=E5=E0=F8 2017 19:58
+To: Elad Nachman <EladN@gilat.com>
+Cc: netdev@vger.kernel.org
+Subject: Re: Kernel 4.6.7-rt14 kernel workqueue lockup - rtnl deadlock plus=
+ syscall endless loop
 
-diff --git a/include/linux/virtio_net.h b/include/linux/virtio_net.h
-index 66204007d7ac..56436472ccc7 100644
---- a/include/linux/virtio_net.h
-+++ b/include/linux/virtio_net.h
-@@ -91,8 +91,6 @@ static inline int virtio_net_hdr_from_skb(const struct sk_buff *skb,
- 				skb_checksum_start_offset(skb));
- 		hdr->csum_offset = __cpu_to_virtio16(little_endian,
- 				skb->csum_offset);
--	} else if (skb->ip_summed == CHECKSUM_UNNECESSARY) {
--		hdr->flags = VIRTIO_NET_HDR_F_DATA_VALID;
- 	} /* else everything is zero */
- 
- 	return 0;
--- 
-2.11.0
+From: Elad Nachman <EladN@gilat.com>
+Date: Tue, 17 Jan 2017 17:39:03 +0000
+
+> What's more odd about this is that it's very unusual and strange for a
+> kernel function to invoke the restart mechanism because a lock is
+> being held - the point of the restart mechanism is to allow userspace
+> signal handlers to run, so it should only be used when there's a
+> signal pending. I think this is a hack in the IPv6 code to work around
+> some other issue.
+
+It's not unusal at all, if you actually grep for this under net/ you will s=
+ee that it is in fact a common code pattern.
+
+It prevents deadlocks because the sysfs and other nodes that we are operati=
+ng with can be unregistered by other threads of control holding the RTNL mu=
+tex.  If we don't break out, we won't release our reference and therefore t=
+he RTNL mutex holding entity cannot make forward progress.
+
+This behavior is therefore very much intentional.
+IMPORTANT - This email and any attachments is intended for the above named =
+addressee(s), and may contain information which is confidential or privileg=
+ed. If you are not the intended recipient, please inform the sender immedia=
+tely and delete this email: you should not copy or use this e-mail for any =
+purpose nor disclose its contents to any person.
