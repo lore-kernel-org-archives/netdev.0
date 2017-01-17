@@ -1,132 +1,130 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next v4 1/2] net sched actions: Add support for user
- cookies
-Date: Tue, 17 Jan 2017 11:50:21 -0500
-Message-ID: <bead2dc5-87a2-2fca-d50d-871f28be1d5b@mojatatu.com>
-References: <1484651509-27500-1-git-send-email-jhs@emojatatu.com>
- <1484651509-27500-2-git-send-email-jhs@emojatatu.com>
- <587E2747.9000207@iogearbox.net>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: virtio: Subtle changes to virtio_net flags breaks VXLAN on
+ Google Cloud
+Date: Tue, 17 Jan 2017 18:51:18 +0200
+Message-ID: <20170117184933-mutt-send-email-mst@kernel.org>
+References: <CA+pO-2dnYX2OguTXPP_UV8hKwubNJ6Umxiux4vc+9yO0Ff0orw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jiri@mellanox.com, paulb@mellanox.com,
-        john.fastabend@gmail.com, simon.horman@netronome.com,
-        mrv@mojatatu.com, hadarh@mellanox.com, ogerlitz@mellanox.com,
-        roid@mellanox.com, xiyou.wangcong@gmail.com
-To: Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f196.google.com ([209.85.216.196]:33543 "EHLO
-        mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751031AbdAQQuY (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 11:50:24 -0500
-Received: by mail-qt0-f196.google.com with SMTP id n13so22778229qtc.0
-        for <netdev@vger.kernel.org>; Tue, 17 Jan 2017 08:50:23 -0800 (PST)
-In-Reply-To: <587E2747.9000207@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Mike Rapoport <rppt@linux.vnet.ibm.com>,
+        David Miller <davem@davemloft.net>, virtio-dev@lists.oasis-open.org,
+        Jason Wang <jasowang@redhat.com>,
+        virtualization@lists.linux-foundation.org
+To: Rolf Neugebauer <rolf.neugebauer@docker.com>
+Return-path: <virtio-dev-return-1883-gcvd-virtio-dev=m.gmane.org@lists.oasis-open.org>
+Sender: <virtio-dev@lists.oasis-open.org>
+List-Post: <mailto:virtio-dev@lists.oasis-open.org>
+List-Help: <mailto:virtio-dev-help@lists.oasis-open.org>
+List-Unsubscribe: <mailto:virtio-dev-unsubscribe@lists.oasis-open.org>
+List-Subscribe: <mailto:virtio-dev-subscribe@lists.oasis-open.org>
+Content-Disposition: inline
+In-Reply-To: <CA+pO-2dnYX2OguTXPP_UV8hKwubNJ6Umxiux4vc+9yO0Ff0orw@mail.gmail.com>
+List-Id: netdev.vger.kernel.org
 
-On 17-01-17 09:16 AM, Daniel Borkmann wrote:
-> On 01/17/2017 12:11 PM, Jamal Hadi Salim wrote:
->> From: Jamal Hadi Salim <jhs@mojatatu.com>
->>
->> Introduce optional 128-bit action cookie.
->> Like all other cookie schemes in the networking world (eg in protocols
->> like http or existing kernel fib protocol field, etc) the idea is to save
->> user state that when retrieved serves as a correlator. The kernel
->> _should not_ intepret it.  The user can store whatever they wish in the
->> 128 bits.
-> [...]
->
-> Since it looks like you need a v5 anyway, few comments below.
->
->>   include/net/act_api.h        |  1 +
->>   include/net/pkt_cls.h        |  8 ++++++++
->>   include/uapi/linux/pkt_cls.h |  3 +++
->>   net/sched/act_api.c          | 25 +++++++++++++++++++++++++
->>   4 files changed, 37 insertions(+)
->>
->> diff --git a/include/net/act_api.h b/include/net/act_api.h
->> index 1d71644..0692458 100644
->> --- a/include/net/act_api.h
->> +++ b/include/net/act_api.h
->> @@ -41,6 +41,7 @@ struct tc_action {
->>       struct rcu_head            tcfa_rcu;
->>       struct gnet_stats_basic_cpu __percpu *cpu_bstats;
->>       struct gnet_stats_queue __percpu *cpu_qstats;
->> +    struct tc_cookie    *act_ck;
->
-> Since we know anyway that this is part of struct tc_action, can't
-> you just give this some real/readable name like ...
->
->   struct tc_cookie cookie;
->
+On Tue, Jan 17, 2017 at 04:20:49PM +0000, Rolf Neugebauer wrote:
+> Commits:
+> 
+> fd2a0437dc33 virtio_net: introduce virtio_net_hdr_{from,to}_skb
+> e858fae2b0b8 virtio_net: use common code for virtio_net_hdr and skb
+> GSO conversion
+> 
+> introduced a subtle (but unexplained) difference in how virtio_net
+> flags are derived from skb->ip_summed fields on transmit from the
+> guest to the host/backend. Prior to the patches the flags would be set
+> to VIRTIO_NET_HDR_F_NEEDS_CSUM if ip_summed was CHECKSUM_PARTIAL,
+> otherwise the flags would be set to 0.
+> 
+> After the commits, virtio_net flags would still be set to
+> VIRTIO_NET_HDR_F_NEEDS_CSUM if ip_summed == CHECKSUM_PARTIAL but it
+> now sets the virtio_net flags to VIRTIO_NET_HDR_F_DATA_VALID if
+> ip_summed == CHECKSUM_UNNECESSARY. Otherwise the virtio_net flags are set to 0.
+> 
+> skbuff.h says that for transmitting CHECKSUM_NONE and
+> CHECKSUM_UNNECESSARY have the same meaning, yet the above changes
+> treat them different.
+> 
+> Version 1.0 of the virtio spec [1] says in Section 5.1.6.2.1 Driver
+> Requirements: Packet Transmission: "The driver MUST NOT set the
+> VIRTIO_NET_HDR_F_DATA_VALID bit in flags." The above changes clearly
+> do that, but maybe I'm mis-reading the spec here.
+> 
+> The changes break VXLAN in some setups (we discovered it on Google
+> Could Engine, see below). We are trying to establish if this is an
+> issue with the GCE backend implementation, or if the above commit
+> should be amended to revert to the old behaviour (set
+> VIRTIO_NET_HDR_F_NEEDS_CSUM if ip_summed==CHECKSUM_PARTIAL, otherwise
+> set flags to 0).
+> 
+> Reverting back to the old behaviour (see strawman patch below) fixes
+> the issue we were seeing. While we tested with a 4.9.3 kernel, the
+> code in question has not been changed since.
+> 
+> Thanks
+> Rolf
+> 
+> Background:
+> On Google cloud, we have a setup with a manager node using a 4.9.3
+> kernel, two worker nodes (one with a 4.9.3 and the other with a 4.4.41
+> based kernel). Requests from a client node to the manager node are
+> either handled by the manager node or one of the two worker nodes. If
+> requests are handled by a worker node, the request (including the
+> SYN/SYN,ACK handshake) are encapsulated in VXLAN before being sent to
+> the worker and responses are decapsulate by the manager and forwarded
+> back to the client.
+> If a request is handled by either the manager or the 4.4 based worker,
+> everything works as expected. For requests handled by the 4.9 based
+> worker we see the response packet being sent to the client node by the
+> manager node (tcpdump on eth0), but it never arrives at the client
+> node.
+> 
+> Looking at the packets in a bit more detail, we noticed that the VXLAN
+> encapsulated responses from a 4.4 based worker have a zero UDP
+> checksum in the outer header while the responses from the 4.9 based
+> worker have a correct UDP checksum. Both packets have correct
+> checksums in the inner packet.
+> 
+> We instrumented the virtio_net driver and looked at the values of
+> ip_summed and virtio_net flags for the last hop of the SYN,ACK from
+> the manager back to the client.
+> 
+> - Requests handled directly by the manager have ip_summed =
+>   CHECKSUM_PARTIAL and flags
+>   VIRTIO_NET_HDR_F_NEEDS_CSUM (checksum offload).
+> - Requests originally originated from the 4.4 based worker
+>   (where the outer UDP checksum was zero) have ip_summed =
+>   CHECKSUM_NONE and flags = VIRTIO_NET_F_CSUM
+>   (no checksum offload)
+> - Requests originally originated from the 4.9 based worker
+>   (where the outer UDP checksum was filled in) have ip_summed =
+>   CHECKSUM_UNNECESSARY and flags =
+>   VIRTIO_NET_HDR_F_DATA_VALID. These packets get dropped
+>   before they reach the client.
+> 
+> The VXLAN code seems to set ip_summed to either CHECKSUM_NONE or
+> CHECKSUM_UNNECESSARY depending on the presence of the UDP checksum in
+> the outer header.
+> 
+> As a strawman, we reverted to the old behaviour on the xmit path with:
+> --- a/include/linux/virtio_net.h
+> +++ b/include/linux/virtio_net.h
+> @@ -91,9 +91,7 @@ static inline int virtio_net_hdr_from_skb(const
+> struct sk_buff *skb,
+>                                 skb_checksum_start_offset(skb));
+>                 hdr->csum_offset = __cpu_to_virtio16(little_endian,
+>                                 skb->csum_offset);
+> -       } else if (skb->ip_summed == CHECKSUM_UNNECESSARY) {
+> -               hdr->flags = VIRTIO_NET_HDR_F_DATA_VALID;
+> -       } /* else everything is zero */
+> +       }
+> 
+>         return 0;
+>  }
+> and it fixes the issue.
+> 
+> 
+> [1] http://docs.oasis-open.org/virtio/virtio/v1.0/cs04/virtio-v1.0-cs04.pdf
 
 
-Grep-ability.
-I was worried about when the classifier adds its cookie it
-would need to use something like cls_cookie etc.
-
-> ... and then ...
->
->>   };
->>   #define tcf_head    common.tcfa_head
->>   #define tcf_index    common.tcfa_index
->> diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
->> index f0a0514..e0bc7e8 100644
->> --- a/include/net/pkt_cls.h
->> +++ b/include/net/pkt_cls.h
->> @@ -515,4 +515,12 @@ struct tc_cls_bpf_offload {
->>       u32 gen_flags;
->>   };
->>
->> +
->> +/* This structure holds cookie structure that is passed from user
->> + * to the kernel for actions and classifiers
->> + */
->> +struct tc_cookie {
->> +    unsigned char ck[TC_COOKIE_MAX_SIZE];
->> +    unsigned char ck_len;
->
-> ... embed and make this ...
->
-> struct tc_cookie {
->     u8  *data;
->     u32  len;
-> };
->
-
-> as act->act_ck->ck_len is rather funky, compare that to act->cookie->len.
->
->> +};
->>   #endif
-> [...]
->> @@ -575,6 +583,23 @@ struct tc_action *tcf_action_init_1(struct net
->> *net, struct nlattr *nla,
->>       if (err < 0)
->>           goto err_mod;
->>
->> +    if (tb[TCA_ACT_COOKIE]) {
->> +        if (nla_len(tb[TCA_ACT_COOKIE]) > TC_COOKIE_MAX_SIZE) {
->> +            err = -EINVAL;
->> +            goto err_mod;
->> +        }
->> +
->> +        a->act_ck = kzalloc(sizeof(*a->act_ck), GFP_KERNEL);
->> +        if (unlikely(!a->act_ck)) {
->> +            err = -ENOMEM;
->> +            goto err_mod;
->> +        }
->> +
->> +        memcpy(a->act_ck->ck, nla_data(tb[TCA_ACT_COOKIE]),
->> +               nla_len(tb[TCA_ACT_COOKIE]));
->> +        a->act_ck->ck_len = nla_len(tb[TCA_ACT_COOKIE]);
->
-> Then you can also simplify all this and use nla_memdup() here for
-> act->cookie->data.
->
-
-I can do that if you feel strongly. I am dropping the first patch and
-hope Dave just applies this first patch.
-
-cheers,
-jamal
+I'm inclined to agree with your patch. Could you pls re-submit
+in a standard way? I'll ack.
