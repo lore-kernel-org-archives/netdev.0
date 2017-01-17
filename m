@@ -1,51 +1,79 @@
-From: Tariq Toukan <tariqt@mellanox.com>
-Subject: [PATCH net 3/3] net/mlx5e: Remove unnecessary checks when setting num channels
-Date: Tue, 17 Jan 2017 19:19:19 +0200
-Message-ID: <1484673559-21687-4-git-send-email-tariqt@mellanox.com>
-References: <1484673559-21687-1-git-send-email-tariqt@mellanox.com>
-Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
-        Tariq Toukan <tariqt@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next v4 1/2] net sched actions: Add support for user
+ cookies
+Date: Tue, 17 Jan 2017 18:05:01 +0100
+Message-ID: <20170117170501.GE1807@nanopsycho.orion>
+References: <1484651509-27500-1-git-send-email-jhs@emojatatu.com>
+ <1484651509-27500-2-git-send-email-jhs@emojatatu.com>
+ <587E2747.9000207@iogearbox.net>
+ <bead2dc5-87a2-2fca-d50d-871f28be1d5b@mojatatu.com>
+ <587E4D16.8030708@iogearbox.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>, davem@davemloft.net,
+        netdev@vger.kernel.org, jiri@mellanox.com, paulb@mellanox.com,
+        john.fastabend@gmail.com, simon.horman@netronome.com,
+        mrv@mojatatu.com, hadarh@mellanox.com, ogerlitz@mellanox.com,
+        roid@mellanox.com, xiyou.wangcong@gmail.com
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:59495 "EHLO
-        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-        with ESMTP id S1751132AbdAQR0o (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 12:26:44 -0500
-In-Reply-To: <1484673559-21687-1-git-send-email-tariqt@mellanox.com>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:34236 "EHLO
+        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750830AbdAQR3M (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 12:29:12 -0500
+Received: by mail-wm0-f67.google.com with SMTP id c85so7510276wmi.1
+        for <netdev@vger.kernel.org>; Tue, 17 Jan 2017 09:28:22 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <587E4D16.8030708@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eran Ben Elisha <eranbe@mellanox.com>
+Tue, Jan 17, 2017 at 05:57:58PM CET, daniel@iogearbox.net wrote:
+>On 01/17/2017 05:50 PM, Jamal Hadi Salim wrote:
+>> On 17-01-17 09:16 AM, Daniel Borkmann wrote:
+>> > On 01/17/2017 12:11 PM, Jamal Hadi Salim wrote:
+>> > > From: Jamal Hadi Salim <jhs@mojatatu.com>
+>> > > 
+>> > > Introduce optional 128-bit action cookie.
+>> > > Like all other cookie schemes in the networking world (eg in protocols
+>> > > like http or existing kernel fib protocol field, etc) the idea is to save
+>> > > user state that when retrieved serves as a correlator. The kernel
+>> > > _should not_ intepret it.  The user can store whatever they wish in the
+>> > > 128 bits.
+>> > [...]
+>> > 
+>> > Since it looks like you need a v5 anyway, few comments below.
+>> > 
+>> > >   include/net/act_api.h        |  1 +
+>> > >   include/net/pkt_cls.h        |  8 ++++++++
+>> > >   include/uapi/linux/pkt_cls.h |  3 +++
+>> > >   net/sched/act_api.c          | 25 +++++++++++++++++++++++++
+>> > >   4 files changed, 37 insertions(+)
+>> > > 
+>> > > diff --git a/include/net/act_api.h b/include/net/act_api.h
+>> > > index 1d71644..0692458 100644
+>> > > --- a/include/net/act_api.h
+>> > > +++ b/include/net/act_api.h
+>> > > @@ -41,6 +41,7 @@ struct tc_action {
+>> > >       struct rcu_head            tcfa_rcu;
+>> > >       struct gnet_stats_basic_cpu __percpu *cpu_bstats;
+>> > >       struct gnet_stats_queue __percpu *cpu_qstats;
+>> > > +    struct tc_cookie    *act_ck;
+>> > 
+>> > Since we know anyway that this is part of struct tc_action, can't
+>> > you just give this some real/readable name like ...
+>> > 
+>> >   struct tc_cookie cookie;
+>> 
+>> Grep-ability.
+>> I was worried about when the classifier adds its cookie it
+>> would need to use something like cls_cookie etc.
+>
+>Given this cookie is just used for correlation in user space anyway
+>and not processed any further by the kernel, I think we can well
+>handle these very few spots, so would be better if the code is more
+>maintainable instead.
 
-Boundaries checks for the number of RX and TX should be checked by the
-caller and not in the driver.
+I agree with Daniel. His naming change suggestions make sense.
 
-Signed-off-by: Eran Ben Elisha <eranbe@mellanox.com>
-Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c | 10 ----------
- 1 file changed, 10 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-index 33a399a8b5d5..b1b9eb6ee135 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-@@ -554,16 +554,6 @@ static int mlx5e_set_channels(struct net_device *dev,
- 			    __func__);
- 		return -EINVAL;
- 	}
--	if (ch->rx_count || ch->tx_count) {
--		netdev_info(dev, "%s: separate rx/tx count not supported\n",
--			    __func__);
--		return -EINVAL;
--	}
--	if (count > ncv) {
--		netdev_info(dev, "%s: count (%d) > max (%d)\n",
--			    __func__, count, ncv);
--		return -EINVAL;
--	}
- 
- 	if (priv->params.num_channels == count)
- 		return 0;
--- 
-1.8.3.1
+In fact, Jamal, now I know why there are names like this all over TC :)
