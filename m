@@ -1,111 +1,120 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: Re: [PATCHv3 net-next 2/7] sctp: add support for generating stream
- reconf ssn reset request chunk
-Date: Tue, 17 Jan 2017 12:27:48 +0800
-Message-ID: <CADvbK_dE6h1JQAKytA332jLKiW2UA9+A3QQKdO-e-hExgJ=NQw@mail.gmail.com>
-References: <cover.1484334002.git.lucien.xin@gmail.com> <6c991b81f4a92cec3da773bae9b19e878e810c88.1484334002.git.lucien.xin@gmail.com>
- <20170115155150.GG3781@localhost.localdomain> <CADvbK_cLGNyCWCHJ1pcMxxuqFvGABKBOS36_ekJhYsrd30nc3g@mail.gmail.com>
+From: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
+Subject: (unknown)
+Date: Mon, 16 Jan 2017 21:18:36 -0800
+Message-ID: <CALCETrW+ZQ1xMEfdEOzx6RK9ZoCvQiqQSnOyhDJ=-FZMwUbucg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-        Neil Horman <nhorman@tuxdriver.com>,
-        Vlad Yasevich <vyasevich@gmail.com>,
-        davem <davem@davemloft.net>
-To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f194.google.com ([209.85.216.194]:36194 "EHLO
-        mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750787AbdAQE1t (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2017 23:27:49 -0500
-In-Reply-To: <CADvbK_cLGNyCWCHJ1pcMxxuqFvGABKBOS36_ekJhYsrd30nc3g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Michal Hocko <mhocko-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+        David Ahern <dsahern-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Andy Lutomirski <luto-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+        Daniel Mack <daniel-cYrQPVfZoowdnm+yROfE0A@public.gmane.org>,
+        =?UTF-8?B?TWlja2HDq2wgU2FsYcO8bg==?= <mic-WFhQfpSGs3bR7s880joybQ@public.gmane.org>,
+        Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, Jann Horn <jann-XZ1E9jl8jIdeoWH0uzbU5w@public.gmane.org>,
+        "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>,
+        Michael Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Subject: 
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 16, 2017 at 11:56 AM, Xin Long <lucien.xin@gmail.com> wrote:
-> On Sun, Jan 15, 2017 at 11:51 PM, Marcelo Ricardo Leitner
-> <marcelo.leitner@gmail.com> wrote:
->> On Sat, Jan 14, 2017 at 03:15:36AM +0800, Xin Long wrote:
->>> This patch is to add asoc strreset_outseq and strreset_inseq for
->>> saving the reconf request sequence, initialize them when create
->>> assoc and process init, and also to define Incoming and Outgoing
->>> SSN Reset Request Parameter described in rfc6525 section 4.1 and
->>> 4.2, As they can be in one same chunk as section rfc6525 3.1-3
->>> describes, it makes them in one function.
->>>
->>> Signed-off-by: Xin Long <lucien.xin@gmail.com>
->>> ---
->>>  include/linux/sctp.h       | 26 ++++++++++++++
->>>  include/net/sctp/sm.h      |  5 ++-
->>>  include/net/sctp/structs.h |  3 ++
->>>  net/sctp/associola.c       |  1 +
->>>  net/sctp/sm_make_chunk.c   | 88 ++++++++++++++++++++++++++++++++++++++++++++++
->>>  5 files changed, 122 insertions(+), 1 deletion(-)
->>>
->>> diff --git a/include/linux/sctp.h b/include/linux/sctp.h
->>> index cdc3b05..d5da19c 100644
->>> --- a/include/linux/sctp.h
->>> +++ b/include/linux/sctp.h
->>> @@ -200,6 +200,13 @@ typedef enum {
->>>       SCTP_PARAM_SUCCESS_REPORT       = cpu_to_be16(0xc005),
->>>       SCTP_PARAM_ADAPTATION_LAYER_IND = cpu_to_be16(0xc006),
->>>
->>> +     /* RE-CONFIG. Section 4 */
->>> +     SCTP_PARAM_RESET_OUT_REQUEST            = cpu_to_be16(0x000d),
->>> +     SCTP_PARAM_RESET_IN_REQUEST             = cpu_to_be16(0x000e),
->>> +     SCTP_PARAM_RESET_TSN_REQUEST            = cpu_to_be16(0x000f),
->>> +     SCTP_PARAM_RESET_RESPONSE               = cpu_to_be16(0x0010),
->>> +     SCTP_PARAM_RESET_ADD_OUT_STREAMS        = cpu_to_be16(0x0011),
->>> +     SCTP_PARAM_RESET_ADD_IN_STREAMS         = cpu_to_be16(0x0012),
->>>  } sctp_param_t; /* enum */
->>>
->>>
->>> @@ -716,4 +723,23 @@ struct sctp_reconf_chunk {
->>>       __u8 params[0];
->>>  } __packed;
->>>
->>> +struct sctp_strreset_req {
->>> +     sctp_paramhdr_t param_hdr;
->>> +     __u32 request_seq;
->>> +} __packed;
->>> +
->>> +struct sctp_strreset_outreq {
->>> +     sctp_paramhdr_t param_hdr;
->>> +     __u32 request_seq;
+;; This buffer is for text that is not saved, and for Lisp evaluation.
+;; To create a file, visit it with C-x C-f and enter text in its buffer.
+
+
+
+On Sun, Jan 15, 2017 at 5:19 PM, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org> wrote:
+> Hello,
+>
+> Sorry about the delay.  Some fire fighthing followed the holidays.
+>
+> On Tue, Jan 03, 2017 at 11:25:59AM +0100, Michal Hocko wrote:
+>> > So from what I understand the proposed cgroup is not in fact
+>> > hierarchical at all.
+>> >
+>> > @TJ, I thought you were enforcing all new cgroups to be properly
+>> > hierarchical, that would very much include this one.
 >>
->> This should be:
->> +       struct sctp_strreset_req strreset_req;
->> Use the definition you created above for the encapsulation and make the
->> embedding evident.
->> Like it's done for sctp_chunkhdr_t.
-> I'm not sure if it's good to do it like sctp_chunkhdr_t.
+>> I would be interested in that as well. We have made that mistake in
+>> memcg v1 where hierarchy could be disabled for performance reasons and
+>> that turned out to be major PITA in the end. Why do we want to repeat
+>> the same mistake here?
 >
-> As sctp_chunkhdr is a very common data:
-> Chunk Type  | Chunk  Flags  |  Chunk Length
-> and the next must be "Chunk Value"
+> Across the different threads on this subject, there have been multiple
+> explanations but I'll try to sum it up more clearly.
 >
-> But here sctp_strreset_req is more used to access
-> the request_seq of the params in asoc->strreset_chunk
-> without knowing params' type. like in sctp_chunk_lookup_strreset_param()
-> and sctp_process_strreset_resp() [see it from the big patchset].
+> The big issue here is whether this is a cgroup thing or a bpf thing.
+> I don't think there's anything inherently wrong with one approach or
+> the other.  Forget about the proposed cgroup bpf extentions but thinkg
+> about how iptables does cgroups.  Whether it's the netcls/netprio in
+> v1 or direct membership matching in v2, it is the network side testing
+> for cgroup membership one way or the other.  The only part where
+> cgroup is involved in is answering that test.
 >
-> struct sctp_strreset_outreq {
->         sctp_paramhdr_t param_hdr;
->         __u32 request_seq;
->         ------------------------------------[1]
->         __u32 response_seq;
->         __u32 send_reset_at_tsn;
->         __u16 list_of_streams[0];
-> } __packed;
+
+[...]
+
 >
-> it seems not good to split it by [1].
->         __u32 request_seq;
->         __u32 response_seq;
->         __u32 send_reset_at_tsn;
->         __u16 list_of_streams[0];
-> these should to together and equal.
->
-> what do you think ?
->
-Hi, Marcelo, I'm planning to drop "struct sctp_strreset_req" so
-that it will not be confusing here, and only introduce it when
-it's used somewhere. agreed ?
+> None of the issues that people have been raising here is actually an
+> issue if one thinks of it as a part of bpf.  Its security model is
+> exactly the same as any other bpf programs.  Recursive behavior is
+> exactly the same as how other external cgroup descendant membership
+> testing work.  There is no issue here whatsoever.
+
+After sleeping on this, here are my thoughts:
+
+First, there are three ways to think about this, not just two.  It
+could be a BPF feature, a net feature, or a cgroup feature.
+
+I think that calling it a BPF feature is a cop-out.  BPF is an
+assembly language and a mechanism for importing little programs into
+the kernel.  BPF maps are a BPF feature.  These new hooks are a
+feature that actively changes the behavior of other parts of the
+kernel.  I don't see how calling this new feature a "BPF" feature
+excuses it from playing by the expected rules of the subsystems it
+affects or from generally working well with the rest of the kernel.
+
+Perhaps this is a net feature, though, not a cgroup feature.  This
+would IMO make a certain amount of sense.  Iptables cgroup matches,
+for example, logically are an iptables (i.e., net) feature.  The
+problem here is that network configuration (and this explicitly
+includes iptables) is done on a per-netns level, whereas these new
+hooks entirely ignore network namespaces.  I've pointed out that
+trying to enable them in a namespaced world is problematic (e.g.
+switching to ns_capable() will cause serious problems), and Alexei
+seems to think that this will never happen.  So I don't think we can
+really call this a net feature that works the way that other net
+features work.
+
+(Suppose that this actually tried to be netns-enabled.  Then you'd
+have to map from (netns, cgroup) -> hook, and this would probably be
+slow and messy.)
+
+So I think that leaves it being a cgroup feature.  And it definitely
+does *not* play by the rules of cgroups right now.
+
+> I'm sure we'll
+> eventually get there but from what I hear it isn't something we can
+> pull off in a restricted timeframe.
+
+To me, this sounds like "the API isn't that great, we know how to do
+better, but we really really want this feature ASAP so we want to ship
+it with a sub-par API."  I think that's a bad idea.
+
+> This also holds true for the perf controller.  While it is implemented
+> as a controller, it isn't visible to cgroup users in any way and the
+> only function it serves is providing the membership test to perf
+> subsystem.  perf is the one which decides whether and how it is to be
+> used.  cgroup providing membership test to other subsystems is
+> completely acceptable and established.
+
+Unless I'm mistaken, "perf_event" is an actual cgroup controller, and
+it explicitly respects the cgroup hierarchy.  It shows up in
+/proc/cgroups, and I had no problem mounting a cgroupfs instance with
+perf_event enabled.  So I'm not sure what you mean.
