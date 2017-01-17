@@ -1,32 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/1] net: ping: Use right format specifier to
- avoid type casting
-Date: Tue, 17 Jan 2017 15:26:22 -0500 (EST)
-Message-ID: <20170117.152622.1655518798156744976.davem@davemloft.net>
-References: <1484619679-17728-1-git-send-email-fgao@ikuai8.com>
+Subject: Re: [PATCH net] vxlan: fix byte order of vxlan-gpe port number
+Date: Tue, 17 Jan 2017 15:24:28 -0500 (EST)
+Message-ID: <20170117.152428.2276395361149194637.davem@davemloft.net>
+References: <1484609878-7288-1-git-send-email-lrichard@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, netdev@vger.kernel.org,
-        gfree.wind@gmail.com
-To: fgao@ikuai8.com
+Cc: netdev@vger.kernel.org, jbenc@redhat.com
+To: lrichard@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:43174 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:43098 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750863AbdAQU03 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 15:26:29 -0500
-In-Reply-To: <1484619679-17728-1-git-send-email-fgao@ikuai8.com>
+        with ESMTP id S1750830AbdAQU0H (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 15:26:07 -0500
+In-Reply-To: <1484609878-7288-1-git-send-email-lrichard@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: fgao@ikuai8.com
-Date: Tue, 17 Jan 2017 10:21:19 +0800
+From: Lance Richardson <lrichard@redhat.com>
+Date: Mon, 16 Jan 2017 18:37:58 -0500
 
-> From: Gao Feng <fgao@ikuai8.com>
+> vxlan->cfg.dst_port is in network byte order, so an htons()
+> is needed here. Also reduced comment length to stay closer
+> to 80 column width (still slightly over, however).
 > 
-> The inet_num is u16, so use %hu instead of casting it to int. And
-> the sk_bound_dev_if is int actually, so it needn't cast to int.
-> 
-> Signed-off-by: Gao Feng <fgao@ikuai8.com>
+> Fixes: e1e5314de08b ("vxlan: implement GPE")
+> Signed-off-by: Lance Richardson <lrichard@redhat.com>
 
-Applied.
+Applied and queued up for -stable, thanks.
