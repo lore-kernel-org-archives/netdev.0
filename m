@@ -1,64 +1,74 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v2 1/3] net: ipv6: Allow shorthand delete of all
- nexthops in multipath route
-Date: Mon, 16 Jan 2017 18:27:36 -0700
-Message-ID: <06d4b3c0-0713-04b8-32d2-99b9b083b825@cumulusnetworks.com>
-References: <1484510826-2723-1-git-send-email-dsa@cumulusnetworks.com>
- <1484510826-2723-2-git-send-email-dsa@cumulusnetworks.com>
- <20170116.195139.2265183195514595519.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ddutt@cumulusnetworks.com
-To: David Miller <davem@davemloft.net>
+From: Shyam Saini <mayhs11saini@gmail.com>
+Subject: [PATCH] qed: Replace memset with eth_zero_addr
+Date: Tue, 17 Jan 2017 07:35:04 +0530
+Message-ID: <1484618704-3396-1-git-send-email-mayhs11saini@gmail.com>
+Cc: Ariel.Elior@cavium.com, everest-linux-l2@cavium.com,
+        netdev@vger.kernel.org, Shyam Saini <mayhs11saini@gmail.com>
+To: Yuval.Mintz@cavium.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f174.google.com ([209.85.192.174]:33687 "EHLO
-        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750917AbdAQBzQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2017 20:55:16 -0500
-Received: by mail-pf0-f174.google.com with SMTP id y143so57604715pfb.0
-        for <netdev@vger.kernel.org>; Mon, 16 Jan 2017 17:54:26 -0800 (PST)
-In-Reply-To: <20170116.195139.2265183195514595519.davem@davemloft.net>
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:36549 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750734AbdAQCFY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2017 21:05:24 -0500
+Received: by mail-pg0-f66.google.com with SMTP id 75so6603469pgf.3
+        for <netdev@vger.kernel.org>; Mon, 16 Jan 2017 18:05:23 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 1/16/17 5:51 PM, David Miller wrote:
-> From: David Ahern <dsa@cumulusnetworks.com>
-> Date: Sun, 15 Jan 2017 12:07:04 -0800
-> 
->> @@ -2143,6 +2143,26 @@ int ip6_del_rt(struct rt6_info *rt)
->>  	return __ip6_del_rt(rt, &info);
->>  }
->>  
->> +/* called with table lock held */
->  ...
->> @@ -2176,10 +2196,9 @@ static int ip6_route_del(struct fib6_config *cfg)
->>  				continue;
->>  			if (cfg->fc_protocol && cfg->fc_protocol != rt->rt6i_protocol)
->>  				continue;
->> -			dst_hold(&rt->dst);
->> -			read_unlock_bh(&table->tb6_lock);
->>  
->> -			return __ip6_del_rt(rt, &cfg->fc_nlinfo);
->> +			err = __ip6_route_del(rt, cfg);
->> +			break;
->>  		}
-> 
-> fib6_del() (invoked by __ip6_route_del()) has to be invoked with the
-> table lock held a sa writer, but here you are only holding it as a
-> reader.
+Use eth_zero_addr to assign zero address to the given address array
+instead of memset when the second argument in memset is address
+of zero. Also, it makes the code clearer
 
-That table lock is still held. If you look up 2 lines I remove the line that releases the lock.
+Signed-off-by: Shyam Saini <mayhs11saini@gmail.com>
+---
+ drivers/net/ethernet/qlogic/qed/qed_l2.c    | 2 +-
+ drivers/net/ethernet/qlogic/qed/qed_sriov.c | 7 +++----
+ 2 files changed, 4 insertions(+), 5 deletions(-)
 
-> 
-> I also think some more thought has to be put into whether we can
-> change behavior like this without using a flag, as suggested by Roopa.
-> 
-
-I'm all for changing the behavior by default, but AIUI that breaks the golden rule.
-
-libnl as of libnl3_2_16-16-g29b71371e764  (a patch by Roopa) already handles both flavors -- if RTA_MULTIPATH is sent it handles it fine and if a series of routes are sent they are consolidated to 1 object with next hops.
-
-iproute2 can handle it just fine as well. I made no changes to get the display format consistent. The problem here is scripts that rely on the old format.
-
-quagga does *not* correctly handle the RTA_MULTIPATH attribute for IPv6 but then it does not properly handle IPv6 multipath routes it receives from the kernel at all. Same result with current kernel code or with this patch set - only the last nexthop is retained. (quagga routes pushed to kernel works, but kernel routes fed to quagga does not)
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_l2.c b/drivers/net/ethernet/qlogic/qed/qed_l2.c
+index c92a850..7520eb3 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_l2.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_l2.c
+@@ -1846,7 +1846,7 @@ static int qed_fill_eth_dev_info(struct qed_dev *cdev,
+ 	qed_fill_dev_info(cdev, &info->common);
+ 
+ 	if (IS_VF(cdev))
+-		memset(info->common.hw_mac, 0, ETH_ALEN);
++		eth_zero_addr(info->common.hw_mac);
+ 
+ 	return 0;
+ }
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_sriov.c b/drivers/net/ethernet/qlogic/qed/qed_sriov.c
+index b121364..3f4bf31 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_sriov.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_sriov.c
+@@ -1224,7 +1224,7 @@ static void qed_iov_clean_vf(struct qed_hwfn *p_hwfn, u8 vfid)
+ 		return;
+ 
+ 	/* Clear the VF mac */
+-	memset(vf_info->mac, 0, ETH_ALEN);
++	eth_zero_addr(vf_info->mac);
+ 
+ 	vf_info->rx_accept_mode = 0;
+ 	vf_info->tx_accept_mode = 0;
+@@ -2626,8 +2626,7 @@ static int qed_iov_vf_update_mac_shadow(struct qed_hwfn *p_hwfn,
+ 		for (i = 0; i < QED_ETH_VF_NUM_MAC_FILTERS; i++) {
+ 			if (ether_addr_equal(p_vf->shadow_config.macs[i],
+ 					     p_params->mac)) {
+-				memset(p_vf->shadow_config.macs[i], 0,
+-				       ETH_ALEN);
++				eth_zero_addr(p_vf->shadow_config.macs[i]);
+ 				break;
+ 			}
+ 		}
+@@ -2640,7 +2639,7 @@ static int qed_iov_vf_update_mac_shadow(struct qed_hwfn *p_hwfn,
+ 	} else if (p_params->opcode == QED_FILTER_REPLACE ||
+ 		   p_params->opcode == QED_FILTER_FLUSH) {
+ 		for (i = 0; i < QED_ETH_VF_NUM_MAC_FILTERS; i++)
+-			memset(p_vf->shadow_config.macs[i], 0, ETH_ALEN);
++			eth_zero_addr(p_vf->shadow_config.macs[i]);
+ 	}
+ 
+ 	/* List the new MAC address */
+-- 
+2.7.4
