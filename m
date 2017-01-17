@@ -1,36 +1,44 @@
-From: administrador <administrator@ancol.com>
-Subject: =?utf-8?b?QVRFTkNJw5NO?=
-Date: Wed, 18 Jan 2017 00:15:16 +0530
-Message-ID: <20170117184544.DA67744BEC59@mail.agenfirsttravel.co.id>
-Reply-To: Sistemass_Adminss@mail2world.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 0/2] mpls: Packet stats
+Date: Tue, 17 Jan 2017 14:39:08 -0500 (EST)
+Message-ID: <20170117.143908.250498954726462201.davem@davemloft.net>
+References: <1484331253-5908-1-git-send-email-rshearma@brocade.com>
+        <1484576197-19442-1-git-send-email-rshearma@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: 8BIT
-To: Recipients <administrator@ancol.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, dsa@cumulusnetworks.com,
+        ebiederm@xmission.com, roopa@cumulusnetworks.com
+To: rshearma@brocade.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 117-102-253-125.padinet.com ([117.102.253.125]:42253 "EHLO
-        mail.agenfirsttravel.co.id" rhost-flags-OK-FAIL-OK-OK)
-        by vger.kernel.org with ESMTP id S1751059AbdAQTim (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 14:38:42 -0500
-Content-Description: Mail message body
+Received: from shards.monkeyblade.net ([184.105.139.130]:41992 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750924AbdAQTjK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 14:39:10 -0500
+In-Reply-To: <1484576197-19442-1-git-send-email-rshearma@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ATENCIÓN;
+From: Robert Shearman <rshearma@brocade.com>
+Date: Mon, 16 Jan 2017 14:16:35 +0000
 
-Su buzón ha superado el límite de almacenamiento, que es de 5 GB definidos por el administrador, quien actualmente está ejecutando en 10.9GB, no puede ser capaz de enviar o recibir correo nuevo hasta que vuelva a validar su buzón de correo electrónico. Para revalidar su buzón de correo, envíe la siguiente información a continuación:
+> This patchset records per-interface packet stats in the MPLS
+> forwarding path and exports them using a nest of attributes root at a
+> new IFLA_STATS_AF_SPEC attribute as part of RTM_GETSTATS messages:
+> 
+> [IFLA_STATS_AF_SPEC]
+>  -> [AF_MPLS]
+>   -> [MPLS_STATS_LINK]
+>    -> struct mpls_link_stats
+> 
+> The first patch adds the rtnl infrastructure for this, including a new
+> callbacks to per-AF ops of fill_stats_af and get_stats_af_size. The
+> second patch records MPLS stats and makes use of the infrastructure to
+> export them. The rtnl infrastructure could also be used to export IPv6
+> stats in the future.
+> 
+> Changes in v2:
+>  - make incrementing IPv6 stats in mpls_stats_inc_outucastpkts
+>    conditional on CONFIG_IPV6 to fix build with CONFIG_IPV6=n
 
-nombre:
-Nombre de usuario:
-contraseña:
-Confirmar contraseña:
-E-mail:
-teléfono:
-Si usted no puede revalidar su buzón, el buzón se deshabilitará!
-
-Disculpa las molestias.
-Código de verificación: es: 006524
-Correo Soporte Técnico © 2017
-
-¡gracias
-Sistemas administrador
+Series applied, thanks.
