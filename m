@@ -1,47 +1,30 @@
-From: Roman Yeryomin <leroi.lists@gmail.com>
-Subject: Re: [net, 6/6] net: korina: version bump
-Date: Tue, 17 Jan 2017 21:19:39 +0200
-Message-ID: <CACiydbLu+sKihjKsGVV5kiruSAEwcpJFsUOyASxnBd6=5+xddQ@mail.gmail.com>
-References: <1484674393-22515-1-git-send-email-roman@advem.lv> <e607e3a1-8227-7768-2234-6a3340f4a368@nbd.name>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/9] mlx4 misc improvements
+Date: Tue, 17 Jan 2017 14:49:52 -0500 (EST)
+Message-ID: <20170117.144952.801420842795315435.davem@davemloft.net>
+References: <1484587805-12666-1-git-send-email-tariqt@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org
-To: Felix Fietkau <nbd@nbd.name>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eranbe@mellanox.com
+To: tariqt@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f67.google.com ([209.85.213.67]:34696 "EHLO
-        mail-vk0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750992AbdAQTTl (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 14:19:41 -0500
-Received: by mail-vk0-f67.google.com with SMTP id r136so11876483vke.1
-        for <netdev@vger.kernel.org>; Tue, 17 Jan 2017 11:19:40 -0800 (PST)
-In-Reply-To: <e607e3a1-8227-7768-2234-6a3340f4a368@nbd.name>
+Received: from shards.monkeyblade.net ([184.105.139.130]:42258 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751053AbdAQTt5 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 14:49:57 -0500
+In-Reply-To: <1484587805-12666-1-git-send-email-tariqt@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17 January 2017 at 20:55, Felix Fietkau <nbd@nbd.name> wrote:
-> On 2017-01-17 18:33, Roman Yeryomin wrote:
->> Signed-off-by: Roman Yeryomin <roman@advem.lv>
->> ---
->>  drivers/net/ethernet/korina.c | 4 ++--
->>  1 file changed, 2 insertions(+), 2 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/korina.c b/drivers/net/ethernet/korina.c
->> index 83c994f..c8fed01 100644
->> --- a/drivers/net/ethernet/korina.c
->> +++ b/drivers/net/ethernet/korina.c
->> @@ -66,8 +66,8 @@
->>  #include <asm/mach-rc32434/dma_v.h>
->>
->>  #define DRV_NAME     "korina"
->> -#define DRV_VERSION  "0.10"
->> -#define DRV_RELDATE  "04Mar2008"
->> +#define DRV_VERSION  "0.20"
->> +#define DRV_RELDATE  "15Jan2017"
-> I think it would make more sense to remove this version instead of
-> bumping it. Individual driver versions are rather pointless, the kernel
-> version is more meaningful anyway.
+From: Tariq Toukan <tariqt@mellanox.com>
+Date: Mon, 16 Jan 2017 19:29:56 +0200
 
-OK, makes sense
+> This patchset contains several improvements and cleanups
+> from the team to the mlx4 Eth and core drivers.
+> 
+> Series generated against net-next commit:
+> dbeaa8c2a4ba stmmac: indent an if statement
 
-Regards,
-Roman
+It looks like, at a minimum, we'll need a respin of this series to add
+some verbiage or explanations to the various commit log messages.
