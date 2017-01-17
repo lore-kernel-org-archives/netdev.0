@@ -1,48 +1,36 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH v2 net-next] net:add one common config ARCH_WANT_RELAX_ORDER
- to support relax ordering.
-Date: Tue, 17 Jan 2017 11:27:36 -0800
-Message-ID: <CAKgT0UcXFk3_LfsWyVeh6X_91mfVLJt3VRBSY_2r+ebjxfW7iQ@mail.gmail.com>
-References: <1483939954-9864-1-git-send-email-maowenan@huawei.com> <20170117.141533.680344033700095483.davem@davemloft.net>
+From: administrador <administrator@ancol.com>
+Subject: =?utf-8?b?QVRFTkNJw5NO?=
+Date: Wed, 18 Jan 2017 00:15:16 +0530
+Message-ID: <20170117184544.DA67744BEC59@mail.agenfirsttravel.co.id>
+Reply-To: Sistemass_Adminss@mail2world.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: maowenan <maowenan@huawei.com>, Netdev <netdev@vger.kernel.org>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8BIT
+To: Recipients <administrator@ancol.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f68.google.com ([209.85.214.68]:33302 "EHLO
-        mail-it0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751156AbdAQT1h (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 14:27:37 -0500
-Received: by mail-it0-f68.google.com with SMTP id e137so224979itc.0
-        for <netdev@vger.kernel.org>; Tue, 17 Jan 2017 11:27:37 -0800 (PST)
-In-Reply-To: <20170117.141533.680344033700095483.davem@davemloft.net>
+Received: from 117-102-253-125.padinet.com ([117.102.253.125]:42253 "EHLO
+        mail.agenfirsttravel.co.id" rhost-flags-OK-FAIL-OK-OK)
+        by vger.kernel.org with ESMTP id S1751059AbdAQTim (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 14:38:42 -0500
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 17, 2017 at 11:15 AM, David Miller <davem@davemloft.net> wrote:
-> From: Mao Wenan <maowenan@huawei.com>
-> Date: Mon, 9 Jan 2017 13:32:34 +0800
->
->> Relax ordering(RO) is one feature of 82599 NIC, to enable this feature can
->> enhance the performance for some cpu architecure, such as SPARC and so on.
->> Currently it only supports one special cpu architecture(SPARC) in 82599
->> driver to enable RO feature, this is not very common for other cpu architecture
->> which really needs RO feature.
->> This patch add one common config CONFIG_ARCH_WANT_RELAX_ORDER to set RO feature,
->> and should define CONFIG_ARCH_WANT_RELAX_ORDER in sparc Kconfig firstly.
->>
->> Signed-off-by: Mao Wenan <maowenan@huawei.com>
->
-> Since no-one has reviewed this patch, and I do not feel comfortable with applying
-> it without such review, I am tossing this patch.
->
-> If someone eventually reviews it, repost this patch.
+ATENCIÓN;
 
-Mao,
+Su buzón ha superado el límite de almacenamiento, que es de 5 GB definidos por el administrador, quien actualmente está ejecutando en 10.9GB, no puede ser capaz de enviar o recibir correo nuevo hasta que vuelva a validar su buzón de correo electrónico. Para revalidar su buzón de correo, envíe la siguiente información a continuación:
 
-Go ahead and repost the patch and feel free to add my Reviewed-by.
-Sorry I didn't reply to this earlier but I have been getting over the
-flu for the last week or so.
+nombre:
+Nombre de usuario:
+contraseña:
+Confirmar contraseña:
+E-mail:
+teléfono:
+Si usted no puede revalidar su buzón, el buzón se deshabilitará!
 
-- Alex
+Disculpa las molestias.
+Código de verificación: es: 006524
+Correo Soporte Técnico © 2017
+
+¡gracias
+Sistemas administrador
