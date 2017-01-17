@@ -1,53 +1,43 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next] net/sched: cls_flower: Add user specified data
-Date: Tue, 17 Jan 2017 06:23:49 -0500
-Message-ID: <59ac74c5-5301-a958-74dd-c5fee669a94b@mojatatu.com>
-References: <1483362833-52114-1-git-send-email-paulb@mellanox.com>
- <14675f63-4212-2f72-da4c-cd24b9d10881@mojatatu.com>
- <20170108171251.GF1971@nanopsycho>
- <040c6876-a323-0a35-229f-46bc33b6de11@mellanox.com>
- <587BC894.3080909@gmail.com>
- <11bcf09a-0144-fd7f-369b-771962475c5e@mellanox.com>
- <20170116095129.GB1804@nanopsycho.orion>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: John Fastabend <john.fastabend@gmail.com>,
-        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        Jiri Pirko <jiri@mellanox.com>,
-        Hadar Hen Zion <hadarh@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Roi Dayan <roid@mellanox.com>, Roman Mashak <mrv@mojatatu.com>
-To: Jiri Pirko <jiri@resnulli.us>, Paul Blakey <paulb@mellanox.com>
+From: Julia Lawall <Julia.Lawall@lip6.fr>
+Subject: [PATCH] stmmac: add missing of_node_put
+Date: Tue, 17 Jan 2017 12:23:21 +0100
+Message-ID: <1484652201-20048-1-git-send-email-Julia.Lawall@lip6.fr>
+Cc: kernel-janitors@vger.kernel.org,
+        Alexandre Torgue <alexandre.torgue@st.com>,
+        netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f195.google.com ([209.85.161.195]:33926 "EHLO
-        mail-yw0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751118AbdAQLdK (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 06:33:10 -0500
-Received: by mail-yw0-f195.google.com with SMTP id v73so1505084ywg.1
-        for <netdev@vger.kernel.org>; Tue, 17 Jan 2017 03:33:09 -0800 (PST)
-In-Reply-To: <20170116095129.GB1804@nanopsycho.orion>
+Received: from mail3-relais-sop.national.inria.fr ([192.134.164.104]:7413 "EHLO
+        mail3-relais-sop.national.inria.fr" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1750747AbdAQLoT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 06:44:19 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17-01-16 04:51 AM, Jiri Pirko wrote:
-> Mon, Jan 16, 2017 at 08:54:18AM CET, paulb@mellanox.com wrote:
->>
->>
+The function stmmac_dt_phy provides several possibilities for initializing
+plat->mdio_node, all of which have the effect of increasing the reference
+count of the assigned value.  This field is not updated elsewhere, so the
+value is live until the end of the lifetime of plat (devm_allocated), just
+after the end of stmmac_remove_config_dt.  Thus, add an of_node_put on
+plat->mdio_node in stmmac_remove_config_dt.  It is possible that the field
+mdio_node is never initialized, but of_node_put is NULL-safe, so it is also
+safe to call of_node_put in that case.
 
->
-> I think we should do it in a generic way, for every classifier, right
-> away. Same as Jamal is doing for actions. I think that first we should
-> get Jamal's patch merged and then do the same for classifiers.
->
+Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
-Should be "trivial" like my patch.
-Add a new TLV type in TCA_XXX enum in rtnetlink.h
-in  tc_ctl_tfilter look for it and memcpy it
-in tcf_fill_node set it on the new TCA_XXX if the cls struct
-has it present.
+---
+ drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c |    1 +
+ 1 file changed, 1 insertion(+)
 
-Look at my patch (1 of 2) which I just reposted.
-
-cheers,
-jamal
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+index 4daa8a3..460f94f 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+@@ -409,6 +409,7 @@ void stmmac_remove_config_dt(struct platform_device *pdev,
+ 	if (of_phy_is_fixed_link(np))
+ 		of_phy_deregister_fixed_link(np);
+ 	of_node_put(plat->phy_node);
++	of_node_put(plat->mdio_node);
+ }
+ #else
+ struct plat_stmmacenet_data *
