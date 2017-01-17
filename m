@@ -1,64 +1,50 @@
-From: Elad Nachman <EladN@gilat.com>
-Subject: RE: Kernel 4.6.7-rt14 kernel workqueue lockup - rtnl deadlock plus
- syscall endless loop
-Date: Tue, 17 Jan 2017 18:15:19 +0000
-Message-ID: <AM5PR0701MB1873F82D61AF17A09F2B0E26A07C0@AM5PR0701MB1873.eurprd07.prod.outlook.com>
-References: <AM5PR0701MB187338B2418A19E1B4B55C98A07C0@AM5PR0701MB1873.eurprd07.prod.outlook.com>
- <20170117.125748.122599514616047216.davem@davemloft.net>
+From: Alexei Starovoitov <ast@fb.com>
+Subject: Re: [PATCH] bpf: Fix test_lru_sanity5() in test_lru_map.c
+Date: Tue, 17 Jan 2017 10:16:34 -0800
+Message-ID: <587E5F82.2050400@fb.com>
+References: <1484633849-2742833-1-git-send-email-kafai@fb.com>
+ <587DDED4.5060706@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1255"
-Content-Transfer-Encoding: quoted-printable
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Kernel Team <kernel-team@fb.com>
+To: Daniel Borkmann <daniel@iogearbox.net>,
+        Martin KaFai Lau <kafai@fb.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-he1eur01on0060.outbound.protection.outlook.com ([104.47.0.60]:29856
-        "EHLO EUR01-HE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1751095AbdAQSPW (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 17 Jan 2017 13:15:22 -0500
-In-Reply-To: <20170117.125748.122599514616047216.davem@davemloft.net>
-Content-Language: en-US
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:59670 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751025AbdAQSRT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 13:17:19 -0500
+In-Reply-To: <587DDED4.5060706@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Any thought about limiting the amount of busy polling?
-Say if more than X polls are done within a jiffy, then at least for preempt=
-able kernels you can sleep for a jiffy inside the syscall to yield the CPU =
-for a while?
+On 1/17/17 1:07 AM, Daniel Borkmann wrote:
+> On 01/17/2017 07:17 AM, Martin KaFai Lau wrote:
+>> test_lru_sanity5() fails when the number of online cpus
+>> is fewer than the number of possible cpus.  It can be
+>> reproduced with qemu by using cmd args "--smp cpus=2,maxcpus=8".
+>>
+>> The problem is the loop in test_lru_sanity5() is testing
+>> 'i' which is incorrect.
+>>
+>> This patch:
+>> 1. Make sched_next_online() always return -1 if it cannot
+>>     find a next cpu to schedule the process.
+>> 2. In test_lru_sanity5(), the parent process does
+>>     sched_setaffinity() first (through sched_next_online())
+>>     and the forked process will inherit it according to
+>>     the 'man sched_setaffinity'.
+>>
+>> Fixes: 5db58faf989f ("bpf: Add tests for the LRU bpf_htab")
+>> Reported-by: Daniel Borkmann <daniel@iogearbox.net>
+>> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+>
+> Looks good, thanks for fixing!
+>
+> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+>
+> (Patch is against -net tree.)
 
-Thanks,
-
-Elad.
-
------Original Message-----
-From: David Miller [mailto:davem@davemloft.net]
-Sent: =E9=E5=ED =E2 17 =E9=F0=E5=E0=F8 2017 19:58
-To: Elad Nachman <EladN@gilat.com>
-Cc: netdev@vger.kernel.org
-Subject: Re: Kernel 4.6.7-rt14 kernel workqueue lockup - rtnl deadlock plus=
- syscall endless loop
-
-From: Elad Nachman <EladN@gilat.com>
-Date: Tue, 17 Jan 2017 17:39:03 +0000
-
-> What's more odd about this is that it's very unusual and strange for a
-> kernel function to invoke the restart mechanism because a lock is
-> being held - the point of the restart mechanism is to allow userspace
-> signal handlers to run, so it should only be used when there's a
-> signal pending. I think this is a hack in the IPv6 code to work around
-> some other issue.
-
-It's not unusal at all, if you actually grep for this under net/ you will s=
-ee that it is in fact a common code pattern.
-
-It prevents deadlocks because the sysfs and other nodes that we are operati=
-ng with can be unregistered by other threads of control holding the RTNL mu=
-tex.  If we don't break out, we won't release our reference and therefore t=
-he RTNL mutex holding entity cannot make forward progress.
-
-This behavior is therefore very much intentional.
-IMPORTANT - This email and any attachments is intended for the above named =
-addressee(s), and may contain information which is confidential or privileg=
-ed. If you are not the intended recipient, please inform the sender immedia=
-tely and delete this email: you should not copy or use this e-mail for any =
-purpose nor disclose its contents to any person.
+Acked-by: Alexei Starovoitov <ast@kernel.org>
