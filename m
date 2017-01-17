@@ -1,79 +1,70 @@
-From: Julia Lawall <julia.lawall@lip6.fr>
-Subject: Re: [patch net-next] stmmac: indent an if statement
-Date: Tue, 17 Jan 2017 12:45:00 +0100 (CET)
-Message-ID: <alpine.DEB.2.20.1701171244400.2779@hadrien>
-References: <20170112184631.GA12157@mwanda> <20170115.221438.1956356112755181222.davem@davemloft.net> <20170116091924.GA4104@mwanda> <20170116093954.GB4104@mwanda> <alpine.DEB.2.20.1701162240100.2031@hadrien> <20170116215615.GG4104@mwanda>
- <alpine.DEB.2.20.1701162308540.2031@hadrien> <4902e86a-6a86-57d6-51c2-55e391b83dc3@st.com>
+From: Paul Blakey <paulb@mellanox.com>
+Subject: Re: [PATCH net-next] net/sched: cls_flower: Add user specified data
+Date: Tue, 17 Jan 2017 13:53:04 +0200
+Message-ID: <6be8f641-16ad-88a4-d7c3-474dc3b10e71@mellanox.com>
+References: <1483362833-52114-1-git-send-email-paulb@mellanox.com>
+ <14675f63-4212-2f72-da4c-cd24b9d10881@mojatatu.com>
+ <20170108171251.GF1971@nanopsycho>
+ <040c6876-a323-0a35-229f-46bc33b6de11@mellanox.com>
+ <587BC894.3080909@gmail.com>
+ <11bcf09a-0144-fd7f-369b-771962475c5e@mellanox.com>
+ <20170116095129.GB1804@nanopsycho.orion>
+ <59ac74c5-5301-a958-74dd-c5fee669a94b@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: Dan Carpenter <dan.carpenter@oracle.com>,
-        David Miller <davem@davemloft.net>, peppe.cavallaro@st.com,
-        Joao.Pinto@synopsys.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Alexandre Torgue <alexandre.torgue@st.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4902e86a-6a86-57d6-51c2-55e391b83dc3@st.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <paulb@mellanox.com>, John Fastabend <john.fastabend@gmail.com>,
+        "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+        Jiri Pirko <jiri@mellanox.com>,
+        Hadar Hen Zion <hadarh@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Roi Dayan <roid@mellanox.com>, Roman Mashak <mrv@mojatatu.com>
+To: Jamal Hadi Salim <jhs@mojatatu.com>, Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ve1eur01on0051.outbound.protection.outlook.com ([104.47.1.51]:12208
+        "EHLO EUR01-VE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1750933AbdAQLxM (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 17 Jan 2017 06:53:12 -0500
+In-Reply-To: <59ac74c5-5301-a958-74dd-c5fee669a94b@mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
 
-On Tue, 17 Jan 2017, Alexandre Torgue wrote:
-
-> Hi Julia
+On 17/01/2017 13:23, Jamal Hadi Salim wrote:
+> On 17-01-16 04:51 AM, Jiri Pirko wrote:
+>> Mon, Jan 16, 2017 at 08:54:18AM CET, paulb@mellanox.com wrote:
+>>>
+>>>
 >
-> On 01/16/2017 11:10 PM, Julia Lawall wrote:
-> >
-> >
-> > On Tue, 17 Jan 2017, Dan Carpenter wrote:
-> >
-> > > On Mon, Jan 16, 2017 at 10:46:22PM +0100, Julia Lawall wrote:
-> > > >
-> > > >
-> > > > On Mon, 16 Jan 2017, Dan Carpenter wrote:
-> > > >
-> > > > > On Mon, Jan 16, 2017 at 12:19:24PM +0300, Dan Carpenter wrote:
-> > > > > > On Sun, Jan 15, 2017 at 10:14:38PM -0500, David Miller wrote:
-> > > > > > > From: Dan Carpenter <dan.carpenter@oracle.com>
-> > > > > > > Date: Thu, 12 Jan 2017 21:46:32 +0300
-> > > > > > >
-> > > > > > > > The break statement should be indented one more tab.
-> > > > > > > >
-> > > > > > > > Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> > > > > > >
-> > > > > > > Applied, but like Julia I think we might have a missing
-> > > > > > > of_node_put()
-> > > > > > > here.
-> > > > > >
-> > > > > > Of course, sorry for dropping the ball on this.  I'll send a patch
-> > > > > > for
-> > > > > > that.
-> > > > > >
-> > > > >
-> > > > > Actually, I've looked at it some more and I think this function is OK.
-> > > > > We're supposed to do an of_node_put() later...  I can't find where
-> > > > > that
-> > > > > happens, but presumably that's because I don't know stmmac well.  This
-> > > > > code here, though, is fine.
-> > > >
-> > > > Why do you think it is fine?  Does anyone in the calling context know
-> > > > which child would have caused the break?
-> > >
-> > > Yeah.  It's saved in plat->mdio_node and we expect to be holding on
-> > > either path through the function.
-> > >
-> > > (It would be better if one of the stmmac people were responding here
-> > > insead of a random fix the indenting weenie like myself.)
-> >
-> > OK, I agree that there should not be an of_node_put with the break.
-> >
-> > Perhaps there should be an of_node_put on plat->mdio_node in
-> > stmmac_remove_config_dt, like there is an of_node_put on plat->phy_node.
-> > But it would certainly be helpful to hear from someone who knows the code
-> > better.
+>>
+>> I think we should do it in a generic way, for every classifier, right
+>> away. Same as Jamal is doing for actions. I think that first we should
+>> get Jamal's patch merged and then do the same for classifiers.
+>>
 >
-> I also think it's missing! Can you propose a patch ?
+> Should be "trivial" like my patch.
+> Add a new TLV type in TCA_XXX enum in rtnetlink.h
+> in  tc_ctl_tfilter look for it and memcpy it
+> in tcf_fill_node set it on the new TCA_XXX if the cls struct
+> has it present.
+>
 
-Done.  Thanks for the clarification.
+That's exactly what I did before I realized it won't work per internal 
+element (per handle), which is what I want. see my example.
 
-julia
+So I'll probably implement it like actions dumping/init works - 
+tcf_exts_init, tcf_exts_dump (calling a generic functions on all 
+classifiers who want this).
+I'll add something like get_cookie, dump_cookie. which get/set the 
+TCA_COOKIE.
+
+
+Thanks,
+Paul.
+
+> Look at my patch (1 of 2) which I just reposted.
+>
+> cheers,
+> jamal
