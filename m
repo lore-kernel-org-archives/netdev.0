@@ -1,317 +1,265 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: [net PATCH v5 5/6] virtio_net: refactor freeze/restore logic into
- virtnet reset logic
-Date: Tue, 17 Jan 2017 14:22:23 -0800
-Message-ID: <20170117222223.20280.76302.stgit@john-Precision-Tower-5810>
-References: <20170117221443.20280.62546.stgit@john-Precision-Tower-5810>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org,
-        john.fastabend@gmail.com, alexei.starovoitov@gmail.com,
-        daniel@iogearbox.net
-To: jasowang@redhat.com, mst@redhat.com
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH net v2] lwtunnel: fix autoload of lwt modules
+Date: Tue, 17 Jan 2017 14:57:36 -0800
+Message-ID: <1484693856-26021-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: rshearma@brocade.com, David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f66.google.com ([74.125.83.66]:33044 "EHLO
-        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751060AbdAQW5E (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 17:57:04 -0500
-Received: by mail-pg0-f66.google.com with SMTP id 194so9039234pgd.0
-        for <netdev@vger.kernel.org>; Tue, 17 Jan 2017 14:57:04 -0800 (PST)
-In-Reply-To: <20170117221443.20280.62546.stgit@john-Precision-Tower-5810>
+Received: from mail-pf0-f179.google.com ([209.85.192.179]:35569 "EHLO
+        mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751136AbdAQW5o (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 17:57:44 -0500
+Received: by mail-pf0-f179.google.com with SMTP id f144so65260684pfa.2
+        for <netdev@vger.kernel.org>; Tue, 17 Jan 2017 14:57:44 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For XDP we will need to reset the queues to allow for buffer headroom
-to be configured. In order to do this we need to essentially run the
-freeze()/restore() code path. Unfortunately the locking requirements
-between the freeze/restore and reset paths are different however so
-we can not simply reuse the code.
+Trying to add an mpls encap route when the MPLS modules are not loaded
+hangs. For example:
 
-This patch refactors the code path and adds a reset helper routine.
+    CONFIG_MPLS=y
+    CONFIG_NET_MPLS_GSO=m
+    CONFIG_MPLS_ROUTING=m
+    CONFIG_MPLS_IPTUNNEL=m
 
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+    $ ip route add 10.10.10.10/32 encap mpls 100 via inet 10.100.1.2
+
+The ip command hangs:
+root       880   826  0 21:25 pts/0    00:00:00 ip route add 10.10.10.10/32 encap mpls 100 via inet 10.100.1.2
+
+    $ cat /proc/880/stack
+    [<ffffffff81065a9b>] call_usermodehelper_exec+0xd6/0x134
+    [<ffffffff81065efc>] __request_module+0x27b/0x30a
+    [<ffffffff814542f6>] lwtunnel_build_state+0xe4/0x178
+    [<ffffffff814aa1e4>] fib_create_info+0x47f/0xdd4
+    [<ffffffff814ae451>] fib_table_insert+0x90/0x41f
+    [<ffffffff814a8010>] inet_rtm_newroute+0x4b/0x52
+    ...
+
+modprobe is trying to load rtnl-lwt-MPLS:
+
+root       881     5  0 21:25 ?        00:00:00 /sbin/modprobe -q -- rtnl-lwt-MPLS
+
+and it hangs after loading mpls_router:
+
+    $ cat /proc/881/stack
+    [<ffffffff81441537>] rtnl_lock+0x12/0x14
+    [<ffffffff8142ca2a>] register_netdevice_notifier+0x16/0x179
+    [<ffffffffa0033025>] mpls_init+0x25/0x1000 [mpls_router]
+    [<ffffffff81000471>] do_one_initcall+0x8e/0x13f
+    [<ffffffff81119961>] do_init_module+0x5a/0x1e5
+    [<ffffffff810bd070>] load_module+0x13bd/0x17d6
+    ...
+
+The problem is that lwtunnel_build_state is called with rtnl lock
+held preventing mpls_init from registering.
+
+Given the potential references held by the time lwtunnel_build_state it
+can not drop the rtnl lock to the load module. So, extract the module
+loading code from lwtunnel_build_state into a new function to validate
+the encap type. The new function is called while converting the user
+request into a fib_config which is well before any table, device or
+fib entries are examined.
+
+Fixes: 745041e2aaf1 ("lwtunnel: autoload of lwt modules")
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- drivers/net/virtio_net.c |   75 ++++++++++++++++++++++++++++------------------
- drivers/virtio/virtio.c  |   42 ++++++++++++++------------
- include/linux/virtio.h   |    4 ++
- 3 files changed, 73 insertions(+), 48 deletions(-)
+v2
+- extract the module load attempt into a separate function that is
+  called early in the newroute code paths
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 922ca66..62dbf4b 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -1684,6 +1684,49 @@ static void virtnet_init_settings(struct net_device *dev)
- 	.set_settings = virtnet_set_settings,
- };
+ include/net/lwtunnel.h  | 11 +++++++++
+ net/core/lwtunnel.c     | 62 ++++++++++++++++++++++++++++++++++++++++++++-----
+ net/ipv4/fib_frontend.c |  8 +++++++
+ net/ipv6/route.c        | 12 +++++++++-
+ 4 files changed, 86 insertions(+), 7 deletions(-)
+
+diff --git a/include/net/lwtunnel.h b/include/net/lwtunnel.h
+index d4c1c75b8862..0b585f1fd340 100644
+--- a/include/net/lwtunnel.h
++++ b/include/net/lwtunnel.h
+@@ -105,6 +105,8 @@ int lwtunnel_encap_add_ops(const struct lwtunnel_encap_ops *op,
+ 			   unsigned int num);
+ int lwtunnel_encap_del_ops(const struct lwtunnel_encap_ops *op,
+ 			   unsigned int num);
++int lwtunnel_valid_encap_type(u16 encap_type);
++int lwtunnel_valid_encap_type_attr(struct nlattr *attr, int len);
+ int lwtunnel_build_state(struct net_device *dev, u16 encap_type,
+ 			 struct nlattr *encap,
+ 			 unsigned int family, const void *cfg,
+@@ -168,6 +170,15 @@ static inline int lwtunnel_encap_del_ops(const struct lwtunnel_encap_ops *op,
+ 	return -EOPNOTSUPP;
+ }
  
-+static void virtnet_freeze_down(struct virtio_device *vdev)
++static inline int lwtunnel_valid_encap_type(u16 encap_type)
 +{
-+	struct virtnet_info *vi = vdev->priv;
-+	int i;
-+
-+	/* Make sure no work handler is accessing the device */
-+	flush_work(&vi->config_work);
-+
-+	netif_device_detach(vi->dev);
-+	cancel_delayed_work_sync(&vi->refill);
-+
-+	if (netif_running(vi->dev)) {
-+		for (i = 0; i < vi->max_queue_pairs; i++)
-+			napi_disable(&vi->rq[i].napi);
-+	}
++	return -EOPNOTSUPP;
++}
++static inline int lwtunnel_valid_encap_type_attr(struct nlattr *attr, int len)
++{
++	return -EOPNOTSUPP;
 +}
 +
-+static int init_vqs(struct virtnet_info *vi);
+ static inline int lwtunnel_build_state(struct net_device *dev, u16 encap_type,
+ 				       struct nlattr *encap,
+ 				       unsigned int family, const void *cfg,
+diff --git a/net/core/lwtunnel.c b/net/core/lwtunnel.c
+index a5d4e866ce88..47b1dd65947b 100644
+--- a/net/core/lwtunnel.c
++++ b/net/core/lwtunnel.c
+@@ -26,6 +26,7 @@
+ #include <net/lwtunnel.h>
+ #include <net/rtnetlink.h>
+ #include <net/ip6_fib.h>
++#include <net/nexthop.h>
+ 
+ #ifdef CONFIG_MODULES
+ 
+@@ -114,25 +115,74 @@ int lwtunnel_build_state(struct net_device *dev, u16 encap_type,
+ 	ret = -EOPNOTSUPP;
+ 	rcu_read_lock();
+ 	ops = rcu_dereference(lwtun_encaps[encap_type]);
++	if (likely(ops && ops->build_state))
++		ret = ops->build_state(dev, encap, family, cfg, lws);
++	rcu_read_unlock();
 +
-+static int virtnet_restore_up(struct virtio_device *vdev)
-+{
-+	struct virtnet_info *vi = vdev->priv;
-+	int err, i;
-+
-+	err = init_vqs(vi);
-+	if (err)
-+		return err;
-+
-+	virtio_device_ready(vdev);
-+
-+	if (netif_running(vi->dev)) {
-+		for (i = 0; i < vi->curr_queue_pairs; i++)
-+			if (!try_fill_recv(vi, &vi->rq[i], GFP_KERNEL))
-+				schedule_delayed_work(&vi->refill, 0);
-+
-+		for (i = 0; i < vi->max_queue_pairs; i++)
-+			virtnet_napi_enable(&vi->rq[i]);
-+	}
-+
-+	netif_device_attach(vi->dev);
-+	return err;
++	return ret;
 +}
++EXPORT_SYMBOL(lwtunnel_build_state);
 +
- static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
- {
- 	unsigned long int max_sz = PAGE_SIZE - sizeof(struct padded_vnet_hdr);
-@@ -2374,21 +2417,9 @@ static void virtnet_remove(struct virtio_device *vdev)
- static int virtnet_freeze(struct virtio_device *vdev)
- {
- 	struct virtnet_info *vi = vdev->priv;
--	int i;
- 
- 	virtnet_cpu_notif_remove(vi);
--
--	/* Make sure no work handler is accessing the device */
--	flush_work(&vi->config_work);
--
--	netif_device_detach(vi->dev);
--	cancel_delayed_work_sync(&vi->refill);
--
--	if (netif_running(vi->dev)) {
--		for (i = 0; i < vi->max_queue_pairs; i++)
--			napi_disable(&vi->rq[i].napi);
--	}
--
-+	virtnet_freeze_down(vdev);
- 	remove_vq_common(vi);
- 
- 	return 0;
-@@ -2397,25 +2428,11 @@ static int virtnet_freeze(struct virtio_device *vdev)
- static int virtnet_restore(struct virtio_device *vdev)
- {
- 	struct virtnet_info *vi = vdev->priv;
--	int err, i;
-+	int err;
- 
--	err = init_vqs(vi);
-+	err = virtnet_restore_up(vdev);
- 	if (err)
- 		return err;
--
--	virtio_device_ready(vdev);
--
--	if (netif_running(vi->dev)) {
--		for (i = 0; i < vi->curr_queue_pairs; i++)
--			if (!try_fill_recv(vi, &vi->rq[i], GFP_KERNEL))
--				schedule_delayed_work(&vi->refill, 0);
--
--		for (i = 0; i < vi->max_queue_pairs; i++)
--			virtnet_napi_enable(&vi->rq[i]);
--	}
--
--	netif_device_attach(vi->dev);
--
- 	virtnet_set_queues(vi, vi->curr_queue_pairs);
- 
- 	err = virtnet_cpu_notif_add(vi);
-diff --git a/drivers/virtio/virtio.c b/drivers/virtio/virtio.c
-index 7062bb0..400d70b 100644
---- a/drivers/virtio/virtio.c
-+++ b/drivers/virtio/virtio.c
-@@ -100,11 +100,6 @@ static int virtio_uevent(struct device *_dv, struct kobj_uevent_env *env)
- 			      dev->id.device, dev->id.vendor);
- }
- 
--static void add_status(struct virtio_device *dev, unsigned status)
--{
--	dev->config->set_status(dev, dev->config->get_status(dev) | status);
--}
--
- void virtio_check_driver_offered_feature(const struct virtio_device *vdev,
- 					 unsigned int fbit)
- {
-@@ -145,14 +140,15 @@ void virtio_config_changed(struct virtio_device *dev)
- }
- EXPORT_SYMBOL_GPL(virtio_config_changed);
- 
--static void virtio_config_disable(struct virtio_device *dev)
-+void virtio_config_disable(struct virtio_device *dev)
- {
- 	spin_lock_irq(&dev->config_lock);
- 	dev->config_enabled = false;
- 	spin_unlock_irq(&dev->config_lock);
- }
-+EXPORT_SYMBOL_GPL(virtio_config_disable);
- 
--static void virtio_config_enable(struct virtio_device *dev)
-+void virtio_config_enable(struct virtio_device *dev)
- {
- 	spin_lock_irq(&dev->config_lock);
- 	dev->config_enabled = true;
-@@ -161,8 +157,15 @@ static void virtio_config_enable(struct virtio_device *dev)
- 	dev->config_change_pending = false;
- 	spin_unlock_irq(&dev->config_lock);
- }
-+EXPORT_SYMBOL_GPL(virtio_config_enable);
-+
-+void virtio_add_status(struct virtio_device *dev, unsigned int status)
++int lwtunnel_valid_encap_type(u16 encap_type)
 +{
-+	dev->config->set_status(dev, dev->config->get_status(dev) | status);
-+}
-+EXPORT_SYMBOL_GPL(virtio_add_status);
++	const struct lwtunnel_encap_ops *ops;
++	int ret = -EINVAL;
++
++	if (encap_type == LWTUNNEL_ENCAP_NONE ||
++	    encap_type > LWTUNNEL_ENCAP_MAX)
++		return ret;
++
++	rcu_read_lock();
++	ops = rcu_dereference(lwtun_encaps[encap_type]);
++	rcu_read_unlock();
+ #ifdef CONFIG_MODULES
+ 	if (!ops) {
+ 		const char *encap_type_str = lwtunnel_encap_str(encap_type);
  
--static int virtio_finalize_features(struct virtio_device *dev)
-+int virtio_finalize_features(struct virtio_device *dev)
- {
- 	int ret = dev->config->finalize_features(dev);
- 	unsigned status;
-@@ -173,7 +176,7 @@ static int virtio_finalize_features(struct virtio_device *dev)
- 	if (!virtio_has_feature(dev, VIRTIO_F_VERSION_1))
- 		return 0;
- 
--	add_status(dev, VIRTIO_CONFIG_S_FEATURES_OK);
-+	virtio_add_status(dev, VIRTIO_CONFIG_S_FEATURES_OK);
- 	status = dev->config->get_status(dev);
- 	if (!(status & VIRTIO_CONFIG_S_FEATURES_OK)) {
- 		dev_err(&dev->dev, "virtio: device refuses features: %x\n",
-@@ -182,6 +185,7 @@ static int virtio_finalize_features(struct virtio_device *dev)
+ 		if (encap_type_str) {
+-			rcu_read_unlock();
++			__rtnl_unlock();
+ 			request_module("rtnl-lwt-%s", encap_type_str);
++			rtnl_lock();
++
+ 			rcu_read_lock();
+ 			ops = rcu_dereference(lwtun_encaps[encap_type]);
++			rcu_read_unlock();
+ 		}
  	}
- 	return 0;
- }
-+EXPORT_SYMBOL_GPL(virtio_finalize_features);
+ #endif
+-	if (likely(ops && ops->build_state))
+-		ret = ops->build_state(dev, encap, family, cfg, lws);
+-	rcu_read_unlock();
++	return ops ? 0 : -EOPNOTSUPP;
++}
++EXPORT_SYMBOL(lwtunnel_valid_encap_type);
  
- static int virtio_dev_probe(struct device *_d)
+-	return ret;
++int lwtunnel_valid_encap_type_attr(struct nlattr *attr, int remaining)
++{
++	struct rtnexthop *rtnh = (struct rtnexthop *)attr;
++	struct nlattr *nla_entype;
++	struct nlattr *attrs;
++	struct nlattr *nla;
++	u16 encap_type;
++	int attrlen;
++
++	while (rtnh_ok(rtnh, remaining)) {
++		attrlen = rtnh_attrlen(rtnh);
++		if (attrlen > 0) {
++			attrs = rtnh_attrs(rtnh);
++			nla = nla_find(attrs, attrlen, RTA_ENCAP);
++			nla_entype = nla_find(attrs, attrlen, RTA_ENCAP_TYPE);
++
++			if (nla_entype) {
++				encap_type = nla_get_u16(nla_entype);
++
++				if (lwtunnel_valid_encap_type(encap_type) != 0)
++					return -EOPNOTSUPP;
++			}
++		}
++		rtnh = rtnh_next(rtnh, &remaining);
++	}
++
++	return 0;
+ }
+-EXPORT_SYMBOL(lwtunnel_build_state);
++EXPORT_SYMBOL(lwtunnel_valid_encap_type_attr);
+ 
+ void lwtstate_free(struct lwtunnel_state *lws)
  {
-@@ -193,7 +197,7 @@ static int virtio_dev_probe(struct device *_d)
- 	u64 driver_features_legacy;
+diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+index eae0332b0e8c..7db2ad2e82d3 100644
+--- a/net/ipv4/fib_frontend.c
++++ b/net/ipv4/fib_frontend.c
+@@ -46,6 +46,7 @@
+ #include <net/rtnetlink.h>
+ #include <net/xfrm.h>
+ #include <net/l3mdev.h>
++#include <net/lwtunnel.h>
+ #include <trace/events/fib.h>
  
- 	/* We have a driver! */
--	add_status(dev, VIRTIO_CONFIG_S_DRIVER);
-+	virtio_add_status(dev, VIRTIO_CONFIG_S_DRIVER);
- 
- 	/* Figure out what features the device supports. */
- 	device_features = dev->config->get_features(dev);
-@@ -247,7 +251,7 @@ static int virtio_dev_probe(struct device *_d)
- 
- 	return 0;
- err:
--	add_status(dev, VIRTIO_CONFIG_S_FAILED);
-+	virtio_add_status(dev, VIRTIO_CONFIG_S_FAILED);
- 	return err;
- 
- }
-@@ -265,7 +269,7 @@ static int virtio_dev_remove(struct device *_d)
- 	WARN_ON_ONCE(dev->config->get_status(dev));
- 
- 	/* Acknowledge the device's existence again. */
--	add_status(dev, VIRTIO_CONFIG_S_ACKNOWLEDGE);
-+	virtio_add_status(dev, VIRTIO_CONFIG_S_ACKNOWLEDGE);
- 	return 0;
- }
- 
-@@ -316,7 +320,7 @@ int register_virtio_device(struct virtio_device *dev)
- 	dev->config->reset(dev);
- 
- 	/* Acknowledge that we've seen the device. */
--	add_status(dev, VIRTIO_CONFIG_S_ACKNOWLEDGE);
-+	virtio_add_status(dev, VIRTIO_CONFIG_S_ACKNOWLEDGE);
- 
- 	INIT_LIST_HEAD(&dev->vqs);
- 
-@@ -325,7 +329,7 @@ int register_virtio_device(struct virtio_device *dev)
- 	err = device_register(&dev->dev);
- out:
- 	if (err)
--		add_status(dev, VIRTIO_CONFIG_S_FAILED);
-+		virtio_add_status(dev, VIRTIO_CONFIG_S_FAILED);
- 	return err;
- }
- EXPORT_SYMBOL_GPL(register_virtio_device);
-@@ -365,18 +369,18 @@ int virtio_device_restore(struct virtio_device *dev)
- 	dev->config->reset(dev);
- 
- 	/* Acknowledge that we've seen the device. */
--	add_status(dev, VIRTIO_CONFIG_S_ACKNOWLEDGE);
-+	virtio_add_status(dev, VIRTIO_CONFIG_S_ACKNOWLEDGE);
- 
- 	/* Maybe driver failed before freeze.
- 	 * Restore the failed status, for debugging. */
- 	if (dev->failed)
--		add_status(dev, VIRTIO_CONFIG_S_FAILED);
-+		virtio_add_status(dev, VIRTIO_CONFIG_S_FAILED);
- 
- 	if (!drv)
- 		return 0;
- 
- 	/* We have a driver! */
--	add_status(dev, VIRTIO_CONFIG_S_DRIVER);
-+	virtio_add_status(dev, VIRTIO_CONFIG_S_DRIVER);
- 
- 	ret = virtio_finalize_features(dev);
- 	if (ret)
-@@ -389,14 +393,14 @@ int virtio_device_restore(struct virtio_device *dev)
+ #ifndef CONFIG_IP_MULTIPLE_TABLES
+@@ -677,6 +678,10 @@ static int rtm_to_fib_config(struct net *net, struct sk_buff *skb,
+ 			cfg->fc_mx_len = nla_len(attr);
+ 			break;
+ 		case RTA_MULTIPATH:
++			err = lwtunnel_valid_encap_type_attr(nla_data(attr),
++							     nla_len(attr));
++			if (err < 0)
++				goto errout;
+ 			cfg->fc_mp = nla_data(attr);
+ 			cfg->fc_mp_len = nla_len(attr);
+ 			break;
+@@ -691,6 +696,9 @@ static int rtm_to_fib_config(struct net *net, struct sk_buff *skb,
+ 			break;
+ 		case RTA_ENCAP_TYPE:
+ 			cfg->fc_encap_type = nla_get_u16(attr);
++			err = lwtunnel_valid_encap_type(cfg->fc_encap_type);
++			if (err < 0)
++				goto errout;
+ 			break;
+ 		}
+ 	}
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 4f6b067c8753..7ea85370c11c 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -2896,6 +2896,11 @@ static int rtm_to_fib6_config(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 	if (tb[RTA_MULTIPATH]) {
+ 		cfg->fc_mp = nla_data(tb[RTA_MULTIPATH]);
+ 		cfg->fc_mp_len = nla_len(tb[RTA_MULTIPATH]);
++
++		err = lwtunnel_valid_encap_type_attr(cfg->fc_mp,
++						     cfg->fc_mp_len);
++		if (err < 0)
++			goto errout;
  	}
  
- 	/* Finally, tell the device we're all set */
--	add_status(dev, VIRTIO_CONFIG_S_DRIVER_OK);
-+	virtio_add_status(dev, VIRTIO_CONFIG_S_DRIVER_OK);
+ 	if (tb[RTA_PREF]) {
+@@ -2909,9 +2914,14 @@ static int rtm_to_fib6_config(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 	if (tb[RTA_ENCAP])
+ 		cfg->fc_encap = tb[RTA_ENCAP];
  
- 	virtio_config_enable(dev);
+-	if (tb[RTA_ENCAP_TYPE])
++	if (tb[RTA_ENCAP_TYPE]) {
+ 		cfg->fc_encap_type = nla_get_u16(tb[RTA_ENCAP_TYPE]);
  
- 	return 0;
++		err = lwtunnel_valid_encap_type(cfg->fc_encap_type);
++		if (err < 0)
++			goto errout;
++	}
++
+ 	if (tb[RTA_EXPIRES]) {
+ 		unsigned long timeout = addrconf_timeout_fixup(nla_get_u32(tb[RTA_EXPIRES]), HZ);
  
- err:
--	add_status(dev, VIRTIO_CONFIG_S_FAILED);
-+	virtio_add_status(dev, VIRTIO_CONFIG_S_FAILED);
- 	return ret;
- }
- EXPORT_SYMBOL_GPL(virtio_device_restore);
-diff --git a/include/linux/virtio.h b/include/linux/virtio.h
-index d5eb547..04b0d3f 100644
---- a/include/linux/virtio.h
-+++ b/include/linux/virtio.h
-@@ -132,12 +132,16 @@ static inline struct virtio_device *dev_to_virtio(struct device *_dev)
- 	return container_of(_dev, struct virtio_device, dev);
- }
- 
-+void virtio_add_status(struct virtio_device *dev, unsigned int status);
- int register_virtio_device(struct virtio_device *dev);
- void unregister_virtio_device(struct virtio_device *dev);
- 
- void virtio_break_device(struct virtio_device *dev);
- 
- void virtio_config_changed(struct virtio_device *dev);
-+void virtio_config_disable(struct virtio_device *dev);
-+void virtio_config_enable(struct virtio_device *dev);
-+int virtio_finalize_features(struct virtio_device *dev);
- #ifdef CONFIG_PM_SLEEP
- int virtio_device_freeze(struct virtio_device *dev);
- int virtio_device_restore(struct virtio_device *dev);
+-- 
+2.1.4
