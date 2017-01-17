@@ -1,30 +1,87 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] qed: Replace memset with eth_zero_addr
-Date: Tue, 17 Jan 2017 15:24:58 -0500 (EST)
-Message-ID: <20170117.152458.377925598062901087.davem@davemloft.net>
-References: <1484618704-3396-1-git-send-email-mayhs11saini@gmail.com>
+Subject: Re: [PATCH v3] net/irda: fix lockdep annotation
+Date: Tue, 17 Jan 2017 15:19:01 -0500 (EST)
+Message-ID: <20170117.151901.998994334183973013.davem@davemloft.net>
+References: <20170116211052.46525-1-dvyukov@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Yuval.Mintz@cavium.com, Ariel.Elior@cavium.com,
-        everest-linux-l2@cavium.com, netdev@vger.kernel.org
-To: mayhs11saini@gmail.com
+Cc: davej@redhat.com, samuel@sortiz.org, glider@google.com,
+        andreyknvl@google.com, netdev@vger.kernel.org
+To: dvyukov@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:43108 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:43146 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751108AbdAQU0H (ORCPT
+        with ESMTP id S1751120AbdAQU0H (ORCPT
         <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 15:26:07 -0500
-In-Reply-To: <1484618704-3396-1-git-send-email-mayhs11saini@gmail.com>
+In-Reply-To: <20170116211052.46525-1-dvyukov@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shyam Saini <mayhs11saini@gmail.com>
-Date: Tue, 17 Jan 2017 07:35:04 +0530
+From: Dmitry Vyukov <dvyukov@google.com>
+Date: Mon, 16 Jan 2017 22:10:52 +0100
 
-> Use eth_zero_addr to assign zero address to the given address array
-> instead of memset when the second argument in memset is address
-> of zero. Also, it makes the code clearer
+> The current annotation uses a global variable as recursion counter.
+> The variable is not atomic nor protected with a mutex, but mutated
+> by multiple threads. This causes lockdep bug reports episodically:
 > 
-> Signed-off-by: Shyam Saini <mayhs11saini@gmail.com>
+> BUG: looking up invalid subclass: 4294967295
+> ...
+> _raw_spin_lock_irqsave_nested+0x120/0x180
+> hashbin_delete+0x4fe/0x750
+> __irias_delete_object+0xab/0x170
+> irias_delete_object+0x5f/0xc0
+> ircomm_tty_detach_cable+0x1d5/0x3f0
+> ...
+> 
+> Make the hashbin_lock_depth variable atomic to prevent bug reports.
+> 
+> As is this causes "unused variable 'depth'" warning without LOCKDEP.
+> So also change raw_spin_lock_irqsave_nested() macro to not cause
+> the warning without LOCKDEP. Similar to what raw_spin_lock_nested()
+> already does.
+> 
+> Signed-off-by: Dmitry Vyukov <dvyukov@google.com>
+> Cc: Dave Jones <davej@redhat.com>
+> Cc: Samuel Ortiz <samuel@sortiz.org>
+> Cc: David S. Miller <davem@davemloft.net>
+> Cc: netdev@vger.kernel.org
+> Fixes: c7630a4b932af ("[IrDA]: irda lockdep annotation")
 
-Applied.
+I took a closer look at this, and really this whole lockdep thing is
+more than a hack.
+
+The basic problem is that the free_func() passed into hashbin_delete()
+can trigger hashbin operations on other hashtables.
+
+This function is destroying a hash table completely, and is doing so
+in a context where no new hash table entries can be inserted.  The
+last thing we do is kfree() the hashtable so this must be true.
+
+Therefore, it is much better to just kill off all of this lockdep
+stuff, and recode the teardown loop into something like:
+
+	if (hashbin->hb_type & HB_LOCK)
+		spin_lock_irqsave(&hashbin->hb_lock, flags);
+	for (i = 0; i < HASHBIN_SIZE; i++) {
+		while (1) {
+			queue = dequeue_first((irda_queue_t **) &hashbin->hb_queue[i]);
+
+			if (!queue)
+				break;
+			if (free_func) {
+				if (hashbin->hb_type & HB_LOCK)
+					spin_unlock_irqrestore(&hashbin->hb_lock, flags);
+				free_func(queue);
+				if (hashbin->hb_type & HB_LOCK)
+					spin_lock_irqsave(&hashbin->hb_lock, flags);
+			}
+			
+		}
+	}
+	hashbin->hb_current = NULL;
+	hashbin->magic = ~HB_MAGIC;
+	if (hashbin->hb_type & HB_LOCK)
+		spin_unlock_irqrestore(&hashbin->hb_lock, flags);
+
+At which point the recursive locking becomes impossible.
