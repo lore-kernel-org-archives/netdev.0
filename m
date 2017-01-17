@@ -1,46 +1,32 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: mwifiex: fix uninitialized variable access in pcie_remove
-Date: Tue, 17 Jan 2017 11:55:36 +0000 (UTC)
-Message-ID: <20170117115537.021FE605A3@smtp.codeaurora.org>
-References: <20170113153534.2617372-1-arnd@arndb.de>
+From: Edward Cree <ecree@solarflare.com>
+Subject: [PATCH net-next 0/2] sfc: RX hash configuration
+Date: Tue, 17 Jan 2017 11:59:48 +0000
+Message-ID: <2b7fcd41-680f-460e-399a-6aa4ce102a04@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Amitkumar Karwar <akarwar@marvell.com>,
-        Arnd Bergmann <arnd@arndb.de>,
-        Nishant Sarmukadam <nishants@marvell.com>,
-        Brian Norris <briannorris@chromium.org>,
-        Xinming Hu <huxm@marvell.com>, Cathy Luo <cluo@marvell.com>,
-        Shengzhen Li <szli@marvell.com>,
-        linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170113153534.2617372-1-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>
+To: <linux-net-drivers@solarflare.com>, <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nbfkord-smmo01.seg.att.com ([209.65.160.76]:15371 "EHLO
+        nbfkord-smmo01.seg.att.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1750989AbdAQMAW (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 07:00:22 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Arnd Bergmann <arnd@arndb.de> wrote:
-> Checking the firmware status from PCIe register only works
-> if the register is available, otherwise we end up with
-> random behavior:
-> 
-> drivers/net/wireless/marvell/mwifiex/pcie.c: In function 'mwifiex_pcie_remove':
-> drivers/net/wireless/marvell/mwifiex/pcie.c:585:5: error: 'fw_status' may be used uninitialized in this function [-Werror=maybe-uninitialized]
-> 
-> This makes sure we treat the absence of the register as a failure.
-> 
-> Fixes: 045f0c1b5e26 ("mwifiex: get rid of global user_rmmod flag")
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+This series improves support for getting and setting RX hashing
+ configuration on Solarflare adapters through ethtool.
 
-Patch applied to wireless-drivers-next.git, thanks.
+Edward Cree (2):
+  sfc: support setting RSS hash key through ethtool API
+  sfc: read back RX hash config from the NIC when querying it with
+    ethtool -x
 
-0e8edb9aed03 mwifiex: fix uninitialized variable access in pcie_remove
-
--- 
-https://patchwork.kernel.org/patch/9515899/
-
-Documentation about submitting wireless patches and checking status
-from patchwork:
-
-https://wireless.wiki.kernel.org/en/developers/documentation/submittingpatches
+ drivers/net/ethernet/sfc/ef10.c       | 84 +++++++++++++++++++++++++++++++----
+ drivers/net/ethernet/sfc/ethtool.c    | 29 +++++++++---
+ drivers/net/ethernet/sfc/farch.c      | 16 +++++++
+ drivers/net/ethernet/sfc/net_driver.h |  5 ++-
+ drivers/net/ethernet/sfc/nic.h        |  1 +
+ drivers/net/ethernet/sfc/siena.c      | 27 ++++++++++-
+ 6 files changed, 146 insertions(+), 16 deletions(-)
