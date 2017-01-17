@@ -1,30 +1,49 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net] lwtunnel: fix autoload of lwt modules
-Date: Tue, 17 Jan 2017 11:04:35 -0700
-Message-ID: <54cf1176-5131-c0a0-572e-47feda7e07a9@cumulusnetworks.com>
-References: <1484631185-9428-1-git-send-email-dsa@cumulusnetworks.com>
- <e6637ef9-02e4-bbfc-b5f0-bdd7c560714e@brocade.com>
- <8b621810-f7b3-05bb-413b-29389125c6ea@cumulusnetworks.com>
- <0e226af4-cb62-9b20-f8a2-191b0aaffb11@brocade.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: Robert Shearman <rshearma@brocade.com>, netdev@vger.kernel.org,
-        roopa <roopa@cumulusnetworks.com>
+From: Rolf Neugebauer <rolf.neugebauer@docker.com>
+Subject: [PATCH] virtio: don't set VIRTIO_NET_HDR_F_DATA_VALID on xmit
+Date: Tue, 17 Jan 2017 18:13:51 +0000
+Message-ID: <20170117181351.98291-1-rolf.neugebauer@docker.com>
+Cc: mst@redhat.com, davem@davemloft.net, jasowang@redhat.com,
+        rppt@linux.vnet.ibm.com,
+        Rolf Neugebauer <rolf.neugebauer@docker.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f177.google.com ([209.85.192.177]:34368 "EHLO
-        mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750830AbdAQSEh (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 13:04:37 -0500
-Received: by mail-pf0-f177.google.com with SMTP id e4so25273700pfg.1
-        for <netdev@vger.kernel.org>; Tue, 17 Jan 2017 10:04:37 -0800 (PST)
-In-Reply-To: <0e226af4-cb62-9b20-f8a2-191b0aaffb11@brocade.com>
+Received: from mail-wm0-f50.google.com ([74.125.82.50]:36690 "EHLO
+        mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751007AbdAQSOC (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 13:14:02 -0500
+Received: by mail-wm0-f50.google.com with SMTP id c85so211677383wmi.1
+        for <netdev@vger.kernel.org>; Tue, 17 Jan 2017 10:14:01 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 1/17/17 10:26 AM, Robert Shearman wrote:
-> Ok, I'll continue looking too and let you know if there's anything else that pops up.
-> 
-> Having said that, even if we eliminate all the unreferenced objects in the current code, what are the chances that we'll be able to keep it this way going forward? Perhaps it would be safer to retry the insert operation from as close to the start as possible?
+This patch part reverts fd2a0437dc33 and e858fae2b0b8 which introduced a
+subtle change in how the virtio_net flags are derived from the SKBs
+ip_summed field.
 
-handling restart for all code paths seems a bit risky for 4.10. Perhaps then the best course for 4.10 and older stable releases is to remove the autoload code from lwtunnel. It can be re-added once the recovery path is handled.
+With the above commits, the flags are set to VIRTIO_NET_HDR_F_DATA_VALID
+when ip_summed == CHECKSUM_UNNECESSARY, thus treating it differently to
+ip_summed == CHECKSUM_NONE, which should be the same.
+
+Further, the virtio spec 1.0 / CS04 explicitly says that
+VIRTIO_NET_HDR_F_DATA_VALID must not be set by the driver.
+
+Signed-off-by: Rolf Neugebauer <rolf.neugebauer@docker.com>
+---
+ include/linux/virtio_net.h | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/include/linux/virtio_net.h b/include/linux/virtio_net.h
+index 66204007d7ac..56436472ccc7 100644
+--- a/include/linux/virtio_net.h
++++ b/include/linux/virtio_net.h
+@@ -91,8 +91,6 @@ static inline int virtio_net_hdr_from_skb(const struct sk_buff *skb,
+ 				skb_checksum_start_offset(skb));
+ 		hdr->csum_offset = __cpu_to_virtio16(little_endian,
+ 				skb->csum_offset);
+-	} else if (skb->ip_summed == CHECKSUM_UNNECESSARY) {
+-		hdr->flags = VIRTIO_NET_HDR_F_DATA_VALID;
+ 	} /* else everything is zero */
+ 
+ 	return 0;
+-- 
+2.11.0
