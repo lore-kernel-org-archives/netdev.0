@@ -1,164 +1,203 @@
-From: Andy Duan <fugang.duan@nxp.com>
-Subject: RE: [PATCH] net: fec: Fixed panic problem with non-tso
-Date: Tue, 17 Jan 2017 11:02:26 +0000
-Message-ID: <AM4PR0401MB2260E5BE096D7B86EDF4F04FFF7C0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
-References: <20170117074820.5106-1-ashiduka@jp.fujitsu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Yuusuke Ashiduka <ashiduka@jp.fujitsu.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: [PATCH net-next v4 1/2] net sched actions: Add support for user cookies
+Date: Tue, 17 Jan 2017 06:11:48 -0500
+Message-ID: <1484651509-27500-2-git-send-email-jhs@emojatatu.com>
+References: <1484651509-27500-1-git-send-email-jhs@emojatatu.com>
+Cc: netdev@vger.kernel.org, jiri@mellanox.com, paulb@mellanox.com,
+        john.fastabend@gmail.com, simon.horman@netronome.com,
+        mrv@mojatatu.com, hadarh@mellanox.com, ogerlitz@mellanox.com,
+        roid@mellanox.com, xiyou.wangcong@gmail.com, daniel@iogearbox.net,
+        Jamal Hadi Salim <jhs@mojatatu.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-eopbgr50082.outbound.protection.outlook.com ([40.107.5.82]:10445
-        "EHLO EUR03-VE1-obe.outbound.protection.outlook.com"
-        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-        id S1750967AbdAQLC3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 17 Jan 2017 06:02:29 -0500
-In-Reply-To: <20170117074820.5106-1-ashiduka@jp.fujitsu.com>
-Content-Language: en-US
+Received: from mail-qt0-f193.google.com ([209.85.216.193]:35519 "EHLO
+        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750849AbdAQLNE (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 06:13:04 -0500
+Received: by mail-qt0-f193.google.com with SMTP id f4so20683998qte.2
+        for <netdev@vger.kernel.org>; Tue, 17 Jan 2017 03:12:05 -0800 (PST)
+In-Reply-To: <1484651509-27500-1-git-send-email-jhs@emojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yuusuke Ashiduka <ashiduka@jp.fujitsu.com> Sent: Tuesday, January 17,=
- 2017 3:48 PM
->To: Andy Duan <fugang.duan@nxp.com>
->Cc: netdev@vger.kernel.org; Yuusuke Ashiduka <ashiduka@jp.fujitsu.com>
->Subject: [PATCH] net: fec: Fixed panic problem with non-tso
->
->If highmem and 2GB or more of memory are valid, "this_frag-> page.p"
->indicates the highmem area, so the result of page_address() is NULL and pa=
-nic
->occurs.
->
->This commit fixes this by using the skb_frag_dma_map() helper, which takes
->care of mapping the skb fragment properly. Additionally, the type of mappi=
-ng
->is now tracked, so it can be unmapped using dma_unmap_page or
->dma_unmap_single when appropriate.
->---
-> drivers/net/ethernet/freescale/fec.h      |  1 +
-> drivers/net/ethernet/freescale/fec_main.c | 48
->+++++++++++++++++++++++--------
-> 2 files changed, 37 insertions(+), 12 deletions(-)
->
-The patch itself seems fine.
-The driver doesn't support skb from highmem, if to support highmem, it shou=
-ld add frag_skb (highmem) support for tso and non-tso.
-In driver net/core/tso.c, it also add highmem support, right ?=20
+From: Jamal Hadi Salim <jhs@mojatatu.com>
 
-Thanks.
+Introduce optional 128-bit action cookie.
+Like all other cookie schemes in the networking world (eg in protocols
+like http or existing kernel fib protocol field, etc) the idea is to save
+user state that when retrieved serves as a correlator. The kernel
+_should not_ intepret it.  The user can store whatever they wish in the
+128 bits.
 
->diff --git a/drivers/net/ethernet/freescale/fec.h
->b/drivers/net/ethernet/freescale/fec.h
->index 5ea740b4cf14..5b187e8aacf0 100644
->--- a/drivers/net/ethernet/freescale/fec.h
->+++ b/drivers/net/ethernet/freescale/fec.h
->@@ -463,6 +463,7 @@ struct bufdesc_prop {  struct fec_enet_priv_tx_q {
-> 	struct bufdesc_prop bd;
-> 	unsigned char *tx_bounce[TX_RING_SIZE];
->+	int tx_page_mapping[TX_RING_SIZE];
-> 	struct  sk_buff *tx_skbuff[TX_RING_SIZE];
->
-> 	unsigned short tx_stop_threshold;
->diff --git a/drivers/net/ethernet/freescale/fec_main.c
->b/drivers/net/ethernet/freescale/fec_main.c
->index 38160c2bebcb..b1562107e337 100644
->--- a/drivers/net/ethernet/freescale/fec_main.c
->+++ b/drivers/net/ethernet/freescale/fec_main.c
->@@ -60,6 +60,7 @@
-> #include <linux/if_vlan.h>
-> #include <linux/pinctrl/consumer.h>
-> #include <linux/prefetch.h>
->+#include <linux/highmem.h>
-> #include <soc/imx/cpuidle.h>
->
-> #include <asm/cacheflush.h>
->@@ -377,20 +378,28 @@ fec_enet_txq_submit_frag_skb(struct
->fec_enet_priv_tx_q *txq,
-> 			ebdp->cbd_esc =3D cpu_to_fec32(estatus);
-> 		}
->
->-		bufaddr =3D page_address(this_frag->page.p) + this_frag-
->>page_offset;
->-
-> 		index =3D fec_enet_get_bd_index(bdp, &txq->bd);
->-		if (((unsigned long) bufaddr) & fep->tx_align ||
->+		txq->tx_page_mapping[index] =3D 0;
->+		if (this_frag->page_offset & fep->tx_align ||
-> 			fep->quirks & FEC_QUIRK_SWAP_FRAME) {
->+			bufaddr =3D kmap_atomic(this_frag->page.p) +
->+						this_frag->page_offset;
-> 			memcpy(txq->tx_bounce[index], bufaddr, frag_len);
->+			kunmap_atomic(bufaddr);
-> 			bufaddr =3D txq->tx_bounce[index];
->
-> 			if (fep->quirks & FEC_QUIRK_SWAP_FRAME)
-> 				swap_buffer(bufaddr, frag_len);
->+			addr =3D dma_map_single(&fep->pdev->dev,
->+					      bufaddr,
->+					      frag_len,
->+					      DMA_TO_DEVICE);
->+		} else {
->+			txq->tx_page_mapping[index] =3D 1;
->+			addr =3D skb_frag_dma_map(&fep->pdev->dev,
->this_frag, 0,
->+						frag_len, DMA_TO_DEVICE);
-> 		}
->
->-		addr =3D dma_map_single(&fep->pdev->dev, bufaddr, frag_len,
->-				      DMA_TO_DEVICE);
-> 		if (dma_mapping_error(&fep->pdev->dev, addr)) {
-> 			if (net_ratelimit())
-> 				netdev_err(ndev, "Tx DMA memory map
->failed\n"); @@ -411,8 +420,16 @@ fec_enet_txq_submit_frag_skb(struct
->fec_enet_priv_tx_q *txq,
-> 	bdp =3D txq->bd.cur;
-> 	for (i =3D 0; i < frag; i++) {
-> 		bdp =3D fec_enet_get_nextdesc(bdp, &txq->bd);
->-		dma_unmap_single(&fep->pdev->dev, fec32_to_cpu(bdp-
->>cbd_bufaddr),
->-				 fec16_to_cpu(bdp->cbd_datlen),
->DMA_TO_DEVICE);
->+		if (txq->tx_page_mapping[index])
->+			dma_unmap_page(&fep->pdev->dev,
->+				       fec32_to_cpu(bdp->cbd_bufaddr),
->+				       fec16_to_cpu(bdp->cbd_datlen),
->+				       DMA_TO_DEVICE);
->+		else
->+			dma_unmap_single(&fep->pdev->dev,
->+					 fec32_to_cpu(bdp->cbd_bufaddr),
->+					 fec16_to_cpu(bdp->cbd_datlen),
->+					 DMA_TO_DEVICE);
-> 	}
-> 	return ERR_PTR(-ENOMEM);
-> }
->@@ -1201,11 +1218,18 @@ fec_enet_tx_queue(struct net_device *ndev, u16
->queue_id)
->
-> 		skb =3D txq->tx_skbuff[index];
-> 		txq->tx_skbuff[index] =3D NULL;
->-		if (!IS_TSO_HEADER(txq, fec32_to_cpu(bdp->cbd_bufaddr)))
->-			dma_unmap_single(&fep->pdev->dev,
->-					 fec32_to_cpu(bdp->cbd_bufaddr),
->-					 fec16_to_cpu(bdp->cbd_datlen),
->-					 DMA_TO_DEVICE);
->+		if (!IS_TSO_HEADER(txq, fec32_to_cpu(bdp->cbd_bufaddr)))
->{
->+			if (txq->tx_page_mapping[index])
->+				dma_unmap_page(&fep->pdev->dev,
->+					       fec32_to_cpu(bdp->cbd_bufaddr),
->+					       fec16_to_cpu(bdp->cbd_datlen),
->+					       DMA_TO_DEVICE);
->+			else
->+				dma_unmap_single(&fep->pdev->dev,
->+						 fec32_to_cpu(bdp-
->>cbd_bufaddr),
->+						 fec16_to_cpu(bdp-
->>cbd_datlen),
->+						 DMA_TO_DEVICE);
->+		}
-> 		bdp->cbd_bufaddr =3D cpu_to_fec32(0);
-> 		if (!skb)
-> 			goto skb_done;
->--
->2.11.0
+Sample exercise(showing variable length use of cookie)
+
+.. create an accept action with cookie a1b2c3d4
+sudo $TC actions add action ok index 1 cookie a1b2c3d4
+
+.. dump all gact actions..
+sudo $TC -s actions ls action gact
+
+	action order 0: gact action pass
+	 random type none pass val 0
+	 index 1 ref 1 bind 0 installed 5 sec used 5 sec
+ 	Action statistics:
+	Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+	backlog 0b 0p requeues 0
+	cookie a1b2c3d4
+
+.. bind the accept action to a filter..
+sudo $TC filter add dev lo parent ffff: protocol ip prio 1 \
+u32 match ip dst 127.0.0.1/32 flowid 1:1 action gact index 1
+
+... send some traffic..
+$ ping 127.0.0.1 -c 3
+PING 127.0.0.1 (127.0.0.1) 56(84) bytes of data.
+64 bytes from 127.0.0.1: icmp_seq=1 ttl=64 time=0.020 ms
+64 bytes from 127.0.0.1: icmp_seq=2 ttl=64 time=0.027 ms
+64 bytes from 127.0.0.1: icmp_seq=3 ttl=64 time=0.038 ms
+
+--- 127.0.0.1 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2109ms
+rtt min/avg/max/mdev = 0.020/0.028/0.038/0.008 ms 1
+
+... show some stats
+$ sudo $TC -s actions get action gact index 1
+
+	action order 1: gact action pass
+	 random type none pass val 0
+	 index 1 ref 2 bind 1 installed 204 sec used 5 sec
+ 	Action statistics:
+        Sent 12168 bytes 164 pkt (dropped 0, overlimits 0 requeues 0)
+	backlog 0b 0p requeues 0
+	cookie a1b2c3d4
+
+.. try longer cookie...
+$ sudo $TC actions replace action ok index 1 cookie 1234567890abcdef
+.. dump..
+$ sudo $TC -s actions ls action gact
+
+	action order 1: gact action pass
+	 random type none pass val 0
+	 index 1 ref 2 bind 1 installed 204 sec used 5 sec
+ 	Action statistics:
+        Sent 12168 bytes 164 pkt (dropped 0, overlimits 0 requeues 0)
+	backlog 0b 0p requeues 0
+	cookie 1234567890abcdef
+
+Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+---
+ include/net/act_api.h        |  1 +
+ include/net/pkt_cls.h        |  8 ++++++++
+ include/uapi/linux/pkt_cls.h |  3 +++
+ net/sched/act_api.c          | 25 +++++++++++++++++++++++++
+ 4 files changed, 37 insertions(+)
+
+diff --git a/include/net/act_api.h b/include/net/act_api.h
+index 1d71644..0692458 100644
+--- a/include/net/act_api.h
++++ b/include/net/act_api.h
+@@ -41,6 +41,7 @@ struct tc_action {
+ 	struct rcu_head			tcfa_rcu;
+ 	struct gnet_stats_basic_cpu __percpu *cpu_bstats;
+ 	struct gnet_stats_queue __percpu *cpu_qstats;
++	struct tc_cookie	*act_ck;
+ };
+ #define tcf_head	common.tcfa_head
+ #define tcf_index	common.tcfa_index
+diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
+index f0a0514..e0bc7e8 100644
+--- a/include/net/pkt_cls.h
++++ b/include/net/pkt_cls.h
+@@ -515,4 +515,12 @@ struct tc_cls_bpf_offload {
+ 	u32 gen_flags;
+ };
+ 
++
++/* This structure holds cookie structure that is passed from user
++ * to the kernel for actions and classifiers
++ */
++struct tc_cookie {
++	unsigned char ck[TC_COOKIE_MAX_SIZE];
++	unsigned char ck_len;
++};
+ #endif
+diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
+index 1e5e1dd..2d2414e 100644
+--- a/include/uapi/linux/pkt_cls.h
++++ b/include/uapi/linux/pkt_cls.h
+@@ -4,6 +4,8 @@
+ #include <linux/types.h>
+ #include <linux/pkt_sched.h>
+ 
++#define TC_COOKIE_MAX_SIZE 16
++
+ /* Action attributes */
+ enum {
+ 	TCA_ACT_UNSPEC,
+@@ -12,6 +14,7 @@ enum {
+ 	TCA_ACT_INDEX,
+ 	TCA_ACT_STATS,
+ 	TCA_ACT_PAD,
++	TCA_ACT_COOKIE,
+ 	__TCA_ACT_MAX
+ };
+ 
+diff --git a/net/sched/act_api.c b/net/sched/act_api.c
+index f04715a..43f1f42 100644
+--- a/net/sched/act_api.c
++++ b/net/sched/act_api.c
+@@ -24,6 +24,7 @@
+ #include <net/net_namespace.h>
+ #include <net/sock.h>
+ #include <net/sch_generic.h>
++#include <net/pkt_cls.h>
+ #include <net/act_api.h>
+ #include <net/netlink.h>
+ 
+@@ -33,6 +34,7 @@ static void free_tcf(struct rcu_head *head)
+ 
+ 	free_percpu(p->cpu_bstats);
+ 	free_percpu(p->cpu_qstats);
++	kfree(p->act_ck);
+ 	kfree(p);
+ }
+ 
+@@ -475,6 +477,12 @@ int tcf_action_destroy(struct list_head *actions, int bind)
+ 		goto nla_put_failure;
+ 	if (tcf_action_copy_stats(skb, a, 0))
+ 		goto nla_put_failure;
++	if (a->act_ck) {
++		if (nla_put(skb, TCA_ACT_COOKIE, a->act_ck->ck_len,
++			    a->act_ck))
++			goto nla_put_failure;
++	}
++
+ 	nest = nla_nest_start(skb, TCA_OPTIONS);
+ 	if (nest == NULL)
+ 		goto nla_put_failure;
+@@ -575,6 +583,23 @@ struct tc_action *tcf_action_init_1(struct net *net, struct nlattr *nla,
+ 	if (err < 0)
+ 		goto err_mod;
+ 
++	if (tb[TCA_ACT_COOKIE]) {
++		if (nla_len(tb[TCA_ACT_COOKIE]) > TC_COOKIE_MAX_SIZE) {
++			err = -EINVAL;
++			goto err_mod;
++		}
++
++		a->act_ck = kzalloc(sizeof(*a->act_ck), GFP_KERNEL);
++		if (unlikely(!a->act_ck)) {
++			err = -ENOMEM;
++			goto err_mod;
++		}
++
++		memcpy(a->act_ck->ck, nla_data(tb[TCA_ACT_COOKIE]),
++		       nla_len(tb[TCA_ACT_COOKIE]));
++		a->act_ck->ck_len = nla_len(tb[TCA_ACT_COOKIE]);
++	}
++
+ 	/* module count goes up only when brand new policy is created
+ 	 * if it exists and is only bound to in a_o->init() then
+ 	 * ACT_P_CREATED is not returned (a zero is).
+-- 
+1.9.1
