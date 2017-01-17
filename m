@@ -1,10 +1,8 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next v4 2/2] net sched: Trivial whitespace and
- stylistic changes
-Date: Tue, 17 Jan 2017 13:12:31 +0100
-Message-ID: <20170117121231.GB1807@nanopsycho.orion>
+Subject: Re: [PATCH net-next v4 0/2] Add support for tc cookies
+Date: Tue, 17 Jan 2017 13:17:46 +0100
+Message-ID: <20170117121746.GD1807@nanopsycho.orion>
 References: <1484651509-27500-1-git-send-email-jhs@emojatatu.com>
- <1484651509-27500-3-git-send-email-jhs@emojatatu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: davem@davemloft.net, netdev@vger.kernel.org, jiri@mellanox.com,
@@ -14,72 +12,47 @@ Cc: davem@davemloft.net, netdev@vger.kernel.org, jiri@mellanox.com,
         daniel@iogearbox.net
 To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:36847 "EHLO
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:35186 "EHLO
         mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751167AbdAQMMe (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 07:12:34 -0500
-Received: by mail-wm0-f65.google.com with SMTP id r126so38018455wmr.3
-        for <netdev@vger.kernel.org>; Tue, 17 Jan 2017 04:12:34 -0800 (PST)
+        with ESMTP id S1750830AbdAQMRu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 07:17:50 -0500
+Received: by mail-wm0-f65.google.com with SMTP id d140so21652514wmd.2
+        for <netdev@vger.kernel.org>; Tue, 17 Jan 2017 04:17:49 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <1484651509-27500-3-git-send-email-jhs@emojatatu.com>
+In-Reply-To: <1484651509-27500-1-git-send-email-jhs@emojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Jan 17, 2017 at 12:11:49PM CET, jhs@mojatatu.com wrote:
+Tue, Jan 17, 2017 at 12:11:47PM CET, jhs@mojatatu.com wrote:
 >From: Jamal Hadi Salim <jhs@mojatatu.com>
+
+No reason to bundle the stylistics cleanup patch with the act cookie
+patch. Just send it as 2 separate patches they are.
+
+
 >
->Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
->---
-
-[...]
-	
->-static inline unsigned long
->-cls_set_class(struct tcf_proto *tp, unsigned long *clp, 
->+static inline unsigned long cls_set_class(struct tcf_proto *tp,
->+					  unsigned long *clp,
-> 	unsigned long cl)
-
-While you are at it, you can align this as well.
-
-
-> {
-> 	unsigned long old_cl;
->-	
-
-This empty line should definitelly stay.
-
-
-> 	tcf_tree_lock(tp);
-> 	old_cl = __cls_set_class(clp, cl);
-> 	tcf_tree_unlock(tp);
->- 
-> 	return old_cl;
-> }
-> 
-
-[...]
-
->@@ -237,7 +232,6 @@ static inline int tcf_em_early_end(struct tcf_ematch *em, int result)
-> 
-> 	return 0;
-> }
->-	
-
-This empty line should stay.
-
-
-> /**
->  * struct tcf_ematch_tree - ematch tree handle
->  *
->@@ -246,8 +240,7 @@ static inline int tcf_em_early_end(struct tcf_ematch *em, int result)
->  */
-> struct tcf_ematch_tree {
-> 	struct tcf_ematch_tree_hdr hdr;
->-	struct tcf_ematch *	matches;
->-	
->+	struct tcf_ematch	*matches;
-
-Well, to be pedantic, this still looks odd :)
-
-
-> };
+>Changes in v4:
+> - move stylistic changes out into a separate patch
+>   (and add more stylistic changes)
+>
+>Changes in v3:
+> - use TC_ prefix for the max size
+> - move the cookie struct so visible only to kernel
+> - remove unneeded void * cast
+>
+>Changes in V2:
+> -move from a union to a length-value representation
+>
+>Jamal Hadi Salim (2):
+>  net sched actions: Add support for user cookies
+>  net sched: Trivial whitespace and stylistic changes
+>
+> include/net/act_api.h        |  8 ++++---
+> include/net/pkt_cls.h        | 53 ++++++++++++++++++++++----------------------
+> include/uapi/linux/pkt_cls.h |  3 +++
+> net/sched/act_api.c          | 45 +++++++++++++++++++++++++++----------
+> 4 files changed, 67 insertions(+), 42 deletions(-)
+>
+>-- 
+>1.9.1
+>
