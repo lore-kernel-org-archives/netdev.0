@@ -1,32 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: fec: Fixed panic problem with non-tso
-Date: Tue, 17 Jan 2017 15:45:12 -0500 (EST)
-Message-ID: <20170117.154512.612465430064515761.davem@davemloft.net>
-References: <20170117074820.5106-1-ashiduka@jp.fujitsu.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net] lwtunnel: fix autoload of lwt modules
+Date: Tue, 17 Jan 2017 13:46:22 -0700
+Message-ID: <7655b85f-4c03-7f08-315c-b6a99a1631f0@cumulusnetworks.com>
+References: <8b621810-f7b3-05bb-413b-29389125c6ea@cumulusnetworks.com>
+ <0e226af4-cb62-9b20-f8a2-191b0aaffb11@brocade.com>
+ <54cf1176-5131-c0a0-572e-47feda7e07a9@cumulusnetworks.com>
+ <20170117.153846.1832359427601278475.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: fugang.duan@nxp.com, netdev@vger.kernel.org
-To: ashiduka@jp.fujitsu.com
+Cc: rshearma@brocade.com, netdev@vger.kernel.org,
+        roopa@cumulusnetworks.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:43556 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751162AbdAQUpO (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 15:45:14 -0500
-In-Reply-To: <20170117074820.5106-1-ashiduka@jp.fujitsu.com>
+Received: from mail-pf0-f172.google.com ([209.85.192.172]:36395 "EHLO
+        mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751045AbdAQUqY (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 15:46:24 -0500
+Received: by mail-pf0-f172.google.com with SMTP id 189so64637595pfu.3
+        for <netdev@vger.kernel.org>; Tue, 17 Jan 2017 12:46:24 -0800 (PST)
+In-Reply-To: <20170117.153846.1832359427601278475.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yuusuke Ashiduka <ashiduka@jp.fujitsu.com>
-Date: Tue, 17 Jan 2017 16:48:20 +0900
-
-> If highmem and 2GB or more of memory are valid,
-> "this_frag-> page.p" indicates the highmem area,
-> so the result of page_address() is NULL and panic occurs.
+On 1/17/17 1:38 PM, David Miller wrote:
+> But, that being said, I don't think we can legitimately just remove the
+> autoload functionality.  It's been there for close to a full year and
+> I guarantee people will get burned if we take it away.
 > 
-> This commit fixes this by using the skb_frag_dma_map() helper,
-> which takes care of mapping the skb fragment properly. Additionally,
-> the type of mapping is now tracked, so it can be unmapped using
-> dma_unmap_page or dma_unmap_single when appropriate.
+> We have to find a way to fix this.
 
-This patch submission is lacking a proper signoff.
+I have patch that removes the dev from build_state. Nothing about an encap state should require a device and none of the current encaps use it so it can be removed without a problem. After that the only reference I have noted is to a table and the only table that can be deleted - and invalidating the pointer - is the local table and that only happens once on fib_unmerge.
+
+In short seems like removing the dev + the current patch dropping the lock fixes the current deadlock problem and should be fine.
+
+Robert: do you agree?
