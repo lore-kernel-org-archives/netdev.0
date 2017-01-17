@@ -1,157 +1,104 @@
-From: Roman Yeryomin <leroi.lists@gmail.com>
-Subject: [net, 4/6] net: korina: whitespace styling cleanup
-Date: Tue, 17 Jan 2017 19:32:47 +0200
-Message-ID: <1484674367-22414-1-git-send-email-roman@advem.lv>
-To: netdev@vger.kernel.org
+From: Elad Nachman <EladN@gilat.com>
+Subject: Kernel 4.6.7-rt14 kernel workqueue lockup - rtnl deadlock plus
+ syscall endless loop
+Date: Tue, 17 Jan 2017 17:39:03 +0000
+Message-ID: <AM5PR0701MB187338B2418A19E1B4B55C98A07C0@AM5PR0701MB1873.eurprd07.prod.outlook.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f67.google.com ([209.85.215.67]:33443 "EHLO
-        mail-lf0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751164AbdAQRjL (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 12:39:11 -0500
-Received: by mail-lf0-f67.google.com with SMTP id x1so11917929lff.0
-        for <netdev@vger.kernel.org>; Tue, 17 Jan 2017 09:39:10 -0800 (PST)
-Received: from ubrain.lan ([213.175.92.61])
-        by smtp.googlemail.com with ESMTPSA id e23sm9488157lji.29.2017.01.17.09.32.53
-        for <netdev@vger.kernel.org>
-        (version=TLS1_2 cipher=ECDHE-RSA-AES128-SHA bits=128/128);
-        Tue, 17 Jan 2017 09:32:53 -0800 (PST)
+Received: from mail-he1eur01on0076.outbound.protection.outlook.com ([104.47.0.76]:43232
+        "EHLO EUR01-HE1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751071AbdAQRjL (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 17 Jan 2017 12:39:11 -0500
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Roman Yeryomin <roman@advem.lv>
----
- drivers/net/ethernet/korina.c | 54 +++++++++++++++++++++++--------------------
- 1 file changed, 29 insertions(+), 25 deletions(-)
+Hi,
 
-diff --git a/drivers/net/ethernet/korina.c b/drivers/net/ethernet/korina.c
-index 02f2364..afa440c 100644
---- a/drivers/net/ethernet/korina.c
-+++ b/drivers/net/ethernet/korina.c
-@@ -64,9 +64,9 @@
- #include <asm/mach-rc32434/eth.h>
- #include <asm/mach-rc32434/dma_v.h>
- 
--#define DRV_NAME        "korina"
--#define DRV_VERSION     "0.10"
--#define DRV_RELDATE     "04Mar2008"
-+#define DRV_NAME	"korina"
-+#define DRV_VERSION	"0.10"
-+#define DRV_RELDATE	"04Mar2008"
- 
- #define STATION_ADDRESS_HIGH(dev) (((dev)->dev_addr[0] << 8) | \
- 				   ((dev)->dev_addr[1]))
-@@ -75,7 +75,7 @@
- 				   ((dev)->dev_addr[4] << 8)  | \
- 				   ((dev)->dev_addr[5]))
- 
--#define MII_CLOCK 1250000 	/* no more than 2.5MHz */
-+#define MII_CLOCK	1250000 /* no more than 2.5MHz */
- 
- #define NAPI_WEIGHT	64
- 
-@@ -94,10 +94,14 @@
- 
- #define TX_TIMEOUT 	(6000 * HZ / 1000)
- 
--enum chain_status { desc_filled, desc_empty };
--#define IS_DMA_FINISHED(X)   (((X) & (DMA_DESC_FINI)) != 0)
--#define IS_DMA_DONE(X)   (((X) & (DMA_DESC_DONE)) != 0)
--#define RCVPKT_LENGTH(X)     (((X) & ETH_RX_LEN) >> ETH_RX_LEN_BIT)
-+enum chain_status {
-+	desc_filled,
-+	desc_empty
-+};
-+
-+#define IS_DMA_FINISHED(X)	(((X) & (DMA_DESC_FINI)) != 0)
-+#define IS_DMA_DONE(X)		(((X) & (DMA_DESC_DONE)) != 0)
-+#define RCVPKT_LENGTH(X)	(((X) & ETH_RX_LEN) >> ETH_RX_LEN_BIT)
- 
- /* Information that need to be kept for each board. */
- struct korina_private {
-@@ -125,7 +129,7 @@ struct korina_private {
- 	int rx_irq;
- 	int tx_irq;
- 
--	spinlock_t lock;        /* NIC xmit lock */
-+	spinlock_t lock;	/* NIC xmit lock */
- 
- 	int dma_halt_cnt;
- 	int dma_run_cnt;
-@@ -148,17 +152,17 @@ static inline void korina_start_dma(struct dma_reg *ch, u32 dma_addr)
- static inline void korina_abort_dma(struct net_device *dev,
- 					struct dma_reg *ch)
- {
--       if (readl(&ch->dmac) & DMA_CHAN_RUN_BIT) {
--	       writel(0x10, &ch->dmac);
-+	if (readl(&ch->dmac) & DMA_CHAN_RUN_BIT) {
-+		writel(0x10, &ch->dmac);
- 
--	       while (!(readl(&ch->dmas) & DMA_STAT_HALT))
--		       netif_trans_update(dev);
-+		while (!(readl(&ch->dmas) & DMA_STAT_HALT))
-+			netif_trans_update(dev);
- 
--	       writel(0, &ch->dmas);
--       }
-+		writel(0, &ch->dmas);
-+	}
- 
--       writel(0, &ch->dmadptr);
--       writel(0, &ch->dmandptr);
-+	writel(0, &ch->dmadptr);
-+	writel(0, &ch->dmandptr);
- }
- 
- static inline void korina_chain_dma(struct dma_reg *ch, u32 dma_addr)
-@@ -686,7 +690,7 @@ static int korina_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
- 
- /* ethtool helpers */
- static void netdev_get_drvinfo(struct net_device *dev,
--			struct ethtool_drvinfo *info)
-+				struct ethtool_drvinfo *info)
- {
- 	struct korina_private *lp = netdev_priv(dev);
- 
-@@ -728,10 +732,10 @@ static u32 netdev_get_link(struct net_device *dev)
- }
- 
- static const struct ethtool_ops netdev_ethtool_ops = {
--	.get_drvinfo            = netdev_get_drvinfo,
--	.get_settings           = netdev_get_settings,
--	.set_settings           = netdev_set_settings,
--	.get_link               = netdev_get_link,
-+	.get_drvinfo		= netdev_get_drvinfo,
-+	.get_settings		= netdev_get_settings,
-+	.set_settings		= netdev_set_settings,
-+	.get_link		= netdev_get_link,
- };
- 
- static int korina_alloc_ring(struct net_device *dev)
-@@ -863,7 +867,7 @@ static int korina_init(struct net_device *dev)
- 	/* Management Clock Prescaler Divisor
- 	 * Clock independent setting */
- 	writel(((idt_cpu_freq) / MII_CLOCK + 1) & ~1,
--		       &lp->eth_regs->ethmcp);
-+			&lp->eth_regs->ethmcp);
- 
- 	/* don't transmit until fifo contains 48b */
- 	writel(48, &lp->eth_regs->ethfifott);
-@@ -946,14 +950,14 @@ static int korina_open(struct net_device *dev)
- 			0, "Korina ethernet Rx", dev);
- 	if (ret < 0) {
- 		printk(KERN_ERR "%s: unable to get Rx DMA IRQ %d\n",
--		    dev->name, lp->rx_irq);
-+			dev->name, lp->rx_irq);
- 		goto err_release;
- 	}
- 	ret = request_irq(lp->tx_irq, korina_tx_dma_interrupt,
- 			0, "Korina ethernet Tx", dev);
- 	if (ret < 0) {
- 		printk(KERN_ERR "%s: unable to get Tx DMA IRQ %d\n",
--		    dev->name, lp->tx_irq);
-+			dev->name, lp->tx_irq);
- 		goto err_free_rx_irq;
- 	}
- 
--- 
-2.7.4
+I am experiencing sporadic work queue lockups on kernel 4.6.7-rt14 (mach-so=
+cfpga).
+
+Using a HW debugger I got the following information:
+
+A process containing a network namespace is terminating itself (SIGKILL), w=
+hich causes cleanup_net() to be scheduled to kworker/u4:2 to clean up the n=
+etwork namespace running on the process.
+
+Kworker/u4:2 got preempted (plus there are a lot of other work queue items,=
+ like vmstat_shepherd, wakeup_dirtytime_writeback, phy_state_machine, neigh=
+_periodic_work, check_lifetime plus another one by a LKM) while holding the=
+ rtnl lock.
+
+A processing running waitpid() on the terminated process starts a new proce=
+ss, which forks busybox to run sysctl -w net.ipv6.conf.all.forwarding =3D 1=
+ .
+This in turn starts making a write syscall, calling in turn vfs_write, proc=
+_sys_call_handler, addrconf_sysctl_forward, and finally addrconf_fixup_forw=
+arding().
+
+addrconf_fixup_forwarding() runs the following code:
+
+if (!rtnl_trylock())
+                 return restart_syscall();
+
+This fails and restart_syscall() does the following:
+
+set_tsk_thread_flag(current, TIF_SIGPENDING);
+         return -ERESTARTNOINTR;
+
+Now the system call goes back to ret_fast_syscall (arch/arm/kernel/entry-co=
+mmon.S)
+Testing the flags in the task_struct (which contain TIF_SIGPENDING) the cod=
+e branches to fast_work_pending, then falls through to slow_work_pending, w=
+hich
+Calls do_work_pending(), and in turn calls do_signal(), get_signal(), deque=
+uer_signal(), which find no signals, and clears the TIF_SIGPENDING bit when=
+ recalc_sigpending() is called, then returns zero.
+
+This causes do_signal() to examine r0 and return 1 (-ERESTARTNOINTR), which=
+ is propogated to the assembly code by do_work_pending().
+Having r0 equal zero causes a branch to local_restart, which restarts the v=
+ery same write system call in an endless loop.
+No scheduling is possible, so the cleanup_net() cannot finish and release r=
+tnl, which in turn causes the endless restarting of the write system call.
+
+I have sent this to linux-arm-kernel and got a response from Russel King sa=
+ying that (relating to addrconf_fixup_forwarding, net/ipv6/addrconf.c ):
+
+"
+I think the problem is that:
+
+        if (!rtnl_trylock())
+                return restart_syscall();
+
+
+
+which, if it didn't do a trylock, it would put this thread to sleep
+and allow other threads to run (potentially allowing the holder of
+the lock to release it.)
+
+What's more odd about this is that it's very unusual and strange for
+a kernel function to invoke the restart mechanism because a lock is
+being held - the point of the restart mechanism is to allow userspace
+signal handlers to run, so it should only be used when there's a
+signal pending. I think this is a hack in the IPv6 code to work
+around some other issue.
+"
+
+Any reason we cannot change the above two lines to rtnl_lock() ?
+
+Thanks,
+
+Elad.
+
+
+
+IMPORTANT - This email and any attachments is intended for the above named =
+addressee(s), and may contain information which is confidential or privileg=
+ed. If you are not the intended recipient, please inform the sender immedia=
+tely and delete this email: you should not copy or use this e-mail for any =
+purpose nor disclose its contents to any person.
