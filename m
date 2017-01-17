@@ -1,52 +1,32 @@
-From: Rick Jones <rick.jones2@hpe.com>
-Subject: Re: [PATCH net-next] tcp: accept RST for rcv_nxt - 1 after receiving
- a FIN
-Date: Tue, 17 Jan 2017 11:04:48 -0800
-Message-ID: <92daa9c2-7bfc-94ff-bb06-91ef03cd0d66@hpe.com>
-References: <1484678239-19199-1-git-send-email-jbaron@akamai.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Kernel 4.6.7-rt14 kernel workqueue lockup - rtnl deadlock plus
+ syscall endless loop
+Date: Tue, 17 Jan 2017 14:05:52 -0500 (EST)
+Message-ID: <20170117.140552.539738967862859087.davem@davemloft.net>
+References: <AM5PR0701MB187338B2418A19E1B4B55C98A07C0@AM5PR0701MB1873.eurprd07.prod.outlook.com>
+        <20170117.125748.122599514616047216.davem@davemloft.net>
+        <AM5PR0701MB1873F82D61AF17A09F2B0E26A07C0@AM5PR0701MB1873.eurprd07.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>
-To: Jason Baron <jbaron@akamai.com>, davem@davemloft.net
+Cc: netdev@vger.kernel.org
+To: EladN@gilat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g2t1383g.austin.hpe.com ([15.233.16.89]:60900 "EHLO
-        g2t1383g.austin.hpe.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751053AbdAQTEz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 14:04:55 -0500
-Received: from g4t3426.houston.hpe.com (g4t3426.houston.hpe.com [15.241.140.75])
-        (using TLSv1.2 with cipher AECDH-AES256-SHA (256/256 bits))
-        (No client certificate requested)
-        by g2t1383g.austin.hpe.com (Postfix) with ESMTPS id 35D291624
-        for <netdev@vger.kernel.org>; Tue, 17 Jan 2017 19:04:50 +0000 (UTC)
-In-Reply-To: <1484678239-19199-1-git-send-email-jbaron@akamai.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:41416 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750888AbdAQTFz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 14:05:55 -0500
+In-Reply-To: <AM5PR0701MB1873F82D61AF17A09F2B0E26A07C0@AM5PR0701MB1873.eurprd07.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/17/2017 10:37 AM, Jason Baron wrote:
-> From: Jason Baron <jbaron@akamai.com>
->
-> Using a Mac OSX box as a client connecting to a Linux server, we have found
-> that when certain applications (such as 'ab'), are abruptly terminated
-> (via ^C), a FIN is sent followed by a RST packet on tcp connections. The
-> FIN is accepted by the Linux stack but the RST is sent with the same
-> sequence number as the FIN, and Linux responds with a challenge ACK per
-> RFC 5961. The OSX client then sometimes (they are rate-limited) does not
-> reply with any RST as would be expected on a closed socket.
->
-> This results in sockets accumulating on the Linux server left mostly in
-> the CLOSE_WAIT state, although LAST_ACK and CLOSING are also possible.
-> This sequence of events can tie up a lot of resources on the Linux server
-> since there may be a lot of data in write buffers at the time of the RST.
-> Accepting a RST equal to rcv_nxt - 1, after we have already successfully
-> processed a FIN, has made a significant difference for us in practice, by
-> freeing up unneeded resources in a more expedient fashion.
+From: Elad Nachman <EladN@gilat.com>
+Date: Tue, 17 Jan 2017 18:15:19 +0000
 
-Drifting a bit, and it doesn't change the value of dealing with it, but 
-out of curiosity, when you say mostly in CLOSE_WAIT, why aren't the 
-server-side applications reacting to the read return of zero triggered 
-by the arrival of the FIN?
+> Any thought about limiting the amount of busy polling?  Say if more
+> than X polls are done within a jiffy, then at least for preemptable
+> kernels you can sleep for a jiffy inside the syscall to yield the
+> CPU for a while?
 
-happy benchmarking,
-
-rick jones
+We cannot yield there, because we must return immediately from this
+context in order to drop the sysctl locks and references.
