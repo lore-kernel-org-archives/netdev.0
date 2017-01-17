@@ -1,106 +1,146 @@
-From: "Grandhi, Sainath" <sainath.grandhi@intel.com>
-Subject: RE: [PATCHv1 5/7] TAP: Extending tap device create/destroy APIs
-Date: Tue, 17 Jan 2017 23:51:13 +0000
-Message-ID: <2C5142675EC1274EAB6230F72F8DC95F28C6C570@ORSMSX113.amr.corp.intel.com>
-References: <1483742009-19184-1-git-send-email-sainath.grandhi@intel.com>
- <1483742009-19184-6-git-send-email-sainath.grandhi@intel.com>
- <CAHp75VcEquDVRA4yNSh4pxczc60=+fdFkeG4Cji1patZYUk6xw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev <netdev@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        "mahesh@bandewar.net" <mahesh@bandewar.net>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Andy Shevchenko <andy.shevchenko@gmail.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH net-next 1/2] net: ipv6: remove nowait arg to rt6_fill_node
+Date: Tue, 17 Jan 2017 15:51:07 -0800
+Message-ID: <1484697068-20106-2-git-send-email-dsa@cumulusnetworks.com>
+References: <1484697068-20106-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga07.intel.com ([134.134.136.100]:20516 "EHLO mga07.intel.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751723AbdAQXvQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 17 Jan 2017 18:51:16 -0500
-In-Reply-To: <CAHp75VcEquDVRA4yNSh4pxczc60=+fdFkeG4Cji1patZYUk6xw@mail.gmail.com>
-Content-Language: en-US
+Received: from mail-pf0-f180.google.com ([209.85.192.180]:32858 "EHLO
+        mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751612AbdAQXvO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 18:51:14 -0500
+Received: by mail-pf0-f180.google.com with SMTP id y143so65655712pfb.0
+        for <netdev@vger.kernel.org>; Tue, 17 Jan 2017 15:51:14 -0800 (PST)
+In-Reply-To: <1484697068-20106-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-UGxlYXNlIGZpbmQgcmVwbHkgaW5saW5lLg0KDQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0t
-DQo+IEZyb206IEFuZHkgU2hldmNoZW5rbyBbbWFpbHRvOmFuZHkuc2hldmNoZW5rb0BnbWFpbC5j
-b21dDQo+IFNlbnQ6IEZyaWRheSwgSmFudWFyeSAwNiwgMjAxNyAzOjIxIFBNDQo+IFRvOiBHcmFu
-ZGhpLCBTYWluYXRoIDxzYWluYXRoLmdyYW5kaGlAaW50ZWwuY29tPg0KPiBDYzogbmV0ZGV2IDxu
-ZXRkZXZAdmdlci5rZXJuZWwub3JnPjsgRGF2aWQgUy4gTWlsbGVyDQo+IDxkYXZlbUBkYXZlbWxv
-ZnQubmV0PjsgbWFoZXNoQGJhbmRld2FyLm5ldDsgbGludXgtDQo+IGtlcm5lbEB2Z2VyLmtlcm5l
-bC5vcmcNCj4gU3ViamVjdDogUmU6IFtQQVRDSHYxIDUvN10gVEFQOiBFeHRlbmRpbmcgdGFwIGRl
-dmljZSBjcmVhdGUvZGVzdHJveSBBUElzDQo+IA0KPiBPbiBTYXQsIEphbiA3LCAyMDE3IGF0IDEy
-OjMzIEFNLCBTYWluYXRoIEdyYW5kaGkNCj4gPHNhaW5hdGguZ3JhbmRoaUBpbnRlbC5jb20+IHdy
-b3RlOg0KPiA+IEV4dGVuZGluZyB0YXAgQVBJcyBnZXQvZnJlZV9taW5vciBhbmQgY3JlYXRlL2Rl
-c3Ryb3lfY2RldiB0byBoYW5kbGUNCj4gPiBtb3JlIHRoYW4gb25lIHR5cGUgb2YgdmlydHVhbCBp
-bnRlcmZhY2UuDQo+ID4NCj4gPiBTaWduZWQtb2ZmLWJ5OiBTYWluYXRoIEdyYW5kaGkgPHNhaW5h
-dGguZ3JhbmRoaUBpbnRlbC5jb20+DQo+ID4gVGVzdGVkLWJ5OiBTYWluYXRoIEdyYW5kaGkgPHNh
-aW5hdGguZ3JhbmRoaUBpbnRlbC5jb20+DQo+IA0KPiBVc3VhbGx5IGl0IGltcGxpZXMgdGhhdCBj
-b21taXRlciBoYXMgdGVzdGVkIHRoZSBzdHVmZi4NCj4gDQo+ID4gLS0tIGEvZHJpdmVycy9uZXQv
-dGFwLmMNCj4gPiArKysgYi9kcml2ZXJzL25ldC90YXAuYw0KPiA+IEBAIC05OSwxMiArOTksMTYg
-QEAgc3RhdGljIHN0cnVjdCBwcm90byB0YXBfcHJvdG8gPSB7ICB9Ow0KPiA+DQo+ID4gICNkZWZp
-bmUgVEFQX05VTV9ERVZTICgxVSA8PCBNSU5PUkJJVFMpDQo+IA0KPiA+ICsNCj4gPiArTElTVF9I
-RUFEKG1ham9yX2xpc3QpOw0KPiA+ICsNCj4gDQo+IHN0YXRpYyA/DQpNYWtlcyBzZW5zZS4gV291
-bGQgdGFrZSBjYXJlIG9mIGl0Lg0KPiANCj4gPiAtaW50IHRhcF9nZXRfbWlub3Ioc3RydWN0IHRh
-cF9kZXYgKnRhcCkNCj4gPiAraW50IHRhcF9nZXRfbWlub3IoZGV2X3QgbWFqb3IsIHN0cnVjdCB0
-YXBfZGV2ICp0YXApDQo+ID4gIHsNCj4gPiAgICAgICAgIGludCByZXR2YWwgPSAtRU5PTUVNOw0K
-PiA+ICsgICAgICAgc3RydWN0IG1ham9yX2luZm8gKnRhcF9tYWpvciwgKnRtcDsNCj4gPiArICAg
-ICAgIGJvb2wgZm91bmQgPSBmYWxzZTsNCj4gPg0KPiA+IC0gICAgICAgbXV0ZXhfbG9jaygmbWFj
-dnRhcF9tYWpvci5taW5vcl9sb2NrKTsNCj4gPiAtICAgICAgIHJldHZhbCA9IGlkcl9hbGxvYygm
-bWFjdnRhcF9tYWpvci5taW5vcl9pZHIsIHRhcCwgMSwgVEFQX05VTV9ERVZTLA0KPiBHRlBfS0VS
-TkVMKTsNCj4gDQo+ID4gKyAgICAgICBsaXN0X2Zvcl9lYWNoX2VudHJ5X3NhZmUodGFwX21ham9y
-LCB0bXAsICZtYWpvcl9saXN0LCBuZXh0KSB7DQo+ID4gKyAgICAgICAgICAgICAgIGlmICh0YXBf
-bWFqb3ItPm1ham9yID09IE1BSk9SKG1ham9yKSkgew0KPiA+ICsgICAgICAgICAgICAgICAgICAg
-ICAgIGZvdW5kID0gdHJ1ZTsNCj4gPiArICAgICAgICAgICAgICAgICAgICAgICBicmVhazsNCj4g
-PiArICAgICAgICAgICAgICAgfQ0KPiA+ICsgICAgICAgfQ0KPiA+ICsNCj4gPiArICAgICAgIGlm
-ICghZm91bmQpDQo+ID4gKyAgICAgICAgICAgICAgIHJldHVybiAtRUlOVkFMOw0KPiANCj4gVGhp
-cyBpcyBjYW5kaWRhdGUgdG8gYmUgYSBzZXBhcmF0ZSBoZWxwZXIgZnVuY3Rpb24uIFNlZSBhbHNv
-IGJlbG93Lg0KV291bGQgZGVmaW5lIGEgaGVscGVyIGZ1bmN0aW9uLg0KPiANCj4gDQo+ID4gLXZv
-aWQgdGFwX2ZyZWVfbWlub3Ioc3RydWN0IHRhcF9kZXYgKnRhcCkNCj4gPiArdm9pZCB0YXBfZnJl
-ZV9taW5vcihkZXZfdCBtYWpvciwgc3RydWN0IHRhcF9kZXYgKnRhcCkNCj4gPiAgew0KPiA+IC0g
-ICAgICAgbXV0ZXhfbG9jaygmbWFjdnRhcF9tYWpvci5taW5vcl9sb2NrKTsNCj4gPiArICAgICAg
-IHN0cnVjdCBtYWpvcl9pbmZvICp0YXBfbWFqb3IsICp0bXA7DQo+IA0KPiA+ICsgICAgICAgYm9v
-bCBmb3VuZCA9IGZhbHNlOw0KPiA+ICsNCj4gPiArICAgICAgIGxpc3RfZm9yX2VhY2hfZW50cnlf
-c2FmZSh0YXBfbWFqb3IsIHRtcCwgJm1ham9yX2xpc3QsIG5leHQpIHsNCj4gPiArICAgICAgICAg
-ICAgICAgaWYgKHRhcF9tYWpvci0+bWFqb3IgPT0gTUFKT1IobWFqb3IpKSB7DQo+ID4gKyAgICAg
-ICAgICAgICAgICAgICAgICAgZm91bmQgPSB0cnVlOw0KPiA+ICsgICAgICAgICAgICAgICAgICAg
-ICAgIGJyZWFrOw0KPiA+ICsgICAgICAgICAgICAgICB9DQo+ID4gKyAgICAgICB9DQo+ID4gKw0K
-PiA+ICsgICAgICAgaWYgKCFmb3VuZCkNCj4gPiArICAgICAgICAgICAgICAgcmV0dXJuOw0KPiAN
-Cj4gSGVyZSBpcyBxdWl0ZSB0aGUgc2FtZSBjb2RlIChhcyBhYm92ZSkuDQo+IA0KPiA+IC1zdGF0
-aWMgc3RydWN0IHRhcF9kZXYgKmRldl9nZXRfYnlfdGFwX21pbm9yKGludCBtaW5vcikNCj4gPiAr
-c3RhdGljIHN0cnVjdCB0YXBfZGV2ICpkZXZfZ2V0X2J5X3RhcF9maWxlKGludCBtYWpvciwgaW50
-IG1pbm9yKQ0KPiA+ICB7DQo+ID4gICAgICAgICBzdHJ1Y3QgbmV0X2RldmljZSAqZGV2ID0gTlVM
-TDsNCj4gPiAgICAgICAgIHN0cnVjdCB0YXBfZGV2ICp0YXA7DQo+ID4gKyAgICAgICBzdHJ1Y3Qg
-bWFqb3JfaW5mbyAqdGFwX21ham9yLCAqdG1wOw0KPiA+ICsgICAgICAgYm9vbCBmb3VuZCA9IGZh
-bHNlOw0KPiA+DQo+ID4gLSAgICAgICBtdXRleF9sb2NrKCZtYWN2dGFwX21ham9yLm1pbm9yX2xv
-Y2spOw0KPiA+IC0gICAgICAgdGFwID0gaWRyX2ZpbmQoJm1hY3Z0YXBfbWFqb3IubWlub3JfaWRy
-LCBtaW5vcik7DQo+IA0KPiA+ICsgICAgICAgbGlzdF9mb3JfZWFjaF9lbnRyeV9zYWZlKHRhcF9t
-YWpvciwgdG1wLCAmbWFqb3JfbGlzdCwgbmV4dCkgew0KPiA+ICsgICAgICAgICAgICAgICBpZiAo
-dGFwX21ham9yLT5tYWpvciA9PSBtYWpvcikgew0KPiA+ICsgICAgICAgICAgICAgICAgICAgICAg
-IGZvdW5kID0gdHJ1ZTsNCj4gPiArICAgICAgICAgICAgICAgICAgICAgICBicmVhazsNCj4gPiAr
-ICAgICAgICAgICAgICAgfQ0KPiA+ICsgICAgICAgfQ0KPiA+ICsNCj4gPiArICAgICAgIGlmICgh
-Zm91bmQpDQo+ID4gKyAgICAgICAgICAgICAgIHJldHVybiBOVUxMOw0KPiANCj4gQW5kIGhlcmUu
-DQo+IA0KPiA+ICtzdGF0aWMgaW50IHRhcF9saXN0X2FkZChkZXZfdCBtYWpvciwgY29uc3QgY2hh
-ciAqZGV2aWNlX25hbWUpIHsNCj4gDQo+ID4gKyAgICAgICBpbnQgZXJyID0gMDsNCj4gPiArICAg
-ICAgIHN0cnVjdCBtYWpvcl9pbmZvICp0YXBfbWFqb3I7DQo+IA0KPiBQZXJoYXBzDQo+ICsgICAg
-ICAgc3RydWN0IG1ham9yX2luZm8gKnRhcF9tYWpvcjsNCj4gKyAgICAgICBpbnQgZXJyID0gMDsN
-Cj4gDQo+ID4gKw0KPiA+ICsgICAgICAgdGFwX21ham9yID0ga3phbGxvYyhzaXplb2YoKnRhcF9t
-YWpvciksIEdGUF9BVE9NSUMpOw0KPiA+ICsNCj4gPiArICAgICAgIHRhcF9tYWpvci0+bWFqb3Ig
-PSBNQUpPUihtYWpvcik7DQo+ID4gKw0KPiA+ICsgICAgICAgaWRyX2luaXQoJnRhcF9tYWpvci0+
-bWlub3JfaWRyKTsNCj4gPiArICAgICAgIG11dGV4X2luaXQoJnRhcF9tYWpvci0+bWlub3JfbG9j
-ayk7DQo+ID4gKw0KPiA+ICsgICAgICAgdGFwX21ham9yLT5kZXZpY2VfbmFtZSA9IGRldmljZV9u
-YW1lOw0KPiA+ICsNCj4gPiArICAgICAgIGxpc3RfYWRkX3RhaWwoJnRhcF9tYWpvci0+bmV4dCwg
-Jm1ham9yX2xpc3QpOw0KPiA+ICsgICAgICAgcmV0dXJuIGVycjsNCj4gDQo+IA0KPiA+ICsgICAg
-ICAgZXJyID0gdGFwX2xpc3RfYWRkKCp0YXBfbWFqb3IsIGRldmljZV9uYW1lKTsNCj4gPg0KPiA+
-ICAgICAgICAgcmV0dXJuIGVycjsNCj4gDQo+IHJldHVybiB0YXBfbGlzdF9hZGQoKTsNCj4gDQo+
-ID4gIHZvaWQgdGFwX2Rlc3Ryb3lfY2RldihkZXZfdCBtYWpvciwgc3RydWN0IGNkZXYgKnRhcF9j
-ZGV2KSAgew0KPiA+ICsgICAgICAgc3RydWN0IG1ham9yX2luZm8gKnRhcF9tYWpvciwgKnRtcDsN
-Cj4gPiArICAgICAgIGJvb2wgZm91bmQgPSBmYWxzZTsNCj4gPiArDQo+ID4gKyAgICAgICBsaXN0
-X2Zvcl9lYWNoX2VudHJ5X3NhZmUodGFwX21ham9yLCB0bXAsICZtYWpvcl9saXN0LCBuZXh0KSB7
-DQo+ID4gKyAgICAgICAgICAgICAgIGlmICh0YXBfbWFqb3ItPm1ham9yID09IE1BSk9SKG1ham9y
-KSkgew0KPiA+ICsgICAgICAgICAgICAgICAgICAgICAgIGZvdW5kID0gdHJ1ZTsNCj4gPiArICAg
-ICAgICAgICAgICAgICAgICAgICBicmVhazsNCj4gPiArICAgICAgICAgICAgICAgfQ0KPiA+ICsg
-ICAgICAgfQ0KPiA+ICsNCj4gPiArICAgICAgIGlmICghZm91bmQpDQo+ID4gKyAgICAgICAgICAg
-ICAgIHJldHVybjsNCj4gDQo+IEFuZCBoZXJlLg0KPiANCj4gLS0NCj4gV2l0aCBCZXN0IFJlZ2Fy
-ZHMsDQo+IEFuZHkgU2hldmNoZW5rbw0K
+All callers of rt6_fill_node pass 0 for nowait arg. Remove the arg and
+simplify rt6_fill_node accordingly.
+
+rt6_fill_node passes the nowait of 0 to ip6mr_get_route. Remove the
+nowait arg from it as well.
+
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+ include/linux/mroute6.h |  2 +-
+ net/ipv6/ip6mr.c        |  9 ++-------
+ net/ipv6/route.c        | 27 ++++++++++-----------------
+ 3 files changed, 13 insertions(+), 25 deletions(-)
+
+diff --git a/include/linux/mroute6.h b/include/linux/mroute6.h
+index 19a1c0c2993b..ce44e3e96d27 100644
+--- a/include/linux/mroute6.h
++++ b/include/linux/mroute6.h
+@@ -116,7 +116,7 @@ struct mfc6_cache {
+ 
+ struct rtmsg;
+ extern int ip6mr_get_route(struct net *net, struct sk_buff *skb,
+-			   struct rtmsg *rtm, int nowait, u32 portid);
++			   struct rtmsg *rtm, u32 portid);
+ 
+ #ifdef CONFIG_IPV6_MROUTE
+ extern struct sock *mroute6_socket(struct net *net, struct sk_buff *skb);
+diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
+index e275077e8af2..babaf3ec2742 100644
+--- a/net/ipv6/ip6mr.c
++++ b/net/ipv6/ip6mr.c
+@@ -2288,7 +2288,7 @@ static int __ip6mr_fill_mroute(struct mr6_table *mrt, struct sk_buff *skb,
+ }
+ 
+ int ip6mr_get_route(struct net *net, struct sk_buff *skb, struct rtmsg *rtm,
+-		    int nowait, u32 portid)
++		    u32 portid)
+ {
+ 	int err;
+ 	struct mr6_table *mrt;
+@@ -2315,11 +2315,6 @@ int ip6mr_get_route(struct net *net, struct sk_buff *skb, struct rtmsg *rtm,
+ 		struct net_device *dev;
+ 		int vif;
+ 
+-		if (nowait) {
+-			read_unlock(&mrt_lock);
+-			return -EAGAIN;
+-		}
+-
+ 		dev = skb->dev;
+ 		if (!dev || (vif = ip6mr_find_vif(mrt, dev)) < 0) {
+ 			read_unlock(&mrt_lock);
+@@ -2357,7 +2352,7 @@ int ip6mr_get_route(struct net *net, struct sk_buff *skb, struct rtmsg *rtm,
+ 		return err;
+ 	}
+ 
+-	if (!nowait && (rtm->rtm_flags&RTM_F_NOTIFY))
++	if (rtm->rtm_flags & RTM_F_NOTIFY)
+ 		cache->mfc_flags |= MFC_NOTIFY;
+ 
+ 	err = __ip6mr_fill_mroute(mrt, skb, cache, rtm);
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 4f6b067c8753..b2044dd71724 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -3169,7 +3169,7 @@ static int rt6_fill_node(struct net *net,
+ 			 struct sk_buff *skb, struct rt6_info *rt,
+ 			 struct in6_addr *dst, struct in6_addr *src,
+ 			 int iif, int type, u32 portid, u32 seq,
+-			 int prefix, int nowait, unsigned int flags)
++			 int prefix, unsigned int flags)
+ {
+ 	u32 metrics[RTAX_MAX];
+ 	struct rtmsg *rtm;
+@@ -3261,19 +3261,12 @@ static int rt6_fill_node(struct net *net,
+ 	if (iif) {
+ #ifdef CONFIG_IPV6_MROUTE
+ 		if (ipv6_addr_is_multicast(&rt->rt6i_dst.addr)) {
+-			int err = ip6mr_get_route(net, skb, rtm, nowait,
+-						  portid);
+-
+-			if (err <= 0) {
+-				if (!nowait) {
+-					if (err == 0)
+-						return 0;
+-					goto nla_put_failure;
+-				} else {
+-					if (err == -EMSGSIZE)
+-						goto nla_put_failure;
+-				}
+-			}
++			int err = ip6mr_get_route(net, skb, rtm, portid);
++
++			if (err == 0)
++				return 0;
++			if (err < 0)
++				goto nla_put_failure;
+ 		} else
+ #endif
+ 			if (nla_put_u32(skb, RTA_IIF, iif))
+@@ -3342,7 +3335,7 @@ int rt6_dump_route(struct rt6_info *rt, void *p_arg)
+ 	return rt6_fill_node(arg->net,
+ 		     arg->skb, rt, NULL, NULL, 0, RTM_NEWROUTE,
+ 		     NETLINK_CB(arg->cb->skb).portid, arg->cb->nlh->nlmsg_seq,
+-		     prefix, 0, NLM_F_MULTI);
++		     prefix, NLM_F_MULTI);
+ }
+ 
+ static int inet6_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh)
+@@ -3433,7 +3426,7 @@ static int inet6_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh)
+ 
+ 	err = rt6_fill_node(net, skb, rt, &fl6.daddr, &fl6.saddr, iif,
+ 			    RTM_NEWROUTE, NETLINK_CB(in_skb).portid,
+-			    nlh->nlmsg_seq, 0, 0, 0);
++			    nlh->nlmsg_seq, 0, 0);
+ 	if (err < 0) {
+ 		kfree_skb(skb);
+ 		goto errout;
+@@ -3460,7 +3453,7 @@ void inet6_rt_notify(int event, struct rt6_info *rt, struct nl_info *info,
+ 		goto errout;
+ 
+ 	err = rt6_fill_node(net, skb, rt, NULL, NULL, 0,
+-				event, info->portid, seq, 0, 0, nlm_flags);
++				event, info->portid, seq, 0, nlm_flags);
+ 	if (err < 0) {
+ 		/* -EMSGSIZE implies BUG in rt6_nlmsg_size() */
+ 		WARN_ON(err == -EMSGSIZE);
+-- 
+2.1.4
