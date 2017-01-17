@@ -1,44 +1,38 @@
-From: fgao@ikuai8.com
-Subject: [PATCH net-next 1/1] net: ping: Use right format specifier to avoid type casting
-Date: Tue, 17 Jan 2017 10:21:19 +0800
-Message-ID: <1484619679-17728-1-git-send-email-fgao@ikuai8.com>
-Cc: Gao Feng <fgao@ikuai8.com>
-To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-        netdev@vger.kernel.org, gfree.wind@gmail.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: fq_codel and skb->hash
+Date: Mon, 16 Jan 2017 18:34:40 -0800
+Message-ID: <1484620480.13165.65.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <f9913fca-da16-8620-d237-d7d8d09cced2@cradlepoint.com>
+         <1484617489.13165.63.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, edumazet@google.com
+To: Andrew Collins <acollins@cradlepoint.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpbg292.qq.com ([113.108.11.231]:45505 "EHLO smtpbg292.qq.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750803AbdAQCc0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 16 Jan 2017 21:32:26 -0500
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:34343 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750912AbdAQClN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2017 21:41:13 -0500
+Received: by mail-pg0-f68.google.com with SMTP id t6so2567686pgt.1
+        for <netdev@vger.kernel.org>; Mon, 16 Jan 2017 18:41:12 -0800 (PST)
+In-Reply-To: <1484617489.13165.63.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gao Feng <fgao@ikuai8.com>
+On Mon, 2017-01-16 at 17:44 -0800, Eric Dumazet wrote:
+> On Mon, 2017-01-16 at 17:04 -0700, Andrew Collins wrote:
 
-The inet_num is u16, so use %hu instead of casting it to int. And
-the sk_bound_dev_if is int actually, so it needn't cast to int.
+> >   Is there a better way to manage flow separation in routed+encapsulated traffic?
+> 
+> Encapsulated traffic is fine, since flow dissector skips encap header(s)
+> up to the L4 header.
+> 
+> Problem is about encrypted traffic, since presumably this L4 header is
+> opaque for flow dissector ;)
 
-Signed-off-by: Gao Feng <fgao@ikuai8.com>
----
- net/ipv4/ping.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
-index 86cca61..592db6a 100644
---- a/net/ipv4/ping.c
-+++ b/net/ipv4/ping.c
-@@ -433,9 +433,9 @@ int ping_bind(struct sock *sk, struct sockaddr *uaddr, int addr_len)
- 		goto out;
- 	}
- 
--	pr_debug("after bind(): num = %d, dif = %d\n",
--		 (int)isk->inet_num,
--		 (int)sk->sk_bound_dev_if);
-+	pr_debug("after bind(): num = %hu, dif = %d\n",
-+		 isk->inet_num,
-+		 sk->sk_bound_dev_if);
- 
- 	err = 0;
- 	if (sk->sk_family == AF_INET && isk->inet_rcv_saddr)
--- 
-1.9.1
+BTW, how can we make sure skb->hash is populated before IPSEC ?
+
+Relying on forwarding, and skb->hash set by a device might be not
+enough.
