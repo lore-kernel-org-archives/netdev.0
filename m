@@ -1,36 +1,61 @@
-From: Roman Yeryomin <leroi.lists@gmail.com>
-Subject: Re: [net, 3/6] net: korina: increase tx/rx ring sizes
-Date: Tue, 17 Jan 2017 20:27:57 +0200
-Message-ID: <CACiydbLuVf_jsWor6-OJmwQhxfwd=dzBDnDQnJrp3owf8qCkQA@mail.gmail.com>
-References: <1484674356-22363-1-git-send-email-roman@advem.lv> <20170117.125844.253301507252169868.davem@davemloft.net>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH] virtio: don't set VIRTIO_NET_HDR_F_DATA_VALID on xmit
+Date: Tue, 17 Jan 2017 20:27:33 +0200
+Message-ID: <20170117202515-mutt-send-email-mst@kernel.org>
+References: <20170117181351.98291-1-rolf.neugebauer@docker.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, jasowang@redhat.com,
+        rppt@linux.vnet.ibm.com
+To: Rolf Neugebauer <rolf.neugebauer@docker.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f51.google.com ([209.85.213.51]:36022 "EHLO
-        mail-vk0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750866AbdAQSfu (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 13:35:50 -0500
-Received: by mail-vk0-f51.google.com with SMTP id t8so98171664vke.3
-        for <netdev@vger.kernel.org>; Tue, 17 Jan 2017 10:35:50 -0800 (PST)
-In-Reply-To: <20170117.125844.253301507252169868.davem@davemloft.net>
+Received: from mx1.redhat.com ([209.132.183.28]:37938 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750846AbdAQShZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 17 Jan 2017 13:37:25 -0500
+Content-Disposition: inline
+In-Reply-To: <20170117181351.98291-1-rolf.neugebauer@docker.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17 January 2017 at 19:58, David Miller <davem@davemloft.net> wrote:
-> From: Roman Yeryomin <leroi.lists@gmail.com>
-> Date: Tue, 17 Jan 2017 19:32:36 +0200
->
->> Having larger ring sizes almost eliminates rx fifo overflow, thus improving performance.
->> This patch reduces rx overflow occurence by approximately 1000 times (from ~25k down to ~25 times per 3M frames)
->
-> Those numbers don't mean much without full context.
->
-> What kind of system, what kind of traffic, and over what kind of link?
+On Tue, Jan 17, 2017 at 06:13:51PM +0000, Rolf Neugebauer wrote:
+> This patch part reverts fd2a0437dc33 and e858fae2b0b8 which introduced a
+> subtle change in how the virtio_net flags are derived from the SKBs
+> ip_summed field.
+> 
+> With the above commits, the flags are set to VIRTIO_NET_HDR_F_DATA_VALID
+> when ip_summed == CHECKSUM_UNNECESSARY, thus treating it differently to
+> ip_summed == CHECKSUM_NONE, which should be the same.
+> 
+> Further, the virtio spec 1.0 / CS04 explicitly says that
+> VIRTIO_NET_HDR_F_DATA_VALID must not be set by the driver.
+> 
+> Signed-off-by: Rolf Neugebauer <rolf.neugebauer@docker.com>
 
-MIPS rb532 board, TCP iperf3 test over 100M link, NATed speed ~55Mbps.
-I can do more tests and provide more precise numbers, if needed.
+Fixes: fd2a0437dc33 ("virtio_net: introduce virtio_net_hdr_{from,to}_skb")
+Fixes: e858fae2b0b8 (" virtio_net: use common code for virtio_net_hdr and skb GSO conversion")
+Acked-by: Michael S. Tsirkin <mst@redhat.com>
 
-Regards,
-Roman
+Should be backported into stable as well.
+
+
+
+> ---
+>  include/linux/virtio_net.h | 2 --
+>  1 file changed, 2 deletions(-)
+> 
+> diff --git a/include/linux/virtio_net.h b/include/linux/virtio_net.h
+> index 66204007d7ac..56436472ccc7 100644
+> --- a/include/linux/virtio_net.h
+> +++ b/include/linux/virtio_net.h
+> @@ -91,8 +91,6 @@ static inline int virtio_net_hdr_from_skb(const struct sk_buff *skb,
+>  				skb_checksum_start_offset(skb));
+>  		hdr->csum_offset = __cpu_to_virtio16(little_endian,
+>  				skb->csum_offset);
+> -	} else if (skb->ip_summed == CHECKSUM_UNNECESSARY) {
+> -		hdr->flags = VIRTIO_NET_HDR_F_DATA_VALID;
+>  	} /* else everything is zero */
+>  
+>  	return 0;
+> -- 
+> 2.11.0
