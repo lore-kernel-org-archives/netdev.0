@@ -1,48 +1,44 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next v4 1/2] net sched actions: Add support for user
- cookies
-Date: Tue, 17 Jan 2017 12:03:12 -0500
-Message-ID: <a1f74285-2901-f81d-5b79-934458a1f4cc@mojatatu.com>
-References: <1484651509-27500-1-git-send-email-jhs@emojatatu.com>
- <1484651509-27500-2-git-send-email-jhs@emojatatu.com>
- <587E2747.9000207@iogearbox.net>
- <bead2dc5-87a2-2fca-d50d-871f28be1d5b@mojatatu.com>
- <587E4D16.8030708@iogearbox.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net PATCH v4 2/6] virtio_net: wrap rtnl_lock in test for
+ calling with lock already held
+Date: Tue, 17 Jan 2017 11:57:33 -0500 (EST)
+Message-ID: <20170117.115733.428297564258724055.davem@davemloft.net>
+References: <20170115235528.28980.85142.stgit@john-Precision-Tower-5810>
+        <20170115235947.28980.92147.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jiri@mellanox.com, paulb@mellanox.com,
-        john.fastabend@gmail.com, simon.horman@netronome.com,
-        mrv@mojatatu.com, hadarh@mellanox.com, ogerlitz@mellanox.com,
-        roid@mellanox.com, xiyou.wangcong@gmail.com
-To: Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net
+Cc: jasowang@redhat.com, mst@redhat.com, john.r.fastabend@intel.com,
+        netdev@vger.kernel.org, alexei.starovoitov@gmail.com,
+        daniel@iogearbox.net
+To: john.fastabend@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f193.google.com ([209.85.216.193]:35370 "EHLO
-        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751057AbdAQREF (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 12:04:05 -0500
-Received: by mail-qt0-f193.google.com with SMTP id f4so22909340qte.2
-        for <netdev@vger.kernel.org>; Tue, 17 Jan 2017 09:03:14 -0800 (PST)
-In-Reply-To: <587E4D16.8030708@iogearbox.net>
+Received: from shards.monkeyblade.net ([184.105.139.130]:39334 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750741AbdAQRG4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 12:06:56 -0500
+In-Reply-To: <20170115235947.28980.92147.stgit@john-Precision-Tower-5810>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17-01-17 11:57 AM, Daniel Borkmann wrote:
-> On 01/17/2017 05:50 PM, Jamal Hadi Salim wrote:
+From: John Fastabend <john.fastabend@gmail.com>
+Date: Sun, 15 Jan 2017 15:59:47 -0800
 
->>>
->>>   struct tc_cookie cookie;
->>
->> Grep-ability.
->> I was worried about when the classifier adds its cookie it
->> would need to use something like cls_cookie etc.
->
-> Given this cookie is just used for correlation in user space anyway
-> and not processed any further by the kernel, I think we can well
-> handle these very few spots, so would be better if the code is more
-> maintainable instead.
+> @@ -2358,7 +2371,10 @@ static void remove_vq_common(struct virtnet_info *vi)
+>  	/* Free unused buffers in both send and recv, if any. */
+>  	free_unused_bufs(vi);
+>  
+> -	free_receive_bufs(vi);
+> +	if (rtnl_is_locked())
+> +		_free_receive_bufs(vi);
+> +	else
+> +		free_receive_bufs(vi);
+>  
+>  	free_receive_page_frags(vi);
+>  
 
-act_cookie a better name?
+This doesn't work.  rtnl_is_locked() doesn't tell if _you_ own the mutex, it
+just says that someone does.
 
-cheers,
-jamal
+So if we now execute this code without taking the RTNL lock just because some
+other thread of control holds it, we introduce a race.
