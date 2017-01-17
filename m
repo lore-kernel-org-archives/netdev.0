@@ -1,44 +1,49 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [PATCH net-next v4 1/2] net sched actions: Add support for user
- cookies
-Date: Tue, 17 Jan 2017 15:59:04 +0100
-Message-ID: <20170117145903.GA17991@penelope.horms.nl>
-References: <1484651509-27500-1-git-send-email-jhs@emojatatu.com>
- <1484651509-27500-2-git-send-email-jhs@emojatatu.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: fq_codel and skb->hash
+Date: Tue, 17 Jan 2017 07:14:54 -0800
+Message-ID: <1484666094.13165.68.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <f9913fca-da16-8620-d237-d7d8d09cced2@cradlepoint.com>
+         <1484617489.13165.63.camel@edumazet-glaptop3.roam.corp.google.com>
+         <1484620480.13165.65.camel@edumazet-glaptop3.roam.corp.google.com>
+         <CALx6S34ugaCqDtE=-4533mNsPgt_T0oHC1CN0-vx_uga+ihLdQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, jiri@mellanox.com,
-        paulb@mellanox.com, john.fastabend@gmail.com, mrv@mojatatu.com,
-        hadarh@mellanox.com, ogerlitz@mellanox.com, roid@mellanox.com,
-        xiyou.wangcong@gmail.com, daniel@iogearbox.net
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Collins <acollins@cradlepoint.com>,
+        Linux Kernel Network Developers <netdev@vger.kernel.org>,
+        Eric Dumazet <edumazet@google.com>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f54.google.com ([74.125.82.54]:36011 "EHLO
-        mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751329AbdAQO7u (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 09:59:50 -0500
-Received: by mail-wm0-f54.google.com with SMTP id c85so203570558wmi.1
-        for <netdev@vger.kernel.org>; Tue, 17 Jan 2017 06:59:08 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1484651509-27500-2-git-send-email-jhs@emojatatu.com>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:34038 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750741AbdAQPO6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 10:14:58 -0500
+Received: by mail-pg0-f68.google.com with SMTP id t6so4158312pgt.1
+        for <netdev@vger.kernel.org>; Tue, 17 Jan 2017 07:14:57 -0800 (PST)
+In-Reply-To: <CALx6S34ugaCqDtE=-4533mNsPgt_T0oHC1CN0-vx_uga+ihLdQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 17, 2017 at 06:11:48AM -0500, Jamal Hadi Salim wrote:
-> From: Jamal Hadi Salim <jhs@mojatatu.com>
-> 
-> Introduce optional 128-bit action cookie.
-> Like all other cookie schemes in the networking world (eg in protocols
-> like http or existing kernel fib protocol field, etc) the idea is to save
-> user state that when retrieved serves as a correlator. The kernel
-> _should not_ intepret it.  The user can store whatever they wish in the
-> 128 bits.
-> 
-> Sample exercise(showing variable length use of cookie)
+On Mon, 2017-01-16 at 22:18 -0800, Tom Herbert wrote:
+> On Mon, Jan 16, 2017 at 6:34 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > On Mon, 2017-01-16 at 17:44 -0800, Eric Dumazet wrote:
+> >> On Mon, 2017-01-16 at 17:04 -0700, Andrew Collins wrote:
+> >
+> >> >   Is there a better way to manage flow separation in routed+encapsulated traffic?
+> >>
+> >> Encapsulated traffic is fine, since flow dissector skips encap header(s)
+> >> up to the L4 header.
+> >>
+> >> Problem is about encrypted traffic, since presumably this L4 header is
+> >> opaque for flow dissector ;)
+> >
+> >
+> > BTW, how can we make sure skb->hash is populated before IPSEC ?
+> >
+> > Relying on forwarding, and skb->hash set by a device might be not
+> > enough.
+> >
+> Should we do skb_get_hash upon entry to IPsec?
 
-Hi Jamal,
-
-I think that Daniel made some worthwhile comments regarding the
-implementation but schematically I like what I see:
-
-Reviewed-by: Simon Horman <simon.horman@netronome.com>
+Right, but that might add overhead in cases we do not need skb->hash
+after IPsec . I've heard IPsec is already quite slow :/
