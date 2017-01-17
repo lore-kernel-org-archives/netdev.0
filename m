@@ -1,51 +1,34 @@
-From: Petr Vorel <pvorel@suse.cz>
-Subject: [PATCH 1/1] ip: fix igmp parsing when iface is long
-Date: Tue, 17 Jan 2017 00:25:50 +0100
-Message-ID: <20170116232550.7764-1-pvorel@suse.cz>
-Cc: Petr Vorel <pvorel@suse.cz>
-To: netdev@vger.kernel.org
+From: Andrew Collins <acollins@cradlepoint.com>
+Subject: fq_codel and skb->hash
+Date: Mon, 16 Jan 2017 17:04:44 -0700
+Message-ID: <f9913fca-da16-8620-d237-d7d8d09cced2@cradlepoint.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <edumazet@google.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:35401 "EHLO mx2.suse.de"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751230AbdAPXpG (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Mon, 16 Jan 2017 18:45:06 -0500
-Received: from relay1.suse.de (charybdis-ext.suse.de [195.135.220.254])
-        by mx2.suse.de (Postfix) with ESMTP id 063ADAAC7
-        for <netdev@vger.kernel.org>; Mon, 16 Jan 2017 23:25:58 +0000 (UTC)
+Received: from mail-sn1nam01on0138.outbound.protection.outlook.com ([104.47.32.138]:61511
+        "EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
+        rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751012AbdAQAEw (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Mon, 16 Jan 2017 19:04:52 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Entries with long vhost names in /proc/net/igmp have no whitespace
-between name and colon, so sscanf() adds it to vhost and
-'ip maddr show iface' doesn't include inet result.
+The fq_codel packet scheduler always regenerates the skb flow hash.  Is there any reason
+to do this other than the recent hash perturbation additions?
 
-Signed-off-by: Petr Vorel <pvorel@suse.cz>
----
- ip/ipmaddr.c | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
+I ask because I have a case where an incoming set of TCP flows is encapsulated in a
+single ipsec tunnel, which is then classified on egress into a single flow by fq_codel
+resulting in poor behavior.
 
-diff --git a/ip/ipmaddr.c b/ip/ipmaddr.c
-index 22eb407..4f726fd 100644
---- a/ip/ipmaddr.c
-+++ b/ip/ipmaddr.c
-@@ -136,13 +136,17 @@ static void read_igmp(struct ma_info **result_p)
- 
- 	while (fgets(buf, sizeof(buf), fp)) {
- 		struct ma_info *ma;
-+		size_t len;
- 
- 		if (buf[0] != '\t') {
- 			sscanf(buf, "%d%s", &m.index, m.name);
-+			len = strlen(m.name);
-+			if (m.name[len - 1] == ':')
-+				len--;
- 			continue;
- 		}
- 
--		if (filter.dev && strcmp(filter.dev, m.name))
-+		if (filter.dev && strncmp(filter.dev, m.name, len))
- 			continue;
- 
- 		sscanf(buf, "%08x%d", (__u32 *)&m.addr.data, &m.users);
--- 
-2.11.0
+Reusing the skb hash set in receive results in much better behavior, as the value is
+determined pre-encapsulation and flows end up being distributed more naturally across
+codel queues.
+
+Is opportunistically using the pre-existing skb hash (if available) problematic?  Is
+there a better way to manage flow separation in routed+encapsulated traffic?
+
+Thanks,
+Andrew Collins
