@@ -1,109 +1,39 @@
-From: Andy Shevchenko <andy.shevchenko@gmail.com>
-Subject: Re: [PATCH] net: ethernet: stmmac: add ARP management
-Date: Wed, 18 Jan 2017 01:14:08 +0200
-Message-ID: <CAHp75VfomowHQis_Yo9dEp9KY-i7yB0SvyKeMGvEnvK_ocGrQw@mail.gmail.com>
-References: <1484672200-7755-1-git-send-email-christophe.roullier@st.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net] lwtunnel: fix autoload of lwt modules
+Date: Tue, 17 Jan 2017 16:16:09 -0700
+Message-ID: <deb0ea2f-364a-59fe-0bcd-1f46557522f8@cumulusnetworks.com>
+References: <54cf1176-5131-c0a0-572e-47feda7e07a9@cumulusnetworks.com>
+ <20170117.153846.1832359427601278475.davem@davemloft.net>
+ <7655b85f-4c03-7f08-315c-b6a99a1631f0@cumulusnetworks.com>
+ <20170117.155424.1815351091063210993.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexandre Torgue <alexandre.torgue@st.com>,
-        Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-        netdev <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Christophe Roullier <christophe.roullier@st.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: rshearma@brocade.com, netdev@vger.kernel.org,
+        roopa@cumulusnetworks.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f193.google.com ([209.85.216.193]:35226 "EHLO
-        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751106AbdAQXOP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 18:14:15 -0500
-In-Reply-To: <1484672200-7755-1-git-send-email-christophe.roullier@st.com>
+Received: from mail-pf0-f170.google.com ([209.85.192.170]:35685 "EHLO
+        mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751759AbdAQXQL (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 18:16:11 -0500
+Received: by mail-pf0-f170.google.com with SMTP id f144so65367812pfa.2
+        for <netdev@vger.kernel.org>; Tue, 17 Jan 2017 15:16:11 -0800 (PST)
+In-Reply-To: <20170117.155424.1815351091063210993.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 17, 2017 at 6:56 PM, Christophe Roullier
-<christophe.roullier@st.com> wrote:
+On 1/17/17 1:54 PM, David Miller wrote:
+> From: David Ahern <dsa@cumulusnetworks.com>
+> Date: Tue, 17 Jan 2017 13:46:22 -0700
+> 
+>> In short seems like removing the dev + the current patch dropping
+>> the lock fixes the current deadlock problem and should be fine.
+> 
+> What about the state recorded by fib_get_nhs() and similar?  There is
+> a mapping from ifindex to ->nh_dev which would be invalidated if the
+> RTNL semaphore is dropped.
 
-> +static int dwmac4_arp_enable(struct mac_device_info *hw)
-> +{
-> +       void __iomem *ioaddr = hw->pcsr;
+As far as I can see through the call to build_state all device indices came from the user and have not been validated yet (once the dev arg to build_state is removed; sent that patch for net-next). The device index validation happens later in fib_create_info with the call to fib_check_nh (or dev_get_by_index for host scope).
 
-__iomem *config = hw->pcsr + GMAC_CONFIG;
-
-> +       u32 value = readl(ioaddr + GMAC_CONFIG);
-> +
-> +       value |= GMAC_CONFIG_ARPEN;
-> +
-> +       writel(value, ioaddr + GMAC_CONFIG);
-
-u32 value;
-
-value = readl();
-writel(value | ...);
-
-?
-
-> +
-> +       value = readl(ioaddr + GMAC_CONFIG);
-> +
-> +       return !!(value & GMAC_CONFIG_ARPEN);
-> +}
-
-> +/* Set ARP Address */
-> +static void dwmac4_set_arp_addr(void __iomem *ioaddr, bool set, u32 addr)
-> +{
-
-__iomem *arp_addr = ioaddr + GMAC_ARP_ADDR;
-
-> +       u32 value;
-> +
-> +       value = readl(ioaddr + GMAC_ARP_ADDR);
-
-Care to explain why do you need dummy readl() here?
-
-> +
-> +       if (set) {
-> +               /* set arp address */
-> +               value = addr;
-> +       } else {
-> +               /* unset arp address */
-> +               value = 0;
-> +       }
-
-value = set ? addr : 0;
-
-
-> +
-> +       writel(value, ioaddr + GMAC_ARP_ADDR);
-> +       value = readl(ioaddr + GMAC_ARP_ADDR);
-> +}
-
-
-> +       if ((priv->plat->arp_en) && (priv->dma_cap.arpoffsel)) {
-> +               ret = priv->hw->mac->arp_en(priv->hw);
-> +               if (!ret) {
-
-Hmm... Most would expect
-
-if (ret) {
- doing something
-} else {
- doing something else
-}
-
-> +                       pr_warn(" ARP feature disabled\n");
-> +               } else {
-
-> +                       pr_info(" ARP feature enabled\n");
-
-Wouldn't be too noisy?
-
-pr_* -> dev_*
-
-> +                       /* Copy MAC addr into MAC_ARP_ADDRESS register*/
-> +                       priv->hw->dma->set_arp_addr(priv->ioaddr, 1,
-> +                                                   priv->dev->dev_addr);
-> +               }
-> +       }
-
--- 
-With Best Regards,
-Andy Shevchenko
+I sent an alternative approach that pulls the module loading into a separate function that is called while creating the fib_config. Performance heavy for multipath but solves the autoload without delving into the restart problem.
