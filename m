@@ -1,63 +1,54 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: fs, net: deadlock between bind/splice on af_unix
-Date: Tue, 17 Jan 2017 21:07:05 +1300
-Message-ID: <87wpduaz4m.fsf@xmission.com>
-References: <CACT4Y+Z981V+QLHr=PnQy1Dvxrpp-nCDhQtf+5HuNAusH+Vqxw@mail.gmail.com>
-        <CACT4Y+a-fTzW95ViVP3knhNTa=h6XFB0bMddcyQVeeV+LbXKHw@mail.gmail.com>
-        <CAM_iQpXu+fyjmvrYRB9+VJCdSLS=7Jiet762hqWDANfsOM0XWw@mail.gmail.com>
-        <20161209013208.GW1555@ZenIV.linux.org.uk>
-        <CAM_iQpXjeG5=wZyQP-yOKcB4WRfgGRjeQ+NDHyeSWwdU50Xh5g@mail.gmail.com>
-        <20161209064144.GZ1555@ZenIV.linux.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-        Dmitry Vyukov <dvyukov@google.com>,
-        "linux-fsdevel\@vger.kernel.org" <linux-fsdevel@vger.kernel.org>,
-        LKML <linux-kernel@vger.kernel.org>,
-        David Miller <davem@davemloft.net>,
-        Rainer Weikusat <rweikusat@mobileactivedefense.com>,
-        Hannes Frederic Sowa <hannes@stressinduktion.org>,
-        netdev <netdev@vger.kernel.org>,
-        Eric Dumazet <edumazet@google.com>,
-        syzkaller <syzkaller@googlegroups.com>
-To: Al Viro <viro@ZenIV.linux.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20161209064144.GZ1555@ZenIV.linux.org.uk> (Al Viro's message of
-        "Fri, 9 Dec 2016 06:41:44 +0000")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Alvaro Gamez Machado <alvaro.gamez@hazent.com>
+Subject: [PATCH] net: phy: dp83848: add DP83620 PHY support
+Date: Tue, 17 Jan 2017 09:08:16 +0100
+Message-ID: <20170117080816.356-1-alvaro.gamez@hazent.com>
+Cc: Alvaro Gamez Machado <alvaro.gamez@hazent.com>
+To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:32917 "EHLO
+        mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750893AbdAQIRP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 03:17:15 -0500
+Received: by mail-wm0-f66.google.com with SMTP id r144so36587756wme.0
+        for <netdev@vger.kernel.org>; Tue, 17 Jan 2017 00:17:14 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Al Viro <viro@ZenIV.linux.org.uk> writes:
+This PHY with fiber support is register compatible with DP83848,
+so add support for it.
 
-> On Thu, Dec 08, 2016 at 10:32:00PM -0800, Cong Wang wrote:
->
->> > Why do we do autobind there, anyway, and why is it conditional on
->> > SOCK_PASSCRED?  Note that e.g. for SOCK_STREAM we can bloody well get
->> > to sending stuff without autobind ever done - just use socketpair()
->> > to create that sucker and we won't be going through the connect()
->> > at all.
->> 
->> In the case Dmitry reported, unix_dgram_sendmsg() calls unix_autobind(),
->> not SOCK_STREAM.
->
-> Yes, I've noticed.  What I'm asking is what in there needs autobind triggered
-> on sendmsg and why doesn't the same need affect the SOCK_STREAM case?
+Signed-off-by: Alvaro Gamez Machado <alvaro.gamez@hazent.com>
+---
+ drivers/net/phy/dp83848.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-With respect to the conditionality on SOCK_PASSCRED those are the linux
-semantics.  Semantically that is the way the code has behaved since
-2.1.15 when support for passing credentials was added to the code.
-So I presume someone thought it was a good idea to have a name for
-a socket that is sending credentials to another socket.  It certainly
-seems reasonable at first glance.
-
-With socketpair the only path that doesn't enforce this with
-SOCK_STREAM and SOCK_PASSCRED that is either an oversight or a don't
-care because we already know who is at the other end.
-
-I can imagine two possible fixes:
-1) Declare that splice is non-sense in the presence of SOCK_PASSCRED.
-2) Someone adds a preparation operation that can be called on
-   af_unix sockets that will ensure the autobind happens before
-   any problematic locks are taken.
-
-Eric
+diff --git a/drivers/net/phy/dp83848.c b/drivers/net/phy/dp83848.c
+index 800b39f06279..a10d0e7fc5f7 100644
+--- a/drivers/net/phy/dp83848.c
++++ b/drivers/net/phy/dp83848.c
+@@ -17,6 +17,7 @@
+ #include <linux/phy.h>
+ 
+ #define TI_DP83848C_PHY_ID		0x20005ca0
++#define TI_DP83620_PHY_ID		0x20005ce0
+ #define NS_DP83848C_PHY_ID		0x20005c90
+ #define TLK10X_PHY_ID			0x2000a210
+ #define TI_DP83822_PHY_ID		0x2000a240
+@@ -77,6 +78,7 @@ static int dp83848_config_intr(struct phy_device *phydev)
+ static struct mdio_device_id __maybe_unused dp83848_tbl[] = {
+ 	{ TI_DP83848C_PHY_ID, 0xfffffff0 },
+ 	{ NS_DP83848C_PHY_ID, 0xfffffff0 },
++	{ TI_DP83620_PHY_ID, 0xfffffff0 },
+ 	{ TLK10X_PHY_ID, 0xfffffff0 },
+ 	{ TI_DP83822_PHY_ID, 0xfffffff0 },
+ 	{ }
+@@ -106,6 +108,7 @@ MODULE_DEVICE_TABLE(mdio, dp83848_tbl);
+ static struct phy_driver dp83848_driver[] = {
+ 	DP83848_PHY_DRIVER(TI_DP83848C_PHY_ID, "TI DP83848C 10/100 Mbps PHY"),
+ 	DP83848_PHY_DRIVER(NS_DP83848C_PHY_ID, "NS DP83848C 10/100 Mbps PHY"),
++	DP83848_PHY_DRIVER(TI_DP83620_PHY_ID, "TI DP83620 10/100 Mbps PHY"),
+ 	DP83848_PHY_DRIVER(TLK10X_PHY_ID, "TI TLK10X 10/100 Mbps PHY"),
+ 	DP83848_PHY_DRIVER(TI_DP83822_PHY_ID, "TI DP83822 10/100 Mbps PHY"),
+ };
+-- 
+2.11.0
