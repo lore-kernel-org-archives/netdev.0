@@ -1,48 +1,44 @@
-From: Rick Jones <rick.jones2@hpe.com>
-Subject: Re: [PATCH net-next] tcp: accept RST for rcv_nxt - 1 after receiving
- a FIN
-Date: Tue, 17 Jan 2017 11:19:58 -0800
-Message-ID: <6bbb94ef-9be6-6238-270b-fec5304a65c7@hpe.com>
-References: <1484678239-19199-1-git-send-email-jbaron@akamai.com>
- <92daa9c2-7bfc-94ff-bb06-91ef03cd0d66@hpe.com>
- <CANn89iJ-tc=m122UcEh9Xmuf1DoeKMwDf4Z42hWFZwxfRYFY_g@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net, 3/6] net: korina: increase tx/rx ring sizes
+Date: Tue, 17 Jan 2017 11:20:16 -0800
+Message-ID: <1484680816.13165.73.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1484674356-22363-1-git-send-email-roman@advem.lv>
+         <20170117.125844.253301507252169868.davem@davemloft.net>
+         <CACiydbLuVf_jsWor6-OJmwQhxfwd=dzBDnDQnJrp3owf8qCkQA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Jason Baron <jbaron@akamai.com>,
-        David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <edumazet@google.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Roman Yeryomin <leroi.lists@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g2t1383g.austin.hpe.com ([15.233.16.89]:1829 "EHLO
-        g2t1383g.austin.hpe.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750997AbdAQTUB (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 14:20:01 -0500
-Received: from g9t5008.houston.hpe.com (g9t5008.houston.hpe.com [15.241.48.72])
-        (using TLSv1.2 with cipher AECDH-AES256-SHA (256/256 bits))
-        (No client certificate requested)
-        by g2t1383g.austin.hpe.com (Postfix) with ESMTPS id 360253A80
-        for <netdev@vger.kernel.org>; Tue, 17 Jan 2017 19:20:00 +0000 (UTC)
-In-Reply-To: <CANn89iJ-tc=m122UcEh9Xmuf1DoeKMwDf4Z42hWFZwxfRYFY_g@mail.gmail.com>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:35240 "EHLO
+        mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750849AbdAQTUS (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 14:20:18 -0500
+Received: by mail-pf0-f195.google.com with SMTP id f144so16797789pfa.2
+        for <netdev@vger.kernel.org>; Tue, 17 Jan 2017 11:20:17 -0800 (PST)
+In-Reply-To: <CACiydbLuVf_jsWor6-OJmwQhxfwd=dzBDnDQnJrp3owf8qCkQA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/17/2017 11:13 AM, Eric Dumazet wrote:
-> On Tue, Jan 17, 2017 at 11:04 AM, Rick Jones <rick.jones2@hpe.com> wrote:
->> Drifting a bit, and it doesn't change the value of dealing with it, but out
->> of curiosity, when you say mostly in CLOSE_WAIT, why aren't the server-side
->> applications reacting to the read return of zero triggered by the arrival of
->> the FIN?
->
-> Even if the application reacts, and calls close(fd), kernel will still
-> try to push the data that was queued into socket write queue prior to
-> receiving the FIN.
->
-> By allowing this RST, we can flush the whole data and react much
-> faster, avoiding locking memory in the kernel for very long time.
+On Tue, 2017-01-17 at 20:27 +0200, Roman Yeryomin wrote:
+> On 17 January 2017 at 19:58, David Miller <davem@davemloft.net> wrote:
+> > From: Roman Yeryomin <leroi.lists@gmail.com>
+> > Date: Tue, 17 Jan 2017 19:32:36 +0200
+> >
+> >> Having larger ring sizes almost eliminates rx fifo overflow, thus improving performance.
+> >> This patch reduces rx overflow occurence by approximately 1000 times (from ~25k down to ~25 times per 3M frames)
+> >
+> > Those numbers don't mean much without full context.
+> >
+> > What kind of system, what kind of traffic, and over what kind of link?
+> 
+> MIPS rb532 board, TCP iperf3 test over 100M link, NATed speed ~55Mbps.
+> I can do more tests and provide more precise numbers, if needed.
 
-Understood.  I was just wondering if there is also an application bug here.
+Note that at 100M,  64 rx descriptors have a 8 ms max latency.
 
-happy benchmarking,
+Switching to 256 also multiply by 4 the latency -> 32 ms latency.
 
-rick jones
+Presumably switching to NAPI and GRO would avoid the latency increase
+and save a lot of cpu cycles for a MIPS board.
