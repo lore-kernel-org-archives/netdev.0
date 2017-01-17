@@ -1,56 +1,40 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH] ip/xfrm: Fix deleteall when having many policies
- installed
-Date: Tue, 17 Jan 2017 08:44:12 -0800
-Message-ID: <20170117084412.0bff48bb@xeon-e3>
-References: <d056322e-7c23-7e19-3bdb-4afa5f04e409@secunet.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH net-next v4 1/2] net sched actions: Add support for user
+ cookies
+Date: Tue, 17 Jan 2017 11:53:11 -0500
+Message-ID: <fcd7e88a-b347-f344-a703-06edf0fd1abf@mojatatu.com>
+References: <1484651509-27500-1-git-send-email-jhs@emojatatu.com>
+ <1484651509-27500-2-git-send-email-jhs@emojatatu.com>
+ <587E2747.9000207@iogearbox.net>
+ <bead2dc5-87a2-2fca-d50d-871f28be1d5b@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Alexander Heinlein <alexander.heinlein@secunet.com>
+Cc: netdev@vger.kernel.org, jiri@mellanox.com, paulb@mellanox.com,
+        john.fastabend@gmail.com, simon.horman@netronome.com,
+        mrv@mojatatu.com, hadarh@mellanox.com, ogerlitz@mellanox.com,
+        roid@mellanox.com, xiyou.wangcong@gmail.com
+To: Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f44.google.com ([74.125.83.44]:33498 "EHLO
-        mail-pg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750849AbdAQQvG (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 11:51:06 -0500
-Received: by mail-pg0-f44.google.com with SMTP id 204so26054897pge.0
-        for <netdev@vger.kernel.org>; Tue, 17 Jan 2017 08:51:06 -0800 (PST)
-In-Reply-To: <d056322e-7c23-7e19-3bdb-4afa5f04e409@secunet.com>
+Received: from mail-qt0-f195.google.com ([209.85.216.195]:36557 "EHLO
+        mail-qt0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751137AbdAQQxN (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 11:53:13 -0500
+Received: by mail-qt0-f195.google.com with SMTP id l7so22860622qtd.3
+        for <netdev@vger.kernel.org>; Tue, 17 Jan 2017 08:53:13 -0800 (PST)
+In-Reply-To: <bead2dc5-87a2-2fca-d50d-871f28be1d5b@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 16 Jan 2017 15:09:01 +0100
-Alexander Heinlein <alexander.heinlein@secunet.com> wrote:
+On 17-01-17 11:50 AM, Jamal Hadi Salim wrote:
+> On 17-01-17 09:16 AM, Daniel Borkmann wrote:
 
-> Fix "Policy buffer overflow" error when trying to use deleteall with
-> many policies installed.
-> 
-> Signed-off-by: Alexander Heinlein <alexander.heinlein@secunet.com>
-> ---
->  ip/xfrm_policy.c | 6 ++----
->  1 file changed, 2 insertions(+), 4 deletions(-)
-> 
-> diff --git a/ip/xfrm_policy.c b/ip/xfrm_policy.c
-> index cc9c0f1..451b982 100644
-> --- a/ip/xfrm_policy.c
-> +++ b/ip/xfrm_policy.c
-> @@ -732,10 +732,8 @@ static int xfrm_policy_keep(const struct
-> sockaddr_nl *who,
->  	if (!xfrm_policy_filter_match(xpinfo, ptype))
->  		return 0;
-> 
-> -	if (xb->offset > xb->size) {
-> -		fprintf(stderr, "Policy buffer overflow\n");
-> -		return -1;
-> -	}
-> +	if (xb->offset + NLMSG_LENGTH(sizeof(*xpid)) > xb->size)
-> +		return 0;
-> 
->  	new_n = (struct nlmsghdr *)(xb->buf + xb->offset);
->  	new_n->nlmsg_len = NLMSG_LENGTH(sizeof(*xpid));
+>
+> I can do that if you feel strongly. I am dropping the first patch and
+> hope Dave just applies this first patch.
+>
 
+I meant this second patch.
 
-What happens when many many policies are installed?
-It looks like your patch would silently stop deleting.
-Does the the code flush all of them?
+cheers,
+jamal
