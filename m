@@ -1,46 +1,39 @@
-From: Roman Yeryomin <leroi.lists@gmail.com>
-Subject: [net, 5/6] net: korina: update authors
-Date: Tue, 17 Jan 2017 19:33:03 +0200
-Message-ID: <1484674383-22465-1-git-send-email-roman@advem.lv>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net, 2/6] net: korina: define NAPI_WEIGHT
+Date: Tue, 17 Jan 2017 12:40:06 -0500 (EST)
+Message-ID: <20170117.124006.1559010522356313497.davem@davemloft.net>
+References: <1484674342-22304-1-git-send-email-roman@advem.lv>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: leroi.lists@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f65.google.com ([209.85.215.65]:33721 "EHLO
-        mail-lf0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751447AbdAQRkE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 12:40:04 -0500
-Received: by mail-lf0-f65.google.com with SMTP id x1so11921078lff.0
-        for <netdev@vger.kernel.org>; Tue, 17 Jan 2017 09:40:03 -0800 (PST)
-Received: from ubrain.lan ([213.175.92.61])
-        by smtp.googlemail.com with ESMTPSA id v18sm4359434lja.31.2017.01.17.09.33.06
-        for <netdev@vger.kernel.org>
-        (version=TLS1_2 cipher=ECDHE-RSA-AES128-SHA bits=128/128);
-        Tue, 17 Jan 2017 09:33:06 -0800 (PST)
+Received: from shards.monkeyblade.net ([184.105.139.130]:39908 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751447AbdAQRkK (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 12:40:10 -0500
+In-Reply-To: <1484674342-22304-1-git-send-email-roman@advem.lv>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Roman Yeryomin <roman@advem.lv>
----
- drivers/net/ethernet/korina.c | 2 ++
- 1 file changed, 2 insertions(+)
+From: Roman Yeryomin <leroi.lists@gmail.com>
+Date: Tue, 17 Jan 2017 19:32:22 +0200
 
-diff --git a/drivers/net/ethernet/korina.c b/drivers/net/ethernet/korina.c
-index afa440c..83c994f 100644
---- a/drivers/net/ethernet/korina.c
-+++ b/drivers/net/ethernet/korina.c
-@@ -4,6 +4,7 @@
-  *  Copyright 2004 IDT Inc. (rischelp@idt.com)
-  *  Copyright 2006 Felix Fietkau <nbd@openwrt.org>
-  *  Copyright 2008 Florian Fainelli <florian@openwrt.org>
-+ *  Copyright 2017 Roman Yeryomin <roman@advem.lv>
-  *
-  *  This program is free software; you can redistribute  it and/or modify it
-  *  under  the terms of  the GNU General  Public License as published by the
-@@ -1150,5 +1151,6 @@ module_platform_driver(korina_driver);
- MODULE_AUTHOR("Philip Rischel <rischelp@idt.com>");
- MODULE_AUTHOR("Felix Fietkau <nbd@openwrt.org>");
- MODULE_AUTHOR("Florian Fainelli <florian@openwrt.org>");
-+MODULE_AUTHOR("Roman Yeryomin <roman@advem.lv>");
- MODULE_DESCRIPTION("IDT RC32434 (Korina) Ethernet driver");
- MODULE_LICENSE("GPL");
--- 
-2.7.4
+> @@ -77,6 +77,8 @@
+>  
+>  #define MII_CLOCK 1250000 	/* no more than 2.5MHz */
+>  
+> +#define NAPI_WEIGHT	64
+> +
+>  /* the following must be powers of two */
+>  #define KORINA_NUM_RDS	64  /* number of receive descriptors */
+>  #define KORINA_NUM_TDS	64  /* number of transmit descriptors */
+> @@ -1080,7 +1082,7 @@ static int korina_probe(struct platform_device *pdev)
+>  	dev->netdev_ops = &korina_netdev_ops;
+>  	dev->ethtool_ops = &netdev_ethtool_ops;
+>  	dev->watchdog_timeo = TX_TIMEOUT;
+> -	netif_napi_add(dev, &lp->napi, korina_poll, 64);
+> +	netif_napi_add(dev, &lp->napi, korina_poll, NAPI_WEIGHT);
+
+Please use NAPI_POLL_WEIGHT from linux/netdevice.h
