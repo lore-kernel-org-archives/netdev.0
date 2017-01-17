@@ -1,7 +1,7 @@
 From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: [PATCH net-next v4 1/2] net sched actions: Add support for user cookies
-Date: Tue, 17 Jan 2017 06:11:48 -0500
-Message-ID: <1484651509-27500-2-git-send-email-jhs@emojatatu.com>
+Subject: [PATCH net-next v4 2/2] net sched: Trivial whitespace and stylistic changes
+Date: Tue, 17 Jan 2017 06:11:49 -0500
+Message-ID: <1484651509-27500-3-git-send-email-jhs@emojatatu.com>
 References: <1484651509-27500-1-git-send-email-jhs@emojatatu.com>
 Cc: netdev@vger.kernel.org, jiri@mellanox.com, paulb@mellanox.com,
         john.fastabend@gmail.com, simon.horman@netronome.com,
@@ -10,194 +10,245 @@ Cc: netdev@vger.kernel.org, jiri@mellanox.com, paulb@mellanox.com,
         Jamal Hadi Salim <jhs@mojatatu.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f193.google.com ([209.85.216.193]:35519 "EHLO
-        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750849AbdAQLNE (ORCPT
+Received: from mail-qt0-f196.google.com ([209.85.216.196]:35529 "EHLO
+        mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750884AbdAQLNE (ORCPT
         <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 06:13:04 -0500
-Received: by mail-qt0-f193.google.com with SMTP id f4so20683998qte.2
-        for <netdev@vger.kernel.org>; Tue, 17 Jan 2017 03:12:05 -0800 (PST)
+Received: by mail-qt0-f196.google.com with SMTP id f4so20684104qte.2
+        for <netdev@vger.kernel.org>; Tue, 17 Jan 2017 03:12:06 -0800 (PST)
 In-Reply-To: <1484651509-27500-1-git-send-email-jhs@emojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jamal Hadi Salim <jhs@mojatatu.com>
 
-Introduce optional 128-bit action cookie.
-Like all other cookie schemes in the networking world (eg in protocols
-like http or existing kernel fib protocol field, etc) the idea is to save
-user state that when retrieved serves as a correlator. The kernel
-_should not_ intepret it.  The user can store whatever they wish in the
-128 bits.
-
-Sample exercise(showing variable length use of cookie)
-
-.. create an accept action with cookie a1b2c3d4
-sudo $TC actions add action ok index 1 cookie a1b2c3d4
-
-.. dump all gact actions..
-sudo $TC -s actions ls action gact
-
-	action order 0: gact action pass
-	 random type none pass val 0
-	 index 1 ref 1 bind 0 installed 5 sec used 5 sec
- 	Action statistics:
-	Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-	backlog 0b 0p requeues 0
-	cookie a1b2c3d4
-
-.. bind the accept action to a filter..
-sudo $TC filter add dev lo parent ffff: protocol ip prio 1 \
-u32 match ip dst 127.0.0.1/32 flowid 1:1 action gact index 1
-
-... send some traffic..
-$ ping 127.0.0.1 -c 3
-PING 127.0.0.1 (127.0.0.1) 56(84) bytes of data.
-64 bytes from 127.0.0.1: icmp_seq=1 ttl=64 time=0.020 ms
-64 bytes from 127.0.0.1: icmp_seq=2 ttl=64 time=0.027 ms
-64 bytes from 127.0.0.1: icmp_seq=3 ttl=64 time=0.038 ms
-
---- 127.0.0.1 ping statistics ---
-3 packets transmitted, 3 received, 0% packet loss, time 2109ms
-rtt min/avg/max/mdev = 0.020/0.028/0.038/0.008 ms 1
-
-... show some stats
-$ sudo $TC -s actions get action gact index 1
-
-	action order 1: gact action pass
-	 random type none pass val 0
-	 index 1 ref 2 bind 1 installed 204 sec used 5 sec
- 	Action statistics:
-        Sent 12168 bytes 164 pkt (dropped 0, overlimits 0 requeues 0)
-	backlog 0b 0p requeues 0
-	cookie a1b2c3d4
-
-.. try longer cookie...
-$ sudo $TC actions replace action ok index 1 cookie 1234567890abcdef
-.. dump..
-$ sudo $TC -s actions ls action gact
-
-	action order 1: gact action pass
-	 random type none pass val 0
-	 index 1 ref 2 bind 1 installed 204 sec used 5 sec
- 	Action statistics:
-        Sent 12168 bytes 164 pkt (dropped 0, overlimits 0 requeues 0)
-	backlog 0b 0p requeues 0
-	cookie 1234567890abcdef
-
 Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
 ---
- include/net/act_api.h        |  1 +
- include/net/pkt_cls.h        |  8 ++++++++
- include/uapi/linux/pkt_cls.h |  3 +++
- net/sched/act_api.c          | 25 +++++++++++++++++++++++++
- 4 files changed, 37 insertions(+)
+ include/net/act_api.h |  7 ++++---
+ include/net/pkt_cls.h | 45 ++++++++++++++++++---------------------------
+ net/sched/act_api.c   | 20 ++++++++------------
+ 3 files changed, 30 insertions(+), 42 deletions(-)
 
 diff --git a/include/net/act_api.h b/include/net/act_api.h
-index 1d71644..0692458 100644
+index 0692458..b912908 100644
 --- a/include/net/act_api.h
 +++ b/include/net/act_api.h
-@@ -41,6 +41,7 @@ struct tc_action {
- 	struct rcu_head			tcfa_rcu;
- 	struct gnet_stats_basic_cpu __percpu *cpu_bstats;
- 	struct gnet_stats_queue __percpu *cpu_qstats;
-+	struct tc_cookie	*act_ck;
- };
- #define tcf_head	common.tcfa_head
- #define tcf_index	common.tcfa_index
+@@ -118,7 +118,8 @@ struct tc_action_ops {
+ 			struct nlattr *est, struct tc_action **act, int ovr,
+ 			int bind);
+ 	int     (*walk)(struct net *, struct sk_buff *,
+-			struct netlink_callback *, int, const struct tc_action_ops *);
++			struct netlink_callback *, int,
++			const struct tc_action_ops *);
+ 	void	(*stats_update)(struct tc_action *, u64, u32, u64);
+ 	int	(*get_dev)(const struct tc_action *a, struct net *net,
+ 			   struct net_device **mirred_dev);
+@@ -162,8 +163,8 @@ int tcf_generic_walker(struct tc_action_net *tn, struct sk_buff *skb,
+ bool tcf_hash_check(struct tc_action_net *tn, u32 index, struct tc_action **a,
+ 		    int bind);
+ int tcf_hash_create(struct tc_action_net *tn, u32 index, struct nlattr *est,
+-		    struct tc_action **a, const struct tc_action_ops *ops, int bind,
+-		    bool cpustats);
++		    struct tc_action **a, const struct tc_action_ops *ops,
++		    int bind, bool cpustats);
+ void tcf_hash_cleanup(struct tc_action *a, struct nlattr *est);
+ void tcf_hash_insert(struct tc_action_net *tn, struct tc_action *a);
+ 
 diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
-index f0a0514..e0bc7e8 100644
+index e0bc7e8..2a2c442 100644
 --- a/include/net/pkt_cls.h
 +++ b/include/net/pkt_cls.h
-@@ -515,4 +515,12 @@ struct tc_cls_bpf_offload {
- 	u32 gen_flags;
+@@ -11,33 +11,32 @@ struct tcf_walker {
+ 	int	stop;
+ 	int	skip;
+ 	int	count;
+-	int	(*fn)(struct tcf_proto *, unsigned long node, struct tcf_walker *);
++	int	(*fn)(struct tcf_proto *, unsigned long node,
++		      struct tcf_walker *);
  };
  
-+
-+/* This structure holds cookie structure that is passed from user
-+ * to the kernel for actions and classifiers
-+ */
-+struct tc_cookie {
-+	unsigned char ck[TC_COOKIE_MAX_SIZE];
-+	unsigned char ck_len;
-+};
- #endif
-diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
-index 1e5e1dd..2d2414e 100644
---- a/include/uapi/linux/pkt_cls.h
-+++ b/include/uapi/linux/pkt_cls.h
-@@ -4,6 +4,8 @@
- #include <linux/types.h>
- #include <linux/pkt_sched.h>
+ int register_tcf_proto_ops(struct tcf_proto_ops *ops);
+ int unregister_tcf_proto_ops(struct tcf_proto_ops *ops);
  
-+#define TC_COOKIE_MAX_SIZE 16
-+
- /* Action attributes */
- enum {
- 	TCA_ACT_UNSPEC,
-@@ -12,6 +14,7 @@ enum {
- 	TCA_ACT_INDEX,
- 	TCA_ACT_STATS,
- 	TCA_ACT_PAD,
-+	TCA_ACT_COOKIE,
- 	__TCA_ACT_MAX
- };
- 
-diff --git a/net/sched/act_api.c b/net/sched/act_api.c
-index f04715a..43f1f42 100644
---- a/net/sched/act_api.c
-+++ b/net/sched/act_api.c
-@@ -24,6 +24,7 @@
- #include <net/net_namespace.h>
- #include <net/sock.h>
- #include <net/sch_generic.h>
-+#include <net/pkt_cls.h>
- #include <net/act_api.h>
- #include <net/netlink.h>
- 
-@@ -33,6 +34,7 @@ static void free_tcf(struct rcu_head *head)
- 
- 	free_percpu(p->cpu_bstats);
- 	free_percpu(p->cpu_qstats);
-+	kfree(p->act_ck);
- 	kfree(p);
+-static inline unsigned long
+-__cls_set_class(unsigned long *clp, unsigned long cl)
++static inline unsigned long __cls_set_class(unsigned long *clp,
++					    unsigned long cl)
+ {
+ 	return xchg(clp, cl);
  }
  
-@@ -475,6 +477,12 @@ int tcf_action_destroy(struct list_head *actions, int bind)
- 		goto nla_put_failure;
- 	if (tcf_action_copy_stats(skb, a, 0))
- 		goto nla_put_failure;
-+	if (a->act_ck) {
-+		if (nla_put(skb, TCA_ACT_COOKIE, a->act_ck->ck_len,
-+			    a->act_ck))
-+			goto nla_put_failure;
-+	}
-+
- 	nest = nla_nest_start(skb, TCA_OPTIONS);
- 	if (nest == NULL)
- 		goto nla_put_failure;
-@@ -575,6 +583,23 @@ struct tc_action *tcf_action_init_1(struct net *net, struct nlattr *nla,
- 	if (err < 0)
- 		goto err_mod;
+-static inline unsigned long
+-cls_set_class(struct tcf_proto *tp, unsigned long *clp, 
++static inline unsigned long cls_set_class(struct tcf_proto *tp,
++					  unsigned long *clp,
+ 	unsigned long cl)
+ {
+ 	unsigned long old_cl;
+-	
+ 	tcf_tree_lock(tp);
+ 	old_cl = __cls_set_class(clp, cl);
+ 	tcf_tree_unlock(tp);
+- 
+ 	return old_cl;
+ }
  
-+	if (tb[TCA_ACT_COOKIE]) {
-+		if (nla_len(tb[TCA_ACT_COOKIE]) > TC_COOKIE_MAX_SIZE) {
-+			err = -EINVAL;
-+			goto err_mod;
-+		}
-+
-+		a->act_ck = kzalloc(sizeof(*a->act_ck), GFP_KERNEL);
-+		if (unlikely(!a->act_ck)) {
-+			err = -ENOMEM;
-+			goto err_mod;
-+		}
-+
-+		memcpy(a->act_ck->ck, nla_data(tb[TCA_ACT_COOKIE]),
-+		       nla_len(tb[TCA_ACT_COOKIE]));
-+		a->act_ck->ck_len = nla_len(tb[TCA_ACT_COOKIE]);
-+	}
-+
- 	/* module count goes up only when brand new policy is created
- 	 * if it exists and is only bound to in a_o->init() then
- 	 * ACT_P_CREATED is not returned (a zero is).
+-static inline void
+-tcf_bind_filter(struct tcf_proto *tp, struct tcf_result *r, unsigned long base)
++static inline void tcf_bind_filter(struct tcf_proto *tp, struct tcf_result *r,
++				   unsigned long base)
+ {
+ 	unsigned long cl;
+ 
+@@ -47,8 +46,7 @@ struct tcf_walker {
+ 		tp->q->ops->cl_ops->unbind_tcf(tp->q, cl);
+ }
+ 
+-static inline void
+-tcf_unbind_filter(struct tcf_proto *tp, struct tcf_result *r)
++static inline void tcf_unbind_filter(struct tcf_proto *tp, struct tcf_result *r)
+ {
+ 	unsigned long cl;
+ 
+@@ -91,8 +89,7 @@ static inline int tcf_exts_init(struct tcf_exts *exts, int action, int police)
+  * Returns 1 if a predicative extension is present, i.e. an extension which
+  * might cause further actions and thus overrule the regular tcf_result.
+  */
+-static inline int
+-tcf_exts_is_predicative(struct tcf_exts *exts)
++static inline int tcf_exts_is_predicative(struct tcf_exts *exts)
+ {
+ #ifdef CONFIG_NET_CLS_ACT
+ 	return exts->nr_actions;
+@@ -107,8 +104,7 @@ static inline int tcf_exts_init(struct tcf_exts *exts, int action, int police)
+  *
+  * Returns 1 if at least one extension is present.
+  */
+-static inline int
+-tcf_exts_is_available(struct tcf_exts *exts)
++static inline int tcf_exts_is_available(struct tcf_exts *exts)
+ {
+ 	/* All non-predicative extensions must be added here. */
+ 	return tcf_exts_is_predicative(exts);
+@@ -139,9 +135,8 @@ static inline void tcf_exts_to_list(const struct tcf_exts *exts,
+  * a positive action code (TC_ACT_*) which must be returned to the
+  * underlying layer.
+  */
+-static inline int
+-tcf_exts_exec(struct sk_buff *skb, struct tcf_exts *exts,
+-	       struct tcf_result *res)
++static inline int tcf_exts_exec(struct sk_buff *skb, struct tcf_exts *exts,
++				struct tcf_result *res)
+ {
+ #ifdef CONFIG_NET_CLS_ACT
+ 	if (exts->nr_actions)
+@@ -196,7 +191,7 @@ struct tcf_pkt_info {
+  * @data: ematch specific data
+  */
+ struct tcf_ematch {
+-	struct tcf_ematch_ops * ops;
++	struct tcf_ematch_ops *ops;
+ 	unsigned long		data;
+ 	unsigned int		datalen;
+ 	u16			matchid;
+@@ -237,7 +232,6 @@ static inline int tcf_em_early_end(struct tcf_ematch *em, int result)
+ 
+ 	return 0;
+ }
+-	
+ /**
+  * struct tcf_ematch_tree - ematch tree handle
+  *
+@@ -246,8 +240,7 @@ static inline int tcf_em_early_end(struct tcf_ematch *em, int result)
+  */
+ struct tcf_ematch_tree {
+ 	struct tcf_ematch_tree_hdr hdr;
+-	struct tcf_ematch *	matches;
+-	
++	struct tcf_ematch	*matches;
+ };
+ 
+ /**
+@@ -343,7 +336,7 @@ struct tcf_ematch_tree {
+ 
+ #endif /* CONFIG_NET_EMATCH */
+ 
+-static inline unsigned char * tcf_get_base_ptr(struct sk_buff *skb, int layer)
++static inline unsigned char *tcf_get_base_ptr(struct sk_buff *skb, int layer)
+ {
+ 	switch (layer) {
+ 		case TCF_LAYER_LINK:
+@@ -368,8 +361,7 @@ static inline int tcf_valid_offset(const struct sk_buff *skb,
+ #ifdef CONFIG_NET_CLS_IND
+ #include <net/net_namespace.h>
+ 
+-static inline int
+-tcf_change_indev(struct net *net, struct nlattr *indev_tlv)
++static inline int tcf_change_indev(struct net *net, struct nlattr *indev_tlv)
+ {
+ 	char indev[IFNAMSIZ];
+ 	struct net_device *dev;
+@@ -382,8 +374,7 @@ static inline int tcf_valid_offset(const struct sk_buff *skb,
+ 	return dev->ifindex;
+ }
+ 
+-static inline bool
+-tcf_match_indev(struct sk_buff *skb, int ifindex)
++static inline bool tcf_match_indev(struct sk_buff *skb, int ifindex)
+ {
+ 	if (!ifindex)
+ 		return true;
+diff --git a/net/sched/act_api.c b/net/sched/act_api.c
+index 43f1f42..37ac78d 100644
+--- a/net/sched/act_api.c
++++ b/net/sched/act_api.c
+@@ -739,9 +739,8 @@ static int tca_get_fill(struct sk_buff *skb, struct list_head *actions,
+ 	return -1;
+ }
+ 
+-static int
+-act_get_notify(struct net *net, u32 portid, struct nlmsghdr *n,
+-	       struct list_head *actions, int event)
++static int act_get_notify(struct net *net, u32 portid, struct nlmsghdr *n,
++			  struct list_head *actions, int event)
+ {
+ 	struct sk_buff *skb;
+ 
+@@ -864,9 +863,8 @@ static int tca_action_flush(struct net *net, struct nlattr *nla,
+ 	return err;
+ }
+ 
+-static int
+-tcf_del_notify(struct net *net, struct nlmsghdr *n, struct list_head *actions,
+-	       u32 portid)
++static int tcf_del_notify(struct net *net, struct nlmsghdr *n,
++			  struct list_head *actions, u32 portid)
+ {
+ 	int ret;
+ 	struct sk_buff *skb;
+@@ -895,9 +893,8 @@ static int tca_action_flush(struct net *net, struct nlattr *nla,
+ 	return ret;
+ }
+ 
+-static int
+-tca_action_gd(struct net *net, struct nlattr *nla, struct nlmsghdr *n,
+-	      u32 portid, int event)
++static int tca_action_gd(struct net *net, struct nlattr *nla,
++			 struct nlmsghdr *n, u32 portid, int event)
+ {
+ 	int i, ret;
+ 	struct nlattr *tb[TCA_ACT_MAX_PRIO + 1];
+@@ -940,9 +937,8 @@ static int tca_action_flush(struct net *net, struct nlattr *nla,
+ 	return ret;
+ }
+ 
+-static int
+-tcf_add_notify(struct net *net, struct nlmsghdr *n, struct list_head *actions,
+-	       u32 portid)
++static int tcf_add_notify(struct net *net, struct nlmsghdr *n,
++			  struct list_head *actions, u32 portid)
+ {
+ 	struct sk_buff *skb;
+ 	int err = 0;
 -- 
 1.9.1
