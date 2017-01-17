@@ -1,7 +1,7 @@
 From: Josef Bacik <jbacik@fb.com>
-Subject: [PATCH 5/6 net-next] inet: split inet_csk_get_port into two functions
-Date: Tue, 17 Jan 2017 07:51:05 -0800
-Message-ID: <20170117155106.22637-6-jbacik@fb.com>
+Subject: [PATCH 6/6 net-next] inet: reset tb->fastreuseport when adding a reuseport sk
+Date: Tue, 17 Jan 2017 07:51:06 -0800
+Message-ID: <20170117155106.22637-7-jbacik@fb.com>
 References: <20170117155106.22637-1-jbacik@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,134 +10,238 @@ To: <davem@davemloft.net>, <hannes@stressinduktion.org>,
         <tom@herbertland.com>, <netdev@vger.kernel.org>,
         <kernel-team@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:52484 "EHLO
-        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751060AbdAQPvk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 10:51:40 -0500
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:42477 "EHLO
+        mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751097AbdAQPvt (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 10:51:49 -0500
 In-Reply-To: <20170117155106.22637-1-jbacik@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-inet_csk_get_port does two different things, it either scans for an open port,
-or it tries to see if the specified port is available for use.  Since these two
-operations have different rules and are basically independent lets split them
-into two different functions to make them both more readable.
+If we have non reuseport sockets on a tb we will set tb->fastreuseport to 0 and
+never set it again.  Which means that in the future if we end up adding a bunch
+of reuseport sk's to that tb we'll have to do the expensive scan every time.
+Instead add the ipv4/ipv6 saddr fields to the bind bucket, as well as the family
+so we know what comparison to make, and the ipv6 only setting so we can make
+sure to compare with new sockets appropriately.  Once one sk has made it onto
+the list we know that there are no potential bind conflicts on the owners list
+that match that sk's rcv_addr.  So copy the sk's information into our bind
+bucket and set tb->fastruseport to FASTREUSESOCK_STRICT so we know we have to do
+an extra check for subsequent reuseport sockets and skip the expensive bind
+conflict check.
 
 Signed-off-by: Josef Bacik <jbacik@fb.com>
 ---
- net/ipv4/inet_connection_sock.c | 66 +++++++++++++++++++++++++++--------------
- 1 file changed, 44 insertions(+), 22 deletions(-)
+ include/net/inet_hashtables.h   |   9 ++++
+ net/ipv4/inet_connection_sock.c | 106 ++++++++++++++++++++++++++++++++--------
+ 2 files changed, 95 insertions(+), 20 deletions(-)
 
+diff --git a/include/net/inet_hashtables.h b/include/net/inet_hashtables.h
+index 3fc0366..1178931 100644
+--- a/include/net/inet_hashtables.h
++++ b/include/net/inet_hashtables.h
+@@ -74,12 +74,21 @@ struct inet_ehash_bucket {
+  * users logged onto your box, isn't it nice to know that new data
+  * ports are created in O(1) time?  I thought so. ;-)	-DaveM
+  */
++#define FASTREUSEPORT_ANY	1
++#define FASTREUSEPORT_STRICT	2
++
+ struct inet_bind_bucket {
+ 	possible_net_t		ib_net;
+ 	unsigned short		port;
+ 	signed char		fastreuse;
+ 	signed char		fastreuseport;
+ 	kuid_t			fastuid;
++#if IS_ENABLED(CONFIG_IPV6)
++	struct in6_addr		fast_v6_rcv_saddr;
++#endif
++	__be32			fast_rcv_saddr;
++	unsigned short		fast_sk_family;
++	bool			fast_ipv6_only;
+ 	struct hlist_node	node;
+ 	struct hlist_head	owners;
+ };
 diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
-index f7e844d..bbe2892 100644
+index bbe2892..096a085 100644
 --- a/net/ipv4/inet_connection_sock.c
 +++ b/net/ipv4/inet_connection_sock.c
-@@ -156,33 +156,21 @@ static int inet_csk_bind_conflict(const struct sock *sk,
- 	return sk2 != NULL;
+@@ -38,20 +38,21 @@ EXPORT_SYMBOL(inet_csk_timer_bug_msg);
+  *                          IPV6_ADDR_ANY only equals to IPV6_ADDR_ANY,
+  *                          and 0.0.0.0 equals to 0.0.0.0 only
+  */
+-static int ipv6_rcv_saddr_equal(const struct sock *sk, const struct sock *sk2,
++static int ipv6_rcv_saddr_equal(const struct in6_addr *sk1_rcv_saddr6,
++				const struct in6_addr *sk2_rcv_saddr6,
++				__be32 sk1_rcv_saddr, __be32 sk2_rcv_saddr,
++				bool sk1_ipv6only, bool sk2_ipv6only,
+ 				bool match_wildcard)
+ {
+-	const struct in6_addr *sk2_rcv_saddr6 = inet6_rcv_saddr(sk2);
+-	int sk2_ipv6only = inet_v6_ipv6only(sk2);
+-	int addr_type = ipv6_addr_type(&sk->sk_v6_rcv_saddr);
++	int addr_type = ipv6_addr_type(sk1_rcv_saddr6);
+ 	int addr_type2 = sk2_rcv_saddr6 ? ipv6_addr_type(sk2_rcv_saddr6) : IPV6_ADDR_MAPPED;
+ 
+ 	/* if both are mapped, treat as IPv4 */
+ 	if (addr_type == IPV6_ADDR_MAPPED && addr_type2 == IPV6_ADDR_MAPPED) {
+ 		if (!sk2_ipv6only) {
+-			if (sk->sk_rcv_saddr == sk2->sk_rcv_saddr)
++			if (sk1_rcv_saddr == sk2_rcv_saddr)
+ 				return 1;
+-			if (!sk->sk_rcv_saddr || !sk2->sk_rcv_saddr)
++			if (!sk1_rcv_saddr || !sk2_rcv_saddr)
+ 				return match_wildcard;
+ 		}
+ 		return 0;
+@@ -65,11 +66,11 @@ static int ipv6_rcv_saddr_equal(const struct sock *sk, const struct sock *sk2,
+ 		return 1;
+ 
+ 	if (addr_type == IPV6_ADDR_ANY && match_wildcard &&
+-	    !(ipv6_only_sock(sk) && addr_type2 == IPV6_ADDR_MAPPED))
++	    !(sk1_ipv6only && addr_type2 == IPV6_ADDR_MAPPED))
+ 		return 1;
+ 
+ 	if (sk2_rcv_saddr6 &&
+-	    ipv6_addr_equal(&sk->sk_v6_rcv_saddr, sk2_rcv_saddr6))
++	    ipv6_addr_equal(sk1_rcv_saddr6, sk2_rcv_saddr6))
+ 		return 1;
+ 
+ 	return 0;
+@@ -80,13 +81,13 @@ static int ipv6_rcv_saddr_equal(const struct sock *sk, const struct sock *sk2,
+  * match_wildcard == false: addresses must be exactly the same, i.e.
+  *                          0.0.0.0 only equals to 0.0.0.0
+  */
+-static int ipv4_rcv_saddr_equal(const struct sock *sk, const struct sock *sk2,
+-				bool match_wildcard)
++static int ipv4_rcv_saddr_equal(__be32 sk1_rcv_saddr, __be32 sk2_rcv_saddr,
++				bool sk2_ipv6only, bool match_wildcard)
+ {
+-	if (!ipv6_only_sock(sk2)) {
+-		if (sk->sk_rcv_saddr == sk2->sk_rcv_saddr)
++	if (!sk2_ipv6only) {
++		if (sk1_rcv_saddr == sk2_rcv_saddr)
+ 			return 1;
+-		if (!sk->sk_rcv_saddr || !sk2->sk_rcv_saddr)
++		if (!sk1_rcv_saddr || !sk2_rcv_saddr)
+ 			return match_wildcard;
+ 	}
+ 	return 0;
+@@ -97,9 +98,16 @@ int inet_rcv_saddr_equal(const struct sock *sk, const struct sock *sk2,
+ {
+ #if IS_ENABLED(CONFIG_IPV6)
+ 	if (sk->sk_family == AF_INET6)
+-		return ipv6_rcv_saddr_equal(sk, sk2, match_wildcard);
++		return ipv6_rcv_saddr_equal(&sk->sk_v6_rcv_saddr,
++					    &sk2->sk_v6_rcv_saddr,
++					    sk->sk_rcv_saddr,
++					    sk2->sk_rcv_saddr,
++					    ipv6_only_sock(sk),
++					    ipv6_only_sock(sk2),
++					    match_wildcard);
+ #endif
+-	return ipv4_rcv_saddr_equal(sk, sk2, match_wildcard);
++	return ipv4_rcv_saddr_equal(sk->sk_rcv_saddr, sk2->sk_rcv_saddr,
++				    ipv6_only_sock(sk2), match_wildcard);
+ }
+ EXPORT_SYMBOL(inet_rcv_saddr_equal);
+ 
+@@ -234,6 +242,39 @@ inet_csk_find_open_port(struct sock *sk, struct inet_bind_bucket **tb_ret, int *
+ 	return head;
  }
  
--/* Obtain a reference to a local port for the given sock,
-- * if snum is zero it means select any available local port.
-- * We try to allocate an odd port (and leave even ports for connect())
-+/*
-+ * Find an open port number for the socket.  Returns with the
-+ * inet_bind_hashbucket lock held.
-  */
--int inet_csk_get_port(struct sock *sk, unsigned short snum)
-+static struct inet_bind_hashbucket *
-+inet_csk_find_open_port(struct sock *sk, struct inet_bind_bucket **tb_ret, int *port_ret)
- {
--	bool reuse = sk->sk_reuse && sk->sk_state != TCP_LISTEN;
- 	struct inet_hashinfo *hinfo = sk->sk_prot->h.hashinfo;
--	int ret = 1, port = snum;
-+	int port = 0;
- 	struct inet_bind_hashbucket *head;
- 	struct net *net = sock_net(sk);
- 	int i, low, high, attempt_half;
- 	struct inet_bind_bucket *tb;
--	kuid_t uid = sock_i_uid(sk);
- 	u32 remaining, offset;
--	bool reuseport_ok = !!snum;
- 
--	if (port) {
--		head = &hinfo->bhash[inet_bhashfn(net, port,
--						  hinfo->bhash_size)];
--		spin_lock_bh(&head->lock);
--		inet_bind_bucket_for_each(tb, &head->chain)
--			if (net_eq(ib_net(tb), net) && tb->port == port)
--				goto tb_found;
--
--		goto tb_not_found;
--	}
- 	attempt_half = (sk->sk_reuse == SK_CAN_REUSE) ? 1 : 0;
- other_half_scan:
- 	inet_get_local_port_range(net, &low, &high);
-@@ -219,11 +207,12 @@ int inet_csk_get_port(struct sock *sk, unsigned short snum)
- 		spin_lock_bh(&head->lock);
- 		inet_bind_bucket_for_each(tb, &head->chain)
- 			if (net_eq(ib_net(tb), net) && tb->port == port) {
--				if (!inet_csk_bind_conflict(sk, tb, false, reuseport_ok))
-+				if (!inet_csk_bind_conflict(sk, tb, false, false))
- 					goto success;
- 				goto next_port;
- 			}
--		goto tb_not_found;
-+		tb = NULL;
-+		goto success;
- next_port:
- 		spin_unlock_bh(&head->lock);
- 		cond_resched();
-@@ -238,8 +227,41 @@ int inet_csk_get_port(struct sock *sk, unsigned short snum)
- 		attempt_half = 2;
- 		goto other_half_scan;
- 	}
--	return ret;
-+	return NULL;
-+success:
-+	*port_ret = port;
-+	*tb_ret = tb;
-+	return head;
++static inline int sk_reuseport_match(struct inet_bind_bucket *tb,
++				     struct sock *sk)
++{
++	kuid_t uid = sock_i_uid(sk);
++
++	if (tb->fastreuseport <= 0)
++		return 0;
++	if (!sk->sk_reuseport)
++		return 0;
++	if (rcu_access_pointer(sk->sk_reuseport_cb))
++		return 0;
++	if (!uid_eq(tb->fastuid, uid))
++		return 0;
++	/* We only need to check the rcv_saddr if this tb was once marked
++	 * without fastreuseport and then was reset, as we can only know that
++	 * the fast_*rcv_saddr doesn't have any conflicts with the socks on the
++	 * owners list.
++	 */
++	if (tb->fastreuseport == FASTREUSEPORT_ANY)
++		return 1;
++#if IS_ENABLED(CONFIG_IPV6)
++	if (tb->fast_sk_family == AF_INET6)
++		return ipv6_rcv_saddr_equal(&tb->fast_v6_rcv_saddr,
++					    &sk->sk_v6_rcv_saddr,
++					    tb->fast_rcv_saddr,
++					    sk->sk_rcv_saddr,
++					    tb->fast_ipv6_only,
++					    ipv6_only_sock(sk), true);
++#endif
++	return ipv4_rcv_saddr_equal(tb->fast_rcv_saddr, sk->sk_rcv_saddr,
++				    ipv6_only_sock(sk), true);
 +}
 +
-+/* Obtain a reference to a local port for the given sock,
-+ * if snum is zero it means select any available local port.
-+ * We try to allocate an odd port (and leave even ports for connect())
-+ */
-+int inet_csk_get_port(struct sock *sk, unsigned short snum)
-+{
-+	bool reuse = sk->sk_reuse && sk->sk_state != TCP_LISTEN;
-+	struct inet_hashinfo *hinfo = sk->sk_prot->h.hashinfo;
-+	int ret = 1, port = snum;
-+	struct inet_bind_hashbucket *head;
-+	struct net *net = sock_net(sk);
-+	struct inet_bind_bucket *tb = NULL;
-+	kuid_t uid = sock_i_uid(sk);
- 
-+	if (!port) {
-+		head = inet_csk_find_open_port(sk, &tb, &port);
-+		if (!head)
-+			return ret;
-+		if (!tb)
-+			goto tb_not_found;
-+		goto success;
-+	}
-+	head = &hinfo->bhash[inet_bhashfn(net, port,
-+					  hinfo->bhash_size)];
-+	spin_lock_bh(&head->lock);
-+	inet_bind_bucket_for_each(tb, &head->chain)
-+		if (net_eq(ib_net(tb), net) && tb->port == port)
-+			goto tb_found;
- tb_not_found:
- 	tb = inet_bind_bucket_create(hinfo->bind_bucket_cachep,
- 				     net, head, port);
-@@ -255,7 +277,7 @@ int inet_csk_get_port(struct sock *sk, unsigned short snum)
- 		      !rcu_access_pointer(sk->sk_reuseport_cb) &&
- 		      sk->sk_reuseport && uid_eq(tb->fastuid, uid)))
+ /* Obtain a reference to a local port for the given sock,
+  * if snum is zero it means select any available local port.
+  * We try to allocate an odd port (and leave even ports for connect())
+@@ -273,9 +314,7 @@ int inet_csk_get_port(struct sock *sk, unsigned short snum)
  			goto success;
--		if (inet_csk_bind_conflict(sk, tb, true, reuseport_ok))
-+		if (inet_csk_bind_conflict(sk, tb, true, true))
+ 
+ 		if ((tb->fastreuse > 0 && reuse) ||
+-		     (tb->fastreuseport > 0 &&
+-		      !rcu_access_pointer(sk->sk_reuseport_cb) &&
+-		      sk->sk_reuseport && uid_eq(tb->fastuid, uid)))
++		    sk_reuseport_match(tb, sk))
+ 			goto success;
+ 		if (inet_csk_bind_conflict(sk, tb, true, true))
  			goto fail_unlock;
+@@ -284,16 +323,43 @@ int inet_csk_get_port(struct sock *sk, unsigned short snum)
+ 	if (!hlist_empty(&tb->owners)) {
+ 		tb->fastreuse = reuse;
+ 		if (sk->sk_reuseport) {
+-			tb->fastreuseport = 1;
++			tb->fastreuseport = FASTREUSEPORT_ANY;
+ 			tb->fastuid = uid;
++			tb->fast_rcv_saddr = sk->sk_rcv_saddr;
++			tb->fast_ipv6_only = ipv6_only_sock(sk);
++#if IS_ENABLED(CONFIG_IPV6)
++			tb->fast_v6_rcv_saddr = sk->sk_v6_rcv_saddr;
++#endif
+ 		} else {
+ 			tb->fastreuseport = 0;
+ 		}
+ 	} else {
+ 		if (!reuse)
+ 			tb->fastreuse = 0;
+-		if (!sk->sk_reuseport || !uid_eq(tb->fastuid, uid))
++		if (sk->sk_reuseport) {
++			/* We didn't match or we don't have fastreuseport set on
++			 * the tb, but we have sk_reuseport set on this socket
++			 * and we know that there are no bind conflicts with
++			 * this socket in this tb, so reset our tb's reuseport
++			 * settings so that any subsequent sockets that match
++			 * our current socket will be put on the fast path.
++			 *
++			 * If we reset we need to set FASTREUSEPORT_STRICT so we
++			 * do extra checking for all subsequent sk_reuseport
++			 * socks.
++			 */
++			if (!sk_reuseport_match(tb, sk)) {
++				tb->fastreuseport = FASTREUSEPORT_STRICT;
++				tb->fastuid = uid;
++				tb->fast_rcv_saddr = sk->sk_rcv_saddr;
++				tb->fast_ipv6_only = ipv6_only_sock(sk);
++#if IS_ENABLED(CONFIG_IPV6)
++				tb->fast_v6_rcv_saddr = sk->sk_v6_rcv_saddr;
++#endif
++			}
++		} else {
+ 			tb->fastreuseport = 0;
++		}
  	}
- success:
+ 	if (!inet_csk(sk)->icsk_bind_hash)
+ 		inet_bind_hash(sk, tb, port);
 -- 
 2.9.3
