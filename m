@@ -1,243 +1,124 @@
-From: Yendapally Reddy Dhananjaya Reddy <yendapally.reddy@broadcom.com>
-Subject: [PATCH v2 3/4] phy: Add USB3 PHY support for Broadcom NSP SoC
-Date: Tue, 17 Jan 2017 11:14:29 -0500
-Message-ID: <1484669670-4201-4-git-send-email-yendapally.reddy@broadcom.com>
-References: <1484669670-4201-1-git-send-email-yendapally.reddy@broadcom.com>
-Cc: bcm-kernel-feedback-list@broadcom.com, devicetree@vger.kernel.org,
-        linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-        netdev@vger.kernel.org,
-        Yendapally Reddy Dhananjaya Reddy
-        <yendapally.reddy@broadcom.com>
-To: Rob Herring <robh+dt@kernel.org>,
-        Mark Rutland <mark.rutland@arm.com>,
-        Russell King <linux@armlinux.org.uk>,
-        Ray Jui <rjui@broadcom.com>,
-        Scott Branden <sbranden@broadcom.com>,
-        Jon Mason <jonmason@broadcom.com>,
-        Florian Fainelli <f.fainelli@gmail.com>,
-        Kishon Vijay Abraham I <kishon@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1484669670-4201-1-git-send-email-yendapally.reddy@broadcom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Rolf Neugebauer <rolf.neugebauer@docker.com>
+Subject: virtio: Subtle changes to virtio_net flags breaks VXLAN on Google Cloud
+Date: Tue, 17 Jan 2017 16:20:49 +0000
+Message-ID: <CA+pO-2dnYX2OguTXPP_UV8hKwubNJ6Umxiux4vc+9yO0Ff0orw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Mike Rapoport <rppt@linux.vnet.ibm.com>,
+        David Miller <davem@davemloft.net>,
+        virtio-dev@lists.oasis-open.org, mst@redhat.com,
+        Rolf Neugebauer <rolf.neugebauer@docker.com>,
+        Jason Wang <jasowang@redhat.com>,
+        virtualization@lists.linux-foundation.org
+To: Linux Kernel Network Developers <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f54.google.com ([209.85.214.54]:34933 "EHLO
+        mail-it0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750831AbdAQQU4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 11:20:56 -0500
+Received: by mail-it0-f54.google.com with SMTP id 203so98335758ith.0
+        for <netdev@vger.kernel.org>; Tue, 17 Jan 2017 08:20:50 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch adds support for Broadcom NSP USB3 PHY
+Commits:
 
-Signed-off-by: Yendapally Reddy Dhananjaya Reddy <yendapally.reddy@broadcom.com>
----
- drivers/phy/Kconfig            |   8 ++
- drivers/phy/Makefile           |   1 +
- drivers/phy/phy-bcm-nsp-usb3.c | 176 +++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 185 insertions(+)
- create mode 100644 drivers/phy/phy-bcm-nsp-usb3.c
+fd2a0437dc33 virtio_net: introduce virtio_net_hdr_{from,to}_skb
+e858fae2b0b8 virtio_net: use common code for virtio_net_hdr and skb
+GSO conversion
 
-diff --git a/drivers/phy/Kconfig b/drivers/phy/Kconfig
-index e8eb7f2..f95aa0d 100644
---- a/drivers/phy/Kconfig
-+++ b/drivers/phy/Kconfig
-@@ -486,4 +486,12 @@ config PHY_MESON8B_USB2
- 	  and GXBB SoCs.
- 	  If unsure, say N.
- 
-+config PHY_NSP_USB3
-+	tristate "Broadcom NorthStar plus USB3 PHY driver"
-+	depends on OF && (ARCH_BCM_NSP || COMPILE_TEST)
-+	select GENERIC_PHY
-+	default ARCH_BCM_NSP
-+	help
-+	  Enable this to support the Broadcom Northstar plus USB3 PHY.
-+	  If unsure, say N.
- endmenu
-diff --git a/drivers/phy/Makefile b/drivers/phy/Makefile
-index 65eb2f4..a96acd8 100644
---- a/drivers/phy/Makefile
-+++ b/drivers/phy/Makefile
-@@ -59,3 +59,4 @@ obj-$(CONFIG_PHY_CYGNUS_PCIE)		+= phy-bcm-cygnus-pcie.o
- obj-$(CONFIG_ARCH_TEGRA) += tegra/
- obj-$(CONFIG_PHY_NS2_PCIE)		+= phy-bcm-ns2-pcie.o
- obj-$(CONFIG_PHY_MESON8B_USB2)		+= phy-meson8b-usb2.o
-+obj-$(CONFIG_PHY_NSP_USB3)		+= phy-bcm-nsp-usb3.o
-diff --git a/drivers/phy/phy-bcm-nsp-usb3.c b/drivers/phy/phy-bcm-nsp-usb3.c
-new file mode 100644
-index 0000000..0033382
---- /dev/null
-+++ b/drivers/phy/phy-bcm-nsp-usb3.c
-@@ -0,0 +1,176 @@
-+/*
-+ * Copyright (C) 2016 Broadcom
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License as
-+ * published by the Free Software Foundation version 2.
-+ *
-+ * This program is distributed "as is" WITHOUT ANY WARRANTY of any
-+ * kind, whether express or implied; without even the implied warranty
-+ * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ */
-+
-+#include <linux/delay.h>
-+#include <linux/io.h>
-+#include <linux/kernel.h>
-+#include <linux/mfd/syscon.h>
-+#include <linux/mdio.h>
-+#include <linux/module.h>
-+#include <linux/of.h>
-+#include <linux/of_address.h>
-+#include <linux/phy/phy.h>
-+#include <linux/regmap.h>
-+
-+#define NSP_USB3_RST_CTRL_OFFSET	0x3f8
-+
-+/* mdio reg access */
-+#define NSP_USB3_PHY_BASE_ADDR_REG	0x1f
-+
-+#define NSP_USB3_PHY_PLL30_BLOCK	0x8000
-+#define NSP_USB3_PLL_CONTROL		0x01
-+#define NSP_USB3_PLLA_CONTROL0		0x0a
-+#define NSP_USB3_PLLA_CONTROL1		0x0b
-+
-+#define NSP_USB3_PHY_TX_PMD_BLOCK	0x8040
-+#define NSP_USB3_TX_PMD_CONTROL1	0x01
-+
-+#define NSP_USB3_PHY_PIPE_BLOCK		0x8060
-+#define NSP_USB3_LFPS_CMP		0x02
-+#define NSP_USB3_LFPS_DEGLITCH		0x03
-+
-+struct nsp_usb3_phy {
-+	struct regmap *usb3_ctrl;
-+	struct phy *phy;
-+	struct mdio_device *mdiodev;
-+};
-+
-+static int nsp_usb3_phy_init(struct phy *phy)
-+{
-+	struct nsp_usb3_phy *iphy = phy_get_drvdata(phy);
-+	struct mii_bus *bus = iphy->mdiodev->bus;
-+	int addr = iphy->mdiodev->addr;
-+	u32 data;
-+	int rc;
-+
-+	rc = regmap_read(iphy->usb3_ctrl, 0, &data);
-+	if (rc)
-+		return rc;
-+	data |= 1;
-+	rc = regmap_write(iphy->usb3_ctrl, 0, data);
-+	if (rc)
-+		return rc;
-+
-+	rc = regmap_write(iphy->usb3_ctrl, NSP_USB3_RST_CTRL_OFFSET, 1);
-+	if (rc)
-+		return rc;
-+
-+	rc = mdiobus_write(bus, addr, NSP_USB3_PHY_BASE_ADDR_REG,
-+			   NSP_USB3_PHY_PLL30_BLOCK);
-+	if (rc)
-+		return rc;
-+
-+	rc = mdiobus_write(bus, addr, NSP_USB3_PLL_CONTROL, 0x1000);
-+	if (rc)
-+		return rc;
-+
-+	rc = mdiobus_write(bus, addr, NSP_USB3_PLLA_CONTROL0, 0x6400);
-+	if (rc)
-+		return rc;
-+
-+	rc = mdiobus_write(bus, addr, NSP_USB3_PLLA_CONTROL1, 0xc000);
-+	if (rc)
-+		return rc;
-+
-+	rc = mdiobus_write(bus, addr, NSP_USB3_PLLA_CONTROL1, 0x8000);
-+	if (rc)
-+		return rc;
-+
-+	rc = regmap_write(iphy->usb3_ctrl, NSP_USB3_RST_CTRL_OFFSET, 0);
-+	if (rc)
-+		return rc;
-+
-+	rc = mdiobus_write(bus, addr, NSP_USB3_PLL_CONTROL, 0x9000);
-+	if (rc)
-+		return rc;
-+
-+	rc = mdiobus_write(bus, addr, NSP_USB3_PHY_BASE_ADDR_REG,
-+			   NSP_USB3_PHY_PIPE_BLOCK);
-+	if (rc)
-+		return rc;
-+
-+	rc = mdiobus_write(bus, addr, NSP_USB3_LFPS_CMP, 0xf30d);
-+	if (rc)
-+		return rc;
-+
-+	rc = mdiobus_write(bus, addr, NSP_USB3_LFPS_DEGLITCH, 0x6302);
-+	if (rc)
-+		return rc;
-+
-+	rc = mdiobus_write(bus, addr, NSP_USB3_PHY_BASE_ADDR_REG,
-+			   NSP_USB3_PHY_TX_PMD_BLOCK);
-+	if (rc)
-+		return rc;
-+
-+	rc = mdiobus_write(bus, addr, NSP_USB3_TX_PMD_CONTROL1, 0x1003);
-+
-+	return rc;
-+}
-+
-+static struct phy_ops nsp_usb3_phy_ops = {
-+	.init = nsp_usb3_phy_init,
-+};
-+
-+static int nsp_usb3_phy_probe(struct mdio_device *mdiodev)
-+{
-+	struct device *dev = &mdiodev->dev;
-+	struct phy_provider *provider;
-+	struct nsp_usb3_phy *iphy;
-+
-+	iphy = devm_kzalloc(dev, sizeof(*iphy), GFP_KERNEL);
-+	if (!iphy)
-+		return -ENOMEM;
-+	iphy->mdiodev = mdiodev;
-+
-+	iphy->usb3_ctrl = syscon_regmap_lookup_by_phandle(dev->of_node,
-+						 "usb3-ctrl-syscon");
-+	if (IS_ERR(iphy->usb3_ctrl))
-+		return PTR_ERR(iphy->usb3_ctrl);
-+
-+	iphy->phy = devm_phy_create(dev, dev->of_node, &nsp_usb3_phy_ops);
-+	if (IS_ERR(iphy->phy)) {
-+		dev_err(dev, "failed to create PHY\n");
-+		return PTR_ERR(iphy->phy);
-+	}
-+
-+	phy_set_drvdata(iphy->phy, iphy);
-+
-+	provider = devm_of_phy_provider_register(dev, of_phy_simple_xlate);
-+	if (IS_ERR(provider)) {
-+		dev_err(dev, "could not register PHY provider\n");
-+		return PTR_ERR(provider);
-+	}
-+
-+	return 0;
-+}
-+
-+static const struct of_device_id nsp_usb3_phy_of_match[] = {
-+	{.compatible = "brcm,nsp-usb3-phy",},
-+	{ /* sentinel */ }
-+};
-+
-+static struct mdio_driver nsp_usb3_phy_driver = {
-+	.mdiodrv = {
-+		.driver = {
-+			.name = "nsp-usb3-phy",
-+			.of_match_table = nsp_usb3_phy_of_match,
-+		},
-+	},
-+	.probe = nsp_usb3_phy_probe,
-+};
-+
-+mdio_module_driver(nsp_usb3_phy_driver);
-+
-+MODULE_DESCRIPTION("Broadcom NSP USB3 PHY driver");
-+MODULE_LICENSE("GPL v2");
-+MODULE_AUTHOR("Yendapally Reddy Dhananjaya Reddy <yendapally.reddy@broadcom.com");
--- 
-2.1.0
+introduced a subtle (but unexplained) difference in how virtio_net
+flags are derived from skb->ip_summed fields on transmit from the
+guest to the host/backend. Prior to the patches the flags would be set
+to VIRTIO_NET_HDR_F_NEEDS_CSUM if ip_summed was CHECKSUM_PARTIAL,
+otherwise the flags would be set to 0.
+
+After the commits, virtio_net flags would still be set to
+VIRTIO_NET_HDR_F_NEEDS_CSUM if ip_summed == CHECKSUM_PARTIAL but it
+now sets the virtio_net flags to VIRTIO_NET_HDR_F_DATA_VALID if
+ip_summed == CHECKSUM_UNNECESSARY. Otherwise the virtio_net flags are set to 0.
+
+skbuff.h says that for transmitting CHECKSUM_NONE and
+CHECKSUM_UNNECESSARY have the same meaning, yet the above changes
+treat them different.
+
+Version 1.0 of the virtio spec [1] says in Section 5.1.6.2.1 Driver
+Requirements: Packet Transmission: "The driver MUST NOT set the
+VIRTIO_NET_HDR_F_DATA_VALID bit in flags." The above changes clearly
+do that, but maybe I'm mis-reading the spec here.
+
+The changes break VXLAN in some setups (we discovered it on Google
+Could Engine, see below). We are trying to establish if this is an
+issue with the GCE backend implementation, or if the above commit
+should be amended to revert to the old behaviour (set
+VIRTIO_NET_HDR_F_NEEDS_CSUM if ip_summed==CHECKSUM_PARTIAL, otherwise
+set flags to 0).
+
+Reverting back to the old behaviour (see strawman patch below) fixes
+the issue we were seeing. While we tested with a 4.9.3 kernel, the
+code in question has not been changed since.
+
+Thanks
+Rolf
+
+Background:
+On Google cloud, we have a setup with a manager node using a 4.9.3
+kernel, two worker nodes (one with a 4.9.3 and the other with a 4.4.41
+based kernel). Requests from a client node to the manager node are
+either handled by the manager node or one of the two worker nodes. If
+requests are handled by a worker node, the request (including the
+SYN/SYN,ACK handshake) are encapsulated in VXLAN before being sent to
+the worker and responses are decapsulate by the manager and forwarded
+back to the client.
+If a request is handled by either the manager or the 4.4 based worker,
+everything works as expected. For requests handled by the 4.9 based
+worker we see the response packet being sent to the client node by the
+manager node (tcpdump on eth0), but it never arrives at the client
+node.
+
+Looking at the packets in a bit more detail, we noticed that the VXLAN
+encapsulated responses from a 4.4 based worker have a zero UDP
+checksum in the outer header while the responses from the 4.9 based
+worker have a correct UDP checksum. Both packets have correct
+checksums in the inner packet.
+
+We instrumented the virtio_net driver and looked at the values of
+ip_summed and virtio_net flags for the last hop of the SYN,ACK from
+the manager back to the client.
+
+- Requests handled directly by the manager have ip_summed =
+  CHECKSUM_PARTIAL and flags
+  VIRTIO_NET_HDR_F_NEEDS_CSUM (checksum offload).
+- Requests originally originated from the 4.4 based worker
+  (where the outer UDP checksum was zero) have ip_summed =
+  CHECKSUM_NONE and flags = VIRTIO_NET_F_CSUM
+  (no checksum offload)
+- Requests originally originated from the 4.9 based worker
+  (where the outer UDP checksum was filled in) have ip_summed =
+  CHECKSUM_UNNECESSARY and flags =
+  VIRTIO_NET_HDR_F_DATA_VALID. These packets get dropped
+  before they reach the client.
+
+The VXLAN code seems to set ip_summed to either CHECKSUM_NONE or
+CHECKSUM_UNNECESSARY depending on the presence of the UDP checksum in
+the outer header.
+
+As a strawman, we reverted to the old behaviour on the xmit path with:
+--- a/include/linux/virtio_net.h
++++ b/include/linux/virtio_net.h
+@@ -91,9 +91,7 @@ static inline int virtio_net_hdr_from_skb(const
+struct sk_buff *skb,
+                                skb_checksum_start_offset(skb));
+                hdr->csum_offset = __cpu_to_virtio16(little_endian,
+                                skb->csum_offset);
+-       } else if (skb->ip_summed == CHECKSUM_UNNECESSARY) {
+-               hdr->flags = VIRTIO_NET_HDR_F_DATA_VALID;
+-       } /* else everything is zero */
++       }
+
+        return 0;
+ }
+and it fixes the issue.
+
+
+[1] http://docs.oasis-open.org/virtio/virtio/v1.0/cs04/virtio-v1.0-cs04.pdf
