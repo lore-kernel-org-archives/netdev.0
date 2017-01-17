@@ -1,43 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bpf: Fix test_lru_sanity5() in test_lru_map.c
-Date: Tue, 17 Jan 2017 15:40:06 -0500 (EST)
-Message-ID: <20170117.154006.1457576513883871851.davem@davemloft.net>
-References: <1484633849-2742833-1-git-send-email-kafai@fb.com>
+Subject: Re: [PATCH] net: fec: Fixed panic problem with non-tso
+Date: Tue, 17 Jan 2017 15:45:12 -0500 (EST)
+Message-ID: <20170117.154512.612465430064515761.davem@davemloft.net>
+References: <20170117074820.5106-1-ashiduka@jp.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, daniel@iogearbox.net,
-        alexei.starovoitov@gmail.com, kernel-team@fb.com
-To: kafai@fb.com
+Cc: fugang.duan@nxp.com, netdev@vger.kernel.org
+To: ashiduka@jp.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:43420 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:43556 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751071AbdAQUkI (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 15:40:08 -0500
-In-Reply-To: <1484633849-2742833-1-git-send-email-kafai@fb.com>
+        with ESMTP id S1751162AbdAQUpO (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 15:45:14 -0500
+In-Reply-To: <20170117074820.5106-1-ashiduka@jp.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Martin KaFai Lau <kafai@fb.com>
-Date: Mon, 16 Jan 2017 22:17:29 -0800
+From: Yuusuke Ashiduka <ashiduka@jp.fujitsu.com>
+Date: Tue, 17 Jan 2017 16:48:20 +0900
 
-> test_lru_sanity5() fails when the number of online cpus
-> is fewer than the number of possible cpus.  It can be
-> reproduced with qemu by using cmd args "--smp cpus=2,maxcpus=8".
+> If highmem and 2GB or more of memory are valid,
+> "this_frag-> page.p" indicates the highmem area,
+> so the result of page_address() is NULL and panic occurs.
 > 
-> The problem is the loop in test_lru_sanity5() is testing
-> 'i' which is incorrect.
-> 
-> This patch:
-> 1. Make sched_next_online() always return -1 if it cannot
->    find a next cpu to schedule the process.
-> 2. In test_lru_sanity5(), the parent process does
->    sched_setaffinity() first (through sched_next_online())
->    and the forked process will inherit it according to
->    the 'man sched_setaffinity'.
-> 
-> Fixes: 5db58faf989f ("bpf: Add tests for the LRU bpf_htab")
-> Reported-by: Daniel Borkmann <daniel@iogearbox.net>
-> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+> This commit fixes this by using the skb_frag_dma_map() helper,
+> which takes care of mapping the skb fragment properly. Additionally,
+> the type of mapping is now tracked, so it can be unmapped using
+> dma_unmap_page or dma_unmap_single when appropriate.
 
-Applied, thanks.
+This patch submission is lacking a proper signoff.
