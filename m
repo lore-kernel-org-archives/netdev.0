@@ -1,52 +1,64 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: fq_codel and skb->hash
-Date: Mon, 16 Jan 2017 17:44:49 -0800
-Message-ID: <1484617489.13165.63.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <f9913fca-da16-8620-d237-d7d8d09cced2@cradlepoint.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net-next v2 1/3] net: ipv6: Allow shorthand delete of all
+ nexthops in multipath route
+Date: Mon, 16 Jan 2017 18:27:36 -0700
+Message-ID: <06d4b3c0-0713-04b8-32d2-99b9b083b825@cumulusnetworks.com>
+References: <1484510826-2723-1-git-send-email-dsa@cumulusnetworks.com>
+ <1484510826-2723-2-git-send-email-dsa@cumulusnetworks.com>
+ <20170116.195139.2265183195514595519.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com
-To: Andrew Collins <acollins@cradlepoint.com>
+Cc: netdev@vger.kernel.org, ddutt@cumulusnetworks.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:35046 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750734AbdAQBw4 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2017 20:52:56 -0500
-Received: by mail-pg0-f65.google.com with SMTP id 204so6574670pge.2
-        for <netdev@vger.kernel.org>; Mon, 16 Jan 2017 17:52:56 -0800 (PST)
-In-Reply-To: <f9913fca-da16-8620-d237-d7d8d09cced2@cradlepoint.com>
+Received: from mail-pf0-f174.google.com ([209.85.192.174]:33687 "EHLO
+        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750917AbdAQBzQ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2017 20:55:16 -0500
+Received: by mail-pf0-f174.google.com with SMTP id y143so57604715pfb.0
+        for <netdev@vger.kernel.org>; Mon, 16 Jan 2017 17:54:26 -0800 (PST)
+In-Reply-To: <20170116.195139.2265183195514595519.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2017-01-16 at 17:04 -0700, Andrew Collins wrote:
-> The fq_codel packet scheduler always regenerates the skb flow hash.  Is there any reason
-> to do this other than the recent hash perturbation additions?
+On 1/16/17 5:51 PM, David Miller wrote:
+> From: David Ahern <dsa@cumulusnetworks.com>
+> Date: Sun, 15 Jan 2017 12:07:04 -0800
 > 
-> I ask because I have a case where an incoming set of TCP flows is encapsulated in a
-> single ipsec tunnel, which is then classified on egress into a single flow by fq_codel
-> resulting in poor behavior.
+>> @@ -2143,6 +2143,26 @@ int ip6_del_rt(struct rt6_info *rt)
+>>  	return __ip6_del_rt(rt, &info);
+>>  }
+>>  
+>> +/* called with table lock held */
+>  ...
+>> @@ -2176,10 +2196,9 @@ static int ip6_route_del(struct fib6_config *cfg)
+>>  				continue;
+>>  			if (cfg->fc_protocol && cfg->fc_protocol != rt->rt6i_protocol)
+>>  				continue;
+>> -			dst_hold(&rt->dst);
+>> -			read_unlock_bh(&table->tb6_lock);
+>>  
+>> -			return __ip6_del_rt(rt, &cfg->fc_nlinfo);
+>> +			err = __ip6_route_del(rt, cfg);
+>> +			break;
+>>  		}
 > 
-> Reusing the skb hash set in receive results in much better behavior, as the value is
-> determined pre-encapsulation and flows end up being distributed more naturally across
-> codel queues.
+> fib6_del() (invoked by __ip6_route_del()) has to be invoked with the
+> table lock held a sa writer, but here you are only holding it as a
+> reader.
 
-
+That table lock is still held. If you look up 2 lines I remove the line that releases the lock.
 
 > 
-> Is opportunistically using the pre-existing skb hash (if available) problematic?
+> I also think some more thought has to be put into whether we can
+> change behavior like this without using a flag, as suggested by Roopa.
+> 
 
-I guess this would be fine.
+I'm all for changing the behavior by default, but AIUI that breaks the golden rule.
 
-We never exported the 'perturbation' or allowed to change/set it.
+libnl as of libnl3_2_16-16-g29b71371e764  (a patch by Roopa) already handles both flavors -- if RTA_MULTIPATH is sent it handles it fine and if a series of routes are sent they are consolidated to 1 object with next hops.
 
-The only 'risk' would be having a buggy device setting a wrong L4
-skb->hash, or buggy protocol messing with skb->hash for a given flow.
+iproute2 can handle it just fine as well. I made no changes to get the display format consistent. The problem here is scripts that rely on the old format.
 
->   Is there a better way to manage flow separation in routed+encapsulated traffic?
-
-Encapsulated traffic is fine, since flow dissector skips encap header(s)
-up to the L4 header.
-
-Problem is about encrypted traffic, since presumably this L4 header is
-opaque for flow dissector ;)
+quagga does *not* correctly handle the RTA_MULTIPATH attribute for IPv6 but then it does not properly handle IPv6 multipath routes it receives from the kernel at all. Same result with current kernel code or with this patch set - only the last nexthop is retained. (quagga routes pushed to kernel works, but kernel routes fed to quagga does not)
