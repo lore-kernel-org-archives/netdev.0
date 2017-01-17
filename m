@@ -1,59 +1,38 @@
-From: Akshay Bhat <akshay.bhat@timesys.com>
-Subject: [PATCH v2 1/2] can: holt_hi311x: document device tree bindings
-Date: Tue, 17 Jan 2017 14:22:01 -0500
-Message-ID: <1484680922-25813-1-git-send-email-akshay.bhat@timesys.com>
-Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
-        devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Akshay Bhat <akshay.bhat@timesys.com>,
-        Akshay Bhat <nodeax@gmail.com>
-To: wg@grandegger.com, mkl@pengutronix.de
-Return-path: <linux-can-owner@vger.kernel.org>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <edumazet@google.com>
+Subject: Re: [PATCH net-next] tcp: accept RST for rcv_nxt - 1 after receiving
+ a FIN
+Date: Tue, 17 Jan 2017 11:13:39 -0800
+Message-ID: <CANn89iJ-tc=m122UcEh9Xmuf1DoeKMwDf4Z42hWFZwxfRYFY_g@mail.gmail.com>
+References: <1484678239-19199-1-git-send-email-jbaron@akamai.com> <92daa9c2-7bfc-94ff-bb06-91ef03cd0d66@hpe.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Jason Baron <jbaron@akamai.com>,
+        David Miller <davem@davemloft.net>,
+        netdev <netdev@vger.kernel.org>
+To: Rick Jones <rick.jones2@hpe.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f179.google.com ([209.85.223.179]:35944 "EHLO
+        mail-io0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751129AbdAQTW4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 14:22:56 -0500
+Received: by mail-io0-f179.google.com with SMTP id j13so122658724iod.3
+        for <netdev@vger.kernel.org>; Tue, 17 Jan 2017 11:22:56 -0800 (PST)
+In-Reply-To: <92daa9c2-7bfc-94ff-bb06-91ef03cd0d66@hpe.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Document the HOLT HI-311x CAN device tree bindings.
+On Tue, Jan 17, 2017 at 11:04 AM, Rick Jones <rick.jones2@hpe.com> wrote:
+>up unneeded resources in a more expedient fashion.
+>
+>
+> Drifting a bit, and it doesn't change the value of dealing with it, but out
+> of curiosity, when you say mostly in CLOSE_WAIT, why aren't the server-side
+> applications reacting to the read return of zero triggered by the arrival of
+> the FIN?
 
-Signed-off-by: Akshay Bhat <nodeax@gmail.com>
-Acked-by: Rob Herring <robh@kernel.org>
----
+Even if the application reacts, and calls close(fd), kernel will still
+try to push the data that was queued into socket write queue prior to
+receiving the FIN.
 
-v1 -> v2:
-- No changes
-
- .../devicetree/bindings/net/can/holt_hi311x.txt    | 24 ++++++++++++++++++++++
- 1 file changed, 24 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/can/holt_hi311x.txt
-
-diff --git a/Documentation/devicetree/bindings/net/can/holt_hi311x.txt b/Documentation/devicetree/bindings/net/can/holt_hi311x.txt
-new file mode 100644
-index 0000000..23aa94e
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/can/holt_hi311x.txt
-@@ -0,0 +1,24 @@
-+* Holt HI-311X stand-alone CAN controller device tree bindings
-+
-+Required properties:
-+ - compatible: Should be one of the following:
-+   - "holt,hi3110" for HI-3110
-+ - reg: SPI chip select.
-+ - clocks: The clock feeding the CAN controller.
-+ - interrupt-parent: The parent interrupt controller.
-+ - interrupts: Should contain IRQ line for the CAN controller.
-+
-+Optional properties:
-+ - vdd-supply: Regulator that powers the CAN controller.
-+ - xceiver-supply: Regulator that powers the CAN transceiver.
-+
-+Example:
-+	can0: can@1 {
-+		compatible = "holt,hi3110";
-+		reg = <1>;
-+		clocks = <&clk32m>;
-+		interrupt-parent = <&gpio4>;
-+		interrupts = <13 IRQ_TYPE_EDGE_RISING>;
-+		vdd-supply = <&reg5v0>;
-+		xceiver-supply = <&reg5v0>;
-+	};
--- 
-2.8.1
-
+By allowing this RST, we can flush the whole data and react much
+faster, avoiding locking memory in the kernel for very long time.
