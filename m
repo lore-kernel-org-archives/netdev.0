@@ -1,81 +1,217 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net] lwtunnel: fix autoload of lwt modules
-Date: Mon, 16 Jan 2017 21:33:05 -0800
-Message-ID: <1484631185-9428-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: rshearma@brocade.com, David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: [PATCH] bpf: Fix test_lru_sanity5() in test_lru_map.c
+Date: Mon, 16 Jan 2017 22:17:29 -0800
+Message-ID: <1484633849-2742833-1-git-send-email-kafai@fb.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Kernel Team <kernel-team@fb.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f174.google.com ([209.85.192.174]:33740 "EHLO
-        mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750820AbdAQFeZ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 00:34:25 -0500
-Received: by mail-pf0-f174.google.com with SMTP id y143so59190611pfb.0
-        for <netdev@vger.kernel.org>; Mon, 16 Jan 2017 21:33:14 -0800 (PST)
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:37299 "EHLO
+        mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1750741AbdAQGRj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 01:17:39 -0500
+Received: from pps.filterd (m0109333.ppops.net [127.0.0.1])
+        by mx0a-00082601.pphosted.com (8.16.0.20/8.16.0.20) with SMTP id v0H6EiT9022762
+        for <netdev@vger.kernel.org>; Mon, 16 Jan 2017 22:17:39 -0800
+Received: from mail.thefacebook.com ([199.201.64.23])
+        by mx0a-00082601.pphosted.com with ESMTP id 2811ep9hgr-1
+        (version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+        for <netdev@vger.kernel.org>; Mon, 16 Jan 2017 22:17:38 -0800
+Received: from facebook.com (2401:db00:11:d0a6:face:0:33:0)     by
+ mx-out.facebook.com (10.223.100.97) with ESMTP id
+ a007b5d4dc7c11e6aaae24be0593f280-2a0d9a50 for <netdev@vger.kernel.org>;        Mon,
+ 16 Jan 2017 22:17:30 -0800
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Trying to add an mpls encap route when the MPLS modules are not loaded
-hangs. For example:
+test_lru_sanity5() fails when the number of online cpus
+is fewer than the number of possible cpus.  It can be
+reproduced with qemu by using cmd args "--smp cpus=2,maxcpus=8".
 
-    CONFIG_MPLS=y
-    CONFIG_NET_MPLS_GSO=m
-    CONFIG_MPLS_ROUTING=m
-    CONFIG_MPLS_IPTUNNEL=m
+The problem is the loop in test_lru_sanity5() is testing
+'i' which is incorrect.
 
-    $ ip route add 10.10.10.10/32 encap mpls 100 via inet 10.100.1.2
+This patch:
+1. Make sched_next_online() always return -1 if it cannot
+   find a next cpu to schedule the process.
+2. In test_lru_sanity5(), the parent process does
+   sched_setaffinity() first (through sched_next_online())
+   and the forked process will inherit it according to
+   the 'man sched_setaffinity'.
 
-The ip command hangs:
-root       880   826  0 21:25 pts/0    00:00:00 ip route add 10.10.10.10/32 encap mpls 100 via inet 10.100.1.2
-
-    $ cat /proc/880/stack
-    [<ffffffff81065a9b>] call_usermodehelper_exec+0xd6/0x134
-    [<ffffffff81065efc>] __request_module+0x27b/0x30a
-    [<ffffffff814542f6>] lwtunnel_build_state+0xe4/0x178
-    [<ffffffff814aa1e4>] fib_create_info+0x47f/0xdd4
-    [<ffffffff814ae451>] fib_table_insert+0x90/0x41f
-    [<ffffffff814a8010>] inet_rtm_newroute+0x4b/0x52
-    ...
-
-modprobe is trying to load rtnl-lwt-MPLS:
-
-root       881     5  0 21:25 ?        00:00:00 /sbin/modprobe -q -- rtnl-lwt-MPLS
-
-and it hangs after loading mpls_router:
-
-    $ cat /proc/881/stack
-    [<ffffffff81441537>] rtnl_lock+0x12/0x14
-    [<ffffffff8142ca2a>] register_netdevice_notifier+0x16/0x179
-    [<ffffffffa0033025>] mpls_init+0x25/0x1000 [mpls_router]
-    [<ffffffff81000471>] do_one_initcall+0x8e/0x13f
-    [<ffffffff81119961>] do_init_module+0x5a/0x1e5
-    [<ffffffff810bd070>] load_module+0x13bd/0x17d6
-    ...
-
-The problem is that lwtunnel_build_state is called with rtnl lock
-held preventing mpls_init from registering. Fix by dropping the
-lock before invoking request_module.
-
-Fixes: 745041e2aaf1 ("lwtunnel: autoload of lwt modules")
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+Fixes: 5db58faf989f ("bpf: Add tests for the LRU bpf_htab")
+Reported-by: Daniel Borkmann <daniel@iogearbox.net>
+Signed-off-by: Martin KaFai Lau <kafai@fb.com>
 ---
-This is a best guess at the Fixes.
+ tools/testing/selftests/bpf/test_lru_map.c | 53 +++++++++++++++---------------
+ 1 file changed, 27 insertions(+), 26 deletions(-)
 
- net/core/lwtunnel.c | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/net/core/lwtunnel.c b/net/core/lwtunnel.c
-index a5d4e866ce88..c14ee4d62a8a 100644
---- a/net/core/lwtunnel.c
-+++ b/net/core/lwtunnel.c
-@@ -120,7 +120,9 @@ int lwtunnel_build_state(struct net_device *dev, u16 encap_type,
+diff --git a/tools/testing/selftests/bpf/test_lru_map.c b/tools/testing/selftests/bpf/test_lru_map.c
+index b13fed534d76..9f7bd1915c21 100644
+--- a/tools/testing/selftests/bpf/test_lru_map.c
++++ b/tools/testing/selftests/bpf/test_lru_map.c
+@@ -67,21 +67,23 @@ static int map_equal(int lru_map, int expected)
+ 	return map_subset(lru_map, expected) && map_subset(expected, lru_map);
+ }
  
- 		if (encap_type_str) {
- 			rcu_read_unlock();
-+			__rtnl_unlock();
- 			request_module("rtnl-lwt-%s", encap_type_str);
-+			rtnl_lock();
- 			rcu_read_lock();
- 			ops = rcu_dereference(lwtun_encaps[encap_type]);
- 		}
+-static int sched_next_online(int pid, int next_to_try)
++static int sched_next_online(int pid, int *next_to_try)
+ {
+ 	cpu_set_t cpuset;
++	int next = *next_to_try;
++	int ret = -1;
+ 
+-	if (next_to_try == nr_cpus)
+-		return -1;
+-
+-	while (next_to_try < nr_cpus) {
++	while (next < nr_cpus) {
+ 		CPU_ZERO(&cpuset);
+-		CPU_SET(next_to_try++, &cpuset);
+-		if (!sched_setaffinity(pid, sizeof(cpuset), &cpuset))
++		CPU_SET(next++, &cpuset);
++		if (!sched_setaffinity(pid, sizeof(cpuset), &cpuset)) {
++			ret = 0;
+ 			break;
++		}
+ 	}
+ 
+-	return next_to_try;
++	*next_to_try = next;
++	return ret;
+ }
+ 
+ /* Size of the LRU amp is 2
+@@ -96,11 +98,12 @@ static void test_lru_sanity0(int map_type, int map_flags)
+ {
+ 	unsigned long long key, value[nr_cpus];
+ 	int lru_map_fd, expected_map_fd;
++	int next_cpu = 0;
+ 
+ 	printf("%s (map_type:%d map_flags:0x%X): ", __func__, map_type,
+ 	       map_flags);
+ 
+-	assert(sched_next_online(0, 0) != -1);
++	assert(sched_next_online(0, &next_cpu) != -1);
+ 
+ 	if (map_flags & BPF_F_NO_COMMON_LRU)
+ 		lru_map_fd = create_map(map_type, map_flags, 2 * nr_cpus);
+@@ -183,6 +186,7 @@ static void test_lru_sanity1(int map_type, int map_flags, unsigned int tgt_free)
+ 	int lru_map_fd, expected_map_fd;
+ 	unsigned int batch_size;
+ 	unsigned int map_size;
++	int next_cpu = 0;
+ 
+ 	if (map_flags & BPF_F_NO_COMMON_LRU)
+ 		/* Ther percpu lru list (i.e each cpu has its own LRU
+@@ -196,7 +200,7 @@ static void test_lru_sanity1(int map_type, int map_flags, unsigned int tgt_free)
+ 	printf("%s (map_type:%d map_flags:0x%X): ", __func__, map_type,
+ 	       map_flags);
+ 
+-	assert(sched_next_online(0, 0) != -1);
++	assert(sched_next_online(0, &next_cpu) != -1);
+ 
+ 	batch_size = tgt_free / 2;
+ 	assert(batch_size * 2 == tgt_free);
+@@ -262,6 +266,7 @@ static void test_lru_sanity2(int map_type, int map_flags, unsigned int tgt_free)
+ 	int lru_map_fd, expected_map_fd;
+ 	unsigned int batch_size;
+ 	unsigned int map_size;
++	int next_cpu = 0;
+ 
+ 	if (map_flags & BPF_F_NO_COMMON_LRU)
+ 		/* Ther percpu lru list (i.e each cpu has its own LRU
+@@ -275,7 +280,7 @@ static void test_lru_sanity2(int map_type, int map_flags, unsigned int tgt_free)
+ 	printf("%s (map_type:%d map_flags:0x%X): ", __func__, map_type,
+ 	       map_flags);
+ 
+-	assert(sched_next_online(0, 0) != -1);
++	assert(sched_next_online(0, &next_cpu) != -1);
+ 
+ 	batch_size = tgt_free / 2;
+ 	assert(batch_size * 2 == tgt_free);
+@@ -370,11 +375,12 @@ static void test_lru_sanity3(int map_type, int map_flags, unsigned int tgt_free)
+ 	int lru_map_fd, expected_map_fd;
+ 	unsigned int batch_size;
+ 	unsigned int map_size;
++	int next_cpu = 0;
+ 
+ 	printf("%s (map_type:%d map_flags:0x%X): ", __func__, map_type,
+ 	       map_flags);
+ 
+-	assert(sched_next_online(0, 0) != -1);
++	assert(sched_next_online(0, &next_cpu) != -1);
+ 
+ 	batch_size = tgt_free / 2;
+ 	assert(batch_size * 2 == tgt_free);
+@@ -430,11 +436,12 @@ static void test_lru_sanity4(int map_type, int map_flags, unsigned int tgt_free)
+ 	int lru_map_fd, expected_map_fd;
+ 	unsigned long long key, value[nr_cpus];
+ 	unsigned long long end_key;
++	int next_cpu = 0;
+ 
+ 	printf("%s (map_type:%d map_flags:0x%X): ", __func__, map_type,
+ 	       map_flags);
+ 
+-	assert(sched_next_online(0, 0) != -1);
++	assert(sched_next_online(0, &next_cpu) != -1);
+ 
+ 	if (map_flags & BPF_F_NO_COMMON_LRU)
+ 		lru_map_fd = create_map(map_type, map_flags,
+@@ -502,9 +509,8 @@ static void do_test_lru_sanity5(unsigned long long last_key, int map_fd)
+ static void test_lru_sanity5(int map_type, int map_flags)
+ {
+ 	unsigned long long key, value[nr_cpus];
+-	int next_sched_cpu = 0;
++	int next_cpu = 0;
+ 	int map_fd;
+-	int i;
+ 
+ 	if (map_flags & BPF_F_NO_COMMON_LRU)
+ 		return;
+@@ -519,27 +525,20 @@ static void test_lru_sanity5(int map_type, int map_flags)
+ 	key = 0;
+ 	assert(!bpf_map_update(map_fd, &key, value, BPF_NOEXIST));
+ 
+-	for (i = 0; i < nr_cpus; i++) {
++	while (sched_next_online(0, &next_cpu) != -1) {
+ 		pid_t pid;
+ 
+ 		pid = fork();
+ 		if (pid == 0) {
+-			next_sched_cpu = sched_next_online(0, next_sched_cpu);
+-			if (next_sched_cpu != -1)
+-				do_test_lru_sanity5(key, map_fd);
++			do_test_lru_sanity5(key, map_fd);
+ 			exit(0);
+ 		} else if (pid == -1) {
+-			printf("couldn't spawn #%d process\n", i);
++			printf("couldn't spawn process to test key:%llu\n",
++			       key);
+ 			exit(1);
+ 		} else {
+ 			int status;
+ 
+-			/* It is mostly redundant and just allow the parent
+-			 * process to update next_shced_cpu for the next child
+-			 * process
+-			 */
+-			next_sched_cpu = sched_next_online(pid, next_sched_cpu);
+-
+ 			assert(waitpid(pid, &status, 0) == pid);
+ 			assert(status == 0);
+ 			key++;
+@@ -547,6 +546,8 @@ static void test_lru_sanity5(int map_type, int map_flags)
+ 	}
+ 
+ 	close(map_fd);
++	/* At least one key should be tested */
++	assert(key > 0);
+ 
+ 	printf("Pass\n");
+ }
 -- 
-2.1.4
+2.5.1
