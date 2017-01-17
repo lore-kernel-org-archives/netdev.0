@@ -1,74 +1,59 @@
-From: Paul Moore <paul@paul-moore.com>
-Subject: Re: [PATCH V2] audit: log 32-bit socketcalls
-Date: Tue, 17 Jan 2017 08:29:15 -0500
-Message-ID: <CAHC9VhQTPu=GFdPn2wostjNrEBgBeF5s6AC6rbDD3C0K=ZWhhQ@mail.gmail.com>
-References: <dd937da01da72da9277e44ed79abd1f4618c14c5.1484297765.git.rgb@redhat.com>
-	<1484318543.5300.1.camel@redhat.com>
-	<CAHC9VhQsL7c=dAd4ZyTbEugkcrNuaxGNnaOi8oMkn=NCwuVoHA@mail.gmail.com>
-	<20170117035307.GA1095@madcap2.tricolour.ca>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: Potential issues (security and otherwise) with the current
+ cgroup-bpf API
+Date: Tue, 17 Jan 2017 14:32:04 +0100
+Message-ID: <20170117133204.GA6515@twins.programming.kicks-ass.net>
+References: <20161219205631.GA31242@ast-mbp.thefacebook.com>
+ <CALCETrWr5XMkexdGp7HdkiLkQV=P9ycj+sNO7xWSRoCVxihVZA@mail.gmail.com>
+ <20161220000254.GA58895@ast-mbp.thefacebook.com>
+ <CALCETrU1_bDVLfokQ7zasHVmeq7S-R+603GEw59V_wuj4eE1hw@mail.gmail.com>
+ <2dbec775-6304-e44c-19c5-fbf07877e7b1@gmail.com>
+ <CALCETrUW2jEYmjSsOrPj+MAjkDGGUCw_rdxQh+5Er0r4ReGLnA@mail.gmail.com>
+ <20161220091150.GJ3124@twins.programming.kicks-ass.net>
+ <20170103102559.GA30129@dhcp22.suse.cz>
+ <20170116011901.GH14446@mtj.duckdns.org>
+ <20170117130303.GL19699@dhcp22.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Steve@redhat.com, linux-audit@redhat.com,
-        linux-kernel@vger.kernel.org
-To: Richard Guy Briggs <rgb@redhat.com>
-Return-path: <linux-audit-bounces@redhat.com>
-In-Reply-To: <20170117035307.GA1095@madcap2.tricolour.ca>
-List-Unsubscribe: <https://www.redhat.com/mailman/options/linux-audit>,
-	<mailto:linux-audit-request@redhat.com?subject=unsubscribe>
-List-Archive: <https://www.redhat.com/archives/linux-audit>
-List-Post: <mailto:linux-audit@redhat.com>
-List-Help: <mailto:linux-audit-request@redhat.com?subject=help>
-List-Subscribe: <https://www.redhat.com/mailman/listinfo/linux-audit>,
-	<mailto:linux-audit-request@redhat.com?subject=subscribe>
-Sender: linux-audit-bounces@redhat.com
-Errors-To: linux-audit-bounces@redhat.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Tejun Heo <tj@kernel.org>, Andy Lutomirski <luto@amacapital.net>,
+        David Ahern <dsahern@gmail.com>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Andy Lutomirski <luto@kernel.org>,
+        Daniel Mack <daniel@zonque.org>,
+        =?iso-8859-1?Q?Micka=EBl_Sala=FCn?= <mic@digikod.net>,
+        Kees Cook <keescook@chromium.org>, Jann Horn <jann@thejh.net>,
+        "David S. Miller" <davem@davemloft.net>,
+        Thomas Graf <tgraf@suug.ch>,
+        Michael Kerrisk <mtk.manpages@gmail.com>,
+        Linux API <linux-api@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>
+To: Michal Hocko <mhocko@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20170117130303.GL19699@dhcp22.suse.cz>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 16, 2017 at 10:53 PM, Richard Guy Briggs <rgb@redhat.com> wrote:
-> On 2017-01-16 15:04, Paul Moore wrote:
->> On Fri, Jan 13, 2017 at 9:42 AM, Eric Paris <eparis@redhat.com> wrote:
->> > On Fri, 2017-01-13 at 04:51 -0500, Richard Guy Briggs wrote:
->> >> diff --git a/include/linux/audit.h b/include/linux/audit.h
->> >> index 9d4443f..43d8003 100644
->> >> --- a/include/linux/audit.h
->> >> +++ b/include/linux/audit.h
->> >> @@ -387,6 +387,18 @@ static inline int audit_socketcall(int nargs,
->> >> unsigned long *args)
->> >>               return __audit_socketcall(nargs, args);
->> >>       return 0;
->> >>  }
->> >> +static inline int audit_socketcall_compat(int nargs, u32 *args)
->> >> +{
->> >> +     if (unlikely(!audit_dummy_context())) {
->> >
->> > I've always hated these likely/unlikely. Mostly because I think they
->> > are so often wrong. I believe this says that you compiled audit in but
->> > you expect it to be explicitly disabled. While that is (recently) true
->> > in Fedora I highly doubt that's true on the vast majority of systems
->> > that have audit compiled in.
->>
->> Richard and I have talked about the likely/unlikely optimization
->> before and I know Richard likes to use them, but I don't for the
->> reasons Eric has already mentioned.   Richard, since you're respinning
->> the patch, go ahead and yank out the unlikely() call.
->
-> I don't "like to use them".  I'm simply following the use and style of
-> existing code and the arguments of others in places of critical
-> performance.
+On Tue, Jan 17, 2017 at 02:03:03PM +0100, Michal Hocko wrote:
+> On Sun 15-01-17 20:19:01, Tejun Heo wrote:
+> [...]
+> > So, what's proposed is a proper part of bpf.  In terms of
+> > implementation, cgroup helps by hosting the pointers but that doesn't
+> > necessarily affect the conceptual structure of it.  Given that, I
+> > don't think it'd be a good idea to add anything to cgroup interface
+> > for this feature.  Introspection is great to have but this should be
+> > introspectable together with other bpf programs using the same
+> > mechanism.  That's where it belongs.
+> 
+> If BPF only piggy backs on top of cgroup to iterate tasks shouldn't we
+> at least enforce that the cgroup has to be a leaf one and no further
+> children groups can be created once there is BPF program attached?
 
-Okay that's a reasonable reason for why you continued the tradition,
-however I'm asking you (for the second time now) not to use it in
-audit_socketcall_compat().
+Why (again) this stupid constraint?
 
-> If I "fix" that one, then I would feel compelled to yank
-> out the one in the function immediately above, audit_socketcall() for
-> consistency to ease my conscience.  Eric conceded that argument.
+If you want to use cgroups for tagging (like perf does), _any_ parent
+cgroup will also tag you.
 
-I'll be very clear on what I want to see in this patch: don't use
-likely/unlikely in audit_socketcall_compat() and don't touch it's use
-in the other functions at this point in time.
-
--- 
-paul moore
-www.paul-moore.com
+So creating child cgroups, and placing tasks in it, should not be a
+problem, the BPF thing should apply to all of them.
