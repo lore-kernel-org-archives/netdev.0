@@ -1,43 +1,69 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next 0/2] mvneta xmit_more and bql support
-Date: Mon, 16 Jan 2017 20:13:25 -0500 (EST)
-Message-ID: <20170116.201325.2191165766691361664.davem@davemloft.net>
-References: <1484586512-16412-1-git-send-email-mw@semihalf.com>
+Subject: Re: [PATCH net-next v2 1/3] net: ipv6: Allow shorthand delete of
+ all nexthops in multipath route
+Date: Mon, 16 Jan 2017 20:37:17 -0500 (EST)
+Message-ID: <20170116.203717.949572770050738032.davem@davemloft.net>
+References: <1484510826-2723-2-git-send-email-dsa@cumulusnetworks.com>
+        <20170116.195139.2265183195514595519.davem@davemloft.net>
+        <06d4b3c0-0713-04b8-32d2-99b9b083b825@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: thomas.petazzoni@free-electrons.com, andrew@lunn.ch, linux@arm.linux.org.uk,
- jason@lakedaemon.net, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
- jaz@semihalf.com, gregory.clement@free-electrons.com,
- linux-arm-kernel@lists.infradead.org, sebastian.hesselbarth@gmail.com
-To: mw@semihalf.com
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1484586512-16412-1-git-send-email-mw@semihalf.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, ddutt@cumulusnetworks.com
+To: dsa@cumulusnetworks.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:53126 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750782AbdAQBhj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2017 20:37:39 -0500
+In-Reply-To: <06d4b3c0-0713-04b8-32d2-99b9b083b825@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Marcin Wojtas <mw@semihalf.com>
-Date: Mon, 16 Jan 2017 18:08:30 +0100
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Mon, 16 Jan 2017 18:27:36 -0700
 
-> This is a delayed v2 of short patchset, which introduces xmit_more and BQL
-> to mvneta driver. The only one change was added in xmit_more support -
-> condition check preventing excessive descriptors concatenation before
-> flushing in HW.
+> On 1/16/17 5:51 PM, David Miller wrote:
+>> From: David Ahern <dsa@cumulusnetworks.com>
+>> Date: Sun, 15 Jan 2017 12:07:04 -0800
+>> 
+>>> @@ -2143,6 +2143,26 @@ int ip6_del_rt(struct rt6_info *rt)
+>>>  	return __ip6_del_rt(rt, &info);
+>>>  }
+>>>  
+>>> +/* called with table lock held */
+>>  ...
+>>> @@ -2176,10 +2196,9 @@ static int ip6_route_del(struct fib6_config *cfg)
+>>>  				continue;
+>>>  			if (cfg->fc_protocol && cfg->fc_protocol != rt->rt6i_protocol)
+>>>  				continue;
+>>> -			dst_hold(&rt->dst);
+>>> -			read_unlock_bh(&table->tb6_lock);
+>>>  
+>>> -			return __ip6_del_rt(rt, &cfg->fc_nlinfo);
+>>> +			err = __ip6_route_del(rt, cfg);
+>>> +			break;
+>>>  		}
+>> 
+>> fib6_del() (invoked by __ip6_route_del()) has to be invoked with the
+>> table lock held a sa writer, but here you are only holding it as a
+>> reader.
 > 
-> Any comments or feedback would be welcome.
- ...
-> Changelog:
-> v1 -> v2:
-> 
-> * Add checking condition that ensures too much descriptors are not
->   concatenated before flushing in HW.
+> That table lock is still held. If you look up 2 lines I remove the line that releases the lock.
 
-Looks good, series applied, thanks.
+It's held in this function as a reader, it needs to be held as a writer.
+
+That's why the lock is dropped in the current code and the existing
+wrapper around fib6_del() takes it as a writer.
+
+Is it clear now?
+
+	read_lock_bh(&table->lock);
+	fib6_del();
+
+is invalid.
+
+	write_lock_bh(&table->lock);
+	fib6_del();
+
+is required.
