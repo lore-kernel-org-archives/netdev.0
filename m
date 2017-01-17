@@ -1,51 +1,58 @@
-From: Robert Shearman <rshearma@brocade.com>
-Subject: Re: [PATCH net] lwtunnel: fix autoload of lwt modules
-Date: Tue, 17 Jan 2017 17:26:02 +0000
-Message-ID: <0e226af4-cb62-9b20-f8a2-191b0aaffb11@brocade.com>
-References: <1484631185-9428-1-git-send-email-dsa@cumulusnetworks.com>
- <e6637ef9-02e4-bbfc-b5f0-bdd7c560714e@brocade.com>
- <8b621810-f7b3-05bb-413b-29389125c6ea@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-To: David Ahern <dsa@cumulusnetworks.com>, <netdev@vger.kernel.org>,
-        roopa <roopa@cumulusnetworks.com>
+From: Tariq Toukan <tariqt@mellanox.com>
+Subject: [PATCH net 2/3] net/mlx4_en: Remove unnecessary checks when setting num channels
+Date: Tue, 17 Jan 2017 19:19:18 +0200
+Message-ID: <1484673559-21687-3-git-send-email-tariqt@mellanox.com>
+References: <1484673559-21687-1-git-send-email-tariqt@mellanox.com>
+Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
+        Tariq Toukan <tariqt@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:57942 "EHLO
-        mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-        by vger.kernel.org with ESMTP id S1750863AbdAQR0P (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 12:26:15 -0500
-In-Reply-To: <8b621810-f7b3-05bb-413b-29389125c6ea@cumulusnetworks.com>
+Received: from mail-il-dmz.mellanox.com ([193.47.165.129]:59494 "EHLO
+        mellanox.co.il" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+        with ESMTP id S1751145AbdAQR0o (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 12:26:44 -0500
+In-Reply-To: <1484673559-21687-1-git-send-email-tariqt@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17/01/17 17:07, David Ahern wrote:
-> On 1/17/17 3:04 AM, Robert Shearman wrote:
->> Is it safe to release the rtnl lock here? E.g. neither fib_get_nhs nor fib_create_info take a reference on the device and further up inet_rtm_newroute has a pointer to the struct fib_table without taking a reference.
->
-> fib tables can not be deleted so that reference is safe.
+From: Eran Ben Elisha <eranbe@mellanox.com>
 
-Looks like we can free a table on unmerging. Admittedly this is the 
-local table so is unlikely to be one that lwtunnels are used on, but 
-does it not need to be safe against races anyway?
+Boundaries checks for the number of RX, TX, other and combined channels
+should be checked by the caller and not in the driver.
 
-> You are right about the dev reference in the IPv4 path but the thing is build_state does not need the device reference.
->
-> Roopa: do you recall why dev is passed to build_state? Nothing about the encap should require a device reference and none of the current encaps use it.
->
->>
->> Unfortunately, I think more invasive changes are required to solve this. I'm happy to work on solving this.
->
-> I have a patch that removes passing dev to build_state. Walking the remainder of the code I do not see any more references that would be affected by dropping rtnl here on the add path. Still looking at the delete path.
->
+In addition, remove wrong memset on get channels as it overrides the cmd
+field in the requester struct.
 
-Ok, I'll continue looking too and let you know if there's anything else 
-that pops up.
+Signed-off-by: Eran Ben Elisha <eranbe@mellanox.com>
+Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c | 7 +------
+ 1 file changed, 1 insertion(+), 6 deletions(-)
 
-Having said that, even if we eliminate all the unreferenced objects in 
-the current code, what are the chances that we'll be able to keep it 
-this way going forward? Perhaps it would be safer to retry the insert 
-operation from as close to the start as possible?
-
-Thanks,
-Rob
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+index d9c9f86a30df..d5a9372ed84d 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+@@ -1732,8 +1732,6 @@ static void mlx4_en_get_channels(struct net_device *dev,
+ {
+ 	struct mlx4_en_priv *priv = netdev_priv(dev);
+ 
+-	memset(channel, 0, sizeof(*channel));
+-
+ 	channel->max_rx = MAX_RX_RINGS;
+ 	channel->max_tx = MLX4_EN_MAX_TX_RING_P_UP;
+ 
+@@ -1752,10 +1750,7 @@ static int mlx4_en_set_channels(struct net_device *dev,
+ 	int xdp_count;
+ 	int err = 0;
+ 
+-	if (channel->other_count || channel->combined_count ||
+-	    channel->tx_count > MLX4_EN_MAX_TX_RING_P_UP ||
+-	    channel->rx_count > MAX_RX_RINGS ||
+-	    !channel->tx_count || !channel->rx_count)
++	if (!channel->tx_count || !channel->rx_count)
+ 		return -EINVAL;
+ 
+ 	tmp = kzalloc(sizeof(*tmp), GFP_KERNEL);
+-- 
+1.8.3.1
