@@ -1,37 +1,109 @@
-From: "Grandhi, Sainath" <sainath.grandhi@intel.com>
-Subject: RE: [PATCHv1 5/7] TAP: Extending tap device create/destroy APIs
-Date: Tue, 17 Jan 2017 23:07:37 +0000
-Message-ID: <2C5142675EC1274EAB6230F72F8DC95F28C6C540@ORSMSX113.amr.corp.intel.com>
-References: <1483742009-19184-1-git-send-email-sainath.grandhi@intel.com>
-         <1483742009-19184-6-git-send-email-sainath.grandhi@intel.com>
- <1483744559.9712.47.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Andy Shevchenko <andy.shevchenko@gmail.com>
+Subject: Re: [PATCH] net: ethernet: stmmac: add ARP management
+Date: Wed, 18 Jan 2017 01:14:08 +0200
+Message-ID: <CAHp75VfomowHQis_Yo9dEp9KY-i7yB0SvyKeMGvEnvK_ocGrQw@mail.gmail.com>
+References: <1484672200-7755-1-git-send-email-christophe.roullier@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "davem@davemloft.net" <davem@davemloft.net>,
-        "mahesh@bandewar.net" <mahesh@bandewar.net>,
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexandre Torgue <alexandre.torgue@st.com>,
+        Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+        netdev <netdev@vger.kernel.org>,
         "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1483744559.9712.47.camel@edumazet-glaptop3.roam.corp.google.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Christophe Roullier <christophe.roullier@st.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qt0-f193.google.com ([209.85.216.193]:35226 "EHLO
+        mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751106AbdAQXOP (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 18:14:15 -0500
+In-Reply-To: <1484672200-7755-1-git-send-email-christophe.roullier@st.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogRXJpYyBEdW1hemV0IFtt
-YWlsdG86ZXJpYy5kdW1hemV0QGdtYWlsLmNvbV0NCj4gU2VudDogRnJpZGF5LCBKYW51YXJ5IDA2
-LCAyMDE3IDM6MTYgUE0NCj4gVG86IEdyYW5kaGksIFNhaW5hdGggPHNhaW5hdGguZ3JhbmRoaUBp
-bnRlbC5jb20+DQo+IENjOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBkYXZlbUBkYXZlbWxvZnQu
-bmV0Ow0KPiBtYWhlc2hAYmFuZGV3YXIubmV0OyBsaW51eC1rZXJuZWxAdmdlci5rZXJuZWwub3Jn
-DQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0h2MSA1LzddIFRBUDogRXh0ZW5kaW5nIHRhcCBkZXZpY2Ug
-Y3JlYXRlL2Rlc3Ryb3kgQVBJcw0KPiANCj4gT24gRnJpLCAyMDE3LTAxLTA2IGF0IDE0OjMzIC0w
-ODAwLCBTYWluYXRoIEdyYW5kaGkgd3JvdGU6DQo+IA0KPiA+ICtzdGF0aWMgaW50IHRhcF9saXN0
-X2FkZChkZXZfdCBtYWpvciwgY29uc3QgY2hhciAqZGV2aWNlX25hbWUpIHsNCj4gPiArCWludCBl
-cnIgPSAwOw0KPiA+ICsJc3RydWN0IG1ham9yX2luZm8gKnRhcF9tYWpvcjsNCj4gPiArDQo+ID4g
-Kwl0YXBfbWFqb3IgPSBremFsbG9jKHNpemVvZigqdGFwX21ham9yKSwgR0ZQX0FUT01JQyk7DQo+
-ID4gKw0KPiA+ICsJdGFwX21ham9yLT5tYWpvciA9IE1BSk9SKG1ham9yKTsNCj4gPiArDQo+IA0K
-PiANCj4ga3phbGxvYygpIGNhbiBwZXJmZWN0bHkgcmV0dXJuIE5VTEwuDQo+IA0KPiBZb3UgZG8g
-bm90IHdhbnQgdG8gY3Jhc2ggaXQgdGhhdCBoYXBwZW5zLg0KPiANClRoYW5rcyBmb3IgcG9pbnRp
-bmcgb3V0LiBXaWxsIHNlbmQgb3V0IG5leHQgdmVyc2lvbiB0aGF0IHRha2VzIGNhcmUgb2YgbnVs
-bCBwb2ludGVyDQo=
+On Tue, Jan 17, 2017 at 6:56 PM, Christophe Roullier
+<christophe.roullier@st.com> wrote:
+
+> +static int dwmac4_arp_enable(struct mac_device_info *hw)
+> +{
+> +       void __iomem *ioaddr = hw->pcsr;
+
+__iomem *config = hw->pcsr + GMAC_CONFIG;
+
+> +       u32 value = readl(ioaddr + GMAC_CONFIG);
+> +
+> +       value |= GMAC_CONFIG_ARPEN;
+> +
+> +       writel(value, ioaddr + GMAC_CONFIG);
+
+u32 value;
+
+value = readl();
+writel(value | ...);
+
+?
+
+> +
+> +       value = readl(ioaddr + GMAC_CONFIG);
+> +
+> +       return !!(value & GMAC_CONFIG_ARPEN);
+> +}
+
+> +/* Set ARP Address */
+> +static void dwmac4_set_arp_addr(void __iomem *ioaddr, bool set, u32 addr)
+> +{
+
+__iomem *arp_addr = ioaddr + GMAC_ARP_ADDR;
+
+> +       u32 value;
+> +
+> +       value = readl(ioaddr + GMAC_ARP_ADDR);
+
+Care to explain why do you need dummy readl() here?
+
+> +
+> +       if (set) {
+> +               /* set arp address */
+> +               value = addr;
+> +       } else {
+> +               /* unset arp address */
+> +               value = 0;
+> +       }
+
+value = set ? addr : 0;
+
+
+> +
+> +       writel(value, ioaddr + GMAC_ARP_ADDR);
+> +       value = readl(ioaddr + GMAC_ARP_ADDR);
+> +}
+
+
+> +       if ((priv->plat->arp_en) && (priv->dma_cap.arpoffsel)) {
+> +               ret = priv->hw->mac->arp_en(priv->hw);
+> +               if (!ret) {
+
+Hmm... Most would expect
+
+if (ret) {
+ doing something
+} else {
+ doing something else
+}
+
+> +                       pr_warn(" ARP feature disabled\n");
+> +               } else {
+
+> +                       pr_info(" ARP feature enabled\n");
+
+Wouldn't be too noisy?
+
+pr_* -> dev_*
+
+> +                       /* Copy MAC addr into MAC_ARP_ADDRESS register*/
+> +                       priv->hw->dma->set_arp_addr(priv->ioaddr, 1,
+> +                                                   priv->dev->dev_addr);
+> +               }
+> +       }
+
+-- 
+With Best Regards,
+Andy Shevchenko
