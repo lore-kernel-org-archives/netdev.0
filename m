@@ -1,49 +1,96 @@
-From: Timur Tabi <timur@codeaurora.org>
-Subject: [PATCH] Revert "net: qcom/emac: configure the external phy to allow pause frames"
-Date: Tue, 17 Jan 2017 16:31:19 -0600
-Message-ID: <1484692279-18289-1-git-send-email-timur@codeaurora.org>
-To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-        Alok Chauhan <alokc@codeaurora.org>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: [net PATCH v5 4/6] virtio_net: remove duplicate queue pair binding
+ in XDP
+Date: Tue, 17 Jan 2017 14:21:44 -0800
+Message-ID: <20170117222144.20280.57182.stgit@john-Precision-Tower-5810>
+References: <20170117221443.20280.62546.stgit@john-Precision-Tower-5810>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org,
+        john.fastabend@gmail.com, alexei.starovoitov@gmail.com,
+        daniel@iogearbox.net
+To: jasowang@redhat.com, mst@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:56184 "EHLO
-        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751152AbdAQWb0 (ORCPT
+Received: from mail-pg0-f66.google.com ([74.125.83.66]:33840 "EHLO
+        mail-pg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751151AbdAQWb0 (ORCPT
         <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 17:31:26 -0500
+Received: by mail-pg0-f66.google.com with SMTP id t6so4899161pgt.1
+        for <netdev@vger.kernel.org>; Tue, 17 Jan 2017 14:31:21 -0800 (PST)
+In-Reply-To: <20170117221443.20280.62546.stgit@john-Precision-Tower-5810>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This reverts commit 3e884493448131179a5b7cae1ddca1028ffaecc8.
+Factor out qp assignment.
 
-With commit 529ed1275263 ("net: phy: phy drivers should not set
-SUPPORTED_[Asym_]Pause"), phylib now handles automatically enabling
-pause frame support in the PHY, and the MAC driver should follow suit.
-
-Since the EMAC driver driver does this,  we no longer need to force
-pause frames support.
-
-Signed-off-by: Timur Tabi <timur@codeaurora.org>
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 ---
- drivers/net/ethernet/qualcomm/emac/emac-mac.c | 6 ------
- 1 file changed, 6 deletions(-)
+ drivers/net/virtio_net.c |   18 +++++++-----------
+ 1 file changed, 7 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/ethernet/qualcomm/emac/emac-mac.c b/drivers/net/ethernet/qualcomm/emac/emac-mac.c
-index 0b4deb3..384e1be 100644
---- a/drivers/net/ethernet/qualcomm/emac/emac-mac.c
-+++ b/drivers/net/ethernet/qualcomm/emac/emac-mac.c
-@@ -1004,12 +1004,6 @@ int emac_mac_up(struct emac_adapter *adpt)
- 	writel((u32)~DIS_INT, adpt->base + EMAC_INT_STATUS);
- 	writel(adpt->irq.mask, adpt->base + EMAC_INT_MASK);
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 6de0cbe..922ca66 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -332,15 +332,19 @@ static struct sk_buff *page_to_skb(struct virtnet_info *vi,
  
--	/* Enable pause frames.  Without this feature, the EMAC has been shown
--	 * to receive (and drop) frames with FCS errors at gigabit connections.
--	 */
--	adpt->phydev->supported |= SUPPORTED_Pause | SUPPORTED_Asym_Pause;
--	adpt->phydev->advertising |= SUPPORTED_Pause | SUPPORTED_Asym_Pause;
--
- 	adpt->phydev->irq = PHY_IGNORE_INTERRUPT;
- 	phy_start(adpt->phydev);
+ static void virtnet_xdp_xmit(struct virtnet_info *vi,
+ 			     struct receive_queue *rq,
+-			     struct send_queue *sq,
+ 			     struct xdp_buff *xdp,
+ 			     void *data)
+ {
+ 	struct virtio_net_hdr_mrg_rxbuf *hdr;
+ 	unsigned int num_sg, len;
++	struct send_queue *sq;
++	unsigned int qp;
+ 	void *xdp_sent;
+ 	int err;
  
--- 
-Qualcomm Datacenter Technologies, Inc. as an affiliate of Qualcomm
-Technologies, Inc.  Qualcomm Technologies, Inc. is a member of the
-Code Aurora Forum, a Linux Foundation Collaborative Project.
++	qp = vi->curr_queue_pairs - vi->xdp_queue_pairs + smp_processor_id();
++	sq = &vi->sq[qp];
++
+ 	/* Free up any pending old buffers before queueing new ones. */
+ 	while ((xdp_sent = virtqueue_get_buf(sq->vq, &len)) != NULL) {
+ 		if (vi->mergeable_rx_bufs) {
+@@ -404,7 +408,6 @@ static struct sk_buff *receive_small(struct net_device *dev,
+ 	if (xdp_prog) {
+ 		struct virtio_net_hdr_mrg_rxbuf *hdr = buf;
+ 		struct xdp_buff xdp;
+-		unsigned int qp;
+ 		u32 act;
+ 
+ 		if (unlikely(hdr->hdr.gso_type || hdr->hdr.flags))
+@@ -417,10 +420,7 @@ static struct sk_buff *receive_small(struct net_device *dev,
+ 		case XDP_PASS:
+ 			break;
+ 		case XDP_TX:
+-			qp = vi->curr_queue_pairs -
+-				vi->xdp_queue_pairs +
+-				smp_processor_id();
+-			virtnet_xdp_xmit(vi, rq, &vi->sq[qp], &xdp, skb);
++			virtnet_xdp_xmit(vi, rq, &xdp, skb);
+ 			rcu_read_unlock();
+ 			goto xdp_xmit;
+ 		default:
+@@ -545,7 +545,6 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
+ 	if (xdp_prog) {
+ 		struct page *xdp_page;
+ 		struct xdp_buff xdp;
+-		unsigned int qp;
+ 		void *data;
+ 		u32 act;
+ 
+@@ -586,10 +585,7 @@ static struct sk_buff *receive_mergeable(struct net_device *dev,
+ 			}
+ 			break;
+ 		case XDP_TX:
+-			qp = vi->curr_queue_pairs -
+-				vi->xdp_queue_pairs +
+-				smp_processor_id();
+-			virtnet_xdp_xmit(vi, rq, &vi->sq[qp], &xdp, data);
++			virtnet_xdp_xmit(vi, rq, &xdp, data);
+ 			ewma_pkt_len_add(&rq->mrg_avg_pkt_len, len);
+ 			if (unlikely(xdp_page != page))
+ 				goto err_xdp;
