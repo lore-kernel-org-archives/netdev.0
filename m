@@ -1,29 +1,52 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v2 1/3] net: ipv6: Allow shorthand delete of all
- nexthops in multipath route
-Date: Mon, 16 Jan 2017 18:38:23 -0700
-Message-ID: <b206cc86-b24d-0eb1-b7d2-ce5d328c5270@cumulusnetworks.com>
-References: <1484510826-2723-2-git-send-email-dsa@cumulusnetworks.com>
- <20170116.195139.2265183195514595519.davem@davemloft.net>
- <06d4b3c0-0713-04b8-32d2-99b9b083b825@cumulusnetworks.com>
- <20170116.203717.949572770050738032.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: fq_codel and skb->hash
+Date: Mon, 16 Jan 2017 17:44:49 -0800
+Message-ID: <1484617489.13165.63.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <f9913fca-da16-8620-d237-d7d8d09cced2@cradlepoint.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ddutt@cumulusnetworks.com
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, edumazet@google.com
+To: Andrew Collins <acollins@cradlepoint.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f177.google.com ([209.85.192.177]:35128 "EHLO
-        mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750893AbdAQBjP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2017 20:39:15 -0500
-Received: by mail-pf0-f177.google.com with SMTP id f144so57387367pfa.2
-        for <netdev@vger.kernel.org>; Mon, 16 Jan 2017 17:38:25 -0800 (PST)
-In-Reply-To: <20170116.203717.949572770050738032.davem@davemloft.net>
+Received: from mail-pg0-f65.google.com ([74.125.83.65]:35046 "EHLO
+        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750734AbdAQBw4 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2017 20:52:56 -0500
+Received: by mail-pg0-f65.google.com with SMTP id 204so6574670pge.2
+        for <netdev@vger.kernel.org>; Mon, 16 Jan 2017 17:52:56 -0800 (PST)
+In-Reply-To: <f9913fca-da16-8620-d237-d7d8d09cced2@cradlepoint.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 1/16/17 6:37 PM, David Miller wrote:
-> Is it clear now?
+On Mon, 2017-01-16 at 17:04 -0700, Andrew Collins wrote:
+> The fq_codel packet scheduler always regenerates the skb flow hash.  Is there any reason
+> to do this other than the recent hash perturbation additions?
+> 
+> I ask because I have a case where an incoming set of TCP flows is encapsulated in a
+> single ipsec tunnel, which is then classified on egress into a single flow by fq_codel
+> resulting in poor behavior.
+> 
+> Reusing the skb hash set in receive results in much better behavior, as the value is
+> determined pre-encapsulation and flows end up being distributed more naturally across
+> codel queues.
 
-yes. time for a trip to the eye doctor
+
+
+> 
+> Is opportunistically using the pre-existing skb hash (if available) problematic?
+
+I guess this would be fine.
+
+We never exported the 'perturbation' or allowed to change/set it.
+
+The only 'risk' would be having a buggy device setting a wrong L4
+skb->hash, or buggy protocol messing with skb->hash for a given flow.
+
+>   Is there a better way to manage flow separation in routed+encapsulated traffic?
+
+Encapsulated traffic is fine, since flow dissector skips encap header(s)
+up to the L4 header.
+
+Problem is about encrypted traffic, since presumably this L4 header is
+opaque for flow dissector ;)
