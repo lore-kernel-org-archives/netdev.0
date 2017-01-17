@@ -1,54 +1,26 @@
-From: Igor Druzhinin <igor.druzhinin@citrix.com>
-Subject: [PATCH v2 1/2] xen-netback: fix memory leaks on XenBus
-	disconnect
-Date: Tue, 17 Jan 2017 20:49:37 +0000
-Message-ID: <1484686178-76959-2-git-send-email-igor.druzhinin@citrix.com>
-References: <1484686178-76959-1-git-send-email-igor.druzhinin@citrix.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/2] sfc: RX hash configuration
+Date: Tue, 17 Jan 2017 15:50:23 -0500 (EST)
+Message-ID: <20170117.155023.454167838486154850.davem@davemloft.net>
+References: <2b7fcd41-680f-460e-399a-6aa4ce102a04@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: xen-devel@lists.xenproject.org, Igor Druzhinin <igor.druzhinin@citrix.com>,
- Paul.Durrant@citrix.com, linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: <wei.liu2@citrix.com>
-Return-path: <xen-devel-bounces@lists.xen.org>
-In-Reply-To: <1484686178-76959-1-git-send-email-igor.druzhinin@citrix.com>
-List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Errors-To: xen-devel-bounces@lists.xen.org
-Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-net-drivers@solarflare.com, netdev@vger.kernel.org
+To: ecree@solarflare.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:43638 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751370AbdAQUvn (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 15:51:43 -0500
+In-Reply-To: <2b7fcd41-680f-460e-399a-6aa4ce102a04@solarflare.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RWxpbWluYXRlIG1lbW9yeSBsZWFrcyBpbnRyb2R1Y2VkIHNldmVyYWwgeWVhcnMgYWdvIGJ5IGNs
-ZWFuaW5nIHRoZQpxdWV1ZSByZXNvdXJjZXMgd2hpY2ggYXJlIGFsbG9jYXRlZCBvbiBYZW5CdXMg
-Y29ubmVjdGlvbiBldmVudC4gTmFtZWx5LCBxdWV1ZQpzdHJ1Y3R1cmUgYXJyYXkgYW5kIHBhZ2Vz
-IHVzZWQgZm9yIElPIHJpbmdzLgoKU2lnbmVkLW9mZi1ieTogSWdvciBEcnV6aGluaW4gPGlnb3Iu
-ZHJ1emhpbmluQGNpdHJpeC5jb20+Ci0tLQogZHJpdmVycy9uZXQveGVuLW5ldGJhY2sveGVuYnVz
-LmMgfCAxMSArKysrKysrKysrKwogMSBmaWxlIGNoYW5nZWQsIDExIGluc2VydGlvbnMoKykKCmRp
-ZmYgLS1naXQgYS9kcml2ZXJzL25ldC94ZW4tbmV0YmFjay94ZW5idXMuYyBiL2RyaXZlcnMvbmV0
-L3hlbi1uZXRiYWNrL3hlbmJ1cy5jCmluZGV4IDZjNTdiMDIuLjNlOTkwNzEgMTAwNjQ0Ci0tLSBh
-L2RyaXZlcnMvbmV0L3hlbi1uZXRiYWNrL3hlbmJ1cy5jCisrKyBiL2RyaXZlcnMvbmV0L3hlbi1u
-ZXRiYWNrL3hlbmJ1cy5jCkBAIC00OTMsMTEgKzQ5MywyMCBAQCBzdGF0aWMgaW50IGJhY2tlbmRf
-Y3JlYXRlX3hlbnZpZihzdHJ1Y3QgYmFja2VuZF9pbmZvICpiZSkKIHN0YXRpYyB2b2lkIGJhY2tl
-bmRfZGlzY29ubmVjdChzdHJ1Y3QgYmFja2VuZF9pbmZvICpiZSkKIHsKIAlpZiAoYmUtPnZpZikg
-eworCQl1bnNpZ25lZCBpbnQgcXVldWVfaW5kZXg7CisKIAkJeGVuX3VucmVnaXN0ZXJfd2F0Y2hl
-cnMoYmUtPnZpZik7CiAjaWZkZWYgQ09ORklHX0RFQlVHX0ZTCiAJCXhlbnZpZl9kZWJ1Z2ZzX2Rl
-bGlmKGJlLT52aWYpOwogI2VuZGlmIC8qIENPTkZJR19ERUJVR19GUyAqLwogCQl4ZW52aWZfZGlz
-Y29ubmVjdF9kYXRhKGJlLT52aWYpOworCQlmb3IgKHF1ZXVlX2luZGV4ID0gMDsgcXVldWVfaW5k
-ZXggPCBiZS0+dmlmLT5udW1fcXVldWVzOyArK3F1ZXVlX2luZGV4KQorCQkJeGVudmlmX2RlaW5p
-dF9xdWV1ZSgmYmUtPnZpZi0+cXVldWVzW3F1ZXVlX2luZGV4XSk7CisKKwkJdmZyZWUoYmUtPnZp
-Zi0+cXVldWVzKTsKKwkJYmUtPnZpZi0+bnVtX3F1ZXVlcyA9IDA7CisJCWJlLT52aWYtPnF1ZXVl
-cyA9IE5VTEw7CisKIAkJeGVudmlmX2Rpc2Nvbm5lY3RfY3RybChiZS0+dmlmKTsKIAl9CiB9CkBA
-IC0xMDI2LDYgKzEwMzUsOCBAQCBzdGF0aWMgdm9pZCBjb25uZWN0KHN0cnVjdCBiYWNrZW5kX2lu
-Zm8gKmJlKQogZXJyOgogCWlmIChiZS0+dmlmLT5udW1fcXVldWVzID4gMCkKIAkJeGVudmlmX2Rp
-c2Nvbm5lY3RfZGF0YShiZS0+dmlmKTsgLyogQ2xlYW4gdXAgZXhpc3RpbmcgcXVldWVzICovCisJ
-Zm9yIChxdWV1ZV9pbmRleCA9IDA7IHF1ZXVlX2luZGV4IDwgYmUtPnZpZi0+bnVtX3F1ZXVlczsg
-KytxdWV1ZV9pbmRleCkKKwkJeGVudmlmX2RlaW5pdF9xdWV1ZSgmYmUtPnZpZi0+cXVldWVzW3F1
-ZXVlX2luZGV4XSk7CiAJdmZyZWUoYmUtPnZpZi0+cXVldWVzKTsKIAliZS0+dmlmLT5xdWV1ZXMg
-PSBOVUxMOwogCWJlLT52aWYtPm51bV9xdWV1ZXMgPSAwOwotLSAKMS44LjMuMQoKCl9fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fClhlbi1kZXZlbCBtYWlsaW5n
-IGxpc3QKWGVuLWRldmVsQGxpc3RzLnhlbi5vcmcKaHR0cHM6Ly9saXN0cy54ZW4ub3JnL3hlbi1k
-ZXZlbAo=
+From: Edward Cree <ecree@solarflare.com>
+Date: Tue, 17 Jan 2017 11:59:48 +0000
+
+> This series improves support for getting and setting RX hashing
+>  configuration on Solarflare adapters through ethtool.
+
+Series applied, thanks.
