@@ -1,79 +1,49 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next v4 1/2] net sched actions: Add support for user
- cookies
-Date: Tue, 17 Jan 2017 18:05:01 +0100
-Message-ID: <20170117170501.GE1807@nanopsycho.orion>
-References: <1484651509-27500-1-git-send-email-jhs@emojatatu.com>
- <1484651509-27500-2-git-send-email-jhs@emojatatu.com>
- <587E2747.9000207@iogearbox.net>
- <bead2dc5-87a2-2fca-d50d-871f28be1d5b@mojatatu.com>
- <587E4D16.8030708@iogearbox.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>, davem@davemloft.net,
-        netdev@vger.kernel.org, jiri@mellanox.com, paulb@mellanox.com,
-        john.fastabend@gmail.com, simon.horman@netronome.com,
-        mrv@mojatatu.com, hadarh@mellanox.com, ogerlitz@mellanox.com,
-        roid@mellanox.com, xiyou.wangcong@gmail.com
-To: Daniel Borkmann <daniel@iogearbox.net>
+From: Roman Yeryomin <leroi.lists@gmail.com>
+Subject: [net, 2/6] net: korina: define NAPI_WEIGHT
+Date: Tue, 17 Jan 2017 19:32:22 +0200
+Message-ID: <1484674342-22304-1-git-send-email-roman@advem.lv>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:34236 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750830AbdAQR3M (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 12:29:12 -0500
-Received: by mail-wm0-f67.google.com with SMTP id c85so7510276wmi.1
-        for <netdev@vger.kernel.org>; Tue, 17 Jan 2017 09:28:22 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <587E4D16.8030708@iogearbox.net>
+Received: from mail-lf0-f66.google.com ([209.85.215.66]:33505 "EHLO
+        mail-lf0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750939AbdAQRc3 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 12:32:29 -0500
+Received: by mail-lf0-f66.google.com with SMTP id x1so11894586lff.0
+        for <netdev@vger.kernel.org>; Tue, 17 Jan 2017 09:32:28 -0800 (PST)
+Received: from ubrain.lan ([213.175.92.61])
+        by smtp.googlemail.com with ESMTPSA id t1sm2240203lja.48.2017.01.17.09.32.26
+        for <netdev@vger.kernel.org>
+        (version=TLS1_2 cipher=ECDHE-RSA-AES128-SHA bits=128/128);
+        Tue, 17 Jan 2017 09:32:26 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Jan 17, 2017 at 05:57:58PM CET, daniel@iogearbox.net wrote:
->On 01/17/2017 05:50 PM, Jamal Hadi Salim wrote:
->> On 17-01-17 09:16 AM, Daniel Borkmann wrote:
->> > On 01/17/2017 12:11 PM, Jamal Hadi Salim wrote:
->> > > From: Jamal Hadi Salim <jhs@mojatatu.com>
->> > > 
->> > > Introduce optional 128-bit action cookie.
->> > > Like all other cookie schemes in the networking world (eg in protocols
->> > > like http or existing kernel fib protocol field, etc) the idea is to save
->> > > user state that when retrieved serves as a correlator. The kernel
->> > > _should not_ intepret it.  The user can store whatever they wish in the
->> > > 128 bits.
->> > [...]
->> > 
->> > Since it looks like you need a v5 anyway, few comments below.
->> > 
->> > >   include/net/act_api.h        |  1 +
->> > >   include/net/pkt_cls.h        |  8 ++++++++
->> > >   include/uapi/linux/pkt_cls.h |  3 +++
->> > >   net/sched/act_api.c          | 25 +++++++++++++++++++++++++
->> > >   4 files changed, 37 insertions(+)
->> > > 
->> > > diff --git a/include/net/act_api.h b/include/net/act_api.h
->> > > index 1d71644..0692458 100644
->> > > --- a/include/net/act_api.h
->> > > +++ b/include/net/act_api.h
->> > > @@ -41,6 +41,7 @@ struct tc_action {
->> > >       struct rcu_head            tcfa_rcu;
->> > >       struct gnet_stats_basic_cpu __percpu *cpu_bstats;
->> > >       struct gnet_stats_queue __percpu *cpu_qstats;
->> > > +    struct tc_cookie    *act_ck;
->> > 
->> > Since we know anyway that this is part of struct tc_action, can't
->> > you just give this some real/readable name like ...
->> > 
->> >   struct tc_cookie cookie;
->> 
->> Grep-ability.
->> I was worried about when the classifier adds its cookie it
->> would need to use something like cls_cookie etc.
->
->Given this cookie is just used for correlation in user space anyway
->and not processed any further by the kernel, I think we can well
->handle these very few spots, so would be better if the code is more
->maintainable instead.
+Signed-off-by: Roman Yeryomin <roman@advem.lv>
+---
+ drivers/net/ethernet/korina.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-I agree with Daniel. His naming change suggestions make sense.
-
-In fact, Jamal, now I know why there are names like this all over TC :)
+diff --git a/drivers/net/ethernet/korina.c b/drivers/net/ethernet/korina.c
+index 9bc375d..45bd617 100644
+--- a/drivers/net/ethernet/korina.c
++++ b/drivers/net/ethernet/korina.c
+@@ -77,6 +77,8 @@
+ 
+ #define MII_CLOCK 1250000 	/* no more than 2.5MHz */
+ 
++#define NAPI_WEIGHT	64
++
+ /* the following must be powers of two */
+ #define KORINA_NUM_RDS	64  /* number of receive descriptors */
+ #define KORINA_NUM_TDS	64  /* number of transmit descriptors */
+@@ -1080,7 +1082,7 @@ static int korina_probe(struct platform_device *pdev)
+ 	dev->netdev_ops = &korina_netdev_ops;
+ 	dev->ethtool_ops = &netdev_ethtool_ops;
+ 	dev->watchdog_timeo = TX_TIMEOUT;
+-	netif_napi_add(dev, &lp->napi, korina_poll, 64);
++	netif_napi_add(dev, &lp->napi, korina_poll, NAPI_WEIGHT);
+ 
+ 	lp->phy_addr = (((lp->rx_irq == 0x2c? 1:0) << 8) | 0x05);
+ 	lp->mii_if.dev = dev;
+-- 
+2.7.4
