@@ -1,7 +1,8 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v4 00/10] net: dsa: Support for pdata in dsa2
-Date: Tue, 17 Jan 2017 15:21:42 -0800
-Message-ID: <20170117232152.1661-1-f.fainelli@gmail.com>
+Subject: [PATCH net-next v4 01/10] net: dsa: Pass device pointer to dsa_register_switch
+Date: Tue, 17 Jan 2017 15:21:43 -0800
+Message-ID: <20170117232152.1661-2-f.fainelli@gmail.com>
+References: <20170117232152.1661-1-f.fainelli@gmail.com>
 Cc: Florian Fainelli <f.fainelli@gmail.com>,
         Jason Cooper <jason@lakedaemon.net>,
         Andrew Lunn <andrew@lunn.ch>,
@@ -16,124 +17,128 @@ Cc: Florian Fainelli <f.fainelli@gmail.com>,
         linux-kernel@vger.kernel.org (open list)
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170117232152.1661-1-f.fainelli@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+In preparation for allowing dsa_register_switch() to be supplied with
+device/platform data, pass down a struct device pointer instead of a
+struct device_node.
 
-This is not exactly new, and was sent before, although back then, I did not
-have an user of the pre-declared MDIO board information, but now we do. Note
-that I have additional changes queued up to have b53 register platform data for
-MIPS bcm47xx and bcm63xx.
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/dsa/b53/b53_common.c |  2 +-
+ drivers/net/dsa/mv88e6xxx/chip.c | 11 ++++++-----
+ drivers/net/dsa/qca8k.c          |  2 +-
+ include/net/dsa.h                |  2 +-
+ net/dsa/dsa2.c                   |  7 ++++---
+ 5 files changed, 13 insertions(+), 11 deletions(-)
 
-Yes I know that we should have the Orion platforms eventually be converted to
-Device Tree, but until that happens, I don't want any remaining users of the
-old "dsa" platform device (hence the previous DTS submissions for ARM/mvebu)
-and, there will be platforms out there that most likely won't never see DT
-coming their way (BCM47xx is almost 100% sure, BCM63xx maybe not in a distant
-future).
-
-We would probably want the whole series to be merged via David Miller's tree
-to simplify things.
-
-Greg, can you Ack/Nack patch 5 since it touched the core LDD?
-
-Vivien, since some patches did change, I did not carry your Tested-by tag
-to all patches.
-
-Thanks!
-
-Changes in v4:
-
-- Changed device_find_class() to device_find_in_class_name()
-- Added kerneldoc above device_find_in_class_name() to explain what it does
-  and the calling convention regarding device reference counts
-- Changed dev_to_net_device to device_to_net_device() added comments
-  about what it does and the caller conventions regarding reference counts
-
-Changes in v3:
-
-- Tested EPROBE_DEFER from a mockup MDIO/DSA switch driver and everything
-  is fine, once the driver finally probes we have access to platform data
-  as expected
-
-- added comment above dsa_port_is_valid() that port->name is mandatory
-  for platform data cases
-
-- added an extra check in dsa_parse_member() for a NULL pdata pointer
-
-- fixed a bunch of checkpatch errors and warnings
-
-Changes in v2:
-
-- Rebased against latest net-next/master
-
-- Moved dev_find_class() to device_find_class() into drivers/base/core.c
-
-- Moved dev_to_net_device into net/core/dev.c
-
-- Utilize dsa_chip_data directly instead of dsa_platform_data
-
-- Augmented dsa_chip_data to be multi-CPU port ready
-
-Changes from last submission (few months back):
-
-- rebased against latest net-next
-
-- do not introduce dsa2_platform_data which was overkill and was meant to
-  allow us to do exaclty the same things with platform data and Device Tree
-  we use the existing dsa_platform_data instead
-
-- properly register MDIO devices when the MDIO bus is registered and associate
-  platform_data with them
-
-- add a change to the Orion platform code to demonstrate how this can be used
-
-Thank you
-
-Florian Fainelli (10):
-  net: dsa: Pass device pointer to dsa_register_switch
-  net: dsa: Make most functions take a dsa_port argument
-  net: dsa: Suffix function manipulating device_node with _dn
-  net: dsa: Move ports assignment closer to error checking
-  drivers: base: Add device_find_in_class_name()
-  net: dsa: Migrate to device_find_in_class_name()
-  net: Relocate dev_to_net_device() into net/core/dev.c
-  net: dsa: Add support for platform data
-  net: phy: Allow pre-declaration of MDIO devices
-  ARM: orion: Register DSA switch as a MDIO device
-
- arch/arm/mach-orion5x/common.c               |   2 +-
- arch/arm/mach-orion5x/common.h               |   4 +-
- arch/arm/mach-orion5x/rd88f5181l-fxo-setup.c |   7 +-
- arch/arm/mach-orion5x/rd88f5181l-ge-setup.c  |   7 +-
- arch/arm/mach-orion5x/rd88f6183ap-ge-setup.c |   7 +-
- arch/arm/mach-orion5x/wnr854t-setup.c        |   2 +-
- arch/arm/mach-orion5x/wrt350n-v2-setup.c     |   7 +-
- arch/arm/plat-orion/common.c                 |  25 +++-
- arch/arm/plat-orion/include/plat/common.h    |   4 +-
- drivers/base/core.c                          |  31 +++++
- drivers/net/dsa/b53/b53_common.c             |   2 +-
- drivers/net/dsa/mv88e6xxx/chip.c             |  11 +-
- drivers/net/dsa/qca8k.c                      |   2 +-
- drivers/net/phy/Makefile                     |   3 +-
- drivers/net/phy/mdio-boardinfo.c             |  86 +++++++++++++
- drivers/net/phy/mdio-boardinfo.h             |  19 +++
- drivers/net/phy/mdio_bus.c                   |   4 +
- drivers/net/phy/mdio_device.c                |  11 ++
- include/linux/device.h                       |   2 +
- include/linux/mdio.h                         |   3 +
- include/linux/mod_devicetable.h              |   1 +
- include/linux/netdevice.h                    |   2 +
- include/linux/phy.h                          |  19 +++
- include/net/dsa.h                            |   8 +-
- net/core/dev.c                               |  30 +++++
- net/dsa/dsa.c                                |  55 ++-------
- net/dsa/dsa2.c                               | 175 +++++++++++++++++++--------
- net/dsa/dsa_priv.h                           |   4 +-
- 28 files changed, 391 insertions(+), 142 deletions(-)
- create mode 100644 drivers/net/phy/mdio-boardinfo.c
- create mode 100644 drivers/net/phy/mdio-boardinfo.h
-
+diff --git a/drivers/net/dsa/b53/b53_common.c b/drivers/net/dsa/b53/b53_common.c
+index 5102a3701a1a..7179eed9ee6d 100644
+--- a/drivers/net/dsa/b53/b53_common.c
++++ b/drivers/net/dsa/b53/b53_common.c
+@@ -1882,7 +1882,7 @@ int b53_switch_register(struct b53_device *dev)
+ 
+ 	pr_info("found switch: %s, rev %i\n", dev->name, dev->core_rev);
+ 
+-	return dsa_register_switch(dev->ds, dev->ds->dev->of_node);
++	return dsa_register_switch(dev->ds, dev->ds->dev);
+ }
+ EXPORT_SYMBOL(b53_switch_register);
+ 
+diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+index 987b2dbbd35a..3238a4752b98 100644
+--- a/drivers/net/dsa/mv88e6xxx/chip.c
++++ b/drivers/net/dsa/mv88e6xxx/chip.c
+@@ -4421,8 +4421,7 @@ static struct dsa_switch_driver mv88e6xxx_switch_drv = {
+ 	.ops			= &mv88e6xxx_switch_ops,
+ };
+ 
+-static int mv88e6xxx_register_switch(struct mv88e6xxx_chip *chip,
+-				     struct device_node *np)
++static int mv88e6xxx_register_switch(struct mv88e6xxx_chip *chip)
+ {
+ 	struct device *dev = chip->dev;
+ 	struct dsa_switch *ds;
+@@ -4437,7 +4436,7 @@ static int mv88e6xxx_register_switch(struct mv88e6xxx_chip *chip,
+ 
+ 	dev_set_drvdata(dev, ds);
+ 
+-	return dsa_register_switch(ds, np);
++	return dsa_register_switch(ds, dev);
+ }
+ 
+ static void mv88e6xxx_unregister_switch(struct mv88e6xxx_chip *chip)
+@@ -4521,9 +4520,11 @@ static int mv88e6xxx_probe(struct mdio_device *mdiodev)
+ 	if (err)
+ 		goto out_g2_irq;
+ 
+-	err = mv88e6xxx_register_switch(chip, np);
+-	if (err)
++	err = mv88e6xxx_register_switch(chip);
++	if (err) {
++		mv88e6xxx_mdio_unregister(chip);
+ 		goto out_mdio;
++	}
+ 
+ 	return 0;
+ 
+diff --git a/drivers/net/dsa/qca8k.c b/drivers/net/dsa/qca8k.c
+index 54d270d59eb0..c084aa484d2b 100644
+--- a/drivers/net/dsa/qca8k.c
++++ b/drivers/net/dsa/qca8k.c
+@@ -964,7 +964,7 @@ qca8k_sw_probe(struct mdio_device *mdiodev)
+ 	mutex_init(&priv->reg_mutex);
+ 	dev_set_drvdata(&mdiodev->dev, priv);
+ 
+-	return dsa_register_switch(priv->ds, priv->ds->dev->of_node);
++	return dsa_register_switch(priv->ds, &mdiodev->dev);
+ }
+ 
+ static void
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index b94d1f2ef912..16a502a6c26a 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -403,7 +403,7 @@ static inline bool dsa_uses_tagged_protocol(struct dsa_switch_tree *dst)
+ }
+ 
+ void dsa_unregister_switch(struct dsa_switch *ds);
+-int dsa_register_switch(struct dsa_switch *ds, struct device_node *np);
++int dsa_register_switch(struct dsa_switch *ds, struct device *dev);
+ #ifdef CONFIG_PM_SLEEP
+ int dsa_switch_suspend(struct dsa_switch *ds);
+ int dsa_switch_resume(struct dsa_switch *ds);
+diff --git a/net/dsa/dsa2.c b/net/dsa/dsa2.c
+index 42a41d84053c..4170f7ea8e28 100644
+--- a/net/dsa/dsa2.c
++++ b/net/dsa/dsa2.c
+@@ -579,8 +579,9 @@ static struct device_node *dsa_get_ports(struct dsa_switch *ds,
+ 	return ports;
+ }
+ 
+-static int _dsa_register_switch(struct dsa_switch *ds, struct device_node *np)
++static int _dsa_register_switch(struct dsa_switch *ds, struct device *dev)
+ {
++	struct device_node *np = dev->of_node;
+ 	struct device_node *ports = dsa_get_ports(ds, np);
+ 	struct dsa_switch_tree *dst;
+ 	u32 tree, index;
+@@ -660,12 +661,12 @@ static int _dsa_register_switch(struct dsa_switch *ds, struct device_node *np)
+ 	return err;
+ }
+ 
+-int dsa_register_switch(struct dsa_switch *ds, struct device_node *np)
++int dsa_register_switch(struct dsa_switch *ds, struct device *dev)
+ {
+ 	int err;
+ 
+ 	mutex_lock(&dsa2_mutex);
+-	err = _dsa_register_switch(ds, np);
++	err = _dsa_register_switch(ds, dev);
+ 	mutex_unlock(&dsa2_mutex);
+ 
+ 	return err;
 -- 
 2.9.3
