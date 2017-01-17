@@ -1,45 +1,54 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] tcp: accept RST for rcv_nxt - 1 after
- receiving a FIN
-Date: Tue, 17 Jan 2017 11:02:34 -0800
-Message-ID: <1484679754.13165.70.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1484678239-19199-1-git-send-email-jbaron@akamai.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [net PATCH v4 2/6] virtio_net: wrap rtnl_lock in test for calling
+ with lock already held
+Date: Tue, 17 Jan 2017 11:03:20 -0800
+Message-ID: <587E6A78.6020901@gmail.com>
+References: <20170115235528.28980.85142.stgit@john-Precision-Tower-5810>
+ <20170115235947.28980.92147.stgit@john-Precision-Tower-5810>
+ <20170117.115733.428297564258724055.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-        Eric Dumazet <edumazet@google.com>
-To: Jason Baron <jbaron@akamai.com>
+Cc: jasowang@redhat.com, mst@redhat.com, john.r.fastabend@intel.com,
+        netdev@vger.kernel.org, alexei.starovoitov@gmail.com,
+        daniel@iogearbox.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:33270 "EHLO
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:35216 "EHLO
         mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750929AbdAQTCg (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 14:02:36 -0500
-Received: by mail-pf0-f194.google.com with SMTP id e4so6454088pfg.0
-        for <netdev@vger.kernel.org>; Tue, 17 Jan 2017 11:02:36 -0800 (PST)
-In-Reply-To: <1484678239-19199-1-git-send-email-jbaron@akamai.com>
+        with ESMTP id S1750888AbdAQTDe (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 14:03:34 -0500
+Received: by mail-pf0-f194.google.com with SMTP id f144so16775725pfa.2
+        for <netdev@vger.kernel.org>; Tue, 17 Jan 2017 11:03:34 -0800 (PST)
+In-Reply-To: <20170117.115733.428297564258724055.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2017-01-17 at 13:37 -0500, Jason Baron wrote:
-> From: Jason Baron <jbaron@akamai.com>
+On 17-01-17 08:57 AM, David Miller wrote:
+> From: John Fastabend <john.fastabend@gmail.com>
+> Date: Sun, 15 Jan 2017 15:59:47 -0800
 > 
-> Using a Mac OSX box as a client connecting to a Linux server, we have found
-> that when certain applications (such as 'ab'), are abruptly terminated
-> (via ^C), a FIN is sent followed by a RST packet on tcp connections. The
-> FIN is accepted by the Linux stack but the RST is sent with the same
-> sequence number as the FIN, and Linux responds with a challenge ACK per
-> RFC 5961. The OSX client then sometimes (they are rate-limited) does not
-> reply with any RST as would be expected on a closed socket.
+>> @@ -2358,7 +2371,10 @@ static void remove_vq_common(struct virtnet_info *vi)
+>>  	/* Free unused buffers in both send and recv, if any. */
+>>  	free_unused_bufs(vi);
+>>  
+>> -	free_receive_bufs(vi);
+>> +	if (rtnl_is_locked())
+>> +		_free_receive_bufs(vi);
+>> +	else
+>> +		free_receive_bufs(vi);
+>>  
+>>  	free_receive_page_frags(vi);
+>>  
 > 
-> This results in sockets accumulating on the Linux server left mostly in
-> the CLOSE_WAIT state, although LAST_ACK and CLOSING are also possible.
-> This sequence of events can tie up a lot of resources on the Linux server
-> since there may be a lot of data in write buffers at the time of the RST.
-> Accepting a RST equal to rcv_nxt - 1, after we have already successfully
-> processed a FIN, has made a significant difference for us in practice, by
-> freeing up unneeded resources in a more expedient fashion.
+> This doesn't work.  rtnl_is_locked() doesn't tell if _you_ own the mutex, it
+> just says that someone does.
+> 
+> So if we now execute this code without taking the RTNL lock just because some
+> other thread of control holds it, we introduce a race.
+> 
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+yeah this bit is junk. dang. Trying to get this locking right without duplicate
+code or pushing around lock_me variables is getting tricky.
 
-Thanks Jason !
+.John
