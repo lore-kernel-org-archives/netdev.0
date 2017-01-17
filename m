@@ -1,63 +1,64 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Getting a handle on all these new NIC features
-Date: Tue, 17 Jan 2017 14:05:38 -0800
-Message-ID: <CALx6S37YLY7-9YUTWBCBuLCWxbQL1=YURzqFZ00S1pb=2W9kFg@mail.gmail.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: [net PATCH v5 1/6] virtio_net: use dev_kfree_skb for small buffer
+ XDP receive
+Date: Tue, 17 Jan 2017 14:19:50 -0800
+Message-ID: <20170117221950.20280.39496.stgit@john-Precision-Tower-5810>
+References: <20170117221443.20280.62546.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: Linux Kernel Network Developers <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org,
+        john.fastabend@gmail.com, alexei.starovoitov@gmail.com,
+        daniel@iogearbox.net
+To: jasowang@redhat.com, mst@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f182.google.com ([209.85.216.182]:36481 "EHLO
-        mail-qt0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750924AbdAQWGb (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 17:06:31 -0500
-Received: by mail-qt0-f182.google.com with SMTP id k15so183332651qtg.3
-        for <netdev@vger.kernel.org>; Tue, 17 Jan 2017 14:05:39 -0800 (PST)
+Received: from mail-pg0-f67.google.com ([74.125.83.67]:32882 "EHLO
+        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751007AbdAQWU6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 17:20:58 -0500
+Received: by mail-pg0-f67.google.com with SMTP id 194so8981617pgd.0
+        for <netdev@vger.kernel.org>; Tue, 17 Jan 2017 14:20:24 -0800 (PST)
+In-Reply-To: <20170117221443.20280.62546.stgit@john-Precision-Tower-5810>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There was some discussion about the problems of dealing with the
-explosion of NIC features in the mlx directory restructuring proposal,
-but I think the is a deeper issue here that should be discussed.
+In the small buffer case during driver unload we currently use
+put_page instead of dev_kfree_skb. Resolve this by adding a check
+for virtnet mode when checking XDP queue type. Also name the
+function so that the code reads correctly to match the additional
+check.
 
-It's hard not to notice that there has been quite a proliferation of
-NIC features in several drivers. This trend had resulted in very
-complex driver code that may or may not segment individual features.
-One visible manifestation of this is number of ndo functions which is
-somewhere around seventy-five now.
+Fixes: bb91accf2733 ("virtio-net: XDP support for small buffers")
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+Acked-by: Jason Wang <jasowang@redhat.com>
+---
+ drivers/net/virtio_net.c |    8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
 
-I suspect the vast majority of these advances NIC features (e.g.
-bridging, UDP offloads, tc offload, etc.) are only relevant to some of
-the people some of the time. The problem we have, in this case those
-of us that are attempting to deploy and maintain NICs at scale, is
-when we have to deal with the ramifications of these features being
-intertwined with core driver functionality that is relevant to
-everyone. This becomes very obvious when we need to backport drivers
-from later versions of kernel.
-
-I realize that backports of a driver is not a specific concern of the
-Linux kernel, but nevertheless this is a real problem and a fact of
-life for many users. Rebasing the full kernel is still a major effort
-and it seems the best we could ever do is one rebase per year. In the
-interim we need to occasionally backport drivers. Backporting drivers
-is difficult precisely because of new features or API changes to
-existing ones. These sort of changes tend to have a spiderweb of
-dependencies in other parts of the stack so that the number of patches
-we need to cherry-pick goes way beyond those that touch the driver we
-are interested in.
-
-Currently we (FB) need to backport two NIC drivers. I've already gave
-details of backporting mlx5 on the thread to restructure the driver
-directories. The other driver being backporting seems to suffer from
-the same type of feature complexity.
-
-In short, I would like to ask if driver maintainers to start to
-modularize driver features. If something being added is obviously a
-narrow feature that only a subset of users will need can we allow
-config options to #ifdef those out somehow? Furthermore can the file
-and directory structure of drivers reflect that; our lives would be
-_so_ much simpler to maintain drivers in production if we have such
-modularity and the ability to build drivers with the features of our
-choosing.
-
-Thanks,
-Tom
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 4a10500..d97bb71 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -1890,8 +1890,12 @@ static void free_receive_page_frags(struct virtnet_info *vi)
+ 			put_page(vi->rq[i].alloc_frag.page);
+ }
+ 
+-static bool is_xdp_queue(struct virtnet_info *vi, int q)
++static bool is_xdp_raw_buffer_queue(struct virtnet_info *vi, int q)
+ {
++	/* For small receive mode always use kfree_skb variants */
++	if (!vi->mergeable_rx_bufs)
++		return false;
++
+ 	if (q < (vi->curr_queue_pairs - vi->xdp_queue_pairs))
+ 		return false;
+ 	else if (q < vi->curr_queue_pairs)
+@@ -1908,7 +1912,7 @@ static void free_unused_bufs(struct virtnet_info *vi)
+ 	for (i = 0; i < vi->max_queue_pairs; i++) {
+ 		struct virtqueue *vq = vi->sq[i].vq;
+ 		while ((buf = virtqueue_detach_unused_buf(vq)) != NULL) {
+-			if (!is_xdp_queue(vi, i))
++			if (!is_xdp_raw_buffer_queue(vi, i))
+ 				dev_kfree_skb(buf);
+ 			else
+ 				put_page(virt_to_head_page(buf));
