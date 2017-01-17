@@ -1,46 +1,29 @@
-From: YUAN Linyu <Linyu.Yuan@alcatel-sbell.com.cn>
-Subject: RE: [PATCH] net: add regs attribute to phy device for user diagnose
-Date: Tue, 17 Jan 2017 00:11:11 +0000
-Message-ID: <8729016553E3654398EA69218DA29EEF15A58E63@cnshjmbx04>
-References: <20170115172150.GC5643@lunn.ch>
-        <1484571579.3374.4.camel@163.com>
-        <cf3e3125-582f-8b91-9c23-05dbdd2c6d24@gmail.com>
- <20170116.165401.1642553705400599921.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 1/1] net sched actions: fix refcnt when GETing of
+ action after bind
+Date: Mon, 16 Jan 2017 19:46:00 -0500 (EST)
+Message-ID: <20170116.194600.2260386042902493113.davem@davemloft.net>
+References: <1484493246-10911-1-git-send-email-jhs@emojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "cugyly@163.com" <cugyly@163.com>,
-        "andrew@lunn.ch" <andrew@lunn.ch>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>,
-        "f.fainelli@gmail.com" <f.fainelli@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com
+To: jhs@mojatatu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cnshjsmin03.alcatel-sbell.com.cn ([116.246.26.71]:61366 "EHLO
-        cnshjsmin03.alcatel-sbell.com.cn" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1750728AbdAQALP (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2017 19:11:15 -0500
-In-Reply-To: <20170116.165401.1642553705400599921.davem@davemloft.net>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([184.105.139.130]:52342 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750734AbdAQAqI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Mon, 16 Jan 2017 19:46:08 -0500
+In-Reply-To: <1484493246-10911-1-git-send-email-jhs@emojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Date: Sun, 15 Jan 2017 10:14:06 -0500
 
+> From: Jamal Hadi Salim <jhs@mojatatu.com>
+ ...
+> Fixes: aecc5cefc389 ("net sched actions: fix GETing actions")
+> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Tuesday, January 17, 2017 5:54 AM
-> To: f.fainelli@gmail.com
-> Cc: cugyly@163.com; andrew@lunn.ch; netdev@vger.kernel.org; YUAN Linyu
-> Subject: Re: [PATCH] net: add regs attribute to phy device for user diagnose
-> 
-> From: Florian Fainelli <f.fainelli@gmail.com>
-> Date: Mon, 16 Jan 2017 12:22:16 -0800
-> 
-> >
-> > So why not add support in ethtool for reading PHY registers if you need
-> > it? There are handful of PHY "things" in ethtool, such as reading
-> > counters, configuring downshift etc., adding support for dumping
-> > registers does not sound out of space.
-Thanks, I will try this direction.
-> 
-> Agreed.
+Applied and queued up for -stable, thanks Jamal.
