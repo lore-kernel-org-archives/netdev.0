@@ -1,56 +1,36 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [net, 2/6] net: korina: define NAPI_WEIGHT
-Date: Tue, 17 Jan 2017 10:32:53 -0800
-Message-ID: <83caf4f8-1f8a-82d7-3547-664fc1cbaf59@gmail.com>
-References: <1484674342-22304-1-git-send-email-roman@advem.lv>
- <20170117.124006.1559010522356313497.davem@davemloft.net>
- <CACiydbLyswWZ2ZX04m22Ga_FBbp-52kxOxBbNcvS+R1d1Kdpcw@mail.gmail.com>
+From: Roman Yeryomin <leroi.lists@gmail.com>
+Subject: Re: [net, 3/6] net: korina: increase tx/rx ring sizes
+Date: Tue, 17 Jan 2017 20:27:57 +0200
+Message-ID: <CACiydbLuVf_jsWor6-OJmwQhxfwd=dzBDnDQnJrp3owf8qCkQA@mail.gmail.com>
+References: <1484674356-22363-1-git-send-email-roman@advem.lv> <20170117.125844.253301507252169868.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=UTF-8
 Cc: netdev@vger.kernel.org
-To: Roman Yeryomin <leroi.lists@gmail.com>,
-        David Miller <davem@davemloft.net>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:34667 "EHLO
-        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750846AbdAQSdT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 13:33:19 -0500
-Received: by mail-pf0-f194.google.com with SMTP id y143so16751390pfb.1
-        for <netdev@vger.kernel.org>; Tue, 17 Jan 2017 10:32:56 -0800 (PST)
-In-Reply-To: <CACiydbLyswWZ2ZX04m22Ga_FBbp-52kxOxBbNcvS+R1d1Kdpcw@mail.gmail.com>
+Received: from mail-vk0-f51.google.com ([209.85.213.51]:36022 "EHLO
+        mail-vk0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750866AbdAQSfu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 13:35:50 -0500
+Received: by mail-vk0-f51.google.com with SMTP id t8so98171664vke.3
+        for <netdev@vger.kernel.org>; Tue, 17 Jan 2017 10:35:50 -0800 (PST)
+In-Reply-To: <20170117.125844.253301507252169868.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/17/2017 10:30 AM, Roman Yeryomin wrote:
-> On 17 January 2017 at 19:40, David Miller <davem@davemloft.net> wrote:
->> From: Roman Yeryomin <leroi.lists@gmail.com>
->> Date: Tue, 17 Jan 2017 19:32:22 +0200
->>
->>> @@ -77,6 +77,8 @@
->>>
->>>  #define MII_CLOCK 1250000    /* no more than 2.5MHz */
->>>
->>> +#define NAPI_WEIGHT  64
->>> +
->>>  /* the following must be powers of two */
->>>  #define KORINA_NUM_RDS       64  /* number of receive descriptors */
->>>  #define KORINA_NUM_TDS       64  /* number of transmit descriptors */
->>> @@ -1080,7 +1082,7 @@ static int korina_probe(struct platform_device *pdev)
->>>       dev->netdev_ops = &korina_netdev_ops;
->>>       dev->ethtool_ops = &netdev_ethtool_ops;
->>>       dev->watchdog_timeo = TX_TIMEOUT;
->>> -     netif_napi_add(dev, &lp->napi, korina_poll, 64);
->>> +     netif_napi_add(dev, &lp->napi, korina_poll, NAPI_WEIGHT);
->>
->> Please use NAPI_POLL_WEIGHT from linux/netdevice.h
-> 
-> OK, should I resend the whole set or just this one and dependant?
+On 17 January 2017 at 19:58, David Miller <davem@davemloft.net> wrote:
+> From: Roman Yeryomin <leroi.lists@gmail.com>
+> Date: Tue, 17 Jan 2017 19:32:36 +0200
+>
+>> Having larger ring sizes almost eliminates rx fifo overflow, thus improving performance.
+>> This patch reduces rx overflow occurence by approximately 1000 times (from ~25k down to ~25 times per 3M frames)
+>
+> Those numbers don't mean much without full context.
+>
+> What kind of system, what kind of traffic, and over what kind of link?
 
-You need to resend everything and please also provide a cover letter,
-and a proper patch subject (e.g: git format-patch --cover-letter
---subject="PATCH net-next v2" a..b)
+MIPS rb532 board, TCP iperf3 test over 100M link, NATed speed ~55Mbps.
+I can do more tests and provide more precise numbers, if needed.
 
-Thanks!
--- 
-Florian
+Regards,
+Roman
