@@ -1,74 +1,44 @@
 From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH iproute2 net-next 2/5] iplink: bridge: add support for
- IFLA_BR_VLAN_STATS_ENABLED
-Date: Tue, 17 Jan 2017 10:52:51 +0100
-Message-ID: <8e9fea7a-ba8c-d587-5895-cb56c0bb4832@cumulusnetworks.com>
+Subject: Re: [PATCH iproute2 net-next 0/5] add latest bridge netlink options
+Date: Tue, 17 Jan 2017 11:03:34 +0100
+Message-ID: <6cad896d-8ea3-64c7-9137-55609bd38e35@cumulusnetworks.com>
 References: <1484645552-29440-1-git-send-email-liuhangbin@gmail.com>
- <1484645552-29440-3-git-send-email-liuhangbin@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
 Cc: Stephen Hemminger <stephen@networkplumber.org>
 To: Hangbin Liu <liuhangbin@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f43.google.com ([209.85.215.43]:36378 "EHLO
-        mail-lf0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750747AbdAQJwy (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 04:52:54 -0500
-Received: by mail-lf0-f43.google.com with SMTP id z134so98966744lff.3
-        for <netdev@vger.kernel.org>; Tue, 17 Jan 2017 01:52:53 -0800 (PST)
-In-Reply-To: <1484645552-29440-3-git-send-email-liuhangbin@gmail.com>
+Received: from mail-lf0-f45.google.com ([209.85.215.45]:36376 "EHLO
+        mail-lf0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750747AbdAQKLu (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 05:11:50 -0500
+Received: by mail-lf0-f45.google.com with SMTP id z134so99432424lff.3
+        for <netdev@vger.kernel.org>; Tue, 17 Jan 2017 02:11:50 -0800 (PST)
+In-Reply-To: <1484645552-29440-1-git-send-email-liuhangbin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On 17/01/17 10:32, Hangbin Liu wrote:
-> This patch implements support for the IFLA_BR_VLAN_STATS_ENABLED
-> attribute in iproute2 so it can change the vlan state.
+> Add the bridge netlink attributes added to kernel recently.
 > 
-> Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
-> ---
+> Hangbin Liu (5):
+>   iplink: bridge: add support for IFLA_BR_FDB_FLUSH
+>   iplink: bridge: add support for IFLA_BR_VLAN_STATS_ENABLED
+>   iplink: bridge: add support for IFLA_BR_MCAST_STATS_ENABLED
+>   iplink: bridge: add support for IFLA_BR_MCAST_IGMP_VERSION
+>   iplink: bridge: add support for IFLA_BR_MCAST_MLD_VERSION
+> 
+>  ip/iplink_bridge.c | 57 +++++++++++++++++++++++++++++++++++++++++++++++++++++-
+>  1 file changed, 56 insertions(+), 1 deletion(-)
+> 
 
-Again it is not state, it is _stats_. Please change the name to something like vlan_stats_enabled which is closer to the netlink attribute.
+Cool, I also have a version of all of these patches just didn't get around to send them yet. :-)
+Anyway since you're at it, you should also add support for IFLA_BRPORT_FLUSH,
+but TBH I don't think the flush attributes should be used via this command, they seem
+like an action that you do rather than an option that you set. That is the reason I
+didn't add support for them awhile back when I added the others. But I don't have a
+strong feeling about doing it via ip link set or not, so if the others are fine, I'm good too.
 
->  ip/iplink_bridge.c | 13 +++++++++++++
->  1 file changed, 13 insertions(+)
-> 
-> diff --git a/ip/iplink_bridge.c b/ip/iplink_bridge.c
-> index 85e6597..8caf53a 100644
-> --- a/ip/iplink_bridge.c
-> +++ b/ip/iplink_bridge.c
-> @@ -34,6 +34,7 @@ static void print_explain(FILE *f)
->  		"                  [ vlan_filtering VLAN_FILTERING ]\n"
->  		"                  [ vlan_protocol VLAN_PROTOCOL ]\n"
->  		"                  [ vlan_default_pvid VLAN_DEFAULT_PVID ]\n"
-> +		"                  [ vlan_state VLAN_STATE ]\n"
->  		"                  [ mcast_snooping MULTICAST_SNOOPING ]\n"
->  		"                  [ mcast_router MULTICAST_ROUTER ]\n"
->  		"                  [ mcast_query_use_ifaddr MCAST_QUERY_USE_IFADDR ]\n"
-> @@ -157,6 +158,14 @@ static int bridge_parse_opt(struct link_util *lu, int argc, char **argv,
->  
->  			addattr16(n, 1024, IFLA_BR_VLAN_DEFAULT_PVID,
->  				  default_pvid);
-> +		} else if (matches(*argv, "vlan_state") == 0) {
-> +			__u8 vlan_state;
-> +
-> +			NEXT_ARG();
-> +			if (get_u8(&vlan_state, *argv, 0))
-> +				invarg("invalid vlan_state", *argv);
-> +			addattr8(n, 1024, IFLA_BR_VLAN_STATS_ENABLED,
-> +				  vlan_state);
->  		} else if (matches(*argv, "mcast_router") == 0) {
->  			__u8 mcast_router;
->  
-> @@ -442,6 +451,10 @@ static void bridge_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
->  		fprintf(f, "vlan_default_pvid %u ",
->  			rta_getattr_u16(tb[IFLA_BR_VLAN_DEFAULT_PVID]));
->  
-> +	if (tb[IFLA_BR_VLAN_STATS_ENABLED])
-> +		fprintf(f, "vlan_state %u ",
-> +			rta_getattr_u8(tb[IFLA_BR_VLAN_STATS_ENABLED]));
-> +
->  	if (tb[IFLA_BR_GROUP_FWD_MASK])
->  		fprintf(f, "group_fwd_mask %#x ",
->  			rta_getattr_u16(tb[IFLA_BR_GROUP_FWD_MASK]));
-> 
+Cheers,
+ Nik
