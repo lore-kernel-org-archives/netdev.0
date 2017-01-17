@@ -1,34 +1,28 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: build warnings after merge of the net-next tree
-Date: Wed, 18 Jan 2017 11:37:13 +1100
-Message-ID: <20170118113713.43c862b1@canb.auug.org.au>
+From: Frau SCHMIDT <m.levesque007@laposte.net>
+Subject: Darlehen angebot 3 %
+Date: Tue, 17 Jan 2017 20:21:19 +0000
+Message-ID: <2c73c4816b2a96b5becaff11d9381c86@localhost>
+Reply-To: info@rschmidt.online
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-        Ganesh Goudar <ganeshgr@chelsio.com>
-To: David Miller <davem@davemloft.net>,
-        Networking <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+ format=flowed
+Content-Transfer-Encoding: 8bit
+To: neumann_mario@gmx.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from server.pvptown.net ([216.158.235.50]:53678 "EHLO park.ji.sung"
+        rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+        id S1751375AbdARArj (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Tue, 17 Jan 2017 19:47:39 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
 
-After merging the net-next tree, today's linux-next build (powerpc
-ppc64_defconfig) produced these warnings:
+Sehr geehrte Damen  und Herren,
 
-drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c: In function 'init_one':
-drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c:4646:9: warning: unused variable 'port_vec' [-Wunused-variable]
-  u32 v, port_vec;
-         ^
-drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c:4646:6: warning: unused variable 'v' [-Wunused-variable]
-  u32 v, port_vec;
-      ^
-Introduced by commit
+Haben Sie Interesse über einer finanziellen Darlehen zu 3%???
+kontaktieren Sie mich für mehr Details und Bedingungen. ich kann all 
+jenen helfen, wer ein Darlehen benötigen.
+Ich kann Ihnen biete ein darlehen in hohe von 10.000.000 Euro
+Meine mail: info@rschmidt.online
 
-  96fe11f27b70 ("cxgb4: Implement ndo_get_phys_port_id for mgmt dev")
-
--- 
-Cheers,
-Stephen Rothwell
+Mit freundlichen Grüßen
