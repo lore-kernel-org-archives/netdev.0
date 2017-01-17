@@ -1,61 +1,123 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH] virtio: don't set VIRTIO_NET_HDR_F_DATA_VALID on xmit
-Date: Tue, 17 Jan 2017 20:27:33 +0200
-Message-ID: <20170117202515-mutt-send-email-mst@kernel.org>
-References: <20170117181351.98291-1-rolf.neugebauer@docker.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, jasowang@redhat.com,
-        rppt@linux.vnet.ibm.com
-To: Rolf Neugebauer <rolf.neugebauer@docker.com>
+From: Jason Baron <jbaron@akamai.com>
+Subject: [PATCH net-next] tcp: accept RST for rcv_nxt - 1 after receiving a FIN
+Date: Tue, 17 Jan 2017 13:37:19 -0500
+Message-ID: <1484678239-19199-1-git-send-email-jbaron@akamai.com>
+Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37938 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750846AbdAQShZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Tue, 17 Jan 2017 13:37:25 -0500
-Content-Disposition: inline
-In-Reply-To: <20170117181351.98291-1-rolf.neugebauer@docker.com>
+Received: from prod-mail-xrelay07.akamai.com ([23.79.238.175]:45630 "EHLO
+        prod-mail-xrelay07.akamai.com" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1750849AbdAQSlr (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 13:41:47 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 17, 2017 at 06:13:51PM +0000, Rolf Neugebauer wrote:
-> This patch part reverts fd2a0437dc33 and e858fae2b0b8 which introduced a
-> subtle change in how the virtio_net flags are derived from the SKBs
-> ip_summed field.
-> 
-> With the above commits, the flags are set to VIRTIO_NET_HDR_F_DATA_VALID
-> when ip_summed == CHECKSUM_UNNECESSARY, thus treating it differently to
-> ip_summed == CHECKSUM_NONE, which should be the same.
-> 
-> Further, the virtio spec 1.0 / CS04 explicitly says that
-> VIRTIO_NET_HDR_F_DATA_VALID must not be set by the driver.
-> 
-> Signed-off-by: Rolf Neugebauer <rolf.neugebauer@docker.com>
+From: Jason Baron <jbaron@akamai.com>
 
-Fixes: fd2a0437dc33 ("virtio_net: introduce virtio_net_hdr_{from,to}_skb")
-Fixes: e858fae2b0b8 (" virtio_net: use common code for virtio_net_hdr and skb GSO conversion")
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+Using a Mac OSX box as a client connecting to a Linux server, we have found
+that when certain applications (such as 'ab'), are abruptly terminated
+(via ^C), a FIN is sent followed by a RST packet on tcp connections. The
+FIN is accepted by the Linux stack but the RST is sent with the same
+sequence number as the FIN, and Linux responds with a challenge ACK per
+RFC 5961. The OSX client then sometimes (they are rate-limited) does not
+reply with any RST as would be expected on a closed socket.
 
-Should be backported into stable as well.
+This results in sockets accumulating on the Linux server left mostly in
+the CLOSE_WAIT state, although LAST_ACK and CLOSING are also possible.
+This sequence of events can tie up a lot of resources on the Linux server
+since there may be a lot of data in write buffers at the time of the RST.
+Accepting a RST equal to rcv_nxt - 1, after we have already successfully
+processed a FIN, has made a significant difference for us in practice, by
+freeing up unneeded resources in a more expedient fashion.
 
+A packetdrill test demonstrating the behavior:
 
+// testing mac osx rst behavior
 
-> ---
->  include/linux/virtio_net.h | 2 --
->  1 file changed, 2 deletions(-)
-> 
-> diff --git a/include/linux/virtio_net.h b/include/linux/virtio_net.h
-> index 66204007d7ac..56436472ccc7 100644
-> --- a/include/linux/virtio_net.h
-> +++ b/include/linux/virtio_net.h
-> @@ -91,8 +91,6 @@ static inline int virtio_net_hdr_from_skb(const struct sk_buff *skb,
->  				skb_checksum_start_offset(skb));
->  		hdr->csum_offset = __cpu_to_virtio16(little_endian,
->  				skb->csum_offset);
-> -	} else if (skb->ip_summed == CHECKSUM_UNNECESSARY) {
-> -		hdr->flags = VIRTIO_NET_HDR_F_DATA_VALID;
->  	} /* else everything is zero */
->  
->  	return 0;
-> -- 
-> 2.11.0
+// Establish a connection
+0.000 socket(..., SOCK_STREAM, IPPROTO_TCP) = 3
+0.000 setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
+0.000 bind(3, ..., ...) = 0
+0.000 listen(3, 1) = 0
+
+0.100 < S 0:0(0) win 32768 <mss 1460,nop,wscale 10>
+0.100 > S. 0:0(0) ack 1 <mss 1460,nop,wscale 5>
+0.200 < . 1:1(0) ack 1 win 32768
+0.200 accept(3, ..., ...) = 4
+
+// Client closes the connection
+0.300 < F. 1:1(0) ack 1 win 32768
+
+// now send rst with same sequence
+0.300 < R. 1:1(0) ack 1 win 32768
+
+// make sure we are in TCP_CLOSE
+0.400 %{
+assert tcpi_state == 7
+}%
+
+Signed-off-by: Jason Baron <jbaron@akamai.com>
+Cc: Eric Dumazet <edumazet@google.com>
+---
+ net/ipv4/tcp_input.c | 28 +++++++++++++++++++++++++---
+ 1 file changed, 25 insertions(+), 3 deletions(-)
+
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 1a34e9278c07..bfa165cc455a 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -5199,6 +5199,23 @@ static int tcp_copy_to_iovec(struct sock *sk, struct sk_buff *skb, int hlen)
+ 	return err;
+ }
+ 
++/* Accept RST for rcv_nxt - 1 after a FIN.
++ * When tcp connections are abruptly terminated from Mac OSX (via ^C), a
++ * FIN is sent followed by a RST packet. The RST is sent with the same
++ * sequence number as the FIN, and thus according to RFC 5961 a challenge
++ * ACK should be sent. However, Mac OSX rate limits replies to challenge
++ * ACKs on the closed socket. In addition middleboxes can drop either the
++ * challenge ACK or a subsequent RST.
++ */
++static bool tcp_reset_check(const struct sock *sk, const struct sk_buff *skb)
++{
++	struct tcp_sock *tp = tcp_sk(sk);
++
++	return unlikely(TCP_SKB_CB(skb)->seq == (tp->rcv_nxt - 1) &&
++			(1 << sk->sk_state) & (TCPF_CLOSE_WAIT | TCPF_LAST_ACK |
++					       TCPF_CLOSING));
++}
++
+ /* Does PAWS and seqno based validation of an incoming segment, flags will
+  * play significant role here.
+  */
+@@ -5237,20 +5254,25 @@ static bool tcp_validate_incoming(struct sock *sk, struct sk_buff *skb,
+ 						  LINUX_MIB_TCPACKSKIPPEDSEQ,
+ 						  &tp->last_oow_ack_time))
+ 				tcp_send_dupack(sk, skb);
++		} else if (tcp_reset_check(sk, skb)) {
++			tcp_reset(sk);
+ 		}
+ 		goto discard;
+ 	}
+ 
+ 	/* Step 2: check RST bit */
+ 	if (th->rst) {
+-		/* RFC 5961 3.2 (extend to match against SACK too if available):
+-		 * If seq num matches RCV.NXT or the right-most SACK block,
++		/* RFC 5961 3.2 (extend to match against (RCV.NXT - 1) after a
++		 * FIN and SACK too if available):
++		 * If seq num matches RCV.NXT or (RCV.NXT - 1) after a FIN, or
++		 * the right-most SACK block,
+ 		 * then
+ 		 *     RESET the connection
+ 		 * else
+ 		 *     Send a challenge ACK
+ 		 */
+-		if (TCP_SKB_CB(skb)->seq == tp->rcv_nxt) {
++		if (TCP_SKB_CB(skb)->seq == tp->rcv_nxt ||
++		    tcp_reset_check(sk, skb)) {
+ 			rst_seq_match = true;
+ 		} else if (tcp_is_sack(tp) && tp->rx_opt.num_sacks > 0) {
+ 			struct tcp_sack_block *sp = &tp->selective_acks[0];
+-- 
+2.6.1
