@@ -1,32 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Kernel 4.6.7-rt14 kernel workqueue lockup - rtnl deadlock plus
- syscall endless loop
-Date: Tue, 17 Jan 2017 14:05:52 -0500 (EST)
-Message-ID: <20170117.140552.539738967862859087.davem@davemloft.net>
-References: <AM5PR0701MB187338B2418A19E1B4B55C98A07C0@AM5PR0701MB1873.eurprd07.prod.outlook.com>
-        <20170117.125748.122599514616047216.davem@davemloft.net>
-        <AM5PR0701MB1873F82D61AF17A09F2B0E26A07C0@AM5PR0701MB1873.eurprd07.prod.outlook.com>
+Subject: Re: [PATCH] virtio: don't set VIRTIO_NET_HDR_F_DATA_VALID on xmit
+Date: Tue, 17 Jan 2017 14:08:02 -0500 (EST)
+Message-ID: <20170117.140802.2168924400117428792.davem@davemloft.net>
+References: <20170117181351.98291-1-rolf.neugebauer@docker.com>
+        <20170117202515-mutt-send-email-mst@kernel.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: EladN@gilat.com
+Cc: rolf.neugebauer@docker.com, netdev@vger.kernel.org,
+        jasowang@redhat.com, rppt@linux.vnet.ibm.com
+To: mst@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41416 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:41442 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750888AbdAQTFz (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 14:05:55 -0500
-In-Reply-To: <AM5PR0701MB1873F82D61AF17A09F2B0E26A07C0@AM5PR0701MB1873.eurprd07.prod.outlook.com>
+        with ESMTP id S1751132AbdAQTID (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 14:08:03 -0500
+In-Reply-To: <20170117202515-mutt-send-email-mst@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Elad Nachman <EladN@gilat.com>
-Date: Tue, 17 Jan 2017 18:15:19 +0000
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Tue, 17 Jan 2017 20:27:33 +0200
 
-> Any thought about limiting the amount of busy polling?  Say if more
-> than X polls are done within a jiffy, then at least for preemptable
-> kernels you can sleep for a jiffy inside the syscall to yield the
-> CPU for a while?
+> On Tue, Jan 17, 2017 at 06:13:51PM +0000, Rolf Neugebauer wrote:
+>> This patch part reverts fd2a0437dc33 and e858fae2b0b8 which introduced a
+>> subtle change in how the virtio_net flags are derived from the SKBs
+>> ip_summed field.
+>> 
+>> With the above commits, the flags are set to VIRTIO_NET_HDR_F_DATA_VALID
+>> when ip_summed == CHECKSUM_UNNECESSARY, thus treating it differently to
+>> ip_summed == CHECKSUM_NONE, which should be the same.
+>> 
+>> Further, the virtio spec 1.0 / CS04 explicitly says that
+>> VIRTIO_NET_HDR_F_DATA_VALID must not be set by the driver.
+>> 
+>> Signed-off-by: Rolf Neugebauer <rolf.neugebauer@docker.com>
+> 
+> Fixes: fd2a0437dc33 ("virtio_net: introduce virtio_net_hdr_{from,to}_skb")
+> Fixes: e858fae2b0b8 (" virtio_net: use common code for virtio_net_hdr and skb GSO conversion")
+> Acked-by: Michael S. Tsirkin <mst@redhat.com>
+> 
+> Should be backported into stable as well.
 
-We cannot yield there, because we must return immediately from this
-context in order to drop the sysctl locks and references.
+Applied and queued up for -stable, thanks everyone.
