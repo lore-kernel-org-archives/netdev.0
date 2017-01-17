@@ -1,7 +1,7 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v4 01/10] net: dsa: Pass device pointer to dsa_register_switch
-Date: Tue, 17 Jan 2017 15:21:43 -0800
-Message-ID: <20170117232152.1661-2-f.fainelli@gmail.com>
+Subject: [PATCH net-next v4 10/10] ARM: orion: Register DSA switch as a MDIO device
+Date: Tue, 17 Jan 2017 15:21:52 -0800
+Message-ID: <20170117232152.1661-11-f.fainelli@gmail.com>
 References: <20170117232152.1661-1-f.fainelli@gmail.com>
 Cc: Florian Fainelli <f.fainelli@gmail.com>,
         Jason Cooper <jason@lakedaemon.net>,
@@ -21,124 +21,246 @@ In-Reply-To: <20170117232152.1661-1-f.fainelli@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In preparation for allowing dsa_register_switch() to be supplied with
-device/platform data, pass down a struct device pointer instead of a
-struct device_node.
+Utilize the ability to pass board specific MDIO bus information towards a
+particular MDIO device thus allowing us to provide the per-port switch layout
+to the Marvell 88E6XXX switch driver.
+
+Since we would end-up with conflicting registration paths, do not register the
+"dsa" platform device anymore.
+
+Note that the MDIO devices registered by code in net/dsa/dsa2.c does not
+parse a dsa_platform_data, but directly take a dsa_chip_data (specific
+to a single switch chip), so we update the different call sites to pass
+this structure down to orion_ge00_switch_init().
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/dsa/b53/b53_common.c |  2 +-
- drivers/net/dsa/mv88e6xxx/chip.c | 11 ++++++-----
- drivers/net/dsa/qca8k.c          |  2 +-
- include/net/dsa.h                |  2 +-
- net/dsa/dsa2.c                   |  7 ++++---
- 5 files changed, 13 insertions(+), 11 deletions(-)
+ arch/arm/mach-orion5x/common.c               |  2 +-
+ arch/arm/mach-orion5x/common.h               |  4 ++--
+ arch/arm/mach-orion5x/rd88f5181l-fxo-setup.c |  7 +------
+ arch/arm/mach-orion5x/rd88f5181l-ge-setup.c  |  7 +------
+ arch/arm/mach-orion5x/rd88f6183ap-ge-setup.c |  7 +------
+ arch/arm/mach-orion5x/wnr854t-setup.c        |  2 +-
+ arch/arm/mach-orion5x/wrt350n-v2-setup.c     |  7 +------
+ arch/arm/plat-orion/common.c                 | 25 +++++++++++++++++++------
+ arch/arm/plat-orion/include/plat/common.h    |  4 ++--
+ 9 files changed, 29 insertions(+), 36 deletions(-)
 
-diff --git a/drivers/net/dsa/b53/b53_common.c b/drivers/net/dsa/b53/b53_common.c
-index 5102a3701a1a..7179eed9ee6d 100644
---- a/drivers/net/dsa/b53/b53_common.c
-+++ b/drivers/net/dsa/b53/b53_common.c
-@@ -1882,7 +1882,7 @@ int b53_switch_register(struct b53_device *dev)
- 
- 	pr_info("found switch: %s, rev %i\n", dev->name, dev->core_rev);
- 
--	return dsa_register_switch(dev->ds, dev->ds->dev->of_node);
-+	return dsa_register_switch(dev->ds, dev->ds->dev);
+diff --git a/arch/arm/mach-orion5x/common.c b/arch/arm/mach-orion5x/common.c
+index 04910764c385..83a7ec4c16d0 100644
+--- a/arch/arm/mach-orion5x/common.c
++++ b/arch/arm/mach-orion5x/common.c
+@@ -105,7 +105,7 @@ void __init orion5x_eth_init(struct mv643xx_eth_platform_data *eth_data)
+ /*****************************************************************************
+  * Ethernet switch
+  ****************************************************************************/
+-void __init orion5x_eth_switch_init(struct dsa_platform_data *d)
++void __init orion5x_eth_switch_init(struct dsa_chip_data *d)
+ {
+ 	orion_ge00_switch_init(d);
  }
- EXPORT_SYMBOL(b53_switch_register);
+diff --git a/arch/arm/mach-orion5x/common.h b/arch/arm/mach-orion5x/common.h
+index 8a4115bd441d..efeffc6b4ebb 100644
+--- a/arch/arm/mach-orion5x/common.h
++++ b/arch/arm/mach-orion5x/common.h
+@@ -3,7 +3,7 @@
  
-diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index 987b2dbbd35a..3238a4752b98 100644
---- a/drivers/net/dsa/mv88e6xxx/chip.c
-+++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -4421,8 +4421,7 @@ static struct dsa_switch_driver mv88e6xxx_switch_drv = {
- 	.ops			= &mv88e6xxx_switch_ops,
+ #include <linux/reboot.h>
+ 
+-struct dsa_platform_data;
++struct dsa_chip_data;
+ struct mv643xx_eth_platform_data;
+ struct mv_sata_platform_data;
+ 
+@@ -41,7 +41,7 @@ void orion5x_setup_wins(void);
+ void orion5x_ehci0_init(void);
+ void orion5x_ehci1_init(void);
+ void orion5x_eth_init(struct mv643xx_eth_platform_data *eth_data);
+-void orion5x_eth_switch_init(struct dsa_platform_data *d);
++void orion5x_eth_switch_init(struct dsa_chip_data *d);
+ void orion5x_i2c_init(void);
+ void orion5x_sata_init(struct mv_sata_platform_data *sata_data);
+ void orion5x_spi_init(void);
+diff --git a/arch/arm/mach-orion5x/rd88f5181l-fxo-setup.c b/arch/arm/mach-orion5x/rd88f5181l-fxo-setup.c
+index dccadf68ea2b..a3c1336d30c9 100644
+--- a/arch/arm/mach-orion5x/rd88f5181l-fxo-setup.c
++++ b/arch/arm/mach-orion5x/rd88f5181l-fxo-setup.c
+@@ -101,11 +101,6 @@ static struct dsa_chip_data rd88f5181l_fxo_switch_chip_data = {
+ 	.port_names[7]	= "lan3",
  };
  
--static int mv88e6xxx_register_switch(struct mv88e6xxx_chip *chip,
--				     struct device_node *np)
-+static int mv88e6xxx_register_switch(struct mv88e6xxx_chip *chip)
+-static struct dsa_platform_data __initdata rd88f5181l_fxo_switch_plat_data = {
+-	.nr_chips	= 1,
+-	.chip		= &rd88f5181l_fxo_switch_chip_data,
+-};
+-
+ static void __init rd88f5181l_fxo_init(void)
  {
- 	struct device *dev = chip->dev;
- 	struct dsa_switch *ds;
-@@ -4437,7 +4436,7 @@ static int mv88e6xxx_register_switch(struct mv88e6xxx_chip *chip,
+ 	/*
+@@ -120,7 +115,7 @@ static void __init rd88f5181l_fxo_init(void)
+ 	 */
+ 	orion5x_ehci0_init();
+ 	orion5x_eth_init(&rd88f5181l_fxo_eth_data);
+-	orion5x_eth_switch_init(&rd88f5181l_fxo_switch_plat_data);
++	orion5x_eth_switch_init(&rd88f5181l_fxo_switch_chip_data);
+ 	orion5x_uart0_init();
  
- 	dev_set_drvdata(dev, ds);
+ 	mvebu_mbus_add_window_by_id(ORION_MBUS_DEVBUS_BOOT_TARGET,
+diff --git a/arch/arm/mach-orion5x/rd88f5181l-ge-setup.c b/arch/arm/mach-orion5x/rd88f5181l-ge-setup.c
+index affe5ec825de..252efe29bd1a 100644
+--- a/arch/arm/mach-orion5x/rd88f5181l-ge-setup.c
++++ b/arch/arm/mach-orion5x/rd88f5181l-ge-setup.c
+@@ -102,11 +102,6 @@ static struct dsa_chip_data rd88f5181l_ge_switch_chip_data = {
+ 	.port_names[7]	= "lan3",
+ };
  
--	return dsa_register_switch(ds, np);
-+	return dsa_register_switch(ds, dev);
- }
+-static struct dsa_platform_data __initdata rd88f5181l_ge_switch_plat_data = {
+-	.nr_chips	= 1,
+-	.chip		= &rd88f5181l_ge_switch_chip_data,
+-};
+-
+ static struct i2c_board_info __initdata rd88f5181l_ge_i2c_rtc = {
+ 	I2C_BOARD_INFO("ds1338", 0x68),
+ };
+@@ -125,7 +120,7 @@ static void __init rd88f5181l_ge_init(void)
+ 	 */
+ 	orion5x_ehci0_init();
+ 	orion5x_eth_init(&rd88f5181l_ge_eth_data);
+-	orion5x_eth_switch_init(&rd88f5181l_ge_switch_plat_data);
++	orion5x_eth_switch_init(&rd88f5181l_ge_switch_chip_data);
+ 	orion5x_i2c_init();
+ 	orion5x_uart0_init();
  
- static void mv88e6xxx_unregister_switch(struct mv88e6xxx_chip *chip)
-@@ -4521,9 +4520,11 @@ static int mv88e6xxx_probe(struct mdio_device *mdiodev)
- 	if (err)
- 		goto out_g2_irq;
+diff --git a/arch/arm/mach-orion5x/rd88f6183ap-ge-setup.c b/arch/arm/mach-orion5x/rd88f6183ap-ge-setup.c
+index 67ee8571b03c..f4f1dbe1d91d 100644
+--- a/arch/arm/mach-orion5x/rd88f6183ap-ge-setup.c
++++ b/arch/arm/mach-orion5x/rd88f6183ap-ge-setup.c
+@@ -40,11 +40,6 @@ static struct dsa_chip_data rd88f6183ap_ge_switch_chip_data = {
+ 	.port_names[5]	= "cpu",
+ };
  
--	err = mv88e6xxx_register_switch(chip, np);
--	if (err)
-+	err = mv88e6xxx_register_switch(chip);
-+	if (err) {
-+		mv88e6xxx_mdio_unregister(chip);
- 		goto out_mdio;
-+	}
+-static struct dsa_platform_data __initdata rd88f6183ap_ge_switch_plat_data = {
+-	.nr_chips	= 1,
+-	.chip		= &rd88f6183ap_ge_switch_chip_data,
+-};
+-
+ static struct mtd_partition rd88f6183ap_ge_partitions[] = {
+ 	{
+ 		.name	= "kernel",
+@@ -89,7 +84,7 @@ static void __init rd88f6183ap_ge_init(void)
+ 	 */
+ 	orion5x_ehci0_init();
+ 	orion5x_eth_init(&rd88f6183ap_ge_eth_data);
+-	orion5x_eth_switch_init(&rd88f6183ap_ge_switch_plat_data);
++	orion5x_eth_switch_init(&rd88f6183ap_ge_switch_chip_data);
+ 	spi_register_board_info(rd88f6183ap_ge_spi_slave_info,
+ 				ARRAY_SIZE(rd88f6183ap_ge_spi_slave_info));
+ 	orion5x_spi_init();
+diff --git a/arch/arm/mach-orion5x/wnr854t-setup.c b/arch/arm/mach-orion5x/wnr854t-setup.c
+index 4dbcdbe1de7c..ac3376fc269f 100644
+--- a/arch/arm/mach-orion5x/wnr854t-setup.c
++++ b/arch/arm/mach-orion5x/wnr854t-setup.c
+@@ -124,7 +124,7 @@ static void __init wnr854t_init(void)
+ 	 * Configure peripherals.
+ 	 */
+ 	orion5x_eth_init(&wnr854t_eth_data);
+-	orion5x_eth_switch_init(&wnr854t_switch_plat_data);
++	orion5x_eth_switch_init(&wnr854t_switch_chip_data);
+ 	orion5x_uart0_init();
  
- 	return 0;
+ 	mvebu_mbus_add_window_by_id(ORION_MBUS_DEVBUS_BOOT_TARGET,
+diff --git a/arch/arm/mach-orion5x/wrt350n-v2-setup.c b/arch/arm/mach-orion5x/wrt350n-v2-setup.c
+index a6a8c4648d74..9250bb2e429c 100644
+--- a/arch/arm/mach-orion5x/wrt350n-v2-setup.c
++++ b/arch/arm/mach-orion5x/wrt350n-v2-setup.c
+@@ -191,11 +191,6 @@ static struct dsa_chip_data wrt350n_v2_switch_chip_data = {
+ 	.port_names[7]	= "lan4",
+ };
  
-diff --git a/drivers/net/dsa/qca8k.c b/drivers/net/dsa/qca8k.c
-index 54d270d59eb0..c084aa484d2b 100644
---- a/drivers/net/dsa/qca8k.c
-+++ b/drivers/net/dsa/qca8k.c
-@@ -964,7 +964,7 @@ qca8k_sw_probe(struct mdio_device *mdiodev)
- 	mutex_init(&priv->reg_mutex);
- 	dev_set_drvdata(&mdiodev->dev, priv);
- 
--	return dsa_register_switch(priv->ds, priv->ds->dev->of_node);
-+	return dsa_register_switch(priv->ds, &mdiodev->dev);
- }
- 
- static void
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index b94d1f2ef912..16a502a6c26a 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -403,7 +403,7 @@ static inline bool dsa_uses_tagged_protocol(struct dsa_switch_tree *dst)
- }
- 
- void dsa_unregister_switch(struct dsa_switch *ds);
--int dsa_register_switch(struct dsa_switch *ds, struct device_node *np);
-+int dsa_register_switch(struct dsa_switch *ds, struct device *dev);
- #ifdef CONFIG_PM_SLEEP
- int dsa_switch_suspend(struct dsa_switch *ds);
- int dsa_switch_resume(struct dsa_switch *ds);
-diff --git a/net/dsa/dsa2.c b/net/dsa/dsa2.c
-index 42a41d84053c..4170f7ea8e28 100644
---- a/net/dsa/dsa2.c
-+++ b/net/dsa/dsa2.c
-@@ -579,8 +579,9 @@ static struct device_node *dsa_get_ports(struct dsa_switch *ds,
- 	return ports;
- }
- 
--static int _dsa_register_switch(struct dsa_switch *ds, struct device_node *np)
-+static int _dsa_register_switch(struct dsa_switch *ds, struct device *dev)
+-static struct dsa_platform_data __initdata wrt350n_v2_switch_plat_data = {
+-	.nr_chips	= 1,
+-	.chip		= &wrt350n_v2_switch_chip_data,
+-};
+-
+ static void __init wrt350n_v2_init(void)
  {
-+	struct device_node *np = dev->of_node;
- 	struct device_node *ports = dsa_get_ports(ds, np);
- 	struct dsa_switch_tree *dst;
- 	u32 tree, index;
-@@ -660,12 +661,12 @@ static int _dsa_register_switch(struct dsa_switch *ds, struct device_node *np)
- 	return err;
+ 	/*
+@@ -210,7 +205,7 @@ static void __init wrt350n_v2_init(void)
+ 	 */
+ 	orion5x_ehci0_init();
+ 	orion5x_eth_init(&wrt350n_v2_eth_data);
+-	orion5x_eth_switch_init(&wrt350n_v2_switch_plat_data);
++	orion5x_eth_switch_init(&wrt350n_v2_switch_chip_data);
+ 	orion5x_uart0_init();
+ 
+ 	mvebu_mbus_add_window_by_id(ORION_MBUS_DEVBUS_BOOT_TARGET,
+diff --git a/arch/arm/plat-orion/common.c b/arch/arm/plat-orion/common.c
+index 272f49b2c68f..9255b6d67ba5 100644
+--- a/arch/arm/plat-orion/common.c
++++ b/arch/arm/plat-orion/common.c
+@@ -22,6 +22,7 @@
+ #include <linux/platform_data/dma-mv_xor.h>
+ #include <linux/platform_data/usb-ehci-orion.h>
+ #include <plat/common.h>
++#include <linux/phy.h>
+ 
+ /* Create a clkdev entry for a given device/clk */
+ void __init orion_clkdev_add(const char *con_id, const char *dev_id,
+@@ -470,15 +471,27 @@ void __init orion_ge11_init(struct mv643xx_eth_platform_data *eth_data,
+ /*****************************************************************************
+  * Ethernet switch
+  ****************************************************************************/
+-void __init orion_ge00_switch_init(struct dsa_platform_data *d)
++static __initconst const char *orion_ge00_mvmdio_bus_name = "orion-mii";
++static __initdata struct mdio_board_info
++		  orion_ge00_switch_board_info;
++
++void __init orion_ge00_switch_init(struct dsa_chip_data *d)
+ {
+-	int i;
++	struct mdio_board_info *bd;
++	unsigned int i;
++
++	for (i = 0; i < ARRAY_SIZE(d->port_names); i++)
++		if (!strcmp(d->port_names[i], "cpu"))
++			break;
+ 
+-	d->netdev = &orion_ge00.dev;
+-	for (i = 0; i < d->nr_chips; i++)
+-		d->chip[i].host_dev = &orion_ge_mvmdio.dev;
++	bd = &orion_ge00_switch_board_info;
++	bd->bus_id = orion_ge00_mvmdio_bus_name;
++	bd->mdio_addr = d->sw_addr;
++	d->netdev[i] = &orion_ge00.dev;
++	strcpy(bd->modalias, "mv88e6085");
++	bd->platform_data = d;
+ 
+-	platform_device_register_data(NULL, "dsa", 0, d, sizeof(d));
++	mdiobus_register_board_info(&orion_ge00_switch_board_info, 1);
  }
  
--int dsa_register_switch(struct dsa_switch *ds, struct device_node *np)
-+int dsa_register_switch(struct dsa_switch *ds, struct device *dev)
- {
- 	int err;
+ /*****************************************************************************
+diff --git a/arch/arm/plat-orion/include/plat/common.h b/arch/arm/plat-orion/include/plat/common.h
+index 9347f3c58a6d..3647d3b33c20 100644
+--- a/arch/arm/plat-orion/include/plat/common.h
++++ b/arch/arm/plat-orion/include/plat/common.h
+@@ -12,7 +12,7 @@
+ #include <linux/mv643xx_eth.h>
+ #include <linux/platform_data/usb-ehci-orion.h>
  
- 	mutex_lock(&dsa2_mutex);
--	err = _dsa_register_switch(ds, np);
-+	err = _dsa_register_switch(ds, dev);
- 	mutex_unlock(&dsa2_mutex);
+-struct dsa_platform_data;
++struct dsa_chip_data;
+ struct mv_sata_platform_data;
  
- 	return err;
+ void __init orion_uart0_init(void __iomem *membase,
+@@ -57,7 +57,7 @@ void __init orion_ge11_init(struct mv643xx_eth_platform_data *eth_data,
+ 			    unsigned long mapbase,
+ 			    unsigned long irq);
+ 
+-void __init orion_ge00_switch_init(struct dsa_platform_data *d);
++void __init orion_ge00_switch_init(struct dsa_chip_data *d);
+ 
+ void __init orion_i2c_init(unsigned long mapbase,
+ 			   unsigned long irq,
 -- 
 2.9.3
