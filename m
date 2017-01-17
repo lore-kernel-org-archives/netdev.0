@@ -1,40 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net, 3/6] net: korina: increase tx/rx ring sizes
-Date: Tue, 17 Jan 2017 14:08:31 -0500 (EST)
-Message-ID: <20170117.140831.246422739371129394.davem@davemloft.net>
-References: <1484674356-22363-1-git-send-email-roman@advem.lv>
-        <20170117.125844.253301507252169868.davem@davemloft.net>
-        <CACiydbLuVf_jsWor6-OJmwQhxfwd=dzBDnDQnJrp3owf8qCkQA@mail.gmail.com>
+Subject: Re: [net, 2/6] net: korina: define NAPI_WEIGHT
+Date: Tue, 17 Jan 2017 14:08:59 -0500 (EST)
+Message-ID: <20170117.140859.841742831056887344.davem@davemloft.net>
+References: <1484674342-22304-1-git-send-email-roman@advem.lv>
+        <20170117.124006.1559010522356313497.davem@davemloft.net>
+        <CACiydbLyswWZ2ZX04m22Ga_FBbp-52kxOxBbNcvS+R1d1Kdpcw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: leroi.lists@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41452 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:41460 "EHLO
         shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750941AbdAQTId (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 14:08:33 -0500
-In-Reply-To: <CACiydbLuVf_jsWor6-OJmwQhxfwd=dzBDnDQnJrp3owf8qCkQA@mail.gmail.com>
+        with ESMTP id S1750987AbdAQTJA (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 14:09:00 -0500
+In-Reply-To: <CACiydbLyswWZ2ZX04m22Ga_FBbp-52kxOxBbNcvS+R1d1Kdpcw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Roman Yeryomin <leroi.lists@gmail.com>
-Date: Tue, 17 Jan 2017 20:27:57 +0200
+Date: Tue, 17 Jan 2017 20:30:44 +0200
 
-> On 17 January 2017 at 19:58, David Miller <davem@davemloft.net> wrote:
+> On 17 January 2017 at 19:40, David Miller <davem@davemloft.net> wrote:
 >> From: Roman Yeryomin <leroi.lists@gmail.com>
->> Date: Tue, 17 Jan 2017 19:32:36 +0200
+>> Date: Tue, 17 Jan 2017 19:32:22 +0200
 >>
->>> Having larger ring sizes almost eliminates rx fifo overflow, thus improving performance.
->>> This patch reduces rx overflow occurence by approximately 1000 times (from ~25k down to ~25 times per 3M frames)
+>>> @@ -77,6 +77,8 @@
+>>>
+>>>  #define MII_CLOCK 1250000    /* no more than 2.5MHz */
+>>>
+>>> +#define NAPI_WEIGHT  64
+>>> +
+>>>  /* the following must be powers of two */
+>>>  #define KORINA_NUM_RDS       64  /* number of receive descriptors */
+>>>  #define KORINA_NUM_TDS       64  /* number of transmit descriptors */
+>>> @@ -1080,7 +1082,7 @@ static int korina_probe(struct platform_device *pdev)
+>>>       dev->netdev_ops = &korina_netdev_ops;
+>>>       dev->ethtool_ops = &netdev_ethtool_ops;
+>>>       dev->watchdog_timeo = TX_TIMEOUT;
+>>> -     netif_napi_add(dev, &lp->napi, korina_poll, 64);
+>>> +     netif_napi_add(dev, &lp->napi, korina_poll, NAPI_WEIGHT);
 >>
->> Those numbers don't mean much without full context.
->>
->> What kind of system, what kind of traffic, and over what kind of link?
+>> Please use NAPI_POLL_WEIGHT from linux/netdevice.h
 > 
-> MIPS rb532 board, TCP iperf3 test over 100M link, NATed speed ~55Mbps.
-> I can do more tests and provide more precise numbers, if needed.
+> OK, should I resend the whole set or just this one and dependant?
 
-Provide this information in the commit message on your respin of this patch
-series after you've addressed all of the other feedback, don't tell me :-)
+You always must do this for any change whatsoever, a full respin of a
+series is always required on any modification whatsoever to any patch.
