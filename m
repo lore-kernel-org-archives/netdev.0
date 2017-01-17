@@ -1,39 +1,69 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH 1/1] ip: fix igmp parsing when iface is long
-Date: Tue, 17 Jan 2017 08:41:30 -0800
-Message-ID: <20170117084130.7be84c38@xeon-e3>
-References: <20170116232550.7764-1-pvorel@suse.cz>
-        <20170117080809.4vtpebykeciemuo5@dell5510>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Petr Vorel <pvorel@suse.cz>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCHv4 net-next 0/6] sctp: add sender-side procedures for stream reconf ssn reset request chunk
+Date: Wed, 18 Jan 2017 00:44:41 +0800
+Message-ID: <cover.1484670664.git.lucien.xin@gmail.com>
+Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+        Neil Horman <nhorman@tuxdriver.com>,
+        Vlad Yasevich <vyasevich@gmail.com>, davem@davemloft.net
+To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f178.google.com ([209.85.192.178]:35638 "EHLO
-        mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750939AbdAQQld (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 11:41:33 -0500
-Received: by mail-pf0-f178.google.com with SMTP id f144so63232721pfa.2
-        for <netdev@vger.kernel.org>; Tue, 17 Jan 2017 08:41:33 -0800 (PST)
-In-Reply-To: <20170117080809.4vtpebykeciemuo5@dell5510>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:35258 "EHLO
+        mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750863AbdAQQph (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 11:45:37 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 17 Jan 2017 09:08:09 +0100
-Petr Vorel <pvorel@suse.cz> wrote:
+Patch 6/6 is to implement sender-side procedures for the Outgoing
+and Incoming SSN Reset Request Parameter described in rfc6525
+section 5.1.2 and 5.1.3
 
-> Hi,
-> 
-> > Entries with long vhost names in /proc/net/igmp have no whitespace
-> > between name and colon, so sscanf() adds it to vhost and
-> > 'ip maddr show iface' doesn't include inet result.  
-> 
-> Bug was also reported to bugzilla (https://bugzilla.kernel.org/show_bug.cgi?id=192741),
-> with updated comment in the patch.
-> 
-> 
-> Kind regards,
-> Petr
+Patches 1-5/6 are ahead of it to define some apis and asoc members
+for it.
 
-Kernel bugzilla is irrelevant and ignored by network developers.
+Note that with this patchset, asoc->reconf_enable has no chance yet to
+be set, until the patch "sctp: add get and set sockopt for reconf_enable"
+is applied in the future. As we can not just enable it when sctp is not
+capable of processing reconf chunk yet.
+
+v1->v2:
+  - put these into a smaller group.
+  - rename some temporary variables in the codes.
+  - rename the titles of the commits and improve some changelogs.
+v2->v3:
+  - re-split the patchset and make sure it has no dead codes for review.
+v3->v4:
+  - move sctp_make_reconf() into patch 1/6 to avoid kbuild warning.
+  - drop unused struct sctp_strreset_req.
+
+Xin Long (6):
+  sctp: add support for generating stream reconf ssn reset request chunk
+  sctp: add stream reconf timer
+  sctp: add stream reconf primitive
+  sctp: add reconf_enable in asoc ep and netns
+  sctp: add sockopt SCTP_ENABLE_STREAM_RESET
+  sctp: implement sender-side procedures for SSN Reset Request Parameter
+
+ include/linux/sctp.h         |  27 +++++++++
+ include/net/netns/sctp.h     |   3 +
+ include/net/sctp/constants.h |   4 +-
+ include/net/sctp/sctp.h      |   8 +++
+ include/net/sctp/sm.h        |   8 ++-
+ include/net/sctp/structs.h   |  21 ++++++-
+ include/uapi/linux/sctp.h    |  18 ++++++
+ net/sctp/associola.c         |  12 ++++
+ net/sctp/endpointola.c       |   1 +
+ net/sctp/outqueue.c          |  33 +++++++----
+ net/sctp/primitive.c         |   3 +
+ net/sctp/protocol.c          |   3 +
+ net/sctp/sm_make_chunk.c     | 136 +++++++++++++++++++++++++++++++++++++++++++
+ net/sctp/sm_sideeffect.c     |  32 ++++++++++
+ net/sctp/sm_statefuns.c      |  41 +++++++++++++
+ net/sctp/sm_statetable.c     |  40 +++++++++++++
+ net/sctp/socket.c            | 113 +++++++++++++++++++++++++++++++++++
+ net/sctp/stream.c            |  79 +++++++++++++++++++++++++
+ net/sctp/transport.c         |  17 +++++-
+ 19 files changed, 583 insertions(+), 16 deletions(-)
+
+-- 
+2.1.0
