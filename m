@@ -1,7 +1,8 @@
 From: Yendapally Reddy Dhananjaya Reddy <yendapally.reddy@broadcom.com>
-Subject: [PATCH v2 0/4] USB support for Broadcom NSP SoC
-Date: Tue, 17 Jan 2017 11:14:26 -0500
-Message-ID: <1484669670-4201-1-git-send-email-yendapally.reddy@broadcom.com>
+Subject: [PATCH v2 1/4] dt-bindings: phy: Add documentation for NSP USB3 PHY
+Date: Tue, 17 Jan 2017 11:14:27 -0500
+Message-ID: <1484669670-4201-2-git-send-email-yendapally.reddy@broadcom.com>
+References: <1484669670-4201-1-git-send-email-yendapally.reddy@broadcom.com>
 Cc: bcm-kernel-feedback-list@broadcom.com, devicetree@vger.kernel.org,
         linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
         netdev@vger.kernel.org,
@@ -16,44 +17,62 @@ To: Rob Herring <robh+dt@kernel.org>,
         Florian Fainelli <f.fainelli@gmail.com>,
         Kishon Vijay Abraham I <kishon@ti.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1484669670-4201-1-git-send-email-yendapally.reddy@broadcom.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch set contains the usb support for Broadcom NSP SoC. The
-usb3 phy is internal to the SoC and is accessed through mdio interface.
-The mdio interface can be used to access either internal usb3 phy or
-external ethernet phy using a multiplexer.
+Add documentation for USB3 PHY available in Northstar plus SoC
 
-The first patch provides the documentation details for usb3 phy. The
-second patch provides the changes to the mdio bus driver. The third
-patch provides the phy driver and fourth patch provides the enable
-method for usb.
-
-This patch series has been tested on NSP bcm958625HR board.
-This patch series is based on v4.10.0-rc3 and is available from
-github-repo: https://github.com/Broadcom/cygnus-linux.git
-branch:nsp-usb-v2
-
-Changes in v2:
-* Remove separate nsp mux driver as suggested by Andrew Lunn
-* Addressed comments from Scott and Rob
-
-Yendapally Reddy Dhananjaya Reddy (4):
-  dt-bindings: phy: Add documentation for NSP USB3 PHY
-  net: phy: Initialize mdio clock at probe function
-  phy: Add USB3 PHY support for Broadcom NSP SoC
-  arm: dts: nsp: Add USB nodes to device tree
-
- .../devicetree/bindings/phy/brcm,nsp-usb3-phy.txt  |  39 +++++
- arch/arm/boot/dts/bcm-nsp.dtsi                     |  56 +++++++
- arch/arm/boot/dts/bcm958625k.dts                   |  16 ++
- drivers/net/phy/mdio-bcm-iproc.c                   |   6 +-
- drivers/phy/Kconfig                                |   8 +
- drivers/phy/Makefile                               |   1 +
- drivers/phy/phy-bcm-nsp-usb3.c                     | 176 +++++++++++++++++++++
- 7 files changed, 298 insertions(+), 4 deletions(-)
+Signed-off-by: Yendapally Reddy Dhananjaya Reddy <yendapally.reddy@broadcom.com>
+---
+ .../devicetree/bindings/phy/brcm,nsp-usb3-phy.txt  | 39 ++++++++++++++++++++++
+ 1 file changed, 39 insertions(+)
  create mode 100644 Documentation/devicetree/bindings/phy/brcm,nsp-usb3-phy.txt
- create mode 100644 drivers/phy/phy-bcm-nsp-usb3.c
 
+diff --git a/Documentation/devicetree/bindings/phy/brcm,nsp-usb3-phy.txt b/Documentation/devicetree/bindings/phy/brcm,nsp-usb3-phy.txt
+new file mode 100644
+index 0000000..e68ae5d
+--- /dev/null
++++ b/Documentation/devicetree/bindings/phy/brcm,nsp-usb3-phy.txt
+@@ -0,0 +1,39 @@
++Broadcom USB3 phy binding for northstar plus SoC
++The USB3 phy is internal to the SoC and is accessed using mdio interface.
++
++Required mdio bus properties:
++- reg: Should be 0x0 for SoC internal USB3 phy
++- #address-cells: must be 1
++- #size-cells: must be 0
++
++Required USB3 PHY properties:
++- compatible: should be "brcm,nsp-usb3-phy"
++- reg: USB3 Phy address on SoC internal MDIO bus and it should be 0x10.
++- usb3-ctrl-syscon: handler of syscon node defining physical address
++  of usb3 control register.
++- #phy-cells: must be 0
++
++Required usb3 control properties:
++- compatible: should be "brcm,nsp-usb3-ctrl"
++- reg: offset and length of the control registers
++
++Example:
++
++	mdio@0 {
++		reg = <0x0>;
++		#address-cells = <1>;
++		#size-cells = <0>;
++
++		usb3_phy: usb-phy@10 {
++			compatible = "brcm,nsp-usb3-phy";
++			reg = <0x10>;
++			usb3-ctrl-syscon = <&usb3_ctrl>;
++			#phy-cells = <0>;
++			status = "disabled";
++		};
++	};
++
++	usb3_ctrl: syscon@104408 {
++		compatible = "brcm,nsp-usb3-ctrl", "syscon";
++		reg = <0x104408 0x3fc>;
++	};
 -- 
 2.1.0
