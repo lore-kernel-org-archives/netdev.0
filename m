@@ -1,316 +1,310 @@
 From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCHv4 net-next 6/6] sctp: implement sender-side procedures for SSN Reset Request Parameter
-Date: Wed, 18 Jan 2017 00:44:47 +0800
-Message-ID: <b266b49705a6254c663d9f2ffde420a990283e7d.1484670664.git.lucien.xin@gmail.com>
+Subject: [PATCHv4 net-next 2/6] sctp: add stream reconf timer
+Date: Wed, 18 Jan 2017 00:44:43 +0800
+Message-ID: <1a1ff083ca37b6de6bacf038ae5d0367f0112edd.1484670664.git.lucien.xin@gmail.com>
 References: <cover.1484670664.git.lucien.xin@gmail.com>
  <eff824eb34c55a83e35334597e6d510a5dde3ce6.1484670664.git.lucien.xin@gmail.com>
- <1a1ff083ca37b6de6bacf038ae5d0367f0112edd.1484670664.git.lucien.xin@gmail.com>
- <9c7e8c3427aa17874b192a06175800c333a54438.1484670664.git.lucien.xin@gmail.com>
- <d016227bd6d957ee304bb9a7454a7e378801c6cf.1484670664.git.lucien.xin@gmail.com>
- <21082127c66a2576338a860a092231ae3c5cd94a.1484670664.git.lucien.xin@gmail.com>
 Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
         Neil Horman <nhorman@tuxdriver.com>,
         Vlad Yasevich <vyasevich@gmail.com>, davem@davemloft.net
 To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:34298 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751035AbdAQQpn (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 11:45:43 -0500
-In-Reply-To: <21082127c66a2576338a860a092231ae3c5cd94a.1484670664.git.lucien.xin@gmail.com>
+Received: from mail-pg0-f68.google.com ([74.125.83.68]:33295 "EHLO
+        mail-pg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750941AbdAQQph (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 11:45:37 -0500
+In-Reply-To: <eff824eb34c55a83e35334597e6d510a5dde3ce6.1484670664.git.lucien.xin@gmail.com>
 In-Reply-To: <cover.1484670664.git.lucien.xin@gmail.com>
 References: <cover.1484670664.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch is to implement sender-side procedures for the Outgoing
-and Incoming SSN Reset Request Parameter described in rfc6525 section
-5.1.2 and 5.1.3.
+This patch is to add a per transport timer based on sctp timer frame
+for stream reconf chunk retransmission. It would start after sending
+a reconf request chunk, and stop after receiving the response chunk.
 
-It is also add sockopt SCTP_RESET_STREAMS in rfc6525 section 6.3.2
-for users.
+If the timer expires, besides retransmitting the reconf request chunk,
+it would also do the same thing with data RTO timer. like to increase
+the appropriate error counts, and perform threshold management, possibly
+destroying the asoc if sctp retransmission thresholds are exceeded, just
+as section 5.1.1 describes.
 
-Note that the new asoc member strreset_outstanding is to make sure
-only one reconf request chunk on the fly as rfc6525 section 5.1.1
-demands.
+This patch is also to add asoc strreset_chunk, it is used to save the
+reconf request chunk, so that it can be retransmitted, and to check if
+the response is really for this request by comparing the information
+inside with the response chunk as well.
 
 Signed-off-by: Xin Long <lucien.xin@gmail.com>
 ---
- include/net/sctp/sctp.h    |  6 ++++
- include/net/sctp/structs.h |  1 +
- include/uapi/linux/sctp.h  | 11 +++++++
- net/sctp/outqueue.c        | 33 +++++++++++++------
- net/sctp/socket.c          | 29 +++++++++++++++++
- net/sctp/stream.c          | 79 ++++++++++++++++++++++++++++++++++++++++++++++
- 6 files changed, 149 insertions(+), 10 deletions(-)
+ include/net/sctp/constants.h |  1 +
+ include/net/sctp/sm.h        |  2 ++
+ include/net/sctp/structs.h   |  6 ++++++
+ net/sctp/associola.c         |  9 +++++++++
+ net/sctp/sm_sideeffect.c     | 32 ++++++++++++++++++++++++++++++++
+ net/sctp/sm_statefuns.c      | 28 ++++++++++++++++++++++++++++
+ net/sctp/sm_statetable.c     | 20 ++++++++++++++++++++
+ net/sctp/transport.c         | 17 +++++++++++++++--
+ 8 files changed, 113 insertions(+), 2 deletions(-)
 
-diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
-index bc0e049..3cfd365b 100644
---- a/include/net/sctp/sctp.h
-+++ b/include/net/sctp/sctp.h
-@@ -194,6 +194,12 @@ void sctp_remaddr_proc_exit(struct net *net);
- int sctp_offload_init(void);
+diff --git a/include/net/sctp/constants.h b/include/net/sctp/constants.h
+index 5b847e4..8307c86 100644
+--- a/include/net/sctp/constants.h
++++ b/include/net/sctp/constants.h
+@@ -90,6 +90,7 @@ typedef enum {
+ 	SCTP_EVENT_TIMEOUT_T4_RTO,
+ 	SCTP_EVENT_TIMEOUT_T5_SHUTDOWN_GUARD,
+ 	SCTP_EVENT_TIMEOUT_HEARTBEAT,
++	SCTP_EVENT_TIMEOUT_RECONF,
+ 	SCTP_EVENT_TIMEOUT_SACK,
+ 	SCTP_EVENT_TIMEOUT_AUTOCLOSE,
+ } sctp_event_timeout_t;
+diff --git a/include/net/sctp/sm.h b/include/net/sctp/sm.h
+index 3462cb0..d2d9e28 100644
+--- a/include/net/sctp/sm.h
++++ b/include/net/sctp/sm.h
+@@ -167,6 +167,7 @@ sctp_state_fn_t sctp_sf_cookie_wait_icmp_abort;
  
- /*
-+ * sctp/stream.c
-+ */
-+int sctp_send_reset_streams(struct sctp_association *asoc,
-+			    struct sctp_reset_streams *params);
-+
-+/*
-  * Module global variables
-  */
+ /* Prototypes for timeout event state functions.  */
+ sctp_state_fn_t sctp_sf_do_6_3_3_rtx;
++sctp_state_fn_t sctp_sf_send_reconf;
+ sctp_state_fn_t sctp_sf_do_6_2_sack;
+ sctp_state_fn_t sctp_sf_autoclose_timer_expire;
  
+@@ -278,6 +279,7 @@ int sctp_do_sm(struct net *net, sctp_event_t event_type, sctp_subtype_t subtype,
+ /* 2nd level prototypes */
+ void sctp_generate_t3_rtx_event(unsigned long peer);
+ void sctp_generate_heartbeat_event(unsigned long peer);
++void sctp_generate_reconf_event(unsigned long peer);
+ void sctp_generate_proto_unreach_event(unsigned long peer);
+ 
+ void sctp_ootb_pkt_free(struct sctp_packet *);
 diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-index d99b76e..231fa9ac 100644
+index 3dc983e..463b4d6 100644
 --- a/include/net/sctp/structs.h
 +++ b/include/net/sctp/structs.h
-@@ -1875,6 +1875,7 @@ struct sctp_association {
- 	     reconf_enable:1;
+@@ -877,6 +877,9 @@ struct sctp_transport {
+ 	/* Timer to handle ICMP proto unreachable envets */
+ 	struct timer_list proto_unreach_timer;
  
- 	__u8 strreset_enable;
-+	__u8 strreset_outstanding; /* request param count on the fly */
- 
++	/* Timer to handler reconf chunk rtx */
++	struct timer_list reconf_timer;
++
+ 	/* Since we're using per-destination retransmission timers
+ 	 * (see above), we're also using per-destination "transmitted"
+ 	 * queues.  This probably ought to be a private struct
+@@ -935,6 +938,7 @@ void sctp_transport_pmtu(struct sctp_transport *, struct sock *sk);
+ void sctp_transport_free(struct sctp_transport *);
+ void sctp_transport_reset_t3_rtx(struct sctp_transport *);
+ void sctp_transport_reset_hb_timer(struct sctp_transport *);
++void sctp_transport_reset_reconf_timer(struct sctp_transport *transport);
+ int sctp_transport_hold(struct sctp_transport *);
+ void sctp_transport_put(struct sctp_transport *);
+ void sctp_transport_update_rto(struct sctp_transport *, __u32);
+@@ -1868,6 +1872,8 @@ struct sctp_association {
  	__u32 strreset_outseq; /* Update after receiving response */
  	__u32 strreset_inseq; /* Update after receiving request */
-diff --git a/include/uapi/linux/sctp.h b/include/uapi/linux/sctp.h
-index 867be0f..03c27ce 100644
---- a/include/uapi/linux/sctp.h
-+++ b/include/uapi/linux/sctp.h
-@@ -116,6 +116,7 @@ typedef __s32 sctp_assoc_t;
- #define SCTP_DEFAULT_PRINFO	114
- #define SCTP_PR_ASSOC_STATUS	115
- #define SCTP_ENABLE_STREAM_RESET	118
-+#define SCTP_RESET_STREAMS	119
  
- /* PR-SCTP policies */
- #define SCTP_PR_SCTP_NONE	0x0000
-@@ -145,6 +146,9 @@ typedef __s32 sctp_assoc_t;
- #define SCTP_ENABLE_CHANGE_ASSOC_REQ	0x04
- #define SCTP_ENABLE_STRRESET_MASK	0x07
- 
-+#define SCTP_STREAM_RESET_INCOMING	0x01
-+#define SCTP_STREAM_RESET_OUTGOING	0x02
++	struct sctp_chunk *strreset_chunk; /* save request chunk */
 +
- /* These are bit fields for msghdr->msg_flags.  See section 5.1.  */
- /* On user space Linux, these live in <bits/socket.h> as an enum.  */
- enum sctp_msg_flags {
-@@ -1015,4 +1019,11 @@ struct sctp_info {
- 	__u32	__reserved3;
+ 	struct sctp_priv_assoc_stats stats;
+ 
+ 	int sent_cnt_removable;
+diff --git a/net/sctp/associola.c b/net/sctp/associola.c
+index 42ece6f..fc33540 100644
+--- a/net/sctp/associola.c
++++ b/net/sctp/associola.c
+@@ -362,6 +362,9 @@ void sctp_association_free(struct sctp_association *asoc)
+ 	/* Free stream information. */
+ 	sctp_stream_free(asoc->stream);
+ 
++	if (asoc->strreset_chunk)
++		sctp_chunk_free(asoc->strreset_chunk);
++
+ 	/* Clean up the bound address list. */
+ 	sctp_bind_addr_free(&asoc->base.bind_addr);
+ 
+@@ -520,6 +523,12 @@ void sctp_assoc_rm_peer(struct sctp_association *asoc,
+ 	if (asoc->peer.last_data_from == peer)
+ 		asoc->peer.last_data_from = transport;
+ 
++	if (asoc->strreset_chunk &&
++	    asoc->strreset_chunk->transport == peer) {
++		asoc->strreset_chunk->transport = transport;
++		sctp_transport_reset_reconf_timer(transport);
++	}
++
+ 	/* If we remove the transport an INIT was last sent to, set it to
+ 	 * NULL. Combined with the update of the retran path above, this
+ 	 * will cause the next INIT to be sent to the next available
+diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
+index c345bf1..a455271 100644
+--- a/net/sctp/sm_sideeffect.c
++++ b/net/sctp/sm_sideeffect.c
+@@ -436,6 +436,37 @@ void sctp_generate_proto_unreach_event(unsigned long data)
+ 	sctp_association_put(asoc);
+ }
+ 
++ /* Handle the timeout of the RE-CONFIG timer. */
++void sctp_generate_reconf_event(unsigned long data)
++{
++	struct sctp_transport *transport = (struct sctp_transport *)data;
++	struct sctp_association *asoc = transport->asoc;
++	struct sock *sk = asoc->base.sk;
++	struct net *net = sock_net(sk);
++	int error = 0;
++
++	bh_lock_sock(sk);
++	if (sock_owned_by_user(sk)) {
++		pr_debug("%s: sock is busy\n", __func__);
++
++		/* Try again later.  */
++		if (!mod_timer(&transport->reconf_timer, jiffies + (HZ / 20)))
++			sctp_transport_hold(transport);
++		goto out_unlock;
++	}
++
++	error = sctp_do_sm(net, SCTP_EVENT_T_TIMEOUT,
++			   SCTP_ST_TIMEOUT(SCTP_EVENT_TIMEOUT_RECONF),
++			   asoc->state, asoc->ep, asoc,
++			   transport, GFP_ATOMIC);
++
++	if (error)
++		sk->sk_err = -error;
++
++out_unlock:
++	bh_unlock_sock(sk);
++	sctp_transport_put(transport);
++}
+ 
+ /* Inject a SACK Timeout event into the state machine.  */
+ static void sctp_generate_sack_event(unsigned long data)
+@@ -453,6 +484,7 @@ sctp_timer_event_t *sctp_timer_events[SCTP_NUM_TIMEOUT_TYPES] = {
+ 	sctp_generate_t4_rto_event,
+ 	sctp_generate_t5_shutdown_guard_event,
+ 	NULL,
++	NULL,
+ 	sctp_generate_sack_event,
+ 	sctp_generate_autoclose_event,
  };
- 
-+struct sctp_reset_streams {
-+	sctp_assoc_t srs_assoc_id;
-+	uint16_t srs_flags;
-+	uint16_t srs_number_streams;	/* 0 == ALL */
-+	uint16_t srs_stream_list[];	/* list if srs_num_streams is not 0 */
-+};
-+
- #endif /* _UAPI_SCTP_H */
-diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
-index 34efaa4..65abe22 100644
---- a/net/sctp/outqueue.c
-+++ b/net/sctp/outqueue.c
-@@ -915,22 +915,28 @@ static void sctp_outq_flush(struct sctp_outq *q, int rtx_timeout, gfp_t gfp)
- 		case SCTP_CID_ECN_ECNE:
- 		case SCTP_CID_ASCONF:
- 		case SCTP_CID_FWD_TSN:
-+		case SCTP_CID_RECONF:
- 			status = sctp_packet_transmit_chunk(packet, chunk,
- 							    one_packet, gfp);
- 			if (status  != SCTP_XMIT_OK) {
- 				/* put the chunk back */
- 				list_add(&chunk->list, &q->control_chunk_list);
--			} else {
--				asoc->stats.octrlchunks++;
--				/* PR-SCTP C5) If a FORWARD TSN is sent, the
--				 * sender MUST assure that at least one T3-rtx
--				 * timer is running.
--				 */
--				if (chunk->chunk_hdr->type == SCTP_CID_FWD_TSN) {
--					sctp_transport_reset_t3_rtx(transport);
--					transport->last_time_sent = jiffies;
--				}
-+				break;
-+			}
-+
-+			asoc->stats.octrlchunks++;
-+			/* PR-SCTP C5) If a FORWARD TSN is sent, the
-+			 * sender MUST assure that at least one T3-rtx
-+			 * timer is running.
-+			 */
-+			if (chunk->chunk_hdr->type == SCTP_CID_FWD_TSN) {
-+				sctp_transport_reset_t3_rtx(transport);
-+				transport->last_time_sent = jiffies;
- 			}
-+
-+			if (chunk == asoc->strreset_chunk)
-+				sctp_transport_reset_reconf_timer(transport);
-+
- 			break;
- 
- 		default:
-@@ -1016,6 +1022,8 @@ static void sctp_outq_flush(struct sctp_outq *q, int rtx_timeout, gfp_t gfp)
- 
- 		/* Finally, transmit new packets.  */
- 		while ((chunk = sctp_outq_dequeue_data(q)) != NULL) {
-+			__u32 sid = ntohs(chunk->subh.data_hdr->stream);
-+
- 			/* RFC 2960 6.5 Every DATA chunk MUST carry a valid
- 			 * stream identifier.
- 			 */
-@@ -1038,6 +1046,11 @@ static void sctp_outq_flush(struct sctp_outq *q, int rtx_timeout, gfp_t gfp)
- 				continue;
- 			}
- 
-+			if (asoc->stream->out[sid].state == SCTP_STREAM_CLOSED) {
-+				sctp_outq_head_data(q, chunk);
-+				goto sctp_flush_out;
-+			}
-+
- 			/* If there is a specified transport, use it.
- 			 * Otherwise, we want to use the active path.
- 			 */
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index ae07db4..e072bf7 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -3787,6 +3787,32 @@ static int sctp_setsockopt_enable_strreset(struct sock *sk,
- 	return retval;
+diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
+index 0ceded3..2ae186a 100644
+--- a/net/sctp/sm_statefuns.c
++++ b/net/sctp/sm_statefuns.c
+@@ -1021,6 +1021,34 @@ sctp_disposition_t sctp_sf_sendbeat_8_3(struct net *net,
+ 	return SCTP_DISPOSITION_CONSUME;
  }
  
-+static int sctp_setsockopt_reset_streams(struct sock *sk,
-+					 char __user *optval,
-+					 unsigned int optlen)
++/* resend asoc strreset_chunk.  */
++sctp_disposition_t sctp_sf_send_reconf(struct net *net,
++				       const struct sctp_endpoint *ep,
++				       const struct sctp_association *asoc,
++				       const sctp_subtype_t type, void *arg,
++				       sctp_cmd_seq_t *commands)
 +{
-+	struct sctp_reset_streams *params;
-+	struct sctp_association *asoc;
-+	int retval = -EINVAL;
++	struct sctp_transport *transport = arg;
 +
-+	if (optlen < sizeof(struct sctp_reset_streams))
-+		return -EINVAL;
-+
-+	params = memdup_user(optval, optlen);
-+	if (IS_ERR(params))
-+		return PTR_ERR(params);
-+
-+	asoc = sctp_id2assoc(sk, params->srs_assoc_id);
-+	if (!asoc)
-+		goto out;
-+
-+	retval = sctp_send_reset_streams(asoc, params);
-+
-+out:
-+	kfree(params);
-+	return retval;
-+}
-+
- /* API 6.2 setsockopt(), getsockopt()
-  *
-  * Applications use setsockopt() and getsockopt() to set or retrieve
-@@ -3956,6 +3982,9 @@ static int sctp_setsockopt(struct sock *sk, int level, int optname,
- 	case SCTP_ENABLE_STREAM_RESET:
- 		retval = sctp_setsockopt_enable_strreset(sk, optval, optlen);
- 		break;
-+	case SCTP_RESET_STREAMS:
-+		retval = sctp_setsockopt_reset_streams(sk, optval, optlen);
-+		break;
- 	default:
- 		retval = -ENOPROTOOPT;
- 		break;
-diff --git a/net/sctp/stream.c b/net/sctp/stream.c
-index f86de43..13d5e07 100644
---- a/net/sctp/stream.c
-+++ b/net/sctp/stream.c
-@@ -33,6 +33,7 @@
-  */
- 
- #include <net/sctp/sctp.h>
-+#include <net/sctp/sm.h>
- 
- struct sctp_stream *sctp_stream_new(__u16 incnt, __u16 outcnt, gfp_t gfp)
- {
-@@ -83,3 +84,81 @@ void sctp_stream_clear(struct sctp_stream *stream)
- 	for (i = 0; i < stream->incnt; i++)
- 		stream->in[i].ssn = 0;
- }
-+
-+static int sctp_send_reconf(struct sctp_association *asoc,
-+			    struct sctp_chunk *chunk)
-+{
-+	struct net *net = sock_net(asoc->base.sk);
-+	int retval = 0;
-+
-+	retval = sctp_primitive_RECONF(net, asoc, chunk);
-+	if (retval)
-+		sctp_chunk_free(chunk);
-+
-+	return retval;
-+}
-+
-+int sctp_send_reset_streams(struct sctp_association *asoc,
-+			    struct sctp_reset_streams *params)
-+{
-+	struct sctp_stream *stream = asoc->stream;
-+	__u16 i, str_nums, *str_list;
-+	struct sctp_chunk *chunk;
-+	int retval = -EINVAL;
-+	bool out, in;
-+
-+	if (!asoc->peer.reconf_capable ||
-+	    !(asoc->strreset_enable & SCTP_ENABLE_RESET_STREAM_REQ)) {
-+		retval = -ENOPROTOOPT;
-+		goto out;
++	if (asoc->overall_error_count >= asoc->max_retrans) {
++		sctp_add_cmd_sf(commands, SCTP_CMD_SET_SK_ERR,
++				SCTP_ERROR(ETIMEDOUT));
++		/* CMD_ASSOC_FAILED calls CMD_DELETE_TCB. */
++		sctp_add_cmd_sf(commands, SCTP_CMD_ASSOC_FAILED,
++				SCTP_PERR(SCTP_ERROR_NO_ERROR));
++		SCTP_INC_STATS(net, SCTP_MIB_ABORTEDS);
++		SCTP_DEC_STATS(net, SCTP_MIB_CURRESTAB);
++		return SCTP_DISPOSITION_DELETE_TCB;
 +	}
 +
-+	if (asoc->strreset_outstanding) {
-+		retval = -EINPROGRESS;
-+		goto out;
-+	}
-+
-+	out = params->srs_flags & SCTP_STREAM_RESET_OUTGOING;
-+	in  = params->srs_flags & SCTP_STREAM_RESET_INCOMING;
-+	if (!out && !in)
-+		goto out;
-+
-+	str_nums = params->srs_number_streams;
-+	str_list = params->srs_stream_list;
-+	if (out && str_nums)
-+		for (i = 0; i < str_nums; i++)
-+			if (str_list[i] >= stream->outcnt)
-+				goto out;
-+
-+	if (in && str_nums)
-+		for (i = 0; i < str_nums; i++)
-+			if (str_list[i] >= stream->incnt)
-+				goto out;
-+
-+	chunk = sctp_make_strreset_req(asoc, str_nums, str_list, out, in);
-+	if (!chunk)
-+		goto out;
-+
-+	if (out) {
-+		if (str_nums)
-+			for (i = 0; i < str_nums; i++)
-+				stream->out[str_list[i]].state =
-+						       SCTP_STREAM_CLOSED;
-+		else
-+			for (i = 0; i < stream->outcnt; i++)
-+				stream->out[i].state = SCTP_STREAM_CLOSED;
-+	}
-+
-+	asoc->strreset_outstanding = out + in;
-+	asoc->strreset_chunk = chunk;
 +	sctp_chunk_hold(asoc->strreset_chunk);
++	sctp_add_cmd_sf(commands, SCTP_CMD_REPLY,
++			SCTP_CHUNK(asoc->strreset_chunk));
++	sctp_add_cmd_sf(commands, SCTP_CMD_STRIKE, SCTP_TRANSPORT(transport));
 +
-+	retval = sctp_send_reconf(asoc, chunk);
-+	if (retval) {
-+		sctp_chunk_put(asoc->strreset_chunk);
-+		asoc->strreset_chunk = NULL;
-+	}
-+
-+out:
-+	return retval;
++	return SCTP_DISPOSITION_CONSUME;
 +}
++
+ /*
+  * Process an heartbeat request.
+  *
+diff --git a/net/sctp/sm_statetable.c b/net/sctp/sm_statetable.c
+index a987d54..3da521a 100644
+--- a/net/sctp/sm_statetable.c
++++ b/net/sctp/sm_statetable.c
+@@ -888,6 +888,25 @@ static const sctp_sm_table_entry_t other_event_table[SCTP_NUM_OTHER_TYPES][SCTP_
+ 	TYPE_SCTP_FUNC(sctp_sf_timer_ignore), \
+ }
+ 
++#define TYPE_SCTP_EVENT_TIMEOUT_RECONF { \
++	/* SCTP_STATE_CLOSED */ \
++	TYPE_SCTP_FUNC(sctp_sf_timer_ignore), \
++	/* SCTP_STATE_COOKIE_WAIT */ \
++	TYPE_SCTP_FUNC(sctp_sf_timer_ignore), \
++	/* SCTP_STATE_COOKIE_ECHOED */ \
++	TYPE_SCTP_FUNC(sctp_sf_timer_ignore), \
++	/* SCTP_STATE_ESTABLISHED */ \
++	TYPE_SCTP_FUNC(sctp_sf_send_reconf), \
++	/* SCTP_STATE_SHUTDOWN_PENDING */ \
++	TYPE_SCTP_FUNC(sctp_sf_timer_ignore), \
++	/* SCTP_STATE_SHUTDOWN_SENT */ \
++	TYPE_SCTP_FUNC(sctp_sf_timer_ignore), \
++	/* SCTP_STATE_SHUTDOWN_RECEIVED */ \
++	TYPE_SCTP_FUNC(sctp_sf_timer_ignore), \
++	/* SCTP_STATE_SHUTDOWN_ACK_SENT */ \
++	TYPE_SCTP_FUNC(sctp_sf_timer_ignore), \
++}
++
+ static const sctp_sm_table_entry_t timeout_event_table[SCTP_NUM_TIMEOUT_TYPES][SCTP_STATE_NUM_STATES] = {
+ 	TYPE_SCTP_EVENT_TIMEOUT_NONE,
+ 	TYPE_SCTP_EVENT_TIMEOUT_T1_COOKIE,
+@@ -897,6 +916,7 @@ static const sctp_sm_table_entry_t timeout_event_table[SCTP_NUM_TIMEOUT_TYPES][S
+ 	TYPE_SCTP_EVENT_TIMEOUT_T4_RTO,
+ 	TYPE_SCTP_EVENT_TIMEOUT_T5_SHUTDOWN_GUARD,
+ 	TYPE_SCTP_EVENT_TIMEOUT_HEARTBEAT,
++	TYPE_SCTP_EVENT_TIMEOUT_RECONF,
+ 	TYPE_SCTP_EVENT_TIMEOUT_SACK,
+ 	TYPE_SCTP_EVENT_TIMEOUT_AUTOCLOSE,
+ };
+diff --git a/net/sctp/transport.c b/net/sctp/transport.c
+index a1652ab..baa1ac0 100644
+--- a/net/sctp/transport.c
++++ b/net/sctp/transport.c
+@@ -88,9 +88,11 @@ static struct sctp_transport *sctp_transport_init(struct net *net,
+ 	INIT_LIST_HEAD(&peer->transports);
+ 
+ 	setup_timer(&peer->T3_rtx_timer, sctp_generate_t3_rtx_event,
+-			(unsigned long)peer);
++		    (unsigned long)peer);
+ 	setup_timer(&peer->hb_timer, sctp_generate_heartbeat_event,
+-			(unsigned long)peer);
++		    (unsigned long)peer);
++	setup_timer(&peer->reconf_timer, sctp_generate_reconf_event,
++		    (unsigned long)peer);
+ 	setup_timer(&peer->proto_unreach_timer,
+ 		    sctp_generate_proto_unreach_event, (unsigned long)peer);
+ 
+@@ -144,6 +146,9 @@ void sctp_transport_free(struct sctp_transport *transport)
+ 	if (del_timer(&transport->T3_rtx_timer))
+ 		sctp_transport_put(transport);
+ 
++	if (del_timer(&transport->reconf_timer))
++		sctp_transport_put(transport);
++
+ 	/* Delete the ICMP proto unreachable timer if it's active. */
+ 	if (del_timer(&transport->proto_unreach_timer))
+ 		sctp_association_put(transport->asoc);
+@@ -211,6 +216,14 @@ void sctp_transport_reset_hb_timer(struct sctp_transport *transport)
+ 		sctp_transport_hold(transport);
+ }
+ 
++void sctp_transport_reset_reconf_timer(struct sctp_transport *transport)
++{
++	if (!timer_pending(&transport->reconf_timer))
++		if (!mod_timer(&transport->reconf_timer,
++			       jiffies + transport->rto))
++			sctp_transport_hold(transport);
++}
++
+ /* This transport has been assigned to an association.
+  * Initialize fields from the association or from the sock itself.
+  * Register the reference count in the association.
 -- 
 2.1.0
