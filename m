@@ -1,42 +1,40 @@
-From: Roman Yeryomin <leroi.lists@gmail.com>
-Subject: [net, 6/6] net: korina: version bump
-Date: Tue, 17 Jan 2017 19:33:13 +0200
-Message-ID: <1484674393-22515-1-git-send-email-roman@advem.lv>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: Kernel 4.6.7-rt14 kernel workqueue lockup - rtnl deadlock plus
+ syscall endless loop
+Date: Tue, 17 Jan 2017 12:57:48 -0500 (EST)
+Message-ID: <20170117.125748.122599514616047216.davem@davemloft.net>
+References: <AM5PR0701MB187338B2418A19E1B4B55C98A07C0@AM5PR0701MB1873.eurprd07.prod.outlook.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: EladN@gilat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f66.google.com ([209.85.215.66]:36301 "EHLO
-        mail-lf0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751204AbdAQRmU (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 12:42:20 -0500
-Received: by mail-lf0-f66.google.com with SMTP id h65so17184758lfi.3
-        for <netdev@vger.kernel.org>; Tue, 17 Jan 2017 09:42:19 -0800 (PST)
-Received: from ubrain.lan ([213.175.92.61])
-        by smtp.googlemail.com with ESMTPSA id f17sm7207229ljb.13.2017.01.17.09.33.16
-        for <netdev@vger.kernel.org>
-        (version=TLS1_2 cipher=ECDHE-RSA-AES128-SHA bits=128/128);
-        Tue, 17 Jan 2017 09:33:17 -0800 (PST)
+Received: from shards.monkeyblade.net ([184.105.139.130]:40222 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1750965AbdAQR54 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 12:57:56 -0500
+In-Reply-To: <AM5PR0701MB187338B2418A19E1B4B55C98A07C0@AM5PR0701MB1873.eurprd07.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Roman Yeryomin <roman@advem.lv>
----
- drivers/net/ethernet/korina.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+From: Elad Nachman <EladN@gilat.com>
+Date: Tue, 17 Jan 2017 17:39:03 +0000
 
-diff --git a/drivers/net/ethernet/korina.c b/drivers/net/ethernet/korina.c
-index 83c994f..c8fed01 100644
---- a/drivers/net/ethernet/korina.c
-+++ b/drivers/net/ethernet/korina.c
-@@ -66,8 +66,8 @@
- #include <asm/mach-rc32434/dma_v.h>
- 
- #define DRV_NAME	"korina"
--#define DRV_VERSION	"0.10"
--#define DRV_RELDATE	"04Mar2008"
-+#define DRV_VERSION	"0.20"
-+#define DRV_RELDATE	"15Jan2017"
- 
- #define STATION_ADDRESS_HIGH(dev) (((dev)->dev_addr[0] << 8) | \
- 				   ((dev)->dev_addr[1]))
--- 
-2.7.4
+> What's more odd about this is that it's very unusual and strange for
+> a kernel function to invoke the restart mechanism because a lock is
+> being held - the point of the restart mechanism is to allow userspace
+> signal handlers to run, so it should only be used when there's a
+> signal pending. I think this is a hack in the IPv6 code to work
+> around some other issue.
+
+It's not unusal at all, if you actually grep for this under net/ you will
+see that it is in fact a common code pattern.
+
+It prevents deadlocks because the sysfs and other nodes that we are
+operating with can be unregistered by other threads of control holding
+the RTNL mutex.  If we don't break out, we won't release our reference
+and therefore the RTNL mutex holding entity cannot make forward
+progress.
+
+This behavior is therefore very much intentional.
