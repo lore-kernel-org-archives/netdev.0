@@ -1,90 +1,24 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH RFC] net: dsa: remove unnecessary phy.h include
-Date: Tue, 17 Jan 2017 17:13:44 -0800
-Message-ID: <c9f836b1-b99e-b812-13a0-9e59b4c6cc97@gmail.com>
-References: <20170118001403.GJ27312@n2100.armlinux.org.uk>
+From: "Khokhar, Kashif" <kashif.khokhar@mountsinai.org>
+Subject: RE: GOOD NEWS
+Date: Wed, 18 Jan 2017 00:47:40 +0000
+Message-ID: <EE27FBD0E42D5749B421597090D4581AA772DD99@SMESEXCP014041.msnyuhealth.org>
+References: <EE27FBD0E42D5749B421597090D4581AA771D40C@SMESEXCP014041.msnyuhealth.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Russell King - ARM Linux <linux@armlinux.org.uk>,
-        Andrew Lunn <andrew@lunn.ch>,
-        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170118001403.GJ27312@n2100.armlinux.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-On 01/17/2017 04:14 PM, Russell King - ARM Linux wrote:
-> Including phy.h and phy_fixed.h into net/dsa.h causes phy*.h to be an
-> unnecessary dependency for quite a large amount of the kernel.  There's
-> very little which actually requires definitions from phy.h in net/dsa.h
-> - the include itself only wants the declaration of a couple of
-> structures and IFNAMSIZ.
-> 
-> Add linux/if.h for IFNAMSIZ, declarations for the structures, phy.h to
-> mv88e6xxx.h as it needs it for phy_interface_t, and remove both phy.h
-> and phy_fixed.h from net/dsa.h.
-> 
-> This patch reduces from around 800 files rebuilt to around 40 - even
-> with ccache, the time difference is noticable.
-> 
-> Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
-
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
-
-> ---
-> I noticed when I touched linux/phy.h that a lot of the kernel ended up
-> being unexpectedly rebuilt, as linux/netdevice.h includes net/dsa.h,
-> which then then includes linux/phy.h.  I've tested this change on both
-> ARM and ARM64, but I'd suggest letting the 0-day builder have a bite
-> at this, and then only taking it if everyone is confident that there's
-> a slim chance of any problems.  Also, it may need some rework to apply
-> to davem's tree.  All of the above makes this RFC only.
-> 
->  drivers/net/dsa/mv88e6xxx/mv88e6xxx.h | 1 +
->  include/net/dsa.h                     | 6 ++++--
->  2 files changed, 5 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-> index a319c06d82e3..d247b0639ed4 100644
-> --- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-> +++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
-> @@ -15,6 +15,7 @@
->  #include <linux/if_vlan.h>
->  #include <linux/irq.h>
->  #include <linux/gpio/consumer.h>
-> +#include <linux/phy.h>
->  
->  #ifndef UINT64_MAX
->  #define UINT64_MAX		(u64)(~((u64)0))
-> diff --git a/include/net/dsa.h b/include/net/dsa.h
-> index b122196d5a1f..887b2f98f9ea 100644
-> --- a/include/net/dsa.h
-> +++ b/include/net/dsa.h
-> @@ -11,15 +11,17 @@
->  #ifndef __LINUX_NET_DSA_H
->  #define __LINUX_NET_DSA_H
->  
-> +#include <linux/if.h>
->  #include <linux/if_ether.h>
->  #include <linux/list.h>
->  #include <linux/timer.h>
->  #include <linux/workqueue.h>
->  #include <linux/of.h>
-> -#include <linux/phy.h>
-> -#include <linux/phy_fixed.h>
->  #include <linux/ethtool.h>
->  
-> +struct phy_device;
-> +struct fixed_phy_status;
-> +
->  enum dsa_tag_protocol {
->  	DSA_TAG_PROTO_NONE = 0,
->  	DSA_TAG_PROTO_DSA,
-> 
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.mountsinai.org ([146.203.148.111]:43678 "EHLO
+        smtp.mountsinai.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751070AbdARBYJ (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 20:24:09 -0500
+In-Reply-To: <EE27FBD0E42D5749B421597090D4581AA771D40C@SMESEXCP014041.msnyuhealth.org>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
--- 
-Florian
+
+
+A donation was made to you . Contact ( antoiaxjohnson@yahoo.com ) for detai=
+ls...
