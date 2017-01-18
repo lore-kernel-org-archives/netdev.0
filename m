@@ -1,51 +1,33 @@
-From: Hannes Reinecke <hare-l3A5Bk7waGM@public.gmane.org>
-Subject: Re: [PATCH 1/2] qed: Add support for hardware offloaded
- FCoE.
-Date: Wed, 18 Jan 2017 17:21:26 +0100
-Message-ID: <b09401be-3103-6a37-f203-4c696b9cac9a@suse.de>
-References: <1484596437-27637-1-git-send-email-chad.dupuis@cavium.com>
- <1484596437-27637-2-git-send-email-chad.dupuis@cavium.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [net PATCH] bpf: fix samples xdp_tx_iptunnel and tc_l2_redirect
+ with fake KBUILD_MODNAME
+Date: Wed, 18 Jan 2017 17:23:17 +0100
+Message-ID: <587F9675.1090303@iogearbox.net>
+References: <148475634058.19645.17347886661194782120.stgit@firesoul>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: quoted-printable
-Cc: fcoe-devel-s9riP+hp16TNLxjTenLetw@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, yuval.mintz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org,
- linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, QLogic-Storage-Upstream-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org
-To: "Dupuis, Chad" <chad.dupuis-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>, martin.petersen-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org
-Return-path: <fcoe-devel-bounces-s9riP+hp16TNLxjTenLetw@public.gmane.org>
-In-Reply-To: <1484596437-27637-2-git-send-email-chad.dupuis-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <http://lists.open-fcoe.org/mailman/options/fcoe-devel>,
- <mailto:fcoe-devel-request-s9riP+hp16TNLxjTenLetw@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-fcoe.org/pipermail/fcoe-devel/>
-List-Post: <mailto:fcoe-devel-s9riP+hp16TNLxjTenLetw@public.gmane.org>
-List-Help: <mailto:fcoe-devel-request-s9riP+hp16TNLxjTenLetw@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.open-fcoe.org/mailman/listinfo/fcoe-devel>,
- <mailto:fcoe-devel-request-s9riP+hp16TNLxjTenLetw@public.gmane.org?subject=subscribe>
-Errors-To: fcoe-devel-bounces-s9riP+hp16TNLxjTenLetw@public.gmane.org
-Sender: "fcoe-devel" <fcoe-devel-bounces-s9riP+hp16TNLxjTenLetw@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: kafai@fb.com, Alexei Starovoitov <alexei.starovoitov@gmail.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:54847 "EHLO
+        www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1753943AbdARQXT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2017 11:23:19 -0500
+In-Reply-To: <148475634058.19645.17347886661194782120.stgit@firesoul>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/16/2017 08:53 PM, Dupuis, Chad wrote:
-> From: Arun Easi <arun.easi-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org>
-> =
+On 01/18/2017 05:19 PM, Jesper Dangaard Brouer wrote:
+> Fix build errors for samples/bpf xdp_tx_iptunnel and tc_l2_redirect,
+> when dynamic debugging is enabled (CONFIG_DYNAMIC_DEBUG) by defining a
+> fake KBUILD_MODNAME.
+>
+> Just like Daniel Borkmann fixed other samples/bpf in commit
+> 96a8eb1eeed2 ("bpf: fix samples to add fake KBUILD_MODNAME").
+>
+> Fixes: 12d8bb64e3f6 ("bpf: xdp: Add XDP example for head adjustment")
+> Fixes: 90e02896f1a4 ("bpf: Add test for bpf_redirect to ipip/ip6tnl")
+> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 
-> This adds the backbone required for the various HW initalizations
-> which are necessary for the FCoE driver (qedf) for QLogic FastLinQ
-> 4xxxx line of adapters - FW notification, resource initializations, etc.
-> =
-
-> Signed-off-by: Arun Easi <arun.easi-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-> Signed-off-by: Yuval Mintz <yuval.mintz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-> ---
-
-Reviewed-by: Hannes Reinecke <hare-IBi9RG/b67k@public.gmane.org>
-
-Cheers,
-
-Hannes
--- =
-
-Dr. Hannes Reinecke		   Teamlead Storage & Networking
-hare-l3A5Bk7waGM@public.gmane.org			               +49 911 74053 688
-SUSE LINUX GmbH, Maxfeldstr. 5, 90409 N=FCrnberg
-GF: F. Imend=F6rffer, J. Smithard, J. Guild, D. Upmanyu, G. Norton
-HRB 21284 (AG N=FCrnberg)
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
