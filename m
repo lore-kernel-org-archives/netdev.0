@@ -1,81 +1,55 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH 2/2] can: ti_hecc: add missing prepare and unprepare of the clock
-Date: Wed, 18 Jan 2017 13:08:52 +0100
-Message-ID: <20170118120852.6095-3-mkl@pengutronix.de>
+Subject: [PATCH 1/2] can: c_can_pci: fix null-pointer-deref in c_can_start() - set device pointer
+Date: Wed, 18 Jan 2017 13:08:51 +0100
+Message-ID: <20170118120852.6095-2-mkl@pengutronix.de>
 References: <20170118120852.6095-1-mkl@pengutronix.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
 Cc: davem@davemloft.net, linux-can@vger.kernel.org,
-        kernel@pengutronix.de, Yegor Yefremov <yegorslists@googlemail.com>,
+        kernel@pengutronix.de,
+        =?UTF-8?q?Einar=20J=C3=B3n?= <tolvupostur@gmail.com>,
         linux-stable <stable@vger.kernel.org>,
         Marc Kleine-Budde <mkl@pengutronix.de>
 To: netdev@vger.kernel.org
-Return-path: <stable-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:57381 "EHLO
+        metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
+        by vger.kernel.org with ESMTP id S1751553AbdARMJf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2017 07:09:35 -0500
 In-Reply-To: <20170118120852.6095-1-mkl@pengutronix.de>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Yegor Yefremov <yegorslists@googlemail.com>
+From: Einar Jón <tolvupostur@gmail.com>
 
-In order to make the driver work with the common clock framework, this
-patch converts the clk_enable()/clk_disable() to
-clk_prepare_enable()/clk_disable_unprepare().
+The priv->device pointer for c_can_pci is never set, but it is used
+without a NULL check in c_can_start(). Setting it in c_can_pci_probe()
+like c_can_plat_probe() prevents c_can_pci.ko from crashing, with and
+without CONFIG_PM.
 
-Also add error checking for clk_prepare_enable().
+This might also cause the pm_runtime_*() functions in c_can.c to
+actually be executed for c_can_pci devices - they are the only other
+place where priv->device is used, but they all contain a null check.
 
-Signed-off-by: Yegor Yefremov <yegorslists@googlemail.com>
+Signed-off-by: Einar Jón <tolvupostur@gmail.com>
 Cc: linux-stable <stable@vger.kernel.org>
 Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
- drivers/net/can/ti_hecc.c | 16 ++++++++++++----
- 1 file changed, 12 insertions(+), 4 deletions(-)
+ drivers/net/can/c_can/c_can_pci.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/can/ti_hecc.c b/drivers/net/can/ti_hecc.c
-index 680d1ff07a55..6749b1829469 100644
---- a/drivers/net/can/ti_hecc.c
-+++ b/drivers/net/can/ti_hecc.c
-@@ -948,7 +948,12 @@ static int ti_hecc_probe(struct platform_device *pdev)
- 	netif_napi_add(ndev, &priv->napi, ti_hecc_rx_poll,
- 		HECC_DEF_NAPI_WEIGHT);
+diff --git a/drivers/net/can/c_can/c_can_pci.c b/drivers/net/can/c_can/c_can_pci.c
+index 7be393c96b1a..cf7c18947189 100644
+--- a/drivers/net/can/c_can/c_can_pci.c
++++ b/drivers/net/can/c_can/c_can_pci.c
+@@ -161,6 +161,7 @@ static int c_can_pci_probe(struct pci_dev *pdev,
  
--	clk_enable(priv->clk);
-+	err = clk_prepare_enable(priv->clk);
-+	if (err) {
-+		dev_err(&pdev->dev, "clk_prepare_enable() failed\n");
-+		goto probe_exit_clk;
-+	}
-+
- 	err = register_candev(ndev);
- 	if (err) {
- 		dev_err(&pdev->dev, "register_candev() failed\n");
-@@ -981,7 +986,7 @@ static int ti_hecc_remove(struct platform_device *pdev)
- 	struct ti_hecc_priv *priv = netdev_priv(ndev);
+ 	dev->irq = pdev->irq;
+ 	priv->base = addr;
++	priv->device = &pdev->dev;
  
- 	unregister_candev(ndev);
--	clk_disable(priv->clk);
-+	clk_disable_unprepare(priv->clk);
- 	clk_put(priv->clk);
- 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
- 	iounmap(priv->base);
-@@ -1006,7 +1011,7 @@ static int ti_hecc_suspend(struct platform_device *pdev, pm_message_t state)
- 	hecc_set_bit(priv, HECC_CANMC, HECC_CANMC_PDR);
- 	priv->can.state = CAN_STATE_SLEEPING;
- 
--	clk_disable(priv->clk);
-+	clk_disable_unprepare(priv->clk);
- 
- 	return 0;
- }
-@@ -1015,8 +1020,11 @@ static int ti_hecc_resume(struct platform_device *pdev)
- {
- 	struct net_device *dev = platform_get_drvdata(pdev);
- 	struct ti_hecc_priv *priv = netdev_priv(dev);
-+	int err;
- 
--	clk_enable(priv->clk);
-+	err = clk_prepare_enable(priv->clk);
-+	if (err)
-+		return err;
- 
- 	hecc_clear_bit(priv, HECC_CANMC, HECC_CANMC_PDR);
- 	priv->can.state = CAN_STATE_ERROR_ACTIVE;
+ 	if (!c_can_pci_data->freq) {
+ 		dev_err(&pdev->dev, "no clock frequency defined\n");
 -- 
 2.11.0
