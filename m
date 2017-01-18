@@ -1,44 +1,34 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH iproute2 net-next] tc: flower: support matching flags
-Date: Wed, 18 Jan 2017 13:41:03 +0100
-Message-ID: <20170118134103.351bd524@griffin>
-References: <1482930409-55059-1-git-send-email-paulb@mellanox.com>
-        <20170102195522.7488179b@griffin>
-        <1ec4f4ca-08e0-84fc-34c6-b3868d756050@mellanox.com>
-        <20170104103301.GA30008@penelope.horms.nl>
-        <82df989f-09a7-a89a-a675-c45d190b049e@mellanox.com>
-        <20170104125559.34a7b7ed@griffin>
+From: Timur Tabi <timur@codeaurora.org>
+Subject: Re: [PATCH 2/2] at803x: double check SGMII side autoneg
+Date: Wed, 18 Jan 2017 07:13:20 -0600
+Message-ID: <5763c2fb-7286-15b0-091f-1abf26c0afe7@codeaurora.org>
+References: <1477305654-11328-1-git-send-email-zefir.kurtisi@neratec.com>
+ <1477305654-11328-3-git-send-email-zefir.kurtisi@neratec.com>
+ <e063a5fd-a1c5-e9ec-1700-21c6974a7cbe@codeaurora.org>
+ <3291b7c1-7bf6-d776-adab-b89c9cd9be38@neratec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Simon Horman <simon.horman@netronome.com>,
-        <netdev@vger.kernel.org>,
-        Stephen Hemminger <stephen@networkplumber.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Hadar Hen Zion <hadarh@mellanox.com>,
-        Or Gerlitz <ogerlitz@mellanox.com>,
-        Roi Dayan <roid@mellanox.com>
-To: Paul Blakey <paulb@mellanox.com>
+Cc: andrew@lunn.ch, f.fainelli@gmail.com
+To: Zefir Kurtisi <zefir.kurtisi@neratec.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55032 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1753281AbdARNEN (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 18 Jan 2017 08:04:13 -0500
-In-Reply-To: <20170104125559.34a7b7ed@griffin>
+Received: from smtp.codeaurora.org ([198.145.29.96]:55450 "EHLO
+        smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752894AbdARNUj (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2017 08:20:39 -0500
+In-Reply-To: <3291b7c1-7bf6-d776-adab-b89c9cd9be38@neratec.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 4 Jan 2017 12:55:59 +0100, Jiri Benc wrote:
-> On Wed, 4 Jan 2017 13:51:13 +0200, Paul Blakey wrote:
-> > It mimics the kernel packing of flags, I have no problem either way 
-> > (flags, or ip_flags/tcp_flags pairs), what do you think jiri?
-> 
-> What Simon says makes sense to me. ip_flags and tcp_flags sounds like
-> the best solution so far (even better than my original suggestion).
+Zefir Kurtisi wrote:
+> The fact that you see the warning means external autoneg completes before the
+> SGMII side in best case or SGMII link remains down in worst case.
 
-Is there any progress with the follow up patch? I don't think we want
-iproute2 with the magic numbers to be released.
+So I'm no expert on this.  Are you saying that I might possibly be doing 
+things backwards in my driver?  That is, I should be configuring the 
+SGMII side of the link before I start autonegotiation?
 
-Thanks,
-
- Jiri
+-- 
+Sent by an employee of the Qualcomm Innovation Center, Inc.
+The Qualcomm Innovation Center, Inc. is a member of the
+Code Aurora Forum, hosted by The Linux Foundation.
