@@ -1,20 +1,18 @@
-From: Andrei Pistirica <andrei.pistirica@microchip.com>
-Subject: [PATCH net-next] macb: Common code to enable ptp support for SAMA5Dx
- platforms.
-Date: Wed, 18 Jan 2017 18:57:53 +0200
-Message-ID: <1484758673-8694-1-git-send-email-andrei.pistirica@microchip.com>
+From: Mason <slash.tmp@free.fr>
+Subject: Initializing MAC address at run-time
+Date: Wed, 18 Jan 2017 15:03:57 +0100
+Message-ID: <e083ed68-0e8e-380e-23bd-5ad387c88575@free.fr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: boris.brezillon@free-electrons.com, rafalo@cadence.com,
- alexandre.belloni@free-electrons.com, michals@xilinx.com,
- Andrei Pistirica <andrei.pistirica@microchip.com>, tbultel@pixelsurmer.com,
- anirudh@xilinx.com, punnaia@xilinx.com, richardcochran@gmail.com
-To: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
- <linux-arm-kernel@lists.infradead.org>, <davem@davemloft.net>,
- <nicolas.ferre@atmel.com>, <harinikatakamlinux@gmail.com>,
- <harini.katakam@xilinx.com>
+Cc: Mark Rutland <mark.rutland@arm.com>,
+ Thibaud Cornic <thibaud_cornic@sigmadesigns.com>,
+ Uwe Kleine-Konig <u.kleine-koenig@pengutronix.de>,
+ Arnd Bergmann <arnd@arndb.de>, Kevin Hilman <khilman@kernel.org>
+To: Linux ARM <linux-arm-kernel@lists.infradead.org>,
+ DT <devicetree@vger.kernel.org>, netdev <netdev@vger.kernel.org>
 Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Language: 
 List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
  <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
 List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
@@ -26,243 +24,116 @@ Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-This patch does the following:
-- add GEM-PTP interface
-- registers and bitfields for TSU are named according to SAMA5Dx data sheet
-- PTP support based on platform capability
+Hello,
 
-Signed-off-by: Andrei Pistirica <andrei.pistirica@microchip.com>
----
-This is just the common code for GEM-PTP support. Code is based on the comments
-related to the following patch series:
-- [RFC PATCH net-next v1-to-4 1/2] macb: Add 1588 support in Cadence GEM.
-- [RFC PATCH net-next v1-to-4 2/2] macb: Enable 1588 support in SAMA5Dx platforms.
+When my system boots up, eth0 is given a seemingly random MAC address.
 
-Note: Patch on net-next: January 18.
+[    0.950734] nb8800 26000.ethernet eth0: MAC address ba:de:d6:38:b8:38
+[    0.957334] nb8800 26000.ethernet eth0: MAC address 6e:f1:48:de:d6:c4
 
-Rafal/Harini, you can continue the work for GME-GXL.
 
- drivers/net/ethernet/cadence/macb.c | 33 ++++++++++++++++-
- drivers/net/ethernet/cadence/macb.h | 74 +++++++++++++++++++++++++++++++++++++
- 2 files changed, 105 insertions(+), 2 deletions(-)
+The DT node for eth0 is:
 
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index c0fb80a..575022e 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -2085,6 +2085,9 @@ static int macb_open(struct net_device *dev)
- 
- 	netif_tx_start_all_queues(dev);
- 
-+	if (bp->ptp_info)
-+		bp->ptp_info->ptp_init(dev);
-+
- 	return 0;
- }
- 
-@@ -2106,6 +2109,9 @@ static int macb_close(struct net_device *dev)
- 
- 	macb_free_consistent(bp);
- 
-+	if (bp->ptp_info)
-+		bp->ptp_info->ptp_remove(dev);
-+
- 	return 0;
- }
- 
-@@ -2379,6 +2385,17 @@ static int macb_set_ringparam(struct net_device *netdev,
- 	return 0;
- }
- 
-+static int macb_get_ts_info(struct net_device *netdev,
-+			    struct ethtool_ts_info *info)
-+{
-+	struct macb *bp = netdev_priv(netdev);
-+
-+	if (bp->ptp_info)
-+		return bp->ptp_info->get_ts_info(netdev, info);
-+
-+	return ethtool_op_get_ts_info(netdev, info);
-+}
-+
- static const struct ethtool_ops macb_ethtool_ops = {
- 	.get_regs_len		= macb_get_regs_len,
- 	.get_regs		= macb_get_regs,
-@@ -2396,7 +2413,7 @@ static const struct ethtool_ops gem_ethtool_ops = {
- 	.get_regs_len		= macb_get_regs_len,
- 	.get_regs		= macb_get_regs,
- 	.get_link		= ethtool_op_get_link,
--	.get_ts_info		= ethtool_op_get_ts_info,
-+	.get_ts_info		= macb_get_ts_info,
- 	.get_ethtool_stats	= gem_get_ethtool_stats,
- 	.get_strings		= gem_get_ethtool_strings,
- 	.get_sset_count		= gem_get_sset_count,
-@@ -2409,6 +2426,7 @@ static const struct ethtool_ops gem_ethtool_ops = {
- static int macb_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
- {
- 	struct phy_device *phydev = dev->phydev;
-+	struct macb *bp = netdev_priv(dev);
- 
- 	if (!netif_running(dev))
- 		return -EINVAL;
-@@ -2416,7 +2434,17 @@ static int macb_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
- 	if (!phydev)
- 		return -ENODEV;
- 
--	return phy_mii_ioctl(phydev, rq, cmd);
-+	if (!bp->ptp_info)
-+		return phy_mii_ioctl(phydev, rq, cmd);
-+
-+	switch (cmd) {
-+	case SIOCSHWTSTAMP:
-+		return bp->ptp_info->set_hwtst(dev, rq, cmd);
-+	case SIOCGHWTSTAMP:
-+		return bp->ptp_info->get_hwtst(dev, rq);
-+	default:
-+		return phy_mii_ioctl(phydev, rq, cmd);
-+	}
- }
- 
- static int macb_set_features(struct net_device *netdev,
-@@ -2490,6 +2518,7 @@ static void macb_configure_caps(struct macb *bp,
- 		dcfg = gem_readl(bp, DCFG2);
- 		if ((dcfg & (GEM_BIT(RX_PKT_BUFF) | GEM_BIT(TX_PKT_BUFF))) == 0)
- 			bp->caps |= MACB_CAPS_FIFO_MODE;
-+
- 	}
- 
- 	dev_dbg(&bp->pdev->dev, "Cadence caps 0x%08x\n", bp->caps);
-diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
-index d67adad..15f4a13 100644
---- a/drivers/net/ethernet/cadence/macb.h
-+++ b/drivers/net/ethernet/cadence/macb.h
-@@ -131,6 +131,20 @@
- #define GEM_RXIPCCNT		0x01a8 /* IP header Checksum Error Counter */
- #define GEM_RXTCPCCNT		0x01ac /* TCP Checksum Error Counter */
- #define GEM_RXUDPCCNT		0x01b0 /* UDP Checksum Error Counter */
-+#define GEM_TISUBN		0x01bc /* 1588 Timer Increment Sub-ns */
-+#define GEM_TSH			0x01c0 /* 1588 Timer Seconds High */
-+#define GEM_TSL			0x01d0 /* 1588 Timer Seconds Low */
-+#define GEM_TN			0x01d4 /* 1588 Timer Nanoseconds */
-+#define GEM_TA			0x01d8 /* 1588 Timer Adjust */
-+#define GEM_TI			0x01dc /* 1588 Timer Increment */
-+#define GEM_EFTSL		0x01e0 /* PTP Event Frame Tx Seconds Low */
-+#define GEM_EFTN		0x01e4 /* PTP Event Frame Tx Nanoseconds */
-+#define GEM_EFRSL		0x01e8 /* PTP Event Frame Rx Seconds Low */
-+#define GEM_EFRN		0x01ec /* PTP Event Frame Rx Nanoseconds */
-+#define GEM_PEFTSL		0x01f0 /* PTP Peer Event Frame Tx Secs Low */
-+#define GEM_PEFTN		0x01f4 /* PTP Peer Event Frame Tx Ns */
-+#define GEM_PEFRSL		0x01f8 /* PTP Peer Event Frame Rx Sec Low */
-+#define GEM_PEFRN		0x01fc /* PTP Peer Event Frame Rx Ns */
- #define GEM_DCFG1		0x0280 /* Design Config 1 */
- #define GEM_DCFG2		0x0284 /* Design Config 2 */
- #define GEM_DCFG3		0x0288 /* Design Config 3 */
-@@ -174,6 +188,7 @@
- #define MACB_NCR_TPF_SIZE	1
- #define MACB_TZQ_OFFSET		12 /* Transmit zero quantum pause frame */
- #define MACB_TZQ_SIZE		1
-+#define MACB_SRTSM_OFFSET	15
- 
- /* Bitfields in NCFGR */
- #define MACB_SPD_OFFSET		0 /* Speed */
-@@ -319,6 +334,32 @@
- #define MACB_PTZ_SIZE		1
- #define MACB_WOL_OFFSET		14 /* Enable wake-on-lan interrupt */
- #define MACB_WOL_SIZE		1
-+#define MACB_DRQFR_OFFSET	18 /* PTP Delay Request Frame Received */
-+#define MACB_DRQFR_SIZE		1
-+#define MACB_SFR_OFFSET		19 /* PTP Sync Frame Received */
-+#define MACB_SFR_SIZE		1
-+#define MACB_DRQFT_OFFSET	20 /* PTP Delay Request Frame Transmitted */
-+#define MACB_DRQFT_SIZE		1
-+#define MACB_SFT_OFFSET		21 /* PTP Sync Frame Transmitted */
-+#define MACB_SFT_SIZE		1
-+#define MACB_PDRQFR_OFFSET	22 /* PDelay Request Frame Received */
-+#define MACB_PDRQFR_SIZE	1
-+#define MACB_PDRSFR_OFFSET	23 /* PDelay Response Frame Received */
-+#define MACB_PDRSFR_SIZE	1
-+#define MACB_PDRQFT_OFFSET	24 /* PDelay Request Frame Transmitted */
-+#define MACB_PDRQFT_SIZE	1
-+#define MACB_PDRSFT_OFFSET	25 /* PDelay Response Frame Transmitted */
-+#define MACB_PDRSFT_SIZE	1
-+#define MACB_SRI_OFFSET		26 /* TSU Seconds Register Increment */
-+#define MACB_SRI_SIZE		1
-+
-+/* Timer increment fields */
-+#define MACB_TI_CNS_OFFSET	0
-+#define MACB_TI_CNS_SIZE	8
-+#define MACB_TI_ACNS_OFFSET	8
-+#define MACB_TI_ACNS_SIZE	8
-+#define MACB_TI_NIT_OFFSET	16
-+#define MACB_TI_NIT_SIZE	8
- 
- /* Bitfields in MAN */
- #define MACB_DATA_OFFSET	0 /* data */
-@@ -386,6 +427,17 @@
- #define GEM_PBUF_LSO_OFFSET			27
- #define GEM_PBUF_LSO_SIZE			1
- 
-+/* Bitfields in TISUBN */
-+#define GEM_SUBNSINCR_OFFSET			0
-+#define GEM_SUBNSINCR_SIZE			16
-+
-+/* Bitfields in TI */
-+#define GEM_NSINCR_OFFSET			0
-+#define GEM_NSINCR_SIZE				8
-+
-+/* Bitfields in ADJ */
-+#define GEM_ADDSUB_OFFSET			31
-+#define GEM_ADDSUB_SIZE				1
- /* Constants for CLK */
- #define MACB_CLK_DIV8				0
- #define MACB_CLK_DIV16				1
-@@ -417,6 +469,7 @@
- #define MACB_CAPS_GIGABIT_MODE_AVAILABLE	0x20000000
- #define MACB_CAPS_SG_DISABLED			0x40000000
- #define MACB_CAPS_MACB_IS_GEM			0x80000000
-+#define MACB_CAPS_GEM_HAS_PTP			0x00000020
- 
- /* LSO settings */
- #define MACB_LSO_UFO_ENABLE			0x01
-@@ -782,6 +835,20 @@ struct macb_or_gem_ops {
- 	int	(*mog_rx)(struct macb *bp, int budget);
- };
- 
-+/* MACB-PTP interface: adapt to platform needs. */
-+struct macb_ptp_info {
-+	void (*ptp_init)(struct net_device *ndev);
-+	void (*ptp_remove)(struct net_device *ndev);
-+	s32 (*get_ptp_max_adj)(void);
-+	unsigned int (*get_tsu_rate)(struct macb *bp);
-+	int (*get_ts_info)(struct net_device *dev,
-+			   struct ethtool_ts_info *info);
-+	int (*get_hwtst)(struct net_device *netdev,
-+			 struct ifreq *ifr);
-+	int (*set_hwtst)(struct net_device *netdev,
-+			 struct ifreq *ifr, int cmd);
-+};
-+
- struct macb_config {
- 	u32			caps;
- 	unsigned int		dma_burst_length;
-@@ -874,6 +941,8 @@ struct macb {
- 	unsigned int		jumbo_max_len;
- 
- 	u32			wol;
-+
-+	struct macb_ptp_info	*ptp_info;	/* macb-ptp interface */
- };
- 
- static inline bool macb_is_gem(struct macb *bp)
-@@ -881,4 +950,9 @@ static inline bool macb_is_gem(struct macb *bp)
- 	return !!(bp->caps & MACB_CAPS_MACB_IS_GEM);
- }
- 
-+static inline bool gem_has_ptp(struct macb *bp)
-+{
-+	return !!(bp->caps & MACB_CAPS_GEM_HAS_PTP);
-+}
-+
- #endif /* _MACB_H */
--- 
-2.7.4
+	eth0: ethernet@26000 {
+		compatible = "sigma,smp8734-ethernet";
+		reg = <0x26000 0x800>;
+		interrupts = <38 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkgen SYS_CLK>;
+	};
+
+Documentation/devicetree/bindings/net/ethernet.txt mentions
+- local-mac-address: array of 6 bytes, specifies the MAC address that was
+  assigned to the network device;
+
+And indeed, if I define this property, eth0 ends up with the MAC address
+I specify in the device tree. But of course, I don't want all my boards
+to share the same MAC address. Every interface has a unique MAC address.
+
+In fact, the boot loader (not Uboot, a custom non-DT boot loader) stores
+the MAC address somewhere in MMIO space, in some weird custom format.
+
+So, at init, I can find the MAC address, and dynamically insert the
+"local-mac-address" property in the eth0 node.
+
+Is there another (better) way to do this?
+
+I'll post my code below, for illustration purpose.
+
+Mark suggested this can be done from user-space, but I can't do that,
+because I'm using an NFS rootfs, so I need the network before I even
+have a user-space. And the DHCP server is configured to serve different
+root filesystems, based on the MAC address.
+
+I need to do something similar with the NAND partitions. The boot loader
+stores the partition offsets somewhere, and I need to pass this info
+to the NAND framework, so I assumed that inserting the corresponding
+properties at run-time was the correct way to do it.
+
+Regards.
+
+
+
+#include <linux/of.h>
+#include <linux/io.h>
+#include <asm/unaligned.h>
+
+#define XENV_LRRW_ADDR	0x61a00
+#define XENV_LRRW_SIZE	628
+
+static u8 xenv[XENV_LRRW_SIZE] __initdata;
+
+static void __init *xenv_lookup(void *addr, const char *key, int keylen)
+{
+	u32 len = le32_to_cpup(addr);
+	void *end = addr + len;
+
+	if (len > XENV_LRRW_SIZE)
+		return NULL;
+
+	for (addr += 36; addr < end; addr += len)
+	{
+		len = get_unaligned_be16(addr) & 0xfff;
+		if (strcmp(key, addr + 2) == 0)
+			return addr + 2 + keylen;
+	}
+
+	return NULL;
+}
+
+static struct property prop;
+static u8 mac[6];
+
+static const char mac_lo[] __initconst = "lrrw.maclo";
+static const char mac_hi[] __initconst = "lrrw.machi";
+
+static int __init tango_get_mac_address(void *xenv)
+{
+	struct device_node *np = of_find_node_by_path("eth0");
+	u8 *lo = xenv_lookup(xenv, mac_lo, sizeof mac_lo);
+	u8 *hi = xenv_lookup(xenv, mac_hi, sizeof mac_hi);
+
+	if (np == NULL || lo == NULL || hi == NULL) return -ENODEV;
+
+	mac[0] = hi[1];
+	mac[1] = hi[0];
+	mac[2] = lo[3];
+	mac[3] = lo[2];
+	mac[4] = lo[1];
+	mac[5] = lo[0];
+
+	prop.name = "local-mac-address";
+	prop.length = sizeof mac;
+	prop.value = mac;
+
+	return of_update_property(np, &prop);
+}
+
+static int __init mac_fixup(void)
+{
+	void __iomem *xenv_orig = ioremap(XENV_LRRW_ADDR, XENV_LRRW_SIZE);
+	memcpy_fromio(xenv, xenv_orig, XENV_LRRW_SIZE);
+	iounmap(xenv_orig);
+	return tango_get_mac_address(xenv);
+}
+
+device_initcall(mac_fixup);
