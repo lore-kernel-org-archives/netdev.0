@@ -1,410 +1,46 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH 2/3] qed: avoid possible stack overflow in qed_ll2_acquire_connection
-Date: Wed, 18 Jan 2017 15:52:52 +0100
-Message-ID: <20170118145306.1004008-2-arnd@arndb.de>
-References: <20170118145306.1004008-1-arnd@arndb.de>
+Subject: [PATCH 1/3] cxgb4: hide unused warnings
+Date: Wed, 18 Jan 2017 15:52:51 +0100
+Message-ID: <20170118145306.1004008-1-arnd@arndb.de>
 Cc: Arnd Bergmann <arnd@arndb.de>,
         "David S. Miller" <davem@davemloft.net>,
-        Ram Amrani <Ram.Amrani@cavium.com>,
-        Wei Yongjun <weiyongjun1@huawei.com>,
-        Hannes Reinecke <hare@suse.de>, netdev@vger.kernel.org,
+        Ganesh Goudar <ganeshgr@chelsio.com>,
+        Rahul Lakkireddy <rahul.lakkireddy@chelsio.com>,
+        Varun Prakash <varun@chelsio.com>, netdev@vger.kernel.org,
         linux-kernel@vger.kernel.org
-To: Yuval Mintz <Yuval.Mintz@cavium.com>,
-        Ariel Elior <Ariel.Elior@cavium.com>,
-        everest-linux-l2@cavium.com
+To: Hariprasad S <hariprasad@chelsio.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170118145306.1004008-1-arnd@arndb.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-struct qed_ll2_info is rather large, so putting it on the stack
-can cause an overflow, as this warning tries to tell us:
+The two new variables are only used inside of an #ifdef and cause
+harmless warnings when that is disabled:
 
-drivers/net/ethernet/qlogic/qed/qed_ll2.c: In function 'qed_ll2_start':
-drivers/net/ethernet/qlogic/qed/qed_ll2.c:2159:1: error: the frame size of 1056 bytes is larger than 1024 bytes [-Werror=frame-larger-than=]
+drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c: In function 'init_one':
+drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c:4646:9: error: unused variable 'port_vec' [-Werror=unused-variable]
+drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c:4646:6: error: unused variable 'v' [-Werror=unused-variable]
 
-qed_ll2_start_ooo() already uses a dynamic allocation for the structure
-to work around that problem, and we could do the same in qed_ll2_start()
-as well as qed_roce_ll2_start(), but since the structure is only
-used to pass a couple of initialization values here, it seems nicer
-to replace it with a different structure.
+This adds another #ifdef around the declarations.
 
-Lacking any idea for better naming, I'm adding 'struct qed_ll2_conn',
-which now contains all the initialization data, and this now simply
-gets copied into struct qed_ll2_info rather than assigning all members
-one by one.
-
+Fixes: 96fe11f27b70 ("cxgb4: Implement ndo_get_phys_port_id for mgmt dev")
 Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
- drivers/net/ethernet/qlogic/qed/qed_ll2.c  | 88 +++++++++++++-----------------
- drivers/net/ethernet/qlogic/qed/qed_ll2.h  | 24 ++++----
- drivers/net/ethernet/qlogic/qed/qed_roce.c |  2 +-
- 3 files changed, 53 insertions(+), 61 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_ll2.c b/drivers/net/ethernet/qlogic/qed/qed_ll2.c
-index 05e32f4322eb..02c5d47cfc6d 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_ll2.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_ll2.c
-@@ -320,7 +320,7 @@ static void qed_ll2_txq_flush(struct qed_hwfn *p_hwfn, u8 connection_handle)
- 		list_del(&p_pkt->list_entry);
- 		b_last_packet = list_empty(&p_tx->active_descq);
- 		list_add_tail(&p_pkt->list_entry, &p_tx->free_descq);
--		if (p_ll2_conn->conn_type == QED_LL2_TYPE_ISCSI_OOO) {
-+		if (p_ll2_conn->conn.conn_type == QED_LL2_TYPE_ISCSI_OOO) {
- 			struct qed_ooo_buffer *p_buffer;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 4da6f900ff24..49e000ebd2b9 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -4643,7 +4643,9 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	u32 whoami, pl_rev;
+ 	enum chip_type chip;
+ 	static int adap_idx = 1;
++#ifdef CONFIG_PCI_IOV
+ 	u32 v, port_vec;
++#endif
  
- 			p_buffer = (struct qed_ooo_buffer *)p_pkt->cookie;
-@@ -332,7 +332,7 @@ static void qed_ll2_txq_flush(struct qed_hwfn *p_hwfn, u8 connection_handle)
- 			b_last_frag =
- 				p_tx->cur_completing_bd_idx == p_pkt->bd_used;
- 			tx_frag = p_pkt->bds_set[0].tx_frag;
--			if (p_ll2_conn->gsi_enable)
-+			if (p_ll2_conn->conn.gsi_enable)
- 				qed_ll2b_release_tx_gsi_packet(p_hwfn,
- 							       p_ll2_conn->
- 							       my_id,
-@@ -401,7 +401,7 @@ static int qed_ll2_txq_completion(struct qed_hwfn *p_hwfn, void *p_cookie)
+ 	printk_once(KERN_INFO "%s - version %s\n", DRV_DESC, DRV_VERSION);
  
- 		spin_unlock_irqrestore(&p_tx->lock, flags);
- 		tx_frag = p_pkt->bds_set[0].tx_frag;
--		if (p_ll2_conn->gsi_enable)
-+		if (p_ll2_conn->conn.gsi_enable)
- 			qed_ll2b_complete_tx_gsi_packet(p_hwfn,
- 							p_ll2_conn->my_id,
- 							p_pkt->cookie,
-@@ -573,7 +573,7 @@ static void qed_ll2_rxq_flush(struct qed_hwfn *p_hwfn, u8 connection_handle)
- 
- 		list_move_tail(&p_pkt->list_entry, &p_rx->free_descq);
- 
--		if (p_ll2_conn->conn_type == QED_LL2_TYPE_ISCSI_OOO) {
-+		if (p_ll2_conn->conn.conn_type == QED_LL2_TYPE_ISCSI_OOO) {
- 			struct qed_ooo_buffer *p_buffer;
- 
- 			p_buffer = (struct qed_ooo_buffer *)p_pkt->cookie;
-@@ -761,7 +761,7 @@ qed_ooo_submit_tx_buffers(struct qed_hwfn *p_hwfn,
- 		rc = qed_ll2_prepare_tx_packet(p_hwfn, p_ll2_conn->my_id, 1,
- 					       p_buffer->vlan, bd_flags,
- 					       l4_hdr_offset_w,
--					       p_ll2_conn->tx_dest, 0,
-+					       p_ll2_conn->conn.tx_dest, 0,
- 					       first_frag,
- 					       p_buffer->packet_length,
- 					       p_buffer, true);
-@@ -881,7 +881,7 @@ qed_ll2_acquire_connection_ooo(struct qed_hwfn *p_hwfn,
- 	u16 buf_idx;
- 	int rc = 0;
- 
--	if (p_ll2_info->conn_type != QED_LL2_TYPE_ISCSI_OOO)
-+	if (p_ll2_info->conn.conn_type != QED_LL2_TYPE_ISCSI_OOO)
- 		return rc;
- 
- 	if (!rx_num_ooo_buffers)
-@@ -924,7 +924,7 @@ static void
- qed_ll2_establish_connection_ooo(struct qed_hwfn *p_hwfn,
- 				 struct qed_ll2_info *p_ll2_conn)
- {
--	if (p_ll2_conn->conn_type != QED_LL2_TYPE_ISCSI_OOO)
-+	if (p_ll2_conn->conn.conn_type != QED_LL2_TYPE_ISCSI_OOO)
- 		return;
- 
- 	qed_ooo_release_all_isles(p_hwfn, p_hwfn->p_ooo_info);
-@@ -936,7 +936,7 @@ static void qed_ll2_release_connection_ooo(struct qed_hwfn *p_hwfn,
- {
- 	struct qed_ooo_buffer *p_buffer;
- 
--	if (p_ll2_conn->conn_type != QED_LL2_TYPE_ISCSI_OOO)
-+	if (p_ll2_conn->conn.conn_type != QED_LL2_TYPE_ISCSI_OOO)
- 		return;
- 
- 	qed_ooo_release_all_isles(p_hwfn, p_hwfn->p_ooo_info);
-@@ -968,23 +968,19 @@ static int qed_ll2_start_ooo(struct qed_dev *cdev,
- {
- 	struct qed_hwfn *hwfn = QED_LEADING_HWFN(cdev);
- 	u8 *handle = &hwfn->pf_params.iscsi_pf_params.ll2_ooo_queue_id;
--	struct qed_ll2_info *ll2_info;
-+	struct qed_ll2_conn ll2_info;
- 	int rc;
- 
--	ll2_info = kzalloc(sizeof(*ll2_info), GFP_KERNEL);
--	if (!ll2_info)
--		return -ENOMEM;
--	ll2_info->conn_type = QED_LL2_TYPE_ISCSI_OOO;
--	ll2_info->mtu = params->mtu;
--	ll2_info->rx_drop_ttl0_flg = params->drop_ttl0_packets;
--	ll2_info->rx_vlan_removal_en = params->rx_vlan_stripping;
--	ll2_info->tx_tc = OOO_LB_TC;
--	ll2_info->tx_dest = CORE_TX_DEST_LB;
--
--	rc = qed_ll2_acquire_connection(hwfn, ll2_info,
-+	ll2_info.conn_type = QED_LL2_TYPE_ISCSI_OOO;
-+	ll2_info.mtu = params->mtu;
-+	ll2_info.rx_drop_ttl0_flg = params->drop_ttl0_packets;
-+	ll2_info.rx_vlan_removal_en = params->rx_vlan_stripping;
-+	ll2_info.tx_tc = OOO_LB_TC;
-+	ll2_info.tx_dest = CORE_TX_DEST_LB;
-+
-+	rc = qed_ll2_acquire_connection(hwfn, &ll2_info,
- 					QED_LL2_RX_SIZE, QED_LL2_TX_SIZE,
- 					handle);
--	kfree(ll2_info);
- 	if (rc) {
- 		DP_INFO(cdev, "Failed to acquire LL2 OOO connection\n");
- 		goto out;
-@@ -1029,7 +1025,7 @@ static int qed_sp_ll2_rx_queue_start(struct qed_hwfn *p_hwfn,
- 				     struct qed_ll2_info *p_ll2_conn,
- 				     u8 action_on_error)
- {
--	enum qed_ll2_conn_type conn_type = p_ll2_conn->conn_type;
-+	enum qed_ll2_conn_type conn_type = p_ll2_conn->conn.conn_type;
- 	struct qed_ll2_rx_queue *p_rx = &p_ll2_conn->rx_queue;
- 	struct core_rx_start_ramrod_data *p_ramrod = NULL;
- 	struct qed_spq_entry *p_ent = NULL;
-@@ -1055,7 +1051,7 @@ static int qed_sp_ll2_rx_queue_start(struct qed_hwfn *p_hwfn,
- 	p_ramrod->sb_index = p_rx->rx_sb_index;
- 	p_ramrod->complete_event_flg = 1;
- 
--	p_ramrod->mtu = cpu_to_le16(p_ll2_conn->mtu);
-+	p_ramrod->mtu = cpu_to_le16(p_ll2_conn->conn.mtu);
- 	DMA_REGPAIR_LE(p_ramrod->bd_base,
- 		       p_rx->rxq_chain.p_phys_addr);
- 	cqe_pbl_size = (u16)qed_chain_get_page_cnt(&p_rx->rcq_chain);
-@@ -1063,8 +1059,8 @@ static int qed_sp_ll2_rx_queue_start(struct qed_hwfn *p_hwfn,
- 	DMA_REGPAIR_LE(p_ramrod->cqe_pbl_addr,
- 		       qed_chain_get_pbl_phys(&p_rx->rcq_chain));
- 
--	p_ramrod->drop_ttl0_flg = p_ll2_conn->rx_drop_ttl0_flg;
--	p_ramrod->inner_vlan_removal_en = p_ll2_conn->rx_vlan_removal_en;
-+	p_ramrod->drop_ttl0_flg = p_ll2_conn->conn.rx_drop_ttl0_flg;
-+	p_ramrod->inner_vlan_removal_en = p_ll2_conn->conn.rx_vlan_removal_en;
- 	p_ramrod->queue_id = p_ll2_conn->queue_id;
- 	p_ramrod->main_func_queue = (conn_type == QED_LL2_TYPE_ISCSI_OOO) ? 0
- 									  : 1;
-@@ -1079,14 +1075,14 @@ static int qed_sp_ll2_rx_queue_start(struct qed_hwfn *p_hwfn,
- 	}
- 
- 	p_ramrod->action_on_error.error_type = action_on_error;
--	p_ramrod->gsi_offload_flag = p_ll2_conn->gsi_enable;
-+	p_ramrod->gsi_offload_flag = p_ll2_conn->conn.gsi_enable;
- 	return qed_spq_post(p_hwfn, p_ent, NULL);
- }
- 
- static int qed_sp_ll2_tx_queue_start(struct qed_hwfn *p_hwfn,
- 				     struct qed_ll2_info *p_ll2_conn)
- {
--	enum qed_ll2_conn_type conn_type = p_ll2_conn->conn_type;
-+	enum qed_ll2_conn_type conn_type = p_ll2_conn->conn.conn_type;
- 	struct qed_ll2_tx_queue *p_tx = &p_ll2_conn->tx_queue;
- 	struct core_tx_start_ramrod_data *p_ramrod = NULL;
- 	struct qed_spq_entry *p_ent = NULL;
-@@ -1098,7 +1094,7 @@ static int qed_sp_ll2_tx_queue_start(struct qed_hwfn *p_hwfn,
- 	if (!QED_LL2_TX_REGISTERED(p_ll2_conn))
- 		return 0;
- 
--	if (p_ll2_conn->conn_type == QED_LL2_TYPE_ISCSI_OOO)
-+	if (p_ll2_conn->conn.conn_type == QED_LL2_TYPE_ISCSI_OOO)
- 		p_ll2_conn->tx_stats_en = 0;
- 	else
- 		p_ll2_conn->tx_stats_en = 1;
-@@ -1119,7 +1115,7 @@ static int qed_sp_ll2_tx_queue_start(struct qed_hwfn *p_hwfn,
- 
- 	p_ramrod->sb_id = cpu_to_le16(qed_int_get_sp_sb_id(p_hwfn));
- 	p_ramrod->sb_index = p_tx->tx_sb_index;
--	p_ramrod->mtu = cpu_to_le16(p_ll2_conn->mtu);
-+	p_ramrod->mtu = cpu_to_le16(p_ll2_conn->conn.mtu);
- 	p_ramrod->stats_en = p_ll2_conn->tx_stats_en;
- 	p_ramrod->stats_id = p_ll2_conn->tx_stats_id;
- 
-@@ -1129,7 +1125,7 @@ static int qed_sp_ll2_tx_queue_start(struct qed_hwfn *p_hwfn,
- 	p_ramrod->pbl_size = cpu_to_le16(pbl_size);
- 
- 	memset(&pq_params, 0, sizeof(pq_params));
--	pq_params.core.tc = p_ll2_conn->tx_tc;
-+	pq_params.core.tc = p_ll2_conn->conn.tx_tc;
- 	pq_id = qed_get_qm_pq(p_hwfn, PROTOCOLID_CORE, &pq_params);
- 	p_ramrod->qm_pq_id = cpu_to_le16(pq_id);
- 
-@@ -1146,7 +1142,7 @@ static int qed_sp_ll2_tx_queue_start(struct qed_hwfn *p_hwfn,
- 		DP_NOTICE(p_hwfn, "Unknown connection type: %d\n", conn_type);
- 	}
- 
--	p_ramrod->gsi_offload_flag = p_ll2_conn->gsi_enable;
-+	p_ramrod->gsi_offload_flag = p_ll2_conn->conn.gsi_enable;
- 	return qed_spq_post(p_hwfn, p_ent, NULL);
- }
- 
-@@ -1247,7 +1243,7 @@ qed_ll2_acquire_connection_rx(struct qed_hwfn *p_hwfn,
- 
- 	DP_VERBOSE(p_hwfn, QED_MSG_LL2,
- 		   "Allocated LL2 Rxq [Type %08x] with 0x%08x buffers\n",
--		   p_ll2_info->conn_type, rx_num_desc);
-+		   p_ll2_info->conn.conn_type, rx_num_desc);
- 
- out:
- 	return rc;
-@@ -1285,7 +1281,7 @@ static int qed_ll2_acquire_connection_tx(struct qed_hwfn *p_hwfn,
- 
- 	DP_VERBOSE(p_hwfn, QED_MSG_LL2,
- 		   "Allocated LL2 Txq [Type %08x] with 0x%08x buffers\n",
--		   p_ll2_info->conn_type, tx_num_desc);
-+		   p_ll2_info->conn.conn_type, tx_num_desc);
- 
- out:
- 	if (rc)
-@@ -1296,7 +1292,7 @@ static int qed_ll2_acquire_connection_tx(struct qed_hwfn *p_hwfn,
- }
- 
- int qed_ll2_acquire_connection(struct qed_hwfn *p_hwfn,
--			       struct qed_ll2_info *p_params,
-+			       struct qed_ll2_conn *p_params,
- 			       u16 rx_num_desc,
- 			       u16 tx_num_desc,
- 			       u8 *p_connection_handle)
-@@ -1325,15 +1321,7 @@ int qed_ll2_acquire_connection(struct qed_hwfn *p_hwfn,
- 	if (!p_ll2_info)
- 		return -EBUSY;
- 
--	p_ll2_info->conn_type = p_params->conn_type;
--	p_ll2_info->mtu = p_params->mtu;
--	p_ll2_info->rx_drop_ttl0_flg = p_params->rx_drop_ttl0_flg;
--	p_ll2_info->rx_vlan_removal_en = p_params->rx_vlan_removal_en;
--	p_ll2_info->tx_tc = p_params->tx_tc;
--	p_ll2_info->tx_dest = p_params->tx_dest;
--	p_ll2_info->ai_err_packet_too_big = p_params->ai_err_packet_too_big;
--	p_ll2_info->ai_err_no_buf = p_params->ai_err_no_buf;
--	p_ll2_info->gsi_enable = p_params->gsi_enable;
-+	p_ll2_info->conn = *p_params;
- 
- 	rc = qed_ll2_acquire_connection_rx(p_hwfn, p_ll2_info, rx_num_desc);
- 	if (rc)
-@@ -1394,9 +1382,9 @@ static int qed_ll2_establish_connection_rx(struct qed_hwfn *p_hwfn,
- 
- 	SET_FIELD(action_on_error,
- 		  CORE_RX_ACTION_ON_ERROR_PACKET_TOO_BIG,
--		  p_ll2_conn->ai_err_packet_too_big);
-+		  p_ll2_conn->conn.ai_err_packet_too_big);
- 	SET_FIELD(action_on_error,
--		  CORE_RX_ACTION_ON_ERROR_NO_BUFF, p_ll2_conn->ai_err_no_buf);
-+		  CORE_RX_ACTION_ON_ERROR_NO_BUFF, p_ll2_conn->conn.ai_err_no_buf);
- 
- 	return qed_sp_ll2_rx_queue_start(p_hwfn, p_ll2_conn, action_on_error);
- }
-@@ -1623,7 +1611,7 @@ static void qed_ll2_prepare_tx_packet_set_bd(struct qed_hwfn *p_hwfn,
- 		   "LL2 [q 0x%02x cid 0x%08x type 0x%08x] Tx Producer at [0x%04x] - set with a %04x bytes %02x BDs buffer at %08x:%08x\n",
- 		   p_ll2->queue_id,
- 		   p_ll2->cid,
--		   p_ll2->conn_type,
-+		   p_ll2->conn.conn_type,
- 		   prod_idx,
- 		   first_frag_len,
- 		   num_of_bds,
-@@ -1699,7 +1687,7 @@ static void qed_ll2_tx_packet_notify(struct qed_hwfn *p_hwfn,
- 		   (NETIF_MSG_TX_QUEUED | QED_MSG_LL2),
- 		   "LL2 [q 0x%02x cid 0x%08x type 0x%08x] Doorbelled [producer 0x%04x]\n",
- 		   p_ll2_conn->queue_id,
--		   p_ll2_conn->cid, p_ll2_conn->conn_type, db_msg.spq_prod);
-+		   p_ll2_conn->cid, p_ll2_conn->conn.conn_type, db_msg.spq_prod);
- }
- 
- int qed_ll2_prepare_tx_packet(struct qed_hwfn *p_hwfn,
-@@ -1840,7 +1828,7 @@ int qed_ll2_terminate_connection(struct qed_hwfn *p_hwfn, u8 connection_handle)
- 		qed_ll2_rxq_flush(p_hwfn, connection_handle);
- 	}
- 
--	if (p_ll2_conn->conn_type == QED_LL2_TYPE_ISCSI_OOO)
-+	if (p_ll2_conn->conn.conn_type == QED_LL2_TYPE_ISCSI_OOO)
- 		qed_ooo_release_all_isles(p_hwfn, p_hwfn->p_ooo_info);
- 
- 	return rc;
-@@ -2016,7 +2004,7 @@ static void qed_ll2_register_cb_ops(struct qed_dev *cdev,
- 
- static int qed_ll2_start(struct qed_dev *cdev, struct qed_ll2_params *params)
- {
--	struct qed_ll2_info ll2_info;
-+	struct qed_ll2_conn ll2_info;
- 	struct qed_ll2_buffer *buffer, *tmp_buffer;
- 	enum qed_ll2_conn_type conn_type;
- 	struct qed_ptt *p_ptt;
-@@ -2064,6 +2052,7 @@ static int qed_ll2_start(struct qed_dev *cdev, struct qed_ll2_params *params)
- 
- 	/* Prepare the temporary ll2 information */
- 	memset(&ll2_info, 0, sizeof(ll2_info));
-+
- 	ll2_info.conn_type = conn_type;
- 	ll2_info.mtu = params->mtu;
- 	ll2_info.rx_drop_ttl0_flg = params->drop_ttl0_packets;
-@@ -2143,7 +2132,6 @@ static int qed_ll2_start(struct qed_dev *cdev, struct qed_ll2_params *params)
- 	}
- 
- 	ether_addr_copy(cdev->ll2_mac_address, params->ll2_mac_address);
--
- 	return 0;
- 
- release_terminate_all:
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_ll2.h b/drivers/net/ethernet/qlogic/qed/qed_ll2.h
-index c7f2975590ee..db3e4fc78e09 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_ll2.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_ll2.h
-@@ -135,15 +135,8 @@ struct qed_ll2_tx_queue {
- 	bool b_completing_packet;
- };
- 
--struct qed_ll2_info {
--	/* Lock protecting the state of LL2 */
--	struct mutex mutex;
-+struct qed_ll2_conn {
- 	enum qed_ll2_conn_type conn_type;
--	u32 cid;
--	u8 my_id;
--	u8 queue_id;
--	u8 tx_stats_id;
--	bool b_active;
- 	u16 mtu;
- 	u8 rx_drop_ttl0_flg;
- 	u8 rx_vlan_removal_en;
-@@ -151,10 +144,21 @@ struct qed_ll2_info {
- 	enum core_tx_dest tx_dest;
- 	enum core_error_handle ai_err_packet_too_big;
- 	enum core_error_handle ai_err_no_buf;
-+	u8 gsi_enable;
-+};
-+
-+struct qed_ll2_info {
-+	/* Lock protecting the state of LL2 */
-+	struct mutex mutex;
-+	struct qed_ll2_conn conn;
-+	u32 cid;
-+	u8 my_id;
-+	u8 queue_id;
-+	u8 tx_stats_id;
-+	bool b_active;
- 	u8 tx_stats_en;
- 	struct qed_ll2_rx_queue rx_queue;
- 	struct qed_ll2_tx_queue tx_queue;
--	u8 gsi_enable;
- };
- 
- /**
-@@ -172,7 +176,7 @@ struct qed_ll2_info {
-  * @return 0 on success, failure otherwise
-  */
- int qed_ll2_acquire_connection(struct qed_hwfn *p_hwfn,
--			       struct qed_ll2_info *p_params,
-+			       struct qed_ll2_conn *p_params,
- 			       u16 rx_num_desc,
- 			       u16 tx_num_desc,
- 			       u8 *p_connection_handle);
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_roce.c b/drivers/net/ethernet/qlogic/qed/qed_roce.c
-index bd4cad2b343b..c3c8c5018e93 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_roce.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_roce.c
-@@ -2632,7 +2632,7 @@ static int qed_roce_ll2_start(struct qed_dev *cdev,
- {
- 	struct qed_hwfn *hwfn = QED_LEADING_HWFN(cdev);
- 	struct qed_roce_ll2_info *roce_ll2;
--	struct qed_ll2_info ll2_params;
-+	struct qed_ll2_conn ll2_params;
- 	int rc;
- 
- 	if (!params) {
 -- 
 2.9.0
