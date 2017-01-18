@@ -1,47 +1,69 @@
-From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-Subject: Re: [RFC v2 00/10] HFI Virtual Network Interface Controller (VNIC)
-Date: Wed, 18 Jan 2017 09:46:43 -0700
-Message-ID: <20170118164643.GB14198@obsidianresearch.com>
-References: <20161215091226.GC811@mtr-leonro.local>
- <20161215145212.GA29116@phlsvsds.ph.intel.com>
- <380b05bf-a18e-1f20-7e8e-10b61f77dec7@redhat.com>
- <20161215170713.GD3264@obsidianresearch.com>
- <4e22bf29-2260-0768-ab17-9a8df6306f37@redhat.com>
- <20161215184837.GA16552@obsidianresearch.com>
- <20161216012404.GD3785@phlsvsds.ph.intel.com>
- <20161216041727.GA3797@obsidianresearch.com>
- <20170117192720.GA2833@knc-06.sc.intel.com>
- <20170118054354.GT32481@mtr-leonro.local>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH v2 net-next] net:add one common config ARCH_WANT_RELAX_ORDER
+ to support relax ordering.
+Date: Wed, 18 Jan 2017 09:25:09 -0800
+Message-ID: <CAKgT0Ud5K4GZtbyNOMUh=o8oGTukPA7qvvnK6ptO+KwaTSqGkA@mail.gmail.com>
+References: <1483939954-9864-1-git-send-email-maowenan@huawei.com>
+ <20170117.141533.680344033700095483.davem@davemloft.net> <063D6719AE5E284EB5DD2968C1650D6DB0266CD6@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura@intel.com>,
-        "ira.weiny" <ira.weiny@intel.com>,
-        Doug Ledford <dledford@redhat.com>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
-        dennis.dalessandro@intel.com
-To: Leon Romanovsky <leon@kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+        "maowenan@huawei.com" <maowenan@huawei.com>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>
+To: David Laight <David.Laight@aculab.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from quartz.orcorp.ca ([184.70.90.242]:39742 "EHLO quartz.orcorp.ca"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1750943AbdARRYF (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 18 Jan 2017 12:24:05 -0500
-Content-Disposition: inline
-In-Reply-To: <20170118054354.GT32481@mtr-leonro.local>
+Received: from mail-io0-f193.google.com ([209.85.223.193]:34939 "EHLO
+        mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751292AbdARRZo (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2017 12:25:44 -0500
+Received: by mail-io0-f193.google.com with SMTP id m98so2329054iod.2
+        for <netdev@vger.kernel.org>; Wed, 18 Jan 2017 09:25:11 -0800 (PST)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB0266CD6@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 18, 2017 at 07:43:54AM +0200, Leon Romanovsky wrote:
-> > I have started working on porting hfi_vnic as per this new interface.
-> > I will post RFC v3 later.
-> > Posting the interface definition early for comments.
-> 
-> I wonder how many people will comment it without seeing usage example.
+On Wed, Jan 18, 2017 at 8:22 AM, David Laight <David.Laight@aculab.com> wrote:
+> From: David Miller
+>> Sent: 17 January 2017 19:16
+>> > Relax ordering(RO) is one feature of 82599 NIC, to enable this feature can
+>> > enhance the performance for some cpu architecure, such as SPARC and so on.
+>> > Currently it only supports one special cpu architecture(SPARC) in 82599
+>> > driver to enable RO feature, this is not very common for other cpu architecture
+>> > which really needs RO feature.
+>> > This patch add one common config CONFIG_ARCH_WANT_RELAX_ORDER to set RO feature,
+>> > and should define CONFIG_ARCH_WANT_RELAX_ORDER in sparc Kconfig firstly.
+>> >
+>> > Signed-off-by: Mao Wenan <maowenan@huawei.com>
+>>
+>> Since no-one has reviewed this patch, and I do not feel comfortable with applying
+>> it without such review, I am tossing this patch.
+>>
+>> If someone eventually reviews it, repost this patch.
+>
+> Having re-read parts of the PCIe spec I think I'd like someone to
+> explain exactly which transfers are affected by the 'relaxed ordering'
+> bit and why any re-ordered transactions aren't a problem.
+>
+> In particular I believe RO allows the write to update the receive
+> descriptor ring to overtake a write of receive packet data.
+> That could lead to the network stack processing a receive frame
+> before it has actually been written.
+>
+>         David
+>
 
-It is my hope that Mellanox will contribute to this and use it for
-ipoib - we've have had conversations along these lines in the
-past... Apparently mlx4/5 could run quite a bit faster if used like
-this.
+The Relaxed Ordering attribute doesn't get applied across the board.
+It ends up being limited to a subset of the transactions if I recall
+correctly.  In this case it is the Tx descriptor write back, and the
+Rx data write back.  We don't apply the RO bit to any other
+transactions.
 
-Jason
+In the case of Tx descriptor there is no harm in allowing it to be
+reordered because we only really read the DD bit so we don't care
+about the ordering of the write back.  In the case of the Rx data the
+Rx descriptor essentially acts as a flush since it is sent without the
+RO bit set.  So all the writes before it must be completed before the
+Rx descriptor write back.
+
+- Alex
