@@ -1,58 +1,40 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [net PATCH] bpf: fix samples xdp_tx_iptunnel and tc_l2_redirect
- with fake KBUILD_MODNAME
-Date: Wed, 18 Jan 2017 17:19:00 +0100
-Message-ID: <148475634058.19645.17347886661194782120.stgit@firesoul>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: ethtool: avoid allocation failure for dump_regs
+Date: Wed, 18 Jan 2017 11:45:05 -0500 (EST)
+Message-ID: <20170118.114505.1855687422610394730.davem@davemloft.net>
+References: <1484746445-97920-1-git-send-email-darcari@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <borkmann@iogearbox.net>, kafai@fb.com,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>
-To: netdev@vger.kernel.org, Jesper Dangaard Brouer <brouer@redhat.com>
+Cc: netdev@vger.kernel.org
+To: darcari@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53222 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1754070AbdARQo0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 18 Jan 2017 11:44:26 -0500
+Received: from shards.monkeyblade.net ([184.105.139.130]:36060 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752065AbdARQpH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2017 11:45:07 -0500
+In-Reply-To: <1484746445-97920-1-git-send-email-darcari@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix build errors for samples/bpf xdp_tx_iptunnel and tc_l2_redirect,
-when dynamic debugging is enabled (CONFIG_DYNAMIC_DEBUG) by defining a
-fake KBUILD_MODNAME.
+From: David Arcari <darcari@redhat.com>
+Date: Wed, 18 Jan 2017 08:34:05 -0500
 
-Just like Daniel Borkmann fixed other samples/bpf in commit
-96a8eb1eeed2 ("bpf: fix samples to add fake KBUILD_MODNAME").
+> If the user executes 'ethtool -d' for an interface and the associated
+> get_regs_len() function returns 0, the user will see a call trace from
+> the vmalloc() call in ethtool_get_regs().  This patch modifies
+> ethtool_get_regs() to avoid the call to vmalloc when the size is zero.
+> 
+> Signed-off-by: David Arcari <darcari@redhat.com>
 
-Fixes: 12d8bb64e3f6 ("bpf: xdp: Add XDP example for head adjustment")
-Fixes: 90e02896f1a4 ("bpf: Add test for bpf_redirect to ipip/ip6tnl")
-Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
----
- samples/bpf/tc_l2_redirect_kern.c  |    1 +
- samples/bpf/xdp_tx_iptunnel_kern.c |    1 +
- 2 files changed, 2 insertions(+)
+I think when the driver indicates this, it is equivalent to saying that
+the operation isn't supported.
 
-diff --git a/samples/bpf/tc_l2_redirect_kern.c b/samples/bpf/tc_l2_redirect_kern.c
-index 92a44729dbe4..7ef2a12b25b2 100644
---- a/samples/bpf/tc_l2_redirect_kern.c
-+++ b/samples/bpf/tc_l2_redirect_kern.c
-@@ -4,6 +4,7 @@
-  * modify it under the terms of version 2 of the GNU General Public
-  * License as published by the Free Software Foundation.
-  */
-+#define KBUILD_MODNAME "foo"
- #include <uapi/linux/bpf.h>
- #include <uapi/linux/if_ether.h>
- #include <uapi/linux/if_packet.h>
-diff --git a/samples/bpf/xdp_tx_iptunnel_kern.c b/samples/bpf/xdp_tx_iptunnel_kern.c
-index 85c38ecd3a2d..0f4f6e8c8611 100644
---- a/samples/bpf/xdp_tx_iptunnel_kern.c
-+++ b/samples/bpf/xdp_tx_iptunnel_kern.c
-@@ -8,6 +8,7 @@
-  * encapsulating the incoming packet in an IPv4/v6 header
-  * and then XDP_TX it out.
-  */
-+#define KBUILD_MODNAME "foo"
- #include <uapi/linux/bpf.h>
- #include <linux/in.h>
- #include <linux/if_ether.h>
+Also, this guards us against ->get_regs() methods that don't handle
+zero length requests properly.  I see many which are going to do
+really terrible things in that situation.
+
+Therefore, if get_regs_len() returns zero, treat it the safe as if the
+ethtool operations were NULL.
+
+Thanks.
