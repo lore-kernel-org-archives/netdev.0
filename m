@@ -1,69 +1,59 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH v2 net-next] net:add one common config ARCH_WANT_RELAX_ORDER
- to support relax ordering.
-Date: Wed, 18 Jan 2017 09:25:09 -0800
-Message-ID: <CAKgT0Ud5K4GZtbyNOMUh=o8oGTukPA7qvvnK6ptO+KwaTSqGkA@mail.gmail.com>
-References: <1483939954-9864-1-git-send-email-maowenan@huawei.com>
- <20170117.141533.680344033700095483.davem@davemloft.net> <063D6719AE5E284EB5DD2968C1650D6DB0266CD6@AcuExch.aculab.com>
+From: Alexey Kodanev <alexey.kodanev@oracle.com>
+Subject: Re: resend: tcp: performance issue with fastopen connections (mss >
+ window)
+Date: Wed, 18 Jan 2017 20:32:51 +0300
+Message-ID: <3dbbcda8-ce79-641c-cf3b-21f41c563939@oracle.com>
+References: <30f38b3c-8c5c-7fab-e424-985e63ad900a@oracle.com>
+ <1484321734.13165.24.camel@edumazet-glaptop3.roam.corp.google.com>
+ <22b07900-2151-a31f-34aa-7fb47c958423@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-        "maowenan@huawei.com" <maowenan@huawei.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "jeffrey.t.kirsher@intel.com" <jeffrey.t.kirsher@intel.com>
-To: David Laight <David.Laight@aculab.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+        Vasily Isaenko <vasily.isaenko@oracle.com>,
+        Neal Cardwell <ncardwell@google.com>,
+        Yuchung Cheng <ycheng@google.com>,
+        Eric Dumazet <edumazet@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f193.google.com ([209.85.223.193]:34939 "EHLO
-        mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751292AbdARRZo (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2017 12:25:44 -0500
-Received: by mail-io0-f193.google.com with SMTP id m98so2329054iod.2
-        for <netdev@vger.kernel.org>; Wed, 18 Jan 2017 09:25:11 -0800 (PST)
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6DB0266CD6@AcuExch.aculab.com>
+Received: from userp1040.oracle.com ([156.151.31.81]:39325 "EHLO
+        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751081AbdARR1V (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2017 12:27:21 -0500
+In-Reply-To: <22b07900-2151-a31f-34aa-7fb47c958423@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 18, 2017 at 8:22 AM, David Laight <David.Laight@aculab.com> wrote:
-> From: David Miller
->> Sent: 17 January 2017 19:16
->> > Relax ordering(RO) is one feature of 82599 NIC, to enable this feature can
->> > enhance the performance for some cpu architecure, such as SPARC and so on.
->> > Currently it only supports one special cpu architecture(SPARC) in 82599
->> > driver to enable RO feature, this is not very common for other cpu architecture
->> > which really needs RO feature.
->> > This patch add one common config CONFIG_ARCH_WANT_RELAX_ORDER to set RO feature,
->> > and should define CONFIG_ARCH_WANT_RELAX_ORDER in sparc Kconfig firstly.
->> >
->> > Signed-off-by: Mao Wenan <maowenan@huawei.com>
->>
->> Since no-one has reviewed this patch, and I do not feel comfortable with applying
->> it without such review, I am tossing this patch.
->>
->> If someone eventually reviews it, repost this patch.
->
-> Having re-read parts of the PCIe spec I think I'd like someone to
-> explain exactly which transfers are affected by the 'relaxed ordering'
-> bit and why any re-ordered transactions aren't a problem.
->
-> In particular I believe RO allows the write to update the receive
-> descriptor ring to overtake a write of receive packet data.
-> That could lead to the network stack processing a receive frame
-> before it has actually been written.
->
->         David
->
+Hi Eric,
 
-The Relaxed Ordering attribute doesn't get applied across the board.
-It ends up being limited to a subset of the transactions if I recall
-correctly.  In this case it is the Tx descriptor write back, and the
-Rx data write back.  We don't apply the RO bit to any other
-transactions.
+On 01/13/2017 08:07 PM, Alexey Kodanev wrote:
 
-In the case of Tx descriptor there is no harm in allowing it to be
-reordered because we only really read the DD bit so we don't care
-about the ordering of the write back.  In the case of the Rx data the
-Rx descriptor essentially acts as a flush since it is sent without the
-RO bit set.  So all the writes before it must be completed before the
-Rx descriptor write back.
+> Hi Eric,
+> On 13.01.2017 18:35, Eric Dumazet wrote:
+>
+>> I would suggest to clamp MSS to half the initial window, but I guess
+>> this is impractical since window in SYN/SYNACK are not scaled.
 
-- Alex
+Looks like max_window not correctly initialized for tfo sockets.
+On my test machine it has set to '5592320' in tcp_fastopen_create_child().
+
+This diff fixes the issue, the question: is this the right place to do it?
+
+diff --git a/net/ipv4/tcp_fastopen.c b/net/ipv4/tcp_fastopen.c
+index 4e777a3..33ed508 100644
+--- a/net/ipv4/tcp_fastopen.c
++++ b/net/ipv4/tcp_fastopen.c
+@@ -206,6 +206,8 @@ static struct sock *tcp_fastopen_create_child(struct 
+sock *sk,
+          */
+         tp->snd_wnd = ntohs(tcp_hdr(skb)->window);
+
++       tp->max_window = tp->snd_wnd;
++
+         /* Activate the retrans timer so that SYNACK can be retransmitted.
+          * The request socket is not added to the ehash
+          * because it's been added to the accept queue directly.
+
+
+Thanks,
+Alexey
