@@ -1,73 +1,84 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next v4 05/10] drivers: base: Add
- device_find_in_class_name()
-Date: Tue, 17 Jan 2017 16:13:11 -0800
-Message-ID: <dbb8a715-0e34-24a6-803e-dad4b13d14af@gmail.com>
-References: <20170117232152.1661-1-f.fainelli@gmail.com>
- <20170117232152.1661-6-f.fainelli@gmail.com>
- <CAHp75VfE8t+_2Yu1NYMErKopnCNwFakO6pyDRmqAU-ZsGuyvmg@mail.gmail.com>
- <b8cc0d2f-f544-0e06-32bd-47e6b9be5393@gmail.com>
- <CAHp75Ve9xn6wDxFwnkPDyY8yVwVysK3-pUsoxv3GfVbbEVZoBg@mail.gmail.com>
- <e3132d31-f94f-8794-1121-0fe25be2f61b@gmail.com>
- <CAHp75VeqLb2hDgj2jfWzQgw4wa31gckSw=jZS0UhUAnZgNA14Q@mail.gmail.com>
+From: Russell King - ARM Linux <linux@armlinux.org.uk>
+Subject: [PATCH RFC] net: dsa: remove unnecessary phy.h include
+Date: Wed, 18 Jan 2017 00:14:03 +0000
+Message-ID: <20170118001403.GJ27312@n2100.armlinux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Lunn <andrew@lunn.ch>, Jason Cooper <jason@lakedaemon.net>,
- Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
- netdev <netdev@vger.kernel.org>, Russell King <linux@armlinux.org.uk>,
- open list <linux-kernel@vger.kernel.org>,
- Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
- Gregory Clement <gregory.clement@free-electrons.com>,
- "David S. Miller" <davem@davemloft.net>,
- "moderated list:ARM/Marvell Dove/MV78xx0/Orion SOC support"
- <linux-arm-kernel@lists.infradead.org>,
- Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: Andy Shevchenko <andy.shevchenko@gmail.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <CAHp75VeqLb2hDgj2jfWzQgw4wa31gckSw=jZS0UhUAnZgNA14Q@mail.gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Andrew Lunn <andrew@lunn.ch>,
+        Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 01/17/2017 04:07 PM, Andy Shevchenko wrote:
-> On Wed, Jan 18, 2017 at 2:04 AM, Florian Fainelli <f.fainelli@gmail.com> wrote:
->> On 01/17/2017 04:00 PM, Andy Shevchenko wrote:
->>> On Wed, Jan 18, 2017 at 1:43 AM, Florian Fainelli <f.fainelli@gmail.com> wrote:
->>>> On 01/17/2017 03:34 PM, Andy Shevchenko wrote:
->>>>> On Wed, Jan 18, 2017 at 1:21 AM, Florian Fainelli <f.fainelli@gmail.com> wrote:
-> 
->>> But why not to use void *class_name to be consistent with callback and
->>> device_find_child()?
->>
->> The top-level function: device_find_in_class_name() should have a
->> stronger typing of its argument even if it internally uses
->> device_find_child() and a callback that takes a void * argument, that's
->> how I see it.
-> 
-> Fair enough.
-> 
->>> Btw,
->>> return get_device(parent);
->>
->> Not sure I follow what that means here?
-> 
-> Missed remark. Instead of
-> 
-> get_device(parent);
-> return parent;
-> 
-> you can use
-> 
-> return get_device(parent);
+Including phy.h and phy_fixed.h into net/dsa.h causes phy*.h to be an
+unnecessary dependency for quite a large amount of the kernel.  There's
+very little which actually requires definitions from phy.h in net/dsa.h
+- the include itself only wants the declaration of a couple of
+structures and IFNAMSIZ.
 
-Seems reasonable, if I have to respin a v5, will add that, thanks!
+Add linux/if.h for IFNAMSIZ, declarations for the structures, phy.h to
+mv88e6xxx.h as it needs it for phy_interface_t, and remove both phy.h
+and phy_fixed.h from net/dsa.h.
+
+This patch reduces from around 800 files rebuilt to around 40 - even
+with ccache, the time difference is noticable.
+
+Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
+---
+I noticed when I touched linux/phy.h that a lot of the kernel ended up
+being unexpectedly rebuilt, as linux/netdevice.h includes net/dsa.h,
+which then then includes linux/phy.h.  I've tested this change on both
+ARM and ARM64, but I'd suggest letting the 0-day builder have a bite
+at this, and then only taking it if everyone is confident that there's
+a slim chance of any problems.  Also, it may need some rework to apply
+to davem's tree.  All of the above makes this RFC only.
+
+ drivers/net/dsa/mv88e6xxx/mv88e6xxx.h | 1 +
+ include/net/dsa.h                     | 6 ++++--
+ 2 files changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
+index a319c06d82e3..d247b0639ed4 100644
+--- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
+@@ -15,6 +15,7 @@
+ #include <linux/if_vlan.h>
+ #include <linux/irq.h>
+ #include <linux/gpio/consumer.h>
++#include <linux/phy.h>
+ 
+ #ifndef UINT64_MAX
+ #define UINT64_MAX		(u64)(~((u64)0))
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index b122196d5a1f..887b2f98f9ea 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -11,15 +11,17 @@
+ #ifndef __LINUX_NET_DSA_H
+ #define __LINUX_NET_DSA_H
+ 
++#include <linux/if.h>
+ #include <linux/if_ether.h>
+ #include <linux/list.h>
+ #include <linux/timer.h>
+ #include <linux/workqueue.h>
+ #include <linux/of.h>
+-#include <linux/phy.h>
+-#include <linux/phy_fixed.h>
+ #include <linux/ethtool.h>
+ 
++struct phy_device;
++struct fixed_phy_status;
++
+ enum dsa_tag_protocol {
+ 	DSA_TAG_PROTO_NONE = 0,
+ 	DSA_TAG_PROTO_DSA,
+
 -- 
-Florian
+RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
+FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
+according to speedtest.net.
