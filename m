@@ -1,36 +1,35 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: fec: Fixed panic problem with non-tso
-Date: Wed, 18 Jan 2017 11:51:17 -0800
-Message-ID: <1484769077.13165.111.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20170117074820.5106-1-ashiduka@jp.fujitsu.com>
-         <AM4PR0401MB2260E5BE096D7B86EDF4F04FFF7C0@AM4PR0401MB2260.eurprd04.prod.outlook.com>
-         <337A096076BEF646A1F21E1AD855580E3AC8F71A@g01jpexmbkw23>
-         <1484713283.13165.89.camel@edumazet-glaptop3.roam.corp.google.com>
-         <1484714132.13165.92.camel@edumazet-glaptop3.roam.corp.google.com>
-         <CAOrHB_A-oJid6RTeQB_xy0GDKsJjvEDwdTepMXN336qSi5h8AA@mail.gmail.com>
+From: Vineeth Remanan Pillai <vineethp@amazon.com>
+Subject: Re: [PATCH v2] xen-netfront: Fix Rx stall during
+ network stress and OOM
+Date: Wed, 18 Jan 2017 12:24:53 -0800
+Message-ID: <60561329-4308-895a-5958-558a3c8322f0@amazon.com>
+References: <1484330100-3960-1-git-send-email-vineethp@u480fcf3b67f557f68df1.ant.amazon.com>
+ <ee87b2e4-de8c-7b9b-c4e5-854ffab2e554@suse.com>
+ <79c6ecce-bfcb-ebaa-afd2-05c1d86004d7@amazon.com>
+ <20170118.151000.1216322099401442834.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "Ashizuka, Yuusuke" <ashiduka@jp.fujitsu.com>,
-        Andy Duan <fugang.duan@nxp.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Pravin B Shelar <pshelar@nicira.com>
-To: Pravin Shelar <pshelar@ovn.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f67.google.com ([74.125.83.67]:36679 "EHLO
-        mail-pg0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752324AbdARUUR (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2017 15:20:17 -0500
-Received: by mail-pg0-f67.google.com with SMTP id 75so2154795pgf.3
-        for <netdev@vger.kernel.org>; Wed, 18 Jan 2017 12:20:16 -0800 (PST)
-In-Reply-To: <CAOrHB_A-oJid6RTeQB_xy0GDKsJjvEDwdTepMXN336qSi5h8AA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: jgross@suse.com, netdev@vger.kernel.org, kamatam@amazon.com,
+ linux-kernel@vger.kernel.org, aliguori@amazon.com,
+ xen-devel@lists.xenproject.org, boris.ostrovsky@oracle.com
+To: David Miller <davem@davemloft.net>
+Return-path: <xen-devel-bounces@lists.xen.org>
+In-Reply-To: <20170118.151000.1216322099401442834.davem@davemloft.net>
+List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Errors-To: xen-devel-bounces@lists.xen.org
+Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2017-01-18 at 10:18 -0800, Pravin Shelar wrote:
-\
-> Right, this high mem check should be decoupled from csum check.
-
-I must say I am surprised nobody hit this problem before today.
-
-linux-3.10 is more than 3 years old.
+Ck9uIDAxLzE4LzIwMTcgMTI6MTAgUE0sIERhdmlkIE1pbGxlciB3cm90ZToKPiBUaGlzIHYyIG5l
+dmVyIG1hZGUgaXQgaW50byBwYXRjaHdvcmsuICBJIGRvbid0IGtub3cgd2h5LCBzbyBwbGVhc2Ug
+cmVzZW5kIGl0IHRvCj4gbmV0ZGV2IHdpdGggdGhlIGFjY3VtdWxhdGVkIHJldmlld2VkLWJ5IGV0
+Yy4gdGFncyBhZGRlZC4KPgo+IFRoYW5rcy4KU29ycnkgYWJvdXQgdGhhdC4gV2lsbCByZXNlbmQg
+YXMgYSBzZXBhcmF0ZSB0aHJlYWQgcmlnaHQgYXdheS4KClRoYW5rcwoKCl9fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fClhlbi1kZXZlbCBtYWlsaW5nIGxpc3QK
+WGVuLWRldmVsQGxpc3RzLnhlbi5vcmcKaHR0cHM6Ly9saXN0cy54ZW4ub3JnL3hlbi1kZXZlbAo=
