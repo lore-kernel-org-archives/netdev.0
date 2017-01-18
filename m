@@ -1,91 +1,75 @@
-From: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>
-Subject: Re: Initializing MAC address at run-time
-Date: Wed, 18 Jan 2017 14:45:29 +0000
-Message-ID: <20170118144528.GH3231@leverpostej>
-References: <e083ed68-0e8e-380e-23bd-5ad387c88575@free.fr>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH 3/3] bcm63xx_enet: avoid uninitialized variable warning
+Date: Wed, 18 Jan 2017 15:52:53 +0100
+Message-ID: <20170118145306.1004008-3-arnd@arndb.de>
+References: <20170118145306.1004008-1-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux ARM <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-        DT <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-        Kevin Hilman <khilman-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-        Uwe Kleine-Konig <u.kleine-koenig-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-        Thibaud Cornic <thibaud_cornic-y1yR0Z3OICC7zZZRDBGcUA@public.gmane.org>
-To: Mason <slash.tmp-GANU6spQydw@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <e083ed68-0e8e-380e-23bd-5ad387c88575-GANU6spQydw@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Arnd Bergmann <arnd@arndb.de>, "xypron.glpk@gmx.de" <xypron.glpk@gmx.de>,
+ linux-kernel@vger.kernel.org, bcm-kernel-feedback-list@broadcom.com,
+ netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+ Philippe Reynes <tremyfr@gmail.com>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+ "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <20170118145306.1004008-1-arnd@arndb.de>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 18, 2017 at 03:03:57PM +0100, Mason wrote:
-> Hello,
-> 
-> When my system boots up, eth0 is given a seemingly random MAC address.
-> 
-> [    0.950734] nb8800 26000.ethernet eth0: MAC address ba:de:d6:38:b8:38
-> [    0.957334] nb8800 26000.ethernet eth0: MAC address 6e:f1:48:de:d6:c4
-> 
-> 
-> The DT node for eth0 is:
-> 
-> 	eth0: ethernet@26000 {
-> 		compatible = "sigma,smp8734-ethernet";
-> 		reg = <0x26000 0x800>;
-> 		interrupts = <38 IRQ_TYPE_LEVEL_HIGH>;
-> 		clocks = <&clkgen SYS_CLK>;
-> 	};
-> 
-> Documentation/devicetree/bindings/net/ethernet.txt mentions
-> - local-mac-address: array of 6 bytes, specifies the MAC address that was
->   assigned to the network device;
-> 
-> And indeed, if I define this property, eth0 ends up with the MAC address
-> I specify in the device tree. But of course, I don't want all my boards
-> to share the same MAC address. Every interface has a unique MAC address.
-> 
-> In fact, the boot loader (not Uboot, a custom non-DT boot loader) stores
-> the MAC address somewhere in MMIO space, in some weird custom format.
-> 
-> So, at init, I can find the MAC address, and dynamically insert the
-> "local-mac-address" property in the eth0 node.
+gcc-7 and probably earlier versions get confused by this function
+and print a harmless warning:
 
-To me it sounds very convoluted to do this from the kernel, to pass
-information back to itself. I don't think this is the best way to handle
-this.
+drivers/net/ethernet/broadcom/bcm63xx_enet.c: In function 'bcm_enet_open':
+drivers/net/ethernet/broadcom/bcm63xx_enet.c:1130:3: error: 'phydev' may be used uninitialized in this function [-Werror=maybe-uninitialized]
 
-> Is there another (better) way to do this?
-> 
-> I'll post my code below, for illustration purpose.
-> 
-> Mark suggested this can be done from user-space, but I can't do that,
-> because I'm using an NFS rootfs, so I need the network before I even
-> have a user-space. And the DHCP server is configured to serve different
-> root filesystems, based on the MAC address.
+This adds an initialization for the 'phydev' variable when it is unused
+and changes the check to test for that NULL pointer to make it clear
+that we always pass a valid pointer here.
 
-That's not quite what I said. I asked whether your information was
-coming from userspace or from a kernel driver.
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+ drivers/net/ethernet/broadcom/bcm63xx_enet.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-My suggestion was that this should be done in the probe path somehow,
-by describing the relationship between the ethernet controller and the
-device containing the MAC information.
-
-e.g. on the ethernet device, have a phandle (and perhaps some other
-args) describinng the device containing the MAC, and how to extract it.
-
-That way, in the ethernet probe path we can go and look up the MAC
-address from the provider of that information.
-
-> I need to do something similar with the NAND partitions. The boot loader
-> stores the partition offsets somewhere, and I need to pass this info
-> to the NAND framework, so I assumed that inserting the corresponding
-> properties at run-time was the correct way to do it.
-
-I would say similar could happen here.
-
-Thanks,
-Mark.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/ethernet/broadcom/bcm63xx_enet.c b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
+index 1ad904680ca6..f0a0bcb31b7e 100644
+--- a/drivers/net/ethernet/broadcom/bcm63xx_enet.c
++++ b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
+@@ -913,6 +913,8 @@ static int bcm_enet_open(struct net_device *dev)
+ 		priv->old_link = 0;
+ 		priv->old_duplex = -1;
+ 		priv->old_pause = -1;
++	} else {
++		phydev = NULL;
+ 	}
+ 
+ 	/* mask all interrupts and request them */
+@@ -1083,7 +1085,7 @@ static int bcm_enet_open(struct net_device *dev)
+ 	enet_dmac_writel(priv, priv->dma_chan_int_mask,
+ 			 ENETDMAC_IRMASK, priv->tx_chan);
+ 
+-	if (priv->has_phy)
++	if (phydev)
+ 		phy_start(phydev);
+ 	else
+ 		bcm_enet_adjust_link(dev);
+@@ -1126,7 +1128,7 @@ static int bcm_enet_open(struct net_device *dev)
+ 	free_irq(dev->irq, dev);
+ 
+ out_phy_disconnect:
+-	if (priv->has_phy)
++	if (phydev)
+ 		phy_disconnect(phydev);
+ 
+ 	return ret;
+-- 
+2.9.0
