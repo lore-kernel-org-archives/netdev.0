@@ -1,59 +1,48 @@
-From: Alexey Kodanev <alexey.kodanev@oracle.com>
-Subject: Re: resend: tcp: performance issue with fastopen connections (mss >
- window)
-Date: Wed, 18 Jan 2017 20:32:51 +0300
-Message-ID: <3dbbcda8-ce79-641c-cf3b-21f41c563939@oracle.com>
-References: <30f38b3c-8c5c-7fab-e424-985e63ad900a@oracle.com>
- <1484321734.13165.24.camel@edumazet-glaptop3.roam.corp.google.com>
- <22b07900-2151-a31f-34aa-7fb47c958423@oracle.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [pull request][for-next] Mellanox mlx5 Reorganize core driver
+ directory layout
+Date: Wed, 18 Jan 2017 12:32:07 -0500 (EST)
+Message-ID: <20170118.123207.53777509111948450.davem@davemloft.net>
+References: <20170113.121407.448230751444957957.davem@davemloft.net>
+        <CALzJLG_fjiGyuB_buZqOSMU7SaCnuqFiZ0UyW+hPDq+3yx7TWg@mail.gmail.com>
+        <CALzJLG--ZRVk0Zy+6UaGCWbOhki+PZnkmrh9rjojU1ZDm_5Y6w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-        Vasily Isaenko <vasily.isaenko@oracle.com>,
-        Neal Cardwell <ncardwell@google.com>,
-        Yuchung Cheng <ycheng@google.com>,
-        Eric Dumazet <edumazet@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:39325 "EHLO
-        userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751081AbdARR1V (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2017 12:27:21 -0500
-In-Reply-To: <22b07900-2151-a31f-34aa-7fb47c958423@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+To: saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CALzJLG--ZRVk0Zy+6UaGCWbOhki+PZnkmrh9rjojU1ZDm_5Y6w-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Eric,
+From: Saeed Mahameed <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+Date: Mon, 16 Jan 2017 22:30:29 +0200
 
-On 01/13/2017 08:07 PM, Alexey Kodanev wrote:
+>> But please bear with me here, what if we queue this patch up to -stable ?
 
-> Hi Eric,
-> On 13.01.2017 18:35, Eric Dumazet wrote:
->
->> I would suggest to clamp MSS to half the initial window, but I guess
->> this is impractical since window in SYN/SYNACK are not scaled.
+You've got to be seriously kidding me that your idea is to submit an
+incredibly diruptive driver rename to -stable to solve this problem.
 
-Looks like max_window not correctly initialized for tfo sockets.
-On my test machine it has set to '5592320' in tcp_fastopen_create_child().
+That is completely a non-starter.
 
-This diff fixes the issue, the question: is this the right place to do it?
+The whole idea is to _MINIMIZE_ the amount of change happening in
+-stable in order to avoid regressions and negative consequence for
+everyone using the -stable tree.
 
-diff --git a/net/ipv4/tcp_fastopen.c b/net/ipv4/tcp_fastopen.c
-index 4e777a3..33ed508 100644
---- a/net/ipv4/tcp_fastopen.c
-+++ b/net/ipv4/tcp_fastopen.c
-@@ -206,6 +206,8 @@ static struct sock *tcp_fastopen_create_child(struct 
-sock *sk,
-          */
-         tp->snd_wnd = ntohs(tcp_hdr(skb)->window);
+I am strongly against a major reorganization of this driver, sorry.
+The Synopsys folks want to do the same thing for the stmmac driver,
+for even more nefarious reasons, and I'm rejecting all of their
+attempts to do that as well.
 
-+       tp->max_window = tp->snd_wnd;
-+
-         /* Activate the retrans timer so that SYNACK can be retransmitted.
-          * The request socket is not added to the ehash
-          * because it's been added to the accept queue directly.
-
-
-Thanks,
-Alexey
+If you look in that thread, they said they would "help" with the
+-stable backports, and in there I explained why that is a completely
+empty gesture.  There are people doing the backports outside of your
+spehere of influence, who need to get their work done "right now" and
+aren't going to consult you and be on your schedule for doing those
+backports.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
