@@ -1,76 +1,163 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH] virtio: don't set VIRTIO_NET_HDR_F_DATA_VALID on xmit
-Date: Wed, 18 Jan 2017 17:18:08 +0200
-Message-ID: <20170118171726-mutt-send-email-mst@kernel.org>
-References: <20170117181351.98291-1-rolf.neugebauer@docker.com>
- <20170117202515-mutt-send-email-mst@kernel.org>
- <34158479-8d4a-3761-a02e-66c474aca53e@redhat.com>
+From: Ariel Almog <arielalmogworkemails@gmail.com>
+Subject: [RFC] RESEND - rdmatool - tool for RDMA users
+Date: Wed, 18 Jan 2017 17:19:19 +0200
+Message-ID: <CABvr3-GZQs51Sn3XagTsepsy3CHvx6P=GVJzefajbNt9jxz9Kg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
-Cc: Rolf Neugebauer <rolf.neugebauer@docker.com>,
-        netdev@vger.kernel.org, davem@davemloft.net,
-        rppt@linux.vnet.ibm.com
-To: Jason Wang <jasowang@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+To: leon@kernel.org, linux-rdma@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58434 "EHLO mx1.redhat.com"
-        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751600AbdARPSJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 18 Jan 2017 10:18:09 -0500
-Content-Disposition: inline
-In-Reply-To: <34158479-8d4a-3761-a02e-66c474aca53e@redhat.com>
+Received: from mail-oi0-f66.google.com ([209.85.218.66]:35030 "EHLO
+        mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751454AbdARPTV (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2017 10:19:21 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 18, 2017 at 11:54:21AM +0800, Jason Wang wrote:
-> 
-> 
-> On 2017年01月18日 02:27, Michael S. Tsirkin wrote:
-> > On Tue, Jan 17, 2017 at 06:13:51PM +0000, Rolf Neugebauer wrote:
-> > > This patch part reverts fd2a0437dc33 and e858fae2b0b8 which introduced a
-> > > subtle change in how the virtio_net flags are derived from the SKBs
-> > > ip_summed field.
-> > > 
-> > > With the above commits, the flags are set to VIRTIO_NET_HDR_F_DATA_VALID
-> > > when ip_summed == CHECKSUM_UNNECESSARY, thus treating it differently to
-> > > ip_summed == CHECKSUM_NONE, which should be the same.
-> > > 
-> > > Further, the virtio spec 1.0 / CS04 explicitly says that
-> > > VIRTIO_NET_HDR_F_DATA_VALID must not be set by the driver.
-> > > 
-> > > Signed-off-by: Rolf Neugebauer <rolf.neugebauer@docker.com>
-> > Fixes: fd2a0437dc33 ("virtio_net: introduce virtio_net_hdr_{from,to}_skb")
-> > Fixes: e858fae2b0b8 (" virtio_net: use common code for virtio_net_hdr and skb GSO conversion")
-> > Acked-by: Michael S. Tsirkin <mst@redhat.com>
-> > 
-> > Should be backported into stable as well.
-> 
-> Looks like a side effect is that we will never see this on receive path?
+sorry for resending.
 
-I thought receive path is using virtio_net_hdr_to_skb - isn't it?
+General
+*******
 
-> We
-> probably need a hint for virtio_net_hdr_from_skb().
-> 
-> Thanks
-> 
-> > 
-> > 
-> > > ---
-> > >   include/linux/virtio_net.h | 2 --
-> > >   1 file changed, 2 deletions(-)
-> > > 
-> > > diff --git a/include/linux/virtio_net.h b/include/linux/virtio_net.h
-> > > index 66204007d7ac..56436472ccc7 100644
-> > > --- a/include/linux/virtio_net.h
-> > > +++ b/include/linux/virtio_net.h
-> > > @@ -91,8 +91,6 @@ static inline int virtio_net_hdr_from_skb(const struct sk_buff *skb,
-> > >   				skb_checksum_start_offset(skb));
-> > >   		hdr->csum_offset = __cpu_to_virtio16(little_endian,
-> > >   				skb->csum_offset);
-> > > -	} else if (skb->ip_summed == CHECKSUM_UNNECESSARY) {
-> > > -		hdr->flags = VIRTIO_NET_HDR_F_DATA_VALID;
-> > >   	} /* else everything is zero */
-> > >   	return 0;
-> > > -- 
-> > > 2.11.0
+As of today, there is no single, simple, tool that allows monitoring
+and configuration of RDMA stack.
+
+For netdev stack there are few standard tools, such as ethtool and
+iproute2. There is a need to add a matching tool which will allow
+control and query of RDMA subsystem.
+
+rdmatool will provide standard, provider agnostic, user interface.
+RDMA user can use this interface to
+* Query RDMA device capabilities
+* Query RDMA device status and current open resources
+* Fetching RDMA statistics
+* Configure RDMA device
+
+The rdmatool will have the ability to control RDMA stack which
+includes the ib_device and RDMA protocol params.
+
+It is a good point to highlight the similarity to ethtool. It manages
+net_device, while rdmatool will manage RDMA stack.
+
+As a proposal, it is appealing to have a similar design to ethtool for
+rdmatool too. As ethtool, it should contain user space part, kernel
+handler and vendor specific handler(s).
+
+Another tool which allows similar functionality is iproute2. Iproute2
+allows user space tools to configure and query transport, network and
+link layer. The advantages of using iproute2 is the reuse of existing
+tool and familiar interface in addition to the wide spreading of this tool.
+
+As start point of the discussion, we would like to propose two
+implementation options for the rdmatool:
+(1) Build a tool using ABI interface. This will be a RDMA tool
+    which will be distributed as part of RDMA package
+(2) Enhancing iproute2 to include rdmatool functionality
+
+Our opinion is that the new ABI interface provides vast functionality and
+it will be a waste to use other interface for the same functionality.
+Each of the proposed implementation above have their advantages, and we
+would like to hear your opinion regarding this direction.
+
+I=E2=80=99m posting this RFC in both netdev and linux-rdma communities in
+order to get feedback on this topic.
+
+General Description
+*******************
+The rdmatool will be combined from the following components:
+* user space=E2=80=99s rdmatool - will be referred from now on as rdmatool-=
+u.
+* kernel=E2=80=99s rdmatool - will be referred from now on as rdmatool-k. T=
+his part
+  is in kernel, running under ibcore context
+* ib_device=E2=80=99s rdma_ops - rdmatool-p is written by the provider.
+  In case the provider doesn't provide rdma_ops code, a generic code will
+  be used to provide the matching interface.
+
+.------------------|
+| rdmatool-u       |
+|------------------|
+ U    |
+ ABI
+ K    |
+.------------------|
+| rdmatool-k       |
+|------------------|
+  |
+rdmatool_ops
+  |
+.---------------------------|
+| generic rdma_ops          |
+|---------------------------|--|
+  | ib_device=E2=80=99s rdma_ops      |--|
+  |--|------------------------|  |--|
+     |--|------------------------|  |
+    |---------------------------|
+
+The protocol on top of the ABI interface handles the transaction of
+information on both directions (rdmatool-u to rdmatool-k and vice versa).
+
+The transaction protocol shall contain the following information:
+* Command =E2=80=93 the requested operation by rdmatool-u
+* ib_device =E2=80=93 the device to handle; a dedicated value will indicate=
+ a stack
+  layer transactions
+* Ancillary information according to the command
+Later on, after we will close direction and design concerns, we will start
+defining the actual structure to be used.
+
+Flexibility
+***********
+Some of the commands allow passing both standard and
+vendor specific information.
+In order to allow easy enhancement of the tool, an Matan's ABI [1]
+mechanism can be used to pass the vendor specific information.
+
+As examples:
+(1) Statistics ops will return the standard counters. In addition, it can
+    report on extra counters. The rdmatool-u will present the addition
+    statistics as is.
+(2) For configuration, where rdmatool-u finds undefined information at the
+    end of the command line, it will pass it as is to the rdmatool-k which
+    will pass it to the ops handler where it can be handled or ignored.
+
+Persistence
+***********
+Another target that we would like to achieve is easy configuration.
+rdmatool-u will provide an export mechanism mto store and restore configura=
+tion
+The configuration file will be human readable and will be parsed by the
+various tools (systemd, udev, rdmatool-u, etc.).
+
+Functionality
+*************
+The rdmatool will provide a platform which can grow as needed. The
+initial functionality might include:
+* help =E2=80=93 man page
+* version =E2=80=93 version number
+* statistics =E2=80=93 RDMA statistics =E2=80=93 such as port and QP statis=
+tics
+  To allow easy reading of statistics, we offer to use a filter functionali=
+ty,
+  allowing reading of statistics families, such as link layer, error
+  counters, etc.
+* protocol =E2=80=93 RoCE/iWARP/InfiniBand related configuration, such as R=
+DMA
+  congestion configuration and statistics
+* query =E2=80=93 RDMA objects (qp, cq, srq, ..) information such as owner,
+  status, type
+* debug =E2=80=93 an interface to allow read and write from user space to t=
+he
+  provider RDMA driver, exposing debug information
+
+We would like to get the community feedback regarding which solution shall =
+be
+used: a standalone tool in RDMA package (ABI) or adding functionality to
+iproute2 as extension?
+
+Reference
+[1] [RFC ABI V6 00/14] SG-based RDMA ABI Proposal -
+        https://www.spinics.net/lists/linux-rdma/msg43960.html
+
+Thanks for feedback.
+Ariel and Leon
