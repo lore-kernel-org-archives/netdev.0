@@ -1,69 +1,47 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: Potential issues (security and otherwise) with the current
- cgroup-bpf API
-Date: Wed, 18 Jan 2017 14:18:50 -0800
-Message-ID: <20170118221850.GF9171@mtj.duckdns.org>
-References: <20161220000254.GA58895@ast-mbp.thefacebook.com>
- <CALCETrU1_bDVLfokQ7zasHVmeq7S-R+603GEw59V_wuj4eE1hw@mail.gmail.com>
- <2dbec775-6304-e44c-19c5-fbf07877e7b1@gmail.com>
- <CALCETrUW2jEYmjSsOrPj+MAjkDGGUCw_rdxQh+5Er0r4ReGLnA@mail.gmail.com>
- <20161220091150.GJ3124@twins.programming.kicks-ass.net>
- <20170103102559.GA30129@dhcp22.suse.cz>
- <20170116011901.GH14446@mtj.duckdns.org>
- <20170117130303.GL19699@dhcp22.suse.cz>
- <20170117133204.GA6515@twins.programming.kicks-ass.net>
- <20170117135830.GO19699@dhcp22.suse.cz>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] bpf: don't trigger OOM killer under pressure with
+ map alloc
+Date: Wed, 18 Jan 2017 17:13:54 -0500 (EST)
+Message-ID: <20170118.171354.1392552826246839853.davem@davemloft.net>
+References: <1f39f6b28b1ec25a88b90dd95aa4ea7820d0d53a.1484747846.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Peter Zijlstra <peterz@infradead.org>,
-        Andy Lutomirski <luto@amacapital.net>,
-        David Ahern <dsahern@gmail.com>,
-        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-        Andy Lutomirski <luto@kernel.org>,
-        Daniel Mack <daniel@zonque.org>,
-        =?iso-8859-1?Q?Micka=EBl_Sala=FCn?= <mic@digikod.net>,
-        Kees Cook <keescook@chromium.org>, Jann Horn <jann@thejh.net>,
-        "David S. Miller" <davem@davemloft.net>,
-        Thomas Graf <tgraf@suug.ch>,
-        Michael Kerrisk <mtk.manpages@gmail.com>,
-        Linux API <linux-api@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Network Development <netdev@vger.kernel.org>
-To: Michal Hocko <mhocko@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20170117135830.GO19699@dhcp22.suse.cz>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org
+To: daniel@iogearbox.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:42444 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751235AbdARWU6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2017 17:20:58 -0500
+In-Reply-To: <1f39f6b28b1ec25a88b90dd95aa4ea7820d0d53a.1484747846.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello, Michal.
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Wed, 18 Jan 2017 15:14:17 +0100
 
-On Tue, Jan 17, 2017 at 02:58:30PM +0100, Michal Hocko wrote:
-> This would require using hierarchical cgroup iterators to iterate over
+> This patch adds two helpers, bpf_map_area_alloc() and bpf_map_area_free(),
+> that are to be used for map allocations. Using kmalloc() for very large
+> allocations can cause excessive work within the page allocator, so i) fall
+> back earlier to vmalloc() when the attempt is considered costly anyway,
+> and even more importantly ii) don't trigger OOM killer with any of the
+> allocators.
+> 
+> Since this is based on a user space request, for example, when creating
+> maps with element pre-allocation, we really want such requests to fail
+> instead of killing other user space processes.
+> 
+> Also, don't spam the kernel log with warnings should any of the allocations
+> fail under pressure. Given that, we can make backend selection in
+> bpf_map_area_alloc() generic, and convert all maps over to use this API
+> for spots with potentially large allocation requests.
+> 
+> Note, replacing the one kmalloc_array() is fine as overflow checks happen
+> earlier in htab_map_alloc(), since it must also protect the multiplication
+> for vmalloc() should kmalloc_array() fail.
+> 
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> Acked-by: Alexei Starovoitov <ast@kernel.org>
 
-It does behave hierarchically.
-
-> tasks. As per Andy's testing this doesn't seem to be the case. I haven't
-
-That's not what Andy's testing showed.  What that showed was that
-program in a child can override the one from its ancestor.
-
-> checked the implementation closely but my understanding was that using
-> only cgroup specific tasks was intentional.
-
-Maybe I'm misreading you but if you're saying that a bpf program would
-only execute for tasks on that specific cgroup, that is not true.
-
-> I do agree that using hierarchy aware cgroup iterators is the right
-> approach here and we wouldn't see any issue. But I am still not sure
-> I've wrapped my head around this feature completely.
-
-It's really simple.  You can install bpf programs with a cgroup path
-associated with them.  When that particular type of bpf program needs
-to be executed, the bpf program which is attached to the closest
-ancestor (including self) is executed.
-
-Thanks.
-
--- 
-tejun
+Applied, thanks.
