@@ -1,51 +1,47 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] net: Remove usage of net_device last_rx member
-Date: Wed, 18 Jan 2017 09:23:44 -0800
-Message-ID: <1484760224.13165.108.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20170118164501.1934-1-tklauser@distanz.ch>
+From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Subject: Re: [RFC v2 00/10] HFI Virtual Network Interface Controller (VNIC)
+Date: Wed, 18 Jan 2017 09:46:43 -0700
+Message-ID: <20170118164643.GB14198@obsidianresearch.com>
+References: <20161215091226.GC811@mtr-leonro.local>
+ <20161215145212.GA29116@phlsvsds.ph.intel.com>
+ <380b05bf-a18e-1f20-7e8e-10b61f77dec7@redhat.com>
+ <20161215170713.GD3264@obsidianresearch.com>
+ <4e22bf29-2260-0768-ab17-9a8df6306f37@redhat.com>
+ <20161215184837.GA16552@obsidianresearch.com>
+ <20161216012404.GD3785@phlsvsds.ph.intel.com>
+ <20161216041727.GA3797@obsidianresearch.com>
+ <20170117192720.GA2833@knc-06.sc.intel.com>
+ <20170118054354.GT32481@mtr-leonro.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org,
- b.a.t.m.a.n@lists.open-mesh.org, linux-m68k@lists.linux-m68k.org,
- intel-wired-lan@lists.osuosl.org, Jay Vosburgh <j.vosburgh@gmail.com>,
- Veaceslav Falico <vfalico@gmail.com>, Andy Gospodarek <andy@greyhouse.net>,
- Mirko Lindner <mlindner@marvell.com>
-To: Tobias Klauser <tklauser@distanz.ch>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20170118164501.1934-1-tklauser@distanz.ch>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "Vishwanathapura, Niranjana" <niranjana.vishwanathapura@intel.com>,
+        "ira.weiny" <ira.weiny@intel.com>,
+        Doug Ledford <dledford@redhat.com>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
+        dennis.dalessandro@intel.com
+To: Leon Romanovsky <leon@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from quartz.orcorp.ca ([184.70.90.242]:39742 "EHLO quartz.orcorp.ca"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1750943AbdARRYF (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 18 Jan 2017 12:24:05 -0500
+Content-Disposition: inline
+In-Reply-To: <20170118054354.GT32481@mtr-leonro.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2017-01-18 at 17:45 +0100, Tobias Klauser wrote:
-> The network stack no longer uses the last_rx member of struct net_device
-> since the bonding driver switched to use its own private last_rx in
-> commit 9f242738376d ("bonding: use last_arp_rx in slave_last_rx()").
+On Wed, Jan 18, 2017 at 07:43:54AM +0200, Leon Romanovsky wrote:
+> > I have started working on porting hfi_vnic as per this new interface.
+> > I will post RFC v3 later.
+> > Posting the interface definition early for comments.
 > 
-> However, some drivers still (ab)use the field for their own purposes and
-> some driver just update it without actually using it.
-> 
-> Previously, there was an accompanying comment for the last_rx member
-> added in commit 4dc89133f49b ("net: add a comment on netdev->last_rx")
-> which asked drivers not to update is, unless really needed. However,
-> this commend was removed in commit f8ff080dacec ("bonding: remove
-> useless updating of slave->dev->last_rx"), so some drivers added later
-> on still did update last_rx.
-> 
-> Remove all usage of last_rx and switch three drivers (sky2, atp and
-> smc91c92_cs) which actually read and write it to use their own private
-> copy in netdev_priv.
-> 
-> Compile-tested with allyesconfig and allmodconfig on x86 and arm.
+> I wonder how many people will comment it without seeing usage example.
 
-SGTM, thanks a lot for doing this Tobias.
+It is my hope that Mellanox will contribute to this and use it for
+ipoib - we've have had conversations along these lines in the
+past... Apparently mlx4/5 could run quite a bit faster if used like
+this.
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+Jason
