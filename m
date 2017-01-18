@@ -1,97 +1,46 @@
-From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?= <u.kleine-koenig@pengutronix.de>
-Subject: Re: Initializing MAC address at run-time
-Date: Wed, 18 Jan 2017 19:54:35 +0100
-Message-ID: <20170118185435.fen6np7lydzgxxek@pengutronix.de>
-References: <e083ed68-0e8e-380e-23bd-5ad387c88575@free.fr>
+From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Subject: Re: [Xen-devel] xennet_start_xmit assumptions
+Date: Wed, 18 Jan 2017 14:25:28 -0500
+Message-ID: <20170118192528.GA6847@char.us.oracle.com>
+References: <20170118153132.GB9258@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: Mark Rutland <mark.rutland@arm.com>, DT <devicetree@vger.kernel.org>,
- Arnd Bergmann <arnd@arndb.de>, Kevin Hilman <khilman@kernel.org>,
- netdev <netdev@vger.kernel.org>,
- Thibaud Cornic <thibaud_cornic@sigmadesigns.com>,
- Linux ARM <linux-arm-kernel@lists.infradead.org>
-To: Mason <slash.tmp@free.fr>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, xen-devel@lists.xenproject.org
+To: Sowmini Varadhan <sowmini.varadhan@oracle.com>,
+        wei.liu2@citrix.com, paul.durrant@citrix.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:21955 "EHLO
+        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1752814AbdARTZf (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2017 14:25:35 -0500
 Content-Disposition: inline
-In-Reply-To: <e083ed68-0e8e-380e-23bd-5ad387c88575@free.fr>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20170118153132.GB9258@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On Wed, Jan 18, 2017 at 10:31:32AM -0500, Sowmini Varadhan wrote:
+> As I was playing around with pf_packet, I accidentally wrote
+> a buggy application program that bzero'ed the msghdr, then set
+> up the msg_name, msg_namelen correctly, and then did a sendmsg
+> on the pf_packet/SOCK_RAW fd.
+> 
+> This causes packet_snd to set up an skb with a lot of issues,
+> e.g., skb->len = 0, skb_headlen(skb) is 0, etc. I think we can/should
+> drop the packet in packet_snd if the skb->len is 0, but there
+> may be other driver bugs going on:
+> 
+> Turns out that ixgbe and sunvnet handle this problematic
+> skb correctly (they drop it and system remains stable), 
+> but it creates a panic in xen_netfront (xennet_start_xmit()
+> hits a null pointer deref when xennet_make_first_txreq() returns 
+> NULL)
+> 
+> I'm new to the xen driver code, so I'm hoping that
+> the experts can comment here: reading the code in xennet_start_xmit,
+> it seems like it mandatorily requires the skb_headlen() to be
+> non-zero in order to create the first_tx? That may not always be
+> true, how does the code recover for purely non-linear skbs?
+> 
+> --Sowmini
 
-On Wed, Jan 18, 2017 at 03:03:57PM +0100, Mason wrote:
-> When my system boots up, eth0 is given a seemingly random MAC address.
-> =
-
-> [    0.950734] nb8800 26000.ethernet eth0: MAC address ba:de:d6:38:b8:38
-> [    0.957334] nb8800 26000.ethernet eth0: MAC address 6e:f1:48:de:d6:c4
-> =
-
-> =
-
-> The DT node for eth0 is:
-> =
-
-> 	eth0: ethernet@26000 {
-> 		compatible =3D "sigma,smp8734-ethernet";
-> 		reg =3D <0x26000 0x800>;
-> 		interrupts =3D <38 IRQ_TYPE_LEVEL_HIGH>;
-> 		clocks =3D <&clkgen SYS_CLK>;
-> 	};
-> =
-
-> Documentation/devicetree/bindings/net/ethernet.txt mentions
-> - local-mac-address: array of 6 bytes, specifies the MAC address that was
->   assigned to the network device;
-> =
-
-> And indeed, if I define this property, eth0 ends up with the MAC address
-> I specify in the device tree. But of course, I don't want all my boards
-> to share the same MAC address. Every interface has a unique MAC address.
-> =
-
-> In fact, the boot loader (not Uboot, a custom non-DT boot loader) stores
-> the MAC address somewhere in MMIO space, in some weird custom format.
-
-Where does your machine get the dtb from? You write it to the boot
-medium at a certain point of time I assume. So AFAICT you have the
-following options (in no particular order):
-
- a) Describe in the dtb how to find out how the MAC address is stored
-    (already pointed out Mark and Robin)
- b) Make your bootloader dt aware and let it provide the
-    local-mac-address property.
- c) Adapt the dtb before it is written to the boot medium.
- d) Let the bootloader configure the device and teach the driver to pick
-    up the mac from the device's address space.
- e) Accept that the mac address is random during development, and make
-    Userspace configure the MAC address, which is early enough for
-    production use.
-
-Not sure d) is considered ok today, but some drivers have this feature.
-I'd say b) is the best choice.
-
-> I need to do something similar with the NAND partitions. The boot loader
-> stores the partition offsets somewhere, and I need to pass this info
-> to the NAND framework, so I assumed that inserting the corresponding
-> properties at run-time was the correct way to do it.
-
-The list of options here is similar to the list above. d) doesn't work,
-but instead you can pass the partitioning on the kernel commandline.
-
-Best regards
-Uwe
-
--- =
-
-Pengutronix e.K.                           | Uwe Kleine-K=F6nig            |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+CC-ing the two folks from the MAINTAINERS file.
