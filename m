@@ -1,98 +1,87 @@
-From: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
-Subject: Re: [PATCH net-next] mlx4: support __GFP_MEMALLOC for rx
-Date: Wed, 18 Jan 2017 18:11:27 +0300
-Message-ID: <ed9a6b2a-428e-ac78-bba8-742f5e7c1eed@yandex-team.ru>
-References: <1484712850.13165.86.camel@edumazet-glaptop3.roam.corp.google.com>
- <2696ea05-bb39-787b-2029-33b729fd88e0@yandex-team.ru>
- <1484749428.13165.100.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Rajasekar Kumar <sekraj@gmail.com>
+Subject: [RFC] net: ipv6: return the first matched rt6_info for multicast
+ packets in find_rr_leaf()
+Date: Wed, 18 Jan 2017 20:43:37 +0530
+Message-ID: <20170118151337.mcub5vyjszy5ltyn@extreme-Latitude-E4310>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>,
- Tariq Toukan <tariqt@mellanox.com>, "linux-mm@kvack.org" <linux-mm@kvack.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1484749428.13165.100.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=us-ascii
+To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+        yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 18.01.2017 17:23, Eric Dumazet wrote:
-> On Wed, 2017-01-18 at 12:31 +0300, Konstantin Khlebnikov wrote:
->> On 18.01.2017 07:14, Eric Dumazet wrote:
->>> From: Eric Dumazet <edumazet@google.com>
->>>
->>> Commit 04aeb56a1732 ("net/mlx4_en: allocate non 0-order pages for RX
->>> ring with __GFP_NOMEMALLOC") added code that appears to be not needed at
->>> that time, since mlx4 never used __GFP_MEMALLOC allocations anyway.
->>>
->>> As using memory reserves is a must in some situations (swap over NFS or
->>> iSCSI), this patch adds this flag.
->>
->> AFAIK __GFP_MEMALLOC is used for TX, not for RX: for allocations which
->> are required by memory reclaimer to free some pages.
->>
->> Allocation RX buffers with __GFP_MEMALLOC is a straight way to
->> depleting all reserves by flood from network.
->
-> You are mistaken.
->
-> How do you think a TCP flow can make progress sending data if no ACK
-> packet can go back in RX ?
+There is a performance issue when large number of interfaces are
+enabled with VRRP protocol in 2 router nodes which are connected
+to each other. When VRRP hello is received (which is multicast
+packet with DIP: ff02::18), a rt6_info node is added to fib6_node
+ of address ff02::18. This happens for each interface on which
+VRRP is enabled. For 2000 interfaces with VRRP enabled, 2000
+rt6_info nodes are added to the same fib6_node. As of today,
+find_rr_leaf() goes further to find better match, even after first
+successful match based on interface key. In this case, it walks
+2000 nodes for every incoming packet/outgoing packet, which is
+expensive and not needed. rt6_info match based on supplied
+interface match should be sufficient. The first match occurs
+when there is interface match, and after that there can not be
+another match for multicast packets. So, first match should be
+returned for multicast packets.
 
-Well. Ok. I mistaken.
+find_rr_leaf() tries to find best available gateway, mainly based on
+interface match and gateway's reachablity info.When this is required
+for unicast packets, multicast packets do not need either gateway's
+reachability status or gateway's Layer2 address as it is derived
+from Destination IP (group address). rt6_info match based on supplied
+interface match should be sufficient.
 
->
-> Take a look at sk_filter_trim_cap(), where the RX packets received on a
-> socket which does not have SOCK_MEMALLOC is dropped.
->
->         /*
->          * If the skb was allocated from pfmemalloc reserves, only
->          * allow SOCK_MEMALLOC sockets to use it as this socket is
->          * helping free memory
->          */
->         if (skb_pfmemalloc(skb) && !sock_flag(sk, SOCK_MEMALLOC))
->                 return -ENOMEM;
+This fix helps in scenario wherein multicast packets arrive in some
+interfaces frequently than other interfaces. rt6_info is added to
+beginning of list for former cases. Verified this case.
 
-I suppose this happens in BH context right after receiving packet?
+Signed-off-by: Rajasekar Kumar <sekraj@gmail.com>
+---
+	Changes from first mail:
+		- Including netdev@vger.kernel.org, linux-kernel@vger.kernel.org to get review inputs/help
+		- Changed the subject prefix to RFC from PATCH 
+		- Amended commit message to include test scenario
 
-Potentially any ACK could free memory in TCP send queue,
-so using reserves here makes sense.
+ net/ipv6/route.c | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
 
->
-> Also take a look at __dev_alloc_pages()
->
-> static inline struct page *__dev_alloc_pages(gfp_t gfp_mask,
->                                              unsigned int order)
-> {
->         /* This piece of code contains several assumptions.
->          * 1.  This is for device Rx, therefor a cold page is preferred.
->          * 2.  The expectation is the user wants a compound page.
->          * 3.  If requesting a order 0 page it will not be compound
->          *     due to the check to see if order has a value in prep_new_page
->          * 4.  __GFP_MEMALLOC is ignored if __GFP_NOMEMALLOC is set due to
->          *     code in gfp_to_alloc_flags that should be enforcing this.
->          */
->         gfp_mask |= __GFP_COLD | __GFP_COMP | __GFP_MEMALLOC;
->
->         return alloc_pages_node(NUMA_NO_NODE, gfp_mask, order);
-> }
->
->
-> So __GFP_MEMALLOC in RX is absolutely supported.
->
-> But drivers have to opt-in, either using __dev_alloc_pages() or
-> dev_alloc_pages, or explicitely ORing __GFP_MEMALLOC when using
-> alloc_page[s]()
->
->
->
-
-
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 8417c41..609b543 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -703,6 +703,8 @@ static struct rt6_info *find_rr_leaf(struct fib6_node *fn,
+ 		}
+ 
+ 		match = find_match(rt, oif, strict, &mpri, match, do_rr);
++		if (match && ipv6_addr_is_multicast(&rt->rt6i_dst.addr))
++			return match;
+ 	}
+ 
+ 	for (rt = fn->leaf; rt && rt != rr_head; rt = rt->dst.rt6_next) {
+@@ -712,13 +714,18 @@ static struct rt6_info *find_rr_leaf(struct fib6_node *fn,
+ 		}
+ 
+ 		match = find_match(rt, oif, strict, &mpri, match, do_rr);
++		if (match && ipv6_addr_is_multicast(&rt->rt6i_dst.addr))
++			return match;
+ 	}
+ 
+ 	if (match || !cont)
+ 		return match;
+ 
+-	for (rt = cont; rt; rt = rt->dst.rt6_next)
++	for (rt = cont; rt; rt = rt->dst.rt6_next) {
+ 		match = find_match(rt, oif, strict, &mpri, match, do_rr);
++		if (match && ipv6_addr_is_multicast(&rt->rt6i_dst.addr))
++			return match;
++	}
+ 
+ 	return match;
+ }
 -- 
-Konstantin
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+2.9.3
