@@ -1,78 +1,101 @@
-From: Paul Durrant <Paul.Durrant@citrix.com>
-Subject: Re: [PATCH v2 2/2] xen-netback: protect resource
- cleaning on XenBus disconnect
-Date: Wed, 18 Jan 2017 09:46:39 +0000
-Message-ID: <6da8d5a45b1d496dadd0b2d647b97264@AMSPEX02CL03.citrite.net>
-References: <1484686178-76959-1-git-send-email-igor.druzhinin@citrix.com>
- <1484686178-76959-3-git-send-email-igor.druzhinin@citrix.com>
+From: Leon Romanovsky <leon@kernel.org>
+Subject: Re: [PATCH for bnxt_re V4 09/21] RDMA/bnxt_re: Support for GID
+ related verbs
+Date: Wed, 18 Jan 2017 11:50:06 +0200
+Message-ID: <20170118095006.GX32481@mtr-leonro.local>
+References: <1482320530-5344-1-git-send-email-selvin.xavier@broadcom.com>
+ <1482320530-5344-10-git-send-email-selvin.xavier@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
- Igor Druzhinin <igor.druzhinin@citrix.com>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Igor Druzhinin <igor.druzhinin@citrix.com>, Wei Liu <wei.liu2@citrix.com>
-Return-path: <xen-devel-bounces@lists.xen.org>
-In-Reply-To: <1484686178-76959-3-git-send-email-igor.druzhinin@citrix.com>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
- <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Errors-To: xen-devel-bounces@lists.xen.org
-Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha256;
+        protocol="application/pgp-signature"; boundary="xbjSOCWVZ1q9zj4g"
+Cc: dledford@redhat.com, linux-rdma@vger.kernel.org,
+        netdev@vger.kernel.org, michael.chan@broadcom.com,
+        Eddie Wai <eddie.wai@broadcom.com>,
+        Devesh Sharma <devesh.sharma@broadcom.com>,
+        Somnath Kotur <somnath.kotur@broadcom.com>,
+        Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
+To: Selvin Xavier <selvin.xavier@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.kernel.org ([198.145.29.136]:36746 "EHLO mail.kernel.org"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1752494AbdARJuP (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 18 Jan 2017 04:50:15 -0500
+Content-Disposition: inline
+In-Reply-To: <1482320530-5344-10-git-send-email-selvin.xavier@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQo+IEZyb206IElnb3IgRHJ1emhpbmluIFttYWls
-dG86aWdvci5kcnV6aGluaW5AY2l0cml4LmNvbV0KPiBTZW50OiAxNyBKYW51YXJ5IDIwMTcgMjA6
-NTAKPiBUbzogV2VpIExpdSA8d2VpLmxpdTJAY2l0cml4LmNvbT4KPiBDYzogUGF1bCBEdXJyYW50
-IDxQYXVsLkR1cnJhbnRAY2l0cml4LmNvbT47IHhlbi1kZXZlbEBsaXN0cy54ZW5wcm9qZWN0Lm9y
-ZzsKPiBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBsaW51eC1rZXJuZWxAdmdlci5rZXJuZWwub3Jn
-OyBJZ29yIERydXpoaW5pbgo+IDxpZ29yLmRydXpoaW5pbkBjaXRyaXguY29tPgo+IFN1YmplY3Q6
-IFtQQVRDSCB2MiAyLzJdIHhlbi1uZXRiYWNrOiBwcm90ZWN0IHJlc291cmNlIGNsZWFuaW5nIG9u
-IFhlbkJ1cwo+IGRpc2Nvbm5lY3QKPiAKPiB2aWYtPmxvY2sgaXMgdXNlZCB0byBwcm90ZWN0IHN0
-YXRpc3RpY3MgZ2F0aGVyaW5nIGFnZW50cyBmcm9tIHVzaW5nIHRoZQo+IHF1ZXVlIHN0cnVjdHVy
-ZSBkdXJpbmcgY2xlYW5pbmcuCj4gCj4gU2lnbmVkLW9mZi1ieTogSWdvciBEcnV6aGluaW4gPGln
-b3IuZHJ1emhpbmluQGNpdHJpeC5jb20+CgpSZXZpZXdlZC1ieTogUGF1bCBEdXJyYW50IDxwYXVs
-LmR1cnJhbnRAY2l0cml4LmNvbT4KCj4gLS0tCj4gIGRyaXZlcnMvbmV0L3hlbi1uZXRiYWNrL2lu
-dGVyZmFjZS5jIHwgNiArKysrLS0KPiAgZHJpdmVycy9uZXQveGVuLW5ldGJhY2sveGVuYnVzLmMg
-ICAgfCAyICsrCj4gIDIgZmlsZXMgY2hhbmdlZCwgNiBpbnNlcnRpb25zKCspLCAyIGRlbGV0aW9u
-cygtKQo+IAo+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC94ZW4tbmV0YmFjay9pbnRlcmZhY2Uu
-YyBiL2RyaXZlcnMvbmV0L3hlbi0KPiBuZXRiYWNrL2ludGVyZmFjZS5jCj4gaW5kZXggNDFjNjli
-My4uYzQ4MjUyYSAxMDA2NDQKPiAtLS0gYS9kcml2ZXJzL25ldC94ZW4tbmV0YmFjay9pbnRlcmZh
-Y2UuYwo+ICsrKyBiL2RyaXZlcnMvbmV0L3hlbi1uZXRiYWNrL2ludGVyZmFjZS5jCj4gQEAgLTIz
-MCwxOCArMjMwLDE4IEBAIHN0YXRpYyBzdHJ1Y3QgbmV0X2RldmljZV9zdGF0cwo+ICp4ZW52aWZf
-Z2V0X3N0YXRzKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYpCj4gIHsKPiAgCXN0cnVjdCB4ZW52aWYg
-KnZpZiA9IG5ldGRldl9wcml2KGRldik7Cj4gIAlzdHJ1Y3QgeGVudmlmX3F1ZXVlICpxdWV1ZSA9
-IE5VTEw7Cj4gLQl1bnNpZ25lZCBpbnQgbnVtX3F1ZXVlcyA9IHZpZi0+bnVtX3F1ZXVlczsKPiAg
-CXVuc2lnbmVkIGxvbmcgcnhfYnl0ZXMgPSAwOwo+ICAJdW5zaWduZWQgbG9uZyByeF9wYWNrZXRz
-ID0gMDsKPiAgCXVuc2lnbmVkIGxvbmcgdHhfYnl0ZXMgPSAwOwo+ICAJdW5zaWduZWQgbG9uZyB0
-eF9wYWNrZXRzID0gMDsKPiAgCXVuc2lnbmVkIGludCBpbmRleDsKPiAKPiArCXNwaW5fbG9jaygm
-dmlmLT5sb2NrKTsKPiAgCWlmICh2aWYtPnF1ZXVlcyA9PSBOVUxMKQo+ICAJCWdvdG8gb3V0Owo+
-IAo+ICAJLyogQWdncmVnYXRlIHR4IGFuZCByeCBzdGF0cyBmcm9tIGVhY2ggcXVldWUgKi8KPiAt
-CWZvciAoaW5kZXggPSAwOyBpbmRleCA8IG51bV9xdWV1ZXM7ICsraW5kZXgpIHsKPiArCWZvciAo
-aW5kZXggPSAwOyBpbmRleCA8IHZpZi0+bnVtX3F1ZXVlczsgKytpbmRleCkgewo+ICAJCXF1ZXVl
-ID0gJnZpZi0+cXVldWVzW2luZGV4XTsKPiAgCQlyeF9ieXRlcyArPSBxdWV1ZS0+c3RhdHMucnhf
-Ynl0ZXM7Cj4gIAkJcnhfcGFja2V0cyArPSBxdWV1ZS0+c3RhdHMucnhfcGFja2V0czsKPiBAQCAt
-MjUwLDYgKzI1MCw4IEBAIHN0YXRpYyBzdHJ1Y3QgbmV0X2RldmljZV9zdGF0cwo+ICp4ZW52aWZf
-Z2V0X3N0YXRzKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYpCj4gIAl9Cj4gCj4gIG91dDoKPiArCXNw
-aW5fdW5sb2NrKCZ2aWYtPmxvY2spOwo+ICsKPiAgCXZpZi0+ZGV2LT5zdGF0cy5yeF9ieXRlcyA9
-IHJ4X2J5dGVzOwo+ICAJdmlmLT5kZXYtPnN0YXRzLnJ4X3BhY2tldHMgPSByeF9wYWNrZXRzOwo+
-ICAJdmlmLT5kZXYtPnN0YXRzLnR4X2J5dGVzID0gdHhfYnl0ZXM7Cj4gZGlmZiAtLWdpdCBhL2Ry
-aXZlcnMvbmV0L3hlbi1uZXRiYWNrL3hlbmJ1cy5jIGIvZHJpdmVycy9uZXQveGVuLQo+IG5ldGJh
-Y2sveGVuYnVzLmMKPiBpbmRleCAzZTk5MDcxLi5kODJjZDcxIDEwMDY0NAo+IC0tLSBhL2RyaXZl
-cnMvbmV0L3hlbi1uZXRiYWNrL3hlbmJ1cy5jCj4gKysrIGIvZHJpdmVycy9uZXQveGVuLW5ldGJh
-Y2sveGVuYnVzLmMKPiBAQCAtNTAzLDkgKzUwMywxMSBAQCBzdGF0aWMgdm9pZCBiYWNrZW5kX2Rp
-c2Nvbm5lY3Qoc3RydWN0IGJhY2tlbmRfaW5mbwo+ICpiZSkKPiAgCQlmb3IgKHF1ZXVlX2luZGV4
-ID0gMDsgcXVldWVfaW5kZXggPCBiZS0+dmlmLQo+ID5udW1fcXVldWVzOyArK3F1ZXVlX2luZGV4
-KQo+ICAJCQl4ZW52aWZfZGVpbml0X3F1ZXVlKCZiZS0+dmlmLQo+ID5xdWV1ZXNbcXVldWVfaW5k
-ZXhdKTsKPiAKPiArCQlzcGluX2xvY2soJmJlLT52aWYtPmxvY2spOwo+ICAJCXZmcmVlKGJlLT52
-aWYtPnF1ZXVlcyk7Cj4gIAkJYmUtPnZpZi0+bnVtX3F1ZXVlcyA9IDA7Cj4gIAkJYmUtPnZpZi0+
-cXVldWVzID0gTlVMTDsKPiArCQlzcGluX3VubG9jaygmYmUtPnZpZi0+bG9jayk7Cj4gCj4gIAkJ
-eGVudmlmX2Rpc2Nvbm5lY3RfY3RybChiZS0+dmlmKTsKPiAgCX0KPiAtLQo+IDEuOC4zLjEKCgpf
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpYZW4tZGV2ZWwg
-bWFpbGluZyBsaXN0Clhlbi1kZXZlbEBsaXN0cy54ZW4ub3JnCmh0dHBzOi8vbGlzdHMueGVuLm9y
-Zy94ZW4tZGV2ZWwK
+
+--xbjSOCWVZ1q9zj4g
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+On Wed, Dec 21, 2016 at 03:41:58AM -0800, Selvin Xavier wrote:
+> Implements add GID, del GID,  get_netdev and pkey related verbs.
+>
+> v3: Fixes some sparse warning related to endianness check. Removes
+>     macros which are just wrapper for standard defines.
+>
+> Signed-off-by: Eddie Wai <eddie.wai@broadcom.com>
+> Signed-off-by: Devesh Sharma <devesh.sharma@broadcom.com>
+> Signed-off-by: Somnath Kotur <somnath.kotur@broadcom.com>
+> Signed-off-by: Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>
+> Signed-off-by: Selvin Xavier <selvin.xavier@broadcom.com>
+> ---
+>  drivers/infiniband/hw/bnxt_re/ib_verbs.c  | 123 +++++++++++++++++
+>  drivers/infiniband/hw/bnxt_re/ib_verbs.h  |  18 +++
+>  drivers/infiniband/hw/bnxt_re/main.c      |   7 +
+>  drivers/infiniband/hw/bnxt_re/qplib_res.c |   5 +
+>  drivers/infiniband/hw/bnxt_re/qplib_res.h |   3 +
+>  drivers/infiniband/hw/bnxt_re/qplib_sp.c  | 218 ++++++++++++++++++++++++++++++
+>  drivers/infiniband/hw/bnxt_re/qplib_sp.h  |  11 ++
+>  7 files changed, 385 insertions(+)
+>
+
+<snip>
+
+> +
+> +int bnxt_qplib_del_sgid(struct bnxt_qplib_sgid_tbl *sgid_tbl,
+> +			struct bnxt_qplib_gid *gid, bool update)
+> +{
+> +	struct bnxt_qplib_res *res = to_bnxt_qplib(sgid_tbl,
+> +						   struct bnxt_qplib_res,
+> +						   sgid_tbl);
+> +	struct bnxt_qplib_rcfw *rcfw = res->rcfw;
+> +	int index;
+> +
+> +	if (!sgid_tbl) {
+> +		dev_err(&res->pdev->dev, "QPLIB: SGID table not allocated");
+> +		return -EINVAL;
+> +	}
+> +	/* Do we need a sgid_lock here? */
+
+It is better to answer on this question before acceptance.
+
+> +	if (!sgid_tbl->active) {
+> +		dev_err(&res->pdev->dev,
+> +			"QPLIB: SGID table has no active entries");
+> +		return -ENOMEM;
+> +	}
+
+--xbjSOCWVZ1q9zj4g
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCAAdFiEEkhr/r4Op1/04yqaB5GN7iDZyWKcFAlh/Ok4ACgkQ5GN7iDZy
+WKeI6xAAjH8jSeR/jYvqMfI3MGuobn1VD+m/y4KTy3wXXHB8YVElvdvjuLlEEYmS
+S/mRVNz9sFEB88pBvD61v8hAadSs29uRoqZePAAmb4r48hFza2XUm2kfB2q6QpCn
+GeRh0QKxmG8o5mFhXA05niDWyXK9u2BgABHCBjsuAVavBWPgNPv7bo66+nugaoA1
+eB4xm6uTE4EHbFsSwq6F59mKmaKoHK5n+ndTocJTnG7aHudPcLVenP50yiU93QkT
+r/pKdGIKwAmMgkDR6kG8vXTC7EQFtdZljcx8TUhWNkYaYoOq13ZO7innkh7YMcfS
+w4zuuoot+ADtFu7PgeHLeTmsSr8duAOlgoQpyZWFhyBgXDonB7gHCC2I1V/sl2VZ
+gJLAMzB8XY094cP8F4rYiLXpPZ/NNsu5LkF5OLbAkuitwzQvBGGHRNpxHk8sl29G
+Xtviowbp9YY+N6aJvkP4qu/L6VlZAzoiF8hs380mrPLqjPG4vVl47DfOOEDZBQRR
+ZjjaGItoGMGAew2fK7/VeN7u9id/e94UHUnvZWxwt3MuApPkteNxhISFhO3cbSZN
+IFTUcYjwPEgnM34bbAd1smKwNhs0htVwsESOo5V3cGXkyFk4jntX7g1DhL0exT7s
+UgXF6zJwIunZjtYa2iSXpYLc5pp5+6dTNv5ZWeJXfgwiVAnnNIk=
+=ck5U
+-----END PGP SIGNATURE-----
+
+--xbjSOCWVZ1q9zj4g--
