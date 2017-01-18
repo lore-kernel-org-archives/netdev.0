@@ -1,202 +1,97 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [net-next 2/4] tipc: add functionality to lookup multicast destination nodes
-Date: Wed, 18 Jan 2017 13:50:51 -0500
-Message-ID: <1484765453-16258-3-git-send-email-jon.maloy@ericsson.com>
-References: <1484765453-16258-1-git-send-email-jon.maloy@ericsson.com>
-Cc: netdev@vger.kernel.org, parthasarathy.bhuvaragan@ericsson.com,
-        ying.xue@windriver.com, maloy@donjonn.com,
-        tipc-discussion@lists.sourceforge.net,
-        Jon Maloy <jon.maloy@ericsson.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp105.biz.mail.bf1.yahoo.com ([98.139.221.43]:22369 "EHLO
-        smtp105.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1753337AbdARSvD (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2017 13:51:03 -0500
-In-Reply-To: <1484765453-16258-1-git-send-email-jon.maloy@ericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?= <u.kleine-koenig@pengutronix.de>
+Subject: Re: Initializing MAC address at run-time
+Date: Wed, 18 Jan 2017 19:54:35 +0100
+Message-ID: <20170118185435.fen6np7lydzgxxek@pengutronix.de>
+References: <e083ed68-0e8e-380e-23bd-5ad387c88575@free.fr>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: Mark Rutland <mark.rutland@arm.com>, DT <devicetree@vger.kernel.org>,
+ Arnd Bergmann <arnd@arndb.de>, Kevin Hilman <khilman@kernel.org>,
+ netdev <netdev@vger.kernel.org>,
+ Thibaud Cornic <thibaud_cornic@sigmadesigns.com>,
+ Linux ARM <linux-arm-kernel@lists.infradead.org>
+To: Mason <slash.tmp@free.fr>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Disposition: inline
+In-Reply-To: <e083ed68-0e8e-380e-23bd-5ad387c88575@free.fr>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-As a further preparation for the upcoming 'replicast' functionality,
-we add some necessary structs and functions for looking up and returning
-a list of all nodes that host destinations for a given multicast message.
+Hello,
 
-Reviewed-by: Parthasarathy Bhuvaragan <parthasarathy.bhuvaragan@ericsson.com>
-Acked-by: Ying Xue <ying.xue@windriver.com>
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
----
- net/tipc/bcast.c      | 33 +++++++++++++++++++++++++++++++--
- net/tipc/bcast.h      | 15 ++++++++++++++-
- net/tipc/name_table.c | 38 +++++++++++++++++++++++++++++++++-----
- net/tipc/name_table.h |  9 +++++++++
- 4 files changed, 87 insertions(+), 8 deletions(-)
+On Wed, Jan 18, 2017 at 03:03:57PM +0100, Mason wrote:
+> When my system boots up, eth0 is given a seemingly random MAC address.
+> =
 
-diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
-index 3256276..412d335 100644
---- a/net/tipc/bcast.c
-+++ b/net/tipc/bcast.c
-@@ -39,9 +39,8 @@
- #include "socket.h"
- #include "msg.h"
- #include "bcast.h"
--#include "name_distr.h"
- #include "link.h"
--#include "node.h"
-+#include "name_table.h"
- 
- #define	BCLINK_WIN_DEFAULT	50	/* bcast link window size (default) */
- #define	BCLINK_WIN_MIN	        32	/* bcast minimum link window size */
-@@ -434,3 +433,33 @@ void tipc_bcast_stop(struct net *net)
- 	kfree(tn->bcbase);
- 	kfree(tn->bcl);
- }
-+
-+void tipc_nlist_init(struct tipc_nlist *nl, u32 self)
-+{
-+	memset(nl, 0, sizeof(*nl));
-+	INIT_LIST_HEAD(&nl->list);
-+	nl->self = self;
-+}
-+
-+void tipc_nlist_add(struct tipc_nlist *nl, u32 node)
-+{
-+	if (node == nl->self)
-+		nl->local = true;
-+	else if (u32_push(&nl->list, node))
-+		nl->remote++;
-+}
-+
-+void tipc_nlist_del(struct tipc_nlist *nl, u32 node)
-+{
-+	if (node == nl->self)
-+		nl->local = false;
-+	else if (u32_del(&nl->list, node))
-+		nl->remote--;
-+}
-+
-+void tipc_nlist_purge(struct tipc_nlist *nl)
-+{
-+	u32_list_purge(&nl->list);
-+	nl->remote = 0;
-+	nl->local = 0;
-+}
-diff --git a/net/tipc/bcast.h b/net/tipc/bcast.h
-index 855d53c..18f3791 100644
---- a/net/tipc/bcast.h
-+++ b/net/tipc/bcast.h
-@@ -42,9 +42,22 @@
- struct tipc_node;
- struct tipc_msg;
- struct tipc_nl_msg;
--struct tipc_node_map;
-+struct tipc_nlist;
-+struct tipc_nitem;
- extern const char tipc_bclink_name[];
- 
-+struct tipc_nlist {
-+	struct list_head list;
-+	u32 self;
-+	u16 remote;
-+	bool local;
-+};
-+
-+void tipc_nlist_init(struct tipc_nlist *nl, u32 self);
-+void tipc_nlist_purge(struct tipc_nlist *nl);
-+void tipc_nlist_add(struct tipc_nlist *nl, u32 node);
-+void tipc_nlist_del(struct tipc_nlist *nl, u32 node);
-+
- int tipc_bcast_init(struct net *net);
- void tipc_bcast_stop(struct net *net);
- void tipc_bcast_add_peer(struct net *net, struct tipc_link *l,
-diff --git a/net/tipc/name_table.c b/net/tipc/name_table.c
-index 5a86df1..9be6592 100644
---- a/net/tipc/name_table.c
-+++ b/net/tipc/name_table.c
-@@ -645,6 +645,39 @@ int tipc_nametbl_mc_translate(struct net *net, u32 type, u32 lower, u32 upper,
- 	return res;
- }
- 
-+/* tipc_nametbl_lookup_dst_nodes - find broadcast destination nodes
-+ * - Creates list of nodes that overlap the given multicast address
-+ * - Determines if any node local ports overlap
-+ */
-+void tipc_nametbl_lookup_dst_nodes(struct net *net, u32 type, u32 lower,
-+				   u32 upper, u32 domain,
-+				   struct tipc_nlist *nodes)
-+{
-+	struct sub_seq *sseq, *stop;
-+	struct publication *publ;
-+	struct name_info *info;
-+	struct name_seq *seq;
-+
-+	rcu_read_lock();
-+	seq = nametbl_find_seq(net, type);
-+	if (!seq)
-+		goto exit;
-+
-+	spin_lock_bh(&seq->lock);
-+	sseq = seq->sseqs + nameseq_locate_subseq(seq, lower);
-+	stop = seq->sseqs + seq->first_free;
-+	for (; sseq->lower <= upper && sseq != stop; sseq++) {
-+		info = sseq->info;
-+		list_for_each_entry(publ, &info->zone_list, zone_list) {
-+			if (tipc_in_scope(domain, publ->node))
-+				tipc_nlist_add(nodes, publ->node);
-+		}
-+	}
-+	spin_unlock_bh(&seq->lock);
-+exit:
-+	rcu_read_unlock();
-+}
-+
- /*
-  * tipc_nametbl_publish - add name publication to network name tables
-  */
-@@ -1022,11 +1055,6 @@ int tipc_nl_name_table_dump(struct sk_buff *skb, struct netlink_callback *cb)
- 	return skb->len;
- }
- 
--struct u32_item {
--	struct list_head list;
--	u32 value;
--};
--
- bool u32_find(struct list_head *l, u32 value)
- {
- 	struct u32_item *item;
-diff --git a/net/tipc/name_table.h b/net/tipc/name_table.h
-index c89bb3f..6ebdeb1 100644
---- a/net/tipc/name_table.h
-+++ b/net/tipc/name_table.h
-@@ -39,6 +39,7 @@
- 
- struct tipc_subscription;
- struct tipc_plist;
-+struct tipc_nlist;
- 
- /*
-  * TIPC name types reserved for internal TIPC use (both current and planned)
-@@ -100,6 +101,9 @@ int tipc_nl_name_table_dump(struct sk_buff *skb, struct netlink_callback *cb);
- u32 tipc_nametbl_translate(struct net *net, u32 type, u32 instance, u32 *node);
- int tipc_nametbl_mc_translate(struct net *net, u32 type, u32 lower, u32 upper,
- 			      u32 limit, struct list_head *dports);
-+void tipc_nametbl_lookup_dst_nodes(struct net *net, u32 type, u32 lower,
-+				   u32 upper, u32 domain,
-+				   struct tipc_nlist *nodes);
- struct publication *tipc_nametbl_publish(struct net *net, u32 type, u32 lower,
- 					 u32 upper, u32 scope, u32 port_ref,
- 					 u32 key);
-@@ -116,6 +120,11 @@ void tipc_nametbl_unsubscribe(struct tipc_subscription *s);
- int tipc_nametbl_init(struct net *net);
- void tipc_nametbl_stop(struct net *net);
- 
-+struct u32_item {
-+	struct list_head list;
-+	u32 value;
-+};
-+
- bool u32_push(struct list_head *l, u32 value);
- u32 u32_pop(struct list_head *l);
- bool u32_find(struct list_head *l, u32 value);
--- 
-2.7.4
+> [    0.950734] nb8800 26000.ethernet eth0: MAC address ba:de:d6:38:b8:38
+> [    0.957334] nb8800 26000.ethernet eth0: MAC address 6e:f1:48:de:d6:c4
+> =
+
+> =
+
+> The DT node for eth0 is:
+> =
+
+> 	eth0: ethernet@26000 {
+> 		compatible =3D "sigma,smp8734-ethernet";
+> 		reg =3D <0x26000 0x800>;
+> 		interrupts =3D <38 IRQ_TYPE_LEVEL_HIGH>;
+> 		clocks =3D <&clkgen SYS_CLK>;
+> 	};
+> =
+
+> Documentation/devicetree/bindings/net/ethernet.txt mentions
+> - local-mac-address: array of 6 bytes, specifies the MAC address that was
+>   assigned to the network device;
+> =
+
+> And indeed, if I define this property, eth0 ends up with the MAC address
+> I specify in the device tree. But of course, I don't want all my boards
+> to share the same MAC address. Every interface has a unique MAC address.
+> =
+
+> In fact, the boot loader (not Uboot, a custom non-DT boot loader) stores
+> the MAC address somewhere in MMIO space, in some weird custom format.
+
+Where does your machine get the dtb from? You write it to the boot
+medium at a certain point of time I assume. So AFAICT you have the
+following options (in no particular order):
+
+ a) Describe in the dtb how to find out how the MAC address is stored
+    (already pointed out Mark and Robin)
+ b) Make your bootloader dt aware and let it provide the
+    local-mac-address property.
+ c) Adapt the dtb before it is written to the boot medium.
+ d) Let the bootloader configure the device and teach the driver to pick
+    up the mac from the device's address space.
+ e) Accept that the mac address is random during development, and make
+    Userspace configure the MAC address, which is early enough for
+    production use.
+
+Not sure d) is considered ok today, but some drivers have this feature.
+I'd say b) is the best choice.
+
+> I need to do something similar with the NAND partitions. The boot loader
+> stores the partition offsets somewhere, and I need to pass this info
+> to the NAND framework, so I assumed that inserting the corresponding
+> properties at run-time was the correct way to do it.
+
+The list of options here is similar to the list above. d) doesn't work,
+but instead you can pass the partitioning on the kernel commandline.
+
+Best regards
+Uwe
+
+-- =
+
+Pengutronix e.K.                           | Uwe Kleine-K=F6nig            |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
