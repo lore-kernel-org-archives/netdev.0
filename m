@@ -1,41 +1,51 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH] ip/xfrm: Fix deleteall when having many policies
- installed
-Date: Wed, 18 Jan 2017 09:03:02 -0800
-Message-ID: <20170118090302.6efd6cce@xeon-e3>
-References: <d056322e-7c23-7e19-3bdb-4afa5f04e409@secunet.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] net: Remove usage of net_device last_rx member
+Date: Wed, 18 Jan 2017 09:23:44 -0800
+Message-ID: <1484760224.13165.108.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20170118164501.1934-1-tklauser@distanz.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <shemminger@osdl.org>
-To: Alexander Heinlein <alexander.heinlein@secunet.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f50.google.com ([74.125.83.50]:35582 "EHLO
-        mail-pg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751014AbdARRNE (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2017 12:13:04 -0500
-Received: by mail-pg0-f50.google.com with SMTP id 194so6027766pgd.2
-        for <netdev@vger.kernel.org>; Wed, 18 Jan 2017 09:12:15 -0800 (PST)
-In-Reply-To: <d056322e-7c23-7e19-3bdb-4afa5f04e409@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org,
+ b.a.t.m.a.n@lists.open-mesh.org, linux-m68k@lists.linux-m68k.org,
+ intel-wired-lan@lists.osuosl.org, Jay Vosburgh <j.vosburgh@gmail.com>,
+ Veaceslav Falico <vfalico@gmail.com>, Andy Gospodarek <andy@greyhouse.net>,
+ Mirko Lindner <mlindner@marvell.com>
+To: Tobias Klauser <tklauser@distanz.ch>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <20170118164501.1934-1-tklauser@distanz.ch>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-On Mon, 16 Jan 2017 15:09:01 +0100
-Alexander Heinlein <alexander.heinlein@secunet.com> wrote:
-
-> Fix "Policy buffer overflow" error when trying to use deleteall with
-> many policies installed.
+On Wed, 2017-01-18 at 17:45 +0100, Tobias Klauser wrote:
+> The network stack no longer uses the last_rx member of struct net_device
+> since the bonding driver switched to use its own private last_rx in
+> commit 9f242738376d ("bonding: use last_arp_rx in slave_last_rx()").
 > 
-> Signed-off-by: Alexander Heinlein <alexander.heinlein@secunet.com>
-> ---
->  ip/xfrm_policy.c | 6 ++----
->  1 file changed, 2 insertions(+), 4 deletions(-)
+> However, some drivers still (ab)use the field for their own purposes and
+> some driver just update it without actually using it.
 > 
-> diff --git a/ip/xfrm_policy.c b/ip/xfrm_policy.c
-> index cc9c0f1..451b982 100644
-> --- a/ip/xfrm_policy.c
-> +++ b/ip/xfrm_policy.c
-> @@ -732,10 +732,8 @@ static int xfrm_policy_keep(const struct
-> sockaddr_nl *who,
+> Previously, there was an accompanying comment for the last_rx member
+> added in commit 4dc89133f49b ("net: add a comment on netdev->last_rx")
+> which asked drivers not to update is, unless really needed. However,
+> this commend was removed in commit f8ff080dacec ("bonding: remove
+> useless updating of slave->dev->last_rx"), so some drivers added later
+> on still did update last_rx.
+> 
+> Remove all usage of last_rx and switch three drivers (sky2, atp and
+> smc91c92_cs) which actually read and write it to use their own private
+> copy in netdev_priv.
+> 
+> Compile-tested with allyesconfig and allmodconfig on x86 and arm.
 
-Patch is not formatted properly because your mailer is line wrapping
+SGTM, thanks a lot for doing this Tobias.
+
+Acked-by: Eric Dumazet <edumazet@google.com>
