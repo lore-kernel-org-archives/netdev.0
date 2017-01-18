@@ -1,200 +1,151 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net-next V5 3/3] tun: rx batching
-Date: Wed, 18 Jan 2017 15:02:03 +0800
-Message-ID: <1484722923-7698-4-git-send-email-jasowang@redhat.com>
-References: <1484722923-7698-1-git-send-email-jasowang@redhat.com>
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH net-next v3 06/10] net: dsa: Migrate to device_find_class()
+Date: Wed, 18 Jan 2017 08:06:10 +0100
+Message-ID: <20170118070610.GA28877@kroah.com>
+References: <20170114214713.28109-1-f.fainelli@gmail.com>
+ <20170114214713.28109-7-f.fainelli@gmail.com>
+ <20170115110628.GF26374@kroah.com>
+ <fc247aeb-a8d6-5ba9-c26d-cb057a5ac34d@gmail.com>
+ <20170115173949.GA19268@kroah.com>
+ <a9ea1f45-b9a5-d840-68e0-9bf9bc7a6598@gmail.com>
+ <20170115191632.GD5643@lunn.ch>
+ <912e6143-c67a-d909-2a6c-939de79efc5d@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: wexu@redhat.com, stefanha@redhat.com
-To: mst@redhat.com, virtualization@lists.linux-foundation.org,
-	netdev@vger.kernel.org, kvm@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1484722923-7698-1-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: Andrew Lunn <andrew@lunn.ch>, Jason Cooper <jason@lakedaemon.net>,
+ Vivien Didelot <vivien.didelot@savoirfairelinux.com>, netdev@vger.kernel.org,
+ Russell King <linux@armlinux.org.uk>, open list <linux-kernel@vger.kernel.org>,
+ Gregory Clement <gregory.clement@free-electrons.com>,
+ "David S. Miller" <davem@davemloft.net>,
+ "moderated list:ARM SUB-ARCHITECTURES" <linux-arm-kernel@lists.infradead.org>,
+ Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Disposition: inline
+In-Reply-To: <912e6143-c67a-d909-2a6c-939de79efc5d@gmail.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-We can only process 1 packet at one time during sendmsg(). This often
-lead bad cache utilization under heavy load. So this patch tries to do
-some batching during rx before submitting them to host network
-stack. This is done through accepting MSG_MORE as a hint from
-sendmsg() caller, if it was set, batch the packet temporarily in a
-linked list and submit them all once MSG_MORE were cleared.
+On Mon, Jan 16, 2017 at 12:01:02PM -0800, Florian Fainelli wrote:
+> On 01/15/2017 11:16 AM, Andrew Lunn wrote:
+> >>> What exactly is the relationship between these devices (a ascii-art tree
+> >>> or sysfs tree output might be nice) so I can try to understand what is
+> >>> going on here.
+> > 
+> > Hi Greg, Florian
+> > 
+> > A few diagrams and trees which might help understand what is going on.
+> > 
+> > The first diagram comes from the 2008 patch which added all this code:
+> > 
+> >             +-----------+       +-----------+
+> >             |           | RGMII |           |
+> >             |           +-------+           +------ 1000baseT MDI ("WAN")
+> >             |           |       |  6-port   +------ 1000baseT MDI ("LAN1")
+> >             |    CPU    |       |  ethernet +------ 1000baseT MDI ("LAN2")
+> >             |           |MIImgmt|  switch   +------ 1000baseT MDI ("LAN3")
+> >             |           +-------+  w/5 PHYs +------ 1000baseT MDI ("LAN4")
+> >             |           |       |           |
+> >             +-----------+       +-----------+
+> > 
+> > We have an ethernet switch and a host CPU. The switch is connected to
+> > the CPU in two different ways. RGMII allows us to get Ethernet frames
+> > from the CPU into the switch. MIImgmt, is the management bus normally
+> > used for Ethernet PHYs, but Marvell switches also use it for Managing
+> > switches.
+> > 
+> > The diagram above is the simplest setup. You can have multiple
+> > Ethernet switches, connected together via switch ports. Each switch
+> > has its own MIImgmt connect to the CPU, but there is only one RGMII
+> > link.
+> > 
+> > When this code was designed back in 2008, it was decided to represent
+> > this is a platform device, and it has a platform_data, which i have
+> > slightly edited to keep it simple:
+> > 
+> > struct dsa_platform_data {
+> >         /*
+> >          * Reference to a Linux network interface that connects
+> >          * to the root switch chip of the tree.
+> >          */
+> >         struct device   *netdev;
+> > 
+> >         /*
+> >          * Info structs describing each of the switch chips
+> >          * connected via this network interface.
+> >          */
+> >         int             nr_chips;
+> >         struct dsa_chip_data    *chip;
+> > };
+> > 
+> > This netdev is the CPU side of the RGMII interface.
+> > 
+> > Each switch has a dsa_chip_data, again edited:
+> > 
+> > struct dsa_chip_data {
+> >         /*
+> >          * How to access the switch configuration registers.
+> >          */
+> >         struct device   *host_dev;
+> >         int             sw_addr;
+> > ...
+> > }
+> > 
+> > The host_dev is the CPU side of the MIImgmt, and we have the address
+> > the switch is using on the bus.
+> > 
+> > During probe of this platform device, we need to get from the
+> > struct device *netdev to a struct net_device *dev.
+> > 
+> > So the code looks in the device net class to find the device
+> > 
+> > |   |   |   |-- f1074000.ethernet
+> > |   |   |   |   |-- deferred_probe
+> > |   |   |   |   |-- driver -> ../../../../../bus/platform/drivers/mvneta
+> > |   |   |   |   |-- driver_override
+> > |   |   |   |   |-- modalias
+> > |   |   |   |   |-- net
+> > |   |   |   |   |   `-- eth1
+> > |   |   |   |   |       |-- addr_assign_type
+> > |   |   |   |   |       |-- address
+> > |   |   |   |   |       |-- addr_len
+> > |   |   |   |   |       |-- broadcast
+> > |   |   |   |   |       |-- carrier
+> > |   |   |   |   |       |-- carrier_changes
+> > |   |   |   |   |       |-- deferred_probe
+> > |   |   |   |   |       |-- device -> ../../../f1074000.ethernet
+> > 
+> > and then use container_of() to get the net_device.
+> > 
+> > Similarly, the code needs to get from struct device *host_dev to a struct mii_bus *.
+> > 
+> > |   |   |   |-- f1072004.mdio
+> > |   |   |   |   |-- deferred_probe
+> > |   |   |   |   |-- driver -> ../../../../../bus/platform/drivers/orion-mdio
+> > |   |   |   |   |-- driver_override
+> > |   |   |   |   |-- mdio_bus
+> > |   |   |   |   |   `-- f1072004.mdio-mi
+> > |   |   |   |   |       |-- deferred_probe
+> > |   |   |   |   |       |-- device -> ../../../f1072004.mdio
+> > 
+> 
+> Thanks Andrew! Greg, does that make it clearer how these devices
+> references are used, do you still think the way this is done is wrong,
+> too cautious, or valid?
 
-Tests were done by pktgen (burst=128) in guest over mlx4(noqueue) on host:
+I'm still not sold on it, I think there is something odd here with your
+use/assumptions of the driver model.  Give me a few days to catch up
+with other stuff to respond back please...
 
-                                 Mpps  -+%
-    rx-frames = 0                0.91  +0%
-    rx-frames = 4                1.00  +9.8%
-    rx-frames = 8                1.00  +9.8%
-    rx-frames = 16               1.01  +10.9%
-    rx-frames = 32               1.07  +17.5%
-    rx-frames = 48               1.07  +17.5%
-    rx-frames = 64               1.08  +18.6%
-    rx-frames = 64 (no MSG_MORE) 0.91  +0%
+thanks,
 
-User were allowed to change per device batched packets through
-ethtool -C rx-frames. NAPI_POLL_WEIGHT were used as upper limitation
-to prevent bh from being disabled too long.
-
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
- drivers/net/tun.c | 76 ++++++++++++++++++++++++++++++++++++++++++++++++++-----
- 1 file changed, 70 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 8c1d3bd..13890ac 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -218,6 +218,7 @@ struct tun_struct {
- 	struct list_head disabled;
- 	void *security;
- 	u32 flow_count;
-+	u32 rx_batched;
- 	struct tun_pcpu_stats __percpu *pcpu_stats;
- };
- 
-@@ -522,6 +523,7 @@ static void tun_queue_purge(struct tun_file *tfile)
- 	while ((skb = skb_array_consume(&tfile->tx_array)) != NULL)
- 		kfree_skb(skb);
- 
-+	skb_queue_purge(&tfile->sk.sk_write_queue);
- 	skb_queue_purge(&tfile->sk.sk_error_queue);
- }
- 
-@@ -1139,10 +1141,46 @@ static struct sk_buff *tun_alloc_skb(struct tun_file *tfile,
- 	return skb;
- }
- 
-+static void tun_rx_batched(struct tun_struct *tun, struct tun_file *tfile,
-+			   struct sk_buff *skb, int more)
-+{
-+	struct sk_buff_head *queue = &tfile->sk.sk_write_queue;
-+	struct sk_buff_head process_queue;
-+	u32 rx_batched = tun->rx_batched;
-+	bool rcv = false;
-+
-+	if (!rx_batched || (!more && skb_queue_empty(queue))) {
-+		local_bh_disable();
-+		netif_receive_skb(skb);
-+		local_bh_enable();
-+		return;
-+	}
-+
-+	spin_lock(&queue->lock);
-+	if (!more || skb_queue_len(queue) == rx_batched) {
-+		__skb_queue_head_init(&process_queue);
-+		skb_queue_splice_tail_init(queue, &process_queue);
-+		rcv = true;
-+	} else {
-+		__skb_queue_tail(queue, skb);
-+	}
-+	spin_unlock(&queue->lock);
-+
-+	if (rcv) {
-+		struct sk_buff *nskb;
-+
-+		local_bh_disable();
-+		while ((nskb = __skb_dequeue(&process_queue)))
-+			netif_receive_skb(nskb);
-+		netif_receive_skb(skb);
-+		local_bh_enable();
-+	}
-+}
-+
- /* Get packet from user space buffer */
- static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
- 			    void *msg_control, struct iov_iter *from,
--			    int noblock)
-+			    int noblock, bool more)
- {
- 	struct tun_pi pi = { 0, cpu_to_be16(ETH_P_IP) };
- 	struct sk_buff *skb;
-@@ -1283,9 +1321,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
- 
- 	rxhash = skb_get_hash(skb);
- #ifndef CONFIG_4KSTACKS
--	local_bh_disable();
--	netif_receive_skb(skb);
--	local_bh_enable();
-+	tun_rx_batched(tun, tfile, skb, more);
- #else
- 	netif_rx_ni(skb);
- #endif
-@@ -1311,7 +1347,8 @@ static ssize_t tun_chr_write_iter(struct kiocb *iocb, struct iov_iter *from)
- 	if (!tun)
- 		return -EBADFD;
- 
--	result = tun_get_user(tun, tfile, NULL, from, file->f_flags & O_NONBLOCK);
-+	result = tun_get_user(tun, tfile, NULL, from,
-+			      file->f_flags & O_NONBLOCK, false);
- 
- 	tun_put(tun);
- 	return result;
-@@ -1569,7 +1606,8 @@ static int tun_sendmsg(struct socket *sock, struct msghdr *m, size_t total_len)
- 		return -EBADFD;
- 
- 	ret = tun_get_user(tun, tfile, m->msg_control, &m->msg_iter,
--			   m->msg_flags & MSG_DONTWAIT);
-+			   m->msg_flags & MSG_DONTWAIT,
-+			   m->msg_flags & MSG_MORE);
- 	tun_put(tun);
- 	return ret;
- }
-@@ -1770,6 +1808,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
- 		tun->align = NET_SKB_PAD;
- 		tun->filter_attached = false;
- 		tun->sndbuf = tfile->socket.sk->sk_sndbuf;
-+		tun->rx_batched = 0;
- 
- 		tun->pcpu_stats = netdev_alloc_pcpu_stats(struct tun_pcpu_stats);
- 		if (!tun->pcpu_stats) {
-@@ -2438,6 +2477,29 @@ static void tun_set_msglevel(struct net_device *dev, u32 value)
- #endif
- }
- 
-+static int tun_get_coalesce(struct net_device *dev,
-+			    struct ethtool_coalesce *ec)
-+{
-+	struct tun_struct *tun = netdev_priv(dev);
-+
-+	ec->rx_max_coalesced_frames = tun->rx_batched;
-+
-+	return 0;
-+}
-+
-+static int tun_set_coalesce(struct net_device *dev,
-+			    struct ethtool_coalesce *ec)
-+{
-+	struct tun_struct *tun = netdev_priv(dev);
-+
-+	if (ec->rx_max_coalesced_frames > NAPI_POLL_WEIGHT)
-+		tun->rx_batched = NAPI_POLL_WEIGHT;
-+	else
-+		tun->rx_batched = ec->rx_max_coalesced_frames;
-+
-+	return 0;
-+}
-+
- static const struct ethtool_ops tun_ethtool_ops = {
- 	.get_settings	= tun_get_settings,
- 	.get_drvinfo	= tun_get_drvinfo,
-@@ -2445,6 +2507,8 @@ static const struct ethtool_ops tun_ethtool_ops = {
- 	.set_msglevel	= tun_set_msglevel,
- 	.get_link	= ethtool_op_get_link,
- 	.get_ts_info	= ethtool_op_get_ts_info,
-+	.get_coalesce   = tun_get_coalesce,
-+	.set_coalesce   = tun_set_coalesce,
- };
- 
- static int tun_queue_resize(struct tun_struct *tun)
--- 
-2.7.4
+greg k-h
