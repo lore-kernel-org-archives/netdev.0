@@ -1,39 +1,48 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: xennet_start_xmit assumptions
-Date: Wed, 18 Jan 2017 10:31:32 -0500
-Message-ID: <20170118153132.GB9258@oracle.com>
+From: Robert Shearman <rshearma@brocade.com>
+Subject: [PATCH net 2/2] ila: Fix memory leak of lwt dst cache on module unload
+Date: Wed, 18 Jan 2017 15:32:03 +0000
+Message-ID: <1484753523-26230-3-git-send-email-rshearma@brocade.com>
+References: <1484753523-26230-1-git-send-email-rshearma@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org, xen-devel@lists.xenproject.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, Tom Herbert <tom@herbertland.com>,
+        Roopa Prabhu <roopa@cumulusnetworks.com>,
+        Robert Shearman <rshearma@brocade.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:43374 "EHLO
-        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751413AbdARPbm (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2017 10:31:42 -0500
-Content-Disposition: inline
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:51470 "EHLO
+        mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+        by vger.kernel.org with ESMTP id S1752164AbdARPdz (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2017 10:33:55 -0500
+In-Reply-To: <1484753523-26230-1-git-send-email-rshearma@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As I was playing around with pf_packet, I accidentally wrote
-a buggy application program that bzero'ed the msghdr, then set
-up the msg_name, msg_namelen correctly, and then did a sendmsg
-on the pf_packet/SOCK_RAW fd.
+If routes with lwt state are present when the ila module is unloaded
+and then subsequently deleted, the dst cache entry in the state will
+be leaked.
 
-This causes packet_snd to set up an skb with a lot of issues,
-e.g., skb->len = 0, skb_headlen(skb) is 0, etc. I think we can/should
-drop the packet in packet_snd if the skb->len is 0, but there
-may be other driver bugs going on:
+Fix this by specifying the owning module in the lwt ops to allow lwt
+to take a reference for each route and to keep the module around until
+the last ila route is deleted.
 
-Turns out that ixgbe and sunvnet handle this problematic
-skb correctly (they drop it and system remains stable), 
-but it creates a panic in xen_netfront (xennet_start_xmit()
-hits a null pointer deref when xennet_make_first_txreq() returns 
-NULL)
+Fixes: 79ff2fc31e0f ("ila: Cache a route to translated address")
+Signed-off-by: Robert Shearman <rshearma@brocade.com>
+---
+ net/ipv6/ila/ila_lwt.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-I'm new to the xen driver code, so I'm hoping that
-the experts can comment here: reading the code in xennet_start_xmit,
-it seems like it mandatorily requires the skb_headlen() to be
-non-zero in order to create the first_tx? That may not always be
-true, how does the code recover for purely non-linear skbs?
-
---Sowmini
+diff --git a/net/ipv6/ila/ila_lwt.c b/net/ipv6/ila/ila_lwt.c
+index a7bc54ab46e2..13b5e85fe0d5 100644
+--- a/net/ipv6/ila/ila_lwt.c
++++ b/net/ipv6/ila/ila_lwt.c
+@@ -238,6 +238,7 @@ static const struct lwtunnel_encap_ops ila_encap_ops = {
+ 	.fill_encap = ila_fill_encap_info,
+ 	.get_encap_size = ila_encap_nlsize,
+ 	.cmp_encap = ila_encap_cmp,
++	.owner = THIS_MODULE,
+ };
+ 
+ int ila_lwt_init(void)
+-- 
+2.1.4
