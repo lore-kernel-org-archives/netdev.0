@@ -1,67 +1,34 @@
-From: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
-Subject: Re: [PATCH net-next] mlx4: support __GFP_MEMALLOC for rx
-Date: Wed, 18 Jan 2017 12:31:18 +0300
-Message-ID: <2696ea05-bb39-787b-2029-33b729fd88e0@yandex-team.ru>
-References: <1484712850.13165.86.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [PATCH v2 2/2] xen-netback: protect resource
+ cleaning on XenBus disconnect
+Date: Wed, 18 Jan 2017 09:45:23 +0000
+Message-ID: <20170118094523.GK5089@citrix.com>
+References: <1484686178-76959-1-git-send-email-igor.druzhinin@citrix.com>
+ <1484686178-76959-3-git-send-email-igor.druzhinin@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Tariq Toukan <tariqt@mellanox.com>,
- "linux-mm@kvack.org" <linux-mm@kvack.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>, David Miller <davem@davemloft.net>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1484712850.13165.86.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: xen-devel@lists.xenproject.org, Paul.Durrant@citrix.com,
+ wei.liu2@citrix.com, linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Igor Druzhinin <igor.druzhinin@citrix.com>
+Return-path: <xen-devel-bounces@lists.xen.org>
+Content-Disposition: inline
+In-Reply-To: <1484686178-76959-3-git-send-email-igor.druzhinin@citrix.com>
+List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Errors-To: xen-devel-bounces@lists.xen.org
+Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
 List-Id: netdev.vger.kernel.org
 
-On 18.01.2017 07:14, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> Commit 04aeb56a1732 ("net/mlx4_en: allocate non 0-order pages for RX
-> ring with __GFP_NOMEMALLOC") added code that appears to be not needed at
-> that time, since mlx4 never used __GFP_MEMALLOC allocations anyway.
->
-> As using memory reserves is a must in some situations (swap over NFS or
-> iSCSI), this patch adds this flag.
-
-AFAIK __GFP_MEMALLOC is used for TX, not for RX: for allocations which are required by memory reclaimer to free some pages.
-
-Allocation RX buffers with __GFP_MEMALLOC is a straight way to depleting all reserves by flood from network.
-
->
-> Note that this driver does not reuse pages (yet) so we do not have to
-> add anything else.
->
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Konstantin Khlebnikov <khlebnikov@yandex-team.ru>
-> Cc: Tariq Toukan <tariqt@mellanox.com>
-> ---
->  drivers/net/ethernet/mellanox/mlx4/en_rx.c |    3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
->
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-> index eac527e25ec902c2a586e9952272b9e8e599e2c8..e362f99334d03c0df4d88320977670015870dd9c 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-> @@ -706,7 +706,8 @@ static bool mlx4_en_refill_rx_buffers(struct mlx4_en_priv *priv,
->  	do {
->  		if (mlx4_en_prepare_rx_desc(priv, ring,
->  					    ring->prod & ring->size_mask,
-> -					    GFP_ATOMIC | __GFP_COLD))
-> +					    GFP_ATOMIC | __GFP_COLD |
-> +					    __GFP_MEMALLOC))
->  			break;
->  		ring->prod++;
->  	} while (--missing);
->
->
-
-
--- 
-Konstantin
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+T24gVHVlLCBKYW4gMTcsIDIwMTcgYXQgMDg6NDk6MzhQTSArMDAwMCwgSWdvciBEcnV6aGluaW4g
+d3JvdGU6Cj4gdmlmLT5sb2NrIGlzIHVzZWQgdG8gcHJvdGVjdCBzdGF0aXN0aWNzIGdhdGhlcmlu
+ZyBhZ2VudHMgZnJvbSB1c2luZyB0aGUKPiBxdWV1ZSBzdHJ1Y3R1cmUgZHVyaW5nIGNsZWFuaW5n
+Lgo+IAo+IFNpZ25lZC1vZmYtYnk6IElnb3IgRHJ1emhpbmluIDxpZ29yLmRydXpoaW5pbkBjaXRy
+aXguY29tPgoKQWNrZWQtYnk6IFdlaSBMaXUgPHdlaS5saXUyQGNpdHJpeC5jb20+CgpfX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpYZW4tZGV2ZWwgbWFpbGlu
+ZyBsaXN0Clhlbi1kZXZlbEBsaXN0cy54ZW4ub3JnCmh0dHBzOi8vbGlzdHMueGVuLm9yZy94ZW4t
+ZGV2ZWwK
