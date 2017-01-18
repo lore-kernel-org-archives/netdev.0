@@ -1,80 +1,138 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: resend: tcp: performance issue with fastopen connections (mss > window)
-Date: Wed, 18 Jan 2017 13:33:11 -0500
-Message-ID: <CADVnQymkzN8+dC4CDuqxSv5-kfEpVxTjpG3D3M_6TgKkHS+gfA@mail.gmail.com>
-References: <30f38b3c-8c5c-7fab-e424-985e63ad900a@oracle.com>
- <1484321734.13165.24.camel@edumazet-glaptop3.roam.corp.google.com>
- <22b07900-2151-a31f-34aa-7fb47c958423@oracle.com> <3dbbcda8-ce79-641c-cf3b-21f41c563939@oracle.com>
- <CANn89iJn+fC-mMCskczXupj=yhvDijYEn-_NeCphuG8roNCygA@mail.gmail.com>
- <CAK6E8=fL+Gf_uqxALxX8iT7Ew9sxZA_+Ncaa+nh2ZWMkej154w@mail.gmail.com> <CANn89i+5E0nXEox0EHU7s3me00KegXNA4ZeKQWxQoWRC4jNbHQ@mail.gmail.com>
+From: Paul Moore <paul@paul-moore.com>
+Subject: Re: [PATCH v3] audit: log 32-bit socketcalls
+Date: Wed, 18 Jan 2017 15:46:08 -0500
+Message-ID: <CAHC9VhQ_GmWWZK-1L6oHGTGx47FwTrjU9166034mAXA2xV0Kiw@mail.gmail.com>
+References: <299e5702e5876404ee2863cf95847f73cddb0a45.1484669022.git.rgb@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Yuchung Cheng <ycheng@google.com>,
-        Alexey Kodanev <alexey.kodanev@oracle.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Vasily Isaenko <vasily.isaenko@oracle.com>
-To: Eric Dumazet <edumazet@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ot0-f181.google.com ([74.125.82.181]:33150 "EHLO
-        mail-ot0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752832AbdARUiM (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2017 15:38:12 -0500
-Received: by mail-ot0-f181.google.com with SMTP id 73so17424324otj.0
-        for <netdev@vger.kernel.org>; Wed, 18 Jan 2017 12:38:12 -0800 (PST)
-In-Reply-To: <CANn89i+5E0nXEox0EHU7s3me00KegXNA4ZeKQWxQoWRC4jNbHQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-audit@redhat.com,
+        linux-kernel@vger.kernel.org
+To: Richard Guy Briggs <rgb@redhat.com>
+Return-path: <linux-audit-bounces@redhat.com>
+In-Reply-To: <299e5702e5876404ee2863cf95847f73cddb0a45.1484669022.git.rgb@redhat.com>
+List-Unsubscribe: <https://www.redhat.com/mailman/options/linux-audit>,
+	<mailto:linux-audit-request@redhat.com?subject=unsubscribe>
+List-Archive: <https://www.redhat.com/archives/linux-audit>
+List-Post: <mailto:linux-audit@redhat.com>
+List-Help: <mailto:linux-audit-request@redhat.com?subject=help>
+List-Subscribe: <https://www.redhat.com/mailman/listinfo/linux-audit>,
+	<mailto:linux-audit-request@redhat.com?subject=subscribe>
+Sender: linux-audit-bounces@redhat.com
+Errors-To: linux-audit-bounces@redhat.com
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 18, 2017 at 1:16 PM, Eric Dumazet <edumazet@google.com> wrote:
+On Tue, Jan 17, 2017 at 11:07 AM, Richard Guy Briggs <rgb@redhat.com> wrote:
+> 32-bit socketcalls were not being logged by audit on x86_64 systems.
+> Log them.  This is basically a duplicate of the call from
+> net/socket.c:sys_socketcall(), but it addresses the impedance mismatch
+> between 32-bit userspace process and 64-bit kernel audit.
 >
-> On Wed, Jan 18, 2017 at 10:13 AM, Yuchung Cheng <ycheng@google.com> wrote:
-> > On Wed, Jan 18, 2017 at 9:35 AM, Eric Dumazet <edumazet@google.com> wrote:
-> >>
-> >> On Wed, Jan 18, 2017 at 9:32 AM, Alexey Kodanev
-> >> <alexey.kodanev@oracle.com> wrote:
-> >> > Hi Eric,
-> >> >
-> >> > On 01/13/2017 08:07 PM, Alexey Kodanev wrote:
-> >> >
-> >>
-> >> > Looks like max_window not correctly initialized for tfo sockets.
-> >> > On my test machine it has set to '5592320' in tcp_fastopen_create_child().
-> >> >
-> >> > This diff fixes the issue, the question: is this the right place to do it?
-> >> >
-> >> > diff --git a/net/ipv4/tcp_fastopen.c b/net/ipv4/tcp_fastopen.c
-> >> > index 4e777a3..33ed508 100644
-> >> > --- a/net/ipv4/tcp_fastopen.c
-> >> > +++ b/net/ipv4/tcp_fastopen.c
-> >> > @@ -206,6 +206,8 @@ static struct sock *tcp_fastopen_create_child(struct
-> >> > sock *sk,
-> >> >          */
-> >> >         tp->snd_wnd = ntohs(tcp_hdr(skb)->window);
-> >> >
-> >> > +       tp->max_window = tp->snd_wnd;
-> >> > +
-> >>
-> >> Excellent catch. Let me test our regression tests with this.
-> > Indeed nice catch. Thanks for the investigative work!
-> >
+> See: https://github.com/linux-audit/audit-kernel/issues/14
 >
-> We do have 2 failures, but tests might have depended on undocumented behavior
+> Signed-off-by: Richard Guy Briggs <rgb@redhat.com>
+> ---
+> v3:
+>    Proper spacing around operators and functions.  Local var ordering.
+>    Ditch unlikely, return early.
 >
-> (For googlers :
-> Ran 211 tests: 209 passing, 0 flaky 2 failing
-> Sponge: http://sponge/f1575065-6e1c-4514-bced-9167ce56d2ee
-> )
+> v2:
+>    Move work to audit_socketcall_compat() and use audit_dummy_context().
+> ---
+>  include/linux/audit.h |   20 ++++++++++++++++++++
+>  net/compat.c          |   17 ++++++++++++++---
+>  2 files changed, 34 insertions(+), 3 deletions(-)
 
-Yes, exactly, those test failures look fine. Looks like the test was
-implicitly expecting the old buggy behavior (and it wasn't noticed
-because the 10*MSS output matches IW10, so it looked fine. But now
-with the fix, I believe we are seeing the correct new behavior because
-tcp_xmit_size_goal() is calling tcp_bound_to_half_wnd(), and now with
-max_window fixed, the outgoing TSO skb is now the correct 5*MSS (half
-of the rwin of 10000). So the test results look good to me.
+Merged, thanks.
 
-Thanks, Alexey, for tracking this down! :-)
+> diff --git a/include/linux/audit.h b/include/linux/audit.h
+> index 9d4443f..2be99b2 100644
+> --- a/include/linux/audit.h
+> +++ b/include/linux/audit.h
+> @@ -387,6 +387,20 @@ static inline int audit_socketcall(int nargs, unsigned long *args)
+>                 return __audit_socketcall(nargs, args);
+>         return 0;
+>  }
+> +
+> +static inline int audit_socketcall_compat(int nargs, u32 *args)
+> +{
+> +       unsigned long a[AUDITSC_ARGS];
+> +       int i;
+> +
+> +       if (audit_dummy_context())
+> +               return 0;
+> +
+> +       for (i = 0; i < nargs; i++)
+> +               a[i] = (unsigned long)args[i];
+> +       return __audit_socketcall(nargs, a);
+> +}
+> +
+>  static inline int audit_sockaddr(int len, void *addr)
+>  {
+>         if (unlikely(!audit_dummy_context()))
+> @@ -513,6 +527,12 @@ static inline int audit_socketcall(int nargs, unsigned long *args)
+>  {
+>         return 0;
+>  }
+> +
+> +static inline int audit_socketcall_compat(int nargs, u32 *args)
+> +{
+> +       return 0;
+> +}
+> +
+>  static inline void audit_fd_pair(int fd1, int fd2)
+>  { }
+>  static inline int audit_sockaddr(int len, void *addr)
+> diff --git a/net/compat.c b/net/compat.c
+> index 1cd2ec0..a96fd2f 100644
+> --- a/net/compat.c
+> +++ b/net/compat.c
+> @@ -22,6 +22,7 @@
+>  #include <linux/filter.h>
+>  #include <linux/compat.h>
+>  #include <linux/security.h>
+> +#include <linux/audit.h>
+>  #include <linux/export.h>
+>
+>  #include <net/scm.h>
+> @@ -781,14 +782,24 @@ COMPAT_SYSCALL_DEFINE5(recvmmsg, int, fd, struct compat_mmsghdr __user *, mmsg,
+>
+>  COMPAT_SYSCALL_DEFINE2(socketcall, int, call, u32 __user *, args)
+>  {
+> -       int ret;
+> -       u32 a[6];
+> +       u32 a[AUDITSC_ARGS];
+> +       unsigned int len;
+>         u32 a0, a1;
+> +       int ret;
+>
+>         if (call < SYS_SOCKET || call > SYS_SENDMMSG)
+>                 return -EINVAL;
+> -       if (copy_from_user(a, args, nas[call]))
+> +       len = nas[call];
+> +       if (len > sizeof(a))
+> +               return -EINVAL;
+> +
+> +       if (copy_from_user(a, args, len))
+>                 return -EFAULT;
+> +
+> +       ret = audit_socketcall_compat(len / sizeof(a[0]), a);
+> +       if (ret)
+> +               return ret;
+> +
+>         a0 = a[0];
+>         a1 = a[1];
+>
+> --
+> 1.7.1
+>
+> --
+> Linux-audit mailing list
+> Linux-audit@redhat.com
+> https://www.redhat.com/mailman/listinfo/linux-audit
 
-neal
+
+
+-- 
+paul moore
+www.paul-moore.com
