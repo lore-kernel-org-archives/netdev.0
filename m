@@ -1,40 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] net/mlx5e: Support bpf_xdp_adjust_head()
-Date: Wed, 18 Jan 2017 11:31:27 -0500 (EST)
-Message-ID: <20170118.113127.2274827131322198278.davem@davemloft.net>
-References: <1484719567-2774431-1-git-send-email-kafai@fb.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: [net PATCH] bpf: fix samples xdp_tx_iptunnel and tc_l2_redirect
+ with fake KBUILD_MODNAME
+Date: Wed, 18 Jan 2017 17:19:00 +0100
+Message-ID: <148475634058.19645.17347886661194782120.stgit@firesoul>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, saeedm@mellanox.com, tariqt@mellanox.com,
-        kernel-team@fb.com
-To: kafai@fb.com
+Cc: Daniel Borkmann <borkmann@iogearbox.net>, kafai@fb.com,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>
+To: netdev@vger.kernel.org, Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:35974 "EHLO
-        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751505AbdARQkx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2017 11:40:53 -0500
-In-Reply-To: <1484719567-2774431-1-git-send-email-kafai@fb.com>
+Received: from mx1.redhat.com ([209.132.183.28]:53222 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1754070AbdARQo0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 18 Jan 2017 11:44:26 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Martin KaFai Lau <kafai@fb.com>
-Date: Tue, 17 Jan 2017 22:06:07 -0800
+Fix build errors for samples/bpf xdp_tx_iptunnel and tc_l2_redirect,
+when dynamic debugging is enabled (CONFIG_DYNAMIC_DEBUG) by defining a
+fake KBUILD_MODNAME.
 
-> This patch adds bpf_xdp_adjust_head() support to mlx5e.
-> 
-> 1. rx_headroom is added to struct mlx5e_rq.  It uses
->    an existing 4 byte hole in the struct.
-> 2. The adjusted data length is checked against
->    MLX5E_XDP_MIN_INLINE and MLX5E_SW2HW_MTU(rq->netdev->mtu).
-> 3. The macro MLX5E_SW2HW_MTU is moved from en_main.c to en.h.
->    MLX5E_HW2SW_MTU is also moved to en.h for symmetric reason
->    but it is not a must.
-> 
-> v2:
-> - Keep the xdp specific logic in mlx5e_xdp_handle()
-> - Update dma_len after the sanity checks in mlx5e_xmit_xdp_frame()
-> 
-> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+Just like Daniel Borkmann fixed other samples/bpf in commit
+96a8eb1eeed2 ("bpf: fix samples to add fake KBUILD_MODNAME").
 
-Applied.
+Fixes: 12d8bb64e3f6 ("bpf: xdp: Add XDP example for head adjustment")
+Fixes: 90e02896f1a4 ("bpf: Add test for bpf_redirect to ipip/ip6tnl")
+Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+---
+ samples/bpf/tc_l2_redirect_kern.c  |    1 +
+ samples/bpf/xdp_tx_iptunnel_kern.c |    1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/samples/bpf/tc_l2_redirect_kern.c b/samples/bpf/tc_l2_redirect_kern.c
+index 92a44729dbe4..7ef2a12b25b2 100644
+--- a/samples/bpf/tc_l2_redirect_kern.c
++++ b/samples/bpf/tc_l2_redirect_kern.c
+@@ -4,6 +4,7 @@
+  * modify it under the terms of version 2 of the GNU General Public
+  * License as published by the Free Software Foundation.
+  */
++#define KBUILD_MODNAME "foo"
+ #include <uapi/linux/bpf.h>
+ #include <uapi/linux/if_ether.h>
+ #include <uapi/linux/if_packet.h>
+diff --git a/samples/bpf/xdp_tx_iptunnel_kern.c b/samples/bpf/xdp_tx_iptunnel_kern.c
+index 85c38ecd3a2d..0f4f6e8c8611 100644
+--- a/samples/bpf/xdp_tx_iptunnel_kern.c
++++ b/samples/bpf/xdp_tx_iptunnel_kern.c
+@@ -8,6 +8,7 @@
+  * encapsulating the incoming packet in an IPv4/v6 header
+  * and then XDP_TX it out.
+  */
++#define KBUILD_MODNAME "foo"
+ #include <uapi/linux/bpf.h>
+ #include <linux/in.h>
+ #include <linux/if_ether.h>
