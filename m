@@ -1,7 +1,8 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 1/2] net: dsa: store CPU switch structure in the tree
-Date: Tue, 17 Jan 2017 20:41:38 -0500
-Message-ID: <20170118014139.31417-1-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 2/2] net: dsa: use cpu_switch instead of ds[0]
+Date: Tue, 17 Jan 2017 20:41:39 -0500
+Message-ID: <20170118014139.31417-2-vivien.didelot@savoirfairelinux.com>
+References: <20170118014139.31417-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         "David S. Miller" <davem@davemloft.net>,
         Florian Fainelli <f.fainelli@gmail.com>,
@@ -9,112 +10,134 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
         Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170118014139.31417-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Store a dsa_switch pointer to the CPU switch in the tree instead of only
-its index. This avoids the need to initialize it to -1.
+Now that the DSA Ethernet switches are true Linux devices, the CPU
+switch is not necessarily the first one. If its address is higher than
+the second switch on the same MDIO bus, its index will be 1, not 0.
+
+Avoid any confusion by using dst->cpu_switch instead of dst->ds[0].
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- include/net/dsa.h | 8 ++++----
- net/dsa/dsa.c     | 7 +++----
- net/dsa/dsa2.c    | 5 ++---
- 3 files changed, 9 insertions(+), 11 deletions(-)
+ net/dsa/dsa.c         | 2 +-
+ net/dsa/dsa2.c        | 8 ++++----
+ net/dsa/slave.c       | 6 +++---
+ net/dsa/tag_brcm.c    | 2 +-
+ net/dsa/tag_qca.c     | 2 +-
+ net/dsa/tag_trailer.c | 2 +-
+ 6 files changed, 11 insertions(+), 11 deletions(-)
 
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 454667952d6d..82f7019f27f2 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -124,7 +124,7 @@ struct dsa_switch_tree {
- 	/*
- 	 * The switch and port to which the CPU is attached.
- 	 */
--	s8			cpu_switch;
-+	struct dsa_switch	*cpu_switch;
- 	s8			cpu_port;
- 
- 	/*
-@@ -211,7 +211,7 @@ struct dsa_switch {
- 
- static inline bool dsa_is_cpu_port(struct dsa_switch *ds, int p)
- {
--	return !!(ds->index == ds->dst->cpu_switch && p == ds->dst->cpu_port);
-+	return !!(ds == ds->dst->cpu_switch && p == ds->dst->cpu_port);
- }
- 
- static inline bool dsa_is_dsa_port(struct dsa_switch *ds, int p)
-@@ -234,10 +234,10 @@ static inline u8 dsa_upstream_port(struct dsa_switch *ds)
- 	 * Else return the (DSA) port number that connects to the
- 	 * switch that is one hop closer to the cpu.
- 	 */
--	if (dst->cpu_switch == ds->index)
-+	if (dst->cpu_switch == ds)
- 		return dst->cpu_port;
- 	else
--		return ds->rtable[dst->cpu_switch];
-+		return ds->rtable[dst->cpu_switch->index];
- }
- 
- struct switchdev_trans;
 diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index 96d1544df518..cb42655ba7da 100644
+index cb42655ba7da..87f2a9c9fa12 100644
 --- a/net/dsa/dsa.c
 +++ b/net/dsa/dsa.c
-@@ -225,12 +225,12 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
- 			continue;
- 
- 		if (!strcmp(name, "cpu")) {
--			if (dst->cpu_switch != -1) {
-+			if (!dst->cpu_switch) {
- 				netdev_err(dst->master_netdev,
- 					   "multiple cpu ports?!\n");
- 				return -EINVAL;
- 			}
--			dst->cpu_switch = index;
-+			dst->cpu_switch = ds;
- 			dst->cpu_port = i;
- 			ds->cpu_port_mask |= 1 << i;
- 		} else if (!strcmp(name, "dsa")) {
-@@ -254,7 +254,7 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
- 	 * tagging protocol to the preferred tagging format of this
- 	 * switch.
- 	 */
--	if (dst->cpu_switch == index) {
-+	if (dst->cpu_switch == ds) {
- 		enum dsa_tag_protocol tag_protocol;
- 
- 		tag_protocol = ops->get_tag_protocol(ds);
-@@ -757,7 +757,6 @@ static int dsa_setup_dst(struct dsa_switch_tree *dst, struct net_device *dev,
- 
- 	dst->pd = pd;
- 	dst->master_netdev = dev;
--	dst->cpu_switch = -1;
- 	dst->cpu_port = -1;
- 
- 	for (i = 0; i < pd->nr_chips; i++) {
-diff --git a/net/dsa/dsa2.c b/net/dsa/dsa2.c
-index a1f26fc0f585..a9bf28d9f41f 100644
---- a/net/dsa/dsa2.c
-+++ b/net/dsa/dsa2.c
-@@ -57,7 +57,6 @@ static struct dsa_switch_tree *dsa_add_dst(u32 tree)
- 	if (!dst)
- 		return NULL;
- 	dst->tree = tree;
--	dst->cpu_switch = -1;
- 	INIT_LIST_HEAD(&dst->list);
- 	list_add_tail(&dsa_switch_trees, &dst->list);
- 	kref_init(&dst->refcount);
-@@ -456,8 +455,8 @@ static int dsa_cpu_parse(struct device_node *port, u32 index,
- 	if (!dst->master_netdev)
- 		dst->master_netdev = ethernet_dev;
- 
--	if (dst->cpu_switch == -1) {
--		dst->cpu_switch = ds->index;
-+	if (!dst->cpu_switch) {
-+		dst->cpu_switch = ds;
- 		dst->cpu_port = index;
+@@ -868,7 +868,7 @@ static void dsa_remove_dst(struct dsa_switch_tree *dst)
+ 			dsa_switch_destroy(ds);
  	}
  
+-	dsa_cpu_port_ethtool_restore(dst->ds[0]);
++	dsa_cpu_port_ethtool_restore(dst->cpu_switch);
+ 
+ 	dev_put(dst->master_netdev);
+ }
+diff --git a/net/dsa/dsa2.c b/net/dsa/dsa2.c
+index a9bf28d9f41f..634c6700a179 100644
+--- a/net/dsa/dsa2.c
++++ b/net/dsa/dsa2.c
+@@ -381,8 +381,8 @@ static int dsa_dst_apply(struct dsa_switch_tree *dst)
+ 			return err;
+ 	}
+ 
+-	if (dst->ds[0]) {
+-		err = dsa_cpu_port_ethtool_setup(dst->ds[0]);
++	if (dst->cpu_switch) {
++		err = dsa_cpu_port_ethtool_setup(dst->cpu_switch);
+ 		if (err)
+ 			return err;
+ 	}
+@@ -426,8 +426,8 @@ static void dsa_dst_unapply(struct dsa_switch_tree *dst)
+ 		dsa_ds_unapply(dst, ds);
+ 	}
+ 
+-	if (dst->ds[0])
+-		dsa_cpu_port_ethtool_restore(dst->ds[0]);
++	if (dst->cpu_switch)
++		dsa_cpu_port_ethtool_restore(dst->cpu_switch);
+ 
+ 	pr_info("DSA: tree %d unapplied\n", dst->tree);
+ 	dst->applied = false;
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 0cdcaf526987..b8e58689a9a1 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -781,7 +781,7 @@ static void dsa_cpu_port_get_ethtool_stats(struct net_device *dev,
+ 					   uint64_t *data)
+ {
+ 	struct dsa_switch_tree *dst = dev->dsa_ptr;
+-	struct dsa_switch *ds = dst->ds[0];
++	struct dsa_switch *ds = dst->cpu_switch;
+ 	s8 cpu_port = dst->cpu_port;
+ 	int count = 0;
+ 
+@@ -798,7 +798,7 @@ static void dsa_cpu_port_get_ethtool_stats(struct net_device *dev,
+ static int dsa_cpu_port_get_sset_count(struct net_device *dev, int sset)
+ {
+ 	struct dsa_switch_tree *dst = dev->dsa_ptr;
+-	struct dsa_switch *ds = dst->ds[0];
++	struct dsa_switch *ds = dst->cpu_switch;
+ 	int count = 0;
+ 
+ 	if (dst->master_ethtool_ops.get_sset_count)
+@@ -814,7 +814,7 @@ static void dsa_cpu_port_get_strings(struct net_device *dev,
+ 				     uint32_t stringset, uint8_t *data)
+ {
+ 	struct dsa_switch_tree *dst = dev->dsa_ptr;
+-	struct dsa_switch *ds = dst->ds[0];
++	struct dsa_switch *ds = dst->cpu_switch;
+ 	s8 cpu_port = dst->cpu_port;
+ 	int len = ETH_GSTRING_LEN;
+ 	int mcount = 0, count;
+diff --git a/net/dsa/tag_brcm.c b/net/dsa/tag_brcm.c
+index 21bffde6e4bf..af82927674e0 100644
+--- a/net/dsa/tag_brcm.c
++++ b/net/dsa/tag_brcm.c
+@@ -102,7 +102,7 @@ static int brcm_tag_rcv(struct sk_buff *skb, struct net_device *dev,
+ 	if (unlikely(dst == NULL))
+ 		goto out_drop;
+ 
+-	ds = dst->ds[0];
++	ds = dst->cpu_switch;
+ 
+ 	skb = skb_unshare(skb, GFP_ATOMIC);
+ 	if (skb == NULL)
+diff --git a/net/dsa/tag_qca.c b/net/dsa/tag_qca.c
+index 0c90cacee7aa..736ca8e8c31e 100644
+--- a/net/dsa/tag_qca.c
++++ b/net/dsa/tag_qca.c
+@@ -104,7 +104,7 @@ static int qca_tag_rcv(struct sk_buff *skb, struct net_device *dev,
+ 	/* This protocol doesn't support cascading multiple switches so it's
+ 	 * safe to assume the switch is first in the tree
+ 	 */
+-	ds = dst->ds[0];
++	ds = dst->cpu_switch;
+ 	if (!ds)
+ 		goto out_drop;
+ 
+diff --git a/net/dsa/tag_trailer.c b/net/dsa/tag_trailer.c
+index 5e3903eb1afa..271128a2dc64 100644
+--- a/net/dsa/tag_trailer.c
++++ b/net/dsa/tag_trailer.c
+@@ -67,7 +67,7 @@ static int trailer_rcv(struct sk_buff *skb, struct net_device *dev,
+ 
+ 	if (unlikely(dst == NULL))
+ 		goto out_drop;
+-	ds = dst->ds[0];
++	ds = dst->cpu_switch;
+ 
+ 	skb = skb_unshare(skb, GFP_ATOMIC);
+ 	if (skb == NULL)
 -- 
 2.11.0
