@@ -1,54 +1,73 @@
-From: Hangbin Liu <liuhangbin@gmail.com>
-Subject: [PATCH iproute2 net-next] iplink: bridge_slave: add support for IFLA_BRPORT_FLUSH
-Date: Wed, 18 Jan 2017 14:36:45 +0800
-Message-ID: <1484721405-22519-1-git-send-email-liuhangbin@gmail.com>
-Cc: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-        Hangbin Liu <liuhangbin@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f65.google.com ([74.125.83.65]:33200 "EHLO
-        mail-pg0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1750703AbdARGhk (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2017 01:37:40 -0500
-Received: by mail-pg0-f65.google.com with SMTP id 194so560526pgd.0
-        for <netdev@vger.kernel.org>; Tue, 17 Jan 2017 22:37:19 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jason Wang <jasowang@redhat.com>
+Subject: [PATCH net-next V5 0/3] vhost_net tx batching
+Date: Wed, 18 Jan 2017 15:02:00 +0800
+Message-ID: <1484722923-7698-1-git-send-email-jasowang@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: wexu@redhat.com, stefanha@redhat.com
+To: mst@redhat.com, virtualization@lists.linux-foundation.org,
+	netdev@vger.kernel.org, kvm@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-This patch implements support for the IFLA_BRPORT_FLUSH attribute
-in iproute2 so it can flush bridge slave's fdb dynamic entries.
+Hi:
 
-Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
----
- ip/iplink_bridge_slave.c | 9 +++++++--
- 1 file changed, 7 insertions(+), 2 deletions(-)
+This series tries to implement tx batching support for vhost. This was
+done by using MSG_MORE as a hint for under layer socket. The backend
+(e.g tap) can then batch the packets temporarily in a list and
+submit it all once the number of bacthed exceeds a limitation.
 
-diff --git a/ip/iplink_bridge_slave.c b/ip/iplink_bridge_slave.c
-index fbb3f06..6353fc5 100644
---- a/ip/iplink_bridge_slave.c
-+++ b/ip/iplink_bridge_slave.c
-@@ -22,7 +22,10 @@
- static void print_explain(FILE *f)
- {
- 	fprintf(f,
--		"Usage: ... bridge_slave [ state STATE ] [ priority PRIO ] [cost COST ]\n"
-+		"Usage: ... bridge_slave [ fdb_flush ]\n"
-+		"                        [ state STATE ]\n"
-+		"                        [ priority PRIO ]\n"
-+		"                        [ cost COST ]\n"
- 		"                        [ guard {on | off} ]\n"
- 		"                        [ hairpin {on | off} ]\n"
- 		"                        [ fastleave {on | off} ]\n"
-@@ -217,7 +220,9 @@ static int bridge_slave_parse_opt(struct link_util *lu, int argc, char **argv,
- 	__u32 cost;
- 
- 	while (argc > 0) {
--		if (matches(*argv, "state") == 0) {
-+		if (matches(*argv, "fdb_flush") == 0) {
-+			addattr(n, 1024, IFLA_BRPORT_FLUSH);
-+		} else if (matches(*argv, "state") == 0) {
- 			NEXT_ARG();
- 			if (get_u8(&state, *argv, 0))
- 				invarg("state is invalid", *argv);
+Tests shows obvious improvement on guest pktgen over over
+mlx4(noqueue) on host:
+
+                                     Mpps  -+%
+        rx-frames = 0                0.91  +0%
+        rx-frames = 4                1.00  +9.8%
+        rx-frames = 8                1.00  +9.8%
+        rx-frames = 16               1.01  +10.9%
+        rx-frames = 32               1.07  +17.5%
+        rx-frames = 48               1.07  +17.5%
+        rx-frames = 64               1.08  +18.6%
+        rx-frames = 64 (no MSG_MORE) 0.91  +0%
+
+Changes from V4:
+- stick to NAPI_POLL_WEIGHT for rx-frames is user specify a value
+  greater than it.
+Changes from V3:
+- use ethtool instead of module parameter to control the maximum
+  number of batched packets
+- avoid overhead when MSG_MORE were not set and no packet queued
+Changes from V2:
+- remove uselss queue limitation check (and we don't drop any packet now)
+Changes from V1:
+- drop NAPI handler since we don't use NAPI now
+- fix the issues that may exceeds max pending of zerocopy
+- more improvement on available buffer detection
+- move the limitation of batched pacekts from vhost to tuntap
+
+Please review.
+
+Thanks
+
+Jason Wang (3):
+  vhost: better detection of available buffers
+  vhost_net: tx batching
+  tun: rx batching
+
+ drivers/net/tun.c     | 76 +++++++++++++++++++++++++++++++++++++++++++++++----
+ drivers/vhost/net.c   | 23 ++++++++++++++--
+ drivers/vhost/vhost.c |  8 ++++--
+ 3 files changed, 96 insertions(+), 11 deletions(-)
+
 -- 
-2.5.5
+2.7.4
