@@ -1,265 +1,53 @@
-From: Andy Shevchenko <andy.shevchenko@gmail.com>
-Subject: Re: [PATCHv2 5/7] TAP: Extending tap device create/destroy APIs
-Date: Wed, 18 Jan 2017 03:00:51 +0200
-Message-ID: <CAHp75VdJGOZZsasKiyh3KTEaO3dsi+-34rg0y6+rW9LOF7On-A@mail.gmail.com>
-References: <1484697786-50323-1-git-send-email-sainath.grandhi@intel.com> <1484697786-50323-6-git-send-email-sainath.grandhi@intel.com>
+From: maowenan <maowenan@huawei.com>
+Subject: RE: [PATCH v2 net-next] net:add one common config
+ ARCH_WANT_RELAX_ORDER to support relax ordering.
+Date: Wed, 18 Jan 2017 01:07:03 +0000
+Message-ID: <F95AC9340317A84688A5F0DF0246F3F201ECF42C@szxemi502-mbx.china.huawei.com>
+References: <1483939954-9864-1-git-send-email-maowenan@huawei.com>
+ <20170117.141533.680344033700095483.davem@davemloft.net>
+ <CAKgT0UcXFk3_LfsWyVeh6X_91mfVLJt3VRBSY_2r+ebjxfW7iQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Mahesh Bandewar <mahesh@bandewar.net>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Sainath Grandhi <sainath.grandhi@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1484697786-50323-6-git-send-email-sainath.grandhi@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Netdev <netdev@vger.kernel.org>,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: Alexander Duyck <alexander.duyck@gmail.com>,
+        David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga01-in.huawei.com ([58.251.152.64]:36699 "EHLO
+        szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751116AbdARBIH (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 20:08:07 -0500
+In-Reply-To: <CAKgT0UcXFk3_LfsWyVeh6X_91mfVLJt3VRBSY_2r+ebjxfW7iQ@mail.gmail.com>
+Content-Language: zh-CN
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 18, 2017 at 2:03 AM, Sainath Grandhi
-<sainath.grandhi@intel.com> wrote:
-> Extending tap APIs get/free_minor and create/destroy_cdev to handle more than one
-> type of virtual interface.
->
-
-Yes, looks better now.
-
-FWIW:
-Reviewed-by: Andy Shevchenko <andy.shevchenko@gmail.com>
-
-> Signed-off-by: Sainath Grandhi <sainath.grandhi@intel.com>
-> ---
->  drivers/net/macvtap_main.c |  6 +--
->  drivers/net/tap.c          | 98 +++++++++++++++++++++++++++++++++++-----------
->  include/linux/if_tap.h     |  4 +-
->  3 files changed, 80 insertions(+), 28 deletions(-)
->
-> diff --git a/drivers/net/macvtap_main.c b/drivers/net/macvtap_main.c
-> index 6326a82..3f047b4 100644
-> --- a/drivers/net/macvtap_main.c
-> +++ b/drivers/net/macvtap_main.c
-> @@ -160,7 +160,7 @@ static int macvtap_device_event(struct notifier_block *unused,
->                  * been registered but before register_netdevice has
->                  * finished running.
->                  */
-> -               err = tap_get_minor(&vlantap->tap);
-> +               err = tap_get_minor(macvtap_major, &vlantap->tap);
->                 if (err)
->                         return notifier_from_errno(err);
->
-> @@ -168,7 +168,7 @@ static int macvtap_device_event(struct notifier_block *unused,
->                 classdev = device_create(&macvtap_class, &dev->dev, devt,
->                                          dev, tap_name);
->                 if (IS_ERR(classdev)) {
-> -                       tap_free_minor(&vlantap->tap);
-> +                       tap_free_minor(macvtap_major, &vlantap->tap);
->                         return notifier_from_errno(PTR_ERR(classdev));
->                 }
->                 err = sysfs_create_link(&dev->dev.kobj, &classdev->kobj,
-> @@ -183,7 +183,7 @@ static int macvtap_device_event(struct notifier_block *unused,
->                 sysfs_remove_link(&dev->dev.kobj, tap_name);
->                 devt = MKDEV(MAJOR(macvtap_major), vlantap->tap.minor);
->                 device_destroy(&macvtap_class, devt);
-> -               tap_free_minor(&vlantap->tap);
-> +               tap_free_minor(macvtap_major, &vlantap->tap);
->                 break;
->         case NETDEV_CHANGE_TX_QUEUE_LEN:
->                 if (tap_queue_resize(&vlantap->tap))
-> diff --git a/drivers/net/tap.c b/drivers/net/tap.c
-> index 43d9d54..7f38dbe 100644
-> --- a/drivers/net/tap.c
-> +++ b/drivers/net/tap.c
-> @@ -99,12 +99,16 @@ static struct proto tap_proto = {
->  };
->
->  #define TAP_NUM_DEVS (1U << MINORBITS)
-> +
-> +static LIST_HEAD(major_list);
-> +
->  struct major_info {
->         dev_t major;
->         struct idr minor_idr;
->         struct mutex minor_lock;
->         const char *device_name;
-> -} macvtap_major;
-> +       struct list_head next;
-> +};
->
->  #define GOODCOPY_LEN 128
->
-> @@ -385,44 +389,73 @@ rx_handler_result_t tap_handle_frame(struct sk_buff **pskb)
->         return RX_HANDLER_CONSUMED;
->  }
->
-> -int tap_get_minor(struct tap_dev *tap)
-> +static struct major_info *tap_get_major(int major)
-> +{
-> +       struct major_info *tap_major, *tmp;
-> +
-> +       list_for_each_entry_safe(tap_major, tmp, &major_list, next) {
-> +               if (tap_major->major == major) {
-> +                       return tap_major;
-> +               }
-> +       }
-> +
-> +       return NULL;
-> +}
-> +
-> +int tap_get_minor(dev_t major, struct tap_dev *tap)
->  {
->         int retval = -ENOMEM;
-> +       struct major_info *tap_major;
-> +
-> +       tap_major = tap_get_major(MAJOR(major));
-> +       if (!tap_major)
-> +               return -EINVAL;
->
-> -       mutex_lock(&macvtap_major.minor_lock);
-> -       retval = idr_alloc(&macvtap_major.minor_idr, tap, 1, TAP_NUM_DEVS, GFP_KERNEL);
-> +       mutex_lock(&tap_major->minor_lock);
-> +       retval = idr_alloc(&tap_major->minor_idr, tap, 1, TAP_NUM_DEVS, GFP_KERNEL);
->         if (retval >= 0) {
->                 tap->minor = retval;
->         } else if (retval == -ENOSPC) {
->                 netdev_err(tap->dev, "Too many tap devices\n");
->                 retval = -EINVAL;
->         }
-> -       mutex_unlock(&macvtap_major.minor_lock);
-> +       mutex_unlock(&tap_major->minor_lock);
->         return retval < 0 ? retval : 0;
->  }
->
-> -void tap_free_minor(struct tap_dev *tap)
-> +void tap_free_minor(dev_t major, struct tap_dev *tap)
->  {
-> -       mutex_lock(&macvtap_major.minor_lock);
-> +       struct major_info *tap_major;
-> +
-> +       tap_major = tap_get_major(MAJOR(major));
-> +       if (!tap_major)
-> +               return;
-> +
-> +       mutex_lock(&tap_major->minor_lock);
->         if (tap->minor) {
-> -               idr_remove(&macvtap_major.minor_idr, tap->minor);
-> +               idr_remove(&tap_major->minor_idr, tap->minor);
->                 tap->minor = 0;
->         }
-> -       mutex_unlock(&macvtap_major.minor_lock);
-> +       mutex_unlock(&tap_major->minor_lock);
->  }
->
-> -static struct tap_dev *dev_get_by_tap_minor(int minor)
-> +static struct tap_dev *dev_get_by_tap_file(int major, int minor)
->  {
->         struct net_device *dev = NULL;
->         struct tap_dev *tap;
-> +       struct major_info *tap_major;
-> +
-> +       tap_major = tap_get_major(major);
-> +       if (!tap_major)
-> +               return NULL;
->
-> -       mutex_lock(&macvtap_major.minor_lock);
-> -       tap = idr_find(&macvtap_major.minor_idr, minor);
-> +       mutex_lock(&tap_major->minor_lock);
-> +       tap = idr_find(&tap_major->minor_idr, minor);
->         if (tap) {
->                 dev = tap->dev;
->                 dev_hold(dev);
->         }
-> -       mutex_unlock(&macvtap_major.minor_lock);
-> +       mutex_unlock(&tap_major->minor_lock);
->         return tap;
->  }
->
-> @@ -454,7 +487,7 @@ static int tap_open(struct inode *inode, struct file *file)
->         int err = -ENODEV;
->
->         rtnl_lock();
-> -       tap = dev_get_by_tap_minor(iminor(inode));
-> +       tap = dev_get_by_tap_file(imajor(inode), iminor(inode));
->         if (!tap)
->                 goto err;
->
-> @@ -1161,6 +1194,26 @@ int tap_queue_resize(struct tap_dev *tap)
->         return ret;
->  }
->
-> +static int tap_list_add(dev_t major, const char *device_name)
-> +{
-> +       struct major_info *tap_major;
-> +       int err = 0;
-> +
-> +       tap_major = kzalloc(sizeof(*tap_major), GFP_ATOMIC);
-> +       if (!tap_major)
-> +               return -ENOMEM;
-> +
-> +       tap_major->major = MAJOR(major);
-> +
-> +       idr_init(&tap_major->minor_idr);
-> +       mutex_init(&tap_major->minor_lock);
-> +
-> +       tap_major->device_name = device_name;
-> +
-> +       list_add_tail(&tap_major->next, &major_list);
-> +       return err;
-> +}
-> +
->  int tap_create_cdev(struct cdev *tap_cdev,
->                     dev_t *tap_major, const char *device_name)
->  {
-> @@ -1176,14 +1229,7 @@ int tap_create_cdev(struct cdev *tap_cdev,
->         if (err)
->                 goto out2;
->
-> -       macvtap_major.major = MAJOR(*tap_major);
-> -
-> -       idr_init(&macvtap_major.minor_idr);
-> -       mutex_init(&macvtap_major.minor_lock);
-> -
-> -       macvtap_major.device_name = device_name;
-> -
-> -       return err;
-> +       return tap_list_add(*tap_major, device_name);
->
->  out2:
->         unregister_chrdev_region(*tap_major, TAP_NUM_DEVS);
-> @@ -1193,7 +1239,13 @@ int tap_create_cdev(struct cdev *tap_cdev,
->
->  void tap_destroy_cdev(dev_t major, struct cdev *tap_cdev)
->  {
-> +       struct major_info *tap_major;
-> +
-> +       tap_major = tap_get_major(MAJOR(major));
-> +       if (!tap_major)
-> +               return;
-> +
->         cdev_del(tap_cdev);
->         unregister_chrdev_region(major, TAP_NUM_DEVS);
-> -       idr_destroy(&macvtap_major.minor_idr);
-> +       idr_destroy(&tap_major->minor_idr);
->  }
-> diff --git a/include/linux/if_tap.h b/include/linux/if_tap.h
-> index 75031e5..362e71c 100644
-> --- a/include/linux/if_tap.h
-> +++ b/include/linux/if_tap.h
-> @@ -65,8 +65,8 @@ struct tap_queue {
->
->  rx_handler_result_t tap_handle_frame(struct sk_buff **pskb);
->  void tap_del_queues(struct tap_dev *tap);
-> -int tap_get_minor(struct tap_dev *tap);
-> -void tap_free_minor(struct tap_dev *tap);
-> +int tap_get_minor(dev_t major, struct tap_dev *tap);
-> +void tap_free_minor(dev_t major, struct tap_dev *tap);
->  int tap_queue_resize(struct tap_dev *tap);
->  int tap_create_cdev(struct cdev *tap_cdev,
->                     dev_t *tap_major, const char *device_name);
-> --
-> 2.7.4
->
-
-
-
--- 
-With Best Regards,
-Andy Shevchenko
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogQWxleGFuZGVyIER1eWNr
+IFttYWlsdG86YWxleGFuZGVyLmR1eWNrQGdtYWlsLmNvbV0NCj4gU2VudDogV2VkbmVzZGF5LCBK
+YW51YXJ5IDE4LCAyMDE3IDM6MjggQU0NCj4gVG86IERhdmlkIE1pbGxlcg0KPiBDYzogbWFvd2Vu
+YW47IE5ldGRldjsgSmVmZiBLaXJzaGVyDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggdjIgbmV0LW5l
+eHRdIG5ldDphZGQgb25lIGNvbW1vbiBjb25maWcNCj4gQVJDSF9XQU5UX1JFTEFYX09SREVSIHRv
+IHN1cHBvcnQgcmVsYXggb3JkZXJpbmcuDQo+IA0KPiBPbiBUdWUsIEphbiAxNywgMjAxNyBhdCAx
+MToxNSBBTSwgRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KPiB3cm90ZToNCj4g
+PiBGcm9tOiBNYW8gV2VuYW4gPG1hb3dlbmFuQGh1YXdlaS5jb20+DQo+ID4gRGF0ZTogTW9uLCA5
+IEphbiAyMDE3IDEzOjMyOjM0ICswODAwDQo+ID4NCj4gPj4gUmVsYXggb3JkZXJpbmcoUk8pIGlz
+IG9uZSBmZWF0dXJlIG9mIDgyNTk5IE5JQywgdG8gZW5hYmxlIHRoaXMNCj4gPj4gZmVhdHVyZSBj
+YW4gZW5oYW5jZSB0aGUgcGVyZm9ybWFuY2UgZm9yIHNvbWUgY3B1IGFyY2hpdGVjdXJlLCBzdWNo
+IGFzDQo+IFNQQVJDIGFuZCBzbyBvbi4NCj4gPj4gQ3VycmVudGx5IGl0IG9ubHkgc3VwcG9ydHMg
+b25lIHNwZWNpYWwgY3B1IGFyY2hpdGVjdHVyZShTUEFSQykgaW4NCj4gPj4gODI1OTkgZHJpdmVy
+IHRvIGVuYWJsZSBSTyBmZWF0dXJlLCB0aGlzIGlzIG5vdCB2ZXJ5IGNvbW1vbiBmb3Igb3RoZXIN
+Cj4gPj4gY3B1IGFyY2hpdGVjdHVyZSB3aGljaCByZWFsbHkgbmVlZHMgUk8gZmVhdHVyZS4NCj4g
+Pj4gVGhpcyBwYXRjaCBhZGQgb25lIGNvbW1vbiBjb25maWcgQ09ORklHX0FSQ0hfV0FOVF9SRUxB
+WF9PUkRFUiB0bw0KPiBzZXQNCj4gPj4gUk8gZmVhdHVyZSwgYW5kIHNob3VsZCBkZWZpbmUgQ09O
+RklHX0FSQ0hfV0FOVF9SRUxBWF9PUkRFUiBpbg0KPiBzcGFyYyBLY29uZmlnIGZpcnN0bHkuDQo+
+ID4+DQo+ID4+IFNpZ25lZC1vZmYtYnk6IE1hbyBXZW5hbiA8bWFvd2VuYW5AaHVhd2VpLmNvbT4N
+Cj4gPg0KPiA+IFNpbmNlIG5vLW9uZSBoYXMgcmV2aWV3ZWQgdGhpcyBwYXRjaCwgYW5kIEkgZG8g
+bm90IGZlZWwgY29tZm9ydGFibGUNCj4gPiB3aXRoIGFwcGx5aW5nIGl0IHdpdGhvdXQgc3VjaCBy
+ZXZpZXcsIEkgYW0gdG9zc2luZyB0aGlzIHBhdGNoLg0KPiA+DQo+ID4gSWYgc29tZW9uZSBldmVu
+dHVhbGx5IHJldmlld3MgaXQsIHJlcG9zdCB0aGlzIHBhdGNoLg0KPiANCj4gTWFvLA0KPiANCj4g
+R28gYWhlYWQgYW5kIHJlcG9zdCB0aGUgcGF0Y2ggYW5kIGZlZWwgZnJlZSB0byBhZGQgbXkgUmV2
+aWV3ZWQtYnkuDQo+IFNvcnJ5IEkgZGlkbid0IHJlcGx5IHRvIHRoaXMgZWFybGllciBidXQgSSBo
+YXZlIGJlZW4gZ2V0dGluZyBvdmVyIHRoZSBmbHUgZm9yIHRoZSBsYXN0DQo+IHdlZWsgb3Igc28u
+DQo+IA0KPiAtIEFsZXgNCg0KSGkgQWxleCwgDQpJIGhhdmUgcmVwb3N0ZWQgdGhlIHBhdGNoKFYz
+KSwgdGhhbmtzIGEgbG90Lg0K
