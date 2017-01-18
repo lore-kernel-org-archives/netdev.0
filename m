@@ -1,78 +1,60 @@
-From: yegorslists@googlemail.com
-Subject: [PATCH v2] can: ti_hecc: add missing prepare and unprepare of the clock
-Date: Wed, 18 Jan 2017 11:35:57 +0100
-Message-ID: <1484735757-21172-1-git-send-email-yegorslists@googlemail.com>
-Cc: netdev@vger.kernel.org, mkl@pengutronix.de, wg@grandegger.com,
-        Yegor Yefremov <yegorslists@googlemail.com>
-To: linux-can@vger.kernel.org
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH net-next] net/sched: cls_flower: Add user specified data
+Date: Wed, 18 Jan 2017 06:06:59 -0500
+Message-ID: <b38b0ec1-9671-22e3-96e1-8612cf44287f@mojatatu.com>
+References: <1483362833-52114-1-git-send-email-paulb@mellanox.com>
+ <14675f63-4212-2f72-da4c-cd24b9d10881@mojatatu.com>
+ <20170108171251.GF1971@nanopsycho>
+ <040c6876-a323-0a35-229f-46bc33b6de11@mellanox.com>
+ <587BC894.3080909@gmail.com>
+ <11bcf09a-0144-fd7f-369b-771962475c5e@mellanox.com>
+ <20170116095129.GB1804@nanopsycho.orion>
+ <59ac74c5-5301-a958-74dd-c5fee669a94b@mojatatu.com>
+ <6be8f641-16ad-88a4-d7c3-474dc3b10e71@mellanox.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: John Fastabend <john.fastabend@gmail.com>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        Jiri Pirko <jiri@mellanox.com>,
+        Hadar Hen Zion <hadarh@mellanox.com>,
+        Or Gerlitz <ogerlitz@mellanox.com>,
+        Roi Dayan <roid@mellanox.com>, Roman Mashak <mrv@mojatatu.com>
+To: Paul Blakey <paulb@mellanox.com>, Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:34506 "EHLO
-        mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751444AbdARKgJ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2017 05:36:09 -0500
+Received: from mail-qk0-f196.google.com ([209.85.220.196]:32795 "EHLO
+        mail-qk0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1754275AbdARLHI (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2017 06:07:08 -0500
+Received: by mail-qk0-f196.google.com with SMTP id 11so1276132qkl.0
+        for <netdev@vger.kernel.org>; Wed, 18 Jan 2017 03:07:08 -0800 (PST)
+In-Reply-To: <6be8f641-16ad-88a4-d7c3-474dc3b10e71@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yegor Yefremov <yegorslists@googlemail.com>
+On 17-01-17 06:53 AM, Paul Blakey wrote:
+>
+>
 
-In order to make the driver work with the common clock framework, this
-patch converts the clk_enable()/clk_disable() to
-clk_prepare_enable()/clk_disable_unprepare().
+>>
+>> Should be "trivial" like my patch.
+>> Add a new TLV type in TCA_XXX enum in rtnetlink.h
+>> in  tc_ctl_tfilter look for it and memcpy it
+>> in tcf_fill_node set it on the new TCA_XXX if the cls struct
+>> has it present.
+>>
+>
+> That's exactly what I did before I realized it won't work per internal
+> element (per handle), which is what I want. see my example.
+>
+> So I'll probably implement it like actions dumping/init works -
+> tcf_exts_init, tcf_exts_dump (calling a generic functions on all
+> classifiers who want this).
+> I'll add something like get_cookie, dump_cookie. which get/set the
+> TCA_COOKIE.
+>
 
-Also add error checking for clk_prepare_enable().
+Yes, that makes more sense.
 
-Signed-off-by: Yegor Yefremov <yegorslists@googlemail.com>
----
-Changes v1 -> v2:
-	- add error checking for clk_prepare_enable (Marc Kleine-Budde)
-
- drivers/net/can/ti_hecc.c | 13 +++++++++----
- 1 file changed, 9 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/can/ti_hecc.c b/drivers/net/can/ti_hecc.c
-index 680d1ff..8771531 100644
---- a/drivers/net/can/ti_hecc.c
-+++ b/drivers/net/can/ti_hecc.c
-@@ -948,7 +948,12 @@ static int ti_hecc_probe(struct platform_device *pdev)
- 	netif_napi_add(ndev, &priv->napi, ti_hecc_rx_poll,
- 		HECC_DEF_NAPI_WEIGHT);
- 
--	clk_enable(priv->clk);
-+	err = clk_prepare_enable(priv->clk);
-+	if (err) {
-+		dev_err(&pdev->dev, "clk_prepare_enable() failed\n");
-+		goto probe_exit_clk;
-+	}
-+
- 	err = register_candev(ndev);
- 	if (err) {
- 		dev_err(&pdev->dev, "register_candev() failed\n");
-@@ -981,7 +986,7 @@ static int ti_hecc_remove(struct platform_device *pdev)
- 	struct ti_hecc_priv *priv = netdev_priv(ndev);
- 
- 	unregister_candev(ndev);
--	clk_disable(priv->clk);
-+	clk_disable_unprepare(priv->clk);
- 	clk_put(priv->clk);
- 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
- 	iounmap(priv->base);
-@@ -1006,7 +1011,7 @@ static int ti_hecc_suspend(struct platform_device *pdev, pm_message_t state)
- 	hecc_set_bit(priv, HECC_CANMC, HECC_CANMC_PDR);
- 	priv->can.state = CAN_STATE_SLEEPING;
- 
--	clk_disable(priv->clk);
-+	clk_disable_unprepare(priv->clk);
- 
- 	return 0;
- }
-@@ -1016,7 +1021,7 @@ static int ti_hecc_resume(struct platform_device *pdev)
- 	struct net_device *dev = platform_get_drvdata(pdev);
- 	struct ti_hecc_priv *priv = netdev_priv(dev);
- 
--	clk_enable(priv->clk);
-+	clk_prepare_enable(priv->clk);
- 
- 	hecc_clear_bit(priv, HECC_CANMC, HECC_CANMC_PDR);
- 	priv->can.state = CAN_STATE_ERROR_ACTIVE;
--- 
-2.1.4
+cheers,
+jamal
