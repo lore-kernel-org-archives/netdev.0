@@ -1,53 +1,44 @@
-From: maowenan <maowenan@huawei.com>
-Subject: RE: [PATCH v2 net-next] net:add one common config
- ARCH_WANT_RELAX_ORDER to support relax ordering.
-Date: Wed, 18 Jan 2017 01:07:03 +0000
-Message-ID: <F95AC9340317A84688A5F0DF0246F3F201ECF42C@szxemi502-mbx.china.huawei.com>
-References: <1483939954-9864-1-git-send-email-maowenan@huawei.com>
- <20170117.141533.680344033700095483.davem@davemloft.net>
- <CAKgT0UcXFk3_LfsWyVeh6X_91mfVLJt3VRBSY_2r+ebjxfW7iQ@mail.gmail.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH RFC] net: dsa: remove unnecessary phy.h include
+Date: Tue, 17 Jan 2017 20:11:51 -0500
+Message-ID: <87a8ap18a0.fsf@weeman.i-did-not-set--mail-host-address--so-tickle-me>
+References: <20170118001403.GJ27312@n2100.armlinux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Netdev <netdev@vger.kernel.org>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: Alexander Duyck <alexander.duyck@gmail.com>,
-        David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([58.251.152.64]:36699 "EHLO
-        szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751116AbdARBIH (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Tue, 17 Jan 2017 20:08:07 -0500
-In-Reply-To: <CAKgT0UcXFk3_LfsWyVeh6X_91mfVLJt3VRBSY_2r+ebjxfW7iQ@mail.gmail.com>
-Content-Language: zh-CN
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+        "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: Russell King - ARM Linux <linux@armlinux.org.uk>,
+        Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20170118001403.GJ27312@n2100.armlinux.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogQWxleGFuZGVyIER1eWNr
-IFttYWlsdG86YWxleGFuZGVyLmR1eWNrQGdtYWlsLmNvbV0NCj4gU2VudDogV2VkbmVzZGF5LCBK
-YW51YXJ5IDE4LCAyMDE3IDM6MjggQU0NCj4gVG86IERhdmlkIE1pbGxlcg0KPiBDYzogbWFvd2Vu
-YW47IE5ldGRldjsgSmVmZiBLaXJzaGVyDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggdjIgbmV0LW5l
-eHRdIG5ldDphZGQgb25lIGNvbW1vbiBjb25maWcNCj4gQVJDSF9XQU5UX1JFTEFYX09SREVSIHRv
-IHN1cHBvcnQgcmVsYXggb3JkZXJpbmcuDQo+IA0KPiBPbiBUdWUsIEphbiAxNywgMjAxNyBhdCAx
-MToxNSBBTSwgRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KPiB3cm90ZToNCj4g
-PiBGcm9tOiBNYW8gV2VuYW4gPG1hb3dlbmFuQGh1YXdlaS5jb20+DQo+ID4gRGF0ZTogTW9uLCA5
-IEphbiAyMDE3IDEzOjMyOjM0ICswODAwDQo+ID4NCj4gPj4gUmVsYXggb3JkZXJpbmcoUk8pIGlz
-IG9uZSBmZWF0dXJlIG9mIDgyNTk5IE5JQywgdG8gZW5hYmxlIHRoaXMNCj4gPj4gZmVhdHVyZSBj
-YW4gZW5oYW5jZSB0aGUgcGVyZm9ybWFuY2UgZm9yIHNvbWUgY3B1IGFyY2hpdGVjdXJlLCBzdWNo
-IGFzDQo+IFNQQVJDIGFuZCBzbyBvbi4NCj4gPj4gQ3VycmVudGx5IGl0IG9ubHkgc3VwcG9ydHMg
-b25lIHNwZWNpYWwgY3B1IGFyY2hpdGVjdHVyZShTUEFSQykgaW4NCj4gPj4gODI1OTkgZHJpdmVy
-IHRvIGVuYWJsZSBSTyBmZWF0dXJlLCB0aGlzIGlzIG5vdCB2ZXJ5IGNvbW1vbiBmb3Igb3RoZXIN
-Cj4gPj4gY3B1IGFyY2hpdGVjdHVyZSB3aGljaCByZWFsbHkgbmVlZHMgUk8gZmVhdHVyZS4NCj4g
-Pj4gVGhpcyBwYXRjaCBhZGQgb25lIGNvbW1vbiBjb25maWcgQ09ORklHX0FSQ0hfV0FOVF9SRUxB
-WF9PUkRFUiB0bw0KPiBzZXQNCj4gPj4gUk8gZmVhdHVyZSwgYW5kIHNob3VsZCBkZWZpbmUgQ09O
-RklHX0FSQ0hfV0FOVF9SRUxBWF9PUkRFUiBpbg0KPiBzcGFyYyBLY29uZmlnIGZpcnN0bHkuDQo+
-ID4+DQo+ID4+IFNpZ25lZC1vZmYtYnk6IE1hbyBXZW5hbiA8bWFvd2VuYW5AaHVhd2VpLmNvbT4N
-Cj4gPg0KPiA+IFNpbmNlIG5vLW9uZSBoYXMgcmV2aWV3ZWQgdGhpcyBwYXRjaCwgYW5kIEkgZG8g
-bm90IGZlZWwgY29tZm9ydGFibGUNCj4gPiB3aXRoIGFwcGx5aW5nIGl0IHdpdGhvdXQgc3VjaCBy
-ZXZpZXcsIEkgYW0gdG9zc2luZyB0aGlzIHBhdGNoLg0KPiA+DQo+ID4gSWYgc29tZW9uZSBldmVu
-dHVhbGx5IHJldmlld3MgaXQsIHJlcG9zdCB0aGlzIHBhdGNoLg0KPiANCj4gTWFvLA0KPiANCj4g
-R28gYWhlYWQgYW5kIHJlcG9zdCB0aGUgcGF0Y2ggYW5kIGZlZWwgZnJlZSB0byBhZGQgbXkgUmV2
-aWV3ZWQtYnkuDQo+IFNvcnJ5IEkgZGlkbid0IHJlcGx5IHRvIHRoaXMgZWFybGllciBidXQgSSBo
-YXZlIGJlZW4gZ2V0dGluZyBvdmVyIHRoZSBmbHUgZm9yIHRoZSBsYXN0DQo+IHdlZWsgb3Igc28u
-DQo+IA0KPiAtIEFsZXgNCg0KSGkgQWxleCwgDQpJIGhhdmUgcmVwb3N0ZWQgdGhlIHBhdGNoKFYz
-KSwgdGhhbmtzIGEgbG90Lg0K
+Hi Russell,
+
+Russell King - ARM Linux <linux@armlinux.org.uk> writes:
+
+> Including phy.h and phy_fixed.h into net/dsa.h causes phy*.h to be an
+> unnecessary dependency for quite a large amount of the kernel.  There's
+> very little which actually requires definitions from phy.h in net/dsa.h
+> - the include itself only wants the declaration of a couple of
+> structures and IFNAMSIZ.
+>
+> Add linux/if.h for IFNAMSIZ, declarations for the structures, phy.h to
+> mv88e6xxx.h as it needs it for phy_interface_t, and remove both phy.h
+> and phy_fixed.h from net/dsa.h.
+>
+> This patch reduces from around 800 files rebuilt to around 40 - even
+> with ccache, the time difference is noticable.
+>
+> Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
+
+This patch applies cleanly on net-next and builds correctly after
+touching include/linux/phy.h. My boards work fine with it.
+
+Tested-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+
+Thanks,
+
+        Vivien
