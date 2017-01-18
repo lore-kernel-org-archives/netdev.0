@@ -1,46 +1,48 @@
-From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Subject: Re: [Xen-devel] xennet_start_xmit assumptions
-Date: Wed, 18 Jan 2017 14:25:28 -0500
-Message-ID: <20170118192528.GA6847@char.us.oracle.com>
-References: <20170118153132.GB9258@oracle.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHv4 net-next 0/6] sctp: add sender-side procedures for
+ stream reconf ssn reset request chunk
+Date: Wed, 18 Jan 2017 14:55:28 -0500 (EST)
+Message-ID: <20170118.145528.656758298004770748.davem@davemloft.net>
+References: <cover.1484670664.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, xen-devel@lists.xenproject.org
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>,
-        wei.liu2@citrix.com, paul.durrant@citrix.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+        marcelo.leitner@gmail.com, nhorman@tuxdriver.com,
+        vyasevich@gmail.com
+To: lucien.xin@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:21955 "EHLO
-        aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752814AbdARTZf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2017 14:25:35 -0500
-Content-Disposition: inline
-In-Reply-To: <20170118153132.GB9258@oracle.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:39676 "EHLO
+        shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+        with ESMTP id S1751423AbdART4u (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2017 14:56:50 -0500
+In-Reply-To: <cover.1484670664.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 18, 2017 at 10:31:32AM -0500, Sowmini Varadhan wrote:
-> As I was playing around with pf_packet, I accidentally wrote
-> a buggy application program that bzero'ed the msghdr, then set
-> up the msg_name, msg_namelen correctly, and then did a sendmsg
-> on the pf_packet/SOCK_RAW fd.
-> 
-> This causes packet_snd to set up an skb with a lot of issues,
-> e.g., skb->len = 0, skb_headlen(skb) is 0, etc. I think we can/should
-> drop the packet in packet_snd if the skb->len is 0, but there
-> may be other driver bugs going on:
-> 
-> Turns out that ixgbe and sunvnet handle this problematic
-> skb correctly (they drop it and system remains stable), 
-> but it creates a panic in xen_netfront (xennet_start_xmit()
-> hits a null pointer deref when xennet_make_first_txreq() returns 
-> NULL)
-> 
-> I'm new to the xen driver code, so I'm hoping that
-> the experts can comment here: reading the code in xennet_start_xmit,
-> it seems like it mandatorily requires the skb_headlen() to be
-> non-zero in order to create the first_tx? That may not always be
-> true, how does the code recover for purely non-linear skbs?
-> 
-> --Sowmini
+From: Xin Long <lucien.xin@gmail.com>
+Date: Wed, 18 Jan 2017 00:44:41 +0800
 
-CC-ing the two folks from the MAINTAINERS file.
+> Patch 6/6 is to implement sender-side procedures for the Outgoing
+> and Incoming SSN Reset Request Parameter described in rfc6525
+> section 5.1.2 and 5.1.3
+> 
+> Patches 1-5/6 are ahead of it to define some apis and asoc members
+> for it.
+> 
+> Note that with this patchset, asoc->reconf_enable has no chance yet to
+> be set, until the patch "sctp: add get and set sockopt for reconf_enable"
+> is applied in the future. As we can not just enable it when sctp is not
+> capable of processing reconf chunk yet.
+> 
+> v1->v2:
+>   - put these into a smaller group.
+>   - rename some temporary variables in the codes.
+>   - rename the titles of the commits and improve some changelogs.
+> v2->v3:
+>   - re-split the patchset and make sure it has no dead codes for review.
+> v3->v4:
+>   - move sctp_make_reconf() into patch 1/6 to avoid kbuild warning.
+>   - drop unused struct sctp_strreset_req.
+
+Series applied, thank you.
