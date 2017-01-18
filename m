@@ -1,36 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RFC] net: dsa: remove unnecessary phy.h include
-Date: Wed, 18 Jan 2017 16:37:14 -0500 (EST)
-Message-ID: <20170118.163714.6755964924380784.davem@davemloft.net>
-References: <20170118001403.GJ27312@n2100.armlinux.org.uk>
+Subject: Re: [PATCH net-next v4 00/10] net: dsa: Support for pdata in dsa2
+Date: Wed, 18 Jan 2017 16:50:50 -0500 (EST)
+Message-ID: <20170118.165050.2165692521961713529.davem@davemloft.net>
+References: <20170117232152.1661-1-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
-        f.fainelli@gmail.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: linux@armlinux.org.uk
+Cc: netdev@vger.kernel.org, jason@lakedaemon.net, andrew@lunn.ch,
+        sebastian.hesselbarth@gmail.com,
+        gregory.clement@free-electrons.com, linux@armlinux.org.uk,
+        vivien.didelot@savoirfairelinux.com, gregkh@linuxfoundation.org,
+        linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
+To: f.fainelli@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20170118001403.GJ27312@n2100.armlinux.org.uk>
+In-Reply-To: <20170117232152.1661-1-f.fainelli@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Russell King - ARM Linux <linux@armlinux.org.uk>
-Date: Wed, 18 Jan 2017 00:14:03 +0000
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Tue, 17 Jan 2017 15:21:42 -0800
 
-> Including phy.h and phy_fixed.h into net/dsa.h causes phy*.h to be an
-> unnecessary dependency for quite a large amount of the kernel.  There's
-> very little which actually requires definitions from phy.h in net/dsa.h
-> - the include itself only wants the declaration of a couple of
-> structures and IFNAMSIZ.
-> 
-> Add linux/if.h for IFNAMSIZ, declarations for the structures, phy.h to
-> mv88e6xxx.h as it needs it for phy_interface_t, and remove both phy.h
-> and phy_fixed.h from net/dsa.h.
-> 
-> This patch reduces from around 800 files rebuilt to around 40 - even
-> with ccache, the time difference is noticable.
-> 
-> Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
+> This is not exactly new, and was sent before, although back then, I did not
+> have an user of the pre-declared MDIO board information, but now we do. Note
+> that I have additional changes queued up to have b53 register platform data for
+> MIPS bcm47xx and bcm63xx.
+ ...
 
-Applied, thanks.
+We're waiting for Greg's further review and Vivien's changes which I just
+applied are going to create some conflicts, so I am presuming that you will
+respin a v5 anyways.
