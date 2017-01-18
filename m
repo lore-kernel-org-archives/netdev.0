@@ -1,109 +1,323 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH net-next] net: ipv6: Keep nexthop of multipath route on admin down
-Date: Wed, 18 Jan 2017 07:40:36 -0800
-Message-ID: <1484754036-26807-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [net PATCH v5 5/6] virtio_net: refactor freeze/restore logic
+ into virtnet reset logic
+Date: Wed, 18 Jan 2017 17:50:58 +0200
+Message-ID: <20170118174930-mutt-send-email-mst@kernel.org>
+References: <20170117221443.20280.62546.stgit@john-Precision-Tower-5810>
+ <20170117222223.20280.76302.stgit@john-Precision-Tower-5810>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: jasowang@redhat.com, john.r.fastabend@intel.com,
+        netdev@vger.kernel.org, alexei.starovoitov@gmail.com,
+        daniel@iogearbox.net
+To: John Fastabend <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pg0-f54.google.com ([74.125.83.54]:33897 "EHLO
-        mail-pg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1752560AbdARPtQ (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2017 10:49:16 -0500
-Received: by mail-pg0-f54.google.com with SMTP id 14so5549733pgg.1
-        for <netdev@vger.kernel.org>; Wed, 18 Jan 2017 07:49:11 -0800 (PST)
+Received: from mx1.redhat.com ([209.132.183.28]:35104 "EHLO mx1.redhat.com"
+        rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+        id S1751561AbdARPvF (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 18 Jan 2017 10:51:05 -0500
+Content-Disposition: inline
+In-Reply-To: <20170117222223.20280.76302.stgit@john-Precision-Tower-5810>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-IPv6 deletes route entries associated with multipath routes on an
-admin down where IPv4 does not. For example:
-    $ ip ro ls vrf red
-    unreachable default metric 8192
-    1.1.1.0/24 metric 64
-            nexthop via 10.100.1.254  dev eth1 weight 1
-            nexthop via 10.100.2.254  dev eth2 weight 1
-    10.100.1.0/24 dev eth1 proto kernel scope link src 10.100.1.4
-    10.100.2.0/24 dev eth2 proto kernel scope link src 10.100.2.4
+On Tue, Jan 17, 2017 at 02:22:23PM -0800, John Fastabend wrote:
+> For XDP we will need to reset the queues to allow for buffer headroom
+> to be configured. In order to do this we need to essentially run the
+> freeze()/restore() code path. Unfortunately the locking requirements
+> between the freeze/restore and reset paths are different however so
+> we can not simply reuse the code.
+> 
+> This patch refactors the code path and adds a reset helper routine.
+> 
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> ---
+>  drivers/net/virtio_net.c |   75 ++++++++++++++++++++++++++++------------------
+>  drivers/virtio/virtio.c  |   42 ++++++++++++++------------
+>  include/linux/virtio.h   |    4 ++
+>  3 files changed, 73 insertions(+), 48 deletions(-)
+> 
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index 922ca66..62dbf4b 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -1684,6 +1684,49 @@ static void virtnet_init_settings(struct net_device *dev)
+>  	.set_settings = virtnet_set_settings,
+>  };
+>  
+> +static void virtnet_freeze_down(struct virtio_device *vdev)
+> +{
+> +	struct virtnet_info *vi = vdev->priv;
+> +	int i;
+> +
+> +	/* Make sure no work handler is accessing the device */
+> +	flush_work(&vi->config_work);
+> +
+> +	netif_device_detach(vi->dev);
+> +	cancel_delayed_work_sync(&vi->refill);
+> +
+> +	if (netif_running(vi->dev)) {
+> +		for (i = 0; i < vi->max_queue_pairs; i++)
+> +			napi_disable(&vi->rq[i].napi);
+> +	}
+> +}
+> +
+> +static int init_vqs(struct virtnet_info *vi);
 
-    $ ip -6 ro ls vrf red
-    2001:db8:1::/120 dev eth1 proto kernel metric 256  pref medium
-    2001:db8:2:: dev red proto none metric 0  pref medium
-    2001:db8:2::/120 dev eth2 proto kernel metric 256  pref medium
-    2001:db8:11::/120 via 2001:db8:1::16 dev eth1 metric 1024  pref medium
-    2001:db8:11::/120 via 2001:db8:2::17 dev eth2 metric 1024  pref medium
-    ...
+I dislike forward declarations for static functions -
+if you are trying to make the diff more readable
+(understandable) then pls move this function to before use
+in a follow-up patch. Same applies to the next patch.
 
-Set link down:
-    $ ip li set eth1 down
-
-IPv4 retains the multihop route but flags eth1 route as dead:
-
-    $ ip ro ls vrf red
-    unreachable default metric 8192
-    1.1.1.0/24
-            nexthop via 10.100.1.16  dev eth1 weight 1 dead linkdown
-            nexthop via 10.100.2.16  dev eth2 weight 1
-    10.100.2.0/24 dev eth2 proto kernel scope link src 10.100.2.4
-
-and IPv6 deletes the route as part of flushing all routes for the device:
-
-    $ ip -6 ro ls vrf red
-    2001:db8:2:: dev red proto none metric 0  pref medium
-    2001:db8:2::/120 dev eth2 proto kernel metric 256  pref medium
-    2001:db8:11::/120 via 2001:db8:2::17 dev eth2 metric 1024  pref medium
-    ...
-
-Worse, on admin up of the device the multipath route has to be deleted
-to get this leg of the route re-added.
-
-This patch keeps routes that are part of a multipath route if
-ignore_routes_with_linkdown is set with the dead and linkdown flags
-enabling consistency between IPv4 and IPv6:
-
-    $ ip -6 ro ls vrf red
-    2001:db8:2:: dev red proto none metric 0  pref medium
-    2001:db8:2::/120 dev eth2 proto kernel metric 256  pref medium
-    2001:db8:11::/120 via 2001:db8:1::16 dev eth1 metric 1024 dead linkdown  pref medium
-    2001:db8:11::/120 via 2001:db8:2::17 dev eth2 metric 1024  pref medium
-    ...
-
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
-Sending this one outside of the other ipv6 multipath patches
-since the user api (ignore_routes_with_linkdown) already exists
-
- net/ipv6/route.c | 7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 5585c501a540..4b1f0f98a0e9 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -2711,13 +2711,16 @@ struct arg_dev_net {
- 	struct net *net;
- };
- 
-+/* called with write lock held for table with rt */
- static int fib6_ifdown(struct rt6_info *rt, void *arg)
- {
- 	const struct arg_dev_net *adn = arg;
- 	const struct net_device *dev = adn->dev;
- 
- 	if ((rt->dst.dev == dev || !dev) &&
--	    rt != adn->net->ipv6.ip6_null_entry)
-+	    rt != adn->net->ipv6.ip6_null_entry &&
-+	    (rt->rt6i_nsiblings == 0 ||
-+	     !rt->rt6i_idev->cnf.ignore_routes_with_linkdown))
- 		return -1;
- 
- 	return 0;
-@@ -3223,7 +3226,7 @@ static int rt6_fill_node(struct net *net,
- 	else
- 		rtm->rtm_type = RTN_UNICAST;
- 	rtm->rtm_flags = 0;
--	if (!netif_carrier_ok(rt->dst.dev)) {
-+	if (!netif_running(rt->dst.dev) || !netif_carrier_ok(rt->dst.dev)) {
- 		rtm->rtm_flags |= RTNH_F_LINKDOWN;
- 		if (rt->rt6i_idev->cnf.ignore_routes_with_linkdown)
- 			rtm->rtm_flags |= RTNH_F_DEAD;
--- 
-2.1.4
+> +
+> +static int virtnet_restore_up(struct virtio_device *vdev)
+> +{
+> +	struct virtnet_info *vi = vdev->priv;
+> +	int err, i;
+> +
+> +	err = init_vqs(vi);
+> +	if (err)
+> +		return err;
+> +
+> +	virtio_device_ready(vdev);
+> +
+> +	if (netif_running(vi->dev)) {
+> +		for (i = 0; i < vi->curr_queue_pairs; i++)
+> +			if (!try_fill_recv(vi, &vi->rq[i], GFP_KERNEL))
+> +				schedule_delayed_work(&vi->refill, 0);
+> +
+> +		for (i = 0; i < vi->max_queue_pairs; i++)
+> +			virtnet_napi_enable(&vi->rq[i]);
+> +	}
+> +
+> +	netif_device_attach(vi->dev);
+> +	return err;
+> +}
+> +
+>  static int virtnet_xdp_set(struct net_device *dev, struct bpf_prog *prog)
+>  {
+>  	unsigned long int max_sz = PAGE_SIZE - sizeof(struct padded_vnet_hdr);
+> @@ -2374,21 +2417,9 @@ static void virtnet_remove(struct virtio_device *vdev)
+>  static int virtnet_freeze(struct virtio_device *vdev)
+>  {
+>  	struct virtnet_info *vi = vdev->priv;
+> -	int i;
+>  
+>  	virtnet_cpu_notif_remove(vi);
+> -
+> -	/* Make sure no work handler is accessing the device */
+> -	flush_work(&vi->config_work);
+> -
+> -	netif_device_detach(vi->dev);
+> -	cancel_delayed_work_sync(&vi->refill);
+> -
+> -	if (netif_running(vi->dev)) {
+> -		for (i = 0; i < vi->max_queue_pairs; i++)
+> -			napi_disable(&vi->rq[i].napi);
+> -	}
+> -
+> +	virtnet_freeze_down(vdev);
+>  	remove_vq_common(vi);
+>  
+>  	return 0;
+> @@ -2397,25 +2428,11 @@ static int virtnet_freeze(struct virtio_device *vdev)
+>  static int virtnet_restore(struct virtio_device *vdev)
+>  {
+>  	struct virtnet_info *vi = vdev->priv;
+> -	int err, i;
+> +	int err;
+>  
+> -	err = init_vqs(vi);
+> +	err = virtnet_restore_up(vdev);
+>  	if (err)
+>  		return err;
+> -
+> -	virtio_device_ready(vdev);
+> -
+> -	if (netif_running(vi->dev)) {
+> -		for (i = 0; i < vi->curr_queue_pairs; i++)
+> -			if (!try_fill_recv(vi, &vi->rq[i], GFP_KERNEL))
+> -				schedule_delayed_work(&vi->refill, 0);
+> -
+> -		for (i = 0; i < vi->max_queue_pairs; i++)
+> -			virtnet_napi_enable(&vi->rq[i]);
+> -	}
+> -
+> -	netif_device_attach(vi->dev);
+> -
+>  	virtnet_set_queues(vi, vi->curr_queue_pairs);
+>  
+>  	err = virtnet_cpu_notif_add(vi);
+> diff --git a/drivers/virtio/virtio.c b/drivers/virtio/virtio.c
+> index 7062bb0..400d70b 100644
+> --- a/drivers/virtio/virtio.c
+> +++ b/drivers/virtio/virtio.c
+> @@ -100,11 +100,6 @@ static int virtio_uevent(struct device *_dv, struct kobj_uevent_env *env)
+>  			      dev->id.device, dev->id.vendor);
+>  }
+>  
+> -static void add_status(struct virtio_device *dev, unsigned status)
+> -{
+> -	dev->config->set_status(dev, dev->config->get_status(dev) | status);
+> -}
+> -
+>  void virtio_check_driver_offered_feature(const struct virtio_device *vdev,
+>  					 unsigned int fbit)
+>  {
+> @@ -145,14 +140,15 @@ void virtio_config_changed(struct virtio_device *dev)
+>  }
+>  EXPORT_SYMBOL_GPL(virtio_config_changed);
+>  
+> -static void virtio_config_disable(struct virtio_device *dev)
+> +void virtio_config_disable(struct virtio_device *dev)
+>  {
+>  	spin_lock_irq(&dev->config_lock);
+>  	dev->config_enabled = false;
+>  	spin_unlock_irq(&dev->config_lock);
+>  }
+> +EXPORT_SYMBOL_GPL(virtio_config_disable);
+>  
+> -static void virtio_config_enable(struct virtio_device *dev)
+> +void virtio_config_enable(struct virtio_device *dev)
+>  {
+>  	spin_lock_irq(&dev->config_lock);
+>  	dev->config_enabled = true;
+> @@ -161,8 +157,15 @@ static void virtio_config_enable(struct virtio_device *dev)
+>  	dev->config_change_pending = false;
+>  	spin_unlock_irq(&dev->config_lock);
+>  }
+> +EXPORT_SYMBOL_GPL(virtio_config_enable);
+> +
+> +void virtio_add_status(struct virtio_device *dev, unsigned int status)
+> +{
+> +	dev->config->set_status(dev, dev->config->get_status(dev) | status);
+> +}
+> +EXPORT_SYMBOL_GPL(virtio_add_status);
+>  
+> -static int virtio_finalize_features(struct virtio_device *dev)
+> +int virtio_finalize_features(struct virtio_device *dev)
+>  {
+>  	int ret = dev->config->finalize_features(dev);
+>  	unsigned status;
+> @@ -173,7 +176,7 @@ static int virtio_finalize_features(struct virtio_device *dev)
+>  	if (!virtio_has_feature(dev, VIRTIO_F_VERSION_1))
+>  		return 0;
+>  
+> -	add_status(dev, VIRTIO_CONFIG_S_FEATURES_OK);
+> +	virtio_add_status(dev, VIRTIO_CONFIG_S_FEATURES_OK);
+>  	status = dev->config->get_status(dev);
+>  	if (!(status & VIRTIO_CONFIG_S_FEATURES_OK)) {
+>  		dev_err(&dev->dev, "virtio: device refuses features: %x\n",
+> @@ -182,6 +185,7 @@ static int virtio_finalize_features(struct virtio_device *dev)
+>  	}
+>  	return 0;
+>  }
+> +EXPORT_SYMBOL_GPL(virtio_finalize_features);
+>  
+>  static int virtio_dev_probe(struct device *_d)
+>  {
+> @@ -193,7 +197,7 @@ static int virtio_dev_probe(struct device *_d)
+>  	u64 driver_features_legacy;
+>  
+>  	/* We have a driver! */
+> -	add_status(dev, VIRTIO_CONFIG_S_DRIVER);
+> +	virtio_add_status(dev, VIRTIO_CONFIG_S_DRIVER);
+>  
+>  	/* Figure out what features the device supports. */
+>  	device_features = dev->config->get_features(dev);
+> @@ -247,7 +251,7 @@ static int virtio_dev_probe(struct device *_d)
+>  
+>  	return 0;
+>  err:
+> -	add_status(dev, VIRTIO_CONFIG_S_FAILED);
+> +	virtio_add_status(dev, VIRTIO_CONFIG_S_FAILED);
+>  	return err;
+>  
+>  }
+> @@ -265,7 +269,7 @@ static int virtio_dev_remove(struct device *_d)
+>  	WARN_ON_ONCE(dev->config->get_status(dev));
+>  
+>  	/* Acknowledge the device's existence again. */
+> -	add_status(dev, VIRTIO_CONFIG_S_ACKNOWLEDGE);
+> +	virtio_add_status(dev, VIRTIO_CONFIG_S_ACKNOWLEDGE);
+>  	return 0;
+>  }
+>  
+> @@ -316,7 +320,7 @@ int register_virtio_device(struct virtio_device *dev)
+>  	dev->config->reset(dev);
+>  
+>  	/* Acknowledge that we've seen the device. */
+> -	add_status(dev, VIRTIO_CONFIG_S_ACKNOWLEDGE);
+> +	virtio_add_status(dev, VIRTIO_CONFIG_S_ACKNOWLEDGE);
+>  
+>  	INIT_LIST_HEAD(&dev->vqs);
+>  
+> @@ -325,7 +329,7 @@ int register_virtio_device(struct virtio_device *dev)
+>  	err = device_register(&dev->dev);
+>  out:
+>  	if (err)
+> -		add_status(dev, VIRTIO_CONFIG_S_FAILED);
+> +		virtio_add_status(dev, VIRTIO_CONFIG_S_FAILED);
+>  	return err;
+>  }
+>  EXPORT_SYMBOL_GPL(register_virtio_device);
+> @@ -365,18 +369,18 @@ int virtio_device_restore(struct virtio_device *dev)
+>  	dev->config->reset(dev);
+>  
+>  	/* Acknowledge that we've seen the device. */
+> -	add_status(dev, VIRTIO_CONFIG_S_ACKNOWLEDGE);
+> +	virtio_add_status(dev, VIRTIO_CONFIG_S_ACKNOWLEDGE);
+>  
+>  	/* Maybe driver failed before freeze.
+>  	 * Restore the failed status, for debugging. */
+>  	if (dev->failed)
+> -		add_status(dev, VIRTIO_CONFIG_S_FAILED);
+> +		virtio_add_status(dev, VIRTIO_CONFIG_S_FAILED);
+>  
+>  	if (!drv)
+>  		return 0;
+>  
+>  	/* We have a driver! */
+> -	add_status(dev, VIRTIO_CONFIG_S_DRIVER);
+> +	virtio_add_status(dev, VIRTIO_CONFIG_S_DRIVER);
+>  
+>  	ret = virtio_finalize_features(dev);
+>  	if (ret)
+> @@ -389,14 +393,14 @@ int virtio_device_restore(struct virtio_device *dev)
+>  	}
+>  
+>  	/* Finally, tell the device we're all set */
+> -	add_status(dev, VIRTIO_CONFIG_S_DRIVER_OK);
+> +	virtio_add_status(dev, VIRTIO_CONFIG_S_DRIVER_OK);
+>  
+>  	virtio_config_enable(dev);
+>  
+>  	return 0;
+>  
+>  err:
+> -	add_status(dev, VIRTIO_CONFIG_S_FAILED);
+> +	virtio_add_status(dev, VIRTIO_CONFIG_S_FAILED);
+>  	return ret;
+>  }
+>  EXPORT_SYMBOL_GPL(virtio_device_restore);
+> diff --git a/include/linux/virtio.h b/include/linux/virtio.h
+> index d5eb547..04b0d3f 100644
+> --- a/include/linux/virtio.h
+> +++ b/include/linux/virtio.h
+> @@ -132,12 +132,16 @@ static inline struct virtio_device *dev_to_virtio(struct device *_dev)
+>  	return container_of(_dev, struct virtio_device, dev);
+>  }
+>  
+> +void virtio_add_status(struct virtio_device *dev, unsigned int status);
+>  int register_virtio_device(struct virtio_device *dev);
+>  void unregister_virtio_device(struct virtio_device *dev);
+>  
+>  void virtio_break_device(struct virtio_device *dev);
+>  
+>  void virtio_config_changed(struct virtio_device *dev);
+> +void virtio_config_disable(struct virtio_device *dev);
+> +void virtio_config_enable(struct virtio_device *dev);
+> +int virtio_finalize_features(struct virtio_device *dev);
+>  #ifdef CONFIG_PM_SLEEP
+>  int virtio_device_freeze(struct virtio_device *dev);
+>  int virtio_device_restore(struct virtio_device *dev);
