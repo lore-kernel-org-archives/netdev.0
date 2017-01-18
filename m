@@ -1,223 +1,64 @@
-From: Zefir Kurtisi <zefir.kurtisi@neratec.com>
-Subject: Re: [PATCH] net: add regs attribute to phy device for user diagnose
-Date: Wed, 18 Jan 2017 13:37:06 +0100
-Message-ID: <9ace94d7-0a3b-ff5f-63e1-53496e1e6b1b@neratec.com>
-References: <20170115172150.GC5643@lunn.ch> <1484571579.3374.4.camel@163.com>
- <cf3e3125-582f-8b91-9c23-05dbdd2c6d24@gmail.com>
- <20170116.165401.1642553705400599921.davem@davemloft.net>
- <8729016553E3654398EA69218DA29EEF15A58E63@cnshjmbx04>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: [PATCH iproute2] Revert "man pages: add man page for skbmod action"
+Date: Wed, 18 Jan 2017 13:37:25 +0100
+Message-ID: <d73859201d17931dfe19e31227bf98ea725a1178.1484742998.git.jbenc@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------24EC91287AB545E3493DCAAB"
-Cc: "cugyly@163.com" <cugyly@163.com>,
-        "andrew@lunn.ch" <andrew@lunn.ch>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: YUAN Linyu <Linyu.Yuan@alcatel-sbell.com.cn>,
-        David Miller <davem@davemloft.net>,
-        "f.fainelli@gmail.com" <f.fainelli@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: Lucas Bates <lucasb@mojatatu.com>,
+        Jamal Hadi Salim <jhs@mojatatu.com>,
+        Stephen Hemminger <stephen@networkplumber.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.neratec.com ([46.140.151.2]:20033 "EHLO mail.neratec.com"
+Received: from mx1.redhat.com ([209.132.183.28]:46469 "EHLO mx1.redhat.com"
         rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-        id S1751918AbdARMhP (ORCPT <rfc822;netdev@vger.kernel.org>);
-        Wed, 18 Jan 2017 07:37:15 -0500
-In-Reply-To: <8729016553E3654398EA69218DA29EEF15A58E63@cnshjmbx04>
+        id S1753486AbdARMhh (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 18 Jan 2017 07:37:37 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------24EC91287AB545E3493DCAAB
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
+This reverts commit a40995d1c79e5a1b8711f6cd26eca9807fc4dd50.
 
-On 01/17/2017 01:11 AM, YUAN Linyu wrote:
-> 
-> 
->> -----Original Message-----
->> From: David Miller [mailto:davem@davemloft.net]
->> Sent: Tuesday, January 17, 2017 5:54 AM
->> To: f.fainelli@gmail.com
->> Cc: cugyly@163.com; andrew@lunn.ch; netdev@vger.kernel.org; YUAN Linyu
->> Subject: Re: [PATCH] net: add regs attribute to phy device for user diagnose
->>
->> From: Florian Fainelli <f.fainelli@gmail.com>
->> Date: Mon, 16 Jan 2017 12:22:16 -0800
->>
->>>
->>> So why not add support in ethtool for reading PHY registers if you need
->>> it? There are handful of PHY "things" in ethtool, such as reading
->>> counters, configuring downshift etc., adding support for dumping
->>> registers does not sound out of space.
-> Thanks, I will try this direction.
->>
->> Agreed.
+The patch is missing the actual tc-skbmod.8 file which causes 'make
+install' to fail:
 
-... on the other hand, having direct RW access to MDIO regs can ease your life
-greatly during bring-up / debugging of PHYs.
+install -m 0755 -d /tmp/ip/usr/share/man/man8
+install -m 0644 ip-address.8 ip-link.8 ip-route.8 ip.8 arpd.8 lnstat.8
+routel.8 rtacct.8 rtmon.8 rtpr.8 ss.8 tc.8 tc-bfifo.8 tc-bpf.8 tc-cbq.8
+tc-cbq-details.8 tc-choke.8 tc-codel.8 tc-fq.8 tc-drr.8 tc-ematch.8
+tc-fq_codel.8 tc-hfsc.8 tc-htb.8 tc-pie.8 tc-mqprio.8 tc-netem.8 tc-pfifo.8
+tc-pfifo_fast.8 tc-prio.8 tc-red.8 tc-sfb.8 tc-sfq.8 tc-stab.8 tc-tbf.8
+bridge.8 rtstat.8 ctstat.8 nstat.8 routef.8 ip-addrlabel.8 ip-fou.8 ip-gue.8
+ip-l2tp.8 ip-macsec.8 ip-maddress.8 ip-monitor.8 ip-mroute.8 ip-neighbour.8
+ip-netns.8 ip-ntable.8 ip-rule.8 ip-tunnel.8 ip-xfrm.8 ip-tcp_metrics.8
+ip-netconf.8 ip-token.8 tipc.8 tipc-bearer.8 tipc-link.8 tipc-media.8
+tipc-nametable.8 tipc-node.8 tipc-socket.8 tc-basic.8 tc-cgroup.8 tc-flow.8
+tc-flower.8 tc-fw.8 tc-route.8 tc-tcindex.8 tc-u32.8 tc-matchall.8
+tc-connmark.8 tc-csum.8 tc-mirred.8 tc-nat.8 tc-pedit.8 tc-police.8
+tc-simple.8 tc-skbedit.8 tc-vlan.8 tc-xt.8  tc-ife.8 tc-skbmod.8
+tc-tunnel_key.8 devlink.8 devlink-dev.8 devlink-monitor.8 devlink-port.8
+devlink-sb.8 /tmp/ip/usr/share/man/man8
+install: cannot stat ‘tc-skbmod.8’: No such file or directory
+make[2]: *** [install] Error 1
+make[1]: *** [install] Error 2
 
-Attached is a patch we are using to track down PHY problems at register level, not
-for integrating into the kernel but as a handy tool for developers.
-
-
-Cheers,
-Zefir
-
-
-
---------------24EC91287AB545E3493DCAAB
-Content-Type: text/x-patch;
- name="0001-phy_device-add-sysfs-access-to-mdio-registers.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename*0="0001-phy_device-add-sysfs-access-to-mdio-registers.patch"
-
->From f90fced08ca6094919483b0d9a4bde50053bbbd7 Mon Sep 17 00:00:00 2001
-From: Zefir Kurtisi <zefir.kurtisi@neratec.com>
-Date: Wed, 18 Jan 2017 13:17:42 +0100
-Subject: [PATCH] phy_device: add sysfs access to mdio registers
-
-This commit adds a direct RW access to MDIO registers
-over sysfs.
-
-It is meant only for debugging and testing of PHYs
-at register level.
-
-WARNING: Writing to registers directly in most cases
-will interfere with the phylib and/or upper layer
-components or even crash your system.
-
-Signed-off-by: Zefir Kurtisi <zefir.kurtisi@neratec.com>
+Signed-off-by: Jiri Benc <jbenc@redhat.com>
 ---
- drivers/net/phy/phy_device.c | 111 +++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 111 insertions(+)
+ man/man8/Makefile | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index 92b0838..16646763 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -617,10 +617,121 @@ phy_has_fixups_show(struct device *dev, struct device_attribute *attr,
- }
- static DEVICE_ATTR_RO(phy_has_fixups);
+diff --git a/man/man8/Makefile b/man/man8/Makefile
+index d4cb01ac3f13..77d347ca98fc 100644
+--- a/man/man8/Makefile
++++ b/man/man8/Makefile
+@@ -16,7 +16,7 @@ MAN8PAGES = $(TARGETS) ip.8 arpd.8 lnstat.8 routel.8 rtacct.8 rtmon.8 rtpr.8 ss.
+ 	tc-basic.8 tc-cgroup.8 tc-flow.8 tc-flower.8 tc-fw.8 tc-route.8 \
+ 	tc-tcindex.8 tc-u32.8 tc-matchall.8 \
+ 	tc-connmark.8 tc-csum.8 tc-mirred.8 tc-nat.8 tc-pedit.8 tc-police.8 \
+-	tc-simple.8 tc-skbedit.8 tc-vlan.8 tc-xt.8  tc-ife.8 tc-skbmod.8 \
++	tc-simple.8 tc-skbedit.8 tc-vlan.8 tc-xt.8  tc-ife.8 \
+ 	tc-tunnel_key.8 \
+ 	devlink.8 devlink-dev.8 devlink-monitor.8 devlink-port.8 devlink-sb.8
  
-+static ssize_t
-+mdio_reg_show(struct device *dev, struct device_attribute *attr, char *buf)
-+{
-+	struct phy_device *phydev = to_phy_device(dev);
-+	struct mii_bus *bus = to_mii_bus(dev);
-+	int regnum;
-+	int val;
-+
-+	if (sscanf(attr->attr.name, "%d", &regnum) != 1)
-+		return -EINVAL;
-+
-+	val = mdiobus_read(bus, phydev->mdio.addr, regnum);
-+	if (val < 0)
-+		return -EIO;
-+
-+	return sprintf(buf, "0x%.4x\n", val);
-+}
-+
-+static ssize_t mdio_reg_store(struct device *dev, struct device_attribute *attr,
-+			      const char *buf, size_t size)
-+{
-+	struct phy_device *phydev = to_phy_device(dev);
-+	struct mii_bus *bus = to_mii_bus(dev);
-+	int regnum;
-+	int val;
-+	int err;
-+
-+	if (sscanf(attr->attr.name, "%d", &regnum) != 1)
-+		return -EINVAL;
-+
-+	if (sscanf(buf, "%x", &val) != 1)
-+		return -EINVAL;
-+
-+	if (val < 0 || val > 0xffff)
-+		return -EINVAL;
-+
-+	err = mdiobus_write(bus, phydev->mdio.addr, regnum, val);
-+	if (err < 0)
-+		return -EIO;
-+
-+	return size;
-+}
-+
-+#define MDIO_REG(_name) \
-+	DEVICE_ATTR(_name, (S_IWUSR | S_IRUGO), mdio_reg_show, mdio_reg_store)
-+
-+static MDIO_REG(0);
-+static MDIO_REG(1);
-+static MDIO_REG(2);
-+static MDIO_REG(3);
-+static MDIO_REG(4);
-+static MDIO_REG(5);
-+static MDIO_REG(6);
-+static MDIO_REG(7);
-+static MDIO_REG(8);
-+static MDIO_REG(9);
-+static MDIO_REG(10);
-+static MDIO_REG(11);
-+static MDIO_REG(12);
-+static MDIO_REG(13);
-+static MDIO_REG(14);
-+static MDIO_REG(15);
-+static MDIO_REG(16);
-+static MDIO_REG(17);
-+static MDIO_REG(18);
-+static MDIO_REG(19);
-+static MDIO_REG(20);
-+static MDIO_REG(21);
-+static MDIO_REG(22);
-+static MDIO_REG(23);
-+static MDIO_REG(24);
-+static MDIO_REG(25);
-+static MDIO_REG(26);
-+static MDIO_REG(27);
-+static MDIO_REG(28);
-+static MDIO_REG(29);
-+static MDIO_REG(30);
-+static MDIO_REG(31);
-+
- static struct attribute *phy_dev_attrs[] = {
- 	&dev_attr_phy_id.attr,
- 	&dev_attr_phy_interface.attr,
- 	&dev_attr_phy_has_fixups.attr,
-+	&dev_attr_0.attr,
-+	&dev_attr_1.attr,
-+	&dev_attr_2.attr,
-+	&dev_attr_3.attr,
-+	&dev_attr_4.attr,
-+	&dev_attr_5.attr,
-+	&dev_attr_6.attr,
-+	&dev_attr_7.attr,
-+	&dev_attr_8.attr,
-+	&dev_attr_9.attr,
-+	&dev_attr_10.attr,
-+	&dev_attr_11.attr,
-+	&dev_attr_12.attr,
-+	&dev_attr_13.attr,
-+	&dev_attr_14.attr,
-+	&dev_attr_15.attr,
-+	&dev_attr_16.attr,
-+	&dev_attr_17.attr,
-+	&dev_attr_18.attr,
-+	&dev_attr_19.attr,
-+	&dev_attr_20.attr,
-+	&dev_attr_21.attr,
-+	&dev_attr_22.attr,
-+	&dev_attr_23.attr,
-+	&dev_attr_24.attr,
-+	&dev_attr_25.attr,
-+	&dev_attr_26.attr,
-+	&dev_attr_27.attr,
-+	&dev_attr_28.attr,
-+	&dev_attr_29.attr,
-+	&dev_attr_30.attr,
-+	&dev_attr_31.attr,
- 	NULL,
- };
- ATTRIBUTE_GROUPS(phy_dev);
 -- 
-2.7.4
-
-
---------------24EC91287AB545E3493DCAAB--
+1.8.3.1
