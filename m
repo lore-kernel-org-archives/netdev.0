@@ -1,56 +1,81 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: pull-request: can 2017-01-18
-Date: Wed, 18 Jan 2017 13:08:50 +0100
-Message-ID: <20170118120852.6095-1-mkl@pengutronix.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
+Subject: [PATCH 2/2] can: ti_hecc: add missing prepare and unprepare of the clock
+Date: Wed, 18 Jan 2017 13:08:52 +0100
+Message-ID: <20170118120852.6095-3-mkl@pengutronix.de>
+References: <20170118120852.6095-1-mkl@pengutronix.de>
 Cc: davem@davemloft.net, linux-can@vger.kernel.org,
-        kernel@pengutronix.de
+        kernel@pengutronix.de, Yegor Yefremov <yegorslists@googlemail.com>,
+        linux-stable <stable@vger.kernel.org>,
+        Marc Kleine-Budde <mkl@pengutronix.de>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:33215 "EHLO
-        metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-        by vger.kernel.org with ESMTP id S1751399AbdARMJf (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2017 07:09:35 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20170118120852.6095-1-mkl@pengutronix.de>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello David,
+From: Yegor Yefremov <yegorslists@googlemail.com>
 
-this is a pull request for net/master consisting of two patches.
+In order to make the driver work with the common clock framework, this
+patch converts the clk_enable()/clk_disable() to
+clk_prepare_enable()/clk_disable_unprepare().
 
-In the first patch Einar Jón fixes a NULL-pointer-deref in the c_can_pci
-driver. In the second patch Yegor Yefremov fixes the clock handling in the
-ti_hecc driver.
+Also add error checking for clk_prepare_enable().
 
-regards,
-Marc
-
+Signed-off-by: Yegor Yefremov <yegorslists@googlemail.com>
+Cc: linux-stable <stable@vger.kernel.org>
+Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
+ drivers/net/can/ti_hecc.c | 16 ++++++++++++----
+ 1 file changed, 12 insertions(+), 4 deletions(-)
 
-The following changes since commit 93b43fd137cd8865adf9978ab9870a344365d3af:
-
-  net: phy: dp83848: add DP83620 PHY support (2017-01-17 15:47:25 -0500)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/mkl/linux-can.git tags/linux-can-fixes-for-4.10-20170118
-
-for you to fetch changes up to befa60113ce7ea270cb51eada28443ca2756f480:
-
-  can: ti_hecc: add missing prepare and unprepare of the clock (2017-01-18 13:03:15 +0100)
-
-----------------------------------------------------------------
-linux-can-fixes-for-4.10-20170118
-
-----------------------------------------------------------------
-Einar Jón (1):
-      can: c_can_pci: fix null-pointer-deref in c_can_start() - set device pointer
-
-Yegor Yefremov (1):
-      can: ti_hecc: add missing prepare and unprepare of the clock
-
- drivers/net/can/c_can/c_can_pci.c |  1 +
- drivers/net/can/ti_hecc.c         | 16 ++++++++++++----
- 2 files changed, 13 insertions(+), 4 deletions(-)
+diff --git a/drivers/net/can/ti_hecc.c b/drivers/net/can/ti_hecc.c
+index 680d1ff07a55..6749b1829469 100644
+--- a/drivers/net/can/ti_hecc.c
++++ b/drivers/net/can/ti_hecc.c
+@@ -948,7 +948,12 @@ static int ti_hecc_probe(struct platform_device *pdev)
+ 	netif_napi_add(ndev, &priv->napi, ti_hecc_rx_poll,
+ 		HECC_DEF_NAPI_WEIGHT);
+ 
+-	clk_enable(priv->clk);
++	err = clk_prepare_enable(priv->clk);
++	if (err) {
++		dev_err(&pdev->dev, "clk_prepare_enable() failed\n");
++		goto probe_exit_clk;
++	}
++
+ 	err = register_candev(ndev);
+ 	if (err) {
+ 		dev_err(&pdev->dev, "register_candev() failed\n");
+@@ -981,7 +986,7 @@ static int ti_hecc_remove(struct platform_device *pdev)
+ 	struct ti_hecc_priv *priv = netdev_priv(ndev);
+ 
+ 	unregister_candev(ndev);
+-	clk_disable(priv->clk);
++	clk_disable_unprepare(priv->clk);
+ 	clk_put(priv->clk);
+ 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+ 	iounmap(priv->base);
+@@ -1006,7 +1011,7 @@ static int ti_hecc_suspend(struct platform_device *pdev, pm_message_t state)
+ 	hecc_set_bit(priv, HECC_CANMC, HECC_CANMC_PDR);
+ 	priv->can.state = CAN_STATE_SLEEPING;
+ 
+-	clk_disable(priv->clk);
++	clk_disable_unprepare(priv->clk);
+ 
+ 	return 0;
+ }
+@@ -1015,8 +1020,11 @@ static int ti_hecc_resume(struct platform_device *pdev)
+ {
+ 	struct net_device *dev = platform_get_drvdata(pdev);
+ 	struct ti_hecc_priv *priv = netdev_priv(dev);
++	int err;
+ 
+-	clk_enable(priv->clk);
++	err = clk_prepare_enable(priv->clk);
++	if (err)
++		return err;
+ 
+ 	hecc_clear_bit(priv, HECC_CANMC, HECC_CANMC_PDR);
+ 	priv->can.state = CAN_STATE_ERROR_ACTIVE;
+-- 
+2.11.0
