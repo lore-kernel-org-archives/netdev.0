@@ -1,57 +1,69 @@
-From: Russell King - ARM Linux <linux@armlinux.org.uk>
-Subject: Re: [PATCH RFC] net: dsa: remove unnecessary phy.h include
-Date: Wed, 18 Jan 2017 21:46:28 +0000
-Message-ID: <20170118214628.GO27312@n2100.armlinux.org.uk>
-References: <20170118001403.GJ27312@n2100.armlinux.org.uk>
- <20170118.163714.6755964924380784.davem@davemloft.net>
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: Potential issues (security and otherwise) with the current
+ cgroup-bpf API
+Date: Wed, 18 Jan 2017 14:18:50 -0800
+Message-ID: <20170118221850.GF9171@mtj.duckdns.org>
+References: <20161220000254.GA58895@ast-mbp.thefacebook.com>
+ <CALCETrU1_bDVLfokQ7zasHVmeq7S-R+603GEw59V_wuj4eE1hw@mail.gmail.com>
+ <2dbec775-6304-e44c-19c5-fbf07877e7b1@gmail.com>
+ <CALCETrUW2jEYmjSsOrPj+MAjkDGGUCw_rdxQh+5Er0r4ReGLnA@mail.gmail.com>
+ <20161220091150.GJ3124@twins.programming.kicks-ass.net>
+ <20170103102559.GA30129@dhcp22.suse.cz>
+ <20170116011901.GH14446@mtj.duckdns.org>
+ <20170117130303.GL19699@dhcp22.suse.cz>
+ <20170117133204.GA6515@twins.programming.kicks-ass.net>
+ <20170117135830.GO19699@dhcp22.suse.cz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: andrew@lunn.ch, vivien.didelot@savoirfairelinux.com,
-        f.fainelli@gmail.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: Peter Zijlstra <peterz@infradead.org>,
+        Andy Lutomirski <luto@amacapital.net>,
+        David Ahern <dsahern@gmail.com>,
+        Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+        Andy Lutomirski <luto@kernel.org>,
+        Daniel Mack <daniel@zonque.org>,
+        =?iso-8859-1?Q?Micka=EBl_Sala=FCn?= <mic@digikod.net>,
+        Kees Cook <keescook@chromium.org>, Jann Horn <jann@thejh.net>,
+        "David S. Miller" <davem@davemloft.net>,
+        Thomas Graf <tgraf@suug.ch>,
+        Michael Kerrisk <mtk.manpages@gmail.com>,
+        Linux API <linux-api@vger.kernel.org>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>
+To: Michal Hocko <mhocko@kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20170118.163714.6755964924380784.davem@davemloft.net>
+In-Reply-To: <20170117135830.GO19699@dhcp22.suse.cz>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 18, 2017 at 04:37:14PM -0500, David Miller wrote:
-> From: Russell King - ARM Linux <linux@armlinux.org.uk>
-> Date: Wed, 18 Jan 2017 00:14:03 +0000
-> 
-> > Including phy.h and phy_fixed.h into net/dsa.h causes phy*.h to be an
-> > unnecessary dependency for quite a large amount of the kernel.  There's
-> > very little which actually requires definitions from phy.h in net/dsa.h
-> > - the include itself only wants the declaration of a couple of
-> > structures and IFNAMSIZ.
-> > 
-> > Add linux/if.h for IFNAMSIZ, declarations for the structures, phy.h to
-> > mv88e6xxx.h as it needs it for phy_interface_t, and remove both phy.h
-> > and phy_fixed.h from net/dsa.h.
-> > 
-> > This patch reduces from around 800 files rebuilt to around 40 - even
-> > with ccache, the time difference is noticable.
-> > 
-> > Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
-> 
-> Applied, thanks.
+Hello, Michal.
 
-Hmm, now that's _really_ interesting.
+On Tue, Jan 17, 2017 at 02:58:30PM +0100, Michal Hocko wrote:
+> This would require using hierarchical cgroup iterators to iterate over
 
-I think you've said to others to send patches with RFC in them when they
-aren't to be applied.  I sent this with RFC in, and it still got applied.
+It does behave hierarchically.
 
-This is _really_ unfortunate, as the 0-day builder has been sending me a
-stream of build errors over it, and I now have a branch with 9 patches
-plus this one in fixing those errors...
+> tasks. As per Andy's testing this doesn't seem to be the case. I haven't
 
-And I did say in the comments below the --- that it should be left a few
-days for the 0-day builder to run through it and find those errors.
+That's not what Andy's testing showed.  What that showed was that
+program in a child can override the one from its ancestor.
 
-Ho hum.
+> checked the implementation closely but my understanding was that using
+> only cgroup specific tasks was intentional.
+
+Maybe I'm misreading you but if you're saying that a bpf program would
+only execute for tasks on that specific cgroup, that is not true.
+
+> I do agree that using hierarchy aware cgroup iterators is the right
+> approach here and we wouldn't see any issue. But I am still not sure
+> I've wrapped my head around this feature completely.
+
+It's really simple.  You can install bpf programs with a cgroup path
+associated with them.  When that particular type of bpf program needs
+to be executed, the bpf program which is attached to the closest
+ancestor (including self) is executed.
+
+Thanks.
 
 -- 
-RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
-FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
-according to speedtest.net.
+tejun
