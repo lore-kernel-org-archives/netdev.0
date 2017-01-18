@@ -1,54 +1,51 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: resend: tcp: performance issue with fastopen connections (mss > window)
-Date: Wed, 18 Jan 2017 09:35:43 -0800
-Message-ID: <CANn89iJn+fC-mMCskczXupj=yhvDijYEn-_NeCphuG8roNCygA@mail.gmail.com>
-References: <30f38b3c-8c5c-7fab-e424-985e63ad900a@oracle.com>
- <1484321734.13165.24.camel@edumazet-glaptop3.roam.corp.google.com>
- <22b07900-2151-a31f-34aa-7fb47c958423@oracle.com> <3dbbcda8-ce79-641c-cf3b-21f41c563939@oracle.com>
+From: Jay Vosburgh <jay.vosburgh@canonical.com>
+Subject: Re: [PATCH net-next] net: Remove usage of net_device last_rx member
+Date: Wed, 18 Jan 2017 09:39:52 -0800
+Message-ID: <11021.1484761192@famine>
+References: <20170118164501.1934-1-tklauser@distanz.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-        David Miller <davem@davemloft.net>,
-        netdev <netdev@vger.kernel.org>,
-        Vasily Isaenko <vasily.isaenko@oracle.com>,
-        Neal Cardwell <ncardwell@google.com>,
-        Yuchung Cheng <ycheng@google.com>
-To: Alexey Kodanev <alexey.kodanev@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f42.google.com ([209.85.214.42]:36225 "EHLO
-        mail-it0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-        with ESMTP id S1751784AbdARRfp (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Wed, 18 Jan 2017 12:35:45 -0500
-Received: by mail-it0-f42.google.com with SMTP id c7so122628400itd.1
-        for <netdev@vger.kernel.org>; Wed, 18 Jan 2017 09:35:45 -0800 (PST)
-In-Reply-To: <3dbbcda8-ce79-641c-cf3b-21f41c563939@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devel@driverdev.osuosl.org, Eric Dumazet <eric.dumazet@gmail.com>,
+ netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
+ linux-m68k@lists.linux-m68k.org, intel-wired-lan@lists.osuosl.org,
+ Veaceslav Falico <vfalico@gmail.com>, Andy Gospodarek <andy@greyhouse.net>,
+ Mirko Lindner <mlindner@marvell.com>
+To: Tobias Klauser <tklauser@distanz.ch>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-reply-to: <20170118164501.1934-1-tklauser@distanz.ch>
+Content-ID: <11020.1484761192.1@famine>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 18, 2017 at 9:32 AM, Alexey Kodanev
-<alexey.kodanev@oracle.com> wrote:
-> Hi Eric,
->
-> On 01/13/2017 08:07 PM, Alexey Kodanev wrote:
->
+Tobias Klauser <tklauser@distanz.ch> wrote:
 
-> Looks like max_window not correctly initialized for tfo sockets.
-> On my test machine it has set to '5592320' in tcp_fastopen_create_child().
+>The network stack no longer uses the last_rx member of struct net_device
+>since the bonding driver switched to use its own private last_rx in
+>commit 9f242738376d ("bonding: use last_arp_rx in slave_last_rx()").
 >
-> This diff fixes the issue, the question: is this the right place to do it?
+>However, some drivers still (ab)use the field for their own purposes and
+>some driver just update it without actually using it.
 >
-> diff --git a/net/ipv4/tcp_fastopen.c b/net/ipv4/tcp_fastopen.c
-> index 4e777a3..33ed508 100644
-> --- a/net/ipv4/tcp_fastopen.c
-> +++ b/net/ipv4/tcp_fastopen.c
-> @@ -206,6 +206,8 @@ static struct sock *tcp_fastopen_create_child(struct
-> sock *sk,
->          */
->         tp->snd_wnd = ntohs(tcp_hdr(skb)->window);
+>Previously, there was an accompanying comment for the last_rx member
+>added in commit 4dc89133f49b ("net: add a comment on netdev->last_rx")
+>which asked drivers not to update is, unless really needed. However,
+>this commend was removed in commit f8ff080dacec ("bonding: remove
+>useless updating of slave->dev->last_rx"), so some drivers added later
+>on still did update last_rx.
 >
-> +       tp->max_window = tp->snd_wnd;
-> +
+>Remove all usage of last_rx and switch three drivers (sky2, atp and
+>smc91c92_cs) which actually read and write it to use their own private
+>copy in netdev_priv.
+>
+>Compile-tested with allyesconfig and allmodconfig on x86 and arm.
 
-Excellent catch. Let me test our regression tests with this.
-
-Thanks !
+Reviewed-by: Jay Vosburgh <jay.vosburgh@canonical.com>
